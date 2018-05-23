@@ -1,13 +1,20 @@
 #include <stdint.h>
+#include <vector>
 #include <string>
+#include <unordered_set>
+#include <unordered_map>
 
 // replace with proper IdString later
 typedef std::string IdString;
 
+// replace with haslib later
+template<typename T> using pool = std::unordered_set<T>;
+template<typename T, typename U> using dict = std::unordered_map<T, U>;
+using std::vector;
+
 // -------------------------------------------------------
 // Arch-specific declarations
 
-#ifdef ARCH_ICE40
 struct ObjId
 {
 	uint8_t tile_x = 0, tile_y = 0;
@@ -18,16 +25,34 @@ struct ObjId
 	}
 } __attribute__((packed));
 
+namespace std
+{
+	template<> struct hash<ObjId>
+        {
+		std::size_t operator()(const ObjId &obj) const noexcept
+		{
+			std::size_t result = std::hash<int>{}(obj.index);
+			result ^= std::hash<int>{}(obj.tile_x) + 0x9e3779b9 + (result << 6) + (result >> 2);
+			result ^= std::hash<int>{}(obj.tile_y) + 0x9e3779b9 + (result << 6) + (result >> 2);
+			return result;
+		}
+	};
+}
+
 struct ObjIterator
 {
-	// ...
-	ObjId operator*() const;
+	ObjId *ptr = nullptr;
+
+	void operator++() { ptr++; }
+	bool operator!=(const ObjIterator &other) const { return ptr != other.ptr; }
+	ObjId operator*() const { return *ptr; }
 };
 
 struct ObjRange
 {
-	ObjIterator begin();
-	ObjIterator end();
+	ObjIterator b, e;
+	ObjIterator begin() const { return b; }
+	ObjIterator end() const { return e; }
 };
 
 struct BelPin
@@ -38,14 +63,18 @@ struct BelPin
 
 struct BelPinIterator
 {
-	// ...
-	BelPin operator*() const;
+	BelPin *ptr = nullptr;
+
+	void operator++() { ptr++; }
+	bool operator!=(const BelPinIterator &other) const { return ptr != other.ptr; }
+	BelPin operator*() const { return *ptr; }
 };
 
 struct BelPinRange
 {
-	BelPinIterator begin();
-	BelPinIterator end();
+	BelPinIterator b, e;
+	BelPinIterator begin() const { return b; }
+	BelPinIterator end() const { return e; }
 };
 
 struct GuiLine
@@ -84,7 +113,6 @@ struct Chip
 	BelPin getBelPinUphill(ObjId wire) const;
 	BelPinRange getBelPinsDownhill(ObjId wire) const;
 };
-#endif
 
 // -------------------------------------------------------
 // Generic declarations
@@ -132,12 +160,12 @@ struct CellInfo
 
 struct Design
 {
-	struct Chip;
+	struct Chip chip;
 
-	Design(std::string chipCfg) : Chip(chipCfg) {
+	Design(std::string chipCfg) : chip(chipCfg) {
 		// ...
 	}
 
-	dict<IdString, *NetInfo> nets;
-	dict<IdString, *CellInfo> cells;
+	dict<IdString, NetInfo*> nets;
+	dict<IdString, CellInfo*> cells;
 };
