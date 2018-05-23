@@ -55,25 +55,34 @@ struct GuiLine
 
 struct Chip
 {
+	// ...
+
 	Chip(std::string cfg);
+
+	void setBelActive(ObjId bel, bool active);
+	bool getBelActive(ObjId bel);
 
 	ObjId getObjByName(IdString name) const;
 	IdString getObjName(ObjId obj) const;
-	IdString getBelType(ObjId obj) const;
+
+	ObjRange getBels() const;
 	ObjRange getBelsByType(IdString type) const;
+	IdString getBelType(ObjId bel) const;
 
 	void getObjPosition(ObjId obj, float &x, float &y) const;
 	vector<GuiLine> getGuiLines(ObjId obj) const;
 
 	ObjRange getWires() const;
-	ObjRange getWiresUphillWire(ObjId wire) const;
-	ObjRange getWiresDownhillWire(ObjId wire) const;
-	ObjRange getWiresBidirWire(ObjId wire) const;
+	ObjRange getWiresUphill(ObjId wire) const;
+	ObjRange getWiresDownhill(ObjId wire) const;
+	ObjRange getWiresBidir(ObjId wire) const;
 	ObjRange getWireAliases(ObjId wire) const;
 
+	// the following will only operate on / return "active" BELs
+	// multiple active uphill BELs for a wire will cause a runtime error
 	ObjId getWireBelPin(ObjId bel, IdString pin) const;
-	BelPin getBelPinUphillWire(ObjId wire) const;
-	BelPinRange getBelPinsDownhillWire(ObjId wire) const;
+	BelPin getBelPinUphill(ObjId wire) const;
+	BelPinRange getBelPinsDownhill(ObjId wire) const;
 };
 #endif
 
@@ -93,7 +102,7 @@ struct NetInfo
 	vector<PortRef> users;
 	dict<IdString, std::string> attrs;
 
-	// wire objid -> signal delay
+	// wire -> delay
 	dict<ObjId, float> wires;
 };
 
@@ -117,7 +126,7 @@ struct CellInfo
 	dict<IdString, std::string> attrs, params;
 
 	ObjId bel;
-	// port_name -> pin_name
+	// cell_port -> bel_pin
 	dict<IdString, IdString> pins;
 };
 
