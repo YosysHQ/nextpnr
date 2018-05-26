@@ -4,10 +4,10 @@
 
 int main()
 {
-	Design design("default");
+	Design design(ChipArgs{});
 
 	for (auto bel : design.chip.getBels())
-		printf("%s\n", design.chip.getObjName(bel).c_str());
+		printf("%s\n", design.chip.getBelName(bel).c_str());
 
 	return 0;
 }

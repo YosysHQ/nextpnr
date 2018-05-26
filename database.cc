@@ -1,15 +1,15 @@
 #include "database.h"
 
-Chip::Chip(std::string)
+Chip::Chip(ChipArgs)
 {
 }
 
-ObjRange Chip::getBels() const
+BelRange Chip::getBels() const
 {
-	return ObjRange();
+	return BelRange();
 }
 
-IdString Chip::getObjName(ObjId obj) const
+IdString Chip::getBelName(BelId bel) const
 {
 	return "*unknown*";
 }

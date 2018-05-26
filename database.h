@@ -15,7 +15,17 @@ using std::vector;
 // -------------------------------------------------------
 // Arch-specific declarations
 
-struct ObjId
+struct BelId
+{
+	uint8_t tile_x = 0, tile_y = 0;
+	uint16_t index = 0;
+
+	bool nil() const {
+		return !tile_x && !tile_y && !index;
+	}
+} __attribute__((packed));
+
+struct WireId
 {
 	uint8_t tile_x = 0, tile_y = 0;
 	uint16_t index = 0;
@@ -27,37 +37,86 @@ struct ObjId
 
 namespace std
 {
-	template<> struct hash<ObjId>
+	template<> struct hash<BelId>
         {
-		std::size_t operator()(const ObjId &obj) const noexcept
+		std::size_t operator()(const BelId &bel) const noexcept
 		{
-			std::size_t result = std::hash<int>{}(obj.index);
-			result ^= std::hash<int>{}(obj.tile_x) + 0x9e3779b9 + (result << 6) + (result >> 2);
-			result ^= std::hash<int>{}(obj.tile_y) + 0x9e3779b9 + (result << 6) + (result >> 2);
+			std::size_t result = std::hash<int>{}(bel.index);
+			result ^= std::hash<int>{}(bel.tile_x) + 0x9e3779b9 + (result << 6) + (result >> 2);
+			result ^= std::hash<int>{}(bel.tile_y) + 0x9e3779b9 + (result << 6) + (result >> 2);
+			return result;
+		}
+	};
+
+	template<> struct hash<WireId>
+        {
+		std::size_t operator()(const WireId &wire) const noexcept
+		{
+			std::size_t result = std::hash<int>{}(wire.index);
+			result ^= std::hash<int>{}(wire.tile_x) + 0x9e3779b9 + (result << 6) + (result >> 2);
+			result ^= std::hash<int>{}(wire.tile_y) + 0x9e3779b9 + (result << 6) + (result >> 2);
 			return result;
 		}
 	};
 }
 
-struct ObjIterator
+struct BelIterator
 {
-	ObjId *ptr = nullptr;
+	BelId *ptr = nullptr;
 
 	void operator++() { ptr++; }
-	bool operator!=(const ObjIterator &other) const { return ptr != other.ptr; }
-	ObjId operator*() const { return *ptr; }
+	bool operator!=(const BelIterator &other) const { return ptr != other.ptr; }
+	BelId operator*() const { return *ptr; }
 };
 
-struct ObjRange
+struct BelRange
 {
-	ObjIterator b, e;
-	ObjIterator begin() const { return b; }
-	ObjIterator end() const { return e; }
+	BelIterator b, e;
+	BelIterator begin() const { return b; }
+	BelIterator end() const { return e; }
+};
+
+struct WireIterator
+{
+	WireId *ptr = nullptr;
+
+	void operator++() { ptr++; }
+	bool operator!=(const WireIterator &other) const { return ptr != other.ptr; }
+	WireId operator*() const { return *ptr; }
+};
+
+struct WireRange
+{
+	WireIterator b, e;
+	WireIterator begin() const { return b; }
+	WireIterator end() const { return e; }
+};
+
+struct WireDelay
+{
+	WireId wire;
+	float delay;
+};
+
+struct WireDelayIterator
+{
+	WireDelay *ptr = nullptr;
+
+	void operator++() { ptr++; }
+	bool operator!=(const WireDelayIterator &other) const { return ptr != other.ptr; }
+	WireDelay operator*() const { return *ptr; }
+};
+
+struct WireDelayRange
+{
+	WireDelayIterator b, e;
+	WireDelayIterator begin() const { return b; }
+	WireDelayIterator end() const { return e; }
 };
 
 struct BelPin
 {
-	ObjId bel;
+	BelId bel;
 	IdString pin;
 };
 
@@ -82,45 +141,56 @@ struct GuiLine
 	float x1, y1, x2, y2;
 };
 
+struct ChipArgs
+{
+	// ...
+};
+
 struct Chip
 {
 	// ...
 
-	Chip(std::string cfg);
+	Chip(ChipArgs args);
 
-	void setBelActive(ObjId bel, bool active);
-	bool getBelActive(ObjId bel);
+	void setBelActive(BelId bel, bool active);
+	bool getBelActive(BelId bel);
 
-	ObjId getObjByName(IdString name) const;
-	IdString getObjName(ObjId obj) const;
+	BelId getBelByName(IdString name) const;
+	WireId getWireByName(IdString name) const;
+	IdString getBelName(BelId bel) const;
+	IdString getWireName(WireId wire) const;
 
-	ObjRange getBels() const;
-	ObjRange getBelsByType(IdString type) const;
-	IdString getBelType(ObjId bel) const;
+	BelRange getBels() const;
+	BelRange getBelsByType(IdString type) const;
+	IdString getBelType(BelId bel) const;
 
-	void getObjPosition(ObjId obj, float &x, float &y) const;
-	vector<GuiLine> getGuiLines(ObjId obj) const;
+	void getBelPosition(BelId bel, float &x, float &y) const;
+	void getWirePosition(WireId wire, float &x, float &y) const;
+	vector<GuiLine> getBelGuiLines(BelId bel) const;
+	vector<GuiLine> getWireGuiLines(WireId wire) const;
 
-	ObjRange getWires() const;
-	ObjRange getWiresUphill(ObjId wire) const;
-	ObjRange getWiresDownhill(ObjId wire) const;
-	ObjRange getWiresBidir(ObjId wire) const;
-	ObjRange getWireAliases(ObjId wire) const;
+	WireRange getWires() const;
+	WireDelayRange getWiresUphill(WireId wire) const;
+	WireDelayRange getWiresDownhill(WireId wire) const;
+	WireDelayRange getWiresBidir(WireId wire) const;
+	WireDelayRange getWireAliases(WireId wire) const;
 
 	// the following will only operate on / return "active" BELs
 	// multiple active uphill BELs for a wire will cause a runtime error
-	ObjId getWireBelPin(ObjId bel, IdString pin) const;
-	BelPin getBelPinUphill(ObjId wire) const;
-	BelPinRange getBelPinsDownhill(ObjId wire) const;
+	WireId getWireBelPin(BelId bel, IdString pin) const;
+	BelPin getBelPinUphill(WireId wire) const;
+	BelPinRange getBelPinsDownhill(WireId wire) const;
 };
 
 // -------------------------------------------------------
 // Generic declarations
 
+struct CellInfo;
+
 struct PortRef
 {
-	IdString cell_name;
-	IdString port_name;
+	CellInfo *cell;
+	IdString port;
 };
 
 struct NetInfo
@@ -130,8 +200,8 @@ struct NetInfo
 	vector<PortRef> users;
 	dict<IdString, std::string> attrs;
 
-	// wire -> delay
-	dict<ObjId, float> wires;
+	// wire -> (uphill_wire, delay)
+	dict<WireId, std::pair<WireId, float>> wires;
 };
 
 enum PortType
@@ -143,7 +213,8 @@ enum PortType
 
 struct PortInfo
 {
-	IdString name, net;
+	IdString name;
+	NetInfo *net;
 	PortType type;
 };
 
@@ -153,7 +224,7 @@ struct CellInfo
 	dict<IdString, PortInfo> ports;
 	dict<IdString, std::string> attrs, params;
 
-	ObjId bel;
+	BelId bel;
 	// cell_port -> bel_pin
 	dict<IdString, IdString> pins;
 };
@@ -162,7 +233,7 @@ struct Design
 {
 	struct Chip chip;
 
-	Design(std::string chipCfg) : chip(chipCfg) {
+	Design(ChipArgs args) : chip(args) {
 		// ...
 	}
 
