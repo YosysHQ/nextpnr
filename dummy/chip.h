@@ -1,5 +1,5 @@
 /*
- *  nextpnr -- Next Generation PnR
+ *  nextpnr -- Next Generation Place and Route
  *
  *  Copyright (C) 2018  Clifford Wolf <clifford@clifford.at>
  *
