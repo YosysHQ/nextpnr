@@ -108,7 +108,7 @@ for wire in range(num_wires):
 
     wireinfo.append(info)
 
-print("extern WireInfo wire_data_%s[%d];" % (dev_name, num_wires))
-print("WireInfo wire_data_%s[%d] = {" % (dev_name, num_wires))
+print("int num_wires_%s = %d;" % (dev_name, num_wires))
+print("WireInfoPOD wire_data_%s[%d] = {" % (dev_name, num_wires))
 print(",\n".join(wireinfo))
 print("};")

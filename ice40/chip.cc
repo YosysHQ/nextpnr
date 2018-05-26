@@ -19,8 +19,17 @@
 
 #include "chip.h"
 
-Chip::Chip(ChipArgs)
+Chip::Chip(ChipArgs args)
 {
+	if (args.type == ChipArgs::LP384) {
+		num_bels = 0;
+		bel_data = nullptr;
+		num_wires = num_wires_384;
+		wire_data = wire_data_384;
+		return;
+	}
+
+	abort();
 }
 
 BelRange Chip::getBels() const

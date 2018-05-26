@@ -22,6 +22,48 @@
 #ifndef CHIP_H
 #define CHIP_H
 
+// -----------------------------------------------------------------------
+
+struct BelInfoPOD
+{
+	const char *name;
+};
+
+struct WireDelayPOD
+{
+	int32_t wire_index;
+	float delay;
+};
+
+struct BelPortPOD
+{
+	int32_t bel_index;
+	int port_index;
+};
+
+struct WireInfoPOD
+{
+	const char *name;
+	int num_uphill, num_downhill, num_bidir;
+	WireDelayPOD *wires_uphill, *wires_downhill, *wires_bidir;
+
+	int num_bels_downhill;
+	BelPortPOD bel_uphill;
+	BelPortPOD *bels_downhill;
+};
+
+extern int num_wires_384;
+extern int num_wires_1k;
+extern int num_wires_5k;
+extern int num_wires_8k;
+
+extern WireInfoPOD wire_data_384[];
+extern WireInfoPOD wire_data_1k[];
+extern WireInfoPOD wire_data_5k[];
+extern WireInfoPOD wire_data_8k[];
+
+// -----------------------------------------------------------------------
+
 struct BelId
 {
 	int32_t index = -1;
@@ -59,6 +101,8 @@ namespace std
 	};
 }
 
+// -----------------------------------------------------------------------
+
 struct BelIterator
 {
 	BelId *ptr = nullptr;
@@ -75,21 +119,30 @@ struct BelRange
 	BelIterator end() const { return e; }
 };
 
-struct WireIterator
-{
-	WireId *ptr = nullptr;
+// -----------------------------------------------------------------------
 
-	void operator++() { ptr++; }
-	bool operator!=(const WireIterator &other) const { return ptr != other.ptr; }
-	WireId operator*() const { return *ptr; }
+struct AllWiresIterator
+{
+	int cursor;
+
+	void operator++() { cursor++; }
+	bool operator!=(const AllWiresIterator &other) const { return cursor != other.cursor; }
+
+	WireId operator*() const {
+		WireId ret;
+		ret.index = cursor;
+		return ret;
+	}
 };
 
-struct WireRange
+struct AllWiresRange
 {
-	WireIterator b, e;
-	WireIterator begin() const { return b; }
-	WireIterator end() const { return e; }
+	AllWiresIterator b, e;
+	AllWiresIterator begin() const { return b; }
+	AllWiresIterator end() const { return e; }
 };
+
+// -----------------------------------------------------------------------
 
 struct WireDelay
 {
@@ -99,11 +152,17 @@ struct WireDelay
 
 struct WireDelayIterator
 {
-	WireDelay *ptr = nullptr;
+	WireDelayPOD *ptr = nullptr;
 
 	void operator++() { ptr++; }
 	bool operator!=(const WireDelayIterator &other) const { return ptr != other.ptr; }
-	WireDelay operator*() const { return *ptr; }
+
+	WireDelay operator*() const {
+		WireDelay ret;
+		ret.wire.index = ptr->wire_index;
+		ret.delay = ptr->delay;
+		return ret;
+	}
 };
 
 struct WireDelayRange
@@ -112,6 +171,8 @@ struct WireDelayRange
 	WireDelayIterator begin() const { return b; }
 	WireDelayIterator end() const { return e; }
 };
+
+// -----------------------------------------------------------------------
 
 struct BelPin
 {
@@ -135,6 +196,8 @@ struct BelPinRange
 	BelPinIterator end() const { return e; }
 };
 
+// -----------------------------------------------------------------------
+
 struct GuiLine
 {
 	float x1, y1, x2, y2;
@@ -153,46 +216,18 @@ struct ChipArgs
 	} type = NONE;
 };
 
-struct BelInfo
-{
-	const char *name;
-};
-
-struct WireDelayPOD
-{
-	int32_t wire_index;
-	float delay;
-};
-
-struct BelPortPOD
-{
-	int32_t bel_index;
-	int port_index;
-};
-
-struct WireInfo
-{
-	const char *name;
-	int num_uphill, num_downhill, num_bidir;
-	WireDelayPOD *wires_uphill, *wires_downhill, *wires_bidir;
-
-	int num_bels_downhill;
-	BelPortPOD bel_uphill;
-	BelPortPOD *bels_downhill;
-};
-
 struct Chip
 {
 	int num_bels, num_wires;
-	BelInfo *bel_data;
-	WireInfo *wire_data;
+	BelInfoPOD *bel_data;
+	WireInfoPOD *wire_data;
 
 	// ...
 
 	Chip(ChipArgs args);
 
-	void setBelActive(BelId bel, bool active);
-	bool getBelActive(BelId bel);
+	void setBelActive(BelId, bool) { }
+	bool getBelActive(BelId) { return true; }
 
 	BelId getBelByName(IdString name) const;
 	WireId getWireByName(IdString name) const;
@@ -208,11 +243,43 @@ struct Chip
 	vector<GuiLine> getBelGuiLines(BelId bel) const;
 	vector<GuiLine> getWireGuiLines(WireId wire) const;
 
-	WireRange getWires() const;
-	WireDelayRange getWiresUphill(WireId wire) const;
-	WireDelayRange getWiresDownhill(WireId wire) const;
-	WireDelayRange getWiresBidir(WireId wire) const;
-	WireDelayRange getWireAliases(WireId wire) const;
+	AllWiresRange getWires() const
+	{
+		AllWiresRange range;
+		range.b.cursor = 0;
+		range.e.cursor = num_wires;
+		return range;
+	}
+
+	WireDelayRange getWiresUphill(WireId wire) const
+	{
+		WireDelayRange range;
+		range.b.ptr = wire_data[wire.index].wires_uphill;
+		range.e.ptr = wire_data[wire.index].wires_uphill + wire_data[wire.index].num_uphill;
+		return range;
+	}
+
+	WireDelayRange getWiresDownhill(WireId wire) const
+	{
+		WireDelayRange range;
+		range.b.ptr = wire_data[wire.index].wires_downhill;
+		range.e.ptr = wire_data[wire.index].wires_downhill + wire_data[wire.index].num_downhill;
+		return range;
+	}
+
+	WireDelayRange getWiresBidir(WireId wire) const
+	{
+		WireDelayRange range;
+		range.b.ptr = wire_data[wire.index].wires_bidir;
+		range.e.ptr = wire_data[wire.index].wires_bidir + wire_data[wire.index].num_bidir;
+		return range;
+	}
+
+	WireDelayRange getWireAliases(WireId wire) const
+	{
+		WireDelayRange range;
+		return range;
+	}
 
 	// the following will only operate on / return "active" BELs
 	// multiple active uphill BELs for a wire will cause a runtime error

@@ -21,7 +21,10 @@
 
 int main()
 {
-	Design design(ChipArgs{});
+	ChipArgs chipArgs;
+	chipArgs.type = ChipArgs::LP384;
+
+	Design design(chipArgs);
 
 	for (auto bel : design.chip.getBels())
 		printf("%s\n", design.chip.getBelName(bel).c_str());
