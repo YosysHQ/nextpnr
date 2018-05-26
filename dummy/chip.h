@@ -22,6 +22,15 @@
 #ifndef CHIP_H
 #define CHIP_H
 
+typedef IdString BelType;
+typedef IdString PortPin;
+
+static inline IdString belTypeToId(BelType type) { return type; }
+static inline IdString portPinToId(PortPin type) { return type; }
+
+static inline BelType belTypeFromId(IdString id) { return id; }
+static inline PortPin portPinFromId(IdString id) { return id; }
+
 struct BelId
 {
 	uint8_t tile_x = 0, tile_y = 0;
@@ -124,7 +133,7 @@ struct WireDelayRange
 struct BelPin
 {
 	BelId bel;
-	IdString pin;
+	PortPin pin;
 };
 
 struct BelPinIterator
@@ -168,8 +177,8 @@ struct Chip
 	IdString getWireName(WireId wire) const;
 
 	BelRange getBels() const;
-	BelRange getBelsByType(IdString type) const;
-	IdString getBelType(BelId bel) const;
+	BelRange getBelsByType(BelType type) const;
+	BelType getBelType(BelId bel) const;
 
 	void getBelPosition(BelId bel, float &x, float &y) const;
 	void getWirePosition(WireId wire, float &x, float &y) const;
@@ -184,7 +193,7 @@ struct Chip
 
 	// the following will only operate on / return "active" BELs
 	// multiple active uphill BELs for a wire will cause a runtime error
-	WireId getWireBelPin(BelId bel, IdString pin) const;
+	WireId getWireBelPin(BelId bel, PortPin pin) const;
 	BelPin getBelPinUphill(WireId wire) const;
 	BelPinRange getBelPinsDownhill(WireId wire) const;
 };

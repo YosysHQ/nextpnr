@@ -24,9 +24,32 @@
 
 // -----------------------------------------------------------------------
 
+enum BelType
+{
+	TYPE_NIL,
+	TYPE_A
+};
+
+IdString belTypeToId(BelType type);
+BelType belTypeFromId(IdString id);
+
+enum PortPin
+{
+	PIN_NIL,
+	PIN_FOO = 1,
+	PIN_BAR = 2
+};
+
+IdString PortPinToId(PortPin type);
+PortPin PortPinFromId(IdString id);
+
+// -----------------------------------------------------------------------
+
+
 struct BelInfoPOD
 {
 	const char *name;
+	BelType type;
 };
 
 struct WireDelayPOD
@@ -38,7 +61,7 @@ struct WireDelayPOD
 struct BelPortPOD
 {
 	int32_t bel_index;
-	int port_index;
+	PortPin port;
 };
 
 struct WireInfoPOD
@@ -103,20 +126,25 @@ namespace std
 
 // -----------------------------------------------------------------------
 
-struct BelIterator
+struct BelsIterator
 {
-	BelId *ptr = nullptr;
+	int cursor;
 
-	void operator++() { ptr++; }
-	bool operator!=(const BelIterator &other) const { return ptr != other.ptr; }
-	BelId operator*() const { return *ptr; }
+	void operator++() { cursor++; }
+	bool operator!=(const BelsIterator &other) const { return cursor != other.cursor; }
+
+	BelId operator*() const {
+		BelId ret;
+		ret.index = cursor;
+		return ret;
+	}
 };
 
-struct BelRange
+struct BelsRange
 {
-	BelIterator b, e;
-	BelIterator begin() const { return b; }
-	BelIterator end() const { return e; }
+	BelsIterator b, e;
+	BelsIterator begin() const { return b; }
+	BelsIterator end() const { return e; }
 };
 
 // -----------------------------------------------------------------------
@@ -177,16 +205,22 @@ struct WireDelayRange
 struct BelPin
 {
 	BelId bel;
-	IdString pin;
+	PortPin pin;
 };
 
 struct BelPinIterator
 {
-	BelPin *ptr = nullptr;
+	BelPortPOD *ptr = nullptr;
 
 	void operator++() { ptr++; }
 	bool operator!=(const BelPinIterator &other) const { return ptr != other.ptr; }
-	BelPin operator*() const { return *ptr; }
+
+	BelPin operator*() const {
+		BelPin ret;
+		ret.bel.index = ptr->bel_index;
+		ret.pin = ptr->port;
+		return ret;
+	}
 };
 
 struct BelPinRange
@@ -222,7 +256,8 @@ struct Chip
 	BelInfoPOD *bel_data;
 	WireInfoPOD *wire_data;
 
-	// ...
+	mutable dict<IdString, int> wire_by_name;
+	mutable dict<IdString, int> bel_by_name;
 
 	Chip(ChipArgs args);
 
@@ -231,17 +266,48 @@ struct Chip
 
 	BelId getBelByName(IdString name) const;
 	WireId getWireByName(IdString name) const;
-	IdString getBelName(BelId bel) const;
-	IdString getWireName(WireId wire) const;
 
-	BelRange getBels() const;
-	BelRange getBelsByType(IdString type) const;
-	IdString getBelType(BelId bel) const;
+	IdString getBelName(BelId bel) const
+	{
+		return bel_data[bel.index].name;
+	}
 
-	void getBelPosition(BelId bel, float &x, float &y) const;
-	void getWirePosition(WireId wire, float &x, float &y) const;
-	vector<GuiLine> getBelGuiLines(BelId bel) const;
-	vector<GuiLine> getWireGuiLines(WireId wire) const;
+	IdString getWireName(WireId wire) const
+	{
+		return wire_data[wire.index].name;
+	}
+
+	BelsRange getBels() const
+	{
+		BelsRange range;
+		range.b.cursor = 0;
+		range.e.cursor = num_bels;
+		return range;
+	}
+
+	BelsRange getBelsByType(BelType type) const
+	{
+		BelsRange range;
+		// FIXME
+#if 0
+		if (type == "TYPE_A") {
+			range.b.cursor = bels_type_a_begin;
+			range.e.cursor = bels_type_a_end;
+		}
+		...
+#endif
+		return range;
+	}
+
+	BelType getBelType(BelId bel) const
+	{
+		return bel_data[bel.index].type;
+	}
+
+	// FIXME: void getBelPosition(BelId bel, float &x, float &y) const;
+	// FIXME: void getWirePosition(WireId wire, float &x, float &y) const;
+	// FIXME: vector<GuiLine> getBelGuiLines(BelId bel) const;
+	// FIXME: vector<GuiLine> getWireGuiLines(WireId wire) const;
 
 	AllWiresRange getWires() const
 	{
@@ -281,11 +347,27 @@ struct Chip
 		return range;
 	}
 
-	// the following will only operate on / return "active" BELs
-	// multiple active uphill BELs for a wire will cause a runtime error
-	WireId getWireBelPin(BelId bel, IdString pin) const;
-	BelPin getBelPinUphill(WireId wire) const;
-	BelPinRange getBelPinsDownhill(WireId wire) const;
+	WireId getWireBelPin(BelId bel, PortPin pin) const;
+
+	BelPin getBelPinUphill(WireId wire) const
+	{
+		BelPin ret;
+
+		if (wire_data[wire.index].bel_uphill.bel_index >= 0) {
+			ret.bel.index = wire_data[wire.index].bel_uphill.bel_index;
+			ret.pin = wire_data[wire.index].bel_uphill.port;
+		}
+
+		return ret;
+	}
+
+	BelPinRange getBelPinsDownhill(WireId wire) const
+	{
+		BelPinRange range;
+		range.b.ptr = wire_data[wire.index].bels_downhill;
+		range.e.ptr = wire_data[wire.index].bels_downhill + wire_data[wire.index].num_bels_downhill;
+		return range;
+	}
 };
 
 #endif

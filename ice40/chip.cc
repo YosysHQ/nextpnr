@@ -19,6 +19,38 @@
 
 #include "chip.h"
 
+// -----------------------------------------------------------------------
+
+IdString belTypeToId(BelType type)
+{
+	if (type == TYPE_A) return "A";
+	return IdString();
+}
+
+BelType belTypeFromId(IdString id)
+{
+	if (id == "A") return TYPE_A;
+	return TYPE_NIL;
+}
+
+// -----------------------------------------------------------------------
+
+IdString PortPinToId(PortPin type)
+{
+	if (type == PIN_FOO) return "FOO";
+	if (type == PIN_BAR) return "BAR";
+	return IdString();
+}
+
+PortPin PortPinFromId(IdString id)
+{
+	if (id == "FOO") return PIN_FOO;
+	if (id == "BAR") return PIN_BAR;
+	return PIN_NIL;
+}
+
+// -----------------------------------------------------------------------
+
 Chip::Chip(ChipArgs args)
 {
 	if (args.type == ChipArgs::LP384) {
@@ -32,12 +64,40 @@ Chip::Chip(ChipArgs args)
 	abort();
 }
 
-BelRange Chip::getBels() const
+BelId Chip::getBelByName(IdString name) const
 {
-	return BelRange();
+	BelId ret;
+
+	if (bel_by_name.empty()) {
+		for (int i = 0; i < num_bels; i++)
+			bel_by_name[bel_data[i].name] = i;
+	}
+
+	auto it = bel_by_name.find(name);
+	if (it != bel_by_name.end())
+		ret.index = it->second;
+
+	return ret;
 }
 
-IdString Chip::getBelName(BelId bel) const
+WireId Chip::getWireByName(IdString name) const
 {
-	return "*unknown*";
+	WireId ret;
+
+	if (wire_by_name.empty()) {
+		for (int i = 0; i < num_wires; i++)
+			wire_by_name[wire_data[i].name] = i;
+	}
+
+	auto it = wire_by_name.find(name);
+	if (it != wire_by_name.end())
+		ret.index = it->second;
+
+	return ret;
+}
+
+WireId Chip::getWireBelPin(BelId bel, PortPin pin) const
+{
+	// FIXME
+	return WireId();
 }
