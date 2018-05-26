@@ -1,5 +1,3 @@
-// clang -o demo -Wall -std=c++11 demo.cc database.cc -lstdc++
-
 #include "database.h"
 
 int main()
