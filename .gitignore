@@ -1,2 +1,3 @@
-/build/
+/objs/
 /nextpnr-dummy
+/nextpnr-ice40
