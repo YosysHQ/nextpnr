@@ -22,6 +22,14 @@
 #ifndef CHIP_H
 #define CHIP_H
 
+struct DelayInfo
+{
+	float delay = 0;
+
+	float raiseDelay() { return delay; }
+	float fallDelay() { return delay; }
+};
+
 // -----------------------------------------------------------------------
 
 enum BelType
@@ -175,7 +183,7 @@ struct AllWiresRange
 struct WireDelay
 {
 	WireId wire;
-	float delay;
+	DelayInfo delay;
 };
 
 struct WireDelayIterator
@@ -188,7 +196,7 @@ struct WireDelayIterator
 	WireDelay operator*() const {
 		WireDelay ret;
 		ret.wire.index = ptr->wire_index;
-		ret.delay = ptr->delay;
+		ret.delay.delay = ptr->delay;
 		return ret;
 	}
 };

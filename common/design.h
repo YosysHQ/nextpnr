@@ -52,7 +52,7 @@ struct NetInfo
 	dict<IdString, std::string> attrs;
 
 	// wire -> (uphill_wire, delay)
-	dict<WireId, std::pair<WireId, float>> wires;
+	dict<WireId, std::pair<WireId, DelayInfo>> wires;
 };
 
 enum PortType

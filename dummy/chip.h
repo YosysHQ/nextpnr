@@ -22,6 +22,14 @@
 #ifndef CHIP_H
 #define CHIP_H
 
+struct DelayInfo
+{
+	float delay = 0;
+
+	float raiseDelay() { return delay; }
+	float fallDelay() { return delay; }
+};
+
 typedef IdString BelType;
 typedef IdString PortPin;
 
@@ -111,7 +119,7 @@ struct WireRange
 struct WireDelay
 {
 	WireId wire;
-	float delay;
+	DelayInfo delay;
 };
 
 struct WireDelayIterator
