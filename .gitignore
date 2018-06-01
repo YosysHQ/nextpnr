@@ -1,3 +1,15 @@
 /objs/
 /nextpnr-dummy
 /nextpnr-ice40
+cmake-build-*/
+Makefile
+cmake_install.cmake
+compile_commands.json
+CMakeFiles
+CMakeScripts
+CTestfile.cmake
+CMakeCache.txt
+*.so
+*.dll
+*.a
+*.cbp
