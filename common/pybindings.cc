@@ -84,12 +84,16 @@ struct range_wrapper {
 
 #define WRAP_RANGE(t) range_wrapper<t##Range>().wrap(#t "Range", #t "Iterator")
 
+// Architecture-specific bindings should be created in the below function, which must be implemented in all
+// architectures
+void arch_wrap_python();
+
 BOOST_PYTHON_MODULE (MODULE_NAME) {
     // From Chip.h
-    class_<ChipArgs>("ChipArgs");
     WRAP_RANGE(Bels);
     WRAP_RANGE(AllWires);
     WRAP_RANGE(WireDelay);
     WRAP_RANGE(BelPin);
 
+    arch_wrap_python();
 }
