@@ -37,6 +37,7 @@ using namespace boost::python;
 A wrapper for a Pythonised nextpnr Iterator. The actual class wrapped is a
 pair<Iterator, Iterator> containing (current, end)
 */
+
 template<typename T>
 struct iterator_wrapper {
     typedef decltype(*(std::declval<T>())) value_t;
@@ -56,7 +57,7 @@ struct iterator_wrapper {
 
     static void wrap(const char *python_name) {
         class_<std::pair<T, T>>(python_name, no_init)
-                .def("next", next);
+                .def("__next__", next);
     }
 };
 
@@ -65,7 +66,6 @@ A wrapper for a nextpnr Range. Ranges should have two functions, begin()
 and end() which return iterator-like objects supporting ++, * and !=
 Full STL iterator semantics are not required, unlike the standard Boost wrappers
 */
-inline object pass_through(object const &o) { return o; }
 
 template<typename T>
 struct range_wrapper {
