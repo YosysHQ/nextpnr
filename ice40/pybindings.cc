@@ -20,15 +20,7 @@
 
 #include "design.h"
 #include "chip.h"
-#include <utility>
-#include <stdexcept>
-#include <boost/python.hpp>
-#include <boost/python/enum.hpp>
-#include <boost/python/suite/indexing/vector_indexing_suite.hpp>
-#include <boost/python/suite/indexing/map_indexing_suite.hpp>
-#include <boost/python/suite/indexing/map_indexing_suite.hpp>
-
-using namespace boost::python;
+#include "pybindings.h"
 
 void arch_wrap_python() {
     class_<ChipArgs>("ChipArgs")
@@ -60,5 +52,6 @@ void arch_wrap_python() {
             .def("getBels", &Chip::getBels)
             .def("getWires", &Chip::getWires);
 
+    WRAP_RANGE(AllWire);
 
 }

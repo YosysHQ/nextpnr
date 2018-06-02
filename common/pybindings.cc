@@ -20,69 +20,12 @@
 
 #include "design.h"
 #include "chip.h"
-#include <utility>
-#include <stdexcept>
-#include <boost/python.hpp>
-#include <boost/python/suite/indexing/vector_indexing_suite.hpp>
-#include <boost/python/suite/indexing/map_indexing_suite.hpp>
-#include <boost/python/suite/indexing/map_indexing_suite.hpp>
+#include "pybindings.h"
 
-using namespace boost::python;
-
+// Required to determine concatenated module name (which differs for different archs)
 #define PASTER(x, y) x ## _ ## y
 #define EVALUATOR(x, y)  PASTER(x,y)
 #define MODULE_NAME EVALUATOR(nextpnrpy, ARCHNAME)
-
-/*
-A wrapper for a Pythonised nextpnr Iterator. The actual class wrapped is a
-pair<Iterator, Iterator> containing (current, end)
-*/
-
-template<typename T>
-struct iterator_wrapper {
-    typedef decltype(*(std::declval<T>())) value_t;
-
-    static value_t next(std::pair<T, T> &iter) {
-        if (iter.first != iter.second) {
-            value_t val = *iter.first;
-            ++iter.first;
-            return val;
-        } else {
-            PyErr_SetString(PyExc_StopIteration, "End of range reached");
-            boost::python::throw_error_already_set();
-            // Should be unreachable, but prevent control may reach end of non-void
-            throw std::runtime_error("unreachable");
-        }
-    }
-
-    static void wrap(const char *python_name) {
-        class_<std::pair<T, T>>(python_name, no_init)
-                .def("__next__", next);
-    }
-};
-
-/*
-A wrapper for a nextpnr Range. Ranges should have two functions, begin()
-and end() which return iterator-like objects supporting ++, * and !=
-Full STL iterator semantics are not required, unlike the standard Boost wrappers
-*/
-
-template<typename T>
-struct range_wrapper {
-    typedef decltype(std::declval<T>().begin()) iterator_t;
-
-    static std::pair<iterator_t, iterator_t> iter(T &range) {
-        return std::make_pair(range.begin(), range.end());
-    }
-
-    static void wrap(const char *range_name, const char *iter_name) {
-        class_<T>(range_name, no_init)
-                .def("__iter__", iter);
-        iterator_wrapper<iterator_t>().wrap(iter_name);
-    }
-};
-
-#define WRAP_RANGE(t) range_wrapper<t##Range>().wrap(#t "Range", #t "Iterator")
 
 // Architecture-specific bindings should be created in the below function, which must be implemented in all
 // architectures
@@ -90,8 +33,7 @@ void arch_wrap_python();
 
 BOOST_PYTHON_MODULE (MODULE_NAME) {
     // From Chip.h
-    WRAP_RANGE(Bels);
-    WRAP_RANGE(AllWires);
+    WRAP_RANGE(Bel);
     WRAP_RANGE(WireDelay);
     WRAP_RANGE(BelPin);
 
