@@ -23,13 +23,13 @@
 
 IdString belTypeToId(BelType type)
 {
-	if (type == TYPE_A) return "A";
+	if (type == TYPE_ICESTORM_LC) return "ICESTORM_LC";
 	return IdString();
 }
 
 BelType belTypeFromId(IdString id)
 {
-	if (id == "A") return TYPE_A;
+	if (id == "ICESTORM_LC") return TYPE_ICESTORM_LC;
 	return TYPE_NIL;
 }
 
@@ -37,15 +37,33 @@ BelType belTypeFromId(IdString id)
 
 IdString PortPinToId(PortPin type)
 {
-	if (type == PIN_FOO) return "FOO";
-	if (type == PIN_BAR) return "BAR";
+	if (type == PIN_IN_0) return "IN_0";
+	if (type == PIN_IN_1) return "IN_1";
+	if (type == PIN_IN_2) return "IN_2";
+	if (type == PIN_IN_3) return "IN_3";
+	if (type == PIN_O   ) return "O";
+	if (type == PIN_LO  ) return "LO";
+	if (type == PIN_CIN ) return "CIN";
+	if (type == PIN_COUT) return "COUT";
+	if (type == PIN_CEN ) return "CEN";
+	if (type == PIN_CLK ) return "CLK";
+	if (type == PIN_SR  ) return "SR";
 	return IdString();
 }
 
 PortPin PortPinFromId(IdString id)
 {
-	if (id == "FOO") return PIN_FOO;
-	if (id == "BAR") return PIN_BAR;
+	if (id == "IN_0") return PIN_IN_0;
+	if (id == "IN_1") return PIN_IN_1;
+	if (id == "IN_2") return PIN_IN_2;
+	if (id == "IN_3") return PIN_IN_3;
+	if (id == "O"   ) return PIN_O;
+	if (id == "LO"  ) return PIN_LO;
+	if (id == "CIN" ) return PIN_CIN;
+	if (id == "COUT") return PIN_COUT;
+	if (id == "CEN" ) return PIN_CEN;
+	if (id == "CLK" ) return PIN_CLK;
+	if (id == "SR"  ) return PIN_SR;
 	return PIN_NIL;
 }
 

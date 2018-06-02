@@ -35,7 +35,7 @@ struct DelayInfo
 enum BelType
 {
 	TYPE_NIL,
-	TYPE_A
+	TYPE_ICESTORM_LC
 };
 
 IdString belTypeToId(BelType type);
@@ -44,8 +44,17 @@ BelType belTypeFromId(IdString id);
 enum PortPin
 {
 	PIN_NIL,
-	PIN_FOO = 1,
-	PIN_BAR = 2
+	PIN_IN_0,
+	PIN_IN_1,
+	PIN_IN_2,
+	PIN_IN_3,
+	PIN_O,
+	PIN_LO,
+	PIN_CIN,
+	PIN_COUT,
+	PIN_CEN,
+	PIN_CLK,
+	PIN_SR
 };
 
 IdString PortPinToId(PortPin type);
@@ -82,6 +91,16 @@ struct WireInfoPOD
 	BelPortPOD bel_uphill;
 	BelPortPOD *bels_downhill;
 };
+
+extern int num_bels_384;
+extern int num_bels_1k;
+extern int num_bels_5k;
+extern int num_bels_8k;
+
+extern BelInfoPOD bel_data_384[];
+extern BelInfoPOD bel_data_1k[];
+extern BelInfoPOD bel_data_5k[];
+extern BelInfoPOD bel_data_8k[];
 
 extern int num_wires_384;
 extern int num_wires_1k;
