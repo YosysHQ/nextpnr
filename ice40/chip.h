@@ -134,12 +134,12 @@ namespace std
 
 // -----------------------------------------------------------------------
 
-struct BelsIterator
+struct BelIterator
 {
 	int cursor;
 
 	void operator++() { cursor++; }
-	bool operator!=(const BelsIterator &other) const { return cursor != other.cursor; }
+	bool operator!=(const BelIterator &other) const { return cursor != other.cursor; }
 
 	BelId operator*() const {
 		BelId ret;
@@ -148,21 +148,21 @@ struct BelsIterator
 	}
 };
 
-struct BelsRange
+struct BelRange
 {
-	BelsIterator b, e;
-	BelsIterator begin() const { return b; }
-	BelsIterator end() const { return e; }
+	BelIterator b, e;
+	BelIterator begin() const { return b; }
+	BelIterator end() const { return e; }
 };
 
 // -----------------------------------------------------------------------
 
-struct AllWiresIterator
+struct AllWireIterator
 {
 	int cursor;
 
 	void operator++() { cursor++; }
-	bool operator!=(const AllWiresIterator &other) const { return cursor != other.cursor; }
+	bool operator!=(const AllWireIterator &other) const { return cursor != other.cursor; }
 
 	WireId operator*() const {
 		WireId ret;
@@ -171,11 +171,11 @@ struct AllWiresIterator
 	}
 };
 
-struct AllWiresRange
+struct AllWireRange
 {
-	AllWiresIterator b, e;
-	AllWiresIterator begin() const { return b; }
-	AllWiresIterator end() const { return e; }
+	AllWireIterator b, e;
+	AllWireIterator begin() const { return b; }
+	AllWireIterator end() const { return e; }
 };
 
 // -----------------------------------------------------------------------
@@ -285,17 +285,17 @@ struct Chip
 		return wire_data[wire.index].name;
 	}
 
-	BelsRange getBels() const
+	BelRange getBels() const
 	{
-		BelsRange range;
+		BelRange range;
 		range.b.cursor = 0;
 		range.e.cursor = num_bels;
 		return range;
 	}
 
-	BelsRange getBelsByType(BelType type) const
+	BelRange getBelsByType(BelType type) const
 	{
-		BelsRange range;
+		BelRange range;
 		// FIXME
 #if 0
 		if (type == "TYPE_A") {
@@ -317,9 +317,9 @@ struct Chip
 	// FIXME: vector<GuiLine> getBelGuiLines(BelId bel) const;
 	// FIXME: vector<GuiLine> getWireGuiLines(WireId wire) const;
 
-	AllWiresRange getWires() const
+	AllWireRange getWires() const
 	{
-		AllWiresRange range;
+		AllWireRange range;
 		range.b.cursor = 0;
 		range.e.cursor = num_wires;
 		return range;
