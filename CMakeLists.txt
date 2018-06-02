@@ -66,3 +66,14 @@ foreach (family ${FAMILIES})
         target_link_libraries(${target} LINK_PUBLIC ${Boost_LIBRARIES} ${PYTHON_LIBRARIES})
     endforeach (target)
 endforeach (family)
+
+file(GLOB_RECURSE CLANGFORMAT_FILES *.cc *.h)
+string(REGEX REPLACE "[^;]*/ice40/chipdbs/chipdb-[^ ]*.cc" "" CLANGFORMAT_FILES "${CLANGFORMAT_FILES}")
+
+add_custom_target(
+    clangformat
+    COMMAND clang-format
+    -style=file
+    -i
+    ${CLANGFORMAT_FILES}
+)
