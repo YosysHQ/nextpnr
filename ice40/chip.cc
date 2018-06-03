@@ -23,13 +23,19 @@
 
 IdString belTypeToId(BelType type)
 {
-	if (type == TYPE_ICESTORM_LC) return "ICESTORM_LC";
+	if (type == TYPE_ICESTORM_LC)
+		return "ICESTORM_LC";
+	if (type == TYPE_SB_IO)
+		return "SB_IO";
 	return IdString();
 }
 
 BelType belTypeFromId(IdString id)
 {
-	if (id == "ICESTORM_LC") return TYPE_ICESTORM_LC;
+	if (id == "ICESTORM_LC")
+		return TYPE_ICESTORM_LC;
+	if (id == "SB_IO")
+		return TYPE_SB_IO;
 	return TYPE_NIL;
 }
 
@@ -37,33 +43,63 @@ BelType belTypeFromId(IdString id)
 
 IdString PortPinToId(PortPin type)
 {
-	if (type == PIN_IN_0) return "IN_0";
-	if (type == PIN_IN_1) return "IN_1";
-	if (type == PIN_IN_2) return "IN_2";
-	if (type == PIN_IN_3) return "IN_3";
-	if (type == PIN_O   ) return "O";
-	if (type == PIN_LO  ) return "LO";
-	if (type == PIN_CIN ) return "CIN";
-	if (type == PIN_COUT) return "COUT";
-	if (type == PIN_CEN ) return "CEN";
-	if (type == PIN_CLK ) return "CLK";
-	if (type == PIN_SR  ) return "SR";
+#define X(t) if (type == PIN_##t) return #t;
+
+	X(IN_0)
+	X(IN_1)
+	X(IN_2)
+	X(IN_3)
+	X(O)
+	X(LO)
+	X(CIN)
+	X(COUT)
+	X(CEN)
+	X(CLK)
+	X(SR)
+
+	X(PACKAGE_PIN)
+	X(LATCH_INPUT_VALUE)
+	X(CLOCK_ENABLE)
+	X(INPUT_CLK)
+	X(OUTPUT_CLK)
+	X(OUTPUT_ENABLE)
+	X(D_OUT_0)
+	X(D_OUT_1)
+	X(D_IN_0)
+	X(D_IN_1)
+
+#undef X
 	return IdString();
 }
 
 PortPin PortPinFromId(IdString id)
 {
-	if (id == "IN_0") return PIN_IN_0;
-	if (id == "IN_1") return PIN_IN_1;
-	if (id == "IN_2") return PIN_IN_2;
-	if (id == "IN_3") return PIN_IN_3;
-	if (id == "O"   ) return PIN_O;
-	if (id == "LO"  ) return PIN_LO;
-	if (id == "CIN" ) return PIN_CIN;
-	if (id == "COUT") return PIN_COUT;
-	if (id == "CEN" ) return PIN_CEN;
-	if (id == "CLK" ) return PIN_CLK;
-	if (id == "SR"  ) return PIN_SR;
+#define X(t) if (id == #t) return PIN_##t;
+
+	X(IN_0)
+	X(IN_1)
+	X(IN_2)
+	X(IN_3)
+	X(O)
+	X(LO)
+	X(CIN)
+	X(COUT)
+	X(CEN)
+	X(CLK)
+	X(SR)
+
+	X(PACKAGE_PIN)
+	X(LATCH_INPUT_VALUE)
+	X(CLOCK_ENABLE)
+	X(INPUT_CLK)
+	X(OUTPUT_CLK)
+	X(OUTPUT_ENABLE)
+	X(D_OUT_0)
+	X(D_OUT_1)
+	X(D_IN_0)
+	X(D_IN_1)
+
+#undef X
 	return PIN_NIL;
 }
 

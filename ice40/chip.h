@@ -35,7 +35,8 @@ struct DelayInfo
 enum BelType
 {
 	TYPE_NIL,
-	TYPE_ICESTORM_LC
+	TYPE_ICESTORM_LC,
+	TYPE_SB_IO
 };
 
 IdString belTypeToId(BelType type);
@@ -44,6 +45,7 @@ BelType belTypeFromId(IdString id);
 enum PortPin
 {
 	PIN_NIL,
+
 	PIN_IN_0,
 	PIN_IN_1,
 	PIN_IN_2,
@@ -54,7 +56,18 @@ enum PortPin
 	PIN_COUT,
 	PIN_CEN,
 	PIN_CLK,
-	PIN_SR
+	PIN_SR,
+
+	PIN_PACKAGE_PIN,
+	PIN_LATCH_INPUT_VALUE,
+	PIN_CLOCK_ENABLE,
+	PIN_INPUT_CLK,
+	PIN_OUTPUT_CLK,
+	PIN_OUTPUT_ENABLE,
+	PIN_D_OUT_0,
+	PIN_D_OUT_1,
+	PIN_D_IN_0,
+	PIN_D_IN_1
 };
 
 IdString PortPinToId(PortPin type);

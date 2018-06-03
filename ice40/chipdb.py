@@ -153,10 +153,41 @@ def add_bel_lc(x, y, z):
     if wire_lout is not None:
         add_bel_output(bel, wire_lout, "LO")
 
+def add_bel_io(x, y, z):
+    bel = len(bel_name)
+    bel_name.append("%d_%d_lc%d" % (x, y, z))
+    bel_type.append("SB_IO")
+
+    wire_cen   = wire_names[(x, y, "io_global/cen")]
+    wire_iclk  = wire_names[(x, y, "io_global/inclk")]
+    wire_oclk  = wire_names[(x, y, "io_global/latch")]
+    wire_latch = wire_names[(x, y, "io_global/outclk")]
+
+    wire_din_0  = wire_names[(x, y, "io_%d/D_IN_0"  % z)]
+    wire_din_1  = wire_names[(x, y, "io_%d/D_IN_1"  % z)]
+    wire_dout_0 = wire_names[(x, y, "io_%d/D_OUT_0" % z)]
+    wire_dout_1 = wire_names[(x, y, "io_%d/D_OUT_1" % z)]
+    wire_out_en = wire_names[(x, y, "io_%d/OUT_ENB" % z)]
+
+    add_bel_input(bel, wire_cen,    "CLOCK_ENABLE")
+    add_bel_input(bel, wire_iclk,   "INPUT_CLK")
+    add_bel_input(bel, wire_oclk,   "OUTPUT_CLK")
+    add_bel_input(bel, wire_latch,  "LATCH_INPUT_VALUE")
+
+    add_bel_output(bel, wire_din_0, "D_IN_0")
+    add_bel_output(bel, wire_din_1, "D_IN_1")
+
+    add_bel_input(bel, wire_dout_0, "D_OUT_0")
+    add_bel_input(bel, wire_dout_1, "D_OUT_1")
+    add_bel_input(bel, wire_out_en, "OUTPUT_ENABLE")
+
 for tile_xy, tile_type in sorted(tiles.items()):
     if tile_type == "logic":
         for i in range(8):
             add_bel_lc(tile_xy[0], tile_xy[1], i)
+    if tile_type == "io":
+        for i in range(2):
+            add_bel_io(tile_xy[0], tile_xy[1], i)
 
 print('#include "chip.h"')
 
