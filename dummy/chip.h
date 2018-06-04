@@ -160,11 +160,6 @@ struct BelPinRange
 	BelPinIterator end() const { return e; }
 };
 
-struct GuiLine
-{
-	float x1, y1, x2, y2;
-};
-
 struct ChipArgs
 {
 	// ...
@@ -188,10 +183,10 @@ struct Chip
 	BelRange getBelsByType(BelType type) const;
 	BelType getBelType(BelId bel) const;
 
-	void getBelPosition(BelId bel, float &x, float &y) const;
-	void getWirePosition(WireId wire, float &x, float &y) const;
-	vector<GuiLine> getBelGuiLines(BelId bel) const;
-	vector<GuiLine> getWireGuiLines(WireId wire) const;
+	// void getBelPosition(BelId bel, float &x, float &y) const;
+	// void getWirePosition(WireId wire, float &x, float &y) const;
+	// vector<GuiLine> getBelGuiLines(BelId bel) const;
+	// vector<GuiLine> getWireGuiLines(WireId wire) const;
 
 	WireRange getWires() const;
 	WireDelayRange getWiresUphill(WireId wire) const;

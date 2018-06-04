@@ -272,11 +272,6 @@ struct BelPinRange
 
 // -----------------------------------------------------------------------
 
-struct GuiLine
-{
-	float x1, y1, x2, y2;
-};
-
 struct ChipArgs
 {
 	enum {
@@ -346,8 +341,10 @@ struct Chip
 
 	// FIXME: void getBelPosition(BelId bel, float &x, float &y) const;
 	// FIXME: void getWirePosition(WireId wire, float &x, float &y) const;
-	// FIXME: vector<GuiLine> getBelGuiLines(BelId bel) const;
-	// FIXME: vector<GuiLine> getWireGuiLines(WireId wire) const;
+	// FIXME: vector<GraphicElement> getBelGraphics(BelId bel) const;
+	// FIXME: vector<GraphicElement> getWireGraphics(WireId wire) const;
+	// FIXME: vector<GraphicElement> getPipGraphics(WireId src, WireId dst) const;
+	// FIXME: vector<GraphicElement> getFrameGraphics() const;
 
 	AllWireRange getWires() const
 	{

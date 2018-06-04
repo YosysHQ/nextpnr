@@ -34,6 +34,19 @@ template<typename T> using pool = std::unordered_set<T>;
 template<typename T, typename U> using dict = std::unordered_map<T, U>;
 using std::vector;
 
+struct GraphicElement
+{
+	enum {
+		G_LINE,
+		G_BOX,
+		G_CIRCLE,
+		G_LABEL
+	} type;
+
+	float x1, y1, x2, y2, z;
+	std::string text;
+};
+
 #include "chip.h"
 
 struct CellInfo;
