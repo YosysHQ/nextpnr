@@ -36,6 +36,20 @@ using std::vector;
 
 struct GraphicElement
 {
+	// This will control colour, and there should be separate visibility controls in some cases also
+	enum {
+		G_LOCAL_WIRES, // Wires entirely inside tiles, e.g. between switchbox and bels
+		G_GENERAL_WIRES, // Standard inter-tile routing
+		G_DEDICATED_WIRES, // Special inter-tile wires, e.g. carry chains
+		G_BEL_OUTLINE,
+		G_SWITCHBOX_OUTLINE,
+		G_TILE_OUTLINE,
+		G_BEL_PINS,
+		G_SWITCHBOX_PINS,
+		G_BEL_MISC,
+		G_TILE_MISC,
+	} style;
+
 	enum {
 		G_LINE,
 		G_BOX,
