@@ -181,6 +181,35 @@ def add_bel_io(x, y, z):
     add_bel_input(bel, wire_dout_1, "D_OUT_1")
     add_bel_input(bel, wire_out_en, "OUTPUT_ENABLE")
 
+def add_bel_ram(x, y):
+    bel = len(bel_name)
+    bel_name.append("%d_%d_ram" % (x, y))
+    bel_type.append("ICESTORM_RAM")
+
+    if (x, y, "ram/WE") in wire_names:
+        # iCE40 1K-style memories
+        y0, y1 = y, y+1
+    else:
+        # iCE40 8K-style memories
+        y1, y0 = y, y+1
+
+    for i in range(16):
+        add_bel_input (bel, wire_names[(x, y0 if i < 8 else y1, "ram/MASK_%d"  % i)], "MASK_%d"  % i)
+        add_bel_input (bel, wire_names[(x, y0 if i < 8 else y1, "ram/WDATA_%d" % i)], "WDATA_%d" % i)
+        add_bel_output(bel, wire_names[(x, y0 if i < 8 else y1, "ram/RDATA_%d" % i)], "RDATA_%d" % i)
+
+    for i in range(11):
+        add_bel_input(bel, wire_names[(x, y0, "ram/WADDR_%d" % i)], "WADDR_%d" % i)
+        add_bel_input(bel, wire_names[(x, y1, "ram/RADDR_%d" % i)], "RADDR_%d" % i)
+
+    add_bel_input(bel, wire_names[(x, y0, "ram/WCLK")], "WCLK")
+    add_bel_input(bel, wire_names[(x, y0, "ram/WCLKE")], "WCLKE")
+    add_bel_input(bel, wire_names[(x, y0, "ram/WE")], "WE")
+
+    add_bel_input(bel, wire_names[(x, y1, "ram/RCLK")], "RCLK")
+    add_bel_input(bel, wire_names[(x, y1, "ram/RCLKE")], "RCLKE")
+    add_bel_input(bel, wire_names[(x, y1, "ram/RE")], "RE")
+
 for tile_xy, tile_type in sorted(tiles.items()):
     if tile_type == "logic":
         for i in range(8):
@@ -188,6 +217,8 @@ for tile_xy, tile_type in sorted(tiles.items()):
     if tile_type == "io":
         for i in range(2):
             add_bel_io(tile_xy[0], tile_xy[1], i)
+    if tile_type == "ramb":
+        add_bel_ram(tile_xy[0], tile_xy[1])
 
 print('#include "chip.h"')
 
