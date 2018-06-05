@@ -7,12 +7,25 @@ set(CMAKE_CXX_STANDARD 11)
 # set(CMAKE_CXX_FLAGS "-Wall -pedantic -Wextra -Werror")
 set(CMAKE_DEFIN)
 # List of Boost libraries to include
-set(boost_libs filesystem thread)
+set(boost_libs filesystem thread program_options)
 # TODO: sensible minimum Python version
 find_package(PythonInterp 3.5 REQUIRED)
 find_package(PythonLibs 3.5 REQUIRED)
 
 find_package(Boost REQUIRED COMPONENTS ${boost_libs})
+
+# Get the latest abbreviated commit hash of the working branch
+execute_process(
+  COMMAND git log -1 --format=%h
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+  OUTPUT_VARIABLE GIT_COMMIT_HASH
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+
+add_definitions("-DGIT_COMMIT_HASH=${GIT_COMMIT_HASH}")
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/common/version.h.in ${CMAKE_CURRENT_BINARY_DIR}/generated/version.h
+)
 
 # Find Boost::Python of a suitable version in a cross-platform way
 # Some distributions (Arch) call it libboost_python3, others such as Ubuntu
@@ -41,16 +54,16 @@ if (NOT Boost_PYTHON_FOUND)
     find_package(Boost COMPONENTS python3 ${boost_libs})
 endif ()
 
-# TODO: Find and include Qt
+include(gui/gui.cmake)
 
-include_directories(common/ ${Boost_INCLUDE_DIRS} ${PYTHON_INCLUDE_DIRS})
+include_directories(common/ gui/ ${Boost_INCLUDE_DIRS} ${PYTHON_INCLUDE_DIRS})
 aux_source_directory(common/ COMMON_FILES)
 
 foreach (family ${FAMILIES})
     string(TOUPPER ${family} ufamily)
     aux_source_directory(${family}/ ${ufamily}_FILES)
     # Add the CLI binary target
-    add_executable(nextpnr-${family} ${COMMON_FILES} ${${ufamily}_FILES})
+    add_executable(nextpnr-${family} ${COMMON_FILES} ${${ufamily}_FILES} ${GUI_SOURCE_FILES})
     # Add the importable Python module target
     PYTHON_ADD_MODULE(nextpnrpy_${family} ${COMMON_FILES} ${${ufamily}_FILES})
     # Add any new per-architecture targets here
@@ -63,7 +76,7 @@ foreach (family ${FAMILIES})
         # Include family-specific source files to all family targets and set defines appropriately
         target_include_directories(${target} PRIVATE ${family}/)
         target_compile_definitions(${target} PRIVATE ARCH_${ufamily} ARCHNAME=${family})
-        target_link_libraries(${target} LINK_PUBLIC ${Boost_LIBRARIES} ${PYTHON_LIBRARIES})
+        target_link_libraries(${target} LINK_PUBLIC ${Boost_LIBRARIES} ${PYTHON_LIBRARIES} ${GUI_LIBRARY_FILES})
     endforeach (target)
 endforeach (family)
 
