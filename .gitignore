@@ -13,3 +13,6 @@ CMakeCache.txt
 *.dll
 *.a
 *.cbp
+.*.swp
+a.out
+*.json

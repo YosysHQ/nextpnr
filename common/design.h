@@ -36,11 +36,15 @@ using std::vector;
 
 struct GraphicElement
 {
-	// This will control colour, and there should be separate visibility controls in some cases also
+	// This will control colour, and there should be separate
+	// visibility controls in some cases also
 	enum {
-		G_LOCAL_WIRES, // Wires entirely inside tiles, e.g. between switchbox and bels
-		G_GENERAL_WIRES, // Standard inter-tile routing
-		G_DEDICATED_WIRES, // Special inter-tile wires, e.g. carry chains
+		// Wires entirely inside tiles, e.g. between switchbox and bels
+		G_LOCAL_WIRES,
+		// Standard inter-tile routing
+		G_GENERAL_WIRES,
+		// Special inter-tile wires, e.g. carry chains
+		G_DEDICATED_WIRES,
 		G_BEL_OUTLINE,
 		G_SWITCHBOX_OUTLINE,
 		G_TILE_OUTLINE,
@@ -73,13 +77,13 @@ struct PortRef
 
 struct NetInfo
 {
-	IdString name;
-	PortRef driver;
-	vector<PortRef> users;
-	dict<IdString, std::string> attrs;
+	IdString			name;
+	PortRef				driver;
+	vector<PortRef>			users;
+	dict<IdString, std::string>	attrs;
 
 	// wire -> (uphill_wire, delay)
-	dict<WireId, std::pair<WireId, DelayInfo>> wires;
+	dict<WireId, std::pair<WireId, DelayInfo>>	wires;
 };
 
 enum PortType
@@ -98,9 +102,9 @@ struct PortInfo
 
 struct CellInfo
 {
-	IdString name, type;
-	dict<IdString, PortInfo> ports;
-	dict<IdString, std::string> attrs, params;
+	IdString			name, type;
+	dict<IdString, PortInfo>	ports;
+	dict<IdString, std::string>	attrs, params;
 
 	BelId bel;
 	// cell_port -> bel_pin

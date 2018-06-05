@@ -283,6 +283,9 @@ Chip::Chip(ChipArgs args)
 		num_wires = num_wires_384;
 		wire_data = wire_data_384;
 		return;
+	} else {
+		fprintf(stderr, "Unsupported chip type\n");
+		exit(EXIT_FAILURE);
 	}
 
 	abort();
