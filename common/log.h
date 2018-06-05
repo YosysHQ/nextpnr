@@ -56,6 +56,7 @@ NXP_NORETURN void logv_error(const char *format, va_list ap)
 
 void log(const char *format, ...);
 void log_header(const char *format, ...);
+void log_info(const char *format, ...);
 void log_warning(const char *format, ...);
 void log_warning_noprefix(const char *format, ...);
 NXP_NORETURN void log_error(const char *format, ...);

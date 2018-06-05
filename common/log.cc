@@ -102,17 +102,12 @@ void logv(const char *format, va_list ap)
 		*f << str;
 }
 
-void logv_header(const char *format, va_list ap)
+void logv_info(const char *format, va_list ap)
 {
-/*
-	log_spacer();
+	std::string message = vstringf(format, ap);
 
-	std::string header_id;
-
-	log("%s. ", header_id.c_str());
-	logv(format, ap);
+	log("Info: %s", message.c_str());
 	log_flush();
-*/
 }
 
 void logv_warning(const char *format, va_list ap)
@@ -155,9 +150,9 @@ void logv_error(const char *format, va_list ap)
 	log_files = backup_log_files;
 	throw 0;
 #elif defined(_MSC_VER)
-	_exit(1);
+	_exit(EXIT_FAILURE);
 #else
-	_Exit(1);
+	_Exit(EXIT_FAILURE);
 #endif
 }
 
@@ -169,11 +164,11 @@ void log(const char *format, ...)
 	va_end(ap);
 }
 
-void log_header(const char *format, ...)
+void log_info(const char *format, ...)
 {
 	va_list ap;
 	va_start(ap, format);
-	logv_header(format, ap);
+	logv_info(format, ap);
 	va_end(ap);
 }
 

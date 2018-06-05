@@ -25,6 +25,7 @@
 #include <iostream>
 #include <fstream>
 #include <assert.h>
+#include <log.h>
 #include "common/design.h"
 #include "ice40/chip.h"
 #warning "CC files shouldnt be included"
@@ -36,40 +37,7 @@
 
 namespace JsonParser {
 
-void	log_error(const char fmt, ...) {
-	va_list	args;
-
-	std::string	sfmt = "ERROR: " + fmt;
-	va_start(args, fmt);
-	vfprintf(stderr, fmt, args);
-	va_end(args);
-	exit(EXIT_FAILURE);
-}
-
-void	log_warning(const char fmt, ...) {
-	va_list	args;
-
-	std::string	sfmt = "WARNING: " + fmt;
-	va_start(args, fmt);
-	vfprintf(stderr, sfmt.c_str(), args);
-	va_end(args);
-}
-
-void	log_info(const char fmt, ...) {
-	va_list	args;
-
-	std::string	sfmt = "INFO: " + fmt;
-	va_start(args, fmt);
-	vfprintf(stderr, sfmt.c_str(), args);
-	va_end(args);
-}
-
 typedef	std::string string;
-
-void	log_header(Design *d, const char *str) {
-	std::cout << str;
-		// log_header(design, "Executing JSON frontend.\n");
-}
 
 template<typename T> int GetSize(const T &obj) { return obj.size(); }
 
@@ -487,7 +455,7 @@ struct JsonFrontend {
 	virtual void execute(std::istream *&f, std::string filename,
 			Design *design)
 	{
-		log_header(design, "Executing JSON frontend.\n");
+		// log_header(design, "Executing JSON frontend.\n");
 
 		JsonNode root(*f);
 
@@ -501,7 +469,6 @@ struct JsonFrontend {
 			if (modules->type != 'D')
 				log_error("JSON modules node is not a dictionary.\n");
 
-fprintf(stderr, "Looping\n");
 			for (auto &it : modules->data_dict)
 				json_import(design, it.first, it.second);
 		}
@@ -521,6 +488,8 @@ int	main(int argc, char **argv) {
 	std::string	fname = "../../ice40/blinky.json";
 	std::istream	*f = new std::ifstream(fname);
 	parser->execute(f, fname, design);
+
+	printf("Successful exit\n");
 }
 
 int	num_wires_384 = 0;
