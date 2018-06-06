@@ -28,18 +28,16 @@
 #include <log.h>
 #include "common/design.h"
 #include "ice40/chip.h"
-#warning "CC files shouldnt be included"
-#include "ice40/chip.cc"
-// #include "ice40/chipdb-384.cc"
-// #include "ice40/chipdb-1k.cc"
-// #include "ice40/chipdb-5k.cc"
-#include "ice40/chipdb-8k.cc"
+
+extern	bool	check_all_nets_driven(Design *design);
 
 namespace JsonParser {
 
-typedef	std::string string;
+	const	bool	json_debug = false;
 
-template<typename T> int GetSize(const T &obj) { return obj.size(); }
+	typedef	std::string string;
+
+	template<typename T> int GetSize(const T &obj) { return obj.size(); }
 
 
 struct JsonNode
@@ -247,6 +245,66 @@ struct JsonNode
 };
 
 
+NetInfo	*ground_net(NetInfo *net) {
+	CellInfo	*cell = new CellInfo;
+	PortInfo	port_info;
+	PortRef		port_ref;
+
+	cell->name = string(net->name + ".GND");
+	cell->type = string("GND");
+
+	port_info.name = cell->name + "[]";
+	port_info.net  = net;
+	port_info.type = PORT_OUT;
+
+	port_ref.cell = cell;
+	port_ref.port = port_info.name;
+
+	net->driver = port_ref;
+
+	cell->ports[port_info.name] = port_info;
+
+	return net;
+}
+
+NetInfo	*vcc_net(NetInfo *net) {
+	CellInfo	*cell = new CellInfo;
+	PortInfo	port_info;
+	PortRef		port_ref;
+
+	cell->name = string(net->name + ".VCC");
+	cell->type = string("VCC");
+
+	port_info.name = cell->name + "[]";
+	port_info.net  = net;
+	port_info.type = PORT_OUT;
+
+	port_ref.cell = cell;
+	port_ref.port = port_info.name;
+
+	net->driver = port_ref;
+
+	cell->ports[port_info.name] = port_info;
+
+	return net;
+}
+
+NetInfo	*floating_net(NetInfo *net) {
+	PortInfo	port_info;
+	PortRef		port_ref;
+
+	port_info.name = net->name + ".floating";
+	port_info.net  = net;
+	port_info.type = PORT_OUT;
+
+	port_ref.cell = NULL;
+	port_ref.port = port_info.name;
+
+	net->driver = port_ref;
+
+	return net;
+}
+
 //
 // is_blackbox
 //
@@ -278,12 +336,286 @@ bool	is_blackbox(JsonNode *node) {
 	return true;
 }
 
-void json_import(Design *design, string modname, JsonNode *node)
+void	json_import_cell_attributes(Design *design, string &modname,
+		CellInfo *cell, JsonNode *param_node, int param_id) {
+	//
+	JsonNode	*param;
+	IdString	pId;
+	//
+	param = param_node->data_dict.at(
+		param_node->data_dict_keys[param_id]);
+
+	pId = param_node->data_dict_keys[param_id];
+	if (param->type == 'N') {
+		cell->params[pId] = std::to_string(param_node->data_number);;
+	} else if (param->type == 'S')
+		cell->params[pId] = param->data_string;
+	else
+		log_error("JSON parameter type of \"%s\' of cell \'%s\' not supported\n",
+			pId.c_str(),
+			cell->name.c_str());
+
+	if (json_debug) log_info("    Added parameter \'%s\'=%s to cell \'%s\' "
+				"of module \'%s\'\n",
+			pId.c_str(), cell->params[pId].c_str(),
+			cell->name.c_str(), modname.c_str());
+}
+
+void	json_import_cell_ports(Design *design, string &modname, CellInfo *cell,
+		string &port_name, JsonNode *dir_node,JsonNode *wire_group_node)
 {
+	// Examine and connect a single port of the given cell to its nets,
+	// generating them as necessary
+
+	assert(dir_node);
+
+	if (json_debug) log_info("    Examining port %s, node %s\n", port_name.c_str(),
+		cell->name.c_str());
+
+	if (!wire_group_node)
+		log_error("JSON no connection match "
+			"for port_direction \'%s\' of node \'%s\' "
+				"in module \'%s\'\n",
+			port_name, cell->name.c_str(), modname.c_str());
+
+	assert(wire_group_node);
+
+	assert(dir_node->type == 'S');
+	assert(wire_group_node->type == 'A');
+
+	PortInfo	port_info;
+
+	port_info.name = port_name;
+	if(dir_node->data_string.compare("input")==0)
+		port_info.type = PORT_IN;
+	else if(dir_node->data_string.compare("output")==0)
+		port_info.type = PORT_OUT;
+	else if(dir_node->data_string.compare("inout")==0)
+		port_info.type = PORT_INOUT;
+	else
+		log_error("JSON unknown port direction \'%s\' in node \'%s\' "
+				"of module \'%s\'\n",
+			dir_node->data_string.c_str(),
+			cell->name.c_str(),
+			modname.c_str());
+	//
+	// Find an update, or create a net to connect
+	// to this port.
+	//
+	NetInfo		*this_net;
+	bool		is_bus;
+
+	//
+	// If this port references a bus, then there will be multiple nets
+	// connected to it, all specified as part of an array.
+	//
+	is_bus = (wire_group_node->data_array.size()>1);
+
+	// Now loop through all of the connections to this port.
+	for(int index=0; index < wire_group_node->data_array.size(); index++) {
+		//
+		JsonNode	*wire_node;
+		PortInfo	this_port;
+		PortRef		port_ref;
+		bool		const_input = false;
+		IdString	net_id;
+		//
+		wire_node = wire_group_node->data_array[index];
+		port_ref.cell = cell;
+
+		//
+		// Pick a name for this port
+		if (is_bus)
+			this_port.name = port_info.name + '['
+						+ std::to_string(index) + ']';
+		else
+			this_port.name = port_info.name;
+		this_port.type = port_info.type;
+
+		port_ref.port = this_port.name;
+
+		if (wire_node->type == 'N') {
+			int		net_num;
+
+			// A simple net, specified by a number
+			net_num = wire_node->data_number;
+			net_id = std::to_string(net_num);
+			if (design->nets.count(net_id) == 0) {
+				// The net doesn't exist in the design (yet)
+				// Create in now
+
+				if (json_debug) log_info("      Generating a new net, \'%d\'\n",
+					net_num);
+
+				this_net = new NetInfo;
+				this_net->name = net_id;
+				this_net->driver.cell = NULL;
+				this_net->driver.port = "";
+				design->nets[net_id] = this_net;
+			} else {
+				//
+				// The net already exists within the design.
+				// We'll connect to it
+				// 
+				this_net = design->nets[net_id];
+				if (json_debug) log_info("      Reusing net \'%s\', id \'%s\', "
+					"with driver \'%s\'\n",
+					this_net->name.c_str(), net_id.c_str(),
+					(this_net->driver.cell!=NULL)
+						? this_net->driver.port.c_str()
+						: "NULL");
+			}
+
+		} else if (wire_node->type == 'S') {
+			// Strings are only used to drive wires for the fixed
+			// values "0", "1", and "x".  Handle those constant
+			// values here.
+			//
+			// Constants always get their own new net
+			this_net = new NetInfo;
+			this_net->name = net_id;
+			const_input = (this_port.type == PORT_IN);
+
+		    	if (wire_node->data_string.compare(string("0"))==0) {
+
+				if (json_debug) log_info("      Generating a constant "
+							"zero net\n");
+				this_net = ground_net(this_net);
+
+			} else if (wire_node->data_string.compare(string("1"))
+						==0) {
+
+				if (json_debug) log_info("      Generating a constant "
+							"one  net\n");
+				this_net = vcc_net(this_net);
+
+			} else if (wire_node->data_string.compare(string("x"))
+						==0) {
+
+				this_net = floating_net(this_net);
+				log_warning("      Floating wire node value, "
+					"\'%s\' of port \'%s\' "
+					"in cell \'%s\' of module \'%s\'\n",
+					wire_node->data_string.c_str(),
+					port_name.c_str(),
+					cell->name.c_str(),
+					modname.c_str());
+
+			} else
+				log_error("      Unknown fixed type wire node "
+					"value, \'%s\'\n",
+					wire_node->data_string.c_str());
+		}
+
+		if (json_debug) log_info("    Inserting port \'%s\' into cell \'%s\'\n",
+			this_port.name.c_str(), cell->name.c_str());
+
+		this_port.net = this_net;
+
+		cell->ports[this_port.name] = this_port;
+
+		if (this_port.type == PORT_OUT) {
+			assert(this_net->driver.cell == NULL);
+			this_net->driver = port_ref;
+		} else
+			this_net->users.push_back(port_ref);
+
+		if (design->nets.count(this_net->name) == 0)
+			design->nets[this_net->name] = this_net;
+	}
+}
+
+void	json_import_cell(Design *design, string modname, JsonNode *cell_node,
+		string cell_name) {
+	JsonNode *cell_type, *param_node;
+
+	cell_type = cell_node->data_dict.at("type");
+	if (cell_type == NULL)
+		return;
+
+	CellInfo *cell =  new CellInfo;
+
+	cell->name = cell_name;
+	assert(cell_type->type == 'S');
+	cell->type = cell_type->data_string;
+	// No BEL assignment here/yet
+
+	if (json_debug) log_info("  Processing %s $ %s\n",
+			modname.c_str(), cell->name.c_str());
+
+	param_node = cell_node->data_dict.at("parameters");
+	if (param_node->type != 'D')
+		log_error("JSON parameter list of \'%s\' is not a data dictionary\n", cell->name);
+
+	//
+	// Loop through all parameters, adding them into the
+	// design to annotate the cell
+	//
+	for(int paramid = 0; paramid < GetSize(param_node->data_dict_keys);
+			paramid++) {
+
+		json_import_cell_attributes(design, modname, cell, param_node,
+			paramid);
+	}
+
+
+	//
+	// Now connect the ports of this module.  The ports are defined by
+	// both the port directions node as well as the connections node.
+	// Both should contain dictionaries having the same keys.
+	//
+
+	JsonNode *pdir_node
+		= cell_node->data_dict.at("port_directions");
+	if (pdir_node->type != 'D')
+		log_error("JSON port_directions node of \'%s\' "
+			"in module \'%s\' is not a "
+				"dictionary\n", cell->name.c_str(),
+			modname.c_str());
+
+	JsonNode *connections
+		= cell_node->data_dict.at("connections");
+	if (connections->type != 'D')
+		log_error("JSON connections node of \'%s\' "
+			"in module \'%s\' is not a "
+			"dictionary\n", cell->name.c_str(),
+			modname.c_str());
+
+	if (GetSize(pdir_node->data_dict_keys)
+			!= GetSize(connections->data_dict_keys))
+		log_error("JSON number of connections doesnt "
+			"match number of ports in node \'%s\' "
+			"of module \'%s\'\n",
+			cell->name.c_str(),
+			modname.c_str());
+
+	//
+	// Loop through all of the ports of this logic element
+	//
+	for(int portid=0; portid<GetSize(pdir_node->data_dict_keys);
+			portid++) {
+		//
+		string		port_name;
+		JsonNode	*dir_node, *wire_group_node;
+		//
+
+		port_name = pdir_node->data_dict_keys[portid];
+		dir_node  = pdir_node->data_dict.at(port_name);
+		wire_group_node = connections->data_dict.at(port_name);
+
+		json_import_cell_ports(design, modname, cell,
+			port_name, dir_node, wire_group_node);
+	}
+
+	design->cells[cell->name] = cell;
+	// check_all_nets_driven(design);
+}
+
+void json_import(Design *design, string modname, JsonNode *node) {
 	if (is_blackbox(node))
 		return;
 
-log_info("Processing modname = %s\n", modname.c_str());
+	log_info("Importing modname = %s\n", modname.c_str());
 
 	if (node->data_dict.count("cells")) {
 		JsonNode *cell_parent = node->data_dict.at("cells");
@@ -295,159 +627,16 @@ log_info("Processing modname = %s\n", modname.c_str());
 		for(int cellid=0; cellid < GetSize(cell_parent->data_dict_keys);
 				cellid ++) {
 			JsonNode *cell_type, *here, *param_node;
-
+			
 			here = cell_parent->data_dict.at(
 				cell_parent->data_dict_keys[cellid]);
-			cell_type = here->data_dict.at("type");
-			if (cell_type == NULL)
-				continue;
+			json_import_cell(design, modname, here,
+					cell_parent->data_dict_keys[cellid]);
 
-			CellInfo *cell =  new CellInfo;
-
-			cell->name = cell_parent->data_dict_keys[cellid];
-			cell->type = cell_type;
-			// No BEL assignment here/yet
-
-log_info("  Processing %s $ %s\n", modname.c_str(), cell->name.c_str());
-			param_node = here->data_dict.at("parameters");
-			if (param_node->type != 'D')
-				log_error("JSON parameter list of \'%s\' is not a data dictionary\n", cell->name);
-
-			//
-			// Loop through all parameters, adding them into the
-			// design to annotate the cell
-			//
-			for(int paramid = 0;
-				paramid < GetSize(param_node->data_dict_keys);
-				paramid++) {
-				//
-				JsonNode	*param;
-				//
-				param = param_node->data_dict.at(
-					param_node->data_dict_keys[paramid]);
-
-				IdString	pId;
-				pId = param_node->data_dict_keys[paramid];
-				if (param->type == 'N') {
-					string	tmp;
-					tmp = "" + param_node->data_number;
-					cell->params[pId] = tmp;
-				} else if (param->type == 'S')
-					cell->params[pId] = param->data_string;
-				else
-					log_error("JSON parameter type of \"%s\' of cell \'%s\' not supported\n",
-						pId.c_str(),
-						cell->name.c_str());
-
-log_info("    Added parameter \'%s\'=%s to cell \'%s\' of module \'%s\'\n",
-	pId.c_str(), cell->params[pId].c_str(),
-	cell->name.c_str(), modname.c_str());
-			}
-
-			JsonNode *pdir_node
-				= here->data_dict.at("port_directions");
-			if (pdir_node->type != 'D')
-				log_error("JSON port_directions node of \'%s\' "
-					"in module \'%s\' is not a "
-					"dictionary\n", cell->name.c_str(),
-					modname.c_str());
-
-			JsonNode *connections
-				= here->data_dict.at("connections");
-			if (connections->type != 'D')
-				log_error("JSON connections node of \'%s\' "
-					"in module \'%s\' is not a "
-					"dictionary\n", cell->name.c_str(),
-					modname.c_str());
-
-			if (GetSize(pdir_node->data_dict_keys)
-					!= GetSize(connections->data_dict_keys))
-				log_error("JSON number of connections doesnt "
-					"match number of ports in node \'%s\' "
-					"of module \'%s\'\n",
-					cell->name.c_str(),
-					modname.c_str());
-
-			//
-			// Loop through all of the ports of this logic element
-			//
-			for(int portid=0;
-				portid<GetSize(pdir_node->data_dict_keys);
-				portid++) {
-				string		key;
-				JsonNode	*dir_node, *wire_node;
-
-				key = pdir_node->data_dict_keys[portid];
-				dir_node = pdir_node->data_dict.at(key);
-				wire_node = connections->data_dict.at(key);
-
-				assert(dir_node);
-
-log_info("Examining port %s, node %s\n", key.c_str(),
-	cell->name.c_str());
-
-				if (!wire_node)
-					log_error("JSON no connection match "
-						"for port_direction \'%s\' "
-						"of node \'%s\' "
-						"in module \'%s\'\n",
-						key, cell->name.c_str(),
-						modname.c_str());
-
-				assert(wire_node);
-
-				assert(dir_node->type == 'S');
-				assert(wire_node->type == 'A');
-
-				PortInfo	port_info;
-				port_info.name = cell->name + "$" + key;
-				if(dir_node->data_string.compare("input")==0)
-					port_info.type = PORT_IN;
-				else if(dir_node->data_string.compare("output")==0)
-					port_info.type = PORT_OUT;
-				else if(dir_node->data_string.compare("inout")==0)
-					port_info.type = PORT_INOUT;
-				else
-					log_error("JSON unknown port direction "
-						"\'%s\' in node \'%s\' "
-						"of module \'%s\'\n",
-						dir_node->data_string.c_str(),
-						cell->name.c_str(),
-						modname.c_str());
-
-				//
-				// Find an update, or create a net to connect
-				// to this port.
-				//
-				PortRef		port_ref;
-				int		net_num;
-				NetInfo		*this_net;
-				IdString	net_id;
-
-				net_num = wire_node->data_number;
-				net_id = string(""+net_num);
-				if (design->nets.count(net_id) == 0) {
-					this_net = new NetInfo;
-					this_net->name = "" + net_id;
-					design->nets[net_id] = this_net;
-					this_net->driver.cell = NULL;
-					this_net->driver.port = "";
-				} else
-					this_net = design->nets[net_id];
-
-				port_ref.cell = cell;
-				port_ref.port = port_info.name;
-
-				if (port_info.type != PORT_IN) {
-					assert(this_net->driver->cell == NULL);
-					this_net->driver = port_ref;
-				} else
-					this_net->users.push_back(port_ref);
-			}
-
-			design->cells[cell->name] = cell;
 		}
 	}
+
+	check_all_nets_driven(design);
 }
 
 struct JsonFrontend {
@@ -488,6 +677,8 @@ int	main(int argc, char **argv) {
 	ChipArgs	chip_args;
 	chip_args.type = ChipArgs::LP384;
 
+	log_files.push_back(stderr);
+
 	Design	*design = new Design(chip_args);
 	// std::string	fname = "../../ice40/blinky.json";
 	std::string	fname = "/home/dan/work/rnd/opencores/icozip/trunk/rtl/icozip/icozip.json";
@@ -497,5 +688,3 @@ int	main(int argc, char **argv) {
 	printf("Successful exit\n");
 }
 
-int	num_wires_384 = 0;
-WireInfoPOD	wire_data_384[] = { 0 };
