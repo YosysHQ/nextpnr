@@ -26,8 +26,9 @@
 #include <fstream>
 #include <assert.h>
 #include <log.h>
-#include "common/design.h"
-#include "ice40/chip.h"
+#include "design.h"
+#include "chip.h"
+#include "jsonparse.h"
 
 extern	bool	check_all_nets_driven(Design *design);
 
@@ -670,21 +671,7 @@ struct JsonFrontend {
 
 }; // End Namespace JsonParser
 
-#warning "Main routine should be removed from jsonparse.cc before production"
-
-int	main(int argc, char **argv) {
-	JsonParser::JsonFrontend *parser = new JsonParser::JsonFrontend;
-	ChipArgs	chip_args;
-	chip_args.type = ChipArgs::LP384;
-
-	log_files.push_back(stderr);
-
-	Design	*design = new Design(chip_args);
-	// std::string	fname = "../../ice40/blinky.json";
-	std::string	fname = "/home/dan/work/rnd/opencores/icozip/trunk/rtl/icozip/icozip.json";
-	std::istream	*f = new std::ifstream(fname);
-	parser->execute(f, fname, design);
-
-	printf("Successful exit\n");
+void	parse_json_file(std::istream *&f, std::string filename, Design *design){
+	auto *parser = new JsonParser::JsonFrontend();
+	parser->execute(f, filename, design);
 }
-

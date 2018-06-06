@@ -70,8 +70,10 @@ if (NOT Boost_PYTHON_FOUND )
 endif ()
 include(gui/gui.cmake)
 
-include_directories(common/ gui/ ${Boost_INCLUDE_DIRS} ${PYTHON_INCLUDE_DIRS})
-aux_source_directory(common/ COMMON_FILES)
+include_directories(common/ gui/ frontend/json ${Boost_INCLUDE_DIRS} ${PYTHON_INCLUDE_DIRS})
+aux_source_directory(common/ COMMON_SRC_FILES)
+aux_source_directory(frontend/json/ JSON_PARSER_FILES)
+set(COMMON_FILES ${COMMON_SRC_FILES} ${JSON_PARSER_FILES})
 
 foreach (family ${FAMILIES})
     string(TOUPPER ${family} ufamily)

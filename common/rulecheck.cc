@@ -1,6 +1,6 @@
 #include <string>
 #include <assert.h>
-#include "common/design.h"
+#include "design.h"
 #include "log.h"
 
 bool	check_all_nets_driven(Design *design) {

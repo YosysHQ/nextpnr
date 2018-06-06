@@ -11,8 +11,9 @@ Prequisites
  
  - CMake 3.3 or later
  - Modern C++11 compiler, clang recommended
+ - Qt5 or later (`qt5-default` for Ubuntu 16.04)
  - Python 3.5 or later, including development libraries (`python3-dev` for Ubuntu)
- - Boost libraries (`libboost-all-dev` for Ubuntu)
+ - Boost libraries (`libboost-dev` or `libboost-all-dev` for Ubuntu)
  - Icestorm, with chipdbs installed in `/usr/local/share/icebox`
  
 Building

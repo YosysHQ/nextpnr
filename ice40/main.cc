@@ -20,9 +20,11 @@
 #include "mainwindow.h"
 #include <QApplication>
 #include <iostream>
+#include <fstream>
 #include "version.h"
 #include <boost/program_options.hpp>
 #include "pybindings.h"
+#include "jsonparse.h"
 
 void svg_dump_el(const GraphicElement &el)
 {
@@ -52,6 +54,7 @@ int main(int argc, char *argv[])
 	options.add_options()("gui","start gui");
 	options.add_options()("svg","dump SVG file");
 	options.add_options()("file", po::value<std::string>(), "python file to execute");
+	options.add_options()("json", po::value<std::string>(), "JSON design file to ingest");
 	options.add_options()("version,v","show version");	
 	options.add_options()("lp384","set device type to iCE40LP384");
 	options.add_options()("lp1k","set device type to iCE40LP1K");
@@ -66,19 +69,20 @@ int main(int argc, char *argv[])
 	po::variables_map vm;
 	try {
 		po::parsed_options parsed = po::command_line_parser(argc, argv).
-        	options(options).
-        	positional(pos).
-        	run();
+		options(options).
+		positional(pos).
+		run();
 
-    	po::store(parsed, vm);
+		po::store(parsed, vm);
 		
-		po::notify(vm);    
+		po::notify(vm);   
 	}
-    catch(std::exception& e)
-    {
-        std::cout << e.what() << "\n";
-        return 1;
-    }
+
+	catch(std::exception& e)
+	{
+		std::cout << e.what() << "\n";
+		return 1;
+	}
 
 	if (vm.count("help") || argc == 1)
 	{
@@ -90,7 +94,9 @@ int main(int argc, char *argv[])
 	
 	if (vm.count("version"))
 	{
-		std::cout << basename(argv[0]) << " -- Next Generation Place and Route (git sha1 " GIT_COMMIT_HASH_STR ")\n";
+		std::cout << basename(argv[0])
+			<< " -- Next Generation Place and Route (git sha1 "
+					GIT_COMMIT_HASH_STR ")\n";
 		return 1;
 	}
 
@@ -199,11 +205,19 @@ int main(int argc, char *argv[])
 		std::cout << "</svg>\n";
 	}
 
+	if (vm.count("json")) 
+	{
+		std::string filename = vm["json"].as<std::string>();
+		std::istream *f = new std::ifstream(filename);
+		
+		parse_json_file(f, filename, &design);
+	}	
+	
 	if (vm.count("file")) 
 	{
 		std::string filename = vm["file"].as<std::string>();
 		execute_python_file(argv[0],filename.c_str());
-    }	
+	}	
 	
 	return 0;
 }
