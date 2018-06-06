@@ -166,48 +166,41 @@ struct BelInfoPOD
 	BelType type;
 };
 
-struct WireDelayPOD
-{
-	int32_t wire_index;
-	float delay;
-};
-
 struct BelPortPOD
 {
 	int32_t bel_index;
 	PortPin port;
 };
 
+struct PipInfoPOD
+{
+	int32_t src, dst;
+	float delay;
+};
+
 struct WireInfoPOD
 {
 	const char *name;
-	int num_uphill, num_downhill, num_bidir;
-	WireDelayPOD *wires_uphill, *wires_downhill, *wires_bidir;
+	int num_uphill, num_downhill;
+	int *pips_uphill, *pips_downhill;
 
 	int num_bels_downhill;
 	BelPortPOD bel_uphill;
 	BelPortPOD *bels_downhill;
 };
 
-extern int num_bels_384;
-extern int num_bels_1k;
-extern int num_bels_5k;
-extern int num_bels_8k;
+struct ChipInfoPOD
+{
+	int num_bels, num_wires, num_pips;
+	BelInfoPOD *bel_data;
+	WireInfoPOD *wire_data;
+	PipInfoPOD *pip_data;
+};
 
-extern BelInfoPOD bel_data_384[];
-extern BelInfoPOD bel_data_1k[];
-extern BelInfoPOD bel_data_5k[];
-extern BelInfoPOD bel_data_8k[];
-
-extern int num_wires_384;
-extern int num_wires_1k;
-extern int num_wires_5k;
-extern int num_wires_8k;
-
-extern WireInfoPOD wire_data_384[];
-extern WireInfoPOD wire_data_1k[];
-extern WireInfoPOD wire_data_5k[];
-extern WireInfoPOD wire_data_8k[];
+extern ChipInfoPOD chip_info_384;
+extern ChipInfoPOD chip_info_1k;
+extern ChipInfoPOD chip_info_5k;
+extern ChipInfoPOD chip_info_8k;
 
 // -----------------------------------------------------------------------
 
@@ -218,6 +211,9 @@ struct BelId
 	bool nil() const {
 		return index < 0;
 	}
+
+	bool operator==(const BelId &other) const { return index == other.index; }
+	bool operator!=(const BelId &other) const { return index != other.index; }
 };
 
 struct WireId
@@ -227,6 +223,27 @@ struct WireId
 	bool nil() const {
 		return index < 0;
 	}
+
+	bool operator==(const WireId &other) const { return index == other.index; }
+	bool operator!=(const WireId &other) const { return index != other.index; }
+};
+
+struct PipId
+{
+	int32_t index = -1;
+
+	bool nil() const {
+		return index < 0;
+	}
+
+	bool operator==(const PipId &other) const { return index == other.index; }
+	bool operator!=(const PipId &other) const { return index != other.index; }
+};
+
+struct BelPin
+{
+	BelId bel;
+	PortPin pin;
 };
 
 namespace std
@@ -242,6 +259,14 @@ namespace std
 	template<> struct hash<WireId>
         {
 		std::size_t operator()(const WireId &wire) const noexcept
+		{
+			return wire.index;
+		}
+	};
+
+	template<> struct hash<PipId>
+        {
+		std::size_t operator()(const PipId &wire) const noexcept
 		{
 			return wire.index;
 		}
@@ -273,65 +298,6 @@ struct BelRange
 
 // -----------------------------------------------------------------------
 
-struct AllWireIterator
-{
-	int cursor;
-
-	void operator++() { cursor++; }
-	bool operator!=(const AllWireIterator &other) const { return cursor != other.cursor; }
-
-	WireId operator*() const {
-		WireId ret;
-		ret.index = cursor;
-		return ret;
-	}
-};
-
-struct AllWireRange
-{
-	AllWireIterator b, e;
-	AllWireIterator begin() const { return b; }
-	AllWireIterator end() const { return e; }
-};
-
-// -----------------------------------------------------------------------
-
-struct WireDelay
-{
-	WireId wire;
-	DelayInfo delay;
-};
-
-struct WireDelayIterator
-{
-	WireDelayPOD *ptr = nullptr;
-
-	void operator++() { ptr++; }
-	bool operator!=(const WireDelayIterator &other) const { return ptr != other.ptr; }
-
-	WireDelay operator*() const {
-		WireDelay ret;
-		ret.wire.index = ptr->wire_index;
-		ret.delay.delay = ptr->delay;
-		return ret;
-	}
-};
-
-struct WireDelayRange
-{
-	WireDelayIterator b, e;
-	WireDelayIterator begin() const { return b; }
-	WireDelayIterator end() const { return e; }
-};
-
-// -----------------------------------------------------------------------
-
-struct BelPin
-{
-	BelId bel;
-	PortPin pin;
-};
-
 struct BelPinIterator
 {
 	BelPortPOD *ptr = nullptr;
@@ -356,6 +322,75 @@ struct BelPinRange
 
 // -----------------------------------------------------------------------
 
+struct WireIterator
+{
+	int cursor = -1;
+
+	void operator++() { cursor++; }
+	bool operator!=(const WireIterator &other) const { return cursor != other.cursor; }
+
+	WireId operator*() const {
+		WireId ret;
+		ret.index = cursor;
+		return ret;
+	}
+};
+
+struct WireRange
+{
+	WireIterator b, e;
+	WireIterator begin() const { return b; }
+	WireIterator end() const { return e; }
+};
+
+// -----------------------------------------------------------------------
+
+struct AllPipIterator
+{
+	int cursor = -1;
+
+	void operator++() { cursor++; }
+	bool operator!=(const AllPipIterator &other) const { return cursor != other.cursor; }
+
+	PipId operator*() const {
+		PipId ret;
+		ret.index = cursor;
+		return ret;
+	}
+};
+
+struct AllPipRange
+{
+	AllPipIterator b, e;
+	AllPipIterator begin() const { return b; }
+	AllPipIterator end() const { return e; }
+};
+
+// -----------------------------------------------------------------------
+
+struct PipIterator
+{
+	int *cursor = nullptr;
+
+	void operator++() { cursor++; }
+	bool operator!=(const PipIterator &other) const { return cursor != other.cursor; }
+
+	PipId operator*() const {
+		PipId ret;
+		ret.index = *cursor;
+		return ret;
+	}
+};
+
+struct PipRange
+{
+	PipIterator b, e;
+	PipIterator begin() const { return b; }
+	PipIterator end() const { return e; }
+};
+
+// -----------------------------------------------------------------------
+
 struct ChipArgs
 {
 	enum {
@@ -371,36 +406,41 @@ struct ChipArgs
 
 struct Chip
 {
-	int num_bels, num_wires;
-	BelInfoPOD *bel_data;
-	WireInfoPOD *wire_data;
+	ChipInfoPOD chip_info;
 
-	mutable dict<IdString, int> wire_by_name;
 	mutable dict<IdString, int> bel_by_name;
+	mutable dict<IdString, int> wire_by_name;
+	mutable dict<IdString, int> pip_by_name;
 
 	Chip(ChipArgs args);
 
-	void setBelActive(BelId, bool) { }
-	bool getBelActive(BelId) { return true; }
+	// -------------------------------------------------
 
 	BelId getBelByName(IdString name) const;
-	WireId getWireByName(IdString name) const;
 
 	IdString getBelName(BelId bel) const
 	{
-		return bel_data[bel.index].name;
+		assert(!bel.nil());
+		return chip_info.bel_data[bel.index].name;
 	}
 
-	IdString getWireName(WireId wire) const
+	void bindBel(BelId bel, IdString cell)
 	{
-		return wire_data[wire.index].name;
+	}
+
+	void unbindBel(BelId bel)
+	{
+	}
+
+	bool checkBelAvail(BelId bel) const
+	{
 	}
 
 	BelRange getBels() const
 	{
 		BelRange range;
 		range.b.cursor = 0;
-		range.e.cursor = num_bels;
+		range.e.cursor = chip_info.num_bels;
 		return range;
 	}
 
@@ -420,52 +460,8 @@ struct Chip
 
 	BelType getBelType(BelId bel) const
 	{
-		return bel_data[bel.index].type;
-	}
-
-	// FIXME: void getBelPosition(BelId bel, float &x, float &y) const;
-	// FIXME: void getWirePosition(WireId wire, float &x, float &y) const;
-	// FIXME: vector<GraphicElement> getBelGraphics(BelId bel) const;
-	// FIXME: vector<GraphicElement> getWireGraphics(WireId wire) const;
-	// FIXME: vector<GraphicElement> getPipGraphics(WireId src, WireId dst) const;
-	// FIXME: vector<GraphicElement> getFrameGraphics() const;
-
-	AllWireRange getWires() const
-	{
-		AllWireRange range;
-		range.b.cursor = 0;
-		range.e.cursor = num_wires;
-		return range;
-	}
-
-	WireDelayRange getWiresUphill(WireId wire) const
-	{
-		WireDelayRange range;
-		range.b.ptr = wire_data[wire.index].wires_uphill;
-		range.e.ptr = wire_data[wire.index].wires_uphill + wire_data[wire.index].num_uphill;
-		return range;
-	}
-
-	WireDelayRange getWiresDownhill(WireId wire) const
-	{
-		WireDelayRange range;
-		range.b.ptr = wire_data[wire.index].wires_downhill;
-		range.e.ptr = wire_data[wire.index].wires_downhill + wire_data[wire.index].num_downhill;
-		return range;
-	}
-
-	WireDelayRange getWiresBidir(WireId wire) const
-	{
-		WireDelayRange range;
-		range.b.ptr = wire_data[wire.index].wires_bidir;
-		range.e.ptr = wire_data[wire.index].wires_bidir + wire_data[wire.index].num_bidir;
-		return range;
-	}
-
-	WireDelayRange getWireAliases(WireId wire) const
-	{
-		WireDelayRange range;
-		return range;
+		assert(!bel.nil());
+		return chip_info.bel_data[bel.index].type;
 	}
 
 	WireId getWireBelPin(BelId bel, PortPin pin) const;
@@ -473,10 +469,11 @@ struct Chip
 	BelPin getBelPinUphill(WireId wire) const
 	{
 		BelPin ret;
+		assert(!wire.nil());
 
-		if (wire_data[wire.index].bel_uphill.bel_index >= 0) {
-			ret.bel.index = wire_data[wire.index].bel_uphill.bel_index;
-			ret.pin = wire_data[wire.index].bel_uphill.port;
+		if (chip_info.wire_data[wire.index].bel_uphill.bel_index >= 0) {
+			ret.bel.index = chip_info.wire_data[wire.index].bel_uphill.bel_index;
+			ret.pin = chip_info.wire_data[wire.index].bel_uphill.port;
 		}
 
 		return ret;
@@ -485,10 +482,134 @@ struct Chip
 	BelPinRange getBelPinsDownhill(WireId wire) const
 	{
 		BelPinRange range;
-		range.b.ptr = wire_data[wire.index].bels_downhill;
-		range.e.ptr = wire_data[wire.index].bels_downhill + wire_data[wire.index].num_bels_downhill;
+		assert(!wire.nil());
+		range.b.ptr = chip_info.wire_data[wire.index].bels_downhill;
+		range.e.ptr = range.b.ptr + chip_info.wire_data[wire.index].num_bels_downhill;
 		return range;
 	}
+
+	// -------------------------------------------------
+
+	WireId getWireByName(IdString name) const;
+
+	IdString getWireName(WireId wire) const
+	{
+		assert(!wire.nil());
+		return chip_info.wire_data[wire.index].name;
+	}
+
+	void bindWire(WireId bel, IdString net)
+	{
+	}
+
+	void unbindWire(WireId bel)
+	{
+	}
+
+	bool checkWireAvail(WireId bel) const
+	{
+	}
+
+	WireRange getWires() const
+	{
+		WireRange range;
+		range.b.cursor = 0;
+		range.e.cursor = chip_info.num_wires;
+		return range;
+	}
+
+	// -------------------------------------------------
+
+	PipId getPipByName(IdString name) const;
+
+	IdString getPipName(PipId pip) const
+	{
+		assert(!pip.nil());
+		std::string src_name = chip_info.wire_data[chip_info.pip_data[pip.index].src].name;
+		std::string dst_name = chip_info.wire_data[chip_info.pip_data[pip.index].dst].name;
+		return src_name + "->" + dst_name;
+	}
+
+	void bindPip(PipId bel, IdString net)
+	{
+	}
+
+	void unbindPip(PipId bel)
+	{
+	}
+
+	bool checkPipAvail(PipId bel) const
+	{
+	}
+
+	AllPipRange getPips() const
+	{
+		AllPipRange range;
+		range.b.cursor = 0;
+		range.e.cursor = chip_info.num_pips;
+		return range;
+	}
+
+	WireId getPipSrcWire(PipId pip) const
+	{
+		WireId wire;
+		assert(!pip.nil());
+		wire.index = chip_info.pip_data[pip.index].src;
+		return wire;
+	}
+
+	WireId getPipDstWire(PipId pip) const
+	{
+		WireId wire;
+		assert(!pip.nil());
+		wire.index = chip_info.pip_data[pip.index].dst;
+		return wire;
+	}
+
+	DelayInfo getPipDelay(PipId pip) const
+	{
+		DelayInfo delay;
+		assert(!pip.nil());
+		delay.delay = chip_info.pip_data[pip.index].delay;
+		return delay;
+	}
+
+	PipRange getPipsDownhill(WireId wire) const
+	{
+		PipRange range;
+		assert(!wire.nil());
+		range.b.cursor = chip_info.wire_data[wire.index].pips_downhill;
+		range.e.cursor = range.b.cursor + chip_info.wire_data[wire.index].num_downhill;
+		return range;
+	}
+
+	PipRange getPipsUphill(WireId wire) const
+	{
+		PipRange range;
+		assert(!wire.nil());
+		range.b.cursor = chip_info.wire_data[wire.index].pips_uphill;
+		range.e.cursor = range.b.cursor + chip_info.wire_data[wire.index].num_uphill;
+		return range;
+	}
+
+	PipRange getWireAliases(WireId wire) const
+	{
+		PipRange range;
+		assert(!wire.nil());
+		range.b.cursor = nullptr;
+		range.e.cursor = nullptr;
+		return range;
+	}
+
+	// -------------------------------------------------
+
+	void getBelPosition(BelId bel, float &x, float &y) const;
+	void getWirePosition(WireId wire, float &x, float &y) const;
+	void getPipPosition(WireId wire, float &x, float &y) const;
+	vector<GraphicElement> getBelGraphics(BelId bel) const;
+	vector<GraphicElement> getWireGraphics(WireId wire) const;
+	vector<GraphicElement> getPipGraphics(PipId pip) const;
+	vector<GraphicElement> getFrameGraphics() const;
 };
 
 #endif
