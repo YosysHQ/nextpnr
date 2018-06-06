@@ -32,7 +32,7 @@ int main(int argc, char *argv[])
 
 	po::options_description options("Allowed options");
 	options.add_options()("help,h","show help");
-	options.add_options()("debug","just a check");
+	options.add_options()("test","just a check");
 	options.add_options()("gui","start gui");
 	options.add_options()("file", po::value<std::string>(), "python file to execute");
 	options.add_options()("version,v","show version");	
@@ -80,14 +80,66 @@ int main(int argc, char *argv[])
 		return a.exec();
 	}
 
-	if (vm.count("debug")) 
+	if (vm.count("test"))
 	{
 		ChipArgs chipArgs;
 		chipArgs.type = ChipArgs::LP384;
 
-		Design design(chipArgs);		
-		for (auto bel : design.chip.getBels())
-			printf("%s\n", design.chip.getBelName(bel).c_str());
+		Design design(chipArgs);
+		int bel_count = 0, wire_count = 0, pip_count = 0;
+
+		std::cout << "Checking bel names.\n";
+		for (auto bel : design.chip.getBels()) {
+			auto name = design.chip.getBelName(bel);
+			assert(bel == design.chip.getBelByName(name));
+			bel_count++;
+		}
+		std::cout << "  checked " << bel_count << " bels.\n";
+
+		std::cout << "Checking wire names.\n";
+		for (auto wire : design.chip.getWires()) {
+			auto name = design.chip.getWireName(wire);
+			assert(wire == design.chip.getWireByName(name));
+			wire_count++;
+		}
+		std::cout << "  checked " << wire_count << " wires.\n";
+
+		std::cout << "Checking pip names.\n";
+		for (auto pip : design.chip.getPips()) {
+			auto name = design.chip.getPipName(pip);
+			assert(pip == design.chip.getPipByName(name));
+			pip_count++;
+		}
+		std::cout << "  checked " << pip_count << " pips.\n";
+
+		std::cout << "Checking uphill -> downhill consistency.\n";
+		for (auto dst : design.chip.getWires()) {
+			for (auto uphill_pip : design.chip.getPipsUphill(dst)) {
+				bool found_downhill = false;
+				for (auto downhill_pip : design.chip.getPipsDownhill(design.chip.getPipSrcWire(uphill_pip))) {
+					if (uphill_pip == downhill_pip) {
+						assert(!found_downhill);
+						found_downhill = true;
+					}
+				}
+				assert(found_downhill);
+			}
+		}
+
+		std::cout << "Checking downhill -> uphill consistency.\n";
+		for (auto dst : design.chip.getWires()) {
+			for (auto downhill_pip : design.chip.getPipsDownhill(dst)) {
+				bool found_uphill = false;
+				for (auto uphill_pip : design.chip.getPipsUphill(design.chip.getPipDstWire(downhill_pip))) {
+					if (uphill_pip == downhill_pip) {
+						assert(!found_uphill);
+						found_uphill = true;
+					}
+				}
+				assert(found_uphill);
+			}
+		}
+
 		return 0;
 	}
 
