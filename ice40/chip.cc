@@ -401,14 +401,38 @@ vector<GraphicElement> Chip::getBelGraphics(BelId bel) const
 	}
 
 	if (bel_type == TYPE_SB_IO) {
-		GraphicElement el;
-		el.type = GraphicElement::G_BOX;
-		el.x1 = chip_info.bel_data[bel.index].x + 0.1;
-		el.x2 = chip_info.bel_data[bel.index].x + 0.9;
-		el.y1 = chip_info.bel_data[bel.index].y + 0.10 + (chip_info.bel_data[bel.index].z) * (0.8/2);
-		el.y2 = chip_info.bel_data[bel.index].y + 0.40 + (chip_info.bel_data[bel.index].z) * (0.8/2);
-		el.z = 0;
-		ret.push_back(el);
+		if (chip_info.bel_data[bel.index].x == 0 || chip_info.bel_data[bel.index].x == chip_info.width-1)
+		{
+			GraphicElement el;
+			el.type = GraphicElement::G_BOX;
+			el.x1 = chip_info.bel_data[bel.index].x + 0.1;
+			el.x2 = chip_info.bel_data[bel.index].x + 0.9;
+			if (chip_info.bel_data[bel.index].z == 0) {
+				el.y1 = chip_info.bel_data[bel.index].y + 0.10;
+				el.y2 = chip_info.bel_data[bel.index].y + 0.45;
+			} else {
+				el.y1 = chip_info.bel_data[bel.index].y + 0.55;
+				el.y2 = chip_info.bel_data[bel.index].y + 0.90;
+			}
+			el.z = 0;
+			ret.push_back(el);
+		}
+		else
+		{
+			GraphicElement el;
+			el.type = GraphicElement::G_BOX;
+			if (chip_info.bel_data[bel.index].z == 0) {
+				el.x1 = chip_info.bel_data[bel.index].x + 0.10;
+				el.x2 = chip_info.bel_data[bel.index].x + 0.45;
+			} else {
+				el.x1 = chip_info.bel_data[bel.index].x + 0.55;
+				el.x2 = chip_info.bel_data[bel.index].x + 0.90;
+			}
+			el.y1 = chip_info.bel_data[bel.index].y + 0.1;
+			el.y2 = chip_info.bel_data[bel.index].y + 0.9;
+			el.z = 0;
+			ret.push_back(el);
+		}
 	}
 
 	if (bel_type == TYPE_ICESTORM_RAM) {

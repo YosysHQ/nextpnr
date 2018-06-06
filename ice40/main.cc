@@ -26,17 +26,17 @@
 
 void svg_dump_el(const GraphicElement &el)
 {
-	float scale = 10.0;
+	float scale = 10.0, offset = 10.0;
 	std::string style = "stroke=\"black\" stroke-width=\"0.1\" fill=\"none\"";
 
 	if (el.type == GraphicElement::G_BOX) {
-		std::cout << "<rect x=\"" << (scale*el.x1) << "\" y=\"" << (scale*el.y1) <<
+		std::cout << "<rect x=\"" << (offset + scale*el.x1) << "\" y=\"" << (offset + scale*el.y1) <<
 				"\" height=\"" << (scale*(el.y2-el.y1)) << "\" width=\"" << (scale*(el.x2-el.x1)) << "\" " << style << "/>\n";
 	}
 
 	if (el.type == GraphicElement::G_LINE) {
-		std::cout << "<line x1=\"" << (scale*el.x1) << "\" y1=\"" << (scale*el.y1) <<
-				"\" x2=\"" << (scale*el.x2) << "\" y2=\"" << (scale*el.y2) << "\" " << style << "/>\n";
+		std::cout << "<line x1=\"" << (offset + scale*el.x1) << "\" y1=\"" << (offset + scale*el.y1) <<
+				"\" x2=\"" << (offset + scale*el.x2) << "\" y2=\"" << (offset + scale*el.y2) << "\" " << style << "/>\n";
 	}
 }
 
@@ -53,6 +53,12 @@ int main(int argc, char *argv[])
 	options.add_options()("svg","dump SVG file");
 	options.add_options()("file", po::value<std::string>(), "python file to execute");
 	options.add_options()("version,v","show version");	
+	options.add_options()("lp384","set device type to iCE40LP384");
+	options.add_options()("lp1k","set device type to iCE40LP1K");
+	options.add_options()("lp8k","set device type to iCE40LP8K");
+	options.add_options()("hx1k","set device type to iCE40HX1K");
+	options.add_options()("hx8k","set device type to iCE40HX8K");
+	options.add_options()("up5k","set device type to iCE40UP5K");
 
 	po::positional_options_description pos;
 	pos.add("file", -1);
@@ -89,7 +95,25 @@ int main(int argc, char *argv[])
 	}
 
 	ChipArgs chipArgs;
-	chipArgs.type = ChipArgs::LP384;
+	chipArgs.type = ChipArgs::HX1K;
+
+	if (vm.count("lp384"))
+		chipArgs.type = ChipArgs::LP384;
+
+	if (vm.count("lp1k"))
+		chipArgs.type = ChipArgs::LP1K;
+
+	if (vm.count("lp8k"))
+		chipArgs.type = ChipArgs::LP8K;
+
+	if (vm.count("hx1k"))
+		chipArgs.type = ChipArgs::HX1K;
+
+	if (vm.count("hx8k"))
+		chipArgs.type = ChipArgs::HX8K;
+
+	if (vm.count("up5k"))
+		chipArgs.type = ChipArgs::UP5K;
 
 	Design design(chipArgs);
 
