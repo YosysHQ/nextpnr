@@ -12,17 +12,17 @@ class MainWindow : public QMainWindow
 {
     Q_OBJECT
 
-public:
+  public:
     explicit MainWindow(QWidget *parent = 0);
     ~MainWindow();
 
-private:
+  private:
     int executePython(std::string command);
 
-private Q_SLOTS:
+  private Q_SLOTS:
     void on_lineEdit_returnPressed();
 
-private:
+  private:
     Ui::MainWindow *ui;
     emb::stdout_write_type write;
 };

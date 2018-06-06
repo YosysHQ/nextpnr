@@ -10,12 +10,11 @@
 #include <iostream>
 #include <string>
 
-namespace emb
-{
-    typedef std::function<void(std::string)> stdout_write_type;
+namespace emb {
+typedef std::function<void(std::string)> stdout_write_type;
 
-    void set_stdout(stdout_write_type write);
-    void reset_stdout();
-    
-    void append_inittab();
+void set_stdout(stdout_write_type write);
+void reset_stdout();
+
+void append_inittab();
 } // namespace emb
