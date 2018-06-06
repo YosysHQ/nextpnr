@@ -364,23 +364,64 @@ PipId Chip::getPipByName(IdString name) const
 
 void Chip::getBelPosition(BelId bel, float &x, float &y) const
 {
-	// FIXME
+	assert(!bel.nil());
+	x = chip_info.bel_data[bel.index].x;
+	y = chip_info.bel_data[bel.index].y;
 }
 
 void Chip::getWirePosition(WireId wire, float &x, float &y) const
 {
-	// FIXME
+	assert(!wire.nil());
+	x = chip_info.wire_data[wire.index].x;
+	y = chip_info.wire_data[wire.index].y;
 }
 
-void Chip::getPipPosition(WireId wire, float &x, float &y) const
+void Chip::getPipPosition(PipId pip, float &x, float &y) const
 {
-	// FIXME
+	assert(!pip.nil());
+	x = chip_info.pip_data[pip.index].x;
+	y = chip_info.pip_data[pip.index].y;
 }
 
 vector<GraphicElement> Chip::getBelGraphics(BelId bel) const
 {
 	vector<GraphicElement> ret;
-	// FIXME
+
+	auto bel_type = getBelType(bel);
+
+	if (bel_type == TYPE_ICESTORM_LC) {
+		GraphicElement el;
+		el.type = GraphicElement::G_BOX;
+		el.x1 = chip_info.bel_data[bel.index].x + 0.1;
+		el.x2 = chip_info.bel_data[bel.index].x + 0.9;
+		el.y1 = chip_info.bel_data[bel.index].y + 0.10 + (chip_info.bel_data[bel.index].z) * (0.8/8);
+		el.y2 = chip_info.bel_data[bel.index].y + 0.18 + (chip_info.bel_data[bel.index].z) * (0.8/8);
+		el.z = 0;
+		ret.push_back(el);
+	}
+
+	if (bel_type == TYPE_SB_IO) {
+		GraphicElement el;
+		el.type = GraphicElement::G_BOX;
+		el.x1 = chip_info.bel_data[bel.index].x + 0.1;
+		el.x2 = chip_info.bel_data[bel.index].x + 0.9;
+		el.y1 = chip_info.bel_data[bel.index].y + 0.10 + (chip_info.bel_data[bel.index].z) * (0.8/2);
+		el.y2 = chip_info.bel_data[bel.index].y + 0.40 + (chip_info.bel_data[bel.index].z) * (0.8/2);
+		el.z = 0;
+		ret.push_back(el);
+	}
+
+	if (bel_type == TYPE_ICESTORM_RAM) {
+		GraphicElement el;
+		el.type = GraphicElement::G_BOX;
+		el.x1 = chip_info.bel_data[bel.index].x + 0.1;
+		el.x2 = chip_info.bel_data[bel.index].x + 0.9;
+		el.y1 = chip_info.bel_data[bel.index].y + 0.1;
+		el.y2 = chip_info.bel_data[bel.index].y + 1.9;
+		el.z = 0;
+		ret.push_back(el);
+	}
+
 	return ret;
 }
 
@@ -401,6 +442,17 @@ vector<GraphicElement> Chip::getPipGraphics(PipId pip) const
 vector<GraphicElement> Chip::getFrameGraphics() const
 {
 	vector<GraphicElement> ret;
-	// FIXME
+
+	for (int x = 0; x <= chip_info.width; x++)
+	for (int y = 0; y <= chip_info.height; y++)
+	{
+		GraphicElement el;
+		el.type = GraphicElement::G_LINE;
+		el.x1 = x - 0.05, el.x2 = x + 0.05, el.y1 = y, el.y2 = y, el.z = 0;
+		ret.push_back(el);
+		el.x1 = x, el.x2 = x, el.y1 = y - 0.05, el.y2 = y + 0.05, el.z = 0;
+		ret.push_back(el);
+	}
+
 	return ret;
 }

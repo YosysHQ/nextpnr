@@ -164,6 +164,7 @@ struct BelInfoPOD
 {
 	const char *name;
 	BelType type;
+	int8_t x, y, z;
 };
 
 struct BelPortPOD
@@ -176,6 +177,7 @@ struct PipInfoPOD
 {
 	int32_t src, dst;
 	float delay;
+	int8_t x, y;
 };
 
 struct WireInfoPOD
@@ -187,10 +189,13 @@ struct WireInfoPOD
 	int num_bels_downhill;
 	BelPortPOD bel_uphill;
 	BelPortPOD *bels_downhill;
+
+	float x, y;
 };
 
 struct ChipInfoPOD
 {
+	int width, height;
 	int num_bels, num_wires, num_pips;
 	BelInfoPOD *bel_data;
 	WireInfoPOD *wire_data;
@@ -605,7 +610,7 @@ struct Chip
 
 	void getBelPosition(BelId bel, float &x, float &y) const;
 	void getWirePosition(WireId wire, float &x, float &y) const;
-	void getPipPosition(WireId wire, float &x, float &y) const;
+	void getPipPosition(PipId pip, float &x, float &y) const;
 	vector<GraphicElement> getBelGraphics(BelId bel) const;
 	vector<GraphicElement> getWireGraphics(WireId wire) const;
 	vector<GraphicElement> getPipGraphics(PipId pip) const;
