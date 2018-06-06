@@ -92,7 +92,7 @@ struct Chip
 
 	void getBelPosition(BelId bel, float &x, float &y) const;
 	void getWirePosition(WireId wire, float &x, float &y) const;
-	void getPipPosition(WireId wire, float &x, float &y) const;
+	void getPipPosition(PipId pip, float &x, float &y) const;
 	vector<GraphicElement> getBelGraphics(BelId bel) const;
 	vector<GraphicElement> getWireGraphics(WireId wire) const;
 	vector<GraphicElement> getPipGraphics(PipId pip) const;
