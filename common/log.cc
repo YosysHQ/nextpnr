@@ -31,8 +31,6 @@
 
 std::vector<FILE*>				log_files;
 std::vector<std::ostream*>			log_streams;
-std::map<std::string, std::set<std::string>>	log_hdump;
-bool		log_hdump_all  = false;
 FILE		*log_errfile   = NULL;
 
 bool		log_error_stderr    = false;
