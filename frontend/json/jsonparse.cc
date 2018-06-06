@@ -305,7 +305,8 @@ log_info("Processing modname = %s\n", modname.c_str());
 			CellInfo *cell =  new CellInfo;
 
 			cell->name = cell_parent->data_dict_keys[cellid];
-			cell->bel  = design->chip.getBelByName(cell_type->data_string);
+			cell->type = cell_type;
+			// No BEL assignment here/yet
 
 log_info("  Processing %s $ %s\n", modname.c_str(), cell->name.c_str());
 			param_node = here->data_dict.at("parameters");
@@ -429,15 +430,18 @@ log_info("Examining port %s, node %s\n", key.c_str(),
 					this_net = new NetInfo;
 					this_net->name = "" + net_id;
 					design->nets[net_id] = this_net;
+					this_net->driver.cell = NULL;
+					this_net->driver.port = "";
 				} else
 					this_net = design->nets[net_id];
 
 				port_ref.cell = cell;
 				port_ref.port = port_info.name;
 
-				if (port_info.type != PORT_IN)
+				if (port_info.type != PORT_IN) {
+					assert(this_net->driver->cell == NULL);
 					this_net->driver = port_ref;
-				else
+				} else
 					this_net->users.push_back(port_ref);
 			}
 
@@ -485,7 +489,8 @@ int	main(int argc, char **argv) {
 	chip_args.type = ChipArgs::LP384;
 
 	Design	*design = new Design(chip_args);
-	std::string	fname = "../../ice40/blinky.json";
+	// std::string	fname = "../../ice40/blinky.json";
+	std::string	fname = "/home/dan/work/rnd/opencores/icozip/trunk/rtl/icozip/icozip.json";
 	std::istream	*f = new std::ifstream(fname);
 	parser->execute(f, fname, design);
 

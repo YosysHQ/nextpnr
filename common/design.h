@@ -108,7 +108,7 @@ struct CellInfo
 
 	BelId bel;
 	// cell_port -> bel_pin
-	dict<IdString, IdString> pins;
+	dict<IdString, IdString>	pins;
 };
 
 struct Design
@@ -119,8 +119,8 @@ struct Design
 		// ...
 	}
 
-	dict<IdString, NetInfo*> nets;
-	dict<IdString, CellInfo*> cells;
+	dict<IdString, NetInfo*>	nets;
+	dict<IdString, CellInfo*>	cells;
 };
 
 #endif
