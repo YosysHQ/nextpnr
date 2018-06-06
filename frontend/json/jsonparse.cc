@@ -377,7 +377,7 @@ void	json_import_cell_ports(Design *design, string &modname, CellInfo *cell,
 		log_error("JSON no connection match "
 			"for port_direction \'%s\' of node \'%s\' "
 				"in module \'%s\'\n",
-			port_name, cell->name.c_str(), modname.c_str());
+			port_name.c_str(), cell->name.c_str(), modname.c_str());
 
 	assert(wire_group_node);
 
@@ -546,7 +546,7 @@ void	json_import_cell(Design *design, string modname, JsonNode *cell_node,
 
 	param_node = cell_node->data_dict.at("parameters");
 	if (param_node->type != 'D')
-		log_error("JSON parameter list of \'%s\' is not a data dictionary\n", cell->name);
+		log_error("JSON parameter list of \'%s\' is not a data dictionary\n", cell->name.c_str());
 
 	//
 	// Loop through all parameters, adding them into the
@@ -646,7 +646,7 @@ struct JsonFrontend {
 	virtual void help()
 	{
 	}
-	virtual void execute(std::istream *&f, std::string filename,
+	virtual void execute(std::istream *&f, std::string &filename,
 			Design *design)
 	{
 		// log_header(design, "Executing JSON frontend.\n");
@@ -671,7 +671,7 @@ struct JsonFrontend {
 
 }; // End Namespace JsonParser
 
-void	parse_json_file(std::istream *&f, std::string filename, Design *design){
+void	parse_json_file(std::istream *&f, std::string &filename, Design *design){
 	auto *parser = new JsonParser::JsonFrontend();
 	parser->execute(f, filename, design);
 }
