@@ -646,7 +646,7 @@ struct JsonFrontend {
 	virtual void help()
 	{
 	}
-	virtual void execute(std::istream *&f, std::string filename,
+	virtual void execute(std::istream *&f, std::string &filename,
 			Design *design)
 	{
 		// log_header(design, "Executing JSON frontend.\n");
@@ -671,7 +671,7 @@ struct JsonFrontend {
 
 }; // End Namespace JsonParser
 
-void	parse_json_file(std::istream *&f, std::string filename, Design *design){
+void	parse_json_file(std::istream *&f, std::string &filename, Design *design){
 	auto *parser = new JsonParser::JsonFrontend();
 	parser->execute(f, filename, design);
 }
