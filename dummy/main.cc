@@ -18,13 +18,19 @@
  */
 
 #include "design.h"
+#include "mainwindow.h"
+#include <QApplication>
 
-int main()
+int main(int argc, char *argv[])
 {
 	Design design(ChipArgs{});
 
 	for (auto bel : design.chip.getBels())
 		printf("%s\n", design.chip.getBelName(bel).c_str());
 
-	return 0;
+	QApplication a(argc, argv);
+    MainWindow w;
+    w.show();
+
+    return a.exec();
 }

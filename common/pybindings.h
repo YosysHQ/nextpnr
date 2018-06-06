@@ -79,5 +79,8 @@ struct range_wrapper {
 
 #define WRAP_RANGE(t) range_wrapper<t##Range>().wrap(#t "Range", #t "Iterator")
 
+void execute_python_file(const char *executable, const char* python_file);
+std::string parse_python_exception();
+void arch_appendinittab();
 
 #endif /* end of include guard: COMMON_PYBINDINGS_HH */
