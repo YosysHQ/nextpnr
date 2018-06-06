@@ -24,5 +24,4 @@
 
 void arch_wrap_python() {
     class_<ChipArgs>("ChipArgs");
-    WRAP_RANGE(Wire);
 }
