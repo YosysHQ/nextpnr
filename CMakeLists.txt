@@ -52,8 +52,22 @@ endwhile ()
 
 if (NOT Boost_PYTHON_FOUND)
     find_package(Boost COMPONENTS python3 ${boost_libs})
+    if ("${Boost_LIBRARIES}" MATCHES ".*(python|PYTHON).*" )
+        set(Boost_PYTHON_FOUND TRUE)
+    endif ()
 endif ()
 
+if (NOT Boost_PYTHON_FOUND)
+    STRING(REGEX REPLACE "([0-9]+\\.[0-9]+).*" "\\1" gentoo_version ${PYTHONLIBS_VERSION_STRING})
+    find_package(Boost COMPONENTS python-${gentoo_version} ${boost_libs})
+    if ("${Boost_LIBRARIES}" MATCHES ".*(python|PYTHON).*" )
+        set(Boost_PYTHON_FOUND TRUE)
+    endif ()
+endif ()
+
+if (NOT Boost_PYTHON_FOUND )
+    message( FATAL_ERROR "No version of Boost::Python 3.x could be found.")
+endif ()
 include(gui/gui.cmake)
 
 include_directories(common/ gui/ ${Boost_INCLUDE_DIRS} ${PYTHON_INCLUDE_DIRS})
