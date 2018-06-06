@@ -24,6 +24,22 @@
 #include <boost/program_options.hpp>
 #include "pybindings.h"
 
+void svg_dump_el(const GraphicElement &el)
+{
+	float scale = 10.0;
+	std::string style = "stroke=\"black\" stroke-width=\"0.1\" fill=\"none\"";
+
+	if (el.type == GraphicElement::G_BOX) {
+		std::cout << "<rect x=\"" << (scale*el.x1) << "\" y=\"" << (scale*el.y1) <<
+				"\" height=\"" << (scale*(el.y2-el.y1)) << "\" width=\"" << (scale*(el.x2-el.x1)) << "\" " << style << "/>\n";
+	}
+
+	if (el.type == GraphicElement::G_LINE) {
+		std::cout << "<line x1=\"" << (scale*el.x1) << "\" y1=\"" << (scale*el.y1) <<
+				"\" x2=\"" << (scale*el.x2) << "\" y2=\"" << (scale*el.y2) << "\" " << style << "/>\n";
+	}
+}
+
 int main(int argc, char *argv[])
 {
 	namespace po = boost::program_options;
@@ -34,6 +50,7 @@ int main(int argc, char *argv[])
 	options.add_options()("help,h","show help");
 	options.add_options()("test","just a check");
 	options.add_options()("gui","start gui");
+	options.add_options()("svg","dump SVG file");
 	options.add_options()("file", po::value<std::string>(), "python file to execute");
 	options.add_options()("version,v","show version");	
 
@@ -71,6 +88,11 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
+	ChipArgs chipArgs;
+	chipArgs.type = ChipArgs::LP384;
+
+	Design design(chipArgs);
+
 	if (vm.count("gui")) 
 	{
 		QApplication a(argc, argv);
@@ -82,10 +104,6 @@ int main(int argc, char *argv[])
 
 	if (vm.count("test"))
 	{
-		ChipArgs chipArgs;
-		chipArgs.type = ChipArgs::LP384;
-
-		Design design(chipArgs);
 		int bel_count = 0, wire_count = 0, pip_count = 0;
 
 		std::cout << "Checking bel names.\n";
@@ -141,6 +159,20 @@ int main(int argc, char *argv[])
 		}
 
 		return 0;
+	}
+
+	if (vm.count("svg"))
+	{
+		std::cout << "<svg xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\">\n";
+		for (auto bel : design.chip.getBels()) {
+			std::cout << "<!-- " << design.chip.getBelName(bel) << " -->\n";
+			for (auto &el : design.chip.getBelGraphics(bel))
+				svg_dump_el(el);
+		}
+		std::cout << "<!-- Frame -->\n";
+		for (auto &el : design.chip.getFrameGraphics())
+			svg_dump_el(el);
+		std::cout << "</svg>\n";
 	}
 
 	if (vm.count("file")) 
