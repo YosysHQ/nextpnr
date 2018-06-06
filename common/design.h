@@ -21,6 +21,7 @@
 #define DESIGN_H
 
 #include <stdint.h>
+#include <assert.h>
 #include <vector>
 #include <string>
 #include <unordered_set>

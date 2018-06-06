@@ -278,10 +278,16 @@ PortPin PortPinFromId(IdString id)
 Chip::Chip(ChipArgs args)
 {
 	if (args.type == ChipArgs::LP384) {
-		num_bels = 0;
-		bel_data = nullptr;
-		num_wires = num_wires_384;
-		wire_data = wire_data_384;
+		chip_info = chip_info_384;
+		return;
+	} else if (args.type == ChipArgs::LP1K || args.type == ChipArgs::HX1K) {
+		chip_info = chip_info_1k;
+		return;
+	} else if (args.type == ChipArgs::UP5K) {
+		chip_info = chip_info_5k;
+		return;
+	} else if (args.type == ChipArgs::LP8K || args.type == ChipArgs::HX8K) {
+		chip_info = chip_info_8k;
 		return;
 	} else {
 		fprintf(stderr, "Unsupported chip type\n");
@@ -291,13 +297,15 @@ Chip::Chip(ChipArgs args)
 	abort();
 }
 
+// -----------------------------------------------------------------------
+
 BelId Chip::getBelByName(IdString name) const
 {
 	BelId ret;
 
 	if (bel_by_name.empty()) {
-		for (int i = 0; i < num_bels; i++)
-			bel_by_name[bel_data[i].name] = i;
+		for (int i = 0; i < chip_info.num_bels; i++)
+			bel_by_name[chip_info.bel_data[i].name] = i;
 	}
 
 	auto it = bel_by_name.find(name);
@@ -307,13 +315,21 @@ BelId Chip::getBelByName(IdString name) const
 	return ret;
 }
 
+WireId Chip::getWireBelPin(BelId bel, PortPin pin) const
+{
+	// FIXME
+	return WireId();
+}
+
+// -----------------------------------------------------------------------
+
 WireId Chip::getWireByName(IdString name) const
 {
 	WireId ret;
 
 	if (wire_by_name.empty()) {
-		for (int i = 0; i < num_wires; i++)
-			wire_by_name[wire_data[i].name] = i;
+		for (int i = 0; i < chip_info.num_wires; i++)
+			wire_by_name[chip_info.wire_data[i].name] = i;
 	}
 
 	auto it = wire_by_name.find(name);
@@ -323,8 +339,68 @@ WireId Chip::getWireByName(IdString name) const
 	return ret;
 }
 
-WireId Chip::getWireBelPin(BelId bel, PortPin pin) const
+// -----------------------------------------------------------------------
+
+PipId Chip::getPipByName(IdString name) const
+{
+	PipId ret;
+
+	if (pip_by_name.empty()) {
+		for (int i = 0; i < chip_info.num_pips; i++) {
+			PipId pip;
+			pip.index = i;
+			pip_by_name[getPipName(pip)] = i;
+		}
+	}
+
+	auto it = pip_by_name.find(name);
+	if (it != pip_by_name.end())
+		ret.index = it->second;
+
+	return ret;
+}
+
+// -----------------------------------------------------------------------
+
+void Chip::getBelPosition(BelId bel, float &x, float &y) const
 {
 	// FIXME
-	return WireId();
+}
+
+void Chip::getWirePosition(WireId wire, float &x, float &y) const
+{
+	// FIXME
+}
+
+void Chip::getPipPosition(WireId wire, float &x, float &y) const
+{
+	// FIXME
+}
+
+vector<GraphicElement> Chip::getBelGraphics(BelId bel) const
+{
+	vector<GraphicElement> ret;
+	// FIXME
+	return ret;
+}
+
+vector<GraphicElement> Chip::getWireGraphics(WireId wire) const
+{
+	vector<GraphicElement> ret;
+	// FIXME
+	return ret;
+}
+
+vector<GraphicElement> Chip::getPipGraphics(PipId pip) const
+{
+	vector<GraphicElement> ret;
+	// FIXME
+	return ret;
+}
+
+vector<GraphicElement> Chip::getFrameGraphics() const
+{
+	vector<GraphicElement> ret;
+	// FIXME
+	return ret;
 }

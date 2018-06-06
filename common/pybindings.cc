@@ -36,11 +36,6 @@
 void arch_wrap_python();
 
 BOOST_PYTHON_MODULE (MODULE_NAME) {
-    // From Chip.h
-    WRAP_RANGE(Bel);
-    WRAP_RANGE(WireDelay);
-    WRAP_RANGE(BelPin);
-
     arch_wrap_python();
 }
 

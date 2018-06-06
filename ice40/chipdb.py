@@ -11,7 +11,6 @@ tiles = dict()
 
 wire_uphill = dict()
 wire_downhill = dict()
-wire_bidir = dict()
 
 bel_name = list()
 bel_type = list()
@@ -98,12 +97,20 @@ with open(sys.argv[1], "r") as f:
         if mode[0] == "routing":
             wire_a = int(line[1])
             wire_b = mode[1]
-            if wire_a not in wire_bidir:
-                wire_bidir[wire_a] = set()
-            if wire_b not in wire_bidir:
-                wire_bidir[wire_b] = set()
-            wire_bidir[wire_a].add(wire_b)
-            wire_bidir[wire_b].add(wire_b)
+
+            if wire_a not in wire_downhill:
+                wire_downhill[wire_a] = set()
+            if wire_b not in wire_uphill:
+                wire_uphill[wire_b] = set()
+            wire_downhill[wire_a].add(wire_b)
+            wire_uphill[wire_b].add(wire_a)
+
+            if wire_b not in wire_downhill:
+                wire_downhill[wire_b] = set()
+            if wire_a not in wire_uphill:
+                wire_uphill[wire_a] = set()
+            wire_downhill[wire_b].add(wire_a)
+            wire_uphill[wire_a].add(wire_b)
             continue
 
 def add_bel_input(bel, wire, port):
@@ -222,51 +229,55 @@ for tile_xy, tile_type in sorted(tiles.items()):
 
 print('#include "chip.h"')
 
-print("int num_bels_%s = %d;" % (dev_name, num_wires))
-print("BelInfoPOD bel_data_%s[%d] = {" % (dev_name, num_wires))
+print("BelInfoPOD bel_data_%s[%d] = {" % (dev_name, len(bel_name)))
 for bel in range(len(bel_name)):
     print("  {\"%s\", TYPE_%s}%s" % (bel_name[bel], bel_type[bel], "," if bel+1 < len(bel_name) else ""))
 print("};")
 
 wireinfo = list()
+pipinfo = list()
+pipcache = dict()
 
 for wire in range(num_wires):
-    num_uphill = 0
-    num_downhill = 0
-    num_bidir = 0
-    num_bels_downhill = 0
-
     if wire in wire_uphill:
-        num_uphill = len(wire_uphill[wire])
-        print("static WireDelayPOD wire%d_uphill[] = {" % wire)
-        print(",\n".join(["  {%d, 1.0}" % other_wire for other_wire in wire_uphill[wire]]))
-        print("};")
+        pips = list()
+        for src in wire_uphill[wire]:
+            if (src, wire) not in pipcache:
+                pipcache[(src, wire)] = len(pipinfo)
+                pipinfo.append("  {%d, %d, 1.0}" % (src, wire))
+            pips.append("%d" % pipcache[(src, wire)])
+        num_uphill = len(pips)
+        list_uphill = "wire%d_uppips" % wire
+        print("static int wire%d_uppips[] = {%s};" % (wire, ", ".join(pips)))
+    else:
+        num_uphill = 0
+        list_uphill = "nullptr"
 
     if wire in wire_downhill:
-        num_downhill = len(wire_downhill[wire])
-        print("static WireDelayPOD wire%d_downhill[] = {" % wire)
-        print(",\n".join(["  {%d, 1.0}" % other_wire for other_wire in wire_downhill[wire]]))
-        print("};")
-
-    if wire in wire_bidir:
-        num_bidir = len(wire_bidir[wire])
-        print("static WireDelayPOD wire%d_bidir[] = {" % wire)
-        print(",\n".join(["  {%d, 1.0}" % other_wire for other_wire in wire_bidir[wire]]))
-        print("};")
+        pips = list()
+        for dst in wire_downhill[wire]:
+            if (wire, dst) not in pipcache:
+                pipcache[(wire, dst)] = len(pipinfo)
+                pipinfo.append("  {%d, %d, 1.0}" % (wire, dst))
+            pips.append("%d" % pipcache[(wire, dst)])
+        num_downhill = len(pips)
+        list_downhill = "wire%d_downpips" % wire
+        print("static int wire%d_downpips[] = {%s};" % (wire, ", ".join(pips)))
+    else:
+        num_downhill = 0
+        list_downhill = "nullptr"
 
     if wire in wire_downhill_belports:
         num_bels_downhill = len(wire_downhill_belports[wire])
         print("static BelPortPOD wire%d_downbels[] = {" % wire)
         print(",\n".join(["  {%d, PIN_%s}" % it for it in wire_downhill_belports[wire]]))
         print("};")
+    else:
+        num_bels_downhill = 0
 
     info = "  {"
     info += "\"%d_%d_%s\", " % wire_names_r[wire]
-    info += "%d, %d, %d, " % (num_uphill, num_downhill, num_bidir)
-    info += ("wire%d_uphill, " % wire) if num_uphill > 0 else "nullptr, "
-    info += ("wire%d_downhill, " % wire) if num_downhill > 0 else "nullptr, "
-    info += ("wire%d_bidir, " % wire) if num_bidir > 0 else "nullptr, "
-    info += "%d, " % (num_bels_downhill)
+    info += "%d, %d, %s, %s, %d, " % (num_uphill, num_downhill, list_uphill, list_downhill, num_bels_downhill)
 
     if wire in wire_uphill_belport:
         info += "{%d, PIN_%s}, " % wire_uphill_belport[wire]
@@ -278,7 +289,15 @@ for wire in range(num_wires):
 
     wireinfo.append(info)
 
-print("int num_wires_%s = %d;" % (dev_name, num_wires))
-print("WireInfoPOD wire_data_%s[%d] = {" % (dev_name, num_wires))
+print("static WireInfoPOD wire_data_%s[%d] = {" % (dev_name, num_wires))
 print(",\n".join(wireinfo))
+print("};")
+
+print("static PipInfoPOD pip_data_%s[%d] = {" % (dev_name, len(pipinfo)))
+print(",\n".join(pipinfo))
+print("};")
+
+print("ChipInfoPOD chip_info_%s = {" % dev_name)
+print("  %d, %d, %d," % (len(bel_name), num_wires, len(pipinfo)))
+print("  bel_data_%s, wire_data_%s, pip_data_%s" % (dev_name, dev_name, dev_name))
 print("};")

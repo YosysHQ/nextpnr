@@ -52,6 +52,9 @@ void arch_wrap_python() {
             .def("getBels", &Chip::getBels)
             .def("getWires", &Chip::getWires);
 
-    WRAP_RANGE(AllWire);
-
+    WRAP_RANGE(Bel);
+    WRAP_RANGE(BelPin);
+    WRAP_RANGE(Wire);
+    WRAP_RANGE(AllPip);
+    WRAP_RANGE(Pip);
 }
