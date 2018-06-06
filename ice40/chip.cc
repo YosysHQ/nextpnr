@@ -278,10 +278,16 @@ PortPin PortPinFromId(IdString id)
 Chip::Chip(ChipArgs args)
 {
 	if (args.type == ChipArgs::LP384) {
-		num_bels = 0;
-		bel_data = nullptr;
-		num_wires = num_wires_384;
-		wire_data = wire_data_384;
+		chip_info = chip_info_384;
+		return;
+	} else if (args.type == ChipArgs::LP1K || args.type == ChipArgs::HX1K) {
+		chip_info = chip_info_1k;
+		return;
+	} else if (args.type == ChipArgs::UP5K) {
+		chip_info = chip_info_5k;
+		return;
+	} else if (args.type == ChipArgs::LP8K || args.type == ChipArgs::HX8K) {
+		chip_info = chip_info_8k;
 		return;
 	} else {
 		fprintf(stderr, "Unsupported chip type\n");
@@ -291,13 +297,15 @@ Chip::Chip(ChipArgs args)
 	abort();
 }
 
+// -----------------------------------------------------------------------
+
 BelId Chip::getBelByName(IdString name) const
 {
 	BelId ret;
 
 	if (bel_by_name.empty()) {
-		for (int i = 0; i < num_bels; i++)
-			bel_by_name[bel_data[i].name] = i;
+		for (int i = 0; i < chip_info.num_bels; i++)
+			bel_by_name[chip_info.bel_data[i].name] = i;
 	}
 
 	auto it = bel_by_name.find(name);
@@ -307,13 +315,21 @@ BelId Chip::getBelByName(IdString name) const
 	return ret;
 }
 
+WireId Chip::getWireBelPin(BelId bel, PortPin pin) const
+{
+	// FIXME
+	return WireId();
+}
+
+// -----------------------------------------------------------------------
+
 WireId Chip::getWireByName(IdString name) const
 {
 	WireId ret;
 
 	if (wire_by_name.empty()) {
-		for (int i = 0; i < num_wires; i++)
-			wire_by_name[wire_data[i].name] = i;
+		for (int i = 0; i < chip_info.num_wires; i++)
+			wire_by_name[chip_info.wire_data[i].name] = i;
 	}
 
 	auto it = wire_by_name.find(name);
@@ -323,8 +339,144 @@ WireId Chip::getWireByName(IdString name) const
 	return ret;
 }
 
-WireId Chip::getWireBelPin(BelId bel, PortPin pin) const
+// -----------------------------------------------------------------------
+
+PipId Chip::getPipByName(IdString name) const
 {
+	PipId ret;
+
+	if (pip_by_name.empty()) {
+		for (int i = 0; i < chip_info.num_pips; i++) {
+			PipId pip;
+			pip.index = i;
+			pip_by_name[getPipName(pip)] = i;
+		}
+	}
+
+	auto it = pip_by_name.find(name);
+	if (it != pip_by_name.end())
+		ret.index = it->second;
+
+	return ret;
+}
+
+// -----------------------------------------------------------------------
+
+void Chip::getBelPosition(BelId bel, float &x, float &y) const
+{
+	assert(!bel.nil());
+	x = chip_info.bel_data[bel.index].x;
+	y = chip_info.bel_data[bel.index].y;
+}
+
+void Chip::getWirePosition(WireId wire, float &x, float &y) const
+{
+	assert(!wire.nil());
+	x = chip_info.wire_data[wire.index].x;
+	y = chip_info.wire_data[wire.index].y;
+}
+
+void Chip::getPipPosition(PipId pip, float &x, float &y) const
+{
+	assert(!pip.nil());
+	x = chip_info.pip_data[pip.index].x;
+	y = chip_info.pip_data[pip.index].y;
+}
+
+vector<GraphicElement> Chip::getBelGraphics(BelId bel) const
+{
+	vector<GraphicElement> ret;
+
+	auto bel_type = getBelType(bel);
+
+	if (bel_type == TYPE_ICESTORM_LC) {
+		GraphicElement el;
+		el.type = GraphicElement::G_BOX;
+		el.x1 = chip_info.bel_data[bel.index].x + 0.1;
+		el.x2 = chip_info.bel_data[bel.index].x + 0.9;
+		el.y1 = chip_info.bel_data[bel.index].y + 0.10 + (chip_info.bel_data[bel.index].z) * (0.8/8);
+		el.y2 = chip_info.bel_data[bel.index].y + 0.18 + (chip_info.bel_data[bel.index].z) * (0.8/8);
+		el.z = 0;
+		ret.push_back(el);
+	}
+
+	if (bel_type == TYPE_SB_IO) {
+		if (chip_info.bel_data[bel.index].x == 0 || chip_info.bel_data[bel.index].x == chip_info.width-1)
+		{
+			GraphicElement el;
+			el.type = GraphicElement::G_BOX;
+			el.x1 = chip_info.bel_data[bel.index].x + 0.1;
+			el.x2 = chip_info.bel_data[bel.index].x + 0.9;
+			if (chip_info.bel_data[bel.index].z == 0) {
+				el.y1 = chip_info.bel_data[bel.index].y + 0.10;
+				el.y2 = chip_info.bel_data[bel.index].y + 0.45;
+			} else {
+				el.y1 = chip_info.bel_data[bel.index].y + 0.55;
+				el.y2 = chip_info.bel_data[bel.index].y + 0.90;
+			}
+			el.z = 0;
+			ret.push_back(el);
+		}
+		else
+		{
+			GraphicElement el;
+			el.type = GraphicElement::G_BOX;
+			if (chip_info.bel_data[bel.index].z == 0) {
+				el.x1 = chip_info.bel_data[bel.index].x + 0.10;
+				el.x2 = chip_info.bel_data[bel.index].x + 0.45;
+			} else {
+				el.x1 = chip_info.bel_data[bel.index].x + 0.55;
+				el.x2 = chip_info.bel_data[bel.index].x + 0.90;
+			}
+			el.y1 = chip_info.bel_data[bel.index].y + 0.1;
+			el.y2 = chip_info.bel_data[bel.index].y + 0.9;
+			el.z = 0;
+			ret.push_back(el);
+		}
+	}
+
+	if (bel_type == TYPE_ICESTORM_RAM) {
+		GraphicElement el;
+		el.type = GraphicElement::G_BOX;
+		el.x1 = chip_info.bel_data[bel.index].x + 0.1;
+		el.x2 = chip_info.bel_data[bel.index].x + 0.9;
+		el.y1 = chip_info.bel_data[bel.index].y + 0.1;
+		el.y2 = chip_info.bel_data[bel.index].y + 1.9;
+		el.z = 0;
+		ret.push_back(el);
+	}
+
+	return ret;
+}
+
+vector<GraphicElement> Chip::getWireGraphics(WireId wire) const
+{
+	vector<GraphicElement> ret;
 	// FIXME
-	return WireId();
+	return ret;
+}
+
+vector<GraphicElement> Chip::getPipGraphics(PipId pip) const
+{
+	vector<GraphicElement> ret;
+	// FIXME
+	return ret;
+}
+
+vector<GraphicElement> Chip::getFrameGraphics() const
+{
+	vector<GraphicElement> ret;
+
+	for (int x = 0; x <= chip_info.width; x++)
+	for (int y = 0; y <= chip_info.height; y++)
+	{
+		GraphicElement el;
+		el.type = GraphicElement::G_LINE;
+		el.x1 = x - 0.05, el.x2 = x + 0.05, el.y1 = y, el.y2 = y, el.z = 0;
+		ret.push_back(el);
+		el.x1 = x, el.x2 = x, el.y1 = y - 0.05, el.y2 = y + 0.05, el.z = 0;
+		ret.push_back(el);
+	}
+
+	return ret;
 }

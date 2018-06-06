@@ -25,9 +25,6 @@ int main(int argc, char *argv[])
 {
 	Design design(ChipArgs{});
 
-	for (auto bel : design.chip.getBels())
-		printf("%s\n", design.chip.getBelName(bel).c_str());
-
 	QApplication a(argc, argv);
     MainWindow w;
     w.show();
