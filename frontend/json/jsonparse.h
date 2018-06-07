@@ -17,13 +17,13 @@
  *
  */
 
-#ifndef	JSON_PARSER
-#define	JSON_PARSER
+#ifndef JSON_PARSER
+#define JSON_PARSER
 
-#include <string>
 #include <istream>
+#include <string>
 #include "design.h"
 
-extern	void	parse_json_file(std::istream *&, std::string &, Design *);
+extern void parse_json_file(std::istream *&, std::string &, Design *);
 
 #endif

@@ -16,11 +16,11 @@
  *  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
  */
-#ifndef	PLACE_H
-#define	PLACE_H
+#ifndef PLACE_H
+#define PLACE_H
 
 #include "design.h"
 
-extern	void place_design(Design *design);
+extern void place_design(Design *design);
 
-#endif	// PLACE_H
+#endif // PLACE_H
