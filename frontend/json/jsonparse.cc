@@ -70,8 +70,7 @@ struct JsonNode
                     ch = f.get();
 
                     if (ch == EOF)
-                        log_error("Unexpected EOF "
-                                  "in JSON string.\n");
+                        log_error("Unexpected EOF in JSON string.\n");
 
                     if (ch == '\"')
                         break;
@@ -80,8 +79,7 @@ struct JsonNode
                         int ch = f.get();
 
                         if (ch == EOF)
-                            log_error("Unexpected EOF "
-                                      "in JSON string.\n");
+                            log_error("Unexpected EOF in JSON string.\n");
                     }
 
                     data_string += ch;
@@ -145,8 +143,7 @@ struct JsonNode
                     ch = f.get();
 
                     if (ch == EOF)
-                        log_error("Unexpected EOF "
-                                  "in JSON file.\n");
+                        log_error("Unexpected EOF in JSON file.\n");
 
                     if (ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n' ||
                         ch == ',')
@@ -169,8 +166,7 @@ struct JsonNode
                     ch = f.get();
 
                     if (ch == EOF)
-                        log_error("Unexpected EOF "
-                                  "in JSON file.\n");
+                        log_error("Unexpected EOF in JSON file.\n");
 
                     if (ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n' ||
                         ch == ',')
@@ -186,8 +182,7 @@ struct JsonNode
                         ch = f.get();
 
                         if (ch == EOF)
-                            log_error("Unexpected EOF "
-                                      "in JSON file.\n");
+                            log_error("Unexpected EOF in JSON file.\n");
 
                         if (ch == ' ' || ch == '\t' || ch == '\r' ||
                             ch == '\n' || ch == ':')
@@ -200,9 +195,7 @@ struct JsonNode
                     JsonNode *value = new JsonNode(f);
 
                     if (key.type != 'S')
-                        log_error("Unexpected "
-                                  "non-string key "
-                                  "in JSON dict.\n");
+                        log_error("Unexpected non-string key in JSON dict.\n");
 
                     data_dict[key.data_string] = value;
                     data_dict_keys.push_back(key.data_string);
