@@ -21,8 +21,10 @@
 
 #include "design.h"
 #include "chip.h"
-#include "pybindings.h"
 #include "emb.h"
+
+// include after design.h/chip.h
+#include "pybindings.h"
 
 // Required to determine concatenated module name (which differs for different archs)
 #define PASTER(x, y) x ## _ ## y
