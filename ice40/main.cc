@@ -53,7 +53,7 @@ int main(int argc, char *argv[])
 	options.add_options()("test","just a check");
 	options.add_options()("gui","start gui");
 	options.add_options()("svg","dump SVG file");
-	options.add_options()("file", po::value<std::vector<std::string>>(), "python file to execute");
+	options.add_options()("run", po::value<std::vector<std::string>>(), "python file to execute");
 	options.add_options()("json", po::value<std::string>(), "JSON design file to ingest");
 	options.add_options()("version,v","show version");	
 	options.add_options()("lp384","set device type to iCE40LP384");
@@ -64,7 +64,7 @@ int main(int argc, char *argv[])
 	options.add_options()("up5k","set device type to iCE40UP5K");
 
 	po::positional_options_description pos;
-	pos.add("file", -1);
+	pos.add("run", -1);
 
 	po::variables_map vm;
 	try {
@@ -205,7 +205,7 @@ int main(int argc, char *argv[])
 		parse_json_file(f, filename, &design);
 	}	
 	
-	if (vm.count("file")) 
+	if (vm.count("run"))
 	{
 		std::vector<std::string> files = vm["file"].as<std::vector<std::string>>();
 		for(auto filename : files)
