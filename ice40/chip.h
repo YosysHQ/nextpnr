@@ -46,112 +46,9 @@ BelType belTypeFromId(IdString id);
 enum PortPin
 {
     PIN_NIL,
-
-    PIN_IN_0,
-    PIN_IN_1,
-    PIN_IN_2,
-    PIN_IN_3,
-    PIN_O,
-    PIN_LO,
-    PIN_CIN,
-    PIN_COUT,
-    PIN_CEN,
-    PIN_CLK,
-    PIN_SR,
-
-    PIN_MASK_0,
-    PIN_MASK_1,
-    PIN_MASK_2,
-    PIN_MASK_3,
-    PIN_MASK_4,
-    PIN_MASK_5,
-    PIN_MASK_6,
-    PIN_MASK_7,
-    PIN_MASK_8,
-    PIN_MASK_9,
-    PIN_MASK_10,
-    PIN_MASK_11,
-    PIN_MASK_12,
-    PIN_MASK_13,
-    PIN_MASK_14,
-    PIN_MASK_15,
-
-    PIN_RDATA_0,
-    PIN_RDATA_1,
-    PIN_RDATA_2,
-    PIN_RDATA_3,
-    PIN_RDATA_4,
-    PIN_RDATA_5,
-    PIN_RDATA_6,
-    PIN_RDATA_7,
-    PIN_RDATA_8,
-    PIN_RDATA_9,
-    PIN_RDATA_10,
-    PIN_RDATA_11,
-    PIN_RDATA_12,
-    PIN_RDATA_13,
-    PIN_RDATA_14,
-    PIN_RDATA_15,
-
-    PIN_WDATA_0,
-    PIN_WDATA_1,
-    PIN_WDATA_2,
-    PIN_WDATA_3,
-    PIN_WDATA_4,
-    PIN_WDATA_5,
-    PIN_WDATA_6,
-    PIN_WDATA_7,
-    PIN_WDATA_8,
-    PIN_WDATA_9,
-    PIN_WDATA_10,
-    PIN_WDATA_11,
-    PIN_WDATA_12,
-    PIN_WDATA_13,
-    PIN_WDATA_14,
-    PIN_WDATA_15,
-
-    PIN_WADDR_0,
-    PIN_WADDR_1,
-    PIN_WADDR_2,
-    PIN_WADDR_3,
-    PIN_WADDR_4,
-    PIN_WADDR_5,
-    PIN_WADDR_6,
-    PIN_WADDR_7,
-    PIN_WADDR_8,
-    PIN_WADDR_9,
-    PIN_WADDR_10,
-
-    PIN_RADDR_0,
-    PIN_RADDR_1,
-    PIN_RADDR_2,
-    PIN_RADDR_3,
-    PIN_RADDR_4,
-    PIN_RADDR_5,
-    PIN_RADDR_6,
-    PIN_RADDR_7,
-    PIN_RADDR_8,
-    PIN_RADDR_9,
-    PIN_RADDR_10,
-
-    PIN_WCLK,
-    PIN_WCLKE,
-    PIN_WE,
-
-    PIN_RCLK,
-    PIN_RCLKE,
-    PIN_RE,
-
-    PIN_PACKAGE_PIN,
-    PIN_LATCH_INPUT_VALUE,
-    PIN_CLOCK_ENABLE,
-    PIN_INPUT_CLK,
-    PIN_OUTPUT_CLK,
-    PIN_OUTPUT_ENABLE,
-    PIN_D_OUT_0,
-    PIN_D_OUT_1,
-    PIN_D_IN_0,
-    PIN_D_IN_1
+#define X(t) PIN_##t,
+#include "portpins.inc"
+#undef X
 };
 
 IdString PortPinToId(PortPin type);
@@ -268,7 +165,7 @@ template <> struct hash<PipId>
         return wire.index;
     }
 };
-}
+} // namespace std
 
 // -----------------------------------------------------------------------
 

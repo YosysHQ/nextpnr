@@ -22,10 +22,10 @@
 #include <iostream>
 #include "design.h"
 #include "jsonparse.h"
+#include "log.h"
 #include "mainwindow.h"
 #include "pybindings.h"
 #include "version.h"
-#include "log.h"
 
 void svg_dump_el(const GraphicElement &el)
 {

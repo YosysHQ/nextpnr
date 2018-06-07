@@ -46,6 +46,20 @@ void arch_wrap_python()
             .def_readwrite("index", &WireId::index)
             .def("nil", &WireId::nil);
 
+    class_<PipId>("PipId")
+            .def_readwrite("index", &PipId::index)
+            .def("nil", &WireId::nil);
+
+    class_<BelPin>("BelPin")
+            .def_readwrite("bel", &BelPin::bel)
+            .def_readwrite("pin", &BelPin::pin);
+
+    enum_<PortPin>("PortPin")
+#define X(t) .value("PIN_" #t, PIN_##t)
+#include "portpins.inc"
+            ;
+#undef X
+
     class_<Chip>("Chip", init<ChipArgs>())
             .def("getBelByName", &Chip::getBelByName)
             .def("getWireByName", &Chip::getWireByName)
