@@ -20,3 +20,14 @@
 #include "chip.h"
 
 Chip::Chip(ChipArgs) {}
+
+const vector<BelId> &Chip::getBels() const
+{
+    static vector<BelId> ret;
+    return ret;
+}
+
+BelType Chip::getBelType(BelId bel) const
+{
+    return BelType();
+}

@@ -47,7 +47,7 @@ void place_design(Design *design) {
 		}
 
 		bel_type = belTypeFromId(cell->type);
-		if (bel_type == TYPE_NIL) {
+		if (bel_type == BelType()) {
 			log_error("No Bel of type \'%s\' defined for "
 				"this chip\n", cell->type.c_str());
 		}
@@ -56,9 +56,9 @@ void place_design(Design *design) {
 	}
 
 	for(auto bel_type_name : types_used) {
-		BelRange	blist = design->chip.getBels();
+		auto		blist = design->chip.getBels();
 		BelType		bel_type = belTypeFromId(bel_type_name);
-		BelIterator	bi = blist.begin();
+		auto		bi = blist.begin();
 
 		for(auto cell_entry : design->cells) {
 			CellInfo	*cell = cell_entry.second;
