@@ -20,50 +20,52 @@
 #ifndef DESIGN_H
 #define DESIGN_H
 
-#include <stdint.h>
 #include <assert.h>
-#include <vector>
+#include <stdint.h>
 #include <string>
-#include <unordered_set>
 #include <unordered_map>
+#include <unordered_set>
+#include <vector>
 
 // replace with proper IdString later
 typedef std::string IdString;
 
 // replace with haslib later
-template<typename T> using pool = std::unordered_set<T>;
-template<typename T, typename U> using dict = std::unordered_map<T, U>;
+template <typename T> using pool = std::unordered_set<T>;
+template <typename T, typename U> using dict = std::unordered_map<T, U>;
 using std::vector;
 
 struct GraphicElement
 {
-	// This will control colour, and there should be separate
-	// visibility controls in some cases also
-	enum {
-		// Wires entirely inside tiles, e.g. between switchbox and bels
-		G_LOCAL_WIRES,
-		// Standard inter-tile routing
-		G_GENERAL_WIRES,
-		// Special inter-tile wires, e.g. carry chains
-		G_DEDICATED_WIRES,
-		G_BEL_OUTLINE,
-		G_SWITCHBOX_OUTLINE,
-		G_TILE_OUTLINE,
-		G_BEL_PINS,
-		G_SWITCHBOX_PINS,
-		G_BEL_MISC,
-		G_TILE_MISC,
-	} style;
+    // This will control colour, and there should be separate
+    // visibility controls in some cases also
+    enum
+    {
+        // Wires entirely inside tiles, e.g. between switchbox and bels
+        G_LOCAL_WIRES,
+        // Standard inter-tile routing
+        G_GENERAL_WIRES,
+        // Special inter-tile wires, e.g. carry chains
+        G_DEDICATED_WIRES,
+        G_BEL_OUTLINE,
+        G_SWITCHBOX_OUTLINE,
+        G_TILE_OUTLINE,
+        G_BEL_PINS,
+        G_SWITCHBOX_PINS,
+        G_BEL_MISC,
+        G_TILE_MISC,
+    } style;
 
-	enum {
-		G_LINE,
-		G_BOX,
-		G_CIRCLE,
-		G_LABEL
-	} type;
+    enum
+    {
+        G_LINE,
+        G_BOX,
+        G_CIRCLE,
+        G_LABEL
+    } type;
 
-	float x1, y1, x2, y2, z;
-	std::string text;
+    float x1, y1, x2, y2, z;
+    std::string text;
 };
 
 #include "chip.h"
@@ -72,56 +74,57 @@ struct CellInfo;
 
 struct PortRef
 {
-	CellInfo *cell;
-	IdString port;
+    CellInfo *cell;
+    IdString port;
 };
 
 struct NetInfo
 {
-	IdString			name;
-	PortRef				driver;
-	vector<PortRef>			users;
-	dict<IdString, std::string>	attrs;
+    IdString name;
+    PortRef driver;
+    vector<PortRef> users;
+    dict<IdString, std::string> attrs;
 
-	// wire -> (uphill_wire, delay)
-	dict<WireId, std::pair<WireId, DelayInfo>>	wires;
+    // wire -> (uphill_wire, delay)
+    dict<WireId, std::pair<WireId, DelayInfo>> wires;
 };
 
 enum PortType
 {
-	PORT_IN = 0,
-	PORT_OUT = 1,
-	PORT_INOUT = 2
+    PORT_IN = 0,
+    PORT_OUT = 1,
+    PORT_INOUT = 2
 };
 
 struct PortInfo
 {
-	IdString name;
-	NetInfo *net;
-	PortType type;
+    IdString name;
+    NetInfo *net;
+    PortType type;
 };
 
 struct CellInfo
 {
-	IdString			name, type;
-	dict<IdString, PortInfo>	ports;
-	dict<IdString, std::string>	attrs, params;
+    IdString name, type;
+    dict<IdString, PortInfo> ports;
+    dict<IdString, std::string> attrs, params;
 
-	BelId bel;
-	// cell_port -> bel_pin
-	dict<IdString, IdString>	pins;
+    BelId bel;
+    // cell_port -> bel_pin
+    dict<IdString, IdString> pins;
 };
 
 struct Design
 {
-	struct Chip chip;
+    struct Chip chip;
 
-	Design(ChipArgs args) : chip(args) {
-		// ...
-	}
+    Design(ChipArgs args) : chip(args)
+    {
+        // ...
+    }
 
-	dict<IdString, NetInfo*>	nets;
-	dict<IdString, CellInfo*>	cells;
+    dict<IdString, NetInfo *> nets;
+    dict<IdString, CellInfo *> cells;
 };
 
 #endif

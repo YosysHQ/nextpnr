@@ -19,6 +19,4 @@
 
 #include "chip.h"
 
-Chip::Chip(ChipArgs)
-{
-}
+Chip::Chip(ChipArgs) {}

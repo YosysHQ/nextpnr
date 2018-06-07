@@ -24,10 +24,10 @@
 
 struct DelayInfo
 {
-	float delay = 0;
+    float delay = 0;
 
-	float raiseDelay() { return delay; }
-	float fallDelay() { return delay; }
+    float raiseDelay() { return delay; }
+    float fallDelay() { return delay; }
 };
 
 typedef IdString BelType;
@@ -45,8 +45,8 @@ typedef IdString PipId;
 
 struct BelPin
 {
-	BelId bel;
-	PortPin pin;
+    BelId bel;
+    PortPin pin;
 };
 
 struct ChipArgs
@@ -55,48 +55,48 @@ struct ChipArgs
 
 struct Chip
 {
-	Chip(ChipArgs args);
+    Chip(ChipArgs args);
 
-	BelId getBelByName(IdString name) const;
+    BelId getBelByName(IdString name) const;
 
-	IdString getBelName(BelId bel) const;
-	void bindBel(BelId bel, IdString cell);
-	void unbindBel(BelId bel);
-	bool checkBelAvail(BelId bel) const;
-	const vector<BelId> &getBels() const;
-	const vector<BelId> &getBelsByType(BelType type) const;
-	BelType getBelType(BelId bel) const;
-	WireId getWireBelPin(BelId bel, PortPin pin) const;
-	BelPin getBelPinUphill(WireId wire) const;
-	const vector<BelPin> &getBelPinsDownhill(WireId wire) const;
+    IdString getBelName(BelId bel) const;
+    void bindBel(BelId bel, IdString cell);
+    void unbindBel(BelId bel);
+    bool checkBelAvail(BelId bel) const;
+    const vector<BelId> &getBels() const;
+    const vector<BelId> &getBelsByType(BelType type) const;
+    BelType getBelType(BelId bel) const;
+    WireId getWireBelPin(BelId bel, PortPin pin) const;
+    BelPin getBelPinUphill(WireId wire) const;
+    const vector<BelPin> &getBelPinsDownhill(WireId wire) const;
 
-	WireId getWireByName(IdString name) const;
-	IdString getWireName(WireId wire) const;
-	void bindWire(WireId bel, IdString net);
-	void unbindWire(WireId bel);
-	bool checkWireAvail(WireId bel) const;
-	const vector<WireId> &getWires() const;
+    WireId getWireByName(IdString name) const;
+    IdString getWireName(WireId wire) const;
+    void bindWire(WireId bel, IdString net);
+    void unbindWire(WireId bel);
+    bool checkWireAvail(WireId bel) const;
+    const vector<WireId> &getWires() const;
 
-	PipId getPipByName(IdString name) const;
-	IdString getPipName(PipId pip) const;
-	void bindPip(PipId bel, IdString net);
-	void unbindPip(PipId bel);
-	bool checkPipAvail(PipId bel) const;
-	const vector<PipId> &getPips() const;
-	WireId getPipSrcWire(PipId pip) const;
-	WireId getPipDstWire(PipId pip) const;
-	DelayInfo getPipDelay(PipId pip) const;
-	const vector<PipId> &getPipsDownhill(WireId wire) const;
-	const vector<PipId> &getPipsUphill(WireId wire) const;
-	const vector<PipId> &getWireAliases(WireId wire) const;
+    PipId getPipByName(IdString name) const;
+    IdString getPipName(PipId pip) const;
+    void bindPip(PipId bel, IdString net);
+    void unbindPip(PipId bel);
+    bool checkPipAvail(PipId bel) const;
+    const vector<PipId> &getPips() const;
+    WireId getPipSrcWire(PipId pip) const;
+    WireId getPipDstWire(PipId pip) const;
+    DelayInfo getPipDelay(PipId pip) const;
+    const vector<PipId> &getPipsDownhill(WireId wire) const;
+    const vector<PipId> &getPipsUphill(WireId wire) const;
+    const vector<PipId> &getWireAliases(WireId wire) const;
 
-	void getBelPosition(BelId bel, float &x, float &y) const;
-	void getWirePosition(WireId wire, float &x, float &y) const;
-	void getPipPosition(PipId pip, float &x, float &y) const;
-	vector<GraphicElement> getBelGraphics(BelId bel) const;
-	vector<GraphicElement> getWireGraphics(WireId wire) const;
-	vector<GraphicElement> getPipGraphics(PipId pip) const;
-	vector<GraphicElement> getFrameGraphics() const;
+    void getBelPosition(BelId bel, float &x, float &y) const;
+    void getWirePosition(WireId wire, float &x, float &y) const;
+    void getPipPosition(PipId pip, float &x, float &y) const;
+    vector<GraphicElement> getBelGraphics(BelId bel) const;
+    vector<GraphicElement> getWireGraphics(WireId wire) const;
+    vector<GraphicElement> getPipGraphics(PipId pip) const;
+    vector<GraphicElement> getFrameGraphics() const;
 };
 
 #endif
