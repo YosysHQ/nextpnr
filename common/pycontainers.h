@@ -90,7 +90,7 @@ inline void KeyError() { PyErr_SetString(PyExc_KeyError, "Key not found"); }
 
 template<typename T>
 struct map_wrapper {
-	typedef boost::remove_cv_t<boost::remove_reference_t<typename T::key_type>> K;
+	typedef typename std::remove_cv<typename std::remove_reference<typename T::key_type>::type>::type K;
 	typedef typename T::mapped_type V;
 	typedef typename T::value_type KV;
 
