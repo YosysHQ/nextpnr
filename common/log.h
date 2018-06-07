@@ -24,6 +24,7 @@
 #include <string>
 #include <vector>
 #include <set>
+#include <ostream>
 #include <stdio.h>
 #include <stdarg.h>
 
@@ -38,9 +39,6 @@ struct	log_cmd_error_exception { };
 
 extern	std::vector<FILE*>		log_files;
 extern	std::vector<std::ostream*>	log_streams;
-extern	std::set<std::string>		log_warnings;
-extern	int log_warnings_count;
-extern	bool log_hdump_all;
 extern	FILE *log_errfile;
 
 extern	bool	log_quiet_warnings;
@@ -54,6 +52,7 @@ void logv_warning_noprefix(const char *format, va_list ap);
 NXP_NORETURN void logv_error(const char *format, va_list ap)
 		NXP_ATTRIBUTE(noreturn);
 
+extern	std::ostream	clog;
 void log(const char *format, ...);
 void log_header(const char *format, ...);
 void log_info(const char *format, ...);

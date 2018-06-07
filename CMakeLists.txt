@@ -74,6 +74,7 @@ include_directories(common/ gui/ frontend/json ${Boost_INCLUDE_DIRS} ${PYTHON_IN
 aux_source_directory(common/ COMMON_SRC_FILES)
 aux_source_directory(frontend/json/ JSON_PARSER_FILES)
 set(COMMON_FILES ${COMMON_SRC_FILES} ${JSON_PARSER_FILES})
+set(CMAKE_BUILD_TYPE Debug)
 
 foreach (family ${FAMILIES})
     string(TOUPPER ${family} ufamily)

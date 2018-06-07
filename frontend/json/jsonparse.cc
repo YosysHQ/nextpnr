@@ -34,7 +34,7 @@ extern	bool	check_all_nets_driven(Design *design);
 
 namespace JsonParser {
 
-	const	bool	json_debug = false;
+	const	bool	json_debug = true;
 
 	typedef	std::string string;
 
@@ -413,7 +413,25 @@ void	json_import_cell_ports(Design *design, string &modname, CellInfo *cell,
 	is_bus = (wire_group_node->data_array.size()>1);
 
 	// Now loop through all of the connections to this port.
-	for(int index=0; index < wire_group_node->data_array.size(); index++) {
+	if (wire_group_node->data_array.size() == 0) {
+		//
+		// There is/are no connections to this port.
+		//
+		// Create the port, but leave the net NULL
+		PortInfo	this_port;
+
+		//
+		this_port.name = port_info.name;
+		this_port.type = port_info.type;
+		this_port.net = NULL;
+
+		cell->ports[this_port.name] = this_port;
+
+		if (json_debug) log_info("      Port \'%s\' has no connection in \'%s\'\n",
+			this_port.name.c_str(), cell->name.c_str());
+
+	} else for(int index=0; index < wire_group_node->data_array.size();
+			index++) {
 		//
 		JsonNode	*wire_node;
 		PortInfo	this_port;
@@ -566,13 +584,24 @@ void	json_import_cell(Design *design, string modname, JsonNode *cell_node,
 	// Both should contain dictionaries having the same keys.
 	//
 
-	JsonNode *pdir_node
-		= cell_node->data_dict.at("port_directions");
-	if (pdir_node->type != 'D')
-		log_error("JSON port_directions node of \'%s\' "
-			"in module \'%s\' is not a "
-				"dictionary\n", cell->name.c_str(),
-			modname.c_str());
+	JsonNode *pdir_node = NULL;
+	if (cell_node->data_dict.count("port_directions") > 0) {
+
+		pdir_node = cell_node->data_dict.at("port_directions");
+		if (pdir_node->type != 'D')
+			log_error("JSON port_directions node of \'%s\' "
+				"in module \'%s\' is not a "
+					"dictionary\n", cell->name.c_str(),
+				modname.c_str());
+
+	} else if (cell_node->data_dict.count("ports") > 0) {
+		pdir_node = cell_node->data_dict.at("ports");
+		if (pdir_node->type != 'D')
+			log_error("JSON ports node of \'%s\' "
+				"in module \'%s\' is not a "
+					"dictionary\n", cell->name.c_str(),
+				modname.c_str());
+	}
 
 	JsonNode *connections
 		= cell_node->data_dict.at("connections");

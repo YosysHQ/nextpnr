@@ -21,12 +21,17 @@ bool	check_all_nets_driven(Design *design) {
 				port_entry.first.c_str(),
 				port.name.c_str());
 			assert(port.name.compare(port_entry.first)==0);
-			assert(port.net);
 			assert(port.name.size() > 0);
-			if (debug) log_info("    Checking for a net named \'%s\'\n",
-				port.net->name.c_str());
-			assert(design->nets.count(port.net->name)>0);
-			// assert(design->nets[port.net->name]->driver.cell);
+
+			if (port.net == NULL) {
+				if (debug) log_warning("    Port \'%s\' in cell \'%s\' is unconnected\n",
+					port.name.c_str(), cell->name.c_str());
+			} else {
+				assert(port.net);
+				if (debug) log_info("    Checking for a net named \'%s\'\n",
+					port.net->name.c_str());
+				assert(design->nets.count(port.net->name)>0);
+			}
 		}
 	}
 

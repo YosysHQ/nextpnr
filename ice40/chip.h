@@ -173,10 +173,21 @@ struct BelIterator
 {
     int cursor;
 
-    void operator++() { cursor++; }
+    BelIterator operator++() { cursor++; return *this; }
+    BelIterator operator++(int) {
+		BelIterator	prior(*this);
+		cursor++;
+		return prior;
+	}
+
     bool operator!=(const BelIterator &other) const
     {
         return cursor != other.cursor;
+    }
+
+    bool operator==(const BelIterator &other) const
+    {
+        return cursor == other.cursor;
     }
 
     BelId operator*() const
