@@ -5,7 +5,8 @@
 
 bool	check_all_nets_driven(Design *design) {
 	const	bool	debug = false;
-	log_info("Verifying all cells\n");
+
+	log_info("Rule checker, Verifying pre-placed design\n");
 
 	for(auto cell_entry : design->cells) {
 		CellInfo	*cell = cell_entry.second;

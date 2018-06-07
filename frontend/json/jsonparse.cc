@@ -34,7 +34,7 @@ extern	bool	check_all_nets_driven(Design *design);
 
 namespace JsonParser {
 
-	const	bool	json_debug = true;
+	const	bool	json_debug = false;
 
 	typedef	std::string string;
 
@@ -645,7 +645,7 @@ void json_import(Design *design, string modname, JsonNode *node) {
 	if (is_blackbox(node))
 		return;
 
-	log_info("Importing modname = %s\n", modname.c_str());
+	log_info("Importing module %s\n", modname.c_str());
 
 	if (node->data_dict.count("cells")) {
 		JsonNode *cell_parent = node->data_dict.at("cells");
