@@ -277,6 +277,12 @@ PortPin PortPinFromId(IdString id)
 
 Chip::Chip(ChipArgs args)
 {
+#ifdef ICE40_HX1K_ONLY
+	if (args.type == ChipArgs::HX1K) {
+		chip_info = chip_info_1k;
+		return;
+	}
+#else
 	if (args.type == ChipArgs::LP384) {
 		chip_info = chip_info_384;
 		return;
@@ -293,6 +299,7 @@ Chip::Chip(ChipArgs args)
 		fprintf(stderr, "Unsupported chip type\n");
 		exit(EXIT_FAILURE);
 	}
+#endif
 
 	abort();
 }

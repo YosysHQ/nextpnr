@@ -86,10 +86,11 @@ int main(int argc, char *argv[])
 
 	if (vm.count("help") || argc == 1)
 	{
+	help:
 		std::cout << basename(argv[0]) << " -- Next Generation Place and Route (git sha1 " GIT_COMMIT_HASH_STR ")\n";
 		std::cout << "\n";
 		std::cout << options << "\n";
-		return 1;
+		return argc != 1;
 	}
 	
 	if (vm.count("version"))
@@ -101,25 +102,52 @@ int main(int argc, char *argv[])
 	}
 
 	ChipArgs chipArgs;
-	chipArgs.type = ChipArgs::HX1K;
 
-	if (vm.count("lp384"))
+	if (vm.count("lp384")) {
+		if (chipArgs.type != ChipArgs::NONE)
+			goto help;
 		chipArgs.type = ChipArgs::LP384;
+	}
 
-	if (vm.count("lp1k"))
+	if (vm.count("lp1k")) {
+		if (chipArgs.type != ChipArgs::NONE)
+			goto help;
 		chipArgs.type = ChipArgs::LP1K;
+	}
 
-	if (vm.count("lp8k"))
+	if (vm.count("lp8k")) {
+		if (chipArgs.type != ChipArgs::NONE)
+			goto help;
 		chipArgs.type = ChipArgs::LP8K;
+	}
 
-	if (vm.count("hx1k"))
+	if (vm.count("hx1k")) {
+		if (chipArgs.type != ChipArgs::NONE)
+			goto help;
+		chipArgs.type = ChipArgs::HX1K;
+	}
+
+	if (vm.count("hx8k")) {
+		if (chipArgs.type != ChipArgs::NONE)
+			goto help;
+		chipArgs.type = ChipArgs::HX8K;
+	}
+
+	if (vm.count("up5k")) {
+		if (chipArgs.type != ChipArgs::NONE)
+			goto help;
+		chipArgs.type = ChipArgs::UP5K;
+	}
+
+	if (chipArgs.type == ChipArgs::NONE)
 		chipArgs.type = ChipArgs::HX1K;
 
-	if (vm.count("hx8k"))
-		chipArgs.type = ChipArgs::HX8K;
-
-	if (vm.count("up5k"))
-		chipArgs.type = ChipArgs::UP5K;
+#ifdef ICE40_HX1K_ONLY
+	if (chipArgs.type != ChipArgs::HX1K) {
+		std::cout << "This version of nextpnr-ice40 is built with HX1K-support only.\n";
+		return 1;
+	}
+#endif
 
 	Design design(chipArgs);
 	init_python(argv[0]);
