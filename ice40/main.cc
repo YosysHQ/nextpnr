@@ -53,7 +53,7 @@ int main(int argc, char *argv[])
 	options.add_options()("test","just a check");
 	options.add_options()("gui","start gui");
 	options.add_options()("svg","dump SVG file");
-	options.add_options()("file", po::value<std::string>(), "python file to execute");
+	options.add_options()("file", po::value<std::vector<std::string>>(), "python file to execute");
 	options.add_options()("json", po::value<std::string>(), "JSON design file to ingest");
 	options.add_options()("version,v","show version");	
 	options.add_options()("lp384","set device type to iCE40LP384");
@@ -207,8 +207,9 @@ int main(int argc, char *argv[])
 	
 	if (vm.count("file")) 
 	{
-		std::string filename = vm["file"].as<std::string>();
-		execute_python_file(filename.c_str());
+		std::vector<std::string> files = vm["file"].as<std::vector<std::string>>();
+		for(auto filename : files)
+			execute_python_file(filename.c_str());
 	}
 
 	if (vm.count("gui"))
