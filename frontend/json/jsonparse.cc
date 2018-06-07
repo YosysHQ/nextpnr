@@ -413,7 +413,25 @@ void	json_import_cell_ports(Design *design, string &modname, CellInfo *cell,
 	is_bus = (wire_group_node->data_array.size()>1);
 
 	// Now loop through all of the connections to this port.
-	for(int index=0; index < wire_group_node->data_array.size(); index++) {
+	if (wire_group_node->data_array.size() == 0) {
+		//
+		// There is/are no connections to this port.
+		//
+		// Create the port, but leave the net NULL
+		PortInfo	this_port;
+
+		//
+		this_port.name = port_info.name;
+		this_port.type = port_info.type;
+		this_port.net = NULL;
+
+		cell->ports[this_port.name] = this_port;
+
+		if (json_debug) log_info("      Port \'%s\' has no connection in \'%s\'\n",
+			this_port.name.c_str(), cell->name.c_str());
+
+	} else for(int index=0; index < wire_group_node->data_array.size();
+			index++) {
 		//
 		JsonNode	*wire_node;
 		PortInfo	this_port;
