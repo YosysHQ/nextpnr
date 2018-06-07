@@ -30,9 +30,7 @@
 
 #include "log.h"
 #include "design.h"
-
-namespace Placer {
-};
+#include "place.h"
 
 void place_design(Design *design) {
 	std::set<IdString>		types_used;

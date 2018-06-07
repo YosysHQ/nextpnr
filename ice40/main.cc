@@ -26,6 +26,7 @@
 #include "pybindings.h"
 #include "version.h"
 #include "log.h"
+#include "place.h"
 
 void svg_dump_el(const GraphicElement &el)
 {
@@ -241,6 +242,7 @@ int main(int argc, char *argv[])
         std::istream *f = new std::ifstream(filename);
 
         parse_json_file(f, filename, &design);
+    	place_design(&design);
     }
 
     if (vm.count("run")) {
@@ -249,9 +251,6 @@ int main(int argc, char *argv[])
         for (auto filename : files)
             execute_python_file(filename.c_str());
     }
-
-    extern	void	place_design(Design *d);
-    place_design(&design);
 
 
     if (vm.count("gui")) {
