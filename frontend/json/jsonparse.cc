@@ -34,7 +34,7 @@ extern	bool	check_all_nets_driven(Design *design);
 
 namespace JsonParser {
 
-	const	bool	json_debug = false;
+	const	bool	json_debug = true;
 
 	typedef	std::string string;
 
@@ -566,13 +566,24 @@ void	json_import_cell(Design *design, string modname, JsonNode *cell_node,
 	// Both should contain dictionaries having the same keys.
 	//
 
-	JsonNode *pdir_node
-		= cell_node->data_dict.at("port_directions");
-	if (pdir_node->type != 'D')
-		log_error("JSON port_directions node of \'%s\' "
-			"in module \'%s\' is not a "
-				"dictionary\n", cell->name.c_str(),
-			modname.c_str());
+	JsonNode *pdir_node = NULL;
+	if (cell_node->data_dict.count("port_directions") > 0) {
+
+		pdir_node = cell_node->data_dict.at("port_directions");
+		if (pdir_node->type != 'D')
+			log_error("JSON port_directions node of \'%s\' "
+				"in module \'%s\' is not a "
+					"dictionary\n", cell->name.c_str(),
+				modname.c_str());
+
+	} else if (cell_node->data_dict.count("ports") > 0) {
+		pdir_node = cell_node->data_dict.at("ports");
+		if (pdir_node->type != 'D')
+			log_error("JSON ports node of \'%s\' "
+				"in module \'%s\' is not a "
+					"dictionary\n", cell->name.c_str(),
+				modname.c_str());
+	}
 
 	JsonNode *connections
 		= cell_node->data_dict.at("connections");
