@@ -17,15 +17,15 @@
  *
  */
 
+#include <QApplication>
 #include "design.h"
 #include "mainwindow.h"
-#include <QApplication>
 
 int main(int argc, char *argv[])
 {
-	Design design(ChipArgs{});
+    Design design(ChipArgs{});
 
-	QApplication a(argc, argv);
+    QApplication a(argc, argv);
     MainWindow w;
     w.show();
 

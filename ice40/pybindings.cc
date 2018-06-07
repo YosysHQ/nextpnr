@@ -18,15 +18,15 @@
  *
  */
 
-#include "design.h"
 #include "chip.h"
+#include "design.h"
 
 // include after design.h/chip.h
 #include "pybindings.h"
 
-void arch_wrap_python() {
-    class_<ChipArgs>("ChipArgs")
-            .def_readwrite("type", &ChipArgs::type);
+void arch_wrap_python()
+{
+    class_<ChipArgs>("ChipArgs").def_readwrite("type", &ChipArgs::type);
 
     enum_<decltype(std::declval<ChipArgs>().type)>("iCE40Type")
             .value("NONE", ChipArgs::NONE)

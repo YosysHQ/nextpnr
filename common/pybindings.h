@@ -23,85 +23,85 @@
 
 #include "pycontainers.h"
 
-#include <utility>
-#include <stdexcept>
-#include <boost/python.hpp>
-#include <boost/python/suite/indexing/vector_indexing_suite.hpp>
-#include <boost/python/suite/indexing/map_indexing_suite.hpp>
-#include <boost/python/suite/indexing/map_indexing_suite.hpp>
 #include <Python.h>
+#include <boost/python.hpp>
+#include <boost/python/suite/indexing/map_indexing_suite.hpp>
+#include <boost/python/suite/indexing/vector_indexing_suite.hpp>
+#include <stdexcept>
+#include <utility>
 using namespace boost::python;
 
 /*
 A wrapper to enable custom type/ID to/from string conversions
  */
-template<typename T>
-struct string_wrapper {
-	template<typename F>
-	struct from_pystring_converter {
-		from_pystring_converter() {
-			converter::registry::push_back(
-					&convertible,
-					&construct,
-					boost::python::type_id<T>());
-		};
+template <typename T> struct string_wrapper
+{
+    template <typename F> struct from_pystring_converter
+    {
+        from_pystring_converter()
+        {
+            converter::registry::push_back(&convertible, &construct,
+                                           boost::python::type_id<T>());
+        };
 
-		static void *convertible(PyObject *object) {
-			return PyUnicode_Check(object) ? object : 0;
-		}
+        static void *convertible(PyObject *object)
+        {
+            return PyUnicode_Check(object) ? object : 0;
+        }
 
-		static void construct(
-				PyObject *object,
-				converter::rvalue_from_python_stage1_data *data) {
-			const wchar_t *value = PyUnicode_AsUnicode(object);
-			const std::wstring value_ws(value);
-			if (value == 0) throw_error_already_set();
-			void *storage = (
-					(boost::python::converter::rvalue_from_python_storage<T> *)
-							data)->storage.bytes;
-			new(storage) T(fn(std::string(value_ws.begin(), value_ws.end())));
-			data->convertible = storage;
-		}
+        static void construct(PyObject *object,
+                              converter::rvalue_from_python_stage1_data *data)
+        {
+            const wchar_t *value = PyUnicode_AsUnicode(object);
+            const std::wstring value_ws(value);
+            if (value == 0)
+                throw_error_already_set();
+            void *storage =
+                    ((boost::python::converter::rvalue_from_python_storage<T> *)
+                             data)
+                            ->storage.bytes;
+            new (storage) T(fn(std::string(value_ws.begin(), value_ws.end())));
+            data->convertible = storage;
+        }
 
-		static F fn;
-	};
+        static F fn;
+    };
 
-	template<typename F>
-	struct to_str_wrapper {
-		static F fn;
+    template <typename F> struct to_str_wrapper
+    {
+        static F fn;
 
-		std::string str(T &x) {
-			return fn(x);
-		}
-	};
+        std::string str(T &x) { return fn(x); }
+    };
 
-	template<typename F1, typename F2>
-	static void wrap(const char *type_name, F1 to_str_fn, F2 from_str_fn) {
-		from_pystring_converter<F2>::fn = from_str_fn;
-		from_pystring_converter<F2>();
-		to_str_wrapper<F1>::fn = to_str_fn;
-		class_<T>(type_name, no_init).def("__str__", to_str_wrapper<F1>::str);
-	};
+    template <typename F1, typename F2>
+    static void wrap(const char *type_name, F1 to_str_fn, F2 from_str_fn)
+    {
+        from_pystring_converter<F2>::fn = from_str_fn;
+        from_pystring_converter<F2>();
+        to_str_wrapper<F1>::fn = to_str_fn;
+        class_<T>(type_name, no_init).def("__str__", to_str_wrapper<F1>::str);
+    };
 };
 
 std::string parse_python_exception();
 
-template<typename Tn>
-void python_export_global(const char *name, Tn &x) {
-	PyObject * m, *d;
-	m = PyImport_AddModule("__main__");
-	if (m == NULL)
-		return;
-	d = PyModule_GetDict(m);
-	try {
-		PyObject * p = incref(object(boost::ref(x)).ptr());
-		PyDict_SetItemString(d, name, p);
-	} catch (boost::python::error_already_set const &) {
-		// Parse and output the exception
-		std::string perror_str = parse_python_exception();
-		std::cout << "Error in Python: " << perror_str << std::endl;
-		std::terminate();
-	}
+template <typename Tn> void python_export_global(const char *name, Tn &x)
+{
+    PyObject *m, *d;
+    m = PyImport_AddModule("__main__");
+    if (m == NULL)
+        return;
+    d = PyModule_GetDict(m);
+    try {
+        PyObject *p = incref(object(boost::ref(x)).ptr());
+        PyDict_SetItemString(d, name, p);
+    } catch (boost::python::error_already_set const &) {
+        // Parse and output the exception
+        std::string perror_str = parse_python_exception();
+        std::cout << "Error in Python: " << perror_str << std::endl;
+        std::terminate();
+    }
 };
 
 void init_python(const char *executable);
