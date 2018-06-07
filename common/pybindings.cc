@@ -36,7 +36,54 @@
 // architectures
 void arch_wrap_python();
 
+bool operator==(const PortRef &a, const PortRef &b) {
+	return (a.cell == b.cell) && (a.port == b.port);
+}
+
 BOOST_PYTHON_MODULE (MODULE_NAME) {
+	class_<GraphicElement>("GraphicElement")
+			.def_readwrite("style", &GraphicElement::style)
+			.def_readwrite("type", &GraphicElement::type)
+			.def_readwrite("x1", &GraphicElement::x1)
+			.def_readwrite("y1", &GraphicElement::y1)
+			.def_readwrite("x2", &GraphicElement::x2)
+			.def_readwrite("y2", &GraphicElement::y2)
+			.def_readwrite("text", &GraphicElement::text);
+
+	class_<PortRef>("PortRef")
+			.def_readwrite("cell", &PortRef::cell)
+			.def_readwrite("port", &PortRef::port);
+
+	class_<NetInfo, NetInfo*>("NetInfo")
+			.def_readwrite("name", &NetInfo::name)
+			.def_readwrite("driver", &NetInfo::driver)
+			.def_readwrite("users", &NetInfo::users)
+			.def_readwrite("attrs", &NetInfo::attrs)
+			.def_readwrite("wires", &NetInfo::wires);
+
+	WRAP_MAP(decltype(NetInfo::attrs), "IdStrMap");
+
+	class_<vector<PortRef>>("PortRefVector")
+			.def(vector_indexing_suite<vector<PortRef>>());
+
+	class_<PortInfo>("PortInfo")
+			.def_readwrite("name", &PortInfo::name)
+			.def_readwrite("net", &PortInfo::net)
+			.def_readwrite("type", &PortInfo::type);
+
+	class_<CellInfo, CellInfo*>("CellInfo")
+			.def_readwrite("name", &CellInfo::name)
+			.def_readwrite("type", &CellInfo::type)
+			.def_readwrite("ports", &CellInfo::ports)
+			.def_readwrite("attrs", &CellInfo::attrs)
+			.def_readwrite("params", &CellInfo::params)
+			.def_readwrite("bel", &CellInfo::bel)
+			.def_readwrite("pins", &CellInfo::pins);
+
+	class_<Design>("Design", no_init)
+			.def_readwrite("chip", &Design::chip)
+			.def_readwrite("nets", &Design::nets)
+			.def_readwrite("cells", &Design::cells);
 	arch_wrap_python();
 }
 
