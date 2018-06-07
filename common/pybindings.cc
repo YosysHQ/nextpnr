@@ -36,7 +36,67 @@
 // architectures
 void arch_wrap_python();
 
+bool operator==(const PortRef &a, const PortRef &b) {
+	return (a.cell == b.cell) && (a.port == b.port);
+}
+
 BOOST_PYTHON_MODULE (MODULE_NAME) {
+	class_<GraphicElement>("GraphicElement")
+			.def_readwrite("style", &GraphicElement::style)
+			.def_readwrite("type", &GraphicElement::type)
+			.def_readwrite("x1", &GraphicElement::x1)
+			.def_readwrite("y1", &GraphicElement::y1)
+			.def_readwrite("x2", &GraphicElement::x2)
+			.def_readwrite("y2", &GraphicElement::y2)
+			.def_readwrite("text", &GraphicElement::text);
+
+	class_<PortRef>("PortRef")
+			.def_readwrite("cell", &PortRef::cell)
+			.def_readwrite("port", &PortRef::port);
+
+	class_<NetInfo, NetInfo*>("NetInfo")
+			.def_readwrite("name", &NetInfo::name)
+			.def_readwrite("driver", &NetInfo::driver)
+			.def_readwrite("users", &NetInfo::users)
+			.def_readwrite("attrs", &NetInfo::attrs)
+			.def_readwrite("wires", &NetInfo::wires);
+
+	WRAP_MAP(decltype(NetInfo::attrs), "IdStrMap");
+
+	class_<vector<PortRef>>("PortRefVector")
+			.def(vector_indexing_suite<vector<PortRef>>());
+
+	enum_<PortType>("PortType")
+			.value("PORT_IN", PORT_IN)
+			.value("PORT_OUT", PORT_OUT)
+			.value("PORT_INOUT", PORT_INOUT)
+			.export_values();
+
+	class_<PortInfo>("PortInfo")
+			.def_readwrite("name", &PortInfo::name)
+			.def_readwrite("net", &PortInfo::net)
+			.def_readwrite("type", &PortInfo::type);
+
+	class_<CellInfo, CellInfo*>("CellInfo")
+			.def_readwrite("name", &CellInfo::name)
+			.def_readwrite("type", &CellInfo::type)
+			.def_readwrite("ports", &CellInfo::ports)
+			.def_readwrite("attrs", &CellInfo::attrs)
+			.def_readwrite("params", &CellInfo::params)
+			.def_readwrite("bel", &CellInfo::bel)
+			.def_readwrite("pins", &CellInfo::pins);
+
+	WRAP_MAP(decltype(CellInfo::ports), "IdPortMap");
+	//WRAP_MAP(decltype(CellInfo::pins), "IdIdMap");
+
+	class_<Design, Design*>("Design", no_init)
+			.def_readwrite("chip", &Design::chip)
+			.def_readwrite("nets", &Design::nets)
+			.def_readwrite("cells", &Design::cells);
+
+	WRAP_MAP(decltype(Design::nets), "IdNetMap");
+	WRAP_MAP(decltype(Design::cells), "IdCellMap");
+
 	arch_wrap_python();
 }
 
@@ -57,6 +117,7 @@ void init_python(const char *executable) {
 		emb::append_inittab();
 		Py_SetProgramName(program);
 		Py_Initialize();
+		PyImport_ImportModule(TOSTRING(MODULE_NAME));
 	} catch (boost::python::error_already_set const &) {
 		// Parse and output the exception
 		std::string perror_str = parse_python_exception();
