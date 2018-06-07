@@ -66,6 +66,12 @@ BOOST_PYTHON_MODULE (MODULE_NAME) {
 	class_<vector<PortRef>>("PortRefVector")
 			.def(vector_indexing_suite<vector<PortRef>>());
 
+	enum_<PortType>("PortType")
+			.value("PORT_IN", PORT_IN)
+			.value("PORT_OUT", PORT_OUT)
+			.value("PORT_INOUT", PORT_INOUT)
+			.export_values();
+
 	class_<PortInfo>("PortInfo")
 			.def_readwrite("name", &PortInfo::name)
 			.def_readwrite("net", &PortInfo::net)

@@ -94,7 +94,7 @@ void python_export_global(const char *name, Tn &x) {
 		return;
 	d = PyModule_GetDict(m);
 	try {
-		PyObject * p = object(boost::ref(x)).ptr();
+		PyObject * p = incref(object(boost::ref(x)).ptr());
 		PyDict_SetItemString(d, name, p);
 	} catch (boost::python::error_already_set const &) {
 		// Parse and output the exception

@@ -205,7 +205,7 @@ int main(int argc, char *argv[])
 		
 		parse_json_file(f, filename, &design);
 	}	
-	
+
 	if (vm.count("file")) 
 	{
 		std::vector<std::string> files = vm["file"].as<std::vector<std::string>>();
