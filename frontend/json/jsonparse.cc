@@ -348,7 +348,7 @@ void	json_import_cell_attributes(Design *design, string &modname,
 
 	pId = param_node->data_dict_keys[param_id];
 	if (param->type == 'N') {
-		cell->params[pId] = std::to_string(param_node->data_number);;
+		cell->params[pId] = std::to_string(param->data_number);;
 	} else if (param->type == 'S')
 		cell->params[pId] = param->data_string;
 	else

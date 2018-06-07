@@ -15,7 +15,11 @@ for cell in sorted(design.cells, key=lambda x: x.first):
     if len(cell.second.params) > 0:
         print("\tParams:")
         for param in cell.second.params:
-            print("\t\t{}: {}".format(param.first, param.second))
+            val = param.second
+            if val.isdigit():
+                val = bin(int(val))[2:]
+                val = "{}'b{}".format(len(val), val)
+            print("\t\t{}: {}".format(param.first, val))
 
     if not cell.second.bel.nil():
         print("\tBel: {}".format(chip.getBelName(cell.second.bel)))
