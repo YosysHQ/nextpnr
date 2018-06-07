@@ -66,7 +66,22 @@ void arch_wrap_python()
             .def("getBelName", &Chip::getBelName)
             .def("getWireName", &Chip::getWireName)
             .def("getBels", &Chip::getBels)
-            .def("getWires", &Chip::getWires);
+            .def("getBelType", &Chip::getBelType)
+            .def("getWireBelPin", &Chip::getWireBelPin)
+            .def("getBelPinUphill", &Chip::getBelPinUphill)
+            .def("getBelPinsDownhill", &Chip::getBelPinsDownhill)
+            .def("getWires", &Chip::getWires)
+            .def("getPipByName", &Chip::getPipByName)
+            .def("getPipName", &Chip::getPipName)
+            .def("getPips", &Chip::getPips)
+            .def("getPipSrcWire", &Chip::getPipSrcWire)
+            .def("getPipDstWire", &Chip::getPipDstWire)
+            .def("getPipDelay", &Chip::getPipDelay)
+            .def("getPipsDownhill", &Chip::getPipsDownhill)
+            .def("getPipsUphill", &Chip::getPipsUphill)
+            .def("getWireAliases", &Chip::getWireAliases)
+            .def("getBelPosition", &Chip::getBelPosition)
+            .def("getWirePosition", &Chip::getWirePosition);
 
     WRAP_RANGE(Bel);
     WRAP_RANGE(BelPin);

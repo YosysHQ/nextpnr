@@ -161,6 +161,7 @@ int main(int argc, char *argv[])
     Design design(chipArgs);
     init_python(argv[0]);
     python_export_global("design", design);
+    python_export_global("chip", design.chip);
 
     if (vm.count("test")) {
         int bel_count = 0, wire_count = 0, pip_count = 0;
