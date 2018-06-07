@@ -236,7 +236,7 @@ int main(int argc, char *argv[])
 
 	if (vm.count("run"))
 	{
-		std::vector<std::string> files = vm["file"].as<std::vector<std::string>>();
+		std::vector<std::string> files = vm["run"].as<std::vector<std::string>>();
 		for(auto filename : files)
 			execute_python_file(filename.c_str());
 	}
