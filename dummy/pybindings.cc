@@ -18,10 +18,10 @@
  *
  */
 
-#include "design.h"
 #include "chip.h"
+#include "design.h"
+
+// include after design.h/chip.h
 #include "pybindings.h"
 
-void arch_wrap_python() {
-    class_<ChipArgs>("ChipArgs");
-}
+void arch_wrap_python() { class_<ChipArgs>("ChipArgs"); }

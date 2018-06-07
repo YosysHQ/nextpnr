@@ -57,5 +57,6 @@ bool	check_all_nets_driven(Design *design) {
 	}
 
 	if (debug) log_info("  Verified!\n");
+	return true;
 }
 
