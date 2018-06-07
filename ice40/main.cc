@@ -123,6 +123,7 @@ int main(int argc, char *argv[])
 
 	Design design(chipArgs);
 	init_python(argv[0]);
+	python_export_global("design", design);
 
 	if (vm.count("test"))
 	{

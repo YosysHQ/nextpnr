@@ -80,10 +80,17 @@ BOOST_PYTHON_MODULE (MODULE_NAME) {
 			.def_readwrite("bel", &CellInfo::bel)
 			.def_readwrite("pins", &CellInfo::pins);
 
-	class_<Design>("Design", no_init)
+	WRAP_MAP(decltype(CellInfo::ports), "IdPortMap");
+	//WRAP_MAP(decltype(CellInfo::pins), "IdIdMap");
+
+	class_<Design, Design*>("Design", no_init)
 			.def_readwrite("chip", &Design::chip)
 			.def_readwrite("nets", &Design::nets)
 			.def_readwrite("cells", &Design::cells);
+
+	WRAP_MAP(decltype(Design::nets), "IdNetMap");
+	WRAP_MAP(decltype(Design::cells), "IdCellMap");
+
 	arch_wrap_python();
 }
 
@@ -104,6 +111,7 @@ void init_python(const char *executable) {
 		emb::append_inittab();
 		Py_SetProgramName(program);
 		Py_Initialize();
+		PyImport_ImportModule(TOSTRING(MODULE_NAME));
 	} catch (boost::python::error_already_set const &) {
 		// Parse and output the exception
 		std::string perror_str = parse_python_exception();
