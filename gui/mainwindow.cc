@@ -11,9 +11,6 @@ MainWindow::MainWindow(QWidget *parent) :
     ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
-    emb::append_inittab();
-    arch_appendinittab();
-    Py_Initialize();
     PyImport_ImportModule("emb");
     
     write = [this] (std::string s) {
@@ -27,7 +24,6 @@ MainWindow::MainWindow(QWidget *parent) :
 
 MainWindow::~MainWindow()
 {
-    Py_Finalize();
     delete ui;
 }
 

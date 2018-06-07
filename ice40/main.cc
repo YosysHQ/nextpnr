@@ -45,7 +45,7 @@ void svg_dump_el(const GraphicElement &el)
 int main(int argc, char *argv[])
 {
 	namespace po = boost::program_options;
-
+	int rc = 0;
 	std::string str;
 
 	po::options_description options("Allowed options");
@@ -122,15 +122,7 @@ int main(int argc, char *argv[])
 		chipArgs.type = ChipArgs::UP5K;
 
 	Design design(chipArgs);
-
-	if (vm.count("gui")) 
-	{
-		QApplication a(argc, argv);
-		MainWindow w;
-		w.show();
-
-		return a.exec();
-	}
+	init_python(argv[0]);
 
 	if (vm.count("test"))
 	{
@@ -216,8 +208,17 @@ int main(int argc, char *argv[])
 	if (vm.count("file")) 
 	{
 		std::string filename = vm["file"].as<std::string>();
-		execute_python_file(argv[0],filename.c_str());
-	}	
-	
-	return 0;
+		execute_python_file(filename.c_str());
+	}
+
+	if (vm.count("gui"))
+	{
+		QApplication a(argc, argv);
+		MainWindow w;
+		w.show();
+
+		rc = a.exec();
+	}
+	deinit_python();
+	return rc;
 }

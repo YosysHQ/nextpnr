@@ -26,7 +26,6 @@
 #include <boost/python/suite/indexing/vector_indexing_suite.hpp>
 #include <boost/python/suite/indexing/map_indexing_suite.hpp>
 #include <boost/python/suite/indexing/map_indexing_suite.hpp>
-
 using namespace boost::python;
 /*
 A wrapper for a Pythonised nextpnr Iterator. The actual class wrapped is a
@@ -79,7 +78,10 @@ struct range_wrapper {
 
 #define WRAP_RANGE(t) range_wrapper<t##Range>().wrap(#t "Range", #t "Iterator")
 
-void execute_python_file(const char *executable, const char* python_file);
+void init_python(const char *executable);
+void deinit_python();
+
+void execute_python_file(const char* python_file);
 std::string parse_python_exception();
 void arch_appendinittab();
 

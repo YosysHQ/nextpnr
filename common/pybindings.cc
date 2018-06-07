@@ -22,6 +22,7 @@
 #include "design.h"
 #include "chip.h"
 #include "pybindings.h"
+#include "emb.h"
 
 // Required to determine concatenated module name (which differs for different archs)
 #define PASTER(x, y) x ## _ ## y
@@ -36,43 +37,52 @@
 void arch_wrap_python();
 
 BOOST_PYTHON_MODULE (MODULE_NAME) {
-    arch_wrap_python();
+	arch_wrap_python();
 }
 
-void arch_appendinittab()
-{
-    PyImport_AppendInittab(TOSTRING(MODULE_NAME), PYINIT_MODULE_NAME);
+void arch_appendinittab() {
+	PyImport_AppendInittab(TOSTRING(MODULE_NAME), PYINIT_MODULE_NAME);
 }
 
-void execute_python_file(const char *executable, const char* python_file)
-{
-    wchar_t *program = Py_DecodeLocale(executable, NULL);
-    if (program == NULL) {
-        fprintf(stderr, "Fatal error: cannot decode executable filename\n");
-        exit(1);
-    }
-    try 
-    {		
-        PyImport_AppendInittab(TOSTRING(MODULE_NAME), PYINIT_MODULE_NAME);
-        Py_SetProgramName(program);
-        Py_Initialize();
+static wchar_t *program;
 
-        FILE* fp = fopen(python_file, "r");	
-        if (fp == NULL) {
-            fprintf(stderr, "Fatal error: file not found %s\n",python_file);
-            exit(1);
-        }
-        PyRun_SimpleFile(fp , python_file);
-        fclose(fp);
+void init_python(const char *executable) {
+	program = Py_DecodeLocale(executable, NULL);
+	if (program == NULL) {
+		fprintf(stderr, "Fatal error: cannot decode executable filename\n");
+		exit(1);
+	}
+	try {
+		PyImport_AppendInittab(TOSTRING(MODULE_NAME), PYINIT_MODULE_NAME);
+		emb::append_inittab();
+		Py_SetProgramName(program);
+		Py_Initialize();
+	} catch (boost::python::error_already_set const &) {
+		// Parse and output the exception
+		std::string perror_str = parse_python_exception();
+		std::cout << "Error in Python: " << perror_str << std::endl;
+	}
+}
 
-        Py_Finalize();
-        PyMem_RawFree(program);
-    } 
-    catch(boost::python::error_already_set const &)
-    {
-        // Parse and output the exception
-        std::string perror_str = parse_python_exception();
-        std::cout << "Error in Python: " << perror_str << std::endl;
-    }
+void deinit_python() {
+	Py_Finalize();
+	PyMem_RawFree(program);
+}
+
+void execute_python_file(const char *python_file) {
+	try {
+		FILE *fp = fopen(python_file, "r");
+		if (fp == NULL) {
+			fprintf(stderr, "Fatal error: file not found %s\n", python_file);
+			exit(1);
+		}
+		PyRun_SimpleFile(fp, python_file);
+		fclose(fp);
+	}
+	catch (boost::python::error_already_set const &) {
+		// Parse and output the exception
+		std::string perror_str = parse_python_exception();
+		std::cout << "Error in Python: " << perror_str << std::endl;
+	}
 }
 
