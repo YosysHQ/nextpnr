@@ -1,4 +1,12 @@
-set(devices 384 1k 5k 8k)
+if(ICE40_HX1K_ONLY)
+    set(devices 1k)
+    foreach (target ${family_targets})
+        target_compile_definitions(${target} PRIVATE ICE40_HX1K_ONLY=1)
+    endforeach (target)
+else()
+    set(devices 384 1k 5k 8k)
+endif()
+
 set(DB_PY ${CMAKE_CURRENT_SOURCE_DIR}/ice40/chipdb.py)
 file(MAKE_DIRECTORY ice40/chipdbs/)
 add_library(ice40_chipdb OBJECT ice40/chipdbs/)

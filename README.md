@@ -21,6 +21,7 @@ Building
 
  - Use CMake to generate the Makefiles (only needs to be done when `CMakeLists.txt` changes)
     - For a debug build, run `cmake -DCMAKE_BUILD_TYPE=Debug .`
+    - For a debug build with HX1K support only, run ` cmake -DCMAKE_BUILD_TYPE=Debug -DICE40_HX1K_ONLY=1 .`
     - For a release build, run `cmake .`
  - Use Make to run the build itself
     - For all targets, just run `make`
