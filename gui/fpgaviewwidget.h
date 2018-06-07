@@ -1,15 +1,15 @@
 #ifndef MAPGLWIDGET_H
 #define MAPGLWIDGET_H
 
-#include <QOpenGLWidget>
 #include <QOpenGLFunctions>
+#include <QOpenGLWidget>
 #include <QPainter>
 
 class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
 {
     Q_OBJECT
 
-public:
+  public:
     FPGAViewWidget(QWidget *parent = 0);
     ~FPGAViewWidget();
 
@@ -24,7 +24,7 @@ public:
     void yRotationChanged(int angle);
     void zRotationChanged(int angle);
 
-protected:
+  protected:
     void initializeGL() Q_DECL_OVERRIDE;
     void paintGL() Q_DECL_OVERRIDE;
     void resizeGL(int width, int height) Q_DECL_OVERRIDE;
@@ -32,7 +32,7 @@ protected:
     void mouseMoveEvent(QMouseEvent *event) Q_DECL_OVERRIDE;
     void wheelEvent(QWheelEvent *event) Q_DECL_OVERRIDE;
 
-private:
+  private:
     int m_windowWidth;
     int m_windowHeight;
     float m_xMove;
