@@ -21,9 +21,12 @@
 #include "chip.h"
 #include "design.h"
 #include "emb.h"
+#include "jsonparse.h"
 
 // include after design.h/chip.h
 #include "pybindings.h"
+
+#include <fstream>
 
 // Required to determine concatenated module name (which differs for different
 // archs)
@@ -41,6 +44,24 @@ void arch_wrap_python();
 bool operator==(const PortRef &a, const PortRef &b)
 {
     return (a.cell == b.cell) && (a.port == b.port);
+}
+
+// Load a JSON file into a design
+void parse_json_shim(std::string filename, Design &d)
+{
+    std::ifstream inf(filename);
+    if (!inf)
+        throw std::runtime_error("failed to open file " + filename);
+    std::istream *ifp = &inf;
+    parse_json_file(ifp, filename, &d);
+}
+
+// Create a new Chip and load design from json file
+Design load_design_shim(std::string filename, ChipArgs args)
+{
+    Design d(args);
+    parse_json_shim(filename, d);
+    return d;
 }
 
 BOOST_PYTHON_MODULE(MODULE_NAME)
@@ -100,6 +121,9 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
 
     WRAP_MAP(decltype(Design::nets), "IdNetMap");
     WRAP_MAP(decltype(Design::cells), "IdCellMap");
+
+    def("parse_json", parse_json_shim);
+    def("load_design", load_design_shim);
 
     arch_wrap_python();
 }
