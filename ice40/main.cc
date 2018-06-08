@@ -23,7 +23,6 @@
 #include "design.h"
 #include "jsonparse.h"
 #include "log.h"
-#include "log.h"
 #include "mainwindow.h"
 #include "place.h"
 #include "pybindings.h"

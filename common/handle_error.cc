@@ -1,11 +1,12 @@
-#include <boost/python.hpp>
 #include <Python.h>
+#include <boost/python.hpp>
 
 namespace py = boost::python;
 
 // Parses the value of the active python exception
 // NOTE SHOULD NOT BE CALLED IF NO EXCEPTION
-std::string parse_python_exception(){
+std::string parse_python_exception()
+{
     PyObject *type_ptr = NULL, *value_ptr = NULL, *traceback_ptr = NULL;
     // Fetch the exception info from the Python C API
     PyErr_Fetch(&type_ptr, &value_ptr, &traceback_ptr);
@@ -13,30 +14,31 @@ std::string parse_python_exception(){
     // Fallback error
     std::string ret("Unfetchable Python error");
     // If the fetch got a type pointer, parse the type into the exception string
-    if(type_ptr != NULL){
+    if (type_ptr != NULL) {
         py::handle<> h_type(type_ptr);
         py::str type_pstr(h_type);
         // Extract the string from the boost::python object
         py::extract<std::string> e_type_pstr(type_pstr);
-        // If a valid string extraction is available, use it 
+        // If a valid string extraction is available, use it
         //  otherwise use fallback
-        if(e_type_pstr.check())
+        if (e_type_pstr.check())
             ret = e_type_pstr();
         else
             ret = "Unknown exception type";
     }
-    // Do the same for the exception value (the stringification of the exception)
-    if(value_ptr != NULL){
+    // Do the same for the exception value (the stringification of the
+    // exception)
+    if (value_ptr != NULL) {
         py::handle<> h_val(value_ptr);
         py::str a(h_val);
         py::extract<std::string> returned(a);
-        if(returned.check())
-            ret +=  ": " + returned();
+        if (returned.check())
+            ret += ": " + returned();
         else
             ret += std::string(": Unparseable Python error: ");
     }
     // Parse lines from the traceback using the Python traceback module
-    if(traceback_ptr != NULL){
+    if (traceback_ptr != NULL) {
         py::handle<> h_tb(traceback_ptr);
         // Load the traceback module and the format_tb function
         py::object tb(py::import("traceback"));
@@ -47,7 +49,7 @@ std::string parse_python_exception(){
         py::object tb_str(py::str("\n").join(tb_list));
         // Extract the string, check the extraction, and fallback in necessary
         py::extract<std::string> returned(tb_str);
-        if(returned.check())
+        if (returned.check())
             ret += ": " + returned();
         else
             ret += std::string(": Unparseable Python traceback");

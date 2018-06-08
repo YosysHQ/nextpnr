@@ -27,7 +27,4 @@ const vector<BelId> &Chip::getBels() const
     return ret;
 }
 
-BelType Chip::getBelType(BelId bel) const
-{
-    return BelType();
-}
+BelType Chip::getBelType(BelId bel) const { return BelType(); }

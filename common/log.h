@@ -21,7 +21,6 @@
 #define LOG_H
 
 #include <ostream>
-#include <ostream>
 #include <set>
 #include <stdarg.h>
 #include <stdio.h>
