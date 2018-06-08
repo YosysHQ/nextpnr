@@ -16,6 +16,9 @@
  *  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
  */
+
+#ifndef PYTHON_MODULE
+
 #include <QApplication>
 #include <boost/program_options.hpp>
 #include <fstream>
@@ -263,3 +266,5 @@ int main(int argc, char *argv[])
     deinit_python();
     return rc;
 }
+
+#endif

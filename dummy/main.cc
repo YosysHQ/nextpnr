@@ -17,6 +17,8 @@
  *
  */
 
+#ifndef PYTHON_MODULE
+
 #include <QApplication>
 #include "design.h"
 #include "mainwindow.h"
@@ -31,3 +33,5 @@ int main(int argc, char *argv[])
 
     return a.exec();
 }
+
+#endif

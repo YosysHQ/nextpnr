@@ -113,6 +113,7 @@ static wchar_t *program;
 
 void init_python(const char *executable)
 {
+#ifndef PYTHON_MODULE
     program = Py_DecodeLocale(executable, NULL);
     if (program == NULL) {
         fprintf(stderr, "Fatal error: cannot decode executable filename\n");
@@ -129,12 +130,15 @@ void init_python(const char *executable)
         std::string perror_str = parse_python_exception();
         std::cout << "Error in Python: " << perror_str << std::endl;
     }
+#endif
 }
 
 void deinit_python()
 {
+#ifndef PYTHON_MODULE
     Py_Finalize();
     PyMem_RawFree(program);
+#endif
 }
 
 void execute_python_file(const char *python_file)

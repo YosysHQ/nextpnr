@@ -83,6 +83,7 @@ foreach (family ${FAMILIES})
     add_executable(nextpnr-${family} ${COMMON_FILES} ${${ufamily}_FILES} ${GUI_SOURCE_FILES})
     # Add the importable Python module target
     PYTHON_ADD_MODULE(nextpnrpy_${family} ${COMMON_FILES} ${${ufamily}_FILES})
+    target_compile_definitions(nextpnrpy_${family} PRIVATE PYTHON_MODULE)
     # Add any new per-architecture targets here
 
     # Set ${family_targets} to the list of targets being build for this family
