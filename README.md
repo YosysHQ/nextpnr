@@ -10,11 +10,12 @@ Prequisites
 -----------
  
  - CMake 3.3 or later
- - Modern C++11 compiler, clang recommended
+ - Modern C++11 compiler, clang recommended (`clang-format` required for development)
  - Qt5 or later (`qt5-default` for Ubuntu 16.04)
  - Python 3.5 or later, including development libraries (`python3-dev` for Ubuntu)
  - Boost libraries (`libboost-dev` or `libboost-all-dev` for Ubuntu)
  - Icestorm, with chipdbs installed in `/usr/local/share/icebox`
+ - Latest git Yosys is required to synthesise the demo design
  
 Building
 --------
@@ -32,5 +33,13 @@ Building
 Running
 --------
 
- - To run the CLI binary, just run `./nextpnr-ice40`
- - The Python module is called `nextpnrpy_ice40.so`. To test it, run `PYTHONPATH=. python3 python/python_test.py`
+ - To run the CLI binary, just run `./nextpnr-ice40` (you should see command line help)
+ - To start the UI, run `./nextpnr-ice40 --gui`
+ - The Python module is called `nextpnrpy_ice40.so`. To test it, run `PYTHONPATH=. python3 python/python_mod_test.py`
+
+Notes
+-------
+ 
+ - All code is formatted using `clang-format` according to the style rules in `.clang-format` (LLVM based with 
+ increased indent widths and brace wraps after classes).
+ - To automatically format all source code, run `make clangformat`.
