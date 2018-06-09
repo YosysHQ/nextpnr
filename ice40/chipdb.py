@@ -186,7 +186,7 @@ def add_bel_lc(x, y, z):
 
 def add_bel_io(x, y, z):
     bel = len(bel_name)
-    bel_name.append("%d_%d_lc%d" % (x, y, z))
+    bel_name.append("%d_%d_io%d" % (x, y, z))
     bel_type.append("SB_IO")
     bel_pos.append((x, y, z))
     bel_wires.append(list())

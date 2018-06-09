@@ -7,8 +7,8 @@ module blinky (
 	output led5_pin
 );
 	wire clk, led1, led2, led3, led4, led5;
-	
-	(* LOC="0_3_lc0" *)	
+
+	(* BEL="13_12_io1" *)
 	SB_IO #(
 		.PIN_TYPE(6'b 0110_01),
 		.PULLUP(1'b0),
@@ -25,8 +25,8 @@ module blinky (
 		.D_IN_0(),
 		.D_IN_1()
 	);
-	
-	(* LOC="0_3_lc1" *)	
+
+	(* BEL="13_12_io0" *)
 	SB_IO #(
 		.PIN_TYPE(6'b 0110_01),
 		.PULLUP(1'b0),
@@ -44,7 +44,7 @@ module blinky (
 		.D_IN_1()
 	);
 
-	(* LOC="5_17_lc1" *)	
+	(* BEL="13_11_io1" *)
 	SB_IO #(
 		.PIN_TYPE(6'b 0110_01),
 		.PULLUP(1'b0),
@@ -62,7 +62,7 @@ module blinky (
 		.D_IN_1()
 	);
 
-	(* LOC="10_0_lc1" *)	
+	(* BEL="13_11_io0" *)
 	SB_IO #(
 		.PIN_TYPE(6'b 0110_01),
 		.PULLUP(1'b0),
@@ -80,7 +80,7 @@ module blinky (
 		.D_IN_1()
 	);
 
-	(* LOC="12_17_lc0" *)	
+	(* BEL="13_9_io1" *)
 	SB_IO #(
 		.PIN_TYPE(6'b 0110_01),
 		.PULLUP(1'b0),
@@ -98,7 +98,7 @@ module blinky (
 		.D_IN_1()
 	);
 
-	(* LOC="0_6_lc0" *)
+	(* BEL="0_8_io1" *)
 	SB_IO #(
 		.PIN_TYPE(6'b 0000_01),
 		.PULLUP(1'b0),

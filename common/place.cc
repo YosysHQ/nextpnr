@@ -41,13 +41,13 @@ void place_design(Design *design)
     // Initial constraints placer
     for (auto cell_entry : design->cells) {
         CellInfo *cell = cell_entry.second;
-        auto loc = cell->attrs.find("LOC");
+        auto loc = cell->attrs.find("BEL");
         if (loc != cell->attrs.end()) {
             std::string loc_name = loc->second;
             BelId bel = design->chip.getBelByName(IdString(loc_name));
             if (bel == BelId()) {
                 log_error("No Bel named \'%s\' located for "
-                          "this chip (processing LOC on \'%s\')\n",
+                          "this chip (processing BEL attribute on \'%s\')\n",
                           loc_name.c_str(), cell->name.c_str());
             }
 
@@ -112,7 +112,7 @@ void place_design(Design *design)
             design->chip.bindBel(cell->bel, cell->name);
 
             // Back annotate location
-            cell->attrs["LOC"] = design->chip.getBelName(cell->bel);
+            cell->attrs["BEL"] = design->chip.getBelName(cell->bel);
         }
     }
 }
