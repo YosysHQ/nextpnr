@@ -66,7 +66,6 @@ struct Chip
     Chip(ChipArgs args);
 
     BelId getBelByName(IdString name) const;
-
     IdString getBelName(BelId bel) const;
     void bindBel(BelId bel, IdString cell);
     void unbindBel(BelId bel);
