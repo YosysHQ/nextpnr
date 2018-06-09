@@ -37,7 +37,7 @@ template <> struct greater<QueuedWire>
         return lhs.delay.avgDelay() > rhs.delay.avgDelay();
     }
 };
-}
+} // namespace std
 
 void route_design(Design *design)
 {

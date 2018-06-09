@@ -20,6 +20,6 @@ for cell, cinfo in sorted(design.cells, key=lambda x: x.first):
                 val = "{}'b{}".format(len(val), val)
             print("\t\t{}: {}".format(param, val))
 
-    if not cinfo.bel.nil():
+    if cinfo.bel != -1:
         print("\tBel: {}".format(chip.getBelName(cinfo.bel)))
     print()

@@ -38,8 +38,38 @@ void place_design(Design *design)
     std::set<IdString>::iterator not_found, element;
     std::set<BelType> used_bels;
 
+    // Initial constraints placer
     for (auto cell_entry : design->cells) {
         CellInfo *cell = cell_entry.second;
+        auto loc = cell->attrs.find("LOC");
+        if (loc != cell->attrs.end()) {
+            std::string loc_name = loc->second;
+            BelId bel = design->chip.getBelByName(IdString(loc_name));
+            if (bel == BelId()) {
+                log_error("No Bel named \'%s\' located for "
+                          "this chip (processing LOC on \'%s\')\n",
+                          loc_name.c_str(), cell->name.c_str());
+            }
+
+            BelType bel_type = design->chip.getBelType(bel);
+            if (bel_type != belTypeFromId(cell->type)) {
+                log_error("Bel \'%s\' of type \'%s\' does not match cell "
+                          "\'%s\' of type \'%s\'",
+                          loc_name.c_str(), belTypeToId(bel_type).c_str(),
+                          cell->name.c_str(), cell->type.c_str());
+            }
+
+            cell->bel = bel;
+            design->chip.bindBel(bel, cell->name);
+        }
+    }
+
+    for (auto cell_entry : design->cells) {
+        CellInfo *cell = cell_entry.second;
+        // Ignore already placed cells
+        if (cell->bel != BelId())
+            continue;
+
         BelType bel_type;
 
         element = types_used.find(cell->type);
@@ -64,17 +94,25 @@ void place_design(Design *design)
         for (auto cell_entry : design->cells) {
             CellInfo *cell = cell_entry.second;
 
+            // Ignore already placed cells
+            if (cell->bel != BelId())
+                continue;
             // Only place one type of Bel at a time
             if (cell->type.compare(bel_type_name) != 0)
                 continue;
 
             while ((bi != blist.end()) &&
-                   (design->chip.getBelType(*bi) != bel_type))
+                   ((design->chip.getBelType(*bi) != bel_type ||
+                     !design->chip.checkBelAvail(*bi))))
                 bi++;
             if (bi == blist.end())
                 log_error("Too many \'%s\' used in design\n",
                           cell->type.c_str());
             cell->bel = *bi++;
+            design->chip.bindBel(cell->bel, cell->name);
+
+            // Back annotate location
+            cell->attrs["LOC"] = design->chip.getBelName(cell->bel);
         }
     }
 }
