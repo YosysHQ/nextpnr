@@ -54,7 +54,6 @@ void place_design(Design *design)
                       cell->type.c_str());
         }
         types_used.insert(cell->type);
-        std::cout << cell->type << std::endl;
     }
 
     for (auto bel_type_name : types_used) {
