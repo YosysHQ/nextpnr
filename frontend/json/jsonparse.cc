@@ -312,9 +312,9 @@ bool is_blackbox(JsonNode *node)
     return true;
 }
 
-void json_import_cell_attributes(Design *design, string &modname,
-                                 CellInfo *cell, JsonNode *param_node,
-                                 int param_id)
+void json_import_cell_params(Design *design, string &modname, CellInfo *cell,
+                             JsonNode *param_node,
+                             dict<IdString, std::string> *dest, int param_id)
 {
     //
     JsonNode *param;
@@ -324,9 +324,9 @@ void json_import_cell_attributes(Design *design, string &modname,
 
     pId = param_node->data_dict_keys[param_id];
     if (param->type == 'N') {
-        cell->params[pId] = std::to_string(param->data_number);
+        (*dest)[pId] = std::to_string(param->data_number);
     } else if (param->type == 'S')
-        cell->params[pId] = param->data_string;
+        (*dest)[pId] = param->data_string;
     else
         log_error(
                 "JSON parameter type of \"%s\' of cell \'%s\' not supported\n",
@@ -529,7 +529,7 @@ void json_import_cell_ports(Design *design, string &modname, CellInfo *cell,
 void json_import_cell(Design *design, string modname, JsonNode *cell_node,
                       string cell_name)
 {
-    JsonNode *cell_type, *param_node;
+    JsonNode *cell_type, *param_node, *attr_node;
 
     cell_type = cell_node->data_dict.at("type");
     if (cell_type == NULL)
@@ -557,7 +557,24 @@ void json_import_cell(Design *design, string modname, JsonNode *cell_node,
     for (int paramid = 0; paramid < GetSize(param_node->data_dict_keys);
          paramid++) {
 
-        json_import_cell_attributes(design, modname, cell, param_node, paramid);
+        json_import_cell_params(design, modname, cell, param_node,
+                                &cell->params, paramid);
+    }
+
+    attr_node = cell_node->data_dict.at("attributes");
+    if (attr_node->type != 'D')
+        log_error("JSON attribute list of \'%s\' is not a data dictionary\n",
+                  cell->name.c_str());
+
+    //
+    // Loop through all attributes, adding them into the
+    // design to annotate the cell
+    //
+    for (int attrid = 0; attrid < GetSize(attr_node->data_dict_keys);
+         attrid++) {
+
+        json_import_cell_params(design, modname, cell, attr_node, &cell->attrs,
+                                attrid);
     }
 
     //
