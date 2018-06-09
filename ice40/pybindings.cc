@@ -38,17 +38,11 @@ void arch_wrap_python()
             .value("UP5K", ChipArgs::UP5K)
             .export_values();
 
-    class_<BelId>("BelId")
-            .def_readwrite("index", &BelId::index)
-            .def("nil", &BelId::nil);
+    class_<BelId>("BelId").def_readwrite("index", &BelId::index);
 
-    class_<WireId>("WireId")
-            .def_readwrite("index", &WireId::index)
-            .def("nil", &WireId::nil);
+    class_<WireId>("WireId").def_readwrite("index", &WireId::index);
 
-    class_<PipId>("PipId")
-            .def_readwrite("index", &PipId::index)
-            .def("nil", &WireId::nil);
+    class_<PipId>("PipId").def_readwrite("index", &PipId::index);
 
     class_<BelPin>("BelPin")
             .def_readwrite("bel", &BelPin::bel)

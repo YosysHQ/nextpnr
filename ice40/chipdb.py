@@ -318,7 +318,7 @@ for wire in range(num_wires):
     if wire in wire_uphill_belport:
         info += "{%d, PIN_%s}, " % wire_uphill_belport[wire]
     else:
-        info += "{-1, PIN_NIL}, "
+        info += "{-1, PIN_NONE}, "
 
     info += ("wire%d_downbels, " % wire) if num_bels_downhill > 0 else "nullptr, "
 

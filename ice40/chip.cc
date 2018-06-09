@@ -41,7 +41,7 @@ BelType belTypeFromId(IdString id)
         return TYPE_ICESTORM_RAM;
     if (id == "SB_IO")
         return TYPE_SB_IO;
-    return TYPE_NIL;
+    return TYPE_NONE;
 }
 
 // -----------------------------------------------------------------------
@@ -67,7 +67,7 @@ PortPin portPinFromId(IdString id)
 #include "portpins.inc"
 
 #undef X
-    return PIN_NIL;
+    return PIN_NONE;
 }
 
 // -----------------------------------------------------------------------
@@ -121,7 +121,7 @@ WireId Chip::getWireBelPin(BelId bel, PortPin pin) const
 {
     WireId ret;
 
-    assert(!bel.nil());
+    assert(bel != BelId());
 
     int num_bel_wires = chip_info.bel_data[bel.index].num_bel_wires;
     BelWirePOD *bel_wires = chip_info.bel_data[bel.index].bel_wires;
@@ -178,21 +178,21 @@ PipId Chip::getPipByName(IdString name) const
 
 void Chip::getBelPosition(BelId bel, float &x, float &y) const
 {
-    assert(!bel.nil());
+    assert(bel != BelId());
     x = chip_info.bel_data[bel.index].x;
     y = chip_info.bel_data[bel.index].y;
 }
 
 void Chip::getWirePosition(WireId wire, float &x, float &y) const
 {
-    assert(!wire.nil());
+    assert(wire != WireId());
     x = chip_info.wire_data[wire.index].x;
     y = chip_info.wire_data[wire.index].y;
 }
 
 void Chip::getPipPosition(PipId pip, float &x, float &y) const
 {
-    assert(!pip.nil());
+    assert(pip != PipId());
     x = chip_info.pip_data[pip.index].x;
     y = chip_info.pip_data[pip.index].y;
 }
