@@ -26,8 +26,16 @@ struct DelayInfo
 {
     float delay = 0;
 
-    float raiseDelay() { return delay; }
-    float fallDelay() { return delay; }
+    float raiseDelay() const { return delay; }
+    float fallDelay() const { return delay; }
+    float avgDelay() const { return delay; }
+
+    DelayInfo operator+(const DelayInfo &other) const
+    {
+        DelayInfo ret;
+        ret.delay = this->delay + other.delay;
+        return ret;
+    }
 };
 
 // -----------------------------------------------------------------------
@@ -51,15 +59,23 @@ enum PortPin
 #undef X
 };
 
-IdString PortPinToId(PortPin type);
-PortPin PortPinFromId(IdString id);
+IdString portPinToId(PortPin type);
+PortPin portPinFromId(IdString id);
 
 // -----------------------------------------------------------------------
+
+struct BelWirePOD
+{
+    int32_t wire_index;
+    PortPin port;
+};
 
 struct BelInfoPOD
 {
     const char *name;
     BelType type;
+    int num_bel_wires;
+    BelWirePOD *bel_wires;
     int8_t x, y, z;
 };
 
@@ -343,6 +359,10 @@ struct Chip
     mutable dict<IdString, int> wire_by_name;
     mutable dict<IdString, int> pip_by_name;
 
+    vector<IdString> bel_to_cell;
+    vector<IdString> wire_to_net;
+    vector<IdString> pip_to_net;
+
     Chip(ChipArgs args);
 
     // -------------------------------------------------
@@ -355,11 +375,31 @@ struct Chip
         return chip_info.bel_data[bel.index].name;
     }
 
-    void bindBel(BelId bel, IdString cell) {}
+    void bindBel(BelId bel, IdString cell)
+    {
+        assert(!bel.nil());
+        assert(bel_to_cell[bel.index] == IdString());
+        bel_to_cell[bel.index] = cell;
+    }
 
-    void unbindBel(BelId bel) {}
+    void unbindBel(BelId bel)
+    {
+        assert(!bel.nil());
+        assert(bel_to_cell[bel.index] != IdString());
+        bel_to_cell[bel.index] = IdString();
+    }
 
-    bool checkBelAvail(BelId bel) const {}
+    bool checkBelAvail(BelId bel) const
+    {
+        assert(!bel.nil());
+        return bel_to_cell[bel.index] == IdString();
+    }
+
+    IdString getBelCell(BelId bel) const
+    {
+        assert(!bel.nil());
+        return bel_to_cell[bel.index];
+    }
 
     BelRange getBels() const
     {
@@ -425,11 +465,31 @@ struct Chip
         return chip_info.wire_data[wire.index].name;
     }
 
-    void bindWire(WireId bel, IdString net) {}
+    void bindWire(WireId wire, IdString net)
+    {
+        assert(!wire.nil());
+        assert(wire_to_net[wire.index] == IdString());
+        wire_to_net[wire.index] = net;
+    }
 
-    void unbindWire(WireId bel) {}
+    void unbindWire(WireId wire)
+    {
+        assert(!wire.nil());
+        assert(wire_to_net[wire.index] != IdString());
+        wire_to_net[wire.index] = IdString();
+    }
 
-    bool checkWireAvail(WireId bel) const {}
+    bool checkWireAvail(WireId wire) const
+    {
+        assert(!wire.nil());
+        return wire_to_net[wire.index] == IdString();
+    }
+
+    IdString getWireNet(WireId wire) const
+    {
+        assert(!wire.nil());
+        return wire_to_net[wire.index];
+    }
 
     WireRange getWires() const
     {
@@ -453,11 +513,31 @@ struct Chip
         return src_name + "->" + dst_name;
     }
 
-    void bindPip(PipId bel, IdString net) {}
+    void bindPip(PipId pip, IdString net)
+    {
+        assert(!pip.nil());
+        assert(pip_to_net[pip.index] == IdString());
+        pip_to_net[pip.index] = net;
+    }
 
-    void unbindPip(PipId bel) {}
+    void unbindPip(PipId pip)
+    {
+        assert(!pip.nil());
+        assert(pip_to_net[pip.index] != IdString());
+        pip_to_net[pip.index] = IdString();
+    }
 
-    bool checkPipAvail(PipId bel) const {}
+    bool checkPipAvail(PipId pip) const
+    {
+        assert(!pip.nil());
+        return pip_to_net[pip.index] == IdString();
+    }
+
+    IdString getPipNet(PipId pip) const
+    {
+        assert(!pip.nil());
+        return pip_to_net[pip.index];
+    }
 
     AllPipRange getPips() const
     {

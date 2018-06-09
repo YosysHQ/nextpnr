@@ -74,7 +74,7 @@ struct CellInfo;
 
 struct PortRef
 {
-    CellInfo *cell;
+    CellInfo *cell = nullptr;
     IdString port;
 };
 
@@ -85,8 +85,8 @@ struct NetInfo
     vector<PortRef> users;
     dict<IdString, std::string> attrs;
 
-    // wire -> (uphill_wire, delay)
-    dict<WireId, std::pair<WireId, DelayInfo>> wires;
+    // wire -> uphill_pip
+    dict<WireId, PipId> wires;
 };
 
 enum PortType

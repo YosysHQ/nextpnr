@@ -29,6 +29,7 @@
 #include "mainwindow.h"
 #include "place.h"
 #include "pybindings.h"
+#include "route.h"
 #include "version.h"
 
 void svg_dump_el(const GraphicElement &el)
@@ -247,6 +248,7 @@ int main(int argc, char *argv[])
 
         parse_json_file(f, filename, &design);
         place_design(&design);
+        route_design(&design);
     }
 
     if (vm.count("run")) {

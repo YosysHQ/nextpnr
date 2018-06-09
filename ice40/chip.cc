@@ -18,6 +18,7 @@
  */
 
 #include "chip.h"
+#include "log.h"
 
 // -----------------------------------------------------------------------
 
@@ -45,7 +46,7 @@ BelType belTypeFromId(IdString id)
 
 // -----------------------------------------------------------------------
 
-IdString PortPinToId(PortPin type)
+IdString portPinToId(PortPin type)
 {
 #define X(t)                                                                   \
     if (type == PIN_##t)                                                       \
@@ -57,7 +58,7 @@ IdString PortPinToId(PortPin type)
     return IdString();
 }
 
-PortPin PortPinFromId(IdString id)
+PortPin portPinFromId(IdString id)
 {
 #define X(t)                                                                   \
     if (id == #t)                                                              \
@@ -76,28 +77,26 @@ Chip::Chip(ChipArgs args)
 #ifdef ICE40_HX1K_ONLY
     if (args.type == ChipArgs::HX1K) {
         chip_info = chip_info_1k;
-        return;
+    } else {
+        log_error("Unsupported iCE40 chip type.\n");
     }
 #else
     if (args.type == ChipArgs::LP384) {
         chip_info = chip_info_384;
-        return;
     } else if (args.type == ChipArgs::LP1K || args.type == ChipArgs::HX1K) {
         chip_info = chip_info_1k;
-        return;
     } else if (args.type == ChipArgs::UP5K) {
         chip_info = chip_info_5k;
-        return;
     } else if (args.type == ChipArgs::LP8K || args.type == ChipArgs::HX8K) {
         chip_info = chip_info_8k;
-        return;
     } else {
-        fprintf(stderr, "Unsupported chip type\n");
-        exit(EXIT_FAILURE);
+        log_error("Unsupported iCE40 chip type.\n");
     }
 #endif
 
-    abort();
+    bel_to_cell.resize(chip_info.num_bels);
+    wire_to_net.resize(chip_info.num_wires);
+    pip_to_net.resize(chip_info.num_pips);
 }
 
 // -----------------------------------------------------------------------
@@ -120,8 +119,20 @@ BelId Chip::getBelByName(IdString name) const
 
 WireId Chip::getWireBelPin(BelId bel, PortPin pin) const
 {
-    // FIXME
-    return WireId();
+    WireId ret;
+
+    assert(!bel.nil());
+
+    int num_bel_wires = chip_info.bel_data[bel.index].num_bel_wires;
+    BelWirePOD *bel_wires = chip_info.bel_data[bel.index].bel_wires;
+
+    for (int i = 0; i < num_bel_wires; i++)
+        if (bel_wires[i].port == pin) {
+            ret.index = bel_wires[i].wire_index;
+            break;
+        }
+
+    return ret;
 }
 
 // -----------------------------------------------------------------------

@@ -26,8 +26,16 @@ struct DelayInfo
 {
     float delay = 0;
 
-    float raiseDelay() { return delay; }
-    float fallDelay() { return delay; }
+    float raiseDelay() const { return delay; }
+    float fallDelay() const { return delay; }
+    float avgDelay() const { return delay; }
+
+    DelayInfo operator+(const DelayInfo &other) const
+    {
+        DelayInfo ret;
+        ret.delay = this->delay + other.delay;
+        return ret;
+    }
 };
 
 typedef IdString BelType;
@@ -63,6 +71,7 @@ struct Chip
     void bindBel(BelId bel, IdString cell);
     void unbindBel(BelId bel);
     bool checkBelAvail(BelId bel) const;
+    IdString getBelCell(BelId bel) const;
     const vector<BelId> &getBels() const;
     const vector<BelId> &getBelsByType(BelType type) const;
     BelType getBelType(BelId bel) const;
@@ -72,16 +81,18 @@ struct Chip
 
     WireId getWireByName(IdString name) const;
     IdString getWireName(WireId wire) const;
-    void bindWire(WireId bel, IdString net);
-    void unbindWire(WireId bel);
-    bool checkWireAvail(WireId bel) const;
+    void bindWire(WireId wire, IdString net);
+    void unbindWire(WireId wire);
+    bool checkWireAvail(WireId wire) const;
+    IdString getWireNet(WireId wire) const;
     const vector<WireId> &getWires() const;
 
     PipId getPipByName(IdString name) const;
     IdString getPipName(PipId pip) const;
-    void bindPip(PipId bel, IdString net);
-    void unbindPip(PipId bel);
-    bool checkPipAvail(PipId bel) const;
+    void bindPip(PipId pip, IdString net);
+    void unbindPip(PipId pip);
+    bool checkPipAvail(PipId pip) const;
+    IdString getPipNet(PipId pip) const;
     const vector<PipId> &getPips() const;
     WireId getPipSrcWire(PipId pip) const;
     WireId getPipDstWire(PipId pip) const;

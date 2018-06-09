@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import sys
+import re
 
 dev_name = None
 dev_width = None
@@ -16,6 +17,7 @@ pip_xy = dict()
 bel_name = list()
 bel_type = list()
 bel_pos = list()
+bel_wires = list()
 
 wire_uphill_belport = dict()
 wire_downhill_belports = dict()
@@ -24,7 +26,16 @@ wire_names = dict()
 wire_names_r = dict()
 wire_xy = dict()
 
+def maj_wire_name(name):
+    if re.match(r"lutff_\d/(in|out)", name[2]):
+        return True
+    return False
+
 def cmp_wire_names(newname, oldname):
+    if maj_wire_name(newname):
+        return True
+    if maj_wire_name(oldname):
+        return False
     return newname < oldname
 
 with open(sys.argv[1], "r") as f:
@@ -126,16 +137,19 @@ def add_bel_input(bel, wire, port):
     if wire not in wire_downhill_belports:
         wire_downhill_belports[wire] = set()
     wire_downhill_belports[wire].add((bel, port))
+    bel_wires[bel].append((wire, port))
 
 def add_bel_output(bel, wire, port):
     assert wire not in wire_uphill_belport
     wire_uphill_belport[wire] = (bel, port)
+    bel_wires[bel].append((wire, port))
 
 def add_bel_lc(x, y, z):
     bel = len(bel_name)
     bel_name.append("%d_%d_lc%d" % (x, y, z))
     bel_type.append("ICESTORM_LC")
     bel_pos.append((x, y, z))
+    bel_wires.append(list())
 
     wire_cen = wire_names[(x, y, "lutff_global/cen")]
     wire_clk = wire_names[(x, y, "lutff_global/clk")]
@@ -159,10 +173,10 @@ def add_bel_lc(x, y, z):
     add_bel_input(bel, wire_s_r, "SR")
     add_bel_input(bel, wire_cin, "CIN")
 
-    add_bel_input(bel, wire_in_0, "IN_0")
-    add_bel_input(bel, wire_in_1, "IN_1")
-    add_bel_input(bel, wire_in_2, "IN_2")
-    add_bel_input(bel, wire_in_3, "IN_3")
+    add_bel_input(bel, wire_in_0, "I0")
+    add_bel_input(bel, wire_in_1, "I1")
+    add_bel_input(bel, wire_in_2, "I2")
+    add_bel_input(bel, wire_in_3, "I3")
 
     add_bel_output(bel, wire_out,  "O")
     add_bel_output(bel, wire_cout, "COUT")
@@ -175,6 +189,7 @@ def add_bel_io(x, y, z):
     bel_name.append("%d_%d_lc%d" % (x, y, z))
     bel_type.append("SB_IO")
     bel_pos.append((x, y, z))
+    bel_wires.append(list())
 
     wire_cen   = wire_names[(x, y, "io_global/cen")]
     wire_iclk  = wire_names[(x, y, "io_global/inclk")]
@@ -204,6 +219,7 @@ def add_bel_ram(x, y):
     bel_name.append("%d_%d_ram" % (x, y))
     bel_type.append("ICESTORM_RAM")
     bel_pos.append((x, y, 0))
+    bel_wires.append(list())
 
     if (x, y, "ram/WE") in wire_names:
         # iCE40 1K-style memories
@@ -241,10 +257,16 @@ for tile_xy, tile_type in sorted(tiles.items()):
 
 print('#include "chip.h"')
 
+for bel in range(len(bel_name)):
+    print("BelWirePOD bel_wires_%d[%d] = {" % (bel, len(bel_wires[bel])))
+    for i in range(len(bel_wires[bel])):
+        print("  {%d, PIN_%s}%s" % (bel_wires[bel][i] + ("," if i+1 < len(bel_wires[bel]) else "",)))
+    print("};")
+
 print("BelInfoPOD bel_data_%s[%d] = {" % (dev_name, len(bel_name)))
 for bel in range(len(bel_name)):
-    print("  {\"%s\", TYPE_%s, %d, %d, %d}%s" % (bel_name[bel], bel_type[bel],
-            bel_pos[bel][0], bel_pos[bel][1], bel_pos[bel][2],
+    print("  {\"%s\", TYPE_%s, %d, bel_wires_%d, %d, %d, %d}%s" % (bel_name[bel], bel_type[bel],
+            len(bel_wires[bel]), bel, bel_pos[bel][0], bel_pos[bel][1], bel_pos[bel][2],
             "," if bel+1 < len(bel_name) else ""))
 print("};")
 
