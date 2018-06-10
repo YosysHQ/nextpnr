@@ -188,9 +188,27 @@ void write_asc(const Design &design, std::ostream &out)
             assert(false);
         }
     }
+    // Set config bits in unused IO
+    for (auto bel : chip.getBels()) {
+        if (chip.bel_to_cell[bel.index] == IdString() && chip.getBelType(bel) == TYPE_SB_IO) {
+            TileInfoPOD &ti = bi.tiles_nonrouting[TILE_IO];
+            const BelInfoPOD &beli = ci.bel_data[bel.index];
+            int x = beli.x, y = beli.y, z = beli.z;
+            auto ieren = get_ieren(bi, x, y, z);
+            int iex, iey, iez;
+            std::tie(iex, iey, iez) = ieren;
+            if (iez != -1) {
+                set_config(ti, config.at(iey).at(iex),
+                           "IoCtrl.IE_" + std::to_string(iez), true);
+                set_config(ti, config.at(iey).at(iex),
+                           "IoCtrl.REN_" + std::to_string(iez), false);
+            }
+        }
+    }
+
     // Set other config bits - currently just disable RAM to stop icebox_vlog
     // crashing
-    // TODO: ColBufCtrl , unused IO
+    // TODO: ColBufCtrl
     for (int y = 0; y < ci.height; y++) {
         for (int x = 0; x < ci.width; x++) {
             TileType tile = tile_at(chip, x, y);
