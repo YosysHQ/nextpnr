@@ -97,6 +97,7 @@ Chip::Chip(ChipArgs args) : args(args)
     bel_to_cell.resize(chip_info.num_bels);
     wire_to_net.resize(chip_info.num_wires);
     pip_to_net.resize(chip_info.num_pips);
+    pips_locked.resize(chip_info.num_pips);
 }
 
 // -----------------------------------------------------------------------

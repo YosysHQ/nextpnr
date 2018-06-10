@@ -404,7 +404,7 @@ struct Chip
     vector<IdString> bel_to_cell;
     vector<IdString> wire_to_net;
     vector<IdString> pip_to_net;
-
+    vector<bool> pips_locked;
     Chip(ChipArgs args);
 
     ChipArgs args;
@@ -561,6 +561,11 @@ struct Chip
         assert(pip != PipId());
         assert(pip_to_net[pip.index] == IdString());
         pip_to_net[pip.index] = net;
+        // Optimise?
+        for (int i = 0; i < chip_info.num_pips; i++) {
+            if (chip_info.pip_data[i].switch_index == chip_info.pip_data[pip.index].switch_index)
+                pips_locked[i] = true;
+        }
     }
 
     void unbindPip(PipId pip)
@@ -568,12 +573,17 @@ struct Chip
         assert(pip != PipId());
         assert(pip_to_net[pip.index] != IdString());
         pip_to_net[pip.index] = IdString();
+        // Optimise?
+        for (int i = 0; i < chip_info.num_pips; i++) {
+            if (chip_info.pip_data[i].switch_index == chip_info.pip_data[pip.index].switch_index)
+                pips_locked[i] = false;
+        }
     }
 
     bool checkPipAvail(PipId pip) const
     {
         assert(pip != PipId());
-        return pip_to_net[pip.index] == IdString();
+        return !pips_locked[pip.index];
     }
 
     IdString getPipNet(PipId pip) const
