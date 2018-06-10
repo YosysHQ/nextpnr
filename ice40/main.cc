@@ -257,7 +257,7 @@ int main(int argc, char *argv[])
     if (vm.count("asc")) {
         std::string filename = vm["asc"].as<std::string>();
         std::ofstream f(filename);
-        write_asc(design.chip, f);
+        write_asc(design, f);
     }
 
     if (vm.count("run")) {

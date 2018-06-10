@@ -34,8 +34,22 @@ const ConfigEntryPOD &find_config(const TileInfoPOD &tile, const std::string &na
     assert(false);
 }
 
-void write_asc(const Chip &chip, std::ostream &out)
+void set_config(const TileInfoPOD &ti, vector<vector<int8_t>> &tile_cfg, const std::string &name, bool value, int index = -1) {
+    const ConfigEntryPOD &cfg = find_config(ti, name);
+    if (index == -1) {
+        for (int i = 0; i < cfg.num_bits; i++) {
+            int8_t &cbit = tile_cfg.at(cfg.bits[i].row).at(cfg.bits[i].col);
+            cbit = value;
+        }
+    } else {
+        int8_t &cbit = tile_cfg.at(cfg.bits[index].row).at(cfg.bits[index].col);
+        cbit = value;
+    }
+}
+
+void write_asc(const Design &design, std::ostream &out)
 {
+    const Chip &chip = design.chip;
     // [y][x][row][col]
     const ChipInfoPOD &ci = chip.chip_info;
     const BitstreamInfoPOD &bi = *ci.bits_info;
@@ -84,14 +98,53 @@ void write_asc(const Chip &chip, std::ostream &out)
             }
         }
     }
-    // Set config bits - currently just disable RAM to stop icebox_vlog crashing
+    // Set logic cell config
+    for (auto cell : design.cells) {
+        BelId bel = cell.second->bel;
+        if (bel == BelId())
+            std::cout << "Found unplaced cell " << cell.first << " while generating bitstream!" << std::endl;
+        if (cell.second->type == "ICESTORM_LC") {
+            const BelInfoPOD &beli = ci.bel_data[bel.index];
+            int x = beli.x, y = beli.y, z = beli.z;
+            TileInfoPOD &ti = bi.tiles_nonrouting[TILE_LOGIC];
+
+            unsigned lut_init = std::stoi(cell.second->params["LUT_INIT"]);
+            bool neg_clk = std::stoi(cell.second->params["NEG_CLK"]);
+            bool dff_enable = std::stoi(cell.second->params["DFF_ENABLE"]);
+            bool async_sr = std::stoi(cell.second->params["ASYNC_SR"]);
+            bool set_noreset = std::stoi(cell.second->params["SET_NORESET"]);
+            bool carry_enable = std::stoi(cell.second->params["CARRY_ENABLE"]);
+            vector<bool> lc(20, false);
+            // From arachne-pnr
+            static std::vector<int> lut_perm = {
+                    4, 14, 15, 5, 6, 16, 17, 7, 3, 13, 12, 2, 1, 11, 10, 0,
+            };
+            for (int i = 0; i < 16; i++) {
+                if ((lut_init >> i) & 0x1)
+                    lc.at(lut_perm.at(i)) = true;
+            }
+            lc.at(8) = carry_enable;
+            lc.at(9) = dff_enable;
+            lc.at(18) = set_noreset;
+            lc.at(19) = async_sr;
+
+            for (int i = 0; i < 20; i++)
+                set_config(ti, config.at(y).at(x), "LC_" + std::to_string(z), lc.at(i), i);
+            set_config(ti, config.at(y).at(x), "NegClk", neg_clk);
+        } else if (cell.second->type == "SB_IO") {
+            // TODO
+        } else {
+            assert(false);
+        }
+    }
+    // Set other config bits - currently just disable RAM to stop icebox_vlog crashing
+    // TODO: ColBufCtrl , unused IO
     for (int y = 0; y < ci.height; y++) {
         for (int x = 0; x < ci.width; x++) {
             TileType tile = tile_at(chip, x, y);
+            TileInfoPOD &ti = bi.tiles_nonrouting[tile];
             if (tile == TILE_RAMB) {
-                auto cfg = find_config(bi.tiles_nonrouting[TILE_RAMB], "RamConfig.PowerUp");
-                for (int i = 0; i < cfg.num_bits; i++)
-                    config.at(y).at(x).at(cfg.bits[i].row).at(cfg.bits[i].col) = 1;
+                set_config(ti, config.at(y).at(x), "RamConfig.PowerUp", true);
             }
         }
     }

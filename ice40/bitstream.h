@@ -23,6 +23,6 @@
 #include <iostream>
 #include "chip.h"
 
-void write_asc(const Chip &chip, std::ostream &out);
+void write_asc(const Design &design, std::ostream &out);
 
 #endif
