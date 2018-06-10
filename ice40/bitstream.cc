@@ -180,10 +180,18 @@ void write_asc(const Design &design, std::ostream &out)
                  IdString())) {
                 input_en = true;
             }
-            set_config(ti, config.at(iey).at(iex),
-                       "IoCtrl.IE_" + std::to_string(iez), !input_en);
-            set_config(ti, config.at(iey).at(iex),
-                       "IoCtrl.REN_" + std::to_string(iez), !pullup);
+
+            if(chip.args.type == ChipArgs::LP1K || chip.args.type == ChipArgs::HX1K) {
+                set_config(ti, config.at(iey).at(iex),
+                           "IoCtrl.IE_" + std::to_string(iez), !input_en);
+                set_config(ti, config.at(iey).at(iex),
+                           "IoCtrl.REN_" + std::to_string(iez), !pullup);
+            } else {
+                set_config(ti, config.at(iey).at(iex),
+                           "IoCtrl.IE_" + std::to_string(iez), input_en);
+                set_config(ti, config.at(iey).at(iex),
+                           "IoCtrl.REN_" + std::to_string(iez), !pullup);
+            }
         } else {
             assert(false);
         }
@@ -198,10 +206,12 @@ void write_asc(const Design &design, std::ostream &out)
             int iex, iey, iez;
             std::tie(iex, iey, iez) = ieren;
             if (iez != -1) {
-                set_config(ti, config.at(iey).at(iex),
-                           "IoCtrl.IE_" + std::to_string(iez), true);
-                set_config(ti, config.at(iey).at(iex),
-                           "IoCtrl.REN_" + std::to_string(iez), false);
+                if(chip.args.type == ChipArgs::LP1K || chip.args.type == ChipArgs::HX1K) {
+                    set_config(ti, config.at(iey).at(iex),
+                               "IoCtrl.IE_" + std::to_string(iez), true);
+                    set_config(ti, config.at(iey).at(iex),
+                               "IoCtrl.REN_" + std::to_string(iez), false);
+                }
             }
         }
     }
@@ -213,7 +223,7 @@ void write_asc(const Design &design, std::ostream &out)
         for (int x = 0; x < ci.width; x++) {
             TileType tile = tile_at(chip, x, y);
             TileInfoPOD &ti = bi.tiles_nonrouting[tile];
-            if (tile == TILE_RAMB) {
+            if ((tile == TILE_RAMB) && (chip.args.type == ChipArgs::LP1K || chip.args.type == ChipArgs::HX1K)) {
                 set_config(ti, config.at(y).at(x), "RamConfig.PowerUp", true);
             }
         }

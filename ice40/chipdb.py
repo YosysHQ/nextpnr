@@ -31,7 +31,7 @@ wire_names_r = dict()
 wire_xy = dict()
 
 num_tile_types = 5
-tile_sizes = {0: (0, 0)}
+tile_sizes = {_: (0, 0) for _ in range(num_tile_types)}
 tile_bits = [[] for _ in range(num_tile_types)]
 
 cbit_re = re.compile(r'B(\d+)\[(\d+)\]')
@@ -306,7 +306,7 @@ for tile_xy, tile_type in sorted(tiles.items()):
 print('#include "chip.h"')
 
 for bel in range(len(bel_name)):
-    print("BelWirePOD bel_wires_%d[%d] = {" % (bel, len(bel_wires[bel])))
+    print("static BelWirePOD bel_wires_%d[%d] = {" % (bel, len(bel_wires[bel])))
     for i in range(len(bel_wires[bel])):
         print("  {%d, PIN_%s}%s" % (bel_wires[bel][i] + ("," if i+1 < len(bel_wires[bel]) else "",)))
     print("};")
