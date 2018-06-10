@@ -19,3 +19,6 @@ CMakeCache.txt
 a.out
 *.json
 build/
+*.asc
+*.bin
+

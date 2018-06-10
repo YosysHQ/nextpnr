@@ -72,7 +72,7 @@ PortPin portPinFromId(IdString id)
 
 // -----------------------------------------------------------------------
 
-Chip::Chip(ChipArgs args)
+Chip::Chip(ChipArgs args) : args(args)
 {
 #ifdef ICE40_HX1K_ONLY
     if (args.type == ChipArgs::HX1K) {

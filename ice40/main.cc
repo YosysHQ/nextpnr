@@ -23,6 +23,7 @@
 #include <boost/program_options.hpp>
 #include <fstream>
 #include <iostream>
+#include "bitstream.h"
 #include "design.h"
 #include "jsonparse.h"
 #include "log.h"
@@ -69,6 +70,8 @@ int main(int argc, char *argv[])
                           "python file to execute");
     options.add_options()("json", po::value<std::string>(),
                           "JSON design file to ingest");
+    options.add_options()("asc", po::value<std::string>(),
+                          "asc bitstream file to write");
     options.add_options()("version,v", "show version");
     options.add_options()("lp384", "set device type to iCE40LP384");
     options.add_options()("lp1k", "set device type to iCE40LP1K");
@@ -249,6 +252,12 @@ int main(int argc, char *argv[])
         parse_json_file(f, filename, &design);
         place_design(&design);
         route_design(&design);
+    }
+
+    if (vm.count("asc")) {
+        std::string filename = vm["asc"].as<std::string>();
+        std::ofstream f(filename);
+        write_asc(design.chip, f);
     }
 
     if (vm.count("run")) {

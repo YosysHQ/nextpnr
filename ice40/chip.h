@@ -407,6 +407,7 @@ struct Chip
 
     Chip(ChipArgs args);
 
+    ChipArgs args;
     // -------------------------------------------------
 
     BelId getBelByName(IdString name) const;
