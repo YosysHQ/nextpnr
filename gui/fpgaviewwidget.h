@@ -1,6 +1,7 @@
 #ifndef MAPGLWIDGET_H
 #define MAPGLWIDGET_H
 
+#include <QMainWindow>
 #include <QOpenGLFunctions>
 #include <QOpenGLWidget>
 #include <QPainter>
@@ -33,6 +34,7 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     void mouseMoveEvent(QMouseEvent *event) Q_DECL_OVERRIDE;
     void wheelEvent(QWheelEvent *event) Q_DECL_OVERRIDE;
     void drawElement(const GraphicElement &el);
+    QMainWindow *getMainWindow();
 
   private:
     int m_windowWidth;

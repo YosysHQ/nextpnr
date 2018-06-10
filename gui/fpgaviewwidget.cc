@@ -1,13 +1,24 @@
 #include "fpgaviewwidget.h"
+#include <QApplication>
 #include <QCoreApplication>
 #include <QMouseEvent>
+#include <QWidget>
 #include <math.h>
 #include "mainwindow.h"
 
 FPGAViewWidget::FPGAViewWidget(QWidget *parent)
         : QOpenGLWidget(parent), m_xMove(0), m_yMove(0), m_zDistance(1.0)
 {
-    design = qobject_cast<MainWindow*>(parentWidget()->parentWidget()->parentWidget()->parentWidget())->getDesign();
+    design = qobject_cast<MainWindow *>(getMainWindow())->getDesign();
+}
+
+QMainWindow *FPGAViewWidget::getMainWindow()
+{
+    QWidgetList widgets = qApp->topLevelWidgets();
+    for (QWidgetList::iterator i = widgets.begin(); i != widgets.end(); ++i)
+        if ((*i)->objectName() == "MainWindow")
+            return (QMainWindow *)(*i);
+    return NULL;
 }
 
 FPGAViewWidget::~FPGAViewWidget() {}
@@ -64,11 +75,10 @@ void FPGAViewWidget::drawElement(const GraphicElement &el)
 
         glVertex3f((offset + scale * el.x2), (offset + scale * el.y2), 0.0f);
         glVertex3f((offset + scale * el.x1), (offset + scale * el.y2), 0.0f);
-        
+
         glVertex3f((offset + scale * el.x1), (offset + scale * el.y2), 0.0f);
         glVertex3f((offset + scale * el.x1), (offset + scale * el.y1), 0.0f);
         glEnd();
-            
     }
 
     if (el.type == GraphicElement::G_LINE) {
