@@ -25,6 +25,15 @@ inline TileType tile_at(const Chip &chip, int x, int y)
     return chip.chip_info.tile_grid[y * chip.chip_info.width + x];
 }
 
+const ConfigEntryPOD &find_config(const TileInfoPOD &tile, const std::string &name) {
+    for (int i = 0; i < tile.num_config_entries; i++) {
+        if (std::string(tile.entries[i].name) == name) {
+            return tile.entries[i];
+        }
+    }
+    assert(false);
+}
+
 void write_asc(const Chip &chip, std::ostream &out)
 {
     // [y][x][row][col]
@@ -60,6 +69,31 @@ void write_asc(const Chip &chip, std::ostream &out)
         break;
     default:
         assert(false);
+    }
+    // Set pips
+    for (auto pip : chip.getPips()) {
+        if (chip.pip_to_net[pip.index] != IdString()) {
+            const PipInfoPOD &pi = ci.pip_data[pip.index];
+            const SwitchInfoPOD &swi = bi.switches[pi.switch_index];
+            for (int i = 0; i < swi.num_bits; i++) {
+                bool val = (pi.switch_mask & (1 << ((swi.num_bits - 1) - i))) != 0;
+                int8_t &cbit = config.at(swi.y).at(swi.x).at(swi.cbits[i].row).at(swi.cbits[i].col);
+                if (bool(cbit) != 0)
+                    assert(false);
+                cbit = val;
+            }
+        }
+    }
+    // Set config bits - currently just disable RAM to stop icebox_vlog crashing
+    for (int y = 0; y < ci.height; y++) {
+        for (int x = 0; x < ci.width; x++) {
+            TileType tile = tile_at(chip, x, y);
+            if (tile == TILE_RAMB) {
+                auto cfg = find_config(bi.tiles_nonrouting[TILE_RAMB], "RamConfig.PowerUp");
+                for (int i = 0; i < cfg.num_bits; i++)
+                    config.at(y).at(x).at(cfg.bits[i].row).at(cfg.bits[i].col) = 1;
+            }
+        }
     }
     // Write config out
     for (int y = 0; y < ci.height; y++) {
