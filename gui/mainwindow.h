@@ -16,6 +16,7 @@ class MainWindow : public QMainWindow
   public:
     explicit MainWindow(Design *design, QWidget *parent = 0);
     ~MainWindow();
+    Design *getDesign() { return design; }
 
   private:
     int executePython(std::string command);

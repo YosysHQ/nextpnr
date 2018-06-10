@@ -2,10 +2,12 @@
 #include <QCoreApplication>
 #include <QMouseEvent>
 #include <math.h>
+#include "mainwindow.h"
 
 FPGAViewWidget::FPGAViewWidget(QWidget *parent)
         : QOpenGLWidget(parent), m_xMove(0), m_yMove(0), m_zDistance(1.0)
 {
+    design = static_cast<MainWindow *>(parent)->getDesign();
 }
 
 FPGAViewWidget::~FPGAViewWidget() {}

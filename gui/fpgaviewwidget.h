@@ -4,6 +4,7 @@
 #include <QOpenGLFunctions>
 #include <QOpenGLWidget>
 #include <QPainter>
+#include "design.h"
 
 class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
 {
@@ -39,5 +40,6 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     float m_yMove;
     float m_zDistance;
     QPoint m_lastPos;
+    Design *design;
 };
 #endif
