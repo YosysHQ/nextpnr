@@ -28,6 +28,13 @@ wire_names = dict()
 wire_names_r = dict()
 wire_xy = dict()
 
+num_tile_types = 5
+tile_sizes = {0: (0, 0)}
+tile_bits = [[] for _ in range(num_tile_types)]
+
+cbit_re = re.compile(r'B(\d+)\[(\d+)\]')
+
+
 def maj_wire_name(name):
     if re.match(r"lutff_\d/(in|out)", name[2]):
         return True
@@ -90,6 +97,26 @@ with open(sys.argv[1], "r") as f:
             mode = None
             continue
 
+        if line[0] == ".logic_tile_bits":
+            mode = ("bits", 1)
+            tile_sizes[1] = (int(line[1]), int(line[2]))
+            continue
+
+        if line[0] == ".io_tile_bits":
+            mode = ("bits", 2)
+            tile_sizes[2] = (int(line[1]), int(line[2]))
+            continue
+
+        if line[0] == ".ramb_tile_bits":
+            mode = ("bits", 3)
+            tile_sizes[3] = (int(line[1]), int(line[2]))
+            continue
+
+        if line[0] == ".ramt_tile_bits":
+            mode = ("bits", 4)
+            tile_sizes[4] = (int(line[1]), int(line[2]))
+            continue
+
         if (line[0][0] == ".") or (mode is None):
             mode = None
             continue
@@ -136,6 +163,15 @@ with open(sys.argv[1], "r") as f:
             wire_uphill[wire_a].add(wire_b)
             pip_xy[(wire_b, wire_a)] = (mode[2], mode[3], int(line[0], 2), len(switches) - 1)
             continue
+
+        if mode[0] == "bits":
+            name = line[0]
+            bits = []
+            for b in line[1:]:
+                m = cbit_re.match(b)
+                assert m
+                bits.append((int(m.group(1)), int(m.group(2))))
+            tile_bits[mode[1]].append((name, bits))
 
 def add_bel_input(bel, wire, port):
     if wire not in wire_downhill_belports:
@@ -346,8 +382,21 @@ for y in range(dev_height):
         else:
             tilegrid.append("TILE_NONE")
 
+tileinfo = []
+for t in range(num_tile_types):
+    centries_info = []
+    for cb in tile_bits[t]:
+        name, bits = cb
+        safename = re.sub("[^A-Za-z0-9]", "_", name)
+        bits_list = ["{%d, %d}" % _ for _ in bits]
+        print("static ConfigBitPOD tile%d_%s_bits[%d] = {%s};" % (t, safename, len(bits_list), ", ".join(bits_list)))
+        centries_info.append('{"%s", %d, tile%d_%s_bits}' % (name, len(bits_list), t, safename))
+    print("static ConfigEntryPOD tile%d_config[%d] = {" % (t, len(centries_info)))
+    print(",\n".join(centries_info))
+    print("};")
+    tileinfo.append("{%d, %d, %d, tile%d_config}" % (tile_sizes[t][0], tile_sizes[t][1], len(centries_info), t))
+
 switchinfo = []
-cbit_re = re.compile(r'B(\d+)\[(\d+)\]')
 switchid = 0
 for switch in switches:
     dst, x, y, bits = switch
@@ -374,8 +423,12 @@ print("static SwitchInfoPOD switch_data_%s[%d] = {" % (dev_name, len(switchinfo)
 print(",\n".join(switchinfo))
 print("};")
 
+print("static TileInfoPOD tile_data_%s[%d] = {" % (dev_name, num_tile_types))
+print(",\n".join(tileinfo))
+print("};")
+
 print("static BitstreamInfoPOD bits_info_%s = {" % dev_name)
-# TODO
+print("%d, tile_data_%s, switch_data_%s" % (len(switchinfo), dev_name, dev_name))
 print("};")
 
 print("static TileType tile_grid_%s[%d] = {" % (dev_name, len(tilegrid)))

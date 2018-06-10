@@ -109,11 +109,11 @@ struct WireInfoPOD
 
 enum TileType
 {
-    TILE_NONE,
-    TILE_LOGIC,
-    TILE_IO,
-    TILE_RAMB,
-    TILE_RAMT,
+    TILE_NONE = 0,
+    TILE_LOGIC = 1,
+    TILE_IO = 2,
+    TILE_RAMB = 3,
+    TILE_RAMT = 4,
 };
 
 struct ConfigBitPOD
@@ -128,9 +128,9 @@ struct ConfigEntryPOD
     ConfigBitPOD *bits;
 };
 
-struct TileBitsPOD
+struct TileInfoPOD
 {
-    int8_t width, height;
+    int8_t cols, rows;
     int num_config_entries;
     ConfigEntryPOD *entries;
 };
@@ -147,7 +147,7 @@ struct SwitchInfoPOD
 struct BitstreamInfoPOD
 {
     int num_switches;
-    TileBitsPOD *tiles_nonrouting;
+    TileInfoPOD *tiles_nonrouting;
     SwitchInfoPOD *switches;
 };
 
