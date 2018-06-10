@@ -19,6 +19,8 @@ bel_type = list()
 bel_pos = list()
 bel_wires = list()
 
+switches = list()
+
 wire_uphill_belport = dict()
 wire_downhill_belports = dict()
 
@@ -60,10 +62,12 @@ with open(sys.argv[1], "r") as f:
 
         if line[0] == ".buffer":
             mode = ("buffer", int(line[3]), int(line[1]), int(line[2]))
+            switches.append((line[3], int(line[1]), int(line[2]), line[4:]))
             continue
 
         if line[0] == ".routing":
             mode = ("routing", int(line[3]), int(line[1]), int(line[2]))
+            switches.append((line[3], int(line[1]), int(line[2]), line[4:]))
             continue
 
         if line[0] == ".io_tile":
@@ -109,7 +113,7 @@ with open(sys.argv[1], "r") as f:
                 wire_uphill[wire_b] = set()
             wire_downhill[wire_a].add(wire_b)
             wire_uphill[wire_b].add(wire_a)
-            pip_xy[(wire_a, wire_b)] = (mode[2], mode[3])
+            pip_xy[(wire_a, wire_b)] = (mode[2], mode[3], int(line[0], 2), len(switches) - 1)
             continue
 
         if mode[0] == "routing":
@@ -122,7 +126,7 @@ with open(sys.argv[1], "r") as f:
                 wire_uphill[wire_b] = set()
             wire_downhill[wire_a].add(wire_b)
             wire_uphill[wire_b].add(wire_a)
-            pip_xy[(wire_a, wire_b)] = (mode[2], mode[3])
+            pip_xy[(wire_a, wire_b)] = (mode[2], mode[3], int(line[0], 2), len(switches) - 1)
 
             if wire_b not in wire_downhill:
                 wire_downhill[wire_b] = set()
@@ -130,7 +134,7 @@ with open(sys.argv[1], "r") as f:
                 wire_uphill[wire_a] = set()
             wire_downhill[wire_b].add(wire_a)
             wire_uphill[wire_a].add(wire_b)
-            pip_xy[(wire_b, wire_a)] = (mode[2], mode[3])
+            pip_xy[(wire_b, wire_a)] = (mode[2], mode[3], int(line[0], 2), len(switches) - 1)
             continue
 
 def add_bel_input(bel, wire, port):
@@ -280,7 +284,7 @@ for wire in range(num_wires):
         for src in wire_uphill[wire]:
             if (src, wire) not in pipcache:
                 pipcache[(src, wire)] = len(pipinfo)
-                pipinfo.append("  {%d, %d, 1.0, %d, %d}" % (src, wire, pip_xy[(src, wire)][0], pip_xy[(src, wire)][1]))
+                pipinfo.append("  {%d, %d, 1.0, %d, %d, %d, %d}" % (src, wire, pip_xy[(src, wire)][0], pip_xy[(src, wire)][1], pip_xy[(src, wire)][2], pip_xy[(src, wire)][3]))
             pips.append("%d" % pipcache[(src, wire)])
         num_uphill = len(pips)
         list_uphill = "wire%d_uppips" % wire
@@ -294,7 +298,7 @@ for wire in range(num_wires):
         for dst in wire_downhill[wire]:
             if (wire, dst) not in pipcache:
                 pipcache[(wire, dst)] = len(pipinfo)
-                pipinfo.append("  {%d, %d, 1.0, %d, %d}" % (wire, dst, pip_xy[(wire, dst)][0], pip_xy[(wire, dst)][1]))
+                pipinfo.append("  {%d, %d, 1.0, %d, %d, %d, %d}" % (wire, dst, pip_xy[(wire, dst)][0], pip_xy[(wire, dst)][1], pip_xy[(wire, dst)][2], pip_xy[(wire, dst)][3]))
             pips.append("%d" % pipcache[(wire, dst)])
         num_downhill = len(pips)
         list_downhill = "wire%d_downpips" % wire
@@ -334,6 +338,30 @@ for wire in range(num_wires):
 
     wireinfo.append(info)
 
+tilegrid = []
+for y in range(dev_height):
+    for x in range(dev_width):
+        if (x, y) in tiles:
+            tilegrid.append("TILE_%s" % (tiles[x, y].upper()))
+        else:
+            tilegrid.append("TILE_NONE")
+
+switchinfo = []
+cbit_re = re.compile(r'B(\d+)\[(\d+)\]')
+switchid = 0
+for switch in switches:
+    dst, x, y, bits = switch
+    bitlist = []
+    for b in bits:
+        m = cbit_re.match(b)
+        assert m
+        bitlist.append("{%d, %d}" % (int(m.group(1)), int(m.group(2))))
+    cbits = ", ".join(bitlist)
+    switchinfo.append("{%d, %d, %d, {%s}}" % (x, y, len(bits), cbits))
+    switchid += 1
+
+
+
 print("static WireInfoPOD wire_data_%s[%d] = {" % (dev_name, num_wires))
 print(",\n".join(wireinfo))
 print("};")
@@ -342,7 +370,20 @@ print("static PipInfoPOD pip_data_%s[%d] = {" % (dev_name, len(pipinfo)))
 print(",\n".join(pipinfo))
 print("};")
 
+print("static SwitchInfoPOD switch_data_%s[%d] = {" % (dev_name, len(switchinfo)))
+print(",\n".join(switchinfo))
+print("};")
+
+print("static BitstreamInfoPOD bits_info_%s = {" % dev_name)
+# TODO
+print("};")
+
+print("static TileType tile_grid_%s[%d] = {" % (dev_name, len(tilegrid)))
+print(",\n".join(tilegrid))
+print("};")
+
 print("ChipInfoPOD chip_info_%s = {" % dev_name)
 print("  %d, %d, %d, %d, %d," % (dev_width, dev_height, len(bel_name), num_wires, len(pipinfo)))
-print("  bel_data_%s, wire_data_%s, pip_data_%s" % (dev_name, dev_name, dev_name))
+print("  bel_data_%s, wire_data_%s, pip_data_%s," % (dev_name, dev_name, dev_name))
+print("  tile_grid_%s, &bits_info_%s" % (dev_name, dev_name))
 print("};")

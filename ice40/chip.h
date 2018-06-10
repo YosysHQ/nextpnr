@@ -90,6 +90,8 @@ struct PipInfoPOD
     int32_t src, dst;
     float delay;
     int8_t x, y;
+    int16_t switch_mask;
+    int32_t switch_index;
 };
 
 struct WireInfoPOD
@@ -105,6 +107,50 @@ struct WireInfoPOD
     float x, y;
 };
 
+enum TileType
+{
+    TILE_NONE,
+    TILE_LOGIC,
+    TILE_IO,
+    TILE_RAMB,
+    TILE_RAMT,
+};
+
+struct ConfigBitPOD
+{
+    int8_t row, col;
+};
+
+struct ConfigEntryPOD
+{
+    const char *name;
+    int num_bits;
+    ConfigBitPOD *bits;
+};
+
+struct TileBitsPOD
+{
+    int8_t width, height;
+    int num_config_entries;
+    ConfigEntryPOD *entries;
+};
+
+static const int max_switch_bits = 5;
+
+struct SwitchInfoPOD
+{
+    int8_t x, y;
+    int num_bits;
+    ConfigBitPOD cbits[max_switch_bits];
+};
+
+struct BitstreamInfoPOD
+{
+    int num_switches;
+    TileBitsPOD *tiles_nonrouting;
+    SwitchInfoPOD *switches;
+};
+
 struct ChipInfoPOD
 {
     int width, height;
@@ -112,6 +158,8 @@ struct ChipInfoPOD
     BelInfoPOD *bel_data;
     WireInfoPOD *wire_data;
     PipInfoPOD *pip_data;
+    TileType *tile_grid;
+    BitstreamInfoPOD *bits_info;
 };
 
 extern ChipInfoPOD chip_info_384;
