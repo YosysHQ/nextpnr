@@ -181,7 +181,8 @@ void write_asc(const Design &design, std::ostream &out)
                 input_en = true;
             }
 
-            if(chip.args.type == ChipArgs::LP1K || chip.args.type == ChipArgs::HX1K) {
+            if (chip.args.type == ChipArgs::LP1K ||
+                chip.args.type == ChipArgs::HX1K) {
                 set_config(ti, config.at(iey).at(iex),
                            "IoCtrl.IE_" + std::to_string(iez), !input_en);
                 set_config(ti, config.at(iey).at(iex),
@@ -200,7 +201,8 @@ void write_asc(const Design &design, std::ostream &out)
     }
     // Set config bits in unused IO
     for (auto bel : chip.getBels()) {
-        if (chip.bel_to_cell[bel.index] == IdString() && chip.getBelType(bel) == TYPE_SB_IO) {
+        if (chip.bel_to_cell[bel.index] == IdString() &&
+            chip.getBelType(bel) == TYPE_SB_IO) {
             TileInfoPOD &ti = bi.tiles_nonrouting[TILE_IO];
             const BelInfoPOD &beli = ci.bel_data[bel.index];
             int x = beli.x, y = beli.y, z = beli.z;
@@ -208,7 +210,8 @@ void write_asc(const Design &design, std::ostream &out)
             int iex, iey, iez;
             std::tie(iex, iey, iez) = ieren;
             if (iez != -1) {
-                if(chip.args.type == ChipArgs::LP1K || chip.args.type == ChipArgs::HX1K) {
+                if (chip.args.type == ChipArgs::LP1K ||
+                    chip.args.type == ChipArgs::HX1K) {
                     set_config(ti, config.at(iey).at(iex),
                                "IoCtrl.IE_" + std::to_string(iez), true);
                     set_config(ti, config.at(iey).at(iex),
@@ -225,30 +228,48 @@ void write_asc(const Design &design, std::ostream &out)
             TileInfoPOD &ti = bi.tiles_nonrouting[tile];
 
             // disable RAM to stop icebox_vlog crashing (FIXME)
-            if ((tile == TILE_RAMB) && (chip.args.type == ChipArgs::LP1K || chip.args.type == ChipArgs::HX1K)) {
+            if ((tile == TILE_RAMB) && (chip.args.type == ChipArgs::LP1K ||
+                                        chip.args.type == ChipArgs::HX1K)) {
                 set_config(ti, config.at(y).at(x), "RamConfig.PowerUp", true);
             }
 
             // set all ColBufCtrl bits (FIXME)
             bool setColBufCtrl = true;
-            if (chip.args.type == ChipArgs::LP1K || chip.args.type == ChipArgs::HX1K) {
+            if (chip.args.type == ChipArgs::LP1K ||
+                chip.args.type == ChipArgs::HX1K) {
                 if (tile == TILE_RAMB || tile == TILE_RAMT) {
                     setColBufCtrl = (y == 3 || y == 5 || y == 11 || y == 13);
                 } else {
                     setColBufCtrl = (y == 4 || y == 5 || y == 12 || y == 13);
                 }
-            } else if (chip.args.type == ChipArgs::LP8K || chip.args.type == ChipArgs::HX8K) {
+            } else if (chip.args.type == ChipArgs::LP8K ||
+                       chip.args.type == ChipArgs::HX8K) {
                 setColBufCtrl = (y == 8 || y == 9 || y == 24 || y == 25);
+            } else if (chip.args.type == ChipArgs::UP5K) {
+                if (tile == TILE_LOGIC) {
+                    setColBufCtrl = (y == 4 || y == 5 || y == 14 || y == 15 ||
+                                     y == 26 || y == 27);
+                } else {
+                    setColBufCtrl = false;
+                }
             }
             if (setColBufCtrl) {
-                set_config(ti, config.at(y).at(x), "ColBufCtrl.glb_netwk_0", true);
-                set_config(ti, config.at(y).at(x), "ColBufCtrl.glb_netwk_1", true);
-                set_config(ti, config.at(y).at(x), "ColBufCtrl.glb_netwk_2", true);
-                set_config(ti, config.at(y).at(x), "ColBufCtrl.glb_netwk_3", true);
-                set_config(ti, config.at(y).at(x), "ColBufCtrl.glb_netwk_4", true);
-                set_config(ti, config.at(y).at(x), "ColBufCtrl.glb_netwk_5", true);
-                set_config(ti, config.at(y).at(x), "ColBufCtrl.glb_netwk_6", true);
-                set_config(ti, config.at(y).at(x), "ColBufCtrl.glb_netwk_7", true);
+                set_config(ti, config.at(y).at(x), "ColBufCtrl.glb_netwk_0",
+                           true);
+                set_config(ti, config.at(y).at(x), "ColBufCtrl.glb_netwk_1",
+                           true);
+                set_config(ti, config.at(y).at(x), "ColBufCtrl.glb_netwk_2",
+                           true);
+                set_config(ti, config.at(y).at(x), "ColBufCtrl.glb_netwk_3",
+                           true);
+                set_config(ti, config.at(y).at(x), "ColBufCtrl.glb_netwk_4",
+                           true);
+                set_config(ti, config.at(y).at(x), "ColBufCtrl.glb_netwk_5",
+                           true);
+                set_config(ti, config.at(y).at(x), "ColBufCtrl.glb_netwk_6",
+                           true);
+                set_config(ti, config.at(y).at(x), "ColBufCtrl.glb_netwk_7",
+                           true);
             }
         }
     }

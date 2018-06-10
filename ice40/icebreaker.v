@@ -9,7 +9,7 @@ module icebreaker (
 	output led4_pin,
 	output led5_pin
 );
-	wire clk, led1, led2, led3, led4, led5, btn1, btn2, btn3;
+	wire clk, clk_pre, led1, led2, led3, led4, led5, btn1, btn2, btn3;
 
 	(* BEL="18_31_io1" *) //27
 	SB_IO #(
@@ -115,7 +115,7 @@ module icebreaker (
 		.OUTPUT_ENABLE(),
 		.D_OUT_0(),
 		.D_OUT_1(),
-		.D_IN_0(clk),
+		.D_IN_0(clk_pre),
 		.D_IN_1()
 	);
 
@@ -172,7 +172,9 @@ module icebreaker (
         .D_IN_0(btn3),
         .D_IN_1()
     );
-	/*localparam BITS = 5;
+
+	SB_GB clk_gb(.USER_SIGNAL_TO_GLOBAL_BUFFER(clk_pre), .GLOBAL_BUFFER_OUTPUT(clk));
+	localparam BITS = 5;
 	localparam LOG2DELAY = 22;
 
 	reg [BITS+LOG2DELAY-1:0] counter = 0;
@@ -181,7 +183,7 @@ module icebreaker (
 	always @(posedge clk) begin
 		counter <= counter + 1;
 		outcnt <= counter >> LOG2DELAY;
-	end*/
-
-	assign {led1, led2, led3, led4, led5} = {!btn1, btn2, btn3, btn2, btn1};
+	end
+	assign {led1, led2, led3, led4, led5} = outcnt ^ (outcnt >> 1);
+	//assign {led1, led2, led3, led4, led5} = {!btn1, btn2, btn3, btn2, btn1};
 endmodule

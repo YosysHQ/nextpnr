@@ -220,8 +220,8 @@ def add_bel_io(x, y, z):
 
     wire_cen   = wire_names[(x, y, "io_global/cen")]
     wire_iclk  = wire_names[(x, y, "io_global/inclk")]
-    wire_oclk  = wire_names[(x, y, "io_global/latch")]
-    wire_latch = wire_names[(x, y, "io_global/outclk")]
+    wire_latch = wire_names[(x, y, "io_global/latch")]
+    wire_oclk  = wire_names[(x, y, "io_global/outclk")]
 
     wire_din_0  = wire_names[(x, y, "io_%d/D_IN_0"  % z)]
     wire_din_1  = wire_names[(x, y, "io_%d/D_IN_1"  % z)]
@@ -301,6 +301,15 @@ if dev_name == "1k":
     add_bel_gb( 6,  0, 5)
     add_bel_gb( 0,  8, 6)
     add_bel_gb(13,  8, 7)
+elif dev_name == "5k":
+    add_bel_gb(13,  0, 0)
+    add_bel_gb(13, 31, 1)
+    add_bel_gb(19, 31, 2)
+    add_bel_gb( 6, 31, 3)
+    add_bel_gb(12, 31, 4)
+    add_bel_gb(12,  0, 5)
+    add_bel_gb( 6,  0, 6)
+    add_bel_gb(19,  0, 7)
 
 print('#include "chip.h"')
 
