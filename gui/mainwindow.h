@@ -1,5 +1,6 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
+#include "design.h"
 #include "emb.h"
 
 #include <QMainWindow>
@@ -13,7 +14,7 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 
   public:
-    explicit MainWindow(QWidget *parent = 0);
+    explicit MainWindow(Design *design, QWidget *parent = 0);
     ~MainWindow();
 
   private:
@@ -25,6 +26,7 @@ class MainWindow : public QMainWindow
   private:
     Ui::MainWindow *ui;
     emb::stdout_write_type write;
+    Design *design;
 };
 
 #endif // MAINWINDOW_H

@@ -6,8 +6,8 @@
 #include "pybindings.h"
 #include "ui_mainwindow.h"
 
-MainWindow::MainWindow(QWidget *parent)
-        : QMainWindow(parent), ui(new Ui::MainWindow)
+MainWindow::MainWindow(Design *_design, QWidget *parent)
+        : QMainWindow(parent), ui(new Ui::MainWindow), design(_design)
 {
     ui->setupUi(this);
     PyImport_ImportModule("emb");
@@ -19,6 +19,8 @@ MainWindow::MainWindow(QWidget *parent)
         ui->plainTextEdit->appendPlainText(s.c_str());
     };
     emb::set_stdout(write);
+    std::string title = "nextpnr-ice40 - " + design->chip.getChipName();
+    setWindowTitle(title.c_str());
 }
 
 MainWindow::~MainWindow() { delete ui; }

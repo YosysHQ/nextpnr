@@ -269,7 +269,7 @@ int main(int argc, char *argv[])
 
     if (vm.count("gui")) {
         QApplication a(argc, argv);
-        MainWindow w;
+        MainWindow w(&design);
         w.show();
 
         rc = a.exec();

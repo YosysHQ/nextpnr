@@ -419,6 +419,8 @@ struct Chip
     ChipArgs args;
     // -------------------------------------------------
 
+    std::string getChipName();
+
     BelId getBelByName(IdString name) const;
 
     IdString getBelName(BelId bel) const

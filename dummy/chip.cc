@@ -21,6 +21,7 @@
 
 Chip::Chip(ChipArgs) {}
 
+std::string Chip::getChipName() { return "Dummy"; }
 // ---------------------------------------------------------------
 
 BelId Chip::getBelByName(IdString name) const { return BelId(); }

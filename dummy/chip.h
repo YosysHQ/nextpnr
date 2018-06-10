@@ -61,9 +61,13 @@ struct ChipArgs
 {
 };
 
+std::string getChipName(ChipArgs id);
+
 struct Chip
 {
     Chip(ChipArgs args);
+
+    std::string getChipName();
 
     BelId getBelByName(IdString name) const;
     IdString getBelName(BelId bel) const;

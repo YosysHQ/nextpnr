@@ -106,6 +106,35 @@ Chip::Chip(ChipArgs args) : args(args)
 
 // -----------------------------------------------------------------------
 
+std::string Chip::getChipName()
+{
+#ifdef ICE40_HX1K_ONLY
+    if (args.type == ChipArgs::HX1K) {
+        return "Lattice LP1K";
+    } else {
+        log_error("Unsupported iCE40 chip type.\n");
+    }
+#else
+    if (args.type == ChipArgs::LP384) {
+        return "Lattice LP384";
+    } else if (args.type == ChipArgs::LP1K) {
+        return "Lattice LP1K";
+    } else if (args.type == ChipArgs::HX1K) {
+        return "Lattice HX1K";
+    } else if (args.type == ChipArgs::UP5K) {
+        return "Lattice UP5K";
+    } else if (args.type == ChipArgs::LP8K) {
+        return "Lattice LP8K";
+    } else if (args.type == ChipArgs::HX8K) {
+        return "Lattice HX8K";
+    } else {
+        log_error("Unknown chip\n");
+    }
+#endif
+}
+
+// -----------------------------------------------------------------------
+
 BelId Chip::getBelByName(IdString name) const
 {
     BelId ret;

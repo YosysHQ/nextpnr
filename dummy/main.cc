@@ -28,7 +28,7 @@ int main(int argc, char *argv[])
     Design design(ChipArgs{});
 
     QApplication a(argc, argv);
-    MainWindow w;
+    MainWindow w(&design);
     w.show();
 
     return a.exec();
