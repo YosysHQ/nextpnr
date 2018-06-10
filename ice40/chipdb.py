@@ -451,7 +451,7 @@ print(",\n".join(tilegrid))
 print("};")
 
 print("ChipInfoPOD chip_info_%s = {" % dev_name)
-print("  %d, %d, %d, %d, %d," % (dev_width, dev_height, len(bel_name), num_wires, len(pipinfo)))
+print("  %d, %d, %d, %d, %d, %d," % (dev_width, dev_height, len(bel_name), num_wires, len(pipinfo), len(switchinfo)))
 print("  bel_data_%s, wire_data_%s, pip_data_%s," % (dev_name, dev_name, dev_name))
 print("  tile_grid_%s, &bits_info_%s" % (dev_name, dev_name))
 print("};")

@@ -162,6 +162,7 @@ struct ChipInfoPOD
 {
     int width, height;
     int num_bels, num_wires, num_pips;
+    int num_switches;
     BelInfoPOD *bel_data;
     WireInfoPOD *wire_data;
     PipInfoPOD *pip_data;
@@ -411,7 +412,7 @@ struct Chip
     vector<IdString> bel_to_cell;
     vector<IdString> wire_to_net;
     vector<IdString> pip_to_net;
-    vector<bool> pips_locked;
+    vector<bool> switches_locked;
     Chip(ChipArgs args);
 
     ChipArgs args;
@@ -567,32 +568,24 @@ struct Chip
     {
         assert(pip != PipId());
         assert(pip_to_net[pip.index] == IdString());
+        assert(!switches_locked[chip_info.pip_data[pip.index].switch_index]);
         pip_to_net[pip.index] = net;
-        // Optimise?
-        for (int i = 0; i < chip_info.num_pips; i++) {
-            if (chip_info.pip_data[i].switch_index ==
-                chip_info.pip_data[pip.index].switch_index)
-                pips_locked[i] = true;
-        }
+        switches_locked[chip_info.pip_data[pip.index].switch_index] = true;
     }
 
     void unbindPip(PipId pip)
     {
         assert(pip != PipId());
         assert(pip_to_net[pip.index] != IdString());
+        assert(switches_locked[chip_info.pip_data[pip.index].switch_index]);
         pip_to_net[pip.index] = IdString();
-        // Optimise?
-        for (int i = 0; i < chip_info.num_pips; i++) {
-            if (chip_info.pip_data[i].switch_index ==
-                chip_info.pip_data[pip.index].switch_index)
-                pips_locked[i] = false;
-        }
+        switches_locked[chip_info.pip_data[pip.index].switch_index] = false;
     }
 
     bool checkPipAvail(PipId pip) const
     {
         assert(pip != PipId());
-        return !pips_locked[pip.index];
+        return !switches_locked[chip_info.pip_data[pip.index].switch_index];
     }
 
     IdString getPipNet(PipId pip) const
