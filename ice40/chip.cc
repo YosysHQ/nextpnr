@@ -30,6 +30,8 @@ IdString belTypeToId(BelType type)
         return "ICESTORM_RAM";
     if (type == TYPE_SB_IO)
         return "SB_IO";
+    if (type == TYPE_SB_GB)
+        return "SB_GB";
     return IdString();
 }
 
@@ -41,6 +43,8 @@ BelType belTypeFromId(IdString id)
         return TYPE_ICESTORM_RAM;
     if (id == "SB_IO")
         return TYPE_SB_IO;
+    if (id == "SB_GB")
+        return TYPE_SB_GB;
     return TYPE_NONE;
 }
 

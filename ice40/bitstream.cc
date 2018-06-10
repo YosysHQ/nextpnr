@@ -192,6 +192,8 @@ void write_asc(const Design &design, std::ostream &out)
                 set_config(ti, config.at(iey).at(iex),
                            "IoCtrl.REN_" + std::to_string(iez), !pullup);
             }
+        } else if (cell.second->type == "SB_GB") {
+            // no cell config bits
         } else {
             assert(false);
         }
@@ -216,18 +218,41 @@ void write_asc(const Design &design, std::ostream &out)
         }
     }
 
-    // Set other config bits - currently just disable RAM to stop icebox_vlog
-    // crashing
-    // TODO: ColBufCtrl
+    // Set other config bits
     for (int y = 0; y < ci.height; y++) {
         for (int x = 0; x < ci.width; x++) {
             TileType tile = tile_at(chip, x, y);
             TileInfoPOD &ti = bi.tiles_nonrouting[tile];
+
+            // disable RAM to stop icebox_vlog crashing (FIXME)
             if ((tile == TILE_RAMB) && (chip.args.type == ChipArgs::LP1K || chip.args.type == ChipArgs::HX1K)) {
                 set_config(ti, config.at(y).at(x), "RamConfig.PowerUp", true);
             }
+
+            // set all ColBufCtrl bits (FIXME)
+            bool setColBufCtrl = true;
+            if (chip.args.type == ChipArgs::LP1K || chip.args.type == ChipArgs::HX1K) {
+                if (tile == TILE_RAMB || tile == TILE_RAMT) {
+                    setColBufCtrl = (y == 3 || y == 5 || y == 11 || y == 13);
+                } else {
+                    setColBufCtrl = (y == 4 || y == 5 || y == 12 || y == 13);
+                }
+            } else if (chip.args.type == ChipArgs::LP8K || chip.args.type == ChipArgs::HX8K) {
+                setColBufCtrl = (y == 8 || y == 9 || y == 24 || y == 25);
+            }
+            if (setColBufCtrl) {
+                set_config(ti, config.at(y).at(x), "ColBufCtrl.glb_netwk_0", true);
+                set_config(ti, config.at(y).at(x), "ColBufCtrl.glb_netwk_1", true);
+                set_config(ti, config.at(y).at(x), "ColBufCtrl.glb_netwk_2", true);
+                set_config(ti, config.at(y).at(x), "ColBufCtrl.glb_netwk_3", true);
+                set_config(ti, config.at(y).at(x), "ColBufCtrl.glb_netwk_4", true);
+                set_config(ti, config.at(y).at(x), "ColBufCtrl.glb_netwk_5", true);
+                set_config(ti, config.at(y).at(x), "ColBufCtrl.glb_netwk_6", true);
+                set_config(ti, config.at(y).at(x), "ColBufCtrl.glb_netwk_7", true);
+            }
         }
     }
+
     // Write config out
     for (int y = 0; y < ci.height; y++) {
         for (int x = 0; x < ci.width; x++) {

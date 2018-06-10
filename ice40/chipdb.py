@@ -293,6 +293,16 @@ def add_bel_ram(x, y):
     add_bel_input(bel, wire_names[(x, y1, "ram/RCLKE")], "RCLKE")
     add_bel_input(bel, wire_names[(x, y1, "ram/RE")], "RE")
 
+def add_bel_gb(x, y, g):
+    bel = len(bel_name)
+    bel_name.append("%d_%d_gb" % (x, y))
+    bel_type.append("SB_GB")
+    bel_pos.append((x, y, 0))
+    bel_wires.append(list())
+
+    add_bel_input(bel, wire_names[(x, y, "fabout")], "USER_SIGNAL_TO_GLOBAL_BUFFER")
+    add_bel_output(bel, wire_names[(x, y, "glb_netwk_%d" % g)], "GLOBAL_BUFFER_OUTPUT")
+
 for tile_xy, tile_type in sorted(tiles.items()):
     if tile_type == "logic":
         for i in range(8):
@@ -302,6 +312,16 @@ for tile_xy, tile_type in sorted(tiles.items()):
             add_bel_io(tile_xy[0], tile_xy[1], i)
     if tile_type == "ramb":
         add_bel_ram(tile_xy[0], tile_xy[1])
+
+if dev_name == "1k":
+    add_bel_gb( 7,  0, 0)
+    add_bel_gb( 7, 17, 1)
+    add_bel_gb(13,  9, 2)
+    add_bel_gb( 0,  9, 3)
+    add_bel_gb( 6, 17, 4)
+    add_bel_gb( 6,  0, 5)
+    add_bel_gb( 0,  8, 6)
+    add_bel_gb(13,  8, 7)
 
 print('#include "chip.h"')
 

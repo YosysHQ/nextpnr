@@ -45,7 +45,8 @@ enum BelType
     TYPE_NONE,
     TYPE_ICESTORM_LC,
     TYPE_ICESTORM_RAM,
-    TYPE_SB_IO
+    TYPE_SB_IO,
+    TYPE_SB_GB
 };
 
 IdString belTypeToId(BelType type);
