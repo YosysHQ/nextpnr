@@ -123,11 +123,6 @@ module blinky (
         .D_IN_1()
     );
 
-`ifdef ALT_BLINKY
-    reg ff = 0;
-    always @(posedge clk) ff <= !ff;
-    assign led1 = clki, led2 = !clki, led3 = !clk, led4 = !clk, led5 = ff;
-`else
     localparam BITS = 5;
     localparam LOG2DELAY = 22;
 
@@ -140,5 +135,4 @@ module blinky (
     end
 
     assign {led1, led2, led3, led4, led5} = outcnt ^ (outcnt >> 1);
-`endif
 endmodule

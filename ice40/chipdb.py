@@ -137,7 +137,7 @@ with open(sys.argv[1], "r") as f:
             wire_xy[mode[1]].append((int(line[0]), int(line[1])))
             continue
 
-        if mode[0] == "buffer":
+        if mode[0] in ("buffer", "routing"):
             wire_a = int(line[1])
             wire_b = mode[1]
             if wire_a not in wire_downhill:
@@ -147,27 +147,6 @@ with open(sys.argv[1], "r") as f:
             wire_downhill[wire_a].add(wire_b)
             wire_uphill[wire_b].add(wire_a)
             pip_xy[(wire_a, wire_b)] = (mode[2], mode[3], int(line[0], 2), len(switches) - 1)
-            continue
-
-        if mode[0] == "routing":
-            wire_a = int(line[1])
-            wire_b = mode[1]
-
-            if wire_a not in wire_downhill:
-                wire_downhill[wire_a] = set()
-            if wire_b not in wire_uphill:
-                wire_uphill[wire_b] = set()
-            wire_downhill[wire_a].add(wire_b)
-            wire_uphill[wire_b].add(wire_a)
-            pip_xy[(wire_a, wire_b)] = (mode[2], mode[3], int(line[0], 2), len(switches) - 1)
-
-            if wire_b not in wire_downhill:
-                wire_downhill[wire_b] = set()
-            if wire_a not in wire_uphill:
-                wire_uphill[wire_a] = set()
-            wire_downhill[wire_b].add(wire_a)
-            wire_uphill[wire_a].add(wire_b)
-            pip_xy[(wire_b, wire_a)] = (mode[2], mode[3], int(line[0], 2), len(switches) - 1)
             continue
 
         if mode[0] == "bits":
