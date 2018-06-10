@@ -144,11 +144,18 @@ struct SwitchInfoPOD
     ConfigBitPOD cbits[max_switch_bits];
 };
 
+struct IerenInfoPOD
+{
+    int8_t iox, ioy, ioz;
+    int8_t ierx, iery, ierz;
+};
+
 struct BitstreamInfoPOD
 {
-    int num_switches;
+    int num_switches, num_ierens;
     TileInfoPOD *tiles_nonrouting;
     SwitchInfoPOD *switches;
+    IerenInfoPOD *ierens;
 };
 
 struct ChipInfoPOD
@@ -563,7 +570,8 @@ struct Chip
         pip_to_net[pip.index] = net;
         // Optimise?
         for (int i = 0; i < chip_info.num_pips; i++) {
-            if (chip_info.pip_data[i].switch_index == chip_info.pip_data[pip.index].switch_index)
+            if (chip_info.pip_data[i].switch_index ==
+                chip_info.pip_data[pip.index].switch_index)
                 pips_locked[i] = true;
         }
     }
@@ -575,7 +583,8 @@ struct Chip
         pip_to_net[pip.index] = IdString();
         // Optimise?
         for (int i = 0; i < chip_info.num_pips; i++) {
-            if (chip_info.pip_data[i].switch_index == chip_info.pip_data[pip.index].switch_index)
+            if (chip_info.pip_data[i].switch_index ==
+                chip_info.pip_data[pip.index].switch_index)
                 pips_locked[i] = false;
         }
     }

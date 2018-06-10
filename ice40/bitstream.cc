@@ -25,7 +25,9 @@ inline TileType tile_at(const Chip &chip, int x, int y)
     return chip.chip_info.tile_grid[y * chip.chip_info.width + x];
 }
 
-const ConfigEntryPOD &find_config(const TileInfoPOD &tile, const std::string &name) {
+const ConfigEntryPOD &find_config(const TileInfoPOD &tile,
+                                  const std::string &name)
+{
     for (int i = 0; i < tile.num_config_entries; i++) {
         if (std::string(tile.entries[i].name) == name) {
             return tile.entries[i];
@@ -34,7 +36,22 @@ const ConfigEntryPOD &find_config(const TileInfoPOD &tile, const std::string &na
     assert(false);
 }
 
-void set_config(const TileInfoPOD &ti, vector<vector<int8_t>> &tile_cfg, const std::string &name, bool value, int index = -1) {
+std::tuple<int8_t, int8_t, int8_t> get_ieren(const BitstreamInfoPOD &bi,
+                                             int8_t x, int8_t y, int8_t z)
+{
+    for (int i = 0; i < bi.num_ierens; i++) {
+        auto ie = bi.ierens[i];
+        if (ie.iox == x && ie.ioy == y && ie.ioz == z) {
+            return std::make_tuple(ie.ierx, ie.iery, ie.ierz);
+        }
+    }
+    // No pin at this location
+    return std::make_tuple(-1, -1, -1);
+};
+
+void set_config(const TileInfoPOD &ti, vector<vector<int8_t>> &tile_cfg,
+                const std::string &name, bool value, int index = -1)
+{
     const ConfigEntryPOD &cfg = find_config(ti, name);
     if (index == -1) {
         for (int i = 0; i < cfg.num_bits; i++) {
@@ -90,8 +107,12 @@ void write_asc(const Design &design, std::ostream &out)
             const PipInfoPOD &pi = ci.pip_data[pip.index];
             const SwitchInfoPOD &swi = bi.switches[pi.switch_index];
             for (int i = 0; i < swi.num_bits; i++) {
-                bool val = (pi.switch_mask & (1 << ((swi.num_bits - 1) - i))) != 0;
-                int8_t &cbit = config.at(swi.y).at(swi.x).at(swi.cbits[i].row).at(swi.cbits[i].col);
+                bool val =
+                        (pi.switch_mask & (1 << ((swi.num_bits - 1) - i))) != 0;
+                int8_t &cbit = config.at(swi.y)
+                                       .at(swi.x)
+                                       .at(swi.cbits[i].row)
+                                       .at(swi.cbits[i].col);
                 if (bool(cbit) != 0)
                     assert(false);
                 cbit = val;
@@ -101,13 +122,15 @@ void write_asc(const Design &design, std::ostream &out)
     // Set logic cell config
     for (auto cell : design.cells) {
         BelId bel = cell.second->bel;
-        if (bel == BelId())
-            std::cout << "Found unplaced cell " << cell.first << " while generating bitstream!" << std::endl;
+        if (bel == BelId()) {
+            std::cout << "Found unplaced cell " << cell.first
+                      << " while generating bitstream!" << std::endl;
+            continue;
+        }
+        const BelInfoPOD &beli = ci.bel_data[bel.index];
+        int x = beli.x, y = beli.y, z = beli.z;
         if (cell.second->type == "ICESTORM_LC") {
-            const BelInfoPOD &beli = ci.bel_data[bel.index];
-            int x = beli.x, y = beli.y, z = beli.z;
             TileInfoPOD &ti = bi.tiles_nonrouting[TILE_LOGIC];
-
             unsigned lut_init = std::stoi(cell.second->params["LUT_INIT"]);
             bool neg_clk = std::stoi(cell.second->params["NEG_CLK"]);
             bool dff_enable = std::stoi(cell.second->params["DFF_ENABLE"]);
@@ -129,15 +152,44 @@ void write_asc(const Design &design, std::ostream &out)
             lc.at(19) = async_sr;
 
             for (int i = 0; i < 20; i++)
-                set_config(ti, config.at(y).at(x), "LC_" + std::to_string(z), lc.at(i), i);
+                set_config(ti, config.at(y).at(x), "LC_" + std::to_string(z),
+                           lc.at(i), i);
             set_config(ti, config.at(y).at(x), "NegClk", neg_clk);
         } else if (cell.second->type == "SB_IO") {
-            // TODO
+            TileInfoPOD &ti = bi.tiles_nonrouting[TILE_IO];
+            unsigned pin_type = std::stoi(cell.second->params["PIN_TYPE"]);
+            bool neg_trigger = std::stoi(cell.second->params["NEG_TRIGGER"]);
+            bool pullup = std::stoi(cell.second->params["PULLUP"]);
+            for (int i = 0; i < 6; i++) {
+                bool val = (pin_type >> i) & 0x01;
+                set_config(ti, config.at(y).at(x),
+                           "IOB_" + std::to_string(z) + ".PINTYPE_" +
+                                   std::to_string(i),
+                           val);
+            }
+
+            auto ieren = get_ieren(bi, x, y, z);
+            int iex, iey, iez;
+            std::tie(iex, iey, iez) = ieren;
+            assert(iez != -1);
+
+            bool input_en = false;
+            if ((chip.wire_to_net[chip.getWireBelPin(bel, PIN_D_IN_0).index] !=
+                 IdString()) ||
+                (chip.wire_to_net[chip.getWireBelPin(bel, PIN_D_IN_1).index] !=
+                 IdString())) {
+                input_en = true;
+            }
+            set_config(ti, config.at(iey).at(iex),
+                       "IoCtrl.IE_" + std::to_string(iez), !input_en);
+            set_config(ti, config.at(iey).at(iex),
+                       "IoCtrl.REN_" + std::to_string(iez), !pullup);
         } else {
             assert(false);
         }
     }
-    // Set other config bits - currently just disable RAM to stop icebox_vlog crashing
+    // Set other config bits - currently just disable RAM to stop icebox_vlog
+    // crashing
     // TODO: ColBufCtrl , unused IO
     for (int y = 0; y < ci.height; y++) {
         for (int x = 0; x < ci.width; x++) {

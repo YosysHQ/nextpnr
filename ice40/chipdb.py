@@ -21,6 +21,8 @@ bel_wires = list()
 
 switches = list()
 
+ierens = list()
+
 wire_uphill_belport = dict()
 wire_downhill_belports = dict()
 
@@ -117,6 +119,10 @@ with open(sys.argv[1], "r") as f:
             tile_sizes[4] = (int(line[1]), int(line[2]))
             continue
 
+        if line[0] == ".ieren":
+            mode = ("ieren",)
+            continue
+
         if (line[0][0] == ".") or (mode is None):
             mode = None
             continue
@@ -173,6 +179,8 @@ with open(sys.argv[1], "r") as f:
                 bits.append((int(m.group(1)), int(m.group(2))))
             tile_bits[mode[1]].append((name, bits))
 
+        if mode[0] == "ieren":
+            ierens.append(tuple([int(_) for _ in line]))
 def add_bel_input(bel, wire, port):
     if wire not in wire_downhill_belports:
         wire_downhill_belports[wire] = set()
@@ -409,7 +417,9 @@ for switch in switches:
     switchinfo.append("{%d, %d, %d, {%s}}" % (x, y, len(bits), cbits))
     switchid += 1
 
-
+iereninfo = []
+for ieren in ierens:
+    iereninfo.append("{%d, %d, %d, %d, %d, %d}" % ieren)
 
 print("static WireInfoPOD wire_data_%s[%d] = {" % (dev_name, num_wires))
 print(",\n".join(wireinfo))
@@ -427,8 +437,13 @@ print("static TileInfoPOD tile_data_%s[%d] = {" % (dev_name, num_tile_types))
 print(",\n".join(tileinfo))
 print("};")
 
+print("static IerenInfoPOD ieren_data_%s[%d] = {" % (dev_name, len(iereninfo)))
+print(",\n".join(iereninfo))
+print("};")
+
+
 print("static BitstreamInfoPOD bits_info_%s = {" % dev_name)
-print("%d, tile_data_%s, switch_data_%s" % (len(switchinfo), dev_name, dev_name))
+print("%d, %d, tile_data_%s, switch_data_%s, ieren_data_%s" % (len(switchinfo), len(iereninfo), dev_name, dev_name, dev_name))
 print("};")
 
 print("static TileType tile_grid_%s[%d] = {" % (dev_name, len(tilegrid)))
