@@ -123,3 +123,27 @@ const vector<PipId> &Chip::getWireAliases(WireId wire) const
     static vector<PipId> ret;
     return ret;
 }
+
+vector<GraphicElement> Chip::getBelGraphics(BelId bel) const
+{
+    static vector<GraphicElement> ret;
+    return ret;
+}
+
+vector<GraphicElement> Chip::getWireGraphics(WireId wire) const
+{
+    static vector<GraphicElement> ret;
+    return ret;
+}
+
+vector<GraphicElement> Chip::getPipGraphics(PipId pip) const
+{
+    static vector<GraphicElement> ret;
+    return ret;
+}
+
+vector<GraphicElement> Chip::getFrameGraphics() const
+{
+    static vector<GraphicElement> ret;
+    return ret;
+}

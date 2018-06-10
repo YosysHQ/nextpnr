@@ -7,7 +7,7 @@
 FPGAViewWidget::FPGAViewWidget(QWidget *parent)
         : QOpenGLWidget(parent), m_xMove(0), m_yMove(0), m_zDistance(1.0)
 {
-    design = static_cast<MainWindow *>(parent)->getDesign();
+    design = qobject_cast<MainWindow*>(parentWidget()->parentWidget()->parentWidget()->parentWidget())->getDesign();
 }
 
 FPGAViewWidget::~FPGAViewWidget() {}
@@ -51,6 +51,34 @@ void FPGAViewWidget::initializeGL()
     glClearColor(1.0, 1.0, 1.0, 0.0);
 }
 
+void FPGAViewWidget::drawElement(const GraphicElement &el)
+{
+    float scale = 1.0, offset = 0.0;
+    if (el.type == GraphicElement::G_BOX) {
+        glBegin(GL_LINES);
+        glVertex3f((offset + scale * el.x1), (offset + scale * el.y1), 0.0f);
+        glVertex3f((offset + scale * el.x2), (offset + scale * el.y1), 0.0f);
+
+        glVertex3f((offset + scale * el.x2), (offset + scale * el.y1), 0.0f);
+        glVertex3f((offset + scale * el.x2), (offset + scale * el.y2), 0.0f);
+
+        glVertex3f((offset + scale * el.x2), (offset + scale * el.y2), 0.0f);
+        glVertex3f((offset + scale * el.x1), (offset + scale * el.y2), 0.0f);
+        
+        glVertex3f((offset + scale * el.x1), (offset + scale * el.y2), 0.0f);
+        glVertex3f((offset + scale * el.x1), (offset + scale * el.y1), 0.0f);
+        glEnd();
+            
+    }
+
+    if (el.type == GraphicElement::G_LINE) {
+        glBegin(GL_LINES);
+        glVertex3f((offset + scale * el.x1), (offset + scale * el.y1), 0.0f);
+        glVertex3f((offset + scale * el.x2), (offset + scale * el.y2), 0.0f);
+        glEnd();
+    }
+}
+
 void FPGAViewWidget::paintGL()
 {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -59,8 +87,8 @@ void FPGAViewWidget::paintGL()
     glTranslatef(m_xMove, m_yMove, -10.0);
     glScalef(m_zDistance, m_zDistance, 0.0f);
 
-    // Example grid
-    glColor3f(0.8, 0.8, 0.8);
+    // Grid
+    glColor3f(0.9, 0.9, 0.9);
     glBegin(GL_LINES);
     for (float i = -100; i <= 100; i += 0.1) {
         glVertex3f((float)i, -100.0f, 0.0f);
@@ -68,7 +96,7 @@ void FPGAViewWidget::paintGL()
         glVertex3f(-100.0f, (float)i, 0.0f);
         glVertex3f(100.0f, (float)i, 0.0f);
     }
-    glColor3f(0.5, 0.5, 0.5);
+    glColor3f(0.7, 0.7, 0.7);
     for (int i = -100; i <= 100; i += 1) {
         glVertex3f((float)i, -100.0f, 0.0f);
         glVertex3f((float)i, 100.0f, 0.0f);
@@ -77,15 +105,16 @@ void FPGAViewWidget::paintGL()
     }
     glEnd();
 
-    // Example triangle
-    glBegin(GL_TRIANGLES);
-    glColor3f(1.0, 0.0, 0.0);
-    glVertex3f(-0.5, -0.5, 0);
-    glColor3f(0.0, 1.0, 0.0);
-    glVertex3f(0.5, -0.5, 0);
-    glColor3f(0.0, 0.0, 1.0);
-    glVertex3f(0, 0.5, 0);
-    glEnd();
+    glColor3f(0.1, 0.1, 0.1);
+    glLineWidth(0.1);
+    // Draw Bels
+    for (auto bel : design->chip.getBels()) {
+        for (auto &el : design->chip.getBelGraphics(bel))
+            drawElement(el);
+    }
+    // Draw Frame Graphics
+    for (auto &el : design->chip.getFrameGraphics())
+        drawElement(el);
 }
 
 void FPGAViewWidget::resizeGL(int width, int height)
