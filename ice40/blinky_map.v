@@ -1,6 +1,6 @@
 module \$_DFF_P_ (input D, C, output Q);
 	ICESTORM_LC #(
-		.LUT_INIT(1),
+		.LUT_INIT(2),
 		.NEG_CLK(0),
 		.CARRY_ENABLE(0),
 		.DFF_ENABLE(1),
