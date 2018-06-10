@@ -1,5 +1,4 @@
-/chipdb-1k.cc
-/chipdb-384.cc
-/chipdb-5k.cc
-/chipdb-8k.cc
-chipdbs/
+/blinky_chip.v
+/blinky_tb
+/blinky_tb.vcd
+/chipdbs/
