@@ -20,6 +20,7 @@
 #ifndef PYTHON_MODULE
 
 #include <QApplication>
+#include <boost/filesystem/convenience.hpp>
 #include <boost/program_options.hpp>
 #include <fstream>
 #include <iostream>
@@ -102,7 +103,7 @@ int main(int argc, char *argv[])
 
     if (vm.count("help") || argc == 1) {
     help:
-        std::cout << basename(argv[0])
+        std::cout << boost::filesystem::basename(argv[0])
                   << " -- Next Generation Place and Route (git "
                      "sha1 " GIT_COMMIT_HASH_STR ")\n";
         std::cout << "\n";
@@ -111,7 +112,7 @@ int main(int argc, char *argv[])
     }
 
     if (vm.count("version")) {
-        std::cout << basename(argv[0])
+        std::cout << boost::filesystem::basename(argv[0])
                   << " -- Next Generation Place and Route (git "
                      "sha1 " GIT_COMMIT_HASH_STR ")\n";
         return 1;
