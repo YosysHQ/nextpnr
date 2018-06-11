@@ -1,7 +1,7 @@
 /generated/
 /objs/
-/nextpnr-dummy
-/nextpnr-ice40
+/nextpnr-dummy*
+/nextpnr-ice40*
 cmake-build-*/
 Makefile
 cmake_install.cmake
@@ -21,4 +21,5 @@ a.out
 build/
 *.asc
 *.bin
-
+CTest*
+LastTest*

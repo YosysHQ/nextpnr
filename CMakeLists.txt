@@ -22,6 +22,9 @@ execute_process(
   OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 
+add_subdirectory(3rdparty/googletest/googletest)
+enable_testing()
+
 add_definitions("-DGIT_COMMIT_HASH=${GIT_COMMIT_HASH}")
 configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/common/version.h.in ${CMAKE_CURRENT_BINARY_DIR}/generated/version.h
@@ -96,6 +99,11 @@ foreach (family ${FAMILIES})
         target_compile_definitions(${target} PRIVATE ARCH_${ufamily} ARCHNAME=${family} -DQT_NO_KEYWORDS)
         target_link_libraries(${target} LINK_PUBLIC ${Boost_LIBRARIES} ${PYTHON_LIBRARIES} ${GUI_LIBRARY_FILES})
     endforeach (target)
+
+    add_executable(nextpnr-${family}-test "")
+    target_sources(nextpnr-${family}-test PRIVATE tests/${family}/main.cpp)
+    target_link_libraries(nextpnr-${family}-test PRIVATE gtest_main)
+    add_test(${family}-test ${CMAKE_CURRENT_BINARY_DIR}/nextpnr-${family}-test)
 endforeach (family)
 
 file(GLOB_RECURSE CLANGFORMAT_FILES *.cc *.h)
