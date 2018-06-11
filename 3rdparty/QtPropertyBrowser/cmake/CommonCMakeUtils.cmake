@@ -1,0 +1,27 @@
+# extract filename components of all items in src_list in dst_list
+# example usage: extract_filename_components(ALL_LIBS_BASENAME ALL_LIBS NAME_WE)
+macro(extract_filename_components dst_list src_list component)  
+  set(list_var "${${src_list}}")
+  #message(STATUS "list_var:     ${list_var}")
+  #message(STATUS "component:    ${component}")
+  foreach(item ${list_var})
+    get_filename_component(BASENAME ${item} ${component})
+  list( APPEND ${dst_list} ${BASENAME})
+  endforeach()
+  #message(STATUS "dst_list:     ${${dst_list}}")
+endmacro()
+
+
+# extract target properties of all items in src_list in dst_list
+# example usage: extract_target_properties(QT_INCLUDES Qt5::Core INTERFACE_INCLUDE_DIR)
+macro(extract_target_properties target_props target_list property)  
+  set(list_var "${${target_list}}")
+  # message(STATUS "list_var:     ${list_var}")
+  #message(STATUS "property:    ${property}")
+  foreach(item ${list_var})
+    get_target_property(value ${item} ${property})
+  list( APPEND ${target_props} ${value})
+  endforeach()
+  #message(STATUS "target_props:     ${${target_props}}")
+  list(REMOVE_DUPLICATES ${target_props})
+endmacro()
