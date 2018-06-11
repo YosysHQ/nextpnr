@@ -34,7 +34,7 @@ void Chip::unbindBel(BelId bel) {}
 
 bool Chip::checkBelAvail(BelId bel) const { return false; }
 
-IdString Chip::getBelCell(BelId bel) const { return IdString(); }
+IdString Chip::getBelCell(BelId bel, bool conflicting) const { return IdString(); }
 
 const vector<BelId> &Chip::getBels() const
 {
@@ -72,7 +72,7 @@ void Chip::unbindWire(WireId wire) {}
 
 bool Chip::checkWireAvail(WireId wire) const { return false; }
 
-IdString Chip::getWireNet(WireId wire) const { return IdString(); }
+IdString Chip::getWireNet(WireId wire, bool conflicting) const { return IdString(); }
 
 const vector<WireId> &Chip::getWires() const
 {
@@ -92,7 +92,7 @@ void Chip::unbindPip(PipId pip) {}
 
 bool Chip::checkPipAvail(PipId pip) const { return false; }
 
-IdString Chip::getPipNet(PipId pip) const { return IdString(); }
+IdString Chip::getPipNet(PipId pip, bool conflicting) const { return IdString(); }
 
 const vector<PipId> &Chip::getPips() const
 {

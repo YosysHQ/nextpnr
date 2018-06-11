@@ -449,7 +449,7 @@ struct Chip
         return bel_to_cell[bel.index] == IdString();
     }
 
-    IdString getBelCell(BelId bel) const
+    IdString getBelCell(BelId bel, bool conflicting=false) const
     {
         assert(bel != BelId());
         return bel_to_cell[bel.index];
@@ -539,7 +539,7 @@ struct Chip
         return wire_to_net[wire.index] == IdString();
     }
 
-    IdString getWireNet(WireId wire) const
+    IdString getWireNet(WireId wire, bool conflicting=false) const
     {
         assert(wire != WireId());
         return wire_to_net[wire.index];
@@ -596,7 +596,7 @@ struct Chip
         return !switches_locked[chip_info.pip_data[pip.index].switch_index];
     }
 
-    IdString getPipNet(PipId pip) const
+    IdString getPipNet(PipId pip, bool conflicting=false) const
     {
         assert(pip != PipId());
         return pip_to_net[pip.index];
@@ -668,6 +668,7 @@ struct Chip
     void getBelPosition(BelId bel, float &x, float &y) const;
     void getWirePosition(WireId wire, float &x, float &y) const;
     void getPipPosition(PipId pip, float &x, float &y) const;
+
     vector<GraphicElement> getBelGraphics(BelId bel) const;
     vector<GraphicElement> getWireGraphics(WireId wire) const;
     vector<GraphicElement> getPipGraphics(PipId pip) const;

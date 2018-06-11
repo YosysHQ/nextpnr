@@ -74,7 +74,7 @@ struct Chip
     void bindBel(BelId bel, IdString cell);
     void unbindBel(BelId bel);
     bool checkBelAvail(BelId bel) const;
-    IdString getBelCell(BelId bel) const;
+    IdString getBelCell(BelId bel, bool conflicting=false) const;
     const vector<BelId> &getBels() const;
     const vector<BelId> &getBelsByType(BelType type) const;
     BelType getBelType(BelId bel) const;
@@ -87,7 +87,7 @@ struct Chip
     void bindWire(WireId wire, IdString net);
     void unbindWire(WireId wire);
     bool checkWireAvail(WireId wire) const;
-    IdString getWireNet(WireId wire) const;
+    IdString getWireNet(WireId wire, bool conflicting=false) const;
     const vector<WireId> &getWires() const;
 
     PipId getPipByName(IdString name) const;
@@ -95,7 +95,7 @@ struct Chip
     void bindPip(PipId pip, IdString net);
     void unbindPip(PipId pip);
     bool checkPipAvail(PipId pip) const;
-    IdString getPipNet(PipId pip) const;
+    IdString getPipNet(PipId pip, bool conflicting=false) const;
     const vector<PipId> &getPips() const;
     WireId getPipSrcWire(PipId pip) const;
     WireId getPipDstWire(PipId pip) const;
@@ -107,6 +107,7 @@ struct Chip
     void getBelPosition(BelId bel, float &x, float &y) const;
     void getWirePosition(WireId wire, float &x, float &y) const;
     void getPipPosition(PipId pip, float &x, float &y) const;
+
     vector<GraphicElement> getBelGraphics(BelId bel) const;
     vector<GraphicElement> getWireGraphics(WireId wire) const;
     vector<GraphicElement> getPipGraphics(PipId pip) const;
