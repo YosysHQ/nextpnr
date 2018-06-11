@@ -13,10 +13,9 @@ MainWindow::MainWindow(Design *_design, QWidget *parent)
     PyImport_ImportModule("emb");
 
     write = [this](std::string s) {
-        // ui->plainTextEdit->moveCursor(QTextCursor::End);
-        // ui->plainTextEdit->insertPlainText(s.c_str());
-        // ui->plainTextEdit->moveCursor(QTextCursor::End);
-        ui->plainTextEdit->appendPlainText(s.c_str());
+        ui->plainTextEdit->moveCursor(QTextCursor::End);
+        ui->plainTextEdit->insertPlainText(s.c_str());
+        ui->plainTextEdit->moveCursor(QTextCursor::End);
     };
     emb::set_stdout(write);
     std::string title = "nextpnr-ice40 - " + design->chip.getChipName();
@@ -57,8 +56,11 @@ int MainWindow::executePython(std::string command)
         PyErr_Clear();
 
         PyObject *objectsRepresentation = PyObject_Str(v);
-        const char *errorStr = PyUnicode_AsUTF8(objectsRepresentation);
-        ui->plainTextEdit->appendPlainText(errorStr);
+        std::string errorStr =
+                PyUnicode_AsUTF8(objectsRepresentation) + std::string("\n");
+        ui->plainTextEdit->moveCursor(QTextCursor::End);
+        ui->plainTextEdit->insertPlainText(errorStr.c_str());
+        ui->plainTextEdit->moveCursor(QTextCursor::End);
         Py_DECREF(objectsRepresentation);
         Py_XDECREF(exception);
         Py_XDECREF(v);
@@ -72,7 +74,10 @@ int MainWindow::executePython(std::string command)
 void MainWindow::on_lineEdit_returnPressed()
 {
     std::string input = ui->lineEdit->text().toStdString();
-    ui->plainTextEdit->appendPlainText(std::string(">>> " + input).c_str());
+    ui->plainTextEdit->moveCursor(QTextCursor::End);
+    ui->plainTextEdit->insertPlainText(
+            std::string(">>> " + input + "\n").c_str());
+    ui->plainTextEdit->moveCursor(QTextCursor::End);
     ui->plainTextEdit->update();
     ui->lineEdit->clear();
     int error = executePython(input);
