@@ -63,22 +63,21 @@
       <widget class="QSplitter" name="splitter_2">
        <property name="orientation">
         <enum>Qt::Vertical</enum>
-       </property>
+       </property>       
        <widget class="QTreeView" name="treeView">
         <property name="minimumSize">
          <size>
-          <width>200</width>
+          <width>300</width>
           <height>0</height>
          </size>
         </property>
         <property name="maximumSize">
          <size>
-          <width>200</width>
+          <width>300</width>
           <height>16777215</height>
          </size>
         </property>
        </widget>
-       <widget class="QTableView" name="tableView"/>
       </widget>
      </widget>
     </item>
