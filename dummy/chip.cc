@@ -17,7 +17,7 @@
  *
  */
 
-#include "chip.h"
+#include "nextpnr.h"
 
 Chip::Chip(ChipArgs) {}
 

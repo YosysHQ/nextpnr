@@ -19,7 +19,7 @@
 #ifndef PLACE_H
 #define PLACE_H
 
-#include "design.h"
+#include "nextpnr.h"
 
 extern void place_design(Design *design);
 

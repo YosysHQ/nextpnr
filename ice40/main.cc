@@ -25,10 +25,10 @@
 #include <fstream>
 #include <iostream>
 #include "bitstream.h"
-#include "design.h"
 #include "jsonparse.h"
 #include "log.h"
 #include "mainwindow.h"
+#include "nextpnr.h"
 #include "place.h"
 #include "pybindings.h"
 #include "route.h"

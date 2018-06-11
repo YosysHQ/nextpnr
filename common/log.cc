@@ -26,7 +26,6 @@
 #include <string.h>
 #include <vector>
 
-#include "design.h"
 #include "log.h"
 
 std::vector<FILE *> log_files;

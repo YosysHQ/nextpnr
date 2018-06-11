@@ -20,50 +20,9 @@
 #ifndef DESIGN_H
 #define DESIGN_H
 
-#include <assert.h>
-#include <stdint.h>
-#include <string>
-#include <unordered_map>
-#include <unordered_set>
-#include <vector>
-
-// replace with proper IdString later
-typedef std::string IdString;
-
-struct GraphicElement
-{
-    // This will control colour, and there should be separate
-    // visibility controls in some cases also
-    enum
-    {
-        // Wires entirely inside tiles, e.g. between switchbox and bels
-        G_LOCAL_WIRES,
-        // Standard inter-tile routing
-        G_GENERAL_WIRES,
-        // Special inter-tile wires, e.g. carry chains
-        G_DEDICATED_WIRES,
-        G_BEL_OUTLINE,
-        G_SWITCHBOX_OUTLINE,
-        G_TILE_OUTLINE,
-        G_BEL_PINS,
-        G_SWITCHBOX_PINS,
-        G_BEL_MISC,
-        G_TILE_MISC,
-    } style;
-
-    enum
-    {
-        G_LINE,
-        G_BOX,
-        G_CIRCLE,
-        G_LABEL
-    } type;
-
-    float x1, y1, x2, y2, z;
-    std::string text;
-};
-
-#include "chip.h"
+#ifndef NEXTPNR_H
+#error Include "design.h" via "nextpnr.h" only.
+#endif
 
 struct CellInfo;
 

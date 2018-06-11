@@ -27,8 +27,7 @@
 #include <iostream>
 #include <log.h>
 #include <string>
-#include "chip.h"
-#include "design.h"
+#include "nextpnr.h"
 
 extern bool check_all_nets_driven(Design *design);
 

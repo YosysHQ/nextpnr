@@ -17,4 +17,4 @@
  *
  */
 
-#include "design.h"
+#include "nextpnr.h"

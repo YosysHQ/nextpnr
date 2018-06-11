@@ -20,8 +20,8 @@
 #ifndef PYTHON_MODULE
 
 #include <QApplication>
-#include "design.h"
 #include "mainwindow.h"
+#include "nextpnr.h"
 
 int main(int argc, char *argv[])
 {

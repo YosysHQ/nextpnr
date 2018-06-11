@@ -5,7 +5,7 @@
 #include <QOpenGLFunctions>
 #include <QOpenGLWidget>
 #include <QPainter>
-#include "design.h"
+#include "nextpnr.h"
 
 class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
 {

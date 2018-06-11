@@ -17,10 +17,12 @@
  *
  */
 
-#include "design.h"
-
 #ifndef CHIP_H
 #define CHIP_H
+
+#ifndef NEXTPNR_H
+#error Include "chip.h" via "nextpnr.h" only.
+#endif
 
 struct DelayInfo
 {

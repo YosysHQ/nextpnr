@@ -28,7 +28,6 @@
 #include <string.h>
 #include <vector>
 
-#include "design.h"
 #include "log.h"
 #include "place.h"
 

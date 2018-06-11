@@ -1,7 +1,7 @@
 #include <assert.h>
 #include <string>
-#include "design.h"
 #include "log.h"
+#include "nextpnr.h"
 
 bool check_all_nets_driven(Design *design)
 {

@@ -18,13 +18,10 @@
  *
  */
 
-#include "chip.h"
-#include "design.h"
+#include "pybindings.h"
 #include "emb.h"
 #include "jsonparse.h"
-
-// include after design.h/chip.h
-#include "pybindings.h"
+#include "nextpnr.h"
 
 #include <fstream>
 

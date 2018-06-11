@@ -21,7 +21,7 @@
 #define ICE40_BITSTREAM_H
 
 #include <iostream>
-#include "chip.h"
+#include "nextpnr.h"
 
 void write_asc(const Design &design, std::ostream &out);
 

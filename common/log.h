@@ -27,7 +27,7 @@
 #include <string>
 #include <vector>
 
-#include "design.h"
+#include "nextpnr.h"
 
 // from libs/sha1/sha1.h
 

@@ -1,7 +1,8 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
-#include "design.h"
+
 #include "emb.h"
+#include "nextpnr.h"
 
 #include <QMainWindow>
 

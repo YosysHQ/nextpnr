@@ -18,11 +18,8 @@
  *
  */
 
-#include "chip.h"
-#include "design.h"
-
-// include after design.h/chip.h
 #include "pybindings.h"
+#include "nextpnr.h"
 
 void arch_wrap_python()
 {

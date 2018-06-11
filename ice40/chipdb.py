@@ -311,7 +311,7 @@ elif dev_name == "5k":
     add_bel_gb( 6,  0, 6)
     add_bel_gb(19,  0, 7)
 
-print('#include "chip.h"')
+print('#include "nextpnr.h"')
 
 for bel in range(len(bel_name)):
     print("static BelWirePOD bel_wires_%d[%d] = {" % (bel, len(bel_wires[bel])))

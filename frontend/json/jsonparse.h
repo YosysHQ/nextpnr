@@ -22,7 +22,7 @@
 
 #include <istream>
 #include <string>
-#include "design.h"
+#include "nextpnr.h"
 
 extern void parse_json_file(std::istream *&, std::string &, Design *);
 
