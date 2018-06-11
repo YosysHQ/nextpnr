@@ -93,7 +93,7 @@ foreach (family ${FAMILIES})
     foreach (target ${family_targets})
         # Include family-specific source files to all family targets and set defines appropriately
         target_include_directories(${target} PRIVATE ${family}/)
-        target_compile_definitions(${target} PRIVATE ARCH_${ufamily} ARCHNAME=${family})
+        target_compile_definitions(${target} PRIVATE ARCH_${ufamily} ARCHNAME=${family} -DQT_NO_KEYWORDS)
         target_link_libraries(${target} LINK_PUBLIC ${Boost_LIBRARIES} ${PYTHON_LIBRARIES} ${GUI_LIBRARY_FILES})
     endforeach (target)
 endforeach (family)
