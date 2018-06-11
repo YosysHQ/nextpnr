@@ -1,5 +1,6 @@
 # Find the Qt5 libraries
 find_package(Qt5 COMPONENTS Core Widgets OpenGL REQUIRED)
+find_package(OpenGL REQUIRED)
 
 ADD_DEFINITIONS(-DQT_NO_KEYWORDS)
 
@@ -23,4 +24,4 @@ qt5_wrap_ui_custom(GENERATED_UI_HEADERS ${UI_SOURCES})
 qt5_add_resources_custom(GUI_RESOURCE_FILES gui/nextpnr.qrc)
 
 set(GUI_SOURCE_FILES gui/mainwindow.cc gui/fpgaviewwidget.cc gui/emb.cc ${GENERATED_MOC_FILES} ${GENERATED_UI_HEADERS} ${GUI_RESOURCE_FILES})
-set(GUI_LIBRARY_FILES Qt5::Widgets Qt5::OpenGL GL)
+set(GUI_LIBRARY_FILES Qt5::Widgets Qt5::OpenGL ${OPENGL_LIBRARIES})
