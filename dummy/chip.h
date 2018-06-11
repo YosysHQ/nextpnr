@@ -74,44 +74,44 @@ struct Chip
     void bindBel(BelId bel, IdString cell);
     void unbindBel(BelId bel);
     bool checkBelAvail(BelId bel) const;
-    IdString getBelCell(BelId bel, bool conflicting=false) const;
-    const vector<BelId> &getBels() const;
-    const vector<BelId> &getBelsByType(BelType type) const;
+    IdString getBelCell(BelId bel, bool conflicting = false) const;
+    const std::vector<BelId> &getBels() const;
+    const std::vector<BelId> &getBelsByType(BelType type) const;
     BelType getBelType(BelId bel) const;
     WireId getWireBelPin(BelId bel, PortPin pin) const;
     BelPin getBelPinUphill(WireId wire) const;
-    const vector<BelPin> &getBelPinsDownhill(WireId wire) const;
+    const std::vector<BelPin> &getBelPinsDownhill(WireId wire) const;
 
     WireId getWireByName(IdString name) const;
     IdString getWireName(WireId wire) const;
     void bindWire(WireId wire, IdString net);
     void unbindWire(WireId wire);
     bool checkWireAvail(WireId wire) const;
-    IdString getWireNet(WireId wire, bool conflicting=false) const;
-    const vector<WireId> &getWires() const;
+    IdString getWireNet(WireId wire, bool conflicting = false) const;
+    const std::vector<WireId> &getWires() const;
 
     PipId getPipByName(IdString name) const;
     IdString getPipName(PipId pip) const;
     void bindPip(PipId pip, IdString net);
     void unbindPip(PipId pip);
     bool checkPipAvail(PipId pip) const;
-    IdString getPipNet(PipId pip, bool conflicting=false) const;
-    const vector<PipId> &getPips() const;
+    IdString getPipNet(PipId pip, bool conflicting = false) const;
+    const std::vector<PipId> &getPips() const;
     WireId getPipSrcWire(PipId pip) const;
     WireId getPipDstWire(PipId pip) const;
     DelayInfo getPipDelay(PipId pip) const;
-    const vector<PipId> &getPipsDownhill(WireId wire) const;
-    const vector<PipId> &getPipsUphill(WireId wire) const;
-    const vector<PipId> &getWireAliases(WireId wire) const;
+    const std::vector<PipId> &getPipsDownhill(WireId wire) const;
+    const std::vector<PipId> &getPipsUphill(WireId wire) const;
+    const std::vector<PipId> &getWireAliases(WireId wire) const;
 
     void getBelPosition(BelId bel, float &x, float &y) const;
     void getWirePosition(WireId wire, float &x, float &y) const;
     void getPipPosition(PipId pip, float &x, float &y) const;
 
-    vector<GraphicElement> getBelGraphics(BelId bel) const;
-    vector<GraphicElement> getWireGraphics(WireId wire) const;
-    vector<GraphicElement> getPipGraphics(PipId pip) const;
-    vector<GraphicElement> getFrameGraphics() const;
+    std::vector<GraphicElement> getBelGraphics(BelId bel) const;
+    std::vector<GraphicElement> getWireGraphics(WireId wire) const;
+    std::vector<GraphicElement> getPipGraphics(PipId pip) const;
+    std::vector<GraphicElement> getFrameGraphics() const;
 };
 
 #endif

@@ -406,14 +406,14 @@ struct Chip
 {
     ChipInfoPOD chip_info;
 
-    mutable dict<IdString, int> bel_by_name;
-    mutable dict<IdString, int> wire_by_name;
-    mutable dict<IdString, int> pip_by_name;
+    mutable std::unordered_map<IdString, int> bel_by_name;
+    mutable std::unordered_map<IdString, int> wire_by_name;
+    mutable std::unordered_map<IdString, int> pip_by_name;
 
-    vector<IdString> bel_to_cell;
-    vector<IdString> wire_to_net;
-    vector<IdString> pip_to_net;
-    vector<bool> switches_locked;
+    std::vector<IdString> bel_to_cell;
+    std::vector<IdString> wire_to_net;
+    std::vector<IdString> pip_to_net;
+    std::vector<bool> switches_locked;
     Chip(ChipArgs args);
 
     ChipArgs args;
@@ -449,7 +449,7 @@ struct Chip
         return bel_to_cell[bel.index] == IdString();
     }
 
-    IdString getBelCell(BelId bel, bool conflicting=false) const
+    IdString getBelCell(BelId bel, bool conflicting = false) const
     {
         assert(bel != BelId());
         return bel_to_cell[bel.index];
@@ -539,7 +539,7 @@ struct Chip
         return wire_to_net[wire.index] == IdString();
     }
 
-    IdString getWireNet(WireId wire, bool conflicting=false) const
+    IdString getWireNet(WireId wire, bool conflicting = false) const
     {
         assert(wire != WireId());
         return wire_to_net[wire.index];
@@ -596,7 +596,7 @@ struct Chip
         return !switches_locked[chip_info.pip_data[pip.index].switch_index];
     }
 
-    IdString getPipNet(PipId pip, bool conflicting=false) const
+    IdString getPipNet(PipId pip, bool conflicting = false) const
     {
         assert(pip != PipId());
         return pip_to_net[pip.index];
@@ -669,10 +669,10 @@ struct Chip
     void getWirePosition(WireId wire, float &x, float &y) const;
     void getPipPosition(PipId pip, float &x, float &y) const;
 
-    vector<GraphicElement> getBelGraphics(BelId bel) const;
-    vector<GraphicElement> getWireGraphics(WireId wire) const;
-    vector<GraphicElement> getPipGraphics(PipId pip) const;
-    vector<GraphicElement> getFrameGraphics() const;
+    std::vector<GraphicElement> getBelGraphics(BelId bel) const;
+    std::vector<GraphicElement> getWireGraphics(WireId wire) const;
+    std::vector<GraphicElement> getPipGraphics(PipId pip) const;
+    std::vector<GraphicElement> getFrameGraphics() const;
 };
 
 #endif

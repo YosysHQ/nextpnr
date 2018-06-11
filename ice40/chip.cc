@@ -231,9 +231,9 @@ void Chip::getPipPosition(PipId pip, float &x, float &y) const
     y = chip_info.pip_data[pip.index].y;
 }
 
-vector<GraphicElement> Chip::getBelGraphics(BelId bel) const
+std::vector<GraphicElement> Chip::getBelGraphics(BelId bel) const
 {
-    vector<GraphicElement> ret;
+    std::vector<GraphicElement> ret;
 
     auto bel_type = getBelType(bel);
 
@@ -297,23 +297,23 @@ vector<GraphicElement> Chip::getBelGraphics(BelId bel) const
     return ret;
 }
 
-vector<GraphicElement> Chip::getWireGraphics(WireId wire) const
+std::vector<GraphicElement> Chip::getWireGraphics(WireId wire) const
 {
-    vector<GraphicElement> ret;
+    std::vector<GraphicElement> ret;
     // FIXME
     return ret;
 }
 
-vector<GraphicElement> Chip::getPipGraphics(PipId pip) const
+std::vector<GraphicElement> Chip::getPipGraphics(PipId pip) const
 {
-    vector<GraphicElement> ret;
+    std::vector<GraphicElement> ret;
     // FIXME
     return ret;
 }
 
-vector<GraphicElement> Chip::getFrameGraphics() const
+std::vector<GraphicElement> Chip::getFrameGraphics() const
 {
-    vector<GraphicElement> ret;
+    std::vector<GraphicElement> ret;
 
     for (int x = 0; x <= chip_info.width; x++)
         for (int y = 0; y <= chip_info.height; y++) {

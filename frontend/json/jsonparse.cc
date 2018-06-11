@@ -45,9 +45,9 @@ struct JsonNode
     char type; // S=String, N=Number, A=Array, D=Dict
     string data_string;
     int data_number;
-    vector<JsonNode *> data_array;
-    dict<string, JsonNode *> data_dict;
-    vector<string> data_dict_keys;
+    std::vector<JsonNode *> data_array;
+    std::unordered_map<string, JsonNode *> data_dict;
+    std::vector<string> data_dict_keys;
 
     JsonNode(std::istream &f)
     {
@@ -314,7 +314,8 @@ bool is_blackbox(JsonNode *node)
 
 void json_import_cell_params(Design *design, string &modname, CellInfo *cell,
                              JsonNode *param_node,
-                             dict<IdString, std::string> *dest, int param_id)
+                             std::unordered_map<IdString, std::string> *dest,
+                             int param_id)
 {
     //
     JsonNode *param;

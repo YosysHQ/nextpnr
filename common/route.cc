@@ -71,7 +71,7 @@ void route_design(Design *design)
 
         log("    Source wire: %s\n", chip.getWireName(src_wire).c_str());
 
-        dict<WireId, DelayInfo> src_wires;
+        std::unordered_map<WireId, DelayInfo> src_wires;
         src_wires[src_wire] = DelayInfo();
         net_info->wires[src_wire] = PipId();
         chip.bindWire(src_wire, net_name);
@@ -97,7 +97,7 @@ void route_design(Design *design)
             log("    Destination wire: %s\n",
                 chip.getWireName(dst_wire).c_str());
 
-            dict<WireId, QueuedWire> visited;
+            std::unordered_map<WireId, QueuedWire> visited;
             std::priority_queue<QueuedWire, std::vector<QueuedWire>,
                                 std::greater<QueuedWire>>
                     queue;

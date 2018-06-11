@@ -30,11 +30,6 @@
 // replace with proper IdString later
 typedef std::string IdString;
 
-// replace with haslib later
-template <typename T> using pool = std::unordered_set<T>;
-template <typename T, typename U> using dict = std::unordered_map<T, U>;
-using std::vector;
-
 struct GraphicElement
 {
     // This will control colour, and there should be separate
@@ -82,11 +77,11 @@ struct NetInfo
 {
     IdString name;
     PortRef driver;
-    vector<PortRef> users;
-    dict<IdString, std::string> attrs;
+    std::vector<PortRef> users;
+    std::unordered_map<IdString, std::string> attrs;
 
     // wire -> uphill_pip
-    dict<WireId, PipId> wires;
+    std::unordered_map<WireId, PipId> wires;
 };
 
 enum PortType
@@ -106,12 +101,12 @@ struct PortInfo
 struct CellInfo
 {
     IdString name, type;
-    dict<IdString, PortInfo> ports;
-    dict<IdString, std::string> attrs, params;
+    std::unordered_map<IdString, PortInfo> ports;
+    std::unordered_map<IdString, std::string> attrs, params;
 
     BelId bel;
     // cell_port -> bel_pin
-    dict<IdString, IdString> pins;
+    std::unordered_map<IdString, IdString> pins;
 };
 
 struct Design
@@ -123,8 +118,8 @@ struct Design
         // ...
     }
 
-    dict<IdString, NetInfo *> nets;
-    dict<IdString, CellInfo *> cells;
+    std::unordered_map<IdString, NetInfo *> nets;
+    std::unordered_map<IdString, CellInfo *> cells;
 };
 
 #endif

@@ -34,17 +34,20 @@ void Chip::unbindBel(BelId bel) {}
 
 bool Chip::checkBelAvail(BelId bel) const { return false; }
 
-IdString Chip::getBelCell(BelId bel, bool conflicting) const { return IdString(); }
-
-const vector<BelId> &Chip::getBels() const
+IdString Chip::getBelCell(BelId bel, bool conflicting) const
 {
-    static vector<BelId> ret;
+    return IdString();
+}
+
+const std::vector<BelId> &Chip::getBels() const
+{
+    static std::vector<BelId> ret;
     return ret;
 }
 
-const vector<BelId> &Chip::getBelsByType(BelType type) const
+const std::vector<BelId> &Chip::getBelsByType(BelType type) const
 {
-    static vector<BelId> ret;
+    static std::vector<BelId> ret;
     return ret;
 }
 
@@ -54,9 +57,9 @@ WireId Chip::getWireBelPin(BelId bel, PortPin pin) const { return WireId(); }
 
 BelPin Chip::getBelPinUphill(WireId wire) const { return BelPin(); }
 
-const vector<BelPin> &Chip::getBelPinsDownhill(WireId wire) const
+const std::vector<BelPin> &Chip::getBelPinsDownhill(WireId wire) const
 {
-    static vector<BelPin> ret;
+    static std::vector<BelPin> ret;
     return ret;
 }
 
@@ -72,11 +75,14 @@ void Chip::unbindWire(WireId wire) {}
 
 bool Chip::checkWireAvail(WireId wire) const { return false; }
 
-IdString Chip::getWireNet(WireId wire, bool conflicting) const { return IdString(); }
-
-const vector<WireId> &Chip::getWires() const
+IdString Chip::getWireNet(WireId wire, bool conflicting) const
 {
-    static vector<WireId> ret;
+    return IdString();
+}
+
+const std::vector<WireId> &Chip::getWires() const
+{
+    static std::vector<WireId> ret;
     return ret;
 }
 
@@ -92,11 +98,14 @@ void Chip::unbindPip(PipId pip) {}
 
 bool Chip::checkPipAvail(PipId pip) const { return false; }
 
-IdString Chip::getPipNet(PipId pip, bool conflicting) const { return IdString(); }
-
-const vector<PipId> &Chip::getPips() const
+IdString Chip::getPipNet(PipId pip, bool conflicting) const
 {
-    static vector<PipId> ret;
+    return IdString();
+}
+
+const std::vector<PipId> &Chip::getPips() const
+{
+    static std::vector<PipId> ret;
     return ret;
 }
 
@@ -106,44 +115,44 @@ WireId Chip::getPipDstWire(PipId pip) const { return WireId(); }
 
 DelayInfo Chip::getPipDelay(PipId pip) const { return DelayInfo(); }
 
-const vector<PipId> &Chip::getPipsDownhill(WireId wire) const
+const std::vector<PipId> &Chip::getPipsDownhill(WireId wire) const
 {
-    static vector<PipId> ret;
+    static std::vector<PipId> ret;
     return ret;
 }
 
-const vector<PipId> &Chip::getPipsUphill(WireId wire) const
+const std::vector<PipId> &Chip::getPipsUphill(WireId wire) const
 {
-    static vector<PipId> ret;
+    static std::vector<PipId> ret;
     return ret;
 }
 
-const vector<PipId> &Chip::getWireAliases(WireId wire) const
+const std::vector<PipId> &Chip::getWireAliases(WireId wire) const
 {
-    static vector<PipId> ret;
+    static std::vector<PipId> ret;
     return ret;
 }
 
-vector<GraphicElement> Chip::getBelGraphics(BelId bel) const
+std::vector<GraphicElement> Chip::getBelGraphics(BelId bel) const
 {
-    static vector<GraphicElement> ret;
+    static std::vector<GraphicElement> ret;
     return ret;
 }
 
-vector<GraphicElement> Chip::getWireGraphics(WireId wire) const
+std::vector<GraphicElement> Chip::getWireGraphics(WireId wire) const
 {
-    static vector<GraphicElement> ret;
+    static std::vector<GraphicElement> ret;
     return ret;
 }
 
-vector<GraphicElement> Chip::getPipGraphics(PipId pip) const
+std::vector<GraphicElement> Chip::getPipGraphics(PipId pip) const
 {
-    static vector<GraphicElement> ret;
+    static std::vector<GraphicElement> ret;
     return ret;
 }
 
-vector<GraphicElement> Chip::getFrameGraphics() const
+std::vector<GraphicElement> Chip::getFrameGraphics() const
 {
-    static vector<GraphicElement> ret;
+    static std::vector<GraphicElement> ret;
     return ret;
 }

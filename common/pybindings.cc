@@ -88,8 +88,8 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
 
     WRAP_MAP(decltype(NetInfo::attrs), "IdStrMap");
 
-    class_<vector<PortRef>>("PortRefVector")
-            .def(vector_indexing_suite<vector<PortRef>>());
+    class_<std::vector<PortRef>>("PortRefVector")
+            .def(vector_indexing_suite<std::vector<PortRef>>());
 
     enum_<PortType>("PortType")
             .value("PORT_IN", PORT_IN)

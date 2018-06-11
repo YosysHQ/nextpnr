@@ -49,7 +49,8 @@ std::tuple<int8_t, int8_t, int8_t> get_ieren(const BitstreamInfoPOD &bi,
     return std::make_tuple(-1, -1, -1);
 };
 
-void set_config(const TileInfoPOD &ti, vector<vector<int8_t>> &tile_cfg,
+void set_config(const TileInfoPOD &ti,
+                std::vector<std::vector<int8_t>> &tile_cfg,
                 const std::string &name, bool value, int index = -1)
 {
     const ConfigEntryPOD &cfg = find_config(ti, name);
@@ -78,7 +79,7 @@ void write_asc(const Design &design, std::ostream &out)
             TileType tile = tile_at(chip, x, y);
             int rows = bi.tiles_nonrouting[tile].rows;
             int cols = bi.tiles_nonrouting[tile].cols;
-            config.at(y).at(x).resize(rows, vector<int8_t>(cols));
+            config.at(y).at(x).resize(rows, std::vector<int8_t>(cols));
         }
     }
     out << ".comment from next-pnr" << std::endl;
@@ -137,7 +138,7 @@ void write_asc(const Design &design, std::ostream &out)
             bool async_sr = std::stoi(cell.second->params["ASYNC_SR"]);
             bool set_noreset = std::stoi(cell.second->params["SET_NORESET"]);
             bool carry_enable = std::stoi(cell.second->params["CARRY_ENABLE"]);
-            vector<bool> lc(20, false);
+            std::vector<bool> lc(20, false);
             // From arachne-pnr
             static std::vector<int> lut_perm = {
                     4, 14, 15, 5, 6, 16, 17, 7, 3, 13, 12, 2, 1, 11, 10, 0,
