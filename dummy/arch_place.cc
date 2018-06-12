@@ -19,7 +19,11 @@
 
 #include "arch_place.h"
 
+NEXTPNR_NAMESPACE_BEGIN
+
 bool isValidBelForCell(Design *design, CellInfo *cell, BelId bel)
 {
     return true;
 }
+
+NEXTPNR_NAMESPACE_END
