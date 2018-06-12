@@ -19,11 +19,11 @@
  */
 
 #include "pack.h"
+#include <algorithm>
+#include <unordered_set>
 #include "cells.h"
 #include "design_utils.h"
 #include "log.h"
-
-#include <unordered_set>
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -39,6 +39,8 @@ static void pack_lut_lutffs(Design *design)
         if (is_lut(ci)) {
             CellInfo *packed = create_ice_cell(design, "ICESTORM_LC",
                                                ci->name.str() + "_LC");
+            std::copy(ci->attrs.begin(), ci->attrs.end(),
+                      std::inserter(packed->attrs, packed->attrs.begin()));
             packed_cells.insert(ci->name);
             new_cells.push_back(packed);
             log_info("packed cell %s into %s\n", ci->name.c_str(),
@@ -47,14 +49,26 @@ static void pack_lut_lutffs(Design *design)
             // TODO: LUT cascade
             NetInfo *o = ci->ports.at("O").net;
             CellInfo *dff = net_only_drives(o, is_ff, "D", true);
+            auto lut_bel = ci->attrs.find("BEL");
+            bool packed_dff = false;
             if (dff) {
-                lut_to_lc(ci, packed, false);
-                dff_to_lc(dff, packed, false);
-                design->nets.erase(o->name);
-                packed_cells.insert(dff->name);
-                log_info("packed cell %s into %s\n", dff->name.c_str(),
-                         packed->name.c_str());
-            } else {
+                auto dff_bel = dff->attrs.find("BEL");
+                if (lut_bel != ci->attrs.end() && dff_bel != dff->attrs.end() &&
+                    lut_bel->second != dff_bel->second) {
+                    // Locations don't match, can't pack
+                } else {
+                    lut_to_lc(ci, packed, false);
+                    dff_to_lc(dff, packed, false);
+                    design->nets.erase(o->name);
+                    if (dff_bel != dff->attrs.end())
+                        packed->attrs["BEL"] = dff_bel->second;
+                    packed_cells.insert(dff->name);
+                    log_info("packed cell %s into %s\n", dff->name.c_str(),
+                             packed->name.c_str());
+                    packed_dff = true;
+                }
+            }
+            if (!packed_dff) {
                 lut_to_lc(ci, packed, true);
             }
         }
@@ -78,6 +92,8 @@ static void pack_nonlut_ffs(Design *design)
         if (is_ff(ci)) {
             CellInfo *packed = create_ice_cell(design, "ICESTORM_LC",
                                                ci->name.str() + "_LC");
+            std::copy(ci->attrs.begin(), ci->attrs.end(),
+                      std::inserter(packed->attrs, packed->attrs.begin()));
             packed_cells.insert(ci->name);
             new_cells.push_back(packed);
             dff_to_lc(ci, packed, true);

@@ -75,7 +75,7 @@ template <> struct hash<NEXTPNR_NAMESPACE_PREFIX IdString>
         return std::hash<std::string>()(obj.data);
     }
 };
-}
+} // namespace std
 
 NEXTPNR_NAMESPACE_BEGIN
 
