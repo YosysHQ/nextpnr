@@ -25,8 +25,8 @@ MainWindow::MainWindow(Design *_design, QWidget *parent)
     QList<QTreeWidgetItem *> bel_items;
     for (auto bel : design->chip.getBels()) {
         auto name = design->chip.getBelName(bel);
-        bel_items.append(new QTreeWidgetItem((QTreeWidget *)nullptr,
-                                         QStringList(QString(name.c_str()))));
+        bel_items.append(new QTreeWidgetItem(
+                (QTreeWidget *)nullptr, QStringList(QString(name.c_str()))));
     }
     bel_root->addChildren(bel_items);
 
@@ -36,8 +36,8 @@ MainWindow::MainWindow(Design *_design, QWidget *parent)
     ui->treeWidget->insertTopLevelItem(0, wire_root);
     for (auto wire : design->chip.getWires()) {
         auto name = design->chip.getWireName(wire);
-        wire_items.append(new QTreeWidgetItem((QTreeWidget *)nullptr,
-                                         QStringList(QString(name.c_str()))));
+        wire_items.append(new QTreeWidgetItem(
+                (QTreeWidget *)nullptr, QStringList(QString(name.c_str()))));
     }
     wire_root->addChildren(wire_items);
 
@@ -47,11 +47,10 @@ MainWindow::MainWindow(Design *_design, QWidget *parent)
     ui->treeWidget->insertTopLevelItem(0, pip_root);
     for (auto pip : design->chip.getPips()) {
         auto name = design->chip.getPipName(pip);
-        pip_items.append(new QTreeWidgetItem((QTreeWidget *)nullptr,
-                                         QStringList(QString(name.c_str()))));
+        pip_items.append(new QTreeWidgetItem(
+                (QTreeWidget *)nullptr, QStringList(QString(name.c_str()))));
     }
     pip_root->addChildren(pip_items);
-
 
     PyImport_ImportModule("emb");
 
