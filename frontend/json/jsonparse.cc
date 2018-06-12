@@ -224,10 +224,10 @@ NetInfo *ground_net(NetInfo *net)
     PortInfo port_info;
     PortRef port_ref;
 
-    cell->name = string(net->name + ".GND");
+    cell->name = string(net->name.str() + ".GND");
     cell->type = string("GND");
 
-    port_info.name = cell->name + "[]";
+    port_info.name = cell->name.str() + "[]";
     port_info.net = net;
     port_info.type = PORT_OUT;
 
@@ -247,10 +247,10 @@ NetInfo *vcc_net(NetInfo *net)
     PortInfo port_info;
     PortRef port_ref;
 
-    cell->name = string(net->name + ".VCC");
+    cell->name = string(net->name.str() + ".VCC");
     cell->type = string("VCC");
 
-    port_info.name = cell->name + "[]";
+    port_info.name = cell->name.str() + "[]";
     port_info.net = net;
     port_info.type = PORT_OUT;
 
@@ -269,7 +269,7 @@ NetInfo *floating_net(NetInfo *net)
     PortInfo port_info;
     PortRef port_ref;
 
-    port_info.name = net->name + ".floating";
+    port_info.name = net->name.str() + ".floating";
     port_info.net = net;
     port_info.type = PORT_OUT;
 

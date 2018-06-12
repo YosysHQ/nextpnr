@@ -217,7 +217,8 @@ NEXTPNR_NAMESPACE_END
 namespace std {
 template <> struct hash<NEXTPNR_NAMESPACE_PREFIX BelId>
 {
-    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX BelId &bel) const noexcept
+    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX BelId &bel) const
+            noexcept
     {
         return bel.index;
     }
@@ -225,7 +226,8 @@ template <> struct hash<NEXTPNR_NAMESPACE_PREFIX BelId>
 
 template <> struct hash<NEXTPNR_NAMESPACE_PREFIX WireId>
 {
-    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX WireId &wire) const noexcept
+    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX WireId &wire) const
+            noexcept
     {
         return wire.index;
     }
@@ -233,7 +235,8 @@ template <> struct hash<NEXTPNR_NAMESPACE_PREFIX WireId>
 
 template <> struct hash<NEXTPNR_NAMESPACE_PREFIX PipId>
 {
-    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX PipId &wire) const noexcept
+    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX PipId &wire) const
+            noexcept
     {
         return wire.index;
     }

@@ -33,8 +33,8 @@ CellInfo *create_ice_cell(Design *design, IdString type, IdString name)
     static int auto_idx = 0;
     CellInfo *new_cell = new CellInfo();
     if (name == IdString()) {
-        new_cell->name =
-                IdString("$nextpnr_" + type + "_" + std::to_string(auto_idx++));
+        new_cell->name = IdString("$nextpnr_" + type.str() + "_" +
+                                  std::to_string(auto_idx++));
     } else {
         new_cell->name = name;
     }
@@ -82,7 +82,7 @@ void lut_to_lc(CellInfo *lut, CellInfo *lc, bool no_dff)
 void dff_to_lc(CellInfo *dff, CellInfo *lc, bool pass_thru_lut)
 {
     lc->params["DFF_ENABLE"] = "1";
-    std::string config = std::string(dff->type).substr(6);
+    std::string config = dff->type.str().substr(6);
     auto citer = config.begin();
     replace_port(dff, "C", lc, "CLK");
 

@@ -41,8 +41,43 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-// replace with proper IdString later
-typedef std::string IdString;
+struct IdString
+{
+    std::string data;
+
+    IdString() {}
+    IdString(std::string s) : data(s) {}
+    IdString(const char *s) : data(s) {}
+
+    const char *c_str() const { return data.c_str(); }
+    const std::string &str() const { return data; }
+
+    operator const char *() const { return c_str(); }
+    operator const std::string &() const { return str(); }
+
+    bool operator<(const IdString &other) const { return data < other.data; }
+    bool operator==(const IdString &other) const { return data == other.data; }
+    bool operator==(const std::string &s) const { return data == s; }
+    bool operator==(const char *s) const { return data == s; }
+
+    size_t size() const { return data.size(); }
+    bool empty() const { return data.empty(); }
+};
+
+NEXTPNR_NAMESPACE_END
+
+namespace std {
+template <> struct hash<NEXTPNR_NAMESPACE_PREFIX IdString>
+{
+    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX IdString &obj) const
+            noexcept
+    {
+        return std::hash<std::string>()(obj.data);
+    }
+};
+}
+
+NEXTPNR_NAMESPACE_BEGIN
 
 struct GraphicElement
 {

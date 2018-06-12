@@ -24,7 +24,7 @@ bool check_all_nets_driven(Design *design)
                 log_info("    Checking name of port \'%s\' "
                          "against \'%s\'\n",
                          port_entry.first.c_str(), port.name.c_str());
-            assert(port.name.compare(port_entry.first) == 0);
+            assert(port.name == port_entry.first);
             assert(port.name.size() > 0);
 
             if (port.net == NULL) {
@@ -45,10 +45,9 @@ bool check_all_nets_driven(Design *design)
     for (auto net_entry : design->nets) {
         NetInfo *net = net_entry.second;
 
-        assert(net->name.compare(net_entry.first) == 0);
-        if ((net->driver.cell != NULL) &&
-            (net->driver.cell->type.compare("GND") != 0) &&
-            (net->driver.cell->type.compare("VCC") != 0)) {
+        assert(net->name == net_entry.first);
+        if ((net->driver.cell != NULL) && (net->driver.cell->type != "GND") &&
+            (net->driver.cell->type != "VCC")) {
 
             if (debug)
                 log_info("    Checking for a driver cell named \'%s\'\n",
@@ -57,8 +56,8 @@ bool check_all_nets_driven(Design *design)
         }
 
         for (auto user : net->users) {
-            if ((user.cell != NULL) && (user.cell->type.compare("GND") != 0) &&
-                (user.cell->type.compare("VCC") != 0)) {
+            if ((user.cell != NULL) && (user.cell->type != "GND") &&
+                (user.cell->type != "VCC")) {
 
                 if (debug)
                     log_info("    Checking for a user   cell named \'%s\'\n",

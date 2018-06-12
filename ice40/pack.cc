@@ -38,7 +38,7 @@ static void pack_lut_lutffs(Design *design)
                  ci->type.c_str());
         if (is_lut(ci)) {
             CellInfo *packed = create_ice_cell(design, "ICESTORM_LC",
-                                               std::string(ci->name) + "_LC");
+                                               ci->name.str() + "_LC");
             packed_cells.insert(ci->name);
             new_cells.push_back(packed);
             log_info("packed cell %s into %s\n", ci->name.c_str(),
@@ -77,7 +77,7 @@ static void pack_nonlut_ffs(Design *design)
         CellInfo *ci = cell.second;
         if (is_ff(ci)) {
             CellInfo *packed = create_ice_cell(design, "ICESTORM_LC",
-                                               std::string(ci->name) + "_LC");
+                                               ci->name.str() + "_LC");
             packed_cells.insert(ci->name);
             new_cells.push_back(packed);
             dff_to_lc(ci, packed, true);

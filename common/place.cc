@@ -100,7 +100,7 @@ void place_design(Design *design)
             if (cell->bel != BelId())
                 continue;
             // Only place one type of Bel at a time
-            if (cell->type.compare(bel_type_name) != 0)
+            if (cell->type != bel_type_name)
                 continue;
 
             while ((bi != blist.end()) &&
@@ -115,7 +115,7 @@ void place_design(Design *design)
             design->chip.bindBel(cell->bel, cell->name);
 
             // Back annotate location
-            cell->attrs["BEL"] = design->chip.getBelName(cell->bel);
+            cell->attrs["BEL"] = design->chip.getBelName(cell->bel).str();
         }
     }
 }
