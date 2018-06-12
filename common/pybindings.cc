@@ -123,6 +123,11 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
     def("parse_json", parse_json_shim);
     def("load_design", load_design_shim);
 
+    class_<IdString>("IdString")
+            .def("__str__", &IdString::str,
+                 return_value_policy<copy_const_reference>())
+            .def(self < self)
+            .def(self == self);
     arch_wrap_python();
 }
 
