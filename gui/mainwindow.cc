@@ -16,6 +16,18 @@ MainWindow::MainWindow(Design *_design, QWidget *parent)
         : QMainWindow(parent), ui(new Ui::MainWindow), design(_design)
 {
     ui->setupUi(this);
+    ui->treeWidget->setColumnCount(1);
+    ui->treeWidget->setHeaderLabel(QString("Items"));
+    QTreeWidgetItem *belroot = new QTreeWidgetItem(ui->treeWidget);
+    belroot->setText(0, QString("Bels"));
+    ui->treeWidget->insertTopLevelItem(0, belroot);
+    QList<QTreeWidgetItem *> items;
+    for (auto bel : design->chip.getBels()) {
+        auto name = design->chip.getBelName(bel);
+        items.append(new QTreeWidgetItem((QTreeWidget *)nullptr,
+                                         QStringList(QString(name.c_str()))));
+    }
+    belroot->addChildren(items);
     PyImport_ImportModule("emb");
 
     write = [this](std::string s) {
