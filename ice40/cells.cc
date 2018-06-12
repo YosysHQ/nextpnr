@@ -101,16 +101,18 @@ void dff_to_lc(CellInfo *dff, CellInfo *lc, bool pass_thru_lut)
     if (citer != config.end()) {
         if ((config.end() - citer) >= 2) {
             assert(*(citer++) == 'S');
-            lc->params["ASYNC_SR"] = "1";
-        } else {
             lc->params["ASYNC_SR"] = "0";
+        } else {
+            lc->params["ASYNC_SR"] = "1";
         }
 
         if (*citer == 'S') {
+            citer++;
             replace_port(dff, "S", lc, "SR");
             lc->params["SET_NORESET"] = "1";
         } else {
             assert(*citer == 'R');
+            citer++;
             replace_port(dff, "R", lc, "SR");
             lc->params["SET_NORESET"] = "0";
         }

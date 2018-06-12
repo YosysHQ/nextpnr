@@ -1,6 +1,10 @@
 module top(input clk, cen, rst, ina, inb, output reg outa, outb, outc, outd);
 
 reg temp0 = 1'b0, temp1 = 1'b0;
+initial outa = 1'b0;
+initial outb = 1'b0;
+initial outc = 1'b0;
+initial outd = 1'b0;
 
 always @(posedge clk)
     if (cen)
@@ -17,8 +21,8 @@ always @(negedge clk)
             temp1 <= inb;
 
 
-always @(posedge clk or negedge rst)
-    if(!rst)
+always @(posedge clk or posedge rst)
+    if(rst)
         outa <= 1'b0;
     else
         outa <= temp0;
