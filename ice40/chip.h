@@ -485,6 +485,8 @@ struct Chip
         return range;
     }
 
+    BelRange getBelsAtSameTile(BelId bel) const;
+
     BelType getBelType(BelId bel) const
     {
         assert(bel != BelId());

@@ -153,6 +153,26 @@ BelId Chip::getBelByName(IdString name) const
     return ret;
 }
 
+BelRange Chip::getBelsAtSameTile(BelId bel) const
+{
+    BelRange br;
+    assert(bel != BelId());
+    // This requires Bels at the same tile are consecutive
+    int x = chip_info.bel_data[bel.index].x;
+    int y = chip_info.bel_data[bel.index].y;
+    int start = bel.index, end = bel.index;
+    while (start >= 0 && chip_info.bel_data[start].x == x &&
+           chip_info.bel_data[start].y == y)
+        start--;
+    start++;
+    br.b.cursor = start;
+    while (end < chip_info.num_bels && chip_info.bel_data[end].x == x &&
+           chip_info.bel_data[end].y == y)
+        end++;
+    br.e.cursor = end;
+    return br;
+}
+
 WireId Chip::getWireBelPin(BelId bel, PortPin pin) const
 {
     WireId ret;

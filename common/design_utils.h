@@ -40,6 +40,8 @@ template <typename F1>
 CellInfo *net_only_drives(NetInfo *net, F1 cell_pred, IdString port,
                           bool exclusive = false)
 {
+    if (net == nullptr)
+        return nullptr;
     if (exclusive && (net->users.size() != 1)) {
         return nullptr;
     } else {
@@ -57,6 +59,8 @@ CellInfo *net_only_drives(NetInfo *net, F1 cell_pred, IdString port,
 template <typename F1>
 CellInfo *net_driven_by(NetInfo *net, F1 cell_pred, IdString port)
 {
+    if (net == nullptr)
+        return nullptr;
     if (cell_pred(net->driver.cell) && net->driver.port == port) {
         return net->driver.cell;
     } else {
