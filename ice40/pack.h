@@ -22,6 +22,10 @@
 
 #include "nextpnr.h"
 
+NEXTPNR_NAMESPACE_BEGIN
+
 void pack_design(Design *design);
+
+NEXTPNR_NAMESPACE_END
 
 #endif // ROUTE_H

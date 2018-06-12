@@ -25,6 +25,8 @@
 
 #include <fstream>
 
+NEXTPNR_NAMESPACE_BEGIN
+
 // Required to determine concatenated module name (which differs for different
 // archs)
 #define PASTER(x, y) x##_##y
@@ -64,7 +66,6 @@ Design load_design_shim(std::string filename, ChipArgs args)
 BOOST_PYTHON_MODULE(MODULE_NAME)
 {
     class_<GraphicElement>("GraphicElement")
-            .def_readwrite("style", &GraphicElement::style)
             .def_readwrite("type", &GraphicElement::type)
             .def_readwrite("x1", &GraphicElement::x1)
             .def_readwrite("y1", &GraphicElement::y1)
@@ -178,3 +179,5 @@ void execute_python_file(const char *python_file)
         std::cout << "Error in Python: " << perror_str << std::endl;
     }
 }
+
+NEXTPNR_NAMESPACE_END

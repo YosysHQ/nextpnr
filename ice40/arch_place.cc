@@ -19,6 +19,8 @@
 
 #include "arch_place.h"
 
+NEXTPNR_NAMESPACE_BEGIN
+
 static bool logicCellsCompatible(const std::vector<const CellInfo *> &cells)
 {
     bool dffs_exist = false, dffs_neg = false;
@@ -87,3 +89,5 @@ bool isValidBelForCell(Design *design, CellInfo *cell, BelId bel)
         return true;
     }
 }
+
+NEXTPNR_NAMESPACE_END

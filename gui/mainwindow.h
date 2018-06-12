@@ -6,6 +6,9 @@
 
 #include <QMainWindow>
 
+// FIXME
+USING_NEXTPNR_NAMESPACE
+
 namespace Ui {
 class MainWindow;
 }

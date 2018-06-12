@@ -27,6 +27,9 @@
 #include <stdexcept>
 #include <type_traits>
 #include <utility>
+#include "nextpnr.h"
+
+NEXTPNR_NAMESPACE_BEGIN
 
 using namespace boost::python;
 
@@ -269,5 +272,7 @@ template <typename T> struct map_wrapper
 #define WRAP_MAP(t, name)                                                      \
     map_wrapper<t>().wrap(#name, #name "KeyValue", #name "KeyValueIter",       \
                           #name "Iterator")
+
+NEXTPNR_NAMESPACE_END
 
 #endif

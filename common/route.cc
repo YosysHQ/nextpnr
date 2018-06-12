@@ -22,22 +22,23 @@
 #include "log.h"
 #include "route.h"
 
+NEXTPNR_NAMESPACE_BEGIN
+
 struct QueuedWire
 {
     WireId wire;
     PipId pip;
     DelayInfo delay;
-};
 
-namespace std {
-template <> struct greater<QueuedWire>
-{
-    bool operator()(const QueuedWire &lhs, const QueuedWire &rhs) const noexcept
+    struct Greater
     {
-        return lhs.delay.avgDelay() > rhs.delay.avgDelay();
-    }
+        bool operator()(const QueuedWire &lhs, const QueuedWire &rhs) const
+                noexcept
+        {
+            return lhs.delay.avgDelay() > rhs.delay.avgDelay();
+        }
+    };
 };
-} // namespace std
 
 void route_design(Design *design)
 {
@@ -99,7 +100,7 @@ void route_design(Design *design)
 
             std::unordered_map<WireId, QueuedWire> visited;
             std::priority_queue<QueuedWire, std::vector<QueuedWire>,
-                                std::greater<QueuedWire>>
+                                QueuedWire::Greater>
                     queue;
 
             for (auto &it : src_wires) {
@@ -135,7 +136,7 @@ void route_design(Design *design)
 
                     if (next_qw.wire == dst_wire) {
                         std::priority_queue<QueuedWire, std::vector<QueuedWire>,
-                                            std::greater<QueuedWire>>
+                                            QueuedWire::Greater>
                                 empty_queue;
                         std::swap(queue, empty_queue);
                         break;
@@ -169,3 +170,5 @@ void route_design(Design *design)
         }
     }
 }
+
+NEXTPNR_NAMESPACE_END

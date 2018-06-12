@@ -1,7 +1,10 @@
 #include <Python.h>
 #include <boost/python.hpp>
+#include "nextpnr.h"
 
 namespace py = boost::python;
+
+NEXTPNR_NAMESPACE_BEGIN
 
 // Parses the value of the active python exception
 // NOTE SHOULD NOT BE CALLED IF NO EXCEPTION
@@ -56,3 +59,5 @@ std::string parse_python_exception()
     }
     return ret;
 }
+
+NEXTPNR_NAMESPACE_END

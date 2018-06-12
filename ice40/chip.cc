@@ -20,6 +20,8 @@
 #include "log.h"
 #include "nextpnr.h"
 
+NEXTPNR_NAMESPACE_BEGIN
+
 // -----------------------------------------------------------------------
 
 IdString belTypeToId(BelType type)
@@ -347,3 +349,5 @@ std::vector<GraphicElement> Chip::getFrameGraphics() const
 
     return ret;
 }
+
+NEXTPNR_NAMESPACE_END

@@ -28,6 +28,8 @@
 
 #include "log.h"
 
+NEXTPNR_NAMESPACE_BEGIN
+
 std::vector<FILE *> log_files;
 std::vector<std::ostream *> log_streams;
 FILE *log_errfile = NULL;
@@ -233,3 +235,5 @@ void log_flush()
 void log_cell(CellInfo *cell, std::string indent) {}
 
 void log_net(NetInfo *net, std::string indent) {}
+
+NEXTPNR_NAMESPACE_END

@@ -22,11 +22,15 @@
 
 #include "nextpnr.h"
 
+NEXTPNR_NAMESPACE_BEGIN
+
 // Architecure-specific placement functions
 
 // Whether or not a given cell can be placed at a given Bel
 // This is not intended for Bel type checks, but finer-grained constraints
 // such as conflicting set/reset signals, etc
 bool isValidBelForCell(Design *design, CellInfo *cell, BelId bel);
+
+NEXTPNR_NAMESPACE_END
 
 #endif

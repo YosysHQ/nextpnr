@@ -25,6 +25,8 @@
 
 #include <unordered_set>
 
+NEXTPNR_NAMESPACE_BEGIN
+
 // Pack LUTs and LUT-FF pairs
 static void pack_lut_lutffs(Design *design)
 {
@@ -120,3 +122,5 @@ void pack_design(Design *design)
     pack_lut_lutffs(design);
     pack_nonlut_ffs(design);
 }
+
+NEXTPNR_NAMESPACE_END

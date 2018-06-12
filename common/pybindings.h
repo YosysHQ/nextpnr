@@ -29,6 +29,11 @@
 #include <boost/python/suite/indexing/vector_indexing_suite.hpp>
 #include <stdexcept>
 #include <utility>
+
+#include "nextpnr.h"
+
+NEXTPNR_NAMESPACE_BEGIN
+
 using namespace boost::python;
 
 /*
@@ -110,8 +115,8 @@ void deinit_python();
 
 void execute_python_file(const char *python_file);
 
-std::string parse_python_exception();
-
 void arch_appendinittab();
+
+NEXTPNR_NAMESPACE_END
 
 #endif /* end of include guard: COMMON_PYBINDINGS_HH */
