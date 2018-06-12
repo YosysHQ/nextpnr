@@ -43,25 +43,58 @@ NEXTPNR_NAMESPACE_BEGIN
 
 struct IdString
 {
-    std::string data;
+    int index = 0;
+
+    static std::unordered_map<std::string, int> *database_str_to_idx;
+    static std::vector<const std::string*> *database_idx_to_str;
+
+    void initialize();
 
     IdString() {}
-    IdString(std::string s) : data(s) {}
-    IdString(const char *s) : data(s) {}
 
-    const char *c_str() const { return data.c_str(); }
-    const std::string &str() const { return data; }
+    IdString(const std::string &s)
+    {
+        if (database_str_to_idx == nullptr)
+            initialize();
+
+        auto it = database_str_to_idx->find(s);
+        if (it == database_str_to_idx->end()) {
+            index = database_idx_to_str->size();
+            auto insert_rc = database_str_to_idx->insert({s, index});
+            database_idx_to_str->push_back(&insert_rc.first->first);
+        } else {
+            index = it->second;
+        }
+    }
+
+    IdString(const char *s)
+    {
+        if (database_str_to_idx == nullptr)
+            initialize();
+
+        auto it = database_str_to_idx->find(s);
+        if (it == database_str_to_idx->end()) {
+            index = database_idx_to_str->size();
+            auto insert_rc = database_str_to_idx->insert({s, index});
+            database_idx_to_str->push_back(&insert_rc.first->first);
+        } else {
+            index = it->second;
+        }
+    }
+
+    const std::string &str() const { return *database_idx_to_str->at(index); }
+    const char *c_str() const { return str().c_str(); }
 
     operator const char *() const { return c_str(); }
     operator const std::string &() const { return str(); }
 
-    bool operator<(const IdString &other) const { return data < other.data; }
-    bool operator==(const IdString &other) const { return data == other.data; }
-    bool operator==(const std::string &s) const { return data == s; }
-    bool operator==(const char *s) const { return data == s; }
+    bool operator<(const IdString &other) const { return index < other.index; }
+    bool operator==(const IdString &other) const { return index == other.index; }
+    bool operator==(const std::string &s) const { return str() == s; }
+    bool operator==(const char *s) const { return str() == s; }
 
-    size_t size() const { return data.size(); }
-    bool empty() const { return data.empty(); }
+    size_t size() const { return str().size(); }
+    bool empty() const { return index == 0; }
 };
 
 NEXTPNR_NAMESPACE_END
@@ -72,7 +105,7 @@ template <> struct hash<NEXTPNR_NAMESPACE_PREFIX IdString>
     std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX IdString &obj) const
             noexcept
     {
-        return std::hash<std::string>()(obj.data);
+        return obj.index;
     }
 };
 }
