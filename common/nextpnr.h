@@ -98,6 +98,13 @@ struct IdString
     bool operator==(const std::string &s) const { return str() == s; }
     bool operator==(const char *s) const { return str() == s; }
 
+    bool operator!=(const IdString &other) const
+    {
+        return index != other.index;
+    }
+    bool operator!=(const std::string &s) const { return str() != s; }
+    bool operator!=(const char *s) const { return str() != s; }
+
     size_t size() const { return str().size(); }
     bool empty() const { return index == 0; }
 };
