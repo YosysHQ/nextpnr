@@ -46,7 +46,7 @@ struct IdString
     int index = 0;
 
     static std::unordered_map<std::string, int> *database_str_to_idx;
-    static std::vector<const std::string*> *database_idx_to_str;
+    static std::vector<const std::string *> *database_idx_to_str;
 
     static void initialize();
     static void initialize_chip();
@@ -91,7 +91,10 @@ struct IdString
     operator const std::string &() const { return str(); }
 
     bool operator<(const IdString &other) const { return index < other.index; }
-    bool operator==(const IdString &other) const { return index == other.index; }
+    bool operator==(const IdString &other) const
+    {
+        return index == other.index;
+    }
     bool operator==(const std::string &s) const { return str() == s; }
     bool operator==(const char *s) const { return str() == s; }
 

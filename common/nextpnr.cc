@@ -22,12 +22,12 @@
 NEXTPNR_NAMESPACE_BEGIN
 
 std::unordered_map<std::string, int> *IdString::database_str_to_idx = nullptr;
-std::vector<const std::string*> *IdString::database_idx_to_str = nullptr;
+std::vector<const std::string *> *IdString::database_idx_to_str = nullptr;
 
 void IdString::initialize()
 {
     database_str_to_idx = new std::unordered_map<std::string, int>;
-    database_idx_to_str = new std::vector<const std::string*>;
+    database_idx_to_str = new std::vector<const std::string *>;
     initialize_add("", 0);
     initialize_chip();
 }
