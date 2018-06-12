@@ -19,22 +19,30 @@
 
 #include "design_utils.h"
 
-void replace_port(CellInfo *old_cell, PortInfo *old, CellInfo *rep_cell,
-                  PortInfo *rep)
+void replace_port(CellInfo *old_cell, IdString old_name, CellInfo *rep_cell,
+                  IdString rep_name)
 {
-    assert(old->type == rep->type);
+    PortInfo &old = old_cell->ports.at(old_name);
+    PortInfo &rep = rep_cell->ports.at(rep_name);
+    assert(old.type == rep.type);
 
-    rep->net = old->net;
-    old->net = nullptr;
-    if (rep->type == PORT_OUT) {
-        rep->net->driver.cell = rep_cell;
-        rep->net->driver.port = rep->name;
-    } else if (rep->type == PORT_IN) {
-        for (PortRef &load : rep->net->users) {
-            if (load.cell == old_cell && load.port == old->name) {
-                load.cell = rep_cell;
-                load.port = rep->name;
+    rep.net = old.net;
+    old.net = nullptr;
+    if (rep.type == PORT_OUT) {
+        if (rep.net != nullptr) {
+            rep.net->driver.cell = rep_cell;
+            rep.net->driver.port = rep_name;
+        }
+    } else if (rep.type == PORT_IN) {
+        if (rep.net != nullptr) {
+            for (PortRef &load : rep.net->users) {
+                if (load.cell == old_cell && load.port == old_name) {
+                    load.cell = rep_cell;
+                    load.port = rep_name;
+                }
             }
         }
+    } else {
+        assert(false);
     }
 }

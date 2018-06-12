@@ -19,13 +19,15 @@
 
 #include "nextpnr.h"
 
+#ifndef DESIGN_UTILS_H
+#define DESIGN_UTILS_H
 /*
 Utilities for design manipulation, intended for use inside packing algorithms
  */
 
 // Disconnect a net (if connected) from old, and connect it to rep
-void replace_port(CellInfo *old_cell, PortInfo *old, CellInfo *rep_cell,
-                  PortInfo *rep);
+void replace_port(CellInfo *old_cell, IdString old_name, CellInfo *rep_cell,
+                  IdString rep_name);
 
 // If a net drives a given port of a cell matching a predicate (in many
 // cases more than one cell type, e.g. SB_DFFxx so a predicate is used), return
@@ -58,3 +60,5 @@ CellInfo *net_driven_by(NetInfo *net, F1 cell_pred, IdString port)
         return nullptr;
     }
 }
+
+#endif
