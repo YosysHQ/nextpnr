@@ -52,6 +52,7 @@ static void pack_lut_lutffs(Design *design)
             auto lut_bel = ci->attrs.find("BEL");
             bool packed_dff = false;
             if (dff) {
+                log_info("found attached dff %s\n", dff->name.c_str());
                 auto dff_bel = dff->attrs.find("BEL");
                 if (lut_bel != ci->attrs.end() && dff_bel != dff->attrs.end() &&
                     lut_bel->second != dff_bel->second) {
@@ -91,9 +92,11 @@ static void pack_nonlut_ffs(Design *design)
         CellInfo *ci = cell.second;
         if (is_ff(ci)) {
             CellInfo *packed = create_ice_cell(design, "ICESTORM_LC",
-                                               ci->name.str() + "_LC");
+                                               ci->name.str() + "_DFFLC");
             std::copy(ci->attrs.begin(), ci->attrs.end(),
                       std::inserter(packed->attrs, packed->attrs.begin()));
+            log_info("packed cell %s into %s\n", ci->name.c_str(),
+                     packed->name.c_str());
             packed_cells.insert(ci->name);
             new_cells.push_back(packed);
             dff_to_lc(ci, packed, true);
