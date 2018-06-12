@@ -3,6 +3,9 @@
 
 #include "emb.h"
 #include "nextpnr.h"
+#include "qtpropertymanager.h"
+#include "qttreepropertybrowser.h"
+#include "qtvariantproperty.h"
 
 #include <QMainWindow>
 
@@ -27,11 +30,16 @@ class MainWindow : public QMainWindow
 
   private Q_SLOTS:
     void on_lineEdit_returnPressed();
+    void prepareMenu(const QPoint &pos);
+    void selectObject(QTreeWidgetItem *item);
 
   private:
     Ui::MainWindow *ui;
     emb::stdout_write_type write;
     Design *design;
+    QtVariantPropertyManager *variantManager;
+    QtVariantEditorFactory *variantFactory;
+    QtTreePropertyBrowser *variantEditor;
 };
 
 #endif // MAINWINDOW_H

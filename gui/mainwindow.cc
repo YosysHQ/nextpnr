@@ -4,9 +4,6 @@
 #include <string>
 #include "emb.h"
 #include "pybindings.h"
-#include "qtpropertymanager.h"
-#include "qttreepropertybrowser.h"
-#include "qtvariantproperty.h"
 #include "ui_mainwindow.h"
 
 #include <QDate>
@@ -18,6 +15,9 @@ MainWindow::MainWindow(Design *_design, QWidget *parent)
     ui->setupUi(this);
     ui->treeWidget->setColumnCount(1);
     ui->treeWidget->setHeaderLabel(QString("Items"));
+    ui->treeWidget->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(ui->treeWidget, &QTreeWidget::customContextMenuRequested, this,
+            &MainWindow::prepareMenu);
 
     QTreeWidgetItem *bel_root = new QTreeWidgetItem(ui->treeWidget);
     bel_root->setText(0, QString("Bels"));
@@ -62,7 +62,8 @@ MainWindow::MainWindow(Design *_design, QWidget *parent)
     emb::set_stdout(write);
     std::string title = "nextpnr-ice40 - " + design->chip.getChipName();
     setWindowTitle(title.c_str());
-    QtVariantPropertyManager *variantManager = new QtVariantPropertyManager();
+
+    variantManager = new QtVariantPropertyManager();
 
     int i = 0;
     QtProperty *topItem = variantManager->addProperty(
@@ -221,9 +222,9 @@ MainWindow::MainWindow(Design *_design, QWidget *parent)
             QString::number(i++) + QLatin1String(" Color Property"));
     topItem->addSubProperty(item);
 
-    QtVariantEditorFactory *variantFactory = new QtVariantEditorFactory();
+    variantFactory = new QtVariantEditorFactory();
 
-    QtTreePropertyBrowser *variantEditor = new QtTreePropertyBrowser();
+    variantEditor = new QtTreePropertyBrowser();
     variantEditor->setFactoryForManager(variantManager, variantFactory);
     variantEditor->addProperty(topItem);
     variantEditor->setPropertiesWithoutValueMarked(true);
@@ -234,11 +235,35 @@ MainWindow::MainWindow(Design *_design, QWidget *parent)
 
 MainWindow::~MainWindow()
 {
-
-    // delete variantManager;
-    // delete variantFactory;
-    // delete variantEditor;
+    delete variantManager;
+    delete variantFactory;
+    delete variantEditor;
     delete ui;
+}
+
+void MainWindow::prepareMenu(const QPoint &pos)
+{
+    QTreeWidget *tree = ui->treeWidget;
+
+    QTreeWidgetItem *item = tree->itemAt(pos);
+
+    QAction *selectAction = new QAction("&Select", this);
+    selectAction->setStatusTip("Select item on view");
+    connect(selectAction, SIGNAL(triggered()), this, SLOT(selectObject(item)));
+
+    QMenu menu(this);
+    menu.addAction(selectAction);
+
+    QPoint pt(pos);
+    menu.exec(tree->mapToGlobal(pos));
+}
+
+void MainWindow::selectObject(QTreeWidgetItem *item) 
+{
+    ui->plainTextEdit->moveCursor(QTextCursor::End);
+    ui->plainTextEdit->insertPlainText(
+            std::string("selected " + item->text(0).toStdString() + "\n").c_str());
+    ui->plainTextEdit->moveCursor(QTextCursor::End);
 }
 
 void handle_system_exit() { exit(-1); }
