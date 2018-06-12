@@ -12,4 +12,4 @@ yosys -p "rename chip gate;\
           proc;\
           clk2fflogic;\
           miter -equiv -flatten -ignore_gold_x -make_outputs -make_outcmp gold gate miter;\
-          sat -dump_vcd equiv_${NAME}.vcd -verify-no-timeout -timeout 20 -seq 10 -prove trigger 0 -prove-skip 1 -show-inputs -show-outputs miter" ${NAME}_out.v
+          sat -dump_vcd equiv_${NAME}.vcd -verify-no-timeout -timeout 60 -seq 50 -prove trigger 0 -prove-skip 1 -show-inputs -show-outputs miter" ${NAME}_out.v
