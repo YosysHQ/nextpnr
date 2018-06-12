@@ -1,9 +1,3 @@
 read_verilog icebreaker.v
-read_verilog -lib +/ice40/cells_sim.v
-synth -top icebreaker
-abc -lut 4
-techmap -map blinky_map.v
-splitnets
-opt_clean
-stat
+synth_ice40 -nocarry -top icebreaker
 write_json icebreaker.json
