@@ -90,13 +90,12 @@ static void pack_nonlut_ffs(Design *design)
 }
 
 // Pack constants (simple implementation)
-static void pack_constants(Design *design) {
-    CellInfo *gnd_cell = create_ice_cell(design, "ICESTORM_LC",
-                                       "$PACKER_GND");
+static void pack_constants(Design *design)
+{
+    CellInfo *gnd_cell = create_ice_cell(design, "ICESTORM_LC", "$PACKER_GND");
     gnd_cell->attrs["LUT_INIT"] = "0";
 
-    CellInfo *vcc_cell = create_ice_cell(design, "ICESTORM_LC",
-                                         "$PACKER_VCC");
+    CellInfo *vcc_cell = create_ice_cell(design, "ICESTORM_LC", "$PACKER_VCC");
     vcc_cell->attrs["LUT_INIT"] = "1";
 
     for (auto net : design->nets) {
@@ -105,7 +104,8 @@ static void pack_constants(Design *design) {
             ni->driver.cell = gnd_cell;
             ni->driver.port = "O";
             design->cells[gnd_cell->name] = gnd_cell;
-        } else if (ni->driver.cell != nullptr && ni->driver.cell->type == "VCC") {
+        } else if (ni->driver.cell != nullptr &&
+                   ni->driver.cell->type == "VCC") {
             ni->driver.cell = vcc_cell;
             ni->driver.port = "O";
             design->cells[vcc_cell->name] = vcc_cell;
