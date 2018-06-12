@@ -110,7 +110,7 @@ template <> struct hash<NEXTPNR_NAMESPACE_PREFIX IdString>
         return obj.index;
     }
 };
-}
+} // namespace std
 
 NEXTPNR_NAMESPACE_BEGIN
 
