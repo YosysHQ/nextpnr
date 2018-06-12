@@ -17,15 +17,9 @@
  *
  */
 
-#ifndef ICE40_ARCH_PLACE_H
-#define ICE40_ARCH_PLACE_H
+#include "arch_place.h"
 
-#include "nextpnr.h"
-// Architecure-specific placement functions
-
-// Whether or not a given cell can be placed at a given Bel
-// This is not intended for Bel type checks, but finer-grained constraints
-// such as conflicting set/reset signals, etc
-bool isValidBelForCell(Design *design, CellInfo *cell, BelId bel);
-
-#endif
+bool isValidBelForCell(Design *design, CellInfo *cell, BelId bel)
+{
+    return true;
+}

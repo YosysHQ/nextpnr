@@ -17,10 +17,11 @@
  *
  */
 
-#ifndef ICE40_ARCH_PLACE_H
-#define ICE40_ARCH_PLACE_H
+#ifndef DUMMY_ARCH_PLACE_H
+#define DUMMY_ARCH_PLACE_H
 
 #include "nextpnr.h"
+
 // Architecure-specific placement functions
 
 // Whether or not a given cell can be placed at a given Bel

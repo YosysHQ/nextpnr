@@ -28,6 +28,7 @@
 #include <string.h>
 #include <vector>
 
+#include "arch_place.h"
 #include "log.h"
 #include "place.h"
 
@@ -102,7 +103,8 @@ void place_design(Design *design)
 
             while ((bi != blist.end()) &&
                    ((design->chip.getBelType(*bi) != bel_type ||
-                     !design->chip.checkBelAvail(*bi))))
+                     !design->chip.checkBelAvail(*bi)) ||
+                    !isValidBelForCell(design, cell, *bi)))
                 bi++;
             if (bi == blist.end())
                 log_error("Too many \'%s\' used in design\n",
