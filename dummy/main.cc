@@ -17,7 +17,7 @@
  *
  */
 
-#ifndef PYTHON_MODULE
+#ifdef MAIN_EXECUTABLE
 
 #include <QApplication>
 #include "mainwindow.h"
