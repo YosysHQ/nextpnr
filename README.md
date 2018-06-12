@@ -1,6 +1,9 @@
 nextpnr -- a portable FPGA place and route tool
 ===============================================
 
+
+
+
 Supported Architectures
 -----------------------
 
@@ -10,7 +13,10 @@ Prequisites
 -----------
  
  - CMake 3.3 or later
- - Modern C++11 compiler, clang recommended (`clang-format` required for development)
+ - Modern C++11 compiler (`clang-format` required for development)
+     - Note: clang may run out of memory building the chipdbs (peak memory 
+       ~11GB) due to the system currently used. Use gcc, or the 1k-only
+       flag, if this causes a problem.
  - Qt5 or later (`qt5-default` for Ubuntu 16.04)
  - Python 3.5 or later, including development libraries (`python3-dev` for Ubuntu)
  - Boost libraries (`libboost-dev` or `libboost-all-dev` for Ubuntu)
@@ -36,6 +42,9 @@ Running
  - To run the CLI binary, just run `./nextpnr-ice40` (you should see command line help)
  - To start the UI, run `./nextpnr-ice40 --gui`
  - The Python module is called `nextpnrpy_ice40.so`. To test it, run `PYTHONPATH=. python3 python/python_mod_test.py`
+ - Run `yosys blinky.ys` in `ice40/` to synthesise the blinky design and 
+   produce `blinky.json`.
+ - To place-and-route the blinky using nextpnr, run `./nextpnr-ice40 --hx1k --json ice40/blinky.json --asc blinky.asc`
 
 Notes
 -------
