@@ -24,6 +24,9 @@ NEXTPNR_NAMESPACE_BEGIN
 Chip::Chip(ChipArgs) {}
 
 std::string Chip::getChipName() { return "Dummy"; }
+
+void IdString::initialize_chip() {}
+
 // ---------------------------------------------------------------
 
 BelId Chip::getBelByName(IdString name) const { return BelId(); }

@@ -48,7 +48,9 @@ struct IdString
     static std::unordered_map<std::string, int> *database_str_to_idx;
     static std::vector<const std::string*> *database_idx_to_str;
 
-    void initialize();
+    static void initialize();
+    static void initialize_chip();
+    static void initialize_add(const char *s, int idx);
 
     IdString() {}
 

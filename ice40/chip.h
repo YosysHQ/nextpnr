@@ -62,6 +62,7 @@ enum PortPin
 #define X(t) PIN_##t,
 #include "portpins.inc"
 #undef X
+    PIN_MAXIDX
 };
 
 IdString portPinToId(PortPin type);

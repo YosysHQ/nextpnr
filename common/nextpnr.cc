@@ -28,7 +28,15 @@ void IdString::initialize()
 {
     database_str_to_idx = new std::unordered_map<std::string, int>;
     database_idx_to_str = new std::vector<const std::string*>;
-    auto insert_rc = database_str_to_idx->insert({std::string(), 0});
+    initialize_add("", 0);
+    initialize_chip();
+}
+
+void IdString::initialize_add(const char *s, int idx)
+{
+    assert(database_str_to_idx->count(s) == 0);
+    assert(database_idx_to_str->size() == idx);
+    auto insert_rc = database_str_to_idx->insert({s, idx});
     database_idx_to_str->push_back(&insert_rc.first->first);
 }
 

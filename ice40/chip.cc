@@ -52,27 +52,25 @@ BelType belTypeFromId(IdString id)
 
 // -----------------------------------------------------------------------
 
+void IdString::initialize_chip()
+{
+#define X(t) initialize_add(#t, PIN_##t);
+#include "portpins.inc"
+#undef X
+}
+
 IdString portPinToId(PortPin type)
 {
-#define X(t)                                                                   \
-    if (type == PIN_##t)                                                       \
-        return #t;
-
-#include "portpins.inc"
-
-#undef X
-    return IdString();
+    IdString ret;
+    if (type > 0 && type < PIN_MAXIDX)
+        ret.index = type;
+    return ret;
 }
 
 PortPin portPinFromId(IdString id)
 {
-#define X(t)                                                                   \
-    if (id == #t)                                                              \
-        return PIN_##t;
-
-#include "portpins.inc"
-
-#undef X
+    if (id.index > 0 && id.index < PIN_MAXIDX)
+        return PortPin(id.index);
     return PIN_NONE;
 }
 
