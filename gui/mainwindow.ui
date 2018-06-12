@@ -64,7 +64,7 @@
        <property name="orientation">
         <enum>Qt::Vertical</enum>
        </property>       
-       <widget class="QTreeView" name="treeView">
+       <widget class="QTreeWidget" name="treeWidget">
         <property name="minimumSize">
          <size>
           <width>300</width>
