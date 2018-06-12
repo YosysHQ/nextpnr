@@ -29,6 +29,7 @@
 #include "log.h"
 #include "mainwindow.h"
 #include "nextpnr.h"
+#include "pack.h"
 #include "place.h"
 #include "pybindings.h"
 #include "route.h"
@@ -67,6 +68,10 @@ int main(int argc, char *argv[])
     options.add_options()("test", "just a check");
     options.add_options()("gui", "start gui");
     options.add_options()("svg", "dump SVG file");
+    options.add_options()("pack", "pack design prior to place and route");
+    options.add_options()("pack-only",
+                          "pack design only without placement or routing");
+
     options.add_options()("run", po::value<std::vector<std::string>>(),
                           "python file to execute");
     options.add_options()("json", po::value<std::string>(),
@@ -251,8 +256,13 @@ int main(int argc, char *argv[])
         std::istream *f = new std::ifstream(filename);
 
         parse_json_file(f, filename, &design);
-        place_design(&design);
-        route_design(&design);
+        if (vm.count("pack") || vm.count("pack-only")) {
+            pack_design(&design);
+        }
+        if (!vm.count("pack-only")) {
+            place_design(&design);
+            route_design(&design);
+        }
     }
 
     if (vm.count("asc")) {

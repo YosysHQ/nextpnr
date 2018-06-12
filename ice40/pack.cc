@@ -29,12 +29,18 @@
 static void pack_lut_lutffs(Design *design)
 {
     std::unordered_set<IdString> packed_cells;
+    std::vector<CellInfo *> new_cells;
     for (auto cell : design->cells) {
         CellInfo *ci = cell.second;
+        log_info("cell '%s' is of type '%s'\n", ci->name.c_str(),
+                 ci->type.c_str());
         if (is_lut(ci)) {
             CellInfo *packed = create_ice_cell(design, "ICESTORM_LC",
                                                std::string(ci->name) + "_LC");
             packed_cells.insert(ci->name);
+            new_cells.push_back(packed);
+            log_info("packed cell %s into %s\n", ci->name.c_str(),
+                     packed->name.c_str());
             // See if we can pack into a DFF
             // TODO: LUT cascade
             NetInfo *o = ci->ports.at("O").net;
@@ -42,7 +48,10 @@ static void pack_lut_lutffs(Design *design)
             if (dff) {
                 lut_to_lc(ci, packed, false);
                 dff_to_lc(dff, packed, false);
+                design->nets.erase(o->name);
                 packed_cells.insert(dff->name);
+                log_info("packed cell %s into %s\n", dff->name.c_str(),
+                         packed->name.c_str());
             } else {
                 lut_to_lc(ci, packed, true);
             }
@@ -51,23 +60,32 @@ static void pack_lut_lutffs(Design *design)
     for (auto pcell : packed_cells) {
         design->cells.erase(pcell);
     }
+    for (auto ncell : new_cells) {
+        design->cells[ncell->name] = ncell;
+    }
 }
 
 // Pack FFs not packed as LUTFFs
 static void pack_nonlut_ffs(Design *design)
 {
     std::unordered_set<IdString> packed_cells;
+    std::vector<CellInfo *> new_cells;
+
     for (auto cell : design->cells) {
         CellInfo *ci = cell.second;
         if (is_ff(ci)) {
             CellInfo *packed = create_ice_cell(design, "ICESTORM_LC",
                                                std::string(ci->name) + "_LC");
             packed_cells.insert(ci->name);
+            new_cells.push_back(packed);
             dff_to_lc(ci, packed, true);
         }
     }
     for (auto pcell : packed_cells) {
         design->cells.erase(pcell);
+    }
+    for (auto ncell : new_cells) {
+        design->cells[ncell->name] = ncell;
     }
 }
 

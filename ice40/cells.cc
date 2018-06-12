@@ -36,6 +36,7 @@ CellInfo *create_ice_cell(Design *design, IdString type, IdString name)
     } else {
         new_cell->name = name;
     }
+    new_cell->type = type;
     if (type == "ICESTORM_LC") {
         new_cell->params["LUT_INIT"] = "0";
         new_cell->params["NEG_CLK"] = "0";
@@ -60,7 +61,6 @@ CellInfo *create_ice_cell(Design *design, IdString type, IdString name)
     } else {
         log_error("unable to create iCE40 cell of type %s", type.c_str());
     }
-    design->cells[new_cell->name] = new_cell;
     return new_cell;
 }
 
@@ -120,4 +120,6 @@ void dff_to_lc(CellInfo *dff, CellInfo *lc, bool pass_thru_lut)
         lc->params["LUT_INIT"] = "2";
         replace_port(dff, "D", lc, "I0");
     }
+
+    replace_port(dff, "Q", lc, "O");
 }
