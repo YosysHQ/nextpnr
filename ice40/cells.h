@@ -22,6 +22,8 @@
 #ifndef ICE40_CELLS_H
 #define ICE40_CELLS_H
 
+NEXTPNR_NAMESPACE_BEGIN
+
 // Create a standard iCE40 cell and return it
 // Name will be automatically assigned if not specified
 CellInfo *create_ice_cell(Design *design, IdString type,
@@ -50,5 +52,7 @@ inline bool is_ff(const CellInfo *cell)
 // be configured as pass through and D connected to I0, otherwise D will be
 // ignored
 void dff_to_lc(CellInfo *dff, CellInfo *lc, bool pass_thru_lut = false);
+
+NEXTPNR_NAMESPACE_END
 
 #endif

@@ -20,6 +20,8 @@
 #include "bitstream.h"
 #include <vector>
 
+NEXTPNR_NAMESPACE_BEGIN
+
 inline TileType tile_at(const Chip &chip, int x, int y)
 {
     return chip.chip_info.tile_grid[y * chip.chip_info.width + x];
@@ -311,3 +313,5 @@ void write_asc(const Design &design, std::ostream &out)
         }
     }
 }
+
+NEXTPNR_NAMESPACE_END

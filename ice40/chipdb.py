@@ -312,6 +312,8 @@ elif dev_name == "5k":
     add_bel_gb(19,  0, 7)
 
 print('#include "nextpnr.h"')
+print('namespace {')
+print('USING_NEXTPNR_NAMESPACE')
 
 for bel in range(len(bel_name)):
     print("static BelWirePOD bel_wires_%d[%d] = {" % (bel, len(bel_wires[bel])))
@@ -319,7 +321,7 @@ for bel in range(len(bel_name)):
         print("  {%d, PIN_%s}%s" % (bel_wires[bel][i] + ("," if i+1 < len(bel_wires[bel]) else "",)))
     print("};")
 
-print("BelInfoPOD bel_data_%s[%d] = {" % (dev_name, len(bel_name)))
+print("static BelInfoPOD bel_data_%s[%d] = {" % (dev_name, len(bel_name)))
 for bel in range(len(bel_name)):
     print("  {\"%s\", TYPE_%s, %d, bel_wires_%d, %d, %d, %d}%s" % (bel_name[bel], bel_type[bel],
             len(bel_wires[bel]), bel, bel_pos[bel][0], bel_pos[bel][1], bel_pos[bel][2],
@@ -458,8 +460,13 @@ print("static TileType tile_grid_%s[%d] = {" % (dev_name, len(tilegrid)))
 print(",\n".join(tilegrid))
 print("};")
 
+print('}')
+print('NEXTPNR_NAMESPACE_BEGIN')
+
 print("ChipInfoPOD chip_info_%s = {" % dev_name)
 print("  %d, %d, %d, %d, %d, %d," % (dev_width, dev_height, len(bel_name), num_wires, len(pipinfo), len(switchinfo)))
 print("  bel_data_%s, wire_data_%s, pip_data_%s," % (dev_name, dev_name, dev_name))
 print("  tile_grid_%s, &bits_info_%s" % (dev_name, dev_name))
 print("};")
+
+print('NEXTPNR_NAMESPACE_END')

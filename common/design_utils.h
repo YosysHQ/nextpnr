@@ -21,6 +21,9 @@
 
 #ifndef DESIGN_UTILS_H
 #define DESIGN_UTILS_H
+
+NEXTPNR_NAMESPACE_BEGIN
+
 /*
 Utilities for design manipulation, intended for use inside packing algorithms
  */
@@ -60,5 +63,7 @@ CellInfo *net_driven_by(NetInfo *net, F1 cell_pred, IdString port)
         return nullptr;
     }
 }
+
+NEXTPNR_NAMESPACE_END
 
 #endif

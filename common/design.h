@@ -24,6 +24,8 @@
 #error Include "design.h" via "nextpnr.h" only.
 #endif
 
+NEXTPNR_NAMESPACE_BEGIN
+
 struct CellInfo;
 
 struct PortRef
@@ -80,5 +82,7 @@ struct Design
     std::unordered_map<IdString, NetInfo *> nets;
     std::unordered_map<IdString, CellInfo *> cells;
 };
+
+NEXTPNR_NAMESPACE_END
 
 #endif

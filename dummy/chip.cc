@@ -19,6 +19,8 @@
 
 #include "nextpnr.h"
 
+NEXTPNR_NAMESPACE_BEGIN
+
 Chip::Chip(ChipArgs) {}
 
 std::string Chip::getChipName() { return "Dummy"; }
@@ -156,3 +158,5 @@ std::vector<GraphicElement> Chip::getFrameGraphics() const
     static std::vector<GraphicElement> ret;
     return ret;
 }
+
+NEXTPNR_NAMESPACE_END

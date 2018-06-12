@@ -21,6 +21,10 @@
 
 #include "nextpnr.h"
 
+NEXTPNR_NAMESPACE_BEGIN
+
 extern void place_design(Design *design);
+
+NEXTPNR_NAMESPACE_END
 
 #endif // PLACE_H

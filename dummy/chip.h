@@ -24,6 +24,8 @@
 #error Include "chip.h" via "nextpnr.h" only.
 #endif
 
+NEXTPNR_NAMESPACE_BEGIN
+
 struct DelayInfo
 {
     float delay = 0;
@@ -115,5 +117,7 @@ struct Chip
     std::vector<GraphicElement> getPipGraphics(PipId pip) const;
     std::vector<GraphicElement> getFrameGraphics() const;
 };
+
+NEXTPNR_NAMESPACE_END
 
 #endif

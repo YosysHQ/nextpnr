@@ -29,6 +29,8 @@
 #include <string>
 #include "nextpnr.h"
 
+NEXTPNR_NAMESPACE_BEGIN
+
 extern bool check_all_nets_driven(Design *design);
 
 namespace JsonParser {
@@ -700,3 +702,5 @@ void parse_json_file(std::istream *&f, std::string &filename, Design *design)
     auto *parser = new JsonParser::JsonFrontend();
     parser->execute(f, filename, design);
 }
+
+NEXTPNR_NAMESPACE_END

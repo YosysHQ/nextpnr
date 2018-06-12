@@ -27,41 +27,39 @@
 #ifndef NEXTPNR_H
 #define NEXTPNR_H
 
+#ifdef NEXTPNR_NAMESPACE
+#define NEXTPNR_NAMESPACE_PREFIX NEXTPNR_NAMESPACE::
+#define NEXTPNR_NAMESPACE_BEGIN namespace NEXTPNR_NAMESPACE {
+#define NEXTPNR_NAMESPACE_END }
+#define USING_NEXTPNR_NAMESPACE using namespace NEXTPNR_NAMESPACE;
+#else
+#define NEXTPNR_NAMESPACE_PREFIX
+#define NEXTPNR_NAMESPACE_BEGIN
+#define NEXTPNR_NAMESPACE_END
+#define USING_NEXTPNR_NAMESPACE
+#endif
+
+NEXTPNR_NAMESPACE_BEGIN
+
 // replace with proper IdString later
 typedef std::string IdString;
 
 struct GraphicElement
 {
-    // This will control colour, and there should be separate
-    // visibility controls in some cases also
     enum
     {
-        // Wires entirely inside tiles, e.g. between switchbox and bels
-        G_LOCAL_WIRES,
-        // Standard inter-tile routing
-        G_GENERAL_WIRES,
-        // Special inter-tile wires, e.g. carry chains
-        G_DEDICATED_WIRES,
-        G_BEL_OUTLINE,
-        G_SWITCHBOX_OUTLINE,
-        G_TILE_OUTLINE,
-        G_BEL_PINS,
-        G_SWITCHBOX_PINS,
-        G_BEL_MISC,
-        G_TILE_MISC,
-    } style;
-
-    enum
-    {
+        G_NONE,
         G_LINE,
         G_BOX,
         G_CIRCLE,
         G_LABEL
-    } type;
+    } type = G_NONE;
 
-    float x1, y1, x2, y2, z;
+    float x1 = 0, y1 = 0, x2 = 0, y2 = 0, z = 0;
     std::string text;
 };
+
+NEXTPNR_NAMESPACE_END
 
 #include "chip.h"
 #include "design.h"

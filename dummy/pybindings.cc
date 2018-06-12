@@ -21,4 +21,8 @@
 #include "pybindings.h"
 #include "nextpnr.h"
 
+NEXTPNR_NAMESPACE_BEGIN
+
 void arch_wrap_python() { class_<ChipArgs>("ChipArgs"); }
+
+NEXTPNR_NAMESPACE_END

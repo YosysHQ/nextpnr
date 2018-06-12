@@ -21,6 +21,8 @@
 #include "design_utils.h"
 #include "log.h"
 
+NEXTPNR_NAMESPACE_BEGIN
+
 static void add_port(CellInfo *cell, IdString name, PortType dir)
 {
     cell->ports[name] = PortInfo{name, nullptr, dir};
@@ -108,3 +110,5 @@ void dff_to_lc(CellInfo *dff, CellInfo *lc, bool pass_thru_lut)
         replace_port(dff, "D", lc, "I0");
     }
 }
+
+NEXTPNR_NAMESPACE_END

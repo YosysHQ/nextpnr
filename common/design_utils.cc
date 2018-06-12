@@ -19,6 +19,8 @@
 
 #include "design_utils.h"
 
+NEXTPNR_NAMESPACE_BEGIN
+
 void replace_port(CellInfo *old_cell, IdString old_name, CellInfo *rep_cell,
                   IdString rep_name)
 {
@@ -46,3 +48,5 @@ void replace_port(CellInfo *old_cell, IdString old_name, CellInfo *rep_cell,
         assert(false);
     }
 }
+
+NEXTPNR_NAMESPACE_END

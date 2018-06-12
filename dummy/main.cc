@@ -23,6 +23,8 @@
 #include "mainwindow.h"
 #include "nextpnr.h"
 
+USING_NEXTPNR_NAMESPACE
+
 int main(int argc, char *argv[])
 {
     Design design(ChipArgs{});

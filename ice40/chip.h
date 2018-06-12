@@ -24,6 +24,8 @@
 #error Include "chip.h" via "nextpnr.h" only.
 #endif
 
+NEXTPNR_NAMESPACE_BEGIN
+
 struct DelayInfo
 {
     float delay = 0;
@@ -210,31 +212,35 @@ struct BelPin
     PortPin pin;
 };
 
+NEXTPNR_NAMESPACE_END
+
 namespace std {
-template <> struct hash<BelId>
+template <> struct hash<NEXTPNR_NAMESPACE::BelId>
 {
-    std::size_t operator()(const BelId &bel) const noexcept
+    std::size_t operator()(const NEXTPNR_NAMESPACE::BelId &bel) const noexcept
     {
         return bel.index;
     }
 };
 
-template <> struct hash<WireId>
+template <> struct hash<NEXTPNR_NAMESPACE::WireId>
 {
-    std::size_t operator()(const WireId &wire) const noexcept
+    std::size_t operator()(const NEXTPNR_NAMESPACE::WireId &wire) const noexcept
     {
         return wire.index;
     }
 };
 
-template <> struct hash<PipId>
+template <> struct hash<NEXTPNR_NAMESPACE::PipId>
 {
-    std::size_t operator()(const PipId &wire) const noexcept
+    std::size_t operator()(const NEXTPNR_NAMESPACE::PipId &wire) const noexcept
     {
         return wire.index;
     }
 };
 } // namespace std
+
+NEXTPNR_NAMESPACE_BEGIN
 
 // -----------------------------------------------------------------------
 
@@ -676,5 +682,7 @@ struct Chip
     std::vector<GraphicElement> getPipGraphics(PipId pip) const;
     std::vector<GraphicElement> getFrameGraphics() const;
 };
+
+NEXTPNR_NAMESPACE_END
 
 #endif

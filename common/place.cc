@@ -31,6 +31,8 @@
 #include "log.h"
 #include "place.h"
 
+NEXTPNR_NAMESPACE_BEGIN
+
 void place_design(Design *design)
 {
     std::set<IdString> types_used;
@@ -115,3 +117,5 @@ void place_design(Design *design)
         }
     }
 }
+
+NEXTPNR_NAMESPACE_END

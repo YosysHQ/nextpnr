@@ -34,6 +34,8 @@
 #define NXP_NORETURN
 #define NXP_ATTRIBUTE(...) __attribute__((__VA_ARGS__))
 
+NEXTPNR_NAMESPACE_BEGIN
+
 struct log_cmd_error_exception
 {
 };
@@ -98,5 +100,7 @@ static inline void log_assert_worker(bool cond, const char *expr,
 #define log_abort() log_error("Abort in %s:%d.\n", __FILE__, __LINE__)
 #define log_ping()                                                             \
     log("-- %s:%d %s --\n", __FILE__, __LINE__, __PRETTY_FUNCTION__)
+
+NEXTPNR_NAMESPACE_END
 
 #endif

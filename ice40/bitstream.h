@@ -23,6 +23,10 @@
 #include <iostream>
 #include "nextpnr.h"
 
+NEXTPNR_NAMESPACE_BEGIN
+
 void write_asc(const Design &design, std::ostream &out);
+
+NEXTPNR_NAMESPACE_END
 
 #endif

@@ -3,6 +3,8 @@
 #include "log.h"
 #include "nextpnr.h"
 
+NEXTPNR_NAMESPACE_BEGIN
+
 bool check_all_nets_driven(Design *design)
 {
     const bool debug = false;
@@ -70,3 +72,5 @@ bool check_all_nets_driven(Design *design)
         log_info("  Verified!\n");
     return true;
 }
+
+NEXTPNR_NAMESPACE_END

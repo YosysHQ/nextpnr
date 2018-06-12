@@ -24,6 +24,10 @@
 #include <string>
 #include "nextpnr.h"
 
+NEXTPNR_NAMESPACE_BEGIN
+
 extern void parse_json_file(std::istream *&, std::string &, Design *);
+
+NEXTPNR_NAMESPACE_END
 
 #endif

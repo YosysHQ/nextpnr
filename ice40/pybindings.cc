@@ -21,6 +21,8 @@
 #include "pybindings.h"
 #include "nextpnr.h"
 
+NEXTPNR_NAMESPACE_BEGIN
+
 void arch_wrap_python()
 {
     class_<ChipArgs>("ChipArgs").def_readwrite("type", &ChipArgs::type);
@@ -80,3 +82,5 @@ void arch_wrap_python()
     WRAP_RANGE(AllPip);
     WRAP_RANGE(Pip);
 }
+
+NEXTPNR_NAMESPACE_END
