@@ -45,6 +45,11 @@ inline bool is_ff(const CellInfo *cell)
            cell->type == "SB_DFFNESS" || cell->type == "SB_DFFNES";
 }
 
+// Convert a SB_LUT primitive to (part of) an ICESTORM_LC, swapping ports
+// as needed. Set no_dff if a DFF is not being used, so that the output
+// can be reconnected
+void lut_to_lc(CellInfo *lut, CellInfo *lc, bool no_dff = true);
+
 // Convert a SB_DFFx primitive to (part of) an ICESTORM_LC, setting parameters
 // and reconnecting signals as necessary. If pass_thru_lut is True, the LUT will
 // be configured as pass through and D connected to I0, otherwise D will be

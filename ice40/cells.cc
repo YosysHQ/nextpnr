@@ -64,6 +64,19 @@ CellInfo *create_ice_cell(Design *design, IdString type, IdString name)
     return new_cell;
 }
 
+void lut_to_lc(CellInfo *lut, CellInfo *lc, bool no_dff)
+{
+    lc->params["LUT_INIT"] = lut->params["LUT_INIT"];
+    replace_port(lut, "I0", lc, "I0");
+    replace_port(lut, "I1", lc, "I1");
+    replace_port(lut, "I2", lc, "I2");
+    replace_port(lut, "I3", lc, "I3");
+    if (no_dff) {
+        replace_port(lut, "O", lc, "O");
+        lc->params["DFF_ENABLE"] = "0";
+    }
+}
+
 void dff_to_lc(CellInfo *dff, CellInfo *lc, bool pass_thru_lut)
 {
     lc->params["DFF_ENABLE"] = "1";
