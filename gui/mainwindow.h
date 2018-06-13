@@ -27,11 +27,13 @@ class MainWindow : public QMainWindow
 
   private:
     int executePython(std::string command);
+    void addProperty(QtVariantProperty *property, const QString &id);
 
   private Q_SLOTS:
     void on_lineEdit_returnPressed();
     void prepareMenu(const QPoint &pos);
-    void selectObject(QTreeWidgetItem *item);
+    void selectObject();
+    void onItemClicked(QTreeWidgetItem *item, int);
 
   private:
     Ui::MainWindow *ui;
@@ -39,7 +41,11 @@ class MainWindow : public QMainWindow
     Design *design;
     QtVariantPropertyManager *variantManager;
     QtVariantEditorFactory *variantFactory;
-    QtTreePropertyBrowser *variantEditor;
+    QtTreePropertyBrowser *propertyEditor;
+    QTreeWidgetItem *itemContextMenu;
+
+    QMap<QtProperty *, QString> propertyToId;
+    QMap<QString, QtVariantProperty *> idToProperty;
 };
 
 #endif // MAINWINDOW_H
