@@ -1,3 +1,0 @@
-read_verilog blinky.v
-synth_ice40 -nocarry -top blinky
-write_json blinky_nopack.json

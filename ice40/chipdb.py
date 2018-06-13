@@ -410,16 +410,17 @@ packageinfo = []
 
 for package in packages:
     name, pins = package
+    safename = re.sub("[^A-Za-z0-9]", "_", name)
     pins_info = []
     for pin in pins:
         pinname, x, y, z = pin
         pin_bel = "%d_%d_io%d" % (x, y, z)
         bel_idx = bel_name.index(pin_bel)
         pins_info.append('{"%s", %d}' % (pinname, bel_idx))
-    print("static PackagePinPOD package_%s_pins[%d] = {" % (name, len(pins_info)))
+    print("static PackagePinPOD package_%s_pins[%d] = {" % (safename, len(pins_info)))
     print(",\n".join(pins_info))
     print("};")
-    packageinfo.append('{"%s", %d, package_%s_pins}' % (name, len(pins_info), name))
+    packageinfo.append('{"%s", %d, package_%s_pins}' % (name, len(pins_info), safename))
 
 tilegrid = []
 for y in range(dev_height):
