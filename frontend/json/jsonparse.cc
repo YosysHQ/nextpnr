@@ -422,7 +422,7 @@ void json_import_ports(Design *design, const string &modname,
             // Pick a name for this port
             if (is_bus)
                 this_port.name =
-                        port_info.name + '[' + std::to_string(index) + ']';
+                        port_info.name.str() + "[" + std::to_string(index) + "]";
             else
                 this_port.name = port_info.name;
             this_port.type = port_info.type;
