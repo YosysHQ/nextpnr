@@ -17,7 +17,7 @@
  *
  */
 
-#ifndef PYTHON_MODULE
+#ifdef MAIN_EXECUTABLE
 
 #include <QApplication>
 #include <boost/filesystem/convenience.hpp>
@@ -30,6 +30,7 @@
 #include "mainwindow.h"
 #include "nextpnr.h"
 #include "pack.h"
+#include "pcf.h"
 #include "place.h"
 #include "pybindings.h"
 #include "route.h"
@@ -65,10 +66,8 @@ int main(int argc, char *argv[])
 
     po::options_description options("Allowed options");
     options.add_options()("help,h", "show help");
-    options.add_options()("test", "just a check");
     options.add_options()("gui", "start gui");
     options.add_options()("svg", "dump SVG file");
-    options.add_options()("pack", "pack design prior to place and route");
     options.add_options()("pack-only",
                           "pack design only without placement or routing");
 
@@ -76,6 +75,8 @@ int main(int argc, char *argv[])
                           "python file to execute");
     options.add_options()("json", po::value<std::string>(),
                           "JSON design file to ingest");
+    options.add_options()("pcf", po::value<std::string>(),
+                          "PCF constraints file to ingest");
     options.add_options()("asc", po::value<std::string>(),
                           "asc bitstream file to write");
     options.add_options()("version,v", "show version");
@@ -85,7 +86,8 @@ int main(int argc, char *argv[])
     options.add_options()("hx1k", "set device type to iCE40HX1K");
     options.add_options()("hx8k", "set device type to iCE40HX8K");
     options.add_options()("up5k", "set device type to iCE40UP5K");
-
+    options.add_options()("package", po::value<std::string>(),
+                          "set device package");
     po::positional_options_description pos;
     pos.add("run", -1);
 
@@ -129,41 +131,48 @@ int main(int argc, char *argv[])
         if (chipArgs.type != ChipArgs::NONE)
             goto help;
         chipArgs.type = ChipArgs::LP384;
+        chipArgs.package = "qn32";
     }
 
     if (vm.count("lp1k")) {
         if (chipArgs.type != ChipArgs::NONE)
             goto help;
         chipArgs.type = ChipArgs::LP1K;
+        chipArgs.package = "tq144";
     }
 
     if (vm.count("lp8k")) {
         if (chipArgs.type != ChipArgs::NONE)
             goto help;
         chipArgs.type = ChipArgs::LP8K;
+        chipArgs.package = "ct256";
     }
 
     if (vm.count("hx1k")) {
         if (chipArgs.type != ChipArgs::NONE)
             goto help;
         chipArgs.type = ChipArgs::HX1K;
+        chipArgs.package = "tq144";
     }
 
     if (vm.count("hx8k")) {
         if (chipArgs.type != ChipArgs::NONE)
             goto help;
         chipArgs.type = ChipArgs::HX8K;
+        chipArgs.package = "ct256";
     }
 
     if (vm.count("up5k")) {
         if (chipArgs.type != ChipArgs::NONE)
             goto help;
         chipArgs.type = ChipArgs::UP5K;
+        chipArgs.package = "sg48";
     }
 
-    if (chipArgs.type == ChipArgs::NONE)
+    if (chipArgs.type == ChipArgs::NONE) {
         chipArgs.type = ChipArgs::HX1K;
-
+        chipArgs.package = "tq144";
+    }
 #ifdef ICE40_HX1K_ONLY
     if (chipArgs.type != ChipArgs::HX1K) {
         std::cout << "This version of nextpnr-ice40 is built with HX1K-support "
@@ -172,70 +181,13 @@ int main(int argc, char *argv[])
     }
 #endif
 
+    if (vm.count("package"))
+        chipArgs.package = vm["package"].as<std::string>();
+
     Design design(chipArgs);
     init_python(argv[0]);
     python_export_global("design", design);
     python_export_global("chip", design.chip);
-
-    if (vm.count("test")) {
-        int bel_count = 0, wire_count = 0, pip_count = 0;
-
-        std::cout << "Checking bel names.\n";
-        for (auto bel : design.chip.getBels()) {
-            auto name = design.chip.getBelName(bel);
-            assert(bel == design.chip.getBelByName(name));
-            bel_count++;
-        }
-        std::cout << "  checked " << bel_count << " bels.\n";
-
-        std::cout << "Checking wire names.\n";
-        for (auto wire : design.chip.getWires()) {
-            auto name = design.chip.getWireName(wire);
-            assert(wire == design.chip.getWireByName(name));
-            wire_count++;
-        }
-        std::cout << "  checked " << wire_count << " wires.\n";
-
-        std::cout << "Checking pip names.\n";
-        for (auto pip : design.chip.getPips()) {
-            auto name = design.chip.getPipName(pip);
-            assert(pip == design.chip.getPipByName(name));
-            pip_count++;
-        }
-        std::cout << "  checked " << pip_count << " pips.\n";
-
-        std::cout << "Checking uphill -> downhill consistency.\n";
-        for (auto dst : design.chip.getWires()) {
-            for (auto uphill_pip : design.chip.getPipsUphill(dst)) {
-                bool found_downhill = false;
-                for (auto downhill_pip : design.chip.getPipsDownhill(
-                             design.chip.getPipSrcWire(uphill_pip))) {
-                    if (uphill_pip == downhill_pip) {
-                        assert(!found_downhill);
-                        found_downhill = true;
-                    }
-                }
-                assert(found_downhill);
-            }
-        }
-
-        std::cout << "Checking downhill -> uphill consistency.\n";
-        for (auto dst : design.chip.getWires()) {
-            for (auto downhill_pip : design.chip.getPipsDownhill(dst)) {
-                bool found_uphill = false;
-                for (auto uphill_pip : design.chip.getPipsUphill(
-                             design.chip.getPipDstWire(downhill_pip))) {
-                    if (uphill_pip == downhill_pip) {
-                        assert(!found_uphill);
-                        found_uphill = true;
-                    }
-                }
-                assert(found_uphill);
-            }
-        }
-
-        return 0;
-    }
 
     if (vm.count("svg")) {
         std::cout << "<svg xmlns=\"http://www.w3.org/2000/svg\" "
@@ -256,9 +208,13 @@ int main(int argc, char *argv[])
         std::istream *f = new std::ifstream(filename);
 
         parse_json_file(f, filename, &design);
-        if (vm.count("pack") || vm.count("pack-only")) {
-            pack_design(&design);
+
+        if (vm.count("pcf")) {
+            std::ifstream pcf(vm["pcf"].as<std::string>());
+            apply_pcf(&design, pcf);
         }
+
+        pack_design(&design);
         if (!vm.count("pack-only")) {
             place_design(&design);
             route_design(&design);

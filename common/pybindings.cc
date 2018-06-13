@@ -140,7 +140,7 @@ static wchar_t *program;
 
 void init_python(const char *executable)
 {
-#ifndef PYTHON_MODULE
+#ifdef MAIN_EXECUTABLE
     program = Py_DecodeLocale(executable, NULL);
     if (program == NULL) {
         fprintf(stderr, "Fatal error: cannot decode executable filename\n");
@@ -162,7 +162,7 @@ void init_python(const char *executable)
 
 void deinit_python()
 {
-#ifndef PYTHON_MODULE
+#ifdef MAIN_EXECUTABLE
     Py_Finalize();
     PyMem_RawFree(program);
 #endif

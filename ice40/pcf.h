@@ -17,23 +17,17 @@
  *
  */
 
-#ifdef MAIN_EXECUTABLE
+#ifndef PCF_H
+#define PCF_H
 
-#include <QApplication>
-#include "mainwindow.h"
+#include <iostream>
 #include "nextpnr.h"
 
-USING_NEXTPNR_NAMESPACE
+NEXTPNR_NAMESPACE_BEGIN
 
-int main(int argc, char *argv[])
-{
-    Design design(ChipArgs{});
+// Apply PCF constraints to a pre-packing design
+void apply_pcf(Design *design, std::istream &in);
 
-    QApplication a(argc, argv);
-    MainWindow w(&design);
-    w.show();
+NEXTPNR_NAMESPACE_END
 
-    return a.exec();
-}
-
-#endif
+#endif // ROUTE_H

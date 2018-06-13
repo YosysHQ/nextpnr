@@ -134,10 +134,65 @@ static void pack_constants(Design *design)
     }
 }
 
+static bool is_nextpnr_iob(CellInfo *cell)
+{
+    return cell->type == "$nextpnr_ibuf" || cell->type == "$nextpnr_obuf" ||
+           cell->type == "$nextpnr_iobuf";
+}
+
+// Pack IO buffers
+static void pack_io(Design *design)
+{
+    std::unordered_set<IdString> packed_cells;
+    std::vector<CellInfo *> new_cells;
+
+    for (auto cell : design->cells) {
+        CellInfo *ci = cell.second;
+        if (is_nextpnr_iob(ci)) {
+            CellInfo *sb = nullptr;
+            if (ci->type == "$nextpnr_ibuf" || ci->type == "$nextpnr_iobuf") {
+                sb = net_only_drives(ci->ports.at("O").net, is_sb_io,
+                                     "PACKAGE_PIN", true, ci);
+
+            } else if (ci->type == "$nextpnr_obuf") {
+                sb = net_only_drives(ci->ports.at("I").net, is_sb_io,
+                                     "PACKAGE_PIN", true, ci);
+            }
+            if (sb != nullptr) {
+                // Trivial case, SB_IO used. Just destroy the net and the
+                // iobuf
+                log_info("%s feeds SB_IO %s, removing %s %s.\n",
+                         ci->name.c_str(), sb->name.c_str(), ci->type.c_str(),
+                         ci->name.c_str());
+                NetInfo *net = sb->ports.at("PACKAGE_PIN").net;
+                if (net != nullptr) {
+                    design->nets.erase(net->name);
+                    sb->ports.at("PACKAGE_PIN").net = nullptr;
+                }
+            } else {
+                // Create a SB_IO buffer
+                sb = create_ice_cell(design, "SB_IO");
+                nxio_to_sb(ci, sb);
+                new_cells.push_back(sb);
+            }
+            packed_cells.insert(ci->name);
+            std::copy(ci->attrs.begin(), ci->attrs.end(),
+                      std::inserter(sb->attrs, sb->attrs.begin()));
+        }
+    }
+    for (auto pcell : packed_cells) {
+        design->cells.erase(pcell);
+    }
+    for (auto ncell : new_cells) {
+        design->cells[ncell->name] = ncell;
+    }
+}
+
 // Main pack function
 void pack_design(Design *design)
 {
     pack_constants(design);
+    pack_io(design);
     pack_lut_lutffs(design);
     pack_nonlut_ffs(design);
 }

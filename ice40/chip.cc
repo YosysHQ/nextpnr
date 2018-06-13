@@ -99,6 +99,16 @@ Chip::Chip(ChipArgs args) : args(args)
     }
 #endif
 
+    package_info = nullptr;
+    for (int i = 0; i < chip_info.num_packages; i++) {
+        if (chip_info.packages_data[i].name == args.package) {
+            package_info = &(chip_info.packages_data[i]);
+            break;
+        }
+    }
+    if (package_info == nullptr)
+        log_error("Unsupported package '%s'.\n", args.package.c_str());
+
     bel_to_cell.resize(chip_info.num_bels);
     wire_to_net.resize(chip_info.num_wires);
     pip_to_net.resize(chip_info.num_pips);
@@ -227,6 +237,20 @@ PipId Chip::getPipByName(IdString name) const
         ret.index = it->second;
 
     return ret;
+}
+
+// -----------------------------------------------------------------------
+
+BelId Chip::getPackagePinBel(const std::string &pin) const
+{
+    for (int i = 0; i < package_info->num_pins; i++) {
+        if (package_info->pins[i].name == pin) {
+            BelId id;
+            id.index = package_info->pins[i].bel_index;
+            return id;
+        }
+    }
+    return BelId();
 }
 
 // -----------------------------------------------------------------------

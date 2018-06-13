@@ -47,6 +47,9 @@ inline bool is_ff(const CellInfo *cell)
            cell->type == "SB_DFFNESS" || cell->type == "SB_DFFNES";
 }
 
+// Return true if a cell is a SB_IO
+inline bool is_sb_io(const CellInfo *cell) { return cell->type == "SB_IO"; }
+
 // Convert a SB_LUT primitive to (part of) an ICESTORM_LC, swapping ports
 // as needed. Set no_dff if a DFF is not being used, so that the output
 // can be reconnected
@@ -57,6 +60,9 @@ void lut_to_lc(CellInfo *lut, CellInfo *lc, bool no_dff = true);
 // be configured as pass through and D connected to I0, otherwise D will be
 // ignored
 void dff_to_lc(CellInfo *dff, CellInfo *lc, bool pass_thru_lut = false);
+
+// Convert a nextpnr IO buffer to a SB_IO
+void nxio_to_sb(CellInfo *nxio, CellInfo *sbio);
 
 NEXTPNR_NAMESPACE_END
 

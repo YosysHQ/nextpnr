@@ -79,36 +79,42 @@ aux_source_directory(frontend/json/ JSON_PARSER_FILES)
 set(COMMON_FILES ${COMMON_SRC_FILES} ${JSON_PARSER_FILES})
 set(CMAKE_BUILD_TYPE Debug)
 
+if(MINGW)
+    add_definitions("-Wa,-mbig-obj")
+endif(MINGW)
+
 foreach (family ${FAMILIES})
     string(TOUPPER ${family} ufamily)
     aux_source_directory(${family}/ ${ufamily}_FILES)
+    aux_source_directory(tests/${family}/ ${ufamily}_TEST_FILES)
     # Add the CLI binary target
     add_executable(nextpnr-${family} ${COMMON_FILES} ${${ufamily}_FILES} ${GUI_SOURCE_FILES})
+    target_compile_definitions(nextpnr-${family} PRIVATE MAIN_EXECUTABLE)
+
     # Add the importable Python module target
     PYTHON_ADD_MODULE(nextpnrpy_${family} ${COMMON_FILES} ${${ufamily}_FILES})
-    target_compile_definitions(nextpnrpy_${family} PRIVATE PYTHON_MODULE)
     # Add any new per-architecture targets here
 
+    add_executable(nextpnr-${family}-test ${${ufamily}_TEST_FILES} ${COMMON_FILES} ${${ufamily}_FILES})
+    target_link_libraries(nextpnr-${family}-test PRIVATE gtest_main)
+    add_test(${family}-test ${CMAKE_CURRENT_BINARY_DIR}/nextpnr-${family}-test)
+
     # Set ${family_targets} to the list of targets being build for this family
-    set(family_targets nextpnr-${family} nextpnrpy_${family})
+    set(family_targets nextpnr-${family} nextpnrpy_${family} nextpnr-${family}-test)
     # Include the family-specific CMakeFile
     include(${family}/family.cmake)
     foreach (target ${family_targets})
         # Include family-specific source files to all family targets and set defines appropriately
         target_include_directories(${target} PRIVATE ${family}/)
-        target_compile_definitions(${target} PRIVATE NEXTPNR_NAMESPACE=nextpnr_${family} ARCH_${ufamily} ARCHNAME=${family} -DQT_NO_KEYWORDS)
+        target_compile_definitions(${target} PRIVATE NEXTPNR_NAMESPACE=nextpnr_${family} ARCH_${ufamily} ARCHNAME=${family} QT_NO_KEYWORDS)
         target_link_libraries(${target} LINK_PUBLIC ${Boost_LIBRARIES} ${PYTHON_LIBRARIES} ${GUI_LIBRARY_FILES})
     endforeach (target)
-
-    add_executable(nextpnr-${family}-test "")
-    target_sources(nextpnr-${family}-test PRIVATE tests/${family}/main.cpp)
-    target_link_libraries(nextpnr-${family}-test PRIVATE gtest_main)
-    add_test(${family}-test ${CMAKE_CURRENT_BINARY_DIR}/nextpnr-${family}-test)
 endforeach (family)
 
 file(GLOB_RECURSE CLANGFORMAT_FILES *.cc *.h)
 string(REGEX REPLACE "[^;]*/ice40/chipdbs/chipdb-[^;]*.cc" "" CLANGFORMAT_FILES "${CLANGFORMAT_FILES}")
 string(REGEX REPLACE "[^;]*/3rdparty[^;]*" "" CLANGFORMAT_FILES "${CLANGFORMAT_FILES}")
+string(REGEX REPLACE "[^;]*/generated[^;]*" "" CLANGFORMAT_FILES "${CLANGFORMAT_FILES}")
 
 add_custom_target(
     clangformat
