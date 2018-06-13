@@ -693,12 +693,16 @@ static void insert_iobuf(Design *design, NetInfo *net, PortType type,
     design->cells[iobuf->name] = iobuf;
 }
 
-void json_import_toplevel_port(Design *design, const string &modname, const string& portname, JsonNode *node) {
+void json_import_toplevel_port(Design *design, const string &modname,
+                               const string &portname, JsonNode *node)
+{
     JsonNode *dir_node = node->data_dict.at("direction");
     JsonNode *nets_node = node->data_dict.at("bits");
-    json_import_ports(design, modname, "Top Level IO", portname, dir_node, nets_node, [design](PortType type, const std::string &name, NetInfo *net){
-        insert_iobuf(design, net, type, name);
-    });
+    json_import_ports(
+            design, modname, "Top Level IO", portname, dir_node, nets_node,
+            [design](PortType type, const std::string &name, NetInfo *net) {
+                insert_iobuf(design, net, type, name);
+            });
 }
 
 void json_import(Design *design, string modname, JsonNode *node)
@@ -738,7 +742,9 @@ void json_import(Design *design, string modname, JsonNode *node)
 
             here = ports_parent->data_dict.at(
                     ports_parent->data_dict_keys[portid]);
-            json_import_toplevel_port(design, modname, ports_parent->data_dict_keys[portid], here);
+            json_import_toplevel_port(design, modname,
+                                      ports_parent->data_dict_keys[portid],
+                                      here);
         }
     }
     check_all_nets_driven(design);

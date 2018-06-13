@@ -153,7 +153,7 @@ module io_wrapper(input clk_pin, cen_pin, rst_pin, ina_pin, inb_pin,
         .PULLUP(1'b0),
         .NEG_TRIGGER(1'b0)
     ) outd_iob (
-        .PACKAGE_PIN(outa_pin),
+        .PACKAGE_PIN(outd_pin),
         .LATCH_INPUT_VALUE(),
         .CLOCK_ENABLE(),
         .INPUT_CLK(),

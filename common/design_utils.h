@@ -22,6 +22,8 @@
 #ifndef DESIGN_UTILS_H
 #define DESIGN_UTILS_H
 
+#include <algorithm>
+
 NEXTPNR_NAMESPACE_BEGIN
 
 /*
@@ -35,23 +37,36 @@ void replace_port(CellInfo *old_cell, IdString old_name, CellInfo *rep_cell,
 // If a net drives a given port of a cell matching a predicate (in many
 // cases more than one cell type, e.g. SB_DFFxx so a predicate is used), return
 // the first instance of that cell (otherwise nullptr). If exclusive is set to
-// true, then this cell must be the only load
+// true, then this cell must be the only load. If ignore_cell is set, that cell
+// is not considered
 template <typename F1>
 CellInfo *net_only_drives(NetInfo *net, F1 cell_pred, IdString port,
-                          bool exclusive = false)
+                          bool exclusive = false, CellInfo *exclude = nullptr)
 {
     if (net == nullptr)
         return nullptr;
-    if (exclusive && (net->users.size() != 1)) {
-        return nullptr;
-    } else {
-        for (const auto &load : net->users) {
-            if (cell_pred(load.cell) && load.port == port) {
-                return load.cell;
+    if (exclusive) {
+        if (exclude == nullptr) {
+            if (net->users.size() != 1)
+                return nullptr;
+        } else {
+            if (net->users.size() > 2) {
+                return nullptr;
+            } else if (net->users.size() == 2) {
+                if (std::find_if(net->users.begin(), net->users.end(),
+                                 [exclude](const PortRef &ref) {
+                                     return ref.cell == exclude;
+                                 }) == net->users.end())
+                    return nullptr;
             }
         }
-        return nullptr;
     }
+    for (const auto &load : net->users) {
+        if (load.cell != exclude && cell_pred(load.cell) && load.port == port) {
+            return load.cell;
+        }
+    }
+    return nullptr;
 }
 
 // If a net is driven by a given port of a cell matching a predicate, return

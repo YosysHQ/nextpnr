@@ -47,6 +47,9 @@ inline bool is_ff(const CellInfo *cell)
            cell->type == "SB_DFFNESS" || cell->type == "SB_DFFNES";
 }
 
+// Return true if a cell is a SB_IO
+inline bool is_sb_io(const CellInfo *cell) { return cell->type == "SB_IO"; }
+
 // Convert a SB_LUT primitive to (part of) an ICESTORM_LC, swapping ports
 // as needed. Set no_dff if a DFF is not being used, so that the output
 // can be reconnected
