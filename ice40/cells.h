@@ -53,6 +53,13 @@ inline bool is_sb_io(const CellInfo *cell) { return cell->type == "SB_IO"; }
 // Return true if a cell is a global buffer
 inline bool is_gbuf(const CellInfo *cell) { return cell->type == "SB_GB"; }
 
+// Return true if a cell is a RAM
+inline bool is_ram(const CellInfo *cell)
+{
+    return cell->type == "SB_RAM40_4K" || cell->type == "SB_RAM40_4KNR" ||
+           cell->type == "SB_RAM40_4KNW" || cell->type == "SB_RAM40_4KNRNW";
+}
+
 // Convert a SB_LUT primitive to (part of) an ICESTORM_LC, swapping ports
 // as needed. Set no_dff if a DFF is not being used, so that the output
 // can be reconnected
