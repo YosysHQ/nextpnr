@@ -79,6 +79,30 @@ CellInfo *create_ice_cell(Design *design, IdString type, IdString name)
 
         add_port(new_cell, "D_IN_0", PORT_OUT);
         add_port(new_cell, "D_IN_1", PORT_OUT);
+    } else if (type == "ICESTORM_RAM") {
+        new_cell->params["NEG_CLK_W"] = "0";
+        new_cell->params["NEG_CLK_R"] = "0";
+        new_cell->params["WRITE_MODE"] = "0";
+        new_cell->params["READ_MODE"] = "0";
+
+        add_port(new_cell, "RCLK", PORT_IN);
+        add_port(new_cell, "RCLKE", PORT_IN);
+        add_port(new_cell, "RE", PORT_IN);
+
+        add_port(new_cell, "WCLK", PORT_IN);
+        add_port(new_cell, "WCLKE", PORT_IN);
+        add_port(new_cell, "WE", PORT_IN);
+
+        for (int i = 0; i < 16; i++) {
+            add_port(new_cell, "WDATA_" + std::to_string(i), PORT_IN);
+            add_port(new_cell, "MASK_" + std::to_string(i), PORT_IN);
+            add_port(new_cell, "RDATA_" + std::to_string(i), PORT_OUT);
+        }
+
+        for (int i = 0; i < 11; i++) {
+            add_port(new_cell, "RADDR_" + std::to_string(i), PORT_IN);
+            add_port(new_cell, "WADDR_" + std::to_string(i), PORT_IN);
+        }
     } else if (type == "SB_GB") {
         add_port(new_cell, "USER_SIGNAL_TO_GLOBAL_BUFFER", PORT_IN);
         add_port(new_cell, "GLOBAL_BUFFER_OUTPUT", PORT_OUT);

@@ -117,17 +117,46 @@ static void pack_nonlut_ffs(Design *design)
 // "Pack" RAMs
 static void pack_ram(Design *design)
 {
+    log_info("Packing RAMs..\n");
+
+    std::unordered_set<IdString> packed_cells;
+    std::vector<CellInfo *> new_cells;
+
     for (auto cell : design->cells) {
         CellInfo *ci = cell.second;
         if (is_ram(ci)) {
-            ci->params["NEG_CLK_W"] =
+            CellInfo *packed = create_ice_cell(design, "ICESTORM_RAM",
+                                               ci->name.str() + "_RAM");
+            packed_cells.insert(ci->name);
+            new_cells.push_back(packed);
+            packed->params["READ_MODE"] = ci->params.at("READ_MODE");
+            packed->params["WRITE_MODE"] = ci->params.at("WRITE_MODE");
+            packed->params["NEG_CLK_W"] =
                     std::to_string(ci->type == "SB_RAM40_4KNW" ||
                                    ci->type == "SB_RAM40_4KNRNW");
-            ci->params["NEG_CLK_R"] =
+            packed->params["NEG_CLK_R"] =
                     std::to_string(ci->type == "SB_RAM40_4KNR" ||
                                    ci->type == "SB_RAM40_4KNRNW");
-            ci->type = "ICESTORM_RAM";
+            packed->type = "ICESTORM_RAM";
+            for (auto port : ci->ports) {
+                PortInfo &pi = port.second;
+                std::string newname = pi.name;
+                size_t bpos = newname.find('[');
+                if (bpos != std::string::npos) {
+                    newname = newname.substr(0, bpos) + "_" +
+                              newname.substr(bpos + 1,
+                                             (newname.size() - bpos) - 2);
+                }
+                replace_port(ci, pi.name, packed, newname);
+            }
         }
+    }
+
+    for (auto pcell : packed_cells) {
+        design->cells.erase(pcell);
+    }
+    for (auto ncell : new_cells) {
+        design->cells[ncell->name] = ncell;
     }
 }
 
