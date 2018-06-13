@@ -709,10 +709,16 @@ struct Chip
 
     // -------------------------------------------------
 
+    std::vector<GraphicElement> getFrameGraphics() const;
     std::vector<GraphicElement> getBelGraphics(BelId bel) const;
     std::vector<GraphicElement> getWireGraphics(WireId wire) const;
     std::vector<GraphicElement> getPipGraphics(PipId pip) const;
-    std::vector<GraphicElement> getFrameGraphics() const;
+
+    bool allGraphicsReload = false;
+    bool frameGraphicsReload = false;
+    std::unordered_set<BelId> belGraphicsReload;
+    std::unordered_set<WireId> wireGraphicsReload;
+    std::unordered_set<PipId> pipGraphicsReload;
 };
 
 NEXTPNR_NAMESPACE_END

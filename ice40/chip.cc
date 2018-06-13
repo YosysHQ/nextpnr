@@ -289,6 +289,23 @@ float Chip::estimateDelay(PosInfo src, PosInfo dst) const
 
 // -----------------------------------------------------------------------
 
+std::vector<GraphicElement> Chip::getFrameGraphics() const
+{
+    std::vector<GraphicElement> ret;
+
+    for (int x = 0; x <= chip_info.width; x++)
+        for (int y = 0; y <= chip_info.height; y++) {
+            GraphicElement el;
+            el.type = GraphicElement::G_LINE;
+            el.x1 = x - 0.05, el.x2 = x + 0.05, el.y1 = y, el.y2 = y, el.z = 0;
+            ret.push_back(el);
+            el.x1 = x, el.x2 = x, el.y1 = y - 0.05, el.y2 = y + 0.05, el.z = 0;
+            ret.push_back(el);
+        }
+
+    return ret;
+}
+
 std::vector<GraphicElement> Chip::getBelGraphics(BelId bel) const
 {
     std::vector<GraphicElement> ret;
@@ -366,23 +383,6 @@ std::vector<GraphicElement> Chip::getPipGraphics(PipId pip) const
 {
     std::vector<GraphicElement> ret;
     // FIXME
-    return ret;
-}
-
-std::vector<GraphicElement> Chip::getFrameGraphics() const
-{
-    std::vector<GraphicElement> ret;
-
-    for (int x = 0; x <= chip_info.width; x++)
-        for (int y = 0; y <= chip_info.height; y++) {
-            GraphicElement el;
-            el.type = GraphicElement::G_LINE;
-            el.x1 = x - 0.05, el.x2 = x + 0.05, el.y1 = y, el.y2 = y, el.z = 0;
-            ret.push_back(el);
-            el.x1 = x, el.x2 = x, el.y1 = y - 0.05, el.y2 = y + 0.05, el.z = 0;
-            ret.push_back(el);
-        }
-
     return ret;
 }
 

@@ -175,6 +175,12 @@ float Chip::estimateDelay(PosInfo src, PosInfo dst) const
 
 // ---------------------------------------------------------------
 
+std::vector<GraphicElement> Chip::getFrameGraphics() const
+{
+    static std::vector<GraphicElement> ret;
+    return ret;
+}
+
 std::vector<GraphicElement> Chip::getBelGraphics(BelId bel) const
 {
     static std::vector<GraphicElement> ret;
@@ -188,12 +194,6 @@ std::vector<GraphicElement> Chip::getWireGraphics(WireId wire) const
 }
 
 std::vector<GraphicElement> Chip::getPipGraphics(PipId pip) const
-{
-    static std::vector<GraphicElement> ret;
-    return ret;
-}
-
-std::vector<GraphicElement> Chip::getFrameGraphics() const
 {
     static std::vector<GraphicElement> ret;
     return ret;
