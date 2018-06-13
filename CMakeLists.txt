@@ -79,6 +79,10 @@ aux_source_directory(frontend/json/ JSON_PARSER_FILES)
 set(COMMON_FILES ${COMMON_SRC_FILES} ${JSON_PARSER_FILES})
 set(CMAKE_BUILD_TYPE Debug)
 
+if(MINGW)
+    add_definitions("-Wa,-mbig-obj")
+endif(MINGW)
+
 foreach (family ${FAMILIES})
     string(TOUPPER ${family} ufamily)
     aux_source_directory(${family}/ ${ufamily}_FILES)
