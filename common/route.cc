@@ -77,8 +77,13 @@ void route_design(Design *design, bool verbose)
 
         auto src_pos = chip.getBelPosition(src_bel);
 
-        auto src_wire = chip.getWireBelPin(
-                src_bel, portPinFromId(net_info->driver.port));
+        IdString driver_port = net_info->driver.port;
+
+        auto driver_port_it = net_info->driver.cell->pins.find(driver_port);
+        if (driver_port_it != net_info->driver.cell->pins.end())
+            driver_port = driver_port_it->second;
+
+        auto src_wire = chip.getWireBelPin(src_bel, portPinFromId(driver_port));
 
         if (src_wire == WireId())
             log_error("No wire found for port %s on source bel.\n",
@@ -110,8 +115,15 @@ void route_design(Design *design, bool verbose)
                     chip.estimateDelay(src_pos, dst_pos));
             }
 
+            IdString user_port = user_it.port;
+
+            auto user_port_it = user_it.cell->pins.find(user_port);
+
+            if (user_port_it != user_it.cell->pins.end())
+                user_port = user_port_it->second;
+
             auto dst_wire =
-                    chip.getWireBelPin(dst_bel, portPinFromId(user_it.port));
+                    chip.getWireBelPin(dst_bel, portPinFromId(user_port));
 
             if (dst_wire == WireId())
                 log_error("No wire found for port %s on destination bel.\n",
