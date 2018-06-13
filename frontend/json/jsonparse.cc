@@ -341,24 +341,25 @@ void json_import_cell_params(Design *design, string &modname, CellInfo *cell,
                  modname.c_str());
 }
 
-void json_import_cell_ports(Design *design, string &modname, CellInfo *cell,
-                            string &port_name, JsonNode *dir_node,
-                            JsonNode *wire_group_node)
+template <typename F>
+void json_import_ports(Design *design, const string &modname,
+                       const string &obj_name, const string &port_name,
+                       JsonNode *dir_node, JsonNode *wire_group_node, F visitor)
 {
-    // Examine and connect a single port of the given cell to its nets,
-    // generating them as necessary
-
+    // Examine a port of a cell or the design. For every bit of the port,
+    // the connected net will be processed and `visitor` will be called
+    // with (PortType dir, std::string name, NetInfo *net)
     assert(dir_node);
 
     if (json_debug)
         log_info("    Examining port %s, node %s\n", port_name.c_str(),
-                 cell->name.c_str());
+                 obj_name.c_str());
 
     if (!wire_group_node)
         log_error("JSON no connection match "
                   "for port_direction \'%s\' of node \'%s\' "
                   "in module \'%s\'\n",
-                  port_name.c_str(), cell->name.c_str(), modname.c_str());
+                  port_name.c_str(), obj_name.c_str(), modname.c_str());
 
     assert(wire_group_node);
 
@@ -377,7 +378,7 @@ void json_import_cell_ports(Design *design, string &modname, CellInfo *cell,
     else
         log_error("JSON unknown port direction \'%s\' in node \'%s\' "
                   "of module \'%s\'\n",
-                  dir_node->data_string.c_str(), cell->name.c_str(),
+                  dir_node->data_string.c_str(), obj_name.c_str(),
                   modname.c_str());
     //
     // Find an update, or create a net to connect
@@ -398,18 +399,12 @@ void json_import_cell_ports(Design *design, string &modname, CellInfo *cell,
         // There is/are no connections to this port.
         //
         // Create the port, but leave the net NULL
-        PortInfo this_port;
 
-        //
-        this_port.name = port_info.name;
-        this_port.type = port_info.type;
-        this_port.net = NULL;
-
-        cell->ports[this_port.name] = this_port;
+        visitor(port_info.type, port_info.name, nullptr);
 
         if (json_debug)
             log_info("      Port \'%s\' has no connection in \'%s\'\n",
-                     this_port.name.c_str(), cell->name.c_str());
+                     port_info.name.c_str(), obj_name.c_str());
 
     } else
         for (int index = 0; index < wire_group_node->data_array.size();
@@ -417,13 +412,10 @@ void json_import_cell_ports(Design *design, string &modname, CellInfo *cell,
             //
             JsonNode *wire_node;
             PortInfo this_port;
-            PortRef port_ref;
             bool const_input = false;
             IdString net_id;
             //
             wire_node = wire_group_node->data_array[index];
-            port_ref.cell = cell;
-
             //
             // Pick a name for this port
             if (is_bus)
@@ -432,8 +424,6 @@ void json_import_cell_ports(Design *design, string &modname, CellInfo *cell,
             else
                 this_port.name = port_info.name;
             this_port.type = port_info.type;
-
-            port_ref.port = this_port.name;
 
             if (wire_node->type == 'N') {
                 int net_num;
@@ -500,7 +490,7 @@ void json_import_cell_ports(Design *design, string &modname, CellInfo *cell,
                                 "\'%s\' of port \'%s\' "
                                 "in cell \'%s\' of module \'%s\'\n",
                                 wire_node->data_string.c_str(),
-                                port_name.c_str(), cell->name.c_str(),
+                                port_name.c_str(), obj_name.c_str(),
                                 modname.c_str());
 
                 } else
@@ -511,17 +501,8 @@ void json_import_cell_ports(Design *design, string &modname, CellInfo *cell,
 
             if (json_debug)
                 log_info("    Inserting port \'%s\' into cell \'%s\'\n",
-                         this_port.name.c_str(), cell->name.c_str());
-
-            this_port.net = this_net;
-
-            cell->ports[this_port.name] = this_port;
-
-            if (this_port.type == PORT_OUT) {
-                assert(this_net->driver.cell == NULL);
-                this_net->driver = port_ref;
-            } else
-                this_net->users.push_back(port_ref);
+                         this_port.name.c_str(), obj_name.c_str());
+            visitor(this_port.type, this_port.name, this_net);
 
             if (design->nets.count(this_net->name) == 0)
                 design->nets[this_net->name] = this_net;
@@ -632,8 +613,23 @@ void json_import_cell(Design *design, string modname, JsonNode *cell_node,
         dir_node = pdir_node->data_dict.at(port_name);
         wire_group_node = connections->data_dict.at(port_name);
 
-        json_import_cell_ports(design, modname, cell, port_name, dir_node,
-                               wire_group_node);
+        json_import_ports(
+                design, modname, cell->name, port_name, dir_node,
+                wire_group_node,
+                [cell](PortType type, const std::string &name, NetInfo *net) {
+                    cell->ports[name] = PortInfo{name, net, type};
+                    PortRef pr;
+                    pr.cell = cell;
+                    pr.port = name;
+                    if (net != nullptr) {
+                        if (type == PORT_IN) {
+                            net->users.push_back(pr);
+                        } else if (type == PORT_OUT) {
+                            assert(net->driver.cell == nullptr);
+                            net->driver = pr;
+                        }
+                    }
+                });
     }
 
     design->cells[cell->name] = cell;
@@ -683,7 +679,6 @@ static void insert_iobuf(Design *design, NetInfo *net, PortType type,
             ref.cell = iobuf;
             ref.port = "I";
             net2->users.push_back(ref);
-
         }
         iobuf->ports["O"] = PortInfo{"O", net, PORT_OUT};
         assert(net->driver.cell == nullptr);
