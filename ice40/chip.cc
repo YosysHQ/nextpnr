@@ -17,7 +17,8 @@
  *
  */
 
-#include <math.h>
+#include <algorithm>
+#include <cmath>
 #include "log.h"
 #include "nextpnr.h"
 
@@ -237,6 +238,25 @@ PipId Chip::getPipByName(IdString name) const
         ret.index = it->second;
 
     return ret;
+}
+
+IdString Chip::getPipName(PipId pip) const
+{
+    assert(pip != PipId());
+
+    int x = chip_info.pip_data[pip.index].x;
+    int y = chip_info.pip_data[pip.index].y;
+
+    std::string src_name =
+            chip_info.wire_data[chip_info.pip_data[pip.index].src].name;
+    std::replace(src_name.begin(), src_name.end(), '/', '.');
+
+    std::string dst_name =
+            chip_info.wire_data[chip_info.pip_data[pip.index].dst].name;
+    std::replace(dst_name.begin(), dst_name.end(), '/', '.');
+
+    return "X" + std::to_string(x) + "/Y" + std::to_string(y) + "/" + src_name +
+           ".->." + dst_name;
 }
 
 // -----------------------------------------------------------------------

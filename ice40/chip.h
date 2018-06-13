@@ -591,16 +591,7 @@ struct Chip
     // -------------------------------------------------
 
     PipId getPipByName(IdString name) const;
-
-    IdString getPipName(PipId pip) const
-    {
-        assert(pip != PipId());
-        std::string src_name =
-                chip_info.wire_data[chip_info.pip_data[pip.index].src].name;
-        std::string dst_name =
-                chip_info.wire_data[chip_info.pip_data[pip.index].dst].name;
-        return src_name + "->" + dst_name;
-    }
+    IdString getPipName(PipId pip) const;
 
     void bindPip(PipId pip, IdString net)
     {

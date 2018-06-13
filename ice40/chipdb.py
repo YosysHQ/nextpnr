@@ -187,7 +187,7 @@ def add_bel_output(bel, wire, port):
 
 def add_bel_lc(x, y, z):
     bel = len(bel_name)
-    bel_name.append("%d_%d_lc%d" % (x, y, z))
+    bel_name.append("X%d/Y%d/lc%d" % (x, y, z))
     bel_type.append("ICESTORM_LC")
     bel_pos.append((x, y, z))
     bel_wires.append(list())
@@ -227,7 +227,7 @@ def add_bel_lc(x, y, z):
 
 def add_bel_io(x, y, z):
     bel = len(bel_name)
-    bel_name.append("%d_%d_io%d" % (x, y, z))
+    bel_name.append("X%d/Y%d/io%d" % (x, y, z))
     bel_type.append("SB_IO")
     bel_pos.append((x, y, z))
     bel_wires.append(list())
@@ -257,7 +257,7 @@ def add_bel_io(x, y, z):
 
 def add_bel_ram(x, y):
     bel = len(bel_name)
-    bel_name.append("%d_%d_ram" % (x, y))
+    bel_name.append("X%d/Y%d/ram" % (x, y))
     bel_type.append("ICESTORM_RAM")
     bel_pos.append((x, y, 0))
     bel_wires.append(list())
@@ -288,7 +288,7 @@ def add_bel_ram(x, y):
 
 def add_bel_gb(x, y, g):
     bel = len(bel_name)
-    bel_name.append("%d_%d_gb" % (x, y))
+    bel_name.append("X%d/Y%d/gb" % (x, y))
     bel_type.append("SB_GB")
     bel_pos.append((x, y, 0))
     bel_wires.append(list())
@@ -384,7 +384,7 @@ for wire in range(num_wires):
         num_bels_downhill = 0
 
     info = "  {"
-    info += "\"%d_%d_%s\", " % wire_names_r[wire]
+    info += "\"X%d/Y%d/%s\", " % wire_names_r[wire]
     info += "%d, %d, %s, %s, %d, " % (num_uphill, num_downhill, list_uphill, list_downhill, num_bels_downhill)
 
     if wire in wire_uphill_belport:
@@ -414,7 +414,7 @@ for package in packages:
     pins_info = []
     for pin in pins:
         pinname, x, y, z = pin
-        pin_bel = "%d_%d_io%d" % (x, y, z)
+        pin_bel = "X%d/Y%d/io%d" % (x, y, z)
         bel_idx = bel_name.index(pin_bel)
         pins_info.append('{"%s", %d}' % (pinname, bel_idx))
     print("static PackagePinPOD package_%s_pins[%d] = {" % (safename, len(pins_info)))

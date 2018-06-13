@@ -258,11 +258,12 @@ void MainWindow::prepareMenu(const QPoint &pos)
     menu.exec(tree->mapToGlobal(pos));
 }
 
-void MainWindow::selectObject(QTreeWidgetItem *item) 
+void MainWindow::selectObject(QTreeWidgetItem *item)
 {
     ui->plainTextEdit->moveCursor(QTextCursor::End);
     ui->plainTextEdit->insertPlainText(
-            std::string("selected " + item->text(0).toStdString() + "\n").c_str());
+            std::string("selected " + item->text(0).toStdString() + "\n")
+                    .c_str());
     ui->plainTextEdit->moveCursor(QTextCursor::End);
 }
 
