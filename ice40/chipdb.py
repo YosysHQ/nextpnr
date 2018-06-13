@@ -23,6 +23,8 @@ switches = list()
 
 ierens = list()
 
+packages = list()
+
 wire_uphill_belport = dict()
 wire_downhill_belports = dict()
 
@@ -123,6 +125,11 @@ with open(sys.argv[1], "r") as f:
             mode = ("ieren",)
             continue
 
+        if line[0] == ".pins":
+            mode = ("pins", line[1])
+            packages.append((line[1], []))
+            continue
+
         if (line[0][0] == ".") or (mode is None):
             mode = None
             continue
@@ -157,9 +164,16 @@ with open(sys.argv[1], "r") as f:
                 assert m
                 bits.append((int(m.group(1)), int(m.group(2))))
             tile_bits[mode[1]].append((name, bits))
+            continue
 
         if mode[0] == "ieren":
             ierens.append(tuple([int(_) for _ in line]))
+            continue
+
+        if mode[0] == "pins":
+            packages[-1][1].append((line[0], int(line[1]), int(line[2]), int(line[3])))
+            continue
+
 def add_bel_input(bel, wire, port):
     if wire not in wire_downhill_belports:
         wire_downhill_belports[wire] = set()
@@ -392,6 +406,21 @@ for wire in range(num_wires):
 
     wireinfo.append(info)
 
+packageinfo = []
+
+for package in packages:
+    name, pins = package
+    pins_info = []
+    for pin in pins:
+        pinname, x, y, z = pin
+        pin_bel = "%d_%d_io%d" % (x, y, z)
+        bel_idx = bel_name.index(pin_bel)
+        pins_info.append('{"%s", %d}' % (pinname, bel_idx))
+    print("static PackagePinPOD package_%s_pins[%d] = {" % (name, len(pins_info)))
+    print(",\n".join(pins_info))
+    print("};")
+    packageinfo.append('{"%s", %d, package_%s_pins}' % (name, len(pins_info), name))
+
 tilegrid = []
 for y in range(dev_height):
     for x in range(dev_width):
@@ -460,13 +489,18 @@ print("static TileType tile_grid_%s[%d] = {" % (dev_name, len(tilegrid)))
 print(",\n".join(tilegrid))
 print("};")
 
+
+print("static PackageInfoPOD package_info_%s[%d] = {" % (dev_name, len(packageinfo)))
+print(",\n".join(packageinfo))
+print("};")
+
 print('}')
 print('NEXTPNR_NAMESPACE_BEGIN')
 
 print("ChipInfoPOD chip_info_%s = {" % dev_name)
-print("  %d, %d, %d, %d, %d, %d," % (dev_width, dev_height, len(bel_name), num_wires, len(pipinfo), len(switchinfo)))
+print("  %d, %d, %d, %d, %d, %d, %d," % (dev_width, dev_height, len(bel_name), num_wires, len(pipinfo), len(switchinfo), len(packageinfo)))
 print("  bel_data_%s, wire_data_%s, pip_data_%s," % (dev_name, dev_name, dev_name))
-print("  tile_grid_%s, &bits_info_%s" % (dev_name, dev_name))
+print("  tile_grid_%s, &bits_info_%s, package_info_%s" % (dev_name, dev_name, dev_name))
 print("};")
 
 print('NEXTPNR_NAMESPACE_END')

@@ -113,6 +113,19 @@ struct WireInfoPOD
     float x, y;
 };
 
+struct PackagePinPOD
+{
+    const char *name;
+    int32_t bel_index;
+};
+
+struct PackageInfoPOD
+{
+    const char *name;
+    int num_pins;
+    PackagePinPOD *pins;
+};
+
 enum TileType
 {
     TILE_NONE = 0,
@@ -168,12 +181,13 @@ struct ChipInfoPOD
 {
     int width, height;
     int num_bels, num_wires, num_pips;
-    int num_switches;
+    int num_switches, num_packages;
     BelInfoPOD *bel_data;
     WireInfoPOD *wire_data;
     PipInfoPOD *pip_data;
     TileType *tile_grid;
     BitstreamInfoPOD *bits_info;
+    PackageInfoPOD *packages_data;
 };
 
 extern ChipInfoPOD chip_info_384;
@@ -412,6 +426,7 @@ struct ChipArgs
         HX8K,
         UP5K
     } type = NONE;
+    std::string package;
 };
 
 struct Chip
