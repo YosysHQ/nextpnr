@@ -86,8 +86,11 @@ void route_design(Design *design, bool verbose)
         auto src_wire = chip.getWireBelPin(src_bel, portPinFromId(driver_port));
 
         if (src_wire == WireId())
-            log_error("No wire found for port %s on source bel.\n",
-                      net_info->driver.port.c_str());
+            log_error("No wire found for port %s (pin %s) on source cell %s "
+                      "(bel %s).\n",
+                      net_info->driver.port.c_str(), driver_port.c_str(),
+                      net_info->driver.cell->name.c_str(),
+                      chip.getBelName(src_bel).c_str());
 
         if (verbose)
             log("    Source wire: %s\n", chip.getWireName(src_wire).c_str());
@@ -106,7 +109,9 @@ void route_design(Design *design, bool verbose)
             auto dst_pos = chip.getBelPosition(dst_bel);
 
             if (dst_bel == BelId())
-                log_error("Destination cell is not mapped to a bel.\n");
+                log_error("Destination cell %s (%s) is not mapped to a bel.\n",
+                          user_it.cell->name.c_str(),
+                          user_it.cell->type.c_str());
 
             if (verbose) {
                 log("    Destination bel: %s\n",
@@ -126,8 +131,11 @@ void route_design(Design *design, bool verbose)
                     chip.getWireBelPin(dst_bel, portPinFromId(user_port));
 
             if (dst_wire == WireId())
-                log_error("No wire found for port %s on destination bel.\n",
-                          user_it.port.c_str());
+                log_error("No wire found for port %s (pin %s) on destination "
+                          "cell %s (bel %s).\n",
+                          user_it.port.c_str(), user_port.c_str(),
+                          user_it.cell->name.c_str(),
+                          chip.getBelName(dst_bel).c_str());
 
             if (verbose)
                 log("    Destination wire: %s\n",
