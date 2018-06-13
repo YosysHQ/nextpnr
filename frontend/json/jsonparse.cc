@@ -622,7 +622,7 @@ void json_import_cell(Design *design, string modname, JsonNode *cell_node,
                     pr.cell = cell;
                     pr.port = name;
                     if (net != nullptr) {
-                        if (type == PORT_IN) {
+                        if (type == PORT_IN || type == PORT_INOUT) {
                             net->users.push_back(pr);
                         } else if (type == PORT_OUT) {
                             assert(net->driver.cell == nullptr);
@@ -637,7 +637,7 @@ void json_import_cell(Design *design, string modname, JsonNode *cell_node,
 }
 
 static void insert_iobuf(Design *design, NetInfo *net, PortType type,
-                         string name)
+                         const string &name)
 {
     // Instantiate a architecture-independent IO buffer connected to a given
     // net, of a given type, and named after the IO port.
@@ -650,6 +650,7 @@ static void insert_iobuf(Design *design, NetInfo *net, PortType type,
     std::copy(net->attrs.begin(), net->attrs.end(),
               std::inserter(iobuf->attrs, iobuf->attrs.begin()));
     if (type == PORT_IN) {
+        log_info("processing input port %s\n", name.c_str());
         iobuf->type = "$nextpnr_ibuf";
         iobuf->ports["O"] = PortInfo{"O", net, PORT_OUT};
 
@@ -657,14 +658,16 @@ static void insert_iobuf(Design *design, NetInfo *net, PortType type,
         net->driver.port = "O";
         net->driver.cell = iobuf;
     } else if (type == PORT_OUT) {
-        iobuf->type == "$nextpnr_obuf";
+        log_info("processing output port %s\n", name.c_str());
+        iobuf->type = "$nextpnr_obuf";
         iobuf->ports["I"] = PortInfo{"I", net, PORT_IN};
         PortRef ref;
         ref.cell = iobuf;
         ref.port = "I";
         net->users.push_back(ref);
     } else if (type == PORT_INOUT) {
-        iobuf->type == "$nextpnr_iobuf";
+        log_info("processing inout port %s\n", name.c_str());
+        iobuf->type = "$nextpnr_iobuf";
         iobuf->ports["I"] = PortInfo{"I", nullptr, PORT_IN};
         if (net->driver.cell != NULL) {
             // Split the input and output nets for bidir ports
@@ -688,6 +691,14 @@ static void insert_iobuf(Design *design, NetInfo *net, PortType type,
         assert(false);
     }
     design->cells[iobuf->name] = iobuf;
+}
+
+void json_import_toplevel_port(Design *design, const string &modname, const string& portname, JsonNode *node) {
+    JsonNode *dir_node = node->data_dict.at("direction");
+    JsonNode *nets_node = node->data_dict.at("bits");
+    json_import_ports(design, modname, "Top Level IO", portname, dir_node, nets_node, [design](PortType type, const std::string &name, NetInfo *net){
+        insert_iobuf(design, net, type, name);
+    });
 }
 
 void json_import(Design *design, string modname, JsonNode *node)
@@ -715,6 +726,21 @@ void json_import(Design *design, string modname, JsonNode *node)
         }
     }
 
+    if (node->data_dict.count("ports")) {
+        JsonNode *ports_parent = node->data_dict.at("ports");
+
+        // N.B. ports must be imported after cells for tristate behaviour
+        // to be correct
+        // Loop through all ports
+        for (int portid = 0; portid < GetSize(ports_parent->data_dict_keys);
+             portid++) {
+            JsonNode *here, *param_node;
+
+            here = ports_parent->data_dict.at(
+                    ports_parent->data_dict_keys[portid]);
+            json_import_toplevel_port(design, modname, ports_parent->data_dict_keys[portid], here);
+        }
+    }
     check_all_nets_driven(design);
 }
 
