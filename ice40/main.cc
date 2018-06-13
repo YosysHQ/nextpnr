@@ -83,7 +83,8 @@ int main(int argc, char *argv[])
     options.add_options()("hx1k", "set device type to iCE40HX1K");
     options.add_options()("hx8k", "set device type to iCE40HX8K");
     options.add_options()("up5k", "set device type to iCE40UP5K");
-
+    options.add_options()("package", po::value<std::string>(),
+                          "set device package");
     po::positional_options_description pos;
     pos.add("run", -1);
 
@@ -127,41 +128,48 @@ int main(int argc, char *argv[])
         if (chipArgs.type != ChipArgs::NONE)
             goto help;
         chipArgs.type = ChipArgs::LP384;
+        chipArgs.package = "qn32";
     }
 
     if (vm.count("lp1k")) {
         if (chipArgs.type != ChipArgs::NONE)
             goto help;
         chipArgs.type = ChipArgs::LP1K;
+        chipArgs.package = "tq144";
     }
 
     if (vm.count("lp8k")) {
         if (chipArgs.type != ChipArgs::NONE)
             goto help;
         chipArgs.type = ChipArgs::LP8K;
+        chipArgs.package = "ct256";
     }
 
     if (vm.count("hx1k")) {
         if (chipArgs.type != ChipArgs::NONE)
             goto help;
         chipArgs.type = ChipArgs::HX1K;
+        chipArgs.package = "tq144";
     }
 
     if (vm.count("hx8k")) {
         if (chipArgs.type != ChipArgs::NONE)
             goto help;
         chipArgs.type = ChipArgs::HX8K;
+        chipArgs.package = "ct256";
     }
 
     if (vm.count("up5k")) {
         if (chipArgs.type != ChipArgs::NONE)
             goto help;
         chipArgs.type = ChipArgs::UP5K;
+        chipArgs.package = "sg48";
     }
 
-    if (chipArgs.type == ChipArgs::NONE)
+    if (chipArgs.type == ChipArgs::NONE) {
         chipArgs.type = ChipArgs::HX1K;
-
+        chipArgs.package = "tq144";
+    }
 #ifdef ICE40_HX1K_ONLY
     if (chipArgs.type != ChipArgs::HX1K) {
         std::cout << "This version of nextpnr-ice40 is built with HX1K-support "
@@ -169,6 +177,9 @@ int main(int argc, char *argv[])
         return 1;
     }
 #endif
+
+    if (vm.count("package"))
+        chipArgs.package = vm["package"].as<std::string>();
 
     Design design(chipArgs);
     init_python(argv[0]);

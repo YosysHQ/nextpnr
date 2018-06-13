@@ -432,6 +432,7 @@ struct ChipArgs
 struct Chip
 {
     ChipInfoPOD chip_info;
+    PackageInfoPOD *package_info;
 
     mutable std::unordered_map<IdString, int> bel_by_name;
     mutable std::unordered_map<IdString, int> wire_by_name;
