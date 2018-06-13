@@ -693,6 +693,8 @@ struct Chip
         return range;
     }
 
+    BelId getPackagePinBel(const std::string &pin) const;
+
     // -------------------------------------------------
 
     void getBelPosition(BelId bel, float &x, float &y) const;

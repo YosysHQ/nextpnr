@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -ex
 NAME=${1%.v}
-yosys -p "synth_ice40 -nocarry -top io_wrapper; write_json ${NAME}.json" $1 io_wrapper.v
-../../nextpnr-ice40 --json ${NAME}.json --pack --asc ${NAME}.asc
+yosys -p "synth_ice40 -nocarry -top top; write_json ${NAME}.json" $1
+../../nextpnr-ice40 --json ${NAME}.json --pcf test.pcf --asc ${NAME}.asc
 icebox_vlog -p test.pcf ${NAME}.asc > ${NAME}_out.v
 
 yosys -p "read_verilog +/ice40/cells_sim.v;\

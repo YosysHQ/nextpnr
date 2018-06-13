@@ -30,6 +30,7 @@
 #include "mainwindow.h"
 #include "nextpnr.h"
 #include "pack.h"
+#include "pcf.h"
 #include "place.h"
 #include "pybindings.h"
 #include "route.h"
@@ -74,6 +75,8 @@ int main(int argc, char *argv[])
                           "python file to execute");
     options.add_options()("json", po::value<std::string>(),
                           "JSON design file to ingest");
+    options.add_options()("pcf", po::value<std::string>(),
+                          "PCF constraints file to ingest");
     options.add_options()("asc", po::value<std::string>(),
                           "asc bitstream file to write");
     options.add_options()("version,v", "show version");
@@ -205,6 +208,12 @@ int main(int argc, char *argv[])
         std::istream *f = new std::ifstream(filename);
 
         parse_json_file(f, filename, &design);
+
+        if (vm.count("pcf")) {
+            std::ifstream pcf(vm["pcf"].as<std::string>());
+            apply_pcf(&design, pcf);
+        }
+
         pack_design(&design);
         if (!vm.count("pack-only")) {
             place_design(&design);

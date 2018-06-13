@@ -240,6 +240,20 @@ PipId Chip::getPipByName(IdString name) const
 
 // -----------------------------------------------------------------------
 
+BelId Chip::getPackagePinBel(const std::string &pin) const
+{
+    for (int i = 0; i < package_info->num_pins; i++) {
+        if (package_info->pins[i].name == pin) {
+            BelId id;
+            id.index = package_info->pins[i].bel_index;
+            return id;
+        }
+    }
+    return BelId();
+}
+
+// -----------------------------------------------------------------------
+
 void Chip::getBelPosition(BelId bel, float &x, float &y) const
 {
     assert(bel != BelId());
