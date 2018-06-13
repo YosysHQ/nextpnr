@@ -640,6 +640,61 @@ void json_import_cell(Design *design, string modname, JsonNode *cell_node,
     // check_all_nets_driven(design);
 }
 
+static void insert_iobuf(Design *design, NetInfo *net, PortType type,
+                         string name)
+{
+    // Instantiate a architecture-independent IO buffer connected to a given
+    // net, of a given type, and named after the IO port.
+    //
+    // During packing, this generic IO buffer will be converted to an
+    // architecure primitive.
+    //
+    CellInfo *iobuf = new CellInfo();
+    iobuf->name = name;
+    std::copy(net->attrs.begin(), net->attrs.end(),
+              std::inserter(iobuf->attrs, iobuf->attrs.begin()));
+    if (type == PORT_IN) {
+        iobuf->type = "$nextpnr_ibuf";
+        iobuf->ports["O"] = PortInfo{"O", net, PORT_OUT};
+
+        assert(net->driver.cell == nullptr);
+        net->driver.port = "O";
+        net->driver.cell = iobuf;
+    } else if (type == PORT_OUT) {
+        iobuf->type == "$nextpnr_obuf";
+        iobuf->ports["I"] = PortInfo{"I", net, PORT_IN};
+        PortRef ref;
+        ref.cell = iobuf;
+        ref.port = "I";
+        net->users.push_back(ref);
+    } else if (type == PORT_INOUT) {
+        iobuf->type == "$nextpnr_iobuf";
+        iobuf->ports["I"] = PortInfo{"I", nullptr, PORT_IN};
+        if (net->driver.cell != NULL) {
+            // Split the input and output nets for bidir ports
+            NetInfo *net2 = new NetInfo();
+            net2->name = "$" + net->name.str() + "$iobuf_i";
+            net2->driver = net->driver;
+            net2->driver.cell->ports[net2->driver.port].net = net2;
+            net->driver.cell = nullptr;
+            design->nets[net2->name] = net2;
+            iobuf->ports["I"].net = net2;
+            PortRef ref;
+            ref.cell = iobuf;
+            ref.port = "I";
+            net2->users.push_back(ref);
+
+        }
+        iobuf->ports["O"] = PortInfo{"O", net, PORT_OUT};
+        assert(net->driver.cell == nullptr);
+        net->driver.port = "O";
+        net->driver.cell = iobuf;
+    } else {
+        assert(false);
+    }
+    design->cells[iobuf->name] = iobuf;
+}
+
 void json_import(Design *design, string modname, JsonNode *node)
 {
     if (is_blackbox(node))
