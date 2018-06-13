@@ -110,28 +110,62 @@ static void pack_nonlut_ffs(Design *design)
     }
 }
 
+// Merge a net into a constant net
+static void set_net_constant(NetInfo *orig, NetInfo *constnet, bool constval)
+{
+    orig->driver.cell = nullptr;
+    for (auto user : orig->users) {
+        if (user.cell != nullptr) {
+            CellInfo *uc = user.cell;
+            log_info("%s user %s\n", orig->name.c_str(), uc->name.c_str());
+            if (is_lut(uc) && (user.port.str().at(0) == 'I') && !constval) {
+                uc->ports[user.port].net = nullptr;
+            } else {
+                uc->ports[user.port].net = constnet;
+                constnet->users.push_back(user);
+            }
+        }
+    }
+    orig->users.clear();
+}
+
 // Pack constants (simple implementation)
 static void pack_constants(Design *design)
 {
     CellInfo *gnd_cell = create_ice_cell(design, "ICESTORM_LC", "$PACKER_GND");
-    gnd_cell->attrs["LUT_INIT"] = "0";
+    gnd_cell->params["LUT_INIT"] = "0";
+    NetInfo *gnd_net = new NetInfo;
+    gnd_net->name = "$PACKER_GND_NET";
+    gnd_net->driver.cell = gnd_cell;
+    gnd_net->driver.port = "O";
 
     CellInfo *vcc_cell = create_ice_cell(design, "ICESTORM_LC", "$PACKER_VCC");
-    vcc_cell->attrs["LUT_INIT"] = "1";
+    vcc_cell->params["LUT_INIT"] = "1";
+    NetInfo *vcc_net = new NetInfo;
+    vcc_net->name = "$PACKER_VCC_NET";
+    vcc_net->driver.cell = vcc_cell;
+    vcc_net->driver.port = "O";
+
+    std::vector<IdString> dead_nets;
 
     for (auto net : design->nets) {
         NetInfo *ni = net.second;
         if (ni->driver.cell != nullptr && ni->driver.cell->type == "GND") {
-            ni->driver.cell = gnd_cell;
-            ni->driver.port = "O";
+            set_net_constant(ni, gnd_net, false);
             design->cells[gnd_cell->name] = gnd_cell;
+            design->nets[gnd_net->name] = gnd_net;
+            dead_nets.push_back(net.first);
         } else if (ni->driver.cell != nullptr &&
                    ni->driver.cell->type == "VCC") {
-            ni->driver.cell = vcc_cell;
-            ni->driver.port = "O";
+            set_net_constant(ni, vcc_net, true);
             design->cells[vcc_cell->name] = vcc_cell;
+            design->nets[vcc_net->name] = vcc_net;
+            dead_nets.push_back(net.first);
         }
     }
+
+    for (auto dn : dead_nets)
+        design->nets.erase(dn);
 }
 
 static bool is_nextpnr_iob(CellInfo *cell)

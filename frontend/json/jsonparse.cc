@@ -341,6 +341,8 @@ void json_import_cell_params(Design *design, string &modname, CellInfo *cell,
                  modname.c_str());
 }
 
+static int const_net_idx = 0;
+
 template <typename F>
 void json_import_ports(Design *design, const string &modname,
                        const string &obj_name, const string &port_name,
@@ -466,7 +468,7 @@ void json_import_ports(Design *design, const string &modname,
                 //
                 // Constants always get their own new net
                 this_net = new NetInfo;
-                this_net->name = net_id;
+                this_net->name = "$const_" + std::to_string(const_net_idx++);
                 const_input = (this_port.type == PORT_IN);
 
                 if (wire_node->data_string.compare(string("0")) == 0) {
