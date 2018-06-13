@@ -1,9 +1,6 @@
 nextpnr -- a portable FPGA place and route tool
 ===============================================
 
-
-
-
 Supported Architectures
 -----------------------
 
@@ -30,11 +27,13 @@ Building
     - For a debug build, run `cmake -DCMAKE_BUILD_TYPE=Debug .`
     - For a debug build with HX1K support only, run ` cmake -DCMAKE_BUILD_TYPE=Debug -DICE40_HX1K_ONLY=1 .`
     - For a release build, run `cmake .`
+    - Add `-DCMAKE_INSTALL_PREFIX=/your/install/prefix` to use a different install prefix to the default `/usr/local`
  - Use Make to run the build itself
     - For all targets, just run `make`
     - For just the iCE40 CLI binary, run `make nextpnr-ice40`
     - For just the iCE40 Python module, run `make nextpnrpy_ice40`
     - Using too many parallel jobs may lead to out-of-memory issues due to the significant memory needed to build the chipdbs
+    - To install nextpnr, run `make install`
 
 Running
 --------
@@ -44,7 +43,7 @@ Running
  - The Python module is called `nextpnrpy_ice40.so`. To test it, run `PYTHONPATH=. python3 python/python_mod_test.py`
  - Run `yosys blinky.ys` in `ice40/` to synthesise the blinky design and 
    produce `blinky.json`.
- - To place-and-route the blinky using nextpnr, run `./nextpnr-ice40 --hx1k --json ice40/blinky.json --asc blinky.asc`
+ - To place-and-route the blinky using nextpnr, run `./nextpnr-ice40 --hx1k --json ice40/blinky.json --pcf ice40/blinky.pcf --asc blinky.asc`
 
 Notes
 -------
