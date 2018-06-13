@@ -60,6 +60,26 @@ CellInfo *create_ice_cell(Design *design, IdString type, IdString name)
         add_port(new_cell, "LO", PORT_OUT);
         add_port(new_cell, "O", PORT_OUT);
         add_port(new_cell, "OUT", PORT_OUT);
+    } else if (type == "SB_IO") {
+        new_cell->params["PIN_TYPE"] = "0";
+        new_cell->params["PULLUP"] = "0";
+        new_cell->params["NEG_TRIGGER"] = "0";
+        new_cell->params["IOSTANDARD"] = "SB_LVCMOS";
+
+        add_port(new_cell, "PACKAGE_PIN", PORT_INOUT);
+
+        add_port(new_cell, "LATCH_INPUT_VALUE", PORT_IN);
+        add_port(new_cell, "CLOCK_ENABLE", PORT_IN);
+        add_port(new_cell, "INPUT_CLK", PORT_IN);
+        add_port(new_cell, "OUTPUT_CLK", PORT_IN);
+
+        add_port(new_cell, "OUTPUT_ENABLE", PORT_IN);
+        add_port(new_cell, "D_OUT_0", PORT_IN);
+        add_port(new_cell, "D_OUT_1", PORT_IN);
+
+        add_port(new_cell, "D_IN_0", PORT_OUT);
+        add_port(new_cell, "D_IN_1", PORT_OUT);
+
     } else {
         log_error("unable to create iCE40 cell of type %s", type.c_str());
     }
@@ -126,6 +146,22 @@ void dff_to_lc(CellInfo *dff, CellInfo *lc, bool pass_thru_lut)
     }
 
     replace_port(dff, "Q", lc, "O");
+}
+
+void nxio_to_sb(CellInfo *nxio, CellInfo *sbio)
+{
+    if (nxio->type == "$nextpnr_ibuf") {
+        sbio->params["PIN_TYPE"] = "1";
+        auto pu_attr = nxio->attrs.find("PULLUP");
+        if (pu_attr != nxio->attrs.end())
+            sbio->params["PULLUP"] = pu_attr->second;
+        replace_port(nxio, "O", sbio, "D_IN_0");
+    } else if (nxio->type == "$nextpnr_obuf") {
+        sbio->params["PIN_TYPE"] = "25";
+        replace_port(nxio, "I", sbio, "D_OUT_0");
+    } else {
+        assert(false);
+    }
 }
 
 NEXTPNR_NAMESPACE_END

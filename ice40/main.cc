@@ -67,7 +67,6 @@ int main(int argc, char *argv[])
     options.add_options()("help,h", "show help");
     options.add_options()("gui", "start gui");
     options.add_options()("svg", "dump SVG file");
-    options.add_options()("pack", "pack design prior to place and route");
     options.add_options()("pack-only",
                           "pack design only without placement or routing");
 
@@ -195,9 +194,7 @@ int main(int argc, char *argv[])
         std::istream *f = new std::ifstream(filename);
 
         parse_json_file(f, filename, &design);
-        if (vm.count("pack") || vm.count("pack-only")) {
-            pack_design(&design);
-        }
+        pack_design(&design);
         if (!vm.count("pack-only")) {
             place_design(&design);
             route_design(&design);

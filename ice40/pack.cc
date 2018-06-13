@@ -149,39 +149,35 @@ static void pack_io(Design *design)
     for (auto cell : design->cells) {
         CellInfo *ci = cell.second;
         if (is_nextpnr_iob(ci)) {
+            CellInfo *sb = nullptr;
             if (ci->type == "$nextpnr_ibuf" || ci->type == "$nextpnr_iobuf") {
-                CellInfo *sb = net_only_drives(ci->ports.at("O").net, is_sb_io,
-                                               "PACKAGE_PIN", true, ci);
-                if (sb != nullptr) {
-                    // Trivial case, SB_IO used. Just destroy the net and the
-                    // iobuf
-                    packed_cells.insert(ci->name);
-                    log_info("%s feeds SB_IO %s, removing %s %s.\n",
-                             ci->name.c_str(), sb->name.c_str(),
-                             ci->type.c_str(), ci->name.c_str());
-                    NetInfo *net = sb->ports.at("PACKAGE_PIN").net;
-                    if (net != nullptr) {
-                        design->nets.erase(net->name);
-                        sb->ports.at("PACKAGE_PIN").net = nullptr;
-                    }
-                }
+                sb = net_only_drives(ci->ports.at("O").net, is_sb_io,
+                                     "PACKAGE_PIN", true, ci);
+
             } else if (ci->type == "$nextpnr_obuf") {
-                CellInfo *sb = net_only_drives(ci->ports.at("I").net, is_sb_io,
-                                               "PACKAGE_PIN", true, ci);
-                if (sb != nullptr) {
-                    // Trivial case, SB_IO used. Just destroy the net and the
-                    // iobuf
-                    packed_cells.insert(ci->name);
-                    log_info("%s feeds SB_IO %s, removing %s %s.\n",
-                             ci->name.c_str(), sb->name.c_str(),
-                             ci->type.c_str(), ci->name.c_str());
-                    NetInfo *net = sb->ports.at("PACKAGE_PIN").net;
-                    if (net != nullptr) {
-                        design->nets.erase(net->name);
-                        sb->ports.at("PACKAGE_PIN").net = nullptr;
-                    }
-                }
+                sb = net_only_drives(ci->ports.at("I").net, is_sb_io,
+                                     "PACKAGE_PIN", true, ci);
             }
+            if (sb != nullptr) {
+                // Trivial case, SB_IO used. Just destroy the net and the
+                // iobuf
+                log_info("%s feeds SB_IO %s, removing %s %s.\n",
+                         ci->name.c_str(), sb->name.c_str(), ci->type.c_str(),
+                         ci->name.c_str());
+                NetInfo *net = sb->ports.at("PACKAGE_PIN").net;
+                if (net != nullptr) {
+                    design->nets.erase(net->name);
+                    sb->ports.at("PACKAGE_PIN").net = nullptr;
+                }
+            } else {
+                // Create a SB_IO buffer
+                sb = create_ice_cell(design, "SB_IO");
+                nxio_to_sb(ci, sb);
+                new_cells.push_back(sb);
+            }
+            packed_cells.insert(ci->name);
+            std::copy(ci->attrs.begin(), ci->attrs.end(),
+                      std::inserter(sb->attrs, sb->attrs.begin()));
         }
     }
     for (auto pcell : packed_cells) {

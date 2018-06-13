@@ -61,6 +61,9 @@ void lut_to_lc(CellInfo *lut, CellInfo *lc, bool no_dff = true);
 // ignored
 void dff_to_lc(CellInfo *dff, CellInfo *lc, bool pass_thru_lut = false);
 
+// Convert a nextpnr IO buffer to a SB_IO
+void nxio_to_sb(CellInfo *nxio, CellInfo *sbio);
+
 NEXTPNR_NAMESPACE_END
 
 #endif
