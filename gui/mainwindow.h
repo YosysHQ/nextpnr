@@ -7,7 +7,9 @@
 #include "qttreepropertybrowser.h"
 #include "qtvariantproperty.h"
 
+#include <QLineEdit>
 #include <QMainWindow>
+#include <QPlainTextEdit>
 
 // FIXME
 USING_NEXTPNR_NAMESPACE
@@ -30,7 +32,7 @@ class MainWindow : public QMainWindow
     void addProperty(QtVariantProperty *property, const QString &id);
 
   private Q_SLOTS:
-    void on_lineEdit_returnPressed();
+    void editLineReturnPressed();
     void prepareMenu(const QPoint &pos);
     void selectObject();
     void onItemClicked(QTreeWidgetItem *item, int);
@@ -46,6 +48,9 @@ class MainWindow : public QMainWindow
 
     QMap<QtProperty *, QString> propertyToId;
     QMap<QString, QtVariantProperty *> idToProperty;
+
+    QPlainTextEdit *plainTextEdit;
+    QLineEdit *lineEdit;
 };
 
 #endif // MAINWINDOW_H

@@ -83,12 +83,25 @@ MainWindow::MainWindow(Design *_design, QWidget *parent)
         : QMainWindow(parent), ui(new Ui::MainWindow), design(_design)
 {
     ui->setupUi(this);
+    PyImport_ImportModule("emb");
+
+    write = [this](std::string s) {
+        plainTextEdit->moveCursor(QTextCursor::End);
+        plainTextEdit->insertPlainText(s.c_str());
+        plainTextEdit->moveCursor(QTextCursor::End);
+    };
+    emb::set_stdout(write);
+    std::string title = "nextpnr-ice40 - " + design->chip.getChipName();
+    setWindowTitle(title.c_str());
+
+    // Add tree view
     ui->treeWidget->setColumnCount(1);
     ui->treeWidget->setHeaderLabel(QString("Items"));
     ui->treeWidget->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(ui->treeWidget, &QTreeWidget::customContextMenuRequested, this,
             &MainWindow::prepareMenu);
 
+    // Add bels to tree
     QTreeWidgetItem *bel_root = new QTreeWidgetItem(ui->treeWidget);
     bel_root->setText(0, QString("Bels"));
     ui->treeWidget->insertTopLevelItem(0, bel_root);
@@ -100,6 +113,7 @@ MainWindow::MainWindow(Design *_design, QWidget *parent)
     }
     bel_root->addChildren(bel_items);
 
+    // Add wires to tree
     QTreeWidgetItem *wire_root = new QTreeWidgetItem(ui->treeWidget);
     QList<QTreeWidgetItem *> wire_items;
     wire_root->setText(0, QString("Wires"));
@@ -111,6 +125,7 @@ MainWindow::MainWindow(Design *_design, QWidget *parent)
     }
     wire_root->addChildren(wire_items);
 
+    // Add pips to tree
     QTreeWidgetItem *pip_root = new QTreeWidgetItem(ui->treeWidget);
     QList<QTreeWidgetItem *> pip_items;
     pip_root->setText(0, QString("Pips"));
@@ -122,21 +137,9 @@ MainWindow::MainWindow(Design *_design, QWidget *parent)
     }
     pip_root->addChildren(pip_items);
 
-    PyImport_ImportModule("emb");
-
-    write = [this](std::string s) {
-        ui->plainTextEdit->moveCursor(QTextCursor::End);
-        ui->plainTextEdit->insertPlainText(s.c_str());
-        ui->plainTextEdit->moveCursor(QTextCursor::End);
-    };
-    emb::set_stdout(write);
-    std::string title = "nextpnr-ice40 - " + design->chip.getChipName();
-    setWindowTitle(title.c_str());
-
+    // Add property view
     variantManager = new QtVariantPropertyManager();
-
     variantFactory = new QtVariantEditorFactory();
-
     propertyEditor = new QtTreePropertyBrowser();
     propertyEditor->setFactoryForManager(variantManager, variantFactory);
     propertyEditor->setPropertiesWithoutValueMarked(true);
@@ -146,6 +149,19 @@ MainWindow::MainWindow(Design *_design, QWidget *parent)
 
     connect(ui->treeWidget, SIGNAL(itemClicked(QTreeWidgetItem *, int)),
             SLOT(onItemClicked(QTreeWidgetItem *, int)));
+
+    // Add text area for Python output and input line
+    plainTextEdit = new QPlainTextEdit();
+    plainTextEdit->setReadOnly(true);
+    plainTextEdit->setMinimumHeight(50);
+    plainTextEdit->setMaximumHeight(200);
+    ui->splitter->addWidget(plainTextEdit);
+    lineEdit = new QLineEdit();
+    lineEdit->setMinimumHeight(30);
+    lineEdit->setMaximumHeight(30);
+    ui->splitter->addWidget(lineEdit);
+    connect(lineEdit, SIGNAL(returnPressed()), this,
+            SLOT(editLineReturnPressed()));
 }
 
 MainWindow::~MainWindow()
@@ -221,12 +237,12 @@ void MainWindow::prepareMenu(const QPoint &pos)
 
 void MainWindow::selectObject()
 {
-    ui->plainTextEdit->moveCursor(QTextCursor::End);
-    ui->plainTextEdit->insertPlainText(
+    plainTextEdit->moveCursor(QTextCursor::End);
+    plainTextEdit->insertPlainText(
             std::string("selected " + itemContextMenu->text(0).toStdString() +
                         "\n")
                     .c_str());
-    ui->plainTextEdit->moveCursor(QTextCursor::End);
+    plainTextEdit->moveCursor(QTextCursor::End);
 }
 
 void handle_system_exit() { exit(-1); }
@@ -263,9 +279,9 @@ int MainWindow::executePython(std::string command)
         PyObject *objectsRepresentation = PyObject_Str(v);
         std::string errorStr =
                 PyUnicode_AsUTF8(objectsRepresentation) + std::string("\n");
-        ui->plainTextEdit->moveCursor(QTextCursor::End);
-        ui->plainTextEdit->insertPlainText(errorStr.c_str());
-        ui->plainTextEdit->moveCursor(QTextCursor::End);
+        plainTextEdit->moveCursor(QTextCursor::End);
+        plainTextEdit->insertPlainText(errorStr.c_str());
+        plainTextEdit->moveCursor(QTextCursor::End);
         Py_DECREF(objectsRepresentation);
         Py_XDECREF(exception);
         Py_XDECREF(v);
@@ -276,14 +292,13 @@ int MainWindow::executePython(std::string command)
     return 0;
 }
 
-void MainWindow::on_lineEdit_returnPressed()
+void MainWindow::editLineReturnPressed()
 {
-    std::string input = ui->lineEdit->text().toStdString();
-    ui->plainTextEdit->moveCursor(QTextCursor::End);
-    ui->plainTextEdit->insertPlainText(
-            std::string(">>> " + input + "\n").c_str());
-    ui->plainTextEdit->moveCursor(QTextCursor::End);
-    ui->plainTextEdit->update();
-    ui->lineEdit->clear();
+    std::string input = lineEdit->text().toStdString();
+    plainTextEdit->moveCursor(QTextCursor::End);
+    plainTextEdit->insertPlainText(std::string(">>> " + input + "\n").c_str());
+    plainTextEdit->moveCursor(QTextCursor::End);
+    plainTextEdit->update();
+    lineEdit->clear();
     int error = executePython(input);
 }
