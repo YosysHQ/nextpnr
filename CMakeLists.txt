@@ -22,7 +22,7 @@ execute_process(
   OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 
-add_subdirectory(3rdparty/googletest/googletest)
+add_subdirectory(3rdparty/googletest/googletest EXCLUDE_FROM_ALL)
 enable_testing()
 
 add_definitions("-DGIT_COMMIT_HASH=${GIT_COMMIT_HASH}")
@@ -89,6 +89,7 @@ foreach (family ${FAMILIES})
     aux_source_directory(tests/${family}/ ${ufamily}_TEST_FILES)
     # Add the CLI binary target
     add_executable(nextpnr-${family} ${COMMON_FILES} ${${ufamily}_FILES} ${GUI_SOURCE_FILES})
+    install(TARGETS nextpnr-${family} RUNTIME DESTINATION bin)
     target_compile_definitions(nextpnr-${family} PRIVATE MAIN_EXECUTABLE)
 
     # Add the importable Python module target
