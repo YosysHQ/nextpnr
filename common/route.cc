@@ -17,6 +17,7 @@
  *
  */
 
+#include <cmath>
 #include <queue>
 
 #include "log.h"
@@ -28,21 +29,26 @@ struct QueuedWire
 {
     WireId wire;
     PipId pip;
-    DelayInfo delay;
+
+    float delay = 0, togo = 0;
 
     struct Greater
     {
         bool operator()(const QueuedWire &lhs, const QueuedWire &rhs) const
                 noexcept
         {
-            return lhs.delay.avgDelay() > rhs.delay.avgDelay();
+            return (lhs.delay + lhs.togo) > (rhs.delay + rhs.togo);
         }
     };
 };
 
-void route_design(Design *design)
+void route_design(Design *design, bool verbose)
 {
     auto &chip = design->chip;
+    int itercnt = 0, netcnt = 0;
+    float maxDelay = 0.0;
+
+    log_info("Routing..\n");
 
     for (auto &net_it : design->nets) {
         auto net_name = net_it.first;
@@ -51,17 +57,22 @@ void route_design(Design *design)
         if (net_info->driver.cell == nullptr)
             continue;
 
-        log("Routing net %s.\n", net_name.c_str());
+        if (verbose)
+            log("Routing net %s.\n", net_name.c_str());
+        netcnt++;
 
-        log("  Source: %s.%s.\n", net_info->driver.cell->name.c_str(),
-            net_info->driver.port.c_str());
+        if (verbose)
+            log("  Source: %s.%s.\n", net_info->driver.cell->name.c_str(),
+                net_info->driver.port.c_str());
 
         auto src_bel = net_info->driver.cell->bel;
+        auto src_pos = chip.getBelPosition(src_bel);
 
         if (src_bel == BelId())
             log_error("Source cell is not mapped to a bel.\n");
 
-        log("    Source bel: %s\n", chip.getBelName(src_bel).c_str());
+        if (verbose)
+            log("    Source bel: %s\n", chip.getBelName(src_bel).c_str());
 
         auto src_wire = chip.getWireBelPin(
                 src_bel, portPinFromId(net_info->driver.port));
@@ -70,7 +81,8 @@ void route_design(Design *design)
             log_error("No wire found for port %s on source bel.\n",
                       net_info->driver.port.c_str());
 
-        log("    Source wire: %s\n", chip.getWireName(src_wire).c_str());
+        if (verbose)
+            log("    Source wire: %s\n", chip.getWireName(src_wire).c_str());
 
         std::unordered_map<WireId, DelayInfo> src_wires;
         src_wires[src_wire] = DelayInfo();
@@ -78,15 +90,22 @@ void route_design(Design *design)
         chip.bindWire(src_wire, net_name);
 
         for (auto &user_it : net_info->users) {
-            log("  Route to: %s.%s.\n", user_it.cell->name.c_str(),
-                user_it.port.c_str());
+            if (verbose)
+                log("  Route to: %s.%s.\n", user_it.cell->name.c_str(),
+                    user_it.port.c_str());
 
             auto dst_bel = user_it.cell->bel;
+            auto dst_pos = chip.getBelPosition(dst_bel);
 
             if (dst_bel == BelId())
                 log_error("Destination cell is not mapped to a bel.\n");
 
-            log("    Destination bel: %s\n", chip.getBelName(dst_bel).c_str());
+            if (verbose) {
+                log("    Destination bel: %s\n",
+                    chip.getBelName(dst_bel).c_str());
+                log("    Path delay estimate: %.2f\n",
+                    chip.estimateDelay(src_pos, dst_pos));
+            }
 
             auto dst_wire =
                     chip.getWireBelPin(dst_bel, portPinFromId(user_it.port));
@@ -95,8 +114,9 @@ void route_design(Design *design)
                 log_error("No wire found for port %s on destination bel.\n",
                           user_it.port.c_str());
 
-            log("    Destination wire: %s\n",
-                chip.getWireName(dst_wire).c_str());
+            if (verbose)
+                log("    Destination wire: %s\n",
+                    chip.getWireName(dst_wire).c_str());
 
             std::unordered_map<WireId, QueuedWire> visited;
             std::priority_queue<QueuedWire, std::vector<QueuedWire>,
@@ -107,13 +127,16 @@ void route_design(Design *design)
                 QueuedWire qw;
                 qw.wire = it.first;
                 qw.pip = PipId();
-                qw.delay = it.second;
+                qw.delay = it.second.avgDelay();
+                qw.togo = chip.estimateDelay(chip.getWirePosition(qw.wire),
+                                             dst_pos);
 
                 queue.push(qw);
                 visited[qw.wire] = qw;
             }
 
             while (!queue.empty()) {
+                itercnt++;
                 QueuedWire qw = queue.top();
                 queue.pop();
 
@@ -122,15 +145,28 @@ void route_design(Design *design)
                         continue;
 
                     WireId next_wire = chip.getPipDstWire(pip);
+                    float next_delay =
+                            qw.delay + chip.getPipDelay(pip).avgDelay();
 
-                    if (visited.count(next_wire) ||
-                        !chip.checkWireAvail(next_wire))
+                    if (visited.count(next_wire)) {
+                        if (visited.at(next_wire).delay <= next_delay + 1e-3)
+                            continue;
+                        if (verbose)
+                            log("Found better route to %s. Old vs new delay "
+                                "estimate: %.2f %.2f\n",
+                                chip.getWireName(next_wire).c_str(),
+                                visited.at(next_wire).delay, next_delay);
+                    }
+
+                    if (!chip.checkWireAvail(next_wire))
                         continue;
 
                     QueuedWire next_qw;
                     next_qw.wire = next_wire;
                     next_qw.pip = pip;
-                    next_qw.delay = qw.delay + chip.getPipDelay(pip);
+                    next_qw.delay = next_delay;
+                    next_qw.togo = chip.estimateDelay(
+                            chip.getWirePosition(next_wire), dst_pos);
                     visited[next_qw.wire] = next_qw;
                     queue.push(next_qw);
 
@@ -149,13 +185,19 @@ void route_design(Design *design)
                           chip.getWireName(src_wire).c_str(),
                           chip.getWireName(dst_wire).c_str());
 
-            log("      Route (from destination to source):\n");
+            if (verbose)
+                log("    Final path delay: %.2f\n", visited[dst_wire].delay);
+            maxDelay = fmaxf(maxDelay, visited[dst_wire].delay);
+
+            if (verbose)
+                log("    Route (from destination to source):\n");
 
             WireId cursor = dst_wire;
 
             while (1) {
-                log("      %8.2f %s\n", visited[cursor].delay.avgDelay(),
-                    chip.getWireName(cursor).c_str());
+                if (verbose)
+                    log("    %8.2f %s\n", visited[cursor].delay,
+                        chip.getWireName(cursor).c_str());
 
                 if (src_wires.count(cursor))
                     break;
@@ -164,11 +206,14 @@ void route_design(Design *design)
                 chip.bindWire(cursor, net_name);
                 chip.bindPip(visited[cursor].pip, net_name);
 
-                src_wires[cursor] = visited[cursor].delay;
+                src_wires[cursor] = chip.getPipDelay(visited[cursor].pip);
                 cursor = chip.getPipSrcWire(visited[cursor].pip);
             }
         }
     }
+
+    log_info("routed %d nets, visited %d wires.\n", netcnt, itercnt);
+    log_info("longest path delay: %.2f\n", maxDelay);
 }
 
 NEXTPNR_NAMESPACE_END

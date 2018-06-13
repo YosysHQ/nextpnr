@@ -30,6 +30,8 @@ NEXTPNR_NAMESPACE_BEGIN
 // Pack LUTs and LUT-FF pairs
 static void pack_lut_lutffs(Design *design)
 {
+    log_info("Packing LUT-FFs..\n");
+
     std::unordered_set<IdString> packed_cells;
     std::vector<CellInfo *> new_cells;
     for (auto cell : design->cells) {
@@ -85,6 +87,8 @@ static void pack_lut_lutffs(Design *design)
 // Pack FFs not packed as LUTFFs
 static void pack_nonlut_ffs(Design *design)
 {
+    log_info("Packing non-LUT FFs..\n");
+
     std::unordered_set<IdString> packed_cells;
     std::vector<CellInfo *> new_cells;
 
@@ -132,6 +136,8 @@ static void set_net_constant(NetInfo *orig, NetInfo *constnet, bool constval)
 // Pack constants (simple implementation)
 static void pack_constants(Design *design)
 {
+    log_info("Packing constants..\n");
+
     CellInfo *gnd_cell = create_ice_cell(design, "ICESTORM_LC", "$PACKER_GND");
     gnd_cell->params["LUT_INIT"] = "0";
     NetInfo *gnd_net = new NetInfo;
@@ -180,6 +186,8 @@ static void pack_io(Design *design)
     std::unordered_set<IdString> packed_cells;
     std::vector<CellInfo *> new_cells;
 
+    log_info("Packing IOs..\n");
+
     for (auto cell : design->cells) {
         CellInfo *ci = cell.second;
         if (is_nextpnr_iob(ci)) {
@@ -225,21 +233,25 @@ static void pack_io(Design *design)
 // Simple global promoter (clock only)
 static void promote_globals(Design *design)
 {
+    log_info("Promoting globals..\n");
+
     std::unordered_map<IdString, int> clock_count;
     for (auto net : design->nets) {
         NetInfo *ni = net.second;
         if (ni->driver.cell != nullptr && !is_global_net(ni)) {
             clock_count[net.first] = 0;
             for (auto user : ni->users) {
-                if (user.cell != nullptr && is_ff(user.cell) && user.port == "C")
+                if (user.cell != nullptr && is_ff(user.cell) &&
+                    user.port == "C")
                     clock_count[net.first]++;
             }
         }
     }
-    auto global_clock = std::max_element(clock_count.begin(), clock_count.end(), [](
-            const std::pair<IdString, int> &a, const std::pair<IdString, int> &b) {
-       return a.second < b.second;
-    });
+    auto global_clock = std::max_element(clock_count.begin(), clock_count.end(),
+                                         [](const std::pair<IdString, int> &a,
+                                            const std::pair<IdString, int> &b) {
+                                             return a.second < b.second;
+                                         });
     if (global_clock->second > 0) {
         NetInfo *clknet = design->nets[global_clock->first];
         CellInfo *gb = create_ice_cell(design, "SB_GB");

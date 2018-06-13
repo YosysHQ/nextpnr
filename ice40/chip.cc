@@ -304,7 +304,7 @@ PosInfo Chip::getPipPosition(PipId pip) const
 
 float Chip::estimateDelay(PosInfo src, PosInfo dst) const
 {
-    return fabsf(src.x - dst.x) + fabsf(src.x - dst.x);
+    return fabsf(src.x - dst.x) + fabsf(src.y - dst.y);
 }
 
 // -----------------------------------------------------------------------

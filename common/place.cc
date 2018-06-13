@@ -40,6 +40,8 @@ void place_design(Design *design)
     std::set<IdString>::iterator not_found, element;
     std::set<BelType> used_bels;
 
+    log_info("Placing..\n");
+
     // Initial constraints placer
     for (auto cell_entry : design->cells) {
         CellInfo *cell = cell_entry.second;

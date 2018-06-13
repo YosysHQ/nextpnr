@@ -60,12 +60,14 @@ int main(int argc, char *argv[])
 {
     namespace po = boost::program_options;
     int rc = 0;
+    bool verbose = false;
     std::string str;
 
     log_files.push_back(stdout);
 
     po::options_description options("Allowed options");
     options.add_options()("help,h", "show help");
+    options.add_options()("verbose,v", "verbose output");
     options.add_options()("gui", "start gui");
     options.add_options()("svg", "dump SVG file");
     options.add_options()("pack-only",
@@ -123,6 +125,10 @@ int main(int argc, char *argv[])
                   << " -- Next Generation Place and Route (git "
                      "sha1 " GIT_COMMIT_HASH_STR ")\n";
         return 1;
+    }
+
+    if (vm.count("verbose")) {
+        verbose = true;
     }
 
     ChipArgs chipArgs;
@@ -217,7 +223,7 @@ int main(int argc, char *argv[])
         pack_design(&design);
         if (!vm.count("pack-only")) {
             place_design(&design);
-            route_design(&design);
+            route_design(&design, verbose);
         }
     }
 
