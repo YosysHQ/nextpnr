@@ -2,6 +2,7 @@
 
 import sys
 import re
+import textwrap
 
 dev_name = None
 dev_width = None
@@ -347,11 +348,14 @@ print('#include "nextpnr.h"')
 print('namespace {')
 print('USING_NEXTPNR_NAMESPACE')
 
+index = 0
+print("static BelWirePOD bel_wires[] = {")
 for bel in range(len(bel_name)):
-    print("static BelWirePOD bel_wires_%d[%d] = {" % (bel, len(bel_wires[bel])))
+    print("#define bel_wires_%d (bel_wires+%d)" % (bel, index))
     for i in range(len(bel_wires[bel])):
-        print("  {%d, PIN_%s}%s" % (bel_wires[bel][i] + ("," if i+1 < len(bel_wires[bel]) else "",)))
-    print("};")
+        print("  {%d, PIN_%s}," % bel_wires[bel][i])
+        index += 1
+print("};")
 
 print("static BelInfoPOD bel_data_%s[%d] = {" % (dev_name, len(bel_name)))
 for bel in range(len(bel_name)):
@@ -364,6 +368,10 @@ wireinfo = list()
 pipinfo = list()
 pipcache = dict()
 
+uppips_array = list()
+downpips_array = list()
+downbels_array = list()
+
 for wire in range(num_wires):
     if wire in wire_uphill:
         pips = list()
@@ -374,7 +382,8 @@ for wire in range(num_wires):
             pips.append("%d" % pipcache[(src, wire)])
         num_uphill = len(pips)
         list_uphill = "wire%d_uppips" % wire
-        print("static int wire%d_uppips[] = {%s};" % (wire, ", ".join(pips)))
+        print("#define wire%d_uppips (wire_uppips+%d)" % (wire, len(uppips_array)))
+        uppips_array += pips
     else:
         num_uphill = 0
         list_uphill = "nullptr"
@@ -388,16 +397,17 @@ for wire in range(num_wires):
             pips.append("%d" % pipcache[(wire, dst)])
         num_downhill = len(pips)
         list_downhill = "wire%d_downpips" % wire
-        print("static int wire%d_downpips[] = {%s};" % (wire, ", ".join(pips)))
+        print("#define wire%d_downpips (wire_downpips+%d)" % (wire, len(downpips_array)))
+        downpips_array += pips
     else:
         num_downhill = 0
         list_downhill = "nullptr"
 
     if wire in wire_downhill_belports:
         num_bels_downhill = len(wire_downhill_belports[wire])
-        print("static BelPortPOD wire%d_downbels[] = {" % wire)
-        print(",\n".join(["  {%d, PIN_%s}" % it for it in wire_downhill_belports[wire]]))
-        print("};")
+
+        print("#define wire%d_downbels (wire_downbels+%d)" % (wire, len(downbels_array)))
+        downbels_array += ["{%d, PIN_%s}" % it for it in wire_downhill_belports[wire]]
     else:
         num_bels_downhill = 0
 
@@ -424,6 +434,18 @@ for wire in range(num_wires):
 
     wireinfo.append(info)
 
+print("static int wire_uppips[] = {")
+print("  " + "\n  ".join(textwrap.wrap(", ".join(uppips_array))))
+print("};");
+
+print("static int wire_downpips[] = {")
+print("  " + "\n  ".join(textwrap.wrap(", ".join(downpips_array))))
+print("};");
+
+print("static BelPortPOD wire_downbels[] = {")
+print("  " + "\n  ".join(textwrap.wrap(", ".join(downbels_array))))
+print("};");
+
 packageinfo = []
 
 for package in packages:
@@ -436,7 +458,7 @@ for package in packages:
         bel_idx = bel_name.index(pin_bel)
         pins_info.append('{"%s", %d}' % (pinname, bel_idx))
     print("static PackagePinPOD package_%s_pins[%d] = {" % (safename, len(pins_info)))
-    print(",\n".join(pins_info))
+    print("  " + ",\n  ".join(pins_info))
     print("};")
     packageinfo.append('{"%s", %d, package_%s_pins}' % (name, len(pins_info), safename))
 
@@ -458,7 +480,7 @@ for t in range(num_tile_types):
         print("static ConfigBitPOD tile%d_%s_bits[%d] = {%s};" % (t, safename, len(bits_list), ", ".join(bits_list)))
         centries_info.append('{"%s", %d, tile%d_%s_bits}' % (name, len(bits_list), t, safename))
     print("static ConfigEntryPOD tile%d_config[%d] = {" % (t, len(centries_info)))
-    print(",\n".join(centries_info))
+    print("  " + ",\n  ".join(centries_info))
     print("};")
     tileinfo.append("{%d, %d, %d, tile%d_config}" % (tile_sizes[t][0], tile_sizes[t][1], len(centries_info), t))
 
@@ -480,37 +502,37 @@ for ieren in ierens:
     iereninfo.append("{%d, %d, %d, %d, %d, %d}" % ieren)
 
 print("static WireInfoPOD wire_data_%s[%d] = {" % (dev_name, num_wires))
-print(",\n".join(wireinfo))
+print("  " + ",\n  ".join(wireinfo))
 print("};")
 
 print("static PipInfoPOD pip_data_%s[%d] = {" % (dev_name, len(pipinfo)))
-print(",\n".join(pipinfo))
+print("  " + ",\n  ".join(pipinfo))
 print("};")
 
 print("static SwitchInfoPOD switch_data_%s[%d] = {" % (dev_name, len(switchinfo)))
-print(",\n".join(switchinfo))
+print("  " + ",\n  ".join(switchinfo))
 print("};")
 
 print("static TileInfoPOD tile_data_%s[%d] = {" % (dev_name, num_tile_types))
-print(",\n".join(tileinfo))
+print("  " + ",\n  ".join(tileinfo))
 print("};")
 
 print("static IerenInfoPOD ieren_data_%s[%d] = {" % (dev_name, len(iereninfo)))
-print(",\n".join(iereninfo))
+print("  " + ",\n  ".join(iereninfo))
 print("};")
 
 
 print("static BitstreamInfoPOD bits_info_%s = {" % dev_name)
-print("%d, %d, tile_data_%s, switch_data_%s, ieren_data_%s" % (len(switchinfo), len(iereninfo), dev_name, dev_name, dev_name))
+print("  %d, %d, tile_data_%s, switch_data_%s, ieren_data_%s" % (len(switchinfo), len(iereninfo), dev_name, dev_name, dev_name))
 print("};")
 
 print("static TileType tile_grid_%s[%d] = {" % (dev_name, len(tilegrid)))
-print(",\n".join(tilegrid))
+print("  " + ",\n  ".join(tilegrid))
 print("};")
 
 
 print("static PackageInfoPOD package_info_%s[%d] = {" % (dev_name, len(packageinfo)))
-print(",\n".join(packageinfo))
+print("  " + ",\n  ".join(packageinfo))
 print("};")
 
 print('}')
