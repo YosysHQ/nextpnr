@@ -1,0 +1,6 @@
+#!/bin/bash
+set -ex
+rm -f picorv32.v
+wget https://raw.githubusercontent.com/cliffordwolf/picorv32/master/picorv32.v
+yosys -p 'synth_ice40 -nocarry -json picorv32.json -top picorv32' picorv32.v
+../nextpnr-ice40 --hx8k --asc picorv32.asc --json picorv32.json
