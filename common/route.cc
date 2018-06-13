@@ -48,6 +48,9 @@ void route_design(Design *design, bool verbose)
     int itercnt = 0, netcnt = 0;
     float maxDelay = 0.0;
 
+    int failedPathCnt = 0;
+    std::unordered_set<IdString> failedNets;
+
     log_info("Routing..\n");
 
     for (auto &net_it : design->nets) {
@@ -203,10 +206,14 @@ void route_design(Design *design, bool verbose)
                 }
             }
 
-            if (visited.count(dst_wire) == 0)
-                log_error("Failed to route %s -> %s.\n",
-                          chip.getWireName(src_wire).c_str(),
-                          chip.getWireName(dst_wire).c_str());
+            if (visited.count(dst_wire) == 0) {
+                log_info("Failed to route %s -> %s.\n",
+                         chip.getWireName(src_wire).c_str(),
+                         chip.getWireName(dst_wire).c_str());
+                failedNets.insert(net_name);
+                failedPathCnt++;
+                continue;
+            }
 
             if (verbose)
                 log("    Final path delay: %.2f\n", visited[dst_wire].delay);
@@ -237,6 +244,10 @@ void route_design(Design *design, bool verbose)
 
     log_info("routed %d nets, visited %d wires.\n", netcnt, itercnt);
     log_info("longest path delay: %.2f\n", maxDelay);
+
+    if (failedPathCnt > 0)
+        log_error("Failed to route %d paths (%d nets).\n", failedPathCnt,
+                  int(failedNets.size()));
 }
 
 NEXTPNR_NAMESPACE_END
