@@ -190,7 +190,7 @@ void nxio_to_sb(CellInfo *nxio, CellInfo *sbio)
     }
 }
 
-bool is_global_net(NetInfo *net)
+bool is_global_net(const NetInfo *net)
 {
     return bool(net_driven_by(net, is_gbuf, "GLOBAL_BUFFER_OUTPUT"));
 }

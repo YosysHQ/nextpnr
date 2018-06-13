@@ -25,6 +25,8 @@ NEXTPNR_NAMESPACE_BEGIN
 
 extern void place_design(Design *design);
 
+extern void place_design_heuristic(Design *design);
+
 NEXTPNR_NAMESPACE_END
 
 #endif // PLACE_H

@@ -18,6 +18,7 @@
  */
 
 #include "arch_place.h"
+#include "cells.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -45,9 +46,12 @@ static bool logicCellsCompatible(const std::vector<const CellInfo *> &cells)
                 clk = get_net_or_nullptr(cell, "CLK");
                 sr = get_net_or_nullptr(cell, "SR");
 
-                locals.insert(cen);
-                locals.insert(clk);
-                locals.insert(sr);
+                if (!is_global_net(cen))
+                    locals.insert(cen);
+                if (!is_global_net(clk))
+                    locals.insert(clk);
+                if (!is_global_net(sr))
+                    locals.insert(sr);
 
                 if (std::stoi(cell->params.at("NEG_CLK"))) {
                     dffs_neg = true;

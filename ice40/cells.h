@@ -75,7 +75,7 @@ void dff_to_lc(CellInfo *dff, CellInfo *lc, bool pass_thru_lut = false);
 void nxio_to_sb(CellInfo *nxio, CellInfo *sbio);
 
 // Return true if a net is a global net
-bool is_global_net(NetInfo *net);
+bool is_global_net(const NetInfo *net);
 
 NEXTPNR_NAMESPACE_END
 
