@@ -181,21 +181,32 @@ static void place_cell_neighbours(Design *design, CellInfo *cell,
 {
     if (cell->bel == BelId())
         return;
+    int placed_count = 0;
+    const int count_thresh = 15;
     for (auto port : cell->ports) {
         NetInfo *net = port.second.net;
         if (net != nullptr) {
-            if (net->users.size() > 3) // don't follow high fanout nets
-                continue;
             for (auto user : net->users) {
-                if (user.cell != nullptr && user.cell->bel == BelId())
+                if (net->users.size() > 3)
+                    continue;
+                if (user.cell != nullptr && user.cell->bel == BelId()) {
                     place_cell(design, user.cell, cell->bel, placed_cells,
                                visit_cells);
+                    placed_count++;
+                    if (placed_count > count_thresh)
+                        return;
+                }
             }
-            if (net->driver.cell != nullptr && net->driver.cell->bel == BelId())
+            if (net->driver.cell != nullptr && net->driver.cell->bel == BelId()) {
                 place_cell(design, net->driver.cell, cell->bel, placed_cells,
                            visit_cells);
+                placed_count++;
+            }
+            if (placed_count > count_thresh)
+                return;
         }
     }
+
 }
 
 void place_design_heuristic(Design *design)
@@ -229,6 +240,7 @@ void place_design_heuristic(Design *design)
             visit_cells.push(cell);
         }
     }
+    log_info("place_constraints placed %d\n", placed_cells);
     while (placed_cells < total_cells) {
         if (!visit_cells.empty()) {
             CellInfo *next = visit_cells.front();
@@ -238,8 +250,10 @@ void place_design_heuristic(Design *design)
             // Nothing to visit (netlist is split), pick the next unplaced cell
             for (auto cell : design->cells) {
                 CellInfo *ci = cell.second;
-                if (ci->bel == BelId())
+                if (ci->bel == BelId()) {
                     place_cell(design, ci, BelId(), placed_cells, visit_cells);
+                    break;
+                }
             }
         }
         log_info("placed %d/%d\n", placed_cells, total_cells);
