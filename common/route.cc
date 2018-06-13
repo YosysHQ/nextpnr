@@ -66,13 +66,16 @@ void route_design(Design *design, bool verbose)
                 net_info->driver.port.c_str());
 
         auto src_bel = net_info->driver.cell->bel;
-        auto src_pos = chip.getBelPosition(src_bel);
 
         if (src_bel == BelId())
-            log_error("Source cell is not mapped to a bel.\n");
+            log_error("Source cell %s (%s) is not mapped to a bel.\n",
+                      net_info->driver.cell->name.c_str(),
+                      net_info->driver.cell->type.c_str());
 
         if (verbose)
             log("    Source bel: %s\n", chip.getBelName(src_bel).c_str());
+
+        auto src_pos = chip.getBelPosition(src_bel);
 
         auto src_wire = chip.getWireBelPin(
                 src_bel, portPinFromId(net_info->driver.port));
