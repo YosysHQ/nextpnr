@@ -10,6 +10,7 @@ class LP384Test : public ::testing::Test
     virtual void SetUp()
     {
         chipArgs.type = ChipArgs::LP384;
+        chipArgs.package = "qn32";
         design = new Design(chipArgs);
     }
 

@@ -10,6 +10,7 @@ class HX1KTest : public ::testing::Test
     virtual void SetUp()
     {
         chipArgs.type = ChipArgs::HX1K;
+        chipArgs.package = "tq144";
         design = new Design(chipArgs);
     }
 

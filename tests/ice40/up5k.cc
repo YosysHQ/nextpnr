@@ -10,6 +10,7 @@ class UP5KTest : public ::testing::Test
     virtual void SetUp()
     {
         chipArgs.type = ChipArgs::UP5K;
+        chipArgs.package = "sg48";
         design = new Design(chipArgs);
     }
 

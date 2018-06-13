@@ -10,6 +10,7 @@ class LP8KTest : public ::testing::Test
     virtual void SetUp()
     {
         chipArgs.type = ChipArgs::LP8K;
+        chipArgs.package = "ct256";
         design = new Design(chipArgs);
     }
 

@@ -10,6 +10,7 @@ class LP1KTest : public ::testing::Test
     virtual void SetUp()
     {
         chipArgs.type = ChipArgs::LP1K;
+        chipArgs.package = "tq144";
         design = new Design(chipArgs);
     }
 
