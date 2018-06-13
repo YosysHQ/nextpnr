@@ -222,10 +222,58 @@ static void pack_io(Design *design)
     }
 }
 
+// Simple global promoter (clock only)
+static void promote_globals(Design *design)
+{
+    std::unordered_map<IdString, int> clock_count;
+    for (auto net : design->nets) {
+        NetInfo *ni = net.second;
+        if (ni->driver.cell != nullptr && !is_global_net(ni)) {
+            clock_count[net.first] = 0;
+            for (auto user : ni->users) {
+                if (user.cell != nullptr && is_ff(user.cell) && user.port == "C")
+                    clock_count[net.first]++;
+            }
+        }
+    }
+    auto global_clock = std::max_element(clock_count.begin(), clock_count.end(), [](
+            const std::pair<IdString, int> &a, const std::pair<IdString, int> &b) {
+       return a.second < b.second;
+    });
+    if (global_clock->second > 0) {
+        NetInfo *clknet = design->nets[global_clock->first];
+        CellInfo *gb = create_ice_cell(design, "SB_GB");
+        gb->ports["USER_SIGNAL_TO_GLOBAL_BUFFER"].net = clknet;
+        PortRef pr;
+        pr.cell = gb;
+        pr.port = "USER_SIGNAL_TO_GLOBAL_BUFFER";
+        clknet->users.push_back(pr);
+
+        pr.cell = gb;
+        pr.port = "GLOBAL_BUFFER_OUTPUT";
+        NetInfo *glbnet = new NetInfo();
+        glbnet->name = clknet->name.str() + "_glb";
+        glbnet->driver = pr;
+        design->nets[glbnet->name] = glbnet;
+        std::vector<PortRef> keep_users;
+        for (auto user : clknet->users) {
+            if (user.cell != nullptr && is_ff(user.cell) && user.port == "C") {
+                user.cell->ports[user.port].net = glbnet;
+                glbnet->users.push_back(user);
+            } else {
+                keep_users.push_back(user);
+            }
+        }
+        clknet->users = keep_users;
+        design->cells[gb->name] = gb;
+    }
+}
+
 // Main pack function
 void pack_design(Design *design)
 {
     pack_constants(design);
+    promote_globals(design);
     pack_io(design);
     pack_lut_lutffs(design);
     pack_nonlut_ffs(design);

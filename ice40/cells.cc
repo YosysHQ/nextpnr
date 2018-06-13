@@ -79,7 +79,9 @@ CellInfo *create_ice_cell(Design *design, IdString type, IdString name)
 
         add_port(new_cell, "D_IN_0", PORT_OUT);
         add_port(new_cell, "D_IN_1", PORT_OUT);
-
+    } else if (type == "SB_GB") {
+        add_port(new_cell, "USER_SIGNAL_TO_GLOBAL_BUFFER", PORT_IN);
+        add_port(new_cell, "GLOBAL_BUFFER_OUTPUT", PORT_OUT);
     } else {
         log_error("unable to create iCE40 cell of type %s", type.c_str());
     }
@@ -162,6 +164,10 @@ void nxio_to_sb(CellInfo *nxio, CellInfo *sbio)
     } else {
         assert(false);
     }
+}
+
+bool is_global_net(NetInfo *net) {
+    return bool(net_driven_by(net, is_gbuf, "GLOBAL_BUFFER_OUTPUT"));
 }
 
 NEXTPNR_NAMESPACE_END
