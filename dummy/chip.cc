@@ -17,6 +17,7 @@
  *
  */
 
+#include <math.h>
 #include "nextpnr.h"
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -137,6 +138,42 @@ const std::vector<PipId> &Chip::getWireAliases(WireId wire) const
     static std::vector<PipId> ret;
     return ret;
 }
+
+// ---------------------------------------------------------------
+
+PosInfo Chip::getBelPosition(BelId bel) const
+{
+    PosInfo pos;
+    assert(bel != BelId());
+    // pos.x = ...;
+    // pos.y = ...;
+    return pos;
+}
+
+PosInfo Chip::getWirePosition(WireId wire) const
+{
+    PosInfo pos;
+    assert(wire != WireId());
+    // pos.x = ...;
+    // pos.y = ...;
+    return pos;
+}
+
+PosInfo Chip::getPipPosition(PipId pip) const
+{
+    PosInfo pos;
+    assert(pip != PipId());
+    // pos.x = ...;
+    // pos.y = ...;
+    return pos;
+}
+
+float Chip::estimateDelay(PosInfo src, PosInfo dst) const
+{
+    return fabsf(src.x - dst.x) + fabsf(src.x - dst.x);
+}
+
+// ---------------------------------------------------------------
 
 std::vector<GraphicElement> Chip::getBelGraphics(BelId bel) const
 {

@@ -42,6 +42,11 @@ struct DelayInfo
     }
 };
 
+struct PosInfo
+{
+    float x = 0, y = 0;
+};
+
 // -----------------------------------------------------------------------
 
 enum BelType
@@ -679,9 +684,12 @@ struct Chip
 
     // -------------------------------------------------
 
-    void getBelPosition(BelId bel, float &x, float &y) const;
-    void getWirePosition(WireId wire, float &x, float &y) const;
-    void getPipPosition(PipId pip, float &x, float &y) const;
+    PosInfo getBelPosition(BelId bel) const;
+    PosInfo getWirePosition(WireId wire) const;
+    PosInfo getPipPosition(PipId pip) const;
+    float estimateDelay(PosInfo src, PosInfo dst) const;
+
+    // -------------------------------------------------
 
     std::vector<GraphicElement> getBelGraphics(BelId bel) const;
     std::vector<GraphicElement> getWireGraphics(WireId wire) const;

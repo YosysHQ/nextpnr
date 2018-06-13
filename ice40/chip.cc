@@ -17,6 +17,7 @@
  *
  */
 
+#include <math.h>
 #include "log.h"
 #include "nextpnr.h"
 
@@ -230,26 +231,39 @@ PipId Chip::getPipByName(IdString name) const
 
 // -----------------------------------------------------------------------
 
-void Chip::getBelPosition(BelId bel, float &x, float &y) const
+PosInfo Chip::getBelPosition(BelId bel) const
 {
+    PosInfo pos;
     assert(bel != BelId());
-    x = chip_info.bel_data[bel.index].x;
-    y = chip_info.bel_data[bel.index].y;
+    pos.x = chip_info.bel_data[bel.index].x;
+    pos.y = chip_info.bel_data[bel.index].y;
+    return pos;
 }
 
-void Chip::getWirePosition(WireId wire, float &x, float &y) const
+PosInfo Chip::getWirePosition(WireId wire) const
 {
+    PosInfo pos;
     assert(wire != WireId());
-    x = chip_info.wire_data[wire.index].x;
-    y = chip_info.wire_data[wire.index].y;
+    pos.x = chip_info.wire_data[wire.index].x;
+    pos.y = chip_info.wire_data[wire.index].y;
+    return pos;
 }
 
-void Chip::getPipPosition(PipId pip, float &x, float &y) const
+PosInfo Chip::getPipPosition(PipId pip) const
 {
+    PosInfo pos;
     assert(pip != PipId());
-    x = chip_info.pip_data[pip.index].x;
-    y = chip_info.pip_data[pip.index].y;
+    pos.x = chip_info.pip_data[pip.index].x;
+    pos.y = chip_info.pip_data[pip.index].y;
+    return pos;
 }
+
+float Chip::estimateDelay(PosInfo src, PosInfo dst) const
+{
+    return fabsf(src.x - dst.x) + fabsf(src.x - dst.x);
+}
+
+// -----------------------------------------------------------------------
 
 std::vector<GraphicElement> Chip::getBelGraphics(BelId bel) const
 {
