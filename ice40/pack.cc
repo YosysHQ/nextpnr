@@ -110,6 +110,23 @@ static void pack_nonlut_ffs(Design *design)
     }
 }
 
+// "Pack" RAMs
+static void pack_ram(Design *design)
+{
+    for (auto cell : design->cells) {
+        CellInfo *ci = cell.second;
+        if (is_ram(ci)) {
+            ci->params["NEG_CLK_W"] =
+                    std::to_string(ci->type == "SB_RAM40_4KNW" ||
+                                   ci->type == "SB_RAM40_4KNRNW");
+            ci->params["NEG_CLK_R"] =
+                    std::to_string(ci->type == "SB_RAM40_4KNR" ||
+                                   ci->type == "SB_RAM40_4KNRNW");
+            ci->type = "ICESTORM_RAM";
+        }
+    }
+}
+
 // Merge a net into a constant net
 static void set_net_constant(NetInfo *orig, NetInfo *constnet, bool constval)
 {
@@ -222,6 +239,17 @@ static void pack_io(Design *design)
     }
 }
 
+static bool is_clock_port(const PortRef &port)
+{
+    if (port.cell == nullptr)
+        return false;
+    if (is_ff(port.cell))
+        return port.port == "C";
+    if (is_ram(port.cell))
+        return port.port == "RCLK" || port.port == "WCLK";
+    return false;
+}
+
 // Simple global promoter (clock only)
 static void promote_globals(Design *design)
 {
@@ -231,15 +259,16 @@ static void promote_globals(Design *design)
         if (ni->driver.cell != nullptr && !is_global_net(ni)) {
             clock_count[net.first] = 0;
             for (auto user : ni->users) {
-                if (user.cell != nullptr && is_ff(user.cell) && user.port == "C")
+                if (is_clock_port(user))
                     clock_count[net.first]++;
             }
         }
     }
-    auto global_clock = std::max_element(clock_count.begin(), clock_count.end(), [](
-            const std::pair<IdString, int> &a, const std::pair<IdString, int> &b) {
-       return a.second < b.second;
-    });
+    auto global_clock = std::max_element(clock_count.begin(), clock_count.end(),
+                                         [](const std::pair<IdString, int> &a,
+                                            const std::pair<IdString, int> &b) {
+                                             return a.second < b.second;
+                                         });
     if (global_clock->second > 0) {
         NetInfo *clknet = design->nets[global_clock->first];
         CellInfo *gb = create_ice_cell(design, "SB_GB");
@@ -257,7 +286,7 @@ static void promote_globals(Design *design)
         design->nets[glbnet->name] = glbnet;
         std::vector<PortRef> keep_users;
         for (auto user : clknet->users) {
-            if (user.cell != nullptr && is_ff(user.cell) && user.port == "C") {
+            if (is_clock_port(user)) {
                 user.cell->ports[user.port].net = glbnet;
                 glbnet->users.push_back(user);
             } else {
@@ -277,6 +306,7 @@ void pack_design(Design *design)
     pack_io(design);
     pack_lut_lutffs(design);
     pack_nonlut_ffs(design);
+    pack_ram(design);
 }
 
 NEXTPNR_NAMESPACE_END
