@@ -18,6 +18,7 @@
  */
 
 #include "place.h"
+#include <cmath>
 #include <iostream>
 #include <limits>
 #include <list>
@@ -134,13 +135,18 @@ static void place_cell(Design *design, CellInfo *cell)
         if (chip.getBelType(bel) == targetType && chip.checkBelAvail(bel) &&
             isValidBelForCell(design, cell, bel)) {
             float distance = 0;
-            PosInfo belPosition = chip.getBelPosition(bel);
+            float belx, bely;
+            chip.estimatePosition(bel, belx, bely);
             for (auto port : cell->ports) {
                 const PortInfo &pi = port.second;
-                if(pi.net != nullptr && pi.type == PORT_IN) {
+                if (pi.net != nullptr && pi.type == PORT_IN) {
                     CellInfo *drv = pi.net->driver.cell;
-                    if (drv != nullptr && drv->bel != BelId())
-                        distance += chip.estimateDelay(chip.getBelPosition(drv->bel), belPosition);
+                    if (drv != nullptr && drv->bel != BelId()) {
+                        float otherx, othery;
+                        chip.estimatePosition(drv->bel, otherx, othery);
+                        distance += std::pow(belx - otherx, 2) +
+                                    std::pow(bely - othery, 2);
+                    }
                 }
             }
             if (distance < best_distance) {
