@@ -9,10 +9,14 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR}/generated)
 
 qt5_generate_moc(gui/mainwindow.h ${CMAKE_CURRENT_BINARY_DIR}/generated/moc_mainwindow.cc)
 qt5_generate_moc(gui/fpgaviewwidget.h ${CMAKE_CURRENT_BINARY_DIR}/generated/moc_fpgaviewwidget.cc)
+qt5_generate_moc(gui/pythontab.h ${CMAKE_CURRENT_BINARY_DIR}/generated/moc_pythontab.cc)
+qt5_generate_moc(gui/infotab.h ${CMAKE_CURRENT_BINARY_DIR}/generated/moc_infotab.cc)
 
 set(GENERATED_MOC_FILES
     ${CMAKE_CURRENT_BINARY_DIR}/generated/moc_mainwindow.cc
     ${CMAKE_CURRENT_BINARY_DIR}/generated/moc_fpgaviewwidget.cc
+    ${CMAKE_CURRENT_BINARY_DIR}/generated/moc_pythontab.cc
+    ${CMAKE_CURRENT_BINARY_DIR}/generated/moc_infotab.cc
 )
 
 set(UI_SOURCES
@@ -21,7 +25,7 @@ set(UI_SOURCES
 qt5_wrap_ui_custom(GENERATED_UI_HEADERS ${UI_SOURCES})
 qt5_add_resources_custom(GUI_RESOURCE_FILES gui/nextpnr.qrc)
 
-set(GUI_SOURCE_FILES gui/mainwindow.cc gui/fpgaviewwidget.cc gui/emb.cc ${GENERATED_MOC_FILES} ${GENERATED_UI_HEADERS} ${GUI_RESOURCE_FILES})
+set(GUI_SOURCE_FILES gui/mainwindow.cc gui/fpgaviewwidget.cc gui/pythontab.cc gui/infotab.cc gui/emb.cc ${GENERATED_MOC_FILES} ${GENERATED_UI_HEADERS} ${GUI_RESOURCE_FILES})
 set(GUI_LIBRARY_FILES Qt5::Widgets Qt5::OpenGL ${OPENGL_LIBRARIES} QtPropertyBrowser)
 
 

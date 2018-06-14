@@ -6,8 +6,9 @@
 #include "qtpropertymanager.h"
 #include "qttreepropertybrowser.h"
 #include "qtvariantproperty.h"
+#include "pythontab.h"
+#include "infotab.h"
 
-#include <QLineEdit>
 #include <QMainWindow>
 #include <QPlainTextEdit>
 #include <QTabWidget>
@@ -18,36 +19,6 @@ USING_NEXTPNR_NAMESPACE
 namespace Ui {
 class MainWindow;
 }
-
-class PythonTab : public QWidget
-{
-    Q_OBJECT
-
-  public:
-    explicit PythonTab(QWidget *parent = 0);
-
-  private:
-    int executePython(std::string command);
-  private Q_SLOTS:
-    void editLineReturnPressed();
-
-  private:
-    QPlainTextEdit *plainTextEdit;
-    QLineEdit *lineEdit;
-    emb::stdout_write_type write;
-};
-
-class InfoTab : public QWidget
-{
-    Q_OBJECT
-
-  public:
-    explicit InfoTab(QWidget *parent = 0);
-    void info(std::string str);
-
-  private:
-    QPlainTextEdit *plainTextEdit;
-};
 
 class MainWindow : public QMainWindow
 {
