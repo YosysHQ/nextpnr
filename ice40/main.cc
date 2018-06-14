@@ -81,7 +81,7 @@ int main(int argc, char *argv[])
                           "PCF constraints file to ingest");
     options.add_options()("asc", po::value<std::string>(),
                           "asc bitstream file to write");
-    options.add_options()("version,v", "show version");
+    options.add_options()("version,V", "show version");
     options.add_options()("lp384", "set device type to iCE40LP384");
     options.add_options()("lp1k", "set device type to iCE40LP1K");
     options.add_options()("lp8k", "set device type to iCE40LP8K");

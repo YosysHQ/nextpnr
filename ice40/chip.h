@@ -441,7 +441,7 @@ struct Chip
     std::vector<IdString> bel_to_cell;
     std::vector<IdString> wire_to_net;
     std::vector<IdString> pip_to_net;
-    std::vector<bool> switches_locked;
+    std::vector<IdString> switches_locked;
     Chip(ChipArgs args);
 
     ChipArgs args;
@@ -592,18 +592,21 @@ struct Chip
     {
         assert(pip != PipId());
         assert(pip_to_net[pip.index] == IdString());
-        assert(!switches_locked[chip_info.pip_data[pip.index].switch_index]);
+        assert(switches_locked[chip_info.pip_data[pip.index].switch_index] ==
+               IdString());
         pip_to_net[pip.index] = net;
-        switches_locked[chip_info.pip_data[pip.index].switch_index] = true;
+        switches_locked[chip_info.pip_data[pip.index].switch_index] = net;
     }
 
     void unbindPip(PipId pip)
     {
         assert(pip != PipId());
         assert(pip_to_net[pip.index] != IdString());
-        assert(switches_locked[chip_info.pip_data[pip.index].switch_index]);
+        assert(switches_locked[chip_info.pip_data[pip.index].switch_index] !=
+               IdString());
         pip_to_net[pip.index] = IdString();
-        switches_locked[chip_info.pip_data[pip.index].switch_index] = false;
+        switches_locked[chip_info.pip_data[pip.index].switch_index] =
+                IdString();
     }
 
     bool checkPipAvail(PipId pip) const
@@ -614,12 +617,15 @@ struct Chip
             if (x == 0 || x == (chip_info.width - 1))
                 return false;
         }
-        return !switches_locked[chip_info.pip_data[pip.index].switch_index];
+        return switches_locked[chip_info.pip_data[pip.index].switch_index] ==
+               IdString();
     }
 
     IdString getPipNet(PipId pip, bool conflicting = false) const
     {
         assert(pip != PipId());
+        if (conflicting)
+            return switches_locked[chip_info.pip_data[pip.index].switch_index];
         return pip_to_net[pip.index];
     }
 

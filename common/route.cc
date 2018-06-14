@@ -23,7 +23,9 @@
 #include "log.h"
 #include "route.h"
 
-NEXTPNR_NAMESPACE_BEGIN
+namespace {
+
+USING_NEXTPNR_NAMESPACE
 
 struct QueuedWire
 {
@@ -42,27 +44,35 @@ struct QueuedWire
     };
 };
 
-void route_design(Design *design, bool verbose)
+void ripup_net(Design *design, IdString net_name)
 {
     auto &chip = design->chip;
-    int visitCnt = 0, revisitCnt = 0, netCnt = 0;
+    auto net_info = design->nets.at(net_name);
+
+    for (auto &it : net_info->wires) {
+        if (it.second != PipId())
+            chip.unbindPip(it.second);
+        chip.unbindWire(it.first);
+    }
+
+    net_info->wires.clear();
+}
+
+struct Router
+{
+    std::unordered_set<IdString> rippedNets;
+    int visitCnt = 0, revisitCnt = 0;
+    bool routedOkay = false;
     float maxDelay = 0.0;
 
-    int failedPathCnt = 0;
-    std::unordered_set<IdString> failedNets;
-
-    log_info("Routing..\n");
-
-    for (auto &net_it : design->nets) {
-        auto net_name = net_it.first;
-        auto net_info = net_it.second;
-
-        if (net_info->driver.cell == nullptr)
-            continue;
+    Router(Design *design, IdString net_name, bool verbose, bool ripup,
+           float ripup_pip_penalty = 5.0, float ripup_wire_penalty = 5.0)
+    {
+        auto &chip = design->chip;
+        auto net_info = design->nets.at(net_name);
 
         if (verbose)
             log("Routing net %s.\n", net_name.c_str());
-        netCnt++;
 
         if (verbose)
             log("  Source: %s.%s.\n", net_info->driver.cell->name.c_str(),
@@ -163,12 +173,17 @@ void route_design(Design *design, bool verbose)
                 queue.pop();
 
                 for (auto pip : chip.getPipsDownhill(qw.wire)) {
-                    if (!chip.checkPipAvail(pip))
-                        continue;
+                    float next_delay = qw.delay;
+
+                    if (!chip.checkPipAvail(pip)) {
+                        if (ripup)
+                            next_delay += ripup_pip_penalty;
+                        else
+                            continue;
+                    }
 
                     WireId next_wire = chip.getPipDstWire(pip);
-                    float next_delay =
-                            qw.delay + chip.getPipDelay(pip).avgDelay();
+                    next_delay += chip.getPipDelay(pip).avgDelay();
 
                     if (visited.count(next_wire)) {
                         if (visited.at(next_wire).delay <= next_delay + 1e-3)
@@ -181,8 +196,12 @@ void route_design(Design *design, bool verbose)
                         revisitCnt++;
                     }
 
-                    if (!chip.checkWireAvail(next_wire))
-                        continue;
+                    if (!chip.checkWireAvail(next_wire)) {
+                        if (ripup)
+                            next_delay += ripup_wire_penalty;
+                        else
+                            continue;
+                    }
 
                     QueuedWire next_qw;
                     next_qw.wire = next_wire;
@@ -203,12 +222,16 @@ void route_design(Design *design, bool verbose)
             }
 
             if (visited.count(dst_wire) == 0) {
-                log_info("Failed to route %s -> %s.\n",
-                         chip.getWireName(src_wire).c_str(),
-                         chip.getWireName(dst_wire).c_str());
-                failedNets.insert(net_name);
-                failedPathCnt++;
-                continue;
+                if (verbose)
+                    log("Failed to route %s -> %s.\n",
+                        chip.getWireName(src_wire).c_str(),
+                        chip.getWireName(dst_wire).c_str());
+                else if (ripup)
+                    log_info("Failed to route %s -> %s.\n",
+                             chip.getWireName(src_wire).c_str(),
+                             chip.getWireName(dst_wire).c_str());
+                ripup_net(design, net_name);
+                return;
             }
 
             if (verbose)
@@ -228,6 +251,24 @@ void route_design(Design *design, bool verbose)
                 if (src_wires.count(cursor))
                     break;
 
+                IdString conflicting_net = chip.getWireNet(cursor, true);
+
+                if (conflicting_net != IdString()) {
+                    assert(ripup);
+                    assert(conflicting_net != net_name);
+                    ripup_net(design, conflicting_net);
+                    rippedNets.insert(conflicting_net);
+                }
+
+                conflicting_net = chip.getPipNet(visited[cursor].pip, true);
+
+                if (conflicting_net != IdString()) {
+                    assert(ripup);
+                    assert(conflicting_net != net_name);
+                    ripup_net(design, conflicting_net);
+                    rippedNets.insert(conflicting_net);
+                }
+
                 net_info->wires[cursor] = visited[cursor].pip;
                 chip.bindWire(cursor, net_name);
                 chip.bindPip(visited[cursor].pip, net_name);
@@ -236,15 +277,118 @@ void route_design(Design *design, bool verbose)
                 cursor = chip.getPipSrcWire(visited[cursor].pip);
             }
         }
+
+        routedOkay = true;
+    }
+};
+
+} // namespace
+
+NEXTPNR_NAMESPACE_BEGIN
+
+void route_design(Design *design, bool verbose)
+{
+    auto &chip = design->chip;
+    float maxDelay = 0.0;
+
+    log_info("Routing..\n");
+
+    std::unordered_set<IdString> netsQueue;
+
+    for (auto &net_it : design->nets) {
+        auto net_name = net_it.first;
+        auto net_info = net_it.second;
+
+        if (net_info->driver.cell == nullptr)
+            continue;
+
+        if (!net_info->wires.empty())
+            continue;
+
+        netsQueue.insert(net_name);
     }
 
-    log_info("routed %d nets, visited %d wires (%.2f%% revisits).\n", netCnt,
-             visitCnt, (100.0 * revisitCnt) / visitCnt);
-    log_info("longest path delay: %.2f\n", maxDelay);
+    if (netsQueue.empty()) {
+        log_info("found no unrouted nets. no routing necessary.\n");
+        return;
+    }
 
-    if (failedPathCnt > 0)
-        log_error("Failed to route %d paths (%d nets).\n", failedPathCnt,
-                  int(failedNets.size()));
+    log_info("found %d unrouted nets. starting routing procedure.\n",
+             int(netsQueue.size()));
+
+    while (!netsQueue.empty()) {
+        int visitCnt = 0, revisitCnt = 0, netCnt = 0;
+
+        std::unordered_set<IdString> ripupQueue;
+
+        for (auto net_name : netsQueue) {
+            Router router(design, net_name, verbose, false);
+
+            netCnt++;
+            visitCnt += router.visitCnt;
+            revisitCnt += router.revisitCnt;
+
+            if (router.routedOkay) {
+                maxDelay = fmaxf(maxDelay, router.maxDelay);
+            } else {
+                ripupQueue.insert(net_name);
+            }
+
+            if (netCnt % 100 == 0)
+                log_info("  processed %d nets. (%d routed, %d failed)\n",
+                         netCnt, netCnt - int(ripupQueue.size()),
+                         int(ripupQueue.size()));
+        }
+
+        netsQueue.clear();
+
+        log_info("  processed %d nets. (%d routed, %d failed)\n", netCnt,
+                 netCnt - int(ripupQueue.size()), int(ripupQueue.size()));
+        log_info("routing pass visited %d wires (%.2f%% revisits).\n", visitCnt,
+                 (100.0 * revisitCnt) / visitCnt);
+
+        if (!ripupQueue.empty()) {
+            log_info("failed to route %d nets. re-routing in ripup mode.\n",
+                     int(ripupQueue.size()));
+
+            visitCnt = 0;
+            revisitCnt = 0;
+            netCnt = 0;
+            int ripCnt = 0;
+
+            for (auto net_name : ripupQueue) {
+                Router router(design, net_name, verbose, true);
+
+                netCnt++;
+                visitCnt += router.visitCnt;
+                revisitCnt += router.revisitCnt;
+
+                if (!router.routedOkay)
+                    log_error("Net %s is impossible to route.\n",
+                              net_name.c_str());
+
+                maxDelay = fmaxf(maxDelay, router.maxDelay);
+
+                for (auto it : router.rippedNets)
+                    netsQueue.insert(it);
+
+                ripCnt += router.rippedNets.size();
+
+                if (netCnt % 100 == 0)
+                    log_info("  routed %d nets, ripped %d nets.\n", netCnt,
+                             ripCnt);
+            }
+
+            log_info("  routed %d nets, ripped %d nets.\n", netCnt, ripCnt);
+            log_info("routing pass visited %d wires (%.2f%% revisits).\n",
+                     visitCnt, (100.0 * revisitCnt) / visitCnt);
+
+            log_info("ripped up %d previously routed nets. continue routing.\n",
+                     int(netsQueue.size()));
+        }
+    }
+
+    log_info("routing complete. longest path delay: %.2f\n", maxDelay);
 }
 
 NEXTPNR_NAMESPACE_END
