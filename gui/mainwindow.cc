@@ -164,11 +164,8 @@ void MainWindow::addProperty(QtVariantProperty *property, const QString &id)
     QtBrowserItem *item = propertyEditor->addProperty(property);
 }
 
-void MainWindow::onItemClicked(QTreeWidgetItem *item, int pos)
+void MainWindow::clearProperties()
 {
-    if (!item->parent())
-        return;
-    ElementType type = static_cast<ElementTreeItem *>(item)->getType();
     QMap<QtProperty *, QString>::ConstIterator itProp =
             propertyToId.constBegin();
     while (itProp != propertyToId.constEnd()) {
@@ -177,6 +174,16 @@ void MainWindow::onItemClicked(QTreeWidgetItem *item, int pos)
     }
     propertyToId.clear();
     idToProperty.clear();
+}
+
+void MainWindow::onItemClicked(QTreeWidgetItem *item, int pos)
+{
+    if (!item->parent())
+        return;
+
+    clearProperties();
+
+    ElementType type = static_cast<ElementTreeItem *>(item)->getType();
 
     if (type == ElementType::BEL) {
         IdString c = static_cast<BelTreeItem *>(item)->getData();

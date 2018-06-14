@@ -31,6 +31,7 @@ class MainWindow : public QMainWindow
 
   private:
     void addProperty(QtVariantProperty *property, const QString &id);
+    void clearProperties();
 
   private Q_SLOTS:
     void prepareMenu(const QPoint &pos);
