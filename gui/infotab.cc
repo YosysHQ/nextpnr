@@ -17,4 +17,3 @@ void InfoTab::info(std::string str)
     plainTextEdit->insertPlainText(str.c_str());
     plainTextEdit->moveCursor(QTextCursor::End);
 }
-

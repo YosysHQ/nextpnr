@@ -1,7 +1,7 @@
 #include "pythontab.h"
+#include <QGridLayout>
 #include "emb.h"
 #include "pybindings.h"
-#include <QGridLayout>
 
 PythonTab::PythonTab(QWidget *parent) : QWidget(parent)
 {

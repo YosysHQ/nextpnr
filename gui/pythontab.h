@@ -1,10 +1,10 @@
 #ifndef PYTHONTAB_H
 #define PYTHONTAB_H
 
-#include "nextpnr.h"
-#include "emb.h"
 #include <QLineEdit>
 #include <QPlainTextEdit>
+#include "emb.h"
+#include "nextpnr.h"
 
 // FIXME
 USING_NEXTPNR_NAMESPACE

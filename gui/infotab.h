@@ -1,8 +1,8 @@
 #ifndef INFOTAB_H
 #define INFOTAB_H
 
-#include "nextpnr.h"
 #include <QPlainTextEdit>
+#include "nextpnr.h"
 
 // FIXME
 USING_NEXTPNR_NAMESPACE

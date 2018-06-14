@@ -2,12 +2,12 @@
 #define MAINWINDOW_H
 
 #include "emb.h"
+#include "infotab.h"
 #include "nextpnr.h"
+#include "pythontab.h"
 #include "qtpropertymanager.h"
 #include "qttreepropertybrowser.h"
 #include "qtvariantproperty.h"
-#include "pythontab.h"
-#include "infotab.h"
 
 #include <QMainWindow>
 #include <QPlainTextEdit>
