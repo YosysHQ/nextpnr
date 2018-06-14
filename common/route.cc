@@ -318,6 +318,55 @@ void route_design(Design *design, bool verbose)
     log_info("found %d unrouted nets. starting routing procedure.\n",
              int(netsQueue.size()));
 
+    float estimatedTotalDelay = 0.0;
+    int estimatedTotalDelayCnt = 0;
+
+    for (auto net_name : netsQueue) {
+        auto net_info = design->nets.at(net_name);
+
+        auto src_bel = net_info->driver.cell->bel;
+
+        if (src_bel == BelId())
+            continue;
+
+        IdString driver_port = net_info->driver.port;
+
+        auto driver_port_it = net_info->driver.cell->pins.find(driver_port);
+        if (driver_port_it != net_info->driver.cell->pins.end())
+            driver_port = driver_port_it->second;
+
+        auto src_wire = chip.getWireBelPin(src_bel, portPinFromId(driver_port));
+
+        if (src_wire == WireId())
+            continue;
+
+        for (auto &user_it : net_info->users) {
+            auto dst_bel = user_it.cell->bel;
+
+            if (dst_bel == BelId())
+                continue;
+
+            IdString user_port = user_it.port;
+
+            auto user_port_it = user_it.cell->pins.find(user_port);
+
+            if (user_port_it != user_it.cell->pins.end())
+                user_port = user_port_it->second;
+
+            auto dst_wire =
+                    chip.getWireBelPin(dst_bel, portPinFromId(user_port));
+
+            if (dst_wire == WireId())
+                continue;
+
+            estimatedTotalDelay += chip.estimateDelay(src_wire, dst_wire);
+            estimatedTotalDelayCnt++;
+        }
+    }
+
+    log_info("estimated total wire delay: %.2f (avg %.2f)\n",
+             estimatedTotalDelay, estimatedTotalDelay / estimatedTotalDelayCnt);
+
     while (!netsQueue.empty()) {
         int visitCnt = 0, revisitCnt = 0, netCnt = 0;
 
