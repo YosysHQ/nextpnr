@@ -65,7 +65,7 @@ struct Router
     bool routedOkay = false;
     float maxDelay = 0.0;
 
-    Router(Design *design, IdString net_name, bool verbose, bool ripup,
+    Router(Design *design, IdString net_name, bool verbose, bool ripup = false,
            float ripup_pip_penalty = 5.0, float ripup_wire_penalty = 5.0)
     {
         auto &chip = design->chip;
@@ -290,6 +290,8 @@ void route_design(Design *design, bool verbose)
 {
     auto &chip = design->chip;
     float maxDelay = 0.0;
+    float ripup_pip_penalty = 5.0;
+    float ripup_wire_penalty = 5.0;
 
     log_info("Routing..\n");
 
@@ -357,7 +359,8 @@ void route_design(Design *design, bool verbose)
             int ripCnt = 0;
 
             for (auto net_name : ripupQueue) {
-                Router router(design, net_name, verbose, true);
+                Router router(design, net_name, verbose, true,
+                              ripup_pip_penalty, ripup_wire_penalty);
 
                 netCnt++;
                 visitCnt += router.visitCnt;
@@ -385,6 +388,9 @@ void route_design(Design *design, bool verbose)
 
             log_info("ripped up %d previously routed nets. continue routing.\n",
                      int(netsQueue.size()));
+
+            ripup_pip_penalty *= 1.5;
+            ripup_wire_penalty *= 1.5;
         }
     }
 
