@@ -139,6 +139,8 @@ DesignWidget::DesignWidget(Design *_design, QWidget *parent)
     splitter->addWidget(propertyEditor);
 
     QGridLayout *mainLayout = new QGridLayout();
+    mainLayout->setSpacing(0);
+    mainLayout->setContentsMargins(0, 0, 0, 0);
     mainLayout->addWidget(splitter);
     setLayout(mainLayout);
 

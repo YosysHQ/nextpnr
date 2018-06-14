@@ -13,9 +13,11 @@ MainWindow::MainWindow(Design *_design, QWidget *parent)
 
     ui->splitter->addWidget(new FPGAViewWidget());
 
-    ui->splitter_2->addWidget(new DesignWidget(design));
-    ui->splitter_2->setMinimumWidth(300);
-    ui->splitter_2->setMaximumWidth(300);
+    DesignWidget *designview = new DesignWidget(design);
+    designview->setMinimumWidth(300);
+    designview->setMaximumWidth(300);
+
+    ui->splitter_2->addWidget(designview);
 
     tabWidget = new QTabWidget();
     tabWidget->addTab(new PythonTab(), "Python");
