@@ -57,7 +57,7 @@ static bool logicCellsCompatible(const std::vector<const CellInfo *> &cells)
                     return false;
                 if (clk != get_net_or_nullptr(cell, "CLK"))
                     return false;
-                if (sr != get_net_or_nullptr(cell, "CEN"))
+                if (sr != get_net_or_nullptr(cell, "SR"))
                     return false;
                 if (dffs_neg != bool(std::stoi(cell->params.at("NEG_CLK"))))
                     return false;
