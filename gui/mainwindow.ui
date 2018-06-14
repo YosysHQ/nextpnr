@@ -24,26 +24,11 @@
        <property name="orientation">
         <enum>Qt::Vertical</enum>
        </property>
-       <widget class="FPGAViewWidget" name="openGLWidget" native="true"/>
       </widget>
       <widget class="QSplitter" name="splitter_2">
        <property name="orientation">
         <enum>Qt::Vertical</enum>
        </property>       
-       <widget class="QTreeWidget" name="treeWidget">
-        <property name="minimumSize">
-         <size>
-          <width>300</width>
-          <height>0</height>
-         </size>
-        </property>
-        <property name="maximumSize">
-         <size>
-          <width>300</width>
-          <height>16777215</height>
-         </size>
-        </property>
-       </widget>
       </widget>
      </widget>
     </item>
@@ -144,13 +129,6 @@
   </action>
  </widget>
  <layoutdefault spacing="6" margin="11"/>
- <customwidgets>
-  <customwidget>
-   <class>FPGAViewWidget</class>
-   <extends>QWidget</extends>
-   <header>fpgaviewwidget.h</header>
-  </customwidget>
- </customwidgets>
  <resources>
   <include location="nextpnr.qrc"/>
  </resources>
