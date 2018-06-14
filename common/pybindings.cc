@@ -24,6 +24,7 @@
 #include "nextpnr.h"
 
 #include <fstream>
+#include <signal.h>
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -157,6 +158,7 @@ void init_python(const char *executable)
         std::string perror_str = parse_python_exception();
         std::cout << "Error in Python: " << perror_str << std::endl;
     }
+    signal(SIGINT, SIG_DFL);
 #endif
 }
 
