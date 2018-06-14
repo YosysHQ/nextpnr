@@ -126,10 +126,14 @@ void place_design(Design *design)
 
 static void place_cell(Design *design, CellInfo *cell)
 {
-    assert(cell->bel == BelId());
+
     float best_distance = std::numeric_limits<float>::infinity();
     BelId best_bel = BelId();
     Chip &chip = design->chip;
+    if(cell->bel != BelId()) {
+        chip.unbindBel(cell->bel);
+        cell->bel = BelId();
+    }
     BelType targetType = belTypeFromId(cell->type);
     for (auto bel : chip.getBels()) {
         if (chip.getBelType(bel) == targetType && chip.checkBelAvail(bel) &&
@@ -139,17 +143,28 @@ static void place_cell(Design *design, CellInfo *cell)
             chip.estimatePosition(bel, belx, bely);
             for (auto port : cell->ports) {
                 const PortInfo &pi = port.second;
-                if (pi.net != nullptr && pi.type == PORT_IN) {
+                if (pi.net != nullptr) {
                     CellInfo *drv = pi.net->driver.cell;
                     if (drv != nullptr && drv->bel != BelId()) {
                         float otherx, othery;
                         chip.estimatePosition(drv->bel, otherx, othery);
-                        distance += std::pow(belx - otherx, 2) +
-                                    std::pow(bely - othery, 2);
+                        distance += std::abs(belx - otherx) +
+                                    std::abs(bely - othery);
+                    }
+                    if (pi.net->users.size() < 5) {
+                        for (auto user : pi.net->users) {
+                            CellInfo *uc = user.cell;
+                            if (uc != nullptr && uc->bel != BelId()) {
+                                float otherx, othery;
+                                chip.estimatePosition(uc->bel, otherx, othery);
+                                distance += std::abs(belx - otherx) +
+                                            std::abs(bely - othery);
+                            }
+                        }
                     }
                 }
             }
-            if (distance < best_distance) {
+            if (distance <= best_distance) {
                 best_distance = distance;
                 best_bel = bel;
             }
@@ -198,13 +213,26 @@ void place_design_heuristic(Design *design)
         }
     }
     log_info("place_constraints placed %d\n", placed_cells);
+    std::unordered_set<IdString> autoplaced;
     for (auto cell : design->cells) {
         CellInfo *ci = cell.second;
-        if (ci->bel == BelId())
+        if (ci->bel == BelId()) {
             place_cell(design, ci);
-        placed_cells++;
+            autoplaced.insert(cell.first);
+            placed_cells++;
+        }
         log_info("placed %d/%d\n", placed_cells, total_cells);
     }
+    for (int i = 0 ; i < 3; i ++) {
+        int replaced_cells = 0;
+        for (auto cell : autoplaced) {
+            CellInfo *ci = design->cells[cell];
+            place_cell(design, ci);
+            replaced_cells++;
+            log_info("replaced %d/%d\n", replaced_cells, autoplaced.size());
+        }
+    }
+
 }
 
 NEXTPNR_NAMESPACE_END
