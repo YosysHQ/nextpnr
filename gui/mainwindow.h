@@ -10,6 +10,7 @@
 #include <QLineEdit>
 #include <QMainWindow>
 #include <QPlainTextEdit>
+#include <QTabWidget>
 
 // FIXME
 USING_NEXTPNR_NAMESPACE
@@ -17,6 +18,36 @@ USING_NEXTPNR_NAMESPACE
 namespace Ui {
 class MainWindow;
 }
+
+class PythonTab : public QWidget
+{
+    Q_OBJECT
+
+  public:
+    explicit PythonTab(QWidget *parent = 0);
+
+  private:
+    int executePython(std::string command);
+  private Q_SLOTS:
+    void editLineReturnPressed();
+
+  private:
+    QPlainTextEdit *plainTextEdit;
+    QLineEdit *lineEdit;
+    emb::stdout_write_type write;
+};
+
+class InfoTab : public QWidget
+{
+    Q_OBJECT
+
+  public:
+    explicit InfoTab(QWidget *parent = 0);
+    void info(std::string str);
+
+  private:
+    QPlainTextEdit *plainTextEdit;
+};
 
 class MainWindow : public QMainWindow
 {
@@ -28,18 +59,15 @@ class MainWindow : public QMainWindow
     Design *getDesign() { return design; }
 
   private:
-    int executePython(std::string command);
     void addProperty(QtVariantProperty *property, const QString &id);
 
   private Q_SLOTS:
-    void editLineReturnPressed();
     void prepareMenu(const QPoint &pos);
     void selectObject();
     void onItemClicked(QTreeWidgetItem *item, int);
 
   private:
     Ui::MainWindow *ui;
-    emb::stdout_write_type write;
     Design *design;
     QtVariantPropertyManager *variantManager;
     QtVariantEditorFactory *variantFactory;
@@ -49,8 +77,8 @@ class MainWindow : public QMainWindow
     QMap<QtProperty *, QString> propertyToId;
     QMap<QString, QtVariantProperty *> idToProperty;
 
-    QPlainTextEdit *plainTextEdit;
-    QLineEdit *lineEdit;
+    QTabWidget *tabWidget;
+    InfoTab *info;
 };
 
 #endif // MAINWINDOW_H
