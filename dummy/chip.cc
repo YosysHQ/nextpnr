@@ -141,37 +141,14 @@ const std::vector<PipId> &Chip::getWireAliases(WireId wire) const
 
 // ---------------------------------------------------------------
 
-PosInfo Chip::getBelPosition(BelId bel) const
+bool Chip::estimatePosition(BelId bel, float &x, float &y) const
 {
-    PosInfo pos;
-    assert(bel != BelId());
-    // pos.x = ...;
-    // pos.y = ...;
-    return pos;
+    x = 0.0;
+    y = 0.0;
+    return false;
 }
 
-PosInfo Chip::getWirePosition(WireId wire) const
-{
-    PosInfo pos;
-    assert(wire != WireId());
-    // pos.x = ...;
-    // pos.y = ...;
-    return pos;
-}
-
-PosInfo Chip::getPipPosition(PipId pip) const
-{
-    PosInfo pos;
-    assert(pip != PipId());
-    // pos.x = ...;
-    // pos.y = ...;
-    return pos;
-}
-
-float Chip::estimateDelay(PosInfo src, PosInfo dst) const
-{
-    return fabsf(src.x - dst.x) + fabsf(src.x - dst.x);
-}
+float Chip::estimateDelay(WireId src, WireId dst) const { return 0.0; }
 
 // ---------------------------------------------------------------
 

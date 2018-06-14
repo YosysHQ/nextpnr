@@ -42,11 +42,6 @@ struct DelayInfo
     }
 };
 
-struct PosInfo
-{
-    float x = 0, y = 0;
-};
-
 typedef IdString BelType;
 typedef IdString PortPin;
 
@@ -113,10 +108,8 @@ struct Chip
     const std::vector<PipId> &getPipsUphill(WireId wire) const;
     const std::vector<PipId> &getWireAliases(WireId wire) const;
 
-    PosInfo getBelPosition(BelId bel) const;
-    PosInfo getWirePosition(WireId wire) const;
-    PosInfo getPipPosition(PipId pip) const;
-    float estimateDelay(PosInfo src, PosInfo dst) const;
+    bool estimatePosition(BelId bel, float &x, float &y) const;
+    float estimateDelay(WireId src, WireId dst) const;
 
     std::vector<GraphicElement> getFrameGraphics() const;
     std::vector<GraphicElement> getBelGraphics(BelId bel) const;

@@ -73,8 +73,8 @@ void arch_wrap_python()
             .def("getPipsDownhill", &Chip::getPipsDownhill)
             .def("getPipsUphill", &Chip::getPipsUphill)
             .def("getWireAliases", &Chip::getWireAliases)
-            .def("getBelPosition", &Chip::getBelPosition)
-            .def("getWirePosition", &Chip::getWirePosition);
+            .def("estimatePosition", &Chip::estimatePosition)
+            .def("estimateDelay", &Chip::estimateDelay);
 
     WRAP_RANGE(Bel);
     WRAP_RANGE(BelPin);

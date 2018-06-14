@@ -45,7 +45,7 @@ struct QueuedWire
 void route_design(Design *design, bool verbose)
 {
     auto &chip = design->chip;
-    int itercnt = 0, netcnt = 0;
+    int visitCnt = 0, revisitCnt = 0, netCnt = 0;
     float maxDelay = 0.0;
 
     int failedPathCnt = 0;
@@ -62,7 +62,7 @@ void route_design(Design *design, bool verbose)
 
         if (verbose)
             log("Routing net %s.\n", net_name.c_str());
-        netcnt++;
+        netCnt++;
 
         if (verbose)
             log("  Source: %s.%s.\n", net_info->driver.cell->name.c_str(),
@@ -77,8 +77,6 @@ void route_design(Design *design, bool verbose)
 
         if (verbose)
             log("    Source bel: %s\n", chip.getBelName(src_bel).c_str());
-
-        auto src_pos = chip.getBelPosition(src_bel);
 
         IdString driver_port = net_info->driver.port;
 
@@ -109,19 +107,15 @@ void route_design(Design *design, bool verbose)
                     user_it.port.c_str());
 
             auto dst_bel = user_it.cell->bel;
-            auto dst_pos = chip.getBelPosition(dst_bel);
 
             if (dst_bel == BelId())
                 log_error("Destination cell %s (%s) is not mapped to a bel.\n",
                           user_it.cell->name.c_str(),
                           user_it.cell->type.c_str());
 
-            if (verbose) {
+            if (verbose)
                 log("    Destination bel: %s\n",
                     chip.getBelName(dst_bel).c_str());
-                log("    Path delay estimate: %.2f\n",
-                    chip.estimateDelay(src_pos, dst_pos));
-            }
 
             IdString user_port = user_it.port;
 
@@ -140,9 +134,12 @@ void route_design(Design *design, bool verbose)
                           user_it.cell->name.c_str(),
                           chip.getBelName(dst_bel).c_str());
 
-            if (verbose)
+            if (verbose) {
                 log("    Destination wire: %s\n",
                     chip.getWireName(dst_wire).c_str());
+                log("    Path delay estimate: %.2f\n",
+                    chip.estimateDelay(src_wire, dst_wire));
+            }
 
             std::unordered_map<WireId, QueuedWire> visited;
             std::priority_queue<QueuedWire, std::vector<QueuedWire>,
@@ -154,15 +151,14 @@ void route_design(Design *design, bool verbose)
                 qw.wire = it.first;
                 qw.pip = PipId();
                 qw.delay = it.second.avgDelay();
-                qw.togo = chip.estimateDelay(chip.getWirePosition(qw.wire),
-                                             dst_pos);
+                qw.togo = chip.estimateDelay(qw.wire, dst_wire);
 
                 queue.push(qw);
                 visited[qw.wire] = qw;
             }
 
             while (!queue.empty()) {
-                itercnt++;
+                visitCnt++;
                 QueuedWire qw = queue.top();
                 queue.pop();
 
@@ -182,6 +178,7 @@ void route_design(Design *design, bool verbose)
                                 "estimate: %.2f %.2f\n",
                                 chip.getWireName(next_wire).c_str(),
                                 visited.at(next_wire).delay, next_delay);
+                        revisitCnt++;
                     }
 
                     if (!chip.checkWireAvail(next_wire))
@@ -191,8 +188,7 @@ void route_design(Design *design, bool verbose)
                     next_qw.wire = next_wire;
                     next_qw.pip = pip;
                     next_qw.delay = next_delay;
-                    next_qw.togo = chip.estimateDelay(
-                            chip.getWirePosition(next_wire), dst_pos);
+                    next_qw.togo = chip.estimateDelay(next_wire, dst_wire);
                     visited[next_qw.wire] = next_qw;
                     queue.push(next_qw);
 
@@ -242,7 +238,8 @@ void route_design(Design *design, bool verbose)
         }
     }
 
-    log_info("routed %d nets, visited %d wires.\n", netcnt, itercnt);
+    log_info("routed %d nets, visited %d wires (%.2f%% revisits).\n", netCnt,
+             visitCnt, (100.0 * revisitCnt) / visitCnt);
     log_info("longest path delay: %.2f\n", maxDelay);
 
     if (failedPathCnt > 0)

@@ -42,11 +42,6 @@ struct DelayInfo
     }
 };
 
-struct PosInfo
-{
-    float x = 0, y = 0;
-};
-
 // -----------------------------------------------------------------------
 
 enum BelType
@@ -693,10 +688,8 @@ struct Chip
 
     // -------------------------------------------------
 
-    PosInfo getBelPosition(BelId bel) const;
-    PosInfo getWirePosition(WireId wire) const;
-    PosInfo getPipPosition(PipId pip) const;
-    float estimateDelay(PosInfo src, PosInfo dst) const;
+    bool estimatePosition(BelId bel, float &x, float &y) const;
+    float estimateDelay(WireId src, WireId dst) const;
 
     // -------------------------------------------------
 
