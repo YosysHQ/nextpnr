@@ -21,6 +21,16 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+static const NetInfo *
+get_net_or_nullptr(const CellInfo *cell, const IdString port)
+{
+    auto found = cell->ports.find(port);
+    if (found != cell->ports.end())
+        return found->second.net;
+    else
+        return nullptr;
+};
+
 static bool logicCellsCompatible(const std::vector<const CellInfo *> &cells)
 {
     bool dffs_exist = false, dffs_neg = false;
@@ -31,9 +41,9 @@ static bool logicCellsCompatible(const std::vector<const CellInfo *> &cells)
         if (std::stoi(cell->params.at("DFF_ENABLE"))) {
             if (!dffs_exist) {
                 dffs_exist = true;
-                cen = cell->ports.at("CEN").net;
-                clk = cell->ports.at("CLK").net;
-                sr = cell->ports.at("SR").net;
+                cen = get_net_or_nullptr(cell, "CEN");
+                clk = get_net_or_nullptr(cell, "CLK");
+                sr = get_net_or_nullptr(cell, "SR");
 
                 locals.insert(cen);
                 locals.insert(clk);
@@ -43,21 +53,21 @@ static bool logicCellsCompatible(const std::vector<const CellInfo *> &cells)
                     dffs_neg = true;
                 }
             } else {
-                if (cen != cell->ports.at("CEN").net)
+                if (cen != get_net_or_nullptr(cell, "CEN"))
                     return false;
-                if (clk == cell->ports.at("CLK").net)
+                if (clk != get_net_or_nullptr(cell, "CLK"))
                     return false;
-                if (sr != cell->ports.at("SR").net)
+                if (sr != get_net_or_nullptr(cell, "CEN"))
                     return false;
                 if (dffs_neg != bool(std::stoi(cell->params.at("NEG_CLK"))))
                     return false;
             }
         }
 
-        locals.insert(cell->ports.at("I0").net);
-        locals.insert(cell->ports.at("I1").net);
-        locals.insert(cell->ports.at("I2").net);
-        locals.insert(cell->ports.at("I3").net);
+        locals.insert(get_net_or_nullptr(cell, "I0"));
+        locals.insert(get_net_or_nullptr(cell, "I1"));
+        locals.insert(get_net_or_nullptr(cell, "I2"));
+        locals.insert(get_net_or_nullptr(cell, "I3"));
     }
 
     locals.erase(nullptr); // disconnected signals don't use local tracks
