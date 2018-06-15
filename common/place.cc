@@ -36,6 +36,14 @@
 #include "arch_place.h"
 #include "log.h"
 
+namespace std {
+    template <> struct hash<std::tuple<NEXTPNR_NAMESPACE_PREFIX BelType, int, int>> {
+        size_t operator()(const std::tuple<NEXTPNR_NAMESPACE_PREFIX BelType, int, int> &x) const noexcept {
+            return std::hash<int>()(get<0>(x)) + std::hash<int>()(get<1>(x)) + std::hash<int>()(get<2>(x));
+        }
+    };
+};
+
 NEXTPNR_NAMESPACE_BEGIN
 
 void place_design(Design *design)
@@ -143,7 +151,12 @@ static uint32_t xorshift32(rnd_state &rnd)
 }
 
 static float random_float_upto(rnd_state &rnd, float limit) {
-    return xorshift32(rnd) / (4294967295 / limit);
+    return xorshift32(rnd) / (4294967296 / limit);
+}
+
+
+static int random_int_between(rnd_state &rnd, int a, int b) {
+    return a + int(random_float_upto(rnd, b - a));
 }
 
 static void place_initial(Design *design, CellInfo *cell, rnd_state &rnd)
@@ -184,6 +197,7 @@ struct SAState {
     bool improved = false;
     int n_move, n_accept;
     int diameter = 35;
+    std::vector<std::vector<std::vector<std::vector<BelId>>>> fast_bels;
 };
 
 static float get_wirelength(Chip *chip, NetInfo *net) {
@@ -212,8 +226,10 @@ static float get_wirelength(Chip *chip, NetInfo *net) {
 }
 
 static bool try_swap_position(Design *design, CellInfo *cell, BelId newBel, rnd_state &rnd, SAState &state) {
-    std::unordered_set<NetInfo *> update;
-    std::unordered_map<NetInfo *, float> new_lengths;
+    static std::unordered_set<NetInfo *> update;
+    static std::vector<std::pair<NetInfo *, float>> new_lengths;
+    new_lengths.clear();
+    update.clear();
     Chip &chip = design->chip;
     BelId oldBel = cell->bel;
     IdString other = chip.getBelCell(newBel, true);
@@ -258,7 +274,7 @@ static bool try_swap_position(Design *design, CellInfo *cell, BelId newBel, rnd_
         new_wirelength -= state.wirelengths.at(net);
         float net_new_wl = get_wirelength(&chip, net);
         new_wirelength += net_new_wl;
-        new_lengths[net] = net_new_wl;
+        new_lengths.push_back(std::make_pair(net, net_new_wl));
     }
     delta = new_wirelength - state.best_wirelength;
     state.n_move++;
@@ -275,7 +291,7 @@ static bool try_swap_position(Design *design, CellInfo *cell, BelId newBel, rnd_
     }
     state.best_wirelength = new_wirelength;
     for (auto new_wl : new_lengths)
-        state.wirelengths[new_wl.first] = new_wl.second;
+        state.wirelengths.at(new_wl.first) = new_wl.second;
 
     return true;
 swap_fail:
@@ -288,28 +304,26 @@ swap_fail:
     return false;
 }
 
-BelId random_bel_for_cell(Design *design, CellInfo *cell, SAState state, rnd_state &rnd)
+BelId random_bel_for_cell(Design *design, CellInfo *cell, SAState& state, rnd_state &rnd)
 {
     BelId best_bel = BelId();
-    float best_score = std::numeric_limits<float>::infinity();
     Chip &chip = design->chip;
     BelType targetType = belTypeFromId(cell->type);
+    assert(int(targetType) < state.fast_bels.size());
     float x = 0, y = 0;
     chip.estimatePosition(cell->bel, x, y);
-    for (auto bel : chip.getBels()) {
-        if (chip.getBelType(bel) == targetType) {
-            float score = random_float_upto(rnd, 1.0);
-            float nx = 0, ny = 0;
-            chip.estimatePosition(bel, nx, ny);
-            if (std::abs(nx - x) > state.diameter || std::abs(ny - y) > state.diameter)
-                continue;
-            if (score <= best_score) {
-                best_score = score;
-                best_bel = bel;
-            }
-        }
+    while (true) {
+        int nx = random_int_between(rnd, std::max(int(x) - state.diameter, 0), int(x) + state.diameter + 1);
+        int ny = random_int_between(rnd, std::max(int(y) - state.diameter, 0), int(y) + state.diameter + 1);
+        if (nx >= state.fast_bels.at(int(targetType)).size())
+            continue;
+        if (ny >= state.fast_bels.at(int(targetType)).at(nx).size())
+            continue;
+        const auto &fb = state.fast_bels.at(int(targetType)).at(nx).at(ny);
+        if (fb.size() == 0)
+            continue;
+        return fb.at(random_int_between(rnd, 0, fb.size()));
     }
-    return best_bel;
 }
 
 void place_design_heuristic(Design *design)
@@ -347,6 +361,8 @@ void place_design_heuristic(Design *design)
     rnd_state rnd;
     rnd.state = 1;
     std::vector<CellInfo *> autoplaced;
+    SAState state;
+
     for (auto cell : design->cells) {
         CellInfo *ci = cell.second;
         if (ci->bel == BelId()) {
@@ -356,7 +372,20 @@ void place_design_heuristic(Design *design)
         }
         log_info("placed %d/%d\n", placed_cells, total_cells);
     }
-    SAState state;
+
+    for (auto bel : design->chip.getBels()) {
+        float x, y;
+        design->chip.estimatePosition(bel, x, y);
+        BelType type = design->chip.getBelType(bel);
+        if (state.fast_bels.size() < int(type)+1)
+            state.fast_bels.resize(int(type)+1);
+        if (state.fast_bels.at(int(type)).size() < int(x)+1)
+            state.fast_bels.at(int(type)).resize(int(x) + 1);
+        if (state.fast_bels.at(int(type)).at(int(x)).size() < int(y)+1)
+            state.fast_bels.at(int(type)).at(int(x)).resize(int(y) + 1);
+        state.fast_bels.at(int(type)).at(int(x)).at(int((y))).push_back(bel);
+    }
+
     state.best_wirelength = 0;
     for (auto net : design->nets) {
         float wl = get_wirelength(&design->chip, net.second);
