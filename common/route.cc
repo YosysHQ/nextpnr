@@ -167,19 +167,18 @@ struct Router
                 visited[qw.wire] = qw;
             }
 
-            while (!queue.empty()) {
-                visitCnt++;
+            while (!queue.empty() && !visited.count(dst_wire)) {
                 QueuedWire qw = queue.top();
                 queue.pop();
 
                 for (auto pip : chip.getPipsDownhill(qw.wire)) {
                     float next_delay = qw.delay;
+                    visitCnt++;
 
                     if (!chip.checkPipAvail(pip)) {
-                        if (ripup)
-                            next_delay += ripup_pip_penalty;
-                        else
+                        if (!ripup || net_name == chip.getPipNet(pip, true))
                             continue;
+                        next_delay += ripup_pip_penalty;
                     }
 
                     WireId next_wire = chip.getPipDstWire(pip);
@@ -188,19 +187,21 @@ struct Router
                     if (visited.count(next_wire)) {
                         if (visited.at(next_wire).delay <= next_delay + 1e-3)
                             continue;
+#if 0 // FIXME
                         if (verbose)
                             log("Found better route to %s. Old vs new delay "
                                 "estimate: %.2f %.2f\n",
                                 chip.getWireName(next_wire).c_str(),
                                 visited.at(next_wire).delay, next_delay);
+#endif
                         revisitCnt++;
                     }
 
                     if (!chip.checkWireAvail(next_wire)) {
-                        if (ripup)
-                            next_delay += ripup_wire_penalty;
-                        else
+                        if (!ripup ||
+                            net_name == chip.getWireNet(next_wire, true))
                             continue;
+                        next_delay += ripup_wire_penalty;
                     }
 
                     QueuedWire next_qw;
@@ -210,14 +211,6 @@ struct Router
                     next_qw.togo = chip.estimateDelay(next_wire, dst_wire);
                     visited[next_qw.wire] = next_qw;
                     queue.push(next_qw);
-
-                    if (next_qw.wire == dst_wire) {
-                        std::priority_queue<QueuedWire, std::vector<QueuedWire>,
-                                            QueuedWire::Greater>
-                                empty_queue;
-                        std::swap(queue, empty_queue);
-                        break;
-                    }
                 }
             }
 
@@ -393,9 +386,10 @@ void route_design(Design *design, bool verbose)
 
         netsQueue.clear();
 
-        log_info("  processed %d nets. (%d routed, %d failed)\n", netCnt,
-                 netCnt - int(ripupQueue.size()), int(ripupQueue.size()));
-        log_info("routing pass visited %d wires (%.2f%% revisits).\n", visitCnt,
+        if (netCnt % 100 != 0)
+            log_info("  processed %d nets. (%d routed, %d failed)\n", netCnt,
+                     netCnt - int(ripupQueue.size()), int(ripupQueue.size()));
+        log_info("routing pass visited %d PIPs (%.2f%% revisits).\n", visitCnt,
                  (100.0 * revisitCnt) / visitCnt);
 
         if (!ripupQueue.empty()) {
@@ -431,8 +425,9 @@ void route_design(Design *design, bool verbose)
                              ripCnt);
             }
 
-            log_info("  routed %d nets, ripped %d nets.\n", netCnt, ripCnt);
-            log_info("routing pass visited %d wires (%.2f%% revisits).\n",
+            if (netCnt % 100 != 0)
+                log_info("  routed %d nets, ripped %d nets.\n", netCnt, ripCnt);
+            log_info("routing pass visited %d PIPs (%.2f%% revisits).\n",
                      visitCnt, (100.0 * revisitCnt) / visitCnt);
 
             log_info("ripped up %d previously routed nets. continue routing.\n",
