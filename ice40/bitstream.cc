@@ -67,6 +67,16 @@ void set_config(const TileInfoPOD &ti,
     }
 }
 
+int get_param_or_def(const CellInfo *cell, const std::string &param,
+                     int defval = 0)
+{
+    auto found = cell->params.find(param);
+    if (found != cell->params.end())
+        return std::stoi(found->second);
+    else
+        return defval;
+}
+
 void write_asc(const Design &design, std::ostream &out)
 {
     const Chip &chip = design.chip;
@@ -134,12 +144,12 @@ void write_asc(const Design &design, std::ostream &out)
         int x = beli.x, y = beli.y, z = beli.z;
         if (cell.second->type == "ICESTORM_LC") {
             TileInfoPOD &ti = bi.tiles_nonrouting[TILE_LOGIC];
-            unsigned lut_init = std::stoi(cell.second->params["LUT_INIT"]);
-            bool neg_clk = std::stoi(cell.second->params["NEG_CLK"]);
-            bool dff_enable = std::stoi(cell.second->params["DFF_ENABLE"]);
-            bool async_sr = std::stoi(cell.second->params["ASYNC_SR"]);
-            bool set_noreset = std::stoi(cell.second->params["SET_NORESET"]);
-            bool carry_enable = std::stoi(cell.second->params["CARRY_ENABLE"]);
+            unsigned lut_init = get_param_or_def(cell.second, "LUT_INIT");
+            bool neg_clk = get_param_or_def(cell.second, "NEG_CLK");
+            bool dff_enable = get_param_or_def(cell.second, "DFF_ENABLE");
+            bool async_sr = get_param_or_def(cell.second, "ASYNC_SR");
+            bool set_noreset = get_param_or_def(cell.second, "SET_NORESET");
+            bool carry_enable = get_param_or_def(cell.second, "CARRY_ENABLE");
             std::vector<bool> lc(20, false);
             // From arachne-pnr
             static std::vector<int> lut_perm = {
@@ -160,9 +170,9 @@ void write_asc(const Design &design, std::ostream &out)
             set_config(ti, config.at(y).at(x), "NegClk", neg_clk);
         } else if (cell.second->type == "SB_IO") {
             TileInfoPOD &ti = bi.tiles_nonrouting[TILE_IO];
-            unsigned pin_type = std::stoi(cell.second->params["PIN_TYPE"]);
-            bool neg_trigger = std::stoi(cell.second->params["NEG_TRIGGER"]);
-            bool pullup = std::stoi(cell.second->params["PULLUP"]);
+            unsigned pin_type = get_param_or_def(cell.second, "PIN_TYPE");
+            bool neg_trigger = get_param_or_def(cell.second, "NEG_TRIGGER");
+            bool pullup = get_param_or_def(cell.second, "PULLUP");
             for (int i = 0; i < 6; i++) {
                 bool val = (pin_type >> i) & 0x01;
                 set_config(ti, config.at(y).at(x),
@@ -208,10 +218,10 @@ void write_asc(const Design &design, std::ostream &out)
                 set_config(ti_ramb, config.at(y).at(x), "RamConfig.PowerUp",
                            true);
             }
-            bool negclk_r = std::stoi(cell.second->params.at("NEG_CLK_R"));
-            bool negclk_w = std::stoi(cell.second->params.at("NEG_CLK_W"));
-            int write_mode = std::stoi(cell.second->params.at("WRITE_MODE"));
-            int read_mode = std::stoi(cell.second->params.at("READ_MODE"));
+            bool negclk_r = get_param_or_def(cell.second, "NEG_CLK_R");
+            bool negclk_w = get_param_or_def(cell.second, "NEG_CLK_W");
+            int write_mode = get_param_or_def(cell.second, "WRITE_MODE");
+            int read_mode = get_param_or_def(cell.second, "READ_MODE");
             set_config(ti_ramb, config.at(y).at(x), "NegClk", negclk_w);
             set_config(ti_ramt, config.at(y + 1).at(x), "NegClk", negclk_r);
 
