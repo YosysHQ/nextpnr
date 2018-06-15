@@ -148,14 +148,15 @@ static void place_cell(Design *design, CellInfo *cell, std::mt19937 &rnd)
                 const PortInfo &pi = port.second;
                 if (pi.net != nullptr) {
                     CellInfo *drv = pi.net->driver.cell;
-                    float pin_wirelength = std::numeric_limits<float>::infinity();
+                    //float pin_wirelength = std::numeric_limits<float>::infinity();
+                    float pin_wirelength = 0;
                     if (drv != nullptr && drv->bel != BelId()) {
                         float otherx, othery;
                         chip.estimatePosition(drv->bel, otherx, othery);
                         float local_wl = std::abs(belx - otherx) +
                                     std::abs(bely - othery);
-                        if (local_wl < pin_wirelength)
-                            pin_wirelength = local_wl;
+                        //if (local_wl < pin_wirelength)
+                            pin_wirelength += local_wl;
                         has_conns = true;
                     }
                     if (pi.net->users.size() < 5) {
@@ -166,8 +167,8 @@ static void place_cell(Design *design, CellInfo *cell, std::mt19937 &rnd)
                                 chip.estimatePosition(uc->bel, otherx, othery);
                                 float local_wl = std::abs(belx - otherx) +
                                             std::abs(bely - othery);
-                                if (local_wl < pin_wirelength)
-                                    pin_wirelength = local_wl;
+                                //if (local_wl < pin_wirelength)
+                                    pin_wirelength += local_wl;
                                 has_conns = true;
                             }
                         }
@@ -238,8 +239,12 @@ void place_design_heuristic(Design *design)
         }
         log_info("placed %d/%d\n", placed_cells, total_cells);
     }
-    for (int i = 0 ; i < 2; i ++) {
+    for (int i = 0 ; i < 5; i ++) {
         int replaced_cells = 0;
+        for (int j = 0; j < autoplaced.size() / 10; j++) {
+            design->chip.unbindBel(design->cells.at(autoplaced.at(j))->bel);
+            design->cells.at(autoplaced.at(j))->bel = BelId();
+        }
         std::shuffle(autoplaced.begin(), autoplaced.end(), rnd);
         for (auto cell : autoplaced) {
             CellInfo *ci = design->cells[cell];
