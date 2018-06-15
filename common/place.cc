@@ -415,8 +415,7 @@ void place_design_heuristic(Design *design)
         else
             ++n_no_progress;
 
-        if (state.temp <= 1e-3
-            /*&& n_no_progress >= 5*/)
+        if (state.temp <= 1e-3 && n_no_progress >= 5)
             break;
 
         double Raccept = (double)state.n_accept / (double)state.n_move;
