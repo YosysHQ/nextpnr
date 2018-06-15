@@ -36,14 +36,6 @@
 #include "arch_place.h"
 #include "log.h"
 
-namespace std {
-    template <> struct hash<std::tuple<NEXTPNR_NAMESPACE_PREFIX BelType, int, int>> {
-        size_t operator()(const std::tuple<NEXTPNR_NAMESPACE_PREFIX BelType, int, int> &x) const noexcept {
-            return std::hash<int>()(get<0>(x)) + std::hash<int>()(get<1>(x)) + std::hash<int>()(get<2>(x));
-        }
-    };
-};
-
 NEXTPNR_NAMESPACE_BEGIN
 
 void place_design(Design *design)
