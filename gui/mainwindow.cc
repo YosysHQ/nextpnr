@@ -17,6 +17,9 @@ MainWindow::MainWindow(Design *_design, QWidget *parent)
     designview->setMinimumWidth(300);
     designview->setMaximumWidth(300);
 
+    connect(designview, SIGNAL(info(std::string)), this,
+            SLOT(writeInfo(std::string)));
+
     ui->splitter_2->addWidget(designview);
 
     tabWidget = new QTabWidget();
@@ -27,3 +30,5 @@ MainWindow::MainWindow(Design *_design, QWidget *parent)
 }
 
 MainWindow::~MainWindow() { delete ui; }
+
+void MainWindow::writeInfo(std::string text) { info->info(text); }

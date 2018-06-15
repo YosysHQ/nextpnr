@@ -24,6 +24,8 @@ class MainWindow : public QMainWindow
     Design *getDesign() { return design; }
 
   private Q_SLOTS:
+    void writeInfo(std::string text);
+
   private:
     Ui::MainWindow *ui;
     Design *design;
