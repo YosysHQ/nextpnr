@@ -220,6 +220,7 @@ void DesignWidget::prepareMenu(const QPoint &pos)
 
     QAction *selectAction = new QAction("&Select", this);
     selectAction->setStatusTip("Select item on view");
+
     connect(selectAction, SIGNAL(triggered()), this, SLOT(selectObject()));
 
     QMenu menu(this);
@@ -231,5 +232,5 @@ void DesignWidget::prepareMenu(const QPoint &pos)
 
 void DesignWidget::selectObject()
 {
-    // info->info("selected " + itemContextMenu->text(0).toStdString() + "\n");
+    Q_EMIT info("selected " + itemContextMenu->text(0).toStdString() + "\n");
 }

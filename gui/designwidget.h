@@ -23,10 +23,13 @@ class DesignWidget : public QWidget
     void addProperty(QtVariantProperty *property, const QString &id);
     void clearProperties();
 
+  Q_SIGNALS:
+    void info(std::string text);
+
   private Q_SLOTS:
     void prepareMenu(const QPoint &pos);
-    void selectObject();
     void onItemClicked(QTreeWidgetItem *item, int);
+    void selectObject();
 
   private:
     Design *design;
