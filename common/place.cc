@@ -31,6 +31,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <vector>
+#include <random>
+#include <algorithm>
 #include "arch_place.h"
 #include "log.h"
 
@@ -124,9 +126,9 @@ void place_design(Design *design)
     }
 }
 
-static void place_cell(Design *design, CellInfo *cell)
+static void place_cell(Design *design, CellInfo *cell, std::mt19937 &rnd)
 {
-
+    std::uniform_real_distribution<float> random_wirelength(0.0, 30.0);
     float best_distance = std::numeric_limits<float>::infinity();
     BelId best_bel = BelId();
     Chip &chip = design->chip;
@@ -140,16 +142,21 @@ static void place_cell(Design *design, CellInfo *cell)
             isValidBelForCell(design, cell, bel)) {
             float distance = 0;
             float belx, bely;
+            bool has_conns = false;
             chip.estimatePosition(bel, belx, bely);
             for (auto port : cell->ports) {
                 const PortInfo &pi = port.second;
                 if (pi.net != nullptr) {
                     CellInfo *drv = pi.net->driver.cell;
+                    float pin_wirelength = std::numeric_limits<float>::infinity();
                     if (drv != nullptr && drv->bel != BelId()) {
                         float otherx, othery;
                         chip.estimatePosition(drv->bel, otherx, othery);
-                        distance += std::abs(belx - otherx) +
+                        float local_wl = std::abs(belx - otherx) +
                                     std::abs(bely - othery);
+                        if (local_wl < pin_wirelength)
+                            pin_wirelength = local_wl;
+                        has_conns = true;
                     }
                     if (pi.net->users.size() < 5) {
                         for (auto user : pi.net->users) {
@@ -157,13 +164,20 @@ static void place_cell(Design *design, CellInfo *cell)
                             if (uc != nullptr && uc->bel != BelId()) {
                                 float otherx, othery;
                                 chip.estimatePosition(uc->bel, otherx, othery);
-                                distance += std::abs(belx - otherx) +
+                                float local_wl = std::abs(belx - otherx) +
                                             std::abs(bely - othery);
+                                if (local_wl < pin_wirelength)
+                                    pin_wirelength = local_wl;
+                                has_conns = true;
                             }
                         }
                     }
+                    if (!std::isinf(pin_wirelength))
+                        distance += pin_wirelength;
                 }
             }
+            if (!has_conns)
+                distance = random_wirelength(rnd);
             if (distance <= best_distance) {
                 best_distance = distance;
                 best_bel = bel;
@@ -213,21 +227,23 @@ void place_design_heuristic(Design *design)
         }
     }
     log_info("place_constraints placed %d\n", placed_cells);
-    std::unordered_set<IdString> autoplaced;
+    std::mt19937 rnd;
+    std::vector<IdString> autoplaced;
     for (auto cell : design->cells) {
         CellInfo *ci = cell.second;
         if (ci->bel == BelId()) {
-            place_cell(design, ci);
-            autoplaced.insert(cell.first);
+            place_cell(design, ci, rnd);
+            autoplaced.push_back(cell.first);
             placed_cells++;
         }
         log_info("placed %d/%d\n", placed_cells, total_cells);
     }
-    for (int i = 0 ; i < 3; i ++) {
+    for (int i = 0 ; i < 2; i ++) {
         int replaced_cells = 0;
+        std::shuffle(autoplaced.begin(), autoplaced.end(), rnd);
         for (auto cell : autoplaced) {
             CellInfo *ci = design->cells[cell];
-            place_cell(design, ci);
+            place_cell(design, ci, rnd);
             replaced_cells++;
             log_info("replaced %d/%d\n", replaced_cells, autoplaced.size());
         }
