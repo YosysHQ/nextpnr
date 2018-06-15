@@ -126,11 +126,30 @@ void place_design(Design *design)
     }
 }
 
-static void place_cell(Design *design, CellInfo *cell, std::mt19937 &rnd)
+struct rnd_state {
+    uint32_t state;
+};
+
+/* The state word must be initialized to non-zero */
+static uint32_t xorshift32(rnd_state &rnd)
 {
-    std::uniform_real_distribution<float> random_wirelength(0.0, 30.0);
-    float best_distance = std::numeric_limits<float>::infinity();
+    /* Algorithm "xor" from p. 4 of Marsaglia, "Xorshift RNGs" */
+    uint32_t x = rnd.state;
+    x ^= x << 13;
+    x ^= x >> 17;
+    x ^= x << 5;
+    rnd.state = x;
+    return x;
+}
+
+static float random_float_upto(rnd_state &rnd, float limit) {
+    return xorshift32(rnd) / (4294967295 / limit);
+}
+
+static void place_initial(Design *design, CellInfo *cell, rnd_state &rnd)
+{
     BelId best_bel = BelId();
+    float best_score = std::numeric_limits<float>::infinity();
     Chip &chip = design->chip;
     if(cell->bel != BelId()) {
         chip.unbindBel(cell->bel);
@@ -140,47 +159,9 @@ static void place_cell(Design *design, CellInfo *cell, std::mt19937 &rnd)
     for (auto bel : chip.getBels()) {
         if (chip.getBelType(bel) == targetType && chip.checkBelAvail(bel) &&
             isValidBelForCell(design, cell, bel)) {
-            float distance = 0;
-            float belx, bely;
-            bool has_conns = false;
-            chip.estimatePosition(bel, belx, bely);
-            for (auto port : cell->ports) {
-                const PortInfo &pi = port.second;
-                if (pi.net != nullptr) {
-                    CellInfo *drv = pi.net->driver.cell;
-                    //float pin_wirelength = std::numeric_limits<float>::infinity();
-                    float pin_wirelength = 0;
-                    if (drv != nullptr && drv->bel != BelId()) {
-                        float otherx, othery;
-                        chip.estimatePosition(drv->bel, otherx, othery);
-                        float local_wl = std::abs(belx - otherx) +
-                                    std::abs(bely - othery);
-                        //if (local_wl < pin_wirelength)
-                            pin_wirelength += local_wl;
-                        has_conns = true;
-                    }
-                    if (pi.net->users.size() < 5) {
-                        for (auto user : pi.net->users) {
-                            CellInfo *uc = user.cell;
-                            if (uc != nullptr && uc->bel != BelId()) {
-                                float otherx, othery;
-                                chip.estimatePosition(uc->bel, otherx, othery);
-                                float local_wl = std::abs(belx - otherx) +
-                                            std::abs(bely - othery);
-                                //if (local_wl < pin_wirelength)
-                                    pin_wirelength += local_wl;
-                                has_conns = true;
-                            }
-                        }
-                    }
-                    if (!std::isinf(pin_wirelength))
-                        distance += pin_wirelength;
-                }
-            }
-            if (!has_conns)
-                distance = random_wirelength(rnd);
-            if (distance <= best_distance) {
-                best_distance = distance;
+            float score = random_float_upto(rnd, 1.0);
+            if (score <= best_score) {
+                best_score = score;
                 best_bel = bel;
             }
         }
@@ -194,6 +175,141 @@ static void place_cell(Design *design, CellInfo *cell, std::mt19937 &rnd)
 
     // Back annotate location
     cell->attrs["BEL"] = chip.getBelName(cell->bel).str();
+}
+
+struct SAState {
+    std::unordered_map<NetInfo *, float> wirelengths;
+    float best_wirelength = std::numeric_limits<float>::infinity();
+    float temp = 1000;
+    bool improved = false;
+    int n_move, n_accept;
+    int diameter = 35;
+};
+
+static float get_wirelength(Chip *chip, NetInfo *net) {
+    float wirelength = 0;
+    float driver_x = 0, driver_y = 0;
+    bool consider_driver = false;
+    CellInfo *driver_cell = net->driver.cell;
+    if (!driver_cell)
+        return 0;
+    if (driver_cell->bel == BelId())
+        return 0;
+    consider_driver = chip->estimatePosition(driver_cell->bel, driver_x, driver_y);
+    if (!consider_driver)
+        return 0;
+    for (auto load : net->users) {
+        if (load.cell == nullptr)
+            continue;
+        CellInfo *load_cell = load.cell;
+        float load_x = 0, load_y = 0;
+        if (load_cell->bel == BelId())
+            continue;
+        chip->estimatePosition(load_cell->bel, load_x, load_y);
+        wirelength += std::abs(load_x - driver_x) + std::abs(load_y - driver_y);
+    }
+    return wirelength;
+}
+
+static bool try_swap_position(Design *design, CellInfo *cell, BelId newBel, rnd_state &rnd, SAState &state) {
+    std::unordered_set<NetInfo *> update;
+    std::unordered_map<NetInfo *, float> new_lengths;
+    Chip &chip = design->chip;
+    BelId oldBel = cell->bel;
+    IdString other = chip.getBelCell(newBel, true);
+    CellInfo *other_cell = nullptr;
+    float new_wirelength = 0, delta;
+    chip.unbindBel(oldBel);
+    if (other != IdString()) {
+        other_cell = design->cells[other];
+        chip.unbindBel(newBel);
+    }
+    if (!isValidBelForCell(design, cell, newBel))
+        goto swap_fail;
+
+    for (const auto &port : cell->ports)
+        if (port.second.net != nullptr)
+            update.insert(port.second.net);
+
+    if (other != IdString()) {
+        if (!isValidBelForCell(design, other_cell, oldBel))
+            goto swap_fail;
+        for (const auto &port : other_cell->ports)
+            if (port.second.net != nullptr)
+                update.insert(port.second.net);
+    }
+
+    chip.bindBel(newBel, cell->name);
+    if (other != IdString()) {
+        if (!isValidBelForCell(design, other_cell, oldBel)) {
+            chip.unbindBel(newBel);
+            goto swap_fail;
+        } else {
+            chip.bindBel(oldBel, other_cell->name);
+        }
+    }
+
+    cell->bel = newBel;
+    if (other != IdString())
+        other_cell->bel = oldBel;
+
+    new_wirelength = state.best_wirelength;
+    for (auto net : update) {
+        new_wirelength -= state.wirelengths.at(net);
+        float net_new_wl = get_wirelength(&chip, net);
+        new_wirelength += net_new_wl;
+        new_lengths[net] = net_new_wl;
+    }
+    delta = new_wirelength - state.best_wirelength;
+    state.n_move++;
+
+    if (delta < 0 || (state.temp > 1e-6 && random_float_upto(rnd, 1.0) <= std::exp(-delta/state.temp))) {
+        state.n_accept++;
+        if (delta < 0)
+            state.improved = true;
+    } else {
+        if (other != IdString())
+            chip.unbindBel(oldBel);
+        chip.unbindBel(newBel);
+        goto swap_fail;
+    }
+    state.best_wirelength = new_wirelength;
+    for (auto new_wl : new_lengths)
+        state.wirelengths[new_wl.first] = new_wl.second;
+
+    return true;
+swap_fail:
+    chip.bindBel(oldBel, cell->name);
+    cell->bel = oldBel;
+    if (other != IdString()) {
+        chip.bindBel(newBel, other);
+        other_cell->bel = newBel;
+    }
+    return false;
+}
+
+BelId random_bel_for_cell(Design *design, CellInfo *cell, SAState state, rnd_state &rnd)
+{
+    BelId best_bel = BelId();
+    float best_score = std::numeric_limits<float>::infinity();
+    Chip &chip = design->chip;
+    BelType targetType = belTypeFromId(cell->type);
+    float x = 0, y = 0;
+    chip.estimatePosition(cell->bel, x, y);
+    for (auto bel : chip.getBels()) {
+        if (chip.getBelType(bel) == targetType) {
+            float score = random_float_upto(rnd, 1.0);
+            float nx = 0, ny = 0;
+            chip.estimatePosition(bel, nx, ny);
+            if (std::abs(nx - x) > state.diameter || std::abs(ny - y) > state.diameter)
+                continue;
+            if (score <= best_score) {
+                best_score = score;
+                best_bel = bel;
+            }
+        }
+    }
+    return best_bel;
 }
 
 void place_design_heuristic(Design *design)
@@ -228,32 +344,97 @@ void place_design_heuristic(Design *design)
         }
     }
     log_info("place_constraints placed %d\n", placed_cells);
-    std::mt19937 rnd;
-    std::vector<IdString> autoplaced;
+    rnd_state rnd;
+    rnd.state = 1;
+    std::vector<CellInfo *> autoplaced;
     for (auto cell : design->cells) {
         CellInfo *ci = cell.second;
         if (ci->bel == BelId()) {
-            place_cell(design, ci, rnd);
-            autoplaced.push_back(cell.first);
+            place_initial(design, ci, rnd);
+            autoplaced.push_back(cell.second);
             placed_cells++;
         }
         log_info("placed %d/%d\n", placed_cells, total_cells);
     }
-    for (int i = 0 ; i < 5; i ++) {
-        int replaced_cells = 0;
-        for (int j = 0; j < autoplaced.size() / 10; j++) {
-            design->chip.unbindBel(design->cells.at(autoplaced.at(j))->bel);
-            design->cells.at(autoplaced.at(j))->bel = BelId();
-        }
-        std::shuffle(autoplaced.begin(), autoplaced.end(), rnd);
-        for (auto cell : autoplaced) {
-            CellInfo *ci = design->cells[cell];
-            place_cell(design, ci, rnd);
-            replaced_cells++;
-            log_info("replaced %d/%d\n", replaced_cells, autoplaced.size());
-        }
+    SAState state;
+    state.best_wirelength = 0;
+    for (auto net : design->nets) {
+        float wl = get_wirelength(&design->chip, net.second);
+        state.wirelengths[net.second] = wl;
+        state.best_wirelength += wl;
     }
 
+    int n_no_progress = 0;
+    double avg_wirelength = state.best_wirelength;
+    state.temp = 10000;
+    for (int iter=1;; iter++)
+    {
+        state.n_move = state.n_accept = 0;
+        state.improved = false;
+
+        //if (iter % 50 == 0)
+            log("  at iteration #%d: temp = %f, wire length = %f\n", iter, state.temp, state.best_wirelength);
+
+        for (int m = 0; m < 15; ++m)
+        {
+            for (auto cell : autoplaced)
+            {
+                BelId try_bel = random_bel_for_cell(design, cell, state, rnd);
+                if (try_bel != BelId() && try_bel != cell->bel)
+                    try_swap_position(design, cell, try_bel, rnd, state);
+            }
+
+        }
+
+        if (state.improved)
+        {
+            n_no_progress = 0;
+            // std::cout << "improved\n";
+        }
+        else
+            ++n_no_progress;
+
+        if (state.temp <= 1e-3
+            /*&& n_no_progress >= 5*/)
+            break;
+
+        double Raccept = (double)state.n_accept / (double)state.n_move;
+
+
+        int M = 30;
+
+        double upper = 0.6,
+                lower = 0.4;
+
+        if (state.best_wirelength < 0.95 * avg_wirelength)
+            avg_wirelength = 0.8*avg_wirelength + 0.2 * state.best_wirelength;
+        else
+        {
+            if (Raccept >= 0.8)
+            {
+                state.temp *= 0.7;
+            }
+            else if (Raccept > upper)
+            {
+                if (state.diameter < M)
+                    ++state.diameter;
+                else
+                    state.temp *= 0.9;
+            }
+            else if (Raccept > lower)
+            {
+                state.temp *= 0.95;
+            }
+            else
+            {
+                // Raccept < 0.3
+                if (state.diameter > 1)
+                    --state.diameter;
+                else
+                    state.temp *= 0.8;
+            }
+        }
+    }
 }
 
 NEXTPNR_NAMESPACE_END
