@@ -21,10 +21,6 @@ set(GENERATED_MOC_FILES
     ${CMAKE_CURRENT_BINARY_DIR}/generated/moc_designwidget.cc
 )
 
-set(UI_SOURCES
-    gui/mainwindow.ui
-)
-qt5_wrap_ui_custom(GENERATED_UI_HEADERS ${UI_SOURCES})
 qt5_add_resources_custom(GUI_RESOURCE_FILES gui/nextpnr.qrc)
 
 aux_source_directory(gui/ GUI_ALL_SOURCE_FILES)

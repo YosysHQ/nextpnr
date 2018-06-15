@@ -10,10 +10,6 @@
 // FIXME
 USING_NEXTPNR_NAMESPACE
 
-namespace Ui {
-class MainWindow;
-}
-
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
@@ -23,14 +19,14 @@ class MainWindow : public QMainWindow
     ~MainWindow();
     Design *getDesign() { return design; }
 
+  private:
+    void createMenusAndBars();
+
   private Q_SLOTS:
     void writeInfo(std::string text);
 
   private:
-    Ui::MainWindow *ui;
     Design *design;
-
-    QTabWidget *tabWidget;
     InfoTab *info;
 };
 
