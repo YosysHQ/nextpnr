@@ -198,11 +198,37 @@ void write_asc(const Design &design, std::ostream &out)
             }
         } else if (cell.second->type == "SB_GB") {
             // no cell config bits
+        } else if (cell.second->type == "ICESTORM_RAM") {
+            const BelInfoPOD &beli = ci.bel_data[bel.index];
+            int x = beli.x, y = beli.y;
+            const TileInfoPOD &ti_ramt = bi.tiles_nonrouting[TILE_RAMT];
+            const TileInfoPOD &ti_ramb = bi.tiles_nonrouting[TILE_RAMB];
+            if (!(chip.args.type == ChipArgs::LP1K ||
+                  chip.args.type == ChipArgs::HX1K)) {
+                set_config(ti_ramb, config.at(y).at(x), "RamConfig.PowerUp",
+                           true);
+            }
+            bool negclk_r = std::stoi(cell.second->params.at("NEG_CLK_R"));
+            bool negclk_w = std::stoi(cell.second->params.at("NEG_CLK_W"));
+            int write_mode = std::stoi(cell.second->params.at("WRITE_MODE"));
+            int read_mode = std::stoi(cell.second->params.at("READ_MODE"));
+            set_config(ti_ramb, config.at(y).at(x), "NegClk", negclk_w);
+            set_config(ti_ramt, config.at(y + 1).at(x), "NegClk", negclk_r);
+
+            set_config(ti_ramt, config.at(y + 1).at(x), "RamConfig.CBIT_0",
+                       write_mode & 0x1);
+            set_config(ti_ramt, config.at(y + 1).at(x), "RamConfig.CBIT_1",
+                       write_mode & 0x2);
+            set_config(ti_ramt, config.at(y + 1).at(x), "RamConfig.CBIT_2",
+                       read_mode & 0x1);
+            set_config(ti_ramt, config.at(y + 1).at(x), "RamConfig.CBIT_3",
+                       read_mode & 0x2);
+
         } else {
             assert(false);
         }
     }
-    // Set config bits in unused IO
+    // Set config bits in unused IO and RAM
     for (auto bel : chip.getBels()) {
         if (chip.bel_to_cell[bel.index] == IdString() &&
             chip.getBelType(bel) == TYPE_SB_IO) {
@@ -220,6 +246,15 @@ void write_asc(const Design &design, std::ostream &out)
                     set_config(ti, config.at(iey).at(iex),
                                "IoCtrl.REN_" + std::to_string(iez), false);
                 }
+            }
+        } else if (chip.bel_to_cell[bel.index] == IdString() &&
+                   chip.getBelType(bel) == TYPE_ICESTORM_RAM) {
+            const BelInfoPOD &beli = ci.bel_data[bel.index];
+            int x = beli.x, y = beli.y;
+            TileInfoPOD &ti = bi.tiles_nonrouting[TILE_RAMB];
+            if ((chip.args.type == ChipArgs::LP1K ||
+                 chip.args.type == ChipArgs::HX1K)) {
+                set_config(ti, config.at(y).at(x), "RamConfig.PowerUp", true);
             }
         }
     }
