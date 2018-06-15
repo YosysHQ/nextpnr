@@ -273,6 +273,15 @@ BelId Chip::getPackagePinBel(const std::string &pin) const
     return BelId();
 }
 
+std::string Chip::getBelPackagePin(BelId bel) const
+{
+    for (int i = 0; i < package_info->num_pins; i++) {
+        if (package_info->pins[i].bel_index == bel.index) {
+            return std::string(package_info->pins[i].name);
+        }
+    }
+    return "";
+}
 // -----------------------------------------------------------------------
 
 bool Chip::estimatePosition(BelId bel, float &x, float &y) const

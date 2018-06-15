@@ -691,6 +691,7 @@ struct Chip
     }
 
     BelId getPackagePinBel(const std::string &pin) const;
+    std::string getBelPackagePin(BelId bel) const;
 
     // -------------------------------------------------
 
