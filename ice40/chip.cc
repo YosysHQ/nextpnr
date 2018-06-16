@@ -275,7 +275,7 @@ BelId Chip::getPackagePinBel(const std::string &pin) const
 
 // -----------------------------------------------------------------------
 
-bool Chip::estimatePosition(BelId bel, float &x, float &y) const
+bool Chip::estimatePosition(BelId bel, int &x, int &y) const
 {
     assert(bel != BelId());
     x = chip_info.bel_data[bel.index].x;
@@ -284,15 +284,15 @@ bool Chip::estimatePosition(BelId bel, float &x, float &y) const
     return chip_info.bel_data[bel.index].type != TYPE_SB_GB;
 }
 
-float Chip::estimateDelay(WireId src, WireId dst) const
+delay_t Chip::estimateDelay(WireId src, WireId dst) const
 {
     assert(src != WireId());
-    float x1 = chip_info.wire_data[src.index].x;
-    float y1 = chip_info.wire_data[src.index].y;
+    delay_t x1 = chip_info.wire_data[src.index].x;
+    delay_t y1 = chip_info.wire_data[src.index].y;
 
     assert(dst != WireId());
-    float x2 = chip_info.wire_data[dst.index].x;
-    float y2 = chip_info.wire_data[dst.index].y;
+    delay_t x2 = chip_info.wire_data[dst.index].x;
+    delay_t y2 = chip_info.wire_data[dst.index].y;
 
     return fabsf(x1 - x2) + fabsf(y1 - y2);
 }

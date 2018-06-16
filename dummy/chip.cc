@@ -141,14 +141,14 @@ const std::vector<PipId> &Chip::getWireAliases(WireId wire) const
 
 // ---------------------------------------------------------------
 
-bool Chip::estimatePosition(BelId bel, float &x, float &y) const
+bool Chip::estimatePosition(BelId bel, int &x, int &y) const
 {
     x = 0.0;
     y = 0.0;
     return false;
 }
 
-float Chip::estimateDelay(WireId src, WireId dst) const { return 0.0; }
+delay_t Chip::estimateDelay(WireId src, WireId dst) const { return 0.0; }
 
 // ---------------------------------------------------------------
 

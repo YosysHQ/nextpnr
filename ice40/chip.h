@@ -26,13 +26,15 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+typedef int delay_t;
+
 struct DelayInfo
 {
-    float delay = 0;
+    delay_t delay = 0;
 
-    float raiseDelay() const { return delay; }
-    float fallDelay() const { return delay; }
-    float avgDelay() const { return delay; }
+    delay_t raiseDelay() const { return delay; }
+    delay_t fallDelay() const { return delay; }
+    delay_t avgDelay() const { return delay; }
 
     DelayInfo operator+(const DelayInfo &other) const
     {
@@ -44,7 +46,7 @@ struct DelayInfo
 
 // -----------------------------------------------------------------------
 
-enum BelType
+enum BelType : int32_t
 {
     TYPE_NONE,
     TYPE_ICESTORM_LC,
@@ -56,7 +58,7 @@ enum BelType
 IdString belTypeToId(BelType type);
 BelType belTypeFromId(IdString id);
 
-enum PortPin
+enum PortPin : int32_t
 {
     PIN_NONE,
 #define X(t) PIN_##t,
@@ -70,6 +72,26 @@ PortPin portPinFromId(IdString id);
 
 // -----------------------------------------------------------------------
 
+#if 0
+template <typename T>
+struct RelPtr {
+    int offset;
+
+    // RelPtr(T *ptr) : offset(reinterpret_cast<const char*>(ptr) -
+    //                         reinterpret_cast<const char*>(this)) {}
+
+    T&operator*() {
+        return *reinterpret_cast<T*>(reinterpret_cast<char*>(this) + offset);
+    }
+
+    T*operator->() {
+        return reinterpret_cast<T*>(reinterpret_cast<char*>(this) + offset);
+    }
+};
+#else
+template <typename T> using RelPtr = T *;
+#endif
+
 struct BelWirePOD
 {
     int32_t wire_index;
@@ -78,10 +100,10 @@ struct BelWirePOD
 
 struct BelInfoPOD
 {
-    const char *name;
+    RelPtr<char> name;
     BelType type;
-    int num_bel_wires;
-    BelWirePOD *bel_wires;
+    int32_t num_bel_wires;
+    RelPtr<BelWirePOD> bel_wires;
     int8_t x, y, z;
 };
 
@@ -94,7 +116,7 @@ struct BelPortPOD
 struct PipInfoPOD
 {
     int32_t src, dst;
-    float delay;
+    int32_t delay;
     int8_t x, y;
     int16_t switch_mask;
     int32_t switch_index;
@@ -102,15 +124,15 @@ struct PipInfoPOD
 
 struct WireInfoPOD
 {
-    const char *name;
-    int num_uphill, num_downhill;
-    int *pips_uphill, *pips_downhill;
+    RelPtr<char> name;
+    int32_t num_uphill, num_downhill;
+    RelPtr<int32_t> pips_uphill, pips_downhill;
 
-    int num_bels_downhill;
+    int32_t num_bels_downhill;
     BelPortPOD bel_uphill;
-    BelPortPOD *bels_downhill;
+    RelPtr<BelPortPOD> bels_downhill;
 
-    float x, y;
+    int8_t x, y;
 };
 
 struct PackagePinPOD
@@ -694,8 +716,8 @@ struct Chip
 
     // -------------------------------------------------
 
-    bool estimatePosition(BelId bel, float &x, float &y) const;
-    float estimateDelay(WireId src, WireId dst) const;
+    bool estimatePosition(BelId bel, int &x, int &y) const;
+    delay_t estimateDelay(WireId src, WireId dst) const;
 
     // -------------------------------------------------
 

@@ -430,7 +430,7 @@ for wire in range(num_wires):
         avg_x /= len(wire_xy[wire])
         avg_y /= len(wire_xy[wire])
 
-    info += "%f, %f}" % (avg_x, avg_y)
+    info += "%d, %d}" % (round(avg_x), round(avg_y))
 
     wireinfo.append(info)
 

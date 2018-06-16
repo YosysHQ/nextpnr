@@ -26,13 +26,15 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+typedef float delay_t;
+
 struct DelayInfo
 {
-    float delay = 0;
+    delay_t delay = 0;
 
-    float raiseDelay() const { return delay; }
-    float fallDelay() const { return delay; }
-    float avgDelay() const { return delay; }
+    delay_t raiseDelay() const { return delay; }
+    delay_t fallDelay() const { return delay; }
+    delay_t avgDelay() const { return delay; }
 
     DelayInfo operator+(const DelayInfo &other) const
     {
@@ -108,8 +110,8 @@ struct Chip
     const std::vector<PipId> &getPipsUphill(WireId wire) const;
     const std::vector<PipId> &getWireAliases(WireId wire) const;
 
-    bool estimatePosition(BelId bel, float &x, float &y) const;
-    float estimateDelay(WireId src, WireId dst) const;
+    bool estimatePosition(BelId bel, int &x, int &y) const;
+    delay_t estimateDelay(WireId src, WireId dst) const;
 
     std::vector<GraphicElement> getFrameGraphics() const;
     std::vector<GraphicElement> getBelGraphics(BelId bel) const;

@@ -56,13 +56,16 @@ NXP_NORETURN void logv_error(const char *format, va_list ap)
         NXP_ATTRIBUTE(noreturn);
 
 extern std::ostream clog;
-void log(const char *format, ...);
-void log_header(const char *format, ...);
-void log_info(const char *format, ...);
-void log_warning(const char *format, ...);
-void log_warning_noprefix(const char *format, ...);
-NXP_NORETURN void log_error(const char *format, ...);
-NXP_NORETURN void log_cmd_error(const char *format, ...);
+void log(const char *format, ...) NXP_ATTRIBUTE(format(printf, 1, 2));
+void log_header(const char *format, ...) NXP_ATTRIBUTE(format(printf, 1, 2));
+void log_info(const char *format, ...) NXP_ATTRIBUTE(format(printf, 1, 2));
+void log_warning(const char *format, ...) NXP_ATTRIBUTE(format(printf, 1, 2));
+void log_warning_noprefix(const char *format, ...)
+        NXP_ATTRIBUTE(format(printf, 1, 2));
+NXP_NORETURN void log_error(const char *format, ...)
+        NXP_ATTRIBUTE(format(printf, 1, 2));
+NXP_NORETURN void log_cmd_error(const char *format, ...)
+        NXP_ATTRIBUTE(format(printf, 1, 2));
 
 void log_spacer();
 void log_push();
