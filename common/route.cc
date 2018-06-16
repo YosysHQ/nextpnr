@@ -195,6 +195,7 @@ struct Router
                                 visited.at(next_wire).delay, next_delay);
 #endif
                         revisitCnt++;
+                        continue;
                     }
 
                     if (!chip.checkWireAvail(next_wire)) {
