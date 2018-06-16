@@ -77,6 +77,12 @@ void nxio_to_sb(CellInfo *nxio, CellInfo *sbio);
 // Return true if a net is a global net
 bool is_global_net(const NetInfo *net);
 
+// Return true if a port is a clock port
+bool is_clock_port(const PortRef &port);
+
+// Return true if a port is a reset port
+bool is_reset_port(const PortRef &port);
+
 NEXTPNR_NAMESPACE_END
 
 #endif

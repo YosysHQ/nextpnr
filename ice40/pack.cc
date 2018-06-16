@@ -276,15 +276,34 @@ static void pack_io(Design *design)
     }
 }
 
-static bool is_clock_port(const PortRef &port)
+static void insert_global(Design *design, NetInfo *net, bool is_reset,
+                          bool is_cen)
 {
-    if (port.cell == nullptr)
-        return false;
-    if (is_ff(port.cell))
-        return port.port == "C";
-    if (is_ram(port.cell))
-        return port.port == "RCLK" || port.port == "WCLK";
-    return false;
+    CellInfo *gb = create_ice_cell(design, "SB_GB");
+    gb->ports["USER_SIGNAL_TO_GLOBAL_BUFFER"].net = net;
+    PortRef pr;
+    pr.cell = gb;
+    pr.port = "USER_SIGNAL_TO_GLOBAL_BUFFER";
+    net->users.push_back(pr);
+
+    pr.cell = gb;
+    pr.port = "GLOBAL_BUFFER_OUTPUT";
+    NetInfo *glbnet = new NetInfo();
+    glbnet->name = net->name.str() + "_glb";
+    glbnet->driver = pr;
+    design->nets[glbnet->name] = glbnet;
+    gb->ports["GLOBAL_BUFFER_OUTPUT"].net = glbnet;
+    std::vector<PortRef> keep_users;
+    for (auto user : net->users) {
+        if (is_clock_port(user) || (is_reset && is_reset_port(user))) {
+            user.cell->ports[user.port].net = glbnet;
+            glbnet->users.push_back(user);
+        } else {
+            keep_users.push_back(user);
+        }
+    }
+    net->users = keep_users;
+    design->cells[gb->name] = gb;
 }
 
 // Simple global promoter (clock only)
@@ -293,13 +312,18 @@ static void promote_globals(Design *design)
     log_info("Promoting globals..\n");
 
     std::unordered_map<IdString, int> clock_count;
+    std::unordered_map<IdString, int> reset_count;
+
     for (auto net : design->nets) {
         NetInfo *ni = net.second;
         if (ni->driver.cell != nullptr && !is_global_net(ni)) {
             clock_count[net.first] = 0;
+            reset_count[net.first] = 0;
             for (auto user : ni->users) {
                 if (is_clock_port(user))
                     clock_count[net.first]++;
+                if (is_reset_port(user))
+                    reset_count[net.first]++;
             }
         }
     }
@@ -310,30 +334,16 @@ static void promote_globals(Design *design)
                                          });
     if (global_clock->second > 0) {
         NetInfo *clknet = design->nets[global_clock->first];
-        CellInfo *gb = create_ice_cell(design, "SB_GB");
-        gb->ports["USER_SIGNAL_TO_GLOBAL_BUFFER"].net = clknet;
-        PortRef pr;
-        pr.cell = gb;
-        pr.port = "USER_SIGNAL_TO_GLOBAL_BUFFER";
-        clknet->users.push_back(pr);
-
-        pr.cell = gb;
-        pr.port = "GLOBAL_BUFFER_OUTPUT";
-        NetInfo *glbnet = new NetInfo();
-        glbnet->name = clknet->name.str() + "_glb";
-        glbnet->driver = pr;
-        design->nets[glbnet->name] = glbnet;
-        std::vector<PortRef> keep_users;
-        for (auto user : clknet->users) {
-            if (is_clock_port(user)) {
-                user.cell->ports[user.port].net = glbnet;
-                glbnet->users.push_back(user);
-            } else {
-                keep_users.push_back(user);
-            }
-        }
-        clknet->users = keep_users;
-        design->cells[gb->name] = gb;
+        insert_global(design, clknet, false, false);
+    }
+    auto global_reset = std::max_element(reset_count.begin(), reset_count.end(),
+                                         [](const std::pair<IdString, int> &a,
+                                            const std::pair<IdString, int> &b) {
+                                             return a.second < b.second;
+                                         });
+    if (global_reset->second > 0) {
+        NetInfo *rstnet = design->nets[global_reset->first];
+        insert_global(design, rstnet, true, false);
     }
 }
 

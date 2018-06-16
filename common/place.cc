@@ -122,7 +122,8 @@ static float get_wirelength(Chip *chip, NetInfo *net)
         return 0;
     consider_driver =
             chip->estimatePosition(driver_cell->bel, driver_x, driver_y);
-    WireId drv_wire = chip->getWireBelPin(driver_cell->bel, portPinFromId(net->driver.port));
+    WireId drv_wire = chip->getWireBelPin(driver_cell->bel,
+                                          portPinFromId(net->driver.port));
     if (!consider_driver)
         return 0;
     for (auto load : net->users) {
@@ -132,9 +133,11 @@ static float get_wirelength(Chip *chip, NetInfo *net)
         int load_x = 0, load_y = 0;
         if (load_cell->bel == BelId())
             continue;
-        //chip->estimatePosition(load_cell->bel, load_x, load_y);
-        WireId user_wire = chip->getWireBelPin(load_cell->bel, portPinFromId(load.port));
-        //wirelength += std::abs(load_x - driver_x) + std::abs(load_y - driver_y);
+        // chip->estimatePosition(load_cell->bel, load_x, load_y);
+        WireId user_wire =
+                chip->getWireBelPin(load_cell->bel, portPinFromId(load.port));
+        // wirelength += std::abs(load_x - driver_x) + std::abs(load_y -
+        // driver_y);
         wirelength += chip->estimateDelay(drv_wire, user_wire);
     }
     return wirelength;

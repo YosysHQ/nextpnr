@@ -99,6 +99,20 @@ bool isValidBelForCell(Design *design, CellInfo *cell, BelId bel)
         return logicCellsCompatible(cells);
     } else if (cell->type == "SB_IO") {
         return design->chip.getBelPackagePin(bel) != "";
+    } else if (cell->type == "SB_GB") {
+        bool is_reset = false, is_cen = false;
+        assert(cell->ports.at("GLOBAL_BUFFER_OUTPUT").net != nullptr);
+        for (auto user : cell->ports.at("GLOBAL_BUFFER_OUTPUT").net->users) {
+            if (is_reset_port(user))
+                is_reset = true;
+        }
+        IdString glb_net = chip.getWireName(
+                chip.getWireBelPin(bel, PIN_GLOBAL_BUFFER_OUTPUT));
+        int glb_id = std::stoi(std::string("") + glb_net.str().back());
+        if (is_reset)
+            return (glb_id % 2) == 0;
+        else
+            return true;
     } else {
         // TODO: IO cell clock checks
         return true;

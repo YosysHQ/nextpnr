@@ -190,6 +190,26 @@ void nxio_to_sb(CellInfo *nxio, CellInfo *sbio)
     }
 }
 
+bool is_clock_port(const PortRef &port)
+{
+    if (port.cell == nullptr)
+        return false;
+    if (is_ff(port.cell))
+        return port.port == "C";
+    if (is_ram(port.cell))
+        return port.port == "RCLK" || port.port == "WCLK";
+    return false;
+}
+
+bool is_reset_port(const PortRef &port)
+{
+    if (port.cell == nullptr)
+        return false;
+    if (is_ff(port.cell))
+        return port.port == "R" || port.port == "S";
+    return false;
+}
+
 bool is_global_net(const NetInfo *net)
 {
     return bool(net_driven_by(net, is_gbuf, "GLOBAL_BUFFER_OUTPUT"));
