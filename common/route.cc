@@ -196,6 +196,7 @@ struct Router
                                 float(next_delay));
 #endif
                         revisitCnt++;
+                        continue;
                     }
 
                     if (!chip.checkWireAvail(next_wire)) {

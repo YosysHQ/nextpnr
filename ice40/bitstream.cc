@@ -67,6 +67,28 @@ void set_config(const TileInfoPOD &ti,
     }
 }
 
+int get_param_or_def(const CellInfo *cell, const std::string &param,
+                     int defval = 0)
+{
+    auto found = cell->params.find(param);
+    if (found != cell->params.end())
+        return std::stoi(found->second);
+    else
+        return defval;
+}
+
+std::string get_param_str_or_def(const CellInfo *cell, const std::string &param,
+                                 std::string defval = "")
+{
+    auto found = cell->params.find(param);
+    if (found != cell->params.end())
+        return found->second;
+    else
+        return defval;
+}
+
+char get_hexdigit(int i) { return std::string("0123456789ABCDEF").at(i); }
+
 void write_asc(const Design &design, std::ostream &out)
 {
     const Chip &chip = design.chip;
@@ -134,12 +156,12 @@ void write_asc(const Design &design, std::ostream &out)
         int x = beli.x, y = beli.y, z = beli.z;
         if (cell.second->type == "ICESTORM_LC") {
             TileInfoPOD &ti = bi.tiles_nonrouting[TILE_LOGIC];
-            unsigned lut_init = std::stoi(cell.second->params["LUT_INIT"]);
-            bool neg_clk = std::stoi(cell.second->params["NEG_CLK"]);
-            bool dff_enable = std::stoi(cell.second->params["DFF_ENABLE"]);
-            bool async_sr = std::stoi(cell.second->params["ASYNC_SR"]);
-            bool set_noreset = std::stoi(cell.second->params["SET_NORESET"]);
-            bool carry_enable = std::stoi(cell.second->params["CARRY_ENABLE"]);
+            unsigned lut_init = get_param_or_def(cell.second, "LUT_INIT");
+            bool neg_clk = get_param_or_def(cell.second, "NEG_CLK");
+            bool dff_enable = get_param_or_def(cell.second, "DFF_ENABLE");
+            bool async_sr = get_param_or_def(cell.second, "ASYNC_SR");
+            bool set_noreset = get_param_or_def(cell.second, "SET_NORESET");
+            bool carry_enable = get_param_or_def(cell.second, "CARRY_ENABLE");
             std::vector<bool> lc(20, false);
             // From arachne-pnr
             static std::vector<int> lut_perm = {
@@ -160,9 +182,9 @@ void write_asc(const Design &design, std::ostream &out)
             set_config(ti, config.at(y).at(x), "NegClk", neg_clk);
         } else if (cell.second->type == "SB_IO") {
             TileInfoPOD &ti = bi.tiles_nonrouting[TILE_IO];
-            unsigned pin_type = std::stoi(cell.second->params["PIN_TYPE"]);
-            bool neg_trigger = std::stoi(cell.second->params["NEG_TRIGGER"]);
-            bool pullup = std::stoi(cell.second->params["PULLUP"]);
+            unsigned pin_type = get_param_or_def(cell.second, "PIN_TYPE");
+            bool neg_trigger = get_param_or_def(cell.second, "NEG_TRIGGER");
+            bool pullup = get_param_or_def(cell.second, "PULLUP");
             for (int i = 0; i < 6; i++) {
                 bool val = (pin_type >> i) & 0x01;
                 set_config(ti, config.at(y).at(x),
@@ -198,11 +220,37 @@ void write_asc(const Design &design, std::ostream &out)
             }
         } else if (cell.second->type == "SB_GB") {
             // no cell config bits
+        } else if (cell.second->type == "ICESTORM_RAM") {
+            const BelInfoPOD &beli = ci.bel_data[bel.index];
+            int x = beli.x, y = beli.y;
+            const TileInfoPOD &ti_ramt = bi.tiles_nonrouting[TILE_RAMT];
+            const TileInfoPOD &ti_ramb = bi.tiles_nonrouting[TILE_RAMB];
+            if (!(chip.args.type == ChipArgs::LP1K ||
+                  chip.args.type == ChipArgs::HX1K)) {
+                set_config(ti_ramb, config.at(y).at(x), "RamConfig.PowerUp",
+                           true);
+            }
+            bool negclk_r = get_param_or_def(cell.second, "NEG_CLK_R");
+            bool negclk_w = get_param_or_def(cell.second, "NEG_CLK_W");
+            int write_mode = get_param_or_def(cell.second, "WRITE_MODE");
+            int read_mode = get_param_or_def(cell.second, "READ_MODE");
+            set_config(ti_ramb, config.at(y).at(x), "NegClk", negclk_w);
+            set_config(ti_ramt, config.at(y + 1).at(x), "NegClk", negclk_r);
+
+            set_config(ti_ramt, config.at(y + 1).at(x), "RamConfig.CBIT_0",
+                       write_mode & 0x1);
+            set_config(ti_ramt, config.at(y + 1).at(x), "RamConfig.CBIT_1",
+                       write_mode & 0x2);
+            set_config(ti_ramt, config.at(y + 1).at(x), "RamConfig.CBIT_2",
+                       read_mode & 0x1);
+            set_config(ti_ramt, config.at(y + 1).at(x), "RamConfig.CBIT_3",
+                       read_mode & 0x2);
+
         } else {
             assert(false);
         }
     }
-    // Set config bits in unused IO
+    // Set config bits in unused IO and RAM
     for (auto bel : chip.getBels()) {
         if (chip.bel_to_cell[bel.index] == IdString() &&
             chip.getBelType(bel) == TYPE_SB_IO) {
@@ -220,6 +268,15 @@ void write_asc(const Design &design, std::ostream &out)
                     set_config(ti, config.at(iey).at(iex),
                                "IoCtrl.REN_" + std::to_string(iez), false);
                 }
+            }
+        } else if (chip.bel_to_cell[bel.index] == IdString() &&
+                   chip.getBelType(bel) == TYPE_ICESTORM_RAM) {
+            const BelInfoPOD &beli = ci.bel_data[bel.index];
+            int x = beli.x, y = beli.y;
+            TileInfoPOD &ti = bi.tiles_nonrouting[TILE_RAMB];
+            if ((chip.args.type == ChipArgs::LP1K ||
+                 chip.args.type == ChipArgs::HX1K)) {
+                set_config(ti, config.at(y).at(x), "RamConfig.PowerUp", true);
             }
         }
     }
@@ -310,6 +367,35 @@ void write_asc(const Design &design, std::ostream &out)
                 out << std::endl;
             }
             out << std::endl;
+        }
+    }
+
+    // Write RAM init data
+    for (auto cell : design.cells) {
+        if (cell.second->bel != BelId()) {
+            if (cell.second->type == "ICESTORM_RAM") {
+                const BelInfoPOD &beli = ci.bel_data[cell.second->bel.index];
+                int x = beli.x, y = beli.y;
+                out << ".ram_data " << x << " " << y << std::endl;
+                for (int w = 0; w < 16; w++) {
+                    std::vector<bool> bits(256);
+                    std::string init = get_param_str_or_def(
+                            cell.second,
+                            std::string("INIT_") + get_hexdigit(w));
+                    assert(init != "");
+                    for (int i = 0; i < init.size(); i++) {
+                        bool val = (init.at((init.size() - 1) - i) == '1');
+                        bits.at(i) = val;
+                    }
+                    for (int i = bits.size()-4; i >= 0; i -= 4) {
+                        int c = bits.at(i) + (bits.at(i + 1) << 1) +
+                                (bits.at(i + 2) << 2) + (bits.at(i + 3) << 3);
+                        out << char(std::tolower(get_hexdigit(c)));
+                    }
+                    out << std::endl;
+                }
+                out << std::endl;
+            }
         }
     }
 }
