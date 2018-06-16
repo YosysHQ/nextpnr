@@ -129,7 +129,8 @@ static void pack_ram(Design *design)
                                                ci->name.str() + "_RAM");
             packed_cells.insert(ci->name);
             new_cells.push_back(packed);
-            std::copy(ci->params.begin(), ci->params.end(), std::inserter(packed->params, packed->params.begin()));
+            for (auto param : ci->params)
+                packed->params[param.first] = param.second;
             packed->params["NEG_CLK_W"] =
                     std::to_string(ci->type == "SB_RAM40_4KNW" ||
                                    ci->type == "SB_RAM40_4KNRNW");
