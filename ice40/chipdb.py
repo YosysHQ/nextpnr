@@ -4,6 +4,8 @@ import sys
 import re
 import textwrap
 
+endianness = "le"
+
 dev_name = None
 dev_width = None
 dev_height = None
@@ -39,6 +41,25 @@ tile_bits = [[] for _ in range(num_tile_types)]
 
 cbit_re = re.compile(r'B(\d+)\[(\d+)\]')
 
+portpins = dict()
+beltypes = dict()
+
+with open("ice40/portpins.inc") as f:
+    for line in f:
+        line = line.replace("(", " ")
+        line = line.replace(")", " ")
+        line = line.split()
+        if len(line) == 0:
+            continue
+        assert len(line) == 2
+        assert line[0] == "X"
+        idx = len(portpins) + 1
+        portpins[line[1]] = idx
+
+beltypes["ICESTORM_LC"] = 1
+beltypes["ICESTORM_RAM"] = 2
+beltypes["SB_IO"] = 3
+beltypes["SB_GB"] = 4
 
 def maj_wire_name(name):
     if re.match(r"lutff_\d/(in|out)", name[2]):
@@ -344,24 +365,144 @@ elif dev_name == "384":
     add_bel_gb( 3,  0,  5)
     add_bel_gb( 3,  9,  4)
 
+class BinaryBlobAssembler:
+    def __init__(self):
+        self.data = bytearray()
+        self.comments = dict()
+        self.labels = dict()
+        self.labels_byaddr = dict()
+        self.ltypes_byaddr = dict()
+        self.refs = dict()
+
+    def l(self, name, ltype = None):
+        assert name not in self.labels
+        assert len(self.data) not in self.labels_byaddr
+        self.labels[name] = len(self.data)
+        if ltype is not None:
+            self.ltypes_byaddr[len(self.data)] = ltype
+        self.labels_byaddr[len(self.data)] = name
+
+    def r(self, name, comment):
+        assert len(self.data) not in self.refs
+        self.refs[len(self.data)] = (name, comment)
+        self.data.append(0)
+        self.data.append(0)
+        self.data.append(0)
+        self.data.append(0)
+
+    def s(self, v, comment):
+        for i in range(len(v)):
+            self.data.append(ord(v[i]))
+        self.data.append(0)
+        self.comments[len(self.data)] = comment
+
+    def u8(self, v, comment):
+        self.data.append(v)
+        self.comments[len(self.data)] = comment
+
+    def u16(self, v, comment):
+        if endianness == "le":
+            self.data.append(v & 255)
+            self.data.append((v >> 8) & 255)
+        elif endianness == "be":
+            self.data.append((v >> 8) & 255)
+            self.data.append(v & 255)
+        else:
+            assert 0
+        self.comments[len(self.data)] = comment
+
+    def u32(self, v, comment):
+        if endianness == "le":
+            self.data.append(v & 255)
+            self.data.append((v >> 8) & 255)
+            self.data.append((v >> 16) & 255)
+            self.data.append((v >> 24) & 255)
+        elif endianness == "be":
+            self.data.append((v >> 24) & 255)
+            self.data.append((v >> 16) & 255)
+            self.data.append((v >> 8) & 255)
+            self.data.append(v & 255)
+        else:
+            assert 0
+        self.comments[len(self.data)] = comment
+
+    def write_c(self, f):
+        cursor = 0
+        bytecnt = 0
+        while cursor < len(self.data):
+            if cursor in self.comments:
+                if bytecnt == 0:
+                    print(" ", end="")
+                print(" // %s" % self.comments[cursor])
+                bytecnt = 0
+            if cursor in self.labels_byaddr:
+                if bytecnt != 0:
+                    print()
+                if cursor in self.ltypes_byaddr:
+                    print("#define %s ((%s*)(binblob_%s+%d))" % (self.labels_byaddr[cursor], self.ltypes_byaddr[cursor], dev_name, cursor))
+                else:
+                    print("  // [%d] %s" % (cursor, self.labels_byaddr[cursor]))
+                bytecnt = 0
+            if cursor in self.refs:
+                v = self.labels[self.refs[cursor][0]] - cursor
+                if bytecnt != 0:
+                    print()
+                print(" ", end="")
+                if endianness == "le":
+                    print(" %3d," % (v & 255), end="")
+                    print(" %3d," % ((v >> 8) & 255), end="")
+                    print(" %3d," % ((v >> 16) & 255), end="")
+                    print(" %3d," % ((v >> 24) & 255), end="")
+                elif endianness == "be":
+                    print(" %3d," % (v & 255), end="")
+                    print(" %3d," % ((v >> 8) & 255), end="")
+                    print(" %3d," % ((v >> 16) & 255), end="")
+                    print(" %3d," % ((v >> 24) & 255), end="")
+                else:
+                    assert 0
+                print(" // [%d] %s (reference to %s)" % (cursor, self.refs[cursor][1], self.refs[cursor][0]))
+                bytecnt = 0
+                cursor += 4
+            else:
+                if bytecnt == 0:
+                    print(" ", end="")
+                print(" %3d," % self.data[cursor], end=("" if bytecnt < 15 else "\n"))
+                bytecnt = (bytecnt + 1) & 15
+                cursor += 1
+        if bytecnt != 0:
+            print()
+
+bba = BinaryBlobAssembler()
+
 print('#include "nextpnr.h"')
 print('namespace {')
 print('USING_NEXTPNR_NAMESPACE')
 
 index = 0
-print("static BelWirePOD bel_wires[] = {")
 for bel in range(len(bel_name)):
-    print("#define bel_wires_%d (bel_wires+%d)" % (bel, index))
+    bba.l("bel_wires_%d" % bel, "BelWirePOD")
     for i in range(len(bel_wires[bel])):
-        print("  {%d, PIN_%s}," % bel_wires[bel][i])
+        bba.u32(bel_wires[bel][i][0], "wire_index")
+        bba.u32(portpins[bel_wires[bel][i][1]], "port")
         index += 1
-print("};")
 
-print("static BelInfoPOD bel_data_%s[%d] = {" % (dev_name, len(bel_name)))
 for bel in range(len(bel_name)):
-    print("  {\"%s\", TYPE_%s, %d, bel_wires_%d, %d, %d, %d}%s" % (bel_name[bel], bel_type[bel],
-            len(bel_wires[bel]), bel, bel_pos[bel][0], bel_pos[bel][1], bel_pos[bel][2],
-            "," if bel+1 < len(bel_name) else ""))
+    bba.l("bel_name_%d" % bel, "char")
+    bba.s(bel_name[bel], "name: %s" % bel_name[bel])
+
+bba.l("bel_data", "BelInfoPOD")
+for bel in range(len(bel_name)):
+    bba.r("bel_name_%d" % bel, "name")
+    bba.u32(beltypes[bel_type[bel]], "type")
+    bba.u32(len(bel_wires[bel]), "num_bel_wires")
+    bba.r("bel_wires_%d" % bel, "bel_wires")
+    bba.u8(bel_pos[bel][0], "x")
+    bba.u8(bel_pos[bel][1], "y")
+    bba.u8(bel_pos[bel][2], "z")
+    bba.u8(0, "filler")
+
+print("static uint8_t binblob_%s[] = {" % dev_name)
+bba.write_c(sys.stdout)
 print("};")
 
 wireinfo = list()
@@ -540,7 +681,7 @@ print('NEXTPNR_NAMESPACE_BEGIN')
 
 print("ChipInfoPOD chip_info_%s = {" % dev_name)
 print("  %d, %d, %d, %d, %d, %d, %d," % (dev_width, dev_height, len(bel_name), num_wires, len(pipinfo), len(switchinfo), len(packageinfo)))
-print("  bel_data_%s, wire_data_%s, pip_data_%s," % (dev_name, dev_name, dev_name))
+print("  bel_data, wire_data_%s, pip_data_%s," % (dev_name, dev_name))
 print("  tile_grid_%s, &bits_info_%s, package_info_%s" % (dev_name, dev_name, dev_name))
 print("};")
 

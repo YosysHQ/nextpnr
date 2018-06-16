@@ -153,7 +153,7 @@ BelId Chip::getBelByName(IdString name) const
 
     if (bel_by_name.empty()) {
         for (int i = 0; i < chip_info.num_bels; i++)
-            bel_by_name[chip_info.bel_data[i].name] = i;
+            bel_by_name[chip_info.bel_data[i].name.ptr()] = i;
     }
 
     auto it = bel_by_name.find(name);
@@ -190,7 +190,7 @@ WireId Chip::getWireBelPin(BelId bel, PortPin pin) const
     assert(bel != BelId());
 
     int num_bel_wires = chip_info.bel_data[bel.index].num_bel_wires;
-    BelWirePOD *bel_wires = chip_info.bel_data[bel.index].bel_wires;
+    BelWirePOD *bel_wires = chip_info.bel_data[bel.index].bel_wires.ptr();
 
     for (int i = 0; i < num_bel_wires; i++)
         if (bel_wires[i].port == pin) {

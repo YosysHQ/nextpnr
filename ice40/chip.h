@@ -72,7 +72,6 @@ PortPin portPinFromId(IdString id);
 
 // -----------------------------------------------------------------------
 
-#if 0
 template <typename T>
 struct RelPtr {
     int offset;
@@ -87,16 +86,17 @@ struct RelPtr {
     T*operator->() {
         return reinterpret_cast<T*>(reinterpret_cast<char*>(this) + offset);
     }
+
+    T*ptr() {
+        return reinterpret_cast<T*>(reinterpret_cast<char*>(this) + offset);
+    }
 };
-#else
-template <typename T> using RelPtr = T *;
-#endif
 
 struct BelWirePOD
 {
     int32_t wire_index;
     PortPin port;
-};
+} __attribute__((packed));
 
 struct BelInfoPOD
 {
@@ -105,13 +105,14 @@ struct BelInfoPOD
     int32_t num_bel_wires;
     RelPtr<BelWirePOD> bel_wires;
     int8_t x, y, z;
-};
+    int8_t filler_0;
+} __attribute__((packed));
 
 struct BelPortPOD
 {
     int32_t bel_index;
     PortPin port;
-};
+} __attribute__((packed));
 
 struct PipInfoPOD
 {
@@ -120,33 +121,33 @@ struct PipInfoPOD
     int8_t x, y;
     int16_t switch_mask;
     int32_t switch_index;
-};
+} __attribute__((packed));
 
 struct WireInfoPOD
 {
-    RelPtr<char> name;
+    const char *name;
     int32_t num_uphill, num_downhill;
-    RelPtr<int32_t> pips_uphill, pips_downhill;
+    int32_t *pips_uphill, *pips_downhill;
 
     int32_t num_bels_downhill;
     BelPortPOD bel_uphill;
-    RelPtr<BelPortPOD> bels_downhill;
+    BelPortPOD *bels_downhill;
 
     int8_t x, y;
-};
+} __attribute__((packed));
 
 struct PackagePinPOD
 {
     const char *name;
     int32_t bel_index;
-};
+} __attribute__((packed));
 
 struct PackageInfoPOD
 {
     const char *name;
     int num_pins;
     PackagePinPOD *pins;
-};
+} __attribute__((packed));
 
 enum TileType
 {
@@ -160,21 +161,21 @@ enum TileType
 struct ConfigBitPOD
 {
     int8_t row, col;
-};
+} __attribute__((packed));
 
 struct ConfigEntryPOD
 {
     const char *name;
     int num_bits;
     ConfigBitPOD *bits;
-};
+} __attribute__((packed));
 
 struct TileInfoPOD
 {
     int8_t cols, rows;
     int num_config_entries;
     ConfigEntryPOD *entries;
-};
+} __attribute__((packed));
 
 static const int max_switch_bits = 5;
 
@@ -183,13 +184,13 @@ struct SwitchInfoPOD
     int8_t x, y;
     int num_bits;
     ConfigBitPOD cbits[max_switch_bits];
-};
+} __attribute__((packed));
 
 struct IerenInfoPOD
 {
     int8_t iox, ioy, ioz;
     int8_t ierx, iery, ierz;
-};
+} __attribute__((packed));
 
 struct BitstreamInfoPOD
 {
@@ -197,7 +198,7 @@ struct BitstreamInfoPOD
     TileInfoPOD *tiles_nonrouting;
     SwitchInfoPOD *switches;
     IerenInfoPOD *ierens;
-};
+} __attribute__((packed));
 
 struct ChipInfoPOD
 {
@@ -210,7 +211,7 @@ struct ChipInfoPOD
     TileType *tile_grid;
     BitstreamInfoPOD *bits_info;
     PackageInfoPOD *packages_data;
-};
+} __attribute__((packed));
 
 extern ChipInfoPOD chip_info_384;
 extern ChipInfoPOD chip_info_1k;
@@ -476,7 +477,7 @@ struct Chip
     IdString getBelName(BelId bel) const
     {
         assert(bel != BelId());
-        return chip_info.bel_data[bel.index].name;
+        return chip_info.bel_data[bel.index].name.ptr();
     }
 
     void bindBel(BelId bel, IdString cell)
