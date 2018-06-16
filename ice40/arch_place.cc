@@ -18,11 +18,12 @@
  */
 
 #include "arch_place.h"
+#include "cells.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
-static const NetInfo *
-get_net_or_nullptr(const CellInfo *cell, const IdString port)
+static const NetInfo *get_net_or_nullptr(const CellInfo *cell,
+                                         const IdString port)
 {
     auto found = cell->ports.find(port);
     if (found != cell->ports.end())
@@ -45,9 +46,12 @@ static bool logicCellsCompatible(const std::vector<const CellInfo *> &cells)
                 clk = get_net_or_nullptr(cell, "CLK");
                 sr = get_net_or_nullptr(cell, "SR");
 
-                locals.insert(cen);
-                locals.insert(clk);
-                locals.insert(sr);
+                if (!is_global_net(cen))
+                    locals.insert(cen);
+                if (!is_global_net(clk))
+                    locals.insert(clk);
+                if (!is_global_net(sr))
+                    locals.insert(sr);
 
                 if (std::stoi(cell->params.at("NEG_CLK"))) {
                     dffs_neg = true;
@@ -93,7 +97,8 @@ bool isValidBelForCell(Design *design, CellInfo *cell, BelId bel)
 
         cells.push_back(cell);
         return logicCellsCompatible(cells);
-
+    } else if (cell->type == "SB_IO") {
+        return design->chip.getBelPackagePin(bel) != "";
     } else {
         // TODO: IO cell clock checks
         return true;

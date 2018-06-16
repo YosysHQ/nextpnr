@@ -72,7 +72,7 @@ CellInfo *net_only_drives(NetInfo *net, F1 cell_pred, IdString port,
 // If a net is driven by a given port of a cell matching a predicate, return
 // that cell, otherwise nullptr
 template <typename F1>
-CellInfo *net_driven_by(NetInfo *net, F1 cell_pred, IdString port)
+CellInfo *net_driven_by(const NetInfo *net, F1 cell_pred, IdString port)
 {
     if (net == nullptr)
         return nullptr;
