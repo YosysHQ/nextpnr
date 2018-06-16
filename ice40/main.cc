@@ -222,7 +222,7 @@ int main(int argc, char *argv[])
 
         pack_design(&design);
         if (!vm.count("pack-only")) {
-            place_design_heuristic(&design);
+            place_design_sa(&design);
             route_design(&design, verbose);
         }
     }
