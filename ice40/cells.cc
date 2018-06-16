@@ -196,7 +196,9 @@ bool is_clock_port(const PortRef &port)
         return false;
     if (is_ff(port.cell))
         return port.port == "C";
-    if (is_ram(port.cell))
+    if (port.cell->type == "ICESTORM_LC")
+        return port.port == "CLK";
+    if (is_ram(port.cell) || port.cell->type == "ICESTORM_RAM")
         return port.port == "RCLK" || port.port == "WCLK";
     return false;
 }
@@ -207,6 +209,19 @@ bool is_reset_port(const PortRef &port)
         return false;
     if (is_ff(port.cell))
         return port.port == "R" || port.port == "S";
+    if (port.cell->type == "ICESTORM_LC")
+        return port.port == "SR";
+    return false;
+}
+
+bool is_enable_port(const PortRef &port)
+{
+    if (port.cell == nullptr)
+        return false;
+    if (is_ff(port.cell))
+        return port.port == "E";
+    if (port.cell->type == "ICESTORM_LC")
+        return port.port == "CEN";
     return false;
 }
 

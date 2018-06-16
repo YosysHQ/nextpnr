@@ -83,6 +83,9 @@ bool is_clock_port(const PortRef &port);
 // Return true if a port is a reset port
 bool is_reset_port(const PortRef &port);
 
+// Return true if a port is a clock enable port
+bool is_enable_port(const PortRef &port);
+
 NEXTPNR_NAMESPACE_END
 
 #endif

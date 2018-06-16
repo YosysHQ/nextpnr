@@ -105,12 +105,18 @@ bool isValidBelForCell(Design *design, CellInfo *cell, BelId bel)
         for (auto user : cell->ports.at("GLOBAL_BUFFER_OUTPUT").net->users) {
             if (is_reset_port(user))
                 is_reset = true;
+            if (is_enable_port(user))
+                is_cen = true;
         }
         IdString glb_net = chip.getWireName(
                 chip.getWireBelPin(bel, PIN_GLOBAL_BUFFER_OUTPUT));
         int glb_id = std::stoi(std::string("") + glb_net.str().back());
-        if (is_reset)
+        if (is_reset && is_cen)
+            return false;
+        else if (is_reset)
             return (glb_id % 2) == 0;
+        else if (is_cen)
+            return (glb_id % 2) == 1;
         else
             return true;
     } else {
