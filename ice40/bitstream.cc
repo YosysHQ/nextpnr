@@ -387,7 +387,7 @@ void write_asc(const Design &design, std::ostream &out)
                         bool val = (init.at((init.size() - 1) - i) == '1');
                         bits.at(i) = val;
                     }
-                    for (int i = bits.size()-4; i >= 0; i -= 4) {
+                    for (int i = bits.size() - 4; i >= 0; i -= 4) {
                         int c = bits.at(i) + (bits.at(i + 1) << 1) +
                                 (bits.at(i + 2) << 2) + (bits.at(i + 3) << 3);
                         out << char(std::tolower(get_hexdigit(c)));
