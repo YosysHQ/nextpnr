@@ -394,11 +394,13 @@ class BinaryBlobAssembler:
         for i in range(len(v)):
             self.data.append(ord(v[i]))
         self.data.append(0)
-        self.comments[len(self.data)] = comment
+        if comment is not None:
+            self.comments[len(self.data)] = comment
 
     def u8(self, v, comment):
         self.data.append(v)
-        self.comments[len(self.data)] = comment
+        if comment is not None:
+            self.comments[len(self.data)] = comment
 
     def u16(self, v, comment):
         if endianness == "le":
@@ -409,7 +411,8 @@ class BinaryBlobAssembler:
             self.data.append(v & 255)
         else:
             assert 0
-        self.comments[len(self.data)] = comment
+        if comment is not None:
+            self.comments[len(self.data)] = comment
 
     def u32(self, v, comment):
         if endianness == "le":
@@ -424,7 +427,8 @@ class BinaryBlobAssembler:
             self.data.append(v & 255)
         else:
             assert 0
-        self.comments[len(self.data)] = comment
+        if comment is not None:
+            self.comments[len(self.data)] = comment
 
     def write_c(self, f):
         cursor = 0
@@ -501,17 +505,9 @@ for bel in range(len(bel_name)):
     bba.u8(bel_pos[bel][2], "z")
     bba.u8(0, "filler")
 
-print("static uint8_t binblob_%s[] = {" % dev_name)
-bba.write_c(sys.stdout)
-print("};")
-
 wireinfo = list()
 pipinfo = list()
 pipcache = dict()
-
-uppips_array = list()
-downpips_array = list()
-downbels_array = list()
 
 for wire in range(num_wires):
     if wire in wire_uphill:
@@ -519,12 +515,13 @@ for wire in range(num_wires):
         for src in wire_uphill[wire]:
             if (src, wire) not in pipcache:
                 pipcache[(src, wire)] = len(pipinfo)
-                pipinfo.append("  {%d, %d, 1.0, %d, %d, %d, %d}" % (src, wire, pip_xy[(src, wire)][0], pip_xy[(src, wire)][1], pip_xy[(src, wire)][2], pip_xy[(src, wire)][3]))
-            pips.append("%d" % pipcache[(src, wire)])
+                pipinfo.append("  {%d, %d, 1, %d, %d, %d, %d}" % (src, wire, pip_xy[(src, wire)][0], pip_xy[(src, wire)][1], pip_xy[(src, wire)][2], pip_xy[(src, wire)][3]))
+            pips.append(pipcache[(src, wire)])
         num_uphill = len(pips)
         list_uphill = "wire%d_uppips" % wire
-        print("#define wire%d_uppips (wire_uppips+%d)" % (wire, len(uppips_array)))
-        uppips_array += pips
+        bba.l(list_uphill, "int32_t")
+        for p in pips:
+            bba.u32(p, None)
     else:
         num_uphill = 0
         list_uphill = "nullptr"
@@ -534,21 +531,23 @@ for wire in range(num_wires):
         for dst in wire_downhill[wire]:
             if (wire, dst) not in pipcache:
                 pipcache[(wire, dst)] = len(pipinfo)
-                pipinfo.append("  {%d, %d, 1.0, %d, %d, %d, %d}" % (wire, dst, pip_xy[(wire, dst)][0], pip_xy[(wire, dst)][1], pip_xy[(wire, dst)][2], pip_xy[(wire, dst)][3]))
-            pips.append("%d" % pipcache[(wire, dst)])
+                pipinfo.append("  {%d, %d, 1, %d, %d, %d, %d}" % (wire, dst, pip_xy[(wire, dst)][0], pip_xy[(wire, dst)][1], pip_xy[(wire, dst)][2], pip_xy[(wire, dst)][3]))
+            pips.append(pipcache[(wire, dst)])
         num_downhill = len(pips)
         list_downhill = "wire%d_downpips" % wire
-        print("#define wire%d_downpips (wire_downpips+%d)" % (wire, len(downpips_array)))
-        downpips_array += pips
+        bba.l(list_downhill, "int32_t")
+        for p in pips:
+            bba.u32(p, None)
     else:
         num_downhill = 0
         list_downhill = "nullptr"
 
     if wire in wire_downhill_belports:
         num_bels_downhill = len(wire_downhill_belports[wire])
-
-        print("#define wire%d_downbels (wire_downbels+%d)" % (wire, len(downbels_array)))
-        downbels_array += ["{%d, PIN_%s}" % it for it in wire_downhill_belports[wire]]
+        bba.l("wire%d_downbels" % wire, "BelPortPOD")
+        for belport in wire_downhill_belports[wire]:
+            bba.u32(belport[0], "bel_index")
+            bba.u32(portpins[belport[1]], "port")
     else:
         num_bels_downhill = 0
 
@@ -575,18 +574,6 @@ for wire in range(num_wires):
 
     wireinfo.append(info)
 
-print("static int wire_uppips[] = {")
-print("  " + "\n  ".join(textwrap.wrap(", ".join(uppips_array))))
-print("};");
-
-print("static int wire_downpips[] = {")
-print("  " + "\n  ".join(textwrap.wrap(", ".join(downpips_array))))
-print("};");
-
-print("static BelPortPOD wire_downbels[] = {")
-print("  " + "\n  ".join(textwrap.wrap(", ".join(downbels_array))))
-print("};");
-
 packageinfo = []
 
 for package in packages:
@@ -597,11 +584,19 @@ for package in packages:
         pinname, x, y, z = pin
         pin_bel = "X%d/Y%d/io%d" % (x, y, z)
         bel_idx = bel_name.index(pin_bel)
-        pins_info.append('{"%s", %d}' % (pinname, bel_idx))
-    print("static PackagePinPOD package_%s_pins[%d] = {" % (safename, len(pins_info)))
-    print("  " + ",\n  ".join(pins_info))
-    print("};")
+        pins_info.append((pinname, bel_idx))
+    for pi in pins_info:
+        bba.l("package_%s_pins_%s" % (safename, pi[0]), "char")
+        bba.s(pi[0], None)
+    bba.l("package_%s_pins" % safename, "PackagePinPOD")
+    for pi in pins_info:
+        bba.r("package_%s_pins_%s" % (safename, pi[0]), "name")
+        bba.u32(pi[1], "bel_index")
     packageinfo.append('{"%s", %d, package_%s_pins}' % (name, len(pins_info), safename))
+
+print("static uint8_t binblob_%s[] = {" % dev_name)
+bba.write_c(sys.stdout)
+print("};")
 
 tilegrid = []
 for y in range(dev_height):

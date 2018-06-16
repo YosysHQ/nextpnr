@@ -138,7 +138,7 @@ struct WireInfoPOD
 
 struct PackagePinPOD
 {
-    const char *name;
+    RelPtr<char> name;
     int32_t bel_index;
 } __attribute__((packed));
 
