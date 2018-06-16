@@ -177,13 +177,16 @@ static bool try_swap_position(Design *design, CellInfo *cell, BelId newBel,
     }
 
     chip.bindBel(newBel, cell->name);
+
     if (other != IdString()) {
-        if (!isValidBelForCell(design, other_cell, oldBel)) {
-            chip.unbindBel(newBel);
-            goto swap_fail;
-        } else {
-            chip.bindBel(oldBel, other_cell->name);
-        }
+        chip.bindBel(oldBel, other_cell->name);
+    }
+
+    if (!isBelLocationValid(design, newBel) || ((other != IdString() && !isBelLocationValid(design, oldBel)))) {
+        chip.unbindBel(newBel);
+        if (other != IdString())
+            chip.unbindBel(oldBel);
+        goto swap_fail;
     }
 
     cell->bel = newBel;

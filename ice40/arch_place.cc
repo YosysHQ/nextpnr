@@ -79,6 +79,27 @@ static bool logicCellsCompatible(const std::vector<const CellInfo *> &cells)
     return locals.size() <= 32;
 }
 
+bool isBelLocationValid(Design *design, BelId bel) {
+    const Chip &chip = design->chip;
+    if (chip.getBelType(bel) == TYPE_ICESTORM_LC) {
+        std::vector<const CellInfo *> cells;
+        for (auto bel_other : chip.getBelsAtSameTile(bel)) {
+            IdString cell_other = chip.getBelCell(bel_other, false);
+            if (cell_other != IdString()) {
+                const CellInfo *ci_other = design->cells[cell_other];
+                cells.push_back(ci_other);
+            }
+        }
+        return logicCellsCompatible(cells);
+    } else {
+        IdString cellId = chip.getBelCell(bel, false);
+        if (cellId == IdString())
+            return true;
+        else
+            return isValidBelForCell(design, design->cells.at(cellId), bel);
+    }
+}
+
 bool isValidBelForCell(Design *design, CellInfo *cell, BelId bel)
 {
     const Chip &chip = design->chip;
