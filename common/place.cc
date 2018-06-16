@@ -113,7 +113,7 @@ struct SAState
 static float get_wirelength(Chip *chip, NetInfo *net)
 {
     float wirelength = 0;
-    float driver_x = 0, driver_y = 0;
+    int driver_x = 0, driver_y = 0;
     bool consider_driver = false;
     CellInfo *driver_cell = net->driver.cell;
     if (!driver_cell)
@@ -128,7 +128,7 @@ static float get_wirelength(Chip *chip, NetInfo *net)
         if (load.cell == nullptr)
             continue;
         CellInfo *load_cell = load.cell;
-        float load_x = 0, load_y = 0;
+        int load_x = 0, load_y = 0;
         if (load_cell->bel == BelId())
             continue;
         chip->estimatePosition(load_cell->bel, load_x, load_y);
@@ -232,7 +232,7 @@ BelId random_bel_for_cell(Design *design, CellInfo *cell, SAState &state,
     Chip &chip = design->chip;
     BelType targetType = belTypeFromId(cell->type);
     assert(int(targetType) < state.fast_bels.size());
-    float x = 0, y = 0;
+    int x = 0, y = 0;
     chip.estimatePosition(cell->bel, x, y);
     while (true) {
         int nx = random_int_between(rnd, std::max(int(x) - state.diameter, 0),
@@ -281,7 +281,7 @@ void place_design_sa(Design *design)
             visit_cells.push(cell);
         }
     }
-    log_info("place_constraints placed %d\n", placed_cells);
+    log_info("place_constraints placed %d\n", int(placed_cells));
     rnd_state rnd;
     rnd.state = 1;
     std::vector<CellInfo *> autoplaced;
@@ -294,12 +294,12 @@ void place_design_sa(Design *design)
             autoplaced.push_back(cell.second);
             placed_cells++;
         }
-        log_info("placed %d/%d\n", placed_cells, total_cells);
+        log_info("placed %d/%d\n", int(placed_cells), int(total_cells));
     }
     // Build up a fast position/type to Bel lookup table
     int max_x = 0, max_y = 0;
     for (auto bel : design->chip.getBels()) {
-        float x, y;
+        int x, y;
         design->chip.estimatePosition(bel, x, y);
         BelType type = design->chip.getBelType(bel);
         if (state.fast_bels.size() < int(type) + 1)
