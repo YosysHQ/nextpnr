@@ -594,10 +594,6 @@ for package in packages:
         bba.u32(pi[1], "bel_index")
     packageinfo.append('{"%s", %d, package_%s_pins}' % (name, len(pins_info), safename))
 
-print("static uint8_t binblob_%s[] = {" % dev_name)
-bba.write_c(sys.stdout)
-print("};")
-
 tilegrid = []
 for y in range(dev_height):
     for x in range(dev_width):
@@ -612,13 +608,29 @@ for t in range(num_tile_types):
     for cb in tile_bits[t]:
         name, bits = cb
         safename = re.sub("[^A-Za-z0-9]", "_", name)
-        bits_list = ["{%d, %d}" % _ for _ in bits]
-        print("static ConfigBitPOD tile%d_%s_bits[%d] = {%s};" % (t, safename, len(bits_list), ", ".join(bits_list)))
-        centries_info.append('{"%s", %d, tile%d_%s_bits}' % (name, len(bits_list), t, safename))
-    print("static ConfigEntryPOD tile%d_config[%d] = {" % (t, len(centries_info)))
-    print("  " + ",\n  ".join(centries_info))
-    print("};")
+        bba.l("tile%d_%s_bits" % (t, safename), "ConfigBitPOD")
+        for row, col in bits:
+            bba.u8(row, "row")
+            bba.u8(col, "col")
+        if len(bits) == 0:
+            bba.u8(0, "dummy")
+        centries_info.append((name, len(bits), t, safename))
+    for name, _, t, safename in centries_info:
+        if ("str_%s" % safename) not in bba.labels:
+            bba.l("str_%s" % safename, "char")
+            bba.s(name, None)
+    bba.l("tile%d_config" % t, "ConfigEntryPOD")
+    for _, num_bits, t, safename in centries_info:
+        bba.r("str_%s" % safename, "name")
+        bba.u32(num_bits, "num_bits")
+        bba.r("tile%d_%s_bits" % (t, safename), "num_bits")
+    if len(centries_info) == 0:
+        bba.u8(0, "dummy")
     tileinfo.append("{%d, %d, %d, tile%d_config}" % (tile_sizes[t][0], tile_sizes[t][1], len(centries_info), t))
+
+print("static uint8_t binblob_%s[] = {" % dev_name)
+bba.write_c(sys.stdout)
+print("};")
 
 switchinfo = []
 switchid = 0

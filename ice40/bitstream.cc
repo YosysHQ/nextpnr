@@ -31,7 +31,7 @@ const ConfigEntryPOD &find_config(const TileInfoPOD &tile,
                                   const std::string &name)
 {
     for (int i = 0; i < tile.num_config_entries; i++) {
-        if (std::string(tile.entries[i].name) == name) {
+        if (std::string(tile.entries[i].name.ptr()) == name) {
             return tile.entries[i];
         }
     }

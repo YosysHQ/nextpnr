@@ -76,19 +76,23 @@ template <typename T>
 struct RelPtr {
     int offset;
 
-    // RelPtr(T *ptr) : offset(reinterpret_cast<const char*>(ptr) -
-    //                         reinterpret_cast<const char*>(this)) {}
+    // RelPtr(const T *ptr) : offset(reinterpret_cast<const char*>(ptr) -
+    //                               reinterpret_cast<const char*>(this)) {}
 
-    T&operator*() {
-        return *reinterpret_cast<T*>(reinterpret_cast<char*>(this) + offset);
+    const T&operator[](size_t index) const {
+        return reinterpret_cast<const T*>(reinterpret_cast<const char*>(this) + offset)[index];
     }
 
-    T*operator->() {
-        return reinterpret_cast<T*>(reinterpret_cast<char*>(this) + offset);
+    const T&operator*() const {
+        return *reinterpret_cast<const T*>(reinterpret_cast<const char*>(this) + offset);
     }
 
-    T*ptr() {
-        return reinterpret_cast<T*>(reinterpret_cast<char*>(this) + offset);
+    const T*operator->() const {
+        return reinterpret_cast<const T*>(reinterpret_cast<const char*>(this) + offset);
+    }
+
+    const T*ptr() const {
+        return reinterpret_cast<const T*>(reinterpret_cast<const char*>(this) + offset);
     }
 };
 
@@ -165,9 +169,9 @@ struct ConfigBitPOD
 
 struct ConfigEntryPOD
 {
-    const char *name;
-    int num_bits;
-    ConfigBitPOD *bits;
+    RelPtr<char> name;
+    int32_t num_bits;
+    RelPtr<ConfigBitPOD> bits;
 } __attribute__((packed));
 
 struct TileInfoPOD
