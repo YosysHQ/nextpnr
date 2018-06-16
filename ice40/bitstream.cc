@@ -77,6 +77,18 @@ int get_param_or_def(const CellInfo *cell, const std::string &param,
         return defval;
 }
 
+std::string get_param_str_or_def(const CellInfo *cell, const std::string &param,
+                                 std::string defval = "")
+{
+    auto found = cell->params.find(param);
+    if (found != cell->params.end())
+        return found->second;
+    else
+        return defval;
+}
+
+char get_hexdigit(int i) { return std::string("0123456789ABCDEF").at(i); }
+
 void write_asc(const Design &design, std::ostream &out)
 {
     const Chip &chip = design.chip;
@@ -355,6 +367,34 @@ void write_asc(const Design &design, std::ostream &out)
                 out << std::endl;
             }
             out << std::endl;
+        }
+    }
+
+    // Write RAM init data
+    for (auto cell : design.cells) {
+        if (cell.second->bel != BelId()) {
+            if (cell.second->type == "ICESTORM_RAM") {
+                const BelInfoPOD &beli = ci.bel_data[cell.second->bel.index];
+                int x = beli.x, y = beli.y;
+                out << ".ram_data " << x << " " << y << std::endl;
+                for (int w = 0; w < 16; w++) {
+                    std::vector<bool> bits(256);
+                    std::string init = get_param_str_or_def(
+                            cell.second,
+                            std::string("INIT_") + get_hexdigit(w));
+                    for (int i = 0; i < init.size(); i++) {
+                        bool val = (init.at((init.size() - 1) - i) == '1');
+                        bits.at(i) = val;
+                    }
+                    for (int i = 0; i < bits.size(); i += 4) {
+                        int c = bits.at(i) + (bits.at(i + 1) << 1) +
+                                (bits.at(i + 2) << 2) + (bits.at(i + 3) << 3);
+                        out << get_hexdigit(c);
+                    }
+                    out << std::endl;
+                }
+                out << std::endl;
+            }
         }
     }
 }
