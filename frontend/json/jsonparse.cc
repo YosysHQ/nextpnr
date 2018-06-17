@@ -345,6 +345,7 @@ static int const_net_idx = 0;
 
 template <typename F>
 void json_import_ports(Design *design, const string &modname,
+                       const std::vector<IdString> &netnames,
                        const string &obj_name, const string &port_name,
                        JsonNode *dir_node, JsonNode *wire_group_node, F visitor)
 {
@@ -432,7 +433,10 @@ void json_import_ports(Design *design, const string &modname,
 
                 // A simple net, specified by a number
                 net_num = wire_node->data_number;
-                net_id = std::to_string(net_num);
+                if (net_num < netnames.size())
+                    net_id = netnames.at(net_num);
+                else
+                    net_id = std::to_string(net_num);
                 if (design->nets.count(net_id) == 0) {
                     // The net doesn't exist in the design (yet)
                     // Create in now
@@ -511,8 +515,9 @@ void json_import_ports(Design *design, const string &modname,
         }
 }
 
-void json_import_cell(Design *design, string modname, JsonNode *cell_node,
-                      string cell_name)
+void json_import_cell(Design *design, string modname,
+                      const std::vector<IdString> &netnames,
+                      JsonNode *cell_node, string cell_name)
 {
     JsonNode *cell_type, *param_node, *attr_node;
 
@@ -616,7 +621,7 @@ void json_import_cell(Design *design, string modname, JsonNode *cell_node,
         wire_group_node = connections->data_dict.at(port_name);
 
         json_import_ports(
-                design, modname, cell->name, port_name, dir_node,
+                design, modname, netnames, cell->name, port_name, dir_node,
                 wire_group_node,
                 [cell](PortType type, const std::string &name, NetInfo *net) {
                     cell->ports[name] = PortInfo{name, net, type};
@@ -696,12 +701,14 @@ static void insert_iobuf(Design *design, NetInfo *net, PortType type,
 }
 
 void json_import_toplevel_port(Design *design, const string &modname,
+                               const std::vector<IdString> &netnames,
                                const string &portname, JsonNode *node)
 {
     JsonNode *dir_node = node->data_dict.at("direction");
     JsonNode *nets_node = node->data_dict.at("bits");
     json_import_ports(
-            design, modname, "Top Level IO", portname, dir_node, nets_node,
+            design, modname, netnames, "Top Level IO", portname, dir_node,
+            nets_node,
             [design](PortType type, const std::string &name, NetInfo *net) {
                 insert_iobuf(design, net, type, name);
             });
@@ -713,6 +720,35 @@ void json_import(Design *design, string modname, JsonNode *node)
         return;
 
     log_info("Importing module %s\n", modname.c_str());
+
+    // Import netnames
+    std::vector<IdString> netnames;
+    if (node->data_dict.count("netnames")) {
+        JsonNode *cell_parent = node->data_dict.at("netnames");
+        for (int nnid = 0; nnid < GetSize(cell_parent->data_dict_keys);
+             nnid++) {
+            JsonNode *here;
+
+            here = cell_parent->data_dict.at(cell_parent->data_dict_keys[nnid]);
+            std::string basename = cell_parent->data_dict_keys[nnid];
+            if (here->data_dict.count("bits")) {
+                JsonNode *bits = here->data_dict.at("bits");
+                assert(bits->type == 'A');
+                size_t num_bits = bits->data_array.size();
+                for (size_t i = 0; i < num_bits; i++) {
+                    int netid = bits->data_array.at(i)->data_number;
+                    if (netid >= netnames.size())
+                        netnames.resize(netid + 1);
+                    netnames.at(netid) =
+                            basename +
+                            (num_bits == 1
+                                     ? ""
+                                     : std::string("[") + std::to_string(i) +
+                                               std::string("]"));
+                }
+            }
+        }
+    }
 
     if (node->data_dict.count("cells")) {
         JsonNode *cell_parent = node->data_dict.at("cells");
@@ -727,7 +763,7 @@ void json_import(Design *design, string modname, JsonNode *node)
 
             here = cell_parent->data_dict.at(
                     cell_parent->data_dict_keys[cellid]);
-            json_import_cell(design, modname, here,
+            json_import_cell(design, modname, netnames, here,
                              cell_parent->data_dict_keys[cellid]);
         }
     }
@@ -744,7 +780,7 @@ void json_import(Design *design, string modname, JsonNode *node)
 
             here = ports_parent->data_dict.at(
                     ports_parent->data_dict_keys[portid]);
-            json_import_toplevel_port(design, modname,
+            json_import_toplevel_port(design, modname, netnames,
                                       ports_parent->data_dict_keys[portid],
                                       here);
         }
