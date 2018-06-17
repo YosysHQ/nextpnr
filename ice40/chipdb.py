@@ -773,35 +773,34 @@ for info in tileinfo:
     bba.u16(info["num_entries"], "num_entries")
     bba.r(info["entries"], "entries")
 
+bba.l("ieren_data_%s" % dev_name, "IerenInfoPOD", export=True)
+for ieren in ierens:
+    bba.u8(ieren[0], "iox")
+    bba.u8(ieren[1], "ioy")
+    bba.u8(ieren[2], "ioz")
+    bba.u8(ieren[3], "ierx")
+    bba.u8(ieren[4], "iery")
+    bba.u8(ieren[5], "ierz")
+
 bba.finalize()
 if compact_output:
     bba.write_compact_c(sys.stdout)
 else:
     bba.write_verbose_c(sys.stdout)
 
-iereninfo = []
-for ieren in ierens:
-    iereninfo.append("{%d, %d, %d, %d, %d, %d}" % ieren)
-
-print("static IerenInfoPOD ieren_data_%s[%d] = {" % (dev_name, len(iereninfo)))
-print("  " + ",\n  ".join(iereninfo))
-print("};")
-
-
 print("static BitstreamInfoPOD bits_info_%s = {" % dev_name)
-print("  %d, %d, tile_data_%s, switch_data_%s, ieren_data_%s" % (len(switchinfo), len(iereninfo), dev_name, dev_name, dev_name))
+print("  %d, %d, tile_data_%s, switch_data_%s, ieren_data_%s" % (len(switchinfo), len(ierens), dev_name, dev_name, dev_name))
 print("};")
 
 print("static TileType tile_grid_%s[%d] = {" % (dev_name, len(tilegrid)))
 print("  " + ",\n  ".join(tilegrid))
 print("};")
 
-
 print("static PackageInfoPOD package_info_%s[%d] = {" % (dev_name, len(packageinfo)))
 print("  " + ",\n  ".join(packageinfo))
 print("};")
 
-print('}')
+print('} // namespace')
 print('NEXTPNR_NAMESPACE_BEGIN')
 
 print("ChipInfoPOD chip_info_%s = {" % dev_name)
