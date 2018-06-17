@@ -391,6 +391,15 @@ void place_design_sa(Design *design)
             }
         }
     }
+    for (auto bel : design->chip.getBels()) {
+        if (!isBelLocationValid(design, bel)) {
+            std::string cell_text = "no cell";
+            IdString cell = design->chip.getBelCell(bel, false);
+            if (cell != IdString())
+                cell_text = std::string("cell '") + cell.str() + "'";
+            log_error("post-placement validity check failed for Bel '%s' (%s)", design->chip.getBelName(bel).c_str(), cell_text.c_str());
+        }
+    }
 }
 
 NEXTPNR_NAMESPACE_END
