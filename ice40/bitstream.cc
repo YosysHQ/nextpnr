@@ -19,6 +19,7 @@
  */
 #include "bitstream.h"
 #include <vector>
+#include "log.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -59,11 +60,16 @@ void set_config(const TileInfoPOD &ti,
     if (index == -1) {
         for (int i = 0; i < cfg.num_bits; i++) {
             int8_t &cbit = tile_cfg.at(cfg.bits[i].row).at(cfg.bits[i].col);
+            if (cbit && !value)
+                log_error("clearing already set config bit %s", name.c_str());
             cbit = value;
         }
     } else {
         int8_t &cbit = tile_cfg.at(cfg.bits[index].row).at(cfg.bits[index].col);
         cbit = value;
+        if (cbit && !value)
+            log_error("clearing already set config bit %s[%d]", name.c_str(),
+                      index);
     }
 }
 
@@ -179,7 +185,8 @@ void write_asc(const Design &design, std::ostream &out)
             for (int i = 0; i < 20; i++)
                 set_config(ti, config.at(y).at(x), "LC_" + std::to_string(z),
                            lc.at(i), i);
-            set_config(ti, config.at(y).at(x), "NegClk", neg_clk);
+            if (dff_enable)
+                set_config(ti, config.at(y).at(x), "NegClk", neg_clk);
         } else if (cell.second->type == "SB_IO") {
             TileInfoPOD &ti = bi.tiles_nonrouting[TILE_IO];
             unsigned pin_type = get_param_or_def(cell.second, "PIN_TYPE");
