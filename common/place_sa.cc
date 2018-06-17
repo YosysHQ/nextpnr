@@ -74,9 +74,10 @@ static void place_initial(Design *design, CellInfo *cell, rnd_state &rnd)
 {
     bool all_placed = false;
     int iters = 25;
-    while(!all_placed) {
+    while (!all_placed) {
         BelId best_bel = BelId();
-        float best_score = std::numeric_limits<float>::infinity(), best_ripup_score = std::numeric_limits<float>::infinity();
+        float best_score = std::numeric_limits<float>::infinity(),
+              best_ripup_score = std::numeric_limits<float>::infinity();
         Chip &chip = design->chip;
         CellInfo *ripup_target = nullptr;
         BelId ripup_bel = BelId();
@@ -86,7 +87,8 @@ static void place_initial(Design *design, CellInfo *cell, rnd_state &rnd)
         }
         BelType targetType = belTypeFromId(cell->type);
         for (auto bel : chip.getBels()) {
-            if (chip.getBelType(bel) == targetType && isValidBelForCell(design, cell, bel)) {
+            if (chip.getBelType(bel) == targetType &&
+                isValidBelForCell(design, cell, bel)) {
                 if (chip.checkBelAvail(bel)) {
                     float score = random_float_upto(rnd, 1.0);
                     if (score <= best_score) {
@@ -97,18 +99,17 @@ static void place_initial(Design *design, CellInfo *cell, rnd_state &rnd)
                     float score = random_float_upto(rnd, 1.0);
                     if (score <= best_ripup_score) {
                         best_ripup_score = score;
-                        ripup_target = design->cells.at(chip.getBelCell(bel, true));
+                        ripup_target =
+                                design->cells.at(chip.getBelCell(bel, true));
                         ripup_bel = bel;
                     }
-
                 }
-
             }
         }
         if (best_bel == BelId()) {
             if (iters == 0 || ripup_bel == BelId())
                 log_error("failed to place cell '%s' of type '%s'\n",
-                      cell->name.c_str(), cell->type.c_str());
+                          cell->name.c_str(), cell->type.c_str());
             --iters;
             chip.unbindBel(ripup_target->bel);
             ripup_target->bel = BelId();
@@ -123,7 +124,6 @@ static void place_initial(Design *design, CellInfo *cell, rnd_state &rnd)
         cell->attrs["BEL"] = chip.getBelName(cell->bel).str();
         cell = ripup_target;
     }
-
 }
 
 // Stores the state of the SA placer
@@ -293,7 +293,7 @@ BelId random_bel_for_cell(Design *design, CellInfo *cell, SAState &state,
     }
 }
 
-void place_design_sa(Design *design)
+void place_design_sa(Design *design, int seed)
 {
     SAState state;
 
@@ -329,7 +329,7 @@ void place_design_sa(Design *design)
     }
     log_info("place_constraints placed %d\n", int(placed_cells));
     rnd_state rnd;
-    rnd.state = 1;
+    rnd.state = seed;
     std::vector<CellInfo *> autoplaced;
     // Sort to-place cells for deterministic initial placement
     for (auto cell : design->cells) {

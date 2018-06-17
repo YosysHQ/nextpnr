@@ -82,6 +82,8 @@ int main(int argc, char *argv[])
                           "PCF constraints file to ingest");
     options.add_options()("asc", po::value<std::string>(),
                           "asc bitstream file to write");
+    options.add_options()("seed", po::value<int>(),
+                          "seed value for random number generator");
     options.add_options()("version,V", "show version");
     options.add_options()("lp384", "set device type to iCE40LP384");
     options.add_options()("lp1k", "set device type to iCE40LP1K");
@@ -223,8 +225,16 @@ int main(int argc, char *argv[])
 
         pack_design(&design);
         print_utilisation(&design);
+
+        int seed = 1;
+        if (vm.count("seed")) {
+            seed = vm["seed"].as<int>();
+            if (seed == 0)
+                log_error("seed must be non-zero value");
+        }
+
         if (!vm.count("pack-only")) {
-            place_design_sa(&design);
+            place_design_sa(&design, seed);
             route_design(&design, verbose);
         }
     }

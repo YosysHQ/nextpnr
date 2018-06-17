@@ -280,7 +280,7 @@ static void insert_global(Design *design, NetInfo *net, bool is_reset,
                           bool is_cen)
 {
     std::string glb_name = net->name.str() + std::string("_$glb_") +
-                          (is_reset ? "sr" : (is_cen ? "ce" : "clk"));
+                           (is_reset ? "sr" : (is_cen ? "ce" : "clk"));
     CellInfo *gb = create_ice_cell(design, "SB_GB", "$gbuf_" + glb_name);
     gb->ports["USER_SIGNAL_TO_GLOBAL_BUFFER"].net = net;
     PortRef pr;
