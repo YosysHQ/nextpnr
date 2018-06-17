@@ -398,7 +398,7 @@ void write_asc(const Design &design, std::ostream &out)
     for (auto wire : chip.getWires()) {
         IdString net = chip.getWireNet(wire, false);
         if (net != IdString())
-            out << ".sym " << wire.index << " net_" << net << std::endl;
+            out << ".sym " << wire.index << " " << net << std::endl;
     }
 }
 

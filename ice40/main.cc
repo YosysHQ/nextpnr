@@ -25,6 +25,7 @@
 #include <fstream>
 #include <iostream>
 #include "bitstream.h"
+#include "design_utils.h"
 #include "jsonparse.h"
 #include "log.h"
 #include "mainwindow.h"
@@ -35,7 +36,6 @@
 #include "pybindings.h"
 #include "route.h"
 #include "version.h"
-#include "design_utils.h"
 
 void svg_dump_el(const GraphicElement &el)
 {
