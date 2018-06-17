@@ -701,14 +701,19 @@ for t in range(num_tile_types):
         elif len(bits) % 2 == 1:
             bba.u16(0, "padding")
         centries_info.append((name, len(bits), t, safename))
-    bba.l("tile%d_config" % t, "ConfigEntryPOD", export=True)
+    bba.l("tile%d_config" % t, "ConfigEntryPOD")
     for name, num_bits, t, safename in centries_info:
         bba.s(name, "name")
         bba.u32(num_bits, "num_bits")
         bba.r("tile%d_%s_bits" % (t, safename), "num_bits")
     if len(centries_info) == 0:
         bba.u32(0, "padding")
-    tileinfo.append("{%d, %d, %d, tile%d_config}" % (tile_sizes[t][0], tile_sizes[t][1], len(centries_info), t))
+    ti = dict()
+    ti["cols"] = tile_sizes[t][0]
+    ti["rows"] = tile_sizes[t][1]
+    ti["num_entries"] = len(centries_info)
+    ti["entries"] = "tile%d_config" % t
+    tileinfo.append(ti)
 
 bba.l("wire_data_%s" % dev_name, "WireInfoPOD", export=True)
 for info in wireinfo:
@@ -761,15 +766,18 @@ for info in switchinfo:
             bba.u8(0, "row<%d> (unused)" % i)
             bba.u8(0, "col<%d> (unused)" % i)
 
+bba.l("tile_data_%s" % dev_name, "TileInfoPOD", export=True)
+for info in tileinfo:
+    bba.u8(info["cols"], "cols")
+    bba.u8(info["rows"], "rows")
+    bba.u16(info["num_entries"], "num_entries")
+    bba.r(info["entries"], "entries")
+
 bba.finalize()
 if compact_output:
     bba.write_compact_c(sys.stdout)
 else:
     bba.write_verbose_c(sys.stdout)
-
-print("static TileInfoPOD tile_data_%s[%d] = {" % (dev_name, num_tile_types))
-print("  " + ",\n  ".join(tileinfo))
-print("};")
 
 iereninfo = []
 for ieren in ierens:

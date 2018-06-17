@@ -180,8 +180,8 @@ struct ConfigEntryPOD
 struct TileInfoPOD
 {
     int8_t cols, rows;
-    int num_config_entries;
-    ConfigEntryPOD *entries;
+    int16_t num_config_entries;
+    RelPtr<ConfigEntryPOD> entries;
 } __attribute__((packed));
 
 static const int max_switch_bits = 5;
