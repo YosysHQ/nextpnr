@@ -19,6 +19,7 @@
 
 #include "arch_place.h"
 #include "cells.h"
+#include "util.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -39,7 +40,7 @@ static bool logicCellsCompatible(const std::vector<const CellInfo *> &cells)
     std::unordered_set<const NetInfo *> locals;
 
     for (auto cell : cells) {
-        if (std::stoi(cell->params.at("DFF_ENABLE"))) {
+        if (bool_or_default(cell->params, "DFF_ENABLE")) {
             if (!dffs_exist) {
                 dffs_exist = true;
                 cen = get_net_or_nullptr(cell, "CEN");
@@ -53,7 +54,7 @@ static bool logicCellsCompatible(const std::vector<const CellInfo *> &cells)
                 if (!is_global_net(sr))
                     locals.insert(sr);
 
-                if (std::stoi(cell->params.at("NEG_CLK"))) {
+                if (bool_or_default(cell->params, "NEG_CLK")) {
                     dffs_neg = true;
                 }
             } else {
@@ -63,7 +64,7 @@ static bool logicCellsCompatible(const std::vector<const CellInfo *> &cells)
                     return false;
                 if (sr != get_net_or_nullptr(cell, "SR"))
                     return false;
-                if (dffs_neg != bool(std::stoi(cell->params.at("NEG_CLK"))))
+                if (dffs_neg != bool_or_default(cell->params, "NEG_CLK"))
                     return false;
             }
         }
