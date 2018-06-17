@@ -38,7 +38,8 @@ static bool logicCellsCompatible(const std::vector<const CellInfo *> &cells)
 {
     bool dffs_exist = false, dffs_neg = false;
     const NetInfo *cen = nullptr, *clk = nullptr, *sr = nullptr;
-    std::unordered_set<const NetInfo *> locals;
+    static std::unordered_set<const NetInfo *> locals;
+    locals.clear();
 
     for (auto cell : cells) {
         if (bool_or_default(cell->params, "DFF_ENABLE")) {

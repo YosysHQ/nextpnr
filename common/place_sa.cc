@@ -72,33 +72,58 @@ static int random_int_between(rnd_state &rnd, int a, int b)
 // Initial random placement
 static void place_initial(Design *design, CellInfo *cell, rnd_state &rnd)
 {
-    BelId best_bel = BelId();
-    float best_score = std::numeric_limits<float>::infinity();
-    Chip &chip = design->chip;
-    if (cell->bel != BelId()) {
-        chip.unbindBel(cell->bel);
-        cell->bel = BelId();
-    }
-    BelType targetType = belTypeFromId(cell->type);
-    for (auto bel : chip.getBels()) {
-        if (chip.getBelType(bel) == targetType && chip.checkBelAvail(bel) &&
-            isValidBelForCell(design, cell, bel)) {
-            float score = random_float_upto(rnd, 1.0);
-            if (score <= best_score) {
-                best_score = score;
-                best_bel = bel;
+    bool all_placed = false;
+    int iters = 25;
+    while(!all_placed) {
+        BelId best_bel = BelId();
+        float best_score = std::numeric_limits<float>::infinity(), best_ripup_score = std::numeric_limits<float>::infinity();
+        Chip &chip = design->chip;
+        CellInfo *ripup_target = nullptr;
+        BelId ripup_bel = BelId();
+        if (cell->bel != BelId()) {
+            chip.unbindBel(cell->bel);
+            cell->bel = BelId();
+        }
+        BelType targetType = belTypeFromId(cell->type);
+        for (auto bel : chip.getBels()) {
+            if (chip.getBelType(bel) == targetType && isValidBelForCell(design, cell, bel)) {
+                if (chip.checkBelAvail(bel)) {
+                    float score = random_float_upto(rnd, 1.0);
+                    if (score <= best_score) {
+                        best_score = score;
+                        best_bel = bel;
+                    }
+                } else {
+                    float score = random_float_upto(rnd, 1.0);
+                    if (score <= best_ripup_score) {
+                        best_ripup_score = score;
+                        ripup_target = design->cells.at(chip.getBelCell(bel, true));
+                        ripup_bel = bel;
+                    }
+
+                }
+
             }
         }
-    }
-    if (best_bel == BelId()) {
-        log_error("failed to place cell '%s' of type '%s'\n",
-                  cell->name.c_str(), cell->type.c_str());
-    }
-    cell->bel = best_bel;
-    chip.bindBel(cell->bel, cell->name);
+        if (best_bel == BelId()) {
+            if (iters == 0 || ripup_bel == BelId())
+                log_error("failed to place cell '%s' of type '%s'\n",
+                      cell->name.c_str(), cell->type.c_str());
+            --iters;
+            chip.unbindBel(ripup_target->bel);
+            ripup_target->bel = BelId();
+            best_bel = ripup_bel;
+        } else {
+            all_placed = true;
+        }
+        cell->bel = best_bel;
+        chip.bindBel(cell->bel, cell->name);
 
-    // Back annotate location
-    cell->attrs["BEL"] = chip.getBelName(cell->bel).str();
+        // Back annotate location
+        cell->attrs["BEL"] = chip.getBelName(cell->bel).str();
+        cell = ripup_target;
+    }
+
 }
 
 // Stores the state of the SA placer
