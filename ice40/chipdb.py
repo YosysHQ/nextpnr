@@ -679,11 +679,11 @@ for package in packages:
         pin_bel = "X%d/Y%d/io%d" % (x, y, z)
         bel_idx = bel_name.index(pin_bel)
         pins_info.append((pinname, bel_idx))
-    bba.l("package_%s_pins" % safename, "PackagePinPOD", export=True)
+    bba.l("package_%s_pins" % safename, "PackagePinPOD")
     for pi in pins_info:
         bba.s(pi[0], "name")
         bba.u32(pi[1], "bel_index")
-    packageinfo.append('{"%s", %d, package_%s_pins}' % (name, len(pins_info), safename))
+    packageinfo.append((name, len(pins_info), "package_%s_pins" % safename))
 
 tilegrid = []
 for y in range(dev_height):
@@ -803,15 +803,17 @@ bba.l("tile_grid_%s" % dev_name, "TileType", export=True)
 for t in tilegrid:
     bba.u32(tiletypes[t], "tiletype")
 
+bba.l("package_info_%s" % dev_name, "PackageInfoPOD", export=True)
+for info in packageinfo:
+    bba.s(info[0], "name")
+    bba.u32(info[1], "num_pins")
+    bba.r(info[2], "pins")
+
 bba.finalize()
 if compact_output:
     bba.write_compact_c(sys.stdout)
 else:
     bba.write_verbose_c(sys.stdout)
-
-print("static PackageInfoPOD package_info_%s[%d] = {" % (dev_name, len(packageinfo)))
-print("  " + ",\n  ".join(packageinfo))
-print("};")
 
 print('} // namespace')
 print('NEXTPNR_NAMESPACE_BEGIN')

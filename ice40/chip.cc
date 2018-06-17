@@ -102,7 +102,7 @@ Chip::Chip(ChipArgs args) : args(args)
 
     package_info = nullptr;
     for (int i = 0; i < chip_info.num_packages; i++) {
-        if (chip_info.packages_data[i].name == args.package) {
+        if (chip_info.packages_data[i].name.get() == args.package) {
             package_info = &(chip_info.packages_data[i]);
             break;
         }

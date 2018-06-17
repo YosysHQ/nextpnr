@@ -151,9 +151,9 @@ struct PackagePinPOD
 
 struct PackageInfoPOD
 {
-    const char *name;
-    int num_pins;
-    PackagePinPOD *pins;
+    RelPtr<char> name;
+    int32_t num_pins;
+    RelPtr<PackagePinPOD> pins;
 } __attribute__((packed));
 
 enum TileType : uint32_t
