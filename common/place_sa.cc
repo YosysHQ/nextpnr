@@ -306,15 +306,19 @@ void place_design_sa(Design *design)
     rnd_state rnd;
     rnd.state = 1;
     std::vector<CellInfo *> autoplaced;
-    // Place cells randomly initially
+    // Sort to-place cells for deterministic initial placement
     for (auto cell : design->cells) {
         CellInfo *ci = cell.second;
         if (ci->bel == BelId()) {
-            place_initial(design, ci, rnd);
             autoplaced.push_back(cell.second);
-            placed_cells++;
         }
-        // log_info("placed %d/%d\n", int(placed_cells), int(total_cells));
+    }
+    std::sort(autoplaced.begin(), autoplaced.end(),
+              [](CellInfo *a, CellInfo *b) { return a->name < b->name; });
+    // Place cells randomly initially
+    for (auto cell : autoplaced) {
+        place_initial(design, cell, rnd);
+        placed_cells++;
     }
     // Build up a fast position/type to Bel lookup table
     int max_x = 0, max_y = 0;
