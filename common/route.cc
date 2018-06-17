@@ -364,7 +364,11 @@ void route_design(Design *design, bool verbose)
              float(estimatedTotalDelay),
              float(estimatedTotalDelay) / estimatedTotalDelayCnt);
 
+    int iterCnt = 0;
+
     while (!netsQueue.empty()) {
+        log_info("-- %d --\n", ++iterCnt);
+
         int visitCnt = 0, revisitCnt = 0, netCnt = 0;
 
         std::unordered_set<IdString> ripupQueue;
@@ -471,7 +475,8 @@ void route_design(Design *design, bool verbose)
         }
     }
 
-    log_info("routing complete. longest path delay: %.2f\n", float(maxDelay));
+    log_info("routing complete after %d iterations. longest path delay: %.2f\n",
+             iterCnt, float(maxDelay));
 }
 
 NEXTPNR_NAMESPACE_END
