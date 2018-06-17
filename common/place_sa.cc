@@ -183,7 +183,8 @@ static bool try_swap_position(Design *design, CellInfo *cell, BelId newBel,
         chip.bindBel(oldBel, other_cell->name);
     }
 
-    if (!isBelLocationValid(design, newBel) || ((other != IdString() && !isBelLocationValid(design, oldBel)))) {
+    if (!isBelLocationValid(design, newBel) ||
+        ((other != IdString() && !isBelLocationValid(design, oldBel)))) {
         chip.unbindBel(newBel);
         if (other != IdString())
             chip.unbindBel(oldBel);
@@ -309,7 +310,7 @@ void place_design_sa(Design *design)
             autoplaced.push_back(cell.second);
             placed_cells++;
         }
-        log_info("placed %d/%d\n", int(placed_cells), int(total_cells));
+        // log_info("placed %d/%d\n", int(placed_cells), int(total_cells));
     }
     // Build up a fast position/type to Bel lookup table
     int max_x = 0, max_y = 0;
@@ -345,9 +346,9 @@ void place_design_sa(Design *design)
         state.n_move = state.n_accept = 0;
         state.improved = false;
 
-        // if (iter % 50 == 0)
-        log("  at iteration #%d: temp = %f, wire length = %f\n", iter,
-            state.temp, state.curr_wirelength);
+        if (iter % 5 == 0)
+            log("  at iteration #%d: temp = %f, wire length = %f\n", iter,
+                state.temp, state.curr_wirelength);
 
         for (int m = 0; m < 15; ++m) {
             // Loop through all automatically placed cells
@@ -403,7 +404,8 @@ void place_design_sa(Design *design)
             IdString cell = design->chip.getBelCell(bel, false);
             if (cell != IdString())
                 cell_text = std::string("cell '") + cell.str() + "'";
-            log_error("post-placement validity check failed for Bel '%s' (%s)", design->chip.getBelName(bel).c_str(), cell_text.c_str());
+            log_error("post-placement validity check failed for Bel '%s' (%s)",
+                      design->chip.getBelName(bel).c_str(), cell_text.c_str());
         }
     }
 }

@@ -35,6 +35,7 @@
 #include "pybindings.h"
 #include "route.h"
 #include "version.h"
+#include "design_utils.h"
 
 void svg_dump_el(const GraphicElement &el)
 {
@@ -221,6 +222,7 @@ int main(int argc, char *argv[])
         }
 
         pack_design(&design);
+        print_utilisation(&design);
         if (!vm.count("pack-only")) {
             place_design_sa(&design);
             route_design(&design, verbose);

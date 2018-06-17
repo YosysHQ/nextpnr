@@ -80,7 +80,8 @@ static bool logicCellsCompatible(const std::vector<const CellInfo *> &cells)
     return locals.size() <= 32;
 }
 
-bool isBelLocationValid(Design *design, BelId bel) {
+bool isBelLocationValid(Design *design, BelId bel)
+{
     const Chip &chip = design->chip;
     if (chip.getBelType(bel) == TYPE_ICESTORM_LC) {
         std::vector<const CellInfo *> cells;

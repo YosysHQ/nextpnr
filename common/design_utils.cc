@@ -18,7 +18,9 @@
  */
 
 #include "design_utils.h"
-
+#include <map>
+#include "log.h"
+#include "util.h"
 NEXTPNR_NAMESPACE_BEGIN
 
 void replace_port(CellInfo *old_cell, IdString old_name, CellInfo *rep_cell,
@@ -46,6 +48,25 @@ void replace_port(CellInfo *old_cell, IdString old_name, CellInfo *rep_cell,
         }
     } else {
         assert(false);
+    }
+}
+
+// Print utilisation of a design
+void print_utilisation(const Design *design)
+{
+    // Sort by Bel type
+    std::map<BelType, int> used_types;
+    for (auto cell : design->cells) {
+        used_types[belTypeFromId(cell.second->type)]++;
+    }
+    std::map<BelType, int> available_types;
+    for (auto bel : design->chip.getBels()) {
+        available_types[design->chip.getBelType(bel)]++;
+    }
+    log("\nDesign utilisation:\n");
+    for (auto type : available_types) {
+        log("\t%20s: %5d/%5d\n", belTypeToId(type.first).c_str(),
+            get_or_default(used_types, type.first, 0), type.second);
     }
 }
 

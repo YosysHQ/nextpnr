@@ -27,7 +27,7 @@ NEXTPNR_NAMESPACE_BEGIN
 
 // Get a value from a map-style container, returning default if value is not
 // found
-template<typename Container, typename KeyType, typename ValueType>
+template <typename Container, typename KeyType, typename ValueType>
 ValueType get_or_default(const Container &ct, const KeyType &key,
                          ValueType def = ValueType())
 {
@@ -40,9 +40,8 @@ ValueType get_or_default(const Container &ct, const KeyType &key,
 
 // Get a value from a map-style container, converting to int, and returning
 // default if value is not found
-template<typename Container, typename KeyType>
-int int_or_default(const Container &ct, const KeyType &key,
-                         int def = 0)
+template <typename Container, typename KeyType>
+int int_or_default(const Container &ct, const KeyType &key, int def = 0)
 {
     auto found = ct.find(key);
     if (found == ct.end())
@@ -52,9 +51,8 @@ int int_or_default(const Container &ct, const KeyType &key,
 };
 
 // As above, but convert to bool
-template<typename Container, typename KeyType>
-bool bool_or_default(const Container &ct, const KeyType &key,
-                   bool def = false)
+template <typename Container, typename KeyType>
+bool bool_or_default(const Container &ct, const KeyType &key, bool def = false)
 {
     return bool(int_or_default(ct, key, int(def)));
 };
