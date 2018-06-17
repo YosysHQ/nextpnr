@@ -66,7 +66,7 @@ static float random_float_upto(rnd_state &rnd, float limit)
 
 static int random_int_between(rnd_state &rnd, int a, int b)
 {
-    return a + int(random_float_upto(rnd, b - a));
+    return a + int(random_float_upto(rnd, b - a) - 0.00001);
 }
 
 // Initial random placement
