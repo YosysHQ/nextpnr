@@ -209,21 +209,21 @@ struct BitstreamInfoPOD
 
 struct ChipInfoPOD
 {
-    int width, height;
-    int num_bels, num_wires, num_pips;
-    int num_switches, num_packages;
-    BelInfoPOD *bel_data;
-    WireInfoPOD *wire_data;
-    PipInfoPOD *pip_data;
-    TileType *tile_grid;
-    BitstreamInfoPOD *bits_info;
-    PackageInfoPOD *packages_data;
+    int32_t width, height;
+    int32_t num_bels, num_wires, num_pips;
+    int32_t num_switches, num_packages;
+    RelPtr<BelInfoPOD> bel_data;
+    RelPtr<WireInfoPOD> wire_data;
+    RelPtr<PipInfoPOD> pip_data;
+    RelPtr<TileType> tile_grid;
+    RelPtr<BitstreamInfoPOD> bits_info;
+    RelPtr<PackageInfoPOD> packages_data;
 } __attribute__((packed));
 
-extern ChipInfoPOD chip_info_384;
-extern ChipInfoPOD chip_info_1k;
-extern ChipInfoPOD chip_info_5k;
-extern ChipInfoPOD chip_info_8k;
+extern uint8_t chipdb_blob_384[];
+extern uint8_t chipdb_blob_1k[];
+extern uint8_t chipdb_blob_5k[];
+extern uint8_t chipdb_blob_8k[];
 
 /************************ End of chipdb section. ************************/
 
@@ -463,8 +463,8 @@ struct ChipArgs
 
 struct Chip
 {
-    ChipInfoPOD chip_info;
-    PackageInfoPOD *package_info;
+    const ChipInfoPOD *chip_info;
+    const PackageInfoPOD *package_info;
 
     mutable std::unordered_map<IdString, int> bel_by_name;
     mutable std::unordered_map<IdString, int> wire_by_name;
@@ -486,7 +486,7 @@ struct Chip
     IdString getBelName(BelId bel) const
     {
         assert(bel != BelId());
-        return chip_info.bel_data[bel.index].name.get();
+        return chip_info->bel_data[bel.index].name.get();
     }
 
     void bindBel(BelId bel, IdString cell)
@@ -519,7 +519,7 @@ struct Chip
     {
         BelRange range;
         range.b.cursor = 0;
-        range.e.cursor = chip_info.num_bels;
+        range.e.cursor = chip_info->num_bels;
         return range;
     }
 
@@ -542,7 +542,7 @@ struct Chip
     BelType getBelType(BelId bel) const
     {
         assert(bel != BelId());
-        return chip_info.bel_data[bel.index].type;
+        return chip_info->bel_data[bel.index].type;
     }
 
     WireId getWireBelPin(BelId bel, PortPin pin) const;
@@ -552,10 +552,10 @@ struct Chip
         BelPin ret;
         assert(wire != WireId());
 
-        if (chip_info.wire_data[wire.index].bel_uphill.bel_index >= 0) {
+        if (chip_info->wire_data[wire.index].bel_uphill.bel_index >= 0) {
             ret.bel.index =
-                    chip_info.wire_data[wire.index].bel_uphill.bel_index;
-            ret.pin = chip_info.wire_data[wire.index].bel_uphill.port;
+                    chip_info->wire_data[wire.index].bel_uphill.bel_index;
+            ret.pin = chip_info->wire_data[wire.index].bel_uphill.port;
         }
 
         return ret;
@@ -565,9 +565,9 @@ struct Chip
     {
         BelPinRange range;
         assert(wire != WireId());
-        range.b.ptr = chip_info.wire_data[wire.index].bels_downhill.get();
+        range.b.ptr = chip_info->wire_data[wire.index].bels_downhill.get();
         range.e.ptr =
-                range.b.ptr + chip_info.wire_data[wire.index].num_bels_downhill;
+                range.b.ptr + chip_info->wire_data[wire.index].num_bels_downhill;
         return range;
     }
 
@@ -578,7 +578,7 @@ struct Chip
     IdString getWireName(WireId wire) const
     {
         assert(wire != WireId());
-        return chip_info.wire_data[wire.index].name.get();
+        return chip_info->wire_data[wire.index].name.get();
     }
 
     void bindWire(WireId wire, IdString net)
@@ -611,7 +611,7 @@ struct Chip
     {
         WireRange range;
         range.b.cursor = 0;
-        range.e.cursor = chip_info.num_wires;
+        range.e.cursor = chip_info->num_wires;
         return range;
     }
 
@@ -624,20 +624,20 @@ struct Chip
     {
         assert(pip != PipId());
         assert(pip_to_net[pip.index] == IdString());
-        assert(switches_locked[chip_info.pip_data[pip.index].switch_index] ==
+        assert(switches_locked[chip_info->pip_data[pip.index].switch_index] ==
                IdString());
         pip_to_net[pip.index] = net;
-        switches_locked[chip_info.pip_data[pip.index].switch_index] = net;
+        switches_locked[chip_info->pip_data[pip.index].switch_index] = net;
     }
 
     void unbindPip(PipId pip)
     {
         assert(pip != PipId());
         assert(pip_to_net[pip.index] != IdString());
-        assert(switches_locked[chip_info.pip_data[pip.index].switch_index] !=
+        assert(switches_locked[chip_info->pip_data[pip.index].switch_index] !=
                IdString());
         pip_to_net[pip.index] = IdString();
-        switches_locked[chip_info.pip_data[pip.index].switch_index] =
+        switches_locked[chip_info->pip_data[pip.index].switch_index] =
                 IdString();
     }
 
@@ -645,11 +645,11 @@ struct Chip
     {
         assert(pip != PipId());
         if (args.type == ChipArgs::UP5K) {
-            int x = chip_info.pip_data[pip.index].x;
-            if (x == 0 || x == (chip_info.width - 1))
+            int x = chip_info->pip_data[pip.index].x;
+            if (x == 0 || x == (chip_info->width - 1))
                 return false;
         }
-        return switches_locked[chip_info.pip_data[pip.index].switch_index] ==
+        return switches_locked[chip_info->pip_data[pip.index].switch_index] ==
                IdString();
     }
 
@@ -657,7 +657,7 @@ struct Chip
     {
         assert(pip != PipId());
         if (conflicting)
-            return switches_locked[chip_info.pip_data[pip.index].switch_index];
+            return switches_locked[chip_info->pip_data[pip.index].switch_index];
         return pip_to_net[pip.index];
     }
 
@@ -665,7 +665,7 @@ struct Chip
     {
         AllPipRange range;
         range.b.cursor = 0;
-        range.e.cursor = chip_info.num_pips;
+        range.e.cursor = chip_info->num_pips;
         return range;
     }
 
@@ -673,7 +673,7 @@ struct Chip
     {
         WireId wire;
         assert(pip != PipId());
-        wire.index = chip_info.pip_data[pip.index].src;
+        wire.index = chip_info->pip_data[pip.index].src;
         return wire;
     }
 
@@ -681,7 +681,7 @@ struct Chip
     {
         WireId wire;
         assert(pip != PipId());
-        wire.index = chip_info.pip_data[pip.index].dst;
+        wire.index = chip_info->pip_data[pip.index].dst;
         return wire;
     }
 
@@ -689,7 +689,7 @@ struct Chip
     {
         DelayInfo delay;
         assert(pip != PipId());
-        delay.delay = chip_info.pip_data[pip.index].delay;
+        delay.delay = chip_info->pip_data[pip.index].delay;
         return delay;
     }
 
@@ -697,9 +697,9 @@ struct Chip
     {
         PipRange range;
         assert(wire != WireId());
-        range.b.cursor = chip_info.wire_data[wire.index].pips_downhill.get();
+        range.b.cursor = chip_info->wire_data[wire.index].pips_downhill.get();
         range.e.cursor =
-                range.b.cursor + chip_info.wire_data[wire.index].num_downhill;
+                range.b.cursor + chip_info->wire_data[wire.index].num_downhill;
         return range;
     }
 
@@ -707,9 +707,9 @@ struct Chip
     {
         PipRange range;
         assert(wire != WireId());
-        range.b.cursor = chip_info.wire_data[wire.index].pips_uphill.get();
+        range.b.cursor = chip_info->wire_data[wire.index].pips_uphill.get();
         range.e.cursor =
-                range.b.cursor + chip_info.wire_data[wire.index].num_uphill;
+                range.b.cursor + chip_info->wire_data[wire.index].num_uphill;
         return range;
     }
 

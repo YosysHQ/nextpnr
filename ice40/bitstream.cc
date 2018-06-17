@@ -24,7 +24,7 @@ NEXTPNR_NAMESPACE_BEGIN
 
 inline TileType tile_at(const Chip &chip, int x, int y)
 {
-    return chip.chip_info.tile_grid[y * chip.chip_info.width + x];
+    return chip.chip_info->tile_grid[y * chip.chip_info->width + x];
 }
 
 const ConfigEntryPOD &find_config(const TileInfoPOD &tile,
@@ -93,7 +93,7 @@ void write_asc(const Design &design, std::ostream &out)
 {
     const Chip &chip = design.chip;
     // [y][x][row][col]
-    const ChipInfoPOD &ci = chip.chip_info;
+    const ChipInfoPOD &ci = *chip.chip_info;
     const BitstreamInfoPOD &bi = *ci.bits_info;
     std::vector<std::vector<std::vector<std::vector<int8_t>>>> config;
     config.resize(ci.height);

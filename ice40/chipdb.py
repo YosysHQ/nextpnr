@@ -549,11 +549,8 @@ class BinaryBlobAssembler:
             print("#define %s ((%s*)(%s+%d))" % (self.labels_byaddr[cursor], self.ltypes_byaddr[cursor], self.cname, cursor), file=f)
         print("};", file=f)
 
-bba = BinaryBlobAssembler("binblob_%s" % dev_name, endianness, "static uint8_t")
-
-print('#include "nextpnr.h"')
-print('namespace {')
-print('USING_NEXTPNR_NAMESPACE')
+bba = BinaryBlobAssembler("chipdb_blob_%s" % dev_name, endianness, "uint8_t")
+bba.r("chip_info_%s" % dev_name, "chip_info")
 
 index = 0
 for bel in range(len(bel_name)):
@@ -563,7 +560,7 @@ for bel in range(len(bel_name)):
         bba.u32(portpins[bel_wires[bel][i][1]], "port")
         index += 1
 
-bba.l("bel_data", "BelInfoPOD", export=True)
+bba.l("bel_data_%s" % dev_name, "BelInfoPOD")
 for bel in range(len(bel_name)):
     bba.s(bel_name[bel], "name")
     bba.u32(beltypes[bel_type[bel]], "type")
@@ -722,7 +719,7 @@ for t in range(num_tile_types):
     ti["entries"] = "tile%d_config" % t
     tileinfo.append(ti)
 
-bba.l("wire_data_%s" % dev_name, "WireInfoPOD", export=True)
+bba.l("wire_data_%s" % dev_name, "WireInfoPOD")
 for info in wireinfo:
     bba.s(info["name"], "name")
     bba.u32(info["num_uphill"], "num_uphill")
@@ -736,7 +733,7 @@ for info in wireinfo:
     bba.u16(info["x"], "x")
     bba.u16(info["y"], "y")
 
-bba.l("pip_data_%s" % dev_name, "PipInfoPOD", export=True)
+bba.l("pip_data_%s" % dev_name, "PipInfoPOD")
 for info in pipinfo:
     bba.u32(info["src"], "src")
     bba.u32(info["dst"], "dst")
@@ -792,36 +789,52 @@ for ieren in ierens:
 if len(ierens) % 2 == 1:
     bba.u16(0, "padding")
 
-bba.l("bits_info_%s" % dev_name, "BitstreamInfoPOD", export=True)
+bba.l("bits_info_%s" % dev_name, "BitstreamInfoPOD")
 bba.u32(len(switchinfo), "num_switches")
 bba.u32(len(ierens), "num_ierens")
 bba.r("tile_data_%s" % dev_name, "tiles_nonrouting")
 bba.r("switch_data_%s" % dev_name, "switches")
 bba.r("ieren_data_%s" % dev_name, "ierens")
 
-bba.l("tile_grid_%s" % dev_name, "TileType", export=True)
+bba.l("tile_grid_%s" % dev_name, "TileType")
 for t in tilegrid:
     bba.u32(tiletypes[t], "tiletype")
 
-bba.l("package_info_%s" % dev_name, "PackageInfoPOD", export=True)
+bba.l("package_info_%s" % dev_name, "PackageInfoPOD")
 for info in packageinfo:
     bba.s(info[0], "name")
     bba.u32(info[1], "num_pins")
     bba.r(info[2], "pins")
 
+bba.l("chip_info_%s" % dev_name)
+bba.u32(dev_width, "dev_width")
+bba.u32(dev_height, "dev_height")
+bba.u32(len(bel_name), "num_bels")
+bba.u32(num_wires, "num_wires")
+bba.u32(len(pipinfo), "num_pips")
+bba.u32(len(switchinfo), "num_switches")
+bba.u32(len(packageinfo), "num_packages")
+bba.r("bel_data_%s" % dev_name, "bel_data")
+bba.r("wire_data_%s" % dev_name, "wire_data")
+bba.r("pip_data_%s" % dev_name, "pip_data")
+bba.r("tile_grid_%s" % dev_name, "tile_grid")
+bba.r("bits_info_%s" % dev_name, "bits_info")
+bba.r("package_info_%s" % dev_name, "packages_data")
+
 bba.finalize()
+
+print('#include "nextpnr.h"')
+print('NEXTPNR_NAMESPACE_BEGIN')
+
 if compact_output:
     bba.write_compact_c(sys.stdout)
 else:
     bba.write_verbose_c(sys.stdout)
 
-print('} // namespace')
-print('NEXTPNR_NAMESPACE_BEGIN')
-
-print("ChipInfoPOD chip_info_%s = {" % dev_name)
-print("  %d, %d, %d, %d, %d, %d, %d," % (dev_width, dev_height, len(bel_name), num_wires, len(pipinfo), len(switchinfo), len(packageinfo)))
-print("  bel_data, wire_data_%s, pip_data_%s," % (dev_name, dev_name))
-print("  tile_grid_%s, bits_info_%s, package_info_%s" % (dev_name, dev_name, dev_name))
-print("};")
+# print("ChipInfoPOD chip_info_%s = {" % dev_name)
+# print("  %d, %d, %d, %d, %d, %d, %d," % (dev_width, dev_height, len(bel_name), num_wires, len(pipinfo), len(switchinfo), len(packageinfo)))
+# print("  bel_data, wire_data_%s, pip_data_%s," % (dev_name, dev_name))
+# print("  tile_grid_%s, bits_info_%s, package_info_%s" % (dev_name, dev_name, dev_name))
+# print("};")
 
 print('NEXTPNR_NAMESPACE_END')

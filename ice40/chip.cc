@@ -82,38 +82,38 @@ Chip::Chip(ChipArgs args) : args(args)
 {
 #ifdef ICE40_HX1K_ONLY
     if (args.type == ChipArgs::HX1K) {
-        chip_info = chip_info_1k;
+        chip_info = reinterpret_cast<RelPtr<ChipInfoPOD>*>(chipdb_blob_1k)->get();
     } else {
         log_error("Unsupported iCE40 chip type.\n");
     }
 #else
     if (args.type == ChipArgs::LP384) {
-        chip_info = chip_info_384;
+        chip_info = reinterpret_cast<RelPtr<ChipInfoPOD>*>(chipdb_blob_384)->get();
     } else if (args.type == ChipArgs::LP1K || args.type == ChipArgs::HX1K) {
-        chip_info = chip_info_1k;
+        chip_info = reinterpret_cast<RelPtr<ChipInfoPOD>*>(chipdb_blob_1k)->get();
     } else if (args.type == ChipArgs::UP5K) {
-        chip_info = chip_info_5k;
+        chip_info = reinterpret_cast<RelPtr<ChipInfoPOD>*>(chipdb_blob_5k)->get();
     } else if (args.type == ChipArgs::LP8K || args.type == ChipArgs::HX8K) {
-        chip_info = chip_info_8k;
+        chip_info = reinterpret_cast<RelPtr<ChipInfoPOD>*>(chipdb_blob_8k)->get();
     } else {
         log_error("Unsupported iCE40 chip type.\n");
     }
 #endif
 
     package_info = nullptr;
-    for (int i = 0; i < chip_info.num_packages; i++) {
-        if (chip_info.packages_data[i].name.get() == args.package) {
-            package_info = &(chip_info.packages_data[i]);
+    for (int i = 0; i < chip_info->num_packages; i++) {
+        if (chip_info->packages_data[i].name.get() == args.package) {
+            package_info = &(chip_info->packages_data[i]);
             break;
         }
     }
     if (package_info == nullptr)
         log_error("Unsupported package '%s'.\n", args.package.c_str());
 
-    bel_to_cell.resize(chip_info.num_bels);
-    wire_to_net.resize(chip_info.num_wires);
-    pip_to_net.resize(chip_info.num_pips);
-    switches_locked.resize(chip_info.num_switches);
+    bel_to_cell.resize(chip_info->num_bels);
+    wire_to_net.resize(chip_info->num_wires);
+    pip_to_net.resize(chip_info->num_pips);
+    switches_locked.resize(chip_info->num_switches);
 }
 
 // -----------------------------------------------------------------------
@@ -152,8 +152,8 @@ BelId Chip::getBelByName(IdString name) const
     BelId ret;
 
     if (bel_by_name.empty()) {
-        for (int i = 0; i < chip_info.num_bels; i++)
-            bel_by_name[chip_info.bel_data[i].name.get()] = i;
+        for (int i = 0; i < chip_info->num_bels; i++)
+            bel_by_name[chip_info->bel_data[i].name.get()] = i;
     }
 
     auto it = bel_by_name.find(name);
@@ -168,16 +168,16 @@ BelRange Chip::getBelsAtSameTile(BelId bel) const
     BelRange br;
     assert(bel != BelId());
     // This requires Bels at the same tile are consecutive
-    int x = chip_info.bel_data[bel.index].x;
-    int y = chip_info.bel_data[bel.index].y;
+    int x = chip_info->bel_data[bel.index].x;
+    int y = chip_info->bel_data[bel.index].y;
     int start = bel.index, end = bel.index;
-    while (start >= 0 && chip_info.bel_data[start].x == x &&
-           chip_info.bel_data[start].y == y)
+    while (start >= 0 && chip_info->bel_data[start].x == x &&
+           chip_info->bel_data[start].y == y)
         start--;
     start++;
     br.b.cursor = start;
-    while (end < chip_info.num_bels && chip_info.bel_data[end].x == x &&
-           chip_info.bel_data[end].y == y)
+    while (end < chip_info->num_bels && chip_info->bel_data[end].x == x &&
+           chip_info->bel_data[end].y == y)
         end++;
     br.e.cursor = end;
     return br;
@@ -189,8 +189,8 @@ WireId Chip::getWireBelPin(BelId bel, PortPin pin) const
 
     assert(bel != BelId());
 
-    int num_bel_wires = chip_info.bel_data[bel.index].num_bel_wires;
-    const BelWirePOD *bel_wires = chip_info.bel_data[bel.index].bel_wires.get();
+    int num_bel_wires = chip_info->bel_data[bel.index].num_bel_wires;
+    const BelWirePOD *bel_wires = chip_info->bel_data[bel.index].bel_wires.get();
 
     for (int i = 0; i < num_bel_wires; i++)
         if (bel_wires[i].port == pin) {
@@ -208,8 +208,8 @@ WireId Chip::getWireByName(IdString name) const
     WireId ret;
 
     if (wire_by_name.empty()) {
-        for (int i = 0; i < chip_info.num_wires; i++)
-            wire_by_name[chip_info.wire_data[i].name.get()] = i;
+        for (int i = 0; i < chip_info->num_wires; i++)
+            wire_by_name[chip_info->wire_data[i].name.get()] = i;
     }
 
     auto it = wire_by_name.find(name);
@@ -226,7 +226,7 @@ PipId Chip::getPipByName(IdString name) const
     PipId ret;
 
     if (pip_by_name.empty()) {
-        for (int i = 0; i < chip_info.num_pips; i++) {
+        for (int i = 0; i < chip_info->num_pips; i++) {
             PipId pip;
             pip.index = i;
             pip_by_name[getPipName(pip)] = i;
@@ -244,15 +244,15 @@ IdString Chip::getPipName(PipId pip) const
 {
     assert(pip != PipId());
 
-    int x = chip_info.pip_data[pip.index].x;
-    int y = chip_info.pip_data[pip.index].y;
+    int x = chip_info->pip_data[pip.index].x;
+    int y = chip_info->pip_data[pip.index].y;
 
     std::string src_name =
-            chip_info.wire_data[chip_info.pip_data[pip.index].src].name.get();
+            chip_info->wire_data[chip_info->pip_data[pip.index].src].name.get();
     std::replace(src_name.begin(), src_name.end(), '/', '.');
 
     std::string dst_name =
-            chip_info.wire_data[chip_info.pip_data[pip.index].dst].name.get();
+            chip_info->wire_data[chip_info->pip_data[pip.index].dst].name.get();
     std::replace(dst_name.begin(), dst_name.end(), '/', '.');
 
     return "X" + std::to_string(x) + "/Y" + std::to_string(y) + "/" + src_name +
@@ -287,21 +287,21 @@ std::string Chip::getBelPackagePin(BelId bel) const
 bool Chip::estimatePosition(BelId bel, int &x, int &y) const
 {
     assert(bel != BelId());
-    x = chip_info.bel_data[bel.index].x;
-    y = chip_info.bel_data[bel.index].y;
+    x = chip_info->bel_data[bel.index].x;
+    y = chip_info->bel_data[bel.index].y;
 
-    return chip_info.bel_data[bel.index].type != TYPE_SB_GB;
+    return chip_info->bel_data[bel.index].type != TYPE_SB_GB;
 }
 
 delay_t Chip::estimateDelay(WireId src, WireId dst) const
 {
     assert(src != WireId());
-    delay_t x1 = chip_info.wire_data[src.index].x;
-    delay_t y1 = chip_info.wire_data[src.index].y;
+    delay_t x1 = chip_info->wire_data[src.index].x;
+    delay_t y1 = chip_info->wire_data[src.index].y;
 
     assert(dst != WireId());
-    delay_t x2 = chip_info.wire_data[dst.index].x;
-    delay_t y2 = chip_info.wire_data[dst.index].y;
+    delay_t x2 = chip_info->wire_data[dst.index].x;
+    delay_t y2 = chip_info->wire_data[dst.index].y;
 
     return fabsf(x1 - x2) + fabsf(y1 - y2);
 }
@@ -312,8 +312,8 @@ std::vector<GraphicElement> Chip::getFrameGraphics() const
 {
     std::vector<GraphicElement> ret;
 
-    for (int x = 0; x <= chip_info.width; x++)
-        for (int y = 0; y <= chip_info.height; y++) {
+    for (int x = 0; x <= chip_info->width; x++)
+        for (int y = 0; y <= chip_info->height; y++) {
             GraphicElement el;
             el.type = GraphicElement::G_LINE;
             el.x1 = x - 0.05, el.x2 = x + 0.05, el.y1 = y, el.y2 = y, el.z = 0;
@@ -334,44 +334,44 @@ std::vector<GraphicElement> Chip::getBelGraphics(BelId bel) const
     if (bel_type == TYPE_ICESTORM_LC) {
         GraphicElement el;
         el.type = GraphicElement::G_BOX;
-        el.x1 = chip_info.bel_data[bel.index].x + 0.1;
-        el.x2 = chip_info.bel_data[bel.index].x + 0.9;
-        el.y1 = chip_info.bel_data[bel.index].y + 0.10 +
-                (chip_info.bel_data[bel.index].z) * (0.8 / 8);
-        el.y2 = chip_info.bel_data[bel.index].y + 0.18 +
-                (chip_info.bel_data[bel.index].z) * (0.8 / 8);
+        el.x1 = chip_info->bel_data[bel.index].x + 0.1;
+        el.x2 = chip_info->bel_data[bel.index].x + 0.9;
+        el.y1 = chip_info->bel_data[bel.index].y + 0.10 +
+                (chip_info->bel_data[bel.index].z) * (0.8 / 8);
+        el.y2 = chip_info->bel_data[bel.index].y + 0.18 +
+                (chip_info->bel_data[bel.index].z) * (0.8 / 8);
         el.z = 0;
         ret.push_back(el);
     }
 
     if (bel_type == TYPE_SB_IO) {
-        if (chip_info.bel_data[bel.index].x == 0 ||
-            chip_info.bel_data[bel.index].x == chip_info.width - 1) {
+        if (chip_info->bel_data[bel.index].x == 0 ||
+            chip_info->bel_data[bel.index].x == chip_info->width - 1) {
             GraphicElement el;
             el.type = GraphicElement::G_BOX;
-            el.x1 = chip_info.bel_data[bel.index].x + 0.1;
-            el.x2 = chip_info.bel_data[bel.index].x + 0.9;
-            if (chip_info.bel_data[bel.index].z == 0) {
-                el.y1 = chip_info.bel_data[bel.index].y + 0.10;
-                el.y2 = chip_info.bel_data[bel.index].y + 0.45;
+            el.x1 = chip_info->bel_data[bel.index].x + 0.1;
+            el.x2 = chip_info->bel_data[bel.index].x + 0.9;
+            if (chip_info->bel_data[bel.index].z == 0) {
+                el.y1 = chip_info->bel_data[bel.index].y + 0.10;
+                el.y2 = chip_info->bel_data[bel.index].y + 0.45;
             } else {
-                el.y1 = chip_info.bel_data[bel.index].y + 0.55;
-                el.y2 = chip_info.bel_data[bel.index].y + 0.90;
+                el.y1 = chip_info->bel_data[bel.index].y + 0.55;
+                el.y2 = chip_info->bel_data[bel.index].y + 0.90;
             }
             el.z = 0;
             ret.push_back(el);
         } else {
             GraphicElement el;
             el.type = GraphicElement::G_BOX;
-            if (chip_info.bel_data[bel.index].z == 0) {
-                el.x1 = chip_info.bel_data[bel.index].x + 0.10;
-                el.x2 = chip_info.bel_data[bel.index].x + 0.45;
+            if (chip_info->bel_data[bel.index].z == 0) {
+                el.x1 = chip_info->bel_data[bel.index].x + 0.10;
+                el.x2 = chip_info->bel_data[bel.index].x + 0.45;
             } else {
-                el.x1 = chip_info.bel_data[bel.index].x + 0.55;
-                el.x2 = chip_info.bel_data[bel.index].x + 0.90;
+                el.x1 = chip_info->bel_data[bel.index].x + 0.55;
+                el.x2 = chip_info->bel_data[bel.index].x + 0.90;
             }
-            el.y1 = chip_info.bel_data[bel.index].y + 0.1;
-            el.y2 = chip_info.bel_data[bel.index].y + 0.9;
+            el.y1 = chip_info->bel_data[bel.index].y + 0.1;
+            el.y2 = chip_info->bel_data[bel.index].y + 0.9;
             el.z = 0;
             ret.push_back(el);
         }
@@ -380,10 +380,10 @@ std::vector<GraphicElement> Chip::getBelGraphics(BelId bel) const
     if (bel_type == TYPE_ICESTORM_RAM) {
         GraphicElement el;
         el.type = GraphicElement::G_BOX;
-        el.x1 = chip_info.bel_data[bel.index].x + 0.1;
-        el.x2 = chip_info.bel_data[bel.index].x + 0.9;
-        el.y1 = chip_info.bel_data[bel.index].y + 0.1;
-        el.y2 = chip_info.bel_data[bel.index].y + 1.9;
+        el.x1 = chip_info->bel_data[bel.index].x + 0.1;
+        el.x2 = chip_info->bel_data[bel.index].x + 0.9;
+        el.y1 = chip_info->bel_data[bel.index].y + 0.1;
+        el.y2 = chip_info->bel_data[bel.index].y + 1.9;
         el.z = 0;
         ret.push_back(el);
     }
