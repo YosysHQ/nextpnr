@@ -107,6 +107,7 @@ struct SAState
     int n_move, n_accept;
     int diameter = 35;
     std::vector<std::vector<std::vector<std::vector<BelId>>>> fast_bels;
+    std::unordered_set<BelId> locked_bels;
 };
 
 // Get the total estimated wirelength for a net
@@ -255,12 +256,17 @@ BelId random_bel_for_cell(Design *design, CellInfo *cell, SAState &state,
         const auto &fb = state.fast_bels.at(int(targetType)).at(nx).at(ny);
         if (fb.size() == 0)
             continue;
-        return fb.at(random_int_between(rnd, 0, fb.size()));
+        BelId bel = fb.at(random_int_between(rnd, 0, fb.size()));
+        if (state.locked_bels.find(bel) != state.locked_bels.end())
+            continue;
+        return bel;
     }
 }
 
 void place_design_sa(Design *design)
 {
+    SAState state;
+
     size_t total_cells = design->cells.size(), placed_cells = 0;
     std::queue<CellInfo *> visit_cells;
     // Initial constraints placer
@@ -286,6 +292,7 @@ void place_design_sa(Design *design)
 
             cell->bel = bel;
             design->chip.bindBel(bel, cell->name);
+            state.locked_bels.insert(bel);
             placed_cells++;
             visit_cells.push(cell);
         }
@@ -294,7 +301,6 @@ void place_design_sa(Design *design)
     rnd_state rnd;
     rnd.state = 1;
     std::vector<CellInfo *> autoplaced;
-    SAState state;
     // Place cells randomly initially
     for (auto cell : design->cells) {
         CellInfo *ci = cell.second;
