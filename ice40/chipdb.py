@@ -44,6 +44,7 @@ cbit_re = re.compile(r'B(\d+)\[(\d+)\]')
 
 portpins = dict()
 beltypes = dict()
+tiletypes = dict()
 
 with open("ice40/portpins.inc") as f:
     for line in f:
@@ -61,6 +62,12 @@ beltypes["ICESTORM_LC"] = 1
 beltypes["ICESTORM_RAM"] = 2
 beltypes["SB_IO"] = 3
 beltypes["SB_GB"] = 4
+
+tiletypes["NONE"] = 0
+tiletypes["LOGIC"] = 1
+tiletypes["IO"] = 2
+tiletypes["RAMB"] = 3
+tiletypes["RAMT"] = 4
 
 def maj_wire_name(name):
     if re.match(r"lutff_\d/(in|out)", name[2]):
@@ -682,9 +689,9 @@ tilegrid = []
 for y in range(dev_height):
     for x in range(dev_width):
         if (x, y) in tiles:
-            tilegrid.append("TILE_%s" % (tiles[x, y].upper()))
+            tilegrid.append(tiles[x, y].upper())
         else:
-            tilegrid.append("TILE_NONE")
+            tilegrid.append("NONE")
 
 tileinfo = []
 for t in range(num_tile_types):
@@ -792,15 +799,15 @@ bba.r("tile_data_%s" % dev_name, "tiles_nonrouting")
 bba.r("switch_data_%s" % dev_name, "switches")
 bba.r("ieren_data_%s" % dev_name, "ierens")
 
+bba.l("tile_grid_%s" % dev_name, "TileType", export=True)
+for t in tilegrid:
+    bba.u32(tiletypes[t], "tiletype")
+
 bba.finalize()
 if compact_output:
     bba.write_compact_c(sys.stdout)
 else:
     bba.write_verbose_c(sys.stdout)
-
-print("static TileType tile_grid_%s[%d] = {" % (dev_name, len(tilegrid)))
-print("  " + ",\n  ".join(tilegrid))
-print("};")
 
 print("static PackageInfoPOD package_info_%s[%d] = {" % (dev_name, len(packageinfo)))
 print("  " + ",\n  ".join(packageinfo))

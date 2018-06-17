@@ -156,7 +156,7 @@ struct PackageInfoPOD
     PackagePinPOD *pins;
 } __attribute__((packed));
 
-enum TileType
+enum TileType : uint32_t
 {
     TILE_NONE = 0,
     TILE_LOGIC = 1,
