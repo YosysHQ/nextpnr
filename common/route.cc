@@ -369,7 +369,14 @@ void route_design(Design *design, bool verbose)
 
         std::unordered_set<IdString> ripupQueue;
 
+        log_info("routing queue contains %d nets.\n", int(netsQueue.size()));
+        bool printNets = netsQueue.size() < 10;
+
         for (auto net_name : netsQueue) {
+            if (printNets)
+                log_info("  routing net %s. (%d users)\n", net_name.c_str(),
+                         int(design->nets.at(net_name)->users.size()));
+
             Router router(design, net_name, verbose, false);
 
             netCnt++;
@@ -382,7 +389,7 @@ void route_design(Design *design, bool verbose)
                 ripupQueue.insert(net_name);
             }
 
-            if (netCnt % 100 == 0)
+            if (!printNets && netCnt % 100 == 0)
                 log_info("  processed %d nets. (%d routed, %d failed)\n",
                          netCnt, netCnt - int(ripupQueue.size()),
                          int(ripupQueue.size()));
@@ -397,8 +404,10 @@ void route_design(Design *design, bool verbose)
                  visitCnt, (100.0 * revisitCnt) / visitCnt);
 
         if (!ripupQueue.empty()) {
-            log_info("  failed to route %d nets. re-routing in ripup mode.\n",
+            log_info("failed to route %d nets. re-routing in ripup mode.\n",
                      int(ripupQueue.size()));
+
+            printNets = ripupQueue.size() < 10;
 
             visitCnt = 0;
             revisitCnt = 0;
@@ -406,6 +415,10 @@ void route_design(Design *design, bool verbose)
             int ripCnt = 0;
 
             for (auto net_name : ripupQueue) {
+                if (printNets)
+                    log_info("  routing net %s. (%d users)\n", net_name.c_str(),
+                             int(design->nets.at(net_name)->users.size()));
+
                 Router router(design, net_name, verbose, true,
                               ripup_pip_penalty, ripup_wire_penalty);
 
@@ -422,9 +435,22 @@ void route_design(Design *design, bool verbose)
                 for (auto it : router.rippedNets)
                     netsQueue.insert(it);
 
+                if (printNets) {
+                    if (router.rippedNets.size() < 10) {
+                        log_info("    ripped up %d other nets:\n",
+                                 int(router.rippedNets.size()));
+                        for (auto n : router.rippedNets)
+                            log_info("      %s (%d users)\n", n.c_str(),
+                                     int(design->nets.at(n)->users.size()));
+                    } else {
+                        log_info("    ripped up %d other nets.\n",
+                                 int(router.rippedNets.size()));
+                    }
+                }
+
                 ripCnt += router.rippedNets.size();
 
-                if (netCnt % 100 == 0)
+                if (!printNets && netCnt % 100 == 0)
                     log_info("  routed %d nets, ripped %d nets.\n", netCnt,
                              ripCnt);
             }
