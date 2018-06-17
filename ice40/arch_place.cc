@@ -24,8 +24,8 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-static const NetInfo *get_net_or_nullptr(const CellInfo *cell,
-                                         const IdString port)
+static const NetInfo *get_net_or_empty(const CellInfo *cell,
+                                       const IdString port)
 {
     auto found = cell->ports.find(port);
     if (found != cell->ports.end())
@@ -38,45 +38,52 @@ static bool logicCellsCompatible(const std::vector<const CellInfo *> &cells)
 {
     bool dffs_exist = false, dffs_neg = false;
     const NetInfo *cen = nullptr, *clk = nullptr, *sr = nullptr;
-    std::unordered_set<const NetInfo *> locals;
+    static std::unordered_set<IdString> locals;
+    locals.clear();
 
     for (auto cell : cells) {
         if (bool_or_default(cell->params, "DFF_ENABLE")) {
             if (!dffs_exist) {
                 dffs_exist = true;
-                cen = get_net_or_nullptr(cell, "CEN");
-                clk = get_net_or_nullptr(cell, "CLK");
-                sr = get_net_or_nullptr(cell, "SR");
+                cen = get_net_or_empty(cell, "CEN");
+                clk = get_net_or_empty(cell, "CLK");
+                sr = get_net_or_empty(cell, "SR");
 
-                if (!is_global_net(cen))
-                    locals.insert(cen);
-                if (!is_global_net(clk))
-                    locals.insert(clk);
-                if (!is_global_net(sr))
-                    locals.insert(sr);
+                if (!is_global_net(cen) && cen != nullptr)
+                    locals.insert(cen->name);
+                if (!is_global_net(clk) && clk != nullptr)
+                    locals.insert(clk->name);
+                if (!is_global_net(sr) && sr != nullptr)
+                    locals.insert(sr->name);
 
                 if (bool_or_default(cell->params, "NEG_CLK")) {
                     dffs_neg = true;
                 }
             } else {
-                if (cen != get_net_or_nullptr(cell, "CEN"))
+                if (cen != get_net_or_empty(cell, "CEN"))
                     return false;
-                if (clk != get_net_or_nullptr(cell, "CLK"))
+                if (clk != get_net_or_empty(cell, "CLK"))
                     return false;
-                if (sr != get_net_or_nullptr(cell, "SR"))
+                if (sr != get_net_or_empty(cell, "SR"))
                     return false;
                 if (dffs_neg != bool_or_default(cell->params, "NEG_CLK"))
                     return false;
             }
         }
 
-        locals.insert(get_net_or_nullptr(cell, "I0"));
-        locals.insert(get_net_or_nullptr(cell, "I1"));
-        locals.insert(get_net_or_nullptr(cell, "I2"));
-        locals.insert(get_net_or_nullptr(cell, "I3"));
+        const NetInfo *i0 = get_net_or_empty(cell, "I0"),
+                      *i1 = get_net_or_empty(cell, "I1"),
+                      *i2 = get_net_or_empty(cell, "I2"),
+                      *i3 = get_net_or_empty(cell, "I3");
+        if (i0 != nullptr)
+            locals.insert(i0->name);
+        if (i1 != nullptr)
+            locals.insert(i1->name);
+        if (i2 != nullptr)
+            locals.insert(i2->name);
+        if (i3 != nullptr)
+            locals.insert(i3->name);
     }
-
-    locals.erase(nullptr); // disconnected signals don't use local tracks
 
     return locals.size() <= 32;
 }

@@ -279,7 +279,9 @@ static void pack_io(Design *design)
 static void insert_global(Design *design, NetInfo *net, bool is_reset,
                           bool is_cen)
 {
-    CellInfo *gb = create_ice_cell(design, "SB_GB");
+    std::string glb_name = net->name.str() + std::string("_$glb_") +
+                           (is_reset ? "sr" : (is_cen ? "ce" : "clk"));
+    CellInfo *gb = create_ice_cell(design, "SB_GB", "$gbuf_" + glb_name);
     gb->ports["USER_SIGNAL_TO_GLOBAL_BUFFER"].net = net;
     PortRef pr;
     pr.cell = gb;
@@ -289,8 +291,7 @@ static void insert_global(Design *design, NetInfo *net, bool is_reset,
     pr.cell = gb;
     pr.port = "GLOBAL_BUFFER_OUTPUT";
     NetInfo *glbnet = new NetInfo();
-    glbnet->name = net->name.str() + std::string("_glb_") +
-                   (is_reset ? "sr" : (is_cen ? "ce" : "clk"));
+    glbnet->name = glb_name;
     glbnet->driver = pr;
     design->nets[glbnet->name] = glbnet;
     gb->ports["GLOBAL_BUFFER_OUTPUT"].net = glbnet;
@@ -363,19 +364,22 @@ static void promote_globals(Design *design)
             ++prom_resets;
             clock_count.erase(rstnet->name);
             reset_count.erase(rstnet->name);
-
+            cen_count.erase(rstnet->name);
         } else if (global_cen->second > global_clock->second && prom_cens < 4) {
             NetInfo *cennet = design->nets[global_cen->first];
             insert_global(design, cennet, false, true);
             ++prom_globals;
             ++prom_cens;
-            cen_count.erase(cennet->name);
             clock_count.erase(cennet->name);
+            reset_count.erase(cennet->name);
+            cen_count.erase(cennet->name);
         } else if (global_clock->second != 0) {
             NetInfo *clknet = design->nets[global_clock->first];
             insert_global(design, clknet, false, false);
             ++prom_globals;
             clock_count.erase(clknet->name);
+            reset_count.erase(clknet->name);
+            cen_count.erase(clknet->name);
         } else {
             break;
         }
