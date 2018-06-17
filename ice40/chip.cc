@@ -209,7 +209,7 @@ WireId Chip::getWireByName(IdString name) const
 
     if (wire_by_name.empty()) {
         for (int i = 0; i < chip_info.num_wires; i++)
-            wire_by_name[chip_info.wire_data[i].name] = i;
+            wire_by_name[chip_info.wire_data[i].name.get()] = i;
     }
 
     auto it = wire_by_name.find(name);
@@ -248,11 +248,11 @@ IdString Chip::getPipName(PipId pip) const
     int y = chip_info.pip_data[pip.index].y;
 
     std::string src_name =
-            chip_info.wire_data[chip_info.pip_data[pip.index].src].name;
+            chip_info.wire_data[chip_info.pip_data[pip.index].src].name.get();
     std::replace(src_name.begin(), src_name.end(), '/', '.');
 
     std::string dst_name =
-            chip_info.wire_data[chip_info.pip_data[pip.index].dst].name;
+            chip_info.wire_data[chip_info.pip_data[pip.index].dst].name.get();
     std::replace(dst_name.begin(), dst_name.end(), '/', '.');
 
     return "X" + std::to_string(x) + "/Y" + std::to_string(y) + "/" + src_name +

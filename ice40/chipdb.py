@@ -398,11 +398,14 @@ class BinaryBlobAssembler:
         assert not self.finalized
         assert len(self.data) % 4 == 0
         assert len(self.data) not in self.refs
-        self.refs[len(self.data)] = (name, comment)
+        if name is not None:
+            self.refs[len(self.data)] = (name, comment)
         self.data.append(0)
         self.data.append(0)
         self.data.append(0)
         self.data.append(0)
+        if (name is None) and (comment is not None):
+            self.comments[len(self.data)] = comment + " (null reference)"
 
     def s(self, s, comment):
         assert not self.finalized
@@ -578,12 +581,12 @@ for wire in range(num_wires):
             pips.append(pipcache[(src, wire)])
         num_uphill = len(pips)
         list_uphill = "wire%d_uppips" % wire
-        bba.l(list_uphill, "int32_t", export=True)
+        bba.l(list_uphill, "int32_t")
         for p in pips:
             bba.u32(p, None)
     else:
         num_uphill = 0
-        list_uphill = "nullptr"
+        list_uphill = None
 
     if wire in wire_downhill:
         pips = list()
@@ -594,32 +597,40 @@ for wire in range(num_wires):
             pips.append(pipcache[(wire, dst)])
         num_downhill = len(pips)
         list_downhill = "wire%d_downpips" % wire
-        bba.l(list_downhill, "int32_t", export=True)
+        bba.l(list_downhill, "int32_t")
         for p in pips:
             bba.u32(p, None)
     else:
         num_downhill = 0
-        list_downhill = "nullptr"
+        list_downhill = None
 
     if wire in wire_downhill_belports:
         num_bels_downhill = len(wire_downhill_belports[wire])
-        bba.l("wire%d_downbels" % wire, "BelPortPOD", export=True)
+        bba.l("wire%d_downbels" % wire, "BelPortPOD")
         for belport in wire_downhill_belports[wire]:
             bba.u32(belport[0], "bel_index")
             bba.u32(portpins[belport[1]], "port")
     else:
         num_bels_downhill = 0
 
-    info = "  {"
-    info += "\"X%d/Y%d/%s\", " % wire_names_r[wire]
-    info += "%d, %d, %s, %s, %d, " % (num_uphill, num_downhill, list_uphill, list_downhill, num_bels_downhill)
+    info = dict()
+    info["name"] = "X%d/Y%d/%s" % wire_names_r[wire]
+
+    info["num_uphill"] = num_uphill
+    info["list_uphill"] = list_uphill
+
+    info["num_downhill"] = num_downhill
+    info["list_downhill"] = list_downhill
+
+    info["num_bels_downhill"] = num_bels_downhill
+    info["list_bels_downhill"] = ("wire%d_downbels" % wire) if num_bels_downhill > 0 else None
 
     if wire in wire_uphill_belport:
-        info += "{%d, PIN_%s}, " % wire_uphill_belport[wire]
+        info["uphill_bel"] = wire_uphill_belport[wire][0]
+        info["uphill_pin"] = portpins[wire_uphill_belport[wire][1]]
     else:
-        info += "{-1, PIN_NONE}, "
-
-    info += ("wire%d_downbels, " % wire) if num_bels_downhill > 0 else "nullptr, "
+        info["uphill_bel"] = -1
+        info["uphill_pin"] = 0
 
     avg_x, avg_y = 0, 0
     if wire in wire_xy:
@@ -629,7 +640,8 @@ for wire in range(num_wires):
         avg_x /= len(wire_xy[wire])
         avg_y /= len(wire_xy[wire])
 
-    info += "%d, %d}" % (round(avg_x), round(avg_y))
+    info["x"] = int(round(avg_x))
+    info["y"] = int(round(avg_y))
 
     wireinfo.append(info)
 
@@ -682,11 +694,29 @@ for t in range(num_tile_types):
         bba.u32(0, "padding")
     tileinfo.append("{%d, %d, %d, tile%d_config}" % (tile_sizes[t][0], tile_sizes[t][1], len(centries_info), t))
 
+bba.l("wire_data_%s" % dev_name, "WireInfoPOD", export=True)
+for info in wireinfo:
+    bba.s(info["name"], "name")
+    bba.u32(info["num_uphill"], "num_uphill")
+    bba.u32(info["num_downhill"], "num_downhill")
+    bba.r(info["list_uphill"], "pips_uphill")
+    bba.r(info["list_downhill"], "pips_downhill")
+    bba.u32(info["num_bels_downhill"], "num_bels_downhill")
+    bba.u32(info["uphill_bel"], "bel_uphill.bel_index")
+    bba.u32(info["uphill_pin"], "bel_uphill.port")
+    bba.r(info["list_bels_downhill"], "bels_downhill")
+    bba.u16(info["x"], "x")
+    bba.u16(info["y"], "y")
+
 bba.finalize()
 if compact_output:
     bba.write_compact_c(sys.stdout)
 else:
     bba.write_verbose_c(sys.stdout)
+
+print("static PipInfoPOD pip_data_%s[%d] = {" % (dev_name, len(pipinfo)))
+print("  " + ",\n  ".join(pipinfo))
+print("};")
 
 switchinfo = []
 switchid = 0
@@ -701,18 +731,6 @@ for switch in switches:
     switchinfo.append("{%d, %d, %d, {%s}}" % (x, y, len(bits), cbits))
     switchid += 1
 
-iereninfo = []
-for ieren in ierens:
-    iereninfo.append("{%d, %d, %d, %d, %d, %d}" % ieren)
-
-print("static WireInfoPOD wire_data_%s[%d] = {" % (dev_name, num_wires))
-print("  " + ",\n  ".join(wireinfo))
-print("};")
-
-print("static PipInfoPOD pip_data_%s[%d] = {" % (dev_name, len(pipinfo)))
-print("  " + ",\n  ".join(pipinfo))
-print("};")
-
 print("static SwitchInfoPOD switch_data_%s[%d] = {" % (dev_name, len(switchinfo)))
 print("  " + ",\n  ".join(switchinfo))
 print("};")
@@ -720,6 +738,10 @@ print("};")
 print("static TileInfoPOD tile_data_%s[%d] = {" % (dev_name, num_tile_types))
 print("  " + ",\n  ".join(tileinfo))
 print("};")
+
+iereninfo = []
+for ieren in ierens:
+    iereninfo.append("{%d, %d, %d, %d, %d, %d}" % ieren)
 
 print("static IerenInfoPOD ieren_data_%s[%d] = {" % (dev_name, len(iereninfo)))
 print("  " + ",\n  ".join(iereninfo))

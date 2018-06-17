@@ -132,15 +132,15 @@ struct PipInfoPOD
 
 struct WireInfoPOD
 {
-    const char *name;
+    RelPtr<char> name;
     int32_t num_uphill, num_downhill;
-    int32_t *pips_uphill, *pips_downhill;
+    RelPtr<int32_t> pips_uphill, pips_downhill;
 
     int32_t num_bels_downhill;
     BelPortPOD bel_uphill;
-    BelPortPOD *bels_downhill;
+    RelPtr<BelPortPOD> bels_downhill;
 
-    int8_t x, y;
+    int16_t x, y;
 } __attribute__((packed));
 
 struct PackagePinPOD
@@ -339,7 +339,7 @@ struct BelRange
 
 struct BelPinIterator
 {
-    BelPortPOD *ptr = nullptr;
+    const BelPortPOD *ptr = nullptr;
 
     void operator++() { ptr++; }
     bool operator!=(const BelPinIterator &other) const
@@ -421,7 +421,7 @@ struct AllPipRange
 
 struct PipIterator
 {
-    int *cursor = nullptr;
+    const int *cursor = nullptr;
 
     void operator++() { cursor++; }
     bool operator!=(const PipIterator &other) const
@@ -565,7 +565,7 @@ struct Chip
     {
         BelPinRange range;
         assert(wire != WireId());
-        range.b.ptr = chip_info.wire_data[wire.index].bels_downhill;
+        range.b.ptr = chip_info.wire_data[wire.index].bels_downhill.get();
         range.e.ptr =
                 range.b.ptr + chip_info.wire_data[wire.index].num_bels_downhill;
         return range;
@@ -578,7 +578,7 @@ struct Chip
     IdString getWireName(WireId wire) const
     {
         assert(wire != WireId());
-        return chip_info.wire_data[wire.index].name;
+        return chip_info.wire_data[wire.index].name.get();
     }
 
     void bindWire(WireId wire, IdString net)
@@ -697,7 +697,7 @@ struct Chip
     {
         PipRange range;
         assert(wire != WireId());
-        range.b.cursor = chip_info.wire_data[wire.index].pips_downhill;
+        range.b.cursor = chip_info.wire_data[wire.index].pips_downhill.get();
         range.e.cursor =
                 range.b.cursor + chip_info.wire_data[wire.index].num_downhill;
         return range;
@@ -707,7 +707,7 @@ struct Chip
     {
         PipRange range;
         assert(wire != WireId());
-        range.b.cursor = chip_info.wire_data[wire.index].pips_uphill;
+        range.b.cursor = chip_info.wire_data[wire.index].pips_uphill.get();
         range.e.cursor =
                 range.b.cursor + chip_info.wire_data[wire.index].num_uphill;
         return range;
