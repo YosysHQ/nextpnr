@@ -201,10 +201,10 @@ struct IerenInfoPOD
 
 struct BitstreamInfoPOD
 {
-    int num_switches, num_ierens;
-    TileInfoPOD *tiles_nonrouting;
-    SwitchInfoPOD *switches;
-    IerenInfoPOD *ierens;
+    int32_t num_switches, num_ierens;
+    RelPtr<TileInfoPOD> tiles_nonrouting;
+    RelPtr<SwitchInfoPOD> switches;
+    RelPtr<IerenInfoPOD> ierens;
 } __attribute__((packed));
 
 struct ChipInfoPOD

@@ -155,7 +155,7 @@ void write_asc(const Design &design, std::ostream &out)
         const BelInfoPOD &beli = ci.bel_data[bel.index];
         int x = beli.x, y = beli.y, z = beli.z;
         if (cell.second->type == "ICESTORM_LC") {
-            TileInfoPOD &ti = bi.tiles_nonrouting[TILE_LOGIC];
+            const TileInfoPOD &ti = bi.tiles_nonrouting[TILE_LOGIC];
             unsigned lut_init = get_param_or_def(cell.second, "LUT_INIT");
             bool neg_clk = get_param_or_def(cell.second, "NEG_CLK");
             bool dff_enable = get_param_or_def(cell.second, "DFF_ENABLE");
@@ -181,7 +181,7 @@ void write_asc(const Design &design, std::ostream &out)
                            lc.at(i), i);
             set_config(ti, config.at(y).at(x), "NegClk", neg_clk);
         } else if (cell.second->type == "SB_IO") {
-            TileInfoPOD &ti = bi.tiles_nonrouting[TILE_IO];
+            const TileInfoPOD &ti = bi.tiles_nonrouting[TILE_IO];
             unsigned pin_type = get_param_or_def(cell.second, "PIN_TYPE");
             bool neg_trigger = get_param_or_def(cell.second, "NEG_TRIGGER");
             bool pullup = get_param_or_def(cell.second, "PULLUP");
@@ -254,7 +254,7 @@ void write_asc(const Design &design, std::ostream &out)
     for (auto bel : chip.getBels()) {
         if (chip.bel_to_cell[bel.index] == IdString() &&
             chip.getBelType(bel) == TYPE_SB_IO) {
-            TileInfoPOD &ti = bi.tiles_nonrouting[TILE_IO];
+            const TileInfoPOD &ti = bi.tiles_nonrouting[TILE_IO];
             const BelInfoPOD &beli = ci.bel_data[bel.index];
             int x = beli.x, y = beli.y, z = beli.z;
             auto ieren = get_ieren(bi, x, y, z);
@@ -273,7 +273,7 @@ void write_asc(const Design &design, std::ostream &out)
                    chip.getBelType(bel) == TYPE_ICESTORM_RAM) {
             const BelInfoPOD &beli = ci.bel_data[bel.index];
             int x = beli.x, y = beli.y;
-            TileInfoPOD &ti = bi.tiles_nonrouting[TILE_RAMB];
+            const TileInfoPOD &ti = bi.tiles_nonrouting[TILE_RAMB];
             if ((chip.args.type == ChipArgs::LP1K ||
                  chip.args.type == ChipArgs::HX1K)) {
                 set_config(ti, config.at(y).at(x), "RamConfig.PowerUp", true);
@@ -285,7 +285,7 @@ void write_asc(const Design &design, std::ostream &out)
     for (int y = 0; y < ci.height; y++) {
         for (int x = 0; x < ci.width; x++) {
             TileType tile = tile_at(chip, x, y);
-            TileInfoPOD &ti = bi.tiles_nonrouting[tile];
+            const TileInfoPOD &ti = bi.tiles_nonrouting[tile];
 
             // set all ColBufCtrl bits (FIXME)
             bool setColBufCtrl = true;

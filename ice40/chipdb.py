@@ -753,7 +753,7 @@ for switch in switches:
     si["bits"] = bitlist
     switchinfo.append(si)
 
-bba.l("switch_data_%s" % dev_name, "SwitchInfoPOD", export=True)
+bba.l("switch_data_%s" % dev_name, "SwitchInfoPOD")
 for info in switchinfo:
     bba.u32(len(info["bits"]), "num_bits")
     bba.u8(info["x"], "x")
@@ -766,14 +766,14 @@ for info in switchinfo:
             bba.u8(0, "row<%d> (unused)" % i)
             bba.u8(0, "col<%d> (unused)" % i)
 
-bba.l("tile_data_%s" % dev_name, "TileInfoPOD", export=True)
+bba.l("tile_data_%s" % dev_name, "TileInfoPOD")
 for info in tileinfo:
     bba.u8(info["cols"], "cols")
     bba.u8(info["rows"], "rows")
     bba.u16(info["num_entries"], "num_entries")
     bba.r(info["entries"], "entries")
 
-bba.l("ieren_data_%s" % dev_name, "IerenInfoPOD", export=True)
+bba.l("ieren_data_%s" % dev_name, "IerenInfoPOD")
 for ieren in ierens:
     bba.u8(ieren[0], "iox")
     bba.u8(ieren[1], "ioy")
@@ -782,15 +782,21 @@ for ieren in ierens:
     bba.u8(ieren[4], "iery")
     bba.u8(ieren[5], "ierz")
 
+if len(ierens) % 2 == 1:
+    bba.u16(0, "padding")
+
+bba.l("bits_info_%s" % dev_name, "BitstreamInfoPOD", export=True)
+bba.u32(len(switchinfo), "num_switches")
+bba.u32(len(ierens), "num_ierens")
+bba.r("tile_data_%s" % dev_name, "tiles_nonrouting")
+bba.r("switch_data_%s" % dev_name, "switches")
+bba.r("ieren_data_%s" % dev_name, "ierens")
+
 bba.finalize()
 if compact_output:
     bba.write_compact_c(sys.stdout)
 else:
     bba.write_verbose_c(sys.stdout)
-
-print("static BitstreamInfoPOD bits_info_%s = {" % dev_name)
-print("  %d, %d, tile_data_%s, switch_data_%s, ieren_data_%s" % (len(switchinfo), len(ierens), dev_name, dev_name, dev_name))
-print("};")
 
 print("static TileType tile_grid_%s[%d] = {" % (dev_name, len(tilegrid)))
 print("  " + ",\n  ".join(tilegrid))
@@ -806,7 +812,7 @@ print('NEXTPNR_NAMESPACE_BEGIN')
 print("ChipInfoPOD chip_info_%s = {" % dev_name)
 print("  %d, %d, %d, %d, %d, %d, %d," % (dev_width, dev_height, len(bel_name), num_wires, len(pipinfo), len(switchinfo), len(packageinfo)))
 print("  bel_data, wire_data_%s, pip_data_%s," % (dev_name, dev_name))
-print("  tile_grid_%s, &bits_info_%s, package_info_%s" % (dev_name, dev_name, dev_name))
+print("  tile_grid_%s, bits_info_%s, package_info_%s" % (dev_name, dev_name, dev_name))
 print("};")
 
 print('NEXTPNR_NAMESPACE_END')
