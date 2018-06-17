@@ -82,19 +82,24 @@ Chip::Chip(ChipArgs args) : args(args)
 {
 #ifdef ICE40_HX1K_ONLY
     if (args.type == ChipArgs::HX1K) {
-        chip_info = reinterpret_cast<RelPtr<ChipInfoPOD>*>(chipdb_blob_1k)->get();
+        chip_info =
+                reinterpret_cast<RelPtr<ChipInfoPOD> *>(chipdb_blob_1k)->get();
     } else {
         log_error("Unsupported iCE40 chip type.\n");
     }
 #else
     if (args.type == ChipArgs::LP384) {
-        chip_info = reinterpret_cast<RelPtr<ChipInfoPOD>*>(chipdb_blob_384)->get();
+        chip_info =
+                reinterpret_cast<RelPtr<ChipInfoPOD> *>(chipdb_blob_384)->get();
     } else if (args.type == ChipArgs::LP1K || args.type == ChipArgs::HX1K) {
-        chip_info = reinterpret_cast<RelPtr<ChipInfoPOD>*>(chipdb_blob_1k)->get();
+        chip_info =
+                reinterpret_cast<RelPtr<ChipInfoPOD> *>(chipdb_blob_1k)->get();
     } else if (args.type == ChipArgs::UP5K) {
-        chip_info = reinterpret_cast<RelPtr<ChipInfoPOD>*>(chipdb_blob_5k)->get();
+        chip_info =
+                reinterpret_cast<RelPtr<ChipInfoPOD> *>(chipdb_blob_5k)->get();
     } else if (args.type == ChipArgs::LP8K || args.type == ChipArgs::HX8K) {
-        chip_info = reinterpret_cast<RelPtr<ChipInfoPOD>*>(chipdb_blob_8k)->get();
+        chip_info =
+                reinterpret_cast<RelPtr<ChipInfoPOD> *>(chipdb_blob_8k)->get();
     } else {
         log_error("Unsupported iCE40 chip type.\n");
     }
@@ -190,7 +195,8 @@ WireId Chip::getWireBelPin(BelId bel, PortPin pin) const
     assert(bel != BelId());
 
     int num_bel_wires = chip_info->bel_data[bel.index].num_bel_wires;
-    const BelWirePOD *bel_wires = chip_info->bel_data[bel.index].bel_wires.get();
+    const BelWirePOD *bel_wires =
+            chip_info->bel_data[bel.index].bel_wires.get();
 
     for (int i = 0; i < num_bel_wires; i++)
         if (bel_wires[i].port == pin) {

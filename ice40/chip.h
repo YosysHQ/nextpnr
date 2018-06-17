@@ -74,29 +74,26 @@ PortPin portPinFromId(IdString id);
 
 /**** Everything in this section must be kept in sync with chipdb.py ****/
 
-template <typename T>
-struct RelPtr {
+template <typename T> struct RelPtr
+{
     int32_t offset;
 
     // void set(const T *ptr) {
-    //     offset = reinterpret_cast<const char*>(ptr) - reinterpret_cast<const char*>(this);
+    //     offset = reinterpret_cast<const char*>(ptr) -
+    //              reinterpret_cast<const char*>(this);
     // }
 
-    const T*get() const {
-        return reinterpret_cast<const T*>(reinterpret_cast<const char*>(this) + offset);
+    const T *get() const
+    {
+        return reinterpret_cast<const T *>(
+                reinterpret_cast<const char *>(this) + offset);
     }
 
-    const T&operator[](size_t index) const {
-        return get()[index];
-    }
+    const T &operator[](size_t index) const { return get()[index]; }
 
-    const T&operator*() const {
-        return *(get());
-    }
+    const T &operator*() const { return *(get()); }
 
-    const T*operator->() const {
-        return get();
-    }
+    const T *operator->() const { return get(); }
 };
 
 struct BelWirePOD
@@ -566,8 +563,8 @@ struct Chip
         BelPinRange range;
         assert(wire != WireId());
         range.b.ptr = chip_info->wire_data[wire.index].bels_downhill.get();
-        range.e.ptr =
-                range.b.ptr + chip_info->wire_data[wire.index].num_bels_downhill;
+        range.e.ptr = range.b.ptr +
+                      chip_info->wire_data[wire.index].num_bels_downhill;
         return range;
     }
 
