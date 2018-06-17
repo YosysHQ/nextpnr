@@ -577,7 +577,15 @@ for wire in range(num_wires):
         for src in wire_uphill[wire]:
             if (src, wire) not in pipcache:
                 pipcache[(src, wire)] = len(pipinfo)
-                pipinfo.append("  {%d, %d, 1, %d, %d, %d, %d}" % (src, wire, pip_xy[(src, wire)][0], pip_xy[(src, wire)][1], pip_xy[(src, wire)][2], pip_xy[(src, wire)][3]))
+                pi = dict()
+                pi["src"] = src
+                pi["dst"] = wire
+                pi["delay"] = 1
+                pi["x"] = pip_xy[(src, wire)][0]
+                pi["y"] = pip_xy[(src, wire)][1]
+                pi["switch_mask"] = pip_xy[(src, wire)][2]
+                pi["switch_index"] = pip_xy[(src, wire)][3]
+                pipinfo.append(pi)
             pips.append(pipcache[(src, wire)])
         num_uphill = len(pips)
         list_uphill = "wire%d_uppips" % wire
@@ -593,7 +601,15 @@ for wire in range(num_wires):
         for dst in wire_downhill[wire]:
             if (wire, dst) not in pipcache:
                 pipcache[(wire, dst)] = len(pipinfo)
-                pipinfo.append("  {%d, %d, 1, %d, %d, %d, %d}" % (wire, dst, pip_xy[(wire, dst)][0], pip_xy[(wire, dst)][1], pip_xy[(wire, dst)][2], pip_xy[(wire, dst)][3]))
+                pi = dict()
+                pi["src"] = wire
+                pi["dst"] = dst
+                pi["delay"] = 1
+                pi["x"] = pip_xy[(wire, dst)][0]
+                pi["y"] = pip_xy[(wire, dst)][1]
+                pi["switch_mask"] = pip_xy[(wire, dst)][2]
+                pi["switch_index"] = pip_xy[(wire, dst)][3]
+                pipinfo.append(pi)
             pips.append(pipcache[(wire, dst)])
         num_downhill = len(pips)
         list_downhill = "wire%d_downpips" % wire
@@ -708,15 +724,21 @@ for info in wireinfo:
     bba.u16(info["x"], "x")
     bba.u16(info["y"], "y")
 
+bba.l("pip_data_%s" % dev_name, "PipInfoPOD", export=True)
+for info in pipinfo:
+    bba.u32(info["src"], "src")
+    bba.u32(info["dst"], "dst")
+    bba.u32(info["delay"], "delay")
+    bba.u8(info["x"], "x")
+    bba.u8(info["y"], "y")
+    bba.u16(info["switch_mask"], "switch_mask")
+    bba.u32(info["switch_index"], "switch_index")
+
 bba.finalize()
 if compact_output:
     bba.write_compact_c(sys.stdout)
 else:
     bba.write_verbose_c(sys.stdout)
-
-print("static PipInfoPOD pip_data_%s[%d] = {" % (dev_name, len(pipinfo)))
-print("  " + ",\n  ".join(pipinfo))
-print("};")
 
 switchinfo = []
 switchid = 0
