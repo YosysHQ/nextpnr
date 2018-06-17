@@ -6,6 +6,7 @@ import textwrap
 
 endianness = "le"
 compact_output = True
+nodebug = True
 
 dev_name = None
 dev_width = None
@@ -374,7 +375,7 @@ elif dev_name == "384":
     add_bel_gb( 3,  9,  4)
 
 class BinaryBlobAssembler:
-    def __init__(self, cname, endianness, ctype = "unsigned char"):
+    def __init__(self, cname, endianness, ctype = "unsigned char", nodebug = False):
         assert endianness in ["le", "be"]
         self.cname = cname
         self.ctype = ctype
@@ -388,6 +389,7 @@ class BinaryBlobAssembler:
         self.ltypes_byaddr = dict()
         self.strings = dict()
         self.refs = dict()
+        self.nodebug = nodebug
 
     def l(self, name, ltype = None, export = False):
         assert not self.finalized
@@ -405,6 +407,8 @@ class BinaryBlobAssembler:
         assert not self.finalized
         assert len(self.data) % 4 == 0
         assert len(self.data) not in self.refs
+        if self.nodebug:
+            comment = None
         if name is not None:
             self.refs[len(self.data)] = (name, comment)
         self.data.append(0)
@@ -416,15 +420,22 @@ class BinaryBlobAssembler:
 
     def s(self, s, comment):
         assert not self.finalized
+        if self.nodebug:
+            comment = None
         if s not in self.strings:
             index = len(self.strings)
             self.strings[s] = index
         else:
             index = self.strings[s]
-        self.r("str%d" % index, '%s: "%s"' % (comment, s))
+        if comment is not None:
+            self.r("str%d" % index, '%s: "%s"' % (comment, s))
+        else:
+            self.r("str%d" % index, None)
 
     def u8(self, v, comment):
         assert not self.finalized
+        if self.nodebug:
+            comment = None
         self.data.append(v)
         if comment is not None:
             self.comments[len(self.data)] = comment
@@ -432,6 +443,8 @@ class BinaryBlobAssembler:
     def u16(self, v, comment):
         assert not self.finalized
         assert len(self.data) % 2 == 0
+        if self.nodebug:
+            comment = None
         if self.endianness == "le":
             self.data.append(v & 255)
             self.data.append((v >> 8) & 255)
@@ -446,6 +459,8 @@ class BinaryBlobAssembler:
     def u32(self, v, comment):
         assert not self.finalized
         assert len(self.data) % 4 == 0
+        if self.nodebug:
+            comment = None
         if self.endianness == "le":
             self.data.append(v & 255)
             self.data.append((v >> 8) & 255)
