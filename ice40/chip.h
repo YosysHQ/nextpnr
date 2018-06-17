@@ -188,8 +188,8 @@ static const int max_switch_bits = 5;
 
 struct SwitchInfoPOD
 {
+    int32_t num_bits;
     int8_t x, y;
-    int num_bits;
     ConfigBitPOD cbits[max_switch_bits];
 } __attribute__((packed));
 

@@ -734,28 +734,38 @@ for info in pipinfo:
     bba.u16(info["switch_mask"], "switch_mask")
     bba.u32(info["switch_index"], "switch_index")
 
-bba.finalize()
-if compact_output:
-    bba.write_compact_c(sys.stdout)
-else:
-    bba.write_verbose_c(sys.stdout)
-
 switchinfo = []
-switchid = 0
 for switch in switches:
     dst, x, y, bits = switch
     bitlist = []
     for b in bits:
         m = cbit_re.match(b)
         assert m
-        bitlist.append("{%d, %d}" % (int(m.group(1)), int(m.group(2))))
-    cbits = ", ".join(bitlist)
-    switchinfo.append("{%d, %d, %d, {%s}}" % (x, y, len(bits), cbits))
-    switchid += 1
+        bitlist.append((int(m.group(1)), int(m.group(2))))
+    si = dict()
+    si["x"] = x
+    si["y"] = y
+    si["bits"] = bitlist
+    switchinfo.append(si)
 
-print("static SwitchInfoPOD switch_data_%s[%d] = {" % (dev_name, len(switchinfo)))
-print("  " + ",\n  ".join(switchinfo))
-print("};")
+bba.l("switch_data_%s" % dev_name, "SwitchInfoPOD", export=True)
+for info in switchinfo:
+    bba.u32(len(info["bits"]), "num_bits")
+    bba.u8(info["x"], "x")
+    bba.u8(info["y"], "y")
+    for i in range(5):
+        if i < len(info["bits"]):
+            bba.u8(info["bits"][i][0], "row<%d>" % i)
+            bba.u8(info["bits"][i][1], "col<%d>" % i)
+        else:
+            bba.u8(0, "row<%d> (unused)" % i)
+            bba.u8(0, "col<%d> (unused)" % i)
+
+bba.finalize()
+if compact_output:
+    bba.write_compact_c(sys.stdout)
+else:
+    bba.write_verbose_c(sys.stdout)
 
 print("static TileInfoPOD tile_data_%s[%d] = {" % (dev_name, num_tile_types))
 print("  " + ",\n  ".join(tileinfo))
