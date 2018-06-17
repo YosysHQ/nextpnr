@@ -217,10 +217,10 @@ struct ChipInfoPOD
     RelPtr<PackageInfoPOD> packages_data;
 } __attribute__((packed));
 
-extern uint8_t chipdb_blob_384[];
-extern uint8_t chipdb_blob_1k[];
-extern uint8_t chipdb_blob_5k[];
-extern uint8_t chipdb_blob_8k[];
+extern const char chipdb_blob_384[];
+extern const char chipdb_blob_1k[];
+extern const char chipdb_blob_5k[];
+extern const char chipdb_blob_8k[];
 
 /************************ End of chipdb section. ************************/
 

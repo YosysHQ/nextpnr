@@ -5,7 +5,6 @@ import re
 import textwrap
 
 endianness = "le"
-compact_output = True
 nodebug = True
 
 dev_name = None
@@ -375,10 +374,9 @@ elif dev_name == "384":
     add_bel_gb( 3,  9,  4)
 
 class BinaryBlobAssembler:
-    def __init__(self, cname, endianness, ctype = "unsigned char", nodebug = False):
+    def __init__(self, cname, endianness, nodebug = False):
         assert endianness in ["le", "be"]
         self.cname = cname
-        self.ctype = ctype
         self.endianness = endianness
         self.finalized = False
         self.data = bytearray()
@@ -504,9 +502,9 @@ class BinaryBlobAssembler:
             else:
                 cursor += 1
 
-    def write_verbose_c(self, f):
+    def write_verbose_c(self, f, ctype = "const unsigned char"):
         assert self.finalized
-        print("%s %s[%d] = {" % (self.ctype, self.cname, len(self.data)), file=f)
+        print("%s %s[%d] = {" % (ctype, self.cname, len(self.data)), file=f)
         cursor = 0
         bytecnt = 0
         while cursor < len(self.data):
@@ -544,9 +542,9 @@ class BinaryBlobAssembler:
             print(file=f)
         print("};", file=f)
 
-    def write_compact_c(self, f):
+    def write_compact_c(self, f, ctype = "const unsigned char"):
         assert self.finalized
-        print("%s %s[%d] = {" % (self.ctype, self.cname, len(self.data)), file=f)
+        print("%s %s[%d] = {" % (ctype, self.cname, len(self.data)), file=f)
         column = 0
         for v in self.data:
             if column == 0:
@@ -564,7 +562,73 @@ class BinaryBlobAssembler:
             print("#define %s ((%s*)(%s+%d))" % (self.labels_byaddr[cursor], self.ltypes_byaddr[cursor], self.cname, cursor), file=f)
         print("};", file=f)
 
-bba = BinaryBlobAssembler("chipdb_blob_%s" % dev_name, endianness, "uint8_t")
+    def write_uint64_c(self, f, ctype = "const uint64_t"):
+        assert self.finalized
+        print("%s %s[%d] = {" % (ctype, self.cname, (len(self.data)+7) // 8), file=f)
+        column = 0
+        for i in range((len(self.data)+7) // 8):
+            v0 = self.data[8*i+0] if 8*i+0 < len(self.data) else 0
+            v1 = self.data[8*i+1] if 8*i+1 < len(self.data) else 0
+            v2 = self.data[8*i+2] if 8*i+2 < len(self.data) else 0
+            v3 = self.data[8*i+3] if 8*i+3 < len(self.data) else 0
+            v4 = self.data[8*i+4] if 8*i+4 < len(self.data) else 0
+            v5 = self.data[8*i+5] if 8*i+5 < len(self.data) else 0
+            v6 = self.data[8*i+6] if 8*i+6 < len(self.data) else 0
+            v7 = self.data[8*i+7] if 8*i+7 < len(self.data) else 0
+            if self.endianness == "le":
+                v  = v0 <<  0
+                v |= v1 <<  8
+                v |= v2 << 16
+                v |= v3 << 24
+                v |= v4 << 32
+                v |= v5 << 40
+                v |= v6 << 48
+                v |= v7 << 56
+            elif self.endianness == "be":
+                v  = v7 <<  0
+                v |= v6 <<  8
+                v |= v5 << 16
+                v |= v4 << 24
+                v |= v3 << 32
+                v |= v2 << 40
+                v |= v1 << 48
+                v |= v0 << 56
+            else:
+                assert 0
+            if column == 3:
+                print(" 0x%016x," % v, file=f)
+                column = 0
+            else:
+                if column == 0:
+                    print(" ", end="", file=f)
+                print(" 0x%016x," % v, end="", file=f)
+                column += 1
+        if column != 0:
+            print("", file=f)
+        print("};", file=f)
+
+    def write_string_c(self, f, ctype = "const char"):
+        assert self.finalized
+        assert self.data[len(self.data)-1] == 0
+        print("%s %s[%d] =" % (ctype, self.cname, len(self.data)), file=f)
+        print("  \"", end="", file=f)
+        column = 0
+        for i in range(len(self.data)-1):
+            if (self.data[i] < 32) or (self.data[i] > 126):
+                print("\\%03o" % self.data[i], end="", file=f)
+                column += 4
+            elif self.data[i] == ord('"') or self.data[i] == ord('\\'):
+                print("\\" + chr(self.data[i]), end="", file=f)
+                column += 2
+            else:
+                print(chr(self.data[i]), end="", file=f)
+                column += 1
+            if column > 70 and (i != len(self.data)-2):
+                print("\"\n  \"", end="", file=f)
+                column = 0
+        print("\";", file=f)
+
+bba = BinaryBlobAssembler("chipdb_blob_%s" % dev_name, endianness)
 bba.r("chip_info_%s" % dev_name, "chip_info")
 
 index = 0
@@ -841,15 +905,9 @@ bba.finalize()
 print('#include "nextpnr.h"')
 print('NEXTPNR_NAMESPACE_BEGIN')
 
-if compact_output:
-    bba.write_compact_c(sys.stdout)
-else:
-    bba.write_verbose_c(sys.stdout)
-
-# print("ChipInfoPOD chip_info_%s = {" % dev_name)
-# print("  %d, %d, %d, %d, %d, %d, %d," % (dev_width, dev_height, len(bel_name), num_wires, len(pipinfo), len(switchinfo), len(packageinfo)))
-# print("  bel_data, wire_data_%s, pip_data_%s," % (dev_name, dev_name))
-# print("  tile_grid_%s, bits_info_%s, package_info_%s" % (dev_name, dev_name, dev_name))
-# print("};")
+bba.write_string_c(sys.stdout)
+# bba.write_uint64_c(sys.stdout)
+# bba.write_compact_c(sys.stdout, "uint8_t")
+# bba.write_verbose_c(sys.stdout, "uint8_t")
 
 print('NEXTPNR_NAMESPACE_END')

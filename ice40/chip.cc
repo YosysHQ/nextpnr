@@ -83,23 +83,23 @@ Chip::Chip(ChipArgs args) : args(args)
 #ifdef ICE40_HX1K_ONLY
     if (args.type == ChipArgs::HX1K) {
         chip_info =
-                reinterpret_cast<RelPtr<ChipInfoPOD> *>(chipdb_blob_1k)->get();
+                reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_1k)->get();
     } else {
         log_error("Unsupported iCE40 chip type.\n");
     }
 #else
     if (args.type == ChipArgs::LP384) {
         chip_info =
-                reinterpret_cast<RelPtr<ChipInfoPOD> *>(chipdb_blob_384)->get();
+                reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_384)->get();
     } else if (args.type == ChipArgs::LP1K || args.type == ChipArgs::HX1K) {
         chip_info =
-                reinterpret_cast<RelPtr<ChipInfoPOD> *>(chipdb_blob_1k)->get();
+                reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_1k)->get();
     } else if (args.type == ChipArgs::UP5K) {
         chip_info =
-                reinterpret_cast<RelPtr<ChipInfoPOD> *>(chipdb_blob_5k)->get();
+                reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_5k)->get();
     } else if (args.type == ChipArgs::LP8K || args.type == ChipArgs::HX8K) {
         chip_info =
-                reinterpret_cast<RelPtr<ChipInfoPOD> *>(chipdb_blob_8k)->get();
+                reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_8k)->get();
     } else {
         log_error("Unsupported iCE40 chip type.\n");
     }
