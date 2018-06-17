@@ -31,7 +31,7 @@
 #include "nextpnr.h"
 #include "pack.h"
 #include "pcf.h"
-#include "place.h"
+#include "place_sa.h"
 #include "pybindings.h"
 #include "route.h"
 #include "version.h"
