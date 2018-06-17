@@ -72,27 +72,30 @@ PortPin portPinFromId(IdString id);
 
 // -----------------------------------------------------------------------
 
+/**** Everything in this section must be kept in sync with chipdb.py ****/
+
 template <typename T>
 struct RelPtr {
-    int offset;
+    int32_t offset;
 
-    // RelPtr(const T *ptr) : offset(reinterpret_cast<const char*>(ptr) -
-    //                               reinterpret_cast<const char*>(this)) {}
+    // void set(const T *ptr) {
+    //     offset = reinterpret_cast<const char*>(ptr) - reinterpret_cast<const char*>(this);
+    // }
+
+    const T*get() const {
+        return reinterpret_cast<const T*>(reinterpret_cast<const char*>(this) + offset);
+    }
 
     const T&operator[](size_t index) const {
-        return reinterpret_cast<const T*>(reinterpret_cast<const char*>(this) + offset)[index];
+        return get()[index];
     }
 
     const T&operator*() const {
-        return *reinterpret_cast<const T*>(reinterpret_cast<const char*>(this) + offset);
+        return *(get());
     }
 
     const T*operator->() const {
-        return reinterpret_cast<const T*>(reinterpret_cast<const char*>(this) + offset);
-    }
-
-    const T*ptr() const {
-        return reinterpret_cast<const T*>(reinterpret_cast<const char*>(this) + offset);
+        return get();
     }
 };
 
@@ -109,7 +112,7 @@ struct BelInfoPOD
     int32_t num_bel_wires;
     RelPtr<BelWirePOD> bel_wires;
     int8_t x, y, z;
-    int8_t filler_0;
+    int8_t padding_0;
 } __attribute__((packed));
 
 struct BelPortPOD
@@ -221,6 +224,8 @@ extern ChipInfoPOD chip_info_384;
 extern ChipInfoPOD chip_info_1k;
 extern ChipInfoPOD chip_info_5k;
 extern ChipInfoPOD chip_info_8k;
+
+/************************ End of chipdb section. ************************/
 
 // -----------------------------------------------------------------------
 
@@ -481,7 +486,7 @@ struct Chip
     IdString getBelName(BelId bel) const
     {
         assert(bel != BelId());
-        return chip_info.bel_data[bel.index].name.ptr();
+        return chip_info.bel_data[bel.index].name.get();
     }
 
     void bindBel(BelId bel, IdString cell)

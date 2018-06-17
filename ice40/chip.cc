@@ -153,7 +153,7 @@ BelId Chip::getBelByName(IdString name) const
 
     if (bel_by_name.empty()) {
         for (int i = 0; i < chip_info.num_bels; i++)
-            bel_by_name[chip_info.bel_data[i].name.ptr()] = i;
+            bel_by_name[chip_info.bel_data[i].name.get()] = i;
     }
 
     auto it = bel_by_name.find(name);
@@ -190,7 +190,7 @@ WireId Chip::getWireBelPin(BelId bel, PortPin pin) const
     assert(bel != BelId());
 
     int num_bel_wires = chip_info.bel_data[bel.index].num_bel_wires;
-    const BelWirePOD *bel_wires = chip_info.bel_data[bel.index].bel_wires.ptr();
+    const BelWirePOD *bel_wires = chip_info.bel_data[bel.index].bel_wires.get();
 
     for (int i = 0; i < num_bel_wires; i++)
         if (bel_wires[i].port == pin) {
@@ -264,7 +264,7 @@ IdString Chip::getPipName(PipId pip) const
 BelId Chip::getPackagePinBel(const std::string &pin) const
 {
     for (int i = 0; i < package_info->num_pins; i++) {
-        if (package_info->pins[i].name.ptr() == pin) {
+        if (package_info->pins[i].name.get() == pin) {
             BelId id;
             id.index = package_info->pins[i].bel_index;
             return id;
@@ -277,7 +277,7 @@ std::string Chip::getBelPackagePin(BelId bel) const
 {
     for (int i = 0; i < package_info->num_pins; i++) {
         if (package_info->pins[i].bel_index == bel.index) {
-            return std::string(package_info->pins[i].name.ptr());
+            return std::string(package_info->pins[i].name.get());
         }
     }
     return "";
