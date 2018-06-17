@@ -440,8 +440,8 @@ void route_design(Design *design, bool verbose)
                          "routing.\n",
                          int(netsQueue.size()));
 
-            ripup_pip_penalty *= 1.5;
-            ripup_wire_penalty *= 1.5;
+            ripup_pip_penalty += 15;
+            ripup_wire_penalty += 15;
         }
     }
 

@@ -191,16 +191,12 @@ static bool try_swap_position(Design *design, CellInfo *cell, BelId newBel,
         other_cell = design->cells[other];
         chip.unbindBel(newBel);
     }
-    if (!isValidBelForCell(design, cell, newBel))
-        goto swap_fail;
 
     for (const auto &port : cell->ports)
         if (port.second.net != nullptr)
             update.insert(port.second.net);
 
     if (other != IdString()) {
-        if (!isValidBelForCell(design, other_cell, oldBel))
-            goto swap_fail;
         for (const auto &port : other_cell->ports)
             if (port.second.net != nullptr)
                 update.insert(port.second.net);
