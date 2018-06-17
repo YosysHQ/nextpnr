@@ -2,6 +2,7 @@
  *  nextpnr -- Next Generation Place and Route
  *
  *  Copyright (C) 2018  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2018  David Shah <david@symbioticeda.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -188,6 +189,41 @@ void nxio_to_sb(CellInfo *nxio, CellInfo *sbio)
     } else {
         assert(false);
     }
+}
+
+bool is_clock_port(const PortRef &port)
+{
+    if (port.cell == nullptr)
+        return false;
+    if (is_ff(port.cell))
+        return port.port == "C";
+    if (port.cell->type == "ICESTORM_LC")
+        return port.port == "CLK";
+    if (is_ram(port.cell) || port.cell->type == "ICESTORM_RAM")
+        return port.port == "RCLK" || port.port == "WCLK";
+    return false;
+}
+
+bool is_reset_port(const PortRef &port)
+{
+    if (port.cell == nullptr)
+        return false;
+    if (is_ff(port.cell))
+        return port.port == "R" || port.port == "S";
+    if (port.cell->type == "ICESTORM_LC")
+        return port.port == "SR";
+    return false;
+}
+
+bool is_enable_port(const PortRef &port)
+{
+    if (port.cell == nullptr)
+        return false;
+    if (is_ff(port.cell))
+        return port.port == "E";
+    if (port.cell->type == "ICESTORM_LC")
+        return port.port == "CEN";
+    return false;
 }
 
 bool is_global_net(const NetInfo *net)

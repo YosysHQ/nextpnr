@@ -2,6 +2,7 @@
  *  nextpnr -- Next Generation Place and Route
  *
  *  Copyright (C) 2018  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2018  David Shah <david@symbioticeda.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -12,7 +13,7 @@
  *  MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
  *  ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
  *  WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- *  ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ *  ACTION OF CONTRACT, NeEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  *  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
  */
@@ -29,6 +30,9 @@ NEXTPNR_NAMESPACE_BEGIN
 // This is not intended for Bel type checks, but finer-grained constraints
 // such as conflicting set/reset signals, etc
 bool isValidBelForCell(Design *design, CellInfo *cell, BelId bel);
+
+// Return true whether all Bels at a given location are valid
+bool isBelLocationValid(Design *design, BelId bel);
 
 NEXTPNR_NAMESPACE_END
 

@@ -2,6 +2,7 @@
  *  nextpnr -- Next Generation Place and Route
  *
  *  Copyright (C) 2018  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2018  David Shah <david@symbioticeda.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -76,6 +77,15 @@ void nxio_to_sb(CellInfo *nxio, CellInfo *sbio);
 
 // Return true if a net is a global net
 bool is_global_net(const NetInfo *net);
+
+// Return true if a port is a clock port
+bool is_clock_port(const PortRef &port);
+
+// Return true if a port is a reset port
+bool is_reset_port(const PortRef &port);
+
+// Return true if a port is a clock enable port
+bool is_enable_port(const PortRef &port);
 
 NEXTPNR_NAMESPACE_END
 

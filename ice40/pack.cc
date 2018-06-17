@@ -2,7 +2,7 @@
  *  nextpnr -- Next Generation Place and Route
  *
  *  Copyright (C) 2018  Clifford Wolf <clifford@clifford.at>
- *  Copyright (C) 2018  David Shah <dave@ds0.me>
+ *  Copyright (C) 2018  David Shah <david@symbioticeda.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -276,15 +276,36 @@ static void pack_io(Design *design)
     }
 }
 
-static bool is_clock_port(const PortRef &port)
+static void insert_global(Design *design, NetInfo *net, bool is_reset,
+                          bool is_cen)
 {
-    if (port.cell == nullptr)
-        return false;
-    if (is_ff(port.cell))
-        return port.port == "C";
-    if (is_ram(port.cell))
-        return port.port == "RCLK" || port.port == "WCLK";
-    return false;
+    CellInfo *gb = create_ice_cell(design, "SB_GB");
+    gb->ports["USER_SIGNAL_TO_GLOBAL_BUFFER"].net = net;
+    PortRef pr;
+    pr.cell = gb;
+    pr.port = "USER_SIGNAL_TO_GLOBAL_BUFFER";
+    net->users.push_back(pr);
+
+    pr.cell = gb;
+    pr.port = "GLOBAL_BUFFER_OUTPUT";
+    NetInfo *glbnet = new NetInfo();
+    glbnet->name = net->name.str() + std::string("_glb_") +
+                   (is_reset ? "sr" : (is_cen ? "ce" : "clk"));
+    glbnet->driver = pr;
+    design->nets[glbnet->name] = glbnet;
+    gb->ports["GLOBAL_BUFFER_OUTPUT"].net = glbnet;
+    std::vector<PortRef> keep_users;
+    for (auto user : net->users) {
+        if (is_clock_port(user) || (is_reset && is_reset_port(user)) ||
+            (is_cen && is_enable_port(user))) {
+            user.cell->ports[user.port].net = glbnet;
+            glbnet->users.push_back(user);
+        } else {
+            keep_users.push_back(user);
+        }
+    }
+    net->users = keep_users;
+    design->cells[gb->name] = gb;
 }
 
 // Simple global promoter (clock only)
@@ -292,48 +313,72 @@ static void promote_globals(Design *design)
 {
     log_info("Promoting globals..\n");
 
-    std::unordered_map<IdString, int> clock_count;
+    std::unordered_map<IdString, int> clock_count, reset_count, cen_count;
     for (auto net : design->nets) {
         NetInfo *ni = net.second;
         if (ni->driver.cell != nullptr && !is_global_net(ni)) {
             clock_count[net.first] = 0;
+            reset_count[net.first] = 0;
+            cen_count[net.first] = 0;
+
             for (auto user : ni->users) {
                 if (is_clock_port(user))
                     clock_count[net.first]++;
+                if (is_reset_port(user))
+                    reset_count[net.first]++;
+                if (is_enable_port(user))
+                    cen_count[net.first]++;
             }
         }
     }
-    auto global_clock = std::max_element(clock_count.begin(), clock_count.end(),
-                                         [](const std::pair<IdString, int> &a,
-                                            const std::pair<IdString, int> &b) {
-                                             return a.second < b.second;
-                                         });
-    if (global_clock->second > 0) {
-        NetInfo *clknet = design->nets[global_clock->first];
-        CellInfo *gb = create_ice_cell(design, "SB_GB");
-        gb->ports["USER_SIGNAL_TO_GLOBAL_BUFFER"].net = clknet;
-        PortRef pr;
-        pr.cell = gb;
-        pr.port = "USER_SIGNAL_TO_GLOBAL_BUFFER";
-        clknet->users.push_back(pr);
+    int prom_globals = 0, prom_resets = 0, prom_cens = 0;
+    int gbs_available = 8;
+    for (auto cell : design->cells)
+        if (is_gbuf(cell.second))
+            --gbs_available;
+    while (prom_globals < gbs_available) {
+        auto global_clock =
+                std::max_element(clock_count.begin(), clock_count.end(),
+                                 [](const std::pair<IdString, int> &a,
+                                    const std::pair<IdString, int> &b) {
+                                     return a.second < b.second;
+                                 });
 
-        pr.cell = gb;
-        pr.port = "GLOBAL_BUFFER_OUTPUT";
-        NetInfo *glbnet = new NetInfo();
-        glbnet->name = clknet->name.str() + "_glb";
-        glbnet->driver = pr;
-        design->nets[glbnet->name] = glbnet;
-        std::vector<PortRef> keep_users;
-        for (auto user : clknet->users) {
-            if (is_clock_port(user)) {
-                user.cell->ports[user.port].net = glbnet;
-                glbnet->users.push_back(user);
-            } else {
-                keep_users.push_back(user);
-            }
+        auto global_reset =
+                std::max_element(reset_count.begin(), reset_count.end(),
+                                 [](const std::pair<IdString, int> &a,
+                                    const std::pair<IdString, int> &b) {
+                                     return a.second < b.second;
+                                 });
+        auto global_cen =
+                std::max_element(cen_count.begin(), cen_count.end(),
+                                 [](const std::pair<IdString, int> &a,
+                                    const std::pair<IdString, int> &b) {
+                                     return a.second < b.second;
+                                 });
+        if (global_reset->second > global_clock->second && prom_resets < 4) {
+            NetInfo *rstnet = design->nets[global_reset->first];
+            insert_global(design, rstnet, true, false);
+            ++prom_globals;
+            ++prom_resets;
+            clock_count.erase(rstnet->name);
+            reset_count.erase(rstnet->name);
+
+        } else if (global_cen->second > global_clock->second && prom_cens < 4) {
+            NetInfo *cennet = design->nets[global_cen->first];
+            insert_global(design, cennet, false, true);
+            ++prom_globals;
+            ++prom_cens;
+            cen_count.erase(cennet->name);
+            clock_count.erase(cennet->name);
+        } else if (global_clock->second != 0) {
+            NetInfo *clknet = design->nets[global_clock->first];
+            insert_global(design, clknet, false, false);
+            ++prom_globals;
+            clock_count.erase(clknet->name);
+        } else {
+            break;
         }
-        clknet->users = keep_users;
-        design->cells[gb->name] = gb;
     }
 }
 

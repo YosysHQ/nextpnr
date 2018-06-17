@@ -2,6 +2,7 @@
  *  nextpnr -- Next Generation Place and Route
  *
  *  Copyright (C) 2018  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2018  David Shah <david@symbioticeda.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -82,6 +83,8 @@ CellInfo *net_driven_by(const NetInfo *net, F1 cell_pred, IdString port)
         return nullptr;
     }
 }
+
+void print_utilisation(const Design *design);
 
 NEXTPNR_NAMESPACE_END
 

@@ -2,6 +2,10 @@
  *  nextpnr -- Next Generation Place and Route
  *
  *  Copyright (C) 2018  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2018  David Shah <david@symbioticeda.com>
+ *
+ *  Simulated annealing implementation based on arachne-pnr
+ *  Copyright (C) 2015-2018 Cotton Seed
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -17,7 +21,7 @@
  *
  */
 
-#include "place.h"
+#include "place_sa.h"
 #include <algorithm>
 #include <cmath>
 #include <iostream>
@@ -107,6 +111,7 @@ struct SAState
     int n_move, n_accept;
     int diameter = 35;
     std::vector<std::vector<std::vector<std::vector<BelId>>>> fast_bels;
+    std::unordered_set<BelId> locked_bels;
 };
 
 // Get the total estimated wirelength for a net
@@ -122,6 +127,8 @@ static float get_wirelength(Chip *chip, NetInfo *net)
         return 0;
     consider_driver =
             chip->estimatePosition(driver_cell->bel, driver_x, driver_y);
+    WireId drv_wire = chip->getWireBelPin(driver_cell->bel,
+                                          portPinFromId(net->driver.port));
     if (!consider_driver)
         return 0;
     for (auto load : net->users) {
@@ -131,8 +138,12 @@ static float get_wirelength(Chip *chip, NetInfo *net)
         int load_x = 0, load_y = 0;
         if (load_cell->bel == BelId())
             continue;
-        chip->estimatePosition(load_cell->bel, load_x, load_y);
-        wirelength += std::abs(load_x - driver_x) + std::abs(load_y - driver_y);
+        // chip->estimatePosition(load_cell->bel, load_x, load_y);
+        WireId user_wire =
+                chip->getWireBelPin(load_cell->bel, portPinFromId(load.port));
+        // wirelength += std::abs(load_x - driver_x) + std::abs(load_y -
+        // driver_y);
+        wirelength += chip->estimateDelay(drv_wire, user_wire);
     }
     return wirelength;
 }
@@ -171,13 +182,17 @@ static bool try_swap_position(Design *design, CellInfo *cell, BelId newBel,
     }
 
     chip.bindBel(newBel, cell->name);
+
     if (other != IdString()) {
-        if (!isValidBelForCell(design, other_cell, oldBel)) {
-            chip.unbindBel(newBel);
-            goto swap_fail;
-        } else {
-            chip.bindBel(oldBel, other_cell->name);
-        }
+        chip.bindBel(oldBel, other_cell->name);
+    }
+
+    if (!isBelLocationValid(design, newBel) ||
+        ((other != IdString() && !isBelLocationValid(design, oldBel)))) {
+        chip.unbindBel(newBel);
+        if (other != IdString())
+            chip.unbindBel(oldBel);
+        goto swap_fail;
     }
 
     cell->bel = newBel;
@@ -246,12 +261,17 @@ BelId random_bel_for_cell(Design *design, CellInfo *cell, SAState &state,
         const auto &fb = state.fast_bels.at(int(targetType)).at(nx).at(ny);
         if (fb.size() == 0)
             continue;
-        return fb.at(random_int_between(rnd, 0, fb.size()));
+        BelId bel = fb.at(random_int_between(rnd, 0, fb.size()));
+        if (state.locked_bels.find(bel) != state.locked_bels.end())
+            continue;
+        return bel;
     }
 }
 
 void place_design_sa(Design *design)
 {
+    SAState state;
+
     size_t total_cells = design->cells.size(), placed_cells = 0;
     std::queue<CellInfo *> visit_cells;
     // Initial constraints placer
@@ -277,6 +297,7 @@ void place_design_sa(Design *design)
 
             cell->bel = bel;
             design->chip.bindBel(bel, cell->name);
+            state.locked_bels.insert(bel);
             placed_cells++;
             visit_cells.push(cell);
         }
@@ -285,16 +306,19 @@ void place_design_sa(Design *design)
     rnd_state rnd;
     rnd.state = 1;
     std::vector<CellInfo *> autoplaced;
-    SAState state;
-    // Place cells randomly initially
+    // Sort to-place cells for deterministic initial placement
     for (auto cell : design->cells) {
         CellInfo *ci = cell.second;
         if (ci->bel == BelId()) {
-            place_initial(design, ci, rnd);
             autoplaced.push_back(cell.second);
-            placed_cells++;
         }
-        log_info("placed %d/%d\n", int(placed_cells), int(total_cells));
+    }
+    std::sort(autoplaced.begin(), autoplaced.end(),
+              [](CellInfo *a, CellInfo *b) { return a->name < b->name; });
+    // Place cells randomly initially
+    for (auto cell : autoplaced) {
+        place_initial(design, cell, rnd);
+        placed_cells++;
     }
     // Build up a fast position/type to Bel lookup table
     int max_x = 0, max_y = 0;
@@ -330,9 +354,9 @@ void place_design_sa(Design *design)
         state.n_move = state.n_accept = 0;
         state.improved = false;
 
-        // if (iter % 50 == 0)
-        log("  at iteration #%d: temp = %f, wire length = %f\n", iter,
-            state.temp, state.curr_wirelength);
+        if (iter % 5 == 0)
+            log("  at iteration #%d: temp = %f, wire length = %f\n", iter,
+                state.temp, state.curr_wirelength);
 
         for (int m = 0; m < 15; ++m) {
             // Loop through all automatically placed cells
@@ -380,6 +404,16 @@ void place_design_sa(Design *design)
                 else
                     state.temp *= 0.8;
             }
+        }
+    }
+    for (auto bel : design->chip.getBels()) {
+        if (!isBelLocationValid(design, bel)) {
+            std::string cell_text = "no cell";
+            IdString cell = design->chip.getBelCell(bel, false);
+            if (cell != IdString())
+                cell_text = std::string("cell '") + cell.str() + "'";
+            log_error("post-placement validity check failed for Bel '%s' (%s)",
+                      design->chip.getBelName(bel).c_str(), cell_text.c_str());
         }
     }
 }
