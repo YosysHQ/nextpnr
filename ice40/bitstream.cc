@@ -287,12 +287,6 @@ void write_asc(const Design &design, std::ostream &out)
             TileType tile = tile_at(chip, x, y);
             TileInfoPOD &ti = bi.tiles_nonrouting[tile];
 
-            // disable RAM to stop icebox_vlog crashing (FIXME)
-            if ((tile == TILE_RAMB) && (chip.args.type == ChipArgs::LP1K ||
-                                        chip.args.type == ChipArgs::HX1K)) {
-                set_config(ti, config.at(y).at(x), "RamConfig.PowerUp", true);
-            }
-
             // set all ColBufCtrl bits (FIXME)
             bool setColBufCtrl = true;
             if (chip.args.type == ChipArgs::LP1K ||
@@ -397,6 +391,14 @@ void write_asc(const Design &design, std::ostream &out)
                 out << std::endl;
             }
         }
+    }
+
+    // Write symbols
+    const bool write_symbols = 1;
+    for (auto wire : chip.getWires()) {
+        IdString net = chip.getWireNet(wire, false);
+        if (net != IdString())
+            out << ".sym " << wire.index << " net_" << net << std::endl;
     }
 }
 
