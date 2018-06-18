@@ -24,7 +24,8 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-static void add_port(CellInfo *cell, IdString name, PortType dir)
+static void add_port(const Context *ctx, CellInfo *cell, IdString name,
+                     PortType dir)
 {
     cell->ports[name] = PortInfo{name, nullptr, dir};
 }
@@ -48,72 +49,72 @@ CellInfo *create_ice_cell(Context *ctx, IdString type, IdString name)
         new_cell->params["SET_NORESET"] = "0";
         new_cell->params["ASYNC_SR"] = "0";
 
-        add_port(new_cell, "I0", PORT_IN);
-        add_port(new_cell, "I1", PORT_IN);
-        add_port(new_cell, "I2", PORT_IN);
-        add_port(new_cell, "I3", PORT_IN);
-        add_port(new_cell, "CIN", PORT_IN);
+        add_port(ctx, new_cell, "I0", PORT_IN);
+        add_port(ctx, new_cell, "I1", PORT_IN);
+        add_port(ctx, new_cell, "I2", PORT_IN);
+        add_port(ctx, new_cell, "I3", PORT_IN);
+        add_port(ctx, new_cell, "CIN", PORT_IN);
 
-        add_port(new_cell, "CLK", PORT_IN);
-        add_port(new_cell, "CEN", PORT_IN);
-        add_port(new_cell, "SR", PORT_IN);
+        add_port(ctx, new_cell, "CLK", PORT_IN);
+        add_port(ctx, new_cell, "CEN", PORT_IN);
+        add_port(ctx, new_cell, "SR", PORT_IN);
 
-        add_port(new_cell, "LO", PORT_OUT);
-        add_port(new_cell, "O", PORT_OUT);
-        add_port(new_cell, "OUT", PORT_OUT);
+        add_port(ctx, new_cell, "LO", PORT_OUT);
+        add_port(ctx, new_cell, "O", PORT_OUT);
+        add_port(ctx, new_cell, "OUT", PORT_OUT);
     } else if (type == "SB_IO") {
         new_cell->params["PIN_TYPE"] = "0";
         new_cell->params["PULLUP"] = "0";
         new_cell->params["NEG_TRIGGER"] = "0";
         new_cell->params["IOSTANDARD"] = "SB_LVCMOS";
 
-        add_port(new_cell, "PACKAGE_PIN", PORT_INOUT);
+        add_port(ctx, new_cell, "PACKAGE_PIN", PORT_INOUT);
 
-        add_port(new_cell, "LATCH_INPUT_VALUE", PORT_IN);
-        add_port(new_cell, "CLOCK_ENABLE", PORT_IN);
-        add_port(new_cell, "INPUT_CLK", PORT_IN);
-        add_port(new_cell, "OUTPUT_CLK", PORT_IN);
+        add_port(ctx, new_cell, "LATCH_INPUT_VALUE", PORT_IN);
+        add_port(ctx, new_cell, "CLOCK_ENABLE", PORT_IN);
+        add_port(ctx, new_cell, "INPUT_CLK", PORT_IN);
+        add_port(ctx, new_cell, "OUTPUT_CLK", PORT_IN);
 
-        add_port(new_cell, "OUTPUT_ENABLE", PORT_IN);
-        add_port(new_cell, "D_OUT_0", PORT_IN);
-        add_port(new_cell, "D_OUT_1", PORT_IN);
+        add_port(ctx, new_cell, "OUTPUT_ENABLE", PORT_IN);
+        add_port(ctx, new_cell, "D_OUT_0", PORT_IN);
+        add_port(ctx, new_cell, "D_OUT_1", PORT_IN);
 
-        add_port(new_cell, "D_IN_0", PORT_OUT);
-        add_port(new_cell, "D_IN_1", PORT_OUT);
+        add_port(ctx, new_cell, "D_IN_0", PORT_OUT);
+        add_port(ctx, new_cell, "D_IN_1", PORT_OUT);
     } else if (type == "ICESTORM_RAM") {
         new_cell->params["NEG_CLK_W"] = "0";
         new_cell->params["NEG_CLK_R"] = "0";
         new_cell->params["WRITE_MODE"] = "0";
         new_cell->params["READ_MODE"] = "0";
 
-        add_port(new_cell, "RCLK", PORT_IN);
-        add_port(new_cell, "RCLKE", PORT_IN);
-        add_port(new_cell, "RE", PORT_IN);
+        add_port(ctx, new_cell, "RCLK", PORT_IN);
+        add_port(ctx, new_cell, "RCLKE", PORT_IN);
+        add_port(ctx, new_cell, "RE", PORT_IN);
 
-        add_port(new_cell, "WCLK", PORT_IN);
-        add_port(new_cell, "WCLKE", PORT_IN);
-        add_port(new_cell, "WE", PORT_IN);
+        add_port(ctx, new_cell, "WCLK", PORT_IN);
+        add_port(ctx, new_cell, "WCLKE", PORT_IN);
+        add_port(ctx, new_cell, "WE", PORT_IN);
 
         for (int i = 0; i < 16; i++) {
-            add_port(new_cell, "WDATA_" + std::to_string(i), PORT_IN);
-            add_port(new_cell, "MASK_" + std::to_string(i), PORT_IN);
-            add_port(new_cell, "RDATA_" + std::to_string(i), PORT_OUT);
+            add_port(ctx, new_cell, "WDATA_" + std::to_string(i), PORT_IN);
+            add_port(ctx, new_cell, "MASK_" + std::to_string(i), PORT_IN);
+            add_port(ctx, new_cell, "RDATA_" + std::to_string(i), PORT_OUT);
         }
 
         for (int i = 0; i < 11; i++) {
-            add_port(new_cell, "RADDR_" + std::to_string(i), PORT_IN);
-            add_port(new_cell, "WADDR_" + std::to_string(i), PORT_IN);
+            add_port(ctx, new_cell, "RADDR_" + std::to_string(i), PORT_IN);
+            add_port(ctx, new_cell, "WADDR_" + std::to_string(i), PORT_IN);
         }
     } else if (type == "SB_GB") {
-        add_port(new_cell, "USER_SIGNAL_TO_GLOBAL_BUFFER", PORT_IN);
-        add_port(new_cell, "GLOBAL_BUFFER_OUTPUT", PORT_OUT);
+        add_port(ctx, new_cell, "USER_SIGNAL_TO_GLOBAL_BUFFER", PORT_IN);
+        add_port(ctx, new_cell, "GLOBAL_BUFFER_OUTPUT", PORT_OUT);
     } else {
         log_error("unable to create iCE40 cell of type %s", type.c_str());
     }
     return new_cell;
 }
 
-void lut_to_lc(CellInfo *lut, CellInfo *lc, bool no_dff)
+void lut_to_lc(const Context *ctx, CellInfo *lut, CellInfo *lc, bool no_dff)
 {
     lc->params["LUT_INIT"] = lut->params["LUT_INIT"];
     replace_port(lut, "I0", lc, "I0");
@@ -126,7 +127,8 @@ void lut_to_lc(CellInfo *lut, CellInfo *lc, bool no_dff)
     }
 }
 
-void dff_to_lc(CellInfo *dff, CellInfo *lc, bool pass_thru_lut)
+void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc,
+               bool pass_thru_lut)
 {
     lc->params["DFF_ENABLE"] = "1";
     std::string config = dff->type.str().substr(6);
@@ -176,7 +178,7 @@ void dff_to_lc(CellInfo *dff, CellInfo *lc, bool pass_thru_lut)
     replace_port(dff, "Q", lc, "O");
 }
 
-void nxio_to_sb(CellInfo *nxio, CellInfo *sbio)
+void nxio_to_sb(const Context *ctx, CellInfo *nxio, CellInfo *sbio)
 {
     if (nxio->type == "$nextpnr_ibuf") {
         sbio->params["PIN_TYPE"] = "1";
@@ -192,44 +194,44 @@ void nxio_to_sb(CellInfo *nxio, CellInfo *sbio)
     }
 }
 
-bool is_clock_port(const PortRef &port)
+bool is_clock_port(const Context *ctx, const PortRef &port)
 {
     if (port.cell == nullptr)
         return false;
-    if (is_ff(port.cell))
+    if (is_ff(ctx, port.cell))
         return port.port == "C";
     if (port.cell->type == "ICESTORM_LC")
         return port.port == "CLK";
-    if (is_ram(port.cell) || port.cell->type == "ICESTORM_RAM")
+    if (is_ram(ctx, port.cell) || port.cell->type == "ICESTORM_RAM")
         return port.port == "RCLK" || port.port == "WCLK";
     return false;
 }
 
-bool is_reset_port(const PortRef &port)
+bool is_reset_port(const Context *ctx, const PortRef &port)
 {
     if (port.cell == nullptr)
         return false;
-    if (is_ff(port.cell))
+    if (is_ff(ctx, port.cell))
         return port.port == "R" || port.port == "S";
     if (port.cell->type == "ICESTORM_LC")
         return port.port == "SR";
     return false;
 }
 
-bool is_enable_port(const PortRef &port)
+bool is_enable_port(const Context *ctx, const PortRef &port)
 {
     if (port.cell == nullptr)
         return false;
-    if (is_ff(port.cell))
+    if (is_ff(ctx, port.cell))
         return port.port == "E";
     if (port.cell->type == "ICESTORM_LC")
         return port.port == "CEN";
     return false;
 }
 
-bool is_global_net(const NetInfo *net)
+bool is_global_net(const Context *ctx, const NetInfo *net)
 {
-    return bool(net_driven_by(net, is_gbuf, "GLOBAL_BUFFER_OUTPUT"));
+    return bool(net_driven_by(ctx, net, is_gbuf, "GLOBAL_BUFFER_OUTPUT"));
 }
 
 NEXTPNR_NAMESPACE_END

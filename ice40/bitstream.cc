@@ -73,8 +73,7 @@ void set_config(const TileInfoPOD &ti,
     }
 }
 
-int get_param_or_def(const CellInfo *cell, const std::string &param,
-                     int defval = 0)
+int get_param_or_def(const CellInfo *cell, const IdString param, int defval = 0)
 {
     auto found = cell->params.find(param);
     if (found != cell->params.end())
@@ -83,7 +82,7 @@ int get_param_or_def(const CellInfo *cell, const std::string &param,
         return defval;
 }
 
-std::string get_param_str_or_def(const CellInfo *cell, const std::string &param,
+std::string get_param_str_or_def(const CellInfo *cell, const IdString param,
                                  std::string defval = "")
 {
     auto found = cell->params.find(param);
@@ -153,20 +152,24 @@ void write_asc(const Context *ctx, std::ostream &out)
     for (auto cell : ctx->cells) {
         BelId bel = cell.second->bel;
         if (bel == BelId()) {
-            std::cout << "Found unplaced cell " << cell.first
+            std::cout << "Found unplaced cell " << cell.first.str(ctx)
                       << " while generating bitstream!" << std::endl;
             continue;
         }
         const BelInfoPOD &beli = ci.bel_data[bel.index];
         int x = beli.x, y = beli.y, z = beli.z;
-        if (cell.second->type == "ICESTORM_LC") {
+        if (cell.second->type == ctx->id("ICESTORM_LC")) {
             const TileInfoPOD &ti = bi.tiles_nonrouting[TILE_LOGIC];
-            unsigned lut_init = get_param_or_def(cell.second, "LUT_INIT");
-            bool neg_clk = get_param_or_def(cell.second, "NEG_CLK");
-            bool dff_enable = get_param_or_def(cell.second, "DFF_ENABLE");
-            bool async_sr = get_param_or_def(cell.second, "ASYNC_SR");
-            bool set_noreset = get_param_or_def(cell.second, "SET_NORESET");
-            bool carry_enable = get_param_or_def(cell.second, "CARRY_ENABLE");
+            unsigned lut_init =
+                    get_param_or_def(cell.second, ctx->id("LUT_INIT"));
+            bool neg_clk = get_param_or_def(cell.second, ctx->id("NEG_CLK"));
+            bool dff_enable =
+                    get_param_or_def(cell.second, ctx->id("DFF_ENABLE"));
+            bool async_sr = get_param_or_def(cell.second, ctx->id("ASYNC_SR"));
+            bool set_noreset =
+                    get_param_or_def(cell.second, ctx->id("SET_NORESET"));
+            bool carry_enable =
+                    get_param_or_def(cell.second, ctx->id("CARRY_ENABLE"));
             std::vector<bool> lc(20, false);
             // From arachne-pnr
             static std::vector<int> lut_perm = {
@@ -186,11 +189,13 @@ void write_asc(const Context *ctx, std::ostream &out)
                            lc.at(i), i);
             if (dff_enable)
                 set_config(ti, config.at(y).at(x), "NegClk", neg_clk);
-        } else if (cell.second->type == "SB_IO") {
+        } else if (cell.second->type == ctx->id("SB_IO")) {
             const TileInfoPOD &ti = bi.tiles_nonrouting[TILE_IO];
-            unsigned pin_type = get_param_or_def(cell.second, "PIN_TYPE");
-            bool neg_trigger = get_param_or_def(cell.second, "NEG_TRIGGER");
-            bool pullup = get_param_or_def(cell.second, "PULLUP");
+            unsigned pin_type =
+                    get_param_or_def(cell.second, ctx->id("PIN_TYPE"));
+            bool neg_trigger =
+                    get_param_or_def(cell.second, ctx->id("NEG_TRIGGER"));
+            bool pullup = get_param_or_def(cell.second, ctx->id("PULLUP"));
             for (int i = 0; i < 6; i++) {
                 bool val = (pin_type >> i) & 0x01;
                 set_config(ti, config.at(y).at(x),
@@ -224,9 +229,9 @@ void write_asc(const Context *ctx, std::ostream &out)
                 set_config(ti, config.at(iey).at(iex),
                            "IoCtrl.REN_" + std::to_string(iez), !pullup);
             }
-        } else if (cell.second->type == "SB_GB") {
+        } else if (cell.second->type == ctx->id("SB_GB")) {
             // no cell config bits
-        } else if (cell.second->type == "ICESTORM_RAM") {
+        } else if (cell.second->type == ctx->id("ICESTORM_RAM")) {
             const BelInfoPOD &beli = ci.bel_data[bel.index];
             int x = beli.x, y = beli.y;
             const TileInfoPOD &ti_ramt = bi.tiles_nonrouting[TILE_RAMT];
@@ -236,10 +241,11 @@ void write_asc(const Context *ctx, std::ostream &out)
                 set_config(ti_ramb, config.at(y).at(x), "RamConfig.PowerUp",
                            true);
             }
-            bool negclk_r = get_param_or_def(cell.second, "NEG_CLK_R");
-            bool negclk_w = get_param_or_def(cell.second, "NEG_CLK_W");
-            int write_mode = get_param_or_def(cell.second, "WRITE_MODE");
-            int read_mode = get_param_or_def(cell.second, "READ_MODE");
+            bool negclk_r = get_param_or_def(cell.second, ctx->id("NEG_CLK_R"));
+            bool negclk_w = get_param_or_def(cell.second, ctx->id("NEG_CLK_W"));
+            int write_mode =
+                    get_param_or_def(cell.second, ctx->id("WRITE_MODE"));
+            int read_mode = get_param_or_def(cell.second, ctx->id("READ_MODE"));
             set_config(ti_ramb, config.at(y).at(x), "NegClk", negclk_w);
             set_config(ti_ramt, config.at(y + 1).at(x), "NegClk", negclk_r);
 
@@ -373,7 +379,7 @@ void write_asc(const Context *ctx, std::ostream &out)
     // Write RAM init data
     for (auto cell : ctx->cells) {
         if (cell.second->bel != BelId()) {
-            if (cell.second->type == "ICESTORM_RAM") {
+            if (cell.second->type == ctx->id("ICESTORM_RAM")) {
                 const BelInfoPOD &beli = ci.bel_data[cell.second->bel.index];
                 int x = beli.x, y = beli.y;
                 out << ".ram_data " << x << " " << y << std::endl;
@@ -381,7 +387,7 @@ void write_asc(const Context *ctx, std::ostream &out)
                     std::vector<bool> bits(256);
                     std::string init = get_param_str_or_def(
                             cell.second,
-                            std::string("INIT_") + get_hexdigit(w));
+                            ctx->id(std::string("INIT_") + get_hexdigit(w)));
                     assert(init != "");
                     for (int i = 0; i < init.size(); i++) {
                         bool val = (init.at((init.size() - 1) - i) == '1');
@@ -404,7 +410,7 @@ void write_asc(const Context *ctx, std::ostream &out)
     for (auto wire : ctx->getWires()) {
         IdString net = ctx->getWireNet(wire, false);
         if (net != IdString())
-            out << ".sym " << wire.index << " " << net << std::endl;
+            out << ".sym " << wire.index << " " << net.str(ctx) << std::endl;
     }
 }
 

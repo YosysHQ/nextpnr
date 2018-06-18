@@ -41,8 +41,9 @@ void replace_port(CellInfo *old_cell, IdString old_name, CellInfo *rep_cell,
 // true, then this cell must be the only load. If ignore_cell is set, that cell
 // is not considered
 template <typename F1>
-CellInfo *net_only_drives(NetInfo *net, F1 cell_pred, IdString port,
-                          bool exclusive = false, CellInfo *exclude = nullptr)
+CellInfo *net_only_drives(const Context *ctx, NetInfo *net, F1 cell_pred,
+                          IdString port, bool exclusive = false,
+                          CellInfo *exclude = nullptr)
 {
     if (net == nullptr)
         return nullptr;
@@ -63,7 +64,8 @@ CellInfo *net_only_drives(NetInfo *net, F1 cell_pred, IdString port,
         }
     }
     for (const auto &load : net->users) {
-        if (load.cell != exclude && cell_pred(load.cell) && load.port == port) {
+        if (load.cell != exclude && cell_pred(ctx, load.cell) &&
+            load.port == port) {
             return load.cell;
         }
     }
@@ -73,11 +75,12 @@ CellInfo *net_only_drives(NetInfo *net, F1 cell_pred, IdString port,
 // If a net is driven by a given port of a cell matching a predicate, return
 // that cell, otherwise nullptr
 template <typename F1>
-CellInfo *net_driven_by(const NetInfo *net, F1 cell_pred, IdString port)
+CellInfo *net_driven_by(const Context *ctx, const NetInfo *net, F1 cell_pred,
+                        IdString port)
 {
     if (net == nullptr)
         return nullptr;
-    if (cell_pred(net->driver.cell) && net->driver.port == port) {
+    if (cell_pred(ctx, net->driver.cell) && net->driver.port == port) {
         return net->driver.cell;
     } else {
         return nullptr;

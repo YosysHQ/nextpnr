@@ -108,7 +108,7 @@ static void place_initial(Context *ctx, CellInfo *cell, rnd_state &rnd)
         if (best_bel == BelId()) {
             if (iters == 0 || ripup_bel == BelId())
                 log_error("failed to place cell '%s' of type '%s'\n",
-                          cell->name.c_str(), cell->type.c_str());
+                          cell->name.c_str(ctx), cell->type.c_str(ctx));
             --iters;
             ctx->unbindBel(ripup_target->bel);
             ripup_target->bel = BelId();
@@ -120,7 +120,7 @@ static void place_initial(Context *ctx, CellInfo *cell, rnd_state &rnd)
         ctx->bindBel(cell->bel, cell->name);
 
         // Back annotate location
-        cell->attrs["BEL"] = ctx->getBelName(cell->bel).str();
+        cell->attrs[ctx->id("BEL")] = ctx->getBelName(cell->bel).str(ctx);
         cell = ripup_target;
     }
 }
@@ -294,22 +294,23 @@ void place_design_sa(Context *ctx, int seed)
     // Initial constraints placer
     for (auto cell_entry : ctx->cells) {
         CellInfo *cell = cell_entry.second;
-        auto loc = cell->attrs.find("BEL");
+        auto loc = cell->attrs.find(ctx->id("BEL"));
         if (loc != cell->attrs.end()) {
             std::string loc_name = loc->second;
-            BelId bel = ctx->getBelByName(IdString(loc_name));
+            BelId bel = ctx->getBelByName(ctx->id(loc_name));
             if (bel == BelId()) {
                 log_error("No Bel named \'%s\' located for "
                           "this chip (processing BEL attribute on \'%s\')\n",
-                          loc_name.c_str(), cell->name.c_str());
+                          loc_name.c_str(), cell->name.c_str(ctx));
             }
 
             BelType bel_type = ctx->getBelType(bel);
             if (bel_type != ctx->belTypeFromId(cell->type)) {
                 log_error("Bel \'%s\' of type \'%s\' does not match cell "
                           "\'%s\' of type \'%s\'",
-                          loc_name.c_str(), ctx->belTypeToId(bel_type).c_str(),
-                          cell->name.c_str(), cell->type.c_str());
+                          loc_name.c_str(),
+                          ctx->belTypeToId(bel_type).c_str(ctx),
+                          cell->name.c_str(ctx), cell->type.c_str(ctx));
             }
 
             cell->bel = bel;
@@ -436,9 +437,9 @@ void place_design_sa(Context *ctx, int seed)
             std::string cell_text = "no cell";
             IdString cell = ctx->getBelCell(bel, false);
             if (cell != IdString())
-                cell_text = std::string("cell '") + cell.str() + "'";
+                cell_text = std::string("cell '") + cell.str(ctx) + "'";
             log_error("post-placement validity check failed for Bel '%s' (%s)",
-                      ctx->getBelName(bel).c_str(), cell_text.c_str());
+                      ctx->getBelName(bel).c_str(ctx), cell_text.c_str());
         }
     }
 }

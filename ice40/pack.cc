@@ -38,7 +38,7 @@ static void pack_lut_lutffs(Context *ctx)
         CellInfo *ci = cell.second;
         log_info("cell '%s' is of type '%s'\n", ci->name.c_str(),
                  ci->type.c_str());
-        if (is_lut(ci)) {
+        if (is_lut(ctx, ci)) {
             CellInfo *packed =
                     create_ice_cell(ctx, "ICESTORM_LC", ci->name.str() + "_LC");
             std::copy(ci->attrs.begin(), ci->attrs.end(),
@@ -50,7 +50,7 @@ static void pack_lut_lutffs(Context *ctx)
             // See if we can pack into a DFF
             // TODO: LUT cascade
             NetInfo *o = ci->ports.at("O").net;
-            CellInfo *dff = net_only_drives(o, is_ff, "D", true);
+            CellInfo *dff = net_only_drives(ctx, o, is_ff, "D", true);
             auto lut_bel = ci->attrs.find("BEL");
             bool packed_dff = false;
             if (dff) {
@@ -60,8 +60,8 @@ static void pack_lut_lutffs(Context *ctx)
                     lut_bel->second != dff_bel->second) {
                     // Locations don't match, can't pack
                 } else {
-                    lut_to_lc(ci, packed, false);
-                    dff_to_lc(dff, packed, false);
+                    lut_to_lc(ctx, ci, packed, false);
+                    dff_to_lc(ctx, dff, packed, false);
                     ctx->nets.erase(o->name);
                     if (dff_bel != dff->attrs.end())
                         packed->attrs["BEL"] = dff_bel->second;
@@ -72,7 +72,7 @@ static void pack_lut_lutffs(Context *ctx)
                 }
             }
             if (!packed_dff) {
-                lut_to_lc(ci, packed, true);
+                lut_to_lc(ctx, ci, packed, true);
             }
         }
     }
@@ -94,7 +94,7 @@ static void pack_nonlut_ffs(Context *ctx)
 
     for (auto cell : ctx->cells) {
         CellInfo *ci = cell.second;
-        if (is_ff(ci)) {
+        if (is_ff(ctx, ci)) {
             CellInfo *packed = create_ice_cell(ctx, "ICESTORM_LC",
                                                ci->name.str() + "_DFFLC");
             std::copy(ci->attrs.begin(), ci->attrs.end(),
@@ -103,7 +103,7 @@ static void pack_nonlut_ffs(Context *ctx)
                      packed->name.c_str());
             packed_cells.insert(ci->name);
             new_cells.push_back(packed);
-            dff_to_lc(ci, packed, true);
+            dff_to_lc(ctx, ci, packed, true);
         }
     }
     for (auto pcell : packed_cells) {
@@ -124,7 +124,7 @@ static void pack_ram(Context *ctx)
 
     for (auto cell : ctx->cells) {
         CellInfo *ci = cell.second;
-        if (is_ram(ci)) {
+        if (is_ram(ctx, ci)) {
             CellInfo *packed = create_ice_cell(ctx, "ICESTORM_RAM",
                                                ci->name.str() + "_RAM");
             packed_cells.insert(ci->name);
@@ -161,14 +161,16 @@ static void pack_ram(Context *ctx)
 }
 
 // Merge a net into a constant net
-static void set_net_constant(NetInfo *orig, NetInfo *constnet, bool constval)
+static void set_net_constant(const Context *ctx, NetInfo *orig,
+                             NetInfo *constnet, bool constval)
 {
     orig->driver.cell = nullptr;
     for (auto user : orig->users) {
         if (user.cell != nullptr) {
             CellInfo *uc = user.cell;
             log_info("%s user %s\n", orig->name.c_str(), uc->name.c_str());
-            if (is_lut(uc) && (user.port.str().at(0) == 'I') && !constval) {
+            if (is_lut(ctx, uc) && (user.port.str().at(0) == 'I') &&
+                !constval) {
                 uc->ports[user.port].net = nullptr;
             } else {
                 uc->ports[user.port].net = constnet;
@@ -203,13 +205,13 @@ static void pack_constants(Context *ctx)
     for (auto net : ctx->nets) {
         NetInfo *ni = net.second;
         if (ni->driver.cell != nullptr && ni->driver.cell->type == "GND") {
-            set_net_constant(ni, gnd_net, false);
+            set_net_constant(ctx, ni, gnd_net, false);
             ctx->cells[gnd_cell->name] = gnd_cell;
             ctx->nets[gnd_net->name] = gnd_net;
             dead_nets.push_back(net.first);
         } else if (ni->driver.cell != nullptr &&
                    ni->driver.cell->type == "VCC") {
-            set_net_constant(ni, vcc_net, true);
+            set_net_constant(ctx, ni, vcc_net, true);
             ctx->cells[vcc_cell->name] = vcc_cell;
             ctx->nets[vcc_net->name] = vcc_net;
             dead_nets.push_back(net.first);
@@ -239,11 +241,11 @@ static void pack_io(Context *ctx)
         if (is_nextpnr_iob(ci)) {
             CellInfo *sb = nullptr;
             if (ci->type == "$nextpnr_ibuf" || ci->type == "$nextpnr_iobuf") {
-                sb = net_only_drives(ci->ports.at("O").net, is_sb_io,
+                sb = net_only_drives(ctx, ci->ports.at("O").net, is_sb_io,
                                      "PACKAGE_PIN", true, ci);
 
             } else if (ci->type == "$nextpnr_obuf") {
-                sb = net_only_drives(ci->ports.at("I").net, is_sb_io,
+                sb = net_only_drives(ctx, ci->ports.at("I").net, is_sb_io,
                                      "PACKAGE_PIN", true, ci);
             }
             if (sb != nullptr) {
@@ -260,7 +262,7 @@ static void pack_io(Context *ctx)
             } else {
                 // Create a SB_IO buffer
                 sb = create_ice_cell(ctx, "SB_IO");
-                nxio_to_sb(ci, sb);
+                nxio_to_sb(ctx, ci, sb);
                 new_cells.push_back(sb);
             }
             packed_cells.insert(ci->name);
@@ -297,8 +299,9 @@ static void insert_global(Context *ctx, NetInfo *net, bool is_reset,
     gb->ports["GLOBAL_BUFFER_OUTPUT"].net = glbnet;
     std::vector<PortRef> keep_users;
     for (auto user : net->users) {
-        if (is_clock_port(user) || (is_reset && is_reset_port(user)) ||
-            (is_cen && is_enable_port(user))) {
+        if (is_clock_port(ctx, user) ||
+            (is_reset && is_reset_port(ctx, user)) ||
+            (is_cen && is_enable_port(ctx, user))) {
             user.cell->ports[user.port].net = glbnet;
             glbnet->users.push_back(user);
         } else {
@@ -317,17 +320,17 @@ static void promote_globals(Context *ctx)
     std::unordered_map<IdString, int> clock_count, reset_count, cen_count;
     for (auto net : ctx->nets) {
         NetInfo *ni = net.second;
-        if (ni->driver.cell != nullptr && !is_global_net(ni)) {
+        if (ni->driver.cell != nullptr && !is_global_net(ctx, ni)) {
             clock_count[net.first] = 0;
             reset_count[net.first] = 0;
             cen_count[net.first] = 0;
 
             for (auto user : ni->users) {
-                if (is_clock_port(user))
+                if (is_clock_port(ctx, user))
                     clock_count[net.first]++;
-                if (is_reset_port(user))
+                if (is_reset_port(ctx, user))
                     reset_count[net.first]++;
-                if (is_enable_port(user))
+                if (is_enable_port(ctx, user))
                     cen_count[net.first]++;
             }
         }
@@ -335,7 +338,7 @@ static void promote_globals(Context *ctx)
     int prom_globals = 0, prom_resets = 0, prom_cens = 0;
     int gbs_available = 8;
     for (auto cell : ctx->cells)
-        if (is_gbuf(cell.second))
+        if (is_gbuf(ctx, cell.second))
             --gbs_available;
     while (prom_globals < gbs_available) {
         auto global_clock =

@@ -31,61 +31,84 @@ CellInfo *create_ice_cell(Context *ctx, IdString type,
                           IdString name = IdString());
 
 // Return true if a cell is a LUT
-inline bool is_lut(const CellInfo *cell) { return cell->type == "SB_LUT4"; }
+inline bool is_lut(const Context *ctx, const CellInfo *cell)
+{
+    return cell->type == ctx->id("SB_LUT4");
+}
 
 // Return true if a cell is a flipflop
-inline bool is_ff(const CellInfo *cell)
+inline bool is_ff(const Context *ctx, const CellInfo *cell)
 {
-    return cell->type == "SB_DFF" || cell->type == "SB_DFFE" ||
-           cell->type == "SB_DFFSR" || cell->type == "SB_DFFR" ||
-           cell->type == "SB_DFFSS" || cell->type == "SB_DFFS" ||
-           cell->type == "SB_DFFESR" || cell->type == "SB_DFFER" ||
-           cell->type == "SB_DFFESS" || cell->type == "SB_DFFES" ||
-           cell->type == "SB_DFFN" || cell->type == "SB_DFFNE" ||
-           cell->type == "SB_DFFNSR" || cell->type == "SB_DFFNR" ||
-           cell->type == "SB_DFFNSS" || cell->type == "SB_DFFNS" ||
-           cell->type == "SB_DFFNESR" || cell->type == "SB_DFFNER" ||
-           cell->type == "SB_DFFNESS" || cell->type == "SB_DFFNES";
+    return cell->type == ctx->id("SB_DFF") ||
+           cell->type == ctx->id("SB_DFFE") ||
+           cell->type == ctx->id("SB_DFFSR") ||
+           cell->type == ctx->id("SB_DFFR") ||
+           cell->type == ctx->id("SB_DFFSS") ||
+           cell->type == ctx->id("SB_DFFS") ||
+           cell->type == ctx->id("SB_DFFESR") ||
+           cell->type == ctx->id("SB_DFFER") ||
+           cell->type == ctx->id("SB_DFFESS") ||
+           cell->type == ctx->id("SB_DFFES") ||
+           cell->type == ctx->id("SB_DFFN") ||
+           cell->type == ctx->id("SB_DFFNE") ||
+           cell->type == ctx->id("SB_DFFNSR") ||
+           cell->type == ctx->id("SB_DFFNR") ||
+           cell->type == ctx->id("SB_DFFNSS") ||
+           cell->type == ctx->id("SB_DFFNS") ||
+           cell->type == ctx->id("SB_DFFNESR") ||
+           cell->type == ctx->id("SB_DFFNER") ||
+           cell->type == ctx->id("SB_DFFNESS") ||
+           cell->type == ctx->id("SB_DFFNES");
 }
 
 // Return true if a cell is a SB_IO
-inline bool is_sb_io(const CellInfo *cell) { return cell->type == "SB_IO"; }
+inline bool is_sb_io(const Context *ctx, const CellInfo *cell)
+{
+    return cell->type == ctx->id("SB_IO");
+}
 
 // Return true if a cell is a global buffer
-inline bool is_gbuf(const CellInfo *cell) { return cell->type == "SB_GB"; }
+inline bool is_gbuf(const Context *ctx, const CellInfo *cell)
+{
+    return cell->type == ctx->id("SB_GB");
+}
 
 // Return true if a cell is a RAM
-inline bool is_ram(const CellInfo *cell)
+inline bool is_ram(const Context *ctx, const CellInfo *cell)
 {
-    return cell->type == "SB_RAM40_4K" || cell->type == "SB_RAM40_4KNR" ||
-           cell->type == "SB_RAM40_4KNW" || cell->type == "SB_RAM40_4KNRNW";
+    return cell->type == ctx->id("SB_RAM40_4K") ||
+           cell->type == ctx->id("SB_RAM40_4KNR") ||
+           cell->type == ctx->id("SB_RAM40_4KNW") ||
+           cell->type == ctx->id("SB_RAM40_4KNRNW");
 }
 
 // Convert a SB_LUT primitive to (part of) an ICESTORM_LC, swapping ports
 // as needed. Set no_dff if a DFF is not being used, so that the output
 // can be reconnected
-void lut_to_lc(CellInfo *lut, CellInfo *lc, bool no_dff = true);
+void lut_to_lc(const Context *ctx, CellInfo *lut, CellInfo *lc,
+               bool no_dff = true);
 
 // Convert a SB_DFFx primitive to (part of) an ICESTORM_LC, setting parameters
 // and reconnecting signals as necessary. If pass_thru_lut is True, the LUT will
 // be configured as pass through and D connected to I0, otherwise D will be
 // ignored
-void dff_to_lc(CellInfo *dff, CellInfo *lc, bool pass_thru_lut = false);
+void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc,
+               bool pass_thru_lut = false);
 
 // Convert a nextpnr IO buffer to a SB_IO
-void nxio_to_sb(CellInfo *nxio, CellInfo *sbio);
+void nxio_to_sb(const Context *ctx, CellInfo *nxio, CellInfo *sbio);
 
 // Return true if a net is a global net
-bool is_global_net(const NetInfo *net);
+bool is_global_net(const Context *ctx, const NetInfo *net);
 
 // Return true if a port is a clock port
-bool is_clock_port(const PortRef &port);
+bool is_clock_port(const Context *ctx, const PortRef &port);
 
 // Return true if a port is a reset port
-bool is_reset_port(const PortRef &port);
+bool is_reset_port(const Context *ctx, const PortRef &port);
 
 // Return true if a port is a clock enable port
-bool is_enable_port(const PortRef &port);
+bool is_enable_port(const Context *ctx, const PortRef &port);
 
 NEXTPNR_NAMESPACE_END
 

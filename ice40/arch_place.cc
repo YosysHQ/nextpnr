@@ -34,7 +34,8 @@ static const NetInfo *get_net_or_empty(const CellInfo *cell,
         return nullptr;
 };
 
-static bool logicCellsCompatible(const std::vector<const CellInfo *> &cells)
+static bool logicCellsCompatible(const Context *ctx,
+                                 const std::vector<const CellInfo *> &cells)
 {
     bool dffs_exist = false, dffs_neg = false;
     const NetInfo *cen = nullptr, *clk = nullptr, *sr = nullptr;
@@ -49,11 +50,11 @@ static bool logicCellsCompatible(const std::vector<const CellInfo *> &cells)
                 clk = get_net_or_empty(cell, "CLK");
                 sr = get_net_or_empty(cell, "SR");
 
-                if (!is_global_net(cen) && cen != nullptr)
+                if (!is_global_net(ctx, cen) && cen != nullptr)
                     locals.insert(cen->name);
-                if (!is_global_net(clk) && clk != nullptr)
+                if (!is_global_net(ctx, clk) && clk != nullptr)
                     locals.insert(clk->name);
-                if (!is_global_net(sr) && sr != nullptr)
+                if (!is_global_net(ctx, sr) && sr != nullptr)
                     locals.insert(sr->name);
 
                 if (bool_or_default(cell->params, "NEG_CLK")) {
@@ -99,7 +100,7 @@ bool isBelLocationValid(Context *ctx, BelId bel)
                 cells.push_back(ci_other);
             }
         }
-        return logicCellsCompatible(cells);
+        return logicCellsCompatible(ctx, cells);
     } else {
         IdString cellId = ctx->getBelCell(bel, false);
         if (cellId == IdString())
@@ -125,16 +126,16 @@ bool isValidBelForCell(Context *ctx, CellInfo *cell, BelId bel)
         }
 
         cells.push_back(cell);
-        return logicCellsCompatible(cells);
+        return logicCellsCompatible(ctx, cells);
     } else if (cell->type == "SB_IO") {
         return ctx->getBelPackagePin(bel) != "";
     } else if (cell->type == "SB_GB") {
         bool is_reset = false, is_cen = false;
         assert(cell->ports.at("GLOBAL_BUFFER_OUTPUT").net != nullptr);
         for (auto user : cell->ports.at("GLOBAL_BUFFER_OUTPUT").net->users) {
-            if (is_reset_port(user))
+            if (is_reset_port(ctx, user))
                 is_reset = true;
-            if (is_enable_port(user))
+            if (is_enable_port(ctx, user))
                 is_cen = true;
         }
         IdString glb_net = ctx->getWireName(

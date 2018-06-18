@@ -201,7 +201,7 @@ int main(int argc, char *argv[])
         std::cout << "<svg xmlns=\"http://www.w3.org/2000/svg\" "
                      "xmlns:xlink=\"http://www.w3.org/1999/xlink\">\n";
         for (auto bel : ctx.getBels()) {
-            std::cout << "<!-- " << ctx.getBelName(bel) << " -->\n";
+            std::cout << "<!-- " << ctx.getBelName(bel).str(&ctx) << " -->\n";
             for (auto &el : ctx.getBelGraphics(bel))
                 svg_dump_el(el);
         }
