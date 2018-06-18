@@ -21,23 +21,36 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-std::unordered_map<std::string, int> *IdString::database_str_to_idx = nullptr;
-std::vector<const std::string *> *IdString::database_idx_to_str = nullptr;
+Context *IdString::global_ctx = nullptr;
 
-void IdString::initialize()
+void IdString::set(Context *ctx, const std::string &s)
 {
-    database_str_to_idx = new std::unordered_map<std::string, int>;
-    database_idx_to_str = new std::vector<const std::string *>;
-    initialize_add("", 0);
-    initialize_chip();
+    auto it = ctx->idstring_str_to_idx->find(s);
+    if (it == ctx->idstring_str_to_idx->end()) {
+        index = ctx->idstring_idx_to_str->size();
+        auto insert_rc = ctx->idstring_str_to_idx->insert({s, index});
+        ctx->idstring_idx_to_str->push_back(&insert_rc.first->first);
+    } else {
+        index = it->second;
+    }
 }
 
-void IdString::initialize_add(const char *s, int idx)
+const std::string &IdString::str(Context *ctx) const
 {
-    assert(database_str_to_idx->count(s) == 0);
-    assert(int(database_idx_to_str->size()) == idx);
-    auto insert_rc = database_str_to_idx->insert({s, idx});
-    database_idx_to_str->push_back(&insert_rc.first->first);
+    return *ctx->idstring_idx_to_str->at(index);
+}
+
+const char *IdString::c_str(Context *ctx) const
+{
+    return str(ctx).c_str();
+}
+
+void IdString::initialize_add(Context *ctx, const char *s, int idx)
+{
+    assert(ctx->idstring_str_to_idx->count(s) == 0);
+    assert(int(ctx->idstring_idx_to_str->size()) == idx);
+    auto insert_rc = ctx->idstring_str_to_idx->insert({s, idx});
+    ctx->idstring_idx_to_str->push_back(&insert_rc.first->first);
 }
 
 NEXTPNR_NAMESPACE_END

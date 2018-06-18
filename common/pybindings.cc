@@ -124,7 +124,7 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
     def("load_design", load_design_shim);
 
     class_<IdString>("IdString")
-            .def("__str__", &IdString::str,
+            .def("__str__", &IdString::global_str,
                  return_value_policy<copy_const_reference>())
             .def(self < self)
             .def(self == self);

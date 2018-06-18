@@ -54,9 +54,9 @@ BelType belTypeFromId(IdString id)
 
 // -----------------------------------------------------------------------
 
-void IdString::initialize_chip()
+void IdString::initialize_arch(Context *ctx)
 {
-#define X(t) initialize_add(#t, PIN_##t);
+#define X(t) initialize_add(ctx, #t, PIN_##t);
 #include "portpins.inc"
 #undef X
 }

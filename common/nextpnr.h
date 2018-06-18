@@ -41,72 +41,95 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+struct Context;
+
 struct IdString
 {
     int index = 0;
 
-    static std::unordered_map<std::string, int> *database_str_to_idx;
-    static std::vector<const std::string *> *database_idx_to_str;
+    static Context *global_ctx;
 
-    static void initialize();
-    static void initialize_chip();
-    static void initialize_add(const char *s, int idx);
+    static void initialize_arch(Context *ctx);
+    static void initialize_add(Context *ctx, const char *s, int idx);
 
     IdString() {}
 
-    IdString(const std::string &s)
-    {
-        if (database_str_to_idx == nullptr)
-            initialize();
+    void set(Context *ctx, const std::string &s);
 
-        auto it = database_str_to_idx->find(s);
-        if (it == database_str_to_idx->end()) {
-            index = database_idx_to_str->size();
-            auto insert_rc = database_str_to_idx->insert({s, index});
-            database_idx_to_str->push_back(&insert_rc.first->first);
-        } else {
-            index = it->second;
-        }
+    IdString(Context *ctx, const std::string &s)
+    {
+        assert(global_ctx != nullptr);
+        set(global_ctx, s);
     }
 
-    IdString(const char *s)
+    IdString(Context *ctx, const char *s)
     {
-        if (database_str_to_idx == nullptr)
-            initialize();
-
-        auto it = database_str_to_idx->find(s);
-        if (it == database_str_to_idx->end()) {
-            index = database_idx_to_str->size();
-            auto insert_rc = database_str_to_idx->insert({s, index});
-            database_idx_to_str->push_back(&insert_rc.first->first);
-        } else {
-            index = it->second;
-        }
+        assert(global_ctx != nullptr);
+        set(global_ctx, s);
     }
 
-    const std::string &str() const { return *database_idx_to_str->at(index); }
-    const char *c_str() const { return str().c_str(); }
+    const std::string &str(Context *ctx) const;
+    const char *c_str(Context *ctx) const;
 
-    operator const char *() const { return c_str(); }
-    operator const std::string &() const { return str(); }
+    bool operator<(const IdString &other) const
+    {
+        return index < other.index;
+    }
 
-    bool operator<(const IdString &other) const { return index < other.index; }
     bool operator==(const IdString &other) const
     {
         return index == other.index;
     }
-    bool operator==(const std::string &s) const { return str() == s; }
-    bool operator==(const char *s) const { return str() == s; }
 
     bool operator!=(const IdString &other) const
     {
         return index != other.index;
     }
+
+    bool empty() const { return index == 0; }
+
+    // --- deprecated old API ---
+
+    IdString(const std::string &s)
+    {
+        assert(global_ctx != nullptr);
+        set(global_ctx, s);
+    }
+
+    IdString(const char *s)
+    {
+        assert(global_ctx != nullptr);
+        set(global_ctx, s);
+    }
+
+    const std::string &global_str() const
+    {
+        assert(global_ctx != nullptr);
+        return str(global_ctx);
+    }
+
+    const std::string &str() const
+    {
+        assert(global_ctx != nullptr);
+        return str(global_ctx);
+    }
+
+    const char *c_str() const
+    {
+        assert(global_ctx != nullptr);
+        return c_str(global_ctx);
+    }
+
+    operator const char *() const { return c_str(); }
+    operator const std::string &() const { return str(); }
+
+    bool operator==(const std::string &s) const { return str() == s; }
+    bool operator==(const char *s) const { return str() == s; }
+
     bool operator!=(const std::string &s) const { return str() != s; }
     bool operator!=(const char *s) const { return str() != s; }
 
     size_t size() const { return str().size(); }
-    bool empty() const { return index == 0; }
 };
 
 NEXTPNR_NAMESPACE_END
@@ -191,11 +214,29 @@ struct CellInfo
 
 struct Context : Arch
 {
+    // --------------------------------------------------------------
+
+    std::unordered_map<std::string, int> *idstring_str_to_idx;
+    std::vector<const std::string *> *idstring_idx_to_str;
+
+    IdString id(const std::string &s) { return IdString(this, s); }
+    IdString id(const char *s) { return IdString(this, s); }
+
+    // --------------------------------------------------------------
+
     std::unordered_map<IdString, NetInfo *> nets;
     std::unordered_map<IdString, CellInfo *> cells;
 
     Context(ArchArgs args) : Arch(args)
     {
+        assert(IdString::global_ctx == nullptr);
+        IdString::global_ctx = this;
+
+        idstring_str_to_idx = new std::unordered_map<std::string, int>;
+        idstring_idx_to_str = new std::vector<const std::string *>;
+        IdString::initialize_add(this, "", 0);
+        IdString::initialize_arch(this);
+
         // ...
     }
 };
