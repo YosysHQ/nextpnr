@@ -25,16 +25,16 @@ NEXTPNR_NAMESPACE_BEGIN
 
 void arch_wrap_python()
 {
-    class_<ChipArgs>("ChipArgs").def_readwrite("type", &ChipArgs::type);
+    class_<ArchArgs>("ArchArgs").def_readwrite("type", &ArchArgs::type);
 
-    enum_<decltype(std::declval<ChipArgs>().type)>("iCE40Type")
-            .value("NONE", ChipArgs::NONE)
-            .value("LP384", ChipArgs::LP384)
-            .value("LP1K", ChipArgs::LP1K)
-            .value("LP8K", ChipArgs::LP8K)
-            .value("HX1K", ChipArgs::HX1K)
-            .value("HX8K", ChipArgs::HX8K)
-            .value("UP5K", ChipArgs::UP5K)
+    enum_<decltype(std::declval<ArchArgs>().type)>("iCE40Type")
+            .value("NONE", ArchArgs::NONE)
+            .value("LP384", ArchArgs::LP384)
+            .value("LP1K", ArchArgs::LP1K)
+            .value("LP8K", ArchArgs::LP8K)
+            .value("HX1K", ArchArgs::HX1K)
+            .value("HX8K", ArchArgs::HX8K)
+            .value("UP5K", ArchArgs::UP5K)
             .export_values();
 
     class_<BelId>("BelId").def_readwrite("index", &BelId::index);
@@ -53,28 +53,28 @@ void arch_wrap_python()
             ;
 #undef X
 
-    class_<Chip>("Chip", init<ChipArgs>())
-            .def("getBelByName", &Chip::getBelByName)
-            .def("getWireByName", &Chip::getWireByName)
-            .def("getBelName", &Chip::getBelName)
-            .def("getWireName", &Chip::getWireName)
-            .def("getBels", &Chip::getBels)
-            .def("getBelType", &Chip::getBelType)
-            .def("getWireBelPin", &Chip::getWireBelPin)
-            .def("getBelPinUphill", &Chip::getBelPinUphill)
-            .def("getBelPinsDownhill", &Chip::getBelPinsDownhill)
-            .def("getWires", &Chip::getWires)
-            .def("getPipByName", &Chip::getPipByName)
-            .def("getPipName", &Chip::getPipName)
-            .def("getPips", &Chip::getPips)
-            .def("getPipSrcWire", &Chip::getPipSrcWire)
-            .def("getPipDstWire", &Chip::getPipDstWire)
-            .def("getPipDelay", &Chip::getPipDelay)
-            .def("getPipsDownhill", &Chip::getPipsDownhill)
-            .def("getPipsUphill", &Chip::getPipsUphill)
-            .def("getWireAliases", &Chip::getWireAliases)
-            .def("estimatePosition", &Chip::estimatePosition)
-            .def("estimateDelay", &Chip::estimateDelay);
+    class_<Arch>("Arch", init<ArchArgs>())
+            .def("getBelByName", &Arch::getBelByName)
+            .def("getWireByName", &Arch::getWireByName)
+            .def("getBelName", &Arch::getBelName)
+            .def("getWireName", &Arch::getWireName)
+            .def("getBels", &Arch::getBels)
+            .def("getBelType", &Arch::getBelType)
+            .def("getWireBelPin", &Arch::getWireBelPin)
+            .def("getBelPinUphill", &Arch::getBelPinUphill)
+            .def("getBelPinsDownhill", &Arch::getBelPinsDownhill)
+            .def("getWires", &Arch::getWires)
+            .def("getPipByName", &Arch::getPipByName)
+            .def("getPipName", &Arch::getPipName)
+            .def("getPips", &Arch::getPips)
+            .def("getPipSrcWire", &Arch::getPipSrcWire)
+            .def("getPipDstWire", &Arch::getPipDstWire)
+            .def("getPipDelay", &Arch::getPipDelay)
+            .def("getPipsDownhill", &Arch::getPipsDownhill)
+            .def("getPipsUphill", &Arch::getPipsUphill)
+            .def("getWireAliases", &Arch::getWireAliases)
+            .def("estimatePosition", &Arch::estimatePosition)
+            .def("estimateDelay", &Arch::estimateDelay);
 
     WRAP_RANGE(Bel);
     WRAP_RANGE(BelPin);

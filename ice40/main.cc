@@ -134,56 +134,56 @@ int main(int argc, char *argv[])
         verbose = true;
     }
 
-    ChipArgs chipArgs;
+    ArchArgs chipArgs;
 
     if (vm.count("lp384")) {
-        if (chipArgs.type != ChipArgs::NONE)
+        if (chipArgs.type != ArchArgs::NONE)
             goto help;
-        chipArgs.type = ChipArgs::LP384;
+        chipArgs.type = ArchArgs::LP384;
         chipArgs.package = "qn32";
     }
 
     if (vm.count("lp1k")) {
-        if (chipArgs.type != ChipArgs::NONE)
+        if (chipArgs.type != ArchArgs::NONE)
             goto help;
-        chipArgs.type = ChipArgs::LP1K;
+        chipArgs.type = ArchArgs::LP1K;
         chipArgs.package = "tq144";
     }
 
     if (vm.count("lp8k")) {
-        if (chipArgs.type != ChipArgs::NONE)
+        if (chipArgs.type != ArchArgs::NONE)
             goto help;
-        chipArgs.type = ChipArgs::LP8K;
+        chipArgs.type = ArchArgs::LP8K;
         chipArgs.package = "ct256";
     }
 
     if (vm.count("hx1k")) {
-        if (chipArgs.type != ChipArgs::NONE)
+        if (chipArgs.type != ArchArgs::NONE)
             goto help;
-        chipArgs.type = ChipArgs::HX1K;
+        chipArgs.type = ArchArgs::HX1K;
         chipArgs.package = "tq144";
     }
 
     if (vm.count("hx8k")) {
-        if (chipArgs.type != ChipArgs::NONE)
+        if (chipArgs.type != ArchArgs::NONE)
             goto help;
-        chipArgs.type = ChipArgs::HX8K;
+        chipArgs.type = ArchArgs::HX8K;
         chipArgs.package = "ct256";
     }
 
     if (vm.count("up5k")) {
-        if (chipArgs.type != ChipArgs::NONE)
+        if (chipArgs.type != ArchArgs::NONE)
             goto help;
-        chipArgs.type = ChipArgs::UP5K;
+        chipArgs.type = ArchArgs::UP5K;
         chipArgs.package = "sg48";
     }
 
-    if (chipArgs.type == ChipArgs::NONE) {
-        chipArgs.type = ChipArgs::HX1K;
+    if (chipArgs.type == ArchArgs::NONE) {
+        chipArgs.type = ArchArgs::HX1K;
         chipArgs.package = "tq144";
     }
 #ifdef ICE40_HX1K_ONLY
-    if (chipArgs.type != ChipArgs::HX1K) {
+    if (chipArgs.type != ArchArgs::HX1K) {
         std::cout << "This version of nextpnr-ice40 is built with HX1K-support "
                      "only.\n";
         return 1;

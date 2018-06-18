@@ -23,6 +23,6 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-void arch_wrap_python() { class_<ChipArgs>("ChipArgs"); }
+void arch_wrap_python() { class_<ArchArgs>("ArchArgs"); }
 
 NEXTPNR_NAMESPACE_END

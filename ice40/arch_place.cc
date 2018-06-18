@@ -90,7 +90,7 @@ static bool logicCellsCompatible(const std::vector<const CellInfo *> &cells)
 
 bool isBelLocationValid(Design *design, BelId bel)
 {
-    const Chip &chip = design->chip;
+    const Arch &chip = design->chip;
     if (chip.getBelType(bel) == TYPE_ICESTORM_LC) {
         std::vector<const CellInfo *> cells;
         for (auto bel_other : chip.getBelsAtSameTile(bel)) {
@@ -112,7 +112,7 @@ bool isBelLocationValid(Design *design, BelId bel)
 
 bool isValidBelForCell(Design *design, CellInfo *cell, BelId bel)
 {
-    const Chip &chip = design->chip;
+    const Arch &chip = design->chip;
     if (cell->type == "ICESTORM_LC") {
         assert(chip.getBelType(bel) == TYPE_ICESTORM_LC);
 

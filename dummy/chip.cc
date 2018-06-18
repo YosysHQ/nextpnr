@@ -22,48 +22,48 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-Chip::Chip(ChipArgs) {}
+Arch::Arch(ArchArgs) {}
 
-std::string Chip::getChipName() { return "Dummy"; }
+std::string Arch::getChipName() { return "Dummy"; }
 
 void IdString::initialize_chip() {}
 
 // ---------------------------------------------------------------
 
-BelId Chip::getBelByName(IdString name) const { return BelId(); }
+BelId Arch::getBelByName(IdString name) const { return BelId(); }
 
-IdString Chip::getBelName(BelId bel) const { return IdString(); }
+IdString Arch::getBelName(BelId bel) const { return IdString(); }
 
-void Chip::bindBel(BelId bel, IdString cell) {}
+void Arch::bindBel(BelId bel, IdString cell) {}
 
-void Chip::unbindBel(BelId bel) {}
+void Arch::unbindBel(BelId bel) {}
 
-bool Chip::checkBelAvail(BelId bel) const { return false; }
+bool Arch::checkBelAvail(BelId bel) const { return false; }
 
-IdString Chip::getBelCell(BelId bel, bool conflicting) const
+IdString Arch::getBelCell(BelId bel, bool conflicting) const
 {
     return IdString();
 }
 
-const std::vector<BelId> &Chip::getBels() const
+const std::vector<BelId> &Arch::getBels() const
 {
     static std::vector<BelId> ret;
     return ret;
 }
 
-const std::vector<BelId> &Chip::getBelsByType(BelType type) const
+const std::vector<BelId> &Arch::getBelsByType(BelType type) const
 {
     static std::vector<BelId> ret;
     return ret;
 }
 
-BelType Chip::getBelType(BelId bel) const { return BelType(); }
+BelType Arch::getBelType(BelId bel) const { return BelType(); }
 
-WireId Chip::getWireBelPin(BelId bel, PortPin pin) const { return WireId(); }
+WireId Arch::getWireBelPin(BelId bel, PortPin pin) const { return WireId(); }
 
-BelPin Chip::getBelPinUphill(WireId wire) const { return BelPin(); }
+BelPin Arch::getBelPinUphill(WireId wire) const { return BelPin(); }
 
-const std::vector<BelPin> &Chip::getBelPinsDownhill(WireId wire) const
+const std::vector<BelPin> &Arch::getBelPinsDownhill(WireId wire) const
 {
     static std::vector<BelPin> ret;
     return ret;
@@ -71,22 +71,22 @@ const std::vector<BelPin> &Chip::getBelPinsDownhill(WireId wire) const
 
 // ---------------------------------------------------------------
 
-WireId Chip::getWireByName(IdString name) const { return WireId(); }
+WireId Arch::getWireByName(IdString name) const { return WireId(); }
 
-IdString Chip::getWireName(WireId wire) const { return IdString(); }
+IdString Arch::getWireName(WireId wire) const { return IdString(); }
 
-void Chip::bindWire(WireId wire, IdString net) {}
+void Arch::bindWire(WireId wire, IdString net) {}
 
-void Chip::unbindWire(WireId wire) {}
+void Arch::unbindWire(WireId wire) {}
 
-bool Chip::checkWireAvail(WireId wire) const { return false; }
+bool Arch::checkWireAvail(WireId wire) const { return false; }
 
-IdString Chip::getWireNet(WireId wire, bool conflicting) const
+IdString Arch::getWireNet(WireId wire, bool conflicting) const
 {
     return IdString();
 }
 
-const std::vector<WireId> &Chip::getWires() const
+const std::vector<WireId> &Arch::getWires() const
 {
     static std::vector<WireId> ret;
     return ret;
@@ -94,46 +94,46 @@ const std::vector<WireId> &Chip::getWires() const
 
 // ---------------------------------------------------------------
 
-PipId Chip::getPipByName(IdString name) const { return PipId(); }
+PipId Arch::getPipByName(IdString name) const { return PipId(); }
 
-IdString Chip::getPipName(PipId pip) const { return IdString(); }
+IdString Arch::getPipName(PipId pip) const { return IdString(); }
 
-void Chip::bindPip(PipId pip, IdString net) {}
+void Arch::bindPip(PipId pip, IdString net) {}
 
-void Chip::unbindPip(PipId pip) {}
+void Arch::unbindPip(PipId pip) {}
 
-bool Chip::checkPipAvail(PipId pip) const { return false; }
+bool Arch::checkPipAvail(PipId pip) const { return false; }
 
-IdString Chip::getPipNet(PipId pip, bool conflicting) const
+IdString Arch::getPipNet(PipId pip, bool conflicting) const
 {
     return IdString();
 }
 
-const std::vector<PipId> &Chip::getPips() const
+const std::vector<PipId> &Arch::getPips() const
 {
     static std::vector<PipId> ret;
     return ret;
 }
 
-WireId Chip::getPipSrcWire(PipId pip) const { return WireId(); }
+WireId Arch::getPipSrcWire(PipId pip) const { return WireId(); }
 
-WireId Chip::getPipDstWire(PipId pip) const { return WireId(); }
+WireId Arch::getPipDstWire(PipId pip) const { return WireId(); }
 
-DelayInfo Chip::getPipDelay(PipId pip) const { return DelayInfo(); }
+DelayInfo Arch::getPipDelay(PipId pip) const { return DelayInfo(); }
 
-const std::vector<PipId> &Chip::getPipsDownhill(WireId wire) const
+const std::vector<PipId> &Arch::getPipsDownhill(WireId wire) const
 {
     static std::vector<PipId> ret;
     return ret;
 }
 
-const std::vector<PipId> &Chip::getPipsUphill(WireId wire) const
+const std::vector<PipId> &Arch::getPipsUphill(WireId wire) const
 {
     static std::vector<PipId> ret;
     return ret;
 }
 
-const std::vector<PipId> &Chip::getWireAliases(WireId wire) const
+const std::vector<PipId> &Arch::getWireAliases(WireId wire) const
 {
     static std::vector<PipId> ret;
     return ret;
@@ -141,36 +141,36 @@ const std::vector<PipId> &Chip::getWireAliases(WireId wire) const
 
 // ---------------------------------------------------------------
 
-bool Chip::estimatePosition(BelId bel, int &x, int &y) const
+bool Arch::estimatePosition(BelId bel, int &x, int &y) const
 {
     x = 0.0;
     y = 0.0;
     return false;
 }
 
-delay_t Chip::estimateDelay(WireId src, WireId dst) const { return 0.0; }
+delay_t Arch::estimateDelay(WireId src, WireId dst) const { return 0.0; }
 
 // ---------------------------------------------------------------
 
-std::vector<GraphicElement> Chip::getFrameGraphics() const
+std::vector<GraphicElement> Arch::getFrameGraphics() const
 {
     static std::vector<GraphicElement> ret;
     return ret;
 }
 
-std::vector<GraphicElement> Chip::getBelGraphics(BelId bel) const
+std::vector<GraphicElement> Arch::getBelGraphics(BelId bel) const
 {
     static std::vector<GraphicElement> ret;
     return ret;
 }
 
-std::vector<GraphicElement> Chip::getWireGraphics(WireId wire) const
+std::vector<GraphicElement> Arch::getWireGraphics(WireId wire) const
 {
     static std::vector<GraphicElement> ret;
     return ret;
 }
 
-std::vector<GraphicElement> Chip::getPipGraphics(PipId pip) const
+std::vector<GraphicElement> Arch::getPipGraphics(PipId pip) const
 {
     static std::vector<GraphicElement> ret;
     return ret;

@@ -72,9 +72,9 @@ struct CellInfo
 
 struct Design
 {
-    struct Chip chip;
+    struct Arch chip;
 
-    Design(ChipArgs args) : chip(args)
+    Design(ArchArgs args) : chip(args)
     {
         // ...
     }

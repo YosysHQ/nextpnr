@@ -78,7 +78,7 @@ static void place_initial(Design *design, CellInfo *cell, rnd_state &rnd)
         BelId best_bel = BelId();
         float best_score = std::numeric_limits<float>::infinity(),
               best_ripup_score = std::numeric_limits<float>::infinity();
-        Chip &chip = design->chip;
+        Arch &chip = design->chip;
         CellInfo *ripup_target = nullptr;
         BelId ripup_bel = BelId();
         if (cell->bel != BelId()) {
@@ -141,7 +141,7 @@ struct SAState
 };
 
 // Get the total estimated wirelength for a net
-static float get_wirelength(Chip *chip, NetInfo *net)
+static float get_wirelength(Arch *chip, NetInfo *net)
 {
     float wirelength = 0;
     int driver_x = 0, driver_y = 0;
@@ -181,7 +181,7 @@ static bool try_swap_position(Design *design, CellInfo *cell, BelId newBel,
     static std::vector<std::pair<NetInfo *, float>> new_lengths;
     new_lengths.clear();
     update.clear();
-    Chip &chip = design->chip;
+    Arch &chip = design->chip;
     BelId oldBel = cell->bel;
     IdString other = chip.getBelCell(newBel, true);
     CellInfo *other_cell = nullptr;
@@ -264,7 +264,7 @@ swap_fail:
 BelId random_bel_for_cell(Design *design, CellInfo *cell, SAState &state,
                           rnd_state &rnd)
 {
-    Chip &chip = design->chip;
+    Arch &chip = design->chip;
     BelType targetType = belTypeFromId(cell->type);
     int x = 0, y = 0;
     chip.estimatePosition(cell->bel, x, y);

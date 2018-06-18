@@ -23,7 +23,7 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-inline TileType tile_at(const Chip &chip, int x, int y)
+inline TileType tile_at(const Arch &chip, int x, int y)
 {
     return chip.chip_info->tile_grid[y * chip.chip_info->width + x];
 }
@@ -97,7 +97,7 @@ char get_hexdigit(int i) { return std::string("0123456789ABCDEF").at(i); }
 
 void write_asc(const Design &design, std::ostream &out)
 {
-    const Chip &chip = design.chip;
+    const Arch &chip = design.chip;
     // [y][x][row][col]
     const ChipInfoPOD &ci = *chip.chip_info;
     const BitstreamInfoPOD &bi = *ci.bits_info;
@@ -115,18 +115,18 @@ void write_asc(const Design &design, std::ostream &out)
     out << ".comment from next-pnr" << std::endl;
 
     switch (chip.args.type) {
-    case ChipArgs::LP384:
+    case ArchArgs::LP384:
         out << ".device 384" << std::endl;
         break;
-    case ChipArgs::HX1K:
-    case ChipArgs::LP1K:
+    case ArchArgs::HX1K:
+    case ArchArgs::LP1K:
         out << ".device 1k" << std::endl;
         break;
-    case ChipArgs::HX8K:
-    case ChipArgs::LP8K:
+    case ArchArgs::HX8K:
+    case ArchArgs::LP8K:
         out << ".device 8k" << std::endl;
         break;
-    case ChipArgs::UP5K:
+    case ArchArgs::UP5K:
         out << ".device 5k" << std::endl;
         break;
     default:
@@ -213,8 +213,8 @@ void write_asc(const Design &design, std::ostream &out)
                 input_en = true;
             }
 
-            if (chip.args.type == ChipArgs::LP1K ||
-                chip.args.type == ChipArgs::HX1K) {
+            if (chip.args.type == ArchArgs::LP1K ||
+                chip.args.type == ArchArgs::HX1K) {
                 set_config(ti, config.at(iey).at(iex),
                            "IoCtrl.IE_" + std::to_string(iez), !input_en);
                 set_config(ti, config.at(iey).at(iex),
@@ -232,8 +232,8 @@ void write_asc(const Design &design, std::ostream &out)
             int x = beli.x, y = beli.y;
             const TileInfoPOD &ti_ramt = bi.tiles_nonrouting[TILE_RAMT];
             const TileInfoPOD &ti_ramb = bi.tiles_nonrouting[TILE_RAMB];
-            if (!(chip.args.type == ChipArgs::LP1K ||
-                  chip.args.type == ChipArgs::HX1K)) {
+            if (!(chip.args.type == ArchArgs::LP1K ||
+                  chip.args.type == ArchArgs::HX1K)) {
                 set_config(ti_ramb, config.at(y).at(x), "RamConfig.PowerUp",
                            true);
             }
@@ -268,8 +268,8 @@ void write_asc(const Design &design, std::ostream &out)
             int iex, iey, iez;
             std::tie(iex, iey, iez) = ieren;
             if (iez != -1) {
-                if (chip.args.type == ChipArgs::LP1K ||
-                    chip.args.type == ChipArgs::HX1K) {
+                if (chip.args.type == ArchArgs::LP1K ||
+                    chip.args.type == ArchArgs::HX1K) {
                     set_config(ti, config.at(iey).at(iex),
                                "IoCtrl.IE_" + std::to_string(iez), true);
                     set_config(ti, config.at(iey).at(iex),
@@ -281,8 +281,8 @@ void write_asc(const Design &design, std::ostream &out)
             const BelInfoPOD &beli = ci.bel_data[bel.index];
             int x = beli.x, y = beli.y;
             const TileInfoPOD &ti = bi.tiles_nonrouting[TILE_RAMB];
-            if ((chip.args.type == ChipArgs::LP1K ||
-                 chip.args.type == ChipArgs::HX1K)) {
+            if ((chip.args.type == ArchArgs::LP1K ||
+                 chip.args.type == ArchArgs::HX1K)) {
                 set_config(ti, config.at(y).at(x), "RamConfig.PowerUp", true);
             }
         }
@@ -296,17 +296,17 @@ void write_asc(const Design &design, std::ostream &out)
 
             // set all ColBufCtrl bits (FIXME)
             bool setColBufCtrl = true;
-            if (chip.args.type == ChipArgs::LP1K ||
-                chip.args.type == ChipArgs::HX1K) {
+            if (chip.args.type == ArchArgs::LP1K ||
+                chip.args.type == ArchArgs::HX1K) {
                 if (tile == TILE_RAMB || tile == TILE_RAMT) {
                     setColBufCtrl = (y == 3 || y == 5 || y == 11 || y == 13);
                 } else {
                     setColBufCtrl = (y == 4 || y == 5 || y == 12 || y == 13);
                 }
-            } else if (chip.args.type == ChipArgs::LP8K ||
-                       chip.args.type == ChipArgs::HX8K) {
+            } else if (chip.args.type == ArchArgs::LP8K ||
+                       chip.args.type == ArchArgs::HX8K) {
                 setColBufCtrl = (y == 8 || y == 9 || y == 24 || y == 25);
-            } else if (chip.args.type == ChipArgs::UP5K) {
+            } else if (chip.args.type == ArchArgs::UP5K) {
                 if (tile == TILE_LOGIC) {
                     setColBufCtrl = (y == 4 || y == 5 || y == 14 || y == 15 ||
                                      y == 26 || y == 27);

@@ -27,7 +27,7 @@ USING_NEXTPNR_NAMESPACE
 
 int main(int argc, char *argv[])
 {
-    Design design(ChipArgs{});
+    Design design(ArchArgs{});
 
     QApplication a(argc, argv);
     MainWindow w(&design);

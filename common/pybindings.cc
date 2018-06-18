@@ -57,7 +57,7 @@ void parse_json_shim(std::string filename, Design &d)
 }
 
 // Create a new Chip and load design from json file
-Design load_design_shim(std::string filename, ChipArgs args)
+Design load_design_shim(std::string filename, ArchArgs args)
 {
     Design d(args);
     parse_json_shim(filename, d);
