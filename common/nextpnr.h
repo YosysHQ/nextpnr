@@ -142,6 +142,64 @@ struct GraphicElement
 NEXTPNR_NAMESPACE_END
 
 #include "arch.h"
-#include "design.h"
+
+NEXTPNR_NAMESPACE_BEGIN
+
+struct CellInfo;
+
+struct PortRef
+{
+    CellInfo *cell = nullptr;
+    IdString port;
+};
+
+struct NetInfo
+{
+    IdString name;
+    PortRef driver;
+    std::vector<PortRef> users;
+    std::unordered_map<IdString, std::string> attrs;
+
+    // wire -> uphill_pip
+    std::unordered_map<WireId, PipId> wires;
+};
+
+enum PortType
+{
+    PORT_IN = 0,
+    PORT_OUT = 1,
+    PORT_INOUT = 2
+};
+
+struct PortInfo
+{
+    IdString name;
+    NetInfo *net;
+    PortType type;
+};
+
+struct CellInfo
+{
+    IdString name, type;
+    std::unordered_map<IdString, PortInfo> ports;
+    std::unordered_map<IdString, std::string> attrs, params;
+
+    BelId bel;
+    // cell_port -> bel_pin
+    std::unordered_map<IdString, IdString> pins;
+};
+
+struct Context : Arch
+{
+    std::unordered_map<IdString, NetInfo *> nets;
+    std::unordered_map<IdString, CellInfo *> cells;
+
+    Context(ArchArgs args) : Arch(args)
+    {
+        // ...
+    }
+};
+
+NEXTPNR_NAMESPACE_END
 
 #endif
