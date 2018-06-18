@@ -71,21 +71,21 @@ struct Router
         auto net_info = ctx->nets.at(net_name);
 
         if (verbose)
-            log("Routing net %s.\n", net_name.c_str());
+            log("Routing net %s.\n", net_name.c_str(ctx));
 
         if (verbose)
-            log("  Source: %s.%s.\n", net_info->driver.cell->name.c_str(),
-                net_info->driver.port.c_str());
+            log("  Source: %s.%s.\n", net_info->driver.cell->name.c_str(ctx),
+                net_info->driver.port.c_str(ctx));
 
         auto src_bel = net_info->driver.cell->bel;
 
         if (src_bel == BelId())
             log_error("Source cell %s (%s) is not mapped to a bel.\n",
-                      net_info->driver.cell->name.c_str(),
-                      net_info->driver.cell->type.c_str());
+                      net_info->driver.cell->name.c_str(ctx),
+                      net_info->driver.cell->type.c_str(ctx));
 
         if (verbose)
-            log("    Source bel: %s\n", ctx->getBelName(src_bel).c_str());
+            log("    Source bel: %s\n", ctx->getBelName(src_bel).c_str(ctx));
 
         IdString driver_port = net_info->driver.port;
 
@@ -98,12 +98,12 @@ struct Router
         if (src_wire == WireId())
             log_error("No wire found for port %s (pin %s) on source cell %s "
                       "(bel %s).\n",
-                      net_info->driver.port.c_str(), driver_port.c_str(),
-                      net_info->driver.cell->name.c_str(),
-                      ctx->getBelName(src_bel).c_str());
+                      net_info->driver.port.c_str(ctx), driver_port.c_str(ctx),
+                      net_info->driver.cell->name.c_str(ctx),
+                      ctx->getBelName(src_bel).c_str(ctx));
 
         if (verbose)
-            log("    Source wire: %s\n", ctx->getWireName(src_wire).c_str());
+            log("    Source wire: %s\n", ctx->getWireName(src_wire).c_str(ctx));
 
         std::unordered_map<WireId, DelayInfo> src_wires;
         src_wires[src_wire] = DelayInfo();
@@ -112,19 +112,19 @@ struct Router
 
         for (auto &user_it : net_info->users) {
             if (verbose)
-                log("  Route to: %s.%s.\n", user_it.cell->name.c_str(),
-                    user_it.port.c_str());
+                log("  Route to: %s.%s.\n", user_it.cell->name.c_str(ctx),
+                    user_it.port.c_str(ctx));
 
             auto dst_bel = user_it.cell->bel;
 
             if (dst_bel == BelId())
                 log_error("Destination cell %s (%s) is not mapped to a bel.\n",
-                          user_it.cell->name.c_str(),
-                          user_it.cell->type.c_str());
+                          user_it.cell->name.c_str(ctx),
+                          user_it.cell->type.c_str(ctx));
 
             if (verbose)
                 log("    Destination bel: %s\n",
-                    ctx->getBelName(dst_bel).c_str());
+                    ctx->getBelName(dst_bel).c_str(ctx));
 
             IdString user_port = user_it.port;
 
@@ -139,13 +139,13 @@ struct Router
             if (dst_wire == WireId())
                 log_error("No wire found for port %s (pin %s) on destination "
                           "cell %s (bel %s).\n",
-                          user_it.port.c_str(), user_port.c_str(),
-                          user_it.cell->name.c_str(),
-                          ctx->getBelName(dst_bel).c_str());
+                          user_it.port.c_str(ctx), user_port.c_str(ctx),
+                          user_it.cell->name.c_str(ctx),
+                          ctx->getBelName(dst_bel).c_str(ctx));
 
             if (verbose) {
                 log("    Destination wire: %s\n",
-                    ctx->getWireName(dst_wire).c_str());
+                    ctx->getWireName(dst_wire).c_str(ctx));
                 log("    Path delay estimate: %.2f\n",
                     float(ctx->estimateDelay(src_wire, dst_wire)));
             }
@@ -225,12 +225,12 @@ struct Router
             if (visited.count(dst_wire) == 0) {
                 if (verbose)
                     log("Failed to route %s -> %s.\n",
-                        ctx->getWireName(src_wire).c_str(),
-                        ctx->getWireName(dst_wire).c_str());
+                        ctx->getWireName(src_wire).c_str(ctx),
+                        ctx->getWireName(dst_wire).c_str(ctx));
                 else if (ripup)
                     log_info("Failed to route %s -> %s.\n",
-                             ctx->getWireName(src_wire).c_str(),
-                             ctx->getWireName(dst_wire).c_str());
+                             ctx->getWireName(src_wire).c_str(ctx),
+                             ctx->getWireName(dst_wire).c_str(ctx));
                 ripup_net(ctx, net_name);
                 failedDest = dst_wire;
                 return;
@@ -249,7 +249,7 @@ struct Router
             while (1) {
                 if (verbose)
                     log("    %8.2f %s\n", float(visited[cursor].delay),
-                        ctx->getWireName(cursor).c_str());
+                        ctx->getWireName(cursor).c_str(ctx));
 
                 if (src_wires.count(cursor))
                     break;
@@ -386,7 +386,7 @@ bool route_design(Context *ctx, bool verbose)
 
         for (auto net_name : netsQueue) {
             if (printNets)
-                log_info("  routing net %s. (%d users)\n", net_name.c_str(),
+                log_info("  routing net %s. (%d users)\n", net_name.c_str(ctx),
                          int(ctx->nets.at(net_name)->users.size()));
 
             Router router(ctx, net_name, verbose, false);
@@ -398,7 +398,7 @@ bool route_design(Context *ctx, bool verbose)
             if (!router.routedOkay) {
                 if (printNets)
                     log_info("    failed to route to %s.\n",
-                             ctx->getWireName(router.failedDest).c_str());
+                             ctx->getWireName(router.failedDest).c_str(ctx));
                 ripupQueue.insert(net_name);
             }
 
@@ -429,7 +429,8 @@ bool route_design(Context *ctx, bool verbose)
 
             for (auto net_name : ripupQueue) {
                 if (printNets)
-                    log_info("  routing net %s. (%d users)\n", net_name.c_str(),
+                    log_info("  routing net %s. (%d users)\n",
+                             net_name.c_str(ctx),
                              int(ctx->nets.at(net_name)->users.size()));
 
                 Router router(ctx, net_name, verbose, true,
@@ -441,7 +442,7 @@ bool route_design(Context *ctx, bool verbose)
 
                 if (!router.routedOkay)
                     log_error("Net %s is impossible to route.\n",
-                              net_name.c_str());
+                              net_name.c_str(ctx));
 
                 for (auto it : router.rippedNets)
                     netsQueue.insert(it);
@@ -451,7 +452,7 @@ bool route_design(Context *ctx, bool verbose)
                         log_info("    ripped up %d other nets:\n",
                                  int(router.rippedNets.size()));
                         for (auto n : router.rippedNets)
-                            log_info("      %s (%d users)\n", n.c_str(),
+                            log_info("      %s (%d users)\n", n.c_str(ctx),
                                      int(ctx->nets.at(n)->users.size()));
                     } else {
                         log_info("    ripped up %d other nets.\n",

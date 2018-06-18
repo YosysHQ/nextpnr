@@ -49,27 +49,19 @@ struct IdString
 
     static Context *global_ctx;
 
-    static void initialize_arch(Context *ctx);
-    static void initialize_add(Context *ctx, const char *s, int idx);
+    static void initialize_arch(const Context *ctx);
+    static void initialize_add(const Context *ctx, const char *s, int idx);
 
     IdString() {}
 
-    void set(Context *ctx, const std::string &s);
+    void set(const Context *ctx, const std::string &s);
 
-    IdString(Context *ctx, const std::string &s)
-    {
-        assert(global_ctx != nullptr);
-        set(global_ctx, s);
-    }
+    IdString(const Context *ctx, const std::string &s) { set(ctx, s); }
 
-    IdString(Context *ctx, const char *s)
-    {
-        assert(global_ctx != nullptr);
-        set(global_ctx, s);
-    }
+    IdString(const Context *ctx, const char *s) { set(ctx, s); }
 
-    const std::string &str(Context *ctx) const;
-    const char *c_str(Context *ctx) const;
+    const std::string &str(const Context *ctx) const;
+    const char *c_str(const Context *ctx) const;
 
     bool operator<(const IdString &other) const { return index < other.index; }
 
@@ -119,35 +111,45 @@ struct IdString
 
     operator const char *() const __attribute__((deprecated))
     {
-        return c_str();
+        assert(global_ctx != nullptr);
+        return c_str(global_ctx);
     }
 
     operator const std::string &() const __attribute__((deprecated))
     {
-        return str();
+        assert(global_ctx != nullptr);
+        return str(global_ctx);
     }
 
     bool operator==(const std::string &s) const __attribute__((deprecated))
     {
-        return str() == s;
+        assert(global_ctx != nullptr);
+        return str(global_ctx) == s;
     }
 
     bool operator==(const char *s) const __attribute__((deprecated))
     {
-        return str() == s;
+        assert(global_ctx != nullptr);
+        return str(global_ctx) == s;
     }
 
     bool operator!=(const std::string &s) const __attribute__((deprecated))
     {
-        return str() != s;
+        assert(global_ctx != nullptr);
+        return str(global_ctx) != s;
     }
 
     bool operator!=(const char *s) const __attribute__((deprecated))
     {
-        return str() != s;
+        assert(global_ctx != nullptr);
+        return str(global_ctx) != s;
     }
 
-    size_t size() const __attribute__((deprecated)) { return str().size(); }
+    size_t size() const __attribute__((deprecated))
+    {
+        assert(global_ctx != nullptr);
+        return str(global_ctx).size();
+    }
 };
 
 NEXTPNR_NAMESPACE_END
@@ -234,11 +236,14 @@ struct Context : Arch
 {
     // --------------------------------------------------------------
 
-    std::unordered_map<std::string, int> *idstring_str_to_idx;
-    std::vector<const std::string *> *idstring_idx_to_str;
+    mutable std::unordered_map<std::string, int> *idstring_str_to_idx;
+    mutable std::vector<const std::string *> *idstring_idx_to_str;
 
-    IdString id(const std::string &s) { return IdString(this, s); }
-    IdString id(const char *s) { return IdString(this, s); }
+    IdString id(const std::string &s) const override
+    {
+        return IdString(this, s);
+    }
+    IdString id(const char *s) const override { return IdString(this, s); }
 
     // --------------------------------------------------------------
 

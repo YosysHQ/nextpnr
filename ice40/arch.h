@@ -477,6 +477,9 @@ struct Arch
 
     std::string getChipName();
 
+    virtual IdString id(const std::string &s) const { abort(); }
+    virtual IdString id(const char *s) const { abort(); }
+
     // -------------------------------------------------
 
     BelId getBelByName(IdString name) const;
@@ -484,7 +487,7 @@ struct Arch
     IdString getBelName(BelId bel) const
     {
         assert(bel != BelId());
-        return chip_info->bel_data[bel.index].name.get();
+        return id(chip_info->bel_data[bel.index].name.get());
     }
 
     void bindBel(BelId bel, IdString cell)
@@ -576,7 +579,7 @@ struct Arch
     IdString getWireName(WireId wire) const
     {
         assert(wire != WireId());
-        return chip_info->wire_data[wire.index].name.get();
+        return id(chip_info->wire_data[wire.index].name.get());
     }
 
     void bindWire(WireId wire, IdString net)

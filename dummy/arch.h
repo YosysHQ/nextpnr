@@ -73,6 +73,9 @@ struct Arch
 
     std::string getChipName();
 
+    virtual IdString id(const std::string &s) const { abort(); }
+    virtual IdString id(const char *s) const { abort(); }
+
     BelId getBelByName(IdString name) const;
     IdString getBelName(BelId bel) const;
     void bindBel(BelId bel, IdString cell);

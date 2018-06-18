@@ -63,9 +63,9 @@ void log_warning(const char *format, ...) NXP_ATTRIBUTE(format(printf, 1, 2));
 void log_warning_noprefix(const char *format, ...)
         NXP_ATTRIBUTE(format(printf, 1, 2));
 NXP_NORETURN void log_error(const char *format, ...)
-        NXP_ATTRIBUTE(format(printf, 1, 2));
+        NXP_ATTRIBUTE(format(printf, 1, 2), noreturn);
 NXP_NORETURN void log_cmd_error(const char *format, ...)
-        NXP_ATTRIBUTE(format(printf, 1, 2));
+        NXP_ATTRIBUTE(format(printf, 1, 2), noreturn);
 
 void log_spacer();
 void log_push();
