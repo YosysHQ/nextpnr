@@ -94,10 +94,10 @@ foreach (family ${FAMILIES})
     target_compile_definitions(nextpnr-${family} PRIVATE MAIN_EXECUTABLE)
 
     # Add the importable Python module target
-    PYTHON_ADD_MODULE(nextpnrpy_${family} ${COMMON_FILES} ${${ufamily}_FILES})
+    PYTHON_ADD_MODULE(nextpnrpy_${family} EXCLUDE_FROM_ALL ${COMMON_FILES} ${${ufamily}_FILES})
     # Add any new per-architecture targets here
 
-    add_executable(nextpnr-${family}-test ${${ufamily}_TEST_FILES} ${COMMON_FILES} ${${ufamily}_FILES})
+    add_executable(nextpnr-${family}-test EXCLUDE_FROM_ALL ${${ufamily}_TEST_FILES} ${COMMON_FILES} ${${ufamily}_FILES})
     target_link_libraries(nextpnr-${family}-test PRIVATE gtest_main)
     add_test(${family}-test ${CMAKE_CURRENT_BINARY_DIR}/nextpnr-${family}-test)
 
