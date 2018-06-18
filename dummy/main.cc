@@ -27,10 +27,10 @@ USING_NEXTPNR_NAMESPACE
 
 int main(int argc, char *argv[])
 {
-    Design design(ArchArgs{});
+    Context ctx(ArchArgs{});
 
     QApplication a(argc, argv);
-    MainWindow w(&design);
+    MainWindow w(&ctx);
     w.show();
 
     return a.exec();

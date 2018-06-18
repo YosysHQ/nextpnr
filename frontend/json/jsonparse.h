@@ -26,7 +26,7 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-extern void parse_json_file(std::istream *&, std::string &, Design *);
+extern void parse_json_file(std::istream *&, std::string &, Context *);
 
 NEXTPNR_NAMESPACE_END
 

@@ -31,7 +31,7 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-extern bool check_all_nets_driven(Design *design);
+extern bool check_all_nets_driven(Context *ctx);
 
 namespace JsonParser {
 
@@ -313,7 +313,7 @@ bool is_blackbox(JsonNode *node)
     return true;
 }
 
-void json_import_cell_params(Design *design, string &modname, CellInfo *cell,
+void json_import_cell_params(Context *ctx, string &modname, CellInfo *cell,
                              JsonNode *param_node,
                              std::unordered_map<IdString, std::string> *dest,
                              int param_id)
@@ -344,7 +344,7 @@ void json_import_cell_params(Design *design, string &modname, CellInfo *cell,
 static int const_net_idx = 0;
 
 template <typename F>
-void json_import_ports(Design *design, const string &modname,
+void json_import_ports(Context *ctx, const string &modname,
                        const std::vector<IdString> &netnames,
                        const string &obj_name, const string &port_name,
                        JsonNode *dir_node, JsonNode *wire_group_node, F visitor)
@@ -437,7 +437,7 @@ void json_import_ports(Design *design, const string &modname,
                     net_id = netnames.at(net_num);
                 else
                     net_id = std::to_string(net_num);
-                if (design->nets.count(net_id) == 0) {
+                if (ctx->nets.count(net_id) == 0) {
                     // The net doesn't exist in the design (yet)
                     // Create in now
 
@@ -449,13 +449,13 @@ void json_import_ports(Design *design, const string &modname,
                     this_net->name = net_id;
                     this_net->driver.cell = NULL;
                     this_net->driver.port = "";
-                    design->nets[net_id] = this_net;
+                    ctx->nets[net_id] = this_net;
                 } else {
                     //
                     // The net already exists within the design.
                     // We'll connect to it
                     //
-                    this_net = design->nets[net_id];
+                    this_net = ctx->nets[net_id];
                     if (json_debug)
                         log_info("      Reusing net \'%s\', id \'%s\', "
                                  "with driver \'%s\'\n",
@@ -510,12 +510,12 @@ void json_import_ports(Design *design, const string &modname,
                          this_port.name.c_str(), obj_name.c_str());
             visitor(this_port.type, this_port.name, this_net);
 
-            if (design->nets.count(this_net->name) == 0)
-                design->nets[this_net->name] = this_net;
+            if (ctx->nets.count(this_net->name) == 0)
+                ctx->nets[this_net->name] = this_net;
         }
 }
 
-void json_import_cell(Design *design, string modname,
+void json_import_cell(Context *ctx, string modname,
                       const std::vector<IdString> &netnames,
                       JsonNode *cell_node, string cell_name)
 {
@@ -547,7 +547,7 @@ void json_import_cell(Design *design, string modname,
     for (int paramid = 0; paramid < GetSize(param_node->data_dict_keys);
          paramid++) {
 
-        json_import_cell_params(design, modname, cell, param_node,
+        json_import_cell_params(ctx, modname, cell, param_node,
                                 &cell->params, paramid);
     }
 
@@ -563,7 +563,7 @@ void json_import_cell(Design *design, string modname,
     for (int attrid = 0; attrid < GetSize(attr_node->data_dict_keys);
          attrid++) {
 
-        json_import_cell_params(design, modname, cell, attr_node, &cell->attrs,
+        json_import_cell_params(ctx, modname, cell, attr_node, &cell->attrs,
                                 attrid);
     }
 
@@ -621,7 +621,7 @@ void json_import_cell(Design *design, string modname,
         wire_group_node = connections->data_dict.at(port_name);
 
         json_import_ports(
-                design, modname, netnames, cell->name, port_name, dir_node,
+                ctx, modname, netnames, cell->name, port_name, dir_node,
                 wire_group_node,
                 [cell](PortType type, const std::string &name, NetInfo *net) {
                     cell->ports[name] = PortInfo{name, net, type};
@@ -639,11 +639,11 @@ void json_import_cell(Design *design, string modname,
                 });
     }
 
-    design->cells[cell->name] = cell;
-    // check_all_nets_driven(design);
+    ctx->cells[cell->name] = cell;
+    // check_all_nets_driven(ctx);
 }
 
-static void insert_iobuf(Design *design, NetInfo *net, PortType type,
+static void insert_iobuf(Context *ctx, NetInfo *net, PortType type,
                          const string &name)
 {
     // Instantiate a architecture-independent IO buffer connected to a given
@@ -683,7 +683,7 @@ static void insert_iobuf(Design *design, NetInfo *net, PortType type,
             net2->driver = net->driver;
             net2->driver.cell->ports[net2->driver.port].net = net2;
             net->driver.cell = nullptr;
-            design->nets[net2->name] = net2;
+            ctx->nets[net2->name] = net2;
             iobuf->ports["I"].net = net2;
             PortRef ref;
             ref.cell = iobuf;
@@ -697,24 +697,24 @@ static void insert_iobuf(Design *design, NetInfo *net, PortType type,
     } else {
         assert(false);
     }
-    design->cells[iobuf->name] = iobuf;
+    ctx->cells[iobuf->name] = iobuf;
 }
 
-void json_import_toplevel_port(Design *design, const string &modname,
+void json_import_toplevel_port(Context *ctx, const string &modname,
                                const std::vector<IdString> &netnames,
                                const string &portname, JsonNode *node)
 {
     JsonNode *dir_node = node->data_dict.at("direction");
     JsonNode *nets_node = node->data_dict.at("bits");
     json_import_ports(
-            design, modname, netnames, "Top Level IO", portname, dir_node,
+            ctx, modname, netnames, "Top Level IO", portname, dir_node,
             nets_node,
-            [design](PortType type, const std::string &name, NetInfo *net) {
-                insert_iobuf(design, net, type, name);
+            [ctx](PortType type, const std::string &name, NetInfo *net) {
+                insert_iobuf(ctx, net, type, name);
             });
 }
 
-void json_import(Design *design, string modname, JsonNode *node)
+void json_import(Context *ctx, string modname, JsonNode *node)
 {
     if (is_blackbox(node))
         return;
@@ -763,7 +763,7 @@ void json_import(Design *design, string modname, JsonNode *node)
 
             here = cell_parent->data_dict.at(
                     cell_parent->data_dict_keys[cellid]);
-            json_import_cell(design, modname, netnames, here,
+            json_import_cell(ctx, modname, netnames, here,
                              cell_parent->data_dict_keys[cellid]);
         }
     }
@@ -780,12 +780,12 @@ void json_import(Design *design, string modname, JsonNode *node)
 
             here = ports_parent->data_dict.at(
                     ports_parent->data_dict_keys[portid]);
-            json_import_toplevel_port(design, modname, netnames,
+            json_import_toplevel_port(ctx, modname, netnames,
                                       ports_parent->data_dict_keys[portid],
                                       here);
         }
     }
-    check_all_nets_driven(design);
+    check_all_nets_driven(ctx);
 }
 
 struct JsonFrontend
@@ -794,9 +794,9 @@ struct JsonFrontend
     JsonFrontend(void) {}
     virtual void help() {}
     virtual void execute(std::istream *&f, std::string &filename,
-                         Design *design)
+                         Context *ctx)
     {
-        // log_header(design, "Executing JSON frontend.\n");
+        // log_header(ctx, "Executing JSON frontend.\n");
 
         JsonNode root(*f);
 
@@ -810,17 +810,17 @@ struct JsonFrontend
                 log_error("JSON modules node is not a dictionary.\n");
 
             for (auto &it : modules->data_dict)
-                json_import(design, it.first, it.second);
+                json_import(ctx, it.first, it.second);
         }
     }
 }; // JsonFrontend;
 
 }; // End Namespace JsonParser
 
-void parse_json_file(std::istream *&f, std::string &filename, Design *design)
+void parse_json_file(std::istream *&f, std::string &filename, Context *ctx)
 {
     auto *parser = new JsonParser::JsonFrontend();
-    parser->execute(f, filename, design);
+    parser->execute(f, filename, ctx);
 }
 
 NEXTPNR_NAMESPACE_END

@@ -84,7 +84,7 @@ CellInfo *net_driven_by(const NetInfo *net, F1 cell_pred, IdString port)
     }
 }
 
-void print_utilisation(const Design *design);
+void print_utilisation(const Context *ctx);
 
 NEXTPNR_NAMESPACE_END
 

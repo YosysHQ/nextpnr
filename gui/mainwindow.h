@@ -15,9 +15,9 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 
   public:
-    explicit MainWindow(Design *design, QWidget *parent = 0);
+    explicit MainWindow(Context *ctx, QWidget *parent = 0);
     ~MainWindow();
-    Design *getDesign() { return design; }
+    Context *getContext() { return ctx; }
 
   private:
     void createMenusAndBars();
@@ -26,7 +26,7 @@ class MainWindow : public QMainWindow
     void writeInfo(std::string text);
 
   private:
-    Design *design;
+    Context *ctx;
     InfoTab *info;
 };
 

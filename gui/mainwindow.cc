@@ -11,10 +11,10 @@
 #include "fpgaviewwidget.h"
 #include "pythontab.h"
 
-MainWindow::MainWindow(Design *_design, QWidget *parent)
-        : QMainWindow(parent), design(_design)
+MainWindow::MainWindow(Context *_ctx, QWidget *parent)
+        : QMainWindow(parent), ctx(_ctx)
 {
-    std::string title = "nextpnr-ice40 - " + design->chip.getChipName();
+    std::string title = "nextpnr-ice40 - " + ctx->getChipName();
     setWindowTitle(title.c_str());
     setObjectName(QStringLiteral("MainWindow"));
     resize(1024, 768);
@@ -35,7 +35,7 @@ MainWindow::MainWindow(Design *_design, QWidget *parent)
 
     setCentralWidget(centralWidget);
 
-    DesignWidget *designview = new DesignWidget(design);
+    DesignWidget *designview = new DesignWidget(ctx);
     designview->setMinimumWidth(300);
     designview->setMaximumWidth(300);
     splitter_h->addWidget(designview);

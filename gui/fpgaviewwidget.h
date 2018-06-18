@@ -46,7 +46,7 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     float m_yMove;
     float m_zDistance;
     QPoint m_lastPos;
-    Design *design;
+    Context *ctx;
 };
 
 #endif

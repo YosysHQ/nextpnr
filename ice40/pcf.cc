@@ -27,7 +27,7 @@ NEXTPNR_NAMESPACE_BEGIN
 // Read a w
 
 // Apply PCF constraints to a pre-packing design
-void apply_pcf(Design *design, std::istream &in)
+void apply_pcf(Context *ctx, std::istream &in)
 {
     if (!in)
         log_error("failed to open PCF file");
@@ -50,16 +50,16 @@ void apply_pcf(Design *design, std::istream &in)
                 args_end++;
             std::string cell = words.at(args_end);
             std::string pin = words.at(args_end + 1);
-            auto fnd_cell = design->cells.find(cell);
-            if (fnd_cell == design->cells.end()) {
+            auto fnd_cell = ctx->cells.find(cell);
+            if (fnd_cell == ctx->cells.end()) {
                 log_warning("unmatched pcf constraint %s\n", cell.c_str());
             } else {
-                BelId pin_bel = design->chip.getPackagePinBel(pin);
+                BelId pin_bel = ctx->getPackagePinBel(pin);
                 if (pin_bel == BelId())
                     log_error("package does not have a pin named %s\n",
                               pin.c_str());
                 fnd_cell->second->attrs["BEL"] =
-                        design->chip.getBelName(pin_bel).str();
+                        ctx->getBelName(pin_bel).str();
                 log_info("constrained '%s' to bel '%s'\n", cell.c_str(),
                          fnd_cell->second->attrs["BEL"].c_str());
             }

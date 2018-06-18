@@ -26,7 +26,7 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-void write_asc(const Design &design, std::ostream &out);
+void write_asc(const Context *ctx, std::ostream &out);
 
 NEXTPNR_NAMESPACE_END
 

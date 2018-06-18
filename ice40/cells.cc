@@ -29,7 +29,7 @@ static void add_port(CellInfo *cell, IdString name, PortType dir)
     cell->ports[name] = PortInfo{name, nullptr, dir};
 }
 
-CellInfo *create_ice_cell(Design *design, IdString type, IdString name)
+CellInfo *create_ice_cell(Context *ctx, IdString type, IdString name)
 {
     static int auto_idx = 0;
     CellInfo *new_cell = new CellInfo();

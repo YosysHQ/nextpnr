@@ -29,10 +29,10 @@ NEXTPNR_NAMESPACE_BEGIN
 // Whether or not a given cell can be placed at a given Bel
 // This is not intended for Bel type checks, but finer-grained constraints
 // such as conflicting set/reset signals, etc
-bool isValidBelForCell(Design *design, CellInfo *cell, BelId bel);
+bool isValidBelForCell(Context *ctx, CellInfo *cell, BelId bel);
 
 // Return true whether all Bels at a given location are valid
-bool isBelLocationValid(Design *design, BelId bel);
+bool isBelLocationValid(Context *ctx, BelId bel);
 
 NEXTPNR_NAMESPACE_END
 
