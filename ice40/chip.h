@@ -747,8 +747,7 @@ NEXTPNR_NAMESPACE_END
 namespace std {
 template <> struct hash<NEXTPNR_NAMESPACE_PREFIX BelType>
 {
-    std::size_t operator()(NEXTPNR_NAMESPACE_PREFIX BelType bt) const
-    noexcept
+    std::size_t operator()(NEXTPNR_NAMESPACE_PREFIX BelType bt) const noexcept
     {
         return std::hash<int>()(int(bt));
     }

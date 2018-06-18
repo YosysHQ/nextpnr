@@ -547,8 +547,8 @@ void json_import_cell(Context *ctx, string modname,
     for (int paramid = 0; paramid < GetSize(param_node->data_dict_keys);
          paramid++) {
 
-        json_import_cell_params(ctx, modname, cell, param_node,
-                                &cell->params, paramid);
+        json_import_cell_params(ctx, modname, cell, param_node, &cell->params,
+                                paramid);
     }
 
     attr_node = cell_node->data_dict.at("attributes");
@@ -741,10 +741,9 @@ void json_import(Context *ctx, string modname, JsonNode *node)
                         netnames.resize(netid + 1);
                     netnames.at(netid) =
                             basename +
-                            (num_bits == 1
-                                     ? ""
-                                     : std::string("[") + std::to_string(i) +
-                                               std::string("]"));
+                            (num_bits == 1 ? "" : std::string("[") +
+                                                          std::to_string(i) +
+                                                          std::string("]"));
                 }
             }
         }
@@ -793,8 +792,7 @@ struct JsonFrontend
     // JsonFrontend() : Frontend("json", "read JSON file") { }
     JsonFrontend(void) {}
     virtual void help() {}
-    virtual void execute(std::istream *&f, std::string &filename,
-                         Context *ctx)
+    virtual void execute(std::istream *&f, std::string &filename, Context *ctx)
     {
         // log_header(ctx, "Executing JSON frontend.\n");
 

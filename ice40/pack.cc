@@ -39,8 +39,8 @@ static void pack_lut_lutffs(Context *ctx)
         log_info("cell '%s' is of type '%s'\n", ci->name.c_str(),
                  ci->type.c_str());
         if (is_lut(ci)) {
-            CellInfo *packed = create_ice_cell(ctx, "ICESTORM_LC",
-                                               ci->name.str() + "_LC");
+            CellInfo *packed =
+                    create_ice_cell(ctx, "ICESTORM_LC", ci->name.str() + "_LC");
             std::copy(ci->attrs.begin(), ci->attrs.end(),
                       std::inserter(packed->attrs, packed->attrs.begin()));
             packed_cells.insert(ci->name);

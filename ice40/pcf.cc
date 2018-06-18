@@ -58,8 +58,7 @@ void apply_pcf(Context *ctx, std::istream &in)
                 if (pin_bel == BelId())
                     log_error("package does not have a pin named %s\n",
                               pin.c_str());
-                fnd_cell->second->attrs["BEL"] =
-                        ctx->getBelName(pin_bel).str();
+                fnd_cell->second->attrs["BEL"] = ctx->getBelName(pin_bel).str();
                 log_info("constrained '%s' to bel '%s'\n", cell.c_str(),
                          fnd_cell->second->attrs["BEL"].c_str());
             }
