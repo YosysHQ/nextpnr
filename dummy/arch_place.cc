@@ -21,14 +21,8 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-bool isValidBelForCell(Design *design, CellInfo *cell, BelId bel)
-{
-    return true;
-}
+bool isValidBelForCell(Context *ctx, CellInfo *cell, BelId bel) { return true; }
 
-bool isBelLocationValid(Design *design, BelId bel)
-{
-    return true;
-}
+bool isBelLocationValid(Context *ctx, BelId bel) { return true; }
 
 NEXTPNR_NAMESPACE_END

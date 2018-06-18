@@ -53,16 +53,16 @@ void replace_port(CellInfo *old_cell, IdString old_name, CellInfo *rep_cell,
 }
 
 // Print utilisation of a design
-void print_utilisation(const Design *design)
+void print_utilisation(const Context *ctx)
 {
     // Sort by Bel type
     std::map<BelType, int> used_types;
-    for (auto cell : design->cells) {
+    for (auto cell : ctx->cells) {
         used_types[belTypeFromId(cell.second->type)]++;
     }
     std::map<BelType, int> available_types;
-    for (auto bel : design->chip.getBels()) {
-        available_types[design->chip.getBelType(bel)]++;
+    for (auto bel : ctx->getBels()) {
+        available_types[ctx->getBelType(bel)]++;
     }
     log("\nDesign utilisation:\n");
     for (auto type : available_types) {

@@ -47,7 +47,7 @@ bool operator==(const PortRef &a, const PortRef &b)
 }
 
 // Load a JSON file into a design
-void parse_json_shim(std::string filename, Design &d)
+void parse_json_shim(std::string filename, Context &d)
 {
     std::ifstream inf(filename);
     if (!inf)
@@ -57,9 +57,9 @@ void parse_json_shim(std::string filename, Design &d)
 }
 
 // Create a new Chip and load design from json file
-Design load_design_shim(std::string filename, ChipArgs args)
+Context load_design_shim(std::string filename, ArchArgs args)
 {
-    Design d(args);
+    Context d(args);
     parse_json_shim(filename, d);
     return d;
 }
@@ -113,13 +113,12 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
     WRAP_MAP(decltype(CellInfo::ports), "IdPortMap");
     // WRAP_MAP(decltype(CellInfo::pins), "IdIdMap");
 
-    class_<Design, Design *>("Design", no_init)
-            .def_readwrite("chip", &Design::chip)
-            .def_readwrite("nets", &Design::nets)
-            .def_readwrite("cells", &Design::cells);
+    class_<Context, Context *>("Context", no_init)
+            .def_readwrite("nets", &Context::nets)
+            .def_readwrite("cells", &Context::cells);
 
-    WRAP_MAP(decltype(Design::nets), "IdNetMap");
-    WRAP_MAP(decltype(Design::cells), "IdCellMap");
+    WRAP_MAP(decltype(Context::nets), "IdNetMap");
+    WRAP_MAP(decltype(Context::cells), "IdCellMap");
 
     def("parse_json", parse_json_shim);
     def("load_design", load_design_shim);

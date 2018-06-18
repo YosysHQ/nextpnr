@@ -78,10 +78,10 @@ PortPin portPinFromId(IdString id)
 
 // -----------------------------------------------------------------------
 
-Chip::Chip(ChipArgs args) : args(args)
+Arch::Arch(ArchArgs args) : args(args)
 {
 #ifdef ICE40_HX1K_ONLY
-    if (args.type == ChipArgs::HX1K) {
+    if (args.type == ArchArgs::HX1K) {
         chip_info =
                 reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_1k)
                         ->get();
@@ -89,19 +89,19 @@ Chip::Chip(ChipArgs args) : args(args)
         log_error("Unsupported iCE40 chip type.\n");
     }
 #else
-    if (args.type == ChipArgs::LP384) {
+    if (args.type == ArchArgs::LP384) {
         chip_info =
                 reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_384)
                         ->get();
-    } else if (args.type == ChipArgs::LP1K || args.type == ChipArgs::HX1K) {
+    } else if (args.type == ArchArgs::LP1K || args.type == ArchArgs::HX1K) {
         chip_info =
                 reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_1k)
                         ->get();
-    } else if (args.type == ChipArgs::UP5K) {
+    } else if (args.type == ArchArgs::UP5K) {
         chip_info =
                 reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_5k)
                         ->get();
-    } else if (args.type == ChipArgs::LP8K || args.type == ChipArgs::HX8K) {
+    } else if (args.type == ArchArgs::LP8K || args.type == ArchArgs::HX8K) {
         chip_info =
                 reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_8k)
                         ->get();
@@ -128,26 +128,26 @@ Chip::Chip(ChipArgs args) : args(args)
 
 // -----------------------------------------------------------------------
 
-std::string Chip::getChipName()
+std::string Arch::getChipName()
 {
 #ifdef ICE40_HX1K_ONLY
-    if (args.type == ChipArgs::HX1K) {
+    if (args.type == ArchArgs::HX1K) {
         return "Lattice LP1K";
     } else {
         log_error("Unsupported iCE40 chip type.\n");
     }
 #else
-    if (args.type == ChipArgs::LP384) {
+    if (args.type == ArchArgs::LP384) {
         return "Lattice LP384";
-    } else if (args.type == ChipArgs::LP1K) {
+    } else if (args.type == ArchArgs::LP1K) {
         return "Lattice LP1K";
-    } else if (args.type == ChipArgs::HX1K) {
+    } else if (args.type == ArchArgs::HX1K) {
         return "Lattice HX1K";
-    } else if (args.type == ChipArgs::UP5K) {
+    } else if (args.type == ArchArgs::UP5K) {
         return "Lattice UP5K";
-    } else if (args.type == ChipArgs::LP8K) {
+    } else if (args.type == ArchArgs::LP8K) {
         return "Lattice LP8K";
-    } else if (args.type == ChipArgs::HX8K) {
+    } else if (args.type == ArchArgs::HX8K) {
         return "Lattice HX8K";
     } else {
         log_error("Unknown chip\n");
@@ -157,7 +157,7 @@ std::string Chip::getChipName()
 
 // -----------------------------------------------------------------------
 
-BelId Chip::getBelByName(IdString name) const
+BelId Arch::getBelByName(IdString name) const
 {
     BelId ret;
 
@@ -173,7 +173,7 @@ BelId Chip::getBelByName(IdString name) const
     return ret;
 }
 
-BelRange Chip::getBelsAtSameTile(BelId bel) const
+BelRange Arch::getBelsAtSameTile(BelId bel) const
 {
     BelRange br;
     assert(bel != BelId());
@@ -193,7 +193,7 @@ BelRange Chip::getBelsAtSameTile(BelId bel) const
     return br;
 }
 
-WireId Chip::getWireBelPin(BelId bel, PortPin pin) const
+WireId Arch::getWireBelPin(BelId bel, PortPin pin) const
 {
     WireId ret;
 
@@ -214,7 +214,7 @@ WireId Chip::getWireBelPin(BelId bel, PortPin pin) const
 
 // -----------------------------------------------------------------------
 
-WireId Chip::getWireByName(IdString name) const
+WireId Arch::getWireByName(IdString name) const
 {
     WireId ret;
 
@@ -232,7 +232,7 @@ WireId Chip::getWireByName(IdString name) const
 
 // -----------------------------------------------------------------------
 
-PipId Chip::getPipByName(IdString name) const
+PipId Arch::getPipByName(IdString name) const
 {
     PipId ret;
 
@@ -251,7 +251,7 @@ PipId Chip::getPipByName(IdString name) const
     return ret;
 }
 
-IdString Chip::getPipName(PipId pip) const
+IdString Arch::getPipName(PipId pip) const
 {
     assert(pip != PipId());
 
@@ -272,7 +272,7 @@ IdString Chip::getPipName(PipId pip) const
 
 // -----------------------------------------------------------------------
 
-BelId Chip::getPackagePinBel(const std::string &pin) const
+BelId Arch::getPackagePinBel(const std::string &pin) const
 {
     for (int i = 0; i < package_info->num_pins; i++) {
         if (package_info->pins[i].name.get() == pin) {
@@ -284,7 +284,7 @@ BelId Chip::getPackagePinBel(const std::string &pin) const
     return BelId();
 }
 
-std::string Chip::getBelPackagePin(BelId bel) const
+std::string Arch::getBelPackagePin(BelId bel) const
 {
     for (int i = 0; i < package_info->num_pins; i++) {
         if (package_info->pins[i].bel_index == bel.index) {
@@ -295,7 +295,7 @@ std::string Chip::getBelPackagePin(BelId bel) const
 }
 // -----------------------------------------------------------------------
 
-bool Chip::estimatePosition(BelId bel, int &x, int &y) const
+bool Arch::estimatePosition(BelId bel, int &x, int &y) const
 {
     assert(bel != BelId());
     x = chip_info->bel_data[bel.index].x;
@@ -304,7 +304,7 @@ bool Chip::estimatePosition(BelId bel, int &x, int &y) const
     return chip_info->bel_data[bel.index].type != TYPE_SB_GB;
 }
 
-delay_t Chip::estimateDelay(WireId src, WireId dst) const
+delay_t Arch::estimateDelay(WireId src, WireId dst) const
 {
     assert(src != WireId());
     delay_t x1 = chip_info->wire_data[src.index].x;
@@ -319,7 +319,7 @@ delay_t Chip::estimateDelay(WireId src, WireId dst) const
 
 // -----------------------------------------------------------------------
 
-std::vector<GraphicElement> Chip::getFrameGraphics() const
+std::vector<GraphicElement> Arch::getFrameGraphics() const
 {
     std::vector<GraphicElement> ret;
 
@@ -336,7 +336,7 @@ std::vector<GraphicElement> Chip::getFrameGraphics() const
     return ret;
 }
 
-std::vector<GraphicElement> Chip::getBelGraphics(BelId bel) const
+std::vector<GraphicElement> Arch::getBelGraphics(BelId bel) const
 {
     std::vector<GraphicElement> ret;
 
@@ -402,14 +402,14 @@ std::vector<GraphicElement> Chip::getBelGraphics(BelId bel) const
     return ret;
 }
 
-std::vector<GraphicElement> Chip::getWireGraphics(WireId wire) const
+std::vector<GraphicElement> Arch::getWireGraphics(WireId wire) const
 {
     std::vector<GraphicElement> ret;
     // FIXME
     return ret;
 }
 
-std::vector<GraphicElement> Chip::getPipGraphics(PipId pip) const
+std::vector<GraphicElement> Arch::getPipGraphics(PipId pip) const
 {
     std::vector<GraphicElement> ret;
     // FIXME

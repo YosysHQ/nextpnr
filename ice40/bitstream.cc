@@ -23,9 +23,9 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-inline TileType tile_at(const Chip &chip, int x, int y)
+inline TileType tile_at(const Context *ctx, int x, int y)
 {
-    return chip.chip_info->tile_grid[y * chip.chip_info->width + x];
+    return ctx->chip_info->tile_grid[y * ctx->chip_info->width + x];
 }
 
 const ConfigEntryPOD &find_config(const TileInfoPOD &tile,
@@ -95,18 +95,17 @@ std::string get_param_str_or_def(const CellInfo *cell, const std::string &param,
 
 char get_hexdigit(int i) { return std::string("0123456789ABCDEF").at(i); }
 
-void write_asc(const Design &design, std::ostream &out)
+void write_asc(const Context *ctx, std::ostream &out)
 {
-    const Chip &chip = design.chip;
     // [y][x][row][col]
-    const ChipInfoPOD &ci = *chip.chip_info;
+    const ChipInfoPOD &ci = *ctx->chip_info;
     const BitstreamInfoPOD &bi = *ci.bits_info;
     std::vector<std::vector<std::vector<std::vector<int8_t>>>> config;
     config.resize(ci.height);
     for (int y = 0; y < ci.height; y++) {
         config.at(y).resize(ci.width);
         for (int x = 0; x < ci.width; x++) {
-            TileType tile = tile_at(chip, x, y);
+            TileType tile = tile_at(ctx, x, y);
             int rows = bi.tiles_nonrouting[tile].rows;
             int cols = bi.tiles_nonrouting[tile].cols;
             config.at(y).at(x).resize(rows, std::vector<int8_t>(cols));
@@ -114,27 +113,27 @@ void write_asc(const Design &design, std::ostream &out)
     }
     out << ".comment from next-pnr" << std::endl;
 
-    switch (chip.args.type) {
-    case ChipArgs::LP384:
+    switch (ctx->args.type) {
+    case ArchArgs::LP384:
         out << ".device 384" << std::endl;
         break;
-    case ChipArgs::HX1K:
-    case ChipArgs::LP1K:
+    case ArchArgs::HX1K:
+    case ArchArgs::LP1K:
         out << ".device 1k" << std::endl;
         break;
-    case ChipArgs::HX8K:
-    case ChipArgs::LP8K:
+    case ArchArgs::HX8K:
+    case ArchArgs::LP8K:
         out << ".device 8k" << std::endl;
         break;
-    case ChipArgs::UP5K:
+    case ArchArgs::UP5K:
         out << ".device 5k" << std::endl;
         break;
     default:
         assert(false);
     }
     // Set pips
-    for (auto pip : chip.getPips()) {
-        if (chip.pip_to_net[pip.index] != IdString()) {
+    for (auto pip : ctx->getPips()) {
+        if (ctx->pip_to_net[pip.index] != IdString()) {
             const PipInfoPOD &pi = ci.pip_data[pip.index];
             const SwitchInfoPOD &swi = bi.switches[pi.switch_index];
             for (int i = 0; i < swi.num_bits; i++) {
@@ -151,7 +150,7 @@ void write_asc(const Design &design, std::ostream &out)
         }
     }
     // Set logic cell config
-    for (auto cell : design.cells) {
+    for (auto cell : ctx->cells) {
         BelId bel = cell.second->bel;
         if (bel == BelId()) {
             std::cout << "Found unplaced cell " << cell.first
@@ -206,15 +205,15 @@ void write_asc(const Design &design, std::ostream &out)
             assert(iez != -1);
 
             bool input_en = false;
-            if ((chip.wire_to_net[chip.getWireBelPin(bel, PIN_D_IN_0).index] !=
+            if ((ctx->wire_to_net[ctx->getWireBelPin(bel, PIN_D_IN_0).index] !=
                  IdString()) ||
-                (chip.wire_to_net[chip.getWireBelPin(bel, PIN_D_IN_1).index] !=
+                (ctx->wire_to_net[ctx->getWireBelPin(bel, PIN_D_IN_1).index] !=
                  IdString())) {
                 input_en = true;
             }
 
-            if (chip.args.type == ChipArgs::LP1K ||
-                chip.args.type == ChipArgs::HX1K) {
+            if (ctx->args.type == ArchArgs::LP1K ||
+                ctx->args.type == ArchArgs::HX1K) {
                 set_config(ti, config.at(iey).at(iex),
                            "IoCtrl.IE_" + std::to_string(iez), !input_en);
                 set_config(ti, config.at(iey).at(iex),
@@ -232,8 +231,8 @@ void write_asc(const Design &design, std::ostream &out)
             int x = beli.x, y = beli.y;
             const TileInfoPOD &ti_ramt = bi.tiles_nonrouting[TILE_RAMT];
             const TileInfoPOD &ti_ramb = bi.tiles_nonrouting[TILE_RAMB];
-            if (!(chip.args.type == ChipArgs::LP1K ||
-                  chip.args.type == ChipArgs::HX1K)) {
+            if (!(ctx->args.type == ArchArgs::LP1K ||
+                  ctx->args.type == ArchArgs::HX1K)) {
                 set_config(ti_ramb, config.at(y).at(x), "RamConfig.PowerUp",
                            true);
             }
@@ -258,9 +257,9 @@ void write_asc(const Design &design, std::ostream &out)
         }
     }
     // Set config bits in unused IO and RAM
-    for (auto bel : chip.getBels()) {
-        if (chip.bel_to_cell[bel.index] == IdString() &&
-            chip.getBelType(bel) == TYPE_SB_IO) {
+    for (auto bel : ctx->getBels()) {
+        if (ctx->bel_to_cell[bel.index] == IdString() &&
+            ctx->getBelType(bel) == TYPE_SB_IO) {
             const TileInfoPOD &ti = bi.tiles_nonrouting[TILE_IO];
             const BelInfoPOD &beli = ci.bel_data[bel.index];
             int x = beli.x, y = beli.y, z = beli.z;
@@ -268,21 +267,21 @@ void write_asc(const Design &design, std::ostream &out)
             int iex, iey, iez;
             std::tie(iex, iey, iez) = ieren;
             if (iez != -1) {
-                if (chip.args.type == ChipArgs::LP1K ||
-                    chip.args.type == ChipArgs::HX1K) {
+                if (ctx->args.type == ArchArgs::LP1K ||
+                    ctx->args.type == ArchArgs::HX1K) {
                     set_config(ti, config.at(iey).at(iex),
                                "IoCtrl.IE_" + std::to_string(iez), true);
                     set_config(ti, config.at(iey).at(iex),
                                "IoCtrl.REN_" + std::to_string(iez), false);
                 }
             }
-        } else if (chip.bel_to_cell[bel.index] == IdString() &&
-                   chip.getBelType(bel) == TYPE_ICESTORM_RAM) {
+        } else if (ctx->bel_to_cell[bel.index] == IdString() &&
+                   ctx->getBelType(bel) == TYPE_ICESTORM_RAM) {
             const BelInfoPOD &beli = ci.bel_data[bel.index];
             int x = beli.x, y = beli.y;
             const TileInfoPOD &ti = bi.tiles_nonrouting[TILE_RAMB];
-            if ((chip.args.type == ChipArgs::LP1K ||
-                 chip.args.type == ChipArgs::HX1K)) {
+            if ((ctx->args.type == ArchArgs::LP1K ||
+                 ctx->args.type == ArchArgs::HX1K)) {
                 set_config(ti, config.at(y).at(x), "RamConfig.PowerUp", true);
             }
         }
@@ -291,22 +290,22 @@ void write_asc(const Design &design, std::ostream &out)
     // Set other config bits
     for (int y = 0; y < ci.height; y++) {
         for (int x = 0; x < ci.width; x++) {
-            TileType tile = tile_at(chip, x, y);
+            TileType tile = tile_at(ctx, x, y);
             const TileInfoPOD &ti = bi.tiles_nonrouting[tile];
 
             // set all ColBufCtrl bits (FIXME)
             bool setColBufCtrl = true;
-            if (chip.args.type == ChipArgs::LP1K ||
-                chip.args.type == ChipArgs::HX1K) {
+            if (ctx->args.type == ArchArgs::LP1K ||
+                ctx->args.type == ArchArgs::HX1K) {
                 if (tile == TILE_RAMB || tile == TILE_RAMT) {
                     setColBufCtrl = (y == 3 || y == 5 || y == 11 || y == 13);
                 } else {
                     setColBufCtrl = (y == 4 || y == 5 || y == 12 || y == 13);
                 }
-            } else if (chip.args.type == ChipArgs::LP8K ||
-                       chip.args.type == ChipArgs::HX8K) {
+            } else if (ctx->args.type == ArchArgs::LP8K ||
+                       ctx->args.type == ArchArgs::HX8K) {
                 setColBufCtrl = (y == 8 || y == 9 || y == 24 || y == 25);
-            } else if (chip.args.type == ChipArgs::UP5K) {
+            } else if (ctx->args.type == ArchArgs::UP5K) {
                 if (tile == TILE_LOGIC) {
                     setColBufCtrl = (y == 4 || y == 5 || y == 14 || y == 15 ||
                                      y == 26 || y == 27);
@@ -338,7 +337,7 @@ void write_asc(const Design &design, std::ostream &out)
     // Write config out
     for (int y = 0; y < ci.height; y++) {
         for (int x = 0; x < ci.width; x++) {
-            TileType tile = tile_at(chip, x, y);
+            TileType tile = tile_at(ctx, x, y);
             if (tile == TILE_NONE)
                 continue;
             switch (tile) {
@@ -372,7 +371,7 @@ void write_asc(const Design &design, std::ostream &out)
     }
 
     // Write RAM init data
-    for (auto cell : design.cells) {
+    for (auto cell : ctx->cells) {
         if (cell.second->bel != BelId()) {
             if (cell.second->type == "ICESTORM_RAM") {
                 const BelInfoPOD &beli = ci.bel_data[cell.second->bel.index];
@@ -402,8 +401,8 @@ void write_asc(const Design &design, std::ostream &out)
 
     // Write symbols
     const bool write_symbols = 1;
-    for (auto wire : chip.getWires()) {
-        IdString net = chip.getWireNet(wire, false);
+    for (auto wire : ctx->getWires()) {
+        IdString net = ctx->getWireNet(wire, false);
         if (net != IdString())
             out << ".sym " << wire.index << " " << net << std::endl;
     }

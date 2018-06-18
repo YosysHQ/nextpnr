@@ -15,9 +15,9 @@ class DesignWidget : public QWidget
     Q_OBJECT
 
   public:
-    explicit DesignWidget(Design *design, QWidget *parent = 0);
+    explicit DesignWidget(Context *ctx, QWidget *parent = 0);
     ~DesignWidget();
-    Design *getDesign() { return design; }
+    Context *getContext() { return ctx; }
 
   private:
     void addProperty(QtVariantProperty *property, const QString &id);
@@ -32,7 +32,7 @@ class DesignWidget : public QWidget
     void selectObject();
 
   private:
-    Design *design;
+    Context *ctx;
 
     QTreeWidget *treeWidget;
 

@@ -134,56 +134,56 @@ int main(int argc, char *argv[])
         verbose = true;
     }
 
-    ChipArgs chipArgs;
+    ArchArgs chipArgs;
 
     if (vm.count("lp384")) {
-        if (chipArgs.type != ChipArgs::NONE)
+        if (chipArgs.type != ArchArgs::NONE)
             goto help;
-        chipArgs.type = ChipArgs::LP384;
+        chipArgs.type = ArchArgs::LP384;
         chipArgs.package = "qn32";
     }
 
     if (vm.count("lp1k")) {
-        if (chipArgs.type != ChipArgs::NONE)
+        if (chipArgs.type != ArchArgs::NONE)
             goto help;
-        chipArgs.type = ChipArgs::LP1K;
+        chipArgs.type = ArchArgs::LP1K;
         chipArgs.package = "tq144";
     }
 
     if (vm.count("lp8k")) {
-        if (chipArgs.type != ChipArgs::NONE)
+        if (chipArgs.type != ArchArgs::NONE)
             goto help;
-        chipArgs.type = ChipArgs::LP8K;
+        chipArgs.type = ArchArgs::LP8K;
         chipArgs.package = "ct256";
     }
 
     if (vm.count("hx1k")) {
-        if (chipArgs.type != ChipArgs::NONE)
+        if (chipArgs.type != ArchArgs::NONE)
             goto help;
-        chipArgs.type = ChipArgs::HX1K;
+        chipArgs.type = ArchArgs::HX1K;
         chipArgs.package = "tq144";
     }
 
     if (vm.count("hx8k")) {
-        if (chipArgs.type != ChipArgs::NONE)
+        if (chipArgs.type != ArchArgs::NONE)
             goto help;
-        chipArgs.type = ChipArgs::HX8K;
+        chipArgs.type = ArchArgs::HX8K;
         chipArgs.package = "ct256";
     }
 
     if (vm.count("up5k")) {
-        if (chipArgs.type != ChipArgs::NONE)
+        if (chipArgs.type != ArchArgs::NONE)
             goto help;
-        chipArgs.type = ChipArgs::UP5K;
+        chipArgs.type = ArchArgs::UP5K;
         chipArgs.package = "sg48";
     }
 
-    if (chipArgs.type == ChipArgs::NONE) {
-        chipArgs.type = ChipArgs::HX1K;
+    if (chipArgs.type == ArchArgs::NONE) {
+        chipArgs.type = ArchArgs::HX1K;
         chipArgs.package = "tq144";
     }
 #ifdef ICE40_HX1K_ONLY
-    if (chipArgs.type != ChipArgs::HX1K) {
+    if (chipArgs.type != ArchArgs::HX1K) {
         std::cout << "This version of nextpnr-ice40 is built with HX1K-support "
                      "only.\n";
         return 1;
@@ -193,21 +193,20 @@ int main(int argc, char *argv[])
     if (vm.count("package"))
         chipArgs.package = vm["package"].as<std::string>();
 
-    Design design(chipArgs);
+    Context ctx(chipArgs);
     init_python(argv[0]);
-    python_export_global("design", design);
-    python_export_global("chip", design.chip);
+    python_export_global("ctx", ctx);
 
     if (vm.count("svg")) {
         std::cout << "<svg xmlns=\"http://www.w3.org/2000/svg\" "
                      "xmlns:xlink=\"http://www.w3.org/1999/xlink\">\n";
-        for (auto bel : design.chip.getBels()) {
-            std::cout << "<!-- " << design.chip.getBelName(bel) << " -->\n";
-            for (auto &el : design.chip.getBelGraphics(bel))
+        for (auto bel : ctx.getBels()) {
+            std::cout << "<!-- " << ctx.getBelName(bel) << " -->\n";
+            for (auto &el : ctx.getBelGraphics(bel))
                 svg_dump_el(el);
         }
         std::cout << "<!-- Frame -->\n";
-        for (auto &el : design.chip.getFrameGraphics())
+        for (auto &el : ctx.getFrameGraphics())
             svg_dump_el(el);
         std::cout << "</svg>\n";
     }
@@ -216,15 +215,15 @@ int main(int argc, char *argv[])
         std::string filename = vm["json"].as<std::string>();
         std::istream *f = new std::ifstream(filename);
 
-        parse_json_file(f, filename, &design);
+        parse_json_file(f, filename, &ctx);
 
         if (vm.count("pcf")) {
             std::ifstream pcf(vm["pcf"].as<std::string>());
-            apply_pcf(&design, pcf);
+            apply_pcf(&ctx, pcf);
         }
 
-        pack_design(&design);
-        print_utilisation(&design);
+        pack_design(&ctx);
+        print_utilisation(&ctx);
 
         int seed = 1;
         if (vm.count("seed")) {
@@ -234,15 +233,15 @@ int main(int argc, char *argv[])
         }
 
         if (!vm.count("pack-only")) {
-            place_design_sa(&design, seed);
-            route_design(&design, verbose);
+            place_design_sa(&ctx, seed);
+            route_design(&ctx, verbose);
         }
     }
 
     if (vm.count("asc")) {
         std::string filename = vm["asc"].as<std::string>();
         std::ofstream f(filename);
-        write_asc(design, f);
+        write_asc(&ctx, f);
     }
 
     if (vm.count("run")) {
@@ -254,7 +253,7 @@ int main(int argc, char *argv[])
 
     if (vm.count("gui")) {
         QApplication a(argc, argv);
-        MainWindow w(&design);
+        MainWindow w(&ctx);
         w.show();
 
         rc = a.exec();

@@ -35,7 +35,7 @@ void IdString::initialize()
 void IdString::initialize_add(const char *s, int idx)
 {
     assert(database_str_to_idx->count(s) == 0);
-    assert(database_idx_to_str->size() == idx);
+    assert(int(database_idx_to_str->size()) == idx);
     auto insert_rc = database_str_to_idx->insert({s, idx});
     database_idx_to_str->push_back(&insert_rc.first->first);
 }

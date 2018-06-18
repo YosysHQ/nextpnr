@@ -5,13 +5,13 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-bool check_all_nets_driven(Design *design)
+bool check_all_nets_driven(Context *ctx)
 {
     const bool debug = false;
 
     log_info("Rule checker, Verifying pre-placed design\n");
 
-    for (auto cell_entry : design->cells) {
+    for (auto cell_entry : ctx->cells) {
         CellInfo *cell = cell_entry.second;
 
         if (debug)
@@ -37,12 +37,12 @@ bool check_all_nets_driven(Design *design)
                 if (debug)
                     log_info("    Checking for a net named \'%s\'\n",
                              port.net->name.c_str());
-                assert(design->nets.count(port.net->name) > 0);
+                assert(ctx->nets.count(port.net->name) > 0);
             }
         }
     }
 
-    for (auto net_entry : design->nets) {
+    for (auto net_entry : ctx->nets) {
         NetInfo *net = net_entry.second;
 
         assert(net->name == net_entry.first);
@@ -52,7 +52,7 @@ bool check_all_nets_driven(Design *design)
             if (debug)
                 log_info("    Checking for a driver cell named \'%s\'\n",
                          net->driver.cell->name.c_str());
-            assert(design->cells.count(net->driver.cell->name) > 0);
+            assert(ctx->cells.count(net->driver.cell->name) > 0);
         }
 
         for (auto user : net->users) {
@@ -62,7 +62,7 @@ bool check_all_nets_driven(Design *design)
                 if (debug)
                     log_info("    Checking for a user   cell named \'%s\'\n",
                              user.cell->name.c_str());
-                assert(design->cells.count(user.cell->name) > 0);
+                assert(ctx->cells.count(user.cell->name) > 0);
             }
         }
     }

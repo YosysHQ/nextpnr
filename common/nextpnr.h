@@ -141,7 +141,7 @@ struct GraphicElement
 
 NEXTPNR_NAMESPACE_END
 
-#include "chip.h"
+#include "arch.h"
 #include "design.h"
 
 #endif

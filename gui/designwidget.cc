@@ -77,8 +77,8 @@ class PipTreeItem : public ElementTreeItem
     IdString data;
 };
 
-DesignWidget::DesignWidget(Design *_design, QWidget *parent)
-        : QWidget(parent), design(_design)
+DesignWidget::DesignWidget(Context *_ctx, QWidget *parent)
+        : QWidget(parent), ctx(_ctx)
 {
 
     treeWidget = new QTreeWidget();
@@ -93,8 +93,8 @@ DesignWidget::DesignWidget(Design *_design, QWidget *parent)
     bel_root->setText(0, QString("Bels"));
     treeWidget->insertTopLevelItem(0, bel_root);
     QList<QTreeWidgetItem *> bel_items;
-    for (auto bel : design->chip.getBels()) {
-        auto name = design->chip.getBelName(bel);
+    for (auto bel : ctx->getBels()) {
+        auto name = ctx->getBelName(bel);
         bel_items.append(
                 new BelTreeItem(name, ElementType::BEL, QString(name.c_str())));
     }
@@ -105,8 +105,8 @@ DesignWidget::DesignWidget(Design *_design, QWidget *parent)
     QList<QTreeWidgetItem *> wire_items;
     wire_root->setText(0, QString("Wires"));
     treeWidget->insertTopLevelItem(0, wire_root);
-    for (auto wire : design->chip.getWires()) {
-        auto name = design->chip.getWireName(wire);
+    for (auto wire : ctx->getWires()) {
+        auto name = ctx->getWireName(wire);
         wire_items.append(new WireTreeItem(name, ElementType::WIRE,
                                            QString(name.c_str())));
     }
@@ -117,8 +117,8 @@ DesignWidget::DesignWidget(Design *_design, QWidget *parent)
     QList<QTreeWidgetItem *> pip_items;
     pip_root->setText(0, QString("Pips"));
     treeWidget->insertTopLevelItem(0, pip_root);
-    for (auto pip : design->chip.getPips()) {
-        auto name = design->chip.getPipName(pip);
+    for (auto pip : ctx->getPips()) {
+        auto name = ctx->getPipName(pip);
         pip_items.append(
                 new PipTreeItem(name, ElementType::PIP, QString(name.c_str())));
     }

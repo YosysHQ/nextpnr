@@ -28,19 +28,19 @@
 NEXTPNR_NAMESPACE_BEGIN
 
 // Pack LUTs and LUT-FF pairs
-static void pack_lut_lutffs(Design *design)
+static void pack_lut_lutffs(Context *ctx)
 {
     log_info("Packing LUT-FFs..\n");
 
     std::unordered_set<IdString> packed_cells;
     std::vector<CellInfo *> new_cells;
-    for (auto cell : design->cells) {
+    for (auto cell : ctx->cells) {
         CellInfo *ci = cell.second;
         log_info("cell '%s' is of type '%s'\n", ci->name.c_str(),
                  ci->type.c_str());
         if (is_lut(ci)) {
-            CellInfo *packed = create_ice_cell(design, "ICESTORM_LC",
-                                               ci->name.str() + "_LC");
+            CellInfo *packed =
+                    create_ice_cell(ctx, "ICESTORM_LC", ci->name.str() + "_LC");
             std::copy(ci->attrs.begin(), ci->attrs.end(),
                       std::inserter(packed->attrs, packed->attrs.begin()));
             packed_cells.insert(ci->name);
@@ -62,7 +62,7 @@ static void pack_lut_lutffs(Design *design)
                 } else {
                     lut_to_lc(ci, packed, false);
                     dff_to_lc(dff, packed, false);
-                    design->nets.erase(o->name);
+                    ctx->nets.erase(o->name);
                     if (dff_bel != dff->attrs.end())
                         packed->attrs["BEL"] = dff_bel->second;
                     packed_cells.insert(dff->name);
@@ -77,25 +77,25 @@ static void pack_lut_lutffs(Design *design)
         }
     }
     for (auto pcell : packed_cells) {
-        design->cells.erase(pcell);
+        ctx->cells.erase(pcell);
     }
     for (auto ncell : new_cells) {
-        design->cells[ncell->name] = ncell;
+        ctx->cells[ncell->name] = ncell;
     }
 }
 
 // Pack FFs not packed as LUTFFs
-static void pack_nonlut_ffs(Design *design)
+static void pack_nonlut_ffs(Context *ctx)
 {
     log_info("Packing non-LUT FFs..\n");
 
     std::unordered_set<IdString> packed_cells;
     std::vector<CellInfo *> new_cells;
 
-    for (auto cell : design->cells) {
+    for (auto cell : ctx->cells) {
         CellInfo *ci = cell.second;
         if (is_ff(ci)) {
-            CellInfo *packed = create_ice_cell(design, "ICESTORM_LC",
+            CellInfo *packed = create_ice_cell(ctx, "ICESTORM_LC",
                                                ci->name.str() + "_DFFLC");
             std::copy(ci->attrs.begin(), ci->attrs.end(),
                       std::inserter(packed->attrs, packed->attrs.begin()));
@@ -107,25 +107,25 @@ static void pack_nonlut_ffs(Design *design)
         }
     }
     for (auto pcell : packed_cells) {
-        design->cells.erase(pcell);
+        ctx->cells.erase(pcell);
     }
     for (auto ncell : new_cells) {
-        design->cells[ncell->name] = ncell;
+        ctx->cells[ncell->name] = ncell;
     }
 }
 
 // "Pack" RAMs
-static void pack_ram(Design *design)
+static void pack_ram(Context *ctx)
 {
     log_info("Packing RAMs..\n");
 
     std::unordered_set<IdString> packed_cells;
     std::vector<CellInfo *> new_cells;
 
-    for (auto cell : design->cells) {
+    for (auto cell : ctx->cells) {
         CellInfo *ci = cell.second;
         if (is_ram(ci)) {
-            CellInfo *packed = create_ice_cell(design, "ICESTORM_RAM",
+            CellInfo *packed = create_ice_cell(ctx, "ICESTORM_RAM",
                                                ci->name.str() + "_RAM");
             packed_cells.insert(ci->name);
             new_cells.push_back(packed);
@@ -153,10 +153,10 @@ static void pack_ram(Design *design)
     }
 
     for (auto pcell : packed_cells) {
-        design->cells.erase(pcell);
+        ctx->cells.erase(pcell);
     }
     for (auto ncell : new_cells) {
-        design->cells[ncell->name] = ncell;
+        ctx->cells[ncell->name] = ncell;
     }
 }
 
@@ -180,18 +180,18 @@ static void set_net_constant(NetInfo *orig, NetInfo *constnet, bool constval)
 }
 
 // Pack constants (simple implementation)
-static void pack_constants(Design *design)
+static void pack_constants(Context *ctx)
 {
     log_info("Packing constants..\n");
 
-    CellInfo *gnd_cell = create_ice_cell(design, "ICESTORM_LC", "$PACKER_GND");
+    CellInfo *gnd_cell = create_ice_cell(ctx, "ICESTORM_LC", "$PACKER_GND");
     gnd_cell->params["LUT_INIT"] = "0";
     NetInfo *gnd_net = new NetInfo;
     gnd_net->name = "$PACKER_GND_NET";
     gnd_net->driver.cell = gnd_cell;
     gnd_net->driver.port = "O";
 
-    CellInfo *vcc_cell = create_ice_cell(design, "ICESTORM_LC", "$PACKER_VCC");
+    CellInfo *vcc_cell = create_ice_cell(ctx, "ICESTORM_LC", "$PACKER_VCC");
     vcc_cell->params["LUT_INIT"] = "1";
     NetInfo *vcc_net = new NetInfo;
     vcc_net->name = "$PACKER_VCC_NET";
@@ -200,24 +200,24 @@ static void pack_constants(Design *design)
 
     std::vector<IdString> dead_nets;
 
-    for (auto net : design->nets) {
+    for (auto net : ctx->nets) {
         NetInfo *ni = net.second;
         if (ni->driver.cell != nullptr && ni->driver.cell->type == "GND") {
             set_net_constant(ni, gnd_net, false);
-            design->cells[gnd_cell->name] = gnd_cell;
-            design->nets[gnd_net->name] = gnd_net;
+            ctx->cells[gnd_cell->name] = gnd_cell;
+            ctx->nets[gnd_net->name] = gnd_net;
             dead_nets.push_back(net.first);
         } else if (ni->driver.cell != nullptr &&
                    ni->driver.cell->type == "VCC") {
             set_net_constant(ni, vcc_net, true);
-            design->cells[vcc_cell->name] = vcc_cell;
-            design->nets[vcc_net->name] = vcc_net;
+            ctx->cells[vcc_cell->name] = vcc_cell;
+            ctx->nets[vcc_net->name] = vcc_net;
             dead_nets.push_back(net.first);
         }
     }
 
     for (auto dn : dead_nets)
-        design->nets.erase(dn);
+        ctx->nets.erase(dn);
 }
 
 static bool is_nextpnr_iob(CellInfo *cell)
@@ -227,14 +227,14 @@ static bool is_nextpnr_iob(CellInfo *cell)
 }
 
 // Pack IO buffers
-static void pack_io(Design *design)
+static void pack_io(Context *ctx)
 {
     std::unordered_set<IdString> packed_cells;
     std::vector<CellInfo *> new_cells;
 
     log_info("Packing IOs..\n");
 
-    for (auto cell : design->cells) {
+    for (auto cell : ctx->cells) {
         CellInfo *ci = cell.second;
         if (is_nextpnr_iob(ci)) {
             CellInfo *sb = nullptr;
@@ -254,12 +254,12 @@ static void pack_io(Design *design)
                          ci->name.c_str());
                 NetInfo *net = sb->ports.at("PACKAGE_PIN").net;
                 if (net != nullptr) {
-                    design->nets.erase(net->name);
+                    ctx->nets.erase(net->name);
                     sb->ports.at("PACKAGE_PIN").net = nullptr;
                 }
             } else {
                 // Create a SB_IO buffer
-                sb = create_ice_cell(design, "SB_IO");
+                sb = create_ice_cell(ctx, "SB_IO");
                 nxio_to_sb(ci, sb);
                 new_cells.push_back(sb);
             }
@@ -269,19 +269,19 @@ static void pack_io(Design *design)
         }
     }
     for (auto pcell : packed_cells) {
-        design->cells.erase(pcell);
+        ctx->cells.erase(pcell);
     }
     for (auto ncell : new_cells) {
-        design->cells[ncell->name] = ncell;
+        ctx->cells[ncell->name] = ncell;
     }
 }
 
-static void insert_global(Design *design, NetInfo *net, bool is_reset,
+static void insert_global(Context *ctx, NetInfo *net, bool is_reset,
                           bool is_cen)
 {
     std::string glb_name = net->name.str() + std::string("_$glb_") +
                            (is_reset ? "sr" : (is_cen ? "ce" : "clk"));
-    CellInfo *gb = create_ice_cell(design, "SB_GB", "$gbuf_" + glb_name);
+    CellInfo *gb = create_ice_cell(ctx, "SB_GB", "$gbuf_" + glb_name);
     gb->ports["USER_SIGNAL_TO_GLOBAL_BUFFER"].net = net;
     PortRef pr;
     pr.cell = gb;
@@ -293,7 +293,7 @@ static void insert_global(Design *design, NetInfo *net, bool is_reset,
     NetInfo *glbnet = new NetInfo();
     glbnet->name = glb_name;
     glbnet->driver = pr;
-    design->nets[glbnet->name] = glbnet;
+    ctx->nets[glbnet->name] = glbnet;
     gb->ports["GLOBAL_BUFFER_OUTPUT"].net = glbnet;
     std::vector<PortRef> keep_users;
     for (auto user : net->users) {
@@ -306,16 +306,16 @@ static void insert_global(Design *design, NetInfo *net, bool is_reset,
         }
     }
     net->users = keep_users;
-    design->cells[gb->name] = gb;
+    ctx->cells[gb->name] = gb;
 }
 
 // Simple global promoter (clock only)
-static void promote_globals(Design *design)
+static void promote_globals(Context *ctx)
 {
     log_info("Promoting globals..\n");
 
     std::unordered_map<IdString, int> clock_count, reset_count, cen_count;
-    for (auto net : design->nets) {
+    for (auto net : ctx->nets) {
         NetInfo *ni = net.second;
         if (ni->driver.cell != nullptr && !is_global_net(ni)) {
             clock_count[net.first] = 0;
@@ -334,7 +334,7 @@ static void promote_globals(Design *design)
     }
     int prom_globals = 0, prom_resets = 0, prom_cens = 0;
     int gbs_available = 8;
-    for (auto cell : design->cells)
+    for (auto cell : ctx->cells)
         if (is_gbuf(cell.second))
             --gbs_available;
     while (prom_globals < gbs_available) {
@@ -358,24 +358,24 @@ static void promote_globals(Design *design)
                                      return a.second < b.second;
                                  });
         if (global_reset->second > global_clock->second && prom_resets < 4) {
-            NetInfo *rstnet = design->nets[global_reset->first];
-            insert_global(design, rstnet, true, false);
+            NetInfo *rstnet = ctx->nets[global_reset->first];
+            insert_global(ctx, rstnet, true, false);
             ++prom_globals;
             ++prom_resets;
             clock_count.erase(rstnet->name);
             reset_count.erase(rstnet->name);
             cen_count.erase(rstnet->name);
         } else if (global_cen->second > global_clock->second && prom_cens < 4) {
-            NetInfo *cennet = design->nets[global_cen->first];
-            insert_global(design, cennet, false, true);
+            NetInfo *cennet = ctx->nets[global_cen->first];
+            insert_global(ctx, cennet, false, true);
             ++prom_globals;
             ++prom_cens;
             clock_count.erase(cennet->name);
             reset_count.erase(cennet->name);
             cen_count.erase(cennet->name);
         } else if (global_clock->second != 0) {
-            NetInfo *clknet = design->nets[global_clock->first];
-            insert_global(design, clknet, false, false);
+            NetInfo *clknet = ctx->nets[global_clock->first];
+            insert_global(ctx, clknet, false, false);
             ++prom_globals;
             clock_count.erase(clknet->name);
             reset_count.erase(clknet->name);
@@ -387,14 +387,14 @@ static void promote_globals(Design *design)
 }
 
 // Main pack function
-void pack_design(Design *design)
+void pack_design(Context *ctx)
 {
-    pack_constants(design);
-    promote_globals(design);
-    pack_io(design);
-    pack_lut_lutffs(design);
-    pack_nonlut_ffs(design);
-    pack_ram(design);
+    pack_constants(ctx);
+    promote_globals(ctx);
+    pack_io(ctx);
+    pack_lut_lutffs(ctx);
+    pack_nonlut_ffs(ctx);
+    pack_ram(ctx);
 }
 
 NEXTPNR_NAMESPACE_END

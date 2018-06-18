@@ -70,17 +70,15 @@ struct CellInfo
     std::unordered_map<IdString, IdString> pins;
 };
 
-struct Design
+struct Context : Arch
 {
-    struct Chip chip;
+    std::unordered_map<IdString, NetInfo *> nets;
+    std::unordered_map<IdString, CellInfo *> cells;
 
-    Design(ChipArgs args) : chip(args)
+    Context(ArchArgs args) : Arch(args)
     {
         // ...
     }
-
-    std::unordered_map<IdString, NetInfo *> nets;
-    std::unordered_map<IdString, CellInfo *> cells;
 };
 
 NEXTPNR_NAMESPACE_END

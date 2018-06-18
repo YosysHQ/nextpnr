@@ -9,7 +9,7 @@
 FPGAViewWidget::FPGAViewWidget(QWidget *parent)
         : QOpenGLWidget(parent), m_xMove(0), m_yMove(0), m_zDistance(1.0)
 {
-    design = qobject_cast<MainWindow *>(getMainWindow())->getDesign();
+    ctx = qobject_cast<MainWindow *>(getMainWindow())->getContext();
 }
 
 QMainWindow *FPGAViewWidget::getMainWindow()
@@ -118,12 +118,12 @@ void FPGAViewWidget::paintGL()
     glColor3f(0.1, 0.1, 0.1);
     glLineWidth(0.1);
     // Draw Bels
-    for (auto bel : design->chip.getBels()) {
-        for (auto &el : design->chip.getBelGraphics(bel))
+    for (auto bel : ctx->getBels()) {
+        for (auto &el : ctx->getBelGraphics(bel))
             drawElement(el);
     }
     // Draw Frame Graphics
-    for (auto &el : design->chip.getFrameGraphics())
+    for (auto &el : ctx->getFrameGraphics())
         drawElement(el);
 }
 

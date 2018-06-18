@@ -21,7 +21,7 @@
 #define CHIP_H
 
 #ifndef NEXTPNR_H
-#error Include "chip.h" via "nextpnr.h" only.
+#error Include "arch.h" via "nextpnr.h" only.
 #endif
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -63,15 +63,13 @@ struct BelPin
     PortPin pin;
 };
 
-struct ChipArgs
+struct ArchArgs
 {
 };
 
-std::string getChipName(ChipArgs id);
-
-struct Chip
+struct Arch
 {
-    Chip(ChipArgs args);
+    Arch(ArchArgs args);
 
     std::string getChipName();
 

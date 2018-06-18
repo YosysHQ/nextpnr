@@ -21,7 +21,7 @@
 #define CHIP_H
 
 #ifndef NEXTPNR_H
-#error Include "chip.h" via "nextpnr.h" only.
+#error Include "arch.h" via "nextpnr.h" only.
 #endif
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -443,7 +443,7 @@ struct PipRange
 
 // -----------------------------------------------------------------------
 
-struct ChipArgs
+struct ArchArgs
 {
     enum
     {
@@ -458,7 +458,7 @@ struct ChipArgs
     std::string package;
 };
 
-struct Chip
+struct Arch
 {
     const ChipInfoPOD *chip_info;
     const PackageInfoPOD *package_info;
@@ -471,12 +471,13 @@ struct Chip
     std::vector<IdString> wire_to_net;
     std::vector<IdString> pip_to_net;
     std::vector<IdString> switches_locked;
-    Chip(ChipArgs args);
 
-    ChipArgs args;
-    // -------------------------------------------------
+    ArchArgs args;
+    Arch(ArchArgs args);
 
     std::string getChipName();
+
+    // -------------------------------------------------
 
     BelId getBelByName(IdString name) const;
 
@@ -641,7 +642,7 @@ struct Chip
     bool checkPipAvail(PipId pip) const
     {
         assert(pip != PipId());
-        if (args.type == ChipArgs::UP5K) {
+        if (args.type == ArchArgs::UP5K) {
             int x = chip_info->pip_data[pip.index].x;
             if (x == 0 || x == (chip_info->width - 1))
                 return false;
@@ -746,8 +747,7 @@ NEXTPNR_NAMESPACE_END
 namespace std {
 template <> struct hash<NEXTPNR_NAMESPACE_PREFIX BelType>
 {
-    std::size_t operator()(NEXTPNR_NAMESPACE_PREFIX BelType bt) const
-    noexcept
+    std::size_t operator()(NEXTPNR_NAMESPACE_PREFIX BelType bt) const noexcept
     {
         return std::hash<int>()(int(bt));
     }

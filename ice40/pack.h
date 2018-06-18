@@ -25,7 +25,7 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-void pack_design(Design *design);
+void pack_design(Context *ctx);
 
 NEXTPNR_NAMESPACE_END
 
