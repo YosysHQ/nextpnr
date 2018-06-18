@@ -20,7 +20,7 @@
 #ifndef ROUTE_H
 #define ROUTE_H
 
-#include "design.h"
+#include "nextpnr.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
