@@ -31,6 +31,9 @@ NEXTPNR_NAMESPACE_BEGIN
 // such as conflicting set/reset signals, etc
 bool isValidBelForCell(Design *design, CellInfo *cell, BelId bel);
 
+// Return true whether all Bels at a given location are valid
+bool isBelLocationValid(Design *design, BelId bel);
+
 NEXTPNR_NAMESPACE_END
 
 #endif

@@ -741,9 +741,10 @@ void json_import(Design *design, string modname, JsonNode *node)
                         netnames.resize(netid + 1);
                     netnames.at(netid) =
                             basename +
-                            (num_bits == 1 ? "" : std::string("[") +
-                                                          std::to_string(i) +
-                                                          std::string("]"));
+                            (num_bits == 1
+                                     ? ""
+                                     : std::string("[") + std::to_string(i) +
+                                               std::string("]"));
                 }
             }
         }

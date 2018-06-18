@@ -147,7 +147,8 @@ void dff_to_lc(CellInfo *dff, CellInfo *lc, bool pass_thru_lut)
 
     if (citer != config.end()) {
         if ((config.end() - citer) >= 2) {
-            assert(*(citer++) == 'S');
+            char c = *(citer++);
+            assert(c == 'S');
             lc->params["ASYNC_SR"] = "0";
         } else {
             lc->params["ASYNC_SR"] = "1";
