@@ -64,9 +64,10 @@ struct Router
     int visitCnt = 0, revisitCnt = 0;
     bool routedOkay = false;
     delay_t maxDelay = 0.0;
+    WireId failedDest;
 
     Router(Design *design, IdString net_name, bool verbose, bool ripup = false,
-           delay_t ripup_pip_penalty = 5.0, delay_t ripup_wire_penalty = 5.0)
+           delay_t ripup_penalty = 0)
     {
         auto &chip = design->chip;
         auto net_info = design->nets.at(net_name);
@@ -173,16 +174,31 @@ struct Router
 
                 for (auto pip : chip.getPipsDownhill(qw.wire)) {
                     delay_t next_delay = qw.delay;
+                    IdString ripupNet = net_name;
                     visitCnt++;
 
                     if (!chip.checkPipAvail(pip)) {
-                        if (!ripup || net_name == chip.getPipNet(pip, true))
+                        if (!ripup)
                             continue;
-                        next_delay += ripup_pip_penalty;
+                        ripupNet = chip.getPipNet(pip, true);
+                        if (ripupNet == net_name)
+                            continue;
                     }
 
                     WireId next_wire = chip.getPipDstWire(pip);
                     next_delay += chip.getPipDelay(pip).avgDelay();
+
+                    if (!chip.checkWireAvail(next_wire)) {
+                        if (!ripup)
+                            continue;
+                        ripupNet = chip.getWireNet(next_wire, true);
+                        if (ripupNet == net_name)
+                            continue;
+                    }
+
+                    if (ripupNet != net_name)
+                        next_delay += ripup_penalty;
+                    assert(next_delay >= 0);
 
                     if (visited.count(next_wire)) {
                         if (visited.at(next_wire).delay <= next_delay + 1e-3)
@@ -196,14 +212,6 @@ struct Router
                                 float(next_delay));
 #endif
                         revisitCnt++;
-                        continue;
-                    }
-
-                    if (!chip.checkWireAvail(next_wire)) {
-                        if (!ripup ||
-                            net_name == chip.getWireNet(next_wire, true))
-                            continue;
-                        next_delay += ripup_wire_penalty;
                     }
 
                     QueuedWire next_qw;
@@ -226,6 +234,7 @@ struct Router
                              chip.getWireName(src_wire).c_str(),
                              chip.getWireName(dst_wire).c_str());
                 ripup_net(design, net_name);
+                failedDest = dst_wire;
                 return;
             }
 
@@ -282,12 +291,10 @@ struct Router
 
 NEXTPNR_NAMESPACE_BEGIN
 
-void route_design(Design *design, bool verbose)
+bool route_design(Design *design, bool verbose)
 {
     auto &chip = design->chip;
-    delay_t maxDelay = 0.0;
-    delay_t ripup_pip_penalty = 5.0;
-    delay_t ripup_wire_penalty = 5.0;
+    delay_t ripup_penalty = 5;
 
     log_info("Routing..\n");
 
@@ -308,7 +315,7 @@ void route_design(Design *design, bool verbose)
 
     if (netsQueue.empty()) {
         log_info("found no unrouted nets. no routing necessary.\n");
-        return;
+        return true;
     }
 
     log_info("found %d unrouted nets. starting routing procedure.\n",
@@ -367,6 +374,10 @@ void route_design(Design *design, bool verbose)
     int iterCnt = 0;
 
     while (!netsQueue.empty()) {
+        if (iterCnt == 200) {
+            log_info("giving up after %d iterations.\n", iterCnt);
+            return false;
+        }
         log_info("-- %d --\n", ++iterCnt);
 
         int visitCnt = 0, revisitCnt = 0, netCnt = 0;
@@ -387,9 +398,10 @@ void route_design(Design *design, bool verbose)
             visitCnt += router.visitCnt;
             revisitCnt += router.revisitCnt;
 
-            if (router.routedOkay) {
-                maxDelay = fmaxf(maxDelay, router.maxDelay);
-            } else {
+            if (!router.routedOkay) {
+                if (printNets)
+                    log_info("    failed to route to %s.\n",
+                             chip.getWireName(router.failedDest).c_str());
                 ripupQueue.insert(net_name);
             }
 
@@ -424,7 +436,7 @@ void route_design(Design *design, bool verbose)
                              int(design->nets.at(net_name)->users.size()));
 
                 Router router(design, net_name, verbose, true,
-                              ripup_pip_penalty, ripup_wire_penalty);
+                              ripup_penalty * (iterCnt - 1));
 
                 netCnt++;
                 visitCnt += router.visitCnt;
@@ -433,8 +445,6 @@ void route_design(Design *design, bool verbose)
                 if (!router.routedOkay)
                     log_error("Net %s is impossible to route.\n",
                               net_name.c_str());
-
-                maxDelay = fmaxf(maxDelay, router.maxDelay);
 
                 for (auto it : router.rippedNets)
                     netsQueue.insert(it);
@@ -469,14 +479,11 @@ void route_design(Design *design, bool verbose)
                 log_info("  ripped up %d previously routed nets. continue "
                          "routing.\n",
                          int(netsQueue.size()));
-
-            ripup_pip_penalty += 15;
-            ripup_wire_penalty += 15;
         }
     }
 
-    log_info("routing complete after %d iterations. longest path delay: %.2f\n",
-             iterCnt, float(maxDelay));
+    log_info("routing complete after %d iterations.\n", iterCnt);
+    return true;
 }
 
 NEXTPNR_NAMESPACE_END

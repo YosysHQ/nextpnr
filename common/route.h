@@ -24,7 +24,7 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-extern void route_design(Design *design, bool verbose = false);
+extern bool route_design(Design *design, bool verbose = false);
 
 NEXTPNR_NAMESPACE_END
 
