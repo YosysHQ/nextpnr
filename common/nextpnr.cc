@@ -40,10 +40,7 @@ const std::string &IdString::str(Context *ctx) const
     return *ctx->idstring_idx_to_str->at(index);
 }
 
-const char *IdString::c_str(Context *ctx) const
-{
-    return str(ctx).c_str();
-}
+const char *IdString::c_str(Context *ctx) const { return str(ctx).c_str(); }
 
 void IdString::initialize_add(Context *ctx, const char *s, int idx)
 {

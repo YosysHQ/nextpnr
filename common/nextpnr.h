@@ -71,10 +71,7 @@ struct IdString
     const std::string &str(Context *ctx) const;
     const char *c_str(Context *ctx) const;
 
-    bool operator<(const IdString &other) const
-    {
-        return index < other.index;
-    }
+    bool operator<(const IdString &other) const { return index < other.index; }
 
     bool operator==(const IdString &other) const
     {
@@ -90,46 +87,67 @@ struct IdString
 
     // --- deprecated old API ---
 
-    IdString(const std::string &s) __attribute__ ((deprecated))
+    IdString(const std::string &s) __attribute__((deprecated))
     {
         assert(global_ctx != nullptr);
         set(global_ctx, s);
     }
 
-    IdString(const char *s) __attribute__ ((deprecated))
+    IdString(const char *s) __attribute__((deprecated))
     {
         assert(global_ctx != nullptr);
         set(global_ctx, s);
     }
 
-    const std::string &global_str() const __attribute__ ((deprecated))
+    const std::string &global_str() const __attribute__((deprecated))
     {
         assert(global_ctx != nullptr);
         return str(global_ctx);
     }
 
-    const std::string &str() const __attribute__ ((deprecated))
+    const std::string &str() const __attribute__((deprecated))
     {
         assert(global_ctx != nullptr);
         return str(global_ctx);
     }
 
-    const char *c_str() const __attribute__ ((deprecated))
+    const char *c_str() const __attribute__((deprecated))
     {
         assert(global_ctx != nullptr);
         return c_str(global_ctx);
     }
 
-    operator const char *() const __attribute__ ((deprecated)) { return c_str(); }
-    operator const std::string &() const __attribute__ ((deprecated)) { return str(); }
+    operator const char *() const __attribute__((deprecated))
+    {
+        return c_str();
+    }
 
-    bool operator==(const std::string &s) const __attribute__ ((deprecated)) { return str() == s; }
-    bool operator==(const char *s) const __attribute__ ((deprecated)) { return str() == s; }
+    operator const std::string &() const __attribute__((deprecated))
+    {
+        return str();
+    }
 
-    bool operator!=(const std::string &s) const __attribute__ ((deprecated)) { return str() != s; }
-    bool operator!=(const char *s) const __attribute__ ((deprecated)) { return str() != s; }
+    bool operator==(const std::string &s) const __attribute__((deprecated))
+    {
+        return str() == s;
+    }
 
-    size_t size() const __attribute__ ((deprecated)) { return str().size(); }
+    bool operator==(const char *s) const __attribute__((deprecated))
+    {
+        return str() == s;
+    }
+
+    bool operator!=(const std::string &s) const __attribute__((deprecated))
+    {
+        return str() != s;
+    }
+
+    bool operator!=(const char *s) const __attribute__((deprecated))
+    {
+        return str() != s;
+    }
+
+    size_t size() const __attribute__((deprecated)) { return str().size(); }
 };
 
 NEXTPNR_NAMESPACE_END
