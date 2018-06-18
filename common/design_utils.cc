@@ -66,7 +66,7 @@ void print_utilisation(const Context *ctx)
     }
     log("\nDesign utilisation:\n");
     for (auto type : available_types) {
-        log("\t%20s: %5d/%5d\n", ctx->belTypeToId(type.first).c_str(),
+        log("\t%20s: %5d/%5d\n", ctx->belTypeToId(type.first).c_str(ctx),
             get_or_default(used_types, type.first, 0), type.second);
     }
 }
