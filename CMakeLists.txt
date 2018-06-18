@@ -4,7 +4,8 @@ project(nextpnr)
 # List of families to build
 set(FAMILIES dummy ice40)
 set(CMAKE_CXX_STANDARD 11)
-set(CMAKE_CXX_FLAGS "-Wall")
+set(CMAKE_CXX_FLAGS_DEBUG "-Wall")
+set(CMAKE_CXX_FLAGS_RELEASE  "-Wall -O3 -g")
 set(CMAKE_DEFIN)
 # List of Boost libraries to include
 set(boost_libs filesystem thread program_options)
