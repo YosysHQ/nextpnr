@@ -21,7 +21,7 @@
 #define CHIP_H
 
 #ifndef NEXTPNR_H
-#error Include "chip.h" via "nextpnr.h" only.
+#error Include "arch.h" via "nextpnr.h" only.
 #endif
 
 NEXTPNR_NAMESPACE_BEGIN
