@@ -161,7 +161,6 @@ static float get_wirelength(Chip *chip, NetInfo *net)
         if (load.cell == nullptr)
             continue;
         CellInfo *load_cell = load.cell;
-        int load_x = 0, load_y = 0;
         if (load_cell->bel == BelId())
             continue;
         // chip->estimatePosition(load_cell->bel, load_x, load_y);
@@ -265,7 +264,6 @@ swap_fail:
 BelId random_bel_for_cell(Design *design, CellInfo *cell, SAState &state,
                           rnd_state &rnd)
 {
-    BelId best_bel = BelId();
     Chip &chip = design->chip;
     BelType targetType = belTypeFromId(cell->type);
     int x = 0, y = 0;
@@ -276,9 +274,9 @@ BelId random_bel_for_cell(Design *design, CellInfo *cell, SAState &state,
         int ny = random_int_between(rnd, std::max(int(y) - state.diameter, 0),
                                     int(y) + state.diameter + 1);
         int beltype_idx = state.bel_types.at(targetType);
-        if (nx >= state.fast_bels.at(beltype_idx).size())
+        if (nx >= int(state.fast_bels.at(beltype_idx).size()))
             continue;
-        if (ny >= state.fast_bels.at(beltype_idx).at(nx).size())
+        if (ny >= int(state.fast_bels.at(beltype_idx).at(nx).size()))
             continue;
         const auto &fb = state.fast_bels.at(beltype_idx).at(nx).at(ny);
         if (fb.size() == 0)
@@ -294,7 +292,7 @@ void place_design_sa(Design *design, int seed)
 {
     SAState state;
 
-    size_t total_cells = design->cells.size(), placed_cells = 0;
+    size_t placed_cells = 0;
     std::queue<CellInfo *> visit_cells;
     // Initial constraints placer
     for (auto cell_entry : design->cells) {
@@ -356,15 +354,15 @@ void place_design_sa(Design *design, int seed)
         } else {
             type_idx = state.bel_types.at(type);
         }
-        if (state.fast_bels.size() < type_idx + 1)
+        if (int(state.fast_bels.size()) < type_idx + 1)
             state.fast_bels.resize(type_idx + 1);
-        if (state.fast_bels.at(type_idx).size() < int(x) + 1)
-            state.fast_bels.at(type_idx).resize(int(x) + 1);
-        if (state.fast_bels.at(type_idx).at(int(x)).size() < int(y) + 1)
-            state.fast_bels.at(type_idx).at(int(x)).resize(int(y) + 1);
-        max_x = std::max(max_x, int(x));
-        max_y = std::max(max_y, int(y));
-        state.fast_bels.at(type_idx).at(int(x)).at(int((y))).push_back(bel);
+        if (int(state.fast_bels.at(type_idx).size()) < (x + 1))
+            state.fast_bels.at(type_idx).resize(x + 1);
+        if (int(state.fast_bels.at(type_idx).at(x).size()) < (y + 1))
+            state.fast_bels.at(type_idx).at(x).resize(y + 1);
+        max_x = std::max(max_x, x);
+        max_y = std::max(max_y, y);
+        state.fast_bels.at(type_idx).at(x).at(y).push_back(bel);
     }
     state.diameter = std::max(max_x, max_y) + 1;
     // Calculate wirelength after initial placement
