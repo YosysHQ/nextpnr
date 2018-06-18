@@ -26,28 +26,28 @@ NEXTPNR_NAMESPACE_BEGIN
 
 // -----------------------------------------------------------------------
 
-IdString belTypeToId(BelType type)
+IdString Arch::belTypeToId(BelType type) const
 {
     if (type == TYPE_ICESTORM_LC)
-        return "ICESTORM_LC";
+        return id("ICESTORM_LC");
     if (type == TYPE_ICESTORM_RAM)
-        return "ICESTORM_RAM";
+        return id("ICESTORM_RAM");
     if (type == TYPE_SB_IO)
-        return "SB_IO";
+        return id("SB_IO");
     if (type == TYPE_SB_GB)
-        return "SB_GB";
+        return id("SB_GB");
     return IdString();
 }
 
-BelType belTypeFromId(IdString id)
+BelType Arch::belTypeFromId(IdString type) const
 {
-    if (id == "ICESTORM_LC")
+    if (type == id("ICESTORM_LC"))
         return TYPE_ICESTORM_LC;
-    if (id == "ICESTORM_RAM")
+    if (type == id("ICESTORM_RAM"))
         return TYPE_ICESTORM_RAM;
-    if (id == "SB_IO")
+    if (type == id("SB_IO"))
         return TYPE_SB_IO;
-    if (id == "SB_GB")
+    if (type == id("SB_GB"))
         return TYPE_SB_GB;
     return TYPE_NONE;
 }
@@ -61,7 +61,7 @@ void IdString::initialize_arch(const Context *ctx)
 #undef X
 }
 
-IdString portPinToId(PortPin type)
+IdString Arch::portPinToId(PortPin type) const
 {
     IdString ret;
     if (type > 0 && type < PIN_MAXIDX)
@@ -69,10 +69,10 @@ IdString portPinToId(PortPin type)
     return ret;
 }
 
-PortPin portPinFromId(IdString id)
+PortPin Arch::portPinFromId(IdString type) const
 {
-    if (id.index > 0 && id.index < PIN_MAXIDX)
-        return PortPin(id.index);
+    if (type.index > 0 && type.index < PIN_MAXIDX)
+        return PortPin(type.index);
     return PIN_NONE;
 }
 
@@ -163,7 +163,7 @@ BelId Arch::getBelByName(IdString name) const
 
     if (bel_by_name.empty()) {
         for (int i = 0; i < chip_info->num_bels; i++)
-            bel_by_name[chip_info->bel_data[i].name.get()] = i;
+            bel_by_name[id(chip_info->bel_data[i].name.get())] = i;
     }
 
     auto it = bel_by_name.find(name);
@@ -220,7 +220,7 @@ WireId Arch::getWireByName(IdString name) const
 
     if (wire_by_name.empty()) {
         for (int i = 0; i < chip_info->num_wires; i++)
-            wire_by_name[chip_info->wire_data[i].name.get()] = i;
+            wire_by_name[id(chip_info->wire_data[i].name.get())] = i;
     }
 
     auto it = wire_by_name.find(name);
@@ -266,8 +266,8 @@ IdString Arch::getPipName(PipId pip) const
             chip_info->wire_data[chip_info->pip_data[pip.index].dst].name.get();
     std::replace(dst_name.begin(), dst_name.end(), '/', '.');
 
-    return "X" + std::to_string(x) + "/Y" + std::to_string(y) + "/" + src_name +
-           ".->." + dst_name;
+    return id("X" + std::to_string(x) + "/Y" + std::to_string(y) + "/" +
+              src_name + ".->." + dst_name);
 }
 
 // -----------------------------------------------------------------------

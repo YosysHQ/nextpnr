@@ -58,7 +58,7 @@ void print_utilisation(const Context *ctx)
     // Sort by Bel type
     std::map<BelType, int> used_types;
     for (auto cell : ctx->cells) {
-        used_types[belTypeFromId(cell.second->type)]++;
+        used_types[ctx->belTypeFromId(cell.second->type)]++;
     }
     std::map<BelType, int> available_types;
     for (auto bel : ctx->getBels()) {
@@ -66,7 +66,7 @@ void print_utilisation(const Context *ctx)
     }
     log("\nDesign utilisation:\n");
     for (auto type : available_types) {
-        log("\t%20s: %5d/%5d\n", belTypeToId(type.first).c_str(),
+        log("\t%20s: %5d/%5d\n", ctx->belTypeToId(type.first).c_str(),
             get_or_default(used_types, type.first, 0), type.second);
     }
 }

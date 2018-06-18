@@ -47,12 +47,6 @@ struct DelayInfo
 typedef IdString BelType;
 typedef IdString PortPin;
 
-static inline IdString belTypeToId(BelType type) { return type; }
-static inline IdString portPinToId(PortPin type) { return type; }
-
-static inline BelType belTypeFromId(IdString id) { return id; }
-static inline PortPin portPinFromId(IdString id) { return id; }
-
 typedef IdString BelId;
 typedef IdString WireId;
 typedef IdString PipId;
@@ -75,6 +69,12 @@ struct Arch
 
     virtual IdString id(const std::string &s) const { abort(); }
     virtual IdString id(const char *s) const { abort(); }
+
+    IdString belTypeToId(BelType type) const { return type; }
+    IdString portPinToId(PortPin type) const { return type; }
+
+    BelType belTypeFromId(IdString id) const { return id; }
+    PortPin portPinFromId(IdString id) const { return id; }
 
     BelId getBelByName(IdString name) const;
     IdString getBelName(BelId bel) const;

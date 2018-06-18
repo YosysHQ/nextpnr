@@ -84,7 +84,7 @@ static void place_initial(Context *ctx, CellInfo *cell, rnd_state &rnd)
             ctx->unbindBel(cell->bel);
             cell->bel = BelId();
         }
-        BelType targetType = belTypeFromId(cell->type);
+        BelType targetType = ctx->belTypeFromId(cell->type);
         for (auto bel : ctx->getBels()) {
             if (ctx->getBelType(bel) == targetType &&
                 isValidBelForCell(ctx, cell, bel)) {
@@ -140,7 +140,7 @@ struct SAState
 };
 
 // Get the total estimated wirelength for a net
-static float get_wirelength(Arch *chip, NetInfo *net)
+static float get_wirelength(Context *ctx, NetInfo *net)
 {
     float wirelength = 0;
     int driver_x = 0, driver_y = 0;
@@ -151,9 +151,9 @@ static float get_wirelength(Arch *chip, NetInfo *net)
     if (driver_cell->bel == BelId())
         return 0;
     consider_driver =
-            chip->estimatePosition(driver_cell->bel, driver_x, driver_y);
-    WireId drv_wire = chip->getWireBelPin(driver_cell->bel,
-                                          portPinFromId(net->driver.port));
+            ctx->estimatePosition(driver_cell->bel, driver_x, driver_y);
+    WireId drv_wire = ctx->getWireBelPin(driver_cell->bel,
+                                         ctx->portPinFromId(net->driver.port));
     if (!consider_driver)
         return 0;
     for (auto load : net->users) {
@@ -162,12 +162,12 @@ static float get_wirelength(Arch *chip, NetInfo *net)
         CellInfo *load_cell = load.cell;
         if (load_cell->bel == BelId())
             continue;
-        // chip->estimatePosition(load_cell->bel, load_x, load_y);
-        WireId user_wire =
-                chip->getWireBelPin(load_cell->bel, portPinFromId(load.port));
+        // ctx->estimatePosition(load_cell->bel, load_x, load_y);
+        WireId user_wire = ctx->getWireBelPin(load_cell->bel,
+                                              ctx->portPinFromId(load.port));
         // wirelength += std::abs(load_x - driver_x) + std::abs(load_y -
         // driver_y);
-        wirelength += chip->estimateDelay(drv_wire, user_wire);
+        wirelength += ctx->estimateDelay(drv_wire, user_wire);
     }
     return wirelength;
 }
@@ -262,7 +262,7 @@ swap_fail:
 BelId random_bel_for_cell(Context *ctx, CellInfo *cell, SAState &state,
                           rnd_state &rnd)
 {
-    BelType targetType = belTypeFromId(cell->type);
+    BelType targetType = ctx->belTypeFromId(cell->type);
     int x = 0, y = 0;
     ctx->estimatePosition(cell->bel, x, y);
     while (true) {
@@ -305,10 +305,10 @@ void place_design_sa(Context *ctx, int seed)
             }
 
             BelType bel_type = ctx->getBelType(bel);
-            if (bel_type != belTypeFromId(cell->type)) {
+            if (bel_type != ctx->belTypeFromId(cell->type)) {
                 log_error("Bel \'%s\' of type \'%s\' does not match cell "
                           "\'%s\' of type \'%s\'",
-                          loc_name.c_str(), belTypeToId(bel_type).c_str(),
+                          loc_name.c_str(), ctx->belTypeToId(bel_type).c_str(),
                           cell->name.c_str(), cell->type.c_str());
             }
 

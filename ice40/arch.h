@@ -55,9 +55,6 @@ enum BelType : int32_t
     TYPE_SB_GB
 };
 
-IdString belTypeToId(BelType type);
-BelType belTypeFromId(IdString id);
-
 enum PortPin : int32_t
 {
     PIN_NONE,
@@ -66,9 +63,6 @@ enum PortPin : int32_t
 #undef X
     PIN_MAXIDX
 };
-
-IdString portPinToId(PortPin type);
-PortPin portPinFromId(IdString id);
 
 // -----------------------------------------------------------------------
 
@@ -479,6 +473,12 @@ struct Arch
 
     virtual IdString id(const std::string &s) const { abort(); }
     virtual IdString id(const char *s) const { abort(); }
+
+    IdString belTypeToId(BelType type) const;
+    BelType belTypeFromId(IdString id) const;
+
+    IdString portPinToId(PortPin type) const;
+    PortPin portPinFromId(IdString id) const;
 
     // -------------------------------------------------
 

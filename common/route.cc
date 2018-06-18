@@ -93,7 +93,8 @@ struct Router
         if (driver_port_it != net_info->driver.cell->pins.end())
             driver_port = driver_port_it->second;
 
-        auto src_wire = ctx->getWireBelPin(src_bel, portPinFromId(driver_port));
+        auto src_wire =
+                ctx->getWireBelPin(src_bel, ctx->portPinFromId(driver_port));
 
         if (src_wire == WireId())
             log_error("No wire found for port %s (pin %s) on source cell %s "
@@ -134,7 +135,7 @@ struct Router
                 user_port = user_port_it->second;
 
             auto dst_wire =
-                    ctx->getWireBelPin(dst_bel, portPinFromId(user_port));
+                    ctx->getWireBelPin(dst_bel, ctx->portPinFromId(user_port));
 
             if (dst_wire == WireId())
                 log_error("No wire found for port %s (pin %s) on destination "
@@ -335,7 +336,8 @@ bool route_design(Context *ctx, bool verbose)
         if (driver_port_it != net_info->driver.cell->pins.end())
             driver_port = driver_port_it->second;
 
-        auto src_wire = ctx->getWireBelPin(src_bel, portPinFromId(driver_port));
+        auto src_wire =
+                ctx->getWireBelPin(src_bel, ctx->portPinFromId(driver_port));
 
         if (src_wire == WireId())
             continue;
@@ -354,7 +356,7 @@ bool route_design(Context *ctx, bool verbose)
                 user_port = user_port_it->second;
 
             auto dst_wire =
-                    ctx->getWireBelPin(dst_bel, portPinFromId(user_port));
+                    ctx->getWireBelPin(dst_bel, ctx->portPinFromId(user_port));
 
             if (dst_wire == WireId())
                 continue;
