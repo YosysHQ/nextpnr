@@ -24,9 +24,12 @@ class MainWindow : public QMainWindow
 
   private Q_SLOTS:
     void writeInfo(std::string text);
+    void open();
+    bool save();
 
   private:
     Context *ctx;
+    QTabWidget *tabWidget;
     InfoTab *info;
 };
 

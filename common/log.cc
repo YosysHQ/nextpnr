@@ -33,6 +33,7 @@ NEXTPNR_NAMESPACE_BEGIN
 std::vector<FILE *> log_files;
 std::vector<std::ostream *> log_streams;
 FILE *log_errfile = NULL;
+log_write_type log_write_function = nullptr;
 
 bool log_error_stderr = false;
 bool log_cmd_error_throw = false;
@@ -99,6 +100,8 @@ void logv(const char *format, va_list ap)
 
     for (auto f : log_streams)
         *f << str;
+    if (log_write_function)
+        log_write_function(str);
 }
 
 void logv_info(const char *format, va_list ap)

@@ -1,5 +1,6 @@
 #include "mainwindow.h"
 #include <QAction>
+#include <QFileDialog>
 #include <QGridLayout>
 #include <QIcon>
 #include <QMenu>
@@ -7,13 +8,27 @@
 #include <QSplitter>
 #include <QStatusBar>
 #include <QToolBar>
+#include <fstream>
 #include "designwidget.h"
 #include "fpgaviewwidget.h"
+#include "jsonparse.h"
+#include "log.h"
 #include "pythontab.h"
+//#include "pack.h"
+//#include "pcf.h"
+#include "place_sa.h"
+#include "pybindings.h"
+#include "route.h"
+//#include "bitstream.h"
+#include "design_utils.h"
 
 MainWindow::MainWindow(Context *_ctx, QWidget *parent)
         : QMainWindow(parent), ctx(_ctx)
 {
+    log_files.clear();
+    log_streams.clear();
+    log_write_function = [this](std::string text) { info->info(text); };
+
     std::string title = "nextpnr-ice40 - " + ctx->getChipName();
     setWindowTitle(title.c_str());
     setObjectName(QStringLiteral("MainWindow"));
@@ -43,7 +58,7 @@ MainWindow::MainWindow(Context *_ctx, QWidget *parent)
     connect(designview, SIGNAL(info(std::string)), this,
             SLOT(writeInfo(std::string)));
 
-    QTabWidget *tabWidget = new QTabWidget();
+    tabWidget = new QTabWidget();
     tabWidget->addTab(new PythonTab(), "Python");
     info = new InfoTab();
     tabWidget->addTab(info, "Info");
@@ -57,30 +72,30 @@ void MainWindow::writeInfo(std::string text) { info->info(text); }
 
 void MainWindow::createMenusAndBars()
 {
-    QAction *actionNew = new QAction("New", this);
-    QIcon icon;
-    icon.addFile(QStringLiteral(":/icons/resources/new.png"));
-    actionNew->setIcon(icon);
-
     QAction *actionOpen = new QAction("Open", this);
     QIcon icon1;
     icon1.addFile(QStringLiteral(":/icons/resources/open.png"));
     actionOpen->setIcon(icon1);
+    actionOpen->setShortcuts(QKeySequence::Open);
+    actionOpen->setStatusTip("Open an existing JSON file");
+    connect(actionOpen, SIGNAL(triggered()), this, SLOT(open()));
 
     QAction *actionSave = new QAction("Save", this);
     QIcon icon2;
     icon2.addFile(QStringLiteral(":/icons/resources/save.png"));
     actionSave->setIcon(icon2);
-
-    QAction *actionSave_as = new QAction("Save as ...", this);
-
-    QAction *actionClose = new QAction("Close", this);
+    actionSave->setShortcuts(QKeySequence::Save);
+    actionSave->setStatusTip("Save the ASC to disk");
+    connect(actionSave, SIGNAL(triggered()), this, SLOT(save()));
+    actionSave->setEnabled(false);
 
     QAction *actionExit = new QAction("Exit", this);
-
     QIcon icon3;
     icon3.addFile(QStringLiteral(":/icons/resources/exit.png"));
     actionExit->setIcon(icon3);
+    actionExit->setShortcuts(QKeySequence::Quit);
+    actionExit->setStatusTip("Exit the application");
+    connect(actionExit, SIGNAL(triggered()), this, SLOT(close()));
 
     QAction *actionAbout = new QAction("About", this);
 
@@ -98,18 +113,31 @@ void MainWindow::createMenusAndBars()
     QStatusBar *statusBar = new QStatusBar();
     setStatusBar(statusBar);
 
-    menu_File->addAction(actionNew);
     menu_File->addAction(actionOpen);
     menu_File->addAction(actionSave);
-    menu_File->addAction(actionSave_as);
-    menu_File->addAction(actionClose);
     menu_File->addSeparator();
     menu_File->addAction(actionExit);
     menu_Help->addAction(actionAbout);
 
-    mainToolBar->addAction(actionNew);
     mainToolBar->addAction(actionOpen);
     mainToolBar->addAction(actionSave);
-
-    connect(actionExit, SIGNAL(triggered()), this, SLOT(close()));
 }
+
+void MainWindow::open()
+{
+    QString fileName = QFileDialog::getOpenFileName(this, QString(), QString(),
+                                                    QString("*.json"));
+    if (!fileName.isEmpty()) {
+        tabWidget->setCurrentWidget(info);
+
+        std::string fn = fileName.toStdString();
+        std::istream *f = new std::ifstream(fn);
+
+        parse_json_file(f, fn, ctx);
+
+        // pack_design(ctx);
+        print_utilisation(ctx);
+    }
+}
+
+bool MainWindow::save() { return false; }

@@ -11,9 +11,14 @@ PythonTab::PythonTab(QWidget *parent) : QWidget(parent)
     plainTextEdit = new QPlainTextEdit();
     plainTextEdit->setReadOnly(true);
     plainTextEdit->setMinimumHeight(100);
+    QFont f("unexistent");
+    f.setStyleHint(QFont::Monospace);
+    plainTextEdit->setFont(f);
+
     lineEdit = new QLineEdit();
     lineEdit->setMinimumHeight(30);
     lineEdit->setMaximumHeight(30);
+    lineEdit->setFont(f);
 
     QGridLayout *mainLayout = new QGridLayout();
     mainLayout->addWidget(plainTextEdit, 0, 0);

@@ -20,6 +20,7 @@
 #ifndef LOG_H
 #define LOG_H
 
+#include <functional>
 #include <ostream>
 #include <set>
 #include <stdarg.h>
@@ -36,6 +37,8 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+typedef std::function<void(std::string)> log_write_type;
+
 struct log_cmd_error_exception
 {
 };
@@ -43,6 +46,7 @@ struct log_cmd_error_exception
 extern std::vector<FILE *> log_files;
 extern std::vector<std::ostream *> log_streams;
 extern FILE *log_errfile;
+extern log_write_type log_write_function;
 
 extern bool log_quiet_warnings;
 extern int log_verbose_level;
