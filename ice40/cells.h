@@ -60,6 +60,16 @@ inline bool is_ff(const Context *ctx, const CellInfo *cell)
            cell->type == ctx->id("SB_DFFNES");
 }
 
+inline bool is_carry(const Context *ctx, const CellInfo *cell)
+{
+    return cell->type == ctx->id("SB_CARRY");
+}
+
+inline bool is_lc(const Context *ctx, const CellInfo *cell)
+{
+    return cell->type == ctx->id("ICESTORM_LC");
+}
+
 // Return true if a cell is a SB_IO
 inline bool is_sb_io(const Context *ctx, const CellInfo *cell)
 {
