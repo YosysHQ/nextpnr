@@ -311,10 +311,17 @@ bool place_design_sa(Context *ctx)
     // Place cells randomly initially
     log_info("Creating initial placement for remaining %d cells.\n",
              int(autoplaced.size()));
+
     for (auto cell : autoplaced) {
         place_initial(ctx, cell, state.checker);
         placed_cells++;
+        if (placed_cells % 500 == 0) {
+            log_info("Initial placement placed %d/%d cells\n",
+                     int(placed_cells), int(ctx->cells.size()));
+        }
     }
+    log_info("Initial placement placed %d/%d cells\n", int(placed_cells),
+             int(ctx->cells.size()));
 
     log_info("Running simulated annealing placer.\n");
 
