@@ -50,7 +50,7 @@ static void place_initial(Context *ctx, CellInfo *cell)
     while (!all_placed) {
         BelId best_bel = BelId();
         uint64_t best_score = std::numeric_limits<uint64_t>::max(),
-              best_ripup_score = std::numeric_limits<uint64_t>::max();
+                 best_ripup_score = std::numeric_limits<uint64_t>::max();
         CellInfo *ripup_target = nullptr;
         BelId ripup_bel = BelId();
         if (cell->bel != BelId()) {
@@ -146,7 +146,8 @@ static float get_wirelength(Context *ctx, NetInfo *net)
 }
 
 // Attempt a SA position swap, return true on success or false on failure
-static bool try_swap_position(Context *ctx, CellInfo *cell, BelId newBel, SAState &state)
+static bool try_swap_position(Context *ctx, CellInfo *cell, BelId newBel,
+                              SAState &state)
 {
     static std::unordered_set<NetInfo *> update;
     static std::vector<std::pair<NetInfo *, float>> new_lengths;
@@ -204,7 +205,7 @@ static bool try_swap_position(Context *ctx, CellInfo *cell, BelId newBel, SAStat
     // SA acceptance criterea
     if (delta < 0 ||
         (state.temp > 1e-6 &&
-                (ctx->rng() / float(0x3fffffff)) <= std::exp(-delta / state.temp))) {
+         (ctx->rng() / float(0x3fffffff)) <= std::exp(-delta / state.temp))) {
         state.n_accept++;
         if (delta < 0)
             state.improved = true;
@@ -237,8 +238,10 @@ BelId random_bel_for_cell(Context *ctx, CellInfo *cell, SAState &state)
     int x = 0, y = 0;
     ctx->estimatePosition(cell->bel, x, y);
     while (true) {
-        int nx = ctx->rng(2 * state.diameter + 1) + std::max(x - state.diameter, 0);
-        int ny = ctx->rng(2 * state.diameter + 1) + std::max(y - state.diameter, 0);
+        int nx = ctx->rng(2 * state.diameter + 1) +
+                 std::max(x - state.diameter, 0);
+        int ny = ctx->rng(2 * state.diameter + 1) +
+                 std::max(y - state.diameter, 0);
         int beltype_idx = state.bel_types.at(targetType);
         if (nx >= int(state.fast_bels.at(beltype_idx).size()))
             continue;
@@ -289,9 +292,10 @@ bool place_design_sa(Context *ctx)
             visit_cells.push(cell);
         }
     }
-    log_info("place_constraints placed %d\n", int(placed_cells));
-    std::vector<CellInfo *> autoplaced;
+    log_info("Placed %d cells based on constraints.\n", int(placed_cells));
+
     // Sort to-place cells for deterministic initial placement
+    std::vector<CellInfo *> autoplaced;
     for (auto cell : ctx->cells) {
         CellInfo *ci = cell.second;
         if (ci->bel == BelId()) {
@@ -300,11 +304,18 @@ bool place_design_sa(Context *ctx)
     }
     std::sort(autoplaced.begin(), autoplaced.end(),
               [](CellInfo *a, CellInfo *b) { return a->name < b->name; });
+    ctx->shuffle(autoplaced);
+
     // Place cells randomly initially
+    log_info("Creating initial placement for remaining %d cells.\n",
+             int(autoplaced.size()));
     for (auto cell : autoplaced) {
         place_initial(ctx, cell);
         placed_cells++;
     }
+
+    log_info("Running simulated annealing placer.\n");
+
     // Build up a fast position/type to Bel lookup table
     int max_x = 0, max_y = 0;
     int bel_types = 0;
@@ -330,6 +341,7 @@ bool place_design_sa(Context *ctx)
         state.fast_bels.at(type_idx).at(x).at(y).push_back(bel);
     }
     state.diameter = std::max(max_x, max_y) + 1;
+
     // Calculate wirelength after initial placement
     state.curr_wirelength = 0;
     for (auto net : ctx->nets) {
@@ -347,9 +359,9 @@ bool place_design_sa(Context *ctx)
         state.n_move = state.n_accept = 0;
         state.improved = false;
 
-        if (iter % 5 == 0)
-            log("  at iteration #%d: temp = %f, wire length = %f\n", iter,
-                state.temp, state.curr_wirelength);
+        if (iter % 5 == 0 || iter == 1)
+            log_info("  at iteration #%d: temp = %f, wire length = %f\n", iter,
+                     state.temp, state.curr_wirelength);
 
         for (int m = 0; m < 15; ++m) {
             // Loop through all automatically placed cells
@@ -369,8 +381,12 @@ bool place_design_sa(Context *ctx)
         } else
             ++n_no_progress;
 
-        if (state.temp <= 1e-3 && n_no_progress >= 5)
+        if (state.temp <= 1e-3 && n_no_progress >= 5) {
+            if (iter % 5 != 0)
+                log_info("  at iteration #%d: temp = %f, wire length = %f\n",
+                         iter, state.temp, state.curr_wirelength);
             break;
+        }
 
         double Raccept = (double)state.n_accept / (double)state.n_move;
 
