@@ -27,6 +27,7 @@
 #include <iostream>
 #include <log.h>
 #include <string>
+#include <map>
 #include "nextpnr.h"
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -47,7 +48,7 @@ struct JsonNode
     string data_string;
     int data_number;
     std::vector<JsonNode *> data_array;
-    std::unordered_map<string, JsonNode *> data_dict;
+    std::map<string, JsonNode *> data_dict;
     std::vector<string> data_dict_keys;
 
     JsonNode(std::istream &f)
@@ -748,11 +749,12 @@ void json_import(Context *ctx, string modname, JsonNode *node)
                     int netid = bits->data_array.at(i)->data_number;
                     if (netid >= netnames.size())
                         netnames.resize(netid + 1);
-                    netnames.at(netid) = ctx->id(
-                            basename +
-                            (num_bits == 1 ? "" : std::string("[") +
-                                                          std::to_string(i) +
-                                                          std::string("]")));
+                    netnames.at(netid) =
+                            ctx->id(basename +
+                                    (num_bits == 1 ? ""
+                                                   : std::string("[") +
+                                                             std::to_string(i) +
+                                                             std::string("]")));
                 }
             }
         }
