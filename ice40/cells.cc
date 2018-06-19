@@ -210,6 +210,10 @@ void nxio_to_sb(Context *ctx, CellInfo *nxio, CellInfo *sbio)
         replace_port(tbuf, "A", sbio, "D_OUT_0");
         replace_port(tbuf, "E", sbio, "OUTPUT_ENABLE");
         ctx->nets.erase(donet->name);
+        if (!donet->users.empty())
+            log_error("unsupported tristate IO pattern for IO buffer '%s', "
+                      "instantiate SB_IO manually to ensure correct behaviour\n",
+                      nxio->name.c_str(ctx));
         ctx->cells.erase(tbuf->name);
     }
 }
