@@ -294,6 +294,7 @@ bool place_design_sa(Context *ctx)
             visit_cells.push(cell);
         }
     }
+    int constr_placed_cells = placed_cells;
     log_info("Placed %d cells based on constraints.\n", int(placed_cells));
 
     // Sort to-place cells for deterministic initial placement
@@ -315,13 +316,15 @@ bool place_design_sa(Context *ctx)
     for (auto cell : autoplaced) {
         place_initial(ctx, cell, state.checker);
         placed_cells++;
-        if (placed_cells % 500 == 0) {
-            log_info("Initial placement placed %d/%d cells\n",
-                     int(placed_cells), int(ctx->cells.size()));
-        }
+        if ((placed_cells - constr_placed_cells) % 500 == 0)
+            log_info("  initial placement placed %d/%d cells\n",
+                     int(placed_cells - constr_placed_cells),
+                     int(autoplaced.size()));
     }
-    log_info("Initial placement placed %d/%d cells\n", int(placed_cells),
-             int(ctx->cells.size()));
+    if ((placed_cells - constr_placed_cells) % 500 != 0)
+        log_info("  initial placement placed %d/%d cells\n",
+                 int(placed_cells - constr_placed_cells),
+                 int(autoplaced.size()));
 
     log_info("Running simulated annealing placer.\n");
 
