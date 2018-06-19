@@ -36,26 +36,26 @@ static void pack_lut_lutffs(Context *ctx)
     std::vector<CellInfo *> new_cells;
     for (auto cell : ctx->cells) {
         CellInfo *ci = cell.second;
-        log_info("cell '%s' is of type '%s'\n", ci->name.c_str(),
-                 ci->type.c_str());
+        log_info("cell '%s' is of type '%s'\n", ci->name.c_str(ctx),
+                 ci->type.c_str(ctx));
         if (is_lut(ctx, ci)) {
             CellInfo *packed =
-                    create_ice_cell(ctx, "ICESTORM_LC", ci->name.str() + "_LC");
+                    create_ice_cell(ctx, "ICESTORM_LC", ci->name.str(ctx) + "_LC");
             std::copy(ci->attrs.begin(), ci->attrs.end(),
                       std::inserter(packed->attrs, packed->attrs.begin()));
             packed_cells.insert(ci->name);
             new_cells.push_back(packed);
-            log_info("packed cell %s into %s\n", ci->name.c_str(),
-                     packed->name.c_str());
+            log_info("packed cell %s into %s\n", ci->name.c_str(ctx),
+                     packed->name.c_str(ctx));
             // See if we can pack into a DFF
             // TODO: LUT cascade
-            NetInfo *o = ci->ports.at("O").net;
+            NetInfo *o = ci->ports.at(ctx->id("O")).net;
             CellInfo *dff = net_only_drives(ctx, o, is_ff, "D", true);
-            auto lut_bel = ci->attrs.find("BEL");
+            auto lut_bel = ci->attrs.find(ctx->id("BEL"));
             bool packed_dff = false;
             if (dff) {
-                log_info("found attached dff %s\n", dff->name.c_str());
-                auto dff_bel = dff->attrs.find("BEL");
+                log_info("found attached dff %s\n", dff->name.c_str(ctx));
+                auto dff_bel = dff->attrs.find(ctx->id("BEL"));
                 if (lut_bel != ci->attrs.end() && dff_bel != dff->attrs.end() &&
                     lut_bel->second != dff_bel->second) {
                     // Locations don't match, can't pack
@@ -64,10 +64,10 @@ static void pack_lut_lutffs(Context *ctx)
                     dff_to_lc(ctx, dff, packed, false);
                     ctx->nets.erase(o->name);
                     if (dff_bel != dff->attrs.end())
-                        packed->attrs["BEL"] = dff_bel->second;
+                        packed->attrs[ctx->id("BEL")] = dff_bel->second;
                     packed_cells.insert(dff->name);
-                    log_info("packed cell %s into %s\n", dff->name.c_str(),
-                             packed->name.c_str());
+                    log_info("packed cell %s into %s\n", dff->name.c_str(ctx),
+                             packed->name.c_str(ctx));
                     packed_dff = true;
                 }
             }
@@ -96,11 +96,11 @@ static void pack_nonlut_ffs(Context *ctx)
         CellInfo *ci = cell.second;
         if (is_ff(ctx, ci)) {
             CellInfo *packed = create_ice_cell(ctx, "ICESTORM_LC",
-                                               ci->name.str() + "_DFFLC");
+                                               ci->name.str(ctx) + "_DFFLC");
             std::copy(ci->attrs.begin(), ci->attrs.end(),
                       std::inserter(packed->attrs, packed->attrs.begin()));
-            log_info("packed cell %s into %s\n", ci->name.c_str(),
-                     packed->name.c_str());
+            log_info("packed cell %s into %s\n", ci->name.c_str(ctx),
+                     packed->name.c_str(ctx));
             packed_cells.insert(ci->name);
             new_cells.push_back(packed);
             dff_to_lc(ctx, ci, packed, true);
@@ -126,18 +126,18 @@ static void pack_ram(Context *ctx)
         CellInfo *ci = cell.second;
         if (is_ram(ctx, ci)) {
             CellInfo *packed = create_ice_cell(ctx, "ICESTORM_RAM",
-                                               ci->name.str() + "_RAM");
+                                               ci->name.str(ctx) + "_RAM");
             packed_cells.insert(ci->name);
             new_cells.push_back(packed);
             for (auto param : ci->params)
                 packed->params[param.first] = param.second;
             packed->params["NEG_CLK_W"] =
-                    std::to_string(ci->type == "SB_RAM40_4KNW" ||
-                                   ci->type == "SB_RAM40_4KNRNW");
+                    std::to_string(ci->type == ctx->id("SB_RAM40_4KNW") ||
+                                   ci->type == ctx->id("SB_RAM40_4KNRNW"));
             packed->params["NEG_CLK_R"] =
-                    std::to_string(ci->type == "SB_RAM40_4KNR" ||
-                                   ci->type == "SB_RAM40_4KNRNW");
-            packed->type = "ICESTORM_RAM";
+                    std::to_string(ci->type == ctx->id("SB_RAM40_4KNR") ||
+                                   ci->type == ctx->id("SB_RAM40_4KNRNW"));
+            packed->type = ctx->id("ICESTORM_RAM");
             for (auto port : ci->ports) {
                 PortInfo &pi = port.second;
                 std::string newname = pi.name;
@@ -168,8 +168,8 @@ static void set_net_constant(const Context *ctx, NetInfo *orig,
     for (auto user : orig->users) {
         if (user.cell != nullptr) {
             CellInfo *uc = user.cell;
-            log_info("%s user %s\n", orig->name.c_str(), uc->name.c_str());
-            if (is_lut(ctx, uc) && (user.port.str().at(0) == 'I') &&
+            log_info("%s user %s\n", orig->name.c_str(ctx), uc->name.c_str(ctx));
+            if (is_lut(ctx, uc) && (user.port.str(ctx).at(0) == 'I') &&
                 !constval) {
                 uc->ports[user.port].net = nullptr;
             } else {
@@ -187,30 +187,30 @@ static void pack_constants(Context *ctx)
     log_info("Packing constants..\n");
 
     CellInfo *gnd_cell = create_ice_cell(ctx, "ICESTORM_LC", "$PACKER_GND");
-    gnd_cell->params["LUT_INIT"] = "0";
+    gnd_cell->params[ctx->id("LUT_INIT")] = "0";
     NetInfo *gnd_net = new NetInfo;
     gnd_net->name = "$PACKER_GND_NET";
     gnd_net->driver.cell = gnd_cell;
-    gnd_net->driver.port = "O";
+    gnd_net->driver.port = ctx->id("O");
 
     CellInfo *vcc_cell = create_ice_cell(ctx, "ICESTORM_LC", "$PACKER_VCC");
-    vcc_cell->params["LUT_INIT"] = "1";
+    vcc_cell->params[ctx->id("LUT_INIT")] = "1";
     NetInfo *vcc_net = new NetInfo;
-    vcc_net->name = "$PACKER_VCC_NET";
+    vcc_net->name = ctx->id("$PACKER_VCC_NET");
     vcc_net->driver.cell = vcc_cell;
-    vcc_net->driver.port = "O";
+    vcc_net->driver.port = ctx->id("O");
 
     std::vector<IdString> dead_nets;
 
     for (auto net : ctx->nets) {
         NetInfo *ni = net.second;
-        if (ni->driver.cell != nullptr && ni->driver.cell->type == "GND") {
+        if (ni->driver.cell != nullptr && ni->driver.cell->type == ctx->id("GND")) {
             set_net_constant(ctx, ni, gnd_net, false);
             ctx->cells[gnd_cell->name] = gnd_cell;
             ctx->nets[gnd_net->name] = gnd_net;
             dead_nets.push_back(net.first);
         } else if (ni->driver.cell != nullptr &&
-                   ni->driver.cell->type == "VCC") {
+                   ni->driver.cell->type == ctx->id("VCC")) {
             set_net_constant(ctx, ni, vcc_net, true);
             ctx->cells[vcc_cell->name] = vcc_cell;
             ctx->nets[vcc_net->name] = vcc_net;
@@ -222,10 +222,10 @@ static void pack_constants(Context *ctx)
         ctx->nets.erase(dn);
 }
 
-static bool is_nextpnr_iob(CellInfo *cell)
+static bool is_nextpnr_iob(Context *ctx, CellInfo *cell)
 {
-    return cell->type == "$nextpnr_ibuf" || cell->type == "$nextpnr_obuf" ||
-           cell->type == "$nextpnr_iobuf";
+    return cell->type == ctx->id("$nextpnr_ibuf") || cell->type == ctx->id("$nextpnr_obuf") ||
+           cell->type == ctx->id("$nextpnr_iobuf");
 }
 
 // Pack IO buffers
@@ -238,13 +238,13 @@ static void pack_io(Context *ctx)
 
     for (auto cell : ctx->cells) {
         CellInfo *ci = cell.second;
-        if (is_nextpnr_iob(ci)) {
+        if (is_nextpnr_iob(ctx, ci)) {
             CellInfo *sb = nullptr;
-            if (ci->type == "$nextpnr_ibuf" || ci->type == "$nextpnr_iobuf") {
+            if (ci->type == ctx->id("$nextpnr_ibuf") || ci->type == ctx->id("$nextpnr_iobuf")) {
                 sb = net_only_drives(ctx, ci->ports.at("O").net, is_sb_io,
                                      "PACKAGE_PIN", true, ci);
 
-            } else if (ci->type == "$nextpnr_obuf") {
+            } else if (ci->type == ctx->id("$nextpnr_obuf")) {
                 sb = net_only_drives(ctx, ci->ports.at("I").net, is_sb_io,
                                      "PACKAGE_PIN", true, ci);
             }
@@ -252,8 +252,8 @@ static void pack_io(Context *ctx)
                 // Trivial case, SB_IO used. Just destroy the net and the
                 // iobuf
                 log_info("%s feeds SB_IO %s, removing %s %s.\n",
-                         ci->name.c_str(), sb->name.c_str(), ci->type.c_str(),
-                         ci->name.c_str());
+                         ci->name.c_str(ctx), sb->name.c_str(ctx), ci->type.c_str(ctx),
+                         ci->name.c_str(ctx));
                 NetInfo *net = sb->ports.at("PACKAGE_PIN").net;
                 if (net != nullptr) {
                     ctx->nets.erase(net->name);
@@ -281,22 +281,22 @@ static void pack_io(Context *ctx)
 static void insert_global(Context *ctx, NetInfo *net, bool is_reset,
                           bool is_cen)
 {
-    std::string glb_name = net->name.str() + std::string("_$glb_") +
+    std::string glb_name = net->name.str(ctx) + std::string("_$glb_") +
                            (is_reset ? "sr" : (is_cen ? "ce" : "clk"));
     CellInfo *gb = create_ice_cell(ctx, "SB_GB", "$gbuf_" + glb_name);
-    gb->ports["USER_SIGNAL_TO_GLOBAL_BUFFER"].net = net;
+    gb->ports[ctx->id("USER_SIGNAL_TO_GLOBAL_BUFFER")].net = net;
     PortRef pr;
     pr.cell = gb;
-    pr.port = "USER_SIGNAL_TO_GLOBAL_BUFFER";
+    pr.port = ctx->id("USER_SIGNAL_TO_GLOBAL_BUFFER");
     net->users.push_back(pr);
 
     pr.cell = gb;
-    pr.port = "GLOBAL_BUFFER_OUTPUT";
+    pr.port = ctx->id("GLOBAL_BUFFER_OUTPUT");
     NetInfo *glbnet = new NetInfo();
-    glbnet->name = glb_name;
+    glbnet->name = ctx->id(glb_name);
     glbnet->driver = pr;
     ctx->nets[glbnet->name] = glbnet;
-    gb->ports["GLOBAL_BUFFER_OUTPUT"].net = glbnet;
+    gb->ports[ctx->id("GLOBAL_BUFFER_OUTPUT")].net = glbnet;
     std::vector<PortRef> keep_users;
     for (auto user : net->users) {
         if (is_clock_port(ctx, user) ||
