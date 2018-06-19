@@ -4,8 +4,8 @@ project(nextpnr)
 # List of families to build
 set(FAMILIES dummy ice40)
 set(CMAKE_CXX_STANDARD 11)
-set(CMAKE_CXX_FLAGS_DEBUG "-Wall")
-set(CMAKE_CXX_FLAGS_RELEASE  "-Wall -O3 -g")
+set(CMAKE_CXX_FLAGS_DEBUG "-Wall -fPIC -ggdb")
+set(CMAKE_CXX_FLAGS_RELEASE "-Wall -fPIC -O3 -g")
 set(CMAKE_DEFIN)
 # List of Boost libraries to include
 set(boost_libs filesystem thread program_options)
@@ -78,7 +78,7 @@ include_directories(common/ gui/ frontend/json ${Boost_INCLUDE_DIRS} ${PYTHON_IN
 aux_source_directory(common/ COMMON_SRC_FILES)
 aux_source_directory(frontend/json/ JSON_PARSER_FILES)
 set(COMMON_FILES ${COMMON_SRC_FILES} ${JSON_PARSER_FILES})
-set(CMAKE_BUILD_TYPE Debug)
+set(CMAKE_BUILD_TYPE Release)
 
 if(MINGW)
     add_definitions("-Wa,-mbig-obj")
