@@ -24,10 +24,11 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-static void add_port(const Context *ctx, CellInfo *cell, IdString name,
+void add_port(const Context *ctx, CellInfo *cell, std::string name,
                      PortType dir)
 {
-    cell->ports[name] = PortInfo{name, nullptr, dir};
+    IdString id = ctx->id(name);
+    cell->ports[id] = PortInfo{id, nullptr, dir};
 }
 
 CellInfo *create_ice_cell(Context *ctx, IdString type, IdString name)
@@ -41,13 +42,13 @@ CellInfo *create_ice_cell(Context *ctx, IdString type, IdString name)
         new_cell->name = name;
     }
     new_cell->type = type;
-    if (type == "ICESTORM_LC") {
-        new_cell->params["LUT_INIT"] = "0";
-        new_cell->params["NEG_CLK"] = "0";
-        new_cell->params["CARRY_ENABLE"] = "0";
-        new_cell->params["DFF_ENABLE"] = "0";
-        new_cell->params["SET_NORESET"] = "0";
-        new_cell->params["ASYNC_SR"] = "0";
+    if (type == ctx->id("ICESTORM_LC")) {
+        new_cell->params[ctx->id("LUT_INIT")] = "0";
+        new_cell->params[ctx->id("NEG_CLK")] = "0";
+        new_cell->params[ctx->id("CARRY_ENABLE")] = "0";
+        new_cell->params[ctx->id("DFF_ENABLE")] = "0";
+        new_cell->params[ctx->id("SET_NORESET")] = "0";
+        new_cell->params[ctx->id("ASYNC_SR")] = "0";
 
         add_port(ctx, new_cell, "I0", PORT_IN);
         add_port(ctx, new_cell, "I1", PORT_IN);
@@ -62,11 +63,11 @@ CellInfo *create_ice_cell(Context *ctx, IdString type, IdString name)
         add_port(ctx, new_cell, "LO", PORT_OUT);
         add_port(ctx, new_cell, "O", PORT_OUT);
         add_port(ctx, new_cell, "OUT", PORT_OUT);
-    } else if (type == "SB_IO") {
-        new_cell->params["PIN_TYPE"] = "0";
-        new_cell->params["PULLUP"] = "0";
-        new_cell->params["NEG_TRIGGER"] = "0";
-        new_cell->params["IOSTANDARD"] = "SB_LVCMOS";
+    } else if (type == ctx->id("SB_IO")) {
+        new_cell->params[ctx->id("PIN_TYPE")] = "0";
+        new_cell->params[ctx->id("PULLUP")] = "0";
+        new_cell->params[ctx->id("NEG_TRIGGER")] = "0";
+        new_cell->params[ctx->id("IOSTANDARD")] = "SB_LVCMOS";
 
         add_port(ctx, new_cell, "PACKAGE_PIN", PORT_INOUT);
 
@@ -81,11 +82,11 @@ CellInfo *create_ice_cell(Context *ctx, IdString type, IdString name)
 
         add_port(ctx, new_cell, "D_IN_0", PORT_OUT);
         add_port(ctx, new_cell, "D_IN_1", PORT_OUT);
-    } else if (type == "ICESTORM_RAM") {
-        new_cell->params["NEG_CLK_W"] = "0";
-        new_cell->params["NEG_CLK_R"] = "0";
-        new_cell->params["WRITE_MODE"] = "0";
-        new_cell->params["READ_MODE"] = "0";
+    } else if (type == ctx->id("ICESTORM_RAM")) {
+        new_cell->params[ctx->id("NEG_CLK_W")] = "0";
+        new_cell->params[ctx->id("NEG_CLK_R")] = "0";
+        new_cell->params[ctx->id("WRITE_MODE")] = "0";
+        new_cell->params[ctx->id("READ_MODE")] = "0";
 
         add_port(ctx, new_cell, "RCLK", PORT_IN);
         add_port(ctx, new_cell, "RCLKE", PORT_IN);
@@ -105,7 +106,7 @@ CellInfo *create_ice_cell(Context *ctx, IdString type, IdString name)
             add_port(ctx, new_cell, "RADDR_" + std::to_string(i), PORT_IN);
             add_port(ctx, new_cell, "WADDR_" + std::to_string(i), PORT_IN);
         }
-    } else if (type == "SB_GB") {
+    } else if (type == ctx->id("SB_GB")) {
         add_port(ctx, new_cell, "USER_SIGNAL_TO_GLOBAL_BUFFER", PORT_IN);
         add_port(ctx, new_cell, "GLOBAL_BUFFER_OUTPUT", PORT_OUT);
     } else {
@@ -130,16 +131,16 @@ void lut_to_lc(const Context *ctx, CellInfo *lut, CellInfo *lc, bool no_dff)
 void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc,
                bool pass_thru_lut)
 {
-    lc->params["DFF_ENABLE"] = "1";
-    std::string config = dff->type.str().substr(6);
+    lc->params[ctx->id("DFF_ENABLE")] = "1";
+    std::string config = dff->type.str(ctx).substr(6);
     auto citer = config.begin();
     replace_port(dff, "C", lc, "CLK");
 
     if (citer != config.end() && *citer == 'N') {
-        lc->params["NEG_CLK"] = "1";
+        lc->params[ctx->id("NEG_CLK")] = "1";
         ++citer;
     } else {
-        lc->params["NEG_CLK"] = "0";
+        lc->params[ctx->id("NEG_CLK")] = "0";
     }
 
     if (citer != config.end() && *citer == 'E') {
@@ -151,27 +152,27 @@ void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc,
         if ((config.end() - citer) >= 2) {
             char c = *(citer++);
             assert(c == 'S');
-            lc->params["ASYNC_SR"] = "0";
+            lc->params[ctx->id("ASYNC_SR")] = "0";
         } else {
-            lc->params["ASYNC_SR"] = "1";
+            lc->params[ctx->id("ASYNC_SR")] = "1";
         }
 
         if (*citer == 'S') {
             citer++;
             replace_port(dff, "S", lc, "SR");
-            lc->params["SET_NORESET"] = "1";
+            lc->params[ctx->id("SET_NORESET")] = "1";
         } else {
             assert(*citer == 'R');
             citer++;
             replace_port(dff, "R", lc, "SR");
-            lc->params["SET_NORESET"] = "0";
+            lc->params[ctx->id("SET_NORESET")] = "0";
         }
     }
 
     assert(citer == config.end());
 
     if (pass_thru_lut) {
-        lc->params["LUT_INIT"] = "2";
+        lc->params[ctx->id("LUT_INIT")] = "2";
         replace_port(dff, "D", lc, "I0");
     }
 
@@ -180,14 +181,14 @@ void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc,
 
 void nxio_to_sb(const Context *ctx, CellInfo *nxio, CellInfo *sbio)
 {
-    if (nxio->type == "$nextpnr_ibuf") {
-        sbio->params["PIN_TYPE"] = "1";
+    if (nxio->type == ctx->id("$nextpnr_ibuf")) {
+        sbio->params[ctx->id("PIN_TYPE")] = "1";
         auto pu_attr = nxio->attrs.find("PULLUP");
         if (pu_attr != nxio->attrs.end())
-            sbio->params["PULLUP"] = pu_attr->second;
+            sbio->params[ctx->id("PULLUP")] = pu_attr->second;
         replace_port(nxio, "O", sbio, "D_IN_0");
-    } else if (nxio->type == "$nextpnr_obuf") {
-        sbio->params["PIN_TYPE"] = "25";
+    } else if (nxio->type == ctx->id("$nextpnr_obuf")) {
+        sbio->params[ctx->id("PIN_TYPE")] = "25";
         replace_port(nxio, "I", sbio, "D_OUT_0");
     } else {
         assert(false);
@@ -199,11 +200,11 @@ bool is_clock_port(const Context *ctx, const PortRef &port)
     if (port.cell == nullptr)
         return false;
     if (is_ff(ctx, port.cell))
-        return port.port == "C";
-    if (port.cell->type == "ICESTORM_LC")
-        return port.port == "CLK";
-    if (is_ram(ctx, port.cell) || port.cell->type == "ICESTORM_RAM")
-        return port.port == "RCLK" || port.port == "WCLK";
+        return port.port == ctx->id("C");
+    if (port.cell->type == ctx->id("ICESTORM_LC"))
+        return port.port == ctx->id("CLK");
+    if (is_ram(ctx, port.cell) || port.cell->type == ctx->id("ICESTORM_RAM"))
+        return port.port == ctx->id("RCLK") || port.port == ctx->id("WCLK");
     return false;
 }
 
@@ -212,9 +213,9 @@ bool is_reset_port(const Context *ctx, const PortRef &port)
     if (port.cell == nullptr)
         return false;
     if (is_ff(ctx, port.cell))
-        return port.port == "R" || port.port == "S";
-    if (port.cell->type == "ICESTORM_LC")
-        return port.port == "SR";
+        return port.port == ctx->id("R") || port.port == ctx->id("S");
+    if (port.cell->type == ctx->id("ICESTORM_LC"))
+        return port.port == ctx->id("SR");
     return false;
 }
 
@@ -223,9 +224,9 @@ bool is_enable_port(const Context *ctx, const PortRef &port)
     if (port.cell == nullptr)
         return false;
     if (is_ff(ctx, port.cell))
-        return port.port == "E";
-    if (port.cell->type == "ICESTORM_LC")
-        return port.port == "CEN";
+        return port.port == ctx->id("E");
+    if (port.cell->type == ctx->id("ICESTORM_LC"))
+        return port.port == ctx->id("CEN");
     return false;
 }
 
