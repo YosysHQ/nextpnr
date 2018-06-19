@@ -37,7 +37,7 @@ CellInfo *create_ice_cell(Context *ctx, IdString type, std::string name)
     CellInfo *new_cell = new CellInfo();
     if (name.empty()) {
         new_cell->name = IdString(ctx, "$nextpnr_" + type.str() + "_" +
-                                  std::to_string(auto_idx++));
+                                               std::to_string(auto_idx++));
     } else {
         new_cell->name = ctx->id(name);
     }
@@ -200,8 +200,8 @@ void nxio_to_sb(Context *ctx, CellInfo *nxio, CellInfo *sbio)
     }
     NetInfo *donet = sbio->ports.at(ctx->id("D_OUT_0")).net;
     CellInfo *tbuf =
-            net_driven_by(ctx, donet, []
-                          (const Context *ctx, const CellInfo *cell) {
+            net_driven_by(ctx, donet,
+                          [](const Context *ctx, const CellInfo *cell) {
                               return cell->type == ctx->id("$_TBUF_");
                           },
                           "Y");
@@ -210,6 +210,10 @@ void nxio_to_sb(Context *ctx, CellInfo *nxio, CellInfo *sbio)
         replace_port(tbuf, "A", sbio, "D_OUT_0");
         replace_port(tbuf, "E", sbio, "OUTPUT_ENABLE");
         ctx->nets.erase(donet->name);
+        if (!donet->users.empty())
+            log_error("unsupported tristate IO pattern for IO buffer '%s', "
+                      "instantiate SB_IO manually to ensure correct behaviour\n",
+                      nxio->name.c_str(ctx));
         ctx->cells.erase(tbuf->name);
     }
 }
@@ -251,7 +255,8 @@ bool is_enable_port(const Context *ctx, const PortRef &port)
 
 bool is_global_net(const Context *ctx, const NetInfo *net)
 {
-    return bool(net_driven_by(ctx, net, is_gbuf, ctx->id("GLOBAL_BUFFER_OUTPUT")));
+    return bool(
+            net_driven_by(ctx, net, is_gbuf, ctx->id("GLOBAL_BUFFER_OUTPUT")));
 }
 
 NEXTPNR_NAMESPACE_END
