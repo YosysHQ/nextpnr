@@ -1,5 +1,5 @@
 # Run ./nextpnr-ice40 --json ice40/blinky.json --run python/dump_design.py
-for cell, cinfo in sorted(design.cells, key=lambda x: x.first):
+for cell, cinfo in sorted(ctx.cells, key=lambda x: x.first):
     print("Cell {} : {}".format(cell, cinfo.type))
     print("\tPorts:")
     for port, pinfo in sorted(cinfo.ports, key=lambda x: x.first):
@@ -21,5 +21,5 @@ for cell, cinfo in sorted(design.cells, key=lambda x: x.first):
             print("\t\t{}: {}".format(param, val))
 
     if cinfo.bel.index != -1:
-        print("\tBel: {}".format(chip.getBelName(cinfo.bel)))
+        print("\tBel: {}".format(ctx.getBelName(cinfo.bel)))
     print()

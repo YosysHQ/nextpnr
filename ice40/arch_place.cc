@@ -39,8 +39,7 @@ static bool logicCellsCompatible(const Context *ctx,
 {
     bool dffs_exist = false, dffs_neg = false;
     const NetInfo *cen = nullptr, *clk = nullptr, *sr = nullptr;
-    static std::unordered_set<IdString> locals;
-    locals.clear();
+    int locals_count = 0;
 
     for (auto cell : cells) {
         if (bool_or_default(cell->params, "DFF_ENABLE")) {
@@ -51,11 +50,11 @@ static bool logicCellsCompatible(const Context *ctx,
                 sr = get_net_or_empty(cell, "SR");
 
                 if (!is_global_net(ctx, cen) && cen != nullptr)
-                    locals.insert(cen->name);
+                    locals_count++;
                 if (!is_global_net(ctx, clk) && clk != nullptr)
-                    locals.insert(clk->name);
+                    locals_count++;
                 if (!is_global_net(ctx, sr) && sr != nullptr)
-                    locals.insert(sr->name);
+                    locals_count++;
 
                 if (bool_or_default(cell->params, "NEG_CLK")) {
                     dffs_neg = true;
@@ -77,16 +76,16 @@ static bool logicCellsCompatible(const Context *ctx,
                       *i2 = get_net_or_empty(cell, "I2"),
                       *i3 = get_net_or_empty(cell, "I3");
         if (i0 != nullptr)
-            locals.insert(i0->name);
+            locals_count++;
         if (i1 != nullptr)
-            locals.insert(i1->name);
+            locals_count++;
         if (i2 != nullptr)
-            locals.insert(i2->name);
+            locals_count++;
         if (i3 != nullptr)
-            locals.insert(i3->name);
+            locals_count++;
     }
 
-    return locals.size() <= 32;
+    return locals_count <= 32;
 }
 
 bool isBelLocationValid(Context *ctx, BelId bel)
