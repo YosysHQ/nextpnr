@@ -17,12 +17,11 @@
  *
  */
 
-#ifndef CHIP_H
-#define CHIP_H
-
 #ifndef NEXTPNR_H
 #error Include "arch.h" via "nextpnr.h" only.
 #endif
+
+#ifdef NEXTPNR_ARCH_TOP
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -57,11 +56,19 @@ struct BelPin
     PortPin pin;
 };
 
+NEXTPNR_NAMESPACE_END
+
+#endif // NEXTPNR_ARCH_TOP
+
+#ifdef NEXTPNR_ARCH_BOTTOM
+
+NEXTPNR_NAMESPACE_BEGIN
+
 struct ArchArgs
 {
 };
 
-struct Arch
+struct Arch : BaseCtx
 {
     Arch(ArchArgs args);
 
@@ -128,4 +135,4 @@ struct Arch
 
 NEXTPNR_NAMESPACE_END
 
-#endif
+#endif // NEXTPNR_ARCH_BOTTOM

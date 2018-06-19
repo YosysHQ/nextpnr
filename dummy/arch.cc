@@ -26,7 +26,7 @@ Arch::Arch(ArchArgs) {}
 
 std::string Arch::getChipName() { return "Dummy"; }
 
-void IdString::initialize_arch(const Context *ctx) {}
+void IdString::initialize_arch(const BaseCtx *ctx) {}
 
 // ---------------------------------------------------------------
 

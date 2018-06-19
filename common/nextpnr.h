@@ -41,27 +41,28 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+struct BaseCtx;
 struct Context;
 
 struct IdString
 {
     int index = 0;
 
-    static Context *global_ctx;
+    static BaseCtx *global_ctx;
 
-    static void initialize_arch(const Context *ctx);
-    static void initialize_add(const Context *ctx, const char *s, int idx);
+    static void initialize_arch(const BaseCtx *ctx);
+    static void initialize_add(const BaseCtx *ctx, const char *s, int idx);
 
     IdString() {}
 
-    void set(const Context *ctx, const std::string &s);
+    void set(const BaseCtx *ctx, const std::string &s);
 
-    IdString(const Context *ctx, const std::string &s) { set(ctx, s); }
+    IdString(const BaseCtx *ctx, const std::string &s) { set(ctx, s); }
 
-    IdString(const Context *ctx, const char *s) { set(ctx, s); }
+    IdString(const BaseCtx *ctx, const char *s) { set(ctx, s); }
 
-    const std::string &str(const Context *ctx) const;
-    const char *c_str(const Context *ctx) const;
+    const std::string &str(const BaseCtx *ctx) const;
+    const char *c_str(const BaseCtx *ctx) const;
 
     bool operator<(const IdString &other) const { return index < other.index; }
 
@@ -184,7 +185,9 @@ struct GraphicElement
 
 NEXTPNR_NAMESPACE_END
 
+#define NEXTPNR_ARCH_TOP
 #include "arch.h"
+#undef NEXTPNR_ARCH_TOP
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -232,25 +235,22 @@ struct CellInfo
     std::unordered_map<IdString, IdString> pins;
 };
 
-struct Context : Arch
+struct BaseCtx
 {
     // --------------------------------------------------------------
 
     mutable std::unordered_map<std::string, int> *idstring_str_to_idx;
     mutable std::vector<const std::string *> *idstring_idx_to_str;
 
-    IdString id(const std::string &s) const override
-    {
-        return IdString(this, s);
-    }
-    IdString id(const char *s) const override { return IdString(this, s); }
+    IdString id(const std::string &s) const { return IdString(this, s); }
+    IdString id(const char *s) const { return IdString(this, s); }
 
     // --------------------------------------------------------------
 
     std::unordered_map<IdString, NetInfo *> nets;
     std::unordered_map<IdString, CellInfo *> cells;
 
-    Context(ArchArgs args) : Arch(args)
+    BaseCtx()
     {
         assert(IdString::global_ctx == nullptr);
         IdString::global_ctx = this;
@@ -259,9 +259,22 @@ struct Context : Arch
         idstring_idx_to_str = new std::vector<const std::string *>;
         IdString::initialize_add(this, "", 0);
         IdString::initialize_arch(this);
-
-        // ...
     }
+};
+
+NEXTPNR_NAMESPACE_END
+
+#define NEXTPNR_ARCH_BOTTOM
+#include "arch.h"
+#undef NEXTPNR_ARCH_BOTTOM
+
+NEXTPNR_NAMESPACE_BEGIN
+
+struct Context : Arch
+{
+    bool verbose = false;
+
+    Context(ArchArgs args) : Arch(args) {}
 };
 
 NEXTPNR_NAMESPACE_END

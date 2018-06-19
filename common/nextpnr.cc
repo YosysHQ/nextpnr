@@ -21,9 +21,9 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-Context *IdString::global_ctx = nullptr;
+BaseCtx *IdString::global_ctx = nullptr;
 
-void IdString::set(const Context *ctx, const std::string &s)
+void IdString::set(const BaseCtx *ctx, const std::string &s)
 {
     auto it = ctx->idstring_str_to_idx->find(s);
     if (it == ctx->idstring_str_to_idx->end()) {
@@ -35,17 +35,17 @@ void IdString::set(const Context *ctx, const std::string &s)
     }
 }
 
-const std::string &IdString::str(const Context *ctx) const
+const std::string &IdString::str(const BaseCtx *ctx) const
 {
     return *ctx->idstring_idx_to_str->at(index);
 }
 
-const char *IdString::c_str(const Context *ctx) const
+const char *IdString::c_str(const BaseCtx *ctx) const
 {
     return str(ctx).c_str();
 }
 
-void IdString::initialize_add(const Context *ctx, const char *s, int idx)
+void IdString::initialize_add(const BaseCtx *ctx, const char *s, int idx)
 {
     assert(ctx->idstring_str_to_idx->count(s) == 0);
     assert(int(ctx->idstring_idx_to_str->size()) == idx);

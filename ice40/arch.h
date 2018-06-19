@@ -17,12 +17,11 @@
  *
  */
 
-#ifndef CHIP_H
-#define CHIP_H
-
 #ifndef NEXTPNR_H
 #error Include "arch.h" via "nextpnr.h" only.
 #endif
+
+#ifdef NEXTPNR_ARCH_TOP
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -258,7 +257,7 @@ template <> struct hash<NEXTPNR_NAMESPACE_PREFIX BelId>
     std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX BelId &bel) const
             noexcept
     {
-        return bel.index;
+        return hash<int>()(bel.index);
     }
 };
 
@@ -267,18 +266,21 @@ template <> struct hash<NEXTPNR_NAMESPACE_PREFIX WireId>
     std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX WireId &wire) const
             noexcept
     {
-        return wire.index;
+        return hash<int>()(wire.index);
     }
 };
 
 template <> struct hash<NEXTPNR_NAMESPACE_PREFIX PipId>
 {
-    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX PipId &wire) const
+    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX PipId &pip) const
             noexcept
     {
-        return wire.index;
+        return hash<int>()(pip.index);
     }
 };
+
+template <> struct hash<NEXTPNR_NAMESPACE_PREFIX BelType> : hash<int> {};
+template <> struct hash<NEXTPNR_NAMESPACE_PREFIX PortPin> : hash<int> {};
 } // namespace std
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -435,7 +437,15 @@ struct PipRange
     PipIterator end() const { return e; }
 };
 
+NEXTPNR_NAMESPACE_END
+
+#endif // NEXTPNR_ARCH_TOP
+
 // -----------------------------------------------------------------------
+
+#ifdef NEXTPNR_ARCH_BOTTOM
+
+NEXTPNR_NAMESPACE_BEGIN
 
 struct ArchArgs
 {
@@ -452,7 +462,7 @@ struct ArchArgs
     std::string package;
 };
 
-struct Arch
+struct Arch : BaseCtx
 {
     const ChipInfoPOD *chip_info;
     const PackageInfoPOD *package_info;
@@ -470,9 +480,6 @@ struct Arch
     Arch(ArchArgs args);
 
     std::string getChipName();
-
-    virtual IdString id(const std::string &s) const { abort(); }
-    virtual IdString id(const char *s) const { abort(); }
 
     IdString belTypeToId(BelType type) const;
     BelType belTypeFromId(IdString id) const;
@@ -747,14 +754,4 @@ struct Arch
 
 NEXTPNR_NAMESPACE_END
 
-namespace std {
-template <> struct hash<NEXTPNR_NAMESPACE_PREFIX BelType>
-{
-    std::size_t operator()(NEXTPNR_NAMESPACE_PREFIX BelType bt) const noexcept
-    {
-        return std::hash<int>()(int(bt));
-    }
-};
-} // namespace std
-
-#endif
+#endif // NEXTPNR_ARCH_BOTTOM
