@@ -663,7 +663,11 @@ static void insert_iobuf(Context *ctx, NetInfo *net, PortType type,
         log_info("processing input port %s\n", name.c_str());
         iobuf->type = ctx->id("$nextpnr_ibuf");
         iobuf->ports[ctx->id("O")] = PortInfo{ctx->id("O"), net, PORT_OUT};
-
+        // Special case: input, etc, directly drives inout
+        if (net->driver.cell != nullptr) {
+            assert(net->driver.cell->type == ctx->id("$nextpnr_iobuf"));
+            net = net->driver.cell->ports.at(ctx->id("I")).net;
+        }
         assert(net->driver.cell == nullptr);
         net->driver.port = ctx->id("O");
         net->driver.cell = iobuf;
@@ -679,20 +683,22 @@ static void insert_iobuf(Context *ctx, NetInfo *net, PortType type,
         log_info("processing inout port %s\n", name.c_str());
         iobuf->type = ctx->id("$nextpnr_iobuf");
         iobuf->ports[ctx->id("I")] = PortInfo{ctx->id("I"), nullptr, PORT_IN};
-        if (net->driver.cell != NULL) {
-            // Split the input and output nets for bidir ports
-            NetInfo *net2 = new NetInfo();
-            net2->name = ctx->id("$" + net->name.str(ctx) + "$iobuf_i");
-            net2->driver = net->driver;
+
+        // Split the input and output nets for bidir ports
+        NetInfo *net2 = new NetInfo();
+        net2->name = ctx->id("$" + net->name.str(ctx) + "$iobuf_i");
+        net2->driver = net->driver;
+        if (net->driver.cell != nullptr) {
             net2->driver.cell->ports[net2->driver.port].net = net2;
             net->driver.cell = nullptr;
-            ctx->nets[net2->name] = net2;
-            iobuf->ports[ctx->id("I")].net = net2;
-            PortRef ref;
-            ref.cell = iobuf;
-            ref.port = ctx->id("I");
-            net2->users.push_back(ref);
         }
+        ctx->nets[net2->name] = net2;
+        iobuf->ports[ctx->id("I")].net = net2;
+        PortRef ref;
+        ref.cell = iobuf;
+        ref.port = ctx->id("I");
+        net2->users.push_back(ref);
+
         iobuf->ports[ctx->id("O")] = PortInfo{ctx->id("O"), net, PORT_OUT};
         assert(net->driver.cell == nullptr);
         net->driver.port = ctx->id("O");
@@ -742,11 +748,12 @@ void json_import(Context *ctx, string modname, JsonNode *node)
                     int netid = bits->data_array.at(i)->data_number;
                     if (netid >= netnames.size())
                         netnames.resize(netid + 1);
-                    netnames.at(netid) = ctx->id(
-                            basename +
-                            (num_bits == 1 ? "" : std::string("[") +
-                                                          std::to_string(i) +
-                                                          std::string("]")));
+                    netnames.at(netid) =
+                            ctx->id(basename +
+                                    (num_bits == 1 ? ""
+                                                   : std::string("[") +
+                                                             std::to_string(i) +
+                                                             std::string("]")));
                 }
             }
         }

@@ -96,7 +96,7 @@ void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc,
                bool pass_thru_lut = false);
 
 // Convert a nextpnr IO buffer to a SB_IO
-void nxio_to_sb(const Context *ctx, CellInfo *nxio, CellInfo *sbio);
+void nxio_to_sb(Context *ctx, CellInfo *nxio, CellInfo *sbio);
 
 // Return true if a net is a global net
 bool is_global_net(const Context *ctx, const NetInfo *net);

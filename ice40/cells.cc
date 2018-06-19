@@ -25,7 +25,7 @@
 NEXTPNR_NAMESPACE_BEGIN
 
 void add_port(const Context *ctx, CellInfo *cell, std::string name,
-                     PortType dir)
+              PortType dir)
 {
     IdString id = ctx->id(name);
     cell->ports[id] = PortInfo{id, nullptr, dir};
@@ -179,7 +179,7 @@ void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc,
     replace_port(dff, "Q", lc, "O");
 }
 
-void nxio_to_sb(const Context *ctx, CellInfo *nxio, CellInfo *sbio)
+void nxio_to_sb(Context *ctx, CellInfo *nxio, CellInfo *sbio)
 {
     if (nxio->type == ctx->id("$nextpnr_ibuf")) {
         sbio->params[ctx->id("PIN_TYPE")] = "1";
@@ -190,8 +190,27 @@ void nxio_to_sb(const Context *ctx, CellInfo *nxio, CellInfo *sbio)
     } else if (nxio->type == ctx->id("$nextpnr_obuf")) {
         sbio->params[ctx->id("PIN_TYPE")] = "25";
         replace_port(nxio, "I", sbio, "D_OUT_0");
+    } else if (nxio->type == ctx->id("$nextpnr_iobuf")) {
+        // N.B. tristate will be dealt with below
+        sbio->params[ctx->id("PIN_TYPE")] = "25";
+        replace_port(nxio, "I", sbio, "D_OUT_0");
+        replace_port(nxio, "O", sbio, "D_IN_0");
     } else {
         assert(false);
+    }
+    NetInfo *donet = sbio->ports.at(ctx->id("D_OUT_0")).net;
+    CellInfo *tbuf =
+            net_driven_by(ctx, donet, []
+                          (const Context *ctx, const CellInfo *cell) {
+                              return cell->type == ctx->id("$_TBUF_");
+                          },
+                          "Y");
+    if (tbuf) {
+        sbio->params[ctx->id("PIN_TYPE")] = "41";
+        replace_port(tbuf, "A", sbio, "D_OUT_0");
+        replace_port(tbuf, "E", sbio, "OUTPUT_ENABLE");
+        ctx->nets.erase(donet->name);
+        ctx->cells.erase(tbuf->name);
     }
 }
 
