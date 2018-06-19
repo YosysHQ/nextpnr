@@ -202,20 +202,30 @@ static void pack_constants(Context *ctx)
 
     std::vector<IdString> dead_nets;
 
+    bool gnd_used = false, vcc_used = false;
+
     for (auto net : ctx->nets) {
         NetInfo *ni = net.second;
         if (ni->driver.cell != nullptr && ni->driver.cell->type == ctx->id("GND")) {
             set_net_constant(ctx, ni, gnd_net, false);
-            ctx->cells[gnd_cell->name] = gnd_cell;
-            ctx->nets[gnd_net->name] = gnd_net;
+            gnd_used = true;
             dead_nets.push_back(net.first);
         } else if (ni->driver.cell != nullptr &&
                    ni->driver.cell->type == ctx->id("VCC")) {
             set_net_constant(ctx, ni, vcc_net, true);
-            ctx->cells[vcc_cell->name] = vcc_cell;
-            ctx->nets[vcc_net->name] = vcc_net;
+            vcc_used = true;
             dead_nets.push_back(net.first);
         }
+    }
+
+    if (gnd_used) {
+        ctx->cells[gnd_cell->name] = gnd_cell;
+        ctx->nets[gnd_net->name] = gnd_net;
+    }
+
+    if (vcc_used) {
+        ctx->cells[vcc_cell->name] = vcc_cell;
+        ctx->nets[vcc_net->name] = vcc_net;
     }
 
     for (auto dn : dead_nets)
