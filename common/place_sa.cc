@@ -43,7 +43,8 @@
 NEXTPNR_NAMESPACE_BEGIN
 
 // Initial random placement
-static void place_initial(Context *ctx, CellInfo *cell)
+static void place_initial(Context *ctx, CellInfo *cell,
+                          PlaceValidityChecker *checker)
 {
     bool all_placed = false;
     int iters = 25;
@@ -60,7 +61,7 @@ static void place_initial(Context *ctx, CellInfo *cell)
         BelType targetType = ctx->belTypeFromId(cell->type);
         for (auto bel : ctx->getBels()) {
             if (ctx->getBelType(bel) == targetType &&
-                isValidBelForCell(ctx, cell, bel)) {
+                checker->isValidBelForCell(cell, bel)) {
                 if (ctx->checkBelAvail(bel)) {
                     uint64_t score = ctx->rng64();
                     if (score <= best_score) {
@@ -110,6 +111,7 @@ struct SAState
     std::unordered_map<BelType, int> bel_types;
     std::vector<std::vector<std::vector<std::vector<BelId>>>> fast_bels;
     std::unordered_set<BelId> locked_bels;
+    PlaceValidityChecker *checker;
 };
 
 // Get the total estimated wirelength for a net
@@ -179,8 +181,8 @@ static bool try_swap_position(Context *ctx, CellInfo *cell, BelId newBel,
         ctx->bindBel(oldBel, other_cell->name);
     }
 
-    if (!isBelLocationValid(ctx, newBel) ||
-        ((other != IdString() && !isBelLocationValid(ctx, oldBel)))) {
+    if (!state.checker->isBelLocationValid(newBel) ||
+        ((other != IdString() && !state.checker->isBelLocationValid(oldBel)))) {
         ctx->unbindBel(newBel);
         if (other != IdString())
             ctx->unbindBel(oldBel);
@@ -260,7 +262,7 @@ BelId random_bel_for_cell(Context *ctx, CellInfo *cell, SAState &state)
 bool place_design_sa(Context *ctx)
 {
     SAState state;
-
+    state.checker = new PlaceValidityChecker(ctx);
     size_t placed_cells = 0;
     std::queue<CellInfo *> visit_cells;
     // Initial constraints placer
@@ -310,7 +312,7 @@ bool place_design_sa(Context *ctx)
     log_info("Creating initial placement for remaining %d cells.\n",
              int(autoplaced.size()));
     for (auto cell : autoplaced) {
-        place_initial(ctx, cell);
+        place_initial(ctx, cell, state.checker);
         placed_cells++;
     }
 
@@ -416,7 +418,7 @@ bool place_design_sa(Context *ctx)
         }
     }
     for (auto bel : ctx->getBels()) {
-        if (!isBelLocationValid(ctx, bel)) {
+        if (!state.checker->isBelLocationValid(bel)) {
             std::string cell_text = "no cell";
             IdString cell = ctx->getBelCell(bel, false);
             if (cell != IdString())
@@ -425,6 +427,7 @@ bool place_design_sa(Context *ctx)
                       ctx->getBelName(bel).c_str(ctx), cell_text.c_str());
         }
     }
+    delete state.checker;
     return true;
 }
 

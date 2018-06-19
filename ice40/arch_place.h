@@ -26,13 +26,27 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-// Whether or not a given cell can be placed at a given Bel
-// This is not intended for Bel type checks, but finer-grained constraints
-// such as conflicting set/reset signals, etc
-bool isValidBelForCell(Context *ctx, CellInfo *cell, BelId bel);
+class PlaceValidityChecker
+{
+  public:
+    PlaceValidityChecker(Context *ctx);
+    // Whether or not a given cell can be placed at a given Bel
+    // This is not intended for Bel type checks, but finer-grained constraints
+    // such as conflicting set/reset signals, etc
+    bool isValidBelForCell(CellInfo *cell, BelId bel);
 
-// Return true whether all Bels at a given location are valid
-bool isBelLocationValid(Context *ctx, BelId bel);
+    // Return true whether all Bels at a given location are valid
+    bool isBelLocationValid(BelId bel);
+
+  private:
+    bool logicCellsCompatible(const Context *ctx,
+                              const std::vector<const CellInfo *> &cells);
+    IdString id_icestorm_lc, id_sb_io, id_sb_gb;
+    IdString id_cen, id_clk, id_sr;
+    IdString id_i0, id_i1, id_i2, id_i3;
+    IdString id_dff_en, id_neg_clk;
+    Context *ctx;
+};
 
 NEXTPNR_NAMESPACE_END
 
