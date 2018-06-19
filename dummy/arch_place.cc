@@ -21,8 +21,13 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-bool isValidBelForCell(Context *ctx, CellInfo *cell, BelId bel) { return true; }
+PlaceValidityChecker::PlaceValidityChecker(Context *ctx) {}
 
-bool isBelLocationValid(Context *ctx, BelId bel) { return true; }
+bool PlaceValidityChecker::isValidBelForCell(CellInfo *cell, BelId bel)
+{
+    return true;
+}
+
+bool PlaceValidityChecker::isBelLocationValid(BelId bel) { return true; }
 
 NEXTPNR_NAMESPACE_END

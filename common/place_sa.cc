@@ -43,14 +43,15 @@
 NEXTPNR_NAMESPACE_BEGIN
 
 // Initial random placement
-static void place_initial(Context *ctx, CellInfo *cell)
+static void place_initial(Context *ctx, CellInfo *cell,
+                          PlaceValidityChecker *checker)
 {
     bool all_placed = false;
     int iters = 25;
     while (!all_placed) {
         BelId best_bel = BelId();
         uint64_t best_score = std::numeric_limits<uint64_t>::max(),
-              best_ripup_score = std::numeric_limits<uint64_t>::max();
+                 best_ripup_score = std::numeric_limits<uint64_t>::max();
         CellInfo *ripup_target = nullptr;
         BelId ripup_bel = BelId();
         if (cell->bel != BelId()) {
@@ -60,7 +61,7 @@ static void place_initial(Context *ctx, CellInfo *cell)
         BelType targetType = ctx->belTypeFromId(cell->type);
         for (auto bel : ctx->getBels()) {
             if (ctx->getBelType(bel) == targetType &&
-                isValidBelForCell(ctx, cell, bel)) {
+                checker->isValidBelForCell(cell, bel)) {
                 if (ctx->checkBelAvail(bel)) {
                     uint64_t score = ctx->rng64();
                     if (score <= best_score) {
@@ -110,6 +111,7 @@ struct SAState
     std::unordered_map<BelType, int> bel_types;
     std::vector<std::vector<std::vector<std::vector<BelId>>>> fast_bels;
     std::unordered_set<BelId> locked_bels;
+    PlaceValidityChecker *checker;
 };
 
 // Get the total estimated wirelength for a net
@@ -146,7 +148,8 @@ static float get_wirelength(Context *ctx, NetInfo *net)
 }
 
 // Attempt a SA position swap, return true on success or false on failure
-static bool try_swap_position(Context *ctx, CellInfo *cell, BelId newBel, SAState &state)
+static bool try_swap_position(Context *ctx, CellInfo *cell, BelId newBel,
+                              SAState &state)
 {
     static std::unordered_set<NetInfo *> update;
     static std::vector<std::pair<NetInfo *, float>> new_lengths;
@@ -178,8 +181,8 @@ static bool try_swap_position(Context *ctx, CellInfo *cell, BelId newBel, SAStat
         ctx->bindBel(oldBel, other_cell->name);
     }
 
-    if (!isBelLocationValid(ctx, newBel) ||
-        ((other != IdString() && !isBelLocationValid(ctx, oldBel)))) {
+    if (!state.checker->isBelLocationValid(newBel) ||
+        ((other != IdString() && !state.checker->isBelLocationValid(oldBel)))) {
         ctx->unbindBel(newBel);
         if (other != IdString())
             ctx->unbindBel(oldBel);
@@ -204,7 +207,7 @@ static bool try_swap_position(Context *ctx, CellInfo *cell, BelId newBel, SAStat
     // SA acceptance criterea
     if (delta < 0 ||
         (state.temp > 1e-6 &&
-                (ctx->rng() / float(0x3fffffff)) <= std::exp(-delta / state.temp))) {
+         (ctx->rng() / float(0x3fffffff)) <= std::exp(-delta / state.temp))) {
         state.n_accept++;
         if (delta < 0)
             state.improved = true;
@@ -237,8 +240,10 @@ BelId random_bel_for_cell(Context *ctx, CellInfo *cell, SAState &state)
     int x = 0, y = 0;
     ctx->estimatePosition(cell->bel, x, y);
     while (true) {
-        int nx = ctx->rng(2 * state.diameter + 1) + std::max(x - state.diameter, 0);
-        int ny = ctx->rng(2 * state.diameter + 1) + std::max(y - state.diameter, 0);
+        int nx = ctx->rng(2 * state.diameter + 1) +
+                 std::max(x - state.diameter, 0);
+        int ny = ctx->rng(2 * state.diameter + 1) +
+                 std::max(y - state.diameter, 0);
         int beltype_idx = state.bel_types.at(targetType);
         if (nx >= int(state.fast_bels.at(beltype_idx).size()))
             continue;
@@ -257,7 +262,7 @@ BelId random_bel_for_cell(Context *ctx, CellInfo *cell, SAState &state)
 void place_design_sa(Context *ctx)
 {
     SAState state;
-
+    state.checker = new PlaceValidityChecker(ctx);
     size_t placed_cells = 0;
     std::queue<CellInfo *> visit_cells;
     // Initial constraints placer
@@ -302,7 +307,7 @@ void place_design_sa(Context *ctx)
               [](CellInfo *a, CellInfo *b) { return a->name < b->name; });
     // Place cells randomly initially
     for (auto cell : autoplaced) {
-        place_initial(ctx, cell);
+        place_initial(ctx, cell, state.checker);
         placed_cells++;
     }
     // Build up a fast position/type to Bel lookup table
@@ -400,7 +405,7 @@ void place_design_sa(Context *ctx)
         }
     }
     for (auto bel : ctx->getBels()) {
-        if (!isBelLocationValid(ctx, bel)) {
+        if (!state.checker->isBelLocationValid(bel)) {
             std::string cell_text = "no cell";
             IdString cell = ctx->getBelCell(bel, false);
             if (cell != IdString())
@@ -409,6 +414,7 @@ void place_design_sa(Context *ctx)
                       ctx->getBelName(bel).c_str(ctx), cell_text.c_str());
         }
     }
+    delete state.checker;
 }
 
 NEXTPNR_NAMESPACE_END

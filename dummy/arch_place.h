@@ -26,13 +26,19 @@ NEXTPNR_NAMESPACE_BEGIN
 
 // Architecure-specific placement functions
 
-// Whether or not a given cell can be placed at a given Bel
-// This is not intended for Bel type checks, but finer-grained constraints
-// such as conflicting set/reset signals, etc
-bool isValidBelForCell(Context *ctx, CellInfo *cell, BelId bel);
+class PlaceValidityChecker
+{
+  public:
+    PlaceValidityChecker(Context *ctx);
 
-// Return true whether all Bels at a given location are valid
-bool isBelLocationValid(Context *ctx, BelId bel);
+    // Whether or not a given cell can be placed at a given Bel
+    // This is not intended for Bel type checks, but finer-grained constraints
+    // such as conflicting set/reset signals, etc
+    bool isValidBelForCell(CellInfo *cell, BelId bel);
+
+    // Return true whether all Bels at a given location are valid
+    bool isBelLocationValid(BelId bel);
+};
 
 NEXTPNR_NAMESPACE_END
 

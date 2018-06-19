@@ -279,8 +279,12 @@ template <> struct hash<NEXTPNR_NAMESPACE_PREFIX PipId>
     }
 };
 
-template <> struct hash<NEXTPNR_NAMESPACE_PREFIX BelType> : hash<int> {};
-template <> struct hash<NEXTPNR_NAMESPACE_PREFIX PortPin> : hash<int> {};
+template <> struct hash<NEXTPNR_NAMESPACE_PREFIX BelType> : hash<int>
+{
+};
+template <> struct hash<NEXTPNR_NAMESPACE_PREFIX PortPin> : hash<int>
+{
+};
 } // namespace std
 
 NEXTPNR_NAMESPACE_BEGIN
