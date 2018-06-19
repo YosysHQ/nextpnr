@@ -114,7 +114,6 @@ static void pack_nonlut_ffs(Context *ctx)
     }
 }
 
-
 // Pack carry logic
 static void pack_carries(Context *ctx)
 {
@@ -127,16 +126,18 @@ static void pack_carries(Context *ctx)
         if (is_carry(ctx, ci)) {
             packed_cells.insert(cell.first);
             CellInfo *carry_ci_lc = net_only_drives(ctx, ci->ports.at("CI").net,
-                                                 is_lc, "I3", false);
+                                                    is_lc, "I3", false);
             if (!ci->ports.at("I0").net)
-                log_error("SB_CARRY '%s' has disconnect port I0\n", cell.first.c_str(ctx));
+                log_error("SB_CARRY '%s' has disconnected port I0\n",
+                          cell.first.c_str(ctx));
             if (!ci->ports.at("I1").net)
-                log_error("SB_CARRY '%s' has disconnect port I1\n", cell.first.c_str(ctx));
+                log_error("SB_CARRY '%s' has disconnected port I1\n",
+                          cell.first.c_str(ctx));
 
             std::unordered_set<IdString> i0_matches, i1_matches;
             auto &i0_usrs = ci->ports.at("I0").net->users;
             auto &i1_usrs = ci->ports.at("I1").net->users;
-
+            // Find logic cells connected to both I0 and I1
             for (auto usr : i0_usrs) {
                 if (is_lc(ctx, usr.cell) && usr.port == ctx->id("I1"))
                     i0_matches.insert(usr.cell->name);
@@ -146,28 +147,40 @@ static void pack_carries(Context *ctx)
                     i1_matches.insert(usr.cell->name);
             }
             std::set<IdString> carry_lcs;
-            std::set_intersection(i0_matches.begin(), i0_matches.end(), i1_matches.begin(), i1_matches.end(), std::inserter(carry_lcs, carry_lcs.begin()));
+            std::set_intersection(i0_matches.begin(), i0_matches.end(),
+                                  i1_matches.begin(), i1_matches.end(),
+                                  std::inserter(carry_lcs, carry_lcs.begin()));
             CellInfo *carry_lc = nullptr;
             if (carry_ci_lc) {
                 if (carry_lcs.find(carry_ci_lc->name) == carry_lcs.end())
-                    log_error("SB_CARRY '%s' cannot be packed into any logic cell (I0 and I1 connections do not match I3 connection)\n", cell.first.c_str(ctx));
+                    log_error("SB_CARRY '%s' cannot be packed into any logic "
+                              "cell (I0 and I1 connections do not match I3 "
+                              "connection)\n",
+                              cell.first.c_str(ctx));
                 carry_lc = carry_ci_lc;
             } else {
                 if (carry_lcs.empty())
-                    log_error("SB_CARRY '%s' cannot be packed into any logic cell (no logic cell connects both I0 and I1)\n", cell.first.c_str(ctx));
+                    log_error(
+                            "SB_CARRY '%s' cannot be packed into any logic "
+                            "cell (no logic cell connects to both I0 and I1)\n",
+                            cell.first.c_str(ctx));
                 carry_lc = ctx->cells.at(*carry_lcs.begin());
             }
             carry_lc->attrs[ctx->id("CARRY_ENABLE")] = "1";
             replace_port(ci, "CI", carry_lc, "CIN");
             replace_port(ci, "CO", carry_lc, "COUT");
 
-            i0_usrs.erase(std::remove_if(i0_usrs.begin(), i0_usrs.end(), [ci, ctx] (const PortRef &pr){
-                return pr.cell == ci && pr.port == ctx->id("I0");
-            }));
+            i0_usrs.erase(std::remove_if(i0_usrs.begin(), i0_usrs.end(),
+                                         [ci, ctx](const PortRef &pr) {
+                                             return pr.cell == ci &&
+                                                    pr.port == ctx->id("I0");
+                                         }));
 
-            i1_usrs.erase(std::remove_if(i1_usrs.begin(), i1_usrs.end(), [ci, ctx] (const PortRef &pr){
-                return pr.cell == ci && pr.port == ctx->id("I1");
-            }));
+            i1_usrs.erase(std::remove_if(i1_usrs.begin(), i1_usrs.end(),
+                                         [ci, ctx](const PortRef &pr) {
+                                             return pr.cell == ci &&
+                                                    pr.port == ctx->id("I1");
+                                         }));
         }
     }
     for (auto pcell : packed_cells) {
