@@ -395,7 +395,7 @@ bool route_design(Context *ctx)
         bool printNets = netsQueue.size() < 10;
 
         std::vector<IdString> netsArray(netsQueue.begin(), netsQueue.end());
-        ctx->shuffle(netsArray);
+        ctx->sorted_shuffle(netsArray);
         netsQueue.clear();
 
         for (auto net_name : netsArray) {
@@ -441,7 +441,7 @@ bool route_design(Context *ctx)
 
             std::vector<IdString> ripupArray(ripupQueue.begin(),
                                              ripupQueue.end());
-            ctx->shuffle(ripupArray);
+            ctx->sorted_shuffle(ripupArray);
 
             for (auto net_name : ripupArray) {
                 if (printNets)

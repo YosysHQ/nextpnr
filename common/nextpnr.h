@@ -23,6 +23,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+#include <algorithm>
 
 #ifndef NEXTPNR_H
 #define NEXTPNR_H
@@ -327,6 +328,12 @@ struct Context : Arch
             if (j > i)
                 std::swap(a[i], a[j]);
         }
+    }
+
+    template <typename T> void sorted_shuffle(std::vector<T> &a)
+    {
+        std::sort(a.begin(), a.end());
+        shuffle(a);
     }
 };
 
