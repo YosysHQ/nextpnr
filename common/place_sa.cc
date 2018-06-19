@@ -285,7 +285,7 @@ BelId random_bel_for_cell(Context *ctx, CellInfo *cell, SAState &state,
     }
 }
 
-void place_design_sa(Context *ctx, int seed)
+void place_design_sa(Context *ctx)
 {
     SAState state;
 
@@ -322,7 +322,7 @@ void place_design_sa(Context *ctx, int seed)
     }
     log_info("place_constraints placed %d\n", int(placed_cells));
     rnd_state rnd;
-    rnd.state = seed;
+    rnd.state = ctx->rng();
     std::vector<CellInfo *> autoplaced;
     // Sort to-place cells for deterministic initial placement
     for (auto cell : ctx->cells) {

@@ -61,7 +61,6 @@ int main(int argc, char *argv[])
 {
     namespace po = boost::program_options;
     int rc = 0;
-    bool verbose = false;
     std::string str;
 
     log_files.push_back(stdout);
@@ -130,10 +129,6 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    if (vm.count("verbose")) {
-        verbose = true;
-    }
-
     ArchArgs chipArgs;
 
     if (vm.count("lp384")) {
@@ -197,6 +192,14 @@ int main(int argc, char *argv[])
     init_python(argv[0]);
     python_export_global("ctx", ctx);
 
+    if (vm.count("verbose")) {
+        ctx.verbose = true;
+    }
+
+    if (vm.count("seed")) {
+        ctx.rngseed(vm["seed"].as<int>());
+    }
+
     if (vm.count("svg")) {
         std::cout << "<svg xmlns=\"http://www.w3.org/2000/svg\" "
                      "xmlns:xlink=\"http://www.w3.org/1999/xlink\">\n";
@@ -225,16 +228,9 @@ int main(int argc, char *argv[])
         pack_design(&ctx);
         print_utilisation(&ctx);
 
-        int seed = 1;
-        if (vm.count("seed")) {
-            seed = vm["seed"].as<int>();
-            if (seed == 0)
-                log_error("seed must be non-zero value");
-        }
-
         if (!vm.count("pack-only")) {
-            place_design_sa(&ctx, seed);
-            route_design(&ctx, verbose);
+            place_design_sa(&ctx);
+            route_design(&ctx);
         }
     }
 

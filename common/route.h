@@ -24,7 +24,7 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-extern bool route_design(Context *ctx, bool verbose = false);
+extern bool route_design(Context *ctx);
 
 NEXTPNR_NAMESPACE_END
 

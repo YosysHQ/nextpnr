@@ -23,7 +23,7 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-extern void place_design_sa(Context *ctx, int seed);
+extern void place_design_sa(Context *ctx);
 
 NEXTPNR_NAMESPACE_END
 
