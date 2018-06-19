@@ -31,15 +31,15 @@ void add_port(const Context *ctx, CellInfo *cell, std::string name,
     cell->ports[id] = PortInfo{id, nullptr, dir};
 }
 
-CellInfo *create_ice_cell(Context *ctx, IdString type, IdString name)
+CellInfo *create_ice_cell(Context *ctx, IdString type, std::string name)
 {
     static int auto_idx = 0;
     CellInfo *new_cell = new CellInfo();
-    if (name == IdString()) {
-        new_cell->name = IdString("$nextpnr_" + type.str() + "_" +
+    if (name.empty()) {
+        new_cell->name = IdString(ctx, "$nextpnr_" + type.str() + "_" +
                                   std::to_string(auto_idx++));
     } else {
-        new_cell->name = name;
+        new_cell->name = ctx->id(name);
     }
     new_cell->type = type;
     if (type == ctx->id("ICESTORM_LC")) {
@@ -251,7 +251,7 @@ bool is_enable_port(const Context *ctx, const PortRef &port)
 
 bool is_global_net(const Context *ctx, const NetInfo *net)
 {
-    return bool(net_driven_by(ctx, net, is_gbuf, "GLOBAL_BUFFER_OUTPUT"));
+    return bool(net_driven_by(ctx, net, is_gbuf, ctx->id("GLOBAL_BUFFER_OUTPUT")));
 }
 
 NEXTPNR_NAMESPACE_END

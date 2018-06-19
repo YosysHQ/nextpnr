@@ -28,7 +28,7 @@ NEXTPNR_NAMESPACE_BEGIN
 // Create a standard iCE40 cell and return it
 // Name will be automatically assigned if not specified
 CellInfo *create_ice_cell(Context *ctx, IdString type,
-                          IdString name = IdString());
+                          std::string name = "");
 
 // Return true if a cell is a LUT
 inline bool is_lut(const Context *ctx, const CellInfo *cell)
