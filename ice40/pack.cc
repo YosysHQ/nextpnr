@@ -390,7 +390,7 @@ static void promote_globals(Context *ctx)
 }
 
 // Main pack function
-void pack_design(Context *ctx)
+bool pack_design(Context *ctx)
 {
     pack_constants(ctx);
     promote_globals(ctx);
@@ -398,6 +398,7 @@ void pack_design(Context *ctx)
     pack_lut_lutffs(ctx);
     pack_nonlut_ffs(ctx);
     pack_ram(ctx);
+    return true;
 }
 
 NEXTPNR_NAMESPACE_END

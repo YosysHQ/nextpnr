@@ -68,6 +68,7 @@ int main(int argc, char *argv[])
     po::options_description options("Allowed options");
     options.add_options()("help,h", "show help");
     options.add_options()("verbose,v", "verbose output");
+    options.add_options()("force,f", "keep running after errors");
     options.add_options()("gui", "start gui");
     options.add_options()("svg", "dump SVG file");
     options.add_options()("pack-only",
@@ -196,6 +197,10 @@ int main(int argc, char *argv[])
         ctx.verbose = true;
     }
 
+    if (vm.count("force")) {
+        ctx.force = true;
+    }
+
     if (vm.count("seed")) {
         ctx.rngseed(vm["seed"].as<int>());
     }
@@ -225,12 +230,16 @@ int main(int argc, char *argv[])
             apply_pcf(&ctx, pcf);
         }
 
-        pack_design(&ctx);
+        if (!pack_design(&ctx) && !ctx.force)
+            log_error("Packing design failed.\n");
+
         print_utilisation(&ctx);
 
         if (!vm.count("pack-only")) {
-            place_design_sa(&ctx);
-            route_design(&ctx);
+            if (!place_design_sa(&ctx) && !ctx.force)
+                log_error("Placing design failed.\n");
+            if (!route_design(&ctx) && !ctx.force)
+                log_error("Routing design failed.\n");
         }
     }
 

@@ -285,7 +285,7 @@ BelId random_bel_for_cell(Context *ctx, CellInfo *cell, SAState &state,
     }
 }
 
-void place_design_sa(Context *ctx)
+bool place_design_sa(Context *ctx)
 {
     SAState state;
 
@@ -442,6 +442,7 @@ void place_design_sa(Context *ctx)
                       ctx->getBelName(bel).c_str(ctx), cell_text.c_str());
         }
     }
+    return true;
 }
 
 NEXTPNR_NAMESPACE_END
