@@ -67,7 +67,8 @@ struct Router
     delay_t maxDelay = 0.0;
     WireId failedDest;
 
-    Router(Context *ctx, IdString net_name, bool ripup = false, delay_t ripup_penalty = 0)
+    Router(Context *ctx, IdString net_name, bool ripup = false,
+           delay_t ripup_penalty = 0)
     {
         auto net_info = ctx->nets.at(net_name);
 
@@ -438,7 +439,8 @@ bool route_design(Context *ctx)
             netCnt = 0;
             int ripCnt = 0;
 
-            std::vector<IdString> ripupArray(ripupQueue.begin(), ripupQueue.end());
+            std::vector<IdString> ripupArray(ripupQueue.begin(),
+                                             ripupQueue.end());
             ctx->shuffle(ripupArray);
 
             for (auto net_name : ripupArray) {
@@ -447,7 +449,8 @@ bool route_design(Context *ctx)
                              net_name.c_str(ctx),
                              int(ctx->nets.at(net_name)->users.size()));
 
-                Router router(ctx, net_name, true, ripup_penalty * (iterCnt - 1));
+                Router router(ctx, net_name, true,
+                              ripup_penalty * (iterCnt - 1));
 
                 netCnt++;
                 visitCnt += router.visitCnt;

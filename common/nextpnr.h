@@ -291,10 +291,7 @@ struct Context : Arch
         return rngstate * 0x2545F4914F6CDD1D;
     }
 
-    int rng()
-    {
-        return rng64() & 0x3fffffff;
-    }
+    int rng() { return rng64() & 0x3fffffff; }
 
     int rng(int n)
     {
@@ -310,22 +307,25 @@ struct Context : Arch
         m += 1;
 
         while (1) {
-            int x = rng64() & (m-1);
-            if (x < n) return x;
+            int x = rng64() & (m - 1);
+            if (x < n)
+                return x;
         }
     }
 
     void rngseed(uint64_t seed)
     {
         rngstate = seed ? seed : 0x3141592653589793;
-        for (int i = 0; i < 5; i++) rng64();
+        for (int i = 0; i < 5; i++)
+            rng64();
     }
 
-    template<typename T>
-    void shuffle(std::vector<T> &a) {
+    template <typename T> void shuffle(std::vector<T> &a)
+    {
         for (size_t i = 0; i != a.size(); i++) {
             size_t j = i + rng(a.size() - i);
-            if (j > i) std::swap(a[i], a[j]);
+            if (j > i)
+                std::swap(a[i], a[j]);
         }
     }
 };

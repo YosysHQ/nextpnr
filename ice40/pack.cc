@@ -39,8 +39,8 @@ static void pack_lut_lutffs(Context *ctx)
         log_info("cell '%s' is of type '%s'\n", ci->name.c_str(ctx),
                  ci->type.c_str(ctx));
         if (is_lut(ctx, ci)) {
-            CellInfo *packed =
-                    create_ice_cell(ctx, "ICESTORM_LC", ci->name.str(ctx) + "_LC");
+            CellInfo *packed = create_ice_cell(ctx, "ICESTORM_LC",
+                                               ci->name.str(ctx) + "_LC");
             std::copy(ci->attrs.begin(), ci->attrs.end(),
                       std::inserter(packed->attrs, packed->attrs.begin()));
             packed_cells.insert(ci->name);
@@ -168,7 +168,8 @@ static void set_net_constant(const Context *ctx, NetInfo *orig,
     for (auto user : orig->users) {
         if (user.cell != nullptr) {
             CellInfo *uc = user.cell;
-            log_info("%s user %s\n", orig->name.c_str(ctx), uc->name.c_str(ctx));
+            log_info("%s user %s\n", orig->name.c_str(ctx),
+                     uc->name.c_str(ctx));
             if (is_lut(ctx, uc) && (user.port.str(ctx).at(0) == 'I') &&
                 !constval) {
                 uc->ports[user.port].net = nullptr;
@@ -204,7 +205,8 @@ static void pack_constants(Context *ctx)
 
     for (auto net : ctx->nets) {
         NetInfo *ni = net.second;
-        if (ni->driver.cell != nullptr && ni->driver.cell->type == ctx->id("GND")) {
+        if (ni->driver.cell != nullptr &&
+            ni->driver.cell->type == ctx->id("GND")) {
             set_net_constant(ctx, ni, gnd_net, false);
             ctx->cells[gnd_cell->name] = gnd_cell;
             ctx->nets[gnd_net->name] = gnd_net;
@@ -224,7 +226,8 @@ static void pack_constants(Context *ctx)
 
 static bool is_nextpnr_iob(Context *ctx, CellInfo *cell)
 {
-    return cell->type == ctx->id("$nextpnr_ibuf") || cell->type == ctx->id("$nextpnr_obuf") ||
+    return cell->type == ctx->id("$nextpnr_ibuf") ||
+           cell->type == ctx->id("$nextpnr_obuf") ||
            cell->type == ctx->id("$nextpnr_iobuf");
 }
 
@@ -240,7 +243,8 @@ static void pack_io(Context *ctx)
         CellInfo *ci = cell.second;
         if (is_nextpnr_iob(ctx, ci)) {
             CellInfo *sb = nullptr;
-            if (ci->type == ctx->id("$nextpnr_ibuf") || ci->type == ctx->id("$nextpnr_iobuf")) {
+            if (ci->type == ctx->id("$nextpnr_ibuf") ||
+                ci->type == ctx->id("$nextpnr_iobuf")) {
                 sb = net_only_drives(ctx, ci->ports.at("O").net, is_sb_io,
                                      "PACKAGE_PIN", true, ci);
 
@@ -252,8 +256,8 @@ static void pack_io(Context *ctx)
                 // Trivial case, SB_IO used. Just destroy the net and the
                 // iobuf
                 log_info("%s feeds SB_IO %s, removing %s %s.\n",
-                         ci->name.c_str(ctx), sb->name.c_str(ctx), ci->type.c_str(ctx),
-                         ci->name.c_str(ctx));
+                         ci->name.c_str(ctx), sb->name.c_str(ctx),
+                         ci->type.c_str(ctx), ci->name.c_str(ctx));
                 NetInfo *net = sb->ports.at("PACKAGE_PIN").net;
                 if (net != nullptr) {
                     ctx->nets.erase(net->name);
