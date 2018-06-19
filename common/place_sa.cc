@@ -42,42 +42,15 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-struct rnd_state
-{
-    uint32_t state;
-};
-
-/* The state word must be initialized to non-zero */
-static uint32_t xorshift32(rnd_state &rnd)
-{
-    /* Algorithm "xor" from p. 4 of Marsaglia, "Xorshift RNGs" */
-    uint32_t x = rnd.state;
-    x ^= x << 13;
-    x ^= x >> 17;
-    x ^= x << 5;
-    rnd.state = x;
-    return x;
-}
-
-static float random_float_upto(rnd_state &rnd, float limit)
-{
-    return xorshift32(rnd) / (4294967296 / limit);
-}
-
-static int random_int_between(rnd_state &rnd, int a, int b)
-{
-    return a + int(random_float_upto(rnd, b - a) - 0.00001);
-}
-
 // Initial random placement
-static void place_initial(Context *ctx, CellInfo *cell, rnd_state &rnd)
+static void place_initial(Context *ctx, CellInfo *cell)
 {
     bool all_placed = false;
     int iters = 25;
     while (!all_placed) {
         BelId best_bel = BelId();
-        float best_score = std::numeric_limits<float>::infinity(),
-              best_ripup_score = std::numeric_limits<float>::infinity();
+        uint64_t best_score = std::numeric_limits<uint64_t>::max(),
+              best_ripup_score = std::numeric_limits<uint64_t>::max();
         CellInfo *ripup_target = nullptr;
         BelId ripup_bel = BelId();
         if (cell->bel != BelId()) {
@@ -89,13 +62,13 @@ static void place_initial(Context *ctx, CellInfo *cell, rnd_state &rnd)
             if (ctx->getBelType(bel) == targetType &&
                 isValidBelForCell(ctx, cell, bel)) {
                 if (ctx->checkBelAvail(bel)) {
-                    float score = random_float_upto(rnd, 1.0);
+                    uint64_t score = ctx->rng64();
                     if (score <= best_score) {
                         best_score = score;
                         best_bel = bel;
                     }
                 } else {
-                    float score = random_float_upto(rnd, 1.0);
+                    uint64_t score = ctx->rng64();
                     if (score <= best_ripup_score) {
                         best_ripup_score = score;
                         ripup_target =
@@ -173,8 +146,7 @@ static float get_wirelength(Context *ctx, NetInfo *net)
 }
 
 // Attempt a SA position swap, return true on success or false on failure
-static bool try_swap_position(Context *ctx, CellInfo *cell, BelId newBel,
-                              rnd_state &rnd, SAState &state)
+static bool try_swap_position(Context *ctx, CellInfo *cell, BelId newBel, SAState &state)
 {
     static std::unordered_set<NetInfo *> update;
     static std::vector<std::pair<NetInfo *, float>> new_lengths;
@@ -232,7 +204,7 @@ static bool try_swap_position(Context *ctx, CellInfo *cell, BelId newBel,
     // SA acceptance criterea
     if (delta < 0 ||
         (state.temp > 1e-6 &&
-         random_float_upto(rnd, 1.0) <= std::exp(-delta / state.temp))) {
+                (ctx->rng() / float(0x3fffffff)) <= std::exp(-delta / state.temp))) {
         state.n_accept++;
         if (delta < 0)
             state.improved = true;
@@ -259,17 +231,14 @@ swap_fail:
 
 // Find a random Bel of the correct type for a cell, within the specified
 // diameter
-BelId random_bel_for_cell(Context *ctx, CellInfo *cell, SAState &state,
-                          rnd_state &rnd)
+BelId random_bel_for_cell(Context *ctx, CellInfo *cell, SAState &state)
 {
     BelType targetType = ctx->belTypeFromId(cell->type);
     int x = 0, y = 0;
     ctx->estimatePosition(cell->bel, x, y);
     while (true) {
-        int nx = random_int_between(rnd, std::max(int(x) - state.diameter, 0),
-                                    int(x) + state.diameter + 1);
-        int ny = random_int_between(rnd, std::max(int(y) - state.diameter, 0),
-                                    int(y) + state.diameter + 1);
+        int nx = ctx->rng(2 * state.diameter + 1) + std::max(x - state.diameter, 0);
+        int ny = ctx->rng(2 * state.diameter + 1) + std::max(y - state.diameter, 0);
         int beltype_idx = state.bel_types.at(targetType);
         if (nx >= int(state.fast_bels.at(beltype_idx).size()))
             continue;
@@ -278,7 +247,7 @@ BelId random_bel_for_cell(Context *ctx, CellInfo *cell, SAState &state,
         const auto &fb = state.fast_bels.at(beltype_idx).at(nx).at(ny);
         if (fb.size() == 0)
             continue;
-        BelId bel = fb.at(random_int_between(rnd, 0, fb.size()));
+        BelId bel = fb.at(ctx->rng(int(fb.size())));
         if (state.locked_bels.find(bel) != state.locked_bels.end())
             continue;
         return bel;
@@ -321,8 +290,6 @@ void place_design_sa(Context *ctx)
         }
     }
     log_info("place_constraints placed %d\n", int(placed_cells));
-    rnd_state rnd;
-    rnd.state = ctx->rng();
     std::vector<CellInfo *> autoplaced;
     // Sort to-place cells for deterministic initial placement
     for (auto cell : ctx->cells) {
@@ -335,7 +302,7 @@ void place_design_sa(Context *ctx)
               [](CellInfo *a, CellInfo *b) { return a->name < b->name; });
     // Place cells randomly initially
     for (auto cell : autoplaced) {
-        place_initial(ctx, cell, rnd);
+        place_initial(ctx, cell);
         placed_cells++;
     }
     // Build up a fast position/type to Bel lookup table
@@ -388,11 +355,11 @@ void place_design_sa(Context *ctx)
             // Loop through all automatically placed cells
             for (auto cell : autoplaced) {
                 // Find another random Bel for this cell
-                BelId try_bel = random_bel_for_cell(ctx, cell, state, rnd);
+                BelId try_bel = random_bel_for_cell(ctx, cell, state);
                 // If valid, try and swap to a new position and see if
                 // the new position is valid/worthwhile
                 if (try_bel != BelId() && try_bel != cell->bel)
-                    try_swap_position(ctx, cell, try_bel, rnd, state);
+                    try_swap_position(ctx, cell, try_bel, state);
             }
         }
         // Heuristic to improve placement on the 8k
