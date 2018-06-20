@@ -1072,5 +1072,5 @@ void QtTreePropertyBrowser::editItem(QtBrowserItem *item)
 QT_END_NAMESPACE
 #endif
 
-#include "moc_qttreepropertybrowser.hpp"
+#include "moc_qttreepropertybrowser.cpp"
 #include "qttreepropertybrowser.moc"

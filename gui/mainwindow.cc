@@ -25,6 +25,8 @@
 MainWindow::MainWindow(Context *_ctx, QWidget *parent)
         : QMainWindow(parent), ctx(_ctx)
 {
+    Q_INIT_RESOURCE(nextpnr);
+
     log_files.clear();
     log_streams.clear();
     log_write_function = [this](std::string text) { info->info(text); };

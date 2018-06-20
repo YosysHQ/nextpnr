@@ -224,8 +224,16 @@ int main(int argc, char *argv[])
     if (vm.count("tmfuzz")) {
         std::vector<WireId> src_wires, dst_wires;
 
-        for (auto w : ctx.getWires())
-            src_wires.push_back(w);
+        /*for (auto w : ctx.getWires())
+            src_wires.push_back(w);*/
+        for (auto b : ctx.getBels()) {
+            if (ctx.getBelType(b) == TYPE_ICESTORM_LC) {
+                src_wires.push_back(ctx.getWireBelPin(b, PIN_O));
+            }
+            if (ctx.getBelType(b) == TYPE_SB_IO) {
+                src_wires.push_back(ctx.getWireBelPin(b, PIN_D_IN_0));
+            }
+        }
 
         for (auto b : ctx.getBels()) {
             if (ctx.getBelType(b) == TYPE_ICESTORM_LC) {
@@ -278,7 +286,7 @@ int main(int argc, char *argv[])
 
         if (!pack_design(&ctx) && !ctx.force)
             log_error("Packing design failed.\n");
-        assign_budget(&ctx);
+        assign_budget(&ctx, 50e6);
         print_utilisation(&ctx);
 
         if (!vm.count("pack-only")) {

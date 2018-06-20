@@ -314,7 +314,12 @@ class SAPlacer
                     load_cell->bel, ctx->portPinFromId(load.port));
             // wirelength += std::abs(load_x - driver_x) + std::abs(load_y -
             // driver_y);
-            wirelength += ctx->estimateDelay(drv_wire, user_wire);
+            delay_t raw_wl = ctx->estimateDelay(drv_wire, user_wire);
+            wirelength += pow(1.3, (ctx->getDelayNS(raw_wl) -
+                                    ctx->getDelayNS(load.budget)) /
+                                           10) +
+                          ctx->getDelayNS(raw_wl);
+            // wirelength += pow(ctx->estimateDelay(drv_wire, user_wire), 2.0);
         }
         return wirelength;
     }
@@ -376,9 +381,8 @@ class SAPlacer
         delta = new_wirelength - curr_wirelength;
         n_move++;
         // SA acceptance criterea
-        if (delta < 0 ||
-            (temp > 1e-6 &&
-             (ctx->rng() / float(0x3fffffff)) <= std::exp(-delta / temp))) {
+        if (delta < 0 || (temp > 1e-6 && (ctx->rng() / float(0x3fffffff)) <=
+                                                 std::exp(-delta / temp))) {
             n_accept++;
             if (delta < 0)
                 improved = true;
