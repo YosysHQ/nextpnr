@@ -374,8 +374,9 @@ class SAPlacer
         delta = new_wirelength - curr_wirelength;
         n_move++;
         // SA acceptance criterea
-        if (delta < 0 || (temp > 1e-6 && (ctx->rng() / float(0x3fffffff)) <=
-                                                 std::exp(-delta / temp))) {
+        if (delta < 0 ||
+            (temp > 1e-6 &&
+             (ctx->rng() / float(0x3fffffff)) <= std::exp(-delta / temp))) {
             n_accept++;
             if (delta < 0)
                 improved = true;

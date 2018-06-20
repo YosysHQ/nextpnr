@@ -26,8 +26,8 @@
 #include <fstream>
 #include <iostream>
 #include <log.h>
-#include <string>
 #include <map>
+#include <string>
 #include "nextpnr.h"
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -749,12 +749,11 @@ void json_import(Context *ctx, string modname, JsonNode *node)
                     int netid = bits->data_array.at(i)->data_number;
                     if (netid >= netnames.size())
                         netnames.resize(netid + 1);
-                    netnames.at(netid) =
-                            ctx->id(basename +
-                                    (num_bits == 1 ? ""
-                                                   : std::string("[") +
-                                                             std::to_string(i) +
-                                                             std::string("]")));
+                    netnames.at(netid) = ctx->id(
+                            basename +
+                            (num_bits == 1 ? "" : std::string("[") +
+                                                          std::to_string(i) +
+                                                          std::string("]")));
                 }
             }
         }
