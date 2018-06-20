@@ -313,7 +313,7 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
     delay_t x2 = chip_info->wire_data[dst.index].x;
     delay_t y2 = chip_info->wire_data[dst.index].y;
 
-    return fabsf(x1 - x2) + fabsf(y1 - y2);
+    return delay_t(50 * (fabsf(x1 - x2) + fabsf(y1 - y2)));
 }
 
 // -----------------------------------------------------------------------

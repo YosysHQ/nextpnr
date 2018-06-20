@@ -101,11 +101,18 @@ void assign_budget(Context *ctx, float default_clock)
             }
         }
     }
+    const bool debug = true;
+
     // Post-allocation check
     for (auto net : ctx->nets) {
         for (auto user : net.second->users) {
             if (user.budget < 0)
                 log_warning("port %s.%s, connected to net '%s', has negative "
+                            "timing budget of %fns\n",
+                            user.cell->name.c_str(ctx), user.port.c_str(ctx),
+                            net.first.c_str(ctx), ctx->getDelayNS(user.budget));
+            if (debug)
+                log_warning("port %s.%s, connected to net '%s', has "
                             "timing budget of %fns\n",
                             user.cell->name.c_str(ctx), user.port.c_str(ctx),
                             net.first.c_str(ctx), ctx->getDelayNS(user.budget));
