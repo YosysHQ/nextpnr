@@ -100,6 +100,7 @@ class SAPlacer
                 }
 
                 cell->bel = bel;
+                cell->belStrength = STRENGTH_USER;
                 ctx->bindBel(bel, cell->name);
                 locked_bels.insert(bel);
                 placed_cells++;
@@ -214,9 +215,9 @@ class SAPlacer
         }
         // Final post-pacement validitiy check
         for (auto bel : ctx->getBels()) {
+            IdString cell = ctx->getBelCell(bel, false);
             if (!checker->isBelLocationValid(bel)) {
                 std::string cell_text = "no cell";
-                IdString cell = ctx->getBelCell(bel, false);
                 if (cell != IdString())
                     cell_text = std::string("cell '") + cell.str(ctx) + "'";
                 log_error("post-placement validity check failed for Bel '%s' "
@@ -276,6 +277,7 @@ class SAPlacer
                 all_placed = true;
             }
             cell->bel = best_bel;
+            cell->belStrength = STRENGTH_WEAK;
             ctx->bindBel(cell->bel, cell->name);
 
             // Back annotate location
