@@ -15,6 +15,16 @@ PythonTab::PythonTab(QWidget *parent) : QWidget(parent)
     f.setStyleHint(QFont::Monospace);
     plainTextEdit->setFont(f);
 
+    plainTextEdit->setContextMenuPolicy(Qt::CustomContextMenu);
+    QAction *clearAction = new QAction("Clear &buffer", this);
+    clearAction->setStatusTip("Clears display buffer");
+    connect(clearAction, SIGNAL(triggered()), this, SLOT(clearBuffer()));
+    contextMenu = plainTextEdit->createStandardContextMenu();
+    contextMenu->addSeparator();
+    contextMenu->addAction(clearAction);
+    connect(plainTextEdit, SIGNAL(customContextMenuRequested(const QPoint)),
+            this, SLOT(showContextMenu(const QPoint)));
+
     lineEdit = new LineEditor();
     lineEdit->setMinimumHeight(30);
     lineEdit->setMaximumHeight(30);
@@ -98,3 +108,10 @@ void PythonTab::editLineReturnPressed(QString text)
     print(std::string(">>> " + input + "\n"));
     int error = executePython(input);
 }
+
+void PythonTab::showContextMenu(const QPoint &pt)
+{
+    contextMenu->exec(mapToGlobal(pt));
+}
+
+void PythonTab::clearBuffer() { plainTextEdit->clear(); }

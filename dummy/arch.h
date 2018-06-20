@@ -120,8 +120,10 @@ struct Arch : BaseCtx
     const std::vector<PipId> &getPipsUphill(WireId wire) const;
     const std::vector<PipId> &getWireAliases(WireId wire) const;
 
-    bool estimatePosition(BelId bel, int &x, int &y) const;
+    void estimatePosition(BelId bel, int &x, int &y, bool &gb) const;
     delay_t estimateDelay(WireId src, WireId dst) const;
+    delay_t getDelayEpsilon() const { return 0.01; }
+    float getDelayNS(delay_t v) const { return v; }
 
     std::vector<GraphicElement> getFrameGraphics() const;
     std::vector<GraphicElement> getBelGraphics(BelId bel) const;

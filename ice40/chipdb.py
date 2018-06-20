@@ -45,6 +45,7 @@ cbit_re = re.compile(r'B(\d+)\[(\d+)\]')
 portpins = dict()
 beltypes = dict()
 tiletypes = dict()
+wiretypes = dict()
 
 with open("ice40/portpins.inc") as f:
     for line in f:
@@ -69,9 +70,30 @@ tiletypes["IO"] = 2
 tiletypes["RAMB"] = 3
 tiletypes["RAMT"] = 4
 
+wiretypes["LOCAL"] = 1
+wiretypes["GLOBAL"] = 2
+wiretypes["SP4_VERT"] = 5
+wiretypes["SP4_HORZ"] = 6
+wiretypes["SP12_HORZ"] = 7
+wiretypes["SP12_VERT"] = 8
+
 def maj_wire_name(name):
-    if re.match(r"lutff_\d/(in|out)", name[2]):
+    if name[2].startswith("lutff_"):
         return True
+    if name[2].startswith("io_"):
+        return True
+    if name[2].startswith("ram/"):
+        return True
+    if name[2].startswith("sp4_h_r_"):
+        return name[2] in ("sp4_h_r_0", "sp4_h_r_1", "sp4_h_r_2", "sp4_h_r_3", "sp4_h_r_4", "sp4_h_r_5",
+                           "sp4_h_r_6", "sp4_h_r_7", "sp4_h_r_8", "sp4_h_r_9", "sp4_h_r_10", "sp4_h_r_11")
+    if name[2].startswith("sp4_v_b_"):
+        return name[2] in ("sp4_v_b_0", "sp4_v_b_1", "sp4_v_b_2", "sp4_v_b_3", "sp4_v_b_4", "sp4_v_b_5",
+                           "sp4_v_b_6", "sp4_v_b_7", "sp4_v_b_8", "sp4_v_b_9", "sp4_v_b_10", "sp4_v_b_11")
+    if name[2].startswith("sp12_h_r_"):
+        return name[2] in ("sp12_h_r_0", "sp12_h_r_1")
+    if name[2].startswith("sp12_v_b_"):
+        return name[2] in ("sp12_v_b_0", "sp12_v_b_1")
     return False
 
 def cmp_wire_names(newname, oldname):
@@ -79,7 +101,91 @@ def cmp_wire_names(newname, oldname):
         return True
     if maj_wire_name(oldname):
         return False
+
+    if newname[2].startswith("sp") and oldname[2].startswith("sp"):
+        m1 = re.match(r".*_(\d+)$", newname[2])
+        m2 = re.match(r".*_(\d+)$", oldname[2])
+        if m1 and m2:
+            idx1 = int(m1.group(1))
+            idx2 = int(m2.group(1))
+            if idx1 != idx2:
+                return idx1 < idx2
+
     return newname < oldname
+
+def wire_type(name):
+    longname = name
+    name = name.split('/')[-1]
+    wt = None
+
+    if name.startswith("glb_netwk_"):
+        wt = "GLOBAL"
+    elif name.startswith("D_IN_") or name.startswith("D_OUT_"):
+        wt = "LOCAL"
+    elif name in ("OUT_ENB", "cen", "inclk", "latch", "outclk", "clk", "s_r", "carry_in", "carry_in_mux"):
+        wt = "LOCAL"
+    elif name in ("in_0", "in_1", "in_2", "in_3", "cout", "lout", "out", "fabout"):
+        wt = "LOCAL"
+    elif name.startswith("local_g") or name.startswith("glb2local_"):
+        wt = "LOCAL"
+    elif name.startswith("span4_horz_") or name.startswith("sp4_h_"):
+        wt = "SP4_HORZ"
+    elif name.startswith("span4_vert_") or name.startswith("sp4_v_") or name.startswith("sp4_r_v_"):
+        wt = "SP4_VERT"
+    elif name.startswith("span12_horz_") or name.startswith("sp12_h_"):
+        wt = "SP12_HORZ"
+    elif name.startswith("span12_vert_") or name.startswith("sp12_v_"):
+        wt = "SP12_VERT"
+    elif name.startswith("MASK_") or name.startswith("RADDR_") or name.startswith("WADDR_"):
+        wt = "LOCAL"
+    elif name.startswith("RDATA_")  or name.startswith("WDATA_") or name.startswith("neigh_op_"):
+        wt = "LOCAL"
+    elif name in ("WCLK", "WCLKE", "WE", "RCLK", "RCLKE", "RE"):
+        wt = "LOCAL"
+
+    if wt is None:
+        print("No type for wire: %s (%s)" % (longname, name), file=sys.stderr)
+        assert 0
+    return wt
+
+def pipdelay(src, dst):
+    src = wire_names_r[src]
+    dst = wire_names_r[dst]
+    src_type = wire_type(src[2])
+    dst_type = wire_type(dst[2])
+
+    if src_type == "LOCAL" and dst_type == "LOCAL":
+       return 250
+
+    if src_type == "GLOBAL" and dst_type == "LOCAL":
+       return 400
+
+    # Local -> Span
+
+    if src_type == "LOCAL" and dst_type in ("SP4_HORZ", "SP4_VERT"):
+       return 350
+
+    if src_type == "LOCAL" and dst_type in ("SP12_HORZ", "SP12_VERT"):
+       return 500
+
+    # Span -> Local
+
+    if src_type in ("SP4_HORZ", "SP4_VERT", "SP12_HORZ", "SP12_VERT") and dst_type == "LOCAL":
+       return 300
+
+    # Span -> Span
+
+    if src_type in ("SP12_HORZ", "SP12_VERT") and dst_type in ("SP12_HORZ", "SP12_VERT"):
+       return 450
+
+    if src_type in ("SP4_HORZ", "SP4_VERT") and dst_type in ("SP4_HORZ", "SP4_VERT"):
+       return 300
+
+    if src_type in ("SP12_HORZ", "SP12_VERT") and dst_type in ("SP4_HORZ", "SP4_VERT"):
+       return 380
+
+    # print(src, dst, src_type, dst_type, file=sys.stderr)
+    assert 0
 
 with open(sys.argv[1], "r") as f:
     mode = None
@@ -663,7 +769,7 @@ for wire in range(num_wires):
                 pi = dict()
                 pi["src"] = src
                 pi["dst"] = wire
-                pi["delay"] = 1
+                pi["delay"] = pipdelay(src, wire)
                 pi["x"] = pip_xy[(src, wire)][0]
                 pi["y"] = pip_xy[(src, wire)][1]
                 pi["switch_mask"] = pip_xy[(src, wire)][2]
@@ -687,7 +793,7 @@ for wire in range(num_wires):
                 pi = dict()
                 pi["src"] = wire
                 pi["dst"] = dst
-                pi["delay"] = 1
+                pi["delay"] = pipdelay(wire, dst)
                 pi["x"] = pip_xy[(wire, dst)][0]
                 pi["y"] = pip_xy[(wire, dst)][1]
                 pi["switch_mask"] = pip_xy[(wire, dst)][2]
@@ -809,8 +915,10 @@ for info in wireinfo:
     bba.u32(info["uphill_bel"], "bel_uphill.bel_index")
     bba.u32(info["uphill_pin"], "bel_uphill.port")
     bba.r(info["list_bels_downhill"], "bels_downhill")
-    bba.u16(info["x"], "x")
-    bba.u16(info["y"], "y")
+    bba.u8(info["x"], "x")
+    bba.u8(info["y"], "y")
+    bba.u8(wiretypes[wire_type(info["name"])], "type")
+    bba.u8(0, "padding")
 
 bba.l("pip_data_%s" % dev_name, "PipInfoPOD")
 for info in pipinfo:

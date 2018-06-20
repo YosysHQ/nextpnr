@@ -141,11 +141,11 @@ const std::vector<PipId> &Arch::getWireAliases(WireId wire) const
 
 // ---------------------------------------------------------------
 
-bool Arch::estimatePosition(BelId bel, int &x, int &y) const
+void Arch::estimatePosition(BelId bel, int &x, int &y, bool &gb) const
 {
-    x = 0.0;
-    y = 0.0;
-    return false;
+    x = 0;
+    y = 0;
+    gb = false;
 }
 
 delay_t Arch::estimateDelay(WireId src, WireId dst) const { return 0.0; }

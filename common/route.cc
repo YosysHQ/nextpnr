@@ -206,15 +206,16 @@ struct Router
                     assert(next_delay >= 0);
 
                     if (visited.count(next_wire)) {
-                        if (visited.at(next_wire).delay <= next_delay + 1e-3)
+                        if (visited.at(next_wire).delay <=
+                            next_delay + ctx->getDelayEpsilon())
                             continue;
 #if 0 // FIXME
                         if (ctx->verbose)
                             log("Found better route to %s. Old vs new delay "
-                                "estimate: %.2f %.2f\n",
+                                "estimate: %.3f %.3f\n",
                                 ctx->getWireName(next_wire).c_str(),
-                                float(visited.at(next_wire).delay),
-                                float(next_delay));
+                                ctx->getDelayNS(visited.at(next_wire).delay),
+                                ctx->getDelayNS(next_delay));
 #endif
                         revisitCnt++;
                     }
@@ -246,8 +247,8 @@ struct Router
             }
 
             if (ctx->verbose)
-                log("    Final path delay: %.2f\n",
-                    float(visited[dst_wire].delay));
+                log("    Final path delay: %.3f\n",
+                    ctx->getDelayNS(visited[dst_wire].delay));
             maxDelay = fmaxf(maxDelay, visited[dst_wire].delay);
 
             if (ctx->verbose)
@@ -257,7 +258,8 @@ struct Router
 
             while (1) {
                 if (ctx->verbose)
-                    log("    %8.2f %s\n", float(visited[cursor].delay),
+                    log("    %8.3f %s\n",
+                        ctx->getDelayNS(visited[cursor].delay),
                         ctx->getWireName(cursor).c_str(ctx));
 
                 if (src_wires.count(cursor))
