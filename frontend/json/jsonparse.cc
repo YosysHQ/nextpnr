@@ -388,7 +388,7 @@ void json_import_ports(Context *ctx, const string &modname,
     // Find an update, or create a net to connect
     // to this port.
     //
-    NetInfo *this_net;
+    NetInfo *this_net = nullptr;
     bool is_bus;
 
     //
@@ -411,12 +411,11 @@ void json_import_ports(Context *ctx, const string &modname,
                      port_info.name.c_str(ctx), obj_name.c_str());
 
     } else
-        for (int index = 0; index < wire_group_node->data_array.size();
+        for (int index = 0; index < int(wire_group_node->data_array.size());
              index++) {
             //
             JsonNode *wire_node;
             PortInfo this_port;
-            bool const_input = false;
             IdString net_id;
             //
             wire_node = wire_group_node->data_array[index];
@@ -434,7 +433,7 @@ void json_import_ports(Context *ctx, const string &modname,
 
                 // A simple net, specified by a number
                 net_num = wire_node->data_number;
-                if (net_num < netnames.size())
+                if (net_num < int(netnames.size()))
                     net_id = netnames.at(net_num);
                 else
                     net_id = ctx->id(std::to_string(net_num));
@@ -475,7 +474,6 @@ void json_import_ports(Context *ctx, const string &modname,
                 this_net = new NetInfo;
                 this_net->name =
                         ctx->id("$const_" + std::to_string(const_net_idx++));
-                const_input = (this_port.type == PORT_IN);
 
                 if (wire_node->data_string.compare(string("0")) == 0) {
 
@@ -623,8 +621,8 @@ void json_import_cell(Context *ctx, string modname,
         dir_node = pdir_node->data_dict.at(port_name);
         wire_group_node = connections->data_dict.at(port_name);
 
-        json_import_ports(ctx, modname, netnames, cell->name, port_name,
-                          dir_node, wire_group_node,
+        json_import_ports(ctx, modname, netnames, cell->name.str(ctx),
+                          port_name, dir_node, wire_group_node,
                           [cell, ctx](PortType type, const std::string &name,
                                       NetInfo *net) {
                               cell->ports[ctx->id(name)] =
@@ -747,7 +745,7 @@ void json_import(Context *ctx, string modname, JsonNode *node)
                 size_t num_bits = bits->data_array.size();
                 for (size_t i = 0; i < num_bits; i++) {
                     int netid = bits->data_array.at(i)->data_number;
-                    if (netid >= netnames.size())
+                    if (netid >= int(netnames.size()))
                         netnames.resize(netid + 1);
                     netnames.at(netid) = ctx->id(
                             basename +
@@ -768,9 +766,7 @@ void json_import(Context *ctx, string modname, JsonNode *node)
         //
         for (int cellid = 0; cellid < GetSize(cell_parent->data_dict_keys);
              cellid++) {
-            JsonNode *cell_type, *here, *param_node;
-
-            here = cell_parent->data_dict.at(
+            JsonNode *here = cell_parent->data_dict.at(
                     cell_parent->data_dict_keys[cellid]);
             json_import_cell(ctx, modname, netnames, here,
                              cell_parent->data_dict_keys[cellid]);
@@ -785,7 +781,7 @@ void json_import(Context *ctx, string modname, JsonNode *node)
         // Loop through all ports
         for (int portid = 0; portid < GetSize(ports_parent->data_dict_keys);
              portid++) {
-            JsonNode *here, *param_node;
+            JsonNode *here;
 
             here = ports_parent->data_dict.at(
                     ports_parent->data_dict_keys[portid]);

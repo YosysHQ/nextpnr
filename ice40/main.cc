@@ -35,8 +35,8 @@
 #include "place_sa.h"
 #include "pybindings.h"
 #include "route.h"
-#include "version.h"
 #include "timing.h"
+#include "version.h"
 
 void svg_dump_el(const GraphicElement &el)
 {
