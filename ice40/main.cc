@@ -256,15 +256,20 @@ int main(int argc, char *argv[])
         for (int i = 0; i < int(src_wires.size()) && i < int(dst_wires.size());
              i++) {
             delay_t actual_delay;
-            if (!get_actual_route_delay(&ctx, src_wires[i], dst_wires[i],
-                                        actual_delay))
+            WireId src = src_wires[i], dst = dst_wires[i];
+            if (!get_actual_route_delay(&ctx, src, dst, actual_delay))
                 continue;
-            printf("%s %s %.3f %.3f\n",
-                   ctx.getWireName(src_wires[i]).c_str(&ctx),
-                   ctx.getWireName(dst_wires[i]).c_str(&ctx),
+            printf("%s %s %.3f %.3f %d %d %d %d %d %d\n",
+                   ctx.getWireName(src).c_str(&ctx),
+                   ctx.getWireName(dst).c_str(&ctx),
                    ctx.getDelayNS(actual_delay),
-                   ctx.getDelayNS(
-                           ctx.estimateDelay(src_wires[i], dst_wires[i])));
+                   ctx.getDelayNS(ctx.estimateDelay(src, dst)),
+                   ctx.chip_info->wire_data[src.index].x,
+                   ctx.chip_info->wire_data[src.index].y,
+                   ctx.chip_info->wire_data[src.index].type,
+                   ctx.chip_info->wire_data[dst.index].x,
+                   ctx.chip_info->wire_data[dst.index].y,
+                   ctx.chip_info->wire_data[dst.index].type);
         }
     }
 

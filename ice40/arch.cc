@@ -306,14 +306,22 @@ void Arch::estimatePosition(BelId bel, int &x, int &y, bool &gb) const
 delay_t Arch::estimateDelay(WireId src, WireId dst) const
 {
     assert(src != WireId());
-    delay_t x1 = chip_info->wire_data[src.index].x;
-    delay_t y1 = chip_info->wire_data[src.index].y;
+    int x1 = chip_info->wire_data[src.index].x;
+    int y1 = chip_info->wire_data[src.index].y;
 
     assert(dst != WireId());
-    delay_t x2 = chip_info->wire_data[dst.index].x;
-    delay_t y2 = chip_info->wire_data[dst.index].y;
+    int x2 = chip_info->wire_data[dst.index].x;
+    int y2 = chip_info->wire_data[dst.index].y;
 
-    return delay_t(50 * (fabsf(x1 - x2) + fabsf(y1 - y2)));
+    int xd = x2 - x1, yd = y2 - y1;
+    int xscale = 120, yscale = 120, offset = 0;
+
+    // if (chip_info->wire_data[src.index].type == WIRE_TYPE_SP4_VERT) {
+    //     yd = yd < -4 ? yd + 4 : (yd < 0 ? 0 : yd);
+    //     offset = 500;
+    // }
+
+    return xscale * abs(xd) + yscale * abs(yd) + offset;
 }
 
 // -----------------------------------------------------------------------
