@@ -32,7 +32,6 @@ add_library(${TARGET_NAME} STATIC
   ${_SRCS}
   ${_UI_SRCS}
   ${_QRC_SRCS}
-  ${_IMPL_HDRS}
   )
 
 target_link_libraries(${TARGET_NAME} Qt5::Widgets)

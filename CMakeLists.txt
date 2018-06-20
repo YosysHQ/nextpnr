@@ -15,6 +15,10 @@ find_package(PythonLibs 3.5 REQUIRED)
 
 find_package(Boost REQUIRED COMPONENTS ${boost_libs})
 
+# Find the Qt5 libraries
+find_package(Qt5 COMPONENTS Core Widgets OpenGL REQUIRED)
+find_package(OpenGL REQUIRED)
+
 # Get the latest abbreviated commit hash of the working branch
 execute_process(
   COMMAND git log -1 --format=%h
@@ -74,7 +78,6 @@ endif ()
 if (NOT Boost_PYTHON_FOUND )
     message( FATAL_ERROR "No version of Boost::Python 3.x could be found.")
 endif ()
-include(gui/gui.cmake)
 
 include_directories(common/ gui/ frontend/json ${Boost_INCLUDE_DIRS} ${PYTHON_INCLUDE_DIRS} 3rdparty/QtPropertyBrowser/src)
 aux_source_directory(common/ COMMON_SRC_FILES)
@@ -90,8 +93,11 @@ foreach (family ${FAMILIES})
     string(TOUPPER ${family} ufamily)
     aux_source_directory(${family}/ ${ufamily}_FILES)
     aux_source_directory(tests/${family}/ ${ufamily}_TEST_FILES)
+
+    add_subdirectory(gui generated/gui/${family})
+
     # Add the CLI binary target
-    add_executable(nextpnr-${family} ${COMMON_FILES} ${${ufamily}_FILES} ${GUI_SOURCE_FILES})
+    add_executable(nextpnr-${family} ${COMMON_FILES} ${${ufamily}_FILES} )
     install(TARGETS nextpnr-${family} RUNTIME DESTINATION bin)
     target_compile_definitions(nextpnr-${family} PRIVATE MAIN_EXECUTABLE)
 
@@ -109,9 +115,9 @@ foreach (family ${FAMILIES})
     include(${family}/family.cmake)
     foreach (target ${family_targets})
         # Include family-specific source files to all family targets and set defines appropriately
-        target_include_directories(${target} PRIVATE ${family}/)
+        target_include_directories(${target} PRIVATE ${family}/ generated/)
         target_compile_definitions(${target} PRIVATE NEXTPNR_NAMESPACE=nextpnr_${family} ARCH_${ufamily} ARCHNAME=${family} QT_NO_KEYWORDS)
-        target_link_libraries(${target} LINK_PUBLIC ${Boost_LIBRARIES} ${PYTHON_LIBRARIES} ${GUI_LIBRARY_FILES})
+        target_link_libraries(${target} LINK_PUBLIC gui_${family} ${Boost_LIBRARIES} ${PYTHON_LIBRARIES} ${GUI_LIBRARY_FILES_${ufamily}})
     endforeach (target)
 endforeach (family)
 
