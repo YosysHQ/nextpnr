@@ -96,7 +96,7 @@ DesignWidget::DesignWidget(Context *_ctx, QWidget *parent)
     for (auto bel : ctx->getBels()) {
         auto name = ctx->getBelName(bel);
         bel_items.append(
-                new BelTreeItem(name, ElementType::BEL, QString(name.c_str())));
+                new BelTreeItem(name, ElementType::BEL, QString(name.c_str(ctx))));
     }
     bel_root->addChildren(bel_items);
 
@@ -108,7 +108,7 @@ DesignWidget::DesignWidget(Context *_ctx, QWidget *parent)
     for (auto wire : ctx->getWires()) {
         auto name = ctx->getWireName(wire);
         wire_items.append(new WireTreeItem(name, ElementType::WIRE,
-                                           QString(name.c_str())));
+                                           QString(name.c_str(ctx))));
     }
     wire_root->addChildren(wire_items);
 
@@ -120,7 +120,7 @@ DesignWidget::DesignWidget(Context *_ctx, QWidget *parent)
     for (auto pip : ctx->getPips()) {
         auto name = ctx->getPipName(pip);
         pip_items.append(
-                new PipTreeItem(name, ElementType::PIP, QString(name.c_str())));
+                new PipTreeItem(name, ElementType::PIP, QString(name.c_str(ctx))));
     }
     pip_root->addChildren(pip_items);
 
@@ -163,7 +163,7 @@ void DesignWidget::addProperty(QtVariantProperty *property, const QString &id)
 {
     propertyToId[property] = id;
     idToProperty[id] = property;
-    QtBrowserItem *item = propertyEditor->addProperty(property);
+    propertyEditor->addProperty(property);
 }
 
 void DesignWidget::clearProperties()
@@ -192,14 +192,14 @@ void DesignWidget::onItemClicked(QTreeWidgetItem *item, int pos)
 
         QtVariantProperty *topItem =
                 variantManager->addProperty(QVariant::String, QString("Name"));
-        topItem->setValue(QString(c.c_str()));
+        topItem->setValue(QString(c.c_str(ctx)));
         addProperty(topItem, QString("Name"));
     } else if (type == ElementType::WIRE) {
         IdString c = static_cast<WireTreeItem *>(item)->getData();
 
         QtVariantProperty *topItem =
                 variantManager->addProperty(QVariant::String, QString("Name"));
-        topItem->setValue(QString(c.c_str()));
+        topItem->setValue(QString(c.c_str(ctx)));
         addProperty(topItem, QString("Name"));
 
     } else if (type == ElementType::PIP) {
@@ -207,7 +207,7 @@ void DesignWidget::onItemClicked(QTreeWidgetItem *item, int pos)
 
         QtVariantProperty *topItem =
                 variantManager->addProperty(QVariant::String, QString("Name"));
-        topItem->setValue(QString(c.c_str()));
+        topItem->setValue(QString(c.c_str(ctx)));
         addProperty(topItem, QString("Name"));
     }
 }
