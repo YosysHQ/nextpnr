@@ -62,12 +62,13 @@ static delay_t follow_user_port(Context *ctx, PortRef &user, int path_length,
     if (value < user.budget) {
         user.budget = value;
     }
+    return value;
 }
 
 static delay_t follow_net(Context *ctx, NetInfo *net, int path_length,
                           delay_t slack)
 {
-    delay_t net_budget = slack / path_length;
+    delay_t net_budget = slack / (path_length + 1);
     for (auto &usr : net->users) {
         net_budget = std::min(
                 net_budget, follow_user_port(ctx, usr, path_length + 1, slack));
@@ -77,6 +78,7 @@ static delay_t follow_net(Context *ctx, NetInfo *net, int path_length,
 
 void assign_budget(Context *ctx, float default_clock)
 {
+    log_info("Annotating ports with timing budgets\n");
     for (auto cell : ctx->cells) {
         for (auto port : cell.second->ports) {
             if (port.second.type == PORT_OUT) {

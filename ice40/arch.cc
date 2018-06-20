@@ -21,7 +21,7 @@
 #include <cmath>
 #include "log.h"
 #include "nextpnr.h"
-
+#include "util.h"
 NEXTPNR_NAMESPACE_BEGIN
 
 // -----------------------------------------------------------------------
@@ -414,26 +414,39 @@ std::vector<GraphicElement> Arch::getPipGraphics(PipId pip) const
     std::vector<GraphicElement> ret;
     // FIXME
     return ret;
-}
+};
 
 // -----------------------------------------------------------------------
 
 bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort,
                         IdString toPort, delay_t &delay) const
 {
-    // TODO
+    if (cell->type == id("ICESTORM_LC")) {
+        if (fromPort == id("I0") || fromPort == id("I1") ||
+            fromPort == id("I2") || fromPort == id("I3")) {
+            if (toPort == id("O") || toPort == id("LO")) {
+                delay = 450;
+                return true;
+            }
+        }
+    }
     return false;
 }
 
 IdString Arch::getPortClock(const CellInfo *cell, IdString port) const
 {
-    // TODO
+    if (cell->type == id("ICESTORM_LC") &&
+        bool_or_default(cell->params, id("DFF_ENABLE"))) {
+        if (port != id("LO") && port != id("CIN") && port != id("COUT"))
+            return id("CLK");
+    }
     return IdString();
 }
 
 bool Arch::isClockPort(const CellInfo *cell, IdString port) const
 {
-    // TODO
+    if (cell->type == id("ICESTORM_LC") && port == id("CLK"))
+        return true;
     return false;
 }
 

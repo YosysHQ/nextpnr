@@ -36,6 +36,7 @@
 #include "pybindings.h"
 #include "route.h"
 #include "version.h"
+#include "timing.h"
 
 void svg_dump_el(const GraphicElement &el)
 {
@@ -232,7 +233,7 @@ int main(int argc, char *argv[])
 
         if (!pack_design(&ctx) && !ctx.force)
             log_error("Packing design failed.\n");
-
+        assign_budget(&ctx);
         print_utilisation(&ctx);
 
         if (!vm.count("pack-only")) {
