@@ -72,10 +72,10 @@ tiletypes["RAMT"] = 4
 
 wiretypes["LOCAL"] = 1
 wiretypes["GLOBAL"] = 2
-wiretypes["SP4_VERT"] = 5
-wiretypes["SP4_HORZ"] = 6
-wiretypes["SP12_HORZ"] = 7
-wiretypes["SP12_VERT"] = 8
+wiretypes["SP4_VERT"] = 3
+wiretypes["SP4_HORZ"] = 4
+wiretypes["SP12_HORZ"] = 5
+wiretypes["SP12_VERT"] = 6
 
 def maj_wire_name(name):
     if name[2].startswith("lutff_"):

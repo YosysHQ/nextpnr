@@ -162,6 +162,22 @@ struct Router
         src_wires[src_wire] = 0;
         route(src_wires, dst_wire);
         routedOkay = visited.count(dst_wire);
+
+        if (ctx->verbose) {
+            log("Route (from destination to source):\n");
+
+            WireId cursor = dst_wire;
+
+            while (1) {
+                log("  %8.3f %s\n", ctx->getDelayNS(visited[cursor].delay),
+                    ctx->getWireName(cursor).c_str(ctx));
+
+                if (cursor == src_wire)
+                    break;
+
+                cursor = ctx->getPipSrcWire(visited[cursor].pip);
+            }
+        }
     }
 
     Router(Context *ctx, IdString net_name, bool ripup = false,
