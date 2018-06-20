@@ -145,7 +145,7 @@ class SAPlacer
         curr_wirelength = 0;
         for (auto net : ctx->nets) {
             float wl = get_wirelength(net.second);
-            wirelengths[net.second] = wl;
+            wirelengths[net.first] = wl;
             curr_wirelength += wl;
         }
 
@@ -221,9 +221,17 @@ class SAPlacer
                 std::string cell_text = "no cell";
                 if (cell != IdString())
                     cell_text = std::string("cell '") + cell.str(ctx) + "'";
-                log_error("post-placement validity check failed for Bel '%s' "
-                          "(%s)",
-                          ctx->getBelName(bel).c_str(ctx), cell_text.c_str());
+                if (ctx->force) {
+                    log_warning(
+                            "post-placement validity check failed for Bel '%s' "
+                            "(%s)\n",
+                            ctx->getBelName(bel).c_str(ctx), cell_text.c_str());
+                } else {
+                    log_error(
+                            "post-placement validity check failed for Bel '%s' "
+                            "(%s)\n",
+                            ctx->getBelName(bel).c_str(ctx), cell_text.c_str());
+                }
             }
         }
         return true;
@@ -328,7 +336,7 @@ class SAPlacer
     bool try_swap_position(CellInfo *cell, BelId newBel)
     {
         static std::unordered_set<NetInfo *> update;
-        static std::vector<std::pair<NetInfo *, float>> new_lengths;
+        static std::vector<std::pair<IdString, float>> new_lengths;
         new_lengths.clear();
         update.clear();
         BelId oldBel = cell->bel;
@@ -373,10 +381,10 @@ class SAPlacer
 
         // Recalculate wirelengths for all nets touched by the peturbation
         for (auto net : update) {
-            new_wirelength -= wirelengths.at(net);
+            new_wirelength -= wirelengths.at(net->name);
             float net_new_wl = get_wirelength(net);
             new_wirelength += net_new_wl;
-            new_lengths.push_back(std::make_pair(net, net_new_wl));
+            new_lengths.push_back(std::make_pair(net->name, net_new_wl));
         }
         delta = new_wirelength - curr_wirelength;
         n_move++;
@@ -434,7 +442,7 @@ class SAPlacer
     }
 
     Context *ctx;
-    std::unordered_map<NetInfo *, float> wirelengths;
+    std::unordered_map<IdString, float> wirelengths;
     float curr_wirelength = std::numeric_limits<float>::infinity();
     float temp = 1000;
     bool improved = false;

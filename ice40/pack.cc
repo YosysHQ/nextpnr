@@ -244,8 +244,8 @@ static void set_net_constant(const Context *ctx, NetInfo *orig,
             CellInfo *uc = user.cell;
             log_info("%s user %s\n", orig->name.c_str(ctx),
                      uc->name.c_str(ctx));
-            if (is_lut(ctx, uc) && (user.port.str(ctx).at(0) == 'I') &&
-                !constval) {
+            if ((is_lut(ctx, uc) || is_lc(ctx, uc)) &&
+                (user.port.str(ctx).at(0) == 'I') && !constval) {
                 uc->ports[user.port].net = nullptr;
             } else {
                 uc->ports[user.port].net = constnet;
