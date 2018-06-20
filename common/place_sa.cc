@@ -315,7 +315,10 @@ class SAPlacer
             // wirelength += std::abs(load_x - driver_x) + std::abs(load_y -
             // driver_y);
             delay_t raw_wl = ctx->estimateDelay(drv_wire, user_wire);
-            wirelength += 100 * (ctx->getDelayNS(raw_wl) / ctx->getDelayNS(load.budget));
+            wirelength += pow(1.3, (ctx->getDelayNS(raw_wl) -
+                                    ctx->getDelayNS(load.budget)) /
+                                           10) +
+                          ctx->getDelayNS(raw_wl);
             // wirelength += pow(ctx->estimateDelay(drv_wire, user_wire), 2.0);
         }
         return wirelength;
