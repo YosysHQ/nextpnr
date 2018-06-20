@@ -770,6 +770,17 @@ struct Arch : BaseCtx
     std::unordered_set<BelId> belGraphicsReload;
     std::unordered_set<WireId> wireGraphicsReload;
     std::unordered_set<PipId> pipGraphicsReload;
+
+    // -------------------------------------------------
+
+    // Get the delay through a cell from one port to another, returning false
+    // if no path exists
+    bool getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort,
+                      delay_t &delay) const;
+    // Get the associated clock to a port, or empty if the port is combinational
+    IdString getPortClock(const CellInfo *cell, IdString port) const;
+    // Return true if a port is a clock
+    bool isClockPort(const CellInfo *cell, IdString port) const;
 };
 
 NEXTPNR_NAMESPACE_END
