@@ -30,7 +30,6 @@
 #include <map>
 #include <ostream>
 #include <queue>
-#include <random>
 #include <set>
 #include <stdarg.h>
 #include <stdio.h>
@@ -212,6 +211,15 @@ class SAPlacer
                     else
                         temp *= 0.8;
                 }
+            }
+
+            // Recalculate total wirelength entirely to avoid rounding errors
+            // accumulating over time
+            curr_wirelength = 0;
+            for (auto net : ctx->nets) {
+                float wl = get_wirelength(net.second);
+                wirelengths[net.first] = wl;
+                curr_wirelength += wl;
             }
         }
         // Final post-pacement validitiy check
