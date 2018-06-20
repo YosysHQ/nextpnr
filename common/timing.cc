@@ -79,6 +79,14 @@ static delay_t follow_net(Context *ctx, NetInfo *net, int path_length,
 void assign_budget(Context *ctx, float default_clock)
 {
     log_info("Annotating ports with timing budgets\n");
+    // Clear delays to a very high value first
+    delay_t default_slack = delay_t(1.0e12 / default_clock);
+    for (auto net : ctx->nets) {
+        for (auto &usr : net.second->users) {
+            usr.budget = default_slack;
+        }
+    }
+    // Go through all clocked drivers and set up paths
     for (auto cell : ctx->cells) {
         for (auto port : cell.second->ports) {
             if (port.second.type == PORT_OUT) {
@@ -91,6 +99,16 @@ void assign_budget(Context *ctx, float default_clock)
                         follow_net(ctx, port.second.net, 0, slack);
                 }
             }
+        }
+    }
+    // Post-allocation check
+    for (auto net : ctx->nets) {
+        for (auto user : net.second->users) {
+            if (user.budget < 0)
+                log_warning("port %s.%s, connected to net '%s', has negative "
+                            "timing budget of %fns\n",
+                            user.cell->name.c_str(ctx), user.port.c_str(ctx),
+                            net.first.c_str(ctx), ctx->getDelayNS(user.budget));
         }
     }
 }
