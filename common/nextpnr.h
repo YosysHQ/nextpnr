@@ -162,7 +162,7 @@ template <> struct hash<NEXTPNR_NAMESPACE_PREFIX IdString>
     std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX IdString &obj) const
             noexcept
     {
-        return obj.index;
+        return std::hash<int>()(obj.index);
     }
 };
 } // namespace std
@@ -194,10 +194,21 @@ NEXTPNR_NAMESPACE_BEGIN
 
 struct CellInfo;
 
+enum PlaceStrength
+{
+    STRENGTH_NONE   = 0,
+    STRENGTH_WEAK   = 1,
+    STRENGTH_STRONG = 2,
+    STRENGTH_FIXED  = 3,
+    STRENGTH_LOCKED = 4,
+    STRENGTH_USER   = 5
+};
+
 struct PortRef
 {
     CellInfo *cell = nullptr;
     IdString port;
+    delay_t budget;
 };
 
 struct NetInfo
@@ -209,6 +220,8 @@ struct NetInfo
 
     // wire -> uphill_pip
     std::unordered_map<WireId, PipId> wires;
+
+    std::unordered_map<PipId, PlaceStrength> pips;
 };
 
 enum PortType
@@ -232,6 +245,8 @@ struct CellInfo
     std::unordered_map<IdString, std::string> attrs, params;
 
     BelId bel;
+    PlaceStrength belStrength = STRENGTH_NONE;
+
     // cell_port -> bel_pin
     std::unordered_map<IdString, IdString> pins;
 };
