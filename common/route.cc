@@ -61,14 +61,112 @@ void ripup_net(Context *ctx, IdString net_name)
 
 struct Router
 {
+    Context *ctx;
+    IdString net_name;
+    bool ripup;
+    delay_t ripup_penalty;
+
     std::unordered_set<IdString> rippedNets;
+    std::unordered_map<WireId, QueuedWire> visited;
     int visitCnt = 0, revisitCnt = 0;
     bool routedOkay = false;
     delay_t maxDelay = 0.0;
     WireId failedDest;
 
+    void route(const std::unordered_map<WireId, delay_t> &src_wires,
+               WireId dst_wire)
+    {
+        std::priority_queue<QueuedWire, std::vector<QueuedWire>,
+                            QueuedWire::Greater>
+                queue;
+
+        visited.clear();
+
+        for (auto &it : src_wires) {
+            QueuedWire qw;
+            qw.wire = it.first;
+            qw.pip = PipId();
+            qw.delay = it.second;
+            qw.togo = ctx->estimateDelay(qw.wire, dst_wire);
+            qw.randtag = ctx->rng();
+
+            queue.push(qw);
+            visited[qw.wire] = qw;
+        }
+
+        while (!queue.empty() && !visited.count(dst_wire)) {
+            QueuedWire qw = queue.top();
+            queue.pop();
+
+            for (auto pip : ctx->getPipsDownhill(qw.wire)) {
+                delay_t next_delay = qw.delay;
+                IdString ripupNet = net_name;
+                visitCnt++;
+
+                if (!ctx->checkPipAvail(pip)) {
+                    if (!ripup)
+                        continue;
+                    ripupNet = ctx->getPipNet(pip, true);
+                    if (ripupNet == net_name)
+                        continue;
+                }
+
+                WireId next_wire = ctx->getPipDstWire(pip);
+                next_delay += ctx->getPipDelay(pip).avgDelay();
+
+                if (!ctx->checkWireAvail(next_wire)) {
+                    if (!ripup)
+                        continue;
+                    ripupNet = ctx->getWireNet(next_wire, true);
+                    if (ripupNet == net_name)
+                        continue;
+                }
+
+                if (ripupNet != net_name)
+                    next_delay += ripup_penalty;
+                assert(next_delay >= 0);
+
+                if (visited.count(next_wire)) {
+                    if (visited.at(next_wire).delay <=
+                        next_delay + ctx->getDelayEpsilon())
+                        continue;
+#if 0 // FIXME
+                    if (ctx->verbose)
+                        log("Found better route to %s. Old vs new delay "
+                            "estimate: %.3f %.3f\n",
+                            ctx->getWireName(next_wire).c_str(),
+                            ctx->getDelayNS(visited.at(next_wire).delay),
+                            ctx->getDelayNS(next_delay));
+#endif
+                    revisitCnt++;
+                }
+
+                QueuedWire next_qw;
+                next_qw.wire = next_wire;
+                next_qw.pip = pip;
+                next_qw.delay = next_delay;
+                next_qw.togo = ctx->estimateDelay(next_wire, dst_wire);
+                qw.randtag = ctx->rng();
+
+                visited[next_qw.wire] = next_qw;
+                queue.push(next_qw);
+            }
+        }
+    }
+
+    Router(Context *ctx, WireId src_wire, WireId dst_wire, bool ripup = false,
+           delay_t ripup_penalty = 0)
+            : ctx(ctx), ripup(ripup), ripup_penalty(ripup_penalty)
+    {
+        std::unordered_map<WireId, delay_t> src_wires;
+        src_wires[src_wire] = 0;
+        route(src_wires, dst_wire);
+    }
+
     Router(Context *ctx, IdString net_name, bool ripup = false,
            delay_t ripup_penalty = 0)
+            : ctx(ctx), net_name(net_name), ripup(ripup),
+              ripup_penalty(ripup_penalty)
     {
         auto net_info = ctx->nets.at(net_name);
 
@@ -108,8 +206,8 @@ struct Router
         if (ctx->verbose)
             log("    Source wire: %s\n", ctx->getWireName(src_wire).c_str(ctx));
 
-        std::unordered_map<WireId, DelayInfo> src_wires;
-        src_wires[src_wire] = DelayInfo();
+        std::unordered_map<WireId, delay_t> src_wires;
+        src_wires[src_wire] = 0;
         net_info->wires[src_wire] = PipId();
         ctx->bindWire(src_wire, net_name);
 
@@ -156,81 +254,7 @@ struct Router
                     float(ctx->estimateDelay(src_wire, dst_wire)));
             }
 
-            std::unordered_map<WireId, QueuedWire> visited;
-            std::priority_queue<QueuedWire, std::vector<QueuedWire>,
-                                QueuedWire::Greater>
-                    queue;
-
-            for (auto &it : src_wires) {
-                QueuedWire qw;
-                qw.wire = it.first;
-                qw.pip = PipId();
-                qw.delay = it.second.avgDelay();
-                qw.togo = ctx->estimateDelay(qw.wire, dst_wire);
-                qw.randtag = ctx->rng();
-
-                queue.push(qw);
-                visited[qw.wire] = qw;
-            }
-
-            while (!queue.empty() && !visited.count(dst_wire)) {
-                QueuedWire qw = queue.top();
-                queue.pop();
-
-                for (auto pip : ctx->getPipsDownhill(qw.wire)) {
-                    delay_t next_delay = qw.delay;
-                    IdString ripupNet = net_name;
-                    visitCnt++;
-
-                    if (!ctx->checkPipAvail(pip)) {
-                        if (!ripup)
-                            continue;
-                        ripupNet = ctx->getPipNet(pip, true);
-                        if (ripupNet == net_name)
-                            continue;
-                    }
-
-                    WireId next_wire = ctx->getPipDstWire(pip);
-                    next_delay += ctx->getPipDelay(pip).avgDelay();
-
-                    if (!ctx->checkWireAvail(next_wire)) {
-                        if (!ripup)
-                            continue;
-                        ripupNet = ctx->getWireNet(next_wire, true);
-                        if (ripupNet == net_name)
-                            continue;
-                    }
-
-                    if (ripupNet != net_name)
-                        next_delay += ripup_penalty;
-                    assert(next_delay >= 0);
-
-                    if (visited.count(next_wire)) {
-                        if (visited.at(next_wire).delay <=
-                            next_delay + ctx->getDelayEpsilon())
-                            continue;
-#if 0 // FIXME
-                        if (ctx->verbose)
-                            log("Found better route to %s. Old vs new delay "
-                                "estimate: %.3f %.3f\n",
-                                ctx->getWireName(next_wire).c_str(),
-                                ctx->getDelayNS(visited.at(next_wire).delay),
-                                ctx->getDelayNS(next_delay));
-#endif
-                        revisitCnt++;
-                    }
-
-                    QueuedWire next_qw;
-                    next_qw.wire = next_wire;
-                    next_qw.pip = pip;
-                    next_qw.delay = next_delay;
-                    next_qw.togo = ctx->estimateDelay(next_wire, dst_wire);
-                    qw.randtag = ctx->rng();
-
-                    visited[next_qw.wire] = next_qw;
-                    queue.push(next_qw);
-                }
-            }
+            route(src_wires, dst_wire);
 
             if (visited.count(dst_wire) == 0) {
                 if (ctx->verbose)
@@ -287,7 +311,7 @@ struct Router
                 ctx->bindWire(cursor, net_name);
                 ctx->bindPip(visited[cursor].pip, net_name);
 
-                src_wires[cursor] = ctx->getPipDelay(visited[cursor].pip);
+                src_wires[cursor] = visited[cursor].delay;
                 cursor = ctx->getPipSrcWire(visited[cursor].pip);
             }
         }
