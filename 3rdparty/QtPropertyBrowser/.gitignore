@@ -29,9 +29,3 @@
 
 # Ignores 'build' in any sub folder
 build/
-
-src/moc_*.cpp
-src/*.moc
-src/qrc_*.cpp
-src/*_automoc.cpp
-src/*_export.h

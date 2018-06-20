@@ -27,10 +27,10 @@ execute_process(
   OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 
-add_subdirectory(3rdparty/googletest/googletest EXCLUDE_FROM_ALL)
+add_subdirectory(3rdparty/googletest/googletest generated/3rdparty/googletest EXCLUDE_FROM_ALL)
 enable_testing()
 
-add_subdirectory(3rdparty/QtPropertyBrowser)
+add_subdirectory(3rdparty/QtPropertyBrowser generated/3rdparty/QtPropertyBrowser)
 
 add_definitions("-DGIT_COMMIT_HASH=${GIT_COMMIT_HASH}")
 configure_file(
