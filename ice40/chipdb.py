@@ -124,7 +124,7 @@ def wire_type(name):
         wt = "LOCAL"
     elif name in ("OUT_ENB", "cen", "inclk", "latch", "outclk", "clk", "s_r", "carry_in", "carry_in_mux"):
         wt = "LOCAL"
-    elif name in ("in_0", "in_1", "in_2", "in_3", "cout", "lout", "out", "fabout"):
+    elif name in ("in_0", "in_1", "in_2", "in_3", "cout", "lout", "out", "fabout") or name.startswith("slf_op") or name.startswith("O_"):
         wt = "LOCAL"
     elif name.startswith("local_g") or name.startswith("glb2local_"):
         wt = "LOCAL"
