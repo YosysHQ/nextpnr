@@ -63,6 +63,17 @@ enum PortPin : int32_t
     PIN_MAXIDX
 };
 
+enum WireType : int8_t
+{
+    WIRE_TYPE_NONE = 0,
+    WIRE_TYPE_LOCAL = 1,
+    WIRE_TYPE_GLOBAL = 2,
+    WIRE_TYPE_SP4_VERT = 3,
+    WIRE_TYPE_SP4_HORZ = 4,
+    WIRE_TYPE_SP12_HORZ = 5,
+    WIRE_TYPE_SP12_VERT = 6
+};
+
 // -----------------------------------------------------------------------
 
 /**** Everything in this section must be kept in sync with chipdb.py ****/
@@ -130,7 +141,9 @@ struct WireInfoPOD
     BelPortPOD bel_uphill;
     RelPtr<BelPortPOD> bels_downhill;
 
-    int16_t x, y;
+    int8_t x, y;
+    WireType type;
+    int8_t padding_0;
 } __attribute__((packed));
 
 struct PackagePinPOD
@@ -742,6 +755,8 @@ struct Arch : BaseCtx
 
     bool estimatePosition(BelId bel, int &x, int &y) const;
     delay_t estimateDelay(WireId src, WireId dst) const;
+    delay_t getDelayEpsilon() const { return 10; }
+    float getDelayNS(delay_t v) const { return v * 0.001; }
 
     // -------------------------------------------------
 

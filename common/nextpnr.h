@@ -17,13 +17,13 @@
  *
  */
 
+#include <algorithm>
 #include <assert.h>
 #include <stdint.h>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
-#include <algorithm>
 
 #ifndef NEXTPNR_H
 #define NEXTPNR_H
@@ -196,12 +196,12 @@ struct CellInfo;
 
 enum PlaceStrength
 {
-    STRENGTH_NONE   = 0,
-    STRENGTH_WEAK   = 1,
+    STRENGTH_NONE = 0,
+    STRENGTH_WEAK = 1,
     STRENGTH_STRONG = 2,
-    STRENGTH_FIXED  = 3,
+    STRENGTH_FIXED = 3,
     STRENGTH_LOCKED = 4,
-    STRENGTH_USER   = 5
+    STRENGTH_USER = 5
 };
 
 struct PortRef

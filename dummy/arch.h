@@ -120,6 +120,8 @@ struct Arch : BaseCtx
 
     bool estimatePosition(BelId bel, int &x, int &y) const;
     delay_t estimateDelay(WireId src, WireId dst) const;
+    delay_t getDelayEpsilon() const { return 0.01; }
+    float getDelayNS(delay_t v) const { return v; }
 
     std::vector<GraphicElement> getFrameGraphics() const;
     std::vector<GraphicElement> getBelGraphics(BelId bel) const;
