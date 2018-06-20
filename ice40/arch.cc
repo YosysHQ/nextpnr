@@ -418,11 +418,11 @@ std::vector<GraphicElement> Arch::getPipGraphics(PipId pip) const
 
 // -----------------------------------------------------------------------
 
-delay_t Arch::getCellDelay(const CellInfo *cell, IdString fromPort,
-                           IdString toPort) const
+bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort,
+                        IdString toPort, delay_t &delay) const
 {
     // TODO
-    return 0;
+    return false;
 }
 
 IdString Arch::getPortClock(const CellInfo *cell, IdString port) const
