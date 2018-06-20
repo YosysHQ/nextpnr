@@ -2,6 +2,7 @@
 #define PYTHONTAB_H
 
 #include <QLineEdit>
+#include <QMenu>
 #include <QPlainTextEdit>
 #include "emb.h"
 #include "line_editor.h"
@@ -22,10 +23,13 @@ class PythonTab : public QWidget
     int executePython(std::string &command);
   private Q_SLOTS:
     void editLineReturnPressed(QString text);
+    void showContextMenu(const QPoint &pt);
+    void clearBuffer();
 
   private:
     QPlainTextEdit *plainTextEdit;
     LineEditor *lineEdit;
+    QMenu *contextMenu;
     emb::stdout_write_type write;
 };
 
