@@ -4,6 +4,7 @@
 #include <QLineEdit>
 #include <QPlainTextEdit>
 #include "emb.h"
+#include "line_editor.h"
 #include "nextpnr.h"
 
 // FIXME
@@ -17,13 +18,14 @@ class PythonTab : public QWidget
     explicit PythonTab(QWidget *parent = 0);
 
   private:
-    int executePython(std::string command);
+    void print(std::string line);
+    int executePython(std::string &command);
   private Q_SLOTS:
-    void editLineReturnPressed();
+    void editLineReturnPressed(QString text);
 
   private:
     QPlainTextEdit *plainTextEdit;
-    QLineEdit *lineEdit;
+    LineEditor *lineEdit;
     emb::stdout_write_type write;
 };
 

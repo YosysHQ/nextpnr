@@ -15,7 +15,7 @@ PythonTab::PythonTab(QWidget *parent) : QWidget(parent)
     f.setStyleHint(QFont::Monospace);
     plainTextEdit->setFont(f);
 
-    lineEdit = new QLineEdit();
+    lineEdit = new LineEditor();
     lineEdit->setMinimumHeight(30);
     lineEdit->setMaximumHeight(30);
     lineEdit->setFont(f);
@@ -25,8 +25,8 @@ PythonTab::PythonTab(QWidget *parent) : QWidget(parent)
     mainLayout->addWidget(lineEdit, 1, 0);
     setLayout(mainLayout);
 
-    connect(lineEdit, SIGNAL(returnPressed()), this,
-            SLOT(editLineReturnPressed()));
+    connect(lineEdit, SIGNAL(textLineInserted(QString)), this,
+            SLOT(editLineReturnPressed(QString)));
 
     write = [this](std::string s) {
         plainTextEdit->moveCursor(QTextCursor::End);
@@ -34,11 +34,22 @@ PythonTab::PythonTab(QWidget *parent) : QWidget(parent)
         plainTextEdit->moveCursor(QTextCursor::End);
     };
     emb::set_stdout(write);
+
+    char buff[1024];
+    sprintf(buff, "Python %s on %s\n", Py_GetVersion(), Py_GetPlatform());
+    print(buff);
+}
+
+void PythonTab::print(std::string line)
+{
+    plainTextEdit->moveCursor(QTextCursor::End);
+    plainTextEdit->insertPlainText(line.c_str());
+    plainTextEdit->moveCursor(QTextCursor::End);
 }
 
 void handle_system_exit() { exit(-1); }
 
-int PythonTab::executePython(std::string command)
+int PythonTab::executePython(std::string &command)
 {
     PyObject *m, *d, *v;
     m = PyImport_AddModule("__main__");
@@ -70,9 +81,7 @@ int PythonTab::executePython(std::string command)
         PyObject *objectsRepresentation = PyObject_Str(v);
         std::string errorStr =
                 PyUnicode_AsUTF8(objectsRepresentation) + std::string("\n");
-        plainTextEdit->moveCursor(QTextCursor::End);
-        plainTextEdit->insertPlainText(errorStr.c_str());
-        plainTextEdit->moveCursor(QTextCursor::End);
+        print(errorStr);
         Py_DECREF(objectsRepresentation);
         Py_XDECREF(exception);
         Py_XDECREF(v);
@@ -83,13 +92,9 @@ int PythonTab::executePython(std::string command)
     return 0;
 }
 
-void PythonTab::editLineReturnPressed()
+void PythonTab::editLineReturnPressed(QString text)
 {
-    std::string input = lineEdit->text().toStdString();
-    plainTextEdit->moveCursor(QTextCursor::End);
-    plainTextEdit->insertPlainText(std::string(">>> " + input + "\n").c_str());
-    plainTextEdit->moveCursor(QTextCursor::End);
-    plainTextEdit->update();
-    lineEdit->clear();
+    std::string input = text.toStdString();
+    print(std::string(">>> " + input + "\n"));
     int error = executePython(input);
 }

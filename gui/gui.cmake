@@ -12,6 +12,7 @@ qt5_generate_moc(gui/fpgaviewwidget.h ${CMAKE_CURRENT_BINARY_DIR}/generated/moc_
 qt5_generate_moc(gui/pythontab.h ${CMAKE_CURRENT_BINARY_DIR}/generated/moc_pythontab.cc)
 qt5_generate_moc(gui/infotab.h ${CMAKE_CURRENT_BINARY_DIR}/generated/moc_infotab.cc)
 qt5_generate_moc(gui/designwidget.h ${CMAKE_CURRENT_BINARY_DIR}/generated/moc_designwidget.cc)
+qt5_generate_moc(gui/line_editor.h ${CMAKE_CURRENT_BINARY_DIR}/generated/moc_line_editor.cc)
 
 set(GENERATED_MOC_FILES
     ${CMAKE_CURRENT_BINARY_DIR}/generated/moc_mainwindow.cc
@@ -19,6 +20,7 @@ set(GENERATED_MOC_FILES
     ${CMAKE_CURRENT_BINARY_DIR}/generated/moc_pythontab.cc
     ${CMAKE_CURRENT_BINARY_DIR}/generated/moc_infotab.cc
     ${CMAKE_CURRENT_BINARY_DIR}/generated/moc_designwidget.cc
+    ${CMAKE_CURRENT_BINARY_DIR}/generated/moc_line_editor.cc
 )
 
 qt5_add_resources_custom(GUI_RESOURCE_FILES gui/nextpnr.qrc)
