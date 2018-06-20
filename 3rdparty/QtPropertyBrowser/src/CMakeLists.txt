@@ -16,9 +16,6 @@ set(_SRCS
   qtvariantproperty.cpp
   )
 
-file(GLOB _IMPL_HDRS *.h)
-file(GLOB _PUBLIC_HDRS Qt*)
-
 set(_UI_FORMS
   )
 
@@ -31,7 +28,7 @@ QT5_ADD_RESOURCES(_QRC_SRCS ${_RESOURCES})
 
 set(TARGET_NAME ${PROJECT_NAME})
 
-add_library(${TARGET_NAME}
+add_library(${TARGET_NAME} STATIC
   ${_SRCS}
   ${_UI_SRCS}
   ${_QRC_SRCS}
@@ -39,26 +36,3 @@ add_library(${TARGET_NAME}
   )
 
 target_link_libraries(${TARGET_NAME} Qt5::Widgets)
-
-######################### Installation Stuff ###########################
-include(GenerateExportHeader)
-generate_export_header(${TARGET_NAME})
-
-install(TARGETS ${TARGET_NAME}
-  EXPORT ${TARGET_NAME}Targets
-  RUNTIME DESTINATION ${INSTALL_BIN_DIR}
-  LIBRARY DESTINATION ${INSTALL_LIB_DIR}
-  ARCHIVE DESTINATION ${INSTALL_LIB_DIR}
-  INCLUDES DESTINATION ${INSTALL_INCLUDE_DIR}
-)
-
-install(
-  FILES
-    ${_PUBLIC_HDRS}
-    ${_IMPL_HDRS}
-  DESTINATION
-    ${INSTALL_INCLUDE_DIR}
-  COMPONENT
-    Devel
-)
-

@@ -26,6 +26,8 @@ execute_process(
 add_subdirectory(3rdparty/googletest/googletest EXCLUDE_FROM_ALL)
 enable_testing()
 
+add_subdirectory(3rdparty/QtPropertyBrowser)
+
 add_definitions("-DGIT_COMMIT_HASH=${GIT_COMMIT_HASH}")
 configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/common/version.h.in ${CMAKE_CURRENT_BINARY_DIR}/generated/version.h
