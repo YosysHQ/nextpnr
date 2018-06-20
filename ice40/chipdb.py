@@ -37,7 +37,7 @@ wire_names_r = dict()
 wire_xy = dict()
 
 num_tile_types = 5
-tile_sizes = {_: (0, 0) for _ in range(num_tile_types)}
+tile_sizes = {i: (0, 0) for i in range(num_tile_types)}
 tile_bits = [[] for _ in range(num_tile_types)]
 
 cbit_re = re.compile(r'B(\d+)\[(\d+)\]')
