@@ -753,7 +753,7 @@ struct Arch : BaseCtx
 
     // -------------------------------------------------
 
-    bool estimatePosition(BelId bel, int &x, int &y) const;
+    void estimatePosition(BelId bel, int &x, int &y, bool &gb) const;
     delay_t estimateDelay(WireId src, WireId dst) const;
     delay_t getDelayEpsilon() const { return 10; }
     float getDelayNS(delay_t v) const { return v * 0.001; }

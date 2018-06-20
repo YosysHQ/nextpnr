@@ -295,13 +295,12 @@ std::string Arch::getBelPackagePin(BelId bel) const
 }
 // -----------------------------------------------------------------------
 
-bool Arch::estimatePosition(BelId bel, int &x, int &y) const
+void Arch::estimatePosition(BelId bel, int &x, int &y, bool &gb) const
 {
     assert(bel != BelId());
     x = chip_info->bel_data[bel.index].x;
     y = chip_info->bel_data[bel.index].y;
-
-    return chip_info->bel_data[bel.index].type != TYPE_SB_GB;
+    gb = chip_info->bel_data[bel.index].type == TYPE_SB_GB;
 }
 
 delay_t Arch::estimateDelay(WireId src, WireId dst) const

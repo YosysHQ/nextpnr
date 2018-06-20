@@ -51,7 +51,8 @@ class SAPlacer
         int num_bel_types = 0;
         for (auto bel : ctx->getBels()) {
             int x, y;
-            ctx->estimatePosition(bel, x, y);
+            bool gb;
+            ctx->estimatePosition(bel, x, y, gb);
             BelType type = ctx->getBelType(bel);
             int type_idx;
             if (bel_types.find(type) == bel_types.end()) {
@@ -288,18 +289,17 @@ class SAPlacer
     float get_wirelength(NetInfo *net)
     {
         float wirelength = 0;
-        int driver_x = 0, driver_y = 0;
-        bool consider_driver = false;
+        int driver_x, driver_y;
+        bool driver_gb;
         CellInfo *driver_cell = net->driver.cell;
         if (!driver_cell)
             return 0;
         if (driver_cell->bel == BelId())
             return 0;
-        consider_driver =
-                ctx->estimatePosition(driver_cell->bel, driver_x, driver_y);
+        ctx->estimatePosition(driver_cell->bel, driver_x, driver_y, driver_gb);
         WireId drv_wire = ctx->getWireBelPin(
                 driver_cell->bel, ctx->portPinFromId(net->driver.port));
-        if (!consider_driver)
+        if (driver_gb)
             return 0;
         for (auto load : net->users) {
             if (load.cell == nullptr)
@@ -307,7 +307,7 @@ class SAPlacer
             CellInfo *load_cell = load.cell;
             if (load_cell->bel == BelId())
                 continue;
-            // ctx->estimatePosition(load_cell->bel, load_x, load_y);
+            // ctx->estimatePosition(load_cell->bel, load_x, load_y, load_gb);
             WireId user_wire = ctx->getWireBelPin(
                     load_cell->bel, ctx->portPinFromId(load.port));
             // wirelength += std::abs(load_x - driver_x) + std::abs(load_y -
@@ -405,8 +405,9 @@ class SAPlacer
     BelId random_bel_for_cell(CellInfo *cell)
     {
         BelType targetType = ctx->belTypeFromId(cell->type);
-        int x = 0, y = 0;
-        ctx->estimatePosition(cell->bel, x, y);
+        int x, y;
+        bool gb;
+        ctx->estimatePosition(cell->bel, x, y, gb);
         while (true) {
             int nx = ctx->rng(2 * diameter + 1) + std::max(x - diameter, 0);
             int ny = ctx->rng(2 * diameter + 1) + std::max(y - diameter, 0);
