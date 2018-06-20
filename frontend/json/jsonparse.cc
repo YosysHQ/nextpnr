@@ -26,8 +26,8 @@
 #include <fstream>
 #include <iostream>
 #include <log.h>
-#include <string>
 #include <map>
+#include <string>
 #include "nextpnr.h"
 
 NEXTPNR_NAMESPACE_BEGIN

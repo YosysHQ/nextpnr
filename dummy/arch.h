@@ -32,7 +32,9 @@ struct DelayInfo
     delay_t delay = 0;
 
     delay_t raiseDelay() const { return delay; }
+
     delay_t fallDelay() const { return delay; }
+
     delay_t avgDelay() const { return delay; }
 
     DelayInfo operator+(const DelayInfo &other) const
@@ -131,6 +133,11 @@ struct Arch : BaseCtx
     std::unordered_set<BelId> belGraphicsReload;
     std::unordered_set<WireId> wireGraphicsReload;
     std::unordered_set<PipId> pipGraphicsReload;
+
+    delay_t getCellDelay(const CellInfo *cell, IdString fromPort,
+                         IdString toPort) const;
+    IdString getPortClock(const CellInfo *cell, IdString port) const;
+    bool isClockPort(const CellInfo *cell, IdString port) const;
 };
 
 NEXTPNR_NAMESPACE_END
