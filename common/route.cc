@@ -161,6 +161,7 @@ struct Router
         std::unordered_map<WireId, delay_t> src_wires;
         src_wires[src_wire] = 0;
         route(src_wires, dst_wire);
+        routedOkay = visited.count(dst_wire);
     }
 
     Router(Context *ctx, IdString net_name, bool ripup = false,
@@ -524,6 +525,15 @@ bool route_design(Context *ctx)
 
     log_info("routing complete after %d iterations.\n", iterCnt);
     return true;
+}
+
+bool get_actual_route_delay(Context *ctx, WireId src_wire, WireId dst_wire,
+                            delay_t &delay)
+{
+    Router router(ctx, src_wire, dst_wire);
+    if (router.routedOkay)
+        delay = router.visited.at(dst_wire).delay;
+    return router.routedOkay;
 }
 
 NEXTPNR_NAMESPACE_END

@@ -25,6 +25,8 @@
 NEXTPNR_NAMESPACE_BEGIN
 
 extern bool route_design(Context *ctx);
+extern bool get_actual_route_delay(Context *ctx, WireId src_wire,
+                                   WireId dst_wire, delay_t &delay);
 
 NEXTPNR_NAMESPACE_END
 

@@ -86,6 +86,7 @@ int main(int argc, char *argv[])
     options.add_options()("seed", po::value<int>(),
                           "seed value for random number generator");
     options.add_options()("version,V", "show version");
+    options.add_options()("tmfuzz", "run path delay estimate fuzzer");
     options.add_options()("lp384", "set device type to iCE40LP384");
     options.add_options()("lp1k", "set device type to iCE40LP1K");
     options.add_options()("lp8k", "set device type to iCE40LP8K");
@@ -218,6 +219,45 @@ int main(int argc, char *argv[])
         for (auto &el : ctx.getFrameGraphics())
             svg_dump_el(el);
         std::cout << "</svg>\n";
+    }
+
+    if (vm.count("tmfuzz")) {
+        std::vector<WireId> src_wires, dst_wires;
+
+        for (auto w : ctx.getWires())
+            src_wires.push_back(w);
+
+        for (auto b : ctx.getBels()) {
+            if (ctx.getBelType(b) == TYPE_ICESTORM_LC) {
+                dst_wires.push_back(ctx.getWireBelPin(b, PIN_I0));
+                dst_wires.push_back(ctx.getWireBelPin(b, PIN_I1));
+                dst_wires.push_back(ctx.getWireBelPin(b, PIN_I2));
+                dst_wires.push_back(ctx.getWireBelPin(b, PIN_I3));
+                dst_wires.push_back(ctx.getWireBelPin(b, PIN_CEN));
+                dst_wires.push_back(ctx.getWireBelPin(b, PIN_CIN));
+            }
+            if (ctx.getBelType(b) == TYPE_SB_IO) {
+                dst_wires.push_back(ctx.getWireBelPin(b, PIN_D_OUT_0));
+                dst_wires.push_back(ctx.getWireBelPin(b, PIN_OUTPUT_ENABLE));
+            }
+        }
+
+        ctx.shuffle(src_wires);
+        ctx.shuffle(dst_wires);
+
+        for (int i = 0; i < int(src_wires.size()) && i < int(dst_wires.size());
+             i++) {
+            delay_t actual_delay;
+            if (!get_actual_route_delay(&ctx, src_wires[i], dst_wires[i],
+                                        actual_delay))
+                continue;
+            printf("%s %s %.3f %.3f\n",
+                   ctx.getWireName(src_wires[i]).c_str(&ctx),
+                   ctx.getWireName(dst_wires[i]).c_str(&ctx),
+                   ctx.getDelayNS(actual_delay),
+                   ctx.getDelayNS(
+                           ctx.estimateDelay(src_wires[i], dst_wires[i])));
+        }
     }
 
     if (vm.count("json")) {
