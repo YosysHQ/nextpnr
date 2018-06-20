@@ -18,12 +18,27 @@
  */
 
 #include "timing.h"
-#include "log.h"
+#include <algorithm>
 #include <unordered_map>
 #include <utility>
-#include <algorithm>
+#include "log.h"
 
-void assign_budget(Context *ctx, float default_clock = 12e6)
+NEXTPNR_NAMESPACE_BEGIN
+
+// Follow a path, returning budget to annotate
+static delay_t follow_path(Context *ctx, const PortRef &begin, int path_length,
+                           delay_t slack)
 {
-
+    if (ctx->getPortClock(begin.cell, begin.port) != IdString()) {
+        return slack / path_length;
+    } else {
+        // ...
+    }
 }
+
+void assign_budget(Context *ctx, float default_clock)
+{
+    // TODO
+}
+
+NEXTPNR_NAMESPACE_END

@@ -22,7 +22,11 @@
 
 #include "nextpnr.h"
 
+NEXTPNR_NAMESPACE_BEGIN
+
 // Assign "budget" values for all user ports in the design
 void assign_budget(Context *ctx, float default_clock = 12e6);
 
-#endif TIMING_H
+NEXTPNR_NAMESPACE_END
+
+#endif
