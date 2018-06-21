@@ -41,6 +41,8 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+typedef int64_t wirelen_t;
+
 class SAPlacer
 {
   public:
@@ -143,7 +145,7 @@ class SAPlacer
         // Calculate wirelength after initial placement
         curr_wirelength = 0;
         for (auto net : ctx->nets) {
-            float wl = get_wirelength(net.second);
+            wirelen_t wl = get_wirelength(net.second);
             wirelengths[net.first] = wl;
             curr_wirelength += wl;
         }
@@ -159,7 +161,7 @@ class SAPlacer
 
             if (iter % 5 == 0 || iter == 1)
                 log_info("  at iteration #%d: temp = %f, wire length = %f\n",
-                         iter, temp, curr_wirelength);
+                         iter, temp, double(curr_wirelength));
 
             for (int m = 0; m < 15; ++m) {
                 // Loop through all automatically placed cells
@@ -182,7 +184,7 @@ class SAPlacer
                 if (iter % 5 != 0)
                     log_info(
                             "  at iteration #%d: temp = %f, wire length = %f\n",
-                            iter, temp, curr_wirelength);
+                            iter, temp, double(curr_wirelength));
                 break;
             }
 
@@ -217,7 +219,7 @@ class SAPlacer
             // accumulating over time
             curr_wirelength = 0;
             for (auto net : ctx->nets) {
-                float wl = get_wirelength(net.second);
+                wirelen_t wl = get_wirelength(net.second);
                 wirelengths[net.first] = wl;
                 curr_wirelength += wl;
             }
@@ -304,9 +306,9 @@ class SAPlacer
     }
 
     // Get the total estimated wirelength for a net
-    float get_wirelength(NetInfo *net)
+    wirelen_t get_wirelength(NetInfo *net)
     {
-        float wirelength = 0;
+        wirelen_t wirelength = 0;
         int driver_x, driver_y;
         bool driver_gb;
         CellInfo *driver_cell = net->driver.cell;
@@ -331,10 +333,11 @@ class SAPlacer
             // wirelength += std::abs(load_x - driver_x) + std::abs(load_y -
             // driver_y);
             delay_t raw_wl = ctx->estimateDelay(drv_wire, user_wire);
-            wirelength += pow(1.3, (ctx->getDelayNS(raw_wl) -
-                                    ctx->getDelayNS(load.budget)) /
-                                           10) +
-                          ctx->getDelayNS(raw_wl);
+            wirelength += wirelen_t((pow(1.3, (ctx->getDelayNS(raw_wl) -
+                                               ctx->getDelayNS(load.budget)) /
+                                                      10) +
+                                     ctx->getDelayNS(raw_wl)) *
+                                    10);
             // wirelength += pow(ctx->estimateDelay(drv_wire, user_wire), 2.0);
         }
         return wirelength;
@@ -344,13 +347,13 @@ class SAPlacer
     bool try_swap_position(CellInfo *cell, BelId newBel)
     {
         static std::unordered_set<NetInfo *> update;
-        static std::vector<std::pair<IdString, float>> new_lengths;
+        static std::vector<std::pair<IdString, wirelen_t>> new_lengths;
         new_lengths.clear();
         update.clear();
         BelId oldBel = cell->bel;
         IdString other = ctx->getBelCell(newBel, true);
         CellInfo *other_cell = nullptr;
-        float new_wirelength = 0, delta;
+        wirelen_t new_wirelength = 0, delta;
         ctx->unbindBel(oldBel);
         if (other != IdString()) {
             other_cell = ctx->cells[other];
@@ -390,7 +393,7 @@ class SAPlacer
         // Recalculate wirelengths for all nets touched by the peturbation
         for (auto net : update) {
             new_wirelength -= wirelengths.at(net->name);
-            float net_new_wl = get_wirelength(net);
+            wirelen_t net_new_wl = get_wirelength(net);
             new_wirelength += net_new_wl;
             new_lengths.push_back(std::make_pair(net->name, net_new_wl));
         }
@@ -400,7 +403,7 @@ class SAPlacer
         if (delta < 0 || (temp > 1e-6 && (ctx->rng() / float(0x3fffffff)) <=
                                                  std::exp(-delta / temp))) {
             n_accept++;
-            if (delta < 0)
+            if (delta < 2)
                 improved = true;
         } else {
             if (other != IdString())
@@ -450,8 +453,8 @@ class SAPlacer
     }
 
     Context *ctx;
-    std::unordered_map<IdString, float> wirelengths;
-    float curr_wirelength = std::numeric_limits<float>::infinity();
+    std::unordered_map<IdString, wirelen_t> wirelengths;
+    wirelen_t curr_wirelength = std::numeric_limits<wirelen_t>::max();
     float temp = 1000;
     bool improved = false;
     int n_move, n_accept;
