@@ -334,7 +334,7 @@ class SAPlacer
                     load_cell->bel, ctx->portPinFromId(load.port));
             delay_t raw_wl = ctx->estimateDelay(drv_wire, user_wire);
             float slack =
-                    ctx->getDelayNS(raw_wl) - ctx->getDelayNS(load.budget);
+                    ctx->getDelayNS(load.budget) - ctx->getDelayNS(raw_wl);
             worst_slack = std::min(slack, worst_slack);
             int load_x, load_y;
             bool load_gb;

@@ -101,7 +101,6 @@ void assign_budget(Context *ctx, float default_clock)
             }
         }
     }
-    const bool debug = true;
 
     // Post-allocation check
     for (auto net : ctx->nets) {
@@ -111,11 +110,11 @@ void assign_budget(Context *ctx, float default_clock)
                             "timing budget of %fns\n",
                             user.cell->name.c_str(ctx), user.port.c_str(ctx),
                             net.first.c_str(ctx), ctx->getDelayNS(user.budget));
-            if (debug)
-                log_warning("port %s.%s, connected to net '%s', has "
-                            "timing budget of %fns\n",
-                            user.cell->name.c_str(ctx), user.port.c_str(ctx),
-                            net.first.c_str(ctx), ctx->getDelayNS(user.budget));
+            if (ctx->verbose)
+                log_info("port %s.%s, connected to net '%s', has "
+                         "timing budget of %fns\n",
+                         user.cell->name.c_str(ctx), user.port.c_str(ctx),
+                         net.first.c_str(ctx), ctx->getDelayNS(user.budget));
         }
     }
 }

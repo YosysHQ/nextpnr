@@ -93,6 +93,8 @@ int main(int argc, char *argv[])
     options.add_options()("hx1k", "set device type to iCE40HX1K");
     options.add_options()("hx8k", "set device type to iCE40HX8K");
     options.add_options()("up5k", "set device type to iCE40UP5K");
+    options.add_options()("freq", po::value<double>(),
+                          "set target frequency for design in MHz");
     options.add_options()("package", po::value<std::string>(),
                           "set device package");
     po::positional_options_description pos;
@@ -286,7 +288,10 @@ int main(int argc, char *argv[])
 
         if (!pack_design(&ctx) && !ctx.force)
             log_error("Packing design failed.\n");
-        assign_budget(&ctx, 50e6);
+        double freq = 50e6;
+        if (vm.count("freq"))
+            freq = vm["freq"].as<double>() * 1e6;
+        assign_budget(&ctx, freq);
         print_utilisation(&ctx);
 
         if (!vm.count("pack-only")) {
