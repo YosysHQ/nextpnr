@@ -321,25 +321,33 @@ class SAPlacer
                 driver_cell->bel, ctx->portPinFromId(net->driver.port));
         if (driver_gb)
             return 0;
+        float worst_slack = 1000;
+        int xmin = driver_x, xmax = driver_x, ymin = driver_y, ymax = driver_y;
         for (auto load : net->users) {
             if (load.cell == nullptr)
                 continue;
             CellInfo *load_cell = load.cell;
             if (load_cell->bel == BelId())
                 continue;
-            // ctx->estimatePosition(load_cell->bel, load_x, load_y, load_gb);
+
             WireId user_wire = ctx->getWireBelPin(
                     load_cell->bel, ctx->portPinFromId(load.port));
-            // wirelength += std::abs(load_x - driver_x) + std::abs(load_y -
-            // driver_y);
             delay_t raw_wl = ctx->estimateDelay(drv_wire, user_wire);
-            wirelength += wirelen_t((pow(1.3, (ctx->getDelayNS(raw_wl) -
-                                               ctx->getDelayNS(load.budget)) /
-                                                      10) +
-                                     ctx->getDelayNS(raw_wl)) *
-                                    10);
-            // wirelength += pow(ctx->estimateDelay(drv_wire, user_wire), 2.0);
+            float slack =
+                    ctx->getDelayNS(raw_wl) - ctx->getDelayNS(load.budget);
+            worst_slack = std::min(slack, worst_slack);
+            int load_x, load_y;
+            bool load_gb;
+            ctx->estimatePosition(load_cell->bel, load_x, load_y, load_gb);
+            if (load_gb)
+                continue;
+            xmin = std::min(xmin, load_x);
+            ymin = std::min(ymin, load_y);
+            xmax = std::max(xmax, load_x);
+            ymax = std::max(ymax, load_y);
         }
+        wirelength = wirelen_t((((ymax - ymin) + (xmax - xmin)) *
+                                (1.0 + std::exp(-worst_slack / 5))));
         return wirelength;
     }
 
@@ -400,8 +408,9 @@ class SAPlacer
         delta = new_wirelength - curr_wirelength;
         n_move++;
         // SA acceptance criterea
-        if (delta < 0 || (temp > 1e-6 && (ctx->rng() / float(0x3fffffff)) <=
-                                                 std::exp(-delta / temp))) {
+        if (delta < 0 ||
+            (temp > 1e-6 && (ctx->rng() / float(0x3fffffff)) <=
+                                    std::exp(-(delta / 2) / temp))) {
             n_accept++;
             if (delta < 2)
                 improved = true;
