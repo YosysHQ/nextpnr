@@ -289,6 +289,7 @@ NEXTPNR_NAMESPACE_BEGIN
 struct Context : Arch
 {
     bool verbose = false;
+    bool debug = false;
     bool force = false;
 
     Context(ArchArgs args) : Arch(args) {}

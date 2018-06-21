@@ -69,6 +69,7 @@ int main(int argc, char *argv[])
     po::options_description options("Allowed options");
     options.add_options()("help,h", "show help");
     options.add_options()("verbose,v", "verbose output");
+    options.add_options()("debug", "debug output");
     options.add_options()("force,f", "keep running after errors");
     options.add_options()("gui", "start gui");
     options.add_options()("svg", "dump SVG file");
@@ -199,6 +200,11 @@ int main(int argc, char *argv[])
 
     if (vm.count("verbose")) {
         ctx.verbose = true;
+    }
+
+    if (vm.count("debug")) {
+        ctx.verbose = true;
+        ctx.debug = true;
     }
 
     if (vm.count("force")) {
