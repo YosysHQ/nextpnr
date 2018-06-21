@@ -150,12 +150,8 @@ void logv_error(const char *format, va_list ap)
 
 #ifdef EMSCRIPTEN
     log_files = backup_log_files;
-    throw 0;
-#elif defined(_MSC_VER)
-    _exit(EXIT_FAILURE);
-#else
-    _Exit(EXIT_FAILURE);
 #endif
+    throw log_execution_error_exception();
 }
 
 void log(const char *format, ...)

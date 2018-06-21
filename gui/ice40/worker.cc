@@ -1,13 +1,13 @@
 #include "worker.h"
 #include <fstream>
+#include "bitstream.h"
+#include "design_utils.h"
 #include "jsonparse.h"
 #include "log.h"
 #include "pack.h"
 #include "pcf.h"
 #include "place_sa.h"
 #include "route.h"
-#include "bitstream.h"
-#include "design_utils.h"
 #include "timing.h"
 
 Worker::Worker(Context *_ctx) : ctx(_ctx)
@@ -15,7 +15,7 @@ Worker::Worker(Context *_ctx) : ctx(_ctx)
     log_write_function = [this](std::string text) { Q_EMIT log(text); };
 }
 
-void Worker::parsejson(const std::string &filename) 
+void Worker::parsejson(const std::string &filename)
 {
     std::string fn = filename;
     std::ifstream f(fn);
@@ -35,8 +35,7 @@ void Worker::parsejson(const std::string &filename)
     Q_EMIT log("done");
 }
 
-
-TaskManager::TaskManager(Context *ctx) 
+TaskManager::TaskManager(Context *ctx)
 {
     Worker *worker = new Worker(ctx);
     worker->moveToThread(&workerThread);
@@ -46,13 +45,10 @@ TaskManager::TaskManager(Context *ctx)
     workerThread.start();
 }
 
-TaskManager::~TaskManager() 
+TaskManager::~TaskManager()
 {
     workerThread.quit();
     workerThread.wait();
 }
 
-void TaskManager::info(const std::string &result)
-{
-    Q_EMIT log(result);
-}
+void TaskManager::info(const std::string &result) { Q_EMIT log(result); }

@@ -60,276 +60,286 @@ void svg_dump_el(const GraphicElement &el)
 
 int main(int argc, char *argv[])
 {
-    namespace po = boost::program_options;
-    int rc = 0;
-    std::string str;
-
-    log_files.push_back(stdout);
-
-    po::options_description options("Allowed options");
-    options.add_options()("help,h", "show help");
-    options.add_options()("verbose,v", "verbose output");
-    options.add_options()("debug", "debug output");
-    options.add_options()("force,f", "keep running after errors");
-    options.add_options()("gui", "start gui");
-    options.add_options()("svg", "dump SVG file");
-    options.add_options()("pack-only",
-                          "pack design only without placement or routing");
-
-    options.add_options()("run", po::value<std::vector<std::string>>(),
-                          "python file to execute");
-    options.add_options()("json", po::value<std::string>(),
-                          "JSON design file to ingest");
-    options.add_options()("pcf", po::value<std::string>(),
-                          "PCF constraints file to ingest");
-    options.add_options()("asc", po::value<std::string>(),
-                          "asc bitstream file to write");
-    options.add_options()("seed", po::value<int>(),
-                          "seed value for random number generator");
-    options.add_options()("version,V", "show version");
-    options.add_options()("tmfuzz", "run path delay estimate fuzzer");
-    options.add_options()("lp384", "set device type to iCE40LP384");
-    options.add_options()("lp1k", "set device type to iCE40LP1K");
-    options.add_options()("lp8k", "set device type to iCE40LP8K");
-    options.add_options()("hx1k", "set device type to iCE40HX1K");
-    options.add_options()("hx8k", "set device type to iCE40HX8K");
-    options.add_options()("up5k", "set device type to iCE40UP5K");
-    options.add_options()("freq", po::value<double>(),
-                          "set target frequency for design in MHz");
-    options.add_options()("package", po::value<std::string>(),
-                          "set device package");
-    po::positional_options_description pos;
-    pos.add("run", -1);
-
-    po::variables_map vm;
     try {
-        po::parsed_options parsed = po::command_line_parser(argc, argv)
-                                            .options(options)
-                                            .positional(pos)
-                                            .run();
+        namespace po = boost::program_options;
+        int rc = 0;
+        std::string str;
 
-        po::store(parsed, vm);
+        log_files.push_back(stdout);
 
-        po::notify(vm);
-    }
+        po::options_description options("Allowed options");
+        options.add_options()("help,h", "show help");
+        options.add_options()("verbose,v", "verbose output");
+        options.add_options()("debug", "debug output");
+        options.add_options()("force,f", "keep running after errors");
+        options.add_options()("gui", "start gui");
+        options.add_options()("svg", "dump SVG file");
+        options.add_options()("pack-only",
+                              "pack design only without placement or routing");
 
-    catch (std::exception &e) {
-        std::cout << e.what() << "\n";
-        return 1;
-    }
+        options.add_options()("run", po::value<std::vector<std::string>>(),
+                              "python file to execute");
+        options.add_options()("json", po::value<std::string>(),
+                              "JSON design file to ingest");
+        options.add_options()("pcf", po::value<std::string>(),
+                              "PCF constraints file to ingest");
+        options.add_options()("asc", po::value<std::string>(),
+                              "asc bitstream file to write");
+        options.add_options()("seed", po::value<int>(),
+                              "seed value for random number generator");
+        options.add_options()("version,V", "show version");
+        options.add_options()("tmfuzz", "run path delay estimate fuzzer");
+        options.add_options()("lp384", "set device type to iCE40LP384");
+        options.add_options()("lp1k", "set device type to iCE40LP1K");
+        options.add_options()("lp8k", "set device type to iCE40LP8K");
+        options.add_options()("hx1k", "set device type to iCE40HX1K");
+        options.add_options()("hx8k", "set device type to iCE40HX8K");
+        options.add_options()("up5k", "set device type to iCE40UP5K");
+        options.add_options()("freq", po::value<double>(),
+                              "set target frequency for design in MHz");
+        options.add_options()("package", po::value<std::string>(),
+                              "set device package");
+        po::positional_options_description pos;
+        pos.add("run", -1);
 
-    if (vm.count("help") || argc == 1) {
-    help:
-        std::cout << boost::filesystem::basename(argv[0])
-                  << " -- Next Generation Place and Route (git "
-                     "sha1 " GIT_COMMIT_HASH_STR ")\n";
-        std::cout << "\n";
-        std::cout << options << "\n";
-        return argc != 1;
-    }
+        po::variables_map vm;
+        try {
+            po::parsed_options parsed = po::command_line_parser(argc, argv)
+                                                .options(options)
+                                                .positional(pos)
+                                                .run();
 
-    if (vm.count("version")) {
-        std::cout << boost::filesystem::basename(argv[0])
-                  << " -- Next Generation Place and Route (git "
-                     "sha1 " GIT_COMMIT_HASH_STR ")\n";
-        return 1;
-    }
+            po::store(parsed, vm);
 
-    ArchArgs chipArgs;
+            po::notify(vm);
+        }
 
-    if (vm.count("lp384")) {
-        if (chipArgs.type != ArchArgs::NONE)
-            goto help;
-        chipArgs.type = ArchArgs::LP384;
-        chipArgs.package = "qn32";
-    }
+        catch (std::exception &e) {
+            std::cout << e.what() << "\n";
+            return 1;
+        }
 
-    if (vm.count("lp1k")) {
-        if (chipArgs.type != ArchArgs::NONE)
-            goto help;
-        chipArgs.type = ArchArgs::LP1K;
-        chipArgs.package = "tq144";
-    }
+        if (vm.count("help") || argc == 1) {
+        help:
+            std::cout << boost::filesystem::basename(argv[0])
+                      << " -- Next Generation Place and Route (git "
+                         "sha1 " GIT_COMMIT_HASH_STR ")\n";
+            std::cout << "\n";
+            std::cout << options << "\n";
+            return argc != 1;
+        }
 
-    if (vm.count("lp8k")) {
-        if (chipArgs.type != ArchArgs::NONE)
-            goto help;
-        chipArgs.type = ArchArgs::LP8K;
-        chipArgs.package = "ct256";
-    }
+        if (vm.count("version")) {
+            std::cout << boost::filesystem::basename(argv[0])
+                      << " -- Next Generation Place and Route (git "
+                         "sha1 " GIT_COMMIT_HASH_STR ")\n";
+            return 1;
+        }
 
-    if (vm.count("hx1k")) {
-        if (chipArgs.type != ArchArgs::NONE)
-            goto help;
-        chipArgs.type = ArchArgs::HX1K;
-        chipArgs.package = "tq144";
-    }
+        ArchArgs chipArgs;
 
-    if (vm.count("hx8k")) {
-        if (chipArgs.type != ArchArgs::NONE)
-            goto help;
-        chipArgs.type = ArchArgs::HX8K;
-        chipArgs.package = "ct256";
-    }
+        if (vm.count("lp384")) {
+            if (chipArgs.type != ArchArgs::NONE)
+                goto help;
+            chipArgs.type = ArchArgs::LP384;
+            chipArgs.package = "qn32";
+        }
 
-    if (vm.count("up5k")) {
-        if (chipArgs.type != ArchArgs::NONE)
-            goto help;
-        chipArgs.type = ArchArgs::UP5K;
-        chipArgs.package = "sg48";
-    }
+        if (vm.count("lp1k")) {
+            if (chipArgs.type != ArchArgs::NONE)
+                goto help;
+            chipArgs.type = ArchArgs::LP1K;
+            chipArgs.package = "tq144";
+        }
 
-    if (chipArgs.type == ArchArgs::NONE) {
-        chipArgs.type = ArchArgs::HX1K;
-        chipArgs.package = "tq144";
-    }
+        if (vm.count("lp8k")) {
+            if (chipArgs.type != ArchArgs::NONE)
+                goto help;
+            chipArgs.type = ArchArgs::LP8K;
+            chipArgs.package = "ct256";
+        }
+
+        if (vm.count("hx1k")) {
+            if (chipArgs.type != ArchArgs::NONE)
+                goto help;
+            chipArgs.type = ArchArgs::HX1K;
+            chipArgs.package = "tq144";
+        }
+
+        if (vm.count("hx8k")) {
+            if (chipArgs.type != ArchArgs::NONE)
+                goto help;
+            chipArgs.type = ArchArgs::HX8K;
+            chipArgs.package = "ct256";
+        }
+
+        if (vm.count("up5k")) {
+            if (chipArgs.type != ArchArgs::NONE)
+                goto help;
+            chipArgs.type = ArchArgs::UP5K;
+            chipArgs.package = "sg48";
+        }
+
+        if (chipArgs.type == ArchArgs::NONE) {
+            chipArgs.type = ArchArgs::HX1K;
+            chipArgs.package = "tq144";
+        }
 #ifdef ICE40_HX1K_ONLY
-    if (chipArgs.type != ArchArgs::HX1K) {
-        std::cout << "This version of nextpnr-ice40 is built with HX1K-support "
-                     "only.\n";
-        return 1;
-    }
+        if (chipArgs.type != ArchArgs::HX1K) {
+            std::cout << "This version of nextpnr-ice40 is built with "
+                         "HX1K-support "
+                         "only.\n";
+            return 1;
+        }
 #endif
 
-    if (vm.count("package"))
-        chipArgs.package = vm["package"].as<std::string>();
+        if (vm.count("package"))
+            chipArgs.package = vm["package"].as<std::string>();
 
-    Context ctx(chipArgs);
-    init_python(argv[0]);
-    python_export_global("ctx", ctx);
+        Context ctx(chipArgs);
+        init_python(argv[0]);
+        python_export_global("ctx", ctx);
 
-    if (vm.count("verbose")) {
-        ctx.verbose = true;
-    }
+        if (vm.count("verbose")) {
+            ctx.verbose = true;
+        }
 
-    if (vm.count("debug")) {
-        ctx.verbose = true;
-        ctx.debug = true;
-    }
+        if (vm.count("debug")) {
+            ctx.verbose = true;
+            ctx.debug = true;
+        }
 
-    if (vm.count("force")) {
-        ctx.force = true;
-    }
+        if (vm.count("force")) {
+            ctx.force = true;
+        }
 
-    if (vm.count("seed")) {
-        ctx.rngseed(vm["seed"].as<int>());
-    }
+        if (vm.count("seed")) {
+            ctx.rngseed(vm["seed"].as<int>());
+        }
 
-    if (vm.count("svg")) {
-        std::cout << "<svg xmlns=\"http://www.w3.org/2000/svg\" "
-                     "xmlns:xlink=\"http://www.w3.org/1999/xlink\">\n";
-        for (auto bel : ctx.getBels()) {
-            std::cout << "<!-- " << ctx.getBelName(bel).str(&ctx) << " -->\n";
-            for (auto &el : ctx.getBelGraphics(bel))
+        if (vm.count("svg")) {
+            std::cout << "<svg xmlns=\"http://www.w3.org/2000/svg\" "
+                         "xmlns:xlink=\"http://www.w3.org/1999/xlink\">\n";
+            for (auto bel : ctx.getBels()) {
+                std::cout << "<!-- " << ctx.getBelName(bel).str(&ctx)
+                          << " -->\n";
+                for (auto &el : ctx.getBelGraphics(bel))
+                    svg_dump_el(el);
+            }
+            std::cout << "<!-- Frame -->\n";
+            for (auto &el : ctx.getFrameGraphics())
                 svg_dump_el(el);
+            std::cout << "</svg>\n";
         }
-        std::cout << "<!-- Frame -->\n";
-        for (auto &el : ctx.getFrameGraphics())
-            svg_dump_el(el);
-        std::cout << "</svg>\n";
-    }
 
-    if (vm.count("tmfuzz")) {
-        std::vector<WireId> src_wires, dst_wires;
+        if (vm.count("tmfuzz")) {
+            std::vector<WireId> src_wires, dst_wires;
 
-        /*for (auto w : ctx.getWires())
-            src_wires.push_back(w);*/
-        for (auto b : ctx.getBels()) {
-            if (ctx.getBelType(b) == TYPE_ICESTORM_LC) {
-                src_wires.push_back(ctx.getWireBelPin(b, PIN_O));
+            /*for (auto w : ctx.getWires())
+                src_wires.push_back(w);*/
+            for (auto b : ctx.getBels()) {
+                if (ctx.getBelType(b) == TYPE_ICESTORM_LC) {
+                    src_wires.push_back(ctx.getWireBelPin(b, PIN_O));
+                }
+                if (ctx.getBelType(b) == TYPE_SB_IO) {
+                    src_wires.push_back(ctx.getWireBelPin(b, PIN_D_IN_0));
+                }
             }
-            if (ctx.getBelType(b) == TYPE_SB_IO) {
-                src_wires.push_back(ctx.getWireBelPin(b, PIN_D_IN_0));
+
+            for (auto b : ctx.getBels()) {
+                if (ctx.getBelType(b) == TYPE_ICESTORM_LC) {
+                    dst_wires.push_back(ctx.getWireBelPin(b, PIN_I0));
+                    dst_wires.push_back(ctx.getWireBelPin(b, PIN_I1));
+                    dst_wires.push_back(ctx.getWireBelPin(b, PIN_I2));
+                    dst_wires.push_back(ctx.getWireBelPin(b, PIN_I3));
+                    dst_wires.push_back(ctx.getWireBelPin(b, PIN_CEN));
+                    dst_wires.push_back(ctx.getWireBelPin(b, PIN_CIN));
+                }
+                if (ctx.getBelType(b) == TYPE_SB_IO) {
+                    dst_wires.push_back(ctx.getWireBelPin(b, PIN_D_OUT_0));
+                    dst_wires.push_back(
+                            ctx.getWireBelPin(b, PIN_OUTPUT_ENABLE));
+                }
+            }
+
+            ctx.shuffle(src_wires);
+            ctx.shuffle(dst_wires);
+
+            for (int i = 0;
+                 i < int(src_wires.size()) && i < int(dst_wires.size()); i++) {
+                delay_t actual_delay;
+                WireId src = src_wires[i], dst = dst_wires[i];
+                if (!get_actual_route_delay(&ctx, src, dst, actual_delay))
+                    continue;
+                printf("%s %s %.3f %.3f %d %d %d %d %d %d\n",
+                       ctx.getWireName(src).c_str(&ctx),
+                       ctx.getWireName(dst).c_str(&ctx),
+                       ctx.getDelayNS(actual_delay),
+                       ctx.getDelayNS(ctx.estimateDelay(src, dst)),
+                       ctx.chip_info->wire_data[src.index].x,
+                       ctx.chip_info->wire_data[src.index].y,
+                       ctx.chip_info->wire_data[src.index].type,
+                       ctx.chip_info->wire_data[dst.index].x,
+                       ctx.chip_info->wire_data[dst.index].y,
+                       ctx.chip_info->wire_data[dst.index].type);
             }
         }
 
-        for (auto b : ctx.getBels()) {
-            if (ctx.getBelType(b) == TYPE_ICESTORM_LC) {
-                dst_wires.push_back(ctx.getWireBelPin(b, PIN_I0));
-                dst_wires.push_back(ctx.getWireBelPin(b, PIN_I1));
-                dst_wires.push_back(ctx.getWireBelPin(b, PIN_I2));
-                dst_wires.push_back(ctx.getWireBelPin(b, PIN_I3));
-                dst_wires.push_back(ctx.getWireBelPin(b, PIN_CEN));
-                dst_wires.push_back(ctx.getWireBelPin(b, PIN_CIN));
+        if (vm.count("json")) {
+            std::string filename = vm["json"].as<std::string>();
+            std::ifstream f(filename);
+            parse_json_file(f, filename, &ctx);
+
+            if (vm.count("pcf")) {
+                std::ifstream pcf(vm["pcf"].as<std::string>());
+                apply_pcf(&ctx, pcf);
             }
-            if (ctx.getBelType(b) == TYPE_SB_IO) {
-                dst_wires.push_back(ctx.getWireBelPin(b, PIN_D_OUT_0));
-                dst_wires.push_back(ctx.getWireBelPin(b, PIN_OUTPUT_ENABLE));
+
+            if (!pack_design(&ctx) && !ctx.force)
+                log_error("Packing design failed.\n");
+            double freq = 50e6;
+            if (vm.count("freq"))
+                freq = vm["freq"].as<double>() * 1e6;
+            assign_budget(&ctx, freq);
+            print_utilisation(&ctx);
+
+            if (!vm.count("pack-only")) {
+                if (!place_design_sa(&ctx) && !ctx.force)
+                    log_error("Placing design failed.\n");
+                if (!route_design(&ctx) && !ctx.force)
+                    log_error("Routing design failed.\n");
             }
         }
 
-        ctx.shuffle(src_wires);
-        ctx.shuffle(dst_wires);
-
-        for (int i = 0; i < int(src_wires.size()) && i < int(dst_wires.size());
-             i++) {
-            delay_t actual_delay;
-            WireId src = src_wires[i], dst = dst_wires[i];
-            if (!get_actual_route_delay(&ctx, src, dst, actual_delay))
-                continue;
-            printf("%s %s %.3f %.3f %d %d %d %d %d %d\n",
-                   ctx.getWireName(src).c_str(&ctx),
-                   ctx.getWireName(dst).c_str(&ctx),
-                   ctx.getDelayNS(actual_delay),
-                   ctx.getDelayNS(ctx.estimateDelay(src, dst)),
-                   ctx.chip_info->wire_data[src.index].x,
-                   ctx.chip_info->wire_data[src.index].y,
-                   ctx.chip_info->wire_data[src.index].type,
-                   ctx.chip_info->wire_data[dst.index].x,
-                   ctx.chip_info->wire_data[dst.index].y,
-                   ctx.chip_info->wire_data[dst.index].type);
-        }
-    }
-
-    if (vm.count("json")) {
-        std::string filename = vm["json"].as<std::string>();
-        std::ifstream f(filename);
-
-        parse_json_file(f, filename, &ctx);
-
-        if (vm.count("pcf")) {
-            std::ifstream pcf(vm["pcf"].as<std::string>());
-            apply_pcf(&ctx, pcf);
+        if (vm.count("asc")) {
+            std::string filename = vm["asc"].as<std::string>();
+            std::ofstream f(filename);
+            write_asc(&ctx, f);
         }
 
-        if (!pack_design(&ctx) && !ctx.force)
-            log_error("Packing design failed.\n");
-        double freq = 50e6;
-        if (vm.count("freq"))
-            freq = vm["freq"].as<double>() * 1e6;
-        assign_budget(&ctx, freq);
-        print_utilisation(&ctx);
-
-        if (!vm.count("pack-only")) {
-            if (!place_design_sa(&ctx) && !ctx.force)
-                log_error("Placing design failed.\n");
-            if (!route_design(&ctx) && !ctx.force)
-                log_error("Routing design failed.\n");
+        if (vm.count("run")) {
+            std::vector<std::string> files =
+                    vm["run"].as<std::vector<std::string>>();
+            for (auto filename : files)
+                execute_python_file(filename.c_str());
         }
-    }
 
-    if (vm.count("asc")) {
-        std::string filename = vm["asc"].as<std::string>();
-        std::ofstream f(filename);
-        write_asc(&ctx, f);
-    }
+        if (vm.count("gui")) {
+            QApplication a(argc, argv);
+            MainWindow w(&ctx);
+            w.show();
 
-    if (vm.count("run")) {
-        std::vector<std::string> files =
-                vm["run"].as<std::vector<std::string>>();
-        for (auto filename : files)
-            execute_python_file(filename.c_str());
+            rc = a.exec();
+        }
+        deinit_python();
+        return rc;
+    } catch (log_execution_error_exception) {
+#if defined(_MSC_VER)
+        _exit(EXIT_FAILURE);
+#else
+        _Exit(EXIT_FAILURE);
+#endif
     }
-
-    if (vm.count("gui")) {
-        QApplication a(argc, argv);
-        MainWindow w(&ctx);
-        w.show();
-
-        rc = a.exec();
-    }
-    deinit_python();
-    return rc;
 }
 
 #endif

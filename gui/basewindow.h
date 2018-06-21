@@ -30,7 +30,7 @@ class BaseMainWindow : public QMainWindow
 
   protected Q_SLOTS:
     void writeInfo(std::string text);
-    
+
     virtual void open() = 0;
     virtual bool save() = 0;
 

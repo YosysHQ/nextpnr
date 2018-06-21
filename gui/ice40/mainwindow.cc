@@ -20,8 +20,7 @@ MainWindow::MainWindow(Context *_ctx, QWidget *parent)
     createMenu();
 
     task = new TaskManager(_ctx);
-    connect(task, SIGNAL(log(std::string)), this,
-            SLOT(writeInfo(std::string)));
+    connect(task, SIGNAL(log(std::string)), this, SLOT(writeInfo(std::string)));
 }
 
 MainWindow::~MainWindow() {}
@@ -43,7 +42,4 @@ void MainWindow::open()
         task->parsejson(fn);
     }
 }
-bool MainWindow::save()
-{
-    return false;
-}
+bool MainWindow::save() { return false; }

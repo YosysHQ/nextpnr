@@ -19,7 +19,7 @@ class MainWindow : public BaseMainWindow
 
   protected Q_SLOTS:
     virtual void open();
-    virtual bool save();    
+    virtual bool save();
 };
 
 #endif // MAINWINDOW_H
