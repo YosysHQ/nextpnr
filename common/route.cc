@@ -129,12 +129,13 @@ struct Router
         int thisVisitCnt = 0;
         int thisVisitCntLimit = 0;
 
-        while (!queue.empty() && (thisVisitCntLimit == 0 || thisVisitCnt < thisVisitCntLimit)) {
+        while (!queue.empty() &&
+               (thisVisitCntLimit == 0 || thisVisitCnt < thisVisitCntLimit)) {
             QueuedWire qw = queue.top();
             queue.pop();
 
             if (thisVisitCntLimit == 0 && visited.count(dst_wire))
-                thisVisitCntLimit = (thisVisitCnt*3)/2;
+                thisVisitCntLimit = (thisVisitCnt * 3) / 2;
 
             for (auto pip : ctx->getPipsDownhill(qw.wire)) {
                 delay_t next_delay =
@@ -500,7 +501,8 @@ bool route_design(Context *ctx)
             if (ctx->verbose)
                 log_info("-- %d --\n", iterCnt);
 
-            int visitCnt = 0, revisitCnt = 0, overtimeRevisitCnt = 0, netCnt = 0;
+            int visitCnt = 0, revisitCnt = 0, overtimeRevisitCnt = 0,
+                netCnt = 0;
 
             std::unordered_set<IdString> ripupQueue;
 
@@ -549,8 +551,10 @@ bool route_design(Context *ctx)
                          netCnt, normalRouteCnt, int(ripupQueue.size()));
 
             if (ctx->verbose)
-                log_info("  visited %d PIPs (%.2f%% revisits, %.2f%% overtime revisits).\n",
-                         visitCnt, (100.0 * revisitCnt) / visitCnt, (100.0 * overtimeRevisitCnt) / visitCnt);
+                log_info("  visited %d PIPs (%.2f%% revisits, %.2f%% overtime "
+                         "revisits).\n",
+                         visitCnt, (100.0 * revisitCnt) / visitCnt,
+                         (100.0 * overtimeRevisitCnt) / visitCnt);
 
             if (!ripupQueue.empty()) {
                 if (ctx->verbose || iterCnt == 1)
@@ -616,8 +620,10 @@ bool route_design(Context *ctx)
                              ripCnt);
 
                 if (ctx->verbose)
-                    log_info("  visited %d PIPs (%.2f%% revisits, %.2f%% overtime revisits).\n",
-                             visitCnt, (100.0 * revisitCnt) / visitCnt, (100.0 * overtimeRevisitCnt) / visitCnt);
+                    log_info("  visited %d PIPs (%.2f%% revisits, %.2f%% "
+                             "overtime revisits).\n",
+                             visitCnt, (100.0 * revisitCnt) / visitCnt,
+                             (100.0 * overtimeRevisitCnt) / visitCnt);
 
                 if (ctx->verbose && !netsQueue.empty())
                     log_info("  ripped up %d previously routed nets. continue "

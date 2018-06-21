@@ -66,8 +66,7 @@ uint32_t Context::checksum() const
     uint32_t cksum = xorshift32(123456789);
 
     uint32_t cksum_nets_sum = 0;
-    for (auto &it : nets)
-    {
+    for (auto &it : nets) {
         auto &ni = *it.second;
         uint32_t x = 123456789;
         x = xorshift32(x + xorshift32(it.first.index));
@@ -117,8 +116,7 @@ uint32_t Context::checksum() const
     cksum = xorshift32(cksum + xorshift32(cksum_nets_sum));
 
     uint32_t cksum_cells_sum = 0;
-    for (auto &it : cells)
-    {
+    for (auto &it : cells) {
         auto &ci = *it.second;
         uint32_t x = 123456789;
         x = xorshift32(x + xorshift32(it.first.index));
@@ -131,7 +129,8 @@ uint32_t Context::checksum() const
             port_x = xorshift32(port_x + xorshift32(p.first.index));
             port_x = xorshift32(port_x + xorshift32(p.second.name.index));
             if (p.second.net)
-                port_x = xorshift32(port_x + xorshift32(p.second.net->name.index));
+                port_x = xorshift32(port_x +
+                                    xorshift32(p.second.net->name.index));
             port_x = xorshift32(port_x + xorshift32(p.second.type));
             port_x_sum += port_x;
         }
