@@ -408,6 +408,7 @@ NEXTPNR_NAMESPACE_BEGIN
 bool route_design(Context *ctx)
 {
     try {
+        int totalVisitCnt = 0, totalRevisitCnt = 0, totalOvertimeRevisitCnt = 0;
         delay_t ripup_penalty = ctx->getRipupDelayPenalty();
         RipupScoreboard scores;
 
@@ -637,12 +638,22 @@ bool route_design(Context *ctx)
                         "nets with ripup.\n",
                         iterCnt, normalRouteCnt, int(ripupQueue.size()));
 
+            totalVisitCnt += visitCnt;
+            totalRevisitCnt += revisitCnt;
+            totalOvertimeRevisitCnt += overtimeRevisitCnt;
+
             if (iterCnt == 8 || iterCnt == 16 || iterCnt == 32 ||
                 iterCnt == 64 || iterCnt == 128)
                 ripup_penalty += ctx->getRipupDelayPenalty();
         }
 
         log_info("routing complete after %d iterations.\n", iterCnt);
+
+        log_info("visited %d PIPs (%.2f%% revisits, %.2f%% "
+                 "overtime revisits).\n",
+                 totalVisitCnt, (100.0 * totalRevisitCnt) / totalVisitCnt,
+                 (100.0 * totalOvertimeRevisitCnt) / totalVisitCnt);
+
         log_info("Checksum: 0x%08x\n", ctx->checksum());
         return true;
     } catch (log_execution_error_exception) {
