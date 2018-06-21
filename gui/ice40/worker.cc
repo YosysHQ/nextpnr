@@ -18,7 +18,7 @@ Worker::Worker(Context *_ctx) : ctx(_ctx)
 void Worker::parsejson(const std::string &filename) 
 {
     std::string fn = filename;
-    std::istream *f = new std::ifstream(fn);
+    std::ifstream f(fn);
 
     parse_json_file(f, fn, ctx);
     if (!pack_design(ctx))

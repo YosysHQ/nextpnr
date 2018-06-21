@@ -283,7 +283,7 @@ int main(int argc, char *argv[])
 
     if (vm.count("json")) {
         std::string filename = vm["json"].as<std::string>();
-        std::istream *f = new std::ifstream(filename);
+        std::ifstream f(filename);
 
         parse_json_file(f, filename, &ctx);
 

@@ -102,7 +102,7 @@ PipId Arch::getPipByName(IdString name) const { return PipId(); }
 
 IdString Arch::getPipName(PipId pip) const { return IdString(); }
 
-uint32_t Arch::getWireChecksum(WireId wire) const { return 0; }
+uint32_t Arch::getPipChecksum(PipId wire) const { return 0; }
 
 void Arch::bindPip(PipId pip, IdString net) {}
 

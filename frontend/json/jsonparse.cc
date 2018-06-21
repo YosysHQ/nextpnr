@@ -795,39 +795,26 @@ void json_import(Context *ctx, string modname, JsonNode *node)
     }
     check_all_nets_driven(ctx);
 }
-
-struct JsonFrontend
-{
-    // JsonFrontend() : Frontend("json", "read JSON file") { }
-    JsonFrontend(void) {}
-    virtual void help() {}
-    virtual void execute(std::istream *&f, std::string &filename, Context *ctx)
-    {
-        // log_header(ctx, "Executing JSON frontend.\n");
-
-        JsonNode root(*f);
-
-        if (root.type != 'D')
-            log_error("JSON root node is not a dictionary.\n");
-
-        if (root.data_dict.count("modules") != 0) {
-            JsonNode *modules = root.data_dict.at("modules");
-
-            if (modules->type != 'D')
-                log_error("JSON modules node is not a dictionary.\n");
-
-            for (auto &it : modules->data_dict)
-                json_import(ctx, it.first, it.second);
-        }
-    }
-}; // JsonFrontend;
-
 }; // End Namespace JsonParser
 
-void parse_json_file(std::istream *&f, std::string &filename, Context *ctx)
+void parse_json_file(std::istream &f, std::string &filename, Context *ctx)
 {
-    auto *parser = new JsonParser::JsonFrontend();
-    parser->execute(f, filename, ctx);
+    using namespace JsonParser;
+
+    JsonNode root(f);
+
+    if (root.type != 'D')
+        log_error("JSON root node is not a dictionary.\n");
+
+    if (root.data_dict.count("modules") != 0) {
+        JsonNode *modules = root.data_dict.at("modules");
+
+        if (modules->type != 'D')
+            log_error("JSON modules node is not a dictionary.\n");
+
+        for (auto &it : modules->data_dict)
+            json_import(ctx, it.first, it.second);
+    }
 
     log_info("Checksum: 0x%08x\n", ctx->checksum());
     log_break();
