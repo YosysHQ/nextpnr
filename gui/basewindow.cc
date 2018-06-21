@@ -57,7 +57,11 @@ BaseMainWindow::BaseMainWindow(Context *_ctx, QWidget *parent)
     tabWidget->addTab(new PythonTab(), "Python");
     info = new InfoTab();
     tabWidget->addTab(info, "Info");
-    splitter_v->addWidget(new FPGAViewWidget());
+
+    centralTabWidget = new QTabWidget();
+    centralTabWidget->addTab(new FPGAViewWidget(), "Graphics");
+
+    splitter_v->addWidget(centralTabWidget);
     splitter_v->addWidget(tabWidget);
 }
 

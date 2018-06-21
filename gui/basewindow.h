@@ -34,6 +34,7 @@ class BaseMainWindow : public QMainWindow
   protected:
     Context *ctx;
     QTabWidget *tabWidget;
+    QTabWidget *centralTabWidget;
     InfoTab *info;
 
     QMenuBar *menuBar;
