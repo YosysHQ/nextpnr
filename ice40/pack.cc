@@ -487,12 +487,14 @@ static void promote_globals(Context *ctx)
 // Main pack function
 bool pack_design(Context *ctx)
 {
+    log_break();
     pack_constants(ctx);
     promote_globals(ctx);
     pack_io(ctx);
     pack_lut_lutffs(ctx);
     pack_nonlut_ffs(ctx);
     pack_ram(ctx);
+    log_info("Checksum: 0x%08x\n", ctx->checksum());
     return true;
 }
 

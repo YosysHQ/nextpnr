@@ -53,4 +53,127 @@ void IdString::initialize_add(const BaseCtx *ctx, const char *s, int idx)
     ctx->idstring_idx_to_str->push_back(&insert_rc.first->first);
 }
 
+static uint32_t xorshift32(uint32_t x)
+{
+    x ^= x << 13;
+    x ^= x >> 17;
+    x ^= x << 5;
+    return x;
+}
+
+uint32_t Context::checksum() const
+{
+    uint32_t cksum = xorshift32(123456789);
+
+    uint32_t cksum_nets_sum = 0;
+    for (auto &it : nets)
+    {
+        auto &ni = *it.second;
+        uint32_t x = 123456789;
+        x = xorshift32(x + xorshift32(it.first.index));
+        x = xorshift32(x + xorshift32(ni.name.index));
+        if (ni.driver.cell)
+            x = xorshift32(x + xorshift32(ni.driver.cell->name.index));
+        x = xorshift32(x + xorshift32(ni.driver.port.index));
+        x = xorshift32(x + xorshift32(getDelayChecksum(ni.driver.budget)));
+
+        for (auto &u : ni.users) {
+            if (u.cell)
+                x = xorshift32(x + xorshift32(u.cell->name.index));
+            x = xorshift32(x + xorshift32(u.port.index));
+            x = xorshift32(x + xorshift32(getDelayChecksum(u.budget)));
+        }
+
+        uint32_t attr_x_sum = 0;
+        for (auto &a : ni.attrs) {
+            uint32_t attr_x = 123456789;
+            attr_x = xorshift32(attr_x + xorshift32(a.first.index));
+            for (uint8_t ch : a.second)
+                attr_x = xorshift32(attr_x + xorshift32(ch));
+            attr_x_sum += attr_x;
+        }
+        x = xorshift32(x + xorshift32(attr_x_sum));
+
+        uint32_t wire_x_sum = 0;
+        for (auto &w : ni.wires) {
+            uint32_t wire_x = 123456789;
+            wire_x = xorshift32(wire_x + xorshift32(getWireChecksum(w.first)));
+            wire_x = xorshift32(wire_x + xorshift32(getPipChecksum(w.second)));
+            wire_x_sum += wire_x;
+        }
+        x = xorshift32(x + xorshift32(wire_x_sum));
+
+        uint32_t pip_x_sum = 0;
+        for (auto &p : ni.pips) {
+            uint32_t pip_x = 123456789;
+            pip_x = xorshift32(pip_x + xorshift32(getPipChecksum(p.first)));
+            pip_x = xorshift32(pip_x + xorshift32(p.second));
+            pip_x_sum += pip_x;
+        }
+        x = xorshift32(x + xorshift32(pip_x_sum));
+
+        cksum_nets_sum += x;
+    }
+    cksum = xorshift32(cksum + xorshift32(cksum_nets_sum));
+
+    uint32_t cksum_cells_sum = 0;
+    for (auto &it : cells)
+    {
+        auto &ci = *it.second;
+        uint32_t x = 123456789;
+        x = xorshift32(x + xorshift32(it.first.index));
+        x = xorshift32(x + xorshift32(ci.name.index));
+        x = xorshift32(x + xorshift32(ci.type.index));
+
+        uint32_t port_x_sum = 0;
+        for (auto &p : ci.ports) {
+            uint32_t port_x = 123456789;
+            port_x = xorshift32(port_x + xorshift32(p.first.index));
+            port_x = xorshift32(port_x + xorshift32(p.second.name.index));
+            if (p.second.net)
+                port_x = xorshift32(port_x + xorshift32(p.second.net->name.index));
+            port_x = xorshift32(port_x + xorshift32(p.second.type));
+            port_x_sum += port_x;
+        }
+        x = xorshift32(x + xorshift32(port_x_sum));
+
+        uint32_t attr_x_sum = 0;
+        for (auto &a : ci.attrs) {
+            uint32_t attr_x = 123456789;
+            attr_x = xorshift32(attr_x + xorshift32(a.first.index));
+            for (uint8_t ch : a.second)
+                attr_x = xorshift32(attr_x + xorshift32(ch));
+            attr_x_sum += attr_x;
+        }
+        x = xorshift32(x + xorshift32(attr_x_sum));
+
+        uint32_t param_x_sum = 0;
+        for (auto &p : ci.params) {
+            uint32_t param_x = 123456789;
+            param_x = xorshift32(param_x + xorshift32(p.first.index));
+            for (uint8_t ch : p.second)
+                param_x = xorshift32(param_x + xorshift32(ch));
+            param_x_sum += param_x;
+        }
+        x = xorshift32(x + xorshift32(param_x_sum));
+
+        x = xorshift32(x + xorshift32(getBelChecksum(ci.bel)));
+        x = xorshift32(x + xorshift32(ci.belStrength));
+
+        uint32_t pin_x_sum = 0;
+        for (auto &a : ci.pins) {
+            uint32_t pin_x = 123456789;
+            pin_x = xorshift32(pin_x + xorshift32(a.first.index));
+            pin_x = xorshift32(pin_x + xorshift32(a.second.index));
+            pin_x_sum += pin_x;
+        }
+        x = xorshift32(x + xorshift32(pin_x_sum));
+
+        cksum_cells_sum += x;
+    }
+    cksum = xorshift32(cksum + xorshift32(cksum_cells_sum));
+
+    return cksum;
+}
+
 NEXTPNR_NAMESPACE_END

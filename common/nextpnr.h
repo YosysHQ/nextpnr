@@ -302,10 +302,14 @@ struct Context : Arch
     {
         // xorshift64star
         // https://arxiv.org/abs/1402.6246
+
+        uint64_t retval = rngstate * 0x2545F4914F6CDD1D;
+
         rngstate ^= rngstate >> 12;
         rngstate ^= rngstate << 25;
         rngstate ^= rngstate >> 27;
-        return rngstate * 0x2545F4914F6CDD1D;
+
+        return retval;
     }
 
     int rng() { return rng64() & 0x3fffffff; }
@@ -351,6 +355,8 @@ struct Context : Arch
         std::sort(a.begin(), a.end());
         shuffle(a);
     }
+
+    uint32_t checksum() const;
 };
 
 NEXTPNR_NAMESPACE_END

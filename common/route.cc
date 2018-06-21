@@ -480,6 +480,7 @@ bool route_design(Context *ctx)
     while (!netsQueue.empty()) {
         if (iterCnt == 200) {
             log_warning("giving up after %d iterations.\n", iterCnt);
+            log_info("Checksum: 0x%08x\n", ctx->checksum());
             return false;
         }
 
@@ -616,6 +617,7 @@ bool route_design(Context *ctx)
     }
 
     log_info("routing complete after %d iterations.\n", iterCnt);
+    log_info("Checksum: 0x%08x\n", ctx->checksum());
     return true;
 }
 

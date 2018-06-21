@@ -828,6 +828,9 @@ void parse_json_file(std::istream *&f, std::string &filename, Context *ctx)
 {
     auto *parser = new JsonParser::JsonFrontend();
     parser->execute(f, filename, ctx);
+
+    log_info("Checksum: 0x%08x\n", ctx->checksum());
+    log_break();
 }
 
 NEXTPNR_NAMESPACE_END

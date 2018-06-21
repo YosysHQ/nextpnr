@@ -480,6 +480,7 @@ bool place_design_sa(Context *ctx)
 {
     SAPlacer placer(ctx);
     placer.place();
+    log_info("Checksum: 0x%08x\n", ctx->checksum());
     return true;
 }
 

@@ -67,8 +67,10 @@ void print_utilisation(const Context *ctx)
     log_break();
     log_info("Device utilisation:\n");
     for (auto type : available_types) {
-        log_info("\t%20s: %5d/%5d\n", ctx->belTypeToId(type.first).c_str(ctx),
-                 get_or_default(used_types, type.first, 0), type.second);
+        IdString type_id = ctx->belTypeToId(type.first);
+        int used_bels = get_or_default(used_types, type.first, 0);
+        log_info("\t%20s: %5d/%5d %5d%%\n", type_id.c_str(ctx),
+                 used_bels, type.second, 100*used_bels/type.second);
     }
     log_break();
 }

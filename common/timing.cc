@@ -78,6 +78,7 @@ static delay_t follow_net(Context *ctx, NetInfo *net, int path_length,
 
 void assign_budget(Context *ctx, float default_clock)
 {
+    log_break();
     log_info("Annotating ports with timing budgets\n");
     // Clear delays to a very high value first
     delay_t default_slack = delay_t(1.0e12 / default_clock);
@@ -117,6 +118,8 @@ void assign_budget(Context *ctx, float default_clock)
                          net.first.c_str(ctx), ctx->getDelayNS(user.budget));
         }
     }
+
+    log_info("Checksum: 0x%08x\n", ctx->checksum());
 }
 
 NEXTPNR_NAMESPACE_END
