@@ -1,14 +1,14 @@
 #include "mainwindow.h"
 #include <QAction>
 #include <QIcon>
+#include "bitstream.h"
+#include "design_utils.h"
 #include "jsonparse.h"
 #include "log.h"
 #include "pack.h"
 #include "pcf.h"
 #include "place_sa.h"
 #include "route.h"
-#include "bitstream.h"
-#include "design_utils.h"
 
 MainWindow::MainWindow(Context *_ctx, QWidget *parent)
         : BaseMainWindow(_ctx, parent)
@@ -25,5 +25,4 @@ void MainWindow::createMenu()
 {
     QMenu *menu_Custom = new QMenu("&ICE 40", menuBar);
     menuBar->addAction(menu_Custom->menuAction());
-
 }

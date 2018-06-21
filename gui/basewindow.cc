@@ -1,4 +1,3 @@
-#include "mainwindow.h"
 #include <QAction>
 #include <QFileDialog>
 #include <QGridLayout>
@@ -9,6 +8,7 @@
 #include "fpgaviewwidget.h"
 #include "jsonparse.h"
 #include "log.h"
+#include "mainwindow.h"
 #include "pythontab.h"
 //#include "pack.h"
 //#include "pcf.h"

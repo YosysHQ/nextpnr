@@ -42,6 +42,8 @@ int main(int argc, char *argv[])
     options.add_options()("verbose,v", "verbose output");
     options.add_options()("force,f", "keep running after errors");
     options.add_options()("gui", "start gui");
+    options.add_options()("run", po::value<std::vector<std::string>>(),
+                          "python file to execute");
     options.add_options()("version,V", "show version");
     po::positional_options_description pos;
     pos.add("run", -1);

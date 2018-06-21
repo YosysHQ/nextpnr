@@ -5,12 +5,11 @@
 #include "nextpnr.h"
 
 #include <QMainWindow>
-#include <QTabWidget>
 #include <QMenu>
 #include <QMenuBar>
-#include <QToolBar>
 #include <QStatusBar>
-
+#include <QTabWidget>
+#include <QToolBar>
 
 // FIXME
 USING_NEXTPNR_NAMESPACE
@@ -36,7 +35,7 @@ class BaseMainWindow : public QMainWindow
     Context *ctx;
     QTabWidget *tabWidget;
     InfoTab *info;
-    
+
     QMenuBar *menuBar;
     QToolBar *mainToolBar;
     QStatusBar *statusBar;

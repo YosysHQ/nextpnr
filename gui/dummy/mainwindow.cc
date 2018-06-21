@@ -15,5 +15,4 @@ void MainWindow::createMenu()
 {
     QMenu *menu_Custom = new QMenu("&Dummy", menuBar);
     menuBar->addAction(menu_Custom->menuAction());
-
 }
