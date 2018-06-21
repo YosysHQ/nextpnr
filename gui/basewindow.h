@@ -14,13 +14,15 @@
 // FIXME
 USING_NEXTPNR_NAMESPACE
 
+Q_DECLARE_METATYPE(std::string)
+
 class BaseMainWindow : public QMainWindow
 {
     Q_OBJECT
 
   public:
     explicit BaseMainWindow(Context *ctx, QWidget *parent = 0);
-    ~BaseMainWindow();
+    virtual ~BaseMainWindow();
     Context *getContext() { return ctx; }
 
   protected:
@@ -28,12 +30,14 @@ class BaseMainWindow : public QMainWindow
 
   protected Q_SLOTS:
     void writeInfo(std::string text);
-    void open();
-    bool save();
+    
+    virtual void open() = 0;
+    virtual bool save() = 0;
 
   protected:
     Context *ctx;
     QTabWidget *tabWidget;
+    QTabWidget *centralTabWidget;
     InfoTab *info;
 
     QMenuBar *menuBar;

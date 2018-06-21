@@ -3,28 +3,22 @@
 #include <QGridLayout>
 #include <QIcon>
 #include <QSplitter>
-#include <fstream>
 #include "designwidget.h"
 #include "fpgaviewwidget.h"
 #include "jsonparse.h"
 #include "log.h"
 #include "mainwindow.h"
 #include "pythontab.h"
-//#include "pack.h"
-//#include "pcf.h"
-#include "place_sa.h"
-#include "route.h"
-//#include "bitstream.h"
-#include "design_utils.h"
+
 
 BaseMainWindow::BaseMainWindow(Context *_ctx, QWidget *parent)
         : QMainWindow(parent), ctx(_ctx)
 {
     Q_INIT_RESOURCE(nextpnr);
+    qRegisterMetaType<std::string>();
 
     log_files.clear();
     log_streams.clear();
-    log_write_function = [this](std::string text) { info->info(text); };
 
     setObjectName(QStringLiteral("BaseMainWindow"));
     resize(1024, 768);
@@ -57,7 +51,11 @@ BaseMainWindow::BaseMainWindow(Context *_ctx, QWidget *parent)
     tabWidget->addTab(new PythonTab(), "Python");
     info = new InfoTab();
     tabWidget->addTab(info, "Info");
-    splitter_v->addWidget(new FPGAViewWidget());
+
+    centralTabWidget = new QTabWidget();
+    centralTabWidget->addTab(new FPGAViewWidget(), "Graphics");
+
+    splitter_v->addWidget(centralTabWidget);
     splitter_v->addWidget(tabWidget);
 }
 
@@ -117,22 +115,3 @@ void BaseMainWindow::createMenusAndBars()
     mainToolBar->addAction(actionOpen);
     mainToolBar->addAction(actionSave);
 }
-
-void BaseMainWindow::open()
-{
-    QString fileName = QFileDialog::getOpenFileName(this, QString(), QString(),
-                                                    QString("*.json"));
-    if (!fileName.isEmpty()) {
-        tabWidget->setCurrentWidget(info);
-
-        std::string fn = fileName.toStdString();
-        std::istream *f = new std::ifstream(fn);
-
-        parse_json_file(f, fn, ctx);
-
-        // pack_design(ctx);
-        print_utilisation(ctx);
-    }
-}
-
-bool BaseMainWindow::save() { return false; }
