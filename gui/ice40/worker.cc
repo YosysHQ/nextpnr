@@ -1,13 +1,13 @@
 #include "worker.h"
 #include <fstream>
+#include "bitstream.h"
+#include "design_utils.h"
 #include "jsonparse.h"
 #include "log.h"
 #include "pack.h"
 #include "pcf.h"
 #include "place_sa.h"
 #include "route.h"
-#include "bitstream.h"
-#include "design_utils.h"
 #include "timing.h"
 
 Worker::Worker(Context *_ctx) : ctx(_ctx)
@@ -15,28 +15,29 @@ Worker::Worker(Context *_ctx) : ctx(_ctx)
     log_write_function = [this](std::string text) { Q_EMIT log(text); };
 }
 
-void Worker::parsejson(const std::string &filename) 
+void Worker::parsejson(const std::string &filename)
 {
     std::string fn = filename;
     std::ifstream f(fn);
+    try {
+        if (!parse_json_file(f, fn, ctx))
+            log_error("Loading design failed.\n");
+        if (!pack_design(ctx))
+            log_error("Packing design failed.\n");
+        double freq = 50e6;
+        assign_budget(ctx, freq);
+        print_utilisation(ctx);
 
-    parse_json_file(f, fn, ctx);
-    if (!pack_design(ctx))
-        log_error("Packing design failed.\n");
-    double freq = 50e6;
-    assign_budget(ctx, freq);
-    print_utilisation(ctx);
-
-    if (!place_design_sa(ctx))
-        log_error("Placing design failed.\n");
-    if (!route_design(ctx))
-        log_error("Routing design failed.\n");
-    print_utilisation(ctx);
-    Q_EMIT log("done");
+        if (!place_design_sa(ctx))
+            log_error("Placing design failed.\n");
+        if (!route_design(ctx))
+            log_error("Routing design failed.\n");
+        Q_EMIT log("done");
+    } catch (log_execution_error_exception) {
+    }
 }
 
-
-TaskManager::TaskManager(Context *ctx) 
+TaskManager::TaskManager(Context *ctx)
 {
     Worker *worker = new Worker(ctx);
     worker->moveToThread(&workerThread);
@@ -46,13 +47,10 @@ TaskManager::TaskManager(Context *ctx)
     workerThread.start();
 }
 
-TaskManager::~TaskManager() 
+TaskManager::~TaskManager()
 {
     workerThread.quit();
     workerThread.wait();
 }
 
-void TaskManager::info(const std::string &result)
-{
-    Q_EMIT log(result);
-}
+void TaskManager::info(const std::string &result) { Q_EMIT log(result); }

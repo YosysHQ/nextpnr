@@ -17,11 +17,6 @@ void MainWindow::createMenu()
     menuBar->addAction(menu_Custom->menuAction());
 }
 
-void MainWindow::open()
-{
-}
+void MainWindow::open() {}
 
-bool MainWindow::save()
-{
-    return false;
-}
+bool MainWindow::save() { return false; }

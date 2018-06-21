@@ -478,10 +478,14 @@ class SAPlacer
 
 bool place_design_sa(Context *ctx)
 {
-    SAPlacer placer(ctx);
-    placer.place();
-    log_info("Checksum: 0x%08x\n", ctx->checksum());
-    return true;
+    try {
+        SAPlacer placer(ctx);
+        placer.place();
+        log_info("Checksum: 0x%08x\n", ctx->checksum());
+        return true;
+    } catch (log_execution_error_exception) {
+        return false;
+    }
 }
 
 NEXTPNR_NAMESPACE_END

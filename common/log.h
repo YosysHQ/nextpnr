@@ -43,6 +43,10 @@ struct log_cmd_error_exception
 {
 };
 
+struct log_execution_error_exception
+{
+};
+
 extern std::vector<FILE *> log_files;
 extern std::vector<std::ostream *> log_streams;
 extern FILE *log_errfile;

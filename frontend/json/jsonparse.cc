@@ -797,27 +797,32 @@ void json_import(Context *ctx, string modname, JsonNode *node)
 }
 }; // End Namespace JsonParser
 
-void parse_json_file(std::istream &f, std::string &filename, Context *ctx)
+bool parse_json_file(std::istream &f, std::string &filename, Context *ctx)
 {
-    using namespace JsonParser;
+    try {
+        using namespace JsonParser;
 
-    JsonNode root(f);
+        JsonNode root(f);
 
-    if (root.type != 'D')
-        log_error("JSON root node is not a dictionary.\n");
+        if (root.type != 'D')
+            log_error("JSON root node is not a dictionary.\n");
 
-    if (root.data_dict.count("modules") != 0) {
-        JsonNode *modules = root.data_dict.at("modules");
+        if (root.data_dict.count("modules") != 0) {
+            JsonNode *modules = root.data_dict.at("modules");
 
-        if (modules->type != 'D')
-            log_error("JSON modules node is not a dictionary.\n");
+            if (modules->type != 'D')
+                log_error("JSON modules node is not a dictionary.\n");
 
-        for (auto &it : modules->data_dict)
-            json_import(ctx, it.first, it.second);
+            for (auto &it : modules->data_dict)
+                json_import(ctx, it.first, it.second);
+        }
+
+        log_info("Checksum: 0x%08x\n", ctx->checksum());
+        log_break();
+        return true;
+    } catch (log_execution_error_exception) {
+        return false;
     }
-
-    log_info("Checksum: 0x%08x\n", ctx->checksum());
-    log_break();
 }
 
 NEXTPNR_NAMESPACE_END

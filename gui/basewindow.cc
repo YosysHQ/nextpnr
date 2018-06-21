@@ -10,7 +10,6 @@
 #include "mainwindow.h"
 #include "pythontab.h"
 
-
 BaseMainWindow::BaseMainWindow(Context *_ctx, QWidget *parent)
         : QMainWindow(parent), ctx(_ctx)
 {
