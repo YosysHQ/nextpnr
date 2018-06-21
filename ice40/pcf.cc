@@ -27,44 +27,51 @@ NEXTPNR_NAMESPACE_BEGIN
 // Read a w
 
 // Apply PCF constraints to a pre-packing design
-void apply_pcf(Context *ctx, std::istream &in)
+bool apply_pcf(Context *ctx, std::istream &in)
 {
-    if (!in)
-        log_error("failed to open PCF file");
-    std::string line;
-    while (std::getline(in, line)) {
-        size_t cstart = line.find("#");
-        if (cstart != std::string::npos)
-            line = line.substr(0, cstart);
-        std::stringstream ss(line);
-        std::vector<std::string> words;
-        std::string tmp;
-        while (ss >> tmp)
-            words.push_back(tmp);
-        if (words.size() == 0)
-            continue;
-        std::string cmd = words.at(0);
-        if (cmd == "set_io") {
-            size_t args_end = 1;
-            while (args_end < words.size() && words.at(args_end).at(0) == '-')
-                args_end++;
-            std::string cell = words.at(args_end);
-            std::string pin = words.at(args_end + 1);
-            auto fnd_cell = ctx->cells.find(cell);
-            if (fnd_cell == ctx->cells.end()) {
-                log_warning("unmatched pcf constraint %s\n", cell.c_str());
+    try {
+        if (!in)
+            log_error("failed to open PCF file");
+        std::string line;
+        while (std::getline(in, line)) {
+            size_t cstart = line.find("#");
+            if (cstart != std::string::npos)
+                line = line.substr(0, cstart);
+            std::stringstream ss(line);
+            std::vector<std::string> words;
+            std::string tmp;
+            while (ss >> tmp)
+                words.push_back(tmp);
+            if (words.size() == 0)
+                continue;
+            std::string cmd = words.at(0);
+            if (cmd == "set_io") {
+                size_t args_end = 1;
+                while (args_end < words.size() &&
+                       words.at(args_end).at(0) == '-')
+                    args_end++;
+                std::string cell = words.at(args_end);
+                std::string pin = words.at(args_end + 1);
+                auto fnd_cell = ctx->cells.find(cell);
+                if (fnd_cell == ctx->cells.end()) {
+                    log_warning("unmatched pcf constraint %s\n", cell.c_str());
+                } else {
+                    BelId pin_bel = ctx->getPackagePinBel(pin);
+                    if (pin_bel == BelId())
+                        log_error("package does not have a pin named %s\n",
+                                  pin.c_str());
+                    fnd_cell->second->attrs["BEL"] =
+                            ctx->getBelName(pin_bel).str();
+                    log_info("constrained '%s' to bel '%s'\n", cell.c_str(),
+                             fnd_cell->second->attrs["BEL"].c_str());
+                }
             } else {
-                BelId pin_bel = ctx->getPackagePinBel(pin);
-                if (pin_bel == BelId())
-                    log_error("package does not have a pin named %s\n",
-                              pin.c_str());
-                fnd_cell->second->attrs["BEL"] = ctx->getBelName(pin_bel).str();
-                log_info("constrained '%s' to bel '%s'\n", cell.c_str(),
-                         fnd_cell->second->attrs["BEL"].c_str());
+                log_error("unsupported pcf command '%s'\n", cmd.c_str());
             }
-        } else {
-            log_error("unsupported pcf command '%s'\n", cmd.c_str());
         }
+        return true;
+    } catch (log_execution_error_exception) {
+        return false;
     }
 }
 

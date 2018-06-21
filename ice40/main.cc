@@ -288,11 +288,13 @@ int main(int argc, char *argv[])
         if (vm.count("json")) {
             std::string filename = vm["json"].as<std::string>();
             std::ifstream f(filename);
-            parse_json_file(f, filename, &ctx);
+            if (!parse_json_file(f, filename, &ctx))
+                log_error("Loading design failed.\n");
 
             if (vm.count("pcf")) {
                 std::ifstream pcf(vm["pcf"].as<std::string>());
-                apply_pcf(&ctx, pcf);
+                if (!apply_pcf(&ctx, pcf))
+                    log_error("Loading PCF failed.\n");
             }
 
             if (!pack_design(&ctx) && !ctx.force)

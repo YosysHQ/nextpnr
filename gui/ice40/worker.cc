@@ -20,7 +20,8 @@ void Worker::parsejson(const std::string &filename)
     std::string fn = filename;
     std::ifstream f(fn);
     try {
-        parse_json_file(f, fn, ctx);
+        if (!parse_json_file(f, fn, ctx))
+            log_error("Loading design failed.\n");
         if (!pack_design(ctx))
             log_error("Packing design failed.\n");
         double freq = 50e6;
@@ -33,7 +34,6 @@ void Worker::parsejson(const std::string &filename)
             log_error("Routing design failed.\n");
         Q_EMIT log("done");
     } catch (log_execution_error_exception) {
-        Q_EMIT log("failed");
     }
 }
 
