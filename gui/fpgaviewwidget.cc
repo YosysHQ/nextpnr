@@ -9,14 +9,14 @@
 FPGAViewWidget::FPGAViewWidget(QWidget *parent)
         : QOpenGLWidget(parent), m_xMove(0), m_yMove(0), m_zDistance(1.0)
 {
-    ctx = qobject_cast<MainWindow *>(getMainWindow())->getContext();
+    ctx = qobject_cast<BaseMainWindow *>(getMainWindow())->getContext();
 }
 
 QMainWindow *FPGAViewWidget::getMainWindow()
 {
     QWidgetList widgets = qApp->topLevelWidgets();
     for (QWidgetList::iterator i = widgets.begin(); i != widgets.end(); ++i)
-        if ((*i)->objectName() == "MainWindow")
+        if ((*i)->objectName() == "BaseMainWindow")
             return (QMainWindow *)(*i);
     return NULL;
 }
