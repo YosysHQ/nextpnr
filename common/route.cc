@@ -23,41 +23,32 @@
 #include "log.h"
 #include "route.h"
 
-namespace std {
-template <>
-struct hash<pair<NEXTPNR_NAMESPACE_PREFIX IdString,
-                 NEXTPNR_NAMESPACE_PREFIX WireId>>
-{
-    std::size_t
-    operator()(const pair<NEXTPNR_NAMESPACE_PREFIX IdString,
-                          NEXTPNR_NAMESPACE_PREFIX WireId> &arg) const noexcept
-    {
-        std::size_t seed = hash<NEXTPNR_NAMESPACE_PREFIX IdString>()(arg.first);
-        seed ^= hash<NEXTPNR_NAMESPACE_PREFIX WireId>()(arg.second) +
-                0x9e3779b9 + (seed << 6) + (seed >> 2);
-        return seed;
-    }
-};
-
-template <>
-struct hash<
-        pair<NEXTPNR_NAMESPACE_PREFIX IdString, NEXTPNR_NAMESPACE_PREFIX PipId>>
-{
-    std::size_t
-    operator()(const pair<NEXTPNR_NAMESPACE_PREFIX IdString,
-                          NEXTPNR_NAMESPACE_PREFIX PipId> &arg) const noexcept
-    {
-        std::size_t seed = hash<NEXTPNR_NAMESPACE_PREFIX IdString>()(arg.first);
-        seed ^= hash<NEXTPNR_NAMESPACE_PREFIX PipId>()(arg.second) +
-                0x9e3779b9 + (seed << 6) + (seed >> 2);
-        return seed;
-    }
-};
-} // namespace std
-
 namespace {
 
 USING_NEXTPNR_NAMESPACE
+
+struct hash_id_wire
+{
+    std::size_t operator()(const std::pair<IdString, WireId> &arg) const
+            noexcept
+    {
+        std::size_t seed = std::hash<IdString>()(arg.first);
+        seed ^= std::hash<WireId>()(arg.second) + 0x9e3779b9 + (seed << 6) +
+                (seed >> 2);
+        return seed;
+    }
+};
+
+struct hash_id_pip
+{
+    std::size_t operator()(const std::pair<IdString, PipId> &arg) const noexcept
+    {
+        std::size_t seed = std::hash<IdString>()(arg.first);
+        seed ^= std::hash<PipId>()(arg.second) + 0x9e3779b9 + (seed << 6) +
+                (seed >> 2);
+        return seed;
+    }
+};
 
 struct QueuedWire
 {
@@ -80,8 +71,9 @@ struct QueuedWire
 
 struct RipupScoreboard
 {
-    std::unordered_map<std::pair<IdString, WireId>, int> wireScores;
-    std::unordered_map<std::pair<IdString, PipId>, int> pipScores;
+    std::unordered_map<std::pair<IdString, WireId>, int, hash_id_wire>
+            wireScores;
+    std::unordered_map<std::pair<IdString, PipId>, int, hash_id_pip> pipScores;
 };
 
 void ripup_net(Context *ctx, IdString net_name)
