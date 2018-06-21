@@ -208,7 +208,7 @@ struct PortRef
 {
     CellInfo *cell = nullptr;
     IdString port;
-    delay_t budget;
+    delay_t budget = 0;
 };
 
 struct NetInfo
