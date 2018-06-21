@@ -71,24 +71,8 @@ NXP_NORETURN void log_error(const char *format, ...)
 NXP_NORETURN void log_cmd_error(const char *format, ...)
         NXP_ATTRIBUTE(format(printf, 1, 2), noreturn);
 
-void log_spacer();
-void log_push();
-void log_pop();
-
-void log_backtrace(const char *prefix, int levels);
-void log_reset_stack();
+void log_break();
 void log_flush();
-
-/*
-const char *log_id(RTLIL::IdString id);
-
-template<typename T> static inline const char *log_id(T *obj) {
-        return log_id(obj->name);
-}
-*/
-
-void log_cell(CellInfo *cell, std::string indent = "");
-void log_net(NetInfo *net, std::string indent = "");
 
 #ifndef NDEBUG
 static inline void log_assert_worker(bool cond, const char *expr,

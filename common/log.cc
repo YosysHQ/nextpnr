@@ -212,19 +212,13 @@ void log_cmd_error(const char *format, ...)
     logv_error(format, ap);
 }
 
-void log_spacer()
+void log_break()
 {
     if (log_newline_count < 2)
         log("\n");
     if (log_newline_count < 2)
         log("\n");
 }
-
-void log_push() {}
-
-void log_pop() { log_flush(); }
-
-void log_reset_stack() { log_flush(); }
 
 void log_flush()
 {
@@ -234,9 +228,5 @@ void log_flush()
     for (auto f : log_streams)
         f->flush();
 }
-
-void log_cell(CellInfo *cell, std::string indent) {}
-
-void log_net(NetInfo *net, std::string indent) {}
 
 NEXTPNR_NAMESPACE_END

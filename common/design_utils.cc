@@ -64,11 +64,13 @@ void print_utilisation(const Context *ctx)
     for (auto bel : ctx->getBels()) {
         available_types[ctx->getBelType(bel)]++;
     }
-    log("\nDesign utilisation:\n");
+    log_break();
+    log_info("Device utilisation:\n");
     for (auto type : available_types) {
-        log("\t%20s: %5d/%5d\n", ctx->belTypeToId(type.first).c_str(ctx),
-            get_or_default(used_types, type.first, 0), type.second);
+        log_info("\t%20s: %5d/%5d\n", ctx->belTypeToId(type.first).c_str(ctx),
+                 get_or_default(used_types, type.first, 0), type.second);
     }
+    log_break();
 }
 
 NEXTPNR_NAMESPACE_END

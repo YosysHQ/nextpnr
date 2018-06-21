@@ -406,6 +406,7 @@ bool route_design(Context *ctx)
     delay_t ripup_penalty = ctx->getRipupDelayPenalty();
     RipupScoreboard scores;
 
+    log_break();
     log_info("Routing..\n");
 
     std::unordered_set<IdString> netsQueue;

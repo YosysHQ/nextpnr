@@ -77,6 +77,8 @@ class SAPlacer
 
     bool place()
     {
+        log_break();
+
         size_t placed_cells = 0;
         // Initial constraints placer
         for (auto cell_entry : ctx->cells) {
@@ -408,9 +410,9 @@ class SAPlacer
         delta = new_wirelength - curr_wirelength;
         n_move++;
         // SA acceptance criterea
-        if (delta < 0 ||
-            (temp > 1e-6 && (ctx->rng() / float(0x3fffffff)) <=
-                                    std::exp(-(delta / 2) / temp))) {
+        if (delta < 0 || (temp > 1e-6 &&
+                          (ctx->rng() / float(0x3fffffff)) <=
+                                  std::exp(-(delta / 2) / temp))) {
             n_accept++;
             if (delta < 2)
                 improved = true;

@@ -36,8 +36,9 @@ static void pack_lut_lutffs(Context *ctx)
     std::vector<CellInfo *> new_cells;
     for (auto cell : ctx->cells) {
         CellInfo *ci = cell.second;
-        log_info("cell '%s' is of type '%s'\n", ci->name.c_str(ctx),
-                 ci->type.c_str(ctx));
+        if (ctx->verbose)
+            log_info("cell '%s' is of type '%s'\n", ci->name.c_str(ctx),
+                     ci->type.c_str(ctx));
         if (is_lut(ctx, ci)) {
             CellInfo *packed = create_ice_cell(ctx, "ICESTORM_LC",
                                                ci->name.str(ctx) + "_LC");
@@ -45,8 +46,9 @@ static void pack_lut_lutffs(Context *ctx)
                       std::inserter(packed->attrs, packed->attrs.begin()));
             packed_cells.insert(ci->name);
             new_cells.push_back(packed);
-            log_info("packed cell %s into %s\n", ci->name.c_str(ctx),
-                     packed->name.c_str(ctx));
+            if (ctx->verbose)
+                log_info("packed cell %s into %s\n", ci->name.c_str(ctx),
+                         packed->name.c_str(ctx));
             // See if we can pack into a DFF
             // TODO: LUT cascade
             NetInfo *o = ci->ports.at(ctx->id("O")).net;
@@ -54,7 +56,8 @@ static void pack_lut_lutffs(Context *ctx)
             auto lut_bel = ci->attrs.find(ctx->id("BEL"));
             bool packed_dff = false;
             if (dff) {
-                log_info("found attached dff %s\n", dff->name.c_str(ctx));
+                if (ctx->verbose)
+                    log_info("found attached dff %s\n", dff->name.c_str(ctx));
                 auto dff_bel = dff->attrs.find(ctx->id("BEL"));
                 if (lut_bel != ci->attrs.end() && dff_bel != dff->attrs.end() &&
                     lut_bel->second != dff_bel->second) {
@@ -66,8 +69,9 @@ static void pack_lut_lutffs(Context *ctx)
                     if (dff_bel != dff->attrs.end())
                         packed->attrs[ctx->id("BEL")] = dff_bel->second;
                     packed_cells.insert(dff->name);
-                    log_info("packed cell %s into %s\n", dff->name.c_str(ctx),
-                             packed->name.c_str(ctx));
+                    if (ctx->verbose)
+                        log_info("packed cell %s into %s\n",
+                                 dff->name.c_str(ctx), packed->name.c_str(ctx));
                     packed_dff = true;
                 }
             }
@@ -99,8 +103,9 @@ static void pack_nonlut_ffs(Context *ctx)
                                                ci->name.str(ctx) + "_DFFLC");
             std::copy(ci->attrs.begin(), ci->attrs.end(),
                       std::inserter(packed->attrs, packed->attrs.begin()));
-            log_info("packed cell %s into %s\n", ci->name.c_str(ctx),
-                     packed->name.c_str(ctx));
+            if (ctx->verbose)
+                log_info("packed cell %s into %s\n", ci->name.c_str(ctx),
+                         packed->name.c_str(ctx));
             packed_cells.insert(ci->name);
             new_cells.push_back(packed);
             dff_to_lc(ctx, ci, packed, true);
@@ -242,8 +247,9 @@ static void set_net_constant(const Context *ctx, NetInfo *orig,
     for (auto user : orig->users) {
         if (user.cell != nullptr) {
             CellInfo *uc = user.cell;
-            log_info("%s user %s\n", orig->name.c_str(ctx),
-                     uc->name.c_str(ctx));
+            if (ctx->verbose)
+                log_info("%s user %s\n", orig->name.c_str(ctx),
+                         uc->name.c_str(ctx));
             if ((is_lut(ctx, uc) || is_lc(ctx, uc)) &&
                 (user.port.str(ctx).at(0) == 'I') && !constval) {
                 uc->ports[user.port].net = nullptr;
