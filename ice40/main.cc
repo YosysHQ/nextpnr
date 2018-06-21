@@ -20,6 +20,7 @@
 #ifdef MAIN_EXECUTABLE
 
 #include <QApplication>
+#include <QSurfaceFormat>
 #include <boost/filesystem/convenience.hpp>
 #include <boost/program_options.hpp>
 #include <fstream>
@@ -312,6 +313,9 @@ int main(int argc, char *argv[])
 
     if (vm.count("gui")) {
         QApplication a(argc, argv);
+        QSurfaceFormat fmt;
+        fmt.setSamples(10);
+        QSurfaceFormat::setDefaultFormat(fmt);
         MainWindow w(&ctx);
         w.show();
 
