@@ -20,20 +20,97 @@
 #ifdef MAIN_EXECUTABLE
 
 #include <QApplication>
+#include <boost/filesystem/convenience.hpp>
+#include <boost/program_options.hpp>
+#include "log.h"
 #include "mainwindow.h"
 #include "nextpnr.h"
+#include "pybindings.h"
+#include "version.h"
 
 USING_NEXTPNR_NAMESPACE
 
 int main(int argc, char *argv[])
 {
+    namespace po = boost::program_options;
+    int rc = 0;
+
+    log_files.push_back(stdout);
+
+    po::options_description options("Allowed options");
+    options.add_options()("help,h", "show help");
+    options.add_options()("verbose,v", "verbose output");
+    options.add_options()("force,f", "keep running after errors");
+    options.add_options()("gui", "start gui");
+    options.add_options()("version,V", "show version");
+    po::positional_options_description pos;
+    pos.add("run", -1);
+
+    po::variables_map vm;
+    try {
+        po::parsed_options parsed = po::command_line_parser(argc, argv)
+                                            .options(options)
+                                            .positional(pos)
+                                            .run();
+
+        po::store(parsed, vm);
+
+        po::notify(vm);
+    }
+
+    catch (std::exception &e) {
+        std::cout << e.what() << "\n";
+        return 1;
+    }
+
+    if (vm.count("help") || argc == 1) {
+        std::cout << boost::filesystem::basename(argv[0])
+                  << " -- Next Generation Place and Route (git "
+                     "sha1 " GIT_COMMIT_HASH_STR ")\n";
+        std::cout << "\n";
+        std::cout << options << "\n";
+        return argc != 1;
+    }
+
+    if (vm.count("version")) {
+        std::cout << boost::filesystem::basename(argv[0])
+                  << " -- Next Generation Place and Route (git "
+                     "sha1 " GIT_COMMIT_HASH_STR ")\n";
+        return 1;
+    }
+
     Context ctx(ArchArgs{});
+    init_python(argv[0]);
+    python_export_global("ctx", ctx);
 
-    QApplication a(argc, argv);
-    MainWindow w(&ctx);
-    w.show();
+    if (vm.count("verbose")) {
+        ctx.verbose = true;
+    }
 
-    return a.exec();
+    if (vm.count("force")) {
+        ctx.force = true;
+    }
+
+    if (vm.count("seed")) {
+        ctx.rngseed(vm["seed"].as<int>());
+    }
+
+    if (vm.count("run")) {
+        std::vector<std::string> files =
+                vm["run"].as<std::vector<std::string>>();
+        for (auto filename : files)
+            execute_python_file(filename.c_str());
+    }
+
+    if (vm.count("gui")) {
+        QApplication a(argc, argv);
+        MainWindow w(&ctx);
+        w.show();
+
+        rc = a.exec();
+    }
+    deinit_python();
+    return rc;
 }
 
 #endif
