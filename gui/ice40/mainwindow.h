@@ -2,6 +2,7 @@
 #define MAINWINDOW_H
 
 #include "../basewindow.h"
+#include "worker.h"
 
 // FIXME
 USING_NEXTPNR_NAMESPACE
@@ -12,10 +13,17 @@ class MainWindow : public BaseMainWindow
 
   public:
     explicit MainWindow(Context *ctx, QWidget *parent = 0);
-    ~MainWindow();
+    virtual ~MainWindow();
 
   public:
     void createMenu();
+
+  protected Q_SLOTS:
+    virtual void open();
+    virtual bool save();
+
+  private:
+    TaskManager *task;
 };
 
 #endif // MAINWINDOW_H
