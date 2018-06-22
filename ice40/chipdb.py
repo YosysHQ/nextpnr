@@ -27,6 +27,8 @@ switches = list()
 
 ierens = list()
 
+extra_cells = dict()
+
 packages = list()
 
 wire_uphill_belport = dict()
@@ -340,6 +342,14 @@ with open(sys.argv[1], "r") as f:
             packages.append((line[1], []))
             continue
 
+        if line[0] == ".extra_cell":
+            if len(line) >= 5:
+                mode = ("extra_cell", (line[4], int(line[1]), int(line[2]), int(line[3])))
+            else:
+                mode = ("extra_cell", (line[3], int(line[1]), int(line[2]), 3))
+            extra_cells[mode[1]] = []
+            continue
+
         if (line[0][0] == ".") or (mode is None):
             mode = None
             continue
@@ -382,6 +392,13 @@ with open(sys.argv[1], "r") as f:
 
         if mode[0] == "pins":
             packages[-1][1].append((line[0], int(line[1]), int(line[2]), int(line[3])))
+            continue
+
+        if mode[0] == "extra_cell":
+            if line[0] == "LOCKED":
+                extra_cells[mode[1]].append((("LOCKED_" + line[1]), (0, 0, "LOCKED")))
+            else:
+                extra_cells[mode[1]].append((line[0], (int(line[1]), int(line[2]), line[3])))
             continue
 
 def add_bel_input(bel, wire, port):
@@ -506,6 +523,33 @@ def add_bel_gb(x, y, g):
     add_bel_input(bel, wire_names[(x, y, "fabout")], "USER_SIGNAL_TO_GLOBAL_BUFFER")
     add_bel_output(bel, wire_names[(x, y, "glb_netwk_%d" % g)], "GLOBAL_BUFFER_OUTPUT")
 
+def is_ec_wire(ec_entry):
+    return ec_entry[1] in wire_names
+
+def is_ec_output(ec_entry):
+    wirename = ec_entry[1][2]
+    if "O_" in wirename or "slf_op_" in wirename: return True
+    if "neigh_op_" in wirename: return True
+    if "glb_netwk_" in wirename: return True
+    return False
+
+def add_bel_ec(ec):
+    ectype, x, y, z = ec
+    bel = len(bel_name)
+    bel_name.append("X%d/Y%d/%s_%d" % (x, y, ectype.lower(), z))
+    bel_type.append(ectype)
+    bel_pos.append((x, y, z))
+    bel_wires.append(list())
+    for entry in extra_cells[ec]:
+        if is_ec_wire(entry) and "glb_netwk_" not in entry[1][2]: # TODO: osc glb output conflicts with GB
+            if is_ec_output(entry):
+                add_bel_output(bel, wire_names[entry[1]], entry[0])
+            else:
+                add_bel_input(bel, wire_names[entry[1]], entry[0])
+        else:
+            # Configuration bit, need to create a structure for these
+            pass
+
 for tile_xy, tile_type in sorted(tiles.items()):
     if tile_type == "logic":
         for i in range(8):
@@ -552,6 +596,9 @@ elif dev_name == "384":
     add_bel_gb( 7,  5,  2)
     add_bel_gb( 3,  0,  5)
     add_bel_gb( 3,  9,  4)
+
+for ec in sorted(extra_cells.keys()):
+    add_bel_ec(ec)
 
 class BinaryBlobAssembler:
     def __init__(self, cname, endianness, nodebug = False):

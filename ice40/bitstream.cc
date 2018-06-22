@@ -267,7 +267,8 @@ void write_asc(const Context *ctx, std::ostream &out)
                        read_mode & 0x1);
             set_config(ti_ramt, config.at(y + 1).at(x), "RamConfig.CBIT_3",
                        read_mode & 0x2);
-
+        } else if (cell.second->type == ctx->id("SB_WARMBOOT")) {
+            // No config needed
         } else {
             assert(false);
         }
