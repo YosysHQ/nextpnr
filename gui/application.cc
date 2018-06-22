@@ -1,7 +1,9 @@
+
 /*
  *  nextpnr -- Next Generation Place and Route
  *
- *  Copyright (C) 2018  Clifford Wolf <clifford@symbioticeda.com>
+ *  Copyright (C) 2018  Miodrag Milanovic <miodrag@symbioticeda.com>
+ *  Copyright (C) 2018  Serge Bazanski <q3k@symbioticeda.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -16,15 +18,30 @@
  *  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
  */
-#ifndef PLACE_H
-#define PLACE_H
 
-#include "nextpnr.h"
+#include "application.h"
+#include <QMessageBox>
+#include <QSurfaceFormat>
+#include <exception>
 
 NEXTPNR_NAMESPACE_BEGIN
 
-extern bool place_design_sa(Context *ctx);
+Application::Application(int &argc, char **argv) : QApplication(argc, argv)
+{
+    QSurfaceFormat fmt;
+    fmt.setSamples(10);
+    QSurfaceFormat::setDefaultFormat(fmt);
+}
+
+bool Application::notify(QObject *receiver, QEvent *event)
+{
+    bool retVal = true;
+    try {
+        retVal = QApplication::notify(receiver, event);
+    } catch (...) {
+        QMessageBox::critical(0, "Error", "Fatal error !!!");
+    }
+    return retVal;
+}
 
 NEXTPNR_NAMESPACE_END
-
-#endif // PLACE_H

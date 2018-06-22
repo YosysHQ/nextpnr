@@ -1,7 +1,7 @@
 /*
  *  nextpnr -- Next Generation Place and Route
  *
- *  Copyright (C) 2018  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2018  Clifford Wolf <clifford@symbioticeda.com>
  *  Copyright (C) 2018  David Shah <david@symbioticeda.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
@@ -369,6 +369,21 @@ void write_asc(const Context *ctx, std::ostream &out)
                 break;
             case TILE_RAMT:
                 out << ".ramt_tile";
+                break;
+            case TILE_DSP0:
+                out << ".dsp0_tile";
+                break;
+            case TILE_DSP1:
+                out << ".dsp1_tile";
+                break;
+            case TILE_DSP2:
+                out << ".dsp2_tile";
+                break;
+            case TILE_DSP3:
+                out << ".dsp3_tile";
+                break;
+            case TILE_IPCON:
+                out << ".ipcon_tile";
                 break;
             default:
                 assert(false);

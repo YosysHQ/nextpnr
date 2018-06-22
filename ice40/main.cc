@@ -1,7 +1,7 @@
 /*
  *  nextpnr -- Next Generation Place and Route
  *
- *  Copyright (C) 2018  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2018  Clifford Wolf <clifford@symbioticeda.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -25,6 +25,7 @@
 #include <boost/program_options.hpp>
 #include <fstream>
 #include <iostream>
+#include "application.h"
 #include "bitstream.h"
 #include "design_utils.h"
 #include "jsonparse.h"
@@ -330,10 +331,7 @@ int main(int argc, char *argv[])
         }
 
         if (vm.count("gui")) {
-            QApplication a(argc, argv);
-            QSurfaceFormat fmt;
-            fmt.setSamples(10);
-            QSurfaceFormat::setDefaultFormat(fmt);
+            Application a(argc, argv);
             MainWindow w(&ctx);
             w.show();
 

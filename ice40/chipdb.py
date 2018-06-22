@@ -36,10 +36,6 @@ wire_names = dict()
 wire_names_r = dict()
 wire_xy = dict()
 
-num_tile_types = 5
-tile_sizes = {i: (0, 0) for i in range(num_tile_types)}
-tile_bits = [[] for _ in range(num_tile_types)]
-
 cbit_re = re.compile(r'B(\d+)\[(\d+)\]')
 
 portpins = dict()
@@ -69,6 +65,11 @@ tiletypes["LOGIC"] = 1
 tiletypes["IO"] = 2
 tiletypes["RAMB"] = 3
 tiletypes["RAMT"] = 4
+tiletypes["DSP0"] = 5
+tiletypes["DSP1"] = 6
+tiletypes["DSP2"] = 7
+tiletypes["DSP3"] = 8
+tiletypes["IPCON"] = 9
 
 wiretypes["LOCAL"] = 1
 wiretypes["GLOBAL"] = 2
@@ -187,6 +188,16 @@ def pipdelay(src, dst):
     # print(src, dst, src_type, dst_type, file=sys.stderr)
     assert 0
 
+
+def init_tiletypes(device):
+    global num_tile_types, tile_sizes, tile_bits
+    if device == "5k":
+        num_tile_types = 10
+    else:
+        num_tile_types = 5
+    tile_sizes = {i: (0, 0) for i in range(num_tile_types)}
+    tile_bits = [[] for _ in range(num_tile_types)]
+
 with open(sys.argv[1], "r") as f:
     mode = None
 
@@ -198,6 +209,7 @@ with open(sys.argv[1], "r") as f:
 
         if line[0] == ".device":
             dev_name = line[1]
+            init_tiletypes(dev_name)
             dev_width = int(line[2])
             dev_height = int(line[3])
             num_wires = int(line[4])
@@ -237,6 +249,31 @@ with open(sys.argv[1], "r") as f:
             mode = None
             continue
 
+        if line[0] == ".dsp0_tile":
+            tiles[(int(line[1]), int(line[2]))] = "dsp0"
+            mode = None
+            continue
+
+        if line[0] == ".dsp1_tile":
+            tiles[(int(line[1]), int(line[2]))] = "dsp1"
+            mode = None
+            continue
+
+        if line[0] == ".dsp2_tile":
+            tiles[(int(line[1]), int(line[2]))] = "dsp2"
+            mode = None
+            continue
+
+        if line[0] == ".dsp3_tile":
+            tiles[(int(line[1]), int(line[2]))] = "dsp3"
+            mode = None
+            continue
+
+        if line[0] == ".ipcon_tile":
+            tiles[(int(line[1]), int(line[2]))] = "ipcon"
+            mode = None
+            continue
+
         if line[0] == ".logic_tile_bits":
             mode = ("bits", 1)
             tile_sizes[1] = (int(line[1]), int(line[2]))
@@ -255,6 +292,31 @@ with open(sys.argv[1], "r") as f:
         if line[0] == ".ramt_tile_bits":
             mode = ("bits", 4)
             tile_sizes[4] = (int(line[1]), int(line[2]))
+            continue
+
+        if line[0] == ".dsp0_tile_bits":
+            mode = ("bits", 5)
+            tile_sizes[5] = (int(line[1]), int(line[2]))
+            continue
+
+        if line[0] == ".dsp1_tile_bits":
+            mode = ("bits", 6)
+            tile_sizes[6] = (int(line[1]), int(line[2]))
+            continue
+
+        if line[0] == ".dsp2_tile_bits":
+            mode = ("bits", 7)
+            tile_sizes[7] = (int(line[1]), int(line[2]))
+            continue
+
+        if line[0] == ".dsp3_tile_bits":
+            mode = ("bits", 8)
+            tile_sizes[8] = (int(line[1]), int(line[2]))
+            continue
+
+        if line[0] == ".ipcon_tile_bits":
+            mode = ("bits", 9)
+            tile_sizes[9] = (int(line[1]), int(line[2]))
             continue
 
         if line[0] == ".ieren":

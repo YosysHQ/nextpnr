@@ -3,5 +3,8 @@
         <file>resources/control_play.png</file>
         <file>resources/control_pause.png</file>
         <file>resources/control_stop.png</file>
+        <file>resources/pack.png</file>
+        <file>resources/place.png</file>
+        <file>resources/route.png</file>
     </qresource>
 </RCC>
