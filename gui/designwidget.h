@@ -7,8 +7,7 @@
 #include "qttreepropertybrowser.h"
 #include "qtvariantproperty.h"
 
-// FIXME
-USING_NEXTPNR_NAMESPACE
+NEXTPNR_NAMESPACE_BEGIN
 
 class DesignWidget : public QWidget
 {
@@ -44,5 +43,7 @@ class DesignWidget : public QWidget
     QMap<QtProperty *, QString> propertyToId;
     QMap<QString, QtVariantProperty *> idToProperty;
 };
+
+NEXTPNR_NAMESPACE_END
 
 #endif // DESIGNWIDGET_H

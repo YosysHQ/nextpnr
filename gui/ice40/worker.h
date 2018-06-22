@@ -5,8 +5,7 @@
 #include <QThread>
 #include "nextpnr.h"
 
-// FIXME
-USING_NEXTPNR_NAMESPACE
+NEXTPNR_NAMESPACE_BEGIN
 
 class TaskManager;
 
@@ -50,5 +49,7 @@ class TaskManager : public QObject
     bool toTerminate;
     bool toPause;
 };
+
+NEXTPNR_NAMESPACE_END
 
 #endif // WORKER_H

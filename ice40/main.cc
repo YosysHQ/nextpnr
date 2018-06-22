@@ -38,6 +38,8 @@
 #include "timing.h"
 #include "version.h"
 
+USING_NEXTPNR_NAMESPACE
+
 void svg_dump_el(const GraphicElement &el)
 {
     float scale = 10.0, offset = 10.0;

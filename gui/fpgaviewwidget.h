@@ -7,8 +7,7 @@
 #include <QPainter>
 #include "nextpnr.h"
 
-// FIXME
-USING_NEXTPNR_NAMESPACE
+NEXTPNR_NAMESPACE_BEGIN
 
 class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
 {
@@ -48,5 +47,7 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     QPoint m_lastPos;
     Context *ctx;
 };
+
+NEXTPNR_NAMESPACE_END
 
 #endif

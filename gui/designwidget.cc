@@ -7,6 +7,8 @@
 #include "fpgaviewwidget.h"
 #include "pybindings.h"
 
+NEXTPNR_NAMESPACE_BEGIN
+
 enum class ElementType
 {
     BEL,
@@ -234,3 +236,5 @@ void DesignWidget::selectObject()
 {
     Q_EMIT info("selected " + itemContextMenu->text(0).toStdString() + "\n");
 }
+
+NEXTPNR_NAMESPACE_END

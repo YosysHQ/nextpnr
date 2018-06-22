@@ -8,8 +8,7 @@
 #include "line_editor.h"
 #include "nextpnr.h"
 
-// FIXME
-USING_NEXTPNR_NAMESPACE
+NEXTPNR_NAMESPACE_BEGIN
 
 class PythonTab : public QWidget
 {
@@ -32,5 +31,7 @@ class PythonTab : public QWidget
     QMenu *contextMenu;
     emb::stdout_write_type write;
 };
+
+NEXTPNR_NAMESPACE_END
 
 #endif // PYTHONTAB_H
