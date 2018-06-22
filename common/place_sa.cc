@@ -355,7 +355,7 @@ class SAPlacer
         }
         wirelength =
                 wirelen_t((((ymax - ymin) + (xmax - xmin)) *
-                           std::min(3.0, (1.0 + std::exp(-worst_slack / 10)))));
+                           std::min(5.0, (1.0 + std::exp(-worst_slack / 5)))));
         return wirelength;
     }
 
