@@ -20,6 +20,7 @@
 #ifdef MAIN_EXECUTABLE
 
 #include <QApplication>
+#include <QSurfaceFormat>
 #include <boost/filesystem/convenience.hpp>
 #include <boost/program_options.hpp>
 #include <fstream>

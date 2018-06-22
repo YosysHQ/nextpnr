@@ -209,7 +209,7 @@ def init_tiletypes(device):
         num_tile_types = 10
     else:
         num_tile_types = 5
-    tile_sizes = {_: (0, 0) for _ in range(num_tile_types)}
+    tile_sizes = {i: (0, 0) for i in range(num_tile_types)}
     tile_bits = [[] for _ in range(num_tile_types)]
 
 with open(sys.argv[1], "r") as f:
