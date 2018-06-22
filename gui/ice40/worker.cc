@@ -10,47 +10,151 @@
 #include "route.h"
 #include "timing.h"
 
-Worker::Worker(Context *_ctx) : ctx(_ctx)
+NEXTPNR_NAMESPACE_BEGIN
+
+struct WorkerInterruptionRequested
 {
-    log_write_function = [this](std::string text) { Q_EMIT log(text); };
+};
+
+Worker::Worker(Context *_ctx, TaskManager *parent) : ctx(_ctx)
+{
+    log_write_function = [this, parent](std::string text) {
+        Q_EMIT log(text);
+        if (parent->shouldTerminate()) {
+            parent->clearTerminate();
+            throw WorkerInterruptionRequested();
+        }
+        if (parent->isPaused())
+        {
+            Q_EMIT taskPaused();
+        }
+        while (parent->isPaused()) {
+            if (parent->shouldTerminate()) {
+                parent->clearTerminate();
+                throw WorkerInterruptionRequested();
+            }
+            QThread::sleep(1);
+        }
+    };
 }
 
-void Worker::parsejson(const std::string &filename)
+void Worker::loadfile(const std::string &filename)
 {
+    Q_EMIT taskStarted();
     std::string fn = filename;
     std::ifstream f(fn);
     try {
-        if (!parse_json_file(f, fn, ctx))
-            log_error("Loading design failed.\n");
-        if (!pack_design(ctx))
-            log_error("Packing design failed.\n");
-        double freq = 50e6;
-        assign_budget(ctx, freq);
-        print_utilisation(ctx);
-
-        if (!place_design_sa(ctx))
-            log_error("Placing design failed.\n");
-        if (!route_design(ctx))
-            log_error("Routing design failed.\n");
-        Q_EMIT log("done");
-    } catch (log_execution_error_exception) {
+        Q_EMIT loadfile_finished(parse_json_file(f, fn, ctx));
+    } catch (WorkerInterruptionRequested) {
+        Q_EMIT taskCanceled();
     }
 }
 
-TaskManager::TaskManager(Context *ctx)
+void Worker::pack()
 {
-    Worker *worker = new Worker(ctx);
+    Q_EMIT taskStarted();
+    try {
+        Q_EMIT pack_finished(pack_design(ctx));
+    } catch (WorkerInterruptionRequested) {
+        Q_EMIT taskCanceled();
+    }
+}
+
+void Worker::place()
+{
+    Q_EMIT taskStarted();
+    try {
+        double freq = 50e6;
+        assign_budget(ctx, freq);
+        print_utilisation(ctx);
+        Q_EMIT place_finished(place_design_sa(ctx));
+    } catch (WorkerInterruptionRequested) {
+        Q_EMIT taskCanceled();
+    }
+}
+
+void Worker::route()
+{
+    Q_EMIT taskStarted();
+    try {
+        Q_EMIT route_finished(route_design(ctx));
+    } catch (WorkerInterruptionRequested) {
+        Q_EMIT taskCanceled();
+    }
+}
+
+
+TaskManager::TaskManager(Context *ctx) : toTerminate(false), toPause(false)
+{
+    Worker *worker = new Worker(ctx, this);
     worker->moveToThread(&workerThread);
+    
     connect(&workerThread, &QThread::finished, worker, &QObject::deleteLater);
-    connect(this, &TaskManager::parsejson, worker, &Worker::parsejson);
+    
+    connect(this, &TaskManager::loadfile, worker, &Worker::loadfile);
+    connect(this, &TaskManager::pack, worker, &Worker::pack);
+    connect(this, &TaskManager::place, worker, &Worker::place);
+    connect(this, &TaskManager::route, worker, &Worker::route);
+
     connect(worker, &Worker::log, this, &TaskManager::info);
+    connect(worker, &Worker::loadfile_finished, this, &TaskManager::loadfile_finished);
+    connect(worker, &Worker::pack_finished, this, &TaskManager::pack_finished);
+    connect(worker, &Worker::place_finished, this, &TaskManager::place_finished);
+    connect(worker, &Worker::route_finished, this, &TaskManager::route_finished);
+    
+    connect(worker, &Worker::taskCanceled, this, &TaskManager::taskCanceled);
+    connect(worker, &Worker::taskStarted, this, &TaskManager::taskStarted);
+    connect(worker, &Worker::taskPaused, this, &TaskManager::taskPaused);
+
     workerThread.start();
 }
 
 TaskManager::~TaskManager()
 {
+    if (workerThread.isRunning())
+        terminate_thread();
     workerThread.quit();
     workerThread.wait();
 }
 
 void TaskManager::info(const std::string &result) { Q_EMIT log(result); }
+
+void TaskManager::terminate_thread()
+{
+    QMutexLocker locker(&mutex);
+    toPause = false;
+    toTerminate = true;
+}
+
+bool TaskManager::shouldTerminate()
+{
+    QMutexLocker locker(&mutex);
+    return toTerminate;
+}
+
+void TaskManager::clearTerminate()
+{
+    QMutexLocker locker(&mutex);
+    toTerminate = false;
+}
+
+void TaskManager::pause_thread()
+{
+    QMutexLocker locker(&mutex);
+    toPause = true;
+}
+
+void TaskManager::continue_thread()
+{
+    QMutexLocker locker(&mutex);
+    toPause = false;
+    Q_EMIT taskStarted();
+}
+
+bool TaskManager::isPaused()
+{
+    QMutexLocker locker(&mutex);
+    return toPause;
+}
+
+NEXTPNR_NAMESPACE_END

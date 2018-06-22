@@ -11,10 +11,9 @@
 #include <QTabWidget>
 #include <QToolBar>
 
-// FIXME
-USING_NEXTPNR_NAMESPACE
-
 Q_DECLARE_METATYPE(std::string)
+
+NEXTPNR_NAMESPACE_BEGIN
 
 class BaseMainWindow : public QMainWindow
 {
@@ -44,5 +43,7 @@ class BaseMainWindow : public QMainWindow
     QToolBar *mainToolBar;
     QStatusBar *statusBar;
 };
+
+NEXTPNR_NAMESPACE_END
 
 #endif // BASEMAINWINDOW_H

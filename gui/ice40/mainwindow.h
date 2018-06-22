@@ -4,8 +4,7 @@
 #include "../basewindow.h"
 #include "worker.h"
 
-// FIXME
-USING_NEXTPNR_NAMESPACE
+NEXTPNR_NAMESPACE_BEGIN
 
 class MainWindow : public BaseMainWindow
 {
@@ -21,9 +20,27 @@ class MainWindow : public BaseMainWindow
   protected Q_SLOTS:
     virtual void open();
     virtual bool save();
+    void loadfile_finished(bool status);
+    void pack_finished(bool status);
+    void place_finished(bool status);
+    void route_finished(bool status);
+    
+    void taskCanceled();
+    void taskStarted();
+    void taskPaused();
 
   private:
+    void disableActions();
+
     TaskManager *task;
+    QAction *actionPack;
+    QAction *actionPlace;
+    QAction *actionRoute;
+    QAction *actionPlay;
+    QAction *actionPause;
+    QAction *actionStop;    
 };
+
+NEXTPNR_NAMESPACE_END
 
 #endif // MAINWINDOW_H

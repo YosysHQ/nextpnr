@@ -10,10 +10,14 @@
 #include "mainwindow.h"
 #include "pythontab.h"
 
+static void initBasenameResource() { Q_INIT_RESOURCE(base); }
+
+NEXTPNR_NAMESPACE_BEGIN
+
 BaseMainWindow::BaseMainWindow(Context *_ctx, QWidget *parent)
         : QMainWindow(parent), ctx(_ctx)
 {
-    Q_INIT_RESOURCE(nextpnr);
+    initBasenameResource();
     qRegisterMetaType<std::string>();
 
     log_files.clear();
@@ -114,3 +118,5 @@ void BaseMainWindow::createMenusAndBars()
     mainToolBar->addAction(actionOpen);
     mainToolBar->addAction(actionSave);
 }
+
+NEXTPNR_NAMESPACE_END

@@ -1,6 +1,7 @@
 #include "line_editor.h"
-
 #include <QKeyEvent>
+
+NEXTPNR_NAMESPACE_BEGIN
 
 LineEditor::LineEditor(QWidget *parent) : QLineEdit(parent), index(0)
 {
@@ -65,3 +66,5 @@ void LineEditor::clearHistory()
     index = 0;
     clear();
 }
+
+NEXTPNR_NAMESPACE_END
