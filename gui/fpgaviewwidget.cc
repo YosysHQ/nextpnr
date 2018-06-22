@@ -75,18 +75,18 @@ void PolyLine::buildPoint(LineShaderData *building, const QVector2D *prev,
 
     // Calculate normal to tangent - this is the line on which the vectors need
     // to be pushed to build a thickened line.
-    QVector2D tangent_normal = QVector2D(-tangent.y(), tangent.x());
+    const QVector2D tangent_normal = QVector2D(-tangent.y(), tangent.x());
 
     // Calculate normal to one of the lines.
-    QVector2D dprev_normal = QVector2D(-dprev.y(), dprev.x());
+    const QVector2D dprev_normal = QVector2D(-dprev.y(), dprev.x());
     // https://people.eecs.berkeley.edu/~sequin/CS184/IMGS/Sweep_PolyLine.jpg
     // (the ^-1 is performed in the shader)
-    float miter = QVector2D::dotProduct(tangent_normal, dprev_normal);
+    const float miter = QVector2D::dotProduct(tangent_normal, dprev_normal);
 
-    float x = cur->x();
-    float y = cur->y();
-    float mx = tangent_normal.x();
-    float my = tangent_normal.y();
+    const float x = cur->x();
+    const float y = cur->y();
+    const float mx = tangent_normal.x();
+    const float my = tangent_normal.y();
 
     // Push back 'left' vertex.
     building->vertices.push_back(Vertex2DPOD(x, y));
@@ -149,7 +149,7 @@ void PolyLine::build(LineShaderData &target) const
         prev = &point;
     }
 
-    // If we're closed, built to more vertices that loop the line around.
+    // If we're closed, build two more vertices that loop the line around.
     if (closed_) {
         target.indices.push_back(index);
         target.indices.push_back(index + 1);
@@ -278,7 +278,7 @@ void FPGAViewWidget::initializeGL()
 
 void FPGAViewWidget::drawElement(LineShaderData &out, const GraphicElement &el)
 {
-    float scale = 1.0, offset = 0.0;
+    const float scale = 1.0, offset = 0.0;
 
     if (el.type == GraphicElement::G_BOX) {
         auto line = PolyLine(true);
@@ -303,7 +303,7 @@ void FPGAViewWidget::paintGL()
     gl->glViewport(0, 0, width() * retinaScale, height() * retinaScale);
     gl->glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    float aspect = float(width()) / float(height());
+    const float aspect = float(width()) / float(height());
 
     QMatrix4x4 matrix;
     matrix.ortho(QRectF(-aspect / 2.0, -0.5, aspect, 1.0f));
