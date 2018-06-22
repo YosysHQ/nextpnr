@@ -1,6 +1,8 @@
 #include "infotab.h"
 #include <QGridLayout>
 
+NEXTPNR_NAMESPACE_BEGIN
+
 InfoTab::InfoTab(QWidget *parent) : QWidget(parent)
 {
     plainTextEdit = new QPlainTextEdit();
@@ -37,3 +39,5 @@ void InfoTab::showContextMenu(const QPoint &pt)
 }
 
 void InfoTab::clearBuffer() { plainTextEdit->clear(); }
+
+NEXTPNR_NAMESPACE_END

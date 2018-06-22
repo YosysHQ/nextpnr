@@ -4,8 +4,7 @@
 #include "../basewindow.h"
 #include "worker.h"
 
-// FIXME
-USING_NEXTPNR_NAMESPACE
+NEXTPNR_NAMESPACE_BEGIN
 
 class MainWindow : public BaseMainWindow
 {
@@ -25,5 +24,7 @@ class MainWindow : public BaseMainWindow
   private:
     TaskManager *task;
 };
+
+NEXTPNR_NAMESPACE_END
 
 #endif // MAINWINDOW_H

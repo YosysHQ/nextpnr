@@ -3,6 +3,8 @@
 #include "emb.h"
 #include "pybindings.h"
 
+NEXTPNR_NAMESPACE_BEGIN
+
 PythonTab::PythonTab(QWidget *parent) : QWidget(parent)
 {
     PyImport_ImportModule("emb");
@@ -115,3 +117,5 @@ void PythonTab::showContextMenu(const QPoint &pt)
 }
 
 void PythonTab::clearBuffer() { plainTextEdit->clear(); }
+
+NEXTPNR_NAMESPACE_END

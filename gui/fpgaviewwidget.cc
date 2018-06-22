@@ -6,6 +6,8 @@
 #include <math.h>
 #include "mainwindow.h"
 
+NEXTPNR_NAMESPACE_BEGIN
+
 FPGAViewWidget::FPGAViewWidget(QWidget *parent)
         : QOpenGLWidget(parent), m_xMove(0), m_yMove(0), m_zDistance(1.0)
 {
@@ -173,3 +175,5 @@ void FPGAViewWidget::wheelEvent(QWheelEvent *event)
         setZoom(step.y() * -0.1f);
     }
 }
+
+NEXTPNR_NAMESPACE_END

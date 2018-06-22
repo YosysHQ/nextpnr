@@ -10,6 +10,8 @@
 #include "route.h"
 #include "timing.h"
 
+NEXTPNR_NAMESPACE_BEGIN
+
 struct WorkerInterruptionRequested
 {
 };
@@ -22,7 +24,7 @@ Worker::Worker(Context *_ctx, TaskManager *parent) : ctx(_ctx)
             parent->clearTerminate();
             throw WorkerInterruptionRequested();
         }
-        while (parent->isPaused()){
+        while (parent->isPaused()) {
             QThread::sleep(1);
         }
     };
@@ -64,7 +66,7 @@ TaskManager::TaskManager(Context *ctx) : toTerminate(false), toPause(false)
 
 TaskManager::~TaskManager()
 {
-    if (workerThread.isRunning()) 
+    if (workerThread.isRunning())
         terminate_thread();
     workerThread.quit();
     workerThread.wait();
@@ -106,3 +108,5 @@ bool TaskManager::isPaused()
     QMutexLocker locker(&mutex);
     return toPause;
 }
+
+NEXTPNR_NAMESPACE_END

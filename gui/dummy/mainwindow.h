@@ -3,8 +3,7 @@
 
 #include "../basewindow.h"
 
-// FIXME
-USING_NEXTPNR_NAMESPACE
+NEXTPNR_NAMESPACE_BEGIN
 
 class MainWindow : public BaseMainWindow
 {
@@ -21,5 +20,7 @@ class MainWindow : public BaseMainWindow
     virtual void open();
     virtual bool save();
 };
+
+NEXTPNR_NAMESPACE_END
 
 #endif // MAINWINDOW_H
