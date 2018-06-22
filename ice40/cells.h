@@ -91,6 +91,16 @@ inline bool is_ram(const Context *ctx, const CellInfo *cell)
            cell->type == ctx->id("SB_RAM40_4KNRNW");
 }
 
+inline bool is_sb_lfosc(const Context *ctx, const CellInfo *cell)
+{
+    return cell->type == ctx->id("SB_LFOSC");
+}
+
+inline bool is_sb_hfosc(const Context *ctx, const CellInfo *cell)
+{
+    return cell->type == ctx->id("SB_HFOSC");
+}
+
 // Convert a SB_LUT primitive to (part of) an ICESTORM_LC, swapping ports
 // as needed. Set no_dff if a DFF is not being used, so that the output
 // can be reconnected

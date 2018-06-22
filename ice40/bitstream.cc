@@ -267,7 +267,8 @@ void write_asc(const Context *ctx, std::ostream &out)
                        read_mode & 0x1);
             set_config(ti_ramt, config.at(y + 1).at(x), "RamConfig.CBIT_3",
                        read_mode & 0x2);
-        } else if (cell.second->type == ctx->id("SB_WARMBOOT")) {
+        } else if (cell.second->type == ctx->id("SB_WARMBOOT") ||
+                   cell.second->type == ctx->id("ICESTORM_LFOSC")) {
             // No config needed
         } else {
             assert(false);
@@ -323,13 +324,8 @@ void write_asc(const Context *ctx, std::ostream &out)
                        ctx->args.type == ArchArgs::HX8K) {
                 setColBufCtrl = (y == 8 || y == 9 || y == 24 || y == 25);
             } else if (ctx->args.type == ArchArgs::UP5K) {
-                if (tile == TILE_LOGIC || tile == TILE_RAMB ||
-                    tile == TILE_RAMT) {
-                    setColBufCtrl = (y == 4 || y == 5 || y == 14 || y == 15 ||
-                                     y == 26 || y == 27);
-                } else {
-                    setColBufCtrl = false;
-                }
+                setColBufCtrl = (y == 4 || y == 5 || y == 14 || y == 15 ||
+                                 y == 26 || y == 27);
             }
             if (setColBufCtrl) {
                 set_config(ti, config.at(y).at(x), "ColBufCtrl.glb_netwk_0",
@@ -348,6 +344,35 @@ void write_asc(const Context *ctx, std::ostream &out)
                            true);
                 set_config(ti, config.at(y).at(x), "ColBufCtrl.glb_netwk_7",
                            true);
+            }
+
+            // Weird UltraPlus bits
+            if (tile == TILE_DSP0 || tile == TILE_DSP1 || tile == TILE_DSP2 ||
+                tile == TILE_IPCON) {
+                for (int lc_idx = 0; lc_idx < 8; lc_idx++) {
+                    static const std::vector<int> ip_dsp_lut_perm = {
+                            4, 14, 15, 5, 6, 16, 17, 7,
+                            3, 13, 12, 2, 1, 11, 10, 0,
+                    };
+                    for (int i = 0; i < 16; i++)
+                        set_config(ti, config.at(y).at(x),
+                                   "LC_" + std::to_string(lc_idx),
+                                   ((i % 8) >= 4), ip_dsp_lut_perm.at(i));
+                    if (tile == TILE_IPCON)
+                        set_config(ti, config.at(y).at(x),
+                                   "Cascade.IPCON_LC0" +
+                                           std::to_string(lc_idx) +
+                                           "_inmux02_5",
+                                   true);
+                    else
+                        set_config(
+                                ti, config.at(y).at(x),
+                                "Cascade.MULT" +
+                                        std::to_string(int(tile - TILE_DSP0)) +
+                                        "_LC0" + std::to_string(lc_idx) +
+                                        "_inmux02_5",
+                                true);
+                }
             }
         }
     }

@@ -485,6 +485,39 @@ static void promote_globals(Context *ctx)
     }
 }
 
+// Pack internal oscillators
+static void pack_intosc(Context *ctx)
+{
+    log_info("Packing oscillators..\n");
+
+    std::unordered_set<IdString> packed_cells;
+    std::vector<CellInfo *> new_cells;
+
+    for (auto cell : sorted(ctx->cells)) {
+        CellInfo *ci = cell.second;
+        if (is_sb_lfosc(ctx, ci)) {
+            CellInfo *packed = create_ice_cell(ctx, "ICESTORM_LFOSC",
+                                               ci->name.str(ctx) + "_OSC");
+            packed_cells.insert(ci->name);
+            new_cells.push_back(packed);
+            replace_port(ci, "CLKLFEN", packed, "CLKLFEN");
+            replace_port(ci, "CLKLFPU", packed, "CLKLFPU");
+            if (bool_or_default(ci->attrs, "ROUTE_THROUGH_FABRIC")) {
+                replace_port(ci, "CLKLF", packed, "CLKLF_FABRIC");
+            } else {
+                replace_port(ci, "CLKLF", packed, "CLKLF");
+            }
+        }
+    }
+
+    for (auto pcell : packed_cells) {
+        ctx->cells.erase(pcell);
+    }
+    for (auto ncell : new_cells) {
+        ctx->cells[ncell->name] = ncell;
+    }
+}
+
 // Main pack function
 bool pack_design(Context *ctx)
 {
@@ -496,6 +529,7 @@ bool pack_design(Context *ctx)
         pack_lut_lutffs(ctx);
         pack_nonlut_ffs(ctx);
         pack_ram(ctx);
+        pack_intosc(ctx);
         log_info("Checksum: 0x%08x\n", ctx->checksum());
         return true;
     } catch (log_execution_error_exception) {

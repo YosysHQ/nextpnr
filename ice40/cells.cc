@@ -106,11 +106,26 @@ CellInfo *create_ice_cell(Context *ctx, IdString type, std::string name)
             add_port(ctx, new_cell, "RADDR_" + std::to_string(i), PORT_IN);
             add_port(ctx, new_cell, "WADDR_" + std::to_string(i), PORT_IN);
         }
+    } else if (type == ctx->id("ICESTORM_LFOSC")) {
+        add_port(ctx, new_cell, "CLKLFEN", PORT_IN);
+        add_port(ctx, new_cell, "CLKLFPU", PORT_IN);
+        add_port(ctx, new_cell, "CLKLF", PORT_OUT);
+        add_port(ctx, new_cell, "CLKLF_FABRIC", PORT_OUT);
+    } else if (type == ctx->id("ICESTORM_HFOSC")) {
+        new_cell->params[ctx->id("CLKHF_DIV")] = "0";
+        new_cell->params[ctx->id("TRIM_EN")] = "0";
+
+        add_port(ctx, new_cell, "CLKHFEN", PORT_IN);
+        add_port(ctx, new_cell, "CLKHFPU", PORT_IN);
+        add_port(ctx, new_cell, "CLKHF", PORT_OUT);
+        add_port(ctx, new_cell, "CLKHF_FABRIC", PORT_OUT);
+        for (int i = 0; i < 10; i++)
+            add_port(ctx, new_cell, "TRIM" + std::to_string(i), PORT_IN);
     } else if (type == ctx->id("SB_GB")) {
         add_port(ctx, new_cell, "USER_SIGNAL_TO_GLOBAL_BUFFER", PORT_IN);
         add_port(ctx, new_cell, "GLOBAL_BUFFER_OUTPUT", PORT_OUT);
     } else {
-        log_error("unable to create iCE40 cell of type %s", type.c_str());
+        log_error("unable to create iCE40 cell of type %s", type.c_str(ctx));
     }
     return new_cell;
 }
@@ -124,7 +139,7 @@ void lut_to_lc(const Context *ctx, CellInfo *lut, CellInfo *lc, bool no_dff)
     replace_port(lut, "I3", lc, "I3");
     if (no_dff) {
         replace_port(lut, "O", lc, "O");
-        lc->params["DFF_ENABLE"] = "0";
+        lc->params[ctx->id("DFF_ENABLE")] = "0";
     }
 }
 

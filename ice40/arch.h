@@ -692,11 +692,6 @@ struct Arch : BaseCtx
     bool checkPipAvail(PipId pip) const
     {
         assert(pip != PipId());
-        if (args.type == ArchArgs::UP5K) {
-            int x = chip_info->pip_data[pip.index].x;
-            if (x == 0 || x == (chip_info->width - 1))
-                return false;
-        }
         return switches_locked[chip_info->pip_data[pip.index].switch_index] ==
                IdString();
     }
