@@ -24,6 +24,7 @@
 #include <QOpenGLBuffer>
 #include <QOpenGLFunctions>
 #include <QOpenGLShaderProgram>
+#include <QOpenGLVertexArrayObject>
 #include <QOpenGLWidget>
 #include <QPainter>
 
@@ -162,6 +163,15 @@ class LineShader
         GLuint miter;
     } attributes_;
 
+    // GL buffers
+    struct
+    {
+        QOpenGLBuffer position;
+        QOpenGLBuffer normal;
+        QOpenGLBuffer miter;
+        QOpenGLBuffer index;
+    } buffers_;
+
     // GL uniform locations.
     struct
     {
@@ -173,8 +183,23 @@ class LineShader
         GLuint color;
     } uniforms_;
 
+    QOpenGLVertexArrayObject vao_;
+
   public:
-    LineShader(QObject *parent) : parent_(parent), program_(nullptr) {}
+    LineShader(QObject *parent) : parent_(parent), program_(nullptr)
+    {
+        buffers_.position = QOpenGLBuffer(QOpenGLBuffer::VertexBuffer);
+        buffers_.position.setUsagePattern(QOpenGLBuffer::StaticDraw);
+
+        buffers_.normal = QOpenGLBuffer(QOpenGLBuffer::VertexBuffer);
+        buffers_.normal.setUsagePattern(QOpenGLBuffer::StaticDraw);
+
+        buffers_.miter = QOpenGLBuffer(QOpenGLBuffer::VertexBuffer);
+        buffers_.miter.setUsagePattern(QOpenGLBuffer::StaticDraw);
+
+        buffers_.index = QOpenGLBuffer(QOpenGLBuffer::IndexBuffer);
+        buffers_.index.setUsagePattern(QOpenGLBuffer::StaticDraw);
+    }
 
     static constexpr const char *vertexShaderSource_ =
             "attribute highp vec2  position;\n"
@@ -238,7 +263,7 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
 
     float startDragX_;
     float startDragY_;
-    Context *ctx;
+    Context *ctx_;
 };
 
 NEXTPNR_NAMESPACE_END

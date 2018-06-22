@@ -173,6 +173,20 @@ bool LineShader::compile(void)
                program_->log().toStdString().c_str());
         return false;
     }
+
+    if (!vao_.create())
+        log_abort();
+    vao_.bind();
+
+    if (!buffers_.position.create())
+        log_abort();
+    if (!buffers_.normal.create())
+        log_abort();
+    if (!buffers_.miter.create())
+        log_abort();
+    if (!buffers_.index.create())
+        log_abort();
+
     attributes_.position = program_->attributeLocation("position");
     attributes_.normal = program_->attributeLocation("normal");
     attributes_.miter = program_->attributeLocation("miter");
@@ -180,44 +194,84 @@ bool LineShader::compile(void)
     uniforms_.projection = program_->uniformLocation("projection");
     uniforms_.color = program_->uniformLocation("color");
 
+    vao_.release();
     return true;
 }
 
 void LineShader::draw(const LineShaderData &line, const QMatrix4x4 &projection)
 {
     auto gl = QOpenGLContext::currentContext()->functions();
+    vao_.bind();
     program_->bind();
+
+    buffers_.position.bind();
+    buffers_.position.allocate(&line.vertices[0],
+                               sizeof(Vertex2DPOD) * line.vertices.size());
+
+    buffers_.normal.bind();
+    buffers_.normal.allocate(&line.normals[0],
+                             sizeof(Vertex2DPOD) * line.normals.size());
+
+    buffers_.miter.bind();
+    buffers_.miter.allocate(&line.miters[0],
+                            sizeof(GLfloat) * line.miters.size());
+
+    buffers_.index.bind();
+    buffers_.index.allocate(&line.indices[0],
+                            sizeof(GLuint) * line.indices.size());
 
     program_->setUniformValue(uniforms_.projection, projection);
     program_->setUniformValue(uniforms_.thickness, line.thickness);
     program_->setUniformValue(uniforms_.color, line.color.r, line.color.g,
                               line.color.b, line.color.a);
 
+    buffers_.position.bind();
+    program_->enableAttributeArray("position");
     gl->glVertexAttribPointer(attributes_.position, 2, GL_FLOAT, GL_FALSE, 0,
-                              &line.vertices[0]);
+                              (void *)0);
+
+    buffers_.normal.bind();
+    program_->enableAttributeArray("normal");
     gl->glVertexAttribPointer(attributes_.normal, 2, GL_FLOAT, GL_FALSE, 0,
-                              &line.normals[0]);
+                              (void *)0);
+
+    buffers_.miter.bind();
+    program_->enableAttributeArray("miter");
     gl->glVertexAttribPointer(attributes_.miter, 1, GL_FLOAT, GL_FALSE, 0,
-                              &line.miters[0]);
+                              (void *)0);
 
-    gl->glEnableVertexAttribArray(0);
-    gl->glEnableVertexAttribArray(1);
-    gl->glEnableVertexAttribArray(2);
-
+    buffers_.index.bind();
     gl->glDrawElements(GL_TRIANGLES, line.indices.size(), GL_UNSIGNED_INT,
-                       &line.indices[0]);
+                       (void *)0);
 
-    gl->glDisableVertexAttribArray(2);
-    gl->glDisableVertexAttribArray(1);
-    gl->glDisableVertexAttribArray(0);
+    program_->disableAttributeArray("miter");
+    program_->disableAttributeArray("normal");
+    program_->disableAttributeArray("position");
+
     program_->release();
+    vao_.release();
 }
 
 FPGAViewWidget::FPGAViewWidget(QWidget *parent)
         : QOpenGLWidget(parent), moveX_(0), moveY_(0), zoom_(10.0f),
           lineShader_(this)
 {
-    ctx = qobject_cast<BaseMainWindow *>(getMainWindow())->getContext();
+    ctx_ = qobject_cast<BaseMainWindow *>(getMainWindow())->getContext();
+    auto fmt = format();
+    fmt.setMajorVersion(3);
+    fmt.setMinorVersion(1);
+    setFormat(fmt);
+
+    fmt = format();
+    printf("FPGAViewWidget running on OpenGL %d.%d\n", fmt.majorVersion(),
+           fmt.minorVersion());
+    if (fmt.majorVersion() < 3) {
+        printf("Could not get OpenGL 3.0 context. Aborting.\n");
+        log_abort();
+    }
+    if (fmt.minorVersion() < 1) {
+        printf("Could not get OpenGL 3.1 context - trying anyway...\n ");
+    }
 }
 
 QMainWindow *FPGAViewWidget::getMainWindow()
@@ -320,15 +374,15 @@ void FPGAViewWidget::paintGL()
 
     // Draw Bels.
     auto bels = LineShaderData(0.02f, QColor("#b000ba"));
-    for (auto bel : ctx->getBels()) {
-        for (auto &el : ctx->getBelGraphics(bel))
+    for (auto bel : ctx_->getBels()) {
+        for (auto &el : ctx_->getBelGraphics(bel))
             drawElement(bels, el);
     }
     lineShader_.draw(bels, matrix);
 
     // Draw Frame Graphics.
     auto frames = LineShaderData(0.02f, QColor("#0066ba"));
-    for (auto &el : ctx->getFrameGraphics()) {
+    for (auto &el : ctx_->getFrameGraphics()) {
         drawElement(frames, el);
     }
     lineShader_.draw(frames, matrix);
