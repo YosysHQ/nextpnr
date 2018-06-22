@@ -59,6 +59,17 @@ beltypes["ICESTORM_LC"] = 1
 beltypes["ICESTORM_RAM"] = 2
 beltypes["SB_IO"] = 3
 beltypes["SB_GB"] = 4
+beltypes["PLL"] = 5
+beltypes["WARMBOOT"] = 6
+beltypes["MAC16"] = 7
+beltypes["HFOSC"] = 8
+beltypes["LFOSC"] = 9
+beltypes["I2C"] = 10
+beltypes["SPI"] = 11
+beltypes["IO_I3C"] = 12
+beltypes["LEDDA_IP"] = 13
+beltypes["RGBA_DRV"] = 14
+beltypes["SPRAM"] = 15
 
 tiletypes["NONE"] = 0
 tiletypes["LOGIC"] = 1
@@ -187,6 +198,7 @@ def pipdelay(src, dst):
 
     # print(src, dst, src_type, dst_type, file=sys.stderr)
     assert 0
+
 
 
 def init_tiletypes(device):

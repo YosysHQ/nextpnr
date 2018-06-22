@@ -36,6 +36,28 @@ IdString Arch::belTypeToId(BelType type) const
         return id("SB_IO");
     if (type == TYPE_SB_GB)
         return id("SB_GB");
+    if (type == TYPE_ICESTORM_PLL)
+        return id("ICESTORM_PLL");
+    if (type == TYPE_SB_WARMBOOT)
+        return id("SB_WARMBOOT");
+    if (type == TYPE_SB_MAC16)
+        return id("SB_MAC16");
+    if (type == TYPE_ICESTORM_HFOSC)
+        return id("ICESTORM_HFOSC");
+    if (type == TYPE_ICESTORM_LFOSC)
+        return id("ICESTORM_LFOSC");
+    if (type == TYPE_SB_I2C)
+        return id("SB_I2C");
+    if (type == TYPE_SB_SPI)
+        return id("SB_SPI");
+    if (type == TYPE_IO_I3C)
+        return id("IO_I3C");
+    if (type == TYPE_SB_LEDDA_IP)
+        return id("SB_LEDDA_IP");
+    if (type == TYPE_SB_RGBA_DRV)
+        return id("SB_RGBA_DRV");
+    if (type == TYPE_SB_SPRAM256KA)
+        return id("SB_SPRAM256KA");
     return IdString();
 }
 
@@ -49,6 +71,28 @@ BelType Arch::belTypeFromId(IdString type) const
         return TYPE_SB_IO;
     if (type == id("SB_GB"))
         return TYPE_SB_GB;
+    if (type == id("ICESTORM_PLL"))
+        return TYPE_ICESTORM_PLL;
+    if (type == id("SB_WARMBOOT"))
+        return TYPE_SB_WARMBOOT;
+    if (type == id("SB_MAC16"))
+        return TYPE_SB_MAC16;
+    if (type == id("ICESTORM_HFOSC"))
+        return TYPE_ICESTORM_HFOSC;
+    if (type == id("ICESTORM_LFOSC"))
+        return TYPE_ICESTORM_LFOSC;
+    if (type == id("SB_I2C"))
+        return TYPE_SB_I2C;
+    if (type == id("SB_SPI"))
+        return TYPE_SB_SPI;
+    if (type == id("IO_I3C"))
+        return TYPE_IO_I3C;
+    if (type == id("SB_LEDDA_IP"))
+        return TYPE_SB_LEDDA_IP;
+    if (type == id("SB_RGBA_DRV"))
+        return TYPE_SB_RGBA_DRV;
+    if (type == id("SB_SPRAM256KA"))
+        return TYPE_SB_SPRAM256KA;
     return TYPE_NONE;
 }
 
