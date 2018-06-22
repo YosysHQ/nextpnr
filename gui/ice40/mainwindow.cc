@@ -45,14 +45,17 @@ MainWindow::MainWindow(Context *_ctx, QWidget *parent)
     task = new TaskManager(_ctx);
     connect(task, SIGNAL(log(std::string)), this, SLOT(writeInfo(std::string)));
 
-    connect(task, SIGNAL(loadfile_finished(bool)), this, SLOT(loadfile_finished(bool)));
+    connect(task, SIGNAL(loadfile_finished(bool)), this,
+            SLOT(loadfile_finished(bool)));
     connect(task, SIGNAL(pack_finished(bool)), this, SLOT(pack_finished(bool)));
-    connect(task, SIGNAL(place_finished(bool)), this, SLOT(place_finished(bool)));
-    connect(task, SIGNAL(route_finished(bool)), this, SLOT(route_finished(bool)));
+    connect(task, SIGNAL(place_finished(bool)), this,
+            SLOT(place_finished(bool)));
+    connect(task, SIGNAL(route_finished(bool)), this,
+            SLOT(route_finished(bool)));
 
     connect(task, SIGNAL(taskCanceled()), this, SLOT(taskCanceled()));
     connect(task, SIGNAL(taskStarted()), this, SLOT(taskStarted()));
-    connect(task, SIGNAL(taskPaused()), this, SLOT(taskPaused()));    
+    connect(task, SIGNAL(taskPaused()), this, SLOT(taskPaused()));
 
     createMenu();
 }
@@ -146,7 +149,7 @@ void MainWindow::open()
 
 bool MainWindow::save() { return false; }
 
-void  MainWindow::disableActions()
+void MainWindow::disableActions()
 {
     actionPack->setEnabled(false);
     actionPlace->setEnabled(false);
@@ -163,8 +166,7 @@ void MainWindow::loadfile_finished(bool status)
     if (status) {
         log("Loading design successful.\n");
         actionPack->setEnabled(true);
-    }
-    else {
+    } else {
         log("Loading design failed.\n");
     }
 }
@@ -174,8 +176,7 @@ void MainWindow::pack_finished(bool status)
     if (status) {
         log("Packing design successful.\n");
         actionPlace->setEnabled(true);
-    }
-    else {
+    } else {
         log("Packing design failed.\n");
     }
 }
@@ -185,8 +186,7 @@ void MainWindow::place_finished(bool status)
     if (status) {
         log("Placing design successful.\n");
         actionRoute->setEnabled(true);
-    }
-    else {
+    } else {
         log("Placing design failed.\n");
     }
 }
@@ -216,7 +216,7 @@ void MainWindow::taskPaused()
 {
     disableActions();
     actionPlay->setEnabled(true);
-    actionStop->setEnabled(true);    
+    actionStop->setEnabled(true);
 }
 
 NEXTPNR_NAMESPACE_END

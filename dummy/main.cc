@@ -22,6 +22,7 @@
 #include <QApplication>
 #include <boost/filesystem/convenience.hpp>
 #include <boost/program_options.hpp>
+#include "application.h"
 #include "log.h"
 #include "mainwindow.h"
 #include "nextpnr.h"
@@ -107,7 +108,7 @@ int main(int argc, char *argv[])
         }
 
         if (vm.count("gui")) {
-            QApplication a(argc, argv);
+            Application a(argc, argv);
             MainWindow w(&ctx);
             w.show();
 

@@ -24,6 +24,7 @@
 #include <boost/program_options.hpp>
 #include <fstream>
 #include <iostream>
+#include "application.h"
 #include "bitstream.h"
 #include "design_utils.h"
 #include "jsonparse.h"
@@ -329,7 +330,7 @@ int main(int argc, char *argv[])
         }
 
         if (vm.count("gui")) {
-            QApplication a(argc, argv);
+            Application a(argc, argv);
             MainWindow w(&ctx);
             w.show();
 

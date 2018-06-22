@@ -43,7 +43,7 @@ class MainWindow : public BaseMainWindow
     void pack_finished(bool status);
     void place_finished(bool status);
     void route_finished(bool status);
-    
+
     void taskCanceled();
     void taskStarted();
     void taskPaused();
@@ -57,7 +57,7 @@ class MainWindow : public BaseMainWindow
     QAction *actionRoute;
     QAction *actionPlay;
     QAction *actionPause;
-    QAction *actionStop;    
+    QAction *actionStop;
 };
 
 NEXTPNR_NAMESPACE_END

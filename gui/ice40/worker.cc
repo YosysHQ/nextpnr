@@ -43,8 +43,7 @@ Worker::Worker(Context *_ctx, TaskManager *parent) : ctx(_ctx)
             parent->clearTerminate();
             throw WorkerInterruptionRequested();
         }
-        if (parent->isPaused())
-        {
+        if (parent->isPaused()) {
             Q_EMIT taskPaused();
         }
         while (parent->isPaused()) {
@@ -102,25 +101,27 @@ void Worker::route()
     }
 }
 
-
 TaskManager::TaskManager(Context *ctx) : toTerminate(false), toPause(false)
 {
     Worker *worker = new Worker(ctx, this);
     worker->moveToThread(&workerThread);
-    
+
     connect(&workerThread, &QThread::finished, worker, &QObject::deleteLater);
-    
+
     connect(this, &TaskManager::loadfile, worker, &Worker::loadfile);
     connect(this, &TaskManager::pack, worker, &Worker::pack);
     connect(this, &TaskManager::place, worker, &Worker::place);
     connect(this, &TaskManager::route, worker, &Worker::route);
 
     connect(worker, &Worker::log, this, &TaskManager::info);
-    connect(worker, &Worker::loadfile_finished, this, &TaskManager::loadfile_finished);
+    connect(worker, &Worker::loadfile_finished, this,
+            &TaskManager::loadfile_finished);
     connect(worker, &Worker::pack_finished, this, &TaskManager::pack_finished);
-    connect(worker, &Worker::place_finished, this, &TaskManager::place_finished);
-    connect(worker, &Worker::route_finished, this, &TaskManager::route_finished);
-    
+    connect(worker, &Worker::place_finished, this,
+            &TaskManager::place_finished);
+    connect(worker, &Worker::route_finished, this,
+            &TaskManager::route_finished);
+
     connect(worker, &Worker::taskCanceled, this, &TaskManager::taskCanceled);
     connect(worker, &Worker::taskStarted, this, &TaskManager::taskStarted);
     connect(worker, &Worker::taskPaused, this, &TaskManager::taskPaused);
