@@ -229,6 +229,16 @@ void write_asc(const Context *ctx, std::ostream &out)
                 set_config(ti, config.at(iey).at(iex),
                            "IoCtrl.REN_" + std::to_string(iez), !pullup);
             }
+
+            if (ctx->args.type == ArchArgs::UP5K) {
+                if (iez == 0) {
+                    set_config(ti, config.at(iey).at(iex), "IoCtrl.cf_bit_39",
+                               !pullup);
+                } else if (iez == 1) {
+                    set_config(ti, config.at(iey).at(iex), "IoCtrl.cf_bit_35",
+                               !pullup);
+                }
+            }
         } else if (cell.second->type == ctx->id("SB_GB")) {
             // no cell config bits
         } else if (cell.second->type == ctx->id("ICESTORM_RAM")) {
@@ -312,7 +322,8 @@ void write_asc(const Context *ctx, std::ostream &out)
                        ctx->args.type == ArchArgs::HX8K) {
                 setColBufCtrl = (y == 8 || y == 9 || y == 24 || y == 25);
             } else if (ctx->args.type == ArchArgs::UP5K) {
-                if (tile == TILE_LOGIC) {
+                if (tile == TILE_LOGIC || tile == TILE_RAMB ||
+                    tile == TILE_RAMT) {
                     setColBufCtrl = (y == 4 || y == 5 || y == 14 || y == 15 ||
                                      y == 26 || y == 27);
                 } else {
