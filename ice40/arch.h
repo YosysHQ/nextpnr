@@ -515,6 +515,8 @@ struct Arch : BaseCtx
         return id(chip_info->bel_data[bel.index].name.get());
     }
 
+    uint32_t getBelChecksum(BelId bel) const { return bel.index; }
+
     void bindBel(BelId bel, IdString cell)
     {
         assert(bel != BelId());
@@ -607,6 +609,8 @@ struct Arch : BaseCtx
         return id(chip_info->wire_data[wire.index].name.get());
     }
 
+    uint32_t getWireChecksum(WireId wire) const { return wire.index; }
+
     void bindWire(WireId wire, IdString net)
     {
         assert(wire != WireId());
@@ -645,6 +649,8 @@ struct Arch : BaseCtx
 
     PipId getPipByName(IdString name) const;
     IdString getPipName(PipId pip) const;
+
+    uint32_t getPipChecksum(PipId pip) const { return pip.index; }
 
     void bindPip(PipId pip, IdString net)
     {
@@ -755,8 +761,10 @@ struct Arch : BaseCtx
 
     void estimatePosition(BelId bel, int &x, int &y, bool &gb) const;
     delay_t estimateDelay(WireId src, WireId dst) const;
-    delay_t getDelayEpsilon() const { return 10; }
+    delay_t getDelayEpsilon() const { return 20; }
+    delay_t getRipupDelayPenalty() const { return 200; }
     float getDelayNS(delay_t v) const { return v * 0.001; }
+    uint32_t getDelayChecksum(delay_t v) const { return v; }
 
     // -------------------------------------------------
 

@@ -52,8 +52,7 @@ void parse_json_shim(std::string filename, Context &d)
     std::ifstream inf(filename);
     if (!inf)
         throw std::runtime_error("failed to open file " + filename);
-    std::istream *ifp = &inf;
-    parse_json_file(ifp, filename, &d);
+    parse_json_file(inf, filename, &d);
 }
 
 // Create a new Chip and load design from json file

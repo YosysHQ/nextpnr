@@ -78,6 +78,7 @@ static delay_t follow_net(Context *ctx, NetInfo *net, int path_length,
 
 void assign_budget(Context *ctx, float default_clock)
 {
+    log_break();
     log_info("Annotating ports with timing budgets\n");
     // Clear delays to a very high value first
     delay_t default_slack = delay_t(1.0e12 / default_clock);
@@ -101,7 +102,6 @@ void assign_budget(Context *ctx, float default_clock)
             }
         }
     }
-    const bool debug = true;
 
     // Post-allocation check
     for (auto net : ctx->nets) {
@@ -111,13 +111,15 @@ void assign_budget(Context *ctx, float default_clock)
                             "timing budget of %fns\n",
                             user.cell->name.c_str(ctx), user.port.c_str(ctx),
                             net.first.c_str(ctx), ctx->getDelayNS(user.budget));
-            if (debug)
-                log_warning("port %s.%s, connected to net '%s', has "
-                            "timing budget of %fns\n",
-                            user.cell->name.c_str(ctx), user.port.c_str(ctx),
-                            net.first.c_str(ctx), ctx->getDelayNS(user.budget));
+            if (ctx->verbose)
+                log_info("port %s.%s, connected to net '%s', has "
+                         "timing budget of %fns\n",
+                         user.cell->name.c_str(ctx), user.port.c_str(ctx),
+                         net.first.c_str(ctx), ctx->getDelayNS(user.budget));
         }
     }
+
+    log_info("Checksum: 0x%08x\n", ctx->checksum());
 }
 
 NEXTPNR_NAMESPACE_END

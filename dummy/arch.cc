@@ -34,6 +34,8 @@ BelId Arch::getBelByName(IdString name) const { return BelId(); }
 
 IdString Arch::getBelName(BelId bel) const { return IdString(); }
 
+uint32_t Arch::getBelChecksum(BelId bel) const { return 0; }
+
 void Arch::bindBel(BelId bel, IdString cell) {}
 
 void Arch::unbindBel(BelId bel) {}
@@ -75,6 +77,8 @@ WireId Arch::getWireByName(IdString name) const { return WireId(); }
 
 IdString Arch::getWireName(WireId wire) const { return IdString(); }
 
+uint32_t Arch::getWireChecksum(WireId wire) const { return 0; }
+
 void Arch::bindWire(WireId wire, IdString net) {}
 
 void Arch::unbindWire(WireId wire) {}
@@ -97,6 +101,8 @@ const std::vector<WireId> &Arch::getWires() const
 PipId Arch::getPipByName(IdString name) const { return PipId(); }
 
 IdString Arch::getPipName(PipId pip) const { return IdString(); }
+
+uint32_t Arch::getPipChecksum(PipId wire) const { return 0; }
 
 void Arch::bindPip(PipId pip, IdString net) {}
 

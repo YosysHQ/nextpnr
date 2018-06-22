@@ -11,9 +11,6 @@ Prequisites
  
  - CMake 3.3 or later
  - Modern C++11 compiler (`clang-format` required for development)
-     - Note: clang may run out of memory building the chipdbs (peak memory 
-       ~11GB) due to the system currently used. Use gcc, or the 1k-only
-       flag, if this causes a problem.
  - Qt5 or later (`qt5-default` for Ubuntu 16.04)
  - Python 3.5 or later, including development libraries (`python3-dev` for Ubuntu)
  - Boost libraries (`libboost-dev` or `libboost-all-dev` for Ubuntu)
@@ -29,8 +26,8 @@ Building
     - For a release build, run `cmake .`
     - Add `-DCMAKE_INSTALL_PREFIX=/your/install/prefix` to use a different install prefix to the default `/usr/local`
  - Use Make to run the build itself
-    - For all targets, just run `make`
-    - For just the iCE40 CLI binary, run `make nextpnr-ice40`
+    - For all binary targets, just run `make`
+    - For just the iCE40 CLI&GUI binary, run `make nextpnr-ice40`
     - For just the iCE40 Python module, run `make nextpnrpy_ice40`
     - Using too many parallel jobs may lead to out-of-memory issues due to the significant memory needed to build the chipdbs
     - To install nextpnr, run `make install`

@@ -150,12 +150,8 @@ void logv_error(const char *format, va_list ap)
 
 #ifdef EMSCRIPTEN
     log_files = backup_log_files;
-    throw 0;
-#elif defined(_MSC_VER)
-    _exit(EXIT_FAILURE);
-#else
-    _Exit(EXIT_FAILURE);
 #endif
+    throw log_execution_error_exception();
 }
 
 void log(const char *format, ...)
@@ -212,19 +208,13 @@ void log_cmd_error(const char *format, ...)
     logv_error(format, ap);
 }
 
-void log_spacer()
+void log_break()
 {
     if (log_newline_count < 2)
         log("\n");
     if (log_newline_count < 2)
         log("\n");
 }
-
-void log_push() {}
-
-void log_pop() { log_flush(); }
-
-void log_reset_stack() { log_flush(); }
 
 void log_flush()
 {
@@ -234,9 +224,5 @@ void log_flush()
     for (auto f : log_streams)
         f->flush();
 }
-
-void log_cell(CellInfo *cell, std::string indent) {}
-
-void log_net(NetInfo *net, std::string indent) {}
 
 NEXTPNR_NAMESPACE_END

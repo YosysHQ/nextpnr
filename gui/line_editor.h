@@ -3,6 +3,9 @@
 
 #include <QLineEdit>
 #include <QMenu>
+#include "nextpnr.h"
+
+NEXTPNR_NAMESPACE_BEGIN
 
 class LineEditor : public QLineEdit
 {
@@ -27,5 +30,7 @@ class LineEditor : public QLineEdit
     QStringList lines;
     QMenu *contextMenu;
 };
+
+NEXTPNR_NAMESPACE_END
 
 #endif // LINE_EDITOR_H

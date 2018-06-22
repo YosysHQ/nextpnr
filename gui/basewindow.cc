@@ -1,39 +1,29 @@
-#include "mainwindow.h"
 #include <QAction>
 #include <QFileDialog>
 #include <QGridLayout>
 #include <QIcon>
-#include <QMenu>
-#include <QMenuBar>
 #include <QSplitter>
-#include <QStatusBar>
-#include <QToolBar>
-#include <fstream>
 #include "designwidget.h"
 #include "fpgaviewwidget.h"
 #include "jsonparse.h"
 #include "log.h"
+#include "mainwindow.h"
 #include "pythontab.h"
-//#include "pack.h"
-//#include "pcf.h"
-#include "place_sa.h"
-#include "pybindings.h"
-#include "route.h"
-//#include "bitstream.h"
-#include "design_utils.h"
 
-MainWindow::MainWindow(Context *_ctx, QWidget *parent)
+static void initBasenameResource() { Q_INIT_RESOURCE(base); }
+
+NEXTPNR_NAMESPACE_BEGIN
+
+BaseMainWindow::BaseMainWindow(Context *_ctx, QWidget *parent)
         : QMainWindow(parent), ctx(_ctx)
 {
-    Q_INIT_RESOURCE(nextpnr);
+    initBasenameResource();
+    qRegisterMetaType<std::string>();
 
     log_files.clear();
     log_streams.clear();
-    log_write_function = [this](std::string text) { info->info(text); };
 
-    std::string title = "nextpnr-ice40 - " + ctx->getChipName();
-    setWindowTitle(title.c_str());
-    setObjectName(QStringLiteral("MainWindow"));
+    setObjectName(QStringLiteral("BaseMainWindow"));
     resize(1024, 768);
 
     createMenusAndBars();
@@ -64,15 +54,19 @@ MainWindow::MainWindow(Context *_ctx, QWidget *parent)
     tabWidget->addTab(new PythonTab(), "Python");
     info = new InfoTab();
     tabWidget->addTab(info, "Info");
-    splitter_v->addWidget(new FPGAViewWidget());
+
+    centralTabWidget = new QTabWidget();
+    centralTabWidget->addTab(new FPGAViewWidget(), "Graphics");
+
+    splitter_v->addWidget(centralTabWidget);
     splitter_v->addWidget(tabWidget);
 }
 
-MainWindow::~MainWindow() {}
+BaseMainWindow::~BaseMainWindow() {}
 
-void MainWindow::writeInfo(std::string text) { info->info(text); }
+void BaseMainWindow::writeInfo(std::string text) { info->info(text); }
 
-void MainWindow::createMenusAndBars()
+void BaseMainWindow::createMenusAndBars()
 {
     QAction *actionOpen = new QAction("Open", this);
     QIcon icon1;
@@ -101,7 +95,7 @@ void MainWindow::createMenusAndBars()
 
     QAction *actionAbout = new QAction("About", this);
 
-    QMenuBar *menuBar = new QMenuBar();
+    menuBar = new QMenuBar();
     menuBar->setGeometry(QRect(0, 0, 1024, 27));
     QMenu *menu_File = new QMenu("&File", menuBar);
     QMenu *menu_Help = new QMenu("&Help", menuBar);
@@ -109,10 +103,10 @@ void MainWindow::createMenusAndBars()
     menuBar->addAction(menu_Help->menuAction());
     setMenuBar(menuBar);
 
-    QToolBar *mainToolBar = new QToolBar();
+    mainToolBar = new QToolBar();
     addToolBar(Qt::TopToolBarArea, mainToolBar);
 
-    QStatusBar *statusBar = new QStatusBar();
+    statusBar = new QStatusBar();
     setStatusBar(statusBar);
 
     menu_File->addAction(actionOpen);
@@ -125,21 +119,4 @@ void MainWindow::createMenusAndBars()
     mainToolBar->addAction(actionSave);
 }
 
-void MainWindow::open()
-{
-    QString fileName = QFileDialog::getOpenFileName(this, QString(), QString(),
-                                                    QString("*.json"));
-    if (!fileName.isEmpty()) {
-        tabWidget->setCurrentWidget(info);
-
-        std::string fn = fileName.toStdString();
-        std::istream *f = new std::ifstream(fn);
-
-        parse_json_file(f, fn, ctx);
-
-        // pack_design(ctx);
-        print_utilisation(ctx);
-    }
-}
-
-bool MainWindow::save() { return false; }
+NEXTPNR_NAMESPACE_END

@@ -87,6 +87,7 @@ struct Arch : BaseCtx
 
     BelId getBelByName(IdString name) const;
     IdString getBelName(BelId bel) const;
+    uint32_t getBelChecksum(BelId bel) const;
     void bindBel(BelId bel, IdString cell);
     void unbindBel(BelId bel);
     bool checkBelAvail(BelId bel) const;
@@ -100,6 +101,7 @@ struct Arch : BaseCtx
 
     WireId getWireByName(IdString name) const;
     IdString getWireName(WireId wire) const;
+    uint32_t getWireChecksum(WireId wire) const;
     void bindWire(WireId wire, IdString net);
     void unbindWire(WireId wire);
     bool checkWireAvail(WireId wire) const;
@@ -108,6 +110,7 @@ struct Arch : BaseCtx
 
     PipId getPipByName(IdString name) const;
     IdString getPipName(PipId pip) const;
+    uint32_t getPipChecksum(PipId pip) const;
     void bindPip(PipId pip, IdString net);
     void unbindPip(PipId pip);
     bool checkPipAvail(PipId pip) const;
@@ -123,7 +126,9 @@ struct Arch : BaseCtx
     void estimatePosition(BelId bel, int &x, int &y, bool &gb) const;
     delay_t estimateDelay(WireId src, WireId dst) const;
     delay_t getDelayEpsilon() const { return 0.01; }
+    delay_t getRipupDelayPenalty() const { return 1.0; }
     float getDelayNS(delay_t v) const { return v; }
+    uint32_t getDelayChecksum(delay_t v) const { return 0; }
 
     std::vector<GraphicElement> getFrameGraphics() const;
     std::vector<GraphicElement> getBelGraphics(BelId bel) const;

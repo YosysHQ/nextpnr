@@ -5,8 +5,7 @@
 #include <QPlainTextEdit>
 #include "nextpnr.h"
 
-// FIXME
-USING_NEXTPNR_NAMESPACE
+NEXTPNR_NAMESPACE_BEGIN
 
 class InfoTab : public QWidget
 {
@@ -23,5 +22,7 @@ class InfoTab : public QWidget
     QPlainTextEdit *plainTextEdit;
     QMenu *contextMenu;
 };
+
+NEXTPNR_NAMESPACE_END
 
 #endif // INFOTAB_H

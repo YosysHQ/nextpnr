@@ -24,6 +24,7 @@
 #include "cells.h"
 #include "design_utils.h"
 #include "log.h"
+#include "util.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -34,10 +35,11 @@ static void pack_lut_lutffs(Context *ctx)
 
     std::unordered_set<IdString> packed_cells;
     std::vector<CellInfo *> new_cells;
-    for (auto cell : ctx->cells) {
+    for (auto cell : sorted(ctx->cells)) {
         CellInfo *ci = cell.second;
-        log_info("cell '%s' is of type '%s'\n", ci->name.c_str(ctx),
-                 ci->type.c_str(ctx));
+        if (ctx->verbose)
+            log_info("cell '%s' is of type '%s'\n", ci->name.c_str(ctx),
+                     ci->type.c_str(ctx));
         if (is_lut(ctx, ci)) {
             CellInfo *packed = create_ice_cell(ctx, "ICESTORM_LC",
                                                ci->name.str(ctx) + "_LC");
@@ -45,8 +47,9 @@ static void pack_lut_lutffs(Context *ctx)
                       std::inserter(packed->attrs, packed->attrs.begin()));
             packed_cells.insert(ci->name);
             new_cells.push_back(packed);
-            log_info("packed cell %s into %s\n", ci->name.c_str(ctx),
-                     packed->name.c_str(ctx));
+            if (ctx->verbose)
+                log_info("packed cell %s into %s\n", ci->name.c_str(ctx),
+                         packed->name.c_str(ctx));
             // See if we can pack into a DFF
             // TODO: LUT cascade
             NetInfo *o = ci->ports.at(ctx->id("O")).net;
@@ -54,7 +57,8 @@ static void pack_lut_lutffs(Context *ctx)
             auto lut_bel = ci->attrs.find(ctx->id("BEL"));
             bool packed_dff = false;
             if (dff) {
-                log_info("found attached dff %s\n", dff->name.c_str(ctx));
+                if (ctx->verbose)
+                    log_info("found attached dff %s\n", dff->name.c_str(ctx));
                 auto dff_bel = dff->attrs.find(ctx->id("BEL"));
                 if (lut_bel != ci->attrs.end() && dff_bel != dff->attrs.end() &&
                     lut_bel->second != dff_bel->second) {
@@ -66,8 +70,9 @@ static void pack_lut_lutffs(Context *ctx)
                     if (dff_bel != dff->attrs.end())
                         packed->attrs[ctx->id("BEL")] = dff_bel->second;
                     packed_cells.insert(dff->name);
-                    log_info("packed cell %s into %s\n", dff->name.c_str(ctx),
-                             packed->name.c_str(ctx));
+                    if (ctx->verbose)
+                        log_info("packed cell %s into %s\n",
+                                 dff->name.c_str(ctx), packed->name.c_str(ctx));
                     packed_dff = true;
                 }
             }
@@ -92,15 +97,16 @@ static void pack_nonlut_ffs(Context *ctx)
     std::unordered_set<IdString> packed_cells;
     std::vector<CellInfo *> new_cells;
 
-    for (auto cell : ctx->cells) {
+    for (auto cell : sorted(ctx->cells)) {
         CellInfo *ci = cell.second;
         if (is_ff(ctx, ci)) {
             CellInfo *packed = create_ice_cell(ctx, "ICESTORM_LC",
                                                ci->name.str(ctx) + "_DFFLC");
             std::copy(ci->attrs.begin(), ci->attrs.end(),
                       std::inserter(packed->attrs, packed->attrs.begin()));
-            log_info("packed cell %s into %s\n", ci->name.c_str(ctx),
-                     packed->name.c_str(ctx));
+            if (ctx->verbose)
+                log_info("packed cell %s into %s\n", ci->name.c_str(ctx),
+                         packed->name.c_str(ctx));
             packed_cells.insert(ci->name);
             new_cells.push_back(packed);
             dff_to_lc(ctx, ci, packed, true);
@@ -121,7 +127,7 @@ static void pack_carries(Context *ctx)
 
     std::unordered_set<IdString> packed_cells;
 
-    for (auto cell : ctx->cells) {
+    for (auto cell : sorted(ctx->cells)) {
         CellInfo *ci = cell.second;
         if (is_carry(ctx, ci)) {
             packed_cells.insert(cell.first);
@@ -196,7 +202,7 @@ static void pack_ram(Context *ctx)
     std::unordered_set<IdString> packed_cells;
     std::vector<CellInfo *> new_cells;
 
-    for (auto cell : ctx->cells) {
+    for (auto cell : sorted(ctx->cells)) {
         CellInfo *ci = cell.second;
         if (is_ram(ctx, ci)) {
             CellInfo *packed = create_ice_cell(ctx, "ICESTORM_RAM",
@@ -242,10 +248,11 @@ static void set_net_constant(const Context *ctx, NetInfo *orig,
     for (auto user : orig->users) {
         if (user.cell != nullptr) {
             CellInfo *uc = user.cell;
-            log_info("%s user %s\n", orig->name.c_str(ctx),
-                     uc->name.c_str(ctx));
-            if (is_lut(ctx, uc) && (user.port.str(ctx).at(0) == 'I') &&
-                !constval) {
+            if (ctx->verbose)
+                log_info("%s user %s\n", orig->name.c_str(ctx),
+                         uc->name.c_str(ctx));
+            if ((is_lut(ctx, uc) || is_lc(ctx, uc)) &&
+                (user.port.str(ctx).at(0) == 'I') && !constval) {
                 uc->ports[user.port].net = nullptr;
             } else {
                 uc->ports[user.port].net = constnet;
@@ -279,7 +286,7 @@ static void pack_constants(Context *ctx)
 
     bool gnd_used = false, vcc_used = false;
 
-    for (auto net : ctx->nets) {
+    for (auto net : sorted(ctx->nets)) {
         NetInfo *ni = net.second;
         if (ni->driver.cell != nullptr &&
             ni->driver.cell->type == ctx->id("GND")) {
@@ -323,7 +330,7 @@ static void pack_io(Context *ctx)
 
     log_info("Packing IOs..\n");
 
-    for (auto cell : ctx->cells) {
+    for (auto cell : sorted(ctx->cells)) {
         CellInfo *ci = cell.second;
         if (is_nextpnr_iob(ctx, ci)) {
             CellInfo *sb = nullptr;
@@ -406,8 +413,8 @@ static void promote_globals(Context *ctx)
 {
     log_info("Promoting globals..\n");
 
-    std::unordered_map<IdString, int> clock_count, reset_count, cen_count;
-    for (auto net : ctx->nets) {
+    std::map<IdString, int> clock_count, reset_count, cen_count;
+    for (auto net : sorted(ctx->nets)) {
         NetInfo *ni = net.second;
         if (ni->driver.cell != nullptr && !is_global_net(ctx, ni)) {
             clock_count[net.first] = 0;
@@ -481,13 +488,19 @@ static void promote_globals(Context *ctx)
 // Main pack function
 bool pack_design(Context *ctx)
 {
-    pack_constants(ctx);
-    promote_globals(ctx);
-    pack_io(ctx);
-    pack_lut_lutffs(ctx);
-    pack_nonlut_ffs(ctx);
-    pack_ram(ctx);
-    return true;
+    try {
+        log_break();
+        pack_constants(ctx);
+        promote_globals(ctx);
+        pack_io(ctx);
+        pack_lut_lutffs(ctx);
+        pack_nonlut_ffs(ctx);
+        pack_ram(ctx);
+        log_info("Checksum: 0x%08x\n", ctx->checksum());
+        return true;
+    } catch (log_execution_error_exception) {
+        return false;
+    }
 }
 
 NEXTPNR_NAMESPACE_END

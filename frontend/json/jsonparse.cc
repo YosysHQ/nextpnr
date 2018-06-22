@@ -659,7 +659,8 @@ static void insert_iobuf(Context *ctx, NetInfo *net, PortType type,
     std::copy(net->attrs.begin(), net->attrs.end(),
               std::inserter(iobuf->attrs, iobuf->attrs.begin()));
     if (type == PORT_IN) {
-        log_info("processing input port %s\n", name.c_str());
+        if (ctx->verbose)
+            log_info("processing input port %s\n", name.c_str());
         iobuf->type = ctx->id("$nextpnr_ibuf");
         iobuf->ports[ctx->id("O")] = PortInfo{ctx->id("O"), net, PORT_OUT};
         // Special case: input, etc, directly drives inout
@@ -671,7 +672,8 @@ static void insert_iobuf(Context *ctx, NetInfo *net, PortType type,
         net->driver.port = ctx->id("O");
         net->driver.cell = iobuf;
     } else if (type == PORT_OUT) {
-        log_info("processing output port %s\n", name.c_str());
+        if (ctx->verbose)
+            log_info("processing output port %s\n", name.c_str());
         iobuf->type = ctx->id("$nextpnr_obuf");
         iobuf->ports[ctx->id("I")] = PortInfo{ctx->id("I"), net, PORT_IN};
         PortRef ref;
@@ -679,7 +681,8 @@ static void insert_iobuf(Context *ctx, NetInfo *net, PortType type,
         ref.port = ctx->id("I");
         net->users.push_back(ref);
     } else if (type == PORT_INOUT) {
-        log_info("processing inout port %s\n", name.c_str());
+        if (ctx->verbose)
+            log_info("processing inout port %s\n", name.c_str());
         iobuf->type = ctx->id("$nextpnr_iobuf");
         iobuf->ports[ctx->id("I")] = PortInfo{ctx->id("I"), nullptr, PORT_IN};
 
@@ -792,17 +795,14 @@ void json_import(Context *ctx, string modname, JsonNode *node)
     }
     check_all_nets_driven(ctx);
 }
+}; // End Namespace JsonParser
 
-struct JsonFrontend
+bool parse_json_file(std::istream &f, std::string &filename, Context *ctx)
 {
-    // JsonFrontend() : Frontend("json", "read JSON file") { }
-    JsonFrontend(void) {}
-    virtual void help() {}
-    virtual void execute(std::istream *&f, std::string &filename, Context *ctx)
-    {
-        // log_header(ctx, "Executing JSON frontend.\n");
+    try {
+        using namespace JsonParser;
 
-        JsonNode root(*f);
+        JsonNode root(f);
 
         if (root.type != 'D')
             log_error("JSON root node is not a dictionary.\n");
@@ -816,15 +816,13 @@ struct JsonFrontend
             for (auto &it : modules->data_dict)
                 json_import(ctx, it.first, it.second);
         }
+
+        log_info("Checksum: 0x%08x\n", ctx->checksum());
+        log_break();
+        return true;
+    } catch (log_execution_error_exception) {
+        return false;
     }
-}; // JsonFrontend;
-
-}; // End Namespace JsonParser
-
-void parse_json_file(std::istream *&f, std::string &filename, Context *ctx)
-{
-    auto *parser = new JsonParser::JsonFrontend();
-    parser->execute(f, filename, ctx);
 }
 
 NEXTPNR_NAMESPACE_END

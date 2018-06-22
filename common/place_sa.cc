@@ -30,7 +30,6 @@
 #include <map>
 #include <ostream>
 #include <queue>
-#include <random>
 #include <set>
 #include <stdarg.h>
 #include <stdio.h>
@@ -41,6 +40,8 @@
 #include "log.h"
 
 NEXTPNR_NAMESPACE_BEGIN
+
+typedef int64_t wirelen_t;
 
 class SAPlacer
 {
@@ -76,6 +77,8 @@ class SAPlacer
 
     bool place()
     {
+        log_break();
+
         size_t placed_cells = 0;
         // Initial constraints placer
         for (auto cell_entry : ctx->cells) {
@@ -143,9 +146,10 @@ class SAPlacer
 
         // Calculate wirelength after initial placement
         curr_wirelength = 0;
+        curr_tns = 0;
         for (auto net : ctx->nets) {
-            float wl = get_wirelength(net.second);
-            wirelengths[net.second] = wl;
+            wirelen_t wl = get_wirelength(net.second, curr_tns);
+            wirelengths[net.first] = wl;
             curr_wirelength += wl;
         }
 
@@ -159,8 +163,9 @@ class SAPlacer
             improved = false;
 
             if (iter % 5 == 0 || iter == 1)
-                log_info("  at iteration #%d: temp = %f, wire length = %f\n",
-                         iter, temp, curr_wirelength);
+                log_info("  at iteration #%d: temp = %f, wire length = "
+                         "%.0f, est tns = %.02fns\n",
+                         iter, temp, double(curr_wirelength), curr_tns);
 
             for (int m = 0; m < 15; ++m) {
                 // Loop through all automatically placed cells
@@ -183,7 +188,7 @@ class SAPlacer
                 if (iter % 5 != 0)
                     log_info(
                             "  at iteration #%d: temp = %f, wire length = %f\n",
-                            iter, temp, curr_wirelength);
+                            iter, temp, double(curr_wirelength));
                 break;
             }
 
@@ -213,6 +218,16 @@ class SAPlacer
                         temp *= 0.8;
                 }
             }
+
+            // Recalculate total wirelength entirely to avoid rounding errors
+            // accumulating over time
+            curr_wirelength = 0;
+            curr_tns = 0;
+            for (auto net : ctx->nets) {
+                wirelen_t wl = get_wirelength(net.second, curr_tns);
+                wirelengths[net.first] = wl;
+                curr_wirelength += wl;
+            }
         }
         // Final post-pacement validitiy check
         for (auto bel : ctx->getBels()) {
@@ -221,9 +236,17 @@ class SAPlacer
                 std::string cell_text = "no cell";
                 if (cell != IdString())
                     cell_text = std::string("cell '") + cell.str(ctx) + "'";
-                log_error("post-placement validity check failed for Bel '%s' "
-                          "(%s)",
-                          ctx->getBelName(bel).c_str(ctx), cell_text.c_str());
+                if (ctx->force) {
+                    log_warning(
+                            "post-placement validity check failed for Bel '%s' "
+                            "(%s)\n",
+                            ctx->getBelName(bel).c_str(ctx), cell_text.c_str());
+                } else {
+                    log_error(
+                            "post-placement validity check failed for Bel '%s' "
+                            "(%s)\n",
+                            ctx->getBelName(bel).c_str(ctx), cell_text.c_str());
+                }
             }
         }
         return true;
@@ -288,9 +311,9 @@ class SAPlacer
     }
 
     // Get the total estimated wirelength for a net
-    float get_wirelength(NetInfo *net)
+    wirelen_t get_wirelength(NetInfo *net, float &tns)
     {
-        float wirelength = 0;
+        wirelen_t wirelength = 0;
         int driver_x, driver_y;
         bool driver_gb;
         CellInfo *driver_cell = net->driver.cell;
@@ -303,24 +326,36 @@ class SAPlacer
                 driver_cell->bel, ctx->portPinFromId(net->driver.port));
         if (driver_gb)
             return 0;
+        float worst_slack = 1000;
+        int xmin = driver_x, xmax = driver_x, ymin = driver_y, ymax = driver_y;
         for (auto load : net->users) {
             if (load.cell == nullptr)
                 continue;
             CellInfo *load_cell = load.cell;
             if (load_cell->bel == BelId())
                 continue;
-            // ctx->estimatePosition(load_cell->bel, load_x, load_y, load_gb);
+
             WireId user_wire = ctx->getWireBelPin(
                     load_cell->bel, ctx->portPinFromId(load.port));
-            // wirelength += std::abs(load_x - driver_x) + std::abs(load_y -
-            // driver_y);
             delay_t raw_wl = ctx->estimateDelay(drv_wire, user_wire);
-            wirelength += pow(1.3, (ctx->getDelayNS(raw_wl) -
-                                    ctx->getDelayNS(load.budget)) /
-                                           10) +
-                          ctx->getDelayNS(raw_wl);
-            // wirelength += pow(ctx->estimateDelay(drv_wire, user_wire), 2.0);
+            float slack =
+                    ctx->getDelayNS(load.budget) - ctx->getDelayNS(raw_wl);
+            if (slack < 0)
+                tns += slack;
+            worst_slack = std::min(slack, worst_slack);
+            int load_x, load_y;
+            bool load_gb;
+            ctx->estimatePosition(load_cell->bel, load_x, load_y, load_gb);
+            if (load_gb)
+                continue;
+            xmin = std::min(xmin, load_x);
+            ymin = std::min(ymin, load_y);
+            xmax = std::max(xmax, load_x);
+            ymax = std::max(ymax, load_y);
         }
+        wirelength =
+                wirelen_t((((ymax - ymin) + (xmax - xmin)) *
+                           std::min(5.0, (1.0 + std::exp(-worst_slack / 5)))));
         return wirelength;
     }
 
@@ -328,13 +363,13 @@ class SAPlacer
     bool try_swap_position(CellInfo *cell, BelId newBel)
     {
         static std::unordered_set<NetInfo *> update;
-        static std::vector<std::pair<NetInfo *, float>> new_lengths;
+        static std::vector<std::pair<IdString, wirelen_t>> new_lengths;
         new_lengths.clear();
         update.clear();
         BelId oldBel = cell->bel;
         IdString other = ctx->getBelCell(newBel, true);
         CellInfo *other_cell = nullptr;
-        float new_wirelength = 0, delta;
+        wirelen_t new_wirelength = 0, delta;
         ctx->unbindBel(oldBel);
         if (other != IdString()) {
             other_cell = ctx->cells[other];
@@ -373,10 +408,11 @@ class SAPlacer
 
         // Recalculate wirelengths for all nets touched by the peturbation
         for (auto net : update) {
-            new_wirelength -= wirelengths.at(net);
-            float net_new_wl = get_wirelength(net);
+            new_wirelength -= wirelengths.at(net->name);
+            float temp_tns = 0;
+            wirelen_t net_new_wl = get_wirelength(net, temp_tns);
             new_wirelength += net_new_wl;
-            new_lengths.push_back(std::make_pair(net, net_new_wl));
+            new_lengths.push_back(std::make_pair(net->name, net_new_wl));
         }
         delta = new_wirelength - curr_wirelength;
         n_move++;
@@ -384,7 +420,7 @@ class SAPlacer
         if (delta < 0 || (temp > 1e-6 && (ctx->rng() / float(0x3fffffff)) <=
                                                  std::exp(-delta / temp))) {
             n_accept++;
-            if (delta < 0)
+            if (delta < 2)
                 improved = true;
         } else {
             if (other != IdString())
@@ -434,8 +470,9 @@ class SAPlacer
     }
 
     Context *ctx;
-    std::unordered_map<NetInfo *, float> wirelengths;
-    float curr_wirelength = std::numeric_limits<float>::infinity();
+    std::unordered_map<IdString, wirelen_t> wirelengths;
+    wirelen_t curr_wirelength = std::numeric_limits<wirelen_t>::max();
+    float curr_tns = 0;
     float temp = 1000;
     bool improved = false;
     int n_move, n_accept;
@@ -448,9 +485,14 @@ class SAPlacer
 
 bool place_design_sa(Context *ctx)
 {
-    SAPlacer placer(ctx);
-    placer.place();
-    return true;
+    try {
+        SAPlacer placer(ctx);
+        placer.place();
+        log_info("Checksum: 0x%08x\n", ctx->checksum());
+        return true;
+    } catch (log_execution_error_exception) {
+        return false;
+    }
 }
 
 NEXTPNR_NAMESPACE_END
