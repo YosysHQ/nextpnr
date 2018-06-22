@@ -163,7 +163,7 @@ class SAPlacer
             improved = false;
 
             if (iter % 5 == 0 || iter == 1)
-                log_info("  at iteration #%d: temp = %.02f, wire length = "
+                log_info("  at iteration #%d: temp = %f, wire length = "
                          "%.0f, est tns = %.02fns\n",
                          iter, temp, double(curr_wirelength), curr_tns);
 
