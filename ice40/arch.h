@@ -166,6 +166,11 @@ enum TileType : uint32_t
     TILE_IO = 2,
     TILE_RAMB = 3,
     TILE_RAMT = 4,
+    TILE_DSP0 = 5,
+    TILE_DSP1 = 6,
+    TILE_DSP2 = 7,
+    TILE_DSP3 = 8,
+    TILE_IPCON = 9
 };
 
 struct ConfigBitPOD
