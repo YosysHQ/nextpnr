@@ -15,9 +15,19 @@ class Worker : public QObject
   public:
     Worker(Context *ctx, TaskManager *parent);
   public Q_SLOTS:
-    void parsejson(const std::string &filename);
+    void loadfile(const std::string &);
+    void pack();
+    void place();
+    void route();
   Q_SIGNALS:
     void log(const std::string &text);
+    void loadfile_finished(bool status);
+    void pack_finished(bool status);
+    void place_finished(bool status);
+    void route_finished(bool status);
+    void taskCanceled();
+    void taskStarted();
+    void taskPaused();
 
   private:
     Context *ctx;
@@ -41,8 +51,20 @@ class TaskManager : public QObject
     void continue_thread();
   Q_SIGNALS:
     void terminate();
-    void parsejson(const std::string &);
+    void loadfile(const std::string &);
+    void pack();
+    void place();
+    void route();
+
+    // redirected signals
     void log(const std::string &text);
+    void loadfile_finished(bool status);
+    void pack_finished(bool status);
+    void place_finished(bool status);
+    void route_finished(bool status);
+    void taskCanceled();
+    void taskStarted();
+    void taskPaused();
 
   private:
     QMutex mutex;
