@@ -61,6 +61,8 @@ TaskManager::TaskManager(Context *ctx) : toTerminate(false)
 
 TaskManager::~TaskManager()
 {
+    if (workerThread.isRunning()) 
+        terminate_thread();
     workerThread.quit();
     workerThread.wait();
 }
