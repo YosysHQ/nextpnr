@@ -21,6 +21,7 @@
 #define UTIL_H
 
 #include <string>
+#include <map>
 #include "nextpnr.h"
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -56,6 +57,13 @@ bool bool_or_default(const Container &ct, const KeyType &key, bool def = false)
 {
     return bool(int_or_default(ct, key, int(def)));
 };
+
+// Wrap an unordered_map, and allow it to be iterated over sorted by key
+template <typename K, typename V> std::map<K, V> sorted(const std::unordered_map<K, V> &orig) {
+    return std::map<K, V>(orig.begin(), orig.end());
+};
+
+
 NEXTPNR_NAMESPACE_END
 
 #endif

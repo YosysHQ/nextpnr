@@ -24,6 +24,7 @@
 #include "cells.h"
 #include "design_utils.h"
 #include "log.h"
+#include "util.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -34,7 +35,7 @@ static void pack_lut_lutffs(Context *ctx)
 
     std::unordered_set<IdString> packed_cells;
     std::vector<CellInfo *> new_cells;
-    for (auto cell : ctx->cells) {
+    for (auto cell : sorted(ctx->cells)) {
         CellInfo *ci = cell.second;
         if (ctx->verbose)
             log_info("cell '%s' is of type '%s'\n", ci->name.c_str(ctx),
@@ -96,7 +97,7 @@ static void pack_nonlut_ffs(Context *ctx)
     std::unordered_set<IdString> packed_cells;
     std::vector<CellInfo *> new_cells;
 
-    for (auto cell : ctx->cells) {
+    for (auto cell : sorted(ctx->cells)) {
         CellInfo *ci = cell.second;
         if (is_ff(ctx, ci)) {
             CellInfo *packed = create_ice_cell(ctx, "ICESTORM_LC",
@@ -126,7 +127,7 @@ static void pack_carries(Context *ctx)
 
     std::unordered_set<IdString> packed_cells;
 
-    for (auto cell : ctx->cells) {
+    for (auto cell : sorted(ctx->cells)) {
         CellInfo *ci = cell.second;
         if (is_carry(ctx, ci)) {
             packed_cells.insert(cell.first);
@@ -201,7 +202,7 @@ static void pack_ram(Context *ctx)
     std::unordered_set<IdString> packed_cells;
     std::vector<CellInfo *> new_cells;
 
-    for (auto cell : ctx->cells) {
+    for (auto cell : sorted(ctx->cells)) {
         CellInfo *ci = cell.second;
         if (is_ram(ctx, ci)) {
             CellInfo *packed = create_ice_cell(ctx, "ICESTORM_RAM",
@@ -285,7 +286,7 @@ static void pack_constants(Context *ctx)
 
     bool gnd_used = false, vcc_used = false;
 
-    for (auto net : ctx->nets) {
+    for (auto net : sorted(ctx->nets)) {
         NetInfo *ni = net.second;
         if (ni->driver.cell != nullptr &&
             ni->driver.cell->type == ctx->id("GND")) {
@@ -329,7 +330,7 @@ static void pack_io(Context *ctx)
 
     log_info("Packing IOs..\n");
 
-    for (auto cell : ctx->cells) {
+    for (auto cell : sorted(ctx->cells)) {
         CellInfo *ci = cell.second;
         if (is_nextpnr_iob(ctx, ci)) {
             CellInfo *sb = nullptr;
@@ -412,8 +413,8 @@ static void promote_globals(Context *ctx)
 {
     log_info("Promoting globals..\n");
 
-    std::unordered_map<IdString, int> clock_count, reset_count, cen_count;
-    for (auto net : ctx->nets) {
+    std::map<IdString, int> clock_count, reset_count, cen_count;
+    for (auto net : sorted(ctx->nets)) {
         NetInfo *ni = net.second;
         if (ni->driver.cell != nullptr && !is_global_net(ctx, ni)) {
             clock_count[net.first] = 0;
