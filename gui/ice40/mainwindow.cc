@@ -14,6 +14,8 @@
 MainWindow::MainWindow(Context *_ctx, QWidget *parent)
         : BaseMainWindow(_ctx, parent)
 {
+    Q_INIT_RESOURCE(nextpnr);
+ 
     std::string title = "nextpnr-ice40 - " + ctx->getChipName();
     setWindowTitle(title.c_str());
 
@@ -30,11 +32,36 @@ void MainWindow::createMenu()
     QMenu *menu_Custom = new QMenu("&ICE 40", menuBar);
     menuBar->addAction(menu_Custom->menuAction());
 
-    QAction *actionTerminate = new QAction("Terminate", this);
-    actionTerminate->setStatusTip("Terminate running task");
-    connect(actionTerminate, SIGNAL(triggered()), task,
+    QAction *actionPlay = new QAction("Play", this);
+    QIcon icon1;
+    icon1.addFile(QStringLiteral(":/icons/resources/control_play.png"));
+    actionPlay->setIcon(icon1);
+    actionPlay->setStatusTip("Continue running task");
+    connect(actionPlay, SIGNAL(triggered()), task,
+            SLOT(continue_thread()));
+
+    QAction *actionPause = new QAction("Pause", this);
+    QIcon icon2;
+    icon2.addFile(QStringLiteral(":/icons/resources/control_pause.png"));
+    actionPause->setIcon(icon2);
+    actionPause->setStatusTip("Pause running task");
+    connect(actionPause, SIGNAL(triggered()), task,
+            SLOT(pause_thread()));
+
+    QAction *actionStop = new QAction("Stop", this);
+    QIcon icon3;
+    icon3.addFile(QStringLiteral(":/icons/resources/control_stop.png"));
+    actionStop->setIcon(icon3);
+    actionStop->setStatusTip("Stop running task");
+    connect(actionStop, SIGNAL(triggered()), task,
             SLOT(terminate_thread()));
-    menu_Custom->addAction(actionTerminate);
+
+    QToolBar *taskToolBar = new QToolBar();
+    addToolBar(Qt::TopToolBarArea, taskToolBar);
+
+    taskToolBar->addAction(actionPlay);
+    taskToolBar->addAction(actionPause);
+    taskToolBar->addAction(actionStop);
 }
 
 void MainWindow::open()

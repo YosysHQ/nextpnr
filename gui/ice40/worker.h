@@ -34,9 +34,12 @@ class TaskManager : public QObject
     ~TaskManager();
     bool shouldTerminate();
     void clearTerminate();
+    bool isPaused();
   public Q_SLOTS:
     void info(const std::string &text);
     void terminate_thread();
+    void pause_thread();
+    void continue_thread();
   Q_SIGNALS:
     void terminate();
     void parsejson(const std::string &);
@@ -45,6 +48,7 @@ class TaskManager : public QObject
   private:
     QMutex mutex;
     bool toTerminate;
+    bool toPause;
 };
 
 #endif // WORKER_H

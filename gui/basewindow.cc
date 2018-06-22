@@ -13,7 +13,7 @@
 BaseMainWindow::BaseMainWindow(Context *_ctx, QWidget *parent)
         : QMainWindow(parent), ctx(_ctx)
 {
-    Q_INIT_RESOURCE(nextpnr);
+    Q_INIT_RESOURCE(base);
     qRegisterMetaType<std::string>();
 
     log_files.clear();

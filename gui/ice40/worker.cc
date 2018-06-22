@@ -22,6 +22,9 @@ Worker::Worker(Context *_ctx, TaskManager *parent) : ctx(_ctx)
             parent->clearTerminate();
             throw WorkerInterruptionRequested();
         }
+        while (parent->isPaused()){
+            QThread::sleep(1);
+        }
     };
 }
 
@@ -49,7 +52,7 @@ void Worker::parsejson(const std::string &filename)
     }
 }
 
-TaskManager::TaskManager(Context *ctx) : toTerminate(false)
+TaskManager::TaskManager(Context *ctx) : toTerminate(false), toPause(false)
 {
     Worker *worker = new Worker(ctx, this);
     worker->moveToThread(&workerThread);
@@ -85,4 +88,21 @@ void TaskManager::clearTerminate()
 {
     QMutexLocker locker(&mutex);
     toTerminate = false;
+}
+
+void TaskManager::pause_thread()
+{
+    QMutexLocker locker(&mutex);
+    toPause = true;
+}
+
+void TaskManager::continue_thread()
+{
+    QMutexLocker locker(&mutex);
+    toPause = false;
+}
+bool TaskManager::isPaused()
+{
+    QMutexLocker locker(&mutex);
+    return toPause;
 }

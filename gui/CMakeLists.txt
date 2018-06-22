@@ -3,7 +3,7 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 aux_source_directory(. GUI_SOURCE_FILES)
 aux_source_directory(${family}/ GUI_SOURCE_FILES)
-set(_RESOURCES nextpnr.qrc)
+set(_RESOURCES base.qrc ${family}/nextpnr.qrc)
   
 qt5_add_resources(GUI_RESOURCE_FILES ${_RESOURCES})
 
