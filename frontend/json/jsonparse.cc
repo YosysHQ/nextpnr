@@ -5,7 +5,7 @@
  *
  *  jsonparse.cc -- liberally copied from the yosys file of the same name by
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2018  Clifford Wolf <clifford@symbioticeda.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
