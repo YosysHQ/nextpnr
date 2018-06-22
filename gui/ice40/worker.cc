@@ -10,9 +10,19 @@
 #include "route.h"
 #include "timing.h"
 
-Worker::Worker(Context *_ctx) : ctx(_ctx)
+struct WorkerInterruptionRequested
 {
-    log_write_function = [this](std::string text) { Q_EMIT log(text); };
+};
+
+Worker::Worker(Context *_ctx, TaskManager *parent) : ctx(_ctx)
+{
+    log_write_function = [this, parent](std::string text) {
+        Q_EMIT log(text);
+        if (parent->shouldTerminate()) {
+            parent->clearTerminate();
+            throw WorkerInterruptionRequested();
+        }
+    };
 }
 
 void Worker::parsejson(const std::string &filename)
@@ -32,14 +42,16 @@ void Worker::parsejson(const std::string &filename)
             log_error("Placing design failed.\n");
         if (!route_design(ctx))
             log_error("Routing design failed.\n");
-        Q_EMIT log("done");
+        Q_EMIT log("DONE\n");
     } catch (log_execution_error_exception) {
+    } catch (WorkerInterruptionRequested) {
+        Q_EMIT log("CANCELED\n");
     }
 }
 
-TaskManager::TaskManager(Context *ctx)
+TaskManager::TaskManager(Context *ctx) : toTerminate(false)
 {
-    Worker *worker = new Worker(ctx);
+    Worker *worker = new Worker(ctx, this);
     worker->moveToThread(&workerThread);
     connect(&workerThread, &QThread::finished, worker, &QObject::deleteLater);
     connect(this, &TaskManager::parsejson, worker, &Worker::parsejson);
@@ -54,3 +66,21 @@ TaskManager::~TaskManager()
 }
 
 void TaskManager::info(const std::string &result) { Q_EMIT log(result); }
+
+void TaskManager::terminate_thread()
+{
+    QMutexLocker locker(&mutex);
+    toTerminate = true;
+}
+
+bool TaskManager::shouldTerminate()
+{
+    QMutexLocker locker(&mutex);
+    return toTerminate;
+}
+
+void TaskManager::clearTerminate()
+{
+    QMutexLocker locker(&mutex);
+    toTerminate = false;
+}

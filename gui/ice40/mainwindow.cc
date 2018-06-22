@@ -17,18 +17,24 @@ MainWindow::MainWindow(Context *_ctx, QWidget *parent)
     std::string title = "nextpnr-ice40 - " + ctx->getChipName();
     setWindowTitle(title.c_str());
 
-    createMenu();
-
     task = new TaskManager(_ctx);
     connect(task, SIGNAL(log(std::string)), this, SLOT(writeInfo(std::string)));
+
+    createMenu();
 }
 
-MainWindow::~MainWindow() {}
+MainWindow::~MainWindow() { delete task; }
 
 void MainWindow::createMenu()
 {
     QMenu *menu_Custom = new QMenu("&ICE 40", menuBar);
     menuBar->addAction(menu_Custom->menuAction());
+
+    QAction *actionTerminate = new QAction("Terminate", this);
+    actionTerminate->setStatusTip("Terminate running task");
+    connect(actionTerminate, SIGNAL(triggered()), task,
+            SLOT(terminate_thread()));
+    menu_Custom->addAction(actionTerminate);
 }
 
 void MainWindow::open()
@@ -39,7 +45,7 @@ void MainWindow::open()
         tabWidget->setCurrentWidget(info);
 
         std::string fn = fileName.toStdString();
-        task->parsejson(fn);
+        Q_EMIT task->parsejson(fn);
     }
 }
 bool MainWindow::save() { return false; }
