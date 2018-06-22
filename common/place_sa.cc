@@ -146,8 +146,9 @@ class SAPlacer
 
         // Calculate wirelength after initial placement
         curr_wirelength = 0;
+        curr_tns = 0;
         for (auto net : ctx->nets) {
-            wirelen_t wl = get_wirelength(net.second);
+            wirelen_t wl = get_wirelength(net.second, curr_tns);
             wirelengths[net.first] = wl;
             curr_wirelength += wl;
         }
@@ -162,8 +163,9 @@ class SAPlacer
             improved = false;
 
             if (iter % 5 == 0 || iter == 1)
-                log_info("  at iteration #%d: temp = %f, wire length = %f\n",
-                         iter, temp, double(curr_wirelength));
+                log_info("  at iteration #%d: temp = %.02f, wire length = "
+                         "%.0f, est tns = %.02fns\n",
+                         iter, temp, double(curr_wirelength), curr_tns);
 
             for (int m = 0; m < 15; ++m) {
                 // Loop through all automatically placed cells
@@ -220,8 +222,9 @@ class SAPlacer
             // Recalculate total wirelength entirely to avoid rounding errors
             // accumulating over time
             curr_wirelength = 0;
+            curr_tns = 0;
             for (auto net : ctx->nets) {
-                wirelen_t wl = get_wirelength(net.second);
+                wirelen_t wl = get_wirelength(net.second, curr_tns);
                 wirelengths[net.first] = wl;
                 curr_wirelength += wl;
             }
@@ -308,7 +311,7 @@ class SAPlacer
     }
 
     // Get the total estimated wirelength for a net
-    wirelen_t get_wirelength(NetInfo *net)
+    wirelen_t get_wirelength(NetInfo *net, float &tns)
     {
         wirelen_t wirelength = 0;
         int driver_x, driver_y;
@@ -337,6 +340,8 @@ class SAPlacer
             delay_t raw_wl = ctx->estimateDelay(drv_wire, user_wire);
             float slack =
                     ctx->getDelayNS(load.budget) - ctx->getDelayNS(raw_wl);
+            if (slack < 0)
+                tns += slack;
             worst_slack = std::min(slack, worst_slack);
             int load_x, load_y;
             bool load_gb;
@@ -348,8 +353,9 @@ class SAPlacer
             xmax = std::max(xmax, load_x);
             ymax = std::max(ymax, load_y);
         }
-        wirelength = wirelen_t((((ymax - ymin) + (xmax - xmin)) *
-                                (1.0 + std::exp(-worst_slack / 5))));
+        wirelength =
+                wirelen_t((((ymax - ymin) + (xmax - xmin)) *
+                           std::min(3.0, (1.0 + std::exp(-worst_slack / 10)))));
         return wirelength;
     }
 
@@ -403,7 +409,8 @@ class SAPlacer
         // Recalculate wirelengths for all nets touched by the peturbation
         for (auto net : update) {
             new_wirelength -= wirelengths.at(net->name);
-            wirelen_t net_new_wl = get_wirelength(net);
+            float temp_tns = 0;
+            wirelen_t net_new_wl = get_wirelength(net, temp_tns);
             new_wirelength += net_new_wl;
             new_lengths.push_back(std::make_pair(net->name, net_new_wl));
         }
@@ -465,6 +472,7 @@ class SAPlacer
     Context *ctx;
     std::unordered_map<IdString, wirelen_t> wirelengths;
     wirelen_t curr_wirelength = std::numeric_limits<wirelen_t>::max();
+    float curr_tns = 0;
     float temp = 1000;
     bool improved = false;
     int n_move, n_accept;
