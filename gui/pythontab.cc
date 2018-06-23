@@ -16,6 +16,7 @@
  *  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
  */
+ #ifndef NO_PYTHON
 
 #include "pythontab.h"
 #include <QGridLayout>
@@ -138,3 +139,5 @@ void PythonTab::showContextMenu(const QPoint &pt)
 void PythonTab::clearBuffer() { plainTextEdit->clear(); }
 
 NEXTPNR_NAMESPACE_END
+
+#endif

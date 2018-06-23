@@ -27,7 +27,10 @@
 #include "jsonparse.h"
 #include "log.h"
 #include "mainwindow.h"
+
+#ifndef NO_PYTHON
 #include "pythontab.h"
+#endif
 
 static void initBasenameResource() { Q_INIT_RESOURCE(base); }
 
@@ -70,7 +73,9 @@ BaseMainWindow::BaseMainWindow(Context *_ctx, QWidget *parent)
             SLOT(writeInfo(std::string)));
 
     tabWidget = new QTabWidget();
+#ifndef NO_PYTHON
     tabWidget->addTab(new PythonTab(), "Python");
+#endif
     info = new InfoTab();
     tabWidget->addTab(info, "Info");
 

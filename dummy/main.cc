@@ -19,15 +19,20 @@
 
 #ifdef MAIN_EXECUTABLE
 
+#ifndef NO_GUI
 #include <QApplication>
+#include "application.h"
+#include "mainwindow.h"
+#endif
+#ifndef NO_PYTHON
+#include "pybindings.h"
+#endif
 #include <boost/filesystem/convenience.hpp>
 #include <boost/program_options.hpp>
-#include "application.h"
 #include "log.h"
-#include "mainwindow.h"
 #include "nextpnr.h"
-#include "pybindings.h"
 #include "version.h"
+#include <iostream>
 
 USING_NEXTPNR_NAMESPACE
 
@@ -44,12 +49,17 @@ int main(int argc, char *argv[])
         options.add_options()("help,h", "show help");
         options.add_options()("verbose,v", "verbose output");
         options.add_options()("force,f", "keep running after errors");
+#ifndef NO_GUI
         options.add_options()("gui", "start gui");
+#endif
+
+        po::positional_options_description pos;
+#ifndef NO_PYTHON
         options.add_options()("run", po::value<std::vector<std::string>>(),
                               "python file to execute");
-        options.add_options()("version,V", "show version");
-        po::positional_options_description pos;
         pos.add("run", -1);
+#endif
+        options.add_options()("version,V", "show version");
 
         po::variables_map vm;
         try {
@@ -85,8 +95,11 @@ int main(int argc, char *argv[])
         }
 
         Context ctx(ArchArgs{});
+
+#ifndef NO_PYTHON
         init_python(argv[0]);
         python_export_global("ctx", ctx);
+#endif
 
         if (vm.count("verbose")) {
             ctx.verbose = true;
@@ -100,13 +113,16 @@ int main(int argc, char *argv[])
             ctx.rngseed(vm["seed"].as<int>());
         }
 
+#ifndef NO_PYTHON
         if (vm.count("run")) {
             std::vector<std::string> files =
                     vm["run"].as<std::vector<std::string>>();
             for (auto filename : files)
                 execute_python_file(filename.c_str());
         }
+#endif
 
+#ifndef NO_GUI
         if (vm.count("gui")) {
             Application a(argc, argv);
             MainWindow w(&ctx);
@@ -114,7 +130,10 @@ int main(int argc, char *argv[])
 
             rc = a.exec();
         }
+#endif
+#ifndef NO_PYTHON
         deinit_python();
+#endif
         return rc;
     } catch (log_execution_error_exception) {
 #if defined(_MSC_VER)

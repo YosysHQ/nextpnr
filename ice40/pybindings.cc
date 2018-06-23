@@ -18,6 +18,8 @@
  *
  */
 
+#ifndef NO_PYTHON
+
 #include "pybindings.h"
 #include "nextpnr.h"
 
@@ -84,3 +86,5 @@ void arch_wrap_python()
 }
 
 NEXTPNR_NAMESPACE_END
+
+#endif // NO_PYTHON

@@ -24,7 +24,6 @@
 #include <QSplitter>
 #include <QTreeWidgetItem>
 #include "fpgaviewwidget.h"
-#include "pybindings.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 

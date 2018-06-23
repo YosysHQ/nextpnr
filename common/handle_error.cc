@@ -1,3 +1,5 @@
+#ifndef NO_PYTHON
+
 #include <Python.h>
 #include <boost/python.hpp>
 #include "nextpnr.h"
@@ -61,3 +63,5 @@ std::string parse_python_exception()
 }
 
 NEXTPNR_NAMESPACE_END
+
+#endif // NO_PYTHON

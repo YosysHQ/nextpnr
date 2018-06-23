@@ -20,6 +20,8 @@
 #ifndef PYTHONTAB_H
 #define PYTHONTAB_H
 
+#ifndef NO_PYTHON
+
 #include <QLineEdit>
 #include <QMenu>
 #include <QPlainTextEdit>
@@ -52,5 +54,6 @@ class PythonTab : public QWidget
 };
 
 NEXTPNR_NAMESPACE_END
+#endif // NO_PYTHON
 
 #endif // PYTHONTAB_H
