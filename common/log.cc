@@ -42,7 +42,7 @@ int log_verbose_level;
 std::string log_last_error;
 void (*log_error_atexit)() = NULL;
 
-static bool next_print_log = false;
+//static bool next_print_log = false;
 static int log_newline_count = 0;
 
 std::string vstringf(const char *fmt, va_list ap)

@@ -127,7 +127,7 @@ void PythonTab::editLineReturnPressed(QString text)
 {
     std::string input = text.toStdString();
     print(std::string(">>> " + input + "\n"));
-    int error = executePython(input);
+    executePython(input);
 }
 
 void PythonTab::showContextMenu(const QPoint &pt)

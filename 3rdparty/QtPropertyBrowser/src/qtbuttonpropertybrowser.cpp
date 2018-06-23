@@ -277,14 +277,14 @@ void QtButtonPropertyBrowserPrivate::propertyInserted(QtBrowserItem *index, QtBr
         if (!parentItem->container) {
             m_recreateQueue.removeAll(parentItem);
             WidgetItem *grandParent = parentItem->parent;
-            QWidget *w = 0;
+            //QWidget *w = 0;
             QGridLayout *l = 0;
             const int oldRow = gridRow(parentItem);
             if (grandParent) {
-                w = grandParent->container;
+                //w = grandParent->container;
                 l = grandParent->layout;
             } else {
-                w = q_ptr;
+                //w = q_ptr;
                 l = m_mainLayout;
             }
             QFrame *container = new QFrame();
