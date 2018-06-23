@@ -131,8 +131,9 @@ static void pack_carries(Context *ctx)
         CellInfo *ci = cell.second;
         if (is_carry(ctx, ci)) {
             packed_cells.insert(cell.first);
-            CellInfo *carry_ci_lc = net_only_drives(ctx, ci->ports.at(ctx->id("CI")).net,
-                                                    is_lc, ctx->id("I3"), false);
+            CellInfo *carry_ci_lc =
+                    net_only_drives(ctx, ci->ports.at(ctx->id("CI")).net, is_lc,
+                                    ctx->id("I3"), false);
             if (!ci->ports.at(ctx->id("I0")).net)
                 log_error("SB_CARRY '%s' has disconnected port I0\n",
                           cell.first.c_str(ctx));
@@ -227,7 +228,8 @@ static void pack_ram(Context *ctx)
                               newname.substr(bpos + 1,
                                              (newname.size() - bpos) - 2);
                 }
-                replace_port(ci, ctx->id(pi.name.c_str(ctx)), packed, ctx->id(newname));
+                replace_port(ci, ctx->id(pi.name.c_str(ctx)), packed,
+                             ctx->id(newname));
             }
         }
     }
@@ -268,14 +270,16 @@ static void pack_constants(Context *ctx)
 {
     log_info("Packing constants..\n");
 
-    CellInfo *gnd_cell = create_ice_cell(ctx, ctx->id("ICESTORM_LC"), "$PACKER_GND");
+    CellInfo *gnd_cell =
+            create_ice_cell(ctx, ctx->id("ICESTORM_LC"), "$PACKER_GND");
     gnd_cell->params[ctx->id("LUT_INIT")] = "0";
     NetInfo *gnd_net = new NetInfo;
     gnd_net->name = ctx->id("$PACKER_GND_NET");
     gnd_net->driver.cell = gnd_cell;
     gnd_net->driver.port = ctx->id("O");
 
-    CellInfo *vcc_cell = create_ice_cell(ctx, ctx->id("ICESTORM_LC"), "$PACKER_VCC");
+    CellInfo *vcc_cell =
+            create_ice_cell(ctx, ctx->id("ICESTORM_LC"), "$PACKER_VCC");
     vcc_cell->params[ctx->id("LUT_INIT")] = "1";
     NetInfo *vcc_net = new NetInfo;
     vcc_net->name = ctx->id("$PACKER_VCC_NET");
@@ -336,12 +340,14 @@ static void pack_io(Context *ctx)
             CellInfo *sb = nullptr;
             if (ci->type == ctx->id("$nextpnr_ibuf") ||
                 ci->type == ctx->id("$nextpnr_iobuf")) {
-                sb = net_only_drives(ctx, ci->ports.at(ctx->id("O")).net, is_sb_io,
-                                     ctx->id("PACKAGE_PIN"), true, ci);
+                sb = net_only_drives(ctx, ci->ports.at(ctx->id("O")).net,
+                                     is_sb_io, ctx->id("PACKAGE_PIN"), true,
+                                     ci);
 
             } else if (ci->type == ctx->id("$nextpnr_obuf")) {
-                sb = net_only_drives(ctx, ci->ports.at(ctx->id("I")).net, is_sb_io,
-                                     ctx->id("PACKAGE_PIN"), true, ci);
+                sb = net_only_drives(ctx, ci->ports.at(ctx->id("I")).net,
+                                     is_sb_io, ctx->id("PACKAGE_PIN"), true,
+                                     ci);
             }
             if (sb != nullptr) {
                 // Trivial case, SB_IO used. Just destroy the net and the
@@ -416,7 +422,7 @@ static void promote_globals(Context *ctx)
     std::map<IdString, int> clock_count, reset_count, cen_count;
     for (auto net : sorted(ctx->nets)) {
         NetInfo *ni = net.second;
-        if (ni->driver.cell != nullptr && !is_global_net(ctx, ni)) {
+        if (ni->driver.cell != nullptr && !ctx->isGlobalNet(ni)) {
             clock_count[net.first] = 0;
             reset_count[net.first] = 0;
             cen_count[net.first] = 0;
@@ -503,7 +509,8 @@ static void pack_intosc(Context *ctx)
             replace_port(ci, ctx->id("CLKLFEN"), packed, ctx->id("CLKLFEN"));
             replace_port(ci, ctx->id("CLKLFPU"), packed, ctx->id("CLKLFPU"));
             if (bool_or_default(ci->attrs, ctx->id("ROUTE_THROUGH_FABRIC"))) {
-                replace_port(ci, ctx->id("CLKLF"), packed, ctx->id("CLKLF_FABRIC"));
+                replace_port(ci, ctx->id("CLKLF"), packed,
+                             ctx->id("CLKLF_FABRIC"));
             } else {
                 replace_port(ci, ctx->id("CLKLF"), packed, ctx->id("CLKLF"));
             }

@@ -36,8 +36,8 @@ CellInfo *create_ice_cell(Context *ctx, IdString type, std::string name)
     static int auto_idx = 0;
     CellInfo *new_cell = new CellInfo();
     if (name.empty()) {
-        new_cell->name = ctx->id( "$nextpnr_" + type.str(ctx) + "_" +
-                                               std::to_string(auto_idx++));
+        new_cell->name = ctx->id("$nextpnr_" + type.str(ctx) + "_" +
+                                 std::to_string(auto_idx++));
     } else {
         new_cell->name = ctx->id(name);
     }
@@ -267,12 +267,6 @@ bool is_enable_port(const Context *ctx, const PortRef &port)
     if (port.cell->type == ctx->id("ICESTORM_LC"))
         return port.port == ctx->id("CEN");
     return false;
-}
-
-bool is_global_net(const Context *ctx, const NetInfo *net)
-{
-    return bool(
-            net_driven_by(ctx, net, is_gbuf, ctx->id("GLOBAL_BUFFER_OUTPUT")));
 }
 
 NEXTPNR_NAMESPACE_END

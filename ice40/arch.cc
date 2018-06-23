@@ -168,6 +168,9 @@ Arch::Arch(ArchArgs args) : args(args)
     wire_to_net.resize(chip_info->num_wires);
     pip_to_net.resize(chip_info->num_pips);
     switches_locked.resize(chip_info->num_switches);
+
+    // Initialise regularly used IDStrings for performance
+    id_glb_buf_out = id("GLOBAL_BUFFER_OUTPUT");
 }
 
 // -----------------------------------------------------------------------
@@ -499,6 +502,13 @@ bool Arch::isClockPort(const CellInfo *cell, IdString port) const
     if (cell->type == id("ICESTORM_LC") && port == id("CLK"))
         return true;
     return false;
+}
+
+bool Arch::isGlobalNet(const NetInfo *net) const
+{
+    if (net == nullptr)
+        return false;
+    return net->driver.cell != nullptr && net->driver.port == id_glb_buf_out;
 }
 
 NEXTPNR_NAMESPACE_END

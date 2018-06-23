@@ -58,11 +58,11 @@ bool PlaceValidityChecker::logicCellsCompatible(
                 clk = get_net_or_empty(cell, id_clk);
                 sr = get_net_or_empty(cell, id_sr);
 
-                if (!is_global_net(ctx, cen) && cen != nullptr)
+                if (!ctx->isGlobalNet(cen) && cen != nullptr)
                     locals_count++;
-                if (!is_global_net(ctx, clk) && clk != nullptr)
+                if (!ctx->isGlobalNet(clk) && clk != nullptr)
                     locals_count++;
-                if (!is_global_net(ctx, sr) && sr != nullptr)
+                if (!ctx->isGlobalNet(sr) && sr != nullptr)
                     locals_count++;
 
                 if (bool_or_default(cell->params, id_neg_clk)) {
@@ -140,7 +140,8 @@ bool PlaceValidityChecker::isValidBelForCell(CellInfo *cell, BelId bel)
     } else if (cell->type == id_sb_gb) {
         bool is_reset = false, is_cen = false;
         assert(cell->ports.at(ctx->id("GLOBAL_BUFFER_OUTPUT")).net != nullptr);
-        for (auto user : cell->ports.at(ctx->id("GLOBAL_BUFFER_OUTPUT")).net->users) {
+        for (auto user :
+             cell->ports.at(ctx->id("GLOBAL_BUFFER_OUTPUT")).net->users) {
             if (is_reset_port(ctx, user))
                 is_reset = true;
             if (is_enable_port(ctx, user))

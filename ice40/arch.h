@@ -800,6 +800,10 @@ struct Arch : BaseCtx
     IdString getPortClock(const CellInfo *cell, IdString port) const;
     // Return true if a port is a clock
     bool isClockPort(const CellInfo *cell, IdString port) const;
+    // Return true if a port is a net
+    bool isGlobalNet(const NetInfo *net) const;
+
+    IdString id_glb_buf_out;
 };
 
 NEXTPNR_NAMESPACE_END
