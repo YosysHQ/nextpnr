@@ -72,20 +72,30 @@ void Worker::pack()
 {
     Q_EMIT taskStarted();
     try {
-        Q_EMIT pack_finished(pack_design(ctx));
+        bool res = pack_design(ctx);
+        print_utilisation(ctx);
+        Q_EMIT pack_finished(res);
     } catch (WorkerInterruptionRequested) {
         Q_EMIT taskCanceled();
     }
 }
 
-void Worker::place()
+void Worker::budget(double freq)
 {
     Q_EMIT taskStarted();
     try {
-        double freq = 50e6;
         assign_budget(ctx, freq);
-        print_utilisation(ctx);
-        Q_EMIT place_finished(place_design_sa(ctx));
+        Q_EMIT budget_finish(true);
+    } catch (WorkerInterruptionRequested) {
+        Q_EMIT taskCanceled();
+    }
+}
+
+void Worker::place(bool timing_driven)
+{
+    Q_EMIT taskStarted();
+    try {
+        Q_EMIT place_finished(place_design_sa(ctx, timing_driven));
     } catch (WorkerInterruptionRequested) {
         Q_EMIT taskCanceled();
     }
@@ -110,6 +120,7 @@ TaskManager::TaskManager(Context *ctx) : toTerminate(false), toPause(false)
 
     connect(this, &TaskManager::loadfile, worker, &Worker::loadfile);
     connect(this, &TaskManager::pack, worker, &Worker::pack);
+    connect(this, &TaskManager::budget, worker, &Worker::budget);
     connect(this, &TaskManager::place, worker, &Worker::place);
     connect(this, &TaskManager::route, worker, &Worker::route);
 
@@ -117,6 +128,7 @@ TaskManager::TaskManager(Context *ctx) : toTerminate(false), toPause(false)
     connect(worker, &Worker::loadfile_finished, this,
             &TaskManager::loadfile_finished);
     connect(worker, &Worker::pack_finished, this, &TaskManager::pack_finished);
+    connect(worker, &Worker::budget_finish, this, &TaskManager::budget_finish);
     connect(worker, &Worker::place_finished, this,
             &TaskManager::place_finished);
     connect(worker, &Worker::route_finished, this,

@@ -36,11 +36,20 @@ class MainWindow : public BaseMainWindow
   public:
     void createMenu();
 
+  Q_SIGNALS:
+    void budget(double freq);
+    void place(bool timing_driven);
+
   protected Q_SLOTS:
     virtual void open();
     virtual bool save();
+
+    void budget();
+    void place();
+
     void loadfile_finished(bool status);
     void pack_finished(bool status);
+    void budget_finish(bool status);
     void place_finished(bool status);
     void route_finished(bool status);
 
@@ -53,11 +62,14 @@ class MainWindow : public BaseMainWindow
 
     TaskManager *task;
     QAction *actionPack;
+    QAction *actionAssignBudget;
     QAction *actionPlace;
     QAction *actionRoute;
     QAction *actionPlay;
     QAction *actionPause;
     QAction *actionStop;
+
+    bool timing_driven;
 };
 
 NEXTPNR_NAMESPACE_END

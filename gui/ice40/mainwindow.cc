@@ -21,6 +21,8 @@
 #include <QAction>
 #include <QFileDialog>
 #include <QIcon>
+#include <QInputDialog>
+#include <QLineEdit>
 #include "bitstream.h"
 #include "design_utils.h"
 #include "jsonparse.h"
@@ -35,7 +37,7 @@ static void initMainResource() { Q_INIT_RESOURCE(nextpnr); }
 NEXTPNR_NAMESPACE_BEGIN
 
 MainWindow::MainWindow(Context *_ctx, QWidget *parent)
-        : BaseMainWindow(_ctx, parent)
+        : BaseMainWindow(_ctx, parent), timing_driven(false)
 {
     initMainResource();
 
@@ -48,6 +50,7 @@ MainWindow::MainWindow(Context *_ctx, QWidget *parent)
     connect(task, SIGNAL(loadfile_finished(bool)), this,
             SLOT(loadfile_finished(bool)));
     connect(task, SIGNAL(pack_finished(bool)), this, SLOT(pack_finished(bool)));
+    connect(task, SIGNAL(budget_finish(bool)), this, SLOT(budget_finish(bool)));
     connect(task, SIGNAL(place_finished(bool)), this,
             SLOT(place_finished(bool)));
     connect(task, SIGNAL(route_finished(bool)), this,
@@ -56,6 +59,10 @@ MainWindow::MainWindow(Context *_ctx, QWidget *parent)
     connect(task, SIGNAL(taskCanceled()), this, SLOT(taskCanceled()));
     connect(task, SIGNAL(taskStarted()), this, SLOT(taskStarted()));
     connect(task, SIGNAL(taskPaused()), this, SLOT(taskPaused()));
+
+
+    connect(this, SIGNAL(budget(double)), task, SIGNAL(budget(double)));
+    connect(this, SIGNAL(place(bool)), task, SIGNAL(place(bool)));
 
     createMenu();
 }
@@ -75,12 +82,20 @@ void MainWindow::createMenu()
     connect(actionPack, SIGNAL(triggered()), task, SIGNAL(pack()));
     actionPack->setEnabled(false);
 
+    actionAssignBudget = new QAction("Assign Budget", this);
+    QIcon iconAssignBudget;
+    iconAssignBudget.addFile(QStringLiteral(":/icons/resources/time_add.png"));
+    actionAssignBudget->setIcon(iconAssignBudget);
+    actionAssignBudget->setStatusTip("Assign time budget for current design");
+    connect(actionAssignBudget, SIGNAL(triggered()), this, SLOT(budget()));
+    actionAssignBudget->setEnabled(false);
+
     actionPlace = new QAction("Place", this);
     QIcon iconPlace;
     iconPlace.addFile(QStringLiteral(":/icons/resources/place.png"));
     actionPlace->setIcon(iconPlace);
     actionPlace->setStatusTip("Place current design");
-    connect(actionPlace, SIGNAL(triggered()), task, SIGNAL(place()));
+    connect(actionPlace, SIGNAL(triggered()), this, SLOT(place()));
     actionPlace->setEnabled(false);
 
     actionRoute = new QAction("Route", this);
@@ -95,10 +110,12 @@ void MainWindow::createMenu()
     addToolBar(Qt::TopToolBarArea, taskFPGABar);
 
     taskFPGABar->addAction(actionPack);
+    taskFPGABar->addAction(actionAssignBudget);
     taskFPGABar->addAction(actionPlace);
     taskFPGABar->addAction(actionRoute);
 
     menu_Design->addAction(actionPack);
+    menu_Design->addAction(actionAssignBudget);
     menu_Design->addAction(actionPlace);
     menu_Design->addAction(actionRoute);
 
@@ -143,6 +160,7 @@ void MainWindow::open()
 
         std::string fn = fileName.toStdString();
         disableActions();
+        timing_driven = false;
         Q_EMIT task->loadfile(fn);
     }
 }
@@ -152,6 +170,7 @@ bool MainWindow::save() { return false; }
 void MainWindow::disableActions()
 {
     actionPack->setEnabled(false);
+    actionAssignBudget->setEnabled(false);
     actionPlace->setEnabled(false);
     actionRoute->setEnabled(false);
 
@@ -176,10 +195,23 @@ void MainWindow::pack_finished(bool status)
     if (status) {
         log("Packing design successful.\n");
         actionPlace->setEnabled(true);
+        actionAssignBudget->setEnabled(true);
     } else {
         log("Packing design failed.\n");
     }
 }
+
+void MainWindow::budget_finish(bool status)
+{
+    disableActions();
+    if (status) {
+        log("Assigning timing budget successful.\n");
+        actionPlace->setEnabled(true);
+    } else {
+        log("Assigning timing budget failed.\n");
+    }
+}
+
 void MainWindow::place_finished(bool status)
 {
     disableActions();
@@ -218,5 +250,25 @@ void MainWindow::taskPaused()
     actionPlay->setEnabled(true);
     actionStop->setEnabled(true);
 }
+
+void MainWindow::budget()
+{
+    bool ok;
+    double freq = QInputDialog::getDouble(this, "Assign timing budget",
+                                        "Frequency [MHz]:",
+                                        50, 0, 250, 2, &ok);
+    if (ok) {
+        freq *= 1e6;
+        timing_driven = true;
+        Q_EMIT budget(freq);
+    }
+
+}
+
+void MainWindow::place()
+{
+    Q_EMIT place(timing_driven);
+}
+
 
 NEXTPNR_NAMESPACE_END
