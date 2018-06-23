@@ -9,6 +9,7 @@ class UP5KTest : public ::testing::Test
   protected:
     virtual void SetUp()
     {
+        IdString::global_ctx = nullptr;
         chipArgs.type = ArchArgs::UP5K;
         chipArgs.package = "sg48";
         ctx = new Context(chipArgs);
@@ -28,7 +29,7 @@ TEST_F(UP5KTest, bel_names)
         ASSERT_EQ(bel, ctx->getBelByName(name));
         bel_count++;
     }
-    ASSERT_EQ(bel_count, 5414);
+    ASSERT_EQ(bel_count, 5438);
 }
 
 TEST_F(UP5KTest, wire_names)

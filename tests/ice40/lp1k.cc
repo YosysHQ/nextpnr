@@ -9,6 +9,7 @@ class LP1KTest : public ::testing::Test
   protected:
     virtual void SetUp()
     {
+        IdString::global_ctx = nullptr;
         chipArgs.type = ArchArgs::LP1K;
         chipArgs.package = "tq144";
         ctx = new Context(chipArgs);
@@ -28,7 +29,7 @@ TEST_F(LP1KTest, bel_names)
         ASSERT_EQ(bel, ctx->getBelByName(name));
         bel_count++;
     }
-    ASSERT_EQ(bel_count, 1416);
+    ASSERT_EQ(bel_count, 1418);
 }
 
 TEST_F(LP1KTest, wire_names)

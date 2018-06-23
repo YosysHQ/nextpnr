@@ -9,6 +9,7 @@ class LP8KTest : public ::testing::Test
   protected:
     virtual void SetUp()
     {
+        IdString::global_ctx = nullptr;
         chipArgs.type = ArchArgs::LP8K;
         chipArgs.package = "ct256";
         ctx = new Context(chipArgs);
@@ -28,7 +29,7 @@ TEST_F(LP8KTest, bel_names)
         ASSERT_EQ(bel, ctx->getBelByName(name));
         bel_count++;
     }
-    ASSERT_EQ(bel_count, 7968);
+    ASSERT_EQ(bel_count, 7979);
 }
 
 TEST_F(LP8KTest, wire_names)

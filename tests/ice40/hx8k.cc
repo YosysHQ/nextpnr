@@ -9,6 +9,7 @@ class HX8KTest : public ::testing::Test
   protected:
     virtual void SetUp()
     {
+        IdString::global_ctx = nullptr;
         chipArgs.type = ArchArgs::HX8K;
         chipArgs.package = "ct256";
         ctx = new Context(chipArgs);
@@ -28,7 +29,7 @@ TEST_F(HX8KTest, bel_names)
         ASSERT_EQ(bel, ctx->getBelByName(name));
         bel_count++;
     }
-    ASSERT_EQ(bel_count, 7968);
+    ASSERT_EQ(bel_count, 7979);
 }
 
 TEST_F(HX8KTest, wire_names)

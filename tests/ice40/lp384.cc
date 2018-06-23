@@ -9,6 +9,7 @@ class LP384Test : public ::testing::Test
   protected:
     virtual void SetUp()
     {
+        IdString::global_ctx = nullptr;
         chipArgs.type = ArchArgs::LP384;
         chipArgs.package = "qn32";
         ctx = new Context(chipArgs);
@@ -28,7 +29,7 @@ TEST_F(LP384Test, bel_names)
         ASSERT_EQ(bel, ctx->getBelByName(name));
         bel_count++;
     }
-    ASSERT_EQ(bel_count, 440);
+    ASSERT_EQ(bel_count, 449);
 }
 
 TEST_F(LP384Test, wire_names)
