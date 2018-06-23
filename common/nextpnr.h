@@ -81,76 +81,10 @@ struct IdString
 
     // --- deprecated old API ---
 
-    IdString(const std::string &s) __attribute__((deprecated))
-    {
-        assert(global_ctx != nullptr);
-        set(global_ctx, s);
-    }
-
-    IdString(const char *s) __attribute__((deprecated))
-    {
-        assert(global_ctx != nullptr);
-        set(global_ctx, s);
-    }
-
     const std::string &global_str() const __attribute__((deprecated))
     {
         assert(global_ctx != nullptr);
         return str(global_ctx);
-    }
-
-    const std::string &str() const __attribute__((deprecated))
-    {
-        assert(global_ctx != nullptr);
-        return str(global_ctx);
-    }
-
-    const char *c_str() const __attribute__((deprecated))
-    {
-        assert(global_ctx != nullptr);
-        return c_str(global_ctx);
-    }
-
-    operator const char *() const __attribute__((deprecated))
-    {
-        assert(global_ctx != nullptr);
-        return c_str(global_ctx);
-    }
-
-    operator const std::string &() const __attribute__((deprecated))
-    {
-        assert(global_ctx != nullptr);
-        return str(global_ctx);
-    }
-
-    bool operator==(const std::string &s) const __attribute__((deprecated))
-    {
-        assert(global_ctx != nullptr);
-        return str(global_ctx) == s;
-    }
-
-    bool operator==(const char *s) const __attribute__((deprecated))
-    {
-        assert(global_ctx != nullptr);
-        return str(global_ctx) == s;
-    }
-
-    bool operator!=(const std::string &s) const __attribute__((deprecated))
-    {
-        assert(global_ctx != nullptr);
-        return str(global_ctx) != s;
-    }
-
-    bool operator!=(const char *s) const __attribute__((deprecated))
-    {
-        assert(global_ctx != nullptr);
-        return str(global_ctx) != s;
-    }
-
-    size_t size() const __attribute__((deprecated))
-    {
-        assert(global_ctx != nullptr);
-        return str(global_ctx).size();
     }
 };
 
