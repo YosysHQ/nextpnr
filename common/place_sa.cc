@@ -46,7 +46,7 @@ typedef int64_t wirelen_t;
 class SAPlacer
 {
   public:
-    SAPlacer(Context *ctx) : ctx(ctx)
+    SAPlacer(Context *ctx, bool timing_driven) : ctx(ctx), timing_driven(timing_driven)
     {
         checker = new PlaceValidityChecker(ctx);
         int num_bel_types = 0;
@@ -334,15 +334,17 @@ class SAPlacer
             CellInfo *load_cell = load.cell;
             if (load_cell->bel == BelId())
                 continue;
+            if (timing_driven) {
+                WireId user_wire = ctx->getWireBelPin(
+                        load_cell->bel, ctx->portPinFromId(load.port));
+                delay_t raw_wl = ctx->estimateDelay(drv_wire, user_wire);
+                float slack =
+                        ctx->getDelayNS(load.budget) - ctx->getDelayNS(raw_wl);
+                if (slack < 0)
+                    tns += slack;
+                worst_slack = std::min(slack, worst_slack);
+            }
 
-            WireId user_wire = ctx->getWireBelPin(
-                    load_cell->bel, ctx->portPinFromId(load.port));
-            delay_t raw_wl = ctx->estimateDelay(drv_wire, user_wire);
-            float slack =
-                    ctx->getDelayNS(load.budget) - ctx->getDelayNS(raw_wl);
-            if (slack < 0)
-                tns += slack;
-            worst_slack = std::min(slack, worst_slack);
             int load_x, load_y;
             bool load_gb;
             ctx->estimatePosition(load_cell->bel, load_x, load_y, load_gb);
@@ -353,9 +355,15 @@ class SAPlacer
             xmax = std::max(xmax, load_x);
             ymax = std::max(ymax, load_y);
         }
-        wirelength =
-                wirelen_t((((ymax - ymin) + (xmax - xmin)) *
-                           std::min(5.0, (1.0 + std::exp(-worst_slack / 5)))));
+        if (timing_driven) {
+            wirelength =
+                    wirelen_t((((ymax - ymin) + (xmax - xmin)) *
+                               std::min(5.0, (1.0 + std::exp(-worst_slack / 5)))));
+        } else {
+            wirelength =
+                    wirelen_t((ymax - ymin) + (xmax - xmin));
+        }
+
         return wirelength;
     }
 
@@ -475,6 +483,7 @@ class SAPlacer
     float curr_tns = 0;
     float temp = 1000;
     bool improved = false;
+    bool timing_driven = true;
     int n_move, n_accept;
     int diameter = 35, max_x = 1, max_y = 1;
     std::unordered_map<BelType, int> bel_types;
@@ -483,10 +492,10 @@ class SAPlacer
     PlaceValidityChecker *checker;
 };
 
-bool place_design_sa(Context *ctx)
+bool place_design_sa(Context *ctx, bool timing_driven)
 {
     try {
-        SAPlacer placer(ctx);
+        SAPlacer placer(ctx, timing_driven);
         placer.place();
         log_info("Checksum: 0x%08x\n", ctx->checksum());
         return true;

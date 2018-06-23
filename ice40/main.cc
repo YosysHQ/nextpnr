@@ -101,6 +101,7 @@ int main(int argc, char *argv[])
         options.add_options()("up5k", "set device type to iCE40UP5K");
         options.add_options()("freq", po::value<double>(),
                               "set target frequency for design in MHz");
+        options.add_options()("no-tmdriv", "disable timing-driven placement");
         options.add_options()("package", po::value<std::string>(),
                               "set device package");
         po::positional_options_description pos;
@@ -308,9 +309,11 @@ int main(int argc, char *argv[])
                 freq = vm["freq"].as<double>() * 1e6;
             assign_budget(&ctx, freq);
             print_utilisation(&ctx);
-
+            bool timing_driven = true;
+            if (vm.count("no-tmdriv"))
+                timing_driven = false;
             if (!vm.count("pack-only")) {
-                if (!place_design_sa(&ctx) && !ctx.force)
+                if (!place_design_sa(&ctx, timing_driven) && !ctx.force)
                     log_error("Placing design failed.\n");
                 if (!route_design(&ctx) && !ctx.force)
                     log_error("Routing design failed.\n");
