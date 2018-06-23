@@ -617,7 +617,18 @@ struct Arch : BaseCtx
     {
         assert(wire != WireId());
         assert(wire_to_net[wire.index] != IdString());
-        nets[wire_to_net[wire.index]]->wires.erase(wire);
+
+        auto &net_wires = nets[wire_to_net[wire.index]]->wires;
+        auto it = net_wires.find(wire);
+        assert(it != net_wires.end());
+
+        auto pip = it->second.pip;
+        if (pip != PipId()) {
+            pip_to_net[pip.index] = IdString();
+            switches_locked[chip_info->pip_data[pip.index].switch_index] = IdString();
+        }
+
+        net_wires.erase(it);
         wire_to_net[wire.index] = IdString();
     }
 

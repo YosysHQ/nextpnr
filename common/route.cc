@@ -67,8 +67,10 @@ struct QueuedWire
 
 struct RipupScoreboard
 {
-    std::unordered_map<std::pair<IdString, WireId>, int, hash_id_wire> wireScores;
-    std::unordered_map<std::pair<IdString, PipId>, int, hash_id_pip> pipScores;
+    std::unordered_map<WireId, int> wireScores;
+    std::unordered_map<PipId, int> pipScores;
+    std::unordered_map<std::pair<IdString, WireId>, int, hash_id_wire> netWireScores;
+    std::unordered_map<std::pair<IdString, PipId>, int, hash_id_pip> netPipScores;
 };
 
 void ripup_net(Context *ctx, IdString net_name)
@@ -152,9 +154,15 @@ struct Router
                     IdString ripupWireNet = ctx->getConflictingWireNet(next_wire);
                     if (ripupWireNet == net_name || ripupWireNet == IdString())
                         continue;
-                    auto it = scores.wireScores.find(std::make_pair(ripupWireNet, next_wire));
-                    if (it != scores.wireScores.end())
-                        next_delay += it->second * ripup_penalty;
+
+                    auto it1 = scores.wireScores.find(next_wire);
+                    if (it1 != scores.wireScores.end())
+                        next_delay += (it1->second * ripup_penalty) / 8;
+
+                    auto it2 = scores.netWireScores.find(std::make_pair(ripupWireNet, next_wire));
+                    if (it2 != scores.netWireScores.end())
+                        next_delay += it2->second * ripup_penalty;
+
                     foundRipupNet = true;
                 }
 
@@ -164,9 +172,15 @@ struct Router
                     IdString ripupPipNet = ctx->getConflictingPipNet(pip);
                     if (ripupPipNet == net_name || ripupPipNet == IdString())
                         continue;
-                    auto it = scores.pipScores.find(std::make_pair(ripupPipNet, pip));
-                    if (it != scores.pipScores.end())
-                        next_delay += it->second * ripup_penalty;
+
+                    auto it1 = scores.pipScores.find(pip);
+                    if (it1 != scores.pipScores.end())
+                        next_delay += (it1->second * ripup_penalty) / 8;
+
+                    auto it2 = scores.netPipScores.find(std::make_pair(ripupPipNet, pip));
+                    if (it2 != scores.netPipScores.end())
+                        next_delay += it2->second * ripup_penalty;
+
                     foundRipupNet = true;
                 }
 
@@ -271,6 +285,8 @@ struct Router
 
         std::unordered_map<WireId, delay_t> src_wires;
         src_wires[src_wire] = 0;
+
+        ripup_net(ctx, net_name);
         ctx->bindWire(src_wire, net_name, STRENGTH_WEAK);
 
         std::vector<PortRef> users_array = net_info->users;
@@ -340,26 +356,36 @@ struct Router
                     break;
 
                 IdString conflicting_wire_net = ctx->getConflictingWireNet(cursor);
-                IdString conflicting_pip_net = ctx->getConflictingPipNet(visited[cursor].pip);
 
                 if (conflicting_wire_net != IdString()) {
                     assert(ripup);
                     assert(conflicting_wire_net != net_name);
-                    ripup_net(ctx, conflicting_wire_net);
+
+                    ctx->unbindWire(cursor);
+                    if (!ctx->checkWireAvail(cursor))
+                        ripup_net(ctx, conflicting_wire_net);
+
                     rippedNets.insert(conflicting_wire_net);
-                    scores.wireScores[std::make_pair(net_name, cursor)]++;
-                    scores.wireScores[std::make_pair(conflicting_wire_net, cursor)]++;
+                    scores.wireScores[cursor]++;
+                    scores.netWireScores[std::make_pair(net_name, cursor)]++;
+                    scores.netWireScores[std::make_pair(conflicting_wire_net, cursor)]++;
                 }
+
+                PipId pip = visited[cursor].pip;
+                IdString conflicting_pip_net = ctx->getConflictingPipNet(pip);
 
                 if (conflicting_pip_net != IdString()) {
                     assert(ripup);
                     assert(conflicting_pip_net != net_name);
-                    if (conflicting_wire_net != conflicting_pip_net) {
+
+                    ctx->unbindPip(pip);
+                    if (!ctx->checkPipAvail(pip))
                         ripup_net(ctx, conflicting_pip_net);
-                        rippedNets.insert(conflicting_pip_net);
-                    }
-                    scores.pipScores[std::make_pair(net_name, visited[cursor].pip)]++;
-                    scores.pipScores[std::make_pair(conflicting_pip_net, visited[cursor].pip)]++;
+
+                    rippedNets.insert(conflicting_pip_net);
+                    scores.pipScores[visited[cursor].pip]++;
+                    scores.netPipScores[std::make_pair(net_name, visited[cursor].pip)]++;
+                    scores.netPipScores[std::make_pair(conflicting_pip_net, visited[cursor].pip)]++;
                 }
 
                 ctx->bindPip(visited[cursor].pip, net_name, STRENGTH_WEAK);
