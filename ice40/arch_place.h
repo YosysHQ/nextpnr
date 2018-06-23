@@ -41,11 +41,11 @@ class PlaceValidityChecker
   private:
     bool logicCellsCompatible(const Context *ctx,
                               const std::vector<const CellInfo *> &cells);
+    Context *ctx;
     IdString id_icestorm_lc, id_sb_io, id_sb_gb;
     IdString id_cen, id_clk, id_sr;
     IdString id_i0, id_i1, id_i2, id_i3;
     IdString id_dff_en, id_neg_clk;
-    Context *ctx;
 };
 
 NEXTPNR_NAMESPACE_END
