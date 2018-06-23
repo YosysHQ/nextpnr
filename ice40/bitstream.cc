@@ -348,30 +348,34 @@ void write_asc(const Context *ctx, std::ostream &out)
 
             // Weird UltraPlus bits
             if (tile == TILE_DSP0 || tile == TILE_DSP1 || tile == TILE_DSP2 ||
-                tile == TILE_IPCON) {
-                for (int lc_idx = 0; lc_idx < 8; lc_idx++) {
-                    static const std::vector<int> ip_dsp_lut_perm = {
-                            4, 14, 15, 5, 6, 16, 17, 7,
-                            3, 13, 12, 2, 1, 11, 10, 0,
-                    };
-                    for (int i = 0; i < 16; i++)
-                        set_config(ti, config.at(y).at(x),
-                                   "LC_" + std::to_string(lc_idx),
-                                   ((i % 8) >= 4), ip_dsp_lut_perm.at(i));
-                    if (tile == TILE_IPCON)
-                        set_config(ti, config.at(y).at(x),
-                                   "Cascade.IPCON_LC0" +
-                                           std::to_string(lc_idx) +
-                                           "_inmux02_5",
-                                   true);
-                    else
-                        set_config(
-                                ti, config.at(y).at(x),
-                                "Cascade.MULT" +
-                                        std::to_string(int(tile - TILE_DSP0)) +
-                                        "_LC0" + std::to_string(lc_idx) +
-                                        "_inmux02_5",
-                                true);
+                tile == TILE_DSP3 || tile == TILE_IPCON) {
+                if (ctx->args.type == ArchArgs::UP5K && x == 25 && y == 14) {
+                    // Mystery bits not set in this one tile
+                } else {
+                    for (int lc_idx = 0; lc_idx < 8; lc_idx++) {
+                        static const std::vector<int> ip_dsp_lut_perm = {
+                                4, 14, 15, 5, 6, 16, 17, 7,
+                                3, 13, 12, 2, 1, 11, 10, 0,
+                        };
+                        for (int i = 0; i < 16; i++)
+                            set_config(ti, config.at(y).at(x),
+                                       "LC_" + std::to_string(lc_idx),
+                                       ((i % 8) >= 4), ip_dsp_lut_perm.at(i));
+                        if (tile == TILE_IPCON)
+                            set_config(ti, config.at(y).at(x),
+                                       "Cascade.IPCON_LC0" +
+                                               std::to_string(lc_idx) +
+                                               "_inmux02_5",
+                                       true);
+                        else
+                            set_config(ti, config.at(y).at(x),
+                                       "Cascade.MULT" +
+                                               std::to_string(
+                                                       int(tile - TILE_DSP0)) +
+                                               "_LC0" + std::to_string(lc_idx) +
+                                               "_inmux02_5",
+                                       true);
+                    }
                 }
             }
         }
@@ -458,7 +462,7 @@ void write_asc(const Context *ctx, std::ostream &out)
     }
 
     // Write symbols
-    //const bool write_symbols = 1;
+    // const bool write_symbols = 1;
     for (auto wire : ctx->getWires()) {
         IdString net = ctx->getWireNet(wire, false);
         if (net != IdString())
