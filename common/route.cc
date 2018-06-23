@@ -79,14 +79,26 @@ struct RipupScoreboard
 void ripup_net(Context *ctx, IdString net_name)
 {
     auto net_info = ctx->nets.at(net_name);
+    std::vector<PipId> pips;
+    std::vector<WireId> wires;
+
+    pips.reserve(net_info->wires.size());
+    wires.reserve(net_info->wires.size());
 
     for (auto &it : net_info->wires) {
-        if (it.second != PipId())
-            ctx->unbindPip(it.second);
-        ctx->unbindWire(it.first);
+        if (it.second.pip != PipId())
+            pips.push_back(it.second.pip);
+        else
+            wires.push_back(it.first);
     }
 
-    net_info->wires.clear();
+    for (auto pip : pips)
+        ctx->unbindPip(pip);
+
+    for (auto wire : wires)
+        ctx->unbindWire(wire);
+
+    assert(net_info->wires.empty());
 }
 
 struct Router
@@ -147,7 +159,7 @@ struct Router
                 if (!ctx->checkWireAvail(next_wire)) {
                     if (!ripup)
                         continue;
-                    IdString ripupWireNet = ctx->getWireNet(next_wire, true);
+                    IdString ripupWireNet = ctx->getConflictingWireNet(next_wire);
                     if (ripupWireNet == net_name || ripupWireNet == IdString())
                         continue;
                     auto it = scores.wireScores.find(
@@ -160,7 +172,7 @@ struct Router
                 if (!ctx->checkPipAvail(pip)) {
                     if (!ripup)
                         continue;
-                    IdString ripupPipNet = ctx->getPipNet(pip, true);
+                    IdString ripupPipNet = ctx->getConflictingPipNet(pip);
                     if (ripupPipNet == net_name || ripupPipNet == IdString())
                         continue;
                     auto it = scores.pipScores.find(
@@ -280,8 +292,7 @@ struct Router
 
         std::unordered_map<WireId, delay_t> src_wires;
         src_wires[src_wire] = 0;
-        net_info->wires[src_wire] = PipId();
-        ctx->bindWire(src_wire, net_name);
+        ctx->bindWire(src_wire, net_name, STRENGTH_WEAK);
 
         std::vector<PortRef> users_array = net_info->users;
         ctx->shuffle(users_array);
@@ -361,9 +372,9 @@ struct Router
                 if (src_wires.count(cursor))
                     break;
 
-                IdString conflicting_wire_net = ctx->getWireNet(cursor, true);
+                IdString conflicting_wire_net = ctx->getConflictingWireNet(cursor);
                 IdString conflicting_pip_net =
-                        ctx->getPipNet(visited[cursor].pip, true);
+                        ctx->getConflictingPipNet(visited[cursor].pip);
 
                 if (conflicting_wire_net != IdString()) {
                     assert(ripup);
@@ -388,10 +399,7 @@ struct Router
                                                     visited[cursor].pip)]++;
                 }
 
-                net_info->wires[cursor] = visited[cursor].pip;
-                ctx->bindWire(cursor, net_name);
-                ctx->bindPip(visited[cursor].pip, net_name);
-
+                ctx->bindPip(visited[cursor].pip, net_name, STRENGTH_WEAK);
                 src_wires[cursor] = visited[cursor].delay;
                 cursor = ctx->getPipSrcWire(visited[cursor].pip);
             }
@@ -495,6 +503,9 @@ bool route_design(Context *ctx)
             if (iterCnt == 200) {
                 log_warning("giving up after %d iterations.\n", iterCnt);
                 log_info("Checksum: 0x%08x\n", ctx->checksum());
+#ifndef NDEBUG
+                ctx->check();
+#endif
                 return false;
             }
 
@@ -655,8 +666,14 @@ bool route_design(Context *ctx)
                  (100.0 * totalOvertimeRevisitCnt) / totalVisitCnt);
 
         log_info("Checksum: 0x%08x\n", ctx->checksum());
+#ifndef NDEBUG
+        ctx->check();
+#endif
         return true;
     } catch (log_execution_error_exception) {
+#ifndef NDEBUG
+        ctx->check();
+#endif
         return false;
     }
 }

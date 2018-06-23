@@ -533,17 +533,21 @@ struct Arch : BaseCtx
 
     uint32_t getBelChecksum(BelId bel) const { return bel.index; }
 
-    void bindBel(BelId bel, IdString cell)
+    void bindBel(BelId bel, IdString cell, PlaceStrength strength)
     {
         assert(bel != BelId());
         assert(bel_to_cell[bel.index] == IdString());
         bel_to_cell[bel.index] = cell;
+        cells[cell]->bel = bel;
+        cells[cell]->belStrength = strength;
     }
 
     void unbindBel(BelId bel)
     {
         assert(bel != BelId());
         assert(bel_to_cell[bel.index] != IdString());
+        cells[bel_to_cell[bel.index]]->bel = BelId();
+        cells[bel_to_cell[bel.index]]->belStrength = STRENGTH_NONE;
         bel_to_cell[bel.index] = IdString();
     }
 
@@ -553,7 +557,13 @@ struct Arch : BaseCtx
         return bel_to_cell[bel.index] == IdString();
     }
 
-    IdString getBelCell(BelId bel, bool conflicting = false) const
+    IdString getBoundBelCell(BelId bel) const
+    {
+        assert(bel != BelId());
+        return bel_to_cell[bel.index];
+    }
+
+    IdString getConflictingBelCell(BelId bel) const
     {
         assert(bel != BelId());
         return bel_to_cell[bel.index];
@@ -627,17 +637,20 @@ struct Arch : BaseCtx
 
     uint32_t getWireChecksum(WireId wire) const { return wire.index; }
 
-    void bindWire(WireId wire, IdString net)
+    void bindWire(WireId wire, IdString net, PlaceStrength strength)
     {
         assert(wire != WireId());
         assert(wire_to_net[wire.index] == IdString());
         wire_to_net[wire.index] = net;
+        nets[net]->wires[wire].pip = PipId();
+        nets[net]->wires[wire].strength = strength;
     }
 
     void unbindWire(WireId wire)
     {
         assert(wire != WireId());
         assert(wire_to_net[wire.index] != IdString());
+        nets[wire_to_net[wire.index]]->wires.erase(wire);
         wire_to_net[wire.index] = IdString();
     }
 
@@ -647,7 +660,13 @@ struct Arch : BaseCtx
         return wire_to_net[wire.index] == IdString();
     }
 
-    IdString getWireNet(WireId wire, bool conflicting = false) const
+    IdString getBoundWireNet(WireId wire) const
+    {
+        assert(wire != WireId());
+        return wire_to_net[wire.index];
+    }
+
+    IdString getConflictingWireNet(WireId wire) const
     {
         assert(wire != WireId());
         return wire_to_net[wire.index];
@@ -668,14 +687,22 @@ struct Arch : BaseCtx
 
     uint32_t getPipChecksum(PipId pip) const { return pip.index; }
 
-    void bindPip(PipId pip, IdString net)
+    void bindPip(PipId pip, IdString net, PlaceStrength strength)
     {
         assert(pip != PipId());
         assert(pip_to_net[pip.index] == IdString());
         assert(switches_locked[chip_info->pip_data[pip.index].switch_index] ==
                IdString());
+
         pip_to_net[pip.index] = net;
         switches_locked[chip_info->pip_data[pip.index].switch_index] = net;
+
+        WireId dst;
+        dst.index = chip_info->pip_data[pip.index].dst;
+        assert(wire_to_net[dst.index] == IdString());
+        wire_to_net[dst.index] = net;
+        nets[net]->wires[dst].pip = pip;
+        nets[net]->wires[dst].strength = strength;
     }
 
     void unbindPip(PipId pip)
@@ -684,6 +711,13 @@ struct Arch : BaseCtx
         assert(pip_to_net[pip.index] != IdString());
         assert(switches_locked[chip_info->pip_data[pip.index].switch_index] !=
                IdString());
+
+        WireId dst;
+        dst.index = chip_info->pip_data[pip.index].dst;
+        assert(wire_to_net[dst.index] != IdString());
+        wire_to_net[dst.index] = IdString();
+        nets[pip_to_net[pip.index]]->wires.erase(dst);
+
         pip_to_net[pip.index] = IdString();
         switches_locked[chip_info->pip_data[pip.index].switch_index] =
                 IdString();
@@ -696,12 +730,16 @@ struct Arch : BaseCtx
                IdString();
     }
 
-    IdString getPipNet(PipId pip, bool conflicting = false) const
+    IdString getBoundPipNet(PipId pip) const
     {
         assert(pip != PipId());
-        if (conflicting)
-            return switches_locked[chip_info->pip_data[pip.index].switch_index];
         return pip_to_net[pip.index];
+    }
+
+    IdString getConflictingPipNet(PipId pip) const
+    {
+        assert(pip != PipId());
+        return switches_locked[chip_info->pip_data[pip.index].switch_index];
     }
 
     AllPipRange getPips() const

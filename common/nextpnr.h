@@ -211,6 +211,12 @@ struct PortRef
     delay_t budget = 0;
 };
 
+struct PipMap
+{
+    PipId pip = PipId();
+    PlaceStrength strength = STRENGTH_NONE;
+};
+
 struct NetInfo
 {
     IdString name;
@@ -219,9 +225,7 @@ struct NetInfo
     std::unordered_map<IdString, std::string> attrs;
 
     // wire -> uphill_pip
-    std::unordered_map<WireId, PipId> wires;
-
-    std::unordered_map<PipId, PlaceStrength> pips;
+    std::unordered_map<WireId, PipMap> wires;
 };
 
 enum PortType
@@ -357,6 +361,7 @@ struct Context : Arch
     }
 
     uint32_t checksum() const;
+    void check() const;
 };
 
 NEXTPNR_NAMESPACE_END

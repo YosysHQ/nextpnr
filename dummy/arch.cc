@@ -36,16 +36,15 @@ IdString Arch::getBelName(BelId bel) const { return IdString(); }
 
 uint32_t Arch::getBelChecksum(BelId bel) const { return 0; }
 
-void Arch::bindBel(BelId bel, IdString cell) {}
+void Arch::bindBel(BelId bel, IdString cell, PlaceStrength strength) {}
 
 void Arch::unbindBel(BelId bel) {}
 
 bool Arch::checkBelAvail(BelId bel) const { return false; }
 
-IdString Arch::getBelCell(BelId bel, bool conflicting) const
-{
-    return IdString();
-}
+IdString Arch::getBoundBelCell(BelId bel) const { return IdString(); }
+
+IdString Arch::getConflictingBelCell(BelId bel) const { return IdString(); }
 
 const std::vector<BelId> &Arch::getBels() const
 {
@@ -79,16 +78,15 @@ IdString Arch::getWireName(WireId wire) const { return IdString(); }
 
 uint32_t Arch::getWireChecksum(WireId wire) const { return 0; }
 
-void Arch::bindWire(WireId wire, IdString net) {}
+void Arch::bindWire(WireId wire, IdString net, PlaceStrength strength) {}
 
 void Arch::unbindWire(WireId wire) {}
 
 bool Arch::checkWireAvail(WireId wire) const { return false; }
 
-IdString Arch::getWireNet(WireId wire, bool conflicting) const
-{
-    return IdString();
-}
+IdString Arch::getBoundWireNet(WireId wire) const { return IdString(); }
+
+IdString Arch::getConflictingWireNet(WireId wire) const { return IdString(); }
 
 const std::vector<WireId> &Arch::getWires() const
 {
@@ -104,16 +102,15 @@ IdString Arch::getPipName(PipId pip) const { return IdString(); }
 
 uint32_t Arch::getPipChecksum(PipId wire) const { return 0; }
 
-void Arch::bindPip(PipId pip, IdString net) {}
+void Arch::bindPip(PipId pip, IdString net, PlaceStrength strength) {}
 
 void Arch::unbindPip(PipId pip) {}
 
 bool Arch::checkPipAvail(PipId pip) const { return false; }
 
-IdString Arch::getPipNet(PipId pip, bool conflicting) const
-{
-    return IdString();
-}
+IdString Arch::getBoundPipNet(PipId pip) const { return IdString(); }
+
+IdString Arch::getConflictingPipNet(PipId pip) const { return IdString(); }
 
 const std::vector<PipId> &Arch::getPips() const
 {

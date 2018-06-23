@@ -102,7 +102,7 @@ bool PlaceValidityChecker::isBelLocationValid(BelId bel)
     if (ctx->getBelType(bel) == TYPE_ICESTORM_LC) {
         std::vector<const CellInfo *> cells;
         for (auto bel_other : ctx->getBelsAtSameTile(bel)) {
-            IdString cell_other = ctx->getBelCell(bel_other, false);
+            IdString cell_other = ctx->getBoundBelCell(bel_other);
             if (cell_other != IdString()) {
                 const CellInfo *ci_other = ctx->cells[cell_other];
                 cells.push_back(ci_other);
@@ -110,7 +110,7 @@ bool PlaceValidityChecker::isBelLocationValid(BelId bel)
         }
         return logicCellsCompatible(ctx, cells);
     } else {
-        IdString cellId = ctx->getBelCell(bel, false);
+        IdString cellId = ctx->getBoundBelCell(bel);
         if (cellId == IdString())
             return true;
         else
@@ -126,7 +126,7 @@ bool PlaceValidityChecker::isValidBelForCell(CellInfo *cell, BelId bel)
         std::vector<const CellInfo *> cells;
 
         for (auto bel_other : ctx->getBelsAtSameTile(bel)) {
-            IdString cell_other = ctx->getBelCell(bel_other, false);
+            IdString cell_other = ctx->getBoundBelCell(bel_other);
             if (cell_other != IdString()) {
                 const CellInfo *ci_other = ctx->cells[cell_other];
                 cells.push_back(ci_other);

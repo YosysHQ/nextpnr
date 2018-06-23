@@ -97,19 +97,11 @@ uint32_t Context::checksum() const
         for (auto &w : ni.wires) {
             uint32_t wire_x = 123456789;
             wire_x = xorshift32(wire_x + xorshift32(getWireChecksum(w.first)));
-            wire_x = xorshift32(wire_x + xorshift32(getPipChecksum(w.second)));
+            wire_x = xorshift32(wire_x + xorshift32(getPipChecksum(w.second.pip)));
+            wire_x = xorshift32(wire_x + xorshift32(int(w.second.strength)));
             wire_x_sum += wire_x;
         }
         x = xorshift32(x + xorshift32(wire_x_sum));
-
-        uint32_t pip_x_sum = 0;
-        for (auto &p : ni.pips) {
-            uint32_t pip_x = 123456789;
-            pip_x = xorshift32(pip_x + xorshift32(getPipChecksum(p.first)));
-            pip_x = xorshift32(pip_x + xorshift32(p.second));
-            pip_x_sum += pip_x;
-        }
-        x = xorshift32(x + xorshift32(pip_x_sum));
 
         cksum_nets_sum += x;
     }
@@ -173,6 +165,34 @@ uint32_t Context::checksum() const
     cksum = xorshift32(cksum + xorshift32(cksum_cells_sum));
 
     return cksum;
+}
+
+void Context::check() const
+{
+    for (auto &n : nets) {
+        auto ni = n.second;
+        assert(n.first == ni->name);
+        for (auto &w : ni->wires) {
+            assert(n.first == getBoundWireNet(w.first));
+            if (w.second.pip != PipId()) {
+                assert(w.first == getPipDstWire(w.second.pip));
+                assert(n.first == getBoundPipNet(w.second.pip));
+            }
+        }
+    }
+
+    for (auto w : getWires()) {
+        IdString net = getBoundWireNet(w);
+        if (net != IdString()) {
+            assert(nets.at(net)->wires.count(w));
+        }
+    }
+
+    for (auto &c : cells) {
+        assert(c.first == c.second->name);
+        if (c.second->bel != BelId())
+            assert(getBoundBelCell(c.second->bel) == c.first);
+    }
 }
 
 NEXTPNR_NAMESPACE_END

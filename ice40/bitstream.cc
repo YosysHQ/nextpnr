@@ -464,7 +464,7 @@ void write_asc(const Context *ctx, std::ostream &out)
     // Write symbols
     // const bool write_symbols = 1;
     for (auto wire : ctx->getWires()) {
-        IdString net = ctx->getWireNet(wire, false);
+        IdString net = ctx->getBoundWireNet(wire);
         if (net != IdString())
             out << ".sym " << wire.index << " " << net.str(ctx) << std::endl;
     }

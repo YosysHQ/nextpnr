@@ -103,9 +103,7 @@ class SAPlacer
                               cell->name.c_str(ctx), cell->type.c_str(ctx));
                 }
 
-                cell->bel = bel;
-                cell->belStrength = STRENGTH_USER;
-                ctx->bindBel(bel, cell->name);
+                ctx->bindBel(bel, cell->name, STRENGTH_USER);
                 locked_bels.insert(bel);
                 placed_cells++;
             }
@@ -231,7 +229,7 @@ class SAPlacer
         }
         // Final post-pacement validitiy check
         for (auto bel : ctx->getBels()) {
-            IdString cell = ctx->getBelCell(bel, false);
+            IdString cell = ctx->getBoundBelCell(bel);
             if (!checker->isBelLocationValid(bel)) {
                 std::string cell_text = "no cell";
                 if (cell != IdString())
@@ -266,7 +264,6 @@ class SAPlacer
             BelId ripup_bel = BelId();
             if (cell->bel != BelId()) {
                 ctx->unbindBel(cell->bel);
-                cell->bel = BelId();
             }
             BelType targetType = ctx->belTypeFromId(cell->type);
             for (auto bel : ctx->getBels()) {
@@ -283,7 +280,7 @@ class SAPlacer
                         if (score <= best_ripup_score) {
                             best_ripup_score = score;
                             ripup_target =
-                                    ctx->cells.at(ctx->getBelCell(bel, true));
+                                    ctx->cells.at(ctx->getBoundBelCell(bel));
                             ripup_bel = bel;
                         }
                     }
@@ -295,14 +292,11 @@ class SAPlacer
                               cell->name.c_str(ctx), cell->type.c_str(ctx));
                 --iters;
                 ctx->unbindBel(ripup_target->bel);
-                ripup_target->bel = BelId();
                 best_bel = ripup_bel;
             } else {
                 all_placed = true;
             }
-            cell->bel = best_bel;
-            cell->belStrength = STRENGTH_WEAK;
-            ctx->bindBel(cell->bel, cell->name);
+            ctx->bindBel(best_bel, cell->name, STRENGTH_WEAK);
 
             // Back annotate location
             cell->attrs[ctx->id("BEL")] = ctx->getBelName(cell->bel).str(ctx);
@@ -375,7 +369,7 @@ class SAPlacer
         new_lengths.clear();
         update.clear();
         BelId oldBel = cell->bel;
-        IdString other = ctx->getBelCell(newBel, true);
+        IdString other = ctx->getBoundBelCell(newBel);
         CellInfo *other_cell = nullptr;
         wirelen_t new_wirelength = 0, delta;
         ctx->unbindBel(oldBel);
@@ -394,10 +388,10 @@ class SAPlacer
                     update.insert(port.second.net);
         }
 
-        ctx->bindBel(newBel, cell->name);
+        ctx->bindBel(newBel, cell->name, STRENGTH_WEAK);
 
         if (other != IdString()) {
-            ctx->bindBel(oldBel, other_cell->name);
+            ctx->bindBel(oldBel, other_cell->name, STRENGTH_WEAK);
         }
 
         if (!checker->isBelLocationValid(newBel) ||
@@ -407,10 +401,6 @@ class SAPlacer
                 ctx->unbindBel(oldBel);
             goto swap_fail;
         }
-
-        cell->bel = newBel;
-        if (other != IdString())
-            other_cell->bel = oldBel;
 
         new_wirelength = curr_wirelength;
 
@@ -442,11 +432,9 @@ class SAPlacer
 
         return true;
     swap_fail:
-        ctx->bindBel(oldBel, cell->name);
-        cell->bel = oldBel;
+        ctx->bindBel(oldBel, cell->name, STRENGTH_WEAK);
         if (other != IdString()) {
-            ctx->bindBel(newBel, other);
-            other_cell->bel = newBel;
+            ctx->bindBel(newBel, other, STRENGTH_WEAK);
         }
         return false;
     }
@@ -498,8 +486,14 @@ bool place_design_sa(Context *ctx, bool timing_driven)
         SAPlacer placer(ctx, timing_driven);
         placer.place();
         log_info("Checksum: 0x%08x\n", ctx->checksum());
+#ifndef NDEBUG
+        ctx->check();
+#endif
         return true;
     } catch (log_execution_error_exception) {
+#ifndef NDEBUG
+        ctx->check();
+#endif
         return false;
     }
 }
