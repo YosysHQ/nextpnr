@@ -108,7 +108,7 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
     WRAP_MAP(decltype(CellInfo::ports), "IdPortMap");
     // WRAP_MAP(decltype(CellInfo::pins), "IdIdMap");
 
-    class_<Context, Context *>("Context", no_init)
+    class_<BaseCtx, BaseCtx *>("BaseCtx", no_init)
             .def_readwrite("nets", &Context::nets)
             .def_readwrite("cells", &Context::cells);
 
@@ -123,6 +123,8 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
             .def(self < self)
             .def(self == self);
     arch_wrap_python();
+
+    class_<Context, Context *, bases<Arch>>("Context", no_init).def("checksum", &Context::checksum);
 }
 
 void arch_appendinittab() { PyImport_AppendInittab(TOSTRING(MODULE_NAME), PYINIT_MODULE_NAME); }
