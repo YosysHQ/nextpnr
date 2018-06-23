@@ -139,8 +139,8 @@ bool PlaceValidityChecker::isValidBelForCell(CellInfo *cell, BelId bel)
         return ctx->getBelPackagePin(bel) != "";
     } else if (cell->type == id_sb_gb) {
         bool is_reset = false, is_cen = false;
-        assert(cell->ports.at("GLOBAL_BUFFER_OUTPUT").net != nullptr);
-        for (auto user : cell->ports.at("GLOBAL_BUFFER_OUTPUT").net->users) {
+        assert(cell->ports.at(ctx->id("GLOBAL_BUFFER_OUTPUT")).net != nullptr);
+        for (auto user : cell->ports.at(ctx->id("GLOBAL_BUFFER_OUTPUT")).net->users) {
             if (is_reset_port(ctx, user))
                 is_reset = true;
             if (is_enable_port(ctx, user))
@@ -148,7 +148,7 @@ bool PlaceValidityChecker::isValidBelForCell(CellInfo *cell, BelId bel)
         }
         IdString glb_net = ctx->getWireName(
                 ctx->getWireBelPin(bel, PIN_GLOBAL_BUFFER_OUTPUT));
-        int glb_id = std::stoi(std::string("") + glb_net.str().back());
+        int glb_id = std::stoi(std::string("") + glb_net.str(ctx).back());
         if (is_reset && is_cen)
             return false;
         else if (is_reset)

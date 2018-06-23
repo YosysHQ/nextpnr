@@ -36,7 +36,7 @@ CellInfo *create_ice_cell(Context *ctx, IdString type, std::string name)
     static int auto_idx = 0;
     CellInfo *new_cell = new CellInfo();
     if (name.empty()) {
-        new_cell->name = IdString(ctx, "$nextpnr_" + type.str() + "_" +
+        new_cell->name = ctx->id( "$nextpnr_" + type.str(ctx) + "_" +
                                                std::to_string(auto_idx++));
     } else {
         new_cell->name = ctx->id(name);
@@ -132,13 +132,13 @@ CellInfo *create_ice_cell(Context *ctx, IdString type, std::string name)
 
 void lut_to_lc(const Context *ctx, CellInfo *lut, CellInfo *lc, bool no_dff)
 {
-    lc->params["LUT_INIT"] = lut->params["LUT_INIT"];
-    replace_port(lut, "I0", lc, "I0");
-    replace_port(lut, "I1", lc, "I1");
-    replace_port(lut, "I2", lc, "I2");
-    replace_port(lut, "I3", lc, "I3");
+    lc->params[ctx->id("LUT_INIT")] = lut->params[ctx->id("LUT_INIT")];
+    replace_port(lut, ctx->id("I0"), lc, ctx->id("I0"));
+    replace_port(lut, ctx->id("I1"), lc, ctx->id("I1"));
+    replace_port(lut, ctx->id("I2"), lc, ctx->id("I2"));
+    replace_port(lut, ctx->id("I3"), lc, ctx->id("I3"));
     if (no_dff) {
-        replace_port(lut, "O", lc, "O");
+        replace_port(lut, ctx->id("O"), lc, ctx->id("O"));
         lc->params[ctx->id("DFF_ENABLE")] = "0";
     }
 }
@@ -149,7 +149,7 @@ void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc,
     lc->params[ctx->id("DFF_ENABLE")] = "1";
     std::string config = dff->type.str(ctx).substr(6);
     auto citer = config.begin();
-    replace_port(dff, "C", lc, "CLK");
+    replace_port(dff, ctx->id("C"), lc, ctx->id("CLK"));
 
     if (citer != config.end() && *citer == 'N') {
         lc->params[ctx->id("NEG_CLK")] = "1";
@@ -159,7 +159,7 @@ void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc,
     }
 
     if (citer != config.end() && *citer == 'E') {
-        replace_port(dff, "E", lc, "CEN");
+        replace_port(dff, ctx->id("E"), lc, ctx->id("CEN"));
         ++citer;
     }
 
@@ -174,12 +174,12 @@ void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc,
 
         if (*citer == 'S') {
             citer++;
-            replace_port(dff, "S", lc, "SR");
+            replace_port(dff, ctx->id("S"), lc, ctx->id("SR"));
             lc->params[ctx->id("SET_NORESET")] = "1";
         } else {
             assert(*citer == 'R');
             citer++;
-            replace_port(dff, "R", lc, "SR");
+            replace_port(dff, ctx->id("R"), lc, ctx->id("SR"));
             lc->params[ctx->id("SET_NORESET")] = "0";
         }
     }
@@ -188,28 +188,28 @@ void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc,
 
     if (pass_thru_lut) {
         lc->params[ctx->id("LUT_INIT")] = "2";
-        replace_port(dff, "D", lc, "I0");
+        replace_port(dff, ctx->id("D"), lc, ctx->id("I0"));
     }
 
-    replace_port(dff, "Q", lc, "O");
+    replace_port(dff, ctx->id("Q"), lc, ctx->id("O"));
 }
 
 void nxio_to_sb(Context *ctx, CellInfo *nxio, CellInfo *sbio)
 {
     if (nxio->type == ctx->id("$nextpnr_ibuf")) {
         sbio->params[ctx->id("PIN_TYPE")] = "1";
-        auto pu_attr = nxio->attrs.find("PULLUP");
+        auto pu_attr = nxio->attrs.find(ctx->id("PULLUP"));
         if (pu_attr != nxio->attrs.end())
             sbio->params[ctx->id("PULLUP")] = pu_attr->second;
-        replace_port(nxio, "O", sbio, "D_IN_0");
+        replace_port(nxio, ctx->id("O"), sbio, ctx->id("D_IN_0"));
     } else if (nxio->type == ctx->id("$nextpnr_obuf")) {
         sbio->params[ctx->id("PIN_TYPE")] = "25";
-        replace_port(nxio, "I", sbio, "D_OUT_0");
+        replace_port(nxio, ctx->id("I"), sbio, ctx->id("D_OUT_0"));
     } else if (nxio->type == ctx->id("$nextpnr_iobuf")) {
         // N.B. tristate will be dealt with below
         sbio->params[ctx->id("PIN_TYPE")] = "25";
-        replace_port(nxio, "I", sbio, "D_OUT_0");
-        replace_port(nxio, "O", sbio, "D_IN_0");
+        replace_port(nxio, ctx->id("I"), sbio, ctx->id("D_OUT_0"));
+        replace_port(nxio, ctx->id("O"), sbio, ctx->id("D_IN_0"));
     } else {
         assert(false);
     }
@@ -219,11 +219,11 @@ void nxio_to_sb(Context *ctx, CellInfo *nxio, CellInfo *sbio)
                           [](const Context *ctx, const CellInfo *cell) {
                               return cell->type == ctx->id("$_TBUF_");
                           },
-                          "Y");
+                          ctx->id("Y"));
     if (tbuf) {
         sbio->params[ctx->id("PIN_TYPE")] = "41";
-        replace_port(tbuf, "A", sbio, "D_OUT_0");
-        replace_port(tbuf, "E", sbio, "OUTPUT_ENABLE");
+        replace_port(tbuf, ctx->id("A"), sbio, ctx->id("D_OUT_0"));
+        replace_port(tbuf, ctx->id("E"), sbio, ctx->id("OUTPUT_ENABLE"));
         ctx->nets.erase(donet->name);
         if (!donet->users.empty())
             log_error(

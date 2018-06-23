@@ -441,7 +441,7 @@ void write_asc(const Context *ctx, std::ostream &out)
                             cell.second,
                             ctx->id(std::string("INIT_") + get_hexdigit(w)));
                     assert(init != "");
-                    for (int i = 0; i < init.size(); i++) {
+                    for (size_t i = 0; i < init.size(); i++) {
                         bool val = (init.at((init.size() - 1) - i) == '1');
                         bits.at(i) = val;
                     }
@@ -458,7 +458,7 @@ void write_asc(const Context *ctx, std::ostream &out)
     }
 
     // Write symbols
-    const bool write_symbols = 1;
+    //const bool write_symbols = 1;
     for (auto wire : ctx->getWires()) {
         IdString net = ctx->getWireNet(wire, false);
         if (net != IdString())

@@ -52,7 +52,7 @@ bool apply_pcf(Context *ctx, std::istream &in)
                     args_end++;
                 std::string cell = words.at(args_end);
                 std::string pin = words.at(args_end + 1);
-                auto fnd_cell = ctx->cells.find(cell);
+                auto fnd_cell = ctx->cells.find(ctx->id(cell));
                 if (fnd_cell == ctx->cells.end()) {
                     log_warning("unmatched pcf constraint %s\n", cell.c_str());
                 } else {
@@ -60,10 +60,10 @@ bool apply_pcf(Context *ctx, std::istream &in)
                     if (pin_bel == BelId())
                         log_error("package does not have a pin named %s\n",
                                   pin.c_str());
-                    fnd_cell->second->attrs["BEL"] =
-                            ctx->getBelName(pin_bel).str();
+                    fnd_cell->second->attrs[ctx->id("BEL")] =
+                            ctx->getBelName(pin_bel).str(ctx);
                     log_info("constrained '%s' to bel '%s'\n", cell.c_str(),
-                             fnd_cell->second->attrs["BEL"].c_str());
+                             fnd_cell->second->attrs[ctx->id("BEL")].c_str());
                 }
             } else {
                 log_error("unsupported pcf command '%s'\n", cmd.c_str());
