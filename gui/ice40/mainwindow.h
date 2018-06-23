@@ -36,18 +36,16 @@ class MainWindow : public BaseMainWindow
   public:
     void createMenu();
 
-  Q_SIGNALS:
-    void budget(double freq);
-    void place(bool timing_driven);
-
   protected Q_SLOTS:
     virtual void open();
     virtual bool save();
 
+    void open_pcf();
     void budget();
     void place();
 
     void loadfile_finished(bool status);
+    void loadpcf_finished(bool status);
     void pack_finished(bool status);
     void budget_finish(bool status);
     void place_finished(bool status);
@@ -61,6 +59,7 @@ class MainWindow : public BaseMainWindow
     void disableActions();
 
     TaskManager *task;
+    QAction *actionLoadPCF;
     QAction *actionPack;
     QAction *actionAssignBudget;
     QAction *actionPlace;

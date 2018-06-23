@@ -47,6 +47,7 @@ MainWindow::MainWindow(Context *_ctx, QWidget *parent) : BaseMainWindow(_ctx, pa
     connect(task, SIGNAL(log(std::string)), this, SLOT(writeInfo(std::string)));
 
     connect(task, SIGNAL(loadfile_finished(bool)), this, SLOT(loadfile_finished(bool)));
+    connect(task, SIGNAL(loadpcf_finished(bool)), this, SLOT(loadpcf_finished(bool)));
     connect(task, SIGNAL(pack_finished(bool)), this, SLOT(pack_finished(bool)));
     connect(task, SIGNAL(budget_finish(bool)), this, SLOT(budget_finish(bool)));
     connect(task, SIGNAL(place_finished(bool)), this, SLOT(place_finished(bool)));
@@ -55,9 +56,6 @@ MainWindow::MainWindow(Context *_ctx, QWidget *parent) : BaseMainWindow(_ctx, pa
     connect(task, SIGNAL(taskCanceled()), this, SLOT(taskCanceled()));
     connect(task, SIGNAL(taskStarted()), this, SLOT(taskStarted()));
     connect(task, SIGNAL(taskPaused()), this, SLOT(taskPaused()));
-
-    connect(this, SIGNAL(budget(double)), task, SIGNAL(budget(double)));
-    connect(this, SIGNAL(place(bool)), task, SIGNAL(place(bool)));
 
     createMenu();
 }
@@ -68,6 +66,14 @@ void MainWindow::createMenu()
 {
     QMenu *menu_Design = new QMenu("&Design", menuBar);
     menuBar->addAction(menu_Design->menuAction());
+
+    actionLoadPCF = new QAction("Open PCF", this);
+    QIcon iconLoadPCF;
+    iconLoadPCF.addFile(QStringLiteral(":/icons/resources/open_pcf.png"));
+    actionLoadPCF->setIcon(iconLoadPCF);
+    actionLoadPCF->setStatusTip("Open PCF file");
+    connect(actionLoadPCF, SIGNAL(triggered()), this, SLOT(open_pcf()));
+    actionLoadPCF->setEnabled(false);
 
     actionPack = new QAction("Pack", this);
     QIcon iconPack;
@@ -104,11 +110,13 @@ void MainWindow::createMenu()
     QToolBar *taskFPGABar = new QToolBar();
     addToolBar(Qt::TopToolBarArea, taskFPGABar);
 
+    taskFPGABar->addAction(actionLoadPCF);
     taskFPGABar->addAction(actionPack);
     taskFPGABar->addAction(actionAssignBudget);
     taskFPGABar->addAction(actionPlace);
     taskFPGABar->addAction(actionRoute);
 
+    menu_Design->addAction(actionLoadPCF);
     menu_Design->addAction(actionPack);
     menu_Design->addAction(actionAssignBudget);
     menu_Design->addAction(actionPlace);
@@ -159,10 +167,23 @@ void MainWindow::open()
     }
 }
 
+void MainWindow::open_pcf()
+{
+    QString fileName = QFileDialog::getOpenFileName(this, QString(), QString(), QString("*.pcf"));
+    if (!fileName.isEmpty()) {
+        tabWidget->setCurrentWidget(info);
+
+        std::string fn = fileName.toStdString();
+        disableActions();
+        Q_EMIT task->loadpcf(fn);
+    }
+}
+
 bool MainWindow::save() { return false; }
 
 void MainWindow::disableActions()
 {
+    actionLoadPCF->setEnabled(false);
     actionPack->setEnabled(false);
     actionAssignBudget->setEnabled(false);
     actionPlace->setEnabled(false);
@@ -178,11 +199,24 @@ void MainWindow::loadfile_finished(bool status)
     disableActions();
     if (status) {
         log("Loading design successful.\n");
+        actionLoadPCF->setEnabled(true);
         actionPack->setEnabled(true);
     } else {
         log("Loading design failed.\n");
     }
 }
+
+void MainWindow::loadpcf_finished(bool status)
+{
+    disableActions();
+    if (status) {
+        log("Loading PCF successful.\n");
+        actionPack->setEnabled(true);
+    } else {
+        log("Loading PCF failed.\n");
+    }
+}
+
 void MainWindow::pack_finished(bool status)
 {
     disableActions();
@@ -252,10 +286,10 @@ void MainWindow::budget()
     if (ok) {
         freq *= 1e6;
         timing_driven = true;
-        Q_EMIT budget(freq);
+        Q_EMIT task->budget(freq);
     }
 }
 
-void MainWindow::place() { Q_EMIT place(timing_driven); }
+void MainWindow::place() { Q_EMIT task->place(timing_driven); }
 
 NEXTPNR_NAMESPACE_END

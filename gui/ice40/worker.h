@@ -35,6 +35,7 @@ class Worker : public QObject
     Worker(Context *ctx, TaskManager *parent);
   public Q_SLOTS:
     void loadfile(const std::string &);
+    void loadpcf(const std::string &);
     void pack();
     void budget(double freq);
     void place(bool timing_driven);
@@ -42,6 +43,7 @@ class Worker : public QObject
   Q_SIGNALS:
     void log(const std::string &text);
     void loadfile_finished(bool status);
+    void loadpcf_finished(bool status);
     void pack_finished(bool status);
     void budget_finish(bool status);
     void place_finished(bool status);
@@ -73,6 +75,7 @@ class TaskManager : public QObject
   Q_SIGNALS:
     void terminate();
     void loadfile(const std::string &);
+    void loadpcf(const std::string &);
     void pack();
     void budget(double freq);
     void place(bool timing_driven);
@@ -81,6 +84,7 @@ class TaskManager : public QObject
     // redirected signals
     void log(const std::string &text);
     void loadfile_finished(bool status);
+    void loadpcf_finished(bool status);
     void pack_finished(bool status);
     void budget_finish(bool status);
     void place_finished(bool status);
