@@ -122,33 +122,25 @@ PortPin Arch::portPinFromId(IdString type) const
 
 // -----------------------------------------------------------------------
 
-static const ChipInfoPOD *get_chip_info(const RelPtr<ChipInfoPOD> *ptr)
-{
-    return ptr->get();
-}
+static const ChipInfoPOD *get_chip_info(const RelPtr<ChipInfoPOD> *ptr) { return ptr->get(); }
 
 Arch::Arch(ArchArgs args) : args(args)
 {
 #ifdef ICE40_HX1K_ONLY
     if (args.type == ArchArgs::HX1K) {
-        chip_info = get_chip_info(
-                reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_1k));
+        chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_1k));
     } else {
         log_error("Unsupported iCE40 chip type.\n");
     }
 #else
     if (args.type == ArchArgs::LP384) {
-        chip_info = get_chip_info(
-                reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_384));
+        chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_384));
     } else if (args.type == ArchArgs::LP1K || args.type == ArchArgs::HX1K) {
-        chip_info = get_chip_info(
-                reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_1k));
+        chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_1k));
     } else if (args.type == ArchArgs::UP5K) {
-        chip_info = get_chip_info(
-                reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_5k));
+        chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_5k));
     } else if (args.type == ArchArgs::LP8K || args.type == ArchArgs::HX8K) {
-        chip_info = get_chip_info(
-                reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_8k));
+        chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_8k));
     } else {
         log_error("Unsupported iCE40 chip type.\n");
     }
@@ -228,13 +220,11 @@ BelRange Arch::getBelsAtSameTile(BelId bel) const
     int x = chip_info->bel_data[bel.index].x;
     int y = chip_info->bel_data[bel.index].y;
     int start = bel.index, end = bel.index;
-    while (start >= 0 && chip_info->bel_data[start].x == x &&
-           chip_info->bel_data[start].y == y)
+    while (start >= 0 && chip_info->bel_data[start].x == x && chip_info->bel_data[start].y == y)
         start--;
     start++;
     br.b.cursor = start;
-    while (end < chip_info->num_bels && chip_info->bel_data[end].x == x &&
-           chip_info->bel_data[end].y == y)
+    while (end < chip_info->num_bels && chip_info->bel_data[end].x == x && chip_info->bel_data[end].y == y)
         end++;
     br.e.cursor = end;
     return br;
@@ -247,8 +237,7 @@ WireId Arch::getWireBelPin(BelId bel, PortPin pin) const
     assert(bel != BelId());
 
     int num_bel_wires = chip_info->bel_data[bel.index].num_bel_wires;
-    const BelWirePOD *bel_wires =
-            chip_info->bel_data[bel.index].bel_wires.get();
+    const BelWirePOD *bel_wires = chip_info->bel_data[bel.index].bel_wires.get();
 
     for (int i = 0; i < num_bel_wires; i++)
         if (bel_wires[i].port == pin) {
@@ -305,16 +294,13 @@ IdString Arch::getPipName(PipId pip) const
     int x = chip_info->pip_data[pip.index].x;
     int y = chip_info->pip_data[pip.index].y;
 
-    std::string src_name =
-            chip_info->wire_data[chip_info->pip_data[pip.index].src].name.get();
+    std::string src_name = chip_info->wire_data[chip_info->pip_data[pip.index].src].name.get();
     std::replace(src_name.begin(), src_name.end(), '/', '.');
 
-    std::string dst_name =
-            chip_info->wire_data[chip_info->pip_data[pip.index].dst].name.get();
+    std::string dst_name = chip_info->wire_data[chip_info->pip_data[pip.index].dst].name.get();
     std::replace(dst_name.begin(), dst_name.end(), '/', '.');
 
-    return id("X" + std::to_string(x) + "/Y" + std::to_string(y) + "/" +
-              src_name + ".->." + dst_name);
+    return id("X" + std::to_string(x) + "/Y" + std::to_string(y) + "/" + src_name + ".->." + dst_name);
 }
 
 // -----------------------------------------------------------------------
@@ -401,17 +387,14 @@ std::vector<GraphicElement> Arch::getBelGraphics(BelId bel) const
         el.type = GraphicElement::G_BOX;
         el.x1 = chip_info->bel_data[bel.index].x + 0.1;
         el.x2 = chip_info->bel_data[bel.index].x + 0.9;
-        el.y1 = chip_info->bel_data[bel.index].y + 0.10 +
-                (chip_info->bel_data[bel.index].z) * (0.8 / 8);
-        el.y2 = chip_info->bel_data[bel.index].y + 0.18 +
-                (chip_info->bel_data[bel.index].z) * (0.8 / 8);
+        el.y1 = chip_info->bel_data[bel.index].y + 0.10 + (chip_info->bel_data[bel.index].z) * (0.8 / 8);
+        el.y2 = chip_info->bel_data[bel.index].y + 0.18 + (chip_info->bel_data[bel.index].z) * (0.8 / 8);
         el.z = 0;
         ret.push_back(el);
     }
 
     if (bel_type == TYPE_SB_IO) {
-        if (chip_info->bel_data[bel.index].x == 0 ||
-            chip_info->bel_data[bel.index].x == chip_info->width - 1) {
+        if (chip_info->bel_data[bel.index].x == 0 || chip_info->bel_data[bel.index].x == chip_info->width - 1) {
             GraphicElement el;
             el.type = GraphicElement::G_BOX;
             el.x1 = chip_info->bel_data[bel.index].x + 0.1;
@@ -472,12 +455,10 @@ std::vector<GraphicElement> Arch::getPipGraphics(PipId pip) const
 
 // -----------------------------------------------------------------------
 
-bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort,
-                        IdString toPort, delay_t &delay) const
+bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, delay_t &delay) const
 {
     if (cell->type == id("ICESTORM_LC")) {
-        if (fromPort == id("I0") || fromPort == id("I1") ||
-            fromPort == id("I2") || fromPort == id("I3")) {
+        if (fromPort == id("I0") || fromPort == id("I1") || fromPort == id("I2") || fromPort == id("I3")) {
             if (toPort == id("O") || toPort == id("LO")) {
                 delay = 450;
                 return true;
@@ -489,8 +470,7 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort,
 
 IdString Arch::getPortClock(const CellInfo *cell, IdString port) const
 {
-    if (cell->type == id("ICESTORM_LC") &&
-        bool_or_default(cell->params, id("DFF_ENABLE"))) {
+    if (cell->type == id("ICESTORM_LC") && bool_or_default(cell->params, id("DFF_ENABLE"))) {
         if (port != id("LO") && port != id("CIN") && port != id("COUT"))
             return id("CLK");
     }

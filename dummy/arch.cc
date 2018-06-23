@@ -181,20 +181,13 @@ std::vector<GraphicElement> Arch::getPipGraphics(PipId pip) const
 
 // ---------------------------------------------------------------
 
-bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort,
-                        IdString toPort, delay_t &delay) const
+bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, delay_t &delay) const
 {
     return false;
 }
 
-IdString Arch::getPortClock(const CellInfo *cell, IdString port) const
-{
-    return IdString();
-}
+IdString Arch::getPortClock(const CellInfo *cell, IdString port) const { return IdString(); }
 
-bool Arch::isClockPort(const CellInfo *cell, IdString port) const
-{
-    return false;
-}
+bool Arch::isClockPort(const CellInfo *cell, IdString port) const { return false; }
 
 NEXTPNR_NAMESPACE_END

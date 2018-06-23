@@ -35,15 +35,9 @@ void IdString::set(const BaseCtx *ctx, const std::string &s)
     }
 }
 
-const std::string &IdString::str(const BaseCtx *ctx) const
-{
-    return *ctx->idstring_idx_to_str->at(index);
-}
+const std::string &IdString::str(const BaseCtx *ctx) const { return *ctx->idstring_idx_to_str->at(index); }
 
-const char *IdString::c_str(const BaseCtx *ctx) const
-{
-    return str(ctx).c_str();
-}
+const char *IdString::c_str(const BaseCtx *ctx) const { return str(ctx).c_str(); }
 
 void IdString::initialize_add(const BaseCtx *ctx, const char *s, int idx)
 {
@@ -121,8 +115,7 @@ uint32_t Context::checksum() const
             port_x = xorshift32(port_x + xorshift32(p.first.index));
             port_x = xorshift32(port_x + xorshift32(p.second.name.index));
             if (p.second.net)
-                port_x = xorshift32(port_x +
-                                    xorshift32(p.second.net->name.index));
+                port_x = xorshift32(port_x + xorshift32(p.second.net->name.index));
             port_x = xorshift32(port_x + xorshift32(p.second.type));
             port_x_sum += port_x;
         }

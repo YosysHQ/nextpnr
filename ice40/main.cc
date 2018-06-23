@@ -52,17 +52,14 @@ void svg_dump_el(const GraphicElement &el)
     std::string style = "stroke=\"black\" stroke-width=\"0.1\" fill=\"none\"";
 
     if (el.type == GraphicElement::G_BOX) {
-        std::cout << "<rect x=\"" << (offset + scale * el.x1) << "\" y=\""
-                  << (offset + scale * el.y1) << "\" height=\""
-                  << (scale * (el.y2 - el.y1)) << "\" width=\""
-                  << (scale * (el.x2 - el.x1)) << "\" " << style << "/>\n";
+        std::cout << "<rect x=\"" << (offset + scale * el.x1) << "\" y=\"" << (offset + scale * el.y1) << "\" height=\""
+                  << (scale * (el.y2 - el.y1)) << "\" width=\"" << (scale * (el.x2 - el.x1)) << "\" " << style
+                  << "/>\n";
     }
 
     if (el.type == GraphicElement::G_LINE) {
-        std::cout << "<line x1=\"" << (offset + scale * el.x1) << "\" y1=\""
-                  << (offset + scale * el.y1) << "\" x2=\""
-                  << (offset + scale * el.x2) << "\" y2=\""
-                  << (offset + scale * el.y2) << "\" " << style << "/>\n";
+        std::cout << "<line x1=\"" << (offset + scale * el.x1) << "\" y1=\"" << (offset + scale * el.y1) << "\" x2=\""
+                  << (offset + scale * el.x2) << "\" y2=\"" << (offset + scale * el.y2) << "\" " << style << "/>\n";
     }
 }
 
@@ -84,23 +81,17 @@ int main(int argc, char *argv[])
         options.add_options()("gui", "start gui");
 #endif
         options.add_options()("svg", "dump SVG file");
-        options.add_options()("pack-only",
-                              "pack design only without placement or routing");
+        options.add_options()("pack-only", "pack design only without placement or routing");
 
         po::positional_options_description pos;
 #ifndef NO_PYTHON
-        options.add_options()("run", po::value<std::vector<std::string>>(),
-                              "python file to execute");
+        options.add_options()("run", po::value<std::vector<std::string>>(), "python file to execute");
         pos.add("run", -1);
 #endif
-        options.add_options()("json", po::value<std::string>(),
-                              "JSON design file to ingest");
-        options.add_options()("pcf", po::value<std::string>(),
-                              "PCF constraints file to ingest");
-        options.add_options()("asc", po::value<std::string>(),
-                              "asc bitstream file to write");
-        options.add_options()("seed", po::value<int>(),
-                              "seed value for random number generator");
+        options.add_options()("json", po::value<std::string>(), "JSON design file to ingest");
+        options.add_options()("pcf", po::value<std::string>(), "PCF constraints file to ingest");
+        options.add_options()("asc", po::value<std::string>(), "asc bitstream file to write");
+        options.add_options()("seed", po::value<int>(), "seed value for random number generator");
         options.add_options()("version,V", "show version");
         options.add_options()("tmfuzz", "run path delay estimate fuzzer");
         options.add_options()("lp384", "set device type to iCE40LP384");
@@ -109,18 +100,13 @@ int main(int argc, char *argv[])
         options.add_options()("hx1k", "set device type to iCE40HX1K");
         options.add_options()("hx8k", "set device type to iCE40HX8K");
         options.add_options()("up5k", "set device type to iCE40UP5K");
-        options.add_options()("freq", po::value<double>(),
-                              "set target frequency for design in MHz");
+        options.add_options()("freq", po::value<double>(), "set target frequency for design in MHz");
         options.add_options()("no-tmdriv", "disable timing-driven placement");
-        options.add_options()("package", po::value<std::string>(),
-                              "set device package");
+        options.add_options()("package", po::value<std::string>(), "set device package");
 
         po::variables_map vm;
         try {
-            po::parsed_options parsed = po::command_line_parser(argc, argv)
-                                                .options(options)
-                                                .positional(pos)
-                                                .run();
+            po::parsed_options parsed = po::command_line_parser(argc, argv).options(options).positional(pos).run();
 
             po::store(parsed, vm);
 
@@ -134,18 +120,16 @@ int main(int argc, char *argv[])
 
         if (vm.count("help") || argc == 1) {
         help:
-            std::cout << boost::filesystem::basename(argv[0])
-                      << " -- Next Generation Place and Route (git "
-                         "sha1 " GIT_COMMIT_HASH_STR ")\n";
+            std::cout << boost::filesystem::basename(argv[0]) << " -- Next Generation Place and Route (git "
+                                                                 "sha1 " GIT_COMMIT_HASH_STR ")\n";
             std::cout << "\n";
             std::cout << options << "\n";
             return argc != 1;
         }
 
         if (vm.count("version")) {
-            std::cout << boost::filesystem::basename(argv[0])
-                      << " -- Next Generation Place and Route (git "
-                         "sha1 " GIT_COMMIT_HASH_STR ")\n";
+            std::cout << boost::filesystem::basename(argv[0]) << " -- Next Generation Place and Route (git "
+                                                                 "sha1 " GIT_COMMIT_HASH_STR ")\n";
             return 1;
         }
 
@@ -237,8 +221,7 @@ int main(int argc, char *argv[])
             std::cout << "<svg xmlns=\"http://www.w3.org/2000/svg\" "
                          "xmlns:xlink=\"http://www.w3.org/1999/xlink\">\n";
             for (auto bel : ctx.getBels()) {
-                std::cout << "<!-- " << ctx.getBelName(bel).str(&ctx)
-                          << " -->\n";
+                std::cout << "<!-- " << ctx.getBelName(bel).str(&ctx) << " -->\n";
                 for (auto &el : ctx.getBelGraphics(bel))
                     svg_dump_el(el);
             }
@@ -273,30 +256,23 @@ int main(int argc, char *argv[])
                 }
                 if (ctx.getBelType(b) == TYPE_SB_IO) {
                     dst_wires.push_back(ctx.getWireBelPin(b, PIN_D_OUT_0));
-                    dst_wires.push_back(
-                            ctx.getWireBelPin(b, PIN_OUTPUT_ENABLE));
+                    dst_wires.push_back(ctx.getWireBelPin(b, PIN_OUTPUT_ENABLE));
                 }
             }
 
             ctx.shuffle(src_wires);
             ctx.shuffle(dst_wires);
 
-            for (int i = 0;
-                 i < int(src_wires.size()) && i < int(dst_wires.size()); i++) {
+            for (int i = 0; i < int(src_wires.size()) && i < int(dst_wires.size()); i++) {
                 delay_t actual_delay;
                 WireId src = src_wires[i], dst = dst_wires[i];
                 if (!get_actual_route_delay(&ctx, src, dst, actual_delay))
                     continue;
-                printf("%s %s %.3f %.3f %d %d %d %d %d %d\n",
-                       ctx.getWireName(src).c_str(&ctx),
-                       ctx.getWireName(dst).c_str(&ctx),
-                       ctx.getDelayNS(actual_delay),
-                       ctx.getDelayNS(ctx.estimateDelay(src, dst)),
-                       ctx.chip_info->wire_data[src.index].x,
-                       ctx.chip_info->wire_data[src.index].y,
-                       ctx.chip_info->wire_data[src.index].type,
-                       ctx.chip_info->wire_data[dst.index].x,
-                       ctx.chip_info->wire_data[dst.index].y,
+                printf("%s %s %.3f %.3f %d %d %d %d %d %d\n", ctx.getWireName(src).c_str(&ctx),
+                       ctx.getWireName(dst).c_str(&ctx), ctx.getDelayNS(actual_delay),
+                       ctx.getDelayNS(ctx.estimateDelay(src, dst)), ctx.chip_info->wire_data[src.index].x,
+                       ctx.chip_info->wire_data[src.index].y, ctx.chip_info->wire_data[src.index].type,
+                       ctx.chip_info->wire_data[dst.index].x, ctx.chip_info->wire_data[dst.index].y,
                        ctx.chip_info->wire_data[dst.index].type);
             }
         }
@@ -339,8 +315,7 @@ int main(int argc, char *argv[])
 
 #ifndef NO_PYTHON
         if (vm.count("run")) {
-            std::vector<std::string> files =
-                    vm["run"].as<std::vector<std::string>>();
+            std::vector<std::string> files = vm["run"].as<std::vector<std::string>>();
             for (auto filename : files)
                 execute_python_file(filename.c_str());
         }

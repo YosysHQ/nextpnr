@@ -98,11 +98,7 @@ template <typename T> struct RelPtr
     //              reinterpret_cast<const char*>(this);
     // }
 
-    const T *get() const
-    {
-        return reinterpret_cast<const T *>(
-                reinterpret_cast<const char *>(this) + offset);
-    }
+    const T *get() const { return reinterpret_cast<const T *>(reinterpret_cast<const char *>(this) + offset); }
 
     const T &operator[](size_t index) const { return get()[index]; }
 
@@ -283,17 +279,12 @@ NEXTPNR_NAMESPACE_END
 namespace std {
 template <> struct hash<NEXTPNR_NAMESPACE_PREFIX BelId>
 {
-    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX BelId &bel) const
-            noexcept
-    {
-        return hash<int>()(bel.index);
-    }
+    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX BelId &bel) const noexcept { return hash<int>()(bel.index); }
 };
 
 template <> struct hash<NEXTPNR_NAMESPACE_PREFIX WireId>
 {
-    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX WireId &wire) const
-            noexcept
+    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX WireId &wire) const noexcept
     {
         return hash<int>()(wire.index);
     }
@@ -301,11 +292,7 @@ template <> struct hash<NEXTPNR_NAMESPACE_PREFIX WireId>
 
 template <> struct hash<NEXTPNR_NAMESPACE_PREFIX PipId>
 {
-    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX PipId &pip) const
-            noexcept
-    {
-        return hash<int>()(pip.index);
-    }
+    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX PipId &pip) const noexcept { return hash<int>()(pip.index); }
 };
 
 template <> struct hash<NEXTPNR_NAMESPACE_PREFIX BelType> : hash<int>
@@ -337,15 +324,9 @@ struct BelIterator
         return prior;
     }
 
-    bool operator!=(const BelIterator &other) const
-    {
-        return cursor != other.cursor;
-    }
+    bool operator!=(const BelIterator &other) const { return cursor != other.cursor; }
 
-    bool operator==(const BelIterator &other) const
-    {
-        return cursor == other.cursor;
-    }
+    bool operator==(const BelIterator &other) const { return cursor == other.cursor; }
 
     BelId operator*() const
     {
@@ -369,10 +350,7 @@ struct BelPinIterator
     const BelPortPOD *ptr = nullptr;
 
     void operator++() { ptr++; }
-    bool operator!=(const BelPinIterator &other) const
-    {
-        return ptr != other.ptr;
-    }
+    bool operator!=(const BelPinIterator &other) const { return ptr != other.ptr; }
 
     BelPin operator*() const
     {
@@ -397,10 +375,7 @@ struct WireIterator
     int cursor = -1;
 
     void operator++() { cursor++; }
-    bool operator!=(const WireIterator &other) const
-    {
-        return cursor != other.cursor;
-    }
+    bool operator!=(const WireIterator &other) const { return cursor != other.cursor; }
 
     WireId operator*() const
     {
@@ -424,10 +399,7 @@ struct AllPipIterator
     int cursor = -1;
 
     void operator++() { cursor++; }
-    bool operator!=(const AllPipIterator &other) const
-    {
-        return cursor != other.cursor;
-    }
+    bool operator!=(const AllPipIterator &other) const { return cursor != other.cursor; }
 
     PipId operator*() const
     {
@@ -451,10 +423,7 @@ struct PipIterator
     const int *cursor = nullptr;
 
     void operator++() { cursor++; }
-    bool operator!=(const PipIterator &other) const
-    {
-        return cursor != other.cursor;
-    }
+    bool operator!=(const PipIterator &other) const { return cursor != other.cursor; }
 
     PipId operator*() const
     {
@@ -607,8 +576,7 @@ struct Arch : BaseCtx
         assert(wire != WireId());
 
         if (chip_info->wire_data[wire.index].bel_uphill.bel_index >= 0) {
-            ret.bel.index =
-                    chip_info->wire_data[wire.index].bel_uphill.bel_index;
+            ret.bel.index = chip_info->wire_data[wire.index].bel_uphill.bel_index;
             ret.pin = chip_info->wire_data[wire.index].bel_uphill.port;
         }
 
@@ -620,8 +588,7 @@ struct Arch : BaseCtx
         BelPinRange range;
         assert(wire != WireId());
         range.b.ptr = chip_info->wire_data[wire.index].bels_downhill.get();
-        range.e.ptr = range.b.ptr +
-                      chip_info->wire_data[wire.index].num_bels_downhill;
+        range.e.ptr = range.b.ptr + chip_info->wire_data[wire.index].num_bels_downhill;
         return range;
     }
 
@@ -691,8 +658,7 @@ struct Arch : BaseCtx
     {
         assert(pip != PipId());
         assert(pip_to_net[pip.index] == IdString());
-        assert(switches_locked[chip_info->pip_data[pip.index].switch_index] ==
-               IdString());
+        assert(switches_locked[chip_info->pip_data[pip.index].switch_index] == IdString());
 
         pip_to_net[pip.index] = net;
         switches_locked[chip_info->pip_data[pip.index].switch_index] = net;
@@ -709,8 +675,7 @@ struct Arch : BaseCtx
     {
         assert(pip != PipId());
         assert(pip_to_net[pip.index] != IdString());
-        assert(switches_locked[chip_info->pip_data[pip.index].switch_index] !=
-               IdString());
+        assert(switches_locked[chip_info->pip_data[pip.index].switch_index] != IdString());
 
         WireId dst;
         dst.index = chip_info->pip_data[pip.index].dst;
@@ -719,15 +684,13 @@ struct Arch : BaseCtx
         nets[pip_to_net[pip.index]]->wires.erase(dst);
 
         pip_to_net[pip.index] = IdString();
-        switches_locked[chip_info->pip_data[pip.index].switch_index] =
-                IdString();
+        switches_locked[chip_info->pip_data[pip.index].switch_index] = IdString();
     }
 
     bool checkPipAvail(PipId pip) const
     {
         assert(pip != PipId());
-        return switches_locked[chip_info->pip_data[pip.index].switch_index] ==
-               IdString();
+        return switches_locked[chip_info->pip_data[pip.index].switch_index] == IdString();
     }
 
     IdString getBoundPipNet(PipId pip) const
@@ -779,8 +742,7 @@ struct Arch : BaseCtx
         PipRange range;
         assert(wire != WireId());
         range.b.cursor = chip_info->wire_data[wire.index].pips_downhill.get();
-        range.e.cursor =
-                range.b.cursor + chip_info->wire_data[wire.index].num_downhill;
+        range.e.cursor = range.b.cursor + chip_info->wire_data[wire.index].num_downhill;
         return range;
     }
 
@@ -789,8 +751,7 @@ struct Arch : BaseCtx
         PipRange range;
         assert(wire != WireId());
         range.b.cursor = chip_info->wire_data[wire.index].pips_uphill.get();
-        range.e.cursor =
-                range.b.cursor + chip_info->wire_data[wire.index].num_uphill;
+        range.e.cursor = range.b.cursor + chip_info->wire_data[wire.index].num_uphill;
         return range;
     }
 
@@ -832,8 +793,7 @@ struct Arch : BaseCtx
 
     // Get the delay through a cell from one port to another, returning false
     // if no path exists
-    bool getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort,
-                      delay_t &delay) const;
+    bool getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, delay_t &delay) const;
     // Get the associated clock to a port, or empty if the port is combinational
     IdString getPortClock(const CellInfo *cell, IdString port) const;
     // Return true if a port is a clock

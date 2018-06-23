@@ -60,41 +60,34 @@ extern void (*log_error_atexit)();
 void logv(const char *format, va_list ap);
 void logv_warning(const char *format, va_list ap);
 void logv_warning_noprefix(const char *format, va_list ap);
-NXP_NORETURN void logv_error(const char *format, va_list ap)
-        NXP_ATTRIBUTE(noreturn);
+NXP_NORETURN void logv_error(const char *format, va_list ap) NXP_ATTRIBUTE(noreturn);
 
 extern std::ostream clog;
 void log(const char *format, ...) NXP_ATTRIBUTE(format(printf, 1, 2));
 void log_header(const char *format, ...) NXP_ATTRIBUTE(format(printf, 1, 2));
 void log_info(const char *format, ...) NXP_ATTRIBUTE(format(printf, 1, 2));
 void log_warning(const char *format, ...) NXP_ATTRIBUTE(format(printf, 1, 2));
-void log_warning_noprefix(const char *format, ...)
-        NXP_ATTRIBUTE(format(printf, 1, 2));
-NXP_NORETURN void log_error(const char *format, ...)
-        NXP_ATTRIBUTE(format(printf, 1, 2), noreturn);
-NXP_NORETURN void log_cmd_error(const char *format, ...)
-        NXP_ATTRIBUTE(format(printf, 1, 2), noreturn);
+void log_warning_noprefix(const char *format, ...) NXP_ATTRIBUTE(format(printf, 1, 2));
+NXP_NORETURN void log_error(const char *format, ...) NXP_ATTRIBUTE(format(printf, 1, 2), noreturn);
+NXP_NORETURN void log_cmd_error(const char *format, ...) NXP_ATTRIBUTE(format(printf, 1, 2), noreturn);
 
 void log_break();
 void log_flush();
 
 #ifndef NDEBUG
-static inline void log_assert_worker(bool cond, const char *expr,
-                                     const char *file, int line)
+static inline void log_assert_worker(bool cond, const char *expr, const char *file, int line)
 {
     if (!cond)
         log_error("Assert `%s' failed in %s:%d.\n", expr, file, line);
 }
-#define log_assert(_assert_expr_)                                              \
-    YOSYS_NAMESPACE_PREFIX log_assert_worker(_assert_expr_, #_assert_expr_,    \
-                                             __FILE__, __LINE__)
+#define log_assert(_assert_expr_)                                                                                      \
+    YOSYS_NAMESPACE_PREFIX log_assert_worker(_assert_expr_, #_assert_expr_, __FILE__, __LINE__)
 #else
 #define log_assert(_assert_expr_)
 #endif
 
 #define log_abort() log_error("Abort in %s:%d.\n", __FILE__, __LINE__)
-#define log_ping()                                                             \
-    log("-- %s:%d %s --\n", __FILE__, __LINE__, __PRETTY_FUNCTION__)
+#define log_ping() log("-- %s:%d %s --\n", __FILE__, __LINE__, __PRETTY_FUNCTION__)
 
 NEXTPNR_NAMESPACE_END
 

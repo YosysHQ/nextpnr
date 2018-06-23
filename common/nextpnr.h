@@ -67,15 +67,9 @@ struct IdString
 
     bool operator<(const IdString &other) const { return index < other.index; }
 
-    bool operator==(const IdString &other) const
-    {
-        return index == other.index;
-    }
+    bool operator==(const IdString &other) const { return index == other.index; }
 
-    bool operator!=(const IdString &other) const
-    {
-        return index != other.index;
-    }
+    bool operator!=(const IdString &other) const { return index != other.index; }
 
     bool empty() const { return index == 0; }
 
@@ -93,8 +87,7 @@ NEXTPNR_NAMESPACE_END
 namespace std {
 template <> struct hash<NEXTPNR_NAMESPACE_PREFIX IdString>
 {
-    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX IdString &obj) const
-            noexcept
+    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX IdString &obj) const noexcept
     {
         return std::hash<int>()(obj.index);
     }

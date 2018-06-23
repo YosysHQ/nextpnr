@@ -29,12 +29,10 @@ USING_NEXTPNR_NAMESPACE
 
 struct hash_id_wire
 {
-    std::size_t operator()(const std::pair<IdString, WireId> &arg) const
-            noexcept
+    std::size_t operator()(const std::pair<IdString, WireId> &arg) const noexcept
     {
         std::size_t seed = std::hash<IdString>()(arg.first);
-        seed ^= std::hash<WireId>()(arg.second) + 0x9e3779b9 + (seed << 6) +
-                (seed >> 2);
+        seed ^= std::hash<WireId>()(arg.second) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
         return seed;
     }
 };
@@ -44,8 +42,7 @@ struct hash_id_pip
     std::size_t operator()(const std::pair<IdString, PipId> &arg) const noexcept
     {
         std::size_t seed = std::hash<IdString>()(arg.first);
-        seed ^= std::hash<PipId>()(arg.second) + 0x9e3779b9 + (seed << 6) +
-                (seed >> 2);
+        seed ^= std::hash<PipId>()(arg.second) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
         return seed;
     }
 };
@@ -60,8 +57,7 @@ struct QueuedWire
 
     struct Greater
     {
-        bool operator()(const QueuedWire &lhs, const QueuedWire &rhs) const
-                noexcept
+        bool operator()(const QueuedWire &lhs, const QueuedWire &rhs) const noexcept
         {
             delay_t l = lhs.delay + lhs.togo, r = rhs.delay + rhs.togo;
             return l == r ? lhs.randtag > rhs.randtag : l > r;
@@ -71,8 +67,7 @@ struct QueuedWire
 
 struct RipupScoreboard
 {
-    std::unordered_map<std::pair<IdString, WireId>, int, hash_id_wire>
-            wireScores;
+    std::unordered_map<std::pair<IdString, WireId>, int, hash_id_wire> wireScores;
     std::unordered_map<std::pair<IdString, PipId>, int, hash_id_pip> pipScores;
 };
 
@@ -117,12 +112,9 @@ struct Router
     delay_t maxDelay = 0.0;
     WireId failedDest;
 
-    void route(const std::unordered_map<WireId, delay_t> &src_wires,
-               WireId dst_wire)
+    void route(const std::unordered_map<WireId, delay_t> &src_wires, WireId dst_wire)
     {
-        std::priority_queue<QueuedWire, std::vector<QueuedWire>,
-                            QueuedWire::Greater>
-                queue;
+        std::priority_queue<QueuedWire, std::vector<QueuedWire>, QueuedWire::Greater> queue;
 
         visited.clear();
 
@@ -141,8 +133,7 @@ struct Router
         int thisVisitCnt = 0;
         int thisVisitCntLimit = 0;
 
-        while (!queue.empty() &&
-               (thisVisitCntLimit == 0 || thisVisitCnt < thisVisitCntLimit)) {
+        while (!queue.empty() && (thisVisitCntLimit == 0 || thisVisitCnt < thisVisitCntLimit)) {
             QueuedWire qw = queue.top();
             queue.pop();
 
@@ -150,8 +141,7 @@ struct Router
                 thisVisitCntLimit = (thisVisitCnt * 3) / 2;
 
             for (auto pip : ctx->getPipsDownhill(qw.wire)) {
-                delay_t next_delay =
-                        qw.delay + ctx->getPipDelay(pip).avgDelay();
+                delay_t next_delay = qw.delay + ctx->getPipDelay(pip).avgDelay();
                 WireId next_wire = ctx->getPipDstWire(pip);
                 bool foundRipupNet = false;
                 thisVisitCnt++;
@@ -162,8 +152,7 @@ struct Router
                     IdString ripupWireNet = ctx->getConflictingWireNet(next_wire);
                     if (ripupWireNet == net_name || ripupWireNet == IdString())
                         continue;
-                    auto it = scores.wireScores.find(
-                            std::make_pair(ripupWireNet, next_wire));
+                    auto it = scores.wireScores.find(std::make_pair(ripupWireNet, next_wire));
                     if (it != scores.wireScores.end())
                         next_delay += it->second * ripup_penalty;
                     foundRipupNet = true;
@@ -175,8 +164,7 @@ struct Router
                     IdString ripupPipNet = ctx->getConflictingPipNet(pip);
                     if (ripupPipNet == net_name || ripupPipNet == IdString())
                         continue;
-                    auto it = scores.pipScores.find(
-                            std::make_pair(ripupPipNet, pip));
+                    auto it = scores.pipScores.find(std::make_pair(ripupPipNet, pip));
                     if (it != scores.pipScores.end())
                         next_delay += it->second * ripup_penalty;
                     foundRipupNet = true;
@@ -188,8 +176,7 @@ struct Router
                 assert(next_delay >= 0);
 
                 if (visited.count(next_wire)) {
-                    if (visited.at(next_wire).delay <=
-                        next_delay + ctx->getDelayEpsilon())
+                    if (visited.at(next_wire).delay <= next_delay + ctx->getDelayEpsilon())
                         continue;
 #if 0 // FIXME
                     if (ctx->debug)
@@ -220,10 +207,9 @@ struct Router
         visitCnt += thisVisitCnt;
     }
 
-    Router(Context *ctx, RipupScoreboard &scores, WireId src_wire,
-           WireId dst_wire, bool ripup = false, delay_t ripup_penalty = 0)
-            : ctx(ctx), scores(scores), ripup(ripup),
-              ripup_penalty(ripup_penalty)
+    Router(Context *ctx, RipupScoreboard &scores, WireId src_wire, WireId dst_wire, bool ripup = false,
+           delay_t ripup_penalty = 0)
+            : ctx(ctx), scores(scores), ripup(ripup), ripup_penalty(ripup_penalty)
     {
         std::unordered_map<WireId, delay_t> src_wires;
         src_wires[src_wire] = 0;
@@ -236,8 +222,7 @@ struct Router
             WireId cursor = dst_wire;
 
             while (1) {
-                log("  %8.3f %s\n", ctx->getDelayNS(visited[cursor].delay),
-                    ctx->getWireName(cursor).c_str(ctx));
+                log("  %8.3f %s\n", ctx->getDelayNS(visited[cursor].delay), ctx->getWireName(cursor).c_str(ctx));
 
                 if (cursor == src_wire)
                     break;
@@ -247,10 +232,8 @@ struct Router
         }
     }
 
-    Router(Context *ctx, RipupScoreboard &scores, IdString net_name,
-           bool ripup = false, delay_t ripup_penalty = 0)
-            : ctx(ctx), scores(scores), net_name(net_name), ripup(ripup),
-              ripup_penalty(ripup_penalty)
+    Router(Context *ctx, RipupScoreboard &scores, IdString net_name, bool ripup = false, delay_t ripup_penalty = 0)
+            : ctx(ctx), scores(scores), net_name(net_name), ripup(ripup), ripup_penalty(ripup_penalty)
     {
         auto net_info = ctx->nets.at(net_name);
 
@@ -258,14 +241,12 @@ struct Router
             log("Routing net %s.\n", net_name.c_str(ctx));
 
         if (ctx->debug)
-            log("  Source: %s.%s.\n", net_info->driver.cell->name.c_str(ctx),
-                net_info->driver.port.c_str(ctx));
+            log("  Source: %s.%s.\n", net_info->driver.cell->name.c_str(ctx), net_info->driver.port.c_str(ctx));
 
         auto src_bel = net_info->driver.cell->bel;
 
         if (src_bel == BelId())
-            log_error("Source cell %s (%s) is not mapped to a bel.\n",
-                      net_info->driver.cell->name.c_str(ctx),
+            log_error("Source cell %s (%s) is not mapped to a bel.\n", net_info->driver.cell->name.c_str(ctx),
                       net_info->driver.cell->type.c_str(ctx));
 
         if (ctx->debug)
@@ -277,14 +258,12 @@ struct Router
         if (driver_port_it != net_info->driver.cell->pins.end())
             driver_port = driver_port_it->second;
 
-        auto src_wire =
-                ctx->getWireBelPin(src_bel, ctx->portPinFromId(driver_port));
+        auto src_wire = ctx->getWireBelPin(src_bel, ctx->portPinFromId(driver_port));
 
         if (src_wire == WireId())
             log_error("No wire found for port %s (pin %s) on source cell %s "
                       "(bel %s).\n",
-                      net_info->driver.port.c_str(ctx), driver_port.c_str(ctx),
-                      net_info->driver.cell->name.c_str(ctx),
+                      net_info->driver.port.c_str(ctx), driver_port.c_str(ctx), net_info->driver.cell->name.c_str(ctx),
                       ctx->getBelName(src_bel).c_str(ctx));
 
         if (ctx->debug)
@@ -299,19 +278,16 @@ struct Router
 
         for (auto &user_it : users_array) {
             if (ctx->debug)
-                log("  Route to: %s.%s.\n", user_it.cell->name.c_str(ctx),
-                    user_it.port.c_str(ctx));
+                log("  Route to: %s.%s.\n", user_it.cell->name.c_str(ctx), user_it.port.c_str(ctx));
 
             auto dst_bel = user_it.cell->bel;
 
             if (dst_bel == BelId())
-                log_error("Destination cell %s (%s) is not mapped to a bel.\n",
-                          user_it.cell->name.c_str(ctx),
+                log_error("Destination cell %s (%s) is not mapped to a bel.\n", user_it.cell->name.c_str(ctx),
                           user_it.cell->type.c_str(ctx));
 
             if (ctx->debug)
-                log("    Destination bel: %s\n",
-                    ctx->getBelName(dst_bel).c_str(ctx));
+                log("    Destination bel: %s\n", ctx->getBelName(dst_bel).c_str(ctx));
 
             IdString user_port = user_it.port;
 
@@ -320,33 +296,27 @@ struct Router
             if (user_port_it != user_it.cell->pins.end())
                 user_port = user_port_it->second;
 
-            auto dst_wire =
-                    ctx->getWireBelPin(dst_bel, ctx->portPinFromId(user_port));
+            auto dst_wire = ctx->getWireBelPin(dst_bel, ctx->portPinFromId(user_port));
 
             if (dst_wire == WireId())
                 log_error("No wire found for port %s (pin %s) on destination "
                           "cell %s (bel %s).\n",
-                          user_it.port.c_str(ctx), user_port.c_str(ctx),
-                          user_it.cell->name.c_str(ctx),
+                          user_it.port.c_str(ctx), user_port.c_str(ctx), user_it.cell->name.c_str(ctx),
                           ctx->getBelName(dst_bel).c_str(ctx));
 
             if (ctx->debug) {
-                log("    Destination wire: %s\n",
-                    ctx->getWireName(dst_wire).c_str(ctx));
-                log("    Path delay estimate: %.2f\n",
-                    float(ctx->estimateDelay(src_wire, dst_wire)));
+                log("    Destination wire: %s\n", ctx->getWireName(dst_wire).c_str(ctx));
+                log("    Path delay estimate: %.2f\n", float(ctx->estimateDelay(src_wire, dst_wire)));
             }
 
             route(src_wires, dst_wire);
 
             if (visited.count(dst_wire) == 0) {
                 if (ctx->debug)
-                    log("Failed to route %s -> %s.\n",
-                        ctx->getWireName(src_wire).c_str(ctx),
+                    log("Failed to route %s -> %s.\n", ctx->getWireName(src_wire).c_str(ctx),
                         ctx->getWireName(dst_wire).c_str(ctx));
                 else if (ripup)
-                    log_info("Failed to route %s -> %s.\n",
-                             ctx->getWireName(src_wire).c_str(ctx),
+                    log_info("Failed to route %s -> %s.\n", ctx->getWireName(src_wire).c_str(ctx),
                              ctx->getWireName(dst_wire).c_str(ctx));
                 ripup_net(ctx, net_name);
                 failedDest = dst_wire;
@@ -354,8 +324,7 @@ struct Router
             }
 
             if (ctx->debug)
-                log("    Final path delay: %.3f\n",
-                    ctx->getDelayNS(visited[dst_wire].delay));
+                log("    Final path delay: %.3f\n", ctx->getDelayNS(visited[dst_wire].delay));
             maxDelay = fmaxf(maxDelay, visited[dst_wire].delay);
 
             if (ctx->debug)
@@ -365,16 +334,13 @@ struct Router
 
             while (1) {
                 if (ctx->debug)
-                    log("    %8.3f %s\n",
-                        ctx->getDelayNS(visited[cursor].delay),
-                        ctx->getWireName(cursor).c_str(ctx));
+                    log("    %8.3f %s\n", ctx->getDelayNS(visited[cursor].delay), ctx->getWireName(cursor).c_str(ctx));
 
                 if (src_wires.count(cursor))
                     break;
 
                 IdString conflicting_wire_net = ctx->getConflictingWireNet(cursor);
-                IdString conflicting_pip_net =
-                        ctx->getConflictingPipNet(visited[cursor].pip);
+                IdString conflicting_pip_net = ctx->getConflictingPipNet(visited[cursor].pip);
 
                 if (conflicting_wire_net != IdString()) {
                     assert(ripup);
@@ -382,8 +348,7 @@ struct Router
                     ripup_net(ctx, conflicting_wire_net);
                     rippedNets.insert(conflicting_wire_net);
                     scores.wireScores[std::make_pair(net_name, cursor)]++;
-                    scores.wireScores[std::make_pair(conflicting_wire_net,
-                                                     cursor)]++;
+                    scores.wireScores[std::make_pair(conflicting_wire_net, cursor)]++;
                 }
 
                 if (conflicting_pip_net != IdString()) {
@@ -393,10 +358,8 @@ struct Router
                         ripup_net(ctx, conflicting_pip_net);
                         rippedNets.insert(conflicting_pip_net);
                     }
-                    scores.pipScores[std::make_pair(net_name,
-                                                    visited[cursor].pip)]++;
-                    scores.pipScores[std::make_pair(conflicting_pip_net,
-                                                    visited[cursor].pip)]++;
+                    scores.pipScores[std::make_pair(net_name, visited[cursor].pip)]++;
+                    scores.pipScores[std::make_pair(conflicting_pip_net, visited[cursor].pip)]++;
                 }
 
                 ctx->bindPip(visited[cursor].pip, net_name, STRENGTH_WEAK);
@@ -443,8 +406,7 @@ bool route_design(Context *ctx)
             return true;
         }
 
-        log_info("found %d unrouted nets. starting routing procedure.\n",
-                 int(netsQueue.size()));
+        log_info("found %d unrouted nets. starting routing procedure.\n", int(netsQueue.size()));
 
         delay_t estimatedTotalDelay = 0.0;
         int estimatedTotalDelayCnt = 0;
@@ -463,8 +425,7 @@ bool route_design(Context *ctx)
             if (driver_port_it != net_info->driver.cell->pins.end())
                 driver_port = driver_port_it->second;
 
-            auto src_wire = ctx->getWireBelPin(src_bel,
-                                               ctx->portPinFromId(driver_port));
+            auto src_wire = ctx->getWireBelPin(src_bel, ctx->portPinFromId(driver_port));
 
             if (src_wire == WireId())
                 continue;
@@ -482,8 +443,7 @@ bool route_design(Context *ctx)
                 if (user_port_it != user_it.cell->pins.end())
                     user_port = user_port_it->second;
 
-                auto dst_wire = ctx->getWireBelPin(
-                        dst_bel, ctx->portPinFromId(user_port));
+                auto dst_wire = ctx->getWireBelPin(dst_bel, ctx->portPinFromId(user_port));
 
                 if (dst_wire == WireId())
                     continue;
@@ -493,8 +453,7 @@ bool route_design(Context *ctx)
             }
         }
 
-        log_info("estimated total wire delay: %.2f (avg %.2f)\n",
-                 float(estimatedTotalDelay),
+        log_info("estimated total wire delay: %.2f (avg %.2f)\n", float(estimatedTotalDelay),
                  float(estimatedTotalDelay) / estimatedTotalDelayCnt);
 
         int iterCnt = 0;
@@ -513,14 +472,12 @@ bool route_design(Context *ctx)
             if (ctx->verbose)
                 log_info("-- %d --\n", iterCnt);
 
-            int visitCnt = 0, revisitCnt = 0, overtimeRevisitCnt = 0,
-                netCnt = 0;
+            int visitCnt = 0, revisitCnt = 0, overtimeRevisitCnt = 0, netCnt = 0;
 
             std::unordered_set<IdString> ripupQueue;
 
             if (ctx->verbose || iterCnt == 1)
-                log_info("routing queue contains %d nets.\n",
-                         int(netsQueue.size()));
+                log_info("routing queue contains %d nets.\n", int(netsQueue.size()));
 
             bool printNets = ctx->verbose && (netsQueue.size() < 10);
 
@@ -530,8 +487,7 @@ bool route_design(Context *ctx)
 
             for (auto net_name : netsArray) {
                 if (printNets)
-                    log_info("  routing net %s. (%d users)\n",
-                             net_name.c_str(ctx),
+                    log_info("  routing net %s. (%d users)\n", net_name.c_str(ctx),
                              int(ctx->nets.at(net_name)->users.size()));
 
                 Router router(ctx, scores, net_name, false);
@@ -543,30 +499,25 @@ bool route_design(Context *ctx)
 
                 if (!router.routedOkay) {
                     if (printNets)
-                        log_info(
-                                "    failed to route to %s.\n",
-                                ctx->getWireName(router.failedDest).c_str(ctx));
+                        log_info("    failed to route to %s.\n", ctx->getWireName(router.failedDest).c_str(ctx));
                     ripupQueue.insert(net_name);
                 }
 
-                if ((ctx->verbose || iterCnt == 1) && !printNets &&
-                    (netCnt % 100 == 0))
-                    log_info("  processed %d nets. (%d routed, %d failed)\n",
-                             netCnt, netCnt - int(ripupQueue.size()),
+                if ((ctx->verbose || iterCnt == 1) && !printNets && (netCnt % 100 == 0))
+                    log_info("  processed %d nets. (%d routed, %d failed)\n", netCnt, netCnt - int(ripupQueue.size()),
                              int(ripupQueue.size()));
             }
 
             int normalRouteCnt = netCnt - int(ripupQueue.size());
 
             if ((ctx->verbose || iterCnt == 1) && (netCnt % 100 != 0))
-                log_info("  processed %d nets. (%d routed, %d failed)\n",
-                         netCnt, normalRouteCnt, int(ripupQueue.size()));
+                log_info("  processed %d nets. (%d routed, %d failed)\n", netCnt, normalRouteCnt,
+                         int(ripupQueue.size()));
 
             if (ctx->verbose)
                 log_info("  visited %d PIPs (%.2f%% revisits, %.2f%% overtime "
                          "revisits).\n",
-                         visitCnt, (100.0 * revisitCnt) / visitCnt,
-                         (100.0 * overtimeRevisitCnt) / visitCnt);
+                         visitCnt, (100.0 * revisitCnt) / visitCnt, (100.0 * overtimeRevisitCnt) / visitCnt);
 
             if (!ripupQueue.empty()) {
                 if (ctx->verbose || iterCnt == 1)
@@ -582,14 +533,12 @@ bool route_design(Context *ctx)
                 netCnt = 0;
                 int ripCnt = 0;
 
-                std::vector<IdString> ripupArray(ripupQueue.begin(),
-                                                 ripupQueue.end());
+                std::vector<IdString> ripupArray(ripupQueue.begin(), ripupQueue.end());
                 ctx->sorted_shuffle(ripupArray);
 
                 for (auto net_name : ripupArray) {
                     if (printNets)
-                        log_info("  routing net %s. (%d users)\n",
-                                 net_name.c_str(ctx),
+                        log_info("  routing net %s. (%d users)\n", net_name.c_str(ctx),
                                  int(ctx->nets.at(net_name)->users.size()));
 
                     Router router(ctx, scores, net_name, true, ripup_penalty);
@@ -600,42 +549,34 @@ bool route_design(Context *ctx)
                     overtimeRevisitCnt += router.overtimeRevisitCnt;
 
                     if (!router.routedOkay)
-                        log_error("Net %s is impossible to route.\n",
-                                  net_name.c_str(ctx));
+                        log_error("Net %s is impossible to route.\n", net_name.c_str(ctx));
 
                     for (auto it : router.rippedNets)
                         netsQueue.insert(it);
 
                     if (printNets) {
                         if (router.rippedNets.size() < 10) {
-                            log_info("    ripped up %d other nets:\n",
-                                     int(router.rippedNets.size()));
+                            log_info("    ripped up %d other nets:\n", int(router.rippedNets.size()));
                             for (auto n : router.rippedNets)
-                                log_info("      %s (%d users)\n", n.c_str(ctx),
-                                         int(ctx->nets.at(n)->users.size()));
+                                log_info("      %s (%d users)\n", n.c_str(ctx), int(ctx->nets.at(n)->users.size()));
                         } else {
-                            log_info("    ripped up %d other nets.\n",
-                                     int(router.rippedNets.size()));
+                            log_info("    ripped up %d other nets.\n", int(router.rippedNets.size()));
                         }
                     }
 
                     ripCnt += router.rippedNets.size();
 
-                    if ((ctx->verbose || iterCnt == 1) && !printNets &&
-                        (netCnt % 100 == 0))
-                        log_info("  routed %d nets, ripped %d nets.\n", netCnt,
-                                 ripCnt);
+                    if ((ctx->verbose || iterCnt == 1) && !printNets && (netCnt % 100 == 0))
+                        log_info("  routed %d nets, ripped %d nets.\n", netCnt, ripCnt);
                 }
 
                 if ((ctx->verbose || iterCnt == 1) && (netCnt % 100 != 0))
-                    log_info("  routed %d nets, ripped %d nets.\n", netCnt,
-                             ripCnt);
+                    log_info("  routed %d nets, ripped %d nets.\n", netCnt, ripCnt);
 
                 if (ctx->verbose)
                     log_info("  visited %d PIPs (%.2f%% revisits, %.2f%% "
                              "overtime revisits).\n",
-                             visitCnt, (100.0 * revisitCnt) / visitCnt,
-                             (100.0 * overtimeRevisitCnt) / visitCnt);
+                             visitCnt, (100.0 * revisitCnt) / visitCnt, (100.0 * overtimeRevisitCnt) / visitCnt);
 
                 if (ctx->verbose && !netsQueue.empty())
                     log_info("  ripped up %d previously routed nets. continue "
@@ -644,17 +585,15 @@ bool route_design(Context *ctx)
             }
 
             if (!ctx->verbose)
-                log_info(
-                        "iteration %d: routed %d nets without ripup, routed %d "
-                        "nets with ripup.\n",
-                        iterCnt, normalRouteCnt, int(ripupQueue.size()));
+                log_info("iteration %d: routed %d nets without ripup, routed %d "
+                         "nets with ripup.\n",
+                         iterCnt, normalRouteCnt, int(ripupQueue.size()));
 
             totalVisitCnt += visitCnt;
             totalRevisitCnt += revisitCnt;
             totalOvertimeRevisitCnt += overtimeRevisitCnt;
 
-            if (iterCnt == 8 || iterCnt == 16 || iterCnt == 32 ||
-                iterCnt == 64 || iterCnt == 128)
+            if (iterCnt == 8 || iterCnt == 16 || iterCnt == 32 || iterCnt == 64 || iterCnt == 128)
                 ripup_penalty += ctx->getRipupDelayPenalty();
         }
 
@@ -678,8 +617,7 @@ bool route_design(Context *ctx)
     }
 }
 
-bool get_actual_route_delay(Context *ctx, WireId src_wire, WireId dst_wire,
-                            delay_t &delay)
+bool get_actual_route_delay(Context *ctx, WireId src_wire, WireId dst_wire, delay_t &delay)
 {
     RipupScoreboard scores;
     Router router(ctx, scores, src_wire, dst_wire);
