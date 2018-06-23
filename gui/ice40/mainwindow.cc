@@ -36,8 +36,7 @@ static void initMainResource() { Q_INIT_RESOURCE(nextpnr); }
 
 NEXTPNR_NAMESPACE_BEGIN
 
-MainWindow::MainWindow(Context *_ctx, QWidget *parent)
-        : BaseMainWindow(_ctx, parent), timing_driven(false)
+MainWindow::MainWindow(Context *_ctx, QWidget *parent) : BaseMainWindow(_ctx, parent), timing_driven(false)
 {
     initMainResource();
 
@@ -47,19 +46,15 @@ MainWindow::MainWindow(Context *_ctx, QWidget *parent)
     task = new TaskManager(_ctx);
     connect(task, SIGNAL(log(std::string)), this, SLOT(writeInfo(std::string)));
 
-    connect(task, SIGNAL(loadfile_finished(bool)), this,
-            SLOT(loadfile_finished(bool)));
+    connect(task, SIGNAL(loadfile_finished(bool)), this, SLOT(loadfile_finished(bool)));
     connect(task, SIGNAL(pack_finished(bool)), this, SLOT(pack_finished(bool)));
     connect(task, SIGNAL(budget_finish(bool)), this, SLOT(budget_finish(bool)));
-    connect(task, SIGNAL(place_finished(bool)), this,
-            SLOT(place_finished(bool)));
-    connect(task, SIGNAL(route_finished(bool)), this,
-            SLOT(route_finished(bool)));
+    connect(task, SIGNAL(place_finished(bool)), this, SLOT(place_finished(bool)));
+    connect(task, SIGNAL(route_finished(bool)), this, SLOT(route_finished(bool)));
 
     connect(task, SIGNAL(taskCanceled()), this, SLOT(taskCanceled()));
     connect(task, SIGNAL(taskStarted()), this, SLOT(taskStarted()));
     connect(task, SIGNAL(taskPaused()), this, SLOT(taskPaused()));
-
 
     connect(this, SIGNAL(budget(double)), task, SIGNAL(budget(double)));
     connect(this, SIGNAL(place(bool)), task, SIGNAL(place(bool)));
@@ -153,8 +148,7 @@ void MainWindow::createMenu()
 
 void MainWindow::open()
 {
-    QString fileName = QFileDialog::getOpenFileName(this, QString(), QString(),
-                                                    QString("*.json"));
+    QString fileName = QFileDialog::getOpenFileName(this, QString(), QString(), QString("*.json"));
     if (!fileName.isEmpty()) {
         tabWidget->setCurrentWidget(info);
 
@@ -254,21 +248,14 @@ void MainWindow::taskPaused()
 void MainWindow::budget()
 {
     bool ok;
-    double freq = QInputDialog::getDouble(this, "Assign timing budget",
-                                        "Frequency [MHz]:",
-                                        50, 0, 250, 2, &ok);
+    double freq = QInputDialog::getDouble(this, "Assign timing budget", "Frequency [MHz]:", 50, 0, 250, 2, &ok);
     if (ok) {
         freq *= 1e6;
         timing_driven = true;
         Q_EMIT budget(freq);
     }
-
 }
 
-void MainWindow::place()
-{
-    Q_EMIT place(timing_driven);
-}
-
+void MainWindow::place() { Q_EMIT place(timing_driven); }
 
 NEXTPNR_NAMESPACE_END

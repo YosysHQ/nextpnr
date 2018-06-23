@@ -31,8 +31,8 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-void PolyLine::buildPoint(LineShaderData *building, const QVector2D *prev,
-                          const QVector2D *cur, const QVector2D *next) const
+void PolyLine::buildPoint(LineShaderData *building, const QVector2D *prev, const QVector2D *cur,
+                          const QVector2D *next) const
 {
     // buildPoint emits two vertices per line point, along with normals to move
     // them the right directio when rendering and miter to compensate for
@@ -164,13 +164,10 @@ void PolyLine::build(LineShaderData &target) const
 bool LineShader::compile(void)
 {
     program_ = new QOpenGLShaderProgram(parent_);
-    program_->addShaderFromSourceCode(QOpenGLShader::Vertex,
-                                      vertexShaderSource_);
-    program_->addShaderFromSourceCode(QOpenGLShader::Fragment,
-                                      fragmentShaderSource_);
+    program_->addShaderFromSourceCode(QOpenGLShader::Vertex, vertexShaderSource_);
+    program_->addShaderFromSourceCode(QOpenGLShader::Fragment, fragmentShaderSource_);
     if (!program_->link()) {
-        printf("could not link program: %s\n",
-               program_->log().toStdString().c_str());
+        printf("could not link program: %s\n", program_->log().toStdString().c_str());
         return false;
     }
 
@@ -205,44 +202,35 @@ void LineShader::draw(const LineShaderData &line, const QMatrix4x4 &projection)
     program_->bind();
 
     buffers_.position.bind();
-    buffers_.position.allocate(&line.vertices[0],
-                               sizeof(Vertex2DPOD) * line.vertices.size());
+    buffers_.position.allocate(&line.vertices[0], sizeof(Vertex2DPOD) * line.vertices.size());
 
     buffers_.normal.bind();
-    buffers_.normal.allocate(&line.normals[0],
-                             sizeof(Vertex2DPOD) * line.normals.size());
+    buffers_.normal.allocate(&line.normals[0], sizeof(Vertex2DPOD) * line.normals.size());
 
     buffers_.miter.bind();
-    buffers_.miter.allocate(&line.miters[0],
-                            sizeof(GLfloat) * line.miters.size());
+    buffers_.miter.allocate(&line.miters[0], sizeof(GLfloat) * line.miters.size());
 
     buffers_.index.bind();
-    buffers_.index.allocate(&line.indices[0],
-                            sizeof(GLuint) * line.indices.size());
+    buffers_.index.allocate(&line.indices[0], sizeof(GLuint) * line.indices.size());
 
     program_->setUniformValue(uniforms_.projection, projection);
     program_->setUniformValue(uniforms_.thickness, line.thickness);
-    program_->setUniformValue(uniforms_.color, line.color.r, line.color.g,
-                              line.color.b, line.color.a);
+    program_->setUniformValue(uniforms_.color, line.color.r, line.color.g, line.color.b, line.color.a);
 
     buffers_.position.bind();
     program_->enableAttributeArray("position");
-    gl->glVertexAttribPointer(attributes_.position, 2, GL_FLOAT, GL_FALSE, 0,
-                              (void *)0);
+    gl->glVertexAttribPointer(attributes_.position, 2, GL_FLOAT, GL_FALSE, 0, (void *)0);
 
     buffers_.normal.bind();
     program_->enableAttributeArray("normal");
-    gl->glVertexAttribPointer(attributes_.normal, 2, GL_FLOAT, GL_FALSE, 0,
-                              (void *)0);
+    gl->glVertexAttribPointer(attributes_.normal, 2, GL_FLOAT, GL_FALSE, 0, (void *)0);
 
     buffers_.miter.bind();
     program_->enableAttributeArray("miter");
-    gl->glVertexAttribPointer(attributes_.miter, 1, GL_FLOAT, GL_FALSE, 0,
-                              (void *)0);
+    gl->glVertexAttribPointer(attributes_.miter, 1, GL_FLOAT, GL_FALSE, 0, (void *)0);
 
     buffers_.index.bind();
-    gl->glDrawElements(GL_TRIANGLES, line.indices.size(), GL_UNSIGNED_INT,
-                       (void *)0);
+    gl->glDrawElements(GL_TRIANGLES, line.indices.size(), GL_UNSIGNED_INT, (void *)0);
 
     program_->disableAttributeArray("miter");
     program_->disableAttributeArray("normal");
@@ -253,8 +241,7 @@ void LineShader::draw(const LineShaderData &line, const QMatrix4x4 &projection)
 }
 
 FPGAViewWidget::FPGAViewWidget(QWidget *parent)
-        : QOpenGLWidget(parent), moveX_(0), moveY_(0), zoom_(10.0f),
-          lineShader_(this)
+        : QOpenGLWidget(parent), moveX_(0), moveY_(0), zoom_(10.0f), lineShader_(this)
 {
     ctx_ = qobject_cast<BaseMainWindow *>(getMainWindow())->getContext();
     auto fmt = format();
@@ -263,8 +250,7 @@ FPGAViewWidget::FPGAViewWidget(QWidget *parent)
     setFormat(fmt);
 
     fmt = format();
-    printf("FPGAViewWidget running on OpenGL %d.%d\n", fmt.majorVersion(),
-           fmt.minorVersion());
+    printf("FPGAViewWidget running on OpenGL %d.%d\n", fmt.majorVersion(), fmt.minorVersion());
     if (fmt.majorVersion() < 3) {
         printf("Could not get OpenGL 3.0 context. Aborting.\n");
         log_abort();
@@ -344,8 +330,7 @@ void FPGAViewWidget::drawElement(LineShaderData &out, const GraphicElement &el)
     }
 
     if (el.type == GraphicElement::G_LINE) {
-        PolyLine(offset + scale * el.x1, offset + scale * el.y1,
-                 offset + scale * el.x2, offset + scale * el.y2)
+        PolyLine(offset + scale * el.x1, offset + scale * el.y1, offset + scale * el.x2, offset + scale * el.y2)
                 .build(out);
     }
 }

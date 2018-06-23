@@ -16,7 +16,7 @@
  *  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
  */
- #ifndef NO_PYTHON
+#ifndef NO_PYTHON
 
 #include "pythontab.h"
 #include <QGridLayout>
@@ -44,8 +44,7 @@ PythonTab::PythonTab(QWidget *parent) : QWidget(parent)
     contextMenu = plainTextEdit->createStandardContextMenu();
     contextMenu->addSeparator();
     contextMenu->addAction(clearAction);
-    connect(plainTextEdit, SIGNAL(customContextMenuRequested(const QPoint)),
-            this, SLOT(showContextMenu(const QPoint)));
+    connect(plainTextEdit, SIGNAL(customContextMenuRequested(const QPoint)), this, SLOT(showContextMenu(const QPoint)));
 
     lineEdit = new LineEditor();
     lineEdit->setMinimumHeight(30);
@@ -57,8 +56,7 @@ PythonTab::PythonTab(QWidget *parent) : QWidget(parent)
     mainLayout->addWidget(lineEdit, 1, 0);
     setLayout(mainLayout);
 
-    connect(lineEdit, SIGNAL(textLineInserted(QString)), this,
-            SLOT(editLineReturnPressed(QString)));
+    connect(lineEdit, SIGNAL(textLineInserted(QString)), this, SLOT(editLineReturnPressed(QString)));
 
     write = [this](std::string s) {
         plainTextEdit->moveCursor(QTextCursor::End);
@@ -88,9 +86,7 @@ int PythonTab::executePython(std::string &command)
     if (m == NULL)
         return -1;
     d = PyModule_GetDict(m);
-    v = PyRun_StringFlags(command.c_str(),
-                          (command.empty() ? Py_file_input : Py_single_input),
-                          d, d, NULL);
+    v = PyRun_StringFlags(command.c_str(), (command.empty() ? Py_file_input : Py_single_input), d, d, NULL);
     if (v == NULL) {
         PyObject *exception, *v, *tb;
 
@@ -111,8 +107,7 @@ int PythonTab::executePython(std::string &command)
         PyErr_Clear();
 
         PyObject *objectsRepresentation = PyObject_Str(v);
-        std::string errorStr =
-                PyUnicode_AsUTF8(objectsRepresentation) + std::string("\n");
+        std::string errorStr = PyUnicode_AsUTF8(objectsRepresentation) + std::string("\n");
         print(errorStr);
         Py_DECREF(objectsRepresentation);
         Py_XDECREF(exception);
@@ -131,10 +126,7 @@ void PythonTab::editLineReturnPressed(QString text)
     executePython(input);
 }
 
-void PythonTab::showContextMenu(const QPoint &pt)
-{
-    contextMenu->exec(mapToGlobal(pt));
-}
+void PythonTab::showContextMenu(const QPoint &pt) { contextMenu->exec(mapToGlobal(pt)); }
 
 void PythonTab::clearBuffer() { plainTextEdit->clear(); }
 

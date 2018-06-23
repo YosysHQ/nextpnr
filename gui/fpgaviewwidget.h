@@ -51,15 +51,8 @@ struct ColorPOD
     GLfloat b;
     GLfloat a;
 
-    ColorPOD(GLfloat R, GLfloat G, GLfloat B, GLfloat A)
-            : r(R), g(G), b(B), a(A)
-    {
-    }
-    ColorPOD(const QColor &color)
-            : r(color.redF()), g(color.greenF()), b(color.blueF()),
-              a(color.alphaF())
-    {
-    }
+    ColorPOD(GLfloat R, GLfloat G, GLfloat B, GLfloat A) : r(R), g(G), b(B), a(A) {}
+    ColorPOD(const QColor &color) : r(color.redF()), g(color.greenF()), b(color.blueF()), a(color.alphaF()) {}
 } __attribute__((packed));
 
 // LineShaderData is a built set of vertices that can be rendered by the
@@ -75,10 +68,7 @@ struct LineShaderData
     GLfloat thickness;
     ColorPOD color;
 
-    LineShaderData(GLfloat Thickness, QColor Color)
-            : thickness(Thickness), color(Color)
-    {
-    }
+    LineShaderData(GLfloat Thickness, QColor Color) : thickness(Thickness), color(Color) {}
 };
 
 // PolyLine is a set of segments defined by points, that can be built to a
@@ -89,8 +79,7 @@ class PolyLine
     std::vector<QVector2D> points_;
     bool closed_;
 
-    void buildPoint(LineShaderData *building, const QVector2D *prev,
-                    const QVector2D *cur, const QVector2D *next) const;
+    void buildPoint(LineShaderData *building, const QVector2D *prev, const QVector2D *cur, const QVector2D *next) const;
 
   public:
     // Create an empty PolyLine.
@@ -212,11 +201,10 @@ class LineShader
             "   gl_Position = projection * vec4(p, 0.0, 1.0);\n"
             "}\n";
 
-    static constexpr const char *fragmentShaderSource_ =
-            "uniform   lowp  vec4  color;\n"
-            "void main() {\n"
-            "   gl_FragColor = color;\n"
-            "}\n";
+    static constexpr const char *fragmentShaderSource_ = "uniform   lowp  vec4  color;\n"
+                                                         "void main() {\n"
+                                                         "   gl_FragColor = color;\n"
+                                                         "}\n";
 
     // Must be called on initialization.
     bool compile(void);

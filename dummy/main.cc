@@ -29,10 +29,10 @@
 #endif
 #include <boost/filesystem/convenience.hpp>
 #include <boost/program_options.hpp>
+#include <iostream>
 #include "log.h"
 #include "nextpnr.h"
 #include "version.h"
-#include <iostream>
 
 USING_NEXTPNR_NAMESPACE
 
@@ -55,18 +55,14 @@ int main(int argc, char *argv[])
 
         po::positional_options_description pos;
 #ifndef NO_PYTHON
-        options.add_options()("run", po::value<std::vector<std::string>>(),
-                              "python file to execute");
+        options.add_options()("run", po::value<std::vector<std::string>>(), "python file to execute");
         pos.add("run", -1);
 #endif
         options.add_options()("version,V", "show version");
 
         po::variables_map vm;
         try {
-            po::parsed_options parsed = po::command_line_parser(argc, argv)
-                                                .options(options)
-                                                .positional(pos)
-                                                .run();
+            po::parsed_options parsed = po::command_line_parser(argc, argv).options(options).positional(pos).run();
 
             po::store(parsed, vm);
 
@@ -79,18 +75,16 @@ int main(int argc, char *argv[])
         }
 
         if (vm.count("help") || argc == 1) {
-            std::cout << boost::filesystem::basename(argv[0])
-                      << " -- Next Generation Place and Route (git "
-                         "sha1 " GIT_COMMIT_HASH_STR ")\n";
+            std::cout << boost::filesystem::basename(argv[0]) << " -- Next Generation Place and Route (git "
+                                                                 "sha1 " GIT_COMMIT_HASH_STR ")\n";
             std::cout << "\n";
             std::cout << options << "\n";
             return argc != 1;
         }
 
         if (vm.count("version")) {
-            std::cout << boost::filesystem::basename(argv[0])
-                      << " -- Next Generation Place and Route (git "
-                         "sha1 " GIT_COMMIT_HASH_STR ")\n";
+            std::cout << boost::filesystem::basename(argv[0]) << " -- Next Generation Place and Route (git "
+                                                                 "sha1 " GIT_COMMIT_HASH_STR ")\n";
             return 1;
         }
 
@@ -115,8 +109,7 @@ int main(int argc, char *argv[])
 
 #ifndef NO_PYTHON
         if (vm.count("run")) {
-            std::vector<std::string> files =
-                    vm["run"].as<std::vector<std::string>>();
+            std::vector<std::string> files = vm["run"].as<std::vector<std::string>>();
             for (auto filename : files)
                 execute_python_file(filename.c_str());
         }

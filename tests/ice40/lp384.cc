@@ -59,8 +59,7 @@ TEST_F(LP384Test, uphill_to_downhill)
     for (auto dst : ctx->getWires()) {
         for (auto uphill_pip : ctx->getPipsUphill(dst)) {
             bool found_downhill = false;
-            for (auto downhill_pip : ctx->getPipsDownhill(
-                         ctx->getPipSrcWire(uphill_pip))) {
+            for (auto downhill_pip : ctx->getPipsDownhill(ctx->getPipSrcWire(uphill_pip))) {
                 if (uphill_pip == downhill_pip) {
                     ASSERT_FALSE(found_downhill);
                     found_downhill = true;
@@ -76,8 +75,7 @@ TEST_F(LP384Test, downhill_to_uphill)
     for (auto dst : ctx->getWires()) {
         for (auto downhill_pip : ctx->getPipsDownhill(dst)) {
             bool found_uphill = false;
-            for (auto uphill_pip : ctx->getPipsUphill(
-                         ctx->getPipDstWire(downhill_pip))) {
+            for (auto uphill_pip : ctx->getPipsUphill(ctx->getPipDstWire(downhill_pip))) {
                 if (uphill_pip == downhill_pip) {
                     ASSERT_FALSE(found_uphill);
                     found_uphill = true;

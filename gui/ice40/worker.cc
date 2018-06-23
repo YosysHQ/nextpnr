@@ -125,14 +125,11 @@ TaskManager::TaskManager(Context *ctx) : toTerminate(false), toPause(false)
     connect(this, &TaskManager::route, worker, &Worker::route);
 
     connect(worker, &Worker::log, this, &TaskManager::info);
-    connect(worker, &Worker::loadfile_finished, this,
-            &TaskManager::loadfile_finished);
+    connect(worker, &Worker::loadfile_finished, this, &TaskManager::loadfile_finished);
     connect(worker, &Worker::pack_finished, this, &TaskManager::pack_finished);
     connect(worker, &Worker::budget_finish, this, &TaskManager::budget_finish);
-    connect(worker, &Worker::place_finished, this,
-            &TaskManager::place_finished);
-    connect(worker, &Worker::route_finished, this,
-            &TaskManager::route_finished);
+    connect(worker, &Worker::place_finished, this, &TaskManager::place_finished);
+    connect(worker, &Worker::route_finished, this, &TaskManager::route_finished);
 
     connect(worker, &Worker::taskCanceled, this, &TaskManager::taskCanceled);
     connect(worker, &Worker::taskStarted, this, &TaskManager::taskStarted);

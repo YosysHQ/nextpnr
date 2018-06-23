@@ -36,8 +36,7 @@ static void initBasenameResource() { Q_INIT_RESOURCE(base); }
 
 NEXTPNR_NAMESPACE_BEGIN
 
-BaseMainWindow::BaseMainWindow(Context *_ctx, QWidget *parent)
-        : QMainWindow(parent), ctx(_ctx)
+BaseMainWindow::BaseMainWindow(Context *_ctx, QWidget *parent) : QMainWindow(parent), ctx(_ctx)
 {
     initBasenameResource();
     qRegisterMetaType<std::string>();
@@ -69,8 +68,7 @@ BaseMainWindow::BaseMainWindow(Context *_ctx, QWidget *parent)
     designview->setMaximumWidth(300);
     splitter_h->addWidget(designview);
 
-    connect(designview, SIGNAL(info(std::string)), this,
-            SLOT(writeInfo(std::string)));
+    connect(designview, SIGNAL(info(std::string)), this, SLOT(writeInfo(std::string)));
 
     tabWidget = new QTabWidget();
 #ifndef NO_PYTHON
