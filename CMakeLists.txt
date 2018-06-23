@@ -100,9 +100,9 @@ if (BUILD_PYTHON)
     endif ()
 endif()
 
-include_directories(common/ frontend/json ${Boost_INCLUDE_DIRS} ${PYTHON_INCLUDE_DIRS})
+include_directories(common/ json/ ${Boost_INCLUDE_DIRS} ${PYTHON_INCLUDE_DIRS})
 aux_source_directory(common/ COMMON_SRC_FILES)
-aux_source_directory(frontend/json/ JSON_PARSER_FILES)
+aux_source_directory(json/ JSON_PARSER_FILES)
 set(COMMON_FILES ${COMMON_SRC_FILES} ${JSON_PARSER_FILES})
 set(CMAKE_BUILD_TYPE Release)
 
