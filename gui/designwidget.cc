@@ -188,9 +188,15 @@ void DesignWidget::onItemClicked(QTreeWidgetItem *item, int pos)
     if (type == ElementType::BEL) {
         IdString c = static_cast<BelTreeItem *>(item)->getData();
 
+        BelType type = ctx->getBelType(ctx->getBelByName(c));
         QtVariantProperty *topItem = variantManager->addProperty(QVariant::String, QString("Name"));
         topItem->setValue(QString(c.c_str(ctx)));
         addProperty(topItem, QString("Name"));
+
+        QtVariantProperty *typeItem = variantManager->addProperty(QVariant::String, QString("Type"));
+        typeItem->setValue(QString(ctx->belTypeToId(type).c_str(ctx)));
+        addProperty(typeItem, QString("Type"));
+
     } else if (type == ElementType::WIRE) {
         IdString c = static_cast<WireTreeItem *>(item)->getData();
 
