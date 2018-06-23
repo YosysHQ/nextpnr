@@ -24,7 +24,6 @@
 #include <QSplitter>
 #include <QTreeWidgetItem>
 #include "fpgaviewwidget.h"
-#include "pybindings.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -116,8 +115,8 @@ DesignWidget::DesignWidget(Context *_ctx, QWidget *parent)
     QList<QTreeWidgetItem *> bel_items;
     for (auto bel : ctx->getBels()) {
         auto name = ctx->getBelName(bel);
-        bel_items.append(
-                new BelTreeItem(name, ElementType::BEL, QString(name.c_str(ctx))));
+        bel_items.append(new BelTreeItem(name, ElementType::BEL,
+                                         QString(name.c_str(ctx))));
     }
     bel_root->addChildren(bel_items);
 
@@ -140,8 +139,8 @@ DesignWidget::DesignWidget(Context *_ctx, QWidget *parent)
     treeWidget->insertTopLevelItem(0, pip_root);
     for (auto pip : ctx->getPips()) {
         auto name = ctx->getPipName(pip);
-        pip_items.append(
-                new PipTreeItem(name, ElementType::PIP, QString(name.c_str(ctx))));
+        pip_items.append(new PipTreeItem(name, ElementType::PIP,
+                                         QString(name.c_str(ctx))));
     }
     pip_root->addChildren(pip_items);
 

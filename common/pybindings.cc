@@ -18,6 +18,8 @@
  *
  */
 
+#ifndef NO_PYTHON
+
 #include "pybindings.h"
 #include "emb.h"
 #include "jsonparse.h"
@@ -186,3 +188,5 @@ void execute_python_file(const char *python_file)
 }
 
 NEXTPNR_NAMESPACE_END
+
+#endif // NO_PYTHON

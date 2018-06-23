@@ -18,6 +18,8 @@
  *
  */
 
+#ifndef NO_PYTHON
+
 #include "pybindings.h"
 #include "nextpnr.h"
 
@@ -26,3 +28,5 @@ NEXTPNR_NAMESPACE_BEGIN
 void arch_wrap_python() { class_<ArchArgs>("ArchArgs"); }
 
 NEXTPNR_NAMESPACE_END
+
+#endif

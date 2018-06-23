@@ -5,6 +5,7 @@
 // http://www.boost.org/LICENSE_1_0.txt)
 //
 // Blog article: http://mateusz.loskot.net/?p=2819
+#ifndef NO_PYTHON
 
 #include "emb.h"
 #include <Python.h>
@@ -136,3 +137,5 @@ void reset_stdout()
 void append_inittab() { PyImport_AppendInittab("emb", emb::PyInit_emb); }
 
 } // namespace emb
+
+#endif // NO_PYTHON
