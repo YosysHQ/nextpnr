@@ -37,8 +37,7 @@ InfoTab::InfoTab(QWidget *parent) : QWidget(parent)
     contextMenu = plainTextEdit->createStandardContextMenu();
     contextMenu->addSeparator();
     contextMenu->addAction(clearAction);
-    connect(plainTextEdit, SIGNAL(customContextMenuRequested(const QPoint)),
-            this, SLOT(showContextMenu(const QPoint)));
+    connect(plainTextEdit, SIGNAL(customContextMenuRequested(const QPoint)), this, SLOT(showContextMenu(const QPoint)));
 
     QGridLayout *mainLayout = new QGridLayout();
     mainLayout->addWidget(plainTextEdit);
@@ -52,10 +51,7 @@ void InfoTab::info(std::string str)
     plainTextEdit->moveCursor(QTextCursor::End);
 }
 
-void InfoTab::showContextMenu(const QPoint &pt)
-{
-    contextMenu->exec(mapToGlobal(pt));
-}
+void InfoTab::showContextMenu(const QPoint &pt) { contextMenu->exec(mapToGlobal(pt)); }
 
 void InfoTab::clearBuffer() { plainTextEdit->clear(); }
 

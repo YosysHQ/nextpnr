@@ -6,5 +6,6 @@
         <file>resources/pack.png</file>
         <file>resources/place.png</file>
         <file>resources/route.png</file>
+        <file>resources/time_add.png</file>
     </qresource>
 </RCC>

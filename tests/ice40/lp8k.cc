@@ -1,3 +1,23 @@
+/*
+ *  nextpnr -- Next Generation Place and Route
+ *
+ *  Copyright (C) 2018  Clifford Wolf <clifford@symbioticeda.com>
+ *  Copyright (C) 2018  Miodrag Milanovic <miodrag@symbioticeda.com>
+ *
+ *  Permission to use, copy, modify, and/or distribute this software for any
+ *  purpose with or without fee is hereby granted, provided that the above
+ *  copyright notice and this permission notice appear in all copies.
+ *
+ *  THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ *  WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ *  MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ *  ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ *  WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ *  ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ *  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ *
+ */
+
 #include <vector>
 #include "gtest/gtest.h"
 #include "nextpnr.h"
@@ -59,8 +79,7 @@ TEST_F(LP8KTest, uphill_to_downhill)
     for (auto dst : ctx->getWires()) {
         for (auto uphill_pip : ctx->getPipsUphill(dst)) {
             bool found_downhill = false;
-            for (auto downhill_pip : ctx->getPipsDownhill(
-                         ctx->getPipSrcWire(uphill_pip))) {
+            for (auto downhill_pip : ctx->getPipsDownhill(ctx->getPipSrcWire(uphill_pip))) {
                 if (uphill_pip == downhill_pip) {
                     ASSERT_FALSE(found_downhill);
                     found_downhill = true;
@@ -76,8 +95,7 @@ TEST_F(LP8KTest, downhill_to_uphill)
     for (auto dst : ctx->getWires()) {
         for (auto downhill_pip : ctx->getPipsDownhill(dst)) {
             bool found_uphill = false;
-            for (auto uphill_pip : ctx->getPipsUphill(
-                         ctx->getPipDstWire(downhill_pip))) {
+            for (auto uphill_pip : ctx->getPipsUphill(ctx->getPipDstWire(downhill_pip))) {
                 if (uphill_pip == downhill_pip) {
                     ASSERT_FALSE(found_uphill);
                     found_uphill = true;

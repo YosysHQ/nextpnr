@@ -33,8 +33,7 @@ LineEditor::LineEditor(QWidget *parent) : QLineEdit(parent), index(0)
     contextMenu->addAction(clearAction);
 
     connect(this, SIGNAL(returnPressed()), SLOT(textInserted()));
-    connect(this, SIGNAL(customContextMenuRequested(const QPoint)), this,
-            SLOT(showContextMenu(const QPoint)));
+    connect(this, SIGNAL(customContextMenuRequested(const QPoint)), this, SLOT(showContextMenu(const QPoint)));
 }
 
 void LineEditor::keyPressEvent(QKeyEvent *ev)
@@ -74,10 +73,7 @@ void LineEditor::textInserted()
     Q_EMIT textLineInserted(lines.back());
 }
 
-void LineEditor::showContextMenu(const QPoint &pt)
-{
-    contextMenu->exec(mapToGlobal(pt));
-}
+void LineEditor::showContextMenu(const QPoint &pt) { contextMenu->exec(mapToGlobal(pt)); }
 
 void LineEditor::clearHistory()
 {

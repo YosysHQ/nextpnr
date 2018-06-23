@@ -29,8 +29,7 @@ NEXTPNR_NAMESPACE_BEGIN
 // Get a value from a map-style container, returning default if value is not
 // found
 template <typename Container, typename KeyType, typename ValueType>
-ValueType get_or_default(const Container &ct, const KeyType &key,
-                         ValueType def = ValueType())
+ValueType get_or_default(const Container &ct, const KeyType &key, ValueType def = ValueType())
 {
     auto found = ct.find(key);
     if (found == ct.end())
@@ -41,8 +40,7 @@ ValueType get_or_default(const Container &ct, const KeyType &key,
 
 // Get a value from a map-style container, converting to int, and returning
 // default if value is not found
-template <typename Container, typename KeyType>
-int int_or_default(const Container &ct, const KeyType &key, int def = 0)
+template <typename Container, typename KeyType> int int_or_default(const Container &ct, const KeyType &key, int def = 0)
 {
     auto found = ct.find(key);
     if (found == ct.end())
@@ -59,8 +57,7 @@ bool bool_or_default(const Container &ct, const KeyType &key, bool def = false)
 };
 
 // Wrap an unordered_map, and allow it to be iterated over sorted by key
-template <typename K, typename V>
-std::map<K, V> sorted(const std::unordered_map<K, V> &orig)
+template <typename K, typename V> std::map<K, V> sorted(const std::unordered_map<K, V> &orig)
 {
     return std::map<K, V>(orig.begin(), orig.end());
 };

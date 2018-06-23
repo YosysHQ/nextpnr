@@ -107,8 +107,7 @@ PyMODINIT_FUNC PyInit_emb(void)
     PyObject *m = PyModule_Create(&embmodule);
     if (m) {
         Py_INCREF(&StdoutType);
-        PyModule_AddObject(m, "Stdout",
-                           reinterpret_cast<PyObject *>(&StdoutType));
+        PyModule_AddObject(m, "Stdout", reinterpret_cast<PyObject *>(&StdoutType));
     }
     return m;
 }

@@ -25,16 +25,13 @@
 NEXTPNR_NAMESPACE_BEGIN
 
 PlaceValidityChecker::PlaceValidityChecker(Context *ctx)
-        : ctx(ctx), id_icestorm_lc(ctx, "ICESTORM_LC"), id_sb_io(ctx, "SB_IO"),
-          id_sb_gb(ctx, "SB_GB"), id_cen(ctx, "CEN"), id_clk(ctx, "CLK"),
-          id_sr(ctx, "SR"), id_i0(ctx, "I0"), id_i1(ctx, "I1"),
-          id_i2(ctx, "I2"), id_i3(ctx, "I3"), id_dff_en(ctx, "DFF_ENABLE"),
-          id_neg_clk(ctx, "NEG_CLK")
+        : ctx(ctx), id_icestorm_lc(ctx, "ICESTORM_LC"), id_sb_io(ctx, "SB_IO"), id_sb_gb(ctx, "SB_GB"),
+          id_cen(ctx, "CEN"), id_clk(ctx, "CLK"), id_sr(ctx, "SR"), id_i0(ctx, "I0"), id_i1(ctx, "I1"),
+          id_i2(ctx, "I2"), id_i3(ctx, "I3"), id_dff_en(ctx, "DFF_ENABLE"), id_neg_clk(ctx, "NEG_CLK")
 {
 }
 
-static const NetInfo *get_net_or_empty(const CellInfo *cell,
-                                       const IdString port)
+static const NetInfo *get_net_or_empty(const CellInfo *cell, const IdString port)
 {
     auto found = cell->ports.find(port);
     if (found != cell->ports.end())
@@ -43,8 +40,7 @@ static const NetInfo *get_net_or_empty(const CellInfo *cell,
         return nullptr;
 };
 
-bool PlaceValidityChecker::logicCellsCompatible(
-        const Context *ctx, const std::vector<const CellInfo *> &cells)
+bool PlaceValidityChecker::logicCellsCompatible(const Context *ctx, const std::vector<const CellInfo *> &cells)
 {
     bool dffs_exist = false, dffs_neg = false;
     const NetInfo *cen = nullptr, *clk = nullptr, *sr = nullptr;
@@ -80,10 +76,8 @@ bool PlaceValidityChecker::logicCellsCompatible(
             }
         }
 
-        const NetInfo *i0 = get_net_or_empty(cell, id_i0),
-                      *i1 = get_net_or_empty(cell, id_i1),
-                      *i2 = get_net_or_empty(cell, id_i2),
-                      *i3 = get_net_or_empty(cell, id_i3);
+        const NetInfo *i0 = get_net_or_empty(cell, id_i0), *i1 = get_net_or_empty(cell, id_i1),
+                      *i2 = get_net_or_empty(cell, id_i2), *i3 = get_net_or_empty(cell, id_i3);
         if (i0 != nullptr)
             locals_count++;
         if (i1 != nullptr)
@@ -140,15 +134,13 @@ bool PlaceValidityChecker::isValidBelForCell(CellInfo *cell, BelId bel)
     } else if (cell->type == id_sb_gb) {
         bool is_reset = false, is_cen = false;
         assert(cell->ports.at(ctx->id("GLOBAL_BUFFER_OUTPUT")).net != nullptr);
-        for (auto user :
-             cell->ports.at(ctx->id("GLOBAL_BUFFER_OUTPUT")).net->users) {
+        for (auto user : cell->ports.at(ctx->id("GLOBAL_BUFFER_OUTPUT")).net->users) {
             if (is_reset_port(ctx, user))
                 is_reset = true;
             if (is_enable_port(ctx, user))
                 is_cen = true;
         }
-        IdString glb_net = ctx->getWireName(
-                ctx->getWireBelPin(bel, PIN_GLOBAL_BUFFER_OUTPUT));
+        IdString glb_net = ctx->getWireName(ctx->getWireBelPin(bel, PIN_GLOBAL_BUFFER_OUTPUT));
         int glb_id = std::stoi(std::string("") + glb_net.str(ctx).back());
         if (is_reset && is_cen)
             return false;

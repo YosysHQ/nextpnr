@@ -61,8 +61,7 @@ template <typename T, typename P> struct iterator_wrapper
 
     static void wrap(const char *python_name)
     {
-        class_<std::pair<T, T>>(python_name, no_init)
-                .def("__next__", next, P());
+        class_<std::pair<T, T>>(python_name, no_init).def("__next__", next, P());
     }
 };
 
@@ -72,15 +71,11 @@ and end() which return iterator-like objects supporting ++, * and !=
 Full STL iterator semantics are not required, unlike the standard Boost wrappers
 */
 
-template <typename T, typename P = return_value_policy<return_by_value>>
-struct range_wrapper
+template <typename T, typename P = return_value_policy<return_by_value>> struct range_wrapper
 {
     typedef decltype(std::declval<T>().begin()) iterator_t;
 
-    static std::pair<iterator_t, iterator_t> iter(T &range)
-    {
-        return std::make_pair(range.begin(), range.end());
-    }
+    static std::pair<iterator_t, iterator_t> iter(T &range) { return std::make_pair(range.begin(), range.end()); }
 
     static void wrap(const char *range_name, const char *iter_name)
     {
@@ -122,8 +117,7 @@ template <typename T1, typename T2> struct pair_wrapper
 
         static void wrap(const char *python_name)
         {
-            class_<std::pair<T &, int>>(python_name, no_init)
-                    .def("__next__", next);
+            class_<std::pair<T &, int>>(python_name, no_init).def("__next__", next);
         }
     };
 
@@ -146,10 +140,7 @@ template <typename T1, typename T2> struct pair_wrapper
 
     static int len(T &x) { return 2; }
 
-    static std::pair<T &, int> iter(T &x)
-    {
-        return std::make_pair(boost::ref(x), 0);
-    };
+    static std::pair<T &, int> iter(T &x) { return std::make_pair(boost::ref(x), 0); };
 
     static void wrap(const char *pair_name, const char *iter_name)
     {
@@ -192,8 +183,7 @@ template <typename T1, typename T2> struct map_pair_wrapper
 
         static void wrap(const char *python_name)
         {
-            class_<std::pair<T &, int>>(python_name, no_init)
-                    .def("__next__", next);
+            class_<std::pair<T &, int>>(python_name, no_init).def("__next__", next);
         }
     };
 
@@ -206,10 +196,7 @@ template <typename T1, typename T2> struct map_pair_wrapper
 
     static int len(T &x) { return 2; }
 
-    static std::pair<T &, int> iter(T &x)
-    {
-        return std::make_pair(boost::ref(x), 0);
-    };
+    static std::pair<T &, int> iter(T &x) { return std::make_pair(boost::ref(x), 0); };
 
     static void wrap(const char *pair_name, const char *iter_name)
     {
@@ -229,8 +216,7 @@ Wrapper for a map, either an unordered_map, regular map or dict
 
 template <typename T> struct map_wrapper
 {
-    typedef typename std::remove_cv<
-            typename std::remove_reference<typename T::key_type>::type>::type K;
+    typedef typename std::remove_cv<typename std::remove_reference<typename T::key_type>::type>::type K;
     typedef typename T::mapped_type V;
     typedef typename T::value_type KV;
 
@@ -253,13 +239,10 @@ template <typename T> struct map_wrapper
         std::terminate();
     }
 
-    static void wrap(const char *map_name, const char *kv_name,
-                     const char *kv_iter_name, const char *iter_name)
+    static void wrap(const char *map_name, const char *kv_name, const char *kv_iter_name, const char *iter_name)
     {
-        map_pair_wrapper<typename KV::first_type,
-                         typename KV::second_type>::wrap(kv_name, kv_iter_name);
-        typedef range_wrapper<T, return_value_policy<copy_non_const_reference>>
-                rw;
+        map_pair_wrapper<typename KV::first_type, typename KV::second_type>::wrap(kv_name, kv_iter_name);
+        typedef range_wrapper<T, return_value_policy<copy_non_const_reference>> rw;
         typename rw::iter_wrap().wrap(iter_name);
         class_<T>(map_name, no_init)
                 .def("__iter__", rw::iter)
@@ -269,9 +252,7 @@ template <typename T> struct map_wrapper
     }
 };
 
-#define WRAP_MAP(t, name)                                                      \
-    map_wrapper<t>().wrap(#name, #name "KeyValue", #name "KeyValueIter",       \
-                          #name "Iterator")
+#define WRAP_MAP(t, name) map_wrapper<t>().wrap(#name, #name "KeyValue", #name "KeyValueIter", #name "Iterator")
 
 NEXTPNR_NAMESPACE_END
 

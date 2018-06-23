@@ -24,8 +24,7 @@
 #include "util.h"
 NEXTPNR_NAMESPACE_BEGIN
 
-void replace_port(CellInfo *old_cell, IdString old_name, CellInfo *rep_cell,
-                  IdString rep_name)
+void replace_port(CellInfo *old_cell, IdString old_name, CellInfo *rep_cell, IdString rep_name)
 {
     PortInfo &old = old_cell->ports.at(old_name);
     PortInfo &rep = rep_cell->ports.at(rep_name);
@@ -69,8 +68,7 @@ void print_utilisation(const Context *ctx)
     for (auto type : available_types) {
         IdString type_id = ctx->belTypeToId(type.first);
         int used_bels = get_or_default(used_types, type.first, 0);
-        log_info("\t%20s: %5d/%5d %5d%%\n", type_id.c_str(ctx), used_bels,
-                 type.second, 100 * used_bels / type.second);
+        log_info("\t%20s: %5d/%5d %5d%%\n", type_id.c_str(ctx), used_bels, type.second, 100 * used_bels / type.second);
     }
     log_break();
 }

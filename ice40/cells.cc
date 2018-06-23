@@ -24,8 +24,7 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-void add_port(const Context *ctx, CellInfo *cell, std::string name,
-              PortType dir)
+void add_port(const Context *ctx, CellInfo *cell, std::string name, PortType dir)
 {
     IdString id = ctx->id(name);
     cell->ports[id] = PortInfo{id, nullptr, dir};
@@ -36,8 +35,7 @@ CellInfo *create_ice_cell(Context *ctx, IdString type, std::string name)
     static int auto_idx = 0;
     CellInfo *new_cell = new CellInfo();
     if (name.empty()) {
-        new_cell->name = ctx->id("$nextpnr_" + type.str(ctx) + "_" +
-                                 std::to_string(auto_idx++));
+        new_cell->name = ctx->id("$nextpnr_" + type.str(ctx) + "_" + std::to_string(auto_idx++));
     } else {
         new_cell->name = ctx->id(name);
     }
@@ -143,8 +141,7 @@ void lut_to_lc(const Context *ctx, CellInfo *lut, CellInfo *lc, bool no_dff)
     }
 }
 
-void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc,
-               bool pass_thru_lut)
+void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc, bool pass_thru_lut)
 {
     lc->params[ctx->id("DFF_ENABLE")] = "1";
     std::string config = dff->type.str(ctx).substr(6);
@@ -214,22 +211,18 @@ void nxio_to_sb(Context *ctx, CellInfo *nxio, CellInfo *sbio)
         assert(false);
     }
     NetInfo *donet = sbio->ports.at(ctx->id("D_OUT_0")).net;
-    CellInfo *tbuf =
-            net_driven_by(ctx, donet,
-                          [](const Context *ctx, const CellInfo *cell) {
-                              return cell->type == ctx->id("$_TBUF_");
-                          },
-                          ctx->id("Y"));
+    CellInfo *tbuf = net_driven_by(
+            ctx, donet, [](const Context *ctx, const CellInfo *cell) { return cell->type == ctx->id("$_TBUF_"); },
+            ctx->id("Y"));
     if (tbuf) {
         sbio->params[ctx->id("PIN_TYPE")] = "41";
         replace_port(tbuf, ctx->id("A"), sbio, ctx->id("D_OUT_0"));
         replace_port(tbuf, ctx->id("E"), sbio, ctx->id("OUTPUT_ENABLE"));
         ctx->nets.erase(donet->name);
         if (!donet->users.empty())
-            log_error(
-                    "unsupported tristate IO pattern for IO buffer '%s', "
-                    "instantiate SB_IO manually to ensure correct behaviour\n",
-                    nxio->name.c_str(ctx));
+            log_error("unsupported tristate IO pattern for IO buffer '%s', "
+                      "instantiate SB_IO manually to ensure correct behaviour\n",
+                      nxio->name.c_str(ctx));
         ctx->cells.erase(tbuf->name);
     }
 }

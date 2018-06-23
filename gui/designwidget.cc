@@ -37,10 +37,7 @@ enum class ElementType
 class ElementTreeItem : public QTreeWidgetItem
 {
   public:
-    ElementTreeItem(ElementType t, QString str)
-            : QTreeWidgetItem((QTreeWidget *)nullptr, QStringList(str)), type(t)
-    {
-    }
+    ElementTreeItem(ElementType t, QString str) : QTreeWidgetItem((QTreeWidget *)nullptr, QStringList(str)), type(t) {}
     virtual ~ElementTreeItem(){};
 
     ElementType getType() { return type; };
@@ -52,11 +49,7 @@ class ElementTreeItem : public QTreeWidgetItem
 class BelTreeItem : public ElementTreeItem
 {
   public:
-    BelTreeItem(IdString d, ElementType type, QString str)
-            : ElementTreeItem(type, str)
-    {
-        this->data = d;
-    }
+    BelTreeItem(IdString d, ElementType type, QString str) : ElementTreeItem(type, str) { this->data = d; }
     virtual ~BelTreeItem(){};
 
     IdString getData() { return this->data; };
@@ -68,11 +61,7 @@ class BelTreeItem : public ElementTreeItem
 class WireTreeItem : public ElementTreeItem
 {
   public:
-    WireTreeItem(IdString d, ElementType type, QString str)
-            : ElementTreeItem(type, str)
-    {
-        this->data = d;
-    }
+    WireTreeItem(IdString d, ElementType type, QString str) : ElementTreeItem(type, str) { this->data = d; }
     virtual ~WireTreeItem(){};
 
     IdString getData() { return this->data; };
@@ -84,11 +73,7 @@ class WireTreeItem : public ElementTreeItem
 class PipTreeItem : public ElementTreeItem
 {
   public:
-    PipTreeItem(IdString d, ElementType type, QString str)
-            : ElementTreeItem(type, str)
-    {
-        this->data = d;
-    }
+    PipTreeItem(IdString d, ElementType type, QString str) : ElementTreeItem(type, str) { this->data = d; }
     virtual ~PipTreeItem(){};
 
     IdString getData() { return this->data; };
@@ -97,8 +82,7 @@ class PipTreeItem : public ElementTreeItem
     IdString data;
 };
 
-DesignWidget::DesignWidget(Context *_ctx, QWidget *parent)
-        : QWidget(parent), ctx(_ctx)
+DesignWidget::DesignWidget(Context *_ctx, QWidget *parent) : QWidget(parent), ctx(_ctx)
 {
 
     treeWidget = new QTreeWidget();
@@ -115,8 +99,7 @@ DesignWidget::DesignWidget(Context *_ctx, QWidget *parent)
     QList<QTreeWidgetItem *> bel_items;
     for (auto bel : ctx->getBels()) {
         auto name = ctx->getBelName(bel);
-        bel_items.append(new BelTreeItem(name, ElementType::BEL,
-                                         QString(name.c_str(ctx))));
+        bel_items.append(new BelTreeItem(name, ElementType::BEL, QString(name.c_str(ctx))));
     }
     bel_root->addChildren(bel_items);
 
@@ -127,8 +110,7 @@ DesignWidget::DesignWidget(Context *_ctx, QWidget *parent)
     treeWidget->insertTopLevelItem(0, wire_root);
     for (auto wire : ctx->getWires()) {
         auto name = ctx->getWireName(wire);
-        wire_items.append(new WireTreeItem(name, ElementType::WIRE,
-                                           QString(name.c_str(ctx))));
+        wire_items.append(new WireTreeItem(name, ElementType::WIRE, QString(name.c_str(ctx))));
     }
     wire_root->addChildren(wire_items);
 
@@ -139,8 +121,7 @@ DesignWidget::DesignWidget(Context *_ctx, QWidget *parent)
     treeWidget->insertTopLevelItem(0, pip_root);
     for (auto pip : ctx->getPips()) {
         auto name = ctx->getPipName(pip);
-        pip_items.append(new PipTreeItem(name, ElementType::PIP,
-                                         QString(name.c_str(ctx))));
+        pip_items.append(new PipTreeItem(name, ElementType::PIP, QString(name.c_str(ctx))));
     }
     pip_root->addChildren(pip_items);
 
@@ -165,11 +146,9 @@ DesignWidget::DesignWidget(Context *_ctx, QWidget *parent)
     setLayout(mainLayout);
 
     // Connection
-    connect(treeWidget, &QTreeWidget::customContextMenuRequested, this,
-            &DesignWidget::prepareMenu);
+    connect(treeWidget, &QTreeWidget::customContextMenuRequested, this, &DesignWidget::prepareMenu);
 
-    connect(treeWidget, SIGNAL(itemClicked(QTreeWidgetItem *, int)),
-            SLOT(onItemClicked(QTreeWidgetItem *, int)));
+    connect(treeWidget, SIGNAL(itemClicked(QTreeWidgetItem *, int)), SLOT(onItemClicked(QTreeWidgetItem *, int)));
 }
 
 DesignWidget::~DesignWidget()
@@ -188,8 +167,7 @@ void DesignWidget::addProperty(QtVariantProperty *property, const QString &id)
 
 void DesignWidget::clearProperties()
 {
-    QMap<QtProperty *, QString>::ConstIterator itProp =
-            propertyToId.constBegin();
+    QMap<QtProperty *, QString>::ConstIterator itProp = propertyToId.constBegin();
     while (itProp != propertyToId.constEnd()) {
         delete itProp.key();
         itProp++;
@@ -210,23 +188,20 @@ void DesignWidget::onItemClicked(QTreeWidgetItem *item, int pos)
     if (type == ElementType::BEL) {
         IdString c = static_cast<BelTreeItem *>(item)->getData();
 
-        QtVariantProperty *topItem =
-                variantManager->addProperty(QVariant::String, QString("Name"));
+        QtVariantProperty *topItem = variantManager->addProperty(QVariant::String, QString("Name"));
         topItem->setValue(QString(c.c_str(ctx)));
         addProperty(topItem, QString("Name"));
     } else if (type == ElementType::WIRE) {
         IdString c = static_cast<WireTreeItem *>(item)->getData();
 
-        QtVariantProperty *topItem =
-                variantManager->addProperty(QVariant::String, QString("Name"));
+        QtVariantProperty *topItem = variantManager->addProperty(QVariant::String, QString("Name"));
         topItem->setValue(QString(c.c_str(ctx)));
         addProperty(topItem, QString("Name"));
 
     } else if (type == ElementType::PIP) {
         IdString c = static_cast<PipTreeItem *>(item)->getData();
 
-        QtVariantProperty *topItem =
-                variantManager->addProperty(QVariant::String, QString("Name"));
+        QtVariantProperty *topItem = variantManager->addProperty(QVariant::String, QString("Name"));
         topItem->setValue(QString(c.c_str(ctx)));
         addProperty(topItem, QString("Name"));
     }
@@ -250,9 +225,6 @@ void DesignWidget::prepareMenu(const QPoint &pos)
     menu.exec(tree->mapToGlobal(pos));
 }
 
-void DesignWidget::selectObject()
-{
-    Q_EMIT info("selected " + itemContextMenu->text(0).toStdString() + "\n");
-}
+void DesignWidget::selectObject() { Q_EMIT info("selected " + itemContextMenu->text(0).toStdString() + "\n"); }
 
 NEXTPNR_NAMESPACE_END
