@@ -147,8 +147,7 @@ struct JsonNode
                     if (ch == EOF)
                         log_error("Unexpected EOF in JSON file.\n");
 
-                    if (ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n' ||
-                        ch == ',')
+                    if (ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n' || ch == ',')
                         continue;
 
                     if (ch == ']')
@@ -170,8 +169,7 @@ struct JsonNode
                     if (ch == EOF)
                         log_error("Unexpected EOF in JSON file.\n");
 
-                    if (ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n' ||
-                        ch == ',')
+                    if (ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n' || ch == ',')
                         continue;
 
                     if (ch == '}')
@@ -186,8 +184,7 @@ struct JsonNode
                         if (ch == EOF)
                             log_error("Unexpected EOF in JSON file.\n");
 
-                        if (ch == ' ' || ch == '\t' || ch == '\r' ||
-                            ch == '\n' || ch == ':')
+                        if (ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n' || ch == ':')
                             continue;
 
                         f.unget();
@@ -314,10 +311,8 @@ bool is_blackbox(JsonNode *node)
     return true;
 }
 
-void json_import_cell_params(Context *ctx, string &modname, CellInfo *cell,
-                             JsonNode *param_node,
-                             std::unordered_map<IdString, std::string> *dest,
-                             int param_id)
+void json_import_cell_params(Context *ctx, string &modname, CellInfo *cell, JsonNode *param_node,
+                             std::unordered_map<IdString, std::string> *dest, int param_id)
 {
     //
     JsonNode *param;
@@ -331,24 +326,21 @@ void json_import_cell_params(Context *ctx, string &modname, CellInfo *cell,
     } else if (param->type == 'S')
         (*dest)[pId] = param->data_string;
     else
-        log_error(
-                "JSON parameter type of \"%s\' of cell \'%s\' not supported\n",
-                pId.c_str(ctx), cell->name.c_str(ctx));
+        log_error("JSON parameter type of \"%s\' of cell \'%s\' not supported\n", pId.c_str(ctx),
+                  cell->name.c_str(ctx));
 
     if (json_debug)
         log_info("    Added parameter \'%s\'=%s to cell \'%s\' "
                  "of module \'%s\'\n",
-                 pId.c_str(ctx), cell->params[pId].c_str(),
-                 cell->name.c_str(ctx), modname.c_str());
+                 pId.c_str(ctx), cell->params[pId].c_str(), cell->name.c_str(ctx), modname.c_str());
 }
 
 static int const_net_idx = 0;
 
 template <typename F>
-void json_import_ports(Context *ctx, const string &modname,
-                       const std::vector<IdString> &netnames,
-                       const string &obj_name, const string &port_name,
-                       JsonNode *dir_node, JsonNode *wire_group_node, F visitor)
+void json_import_ports(Context *ctx, const string &modname, const std::vector<IdString> &netnames,
+                       const string &obj_name, const string &port_name, JsonNode *dir_node, JsonNode *wire_group_node,
+                       F visitor)
 {
     // Examine a port of a cell or the design. For every bit of the port,
     // the connected net will be processed and `visitor` will be called
@@ -356,8 +348,7 @@ void json_import_ports(Context *ctx, const string &modname,
     assert(dir_node);
 
     if (json_debug)
-        log_info("    Examining port %s, node %s\n", port_name.c_str(),
-                 obj_name.c_str());
+        log_info("    Examining port %s, node %s\n", port_name.c_str(), obj_name.c_str());
 
     if (!wire_group_node)
         log_error("JSON no connection match "
@@ -382,8 +373,7 @@ void json_import_ports(Context *ctx, const string &modname,
     else
         log_error("JSON unknown port direction \'%s\' in node \'%s\' "
                   "of module \'%s\'\n",
-                  dir_node->data_string.c_str(), obj_name.c_str(),
-                  modname.c_str());
+                  dir_node->data_string.c_str(), obj_name.c_str(), modname.c_str());
     //
     // Find an update, or create a net to connect
     // to this port.
@@ -407,12 +397,10 @@ void json_import_ports(Context *ctx, const string &modname,
         visitor(port_info.type, port_info.name.str(ctx), nullptr);
 
         if (json_debug)
-            log_info("      Port \'%s\' has no connection in \'%s\'\n",
-                     port_info.name.c_str(ctx), obj_name.c_str());
+            log_info("      Port \'%s\' has no connection in \'%s\'\n", port_info.name.c_str(ctx), obj_name.c_str());
 
     } else
-        for (int index = 0; index < int(wire_group_node->data_array.size());
-             index++) {
+        for (int index = 0; index < int(wire_group_node->data_array.size()); index++) {
             //
             JsonNode *wire_node;
             PortInfo this_port;
@@ -422,8 +410,7 @@ void json_import_ports(Context *ctx, const string &modname,
             //
             // Pick a name for this port
             if (is_bus)
-                this_port.name = ctx->id(port_info.name.str(ctx) + "[" +
-                                         std::to_string(index) + "]");
+                this_port.name = ctx->id(port_info.name.str(ctx) + "[" + std::to_string(index) + "]");
             else
                 this_port.name = port_info.name;
             this_port.type = port_info.type;
@@ -442,8 +429,7 @@ void json_import_ports(Context *ctx, const string &modname,
                     // Create in now
 
                     if (json_debug)
-                        log_info("      Generating a new net, \'%d\'\n",
-                                 net_num);
+                        log_info("      Generating a new net, \'%d\'\n", net_num);
 
                     this_net = new NetInfo;
                     this_net->name = net_id;
@@ -460,9 +446,7 @@ void json_import_ports(Context *ctx, const string &modname,
                         log_info("      Reusing net \'%s\', id \'%s\', "
                                  "with driver \'%s\'\n",
                                  this_net->name.c_str(ctx), net_id.c_str(ctx),
-                                 (this_net->driver.cell != NULL)
-                                         ? this_net->driver.port.c_str(ctx)
-                                         : "NULL");
+                                 (this_net->driver.cell != NULL) ? this_net->driver.port.c_str(ctx) : "NULL");
                 }
 
             } else if (wire_node->type == 'S') {
@@ -472,8 +456,7 @@ void json_import_ports(Context *ctx, const string &modname,
                 //
                 // Constants always get their own new net
                 this_net = new NetInfo;
-                this_net->name =
-                        ctx->id("$const_" + std::to_string(const_net_idx++));
+                this_net->name = ctx->id("$const_" + std::to_string(const_net_idx++));
 
                 if (wire_node->data_string.compare(string("0")) == 0) {
 
@@ -495,9 +478,7 @@ void json_import_ports(Context *ctx, const string &modname,
                     log_warning("      Floating wire node value, "
                                 "\'%s\' of port \'%s\' "
                                 "in cell \'%s\' of module \'%s\'\n",
-                                wire_node->data_string.c_str(),
-                                port_name.c_str(), obj_name.c_str(),
-                                modname.c_str());
+                                wire_node->data_string.c_str(), port_name.c_str(), obj_name.c_str(), modname.c_str());
 
                 } else
                     log_error("      Unknown fixed type wire node "
@@ -506,8 +487,7 @@ void json_import_ports(Context *ctx, const string &modname,
             }
 
             if (json_debug)
-                log_info("    Inserting port \'%s\' into cell \'%s\'\n",
-                         this_port.name.c_str(ctx), obj_name.c_str());
+                log_info("    Inserting port \'%s\' into cell \'%s\'\n", this_port.name.c_str(ctx), obj_name.c_str());
             visitor(this_port.type, this_port.name.str(ctx), this_net);
 
             if (ctx->nets.count(this_net->name) == 0)
@@ -515,9 +495,8 @@ void json_import_ports(Context *ctx, const string &modname,
         }
 }
 
-void json_import_cell(Context *ctx, string modname,
-                      const std::vector<IdString> &netnames,
-                      JsonNode *cell_node, string cell_name)
+void json_import_cell(Context *ctx, string modname, const std::vector<IdString> &netnames, JsonNode *cell_node,
+                      string cell_name)
 {
     JsonNode *cell_type, *param_node, *attr_node;
 
@@ -533,39 +512,32 @@ void json_import_cell(Context *ctx, string modname,
     // No BEL assignment here/yet
 
     if (json_debug)
-        log_info("  Processing %s $ %s\n", modname.c_str(),
-                 cell->name.c_str(ctx));
+        log_info("  Processing %s $ %s\n", modname.c_str(), cell->name.c_str(ctx));
 
     param_node = cell_node->data_dict.at("parameters");
     if (param_node->type != 'D')
-        log_error("JSON parameter list of \'%s\' is not a data dictionary\n",
-                  cell->name.c_str(ctx));
+        log_error("JSON parameter list of \'%s\' is not a data dictionary\n", cell->name.c_str(ctx));
 
     //
     // Loop through all parameters, adding them into the
     // design to annotate the cell
     //
-    for (int paramid = 0; paramid < GetSize(param_node->data_dict_keys);
-         paramid++) {
+    for (int paramid = 0; paramid < GetSize(param_node->data_dict_keys); paramid++) {
 
-        json_import_cell_params(ctx, modname, cell, param_node, &cell->params,
-                                paramid);
+        json_import_cell_params(ctx, modname, cell, param_node, &cell->params, paramid);
     }
 
     attr_node = cell_node->data_dict.at("attributes");
     if (attr_node->type != 'D')
-        log_error("JSON attribute list of \'%s\' is not a data dictionary\n",
-                  cell->name.c_str(ctx));
+        log_error("JSON attribute list of \'%s\' is not a data dictionary\n", cell->name.c_str(ctx));
 
     //
     // Loop through all attributes, adding them into the
     // design to annotate the cell
     //
-    for (int attrid = 0; attrid < GetSize(attr_node->data_dict_keys);
-         attrid++) {
+    for (int attrid = 0; attrid < GetSize(attr_node->data_dict_keys); attrid++) {
 
-        json_import_cell_params(ctx, modname, cell, attr_node, &cell->attrs,
-                                attrid);
+        json_import_cell_params(ctx, modname, cell, attr_node, &cell->attrs, attrid);
     }
 
     //
@@ -600,8 +572,7 @@ void json_import_cell(Context *ctx, string modname,
                   "dictionary\n",
                   cell->name.c_str(ctx), modname.c_str());
 
-    if (GetSize(pdir_node->data_dict_keys) !=
-        GetSize(connections->data_dict_keys))
+    if (GetSize(pdir_node->data_dict_keys) != GetSize(connections->data_dict_keys))
         log_error("JSON number of connections doesnt "
                   "match number of ports in node \'%s\' "
                   "of module \'%s\'\n",
@@ -610,8 +581,7 @@ void json_import_cell(Context *ctx, string modname,
     //
     // Loop through all of the ports of this logic element
     //
-    for (int portid = 0; portid < GetSize(pdir_node->data_dict_keys);
-         portid++) {
+    for (int portid = 0; portid < GetSize(pdir_node->data_dict_keys); portid++) {
         //
         string port_name;
         JsonNode *dir_node, *wire_group_node;
@@ -621,12 +591,9 @@ void json_import_cell(Context *ctx, string modname,
         dir_node = pdir_node->data_dict.at(port_name);
         wire_group_node = connections->data_dict.at(port_name);
 
-        json_import_ports(ctx, modname, netnames, cell->name.str(ctx),
-                          port_name, dir_node, wire_group_node,
-                          [cell, ctx](PortType type, const std::string &name,
-                                      NetInfo *net) {
-                              cell->ports[ctx->id(name)] =
-                                      PortInfo{ctx->id(name), net, type};
+        json_import_ports(ctx, modname, netnames, cell->name.str(ctx), port_name, dir_node, wire_group_node,
+                          [cell, ctx](PortType type, const std::string &name, NetInfo *net) {
+                              cell->ports[ctx->id(name)] = PortInfo{ctx->id(name), net, type};
                               PortRef pr;
                               pr.cell = cell;
                               pr.port = ctx->id(name);
@@ -645,8 +612,7 @@ void json_import_cell(Context *ctx, string modname,
     // check_all_nets_driven(ctx);
 }
 
-static void insert_iobuf(Context *ctx, NetInfo *net, PortType type,
-                         const string &name)
+static void insert_iobuf(Context *ctx, NetInfo *net, PortType type, const string &name)
 {
     // Instantiate a architecture-independent IO buffer connected to a given
     // net, of a given type, and named after the IO port.
@@ -656,8 +622,7 @@ static void insert_iobuf(Context *ctx, NetInfo *net, PortType type,
     //
     CellInfo *iobuf = new CellInfo();
     iobuf->name = ctx->id(name);
-    std::copy(net->attrs.begin(), net->attrs.end(),
-              std::inserter(iobuf->attrs, iobuf->attrs.begin()));
+    std::copy(net->attrs.begin(), net->attrs.end(), std::inserter(iobuf->attrs, iobuf->attrs.begin()));
     if (type == PORT_IN) {
         if (ctx->verbose)
             log_info("processing input port %s\n", name.c_str());
@@ -711,18 +676,14 @@ static void insert_iobuf(Context *ctx, NetInfo *net, PortType type,
     ctx->cells[iobuf->name] = iobuf;
 }
 
-void json_import_toplevel_port(Context *ctx, const string &modname,
-                               const std::vector<IdString> &netnames,
+void json_import_toplevel_port(Context *ctx, const string &modname, const std::vector<IdString> &netnames,
                                const string &portname, JsonNode *node)
 {
     JsonNode *dir_node = node->data_dict.at("direction");
     JsonNode *nets_node = node->data_dict.at("bits");
     json_import_ports(
-            ctx, modname, netnames, "Top Level IO", portname, dir_node,
-            nets_node,
-            [ctx](PortType type, const std::string &name, NetInfo *net) {
-                insert_iobuf(ctx, net, type, name);
-            });
+            ctx, modname, netnames, "Top Level IO", portname, dir_node, nets_node,
+            [ctx](PortType type, const std::string &name, NetInfo *net) { insert_iobuf(ctx, net, type, name); });
 }
 
 void json_import(Context *ctx, string modname, JsonNode *node)
@@ -736,8 +697,7 @@ void json_import(Context *ctx, string modname, JsonNode *node)
     std::vector<IdString> netnames;
     if (node->data_dict.count("netnames")) {
         JsonNode *cell_parent = node->data_dict.at("netnames");
-        for (int nnid = 0; nnid < GetSize(cell_parent->data_dict_keys);
-             nnid++) {
+        for (int nnid = 0; nnid < GetSize(cell_parent->data_dict_keys); nnid++) {
             JsonNode *here;
 
             here = cell_parent->data_dict.at(cell_parent->data_dict_keys[nnid]);
@@ -751,10 +711,7 @@ void json_import(Context *ctx, string modname, JsonNode *node)
                     if (netid >= int(netnames.size()))
                         netnames.resize(netid + 1);
                     netnames.at(netid) = ctx->id(
-                            basename +
-                            (num_bits == 1 ? "" : std::string("[") +
-                                                          std::to_string(i) +
-                                                          std::string("]")));
+                            basename + (num_bits == 1 ? "" : std::string("[") + std::to_string(i) + std::string("]")));
                 }
             }
         }
@@ -767,12 +724,9 @@ void json_import(Context *ctx, string modname, JsonNode *node)
         // Loop through all of the logic elements in a flattened design
         //
         //
-        for (int cellid = 0; cellid < GetSize(cell_parent->data_dict_keys);
-             cellid++) {
-            JsonNode *here = cell_parent->data_dict.at(
-                    cell_parent->data_dict_keys[cellid]);
-            json_import_cell(ctx, modname, netnames, here,
-                             cell_parent->data_dict_keys[cellid]);
+        for (int cellid = 0; cellid < GetSize(cell_parent->data_dict_keys); cellid++) {
+            JsonNode *here = cell_parent->data_dict.at(cell_parent->data_dict_keys[cellid]);
+            json_import_cell(ctx, modname, netnames, here, cell_parent->data_dict_keys[cellid]);
         }
     }
 
@@ -782,15 +736,11 @@ void json_import(Context *ctx, string modname, JsonNode *node)
         // N.B. ports must be imported after cells for tristate behaviour
         // to be correct
         // Loop through all ports
-        for (int portid = 0; portid < GetSize(ports_parent->data_dict_keys);
-             portid++) {
+        for (int portid = 0; portid < GetSize(ports_parent->data_dict_keys); portid++) {
             JsonNode *here;
 
-            here = ports_parent->data_dict.at(
-                    ports_parent->data_dict_keys[portid]);
-            json_import_toplevel_port(ctx, modname, netnames,
-                                      ports_parent->data_dict_keys[portid],
-                                      here);
+            here = ports_parent->data_dict.at(ports_parent->data_dict_keys[portid]);
+            json_import_toplevel_port(ctx, modname, netnames, ports_parent->data_dict_keys[portid], here);
         }
     }
     check_all_nets_driven(ctx);
