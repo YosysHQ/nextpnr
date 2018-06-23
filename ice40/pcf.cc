@@ -47,8 +47,7 @@ bool apply_pcf(Context *ctx, std::istream &in)
             std::string cmd = words.at(0);
             if (cmd == "set_io") {
                 size_t args_end = 1;
-                while (args_end < words.size() &&
-                       words.at(args_end).at(0) == '-')
+                while (args_end < words.size() && words.at(args_end).at(0) == '-')
                     args_end++;
                 std::string cell = words.at(args_end);
                 std::string pin = words.at(args_end + 1);
@@ -58,10 +57,8 @@ bool apply_pcf(Context *ctx, std::istream &in)
                 } else {
                     BelId pin_bel = ctx->getPackagePinBel(pin);
                     if (pin_bel == BelId())
-                        log_error("package does not have a pin named %s\n",
-                                  pin.c_str());
-                    fnd_cell->second->attrs[ctx->id("BEL")] =
-                            ctx->getBelName(pin_bel).str(ctx);
+                        log_error("package does not have a pin named %s\n", pin.c_str());
+                    fnd_cell->second->attrs[ctx->id("BEL")] = ctx->getBelName(pin_bel).str(ctx);
                     log_info("constrained '%s' to bel '%s'\n", cell.c_str(),
                              fnd_cell->second->attrs[ctx->id("BEL")].c_str());
                 }

@@ -45,9 +45,7 @@ void arch_wrap_python()
 
     class_<PipId>("PipId").def_readwrite("index", &PipId::index);
 
-    class_<BelPin>("BelPin")
-            .def_readwrite("bel", &BelPin::bel)
-            .def_readwrite("pin", &BelPin::pin);
+    class_<BelPin>("BelPin").def_readwrite("bel", &BelPin::bel).def_readwrite("pin", &BelPin::pin);
 
     enum_<PortPin>("PortPin")
 #define X(t) .value("PIN_" #t, PIN_##t)

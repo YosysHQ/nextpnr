@@ -32,8 +32,7 @@ Utilities for design manipulation, intended for use inside packing algorithms
  */
 
 // Disconnect a net (if connected) from old, and connect it to rep
-void replace_port(CellInfo *old_cell, IdString old_name, CellInfo *rep_cell,
-                  IdString rep_name);
+void replace_port(CellInfo *old_cell, IdString old_name, CellInfo *rep_cell, IdString rep_name);
 
 // If a net drives a given port of a cell matching a predicate (in many
 // cases more than one cell type, e.g. SB_DFFxx so a predicate is used), return
@@ -41,8 +40,7 @@ void replace_port(CellInfo *old_cell, IdString old_name, CellInfo *rep_cell,
 // true, then this cell must be the only load. If ignore_cell is set, that cell
 // is not considered
 template <typename F1>
-CellInfo *net_only_drives(const Context *ctx, NetInfo *net, F1 cell_pred,
-                          IdString port, bool exclusive = false,
+CellInfo *net_only_drives(const Context *ctx, NetInfo *net, F1 cell_pred, IdString port, bool exclusive = false,
                           CellInfo *exclude = nullptr)
 {
     if (net == nullptr)
@@ -56,16 +54,13 @@ CellInfo *net_only_drives(const Context *ctx, NetInfo *net, F1 cell_pred,
                 return nullptr;
             } else if (net->users.size() == 2) {
                 if (std::find_if(net->users.begin(), net->users.end(),
-                                 [exclude](const PortRef &ref) {
-                                     return ref.cell == exclude;
-                                 }) == net->users.end())
+                                 [exclude](const PortRef &ref) { return ref.cell == exclude; }) == net->users.end())
                     return nullptr;
             }
         }
     }
     for (const auto &load : net->users) {
-        if (load.cell != exclude && cell_pred(ctx, load.cell) &&
-            load.port == port) {
+        if (load.cell != exclude && cell_pred(ctx, load.cell) && load.port == port) {
             return load.cell;
         }
     }
@@ -74,9 +69,7 @@ CellInfo *net_only_drives(const Context *ctx, NetInfo *net, F1 cell_pred,
 
 // If a net is driven by a given port of a cell matching a predicate, return
 // that cell, otherwise nullptr
-template <typename F1>
-CellInfo *net_driven_by(const Context *ctx, const NetInfo *net, F1 cell_pred,
-                        IdString port)
+template <typename F1> CellInfo *net_driven_by(const Context *ctx, const NetInfo *net, F1 cell_pred, IdString port)
 {
     if (net == nullptr)
         return nullptr;

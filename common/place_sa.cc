@@ -88,19 +88,17 @@ class SAPlacer
                 std::string loc_name = loc->second;
                 BelId bel = ctx->getBelByName(ctx->id(loc_name));
                 if (bel == BelId()) {
-                    log_error(
-                            "No Bel named \'%s\' located for "
-                            "this chip (processing BEL attribute on \'%s\')\n",
-                            loc_name.c_str(), cell->name.c_str(ctx));
+                    log_error("No Bel named \'%s\' located for "
+                              "this chip (processing BEL attribute on \'%s\')\n",
+                              loc_name.c_str(), cell->name.c_str(ctx));
                 }
 
                 BelType bel_type = ctx->getBelType(bel);
                 if (bel_type != ctx->belTypeFromId(cell->type)) {
                     log_error("Bel \'%s\' of type \'%s\' does not match cell "
                               "\'%s\' of type \'%s\'",
-                              loc_name.c_str(),
-                              ctx->belTypeToId(bel_type).c_str(ctx),
-                              cell->name.c_str(ctx), cell->type.c_str(ctx));
+                              loc_name.c_str(), ctx->belTypeToId(bel_type).c_str(ctx), cell->name.c_str(ctx),
+                              cell->type.c_str(ctx));
                 }
 
                 ctx->bindBel(bel, cell->name, STRENGTH_USER);
@@ -119,25 +117,21 @@ class SAPlacer
                 autoplaced.push_back(cell.second);
             }
         }
-        std::sort(autoplaced.begin(), autoplaced.end(),
-                  [](CellInfo *a, CellInfo *b) { return a->name < b->name; });
+        std::sort(autoplaced.begin(), autoplaced.end(), [](CellInfo *a, CellInfo *b) { return a->name < b->name; });
         ctx->shuffle(autoplaced);
 
         // Place cells randomly initially
-        log_info("Creating initial placement for remaining %d cells.\n",
-                 int(autoplaced.size()));
+        log_info("Creating initial placement for remaining %d cells.\n", int(autoplaced.size()));
 
         for (auto cell : autoplaced) {
             place_initial(cell);
             placed_cells++;
             if ((placed_cells - constr_placed_cells) % 500 == 0)
-                log_info("  initial placement placed %d/%d cells\n",
-                         int(placed_cells - constr_placed_cells),
+                log_info("  initial placement placed %d/%d cells\n", int(placed_cells - constr_placed_cells),
                          int(autoplaced.size()));
         }
         if ((placed_cells - constr_placed_cells) % 500 != 0)
-            log_info("  initial placement placed %d/%d cells\n",
-                     int(placed_cells - constr_placed_cells),
+            log_info("  initial placement placed %d/%d cells\n", int(placed_cells - constr_placed_cells),
                      int(autoplaced.size()));
 
         log_info("Running simulated annealing placer.\n");
@@ -184,9 +178,7 @@ class SAPlacer
 
             if (temp <= 1e-3 && n_no_progress >= 5) {
                 if (iter % 5 != 0)
-                    log_info(
-                            "  at iteration #%d: temp = %f, wire length = %f\n",
-                            iter, temp, double(curr_wirelength));
+                    log_info("  at iteration #%d: temp = %f, wire length = %f\n", iter, temp, double(curr_wirelength));
                 break;
             }
 
@@ -235,15 +227,13 @@ class SAPlacer
                 if (cell != IdString())
                     cell_text = std::string("cell '") + cell.str(ctx) + "'";
                 if (ctx->force) {
-                    log_warning(
-                            "post-placement validity check failed for Bel '%s' "
-                            "(%s)\n",
-                            ctx->getBelName(bel).c_str(ctx), cell_text.c_str());
+                    log_warning("post-placement validity check failed for Bel '%s' "
+                                "(%s)\n",
+                                ctx->getBelName(bel).c_str(ctx), cell_text.c_str());
                 } else {
-                    log_error(
-                            "post-placement validity check failed for Bel '%s' "
-                            "(%s)\n",
-                            ctx->getBelName(bel).c_str(ctx), cell_text.c_str());
+                    log_error("post-placement validity check failed for Bel '%s' "
+                              "(%s)\n",
+                              ctx->getBelName(bel).c_str(ctx), cell_text.c_str());
                 }
             }
         }
@@ -267,8 +257,7 @@ class SAPlacer
             }
             BelType targetType = ctx->belTypeFromId(cell->type);
             for (auto bel : ctx->getBels()) {
-                if (ctx->getBelType(bel) == targetType &&
-                    checker->isValidBelForCell(cell, bel)) {
+                if (ctx->getBelType(bel) == targetType && checker->isValidBelForCell(cell, bel)) {
                     if (ctx->checkBelAvail(bel)) {
                         uint64_t score = ctx->rng64();
                         if (score <= best_score) {
@@ -279,8 +268,7 @@ class SAPlacer
                         uint64_t score = ctx->rng64();
                         if (score <= best_ripup_score) {
                             best_ripup_score = score;
-                            ripup_target =
-                                    ctx->cells.at(ctx->getBoundBelCell(bel));
+                            ripup_target = ctx->cells.at(ctx->getBoundBelCell(bel));
                             ripup_bel = bel;
                         }
                     }
@@ -288,8 +276,7 @@ class SAPlacer
             }
             if (best_bel == BelId()) {
                 if (iters == 0 || ripup_bel == BelId())
-                    log_error("failed to place cell '%s' of type '%s'\n",
-                              cell->name.c_str(ctx), cell->type.c_str(ctx));
+                    log_error("failed to place cell '%s' of type '%s'\n", cell->name.c_str(ctx), cell->type.c_str(ctx));
                 --iters;
                 ctx->unbindBel(ripup_target->bel);
                 best_bel = ripup_bel;
@@ -316,8 +303,7 @@ class SAPlacer
         if (driver_cell->bel == BelId())
             return 0;
         ctx->estimatePosition(driver_cell->bel, driver_x, driver_y, driver_gb);
-        WireId drv_wire = ctx->getWireBelPin(
-                driver_cell->bel, ctx->portPinFromId(net->driver.port));
+        WireId drv_wire = ctx->getWireBelPin(driver_cell->bel, ctx->portPinFromId(net->driver.port));
         if (driver_gb)
             return 0;
         float worst_slack = 1000;
@@ -329,11 +315,9 @@ class SAPlacer
             if (load_cell->bel == BelId())
                 continue;
             if (timing_driven) {
-                WireId user_wire = ctx->getWireBelPin(
-                        load_cell->bel, ctx->portPinFromId(load.port));
+                WireId user_wire = ctx->getWireBelPin(load_cell->bel, ctx->portPinFromId(load.port));
                 delay_t raw_wl = ctx->estimateDelay(drv_wire, user_wire);
-                float slack =
-                        ctx->getDelayNS(load.budget) - ctx->getDelayNS(raw_wl);
+                float slack = ctx->getDelayNS(load.budget) - ctx->getDelayNS(raw_wl);
                 if (slack < 0)
                     tns += slack;
                 worst_slack = std::min(slack, worst_slack);
@@ -351,11 +335,9 @@ class SAPlacer
         }
         if (timing_driven) {
             wirelength =
-                    wirelen_t((((ymax - ymin) + (xmax - xmin)) *
-                               std::min(5.0, (1.0 + std::exp(-worst_slack / 5)))));
+                    wirelen_t((((ymax - ymin) + (xmax - xmin)) * std::min(5.0, (1.0 + std::exp(-worst_slack / 5)))));
         } else {
-            wirelength =
-                    wirelen_t((ymax - ymin) + (xmax - xmin));
+            wirelength = wirelen_t((ymax - ymin) + (xmax - xmin));
         }
 
         return wirelength;
@@ -394,8 +376,7 @@ class SAPlacer
             ctx->bindBel(oldBel, other_cell->name, STRENGTH_WEAK);
         }
 
-        if (!checker->isBelLocationValid(newBel) ||
-            ((other != IdString() && !checker->isBelLocationValid(oldBel)))) {
+        if (!checker->isBelLocationValid(newBel) || ((other != IdString() && !checker->isBelLocationValid(oldBel)))) {
             ctx->unbindBel(newBel);
             if (other != IdString())
                 ctx->unbindBel(oldBel);
@@ -415,8 +396,7 @@ class SAPlacer
         delta = new_wirelength - curr_wirelength;
         n_move++;
         // SA acceptance criterea
-        if (delta < 0 || (temp > 1e-6 && (ctx->rng() / float(0x3fffffff)) <=
-                                                 std::exp(-delta / temp))) {
+        if (delta < 0 || (temp > 1e-6 && (ctx->rng() / float(0x3fffffff)) <= std::exp(-delta / temp))) {
             n_accept++;
             if (delta < 2)
                 improved = true;

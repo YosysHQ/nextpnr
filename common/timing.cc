@@ -25,12 +25,10 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-static delay_t follow_net(Context *ctx, NetInfo *net, int path_length,
-                          delay_t slack);
+static delay_t follow_net(Context *ctx, NetInfo *net, int path_length, delay_t slack);
 
 // Follow a path, returning budget to annotate
-static delay_t follow_user_port(Context *ctx, PortRef &user, int path_length,
-                                delay_t slack)
+static delay_t follow_user_port(Context *ctx, PortRef &user, int path_length, delay_t slack)
 {
     delay_t value;
     if (ctx->getPortClock(user.cell, user.port) != IdString()) {
@@ -45,13 +43,11 @@ static delay_t follow_user_port(Context *ctx, PortRef &user, int path_length,
             if (port.second.type == PORT_OUT) {
                 delay_t comb_delay;
                 // Look up delay through this path
-                bool is_path = ctx->getCellDelay(user.cell, user.port,
-                                                 port.first, comb_delay);
+                bool is_path = ctx->getCellDelay(user.cell, user.port, port.first, comb_delay);
                 if (is_path) {
                     NetInfo *net = port.second.net;
                     if (net) {
-                        delay_t path_budget = follow_net(ctx, net, path_length,
-                                                         slack - comb_delay);
+                        delay_t path_budget = follow_net(ctx, net, path_length, slack - comb_delay);
                         value = std::min(value, path_budget);
                     }
                 }
@@ -65,13 +61,11 @@ static delay_t follow_user_port(Context *ctx, PortRef &user, int path_length,
     return value;
 }
 
-static delay_t follow_net(Context *ctx, NetInfo *net, int path_length,
-                          delay_t slack)
+static delay_t follow_net(Context *ctx, NetInfo *net, int path_length, delay_t slack)
 {
     delay_t net_budget = slack / (path_length + 1);
     for (auto &usr : net->users) {
-        net_budget = std::min(
-                net_budget, follow_user_port(ctx, usr, path_length + 1, slack));
+        net_budget = std::min(net_budget, follow_user_port(ctx, usr, path_length + 1, slack));
     }
     return net_budget;
 }
@@ -91,11 +85,9 @@ void assign_budget(Context *ctx, float default_clock)
     for (auto cell : ctx->cells) {
         for (auto port : cell.second->ports) {
             if (port.second.type == PORT_OUT) {
-                IdString clock_domain =
-                        ctx->getPortClock(cell.second, port.first);
+                IdString clock_domain = ctx->getPortClock(cell.second, port.first);
                 if (clock_domain != IdString()) {
-                    delay_t slack = delay_t(
-                            1.0e12 / default_clock); // TODO: clock constraints
+                    delay_t slack = delay_t(1.0e12 / default_clock); // TODO: clock constraints
                     if (port.second.net)
                         follow_net(ctx, port.second.net, 0, slack);
                 }
@@ -109,13 +101,13 @@ void assign_budget(Context *ctx, float default_clock)
             if (user.budget < 0)
                 log_warning("port %s.%s, connected to net '%s', has negative "
                             "timing budget of %fns\n",
-                            user.cell->name.c_str(ctx), user.port.c_str(ctx),
-                            net.first.c_str(ctx), ctx->getDelayNS(user.budget));
+                            user.cell->name.c_str(ctx), user.port.c_str(ctx), net.first.c_str(ctx),
+                            ctx->getDelayNS(user.budget));
             if (ctx->verbose)
                 log_info("port %s.%s, connected to net '%s', has "
                          "timing budget of %fns\n",
-                         user.cell->name.c_str(ctx), user.port.c_str(ctx),
-                         net.first.c_str(ctx), ctx->getDelayNS(user.budget));
+                         user.cell->name.c_str(ctx), user.port.c_str(ctx), net.first.c_str(ctx),
+                         ctx->getDelayNS(user.budget));
         }
     }
 

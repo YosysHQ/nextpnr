@@ -43,10 +43,7 @@ NEXTPNR_NAMESPACE_BEGIN
 // must be implemented in all architectures
 void arch_wrap_python();
 
-bool operator==(const PortRef &a, const PortRef &b)
-{
-    return (a.cell == b.cell) && (a.port == b.port);
-}
+bool operator==(const PortRef &a, const PortRef &b) { return (a.cell == b.cell) && (a.port == b.port); }
 
 // Load a JSON file into a design
 void parse_json_shim(std::string filename, Context &d)
@@ -75,9 +72,7 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
             .def_readwrite("y2", &GraphicElement::y2)
             .def_readwrite("text", &GraphicElement::text);
 
-    class_<PortRef>("PortRef")
-            .def_readwrite("cell", &PortRef::cell)
-            .def_readwrite("port", &PortRef::port);
+    class_<PortRef>("PortRef").def_readwrite("cell", &PortRef::cell).def_readwrite("port", &PortRef::port);
 
     class_<NetInfo, NetInfo *>("NetInfo")
             .def_readwrite("name", &NetInfo::name)
@@ -88,8 +83,7 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
 
     WRAP_MAP(decltype(NetInfo::attrs), "IdStrMap");
 
-    class_<std::vector<PortRef>>("PortRefVector")
-            .def(vector_indexing_suite<std::vector<PortRef>>());
+    class_<std::vector<PortRef>>("PortRefVector").def(vector_indexing_suite<std::vector<PortRef>>());
 
     enum_<PortType>("PortType")
             .value("PORT_IN", PORT_IN)
@@ -125,17 +119,13 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
     def("load_design", load_design_shim);
 
     class_<IdString>("IdString")
-            .def("__str__", &IdString::global_str,
-                 return_value_policy<copy_const_reference>())
+            .def("__str__", &IdString::global_str, return_value_policy<copy_const_reference>())
             .def(self < self)
             .def(self == self);
     arch_wrap_python();
 }
 
-void arch_appendinittab()
-{
-    PyImport_AppendInittab(TOSTRING(MODULE_NAME), PYINIT_MODULE_NAME);
-}
+void arch_appendinittab() { PyImport_AppendInittab(TOSTRING(MODULE_NAME), PYINIT_MODULE_NAME); }
 
 static wchar_t *program;
 

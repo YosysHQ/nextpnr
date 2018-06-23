@@ -39,8 +39,7 @@ class PlaceValidityChecker
     bool isBelLocationValid(BelId bel);
 
   private:
-    bool logicCellsCompatible(const Context *ctx,
-                              const std::vector<const CellInfo *> &cells);
+    bool logicCellsCompatible(const Context *ctx, const std::vector<const CellInfo *> &cells);
     Context *ctx;
     IdString id_icestorm_lc, id_sb_io, id_sb_gb;
     IdString id_cen, id_clk, id_sr;
