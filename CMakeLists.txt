@@ -12,6 +12,11 @@ set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_FLAGS_DEBUG "-Wall -fPIC -ggdb")
 set(CMAKE_CXX_FLAGS_RELEASE "-Wall -fPIC -O3 -g")
 set(CMAKE_DEFIN)
+
+set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/3rdparty/sanitizers-cmake/cmake" ${CMAKE_MODULE_PATH})
+
+find_package(Sanitizers)
+
 # List of Boost libraries to include
 set(boost_libs filesystem thread program_options)
 
@@ -134,6 +139,7 @@ foreach (family ${FAMILIES})
 
         add_executable(nextpnr-${family}-test ${${ufamily}_TEST_FILES} ${COMMON_FILES} ${${ufamily}_FILES})
         target_link_libraries(nextpnr-${family}-test PRIVATE gtest_main)
+        add_sanitizers(nextpnr-${family}-test)
 
         add_test(${family}-test ${CMAKE_CURRENT_BINARY_DIR}/nextpnr-${family}-test)
     endif()
@@ -156,6 +162,7 @@ foreach (family ${FAMILIES})
         target_include_directories(${target} PRIVATE ${family}/ generated/)
         target_compile_definitions(${target} PRIVATE NEXTPNR_NAMESPACE=nextpnr_${family} ARCH_${ufamily} ARCHNAME=${family})
         target_link_libraries(${target} LINK_PUBLIC ${Boost_LIBRARIES})
+        add_sanitizers(${target})
         if (BUILD_PYTHON)
             target_link_libraries(${target} LINK_PUBLIC ${PYTHON_LIBRARIES})
         endif()
@@ -183,3 +190,8 @@ add_custom_target(
 unset(BUILD_GUI CACHE)
 unset(BUILD_PYTHON CACHE)
 unset(BUILD_TESTS CACHE)
+unset(SANITIZE_ADDRESS CACHE)
+unset(SANITIZE_MEMORY CACHE)
+unset(SANITIZE_THREAD CACHE)
+unset(SANITIZE_UNDEFINED CACHE)
+unset(SANITIZE_LINK_STATIC CACHE)
