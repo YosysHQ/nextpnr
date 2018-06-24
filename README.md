@@ -41,7 +41,7 @@ Testing
  - To build test binaries as well, run `cmake -DBUILD_TESTS=OFF .` and after run `make tests` to run them, or you can run separate binaries.
  - To use code sanitizers use:
     - cmake . -DSANITIZE_ADDRESS=ON
-    - cmake . -DSANITIZE_MEMORY=ON -DCMAKE_C_COMPILER=clang
+    - cmake . -DSANITIZE_MEMORY=ON -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
     - cmake . -DSANITIZE_THREAD=ON
     - cmake . -DSANITIZE_UNDEFINED=ON
     
