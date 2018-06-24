@@ -28,10 +28,23 @@ Building
  - Use Make to run the build itself
     - For all binary targets, just run `make`
     - For just the iCE40 CLI&GUI binary, run `make nextpnr-ice40`
+    - To build binary without Python support, run `cmake -DBUILD_PYTHON=OFF .`
+    - To build binary without GUI, run `cmake -DBUILD_GUI=OFF .`
+    - For minimal binary without Python and GUI, run `cmake -DBUILD_PYTHON=OFF -DBUILD_GUI=OFF .`
     - For just the iCE40 Python module, run `make nextpnrpy_ice40`
     - Using too many parallel jobs may lead to out-of-memory issues due to the significant memory needed to build the chipdbs
     - To install nextpnr, run `make install`
 
+Testing
+-------
+
+ - To build test binaries as well, run `cmake -DBUILD_TESTS=OFF .` and after run `make tests` to run them, or you can run separate binaries.
+ - To use code sanitizers use:
+    - cmake . -DSANITIZE_ADDRESS=ON
+    - cmake . -DSANITIZE_MEMORY=ON -DCMAKE_C_COMPILER=clang
+    - cmake . -DSANITIZE_THREAD=ON
+    - cmake . -DSANITIZE_UNDEFINED=ON
+    
 Running
 --------
 
