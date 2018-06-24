@@ -79,6 +79,9 @@ struct Arch : BaseCtx
     virtual IdString id(const std::string &s) const { abort(); }
     virtual IdString id(const char *s) const { abort(); }
 
+    IdString archId() const { return id("dummy"); }
+    IdString archArgsToId(ArchArgs args) const { return id("none"); }
+
     IdString belTypeToId(BelType type) const { return type; }
     IdString portPinToId(PortPin type) const { return type; }
 

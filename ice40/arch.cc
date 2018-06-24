@@ -196,6 +196,25 @@ std::string Arch::getChipName()
 
 // -----------------------------------------------------------------------
 
+IdString Arch::archArgsToId(ArchArgs args) const
+{
+    if (args.type == ArchArgs::LP384)
+        return id("lp384");
+    if (args.type == ArchArgs::LP1K)
+        return id("lp1k");
+    if (args.type == ArchArgs::HX1K)
+        return id("hx1k");
+    if (args.type == ArchArgs::UP5K)
+        return id("up5k");
+    if (args.type == ArchArgs::LP8K)
+        return id("lp8k");
+    if (args.type == ArchArgs::HX8K)
+        return id("hx8k");
+    return IdString();
+}
+
+// -----------------------------------------------------------------------
+
 BelId Arch::getBelByName(IdString name) const
 {
     BelId ret;

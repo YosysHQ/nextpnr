@@ -484,6 +484,9 @@ struct Arch : BaseCtx
 
     std::string getChipName();
 
+    IdString archId() const { return id("ice40"); }
+    IdString archArgsToId(ArchArgs args) const;
+
     IdString belTypeToId(BelType type) const;
     BelType belTypeFromId(IdString id) const;
 

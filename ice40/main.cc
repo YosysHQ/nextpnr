@@ -30,6 +30,8 @@
 
 #include <boost/filesystem/convenience.hpp>
 #include <boost/program_options.hpp>
+#include <boost/property_tree/json_parser.hpp>
+#include <boost/property_tree/ptree.hpp>
 #include <fstream>
 #include <iostream>
 #include "bitstream.h"
@@ -67,6 +69,7 @@ int main(int argc, char *argv[])
 {
     try {
         namespace po = boost::program_options;
+        namespace pt = boost::property_tree;
         int rc = 0;
         std::string str;
 
@@ -103,6 +106,8 @@ int main(int argc, char *argv[])
         options.add_options()("freq", po::value<double>(), "set target frequency for design in MHz");
         options.add_options()("no-tmdriv", "disable timing-driven placement");
         options.add_options()("package", po::value<std::string>(), "set device package");
+        options.add_options()("save", po::value<std::string>(), "project file to write");
+        options.add_options()("load", po::value<std::string>(), "project file to read");
 
         po::variables_map vm;
         try {
@@ -131,6 +136,50 @@ int main(int argc, char *argv[])
             std::cout << boost::filesystem::basename(argv[0]) << " -- Next Generation Place and Route (git "
                                                                  "sha1 " GIT_COMMIT_HASH_STR ")\n";
             return 1;
+        }
+
+        if (vm.count("load")) {
+            try {
+                pt::ptree root;
+                std::string filename = vm["load"].as<std::string>();
+                pt::read_json(filename, root);
+                log_info("Loading project %s...\n", filename.c_str());
+                log_break();
+                vm.clear();
+
+                int version = root.get<int>("project.version");
+                if (version != 1)
+                    log_error("Wrong project format version.\n");
+
+                std::string arch_name = root.get<std::string>("project.arch.name");
+                if (arch_name != "ice40")
+                    log_error("Unsuported project architecture.\n");
+
+                std::string arch_type = root.get<std::string>("project.arch.type");
+                vm.insert(std::make_pair(arch_type, po::variable_value()));
+
+                std::string arch_package = root.get<std::string>("project.arch.package");
+                vm.insert(std::make_pair("package", po::variable_value(arch_package, false)));
+
+                auto project = root.get_child("project");
+                if (project.count("input")) {
+                    auto input = project.get_child("input");
+                    if (input.count("json"))
+                        vm.insert(std::make_pair("json", po::variable_value(input.get<std::string>("json"), false)));
+                    if (input.count("pcf"))
+                        vm.insert(std::make_pair("pcf", po::variable_value(input.get<std::string>("pcf"), false)));
+                }
+                if (project.count("params")) {
+                    auto params = project.get_child("params");
+                    if (params.count("freq"))
+                        vm.insert(std::make_pair("freq", po::variable_value(params.get<double>("freq"), false)));
+                    if (params.count("seed"))
+                        vm.insert(std::make_pair("seed", po::variable_value(params.get<int>("seed"), false)));
+                }
+                po::notify(vm);
+            } catch (...) {
+                log_error("Error loading project file.\n");
+            }
         }
 
         ArchArgs chipArgs;
@@ -192,6 +241,28 @@ int main(int argc, char *argv[])
 
         if (vm.count("package"))
             chipArgs.package = vm["package"].as<std::string>();
+
+        if (vm.count("save")) {
+            Context ctx(chipArgs);
+            std::string filename = vm["save"].as<std::string>();
+            std::ofstream f(filename);
+            pt::ptree root;
+            root.put("project.version", 1);
+            root.put("project.name", boost::filesystem::basename(filename));
+            root.put("project.arch.name", ctx.archId().c_str(&ctx));
+            root.put("project.arch.type", ctx.archArgsToId(chipArgs).c_str(&ctx));
+            root.put("project.arch.package", chipArgs.package);
+            if (vm.count("json"))
+                root.put("project.input.json", vm["json"].as<std::string>());
+            if (vm.count("pcf"))
+                root.put("project.input.pcf", vm["pcf"].as<std::string>());
+            if (vm.count("freq"))
+                root.put("project.params.freq", vm["freq"].as<double>());
+            if (vm.count("seed"))
+                root.put("project.params.seed", vm["seed"].as<int>());
+            pt::write_json(f, root);
+            return 1;
+        }
 
         Context ctx(chipArgs);
 
