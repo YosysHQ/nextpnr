@@ -61,7 +61,8 @@ std::vector<std::vector<CellInfo *>> find_chains(const Context *ctx, F1 cell_typ
     return chains;
 }
 
-static void get_chain_midpoint(const Context *ctx, const std::vector<CellInfo *> &chain, float &x, float &y) {
+static void get_chain_midpoint(const Context *ctx, const std::vector<CellInfo *> &chain, float &x, float &y)
+{
     float total_x = 0, total_y = 0;
     int N = 0;
     for (auto cell : chain) {
@@ -79,38 +80,85 @@ static void get_chain_midpoint(const Context *ctx, const std::vector<CellInfo *>
     y = total_y / N;
 }
 
-static CellInfo *make_carry_pass_out(Context *ctx, PortInfo &cout_port) {
-    assert(cout_port.net != nullptr);
-    CellInfo *lc = create_ice_cell(ctx, ctx->id("ICESTORM_LC"));
-    lc->params[ctx->id("LUT_INIT")] = "65280"; // 0xff00: O = I3
-    lc->ports.at(ctx->id("O")).net = cout_port.net;
-    NetInfo *co_i3_net = new NetInfo();
-    co_i3_net->name = ctx->id(lc->name.str(ctx) + "$I3");
-    co_i3_net->driver = cout_port.net->driver;
-    PortRef i3_r;
-    i3_r.port = ctx->id("I3");
-    i3_r.cell = lc;
-    co_i3_net->users.push_back(i3_r);
-    PortRef o_r;
-    o_r.port = ctx->id("O");
-    o_r.cell = lc;
-    cout_port.net->driver = o_r;
-    lc->ports.at(ctx->id("I3")).net = co_i3_net;
-    return lc;
-}
+class PlacementLegaliser
+{
+  public:
+    PlacementLegaliser(Context *ctx) : ctx(ctx){};
+    bool legalise()
+    {
+        bool legalised_carries = legalise_carries();
+        if (!legalised_carries && !ctx->force)
+            return false;
+        return legalised_carries;
+    }
+
+  private:
+    bool legalise_carries()
+    {
+        std::vector<std::vector<CellInfo *>> carry_chains = find_chains(
+                ctx, is_lc,
+                [](const Context *ctx, const CellInfo *cell) {
+                    return net_driven_by(ctx, cell->ports.at(ctx->id("CIN")).net, is_lc, ctx->id("COUT"));
+                },
+                [](const Context *ctx, const CellInfo *cell) {
+                    return net_only_drives(ctx, cell->ports.at(ctx->id("COUT")).net, is_lc, ctx->id("CIN"), false);
+                });
+        // TODO
+        return true;
+    }
+
+    CellInfo *make_carry_pass_out(PortInfo &cout_port)
+    {
+        assert(cout_port.net != nullptr);
+        CellInfo *lc = create_ice_cell(ctx, ctx->id("ICESTORM_LC"));
+        lc->params[ctx->id("LUT_INIT")] = "65280"; // 0xff00: O = I3
+        lc->ports.at(ctx->id("O")).net = cout_port.net;
+        NetInfo *co_i3_net = new NetInfo();
+        co_i3_net->name = ctx->id(lc->name.str(ctx) + "$I3");
+        co_i3_net->driver = cout_port.net->driver;
+        PortRef i3_r;
+        i3_r.port = ctx->id("I3");
+        i3_r.cell = lc;
+        co_i3_net->users.push_back(i3_r);
+        PortRef o_r;
+        o_r.port = ctx->id("O");
+        o_r.cell = lc;
+        cout_port.net->driver = o_r;
+        lc->ports.at(ctx->id("I3")).net = co_i3_net;
+        ctx->cells[lc->name] = lc;
+        createdCells.insert(lc->name);
+        return lc;
+    }
+
+    CellInfo *make_carry_feed_in(CellInfo *cin_cell, PortInfo &cin_port)
+    {
+        assert(cin_port.net != nullptr);
+        CellInfo *lc = create_ice_cell(ctx, ctx->id("ICESTORM_LC"));
+        lc->params[ctx->id("CARRY_ENABLE")] = "1";
+        lc->params[ctx->id("CIN_CONST")] = "1";
+        lc->params[ctx->id("CIN_SET")] = "1";
+        lc->ports.at(ctx->id("I1")).net = cin_port.net;
+        cin_port.net->users.erase(std::remove_if(cin_port.net->users.begin(), cin_port.net->users.end(),
+                                                 [cin_cell, cin_port](const PortRef &usr) {
+                                                     return usr.cell == cin_cell && usr.port == cin_port.name;
+                                                 }));
+        NetInfo *out_net = new NetInfo();
+        out_net->name = ctx->id(lc->name.str(ctx) + "$O");
+
+        ctx->cells[lc->name] = lc;
+        createdCells.insert(lc->name);
+        return lc;
+    }
+
+    Context *ctx;
+    std::unordered_set<IdString> rippedCells;
+    std::unordered_set<IdString> createdCells;
+};
 
 bool legalise_design(Context *ctx)
 {
-    std::vector<std::vector<CellInfo *>> carry_chains = find_chains(
-            ctx, is_lc,
-            [](const Context *ctx, const CellInfo *cell) {
-                return net_driven_by(ctx, cell->ports.at(ctx->id("CIN")).net, is_lc, ctx->id("COUT"));
-            },
-            [](const Context *ctx, const CellInfo *cell) {
-                return net_only_drives(ctx, cell->ports.at(ctx->id("COUT")).net, is_lc, ctx->id("CIN"), false);
-            });
-    // TODO
-    return true;
+    PlacementLegaliser lg(ctx);
+    return lg.legalise();
 }
 
 NEXTPNR_NAMESPACE_END
