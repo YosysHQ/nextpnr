@@ -207,6 +207,18 @@ struct BaseCtx
         IdString::initialize_add(this, "", 0);
         IdString::initialize_arch(this);
     }
+    
+    ~BaseCtx()
+    {
+        for(auto &item : nets) {
+            delete item.second;
+        }
+        for(auto &item : cells) {
+            delete item.second;
+        }
+        delete idstring_str_to_idx;
+        delete idstring_idx_to_str;
+    }
 };
 
 NEXTPNR_NAMESPACE_END

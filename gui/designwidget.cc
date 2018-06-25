@@ -227,7 +227,6 @@ void DesignWidget::prepareMenu(const QPoint &pos)
     QMenu menu(this);
     menu.addAction(selectAction);
 
-    QPoint pt(pos);
     menu.exec(tree->mapToGlobal(pos));
 }
 
