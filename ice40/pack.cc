@@ -263,12 +263,16 @@ static void pack_constants(Context *ctx)
     for (auto net : sorted(ctx->nets)) {
         NetInfo *ni = net.second;
         if (ni->driver.cell != nullptr && ni->driver.cell->type == ctx->id("GND")) {
+            IdString drv_cell = ni->driver.cell->name;
             set_net_constant(ctx, ni, gnd_net, false);
             gnd_used = true;
             dead_nets.push_back(net.first);
+            ctx->cells.erase(drv_cell);
         } else if (ni->driver.cell != nullptr && ni->driver.cell->type == ctx->id("VCC")) {
+            IdString drv_cell = ni->driver.cell->name;
             set_net_constant(ctx, ni, vcc_net, true);
             dead_nets.push_back(net.first);
+            ctx->cells.erase(drv_cell);
         }
     }
 
@@ -284,8 +288,9 @@ static void pack_constants(Context *ctx)
     ctx->cells[vcc_cell->name] = vcc_cell;
     ctx->nets[vcc_net->name] = vcc_net;
 
-    for (auto dn : dead_nets)
+    for (auto dn : dead_nets) {
         ctx->nets.erase(dn);
+    }
 }
 
 static bool is_nextpnr_iob(Context *ctx, CellInfo *cell)
