@@ -66,11 +66,11 @@ std::vector<CellChain> find_chains(const Context *ctx, F1 cell_type_predicate, F
     return chains;
 }
 
-static void get_chain_midpoint(const Context *ctx, const std::vector<CellInfo *> &chain, float &x, float &y)
+static void get_chain_midpoint(const Context *ctx, const CellChain &chain, float &x, float &y)
 {
     float total_x = 0, total_y = 0;
     int N = 0;
-    for (auto cell : chain) {
+    for (auto cell : chain.cells) {
         if (cell->bel == BelId())
             continue;
         int bel_x, bel_y;
@@ -89,6 +89,7 @@ class PlacementLegaliser
 {
   public:
     PlacementLegaliser(Context *ctx) : ctx(ctx){};
+
     bool legalise()
     {
         bool legalised_carries = legalise_carries();
@@ -98,6 +99,27 @@ class PlacementLegaliser
     }
 
   private:
+    void init_logic_cells()
+    {
+        for (auto bel : ctx->getBels()) {
+            // Initialise the logic bels vector with unavailable invalid bels, dimensions [0..width][0..height[0..7]
+            logic_bels.resize(ctx->chip_info->width + 1,
+                              std::vector<std::vector<std::pair<BelId, bool>>>(
+                                      ctx->chip_info->height + 1,
+                                      std::vector<std::pair<BelId, bool>>(8, std::make_pair(BelId(), true))));
+            if (ctx->getBelType(bel) == TYPE_ICESTORM_LC) {
+                // Using the non-standard API here to get (x, y, z) rather than just (x, y)
+                auto bi = ctx->chip_info->bel_data[bel.index];
+                int x = bi.x, y = bi.y, z = bi.z;
+                IdString cell = ctx->getBoundBelCell(bel);
+                if (cell != IdString() && ctx->cells.at(cell)->belStrength >= STRENGTH_FIXED)
+                    logic_bels.at(x).at(y).at(z) = std::make_pair(bel, true);
+                else
+                    logic_bels.at(x).at(y).at(z) = std::make_pair(bel, false);
+            }
+        }
+    }
+
     bool legalise_carries()
     {
         std::vector<CellChain> carry_chains = find_chains(
@@ -108,13 +130,28 @@ class PlacementLegaliser
                 [](const Context *ctx, const CellInfo *cell) {
                     return net_only_drives(ctx, cell->ports.at(ctx->id("COUT")).net, is_lc, ctx->id("CIN"), false);
                 });
-        for (auto chain : carry_chains) {
+        int width = ctx->chip_info->width, height = ctx->chip_info->height;
+        for (auto &base_chain : carry_chains) {
+            std::vector<CellChain> split_chains = split_carry_chain(base_chain);
+            for (auto &chain : split_chains) {
+                float mid_x, mid_y;
+                get_chain_midpoint(ctx, chain, mid_x, mid_y);
+                float base_x = mid_x, base_y = mid_y - (chain.cells.size() / 16.0f);
+                // Find Bel meeting requirements closest to the target base
+            }
         }
         return true;
     }
 
+    // Find Bel closest to a location, meeting chain requirements
+    BelId find_closest_bel(float x, float y, int chain_size)
+    {
+        // TODO
+        return BelId();
+    }
+
     // Split a carry chain into multiple legal chains
-    std::vector<CellChain> split_carry_chain(Context *ctx, CellChain &carryc)
+    std::vector<CellChain> split_carry_chain(CellChain &carryc)
     {
         bool start_of_chain = true;
         std::vector<CellChain> chains;
@@ -213,6 +250,8 @@ class PlacementLegaliser
     Context *ctx;
     std::unordered_set<IdString> rippedCells;
     std::unordered_set<IdString> createdCells;
+    // Go from X and Y position to logic cells, setting occupied to true if a Bel is unavailable
+    std::vector<std::vector<std::vector<std::pair<BelId, bool>>>> logic_bels;
 };
 
 bool legalise_design(Context *ctx)
