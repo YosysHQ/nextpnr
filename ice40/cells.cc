@@ -227,7 +227,7 @@ void nxio_to_sb(Context *ctx, CellInfo *nxio, CellInfo *sbio)
     }
 }
 
-bool is_clock_port(const Context *ctx, const PortRef &port)
+bool is_clock_port(const BaseCtx *ctx, const PortRef &port)
 {
     if (port.cell == nullptr)
         return false;
@@ -240,7 +240,7 @@ bool is_clock_port(const Context *ctx, const PortRef &port)
     return false;
 }
 
-bool is_reset_port(const Context *ctx, const PortRef &port)
+bool is_reset_port(const BaseCtx *ctx, const PortRef &port)
 {
     if (port.cell == nullptr)
         return false;
@@ -251,7 +251,7 @@ bool is_reset_port(const Context *ctx, const PortRef &port)
     return false;
 }
 
-bool is_enable_port(const Context *ctx, const PortRef &port)
+bool is_enable_port(const BaseCtx *ctx, const PortRef &port)
 {
     if (port.cell == nullptr)
         return false;

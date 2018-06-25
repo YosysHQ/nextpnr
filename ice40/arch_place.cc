@@ -18,18 +18,11 @@
  *
  */
 
-#include "arch_place.h"
 #include "cells.h"
+#include "nextpnr.h"
 #include "util.h"
 
 NEXTPNR_NAMESPACE_BEGIN
-
-PlaceValidityChecker::PlaceValidityChecker(Context *ctx)
-        : ctx(ctx), id_icestorm_lc(ctx, "ICESTORM_LC"), id_sb_io(ctx, "SB_IO"), id_sb_gb(ctx, "SB_GB"),
-          id_cen(ctx, "CEN"), id_clk(ctx, "CLK"), id_sr(ctx, "SR"), id_i0(ctx, "I0"), id_i1(ctx, "I1"),
-          id_i2(ctx, "I2"), id_i3(ctx, "I3"), id_dff_en(ctx, "DFF_ENABLE"), id_neg_clk(ctx, "NEG_CLK")
-{
-}
 
 static const NetInfo *get_net_or_empty(const CellInfo *cell, const IdString port)
 {
@@ -40,7 +33,7 @@ static const NetInfo *get_net_or_empty(const CellInfo *cell, const IdString port
         return nullptr;
 };
 
-bool PlaceValidityChecker::logicCellsCompatible(const Context *ctx, const std::vector<const CellInfo *> &cells)
+bool Arch::logicCellsCompatible(const std::vector<const CellInfo *> &cells) const
 {
     bool dffs_exist = false, dffs_neg = false;
     const NetInfo *cen = nullptr, *clk = nullptr, *sr = nullptr;
@@ -54,11 +47,11 @@ bool PlaceValidityChecker::logicCellsCompatible(const Context *ctx, const std::v
                 clk = get_net_or_empty(cell, id_clk);
                 sr = get_net_or_empty(cell, id_sr);
 
-                if (!ctx->isGlobalNet(cen) && cen != nullptr)
+                if (!isGlobalNet(cen) && cen != nullptr)
                     locals_count++;
-                if (!ctx->isGlobalNet(clk) && clk != nullptr)
+                if (!isGlobalNet(clk) && clk != nullptr)
                     locals_count++;
-                if (!ctx->isGlobalNet(sr) && sr != nullptr)
+                if (!isGlobalNet(sr) && sr != nullptr)
                     locals_count++;
 
                 if (bool_or_default(cell->params, id_neg_clk)) {
@@ -91,57 +84,57 @@ bool PlaceValidityChecker::logicCellsCompatible(const Context *ctx, const std::v
     return locals_count <= 32;
 }
 
-bool PlaceValidityChecker::isBelLocationValid(BelId bel)
+bool Arch::isBelLocationValid(BelId bel) const
 {
-    if (ctx->getBelType(bel) == TYPE_ICESTORM_LC) {
-        std::vector<const CellInfo *> cells;
-        for (auto bel_other : ctx->getBelsAtSameTile(bel)) {
-            IdString cell_other = ctx->getBoundBelCell(bel_other);
+    if (getBelType(bel) == TYPE_ICESTORM_LC) {
+        std::vector<const CellInfo *> bel_cells;
+        for (auto bel_other : getBelsAtSameTile(bel)) {
+            IdString cell_other = getBoundBelCell(bel_other);
             if (cell_other != IdString()) {
-                const CellInfo *ci_other = ctx->cells[cell_other];
-                cells.push_back(ci_other);
+                const CellInfo *ci_other = cells.at(cell_other);
+                bel_cells.push_back(ci_other);
             }
         }
-        return logicCellsCompatible(ctx, cells);
+        return logicCellsCompatible(bel_cells);
     } else {
-        IdString cellId = ctx->getBoundBelCell(bel);
+        IdString cellId = getBoundBelCell(bel);
         if (cellId == IdString())
             return true;
         else
-            return isValidBelForCell(ctx->cells.at(cellId), bel);
+            return isValidBelForCell(cells.at(cellId), bel);
     }
 }
 
-bool PlaceValidityChecker::isValidBelForCell(CellInfo *cell, BelId bel)
+bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const
 {
     if (cell->type == id_icestorm_lc) {
-        assert(ctx->getBelType(bel) == TYPE_ICESTORM_LC);
+        assert(getBelType(bel) == TYPE_ICESTORM_LC);
 
-        std::vector<const CellInfo *> cells;
+        std::vector<const CellInfo *> bel_cells;
 
-        for (auto bel_other : ctx->getBelsAtSameTile(bel)) {
-            IdString cell_other = ctx->getBoundBelCell(bel_other);
-            if (cell_other != IdString()) {
-                const CellInfo *ci_other = ctx->cells[cell_other];
-                cells.push_back(ci_other);
+        for (auto bel_other : getBelsAtSameTile(bel)) {
+            IdString cell_other = getBoundBelCell(bel_other);
+            if (cell_other != IdString() && bel_other != bel) {
+                const CellInfo *ci_other = cells.at(cell_other);
+                bel_cells.push_back(ci_other);
             }
         }
 
-        cells.push_back(cell);
-        return logicCellsCompatible(ctx, cells);
+        bel_cells.push_back(cell);
+        return logicCellsCompatible(bel_cells);
     } else if (cell->type == id_sb_io) {
-        return ctx->getBelPackagePin(bel) != "";
+        return getBelPackagePin(bel) != "";
     } else if (cell->type == id_sb_gb) {
         bool is_reset = false, is_cen = false;
-        assert(cell->ports.at(ctx->id("GLOBAL_BUFFER_OUTPUT")).net != nullptr);
-        for (auto user : cell->ports.at(ctx->id("GLOBAL_BUFFER_OUTPUT")).net->users) {
-            if (is_reset_port(ctx, user))
+        assert(cell->ports.at(id_glb_buf_out).net != nullptr);
+        for (auto user : cell->ports.at(id_glb_buf_out).net->users) {
+            if (is_reset_port(this, user))
                 is_reset = true;
-            if (is_enable_port(ctx, user))
+            if (is_enable_port(this, user))
                 is_cen = true;
         }
-        IdString glb_net = ctx->getWireName(ctx->getWireBelPin(bel, PIN_GLOBAL_BUFFER_OUTPUT));
-        int glb_id = std::stoi(std::string("") + glb_net.str(ctx).back());
+        IdString glb_net = getWireName(getWireBelPin(bel, PIN_GLOBAL_BUFFER_OUTPUT));
+        int glb_id = std::stoi(std::string("") + glb_net.str(this).back());
         if (is_reset && is_cen)
             return false;
         else if (is_reset)

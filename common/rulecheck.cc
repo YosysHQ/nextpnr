@@ -15,8 +15,7 @@ bool check_all_nets_driven(Context *ctx)
         CellInfo *cell = cell_entry.second;
 
         if (debug)
-            log_info("  Examining cell \'%s\', of type \'%s\'\n",
-                     cell->name.c_str(ctx), cell->type.c_str(ctx));
+            log_info("  Examining cell \'%s\', of type \'%s\'\n", cell->name.c_str(ctx), cell->type.c_str(ctx));
         for (auto port_entry : cell->ports) {
             PortInfo &port = port_entry.second;
 
@@ -29,14 +28,12 @@ bool check_all_nets_driven(Context *ctx)
 
             if (port.net == NULL) {
                 if (debug)
-                    log_warning(
-                            "    Port \'%s\' in cell \'%s\' is unconnected\n",
-                            port.name.c_str(ctx), cell->name.c_str(ctx));
+                    log_warning("    Port \'%s\' in cell \'%s\' is unconnected\n", port.name.c_str(ctx),
+                                cell->name.c_str(ctx));
             } else {
                 assert(port.net);
                 if (debug)
-                    log_info("    Checking for a net named \'%s\'\n",
-                             port.net->name.c_str(ctx));
+                    log_info("    Checking for a net named \'%s\'\n", port.net->name.c_str(ctx));
                 assert(ctx->nets.count(port.net->name) > 0);
             }
         }
@@ -46,23 +43,19 @@ bool check_all_nets_driven(Context *ctx)
         NetInfo *net = net_entry.second;
 
         assert(net->name == net_entry.first);
-        if ((net->driver.cell != NULL) &&
-            (net->driver.cell->type != ctx->id("GND")) &&
+        if ((net->driver.cell != NULL) && (net->driver.cell->type != ctx->id("GND")) &&
             (net->driver.cell->type != ctx->id("VCC"))) {
 
             if (debug)
-                log_info("    Checking for a driver cell named \'%s\'\n",
-                         net->driver.cell->name.c_str(ctx));
+                log_info("    Checking for a driver cell named \'%s\'\n", net->driver.cell->name.c_str(ctx));
             assert(ctx->cells.count(net->driver.cell->name) > 0);
         }
 
         for (auto user : net->users) {
-            if ((user.cell != NULL) && (user.cell->type != ctx->id("GND")) &&
-                (user.cell->type != ctx->id("VCC"))) {
+            if ((user.cell != NULL) && (user.cell->type != ctx->id("GND")) && (user.cell->type != ctx->id("VCC"))) {
 
                 if (debug)
-                    log_info("    Checking for a user   cell named \'%s\'\n",
-                             user.cell->name.c_str(ctx));
+                    log_info("    Checking for a user   cell named \'%s\'\n", user.cell->name.c_str(ctx));
                 assert(ctx->cells.count(user.cell->name) > 0);
             }
         }

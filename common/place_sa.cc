@@ -36,7 +36,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <vector>
-#include "arch_place.h"
 #include "log.h"
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -48,7 +47,6 @@ class SAPlacer
   public:
     SAPlacer(Context *ctx, bool timing_driven) : ctx(ctx), timing_driven(timing_driven)
     {
-        checker = new PlaceValidityChecker(ctx);
         int num_bel_types = 0;
         for (auto bel : ctx->getBels()) {
             int x, y;
@@ -222,7 +220,7 @@ class SAPlacer
         // Final post-pacement validitiy check
         for (auto bel : ctx->getBels()) {
             IdString cell = ctx->getBoundBelCell(bel);
-            if (!checker->isBelLocationValid(bel)) {
+            if (!ctx->isBelLocationValid(bel)) {
                 std::string cell_text = "no cell";
                 if (cell != IdString())
                     cell_text = std::string("cell '") + cell.str(ctx) + "'";
@@ -257,7 +255,7 @@ class SAPlacer
             }
             BelType targetType = ctx->belTypeFromId(cell->type);
             for (auto bel : ctx->getBels()) {
-                if (ctx->getBelType(bel) == targetType && checker->isValidBelForCell(cell, bel)) {
+                if (ctx->getBelType(bel) == targetType && ctx->isValidBelForCell(cell, bel)) {
                     if (ctx->checkBelAvail(bel)) {
                         uint64_t score = ctx->rng64();
                         if (score <= best_score) {
@@ -376,7 +374,7 @@ class SAPlacer
             ctx->bindBel(oldBel, other_cell->name, STRENGTH_WEAK);
         }
 
-        if (!checker->isBelLocationValid(newBel) || ((other != IdString() && !checker->isBelLocationValid(oldBel)))) {
+        if (!ctx->isBelLocationValid(newBel) || ((other != IdString() && !ctx->isBelLocationValid(oldBel)))) {
             ctx->unbindBel(newBel);
             if (other != IdString())
                 ctx->unbindBel(oldBel);
@@ -457,7 +455,6 @@ class SAPlacer
     std::unordered_map<BelType, int> bel_types;
     std::vector<std::vector<std::vector<std::vector<BelId>>>> fast_bels;
     std::unordered_set<BelId> locked_bels;
-    PlaceValidityChecker *checker;
 };
 
 bool place_design_sa(Context *ctx, bool timing_driven)

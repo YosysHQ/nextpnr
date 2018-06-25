@@ -815,7 +815,26 @@ struct Arch : BaseCtx
     // Return true if a port is a net
     bool isGlobalNet(const NetInfo *net) const;
 
+    // -------------------------------------------------
+
+    // Perform placement validity checks, returning false on failure (all implemented in arch_place.cc)
+
+    // Whether or not a given cell can be placed at a given Bel
+    // This is not intended for Bel type checks, but finer-grained constraints
+    // such as conflicting set/reset signals, etc
+    bool isValidBelForCell(CellInfo *cell, BelId bel) const;
+
+    // Return true whether all Bels at a given location are valid
+    bool isBelLocationValid(BelId bel) const;
+
+    // Helper function for above
+    bool logicCellsCompatible(const std::vector<const CellInfo *> &cells) const;
+
     IdString id_glb_buf_out;
+    IdString id_icestorm_lc, id_sb_io, id_sb_gb;
+    IdString id_cen, id_clk, id_sr;
+    IdString id_i0, id_i1, id_i2, id_i3;
+    IdString id_dff_en, id_neg_clk;
 };
 
 NEXTPNR_NAMESPACE_END

@@ -163,6 +163,18 @@ Arch::Arch(ArchArgs args) : args(args)
 
     // Initialise regularly used IDStrings for performance
     id_glb_buf_out = id("GLOBAL_BUFFER_OUTPUT");
+    id_icestorm_lc = id("ICESTORM_LC");
+    id_sb_io = id("SB_IO");
+    id_sb_gb = id("SB_GB");
+    id_cen = id("CEN");
+    id_clk = id("CLK");
+    id_sr = id("SR");
+    id_i0 = id("I0");
+    id_i1 = id("I1");
+    id_i2 = id("I2");
+    id_i3 = id("I3");
+    id_dff_en = id("DFF_ENABLE");
+    id_neg_clk = id("NEG_CLK");
 }
 
 // -----------------------------------------------------------------------
