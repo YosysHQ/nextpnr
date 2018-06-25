@@ -34,7 +34,7 @@ std::vector<std::vector<CellInfo *>> find_chains(const Context *ctx, F1 cell_typ
 {
     std::set<IdString> chained;
     std::vector<std::vector<CellInfo *>> chains;
-    for (auto cell : ctx->cells) {
+    for (auto cell : sorted(ctx->cells)) {
         if (chained.find(cell.first) != chained.end())
             continue;
         CellInfo *ci = cell.second;
@@ -59,7 +59,45 @@ std::vector<std::vector<CellInfo *>> find_chains(const Context *ctx, F1 cell_typ
         }
     }
     return chains;
-};
+}
+
+static void get_chain_midpoint(const Context *ctx, const std::vector<CellInfo *> &chain, float &x, float &y) {
+    float total_x = 0, total_y = 0;
+    int N = 0;
+    for (auto cell : chain) {
+        if (cell->bel == BelId())
+            continue;
+        int bel_x, bel_y;
+        bool bel_gb;
+        ctx->estimatePosition(cell->bel, bel_x, bel_y, bel_gb);
+        total_x += bel_x;
+        total_y += bel_y;
+        N++;
+    }
+    assert(N > 0);
+    x = total_x / N;
+    y = total_y / N;
+}
+
+static CellInfo *make_carry_pass_out(Context *ctx, PortInfo &cout_port) {
+    assert(cout_port.net != nullptr);
+    CellInfo *lc = create_ice_cell(ctx, ctx->id("ICESTORM_LC"));
+    lc->params[ctx->id("LUT_INIT")] = "65280"; // 0xff00: O = I3
+    lc->ports.at(ctx->id("O")).net = cout_port.net;
+    NetInfo *co_i3_net = new NetInfo();
+    co_i3_net->name = ctx->id(lc->name.str(ctx) + "$I3");
+    co_i3_net->driver = cout_port.net->driver;
+    PortRef i3_r;
+    i3_r.port = ctx->id("I3");
+    i3_r.cell = lc;
+    co_i3_net->users.push_back(i3_r);
+    PortRef o_r;
+    o_r.port = ctx->id("O");
+    o_r.cell = lc;
+    cout_port.net->driver = o_r;
+    lc->ports.at(ctx->id("I3")).net = co_i3_net;
+    return lc;
+}
 
 bool legalise_design(Context *ctx)
 {
