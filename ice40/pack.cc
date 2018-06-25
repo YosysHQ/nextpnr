@@ -276,11 +276,17 @@ static void pack_constants(Context *ctx)
     if (gnd_used) {
         ctx->cells[gnd_cell->name] = gnd_cell;
         ctx->nets[gnd_net->name] = gnd_net;
+    } else {
+        delete gnd_net;
+        delete gnd_cell;
     }
 
     if (vcc_used) {
         ctx->cells[vcc_cell->name] = vcc_cell;
         ctx->nets[vcc_net->name] = vcc_net;
+    } else {
+        delete vcc_net;
+        delete vcc_cell;
     }
 
     for (auto dn : dead_nets)
