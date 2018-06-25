@@ -236,6 +236,7 @@ NetInfo *ground_net(Context *ctx, NetInfo *net)
 
     cell->ports[port_info.name] = port_info;
 
+    ctx->cells[cell->name] = cell;
     return net;
 }
 
@@ -259,6 +260,7 @@ NetInfo *vcc_net(Context *ctx, NetInfo *net)
 
     cell->ports[port_info.name] = port_info;
 
+    ctx->cells[cell->name] = cell;
     return net;
 }
 
