@@ -79,8 +79,8 @@ class SAPlacer
 
         size_t placed_cells = 0;
         // Initial constraints placer
-        for (auto cell_entry : ctx->cells) {
-            CellInfo *cell = cell_entry.second;
+        for (auto& cell_entry : ctx->cells) {
+            CellInfo *cell = cell_entry.second.get();
             auto loc = cell->attrs.find(ctx->id("BEL"));
             if (loc != cell->attrs.end()) {
                 std::string loc_name = loc->second;
@@ -109,10 +109,10 @@ class SAPlacer
 
         // Sort to-place cells for deterministic initial placement
         std::vector<CellInfo *> autoplaced;
-        for (auto cell : ctx->cells) {
-            CellInfo *ci = cell.second;
+        for (auto& cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
             if (ci->bel == BelId()) {
-                autoplaced.push_back(cell.second);
+                autoplaced.push_back(cell.second.get());
             }
         }
         std::sort(autoplaced.begin(), autoplaced.end(), [](CellInfo *a, CellInfo *b) { return a->name < b->name; });
@@ -137,8 +137,8 @@ class SAPlacer
         // Calculate wirelength after initial placement
         curr_wirelength = 0;
         curr_tns = 0;
-        for (auto net : ctx->nets) {
-            wirelen_t wl = get_wirelength(net.second, curr_tns);
+        for (auto& net : ctx->nets) {
+            wirelen_t wl = get_wirelength(net.second.get(), curr_tns);
             wirelengths[net.first] = wl;
             curr_wirelength += wl;
         }
@@ -211,8 +211,8 @@ class SAPlacer
             // accumulating over time
             curr_wirelength = 0;
             curr_tns = 0;
-            for (auto net : ctx->nets) {
-                wirelen_t wl = get_wirelength(net.second, curr_tns);
+            for (auto& net : ctx->nets) {
+                wirelen_t wl = get_wirelength(net.second.get(), curr_tns);
                 wirelengths[net.first] = wl;
                 curr_wirelength += wl;
             }
@@ -266,7 +266,7 @@ class SAPlacer
                         uint64_t score = ctx->rng64();
                         if (score <= best_ripup_score) {
                             best_ripup_score = score;
-                            ripup_target = ctx->cells.at(ctx->getBoundBelCell(bel));
+                            ripup_target = ctx->cells.at(ctx->getBoundBelCell(bel)).get();
                             ripup_bel = bel;
                         }
                     }
@@ -354,7 +354,7 @@ class SAPlacer
         wirelen_t new_wirelength = 0, delta;
         ctx->unbindBel(oldBel);
         if (other != IdString()) {
-            other_cell = ctx->cells[other];
+            other_cell = ctx->cells[other].get();
             ctx->unbindBel(newBel);
         }
 

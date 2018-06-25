@@ -91,7 +91,7 @@ bool Arch::isBelLocationValid(BelId bel) const
         for (auto bel_other : getBelsAtSameTile(bel)) {
             IdString cell_other = getBoundBelCell(bel_other);
             if (cell_other != IdString()) {
-                const CellInfo *ci_other = cells.at(cell_other);
+                const CellInfo *ci_other = cells.at(cell_other).get();
                 bel_cells.push_back(ci_other);
             }
         }
@@ -101,7 +101,7 @@ bool Arch::isBelLocationValid(BelId bel) const
         if (cellId == IdString())
             return true;
         else
-            return isValidBelForCell(cells.at(cellId), bel);
+            return isValidBelForCell(cells.at(cellId).get(), bel);
     }
 }
 
@@ -115,7 +115,7 @@ bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const
         for (auto bel_other : getBelsAtSameTile(bel)) {
             IdString cell_other = getBoundBelCell(bel_other);
             if (cell_other != IdString() && bel_other != bel) {
-                const CellInfo *ci_other = cells.at(cell_other);
+                const CellInfo *ci_other = cells.at(cell_other).get();
                 bel_cells.push_back(ci_other);
             }
         }

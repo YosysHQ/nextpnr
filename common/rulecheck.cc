@@ -11,8 +11,8 @@ bool check_all_nets_driven(Context *ctx)
 
     log_info("Rule checker, Verifying pre-placed design\n");
 
-    for (auto cell_entry : ctx->cells) {
-        CellInfo *cell = cell_entry.second;
+    for (auto& cell_entry : ctx->cells) {
+        CellInfo *cell = cell_entry.second.get();
 
         if (debug)
             log_info("  Examining cell \'%s\', of type \'%s\'\n", cell->name.c_str(ctx), cell->type.c_str(ctx));
@@ -39,8 +39,8 @@ bool check_all_nets_driven(Context *ctx)
         }
     }
 
-    for (auto net_entry : ctx->nets) {
-        NetInfo *net = net_entry.second;
+    for (auto& net_entry : ctx->nets) {
+        NetInfo *net = net_entry.second.get();
 
         assert(net->name == net_entry.first);
         if ((net->driver.cell != NULL) && (net->driver.cell->type != ctx->id("GND")) &&

@@ -30,10 +30,10 @@ void add_port(const Context *ctx, CellInfo *cell, std::string name, PortType dir
     cell->ports[id] = PortInfo{id, nullptr, dir};
 }
 
-CellInfo *create_ice_cell(Context *ctx, IdString type, std::string name)
+std::unique_ptr<CellInfo> create_ice_cell(Context *ctx, IdString type, std::string name)
 {
     static int auto_idx = 0;
-    CellInfo *new_cell = new CellInfo();
+    std::unique_ptr<CellInfo> new_cell = std::unique_ptr<CellInfo>(new CellInfo());
     if (name.empty()) {
         new_cell->name = ctx->id("$nextpnr_" + type.str(ctx) + "_" + std::to_string(auto_idx++));
     } else {
@@ -50,84 +50,84 @@ CellInfo *create_ice_cell(Context *ctx, IdString type, std::string name)
         new_cell->params[ctx->id("CIN_CONST")] = "0";
         new_cell->params[ctx->id("CIN_SET")] = "0";
 
-        add_port(ctx, new_cell, "I0", PORT_IN);
-        add_port(ctx, new_cell, "I1", PORT_IN);
-        add_port(ctx, new_cell, "I2", PORT_IN);
-        add_port(ctx, new_cell, "I3", PORT_IN);
-        add_port(ctx, new_cell, "CIN", PORT_IN);
+        add_port(ctx, new_cell.get(), "I0", PORT_IN);
+        add_port(ctx, new_cell.get(), "I1", PORT_IN);
+        add_port(ctx, new_cell.get(), "I2", PORT_IN);
+        add_port(ctx, new_cell.get(), "I3", PORT_IN);
+        add_port(ctx, new_cell.get(), "CIN", PORT_IN);
 
-        add_port(ctx, new_cell, "CLK", PORT_IN);
-        add_port(ctx, new_cell, "CEN", PORT_IN);
-        add_port(ctx, new_cell, "SR", PORT_IN);
+        add_port(ctx, new_cell.get(), "CLK", PORT_IN);
+        add_port(ctx, new_cell.get(), "CEN", PORT_IN);
+        add_port(ctx, new_cell.get(), "SR", PORT_IN);
 
-        add_port(ctx, new_cell, "LO", PORT_OUT);
-        add_port(ctx, new_cell, "O", PORT_OUT);
-        add_port(ctx, new_cell, "OUT", PORT_OUT);
+        add_port(ctx, new_cell.get(), "LO", PORT_OUT);
+        add_port(ctx, new_cell.get(), "O", PORT_OUT);
+        add_port(ctx, new_cell.get(), "OUT", PORT_OUT);
     } else if (type == ctx->id("SB_IO")) {
         new_cell->params[ctx->id("PIN_TYPE")] = "0";
         new_cell->params[ctx->id("PULLUP")] = "0";
         new_cell->params[ctx->id("NEG_TRIGGER")] = "0";
         new_cell->params[ctx->id("IOSTANDARD")] = "SB_LVCMOS";
 
-        add_port(ctx, new_cell, "PACKAGE_PIN", PORT_INOUT);
+        add_port(ctx, new_cell.get(), "PACKAGE_PIN", PORT_INOUT);
 
-        add_port(ctx, new_cell, "LATCH_INPUT_VALUE", PORT_IN);
-        add_port(ctx, new_cell, "CLOCK_ENABLE", PORT_IN);
-        add_port(ctx, new_cell, "INPUT_CLK", PORT_IN);
-        add_port(ctx, new_cell, "OUTPUT_CLK", PORT_IN);
+        add_port(ctx, new_cell.get(), "LATCH_INPUT_VALUE", PORT_IN);
+        add_port(ctx, new_cell.get(), "CLOCK_ENABLE", PORT_IN);
+        add_port(ctx, new_cell.get(), "INPUT_CLK", PORT_IN);
+        add_port(ctx, new_cell.get(), "OUTPUT_CLK", PORT_IN);
 
-        add_port(ctx, new_cell, "OUTPUT_ENABLE", PORT_IN);
-        add_port(ctx, new_cell, "D_OUT_0", PORT_IN);
-        add_port(ctx, new_cell, "D_OUT_1", PORT_IN);
+        add_port(ctx, new_cell.get(), "OUTPUT_ENABLE", PORT_IN);
+        add_port(ctx, new_cell.get(), "D_OUT_0", PORT_IN);
+        add_port(ctx, new_cell.get(), "D_OUT_1", PORT_IN);
 
-        add_port(ctx, new_cell, "D_IN_0", PORT_OUT);
-        add_port(ctx, new_cell, "D_IN_1", PORT_OUT);
+        add_port(ctx, new_cell.get(), "D_IN_0", PORT_OUT);
+        add_port(ctx, new_cell.get(), "D_IN_1", PORT_OUT);
     } else if (type == ctx->id("ICESTORM_RAM")) {
         new_cell->params[ctx->id("NEG_CLK_W")] = "0";
         new_cell->params[ctx->id("NEG_CLK_R")] = "0";
         new_cell->params[ctx->id("WRITE_MODE")] = "0";
         new_cell->params[ctx->id("READ_MODE")] = "0";
 
-        add_port(ctx, new_cell, "RCLK", PORT_IN);
-        add_port(ctx, new_cell, "RCLKE", PORT_IN);
-        add_port(ctx, new_cell, "RE", PORT_IN);
+        add_port(ctx, new_cell.get(), "RCLK", PORT_IN);
+        add_port(ctx, new_cell.get(), "RCLKE", PORT_IN);
+        add_port(ctx, new_cell.get(), "RE", PORT_IN);
 
-        add_port(ctx, new_cell, "WCLK", PORT_IN);
-        add_port(ctx, new_cell, "WCLKE", PORT_IN);
-        add_port(ctx, new_cell, "WE", PORT_IN);
+        add_port(ctx, new_cell.get(), "WCLK", PORT_IN);
+        add_port(ctx, new_cell.get(), "WCLKE", PORT_IN);
+        add_port(ctx, new_cell.get(), "WE", PORT_IN);
 
         for (int i = 0; i < 16; i++) {
-            add_port(ctx, new_cell, "WDATA_" + std::to_string(i), PORT_IN);
-            add_port(ctx, new_cell, "MASK_" + std::to_string(i), PORT_IN);
-            add_port(ctx, new_cell, "RDATA_" + std::to_string(i), PORT_OUT);
+            add_port(ctx, new_cell.get(), "WDATA_" + std::to_string(i), PORT_IN);
+            add_port(ctx, new_cell.get(), "MASK_" + std::to_string(i), PORT_IN);
+            add_port(ctx, new_cell.get(), "RDATA_" + std::to_string(i), PORT_OUT);
         }
 
         for (int i = 0; i < 11; i++) {
-            add_port(ctx, new_cell, "RADDR_" + std::to_string(i), PORT_IN);
-            add_port(ctx, new_cell, "WADDR_" + std::to_string(i), PORT_IN);
+            add_port(ctx, new_cell.get(), "RADDR_" + std::to_string(i), PORT_IN);
+            add_port(ctx, new_cell.get(), "WADDR_" + std::to_string(i), PORT_IN);
         }
     } else if (type == ctx->id("ICESTORM_LFOSC")) {
-        add_port(ctx, new_cell, "CLKLFEN", PORT_IN);
-        add_port(ctx, new_cell, "CLKLFPU", PORT_IN);
-        add_port(ctx, new_cell, "CLKLF", PORT_OUT);
-        add_port(ctx, new_cell, "CLKLF_FABRIC", PORT_OUT);
+        add_port(ctx, new_cell.get(), "CLKLFEN", PORT_IN);
+        add_port(ctx, new_cell.get(), "CLKLFPU", PORT_IN);
+        add_port(ctx, new_cell.get(), "CLKLF", PORT_OUT);
+        add_port(ctx, new_cell.get(), "CLKLF_FABRIC", PORT_OUT);
     } else if (type == ctx->id("ICESTORM_HFOSC")) {
         new_cell->params[ctx->id("CLKHF_DIV")] = "0";
         new_cell->params[ctx->id("TRIM_EN")] = "0";
 
-        add_port(ctx, new_cell, "CLKHFEN", PORT_IN);
-        add_port(ctx, new_cell, "CLKHFPU", PORT_IN);
-        add_port(ctx, new_cell, "CLKHF", PORT_OUT);
-        add_port(ctx, new_cell, "CLKHF_FABRIC", PORT_OUT);
+        add_port(ctx, new_cell.get(), "CLKHFEN", PORT_IN);
+        add_port(ctx, new_cell.get(), "CLKHFPU", PORT_IN);
+        add_port(ctx, new_cell.get(), "CLKHF", PORT_OUT);
+        add_port(ctx, new_cell.get(), "CLKHF_FABRIC", PORT_OUT);
         for (int i = 0; i < 10; i++)
-            add_port(ctx, new_cell, "TRIM" + std::to_string(i), PORT_IN);
+            add_port(ctx, new_cell.get(), "TRIM" + std::to_string(i), PORT_IN);
     } else if (type == ctx->id("SB_GB")) {
-        add_port(ctx, new_cell, "USER_SIGNAL_TO_GLOBAL_BUFFER", PORT_IN);
-        add_port(ctx, new_cell, "GLOBAL_BUFFER_OUTPUT", PORT_OUT);
+        add_port(ctx, new_cell.get(), "USER_SIGNAL_TO_GLOBAL_BUFFER", PORT_IN);
+        add_port(ctx, new_cell.get(), "GLOBAL_BUFFER_OUTPUT", PORT_OUT);
     } else {
         log_error("unable to create iCE40 cell of type %s", type.c_str(ctx));
     }
-    return new_cell;
+    return std::move(new_cell);
 }
 
 void lut_to_lc(const Context *ctx, CellInfo *lut, CellInfo *lc, bool no_dff)

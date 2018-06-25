@@ -216,9 +216,9 @@ struct JsonNode
     }
 };
 
-NetInfo *ground_net(Context *ctx, NetInfo *net)
+void ground_net(Context *ctx, NetInfo *net)
 {
-    CellInfo *cell = new CellInfo;
+    std::unique_ptr<CellInfo> cell = std::unique_ptr<CellInfo>(new CellInfo);
     PortInfo port_info;
     PortRef port_ref;
 
@@ -229,20 +229,19 @@ NetInfo *ground_net(Context *ctx, NetInfo *net)
     port_info.net = net;
     port_info.type = PORT_OUT;
 
-    port_ref.cell = cell;
+    port_ref.cell = cell.get();
     port_ref.port = port_info.name;
 
     net->driver = port_ref;
 
     cell->ports[port_info.name] = port_info;
 
-    ctx->cells[cell->name] = cell;
-    return net;
+    ctx->cells[cell->name] = std::move(cell);
 }
 
-NetInfo *vcc_net(Context *ctx, NetInfo *net)
+void vcc_net(Context *ctx, NetInfo *net)
 {
-    CellInfo *cell = new CellInfo;
+    std::unique_ptr<CellInfo> cell = std::unique_ptr<CellInfo>(new CellInfo);
     PortInfo port_info;
     PortRef port_ref;
 
@@ -253,18 +252,17 @@ NetInfo *vcc_net(Context *ctx, NetInfo *net)
     port_info.net = net;
     port_info.type = PORT_OUT;
 
-    port_ref.cell = cell;
+    port_ref.cell = cell.get();
     port_ref.port = port_info.name;
 
     net->driver = port_ref;
 
     cell->ports[port_info.name] = port_info;
 
-    ctx->cells[cell->name] = cell;
-    return net;
+    ctx->cells[cell->name] = std::move(cell);    
 }
 
-NetInfo *floating_net(Context *ctx, NetInfo *net)
+void floating_net(Context *ctx, NetInfo *net)
 {
     PortInfo port_info;
     PortRef port_ref;
@@ -277,8 +275,6 @@ NetInfo *floating_net(Context *ctx, NetInfo *net)
     port_ref.port = port_info.name;
 
     net->driver = port_ref;
-
-    return net;
 }
 
 //
@@ -433,17 +429,19 @@ void json_import_ports(Context *ctx, const string &modname, const std::vector<Id
                     if (json_debug)
                         log_info("      Generating a new net, \'%d\'\n", net_num);
 
-                    this_net = new NetInfo;
-                    this_net->name = net_id;
-                    this_net->driver.cell = NULL;
-                    this_net->driver.port = IdString();
-                    ctx->nets[net_id] = this_net;
+                    std::unique_ptr<NetInfo> net = std::unique_ptr<NetInfo>(new NetInfo());   
+                    net->name = net_id;
+                    net->driver.cell = NULL;
+                    net->driver.port = IdString();
+                    ctx->nets[net_id] = std::move(net);
+                    
+                    this_net = ctx->nets[net_id].get();
                 } else {
                     //
                     // The net already exists within the design.
                     // We'll connect to it
                     //
-                    this_net = ctx->nets[net_id];
+                    this_net = ctx->nets[net_id].get();
                     if (json_debug)
                         log_info("      Reusing net \'%s\', id \'%s\', "
                                  "with driver \'%s\'\n",
@@ -457,26 +455,26 @@ void json_import_ports(Context *ctx, const string &modname, const std::vector<Id
                 // values here.
                 //
                 // Constants always get their own new net
-                this_net = new NetInfo;
-                this_net->name = ctx->id("$const_" + std::to_string(const_net_idx++));
+                std::unique_ptr<NetInfo> net = std::unique_ptr<NetInfo>(new NetInfo());  
+                net->name = ctx->id("$const_" + std::to_string(const_net_idx++));
 
                 if (wire_node->data_string.compare(string("0")) == 0) {
 
                     if (json_debug)
                         log_info("      Generating a constant "
                                  "zero net\n");
-                    this_net = ground_net(ctx, this_net);
+                    ground_net(ctx, net.get());
 
                 } else if (wire_node->data_string.compare(string("1")) == 0) {
 
                     if (json_debug)
                         log_info("      Generating a constant "
                                  "one  net\n");
-                    this_net = vcc_net(ctx, this_net);
+                    vcc_net(ctx, net.get());
 
                 } else if (wire_node->data_string.compare(string("x")) == 0) {
 
-                    this_net = floating_net(ctx, this_net);
+                    floating_net(ctx, net.get());
                     log_warning("      Floating wire node value, "
                                 "\'%s\' of port \'%s\' "
                                 "in cell \'%s\' of module \'%s\'\n",
@@ -486,14 +484,14 @@ void json_import_ports(Context *ctx, const string &modname, const std::vector<Id
                     log_error("      Unknown fixed type wire node "
                               "value, \'%s\'\n",
                               wire_node->data_string.c_str());
+                IdString n = net->name;                
+                ctx->nets[net->name] = std::move(net);
+                this_net = ctx->nets[n].get();
             }
 
             if (json_debug)
                 log_info("    Inserting port \'%s\' into cell \'%s\'\n", this_port.name.c_str(ctx), obj_name.c_str());
             visitor(this_port.type, this_port.name.str(ctx), this_net);
-
-            if (ctx->nets.count(this_net->name) == 0)
-                ctx->nets[this_net->name] = this_net;
         }
 }
 
@@ -506,7 +504,7 @@ void json_import_cell(Context *ctx, string modname, const std::vector<IdString> 
     if (cell_type == NULL)
         return;
 
-    CellInfo *cell = new CellInfo;
+    std::unique_ptr<CellInfo> cell = std::unique_ptr<CellInfo>(new CellInfo);
 
     cell->name = ctx->id(cell_name);
     assert(cell_type->type == 'S');
@@ -526,7 +524,7 @@ void json_import_cell(Context *ctx, string modname, const std::vector<IdString> 
     //
     for (int paramid = 0; paramid < GetSize(param_node->data_dict_keys); paramid++) {
 
-        json_import_cell_params(ctx, modname, cell, param_node, &cell->params, paramid);
+        json_import_cell_params(ctx, modname, cell.get(), param_node, &cell->params, paramid);
     }
 
     attr_node = cell_node->data_dict.at("attributes");
@@ -539,7 +537,7 @@ void json_import_cell(Context *ctx, string modname, const std::vector<IdString> 
     //
     for (int attrid = 0; attrid < GetSize(attr_node->data_dict_keys); attrid++) {
 
-        json_import_cell_params(ctx, modname, cell, attr_node, &cell->attrs, attrid);
+        json_import_cell_params(ctx, modname, cell.get(), attr_node, &cell->attrs, attrid);
     }
 
     //
@@ -594,10 +592,10 @@ void json_import_cell(Context *ctx, string modname, const std::vector<IdString> 
         wire_group_node = connections->data_dict.at(port_name);
 
         json_import_ports(ctx, modname, netnames, cell->name.str(ctx), port_name, dir_node, wire_group_node,
-                          [cell, ctx](PortType type, const std::string &name, NetInfo *net) {
+                          [&cell, ctx](PortType type, const std::string &name, NetInfo *net) {
                               cell->ports[ctx->id(name)] = PortInfo{ctx->id(name), net, type};
                               PortRef pr;
-                              pr.cell = cell;
+                              pr.cell = cell.get();
                               pr.port = ctx->id(name);
                               if (net != nullptr) {
                                   if (type == PORT_IN || type == PORT_INOUT) {
@@ -610,7 +608,7 @@ void json_import_cell(Context *ctx, string modname, const std::vector<IdString> 
                           });
     }
 
-    ctx->cells[cell->name] = cell;
+    ctx->cells[cell->name] = std::move(cell);
     // check_all_nets_driven(ctx);
 }
 
@@ -622,7 +620,7 @@ static void insert_iobuf(Context *ctx, NetInfo *net, PortType type, const string
     // During packing, this generic IO buffer will be converted to an
     // architecure primitive.
     //
-    CellInfo *iobuf = new CellInfo();
+    std::unique_ptr<CellInfo> iobuf = std::unique_ptr<CellInfo>(new CellInfo());
     iobuf->name = ctx->id(name);
     std::copy(net->attrs.begin(), net->attrs.end(), std::inserter(iobuf->attrs, iobuf->attrs.begin()));
     if (type == PORT_IN) {
@@ -637,14 +635,14 @@ static void insert_iobuf(Context *ctx, NetInfo *net, PortType type, const string
         }
         assert(net->driver.cell == nullptr);
         net->driver.port = ctx->id("O");
-        net->driver.cell = iobuf;
+        net->driver.cell = iobuf.get();
     } else if (type == PORT_OUT) {
         if (ctx->verbose)
             log_info("processing output port %s\n", name.c_str());
         iobuf->type = ctx->id("$nextpnr_obuf");
         iobuf->ports[ctx->id("I")] = PortInfo{ctx->id("I"), net, PORT_IN};
         PortRef ref;
-        ref.cell = iobuf;
+        ref.cell = iobuf.get();
         ref.port = ctx->id("I");
         net->users.push_back(ref);
     } else if (type == PORT_INOUT) {
@@ -654,28 +652,28 @@ static void insert_iobuf(Context *ctx, NetInfo *net, PortType type, const string
         iobuf->ports[ctx->id("I")] = PortInfo{ctx->id("I"), nullptr, PORT_IN};
 
         // Split the input and output nets for bidir ports
-        NetInfo *net2 = new NetInfo();
+        std::unique_ptr<NetInfo> net2 = std::unique_ptr<NetInfo>(new NetInfo());   
         net2->name = ctx->id("$" + net->name.str(ctx) + "$iobuf_i");
         net2->driver = net->driver;
         if (net->driver.cell != nullptr) {
-            net2->driver.cell->ports[net2->driver.port].net = net2;
+            net2->driver.cell->ports[net2->driver.port].net = net2.get();
             net->driver.cell = nullptr;
         }
-        ctx->nets[net2->name] = net2;
-        iobuf->ports[ctx->id("I")].net = net2;
+        iobuf->ports[ctx->id("I")].net = net2.get();
         PortRef ref;
-        ref.cell = iobuf;
+        ref.cell = iobuf.get();
         ref.port = ctx->id("I");
         net2->users.push_back(ref);
+        ctx->nets[net2->name] = std::move(net2);
 
         iobuf->ports[ctx->id("O")] = PortInfo{ctx->id("O"), net, PORT_OUT};
         assert(net->driver.cell == nullptr);
         net->driver.port = ctx->id("O");
-        net->driver.cell = iobuf;
+        net->driver.cell = iobuf.get();
     } else {
         assert(false);
     }
-    ctx->cells[iobuf->name] = iobuf;
+    ctx->cells[iobuf->name] = std::move(iobuf);
 }
 
 void json_import_toplevel_port(Context *ctx, const string &modname, const std::vector<IdString> &netnames,

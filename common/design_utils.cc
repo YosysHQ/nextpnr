@@ -56,8 +56,8 @@ void print_utilisation(const Context *ctx)
 {
     // Sort by Bel type
     std::map<BelType, int> used_types;
-    for (auto cell : ctx->cells) {
-        used_types[ctx->belTypeFromId(cell.second->type)]++;
+    for (auto& cell : ctx->cells) {
+        used_types[ctx->belTypeFromId(cell.second.get()->type)]++;
     }
     std::map<BelType, int> available_types;
     for (auto bel : ctx->getBels()) {

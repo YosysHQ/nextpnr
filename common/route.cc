@@ -75,7 +75,7 @@ struct RipupScoreboard
 
 void ripup_net(Context *ctx, IdString net_name)
 {
-    auto net_info = ctx->nets.at(net_name);
+    auto net_info = ctx->nets.at(net_name).get();
     std::vector<PipId> pips;
     std::vector<WireId> wires;
 
@@ -249,7 +249,7 @@ struct Router
     Router(Context *ctx, RipupScoreboard &scores, IdString net_name, bool ripup = false, delay_t ripup_penalty = 0)
             : ctx(ctx), scores(scores), net_name(net_name), ripup(ripup), ripup_penalty(ripup_penalty)
     {
-        auto net_info = ctx->nets.at(net_name);
+        auto net_info = ctx->nets.at(net_name).get();
 
         if (ctx->debug)
             log("Routing net %s.\n", net_name.c_str(ctx));
@@ -416,7 +416,7 @@ bool route_design(Context *ctx)
 
         for (auto &net_it : ctx->nets) {
             auto net_name = net_it.first;
-            auto net_info = net_it.second;
+            auto net_info = net_it.second.get();
 
             if (net_info->driver.cell == nullptr)
                 continue;
@@ -438,7 +438,7 @@ bool route_design(Context *ctx)
         int estimatedTotalDelayCnt = 0;
 
         for (auto net_name : netsQueue) {
-            auto net_info = ctx->nets.at(net_name);
+            auto net_info = ctx->nets.at(net_name).get();
 
             auto src_bel = net_info->driver.cell->bel;
 

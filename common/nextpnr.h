@@ -24,6 +24,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+#include <memory>
 
 #ifndef NEXTPNR_H
 #define NEXTPNR_H
@@ -194,8 +195,8 @@ struct BaseCtx
 
     // --------------------------------------------------------------
 
-    std::unordered_map<IdString, NetInfo *> nets;
-    std::unordered_map<IdString, CellInfo *> cells;
+    std::unordered_map<IdString, std::unique_ptr<NetInfo>> nets;
+    std::unordered_map<IdString, std::unique_ptr<CellInfo>> cells;
 
     BaseCtx()
     {
@@ -210,12 +211,6 @@ struct BaseCtx
 
     ~BaseCtx()
     {
-        for (auto &item : nets) {
-            delete item.second;
-        }
-        for (auto &item : cells) {
-            delete item.second;
-        }
         delete idstring_str_to_idx;
         delete idstring_idx_to_str;
     }

@@ -163,7 +163,7 @@ uint32_t Context::checksum() const
 void Context::check() const
 {
     for (auto &n : nets) {
-        auto ni = n.second;
+        auto ni = n.second.get();
         assert(n.first == ni->name);
         for (auto &w : ni->wires) {
             assert(n.first == getBoundWireNet(w.first));
