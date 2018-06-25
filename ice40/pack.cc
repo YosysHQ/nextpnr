@@ -258,7 +258,7 @@ static void pack_constants(Context *ctx)
 
     std::vector<IdString> dead_nets;
 
-    bool gnd_used = false, vcc_used = false;
+    bool gnd_used = false;
 
     for (auto net : sorted(ctx->nets)) {
         NetInfo *ni = net.second;
@@ -268,7 +268,6 @@ static void pack_constants(Context *ctx)
             dead_nets.push_back(net.first);
         } else if (ni->driver.cell != nullptr && ni->driver.cell->type == ctx->id("VCC")) {
             set_net_constant(ctx, ni, vcc_net, true);
-            vcc_used = true;
             dead_nets.push_back(net.first);
         }
     }
@@ -277,11 +276,10 @@ static void pack_constants(Context *ctx)
         ctx->cells[gnd_cell->name] = gnd_cell;
         ctx->nets[gnd_net->name] = gnd_net;
     }
-
-    if (vcc_used) {
-        ctx->cells[vcc_cell->name] = vcc_cell;
-        ctx->nets[vcc_net->name] = vcc_net;
-    }
+    // Vcc cell always inserted for now, as it may be needed during carry legalisation (TODO: trim later if actually
+    // never used?)
+    ctx->cells[vcc_cell->name] = vcc_cell;
+    ctx->nets[vcc_net->name] = vcc_net;
 
     for (auto dn : dead_nets)
         ctx->nets.erase(dn);

@@ -27,13 +27,18 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+struct CellChain
+{
+    std::vector<CellInfo *> cells;
+};
+
 // Generic chain finder
 template <typename F1, typename F2, typename F3>
-std::vector<std::vector<CellInfo *>> find_chains(const Context *ctx, F1 cell_type_predicate, F2 get_previous,
-                                                 F3 get_next, size_t min_length = 2)
+std::vector<CellChain> find_chains(const Context *ctx, F1 cell_type_predicate, F2 get_previous, F3 get_next,
+                                   size_t min_length = 2)
 {
     std::set<IdString> chained;
-    std::vector<std::vector<CellInfo *>> chains;
+    std::vector<CellChain> chains;
     for (auto cell : sorted(ctx->cells)) {
         if (chained.find(cell.first) != chained.end())
             continue;
@@ -45,15 +50,15 @@ std::vector<std::vector<CellInfo *>> find_chains(const Context *ctx, F1 cell_typ
                 start = prev_start;
                 prev_start = get_previous(ctx, start);
             }
-            std::vector<CellInfo *> chain;
+            CellChain chain;
             CellInfo *end = start;
             while (end != nullptr) {
-                chain.push_back(end);
+                chain.cells.push_back(end);
                 end = get_next(ctx, end);
             }
-            if (chain.size() >= min_length) {
+            if (chain.cells.size() >= min_length) {
                 chains.push_back(chain);
-                for (auto c : chain)
+                for (auto c : chain.cells)
                     chained.insert(c->name);
             }
         }
@@ -95,7 +100,7 @@ class PlacementLegaliser
   private:
     bool legalise_carries()
     {
-        std::vector<std::vector<CellInfo *>> carry_chains = find_chains(
+        std::vector<CellChain> carry_chains = find_chains(
                 ctx, is_lc,
                 [](const Context *ctx, const CellInfo *cell) {
                     return net_driven_by(ctx, cell->ports.at(ctx->id("CIN")).net, is_lc, ctx->id("COUT"));
@@ -103,15 +108,63 @@ class PlacementLegaliser
                 [](const Context *ctx, const CellInfo *cell) {
                     return net_only_drives(ctx, cell->ports.at(ctx->id("COUT")).net, is_lc, ctx->id("CIN"), false);
                 });
-        // TODO
+        for (auto chain : carry_chains) {
+        }
         return true;
     }
 
+    // Split a carry chain into multiple legal chains
+    std::vector<CellChain> split_carry_chain(Context *ctx, CellChain &carryc)
+    {
+        bool start_of_chain = true;
+        std::vector<CellChain> chains;
+        std::vector<const CellInfo *> tile;
+        const int max_length = (ctx->chip_info->height - 2) * 8 - 2;
+        auto curr_cell = carryc.cells.begin();
+        while (curr_cell != carryc.cells.end()) {
+            CellInfo *cell = *curr_cell;
+            if (tile.size() >= 8) {
+                tile.clear();
+            }
+            if (start_of_chain) {
+                tile.clear();
+                chains.emplace_back();
+                start_of_chain = false;
+                if (cell->ports.at(ctx->id("CIN")).net) {
+                    // CIN is not constant and not part of a chain. Must feed in from fabric
+                    CellInfo *feedin = make_carry_feed_in(cell, cell->ports.at(ctx->id("CIN")));
+                    chains.back().cells.push_back(feedin);
+                    tile.push_back(feedin);
+                }
+            }
+            tile.push_back(cell);
+            chains.back().cells.push_back(cell);
+            bool split_chain = (!ctx->logicCellsCompatible(tile)) || (int(chains.back().cells.size()) > max_length);
+            if (split_chain) {
+                CellInfo *passout = make_carry_pass_out(cell->ports.at(ctx->id("COUT")));
+                tile.pop_back();
+                chains.back().cells.back() = passout;
+                start_of_chain = true;
+            } else {
+                NetInfo *carry_net = cell->ports.at(ctx->id("COUT")).net;
+                if (carry_net != nullptr && carry_net->users.size() > 1) {
+                    CellInfo *passout = make_carry_pass_out(cell->ports.at(ctx->id("COUT")));
+                    chains.back().cells.push_back(passout);
+                    tile.push_back(passout);
+                }
+                ++curr_cell;
+            }
+        }
+        return chains;
+    }
+
+    // Insert a logic cell to legalise a COUT->fabric connection
     CellInfo *make_carry_pass_out(PortInfo &cout_port)
     {
         assert(cout_port.net != nullptr);
         CellInfo *lc = create_ice_cell(ctx, ctx->id("ICESTORM_LC"));
         lc->params[ctx->id("LUT_INIT")] = "65280"; // 0xff00: O = I3
+        lc->params[ctx->id("CARRY_ENABLE")] = "1";
         lc->ports.at(ctx->id("O")).net = cout_port.net;
         NetInfo *co_i3_net = new NetInfo();
         co_i3_net->name = ctx->id(lc->name.str(ctx) + "$I3");
@@ -125,11 +178,18 @@ class PlacementLegaliser
         o_r.cell = lc;
         cout_port.net->driver = o_r;
         lc->ports.at(ctx->id("I3")).net = co_i3_net;
+        // I1=1 feeds carry up the chain, so no need to actually break the chain
+        lc->ports.at(ctx->id("I1")).net = ctx->nets.at(ctx->id("$PACKER_VCC_NET"));
+        PortRef i1_r;
+        i1_r.port = ctx->id("I1");
+        i1_r.cell = lc;
+        ctx->nets.at(ctx->id("$PACKER_VCC_NET"))->users.push_back(i1_r);
         ctx->cells[lc->name] = lc;
         createdCells.insert(lc->name);
         return lc;
     }
 
+    // Insert a logic cell to legalise a CIN->fabric connection
     CellInfo *make_carry_feed_in(CellInfo *cin_cell, PortInfo &cin_port)
     {
         assert(cin_port.net != nullptr);
