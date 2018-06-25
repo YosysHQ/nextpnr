@@ -47,6 +47,8 @@ CellInfo *create_ice_cell(Context *ctx, IdString type, std::string name)
         new_cell->params[ctx->id("DFF_ENABLE")] = "0";
         new_cell->params[ctx->id("SET_NORESET")] = "0";
         new_cell->params[ctx->id("ASYNC_SR")] = "0";
+        new_cell->params[ctx->id("CIN_CONST")] = "0";
+        new_cell->params[ctx->id("CIN_SET")] = "0";
 
         add_port(ctx, new_cell, "I0", PORT_IN);
         add_port(ctx, new_cell, "I1", PORT_IN);
