@@ -221,7 +221,7 @@ static void pack_carries(Context *ctx)
                     carry_lc->params[ctx->id("CIN_CONST")] = "1";
                     carry_lc->params[ctx->id("CIN_SET")] = cin_net == ctx->id("$PACKER_VCC_NET") ? "1" : "0";
                     carry_lc->ports.at(ctx->id("CIN")).net = nullptr;
-                    auto cin_users = ctx->nets.at(cin_net)->users;
+                    auto &cin_users = ctx->nets.at(cin_net)->users;
                     cin_users.erase(
                             std::remove_if(cin_users.begin(), cin_users.end(), [carry_lc, ctx](const PortRef &pr) {
                                 return pr.cell == carry_lc && pr.port == ctx->id("CIN");
