@@ -174,6 +174,13 @@ void write_asc(const Context *ctx, std::ostream &out)
                 set_config(ti, config.at(y).at(x), "LC_" + std::to_string(z), lc.at(i), i);
             if (dff_enable)
                 set_config(ti, config.at(y).at(x), "NegClk", neg_clk);
+
+            bool carry_const = get_param_or_def(cell.second.get(), ctx->id("CIN_CONST"));
+            bool carry_set = get_param_or_def(cell.second.get(), ctx->id("CIN_SET"));
+            if (carry_const) {
+                assert(z == 0);
+                set_config(ti, config.at(y).at(x), "CarryInSet", carry_set);
+            }
         } else if (cell.second->type == ctx->id("SB_IO")) {
             const TileInfoPOD &ti = bi.tiles_nonrouting[TILE_IO];
             unsigned pin_type = get_param_or_def(cell.second.get(), ctx->id("PIN_TYPE"));
