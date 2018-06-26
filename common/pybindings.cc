@@ -96,7 +96,7 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
             .def_readwrite("net", &PortInfo::net)
             .def_readwrite("type", &PortInfo::type);
 
-    class_<CellInfo, CellInfo *, boost::noncopyable>("CellInfo")
+    class_<CellInfo, CellInfo *>("CellInfo")
             .def_readwrite("name", &CellInfo::name)
             .def_readwrite("type", &CellInfo::type)
             .def_readwrite("ports", &CellInfo::ports)
@@ -110,7 +110,7 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
 
     class_<BaseCtx, BaseCtx *, boost::noncopyable>("BaseCtx", no_init)
             .add_property("nets", make_getter(&Context::nets, return_internal_reference<>()))
-            .add_property("cells", make_getter(&Context::nets, return_internal_reference<>()));
+            .add_property("cells", make_getter(&Context::cells, return_internal_reference<>()));
 
     WRAP_MAP_UPTR(decltype(Context::nets), "IdNetMap");
     WRAP_MAP_UPTR(decltype(Context::cells), "IdCellMap");
