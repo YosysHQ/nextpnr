@@ -48,6 +48,7 @@ MainWindow::MainWindow(Context *_ctx, QWidget *parent) : BaseMainWindow(_ctx, pa
 
     connect(task, SIGNAL(loadfile_finished(bool)), this, SLOT(loadfile_finished(bool)));
     connect(task, SIGNAL(loadpcf_finished(bool)), this, SLOT(loadpcf_finished(bool)));
+    connect(task, SIGNAL(saveasc_finished(bool)), this, SLOT(saveasc_finished(bool)));
     connect(task, SIGNAL(pack_finished(bool)), this, SLOT(pack_finished(bool)));
     connect(task, SIGNAL(budget_finish(bool)), this, SLOT(budget_finish(bool)));
     connect(task, SIGNAL(place_finished(bool)), this, SLOT(place_finished(bool)));
@@ -107,6 +108,14 @@ void MainWindow::createMenu()
     connect(actionRoute, SIGNAL(triggered()), task, SIGNAL(route()));
     actionRoute->setEnabled(false);
 
+    actionSaveAsc = new QAction("Save ASC", this);
+    QIcon iconSaveAsc;
+    iconSaveAsc.addFile(QStringLiteral(":/icons/resources/save_asc.png"));
+    actionSaveAsc->setIcon(iconSaveAsc);
+    actionSaveAsc->setStatusTip("Save ASC file");
+    connect(actionSaveAsc, SIGNAL(triggered()), this, SLOT(save_asc()));
+    actionSaveAsc->setEnabled(false);
+
     QToolBar *taskFPGABar = new QToolBar();
     addToolBar(Qt::TopToolBarArea, taskFPGABar);
 
@@ -115,12 +124,14 @@ void MainWindow::createMenu()
     taskFPGABar->addAction(actionAssignBudget);
     taskFPGABar->addAction(actionPlace);
     taskFPGABar->addAction(actionRoute);
+    taskFPGABar->addAction(actionSaveAsc);
 
     menu_Design->addAction(actionLoadPCF);
     menu_Design->addAction(actionPack);
     menu_Design->addAction(actionAssignBudget);
     menu_Design->addAction(actionPlace);
     menu_Design->addAction(actionRoute);
+    menu_Design->addAction(actionSaveAsc);
 
     actionPlay = new QAction("Play", this);
     QIcon iconPlay;
@@ -169,7 +180,7 @@ void MainWindow::open()
 
 void MainWindow::open_pcf()
 {
-    QString fileName = QFileDialog::getOpenFileName(this, QString(), QString(), QString("*.pcf"));
+    QString fileName = QFileDialog::getOpenFileName(this, QString("Open PCF"), QString(), QString("*.pcf"));
     if (!fileName.isEmpty()) {
         tabWidget->setCurrentWidget(info);
 
@@ -181,6 +192,16 @@ void MainWindow::open_pcf()
 
 bool MainWindow::save() { return false; }
 
+void MainWindow::save_asc()
+{
+    QString fileName = QFileDialog::getSaveFileName(this, QString("Save ASC"), QString(), QString("*.asc"));
+    if (!fileName.isEmpty()) {
+        std::string fn = fileName.toStdString();
+        disableActions();
+        Q_EMIT task->saveasc(fn);
+    }
+}
+
 void MainWindow::disableActions()
 {
     actionLoadPCF->setEnabled(false);
@@ -188,6 +209,7 @@ void MainWindow::disableActions()
     actionAssignBudget->setEnabled(false);
     actionPlace->setEnabled(false);
     actionRoute->setEnabled(false);
+    actionSaveAsc->setEnabled(false);
 
     actionPlay->setEnabled(false);
     actionPause->setEnabled(false);
@@ -214,6 +236,16 @@ void MainWindow::loadpcf_finished(bool status)
         actionPack->setEnabled(true);
     } else {
         log("Loading PCF failed.\n");
+    }
+}
+
+void MainWindow::saveasc_finished(bool status)
+{
+    disableActions();
+    if (status) {
+        log("Saving ASC successful.\n");
+    } else {
+        log("Saving ASC failed.\n");
     }
 }
 
@@ -253,9 +285,10 @@ void MainWindow::place_finished(bool status)
 void MainWindow::route_finished(bool status)
 {
     disableActions();
-    if (status)
+    if (status) {
         log("Routing design successful.\n");
-    else
+        actionSaveAsc->setEnabled(true);
+    } else
         log("Routing design failed.\n");
 }
 

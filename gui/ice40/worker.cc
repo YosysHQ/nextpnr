@@ -80,6 +80,19 @@ void Worker::loadpcf(const std::string &filename)
     }
 }
 
+void Worker::saveasc(const std::string &filename)
+{
+    Q_EMIT taskStarted();
+    std::string fn = filename;
+    std::ofstream f(fn);
+    try {
+        write_asc(ctx, f);
+        Q_EMIT saveasc_finished(true);
+    } catch (WorkerInterruptionRequested) {
+        Q_EMIT taskCanceled();
+    }
+}
+
 void Worker::pack()
 {
     Q_EMIT taskStarted();
@@ -132,6 +145,7 @@ TaskManager::TaskManager(Context *ctx) : toTerminate(false), toPause(false)
 
     connect(this, &TaskManager::loadfile, worker, &Worker::loadfile);
     connect(this, &TaskManager::loadpcf, worker, &Worker::loadpcf);
+    connect(this, &TaskManager::saveasc, worker, &Worker::saveasc);
     connect(this, &TaskManager::pack, worker, &Worker::pack);
     connect(this, &TaskManager::budget, worker, &Worker::budget);
     connect(this, &TaskManager::place, worker, &Worker::place);
@@ -140,6 +154,7 @@ TaskManager::TaskManager(Context *ctx) : toTerminate(false), toPause(false)
     connect(worker, &Worker::log, this, &TaskManager::info);
     connect(worker, &Worker::loadfile_finished, this, &TaskManager::loadfile_finished);
     connect(worker, &Worker::loadpcf_finished, this, &TaskManager::loadpcf_finished);
+    connect(worker, &Worker::saveasc_finished, this, &TaskManager::saveasc_finished);
     connect(worker, &Worker::pack_finished, this, &TaskManager::pack_finished);
     connect(worker, &Worker::budget_finish, this, &TaskManager::budget_finish);
     connect(worker, &Worker::place_finished, this, &TaskManager::place_finished);

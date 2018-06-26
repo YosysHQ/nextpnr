@@ -8,5 +8,6 @@
         <file>resources/route.png</file>
         <file>resources/time_add.png</file>
         <file>resources/open_pcf.png</file>
+        <file>resources/save_asc.png</file>
     </qresource>
 </RCC>
