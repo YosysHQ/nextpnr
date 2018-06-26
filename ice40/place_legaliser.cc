@@ -199,7 +199,7 @@ class PlacementLegaliser
     CellInfo *make_carry_pass_out(PortInfo &cout_port)
     {
         assert(cout_port.net != nullptr);
-        CellInfo *lc = create_ice_cell(ctx, ctx->id("ICESTORM_LC"));
+        std::unique_ptr<CellInfo> lc = create_ice_cell(ctx, ctx->id("ICESTORM_LC"));
         lc->params[ctx->id("LUT_INIT")] = "65280"; // 0xff00: O = I3
         lc->params[ctx->id("CARRY_ENABLE")] = "1";
         lc->ports.at(ctx->id("O")).net = cout_port.net;
@@ -208,29 +208,30 @@ class PlacementLegaliser
         co_i3_net->driver = cout_port.net->driver;
         PortRef i3_r;
         i3_r.port = ctx->id("I3");
-        i3_r.cell = lc;
+        i3_r.cell = lc.get();
         co_i3_net->users.push_back(i3_r);
         PortRef o_r;
         o_r.port = ctx->id("O");
-        o_r.cell = lc;
+        o_r.cell = lc.get();
         cout_port.net->driver = o_r;
         lc->ports.at(ctx->id("I3")).net = co_i3_net;
         // I1=1 feeds carry up the chain, so no need to actually break the chain
-        lc->ports.at(ctx->id("I1")).net = ctx->nets.at(ctx->id("$PACKER_VCC_NET"));
+        lc->ports.at(ctx->id("I1")).net = ctx->nets.at(ctx->id("$PACKER_VCC_NET")).get();
         PortRef i1_r;
         i1_r.port = ctx->id("I1");
-        i1_r.cell = lc;
+        i1_r.cell = lc.get();
         ctx->nets.at(ctx->id("$PACKER_VCC_NET"))->users.push_back(i1_r);
-        ctx->cells[lc->name] = lc;
-        createdCells.insert(lc->name);
-        return lc;
+        IdString name = lc->name;
+        ctx->cells[lc->name] = std::move(lc);
+        createdCells.insert(name);
+        return ctx->cells[name].get();
     }
 
     // Insert a logic cell to legalise a CIN->fabric connection
     CellInfo *make_carry_feed_in(CellInfo *cin_cell, PortInfo &cin_port)
     {
         assert(cin_port.net != nullptr);
-        CellInfo *lc = create_ice_cell(ctx, ctx->id("ICESTORM_LC"));
+        std::unique_ptr<CellInfo> lc = create_ice_cell(ctx, ctx->id("ICESTORM_LC"));
         lc->params[ctx->id("CARRY_ENABLE")] = "1";
         lc->params[ctx->id("CIN_CONST")] = "1";
         lc->params[ctx->id("CIN_SET")] = "1";
@@ -242,9 +243,10 @@ class PlacementLegaliser
         NetInfo *out_net = new NetInfo();
         out_net->name = ctx->id(lc->name.str(ctx) + "$O");
 
-        ctx->cells[lc->name] = lc;
-        createdCells.insert(lc->name);
-        return lc;
+        IdString name = lc->name;
+        ctx->cells[lc->name] = std::move(lc);
+        createdCells.insert(name);
+        return ctx->cells[name].get();
     }
 
     Context *ctx;
