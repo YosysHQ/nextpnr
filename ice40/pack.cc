@@ -178,12 +178,27 @@ static void pack_carries(Context *ctx)
                     std::unique_ptr<CellInfo> created_lc =
                             create_ice_cell(ctx, ctx->id("ICESTORM_LC"), cell.first.str(ctx) + "$CARRY");
                     carry_lc = created_lc.get();
+                    created_lc->ports.at(ctx->id("I1")).net = i0_net;
+                    if (i0_net) {
+                        PortRef pr;
+                        pr.cell = created_lc.get();
+                        pr.port = ctx->id("I1");
+                        i0_net->users.push_back(pr);
+                    }
+                    created_lc->ports.at(ctx->id("I2")).net = i1_net;
+                    if (i1_net) {
+                        PortRef pr;
+                        pr.cell = created_lc.get();
+                        pr.port = ctx->id("I2");
+                        i1_net->users.push_back(pr);
+                    }
                     new_cells.push_back(std::move(created_lc));
+
                 } else {
                     carry_lc = ctx->cells.at(*carry_lcs.begin()).get();
                 }
             }
-            carry_lc->attrs[ctx->id("CARRY_ENABLE")] = "1";
+            carry_lc->params[ctx->id("CARRY_ENABLE")] = "1";
             replace_port(ci, ctx->id("CI"), carry_lc, ctx->id("CIN"));
             replace_port(ci, ctx->id("CO"), carry_lc, ctx->id("COUT"));
             if (i0_net) {
@@ -203,8 +218,8 @@ static void pack_carries(Context *ctx)
             if (carry_lc->ports.at(ctx->id("CIN")).net != nullptr) {
                 IdString cin_net = carry_lc->ports.at(ctx->id("CIN")).net->name;
                 if (cin_net == ctx->id("$PACKER_GND_NET") || cin_net == ctx->id("$PACKER_VCC_NET")) {
-                    carry_lc->attrs[ctx->id("CIN_CONST")] = "1";
-                    carry_lc->attrs[ctx->id("CIN_SET")] = cin_net == ctx->id("$PACKER_VCC_NET") ? "1" : "0";
+                    carry_lc->params[ctx->id("CIN_CONST")] = "1";
+                    carry_lc->params[ctx->id("CIN_SET")] = cin_net == ctx->id("$PACKER_VCC_NET") ? "1" : "0";
                     carry_lc->ports.at(ctx->id("CIN")).net = nullptr;
                     auto cin_users = ctx->nets.at(cin_net)->users;
                     cin_users.erase(

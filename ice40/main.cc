@@ -41,11 +41,11 @@
 #include "nextpnr.h"
 #include "pack.h"
 #include "pcf.h"
+#include "place_legaliser.h"
 #include "place_sa.h"
 #include "route.h"
 #include "timing.h"
 #include "version.h"
-#include "place_legaliser.h"
 
 USING_NEXTPNR_NAMESPACE
 

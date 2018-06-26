@@ -129,15 +129,36 @@ class PlacementLegaliser
         std::vector<CellChain> carry_chains = find_chains(
                 ctx, is_lc,
                 [](const Context *ctx, const CellInfo *cell) {
-                    return net_driven_by(ctx, cell->ports.at(ctx->id("CIN")).net, is_lc, ctx->id("COUT"));
+                    CellInfo *carry_prev =
+                            net_driven_by(ctx, cell->ports.at(ctx->id("CIN")).net, is_lc, ctx->id("COUT"));
+                    if (carry_prev != nullptr)
+                        return carry_prev;
+                    CellInfo *i3_prev = net_driven_by(ctx, cell->ports.at(ctx->id("I3")).net, is_lc, ctx->id("COUT"));
+                    if (i3_prev != nullptr)
+                        return i3_prev;
+                    return (CellInfo *)nullptr;
                 },
                 [](const Context *ctx, const CellInfo *cell) {
-                    return net_only_drives(ctx, cell->ports.at(ctx->id("COUT")).net, is_lc, ctx->id("CIN"), false);
+                    CellInfo *carry_next =
+                            net_only_drives(ctx, cell->ports.at(ctx->id("COUT")).net, is_lc, ctx->id("CIN"), false);
+                    if (carry_next != nullptr)
+                        return carry_next;
+                    CellInfo *i3_next =
+                            net_only_drives(ctx, cell->ports.at(ctx->id("COUT")).net, is_lc, ctx->id("I3"), false);
+                    if (i3_next != nullptr)
+                        return i3_next;
+                    return (CellInfo *)nullptr;
                 });
         bool success = true;
         // Find midpoints for all chains, before we start tearing them up
         std::vector<CellChain> all_chains;
         for (auto &base_chain : carry_chains) {
+            if (ctx->verbose) {
+                log_info("Found carry chain: \n");
+                for (auto entry : base_chain.cells)
+                    log_info("     %s\n", entry->name.c_str(ctx));
+                log_info("\n");
+            }
             std::vector<CellChain> split_chains = split_carry_chain(base_chain);
             for (auto &chain : split_chains) {
                 get_chain_midpoint(ctx, chain, chain.mid_x, chain.mid_y);
@@ -146,6 +167,8 @@ class PlacementLegaliser
         }
         // Actual chain placement
         for (auto &chain : all_chains) {
+            if (ctx->verbose)
+                log_info("Placing carry chain starting at '%s'\n", chain.cells.front()->name.c_str(ctx));
             float base_x = chain.mid_x, base_y = chain.mid_y - (chain.cells.size() / 16.0f);
             // Find Bel meeting requirements closest to the target base, returning location as <x, y, z>
             auto chain_origin_bel = find_closest_bel(base_x, base_y, int(chain.cells.size()));
@@ -166,6 +189,9 @@ class PlacementLegaliser
             for (int i = 0; i < int(chain.cells.size()); i++) {
                 int target_z = place_y * 8 + place_z + i;
                 place_lc(chain.cells.at(i), place_x, target_z / 8, target_z % 8);
+                if (ctx->verbose)
+                    log_info("    Cell '%s' placed at (%d, %d, %d)\n", chain.cells.at(i)->name.c_str(ctx), place_x,
+                             target_z / 8, target_z % 8);
             }
         }
         return success;
@@ -234,9 +260,13 @@ class PlacementLegaliser
             } else {
                 NetInfo *carry_net = cell->ports.at(ctx->id("COUT")).net;
                 if (carry_net != nullptr && carry_net->users.size() > 1) {
-                    CellInfo *passout = make_carry_pass_out(cell->ports.at(ctx->id("COUT")));
-                    chains.back().cells.push_back(passout);
-                    tile.push_back(passout);
+                    if (carry_net->users.size() > 2 ||
+                        (net_only_drives(ctx, carry_net, is_lc, ctx->id("I3"), false) !=
+                         net_only_drives(ctx, carry_net, is_lc, ctx->id("CIN"), false))) {
+                        CellInfo *passout = make_carry_pass_out(cell->ports.at(ctx->id("COUT")));
+                        chains.back().cells.push_back(passout);
+                        tile.push_back(passout);
+                    }
                 }
                 ++curr_cell;
             }
@@ -257,8 +287,12 @@ class PlacementLegaliser
             rippedCells.insert(existing);
             ctx->unbindBel(bel);
         }
+        if (cell->bel != BelId()) {
+            ctx->unbindBel(cell->bel);
+        }
         ctx->bindBel(bel, cell->name, STRENGTH_LOCKED);
-        loc.second = true; // Bel is now unavailable for further use
+        rippedCells.erase(cell->name); // If cell was ripped up previously, no need to re-place
+        loc.second = true;             // Bel is now unavailable for further use
     }
 
     // Insert a logic cell to legalise a COUT->fabric connection
@@ -324,12 +358,10 @@ class PlacementLegaliser
             bool placed = place_single_cell(ci);
             if (!placed) {
                 if (ctx->force) {
-                    log_warning("failed to place cell '%s' of type '%s'\n", cell.c_str(ctx),
-                                ci->type.c_str(ctx));
+                    log_warning("failed to place cell '%s' of type '%s'\n", cell.c_str(ctx), ci->type.c_str(ctx));
                     success = false;
                 } else {
-                    log_error("failed to place cell '%s' of type '%s'\n", cell.c_str(ctx),
-                              ci->type.c_str(ctx));
+                    log_error("failed to place cell '%s' of type '%s'\n", cell.c_str(ctx), ci->type.c_str(ctx));
                 }
             }
         }
