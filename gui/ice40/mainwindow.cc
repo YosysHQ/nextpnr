@@ -48,6 +48,7 @@ MainWindow::MainWindow(Context *_ctx, QWidget *parent) : BaseMainWindow(_ctx, pa
 
     connect(task, SIGNAL(loadfile_finished(bool)), this, SLOT(loadfile_finished(bool)));
     connect(task, SIGNAL(loadpcf_finished(bool)), this, SLOT(loadpcf_finished(bool)));
+    connect(task, SIGNAL(saveasc_finished(bool)), this, SLOT(saveasc_finished(bool)));
     connect(task, SIGNAL(pack_finished(bool)), this, SLOT(pack_finished(bool)));
     connect(task, SIGNAL(budget_finish(bool)), this, SLOT(budget_finish(bool)));
     connect(task, SIGNAL(place_finished(bool)), this, SLOT(place_finished(bool)));
@@ -66,6 +67,14 @@ void MainWindow::createMenu()
 {
     QMenu *menu_Design = new QMenu("&Design", menuBar);
     menuBar->addAction(menu_Design->menuAction());
+
+    actionLoadJSON = new QAction("Open JSON", this);
+    QIcon iconLoadJSON;
+    iconLoadJSON.addFile(QStringLiteral(":/icons/resources/open_json.png"));
+    actionLoadJSON->setIcon(iconLoadJSON);
+    actionLoadJSON->setStatusTip("Open an existing JSON file");
+    connect(actionLoadJSON, SIGNAL(triggered()), this, SLOT(open_json()));
+    actionLoadJSON->setEnabled(false);
 
     actionLoadPCF = new QAction("Open PCF", this);
     QIcon iconLoadPCF;
@@ -107,20 +116,32 @@ void MainWindow::createMenu()
     connect(actionRoute, SIGNAL(triggered()), task, SIGNAL(route()));
     actionRoute->setEnabled(false);
 
+    actionSaveAsc = new QAction("Save ASC", this);
+    QIcon iconSaveAsc;
+    iconSaveAsc.addFile(QStringLiteral(":/icons/resources/save_asc.png"));
+    actionSaveAsc->setIcon(iconSaveAsc);
+    actionSaveAsc->setStatusTip("Save ASC file");
+    connect(actionSaveAsc, SIGNAL(triggered()), this, SLOT(save_asc()));
+    actionSaveAsc->setEnabled(false);
+
     QToolBar *taskFPGABar = new QToolBar();
     addToolBar(Qt::TopToolBarArea, taskFPGABar);
 
+    taskFPGABar->addAction(actionLoadJSON);
     taskFPGABar->addAction(actionLoadPCF);
     taskFPGABar->addAction(actionPack);
     taskFPGABar->addAction(actionAssignBudget);
     taskFPGABar->addAction(actionPlace);
     taskFPGABar->addAction(actionRoute);
+    taskFPGABar->addAction(actionSaveAsc);
 
+    menu_Design->addAction(actionLoadJSON);
     menu_Design->addAction(actionLoadPCF);
     menu_Design->addAction(actionPack);
     menu_Design->addAction(actionAssignBudget);
     menu_Design->addAction(actionPlace);
     menu_Design->addAction(actionRoute);
+    menu_Design->addAction(actionSaveAsc);
 
     actionPlay = new QAction("Play", this);
     QIcon iconPlay;
@@ -154,9 +175,26 @@ void MainWindow::createMenu()
     taskToolBar->addAction(actionStop);
 }
 
-void MainWindow::open()
+void MainWindow::new_proj()
 {
-    QString fileName = QFileDialog::getOpenFileName(this, QString(), QString(), QString("*.json"));
+    disableActions();
+    actionLoadJSON->setEnabled(true);
+}
+
+void MainWindow::open_proj()
+{
+    QString fileName = QFileDialog::getOpenFileName(this, QString("Open Project"), QString(), QString("*.npnr"));
+    if (!fileName.isEmpty()) {
+        tabWidget->setCurrentWidget(info);
+
+        std::string fn = fileName.toStdString();
+        disableActions();
+    }
+}
+
+void MainWindow::open_json()
+{
+    QString fileName = QFileDialog::getOpenFileName(this, QString("Open JSON"), QString(), QString("*.json"));
     if (!fileName.isEmpty()) {
         tabWidget->setCurrentWidget(info);
 
@@ -169,7 +207,7 @@ void MainWindow::open()
 
 void MainWindow::open_pcf()
 {
-    QString fileName = QFileDialog::getOpenFileName(this, QString(), QString(), QString("*.pcf"));
+    QString fileName = QFileDialog::getOpenFileName(this, QString("Open PCF"), QString(), QString("*.pcf"));
     if (!fileName.isEmpty()) {
         tabWidget->setCurrentWidget(info);
 
@@ -179,15 +217,27 @@ void MainWindow::open_pcf()
     }
 }
 
-bool MainWindow::save() { return false; }
+bool MainWindow::save_proj() { return false; }
+
+void MainWindow::save_asc()
+{
+    QString fileName = QFileDialog::getSaveFileName(this, QString("Save ASC"), QString(), QString("*.asc"));
+    if (!fileName.isEmpty()) {
+        std::string fn = fileName.toStdString();
+        disableActions();
+        Q_EMIT task->saveasc(fn);
+    }
+}
 
 void MainWindow::disableActions()
 {
+    actionLoadJSON->setEnabled(false);
     actionLoadPCF->setEnabled(false);
     actionPack->setEnabled(false);
     actionAssignBudget->setEnabled(false);
     actionPlace->setEnabled(false);
     actionRoute->setEnabled(false);
+    actionSaveAsc->setEnabled(false);
 
     actionPlay->setEnabled(false);
     actionPause->setEnabled(false);
@@ -214,6 +264,16 @@ void MainWindow::loadpcf_finished(bool status)
         actionPack->setEnabled(true);
     } else {
         log("Loading PCF failed.\n");
+    }
+}
+
+void MainWindow::saveasc_finished(bool status)
+{
+    disableActions();
+    if (status) {
+        log("Saving ASC successful.\n");
+    } else {
+        log("Saving ASC failed.\n");
     }
 }
 
@@ -253,9 +313,10 @@ void MainWindow::place_finished(bool status)
 void MainWindow::route_finished(bool status)
 {
     disableActions();
-    if (status)
+    if (status) {
         log("Routing design successful.\n");
-    else
+        actionSaveAsc->setEnabled(true);
+    } else
         log("Routing design failed.\n");
 }
 

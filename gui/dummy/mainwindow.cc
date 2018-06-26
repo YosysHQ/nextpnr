@@ -41,8 +41,10 @@ void MainWindow::createMenu()
     menuBar->addAction(menu_Custom->menuAction());
 }
 
-void MainWindow::open() {}
+void MainWindow::new_proj() {}
 
-bool MainWindow::save() { return false; }
+void MainWindow::open_proj() {}
+
+bool MainWindow::save_proj() { return false; }
 
 NEXTPNR_NAMESPACE_END

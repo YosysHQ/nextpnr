@@ -49,8 +49,9 @@ class BaseMainWindow : public QMainWindow
   protected Q_SLOTS:
     void writeInfo(std::string text);
 
-    virtual void open() = 0;
-    virtual bool save() = 0;
+    virtual void new_proj() = 0;
+    virtual void open_proj() = 0;
+    virtual bool save_proj() = 0;
 
   protected:
     Context *ctx;
