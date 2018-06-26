@@ -30,6 +30,7 @@ NEXTPNR_NAMESPACE_BEGIN
 struct CellChain
 {
     std::vector<CellInfo *> cells;
+    float mid_x = 0, mid_y = 0;
 };
 
 // Generic chain finder
@@ -92,6 +93,7 @@ class PlacementLegaliser
 
     bool legalise()
     {
+        init_logic_cells();
         bool legalised_carries = legalise_carries();
         if (!legalised_carries && !ctx->force)
             return false;
@@ -113,9 +115,9 @@ class PlacementLegaliser
                 int x = bi.x, y = bi.y, z = bi.z;
                 IdString cell = ctx->getBoundBelCell(bel);
                 if (cell != IdString() && ctx->cells.at(cell)->belStrength >= STRENGTH_FIXED)
-                    logic_bels.at(x).at(y).at(z) = std::make_pair(bel, true);
+                    logic_bels.at(x).at(y).at(z) = std::make_pair(bel, true); // locked out of use
                 else
-                    logic_bels.at(x).at(y).at(z) = std::make_pair(bel, false);
+                    logic_bels.at(x).at(y).at(z) = std::make_pair(bel, false); // available
             }
         }
     }
@@ -130,24 +132,69 @@ class PlacementLegaliser
                 [](const Context *ctx, const CellInfo *cell) {
                     return net_only_drives(ctx, cell->ports.at(ctx->id("COUT")).net, is_lc, ctx->id("CIN"), false);
                 });
-        int width = ctx->chip_info->width, height = ctx->chip_info->height;
+        bool success = true;
+        // Find midpoints for all chains, before we start tearing them up
+        std::vector<CellChain> all_chains;
         for (auto &base_chain : carry_chains) {
             std::vector<CellChain> split_chains = split_carry_chain(base_chain);
             for (auto &chain : split_chains) {
-                float mid_x, mid_y;
-                get_chain_midpoint(ctx, chain, mid_x, mid_y);
-                float base_x = mid_x, base_y = mid_y - (chain.cells.size() / 16.0f);
-                // Find Bel meeting requirements closest to the target base
+                get_chain_midpoint(ctx, chain, chain.mid_x, chain.mid_y);
+                all_chains.push_back(chain);
             }
         }
-        return true;
+        // Actual chain placement
+        for (auto &chain : all_chains) {
+            float base_x = chain.mid_x, base_y = chain.mid_y - (chain.cells.size() / 16.0f);
+            // Find Bel meeting requirements closest to the target base, returning location as <x, y, z>
+            auto chain_origin_bel = find_closest_bel(base_x, base_y, int(chain.cells.size()));
+            int place_x = std::get<0>(chain_origin_bel), place_y = std::get<1>(chain_origin_bel),
+                place_z = std::get<2>(chain_origin_bel);
+            if (place_x == -1) {
+                if (ctx->force) {
+                    log_warning("failed to place carry chain, starting with cell '%s', length %d\n",
+                                chain.cells.front()->name.c_str(ctx), int(chain.cells.size()));
+                    success = false;
+                    continue;
+                } else {
+                    log_error("failed to place carry chain, starting with cell '%s', length %d\n",
+                              chain.cells.front()->name.c_str(ctx), int(chain.cells.size()));
+                }
+            }
+            // Place carry chain
+            for (int i = 0; i < int(chain.cells.size()); i++) {
+                int target_z = place_y * 8 + place_z + i;
+                place_lc(chain.cells.at(i), place_x, target_z / 8, target_z % 8);
+            }
+        }
+        return success;
     }
 
     // Find Bel closest to a location, meeting chain requirements
-    BelId find_closest_bel(float x, float y, int chain_size)
+    std::tuple<int, int, int> find_closest_bel(float target_x, float target_y, int chain_size)
     {
-        // TODO
-        return BelId();
+        std::tuple<int, int, int> best_origin = std::make_tuple(-1, -1, -1);
+        float smallest_distance = std::numeric_limits<float>::infinity();
+        int width = ctx->chip_info->width, height = ctx->chip_info->height;
+        // Slow, should radiate outwards from target position - TODO
+        for (int x = 1; x < width; x++) {
+            for (int y = 1; y < (height - (chain_size / 8)); y++) {
+                bool valid = true;
+                for (int k = 0; k < chain_size; k++) {
+                    if (logic_bels.at(x).at(y + k / 8).at(k % 8).second) {
+                        valid = false;
+                        break;
+                    }
+                }
+                if (valid) {
+                    float distance = (x - target_x) * (x - target_x) + (y - target_y) * (y - target_y);
+                    if (distance < smallest_distance) {
+                        smallest_distance = distance;
+                        best_origin = std::make_tuple(x, y, 0);
+                    }
+                }
+            }
+        }
+        return best_origin;
     }
 
     // Split a carry chain into multiple legal chains
@@ -193,6 +240,23 @@ class PlacementLegaliser
             }
         }
         return chains;
+    }
+
+    // Place a logic cell at a given grid location, handling rip-up etc
+    void place_lc(CellInfo *cell, int x, int y, int z)
+    {
+        auto &loc = logic_bels.at(x).at(y).at(z);
+        assert(!loc.second);
+        BelId bel = loc.first;
+        // Check if there is a cell presently at the location, which we will need to rip up
+        IdString existing = ctx->getBoundBelCell(bel);
+        if (existing != IdString()) {
+            // TODO: keep track of the previous position of the ripped up cell, as a hint
+            rippedCells.insert(existing);
+            ctx->unbindBel(bel);
+        }
+        ctx->bindBel(bel, cell->name, STRENGTH_LOCKED);
+        loc.second = true; // Bel is now unavailable for further use
     }
 
     // Insert a logic cell to legalise a COUT->fabric connection
