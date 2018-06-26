@@ -62,7 +62,7 @@ std::unique_ptr<CellInfo> create_ice_cell(Context *ctx, IdString type, std::stri
 
         add_port(ctx, new_cell.get(), "LO", PORT_OUT);
         add_port(ctx, new_cell.get(), "O", PORT_OUT);
-        add_port(ctx, new_cell.get(), "OUT", PORT_OUT);
+        add_port(ctx, new_cell.get(), "COUT", PORT_OUT);
     } else if (type == ctx->id("SB_IO")) {
         new_cell->params[ctx->id("PIN_TYPE")] = "0";
         new_cell->params[ctx->id("PULLUP")] = "0";

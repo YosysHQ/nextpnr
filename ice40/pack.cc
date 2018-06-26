@@ -78,7 +78,7 @@ static void pack_lut_lutffs(Context *ctx)
     for (auto pcell : packed_cells) {
         ctx->cells.erase(pcell);
     }
-    for (auto& ncell : new_cells) {
+    for (auto &ncell : new_cells) {
         ctx->cells[ncell->name] = std::move(ncell);
     }
 }
@@ -94,7 +94,8 @@ static void pack_nonlut_ffs(Context *ctx)
     for (auto cell : sorted(ctx->cells)) {
         CellInfo *ci = cell.second;
         if (is_ff(ctx, ci)) {
-            std::unique_ptr<CellInfo> packed = create_ice_cell(ctx, ctx->id("ICESTORM_LC"), ci->name.str(ctx) + "_DFFLC");
+            std::unique_ptr<CellInfo> packed =
+                    create_ice_cell(ctx, ctx->id("ICESTORM_LC"), ci->name.str(ctx) + "_DFFLC");
             std::copy(ci->attrs.begin(), ci->attrs.end(), std::inserter(packed->attrs, packed->attrs.begin()));
             if (ctx->verbose)
                 log_info("packed cell %s into %s\n", ci->name.c_str(ctx), packed->name.c_str(ctx));
@@ -106,7 +107,7 @@ static void pack_nonlut_ffs(Context *ctx)
     for (auto pcell : packed_cells) {
         ctx->cells.erase(pcell);
     }
-    for (auto& ncell : new_cells) {
+    for (auto &ncell : new_cells) {
         ctx->cells[ncell->name] = std::move(ncell);
     }
 }
@@ -117,12 +118,13 @@ static void pack_carries(Context *ctx)
     log_info("Packing carries..\n");
 
     std::unordered_set<IdString> packed_cells;
+    std::vector<std::unique_ptr<CellInfo>> new_cells;
 
     for (auto cell : sorted(ctx->cells)) {
         CellInfo *ci = cell.second;
         if (is_carry(ctx, ci)) {
             packed_cells.insert(cell.first);
-            CellInfo * carry_ci_lc = net_only_drives(ctx, ci->ports.at(ctx->id("CI")).net, is_lc, ctx->id("I3"), false);
+            CellInfo *carry_ci_lc = net_only_drives(ctx, ci->ports.at(ctx->id("CI")).net, is_lc, ctx->id("I3"), false);
             if (!ci->ports.at(ctx->id("I0")).net)
                 log_error("SB_CARRY '%s' has disconnected port I0\n", cell.first.c_str(ctx));
             if (!ci->ports.at(ctx->id("I1")).net)
@@ -152,11 +154,15 @@ static void pack_carries(Context *ctx)
                               cell.first.c_str(ctx));
                 carry_lc = carry_ci_lc;
             } else {
-                if (carry_lcs.empty())
-                    log_error("SB_CARRY '%s' cannot be packed into any logic "
-                              "cell (no logic cell connects to both I0 and I1)\n",
-                              cell.first.c_str(ctx));
-                carry_lc = ctx->cells.at(*carry_lcs.begin()).get();
+                if (carry_lcs.empty()) {
+                    // No LC to pack into matching I0/I1, insert a new one
+                    std::unique_ptr<CellInfo> created_lc =
+                            create_ice_cell(ctx, ctx->id("ICESTORM_LC"), cell.first.str(ctx) + "$CARRY");
+                    carry_lc = created_lc.get();
+                    new_cells.push_back(std::move(created_lc));
+                } else {
+                    carry_lc = ctx->cells.at(*carry_lcs.begin()).get();
+                }
             }
             carry_lc->attrs[ctx->id("CARRY_ENABLE")] = "1";
             replace_port(ci, ctx->id("CI"), carry_lc, ctx->id("CIN"));
@@ -169,10 +175,27 @@ static void pack_carries(Context *ctx)
             i1_usrs.erase(std::remove_if(i1_usrs.begin(), i1_usrs.end(), [ci, ctx](const PortRef &pr) {
                 return pr.cell == ci && pr.port == ctx->id("I1");
             }));
+            // Check for constant driver on CIN
+            if (carry_lc->ports.at(ctx->id("CIN")).net != nullptr) {
+                IdString cin_net = carry_lc->ports.at(ctx->id("CIN")).net->name;
+                if (cin_net == ctx->id("$PACKER_GND_NET") || cin_net == ctx->id("$PACKER_VCC_NET")) {
+                    carry_lc->attrs[ctx->id("CIN_CONST")] = "1";
+                    carry_lc->attrs[ctx->id("CIN_SET")] = cin_net == ctx->id("$PACKER_VCC_NET") ? "1" : "0";
+                    carry_lc->ports.at(ctx->id("CIN")).net = nullptr;
+                    auto cin_users = ctx->nets.at(cin_net)->users;
+                    cin_users.erase(
+                            std::remove_if(cin_users.begin(), cin_users.end(), [carry_lc, ctx](const PortRef &pr) {
+                                return pr.cell == carry_lc && pr.port == ctx->id("CIN");
+                            }));
+                }
+            }
         }
     }
     for (auto pcell : packed_cells) {
         ctx->cells.erase(pcell);
+    }
+    for (auto &ncell : new_cells) {
+        ctx->cells[ncell->name] = std::move(ncell);
     }
 }
 
@@ -187,7 +210,8 @@ static void pack_ram(Context *ctx)
     for (auto cell : sorted(ctx->cells)) {
         CellInfo *ci = cell.second;
         if (is_ram(ctx, ci)) {
-            std::unique_ptr<CellInfo> packed = create_ice_cell(ctx, ctx->id("ICESTORM_RAM"), ci->name.str(ctx) + "_RAM");
+            std::unique_ptr<CellInfo> packed =
+                    create_ice_cell(ctx, ctx->id("ICESTORM_RAM"), ci->name.str(ctx) + "_RAM");
             packed_cells.insert(ci->name);
             for (auto param : ci->params)
                 packed->params[param.first] = param.second;
@@ -212,7 +236,7 @@ static void pack_ram(Context *ctx)
     for (auto pcell : packed_cells) {
         ctx->cells.erase(pcell);
     }
-    for (auto& ncell : new_cells) {
+    for (auto &ncell : new_cells) {
         ctx->cells[ncell->name] = std::move(ncell);
     }
 }
@@ -251,7 +275,7 @@ static void pack_constants(Context *ctx)
 
     std::unique_ptr<CellInfo> vcc_cell = create_ice_cell(ctx, ctx->id("ICESTORM_LC"), "$PACKER_VCC");
     vcc_cell->params[ctx->id("LUT_INIT")] = "1";
-    std::unique_ptr<NetInfo>  vcc_net = std::unique_ptr<NetInfo>(new NetInfo);
+    std::unique_ptr<NetInfo> vcc_net = std::unique_ptr<NetInfo>(new NetInfo);
     vcc_net->name = ctx->id("$PACKER_VCC_NET");
     vcc_net->driver.cell = vcc_cell.get();
     vcc_net->driver.port = ctx->id("O");
@@ -326,7 +350,8 @@ static void pack_io(Context *ctx)
                 }
             } else {
                 // Create a SB_IO buffer
-                std::unique_ptr<CellInfo> ice_cell = create_ice_cell(ctx, ctx->id("SB_IO"), ci->name.str(ctx) + "$sb_io");
+                std::unique_ptr<CellInfo> ice_cell =
+                        create_ice_cell(ctx, ctx->id("SB_IO"), ci->name.str(ctx) + "$sb_io");
                 nxio_to_sb(ctx, ci, ice_cell.get());
                 new_cells.push_back(std::move(ice_cell));
                 sb = new_cells.back().get();
@@ -338,7 +363,7 @@ static void pack_io(Context *ctx)
     for (auto pcell : packed_cells) {
         ctx->cells.erase(pcell);
     }
-    for (auto& ncell : new_cells) {
+    for (auto &ncell : new_cells) {
         ctx->cells[ncell->name] = std::move(ncell);
     }
 }
@@ -357,7 +382,7 @@ static void insert_global(Context *ctx, NetInfo *net, bool is_reset, bool is_cen
     pr.port = ctx->id("GLOBAL_BUFFER_OUTPUT");
     std::unique_ptr<NetInfo> glbnet = std::unique_ptr<NetInfo>(new NetInfo());
     glbnet->name = ctx->id(glb_name);
-    glbnet->driver = pr;    
+    glbnet->driver = pr;
     gb->ports[ctx->id("GLOBAL_BUFFER_OUTPUT")].net = glbnet.get();
     std::vector<PortRef> keep_users;
     for (auto user : net->users) {
@@ -399,7 +424,7 @@ static void promote_globals(Context *ctx)
     }
     int prom_globals = 0, prom_resets = 0, prom_cens = 0;
     int gbs_available = 8;
-    for (auto& cell : ctx->cells)
+    for (auto &cell : ctx->cells)
         if (is_gbuf(ctx, cell.second.get()))
             --gbs_available;
     while (prom_globals < gbs_available) {
@@ -456,8 +481,9 @@ static void pack_intosc(Context *ctx)
     for (auto cell : sorted(ctx->cells)) {
         CellInfo *ci = cell.second;
         if (is_sb_lfosc(ctx, ci)) {
-            std::unique_ptr<CellInfo> packed = create_ice_cell(ctx, ctx->id("ICESTORM_LFOSC"), ci->name.str(ctx) + "_OSC");
-            packed_cells.insert(ci->name);            
+            std::unique_ptr<CellInfo> packed =
+                    create_ice_cell(ctx, ctx->id("ICESTORM_LFOSC"), ci->name.str(ctx) + "_OSC");
+            packed_cells.insert(ci->name);
             replace_port(ci, ctx->id("CLKLFEN"), packed.get(), ctx->id("CLKLFEN"));
             replace_port(ci, ctx->id("CLKLFPU"), packed.get(), ctx->id("CLKLFPU"));
             if (bool_or_default(ci->attrs, ctx->id("ROUTE_THROUGH_FABRIC"))) {
@@ -472,7 +498,7 @@ static void pack_intosc(Context *ctx)
     for (auto pcell : packed_cells) {
         ctx->cells.erase(pcell);
     }
-    for (auto& ncell : new_cells) {
+    for (auto &ncell : new_cells) {
         ctx->cells[ncell->name] = std::move(ncell);
     }
 }
@@ -487,6 +513,7 @@ bool pack_design(Context *ctx)
         pack_io(ctx);
         pack_lut_lutffs(ctx);
         pack_nonlut_ffs(ctx);
+        pack_carries(ctx);
         pack_ram(ctx);
         pack_intosc(ctx);
         log_info("Checksum: 0x%08x\n", ctx->checksum());

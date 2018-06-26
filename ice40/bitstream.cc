@@ -140,7 +140,7 @@ void write_asc(const Context *ctx, std::ostream &out)
         }
     }
     // Set logic cell config
-    for (auto& cell : ctx->cells) {
+    for (auto &cell : ctx->cells) {
         BelId bel = cell.second.get()->bel;
         if (bel == BelId()) {
             std::cout << "Found unplaced cell " << cell.first.str(ctx) << " while generating bitstream!" << std::endl;
@@ -371,7 +371,7 @@ void write_asc(const Context *ctx, std::ostream &out)
     }
 
     // Write RAM init data
-    for (auto& cell : ctx->cells) {
+    for (auto &cell : ctx->cells) {
         if (cell.second->bel != BelId()) {
             if (cell.second->type == ctx->id("ICESTORM_RAM")) {
                 const BelInfoPOD &beli = ci.bel_data[cell.second->bel.index];
