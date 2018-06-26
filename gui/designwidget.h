@@ -33,9 +33,8 @@ class DesignWidget : public QWidget
     Q_OBJECT
 
   public:
-    explicit DesignWidget(Context *ctx, QWidget *parent = 0);
+    explicit DesignWidget(QWidget *parent = 0);
     ~DesignWidget();
-    Context *getContext() { return ctx; }
 
   private:
     void addProperty(QtVariantProperty *property, const QString &id);
@@ -48,6 +47,8 @@ class DesignWidget : public QWidget
     void prepareMenu(const QPoint &pos);
     void onItemClicked(QTreeWidgetItem *item, int);
     void selectObject();
+  public Q_SLOTS:
+    void newContext(Context *ctx);
 
   private:
     Context *ctx;

@@ -82,7 +82,7 @@ class PipTreeItem : public ElementTreeItem
     IdString data;
 };
 
-DesignWidget::DesignWidget(Context *_ctx, QWidget *parent) : QWidget(parent), ctx(_ctx)
+DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr)
 {
 
     treeWidget = new QTreeWidget();
@@ -91,39 +91,6 @@ DesignWidget::DesignWidget(Context *_ctx, QWidget *parent) : QWidget(parent), ct
     treeWidget->setColumnCount(1);
     treeWidget->setHeaderLabel(QString("Items"));
     treeWidget->setContextMenuPolicy(Qt::CustomContextMenu);
-
-    // Add bels to tree
-    QTreeWidgetItem *bel_root = new QTreeWidgetItem(treeWidget);
-    bel_root->setText(0, QString("Bels"));
-    treeWidget->insertTopLevelItem(0, bel_root);
-    QList<QTreeWidgetItem *> bel_items;
-    for (auto bel : ctx->getBels()) {
-        auto name = ctx->getBelName(bel);
-        bel_items.append(new BelTreeItem(name, ElementType::BEL, QString(name.c_str(ctx))));
-    }
-    bel_root->addChildren(bel_items);
-
-    // Add wires to tree
-    QTreeWidgetItem *wire_root = new QTreeWidgetItem(treeWidget);
-    QList<QTreeWidgetItem *> wire_items;
-    wire_root->setText(0, QString("Wires"));
-    treeWidget->insertTopLevelItem(0, wire_root);
-    for (auto wire : ctx->getWires()) {
-        auto name = ctx->getWireName(wire);
-        wire_items.append(new WireTreeItem(name, ElementType::WIRE, QString(name.c_str(ctx))));
-    }
-    wire_root->addChildren(wire_items);
-
-    // Add pips to tree
-    QTreeWidgetItem *pip_root = new QTreeWidgetItem(treeWidget);
-    QList<QTreeWidgetItem *> pip_items;
-    pip_root->setText(0, QString("Pips"));
-    treeWidget->insertTopLevelItem(0, pip_root);
-    for (auto pip : ctx->getPips()) {
-        auto name = ctx->getPipName(pip);
-        pip_items.append(new PipTreeItem(name, ElementType::PIP, QString(name.c_str(ctx))));
-    }
-    pip_root->addChildren(pip_items);
 
     // Add property view
     variantManager = new QtVariantPropertyManager();
@@ -156,6 +123,54 @@ DesignWidget::~DesignWidget()
     delete variantManager;
     delete variantFactory;
     delete propertyEditor;
+}
+
+void DesignWidget::newContext(Context *ctx)
+{
+    treeWidget->clear();
+    this->ctx = ctx;
+
+    // Add bels to tree
+    QTreeWidgetItem *bel_root = new QTreeWidgetItem(treeWidget);
+    bel_root->setText(0, QString("Bels"));
+    treeWidget->insertTopLevelItem(0, bel_root);
+    QList<QTreeWidgetItem *> bel_items;
+    if (ctx)
+    {
+        for (auto bel : ctx->getBels()) {
+            auto name = ctx->getBelName(bel);
+            bel_items.append(new BelTreeItem(name, ElementType::BEL, QString(name.c_str(ctx))));
+        }
+    }
+    bel_root->addChildren(bel_items);
+
+    // Add wires to tree
+    QTreeWidgetItem *wire_root = new QTreeWidgetItem(treeWidget);
+    QList<QTreeWidgetItem *> wire_items;
+    wire_root->setText(0, QString("Wires"));
+    treeWidget->insertTopLevelItem(0, wire_root);
+    if (ctx)
+    {
+        for (auto wire : ctx->getWires()) {
+            auto name = ctx->getWireName(wire);
+            wire_items.append(new WireTreeItem(name, ElementType::WIRE, QString(name.c_str(ctx))));
+        }
+    }
+    wire_root->addChildren(wire_items);
+
+    // Add pips to tree
+    QTreeWidgetItem *pip_root = new QTreeWidgetItem(treeWidget);
+    QList<QTreeWidgetItem *> pip_items;
+    pip_root->setText(0, QString("Pips"));
+    treeWidget->insertTopLevelItem(0, pip_root);
+    if (ctx)
+    {
+        for (auto pip : ctx->getPips()) {
+            auto name = ctx->getPipName(pip);
+            pip_items.append(new PipTreeItem(name, ElementType::PIP, QString(name.c_str(ctx))));
+        }
+    }
+    pip_root->addChildren(pip_items);
 }
 
 void DesignWidget::addProperty(QtVariantProperty *property, const QString &id)

@@ -39,7 +39,7 @@ class BaseMainWindow : public QMainWindow
     Q_OBJECT
 
   public:
-    explicit BaseMainWindow(Context *ctx, QWidget *parent = 0);
+    explicit BaseMainWindow(QWidget *parent = 0);
     virtual ~BaseMainWindow();
     Context *getContext() { return ctx; }
 
@@ -52,6 +52,9 @@ class BaseMainWindow : public QMainWindow
     virtual void new_proj() = 0;
     virtual void open_proj() = 0;
     virtual bool save_proj() = 0;
+
+  Q_SIGNALS:
+    void contextChanged(Context *ctx);
 
   protected:
     Context *ctx;

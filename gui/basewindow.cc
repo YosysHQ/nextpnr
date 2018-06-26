@@ -36,7 +36,7 @@ static void initBasenameResource() { Q_INIT_RESOURCE(base); }
 
 NEXTPNR_NAMESPACE_BEGIN
 
-BaseMainWindow::BaseMainWindow(Context *_ctx, QWidget *parent) : QMainWindow(parent), ctx(_ctx)
+BaseMainWindow::BaseMainWindow(QWidget *parent) : QMainWindow(parent), ctx(nullptr)
 {
     initBasenameResource();
     qRegisterMetaType<std::string>();
@@ -63,10 +63,12 @@ BaseMainWindow::BaseMainWindow(Context *_ctx, QWidget *parent) : QMainWindow(par
 
     setCentralWidget(centralWidget);
 
-    DesignWidget *designview = new DesignWidget(ctx);
+    DesignWidget *designview = new DesignWidget();
     designview->setMinimumWidth(300);
     designview->setMaximumWidth(300);
     splitter_h->addWidget(designview);
+    
+    connect(this, SIGNAL(contextChanged(Context*)), designview, SLOT(newContext(Context*)));
 
     connect(designview, SIGNAL(info(std::string)), this, SLOT(writeInfo(std::string)));
 
@@ -78,7 +80,10 @@ BaseMainWindow::BaseMainWindow(Context *_ctx, QWidget *parent) : QMainWindow(par
     tabWidget->addTab(info, "Info");
 
     centralTabWidget = new QTabWidget();
-    centralTabWidget->addTab(new FPGAViewWidget(), "Graphics");
+    FPGAViewWidget *fpgaView = new FPGAViewWidget();
+    centralTabWidget->addTab(fpgaView, "Graphics");
+
+    connect(this, SIGNAL(contextChanged(Context*)), fpgaView, SLOT(newContext(Context*)));
 
     splitter_v->addWidget(centralTabWidget);
     splitter_v->addWidget(tabWidget);

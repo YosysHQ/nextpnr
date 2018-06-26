@@ -241,9 +241,8 @@ void LineShader::draw(const LineShaderData &line, const QMatrix4x4 &projection)
 }
 
 FPGAViewWidget::FPGAViewWidget(QWidget *parent)
-        : QOpenGLWidget(parent), moveX_(0), moveY_(0), zoom_(10.0f), lineShader_(this)
+        : QOpenGLWidget(parent), moveX_(0), moveY_(0), zoom_(10.0f), lineShader_(this), ctx_(nullptr)
 {
-    ctx_ = qobject_cast<BaseMainWindow *>(getMainWindow())->getContext();
     auto fmt = format();
     fmt.setMajorVersion(3);
     fmt.setMinorVersion(1);
@@ -260,16 +259,13 @@ FPGAViewWidget::FPGAViewWidget(QWidget *parent)
     }
 }
 
-QMainWindow *FPGAViewWidget::getMainWindow()
-{
-    QWidgetList widgets = qApp->topLevelWidgets();
-    for (QWidgetList::iterator i = widgets.begin(); i != widgets.end(); ++i)
-        if ((*i)->objectName() == "BaseMainWindow")
-            return (QMainWindow *)(*i);
-    return NULL;
-}
-
 FPGAViewWidget::~FPGAViewWidget() {}
+
+void FPGAViewWidget::newContext(Context *ctx)
+{
+    ctx_ = ctx;
+    update();
+}
 
 QSize FPGAViewWidget::minimumSizeHint() const { return QSize(640, 480); }
 
@@ -359,16 +355,22 @@ void FPGAViewWidget::paintGL()
 
     // Draw Bels.
     auto bels = LineShaderData(0.02f, QColor("#b000ba"));
-    for (auto bel : ctx_->getBels()) {
-        for (auto &el : ctx_->getBelGraphics(bel))
-            drawElement(bels, el);
+    if (ctx_)
+    {
+        for (auto bel : ctx_->getBels()) {
+            for (auto &el : ctx_->getBelGraphics(bel))
+                drawElement(bels, el);
+        }
     }
     lineShader_.draw(bels, matrix);
 
     // Draw Frame Graphics.
     auto frames = LineShaderData(0.02f, QColor("#0066ba"));
-    for (auto &el : ctx_->getFrameGraphics()) {
-        drawElement(frames, el);
+    if (ctx_)
+    {
+        for (auto &el : ctx_->getFrameGraphics()) {
+            drawElement(frames, el);
+        }
     }
     lineShader_.draw(frames, matrix);
 }

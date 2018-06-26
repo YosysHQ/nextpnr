@@ -35,7 +35,7 @@ struct WorkerInterruptionRequested
 {
 };
 
-Worker::Worker(Context *_ctx, TaskManager *parent) : ctx(_ctx)
+Worker::Worker(TaskManager *parent) : ctx(nullptr)
 {
     log_write_function = [this, parent](std::string text) {
         Q_EMIT log(text);
@@ -54,6 +54,11 @@ Worker::Worker(Context *_ctx, TaskManager *parent) : ctx(_ctx)
             QThread::sleep(1);
         }
     };
+}
+
+void Worker::newContext(Context *ctx_)
+{
+    ctx = ctx_;
 }
 
 void Worker::loadfile(const std::string &filename)
@@ -136,9 +141,9 @@ void Worker::route()
     }
 }
 
-TaskManager::TaskManager(Context *ctx) : toTerminate(false), toPause(false)
+TaskManager::TaskManager() : toTerminate(false), toPause(false)
 {
-    Worker *worker = new Worker(ctx, this);
+    Worker *worker = new Worker(this);
     worker->moveToThread(&workerThread);
 
     connect(&workerThread, &QThread::finished, worker, &QObject::deleteLater);
@@ -150,6 +155,9 @@ TaskManager::TaskManager(Context *ctx) : toTerminate(false), toPause(false)
     connect(this, &TaskManager::budget, worker, &Worker::budget);
     connect(this, &TaskManager::place, worker, &Worker::place);
     connect(this, &TaskManager::route, worker, &Worker::route);
+
+
+    connect(this, &TaskManager::contextChanged, worker, &Worker::newContext);
 
     connect(worker, &Worker::log, this, &TaskManager::info);
     connect(worker, &Worker::loadfile_finished, this, &TaskManager::loadfile_finished);
