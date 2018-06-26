@@ -36,14 +36,14 @@ static void initMainResource() { Q_INIT_RESOURCE(nextpnr); }
 
 NEXTPNR_NAMESPACE_BEGIN
 
-MainWindow::MainWindow(Context *_ctx, QWidget *parent) : BaseMainWindow(_ctx, parent), timing_driven(false)
+MainWindow::MainWindow(QWidget *parent) : BaseMainWindow(parent), timing_driven(false)
 {
     initMainResource();
 
-    std::string title = "nextpnr-ice40 - " + ctx->getChipName();
+    std::string title = "nextpnr-ice40 - [EMPTY]";
     setWindowTitle(title.c_str());
 
-    task = new TaskManager(_ctx);
+    task = new TaskManager();
     connect(task, SIGNAL(log(std::string)), this, SLOT(writeInfo(std::string)));
 
     connect(task, SIGNAL(loadfile_finished(bool)), this, SLOT(loadfile_finished(bool)));
@@ -57,6 +57,9 @@ MainWindow::MainWindow(Context *_ctx, QWidget *parent) : BaseMainWindow(_ctx, pa
     connect(task, SIGNAL(taskCanceled()), this, SLOT(taskCanceled()));
     connect(task, SIGNAL(taskStarted()), this, SLOT(taskStarted()));
     connect(task, SIGNAL(taskPaused()), this, SLOT(taskPaused()));
+
+    connect(this, SIGNAL(contextChanged(Context*)), this, SLOT(newContext(Context*)));
+    connect(this, SIGNAL(contextChanged(Context*)), task, SIGNAL(contextChanged(Context*)));
 
     createMenu();
 }
@@ -178,12 +181,27 @@ void MainWindow::createMenu()
 void MainWindow::new_proj()
 {
     disableActions();
+    ArchArgs chipArgs;
+    chipArgs.type = ArchArgs::HX1K;
+    chipArgs.package = "tq144";
+    if (ctx) 
+        delete ctx;
+    ctx = new Context(chipArgs);
+    
+    Q_EMIT contextChanged(ctx);
+
     actionLoadJSON->setEnabled(true);
+}
+
+void MainWindow::newContext(Context *ctx)
+{
+    std::string title = "nextpnr-ice40 - " + ctx->getChipName();
+    setWindowTitle(title.c_str());
 }
 
 void MainWindow::open_proj()
 {
-    QString fileName = QFileDialog::getOpenFileName(this, QString("Open Project"), QString(), QString("*.npnr"));
+    QString fileName = QFileDialog::getOpenFileName(this, QString("Open Project"), QString(), QString("*.proj"));
     if (!fileName.isEmpty()) {
         tabWidget->setCurrentWidget(info);
 

@@ -200,7 +200,7 @@ struct BaseCtx
 
     BaseCtx()
     {
-        assert(IdString::global_ctx == nullptr);
+        //assert(IdString::global_ctx == nullptr);
         IdString::global_ctx = this;
 
         idstring_str_to_idx = new std::unordered_map<std::string, int>;

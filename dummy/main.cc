@@ -120,7 +120,7 @@ int main(int argc, char *argv[])
 #ifndef NO_GUI
         if (vm.count("gui")) {
             Application a(argc, argv);
-            MainWindow w(&ctx);
+            MainWindow w;
             w.show();
 
             rc = a.exec();

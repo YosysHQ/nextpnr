@@ -32,8 +32,9 @@ class Worker : public QObject
 {
     Q_OBJECT
   public:
-    Worker(Context *ctx, TaskManager *parent);
+    explicit Worker(TaskManager *parent);
   public Q_SLOTS:
+    void newContext(Context *);
     void loadfile(const std::string &);
     void loadpcf(const std::string &);
     void saveasc(const std::string &);
@@ -64,7 +65,7 @@ class TaskManager : public QObject
     QThread workerThread;
 
   public:
-    TaskManager(Context *ctx);
+    explicit TaskManager();
     ~TaskManager();
     bool shouldTerminate();
     void clearTerminate();
@@ -75,6 +76,7 @@ class TaskManager : public QObject
     void pause_thread();
     void continue_thread();
   Q_SIGNALS:
+    void contextChanged(Context *ctx);
     void terminate();
     void loadfile(const std::string &);
     void loadpcf(const std::string &);

@@ -240,8 +240,8 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     void mouseMoveEvent(QMouseEvent *event) Q_DECL_OVERRIDE;
     void wheelEvent(QWheelEvent *event) Q_DECL_OVERRIDE;
     void drawElement(LineShaderData &data, const GraphicElement &el);
-    QMainWindow *getMainWindow();
-
+  public Q_SLOTS:
+    void newContext(Context *ctx);
   private:
     QPoint lastPos_;
     float moveX_;

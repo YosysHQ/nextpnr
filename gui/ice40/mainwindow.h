@@ -30,7 +30,7 @@ class MainWindow : public BaseMainWindow
     Q_OBJECT
 
   public:
-    explicit MainWindow(Context *ctx, QWidget *parent = 0);
+    explicit MainWindow(QWidget *parent = 0);
     virtual ~MainWindow();
 
   public:
@@ -58,6 +58,8 @@ class MainWindow : public BaseMainWindow
     void taskCanceled();
     void taskStarted();
     void taskPaused();
+
+    void newContext(Context *ctx);
 
   private:
     void disableActions();
