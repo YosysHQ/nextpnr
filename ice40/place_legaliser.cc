@@ -303,7 +303,7 @@ class PlacementLegaliser
         lc->params[ctx->id("LUT_INIT")] = "65280"; // 0xff00: O = I3
         lc->params[ctx->id("CARRY_ENABLE")] = "1";
         lc->ports.at(ctx->id("O")).net = cout_port.net;
-        NetInfo *co_i3_net = new NetInfo();
+        std::unique_ptr<NetInfo> co_i3_net(new NetInfo());
         co_i3_net->name = ctx->id(lc->name.str(ctx) + "$I3");
         co_i3_net->driver = cout_port.net->driver;
         PortRef i3_r;
@@ -314,13 +314,16 @@ class PlacementLegaliser
         o_r.port = ctx->id("O");
         o_r.cell = lc.get();
         cout_port.net->driver = o_r;
-        lc->ports.at(ctx->id("I3")).net = co_i3_net;
+        lc->ports.at(ctx->id("I3")).net = co_i3_net.get();
+        cout_port.net = co_i3_net.get();
         // I1=1 feeds carry up the chain, so no need to actually break the chain
         lc->ports.at(ctx->id("I1")).net = ctx->nets.at(ctx->id("$PACKER_VCC_NET")).get();
         PortRef i1_r;
         i1_r.port = ctx->id("I1");
         i1_r.cell = lc.get();
         ctx->nets.at(ctx->id("$PACKER_VCC_NET"))->users.push_back(i1_r);
+        IdString co_i3_name = co_i3_net->name;
+        ctx->nets[co_i3_name] = std::move(co_i3_net);
         IdString name = lc->name;
         ctx->cells[lc->name] = std::move(lc);
         createdCells.insert(name);
@@ -340,8 +343,29 @@ class PlacementLegaliser
                                                  [cin_cell, cin_port](const PortRef &usr) {
                                                      return usr.cell == cin_cell && usr.port == cin_port.name;
                                                  }));
-        NetInfo *out_net = new NetInfo();
+
+        PortRef i1_ref;
+        i1_ref.cell = lc.get();
+        i1_ref.port = ctx->id("I1");
+        lc->ports.at(ctx->id("I1")).net->users.push_back(i1_ref);
+
+        std::unique_ptr<NetInfo> out_net(new NetInfo());
         out_net->name = ctx->id(lc->name.str(ctx) + "$O");
+
+        PortRef drv_ref;
+        drv_ref.port = ctx->id("COUT");
+        drv_ref.cell = lc.get();
+        out_net->driver = drv_ref;
+        lc->ports.at(ctx->id("COUT")).net = out_net.get();
+
+        PortRef usr_ref;
+        usr_ref.port = cin_port.name;
+        usr_ref.cell = cin_cell;
+        out_net->users.push_back(usr_ref);
+        cin_cell->ports.at(cin_port.name).net = out_net.get();
+
+        IdString out_net_name = out_net->name;
+        ctx->nets[out_net_name] = std::move(out_net);
 
         IdString name = lc->name;
         ctx->cells[lc->name] = std::move(lc);
