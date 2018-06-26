@@ -79,7 +79,7 @@ class SAPlacer
 
         size_t placed_cells = 0;
         // Initial constraints placer
-        for (auto& cell_entry : ctx->cells) {
+        for (auto &cell_entry : ctx->cells) {
             CellInfo *cell = cell_entry.second.get();
             auto loc = cell->attrs.find(ctx->id("BEL"));
             if (loc != cell->attrs.end()) {
@@ -109,7 +109,7 @@ class SAPlacer
 
         // Sort to-place cells for deterministic initial placement
         std::vector<CellInfo *> autoplaced;
-        for (auto& cell : ctx->cells) {
+        for (auto &cell : ctx->cells) {
             CellInfo *ci = cell.second.get();
             if (ci->bel == BelId()) {
                 autoplaced.push_back(cell.second.get());
@@ -137,7 +137,7 @@ class SAPlacer
         // Calculate wirelength after initial placement
         curr_wirelength = 0;
         curr_tns = 0;
-        for (auto& net : ctx->nets) {
+        for (auto &net : ctx->nets) {
             wirelen_t wl = get_wirelength(net.second.get(), curr_tns);
             wirelengths[net.first] = wl;
             curr_wirelength += wl;
@@ -211,7 +211,7 @@ class SAPlacer
             // accumulating over time
             curr_wirelength = 0;
             curr_tns = 0;
-            for (auto& net : ctx->nets) {
+            for (auto &net : ctx->nets) {
                 wirelen_t wl = get_wirelength(net.second.get(), curr_tns);
                 wirelengths[net.first] = wl;
                 curr_wirelength += wl;

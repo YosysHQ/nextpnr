@@ -26,8 +26,8 @@
 #include "nextpnr.h"
 
 #include <fstream>
+#include <memory>
 #include <signal.h>
-
 NEXTPNR_NAMESPACE_BEGIN
 
 // Required to determine concatenated module name (which differs for different
@@ -55,10 +55,10 @@ void parse_json_shim(std::string filename, Context &d)
 }
 
 // Create a new Chip and load design from json file
-Context load_design_shim(std::string filename, ArchArgs args)
+Context *load_design_shim(std::string filename, ArchArgs args)
 {
-    Context d(args);
-    parse_json_shim(filename, d);
+    Context *d = new Context(args);
+    parse_json_shim(filename, *d);
     return d;
 }
 
@@ -74,7 +74,7 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
 
     class_<PortRef>("PortRef").def_readwrite("cell", &PortRef::cell).def_readwrite("port", &PortRef::port);
 
-    class_<NetInfo, NetInfo *>("NetInfo")
+    class_<NetInfo, NetInfo *, boost::noncopyable>("NetInfo")
             .def_readwrite("name", &NetInfo::name)
             .def_readwrite("driver", &NetInfo::driver)
             .def_readwrite("users", &NetInfo::users)
@@ -96,7 +96,7 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
             .def_readwrite("net", &PortInfo::net)
             .def_readwrite("type", &PortInfo::type);
 
-    class_<CellInfo, CellInfo *>("CellInfo")
+    class_<CellInfo, CellInfo *, boost::noncopyable>("CellInfo")
             .def_readwrite("name", &CellInfo::name)
             .def_readwrite("type", &CellInfo::type)
             .def_readwrite("ports", &CellInfo::ports)
@@ -108,15 +108,15 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
     WRAP_MAP(decltype(CellInfo::ports), "IdPortMap");
     // WRAP_MAP(decltype(CellInfo::pins), "IdIdMap");
 
-    class_<BaseCtx, BaseCtx *>("BaseCtx", no_init)
-            .def_readwrite("nets", &Context::nets)
-            .def_readwrite("cells", &Context::cells);
+    class_<BaseCtx, BaseCtx *, boost::noncopyable>("BaseCtx", no_init)
+            .add_property("nets", make_getter(&Context::nets, return_internal_reference<>()))
+            .add_property("cells", make_getter(&Context::nets, return_internal_reference<>()));
 
-    WRAP_MAP(decltype(Context::nets), "IdNetMap");
-    WRAP_MAP(decltype(Context::cells), "IdCellMap");
+    WRAP_MAP_UPTR(decltype(Context::nets), "IdNetMap");
+    WRAP_MAP_UPTR(decltype(Context::cells), "IdCellMap");
 
     def("parse_json", parse_json_shim);
-    def("load_design", load_design_shim);
+    def("load_design", load_design_shim, return_value_policy<manage_new_object>());
 
     class_<IdString>("IdString")
             .def("__str__", &IdString::global_str, return_value_policy<copy_const_reference>())
@@ -124,7 +124,7 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
             .def(self == self);
     arch_wrap_python();
 
-    class_<Context, Context *, bases<Arch>>("Context", no_init).def("checksum", &Context::checksum);
+    class_<Context, Context *, bases<Arch>, boost::noncopyable>("Context", no_init).def("checksum", &Context::checksum);
 }
 
 void arch_appendinittab() { PyImport_AppendInittab(TOSTRING(MODULE_NAME), PYINIT_MODULE_NAME); }

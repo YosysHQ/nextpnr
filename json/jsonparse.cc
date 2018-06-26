@@ -259,7 +259,7 @@ void vcc_net(Context *ctx, NetInfo *net)
 
     cell->ports[port_info.name] = port_info;
 
-    ctx->cells[cell->name] = std::move(cell);    
+    ctx->cells[cell->name] = std::move(cell);
 }
 
 void floating_net(Context *ctx, NetInfo *net)
@@ -429,12 +429,12 @@ void json_import_ports(Context *ctx, const string &modname, const std::vector<Id
                     if (json_debug)
                         log_info("      Generating a new net, \'%d\'\n", net_num);
 
-                    std::unique_ptr<NetInfo> net = std::unique_ptr<NetInfo>(new NetInfo());   
+                    std::unique_ptr<NetInfo> net = std::unique_ptr<NetInfo>(new NetInfo());
                     net->name = net_id;
                     net->driver.cell = NULL;
                     net->driver.port = IdString();
                     ctx->nets[net_id] = std::move(net);
-                    
+
                     this_net = ctx->nets[net_id].get();
                 } else {
                     //
@@ -455,7 +455,7 @@ void json_import_ports(Context *ctx, const string &modname, const std::vector<Id
                 // values here.
                 //
                 // Constants always get their own new net
-                std::unique_ptr<NetInfo> net = std::unique_ptr<NetInfo>(new NetInfo());  
+                std::unique_ptr<NetInfo> net = std::unique_ptr<NetInfo>(new NetInfo());
                 net->name = ctx->id("$const_" + std::to_string(const_net_idx++));
 
                 if (wire_node->data_string.compare(string("0")) == 0) {
@@ -484,7 +484,7 @@ void json_import_ports(Context *ctx, const string &modname, const std::vector<Id
                     log_error("      Unknown fixed type wire node "
                               "value, \'%s\'\n",
                               wire_node->data_string.c_str());
-                IdString n = net->name;                
+                IdString n = net->name;
                 ctx->nets[net->name] = std::move(net);
                 this_net = ctx->nets[n].get();
             }
@@ -652,7 +652,7 @@ static void insert_iobuf(Context *ctx, NetInfo *net, PortType type, const string
         iobuf->ports[ctx->id("I")] = PortInfo{ctx->id("I"), nullptr, PORT_IN};
 
         // Split the input and output nets for bidir ports
-        std::unique_ptr<NetInfo> net2 = std::unique_ptr<NetInfo>(new NetInfo());   
+        std::unique_ptr<NetInfo> net2 = std::unique_ptr<NetInfo>(new NetInfo());
         net2->name = ctx->id("$" + net->name.str(ctx) + "$iobuf_i");
         net2->driver = net->driver;
         if (net->driver.cell != nullptr) {

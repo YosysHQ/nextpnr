@@ -228,7 +228,7 @@ template <typename T> struct map_wrapper
         std::terminate();
     }
 
-    static void set(T &x, K const &i, V const &v) { x[i] = v; }
+    static void set(T &x, K const &i, V &v) { x[i] = v; }
 
     static void del(T const &x, K const &i)
     {
@@ -252,7 +252,108 @@ template <typename T> struct map_wrapper
     }
 };
 
+/*
+Special case of above for map key/values where value is a unique_ptr
+ */
+template <typename T1, typename T2> struct map_pair_wrapper_uptr
+{
+    typedef std::pair<T1, T2> T;
+    typedef typename T::second_type::element_type V;
+    struct pair_iterator_wrapper
+    {
+        static object next(std::pair<T &, int> &iter)
+        {
+            if (iter.second == 0) {
+                iter.second++;
+                return object(iter.first.first);
+            } else if (iter.second == 1) {
+                iter.second++;
+                return object(iter.first.second.get());
+            } else {
+                PyErr_SetString(PyExc_StopIteration, "End of range reached");
+                boost::python::throw_error_already_set();
+                // Should be unreachable, but prevent control may reach end of
+                // non-void
+                throw std::runtime_error("unreachable");
+            }
+        }
+
+        static void wrap(const char *python_name)
+        {
+            class_<std::pair<T &, int>>(python_name, no_init).def("__next__", next);
+        }
+    };
+
+    static object get(T &x, int i)
+    {
+        if ((i >= 2) || (i < 0))
+            KeyError();
+        return (i == 1) ? object(x.second.get()) : object(x.first);
+    }
+
+    static int len(T &x) { return 2; }
+
+    static std::pair<T &, int> iter(T &x) { return std::make_pair(boost::ref(x), 0); };
+
+    static V &second_getter(T &t) { return *t.second.get(); }
+
+    static void wrap(const char *pair_name, const char *iter_name)
+    {
+        pair_iterator_wrapper::wrap(iter_name);
+        class_<T, boost::noncopyable>(pair_name, no_init)
+                .def("__iter__", iter)
+                .def("__len__", len)
+                .def("__getitem__", get)
+                .def_readonly("first", &T::first)
+                .add_property("second", make_function(second_getter, return_internal_reference<>()));
+    }
+};
+
+/*
+Wrapper for a map, either an unordered_map, regular map or dict
+ */
+
+template <typename T> struct map_wrapper_uptr
+{
+    typedef typename std::remove_cv<typename std::remove_reference<typename T::key_type>::type>::type K;
+    typedef typename T::mapped_type::pointer V;
+    typedef typename T::value_type KV;
+
+    static V get(T &x, K const &i)
+    {
+        if (x.find(i) != x.end())
+            return x.at(i).get();
+        KeyError();
+        std::terminate();
+    }
+
+    static void set(T &x, K const &i, V const &v) { x[i] = typename T::mapped_type(v); }
+
+    static void del(T const &x, K const &i)
+    {
+        if (x.find(i) != x.end())
+            x.erase(i);
+        else
+            KeyError();
+        std::terminate();
+    }
+
+    static void wrap(const char *map_name, const char *kv_name, const char *kv_iter_name, const char *iter_name)
+    {
+        map_pair_wrapper_uptr<typename KV::first_type, typename KV::second_type>::wrap(kv_name, kv_iter_name);
+        typedef range_wrapper<T, return_value_policy<copy_non_const_reference>> rw;
+        typename rw::iter_wrap().wrap(iter_name);
+        class_<T, boost::noncopyable>(map_name, no_init)
+                .def("__iter__", rw::iter)
+                .def("__len__", &T::size)
+                .def("__getitem__", get, return_internal_reference<>())
+                .def("__setitem__", set, with_custodian_and_ward<1, 2>());
+    }
+};
+
 #define WRAP_MAP(t, name) map_wrapper<t>().wrap(#name, #name "KeyValue", #name "KeyValueIter", #name "Iterator")
+#define WRAP_MAP_UPTR(t, name)                                                                                         \
+    map_wrapper_uptr<t>().wrap(#name, #name "KeyValue", #name "KeyValueIter", #name "Iterator")
 
 NEXTPNR_NAMESPACE_END
 

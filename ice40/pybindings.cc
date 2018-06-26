@@ -53,7 +53,7 @@ void arch_wrap_python()
             ;
 #undef X
 
-    class_<Arch, Arch *, bases<BaseCtx>>("Arch", init<ArchArgs>())
+    class_<Arch, Arch *, bases<BaseCtx>, boost::noncopyable>("Arch", init<ArchArgs>())
             .def("getBelByName", &Arch::getBelByName)
             .def("getWireByName", &Arch::getWireByName)
             .def("getBelName", &Arch::getBelName)

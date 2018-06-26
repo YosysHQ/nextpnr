@@ -11,7 +11,7 @@ bool check_all_nets_driven(Context *ctx)
 
     log_info("Rule checker, Verifying pre-placed design\n");
 
-    for (auto& cell_entry : ctx->cells) {
+    for (auto &cell_entry : ctx->cells) {
         CellInfo *cell = cell_entry.second.get();
 
         if (debug)
@@ -39,7 +39,7 @@ bool check_all_nets_driven(Context *ctx)
         }
     }
 
-    for (auto& net_entry : ctx->nets) {
+    for (auto &net_entry : ctx->nets) {
         NetInfo *net = net_entry.second.get();
 
         assert(net->name == net_entry.first);

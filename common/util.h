@@ -57,11 +57,11 @@ bool bool_or_default(const Container &ct, const KeyType &key, bool def = false)
 };
 
 // Wrap an unordered_map, and allow it to be iterated over sorted by key
-template <typename K, typename V> std::map<K, V*> sorted(const std::unordered_map<K, std::unique_ptr<V>> &orig)
+template <typename K, typename V> std::map<K, V *> sorted(const std::unordered_map<K, std::unique_ptr<V>> &orig)
 {
-    std::map<K, V*> retVal;
-    for(auto& item : orig)
-        retVal.emplace(std::make_pair(item.first,item.second.get()));
+    std::map<K, V *> retVal;
+    for (auto &item : orig)
+        retVal.emplace(std::make_pair(item.first, item.second.get()));
     return retVal;
 };
 

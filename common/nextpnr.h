@@ -19,12 +19,12 @@
 
 #include <algorithm>
 #include <assert.h>
+#include <memory>
 #include <stdint.h>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
-#include <memory>
 
 #ifndef NEXTPNR_H
 #define NEXTPNR_H
