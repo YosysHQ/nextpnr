@@ -127,7 +127,7 @@ std::unique_ptr<CellInfo> create_ice_cell(Context *ctx, IdString type, std::stri
     } else {
         log_error("unable to create iCE40 cell of type %s", type.c_str(ctx));
     }
-    return std::move(new_cell);
+    return new_cell;
 }
 
 void lut_to_lc(const Context *ctx, CellInfo *lut, CellInfo *lc, bool no_dff)
