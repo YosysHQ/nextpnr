@@ -36,8 +36,9 @@ class MainWindow : public BaseMainWindow
     void createMenu();
 
   protected Q_SLOTS:
-    virtual void open();
-    virtual bool save();
+    virtual void new_proj();
+    virtual void open_proj();
+    virtual bool save_proj();
 };
 
 NEXTPNR_NAMESPACE_END

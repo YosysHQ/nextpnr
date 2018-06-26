@@ -37,9 +37,11 @@ class MainWindow : public BaseMainWindow
     void createMenu();
 
   protected Q_SLOTS:
-    virtual void open();
-    virtual bool save();
+    virtual void new_proj();
+    virtual void open_proj();
+    virtual bool save_proj();
 
+    void open_json();
     void open_pcf();
     void budget();
     void place();
@@ -61,6 +63,7 @@ class MainWindow : public BaseMainWindow
     void disableActions();
 
     TaskManager *task;
+    QAction *actionLoadJSON;
     QAction *actionLoadPCF;
     QAction *actionPack;
     QAction *actionAssignBudget;

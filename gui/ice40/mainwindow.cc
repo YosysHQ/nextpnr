@@ -68,6 +68,14 @@ void MainWindow::createMenu()
     QMenu *menu_Design = new QMenu("&Design", menuBar);
     menuBar->addAction(menu_Design->menuAction());
 
+    actionLoadJSON = new QAction("Open JSON", this);
+    QIcon iconLoadJSON;
+    iconLoadJSON.addFile(QStringLiteral(":/icons/resources/open_json.png"));
+    actionLoadJSON->setIcon(iconLoadJSON);
+    actionLoadJSON->setStatusTip("Open an existing JSON file");
+    connect(actionLoadJSON, SIGNAL(triggered()), this, SLOT(open_json()));
+    actionLoadJSON->setEnabled(false);
+
     actionLoadPCF = new QAction("Open PCF", this);
     QIcon iconLoadPCF;
     iconLoadPCF.addFile(QStringLiteral(":/icons/resources/open_pcf.png"));
@@ -119,6 +127,7 @@ void MainWindow::createMenu()
     QToolBar *taskFPGABar = new QToolBar();
     addToolBar(Qt::TopToolBarArea, taskFPGABar);
 
+    taskFPGABar->addAction(actionLoadJSON);
     taskFPGABar->addAction(actionLoadPCF);
     taskFPGABar->addAction(actionPack);
     taskFPGABar->addAction(actionAssignBudget);
@@ -126,6 +135,7 @@ void MainWindow::createMenu()
     taskFPGABar->addAction(actionRoute);
     taskFPGABar->addAction(actionSaveAsc);
 
+    menu_Design->addAction(actionLoadJSON);
     menu_Design->addAction(actionLoadPCF);
     menu_Design->addAction(actionPack);
     menu_Design->addAction(actionAssignBudget);
@@ -165,9 +175,26 @@ void MainWindow::createMenu()
     taskToolBar->addAction(actionStop);
 }
 
-void MainWindow::open()
+void MainWindow::new_proj()
 {
-    QString fileName = QFileDialog::getOpenFileName(this, QString(), QString(), QString("*.json"));
+    disableActions();
+    actionLoadJSON->setEnabled(true);
+}
+
+void MainWindow::open_proj()
+{
+    QString fileName = QFileDialog::getOpenFileName(this, QString("Open Project"), QString(), QString("*.npnr"));
+    if (!fileName.isEmpty()) {
+        tabWidget->setCurrentWidget(info);
+
+        std::string fn = fileName.toStdString();
+        disableActions();
+    }
+}
+
+void MainWindow::open_json()
+{
+    QString fileName = QFileDialog::getOpenFileName(this, QString("Open JSON"), QString(), QString("*.json"));
     if (!fileName.isEmpty()) {
         tabWidget->setCurrentWidget(info);
 
@@ -190,7 +217,7 @@ void MainWindow::open_pcf()
     }
 }
 
-bool MainWindow::save() { return false; }
+bool MainWindow::save_proj() { return false; }
 
 void MainWindow::save_asc()
 {
@@ -204,6 +231,7 @@ void MainWindow::save_asc()
 
 void MainWindow::disableActions()
 {
+    actionLoadJSON->setEnabled(false);
     actionLoadPCF->setEnabled(false);
     actionPack->setEnabled(false);
     actionAssignBudget->setEnabled(false);

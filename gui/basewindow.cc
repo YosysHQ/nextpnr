@@ -90,27 +90,35 @@ void BaseMainWindow::writeInfo(std::string text) { info->info(text); }
 
 void BaseMainWindow::createMenusAndBars()
 {
+    QAction *actionNew = new QAction("New", this);
+    QIcon iconNew;
+    iconNew.addFile(QStringLiteral(":/icons/resources/new.png"));
+    actionNew->setIcon(iconNew);
+    actionNew->setShortcuts(QKeySequence::New);
+    actionNew->setStatusTip("New project file");
+    connect(actionNew, SIGNAL(triggered()), this, SLOT(new_proj()));
+
     QAction *actionOpen = new QAction("Open", this);
-    QIcon icon1;
-    icon1.addFile(QStringLiteral(":/icons/resources/open.png"));
-    actionOpen->setIcon(icon1);
+    QIcon iconOpen;
+    iconOpen.addFile(QStringLiteral(":/icons/resources/open.png"));
+    actionOpen->setIcon(iconOpen);
     actionOpen->setShortcuts(QKeySequence::Open);
-    actionOpen->setStatusTip("Open an existing JSON file");
-    connect(actionOpen, SIGNAL(triggered()), this, SLOT(open()));
+    actionOpen->setStatusTip("Open an existing project file");
+    connect(actionOpen, SIGNAL(triggered()), this, SLOT(open_proj()));
 
     QAction *actionSave = new QAction("Save", this);
-    QIcon icon2;
-    icon2.addFile(QStringLiteral(":/icons/resources/save.png"));
-    actionSave->setIcon(icon2);
+    QIcon iconSave;
+    iconSave.addFile(QStringLiteral(":/icons/resources/save.png"));
+    actionSave->setIcon(iconSave);
     actionSave->setShortcuts(QKeySequence::Save);
-    actionSave->setStatusTip("Save the ASC to disk");
-    connect(actionSave, SIGNAL(triggered()), this, SLOT(save()));
+    actionSave->setStatusTip("Save existing project to disk");
+    connect(actionSave, SIGNAL(triggered()), this, SLOT(save_proj()));
     actionSave->setEnabled(false);
 
     QAction *actionExit = new QAction("Exit", this);
-    QIcon icon3;
-    icon3.addFile(QStringLiteral(":/icons/resources/exit.png"));
-    actionExit->setIcon(icon3);
+    QIcon iconExit;
+    iconExit.addFile(QStringLiteral(":/icons/resources/exit.png"));
+    actionExit->setIcon(iconExit);
     actionExit->setShortcuts(QKeySequence::Quit);
     actionExit->setStatusTip("Exit the application");
     connect(actionExit, SIGNAL(triggered()), this, SLOT(close()));
@@ -131,12 +139,14 @@ void BaseMainWindow::createMenusAndBars()
     statusBar = new QStatusBar();
     setStatusBar(statusBar);
 
+    menu_File->addAction(actionNew);
     menu_File->addAction(actionOpen);
     menu_File->addAction(actionSave);
     menu_File->addSeparator();
     menu_File->addAction(actionExit);
     menu_Help->addAction(actionAbout);
 
+    mainToolBar->addAction(actionNew);
     mainToolBar->addAction(actionOpen);
     mainToolBar->addAction(actionSave);
 }

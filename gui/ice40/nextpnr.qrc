@@ -9,5 +9,6 @@
         <file>resources/time_add.png</file>
         <file>resources/open_pcf.png</file>
         <file>resources/save_asc.png</file>
+        <file>resources/open_json.png</file>
     </qresource>
 </RCC>
