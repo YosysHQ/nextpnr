@@ -21,6 +21,7 @@
 #define UTIL_H
 
 #include <map>
+#include <set>
 #include <string>
 #include "nextpnr.h"
 
@@ -62,6 +63,15 @@ template <typename K, typename V> std::map<K, V *> sorted(const std::unordered_m
     std::map<K, V *> retVal;
     for (auto &item : orig)
         retVal.emplace(std::make_pair(item.first, item.second.get()));
+    return retVal;
+};
+
+// Wrap an unordered_set, and allow it to be iterated over sorted by key
+template <typename K> std::set<K> sorted(const std::unordered_set<K> &orig)
+{
+    std::set<K> retVal;
+    for (auto &item : orig)
+        retVal.insert(item);
     return retVal;
 };
 

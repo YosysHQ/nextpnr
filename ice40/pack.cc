@@ -126,7 +126,6 @@ static void pack_carries(Context *ctx)
             packed_cells.insert(cell.first);
             CellInfo *carry_ci_lc = net_only_drives(ctx, ci->ports.at(ctx->id("CI")).net, is_lc, ctx->id("I3"), false);
 
-
             std::set<IdString> i0_matches, i1_matches;
             NetInfo *i0_net = ci->ports.at(ctx->id("I0")).net;
             NetInfo *i1_net = ci->ports.at(ctx->id("I1")).net;
@@ -161,9 +160,9 @@ static void pack_carries(Context *ctx)
             if (carry_ci_lc) {
                 if (carry_lcs.find(carry_ci_lc->name) == carry_lcs.end()) {
                     if (ctx->verbose) {
-                        for(auto i0 : i0_matches)
+                        for (auto i0 : i0_matches)
                             log_info("I0 candidate: '%s'\n", i0.c_str(ctx));
-                        for(auto i1 : i1_matches)
+                        for (auto i1 : i1_matches)
                             log_info("I1 candidate: '%s'\n", i1.c_str(ctx));
                         log_info("I3 connects to: '%s'\n", carry_ci_lc->name.c_str(ctx));
                     }
@@ -275,7 +274,8 @@ static void set_net_constant(const Context *ctx, NetInfo *orig, NetInfo *constne
             CellInfo *uc = user.cell;
             if (ctx->verbose)
                 log_info("%s user %s\n", orig->name.c_str(ctx), uc->name.c_str(ctx));
-            if ((is_lut(ctx, uc) || is_lc(ctx, uc) || is_carry(ctx, uc)) && (user.port.str(ctx).at(0) == 'I') && !constval) {
+            if ((is_lut(ctx, uc) || is_lc(ctx, uc) || is_carry(ctx, uc)) && (user.port.str(ctx).at(0) == 'I') &&
+                !constval) {
                 uc->ports[user.port].net = nullptr;
             } else {
                 uc->ports[user.port].net = constnet;

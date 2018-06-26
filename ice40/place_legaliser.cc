@@ -93,11 +93,13 @@ class PlacementLegaliser
 
     bool legalise()
     {
+        log_info("Legalising design..\n");
         init_logic_cells();
         bool legalised_carries = legalise_carries();
         if (!legalised_carries && !ctx->force)
             return false;
-        return legalised_carries;
+        bool replaced_cells = replace_cells();
+        return legalised_carries && replaced_cells;
     }
 
   private:
@@ -311,6 +313,40 @@ class PlacementLegaliser
         ctx->cells[lc->name] = std::move(lc);
         createdCells.insert(name);
         return ctx->cells[name].get();
+    }
+
+    // Replace ripped-up cells
+    bool replace_cells()
+    {
+        bool success = true;
+        for (auto cell : sorted(rippedCells)) {
+            CellInfo *ci = ctx->cells.at(cell).get();
+            bool placed = place_single_cell(ci);
+            if (!placed) {
+                if (ctx->force) {
+                    log_warning("failed to place cell '%s' of type '%s'\n", cell.c_str(ctx),
+                                ci->type.c_str(ctx));
+                    success = false;
+                } else {
+                    log_error("failed to place cell '%s' of type '%s'\n", cell.c_str(ctx),
+                              ci->type.c_str(ctx));
+                }
+            }
+        }
+        return success;
+    }
+
+    // Place a single cell in the first valid location
+    bool place_single_cell(CellInfo *cell)
+    {
+        BelType tgtType = ctx->belTypeFromId(cell->type);
+        for (auto bel : ctx->getBels()) {
+            if (ctx->getBelType(bel) == tgtType && ctx->checkBelAvail(bel) && ctx->isValidBelForCell(cell, bel)) {
+                ctx->bindBel(bel, cell->name, STRENGTH_WEAK);
+                return true;
+            }
+        }
+        return false;
     }
 
     Context *ctx;
