@@ -95,7 +95,7 @@ void BaseMainWindow::writeInfo(std::string text) { info->info(text); }
 
 void BaseMainWindow::createMenusAndBars()
 {
-    QAction *actionNew = new QAction("New", this);
+    actionNew = new QAction("New", this);
     QIcon iconNew;
     iconNew.addFile(QStringLiteral(":/icons/resources/new.png"));
     actionNew->setIcon(iconNew);
@@ -103,7 +103,7 @@ void BaseMainWindow::createMenusAndBars()
     actionNew->setStatusTip("New project file");
     connect(actionNew, SIGNAL(triggered()), this, SLOT(new_proj()));
 
-    QAction *actionOpen = new QAction("Open", this);
+    actionOpen = new QAction("Open", this);
     QIcon iconOpen;
     iconOpen.addFile(QStringLiteral(":/icons/resources/open.png"));
     actionOpen->setIcon(iconOpen);

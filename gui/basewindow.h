@@ -65,6 +65,8 @@ class BaseMainWindow : public QMainWindow
     QMenuBar *menuBar;
     QToolBar *mainToolBar;
     QStatusBar *statusBar;
+    QAction *actionNew;
+    QAction *actionOpen;
 };
 
 NEXTPNR_NAMESPACE_END

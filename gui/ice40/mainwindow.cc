@@ -260,6 +260,9 @@ void MainWindow::disableActions()
     actionPlay->setEnabled(false);
     actionPause->setEnabled(false);
     actionStop->setEnabled(false);
+
+    actionNew->setEnabled(true);
+    actionOpen->setEnabled(true);
 }
 
 void MainWindow::loadfile_finished(bool status)
@@ -349,6 +352,9 @@ void MainWindow::taskStarted()
     disableActions();
     actionPause->setEnabled(true);
     actionStop->setEnabled(true);
+    
+    actionNew->setEnabled(false);
+    actionOpen->setEnabled(false);
 }
 
 void MainWindow::taskPaused()
@@ -356,6 +362,9 @@ void MainWindow::taskPaused()
     disableActions();
     actionPlay->setEnabled(true);
     actionStop->setEnabled(true);
+    
+    actionNew->setEnabled(false);
+    actionOpen->setEnabled(false);
 }
 
 void MainWindow::budget()
