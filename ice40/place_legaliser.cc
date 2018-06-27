@@ -260,10 +260,12 @@ class PlacementLegaliser
                 start_of_chain = true;
             } else {
                 NetInfo *carry_net = cell->ports.at(ctx->id("COUT")).net;
-                if (carry_net != nullptr && carry_net->users.size() > 1) {
+                bool at_end = (curr_cell == carryc.cells.end() - 1);
+                if (carry_net != nullptr && (carry_net->users.size() > 1 || at_end)) {
                     if (carry_net->users.size() > 2 ||
                         (net_only_drives(ctx, carry_net, is_lc, ctx->id("I3"), false) !=
-                         net_only_drives(ctx, carry_net, is_lc, ctx->id("CIN"), false))) {
+                         net_only_drives(ctx, carry_net, is_lc, ctx->id("CIN"), false)) ||
+                        (at_end && !net_only_drives(ctx, carry_net, is_lc, ctx->id("I3"), true))) {
                         CellInfo *passout = make_carry_pass_out(cell->ports.at(ctx->id("COUT")));
                         chains.back().cells.push_back(passout);
                         tile.push_back(passout);
@@ -324,6 +326,7 @@ class PlacementLegaliser
         i1_r.cell = lc.get();
         ctx->nets.at(ctx->id("$PACKER_VCC_NET"))->users.push_back(i1_r);
         IdString co_i3_name = co_i3_net->name;
+        assert(ctx->nets.find(co_i3_name) == ctx->nets.end());
         ctx->nets[co_i3_name] = std::move(co_i3_net);
         IdString name = lc->name;
         ctx->cells[lc->name] = std::move(lc);
@@ -366,6 +369,7 @@ class PlacementLegaliser
         cin_cell->ports.at(cin_port.name).net = out_net.get();
 
         IdString out_net_name = out_net->name;
+        assert(ctx->nets.find(out_net_name) == ctx->nets.end());
         ctx->nets[out_net_name] = std::move(out_net);
 
         IdString name = lc->name;

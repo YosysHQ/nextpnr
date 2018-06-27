@@ -185,6 +185,19 @@ void Context::check() const
         assert(c.first == c.second->name);
         if (c.second->bel != BelId())
             assert(getBoundBelCell(c.second->bel) == c.first);
+        for (auto &port : c.second->ports) {
+            NetInfo *net = port.second.net;
+            if (net != nullptr) {
+                assert(nets.find(net->name) != nets.end());
+                if (port.second.type == PORT_OUT) {
+                    assert(net->driver.cell == c.second.get() && net->driver.port == port.first);
+                } else if (port.second.type == PORT_IN) {
+                    assert(std::count_if(net->users.begin(), net->users.end(), [&](const PortRef &pr) {
+                               return pr.cell == c.second.get() && pr.port == port.first;
+                           }) == 1);
+                }
+            }
+        }
     }
 }
 

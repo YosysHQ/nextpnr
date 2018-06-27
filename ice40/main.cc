@@ -372,6 +372,7 @@ int main(int argc, char *argv[])
                 if (!place_design_sa(&ctx, timing_driven) && !ctx.force)
                     log_error("Placing design failed.\n");
                 legalise_design(&ctx);
+                ctx.check();
                 if (!route_design(&ctx) && !ctx.force)
                     log_error("Routing design failed.\n");
             }
