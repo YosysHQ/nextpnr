@@ -37,6 +37,7 @@ class PythonTab : public QWidget
 
   public:
     explicit PythonTab(QWidget *parent = 0);
+    ~PythonTab();
 
   private:
     void print(std::string line);
@@ -45,12 +46,14 @@ class PythonTab : public QWidget
     void editLineReturnPressed(QString text);
     void showContextMenu(const QPoint &pt);
     void clearBuffer();
-
+  public Q_SLOTS:
+    void newContext(Context *ctx);
   private:
     QPlainTextEdit *plainTextEdit;
     LineEditor *lineEdit;
     QMenu *contextMenu;
     emb::stdout_write_type write;
+    bool initialized;
 };
 
 NEXTPNR_NAMESPACE_END

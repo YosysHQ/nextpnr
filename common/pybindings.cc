@@ -127,11 +127,9 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
     class_<Context, Context *, bases<Arch>, boost::noncopyable>("Context", no_init).def("checksum", &Context::checksum);
 }
 
-void arch_appendinittab() { PyImport_AppendInittab(TOSTRING(MODULE_NAME), PYINIT_MODULE_NAME); }
-
 static wchar_t *program;
 
-void init_python(const char *executable)
+void init_python(const char *executable,bool first)
 {
 #ifdef MAIN_EXECUTABLE
     program = Py_DecodeLocale(executable, NULL);
@@ -140,11 +138,15 @@ void init_python(const char *executable)
         exit(1);
     }
     try {
-        PyImport_AppendInittab(TOSTRING(MODULE_NAME), PYINIT_MODULE_NAME);
-        emb::append_inittab();
+        if (first)
+        {
+            PyImport_AppendInittab(TOSTRING(MODULE_NAME), PYINIT_MODULE_NAME);
+            emb::append_inittab();
+        }
         Py_SetProgramName(program);
         Py_Initialize();
-        PyImport_ImportModule(TOSTRING(MODULE_NAME));
+        if (first)
+            PyImport_ImportModule(TOSTRING(MODULE_NAME));
     } catch (boost::python::error_already_set const &) {
         // Parse and output the exception
         std::string perror_str = parse_python_exception();

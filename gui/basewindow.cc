@@ -74,7 +74,9 @@ BaseMainWindow::BaseMainWindow(QWidget *parent) : QMainWindow(parent), ctx(nullp
 
     tabWidget = new QTabWidget();
 #ifndef NO_PYTHON
-    tabWidget->addTab(new PythonTab(), "Python");
+    PythonTab *pythontab = new PythonTab();
+    tabWidget->addTab(pythontab, "Python");
+    connect(this, SIGNAL(contextChanged(Context*)), pythontab, SLOT(newContext(Context*)));
 #endif
     info = new InfoTab();
     tabWidget->addTab(info, "Info");
