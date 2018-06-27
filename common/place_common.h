@@ -33,7 +33,7 @@ wirelen_t get_net_wirelength(const Context *ctx, const NetInfo *net, float &tns)
 wirelen_t get_cell_wirelength(const Context *ctx, const CellInfo *cell);
 
 // Place a single cell in the lowest wirelength Bel available, optionally requiring validity check
-bool place_single_cell(const Context *ctx, CellInfo *cell, bool require_legality);
+bool place_single_cell(Context *ctx, CellInfo *cell, bool require_legality);
 
 NEXTPNR_NAMESPACE_END
 

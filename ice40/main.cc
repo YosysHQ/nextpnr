@@ -391,7 +391,7 @@ int main(int argc, char *argv[])
             std::vector<std::string> files = vm["run"].as<std::vector<std::string>>();
             for (auto filename : files)
                 execute_python_file(filename.c_str());
-    
+
             deinit_python();
         }
 #endif

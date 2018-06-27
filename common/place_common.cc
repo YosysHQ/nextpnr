@@ -79,7 +79,8 @@ wirelen_t get_cell_wirelength(const Context *ctx, const CellInfo *cell)
 {
     std::set<IdString> nets;
     for (auto p : cell->ports) {
-        nets.insert(p.first);
+        if (p.second.net)
+            nets.insert(p.second.net->name);
     }
     wirelen_t wirelength = 0;
     float tns = 0;
@@ -87,6 +88,67 @@ wirelen_t get_cell_wirelength(const Context *ctx, const CellInfo *cell)
         wirelength += get_net_wirelength(ctx, ctx->nets.at(n).get(), tns);
     }
     return wirelength;
+}
+
+static wirelen_t get_cell_wirelength_at_bel(const Context *ctx, CellInfo *cell, BelId bel)
+{
+    BelId oldBel = cell->bel;
+    cell->bel = bel;
+    wirelen_t wirelen = get_cell_wirelength(ctx, cell);
+    cell->bel = oldBel;
+    return wirelen;
+}
+
+// Placing a single cell
+bool place_single_cell(Context *ctx, CellInfo *cell, bool require_legality)
+{
+    bool all_placed = false;
+    int iters = 25;
+    while (!all_placed) {
+        BelId best_bel = BelId();
+        wirelen_t best_wirelen = std::numeric_limits<wirelen_t>::max(),
+                  best_ripup_wirelen = std::numeric_limits<wirelen_t>::max();
+        CellInfo *ripup_target = nullptr;
+        BelId ripup_bel = BelId();
+        if (cell->bel != BelId()) {
+            ctx->unbindBel(cell->bel);
+        }
+        BelType targetType = ctx->belTypeFromId(cell->type);
+        for (auto bel : ctx->getBels()) {
+            if (ctx->getBelType(bel) == targetType && (!require_legality || ctx->isValidBelForCell(cell, bel))) {
+                if (ctx->checkBelAvail(bel)) {
+                    wirelen_t wirelen = get_cell_wirelength_at_bel(ctx, cell, bel);
+                    if (wirelen <= best_wirelen) {
+                        best_wirelen = wirelen;
+                        best_bel = bel;
+                    }
+                } else {
+                    wirelen_t wirelen = get_cell_wirelength_at_bel(ctx, cell, bel);
+                    if (wirelen <= best_ripup_wirelen) {
+                        ripup_target = ctx->cells.at(ctx->getBoundBelCell(bel)).get();
+                        if (ripup_target->belStrength < STRENGTH_STRONG) {
+                            best_ripup_wirelen = wirelen;
+                            ripup_bel = bel;
+                        }
+                    }
+                }
+            }
+        }
+        if (best_bel == BelId()) {
+            if (iters == 0 || ripup_bel == BelId()) {
+                log_error("failed to place cell '%s' of type '%s'\n", cell->name.c_str(ctx), cell->type.c_str(ctx));
+            }
+            --iters;
+            ctx->unbindBel(ripup_target->bel);
+            best_bel = ripup_bel;
+        } else {
+            all_placed = true;
+        }
+        ctx->bindBel(best_bel, cell->name, STRENGTH_WEAK);
+
+        cell = ripup_target;
+    }
+    return true;
 }
 
 NEXTPNR_NAMESPACE_END

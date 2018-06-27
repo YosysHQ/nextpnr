@@ -23,6 +23,7 @@
 #include "cells.h"
 #include "design_utils.h"
 #include "log.h"
+#include "place_common.h"
 #include "util.h"
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -379,7 +380,7 @@ class PlacementLegaliser
         bool success = true;
         for (auto cell : sorted(rippedCells)) {
             CellInfo *ci = ctx->cells.at(cell).get();
-            bool placed = place_single_cell(ci);
+            bool placed = place_single_cell(ctx, ci, true);
             if (!placed) {
                 if (ctx->force) {
                     log_warning("failed to place cell '%s' of type '%s'\n", cell.c_str(ctx), ci->type.c_str(ctx));
@@ -390,19 +391,6 @@ class PlacementLegaliser
             }
         }
         return success;
-    }
-
-    // Place a single cell in the first valid location
-    bool place_single_cell(CellInfo *cell)
-    {
-        BelType tgtType = ctx->belTypeFromId(cell->type);
-        for (auto bel : ctx->getBels()) {
-            if (ctx->getBelType(bel) == tgtType && ctx->checkBelAvail(bel) && ctx->isValidBelForCell(cell, bel)) {
-                ctx->bindBel(bel, cell->name, STRENGTH_WEAK);
-                return true;
-            }
-        }
-        return false;
     }
 
     Context *ctx;

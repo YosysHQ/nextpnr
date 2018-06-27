@@ -129,7 +129,7 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
 
 static wchar_t *program;
 
-void init_python(const char *executable,bool first)
+void init_python(const char *executable, bool first)
 {
 #ifdef MAIN_EXECUTABLE
     program = Py_DecodeLocale(executable, NULL);
@@ -138,8 +138,7 @@ void init_python(const char *executable,bool first)
         exit(1);
     }
     try {
-        if (first)
-        {
+        if (first) {
             PyImport_AppendInittab(TOSTRING(MODULE_NAME), PYINIT_MODULE_NAME);
             emb::append_inittab();
         }
