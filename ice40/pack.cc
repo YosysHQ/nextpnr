@@ -128,7 +128,7 @@ static bool net_is_constant(const Context *ctx, NetInfo *net, bool &value)
 static void pack_carries(Context *ctx)
 {
     log_info("Packing carries..\n");
-
+    std::unordered_set<IdString> exhausted_cells;
     std::unordered_set<IdString> packed_cells;
     std::vector<std::unique_ptr<CellInfo>> new_cells;
 
@@ -153,7 +153,8 @@ static void pack_carries(Context *ctx)
             if (i0_net) {
                 for (auto usr : i0_net->users) {
                     if (is_lc(ctx, usr.cell) && usr.port == ctx->id("I1")) {
-                        if (ctx->cells.find(usr.cell->name) != ctx->cells.end()) {
+                        if (ctx->cells.find(usr.cell->name) != ctx->cells.end() &&
+                            exhausted_cells.find(usr.cell->name) == exhausted_cells.end()) {
                             // This clause stops us double-packing cells
                             i0_matches.insert(usr.cell->name);
                             if (!i1_net) {
@@ -161,14 +162,14 @@ static void pack_carries(Context *ctx)
                                 i1_matches.insert(usr.cell->name);
                             }
                         }
-
                     }
                 }
             }
             if (i1_net) {
                 for (auto usr : i1_net->users) {
                     if (is_lc(ctx, usr.cell) && usr.port == ctx->id("I2")) {
-                        if (ctx->cells.find(usr.cell->name) != ctx->cells.end()) {
+                        if (ctx->cells.find(usr.cell->name) != ctx->cells.end() &&
+                            exhausted_cells.find(usr.cell->name) == exhausted_cells.end()) {
                             // This clause stops us double-packing cells
                             i1_matches.insert(usr.cell->name);
                             if (!i0_net) {
@@ -242,6 +243,7 @@ static void pack_carries(Context *ctx)
                             }));
                 }
             }
+            exhausted_cells.insert(carry_lc->name);
         }
     }
     for (auto pcell : packed_cells) {
@@ -381,7 +383,6 @@ static void pack_io(Context *ctx)
 {
     std::unordered_set<IdString> packed_cells;
     std::vector<std::unique_ptr<CellInfo>> new_cells;
-
     log_info("Packing IOs..\n");
 
     for (auto cell : sorted(ctx->cells)) {
