@@ -153,21 +153,28 @@ static void pack_carries(Context *ctx)
             if (i0_net) {
                 for (auto usr : i0_net->users) {
                     if (is_lc(ctx, usr.cell) && usr.port == ctx->id("I1")) {
-                        i0_matches.insert(usr.cell->name);
-                        if (!i1_net) {
-                            // I1 is don't care when disconnected, duplicate I0
-                            i1_matches.insert(usr.cell->name);
+                        if (ctx->cells.find(usr.cell->name) != ctx->cells.end()) {
+                            // This clause stops us double-packing cells
+                            i0_matches.insert(usr.cell->name);
+                            if (!i1_net) {
+                                // I1 is don't care when disconnected, duplicate I0
+                                i1_matches.insert(usr.cell->name);
+                            }
                         }
+
                     }
                 }
             }
             if (i1_net) {
                 for (auto usr : i1_net->users) {
                     if (is_lc(ctx, usr.cell) && usr.port == ctx->id("I2")) {
-                        i1_matches.insert(usr.cell->name);
-                        if (!i0_net) {
-                            // I0 is don't care when disconnected, duplicate I1
-                            i0_matches.insert(usr.cell->name);
+                        if (ctx->cells.find(usr.cell->name) != ctx->cells.end()) {
+                            // This clause stops us double-packing cells
+                            i1_matches.insert(usr.cell->name);
+                            if (!i0_net) {
+                                // I0 is don't care when disconnected, duplicate I1
+                                i0_matches.insert(usr.cell->name);
+                            }
                         }
                     }
                 }
@@ -202,17 +209,7 @@ static void pack_carries(Context *ctx)
                     new_cells.push_back(std::move(created_lc));
 
                 } else {
-                    IdString lc_name = *carry_lcs.begin();
-                    if (ctx->cells.find(lc_name) != ctx->cells.end()) {
-                        carry_lc = ctx->cells.at(lc_name).get();
-                    } else {
-                        // Name might not be found in the Context, if it is a new cell
-                        auto new_pack =
-                                std::find_if(new_cells.begin(), new_cells.end(),
-                                             [lc_name](std::unique_ptr<CellInfo> &nc) { return nc->name == lc_name; });
-                        assert(new_pack != new_cells.end());
-                        carry_lc = new_pack->get();
-                    }
+                    carry_lc = ctx->cells.at(*(carry_lcs.begin())).get();
                 }
             }
             carry_lc->params[ctx->id("CARRY_ENABLE")] = "1";

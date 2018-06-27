@@ -364,6 +364,7 @@ int main(int argc, char *argv[])
             if (vm.count("freq"))
                 freq = vm["freq"].as<double>() * 1e6;
             assign_budget(&ctx, freq);
+            ctx.check();
             print_utilisation(&ctx);
             bool timing_driven = true;
             if (vm.count("no-tmdriv"))
