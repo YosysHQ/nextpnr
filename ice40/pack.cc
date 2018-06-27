@@ -326,6 +326,7 @@ static void pack_constants(Context *ctx)
     gnd_net->name = ctx->id("$PACKER_GND_NET");
     gnd_net->driver.cell = gnd_cell.get();
     gnd_net->driver.port = ctx->id("O");
+    gnd_cell->ports.at(ctx->id("O")).net = gnd_net.get();
 
     std::unique_ptr<CellInfo> vcc_cell = create_ice_cell(ctx, ctx->id("ICESTORM_LC"), "$PACKER_VCC");
     vcc_cell->params[ctx->id("LUT_INIT")] = "1";
@@ -333,6 +334,7 @@ static void pack_constants(Context *ctx)
     vcc_net->name = ctx->id("$PACKER_VCC_NET");
     vcc_net->driver.cell = vcc_cell.get();
     vcc_net->driver.port = ctx->id("O");
+    vcc_cell->ports.at(ctx->id("O")).net = vcc_net.get();
 
     std::vector<IdString> dead_nets;
 
@@ -401,6 +403,12 @@ static void pack_io(Context *ctx)
                 if (net != nullptr) {
                     ctx->nets.erase(net->name);
                     sb->ports.at(ctx->id("PACKAGE_PIN")).net = nullptr;
+                }
+                if (ci->type == ctx->id("$nextpnr_iobuf")) {
+                    NetInfo *net2 = ci->ports.at(ctx->id("I")).net;
+                    if (net2 != nullptr) {
+                        ctx->nets.erase(net2->name);
+                    }
                 }
             } else {
                 // Create a SB_IO buffer
