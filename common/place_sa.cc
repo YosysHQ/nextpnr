@@ -37,10 +37,9 @@
 #include <string.h>
 #include <vector>
 #include "log.h"
+#include "place_common.h"
 
 NEXTPNR_NAMESPACE_BEGIN
-
-typedef int64_t wirelen_t;
 
 class SAPlacer
 {
@@ -138,7 +137,7 @@ class SAPlacer
         curr_wirelength = 0;
         curr_tns = 0;
         for (auto &net : ctx->nets) {
-            wirelen_t wl = get_wirelength(net.second.get(), curr_tns);
+            wirelen_t wl = get_net_wirelength(ctx, net.second.get(), curr_tns);
             wirelengths[net.first] = wl;
             curr_wirelength += wl;
         }
@@ -212,7 +211,7 @@ class SAPlacer
             curr_wirelength = 0;
             curr_tns = 0;
             for (auto &net : ctx->nets) {
-                wirelen_t wl = get_wirelength(net.second.get(), curr_tns);
+                wirelen_t wl = get_net_wirelength(ctx, net.second.get(), curr_tns);
                 wirelengths[net.first] = wl;
                 curr_wirelength += wl;
             }
@@ -289,58 +288,6 @@ class SAPlacer
         }
     }
 
-    // Get the total estimated wirelength for a net
-    wirelen_t get_wirelength(NetInfo *net, float &tns)
-    {
-        wirelen_t wirelength = 0;
-        int driver_x, driver_y;
-        bool driver_gb;
-        CellInfo *driver_cell = net->driver.cell;
-        if (!driver_cell)
-            return 0;
-        if (driver_cell->bel == BelId())
-            return 0;
-        ctx->estimatePosition(driver_cell->bel, driver_x, driver_y, driver_gb);
-        WireId drv_wire = ctx->getWireBelPin(driver_cell->bel, ctx->portPinFromId(net->driver.port));
-        if (driver_gb)
-            return 0;
-        float worst_slack = 1000;
-        int xmin = driver_x, xmax = driver_x, ymin = driver_y, ymax = driver_y;
-        for (auto load : net->users) {
-            if (load.cell == nullptr)
-                continue;
-            CellInfo *load_cell = load.cell;
-            if (load_cell->bel == BelId())
-                continue;
-            if (timing_driven) {
-                WireId user_wire = ctx->getWireBelPin(load_cell->bel, ctx->portPinFromId(load.port));
-                delay_t raw_wl = ctx->estimateDelay(drv_wire, user_wire);
-                float slack = ctx->getDelayNS(load.budget) - ctx->getDelayNS(raw_wl);
-                if (slack < 0)
-                    tns += slack;
-                worst_slack = std::min(slack, worst_slack);
-            }
-
-            int load_x, load_y;
-            bool load_gb;
-            ctx->estimatePosition(load_cell->bel, load_x, load_y, load_gb);
-            if (load_gb)
-                continue;
-            xmin = std::min(xmin, load_x);
-            ymin = std::min(ymin, load_y);
-            xmax = std::max(xmax, load_x);
-            ymax = std::max(ymax, load_y);
-        }
-        if (timing_driven) {
-            wirelength =
-                    wirelen_t((((ymax - ymin) + (xmax - xmin)) * std::min(5.0, (1.0 + std::exp(-worst_slack / 5)))));
-        } else {
-            wirelength = wirelen_t((ymax - ymin) + (xmax - xmin));
-        }
-
-        return wirelength;
-    }
-
     // Attempt a SA position swap, return true on success or false on failure
     bool try_swap_position(CellInfo *cell, BelId newBel)
     {
@@ -387,7 +334,7 @@ class SAPlacer
         for (auto net : update) {
             new_wirelength -= wirelengths.at(net->name);
             float temp_tns = 0;
-            wirelen_t net_new_wl = get_wirelength(net, temp_tns);
+            wirelen_t net_new_wl = get_net_wirelength(ctx, net, temp_tns);
             new_wirelength += net_new_wl;
             new_lengths.push_back(std::make_pair(net->name, net_new_wl));
         }
