@@ -112,6 +112,18 @@ static void pack_nonlut_ffs(Context *ctx)
     }
 }
 
+static bool net_is_constant(const Context *ctx, NetInfo *net, bool &value)
+{
+    if (net == nullptr)
+        return false;
+    if (net->name == ctx->id("$PACKER_GND_NET") || net->name == ctx->id("$PACKER_VCC_NET")) {
+        value = (net->name == ctx->id("$PACKER_VCC_NET"));
+        return true;
+    } else {
+        return false;
+    }
+}
+
 // Pack carry logic
 static void pack_carries(Context *ctx)
 {
@@ -124,7 +136,15 @@ static void pack_carries(Context *ctx)
         CellInfo *ci = cell.second;
         if (is_carry(ctx, ci)) {
             packed_cells.insert(cell.first);
-            CellInfo *carry_ci_lc = net_only_drives(ctx, ci->ports.at(ctx->id("CI")).net, is_lc, ctx->id("I3"), false);
+
+            CellInfo *carry_ci_lc;
+            bool ci_value;
+            bool ci_const = net_is_constant(ctx, ci->ports.at(ctx->id("CI")).net, ci_value);
+            if (ci_const) {
+                carry_ci_lc = nullptr;
+            } else {
+                carry_ci_lc = net_only_drives(ctx, ci->ports.at(ctx->id("CI")).net, is_lc, ctx->id("I3"), false);
+            }
 
             std::set<IdString> i0_matches, i1_matches;
             NetInfo *i0_net = ci->ports.at(ctx->id("I0")).net;
@@ -157,20 +177,7 @@ static void pack_carries(Context *ctx)
             std::set_intersection(i0_matches.begin(), i0_matches.end(), i1_matches.begin(), i1_matches.end(),
                                   std::inserter(carry_lcs, carry_lcs.end()));
             CellInfo *carry_lc = nullptr;
-            if (carry_ci_lc) {
-                if (carry_lcs.find(carry_ci_lc->name) == carry_lcs.end()) {
-                    if (ctx->verbose) {
-                        for (auto i0 : i0_matches)
-                            log_info("I0 candidate: '%s'\n", i0.c_str(ctx));
-                        for (auto i1 : i1_matches)
-                            log_info("I1 candidate: '%s'\n", i1.c_str(ctx));
-                        log_info("I3 connects to: '%s'\n", carry_ci_lc->name.c_str(ctx));
-                    }
-                    log_error("SB_CARRY '%s' cannot be packed into any logic "
-                              "cell (I0 and I1 connections do not match I3 "
-                              "connection)\n",
-                              cell.first.c_str(ctx));
-                }
+            if (carry_ci_lc && carry_lcs.find(carry_ci_lc->name) != carry_lcs.end()) {
                 carry_lc = carry_ci_lc;
             } else {
                 if (carry_lcs.empty()) {
@@ -195,7 +202,17 @@ static void pack_carries(Context *ctx)
                     new_cells.push_back(std::move(created_lc));
 
                 } else {
-                    carry_lc = ctx->cells.at(*carry_lcs.begin()).get();
+                    IdString lc_name = *carry_lcs.begin();
+                    if (ctx->cells.find(lc_name) != ctx->cells.end()) {
+                        carry_lc = ctx->cells.at(lc_name).get();
+                    } else {
+                        // Name might not be found in the Context, if it is a new cell
+                        auto new_pack =
+                                std::find_if(new_cells.begin(), new_cells.end(),
+                                             [lc_name](std::unique_ptr<CellInfo> &nc) { return nc->name == lc_name; });
+                        assert(new_pack != new_cells.end());
+                        carry_lc = new_pack->get();
+                    }
                 }
             }
             carry_lc->params[ctx->id("CARRY_ENABLE")] = "1";
