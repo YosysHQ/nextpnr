@@ -269,11 +269,6 @@ int main(int argc, char *argv[])
 
         Context ctx(chipArgs);
 
-#ifndef NO_PYTHON
-        init_python(argv[0]);
-        python_export_global("ctx", ctx);
-#endif
-
         if (vm.count("verbose")) {
             ctx.verbose = true;
         }
@@ -390,9 +385,14 @@ int main(int argc, char *argv[])
 
 #ifndef NO_PYTHON
         if (vm.count("run")) {
+            init_python(argv[0], true);
+            python_export_global("ctx", ctx);
+
             std::vector<std::string> files = vm["run"].as<std::vector<std::string>>();
             for (auto filename : files)
                 execute_python_file(filename.c_str());
+    
+            deinit_python();
         }
 #endif
 
@@ -404,10 +404,6 @@ int main(int argc, char *argv[])
 
             rc = a.exec();
         }
-#endif
-
-#ifndef NO_PYTHON
-        deinit_python();
 #endif
         return rc;
     } catch (log_execution_error_exception) {

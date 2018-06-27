@@ -25,10 +25,8 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-PythonTab::PythonTab(QWidget *parent) : QWidget(parent)
+PythonTab::PythonTab(QWidget *parent) : QWidget(parent),initialized(false)
 {
-    PyImport_ImportModule("emb");
-
     // Add text area for Python output and input line
     plainTextEdit = new QPlainTextEdit();
     plainTextEdit->setReadOnly(true);
@@ -57,13 +55,33 @@ PythonTab::PythonTab(QWidget *parent) : QWidget(parent)
     setLayout(mainLayout);
 
     connect(lineEdit, SIGNAL(textLineInserted(QString)), this, SLOT(editLineReturnPressed(QString)));
+}
 
+PythonTab::~PythonTab()
+{
+    if (initialized)
+        deinit_python();
+}
+
+void PythonTab::newContext(Context *ctx)
+{
+    if (initialized)
+        deinit_python();
+     
+    plainTextEdit->clear();
+
+    init_python("nextpnr", !initialized);
+    python_export_global("ctx", ctx);
+
+    PyImport_ImportModule("emb");
     write = [this](std::string s) {
         plainTextEdit->moveCursor(QTextCursor::End);
         plainTextEdit->insertPlainText(s.c_str());
         plainTextEdit->moveCursor(QTextCursor::End);
     };
     emb::set_stdout(write);
+
+    initialized = true;
 
     char buff[1024];
     sprintf(buff, "Python %s on %s\n", Py_GetVersion(), Py_GetPlatform());
@@ -121,9 +139,12 @@ int PythonTab::executePython(std::string &command)
 
 void PythonTab::editLineReturnPressed(QString text)
 {
-    std::string input = text.toStdString();
-    print(std::string(">>> " + input + "\n"));
-    executePython(input);
+    if (initialized)
+    {
+        std::string input = text.toStdString();
+        print(std::string(">>> " + input + "\n"));
+        executePython(input);
+    }
 }
 
 void PythonTab::showContextMenu(const QPoint &pt) { contextMenu->exec(mapToGlobal(pt)); }

@@ -100,13 +100,11 @@ template <typename Tn> void python_export_global(const char *name, Tn &x)
     }
 };
 
-void init_python(const char *executable);
+void init_python(const char *executable, bool first);
 
 void deinit_python();
 
 void execute_python_file(const char *python_file);
-
-void arch_appendinittab();
 
 NEXTPNR_NAMESPACE_END
 
