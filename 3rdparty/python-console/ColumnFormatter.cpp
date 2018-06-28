@@ -52,9 +52,9 @@ int ColumnFormatter::solve(int width)
     while (fits)
     {
         ++i;
-        std::vector<int> widths = divideItems(i);
-        int columnWidth = width / i;
-        for (int j = 0; j < widths.size(); ++j)
+        std::vector<size_t> widths = divideItems(i);
+        size_t columnWidth = width / i;
+        for (size_t j = 0; j < widths.size(); ++j)
         {
             fits &= (widths[j] < columnWidth);
         }
@@ -66,18 +66,18 @@ int ColumnFormatter::solve(int width)
     return i;
 }
 
-std::vector<int> ColumnFormatter::divideItems(int numColumns)
+std::vector<size_t> ColumnFormatter::divideItems(int numColumns)
 {
     columns.clear();
     for (int i = 0; i < numColumns; ++i)
     columns.push_back(std::list<std::string>());
-    for (int i = 0; i < items.size(); ++i)
+    for (size_t i = 0; i < items.size(); ++i)
     {
         columns[i % numColumns].push_back(items[i]);
     }
 
     // count the fattest item in each column
-    std::vector<int> res(numColumns);
+    std::vector<size_t> res(numColumns);
     for (int i = 0; i < numColumns; ++i)
     {
         for (std::list<std::string>::const_iterator it =
@@ -104,7 +104,7 @@ void ColumnFormatter::format(int width)
     divideItems(cols);
     std::vector< std::list<std::string>::const_iterator > its;
     std::vector< std::list<std::string>::const_iterator > it_ends;
-    for (int i = 0; i < columns.size(); ++i)
+    for (size_t i = 0; i < columns.size(); ++i)
     {
         its.push_back(columns[i].begin());
         it_ends.push_back(columns[i].end());
@@ -113,7 +113,7 @@ void ColumnFormatter::format(int width)
     while (!done)
     {
         std::stringstream row_ss;
-        for (int i = 0; i < columns.size(); ++i)
+        for (size_t i = 0; i < columns.size(); ++i)
         {
             std::stringstream item_ss;
             std::string item;
@@ -128,7 +128,7 @@ void ColumnFormatter::format(int width)
         m_formattedOutput.push_back(row_ss.str());
 
         done = true;
-        for (int i = 0; i < columns.size(); ++i)
+        for (size_t i = 0; i < columns.size(); ++i)
         {
             done &= (its[i] == it_ends[i]);
         }

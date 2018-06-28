@@ -40,7 +40,7 @@ bool ParseHelper::BracketParseState::LoadBrackets(const std::string& str,
         return false;
 
     stack->clear();
-    for (int i = 0; i < str.size(); ++i)
+    for (size_t i = 0; i < str.size(); ++i)
     {
         if (OpeningBrackets.find_first_of(str[i]) != std::string::npos)
         {
@@ -63,7 +63,7 @@ bool ParseHelper::BracketParseState::LoadBrackets(const std::string& str,
 ParseHelper::BracketParseState::BracketParseState( ParseHelper& parent, const std::string& firstLine ):
     ParseState( parent )
 {
-    bool hasOpenBrackets = LoadBrackets( firstLine, &brackets );
+    /*bool hasOpenBrackets = */ LoadBrackets( firstLine, &brackets );
     //assert( hasOpenBrackets );
     m_buffer.push_back( firstLine );
 }
@@ -71,7 +71,7 @@ ParseHelper::BracketParseState::BracketParseState( ParseHelper& parent, const st
 bool ParseHelper::BracketParseState::process(const std::string& str)
 {
     // update brackets stack
-    for (int i = 0; i < str.size(); ++i)
+    for (size_t i = 0; i < str.size(); ++i)
     {
         if (OpeningBrackets.find_first_of(str[i]) != std::string::npos)
         {

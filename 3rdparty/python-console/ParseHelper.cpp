@@ -51,7 +51,7 @@ bool ParseHelper::PeekIndent( const std::string& str, Indent* indent )
         return false;
 
     int nonwhitespaceIndex = -1;
-    for (int i = 0; i < str.size(); ++i)
+    for (size_t i = 0; i < str.size(); ++i)
     {
         if (!isspace(str[i]))
         {
@@ -151,7 +151,7 @@ bool ParseHelper::buffered( ) const
 void ParseHelper::flush( )
 {
     std::stringstream ss;
-    for (int i = 0; i < commandBuffer.size(); ++i )
+    for (size_t i = 0; i < commandBuffer.size(); ++i )
     {
         ss << commandBuffer[i] << "\n";
     }
@@ -188,7 +188,7 @@ void ParseHelper::unsubscribeAll( )
 void ParseHelper::broadcast( const ParseMessage& msg )
 {
     // broadcast signal
-    for (int i = 0; i < listeners.size(); ++i)
+    for (size_t i = 0; i < listeners.size(); ++i)
     {
         if (listeners[i])
         {

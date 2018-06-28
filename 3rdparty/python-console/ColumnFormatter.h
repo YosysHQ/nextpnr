@@ -60,7 +60,7 @@ public:
     /**
     Divide items into numColumns.
     */
-    std::vector<int> divideItems(int numColumns);
+    std::vector<size_t> divideItems(int numColumns);
 
     /**
     Generate formatted output, the items formatted into as many columns as can
