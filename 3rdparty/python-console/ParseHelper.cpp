@@ -28,26 +28,6 @@ THE SOFTWARE.
 #include <cstdlib>
 #include "ParseListener.h"
 
-#ifndef NDEBUG
-void print(const ParseHelper::Indent& indent)
-{
-    std::string str = indent.Token;
-    for (int i = 0; i < str.size(); ++i)
-    {
-        switch (str.at(i))
-        {
-            case ' ':
-                str[i] = 's';
-                break;
-            case '\t':
-                str[i] = 't';
-                break;
-        }
-    }
-    std::cout << str << "\n";
-}
-#endif
-
 ParseHelper::Indent::
 Indent( )
 { }
@@ -93,15 +73,11 @@ ParseHelper::ParseHelper( )
 
 void ParseHelper::process( const std::string& str )
 {
-#ifndef NDEBUG
-    std::cout << "processing: (" << str << ")\n";
-#endif
-
     std::string top;
     commandBuffer.push_back(str);
     //std::string top = commandBuffer.back();
     //commandBuffer.pop_back();
-    boost::shared_ptr<ParseState> blockStatePtr;
+    std::shared_ptr<ParseState> blockStatePtr;
     while (stateStack.size())
     {
         top = commandBuffer.back();
@@ -122,9 +98,6 @@ void ParseHelper::process( const std::string& str )
         broadcast( std::string() );
         return;
     }
-#ifndef NDEBUG
-    std::cout << "now processing: (" << top << ")\n";
-#endif
 
     { // check for unexpected indent
         Indent ind;
@@ -142,7 +115,7 @@ void ParseHelper::process( const std::string& str )
     // enter indented block state
     if ( top[top.size()-1] == ':' )
     {
-        boost::shared_ptr<ParseState> parseState(
+        std::shared_ptr<ParseState> parseState(
             new BlockParseState( *this ) );
         stateStack.push_back( parseState );
         return;
@@ -150,7 +123,7 @@ void ParseHelper::process( const std::string& str )
 
     if ( top[top.size()-1] == '\\' )
     {
-        boost::shared_ptr<ParseState> parseState(
+        std::shared_ptr<ParseState> parseState(
             new ContinuationParseState( *this ) );
         stateStack.push_back( parseState );
         return;
@@ -160,7 +133,7 @@ void ParseHelper::process( const std::string& str )
     {
         // FIXME: Every parse state should have its own local buffer
         commandBuffer.pop_back( );
-        boost::shared_ptr<ParseState> parseState(
+        std::shared_ptr<ParseState> parseState(
             new BracketParseState( *this, top ) );
         stateStack.push_back( parseState );
         return;
@@ -198,7 +171,7 @@ void ParseHelper::reset( )
 bool ParseHelper::isInContinuation( ) const
 {
     return (stateStack.size()
-        && (boost::dynamic_pointer_cast<ContinuationParseState>(
+        && (std::dynamic_pointer_cast<ContinuationParseState>(
             stateStack.back())));
 }
 

@@ -25,7 +25,7 @@ THE SOFTWARE.
 #include <string>
 #include <vector>
 #include <list>
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include "ParseMessage.h"
 
 class ParseListener;
@@ -120,7 +120,7 @@ protected:
     // TODO: Create a ContinuationParseState to handle this
     bool inContinuation;
     std::vector< ParseListener* > listeners;
-    std::vector< boost::shared_ptr< ParseState > > stateStack;
+    std::vector< std::shared_ptr< ParseState > > stateStack;
     std::vector< std::string > commandBuffer;
 
 public:

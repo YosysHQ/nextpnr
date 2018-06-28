@@ -5,7 +5,7 @@ int main( int argc, char *argv[] )
 {
     std::string commands[] = {
         "from time import time,ctime\n",
-        "print 'Today is',ctime(time())\n"
+        "print('Today is',ctime(time()))\n"
     };
     Interpreter::Initialize( );
     Interpreter* interpreter = new Interpreter;

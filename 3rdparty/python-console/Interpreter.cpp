@@ -1,7 +1,7 @@
 #include "Interpreter.h"
 #include <iostream>
 #include <map>
-#include <boost/format.hpp>
+#include <memory>
 
 PyThreadState* Interpreter::MainThreadState = NULL;
 
@@ -27,9 +27,6 @@ Interpreter::Interpreter( )
 
 Interpreter::~Interpreter( )
 {
-#ifndef NDEBUG
-    std::cout << "delete interpreter\n";
-#endif
     PyEval_AcquireThread( m_threadState );
     Py_EndInterpreter( m_threadState );
     PyEval_ReleaseLock( );
@@ -60,6 +57,15 @@ Interpreter::test( )
     PyEval_ReleaseThread( m_threadState );
 }
 
+template<typename ... Args>
+std::string string_format( const std::string& format, Args ... args )
+{
+    size_t size = std::snprintf( nullptr, 0, format.c_str(), args ... ) + 1; // Extra space for '\0'
+    std::unique_ptr<char[]> buf( new char[ size ] ); 
+    std::snprintf( buf.get(), size, format.c_str(), args ... );
+    return std::string( buf.get(), buf.get() + size - 1 ); // We don't want the '\0' inside
+}
+
 std::string
 Interpreter::interpret( const std::string& command, int* errorCode )
 {
@@ -69,15 +75,9 @@ Interpreter::interpret( const std::string& command, int* errorCode )
     PyObject* py_result;
     PyObject* dum;
     std::string res;
-#ifndef NDEBUG
-    std::cout << "interpreting (" << command << ")\n";
-#endif
     py_result = Py_CompileString(command.c_str(), "<stdin>", Py_single_input);
     if ( py_result == 0 )
     {
-#ifndef NDEBUG
-        std::cout << "Huh?\n";
-#endif
         if ( PyErr_Occurred( ) )
         {
             *errorCode = 1;
@@ -110,13 +110,7 @@ const std::list<std::string>& Interpreter::suggest( const std::string& hint )
     PyEval_AcquireThread( m_threadState );
     m_suggestions.clear();
     int i = 0;
-    std::string command = boost::str(
-        boost::format("sys.completer.complete('%1%', %2%)\n")
-            % hint
-            % i);
-#ifndef NDEBUG
-    std::cout << command << "\n";
-#endif
+    std::string command = string_format("sys.completer.complete('%s', %d)\n", hint.c_str(),i);
     std::string res;
     do
     {
@@ -129,10 +123,7 @@ const std::list<std::string>& Interpreter::suggest( const std::string& hint )
         res = GetResultString( m_threadState );
         GetResultString( m_threadState ) = "";
         ++i;
-        command = boost::str(
-        boost::format("sys.completer.complete('%1%', %2%)\n")
-            % hint
-            % i);
+        command = string_format("sys.completer.complete('%s', %d)\n", hint.c_str(),i);
         if (res.size())
         {
             // throw away the newline

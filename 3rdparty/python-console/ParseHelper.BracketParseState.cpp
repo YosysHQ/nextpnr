@@ -22,7 +22,7 @@ THE SOFTWARE.
 #include "ParseHelper.h"
 #include <string>
 #include <sstream>
-#include <iostream>
+
 const std::string ParseHelper::BracketParseState::OpeningBrackets = "[({";
 const std::string ParseHelper::BracketParseState::ClosingBrackets = "])}";
 
@@ -64,23 +64,17 @@ ParseHelper::BracketParseState::BracketParseState( ParseHelper& parent, const st
     ParseState( parent )
 {
     bool hasOpenBrackets = LoadBrackets( firstLine, &brackets );
-    assert( hasOpenBrackets );
+    //assert( hasOpenBrackets );
     m_buffer.push_back( firstLine );
 }
 
 bool ParseHelper::BracketParseState::process(const std::string& str)
 {
-#ifndef NDEBUG
-    std::cout << "(BracketParseState) processing " << str << "\n";
-#endif
     // update brackets stack
     for (int i = 0; i < str.size(); ++i)
     {
         if (OpeningBrackets.find_first_of(str[i]) != std::string::npos)
         {
-#ifndef NDEBUG
-            std::cout << "push " << str[i] << "\n";
-#endif
             brackets.push_back(str[i]);
         }
         else
@@ -88,9 +82,6 @@ bool ParseHelper::BracketParseState::process(const std::string& str)
             size_t t = ClosingBrackets.find_first_of(str[i]);
             if (t != std::string::npos)
             {
-#ifndef NDEBUG
-                std::cout << "pop " << str[i] << "\n";
-#endif
                 // reset state if unmatched brackets seen
                 if (t != OpeningBrackets.find_first_of(brackets.back()))
                 {

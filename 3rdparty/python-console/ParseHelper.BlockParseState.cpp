@@ -20,7 +20,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 #include "ParseHelper.h"
-#include <iostream>
 
 ParseHelper::BlockParseState::
 BlockParseState( ParseHelper& parent ):
@@ -47,10 +46,6 @@ process(const std::string& str)
     bool isIndented = PeekIndent( str, &ind );
     if ( isIndented )
     {
-#ifndef NDEBUG
-        std::cout << "current line indent: ";
-        print( ind );
-#endif
         // check if indent matches
         if ( ind.Token != indent.Token )
         {
@@ -61,17 +56,14 @@ process(const std::string& str)
                 parent.stateStack.pop_back( );
                 if ( !parent.stateStack.size( ) )
                     break;
-                boost::shared_ptr<BlockParseState> parseState =
-                    boost::dynamic_pointer_cast<BlockParseState>(
+                std::shared_ptr<BlockParseState> parseState =
+                    std::dynamic_pointer_cast<BlockParseState>(
                         parent.stateStack.back( ));
                 found = ( ind.Token == parseState->indent.Token );
             }
 
             if ( ! found )
             {
-#ifndef NDEBUG
-                std::cout << "indent mismatch\n";
-#endif
                 parent.reset( );
                 ParseMessage msg( 1, "IndentationError: unexpected indent");
                 parent.broadcast( msg );
@@ -85,11 +77,11 @@ process(const std::string& str)
         if ( str[str.size()-1] == ':' )
         {
             parent.commandBuffer.push_back( str );
-            //parent.inBlock = (boost::dynamic_pointer_cast<BlockParseState>(
+            //parent.inBlock = (std::dynamic_pointer_cast<BlockParseState>(
             //    parent.stateStack.back()));
 
             //expectingIndent = true;
-            boost::shared_ptr<ParseState> parseState(
+            std::shared_ptr<ParseState> parseState(
                 new BlockParseState( parent ) );
             parent.stateStack.push_back( parseState );
             return true;
@@ -98,7 +90,7 @@ process(const std::string& str)
         if ( str[str.size()-1] == '\\' )
         {
             parent.commandBuffer.push_back( str );
-            boost::shared_ptr<ParseState> parseState(
+            std::shared_ptr<ParseState> parseState(
                 new ContinuationParseState( parent ) );
             parent.stateStack.push_back( parseState );
             return true;
@@ -107,7 +99,7 @@ process(const std::string& str)
         if (BracketParseState::HasOpenBrackets( str ))
         {
             // FIXME: Every parse state should have its own local buffer
-            boost::shared_ptr<ParseState> parseState(
+            std::shared_ptr<ParseState> parseState(
                 new BracketParseState( parent, str ) );
             parent.stateStack.push_back( parseState );
             return true;
@@ -121,18 +113,12 @@ process(const std::string& str)
         if ( str.size() )
         {
             {
-#ifndef NDEBUG
-                std::cout << "Expected indented block\n";
-#endif
                 parent.reset( );
                 ParseMessage msg( 1, "IndentationError: expected an indented block" );
                 parent.broadcast( msg );
                 return false;
             }
         }
-#ifndef NDEBUG
-        std::cout << "Leaving block\n";
-#endif
         parent.stateStack.pop_back();
         parent.flush( );
         parent.reset( );
@@ -146,8 +132,6 @@ initializeIndent(const std::string& str)
     bool expectingIndent = (indent.Token == "");
     if ( !expectingIndent )
     {
-        std::cout << "already initialized indent: ";
-        print( indent );
         return true;
     }
 
@@ -155,9 +139,6 @@ initializeIndent(const std::string& str)
     bool isIndented = parent.PeekIndent( str, &ind );
     if ( !isIndented )
     {
-#ifndef NDEBUG
-        std::cout << "Expected indented block\n";
-#endif
         parent.reset( );
         ParseMessage msg( 1, "IndentationError: expected an indented block" );
         parent.broadcast( msg );
@@ -167,9 +148,5 @@ initializeIndent(const std::string& str)
     //parent.currentIndent = ind;
     //parent.indentStack.push_back( parent.currentIndent );
     //parent.expectingIndent = false;
-#ifndef NDEBUG
-    std::cout << "initializing indent: ";
-    print( ind );
-#endif
     return true;
 }
