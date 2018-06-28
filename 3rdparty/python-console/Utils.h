@@ -23,7 +23,7 @@ std::string LongestCommonPrefix( InputIterator begin, InputIterator end )
         const std::string& str = *it;
         for (int j = 0; j <= endIndex; ++j)
         {
-            if (j >= str.size() || str[j] != str0[j])
+            if (j >= (int)str.size() || str[j] != str0[j])
                 endIndex = j - 1;
         }
     }

@@ -27,6 +27,7 @@
 #include <QPlainTextEdit>
 #include "line_editor.h"
 #include "nextpnr.h"
+#include "pyconsole.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -38,18 +39,14 @@ class PythonTab : public QWidget
     explicit PythonTab(QWidget *parent = 0);
     ~PythonTab();
 
-  private:
-    void print(std::string line);
-    int executePython(std::string &command);
   private Q_SLOTS:
-    void editLineReturnPressed(QString text);
     void showContextMenu(const QPoint &pt);
     void clearBuffer();
   public Q_SLOTS:
     void newContext(Context *ctx);
+
   private:
-    QPlainTextEdit *plainTextEdit;
-    LineEditor *lineEdit;
+    PythonConsole *console;
     QMenu *contextMenu;
     bool initialized;
 };
