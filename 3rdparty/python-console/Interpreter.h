@@ -71,9 +71,9 @@ public:
     */
     Interpreter( );
     virtual ~Interpreter( );
-
+    
     void test( );
-    std::string interpret( const std::string& command, int* errorCode );
+        std::string interpret( const std::string& command, int* errorCode );
     const std::list<std::string>& suggest( const std::string& hint );
 
     /**
@@ -87,7 +87,7 @@ public:
     static void Finalize( );
 
 protected:
-    static void SetupRedirector( PyThreadState* threadState );
+    static PyObject* PyInit_redirector(void);
     static PyObject* RedirectorInit(PyObject *, PyObject *);
     static PyObject* RedirectorWrite(PyObject *, PyObject *args);
     static std::string& GetResultString( PyThreadState* threadState );

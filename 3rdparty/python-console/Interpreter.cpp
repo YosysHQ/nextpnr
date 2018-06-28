@@ -7,12 +7,12 @@ PyThreadState* Interpreter::MainThreadState = NULL;
 
 Interpreter::Interpreter( )
 {
-    PyEval_AcquireLock( );
+    PyEval_AcquireThread( MainThreadState );
     m_threadState = Py_NewInterpreter( );
 
     PyObject *module = PyImport_ImportModule("__main__");
     loc = glb = PyModule_GetDict(module);
-    SetupRedirector( m_threadState );
+    
     PyRun_SimpleString("import sys\n"
         "import redirector\n"
         "sys.path.insert(0, \".\")\n" // add current path
@@ -50,7 +50,7 @@ Interpreter::test( )
         PyEval_ReleaseThread( m_threadState );
         return;
     }
-    dum = PyEval_EvalCode ((PyCodeObject *)py_result, glb, loc);
+    dum = PyEval_EvalCode (py_result, glb, loc);
     Py_XDECREF (dum);
     Py_XDECREF (py_result);
 
@@ -89,7 +89,7 @@ Interpreter::interpret( const std::string& command, int* errorCode )
         PyEval_ReleaseThread( m_threadState );
         return res;
     }
-    dum = PyEval_EvalCode ((PyCodeObject *)py_result, glb, loc);
+    dum = PyEval_EvalCode (py_result, glb, loc);
     Py_XDECREF (dum);
     Py_XDECREF (py_result);
     if ( PyErr_Occurred( ) )
@@ -123,7 +123,7 @@ const std::list<std::string>& Interpreter::suggest( const std::string& hint )
         PyObject* py_result;
         PyObject* dum;
         py_result = Py_CompileString(command.c_str(), "<stdin>", Py_single_input);
-        dum = PyEval_EvalCode ((PyCodeObject *)py_result, glb, loc);
+        dum = PyEval_EvalCode (py_result, glb, loc);
         Py_XDECREF (dum);
         Py_XDECREF (py_result);
         res = GetResultString( m_threadState );
@@ -149,6 +149,7 @@ const std::list<std::string>& Interpreter::suggest( const std::string& hint )
 void
 Interpreter::Initialize( )
 {
+    PyImport_AppendInittab("redirector", Interpreter::PyInit_redirector); 
     Py_Initialize( );
     PyEval_InitThreads( );
     MainThreadState = PyEval_SaveThread( );
@@ -195,7 +196,6 @@ PyObject* Interpreter::RedirectorWrite(PyObject *, PyObject *args)
     return Py_None;
 }
 
-PyMethodDef Interpreter::ModuleMethods[] = { {NULL,NULL,0,NULL} };
 PyMethodDef Interpreter::RedirectorMethods[] =
 {
     {"__init__", Interpreter::RedirectorInit, METH_VARARGS,
@@ -205,27 +205,51 @@ PyMethodDef Interpreter::RedirectorMethods[] =
     {NULL,NULL,0,NULL},
 };
 
-void Interpreter::SetupRedirector( PyThreadState* threadState )
+
+PyObject *createClassObject(const char *name, PyMethodDef methods[])
 {
+    PyObject *pClassName = PyUnicode_FromString(name);
+    PyObject *pClassBases = PyTuple_New(0); // An empty tuple for bases is equivalent to `(object,)`
+    PyObject *pClassDic = PyDict_New();
+
+
     PyMethodDef *def;
-
-    /* create a new module and class */
-    PyObject *module = Py_InitModule("redirector", ModuleMethods);
-    PyObject *moduleDict = PyModule_GetDict(module);
-    PyObject *classDict = PyDict_New();
-    PyObject *className = PyString_FromString("redirector");
-    PyObject *fooClass = PyClass_New(NULL, classDict, className);
-    PyDict_SetItemString(moduleDict, "redirector", fooClass);
-    Py_DECREF(classDict);
-    Py_DECREF(className);
-    Py_DECREF(fooClass);
-
-    /* add methods to class */
-    for (def = RedirectorMethods; def->ml_name != NULL; def++) {
+    // add methods to class 
+    for (def = methods; def->ml_name != NULL; def++)
+    {
         PyObject *func = PyCFunction_New(def, NULL);
-        PyObject *method = PyMethod_New(func, NULL, fooClass);
-        PyDict_SetItemString(classDict, def->ml_name, method);
+        PyObject *method = PyInstanceMethod_New(func);
+        PyDict_SetItemString(pClassDic, def->ml_name, method);
         Py_DECREF(func);
         Py_DECREF(method);
     }
+
+    // pClass = type(pClassName, pClassBases, pClassDic)
+    PyObject *pClass = PyObject_CallFunctionObjArgs((PyObject *)&PyType_Type, pClassName, pClassBases, pClassDic, NULL);
+
+    Py_DECREF(pClassName);
+    Py_DECREF(pClassBases);
+    Py_DECREF(pClassDic);
+
+
+    return pClass;
+}
+
+PyMODINIT_FUNC Interpreter::PyInit_redirector(void)
+{
+    static struct PyModuleDef moduledef = {
+            PyModuleDef_HEAD_INIT,
+            "redirector",
+            0,
+            -1,
+            0
+    };
+
+    PyObject *m = PyModule_Create(&moduledef);
+    if (m) {
+        PyObject *fooClass = createClassObject("redirector", RedirectorMethods);
+        PyModule_AddObject(m, "redirector", fooClass);
+        Py_DECREF(fooClass);
+    }
+    return m;
 }

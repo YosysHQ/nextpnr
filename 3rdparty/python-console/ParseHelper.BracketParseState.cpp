@@ -22,6 +22,7 @@ THE SOFTWARE.
 #include "ParseHelper.h"
 #include <string>
 #include <sstream>
+#include <iostream>
 const std::string ParseHelper::BracketParseState::OpeningBrackets = "[({";
 const std::string ParseHelper::BracketParseState::ClosingBrackets = "])}";
 

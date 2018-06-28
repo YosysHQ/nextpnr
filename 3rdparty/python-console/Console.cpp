@@ -241,6 +241,7 @@ void Console::autocomplete( )
     append("");
     displayPrompt( );
     moveCursorToEnd( );
+    QTextCursor cursor = textCursor();
     cursor.insertText( line );
     moveCursorToEnd( );
 }
