@@ -72,10 +72,6 @@ void Console::handleReturnKeyPress( )
 
     QString line = getLine( );
 
-#ifndef NDEBUG
-    std::cout << line.toStdString( ) << "\n";
-#endif
-
     m_parseHelper.process( line.toStdString( ) );
     if ( m_parseHelper.buffered( ) )
     {
@@ -232,7 +228,6 @@ void Console::autocomplete( )
             {
                 append(it->c_str());
             }
-            std::cout << width() << "\n";
             setTextColor( NORMAL_COLOR );
         }
     }
