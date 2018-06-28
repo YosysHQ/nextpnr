@@ -20,7 +20,6 @@
 
 #include "pythontab.h"
 #include <QGridLayout>
-#include "emb.h"
 #include "pybindings.h"
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -72,14 +71,6 @@ void PythonTab::newContext(Context *ctx)
 
     init_python("nextpnr", !initialized);
     python_export_global("ctx", ctx);
-
-    PyImport_ImportModule("emb");
-    write = [this](std::string s) {
-        plainTextEdit->moveCursor(QTextCursor::End);
-        plainTextEdit->insertPlainText(s.c_str());
-        plainTextEdit->moveCursor(QTextCursor::End);
-    };
-    emb::set_stdout(write);
 
     initialized = true;
 

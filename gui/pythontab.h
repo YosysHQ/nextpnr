@@ -25,7 +25,6 @@
 #include <QLineEdit>
 #include <QMenu>
 #include <QPlainTextEdit>
-#include "emb.h"
 #include "line_editor.h"
 #include "nextpnr.h"
 
@@ -52,7 +51,6 @@ class PythonTab : public QWidget
     QPlainTextEdit *plainTextEdit;
     LineEditor *lineEdit;
     QMenu *contextMenu;
-    emb::stdout_write_type write;
     bool initialized;
 };
 

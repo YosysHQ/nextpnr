@@ -21,7 +21,6 @@
 #ifndef NO_PYTHON
 
 #include "pybindings.h"
-#include "emb.h"
 #include "jsonparse.h"
 #include "nextpnr.h"
 
@@ -138,10 +137,8 @@ void init_python(const char *executable, bool first)
         exit(1);
     }
     try {
-        if (first) {
+        if (first)
             PyImport_AppendInittab(TOSTRING(MODULE_NAME), PYINIT_MODULE_NAME);
-            emb::append_inittab();
-        }
         Py_SetProgramName(program);
         Py_Initialize();
         if (first)
