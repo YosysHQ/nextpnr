@@ -355,8 +355,7 @@ void FPGAViewWidget::paintGL()
 
     // Draw Bels.
     auto bels = LineShaderData(0.02f, QColor("#b000ba"));
-    if (ctx_)
-    {
+    if (ctx_) {
         for (auto bel : ctx_->getBels()) {
             for (auto &el : ctx_->getBelGraphics(bel))
                 drawElement(bels, el);
@@ -366,8 +365,7 @@ void FPGAViewWidget::paintGL()
 
     // Draw Frame Graphics.
     auto frames = LineShaderData(0.02f, QColor("#0066ba"));
-    if (ctx_)
-    {
+    if (ctx_) {
         for (auto &el : ctx_->getFrameGraphics()) {
             drawElement(frames, el);
         }

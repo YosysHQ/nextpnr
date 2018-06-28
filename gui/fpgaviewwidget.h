@@ -242,6 +242,7 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     void drawElement(LineShaderData &data, const GraphicElement &el);
   public Q_SLOTS:
     void newContext(Context *ctx);
+
   private:
     QPoint lastPos_;
     float moveX_;

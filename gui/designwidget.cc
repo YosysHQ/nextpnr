@@ -135,8 +135,7 @@ void DesignWidget::newContext(Context *ctx)
     bel_root->setText(0, QString("Bels"));
     treeWidget->insertTopLevelItem(0, bel_root);
     QList<QTreeWidgetItem *> bel_items;
-    if (ctx)
-    {
+    if (ctx) {
         for (auto bel : ctx->getBels()) {
             auto name = ctx->getBelName(bel);
             bel_items.append(new BelTreeItem(name, ElementType::BEL, QString(name.c_str(ctx))));
@@ -149,8 +148,7 @@ void DesignWidget::newContext(Context *ctx)
     QList<QTreeWidgetItem *> wire_items;
     wire_root->setText(0, QString("Wires"));
     treeWidget->insertTopLevelItem(0, wire_root);
-    if (ctx)
-    {
+    if (ctx) {
         for (auto wire : ctx->getWires()) {
             auto name = ctx->getWireName(wire);
             wire_items.append(new WireTreeItem(name, ElementType::WIRE, QString(name.c_str(ctx))));
@@ -163,8 +161,7 @@ void DesignWidget::newContext(Context *ctx)
     QList<QTreeWidgetItem *> pip_items;
     pip_root->setText(0, QString("Pips"));
     treeWidget->insertTopLevelItem(0, pip_root);
-    if (ctx)
-    {
+    if (ctx) {
         for (auto pip : ctx->getPips()) {
             auto name = ctx->getPipName(pip);
             pip_items.append(new PipTreeItem(name, ElementType::PIP, QString(name.c_str(ctx))));

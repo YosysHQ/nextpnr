@@ -56,10 +56,7 @@ Worker::Worker(TaskManager *parent) : ctx(nullptr)
     };
 }
 
-void Worker::newContext(Context *ctx_)
-{
-    ctx = ctx_;
-}
+void Worker::newContext(Context *ctx_) { ctx = ctx_; }
 
 void Worker::loadfile(const std::string &filename)
 {
@@ -155,7 +152,6 @@ TaskManager::TaskManager() : toTerminate(false), toPause(false)
     connect(this, &TaskManager::budget, worker, &Worker::budget);
     connect(this, &TaskManager::place, worker, &Worker::place);
     connect(this, &TaskManager::route, worker, &Worker::route);
-
 
     connect(this, &TaskManager::contextChanged, worker, &Worker::newContext);
 

@@ -67,8 +67,8 @@ BaseMainWindow::BaseMainWindow(QWidget *parent) : QMainWindow(parent), ctx(nullp
     designview->setMinimumWidth(300);
     designview->setMaximumWidth(300);
     splitter_h->addWidget(designview);
-    
-    connect(this, SIGNAL(contextChanged(Context*)), designview, SLOT(newContext(Context*)));
+
+    connect(this, SIGNAL(contextChanged(Context *)), designview, SLOT(newContext(Context *)));
 
     connect(designview, SIGNAL(info(std::string)), this, SLOT(writeInfo(std::string)));
 
@@ -76,7 +76,7 @@ BaseMainWindow::BaseMainWindow(QWidget *parent) : QMainWindow(parent), ctx(nullp
 #ifndef NO_PYTHON
     PythonTab *pythontab = new PythonTab();
     tabWidget->addTab(pythontab, "Python");
-    connect(this, SIGNAL(contextChanged(Context*)), pythontab, SLOT(newContext(Context*)));
+    connect(this, SIGNAL(contextChanged(Context *)), pythontab, SLOT(newContext(Context *)));
 #endif
     info = new InfoTab();
     tabWidget->addTab(info, "Info");
@@ -85,7 +85,7 @@ BaseMainWindow::BaseMainWindow(QWidget *parent) : QMainWindow(parent), ctx(nullp
     FPGAViewWidget *fpgaView = new FPGAViewWidget();
     centralTabWidget->addTab(fpgaView, "Graphics");
 
-    connect(this, SIGNAL(contextChanged(Context*)), fpgaView, SLOT(newContext(Context*)));
+    connect(this, SIGNAL(contextChanged(Context *)), fpgaView, SLOT(newContext(Context *)));
 
     splitter_v->addWidget(centralTabWidget);
     splitter_v->addWidget(tabWidget);

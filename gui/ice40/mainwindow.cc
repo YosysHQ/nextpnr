@@ -58,8 +58,8 @@ MainWindow::MainWindow(QWidget *parent) : BaseMainWindow(parent), timing_driven(
     connect(task, SIGNAL(taskStarted()), this, SLOT(taskStarted()));
     connect(task, SIGNAL(taskPaused()), this, SLOT(taskPaused()));
 
-    connect(this, SIGNAL(contextChanged(Context*)), this, SLOT(newContext(Context*)));
-    connect(this, SIGNAL(contextChanged(Context*)), task, SIGNAL(contextChanged(Context*)));
+    connect(this, SIGNAL(contextChanged(Context *)), this, SLOT(newContext(Context *)));
+    connect(this, SIGNAL(contextChanged(Context *)), task, SIGNAL(contextChanged(Context *)));
 
     createMenu();
 }
@@ -184,10 +184,10 @@ void MainWindow::new_proj()
     ArchArgs chipArgs;
     chipArgs.type = ArchArgs::HX1K;
     chipArgs.package = "tq144";
-    if (ctx) 
+    if (ctx)
         delete ctx;
     ctx = new Context(chipArgs);
-    
+
     Q_EMIT contextChanged(ctx);
 
     actionLoadJSON->setEnabled(true);
@@ -352,7 +352,7 @@ void MainWindow::taskStarted()
     disableActions();
     actionPause->setEnabled(true);
     actionStop->setEnabled(true);
-    
+
     actionNew->setEnabled(false);
     actionOpen->setEnabled(false);
 }
@@ -362,7 +362,7 @@ void MainWindow::taskPaused()
     disableActions();
     actionPlay->setEnabled(true);
     actionStop->setEnabled(true);
-    
+
     actionNew->setEnabled(false);
     actionOpen->setEnabled(false);
 }
