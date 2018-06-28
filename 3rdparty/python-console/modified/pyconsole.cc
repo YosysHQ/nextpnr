@@ -52,7 +52,8 @@ void PythonConsole::keyPressEvent( QKeyEvent* e )
             if ( ! canGoLeft( ) )
                 return;
     }
-
+    if (!cursorIsOnInputLine()) return;
+    if (textCursor().columnNumber() < PythonConsole::PROMPT.size()) return;
     QTextEdit::keyPressEvent( e );
 }
 
@@ -291,4 +292,31 @@ void PythonConsole::moveCursorToEnd( )
     QTextCursor cursor = textCursor();
     cursor.movePosition( QTextCursor::End );
     setTextCursor( cursor );
+}
+
+void PythonConsole::insertFromMimeData(const QMimeData *src)
+{
+    if (src->hasText()) {
+        QStringList list = src->text().split("\n",QString::KeepEmptyParts);
+        bool lastends = src->text().endsWith("\n");
+        for (int i=0;i<list.size();i++)
+        {
+            QString line = list.at(i);            
+            displayString(line);
+            if (!lastends && (i==list.size()-1)) break;
+
+            m_parseHelper.process( line.toStdString( ) );
+            if ( m_parseHelper.buffered( ) )
+            {
+                append("");
+                displayPrompt( );
+            }
+            if ( line.size( ) )
+            {
+                m_historyBuffer.push_back( line.toStdString( ) );
+                m_historyIt = m_historyBuffer.end();
+            }
+            moveCursorToEnd( );
+        }
+    }
 }
