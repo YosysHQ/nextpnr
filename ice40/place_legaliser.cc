@@ -155,6 +155,22 @@ class PlacementLegaliser
                         return i3_next;*/
                     return (CellInfo *)nullptr;
                 });
+        std::unordered_set<IdString> chained;
+        for (auto &base_chain : carry_chains) {
+            for (auto c : base_chain.cells)
+                chained.insert(c->name);
+        }
+        // Any cells not in chains, but with carry enabled, must also be put in a single-carry chain
+        // for correct processing
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (chained.find(cell.first) == chained.end() && is_lc(ctx, ci) && bool_or_default(ci->params, ctx->id("CARRY_ENABLE"))) {
+                CellChain sChain;
+                sChain.cells.push_back(ci);
+                chained.insert(cell.first);
+                carry_chains.push_back(sChain);
+            }
+        }
         bool success = true;
         // Find midpoints for all chains, before we start tearing them up
         std::vector<CellChain> all_chains;
@@ -274,6 +290,7 @@ class PlacementLegaliser
                         CellInfo *passout = make_carry_pass_out(cell->ports.at(ctx->id("COUT")));
                         chains.back().cells.push_back(passout);
                         tile.push_back(passout);
+                        start_of_chain = true;
                     }
                 }
                 ++curr_cell;

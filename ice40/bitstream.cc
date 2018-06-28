@@ -178,7 +178,8 @@ void write_asc(const Context *ctx, std::ostream &out)
             bool carry_const = get_param_or_def(cell.second.get(), ctx->id("CIN_CONST"));
             bool carry_set = get_param_or_def(cell.second.get(), ctx->id("CIN_SET"));
             if (carry_const) {
-                assert(z == 0);
+                if (!ctx->force)
+                    assert(z == 0);
                 set_config(ti, config.at(y).at(x), "CarryInSet", carry_set);
             }
         } else if (cell.second->type == ctx->id("SB_IO")) {
