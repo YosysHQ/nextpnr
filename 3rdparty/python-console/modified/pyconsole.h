@@ -25,6 +25,7 @@ SOFTWARE.
 #define PYCONSOLE_H
 #include <QColor>
 #include <QTextEdit>
+#include <QMimeData>
 #include "ParseHelper.h"
 #include "ParseListener.h"
 
@@ -46,6 +47,8 @@ class PythonConsole : public QTextEdit, ParseListener
     virtual void keyPressEvent(QKeyEvent *e);
 
     virtual void handleReturnKeyPress();
+
+    virtual void insertFromMimeData(const QMimeData *src);
 
     /**
     Handle a compilable chunk of Python user input.
