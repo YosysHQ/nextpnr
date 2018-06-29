@@ -366,11 +366,11 @@ int main(int argc, char *argv[])
             assign_budget(&ctx, freq);
             ctx.check();
             print_utilisation(&ctx);
-            bool timing_driven = true;
+            ctx.timing_driven = true;
             if (vm.count("no-tmdriv"))
-                timing_driven = false;
+                ctx.timing_driven = false;
             if (!vm.count("pack-only")) {
-                if (!place_design_sa(&ctx, timing_driven) && !ctx.force)
+                if (!place_design_sa(&ctx) && !ctx.force)
                     log_error("Placing design failed.\n");
                 ctx.check();
                 if (!route_design(&ctx) && !ctx.force)

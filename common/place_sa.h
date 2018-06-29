@@ -23,7 +23,7 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-extern bool place_design_sa(Context *ctx, bool timing_driven = true);
+extern bool place_design_sa(Context *ctx);
 
 NEXTPNR_NAMESPACE_END
 

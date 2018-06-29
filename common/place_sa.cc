@@ -46,7 +46,7 @@ NEXTPNR_NAMESPACE_BEGIN
 class SAPlacer
 {
   public:
-    SAPlacer(Context *ctx, bool timing_driven) : ctx(ctx), timing_driven(timing_driven)
+    SAPlacer(Context *ctx) : ctx(ctx)
     {
         int num_bel_types = 0;
         for (auto bel : ctx->getBels()) {
@@ -416,7 +416,6 @@ class SAPlacer
     float curr_tns = 0;
     float temp = 1000;
     bool improved = false;
-    bool timing_driven = true;
     int n_move, n_accept;
     int diameter = 35, max_x = 1, max_y = 1;
     std::unordered_map<BelType, int> bel_types;
@@ -428,10 +427,10 @@ class SAPlacer
     const float post_legalise_dia_scale = 2;
 };
 
-bool place_design_sa(Context *ctx, bool timing_driven)
+bool place_design_sa(Context *ctx)
 {
     try {
-        SAPlacer placer(ctx, timing_driven);
+        SAPlacer placer(ctx);
         placer.place();
         log_info("Checksum: 0x%08x\n", ctx->checksum());
 #ifndef NDEBUG
