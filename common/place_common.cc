@@ -119,16 +119,16 @@ bool place_single_cell(Context *ctx, CellInfo *cell, bool require_legality)
             if (ctx->getBelType(bel) == targetType && (!require_legality || ctx->isValidBelForCell(cell, bel))) {
                 if (ctx->checkBelAvail(bel)) {
                     wirelen_t wirelen = get_cell_wirelength_at_bel(ctx, cell, bel);
-                    if (wirelen == 0)
-                        wirelen = ctx->rng(100);
+                    if (iters >= 4)
+                        wirelen += ctx->rng(25);
                     if (wirelen <= best_wirelen) {
                         best_wirelen = wirelen;
                         best_bel = bel;
                     }
                 } else {
                     wirelen_t wirelen = get_cell_wirelength_at_bel(ctx, cell, bel);
-                    if (wirelen == 0)
-                        wirelen = ctx->rng(100);
+                    if (iters >= 4)
+                        wirelen += ctx->rng(25);
                     if (wirelen <= best_ripup_wirelen) {
                         ripup_target = ctx->cells.at(ctx->getBoundBelCell(bel)).get();
                         if (ripup_target->belStrength < STRENGTH_STRONG) {
