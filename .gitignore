@@ -1,6 +1,6 @@
 /generated/
 /objs/
-/nextpnr-dummy*
+/nextpnr-generic*
 /nextpnr-ice40*
 cmake-build-*/
 Makefile

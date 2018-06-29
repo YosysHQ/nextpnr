@@ -27,7 +27,7 @@ MainWindow::MainWindow(QWidget *parent) : BaseMainWindow(parent)
 {
     initMainResource();
 
-    std::string title = "nextpnr-dummy - [EMPTY]";
+    std::string title = "nextpnr-generic - [EMPTY]";
     setWindowTitle(title.c_str());
 
     createMenu();
@@ -37,7 +37,7 @@ MainWindow::~MainWindow() {}
 
 void MainWindow::createMenu()
 {
-    QMenu *menu_Custom = new QMenu("&Dummy", menuBar);
+    QMenu *menu_Custom = new QMenu("&Generic", menuBar);
     menuBar->addAction(menu_Custom->menuAction());
 }
 

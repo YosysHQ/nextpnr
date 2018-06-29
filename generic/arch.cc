@@ -24,7 +24,7 @@ NEXTPNR_NAMESPACE_BEGIN
 
 Arch::Arch(ArchArgs) {}
 
-std::string Arch::getChipName() { return "Dummy"; }
+std::string Arch::getChipName() { return "Generic"; }
 
 void IdString::initialize_arch(const BaseCtx *ctx) {}
 

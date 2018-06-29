@@ -7,7 +7,7 @@ option(BUILD_PYTHON "Build Python Integration" ON)
 option(BUILD_TESTS "Build GUI" OFF)
 
 # List of families to build
-set(FAMILIES dummy ice40)
+set(FAMILIES generic ice40)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_FLAGS_DEBUG "-Wall -fPIC -ggdb")
 set(CMAKE_CXX_FLAGS_RELEASE "-Wall -fPIC -O3 -g")
