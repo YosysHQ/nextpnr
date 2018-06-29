@@ -420,7 +420,7 @@ class SAPlacer
     std::vector<std::vector<std::vector<std::vector<BelId>>>> fast_bels;
     std::unordered_set<BelId> locked_bels;
     bool require_legal = false;
-    const float legalise_temp = 20;
+    const float legalise_temp = 1;
 };
 
 bool place_design_sa(Context *ctx, bool timing_driven)
