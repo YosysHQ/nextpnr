@@ -91,7 +91,7 @@ wirelen_t get_cell_wirelength(const Context *ctx, const CellInfo *cell)
     return wirelength;
 }
 
-static wirelen_t get_cell_wirelength_at_bel(const Context *ctx, CellInfo *cell, BelId bel)
+wirelen_t get_cell_wirelength_at_bel(const Context *ctx, CellInfo *cell, BelId bel)
 {
     BelId oldBel = cell->bel;
     cell->bel = bel;

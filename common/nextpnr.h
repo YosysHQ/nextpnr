@@ -230,7 +230,7 @@ struct Context : Arch
     bool debug = false;
     bool force = false;
     bool timing_driven = true;
-
+    float target_freq = 12e6;
     Context(ArchArgs args) : Arch(args) {}
 
     // --------------------------------------------------------------

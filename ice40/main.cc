@@ -360,10 +360,9 @@ int main(int argc, char *argv[])
 
             if (!pack_design(&ctx) && !ctx.force)
                 log_error("Packing design failed.\n");
-            double freq = 50e6;
             if (vm.count("freq"))
-                freq = vm["freq"].as<double>() * 1e6;
-            assign_budget(&ctx, freq);
+                ctx.target_freq = vm["freq"].as<double>() * 1e6;
+            assign_budget(&ctx);
             ctx.check();
             print_utilisation(&ctx);
             ctx.timing_driven = true;

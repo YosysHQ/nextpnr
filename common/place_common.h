@@ -32,6 +32,9 @@ wirelen_t get_net_wirelength(const Context *ctx, const NetInfo *net, float &tns)
 // Return the wirelength of all nets connected to a cell
 wirelen_t get_cell_wirelength(const Context *ctx, const CellInfo *cell);
 
+// Return the wirelength of all nets connected to a cell, when the cell is at a given bel
+wirelen_t get_cell_wirelength_at_bel(const Context *ctx, CellInfo *cell, BelId bel);
+
 // Place a single cell in the lowest wirelength Bel available, optionally requiring validity check
 bool place_single_cell(Context *ctx, CellInfo *cell, bool require_legality);
 

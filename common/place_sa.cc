@@ -207,7 +207,8 @@ class SAPlacer
                         temp *= 0.8;
                 }
             }
-
+            // Once cooled below legalise threshold, run legalisation and start requiring
+            // legal moves only
             if (temp < legalise_temp && !require_legal) {
                 legalise_design(ctx);
                 require_legal = true;
@@ -219,6 +220,7 @@ class SAPlacer
                 temp = post_legalise_temp;
                 diameter *= post_legalise_dia_scale;
                 ctx->shuffle(autoplaced);
+                assign_budget(ctx);
             }
 
             // Recalculate total wirelength entirely to avoid rounding errors

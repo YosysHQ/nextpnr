@@ -216,7 +216,7 @@ class PlacementLegaliser
                 log_info("Placing carry chain starting at '%s'\n", chain.cells.front()->name.c_str(ctx));
             float base_x = chain.mid_x, base_y = chain.mid_y - (chain.cells.size() / 16.0f);
             // Find Bel meeting requirements closest to the target base, returning location as <x, y, z>
-            auto chain_origin_bel = find_closest_bel(base_x, base_y, int(chain.cells.size()));
+            auto chain_origin_bel = find_closest_bel(base_x, base_y, chain);
             int place_x = std::get<0>(chain_origin_bel), place_y = std::get<1>(chain_origin_bel),
                 place_z = std::get<2>(chain_origin_bel);
             if (place_x == -1) {
@@ -243,27 +243,29 @@ class PlacementLegaliser
     }
 
     // Find Bel closest to a location, meeting chain requirements
-    std::tuple<int, int, int> find_closest_bel(float target_x, float target_y, int chain_size)
+    std::tuple<int, int, int> find_closest_bel(float target_x, float target_y, CellChain &chain)
     {
         std::tuple<int, int, int> best_origin = std::make_tuple(-1, -1, -1);
-        float smallest_distance = std::numeric_limits<float>::infinity();
+        wirelen_t best_wirelength = std::numeric_limits<wirelen_t>::max();
         int width = ctx->chip_info->width, height = ctx->chip_info->height;
         // Slow, should radiate outwards from target position - TODO
+        int chain_size = int(chain.cells.size());
         for (int x = 1; x < width; x++) {
             for (int y = 1; y < (height - (chain_size / 8)); y++) {
                 bool valid = true;
+                wirelen_t wirelen = 0;
                 for (int k = 0; k < chain_size; k++) {
-                    if (logic_bels.at(x).at(y + k / 8).at(k % 8).second) {
+                    auto &lb = logic_bels.at(x).at(y + k / 8).at(k % 8);
+                    if (lb.second) {
                         valid = false;
                         break;
+                    } else {
+                        wirelen += get_cell_wirelength_at_bel(ctx, chain.cells.at(k), lb.first);
                     }
                 }
-                if (valid) {
-                    float distance = (x - target_x) * (x - target_x) + (y - target_y) * (y - target_y);
-                    if (distance < smallest_distance) {
-                        smallest_distance = distance;
-                        best_origin = std::make_tuple(x, y, 0);
-                    }
+                if (valid && wirelen < best_wirelength) {
+                    best_wirelength = wirelen;
+                    best_origin = std::make_tuple(x, y, 0);
                 }
             }
         }

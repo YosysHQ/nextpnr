@@ -70,12 +70,12 @@ static delay_t follow_net(Context *ctx, NetInfo *net, int path_length, delay_t s
     return net_budget;
 }
 
-void assign_budget(Context *ctx, float default_clock)
+void assign_budget(Context *ctx)
 {
     log_break();
     log_info("Annotating ports with timing budgets\n");
     // Clear delays to a very high value first
-    delay_t default_slack = delay_t(1.0e12 / default_clock);
+    delay_t default_slack = delay_t(1.0e12 / ctx->target_freq);
     for (auto &net : ctx->nets) {
         for (auto &usr : net.second->users) {
             usr.budget = default_slack;
@@ -87,7 +87,7 @@ void assign_budget(Context *ctx, float default_clock)
             if (port.second.type == PORT_OUT) {
                 IdString clock_domain = ctx->getPortClock(cell.second.get(), port.first);
                 if (clock_domain != IdString()) {
-                    delay_t slack = delay_t(1.0e12 / default_clock); // TODO: clock constraints
+                    delay_t slack = delay_t(1.0e12 / ctx->target_freq); // TODO: clock constraints
                     if (port.second.net)
                         follow_net(ctx, port.second.net, 0, slack);
                 }
