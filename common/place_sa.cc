@@ -40,6 +40,7 @@
 #include "place_common.h"
 #include "place_legaliser.h"
 #include "util.h"
+#include "timing.h"
 NEXTPNR_NAMESPACE_BEGIN
 
 class SAPlacer
@@ -215,6 +216,8 @@ class SAPlacer
                     if (cell.second->belStrength < STRENGTH_STRONG)
                         autoplaced.push_back(cell.second);
                 }
+                temp = post_legalise_temp;
+                diameter *= post_legalise_dia_scale;
                 ctx->shuffle(autoplaced);
             }
 
@@ -421,6 +424,8 @@ class SAPlacer
     std::unordered_set<BelId> locked_bels;
     bool require_legal = false;
     const float legalise_temp = 1;
+    const float post_legalise_temp = 20;
+    const float post_legalise_dia_scale = 2;
 };
 
 bool place_design_sa(Context *ctx, bool timing_driven)
