@@ -75,6 +75,15 @@ template <typename K> std::set<K> sorted(const std::unordered_set<K> &orig)
     return retVal;
 };
 
+// Return a net if port exists, or nullptr
+inline const NetInfo *get_net_or_empty(const CellInfo *cell, const IdString port)
+{
+    auto found = cell->ports.find(port);
+    if (found != cell->ports.end())
+        return found->second.net;
+    else
+        return nullptr;
+};
 NEXTPNR_NAMESPACE_END
 
 #endif

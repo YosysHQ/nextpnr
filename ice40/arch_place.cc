@@ -24,15 +24,6 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-static const NetInfo *get_net_or_empty(const CellInfo *cell, const IdString port)
-{
-    auto found = cell->ports.find(port);
-    if (found != cell->ports.end())
-        return found->second.net;
-    else
-        return nullptr;
-};
-
 bool Arch::logicCellsCompatible(const std::vector<const CellInfo *> &cells) const
 {
     bool dffs_exist = false, dffs_neg = false;

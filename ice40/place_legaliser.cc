@@ -87,6 +87,31 @@ static void get_chain_midpoint(const Context *ctx, const CellChain &chain, float
     y = total_y / N;
 }
 
+static int get_cell_evilness(const Context *ctx, const CellInfo *cell)
+{
+    // This returns how "evil" a logic cell is, and thus how likely it is to be ripped up
+    // during logic tile legalisation
+    int score = 0;
+    if (get_net_or_empty(cell, ctx->id("I0")))
+        ++score;
+    if (get_net_or_empty(cell, ctx->id("I1")))
+        ++score;
+    if (get_net_or_empty(cell, ctx->id("I2")))
+        ++score;
+    if (get_net_or_empty(cell, ctx->id("I3")))
+        ++score;
+    if (bool_or_default(cell->params, ctx->id("DFF_ENABLE"))) {
+        const NetInfo *cen = get_net_or_empty(cell, ctx->id("CEN")), *sr = get_net_or_empty(cell, ctx->id("SR"));
+        if (cen)
+            score += 10;
+        if (sr)
+            score += 10;
+        if (bool_or_default(cell->params, ctx->id("NEG_CLK")))
+            score += 5;
+    }
+    return score;
+}
+
 class PlacementLegaliser
 {
   public:
@@ -99,6 +124,8 @@ class PlacementLegaliser
         bool legalised_carries = legalise_carries();
         if (!legalised_carries && !ctx->force)
             return false;
+        legalise_others();
+        legalise_logic_tiles();
         bool replaced_cells = replace_cells();
         return legalised_carries && replaced_cells;
     }
@@ -127,34 +154,29 @@ class PlacementLegaliser
 
     bool legalise_carries()
     {
-        std::vector<CellChain> carry_chains = find_chains(
-                ctx,
-                [](const Context *ctx, const CellInfo *cell) {
-                    return is_lc(ctx, cell);
-                },
-                [](const Context *ctx, const
+        std::vector<CellChain> carry_chains =
+                find_chains(ctx, [](const Context *ctx, const CellInfo *cell) { return is_lc(ctx, cell); },
+                            [](const Context *ctx, const
 
-                CellInfo *cell) {
-                    CellInfo *carry_prev =
-                            net_driven_by(ctx, cell->ports.at(ctx->id("CIN")).net, is_lc, ctx->id("COUT"));
-                    if (carry_prev != nullptr)
-                        return carry_prev;
-                    /*CellInfo *i3_prev = net_driven_by(ctx, cell->ports.at(ctx->id("I3")).net, is_lc, ctx->id("COUT"));
-                    if (i3_prev != nullptr)
-                        return i3_prev;*/
-                    return (CellInfo *)nullptr;
-                },
-                [](const Context *ctx, const CellInfo *cell) {
-                    CellInfo *carry_next =
-                            net_only_drives(ctx, cell->ports.at(ctx->id("COUT")).net, is_lc, ctx->id("CIN"), false);
-                    if (carry_next != nullptr)
-                        return carry_next;
-                    /*CellInfo *i3_next =
-                            net_only_drives(ctx, cell->ports.at(ctx->id("COUT")).net, is_lc, ctx->id("I3"), false);
-                    if (i3_next != nullptr)
-                        return i3_next;*/
-                    return (CellInfo *)nullptr;
-                });
+                               CellInfo *cell) {
+                                CellInfo *carry_prev =
+                                        net_driven_by(ctx, cell->ports.at(ctx->id("CIN")).net, is_lc, ctx->id("COUT"));
+                                if (carry_prev != nullptr)
+                                    return carry_prev;
+                                /*CellInfo *i3_prev = net_driven_by(ctx, cell->ports.at(ctx->id("I3")).net, is_lc,
+                                ctx->id("COUT")); if (i3_prev != nullptr) return i3_prev;*/
+                                return (CellInfo *)nullptr;
+                            },
+                            [](const Context *ctx, const CellInfo *cell) {
+                                CellInfo *carry_next = net_only_drives(ctx, cell->ports.at(ctx->id("COUT")).net, is_lc,
+                                                                       ctx->id("CIN"), false);
+                                if (carry_next != nullptr)
+                                    return carry_next;
+                                /*CellInfo *i3_next =
+                                        net_only_drives(ctx, cell->ports.at(ctx->id("COUT")).net, is_lc, ctx->id("I3"),
+                                false); if (i3_next != nullptr) return i3_next;*/
+                                return (CellInfo *)nullptr;
+                            });
         std::unordered_set<IdString> chained;
         for (auto &base_chain : carry_chains) {
             for (auto c : base_chain.cells)
@@ -164,7 +186,8 @@ class PlacementLegaliser
         // for correct processing
         for (auto cell : sorted(ctx->cells)) {
             CellInfo *ci = cell.second;
-            if (chained.find(cell.first) == chained.end() && is_lc(ctx, ci) && bool_or_default(ci->params, ctx->id("CARRY_ENABLE"))) {
+            if (chained.find(cell.first) == chained.end() && is_lc(ctx, ci) &&
+                bool_or_default(ci->params, ctx->id("CARRY_ENABLE"))) {
                 CellChain sChain;
                 sChain.cells.push_back(ci);
                 chained.insert(cell.first);
@@ -398,6 +421,65 @@ class PlacementLegaliser
         ctx->cells[lc->name] = std::move(lc);
         createdCells.insert(name);
         return ctx->cells[name].get();
+    }
+
+    // Legalise logic tiles
+    void legalise_logic_tiles()
+    {
+        int width = ctx->chip_info->width, height = ctx->chip_info->height;
+        for (int x = 1; x < width; x++) {
+            for (int y = 1; y < height; y++) {
+                BelId tileBel = logic_bels.at(x).at(y).at(0).first;
+                if (tileBel != BelId()) {
+                    bool changed = true;
+                    while (!ctx->isBelLocationValid(tileBel) && changed) {
+                        changed = false;
+                        int max_score = 0;
+                        CellInfo *target = nullptr;
+                        for (int z = 0; z < 8; z++) {
+                            BelId bel = logic_bels.at(x).at(y).at(z).first;
+                            IdString cell = ctx->getBoundBelCell(bel);
+                            if (cell != IdString()) {
+                                CellInfo *ci = ctx->cells.at(cell).get();
+                                if (ci->belStrength >= STRENGTH_STRONG)
+                                    continue;
+                                int score = get_cell_evilness(ctx, ci);
+                                if (score > max_score) {
+                                    max_score = score;
+                                    target = ci;
+                                }
+                            }
+                        }
+                        if (target != nullptr) {
+                            ctx->unbindBel(target->bel);
+                            rippedCells.insert(target->name);
+                            changed = true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Legalise other tiles
+    void legalise_others()
+    {
+        std::vector<CellInfo *> legalised_others;
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (!is_lc(ctx, ci)) {
+                if (ci->belStrength < STRENGTH_STRONG && ci->bel != BelId()) {
+                    if (!ctx->isValidBelForCell(ci, ci->bel)) {
+                        place_single_cell(ctx, ci, true);
+                    }
+                    legalised_others.push_back(ci);
+                }
+            }
+        }
+        // Lock all these cells now, we don't need to move them in SA (don't lock during legalise placement
+        // so legalise placement can rip up in case of gbuf contention etc)
+        for (auto cell : legalised_others)
+            cell->belStrength = STRENGTH_STRONG;
     }
 
     // Replace ripped-up cells
