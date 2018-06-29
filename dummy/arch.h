@@ -21,49 +21,6 @@
 #error Include "arch.h" via "nextpnr.h" only.
 #endif
 
-#ifdef NEXTPNR_ARCH_TOP
-
-NEXTPNR_NAMESPACE_BEGIN
-
-typedef float delay_t;
-
-struct DelayInfo
-{
-    delay_t delay = 0;
-
-    delay_t raiseDelay() const { return delay; }
-
-    delay_t fallDelay() const { return delay; }
-
-    delay_t avgDelay() const { return delay; }
-
-    DelayInfo operator+(const DelayInfo &other) const
-    {
-        DelayInfo ret;
-        ret.delay = this->delay + other.delay;
-        return ret;
-    }
-};
-
-typedef IdString BelType;
-typedef IdString PortPin;
-
-typedef IdString BelId;
-typedef IdString WireId;
-typedef IdString PipId;
-
-struct BelPin
-{
-    BelId bel;
-    PortPin pin;
-};
-
-NEXTPNR_NAMESPACE_END
-
-#endif // NEXTPNR_ARCH_TOP
-
-#ifdef NEXTPNR_ARCH_BOTTOM
-
 NEXTPNR_NAMESPACE_BEGIN
 
 struct ArchArgs
@@ -156,5 +113,3 @@ struct Arch : BaseCtx
 };
 
 NEXTPNR_NAMESPACE_END
-
-#endif // NEXTPNR_ARCH_BOTTOM

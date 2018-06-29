@@ -114,11 +114,15 @@ struct GraphicElement
 
 NEXTPNR_NAMESPACE_END
 
-#define NEXTPNR_ARCH_TOP
-#include "arch.h"
-#undef NEXTPNR_ARCH_TOP
+#include "archdefs.h"
 
 NEXTPNR_NAMESPACE_BEGIN
+
+struct BelPin
+{
+    BelId bel;
+    PortPin pin;
+};
 
 struct CellInfo;
 
@@ -218,9 +222,7 @@ struct BaseCtx
 
 NEXTPNR_NAMESPACE_END
 
-#define NEXTPNR_ARCH_BOTTOM
 #include "arch.h"
-#undef NEXTPNR_ARCH_BOTTOM
 
 NEXTPNR_NAMESPACE_BEGIN
 
