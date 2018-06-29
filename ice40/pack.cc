@@ -528,10 +528,10 @@ static void promote_globals(Context *ctx)
     }
 }
 
-// Pack internal oscillators
-static void pack_intosc(Context *ctx)
+// Pack special functions
+static void pack_special(Context *ctx)
 {
-    log_info("Packing oscillators..\n");
+    log_info("Packing special functions..\n");
 
     std::unordered_set<IdString> packed_cells;
     std::vector<std::unique_ptr<CellInfo>> new_cells;
@@ -548,6 +548,20 @@ static void pack_intosc(Context *ctx)
                 replace_port(ci, ctx->id("CLKLF"), packed.get(), ctx->id("CLKLF_FABRIC"));
             } else {
                 replace_port(ci, ctx->id("CLKLF"), packed.get(), ctx->id("CLKLF"));
+            }
+            new_cells.push_back(std::move(packed));
+        } else if (is_sb_spram(ctx, ci)) {
+            std::unique_ptr<CellInfo> packed =
+                    create_ice_cell(ctx, ctx->id("ICESTORM_SPRAM"), ci->name.str(ctx) + "_RAM");
+            packed_cells.insert(ci->name);
+            for (auto port : ci->ports) {
+                PortInfo &pi = port.second;
+                std::string newname = pi.name.str(ctx);
+                size_t bpos = newname.find('[');
+                if (bpos != std::string::npos) {
+                    newname = newname.substr(0, bpos) + "_" + newname.substr(bpos + 1, (newname.size() - bpos) - 2);
+                }
+                replace_port(ci, ctx->id(pi.name.c_str(ctx)), packed.get(), ctx->id(newname));
             }
             new_cells.push_back(std::move(packed));
         }
@@ -573,7 +587,7 @@ bool pack_design(Context *ctx)
         pack_nonlut_ffs(ctx);
         pack_carries(ctx);
         pack_ram(ctx);
-        pack_intosc(ctx);
+        pack_special(ctx);
         log_info("Checksum: 0x%08x\n", ctx->checksum());
         return true;
     } catch (log_execution_error_exception) {

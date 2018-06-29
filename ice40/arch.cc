@@ -56,8 +56,8 @@ IdString Arch::belTypeToId(BelType type) const
         return id("SB_LEDDA_IP");
     if (type == TYPE_SB_RGBA_DRV)
         return id("SB_RGBA_DRV");
-    if (type == TYPE_SB_SPRAM256KA)
-        return id("SB_SPRAM256KA");
+    if (type == TYPE_ICESTORM_SPRAM)
+        return id("ICESTORM_SPRAM");
     return IdString();
 }
 
@@ -91,8 +91,8 @@ BelType Arch::belTypeFromId(IdString type) const
         return TYPE_SB_LEDDA_IP;
     if (type == id("SB_RGBA_DRV"))
         return TYPE_SB_RGBA_DRV;
-    if (type == id("SB_SPRAM256KA"))
-        return TYPE_SB_SPRAM256KA;
+    if (type == id("ICESTORM_SPRAM"))
+        return TYPE_ICESTORM_SPRAM;
     return TYPE_NONE;
 }
 

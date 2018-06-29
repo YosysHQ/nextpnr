@@ -124,6 +124,24 @@ std::unique_ptr<CellInfo> create_ice_cell(Context *ctx, IdString type, std::stri
     } else if (type == ctx->id("SB_GB")) {
         add_port(ctx, new_cell.get(), "USER_SIGNAL_TO_GLOBAL_BUFFER", PORT_IN);
         add_port(ctx, new_cell.get(), "GLOBAL_BUFFER_OUTPUT", PORT_OUT);
+    } else if (type == ctx->id("ICESTORM_SPRAM")) {
+        add_port(ctx, new_cell.get(), "WREN", PORT_IN);
+        add_port(ctx, new_cell.get(), "CHIPSELECT", PORT_IN);
+        add_port(ctx, new_cell.get(), "CLOCK", PORT_IN);
+        add_port(ctx, new_cell.get(), "STANDBY", PORT_IN);
+        add_port(ctx, new_cell.get(), "SLEEP", PORT_IN);
+        add_port(ctx, new_cell.get(), "POWEROFF", PORT_IN);
+
+        for (int i = 0; i < 16; i++) {
+            add_port(ctx, new_cell.get(), "DATAIN_" + std::to_string(i), PORT_IN);
+            add_port(ctx, new_cell.get(), "DATAOUT_" + std::to_string(i), PORT_OUT);
+        }
+        for (int i = 0; i < 14; i++) {
+            add_port(ctx, new_cell.get(), "ADDRESS_" + std::to_string(i), PORT_IN);
+        }
+        for (int i = 0; i < 4; i++) {
+            add_port(ctx, new_cell.get(), "MASKWREN_" + std::to_string(i), PORT_IN);
+        }
     } else {
         log_error("unable to create iCE40 cell of type %s", type.c_str(ctx));
     }

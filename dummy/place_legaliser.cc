@@ -21,8 +21,6 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-bool legalise_design(Context *ctx) {
-    return true;
-}
+bool legalise_design(Context *ctx) { return true; }
 
 NEXTPNR_NAMESPACE_END

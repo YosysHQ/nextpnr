@@ -62,7 +62,7 @@ enum BelType : int32_t
     TYPE_IO_I3C,
     TYPE_SB_LEDDA_IP,
     TYPE_SB_RGBA_DRV,
-    TYPE_SB_SPRAM256KA,
+    TYPE_ICESTORM_SPRAM,
 };
 
 enum PortPin : int32_t

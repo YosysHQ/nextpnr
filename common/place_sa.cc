@@ -39,8 +39,8 @@
 #include "log.h"
 #include "place_common.h"
 #include "place_legaliser.h"
-#include "util.h"
 #include "timing.h"
+#include "util.h"
 NEXTPNR_NAMESPACE_BEGIN
 
 class SAPlacer

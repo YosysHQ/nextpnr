@@ -241,6 +241,29 @@ void write_asc(const Context *ctx, std::ostream &out)
             set_config(ti_ramt, config.at(y + 1).at(x), "RamConfig.CBIT_3", read_mode & 0x2);
         } else if (cell.second->type == ctx->id("SB_WARMBOOT") || cell.second->type == ctx->id("ICESTORM_LFOSC")) {
             // No config needed
+        } else if (cell.second->type == ctx->id("ICESTORM_SPRAM")) {
+            const BelInfoPOD &beli = ci.bel_data[bel.index];
+            int x = beli.x, y = beli.y, z = beli.z;
+            assert(ctx->args.type == ArchArgs::UP5K);
+            if (x == 0 && y == 0) {
+                const TileInfoPOD &ti_ipcon = bi.tiles_nonrouting[TILE_IPCON];
+                if (z == 1) {
+                    set_config(ti_ipcon, config.at(1).at(0), "IpConfig.CBIT_0", true);
+                } else if (z == 2) {
+                    set_config(ti_ipcon, config.at(1).at(0), "IpConfig.CBIT_1", true);
+                } else {
+                    assert(false);
+                }
+            } else if (x == 25 && y == 0) {
+                const TileInfoPOD &ti_ipcon = bi.tiles_nonrouting[TILE_IPCON];
+                if (z == 3) {
+                    set_config(ti_ipcon, config.at(1).at(25), "IpConfig.CBIT_0", true);
+                } else if (z == 4) {
+                    set_config(ti_ipcon, config.at(1).at(25), "IpConfig.CBIT_1", true);
+                } else {
+                    assert(false);
+                }
+            }
         } else {
             assert(false);
         }
