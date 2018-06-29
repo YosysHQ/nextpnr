@@ -21,6 +21,7 @@
 #include <cmath>
 #include "log.h"
 #include "util.h"
+
 NEXTPNR_NAMESPACE_BEGIN
 
 // Get the total estimated wirelength for a net
@@ -118,12 +119,16 @@ bool place_single_cell(Context *ctx, CellInfo *cell, bool require_legality)
             if (ctx->getBelType(bel) == targetType && (!require_legality || ctx->isValidBelForCell(cell, bel))) {
                 if (ctx->checkBelAvail(bel)) {
                     wirelen_t wirelen = get_cell_wirelength_at_bel(ctx, cell, bel);
+                    if (wirelen == 0)
+                        wirelen = ctx->rng(100);
                     if (wirelen <= best_wirelen) {
                         best_wirelen = wirelen;
                         best_bel = bel;
                     }
                 } else {
                     wirelen_t wirelen = get_cell_wirelength_at_bel(ctx, cell, bel);
+                    if (wirelen == 0)
+                        wirelen = ctx->rng(100);
                     if (wirelen <= best_ripup_wirelen) {
                         ripup_target = ctx->cells.at(ctx->getBoundBelCell(bel)).get();
                         if (ripup_target->belStrength < STRENGTH_STRONG) {
@@ -135,7 +140,11 @@ bool place_single_cell(Context *ctx, CellInfo *cell, bool require_legality)
             }
         }
         if (best_bel == BelId()) {
-            if (iters == 0 || ripup_bel == BelId()) {
+            if (iters == 0) {
+                log_error("failed to place cell '%s' of type '%s' (ripup iteration limit exceeded)\n",
+                          cell->name.c_str(ctx), cell->type.c_str(ctx));
+            }
+            if (ripup_bel == BelId()) {
                 log_error("failed to place cell '%s' of type '%s'\n", cell->name.c_str(ctx), cell->type.c_str(ctx));
             }
             --iters;

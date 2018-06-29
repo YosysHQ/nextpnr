@@ -38,7 +38,8 @@
 #include <vector>
 #include "log.h"
 #include "place_common.h"
-
+#include "place_legaliser.h"
+#include "util.h"
 NEXTPNR_NAMESPACE_BEGIN
 
 class SAPlacer
@@ -206,6 +207,17 @@ class SAPlacer
                 }
             }
 
+            if (temp < legalise_temp && !require_legal) {
+                legalise_design(ctx);
+                require_legal = true;
+                autoplaced.clear();
+                for (auto cell : sorted(ctx->cells)) {
+                    if (cell.second->belStrength < STRENGTH_STRONG)
+                        autoplaced.push_back(cell.second);
+                }
+                ctx->shuffle(autoplaced);
+            }
+
             // Recalculate total wirelength entirely to avoid rounding errors
             // accumulating over time
             curr_wirelength = 0;
@@ -254,7 +266,7 @@ class SAPlacer
             }
             BelType targetType = ctx->belTypeFromId(cell->type);
             for (auto bel : ctx->getBels()) {
-                if (ctx->getBelType(bel) == targetType && ctx->isValidBelForCell(cell, bel)) {
+                if (ctx->getBelType(bel) == targetType && (ctx->isValidBelForCell(cell, bel) || !require_legal)) {
                     if (ctx->checkBelAvail(bel)) {
                         uint64_t score = ctx->rng64();
                         if (score <= best_score) {
@@ -298,10 +310,14 @@ class SAPlacer
         BelId oldBel = cell->bel;
         IdString other = ctx->getBoundBelCell(newBel);
         CellInfo *other_cell = nullptr;
+        if (other != IdString()) {
+            other_cell = ctx->cells[other].get();
+            if (other_cell->belStrength > STRENGTH_WEAK)
+                return false;
+        }
         wirelen_t new_wirelength = 0, delta;
         ctx->unbindBel(oldBel);
         if (other != IdString()) {
-            other_cell = ctx->cells[other].get();
             ctx->unbindBel(newBel);
         }
 
@@ -320,12 +336,13 @@ class SAPlacer
         if (other != IdString()) {
             ctx->bindBel(oldBel, other_cell->name, STRENGTH_WEAK);
         }
-
-        if (!ctx->isBelLocationValid(newBel) || ((other != IdString() && !ctx->isBelLocationValid(oldBel)))) {
-            ctx->unbindBel(newBel);
-            if (other != IdString())
-                ctx->unbindBel(oldBel);
-            goto swap_fail;
+        if (require_legal) {
+            if (!ctx->isBelLocationValid(newBel) || ((other != IdString() && !ctx->isBelLocationValid(oldBel)))) {
+                ctx->unbindBel(newBel);
+                if (other != IdString())
+                    ctx->unbindBel(oldBel);
+                goto swap_fail;
+            }
         }
 
         new_wirelength = curr_wirelength;
@@ -402,6 +419,8 @@ class SAPlacer
     std::unordered_map<BelType, int> bel_types;
     std::vector<std::vector<std::vector<std::vector<BelId>>>> fast_bels;
     std::unordered_set<BelId> locked_bels;
+    bool require_legal = false;
+    const float legalise_temp = 20;
 };
 
 bool place_design_sa(Context *ctx, bool timing_driven)
