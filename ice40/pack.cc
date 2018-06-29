@@ -188,30 +188,25 @@ static void pack_carries(Context *ctx)
             if (carry_ci_lc && carry_lcs.find(carry_ci_lc->name) != carry_lcs.end()) {
                 carry_lc = carry_ci_lc;
             } else {
-                if (carry_lcs.empty()) {
-                    // No LC to pack into matching I0/I1, insert a new one
-                    std::unique_ptr<CellInfo> created_lc =
-                            create_ice_cell(ctx, ctx->id("ICESTORM_LC"), cell.first.str(ctx) + "$CARRY");
-                    carry_lc = created_lc.get();
-                    created_lc->ports.at(ctx->id("I1")).net = i0_net;
-                    if (i0_net) {
-                        PortRef pr;
-                        pr.cell = created_lc.get();
-                        pr.port = ctx->id("I1");
-                        i0_net->users.push_back(pr);
-                    }
-                    created_lc->ports.at(ctx->id("I2")).net = i1_net;
-                    if (i1_net) {
-                        PortRef pr;
-                        pr.cell = created_lc.get();
-                        pr.port = ctx->id("I2");
-                        i1_net->users.push_back(pr);
-                    }
-                    new_cells.push_back(std::move(created_lc));
-
-                } else {
-                    carry_lc = ctx->cells.at(*(carry_lcs.begin())).get();
+                // No LC to pack into matching I0/I1, insert a new one
+                std::unique_ptr<CellInfo> created_lc =
+                        create_ice_cell(ctx, ctx->id("ICESTORM_LC"), cell.first.str(ctx) + "$CARRY");
+                carry_lc = created_lc.get();
+                created_lc->ports.at(ctx->id("I1")).net = i0_net;
+                if (i0_net) {
+                    PortRef pr;
+                    pr.cell = created_lc.get();
+                    pr.port = ctx->id("I1");
+                    i0_net->users.push_back(pr);
                 }
+                created_lc->ports.at(ctx->id("I2")).net = i1_net;
+                if (i1_net) {
+                    PortRef pr;
+                    pr.cell = created_lc.get();
+                    pr.port = ctx->id("I2");
+                    i1_net->users.push_back(pr);
+                }
+                new_cells.push_back(std::move(created_lc));
             }
             carry_lc->params[ctx->id("CARRY_ENABLE")] = "1";
             replace_port(ci, ctx->id("CI"), carry_lc, ctx->id("CIN"));
