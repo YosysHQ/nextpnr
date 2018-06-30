@@ -92,6 +92,7 @@ struct Arch : BaseCtx
     void addBelGraphic(BelId bel, const GraphicElement &graphic);
 
     // ---------------------------------------------------------------
+    // Common Arch API. Every arch must provide the following methods.
 
     Arch(ArchArgs args);
 
