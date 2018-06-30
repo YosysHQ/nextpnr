@@ -27,14 +27,62 @@ struct ArchArgs
 {
 };
 
+struct WireInfo;
+
+struct PipInfo
+{
+    IdString name, bound_net;
+    WireInfo *srcWire, *dstWire;
+    DelayInfo delay;
+    std::vector<GraphicElement> graphics;
+};
+
+struct WireInfo
+{
+    IdString name, bound_net;
+    std::vector<GraphicElement> graphics;
+    std::vector<PipInfo*> downhill, uphill, aliases;
+};
+
+struct PinInfo
+{
+    IdString name;
+    WireInfo *wire;
+    PortType type;
+};
+
+struct BelInfo
+{
+    IdString name, type, bound_cell;
+    std::unordered_map<IdString, PinInfo> pins;
+    std::vector<GraphicElement> graphics;
+};
+
 struct Arch : BaseCtx
 {
+    std::string chipName;
+
+    std::unordered_map<IdString, WireInfo> wires;
+    std::unordered_map<IdString, PipInfo> pips;
+    std::unordered_map<IdString, BelInfo> bels;
+
+    std::vector<IdString> bel_ids, wire_ids, pip_ids;
+    std::unordered_map<IdString, std::vector<IdString>> bel_ids_by_type;
+
+    void addWire(IdString name);
+    void addPip(IdString name, IdString srcWire, IdString dstWire, DelayInfo delay);
+    void addAias(IdString name, IdString srcWire, IdString dstWire, DelayInfo delay);
+
+    void addBel(IdString name, IdString type);
+    void addBelInput(IdString cell, IdString name, IdString wire);
+    void addBwlOutput(IdString cell, IdString name, IdString wire);
+    void addBelInout(IdString cell, IdString name, IdString wire);
+
+    // ---------------------------------------------------------------
+
     Arch(ArchArgs args);
 
-    std::string getChipName();
-
-    virtual IdString id(const std::string &s) const { abort(); }
-    virtual IdString id(const char *s) const { abort(); }
+    std::string getChipName() { return chipName; }
 
     IdString archId() const { return id("generic"); }
     IdString archArgsToId(ArchArgs args) const { return id("none"); }
