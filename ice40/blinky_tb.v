@@ -14,9 +14,12 @@ module blinky_tb;
     );
 
     initial begin
-        $dumpfile("blinky_tb.vcd");
-        $dumpvars(0, blinky_tb);
-        repeat (9000000) @(posedge clk);
+        // $dumpfile("blinky_tb.vcd");
+        // $dumpvars(0, blinky_tb);
+        repeat (10) begin
+            repeat (900000) @(posedge clk);
+            $display(led1, led2, led3, led4, led5);
+        end
         $finish;
     end
 endmodule

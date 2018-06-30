@@ -13,7 +13,7 @@ module blinky (
     );
 
     localparam BITS = 5;
-    localparam LOG2DELAY = 22;
+    localparam LOG2DELAY = 21;
 
     reg [BITS+LOG2DELAY-1:0] counter = 0;
     reg [BITS-1:0] outcnt;
