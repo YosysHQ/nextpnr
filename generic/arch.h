@@ -32,7 +32,7 @@ struct WireInfo;
 struct PipInfo
 {
     IdString name, bound_net;
-    WireInfo *srcWire, *dstWire;
+    WireId srcWire, dstWire;
     DelayInfo delay;
     std::vector<GraphicElement> graphics;
 };
@@ -41,13 +41,16 @@ struct WireInfo
 {
     IdString name, bound_net;
     std::vector<GraphicElement> graphics;
-    std::vector<PipInfo*> downhill, uphill, aliases;
+    std::vector<PipId> downhill, uphill, aliases;
+    BelPin uphill_bel_pin;
+    std::vector<BelPin> downhill_bel_pins;
+    int grid_x, grid_y;
 };
 
 struct PinInfo
 {
     IdString name;
-    WireInfo *wire;
+    WireId wire;
     PortType type;
 };
 
@@ -56,6 +59,8 @@ struct BelInfo
     IdString name, type, bound_cell;
     std::unordered_map<IdString, PinInfo> pins;
     std::vector<GraphicElement> graphics;
+    int grid_x, grid_y;
+    bool gb;
 };
 
 struct Arch : BaseCtx
@@ -69,14 +74,22 @@ struct Arch : BaseCtx
     std::vector<IdString> bel_ids, wire_ids, pip_ids;
     std::unordered_map<IdString, std::vector<IdString>> bel_ids_by_type;
 
-    void addWire(IdString name);
-    void addPip(IdString name, IdString srcWire, IdString dstWire, DelayInfo delay);
-    void addAias(IdString name, IdString srcWire, IdString dstWire, DelayInfo delay);
+    std::vector<GraphicElement> frame_graphics;
+    float grid_distance_to_delay;
 
-    void addBel(IdString name, IdString type);
-    void addBelInput(IdString cell, IdString name, IdString wire);
-    void addBwlOutput(IdString cell, IdString name, IdString wire);
-    void addBelInout(IdString cell, IdString name, IdString wire);
+    void addWire(IdString name, int x, int y);
+    void addPip(IdString name, IdString srcWire, IdString dstWire, DelayInfo delay);
+    void addAlias(IdString name, IdString srcWire, IdString dstWire, DelayInfo delay);
+
+    void addBel(IdString name, IdString type, int x, int y, bool gb);
+    void addBelInput(IdString bel, IdString name, IdString wire);
+    void addBelOutput(IdString bel, IdString name, IdString wire);
+    void addBelInout(IdString bel, IdString name, IdString wire);
+
+    void addFrameGraphic(const GraphicElement &graphic);
+    void addWireGraphic(WireId wire, const GraphicElement &graphic);
+    void addPipGraphic(PipId pip, const GraphicElement &graphic);
+    void addBelGraphic(BelId bel, const GraphicElement &graphic);
 
     // ---------------------------------------------------------------
 
@@ -141,10 +154,10 @@ struct Arch : BaseCtx
     float getDelayNS(delay_t v) const { return v; }
     uint32_t getDelayChecksum(delay_t v) const { return 0; }
 
-    std::vector<GraphicElement> getFrameGraphics() const;
-    std::vector<GraphicElement> getBelGraphics(BelId bel) const;
-    std::vector<GraphicElement> getWireGraphics(WireId wire) const;
-    std::vector<GraphicElement> getPipGraphics(PipId pip) const;
+    const std::vector<GraphicElement> &getFrameGraphics() const;
+    const std::vector<GraphicElement> &getBelGraphics(BelId bel) const;
+    const std::vector<GraphicElement> &getWireGraphics(WireId wire) const;
+    const std::vector<GraphicElement> &getPipGraphics(PipId pip) const;
 
     bool allGraphicsReload = false;
     bool frameGraphicsReload = false;

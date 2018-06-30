@@ -74,7 +74,7 @@ struct IdString
 
     // --- deprecated old API ---
 
-    static std::unordered_set<BaseCtx*> global_ctx;
+    static std::unordered_set<BaseCtx *> global_ctx;
 
     const std::string &global_str() const __attribute__((deprecated))
     {
