@@ -50,8 +50,6 @@ struct IdString
 {
     int index = 0;
 
-    static BaseCtx *global_ctx;
-
     static void initialize_arch(const BaseCtx *ctx);
     static void initialize_add(const BaseCtx *ctx, const char *s, int idx);
 
@@ -76,10 +74,12 @@ struct IdString
 
     // --- deprecated old API ---
 
+    static std::unordered_set<BaseCtx*> global_ctx;
+
     const std::string &global_str() const __attribute__((deprecated))
     {
-        assert(global_ctx != nullptr);
-        return str(global_ctx);
+        assert(global_ctx.size() == 1);
+        return str(*global_ctx.begin());
     }
 };
 
@@ -204,8 +204,7 @@ struct BaseCtx
 
     BaseCtx()
     {
-        // assert(IdString::global_ctx == nullptr);
-        IdString::global_ctx = this;
+        IdString::global_ctx.insert(this);
 
         idstring_str_to_idx = new std::unordered_map<std::string, int>;
         idstring_idx_to_str = new std::vector<const std::string *>;
@@ -215,6 +214,7 @@ struct BaseCtx
 
     ~BaseCtx()
     {
+        IdString::global_ctx.erase(this);
         delete idstring_str_to_idx;
         delete idstring_idx_to_str;
     }

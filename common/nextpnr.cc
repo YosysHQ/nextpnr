@@ -21,7 +21,7 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-BaseCtx *IdString::global_ctx = nullptr;
+std::unordered_set<BaseCtx*> IdString::global_ctx;
 
 void IdString::set(const BaseCtx *ctx, const std::string &s)
 {
