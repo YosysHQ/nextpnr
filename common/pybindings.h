@@ -21,14 +21,14 @@
 #ifndef COMMON_PYBINDINGS_H
 #define COMMON_PYBINDINGS_H
 
-#include "pycontainers.h"
-
 #include <Python.h>
 #include <boost/python.hpp>
 #include <boost/python/suite/indexing/map_indexing_suite.hpp>
 #include <boost/python/suite/indexing/vector_indexing_suite.hpp>
 #include <stdexcept>
 #include <utility>
+#include "pycontainers.h"
+#include "pywrappers.h"
 
 #include "nextpnr.h"
 
