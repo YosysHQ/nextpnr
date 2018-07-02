@@ -25,8 +25,27 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+namespace PythonConversion {
+
+template <> struct string_converter<BelId>
+{
+    BelId from_str(Context *ctx, std::string name) { return ctx->getBelByName(ctx->id(name)); }
+
+    std::string to_str(Context *ctx, BelId id) { return ctx->getBelName(id).str(ctx); }
+};
+
+template <> struct string_converter<BelType>
+{
+    BelType from_str(Context *ctx, std::string name) { return ctx->belTypeFromId(ctx->id(name)); }
+
+    std::string to_str(Context *ctx, BelType typ) { return ctx->belTypeToId(typ).str(ctx); }
+};
+
+} // namespace PythonConversion
+
 void arch_wrap_python()
 {
+    using namespace PythonConversion;
     class_<ArchArgs>("ArchArgs").def_readwrite("type", &ArchArgs::type);
 
     enum_<decltype(std::declval<ArchArgs>().type)>("iCE40Type")
@@ -53,28 +72,30 @@ void arch_wrap_python()
             ;
 #undef X
 
-    class_<Arch, Arch *, bases<BaseCtx>, boost::noncopyable>("Arch", init<ArchArgs>())
-            .def("getBelByName", &Arch::getBelByName)
-            .def("getWireByName", &Arch::getWireByName)
-            .def("getBelName", &Arch::getBelName)
-            .def("getWireName", &Arch::getWireName)
-            .def("getBels", &Arch::getBels)
-            .def("getBelType", &Arch::getBelType)
-            .def("getWireBelPin", &Arch::getWireBelPin)
-            .def("getBelPinUphill", &Arch::getBelPinUphill)
-            .def("getBelPinsDownhill", &Arch::getBelPinsDownhill)
-            .def("getWires", &Arch::getWires)
-            .def("getPipByName", &Arch::getPipByName)
-            .def("getPipName", &Arch::getPipName)
-            .def("getPips", &Arch::getPips)
-            .def("getPipSrcWire", &Arch::getPipSrcWire)
-            .def("getPipDstWire", &Arch::getPipDstWire)
-            .def("getPipDelay", &Arch::getPipDelay)
-            .def("getPipsDownhill", &Arch::getPipsDownhill)
-            .def("getPipsUphill", &Arch::getPipsUphill)
-            .def("getWireAliases", &Arch::getWireAliases)
-            .def("estimatePosition", &Arch::estimatePosition)
-            .def("estimateDelay", &Arch::estimateDelay);
+    auto arch_cls = class_<Arch, Arch *, bases<BaseCtx>, boost::noncopyable>("Arch", init<ArchArgs>())
+                            .def("getBelByName", &Arch::getBelByName)
+                            .def("getWireByName", &Arch::getWireByName)
+                            .def("getBelName", &Arch::getBelName)
+                            .def("getWireName", &Arch::getWireName)
+                            .def("getBels", &Arch::getBels)
+                            .def("getWireBelPin", &Arch::getWireBelPin)
+                            .def("getBelPinUphill", &Arch::getBelPinUphill)
+                            .def("getBelPinsDownhill", &Arch::getBelPinsDownhill)
+                            .def("getWires", &Arch::getWires)
+                            .def("getPipByName", &Arch::getPipByName)
+                            .def("getPipName", &Arch::getPipName)
+                            .def("getPips", &Arch::getPips)
+                            .def("getPipSrcWire", &Arch::getPipSrcWire)
+                            .def("getPipDstWire", &Arch::getPipDstWire)
+                            .def("getPipDelay", &Arch::getPipDelay)
+                            .def("getPipsDownhill", &Arch::getPipsDownhill)
+                            .def("getPipsUphill", &Arch::getPipsUphill)
+                            .def("getWireAliases", &Arch::getWireAliases)
+                            .def("estimatePosition", &Arch::estimatePosition)
+                            .def("estimateDelay", &Arch::estimateDelay);
+
+    /*fn_wrapper<Arch, typeof(&Arch::getBelType), &Arch::getBelType, conv_from_str<BelId>,
+               conv_to_str<BelType>>::def_wrap(arch_cls, "getBelType");*/
 
     WRAP_RANGE(Bel);
     WRAP_RANGE(BelPin);

@@ -41,66 +41,91 @@ template <typename T> struct ContextualWrapper
     Context *ctx;
     T base;
 
-    ContextualWrapper(Context *c, T &&x) : ctx(c), base(x){};
+    inline ContextualWrapper(Context *c, T &&x) : ctx(c), base(x){};
 
-    operator T() { return base; };
+    inline operator T() { return base; };
     typedef T base_type;
 };
+
+template <typename T> struct WrapIfNotContext {
+  typedef ContextualWrapper<T> maybe_wrapped_t;
+};
+
+template <> struct WrapIfNotContext<Context> {
+    typedef Context maybe_wrapped_t;
+};
+
+
+template <typename T> inline Context *get_ctx(typename WrapIfNotContext<T>::maybe_wrapped_t &wrp_ctx) {
+    return wrp_ctx.ctx;
+}
+template <> inline Context *get_ctx<Context>(WrapIfNotContext<Context>::maybe_wrapped_t &unwrp_ctx) {
+    return &unwrp_ctx;
+}
+
+template <typename T> inline T&get_base(typename WrapIfNotContext<T>::maybe_wrapped_t &wrp_ctx) {
+    return wrp_ctx.base;
+}
+template <> inline Context &get_base<Context>(WrapIfNotContext<Context>::maybe_wrapped_t &unwrp_ctx) {
+    return unwrp_ctx;
+}
 
 template <typename T> ContextualWrapper<T> wrap_ctx(Context *ctx, T x) { return ContextualWrapper<T>(ctx, x); }
 
 // Dummy class, to be implemented by users
-template <typename T> class string_converter;
+template <typename T> struct string_converter;
 
 // Action options
-template <typename T> class do_nothing
+template <typename T> struct do_nothing
 {
-    T operator()(Context *ctx, T x) { return x; }
+    inline T operator()(Context *ctx, T x) { return x; }
 
     using ret_type = T;
     using arg_type = T;
 };
 
-template <typename T> class wrap_context
+template <typename T> struct wrap_context
 {
-    ContextualWrapper<T> operator()(Context *ctx, T x) { return ContextualWrapper<T>(ctx, x); }
+    inline ContextualWrapper<T> operator()(Context *ctx, T x) { return ContextualWrapper<T>(ctx, x); }
     using arg_type = T;
     using ret_type = ContextualWrapper<T>;
 };
 
-template <typename T> class unwrap_context
+template <typename T> struct unwrap_context
 {
-    T operator()(Context *ctx, ContextualWrapper<T> x) { return x.base; }
+    inline T operator()(Context *ctx, ContextualWrapper<T> x) { return x.base; }
     using ret_type = T;
     using arg_type = ContextualWrapper<T>;
 };
 
-template <typename T> class conv_from_string
+template <typename T> struct conv_from_str
 {
-    T operator()(Context *ctx, std::string x) { return string_converter<T>().from_str(ctx, x); }
+    inline T operator()(Context *ctx, std::string x) { return string_converter<T>().from_str(ctx, x); }
     using ret_type = T;
     using arg_type = std::string;
 };
 
-template <typename T> class conv_to_string
+template <typename T> struct conv_to_str
 {
-    std::string operator()(Context *ctx, T x) { return string_converter<T>().to_str(ctx, x); }
+    inline std::string operator()(Context *ctx, T x) { return string_converter<T>().to_str(ctx, x); }
     using ret_type = std::string;
     using arg_type = T;
 };
 
 // Function wrapper
 // Example: one parameter, one return
-template <typename Class, typename FuncT, FuncT fn, typename rv_conv, typename arg1_conv> struct function_wrapper
+template <typename Class, typename FuncT, FuncT fn, typename rv_conv, typename arg1_conv> struct fn_wrapper
 {
-    using class_type = ContextualWrapper<Class>;
+    using class_type = typename WrapIfNotContext<Class>::maybe_wrapped_t;
     using conv_result_type = typename rv_conv::ret_type;
     using conv_arg1_type = typename arg1_conv::arg_type;
 
     static conv_result_type wrapped_fn(class_type &cls, conv_arg1_type arg1)
     {
-        return rv_conv()(cls.ctx, cls.base.*fn(arg1_conv()(cls.ctx, arg1)));
+        return rv_conv()(get_base(cls).ctx, get_base(cls).*fn(arg1_conv()(get_ctx(cls), arg1)));
     }
+
+    template <typename WrapCls> static void def_wrap(WrapCls cls_, const char *name) { cls_.def(name, wrapped_fn); }
 };
 
 } // namespace PythonConversion
