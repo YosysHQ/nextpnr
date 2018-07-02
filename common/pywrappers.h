@@ -47,38 +47,57 @@ template <typename T> struct ContextualWrapper
     typedef T base_type;
 };
 
+template <typename T> ContextualWrapper<T> wrap_ctx(Context *ctx, T x) { return ContextualWrapper<T>(ctx, x); }
+
+// Dummy class, to be implemented by users
+template <typename T> class string_converter;
+
 // Action options
-class do_nothing
+template <typename T> class do_nothing
 {
-    template <typename T> T operator()(Context *ctx, T x) { return x; }
+    T operator()(Context *ctx, T x) { return x; }
 
-    template <typename T> using ret_type = T;
-    template <typename T> using arg_type = T;
+    using ret_type = T;
+    using arg_type = T;
 };
 
-class wrap_context
+template <typename T> class wrap_context
 {
-    template <typename T> ContextualWrapper<T> operator()(Context *ctx, T x) { return ContextualWrapper<T>(ctx, x); }
-
-    template <typename T> using ret_type = ContextualWrapper<T>;
+    ContextualWrapper<T> operator()(Context *ctx, T x) { return ContextualWrapper<T>(ctx, x); }
+    using arg_type = T;
+    using ret_type = ContextualWrapper<T>;
 };
 
-class unwrap_context
+template <typename T> class unwrap_context
 {
-    template <typename T> T operator()(Context *ctx, ContextualWrapper<T> x) { return x.base; }
+    T operator()(Context *ctx, ContextualWrapper<T> x) { return x.base; }
+    using ret_type = T;
+    using arg_type = ContextualWrapper<T>;
+};
 
-    template <typename T> using arg_type = ContextualWrapper<T>;
+template <typename T> class conv_from_string
+{
+    T operator()(Context *ctx, std::string x) { return string_converter<T>().from_str(ctx, x); }
+    using ret_type = T;
+    using arg_type = std::string;
+};
+
+template <typename T> class conv_to_string
+{
+    std::string operator()(Context *ctx, T x) { return string_converter<T>().to_str(ctx, x); }
+    using ret_type = std::string;
+    using arg_type = T;
 };
 
 // Function wrapper
 // Example: one parameter, one return
 template <typename Class, typename FuncT, FuncT fn, typename rv_conv, typename arg1_conv> struct function_wrapper
 {
-    using result_type = typename boost::function_types::result_type<FuncT>::type;
-    using arg1_type = typename boost::mpl::at_c<boost::function_types::parameter_types<FuncT>, 1>::type;
     using class_type = ContextualWrapper<Class>;
+    using conv_result_type = typename rv_conv::ret_type;
+    using conv_arg1_type = typename arg1_conv::arg_type;
 
-    static typename rv_conv::ret_type wrapped_fn(class_type &cls, typename arg1_conv::arg_type arg1)
+    static conv_result_type wrapped_fn(class_type &cls, conv_arg1_type arg1)
     {
         return rv_conv()(cls.ctx, cls.base.*fn(arg1_conv()(cls.ctx, arg1)));
     }
