@@ -36,50 +36,6 @@ NEXTPNR_NAMESPACE_BEGIN
 
 using namespace boost::python;
 
-/*
-A wrapper to enable custom type/ID to/from string conversions
- */
-template <typename T> struct string_wrapper
-{
-    template <typename F> struct from_pystring_converter
-    {
-        from_pystring_converter()
-        {
-            converter::registry::push_back(&convertible, &construct, boost::python::type_id<T>());
-        };
-
-        static void *convertible(PyObject *object) { return PyUnicode_Check(object) ? object : 0; }
-
-        static void construct(PyObject *object, converter::rvalue_from_python_stage1_data *data)
-        {
-            const wchar_t *value = PyUnicode_AsUnicode(object);
-            const std::wstring value_ws(value);
-            if (value == 0)
-                throw_error_already_set();
-            void *storage = ((boost::python::converter::rvalue_from_python_storage<T> *)data)->storage.bytes;
-            new (storage) T(fn(std::string(value_ws.begin(), value_ws.end())));
-            data->convertible = storage;
-        }
-
-        static F fn;
-    };
-
-    template <typename F> struct to_str_wrapper
-    {
-        static F fn;
-
-        std::string str(T &x) { return fn(x); }
-    };
-
-    template <typename F1, typename F2> static void wrap(const char *type_name, F1 to_str_fn, F2 from_str_fn)
-    {
-        from_pystring_converter<F2>::fn = from_str_fn;
-        from_pystring_converter<F2>();
-        to_str_wrapper<F1>::fn = to_str_fn;
-        class_<T>(type_name, no_init).def("__str__", to_str_wrapper<F1>::str);
-    };
-};
-
 std::string parse_python_exception();
 
 template <typename Tn> void python_export_global(const char *name, Tn &x)
@@ -105,6 +61,18 @@ void init_python(const char *executable, bool first);
 void deinit_python();
 
 void execute_python_file(const char *python_file);
+
+// Defauld IdString conversions
+namespace PythonConversion {
+
+template <> struct string_converter<IdString>
+{
+    inline IdString from_str(Context *ctx, std::string name) { return ctx->id(name); }
+
+    inline std::string to_str(Context *ctx, IdString id) { return id.str(ctx); }
+};
+
+} // namespace PythonConversion
 
 NEXTPNR_NAMESPACE_END
 

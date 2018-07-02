@@ -27,24 +27,18 @@ NEXTPNR_NAMESPACE_BEGIN
 
 namespace PythonConversion {
 
-template<>
-struct string_converter<BelId>
+template <> struct string_converter<BelId>
 {
-    BelId from_str(Context *ctx, std::string name)
-    { return ctx->getBelByName(ctx->id(name)); }
+    BelId from_str(Context *ctx, std::string name) { return ctx->getBelByName(ctx->id(name)); }
 
-    std::string to_str(Context *ctx, BelId id)
-    { return ctx->getBelName(id).str(ctx); }
+    std::string to_str(Context *ctx, BelId id) { return ctx->getBelName(id).str(ctx); }
 };
 
-template<>
-struct string_converter<BelType>
+template <> struct string_converter<BelType>
 {
-    BelType from_str(Context *ctx, std::string name)
-    { return ctx->belTypeFromId(ctx->id(name)); }
+    BelType from_str(Context *ctx, std::string name) { return ctx->belTypeFromId(ctx->id(name)); }
 
-    std::string to_str(Context *ctx, BelType typ)
-    { return ctx->belTypeToId(typ).str(ctx); }
+    std::string to_str(Context *ctx, BelType typ) { return ctx->belTypeToId(typ).str(ctx); }
 };
 
 } // namespace PythonConversion
@@ -80,11 +74,15 @@ void arch_wrap_python()
 #undef X
 
     auto arch_cls = class_<Arch, Arch *, bases<BaseCtx>, boost::noncopyable>("Arch", init<ArchArgs>());
-    auto ctx_cls = class_<Context, Context *, bases<Arch>, boost::noncopyable>("Context", no_init).def("checksum",
-                                                                                                   &Context::checksum);
-    fn_wrapper<Context, typeof(&Context::getBelType), &Context::getBelType, conv_to_str<BelType>,
-            conv_from_str<BelId>>::def_wrap(ctx_cls, "getBelType");
+    auto ctx_cls = class_<Context, Context *, bases<Arch>, boost::noncopyable>("Context", no_init)
+                           .def("checksum", &Context::checksum);
 
+    fn_wrapper_1a<Context, typeof(&Context::getBelType), &Context::getBelType, conv_to_str<BelType>,
+               conv_from_str<BelId>>::def_wrap(ctx_cls, "getBelType");
+    fn_wrapper_1a<Context, typeof(&Context::checkBelAvail), &Context::checkBelAvail, pass_through<bool>,
+               conv_from_str<BelId>>::def_wrap(ctx_cls, "checkBelAvail");
+    fn_wrapper_0a<Context, typeof(&Context::getBels), &Context::getBels, wrap_context<BelRange>>::def_wrap(
+            ctx_cls, "getBels");
     /*
             .def("getBelByName", &Arch::getBelByName)
             .def("getWireByName", &Arch::getWireByName)
@@ -108,12 +106,11 @@ void arch_wrap_python()
             .def("estimateDelay", &Arch::estimateDelay);
     */
 
-
-    WRAP_RANGE(Bel);
-    WRAP_RANGE(BelPin);
-    WRAP_RANGE(Wire);
-    WRAP_RANGE(AllPip);
-    WRAP_RANGE(Pip);
+    WRAP_RANGE(Bel, conv_to_str<BelId>);
+    // WRAP_RANGE(BelPin);
+    // WRAP_RANGE(Wire);
+    // WRAP_RANGE(AllPip);
+    // WRAP_RANGE(Pip);
 }
 
 NEXTPNR_NAMESPACE_END

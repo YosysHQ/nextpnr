@@ -28,6 +28,7 @@
 #include <type_traits>
 #include <utility>
 #include "nextpnr.h"
+#include "pywrappers.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -37,18 +38,22 @@ inline void KeyError() { PyErr_SetString(PyExc_KeyError, "Key not found"); }
 
 /*
 A wrapper for a Pythonised nextpnr Iterator. The actual class wrapped is a
-pair<Iterator, Iterator> containing (current, end)
+pair<Iterator, Iterator> containing (current, end), wrapped in a ContextualWrapper
+
 */
 
-template <typename T, typename P> struct iterator_wrapper
+template <typename T, typename P, typename value_conv = PythonConversion::pass_through<T>> struct iterator_wrapper
 {
     typedef decltype(*(std::declval<T>())) value_t;
 
-    static value_t next(std::pair<T, T> &iter)
+    typedef PythonConversion::ContextualWrapper<std::pair<T, T>> wrapped_iter_t;
+    using return_t = typename value_conv::ret_type;
+
+    static return_t next(wrapped_iter_t &iter)
     {
-        if (iter.first != iter.second) {
-            value_t val = *iter.first;
-            ++iter.first;
+        if (iter.base.first != iter.base.second) {
+            return_t val = value_conv()(iter.ctx, *iter.base.first);
+            ++iter.base.first;
             return val;
         } else {
             PyErr_SetString(PyExc_StopIteration, "End of range reached");
@@ -61,7 +66,7 @@ template <typename T, typename P> struct iterator_wrapper
 
     static void wrap(const char *python_name)
     {
-        class_<std::pair<T, T>>(python_name, no_init).def("__next__", next, P());
+        class_<wrapped_iter_t>(python_name, no_init).def("__next__", next, P());
     }
 };
 
@@ -71,22 +76,29 @@ and end() which return iterator-like objects supporting ++, * and !=
 Full STL iterator semantics are not required, unlike the standard Boost wrappers
 */
 
-template <typename T, typename P = return_value_policy<return_by_value>> struct range_wrapper
+template <typename T, typename P = return_value_policy<return_by_value>,
+          typename value_conv = PythonConversion::pass_through<T>>
+struct range_wrapper
 {
     typedef decltype(std::declval<T>().begin()) iterator_t;
-
-    static std::pair<iterator_t, iterator_t> iter(T &range) { return std::make_pair(range.begin(), range.end()); }
+    typedef typename PythonConversion::ContextualWrapper<T> wrapped_range;
+    typedef typename PythonConversion::ContextualWrapper<std::pair<iterator_t, iterator_t>> wrapped_pair;
+    static wrapped_pair iter(wrapped_range &range)
+    {
+        return wrapped_pair(range.ctx, std::make_pair(range.base.begin(), range.base.end()));
+    }
 
     static void wrap(const char *range_name, const char *iter_name)
     {
-        class_<T>(range_name, no_init).def("__iter__", iter);
-        iterator_wrapper<iterator_t, P>().wrap(iter_name);
+        class_<wrapped_range>(range_name, no_init).def("__iter__", iter);
+        iterator_wrapper<iterator_t, P, value_conv>().wrap(iter_name);
     }
 
     typedef iterator_wrapper<iterator_t, P> iter_wrap;
 };
 
-#define WRAP_RANGE(t) range_wrapper<t##Range>().wrap(#t "Range", #t "Iterator")
+#define WRAP_RANGE(t, conv)                                                                                            \
+    range_wrapper<t##Range, return_value_policy<return_by_value>, conv>().wrap(#t "Range", #t "Iterator")
 
 /*
 Wrapper for a pair, allows accessing either using C++-style members (.first and
@@ -259,6 +271,7 @@ template <typename T1, typename T2> struct map_pair_wrapper_uptr
 {
     typedef std::pair<T1, T2> T;
     typedef typename T::second_type::element_type V;
+
     struct pair_iterator_wrapper
     {
         static object next(std::pair<T &, int> &iter)

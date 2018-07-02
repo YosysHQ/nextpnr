@@ -41,32 +41,37 @@ template <typename T> struct ContextualWrapper
     Context *ctx;
     T base;
 
-    inline ContextualWrapper(Context *c, T &&x) : ctx(c), base(x){};
+    inline ContextualWrapper(Context *c, T x) : ctx(c), base(x){};
 
     inline operator T() { return base; };
     typedef T base_type;
 };
 
-template <typename T> struct WrapIfNotContext {
-  typedef ContextualWrapper<T> maybe_wrapped_t;
+template <typename T> struct WrapIfNotContext
+{
+    typedef ContextualWrapper<T> maybe_wrapped_t;
 };
 
-template <> struct WrapIfNotContext<Context> {
+template <> struct WrapIfNotContext<Context>
+{
     typedef Context maybe_wrapped_t;
 };
 
-
-template <typename T> inline Context *get_ctx(typename WrapIfNotContext<T>::maybe_wrapped_t &wrp_ctx) {
+template <typename T> inline Context *get_ctx(typename WrapIfNotContext<T>::maybe_wrapped_t &wrp_ctx)
+{
     return wrp_ctx.ctx;
 }
-template <> inline Context *get_ctx<Context>(WrapIfNotContext<Context>::maybe_wrapped_t &unwrp_ctx) {
+template <> inline Context *get_ctx<Context>(WrapIfNotContext<Context>::maybe_wrapped_t &unwrp_ctx)
+{
     return &unwrp_ctx;
 }
 
-template <typename T> inline T&get_base(typename WrapIfNotContext<T>::maybe_wrapped_t &wrp_ctx) {
+template <typename T> inline T &get_base(typename WrapIfNotContext<T>::maybe_wrapped_t &wrp_ctx)
+{
     return wrp_ctx.base;
 }
-template <> inline Context &get_base<Context>(WrapIfNotContext<Context>::maybe_wrapped_t &unwrp_ctx) {
+template <> inline Context &get_base<Context>(WrapIfNotContext<Context>::maybe_wrapped_t &unwrp_ctx)
+{
     return unwrp_ctx;
 }
 
@@ -76,7 +81,7 @@ template <typename T> ContextualWrapper<T> wrap_ctx(Context *ctx, T x) { return 
 template <typename T> struct string_converter;
 
 // Action options
-template <typename T> struct do_nothing
+template <typename T> struct pass_through
 {
     inline T operator()(Context *ctx, T x) { return x; }
 
@@ -113,8 +118,23 @@ template <typename T> struct conv_to_str
 };
 
 // Function wrapper
-// Example: one parameter, one return
-template <typename Class, typename FuncT, FuncT fn, typename rv_conv, typename arg1_conv> struct fn_wrapper
+// Zero parameters, one return
+template <typename Class, typename FuncT, FuncT fn, typename rv_conv> struct fn_wrapper_0a
+{
+    using class_type = typename WrapIfNotContext<Class>::maybe_wrapped_t;
+    using conv_result_type = typename rv_conv::ret_type;
+
+    static conv_result_type wrapped_fn(class_type &cls)
+    {
+        Context *ctx = get_ctx<Class>(cls);
+        Class &base = get_base<Class>(cls);
+        return rv_conv()(ctx, (base.*fn)());
+    }
+
+    template <typename WrapCls> static void def_wrap(WrapCls cls_, const char *name) { cls_.def(name, wrapped_fn); }
+};
+// One parameter, one return
+template <typename Class, typename FuncT, FuncT fn, typename rv_conv, typename arg1_conv> struct fn_wrapper_1a
 {
     using class_type = typename WrapIfNotContext<Class>::maybe_wrapped_t;
     using conv_result_type = typename rv_conv::ret_type;

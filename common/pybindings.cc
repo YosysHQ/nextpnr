@@ -80,7 +80,7 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
             .def_readwrite("attrs", &NetInfo::attrs)
             .def_readwrite("wires", &NetInfo::wires);
 
-    WRAP_MAP(decltype(NetInfo::attrs), "IdStrMap");
+    // WRAP_MAP(decltype(NetInfo::attrs), "IdStrMap");
 
     class_<std::vector<PortRef>>("PortRefVector").def(vector_indexing_suite<std::vector<PortRef>>());
 
@@ -104,15 +104,15 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
             .def_readwrite("bel", &CellInfo::bel)
             .def_readwrite("pins", &CellInfo::pins);
 
-    WRAP_MAP(decltype(CellInfo::ports), "IdPortMap");
+    // WRAP_MAP(decltype(CellInfo::ports), "IdPortMap");
     // WRAP_MAP(decltype(CellInfo::pins), "IdIdMap");
 
     class_<BaseCtx, BaseCtx *, boost::noncopyable>("BaseCtx", no_init)
             .add_property("nets", make_getter(&Context::nets, return_internal_reference<>()))
             .add_property("cells", make_getter(&Context::cells, return_internal_reference<>()));
 
-    WRAP_MAP_UPTR(decltype(Context::nets), "IdNetMap");
-    WRAP_MAP_UPTR(decltype(Context::cells), "IdCellMap");
+    // WRAP_MAP_UPTR(decltype(Context::nets), "IdNetMap");
+    // WRAP_MAP_UPTR(decltype(Context::cells), "IdCellMap");
 
     def("parse_json", parse_json_shim);
     def("load_design", load_design_shim, return_value_policy<manage_new_object>());
@@ -122,7 +122,6 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
             .def(self < self)
             .def(self == self);
     arch_wrap_python();
-
 }
 
 static wchar_t *program;
