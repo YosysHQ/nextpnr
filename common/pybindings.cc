@@ -123,7 +123,6 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
             .def(self == self);
     arch_wrap_python();
 
-    class_<Context, Context *, bases<Arch>, boost::noncopyable>("Context", no_init).def("checksum", &Context::checksum);
 }
 
 static wchar_t *program;

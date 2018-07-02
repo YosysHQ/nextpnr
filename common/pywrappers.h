@@ -122,7 +122,9 @@ template <typename Class, typename FuncT, FuncT fn, typename rv_conv, typename a
 
     static conv_result_type wrapped_fn(class_type &cls, conv_arg1_type arg1)
     {
-        return rv_conv()(get_base(cls).ctx, get_base(cls).*fn(arg1_conv()(get_ctx(cls), arg1)));
+        Context *ctx = get_ctx<Class>(cls);
+        Class &base = get_base<Class>(cls);
+        return rv_conv()(ctx, (base.*fn)(arg1_conv()(ctx, arg1)));
     }
 
     template <typename WrapCls> static void def_wrap(WrapCls cls_, const char *name) { cls_.def(name, wrapped_fn); }
