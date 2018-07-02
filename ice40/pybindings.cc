@@ -41,6 +41,20 @@ template <> struct string_converter<BelType>
     std::string to_str(Context *ctx, BelType typ) { return ctx->belTypeToId(typ).str(ctx); }
 };
 
+template <> struct string_converter<WireId>
+{
+    WireId from_str(Context *ctx, std::string name) { return ctx->getWireByName(ctx->id(name)); }
+
+    std::string to_str(Context *ctx, WireId id) { return ctx->getWireName(id).str(ctx); }
+};
+
+template <> struct string_converter<PipId>
+{
+    PipId from_str(Context *ctx, std::string name) { return ctx->getPipByName(ctx->id(name)); }
+
+    std::string to_str(Context *ctx, PipId id) { return ctx->getPipName(id).str(ctx); }
+};
+
 } // namespace PythonConversion
 
 void arch_wrap_python()
@@ -78,11 +92,16 @@ void arch_wrap_python()
                            .def("checksum", &Context::checksum);
 
     fn_wrapper_1a<Context, typeof(&Context::getBelType), &Context::getBelType, conv_to_str<BelType>,
-               conv_from_str<BelId>>::def_wrap(ctx_cls, "getBelType");
+                  conv_from_str<BelId>>::def_wrap(ctx_cls, "getBelType");
     fn_wrapper_1a<Context, typeof(&Context::checkBelAvail), &Context::checkBelAvail, pass_through<bool>,
-               conv_from_str<BelId>>::def_wrap(ctx_cls, "checkBelAvail");
-    fn_wrapper_0a<Context, typeof(&Context::getBels), &Context::getBels, wrap_context<BelRange>>::def_wrap(
-            ctx_cls, "getBels");
+                  conv_from_str<BelId>>::def_wrap(ctx_cls, "checkBelAvail");
+    fn_wrapper_0a<Context, typeof(&Context::getBels), &Context::getBels, wrap_context<BelRange>>::def_wrap(ctx_cls,
+                                                                                                           "getBels");
+    fn_wrapper_0a<Context, typeof(&Context::getWires), &Context::getWires, wrap_context<WireRange>>::def_wrap(
+            ctx_cls, "getWires");
+    fn_wrapper_1a<Context, typeof(&Context::getPipsDownhill), &Context::getPipsDownhill, wrap_context<PipRange>,
+                  conv_from_str<WireId>>::def_wrap(ctx_cls, "getPipsDownhill");
+
     /*
             .def("getBelByName", &Arch::getBelByName)
             .def("getWireByName", &Arch::getWireByName)
@@ -107,6 +126,10 @@ void arch_wrap_python()
     */
 
     WRAP_RANGE(Bel, conv_to_str<BelId>);
+    WRAP_RANGE(Wire, conv_to_str<WireId>);
+    WRAP_RANGE(AllPip, conv_to_str<PipId>);
+    WRAP_RANGE(Pip, conv_to_str<PipId>);
+
     // WRAP_RANGE(BelPin);
     // WRAP_RANGE(Wire);
     // WRAP_RANGE(AllPip);

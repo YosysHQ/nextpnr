@@ -24,6 +24,7 @@
 #include <boost/python.hpp>
 #include <boost/python/suite/indexing/map_indexing_suite.hpp>
 #include <boost/python/suite/indexing/vector_indexing_suite.hpp>
+#include <sstream>
 #include <stdexcept>
 #include <type_traits>
 #include <utility>
@@ -81,6 +82,7 @@ template <typename T, typename P = return_value_policy<return_by_value>,
 struct range_wrapper
 {
     typedef decltype(std::declval<T>().begin()) iterator_t;
+    typedef decltype(*(std::declval<iterator_t>())) value_t;
     typedef typename PythonConversion::ContextualWrapper<T> wrapped_range;
     typedef typename PythonConversion::ContextualWrapper<std::pair<iterator_t, iterator_t>> wrapped_pair;
     static wrapped_pair iter(wrapped_range &range)
@@ -88,9 +90,25 @@ struct range_wrapper
         return wrapped_pair(range.ctx, std::make_pair(range.base.begin(), range.base.end()));
     }
 
+    static std::string repr(wrapped_range &range)
+    {
+        PythonConversion::string_converter<value_t> conv;
+        bool first = true;
+        std::stringstream ss;
+        ss << "[";
+        for (const auto &item : range.base) {
+            if (!first)
+                ss << ", ";
+            ss << "'" << conv.to_str(range.ctx, item) << "'";
+            first = false;
+        }
+        ss << "]";
+        return ss.str();
+    }
+
     static void wrap(const char *range_name, const char *iter_name)
     {
-        class_<wrapped_range>(range_name, no_init).def("__iter__", iter);
+        class_<wrapped_range>(range_name, no_init).def("__iter__", iter).def("__repr__", repr);
         iterator_wrapper<iterator_t, P, value_conv>().wrap(iter_name);
     }
 
