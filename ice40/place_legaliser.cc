@@ -366,12 +366,7 @@ class PlacementLegaliser
         cout_port.net->driver = o_r;
         lc->ports.at(ctx->id("I3")).net = co_i3_net.get();
         cout_port.net = co_i3_net.get();
-        // I1=1 feeds carry up the chain, so no need to actually break the chain
-        lc->ports.at(ctx->id("I1")).net = ctx->nets.at(ctx->id("$PACKER_VCC_NET")).get();
-        PortRef i1_r;
-        i1_r.port = ctx->id("I1");
-        i1_r.cell = lc.get();
-        ctx->nets.at(ctx->id("$PACKER_VCC_NET"))->users.push_back(i1_r);
+
         IdString co_i3_name = co_i3_net->name;
         assert(ctx->nets.find(co_i3_name) == ctx->nets.end());
         ctx->nets[co_i3_name] = std::move(co_i3_net);
