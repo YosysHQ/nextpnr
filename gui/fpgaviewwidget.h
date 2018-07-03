@@ -191,6 +191,7 @@ class LineShader
     }
 
     static constexpr const char *vertexShaderSource_ =
+            "#version 110\n"
             "attribute highp vec2  position;\n"
             "attribute highp vec2  normal;\n"
             "attribute highp float miter;\n"
@@ -201,7 +202,8 @@ class LineShader
             "   gl_Position = projection * vec4(p, 0.0, 1.0);\n"
             "}\n";
 
-    static constexpr const char *fragmentShaderSource_ = "uniform   lowp  vec4  color;\n"
+    static constexpr const char *fragmentShaderSource_ = "#version 110\n"
+                                                         "uniform   lowp  vec4  color;\n"
                                                          "void main() {\n"
                                                          "   gl_FragColor = color;\n"
                                                          "}\n";
