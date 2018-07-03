@@ -3,6 +3,14 @@
 import sys
 import re
 import textwrap
+import argparse
+
+parser = argparse.ArgumentParser(description="convert ICE40 chip database")
+group = parser.add_mutually_exclusive_group()
+group.add_argument("-b", "--binary", action="store_true")
+group.add_argument("-c", "--c_file", action="store_true")
+parser.add_argument("filename", type=str, help="chipdb input filename")
+args = parser.parse_args()
 
 endianness = "le"
 nodebug = True
@@ -212,7 +220,7 @@ def init_tiletypes(device):
     tile_sizes = {i: (0, 0) for i in range(num_tile_types)}
     tile_bits = [[] for _ in range(num_tile_types)]
 
-with open(sys.argv[1], "r") as f:
+with open(args.filename, "r") as f:
     mode = None
 
     for line in f:
@@ -855,6 +863,11 @@ class BinaryBlobAssembler:
                 column = 0
         print("\";", file=f)
 
+    def write_binary(self, f):
+        assert self.finalized
+        assert self.data[len(self.data)-1] == 0
+        f.buffer.write(self.data)
+
 bba = BinaryBlobAssembler("chipdb_blob_%s" % dev_name, endianness)
 bba.r("chip_info_%s" % dev_name, "chip_info")
 
@@ -1131,12 +1144,21 @@ bba.r("package_info_%s" % dev_name, "packages_data")
 
 bba.finalize()
 
-print('#include "nextpnr.h"')
-print('NEXTPNR_NAMESPACE_BEGIN')
+if args.c_file:
+    print('#include "nextpnr.h"')
+    print('NEXTPNR_NAMESPACE_BEGIN')
 
-bba.write_string_c(sys.stdout)
+
+if args.binary:
+    bba.write_binary(sys.stdout)
+
+if args.c_file:
+    bba.write_string_c(sys.stdout)
+
 # bba.write_uint64_c(sys.stdout)
 # bba.write_compact_c(sys.stdout, "uint8_t")
 # bba.write_verbose_c(sys.stdout, "uint8_t")
 
-print('NEXTPNR_NAMESPACE_END')
+if args.c_file:
+    print('NEXTPNR_NAMESPACE_END')
+
