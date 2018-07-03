@@ -41,6 +41,23 @@
 #define USING_NEXTPNR_NAMESPACE
 #endif
 
+#if defined(__GNUC__) || defined(__clang__)
+#  define NPNR_ATTRIBUTE(...) __attribute__((__VA_ARGS__))
+#  define NPNR_NORETURN
+#  define NPNR_DEPRECATED __attribute__((deprecated))
+#  define NPNR_PACKED_STRUCT( ... )  __VA_ARGS__ __attribute__((packed))
+#elif defined(_MSC_VER)
+#  define NPNR_ATTRIBUTE(...)
+#  define NPNR_NORETURN __declspec(noreturn)
+#  define NPNR_DEPRECATED __declspec(deprecated)
+#  define NPNR_PACKED_STRUCT( ... )  __pragma(pack(push, 1)) __VA_ARGS__ __pragma(pack(pop))
+#else
+#  define NPNR_ATTRIBUTE(...)
+#  define NPNR_NORETURN
+#  define NPNR_DEPRECATED
+#  define NPNR_PACKED_STRUCT( ... )  __VA_ARGS__
+#endif 
+
 NEXTPNR_NAMESPACE_BEGIN
 
 struct BaseCtx;
@@ -76,7 +93,7 @@ struct IdString
 
     static std::unordered_set<BaseCtx *> global_ctx;
 
-    const std::string &global_str() const __attribute__((deprecated))
+    NPNR_DEPRECATED const std::string &global_str() const
     {
         assert(global_ctx.size() == 1);
         return str(*global_ctx.begin());

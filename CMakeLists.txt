@@ -9,8 +9,13 @@ option(BUILD_TESTS "Build GUI" OFF)
 # List of families to build
 set(FAMILIES generic ice40)
 set(CMAKE_CXX_STANDARD 11)
+if (MSVC)
+set(CMAKE_CXX_FLAGS_DEBUG "/W4 /wd4100 /wd4244 /wd4125 /wd4800 /wd4456 /wd4458 /wd4305")
+set(CMAKE_CXX_FLAGS_RELEASE "/W4 /wd4100 /wd4244 /wd4125 /wd4800 /wd4456 /wd4458 /wd4305")
+else()
 set(CMAKE_CXX_FLAGS_DEBUG "-Wall -fPIC -ggdb")
 set(CMAKE_CXX_FLAGS_RELEASE "-Wall -fPIC -O3 -g")
+endif()
 set(CMAKE_DEFIN)
 
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/3rdparty/sanitizers-cmake/cmake" ${CMAKE_MODULE_PATH})
@@ -114,6 +119,10 @@ set(CMAKE_BUILD_TYPE Release)
 if(MINGW)
     add_definitions("-Wa,-mbig-obj")
 endif(MINGW)
+if (MSVC)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /bigobj")
+    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MTd")
+endif()
 
 foreach (family ${FAMILIES})
     string(TOUPPER ${family} ufamily)
@@ -186,12 +195,3 @@ add_custom_target(
     -i
     ${CLANGFORMAT_FILES}
 )
-
-unset(BUILD_GUI CACHE)
-unset(BUILD_PYTHON CACHE)
-unset(BUILD_TESTS CACHE)
-unset(SANITIZE_ADDRESS CACHE)
-unset(SANITIZE_MEMORY CACHE)
-unset(SANITIZE_THREAD CACHE)
-unset(SANITIZE_UNDEFINED CACHE)
-unset(SANITIZE_LINK_STATIC CACHE)

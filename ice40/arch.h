@@ -43,12 +43,14 @@ template <typename T> struct RelPtr
     const T *operator->() const { return get(); }
 };
 
+NPNR_PACKED_STRUCT(
 struct BelWirePOD
 {
     int32_t wire_index;
     PortPin port;
-} __attribute__((packed));
+});
 
+NPNR_PACKED_STRUCT(
 struct BelInfoPOD
 {
     RelPtr<char> name;
@@ -57,14 +59,16 @@ struct BelInfoPOD
     RelPtr<BelWirePOD> bel_wires;
     int8_t x, y, z;
     int8_t padding_0;
-} __attribute__((packed));
+});
 
+NPNR_PACKED_STRUCT(
 struct BelPortPOD
 {
     int32_t bel_index;
     PortPin port;
-} __attribute__((packed));
+});
 
+NPNR_PACKED_STRUCT(
 struct PipInfoPOD
 {
     int32_t src, dst;
@@ -72,8 +76,9 @@ struct PipInfoPOD
     int8_t x, y;
     int16_t switch_mask;
     int32_t switch_index;
-} __attribute__((packed));
+});
 
+NPNR_PACKED_STRUCT(
 struct WireInfoPOD
 {
     RelPtr<char> name;
@@ -87,20 +92,22 @@ struct WireInfoPOD
     int8_t x, y;
     WireType type;
     int8_t padding_0;
-} __attribute__((packed));
+});
 
+NPNR_PACKED_STRUCT(
 struct PackagePinPOD
 {
     RelPtr<char> name;
     int32_t bel_index;
-} __attribute__((packed));
+});
 
+NPNR_PACKED_STRUCT(
 struct PackageInfoPOD
 {
     RelPtr<char> name;
     int32_t num_pins;
     RelPtr<PackagePinPOD> pins;
-} __attribute__((packed));
+});
 
 enum TileType : uint32_t
 {
@@ -116,48 +123,55 @@ enum TileType : uint32_t
     TILE_IPCON = 9
 };
 
+NPNR_PACKED_STRUCT(
 struct ConfigBitPOD
 {
     int8_t row, col;
-} __attribute__((packed));
+});
 
+NPNR_PACKED_STRUCT(
 struct ConfigEntryPOD
 {
     RelPtr<char> name;
     int32_t num_bits;
     RelPtr<ConfigBitPOD> bits;
-} __attribute__((packed));
+});
 
+NPNR_PACKED_STRUCT(
 struct TileInfoPOD
 {
     int8_t cols, rows;
     int16_t num_config_entries;
     RelPtr<ConfigEntryPOD> entries;
-} __attribute__((packed));
+});
 
 static const int max_switch_bits = 5;
 
+NPNR_PACKED_STRUCT(
 struct SwitchInfoPOD
 {
     int32_t num_bits;
     int8_t x, y;
     ConfigBitPOD cbits[max_switch_bits];
-} __attribute__((packed));
+});
 
+NPNR_PACKED_STRUCT(
 struct IerenInfoPOD
 {
     int8_t iox, ioy, ioz;
     int8_t ierx, iery, ierz;
-} __attribute__((packed));
+});
 
+NPNR_PACKED_STRUCT(
 struct BitstreamInfoPOD
 {
     int32_t num_switches, num_ierens;
     RelPtr<TileInfoPOD> tiles_nonrouting;
     RelPtr<SwitchInfoPOD> switches;
     RelPtr<IerenInfoPOD> ierens;
-} __attribute__((packed));
+});
 
+NPNR_PACKED_STRUCT(
 struct ChipInfoPOD
 {
     int32_t width, height;
@@ -169,7 +183,7 @@ struct ChipInfoPOD
     RelPtr<TileType> tile_grid;
     RelPtr<BitstreamInfoPOD> bits_info;
     RelPtr<PackageInfoPOD> packages_data;
-} __attribute__((packed));
+});
 
 extern const char chipdb_blob_384[];
 extern const char chipdb_blob_1k[];

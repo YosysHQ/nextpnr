@@ -30,11 +30,6 @@
 
 #include "nextpnr.h"
 
-// from libs/sha1/sha1.h
-
-#define NXP_NORETURN
-#define NXP_ATTRIBUTE(...) __attribute__((__VA_ARGS__))
-
 NEXTPNR_NAMESPACE_BEGIN
 
 typedef std::function<void(std::string)> log_write_type;
@@ -60,16 +55,16 @@ extern void (*log_error_atexit)();
 void logv(const char *format, va_list ap);
 void logv_warning(const char *format, va_list ap);
 void logv_warning_noprefix(const char *format, va_list ap);
-NXP_NORETURN void logv_error(const char *format, va_list ap) NXP_ATTRIBUTE(noreturn);
+NPNR_NORETURN void logv_error(const char *format, va_list ap) NPNR_ATTRIBUTE(noreturn);
 
 extern std::ostream clog;
-void log(const char *format, ...) NXP_ATTRIBUTE(format(printf, 1, 2));
-void log_header(const char *format, ...) NXP_ATTRIBUTE(format(printf, 1, 2));
-void log_info(const char *format, ...) NXP_ATTRIBUTE(format(printf, 1, 2));
-void log_warning(const char *format, ...) NXP_ATTRIBUTE(format(printf, 1, 2));
-void log_warning_noprefix(const char *format, ...) NXP_ATTRIBUTE(format(printf, 1, 2));
-NXP_NORETURN void log_error(const char *format, ...) NXP_ATTRIBUTE(format(printf, 1, 2), noreturn);
-NXP_NORETURN void log_cmd_error(const char *format, ...) NXP_ATTRIBUTE(format(printf, 1, 2), noreturn);
+void log(const char *format, ...) NPNR_ATTRIBUTE(format(printf, 1, 2));
+void log_header(const char *format, ...) NPNR_ATTRIBUTE(format(printf, 1, 2));
+void log_info(const char *format, ...) NPNR_ATTRIBUTE(format(printf, 1, 2));
+void log_warning(const char *format, ...) NPNR_ATTRIBUTE(format(printf, 1, 2));
+void log_warning_noprefix(const char *format, ...) NPNR_ATTRIBUTE(format(printf, 1, 2));
+NPNR_NORETURN void log_error(const char *format, ...) NPNR_ATTRIBUTE(format(printf, 1, 2), noreturn);
+NPNR_NORETURN void log_cmd_error(const char *format, ...) NPNR_ATTRIBUTE(format(printf, 1, 2), noreturn);
 
 void log_break();
 void log_flush();

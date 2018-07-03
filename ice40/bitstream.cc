@@ -18,6 +18,7 @@
  *
  */
 #include "bitstream.h"
+#include <cctype>
 #include <vector>
 #include "log.h"
 

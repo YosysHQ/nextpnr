@@ -20,6 +20,7 @@
 
 #include "pack.h"
 #include <algorithm>
+#include <iterator>
 #include <unordered_set>
 #include "cells.h"
 #include "design_utils.h"
