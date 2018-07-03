@@ -63,6 +63,8 @@ Context *load_design_shim(std::string filename, ArchArgs args)
 
 BOOST_PYTHON_MODULE(MODULE_NAME)
 {
+    using namespace PythonConversion;
+
     class_<GraphicElement>("GraphicElement")
             .def_readwrite("type", &GraphicElement::type)
             .def_readwrite("x1", &GraphicElement::x1)
@@ -95,14 +97,14 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
             .def_readwrite("net", &PortInfo::net)
             .def_readwrite("type", &PortInfo::type);
 
-    class_<CellInfo, CellInfo *>("CellInfo")
+    /*class_<CellInfo, CellInfo *>("CellInfo")
             .def_readwrite("name", &CellInfo::name)
             .def_readwrite("type", &CellInfo::type)
             .def_readwrite("ports", &CellInfo::ports)
             .def_readwrite("attrs", &CellInfo::attrs)
             .def_readwrite("params", &CellInfo::params)
             .def_readwrite("bel", &CellInfo::bel)
-            .def_readwrite("pins", &CellInfo::pins);
+            .def_readwrite("pins", &CellInfo::pins);*/
 
     // WRAP_MAP(decltype(CellInfo::ports), "IdPortMap");
     // WRAP_MAP(decltype(CellInfo::pins), "IdIdMap");
@@ -113,6 +115,10 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
 
     // WRAP_MAP_UPTR(decltype(Context::nets), "IdNetMap");
     // WRAP_MAP_UPTR(decltype(Context::cells), "IdCellMap");
+
+    auto ci_cls = class_<ContextualWrapper<CellInfo&>>("CellInfo", no_init);
+    readonly_wrapper<CellInfo&, typeof(&CellInfo::type), &CellInfo::type, conv_to_str<IdString>>::def_wrap(ci_cls,
+                                                                                                           "type");
 
     def("parse_json", parse_json_shim);
     def("load_design", load_design_shim, return_value_policy<manage_new_object>());
