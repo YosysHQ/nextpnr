@@ -13,11 +13,13 @@ add_library(ice40_chipdb OBJECT ice40/chipdbs/)
 target_compile_options(ice40_chipdb PRIVATE -g0 -O0 -w)
 target_compile_definitions(ice40_chipdb PRIVATE NEXTPNR_NAMESPACE=nextpnr_${family})
 target_include_directories(ice40_chipdb PRIVATE ${family}/)
+set(ICEBOX_ROOT "/usr/local/share/icebox" CACHE STRING "icebox location root")
 foreach (dev ${devices})
-    set(DEV_TXT_DB /usr/local/share/icebox/chipdb-${dev}.txt)
+    set(DEV_TXT_DB ${ICEBOX_ROOT}/chipdb-${dev}.txt)
     set(DEV_CC_DB ${CMAKE_CURRENT_SOURCE_DIR}/ice40/chipdbs/chipdb-${dev}.cc)
+    set(DEV_PORTS_INC ${CMAKE_CURRENT_SOURCE_DIR}/ice40/portpins.inc)
     add_custom_command(OUTPUT ${DEV_CC_DB}
-            COMMAND python3 ${DB_PY} -c ${DEV_TXT_DB} > ${DEV_CC_DB}.new
+            COMMAND python3 ${DB_PY} -c -p ${DEV_PORTS_INC} ${DEV_TXT_DB} > ${DEV_CC_DB}.new
             COMMAND mv ${DEV_CC_DB}.new ${DEV_CC_DB}
             DEPENDS ${DEV_TXT_DB} ${DB_PY}
             )

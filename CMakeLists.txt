@@ -52,12 +52,12 @@ execute_process(
 )
 
 if (BUILD_TESTS)
-    add_subdirectory(3rdparty/googletest/googletest generated/3rdparty/googletest EXCLUDE_FROM_ALL)
+    add_subdirectory(3rdparty/googletest/googletest ${CMAKE_CURRENT_BINARY_DIR}/generated/3rdparty/googletest EXCLUDE_FROM_ALL)
     enable_testing()
 endif()
 
 if (BUILD_GUI)
-    add_subdirectory(3rdparty/QtPropertyBrowser generated/3rdparty/QtPropertyBrowser)
+    add_subdirectory(3rdparty/QtPropertyBrowser ${CMAKE_CURRENT_BINARY_DIR}/generated/3rdparty/QtPropertyBrowser)
 endif()
 
 add_definitions("-DGIT_COMMIT_HASH=${GIT_COMMIT_HASH}")
@@ -136,7 +136,7 @@ foreach (family ${FAMILIES})
     aux_source_directory(${family}/ ${ufamily}_FILES)    
 
     if (BUILD_GUI)
-       add_subdirectory(gui generated/gui/${family})
+       add_subdirectory(gui ${CMAKE_CURRENT_BINARY_DIR}/generated/gui/${family})
     endif()
 
     # Add the CLI binary target
@@ -175,7 +175,7 @@ foreach (family ${FAMILIES})
     include(${family}/family.cmake)
     foreach (target ${family_targets})
         # Include family-specific source files to all family targets and set defines appropriately
-        target_include_directories(${target} PRIVATE ${family}/ generated/)
+        target_include_directories(${target} PRIVATE ${family}/ ${CMAKE_CURRENT_BINARY_DIR}/generated/)
         target_compile_definitions(${target} PRIVATE NEXTPNR_NAMESPACE=nextpnr_${family} ARCH_${ufamily} ARCHNAME=${family})
         target_link_libraries(${target} LINK_PUBLIC ${Boost_LIBRARIES})
         add_sanitizers(${target})

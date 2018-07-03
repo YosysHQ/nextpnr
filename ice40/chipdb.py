@@ -10,6 +10,7 @@ group = parser.add_mutually_exclusive_group()
 group.add_argument("-b", "--binary", action="store_true")
 group.add_argument("-c", "--c_file", action="store_true")
 parser.add_argument("filename", type=str, help="chipdb input filename")
+parser.add_argument("-p", "--portspins", type=str, help="path to portpins.inc")
 args = parser.parse_args()
 
 endianness = "le"
@@ -53,7 +54,7 @@ beltypes = dict()
 tiletypes = dict()
 wiretypes = dict()
 
-with open("ice40/portpins.inc") as f:
+with open(args.portspins) as f:
     for line in f:
         line = line.replace("(", " ")
         line = line.replace(")", " ")
