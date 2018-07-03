@@ -494,13 +494,13 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
                 delay = 450;
                 return true;
             }
-        } else if (fromPort == id("CI") && toPort == id("CO")) {
+        } else if (fromPort == id("CIN") && toPort == id("COUT")) {
             delay = 120;
             return true;
-        } else if (fromPort == id("I1") && toPort == id("CO")) {
+        } else if (fromPort == id("I1") && toPort == id("COUT")) {
             delay = 260;
             return true;
-        } else if (fromPort == id("I2") && toPort == id("CO")) {
+        } else if (fromPort == id("I2") && toPort == id("COUT")) {
             delay = 230;
             return true;
         }
