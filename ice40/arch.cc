@@ -489,11 +489,10 @@ std::vector<GraphicElement> Arch::getPipGraphics(PipId pip) const
 bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, delay_t &delay) const
 {
     if (cell->type == id("ICESTORM_LC")) {
-        if (fromPort == id("I0") || fromPort == id("I1") || fromPort == id("I2") || fromPort == id("I3")) {
-            if (toPort == id("O") || toPort == id("LO")) {
-                delay = 450;
-                return true;
-            }
+        if ((fromPort == id("I0") || fromPort == id("I1") || fromPort == id("I2") || fromPort == id("I3")) &&
+            (toPort == id("O") || toPort == id("LO"))) {
+            delay = 450;
+            return true;
         } else if (fromPort == id("CIN") && toPort == id("COUT")) {
             delay = 120;
             return true;
