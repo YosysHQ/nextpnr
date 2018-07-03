@@ -150,6 +150,25 @@ template <typename Class, typename FuncT, FuncT fn, typename rv_conv, typename a
     template <typename WrapCls> static void def_wrap(WrapCls cls_, const char *name) { cls_.def(name, wrapped_fn); }
 };
 
+// Wrapped getter
+template <typename Class, typename MemT, MemT mem, typename v_conv> struct readonly_wrapper
+{
+    using class_type = typename WrapIfNotContext<Class>::maybe_wrapped_t;
+    using conv_val_type = typename v_conv::ret_type;
+
+    static conv_val_type wrapped_getter(class_type &cls)
+    {
+        Context *ctx = get_ctx<Class>(cls);
+        Class &base = get_base<Class>(cls);
+        return v_conv()(ctx, (base.*mem));
+    }
+
+    template <typename WrapCls> static void def_wrap(WrapCls cls_, const char *name)
+    {
+        cls_.add_property(name, wrapped_getter);
+    }
+};
+
 } // namespace PythonConversion
 
 NEXTPNR_NAMESPACE_END

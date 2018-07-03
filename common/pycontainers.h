@@ -112,7 +112,7 @@ struct range_wrapper
         iterator_wrapper<iterator_t, P, value_conv>().wrap(iter_name);
     }
 
-    typedef iterator_wrapper<iterator_t, P> iter_wrap;
+    typedef iterator_wrapper<iterator_t, P, value_conv> iter_wrap;
 };
 
 #define WRAP_RANGE(t, conv)                                                                                            \
@@ -288,18 +288,20 @@ Special case of above for map key/values where value is a unique_ptr
 template <typename T1, typename T2> struct map_pair_wrapper_uptr
 {
     typedef std::pair<T1, T2> T;
+    typedef PythonConversion::ContextualWrapper<T &> wrapped_pair;
     typedef typename T::second_type::element_type V;
 
     struct pair_iterator_wrapper
     {
-        static object next(std::pair<T &, int> &iter)
+        static object next(std::pair<wrapped_pair &, int> &iter)
         {
             if (iter.second == 0) {
                 iter.second++;
-                return object(iter.first.first);
+                return object(PythonConversion::string_converter<typeof(iter.first.base.first)>().to_str(
+                        iter.first.ctx, iter.first.base.first));
             } else if (iter.second == 1) {
                 iter.second++;
-                return object(iter.first.second.get());
+                return object(PythonConversion::ContextualWrapper<V &>(iter.first.ctx, *iter.first.base.second.get()));
             } else {
                 PyErr_SetString(PyExc_StopIteration, "End of range reached");
                 boost::python::throw_error_already_set();
@@ -311,32 +313,41 @@ template <typename T1, typename T2> struct map_pair_wrapper_uptr
 
         static void wrap(const char *python_name)
         {
-            class_<std::pair<T &, int>>(python_name, no_init).def("__next__", next);
+            class_<std::pair<wrapped_pair &, int>>(python_name, no_init).def("__next__", next);
         }
     };
 
-    static object get(T &x, int i)
+    static object get(wrapped_pair &x, int i)
     {
         if ((i >= 2) || (i < 0))
             KeyError();
-        return (i == 1) ? object(x.second.get()) : object(x.first);
+        return (i == 1) ? object(PythonConversion::ContextualWrapper<V &>(x.ctx, *x.base.second.get()))
+                        : object(x.base.first);
     }
 
-    static int len(T &x) { return 2; }
+    static int len(wrapped_pair &x) { return 2; }
 
-    static std::pair<T &, int> iter(T &x) { return std::make_pair(boost::ref(x), 0); };
+    static std::pair<wrapped_pair &, int> iter(wrapped_pair &x) { return std::make_pair(boost::ref(x), 0); };
 
-    static V &second_getter(T &t) { return *t.second.get(); }
+    static std::string first_getter(wrapped_pair &t)
+    {
+        return PythonConversion::string_converter<typeof(t.base.first)>().to_str(t.ctx, t.base.first);
+    }
+
+    static PythonConversion::ContextualWrapper<V &> second_getter(wrapped_pair &t)
+    {
+        return PythonConversion::ContextualWrapper<V &>(t.ctx, *t.base.second.get());
+    }
 
     static void wrap(const char *pair_name, const char *iter_name)
     {
         pair_iterator_wrapper::wrap(iter_name);
-        class_<T, boost::noncopyable>(pair_name, no_init)
+        class_<wrapped_pair, boost::noncopyable>(pair_name, no_init)
                 .def("__iter__", iter)
                 .def("__len__", len)
                 .def("__getitem__", get)
-                .def_readonly("first", &T::first)
-                .add_property("second", make_function(second_getter, return_internal_reference<>()));
+                .add_property("first", first_getter)
+                .add_property("second", second_getter);
     }
 };
 
@@ -348,22 +359,29 @@ template <typename T> struct map_wrapper_uptr
 {
     typedef typename std::remove_cv<typename std::remove_reference<typename T::key_type>::type>::type K;
     typedef typename T::mapped_type::pointer V;
+    typedef typename T::mapped_type::element_type &Vr;
     typedef typename T::value_type KV;
+    typedef typename PythonConversion::ContextualWrapper<T &> wrapped_map;
 
-    static V get(T &x, K const &i)
+    static PythonConversion::ContextualWrapper<Vr> get(wrapped_map &x, std::string const &i)
     {
-        if (x.find(i) != x.end())
-            return x.at(i).get();
+        K k = PythonConversion::string_converter<K>().from_str(x.ctx, i);
+        if (x.base.find(k) != x.base.end())
+            return PythonConversion::ContextualWrapper<Vr>(x.ctx, *x.base.at(k).get());
         KeyError();
         std::terminate();
     }
 
-    static void set(T &x, K const &i, V const &v) { x[i] = typename T::mapped_type(v); }
-
-    static void del(T const &x, K const &i)
+    static void set(wrapped_map &x, std::string const &i, V const &v)
     {
-        if (x.find(i) != x.end())
-            x.erase(i);
+        x.base[PythonConversion::string_converter<K>().from_str(x.ctx, i)] = typename T::mapped_type(v);
+    }
+
+    static void del(T const &x, std::string const &i)
+    {
+        K k = PythonConversion::string_converter<K>().from_str(x.ctx, i);
+        if (x.base.find(k) != x.base.end())
+            x.base.erase(k);
         else
             KeyError();
         std::terminate();
@@ -372,12 +390,12 @@ template <typename T> struct map_wrapper_uptr
     static void wrap(const char *map_name, const char *kv_name, const char *kv_iter_name, const char *iter_name)
     {
         map_pair_wrapper_uptr<typename KV::first_type, typename KV::second_type>::wrap(kv_name, kv_iter_name);
-        typedef range_wrapper<T, return_internal_reference<>> rw;
+        typedef range_wrapper<T, return_value_policy<return_by_value>, PythonConversion::wrap_context<KV &>> rw;
         typename rw::iter_wrap().wrap(iter_name);
-        class_<T, boost::noncopyable>(map_name, no_init)
+        class_<wrapped_map, boost::noncopyable>(map_name, no_init)
                 .def("__iter__", rw::iter)
                 .def("__len__", &T::size)
-                .def("__getitem__", get, return_internal_reference<>())
+                .def("__getitem__", get)
                 .def("__setitem__", set, with_custodian_and_ward<1, 2>());
     }
 };

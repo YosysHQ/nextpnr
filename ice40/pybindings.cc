@@ -95,13 +95,28 @@ void arch_wrap_python()
                   conv_from_str<BelId>>::def_wrap(ctx_cls, "getBelType");
     fn_wrapper_1a<Context, typeof(&Context::checkBelAvail), &Context::checkBelAvail, pass_through<bool>,
                   conv_from_str<BelId>>::def_wrap(ctx_cls, "checkBelAvail");
+
     fn_wrapper_0a<Context, typeof(&Context::getBels), &Context::getBels, wrap_context<BelRange>>::def_wrap(ctx_cls,
                                                                                                            "getBels");
     fn_wrapper_0a<Context, typeof(&Context::getWires), &Context::getWires, wrap_context<WireRange>>::def_wrap(
             ctx_cls, "getWires");
+    fn_wrapper_0a<Context, typeof(&Context::getPips), &Context::getPips, wrap_context<AllPipRange>>::def_wrap(
+            ctx_cls, "getPips");
+
     fn_wrapper_1a<Context, typeof(&Context::getPipsDownhill), &Context::getPipsDownhill, wrap_context<PipRange>,
                   conv_from_str<WireId>>::def_wrap(ctx_cls, "getPipsDownhill");
+    fn_wrapper_1a<Context, typeof(&Context::getPipsUphill), &Context::getPipsUphill, wrap_context<PipRange>,
+                  conv_from_str<WireId>>::def_wrap(ctx_cls, "getPipsUphill");
 
+    fn_wrapper_1a<Context, typeof(&Context::getPipSrcWire), &Context::getPipSrcWire, conv_to_str<WireId>,
+                  conv_from_str<PipId>>::def_wrap(ctx_cls, "getPipSrcWire");
+    fn_wrapper_1a<Context, typeof(&Context::getPipDstWire), &Context::getPipDstWire, conv_to_str<WireId>,
+                  conv_from_str<PipId>>::def_wrap(ctx_cls, "getPipDstWire");
+
+    typedef std::unordered_map<IdString, std::unique_ptr<CellInfo>> CellMap;
+
+    readonly_wrapper<Context, typeof(&Context::cells), &Context::cells, wrap_context<CellMap &>>::def_wrap(ctx_cls,
+                                                                                                           "cells");
     /*
             .def("getBelByName", &Arch::getBelByName)
             .def("getWireByName", &Arch::getWireByName)
@@ -130,6 +145,7 @@ void arch_wrap_python()
     WRAP_RANGE(AllPip, conv_to_str<PipId>);
     WRAP_RANGE(Pip, conv_to_str<PipId>);
 
+    WRAP_MAP_UPTR(CellMap, "IdCellMap");
     // WRAP_RANGE(BelPin);
     // WRAP_RANGE(Wire);
     // WRAP_RANGE(AllPip);

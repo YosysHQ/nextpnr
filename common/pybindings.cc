@@ -107,9 +107,9 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
     // WRAP_MAP(decltype(CellInfo::ports), "IdPortMap");
     // WRAP_MAP(decltype(CellInfo::pins), "IdIdMap");
 
-    class_<BaseCtx, BaseCtx *, boost::noncopyable>("BaseCtx", no_init)
-            .add_property("nets", make_getter(&Context::nets, return_internal_reference<>()))
-            .add_property("cells", make_getter(&Context::cells, return_internal_reference<>()));
+    class_<BaseCtx, BaseCtx *, boost::noncopyable>("BaseCtx", no_init);
+    //.add_property("nets", make_getter(&Context::nets, return_internal_reference<>()))
+    //.add_property("cells", make_getter(&Context::cells, return_internal_reference<>()));
 
     // WRAP_MAP_UPTR(decltype(Context::nets), "IdNetMap");
     // WRAP_MAP_UPTR(decltype(Context::cells), "IdCellMap");
