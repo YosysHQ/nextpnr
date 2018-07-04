@@ -99,7 +99,7 @@ bool Arch::isBelLocationValid(BelId bel) const
 bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const
 {
     if (cell->type == id_icestorm_lc) {
-        assert(getBelType(bel) == TYPE_ICESTORM_LC);
+        NPNR_ASSERT(getBelType(bel) == TYPE_ICESTORM_LC);
 
         std::vector<const CellInfo *> bel_cells;
 
@@ -117,7 +117,7 @@ bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const
         return getBelPackagePin(bel) != "";
     } else if (cell->type == id_sb_gb) {
         bool is_reset = false, is_cen = false;
-        assert(cell->ports.at(id_glb_buf_out).net != nullptr);
+        NPNR_ASSERT(cell->ports.at(id_glb_buf_out).net != nullptr);
         for (auto user : cell->ports.at(id_glb_buf_out).net->users) {
             if (is_reset_port(this, user))
                 is_reset = true;

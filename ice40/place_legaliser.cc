@@ -82,7 +82,7 @@ static void get_chain_midpoint(const Context *ctx, const CellChain &chain, float
         total_y += bel_y;
         N++;
     }
-    assert(N > 0);
+    NPNR_ASSERT(N > 0);
     x = total_x / N;
     y = total_y / N;
 }
@@ -328,7 +328,7 @@ class PlacementLegaliser
     void place_lc(CellInfo *cell, int x, int y, int z)
     {
         auto &loc = logic_bels.at(x).at(y).at(z);
-        assert(!loc.second);
+        NPNR_ASSERT(!loc.second);
         BelId bel = loc.first;
         // Check if there is a cell presently at the location, which we will need to rip up
         IdString existing = ctx->getBoundBelCell(bel);
@@ -348,7 +348,7 @@ class PlacementLegaliser
     // Insert a logic cell to legalise a COUT->fabric connection
     CellInfo *make_carry_pass_out(PortInfo &cout_port)
     {
-        assert(cout_port.net != nullptr);
+        NPNR_ASSERT(cout_port.net != nullptr);
         std::unique_ptr<CellInfo> lc = create_ice_cell(ctx, ctx->id("ICESTORM_LC"));
         lc->params[ctx->id("LUT_INIT")] = "65280"; // 0xff00: O = I3
         lc->params[ctx->id("CARRY_ENABLE")] = "1";
@@ -368,7 +368,7 @@ class PlacementLegaliser
         cout_port.net = co_i3_net.get();
 
         IdString co_i3_name = co_i3_net->name;
-        assert(ctx->nets.find(co_i3_name) == ctx->nets.end());
+        NPNR_ASSERT(ctx->nets.find(co_i3_name) == ctx->nets.end());
         ctx->nets[co_i3_name] = std::move(co_i3_net);
         IdString name = lc->name;
         ctx->cells[lc->name] = std::move(lc);
@@ -379,7 +379,7 @@ class PlacementLegaliser
     // Insert a logic cell to legalise a CIN->fabric connection
     CellInfo *make_carry_feed_in(CellInfo *cin_cell, PortInfo &cin_port)
     {
-        assert(cin_port.net != nullptr);
+        NPNR_ASSERT(cin_port.net != nullptr);
         std::unique_ptr<CellInfo> lc = create_ice_cell(ctx, ctx->id("ICESTORM_LC"));
         lc->params[ctx->id("CARRY_ENABLE")] = "1";
         lc->params[ctx->id("CIN_CONST")] = "1";
@@ -411,7 +411,7 @@ class PlacementLegaliser
         cin_cell->ports.at(cin_port.name).net = out_net.get();
 
         IdString out_net_name = out_net->name;
-        assert(ctx->nets.find(out_net_name) == ctx->nets.end());
+        NPNR_ASSERT(ctx->nets.find(out_net_name) == ctx->nets.end());
         ctx->nets[out_net_name] = std::move(out_net);
 
         IdString name = lc->name;

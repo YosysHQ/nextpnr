@@ -24,7 +24,7 @@ NEXTPNR_NAMESPACE_BEGIN
 
 void Arch::addWire(IdString name, int x, int y)
 {
-    assert(wires.count(name) == 0);
+    NPNR_ASSERT(wires.count(name) == 0);
     WireInfo &wi = wires[name];
     wi.name = name;
     wi.grid_x = x;
@@ -35,7 +35,7 @@ void Arch::addWire(IdString name, int x, int y)
 
 void Arch::addPip(IdString name, IdString srcWire, IdString dstWire, DelayInfo delay)
 {
-    assert(pips.count(name) == 0);
+    NPNR_ASSERT(pips.count(name) == 0);
     PipInfo &pi = pips[name];
     pi.name = name;
     pi.srcWire = srcWire;
@@ -49,7 +49,7 @@ void Arch::addPip(IdString name, IdString srcWire, IdString dstWire, DelayInfo d
 
 void Arch::addAlias(IdString name, IdString srcWire, IdString dstWire, DelayInfo delay)
 {
-    assert(pips.count(name) == 0);
+    NPNR_ASSERT(pips.count(name) == 0);
     PipInfo &pi = pips[name];
     pi.name = name;
     pi.srcWire = srcWire;
@@ -62,7 +62,7 @@ void Arch::addAlias(IdString name, IdString srcWire, IdString dstWire, DelayInfo
 
 void Arch::addBel(IdString name, IdString type, int x, int y, bool gb)
 {
-    assert(bels.count(name) == 0);
+    NPNR_ASSERT(bels.count(name) == 0);
     BelInfo &bi = bels[name];
     bi.name = name;
     bi.type = type;
@@ -76,7 +76,7 @@ void Arch::addBel(IdString name, IdString type, int x, int y, bool gb)
 
 void Arch::addBelInput(IdString bel, IdString name, IdString wire)
 {
-    assert(bels.at(bel).pins.count(name) == 0);
+    NPNR_ASSERT(bels.at(bel).pins.count(name) == 0);
     PinInfo &pi = bels.at(bel).pins[name];
     pi.name = name;
     pi.wire = wire;
@@ -87,7 +87,7 @@ void Arch::addBelInput(IdString bel, IdString name, IdString wire)
 
 void Arch::addBelOutput(IdString bel, IdString name, IdString wire)
 {
-    assert(bels.at(bel).pins.count(name) == 0);
+    NPNR_ASSERT(bels.at(bel).pins.count(name) == 0);
     PinInfo &pi = bels.at(bel).pins[name];
     pi.name = name;
     pi.wire = wire;
@@ -98,7 +98,7 @@ void Arch::addBelOutput(IdString bel, IdString name, IdString wire)
 
 void Arch::addBelInout(IdString bel, IdString name, IdString wire)
 {
-    assert(bels.at(bel).pins.count(name) == 0);
+    NPNR_ASSERT(bels.at(bel).pins.count(name) == 0);
     PinInfo &pi = bels.at(bel).pins[name];
     pi.name = name;
     pi.wire = wire;

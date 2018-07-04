@@ -43,16 +43,12 @@ template <typename T> struct RelPtr
     const T *operator->() const { return get(); }
 };
 
-NPNR_PACKED_STRUCT(
-struct BelWirePOD
-{
+NPNR_PACKED_STRUCT(struct BelWirePOD {
     int32_t wire_index;
     PortPin port;
 });
 
-NPNR_PACKED_STRUCT(
-struct BelInfoPOD
-{
+NPNR_PACKED_STRUCT(struct BelInfoPOD {
     RelPtr<char> name;
     BelType type;
     int32_t num_bel_wires;
@@ -61,16 +57,12 @@ struct BelInfoPOD
     int8_t padding_0;
 });
 
-NPNR_PACKED_STRUCT(
-struct BelPortPOD
-{
+NPNR_PACKED_STRUCT(struct BelPortPOD {
     int32_t bel_index;
     PortPin port;
 });
 
-NPNR_PACKED_STRUCT(
-struct PipInfoPOD
-{
+NPNR_PACKED_STRUCT(struct PipInfoPOD {
     int32_t src, dst;
     int32_t delay;
     int8_t x, y;
@@ -78,9 +70,7 @@ struct PipInfoPOD
     int32_t switch_index;
 });
 
-NPNR_PACKED_STRUCT(
-struct WireInfoPOD
-{
+NPNR_PACKED_STRUCT(struct WireInfoPOD {
     RelPtr<char> name;
     int32_t num_uphill, num_downhill;
     RelPtr<int32_t> pips_uphill, pips_downhill;
@@ -94,16 +84,12 @@ struct WireInfoPOD
     int8_t padding_0;
 });
 
-NPNR_PACKED_STRUCT(
-struct PackagePinPOD
-{
+NPNR_PACKED_STRUCT(struct PackagePinPOD {
     RelPtr<char> name;
     int32_t bel_index;
 });
 
-NPNR_PACKED_STRUCT(
-struct PackageInfoPOD
-{
+NPNR_PACKED_STRUCT(struct PackageInfoPOD {
     RelPtr<char> name;
     int32_t num_pins;
     RelPtr<PackagePinPOD> pins;
@@ -123,23 +109,15 @@ enum TileType : uint32_t
     TILE_IPCON = 9
 };
 
-NPNR_PACKED_STRUCT(
-struct ConfigBitPOD
-{
-    int8_t row, col;
-});
+NPNR_PACKED_STRUCT(struct ConfigBitPOD { int8_t row, col; });
 
-NPNR_PACKED_STRUCT(
-struct ConfigEntryPOD
-{
+NPNR_PACKED_STRUCT(struct ConfigEntryPOD {
     RelPtr<char> name;
     int32_t num_bits;
     RelPtr<ConfigBitPOD> bits;
 });
 
-NPNR_PACKED_STRUCT(
-struct TileInfoPOD
-{
+NPNR_PACKED_STRUCT(struct TileInfoPOD {
     int8_t cols, rows;
     int16_t num_config_entries;
     RelPtr<ConfigEntryPOD> entries;
@@ -147,33 +125,25 @@ struct TileInfoPOD
 
 static const int max_switch_bits = 5;
 
-NPNR_PACKED_STRUCT(
-struct SwitchInfoPOD
-{
+NPNR_PACKED_STRUCT(struct SwitchInfoPOD {
     int32_t num_bits;
     int8_t x, y;
     ConfigBitPOD cbits[max_switch_bits];
 });
 
-NPNR_PACKED_STRUCT(
-struct IerenInfoPOD
-{
+NPNR_PACKED_STRUCT(struct IerenInfoPOD {
     int8_t iox, ioy, ioz;
     int8_t ierx, iery, ierz;
 });
 
-NPNR_PACKED_STRUCT(
-struct BitstreamInfoPOD
-{
+NPNR_PACKED_STRUCT(struct BitstreamInfoPOD {
     int32_t num_switches, num_ierens;
     RelPtr<TileInfoPOD> tiles_nonrouting;
     RelPtr<SwitchInfoPOD> switches;
     RelPtr<IerenInfoPOD> ierens;
 });
 
-NPNR_PACKED_STRUCT(
-struct ChipInfoPOD
-{
+NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     int32_t width, height;
     int32_t num_bels, num_wires, num_pips;
     int32_t num_switches, num_packages;
@@ -186,10 +156,10 @@ struct ChipInfoPOD
 });
 
 #if defined(_MSC_VER)
-extern const char* chipdb_blob_384;
-extern const char* chipdb_blob_1k;
-extern const char* chipdb_blob_5k;
-extern const char* chipdb_blob_8k;
+extern const char *chipdb_blob_384;
+extern const char *chipdb_blob_1k;
+extern const char *chipdb_blob_5k;
+extern const char *chipdb_blob_8k;
 #else
 extern const char chipdb_blob_384[];
 extern const char chipdb_blob_1k[];
@@ -380,7 +350,7 @@ struct Arch : BaseCtx
 
     IdString getBelName(BelId bel) const
     {
-        assert(bel != BelId());
+        NPNR_ASSERT(bel != BelId());
         return id(chip_info->bel_data[bel.index].name.get());
     }
 
@@ -388,8 +358,8 @@ struct Arch : BaseCtx
 
     void bindBel(BelId bel, IdString cell, PlaceStrength strength)
     {
-        assert(bel != BelId());
-        assert(bel_to_cell[bel.index] == IdString());
+        NPNR_ASSERT(bel != BelId());
+        NPNR_ASSERT(bel_to_cell[bel.index] == IdString());
         bel_to_cell[bel.index] = cell;
         cells[cell]->bel = bel;
         cells[cell]->belStrength = strength;
@@ -397,8 +367,8 @@ struct Arch : BaseCtx
 
     void unbindBel(BelId bel)
     {
-        assert(bel != BelId());
-        assert(bel_to_cell[bel.index] != IdString());
+        NPNR_ASSERT(bel != BelId());
+        NPNR_ASSERT(bel_to_cell[bel.index] != IdString());
         cells[bel_to_cell[bel.index]]->bel = BelId();
         cells[bel_to_cell[bel.index]]->belStrength = STRENGTH_NONE;
         bel_to_cell[bel.index] = IdString();
@@ -406,19 +376,19 @@ struct Arch : BaseCtx
 
     bool checkBelAvail(BelId bel) const
     {
-        assert(bel != BelId());
+        NPNR_ASSERT(bel != BelId());
         return bel_to_cell[bel.index] == IdString();
     }
 
     IdString getBoundBelCell(BelId bel) const
     {
-        assert(bel != BelId());
+        NPNR_ASSERT(bel != BelId());
         return bel_to_cell[bel.index];
     }
 
     IdString getConflictingBelCell(BelId bel) const
     {
-        assert(bel != BelId());
+        NPNR_ASSERT(bel != BelId());
         return bel_to_cell[bel.index];
     }
 
@@ -448,7 +418,7 @@ struct Arch : BaseCtx
 
     BelType getBelType(BelId bel) const
     {
-        assert(bel != BelId());
+        NPNR_ASSERT(bel != BelId());
         return chip_info->bel_data[bel.index].type;
     }
 
@@ -457,7 +427,7 @@ struct Arch : BaseCtx
     BelPin getBelPinUphill(WireId wire) const
     {
         BelPin ret;
-        assert(wire != WireId());
+        NPNR_ASSERT(wire != WireId());
 
         if (chip_info->wire_data[wire.index].bel_uphill.bel_index >= 0) {
             ret.bel.index = chip_info->wire_data[wire.index].bel_uphill.bel_index;
@@ -470,7 +440,7 @@ struct Arch : BaseCtx
     BelPinRange getBelPinsDownhill(WireId wire) const
     {
         BelPinRange range;
-        assert(wire != WireId());
+        NPNR_ASSERT(wire != WireId());
         range.b.ptr = chip_info->wire_data[wire.index].bels_downhill.get();
         range.e.ptr = range.b.ptr + chip_info->wire_data[wire.index].num_bels_downhill;
         return range;
@@ -482,7 +452,7 @@ struct Arch : BaseCtx
 
     IdString getWireName(WireId wire) const
     {
-        assert(wire != WireId());
+        NPNR_ASSERT(wire != WireId());
         return id(chip_info->wire_data[wire.index].name.get());
     }
 
@@ -490,8 +460,8 @@ struct Arch : BaseCtx
 
     void bindWire(WireId wire, IdString net, PlaceStrength strength)
     {
-        assert(wire != WireId());
-        assert(wire_to_net[wire.index] == IdString());
+        NPNR_ASSERT(wire != WireId());
+        NPNR_ASSERT(wire_to_net[wire.index] == IdString());
         wire_to_net[wire.index] = net;
         nets[net]->wires[wire].pip = PipId();
         nets[net]->wires[wire].strength = strength;
@@ -499,12 +469,12 @@ struct Arch : BaseCtx
 
     void unbindWire(WireId wire)
     {
-        assert(wire != WireId());
-        assert(wire_to_net[wire.index] != IdString());
+        NPNR_ASSERT(wire != WireId());
+        NPNR_ASSERT(wire_to_net[wire.index] != IdString());
 
         auto &net_wires = nets[wire_to_net[wire.index]]->wires;
         auto it = net_wires.find(wire);
-        assert(it != net_wires.end());
+        NPNR_ASSERT(it != net_wires.end());
 
         auto pip = it->second.pip;
         if (pip != PipId()) {
@@ -518,19 +488,19 @@ struct Arch : BaseCtx
 
     bool checkWireAvail(WireId wire) const
     {
-        assert(wire != WireId());
+        NPNR_ASSERT(wire != WireId());
         return wire_to_net[wire.index] == IdString();
     }
 
     IdString getBoundWireNet(WireId wire) const
     {
-        assert(wire != WireId());
+        NPNR_ASSERT(wire != WireId());
         return wire_to_net[wire.index];
     }
 
     IdString getConflictingWireNet(WireId wire) const
     {
-        assert(wire != WireId());
+        NPNR_ASSERT(wire != WireId());
         return wire_to_net[wire.index];
     }
 
@@ -551,16 +521,16 @@ struct Arch : BaseCtx
 
     void bindPip(PipId pip, IdString net, PlaceStrength strength)
     {
-        assert(pip != PipId());
-        assert(pip_to_net[pip.index] == IdString());
-        assert(switches_locked[chip_info->pip_data[pip.index].switch_index] == IdString());
+        NPNR_ASSERT(pip != PipId());
+        NPNR_ASSERT(pip_to_net[pip.index] == IdString());
+        NPNR_ASSERT(switches_locked[chip_info->pip_data[pip.index].switch_index] == IdString());
 
         pip_to_net[pip.index] = net;
         switches_locked[chip_info->pip_data[pip.index].switch_index] = net;
 
         WireId dst;
         dst.index = chip_info->pip_data[pip.index].dst;
-        assert(wire_to_net[dst.index] == IdString());
+        NPNR_ASSERT(wire_to_net[dst.index] == IdString());
         wire_to_net[dst.index] = net;
         nets[net]->wires[dst].pip = pip;
         nets[net]->wires[dst].strength = strength;
@@ -568,13 +538,13 @@ struct Arch : BaseCtx
 
     void unbindPip(PipId pip)
     {
-        assert(pip != PipId());
-        assert(pip_to_net[pip.index] != IdString());
-        assert(switches_locked[chip_info->pip_data[pip.index].switch_index] != IdString());
+        NPNR_ASSERT(pip != PipId());
+        NPNR_ASSERT(pip_to_net[pip.index] != IdString());
+        NPNR_ASSERT(switches_locked[chip_info->pip_data[pip.index].switch_index] != IdString());
 
         WireId dst;
         dst.index = chip_info->pip_data[pip.index].dst;
-        assert(wire_to_net[dst.index] != IdString());
+        NPNR_ASSERT(wire_to_net[dst.index] != IdString());
         wire_to_net[dst.index] = IdString();
         nets[pip_to_net[pip.index]]->wires.erase(dst);
 
@@ -584,19 +554,19 @@ struct Arch : BaseCtx
 
     bool checkPipAvail(PipId pip) const
     {
-        assert(pip != PipId());
+        NPNR_ASSERT(pip != PipId());
         return switches_locked[chip_info->pip_data[pip.index].switch_index] == IdString();
     }
 
     IdString getBoundPipNet(PipId pip) const
     {
-        assert(pip != PipId());
+        NPNR_ASSERT(pip != PipId());
         return pip_to_net[pip.index];
     }
 
     IdString getConflictingPipNet(PipId pip) const
     {
-        assert(pip != PipId());
+        NPNR_ASSERT(pip != PipId());
         return switches_locked[chip_info->pip_data[pip.index].switch_index];
     }
 
@@ -611,7 +581,7 @@ struct Arch : BaseCtx
     WireId getPipSrcWire(PipId pip) const
     {
         WireId wire;
-        assert(pip != PipId());
+        NPNR_ASSERT(pip != PipId());
         wire.index = chip_info->pip_data[pip.index].src;
         return wire;
     }
@@ -619,7 +589,7 @@ struct Arch : BaseCtx
     WireId getPipDstWire(PipId pip) const
     {
         WireId wire;
-        assert(pip != PipId());
+        NPNR_ASSERT(pip != PipId());
         wire.index = chip_info->pip_data[pip.index].dst;
         return wire;
     }
@@ -627,7 +597,7 @@ struct Arch : BaseCtx
     DelayInfo getPipDelay(PipId pip) const
     {
         DelayInfo delay;
-        assert(pip != PipId());
+        NPNR_ASSERT(pip != PipId());
         delay.delay = chip_info->pip_data[pip.index].delay;
         return delay;
     }
@@ -635,7 +605,7 @@ struct Arch : BaseCtx
     PipRange getPipsDownhill(WireId wire) const
     {
         PipRange range;
-        assert(wire != WireId());
+        NPNR_ASSERT(wire != WireId());
         range.b.cursor = chip_info->wire_data[wire.index].pips_downhill.get();
         range.e.cursor = range.b.cursor + chip_info->wire_data[wire.index].num_downhill;
         return range;
@@ -644,7 +614,7 @@ struct Arch : BaseCtx
     PipRange getPipsUphill(WireId wire) const
     {
         PipRange range;
-        assert(wire != WireId());
+        NPNR_ASSERT(wire != WireId());
         range.b.cursor = chip_info->wire_data[wire.index].pips_uphill.get();
         range.e.cursor = range.b.cursor + chip_info->wire_data[wire.index].num_uphill;
         return range;
@@ -653,7 +623,7 @@ struct Arch : BaseCtx
     PipRange getWireAliases(WireId wire) const
     {
         PipRange range;
-        assert(wire != WireId());
+        NPNR_ASSERT(wire != WireId());
         range.b.cursor = nullptr;
         range.e.cursor = nullptr;
         return range;

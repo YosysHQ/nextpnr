@@ -25,10 +25,10 @@
 #include <assert.h>
 #include <fstream>
 #include <iostream>
+#include <iterator>
 #include <log.h>
 #include <map>
 #include <string>
-#include <iterator>
 #include "nextpnr.h"
 
 NEXTPNR_NAMESPACE_BEGIN

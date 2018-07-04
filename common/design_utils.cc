@@ -28,7 +28,7 @@ void replace_port(CellInfo *old_cell, IdString old_name, CellInfo *rep_cell, IdS
 {
     PortInfo &old = old_cell->ports.at(old_name);
     PortInfo &rep = rep_cell->ports.at(rep_name);
-    assert(old.type == rep.type);
+    NPNR_ASSERT(old.type == rep.type);
 
     rep.net = old.net;
     old.net = nullptr;
@@ -47,7 +47,7 @@ void replace_port(CellInfo *old_cell, IdString old_name, CellInfo *rep_cell, IdS
             }
         }
     } else {
-        assert(false);
+        NPNR_ASSERT(false);
     }
 }
 

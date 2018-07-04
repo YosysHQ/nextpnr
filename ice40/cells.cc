@@ -183,7 +183,7 @@ void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc, bool pass_thru_l
     if (citer != config.end()) {
         if ((config.end() - citer) >= 2) {
             char c = *(citer++);
-            assert(c == 'S');
+            NPNR_ASSERT(c == 'S');
             lc->params[ctx->id("ASYNC_SR")] = "0";
         } else {
             lc->params[ctx->id("ASYNC_SR")] = "1";
@@ -194,14 +194,14 @@ void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc, bool pass_thru_l
             replace_port(dff, ctx->id("S"), lc, ctx->id("SR"));
             lc->params[ctx->id("SET_NORESET")] = "1";
         } else {
-            assert(*citer == 'R');
+            NPNR_ASSERT(*citer == 'R');
             citer++;
             replace_port(dff, ctx->id("R"), lc, ctx->id("SR"));
             lc->params[ctx->id("SET_NORESET")] = "0";
         }
     }
 
-    assert(citer == config.end());
+    NPNR_ASSERT(citer == config.end());
 
     if (pass_thru_lut) {
         lc->params[ctx->id("LUT_INIT")] = "2";
@@ -228,7 +228,7 @@ void nxio_to_sb(Context *ctx, CellInfo *nxio, CellInfo *sbio)
         replace_port(nxio, ctx->id("I"), sbio, ctx->id("D_OUT_0"));
         replace_port(nxio, ctx->id("O"), sbio, ctx->id("D_IN_0"));
     } else {
-        assert(false);
+        NPNR_ASSERT(false);
     }
     NetInfo *donet = sbio->ports.at(ctx->id("D_OUT_0")).net;
     CellInfo *tbuf = net_driven_by(

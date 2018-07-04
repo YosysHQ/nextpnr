@@ -36,7 +36,7 @@ const ConfigEntryPOD &find_config(const TileInfoPOD &tile, const std::string &na
             return tile.entries[i];
         }
     }
-    assert(false);
+    NPNR_ASSERT(false);
 }
 
 std::tuple<int8_t, int8_t, int8_t> get_ieren(const BitstreamInfoPOD &bi, int8_t x, int8_t y, int8_t z)
@@ -124,7 +124,7 @@ void write_asc(const Context *ctx, std::ostream &out)
         out << ".device 5k" << std::endl;
         break;
     default:
-        assert(false);
+        NPNR_ASSERT(false);
     }
     // Set pips
     for (auto pip : ctx->getPips()) {
@@ -135,7 +135,7 @@ void write_asc(const Context *ctx, std::ostream &out)
                 bool val = (pi.switch_mask & (1 << ((swi.num_bits - 1) - i))) != 0;
                 int8_t &cbit = config.at(swi.y).at(swi.x).at(swi.cbits[i].row).at(swi.cbits[i].col);
                 if (bool(cbit) != 0)
-                    assert(false);
+                    NPNR_ASSERT(false);
                 cbit = val;
             }
         }
@@ -180,7 +180,7 @@ void write_asc(const Context *ctx, std::ostream &out)
             bool carry_set = get_param_or_def(cell.second.get(), ctx->id("CIN_SET"));
             if (carry_const) {
                 if (!ctx->force)
-                    assert(z == 0);
+                    NPNR_ASSERT(z == 0);
                 set_config(ti, config.at(y).at(x), "CarryInSet", carry_set);
             }
         } else if (cell.second->type == ctx->id("SB_IO")) {
@@ -196,7 +196,7 @@ void write_asc(const Context *ctx, std::ostream &out)
             auto ieren = get_ieren(bi, x, y, z);
             int iex, iey, iez;
             std::tie(iex, iey, iez) = ieren;
-            assert(iez != -1);
+            NPNR_ASSERT(iez != -1);
 
             bool input_en = false;
             if ((ctx->wire_to_net[ctx->getWireBelPin(bel, PIN_D_IN_0).index] != IdString()) ||
@@ -245,7 +245,7 @@ void write_asc(const Context *ctx, std::ostream &out)
         } else if (cell.second->type == ctx->id("ICESTORM_SPRAM")) {
             const BelInfoPOD &beli = ci.bel_data[bel.index];
             int x = beli.x, y = beli.y, z = beli.z;
-            assert(ctx->args.type == ArchArgs::UP5K);
+            NPNR_ASSERT(ctx->args.type == ArchArgs::UP5K);
             if (x == 0 && y == 0) {
                 const TileInfoPOD &ti_ipcon = bi.tiles_nonrouting[TILE_IPCON];
                 if (z == 1) {
@@ -253,7 +253,7 @@ void write_asc(const Context *ctx, std::ostream &out)
                 } else if (z == 2) {
                     set_config(ti_ipcon, config.at(1).at(0), "IpConfig.CBIT_1", true);
                 } else {
-                    assert(false);
+                    NPNR_ASSERT(false);
                 }
             } else if (x == 25 && y == 0) {
                 const TileInfoPOD &ti_ipcon = bi.tiles_nonrouting[TILE_IPCON];
@@ -262,11 +262,11 @@ void write_asc(const Context *ctx, std::ostream &out)
                 } else if (z == 4) {
                     set_config(ti_ipcon, config.at(1).at(25), "IpConfig.CBIT_1", true);
                 } else {
-                    assert(false);
+                    NPNR_ASSERT(false);
                 }
             }
         } else {
-            assert(false);
+            NPNR_ASSERT(false);
         }
     }
     // Set config bits in unused IO and RAM
@@ -386,7 +386,7 @@ void write_asc(const Context *ctx, std::ostream &out)
                 out << ".ipcon_tile";
                 break;
             default:
-                assert(false);
+                NPNR_ASSERT(false);
             }
             out << " " << x << " " << y << std::endl;
             for (auto row : config.at(y).at(x)) {
@@ -413,7 +413,7 @@ void write_asc(const Context *ctx, std::ostream &out)
                     std::vector<bool> bits(256);
                     std::string init =
                             get_param_str_or_def(cell.second.get(), ctx->id(std::string("INIT_") + get_hexdigit(w)));
-                    assert(init != "");
+                    NPNR_ASSERT(init != "");
                     for (size_t i = 0; i < init.size(); i++) {
                         bool val = (init.at((init.size() - 1) - i) == '1');
                         bits.at(i) = val;

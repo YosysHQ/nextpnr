@@ -47,8 +47,8 @@ const char *IdString::c_str(const BaseCtx *ctx) const { return str(ctx).c_str();
 
 void IdString::initialize_add(const BaseCtx *ctx, const char *s, int idx)
 {
-    assert(ctx->idstring_str_to_idx->count(s) == 0);
-    assert(int(ctx->idstring_idx_to_str->size()) == idx);
+    NPNR_ASSERT(ctx->idstring_str_to_idx->count(s) == 0);
+    NPNR_ASSERT(int(ctx->idstring_idx_to_str->size()) == idx);
     auto insert_rc = ctx->idstring_str_to_idx->insert({s, idx});
     ctx->idstring_idx_to_str->push_back(&insert_rc.first->first);
 }
@@ -170,12 +170,12 @@ void Context::check() const
 {
     for (auto &n : nets) {
         auto ni = n.second.get();
-        assert(n.first == ni->name);
+        NPNR_ASSERT(n.first == ni->name);
         for (auto &w : ni->wires) {
-            assert(n.first == getBoundWireNet(w.first));
+            NPNR_ASSERT(n.first == getBoundWireNet(w.first));
             if (w.second.pip != PipId()) {
-                assert(w.first == getPipDstWire(w.second.pip));
-                assert(n.first == getBoundPipNet(w.second.pip));
+                NPNR_ASSERT(w.first == getPipDstWire(w.second.pip));
+                NPNR_ASSERT(n.first == getBoundPipNet(w.second.pip));
             }
         }
     }
@@ -183,24 +183,24 @@ void Context::check() const
     for (auto w : getWires()) {
         IdString net = getBoundWireNet(w);
         if (net != IdString()) {
-            assert(nets.at(net)->wires.count(w));
+            NPNR_ASSERT(nets.at(net)->wires.count(w));
         }
     }
 
     for (auto &c : cells) {
-        assert(c.first == c.second->name);
+        NPNR_ASSERT(c.first == c.second->name);
         if (c.second->bel != BelId())
-            assert(getBoundBelCell(c.second->bel) == c.first);
+            NPNR_ASSERT(getBoundBelCell(c.second->bel) == c.first);
         for (auto &port : c.second->ports) {
             NetInfo *net = port.second.net;
             if (net != nullptr) {
-                assert(nets.find(net->name) != nets.end());
+                NPNR_ASSERT(nets.find(net->name) != nets.end());
                 if (port.second.type == PORT_OUT) {
-                    assert(net->driver.cell == c.second.get() && net->driver.port == port.first);
+                    NPNR_ASSERT(net->driver.cell == c.second.get() && net->driver.port == port.first);
                 } else if (port.second.type == PORT_IN) {
-                    assert(std::count_if(net->users.begin(), net->users.end(), [&](const PortRef &pr) {
-                               return pr.cell == c.second.get() && pr.port == port.first;
-                           }) == 1);
+                    NPNR_ASSERT(std::count_if(net->users.begin(), net->users.end(), [&](const PortRef &pr) {
+                                    return pr.cell == c.second.get() && pr.port == port.first;
+                                }) == 1);
                 }
             }
         }

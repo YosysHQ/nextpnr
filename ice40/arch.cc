@@ -254,7 +254,7 @@ BelId Arch::getBelByName(IdString name) const
 BelRange Arch::getBelsAtSameTile(BelId bel) const
 {
     BelRange br;
-    assert(bel != BelId());
+    NPNR_ASSERT(bel != BelId());
     // This requires Bels at the same tile are consecutive
     int x = chip_info->bel_data[bel.index].x;
     int y = chip_info->bel_data[bel.index].y;
@@ -273,7 +273,7 @@ WireId Arch::getWireBelPin(BelId bel, PortPin pin) const
 {
     WireId ret;
 
-    assert(bel != BelId());
+    NPNR_ASSERT(bel != BelId());
 
     int num_bel_wires = chip_info->bel_data[bel.index].num_bel_wires;
     const BelWirePOD *bel_wires = chip_info->bel_data[bel.index].bel_wires.get();
@@ -328,7 +328,7 @@ PipId Arch::getPipByName(IdString name) const
 
 IdString Arch::getPipName(PipId pip) const
 {
-    assert(pip != PipId());
+    NPNR_ASSERT(pip != PipId());
 
     int x = chip_info->pip_data[pip.index].x;
     int y = chip_info->pip_data[pip.index].y;
@@ -369,7 +369,7 @@ std::string Arch::getBelPackagePin(BelId bel) const
 
 void Arch::estimatePosition(BelId bel, int &x, int &y, bool &gb) const
 {
-    assert(bel != BelId());
+    NPNR_ASSERT(bel != BelId());
     x = chip_info->bel_data[bel.index].x;
     y = chip_info->bel_data[bel.index].y;
     gb = chip_info->bel_data[bel.index].type == TYPE_SB_GB;
@@ -377,11 +377,11 @@ void Arch::estimatePosition(BelId bel, int &x, int &y, bool &gb) const
 
 delay_t Arch::estimateDelay(WireId src, WireId dst) const
 {
-    assert(src != WireId());
+    NPNR_ASSERT(src != WireId());
     int x1 = chip_info->wire_data[src.index].x;
     int y1 = chip_info->wire_data[src.index].y;
 
-    assert(dst != WireId());
+    NPNR_ASSERT(dst != WireId());
     int x2 = chip_info->wire_data[dst.index].x;
     int y2 = chip_info->wire_data[dst.index].y;
 

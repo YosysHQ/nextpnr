@@ -95,7 +95,7 @@ void ripup_net(Context *ctx, IdString net_name)
     for (auto wire : wires)
         ctx->unbindWire(wire);
 
-    assert(net_info->wires.empty());
+    NPNR_ASSERT(net_info->wires.empty());
 }
 
 struct Router
@@ -187,7 +187,7 @@ struct Router
                 if (foundRipupNet)
                     next_delay += ripup_penalty;
 
-                assert(next_delay >= 0);
+                NPNR_ASSERT(next_delay >= 0);
 
                 if (visited.count(next_wire)) {
                     if (visited.at(next_wire).delay <= next_delay + ctx->getDelayEpsilon())
@@ -358,8 +358,8 @@ struct Router
                 IdString conflicting_wire_net = ctx->getConflictingWireNet(cursor);
 
                 if (conflicting_wire_net != IdString()) {
-                    assert(ripup);
-                    assert(conflicting_wire_net != net_name);
+                    NPNR_ASSERT(ripup);
+                    NPNR_ASSERT(conflicting_wire_net != net_name);
 
                     ctx->unbindWire(cursor);
                     if (!ctx->checkWireAvail(cursor))
@@ -375,8 +375,8 @@ struct Router
                 IdString conflicting_pip_net = ctx->getConflictingPipNet(pip);
 
                 if (conflicting_pip_net != IdString()) {
-                    assert(ripup);
-                    assert(conflicting_pip_net != net_name);
+                    NPNR_ASSERT(ripup);
+                    NPNR_ASSERT(conflicting_pip_net != net_name);
 
                     ctx->unbindPip(pip);
                     if (!ctx->checkPipAvail(pip))

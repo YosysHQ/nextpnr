@@ -23,18 +23,18 @@ bool check_all_nets_driven(Context *ctx)
                 log_info("    Checking name of port \'%s\' "
                          "against \'%s\'\n",
                          port_entry.first.c_str(ctx), port.name.c_str(ctx));
-            assert(port.name == port_entry.first);
-            assert(!port.name.empty());
+            NPNR_ASSERT(port.name == port_entry.first);
+            NPNR_ASSERT(!port.name.empty());
 
             if (port.net == NULL) {
                 if (debug)
                     log_warning("    Port \'%s\' in cell \'%s\' is unconnected\n", port.name.c_str(ctx),
                                 cell->name.c_str(ctx));
             } else {
-                assert(port.net);
+                NPNR_ASSERT(port.net);
                 if (debug)
                     log_info("    Checking for a net named \'%s\'\n", port.net->name.c_str(ctx));
-                assert(ctx->nets.count(port.net->name) > 0);
+                NPNR_ASSERT(ctx->nets.count(port.net->name) > 0);
             }
         }
     }
@@ -42,13 +42,13 @@ bool check_all_nets_driven(Context *ctx)
     for (auto &net_entry : ctx->nets) {
         NetInfo *net = net_entry.second.get();
 
-        assert(net->name == net_entry.first);
+        NPNR_ASSERT(net->name == net_entry.first);
         if ((net->driver.cell != NULL) && (net->driver.cell->type != ctx->id("GND")) &&
             (net->driver.cell->type != ctx->id("VCC"))) {
 
             if (debug)
                 log_info("    Checking for a driver cell named \'%s\'\n", net->driver.cell->name.c_str(ctx));
-            assert(ctx->cells.count(net->driver.cell->name) > 0);
+            NPNR_ASSERT(ctx->cells.count(net->driver.cell->name) > 0);
         }
 
         for (auto user : net->users) {
@@ -56,7 +56,7 @@ bool check_all_nets_driven(Context *ctx)
 
                 if (debug)
                     log_info("    Checking for a user   cell named \'%s\'\n", user.cell->name.c_str(ctx));
-                assert(ctx->cells.count(user.cell->name) > 0);
+                NPNR_ASSERT(ctx->cells.count(user.cell->name) > 0);
             }
         }
     }
