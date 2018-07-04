@@ -276,6 +276,11 @@ template <typename T, typename value_conv> struct map_wrapper
         x.base[PythonConversion::string_converter<K>().from_str(x.ctx, i)] = v;
     }
 
+    static size_t len(wrapped_map &x)
+    {
+        return x.base.size();
+    }
+
     static void del(T const &x, std::string const &i)
     {
         K k = PythonConversion::string_converter<K>().from_str(x.ctx, i);
@@ -293,7 +298,7 @@ template <typename T, typename value_conv> struct map_wrapper
         typename rw::iter_wrap().wrap(iter_name);
         class_<wrapped_map>(map_name, no_init)
                 .def("__iter__", rw::iter)
-                .def("__len__", &T::size)
+                .def("__len__", len)
                 .def("__getitem__", get)
                 .def("__setitem__", set, with_custodian_and_ward<1, 2>());
     }
@@ -394,6 +399,11 @@ template <typename T> struct map_wrapper_uptr
         x.base[PythonConversion::string_converter<K>().from_str(x.ctx, i)] = typename T::mapped_type(v);
     }
 
+    static size_t len(wrapped_map &x)
+    {
+        return x.base.size();
+    }
+
     static void del(T const &x, std::string const &i)
     {
         K k = PythonConversion::string_converter<K>().from_str(x.ctx, i);
@@ -411,7 +421,7 @@ template <typename T> struct map_wrapper_uptr
         typename rw::iter_wrap().wrap(iter_name);
         class_<wrapped_map>(map_name, no_init)
                 .def("__iter__", rw::iter)
-                .def("__len__", &T::size)
+                .def("__len__", len)
                 .def("__getitem__", get)
                 .def("__setitem__", set, with_custodian_and_ward<1, 2>());
     }

@@ -21,5 +21,5 @@ for cell, cinfo in sorted(ctx.cells, key=lambda x: x.first):
             print("\t\t{}: {}".format(param, val))
 
     if cinfo.bel.index != -1:
-        print("\tBel: {}".format(ctx.getBelName(cinfo.bel)))
+        print("\tBel: {}".format(cinfo.bel))
     print()

@@ -61,6 +61,7 @@ template <typename T> inline Context *get_ctx(typename WrapIfNotContext<T>::mayb
 {
     return wrp_ctx.ctx;
 }
+
 template <> inline Context *get_ctx<Context>(WrapIfNotContext<Context>::maybe_wrapped_t &unwrp_ctx)
 {
     return &unwrp_ctx;
@@ -70,6 +71,7 @@ template <typename T> inline T &get_base(typename WrapIfNotContext<T>::maybe_wra
 {
     return wrp_ctx.base;
 }
+
 template <> inline Context &get_base<Context>(WrapIfNotContext<Context>::maybe_wrapped_t &unwrp_ctx)
 {
     return unwrp_ctx;
@@ -79,6 +81,10 @@ template <typename T> ContextualWrapper<T> wrap_ctx(Context *ctx, T x) { return 
 
 // Dummy class, to be implemented by users
 template <typename T> struct string_converter;
+
+class bad_wrap
+{
+};
 
 // Action options
 template <typename T> struct pass_through
@@ -92,6 +98,7 @@ template <typename T> struct pass_through
 template <typename T> struct wrap_context
 {
     inline ContextualWrapper<T> operator()(Context *ctx, T x) { return ContextualWrapper<T>(ctx, x); }
+
     using arg_type = T;
     using ret_type = ContextualWrapper<T>;
 };
@@ -99,6 +106,7 @@ template <typename T> struct wrap_context
 template <typename T> struct unwrap_context
 {
     inline T operator()(Context *ctx, ContextualWrapper<T> x) { return x.base; }
+
     using ret_type = T;
     using arg_type = ContextualWrapper<T>;
 };
@@ -106,6 +114,7 @@ template <typename T> struct unwrap_context
 template <typename T> struct conv_from_str
 {
     inline T operator()(Context *ctx, std::string x) { return string_converter<T>().from_str(ctx, x); }
+
     using ret_type = T;
     using arg_type = std::string;
 };
@@ -113,8 +122,22 @@ template <typename T> struct conv_from_str
 template <typename T> struct conv_to_str
 {
     inline std::string operator()(Context *ctx, T x) { return string_converter<T>().to_str(ctx, x); }
+
     using ret_type = std::string;
     using arg_type = T;
+};
+
+template <typename T> struct deref_and_wrap
+{
+    inline ContextualWrapper<T&> operator()(Context *ctx, T *x)
+    {
+        if (x == nullptr)
+            throw bad_wrap();
+        return ContextualWrapper<T&>(ctx, *x);
+    }
+
+    using arg_type = T *;
+    using ret_type = ContextualWrapper<T&>;
 };
 
 // Function wrapper
@@ -133,6 +156,7 @@ template <typename Class, typename FuncT, FuncT fn, typename rv_conv> struct fn_
 
     template <typename WrapCls> static void def_wrap(WrapCls cls_, const char *name) { cls_.def(name, wrapped_fn); }
 };
+
 // One parameter, one return
 template <typename Class, typename FuncT, FuncT fn, typename rv_conv, typename arg1_conv> struct fn_wrapper_1a
 {
@@ -204,6 +228,7 @@ template <typename Class, typename FuncT, FuncT fn> struct fn_wrapper_0a_v
 
     template <typename WrapCls> static void def_wrap(WrapCls cls_, const char *name) { cls_.def(name, wrapped_fn); }
 };
+
 // One parameter, void
 template <typename Class, typename FuncT, FuncT fn, typename arg1_conv> struct fn_wrapper_1a_v
 {
@@ -262,16 +287,52 @@ template <typename Class, typename MemT, MemT mem, typename v_conv> struct reado
     using class_type = typename WrapIfNotContext<Class>::maybe_wrapped_t;
     using conv_val_type = typename v_conv::ret_type;
 
-    static conv_val_type wrapped_getter(class_type &cls)
+    static object wrapped_getter(class_type &cls)
     {
         Context *ctx = get_ctx<Class>(cls);
         Class &base = get_base<Class>(cls);
-        return v_conv()(ctx, (base.*mem));
+        try {
+            return object(v_conv()(ctx, (base.*mem)));
+        } catch (bad_wrap &) {
+            return object();
+        }
     }
 
     template <typename WrapCls> static void def_wrap(WrapCls cls_, const char *name)
     {
         cls_.add_property(name, wrapped_getter);
+    }
+};
+
+// Wrapped getter/setter
+template <typename Class, typename MemT, MemT mem, typename get_conv, typename set_conv> struct readwrite_wrapper
+{
+    using class_type = typename WrapIfNotContext<Class>::maybe_wrapped_t;
+    using conv_val_type = typename get_conv::ret_type;
+
+    static object wrapped_getter(class_type &cls)
+    {
+        Context *ctx = get_ctx<Class>(cls);
+        Class &base = get_base<Class>(cls);
+        try {
+            return object(get_conv()(ctx, (base.*mem)));
+        } catch (bad_wrap &) {
+            return object();
+        }
+    }
+
+    using conv_arg_type = typename set_conv::arg_type;
+
+    static void wrapped_setter(class_type &cls, conv_arg_type val)
+    {
+        Context *ctx = get_ctx<Class>(cls);
+        Class &base = get_base<Class>(cls);
+        (base.*mem) = set_conv()(ctx, val);
+    }
+
+    template <typename WrapCls> static void def_wrap(WrapCls cls_, const char *name)
+    {
+        cls_.add_property(name, wrapped_getter, wrapped_setter);
     }
 };
 
