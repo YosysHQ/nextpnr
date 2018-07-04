@@ -118,16 +118,6 @@ struct IdString
     bool operator!=(const IdString &other) const { return index != other.index; }
 
     bool empty() const { return index == 0; }
-
-    // --- deprecated old API ---
-
-    static std::unordered_set<BaseCtx *> global_ctx;
-
-    NPNR_DEPRECATED const std::string &global_str() const
-    {
-        assert(global_ctx.size() == 1);
-        return str(*global_ctx.begin());
-    }
 };
 
 NEXTPNR_NAMESPACE_END
@@ -252,8 +242,6 @@ struct BaseCtx
 
     BaseCtx()
     {
-        IdString::global_ctx.insert(this);
-
         idstring_str_to_idx = new std::unordered_map<std::string, int>;
         idstring_idx_to_str = new std::vector<const std::string *>;
         IdString::initialize_add(this, "", 0);
@@ -262,7 +250,6 @@ struct BaseCtx
 
     ~BaseCtx()
     {
-        IdString::global_ctx.erase(this);
         delete idstring_str_to_idx;
         delete idstring_idx_to_str;
     }

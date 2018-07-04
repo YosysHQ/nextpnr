@@ -276,10 +276,7 @@ template <typename T, typename value_conv> struct map_wrapper
         x.base[PythonConversion::string_converter<K>().from_str(x.ctx, i)] = v;
     }
 
-    static size_t len(wrapped_map &x)
-    {
-        return x.base.size();
-    }
+    static size_t len(wrapped_map &x) { return x.base.size(); }
 
     static void del(T const &x, std::string const &i)
     {
@@ -399,10 +396,7 @@ template <typename T> struct map_wrapper_uptr
         x.base[PythonConversion::string_converter<K>().from_str(x.ctx, i)] = typename T::mapped_type(v);
     }
 
-    static size_t len(wrapped_map &x)
-    {
-        return x.base.size();
-    }
+    static size_t len(wrapped_map &x) { return x.base.size(); }
 
     static void del(T const &x, std::string const &i)
     {

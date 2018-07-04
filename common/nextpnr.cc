@@ -27,8 +27,6 @@ assertion_failure::assertion_failure(std::string msg, std::string expr_str, std:
 {
 }
 
-std::unordered_set<BaseCtx *> IdString::global_ctx;
-
 void IdString::set(const BaseCtx *ctx, const std::string &s)
 {
     auto it = ctx->idstring_str_to_idx->find(s);

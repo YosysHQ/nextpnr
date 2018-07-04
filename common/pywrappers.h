@@ -129,15 +129,15 @@ template <typename T> struct conv_to_str
 
 template <typename T> struct deref_and_wrap
 {
-    inline ContextualWrapper<T&> operator()(Context *ctx, T *x)
+    inline ContextualWrapper<T &> operator()(Context *ctx, T *x)
     {
         if (x == nullptr)
             throw bad_wrap();
-        return ContextualWrapper<T&>(ctx, *x);
+        return ContextualWrapper<T &>(ctx, *x);
     }
 
     using arg_type = T *;
-    using ret_type = ContextualWrapper<T&>;
+    using ret_type = ContextualWrapper<T &>;
 };
 
 // Function wrapper
