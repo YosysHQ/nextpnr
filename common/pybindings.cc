@@ -61,8 +61,15 @@ Context *load_design_shim(std::string filename, ArchArgs args)
     return d;
 }
 
+void translate_assertfail(const assertion_failure &e) {
+    // Use the Python 'C' API to set up an exception object
+    PyErr_SetString(PyExc_AssertionError, e.what());
+}
+
 BOOST_PYTHON_MODULE(MODULE_NAME)
 {
+    register_exception_translator<assertion_failure>(&translate_assertfail);
+
     using namespace PythonConversion;
 
     class_<GraphicElement>("GraphicElement")
