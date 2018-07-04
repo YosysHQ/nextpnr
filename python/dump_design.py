@@ -20,6 +20,6 @@ for cell, cinfo in sorted(ctx.cells, key=lambda x: x.first):
                 val = "{}'b{}".format(len(val), val)
             print("\t\t{}: {}".format(param, val))
 
-    if cinfo.bel.index != -1:
+    if cinfo.bel is not None:
         print("\tBel: {}".format(cinfo.bel))
     print()

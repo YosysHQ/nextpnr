@@ -21,8 +21,9 @@
 #define ARCH_PYBINDINGS_H
 #ifndef NO_PYTHON
 
-#include "pybindings.h"
 #include "nextpnr.h"
+#include "pybindings.h"
+#include "pywrappers.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -32,7 +33,12 @@ template <> struct string_converter<BelId>
 {
     BelId from_str(Context *ctx, std::string name) { return ctx->getBelByName(ctx->id(name)); }
 
-    std::string to_str(Context *ctx, BelId id) { return ctx->getBelName(id).str(ctx); }
+    std::string to_str(Context *ctx, BelId id)
+    {
+        if (id == BelId())
+            throw bad_wrap();
+        return ctx->getBelName(id).str(ctx);
+    }
 };
 
 template <> struct string_converter<BelType>

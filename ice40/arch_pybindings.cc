@@ -20,9 +20,9 @@
 
 #ifndef NO_PYTHON
 
-#include "pybindings.h"
 #include "arch_pybindings.h"
 #include "nextpnr.h"
+#include "pybindings.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
