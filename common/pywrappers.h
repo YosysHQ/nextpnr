@@ -221,7 +221,6 @@ template <typename Class, typename FuncT, FuncT fn> struct fn_wrapper_0a_v
 
     static void wrapped_fn(class_type &cls)
     {
-        Context *ctx = get_ctx<Class>(cls);
         Class &base = get_base<Class>(cls);
         return (base.*fn)();
     }
