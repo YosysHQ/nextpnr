@@ -124,8 +124,16 @@ PortPin Arch::portPinFromId(IdString type) const
 
 static const ChipInfoPOD *get_chip_info(const RelPtr<ChipInfoPOD> *ptr) { return ptr->get(); }
 
+#if defined(_MSC_VER)
+void load_chipdb();
+#endif
+
 Arch::Arch(ArchArgs args) : args(args)
 {
+#if defined(_MSC_VER)
+    load_chipdb();
+#endif
+
 #ifdef ICE40_HX1K_ONLY
     if (args.type == ArchArgs::HX1K) {
         chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_1k));

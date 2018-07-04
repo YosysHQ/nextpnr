@@ -185,10 +185,17 @@ struct ChipInfoPOD
     RelPtr<PackageInfoPOD> packages_data;
 });
 
+#if defined(_MSC_VER)
+extern const char* chipdb_blob_384;
+extern const char* chipdb_blob_1k;
+extern const char* chipdb_blob_5k;
+extern const char* chipdb_blob_8k;
+#else
 extern const char chipdb_blob_384[];
 extern const char chipdb_blob_1k[];
 extern const char chipdb_blob_5k[];
 extern const char chipdb_blob_8k[];
+#endif
 
 /************************ End of chipdb section. ************************/
 

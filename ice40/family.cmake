@@ -8,23 +8,43 @@ else()
 endif()
 
 set(DB_PY ${CMAKE_CURRENT_SOURCE_DIR}/ice40/chipdb.py)
+
+set(ICEBOX_ROOT "/usr/local/share/icebox" CACHE STRING "icebox location root")
 file(MAKE_DIRECTORY ice40/chipdbs/)
 add_library(ice40_chipdb OBJECT ice40/chipdbs/)
-target_compile_options(ice40_chipdb PRIVATE -g0 -O0 -w)
 target_compile_definitions(ice40_chipdb PRIVATE NEXTPNR_NAMESPACE=nextpnr_${family})
 target_include_directories(ice40_chipdb PRIVATE ${family}/)
-set(ICEBOX_ROOT "/usr/local/share/icebox" CACHE STRING "icebox location root")
-foreach (dev ${devices})
-    set(DEV_TXT_DB ${ICEBOX_ROOT}/chipdb-${dev}.txt)
-    set(DEV_CC_DB ${CMAKE_CURRENT_SOURCE_DIR}/ice40/chipdbs/chipdb-${dev}.cc)
-    set(DEV_PORTS_INC ${CMAKE_CURRENT_SOURCE_DIR}/ice40/portpins.inc)
-    add_custom_command(OUTPUT ${DEV_CC_DB}
-            COMMAND python3 ${DB_PY} -c -p ${DEV_PORTS_INC} ${DEV_TXT_DB} > ${DEV_CC_DB}.new
-            COMMAND mv ${DEV_CC_DB}.new ${DEV_CC_DB}
-            DEPENDS ${DEV_TXT_DB} ${DB_PY}
-            )
-    target_sources(ice40_chipdb PRIVATE ${DEV_CC_DB})
-    foreach (target ${family_targets})
-        target_sources(${target} PRIVATE $<TARGET_OBJECTS:ice40_chipdb>)
-    endforeach (target)
-endforeach (dev)
+if (MSVC)
+    target_sources(ice40_chipdb PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/ice40/resource/embed.cc)
+    set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/ice40/resources/chipdb.rc PROPERTIES LANGUAGE RC)
+    foreach (dev ${devices})
+        set(DEV_TXT_DB ${ICEBOX_ROOT}/chipdb-${dev}.txt)
+        set(DEV_CC_DB ${CMAKE_CURRENT_SOURCE_DIR}/ice40/chipdbs/chipdb-${dev}.bin)
+        set(DEV_PORTS_INC ${CMAKE_CURRENT_SOURCE_DIR}/ice40/portpins.inc)
+        add_custom_command(OUTPUT ${DEV_CC_DB}
+                COMMAND python3 ${DB_PY} -b -p ${DEV_PORTS_INC} ${DEV_TXT_DB} > ${DEV_CC_DB}
+                DEPENDS ${DEV_TXT_DB} ${DB_PY}
+                )
+        target_sources(ice40_chipdb PRIVATE ${DEV_CC_DB})
+        set_source_files_properties(${DEV_CC_DB} PROPERTIES HEADER_FILE_ONLY TRUE)
+        foreach (target ${family_targets})
+            target_sources(${target} PRIVATE $<TARGET_OBJECTS:ice40_chipdb> ${CMAKE_CURRENT_SOURCE_DIR}/ice40/resource/chipdb.rc)
+        endforeach (target)
+    endforeach (dev)
+else()
+    target_compile_options(ice40_chipdb PRIVATE -g0 -O0 -w)
+    foreach (dev ${devices})
+        set(DEV_TXT_DB ${ICEBOX_ROOT}/chipdb-${dev}.txt)
+        set(DEV_CC_DB ${CMAKE_CURRENT_SOURCE_DIR}/ice40/chipdbs/chipdb-${dev}.cc)
+        set(DEV_PORTS_INC ${CMAKE_CURRENT_SOURCE_DIR}/ice40/portpins.inc)
+        add_custom_command(OUTPUT ${DEV_CC_DB}
+                COMMAND python3 ${DB_PY} -c -p ${DEV_PORTS_INC} ${DEV_TXT_DB} > ${DEV_CC_DB}.new
+                COMMAND mv ${DEV_CC_DB}.new ${DEV_CC_DB}
+                DEPENDS ${DEV_TXT_DB} ${DB_PY}
+                )
+        target_sources(ice40_chipdb PRIVATE ${DEV_CC_DB})
+        foreach (target ${family_targets})
+            target_sources(${target} PRIVATE $<TARGET_OBJECTS:ice40_chipdb>)
+        endforeach (target)
+    endforeach (dev)
+endif()
