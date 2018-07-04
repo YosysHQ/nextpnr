@@ -117,20 +117,62 @@ void arch_wrap_python()
     fn_wrapper_1a<Context, typeof(&Context::getBelsAtSameTile), &Context::getBelsAtSameTile, wrap_context<BelRange>,
                   conv_from_str<BelId>>::def_wrap(ctx_cls, "getBelsAtSameTile");
 
+    fn_wrapper_2a<Context, typeof(&Context::getWireBelPin), &Context::getWireBelPin, conv_to_str<WireId>,
+                  conv_from_str<BelId>, conv_from_str<PortPin>>::def_wrap(ctx_cls, "getWireBelPin");
+    fn_wrapper_1a<Context, typeof(&Context::getBelPinUphill), &Context::getBelPinUphill, wrap_context<BelPin>,
+                  conv_from_str<WireId>>::def_wrap(ctx_cls, "getBelPinUphill");
+    fn_wrapper_1a<Context, typeof(&Context::getBelPinsDownhill), &Context::getBelPinsDownhill,
+                  wrap_context<BelPinRange>, conv_from_str<WireId>>::def_wrap(ctx_cls, "getBelPinsDownhill");
+
+    fn_wrapper_1a<Context, typeof(&Context::getWireChecksum), &Context::getWireChecksum, pass_through<uint32_t>,
+            conv_from_str<WireId>>::def_wrap(ctx_cls, "getWireChecksum");
+    fn_wrapper_3a_v<Context, typeof(&Context::bindWire), &Context::bindWire, conv_from_str<WireId>,
+            conv_from_str<IdString>, pass_through<PlaceStrength>>::def_wrap(ctx_cls, "bindWire");
+    fn_wrapper_1a_v<Context, typeof(&Context::unbindWire), &Context::unbindWire, conv_from_str<WireId>>::def_wrap(
+            ctx_cls, "unbindWire");
+    fn_wrapper_1a<Context, typeof(&Context::checkWireAvail), &Context::checkWireAvail, pass_through<bool>,
+            conv_from_str<WireId>>::def_wrap(ctx_cls, "checkWireAvail");
+    fn_wrapper_1a<Context, typeof(&Context::getBoundWireNet), &Context::getBoundWireNet, conv_to_str<IdString>,
+            conv_from_str<WireId>>::def_wrap(ctx_cls, "getBoundWireNet");
+    fn_wrapper_1a<Context, typeof(&Context::getConflictingWireNet), &Context::getConflictingWireNet, conv_to_str<IdString>,
+            conv_from_str<WireId>>::def_wrap(ctx_cls, "getConflictingWireNet");
+
     fn_wrapper_0a<Context, typeof(&Context::getWires), &Context::getWires, wrap_context<WireRange>>::def_wrap(
             ctx_cls, "getWires");
+
     fn_wrapper_0a<Context, typeof(&Context::getPips), &Context::getPips, wrap_context<AllPipRange>>::def_wrap(
             ctx_cls, "getPips");
+    fn_wrapper_1a<Context, typeof(&Context::getPipChecksum), &Context::getPipChecksum, pass_through<uint32_t>,
+            conv_from_str<PipId>>::def_wrap(ctx_cls, "getPipChecksum");
+    fn_wrapper_3a_v<Context, typeof(&Context::bindPip), &Context::bindPip, conv_from_str<PipId>,
+            conv_from_str<IdString>, pass_through<PlaceStrength>>::def_wrap(ctx_cls, "bindPip");
+    fn_wrapper_1a_v<Context, typeof(&Context::unbindPip), &Context::unbindPip, conv_from_str<PipId>>::def_wrap(
+            ctx_cls, "unbindPip");
+    fn_wrapper_1a<Context, typeof(&Context::checkPipAvail), &Context::checkPipAvail, pass_through<bool>,
+            conv_from_str<PipId>>::def_wrap(ctx_cls, "checkPipAvail");
+    fn_wrapper_1a<Context, typeof(&Context::getBoundPipNet), &Context::getBoundPipNet, conv_to_str<IdString>,
+            conv_from_str<PipId>>::def_wrap(ctx_cls, "getBoundPipNet");
+    fn_wrapper_1a<Context, typeof(&Context::getConflictingPipNet), &Context::getConflictingPipNet, conv_to_str<IdString>,
+            conv_from_str<PipId>>::def_wrap(ctx_cls, "getConflictingPipNet");
 
     fn_wrapper_1a<Context, typeof(&Context::getPipsDownhill), &Context::getPipsDownhill, wrap_context<PipRange>,
                   conv_from_str<WireId>>::def_wrap(ctx_cls, "getPipsDownhill");
     fn_wrapper_1a<Context, typeof(&Context::getPipsUphill), &Context::getPipsUphill, wrap_context<PipRange>,
                   conv_from_str<WireId>>::def_wrap(ctx_cls, "getPipsUphill");
+    fn_wrapper_1a<Context, typeof(&Context::getWireAliases), &Context::getWireAliases, wrap_context<PipRange>,
+            conv_from_str<WireId>>::def_wrap(ctx_cls, "getWireAliases");
 
     fn_wrapper_1a<Context, typeof(&Context::getPipSrcWire), &Context::getPipSrcWire, conv_to_str<WireId>,
                   conv_from_str<PipId>>::def_wrap(ctx_cls, "getPipSrcWire");
     fn_wrapper_1a<Context, typeof(&Context::getPipDstWire), &Context::getPipDstWire, conv_to_str<WireId>,
                   conv_from_str<PipId>>::def_wrap(ctx_cls, "getPipDstWire");
+    fn_wrapper_1a<Context, typeof(&Context::getPipDelay), &Context::getPipDelay, pass_through<DelayInfo>,
+            conv_from_str<PipId>>::def_wrap(ctx_cls, "getPipDelay");
+
+    fn_wrapper_1a<Context, typeof(&Context::getPackagePinBel), &Context::getPackagePinBel, conv_to_str<BelId>,
+            pass_through<std::string>>::def_wrap(ctx_cls, "getPackagePinBel");
+    fn_wrapper_1a<Context, typeof(&Context::getBelPackagePin), &Context::getBelPackagePin, pass_through<std::string>,
+            conv_from_str<BelId>>::def_wrap(ctx_cls, "getBelPackagePin");
 
     fn_wrapper_0a<Context, typeof(&Context::getChipName), &Context::getChipName, pass_through<std::string>>::def_wrap(
             ctx_cls, "getChipName");
@@ -138,20 +180,20 @@ void arch_wrap_python()
                                                                                                         "archId");
 
     typedef std::unordered_map<IdString, std::unique_ptr<CellInfo>> CellMap;
+    typedef std::unordered_map<IdString, std::unique_ptr<NetInfo>> NetMap;
 
     readonly_wrapper<Context, typeof(&Context::cells), &Context::cells, wrap_context<CellMap &>>::def_wrap(ctx_cls,
                                                                                                            "cells");
-
+    readonly_wrapper<Context, typeof(&Context::nets), &Context::nets, wrap_context<NetMap &>>::def_wrap(ctx_cls,
+                                                                                                           "nets");
     WRAP_RANGE(Bel, conv_to_str<BelId>);
     WRAP_RANGE(Wire, conv_to_str<WireId>);
     WRAP_RANGE(AllPip, conv_to_str<PipId>);
     WRAP_RANGE(Pip, conv_to_str<PipId>);
 
     WRAP_MAP_UPTR(CellMap, "IdCellMap");
-    // WRAP_RANGE(BelPin);
-    // WRAP_RANGE(Wire);
-    // WRAP_RANGE(AllPip);
-    // WRAP_RANGE(Pip);
+    WRAP_MAP_UPTR(NetMap, "IdNetMap");
+
 }
 
 NEXTPNR_NAMESPACE_END
