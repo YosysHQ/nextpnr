@@ -188,20 +188,23 @@ template <typename T1, typename T2> struct pair_wrapper
 /*
 Special case of above for map key/values
  */
-template <typename T1, typename T2> struct map_pair_wrapper
+template <typename T1, typename T2, typename value_conv> struct map_pair_wrapper
 {
     typedef std::pair<T1, T2> T;
+    typedef PythonConversion::ContextualWrapper<T &> wrapped_pair;
+    typedef typename T::second_type V;
 
     struct pair_iterator_wrapper
     {
-        static object next(std::pair<T &, int> &iter)
+        static object next(std::pair<wrapped_pair &, int> &iter)
         {
             if (iter.second == 0) {
                 iter.second++;
-                return object(iter.first.first);
+                return object(PythonConversion::string_converter<typeof(iter.first.base.first)>().to_str(
+                        iter.first.ctx, iter.first.base.first));
             } else if (iter.second == 1) {
                 iter.second++;
-                return object(iter.first.second);
+                return object(value_conv()(iter.first.ctx, iter.first.base.second));
             } else {
                 PyErr_SetString(PyExc_StopIteration, "End of range reached");
                 boost::python::throw_error_already_set();
@@ -213,30 +216,37 @@ template <typename T1, typename T2> struct map_pair_wrapper
 
         static void wrap(const char *python_name)
         {
-            class_<std::pair<T &, int>>(python_name, no_init).def("__next__", next);
+            class_<std::pair<wrapped_pair &, int>>(python_name, no_init).def("__next__", next);
         }
     };
 
-    static object get(T &x, int i)
+    static object get(wrapped_pair &x, int i)
     {
         if ((i >= 2) || (i < 0))
             KeyError();
-        return (i == 1) ? object(x.second) : object(x.first);
+        return (i == 1) ? object(value_conv()(x.ctx, x.base.second)) : object(x.base.first);
     }
 
-    static int len(T &x) { return 2; }
+    static int len(wrapped_pair &x) { return 2; }
 
-    static std::pair<T &, int> iter(T &x) { return std::make_pair(boost::ref(x), 0); };
+    static std::pair<wrapped_pair &, int> iter(wrapped_pair &x) { return std::make_pair(boost::ref(x), 0); };
+
+    static std::string first_getter(wrapped_pair &t)
+    {
+        return PythonConversion::string_converter<typeof(t.base.first)>().to_str(t.ctx, t.base.first);
+    }
+
+    static typename value_conv::ret_type second_getter(wrapped_pair &t) { return value_conv()(t.ctx, t.base.second); }
 
     static void wrap(const char *pair_name, const char *iter_name)
     {
         pair_iterator_wrapper::wrap(iter_name);
-        class_<T>(pair_name, no_init)
+        class_<wrapped_pair>(pair_name, no_init)
                 .def("__iter__", iter)
                 .def("__len__", len)
                 .def("__getitem__", get)
-                .def_readonly("first", &T::first)
-                .def_readwrite("second", &T::second);
+                .add_property("first", first_getter)
+                .add_property("second", second_getter);
     }
 };
 
@@ -244,26 +254,33 @@ template <typename T1, typename T2> struct map_pair_wrapper
 Wrapper for a map, either an unordered_map, regular map or dict
  */
 
-template <typename T> struct map_wrapper
+template <typename T, typename value_conv> struct map_wrapper
 {
     typedef typename std::remove_cv<typename std::remove_reference<typename T::key_type>::type>::type K;
     typedef typename T::mapped_type V;
+    typedef typename value_conv::ret_type wrapped_V;
     typedef typename T::value_type KV;
+    typedef typename PythonConversion::ContextualWrapper<T &> wrapped_map;
 
-    static V &get(T &x, K const &i)
+    static wrapped_V get(wrapped_map &x, std::string const &i)
     {
-        if (x.find(i) != x.end())
-            return x.at(i);
+        K k = PythonConversion::string_converter<K>().from_str(x.ctx, i);
+        if (x.base.find(k) != x.base.end())
+            return value_conv()(x.ctx, x.base.at(k));
         KeyError();
         std::terminate();
     }
 
-    static void set(T &x, K const &i, V &v) { x[i] = v; }
-
-    static void del(T const &x, K const &i)
+    static void set(wrapped_map &x, std::string const &i, V const &v)
     {
-        if (x.find(i) != x.end())
-            x.erase(i);
+        x.base[PythonConversion::string_converter<K>().from_str(x.ctx, i)] = v;
+    }
+
+    static void del(T const &x, std::string const &i)
+    {
+        K k = PythonConversion::string_converter<K>().from_str(x.ctx, i);
+        if (x.base.find(k) != x.base.end())
+            x.base.erase(k);
         else
             KeyError();
         std::terminate();
@@ -271,13 +288,13 @@ template <typename T> struct map_wrapper
 
     static void wrap(const char *map_name, const char *kv_name, const char *kv_iter_name, const char *iter_name)
     {
-        map_pair_wrapper<typename KV::first_type, typename KV::second_type>::wrap(kv_name, kv_iter_name);
-        typedef range_wrapper<T, return_value_policy<copy_non_const_reference>> rw;
+        map_pair_wrapper<typename KV::first_type, typename KV::second_type, value_conv>::wrap(kv_name, kv_iter_name);
+        typedef range_wrapper<T &, return_value_policy<return_by_value>, PythonConversion::wrap_context<KV &>> rw;
         typename rw::iter_wrap().wrap(iter_name);
-        class_<T>(map_name, no_init)
+        class_<wrapped_map>(map_name, no_init)
                 .def("__iter__", rw::iter)
                 .def("__len__", &T::size)
-                .def("__getitem__", get, return_internal_reference<>())
+                .def("__getitem__", get)
                 .def("__setitem__", set, with_custodian_and_ward<1, 2>());
     }
 };
@@ -400,7 +417,8 @@ template <typename T> struct map_wrapper_uptr
     }
 };
 
-#define WRAP_MAP(t, name) map_wrapper<t>().wrap(#name, #name "KeyValue", #name "KeyValueIter", #name "Iterator")
+#define WRAP_MAP(t, conv, name)                                                                                        \
+    map_wrapper<t, conv>().wrap(#name, #name "KeyValue", #name "KeyValueIter", #name "Iterator")
 #define WRAP_MAP_UPTR(t, name)                                                                                         \
     map_wrapper_uptr<t>().wrap(#name, #name "KeyValue", #name "KeyValueIter", #name "Iterator")
 

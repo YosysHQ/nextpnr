@@ -21,48 +21,10 @@
 #ifndef NO_PYTHON
 
 #include "pybindings.h"
+#include "arch_pybindings.h"
 #include "nextpnr.h"
 
 NEXTPNR_NAMESPACE_BEGIN
-
-namespace PythonConversion {
-
-template <> struct string_converter<BelId>
-{
-    BelId from_str(Context *ctx, std::string name) { return ctx->getBelByName(ctx->id(name)); }
-
-    std::string to_str(Context *ctx, BelId id) { return ctx->getBelName(id).str(ctx); }
-};
-
-template <> struct string_converter<BelType>
-{
-    BelType from_str(Context *ctx, std::string name) { return ctx->belTypeFromId(ctx->id(name)); }
-
-    std::string to_str(Context *ctx, BelType typ) { return ctx->belTypeToId(typ).str(ctx); }
-};
-
-template <> struct string_converter<WireId>
-{
-    WireId from_str(Context *ctx, std::string name) { return ctx->getWireByName(ctx->id(name)); }
-
-    std::string to_str(Context *ctx, WireId id) { return ctx->getWireName(id).str(ctx); }
-};
-
-template <> struct string_converter<PipId>
-{
-    PipId from_str(Context *ctx, std::string name) { return ctx->getPipByName(ctx->id(name)); }
-
-    std::string to_str(Context *ctx, PipId id) { return ctx->getPipName(id).str(ctx); }
-};
-
-template <> struct string_converter<PortPin>
-{
-    PortPin from_str(Context *ctx, std::string name) { return ctx->portPinFromId(ctx->id(name)); }
-
-    std::string to_str(Context *ctx, PortPin id) { return ctx->portPinToId(id).str(ctx); }
-};
-
-} // namespace PythonConversion
 
 void arch_wrap_python()
 {
@@ -125,17 +87,17 @@ void arch_wrap_python()
                   wrap_context<BelPinRange>, conv_from_str<WireId>>::def_wrap(ctx_cls, "getBelPinsDownhill");
 
     fn_wrapper_1a<Context, typeof(&Context::getWireChecksum), &Context::getWireChecksum, pass_through<uint32_t>,
-            conv_from_str<WireId>>::def_wrap(ctx_cls, "getWireChecksum");
+                  conv_from_str<WireId>>::def_wrap(ctx_cls, "getWireChecksum");
     fn_wrapper_3a_v<Context, typeof(&Context::bindWire), &Context::bindWire, conv_from_str<WireId>,
-            conv_from_str<IdString>, pass_through<PlaceStrength>>::def_wrap(ctx_cls, "bindWire");
+                    conv_from_str<IdString>, pass_through<PlaceStrength>>::def_wrap(ctx_cls, "bindWire");
     fn_wrapper_1a_v<Context, typeof(&Context::unbindWire), &Context::unbindWire, conv_from_str<WireId>>::def_wrap(
             ctx_cls, "unbindWire");
     fn_wrapper_1a<Context, typeof(&Context::checkWireAvail), &Context::checkWireAvail, pass_through<bool>,
-            conv_from_str<WireId>>::def_wrap(ctx_cls, "checkWireAvail");
+                  conv_from_str<WireId>>::def_wrap(ctx_cls, "checkWireAvail");
     fn_wrapper_1a<Context, typeof(&Context::getBoundWireNet), &Context::getBoundWireNet, conv_to_str<IdString>,
-            conv_from_str<WireId>>::def_wrap(ctx_cls, "getBoundWireNet");
-    fn_wrapper_1a<Context, typeof(&Context::getConflictingWireNet), &Context::getConflictingWireNet, conv_to_str<IdString>,
-            conv_from_str<WireId>>::def_wrap(ctx_cls, "getConflictingWireNet");
+                  conv_from_str<WireId>>::def_wrap(ctx_cls, "getBoundWireNet");
+    fn_wrapper_1a<Context, typeof(&Context::getConflictingWireNet), &Context::getConflictingWireNet,
+                  conv_to_str<IdString>, conv_from_str<WireId>>::def_wrap(ctx_cls, "getConflictingWireNet");
 
     fn_wrapper_0a<Context, typeof(&Context::getWires), &Context::getWires, wrap_context<WireRange>>::def_wrap(
             ctx_cls, "getWires");
@@ -143,36 +105,36 @@ void arch_wrap_python()
     fn_wrapper_0a<Context, typeof(&Context::getPips), &Context::getPips, wrap_context<AllPipRange>>::def_wrap(
             ctx_cls, "getPips");
     fn_wrapper_1a<Context, typeof(&Context::getPipChecksum), &Context::getPipChecksum, pass_through<uint32_t>,
-            conv_from_str<PipId>>::def_wrap(ctx_cls, "getPipChecksum");
+                  conv_from_str<PipId>>::def_wrap(ctx_cls, "getPipChecksum");
     fn_wrapper_3a_v<Context, typeof(&Context::bindPip), &Context::bindPip, conv_from_str<PipId>,
-            conv_from_str<IdString>, pass_through<PlaceStrength>>::def_wrap(ctx_cls, "bindPip");
+                    conv_from_str<IdString>, pass_through<PlaceStrength>>::def_wrap(ctx_cls, "bindPip");
     fn_wrapper_1a_v<Context, typeof(&Context::unbindPip), &Context::unbindPip, conv_from_str<PipId>>::def_wrap(
             ctx_cls, "unbindPip");
     fn_wrapper_1a<Context, typeof(&Context::checkPipAvail), &Context::checkPipAvail, pass_through<bool>,
-            conv_from_str<PipId>>::def_wrap(ctx_cls, "checkPipAvail");
+                  conv_from_str<PipId>>::def_wrap(ctx_cls, "checkPipAvail");
     fn_wrapper_1a<Context, typeof(&Context::getBoundPipNet), &Context::getBoundPipNet, conv_to_str<IdString>,
-            conv_from_str<PipId>>::def_wrap(ctx_cls, "getBoundPipNet");
-    fn_wrapper_1a<Context, typeof(&Context::getConflictingPipNet), &Context::getConflictingPipNet, conv_to_str<IdString>,
-            conv_from_str<PipId>>::def_wrap(ctx_cls, "getConflictingPipNet");
+                  conv_from_str<PipId>>::def_wrap(ctx_cls, "getBoundPipNet");
+    fn_wrapper_1a<Context, typeof(&Context::getConflictingPipNet), &Context::getConflictingPipNet,
+                  conv_to_str<IdString>, conv_from_str<PipId>>::def_wrap(ctx_cls, "getConflictingPipNet");
 
     fn_wrapper_1a<Context, typeof(&Context::getPipsDownhill), &Context::getPipsDownhill, wrap_context<PipRange>,
                   conv_from_str<WireId>>::def_wrap(ctx_cls, "getPipsDownhill");
     fn_wrapper_1a<Context, typeof(&Context::getPipsUphill), &Context::getPipsUphill, wrap_context<PipRange>,
                   conv_from_str<WireId>>::def_wrap(ctx_cls, "getPipsUphill");
     fn_wrapper_1a<Context, typeof(&Context::getWireAliases), &Context::getWireAliases, wrap_context<PipRange>,
-            conv_from_str<WireId>>::def_wrap(ctx_cls, "getWireAliases");
+                  conv_from_str<WireId>>::def_wrap(ctx_cls, "getWireAliases");
 
     fn_wrapper_1a<Context, typeof(&Context::getPipSrcWire), &Context::getPipSrcWire, conv_to_str<WireId>,
                   conv_from_str<PipId>>::def_wrap(ctx_cls, "getPipSrcWire");
     fn_wrapper_1a<Context, typeof(&Context::getPipDstWire), &Context::getPipDstWire, conv_to_str<WireId>,
                   conv_from_str<PipId>>::def_wrap(ctx_cls, "getPipDstWire");
     fn_wrapper_1a<Context, typeof(&Context::getPipDelay), &Context::getPipDelay, pass_through<DelayInfo>,
-            conv_from_str<PipId>>::def_wrap(ctx_cls, "getPipDelay");
+                  conv_from_str<PipId>>::def_wrap(ctx_cls, "getPipDelay");
 
     fn_wrapper_1a<Context, typeof(&Context::getPackagePinBel), &Context::getPackagePinBel, conv_to_str<BelId>,
-            pass_through<std::string>>::def_wrap(ctx_cls, "getPackagePinBel");
+                  pass_through<std::string>>::def_wrap(ctx_cls, "getPackagePinBel");
     fn_wrapper_1a<Context, typeof(&Context::getBelPackagePin), &Context::getBelPackagePin, pass_through<std::string>,
-            conv_from_str<BelId>>::def_wrap(ctx_cls, "getBelPackagePin");
+                  conv_from_str<BelId>>::def_wrap(ctx_cls, "getBelPackagePin");
 
     fn_wrapper_0a<Context, typeof(&Context::getChipName), &Context::getChipName, pass_through<std::string>>::def_wrap(
             ctx_cls, "getChipName");
@@ -185,7 +147,7 @@ void arch_wrap_python()
     readonly_wrapper<Context, typeof(&Context::cells), &Context::cells, wrap_context<CellMap &>>::def_wrap(ctx_cls,
                                                                                                            "cells");
     readonly_wrapper<Context, typeof(&Context::nets), &Context::nets, wrap_context<NetMap &>>::def_wrap(ctx_cls,
-                                                                                                           "nets");
+                                                                                                        "nets");
     WRAP_RANGE(Bel, conv_to_str<BelId>);
     WRAP_RANGE(Wire, conv_to_str<WireId>);
     WRAP_RANGE(AllPip, conv_to_str<PipId>);
@@ -193,7 +155,6 @@ void arch_wrap_python()
 
     WRAP_MAP_UPTR(CellMap, "IdCellMap");
     WRAP_MAP_UPTR(NetMap, "IdNetMap");
-
 }
 
 NEXTPNR_NAMESPACE_END

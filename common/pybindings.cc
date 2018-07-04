@@ -21,6 +21,7 @@
 #ifndef NO_PYTHON
 
 #include "pybindings.h"
+#include "arch_pybindings.h"
 #include "jsonparse.h"
 #include "nextpnr.h"
 
@@ -105,31 +106,19 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
             .def_readwrite("net", &PortInfo::net)
             .def_readwrite("type", &PortInfo::type);
 
-    /*class_<CellInfo, CellInfo *>("CellInfo")
-            .def_readwrite("name", &CellInfo::name)
-            .def_readwrite("type", &CellInfo::type)
-            .def_readwrite("ports", &CellInfo::ports)
-            .def_readwrite("attrs", &CellInfo::attrs)
-            .def_readwrite("params", &CellInfo::params)
-            .def_readwrite("bel", &CellInfo::bel)
-            .def_readwrite("pins", &CellInfo::pins);*/
-
-    // WRAP_MAP(decltype(CellInfo::ports), "IdPortMap");
-    // WRAP_MAP(decltype(CellInfo::pins), "IdIdMap");
-
     class_<BaseCtx, BaseCtx *, boost::noncopyable>("BaseCtx", no_init);
-    //.add_property("nets", make_getter(&Context::nets, return_internal_reference<>()))
-    //.add_property("cells", make_getter(&Context::cells, return_internal_reference<>()));
 
-    // WRAP_MAP_UPTR(decltype(Context::nets), "IdNetMap");
-    // WRAP_MAP_UPTR(decltype(Context::cells), "IdCellMap");
+    typedef std::unordered_map<IdString, std::string> AttrMap;
 
     auto ci_cls = class_<ContextualWrapper<CellInfo &>>("CellInfo", no_init);
     readonly_wrapper<CellInfo &, typeof(&CellInfo::type), &CellInfo::type, conv_to_str<IdString>>::def_wrap(ci_cls,
                                                                                                             "type");
-
+    readonly_wrapper<CellInfo &, typeof(&CellInfo::attrs), &CellInfo::attrs, wrap_context<AttrMap &>>::def_wrap(
+            ci_cls, "attrs");
     def("parse_json", parse_json_shim);
     def("load_design", load_design_shim, return_value_policy<manage_new_object>());
+
+    WRAP_MAP(AttrMap, pass_through<std::string>, "AttrMap");
 
     arch_wrap_python();
 }
