@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <assert.h>
 #include <memory>
+#include <stdexcept>
 #include <stdint.h>
 #include <string>
 #include <unordered_map>
@@ -42,23 +43,43 @@
 #endif
 
 #if defined(__GNUC__) || defined(__clang__)
-#  define NPNR_ATTRIBUTE(...) __attribute__((__VA_ARGS__))
-#  define NPNR_NORETURN
-#  define NPNR_DEPRECATED __attribute__((deprecated))
-#  define NPNR_PACKED_STRUCT( ... )  __VA_ARGS__ __attribute__((packed))
+#define NPNR_ATTRIBUTE(...) __attribute__((__VA_ARGS__))
+#define NPNR_NORETURN
+#define NPNR_DEPRECATED __attribute__((deprecated))
+#define NPNR_PACKED_STRUCT(...) __VA_ARGS__ __attribute__((packed))
 #elif defined(_MSC_VER)
-#  define NPNR_ATTRIBUTE(...)
-#  define NPNR_NORETURN __declspec(noreturn)
-#  define NPNR_DEPRECATED __declspec(deprecated)
-#  define NPNR_PACKED_STRUCT( ... )  __pragma(pack(push, 1)) __VA_ARGS__ __pragma(pack(pop))
+#define NPNR_ATTRIBUTE(...)
+#define NPNR_NORETURN __declspec(noreturn)
+#define NPNR_DEPRECATED __declspec(deprecated)
+#define NPNR_PACKED_STRUCT(...) __pragma(pack(push, 1)) __VA_ARGS__ __pragma(pack(pop))
 #else
-#  define NPNR_ATTRIBUTE(...)
-#  define NPNR_NORETURN
-#  define NPNR_DEPRECATED
-#  define NPNR_PACKED_STRUCT( ... )  __VA_ARGS__
-#endif 
+#define NPNR_ATTRIBUTE(...)
+#define NPNR_NORETURN
+#define NPNR_DEPRECATED
+#define NPNR_PACKED_STRUCT(...) __VA_ARGS__
+#endif
 
 NEXTPNR_NAMESPACE_BEGIN
+
+class assertion_failure : std::runtime_error
+{
+  public:
+    assertion_failure(std::string msg, std::string expr_str, std::string filename, int line);
+
+    std::string msg;
+    std::string expr_str;
+    std::string filename;
+    int line;
+};
+
+inline void except_assert_impl(bool expr, std::string message, std::string expr_str, std::string filename, int line)
+{
+    if (!expr)
+        throw assertion_failure(message, expr_str, filename, line);
+}
+
+#define NPNR_ASSERT(cond) except_assert_impl((cond), #cond, #cond, __FILE__, __LINE__)
+#define NPNR_ASSERT_MSG(cond, msg) except_assert_impl((cond), msg, #cond, __FILE__, __LINE__)
 
 struct BaseCtx;
 struct Context;
@@ -68,6 +89,7 @@ struct IdString
     int index = 0;
 
     static void initialize_arch(const BaseCtx *ctx);
+
     static void initialize_add(const BaseCtx *ctx, const char *s, int idx);
 
     IdString() {}
@@ -79,6 +101,7 @@ struct IdString
     IdString(const BaseCtx *ctx, const char *s) { set(ctx, s); }
 
     const std::string &str(const BaseCtx *ctx) const;
+
     const char *c_str(const BaseCtx *ctx) const;
 
     bool operator<(const IdString &other) const { return index < other.index; }
@@ -212,6 +235,7 @@ struct BaseCtx
     mutable std::vector<const std::string *> *idstring_idx_to_str;
 
     IdString id(const std::string &s) const { return IdString(this, s); }
+
     IdString id(const char *s) const { return IdString(this, s); }
 
     // --------------------------------------------------------------
@@ -250,6 +274,7 @@ struct Context : Arch
     bool force = false;
     bool timing_driven = true;
     float target_freq = 12e6;
+
     Context(ArchArgs args) : Arch(args) {}
 
     // --------------------------------------------------------------
@@ -315,6 +340,7 @@ struct Context : Arch
     }
 
     uint32_t checksum() const;
+
     void check() const;
 };
 

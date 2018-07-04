@@ -21,6 +21,12 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+assertion_failure::assertion_failure(std::string msg, std::string expr_str, std::string filename, int line)
+        : runtime_error("Assertion failure: " + msg + " (" + filename + ":" + std::to_string(line) + ")"), msg(msg),
+          expr_str(expr_str), filename(filename), line(line)
+{
+}
+
 std::unordered_set<BaseCtx *> IdString::global_ctx;
 
 void IdString::set(const BaseCtx *ctx, const std::string &s)
