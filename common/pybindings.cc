@@ -61,7 +61,8 @@ Context *load_design_shim(std::string filename, ArchArgs args)
     return d;
 }
 
-void translate_assertfail(const assertion_failure &e) {
+void translate_assertfail(const assertion_failure &e)
+{
     // Use the Python 'C' API to set up an exception object
     PyErr_SetString(PyExc_AssertionError, e.what());
 }
@@ -123,9 +124,9 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
     // WRAP_MAP_UPTR(decltype(Context::nets), "IdNetMap");
     // WRAP_MAP_UPTR(decltype(Context::cells), "IdCellMap");
 
-    auto ci_cls = class_<ContextualWrapper<CellInfo&>>("CellInfo", no_init);
-    readonly_wrapper<CellInfo&, typeof(&CellInfo::type), &CellInfo::type, conv_to_str<IdString>>::def_wrap(ci_cls,
-                                                                                                           "type");
+    auto ci_cls = class_<ContextualWrapper<CellInfo &>>("CellInfo", no_init);
+    readonly_wrapper<CellInfo &, typeof(&CellInfo::type), &CellInfo::type, conv_to_str<IdString>>::def_wrap(ci_cls,
+                                                                                                            "type");
 
     def("parse_json", parse_json_shim);
     def("load_design", load_design_shim, return_value_policy<manage_new_object>());

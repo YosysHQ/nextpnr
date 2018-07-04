@@ -55,6 +55,13 @@ template <> struct string_converter<PipId>
     std::string to_str(Context *ctx, PipId id) { return ctx->getPipName(id).str(ctx); }
 };
 
+template <> struct string_converter<PortPin>
+{
+    PortPin from_str(Context *ctx, std::string name) { return ctx->portPinFromId(ctx->id(name)); }
+
+    std::string to_str(Context *ctx, PortPin id) { return ctx->portPinToId(id).str(ctx); }
+};
+
 } // namespace PythonConversion
 
 void arch_wrap_python()
@@ -95,9 +102,21 @@ void arch_wrap_python()
                   conv_from_str<BelId>>::def_wrap(ctx_cls, "getBelType");
     fn_wrapper_1a<Context, typeof(&Context::checkBelAvail), &Context::checkBelAvail, pass_through<bool>,
                   conv_from_str<BelId>>::def_wrap(ctx_cls, "checkBelAvail");
-
+    fn_wrapper_1a<Context, typeof(&Context::getBelChecksum), &Context::getBelChecksum, pass_through<uint32_t>,
+                  conv_from_str<BelId>>::def_wrap(ctx_cls, "getBelChecksum");
+    fn_wrapper_3a_v<Context, typeof(&Context::bindBel), &Context::bindBel, conv_from_str<BelId>,
+                    conv_from_str<IdString>, pass_through<PlaceStrength>>::def_wrap(ctx_cls, "bindBel");
+    fn_wrapper_1a_v<Context, typeof(&Context::unbindBel), &Context::unbindBel, conv_from_str<BelId>>::def_wrap(
+            ctx_cls, "unbindBel");
+    fn_wrapper_1a<Context, typeof(&Context::getBoundBelCell), &Context::getBoundBelCell, conv_to_str<IdString>,
+                  conv_from_str<BelId>>::def_wrap(ctx_cls, "getBoundBelCell");
+    fn_wrapper_1a<Context, typeof(&Context::getConflictingBelCell), &Context::getConflictingBelCell,
+                  conv_to_str<IdString>, conv_from_str<BelId>>::def_wrap(ctx_cls, "getConflictingBelCell");
     fn_wrapper_0a<Context, typeof(&Context::getBels), &Context::getBels, wrap_context<BelRange>>::def_wrap(ctx_cls,
                                                                                                            "getBels");
+    fn_wrapper_1a<Context, typeof(&Context::getBelsAtSameTile), &Context::getBelsAtSameTile, wrap_context<BelRange>,
+                  conv_from_str<BelId>>::def_wrap(ctx_cls, "getBelsAtSameTile");
+
     fn_wrapper_0a<Context, typeof(&Context::getWires), &Context::getWires, wrap_context<WireRange>>::def_wrap(
             ctx_cls, "getWires");
     fn_wrapper_0a<Context, typeof(&Context::getPips), &Context::getPips, wrap_context<AllPipRange>>::def_wrap(
@@ -113,32 +132,15 @@ void arch_wrap_python()
     fn_wrapper_1a<Context, typeof(&Context::getPipDstWire), &Context::getPipDstWire, conv_to_str<WireId>,
                   conv_from_str<PipId>>::def_wrap(ctx_cls, "getPipDstWire");
 
+    fn_wrapper_0a<Context, typeof(&Context::getChipName), &Context::getChipName, pass_through<std::string>>::def_wrap(
+            ctx_cls, "getChipName");
+    fn_wrapper_0a<Context, typeof(&Context::archId), &Context::archId, conv_to_str<IdString>>::def_wrap(ctx_cls,
+                                                                                                        "archId");
+
     typedef std::unordered_map<IdString, std::unique_ptr<CellInfo>> CellMap;
 
     readonly_wrapper<Context, typeof(&Context::cells), &Context::cells, wrap_context<CellMap &>>::def_wrap(ctx_cls,
                                                                                                            "cells");
-    /*
-            .def("getBelByName", &Arch::getBelByName)
-            .def("getWireByName", &Arch::getWireByName)
-            .def("getBelName", &Arch::getBelName)
-            .def("getWireName", &Arch::getWireName)
-            .def("getBels", &Arch::getBels)
-            .def("getWireBelPin", &Arch::getWireBelPin)
-            .def("getBelPinUphill", &Arch::getBelPinUphill)
-            .def("getBelPinsDownhill", &Arch::getBelPinsDownhill)
-            .def("getWires", &Arch::getWires)
-            .def("getPipByName", &Arch::getPipByName)
-            .def("getPipName", &Arch::getPipName)
-            .def("getPips", &Arch::getPips)
-            .def("getPipSrcWire", &Arch::getPipSrcWire)
-            .def("getPipDstWire", &Arch::getPipDstWire)
-            .def("getPipDelay", &Arch::getPipDelay)
-            .def("getPipsDownhill", &Arch::getPipsDownhill)
-            .def("getPipsUphill", &Arch::getPipsUphill)
-            .def("getWireAliases", &Arch::getWireAliases)
-            .def("estimatePosition", &Arch::estimatePosition)
-            .def("estimateDelay", &Arch::estimateDelay);
-    */
 
     WRAP_RANGE(Bel, conv_to_str<BelId>);
     WRAP_RANGE(Wire, conv_to_str<WireId>);

@@ -390,7 +390,7 @@ template <typename T> struct map_wrapper_uptr
     static void wrap(const char *map_name, const char *kv_name, const char *kv_iter_name, const char *iter_name)
     {
         map_pair_wrapper_uptr<typename KV::first_type, typename KV::second_type>::wrap(kv_name, kv_iter_name);
-        typedef range_wrapper<T&, return_value_policy<return_by_value>, PythonConversion::wrap_context<KV &>> rw;
+        typedef range_wrapper<T &, return_value_policy<return_by_value>, PythonConversion::wrap_context<KV &>> rw;
         typename rw::iter_wrap().wrap(iter_name);
         class_<wrapped_map>(map_name, no_init)
                 .def("__iter__", rw::iter)
