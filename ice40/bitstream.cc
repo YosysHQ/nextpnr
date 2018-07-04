@@ -36,7 +36,7 @@ const ConfigEntryPOD &find_config(const TileInfoPOD &tile, const std::string &na
             return tile.entries[i];
         }
     }
-    NPNR_ASSERT(false);
+    NPNR_ASSERT_FALSE("unable to find config bit " + name);
 }
 
 std::tuple<int8_t, int8_t, int8_t> get_ieren(const BitstreamInfoPOD &bi, int8_t x, int8_t y, int8_t z)
@@ -124,7 +124,7 @@ void write_asc(const Context *ctx, std::ostream &out)
         out << ".device 5k" << std::endl;
         break;
     default:
-        NPNR_ASSERT(false);
+        NPNR_ASSERT_FALSE("unsupported device type");
     }
     // Set pips
     for (auto pip : ctx->getPips()) {

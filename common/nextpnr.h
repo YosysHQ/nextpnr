@@ -44,7 +44,7 @@
 
 #if defined(__GNUC__) || defined(__clang__)
 #define NPNR_ATTRIBUTE(...) __attribute__((__VA_ARGS__))
-#define NPNR_NORETURN
+#define NPNR_NORETURN __attribute__((noreturn))
 #define NPNR_DEPRECATED __attribute__((deprecated))
 #define NPNR_PACKED_STRUCT(...) __VA_ARGS__ __attribute__((packed))
 #elif defined(_MSC_VER)
@@ -78,8 +78,15 @@ inline void except_assert_impl(bool expr, std::string message, std::string expr_
         throw assertion_failure(message, expr_str, filename, line);
 }
 
+NPNR_NORETURN
+inline void assert_false_impl(std::string message, std::string filename, int line)
+{
+    throw assertion_failure(message, "false", filename, line);
+}
+
 #define NPNR_ASSERT(cond) except_assert_impl((cond), #cond, #cond, __FILE__, __LINE__)
 #define NPNR_ASSERT_MSG(cond, msg) except_assert_impl((cond), msg, #cond, __FILE__, __LINE__)
+#define NPNR_ASSERT_FALSE(msg) assert_false_impl(msg, __FILE__, __LINE__)
 
 struct BaseCtx;
 struct Context;
