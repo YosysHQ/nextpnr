@@ -61,7 +61,7 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-class assertion_failure : std::runtime_error
+class assertion_failure : public std::runtime_error
 {
   public:
     assertion_failure(std::string msg, std::string expr_str, std::string filename, int line);
