@@ -29,7 +29,6 @@ class UP5KTest : public ::testing::Test
   protected:
     virtual void SetUp()
     {
-        IdString::global_ctx = nullptr;
         chipArgs.type = ArchArgs::UP5K;
         chipArgs.package = "sg48";
         ctx = new Context(chipArgs);

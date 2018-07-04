@@ -29,7 +29,6 @@ class LP384Test : public ::testing::Test
   protected:
     virtual void SetUp()
     {
-        IdString::global_ctx = nullptr;
         chipArgs.type = ArchArgs::LP384;
         chipArgs.package = "qn32";
         ctx = new Context(chipArgs);

@@ -29,7 +29,6 @@ class HX8KTest : public ::testing::Test
   protected:
     virtual void SetUp()
     {
-        IdString::global_ctx = nullptr;
         chipArgs.type = ArchArgs::HX8K;
         chipArgs.package = "ct256";
         ctx = new Context(chipArgs);

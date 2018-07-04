@@ -29,7 +29,6 @@ class HX1KTest : public ::testing::Test
   protected:
     virtual void SetUp()
     {
-        IdString::global_ctx = nullptr;
         chipArgs.type = ArchArgs::HX1K;
         chipArgs.package = "tq144";
         ctx = new Context(chipArgs);

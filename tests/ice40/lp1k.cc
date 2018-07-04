@@ -29,7 +29,6 @@ class LP1KTest : public ::testing::Test
   protected:
     virtual void SetUp()
     {
-        IdString::global_ctx = nullptr;
         chipArgs.type = ArchArgs::LP1K;
         chipArgs.package = "tq144";
         ctx = new Context(chipArgs);
