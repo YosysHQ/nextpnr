@@ -25,6 +25,7 @@
 #include "qtpropertymanager.h"
 #include "qttreepropertybrowser.h"
 #include "qtvariantproperty.h"
+#include "qtgroupboxpropertybrowser.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -37,7 +38,7 @@ class DesignWidget : public QWidget
     ~DesignWidget();
 
   private:
-    void addProperty(QtVariantProperty *property, const QString &id);
+    void addProperty(QtProperty *property, const QString &id);
     void clearProperties();
 
   Q_SIGNALS:
@@ -58,12 +59,13 @@ class DesignWidget : public QWidget
 
     QtVariantPropertyManager *variantManager;
     QtVariantPropertyManager *readOnlyManager;
+    QtGroupPropertyManager *groupManager;
     QtVariantEditorFactory *variantFactory;
     QtTreePropertyBrowser *propertyEditor;
     QTreeWidgetItem *itemContextMenu;
 
     QMap<QtProperty *, QString> propertyToId;
-    QMap<QString, QtVariantProperty *> idToProperty;
+    QMap<QString, QtProperty *> idToProperty;
     QTreeWidgetItem *nets_root;
     QTreeWidgetItem *cells_root;
 };

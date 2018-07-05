@@ -75,6 +75,7 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr), net
     // Add property view
     variantManager = new QtVariantPropertyManager();
     readOnlyManager = new QtVariantPropertyManager(this);
+    groupManager = new QtGroupPropertyManager(this);
     variantFactory = new QtVariantEditorFactory();
     propertyEditor = new QtTreePropertyBrowser();
     propertyEditor->setFactoryForManager(variantManager, variantFactory);
@@ -103,6 +104,7 @@ DesignWidget::~DesignWidget()
 {
     delete variantManager;
     delete readOnlyManager;
+    delete groupManager;
     delete variantFactory;
     delete propertyEditor;
 }
@@ -213,6 +215,7 @@ void DesignWidget::newContext(Context *ctx)
 
 void DesignWidget::updateTree()
 {
+    clearProperties();
     delete nets_root;
     delete cells_root;
 
@@ -250,7 +253,7 @@ void DesignWidget::updateTree()
  
 }
 
-void DesignWidget::addProperty(QtVariantProperty *property, const QString &id)
+void DesignWidget::addProperty(QtProperty *property, const QString &id)
 {
     propertyToId[property] = id;
     idToProperty[id] = property;
@@ -308,9 +311,70 @@ void DesignWidget::onItemClicked(QTreeWidgetItem *item, int pos)
     } else if (type == ElementType::NET) {
         IdString c = static_cast<IdStringTreeItem *>(item)->getData();
 
+        NetInfo *net = ctx->nets.at(c).get();
+
         QtVariantProperty *topItem = readOnlyManager->addProperty(QVariant::String, QString("Name"));
-        topItem->setValue(QString(c.c_str(ctx)));
+        topItem->setValue(QString(net->name.c_str(ctx)));
         addProperty(topItem, QString("Name"));
+
+        QtVariantProperty *portItem = readOnlyManager->addProperty(QVariant::String, QString("Port"));
+        portItem->setValue(QString(net->driver.port.c_str(ctx)));
+        addProperty(portItem, QString("Port"));
+        
+        QtVariantProperty *budgetItem = readOnlyManager->addProperty(QVariant::Double, QString("Budget"));
+        budgetItem->setValue(net->driver.budget);
+        addProperty(budgetItem, QString("Budget"));
+
+        if (net->driver.cell) {
+            CellInfo *cell = net->driver.cell;
+            QtProperty *cellItem = groupManager->addProperty(QString("Cell"));
+            addProperty(cellItem, QString("Cell"));
+
+            QtVariantProperty *cellNameItem = readOnlyManager->addProperty(QVariant::String, QString("Name"));
+            cellNameItem->setValue(QString(cell->name.c_str(ctx)));
+            cellItem->addSubProperty(cellNameItem);
+
+            QtVariantProperty *cellTypeItem = readOnlyManager->addProperty(QVariant::String, QString("Type"));
+            cellTypeItem->setValue(QString(cell->type.c_str(ctx)));
+            cellItem->addSubProperty(cellTypeItem);
+
+            QtProperty *cellPortsItem = groupManager->addProperty(QString("Ports"));
+            cellItem->addSubProperty(cellPortsItem);
+            for(auto &item : cell->ports)
+            {
+                PortInfo p = item.second;
+                
+                QtProperty *portInfoItem = groupManager->addProperty(QString(p.name.c_str(ctx)));
+
+                QtVariantProperty *portInfoNameItem = readOnlyManager->addProperty(QVariant::String, QString("Name"));
+                portInfoNameItem->setValue(QString(p.name.c_str(ctx)));
+                portInfoItem->addSubProperty(portInfoNameItem);
+
+                QtVariantProperty *portInfoTypeItem = readOnlyManager->addProperty(QVariant::Int, QString("Type"));
+                portInfoTypeItem->setValue(int(p.type));
+                portInfoItem->addSubProperty(portInfoTypeItem);
+
+                cellPortsItem->addSubProperty(portInfoItem);
+            }
+
+            QtProperty *cellAttrItem = groupManager->addProperty(QString("Attributes"));
+            cellItem->addSubProperty(cellAttrItem);
+            for(auto &item : cell->attrs)
+            {
+                QtVariantProperty *attrItem = readOnlyManager->addProperty(QVariant::String, QString(item.first.c_str(ctx)));
+                attrItem->setValue(QString(item.second.c_str()));
+                cellAttrItem->addSubProperty(attrItem);
+            }
+
+            QtProperty *cellParamsItem = groupManager->addProperty(QString("Parameters"));
+            cellItem->addSubProperty(cellParamsItem);
+            for(auto &item : cell->params)
+            {
+                QtVariantProperty *paramItem = readOnlyManager->addProperty(QVariant::String, QString(item.first.c_str(ctx)));
+                paramItem->setValue(QString(item.second.c_str()));
+                cellParamsItem->addSubProperty(paramItem);
+            }
+        }
 
     } else if (type == ElementType::CELL) {
         IdString c = static_cast<IdStringTreeItem *>(item)->getData();
