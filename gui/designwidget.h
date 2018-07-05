@@ -57,6 +57,7 @@ class DesignWidget : public QWidget
     QTreeWidget *treeWidget;
 
     QtVariantPropertyManager *variantManager;
+    QtVariantPropertyManager *readOnlyManager;
     QtVariantEditorFactory *variantFactory;
     QtTreePropertyBrowser *propertyEditor;
     QTreeWidgetItem *itemContextMenu;

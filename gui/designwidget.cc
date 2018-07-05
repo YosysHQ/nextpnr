@@ -74,6 +74,7 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr), net
 
     // Add property view
     variantManager = new QtVariantPropertyManager();
+    readOnlyManager = new QtVariantPropertyManager(this);
     variantFactory = new QtVariantEditorFactory();
     propertyEditor = new QtTreePropertyBrowser();
     propertyEditor->setFactoryForManager(variantManager, variantFactory);
@@ -101,6 +102,7 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr), net
 DesignWidget::~DesignWidget()
 {
     delete variantManager;
+    delete readOnlyManager;
     delete variantFactory;
     delete propertyEditor;
 }
@@ -282,38 +284,38 @@ void DesignWidget::onItemClicked(QTreeWidgetItem *item, int pos)
         IdString c = static_cast<IdStringTreeItem *>(item)->getData();
 
         BelType type = ctx->getBelType(ctx->getBelByName(c));
-        QtVariantProperty *topItem = variantManager->addProperty(QVariant::String, QString("Name"));
+        QtVariantProperty *topItem = readOnlyManager->addProperty(QVariant::String, QString("Name"));
         topItem->setValue(QString(c.c_str(ctx)));
         addProperty(topItem, QString("Name"));
 
-        QtVariantProperty *typeItem = variantManager->addProperty(QVariant::String, QString("Type"));
+        QtVariantProperty *typeItem = readOnlyManager->addProperty(QVariant::String, QString("Type"));
         typeItem->setValue(QString(ctx->belTypeToId(type).c_str(ctx)));
         addProperty(typeItem, QString("Type"));
 
     } else if (type == ElementType::WIRE) {
         IdString c = static_cast<IdStringTreeItem *>(item)->getData();
 
-        QtVariantProperty *topItem = variantManager->addProperty(QVariant::String, QString("Name"));
+        QtVariantProperty *topItem = readOnlyManager->addProperty(QVariant::String, QString("Name"));
         topItem->setValue(QString(c.c_str(ctx)));
         addProperty(topItem, QString("Name"));
 
     } else if (type == ElementType::PIP) {
         IdString c = static_cast<IdStringTreeItem *>(item)->getData();
 
-        QtVariantProperty *topItem = variantManager->addProperty(QVariant::String, QString("Name"));
+        QtVariantProperty *topItem = readOnlyManager->addProperty(QVariant::String, QString("Name"));
         topItem->setValue(QString(c.c_str(ctx)));
         addProperty(topItem, QString("Name"));
     } else if (type == ElementType::NET) {
         IdString c = static_cast<IdStringTreeItem *>(item)->getData();
 
-        QtVariantProperty *topItem = variantManager->addProperty(QVariant::String, QString("Name"));
+        QtVariantProperty *topItem = readOnlyManager->addProperty(QVariant::String, QString("Name"));
         topItem->setValue(QString(c.c_str(ctx)));
         addProperty(topItem, QString("Name"));
 
     } else if (type == ElementType::CELL) {
         IdString c = static_cast<IdStringTreeItem *>(item)->getData();
 
-        QtVariantProperty *topItem = variantManager->addProperty(QVariant::String, QString("Name"));
+        QtVariantProperty *topItem = readOnlyManager->addProperty(QVariant::String, QString("Name"));
         topItem->setValue(QString(c.c_str(ctx)));
         addProperty(topItem, QString("Name"));
     }
