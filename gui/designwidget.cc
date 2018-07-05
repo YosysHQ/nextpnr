@@ -83,7 +83,7 @@ class PipTreeItem : public ElementTreeItem
     IdString data;
 };
 
-DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr)
+DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr), nets_root(nullptr), cells_root(nullptr)
 {
 
     treeWidget = new QTreeWidget();
@@ -217,6 +217,56 @@ void DesignWidget::newContext(Context *ctx)
     for (auto pip : pip_items.toStdMap()) {        
         pip_root->addChild(pip.second);
     }
+
+    // Add nets to tree
+    nets_root = new QTreeWidgetItem(treeWidget);
+    nets_root->setText(0, QString("Nets"));
+    treeWidget->insertTopLevelItem(0, nets_root);    
+
+    // Add cells to tree
+    cells_root = new QTreeWidgetItem(treeWidget);
+    cells_root->setText(0, QString("Cells"));
+    treeWidget->insertTopLevelItem(0, cells_root);    
+
+}
+
+void DesignWidget::updateTree()
+{
+    delete nets_root;
+    delete cells_root;
+
+    // Add nets to tree
+    nets_root = new QTreeWidgetItem(treeWidget);
+    QMap<QString, QTreeWidgetItem *> nets_items;
+    nets_root->setText(0, QString("Nets"));
+    treeWidget->insertTopLevelItem(0, nets_root);   
+    if (ctx) {
+        for (auto& item : ctx->nets) {
+            auto id = item.first;
+            QString name = QString(id.c_str(ctx));
+            nets_items.insert(name,new ElementTreeItem(ElementType::NONE, name, nullptr));
+        }
+    }
+    for (auto item : nets_items.toStdMap()) {        
+        nets_root->addChild(item.second);
+    }    
+
+    // Add cells to tree
+    cells_root = new QTreeWidgetItem(treeWidget);
+    QMap<QString, QTreeWidgetItem *> cells_items;
+    cells_root->setText(0, QString("Cells"));
+    treeWidget->insertTopLevelItem(0, cells_root);   
+    if (ctx) {
+        for (auto& item : ctx->cells) {
+            auto id = item.first;
+            QString name = QString(id.c_str(ctx));
+            cells_items.insert(name,new ElementTreeItem(ElementType::NONE, name, nullptr));
+        }
+    }
+    for (auto item : cells_items.toStdMap()) {        
+        cells_root->addChild(item.second);
+    }    
+ 
 }
 
 void DesignWidget::addProperty(QtVariantProperty *property, const QString &id)

@@ -49,6 +49,7 @@ class DesignWidget : public QWidget
     void selectObject();
   public Q_SLOTS:
     void newContext(Context *ctx);
+    void updateTree();
 
   private:
     Context *ctx;
@@ -62,6 +63,8 @@ class DesignWidget : public QWidget
 
     QMap<QtProperty *, QString> propertyToId;
     QMap<QString, QtVariantProperty *> idToProperty;
+    QTreeWidgetItem *nets_root;
+    QTreeWidgetItem *cells_root;
 };
 
 NEXTPNR_NAMESPACE_END

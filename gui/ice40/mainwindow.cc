@@ -272,6 +272,7 @@ void MainWindow::loadfile_finished(bool status)
         log("Loading design successful.\n");
         actionLoadPCF->setEnabled(true);
         actionPack->setEnabled(true);
+        Q_EMIT updateTreeView();
     } else {
         log("Loading design failed.\n");
     }
@@ -303,6 +304,7 @@ void MainWindow::pack_finished(bool status)
     disableActions();
     if (status) {
         log("Packing design successful.\n");
+        Q_EMIT updateTreeView();
         actionPlace->setEnabled(true);
         actionAssignBudget->setEnabled(true);
     } else {
@@ -326,6 +328,7 @@ void MainWindow::place_finished(bool status)
     disableActions();
     if (status) {
         log("Placing design successful.\n");
+        Q_EMIT updateTreeView();
         actionRoute->setEnabled(true);
     } else {
         log("Placing design failed.\n");
@@ -336,6 +339,7 @@ void MainWindow::route_finished(bool status)
     disableActions();
     if (status) {
         log("Routing design successful.\n");
+        Q_EMIT updateTreeView();
         actionSaveAsc->setEnabled(true);
     } else
         log("Routing design failed.\n");

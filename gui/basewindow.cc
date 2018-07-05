@@ -69,6 +69,7 @@ BaseMainWindow::BaseMainWindow(QWidget *parent) : QMainWindow(parent), ctx(nullp
     splitter_h->addWidget(designview);
 
     connect(this, SIGNAL(contextChanged(Context *)), designview, SLOT(newContext(Context *)));
+    connect(this, SIGNAL(updateTreeView()), designview, SLOT(updateTree()));
 
     connect(designview, SIGNAL(info(std::string)), this, SLOT(writeInfo(std::string)));
 

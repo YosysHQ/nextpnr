@@ -55,6 +55,7 @@ class BaseMainWindow : public QMainWindow
 
   Q_SIGNALS:
     void contextChanged(Context *ctx);
+    void updateTreeView();
 
   protected:
     Context *ctx;
