@@ -34,17 +34,17 @@ NEXTPNR_NAMESPACE_BEGIN
 
 // Vertex2DPOD is a structure of X, Y coordinates that can be passed to OpenGL
 // directly.
-struct Vertex2DPOD
+NPNR_PACKED_STRUCT(struct Vertex2DPOD
 {
     GLfloat x;
     GLfloat y;
 
     Vertex2DPOD(GLfloat X, GLfloat Y) : x(X), y(Y) {}
-} __attribute__((packed));
+});
 
 // Vertex2DPOD is a structure of R, G, B, A values that can be passed to OpenGL
 // directly.
-struct ColorPOD
+NPNR_PACKED_STRUCT(struct ColorPOD
 {
     GLfloat r;
     GLfloat g;
@@ -53,7 +53,7 @@ struct ColorPOD
 
     ColorPOD(GLfloat R, GLfloat G, GLfloat B, GLfloat A) : r(R), g(G), b(B), a(A) {}
     ColorPOD(const QColor &color) : r(color.redF()), g(color.greenF()), b(color.blueF()), a(color.alphaF()) {}
-} __attribute__((packed));
+});
 
 // LineShaderData is a built set of vertices that can be rendered by the
 // LineShader.

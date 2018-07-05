@@ -95,7 +95,7 @@ void PythonConsole::parseEvent( const ParseMessage& message )
     }
 
     // interpret valid user input
-    int errorCode;
+    int errorCode = 0;
     std::string res;
     if ( message.message.size() )
         res = pyinterpreter_execute( message.message, &errorCode );

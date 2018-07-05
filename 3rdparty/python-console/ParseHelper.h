@@ -28,7 +28,7 @@ THE SOFTWARE.
 #include <memory>
 #include "ParseMessage.h"
 
-class ParseListener;
+struct ParseListener;
 
 /**
 Helps chunk lines of Python code into compilable statements.
@@ -94,7 +94,7 @@ public:
         // return if there was an error
         bool initializeIndent(const std::string& str);
     };
-    friend class BlockParseState;
+    friend struct BlockParseState;
 
     struct BracketParseState : public ParseState
     {
