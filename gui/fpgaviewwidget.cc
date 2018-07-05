@@ -360,8 +360,8 @@ void FPGAViewWidget::paintGL()
             for (auto &el : ctx_->getBelGraphics(bel))
                 drawElement(bels, el);
         }
+        lineShader_.draw(bels, matrix);
     }
-    lineShader_.draw(bels, matrix);
 
     // Draw Frame Graphics.
     auto frames = LineShaderData(0.02f, QColor("#0066ba"));
@@ -369,8 +369,8 @@ void FPGAViewWidget::paintGL()
         for (auto &el : ctx_->getFrameGraphics()) {
             drawElement(frames, el);
         }
+        lineShader_.draw(frames, matrix);
     }
-    lineShader_.draw(frames, matrix);
 }
 
 void FPGAViewWidget::resizeGL(int width, int height) {}
