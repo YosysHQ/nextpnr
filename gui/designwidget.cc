@@ -32,7 +32,9 @@ enum class ElementType
     NONE,
     BEL,
     WIRE,
-    PIP
+    PIP,
+    NET,
+    CELL
 };
 
 class ElementTreeItem : public QTreeWidgetItem
@@ -47,11 +49,11 @@ class ElementTreeItem : public QTreeWidgetItem
     ElementType type;
 };
 
-class BelTreeItem : public ElementTreeItem
+class IdStringTreeItem : public ElementTreeItem
 {
   public:
-    BelTreeItem(IdString d, QString str, QTreeWidgetItem *parent) : ElementTreeItem(ElementType::BEL, str, parent) { this->data = d; }
-    virtual ~BelTreeItem(){};
+    IdStringTreeItem(IdString d, ElementType t, QString str, QTreeWidgetItem *parent) : ElementTreeItem(t, str, parent) { this->data = d; }
+    virtual ~IdStringTreeItem(){};
 
     IdString getData() { return this->data; };
 
@@ -59,29 +61,6 @@ class BelTreeItem : public ElementTreeItem
     IdString data;
 };
 
-class WireTreeItem : public ElementTreeItem
-{
-  public:
-    WireTreeItem(IdString d, QString str, QTreeWidgetItem *parent) : ElementTreeItem(ElementType::WIRE, str, parent) { this->data = d; }
-    virtual ~WireTreeItem(){};
-
-    IdString getData() { return this->data; };
-
-  private:
-    IdString data;
-};
-
-class PipTreeItem : public ElementTreeItem
-{
-  public:
-    PipTreeItem(IdString d, QString str, QTreeWidgetItem *parent) : ElementTreeItem(ElementType::PIP, str, parent) { this->data = d; }
-    virtual ~PipTreeItem(){};
-
-    IdString getData() { return this->data; };
-
-  private:
-    IdString data;
-};
 
 DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr), nets_root(nullptr), cells_root(nullptr)
 {
@@ -148,7 +127,7 @@ void DesignWidget::newContext(Context *ctx)
                 name += items.at(i);
                 if (!bel_items.contains(name)) {
                     if (i==items.size()-1)
-                        bel_items.insert(name,new BelTreeItem(id, items.at(i),parent));
+                        bel_items.insert(name,new IdStringTreeItem(id, ElementType::BEL, items.at(i),parent));
                     else
                         bel_items.insert(name,new ElementTreeItem(ElementType::NONE, items.at(i),parent));
                 } 
@@ -177,7 +156,7 @@ void DesignWidget::newContext(Context *ctx)
                 name += items.at(i);
                 if (!wire_items.contains(name)) {
                     if (i==items.size()-1)
-                        wire_items.insert(name,new WireTreeItem(id, items.at(i),parent));
+                        wire_items.insert(name,new IdStringTreeItem(id, ElementType::WIRE, items.at(i),parent));
                     else
                         wire_items.insert(name,new ElementTreeItem(ElementType::NONE, items.at(i),parent));
                 } 
@@ -206,7 +185,7 @@ void DesignWidget::newContext(Context *ctx)
                 name += items.at(i);
                 if (!pip_items.contains(name)) {
                     if (i==items.size()-1)
-                        pip_items.insert(name,new PipTreeItem(id, items.at(i),parent));
+                        pip_items.insert(name,new IdStringTreeItem(id, ElementType::PIP, items.at(i),parent));
                     else
                         pip_items.insert(name,new ElementTreeItem(ElementType::NONE, items.at(i),parent));
                 } 
@@ -244,7 +223,7 @@ void DesignWidget::updateTree()
         for (auto& item : ctx->nets) {
             auto id = item.first;
             QString name = QString(id.c_str(ctx));
-            nets_items.insert(name,new ElementTreeItem(ElementType::NONE, name, nullptr));
+            nets_items.insert(name, new IdStringTreeItem(id, ElementType::NET, name, nullptr));
         }
     }
     for (auto item : nets_items.toStdMap()) {        
@@ -260,7 +239,7 @@ void DesignWidget::updateTree()
         for (auto& item : ctx->cells) {
             auto id = item.first;
             QString name = QString(id.c_str(ctx));
-            cells_items.insert(name,new ElementTreeItem(ElementType::NONE, name, nullptr));
+            cells_items.insert(name,new IdStringTreeItem(id, ElementType::CELL,name, nullptr));
         }
     }
     for (auto item : cells_items.toStdMap()) {        
@@ -300,7 +279,7 @@ void DesignWidget::onItemClicked(QTreeWidgetItem *item, int pos)
     
     clearProperties();
     if (type == ElementType::BEL) {
-        IdString c = static_cast<BelTreeItem *>(item)->getData();
+        IdString c = static_cast<IdStringTreeItem *>(item)->getData();
 
         BelType type = ctx->getBelType(ctx->getBelByName(c));
         QtVariantProperty *topItem = variantManager->addProperty(QVariant::String, QString("Name"));
@@ -312,14 +291,27 @@ void DesignWidget::onItemClicked(QTreeWidgetItem *item, int pos)
         addProperty(typeItem, QString("Type"));
 
     } else if (type == ElementType::WIRE) {
-        IdString c = static_cast<WireTreeItem *>(item)->getData();
+        IdString c = static_cast<IdStringTreeItem *>(item)->getData();
 
         QtVariantProperty *topItem = variantManager->addProperty(QVariant::String, QString("Name"));
         topItem->setValue(QString(c.c_str(ctx)));
         addProperty(topItem, QString("Name"));
 
     } else if (type == ElementType::PIP) {
-        IdString c = static_cast<PipTreeItem *>(item)->getData();
+        IdString c = static_cast<IdStringTreeItem *>(item)->getData();
+
+        QtVariantProperty *topItem = variantManager->addProperty(QVariant::String, QString("Name"));
+        topItem->setValue(QString(c.c_str(ctx)));
+        addProperty(topItem, QString("Name"));
+    } else if (type == ElementType::NET) {
+        IdString c = static_cast<IdStringTreeItem *>(item)->getData();
+
+        QtVariantProperty *topItem = variantManager->addProperty(QVariant::String, QString("Name"));
+        topItem->setValue(QString(c.c_str(ctx)));
+        addProperty(topItem, QString("Name"));
+
+    } else if (type == ElementType::CELL) {
+        IdString c = static_cast<IdStringTreeItem *>(item)->getData();
 
         QtVariantProperty *topItem = variantManager->addProperty(QVariant::String, QString("Name"));
         topItem->setValue(QString(c.c_str(ctx)));
