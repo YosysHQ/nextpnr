@@ -44,35 +44,35 @@ template <typename T> struct RelPtr
 };
 
 NPNR_PACKED_STRUCT(struct BelWirePOD {
-                       Location rel_wire_loc;
-                       int32_t wire_index;
-                       PortPin port;
-                   });
+    Location rel_wire_loc;
+    int32_t wire_index;
+    PortPin port;
+});
 
 NPNR_PACKED_STRUCT(struct BelInfoPOD {
-                       RelPtr<char> name;
-                       BelType type;
-                       int32_t num_bel_wires;
-                       RelPtr<BelWirePOD> bel_wires;
-                       int8_t x, y, z;
-                       int8_t padding_0;
-                   });
+    RelPtr<char> name;
+    BelType type;
+    int32_t num_bel_wires;
+    RelPtr<BelWirePOD> bel_wires;
+    int8_t x, y, z;
+    int8_t padding_0;
+});
 
 NPNR_PACKED_STRUCT(struct BelPortPOD {
-                       Location rel_bel_loc;
-                       int32_t bel_index;
-                       PortPin port;
-                   });
+    Location rel_bel_loc;
+    int32_t bel_index;
+    PortPin port;
+});
 
 NPNR_PACKED_STRUCT(struct PipInfoPOD {
-                       Location rel_src_loc, rel_dst_loc;
-                       int32_t src_idx, dst_idx;
-                       int32_t delay;
-                       Location rel_tile_loc;
-                       int16_t tile_type;
-                       int8_t pip_type;
-                       int8_t padding_0;
-                   });
+    Location rel_src_loc, rel_dst_loc;
+    int32_t src_idx, dst_idx;
+    int32_t delay;
+    Location rel_tile_loc;
+    int16_t tile_type;
+    int8_t pip_type;
+    int8_t padding_0;
+});
 
 NPNR_PACKED_STRUCT(struct PipLocatorPOD {
     Location rel_loc;
@@ -80,28 +80,28 @@ NPNR_PACKED_STRUCT(struct PipLocatorPOD {
 });
 
 NPNR_PACKED_STRUCT(struct WireInfoPOD {
-                       RelPtr<char> name;
-                       int32_t num_uphill, num_downhill;
-                       RelPtr<PipLocatorPOD> pips_uphill, pips_downhill;
+    RelPtr<char> name;
+    int32_t num_uphill, num_downhill;
+    RelPtr<PipLocatorPOD> pips_uphill, pips_downhill;
 
-                       int32_t num_bels_downhill;
-                       BelPortPOD bel_uphill;
-                       RelPtr<BelPortPOD> bels_downhill;
-                   });
+    int32_t num_bels_downhill;
+    BelPortPOD bel_uphill;
+    RelPtr<BelPortPOD> bels_downhill;
+});
 
 NPNR_PACKED_STRUCT(struct LocationTypePOD {
-   int32_t num_bels, num_wires, num_pips;
-   RelPtr<BelInfoPOD> bel_data;
-   RelPtr<WireInfoPOD> wire_data;
-   RelPtr<PipInfoPOD> pip_data;
+    int32_t num_bels, num_wires, num_pips;
+    RelPtr<BelInfoPOD> bel_data;
+    RelPtr<WireInfoPOD> wire_data;
+    RelPtr<PipInfoPOD> pip_data;
 });
 
 NPNR_PACKED_STRUCT(struct ChipInfoPOD {
-                       int32_t width, height;
-                       int32_t num_location_types;
-                       RelPtr<LocationTypePOD> locations;
-                       RelPtr<int32_t> location_type;
-                   });
+    int32_t width, height;
+    int32_t num_location_types;
+    RelPtr<LocationTypePOD> locations;
+    RelPtr<int32_t> location_type;
+});
 
 #if defined(_MSC_VER)
 extern const char *chipdb_blob_384;
@@ -119,11 +119,17 @@ extern const char chipdb_blob_8k[];
 
 struct BelIterator
 {
-    int cursor;
+    const ChipInfoPOD *chip;
+    int cursor_index;
+    int cursor_tile;
 
     BelIterator operator++()
     {
-        cursor++;
+        cursor_index++;
+        while (cursor_index >= ci->locations[ci->location_type[cursor_tile]]->num_bels) {
+            cursor_index = 0;
+            cursor_tile++;
+        }
         return *this;
     }
     BelIterator operator++(int)
@@ -133,14 +139,22 @@ struct BelIterator
         return prior;
     }
 
-    bool operator!=(const BelIterator &other) const { return cursor != other.cursor; }
+    bool operator!=(const BelIterator &other) const
+    {
+        return cursor_index != other.cursor_index || cursor_tile != other.cursor_tile;
+    }
 
-    bool operator==(const BelIterator &other) const { return cursor == other.cursor; }
+    bool operator==(const BelIterator &other) const
+    {
+        return cursor_index == other.cursor_index && cursor_tile == other.cursor_tile;
+    }
 
     BelId operator*() const
     {
         BelId ret;
-        ret.index = cursor;
+        ret.location.x = cursor_tile % chip->width;
+        ret.location.y = cursor_tile / chip->width;
+        ret.index = cursor_index;
         return ret;
     }
 };
@@ -157,7 +171,7 @@ struct BelRange
 struct BelPinIterator
 {
     const BelPortPOD *ptr = nullptr;
-
+    const Location wire_loc;
     void operator++() { ptr++; }
     bool operator!=(const BelPinIterator &other) const { return ptr != other.ptr; }
 
@@ -165,6 +179,7 @@ struct BelPinIterator
     {
         BelPin ret;
         ret.bel.index = ptr->bel_index;
+        ret.bel.location = wire_loc + ptr->rel_bel_loc;
         ret.pin = ptr->port;
         return ret;
     }
@@ -181,15 +196,42 @@ struct BelPinRange
 
 struct WireIterator
 {
-    int cursor = -1;
+    const ChipInfoPOD *chip;
+    int cursor_index;
+    int cursor_tile;
 
-    void operator++() { cursor++; }
-    bool operator!=(const WireIterator &other) const { return cursor != other.cursor; }
+    WireIterator operator++()
+    {
+        cursor_index++;
+        while (cursor_index >= ci->locations[ci->location_type[cursor_tile]]->num_wires) {
+            cursor_index = 0;
+            cursor_tile++;
+        }
+        return *this;
+    }
+    WireIterator operator++(int)
+    {
+        WireIterator prior(*this);
+        cursor++;
+        return prior;
+    }
+
+    bool operator!=(const WireIterator &other) const
+    {
+        return cursor_index != other.cursor_index || cursor_tile != other.cursor_tile;
+    }
+
+    bool operator==(const WireIterator &other) const
+    {
+        return cursor_index == other.cursor_index && cursor_tile == other.cursor_tile;
+    }
 
     WireId operator*() const
     {
         WireId ret;
-        ret.index = cursor;
+        ret.location.x = cursor_tile % chip->width;
+        ret.location.y = cursor_tile / chip->width;
+        ret.index = cursor_index;
         return ret;
     }
 };
@@ -205,15 +247,42 @@ struct WireRange
 
 struct AllPipIterator
 {
-    int cursor = -1;
+    const ChipInfoPOD *chip;
+    int cursor_index;
+    int cursor_tile;
 
-    void operator++() { cursor++; }
-    bool operator!=(const AllPipIterator &other) const { return cursor != other.cursor; }
+    AllPipIterator operator++()
+    {
+        cursor_index++;
+        while (cursor_index >= ci->locations[ci->location_type[cursor_tile]]->num_pips) {
+            cursor_index = 0;
+            cursor_tile++;
+        }
+        return *this;
+    }
+    AllPipIterator operator++(int)
+    {
+        WireIterator prior(*this);
+        cursor++;
+        return prior;
+    }
+
+    bool operator!=(const AllPipIterator &other) const
+    {
+        return cursor_index != other.cursor_index || cursor_tile != other.cursor_tile;
+    }
+
+    bool operator==(const AllPipIterator &other) const
+    {
+        return cursor_index == other.cursor_index && cursor_tile == other.cursor_tile;
+    }
 
     PipId operator*() const
     {
         PipId ret;
-        ret.index = cursor;
+        ret.location.x = cursor_tile % chip->width;
+        ret.location.y = cursor_tile / chip->width;
+        ret.index = cursor_index;
         return ret;
     }
 };
@@ -229,7 +298,9 @@ struct AllPipRange
 
 struct PipIterator
 {
-    const int *cursor = nullptr;
+
+    const PipLocatorPOD *cursor = nullptr;
+    Location wire_loc;
 
     void operator++() { cursor++; }
     bool operator!=(const PipIterator &other) const { return cursor != other.cursor; }
@@ -237,7 +308,8 @@ struct PipIterator
     PipId operator*() const
     {
         PipId ret;
-        ret.index = *cursor;
+        ret.index = cursor->index;
+        ret.location = wire_loc + cursor->location;
         return ret;
     }
 };
@@ -254,14 +326,12 @@ struct ArchArgs
     enum
     {
         NONE,
-        LP384,
-        LP1K,
-        LP8K,
-        HX1K,
-        HX8K,
-        UP5K
+        LFE5U_25F,
+        LFE5U_45F,
+        LFE5U_85F,
     } type = NONE;
     std::string package;
+    int speed = 6;
 };
 
 struct Arch : BaseCtx
@@ -273,17 +343,17 @@ struct Arch : BaseCtx
     mutable std::unordered_map<IdString, int> wire_by_name;
     mutable std::unordered_map<IdString, int> pip_by_name;
 
-    std::vector<IdString> bel_to_cell;
-    std::vector<IdString> wire_to_net;
-    std::vector<IdString> pip_to_net;
-    std::vector<IdString> switches_locked;
+    std::unordered_map<BelId, IdString> bel_to_cell;
+    std::unordered_map<WireId, IdString> wire_to_net;
+    std::unordered_map<PipId, IdString> pip_to_net;
+    std::unordered_map<PipId, IdString> switches_locked;
 
     ArchArgs args;
     Arch(ArchArgs args);
 
     std::string getChipName();
 
-    IdString archId() const { return id("ice40"); }
+    IdString archId() const { return id("ecp5"); }
     IdString archArgsToId(ArchArgs args) const;
 
     IdString belTypeToId(BelType type) const;
@@ -307,8 +377,8 @@ struct Arch : BaseCtx
     void bindBel(BelId bel, IdString cell, PlaceStrength strength)
     {
         NPNR_ASSERT(bel != BelId());
-        NPNR_ASSERT(bel_to_cell[bel.index] == IdString());
-        bel_to_cell[bel.index] = cell;
+        NPNR_ASSERT(bel_to_cell[bel] == IdString());
+        bel_to_cell[bel] = cell;
         cells[cell]->bel = bel;
         cells[cell]->belStrength = strength;
     }
@@ -331,13 +401,13 @@ struct Arch : BaseCtx
     IdString getBoundBelCell(BelId bel) const
     {
         NPNR_ASSERT(bel != BelId());
-        return bel_to_cell[bel.index];
+        return bel_to_cell.at(bel);
     }
 
     IdString getConflictingBelCell(BelId bel) const
     {
         NPNR_ASSERT(bel != BelId());
-        return bel_to_cell[bel.index];
+        return bel_to_cell.at(bel);
     }
 
     BelRange getBels() const
@@ -613,27 +683,6 @@ struct Arch : BaseCtx
     bool isClockPort(const CellInfo *cell, IdString port) const;
     // Return true if a port is a net
     bool isGlobalNet(const NetInfo *net) const;
-
-    // -------------------------------------------------
-
-    // Perform placement validity checks, returning false on failure (all implemented in arch_place.cc)
-
-    // Whether or not a given cell can be placed at a given Bel
-    // This is not intended for Bel type checks, but finer-grained constraints
-    // such as conflicting set/reset signals, etc
-    bool isValidBelForCell(CellInfo *cell, BelId bel) const;
-
-    // Return true whether all Bels at a given location are valid
-    bool isBelLocationValid(BelId bel) const;
-
-    // Helper function for above
-    bool logicCellsCompatible(const std::vector<const CellInfo *> &cells) const;
-
-    IdString id_glb_buf_out;
-    IdString id_icestorm_lc, id_sb_io, id_sb_gb;
-    IdString id_cen, id_clk, id_sr;
-    IdString id_i0, id_i1, id_i2, id_i3;
-    IdString id_dff_en, id_neg_clk;
 };
 
 NEXTPNR_NAMESPACE_END
