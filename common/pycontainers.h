@@ -200,7 +200,7 @@ template <typename T1, typename T2, typename value_conv> struct map_pair_wrapper
         {
             if (iter.second == 0) {
                 iter.second++;
-                return object(PythonConversion::string_converter<typeof(iter.first.base.first)>().to_str(
+                return object(PythonConversion::string_converter<decltype(iter.first.base.first)>().to_str(
                         iter.first.ctx, iter.first.base.first));
             } else if (iter.second == 1) {
                 iter.second++;
@@ -233,7 +233,7 @@ template <typename T1, typename T2, typename value_conv> struct map_pair_wrapper
 
     static std::string first_getter(wrapped_pair &t)
     {
-        return PythonConversion::string_converter<typeof(t.base.first)>().to_str(t.ctx, t.base.first);
+        return PythonConversion::string_converter<decltype(t.base.first)>().to_str(t.ctx, t.base.first);
     }
 
     static typename value_conv::ret_type second_getter(wrapped_pair &t) { return value_conv()(t.ctx, t.base.second); }
@@ -316,7 +316,7 @@ template <typename T1, typename T2> struct map_pair_wrapper_uptr
         {
             if (iter.second == 0) {
                 iter.second++;
-                return object(PythonConversion::string_converter<typeof(iter.first.base.first)>().to_str(
+                return object(PythonConversion::string_converter<decltype(iter.first.base.first)>().to_str(
                         iter.first.ctx, iter.first.base.first));
             } else if (iter.second == 1) {
                 iter.second++;
@@ -350,7 +350,7 @@ template <typename T1, typename T2> struct map_pair_wrapper_uptr
 
     static std::string first_getter(wrapped_pair &t)
     {
-        return PythonConversion::string_converter<typeof(t.base.first)>().to_str(t.ctx, t.base.first);
+        return PythonConversion::string_converter<decltype(t.base.first)>().to_str(t.ctx, t.base.first);
     }
 
     static PythonConversion::ContextualWrapper<V &> second_getter(wrapped_pair &t)

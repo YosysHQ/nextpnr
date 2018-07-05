@@ -95,50 +95,50 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
     class_<BaseCtx, BaseCtx *, boost::noncopyable>("BaseCtx", no_init);
 
     auto ci_cls = class_<ContextualWrapper<CellInfo &>>("CellInfo", no_init);
-    readwrite_wrapper<CellInfo &, typeof(&CellInfo::name), &CellInfo::name, conv_to_str<IdString>,
+    readwrite_wrapper<CellInfo &, decltype(&CellInfo::name), &CellInfo::name, conv_to_str<IdString>,
                       conv_from_str<IdString>>::def_wrap(ci_cls, "name");
-    readwrite_wrapper<CellInfo &, typeof(&CellInfo::type), &CellInfo::type, conv_to_str<IdString>,
+    readwrite_wrapper<CellInfo &, decltype(&CellInfo::type), &CellInfo::type, conv_to_str<IdString>,
                       conv_from_str<IdString>>::def_wrap(ci_cls, "type");
-    readonly_wrapper<CellInfo &, typeof(&CellInfo::attrs), &CellInfo::attrs, wrap_context<AttrMap &>>::def_wrap(
+    readonly_wrapper<CellInfo &, decltype(&CellInfo::attrs), &CellInfo::attrs, wrap_context<AttrMap &>>::def_wrap(
             ci_cls, "attrs");
-    readonly_wrapper<CellInfo &, typeof(&CellInfo::params), &CellInfo::params, wrap_context<AttrMap &>>::def_wrap(
+    readonly_wrapper<CellInfo &, decltype(&CellInfo::params), &CellInfo::params, wrap_context<AttrMap &>>::def_wrap(
             ci_cls, "params");
-    readonly_wrapper<CellInfo &, typeof(&CellInfo::ports), &CellInfo::ports, wrap_context<PortMap &>>::def_wrap(
+    readonly_wrapper<CellInfo &, decltype(&CellInfo::ports), &CellInfo::ports, wrap_context<PortMap &>>::def_wrap(
             ci_cls, "ports");
-    readwrite_wrapper<CellInfo &, typeof(&CellInfo::bel), &CellInfo::bel, conv_to_str<BelId>,
+    readwrite_wrapper<CellInfo &, decltype(&CellInfo::bel), &CellInfo::bel, conv_to_str<BelId>,
                       conv_from_str<BelId>>::def_wrap(ci_cls, "bel");
-    readwrite_wrapper<CellInfo &, typeof(&CellInfo::belStrength), &CellInfo::belStrength, pass_through<PlaceStrength>,
+    readwrite_wrapper<CellInfo &, decltype(&CellInfo::belStrength), &CellInfo::belStrength, pass_through<PlaceStrength>,
                       pass_through<PlaceStrength>>::def_wrap(ci_cls, "belStrength");
-    readonly_wrapper<CellInfo &, typeof(&CellInfo::pins), &CellInfo::pins, wrap_context<PinMap &>>::def_wrap(ci_cls,
+    readonly_wrapper<CellInfo &, decltype(&CellInfo::pins), &CellInfo::pins, wrap_context<PinMap &>>::def_wrap(ci_cls,
                                                                                                              "pins");
 
     auto pi_cls = class_<ContextualWrapper<PortInfo &>>("PortInfo", no_init);
-    readwrite_wrapper<PortInfo &, typeof(&PortInfo::name), &PortInfo::name, conv_to_str<IdString>,
+    readwrite_wrapper<PortInfo &, decltype(&PortInfo::name), &PortInfo::name, conv_to_str<IdString>,
                       conv_from_str<IdString>>::def_wrap(pi_cls, "name");
-    readonly_wrapper<PortInfo &, typeof(&PortInfo::net), &PortInfo::net, deref_and_wrap<NetInfo>>::def_wrap(pi_cls,
+    readonly_wrapper<PortInfo &, decltype(&PortInfo::net), &PortInfo::net, deref_and_wrap<NetInfo>>::def_wrap(pi_cls,
                                                                                                             "net");
-    readwrite_wrapper<PortInfo &, typeof(&PortInfo::type), &PortInfo::type, pass_through<PortType>,
+    readwrite_wrapper<PortInfo &, decltype(&PortInfo::type), &PortInfo::type, pass_through<PortType>,
                       pass_through<PortType>>::def_wrap(pi_cls, "type");
 
     typedef std::vector<PortRef> PortVector;
     typedef std::unordered_map<WireId, PipMap> WireMap;
 
     auto ni_cls = class_<ContextualWrapper<NetInfo &>>("NetInfo", no_init);
-    readwrite_wrapper<NetInfo &, typeof(&NetInfo::name), &NetInfo::name, conv_to_str<IdString>,
+    readwrite_wrapper<NetInfo &, decltype(&NetInfo::name), &NetInfo::name, conv_to_str<IdString>,
                       conv_from_str<IdString>>::def_wrap(ni_cls, "name");
-    readwrite_wrapper<NetInfo &, typeof(&NetInfo::driver), &NetInfo::driver, wrap_context<PortRef &>,
+    readwrite_wrapper<NetInfo &, decltype(&NetInfo::driver), &NetInfo::driver, wrap_context<PortRef &>,
                       unwrap_context<PortRef &>>::def_wrap(ni_cls, "driver");
-    readonly_wrapper<NetInfo &, typeof(&NetInfo::users), &NetInfo::users, wrap_context<PortVector &>>::def_wrap(
+    readonly_wrapper<NetInfo &, decltype(&NetInfo::users), &NetInfo::users, wrap_context<PortVector &>>::def_wrap(
             ni_cls, "users");
-    readonly_wrapper<NetInfo &, typeof(&NetInfo::wires), &NetInfo::wires, wrap_context<WireMap &>>::def_wrap(ni_cls,
+    readonly_wrapper<NetInfo &, decltype(&NetInfo::wires), &NetInfo::wires, wrap_context<WireMap &>>::def_wrap(ni_cls,
                                                                                                              "wires");
 
     auto pr_cls = class_<ContextualWrapper<PortRef &>>("PortRef", no_init);
-    readonly_wrapper<PortRef &, typeof(&PortRef::cell), &PortRef::cell, deref_and_wrap<CellInfo>>::def_wrap(pr_cls,
+    readonly_wrapper<PortRef &, decltype(&PortRef::cell), &PortRef::cell, deref_and_wrap<CellInfo>>::def_wrap(pr_cls,
                                                                                                             "cell");
-    readwrite_wrapper<PortRef &, typeof(&PortRef::port), &PortRef::port, conv_to_str<IdString>,
+    readwrite_wrapper<PortRef &, decltype(&PortRef::port), &PortRef::port, conv_to_str<IdString>,
                       conv_from_str<IdString>>::def_wrap(pr_cls, "port");
-    readwrite_wrapper<PortRef &, typeof(&PortRef::budget), &PortRef::budget, pass_through<delay_t>,
+    readwrite_wrapper<PortRef &, decltype(&PortRef::budget), &PortRef::budget, pass_through<delay_t>,
                       pass_through<delay_t>>::def_wrap(pr_cls, "budget");
 
     def("parse_json", parse_json_shim);
