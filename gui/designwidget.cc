@@ -29,6 +29,7 @@ NEXTPNR_NAMESPACE_BEGIN
 
 enum class ElementType
 {
+    NONE,
     BEL,
     WIRE,
     PIP
@@ -37,7 +38,7 @@ enum class ElementType
 class ElementTreeItem : public QTreeWidgetItem
 {
   public:
-    ElementTreeItem(ElementType t, QString str) : QTreeWidgetItem((QTreeWidget *)nullptr, QStringList(str)), type(t) {}
+    ElementTreeItem(ElementType t, QString str, QTreeWidgetItem *parent) : QTreeWidgetItem(parent, QStringList(str)), type(t) {}
     virtual ~ElementTreeItem(){};
 
     ElementType getType() { return type; };
@@ -49,7 +50,7 @@ class ElementTreeItem : public QTreeWidgetItem
 class BelTreeItem : public ElementTreeItem
 {
   public:
-    BelTreeItem(IdString d, ElementType type, QString str) : ElementTreeItem(type, str) { this->data = d; }
+    BelTreeItem(IdString d, QString str, QTreeWidgetItem *parent) : ElementTreeItem(ElementType::BEL, str, parent) { this->data = d; }
     virtual ~BelTreeItem(){};
 
     IdString getData() { return this->data; };
@@ -61,7 +62,7 @@ class BelTreeItem : public ElementTreeItem
 class WireTreeItem : public ElementTreeItem
 {
   public:
-    WireTreeItem(IdString d, ElementType type, QString str) : ElementTreeItem(type, str) { this->data = d; }
+    WireTreeItem(IdString d, QString str, QTreeWidgetItem *parent) : ElementTreeItem(ElementType::WIRE, str, parent) { this->data = d; }
     virtual ~WireTreeItem(){};
 
     IdString getData() { return this->data; };
@@ -73,7 +74,7 @@ class WireTreeItem : public ElementTreeItem
 class PipTreeItem : public ElementTreeItem
 {
   public:
-    PipTreeItem(IdString d, ElementType type, QString str) : ElementTreeItem(type, str) { this->data = d; }
+    PipTreeItem(IdString d, QString str, QTreeWidgetItem *parent) : ElementTreeItem(ElementType::PIP, str, parent) { this->data = d; }
     virtual ~PipTreeItem(){};
 
     IdString getData() { return this->data; };
@@ -132,42 +133,90 @@ void DesignWidget::newContext(Context *ctx)
 
     // Add bels to tree
     QTreeWidgetItem *bel_root = new QTreeWidgetItem(treeWidget);
+    QMap<QString, QTreeWidgetItem *> bel_items;
     bel_root->setText(0, QString("Bels"));
-    treeWidget->insertTopLevelItem(0, bel_root);
-    QList<QTreeWidgetItem *> bel_items;
+    treeWidget->insertTopLevelItem(0, bel_root);    
     if (ctx) {
         for (auto bel : ctx->getBels()) {
-            auto name = ctx->getBelName(bel);
-            bel_items.append(new BelTreeItem(name, ElementType::BEL, QString(name.c_str(ctx))));
+            auto id = ctx->getBelName(bel);
+            QStringList items = QString(id.c_str(ctx)).split("/");
+            QString name;
+            QTreeWidgetItem *parent = nullptr;
+            for(int i=0;i<items.size();i++)
+            {
+                if (!name.isEmpty()) name += "/";
+                name += items.at(i);
+                if (!bel_items.contains(name)) {
+                    if (i==items.size()-1)
+                        bel_items.insert(name,new BelTreeItem(id, items.at(i),parent));
+                    else
+                        bel_items.insert(name,new ElementTreeItem(ElementType::NONE, items.at(i),parent));
+                } 
+                parent = bel_items[name];
+            }
         }
     }
-    bel_root->addChildren(bel_items);
+    for (auto bel : bel_items.toStdMap()) {        
+        bel_root->addChild(bel.second);
+    }
 
     // Add wires to tree
     QTreeWidgetItem *wire_root = new QTreeWidgetItem(treeWidget);
-    QList<QTreeWidgetItem *> wire_items;
+    QMap<QString, QTreeWidgetItem *> wire_items;
     wire_root->setText(0, QString("Wires"));
-    treeWidget->insertTopLevelItem(0, wire_root);
+    treeWidget->insertTopLevelItem(0, wire_root);    
     if (ctx) {
         for (auto wire : ctx->getWires()) {
-            auto name = ctx->getWireName(wire);
-            wire_items.append(new WireTreeItem(name, ElementType::WIRE, QString(name.c_str(ctx))));
+            auto id = ctx->getWireName(wire);
+            QStringList items = QString(id.c_str(ctx)).split("/");
+            QString name;
+            QTreeWidgetItem *parent = nullptr;
+            for(int i=0;i<items.size();i++)
+            {
+                if (!name.isEmpty()) name += "/";
+                name += items.at(i);
+                if (!wire_items.contains(name)) {
+                    if (i==items.size()-1)
+                        wire_items.insert(name,new WireTreeItem(id, items.at(i),parent));
+                    else
+                        wire_items.insert(name,new ElementTreeItem(ElementType::NONE, items.at(i),parent));
+                } 
+                parent = wire_items[name];
+            }
         }
     }
-    wire_root->addChildren(wire_items);
+    for (auto wire : wire_items.toStdMap()) {        
+        wire_root->addChild(wire.second);
+    }
 
     // Add pips to tree
     QTreeWidgetItem *pip_root = new QTreeWidgetItem(treeWidget);
-    QList<QTreeWidgetItem *> pip_items;
+    QMap<QString, QTreeWidgetItem *> pip_items;
     pip_root->setText(0, QString("Pips"));
     treeWidget->insertTopLevelItem(0, pip_root);
     if (ctx) {
         for (auto pip : ctx->getPips()) {
-            auto name = ctx->getPipName(pip);
-            pip_items.append(new PipTreeItem(name, ElementType::PIP, QString(name.c_str(ctx))));
+            auto id = ctx->getPipName(pip);
+            QStringList items = QString(id.c_str(ctx)).split("/");
+            QString name;
+            QTreeWidgetItem *parent = nullptr;
+            for(int i=0;i<items.size();i++)
+            {
+                if (!name.isEmpty()) name += "/";
+                name += items.at(i);
+                if (!pip_items.contains(name)) {
+                    if (i==items.size()-1)
+                        pip_items.insert(name,new PipTreeItem(id, items.at(i),parent));
+                    else
+                        pip_items.insert(name,new ElementTreeItem(ElementType::NONE, items.at(i),parent));
+                } 
+                parent = pip_items[name];
+            }
         }
     }
-    pip_root->addChildren(pip_items);
+    for (auto pip : pip_items.toStdMap()) {        
+        pip_root->addChild(pip.second);
+    }
 }
 
 void DesignWidget::addProperty(QtVariantProperty *property, const QString &id)
@@ -193,10 +242,13 @@ void DesignWidget::onItemClicked(QTreeWidgetItem *item, int pos)
     if (!item->parent())
         return;
 
-    clearProperties();
 
     ElementType type = static_cast<ElementTreeItem *>(item)->getType();
-
+    if (type == ElementType::NONE) {
+        return;
+    }
+    
+    clearProperties();
     if (type == ElementType::BEL) {
         IdString c = static_cast<BelTreeItem *>(item)->getData();
 
