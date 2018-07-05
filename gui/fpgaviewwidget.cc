@@ -249,7 +249,7 @@ FPGAViewWidget::FPGAViewWidget(QWidget *parent)
     setFormat(fmt);
 
     fmt = format();
-    printf("FPGAViewWidget running on OpenGL %d.%d\n", fmt.majorVersion(), fmt.minorVersion());
+    //printf("FPGAViewWidget running on OpenGL %d.%d\n", fmt.majorVersion(), fmt.minorVersion());
     if (fmt.majorVersion() < 3) {
         printf("Could not get OpenGL 3.0 context. Aborting.\n");
         log_abort();
