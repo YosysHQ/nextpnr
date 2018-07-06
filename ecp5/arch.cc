@@ -2,6 +2,7 @@
  *  nextpnr -- Next Generation Place and Route
  *
  *  Copyright (C) 2018  Clifford Wolf <clifford@symbioticeda.com>
+ *  Copyright (C) 2018  David Shah <david@symbioticeda.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -19,80 +20,41 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 #include "log.h"
 #include "nextpnr.h"
 #include "util.h"
+
 NEXTPNR_NAMESPACE_BEGIN
+
+static std::tuple<int, int, std::string> split_identifier_name(const std::string &name)
+{
+    size_t first_slash = name.find('/');
+    NPNR_ASSERT(first_slash != std::string::npos);
+    size_t second_slash = name.find('/', first_slash + 1);
+    NPNR_ASSERT(second_slash != std::string::npos);
+    return std::make_tuple(std::stoi(name.substr(1, first_slash)),
+                           std::stoi(name.substr(first_slash + 2, second_slash - first_slash)),
+                           name.substr(second_slash + 1));
+};
 
 // -----------------------------------------------------------------------
 
 IdString Arch::belTypeToId(BelType type) const
 {
-    if (type == TYPE_ICESTORM_LC)
-        return id("ICESTORM_LC");
-    if (type == TYPE_ICESTORM_RAM)
-        return id("ICESTORM_RAM");
-    if (type == TYPE_SB_IO)
-        return id("SB_IO");
-    if (type == TYPE_SB_GB)
-        return id("SB_GB");
-    if (type == TYPE_ICESTORM_PLL)
-        return id("ICESTORM_PLL");
-    if (type == TYPE_SB_WARMBOOT)
-        return id("SB_WARMBOOT");
-    if (type == TYPE_SB_MAC16)
-        return id("SB_MAC16");
-    if (type == TYPE_ICESTORM_HFOSC)
-        return id("ICESTORM_HFOSC");
-    if (type == TYPE_ICESTORM_LFOSC)
-        return id("ICESTORM_LFOSC");
-    if (type == TYPE_SB_I2C)
-        return id("SB_I2C");
-    if (type == TYPE_SB_SPI)
-        return id("SB_SPI");
-    if (type == TYPE_IO_I3C)
-        return id("IO_I3C");
-    if (type == TYPE_SB_LEDDA_IP)
-        return id("SB_LEDDA_IP");
-    if (type == TYPE_SB_RGBA_DRV)
-        return id("SB_RGBA_DRV");
-    if (type == TYPE_ICESTORM_SPRAM)
-        return id("ICESTORM_SPRAM");
+    if (type == TYPE_TRELLIS_SLICE)
+        return id("TRELLIS_SLICE");
+    if (type == TYPE_TRELLIS_IO)
+        return id("TRELLIS_IO");
     return IdString();
 }
 
 BelType Arch::belTypeFromId(IdString type) const
 {
-    if (type == id("ICESTORM_LC"))
-        return TYPE_ICESTORM_LC;
-    if (type == id("ICESTORM_RAM"))
-        return TYPE_ICESTORM_RAM;
-    if (type == id("SB_IO"))
-        return TYPE_SB_IO;
-    if (type == id("SB_GB"))
-        return TYPE_SB_GB;
-    if (type == id("ICESTORM_PLL"))
-        return TYPE_ICESTORM_PLL;
-    if (type == id("SB_WARMBOOT"))
-        return TYPE_SB_WARMBOOT;
-    if (type == id("SB_MAC16"))
-        return TYPE_SB_MAC16;
-    if (type == id("ICESTORM_HFOSC"))
-        return TYPE_ICESTORM_HFOSC;
-    if (type == id("ICESTORM_LFOSC"))
-        return TYPE_ICESTORM_LFOSC;
-    if (type == id("SB_I2C"))
-        return TYPE_SB_I2C;
-    if (type == id("SB_SPI"))
-        return TYPE_SB_SPI;
-    if (type == id("IO_I3C"))
-        return TYPE_IO_I3C;
-    if (type == id("SB_LEDDA_IP"))
-        return TYPE_SB_LEDDA_IP;
-    if (type == id("SB_RGBA_DRV"))
-        return TYPE_SB_RGBA_DRV;
-    if (type == id("ICESTORM_SPRAM"))
-        return TYPE_ICESTORM_SPRAM;
+    if (type == id("TRELLIS_SLICE"))
+        return TYPE_TRELLIS_SLICE;
+    if (type == id("TRELLIS_IO"))
+        return TYPE_TRELLIS_IO;
     return TYPE_NONE;
 }
 
@@ -101,7 +63,9 @@ BelType Arch::belTypeFromId(IdString type) const
 void IdString::initialize_arch(const BaseCtx *ctx)
 {
 #define X(t) initialize_add(ctx, #t, PIN_##t);
+
 #include "portpins.inc"
+
 #undef X
 }
 
@@ -134,102 +98,43 @@ Arch::Arch(ArchArgs args) : args(args)
     load_chipdb();
 #endif
 
-#ifdef ICE40_HX1K_ONLY
-    if (args.type == ArchArgs::HX1K) {
-        chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_1k));
+    if (args.type == ArchArgs::LFE5U_25F) {
+        chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_25k));
+    } else if (args.type == ArchArgs::LFE5U_45F) {
+        chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_45k));
+    } else if (args.type == ArchArgs::LFE5U_85F) {
+        chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_85k));
     } else {
-        log_error("Unsupported iCE40 chip type.\n");
+        log_error("Unsupported ECP5 chip type.\n");
     }
-#else
-    if (args.type == ArchArgs::LP384) {
-        chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_384));
-    } else if (args.type == ArchArgs::LP1K || args.type == ArchArgs::HX1K) {
-        chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_1k));
-    } else if (args.type == ArchArgs::UP5K) {
-        chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_5k));
-    } else if (args.type == ArchArgs::LP8K || args.type == ArchArgs::HX8K) {
-        chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_8k));
-    } else {
-        log_error("Unsupported iCE40 chip type.\n");
-    }
-#endif
-
-    package_info = nullptr;
-    for (int i = 0; i < chip_info->num_packages; i++) {
-        if (chip_info->packages_data[i].name.get() == args.package) {
-            package_info = &(chip_info->packages_data[i]);
-            break;
-        }
-    }
-    if (package_info == nullptr)
-        log_error("Unsupported package '%s'.\n", args.package.c_str());
-
-    bel_to_cell.resize(chip_info->num_bels);
-    wire_to_net.resize(chip_info->num_wires);
-    pip_to_net.resize(chip_info->num_pips);
-    switches_locked.resize(chip_info->num_switches);
-
-    // Initialise regularly used IDStrings for performance
-    id_glb_buf_out = id("GLOBAL_BUFFER_OUTPUT");
-    id_icestorm_lc = id("ICESTORM_LC");
-    id_sb_io = id("SB_IO");
-    id_sb_gb = id("SB_GB");
-    id_cen = id("CEN");
-    id_clk = id("CLK");
-    id_sr = id("SR");
-    id_i0 = id("I0");
-    id_i1 = id("I1");
-    id_i2 = id("I2");
-    id_i3 = id("I3");
-    id_dff_en = id("DFF_ENABLE");
-    id_neg_clk = id("NEG_CLK");
 }
 
 // -----------------------------------------------------------------------
 
 std::string Arch::getChipName()
 {
-#ifdef ICE40_HX1K_ONLY
-    if (args.type == ArchArgs::HX1K) {
-        return "Lattice LP1K";
-    } else {
-        log_error("Unsupported iCE40 chip type.\n");
-    }
-#else
-    if (args.type == ArchArgs::LP384) {
-        return "Lattice LP384";
-    } else if (args.type == ArchArgs::LP1K) {
-        return "Lattice LP1K";
-    } else if (args.type == ArchArgs::HX1K) {
-        return "Lattice HX1K";
-    } else if (args.type == ArchArgs::UP5K) {
-        return "Lattice UP5K";
-    } else if (args.type == ArchArgs::LP8K) {
-        return "Lattice LP8K";
-    } else if (args.type == ArchArgs::HX8K) {
-        return "Lattice HX8K";
+
+    if (args.type == ArchArgs::LFE5U_25F) {
+        return "Lattice LFE5U-25F";
+    } else if (args.type == ArchArgs::LFE5U_45F) {
+        return "Lattice LFE5U-45F";
+    } else if (args.type == ArchArgs::LFE5U_85F) {
+        return "Lattice LFE5U-85F";
     } else {
         log_error("Unknown chip\n");
     }
-#endif
 }
 
 // -----------------------------------------------------------------------
 
 IdString Arch::archArgsToId(ArchArgs args) const
 {
-    if (args.type == ArchArgs::LP384)
-        return id("lp384");
-    if (args.type == ArchArgs::LP1K)
-        return id("lp1k");
-    if (args.type == ArchArgs::HX1K)
-        return id("hx1k");
-    if (args.type == ArchArgs::UP5K)
-        return id("up5k");
-    if (args.type == ArchArgs::LP8K)
-        return id("lp8k");
-    if (args.type == ArchArgs::HX8K)
-        return id("hx8k");
+    if (args.type == ArchArgs::LFE5U_25F)
+        return id("lfe5u_25f");
+    if (args.type == ArchArgs::LFE5U_45F)
+        return id("lfe5u_45f");
+    if (args.type == ArchArgs::LFE5U_85F)
+        return id("lfe5u_85f");
     return IdString();
 }
 
@@ -238,16 +143,23 @@ IdString Arch::archArgsToId(ArchArgs args) const
 BelId Arch::getBelByName(IdString name) const
 {
     BelId ret;
-
-    if (bel_by_name.empty()) {
-        for (int i = 0; i < chip_info->num_bels; i++)
-            bel_by_name[id(chip_info->bel_data[i].name.get())] = i;
-    }
-
     auto it = bel_by_name.find(name);
     if (it != bel_by_name.end())
-        ret.index = it->second;
+        return it->second;
 
+    Location loc;
+    std::string basename;
+    std::tie(loc.x, loc.y, basename) = split_identifier_name(name.str(this));
+    ret.location = loc;
+    const LocationTypePOD *loci = locInfo(ret);
+    for (int i = 0; i < loci->num_bels; i++) {
+        if (std::strcmp(loci->bel_data[i].name.get(), basename.c_str()) == 0) {
+            ret.index = i;
+            break;
+        }
+    }
+    if (ret.index >= 0)
+        bel_by_name[name] = ret;
     return ret;
 }
 
@@ -255,17 +167,10 @@ BelRange Arch::getBelsAtSameTile(BelId bel) const
 {
     BelRange br;
     NPNR_ASSERT(bel != BelId());
-    // This requires Bels at the same tile are consecutive
-    int x = chip_info->bel_data[bel.index].x;
-    int y = chip_info->bel_data[bel.index].y;
-    int start = bel.index, end = bel.index;
-    while (start >= 0 && chip_info->bel_data[start].x == x && chip_info->bel_data[start].y == y)
-        start--;
-    start++;
-    br.b.cursor = start;
-    while (end < chip_info->num_bels && chip_info->bel_data[end].x == x && chip_info->bel_data[end].y == y)
-        end++;
-    br.e.cursor = end;
+    br.b.cursor_tile = bel.location.y * chip_info->width + bel.location.x;
+    br.e.cursor_tile = bel.location.y * chip_info->width + bel.location.x;
+    br.b.cursor_index = 0;
+    br.e.cursor_index = locInfo(bel)->num_bels;
     return br;
 }
 
@@ -275,11 +180,11 @@ WireId Arch::getWireBelPin(BelId bel, PortPin pin) const
 
     NPNR_ASSERT(bel != BelId());
 
-    int num_bel_wires = chip_info->bel_data[bel.index].num_bel_wires;
-    const BelWirePOD *bel_wires = chip_info->bel_data[bel.index].bel_wires.get();
-
+    int num_bel_wires = locInfo(bel)->bel_data[bel.index].num_bel_wires;
+    const BelWirePOD *bel_wires = locInfo(bel)->bel_data[bel.index].bel_wires.get();
     for (int i = 0; i < num_bel_wires; i++)
         if (bel_wires[i].port == pin) {
+            ret.location = bel.location + bel_wires[i].rel_wire_loc;
             ret.index = bel_wires[i].wire_index;
             break;
         }
@@ -292,16 +197,23 @@ WireId Arch::getWireBelPin(BelId bel, PortPin pin) const
 WireId Arch::getWireByName(IdString name) const
 {
     WireId ret;
-
-    if (wire_by_name.empty()) {
-        for (int i = 0; i < chip_info->num_wires; i++)
-            wire_by_name[id(chip_info->wire_data[i].name.get())] = i;
-    }
-
     auto it = wire_by_name.find(name);
     if (it != wire_by_name.end())
-        ret.index = it->second;
+        return it->second;
 
+    Location loc;
+    std::string basename;
+    std::tie(loc.x, loc.y, basename) = split_identifier_name(name.str(this));
+    ret.location = loc;
+    const LocationTypePOD *loci = locInfo(ret);
+    for (int i = 0; i < loci->num_wires; i++) {
+        if (std::strcmp(loci->wire_data[i].name.get(), basename.c_str()) == 0) {
+            ret.index = i;
+            break;
+        }
+    }
+    if (ret.index >= 0)
+        wire_by_name[name] = ret;
     return ret;
 }
 
@@ -309,34 +221,35 @@ WireId Arch::getWireByName(IdString name) const
 
 PipId Arch::getPipByName(IdString name) const
 {
-    PipId ret;
-
-    if (pip_by_name.empty()) {
-        for (int i = 0; i < chip_info->num_pips; i++) {
-            PipId pip;
-            pip.index = i;
-            pip_by_name[getPipName(pip)] = i;
-        }
-    }
-
     auto it = pip_by_name.find(name);
     if (it != pip_by_name.end())
-        ret.index = it->second;
+        return it->second;
 
-    return ret;
+    PipId ret;
+    Location loc;
+    std::string basename;
+    std::tie(loc.x, loc.y, basename) = split_identifier_name(name.str(this));
+    const LocationTypePOD *loci = locInfo(ret);
+    for (int i = 0; i < loci->num_pips; i++) {
+        PipId curr;
+        curr.location = loc;
+        curr.index = i;
+        pip_by_name[getPipName(curr)] = curr;
+    }
+    return pip_by_name[name];
 }
 
 IdString Arch::getPipName(PipId pip) const
 {
     NPNR_ASSERT(pip != PipId());
 
-    int x = chip_info->pip_data[pip.index].x;
-    int y = chip_info->pip_data[pip.index].y;
+    int x = pip.location.x;
+    int y = pip.location.y;
 
-    std::string src_name = chip_info->wire_data[chip_info->pip_data[pip.index].src].name.get();
+    std::string src_name = getWireName(getPipSrcWire(pip)).str(this);
     std::replace(src_name.begin(), src_name.end(), '/', '.');
 
-    std::string dst_name = chip_info->wire_data[chip_info->pip_data[pip.index].dst].name.get();
+    std::string dst_name = getWireName(getPipDstWire(pip)).str(this);
     std::replace(dst_name.begin(), dst_name.end(), '/', '.');
 
     return id("X" + std::to_string(x) + "/Y" + std::to_string(y) + "/" + src_name + ".->." + dst_name);
@@ -382,5 +295,11 @@ std::vector<GraphicElement> Arch::getPipGraphics(PipId pip) const
     // FIXME
     return ret;
 };
+
+// -----------------------------------------------------------------------
+
+bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const { return true; }
+
+bool Arch::isBelLocationValid(BelId bel) const { return true; }
 
 NEXTPNR_NAMESPACE_END

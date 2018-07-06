@@ -74,7 +74,7 @@ struct Location
     bool operator!=(const Location &other) const { return x != other.x || y == other.y; }
 };
 
-Location operator+(const Location &a, const Location &b) { return Location(a.x + b.x, a.y + b.y); }
+inline Location operator+(const Location &a, const Location &b) { return Location(a.x + b.x, a.y + b.y); }
 
 struct BelId
 {

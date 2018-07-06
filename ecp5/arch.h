@@ -2,6 +2,7 @@
  *  nextpnr -- Next Generation Place and Route
  *
  *  Copyright (C) 2018  Clifford Wolf <clifford@symbioticeda.com>
+ *  Copyright (C) 2018  David Shah <david@symbioticeda.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -20,6 +21,8 @@
 #ifndef NEXTPNR_H
 #error Include "arch.h" via "nextpnr.h" only.
 #endif
+
+#include <sstream>
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -340,9 +343,9 @@ struct Arch : BaseCtx
 {
     const ChipInfoPOD *chip_info;
 
-    mutable std::unordered_map<IdString, int> bel_by_name;
-    mutable std::unordered_map<IdString, int> wire_by_name;
-    mutable std::unordered_map<IdString, int> pip_by_name;
+    mutable std::unordered_map<IdString, BelId> bel_by_name;
+    mutable std::unordered_map<IdString, WireId> wire_by_name;
+    mutable std::unordered_map<IdString, PipId> pip_by_name;
 
     std::unordered_map<BelId, IdString> bel_to_cell;
     std::unordered_map<WireId, IdString> wire_to_net;
@@ -375,7 +378,9 @@ struct Arch : BaseCtx
     IdString getBelName(BelId bel) const
     {
         NPNR_ASSERT(bel != BelId());
-        return id(locInfo(bel)->bel_data[bel.index].name.get());
+        std::stringstream name;
+        name << "X" << bel.location.x << "/Y" << bel.location.y << "/" << locInfo(bel)->bel_data[bel.index].name.get();
+        return id(name.str());
     }
 
     uint32_t getBelChecksum(BelId bel) const { return bel.index; }
@@ -491,7 +496,11 @@ struct Arch : BaseCtx
     IdString getWireName(WireId wire) const
     {
         NPNR_ASSERT(wire != WireId());
-        return id(locInfo(wire)->wire_data[wire.index].name.get());
+
+        std::stringstream name;
+        name << "X" << wire.location.x << "/Y" << wire.location.y << "/"
+             << locInfo(wire)->wire_data[wire.index].name.get();
+        return id(name.str());
     }
 
     uint32_t getWireChecksum(WireId wire) const { return wire.index; }
@@ -724,6 +733,11 @@ struct Arch : BaseCtx
     bool isClockPort(const CellInfo *cell, IdString port) const;
     // Return true if a port is a net
     bool isGlobalNet(const NetInfo *net) const;
+
+    // -------------------------------------------------
+    // Placement validity checks
+    bool isValidBelForCell(CellInfo *cell, BelId bel) const;
+    bool isBelLocationValid(BelId bel) const;
 };
 
 NEXTPNR_NAMESPACE_END

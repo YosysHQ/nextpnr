@@ -26,6 +26,50 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+namespace PythonConversion {
+
+template <> struct string_converter<BelId>
+{
+    BelId from_str(Context *ctx, std::string name) { return ctx->getBelByName(ctx->id(name)); }
+
+    std::string to_str(Context *ctx, BelId id)
+    {
+        if (id == BelId())
+            throw bad_wrap();
+        return ctx->getBelName(id).str(ctx);
+    }
+};
+
+template <> struct string_converter<BelType>
+{
+    BelType from_str(Context *ctx, std::string name) { return ctx->belTypeFromId(ctx->id(name)); }
+
+    std::string to_str(Context *ctx, BelType typ) { return ctx->belTypeToId(typ).str(ctx); }
+};
+
+template <> struct string_converter<WireId>
+{
+    WireId from_str(Context *ctx, std::string name) { return ctx->getWireByName(ctx->id(name)); }
+
+    std::string to_str(Context *ctx, WireId id) { return ctx->getWireName(id).str(ctx); }
+};
+
+template <> struct string_converter<PipId>
+{
+    PipId from_str(Context *ctx, std::string name) { return ctx->getPipByName(ctx->id(name)); }
+
+    std::string to_str(Context *ctx, PipId id) { return ctx->getPipName(id).str(ctx); }
+};
+
+template <> struct string_converter<PortPin>
+{
+    PortPin from_str(Context *ctx, std::string name) { return ctx->portPinFromId(ctx->id(name)); }
+
+    std::string to_str(Context *ctx, PortPin id) { return ctx->portPinToId(id).str(ctx); }
+};
+
+} // namespace PythonConversion
+
 NEXTPNR_NAMESPACE_END
 #endif
 #endif
