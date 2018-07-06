@@ -73,14 +73,13 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr), net
     treeWidget->setContextMenuPolicy(Qt::CustomContextMenu);
 
     // Add property view
-    variantManager = new QtVariantPropertyManager();
+    variantManager = new QtVariantPropertyManager(this);
     readOnlyManager = new QtVariantPropertyManager(this);
     groupManager = new QtGroupPropertyManager(this);
-    variantFactory = new QtVariantEditorFactory();
-    propertyEditor = new QtTreePropertyBrowser();
+    variantFactory = new QtVariantEditorFactory(this);
+    propertyEditor = new QtTreePropertyBrowser(this);
     propertyEditor->setFactoryForManager(variantManager, variantFactory);
     propertyEditor->setPropertiesWithoutValueMarked(true);
-    propertyEditor->setRootIsDecorated(false);
 
     propertyEditor->show();
 
@@ -102,11 +101,6 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr), net
 
 DesignWidget::~DesignWidget()
 {
-    delete variantManager;
-    delete readOnlyManager;
-    delete groupManager;
-    delete variantFactory;
-    delete propertyEditor;
 }
 
 void DesignWidget::newContext(Context *ctx)
