@@ -44,7 +44,7 @@ template <typename T> struct RelPtr
 };
 
 NPNR_PACKED_STRUCT(struct BelWirePOD {
-    Location rel_wire_loc;
+    LocationPOD rel_wire_loc;
     int32_t wire_index;
     PortPin port;
 });
@@ -59,23 +59,23 @@ NPNR_PACKED_STRUCT(struct BelInfoPOD {
 });
 
 NPNR_PACKED_STRUCT(struct BelPortPOD {
-    Location rel_bel_loc;
+    LocationPOD rel_bel_loc;
     int32_t bel_index;
     PortPin port;
 });
 
 NPNR_PACKED_STRUCT(struct PipInfoPOD {
-    Location rel_src_loc, rel_dst_loc;
+    LocationPOD rel_src_loc, rel_dst_loc;
     int32_t src_idx, dst_idx;
     int32_t delay;
-    Location rel_tile_loc;
+    LocationPOD rel_tile_loc;
     int16_t tile_type;
     int8_t pip_type;
     int8_t padding_0;
 });
 
 NPNR_PACKED_STRUCT(struct PipLocatorPOD {
-    Location rel_loc;
+    LocationPOD rel_loc;
     int32_t index;
 });
 
@@ -98,21 +98,20 @@ NPNR_PACKED_STRUCT(struct LocationTypePOD {
 
 NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     int32_t width, height;
+    int32_t num_tiles;
     int32_t num_location_types;
     RelPtr<LocationTypePOD> locations;
     RelPtr<int32_t> location_type;
 });
 
 #if defined(_MSC_VER)
-extern const char *chipdb_blob_384;
-extern const char *chipdb_blob_1k;
-extern const char *chipdb_blob_5k;
-extern const char *chipdb_blob_8k;
+extern const char *chipdb_blob_25k;
+extern const char *chipdb_blob_45k;
+extern const char *chipdb_blob_85k;
 #else
-extern const char chipdb_blob_384[];
-extern const char chipdb_blob_1k[];
-extern const char chipdb_blob_5k[];
-extern const char chipdb_blob_8k[];
+extern const char chipdb_blob_25k[];
+extern const char chipdb_blob_45k[];
+extern const char chipdb_blob_85k[];
 #endif
 
 /************************ End of chipdb section. ************************/
@@ -126,7 +125,8 @@ struct BelIterator
     BelIterator operator++()
     {
         cursor_index++;
-        while (cursor_index >= ci->locations[ci->location_type[cursor_tile]]->num_bels) {
+        while (cursor_tile < chip->num_tiles &&
+               cursor_index >= chip->locations[chip->location_type[cursor_tile]].num_bels) {
             cursor_index = 0;
             cursor_tile++;
         }
@@ -135,7 +135,7 @@ struct BelIterator
     BelIterator operator++(int)
     {
         BelIterator prior(*this);
-        cursor++;
+        ++(*this);
         return prior;
     }
 
@@ -171,7 +171,7 @@ struct BelRange
 struct BelPinIterator
 {
     const BelPortPOD *ptr = nullptr;
-    const Location wire_loc;
+    Location wire_loc;
     void operator++() { ptr++; }
     bool operator!=(const BelPinIterator &other) const { return ptr != other.ptr; }
 
@@ -203,7 +203,8 @@ struct WireIterator
     WireIterator operator++()
     {
         cursor_index++;
-        while (cursor_index >= ci->locations[ci->location_type[cursor_tile]]->num_wires) {
+        while (cursor_tile < chip->num_tiles &&
+               cursor_index >= chip->locations[chip->location_type[cursor_tile]].num_wires) {
             cursor_index = 0;
             cursor_tile++;
         }
@@ -212,7 +213,7 @@ struct WireIterator
     WireIterator operator++(int)
     {
         WireIterator prior(*this);
-        cursor++;
+        ++(*this);
         return prior;
     }
 
@@ -254,7 +255,8 @@ struct AllPipIterator
     AllPipIterator operator++()
     {
         cursor_index++;
-        while (cursor_index >= ci->locations[ci->location_type[cursor_tile]]->num_pips) {
+        while (cursor_tile < chip->num_tiles &&
+               cursor_index >= chip->locations[chip->location_type[cursor_tile]].num_pips) {
             cursor_index = 0;
             cursor_tile++;
         }
@@ -262,8 +264,8 @@ struct AllPipIterator
     }
     AllPipIterator operator++(int)
     {
-        WireIterator prior(*this);
-        cursor++;
+        AllPipIterator prior(*this);
+        ++(*this);
         return prior;
     }
 
@@ -309,7 +311,7 @@ struct PipIterator
     {
         PipId ret;
         ret.index = cursor->index;
-        ret.location = wire_loc + cursor->location;
+        ret.location = wire_loc + cursor->rel_loc;
         return ret;
     }
 };
@@ -337,7 +339,6 @@ struct ArchArgs
 struct Arch : BaseCtx
 {
     const ChipInfoPOD *chip_info;
-    const PackageInfoPOD *package_info;
 
     mutable std::unordered_map<IdString, int> bel_by_name;
     mutable std::unordered_map<IdString, int> wire_by_name;
@@ -366,10 +367,15 @@ struct Arch : BaseCtx
 
     BelId getBelByName(IdString name) const;
 
+    template <typename Id> const LocationTypePOD *locInfo(Id &id) const
+    {
+        return &(chip_info->locations[chip_info->location_type[id.location.y * chip_info->width + id.location.x]]);
+    }
+
     IdString getBelName(BelId bel) const
     {
         NPNR_ASSERT(bel != BelId());
-        return id(chip_info->bel_data[bel.index].name.get());
+        return id(locInfo(bel)->bel_data[bel.index].name.get());
     }
 
     uint32_t getBelChecksum(BelId bel) const { return bel.index; }
@@ -386,35 +392,46 @@ struct Arch : BaseCtx
     void unbindBel(BelId bel)
     {
         NPNR_ASSERT(bel != BelId());
-        NPNR_ASSERT(bel_to_cell[bel.index] != IdString());
-        cells[bel_to_cell[bel.index]]->bel = BelId();
-        cells[bel_to_cell[bel.index]]->belStrength = STRENGTH_NONE;
-        bel_to_cell[bel.index] = IdString();
+        NPNR_ASSERT(bel_to_cell[bel] != IdString());
+        cells[bel_to_cell[bel]]->bel = BelId();
+        cells[bel_to_cell[bel]]->belStrength = STRENGTH_NONE;
+        bel_to_cell[bel] = IdString();
     }
 
     bool checkBelAvail(BelId bel) const
     {
         NPNR_ASSERT(bel != BelId());
-        return bel_to_cell[bel.index] == IdString();
+        return bel_to_cell.find(bel) == bel_to_cell.end() || bel_to_cell.at(bel) == IdString();
     }
 
     IdString getBoundBelCell(BelId bel) const
     {
         NPNR_ASSERT(bel != BelId());
-        return bel_to_cell.at(bel);
+        if (bel_to_cell.find(bel) == bel_to_cell.end())
+            return IdString();
+        else
+            return bel_to_cell.at(bel);
     }
 
     IdString getConflictingBelCell(BelId bel) const
     {
         NPNR_ASSERT(bel != BelId());
-        return bel_to_cell.at(bel);
+        if (bel_to_cell.find(bel) == bel_to_cell.end())
+            return IdString();
+        else
+            return bel_to_cell.at(bel);
     }
 
     BelRange getBels() const
     {
         BelRange range;
-        range.b.cursor = 0;
-        range.e.cursor = chip_info->num_bels;
+        range.b.cursor_tile = 0;
+        range.b.cursor_index = -1;
+        range.b.chip = chip_info;
+        ++range.b; //-1 and then ++ deals with the case of no Bels in the first tile
+        range.e.cursor_tile = chip_info->width * chip_info->height;
+        range.e.cursor_index = 0;
+        range.e.chip = chip_info;
         return range;
     }
 
@@ -437,7 +454,7 @@ struct Arch : BaseCtx
     BelType getBelType(BelId bel) const
     {
         NPNR_ASSERT(bel != BelId());
-        return chip_info->bel_data[bel.index].type;
+        return locInfo(bel)->bel_data[bel.index].type;
     }
 
     WireId getWireBelPin(BelId bel, PortPin pin) const;
@@ -447,9 +464,10 @@ struct Arch : BaseCtx
         BelPin ret;
         NPNR_ASSERT(wire != WireId());
 
-        if (chip_info->wire_data[wire.index].bel_uphill.bel_index >= 0) {
-            ret.bel.index = chip_info->wire_data[wire.index].bel_uphill.bel_index;
-            ret.pin = chip_info->wire_data[wire.index].bel_uphill.port;
+        if (locInfo(wire)->wire_data[wire.index].bel_uphill.bel_index >= 0) {
+            ret.bel.index = locInfo(wire)->wire_data[wire.index].bel_uphill.bel_index;
+            ret.bel.location = wire.location + locInfo(wire)->wire_data[wire.index].bel_uphill.rel_bel_loc;
+            ret.pin = locInfo(wire)->wire_data[wire.index].bel_uphill.port;
         }
 
         return ret;
@@ -459,8 +477,10 @@ struct Arch : BaseCtx
     {
         BelPinRange range;
         NPNR_ASSERT(wire != WireId());
-        range.b.ptr = chip_info->wire_data[wire.index].bels_downhill.get();
-        range.e.ptr = range.b.ptr + chip_info->wire_data[wire.index].num_bels_downhill;
+        range.b.ptr = locInfo(wire)->wire_data[wire.index].bels_downhill.get();
+        range.b.wire_loc = wire.location;
+        range.e.ptr = range.b.ptr + locInfo(wire)->wire_data[wire.index].num_bels_downhill;
+        range.e.wire_loc = wire.location;
         return range;
     }
 
@@ -471,7 +491,7 @@ struct Arch : BaseCtx
     IdString getWireName(WireId wire) const
     {
         NPNR_ASSERT(wire != WireId());
-        return id(chip_info->wire_data[wire.index].name.get());
+        return id(locInfo(wire)->wire_data[wire.index].name.get());
     }
 
     uint32_t getWireChecksum(WireId wire) const { return wire.index; }
@@ -479,8 +499,8 @@ struct Arch : BaseCtx
     void bindWire(WireId wire, IdString net, PlaceStrength strength)
     {
         NPNR_ASSERT(wire != WireId());
-        NPNR_ASSERT(wire_to_net[wire.index] == IdString());
-        wire_to_net[wire.index] = net;
+        NPNR_ASSERT(wire_to_net[wire] == IdString());
+        wire_to_net[wire] = net;
         nets[net]->wires[wire].pip = PipId();
         nets[net]->wires[wire].strength = strength;
     }
@@ -488,45 +508,55 @@ struct Arch : BaseCtx
     void unbindWire(WireId wire)
     {
         NPNR_ASSERT(wire != WireId());
-        NPNR_ASSERT(wire_to_net[wire.index] != IdString());
+        NPNR_ASSERT(wire_to_net[wire] != IdString());
 
-        auto &net_wires = nets[wire_to_net[wire.index]]->wires;
+        auto &net_wires = nets[wire_to_net[wire]]->wires;
         auto it = net_wires.find(wire);
         NPNR_ASSERT(it != net_wires.end());
 
         auto pip = it->second.pip;
         if (pip != PipId()) {
-            pip_to_net[pip.index] = IdString();
-            switches_locked[chip_info->pip_data[pip.index].switch_index] = IdString();
+            pip_to_net[pip] = IdString();
         }
 
         net_wires.erase(it);
-        wire_to_net[wire.index] = IdString();
+        wire_to_net[wire] = IdString();
     }
 
     bool checkWireAvail(WireId wire) const
     {
         NPNR_ASSERT(wire != WireId());
-        return wire_to_net[wire.index] == IdString();
+        return wire_to_net.find(wire) == wire_to_net.end() || wire_to_net.at(wire) == IdString();
     }
 
     IdString getBoundWireNet(WireId wire) const
     {
         NPNR_ASSERT(wire != WireId());
-        return wire_to_net[wire.index];
+        if (wire_to_net.find(wire) == wire_to_net.end())
+            return IdString();
+        else
+            return wire_to_net.at(wire);
     }
 
     IdString getConflictingWireNet(WireId wire) const
     {
         NPNR_ASSERT(wire != WireId());
-        return wire_to_net[wire.index];
+        if (wire_to_net.find(wire) == wire_to_net.end())
+            return IdString();
+        else
+            return wire_to_net.at(wire);
     }
 
     WireRange getWires() const
     {
         WireRange range;
-        range.b.cursor = 0;
-        range.e.cursor = chip_info->num_wires;
+        range.b.cursor_tile = 0;
+        range.b.cursor_index = -1;
+        range.b.chip = chip_info;
+        ++range.b; //-1 and then ++ deals with the case of no wries in the first tile
+        range.e.cursor_tile = chip_info->width * chip_info->height;
+        range.e.cursor_index = 0;
+        range.e.chip = chip_info;
         return range;
     }
 
@@ -540,16 +570,15 @@ struct Arch : BaseCtx
     void bindPip(PipId pip, IdString net, PlaceStrength strength)
     {
         NPNR_ASSERT(pip != PipId());
-        NPNR_ASSERT(pip_to_net[pip.index] == IdString());
-        NPNR_ASSERT(switches_locked[chip_info->pip_data[pip.index].switch_index] == IdString());
+        NPNR_ASSERT(pip_to_net[pip] == IdString());
 
-        pip_to_net[pip.index] = net;
-        switches_locked[chip_info->pip_data[pip.index].switch_index] = net;
+        pip_to_net[pip] = net;
 
         WireId dst;
-        dst.index = chip_info->pip_data[pip.index].dst;
-        NPNR_ASSERT(wire_to_net[dst.index] == IdString());
-        wire_to_net[dst.index] = net;
+        dst.index = locInfo(pip)->pip_data[pip.index].dst_idx;
+        dst.location = pip.location + locInfo(pip)->pip_data[pip.index].rel_dst_loc;
+        NPNR_ASSERT(wire_to_net[dst] == IdString());
+        wire_to_net[dst] = net;
         nets[net]->wires[dst].pip = pip;
         nets[net]->wires[dst].strength = strength;
     }
@@ -557,42 +586,52 @@ struct Arch : BaseCtx
     void unbindPip(PipId pip)
     {
         NPNR_ASSERT(pip != PipId());
-        NPNR_ASSERT(pip_to_net[pip.index] != IdString());
-        NPNR_ASSERT(switches_locked[chip_info->pip_data[pip.index].switch_index] != IdString());
+        NPNR_ASSERT(pip_to_net[pip] != IdString());
 
         WireId dst;
-        dst.index = chip_info->pip_data[pip.index].dst;
-        NPNR_ASSERT(wire_to_net[dst.index] != IdString());
-        wire_to_net[dst.index] = IdString();
-        nets[pip_to_net[pip.index]]->wires.erase(dst);
+        dst.index = locInfo(pip)->pip_data[pip.index].dst_idx;
+        dst.location = pip.location + locInfo(pip)->pip_data[pip.index].rel_dst_loc;
+        NPNR_ASSERT(wire_to_net[dst] != IdString());
+        wire_to_net[dst] = IdString();
+        nets[pip_to_net[pip]]->wires.erase(dst);
 
-        pip_to_net[pip.index] = IdString();
-        switches_locked[chip_info->pip_data[pip.index].switch_index] = IdString();
+        pip_to_net[pip] = IdString();
     }
 
     bool checkPipAvail(PipId pip) const
     {
         NPNR_ASSERT(pip != PipId());
-        return switches_locked[chip_info->pip_data[pip.index].switch_index] == IdString();
+        return pip_to_net.find(pip) == pip_to_net.end() || pip_to_net.at(pip) == IdString();
     }
 
     IdString getBoundPipNet(PipId pip) const
     {
         NPNR_ASSERT(pip != PipId());
-        return pip_to_net[pip.index];
+        if (pip_to_net.find(pip) == pip_to_net.end())
+            return IdString();
+        else
+            return pip_to_net.at(pip);
     }
 
     IdString getConflictingPipNet(PipId pip) const
     {
         NPNR_ASSERT(pip != PipId());
-        return switches_locked[chip_info->pip_data[pip.index].switch_index];
+        if (pip_to_net.find(pip) == pip_to_net.end())
+            return IdString();
+        else
+            return pip_to_net.at(pip);
     }
 
     AllPipRange getPips() const
     {
         AllPipRange range;
-        range.b.cursor = 0;
-        range.e.cursor = chip_info->num_pips;
+        range.b.cursor_tile = 0;
+        range.b.cursor_index = -1;
+        range.b.chip = chip_info;
+        ++range.b; //-1 and then ++ deals with the case of no wries in the first tile
+        range.e.cursor_tile = chip_info->width * chip_info->height;
+        range.e.cursor_index = 0;
+        range.e.chip = chip_info;
         return range;
     }
 
@@ -600,7 +639,8 @@ struct Arch : BaseCtx
     {
         WireId wire;
         NPNR_ASSERT(pip != PipId());
-        wire.index = chip_info->pip_data[pip.index].src;
+        wire.index = locInfo(pip)->pip_data[pip.index].src_idx;
+        wire.location = pip.location + locInfo(pip)->pip_data[pip.index].rel_src_loc;
         return wire;
     }
 
@@ -608,7 +648,8 @@ struct Arch : BaseCtx
     {
         WireId wire;
         NPNR_ASSERT(pip != PipId());
-        wire.index = chip_info->pip_data[pip.index].dst;
+        wire.index = locInfo(pip)->pip_data[pip.index].dst_idx;
+        wire.location = pip.location + locInfo(pip)->pip_data[pip.index].rel_dst_loc;
         return wire;
     }
 
@@ -616,7 +657,7 @@ struct Arch : BaseCtx
     {
         DelayInfo delay;
         NPNR_ASSERT(pip != PipId());
-        delay.delay = chip_info->pip_data[pip.index].delay;
+        delay.delay = locInfo(pip)->pip_data[pip.index].delay;
         return delay;
     }
 
@@ -624,8 +665,8 @@ struct Arch : BaseCtx
     {
         PipRange range;
         NPNR_ASSERT(wire != WireId());
-        range.b.cursor = chip_info->wire_data[wire.index].pips_downhill.get();
-        range.e.cursor = range.b.cursor + chip_info->wire_data[wire.index].num_downhill;
+        range.b.cursor = locInfo(wire)->wire_data[wire.index].pips_downhill.get();
+        range.e.cursor = range.b.cursor + locInfo(wire)->wire_data[wire.index].num_downhill;
         return range;
     }
 
@@ -633,8 +674,8 @@ struct Arch : BaseCtx
     {
         PipRange range;
         NPNR_ASSERT(wire != WireId());
-        range.b.cursor = chip_info->wire_data[wire.index].pips_uphill.get();
-        range.e.cursor = range.b.cursor + chip_info->wire_data[wire.index].num_uphill;
+        range.b.cursor = locInfo(wire)->wire_data[wire.index].pips_uphill.get();
+        range.e.cursor = range.b.cursor + locInfo(wire)->wire_data[wire.index].num_uphill;
         return range;
     }
 
