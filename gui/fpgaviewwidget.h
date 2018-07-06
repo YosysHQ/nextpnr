@@ -34,8 +34,7 @@ NEXTPNR_NAMESPACE_BEGIN
 
 // Vertex2DPOD is a structure of X, Y coordinates that can be passed to OpenGL
 // directly.
-NPNR_PACKED_STRUCT(struct Vertex2DPOD
-{
+NPNR_PACKED_STRUCT(struct Vertex2DPOD {
     GLfloat x;
     GLfloat y;
 
@@ -44,8 +43,7 @@ NPNR_PACKED_STRUCT(struct Vertex2DPOD
 
 // Vertex2DPOD is a structure of R, G, B, A values that can be passed to OpenGL
 // directly.
-NPNR_PACKED_STRUCT(struct ColorPOD
-{
+NPNR_PACKED_STRUCT(struct ColorPOD {
     GLfloat r;
     GLfloat g;
     GLfloat b;

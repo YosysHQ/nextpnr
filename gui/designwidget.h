@@ -22,10 +22,10 @@
 
 #include <QTreeWidget>
 #include "nextpnr.h"
+#include "qtgroupboxpropertybrowser.h"
 #include "qtpropertymanager.h"
 #include "qttreepropertybrowser.h"
 #include "qtvariantproperty.h"
-#include "qtgroupboxpropertybrowser.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
