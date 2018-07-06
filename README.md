@@ -16,7 +16,10 @@ Prequisites
  - Boost libraries (`libboost-dev` or `libboost-all-dev` for Ubuntu)
  - Icestorm, with chipdbs installed in `/usr/local/share/icebox`
  - Latest git Yosys is required to synthesise the demo design
- 
+ - For building on Windows with MSVC, usage of vcpkg is advised for dependency installation.
+     - For 32 bit builds: `vcpkg install boost-filesystem boost-program-options boost-thread boost-python qt5-base`
+     - For 64 bit builds: `vcpkg install boost-filesystem:x64-windows boost-program-options:x64-windows boost-thread:x64-windows boost-python:x64-windows qt5-base:x64-windows`
+
 Building
 --------
 
@@ -25,6 +28,8 @@ Building
     - For a debug build with HX1K support only, run ` cmake -DCMAKE_BUILD_TYPE=Debug -DICE40_HX1K_ONLY=1 .`
     - For a release build, run `cmake .`
     - Add `-DCMAKE_INSTALL_PREFIX=/your/install/prefix` to use a different install prefix to the default `/usr/local`
+    - For MSVC build with vcpkg use `cmake . -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake` using your vcpkg location
+    - For MSVC x64 build adding `-G"Visual Studio 14 2015 Win64"` is needed.
  - Use Make to run the build itself
     - For all binary targets, just run `make`
     - For just the iCE40 CLI&GUI binary, run `make nextpnr-ice40`
