@@ -178,24 +178,80 @@ void MainWindow::createMenu()
     taskToolBar->addAction(actionStop);
 }
 
+#if defined(_MSC_VER)
+void load_chipdb();
+#endif
+
+static const ChipInfoPOD *get_chip_info(const RelPtr<ChipInfoPOD> *ptr) { return ptr->get(); }
+
+QStringList getSupportedPackages(ArchArgs::ArchArgsTypes chip)
+{
+    QStringList packages;
+#if defined(_MSC_VER)
+    load_chipdb();
+#endif
+    const ChipInfoPOD *chip_info;
+#ifdef ICE40_HX1K_ONLY
+    if (chip == ArchArgs::HX1K) {
+        chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_1k));
+    } else {
+        log_error("Unsupported iCE40 chip type.\n");
+    }
+#else
+    if (chip == ArchArgs::LP384) {
+        chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_384));
+    } else if (chip == ArchArgs::LP1K || chip == ArchArgs::HX1K) {
+        chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_1k));
+    } else if (chip == ArchArgs::UP5K) {
+        chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_5k));
+    } else if (chip == ArchArgs::LP8K || chip == ArchArgs::HX8K) {
+        chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_8k));
+    } else {
+        log_error("Unsupported iCE40 chip type.\n");
+    }
+#endif
+
+    for (int i = 0; i < chip_info->num_packages; i++) {
+        packages << chip_info->packages_data[i].name.get();
+    }
+    return packages;
+}
+
 void MainWindow::new_proj()
 {
-    disableActions();
-    ArchArgs chipArgs;
-    chipArgs.type = ArchArgs::HX1K;
-    chipArgs.package = "tq144";
-    if (ctx)
-        delete ctx;
-    ctx = new Context(chipArgs);
+    QMap<QString, int> arch;
+    arch.insert("Lattice LP384", ArchArgs::LP384);
+    arch.insert("Lattice LP1K", ArchArgs::LP1K);
+    arch.insert("Lattice HX1K", ArchArgs::HX1K);
+    arch.insert("Lattice UP5K", ArchArgs::UP5K);
+    arch.insert("Lattice LP8K", ArchArgs::LP8K);
+    arch.insert("Lattice HX8K", ArchArgs::HX8K);
+    bool ok;
+    QString item = QInputDialog::getItem(this, "Select new context", "Chip:", arch.keys(), 0, false, &ok);
+    if (ok && !item.isEmpty()) {
 
-    Q_EMIT contextChanged(ctx);
+        chipArgs.type = (ArchArgs::ArchArgsTypes)arch.value(item);
 
-    actionLoadJSON->setEnabled(true);
+        QString package = QInputDialog::getItem(this, "Select package", "Package:", getSupportedPackages(chipArgs.type),
+                                                0, false, &ok);
+
+        if (ok && !item.isEmpty()) {
+            disableActions();
+            chipArgs.package = package.toStdString().c_str();
+            if (ctx)
+                delete ctx;
+            ctx = new Context(chipArgs);
+
+            Q_EMIT contextChanged(ctx);
+
+            actionLoadJSON->setEnabled(true);
+        }
+    }
 }
 
 void MainWindow::newContext(Context *ctx)
 {
-    std::string title = "nextpnr-ice40 - " + ctx->getChipName();
+    std::string title = "nextpnr-ice40 - " + ctx->getChipName() + " ( " + chipArgs.package + " )";
     setWindowTitle(title.c_str());
 }
 

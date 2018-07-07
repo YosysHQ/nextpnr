@@ -77,6 +77,7 @@ class MainWindow : public BaseMainWindow
     QAction *actionStop;
 
     bool timing_driven;
+    ArchArgs chipArgs;
 };
 
 NEXTPNR_NAMESPACE_END

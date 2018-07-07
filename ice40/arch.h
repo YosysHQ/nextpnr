@@ -303,7 +303,7 @@ struct PipRange
 
 struct ArchArgs
 {
-    enum
+    enum ArchArgsTypes
     {
         NONE,
         LP384,
