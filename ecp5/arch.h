@@ -57,8 +57,6 @@ NPNR_PACKED_STRUCT(struct BelInfoPOD {
     BelType type;
     int32_t num_bel_wires;
     RelPtr<BelWirePOD> bel_wires;
-    int8_t x, y, z;
-    int8_t padding_0;
 });
 
 NPNR_PACKED_STRUCT(struct BelPortPOD {
