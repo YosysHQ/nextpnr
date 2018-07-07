@@ -19,6 +19,9 @@ Prequisites
  - For building on Windows with MSVC, usage of vcpkg is advised for dependency installation.
      - For 32 bit builds: `vcpkg install boost-filesystem boost-program-options boost-thread boost-python qt5-base`
      - For 64 bit builds: `vcpkg install boost-filesystem:x64-windows boost-program-options:x64-windows boost-thread:x64-windows boost-python:x64-windows qt5-base:x64-windows`
+ - For building on macOS, brew utility is needed.
+     - Install all needed packages `brew install cmake python boost boost-python3 qt5`
+     - Do not forget to add qt5 in path as well `echo 'export PATH="/usr/local/opt/qt/bin:$PATH"' >> ~/.bash_profile`
 
 Building
 --------
