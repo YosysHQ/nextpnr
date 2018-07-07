@@ -197,6 +197,319 @@ def import_location(rg, x, y):
         type_at_location[x, y] = idx
 
 
+class BinaryBlobAssembler:
+    def __init__(self, cname, endianness, nodebug=False):
+        assert endianness in ["le", "be"]
+        self.cname = cname
+        self.endianness = endianness
+        self.finalized = False
+        self.data = bytearray()
+        self.comments = dict()
+        self.labels = dict()
+        self.exports = set()
+        self.labels_byaddr = dict()
+        self.ltypes_byaddr = dict()
+        self.strings = dict()
+        self.refs = dict()
+        self.nodebug = nodebug
+
+    def l(self, name, ltype=None, export=False):
+        assert not self.finalized
+        assert name not in self.labels
+        assert len(self.data) not in self.labels_byaddr
+        self.labels[name] = len(self.data)
+        if ltype is not None:
+            self.ltypes_byaddr[len(self.data)] = ltype
+        self.labels_byaddr[len(self.data)] = name
+        if export:
+            assert ltype is not None
+            self.exports.add(len(self.data))
+
+    def r(self, name, comment):
+        assert not self.finalized
+        assert len(self.data) % 4 == 0
+        assert len(self.data) not in self.refs
+        if self.nodebug:
+            comment = None
+        if name is not None:
+            self.refs[len(self.data)] = (name, comment)
+        self.data.append(0)
+        self.data.append(0)
+        self.data.append(0)
+        self.data.append(0)
+        if (name is None) and (comment is not None):
+            self.comments[len(self.data)] = comment + " (null reference)"
+
+    def s(self, s, comment):
+        assert not self.finalized
+        if self.nodebug:
+            comment = None
+        if s not in self.strings:
+            index = len(self.strings)
+            self.strings[s] = index
+        else:
+            index = self.strings[s]
+        if comment is not None:
+            self.r("str%d" % index, '%s: "%s"' % (comment, s))
+        else:
+            self.r("str%d" % index, None)
+
+    def u8(self, v, comment):
+        assert not self.finalized
+        if self.nodebug:
+            comment = None
+        self.data.append(v)
+        if comment is not None:
+            self.comments[len(self.data)] = comment
+
+    def u16(self, v, comment):
+        assert not self.finalized
+        assert len(self.data) % 2 == 0
+        if self.nodebug:
+            comment = None
+        if self.endianness == "le":
+            self.data.append(v & 255)
+            self.data.append((v >> 8) & 255)
+        elif self.endianness == "be":
+            self.data.append((v >> 8) & 255)
+            self.data.append(v & 255)
+        else:
+            assert 0
+        if comment is not None:
+            self.comments[len(self.data)] = comment
+
+    def s16(self, v, comment):
+        assert not self.finalized
+        assert len(self.data) % 2 == 0
+        if self.nodebug:
+            comment = None
+        c2val = (~v + 1) if v < 0 else v
+        if self.endianness == "le":
+            self.data.append(c2val & 255)
+            self.data.append((c2val >> 8) & 255)
+        elif self.endianness == "be":
+            self.data.append((c2val >> 8) & 255)
+            self.data.append(c2val & 255)
+        else:
+            assert 0
+        if comment is not None:
+            self.comments[len(self.data)] = comment
+
+    def u32(self, v, comment):
+        assert not self.finalized
+        assert len(self.data) % 4 == 0
+        if self.nodebug:
+            comment = None
+        if self.endianness == "le":
+            self.data.append(v & 255)
+            self.data.append((v >> 8) & 255)
+            self.data.append((v >> 16) & 255)
+            self.data.append((v >> 24) & 255)
+        elif self.endianness == "be":
+            self.data.append((v >> 24) & 255)
+            self.data.append((v >> 16) & 255)
+            self.data.append((v >> 8) & 255)
+            self.data.append(v & 255)
+        else:
+            assert 0
+        if comment is not None:
+            self.comments[len(self.data)] = comment
+
+    def finalize(self):
+        assert not self.finalized
+        for s, index in self.strings.items():
+            self.l("str%d" % index, "char")
+            for c in s:
+                self.data.append(ord(c))
+            self.data.append(0)
+        self.finalized = True
+        cursor = 0
+        while cursor < len(self.data):
+            if cursor in self.refs:
+                v = self.labels[self.refs[cursor][0]] - cursor
+                if self.endianness == "le":
+                    self.data[cursor + 0] = (v & 255)
+                    self.data[cursor + 1] = ((v >> 8) & 255)
+                    self.data[cursor + 2] = ((v >> 16) & 255)
+                    self.data[cursor + 3] = ((v >> 24) & 255)
+                elif self.endianness == "be":
+                    self.data[cursor + 0] = ((v >> 24) & 255)
+                    self.data[cursor + 1] = ((v >> 16) & 255)
+                    self.data[cursor + 2] = ((v >> 8) & 255)
+                    self.data[cursor + 3] = (v & 255)
+                else:
+                    assert 0
+                cursor += 4
+            else:
+                cursor += 1
+
+    def write_verbose_c(self, f, ctype="const unsigned char"):
+        assert self.finalized
+        print("%s %s[%d] = {" % (ctype, self.cname, len(self.data)), file=f)
+        cursor = 0
+        bytecnt = 0
+        while cursor < len(self.data):
+            if cursor in self.comments:
+                if bytecnt == 0:
+                    print(" ", end="", file=f)
+                print(" // %s" % self.comments[cursor], file=f)
+                bytecnt = 0
+            if cursor in self.labels_byaddr:
+                if bytecnt != 0:
+                    print(file=f)
+                if cursor in self.exports:
+                    print("#define %s ((%s*)(%s+%d))" % (
+                    self.labels_byaddr[cursor], self.ltypes_byaddr[cursor], self.cname, cursor), file=f)
+                else:
+                    print("  // [%d] %s" % (cursor, self.labels_byaddr[cursor]), file=f)
+                bytecnt = 0
+            if cursor in self.refs:
+                if bytecnt != 0:
+                    print(file=f)
+                print(" ", end="", file=f)
+                print(" %-4s" % ("%d," % self.data[cursor + 0]), end="", file=f)
+                print(" %-4s" % ("%d," % self.data[cursor + 1]), end="", file=f)
+                print(" %-4s" % ("%d," % self.data[cursor + 2]), end="", file=f)
+                print(" %-4s" % ("%d," % self.data[cursor + 3]), end="", file=f)
+                print(" // [%d] %s (reference to %s)" % (cursor, self.refs[cursor][1], self.refs[cursor][0]), file=f)
+                bytecnt = 0
+                cursor += 4
+            else:
+                if bytecnt == 0:
+                    print(" ", end="", file=f)
+                print(" %-4s" % ("%d," % self.data[cursor]), end=("" if bytecnt < 15 else "\n"), file=f)
+                bytecnt = (bytecnt + 1) & 15
+                cursor += 1
+        if bytecnt != 0:
+            print(file=f)
+        print("};", file=f)
+
+    def write_compact_c(self, f, ctype="const unsigned char"):
+        assert self.finalized
+        print("%s %s[%d] = {" % (ctype, self.cname, len(self.data)), file=f)
+        column = 0
+        for v in self.data:
+            if column == 0:
+                print("  ", end="", file=f)
+                column += 2
+            s = "%d," % v
+            print(s, end="", file=f)
+            column += len(s)
+            if column > 75:
+                print(file=f)
+                column = 0
+        if column != 0:
+            print(file=f)
+        for cursor in self.exports:
+            print("#define %s ((%s*)(%s+%d))" % (
+            self.labels_byaddr[cursor], self.ltypes_byaddr[cursor], self.cname, cursor), file=f)
+        print("};", file=f)
+
+    def write_uint64_c(self, f, ctype="const uint64_t"):
+        assert self.finalized
+        print("%s %s[%d] = {" % (ctype, self.cname, (len(self.data) + 7) // 8), file=f)
+        column = 0
+        for i in range((len(self.data) + 7) // 8):
+            v0 = self.data[8 * i + 0] if 8 * i + 0 < len(self.data) else 0
+            v1 = self.data[8 * i + 1] if 8 * i + 1 < len(self.data) else 0
+            v2 = self.data[8 * i + 2] if 8 * i + 2 < len(self.data) else 0
+            v3 = self.data[8 * i + 3] if 8 * i + 3 < len(self.data) else 0
+            v4 = self.data[8 * i + 4] if 8 * i + 4 < len(self.data) else 0
+            v5 = self.data[8 * i + 5] if 8 * i + 5 < len(self.data) else 0
+            v6 = self.data[8 * i + 6] if 8 * i + 6 < len(self.data) else 0
+            v7 = self.data[8 * i + 7] if 8 * i + 7 < len(self.data) else 0
+            if self.endianness == "le":
+                v = v0 << 0
+                v |= v1 << 8
+                v |= v2 << 16
+                v |= v3 << 24
+                v |= v4 << 32
+                v |= v5 << 40
+                v |= v6 << 48
+                v |= v7 << 56
+            elif self.endianness == "be":
+                v = v7 << 0
+                v |= v6 << 8
+                v |= v5 << 16
+                v |= v4 << 24
+                v |= v3 << 32
+                v |= v2 << 40
+                v |= v1 << 48
+                v |= v0 << 56
+            else:
+                assert 0
+            if column == 3:
+                print(" 0x%016x," % v, file=f)
+                column = 0
+            else:
+                if column == 0:
+                    print(" ", end="", file=f)
+                print(" 0x%016x," % v, end="", file=f)
+                column += 1
+        if column != 0:
+            print("", file=f)
+        print("};", file=f)
+
+    def write_string_c(self, f, ctype="const char"):
+        assert self.finalized
+        assert self.data[len(self.data) - 1] == 0
+        print("%s %s[%d] =" % (ctype, self.cname, len(self.data)), file=f)
+        print("  \"", end="", file=f)
+        column = 0
+        for i in range(len(self.data) - 1):
+            if (self.data[i] < 32) or (self.data[i] > 126):
+                print("\\%03o" % self.data[i], end="", file=f)
+                column += 4
+            elif self.data[i] == ord('"') or self.data[i] == ord('\\'):
+                print("\\" + chr(self.data[i]), end="", file=f)
+                column += 2
+            else:
+                print(chr(self.data[i]), end="", file=f)
+                column += 1
+            if column > 70 and (i != len(self.data) - 2):
+                print("\"\n  \"", end="", file=f)
+                column = 0
+        print("\";", file=f)
+
+    def write_binary(self, f):
+        assert self.finalized
+        assert self.data[len(self.data) - 1] == 0
+        f.buffer.write(self.data)
+
+
+def write_database(bba):
+    def write_loc(x, y, sym_name):
+        bba.s16(x, "%s_x" % sym_name)
+        bba.s16(y, "%s_y" % sym_name)
+
+    for loctype, idx in sorted(location_types.items(), key=lambda x: x[1]):
+        wires, arcs, bels = loctype
+        bba.l("loc%d_pips" % idx, "PipInfoPOD")
+        for arc in arcs:
+            src_wire, dst_wire, configurable, tile_type = arc
+            write_loc(src_wire[0], src_wire[1], "src")
+            write_loc(dst_wire[0], dst_wire[1], "dst")
+            bba.u32(src_wire[2], "src_idx")
+            bba.u32(dst_wire[2], "dst_idx")
+            bba.u32(1, "delay")  # TODO:delay
+            bba.u16(tile_type, "tile_type")
+            bba.u8(1 if not configurable else 0, "pip_type")
+            bba.u8(0, "padding")
+        for wire_idx in range(len(wires)):
+            wire = wires[wire_idx]
+            name, downpips, uppips, downbels, upbels = wire
+            if len(downpips) > 0:
+                bba.l("loc%d_wire%d_downpips" % (idx, wire_idx), "PipLocatorPOD")
+                for dp in downpips:
+                    write_loc(dp[0], dp[1], "rel_loc")
+                    bba.u32(dp[2], "idx")
+            if len(uppips) > 0:
+                bba.l("loc%d_wire%d_uppips" % (idx, wire_idx), "PipLocatorPOD")
+                for up in uppips:
+                    write_loc(up[0], up[1], "rel_loc")
+                    bba.u32(up[2], "idx")
+
+
 def main():
     pytrellis.load_database(database.get_db_root())
     print("Initialising chip...")

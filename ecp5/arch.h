@@ -69,7 +69,6 @@ NPNR_PACKED_STRUCT(struct PipInfoPOD {
     LocationPOD rel_src_loc, rel_dst_loc;
     int32_t src_idx, dst_idx;
     int32_t delay;
-    LocationPOD rel_tile_loc;
     int16_t tile_type;
     int8_t pip_type;
     int8_t padding_0;
