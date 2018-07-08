@@ -108,7 +108,7 @@ int main(int argc, char *argv[])
         Trellis::load_database(TRELLIS_ROOT "/database");
 
         ArchArgs args;
-        args.type = ArchArgs::LFE5U_25F;
+        args.type = ArchArgs::LFE5U_45F;
         args.package = "CABGA381";
         args.speed = 6;
         Context ctx(args);
@@ -149,7 +149,7 @@ int main(int argc, char *argv[])
                 log_error("Routing design failed.\n");
 
             // TEST BEGIN
-            Trellis::Chip c("LFE5U-25F");
+            Trellis::Chip c("LFE5U-45F");
             for (auto pip : ctx.getPips()) {
                 if (!ctx.checkPipAvail(pip)) {
                     auto tile = c.get_tile_by_position_and_type(pip.location.y, pip.location.x, ctx.getPipTiletype(pip));

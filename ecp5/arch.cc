@@ -92,16 +92,16 @@ static const ChipInfoPOD *get_chip_info(const RelPtr<ChipInfoPOD> *ptr) { return
 void load_chipdb();
 #endif
 
-#define LFE5U_25F_ONLY
+#define LFE5U_45F_ONLY
 
 Arch::Arch(ArchArgs args) : args(args)
 {
 #if defined(_MSC_VER)
     load_chipdb();
 #endif
-#ifdef LFE5U_25F_ONLY
-    if (args.type == ArchArgs::LFE5U_25F) {
-        chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_25k));
+#ifdef LFE5U_45F_ONLY
+    if (args.type == ArchArgs::LFE5U_45F) {
+        chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_45k));
     } else {
         log_error("Unsupported ECP5 chip type.\n");
     }

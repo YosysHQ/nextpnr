@@ -1,5 +1,5 @@
 
-set(devices 25k)
+set(devices 45k)
 
 set(DB_PY ${CMAKE_CURRENT_SOURCE_DIR}/ecp5/trellis_import.py)
 
