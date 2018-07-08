@@ -266,19 +266,19 @@ void DesignWidget::clearProperties()
     idToProperty.clear();
 }
 
-void DesignWidget::onItemClicked(QTreeWidgetItem *item, int pos)
+void DesignWidget::onItemClicked(QTreeWidgetItem *clickItem, int pos)
 {
-    if (!item->parent())
+    if (!clickItem->parent())
         return;
 
-    ElementType type = static_cast<ElementTreeItem *>(item)->getType();
+    ElementType type = static_cast<ElementTreeItem *>(clickItem)->getType();
     if (type == ElementType::NONE) {
         return;
     }
 
     clearProperties();
     if (type == ElementType::BEL) {
-        IdString c = static_cast<IdStringTreeItem *>(item)->getData();
+        IdString c = static_cast<IdStringTreeItem *>(clickItem)->getData();
         BelId bel = ctx->getBelByName(c);
 
         QtProperty *topItem = groupManager->addProperty("Bel");
@@ -305,7 +305,7 @@ void DesignWidget::onItemClicked(QTreeWidgetItem *item, int pos)
         topItem->addSubProperty(conflictItem);
 
     } else if (type == ElementType::WIRE) {
-        IdString c = static_cast<IdStringTreeItem *>(item)->getData();
+        IdString c = static_cast<IdStringTreeItem *>(clickItem)->getData();
         WireId wire = ctx->getWireByName(c);
 
         QtProperty *topItem = groupManager->addProperty("Wire");
@@ -379,7 +379,7 @@ void DesignWidget::onItemClicked(QTreeWidgetItem *item, int pos)
         }
 
     } else if (type == ElementType::PIP) {
-        IdString c = static_cast<IdStringTreeItem *>(item)->getData();
+        IdString c = static_cast<IdStringTreeItem *>(clickItem)->getData();
         PipId pip = ctx->getPipByName(c);
 
         QtProperty *topItem = groupManager->addProperty("Pip");
@@ -426,7 +426,7 @@ void DesignWidget::onItemClicked(QTreeWidgetItem *item, int pos)
         delayItem->addSubProperty(avgDelayItem);
 
     } else if (type == ElementType::NET) {
-        IdString c = static_cast<IdStringTreeItem *>(item)->getData();
+        IdString c = static_cast<IdStringTreeItem *>(clickItem)->getData();
         NetInfo *net = ctx->nets.at(c).get();
 
         QtProperty *topItem = groupManager->addProperty("Net");
@@ -511,7 +511,7 @@ void DesignWidget::onItemClicked(QTreeWidgetItem *item, int pos)
         }
 
     } else if (type == ElementType::CELL) {
-        IdString c = static_cast<IdStringTreeItem *>(item)->getData();
+        IdString c = static_cast<IdStringTreeItem *>(clickItem)->getData();
         CellInfo *cell = ctx->cells.at(c).get();
 
         QtProperty *topItem = groupManager->addProperty("Cell");
