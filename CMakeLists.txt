@@ -7,7 +7,9 @@ option(BUILD_PYTHON "Build Python Integration" ON)
 option(BUILD_TESTS "Build GUI" OFF)
 
 # List of families to build
+if(DEFINED TRELLIS_ROOT)
 set(FAMILIES generic ice40 ecp5)
+
 set(ARCH "" CACHE STRING "Architecture family for nextpnr build")
 set_property(CACHE ARCH PROPERTY STRINGS ${FAMILIES})
 
