@@ -272,7 +272,11 @@ BelId Arch::getPackagePinBel(const std::string &pin) const { return BelId(); }
 std::string Arch::getBelPackagePin(BelId bel) const { return ""; }
 // -----------------------------------------------------------------------
 
-void Arch::estimatePosition(BelId bel, int &x, int &y, bool &gb) const {}
+void Arch::estimatePosition(BelId bel, int &x, int &y, bool &gb) const {
+    x = bel.location.x;
+    y = bel.location.y;
+    gb = false;
+}
 
 delay_t Arch::estimateDelay(WireId src, WireId dst) const { return 1; }
 
