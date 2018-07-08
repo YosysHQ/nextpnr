@@ -218,11 +218,14 @@ WireId Arch::getWireByName(IdString name) const
     for (int i = 0; i < loci->num_wires; i++) {
         if (std::strcmp(loci->wire_data[i].name.get(), basename.c_str()) == 0) {
             ret.index = i;
+            ret.location = loc;
             break;
         }
     }
     if (ret.index >= 0)
         wire_by_name[name] = ret;
+    else
+        ret.location = Location();
     return ret;
 }
 
@@ -278,7 +281,10 @@ void Arch::estimatePosition(BelId bel, int &x, int &y, bool &gb) const
     gb = false;
 }
 
-delay_t Arch::estimateDelay(WireId src, WireId dst) const { return 1; }
+delay_t Arch::estimateDelay(WireId src, WireId dst) const
+{
+    return abs(src.location.x - dst.location.x) + abs(src.location.y - dst.location.y);
+}
 
 // -----------------------------------------------------------------------
 
