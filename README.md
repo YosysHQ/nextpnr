@@ -13,6 +13,7 @@ Prequisites
  - Modern C++11 compiler (`clang-format` required for development)
  - Qt5 or later (`qt5-default` for Ubuntu 16.04)
  - Python 3.5 or later, including development libraries (`python3-dev` for Ubuntu)
+    - on Windows make sure to install same version as supported by [vcpkg](https://github.com/Microsoft/vcpkg/blob/master/ports/python3/CONTROL)
  - Boost libraries (`libboost-dev` or `libboost-all-dev` for Ubuntu)
  - Icestorm, with chipdbs installed in `/usr/local/share/icebox`
  - Latest git Yosys is required to synthesise the demo design
