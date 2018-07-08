@@ -102,6 +102,7 @@ NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     int32_t num_location_types;
     RelPtr<LocationTypePOD> locations;
     RelPtr<int32_t> location_type;
+    RelPtr<RelPtr<char>> tiletype_names;
 });
 
 #if defined(_MSC_VER)
@@ -696,6 +697,11 @@ struct Arch : BaseCtx
         range.b.cursor = nullptr;
         range.e.cursor = nullptr;
         return range;
+    }
+
+    std::string getPipTiletype(PipId pip) const
+    {
+        return chip_info->tiletype_names[locInfo(pip)->pip_data[pip.index].tile_type].get();
     }
 
     BelId getPackagePinBel(const std::string &pin) const;

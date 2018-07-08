@@ -33,6 +33,8 @@
 #include <iostream>
 
 #include "Database.hpp"
+#include "Chip.hpp"
+#include "Tile.hpp"
 
 #include "log.h"
 #include "nextpnr.h"
@@ -103,7 +105,7 @@ int main(int argc, char *argv[])
             return 1;
         }
 
-        Trellis::load_database(TRELLIS_ROOT"/database");
+        Trellis::load_database(TRELLIS_ROOT "/database");
 
         ArchArgs args;
         args.type = ArchArgs::LFE5U_25F;
@@ -147,9 +149,13 @@ int main(int argc, char *argv[])
                 log_error("Routing design failed.\n");
 
             // TEST BEGIN
+            Trellis::Chip c("LFE5U-25F");
             for (auto pip : ctx.getPips()) {
                 if (!ctx.checkPipAvail(pip)) {
-                    std::cout << ctx.getWireName(ctx.getPipSrcWire(pip)).str(&ctx) << " -> " << ctx.getWireName(ctx.getPipDstWire(pip)).str(&ctx) << std::endl;
+                    auto tile = c.get_tile_by_position_and_type(pip.location.y, pip.location.x, ctx.getPipTiletype(pip));
+                    std::cout << ctx.getWireName(ctx.getPipSrcWire(pip)).str(&ctx) << " -> "
+                              << ctx.getWireName(ctx.getPipDstWire(pip)).str(&ctx) << " [in tile "
+                              <<  tile->info.name << "]" << std::endl;
                 }
             }
             // TEST END

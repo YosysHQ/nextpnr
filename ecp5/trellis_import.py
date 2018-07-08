@@ -592,6 +592,10 @@ def write_database(dev_name, endianness):
         for x in range(0, max_col+1):
             bba.u32(type_at_location[x, y], "loctype")
 
+    bba.l("tiletype_names", "RelPtr<char>")
+    for tt in tiletype_names:
+        bba.s(tt, "name")
+
     bba.l("chip_info")
     bba.u32(max_col + 1, "width")
     bba.u32(max_row + 1, "height")
@@ -599,6 +603,7 @@ def write_database(dev_name, endianness):
     bba.u32(len(location_types), "num_location_types")
     bba.r("locations", "locations")
     bba.r("location_types", "location_type")
+    bba.r("tiletype_names", "tiletype_names")
     bba.finalize()
     return bba
 
