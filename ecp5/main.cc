@@ -29,18 +29,18 @@
 #endif
 #include <boost/filesystem/convenience.hpp>
 #include <boost/program_options.hpp>
-#include <iostream>
 #include <fstream>
+#include <iostream>
 #include "log.h"
 #include "nextpnr.h"
 #include "version.h"
 
+#include "design_utils.h"
+#include "jsonparse.h"
+#include "pack.h"
 #include "place_sa.h"
 #include "route.h"
-#include "design_utils.h"
 #include "timing.h"
-#include "jsonparse.h"
-
 
 USING_NEXTPNR_NAMESPACE
 
@@ -123,8 +123,8 @@ int main(int argc, char *argv[])
             if (!parse_json_file(f, filename, &ctx))
                 log_error("Loading design failed.\n");
 
-            //if (!pack_design(&ctx) && !ctx.force)
-            //    log_error("Packing design failed.\n");
+            if (!pack_design(&ctx) && !ctx.force)
+                log_error("Packing design failed.\n");
             if (vm.count("freq"))
                 ctx.target_freq = vm["freq"].as<double>() * 1e6;
             assign_budget(&ctx);
@@ -139,7 +139,6 @@ int main(int argc, char *argv[])
             ctx.check();
             if (!route_design(&ctx) && !ctx.force)
                 log_error("Routing design failed.\n");
-
         }
 
 #ifndef NO_PYTHON

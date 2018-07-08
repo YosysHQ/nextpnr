@@ -116,7 +116,6 @@ Arch::Arch(ArchArgs args) : args(args)
         log_error("Unsupported ECP5 chip type.\n");
     }
 #endif
-
 }
 
 // -----------------------------------------------------------------------
@@ -272,7 +271,8 @@ BelId Arch::getPackagePinBel(const std::string &pin) const { return BelId(); }
 std::string Arch::getBelPackagePin(BelId bel) const { return ""; }
 // -----------------------------------------------------------------------
 
-void Arch::estimatePosition(BelId bel, int &x, int &y, bool &gb) const {
+void Arch::estimatePosition(BelId bel, int &x, int &y, bool &gb) const
+{
     x = bel.location.x;
     y = bel.location.y;
     gb = false;
@@ -318,7 +318,6 @@ bool Arch::isBelLocationValid(BelId bel) const { return true; }
 
 // -----------------------------------------------------------------------
 
-
 bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, delay_t &delay) const
 {
     return false;
@@ -327,6 +326,5 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
 IdString Arch::getPortClock(const CellInfo *cell, IdString port) const { return IdString(); }
 
 bool Arch::isClockPort(const CellInfo *cell, IdString port) const { return false; }
-
 
 NEXTPNR_NAMESPACE_END
