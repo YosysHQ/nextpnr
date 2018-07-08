@@ -139,6 +139,14 @@ int main(int argc, char *argv[])
             ctx.check();
             if (!route_design(&ctx) && !ctx.force)
                 log_error("Routing design failed.\n");
+
+            // TEST BEGIN
+            for (auto pip : ctx.getPips()) {
+                if (!ctx.checkPipAvail(pip)) {
+                    std::cout << ctx.getWireName(ctx.getPipSrcWire(pip)).str(&ctx) << " -> " << ctx.getWireName(ctx.getPipDstWire(pip)).str(&ctx) << std::endl;
+                }
+            }
+            // TEST END
         }
 
 #ifndef NO_PYTHON
