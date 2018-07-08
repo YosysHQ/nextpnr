@@ -89,8 +89,11 @@ int main(int argc, char *argv[])
                          "sha1 " GIT_COMMIT_HASH_STR ")\n";
             return 1;
         }
-
-        Context ctx(ArchArgs{});
+        ArchArgs args;
+        args.type = ArchArgs::LFE5U_25F;
+        args.package = "CABGA381";
+        args.speed = 6;
+        Context ctx(args);
 
         if (vm.count("verbose")) {
             ctx.verbose = true;

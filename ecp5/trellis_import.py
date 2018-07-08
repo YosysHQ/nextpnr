@@ -602,7 +602,7 @@ def write_database(dev_name, endianness):
     bba.finalize()
     return bba
 
-dev_names = {"LFE5U-25F": "25k", "LFE5U-45F": "45k", "LFE5U-85F": "85k"}
+dev_names = {"25k": "LFE5U-25F", "45k": "LFE5U-45F", "85k": "LFE5U-85F"}
 
 def main():
     global max_row, max_col
@@ -623,7 +623,7 @@ def main():
             portpins[line[1]] = idx
 
     print("Initialising chip...")
-    chip = pytrellis.Chip(args.device)
+    chip = pytrellis.Chip(dev_names[args.device])
     print("Building routing graph...")
     rg = chip.get_routing_graph()
     max_row = chip.get_max_row()
@@ -646,7 +646,7 @@ def main():
             print("     At R{}C{}".format(y, x))
             import_location(rg, x, y)
     print("{} unique location types".format(len(location_types)))
-    bba = write_database(dev_names[args.device], "le")
+    bba = write_database(args.device, "le")
 
 
     if args.c_file:
