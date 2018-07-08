@@ -30,9 +30,17 @@
 #include <boost/filesystem/convenience.hpp>
 #include <boost/program_options.hpp>
 #include <iostream>
+#include <fstream>
 #include "log.h"
 #include "nextpnr.h"
 #include "version.h"
+
+#include "place_sa.h"
+#include "route.h"
+#include "design_utils.h"
+#include "timing.h"
+#include "jsonparse.h"
+
 
 USING_NEXTPNR_NAMESPACE
 
@@ -52,6 +60,8 @@ int main(int argc, char *argv[])
 #ifndef NO_GUI
         options.add_options()("gui", "start gui");
 #endif
+        options.add_options()("json", po::value<std::string>(), "JSON design file to ingest");
+        options.add_options()("seed", po::value<int>(), "seed value for random number generator");
 
         po::positional_options_description pos;
 #ifndef NO_PYTHON
@@ -105,6 +115,31 @@ int main(int argc, char *argv[])
 
         if (vm.count("seed")) {
             ctx.rngseed(vm["seed"].as<int>());
+        }
+
+        if (vm.count("json")) {
+            std::string filename = vm["json"].as<std::string>();
+            std::ifstream f(filename);
+            if (!parse_json_file(f, filename, &ctx))
+                log_error("Loading design failed.\n");
+
+            //if (!pack_design(&ctx) && !ctx.force)
+            //    log_error("Packing design failed.\n");
+            if (vm.count("freq"))
+                ctx.target_freq = vm["freq"].as<double>() * 1e6;
+            assign_budget(&ctx);
+            ctx.check();
+            print_utilisation(&ctx);
+            ctx.timing_driven = true;
+            if (vm.count("no-tmdriv"))
+                ctx.timing_driven = false;
+
+            if (!place_design_sa(&ctx) && !ctx.force)
+                log_error("Placing design failed.\n");
+            ctx.check();
+            if (!route_design(&ctx) && !ctx.force)
+                log_error("Routing design failed.\n");
+
         }
 
 #ifndef NO_PYTHON
