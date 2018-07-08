@@ -672,7 +672,9 @@ struct Arch : BaseCtx
         PipRange range;
         NPNR_ASSERT(wire != WireId());
         range.b.cursor = locInfo(wire)->wire_data[wire.index].pips_downhill.get();
+        range.b.wire_loc = wire.location;
         range.e.cursor = range.b.cursor + locInfo(wire)->wire_data[wire.index].num_downhill;
+        range.e.wire_loc = wire.location;
         return range;
     }
 
@@ -681,7 +683,9 @@ struct Arch : BaseCtx
         PipRange range;
         NPNR_ASSERT(wire != WireId());
         range.b.cursor = locInfo(wire)->wire_data[wire.index].pips_uphill.get();
+        range.b.wire_loc = wire.location;
         range.e.cursor = range.b.cursor + locInfo(wire)->wire_data[wire.index].num_uphill;
+        range.e.wire_loc = wire.location;
         return range;
     }
 

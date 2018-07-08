@@ -297,7 +297,7 @@ class BinaryBlobAssembler:
         assert len(self.data) % 2 == 0
         if self.nodebug:
             comment = None
-        c2val = (~v + 1) if v < 0 else v
+        c2val = (((-v) ^ 0xffff) + 1) if v < 0 else v
         if self.endianness == "le":
             self.data.append(c2val & 255)
             self.data.append((c2val >> 8) & 255)
