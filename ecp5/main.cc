@@ -31,6 +31,9 @@
 #include <boost/program_options.hpp>
 #include <fstream>
 #include <iostream>
+
+#include "Database.hpp"
+
 #include "log.h"
 #include "nextpnr.h"
 #include "version.h"
@@ -99,6 +102,9 @@ int main(int argc, char *argv[])
                          "sha1 " GIT_COMMIT_HASH_STR ")\n";
             return 1;
         }
+
+        Trellis::load_database(TRELLIS_ROOT"/database");
+
         ArchArgs args;
         args.type = ArchArgs::LFE5U_25F;
         args.package = "CABGA381";

@@ -39,3 +39,11 @@ else()
         endforeach (target)
     endforeach (dev)
 endif()
+
+find_library(TRELLIS_LIB trellis PATHS ${TRELLIS_ROOT}/libtrellis)
+
+foreach (target ${family_targets})
+    target_compile_definitions(${target} PRIVATE TRELLIS_ROOT="${TRELLIS_ROOT}")
+    target_include_directories(${target} PRIVATE ${TRELLIS_ROOT}/libtrellis/include)
+    target_link_libraries(${target} PRIVATE ${TRELLIS_LIB})
+endforeach (target)
