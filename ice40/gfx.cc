@@ -96,9 +96,9 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId id)
         GraphicElement el;
         el.type = GraphicElement::G_LINE;
 
-        float x1 = x + 0.03 + 0.0025 * (60 - idx);
-        float x2 = x + 0.03 + 0.0025 * (60 - (idx ^ 1));
-        float x3 = x + 0.03 + 0.0025 * (60 - (idx ^ 1) - 12);
+        float x1 = x + 0.03 + 0.0025 * (60 - (idx ^ 1));
+        float x2 = x + 0.03 + 0.0025 * (60 - idx);
+        float x3 = x + 0.03 + 0.0025 * (60 - idx - 12);
 
         if (idx >= 12) {
             el.y1 = y;
@@ -125,6 +125,14 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId id)
         el.x1 = x2;
         el.x2 = x3;
         g.push_back(el);
+
+        float y1 = y + 0.03 + 0.0025 * (142 - idx);
+
+        el.y1 = y1;
+        el.y2 = y1;
+        el.x1 = x;
+        el.x2 = x2;
+        g.push_back(el);
     }
 
     // Horizontal Span-12 Wires
@@ -148,9 +156,9 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId id)
         GraphicElement el;
         el.type = GraphicElement::G_LINE;
 
-        float y1 = y + 0.03 + 0.0025 * (90 - idx);
-        float y2 = y + 0.03 + 0.0025 * (90 - (idx ^ 1));
-        float y3 = y + 0.03 + 0.0025 * (90 - (idx ^ 1) - 2);
+        float y1 = y + 0.03 + 0.0025 * (90 - (idx ^ 1));
+        float y2 = y + 0.03 + 0.0025 * (90 - idx);
+        float y3 = y + 0.03 + 0.0025 * (90 - idx - 2);
 
         if (idx >= 2) {
             el.x1 = x;
@@ -176,6 +184,22 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId id)
         el.x2 = x + 1.0;
         el.y1 = y2;
         el.y2 = y3;
+        g.push_back(el);
+    }
+
+    // Veritcal Right Span-4
+
+    if (id >= TILE_WIRE_SP4_R_V_B_0 && id <= TILE_WIRE_SP4_R_V_B_47) {
+        int idx = id - TILE_WIRE_SP4_R_V_B_0;
+        GraphicElement el;
+        el.type = GraphicElement::G_LINE;
+
+        float y1 = y + 0.03 + 0.0025 * (142 - idx);
+
+        el.y1 = y1;
+        el.y2 = y1;
+        el.x1 = x + 0.6;
+        el.x2 = x + 1.0;
         g.push_back(el);
     }
 
