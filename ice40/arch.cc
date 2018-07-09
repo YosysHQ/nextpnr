@@ -424,12 +424,36 @@ std::vector<GraphicElement> Arch::getBelGraphics(BelId bel) const
     if (bel_type == TYPE_ICESTORM_LC) {
         GraphicElement el;
         el.type = GraphicElement::G_BOX;
-        el.x1 = chip_info->bel_data[bel.index].x + 0.1;
-        el.x2 = chip_info->bel_data[bel.index].x + 0.9;
-        el.y1 = chip_info->bel_data[bel.index].y + 0.10 + (chip_info->bel_data[bel.index].z) * (0.8 / 8);
-        el.y2 = chip_info->bel_data[bel.index].y + 0.18 + (chip_info->bel_data[bel.index].z) * (0.8 / 8);
+        el.x1 = chip_info->bel_data[bel.index].x + 0.82;
+        el.x2 = chip_info->bel_data[bel.index].x + 0.92;
+        el.y1 = chip_info->bel_data[bel.index].y + 0.30 + (chip_info->bel_data[bel.index].z) * (0.6 / 8);
+        el.y2 = chip_info->bel_data[bel.index].y + 0.35 + (chip_info->bel_data[bel.index].z) * (0.6 / 8);
         el.z = 0;
         ret.push_back(el);
+
+        if (chip_info->bel_data[bel.index].z == 0) {
+            int tx = chip_info->bel_data[bel.index].x;
+            int ty = chip_info->bel_data[bel.index].y;
+            // Local tracks to LUT input switchbox
+            GraphicElement lc_lut_sw;
+            lc_lut_sw.type = GraphicElement::G_BOX;
+            lc_lut_sw.x1 = tx + 0.75;
+            lc_lut_sw.x2 = tx + 0.8;
+            lc_lut_sw.y1 = ty + 0.30;
+            lc_lut_sw.y2 = ty + 0.875;
+            lc_lut_sw.z = 0;
+            ret.push_back(lc_lut_sw);
+            // Local tracks switchbox
+            GraphicElement lc_sw;
+            lc_sw.type = GraphicElement::G_BOX;
+            lc_sw.x1 = tx + 0.6;
+            lc_sw.x2 = tx + 0.7;
+            lc_sw.y1 = ty + 0.65;
+            lc_sw.y2 = ty + 0.75;
+            ret.push_back(lc_sw);
+
+
+        }
     }
 
     if (bel_type == TYPE_SB_IO) {

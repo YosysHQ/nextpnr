@@ -346,7 +346,7 @@ void FPGAViewWidget::paintGL()
     matrix.scale(zoom_ * 0.01f, zoom_ * 0.01f, 0);
 
     // Draw grid.
-    auto grid = LineShaderData(0.01f, QColor("#DDD"));
+    auto grid = LineShaderData(0.001f, QColor("#DDD"));
     for (float i = -100.0f; i < 100.0f; i += 1.0f) {
         PolyLine(-100.0f, i, 100.0f, i).build(grid);
         PolyLine(i, -100.0f, i, 100.0f).build(grid);
@@ -354,7 +354,7 @@ void FPGAViewWidget::paintGL()
     lineShader_.draw(grid, matrix);
 
     // Draw Bels.
-    auto bels = LineShaderData(0.02f, QColor("#b000ba"));
+    auto bels = LineShaderData(0.002f, QColor("#b000ba"));
     if (ctx_) {
         for (auto bel : ctx_->getBels()) {
             for (auto &el : ctx_->getBelGraphics(bel))
@@ -364,7 +364,7 @@ void FPGAViewWidget::paintGL()
     }
 
     // Draw Frame Graphics.
-    auto frames = LineShaderData(0.02f, QColor("#0066ba"));
+    auto frames = LineShaderData(0.002f, QColor("#0066ba"));
     if (ctx_) {
         for (auto &el : ctx_->getFrameGraphics()) {
             drawElement(frames, el);
