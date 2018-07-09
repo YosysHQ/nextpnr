@@ -39,6 +39,18 @@ ValueType get_or_default(const Container &ct, const KeyType &key, ValueType def 
         return found->second;
 };
 
+// Get a value from a map-style container, returning default if value is not
+// found (forces string)
+template <typename Container, typename KeyType>
+std::string str_or_default(const Container &ct, const KeyType &key, std::string def = "")
+{
+    auto found = ct.find(key);
+    if (found == ct.end())
+        return def;
+    else
+        return found->second;
+};
+
 // Get a value from a map-style container, converting to int, and returning
 // default if value is not found
 template <typename Container, typename KeyType> int int_or_default(const Container &ct, const KeyType &key, int def = 0)

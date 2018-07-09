@@ -118,6 +118,20 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             int lut1_init = int_or_default(ci->params, ctx->id("LUT1_INITVAL"));
             cc.tiles[tname].add_word(slice + ".K0.INIT", int_to_bitvector(lut0_init, 16));
             cc.tiles[tname].add_word(slice + ".K1.INIT", int_to_bitvector(lut1_init, 16));
+            cc.tiles[tname].add_enum(slice + ".MODE", str_or_default(ci->params, ctx->id("MODE"), "LOGIC"));
+            cc.tiles[tname].add_enum(slice + ".GSR", str_or_default(ci->params, ctx->id("GSR"), "ENABLED"));
+            cc.tiles[tname].add_enum(slice + ".REG0.SD", str_or_default(ci->params, ctx->id("REG0_SD"), "0"));
+            cc.tiles[tname].add_enum(slice + ".REG1.SD", str_or_default(ci->params, ctx->id("REG1_SD"), "0"));
+            cc.tiles[tname].add_enum(slice + ".REG0.REGSET",
+                                     str_or_default(ci->params, ctx->id("REG0_REGSET"), "RESET"));
+            cc.tiles[tname].add_enum(slice + ".REG1.REGSET",
+                                     str_or_default(ci->params, ctx->id("REG1_REGSET"), "RESET"));
+            cc.tiles[tname].add_enum(slice + ".CEMUX", str_or_default(ci->params, ctx->id("CEMUX"), "1"));
+            // TODO: CLKMUX, CEMUX, carry
+        } else if (ci->type == ctx->id("TRELLIS_IO")) {
+            // TODO: IO config
+        } else {
+            NPNR_ASSERT_FALSE("unsupported cell type");
         }
     }
 
