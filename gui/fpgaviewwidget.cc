@@ -297,8 +297,8 @@ void FPGAViewWidget::setZoom(float t_z)
 
     if (zoom_ < 1.0f)
         zoom_ = 1.0f;
-    if (zoom_ > 100.f)
-        zoom_ = 100.0f;
+    if (zoom_ > 500.f)
+        zoom_ = 500.0f;
 
     update();
 }
@@ -354,7 +354,7 @@ void FPGAViewWidget::paintGL()
     lineShader_.draw(grid, matrix);
 
     // Draw Bels.
-    auto bels = LineShaderData(0.002f, QColor("#b000ba"));
+    auto bels = LineShaderData(0.0005f, QColor("#b000ba"));
     if (ctx_) {
         for (auto bel : ctx_->getBels()) {
             for (auto &el : ctx_->getBelGraphics(bel))
