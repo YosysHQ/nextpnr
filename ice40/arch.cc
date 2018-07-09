@@ -22,6 +22,8 @@
 #include "log.h"
 #include "nextpnr.h"
 #include "util.h"
+#include "gfx.h"
+
 NEXTPNR_NAMESPACE_BEGIN
 
 // -----------------------------------------------------------------------
@@ -452,7 +454,9 @@ std::vector<GraphicElement> Arch::getBelGraphics(BelId bel) const
             lc_sw.y2 = ty + 0.75;
             ret.push_back(lc_sw);
 
-
+            // All the wires
+            for (int i = TILE_WIRE_GLB2LOCAL_0; i <= TILE_WIRE_SP12_H_L_23; i++)
+                gfxTileWire(ret, tx, ty, GfxTileWireId(i));
         }
     }
 
