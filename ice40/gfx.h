@@ -24,6 +24,41 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+const float lc_lut_swbox_x1 = 0.75;
+const float lc_lut_swbox_x2 = 0.8;
+const float lc_lut_swbox_y1 = 0.45;
+const float lc_lut_swbox_y2 = 0.9375;
+
+const float locals_swbox_x1 = 0.6;
+const float locals_swbox_x2 = 0.7;
+const float locals_swbox_y1 = 0.65;
+const float locals_swbox_y2 = 0.75;
+
+const float lutff_global_swbox_x1 = 0.65;
+const float lutff_global_swbox_x2 = 0.7;
+const float lutff_global_swbox_y1 = 0.91;
+const float lutff_global_swbox_y2 = 0.96;
+
+const float glb2local_swbox_x1 = 0.45;
+const float glb2local_swbox_x2 = 0.55;
+const float glb2local_swbox_y1 = 0.80;
+const float glb2local_swbox_y2 = 0.85;
+
+const float span12_swbox_x1 = 0.500;
+const float span12_swbox_x2 = 0.575;
+const float span12_swbox_y1 = 0.525;
+const float span12_swbox_y2 = 0.625;
+
+const float span4h_swbox_x1 = 0.400;
+const float span4h_swbox_x2 = 0.475;
+const float span4h_swbox_y1 = 0.425;
+const float span4h_swbox_y2 = 0.525;
+
+const float span4v_swbox_x1 = 0.300;
+const float span4v_swbox_x2 = 0.375;
+const float span4v_swbox_y1 = 0.300;
+const float span4v_swbox_y2 = 0.400;
+
 enum GfxTileWireId {
     TILE_WIRE_GLB2LOCAL_0,
     TILE_WIRE_GLB2LOCAL_1,

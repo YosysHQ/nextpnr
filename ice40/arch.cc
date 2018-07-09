@@ -439,64 +439,64 @@ std::vector<GraphicElement> Arch::getBelGraphics(BelId bel) const
             // Local tracks to LUT input switchbox
             GraphicElement lc_lut_sw;
             lc_lut_sw.type = GraphicElement::G_BOX;
-            lc_lut_sw.x1 = tx + 0.75;
-            lc_lut_sw.x2 = tx + 0.8;
-            lc_lut_sw.y1 = ty + 0.45;
-            lc_lut_sw.y2 = ty + 0.9375;
+            lc_lut_sw.x1 = tx + lc_lut_swbox_x1;
+            lc_lut_sw.x2 = tx + lc_lut_swbox_x2;
+            lc_lut_sw.y1 = ty + lc_lut_swbox_y1;
+            lc_lut_sw.y2 = ty + lc_lut_swbox_y2;
             lc_lut_sw.z = 0;
             ret.push_back(lc_lut_sw);
             // Local tracks switchbox
             GraphicElement lc_sw;
             lc_sw.type = GraphicElement::G_BOX;
-            lc_sw.x1 = tx + 0.6;
-            lc_sw.x2 = tx + 0.7;
-            lc_sw.y1 = ty + 0.65;
-            lc_sw.y2 = ty + 0.75;
+            lc_sw.x1 = tx + locals_swbox_x1;
+            lc_sw.x2 = tx + locals_swbox_x2;
+            lc_sw.y1 = ty + locals_swbox_y1;
+            lc_sw.y2 = ty + locals_swbox_y2;
             ret.push_back(lc_sw);
 
             // lutff_global switchbox
             GraphicElement lff_glb_sw;
             lff_glb_sw.type = GraphicElement::G_BOX;
-            lff_glb_sw.x1 = tx + 0.65;
-            lff_glb_sw.x2 = tx + 0.7;
-            lff_glb_sw.y1 = ty + 0.910;
-            lff_glb_sw.y2 = ty + 0.960;
+            lff_glb_sw.x1 = tx + lutff_global_swbox_x1;
+            lff_glb_sw.x2 = tx + lutff_global_swbox_x2;
+            lff_glb_sw.y1 = ty + lutff_global_swbox_y1;
+            lff_glb_sw.y2 = ty + lutff_global_swbox_y2;
             ret.push_back(lff_glb_sw);
 
             // glb2local switchbox
             GraphicElement glb2local_sw;
             glb2local_sw.type = GraphicElement::G_BOX;
-            glb2local_sw.x1 = tx + 0.45;
-            glb2local_sw.x2 = tx + 0.55;
-            glb2local_sw.y1 = ty + 0.80;
-            glb2local_sw.y2 = ty + 0.85;
+            glb2local_sw.x1 = tx + glb2local_swbox_x1;
+            glb2local_sw.x2 = tx + glb2local_swbox_x2;
+            glb2local_sw.y1 = ty + glb2local_swbox_y1;
+            glb2local_sw.y2 = ty + glb2local_swbox_y2;
             ret.push_back(glb2local_sw);
 
             // span12 switchbox
             GraphicElement sp12_sw;
             sp12_sw.type = GraphicElement::G_BOX;
-            sp12_sw.x1 = tx + 0.500;
-            sp12_sw.x2 = tx + 0.575;
-            sp12_sw.y1 = ty + 0.525;
-            sp12_sw.y2 = ty + 0.625;
+            sp12_sw.x1 = tx + span12_swbox_x1;
+            sp12_sw.x2 = tx + span12_swbox_x2;
+            sp12_sw.y1 = ty + span12_swbox_y1;
+            sp12_sw.y2 = ty + span12_swbox_y2;
             ret.push_back(sp12_sw);
 
             // span4v switchbox
             GraphicElement sp4v_sw;
             sp4v_sw.type = GraphicElement::G_BOX;
-            sp4v_sw.x1 = tx + 0.400;
-            sp4v_sw.x2 = tx + 0.475;
-            sp4v_sw.y1 = ty + 0.425;
-            sp4v_sw.y2 = ty + 0.525;
+            sp4v_sw.x1 = tx + span4h_swbox_x1;
+            sp4v_sw.x2 = tx + span4h_swbox_x2;
+            sp4v_sw.y1 = ty + span4h_swbox_y1;
+            sp4v_sw.y2 = ty + span4h_swbox_y2;
             ret.push_back(sp4v_sw);
 
             // span4h switchbox
             GraphicElement sp4h_sw;
             sp4h_sw.type = GraphicElement::G_BOX;
-            sp4h_sw.x1 = tx + 0.300;
-            sp4h_sw.x2 = tx + 0.375;
-            sp4h_sw.y1 = ty + 0.3;
-            sp4h_sw.y2 = ty + 0.4;
+            sp4h_sw.x1 = tx + span4v_swbox_x1;
+            sp4h_sw.x2 = tx + span4v_swbox_x2;
+            sp4h_sw.y1 = ty + span4v_swbox_y1;
+            sp4h_sw.y2 = ty + span4v_swbox_y2;
             ret.push_back(sp4h_sw);
 
 
