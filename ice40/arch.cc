@@ -454,9 +454,6 @@ std::vector<GraphicElement> Arch::getBelGraphics(BelId bel) const
             lc_sw.y2 = ty + 0.75;
             ret.push_back(lc_sw);
 
-            // All the wires
-            for (int i = TILE_WIRE_GLB2LOCAL_0; i <= TILE_WIRE_SP12_H_L_23; i++)
-                gfxTileWire(ret, tx, ty, GfxTileWireId(i));
             // lutff_global switchbox
             GraphicElement lff_glb_sw;
             lff_glb_sw.type = GraphicElement::G_BOX;
@@ -465,6 +462,47 @@ std::vector<GraphicElement> Arch::getBelGraphics(BelId bel) const
             lff_glb_sw.y1 = ty + 0.875;
             lff_glb_sw.y2 = ty + 0.925;
             ret.push_back(lff_glb_sw);
+
+            // glb2local switchbox
+            GraphicElement glb2local_sw;
+            glb2local_sw.type = GraphicElement::G_BOX;
+            glb2local_sw.x1 = tx + 0.45;
+            glb2local_sw.x2 = tx + 0.55;
+            glb2local_sw.y1 = ty + 0.80;
+            glb2local_sw.y2 = ty + 0.85;
+            ret.push_back(glb2local_sw);
+
+            // span12 switchbox
+            GraphicElement sp12_sw;
+            sp12_sw.type = GraphicElement::G_BOX;
+            sp12_sw.x1 = tx + 0.500;
+            sp12_sw.x2 = tx + 0.575;
+            sp12_sw.y1 = ty + 0.525;
+            sp12_sw.y2 = ty + 0.625;
+            ret.push_back(sp12_sw);
+
+            // span4v switchbox
+            GraphicElement sp4v_sw;
+            sp4v_sw.type = GraphicElement::G_BOX;
+            sp4v_sw.x1 = tx + 0.400;
+            sp4v_sw.x2 = tx + 0.475;
+            sp4v_sw.y1 = ty + 0.425;
+            sp4v_sw.y2 = ty + 0.525;
+            ret.push_back(sp4v_sw);
+
+            // span4h switchbox
+            GraphicElement sp4h_sw;
+            sp4h_sw.type = GraphicElement::G_BOX;
+            sp4h_sw.x1 = tx + 0.300;
+            sp4h_sw.x2 = tx + 0.375;
+            sp4h_sw.y1 = ty + 0.3;
+            sp4h_sw.y2 = ty + 0.4;
+            ret.push_back(sp4h_sw);
+
+
+            // All the wires
+            for (int i = TILE_WIRE_GLB2LOCAL_0; i <= TILE_WIRE_SP12_H_L_23; i++)
+                gfxTileWire(ret, tx, ty, GfxTileWireId(i));
         }
     }
 
