@@ -254,6 +254,16 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId id)
         el.x2 = x3;
         g.push_back(el);
     }
+
+    if (id >= TILE_WIRE_LUTFF_0_IN_0 && id <= TILE_WIRE_LUTFF_0_IN_3)  {
+        GraphicElement el;
+        el.type = GraphicElement::G_LINE;
+        el.x1 = x + 0.8;
+        el.x2 = x + 0.82;
+        el.y1 = y + 0.4675 + (0.005 * (id - TILE_WIRE_LUTFF_0_IN_0));
+        el.y2 = el.y1;
+        g.push_back(el);
+    }
 }
 
 NEXTPNR_NAMESPACE_END
