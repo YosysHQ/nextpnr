@@ -32,14 +32,15 @@
 #include <fstream>
 #include <iostream>
 
-#include "Database.hpp"
 #include "Chip.hpp"
+#include "Database.hpp"
 #include "Tile.hpp"
 
 #include "log.h"
 #include "nextpnr.h"
 #include "version.h"
 
+#include "bitstream.h"
 #include "design_utils.h"
 #include "jsonparse.h"
 #include "pack.h"
@@ -67,6 +68,10 @@ int main(int argc, char *argv[])
 #endif
         options.add_options()("json", po::value<std::string>(), "JSON design file to ingest");
         options.add_options()("seed", po::value<int>(), "seed value for random number generator");
+
+        options.add_options()("basecfg", po::value<std::string>(), "base chip configuration in Trellis text format");
+        options.add_options()("bit", po::value<std::string>(), "bitstream file to write");
+        options.add_options()("textcfg", po::value<std::string>(), "textual configuration in Trellis format to write");
 
         po::positional_options_description pos;
 #ifndef NO_PYTHON
@@ -148,17 +153,18 @@ int main(int argc, char *argv[])
             if (!route_design(&ctx) && !ctx.force)
                 log_error("Routing design failed.\n");
 
-            // TEST BEGIN
-            Trellis::Chip c("LFE5U-45F");
-            for (auto pip : ctx.getPips()) {
-                if (!ctx.checkPipAvail(pip)) {
-                    auto tile = c.get_tile_by_position_and_type(pip.location.y, pip.location.x, ctx.getPipTiletype(pip));
-                    std::cout << ctx.getWireName(ctx.getPipSrcWire(pip)).str(&ctx) << " -> "
-                              << ctx.getWireName(ctx.getPipDstWire(pip)).str(&ctx) << " [in tile "
-                              <<  tile->info.name << "]" << std::endl;
-                }
-            }
-            // TEST END
+            std::string basecfg;
+            if (vm.count("basecfg"))
+                basecfg = vm["basecfg"].as<std::string>();
+
+            std::string bitstream;
+            if (vm.count("bit"))
+                bitstream = vm["bit"].as<std::string>();
+
+            std::string textcfg;
+            if (vm.count("textcfg"))
+                textcfg = vm["textcfg"].as<std::string>();
+            write_bitstream(&ctx, basecfg, textcfg, bitstream);
         }
 
 #ifndef NO_PYTHON

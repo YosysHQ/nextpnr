@@ -704,6 +704,8 @@ struct Arch : BaseCtx
         return chip_info->tiletype_names[locInfo(pip)->pip_data[pip.index].tile_type].get();
     }
 
+    int8_t getPipType(PipId pip) const { return locInfo(pip)->pip_data[pip.index].pip_type; }
+
     BelId getPackagePinBel(const std::string &pin) const;
     std::string getBelPackagePin(BelId bel) const;
 

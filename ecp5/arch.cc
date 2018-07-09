@@ -124,11 +124,11 @@ std::string Arch::getChipName()
 {
 
     if (args.type == ArchArgs::LFE5U_25F) {
-        return "Lattice LFE5U-25F";
+        return "LFE5U-25F";
     } else if (args.type == ArchArgs::LFE5U_45F) {
-        return "Lattice LFE5U-45F";
+        return "LFE5U-45F";
     } else if (args.type == ArchArgs::LFE5U_85F) {
-        return "Lattice LFE5U-85F";
+        return "LFE5U-85F";
     } else {
         log_error("Unknown chip\n");
     }
