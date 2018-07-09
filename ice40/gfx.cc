@@ -255,12 +255,15 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId id)
         g.push_back(el);
     }
 
-    if (id >= TILE_WIRE_LUTFF_0_IN_0 && id <= TILE_WIRE_LUTFF_0_IN_3)  {
+    if (id >= TILE_WIRE_LUTFF_0_IN_0 && id <= TILE_WIRE_LUTFF_7_IN_3)  {
+        int idx = id - TILE_WIRE_LUTFF_0_IN_0;
+        int z = idx / 4;
+        int input = idx % 4;
         GraphicElement el;
         el.type = GraphicElement::G_LINE;
-        el.x1 = x + 0.8;
+        el.x1 = x + lc_lut_swbox_x2;
         el.x2 = x + 0.82;
-        el.y1 = y + 0.4675 + (0.005 * (id - TILE_WIRE_LUTFF_0_IN_0));
+        el.y1 = y + 0.4675 + (0.005 * input) + z * (0.5 / 8);
         el.y2 = el.y1;
         g.push_back(el);
     }
