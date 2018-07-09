@@ -72,7 +72,7 @@ class assertion_failure : public std::runtime_error
     int line;
 };
 
-inline void except_assert_impl(bool expr, std::string message, std::string expr_str, std::string filename, int line)
+inline void except_assert_impl(bool expr, const char *message, const char *expr_str, const char *filename, int line)
 {
     if (!expr)
         throw assertion_failure(message, expr_str, filename, line);
