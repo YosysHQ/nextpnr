@@ -60,7 +60,7 @@ const float span4v_swbox_y1 = 0.300;
 const float span4v_swbox_y2 = 0.400;
 
 const float logic_cell_x1 = 0.82;
-const float logic_cell_x2 = 0.92;
+const float logic_cell_x2 = 0.95;
 const float logic_cell_y1 = 0.45;
 const float logic_cell_y2 = 0.50;
 const float logic_cell_pitch = 0.0625;

@@ -126,7 +126,7 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId id)
         el.x2 = x3;
         g.push_back(el);
 
-        float y1 = y + 0.03 + 0.0025 * (142 - idx);
+        float y1 = y + 0.03 + 0.0025 * (154 - idx);
 
         el.y1 = y1;
         el.y2 = y1;
@@ -194,7 +194,7 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId id)
         GraphicElement el;
         el.type = GraphicElement::G_LINE;
 
-        float y1 = y + 0.03 + 0.0025 * (142 - idx);
+        float y1 = y + 0.03 + 0.0025 * (154 - idx);
 
         el.y1 = y1;
         el.y2 = y1;
@@ -255,6 +255,8 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId id)
         g.push_back(el);
     }
 
+    // LC Inputs
+
     if (id >= TILE_WIRE_LUTFF_0_IN_0 && id <= TILE_WIRE_LUTFF_7_IN_3)  {
         int idx = id - TILE_WIRE_LUTFF_0_IN_0;
         int z = idx / 4;
@@ -265,6 +267,31 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId id)
         el.x2 = x + logic_cell_x1;
         el.y1 = y + 0.4675 + (0.005 * input) + z * logic_cell_pitch;
         el.y2 = el.y1;
+        g.push_back(el);
+    }
+
+    // LC Outputs
+
+    if (id >= TILE_WIRE_LUTFF_0_OUT && id <= TILE_WIRE_LUTFF_7_OUT) {
+        int idx = id - TILE_WIRE_LUTFF_0_OUT;
+
+        float y1 = y + 0.03 + 0.0025 * (102 - idx);
+
+        GraphicElement el;
+        el.type = GraphicElement::G_LINE;
+        el.y1 = y1;
+        el.y2 = y1;
+        el.x1 = x + 0.3;
+        el.x2 = x + 0.97 + 0.0025 * idx;
+        g.push_back(el);
+
+        el.y1 = y1;
+        el.y2 = y + (logic_cell_y1 + logic_cell_y2) / 2 + idx * logic_cell_pitch;
+        el.x1 = el.x2;
+        g.push_back(el);
+
+        el.y1 = el.y2;
+        el.x1 = x + logic_cell_x2;
         g.push_back(el);
     }
 }
