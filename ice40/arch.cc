@@ -428,8 +428,8 @@ std::vector<GraphicElement> Arch::getBelGraphics(BelId bel) const
         el.type = GraphicElement::G_BOX;
         el.x1 = chip_info->bel_data[bel.index].x + 0.82;
         el.x2 = chip_info->bel_data[bel.index].x + 0.92;
-        el.y1 = chip_info->bel_data[bel.index].y + 0.30 + (chip_info->bel_data[bel.index].z) * (0.6 / 8);
-        el.y2 = chip_info->bel_data[bel.index].y + 0.35 + (chip_info->bel_data[bel.index].z) * (0.6 / 8);
+        el.y1 = chip_info->bel_data[bel.index].y + 0.45 + (chip_info->bel_data[bel.index].z) * (0.5 / 8);
+        el.y2 = chip_info->bel_data[bel.index].y + 0.5 + (chip_info->bel_data[bel.index].z) * (0.5 / 8);
         el.z = 0;
         ret.push_back(el);
 
@@ -441,8 +441,8 @@ std::vector<GraphicElement> Arch::getBelGraphics(BelId bel) const
             lc_lut_sw.type = GraphicElement::G_BOX;
             lc_lut_sw.x1 = tx + 0.75;
             lc_lut_sw.x2 = tx + 0.8;
-            lc_lut_sw.y1 = ty + 0.30;
-            lc_lut_sw.y2 = ty + 0.875;
+            lc_lut_sw.y1 = ty + 0.45;
+            lc_lut_sw.y2 = ty + 0.9375;
             lc_lut_sw.z = 0;
             ret.push_back(lc_lut_sw);
             // Local tracks switchbox
@@ -459,8 +459,8 @@ std::vector<GraphicElement> Arch::getBelGraphics(BelId bel) const
             lff_glb_sw.type = GraphicElement::G_BOX;
             lff_glb_sw.x1 = tx + 0.65;
             lff_glb_sw.x2 = tx + 0.7;
-            lff_glb_sw.y1 = ty + 0.875;
-            lff_glb_sw.y2 = ty + 0.925;
+            lff_glb_sw.y1 = ty + 0.910;
+            lff_glb_sw.y2 = ty + 0.960;
             ret.push_back(lff_glb_sw);
 
             // glb2local switchbox
