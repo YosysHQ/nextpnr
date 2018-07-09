@@ -457,6 +457,14 @@ std::vector<GraphicElement> Arch::getBelGraphics(BelId bel) const
             // All the wires
             for (int i = TILE_WIRE_GLB2LOCAL_0; i <= TILE_WIRE_SP12_H_L_23; i++)
                 gfxTileWire(ret, tx, ty, GfxTileWireId(i));
+            // lutff_global switchbox
+            GraphicElement lff_glb_sw;
+            lff_glb_sw.type = GraphicElement::G_BOX;
+            lff_glb_sw.x1 = tx + 0.65;
+            lff_glb_sw.x2 = tx + 0.7;
+            lff_glb_sw.y1 = ty + 0.875;
+            lff_glb_sw.y2 = ty + 0.925;
+            ret.push_back(lff_glb_sw);
         }
     }
 
