@@ -426,10 +426,10 @@ std::vector<GraphicElement> Arch::getBelGraphics(BelId bel) const
     if (bel_type == TYPE_ICESTORM_LC) {
         GraphicElement el;
         el.type = GraphicElement::G_BOX;
-        el.x1 = chip_info->bel_data[bel.index].x + 0.82;
-        el.x2 = chip_info->bel_data[bel.index].x + 0.92;
-        el.y1 = chip_info->bel_data[bel.index].y + 0.45 + (chip_info->bel_data[bel.index].z) * (0.5 / 8);
-        el.y2 = chip_info->bel_data[bel.index].y + 0.5 + (chip_info->bel_data[bel.index].z) * (0.5 / 8);
+        el.x1 = chip_info->bel_data[bel.index].x + logic_cell_x1;
+        el.x2 = chip_info->bel_data[bel.index].x + logic_cell_x2;
+        el.y1 = chip_info->bel_data[bel.index].y + logic_cell_y1 + (chip_info->bel_data[bel.index].z) * logic_cell_pitch;
+        el.y2 = chip_info->bel_data[bel.index].y + logic_cell_y2 + (chip_info->bel_data[bel.index].z) * logic_cell_pitch;
         el.z = 0;
         ret.push_back(el);
 

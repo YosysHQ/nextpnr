@@ -262,8 +262,8 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId id)
         GraphicElement el;
         el.type = GraphicElement::G_LINE;
         el.x1 = x + lc_lut_swbox_x2;
-        el.x2 = x + 0.82;
-        el.y1 = y + 0.4675 + (0.005 * input) + z * (0.5 / 8);
+        el.x2 = x + logic_cell_x1;
+        el.y1 = y + 0.4675 + (0.005 * input) + z * logic_cell_pitch;
         el.y2 = el.y1;
         g.push_back(el);
     }
