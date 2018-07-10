@@ -96,6 +96,7 @@ inline const NetInfo *get_net_or_empty(const CellInfo *cell, const IdString port
     else
         return nullptr;
 };
+
 NEXTPNR_NAMESPACE_END
 
 #endif

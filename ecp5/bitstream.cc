@@ -33,6 +33,8 @@
 #include "log.h"
 #include "util.h"
 
+#define fmt_str(x) (static_cast<const std::ostringstream&>(std::ostringstream() << x).str())
+
 NEXTPNR_NAMESPACE_BEGIN
 
 // Convert an absolute wire name to a relative Trellis one
@@ -65,11 +67,97 @@ static std::vector<bool> int_to_bitvector(int val, int size)
     return bv;
 }
 
+// Get the PIO tile corresponding to a PIO bel
+static std::string get_pio_tile(Context *ctx, Trellis::Chip &chip, BelId bel)
+{
+    static const std::set<std::string> pioabcd_l = {"PICL1", "PICL1_DQS0", "PICL1_DQS3"};
+    static const std::set<std::string> pioabcd_r = {"PICR1", "PICR1_DQS0", "PICR1_DQS3"};
+    static const std::set<std::string> pioa_b = {"PICB0", "EFB0_PICB0", "EFB2_PICB0"};
+    static const std::set<std::string> piob_b = {"PICB1", "EFB1_PICB1", "EFB3_PICB1"};
+
+    std::string pio_name = ctx->locInfo(bel)->bel_data[bel.index].name.get();
+    if (bel.location.y == 0) {
+        if (pio_name == "PIOA") {
+            return chip.get_tile_by_position_and_type(0, bel.location.x, "PIOT0")->info.name;
+        } else if (pio_name == "PIOB") {
+            return chip.get_tile_by_position_and_type(0, bel.location.x + 1, "PIOT1")->info.name;
+        } else {
+            NPNR_ASSERT_FALSE("bad PIO location");
+        }
+    } else if (bel.location.y == ctx->chip_info->height - 1) {
+        if (pio_name == "PIOA") {
+            return chip.get_tile_by_position_and_type(bel.location.y, bel.location.x, pioa_b)->info.name;
+        } else if (pio_name == "PIOB") {
+            return chip.get_tile_by_position_and_type(bel.location.y, bel.location.x + 1, piob_b)->info.name;
+        } else {
+            NPNR_ASSERT_FALSE("bad PIO location");
+        }
+    } else if (bel.location.x == 0) {
+        return chip.get_tile_by_position_and_type(bel.location.y + 1, bel.location.x, pioabcd_l)->info.name;
+    } else if (bel.location.x == ctx->chip_info->width - 1) {
+        return chip.get_tile_by_position_and_type(bel.location.y + 1, bel.location.x, pioabcd_r)->info.name;
+    } else {
+        NPNR_ASSERT_FALSE("bad PIO location");
+    }
+}
+
+// Get the PIC tile corresponding to a PIO bel
+static std::string get_pic_tile(Context *ctx, Trellis::Chip &chip, BelId bel)
+{
+    static const std::set<std::string> picab_l = {"PICL0", "PICL0_DQS2"};
+    static const std::set<std::string> piccd_l = {"PICL2", "PICL2_DQS1", "MIB_CIB_LR"};
+    static const std::set<std::string> picab_r = {"PICR0", "PICR0_DQS2"};
+    static const std::set<std::string> piccd_r = {"PICR2", "PICR2_DQS1", "MIB_CIB_LR_A"};
+
+    static const std::set<std::string> pica_b = {"PICB0", "EFB0_PICB0", "EFB2_PICB0"};
+    static const std::set<std::string> picb_b = {"PICB1", "EFB1_PICB1", "EFB3_PICB1"};
+
+    std::string pio_name = ctx->locInfo(bel)->bel_data[bel.index].name.get();
+    if (bel.location.y == 0) {
+        if (pio_name == "PIOA") {
+            return chip.get_tile_by_position_and_type(1, bel.location.x, "PICT0")->info.name;
+        } else if (pio_name == "PIOB") {
+            return chip.get_tile_by_position_and_type(1, bel.location.x + 1, "PICT1")->info.name;
+        } else {
+            NPNR_ASSERT_FALSE("bad PIO location");
+        }
+    } else if (bel.location.y == ctx->chip_info->height - 1) {
+        if (pio_name == "PIOA") {
+            return chip.get_tile_by_position_and_type(bel.location.y, bel.location.x, pica_b)->info.name;
+        } else if (pio_name == "PIOB") {
+            return chip.get_tile_by_position_and_type(bel.location.y, bel.location.x + 1, picb_b)->info.name;
+        } else {
+            NPNR_ASSERT_FALSE("bad PIO location");
+        }
+    } else if (bel.location.x == 0) {
+        if (pio_name == "PIOA" || pio_name == "PIOB") {
+            return chip.get_tile_by_position_and_type(bel.location.y, bel.location.x, picab_l)->info.name;
+        } else if (pio_name == "PIOC" || pio_name == "PIOD") {
+            return chip.get_tile_by_position_and_type(bel.location.y + 2, bel.location.x, piccd_l)->info.name;
+        } else {
+            NPNR_ASSERT_FALSE("bad PIO location");
+        }
+    } else if (bel.location.x == ctx->chip_info->width - 1) {
+        if (pio_name == "PIOA" || pio_name == "PIOB") {
+            return chip.get_tile_by_position_and_type(bel.location.y, bel.location.x, picab_r)->info.name;
+        } else if (pio_name == "PIOC" || pio_name == "PIOD") {
+            return chip.get_tile_by_position_and_type(bel.location.y + 2, bel.location.x, piccd_r)->info.name;
+        } else {
+            NPNR_ASSERT_FALSE("bad PIO location");
+        }
+    } else {
+        NPNR_ASSERT_FALSE("bad PIO location");
+    }
+}
+
 void write_bitstream(Context *ctx, std::string base_config_file, std::string text_config_file,
                      std::string bitstream_file)
 {
     Trellis::Chip empty_chip(ctx->getChipName());
     Trellis::ChipConfig cc;
+
+    std::set<std::string> cib_tiles = {"CIB", "CIB_LR", "CIB_LR_S", "CIB_EFB0", "CIB_EFB1"};
+
     if (!base_config_file.empty()) {
         std::ifstream config_file(base_config_file);
         if (!config_file) {
@@ -129,7 +217,23 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             cc.tiles[tname].add_enum(slice + ".CEMUX", str_or_default(ci->params, ctx->id("CEMUX"), "1"));
             // TODO: CLKMUX, CEMUX, carry
         } else if (ci->type == ctx->id("TRELLIS_IO")) {
-            // TODO: IO config
+            std::string pio = ctx->locInfo(bel)->bel_data[bel.index].name.get();
+            std::string iotype = str_or_default(ci->attrs, ctx->id("IO_TYPE"), "LVCMOS33");
+            std::string dir = str_or_default(ci->params, ctx->id("DIR"), "INPUT");
+            std::string pio_tile = get_pio_tile(ctx, empty_chip, bel);
+            std::string pic_tile = get_pic_tile(ctx, empty_chip, bel);
+            cc.tiles[pio_tile].add_enum(pio + ".BASE_TYPE", dir + "_" + iotype);
+            cc.tiles[pic_tile].add_enum(pio + ".BASE_TYPE", dir + "_" + iotype);
+            if (dir != "INPUT" && (ci->ports.find(ctx->id("T")) == ci->ports.end() || ci->ports.at(ctx->id("T")).net == nullptr)) {
+                // Tie tristate low if unconnected for outputs or bidir
+                std::string jpt = fmt_str("X" << bel.location.x << "/Y" << bel.location.y << "/JPADDT" << pio.back());
+                WireId jpt_wire = ctx->getWireByName(ctx->id(jpt));
+                PipId jpt_pip = *ctx->getPipsUphill(jpt_wire).begin();
+                WireId cib_wire = ctx->getPipSrcWire(jpt_pip);
+                std::string cib_tile = empty_chip.get_tile_by_position_and_type(cib_wire.location.y, cib_wire.location.x, cib_tiles)->info.name;
+                std::string cib_wirename = ctx->locInfo(cib_wire)->wire_data[cib_wire.index].name.get();
+                cc.tiles[cib_tile].add_enum("CIB." + cib_wirename + "MUX", "0");
+            }
         } else {
             NPNR_ASSERT_FALSE("unsupported cell type");
         }
