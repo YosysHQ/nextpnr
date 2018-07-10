@@ -234,6 +234,9 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                 std::string cib_wirename = ctx->locInfo(cib_wire)->wire_data[cib_wire.index].name.get();
                 cc.tiles[cib_tile].add_enum("CIB." + cib_wirename + "MUX", "0");
             }
+            if (dir == "INPUT") {
+                cc.tiles[pio_tile].add_enum(pio + ".HYSTERESIS", "ON");
+            }
         } else {
             NPNR_ASSERT_FALSE("unsupported cell type");
         }
