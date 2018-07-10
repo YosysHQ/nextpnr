@@ -436,69 +436,25 @@ std::vector<GraphicElement> Arch::getBelGraphics(BelId bel) const
         if (chip_info->bel_data[bel.index].z == 0) {
             int tx = chip_info->bel_data[bel.index].x;
             int ty = chip_info->bel_data[bel.index].y;
+
+            // Main switchbox
+            GraphicElement main_sw;
+            main_sw.type = GraphicElement::G_BOX;
+            main_sw.x1 = tx + main_swbox_x1;
+            main_sw.x2 = tx + main_swbox_x2;
+            main_sw.y1 = ty + main_swbox_y1;
+            main_sw.y2 = ty + main_swbox_y2;
+            ret.push_back(main_sw);
+
             // Local tracks to LUT input switchbox
-            GraphicElement lc_lut_sw;
-            lc_lut_sw.type = GraphicElement::G_BOX;
-            lc_lut_sw.x1 = tx + lc_lut_swbox_x1;
-            lc_lut_sw.x2 = tx + lc_lut_swbox_x2;
-            lc_lut_sw.y1 = ty + lc_lut_swbox_y1;
-            lc_lut_sw.y2 = ty + lc_lut_swbox_y2;
-            lc_lut_sw.z = 0;
-            ret.push_back(lc_lut_sw);
-            // Local tracks switchbox
-            GraphicElement lc_sw;
-            lc_sw.type = GraphicElement::G_BOX;
-            lc_sw.x1 = tx + locals_swbox_x1;
-            lc_sw.x2 = tx + locals_swbox_x2;
-            lc_sw.y1 = ty + locals_swbox_y1;
-            lc_sw.y2 = ty + locals_swbox_y2;
-            ret.push_back(lc_sw);
-
-            // lutff_global switchbox
-            GraphicElement lff_glb_sw;
-            lff_glb_sw.type = GraphicElement::G_BOX;
-            lff_glb_sw.x1 = tx + lutff_global_swbox_x1;
-            lff_glb_sw.x2 = tx + lutff_global_swbox_x2;
-            lff_glb_sw.y1 = ty + lutff_global_swbox_y1;
-            lff_glb_sw.y2 = ty + lutff_global_swbox_y2;
-            ret.push_back(lff_glb_sw);
-
-            // glb2local switchbox
-            GraphicElement glb2local_sw;
-            glb2local_sw.type = GraphicElement::G_BOX;
-            glb2local_sw.x1 = tx + glb2local_swbox_x1;
-            glb2local_sw.x2 = tx + glb2local_swbox_x2;
-            glb2local_sw.y1 = ty + glb2local_swbox_y1;
-            glb2local_sw.y2 = ty + glb2local_swbox_y2;
-            ret.push_back(glb2local_sw);
-
-            // span12 switchbox
-            GraphicElement sp12_sw;
-            sp12_sw.type = GraphicElement::G_BOX;
-            sp12_sw.x1 = tx + span12_swbox_x1;
-            sp12_sw.x2 = tx + span12_swbox_x2;
-            sp12_sw.y1 = ty + span12_swbox_y1;
-            sp12_sw.y2 = ty + span12_swbox_y2;
-            ret.push_back(sp12_sw);
-
-            // span4v switchbox
-            GraphicElement sp4v_sw;
-            sp4v_sw.type = GraphicElement::G_BOX;
-            sp4v_sw.x1 = tx + span4h_swbox_x1;
-            sp4v_sw.x2 = tx + span4h_swbox_x2;
-            sp4v_sw.y1 = ty + span4h_swbox_y1;
-            sp4v_sw.y2 = ty + span4h_swbox_y2;
-            ret.push_back(sp4v_sw);
-
-            // span4h switchbox
-            GraphicElement sp4h_sw;
-            sp4h_sw.type = GraphicElement::G_BOX;
-            sp4h_sw.x1 = tx + span4v_swbox_x1;
-            sp4h_sw.x2 = tx + span4v_swbox_x2;
-            sp4h_sw.y1 = ty + span4v_swbox_y1;
-            sp4h_sw.y2 = ty + span4v_swbox_y2;
-            ret.push_back(sp4h_sw);
-
+            GraphicElement local_sw;
+            local_sw.type = GraphicElement::G_BOX;
+            local_sw.x1 = tx + local_swbox_x1;
+            local_sw.x2 = tx + local_swbox_x2;
+            local_sw.y1 = ty + local_swbox_y1;
+            local_sw.y2 = ty + local_swbox_y2;
+            local_sw.z = 0;
+            ret.push_back(local_sw);
 
             // All the wires
             for (int i = TILE_WIRE_GLB2LOCAL_0; i <= TILE_WIRE_SP12_H_L_23; i++)

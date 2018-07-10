@@ -24,42 +24,17 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-const float lc_lut_swbox_x1 = 0.75;
-const float lc_lut_swbox_x2 = 0.8;
-const float lc_lut_swbox_y1 = 0.45;
-const float lc_lut_swbox_y2 = 0.9375;
+const float main_swbox_x1 = 0.35;
+const float main_swbox_x2 = 0.60;
+const float main_swbox_y1 = 0.27;
+const float main_swbox_y2 = 0.95;
 
-const float locals_swbox_x1 = 0.6;
-const float locals_swbox_x2 = 0.7;
-const float locals_swbox_y1 = 0.65;
-const float locals_swbox_y2 = 0.75;
+const float local_swbox_x1 = 0.63;
+const float local_swbox_x2 = 0.73;
+const float local_swbox_y1 = 0.45;
+const float local_swbox_y2 = 0.9375;
 
-const float lutff_global_swbox_x1 = 0.65;
-const float lutff_global_swbox_x2 = 0.7;
-const float lutff_global_swbox_y1 = 0.91;
-const float lutff_global_swbox_y2 = 0.96;
-
-const float glb2local_swbox_x1 = 0.45;
-const float glb2local_swbox_x2 = 0.55;
-const float glb2local_swbox_y1 = 0.80;
-const float glb2local_swbox_y2 = 0.85;
-
-const float span12_swbox_x1 = 0.500;
-const float span12_swbox_x2 = 0.575;
-const float span12_swbox_y1 = 0.525;
-const float span12_swbox_y2 = 0.625;
-
-const float span4h_swbox_x1 = 0.400;
-const float span4h_swbox_x2 = 0.475;
-const float span4h_swbox_y1 = 0.425;
-const float span4h_swbox_y2 = 0.525;
-
-const float span4v_swbox_x1 = 0.300;
-const float span4v_swbox_x2 = 0.375;
-const float span4v_swbox_y1 = 0.300;
-const float span4v_swbox_y2 = 0.400;
-
-const float logic_cell_x1 = 0.82;
+const float logic_cell_x1 = 0.76;
 const float logic_cell_x2 = 0.95;
 const float logic_cell_y1 = 0.45;
 const float logic_cell_y2 = 0.50;
@@ -190,75 +165,75 @@ enum GfxTileWireId {
     TILE_WIRE_LUTFF_GLOBAL_S_R,
 
     TILE_WIRE_NEIGH_OP_BNL_0,
-    TILE_WIRE_NEIGH_OP_BNR_0,
-    TILE_WIRE_NEIGH_OP_BOT_0,
-    TILE_WIRE_NEIGH_OP_LFT_0,
-    TILE_WIRE_NEIGH_OP_RGT_0,
-    TILE_WIRE_NEIGH_OP_TNL_0,
-    TILE_WIRE_NEIGH_OP_TNR_0,
-    TILE_WIRE_NEIGH_OP_TOP_0,
-
     TILE_WIRE_NEIGH_OP_BNL_1,
-    TILE_WIRE_NEIGH_OP_BNR_1,
-    TILE_WIRE_NEIGH_OP_BOT_1,
-    TILE_WIRE_NEIGH_OP_LFT_1,
-    TILE_WIRE_NEIGH_OP_RGT_1,
-    TILE_WIRE_NEIGH_OP_TNL_1,
-    TILE_WIRE_NEIGH_OP_TNR_1,
-    TILE_WIRE_NEIGH_OP_TOP_1,
-
     TILE_WIRE_NEIGH_OP_BNL_2,
-    TILE_WIRE_NEIGH_OP_BNR_2,
-    TILE_WIRE_NEIGH_OP_BOT_2,
-    TILE_WIRE_NEIGH_OP_LFT_2,
-    TILE_WIRE_NEIGH_OP_RGT_2,
-    TILE_WIRE_NEIGH_OP_TNL_2,
-    TILE_WIRE_NEIGH_OP_TNR_2,
-    TILE_WIRE_NEIGH_OP_TOP_2,
-
     TILE_WIRE_NEIGH_OP_BNL_3,
-    TILE_WIRE_NEIGH_OP_BNR_3,
-    TILE_WIRE_NEIGH_OP_BOT_3,
-    TILE_WIRE_NEIGH_OP_LFT_3,
-    TILE_WIRE_NEIGH_OP_RGT_3,
-    TILE_WIRE_NEIGH_OP_TNL_3,
-    TILE_WIRE_NEIGH_OP_TNR_3,
-    TILE_WIRE_NEIGH_OP_TOP_3,
-
     TILE_WIRE_NEIGH_OP_BNL_4,
-    TILE_WIRE_NEIGH_OP_BNR_4,
-    TILE_WIRE_NEIGH_OP_BOT_4,
-    TILE_WIRE_NEIGH_OP_LFT_4,
-    TILE_WIRE_NEIGH_OP_RGT_4,
-    TILE_WIRE_NEIGH_OP_TNL_4,
-    TILE_WIRE_NEIGH_OP_TNR_4,
-    TILE_WIRE_NEIGH_OP_TOP_4,
-
     TILE_WIRE_NEIGH_OP_BNL_5,
-    TILE_WIRE_NEIGH_OP_BNR_5,
-    TILE_WIRE_NEIGH_OP_BOT_5,
-    TILE_WIRE_NEIGH_OP_LFT_5,
-    TILE_WIRE_NEIGH_OP_RGT_5,
-    TILE_WIRE_NEIGH_OP_TNL_5,
-    TILE_WIRE_NEIGH_OP_TNR_5,
-    TILE_WIRE_NEIGH_OP_TOP_5,
-
     TILE_WIRE_NEIGH_OP_BNL_6,
-    TILE_WIRE_NEIGH_OP_BNR_6,
-    TILE_WIRE_NEIGH_OP_BOT_6,
-    TILE_WIRE_NEIGH_OP_LFT_6,
-    TILE_WIRE_NEIGH_OP_RGT_6,
-    TILE_WIRE_NEIGH_OP_TNL_6,
-    TILE_WIRE_NEIGH_OP_TNR_6,
-    TILE_WIRE_NEIGH_OP_TOP_6,
-
     TILE_WIRE_NEIGH_OP_BNL_7,
+
+    TILE_WIRE_NEIGH_OP_BNR_0,
+    TILE_WIRE_NEIGH_OP_BNR_1,
+    TILE_WIRE_NEIGH_OP_BNR_2,
+    TILE_WIRE_NEIGH_OP_BNR_3,
+    TILE_WIRE_NEIGH_OP_BNR_4,
+    TILE_WIRE_NEIGH_OP_BNR_5,
+    TILE_WIRE_NEIGH_OP_BNR_6,
     TILE_WIRE_NEIGH_OP_BNR_7,
+
+    TILE_WIRE_NEIGH_OP_BOT_0,
+    TILE_WIRE_NEIGH_OP_BOT_1,
+    TILE_WIRE_NEIGH_OP_BOT_2,
+    TILE_WIRE_NEIGH_OP_BOT_3,
+    TILE_WIRE_NEIGH_OP_BOT_4,
+    TILE_WIRE_NEIGH_OP_BOT_5,
+    TILE_WIRE_NEIGH_OP_BOT_6,
     TILE_WIRE_NEIGH_OP_BOT_7,
+
+    TILE_WIRE_NEIGH_OP_LFT_0,
+    TILE_WIRE_NEIGH_OP_LFT_1,
+    TILE_WIRE_NEIGH_OP_LFT_2,
+    TILE_WIRE_NEIGH_OP_LFT_3,
+    TILE_WIRE_NEIGH_OP_LFT_4,
+    TILE_WIRE_NEIGH_OP_LFT_5,
+    TILE_WIRE_NEIGH_OP_LFT_6,
     TILE_WIRE_NEIGH_OP_LFT_7,
+
+    TILE_WIRE_NEIGH_OP_RGT_0,
+    TILE_WIRE_NEIGH_OP_RGT_1,
+    TILE_WIRE_NEIGH_OP_RGT_2,
+    TILE_WIRE_NEIGH_OP_RGT_3,
+    TILE_WIRE_NEIGH_OP_RGT_4,
+    TILE_WIRE_NEIGH_OP_RGT_5,
+    TILE_WIRE_NEIGH_OP_RGT_6,
     TILE_WIRE_NEIGH_OP_RGT_7,
+
+    TILE_WIRE_NEIGH_OP_TNL_0,
+    TILE_WIRE_NEIGH_OP_TNL_1,
+    TILE_WIRE_NEIGH_OP_TNL_2,
+    TILE_WIRE_NEIGH_OP_TNL_3,
+    TILE_WIRE_NEIGH_OP_TNL_4,
+    TILE_WIRE_NEIGH_OP_TNL_5,
+    TILE_WIRE_NEIGH_OP_TNL_6,
     TILE_WIRE_NEIGH_OP_TNL_7,
+
+    TILE_WIRE_NEIGH_OP_TNR_0,
+    TILE_WIRE_NEIGH_OP_TNR_1,
+    TILE_WIRE_NEIGH_OP_TNR_2,
+    TILE_WIRE_NEIGH_OP_TNR_3,
+    TILE_WIRE_NEIGH_OP_TNR_4,
+    TILE_WIRE_NEIGH_OP_TNR_5,
+    TILE_WIRE_NEIGH_OP_TNR_6,
     TILE_WIRE_NEIGH_OP_TNR_7,
+
+    TILE_WIRE_NEIGH_OP_TOP_0,
+    TILE_WIRE_NEIGH_OP_TOP_1,
+    TILE_WIRE_NEIGH_OP_TOP_2,
+    TILE_WIRE_NEIGH_OP_TOP_3,
+    TILE_WIRE_NEIGH_OP_TOP_4,
+    TILE_WIRE_NEIGH_OP_TOP_5,
+    TILE_WIRE_NEIGH_OP_TOP_6,
     TILE_WIRE_NEIGH_OP_TOP_7,
 
     TILE_WIRE_SP4_V_B_0,
