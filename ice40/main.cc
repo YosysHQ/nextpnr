@@ -98,12 +98,16 @@ int main(int argc, char *argv[])
         options.add_options()("seed", po::value<int>(), "seed value for random number generator");
         options.add_options()("version,V", "show version");
         options.add_options()("tmfuzz", "run path delay estimate fuzzer");
+#ifdef ICE40_HX1K_ONLY
+        options.add_options()("hx1k", "set device type to iCE40HX1K");
+#else
         options.add_options()("lp384", "set device type to iCE40LP384");
         options.add_options()("lp1k", "set device type to iCE40LP1K");
         options.add_options()("lp8k", "set device type to iCE40LP8K");
         options.add_options()("hx1k", "set device type to iCE40HX1K");
         options.add_options()("hx8k", "set device type to iCE40HX8K");
         options.add_options()("up5k", "set device type to iCE40UP5K");
+#endif
         options.add_options()("freq", po::value<double>(), "set target frequency for design in MHz");
         options.add_options()("no-tmdriv", "disable timing-driven placement");
         options.add_options()("package", po::value<std::string>(), "set device package");
