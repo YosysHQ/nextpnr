@@ -27,7 +27,7 @@ parameter CCU2_INJECT1_1 = "NO";
 
 endmodule
 
-(* blackbox *)
+(* blackbox *) (* keep *)
 module TRELLIS_IO(
 	inout B,
 	input I,

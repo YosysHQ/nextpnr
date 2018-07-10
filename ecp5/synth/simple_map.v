@@ -25,7 +25,7 @@ module \$lut (A, Y);
 		if (WIDTH == 1) begin
 			TRELLIS_SLICE #(
 				.MODE("LOGIC"),
-				.LUT0_INITVAL(LUT)
+				.LUT0_INITVAL({8{LUT[1:0]}})
 			) _TECHMAP_REPLACE_ (
 				.A0(A[0]),
 				.F0(Y)
@@ -34,7 +34,7 @@ module \$lut (A, Y);
 		if (WIDTH == 2) begin
 			TRELLIS_SLICE #(
 				.MODE("LOGIC"),
-				.LUT0_INITVAL(LUT)
+				.LUT0_INITVAL({4{LUT[3:0]}})
 			) _TECHMAP_REPLACE_ (
 				.A0(A[0]),
 				.B0(A[1]),
@@ -44,7 +44,7 @@ module \$lut (A, Y);
 		if (WIDTH == 3) begin
 			TRELLIS_SLICE #(
 				.MODE("LOGIC"),
-				.LUT0_INITVAL(LUT)
+				.LUT0_INITVAL({2{LUT[7:0]}})
 			) _TECHMAP_REPLACE_ (
 				.A0(A[0]),
 				.B0(A[1]),

@@ -187,7 +187,7 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
     for (const auto &tile : empty_chip.tiles) {
         std::string type = tile.second->info.type;
         if (type.find("BANKREF") != std::string::npos && type != "BANKREF8") {
-            cc.tiles[type].add_enum("BANK.VCCIO", "3V3");
+            cc.tiles[tile.first].add_enum("BANK.VCCIO", "3V3");
         }
     }
 
