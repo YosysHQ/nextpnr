@@ -220,12 +220,16 @@ QStringList getSupportedPackages(ArchArgs::ArchArgsTypes chip)
 void MainWindow::new_proj()
 {
     QMap<QString, int> arch;
+#ifdef ICE40_HX1K_ONLY
+    arch.insert("Lattice HX1K", ArchArgs::HX1K);
+#else
     arch.insert("Lattice LP384", ArchArgs::LP384);
     arch.insert("Lattice LP1K", ArchArgs::LP1K);
     arch.insert("Lattice HX1K", ArchArgs::HX1K);
     arch.insert("Lattice UP5K", ArchArgs::UP5K);
     arch.insert("Lattice LP8K", ArchArgs::LP8K);
     arch.insert("Lattice HX8K", ArchArgs::HX8K);
+#endif
     bool ok;
     QString item = QInputDialog::getItem(this, "Select new context", "Chip:", arch.keys(), 0, false, &ok);
     if (ok && !item.isEmpty()) {
