@@ -30,12 +30,32 @@ module top(input clk_pin, output [3:0] led_pin, output gpio0_pin);
 	(* BEL="X0/Y62/PIOD" *) (* IO_TYPE="LVCMOS33" *)
 	TRELLIS_IO #(.DIR("OUTPUT")) gpio0_buf (.B(gpio0_pin), .I(gpio0));
 
-	reg [27:0] ctr = 0;
+    localparam ctr_width = 28;
+	reg [ctr_width-1:0] ctr = 0;
 
 	always@(posedge clk)
 		ctr <= ctr + 1'b1;
 
-	assign led = ctr[27:20];
+    reg [9:0] brightness [0:7];
+
+    reg [7:0] led_reg;
+
+    genvar i;
+    generate
+    for (i = 0; i < 8; i=i+1) begin
+       always @ (posedge clk) begin
+            if (ctr[ctr_width-1 : ctr_width-3] > i)
+                brightness[i] <= 10'h3FF;
+            else if (ctr[ctr_width-1 : ctr_width-3] == i)
+                brightness[i] <= ctr[ctr_width-4:ctr_width-13];
+            else
+                brightness[i] <= 0;
+            led_reg[i] <= ctr[9:0] < brightness[i];
+       end
+    end
+    endgenerate
+
+    assign led = led_reg;
 
     // Tie GPIO0, keep board from rebooting
     TRELLIS_SLICE #(.MODE("LOGIC"), .LUT0_INITVAL(16'hFFFF)) vcc (.F0(gpio0));
