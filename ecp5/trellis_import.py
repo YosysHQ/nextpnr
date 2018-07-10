@@ -154,7 +154,7 @@ def add_bels(chip, x, y):
             num_slices = 4
         elif "PICL0" in tt or "PICR0" in tt:
             num_pios = 4
-        elif "PIOT0" in tt or "PIOB0" in tt:
+        elif "PIOT0" in tt or ("PICB0" in tt and "SPICB" not in tt):
             num_pios = 2
     for i in range(num_slices):
         add_slice(x, y, i)

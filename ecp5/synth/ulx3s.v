@@ -3,7 +3,7 @@ module top(input a_pin, output led_pin, output led2_pin, output gpio0_pin);
 	wire a;
 	wire led, led2;
     wire gpio0;
-	(* BEL="X90/Y65/PIOB" *) (* IO_TYPE="LVCMOS33" *)
+	(* BEL="X4/Y71/PIOA" *) (* IO_TYPE="LVCMOS33" *)
 	TRELLIS_IO #(.DIR("INPUT")) a_buf (.B(a_pin), .O(a));
 	(* BEL="X0/Y23/PIOC" *) (* IO_TYPE="LVCMOS33" *)
 	TRELLIS_IO #(.DIR("OUTPUT")) led_buf (.B(led_pin), .I(led));
