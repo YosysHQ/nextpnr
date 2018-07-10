@@ -26,6 +26,7 @@ qt5_add_resources(GUI_RESOURCE_FILES ${_RESOURCES})
 set(GUI_LIBRARY_FILES_${ufamily} Qt5::Widgets Qt5::OpenGL ${OPENGL_LIBRARIES} QtPropertyBrowser PARENT_SCOPE)
 
 add_library(gui_${family} STATIC ${GUI_SOURCE_FILES} ${PYTHON_CONSOLE_SRC} ${GUI_RESOURCE_FILES})
+include(${family}/family.cmake)
 
 target_include_directories(gui_${family} PRIVATE ../${family} ${family} ../3rdparty/QtPropertyBrowser/src)
 if (BUILD_PYTHON)
