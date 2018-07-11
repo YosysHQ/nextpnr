@@ -8,6 +8,29 @@ option(BUILD_TESTS "Build GUI" OFF)
 
 # List of families to build
 set(FAMILIES generic ice40)
+set(ARCH "" CACHE STRING "Architecture family for nextpnr build")
+set_property(CACHE ARCH PROPERTY STRINGS ${FAMILIES})
+
+if (NOT ARCH)
+    message(STATUS "Architecture needs to be set, set desired one with -DARCH=xxx")
+    message(STATUS "Supported architectures are :")
+    message(STATUS "  all")
+    foreach(item ${FAMILIES})
+        message(STATUS "  ${item}")
+    endforeach()
+    message(FATAL_ERROR "Architecture setting is mandatory")
+endif ()
+
+if (ARCH STREQUAL "all")
+    SET(ARCH ${FAMILIES})
+endif()
+
+foreach(item ${ARCH})
+    if (NOT item IN_LIST FAMILIES)
+        message(FATAL_ERROR "Architecture '${item}' not in list of supported architectures")
+    endif()
+endforeach()
+
 set(CMAKE_CXX_STANDARD 11)
 if (MSVC)
 set(CMAKE_CONFIGURATION_TYPES "Debug;Release" CACHE STRING "" FORCE)
@@ -62,7 +85,7 @@ if (BUILD_TESTS)
 endif()
 
 if (BUILD_GUI)
-    add_subdirectory(3rdparty/QtPropertyBrowser ${CMAKE_CURRENT_BINARY_DIR}/generated/3rdparty/QtPropertyBrowser)
+    add_subdirectory(3rdparty/QtPropertyBrowser ${CMAKE_CURRENT_BINARY_DIR}/generated/3rdparty/QtPropertyBrowser EXCLUDE_FROM_ALL)
 endif()
 
 add_definitions("-DGIT_COMMIT_HASH=${GIT_COMMIT_HASH}")
@@ -132,22 +155,23 @@ if(MINGW)
     add_definitions("-Wa,-mbig-obj")
 endif(MINGW)
 
-foreach (family ${FAMILIES})
+foreach (family ${ARCH})
+    message(STATUS "Configuring architecture : ${family}")
     string(TOUPPER ${family} ufamily)
     aux_source_directory(${family}/ ${ufamily}_FILES)    
 
     if (BUILD_GUI)
-       add_subdirectory(gui ${CMAKE_CURRENT_BINARY_DIR}/generated/gui/${family})
+       add_subdirectory(gui ${CMAKE_CURRENT_BINARY_DIR}/generated/gui/${family} EXCLUDE_FROM_ALL)
     endif()
 
     # Add the CLI binary target
-    add_executable(nextpnr-${family} ${COMMON_FILES} ${${ufamily}_FILES} )
+    add_executable(nextpnr-${family} ${COMMON_FILES} ${${ufamily}_FILES})
     install(TARGETS nextpnr-${family} RUNTIME DESTINATION bin)
     target_compile_definitions(nextpnr-${family} PRIVATE MAIN_EXECUTABLE)
 
     if (BUILD_PYTHON)
         # Add the importable Python module target
-        PYTHON_ADD_MODULE(nextpnrpy_${family} EXCLUDE_FROM_ALL ${COMMON_FILES} ${${ufamily}_FILES})
+        PYTHON_ADD_MODULE(nextpnrpy_${family} ${COMMON_FILES} ${${ufamily}_FILES})
     endif()
 
     # Add any new per-architecture targets here

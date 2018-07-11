@@ -27,6 +27,9 @@ Prequisites
 Building
 --------
 
+ - Specifying target architecture is mandatory use ARCH parameter to set it. It is semicolon separated list.
+    - Use `cmake . -DARCH=all` to build all supported targets
+    - For example `cmake . -DARCH=ice40` would build just ICE40 support
  - Use CMake to generate the Makefiles (only needs to be done when `CMakeLists.txt` changes)
     - For a debug build, run `cmake -DCMAKE_BUILD_TYPE=Debug .`
     - For a debug build with HX1K support only, run ` cmake -DCMAKE_BUILD_TYPE=Debug -DICE40_HX1K_ONLY=1 .`
