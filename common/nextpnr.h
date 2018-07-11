@@ -259,6 +259,39 @@ struct BaseCtx
         delete idstring_str_to_idx;
         delete idstring_idx_to_str;
     }
+
+    // --------------------------------------------------------------
+
+    bool allUiReload = false;
+    bool frameUiReload = false;
+    std::unordered_set<BelId> belUiReload;
+    std::unordered_set<WireId> wireUiReload;
+    std::unordered_set<PipId> pipUiReload;
+
+    void refreshUi()
+    {
+        allUiReload = true;
+    }
+
+    void refreshUiFrame()
+    {
+        frameUiReload = true;
+    }
+
+    void refreshUiBel(BelId bel)
+    {
+        belUiReload.insert(bel);
+    }
+
+    void refreshUiWire(WireId wire)
+    {
+        wireUiReload.insert(wire);
+    }
+
+    void refreshUiPip(PipId pip)
+    {
+        pipUiReload.insert(pip);
+    }
 };
 
 NEXTPNR_NAMESPACE_END

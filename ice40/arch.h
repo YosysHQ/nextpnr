@@ -650,12 +650,6 @@ struct Arch : BaseCtx
     DecalXY getWireDecal(WireId wire) const;
     DecalXY getPipDecal(PipId pip) const;
 
-    bool allGraphicsReload = false;
-    bool frameGraphicsReload = false;
-    std::unordered_set<BelId> belGraphicsReload;
-    std::unordered_set<WireId> wireGraphicsReload;
-    std::unordered_set<PipId> pipGraphicsReload;
-
     // -------------------------------------------------
 
     // Get the delay through a cell from one port to another, returning false
