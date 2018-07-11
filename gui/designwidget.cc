@@ -20,8 +20,10 @@
 #include "designwidget.h"
 #include <QAction>
 #include <QGridLayout>
+#include <QLineEdit>
 #include <QMenu>
 #include <QSplitter>
+#include <QToolBar>
 #include <QTreeWidgetItem>
 #include "fpgaviewwidget.h"
 
@@ -88,8 +90,38 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr), net
 
     propertyEditor->show();
 
+    const QIcon searchIcon(":/icons/resources/zoom.png");
+    QLineEdit* lineEdit = new QLineEdit();
+    lineEdit->setClearButtonEnabled(true);
+    lineEdit->addAction(searchIcon, QLineEdit::LeadingPosition);
+    lineEdit->setPlaceholderText("Search...");
+
+    QAction *actionFirst = new QAction("", this);
+    QIcon iconFirst(QStringLiteral(":/icons/resources/resultset_first.png"));
+    actionFirst->setIcon(iconFirst);
+
+    QAction *actionPrev = new QAction("", this);
+    QIcon iconPrev(QStringLiteral(":/icons/resources/resultset_previous.png"));
+    actionPrev->setIcon(iconPrev);
+
+    QAction *actionNext = new QAction("", this);
+    QIcon iconNext(QStringLiteral(":/icons/resources/resultset_next.png"));
+    actionNext->setIcon(iconNext);
+
+    QAction *actionLast = new QAction("", this);
+    QIcon iconLast(QStringLiteral(":/icons/resources/resultset_last.png"));
+    actionLast->setIcon(iconLast);
+
+    QToolBar *toolbar = new QToolBar();
+    toolbar->addAction(actionFirst);
+    toolbar->addAction(actionPrev);
+    toolbar->addAction(actionNext);
+    toolbar->addAction(actionLast);
+
     QSplitter *splitter = new QSplitter(Qt::Vertical);
+    splitter->addWidget(lineEdit);
     splitter->addWidget(treeWidget);
+    splitter->addWidget(toolbar);
     splitter->addWidget(propertyEditor);
 
     QGridLayout *mainLayout = new QGridLayout();
