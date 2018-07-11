@@ -364,7 +364,7 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId id)
         el.type = GraphicElement::G_LINE;
         el.x1 = x + local_swbox_x2;
         el.x2 = x + logic_cell_x1;
-        el.y1 = y + (logic_cell_y1 + logic_cell_y2) / 2 - 0.0125 + (0.005 * input) + z * logic_cell_pitch;
+        el.y1 = y + (logic_cell_y1 + logic_cell_y2) / 2 - 0.0075 + (0.005 * input) + z * logic_cell_pitch;
         el.y2 = el.y1;
         g.push_back(el);
     }
@@ -404,7 +404,7 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId id)
         el.x1 = x + main_swbox_x2 - 0.005 * (idx + 5);
         el.x2 = el.x1;
         el.y1 = y + main_swbox_y1;
-        el.y2 = el.y1 - 0.005 * (idx + 3);
+        el.y2 = el.y1 - 0.005 * (idx + 2);
         g.push_back(el);
 
         el.y1 = el.y2;
@@ -413,6 +413,58 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId id)
 
         el.y2 = y + logic_cell_y1;
         el.x1 = el.x2;
+        g.push_back(el);
+
+        for (int i = 0; i < 7; i ++) {
+            el.y1 = y + logic_cell_y2 + i * logic_cell_pitch;
+            el.y2 = y + logic_cell_y1 + (i + 1) * logic_cell_pitch;
+            g.push_back(el);
+        }
+    }
+
+    // LC Cascade
+
+    if (id >= TILE_WIRE_LUTFF_0_LOUT && id <= TILE_WIRE_LUTFF_6_LOUT) {
+        int idx = id - TILE_WIRE_LUTFF_0_LOUT;
+        GraphicElement el;
+        el.type = GraphicElement::G_LINE;
+        el.x1 = x + logic_cell_x1 + 0.005 * 5;
+        el.x2 = el.x1;
+        el.y1 = y + logic_cell_y2 + idx * logic_cell_pitch;
+        el.y2 = y + logic_cell_y1 + (idx + 1) * logic_cell_pitch;
+        g.push_back(el);
+    }
+
+    // Carry Chain
+
+    if (id >= TILE_WIRE_LUTFF_0_COUT && id <= TILE_WIRE_LUTFF_7_COUT) {
+        int idx = id - TILE_WIRE_LUTFF_0_COUT;
+        GraphicElement el;
+        el.type = GraphicElement::G_LINE;
+        el.x1 = x + logic_cell_x1 + 0.005 * 3;
+        el.x2 = el.x1;
+        el.y1 = y + logic_cell_y2 + idx * logic_cell_pitch;
+        el.y2 = y + (idx < 7 ? logic_cell_y1 + (idx + 1) * logic_cell_pitch : 1.0);
+        g.push_back(el);
+    }
+
+    if (id == TILE_WIRE_CARRY_IN) {
+        GraphicElement el;
+        el.type = GraphicElement::G_LINE;
+        el.x1 = x + logic_cell_x1 + 0.005 * 3;
+        el.x2 = el.x1;
+        el.y1 = y;
+        el.y2 = y + 0.01;
+        g.push_back(el);
+    }
+
+    if (id == TILE_WIRE_CARRY_IN_MUX) {
+        GraphicElement el;
+        el.type = GraphicElement::G_LINE;
+        el.x1 = x + logic_cell_x1 + 0.005 * 3;
+        el.x2 = el.x1;
+        el.y1 = y + 0.02;
+        el.y2 = y + logic_cell_y1;
         g.push_back(el);
     }
 }
