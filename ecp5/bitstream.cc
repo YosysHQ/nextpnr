@@ -78,24 +78,24 @@ static std::string get_pio_tile(Context *ctx, Trellis::Chip &chip, BelId bel)
     std::string pio_name = ctx->locInfo(bel)->bel_data[bel.index].name.get();
     if (bel.location.y == 0) {
         if (pio_name == "PIOA") {
-            return chip.get_tile_by_position_and_type(0, bel.location.x, "PIOT0")->info.name;
+            return chip.get_tile_by_position_and_type(0, bel.location.x, "PIOT0");
         } else if (pio_name == "PIOB") {
-            return chip.get_tile_by_position_and_type(0, bel.location.x + 1, "PIOT1")->info.name;
+            return chip.get_tile_by_position_and_type(0, bel.location.x + 1, "PIOT1");
         } else {
             NPNR_ASSERT_FALSE("bad PIO location");
         }
     } else if (bel.location.y == ctx->chip_info->height - 1) {
         if (pio_name == "PIOA") {
-            return chip.get_tile_by_position_and_type(bel.location.y, bel.location.x, pioa_b)->info.name;
+            return chip.get_tile_by_position_and_type(bel.location.y, bel.location.x, pioa_b);
         } else if (pio_name == "PIOB") {
-            return chip.get_tile_by_position_and_type(bel.location.y, bel.location.x + 1, piob_b)->info.name;
+            return chip.get_tile_by_position_and_type(bel.location.y, bel.location.x + 1, piob_b);
         } else {
             NPNR_ASSERT_FALSE("bad PIO location");
         }
     } else if (bel.location.x == 0) {
-        return chip.get_tile_by_position_and_type(bel.location.y + 1, bel.location.x, pioabcd_l)->info.name;
+        return chip.get_tile_by_position_and_type(bel.location.y + 1, bel.location.x, pioabcd_l);
     } else if (bel.location.x == ctx->chip_info->width - 1) {
-        return chip.get_tile_by_position_and_type(bel.location.y + 1, bel.location.x, pioabcd_r)->info.name;
+        return chip.get_tile_by_position_and_type(bel.location.y + 1, bel.location.x, pioabcd_r);
     } else {
         NPNR_ASSERT_FALSE("bad PIO location");
     }
@@ -115,33 +115,33 @@ static std::string get_pic_tile(Context *ctx, Trellis::Chip &chip, BelId bel)
     std::string pio_name = ctx->locInfo(bel)->bel_data[bel.index].name.get();
     if (bel.location.y == 0) {
         if (pio_name == "PIOA") {
-            return chip.get_tile_by_position_and_type(1, bel.location.x, "PICT0")->info.name;
+            return chip.get_tile_by_position_and_type(1, bel.location.x, "PICT0");
         } else if (pio_name == "PIOB") {
-            return chip.get_tile_by_position_and_type(1, bel.location.x + 1, "PICT1")->info.name;
+            return chip.get_tile_by_position_and_type(1, bel.location.x + 1, "PICT1");
         } else {
             NPNR_ASSERT_FALSE("bad PIO location");
         }
     } else if (bel.location.y == ctx->chip_info->height - 1) {
         if (pio_name == "PIOA") {
-            return chip.get_tile_by_position_and_type(bel.location.y, bel.location.x, pica_b)->info.name;
+            return chip.get_tile_by_position_and_type(bel.location.y, bel.location.x, pica_b);
         } else if (pio_name == "PIOB") {
-            return chip.get_tile_by_position_and_type(bel.location.y, bel.location.x + 1, picb_b)->info.name;
+            return chip.get_tile_by_position_and_type(bel.location.y, bel.location.x + 1, picb_b);
         } else {
             NPNR_ASSERT_FALSE("bad PIO location");
         }
     } else if (bel.location.x == 0) {
         if (pio_name == "PIOA" || pio_name == "PIOB") {
-            return chip.get_tile_by_position_and_type(bel.location.y, bel.location.x, picab_l)->info.name;
+            return chip.get_tile_by_position_and_type(bel.location.y, bel.location.x, picab_l);
         } else if (pio_name == "PIOC" || pio_name == "PIOD") {
-            return chip.get_tile_by_position_and_type(bel.location.y + 2, bel.location.x, piccd_l)->info.name;
+            return chip.get_tile_by_position_and_type(bel.location.y + 2, bel.location.x, piccd_l);
         } else {
             NPNR_ASSERT_FALSE("bad PIO location");
         }
     } else if (bel.location.x == ctx->chip_info->width - 1) {
         if (pio_name == "PIOA" || pio_name == "PIOB") {
-            return chip.get_tile_by_position_and_type(bel.location.y, bel.location.x, picab_r)->info.name;
+            return chip.get_tile_by_position_and_type(bel.location.y, bel.location.x, picab_r);
         } else if (pio_name == "PIOC" || pio_name == "PIOD") {
-            return chip.get_tile_by_position_and_type(bel.location.y + 2, bel.location.x, piccd_r)->info.name;
+            return chip.get_tile_by_position_and_type(bel.location.y + 2, bel.location.x, piccd_r);
         } else {
             NPNR_ASSERT_FALSE("bad PIO location");
         }
@@ -174,11 +174,11 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
     for (auto pip : ctx->getPips()) {
         if (ctx->getBoundPipNet(pip) != IdString()) {
             if (ctx->getPipType(pip) == 0) { // ignore fixed pips
-                auto tile = empty_chip.get_tile_by_position_and_type(pip.location.y, pip.location.x,
+                std::string tile = empty_chip.get_tile_by_position_and_type(pip.location.y, pip.location.x,
                                                                      ctx->getPipTiletype(pip));
                 std::string source = get_trellis_wirename(ctx, pip.location, ctx->getPipSrcWire(pip));
                 std::string sink = get_trellis_wirename(ctx, pip.location, ctx->getPipDstWire(pip));
-                cc.tiles[tile->info.name].add_arc(sink, source);
+                cc.tiles[tile].add_arc(sink, source);
             }
         }
     }
@@ -199,8 +199,7 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
         }
         BelId bel = ci->bel;
         if (ci->type == ctx->id("TRELLIS_SLICE")) {
-            auto tile = empty_chip.get_tile_by_position_and_type(bel.location.y, bel.location.x, "PLC2");
-            std::string tname = tile->info.name;
+            std::string tname = empty_chip.get_tile_by_position_and_type(bel.location.y, bel.location.x, "PLC2");
             std::string slice = ctx->locInfo(bel)->bel_data[bel.index].name.get();
             int lut0_init = int_or_default(ci->params, ctx->id("LUT0_INITVAL"));
             int lut1_init = int_or_default(ci->params, ctx->id("LUT1_INITVAL"));
@@ -230,7 +229,7 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                 WireId jpt_wire = ctx->getWireByName(ctx->id(jpt));
                 PipId jpt_pip = *ctx->getPipsUphill(jpt_wire).begin();
                 WireId cib_wire = ctx->getPipSrcWire(jpt_pip);
-                std::string cib_tile = empty_chip.get_tile_by_position_and_type(cib_wire.location.y, cib_wire.location.x, cib_tiles)->info.name;
+                std::string cib_tile = empty_chip.get_tile_by_position_and_type(cib_wire.location.y, cib_wire.location.x, cib_tiles);
                 std::string cib_wirename = ctx->locInfo(cib_wire)->wire_data[cib_wire.index].name.get();
                 cc.tiles[cib_tile].add_enum("CIB." + cib_wirename + "MUX", "0");
             }
