@@ -5,6 +5,7 @@ Supported Architectures
 -----------------------
 
 - iCE40
+- ECP5
 
 Prequisites
 -----------
@@ -23,7 +24,10 @@ Prequisites
  - For building on macOS, brew utility is needed.
      - Install all needed packages `brew install cmake python boost boost-python3 qt5`
      - Do not forget to add qt5 in path as well `echo 'export PATH="/usr/local/opt/qt/bin:$PATH"' >> ~/.bash_profile`
-
+ - For ECP5 support, you must download [Project Trellis](https://github.com/SymbiFlow/prjtrellis), then follow its instructions to
+   download the latest database and build _libtrellis_.
+ 
+ 
 Building
 --------
 
@@ -37,6 +41,7 @@ Building
     - Add `-DCMAKE_INSTALL_PREFIX=/your/install/prefix` to use a different install prefix to the default `/usr/local`
     - For MSVC build with vcpkg use `cmake . -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake` using your vcpkg location
     - For MSVC x64 build adding `-G"Visual Studio 14 2015 Win64"` is needed.
+    - For ECP5 support, you must also specify the path to Project Trellis using `-DTRELLIS_ROOT=/path/trellis`
  - Use Make to run the build itself
     - For all binary targets, just run `make`
     - For just the iCE40 CLI&GUI binary, run `make nextpnr-ice40`
@@ -68,6 +73,12 @@ Running
    produce `blinky.json`.
  - To place-and-route the blinky using nextpnr, run `./nextpnr-ice40 --hx1k --json ice40/blinky.json --pcf ice40/blinky.pcf --asc blinky.asc`
 
+ - For an ECP5 blinky, first synthesise using `yosys blinky.ys` in `ecp5/synth`.
+ - Then run ECP5 place-and route using
+ `./nextpnr-ecp5 --json ecp5/synth/blinky.json --basecfg ecp5/synth/ulx3s_empty.config --bit ecp5/synth/ulx3s.bit`
+    - Note that `ulx3s_empty.config` contains fixed/unknown bits to be copied to the output bitstream
+    - You can also use `--textcfg out.config` to write a text file describing the bitstream for debugging
+  
 Notes
 -------
  
