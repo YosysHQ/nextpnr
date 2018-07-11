@@ -26,18 +26,18 @@ NEXTPNR_NAMESPACE_BEGIN
 
 const float main_swbox_x1 = 0.35;
 const float main_swbox_x2 = 0.60;
-const float main_swbox_y1 = 0.27;
-const float main_swbox_y2 = 0.95;
+const float main_swbox_y1 = 0.05;
+const float main_swbox_y2 = 0.73;
 
 const float local_swbox_x1 = 0.63;
 const float local_swbox_x2 = 0.73;
-const float local_swbox_y1 = 0.45;
-const float local_swbox_y2 = 0.9375;
+const float local_swbox_y1 = 0.05;
+const float local_swbox_y2 = 0.55;
 
 const float logic_cell_x1 = 0.76;
 const float logic_cell_x2 = 0.95;
-const float logic_cell_y1 = 0.45;
-const float logic_cell_y2 = 0.50;
+const float logic_cell_y1 = 0.05;
+const float logic_cell_y2 = 0.10;
 const float logic_cell_pitch = 0.0625;
 
 enum GfxTileWireId {
