@@ -68,6 +68,11 @@ class DesignWidget : public QWidget
     QMap<QString, QtProperty *> idToProperty;
     QTreeWidgetItem *nets_root;
     QTreeWidgetItem *cells_root;
+
+    QAction *actionFirst;
+    QAction *actionPrev;
+    QAction *actionNext;
+    QAction *actionLast;
 };
 
 NEXTPNR_NAMESPACE_END

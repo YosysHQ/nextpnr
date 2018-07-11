@@ -96,21 +96,25 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr), net
     lineEdit->addAction(searchIcon, QLineEdit::LeadingPosition);
     lineEdit->setPlaceholderText("Search...");
 
-    QAction *actionFirst = new QAction("", this);
+    actionFirst = new QAction("", this);
     QIcon iconFirst(QStringLiteral(":/icons/resources/resultset_first.png"));
     actionFirst->setIcon(iconFirst);
+    actionFirst->setEnabled(false);
 
-    QAction *actionPrev = new QAction("", this);
+    actionPrev = new QAction("", this);
     QIcon iconPrev(QStringLiteral(":/icons/resources/resultset_previous.png"));
     actionPrev->setIcon(iconPrev);
+    actionPrev->setEnabled(false);
 
-    QAction *actionNext = new QAction("", this);
+    actionNext = new QAction("", this);
     QIcon iconNext(QStringLiteral(":/icons/resources/resultset_next.png"));
     actionNext->setIcon(iconNext);
+    actionNext->setEnabled(false);
 
-    QAction *actionLast = new QAction("", this);
+    actionLast = new QAction("", this);
     QIcon iconLast(QStringLiteral(":/icons/resources/resultset_last.png"));
     actionLast->setIcon(iconLast);
+    actionLast->setEnabled(false);
 
     QToolBar *toolbar = new QToolBar();
     toolbar->addAction(actionFirst);
@@ -130,13 +134,15 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr), net
     QHBoxLayout *hbox = new QHBoxLayout;
     hbox->setAlignment(Qt::AlignCenter);
     toolbarWidget->setLayout(hbox);
+    hbox->setSpacing(0);
+    hbox->setContentsMargins(0, 0, 0, 0);
     hbox->addWidget(toolbar);
 
     QWidget *btmWidget = new QWidget();
     
     QVBoxLayout *vbox2 = new QVBoxLayout();
     btmWidget->setLayout(vbox2);    
-    vbox2->setSpacing(5);
+    vbox2->setSpacing(0);
     vbox2->setContentsMargins(0, 0, 0, 0);
     vbox2->addWidget(toolbarWidget);
     vbox2->addWidget(propertyEditor);
