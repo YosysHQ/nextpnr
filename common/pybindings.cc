@@ -151,7 +151,9 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
     arch_wrap_python();
 }
 
+#ifdef MAIN_EXECUTABLE
 static wchar_t *program;
+#endif
 
 void init_python(const char *executable, bool first)
 {
