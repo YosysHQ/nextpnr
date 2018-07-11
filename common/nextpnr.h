@@ -260,6 +260,10 @@ struct BaseCtx
         delete idstring_idx_to_str;
     }
 
+    Context *getCtx() { return reinterpret_cast<Context*>(this); }
+
+    const Context *getCtx() const { return reinterpret_cast<const Context*>(this); }
+
     // --------------------------------------------------------------
 
     bool allUiReload = false;
@@ -363,6 +367,11 @@ struct Context : Arch
         }
         return ret;
     }
+
+    // --------------------------------------------------------------
+
+    // provided by router1.cc
+    bool getActualRouteDelay(WireId src_wire, WireId dst_wire, delay_t &delay);
 
     // --------------------------------------------------------------
 

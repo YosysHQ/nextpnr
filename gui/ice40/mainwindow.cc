@@ -30,7 +30,6 @@
 #include "pack.h"
 #include "pcf.h"
 #include "place_sa.h"
-#include "route.h"
 
 static void initMainResource() { Q_INIT_RESOURCE(nextpnr); }
 

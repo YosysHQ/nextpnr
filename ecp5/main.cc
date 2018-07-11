@@ -45,7 +45,6 @@
 #include "jsonparse.h"
 #include "pack.h"
 #include "place_sa.h"
-#include "route.h"
 #include "timing.h"
 
 USING_NEXTPNR_NAMESPACE
@@ -150,7 +149,7 @@ int main(int argc, char *argv[])
             if (!place_design_sa(&ctx) && !ctx.force)
                 log_error("Placing design failed.\n");
             ctx.check();
-            if (!route_design(&ctx) && !ctx.force)
+            if (!ctx.route() && !ctx.force)
                 log_error("Routing design failed.\n");
 
             std::string basecfg;

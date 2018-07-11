@@ -21,7 +21,7 @@
 #include <queue>
 
 #include "log.h"
-#include "route.h"
+#include "router1.h"
 
 namespace {
 
@@ -402,7 +402,7 @@ struct Router
 
 NEXTPNR_NAMESPACE_BEGIN
 
-bool route_design(Context *ctx)
+bool router1(Context *ctx)
 {
     try {
         int totalVisitCnt = 0, totalRevisitCnt = 0, totalOvertimeRevisitCnt = 0;
@@ -643,10 +643,10 @@ bool route_design(Context *ctx)
     }
 }
 
-bool get_actual_route_delay(Context *ctx, WireId src_wire, WireId dst_wire, delay_t &delay)
+bool Context::getActualRouteDelay(WireId src_wire, WireId dst_wire, delay_t &delay)
 {
     RipupScoreboard scores;
-    Router router(ctx, scores, src_wire, dst_wire);
+    Router router(this, scores, src_wire, dst_wire);
     if (router.routedOkay)
         delay = router.visited.at(dst_wire).delay;
     return router.routedOkay;

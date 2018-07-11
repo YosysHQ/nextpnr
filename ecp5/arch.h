@@ -720,6 +720,10 @@ struct Arch : BaseCtx
 
     // -------------------------------------------------
 
+    bool route();
+
+    // -------------------------------------------------
+
     std::vector<GraphicElement> getDecalGraphics(DecalId decal) const;
 
     DecalXY getFrameDecal() const;

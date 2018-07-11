@@ -17,16 +17,15 @@
  *
  */
 
-#ifndef ROUTE_H
-#define ROUTE_H
+#ifndef ROUTER1_H
+#define ROUTER1_H
 
 #include "nextpnr.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
-extern bool route_design(Context *ctx);
-extern bool get_actual_route_delay(Context *ctx, WireId src_wire, WireId dst_wire, delay_t &delay);
+extern bool router1(Context *ctx);
 
 NEXTPNR_NAMESPACE_END
 
-#endif // ROUTE_H
+#endif // ROUTER1_H

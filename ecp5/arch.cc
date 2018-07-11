@@ -23,6 +23,7 @@
 #include <cstring>
 #include "log.h"
 #include "nextpnr.h"
+#include "router1.h"
 #include "util.h"
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -284,6 +285,13 @@ void Arch::estimatePosition(BelId bel, int &x, int &y, bool &gb) const
 delay_t Arch::estimateDelay(WireId src, WireId dst) const
 {
     return abs(src.location.x - dst.location.x) + abs(src.location.y - dst.location.y);
+}
+
+// -----------------------------------------------------------------------
+
+bool Arch::route()
+{
+    return router1(getCtx());
 }
 
 // -----------------------------------------------------------------------

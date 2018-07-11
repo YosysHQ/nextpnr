@@ -26,7 +26,6 @@
 #include "pack.h"
 #include "pcf.h"
 #include "place_sa.h"
-#include "route.h"
 #include "timing.h"
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -134,7 +133,7 @@ void Worker::route()
 {
     Q_EMIT taskStarted();
     try {
-        Q_EMIT route_finished(route_design(ctx));
+        Q_EMIT route_finished(ctx->route());
     } catch (WorkerInterruptionRequested) {
         Q_EMIT taskCanceled();
     }

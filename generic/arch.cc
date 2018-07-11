@@ -19,6 +19,7 @@
 
 #include <math.h>
 #include "nextpnr.h"
+#include "router1.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -314,6 +315,14 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
 }
 
 // ---------------------------------------------------------------
+
+bool Arch::route()
+{
+    return router1(getCtx());
+}
+
+// ---------------------------------------------------------------
+
 
 const std::vector<GraphicElement> &Arch::getDecalGraphics(DecalId decal) const { return decal_graphics.at(decal); }
 

@@ -43,7 +43,6 @@
 #include "pcf.h"
 #include "place_legaliser.h"
 #include "place_sa.h"
-#include "route.h"
 #include "timing.h"
 #include "version.h"
 
@@ -339,7 +338,7 @@ int main(int argc, char *argv[])
             for (int i = 0; i < int(src_wires.size()) && i < int(dst_wires.size()); i++) {
                 delay_t actual_delay;
                 WireId src = src_wires[i], dst = dst_wires[i];
-                if (!get_actual_route_delay(&ctx, src, dst, actual_delay))
+                if (!ctx.getActualRouteDelay(src, dst, actual_delay))
                     continue;
                 printf("%s %s %.3f %.3f %d %d %d %d %d %d\n", ctx.getWireName(src).c_str(&ctx),
                        ctx.getWireName(dst).c_str(&ctx), ctx.getDelayNS(actual_delay),
@@ -376,7 +375,7 @@ int main(int argc, char *argv[])
                 if (!place_design_sa(&ctx) && !ctx.force)
                     log_error("Placing design failed.\n");
                 ctx.check();
-                if (!route_design(&ctx) && !ctx.force)
+                if (!ctx.route() && !ctx.force)
                     log_error("Routing design failed.\n");
             }
         }
