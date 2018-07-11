@@ -363,6 +363,26 @@ void FPGAViewWidget::paintGL()
         lineShader_.draw(bels, matrix);
     }
 
+    // Draw Wires.
+    auto wires = LineShaderData(0.0005f, QColor("#b000ba"));
+    if (ctx_) {
+        for (auto wire : ctx_->getWires()) {
+            for (auto &el : ctx_->getWireGraphics(wire))
+                drawElement(wires, el);
+        }
+        lineShader_.draw(wires, matrix);
+    }
+
+    // Draw Pips.
+    auto pips = LineShaderData(0.0005f, QColor("#b000ba"));
+    if (ctx_) {
+        for (auto wire : ctx_->getPips()) {
+            for (auto &el : ctx_->getPipGraphics(wire))
+                drawElement(pips, el);
+        }
+        lineShader_.draw(pips, matrix);
+    }
+
     // Draw Frame Graphics.
     auto frames = LineShaderData(0.002f, QColor("#0066ba"));
     if (ctx_) {

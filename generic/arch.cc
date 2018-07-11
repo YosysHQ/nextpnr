@@ -107,27 +107,32 @@ void Arch::addBelInout(IdString bel, IdString name, IdString wire)
     wires.at(wire).downhill_bel_pins.push_back(BelPin{bel, name});
 }
 
-void Arch::addFrameGraphic(const GraphicElement &graphic)
+void Arch::addDecalGraphic(DecalId decal, const GraphicElement &graphic)
 {
-    frame_graphics.push_back(graphic);
+    decal_graphics[decal].push_back(graphic);
+}
+
+void Arch::setFrameDecal(DecalXY decalxy)
+{
+    frame_decalxy = decalxy;
     frameGraphicsReload = true;
 }
 
-void Arch::addWireGraphic(WireId wire, const GraphicElement &graphic)
+void Arch::setWireDecal(WireId wire, DecalXY decalxy)
 {
-    wires.at(wire).graphics.push_back(graphic);
+    wires.at(wire).decalxy = decalxy;
     wireGraphicsReload.insert(wire);
 }
 
-void Arch::addPipGraphic(PipId pip, const GraphicElement &graphic)
+void Arch::setPipDecal(PipId pip, DecalXY decalxy)
 {
-    pips.at(pip).graphics.push_back(graphic);
+    pips.at(pip).decalxy = decalxy;
     pipGraphicsReload.insert(pip);
 }
 
-void Arch::addBelGraphic(BelId bel, const GraphicElement &graphic)
+void Arch::setBelDecal(BelId bel, DecalXY decalxy)
 {
-    bels.at(bel).graphics.push_back(graphic);
+    bels.at(bel).decalxy = decalxy;
     belGraphicsReload.insert(bel);
 }
 
@@ -310,13 +315,15 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
 
 // ---------------------------------------------------------------
 
-const std::vector<GraphicElement> &Arch::getFrameGraphics() const { return frame_graphics; }
+const std::vector<GraphicElement> &Arch::getDecalGraphics(DecalId decal) const { return decal_graphics.at(decal); }
 
-const std::vector<GraphicElement> &Arch::getBelGraphics(BelId bel) const { return bels.at(bel).graphics; }
+DecalXY Arch::getFrameDecal() const { return frame_decalxy; }
 
-const std::vector<GraphicElement> &Arch::getWireGraphics(WireId wire) const { return wires.at(wire).graphics; }
+DecalXY Arch::getBelDecal(BelId bel) const { return bels.at(bel).decalxy; }
 
-const std::vector<GraphicElement> &Arch::getPipGraphics(PipId pip) const { return pips.at(pip).graphics; }
+DecalXY Arch::getWireDecal(WireId wire) const { return wires.at(wire).decalxy; }
+
+DecalXY Arch::getPipDecal(PipId pip) const { return pips.at(pip).decalxy; }
 
 // ---------------------------------------------------------------
 

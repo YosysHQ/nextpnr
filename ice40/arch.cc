@@ -400,127 +400,142 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
 
 // -----------------------------------------------------------------------
 
-std::vector<GraphicElement> Arch::getFrameGraphics() const
+DecalXY Arch::getFrameDecal() const
 {
-    std::vector<GraphicElement> ret;
-
-    for (int x = 0; x <= chip_info->width; x++)
-        for (int y = 0; y <= chip_info->height; y++) {
-            GraphicElement el;
-            el.type = GraphicElement::G_LINE;
-            el.x1 = x - 0.05, el.x2 = x + 0.05, el.y1 = y, el.y2 = y, el.z = 0;
-            ret.push_back(el);
-            el.x1 = x, el.x2 = x, el.y1 = y - 0.05, el.y2 = y + 0.05, el.z = 0;
-            ret.push_back(el);
-        }
-
-    return ret;
+    DecalXY decalxy;
+    decalxy.decal.type = 'f';
+    return decalxy;
 }
 
-std::vector<GraphicElement> Arch::getBelGraphics(BelId bel) const
+DecalXY Arch::getBelDecal(BelId bel) const
+{
+    DecalXY decalxy;
+    decalxy.decal.type = 'b';
+    decalxy.decal.z = bel.index;
+    return decalxy;
+}
+
+DecalXY Arch::getWireDecal(WireId wire) const
+{
+    DecalXY decalxy;
+    return decalxy;
+}
+
+DecalXY Arch::getPipDecal(PipId pip) const
+{
+    DecalXY decalxy;
+    return decalxy;
+};
+
+std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
 {
     std::vector<GraphicElement> ret;
 
-    auto bel_type = getBelType(bel);
-
-    if (bel_type == TYPE_ICESTORM_LC) {
-        GraphicElement el;
-        el.type = GraphicElement::G_BOX;
-        el.x1 = chip_info->bel_data[bel.index].x + logic_cell_x1;
-        el.x2 = chip_info->bel_data[bel.index].x + logic_cell_x2;
-        el.y1 = chip_info->bel_data[bel.index].y + logic_cell_y1 + (chip_info->bel_data[bel.index].z) * logic_cell_pitch;
-        el.y2 = chip_info->bel_data[bel.index].y + logic_cell_y2 + (chip_info->bel_data[bel.index].z) * logic_cell_pitch;
-        el.z = 0;
-        ret.push_back(el);
-
-        if (chip_info->bel_data[bel.index].z == 0) {
-            int tx = chip_info->bel_data[bel.index].x;
-            int ty = chip_info->bel_data[bel.index].y;
-
-            // Main switchbox
-            GraphicElement main_sw;
-            main_sw.type = GraphicElement::G_BOX;
-            main_sw.x1 = tx + main_swbox_x1;
-            main_sw.x2 = tx + main_swbox_x2;
-            main_sw.y1 = ty + main_swbox_y1;
-            main_sw.y2 = ty + main_swbox_y2;
-            ret.push_back(main_sw);
-
-            // Local tracks to LUT input switchbox
-            GraphicElement local_sw;
-            local_sw.type = GraphicElement::G_BOX;
-            local_sw.x1 = tx + local_swbox_x1;
-            local_sw.x2 = tx + local_swbox_x2;
-            local_sw.y1 = ty + local_swbox_y1;
-            local_sw.y2 = ty + local_swbox_y2;
-            local_sw.z = 0;
-            ret.push_back(local_sw);
-
-            // All the wires
-            for (int i = TILE_WIRE_GLB2LOCAL_0; i <= TILE_WIRE_SP12_H_L_23; i++)
-                gfxTileWire(ret, tx, ty, GfxTileWireId(i));
-        }
+    if (decal.type == 'f')
+    {
+        for (int x = 0; x <= chip_info->width; x++)
+            for (int y = 0; y <= chip_info->height; y++) {
+                GraphicElement el;
+                el.type = GraphicElement::G_LINE;
+                el.x1 = x - 0.05, el.x2 = x + 0.05, el.y1 = y, el.y2 = y, el.z = 0;
+                ret.push_back(el);
+                el.x1 = x, el.x2 = x, el.y1 = y - 0.05, el.y2 = y + 0.05, el.z = 0;
+                ret.push_back(el);
+            }
     }
 
-    if (bel_type == TYPE_SB_IO) {
-        if (chip_info->bel_data[bel.index].x == 0 || chip_info->bel_data[bel.index].x == chip_info->width - 1) {
+    if (decal.type == 'b')
+    {
+        BelId bel;
+        bel.index = decal.z;
+
+        auto bel_type = getBelType(bel);
+
+        if (bel_type == TYPE_ICESTORM_LC) {
+            GraphicElement el;
+            el.type = GraphicElement::G_BOX;
+            el.x1 = chip_info->bel_data[bel.index].x + logic_cell_x1;
+            el.x2 = chip_info->bel_data[bel.index].x + logic_cell_x2;
+            el.y1 = chip_info->bel_data[bel.index].y + logic_cell_y1 + (chip_info->bel_data[bel.index].z) * logic_cell_pitch;
+            el.y2 = chip_info->bel_data[bel.index].y + logic_cell_y2 + (chip_info->bel_data[bel.index].z) * logic_cell_pitch;
+            el.z = 0;
+            ret.push_back(el);
+
+            if (chip_info->bel_data[bel.index].z == 0) {
+                int tx = chip_info->bel_data[bel.index].x;
+                int ty = chip_info->bel_data[bel.index].y;
+
+                // Main switchbox
+                GraphicElement main_sw;
+                main_sw.type = GraphicElement::G_BOX;
+                main_sw.x1 = tx + main_swbox_x1;
+                main_sw.x2 = tx + main_swbox_x2;
+                main_sw.y1 = ty + main_swbox_y1;
+                main_sw.y2 = ty + main_swbox_y2;
+                ret.push_back(main_sw);
+
+                // Local tracks to LUT input switchbox
+                GraphicElement local_sw;
+                local_sw.type = GraphicElement::G_BOX;
+                local_sw.x1 = tx + local_swbox_x1;
+                local_sw.x2 = tx + local_swbox_x2;
+                local_sw.y1 = ty + local_swbox_y1;
+                local_sw.y2 = ty + local_swbox_y2;
+                local_sw.z = 0;
+                ret.push_back(local_sw);
+
+                // All the wires
+                for (int i = TILE_WIRE_GLB2LOCAL_0; i <= TILE_WIRE_SP12_H_L_23; i++)
+                    gfxTileWire(ret, tx, ty, GfxTileWireId(i));
+            }
+        }
+
+        if (bel_type == TYPE_SB_IO) {
+            if (chip_info->bel_data[bel.index].x == 0 || chip_info->bel_data[bel.index].x == chip_info->width - 1) {
+                GraphicElement el;
+                el.type = GraphicElement::G_BOX;
+                el.x1 = chip_info->bel_data[bel.index].x + 0.1;
+                el.x2 = chip_info->bel_data[bel.index].x + 0.9;
+                if (chip_info->bel_data[bel.index].z == 0) {
+                    el.y1 = chip_info->bel_data[bel.index].y + 0.10;
+                    el.y2 = chip_info->bel_data[bel.index].y + 0.45;
+                } else {
+                    el.y1 = chip_info->bel_data[bel.index].y + 0.55;
+                    el.y2 = chip_info->bel_data[bel.index].y + 0.90;
+                }
+                el.z = 0;
+                ret.push_back(el);
+            } else {
+                GraphicElement el;
+                el.type = GraphicElement::G_BOX;
+                if (chip_info->bel_data[bel.index].z == 0) {
+                    el.x1 = chip_info->bel_data[bel.index].x + 0.10;
+                    el.x2 = chip_info->bel_data[bel.index].x + 0.45;
+                } else {
+                    el.x1 = chip_info->bel_data[bel.index].x + 0.55;
+                    el.x2 = chip_info->bel_data[bel.index].x + 0.90;
+                }
+                el.y1 = chip_info->bel_data[bel.index].y + 0.1;
+                el.y2 = chip_info->bel_data[bel.index].y + 0.9;
+                el.z = 0;
+                ret.push_back(el);
+            }
+        }
+
+        if (bel_type == TYPE_ICESTORM_RAM) {
             GraphicElement el;
             el.type = GraphicElement::G_BOX;
             el.x1 = chip_info->bel_data[bel.index].x + 0.1;
             el.x2 = chip_info->bel_data[bel.index].x + 0.9;
-            if (chip_info->bel_data[bel.index].z == 0) {
-                el.y1 = chip_info->bel_data[bel.index].y + 0.10;
-                el.y2 = chip_info->bel_data[bel.index].y + 0.45;
-            } else {
-                el.y1 = chip_info->bel_data[bel.index].y + 0.55;
-                el.y2 = chip_info->bel_data[bel.index].y + 0.90;
-            }
-            el.z = 0;
-            ret.push_back(el);
-        } else {
-            GraphicElement el;
-            el.type = GraphicElement::G_BOX;
-            if (chip_info->bel_data[bel.index].z == 0) {
-                el.x1 = chip_info->bel_data[bel.index].x + 0.10;
-                el.x2 = chip_info->bel_data[bel.index].x + 0.45;
-            } else {
-                el.x1 = chip_info->bel_data[bel.index].x + 0.55;
-                el.x2 = chip_info->bel_data[bel.index].x + 0.90;
-            }
             el.y1 = chip_info->bel_data[bel.index].y + 0.1;
-            el.y2 = chip_info->bel_data[bel.index].y + 0.9;
+            el.y2 = chip_info->bel_data[bel.index].y + 1.9;
             el.z = 0;
             ret.push_back(el);
         }
     }
 
-    if (bel_type == TYPE_ICESTORM_RAM) {
-        GraphicElement el;
-        el.type = GraphicElement::G_BOX;
-        el.x1 = chip_info->bel_data[bel.index].x + 0.1;
-        el.x2 = chip_info->bel_data[bel.index].x + 0.9;
-        el.y1 = chip_info->bel_data[bel.index].y + 0.1;
-        el.y2 = chip_info->bel_data[bel.index].y + 1.9;
-        el.z = 0;
-        ret.push_back(el);
-    }
-
     return ret;
 }
-
-std::vector<GraphicElement> Arch::getWireGraphics(WireId wire) const
-{
-    std::vector<GraphicElement> ret;
-    // FIXME
-    return ret;
-}
-
-std::vector<GraphicElement> Arch::getPipGraphics(PipId pip) const
-{
-    std::vector<GraphicElement> ret;
-    // FIXME
-    return ret;
-};
 
 // -----------------------------------------------------------------------
 

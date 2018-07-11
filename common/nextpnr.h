@@ -155,6 +155,12 @@ NEXTPNR_NAMESPACE_END
 
 NEXTPNR_NAMESPACE_BEGIN
 
+struct DecalXY
+{
+    DecalId decal;
+    float x = 0, y = 0;
+};
+
 struct BelPin
 {
     BelId bel;
@@ -270,6 +276,60 @@ struct Context : Arch
     float target_freq = 12e6;
 
     Context(ArchArgs args) : Arch(args) {}
+
+    // --------------------------------------------------------------
+
+    std::vector<GraphicElement> getFrameGraphics() const __attribute__ ((deprecated)) {
+        std::vector<GraphicElement> ret;
+        DecalXY decalxy = getFrameDecal();
+        ret = getDecalGraphics(decalxy.decal);
+        for (auto &it : ret) {
+            it.x1 += decalxy.x;
+            it.x2 += decalxy.x;
+            it.y1 += decalxy.y;
+            it.y2 += decalxy.y;
+        }
+        return ret;
+    }
+
+    std::vector<GraphicElement> getBelGraphics(BelId bel) const __attribute__ ((deprecated)) {
+        std::vector<GraphicElement> ret;
+        DecalXY decalxy = getBelDecal(bel);
+        ret = getDecalGraphics(decalxy.decal);
+        for (auto &it : ret) {
+            it.x1 += decalxy.x;
+            it.x2 += decalxy.x;
+            it.y1 += decalxy.y;
+            it.y2 += decalxy.y;
+        }
+        return ret;
+    }
+
+    std::vector<GraphicElement> getWireGraphics(WireId wire) const __attribute__ ((deprecated)) {
+        std::vector<GraphicElement> ret;
+        DecalXY decalxy = getWireDecal(wire);
+        ret = getDecalGraphics(decalxy.decal);
+        for (auto &it : ret) {
+            it.x1 += decalxy.x;
+            it.x2 += decalxy.x;
+            it.y1 += decalxy.y;
+            it.y2 += decalxy.y;
+        }
+        return ret;
+    }
+
+    std::vector<GraphicElement> getPipGraphics(PipId pip) const __attribute__ ((deprecated)) {
+        std::vector<GraphicElement> ret;
+        DecalXY decalxy = getPipDecal(pip);
+        ret = getDecalGraphics(decalxy.decal);
+        for (auto &it : ret) {
+            it.x1 += decalxy.x;
+            it.x2 += decalxy.x;
+            it.y1 += decalxy.y;
+            it.y2 += decalxy.y;
+        }
+        return ret;
+    }
 
     // --------------------------------------------------------------
 
