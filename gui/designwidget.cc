@@ -118,11 +118,32 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr), net
     toolbar->addAction(actionNext);
     toolbar->addAction(actionLast);
 
+    QWidget *topWidget = new QWidget();
+    QVBoxLayout *vbox1 = new QVBoxLayout();
+    topWidget->setLayout(vbox1);
+    vbox1->setSpacing(5);
+    vbox1->setContentsMargins(0, 0, 0, 0);
+    vbox1->addWidget(lineEdit);
+    vbox1->addWidget(treeWidget);
+
+    QWidget *toolbarWidget = new QWidget();
+    QHBoxLayout *hbox = new QHBoxLayout;
+    hbox->setAlignment(Qt::AlignCenter);
+    toolbarWidget->setLayout(hbox);
+    hbox->addWidget(toolbar);
+
+    QWidget *btmWidget = new QWidget();
+    
+    QVBoxLayout *vbox2 = new QVBoxLayout();
+    btmWidget->setLayout(vbox2);    
+    vbox2->setSpacing(5);
+    vbox2->setContentsMargins(0, 0, 0, 0);
+    vbox2->addWidget(toolbarWidget);
+    vbox2->addWidget(propertyEditor);
+
     QSplitter *splitter = new QSplitter(Qt::Vertical);
-    splitter->addWidget(lineEdit);
-    splitter->addWidget(treeWidget);
-    splitter->addWidget(toolbar);
-    splitter->addWidget(propertyEditor);
+    splitter->addWidget(topWidget);    
+    splitter->addWidget(btmWidget);    
 
     QGridLayout *mainLayout = new QGridLayout();
     mainLayout->setSpacing(0);
