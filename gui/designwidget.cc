@@ -130,13 +130,15 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr), net
     QHBoxLayout *hbox = new QHBoxLayout;
     hbox->setAlignment(Qt::AlignCenter);
     toolbarWidget->setLayout(hbox);
+    hbox->setSpacing(0);
+    hbox->setContentsMargins(0, 0, 0, 0);
     hbox->addWidget(toolbar);
 
     QWidget *btmWidget = new QWidget();
     
     QVBoxLayout *vbox2 = new QVBoxLayout();
     btmWidget->setLayout(vbox2);    
-    vbox2->setSpacing(5);
+    vbox2->setSpacing(0);
     vbox2->setContentsMargins(0, 0, 0, 0);
     vbox2->addWidget(toolbarWidget);
     vbox2->addWidget(propertyEditor);
