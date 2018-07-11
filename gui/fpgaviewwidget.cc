@@ -343,7 +343,7 @@ void FPGAViewWidget::paintGL()
     QMatrix4x4 matrix;
     matrix.ortho(QRectF(-aspect / 2.0, -0.5, aspect, 1.0f));
     matrix.translate(moveX_, moveY_, -0.5);
-    matrix.scale(zoom_ * 0.01f, zoom_ * 0.01f, 0);
+    matrix.scale(zoom_ * 0.01f, -zoom_ * 0.01f, 0);
 
     // Draw grid.
     auto grid = LineShaderData(0.01f, QColor("#DDD"));
