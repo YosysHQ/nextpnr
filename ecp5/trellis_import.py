@@ -331,7 +331,7 @@ class BinaryBlobAssembler:
 
     def finalize(self):
         assert not self.finalized
-        for s, index in self.strings.items():
+        for s, index in sorted(self.strings.items()):
             self.l("str%d" % index, "char")
             for c in s:
                 self.data.append(ord(c))

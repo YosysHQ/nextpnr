@@ -712,7 +712,7 @@ class BinaryBlobAssembler:
 
     def finalize(self):
         assert not self.finalized
-        for s, index in self.strings.items():
+        for s, index in sorted(self.strings.items()):
             self.l("str%d" % index, "char")
             for c in s:
                 self.data.append(ord(c))
@@ -947,7 +947,7 @@ for wire in range(num_wires):
     if wire in wire_downhill_belports:
         num_bels_downhill = len(wire_downhill_belports[wire])
         bba.l("wire%d_downbels" % wire, "BelPortPOD")
-        for belport in wire_downhill_belports[wire]:
+        for belport in sorted(wire_downhill_belports[wire]):
             bba.u32(belport[0], "bel_index")
             bba.u32(portpins[belport[1]], "port")
     else:
