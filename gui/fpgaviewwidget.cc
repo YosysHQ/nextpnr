@@ -297,8 +297,8 @@ void FPGAViewWidget::setZoom(float t_z)
 
     if (zoom_ < 1.0f)
         zoom_ = 1.0f;
-    if (zoom_ > 100.f)
-        zoom_ = 100.0f;
+    if (zoom_ > 500.f)
+        zoom_ = 500.0f;
 
     update();
 }
@@ -346,7 +346,7 @@ void FPGAViewWidget::paintGL()
     matrix.scale(zoom_ * 0.01f, -zoom_ * 0.01f, 0);
 
     // Draw grid.
-    auto grid = LineShaderData(0.01f, QColor("#DDD"));
+    auto grid = LineShaderData(0.001f, QColor("#DDD"));
     for (float i = -100.0f; i < 100.0f; i += 1.0f) {
         PolyLine(-100.0f, i, 100.0f, i).build(grid);
         PolyLine(i, -100.0f, i, 100.0f).build(grid);
@@ -354,7 +354,7 @@ void FPGAViewWidget::paintGL()
     lineShader_.draw(grid, matrix);
 
     // Draw Bels.
-    auto bels = LineShaderData(0.02f, QColor("#b000ba"));
+    auto bels = LineShaderData(0.0005f, QColor("#b000ba"));
     if (ctx_) {
         for (auto bel : ctx_->getBels()) {
             for (auto &el : ctx_->getBelGraphics(bel))
@@ -363,8 +363,28 @@ void FPGAViewWidget::paintGL()
         lineShader_.draw(bels, matrix);
     }
 
+    // Draw Wires.
+    auto wires = LineShaderData(0.0005f, QColor("#b000ba"));
+    if (ctx_) {
+        for (auto wire : ctx_->getWires()) {
+            for (auto &el : ctx_->getWireGraphics(wire))
+                drawElement(wires, el);
+        }
+        lineShader_.draw(wires, matrix);
+    }
+
+    // Draw Pips.
+    auto pips = LineShaderData(0.0005f, QColor("#b000ba"));
+    if (ctx_) {
+        for (auto wire : ctx_->getPips()) {
+            for (auto &el : ctx_->getPipGraphics(wire))
+                drawElement(pips, el);
+        }
+        lineShader_.draw(pips, matrix);
+    }
+
     // Draw Frame Graphics.
-    auto frames = LineShaderData(0.02f, QColor("#0066ba"));
+    auto frames = LineShaderData(0.002f, QColor("#0066ba"));
     if (ctx_) {
         for (auto &el : ctx_->getFrameGraphics()) {
             drawElement(frames, el);

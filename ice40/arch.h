@@ -643,10 +643,12 @@ struct Arch : BaseCtx
 
     // -------------------------------------------------
 
-    std::vector<GraphicElement> getFrameGraphics() const;
-    std::vector<GraphicElement> getBelGraphics(BelId bel) const;
-    std::vector<GraphicElement> getWireGraphics(WireId wire) const;
-    std::vector<GraphicElement> getPipGraphics(PipId pip) const;
+    std::vector<GraphicElement> getDecalGraphics(DecalId decal) const;
+
+    DecalXY getFrameDecal() const;
+    DecalXY getBelDecal(BelId bel) const;
+    DecalXY getWireDecal(WireId wire) const;
+    DecalXY getPipDecal(PipId pip) const;
 
     bool allGraphicsReload = false;
     bool frameGraphicsReload = false;
