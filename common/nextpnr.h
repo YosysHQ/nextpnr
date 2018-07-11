@@ -279,7 +279,7 @@ struct Context : Arch
 
     // --------------------------------------------------------------
 
-    std::vector<GraphicElement> getFrameGraphics() const __attribute__ ((deprecated)) {
+    NPNR_DEPRECATED std::vector<GraphicElement> getFrameGraphics() const {
         std::vector<GraphicElement> ret;
         DecalXY decalxy = getFrameDecal();
         ret = getDecalGraphics(decalxy.decal);
@@ -292,7 +292,7 @@ struct Context : Arch
         return ret;
     }
 
-    std::vector<GraphicElement> getBelGraphics(BelId bel) const __attribute__ ((deprecated)) {
+    NPNR_DEPRECATED std::vector<GraphicElement> getBelGraphics(BelId bel) const {
         std::vector<GraphicElement> ret;
         DecalXY decalxy = getBelDecal(bel);
         ret = getDecalGraphics(decalxy.decal);
@@ -305,7 +305,7 @@ struct Context : Arch
         return ret;
     }
 
-    std::vector<GraphicElement> getWireGraphics(WireId wire) const __attribute__ ((deprecated)) {
+    NPNR_DEPRECATED std::vector<GraphicElement> getWireGraphics(WireId wire) const {
         std::vector<GraphicElement> ret;
         DecalXY decalxy = getWireDecal(wire);
         ret = getDecalGraphics(decalxy.decal);
@@ -318,7 +318,7 @@ struct Context : Arch
         return ret;
     }
 
-    std::vector<GraphicElement> getPipGraphics(PipId pip) const __attribute__ ((deprecated)) {
+    NPNR_DEPRECATED std::vector<GraphicElement> getPipGraphics(PipId pip) const {
         std::vector<GraphicElement> ret;
         DecalXY decalxy = getPipDecal(pip);
         ret = getDecalGraphics(decalxy.decal);
