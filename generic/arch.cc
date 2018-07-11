@@ -112,30 +112,31 @@ void Arch::addBelInout(IdString bel, IdString name, IdString wire)
 void Arch::addDecalGraphic(DecalId decal, const GraphicElement &graphic)
 {
     decal_graphics[decal].push_back(graphic);
+    refreshUi();
 }
 
 void Arch::setFrameDecal(DecalXY decalxy)
 {
     frame_decalxy = decalxy;
-    frameGraphicsReload = true;
+    refreshUiFrame();
 }
 
 void Arch::setWireDecal(WireId wire, DecalXY decalxy)
 {
     wires.at(wire).decalxy = decalxy;
-    wireGraphicsReload.insert(wire);
+    refreshUiWire(wire);
 }
 
 void Arch::setPipDecal(PipId pip, DecalXY decalxy)
 {
     pips.at(pip).decalxy = decalxy;
-    pipGraphicsReload.insert(pip);
+    refreshUiPip(pip);
 }
 
 void Arch::setBelDecal(BelId bel, DecalXY decalxy)
 {
     bels.at(bel).decalxy = decalxy;
-    belGraphicsReload.insert(bel);
+    refreshUiBel(bel);
 }
 
 // ---------------------------------------------------------------
