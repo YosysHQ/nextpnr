@@ -7,7 +7,8 @@ option(BUILD_PYTHON "Build Python Integration" ON)
 option(BUILD_TESTS "Build GUI" OFF)
 
 # List of families to build
-set(FAMILIES generic ice40)
+set(FAMILIES generic ice40 ecp5)
+
 set(ARCH "" CACHE STRING "Architecture family for nextpnr build")
 set_property(CACHE ARCH PROPERTY STRINGS ${FAMILIES})
 
@@ -217,6 +218,7 @@ endforeach (family)
 
 file(GLOB_RECURSE CLANGFORMAT_FILES *.cc *.h)
 string(REGEX REPLACE "[^;]*/ice40/chipdbs/chipdb-[^;]*.cc" "" CLANGFORMAT_FILES "${CLANGFORMAT_FILES}")
+string(REGEX REPLACE "[^;]*/ecp5/chipdbs/chipdb-[^;]*.cc" "" CLANGFORMAT_FILES "${CLANGFORMAT_FILES}")
 string(REGEX REPLACE "[^;]*/3rdparty[^;]*" "" CLANGFORMAT_FILES "${CLANGFORMAT_FILES}")
 string(REGEX REPLACE "[^;]*/generated[^;]*" "" CLANGFORMAT_FILES "${CLANGFORMAT_FILES}")
 

@@ -110,13 +110,13 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
     readwrite_wrapper<CellInfo &, decltype(&CellInfo::belStrength), &CellInfo::belStrength, pass_through<PlaceStrength>,
                       pass_through<PlaceStrength>>::def_wrap(ci_cls, "belStrength");
     readonly_wrapper<CellInfo &, decltype(&CellInfo::pins), &CellInfo::pins, wrap_context<PinMap &>>::def_wrap(ci_cls,
-                                                                                                             "pins");
+                                                                                                               "pins");
 
     auto pi_cls = class_<ContextualWrapper<PortInfo &>>("PortInfo", no_init);
     readwrite_wrapper<PortInfo &, decltype(&PortInfo::name), &PortInfo::name, conv_to_str<IdString>,
                       conv_from_str<IdString>>::def_wrap(pi_cls, "name");
     readonly_wrapper<PortInfo &, decltype(&PortInfo::net), &PortInfo::net, deref_and_wrap<NetInfo>>::def_wrap(pi_cls,
-                                                                                                            "net");
+                                                                                                              "net");
     readwrite_wrapper<PortInfo &, decltype(&PortInfo::type), &PortInfo::type, pass_through<PortType>,
                       pass_through<PortType>>::def_wrap(pi_cls, "type");
 
@@ -131,11 +131,11 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
     readonly_wrapper<NetInfo &, decltype(&NetInfo::users), &NetInfo::users, wrap_context<PortVector &>>::def_wrap(
             ni_cls, "users");
     readonly_wrapper<NetInfo &, decltype(&NetInfo::wires), &NetInfo::wires, wrap_context<WireMap &>>::def_wrap(ni_cls,
-                                                                                                             "wires");
+                                                                                                               "wires");
 
     auto pr_cls = class_<ContextualWrapper<PortRef &>>("PortRef", no_init);
     readonly_wrapper<PortRef &, decltype(&PortRef::cell), &PortRef::cell, deref_and_wrap<CellInfo>>::def_wrap(pr_cls,
-                                                                                                            "cell");
+                                                                                                              "cell");
     readwrite_wrapper<PortRef &, decltype(&PortRef::port), &PortRef::port, conv_to_str<IdString>,
                       conv_from_str<IdString>>::def_wrap(pr_cls, "port");
     readwrite_wrapper<PortRef &, decltype(&PortRef::budget), &PortRef::budget, pass_through<delay_t>,
