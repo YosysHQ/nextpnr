@@ -23,6 +23,7 @@
 #include <cstring>
 #include "log.h"
 #include "nextpnr.h"
+#include "placer1.h"
 #include "router1.h"
 #include "util.h"
 
@@ -288,6 +289,11 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
 }
 
 // -----------------------------------------------------------------------
+
+bool Arch::place()
+{
+    return placer1(getCtx());
+}
 
 bool Arch::route()
 {

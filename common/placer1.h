@@ -23,7 +23,7 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-extern bool place_design_sa(Context *ctx);
+extern bool placer1(Context *ctx);
 
 NEXTPNR_NAMESPACE_END
 

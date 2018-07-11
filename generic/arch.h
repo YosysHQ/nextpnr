@@ -158,6 +158,7 @@ struct Arch : BaseCtx
     float getDelayNS(delay_t v) const { return v; }
     uint32_t getDelayChecksum(delay_t v) const { return 0; }
 
+    bool place();
     bool route();
 
     const std::vector<GraphicElement> &getDecalGraphics(DecalId decal) const;

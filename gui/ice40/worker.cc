@@ -25,7 +25,6 @@
 #include "log.h"
 #include "pack.h"
 #include "pcf.h"
-#include "place_sa.h"
 #include "timing.h"
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -123,7 +122,7 @@ void Worker::place(bool timing_driven)
     Q_EMIT taskStarted();
     try {
         ctx->timing_driven = timing_driven;
-        Q_EMIT place_finished(place_design_sa(ctx));
+        Q_EMIT place_finished(ctx->place());
     } catch (WorkerInterruptionRequested) {
         Q_EMIT taskCanceled();
     }

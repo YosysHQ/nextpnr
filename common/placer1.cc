@@ -21,7 +21,7 @@
  *
  */
 
-#include "place_sa.h"
+#include "placer1.h"
 #include <algorithm>
 #include <cmath>
 #include <iostream>
@@ -429,7 +429,7 @@ class SAPlacer
     const float post_legalise_dia_scale = 2;
 };
 
-bool place_design_sa(Context *ctx)
+bool placer1(Context *ctx)
 {
     try {
         SAPlacer placer(ctx);
