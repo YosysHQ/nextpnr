@@ -288,33 +288,20 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
 
 // -----------------------------------------------------------------------
 
-std::vector<GraphicElement> Arch::getFrameGraphics() const
-{
-    std::vector<GraphicElement> ret;
-
-    return ret;
-}
-
-std::vector<GraphicElement> Arch::getBelGraphics(BelId bel) const
-{
-    std::vector<GraphicElement> ret;
-
-    return ret;
-}
-
-std::vector<GraphicElement> Arch::getWireGraphics(WireId wire) const
+std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decalId) const
 {
     std::vector<GraphicElement> ret;
     // FIXME
     return ret;
 }
 
-std::vector<GraphicElement> Arch::getPipGraphics(PipId pip) const
-{
-    std::vector<GraphicElement> ret;
-    // FIXME
-    return ret;
-};
+DecalXY Arch::getFrameDecal() const { return {}; }
+
+DecalXY Arch::getBelDecal(BelId bel) const { return {}; }
+
+DecalXY Arch::getWireDecal(WireId wire) const { return {}; }
+
+DecalXY Arch::getPipDecal(PipId pip) const { return {}; };
 
 // -----------------------------------------------------------------------
 

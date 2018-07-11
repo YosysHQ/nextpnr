@@ -22,6 +22,8 @@
 #error Include "archdefs.h" via "nextpnr.h" only.
 #endif
 
+#include <boost/functional/hash_fwd.hpp>
+
 NEXTPNR_NAMESPACE_BEGIN
 
 typedef int delay_t;
@@ -103,6 +105,13 @@ struct PipId
     bool operator!=(const PipId &other) const { return index != other.index || location != other.location; }
 };
 
+struct DecalId
+{
+    char type = 0; // Bel/Wire/Pip/Frame (b/w/p/f)
+    Location location;
+    uint32_t z = 0;
+};
+
 NEXTPNR_NAMESPACE_END
 
 namespace std {
@@ -142,6 +151,18 @@ template <> struct hash<NEXTPNR_NAMESPACE_PREFIX PipId>
     {
         std::size_t seed = std::hash<NEXTPNR_NAMESPACE_PREFIX Location>()(pip.location);
         seed ^= std::hash<int>()(pip.index) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        return seed;
+    }
+};
+
+template <> struct hash<NEXTPNR_NAMESPACE_PREFIX DecalId>
+{
+    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX DecalId &decal) const noexcept
+    {
+        std::size_t seed = 0;
+        boost::hash_combine(seed, hash<int>()(decal.type));
+        boost::hash_combine(seed, hash<NEXTPNR_NAMESPACE_PREFIX Location>()(decal.location));
+        boost::hash_combine(seed, hash<int>()(decal.z));
         return seed;
     }
 };

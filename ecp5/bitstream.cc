@@ -33,7 +33,7 @@
 #include "log.h"
 #include "util.h"
 
-#define fmt_str(x) (static_cast<const std::ostringstream&>(std::ostringstream() << x).str())
+#define fmt_str(x) (static_cast<const std::ostringstream &>(std::ostringstream() << x).str())
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -175,7 +175,7 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
         if (ctx->getBoundPipNet(pip) != IdString()) {
             if (ctx->getPipType(pip) == 0) { // ignore fixed pips
                 std::string tile = empty_chip.get_tile_by_position_and_type(pip.location.y, pip.location.x,
-                                                                     ctx->getPipTiletype(pip));
+                                                                            ctx->getPipTiletype(pip));
                 std::string source = get_trellis_wirename(ctx, pip.location, ctx->getPipSrcWire(pip));
                 std::string sink = get_trellis_wirename(ctx, pip.location, ctx->getPipDstWire(pip));
                 cc.tiles[tile].add_arc(sink, source);
@@ -223,13 +223,15 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             std::string pic_tile = get_pic_tile(ctx, empty_chip, bel);
             cc.tiles[pio_tile].add_enum(pio + ".BASE_TYPE", dir + "_" + iotype);
             cc.tiles[pic_tile].add_enum(pio + ".BASE_TYPE", dir + "_" + iotype);
-            if (dir != "INPUT" && (ci->ports.find(ctx->id("T")) == ci->ports.end() || ci->ports.at(ctx->id("T")).net == nullptr)) {
+            if (dir != "INPUT" &&
+                (ci->ports.find(ctx->id("T")) == ci->ports.end() || ci->ports.at(ctx->id("T")).net == nullptr)) {
                 // Tie tristate low if unconnected for outputs or bidir
                 std::string jpt = fmt_str("X" << bel.location.x << "/Y" << bel.location.y << "/JPADDT" << pio.back());
                 WireId jpt_wire = ctx->getWireByName(ctx->id(jpt));
                 PipId jpt_pip = *ctx->getPipsUphill(jpt_wire).begin();
                 WireId cib_wire = ctx->getPipSrcWire(jpt_pip);
-                std::string cib_tile = empty_chip.get_tile_by_position_and_type(cib_wire.location.y, cib_wire.location.x, cib_tiles);
+                std::string cib_tile =
+                        empty_chip.get_tile_by_position_and_type(cib_wire.location.y, cib_wire.location.x, cib_tiles);
                 std::string cib_wirename = ctx->locInfo(cib_wire)->wire_data[cib_wire.index].name.get();
                 cc.tiles[cib_tile].add_enum("CIB." + cib_wirename + "MUX", "0");
             }
