@@ -35,19 +35,19 @@ Building
     - Use `cmake . -DARCH=all` to build all supported targets
     - For example `cmake . -DARCH=ice40` would build just ICE40 support
  - Use CMake to generate the Makefiles (only needs to be done when `CMakeLists.txt` changes)
-    - For a debug build, run `cmake -DCMAKE_BUILD_TYPE=Debug .`
-    - For a debug build with HX1K support only, run ` cmake -DCMAKE_BUILD_TYPE=Debug -DICE40_HX1K_ONLY=1 .`
-    - For a release build, run `cmake .`
+    - For an iCE40 debug build, run `cmake -DARCH=ice40 -DCMAKE_BUILD_TYPE=Debug .`
+    - For an iCE40 debug build with HX1K support only, run `cmake -DARCH=ice40 -DCMAKE_BUILD_TYPE=Debug -DICE40_HX1K_ONLY=1 .`
+    - For an iCE40 and ECP5 release build, run `cmake -DARCH="ice40;ecp5" .`
     - Add `-DCMAKE_INSTALL_PREFIX=/your/install/prefix` to use a different install prefix to the default `/usr/local`
-    - For MSVC build with vcpkg use `cmake . -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake` using your vcpkg location
+    - For MSVC build with vcpkg use `-DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake` using your vcpkg location
     - For MSVC x64 build adding `-G"Visual Studio 14 2015 Win64"` is needed.
     - For ECP5 support, you must also specify the path to Project Trellis using `-DTRELLIS_ROOT=/path/trellis`
  - Use Make to run the build itself
     - For all binary targets, just run `make`
     - For just the iCE40 CLI&GUI binary, run `make nextpnr-ice40`
-    - To build binary without Python support, run `cmake -DBUILD_PYTHON=OFF .`
-    - To build binary without GUI, run `cmake -DBUILD_GUI=OFF .`
-    - For minimal binary without Python and GUI, run `cmake -DBUILD_PYTHON=OFF -DBUILD_GUI=OFF .`
+    - To build binary without Python support, use `-DBUILD_PYTHON=OFF`
+    - To build binary without GUI, use `-DBUILD_GUI=OFF`
+    - For minimal binary without Python and GUI, use `-DBUILD_PYTHON=OFF -DBUILD_GUI=OFF`
     - For just the iCE40 Python module, run `make nextpnrpy_ice40`
     - Using too many parallel jobs may lead to out-of-memory issues due to the significant memory needed to build the chipdbs
     - To install nextpnr, run `make install`
@@ -55,12 +55,12 @@ Building
 Testing
 -------
 
- - To build test binaries as well, run `cmake -DBUILD_TESTS=OFF .` and after run `make tests` to run them, or you can run separate binaries.
- - To use code sanitizers use:
-    - `cmake . -DSANITIZE_ADDRESS=ON`
-    - `cmake . -DSANITIZE_MEMORY=ON -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++`
-    - `cmake . -DSANITIZE_THREAD=ON`
-    - `cmake . -DSANITIZE_UNDEFINED=ON`
+ - To build test binaries as well, use `-DBUILD_TESTS=OFF` and after run `make tests` to run them, or you can run separate binaries.
+ - To use code sanitizers use the `cmake` options:
+    - `-DSANITIZE_ADDRESS=ON`
+    - `-DSANITIZE_MEMORY=ON -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++`
+    - `-DSANITIZE_THREAD=ON`
+    - `-DSANITIZE_UNDEFINED=ON`
  - Running valgrind example `valgrind --leak-check=yes --tool=memcheck ./nextpnr-ice40 --json ice40/blinky.json`
 
 Running
