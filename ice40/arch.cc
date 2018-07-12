@@ -478,6 +478,8 @@ DecalXY Arch::getBelDecal(BelId bel) const
 DecalXY Arch::getWireDecal(WireId wire) const
 {
     DecalXY decalxy;
+    decalxy.decal.type = DecalId::TYPE_WIRE;
+    decalxy.decal.index = wire.index;
     return decalxy;
 }
 
@@ -510,6 +512,21 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
             }
     }
 
+    if (decal.type == DecalId::TYPE_WIRE)
+    {
+        WireId wire;
+        wire.index = decal.index;
+
+        int n = chip_info->wire_data[wire.index].num_segments;
+        const WireSegmentPOD *p = chip_info->wire_data[wire.index].segments.get();
+
+        GraphicElement::style_t style = wire_to_net.at(wire.index) != IdString() ?
+                                        GraphicElement::G_ACTIVE : GraphicElement::G_INACTIVE;
+
+        for (int i = 0; i < n; i++)
+            gfxTileWire(ret, p[i].x, p[i].y, GfxTileWireId(p[i].index), style);
+    }
+
     if (decal.type == DecalId::TYPE_BEL)
     {
         BelId bel;
@@ -520,6 +537,7 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
         if (bel_type == TYPE_ICESTORM_LC) {
             GraphicElement el;
             el.type = GraphicElement::G_BOX;
+            el.style = bel_to_cell.at(bel.index) != IdString() ? GraphicElement::G_ACTIVE : GraphicElement::G_INACTIVE;
             el.x1 = chip_info->bel_data[bel.index].x + logic_cell_x1;
             el.x2 = chip_info->bel_data[bel.index].x + logic_cell_x2;
             el.y1 = chip_info->bel_data[bel.index].y + logic_cell_y1 + (chip_info->bel_data[bel.index].z) * logic_cell_pitch;
@@ -534,6 +552,7 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
                 // Main switchbox
                 GraphicElement main_sw;
                 main_sw.type = GraphicElement::G_BOX;
+                main_sw.style = GraphicElement::G_FRAME;
                 main_sw.x1 = tx + main_swbox_x1;
                 main_sw.x2 = tx + main_swbox_x2;
                 main_sw.y1 = ty + main_swbox_y1;
@@ -543,16 +562,13 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
                 // Local tracks to LUT input switchbox
                 GraphicElement local_sw;
                 local_sw.type = GraphicElement::G_BOX;
+                local_sw.style = GraphicElement::G_FRAME;
                 local_sw.x1 = tx + local_swbox_x1;
                 local_sw.x2 = tx + local_swbox_x2;
                 local_sw.y1 = ty + local_swbox_y1;
                 local_sw.y2 = ty + local_swbox_y2;
                 local_sw.z = 0;
                 ret.push_back(local_sw);
-
-                // All the wires
-                for (int i = TILE_WIRE_GLB2LOCAL_0; i <= TILE_WIRE_SP12_H_L_23; i++)
-                    gfxTileWire(ret, tx, ty, GfxTileWireId(i));
             }
         }
 

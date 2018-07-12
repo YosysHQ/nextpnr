@@ -21,8 +21,9 @@ if (MSVC)
         set(DEV_TXT_DB ${ICEBOX_ROOT}/chipdb-${dev}.txt)
         set(DEV_CC_DB ${CMAKE_CURRENT_SOURCE_DIR}/ice40/chipdbs/chipdb-${dev}.bin)
         set(DEV_PORTS_INC ${CMAKE_CURRENT_SOURCE_DIR}/ice40/portpins.inc)
+        set(DEV_GFXH ${CMAKE_CURRENT_SOURCE_DIR}/ice40/gfx.h)
         add_custom_command(OUTPUT ${DEV_CC_DB}
-                COMMAND ${PYTHON_EXECUTABLE} ${DB_PY} -b -p ${DEV_PORTS_INC} ${DEV_TXT_DB} > ${DEV_CC_DB}
+                COMMAND ${PYTHON_EXECUTABLE} ${DB_PY} -b -p ${DEV_PORTS_INC} -g ${DEV_GFXH} ${DEV_TXT_DB} > ${DEV_CC_DB}
                 DEPENDS ${DEV_TXT_DB} ${DB_PY}
                 )
         target_sources(ice40_chipdb PRIVATE ${DEV_CC_DB})
@@ -37,8 +38,9 @@ else()
         set(DEV_TXT_DB ${ICEBOX_ROOT}/chipdb-${dev}.txt)
         set(DEV_CC_DB ${CMAKE_CURRENT_SOURCE_DIR}/ice40/chipdbs/chipdb-${dev}.cc)
         set(DEV_PORTS_INC ${CMAKE_CURRENT_SOURCE_DIR}/ice40/portpins.inc)
+        set(DEV_GFXH ${CMAKE_CURRENT_SOURCE_DIR}/ice40/gfx.h)
         add_custom_command(OUTPUT ${DEV_CC_DB}
-                COMMAND ${PYTHON_EXECUTABLE} ${DB_PY} -c -p ${DEV_PORTS_INC} ${DEV_TXT_DB} > ${DEV_CC_DB}.new
+                COMMAND ${PYTHON_EXECUTABLE} ${DB_PY} -c -p ${DEV_PORTS_INC} -g ${DEV_GFXH} ${DEV_TXT_DB} > ${DEV_CC_DB}.new
                 COMMAND mv ${DEV_CC_DB}.new ${DEV_CC_DB}
                 DEPENDS ${DEV_TXT_DB} ${DB_PY}
                 )
