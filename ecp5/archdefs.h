@@ -119,8 +119,14 @@ struct DecalId
     Location location;
     uint32_t z = 0;
 
-    bool operator==(const DecalId &other) const { return type == other.type && location == other.location && z == other.z; }
-    bool operator!=(const DecalId &other) const { return type != other.type || location != other.location || z != other.z; }
+    bool operator==(const DecalId &other) const
+    {
+        return type == other.type && location == other.location && z == other.z;
+    }
+    bool operator!=(const DecalId &other) const
+    {
+        return type != other.type || location != other.location || z != other.z;
+    }
 };
 
 NEXTPNR_NAMESPACE_END

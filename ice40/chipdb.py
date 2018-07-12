@@ -73,10 +73,12 @@ with open(args.portspins) as f:
 with open(args.gfxh) as f:
     state = 0
     for line in f:
-        if state == 0 and line.startswith("enum GfxTileWireId "):
+        if state == 0 and line.startswith("enum GfxTileWireId"):
             state = 1
         elif state == 1 and line.startswith("};"):
             state = 0
+        elif state == 1 and line.startswith("{"):
+            pass
         elif state == 1:
             idx = len(gfx_wire_ids)
             name = line.strip().rstrip(",")

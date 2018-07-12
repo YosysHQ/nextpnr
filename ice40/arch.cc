@@ -19,12 +19,12 @@
 
 #include <algorithm>
 #include <cmath>
+#include "gfx.h"
 #include "log.h"
 #include "nextpnr.h"
 #include "placer1.h"
 #include "router1.h"
 #include "util.h"
-#include "gfx.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -380,10 +380,7 @@ GroupId Arch::getGroupByName(IdString name) const
     return GroupId();
 }
 
-IdString Arch::getGroupName(GroupId group) const
-{
-    return IdString();
-}
+IdString Arch::getGroupName(GroupId group) const { return IdString(); }
 
 std::vector<GroupId> Arch::getGroups() const
 {
@@ -448,15 +445,9 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
 
 // -----------------------------------------------------------------------
 
-bool Arch::place()
-{
-    return placer1(getCtx());
-}
+bool Arch::place() { return placer1(getCtx()); }
 
-bool Arch::route()
-{
-    return router1(getCtx());
-}
+bool Arch::route() { return router1(getCtx()); }
 
 // -----------------------------------------------------------------------
 
@@ -499,8 +490,7 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
 {
     std::vector<GraphicElement> ret;
 
-    if (decal.type == DecalId::TYPE_FRAME)
-    {
+    if (decal.type == DecalId::TYPE_FRAME) {
         for (int x = 0; x <= chip_info->width; x++)
             for (int y = 0; y <= chip_info->height; y++) {
                 GraphicElement el;
@@ -512,23 +502,21 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
             }
     }
 
-    if (decal.type == DecalId::TYPE_WIRE)
-    {
+    if (decal.type == DecalId::TYPE_WIRE) {
         WireId wire;
         wire.index = decal.index;
 
         int n = chip_info->wire_data[wire.index].num_segments;
         const WireSegmentPOD *p = chip_info->wire_data[wire.index].segments.get();
 
-        GraphicElement::style_t style = wire_to_net.at(wire.index) != IdString() ?
-                                        GraphicElement::G_ACTIVE : GraphicElement::G_INACTIVE;
+        GraphicElement::style_t style =
+                wire_to_net.at(wire.index) != IdString() ? GraphicElement::G_ACTIVE : GraphicElement::G_INACTIVE;
 
         for (int i = 0; i < n; i++)
             gfxTileWire(ret, p[i].x, p[i].y, GfxTileWireId(p[i].index), style);
     }
 
-    if (decal.type == DecalId::TYPE_BEL)
-    {
+    if (decal.type == DecalId::TYPE_BEL) {
         BelId bel;
         bel.index = decal.index;
 
@@ -540,8 +528,10 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
             el.style = bel_to_cell.at(bel.index) != IdString() ? GraphicElement::G_ACTIVE : GraphicElement::G_INACTIVE;
             el.x1 = chip_info->bel_data[bel.index].x + logic_cell_x1;
             el.x2 = chip_info->bel_data[bel.index].x + logic_cell_x2;
-            el.y1 = chip_info->bel_data[bel.index].y + logic_cell_y1 + (chip_info->bel_data[bel.index].z) * logic_cell_pitch;
-            el.y2 = chip_info->bel_data[bel.index].y + logic_cell_y2 + (chip_info->bel_data[bel.index].z) * logic_cell_pitch;
+            el.y1 = chip_info->bel_data[bel.index].y + logic_cell_y1 +
+                    (chip_info->bel_data[bel.index].z) * logic_cell_pitch;
+            el.y2 = chip_info->bel_data[bel.index].y + logic_cell_y2 +
+                    (chip_info->bel_data[bel.index].z) * logic_cell_pitch;
             el.z = 0;
             ret.push_back(el);
 

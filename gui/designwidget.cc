@@ -91,7 +91,7 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr), net
     propertyEditor->show();
 
     const QIcon searchIcon(":/icons/resources/zoom.png");
-    QLineEdit* lineEdit = new QLineEdit();
+    QLineEdit *lineEdit = new QLineEdit();
     lineEdit->setClearButtonEnabled(true);
     lineEdit->addAction(searchIcon, QLineEdit::LeadingPosition);
     lineEdit->setPlaceholderText("Search...");
@@ -139,17 +139,17 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr), net
     hbox->addWidget(toolbar);
 
     QWidget *btmWidget = new QWidget();
-    
+
     QVBoxLayout *vbox2 = new QVBoxLayout();
-    btmWidget->setLayout(vbox2);    
+    btmWidget->setLayout(vbox2);
     vbox2->setSpacing(0);
     vbox2->setContentsMargins(0, 0, 0, 0);
     vbox2->addWidget(toolbarWidget);
     vbox2->addWidget(propertyEditor);
 
     QSplitter *splitter = new QSplitter(Qt::Vertical);
-    splitter->addWidget(topWidget);    
-    splitter->addWidget(btmWidget);    
+    splitter->addWidget(topWidget);
+    splitter->addWidget(btmWidget);
 
     QGridLayout *mainLayout = new QGridLayout();
     mainLayout->setSpacing(0);

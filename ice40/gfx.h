@@ -40,7 +40,8 @@ const float logic_cell_y1 = 0.05;
 const float logic_cell_y2 = 0.10;
 const float logic_cell_pitch = 0.0625;
 
-enum GfxTileWireId {
+enum GfxTileWireId
+{
     TILE_WIRE_GLB2LOCAL_0,
     TILE_WIRE_GLB2LOCAL_1,
     TILE_WIRE_GLB2LOCAL_2,

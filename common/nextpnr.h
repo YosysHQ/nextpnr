@@ -268,9 +268,9 @@ struct BaseCtx
         delete idstring_idx_to_str;
     }
 
-    Context *getCtx() { return reinterpret_cast<Context*>(this); }
+    Context *getCtx() { return reinterpret_cast<Context *>(this); }
 
-    const Context *getCtx() const { return reinterpret_cast<const Context*>(this); }
+    const Context *getCtx() const { return reinterpret_cast<const Context *>(this); }
 
     // --------------------------------------------------------------
 
@@ -281,35 +281,17 @@ struct BaseCtx
     std::unordered_set<PipId> pipUiReload;
     std::unordered_set<GroupId> groupUiReload;
 
-    void refreshUi()
-    {
-        allUiReload = true;
-    }
+    void refreshUi() { allUiReload = true; }
 
-    void refreshUiFrame()
-    {
-        frameUiReload = true;
-    }
+    void refreshUiFrame() { frameUiReload = true; }
 
-    void refreshUiBel(BelId bel)
-    {
-        belUiReload.insert(bel);
-    }
+    void refreshUiBel(BelId bel) { belUiReload.insert(bel); }
 
-    void refreshUiWire(WireId wire)
-    {
-        wireUiReload.insert(wire);
-    }
+    void refreshUiWire(WireId wire) { wireUiReload.insert(wire); }
 
-    void refreshUiPip(PipId pip)
-    {
-        pipUiReload.insert(pip);
-    }
+    void refreshUiPip(PipId pip) { pipUiReload.insert(pip); }
 
-    void refreshUiGroup(GroupId group)
-    {
-        groupUiReload.insert(group);
-    }
+    void refreshUiGroup(GroupId group) { groupUiReload.insert(group); }
 };
 
 NEXTPNR_NAMESPACE_END
@@ -330,7 +312,8 @@ struct Context : Arch
 
     // --------------------------------------------------------------
 
-    NPNR_DEPRECATED std::vector<GraphicElement> getFrameGraphics() const {
+    NPNR_DEPRECATED std::vector<GraphicElement> getFrameGraphics() const
+    {
         std::vector<GraphicElement> ret;
         DecalXY decalxy = getFrameDecal();
         ret = getDecalGraphics(decalxy.decal);
@@ -343,7 +326,8 @@ struct Context : Arch
         return ret;
     }
 
-    NPNR_DEPRECATED std::vector<GraphicElement> getBelGraphics(BelId bel) const {
+    NPNR_DEPRECATED std::vector<GraphicElement> getBelGraphics(BelId bel) const
+    {
         std::vector<GraphicElement> ret;
         DecalXY decalxy = getBelDecal(bel);
         ret = getDecalGraphics(decalxy.decal);
@@ -356,7 +340,8 @@ struct Context : Arch
         return ret;
     }
 
-    NPNR_DEPRECATED std::vector<GraphicElement> getWireGraphics(WireId wire) const {
+    NPNR_DEPRECATED std::vector<GraphicElement> getWireGraphics(WireId wire) const
+    {
         std::vector<GraphicElement> ret;
         DecalXY decalxy = getWireDecal(wire);
         ret = getDecalGraphics(decalxy.decal);
@@ -369,7 +354,8 @@ struct Context : Arch
         return ret;
     }
 
-    NPNR_DEPRECATED std::vector<GraphicElement> getPipGraphics(PipId pip) const {
+    NPNR_DEPRECATED std::vector<GraphicElement> getPipGraphics(PipId pip) const
+    {
         std::vector<GraphicElement> ret;
         DecalXY decalxy = getPipDecal(pip);
         ret = getDecalGraphics(decalxy.decal);
@@ -382,7 +368,8 @@ struct Context : Arch
         return ret;
     }
 
-    NPNR_DEPRECATED std::vector<GraphicElement> getGroupGraphics(GroupId group) const {
+    NPNR_DEPRECATED std::vector<GraphicElement> getGroupGraphics(GroupId group) const
+    {
         std::vector<GraphicElement> ret;
         DecalXY decalxy = getGroupDecal(group);
         ret = getDecalGraphics(decalxy.decal);

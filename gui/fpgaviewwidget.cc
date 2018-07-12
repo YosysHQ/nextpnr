@@ -240,8 +240,7 @@ void LineShader::draw(const LineShaderData &line, const QMatrix4x4 &projection)
     vao_.release();
 }
 
-FPGAViewWidget::FPGAViewWidget(QWidget *parent)
-        : QOpenGLWidget(parent), lineShader_(this), zoom_(500.f), ctx_(nullptr)
+FPGAViewWidget::FPGAViewWidget(QWidget *parent) : QOpenGLWidget(parent), lineShader_(this), zoom_(500.f), ctx_(nullptr)
 {
     backgroundColor = QColor("#ffffff");
     gridColor = QColor("#ddd");
@@ -284,7 +283,7 @@ void FPGAViewWidget::initializeGL()
         log_error("Could not compile shader.\n");
     }
     initializeOpenGLFunctions();
-    glClearColor(backgroundColor.red()/255, backgroundColor.green()/255, backgroundColor.blue()/255, 0.0);
+    glClearColor(backgroundColor.red() / 255, backgroundColor.green() / 255, backgroundColor.blue() / 255, 0.0);
 }
 
 void FPGAViewWidget::drawElement(LineShaderData &out, const GraphicElement &el)
@@ -311,7 +310,7 @@ QMatrix4x4 FPGAViewWidget::getProjection(void)
     QMatrix4x4 matrix;
 
     const float aspect = float(width()) / float(height());
-    matrix.perspective(3.14/2, aspect, zoomNear_, zoomFar_);
+    matrix.perspective(3.14 / 2, aspect, zoomNear_, zoomFar_);
     matrix.translate(0.0f, 0.0f, -zoom_);
     return matrix;
 }
@@ -391,10 +390,7 @@ void FPGAViewWidget::paintGL()
 
 void FPGAViewWidget::resizeGL(int width, int height) {}
 
-void FPGAViewWidget::mousePressEvent(QMouseEvent *event)
-{
-    lastPos_ = event->pos();
-}
+void FPGAViewWidget::mousePressEvent(QMouseEvent *event) { lastPos_ = event->pos(); }
 
 // Invert the projection matrix to calculate screen/mouse to world/grid
 // coordinates.
@@ -403,8 +399,8 @@ QVector4D FPGAViewWidget::mouseToWorldCoordinates(int x, int y)
     QMatrix4x4 p = getProjection();
     QVector2D unit = p.map(QVector4D(1, 1, 0, 1)).toVector2DAffine();
 
-    float sx = (((float)x) / (width()/2));
-    float sy = (((float)y) / (height()/2));
+    float sx = (((float)x) / (width() / 2));
+    float sy = (((float)y) / (height() / 2));
     return QVector4D(sx / unit.x(), sy / unit.y(), 0, 1);
 }
 

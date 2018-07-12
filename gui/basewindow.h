@@ -26,10 +26,10 @@
 #include <QMainWindow>
 #include <QMenu>
 #include <QMenuBar>
+#include <QProgressBar>
 #include <QStatusBar>
 #include <QTabWidget>
 #include <QToolBar>
-#include <QProgressBar>
 
 Q_DECLARE_METATYPE(std::string)
 

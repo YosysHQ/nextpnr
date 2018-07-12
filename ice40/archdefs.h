@@ -111,7 +111,8 @@ struct PipId
 
 struct GroupId
 {
-    enum : int8_t {
+    enum : int8_t
+    {
         TYPE_NONE,
         TYPE_FRAME,
         TYPE_MAIN_SW,
@@ -133,7 +134,8 @@ struct GroupId
 
 struct DecalId
 {
-    enum : int8_t {
+    enum : int8_t
+    {
         TYPE_NONE,
         TYPE_FRAME,
         TYPE_BEL,
@@ -178,7 +180,8 @@ template <> struct hash<NEXTPNR_NAMESPACE_PREFIX PortPin> : hash<int>
 
 template <> struct hash<NEXTPNR_NAMESPACE_PREFIX GroupId>
 {
-    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX GroupId &group) const noexcept {
+    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX GroupId &group) const noexcept
+    {
         std::size_t seed = 0;
         boost::hash_combine(seed, hash<int>()(group.type));
         boost::hash_combine(seed, hash<int>()(group.x));
@@ -189,7 +192,8 @@ template <> struct hash<NEXTPNR_NAMESPACE_PREFIX GroupId>
 
 template <> struct hash<NEXTPNR_NAMESPACE_PREFIX DecalId>
 {
-    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX DecalId &decal) const noexcept {
+    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX DecalId &decal) const noexcept
+    {
         std::size_t seed = 0;
         boost::hash_combine(seed, hash<int>()(decal.type));
         boost::hash_combine(seed, hash<int>()(decal.index));

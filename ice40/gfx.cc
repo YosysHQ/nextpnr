@@ -333,7 +333,7 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId id,
 
     // LC Inputs
 
-    if (id >= TILE_WIRE_LUTFF_0_IN_0 && id <= TILE_WIRE_LUTFF_7_IN_3)  {
+    if (id >= TILE_WIRE_LUTFF_0_IN_0 && id <= TILE_WIRE_LUTFF_7_IN_3) {
         int idx = id - TILE_WIRE_LUTFF_0_IN_0;
         int z = idx / 4;
         int input = idx % 4;
@@ -354,7 +354,7 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId id,
         el.y1 = y1;
         el.y2 = y1;
         el.x1 = x + main_swbox_x2;
-        el.x2 = x + 0.97 + 0.0025 * (7-idx);
+        el.x2 = x + 0.97 + 0.0025 * (7 - idx);
         g.push_back(el);
 
         el.y1 = y1;
@@ -386,7 +386,7 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId id,
         el.x1 = el.x2;
         g.push_back(el);
 
-        for (int i = 0; i < 7; i ++) {
+        for (int i = 0; i < 7; i++) {
             el.y1 = y + logic_cell_y2 + i * logic_cell_pitch;
             el.y2 = y + logic_cell_y1 + (i + 1) * logic_cell_pitch;
             g.push_back(el);

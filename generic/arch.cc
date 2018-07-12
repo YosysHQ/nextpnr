@@ -109,25 +109,13 @@ void Arch::addBelInout(IdString bel, IdString name, IdString wire)
     wires.at(wire).downhill_bel_pins.push_back(BelPin{bel, name});
 }
 
-void Arch::addGroupBel(IdString group, IdString bel)
-{
-    groups[group].bels.push_back(bel);
-}
+void Arch::addGroupBel(IdString group, IdString bel) { groups[group].bels.push_back(bel); }
 
-void Arch::addGroupWire(IdString group, IdString wire)
-{
-    groups[group].wires.push_back(wire);
-}
+void Arch::addGroupWire(IdString group, IdString wire) { groups[group].wires.push_back(wire); }
 
-void Arch::addGroupPip(IdString group, IdString pip)
-{
-    groups[group].pips.push_back(pip);
-}
+void Arch::addGroupPip(IdString group, IdString pip) { groups[group].pips.push_back(pip); }
 
-void Arch::addGroupGroup(IdString group, IdString grp)
-{
-    groups[group].groups.push_back(grp);
-}
+void Arch::addGroupGroup(IdString group, IdString grp) { groups[group].groups.push_back(grp); }
 
 void Arch::addDecalGraphic(DecalId decal, const GraphicElement &graphic)
 {
@@ -330,7 +318,8 @@ GroupId Arch::getGroupByName(IdString name) const { return name; }
 
 IdString Arch::getGroupName(GroupId group) const { return group; }
 
-std::vector<GroupId> Arch::getGroups() const {
+std::vector<GroupId> Arch::getGroups() const
+{
     std::vector<GroupId> ret;
     for (auto &it : groups)
         ret.push_back(it.first);
@@ -365,15 +354,9 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
 
 // ---------------------------------------------------------------
 
-bool Arch::place()
-{
-    return placer1(getCtx());
-}
+bool Arch::place() { return placer1(getCtx()); }
 
-bool Arch::route()
-{
-    return router1(getCtx());
-}
+bool Arch::route() { return router1(getCtx()); }
 
 // ---------------------------------------------------------------
 

@@ -258,7 +258,7 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     QMatrix4x4 getProjection(void);
     QVector4D mouseToWorldCoordinates(int x, int y);
 
-    const float zoomNear_ = 1.0f; // do not zoom closer than this
+    const float zoomNear_ = 1.0f;    // do not zoom closer than this
     const float zoomFar_ = 10000.0f; // do not zoom further than this
 
     const float zoomLvl1_ = 100.0f;
