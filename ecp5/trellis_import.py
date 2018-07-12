@@ -124,13 +124,42 @@ def add_slice(x, y, z):
     add_bel_input(x, y, idx, "LSR", x, y, "LSR{}_SLICE".format(z))
     add_bel_input(x, y, idx, "CE", x, y, "CE{}_SLICE".format(z))
 
+    add_bel_input(x, y, idx, "DI0", x, y, "DI{}_SLICE".format(lc0))
+    add_bel_input(x, y, idx, "DI1", x, y, "DI{}_SLICE".format(lc1))
+
+    if z == 0 or z == 1:
+        add_bel_input(x, y, idx, "WD0", x, y, "WD0{}_SLICE".format(l))
+        add_bel_input(x, y, idx, "WD1", x, y, "WD1{}_SLICE".format(l))
+
+        add_bel_input(x, y, idx, "WAD0", x, y, "WAD0{}_SLICE".format(l))
+        add_bel_input(x, y, idx, "WAD1", x, y, "WAD1{}_SLICE".format(l))
+        add_bel_input(x, y, idx, "WAD2", x, y, "WAD2{}_SLICE".format(l))
+        add_bel_input(x, y, idx, "WAD3", x, y, "WAD3{}_SLICE".format(l))
+
+        add_bel_input(x, y, idx, "WRE", x, y, "WRE{}_SLICE".format(z))
+        add_bel_input(x, y, idx, "WCK", x, y, "WCK{}_SLICE".format(z))
+
     add_bel_output(x, y, idx, "F0", x, y, "F{}_SLICE".format(lc0))
     add_bel_output(x, y, idx, "Q0", x, y, "Q{}_SLICE".format(lc0))
 
     add_bel_output(x, y, idx, "F1", x, y, "F{}_SLICE".format(lc1))
     add_bel_output(x, y, idx, "Q1", x, y, "Q{}_SLICE".format(lc1))
 
+    add_bel_output(x, y, idx, "OFX0", x, y, "F5{}_SLICE".format(l))
+    add_bel_output(x, y, idx, "OFX1", x, y, "FX{}_SLICE".format(l))
+
     add_bel_output(x, y, idx, "FCO", x, y, "FCO{}_SLICE".format(l if z < 3 else ""))
+
+    if z == 2:
+        add_bel_output(x, y, idx, "WDO0", x, y, "WDO0C_SLICE")
+        add_bel_output(x, y, idx, "WDO1", x, y, "WDO1C_SLICE")
+        add_bel_output(x, y, idx, "WDO2", x, y, "WDO2C_SLICE")
+        add_bel_output(x, y, idx, "WDO3", x, y, "WDO3C_SLICE")
+
+        add_bel_output(x, y, idx, "WADO0", x, y, "WADO0C_SLICE")
+        add_bel_output(x, y, idx, "WADO1", x, y, "WADO1C_SLICE")
+        add_bel_output(x, y, idx, "WADO2", x, y, "WADO2C_SLICE")
+        add_bel_output(x, y, idx, "WADO3", x, y, "WADO3C_SLICE")
 
 
 def add_pio(x, y, z):

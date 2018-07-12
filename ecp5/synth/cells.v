@@ -4,10 +4,20 @@ module TRELLIS_SLICE(
 	input A1, B1, C1, D1,
 	input M0, M1,
 	input FCI, FXA, FXB,
+
 	input CLK, LSR, CE,
+	input DI0, DI1,
+
+	input WD0, WD1,
+	input WAD0, WAD1, WAD2, WAD3,
+	input WRE, WCK,
+
 	output F0, Q0,
 	output F1, Q1,
-	output FCO, OFX0, OFX1
+	output FCO, OFX0, OFX1,
+
+    output WDO0, WDO1, WDO2, WDO3,
+    output WADO0, WADO1, WADO2, WADO3
 );
 
 parameter MODE = "LOGIC";
