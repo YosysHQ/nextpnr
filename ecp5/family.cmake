@@ -1,6 +1,17 @@
 
 set(devices 45k)
 
+if (NOT DEFINED TRELLIS_ROOT)
+    message(FATAL_ERROR "you must define TRELLIS_ROOT using -DTRELLIS_ROOT=/path/to/prjtrellis for ECP5 support")
+endif()
+
+
+file( GLOB found_pytrellis ${TRELLIS_ROOT}/libtrellis/pytrellis.*)
+
+if ("${found_pytrellis}" STREQUAL "")
+    message(FATAL_ERROR "failed to find pytrellis library in ${TRELLIS_ROOT}/libtrellis/")
+endif()
+
 set(DB_PY ${CMAKE_CURRENT_SOURCE_DIR}/ecp5/trellis_import.py)
 
 file(MAKE_DIRECTORY ecp5/chipdbs/)
