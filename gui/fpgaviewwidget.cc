@@ -286,22 +286,28 @@ void FPGAViewWidget::initializeGL()
     glClearColor(backgroundColor.red() / 255, backgroundColor.green() / 255, backgroundColor.blue() / 255, 0.0);
 }
 
-void FPGAViewWidget::drawElement(LineShaderData &out, const GraphicElement &el)
+void FPGAViewWidget::drawDecal(LineShaderData &out, const DecalXY &decal)
 {
-    const float scale = 1.0, offset = 0.0;
+    const float scale = 1.0;
+    float offsetX = 0.0, offsetY = 0.0;
 
-    if (el.type == GraphicElement::G_BOX) {
-        auto line = PolyLine(true);
-        line.point(offset + scale * el.x1, offset + scale * el.y1);
-        line.point(offset + scale * el.x2, offset + scale * el.y1);
-        line.point(offset + scale * el.x2, offset + scale * el.y2);
-        line.point(offset + scale * el.x1, offset + scale * el.y2);
-        line.build(out);
-    }
+    for (auto &el : ctx_->getDecalGraphics(decal.decal)) {
+        offsetX = decal.x;
+        offsetY = decal.y;
 
-    if (el.type == GraphicElement::G_LINE) {
-        PolyLine(offset + scale * el.x1, offset + scale * el.y1, offset + scale * el.x2, offset + scale * el.y2)
-                .build(out);
+        if (el.type == GraphicElement::G_BOX) {
+            auto line = PolyLine(true);
+            line.point(offsetX + scale * el.x1, offsetY + scale * el.y1);
+            line.point(offsetX + scale * el.x2, offsetY + scale * el.y1);
+            line.point(offsetX + scale * el.x2, offsetY + scale * el.y2);
+            line.point(offsetX + scale * el.x1, offsetY + scale * el.y2);
+            line.build(out);
+        }
+
+        if (el.type == GraphicElement::G_LINE) {
+            PolyLine(offsetX + scale * el.x1, offsetY + scale * el.y1, offsetX + scale * el.x2, offsetY + scale * el.y2)
+                    .build(out);
+        }
     }
 }
 
@@ -342,8 +348,7 @@ void FPGAViewWidget::paintGL()
     auto bels = LineShaderData(thick11Px, belColor);
     if (ctx_) {
         for (auto bel : ctx_->getBels()) {
-            for (auto &el : ctx_->getBelGraphics(bel))
-                drawElement(bels, el);
+            drawDecal(bels, ctx_->getBelDecal(bel));
         }
         lineShader_.draw(bels, matrix);
     }
@@ -352,8 +357,7 @@ void FPGAViewWidget::paintGL()
     auto wires = LineShaderData(thick11Px, wireColor);
     if (ctx_) {
         for (auto wire : ctx_->getWires()) {
-            for (auto &el : ctx_->getWireGraphics(wire))
-                drawElement(wires, el);
+            drawDecal(wires, ctx_->getWireDecal(wire));
         }
         lineShader_.draw(wires, matrix);
     }
@@ -361,9 +365,8 @@ void FPGAViewWidget::paintGL()
     // Draw Pips.
     auto pips = LineShaderData(thick11Px, pipColor);
     if (ctx_) {
-        for (auto wire : ctx_->getPips()) {
-            for (auto &el : ctx_->getPipGraphics(wire))
-                drawElement(pips, el);
+        for (auto pip : ctx_->getPips()) {
+            drawDecal(pips, ctx_->getPipDecal(pip));
         }
         lineShader_.draw(pips, matrix);
     }
@@ -372,8 +375,7 @@ void FPGAViewWidget::paintGL()
     auto groups = LineShaderData(thick11Px, groupColor);
     if (ctx_) {
         for (auto group : ctx_->getGroups()) {
-            for (auto &el : ctx_->getGroupGraphics(group))
-                drawElement(groups, el);
+            drawDecal(groups, ctx_->getGroupDecal(group));
         }
         lineShader_.draw(groups, matrix);
     }
@@ -381,9 +383,7 @@ void FPGAViewWidget::paintGL()
     // Draw Frame Graphics.
     auto frames = LineShaderData(thick11Px, frameColor);
     if (ctx_) {
-        for (auto &el : ctx_->getFrameGraphics()) {
-            drawElement(frames, el);
-        }
+        drawDecal(frames, ctx_->getFrameDecal());
         lineShader_.draw(frames, matrix);
     }
 }

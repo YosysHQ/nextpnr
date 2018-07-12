@@ -47,20 +47,22 @@
 
 USING_NEXTPNR_NAMESPACE
 
-void svg_dump_el(const GraphicElement &el)
+void svg_dump_decal(const Context &ctx, const DecalXY &decal)
 {
-    float scale = 10.0, offset = 10.0;
-    std::string style = "stroke=\"black\" stroke-width=\"0.1\" fill=\"none\"";
+    const float scale = 10.0, offset = 10.0;
+    const std::string style = "stroke=\"black\" stroke-width=\"0.1\" fill=\"none\"";
 
-    if (el.type == GraphicElement::G_BOX) {
-        std::cout << "<rect x=\"" << (offset + scale * el.x1) << "\" y=\"" << (offset + scale * el.y1) << "\" height=\""
-                  << (scale * (el.y2 - el.y1)) << "\" width=\"" << (scale * (el.x2 - el.x1)) << "\" " << style
-                  << "/>\n";
-    }
+    for (auto &el : ctx.getDecalGraphics(decal.decal)) {
+        if (el.type == GraphicElement::G_BOX) {
+            std::cout << "<rect x=\"" << (offset + scale * (decal.x + el.x1)) << "\" y=\"" << (offset + scale * (decal.y + el.y1)) << "\" height=\""
+                      << (scale * (el.y2 - el.y1)) << "\" width=\"" << (scale * (el.x2 - el.x1)) << "\" " << style
+                      << "/>\n";
+        }
 
-    if (el.type == GraphicElement::G_LINE) {
-        std::cout << "<line x1=\"" << (offset + scale * el.x1) << "\" y1=\"" << (offset + scale * el.y1) << "\" x2=\""
-                  << (offset + scale * el.x2) << "\" y2=\"" << (offset + scale * el.y2) << "\" " << style << "/>\n";
+        if (el.type == GraphicElement::G_LINE) {
+            std::cout << "<line x1=\"" << (offset + scale * (decal.x + el.x1)) << "\" y1=\"" << (offset + scale * (decal.y + el.y1)) << "\" x2=\""
+                      << (offset + scale * (decal.x + el.x2)) << "\" y2=\"" << (offset + scale * (decal.y + el.y2)) << "\" " << style << "/>\n";
+        }
     }
 }
 
@@ -291,12 +293,10 @@ int main(int argc, char *argv[])
                          "xmlns:xlink=\"http://www.w3.org/1999/xlink\">\n";
             for (auto bel : ctx.getBels()) {
                 std::cout << "<!-- " << ctx.getBelName(bel).str(&ctx) << " -->\n";
-                for (auto &el : ctx.getBelGraphics(bel))
-                    svg_dump_el(el);
+                svg_dump_decal(ctx, ctx.getBelDecal(bel));
             }
             std::cout << "<!-- Frame -->\n";
-            for (auto &el : ctx.getFrameGraphics())
-                svg_dump_el(el);
+            svg_dump_decal(ctx, ctx.getFrameDecal());
             std::cout << "</svg>\n";
         }
 

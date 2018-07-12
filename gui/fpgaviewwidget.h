@@ -246,7 +246,7 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     void mousePressEvent(QMouseEvent *event) Q_DECL_OVERRIDE;
     void mouseMoveEvent(QMouseEvent *event) Q_DECL_OVERRIDE;
     void wheelEvent(QWheelEvent *event) Q_DECL_OVERRIDE;
-    void drawElement(LineShaderData &data, const GraphicElement &el);
+    void drawDecal(LineShaderData &data, const DecalXY &decal);
   public Q_SLOTS:
     void newContext(Context *ctx);
 
