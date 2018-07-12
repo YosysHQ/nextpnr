@@ -241,7 +241,7 @@ void LineShader::draw(const LineShaderData &line, const QMatrix4x4 &projection)
 }
 
 FPGAViewWidget::FPGAViewWidget(QWidget *parent)
-        : QOpenGLWidget(parent), moveX_(0), moveY_(0), zoom_(10.0f), lineShader_(this), ctx_(nullptr)
+        : QOpenGLWidget(parent), lineShader_(this), zoom_(500.f), ctx_(nullptr)
 {
     auto fmt = format();
     fmt.setMajorVersion(3);
@@ -271,38 +271,6 @@ QSize FPGAViewWidget::minimumSizeHint() const { return QSize(640, 480); }
 
 QSize FPGAViewWidget::sizeHint() const { return QSize(640, 480); }
 
-void FPGAViewWidget::setXTranslation(float t_x)
-{
-    if (t_x == moveX_)
-        return;
-
-    moveX_ = t_x;
-    update();
-}
-
-void FPGAViewWidget::setYTranslation(float t_y)
-{
-    if (t_y == moveY_)
-        return;
-
-    moveY_ = t_y;
-    update();
-}
-
-void FPGAViewWidget::setZoom(float t_z)
-{
-    if (t_z == zoom_)
-        return;
-    zoom_ = t_z;
-
-    if (zoom_ < 1.0f)
-        zoom_ = 1.0f;
-    if (zoom_ > 500.f)
-        zoom_ = 500.0f;
-
-    update();
-}
-
 void FPGAViewWidget::initializeGL()
 {
     if (!lineShader_.compile()) {
@@ -331,6 +299,16 @@ void FPGAViewWidget::drawElement(LineShaderData &out, const GraphicElement &el)
     }
 }
 
+QMatrix4x4 FPGAViewWidget::getProjection(void)
+{
+    QMatrix4x4 matrix;
+
+    const float aspect = float(width()) / float(height());
+    matrix.perspective(3.14/2, aspect, zoomNear_, zoomFar_);
+    matrix.translate(0.0f, 0.0f, -zoom_);
+    return matrix;
+}
+
 void FPGAViewWidget::paintGL()
 {
     auto gl = QOpenGLContext::currentContext()->functions();
@@ -338,15 +316,16 @@ void FPGAViewWidget::paintGL()
     gl->glViewport(0, 0, width() * retinaScale, height() * retinaScale);
     gl->glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    const float aspect = float(width()) / float(height());
+    QMatrix4x4 matrix = getProjection();
 
-    QMatrix4x4 matrix;
-    matrix.ortho(QRectF(-aspect / 2.0, -0.5, aspect, 1.0f));
-    matrix.scale(zoom_ * 0.01f, -zoom_ * 0.01f, 0);
-    matrix.translate(moveX_, -moveY_, 0);
+    matrix *= viewMove_;
+
+    // Calculate world thickness to achieve a screen 1px/1.1px line.
+    float thick1Px = mouseToWorldCoordinates(1, 0).x();
+    float thick11Px = mouseToWorldCoordinates(1.1, 0).x();
 
     // Draw grid.
-    auto grid = LineShaderData(0.001f, QColor("#DDD"));
+    auto grid = LineShaderData(thick1Px, QColor("#DDD"));
     for (float i = -100.0f; i < 100.0f; i += 1.0f) {
         PolyLine(-100.0f, i, 100.0f, i).build(grid);
         PolyLine(i, -100.0f, i, 100.0f).build(grid);
@@ -354,7 +333,7 @@ void FPGAViewWidget::paintGL()
     lineShader_.draw(grid, matrix);
 
     // Draw Bels.
-    auto bels = LineShaderData(0.0005f, QColor("#b000ba"));
+    auto bels = LineShaderData(thick11Px, QColor("#b000ba"));
     if (ctx_) {
         for (auto bel : ctx_->getBels()) {
             for (auto &el : ctx_->getBelGraphics(bel))
@@ -364,7 +343,7 @@ void FPGAViewWidget::paintGL()
     }
 
     // Draw Wires.
-    auto wires = LineShaderData(0.0005f, QColor("#b000ba"));
+    auto wires = LineShaderData(thick11Px, QColor("#b000ba"));
     if (ctx_) {
         for (auto wire : ctx_->getWires()) {
             for (auto &el : ctx_->getWireGraphics(wire))
@@ -374,7 +353,7 @@ void FPGAViewWidget::paintGL()
     }
 
     // Draw Pips.
-    auto pips = LineShaderData(0.0005f, QColor("#b000ba"));
+    auto pips = LineShaderData(thick11Px, QColor("#b000ba"));
     if (ctx_) {
         for (auto wire : ctx_->getPips()) {
             for (auto &el : ctx_->getPipGraphics(wire))
@@ -384,7 +363,7 @@ void FPGAViewWidget::paintGL()
     }
 
     // Draw Groups.
-    auto groups = LineShaderData(0.0005f, QColor("#b000ba"));
+    auto groups = LineShaderData(thick11Px, QColor("#b000ba"));
     if (ctx_) {
         for (auto group : ctx_->getGroups()) {
             for (auto &el : ctx_->getGroupGraphics(group))
@@ -394,7 +373,7 @@ void FPGAViewWidget::paintGL()
     }
 
     // Draw Frame Graphics.
-    auto frames = LineShaderData(0.002f, QColor("#0066ba"));
+    auto frames = LineShaderData(thick11Px, QColor("#0066ba"));
     if (ctx_) {
         for (auto &el : ctx_->getFrameGraphics()) {
             drawElement(frames, el);
@@ -407,26 +386,31 @@ void FPGAViewWidget::resizeGL(int width, int height) {}
 
 void FPGAViewWidget::mousePressEvent(QMouseEvent *event)
 {
-    startDragX_ = moveX_;
-    startDragY_ = moveY_;
     lastPos_ = event->pos();
+}
+
+// Invert the projection matrix to calculate screen/mouse to world/grid
+// coordinates.
+QVector4D FPGAViewWidget::mouseToWorldCoordinates(int x, int y)
+{
+    QMatrix4x4 p = getProjection();
+    QVector2D unit = p.map(QVector4D(1, 1, 0, 1)).toVector2DAffine();
+
+    float sx = (((float)x) / (width()/2));
+    float sy = (((float)y) / (height()/2));
+    return QVector4D(sx / unit.x(), sy / unit.y(), 0, 1);
 }
 
 void FPGAViewWidget::mouseMoveEvent(QMouseEvent *event)
 {
     const int dx = event->x() - lastPos_.x();
     const int dy = event->y() - lastPos_.y();
+    lastPos_ = event->pos();
 
-    const qreal retinaScale = devicePixelRatio();
-    float aspect = float(width()) / float(height());
-    const float dx_scale = dx * (1 / (float)width() * retinaScale * aspect);
-    const float dy_scale = dy * (1 / (float)height() * retinaScale);
+    auto world = mouseToWorldCoordinates(dx, dy);
+    viewMove_.translate(world.x(), -world.y());
 
-    float xpos = dx_scale + startDragX_;
-    float ypos = dy_scale + startDragY_;
-
-    setXTranslation(xpos);
-    setYTranslation(ypos);
+    update();
 }
 
 void FPGAViewWidget::wheelEvent(QWheelEvent *event)
@@ -434,8 +418,19 @@ void FPGAViewWidget::wheelEvent(QWheelEvent *event)
     QPoint degree = event->angleDelta() / 8;
 
     if (!degree.isNull()) {
-        float steps = degree.y() / 3.0;
-        setZoom(zoom_ + steps);
+
+        if (zoom_ < zoomNear_) {
+            zoom_ = zoomNear_;
+        } else if (zoom_ < zoomLvl1_) {
+            zoom_ -= degree.y() / 10.0;
+        } else if (zoom_ < zoomLvl2_) {
+            zoom_ -= degree.y() / 5.0;
+        } else if (zoom_ < zoomFar_) {
+            zoom_ -= degree.y();
+        } else {
+            zoom_ = zoomFar_;
+        }
+        update();
     }
 }
 
