@@ -70,6 +70,11 @@ NPNR_PACKED_STRUCT(struct PipInfoPOD {
     int32_t switch_index;
 });
 
+NPNR_PACKED_STRUCT(struct WireSegmentPOD {
+    int8_t x, y;
+    int16_t index;
+});
+
 NPNR_PACKED_STRUCT(struct WireInfoPOD {
     RelPtr<char> name;
     int32_t num_uphill, num_downhill;
@@ -78,6 +83,9 @@ NPNR_PACKED_STRUCT(struct WireInfoPOD {
     int32_t num_bels_downhill;
     BelPortPOD bel_uphill;
     RelPtr<BelPortPOD> bels_downhill;
+
+    int32_t num_segments;
+    RelPtr<WireSegmentPOD> segments;
 
     int8_t x, y;
     WireType type;

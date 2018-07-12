@@ -243,6 +243,13 @@ void LineShader::draw(const LineShaderData &line, const QMatrix4x4 &projection)
 FPGAViewWidget::FPGAViewWidget(QWidget *parent)
         : QOpenGLWidget(parent), lineShader_(this), zoom_(500.f), ctx_(nullptr)
 {
+    backgroundColor = QColor("#ffffff");
+    gridColor = QColor("#ddd");
+    belColor = QColor("#303030");
+    wireColor = QColor("#303030");
+    pipColor = QColor("#303030");
+    groupColor = QColor("#303030");
+    frameColor = QColor("#0066ba");
     auto fmt = format();
     fmt.setMajorVersion(3);
     fmt.setMinorVersion(1);
@@ -277,7 +284,7 @@ void FPGAViewWidget::initializeGL()
         log_error("Could not compile shader.\n");
     }
     initializeOpenGLFunctions();
-    glClearColor(1.0, 1.0, 1.0, 0.0);
+    glClearColor(backgroundColor.red()/255, backgroundColor.green()/255, backgroundColor.blue()/255, 0.0);
 }
 
 void FPGAViewWidget::drawElement(LineShaderData &out, const GraphicElement &el)
@@ -325,7 +332,7 @@ void FPGAViewWidget::paintGL()
     float thick11Px = mouseToWorldCoordinates(1.1, 0).x();
 
     // Draw grid.
-    auto grid = LineShaderData(thick1Px, QColor("#DDD"));
+    auto grid = LineShaderData(thick1Px, gridColor);
     for (float i = -100.0f; i < 100.0f; i += 1.0f) {
         PolyLine(-100.0f, i, 100.0f, i).build(grid);
         PolyLine(i, -100.0f, i, 100.0f).build(grid);
@@ -333,7 +340,7 @@ void FPGAViewWidget::paintGL()
     lineShader_.draw(grid, matrix);
 
     // Draw Bels.
-    auto bels = LineShaderData(thick11Px, QColor("#b000ba"));
+    auto bels = LineShaderData(thick11Px, belColor);
     if (ctx_) {
         for (auto bel : ctx_->getBels()) {
             for (auto &el : ctx_->getBelGraphics(bel))
@@ -343,7 +350,7 @@ void FPGAViewWidget::paintGL()
     }
 
     // Draw Wires.
-    auto wires = LineShaderData(thick11Px, QColor("#b000ba"));
+    auto wires = LineShaderData(thick11Px, wireColor);
     if (ctx_) {
         for (auto wire : ctx_->getWires()) {
             for (auto &el : ctx_->getWireGraphics(wire))
@@ -353,7 +360,7 @@ void FPGAViewWidget::paintGL()
     }
 
     // Draw Pips.
-    auto pips = LineShaderData(thick11Px, QColor("#b000ba"));
+    auto pips = LineShaderData(thick11Px, pipColor);
     if (ctx_) {
         for (auto wire : ctx_->getPips()) {
             for (auto &el : ctx_->getPipGraphics(wire))
@@ -363,7 +370,7 @@ void FPGAViewWidget::paintGL()
     }
 
     // Draw Groups.
-    auto groups = LineShaderData(thick11Px, QColor("#b000ba"));
+    auto groups = LineShaderData(thick11Px, groupColor);
     if (ctx_) {
         for (auto group : ctx_->getGroups()) {
             for (auto &el : ctx_->getGroupGraphics(group))
@@ -373,7 +380,7 @@ void FPGAViewWidget::paintGL()
     }
 
     // Draw Frame Graphics.
-    auto frames = LineShaderData(thick11Px, QColor("#0066ba"));
+    auto frames = LineShaderData(thick11Px, frameColor);
     if (ctx_) {
         for (auto &el : ctx_->getFrameGraphics()) {
             drawElement(frames, el);

@@ -466,7 +466,7 @@ enum GfxTileWireId {
     TILE_WIRE_SP12_H_L_23
 };
 
-void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId id);
+void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId id, GraphicElement::style_t style);
 
 NEXTPNR_NAMESPACE_END
 

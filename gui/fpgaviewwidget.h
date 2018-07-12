@@ -216,6 +216,13 @@ class LineShader
 class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
 {
     Q_OBJECT
+    Q_PROPERTY(QColor backgroundColor MEMBER backgroundColor DESIGNABLE true)
+    Q_PROPERTY(QColor belColor MEMBER belColor DESIGNABLE true)
+    Q_PROPERTY(QColor gridColor MEMBER gridColor DESIGNABLE true)
+    Q_PROPERTY(QColor wireColor MEMBER wireColor DESIGNABLE true)
+    Q_PROPERTY(QColor pipColor MEMBER pipColor DESIGNABLE true)
+    Q_PROPERTY(QColor groupColor MEMBER groupColor DESIGNABLE true)
+    Q_PROPERTY(QColor frameColor MEMBER frameColor DESIGNABLE true)
 
   public:
     FPGAViewWidget(QWidget *parent = 0);
@@ -258,6 +265,13 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     const float zoomLvl2_ = 50.0f;
 
     Context *ctx_;
+    QColor backgroundColor;
+    QColor gridColor;
+    QColor belColor;
+    QColor wireColor;
+    QColor pipColor;
+    QColor groupColor;
+    QColor frameColor;
 };
 
 NEXTPNR_NAMESPACE_END
