@@ -29,6 +29,7 @@
 #include <QStatusBar>
 #include <QTabWidget>
 #include <QToolBar>
+#include <QProgressBar>
 
 Q_DECLARE_METATYPE(std::string)
 
@@ -68,6 +69,7 @@ class BaseMainWindow : public QMainWindow
     QStatusBar *statusBar;
     QAction *actionNew;
     QAction *actionOpen;
+    QProgressBar *progressBar;
 };
 
 NEXTPNR_NAMESPACE_END

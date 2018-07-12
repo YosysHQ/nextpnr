@@ -145,6 +145,12 @@ void BaseMainWindow::createMenusAndBars()
     addToolBar(Qt::TopToolBarArea, mainToolBar);
 
     statusBar = new QStatusBar();
+    progressBar = new QProgressBar(statusBar);
+    progressBar->setAlignment(Qt::AlignRight);
+    progressBar->setMaximumSize(180, 19);
+    statusBar->addPermanentWidget(progressBar);
+    progressBar->setValue(0);
+    progressBar->setEnabled(false);
     setStatusBar(statusBar);
 
     menu_File->addAction(actionNew);
