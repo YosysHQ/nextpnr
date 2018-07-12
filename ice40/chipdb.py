@@ -389,8 +389,8 @@ with open(args.filename, "r") as f:
             wire_xy[mode[1]].append((int(line[0]), int(line[1])))
             if mode[1] not in wire_segments:
                 wire_segments[mode[1]] = set()
-            if ("TILE_WIRE_" + wname[2].upper()) in gfx_wire_ids:
-                wire_segments[mode[1]].add((wname[0], wname[1], gfx_wire_ids["TILE_WIRE_" + wname[2].upper()]))
+            if ("TILE_WIRE_" + wname[2].upper().replace("/", "_")) in gfx_wire_ids:
+                wire_segments[mode[1]].add((wname[0], wname[1], gfx_wire_ids["TILE_WIRE_" + wname[2].upper().replace("/", "_")]))
             continue
 
         if mode[0] in ("buffer", "routing"):
