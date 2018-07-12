@@ -252,13 +252,18 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
 
   private:
     QPoint lastPos_;
-    float moveX_;
-    float moveY_;
-    float zoom_;
     LineShader lineShader_;
+    QMatrix4x4 viewMove_;
+    float zoom_;
+    QMatrix4x4 getProjection(void);
+    QVector4D mouseToWorldCoordinates(int x, int y);
 
-    float startDragX_;
-    float startDragY_;
+    const float zoomNear_ = 1.0f; // do not zoom closer than this
+    const float zoomFar_ = 10000.0f; // do not zoom further than this
+
+    const float zoomLvl1_ = 100.0f;
+    const float zoomLvl2_ = 50.0f;
+
     Context *ctx_;
     QColor backgroundColor;
     QColor gridColor;
