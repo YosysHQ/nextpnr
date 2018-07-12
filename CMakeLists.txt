@@ -134,6 +134,13 @@ if (BUILD_PYTHON)
     endif ()
 
     if (NOT Boost_PYTHON_FOUND)
+        find_package(Boost COMPONENTS python37 ${boost_libs})
+        if ("${Boost_LIBRARIES}" MATCHES ".*(python|PYTHON).*" )
+            set(Boost_PYTHON_FOUND TRUE)
+        endif ()
+    endif ()
+
+    if (NOT Boost_PYTHON_FOUND)
         STRING(REGEX REPLACE "([0-9]+\\.[0-9]+).*" "\\1" gentoo_version ${PYTHONLIBS_VERSION_STRING})
         find_package(Boost COMPONENTS python-${gentoo_version} ${boost_libs})
         if ("${Boost_LIBRARIES}" MATCHES ".*(python|PYTHON).*" )
