@@ -317,6 +317,8 @@ DecalXY Arch::getWireDecal(WireId wire) const { return {}; }
 
 DecalXY Arch::getPipDecal(PipId pip) const { return {}; };
 
+DecalXY Arch::getGroupDecal(PipId pip) const { return {}; };
+
 // -----------------------------------------------------------------------
 
 bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const { return true; }

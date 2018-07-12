@@ -383,6 +383,16 @@ void FPGAViewWidget::paintGL()
         lineShader_.draw(pips, matrix);
     }
 
+    // Draw Groups.
+    auto groups = LineShaderData(0.0005f, QColor("#b000ba"));
+    if (ctx_) {
+        for (auto group : ctx_->getGroups()) {
+            for (auto &el : ctx_->getGroupGraphics(group))
+                drawElement(groups, el);
+        }
+        lineShader_.draw(groups, matrix);
+    }
+
     // Draw Frame Graphics.
     auto frames = LineShaderData(0.002f, QColor("#0066ba"));
     if (ctx_) {

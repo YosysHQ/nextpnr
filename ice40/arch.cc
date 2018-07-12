@@ -369,6 +369,52 @@ std::string Arch::getBelPackagePin(BelId bel) const
     }
     return "";
 }
+
+// -----------------------------------------------------------------------
+
+GroupId Arch::getGroupByName(IdString name) const
+{
+    for (auto g : getGroups())
+        if (getGroupName(g) == name)
+            return g;
+    return GroupId();
+}
+
+IdString Arch::getGroupName(GroupId group) const
+{
+    return IdString();
+}
+
+std::vector<GroupId> Arch::getGroups() const
+{
+    std::vector<GroupId> ret;
+    return ret;
+}
+
+std::vector<BelId> Arch::getGroupBels(GroupId group) const
+{
+    std::vector<BelId> ret;
+    return ret;
+}
+
+std::vector<WireId> Arch::getGroupWires(GroupId group) const
+{
+    std::vector<WireId> ret;
+    return ret;
+}
+
+std::vector<PipId> Arch::getGroupPips(GroupId group) const
+{
+    std::vector<PipId> ret;
+    return ret;
+}
+
+std::vector<GroupId> Arch::getGroupGroups(GroupId group) const
+{
+    std::vector<GroupId> ret;
+    return ret;
+}
+
 // -----------------------------------------------------------------------
 
 void Arch::estimatePosition(BelId bel, int &x, int &y, bool &gb) const
@@ -417,15 +463,15 @@ bool Arch::route()
 DecalXY Arch::getFrameDecal() const
 {
     DecalXY decalxy;
-    decalxy.decal.type = 'f';
+    decalxy.decal.type = DecalId::TYPE_FRAME;
     return decalxy;
 }
 
 DecalXY Arch::getBelDecal(BelId bel) const
 {
     DecalXY decalxy;
-    decalxy.decal.type = 'b';
-    decalxy.decal.z = bel.index;
+    decalxy.decal.type = DecalId::TYPE_BEL;
+    decalxy.decal.index = bel.index;
     return decalxy;
 }
 
@@ -441,11 +487,17 @@ DecalXY Arch::getPipDecal(PipId pip) const
     return decalxy;
 };
 
+DecalXY Arch::getGroupDecal(GroupId group) const
+{
+    DecalXY decalxy;
+    return decalxy;
+};
+
 std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
 {
     std::vector<GraphicElement> ret;
 
-    if (decal.type == 'f')
+    if (decal.type == DecalId::TYPE_FRAME)
     {
         for (int x = 0; x <= chip_info->width; x++)
             for (int y = 0; y <= chip_info->height; y++) {
@@ -458,10 +510,10 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
             }
     }
 
-    if (decal.type == 'b')
+    if (decal.type == DecalId::TYPE_BEL)
     {
         BelId bel;
-        bel.index = decal.z;
+        bel.index = decal.index;
 
         auto bel_type = getBelType(bel);
 

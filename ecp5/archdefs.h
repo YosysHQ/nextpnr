@@ -105,11 +105,22 @@ struct PipId
     bool operator!=(const PipId &other) const { return index != other.index || location != other.location; }
 };
 
+struct GroupId
+{
+    int32_t index = -1;
+
+    bool operator==(const GroupId &other) const { return index == other.index; }
+    bool operator!=(const GroupId &other) const { return index != other.index; }
+};
+
 struct DecalId
 {
     char type = 0; // Bel/Wire/Pip/Frame (b/w/p/f)
     Location location;
     uint32_t z = 0;
+
+    bool operator==(const DecalId &other) const { return type == other.type && location == other.location && z == other.z; }
+    bool operator!=(const DecalId &other) const { return type != other.type || location != other.location || z != other.z; }
 };
 
 NEXTPNR_NAMESPACE_END
@@ -152,6 +163,14 @@ template <> struct hash<NEXTPNR_NAMESPACE_PREFIX PipId>
         std::size_t seed = std::hash<NEXTPNR_NAMESPACE_PREFIX Location>()(pip.location);
         seed ^= std::hash<int>()(pip.index) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
         return seed;
+    }
+};
+
+template <> struct hash<NEXTPNR_NAMESPACE_PREFIX GroupId>
+{
+    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX GroupId &group) const noexcept
+    {
+        return std::hash<int>()(group.index);
     }
 };
 

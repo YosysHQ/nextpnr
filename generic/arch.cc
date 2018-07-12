@@ -109,6 +109,26 @@ void Arch::addBelInout(IdString bel, IdString name, IdString wire)
     wires.at(wire).downhill_bel_pins.push_back(BelPin{bel, name});
 }
 
+void Arch::addGroupBel(IdString group, IdString bel)
+{
+    groups[group].bels.push_back(bel);
+}
+
+void Arch::addGroupWire(IdString group, IdString wire)
+{
+    groups[group].wires.push_back(wire);
+}
+
+void Arch::addGroupPip(IdString group, IdString pip)
+{
+    groups[group].pips.push_back(pip);
+}
+
+void Arch::addGroupGroup(IdString group, IdString grp)
+{
+    groups[group].groups.push_back(grp);
+}
+
 void Arch::addDecalGraphic(DecalId decal, const GraphicElement &graphic)
 {
     decal_graphics[decal].push_back(graphic);
@@ -137,6 +157,12 @@ void Arch::setBelDecal(BelId bel, DecalXY decalxy)
 {
     bels.at(bel).decalxy = decalxy;
     refreshUiBel(bel);
+}
+
+void Arch::setGroupDecal(GroupId group, DecalXY decalxy)
+{
+    groups[group].decalxy = decalxy;
+    refreshUiGroup(group);
 }
 
 // ---------------------------------------------------------------
@@ -300,6 +326,27 @@ const std::vector<PipId> &Arch::getWireAliases(WireId wire) const { return wires
 
 // ---------------------------------------------------------------
 
+GroupId Arch::getGroupByName(IdString name) const { return name; }
+
+IdString Arch::getGroupName(GroupId group) const { return group; }
+
+std::vector<GroupId> Arch::getGroups() const {
+    std::vector<GroupId> ret;
+    for (auto &it : groups)
+        ret.push_back(it.first);
+    return ret;
+}
+
+const std::vector<BelId> &Arch::getGroupBels(GroupId group) const { return groups.at(group).bels; }
+
+const std::vector<WireId> &Arch::getGroupWires(GroupId group) const { return groups.at(group).wires; }
+
+const std::vector<PipId> &Arch::getGroupPips(GroupId group) const { return groups.at(group).pips; }
+
+const std::vector<GroupId> &Arch::getGroupGroups(GroupId group) const { return groups.at(group).groups; }
+
+// ---------------------------------------------------------------
+
 void Arch::estimatePosition(BelId bel, int &x, int &y, bool &gb) const
 {
     x = bels.at(bel).grid_x;
@@ -330,7 +377,6 @@ bool Arch::route()
 
 // ---------------------------------------------------------------
 
-
 const std::vector<GraphicElement> &Arch::getDecalGraphics(DecalId decal) const { return decal_graphics.at(decal); }
 
 DecalXY Arch::getFrameDecal() const { return frame_decalxy; }
@@ -340,6 +386,8 @@ DecalXY Arch::getBelDecal(BelId bel) const { return bels.at(bel).decalxy; }
 DecalXY Arch::getWireDecal(WireId wire) const { return wires.at(wire).decalxy; }
 
 DecalXY Arch::getPipDecal(PipId pip) const { return pips.at(pip).decalxy; }
+
+DecalXY Arch::getGroupDecal(GroupId group) const { return groups.at(group).decalxy; }
 
 // ---------------------------------------------------------------
 

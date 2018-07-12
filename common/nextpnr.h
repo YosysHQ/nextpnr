@@ -271,6 +271,7 @@ struct BaseCtx
     std::unordered_set<BelId> belUiReload;
     std::unordered_set<WireId> wireUiReload;
     std::unordered_set<PipId> pipUiReload;
+    std::unordered_set<GroupId> groupUiReload;
 
     void refreshUi()
     {
@@ -295,6 +296,11 @@ struct BaseCtx
     void refreshUiPip(PipId pip)
     {
         pipUiReload.insert(pip);
+    }
+
+    void refreshUiGroup(GroupId group)
+    {
+        groupUiReload.insert(group);
     }
 };
 
@@ -358,6 +364,19 @@ struct Context : Arch
     NPNR_DEPRECATED std::vector<GraphicElement> getPipGraphics(PipId pip) const {
         std::vector<GraphicElement> ret;
         DecalXY decalxy = getPipDecal(pip);
+        ret = getDecalGraphics(decalxy.decal);
+        for (auto &it : ret) {
+            it.x1 += decalxy.x;
+            it.x2 += decalxy.x;
+            it.y1 += decalxy.y;
+            it.y2 += decalxy.y;
+        }
+        return ret;
+    }
+
+    NPNR_DEPRECATED std::vector<GraphicElement> getGroupGraphics(GroupId group) const {
+        std::vector<GraphicElement> ret;
+        DecalXY decalxy = getGroupDecal(group);
         ret = getDecalGraphics(decalxy.decal);
         for (auto &it : ret) {
             it.x1 += decalxy.x;

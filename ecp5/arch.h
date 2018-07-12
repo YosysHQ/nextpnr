@@ -711,6 +711,16 @@ struct Arch : BaseCtx
 
     // -------------------------------------------------
 
+    GroupId getGroupByName(IdString name) const { return GroupId(); }
+    IdString getGroupName(GroupId group) const { return IdString(); }
+    std::vector<GroupId> getGroups() const { return std::vector<GroupId>(); }
+    std::vector<BelId> getGroupBels(GroupId group) const { return std::vector<BelId>(); }
+    std::vector<WireId> getGroupWires(GroupId group) const { return std::vector<WireId>(); }
+    std::vector<PipId> getGroupPips(GroupId group) const { return std::vector<PipId>(); }
+    std::vector<GroupId> getGroupGroups(GroupId group) const { return std::vector<GroupId>(); }
+
+    // -------------------------------------------------
+
     void estimatePosition(BelId bel, int &x, int &y, bool &gb) const;
     delay_t estimateDelay(WireId src, WireId dst) const;
     delay_t getDelayEpsilon() const { return 20; }
@@ -731,6 +741,7 @@ struct Arch : BaseCtx
     DecalXY getBelDecal(BelId bel) const;
     DecalXY getWireDecal(WireId wire) const;
     DecalXY getPipDecal(PipId pip) const;
+    DecalXY getGroupDecal(GroupId group) const;
 
     // -------------------------------------------------
 
