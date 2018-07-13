@@ -27,7 +27,6 @@
 #include "design_utils.h"
 #include "jsonparse.h"
 #include "log.h"
-#include "pack.h"
 #include "pcf.h"
 
 static void initMainResource() { Q_INIT_RESOURCE(nextpnr); }

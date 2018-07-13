@@ -672,6 +672,7 @@ struct Arch : BaseCtx
 
     // -------------------------------------------------
 
+    bool pack();
     bool place();
     bool route();
 

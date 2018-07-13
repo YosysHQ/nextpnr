@@ -58,7 +58,10 @@ void arch_wrap_python()
 
     auto arch_cls = class_<Arch, Arch *, bases<BaseCtx>, boost::noncopyable>("Arch", init<ArchArgs>());
     auto ctx_cls = class_<Context, Context *, bases<Arch>, boost::noncopyable>("Context", no_init)
-                           .def("checksum", &Context::checksum);
+                           .def("checksum", &Context::checksum)
+                           .def("pack", &Context::pack)
+                           .def("place", &Context::place)
+                           .def("route", &Context::route);
 
     fn_wrapper_1a<Context, decltype(&Context::getBelType), &Context::getBelType, conv_to_str<BelType>,
                   conv_from_str<BelId>>::def_wrap(ctx_cls, "getBelType");

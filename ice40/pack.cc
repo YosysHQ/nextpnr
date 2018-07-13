@@ -18,7 +18,6 @@
  *
  */
 
-#include "pack.h"
 #include <algorithm>
 #include <iterator>
 #include <unordered_set>
@@ -577,8 +576,9 @@ static void pack_special(Context *ctx)
 }
 
 // Main pack function
-bool pack_design(Context *ctx)
+bool Arch::pack()
 {
+    Context *ctx = getCtx();
     try {
         log_break();
         pack_constants(ctx);
