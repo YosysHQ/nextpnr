@@ -77,7 +77,7 @@ with open(args.gfxh) as f:
             state = 1
         elif state == 1 and line.startswith("};"):
             state = 0
-        elif state == 1 and line.startswith("{"):
+        elif state == 1 and (line.startswith("{") or line.strip() == ""):
             pass
         elif state == 1:
             idx = len(gfx_wire_ids)
