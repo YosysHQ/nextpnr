@@ -34,8 +34,8 @@ static void initMainResource() { Q_INIT_RESOURCE(nextpnr); }
 
 NEXTPNR_NAMESPACE_BEGIN
 
-MainWindow::MainWindow(std::unique_ptr<Context> context, QWidget *parent)
-        : BaseMainWindow(std::move(context), parent), timing_driven(false)
+MainWindow::MainWindow(std::unique_ptr<Context> context, ArchArgs args, QWidget *parent)
+        : BaseMainWindow(std::move(context), parent), timing_driven(false), chipArgs(args)
 {
     initMainResource();
 
@@ -245,6 +245,7 @@ void MainWindow::new_proj()
             preload_pcf = "";
             chipArgs.package = package.toStdString().c_str();
             ctx = std::unique_ptr<Context>(new Context(chipArgs));
+            actionLoadJSON->setEnabled(true);
 
             Q_EMIT contextChanged(ctx.get());
         }

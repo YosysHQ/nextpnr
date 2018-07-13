@@ -357,7 +357,7 @@ int main(int argc, char *argv[])
 #ifndef NO_GUI
         if (vm.count("gui")) {
             Application a(argc, argv);
-            MainWindow w(std::move(ctx));
+            MainWindow w(std::move(ctx), chipArgs);
             if (vm.count("json")) {
                 std::string filename = vm["json"].as<std::string>();
                 std::string pcf = "";
