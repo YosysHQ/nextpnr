@@ -21,6 +21,9 @@
 #error Include "arch.h" via "nextpnr.h" only.
 #endif
 
+#include <boost/thread/shared_lock_guard.hpp>
+#include <boost/thread/shared_mutex.hpp>
+
 NEXTPNR_NAMESPACE_BEGIN
 
 /**** Everything in this section must be kept in sync with chipdb.py ****/
@@ -324,19 +327,23 @@ struct ArchArgs
     std::string package;
 };
 
-struct Arch : BaseCtx
+class Arch : public BaseCtx
 {
+private:
+    // All of the following...
+    std::vector<IdString> bel_to_cell;
+    std::vector<IdString> wire_to_net;
+    std::vector<IdString> pip_to_net;
+    std::vector<IdString> switches_locked;
+    // ... are guarded by the following lock:
+    mutable boost::shared_mutex mtx_;
+public:
     const ChipInfoPOD *chip_info;
     const PackageInfoPOD *package_info;
 
     mutable std::unordered_map<IdString, int> bel_by_name;
     mutable std::unordered_map<IdString, int> wire_by_name;
     mutable std::unordered_map<IdString, int> pip_by_name;
-
-    std::vector<IdString> bel_to_cell;
-    std::vector<IdString> wire_to_net;
-    std::vector<IdString> pip_to_net;
-    std::vector<IdString> switches_locked;
 
     ArchArgs args;
     Arch(ArchArgs args);
@@ -368,6 +375,7 @@ struct Arch : BaseCtx
     {
         NPNR_ASSERT(bel != BelId());
         NPNR_ASSERT(bel_to_cell[bel.index] == IdString());
+        boost::lock_guard<boost::shared_mutex> lock(mtx_);
         bel_to_cell[bel.index] = cell;
         cells[cell]->bel = bel;
         cells[cell]->belStrength = strength;
@@ -377,6 +385,7 @@ struct Arch : BaseCtx
     {
         NPNR_ASSERT(bel != BelId());
         NPNR_ASSERT(bel_to_cell[bel.index] != IdString());
+        boost::lock_guard<boost::shared_mutex> lock(mtx_);
         cells[bel_to_cell[bel.index]]->bel = BelId();
         cells[bel_to_cell[bel.index]]->belStrength = STRENGTH_NONE;
         bel_to_cell[bel.index] = IdString();
@@ -385,18 +394,21 @@ struct Arch : BaseCtx
     bool checkBelAvail(BelId bel) const
     {
         NPNR_ASSERT(bel != BelId());
+        boost::shared_lock_guard<boost::shared_mutex> lock(mtx_);
         return bel_to_cell[bel.index] == IdString();
     }
 
     IdString getBoundBelCell(BelId bel) const
     {
         NPNR_ASSERT(bel != BelId());
+        boost::shared_lock_guard<boost::shared_mutex> lock(mtx_);
         return bel_to_cell[bel.index];
     }
 
     IdString getConflictingBelCell(BelId bel) const
     {
         NPNR_ASSERT(bel != BelId());
+        boost::shared_lock_guard<boost::shared_mutex> lock(mtx_);
         return bel_to_cell[bel.index];
     }
 
@@ -470,6 +482,8 @@ struct Arch : BaseCtx
     {
         NPNR_ASSERT(wire != WireId());
         NPNR_ASSERT(wire_to_net[wire.index] == IdString());
+        boost::lock_guard<boost::shared_mutex> lock(mtx_);
+
         wire_to_net[wire.index] = net;
         nets[net]->wires[wire].pip = PipId();
         nets[net]->wires[wire].strength = strength;
@@ -479,6 +493,7 @@ struct Arch : BaseCtx
     {
         NPNR_ASSERT(wire != WireId());
         NPNR_ASSERT(wire_to_net[wire.index] != IdString());
+        boost::lock_guard<boost::shared_mutex> lock(mtx_);
 
         auto &net_wires = nets[wire_to_net[wire.index]]->wires;
         auto it = net_wires.find(wire);
@@ -497,18 +512,24 @@ struct Arch : BaseCtx
     bool checkWireAvail(WireId wire) const
     {
         NPNR_ASSERT(wire != WireId());
+        boost::shared_lock_guard<boost::shared_mutex> lock(mtx_);
+
         return wire_to_net[wire.index] == IdString();
     }
 
     IdString getBoundWireNet(WireId wire) const
     {
         NPNR_ASSERT(wire != WireId());
+        boost::shared_lock_guard<boost::shared_mutex> lock(mtx_);
+
         return wire_to_net[wire.index];
     }
 
     IdString getConflictingWireNet(WireId wire) const
     {
         NPNR_ASSERT(wire != WireId());
+        boost::shared_lock_guard<boost::shared_mutex> lock(mtx_);
+
         return wire_to_net[wire.index];
     }
 
@@ -532,6 +553,7 @@ struct Arch : BaseCtx
         NPNR_ASSERT(pip != PipId());
         NPNR_ASSERT(pip_to_net[pip.index] == IdString());
         NPNR_ASSERT(switches_locked[chip_info->pip_data[pip.index].switch_index] == IdString());
+        boost::lock_guard<boost::shared_mutex> lock(mtx_);
 
         pip_to_net[pip.index] = net;
         switches_locked[chip_info->pip_data[pip.index].switch_index] = net;
@@ -549,6 +571,7 @@ struct Arch : BaseCtx
         NPNR_ASSERT(pip != PipId());
         NPNR_ASSERT(pip_to_net[pip.index] != IdString());
         NPNR_ASSERT(switches_locked[chip_info->pip_data[pip.index].switch_index] != IdString());
+        boost::lock_guard<boost::shared_mutex> lock(mtx_);
 
         WireId dst;
         dst.index = chip_info->pip_data[pip.index].dst;
@@ -563,18 +586,21 @@ struct Arch : BaseCtx
     bool checkPipAvail(PipId pip) const
     {
         NPNR_ASSERT(pip != PipId());
+        boost::shared_lock_guard<boost::shared_mutex> lock(mtx_);
         return switches_locked[chip_info->pip_data[pip.index].switch_index] == IdString();
     }
 
     IdString getBoundPipNet(PipId pip) const
     {
         NPNR_ASSERT(pip != PipId());
+        boost::shared_lock_guard<boost::shared_mutex> lock(mtx_);
         return pip_to_net[pip.index];
     }
 
     IdString getConflictingPipNet(PipId pip) const
     {
         NPNR_ASSERT(pip != PipId());
+        boost::shared_lock_guard<boost::shared_mutex> lock(mtx_);
         return switches_locked[chip_info->pip_data[pip.index].switch_index];
     }
 
