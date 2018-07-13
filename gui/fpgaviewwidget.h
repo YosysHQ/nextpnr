@@ -216,13 +216,13 @@ class LineShader
 class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
 {
     Q_OBJECT
-    Q_PROPERTY(QColor backgroundColor MEMBER backgroundColor DESIGNABLE true)
-    Q_PROPERTY(QColor gridColor MEMBER gridColor DESIGNABLE true)
-    Q_PROPERTY(QColor gFrameColor MEMBER gFrameColor DESIGNABLE true)
-    Q_PROPERTY(QColor gHiddenColor MEMBER gHiddenColor DESIGNABLE true)
-    Q_PROPERTY(QColor gInactiveColor MEMBER gInactiveColor DESIGNABLE true)
-    Q_PROPERTY(QColor gActiveColor MEMBER gActiveColor DESIGNABLE true)
-    Q_PROPERTY(QColor frameColor MEMBER frameColor DESIGNABLE true)
+    Q_PROPERTY(QColor backgroundColor MEMBER backgroundColor_ DESIGNABLE true)
+    Q_PROPERTY(QColor gridColor MEMBER gridColor_ DESIGNABLE true)
+    Q_PROPERTY(QColor gFrameColor MEMBER gFrameColor_ DESIGNABLE true)
+    Q_PROPERTY(QColor gHiddenColor MEMBER gHiddenColor_ DESIGNABLE true)
+    Q_PROPERTY(QColor gInactiveColor MEMBER gInactiveColor_ DESIGNABLE true)
+    Q_PROPERTY(QColor gActiveColor MEMBER gActiveColor_ DESIGNABLE true)
+    Q_PROPERTY(QColor frameColor MEMBER frameColor_ DESIGNABLE true)
 
   public:
     FPGAViewWidget(QWidget *parent = 0);
@@ -266,13 +266,14 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     const float zoomLvl2_ = 50.0f;
 
     Context *ctx_;
-    QColor backgroundColor;
-    QColor gridColor;
-    QColor gFrameColor;
-    QColor gHiddenColor;
-    QColor gInactiveColor;
-    QColor gActiveColor;
-    QColor frameColor;
+
+    QColor backgroundColor_;
+    QColor gridColor_;
+    QColor gFrameColor_;
+    QColor gHiddenColor_;
+    QColor gInactiveColor_;
+    QColor gActiveColor_;
+    QColor frameColor_;
 };
 
 NEXTPNR_NAMESPACE_END

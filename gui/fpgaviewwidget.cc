@@ -242,22 +242,13 @@ void LineShader::draw(const LineShaderData &line, const QMatrix4x4 &projection)
 
 FPGAViewWidget::FPGAViewWidget(QWidget *parent) : QOpenGLWidget(parent), lineShader_(this), zoom_(500.f), ctx_(nullptr)
 {
-    /*
-    backgroundColor = QColor("#ffffff");
-    gridColor = QColor("#ddd");
-    gFrameColor = QColor("#303030");
-    gHiddenColor = QColor("#a0a0a0");
-    gInactiveColor = QColor("#d0d0d0");
-    gActiveColor = QColor("#101010");
-    frameColor = QColor("#0066ba");
-    */
-    backgroundColor = QColor("#000000");
-    gridColor = QColor("#333");
-    gFrameColor = QColor("#d0d0d0");
-    gHiddenColor = QColor("#606060");
-    gInactiveColor = QColor("#303030");
-    gActiveColor = QColor("#f0f0f0");
-    frameColor = QColor("#0066ba");
+    backgroundColor_ = QColor("#000000");
+    gridColor_ = QColor("#333");
+    gFrameColor_ = QColor("#d0d0d0");
+    gHiddenColor_ = QColor("#606060");
+    gInactiveColor_ = QColor("#303030");
+    gActiveColor_ = QColor("#f0f0f0");
+    frameColor_ = QColor("#0066ba");
 
     auto fmt = format();
     fmt.setMajorVersion(3);
@@ -293,7 +284,7 @@ void FPGAViewWidget::initializeGL()
         log_error("Could not compile shader.\n");
     }
     initializeOpenGLFunctions();
-    glClearColor(backgroundColor.red() / 255, backgroundColor.green() / 255, backgroundColor.blue() / 255, 0.0);
+    glClearColor(backgroundColor_.red() / 255, backgroundColor_.green() / 255, backgroundColor_.blue() / 255, 0.0);
 }
 
 void FPGAViewWidget::drawDecal(LineShaderData &out, const DecalXY &decal)
@@ -338,15 +329,11 @@ void FPGAViewWidget::drawDecal(LineShaderData out[], const DecalXY &decal)
             line.point(offsetX + scale * el.x1, offsetY + scale * el.y2);
             switch (el.style) {
             case GraphicElement::G_FRAME:
-                line.build(out[0]);
-                break;
-            case GraphicElement::G_HIDDEN:
-                break;
             case GraphicElement::G_INACTIVE:
-                line.build(out[2]);
-                break;
             case GraphicElement::G_ACTIVE:
-                line.build(out[3]);
+                line.build(out[el.style]);
+                break;
+            default:
                 break;
             }
         }
@@ -356,15 +343,11 @@ void FPGAViewWidget::drawDecal(LineShaderData out[], const DecalXY &decal)
                                  offsetY + scale * el.y2);
             switch (el.style) {
             case GraphicElement::G_FRAME:
-                line.build(out[0]);
-                break;
-            case GraphicElement::G_HIDDEN:
-                break;
             case GraphicElement::G_INACTIVE:
-                line.build(out[2]);
-                break;
             case GraphicElement::G_ACTIVE:
-                line.build(out[3]);
+                line.build(out[el.style]);
+                break;
+            default:
                 break;
             }
         }
@@ -397,17 +380,17 @@ void FPGAViewWidget::paintGL()
     float thick11Px = mouseToWorldCoordinates(1.1, 0).x();
 
     // Draw grid.
-    auto grid = LineShaderData(thick1Px, gridColor);
+    auto grid = LineShaderData(thick1Px, gridColor_);
     for (float i = -100.0f; i < 100.0f; i += 1.0f) {
         PolyLine(-100.0f, i, 100.0f, i).build(grid);
         PolyLine(i, -100.0f, i, 100.0f).build(grid);
     }
     lineShader_.draw(grid, matrix);
 
-    LineShaderData shaders[4] = {LineShaderData(thick11Px, gFrameColor),    // GraphicElement::G_FRAME
-                                 LineShaderData(thick11Px, gHiddenColor),   // GraphicElement::G_HIDDEN
-                                 LineShaderData(thick11Px, gInactiveColor), // GraphicElement::G_INACTIVE
-                                 LineShaderData(thick11Px, gActiveColor)};  // GraphicElement::G_ACTIVE
+    LineShaderData shaders[4] = {[GraphicElement::G_FRAME] = LineShaderData(thick11Px, gFrameColor_),
+                                 [GraphicElement::G_HIDDEN] = LineShaderData(thick11Px, gHiddenColor_),
+                                 [GraphicElement::G_INACTIVE] = LineShaderData(thick11Px, gInactiveColor_),
+                                 [GraphicElement::G_ACTIVE] = LineShaderData(thick11Px, gActiveColor_)};
 
     if (ctx_) {
         // Draw Bels.
@@ -433,7 +416,7 @@ void FPGAViewWidget::paintGL()
     lineShader_.draw(shaders[3], matrix);
 
     // Draw Frame Graphics.
-    auto frames = LineShaderData(thick11Px, frameColor);
+    auto frames = LineShaderData(thick11Px, frameColor_);
     if (ctx_) {
         drawDecal(frames, ctx_->getFrameDecal());
         lineShader_.draw(frames, matrix);
