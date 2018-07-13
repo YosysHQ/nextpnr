@@ -41,18 +41,6 @@ NPNR_PACKED_STRUCT(struct Vertex2DPOD {
     Vertex2DPOD(GLfloat X, GLfloat Y) : x(X), y(Y) {}
 });
 
-// Vertex2DPOD is a structure of R, G, B, A values that can be passed to OpenGL
-// directly.
-NPNR_PACKED_STRUCT(struct ColorPOD {
-    GLfloat r;
-    GLfloat g;
-    GLfloat b;
-    GLfloat a;
-
-    ColorPOD(GLfloat R, GLfloat G, GLfloat B, GLfloat A) : r(R), g(G), b(B), a(A) {}
-    ColorPOD(const QColor &color) : r(color.redF()), g(color.greenF()), b(color.blueF()), a(color.alphaF()) {}
-});
-
 // LineShaderData is a built set of vertices that can be rendered by the
 // LineShader.
 // Each LineShaderData can have its' own color and thickness.
@@ -63,10 +51,13 @@ struct LineShaderData
     std::vector<GLfloat> miters;
     std::vector<GLuint> indices;
 
-    GLfloat thickness;
-    ColorPOD color;
-
-    LineShaderData(GLfloat Thickness, QColor Color) : thickness(Thickness), color(Color) {}
+    void clear(void)
+    {
+        vertices.clear();
+        normals.clear();
+        miters.clear();
+        indices.clear();
+    }
 };
 
 // PolyLine is a set of segments defined by points, that can be built to a
@@ -210,7 +201,7 @@ class LineShader
     bool compile(void);
 
     // Render a LineShaderData with a given M/V/P transformation.
-    void draw(const LineShaderData &data, const QMatrix4x4 &projection);
+    void draw(const LineShaderData &data, const QColor &color, const float thickness, const QMatrix4x4 &projection);
 };
 
 class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
@@ -246,8 +237,76 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     void mousePressEvent(QMouseEvent *event) Q_DECL_OVERRIDE;
     void mouseMoveEvent(QMouseEvent *event) Q_DECL_OVERRIDE;
     void wheelEvent(QWheelEvent *event) Q_DECL_OVERRIDE;
-    void drawDecal(LineShaderData &data, const DecalXY &decal);
-    void drawDecal(LineShaderData out[], const DecalXY &decal);
+
+    template <typename T>
+    void drawDecal(const T &proxy, LineShaderData &out, const DecalXY &decal)
+    {
+        const float scale = 1.0;
+        float offsetX = 0.0, offsetY = 0.0;
+    
+        for (auto &el : proxy.getDecalGraphics(decal.decal)) {
+            offsetX = decal.x;
+            offsetY = decal.y;
+    
+            if (el.type == GraphicElement::G_BOX) {
+                auto line = PolyLine(true);
+                line.point(offsetX + scale * el.x1, offsetY + scale * el.y1);
+                line.point(offsetX + scale * el.x2, offsetY + scale * el.y1);
+                line.point(offsetX + scale * el.x2, offsetY + scale * el.y2);
+                line.point(offsetX + scale * el.x1, offsetY + scale * el.y2);
+                line.build(out);
+            }
+    
+            if (el.type == GraphicElement::G_LINE) {
+                PolyLine(offsetX + scale * el.x1, offsetY + scale * el.y1, offsetX + scale * el.x2, offsetY + scale * el.y2)
+                        .build(out);
+            }
+        }
+    }
+    
+    template <typename T>
+    void drawDecal(const T &proxy, LineShaderData out[], const DecalXY &decal)
+    {
+        const float scale = 1.0;
+        float offsetX = 0.0, offsetY = 0.0;
+    
+        for (auto &el : proxy.getDecalGraphics(decal.decal)) {
+            offsetX = decal.x;
+            offsetY = decal.y;
+    
+            if (el.type == GraphicElement::G_BOX) {
+                auto line = PolyLine(true);
+                line.point(offsetX + scale * el.x1, offsetY + scale * el.y1);
+                line.point(offsetX + scale * el.x2, offsetY + scale * el.y1);
+                line.point(offsetX + scale * el.x2, offsetY + scale * el.y2);
+                line.point(offsetX + scale * el.x1, offsetY + scale * el.y2);
+                switch (el.style) {
+                case GraphicElement::G_FRAME:
+                case GraphicElement::G_INACTIVE:
+                case GraphicElement::G_ACTIVE:
+                    line.build(out[el.style]);
+                    break;
+                default:
+                    break;
+                }
+            }
+    
+            if (el.type == GraphicElement::G_LINE) {
+                auto line = PolyLine(offsetX + scale * el.x1, offsetY + scale * el.y1, offsetX + scale * el.x2,
+                                     offsetY + scale * el.y2);
+                switch (el.style) {
+                case GraphicElement::G_FRAME:
+                case GraphicElement::G_INACTIVE:
+                case GraphicElement::G_ACTIVE:
+                    line.build(out[el.style]);
+                    break;
+                default:
+                    break;
+                }
+            }
+        }
+    }
+
   public Q_SLOTS:
     void newContext(Context *ctx);
 
@@ -274,6 +333,8 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     QColor gInactiveColor_;
     QColor gActiveColor_;
     QColor frameColor_;
+
+    LineShaderData shaders_[4];
 };
 
 NEXTPNR_NAMESPACE_END

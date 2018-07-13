@@ -604,8 +604,6 @@ public:
 
     // -------------------------------------------------
 
-    std::vector<GraphicElement> getDecalGraphics(DecalId decal) const;
-
     DecalXY getFrameDecal() const;
     DecalXY getBelDecal(BelId bel) const;
     DecalXY getWireDecal(WireId wire) const;
@@ -691,6 +689,8 @@ public:
     IdString getBoundBelCell(BelId bel) const;
 
     BelId getBelByName(IdString name) const;
+
+    std::vector<GraphicElement> getDecalGraphics(DecalId decal) const;
 };
 
 // A proxy object that keeps an Arch shared/readonly lock until it goes out
@@ -750,6 +750,10 @@ public:
     void bindBel(BelId bel, IdString cell, PlaceStrength strength);
     // Returned pointer is valid as long as Proxy object exists.
     CellInfo *getCell(IdString cell);
+
+
+    // Methods to be used by UI for detecting whether we need to redraw.
+    UIUpdatesRequired getUIUpdatesRequired(void);
 };
 
 // A proxy object that keeps an Arch readwrite lock until it goes out of scope.

@@ -23,6 +23,7 @@
 #include <QApplication>
 #include <QCoreApplication>
 #include <QMouseEvent>
+#include <QTimer>
 #include <QWidget>
 
 #include "fpgaviewwidget.h"
@@ -195,7 +196,7 @@ bool LineShader::compile(void)
     return true;
 }
 
-void LineShader::draw(const LineShaderData &line, const QMatrix4x4 &projection)
+void LineShader::draw(const LineShaderData &line, const QColor &color, const float thickness, const QMatrix4x4 &projection)
 {
     auto gl = QOpenGLContext::currentContext()->functions();
     vao_.bind();
@@ -214,8 +215,8 @@ void LineShader::draw(const LineShaderData &line, const QMatrix4x4 &projection)
     buffers_.index.allocate(&line.indices[0], sizeof(GLuint) * line.indices.size());
 
     program_->setUniformValue(uniforms_.projection, projection);
-    program_->setUniformValue(uniforms_.thickness, line.thickness);
-    program_->setUniformValue(uniforms_.color, line.color.r, line.color.g, line.color.b, line.color.a);
+    program_->setUniformValue(uniforms_.thickness, thickness);
+    program_->setUniformValue(uniforms_.color, color.redF(), color.greenF(), color.blueF(), color.alphaF());
 
     buffers_.position.bind();
     program_->enableAttributeArray("position");
@@ -264,6 +265,10 @@ FPGAViewWidget::FPGAViewWidget(QWidget *parent) : QOpenGLWidget(parent), lineSha
     if (fmt.minorVersion() < 1) {
         printf("Could not get OpenGL 3.1 context - trying anyway...\n ");
     }
+
+    QTimer *timer = new QTimer(this);
+    connect(timer, SIGNAL(timeout()), this, SLOT(update()));
+    timer->start(5000);
 }
 
 FPGAViewWidget::~FPGAViewWidget() {}
@@ -285,73 +290,6 @@ void FPGAViewWidget::initializeGL()
     }
     initializeOpenGLFunctions();
     glClearColor(backgroundColor_.red() / 255, backgroundColor_.green() / 255, backgroundColor_.blue() / 255, 0.0);
-}
-
-void FPGAViewWidget::drawDecal(LineShaderData &out, const DecalXY &decal)
-{
-    const float scale = 1.0;
-    float offsetX = 0.0, offsetY = 0.0;
-
-    for (auto &el : ctx_->getDecalGraphics(decal.decal)) {
-        offsetX = decal.x;
-        offsetY = decal.y;
-
-        if (el.type == GraphicElement::G_BOX) {
-            auto line = PolyLine(true);
-            line.point(offsetX + scale * el.x1, offsetY + scale * el.y1);
-            line.point(offsetX + scale * el.x2, offsetY + scale * el.y1);
-            line.point(offsetX + scale * el.x2, offsetY + scale * el.y2);
-            line.point(offsetX + scale * el.x1, offsetY + scale * el.y2);
-            line.build(out);
-        }
-
-        if (el.type == GraphicElement::G_LINE) {
-            PolyLine(offsetX + scale * el.x1, offsetY + scale * el.y1, offsetX + scale * el.x2, offsetY + scale * el.y2)
-                    .build(out);
-        }
-    }
-}
-
-void FPGAViewWidget::drawDecal(LineShaderData out[], const DecalXY &decal)
-{
-    const float scale = 1.0;
-    float offsetX = 0.0, offsetY = 0.0;
-
-    for (auto &el : ctx_->getDecalGraphics(decal.decal)) {
-        offsetX = decal.x;
-        offsetY = decal.y;
-
-        if (el.type == GraphicElement::G_BOX) {
-            auto line = PolyLine(true);
-            line.point(offsetX + scale * el.x1, offsetY + scale * el.y1);
-            line.point(offsetX + scale * el.x2, offsetY + scale * el.y1);
-            line.point(offsetX + scale * el.x2, offsetY + scale * el.y2);
-            line.point(offsetX + scale * el.x1, offsetY + scale * el.y2);
-            switch (el.style) {
-            case GraphicElement::G_FRAME:
-            case GraphicElement::G_INACTIVE:
-            case GraphicElement::G_ACTIVE:
-                line.build(out[el.style]);
-                break;
-            default:
-                break;
-            }
-        }
-
-        if (el.type == GraphicElement::G_LINE) {
-            auto line = PolyLine(offsetX + scale * el.x1, offsetY + scale * el.y1, offsetX + scale * el.x2,
-                                 offsetY + scale * el.y2);
-            switch (el.style) {
-            case GraphicElement::G_FRAME:
-            case GraphicElement::G_INACTIVE:
-            case GraphicElement::G_ACTIVE:
-                line.build(out[el.style]);
-                break;
-            default:
-                break;
-            }
-        }
-    }
 }
 
 QMatrix4x4 FPGAViewWidget::getProjection(void)
@@ -380,47 +318,59 @@ void FPGAViewWidget::paintGL()
     float thick11Px = mouseToWorldCoordinates(1.1, 0).x();
 
     // Draw grid.
-    auto grid = LineShaderData(thick1Px, gridColor_);
+    auto grid = LineShaderData();
     for (float i = -100.0f; i < 100.0f; i += 1.0f) {
         PolyLine(-100.0f, i, 100.0f, i).build(grid);
         PolyLine(i, -100.0f, i, 100.0f).build(grid);
     }
-    lineShader_.draw(grid, matrix);
-
-    LineShaderData shaders[4] = {[GraphicElement::G_FRAME] = LineShaderData(thick11Px, gFrameColor_),
-                                 [GraphicElement::G_HIDDEN] = LineShaderData(thick11Px, gHiddenColor_),
-                                 [GraphicElement::G_INACTIVE] = LineShaderData(thick11Px, gInactiveColor_),
-                                 [GraphicElement::G_ACTIVE] = LineShaderData(thick11Px, gActiveColor_)};
+    lineShader_.draw(grid, gridColor_, thick1Px, matrix);
 
     if (ctx_) {
-        // Draw Bels.
-        for (auto bel : ctx_->getBels()) {
-            drawDecal(shaders, ctx_->getBelDecal(bel));
-        }
-        // Draw Wires.
-        for (auto wire : ctx_->getWires()) {
-            drawDecal(shaders, ctx_->getWireDecal(wire));
-        }
-        // Draw Pips.
-        for (auto pip : ctx_->getPips()) {
-            drawDecal(shaders, ctx_->getPipDecal(pip));
-        }
-        // Draw Groups.
-        for (auto group : ctx_->getGroups()) {
-            drawDecal(shaders, ctx_->getGroupDecal(group));
-        }
-    }
-    lineShader_.draw(shaders[0], matrix);
-    lineShader_.draw(shaders[1], matrix);
-    lineShader_.draw(shaders[2], matrix);
-    lineShader_.draw(shaders[3], matrix);
+        auto &&proxy = ctx_->rwproxy();
+        auto updates = proxy.getUIUpdatesRequired();
 
-    // Draw Frame Graphics.
-    auto frames = LineShaderData(thick11Px, frameColor_);
-    if (ctx_) {
-        drawDecal(frames, ctx_->getFrameDecal());
-        lineShader_.draw(frames, matrix);
+        // Collapse all updates to a full redraw.
+        // TODO(q3k) fix this.
+
+        bool redraw = (updates.allUIReload
+                       || !updates.belUIReload.empty() 
+                       || !updates.wireUIReload.empty()
+                       || !updates.pipUIReload.empty()
+                       || !updates.groupUIReload.empty()
+                       || updates.frameUIReload);
+
+        if (redraw) {
+            shaders_[0].clear();
+            shaders_[1].clear();
+            shaders_[2].clear();
+            shaders_[3].clear();
+
+            // Draw Bels.
+            for (auto bel : ctx_->getBels()) {
+                drawDecal(proxy, shaders_, ctx_->getBelDecal(bel));
+            }
+            // Draw Wires.
+            for (auto wire : ctx_->getWires()) {
+                drawDecal(proxy, shaders_, ctx_->getWireDecal(wire));
+            }
+            // Draw Pips.
+            for (auto pip : ctx_->getPips()) {
+                drawDecal(proxy, shaders_, ctx_->getPipDecal(pip));
+            }
+            // Draw Groups.
+            for (auto group : ctx_->getGroups()) {
+                drawDecal(proxy, shaders_, ctx_->getGroupDecal(group));
+            }
+            // Draw Frame Graphics.
+            drawDecal(proxy, shaders_, ctx_->getFrameDecal());
+        }
     }
+
+    lineShader_.draw(shaders_[0], gFrameColor_, thick11Px, matrix);
+    lineShader_.draw(shaders_[1], gHiddenColor_, thick11Px, matrix);
+    lineShader_.draw(shaders_[2], gInactiveColor_, thick11Px, matrix);
+    lineShader_.draw(shaders_[3], gActiveColor_, thick11Px, matrix);
+    //lineShader_.draw(frame, matrix);
 }
 
 void FPGAViewWidget::resizeGL(int width, int height) {}

@@ -51,7 +51,8 @@ void svg_dump_decal(const Context *ctx, const DecalXY &decal)
     const float scale = 10.0, offset = 10.0;
     const std::string style = "stroke=\"black\" stroke-width=\"0.1\" fill=\"none\"";
 
-    for (auto &el : ctx->getDecalGraphics(decal.decal)) {
+    auto &&proxy = ctx->rproxy();
+    for (auto &el : proxy.getDecalGraphics(decal.decal)) {
         if (el.type == GraphicElement::G_BOX) {
             std::cout << "<rect x=\"" << (offset + scale * (decal.x + el.x1)) << "\" y=\""
                       << (offset + scale * (decal.y + el.y1)) << "\" height=\"" << (scale * (el.y2 - el.y1))

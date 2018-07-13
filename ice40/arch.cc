@@ -534,9 +534,8 @@ DecalXY Arch::getGroupDecal(GroupId group) const
     return decalxy;
 };
 
-std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
+std::vector<GraphicElement> ArchRProxyMethods::getDecalGraphics(DecalId decal) const
 {
-    boost::shared_lock_guard<boost::shared_mutex> lock(mtx_);
     std::vector<GraphicElement> ret;
 
     if (decal.type == DecalId::TYPE_FRAME) {
@@ -568,7 +567,7 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
         BelId bel;
         bel.index = decal.index;
 
-        auto bel_type = getBelType(bel);
+        auto bel_type = parent_->getBelType(bel);
 
         if (bel_type == TYPE_ICESTORM_LC) {
             GraphicElement el;
@@ -952,6 +951,11 @@ void ArchRWProxyMethods::unbindPip(PipId pip)
 CellInfo *ArchRWProxyMethods::getCell(IdString cell)
 {
     return parent_->cells.at(cell).get();
+}
+
+UIUpdatesRequired ArchRWProxyMethods::getUIUpdatesRequired(void)
+{
+    return parent_->getUIUpdatesRequired();
 }
 
 NEXTPNR_NAMESPACE_END
