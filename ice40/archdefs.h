@@ -21,7 +21,7 @@
 #error Include "archdefs.h" via "nextpnr.h" only.
 #endif
 
-#include <boost/functional/hash_fwd.hpp>
+#include <boost/functional/hash.hpp>
 
 NEXTPNR_NAMESPACE_BEGIN
 
