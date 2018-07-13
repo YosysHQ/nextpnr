@@ -31,17 +31,31 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId id,
 
     if (id >= TILE_WIRE_SP4_H_L_36 && id <= TILE_WIRE_SP4_H_L_47) {
         int idx = (id - TILE_WIRE_SP4_H_L_36) + 48;
-        float y1 = y + 1.0 - (0.03 + 0.0025 * (60 - idx));
 
-        el.x1 = x + 0.0;
-        el.x2 = x + 0.9;
+        float y1 = y + 1.0 - (0.03 + 0.0025 * (60 - (idx ^ 1)));
+        float y2 = y + 1.0 - (0.03 + 0.0025 * (60 - idx));
+
+        el.x1 = x;
+        el.x2 = x + 0.01;
         el.y1 = y1;
         el.y2 = y1;
         g.push_back(el);
 
+        el.x1 = x + 0.01;
+        el.x2 = x + 0.02;
+        el.y1 = y1;
+        el.y2 = y2;
+        g.push_back(el);
+
+        el.x1 = x + 0.02;
+        el.x2 = x + 0.9;
+        el.y1 = y2;
+        el.y2 = y2;
+        g.push_back(el);
+
         el.x1 = x + main_swbox_x1 + 0.0025 * (idx + 35);
         el.x2 = el.x1;
-        el.y1 = y1;
+        el.y1 = y2;
         el.y2 = y + main_swbox_y2;
         g.push_back(el);
     }
@@ -91,17 +105,30 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId id,
     if (id >= TILE_WIRE_SP4_V_T_36 && id <= TILE_WIRE_SP4_V_T_47) {
         int idx = (id - TILE_WIRE_SP4_V_T_36) + 48;
 
-        float x1 = x + 0.03 + 0.0025 * (60 - idx);
+        float x1 = x + 0.03 + 0.0025 * (60 - (idx ^ 1));
+        float x2 = x + 0.03 + 0.0025 * (60 - idx);
 
-        el.y1 = y + 1.0;
-        el.y2 = y + 0.1;
+        el.y1 = y + 1.00;
+        el.y2 = y + 0.99;
         el.x1 = x1;
         el.x2 = x1;
         g.push_back(el);
 
+        el.y1 = y + 0.99;
+        el.y2 = y + 0.98;
+        el.x1 = x1;
+        el.x2 = x2;
+        g.push_back(el);
+
+        el.y1 = y + 0.98;
+        el.y2 = y + 0.10;
+        el.x1 = x2;
+        el.x2 = x2;
+        g.push_back(el);
+
         el.y1 = y + 1.0 - (0.03 + 0.0025 * (270 - idx));
         el.y2 = el.y1;
-        el.x1 = x1;
+        el.x1 = x2;
         el.x2 = x + main_swbox_x1;
         g.push_back(el);
     }
@@ -109,9 +136,9 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId id,
     if (id >= TILE_WIRE_SP4_V_B_0 && id <= TILE_WIRE_SP4_V_B_47) {
         int idx = id - TILE_WIRE_SP4_V_B_0;
 
-        float x1 = x + 0.03 + 0.0025 * (60 - (idx ^ 1));
-        float x2 = x + 0.03 + 0.0025 * (60 - idx);
-        float x3 = x + 0.03 + 0.0025 * (60 - idx - 12);
+        float x1 = x + 0.03 + 0.0025 * (60 - idx);
+        float x2 = x + 0.03 + 0.0025 * (60 - (idx ^ 1));
+        float x3 = x + 0.03 + 0.0025 * (60 - (idx ^ 1) - 12);
 
         if (idx >= 12) {
             el.y1 = y + 1.00;
@@ -139,13 +166,13 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId id,
         el.x2 = x3;
         g.push_back(el);
 
-        el.y1 = y + 1.0 - (0.03 + 0.0025 * (145 - idx));
+        el.y1 = y + 1.0 - (0.03 + 0.0025 * (145 - (idx ^ 1)));
         el.y2 = el.y1;
         el.x1 = x;
         el.x2 = x2;
         g.push_back(el);
 
-        el.y1 = y + 1.0 - (0.03 + 0.0025 * (270 - idx));
+        el.y1 = y + 1.0 - (0.03 + 0.0025 * (270 - (idx ^ 1)));
         el.y2 = el.y1;
         el.x1 = x2;
         el.x2 = x + main_swbox_x1;
@@ -157,17 +184,30 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId id,
     if (id >= TILE_WIRE_SP12_H_L_22 && id <= TILE_WIRE_SP12_H_L_23) {
         int idx = (id - TILE_WIRE_SP12_H_L_22) + 24;
 
-        float y1 = y + 1.0 - (0.03 + 0.0025 * (90 - idx));
+        float y1 = y + 1.0 - (0.03 + 0.0025 * (90 - (idx ^ 1)));
+        float y2 = y + 1.0 - (0.03 + 0.0025 * (90 - idx));
 
-        el.x1 = x + 0.0;
-        el.x2 = x + 0.98333;
+        el.x1 = x;
+        el.x2 = x + 0.01;
         el.y1 = y1;
         el.y2 = y1;
         g.push_back(el);
 
+        el.x1 = x + 0.01;
+        el.x2 = x + 0.02;
+        el.y1 = y1;
+        el.y2 = y2;
+        g.push_back(el);
+
+        el.x1 = x + 0.02;
+        el.x2 = x + 0.98333;
+        el.y1 = y2;
+        el.y2 = y2;
+        g.push_back(el);
+
         el.x1 = x + main_swbox_x1 + 0.0025 * (idx + 5);
         el.x2 = el.x1;
-        el.y1 = y1;
+        el.y1 = y2;
         el.y2 = y + main_swbox_y2;
         g.push_back(el);
     }
@@ -175,9 +215,9 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId id,
     if (id >= TILE_WIRE_SP12_H_R_0 && id <= TILE_WIRE_SP12_H_R_23) {
         int idx = id - TILE_WIRE_SP12_H_R_0;
 
-        float y1 = y + 1.0 - (0.03 + 0.0025 * (90 - (idx ^ 1)));
-        float y2 = y + 1.0 - (0.03 + 0.0025 * (90 - idx));
-        float y3 = y + 1.0 - (0.03 + 0.0025 * (90 - idx - 2));
+        float y1 = y + 1.0 - (0.03 + 0.0025 * (90 - idx));
+        float y2 = y + 1.0 - (0.03 + 0.0025 * (90 - (idx ^ 1)));
+        float y3 = y + 1.0 - (0.03 + 0.0025 * (90 - (idx ^ 1) - 2));
 
         if (idx >= 2) {
             el.x1 = x;
@@ -205,7 +245,7 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId id,
         el.y2 = y3;
         g.push_back(el);
 
-        el.x1 = x + main_swbox_x1 + 0.0025 * (idx + 5);
+        el.x1 = x + main_swbox_x1 + 0.0025 * ((idx ^ 1) + 5);
         el.x2 = el.x1;
         el.y1 = y2;
         el.y2 = y + main_swbox_y2;
@@ -217,7 +257,7 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId id,
     if (id >= TILE_WIRE_SP4_R_V_B_0 && id <= TILE_WIRE_SP4_R_V_B_47) {
         int idx = id - TILE_WIRE_SP4_R_V_B_0;
 
-        float y1 = y + 1.0 - (0.03 + 0.0025 * (145 - idx));
+        float y1 = y + 1.0 - (0.03 + 0.0025 * (145 - (idx ^ 1)));
 
         el.y1 = y1;
         el.y2 = y1;
@@ -231,17 +271,30 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId id,
     if (id >= TILE_WIRE_SP12_V_T_22 && id <= TILE_WIRE_SP12_V_T_23) {
         int idx = (id - TILE_WIRE_SP12_V_T_22) + 24;
 
-        float x1 = x + 0.03 + 0.0025 * (90 - idx);
+        float x1 = x + 0.03 + 0.0025 * (90 - (idx ^ 1));
+        float x2 = x + 0.03 + 0.0025 * (90 - idx);
 
         el.y1 = y + 1.00;
-        el.y2 = y + 0.01667;
+        el.y2 = y + 0.99;
         el.x1 = x1;
         el.x2 = x1;
         g.push_back(el);
 
+        el.y1 = y + 0.99;
+        el.y2 = y + 0.98;
+        el.x1 = x1;
+        el.x2 = x2;
+        g.push_back(el);
+
+        el.y1 = y + 0.98;
+        el.y2 = y + 0.01667;
+        el.x1 = x2;
+        el.x2 = x2;
+        g.push_back(el);
+
         el.y1 = y + 1.0 - (0.03 + 0.0025 * (300 - idx));
         el.y2 = el.y1;
-        el.x1 = x1;
+        el.x1 = x2;
         el.x2 = x + main_swbox_x1;
         g.push_back(el);
     }
