@@ -78,6 +78,21 @@ Running
  `./nextpnr-ecp5 --json ecp5/synth/blinky.json --basecfg ecp5/synth/ulx3s_empty.config --bit ecp5/synth/ulx3s.bit`
     - Note that `ulx3s_empty.config` contains fixed/unknown bits to be copied to the output bitstream
     - You can also use `--textcfg out.config` to write a text file describing the bitstream for debugging
+
+Nix
+---
+
+As an alternative to getting the prerequisites yourself, you can use Nix/NixOS and run the following to get dropped into a shell with nextpnr built:
+
+   nix-shell
+
+Or, you can add the `nextpnr.nix` file into your /etc/nixos/configuration.nix:
+
+   environment.systemPackages = [
+       ...
+       ( import /home/q3k/Software/nextpnr/nextpnr.nix )
+       ...
+   ];
   
 Notes
 -------
