@@ -18,47 +18,41 @@
  *
  */
 
-#ifndef LINE_EDITOR_H
-#define LINE_EDITOR_H
+#ifndef PYCONSOLE_H
+#define PYCONSOLE_H
 
 #ifndef NO_PYTHON
 
-#include <QLineEdit>
-#include <QMenu>
+#include <QColor>
+#include <QMimeData>
+#include <QTextEdit>
 #include "ParseHelper.h"
+#include "ParseListener.h"
 #include "nextpnr.h"
+
+class QWidget;
+class QKeyEvent;
 
 NEXTPNR_NAMESPACE_BEGIN
 
-class LineEditor : public QLineEdit
+class PythonConsole : public QTextEdit, public ParseListener
 {
     Q_OBJECT
 
   public:
-    explicit LineEditor(ParseHelper *helper, QWidget *parent = 0);
+    PythonConsole(QWidget *parent = 0);
 
-  private Q_SLOTS:
-    void textInserted();
-    void showContextMenu(const QPoint &pt);
-    void clearHistory();
-
-  Q_SIGNALS:
-    void textLineInserted(QString);
+    void displayString(QString text);
+    void moveCursorToEnd();
+    virtual void parseEvent(const ParseMessage &message);
 
   protected:
-    void keyPressEvent(QKeyEvent *) Q_DECL_OVERRIDE;
-    bool focusNextPrevChild(bool next) Q_DECL_OVERRIDE;
-    void autocomplete();
-
-  private:
-    int index;
-    QStringList lines;
-    QMenu *contextMenu;
-    ParseHelper *parseHelper;
+    static const QColor NORMAL_COLOR;
+    static const QColor ERROR_COLOR;
+    static const QColor OUTPUT_COLOR;
 };
 
 NEXTPNR_NAMESPACE_END
-
 #endif // NO_PYTHON
 
-#endif // LINE_EDITOR_H
+#endif // PYCONSOLE_H

@@ -12,7 +12,6 @@ if (BUILD_PYTHON)
     
     ../3rdparty/python-console/modified/pyredirector.cc 
     ../3rdparty/python-console/modified/pyinterpreter.cc 
-    ../3rdparty/python-console/modified/pyconsole.cc 
   )
 endif()
 

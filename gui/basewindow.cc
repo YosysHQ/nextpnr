@@ -76,7 +76,7 @@ BaseMainWindow::BaseMainWindow(std::unique_ptr<Context> context, QWidget *parent
     tabWidget = new QTabWidget();
 #ifndef NO_PYTHON
     PythonTab *pythontab = new PythonTab();
-    tabWidget->addTab(pythontab, "Python");
+    tabWidget->addTab(pythontab, "Console");
     connect(this, SIGNAL(contextChanged(Context *)), pythontab, SLOT(newContext(Context *)));
 #endif
     info = new InfoTab();
