@@ -217,11 +217,11 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
 {
     Q_OBJECT
     Q_PROPERTY(QColor backgroundColor MEMBER backgroundColor DESIGNABLE true)
-    Q_PROPERTY(QColor belColor MEMBER belColor DESIGNABLE true)
     Q_PROPERTY(QColor gridColor MEMBER gridColor DESIGNABLE true)
-    Q_PROPERTY(QColor wireColor MEMBER wireColor DESIGNABLE true)
-    Q_PROPERTY(QColor pipColor MEMBER pipColor DESIGNABLE true)
-    Q_PROPERTY(QColor groupColor MEMBER groupColor DESIGNABLE true)
+    Q_PROPERTY(QColor gFrameColor MEMBER gFrameColor DESIGNABLE true)
+    Q_PROPERTY(QColor gHiddenColor MEMBER gHiddenColor DESIGNABLE true)
+    Q_PROPERTY(QColor gInactiveColor MEMBER gInactiveColor DESIGNABLE true)
+    Q_PROPERTY(QColor gActiveColor MEMBER gActiveColor DESIGNABLE true)
     Q_PROPERTY(QColor frameColor MEMBER frameColor DESIGNABLE true)
 
   public:
@@ -247,6 +247,7 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     void mouseMoveEvent(QMouseEvent *event) Q_DECL_OVERRIDE;
     void wheelEvent(QWheelEvent *event) Q_DECL_OVERRIDE;
     void drawDecal(LineShaderData &data, const DecalXY &decal);
+    void drawDecal(LineShaderData out[], const DecalXY &decal);
   public Q_SLOTS:
     void newContext(Context *ctx);
 
@@ -267,10 +268,10 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     Context *ctx_;
     QColor backgroundColor;
     QColor gridColor;
-    QColor belColor;
-    QColor wireColor;
-    QColor pipColor;
-    QColor groupColor;
+    QColor gFrameColor;
+    QColor gHiddenColor;
+    QColor gInactiveColor;
+    QColor gActiveColor;
     QColor frameColor;
 };
 

@@ -244,10 +244,10 @@ FPGAViewWidget::FPGAViewWidget(QWidget *parent) : QOpenGLWidget(parent), lineSha
 {
     backgroundColor = QColor("#ffffff");
     gridColor = QColor("#ddd");
-    belColor = QColor("#303030");
-    wireColor = QColor("#303030");
-    pipColor = QColor("#303030");
-    groupColor = QColor("#303030");
+    gFrameColor = QColor("#303030");
+    gHiddenColor = QColor("#a0a0a0");
+    gInactiveColor = QColor("#d0d0d0");
+    gActiveColor = QColor("#101010");
     frameColor = QColor("#0066ba");
     auto fmt = format();
     fmt.setMajorVersion(3);
@@ -311,6 +311,56 @@ void FPGAViewWidget::drawDecal(LineShaderData &out, const DecalXY &decal)
     }
 }
 
+void FPGAViewWidget::drawDecal(LineShaderData out[], const DecalXY &decal)
+{
+    const float scale = 1.0;
+    float offsetX = 0.0, offsetY = 0.0;
+
+    for (auto &el : ctx_->getDecalGraphics(decal.decal)) {
+        offsetX = decal.x;
+        offsetY = decal.y;
+
+        if (el.type == GraphicElement::G_BOX) {
+            auto line = PolyLine(true);
+            line.point(offsetX + scale * el.x1, offsetY + scale * el.y1);
+            line.point(offsetX + scale * el.x2, offsetY + scale * el.y1);
+            line.point(offsetX + scale * el.x2, offsetY + scale * el.y2);
+            line.point(offsetX + scale * el.x1, offsetY + scale * el.y2);
+            switch (el.style) {
+            case GraphicElement::G_FRAME:
+                line.build(out[0]);
+                break;
+            case GraphicElement::G_HIDDEN:
+                break;
+            case GraphicElement::G_INACTIVE:
+                line.build(out[2]);
+                break;
+            case GraphicElement::G_ACTIVE:
+                line.build(out[3]);
+                break;
+            }
+        }
+
+        if (el.type == GraphicElement::G_LINE) {
+            auto line = PolyLine(offsetX + scale * el.x1, offsetY + scale * el.y1, offsetX + scale * el.x2,
+                                 offsetY + scale * el.y2);
+            switch (el.style) {
+            case GraphicElement::G_FRAME:
+                line.build(out[0]);
+                break;
+            case GraphicElement::G_HIDDEN:
+                break;
+            case GraphicElement::G_INACTIVE:
+                line.build(out[2]);
+                break;
+            case GraphicElement::G_ACTIVE:
+                line.build(out[3]);
+                break;
+            }
+        }
+    }
+}
+
 QMatrix4x4 FPGAViewWidget::getProjection(void)
 {
     QMatrix4x4 matrix;
@@ -344,41 +394,33 @@ void FPGAViewWidget::paintGL()
     }
     lineShader_.draw(grid, matrix);
 
-    // Draw Bels.
-    auto bels = LineShaderData(thick11Px, belColor);
+    LineShaderData shaders[4] = {LineShaderData(thick11Px, gFrameColor),    // GraphicElement::G_FRAME
+                                 LineShaderData(thick11Px, gHiddenColor),   // GraphicElement::G_HIDDEN
+                                 LineShaderData(thick11Px, gInactiveColor), // GraphicElement::G_INACTIVE
+                                 LineShaderData(thick11Px, gActiveColor)};  // GraphicElement::G_ACTIVE
+
     if (ctx_) {
+        // Draw Bels.
         for (auto bel : ctx_->getBels()) {
-            drawDecal(bels, ctx_->getBelDecal(bel));
+            drawDecal(shaders, ctx_->getBelDecal(bel));
         }
-        lineShader_.draw(bels, matrix);
-    }
-
-    // Draw Wires.
-    auto wires = LineShaderData(thick11Px, wireColor);
-    if (ctx_) {
+        // Draw Wires.
         for (auto wire : ctx_->getWires()) {
-            drawDecal(wires, ctx_->getWireDecal(wire));
+            drawDecal(shaders, ctx_->getWireDecal(wire));
         }
-        lineShader_.draw(wires, matrix);
-    }
-
-    // Draw Pips.
-    auto pips = LineShaderData(thick11Px, pipColor);
-    if (ctx_) {
+        // Draw Pips.
         for (auto pip : ctx_->getPips()) {
-            drawDecal(pips, ctx_->getPipDecal(pip));
+            drawDecal(shaders, ctx_->getPipDecal(pip));
         }
-        lineShader_.draw(pips, matrix);
-    }
-
-    // Draw Groups.
-    auto groups = LineShaderData(thick11Px, groupColor);
-    if (ctx_) {
+        // Draw Groups.
         for (auto group : ctx_->getGroups()) {
-            drawDecal(groups, ctx_->getGroupDecal(group));
+            drawDecal(shaders, ctx_->getGroupDecal(group));
         }
-        lineShader_.draw(groups, matrix);
     }
+    lineShader_.draw(shaders[0], matrix);
+    lineShader_.draw(shaders[1], matrix);
+    lineShader_.draw(shaders[2], matrix);
+    lineShader_.draw(shaders[3], matrix);
 
     // Draw Frame Graphics.
     auto frames = LineShaderData(thick11Px, frameColor);
