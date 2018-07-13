@@ -39,7 +39,6 @@
 #include "jsonparse.h"
 #include "log.h"
 #include "nextpnr.h"
-#include "pack.h"
 #include "pcf.h"
 #include "place_legaliser.h"
 #include "timing.h"
@@ -382,7 +381,7 @@ int main(int argc, char *argv[])
                     log_error("Loading PCF failed.\n");
             }
 
-            if (!pack_design(ctx.get()) && !ctx->force)
+            if (!ctx->pack() && !ctx->force)
                 log_error("Packing design failed.\n");
             assign_budget(ctx.get());
             ctx->check();

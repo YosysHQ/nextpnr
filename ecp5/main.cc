@@ -43,7 +43,6 @@
 #include "bitstream.h"
 #include "design_utils.h"
 #include "jsonparse.h"
-#include "pack.h"
 #include "timing.h"
 
 USING_NEXTPNR_NAMESPACE
@@ -147,7 +146,7 @@ int main(int argc, char *argv[])
             if (!parse_json_file(f, filename, ctx.get()))
                 log_error("Loading design failed.\n");
 
-            if (!pack_design(ctx.get()) && !ctx->force)
+            if (!ctx->pack() && !ctx->force)
                 log_error("Packing design failed.\n");
             if (vm.count("freq"))
                 ctx->target_freq = vm["freq"].as<double>() * 1e6;

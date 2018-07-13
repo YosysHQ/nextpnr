@@ -25,12 +25,20 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+const QString PythonTab::PROMPT = ">>> ";
+const QString PythonTab::MULTILINE_PROMPT = "... ";
+
 PythonTab::PythonTab(QWidget *parent) : QWidget(parent), initialized(false)
 {
+    QFont f("unexistent");
+    f.setStyleHint(QFont::Monospace);
+
     // Add text area for Python output and input line
     console = new PythonConsole();
     console->setMinimumHeight(100);
-    console->setEnabled(false);
+    console->setReadOnly(true);
+    console->setTextInteractionFlags(Qt::TextSelectableByMouse | Qt::TextSelectableByKeyboard);
+    console->setFont(f);
 
     console->setContextMenuPolicy(Qt::CustomContextMenu);
     QAction *clearAction = new QAction("Clear &buffer", this);
@@ -41,9 +49,21 @@ PythonTab::PythonTab(QWidget *parent) : QWidget(parent), initialized(false)
     contextMenu->addAction(clearAction);
     connect(console, SIGNAL(customContextMenuRequested(const QPoint)), this, SLOT(showContextMenu(const QPoint)));
 
+    lineEdit = new LineEditor(&parseHelper);
+    lineEdit->setMinimumHeight(30);
+    lineEdit->setMaximumHeight(30);
+    lineEdit->setFont(f);
+    lineEdit->setPlaceholderText(PythonTab::PROMPT);
+    connect(lineEdit, SIGNAL(textLineInserted(QString)), this, SLOT(editLineReturnPressed(QString)));
+
     QGridLayout *mainLayout = new QGridLayout();
     mainLayout->addWidget(console, 0, 0);
+    mainLayout->addWidget(lineEdit, 1, 0);
     setLayout(mainLayout);
+
+    parseHelper.subscribe(console);
+
+    prompt = PythonTab::PROMPT;
 }
 
 PythonTab::~PythonTab()
@@ -54,13 +74,27 @@ PythonTab::~PythonTab()
     }
 }
 
+void PythonTab::editLineReturnPressed(QString text)
+{
+    console->displayString(prompt + text + "\n");
+    console->moveCursorToEnd();
+
+    parseHelper.process(text.toStdString());
+
+    if (parseHelper.buffered())
+        prompt = PythonTab::MULTILINE_PROMPT;
+    else
+        prompt = PythonTab::PROMPT;
+
+    lineEdit->setPlaceholderText(prompt);
+}
+
 void PythonTab::newContext(Context *ctx)
 {
     if (initialized) {
         pyinterpreter_finalize();
         deinit_python();
     }
-    console->setEnabled(true);
     console->clear();
 
     pyinterpreter_preinit();
@@ -74,7 +108,6 @@ void PythonTab::newContext(Context *ctx)
 
     QString version = QString("Python %1 on %2\n").arg(Py_GetVersion(), Py_GetPlatform());
     console->displayString(version);
-    console->displayPrompt();
 }
 
 void PythonTab::showContextMenu(const QPoint &pt) { contextMenu->exec(mapToGlobal(pt)); }
@@ -83,4 +116,4 @@ void PythonTab::clearBuffer() { console->clear(); }
 
 NEXTPNR_NAMESPACE_END
 
-#endif
+#endif // NO_PYTHON

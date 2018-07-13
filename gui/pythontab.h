@@ -25,6 +25,7 @@
 #include <QLineEdit>
 #include <QMenu>
 #include <QPlainTextEdit>
+#include "ParseHelper.h"
 #include "line_editor.h"
 #include "nextpnr.h"
 #include "pyconsole.h"
@@ -42,13 +43,20 @@ class PythonTab : public QWidget
   private Q_SLOTS:
     void showContextMenu(const QPoint &pt);
     void clearBuffer();
+    void editLineReturnPressed(QString text);
   public Q_SLOTS:
     void newContext(Context *ctx);
 
   private:
     PythonConsole *console;
+    LineEditor *lineEdit;
     QMenu *contextMenu;
     bool initialized;
+    ParseHelper parseHelper;
+    QString prompt;
+
+    static const QString PROMPT;
+    static const QString MULTILINE_PROMPT;
 };
 
 NEXTPNR_NAMESPACE_END

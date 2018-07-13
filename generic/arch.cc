@@ -181,6 +181,7 @@ void Arch::bindBel(BelId bel, IdString cell, PlaceStrength strength)
     bels.at(bel).bound_cell = cell;
     cells.at(cell)->bel = bel;
     cells.at(cell)->belStrength = strength;
+    refreshUiBel(bel);
 }
 
 void Arch::unbindBel(BelId bel)
@@ -188,6 +189,7 @@ void Arch::unbindBel(BelId bel)
     cells.at(bels.at(bel).bound_cell)->bel = BelId();
     cells.at(bels.at(bel).bound_cell)->belStrength = STRENGTH_NONE;
     bels.at(bel).bound_cell = IdString();
+    refreshUiBel(bel);
 }
 
 bool Arch::checkBelAvail(BelId bel) const { return bels.at(bel).bound_cell == IdString(); }
@@ -236,6 +238,7 @@ void Arch::bindWire(WireId wire, IdString net, PlaceStrength strength)
     wires.at(wire).bound_net = net;
     nets.at(net)->wires[wire].pip = PipId();
     nets.at(net)->wires[wire].strength = strength;
+    refreshUiWire(wire);
 }
 
 void Arch::unbindWire(WireId wire)
@@ -243,11 +246,14 @@ void Arch::unbindWire(WireId wire)
     auto &net_wires = nets[wires.at(wire).bound_net]->wires;
 
     auto pip = net_wires.at(wire).pip;
-    if (pip != PipId())
+    if (pip != PipId()) {
         pips.at(pip).bound_net = IdString();
+        refreshUiPip(pip);
+    }
 
     net_wires.erase(wire);
     wires.at(wire).bound_net = IdString();
+    refreshUiWire(wire);
 }
 
 bool Arch::checkWireAvail(WireId wire) const { return wires.at(wire).bound_net == IdString(); }
@@ -282,6 +288,8 @@ void Arch::bindPip(PipId pip, IdString net, PlaceStrength strength)
     wires.at(wire).bound_net = net;
     nets.at(net)->wires[wire].pip = pip;
     nets.at(net)->wires[wire].strength = strength;
+    refreshUiPip(pip);
+    refreshUiWire(wire);
 }
 
 void Arch::unbindPip(PipId pip)
@@ -290,6 +298,8 @@ void Arch::unbindPip(PipId pip)
     nets.at(wires.at(wire).bound_net)->wires.erase(wire);
     pips.at(pip).bound_net = IdString();
     wires.at(wire).bound_net = IdString();
+    refreshUiPip(pip);
+    refreshUiWire(wire);
 }
 
 bool Arch::checkPipAvail(PipId pip) const { return pips.at(pip).bound_net == IdString(); }

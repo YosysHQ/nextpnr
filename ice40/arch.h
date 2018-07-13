@@ -477,21 +477,6 @@ public:
 
     uint32_t getWireChecksum(WireId wire) const { return wire.index; }
 
-
-    WireRange getWires() const
-    {
-        WireRange range;
-        range.b.cursor = 0;
-        range.e.cursor = chip_info->num_wires;
-        return range;
-    }
-
-    // -------------------------------------------------
-
-    IdString getPipName(PipId pip) const;
-
-    uint32_t getPipChecksum(PipId pip) const { return pip.index; }
-
     AllPipRange getPips() const
     {
         AllPipRange range;
@@ -499,6 +484,10 @@ public:
         range.e.cursor = chip_info->num_pips;
         return range;
     }
+    
+    IdString getPipName(PipId pip) const;
+
+    uint32_t getPipChecksum(PipId pip) const { return pip.index; }
 
     WireId getPipSrcWire(PipId pip) const
     {
@@ -551,6 +540,15 @@ public:
         return range;
     }
 
+    WireRange getWires() const
+    {
+        WireRange range;
+        range.b.cursor = 0;
+        range.e.cursor = chip_info->num_wires;
+        return range;
+    }
+
+
     BelId getPackagePinBel(const std::string &pin) const;
     std::string getBelPackagePin(BelId bel) const;
 
@@ -575,6 +573,7 @@ public:
 
     // -------------------------------------------------
 
+    bool pack();
     bool place();
     bool route();
 

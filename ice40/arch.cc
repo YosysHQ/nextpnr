@@ -494,6 +494,7 @@ DecalXY Arch::getFrameDecal() const
 {
     DecalXY decalxy;
     decalxy.decal.type = DecalId::TYPE_FRAME;
+    decalxy.decal.active = true;
     return decalxy;
 }
 
@@ -502,6 +503,7 @@ DecalXY Arch::getBelDecal(BelId bel) const
     DecalXY decalxy;
     decalxy.decal.type = DecalId::TYPE_BEL;
     decalxy.decal.index = bel.index;
+    decalxy.decal.active = bel_to_cell.at(bel.index) != IdString();
     return decalxy;
 }
 
@@ -510,18 +512,25 @@ DecalXY Arch::getWireDecal(WireId wire) const
     DecalXY decalxy;
     decalxy.decal.type = DecalId::TYPE_WIRE;
     decalxy.decal.index = wire.index;
+    decalxy.decal.active = wire_to_net.at(wire.index) != IdString();
     return decalxy;
 }
 
 DecalXY Arch::getPipDecal(PipId pip) const
 {
     DecalXY decalxy;
+    decalxy.decal.type = DecalId::TYPE_PIP;
+    decalxy.decal.index = pip.index;
+    decalxy.decal.active = pip_to_net.at(pip.index) != IdString();
     return decalxy;
 };
 
 DecalXY Arch::getGroupDecal(GroupId group) const
 {
     DecalXY decalxy;
+    decalxy.decal.type = DecalId::TYPE_GROUP;
+    decalxy.decal.index = (group.type << 16) | (group.x << 8) | (group.y);
+    decalxy.decal.active = true;
     return decalxy;
 };
 
@@ -549,8 +558,7 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
         int n = chip_info->wire_data[wire.index].num_segments;
         const WireSegmentPOD *p = chip_info->wire_data[wire.index].segments.get();
 
-        GraphicElement::style_t style =
-                wire_to_net.at(wire.index) != IdString() ? GraphicElement::G_ACTIVE : GraphicElement::G_INACTIVE;
+        GraphicElement::style_t style = decal.active ? GraphicElement::G_ACTIVE : GraphicElement::G_INACTIVE;
 
         for (int i = 0; i < n; i++)
             gfxTileWire(ret, p[i].x, p[i].y, GfxTileWireId(p[i].index), style);
@@ -565,7 +573,7 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
         if (bel_type == TYPE_ICESTORM_LC) {
             GraphicElement el;
             el.type = GraphicElement::G_BOX;
-            el.style = bel_to_cell.at(bel.index) != IdString() ? GraphicElement::G_ACTIVE : GraphicElement::G_INACTIVE;
+            el.style = decal.active ? GraphicElement::G_ACTIVE : GraphicElement::G_INACTIVE;
             el.x1 = chip_info->bel_data[bel.index].x + logic_cell_x1;
             el.x2 = chip_info->bel_data[bel.index].x + logic_cell_x2;
             el.y1 = chip_info->bel_data[bel.index].y + logic_cell_y1 +
@@ -635,14 +643,42 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
         }
 
         if (bel_type == TYPE_ICESTORM_RAM) {
-            GraphicElement el;
-            el.type = GraphicElement::G_BOX;
-            el.x1 = chip_info->bel_data[bel.index].x + 0.1;
-            el.x2 = chip_info->bel_data[bel.index].x + 0.9;
-            el.y1 = chip_info->bel_data[bel.index].y + 0.1;
-            el.y2 = chip_info->bel_data[bel.index].y + 1.9;
-            el.z = 0;
-            ret.push_back(el);
+            for (int i = 0; i < 2; i++)
+            {
+                int tx = chip_info->bel_data[bel.index].x;
+                int ty = chip_info->bel_data[bel.index].y + i;
+
+                GraphicElement el;
+                el.type = GraphicElement::G_BOX;
+                el.style = decal.active ? GraphicElement::G_ACTIVE : GraphicElement::G_INACTIVE;
+                el.x1 = chip_info->bel_data[bel.index].x + logic_cell_x1;
+                el.x2 = chip_info->bel_data[bel.index].x + logic_cell_x2;
+                el.y1 = chip_info->bel_data[bel.index].y + logic_cell_y1;
+                el.y2 = chip_info->bel_data[bel.index].y + logic_cell_y2 + 7*logic_cell_pitch;
+                el.z = 0;
+                ret.push_back(el);
+
+                // Main switchbox
+                GraphicElement main_sw;
+                main_sw.type = GraphicElement::G_BOX;
+                main_sw.style = GraphicElement::G_FRAME;
+                main_sw.x1 = tx + main_swbox_x1;
+                main_sw.x2 = tx + main_swbox_x2;
+                main_sw.y1 = ty + main_swbox_y1;
+                main_sw.y2 = ty + main_swbox_y2;
+                ret.push_back(main_sw);
+
+                // Local tracks to LUT input switchbox
+                GraphicElement local_sw;
+                local_sw.type = GraphicElement::G_BOX;
+                local_sw.style = GraphicElement::G_FRAME;
+                local_sw.x1 = tx + local_swbox_x1;
+                local_sw.x2 = tx + local_swbox_x2;
+                local_sw.y1 = ty + local_swbox_y1;
+                local_sw.y2 = ty + local_swbox_y2;
+                local_sw.z = 0;
+                ret.push_back(local_sw);
+            }
         }
     }
 
@@ -822,16 +858,6 @@ BelId ArchRProxyMethods::getBelByName(IdString name) const
 
 // -----------------------------------------------------------------------
 
-void ArchRWProxyMethods::bindWire(WireId wire, IdString net, PlaceStrength strength)
-{
-    NPNR_ASSERT(wire != WireId());
-    NPNR_ASSERT(parent_->wire_to_net[wire.index] == IdString());
-
-    parent_->wire_to_net[wire.index] = net;
-    parent_->nets[net]->wires[wire].pip = PipId();
-    parent_->nets[net]->wires[wire].strength = strength;
-}
-
 void ArchRWProxyMethods::bindBel(BelId bel, IdString cell, PlaceStrength strength)
 {
     NPNR_ASSERT(bel != BelId());
@@ -839,6 +865,7 @@ void ArchRWProxyMethods::bindBel(BelId bel, IdString cell, PlaceStrength strengt
     parent_->bel_to_cell[bel.index] = cell;
     parent_->cells[cell]->bel = bel;
     parent_->cells[cell]->belStrength = strength;
+    parent_->refreshUiBel(bel);
 }
 
 void ArchRWProxyMethods::unbindBel(BelId bel)
@@ -848,6 +875,18 @@ void ArchRWProxyMethods::unbindBel(BelId bel)
     parent_->cells[parent_->bel_to_cell[bel.index]]->bel = BelId();
     parent_->cells[parent_->bel_to_cell[bel.index]]->belStrength = STRENGTH_NONE;
     parent_->bel_to_cell[bel.index] = IdString();
+    parent_->refreshUiBel(bel);
+}
+
+void ArchRWProxyMethods::bindWire(WireId wire, IdString net, PlaceStrength strength)
+{
+    NPNR_ASSERT(wire != WireId());
+    NPNR_ASSERT(parent_->wire_to_net[wire.index] == IdString());
+
+    parent_->wire_to_net[wire.index] = net;
+    parent_->nets[net]->wires[wire].pip = PipId();
+    parent_->nets[net]->wires[wire].strength = strength;
+    parent_->refreshUiWire(wire);
 }
 
 void ArchRWProxyMethods::unbindWire(WireId wire)
@@ -863,10 +902,12 @@ void ArchRWProxyMethods::unbindWire(WireId wire)
     if (pip != PipId()) {
         parent_->pip_to_net[pip.index] = IdString();
         parent_->switches_locked[parent_->chip_info->pip_data[pip.index].switch_index] = IdString();
+        parent_->refreshUiPip(pip);
     }
 
     net_wires.erase(it);
     parent_->wire_to_net[wire.index] = IdString();
+    parent_->refreshUiWire(wire);
 }
 
 void ArchRWProxyMethods::bindPip(PipId pip, IdString net, PlaceStrength strength)
@@ -884,6 +925,9 @@ void ArchRWProxyMethods::bindPip(PipId pip, IdString net, PlaceStrength strength
     parent_->wire_to_net[dst.index] = net;
     parent_->nets[net]->wires[dst].pip = pip;
     parent_->nets[net]->wires[dst].strength = strength;
+
+    parent_->refreshUiPip(pip);
+    parent_->refreshUiWire(dst);
 }
 
 void ArchRWProxyMethods::unbindPip(PipId pip)
@@ -900,6 +944,9 @@ void ArchRWProxyMethods::unbindPip(PipId pip)
 
     parent_->pip_to_net[pip.index] = IdString();
     parent_->switches_locked[parent_->chip_info->pip_data[pip.index].switch_index] = IdString();
+
+    parent_->refreshUiPip(pip);
+    parent_->refreshUiWire(dst);
 }
 
 CellInfo *ArchRWProxyMethods::getCell(IdString cell)

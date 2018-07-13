@@ -1,7 +1,8 @@
 /*
  *  nextpnr -- Next Generation Place and Route
  *
- *  Copyright (C) 2018  David Shah <david@symbioticeda.com>
+ *  Copyright (C) 2018  Miodrag Milanovic <miodrag@symbioticeda.com>
+ *  Copyright (C) 2018  Alex Tsui
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -17,15 +18,41 @@
  *
  */
 
-#ifndef PACK_H
-#define PACK_H
+#ifndef PYCONSOLE_H
+#define PYCONSOLE_H
 
+#ifndef NO_PYTHON
+
+#include <QColor>
+#include <QMimeData>
+#include <QTextEdit>
+#include "ParseHelper.h"
+#include "ParseListener.h"
 #include "nextpnr.h"
+
+class QWidget;
+class QKeyEvent;
 
 NEXTPNR_NAMESPACE_BEGIN
 
-bool pack_design(Context *ctx);
+class PythonConsole : public QTextEdit, public ParseListener
+{
+    Q_OBJECT
+
+  public:
+    PythonConsole(QWidget *parent = 0);
+
+    void displayString(QString text);
+    void moveCursorToEnd();
+    virtual void parseEvent(const ParseMessage &message);
+
+  protected:
+    static const QColor NORMAL_COLOR;
+    static const QColor ERROR_COLOR;
+    static const QColor OUTPUT_COLOR;
+};
 
 NEXTPNR_NAMESPACE_END
+#endif // NO_PYTHON
 
-#endif // ROUTE_H
+#endif // PYCONSOLE_H

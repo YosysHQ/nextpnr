@@ -21,7 +21,7 @@
 #error Include "archdefs.h" via "nextpnr.h" only.
 #endif
 
-#include <boost/functional/hash_fwd.hpp>
+#include <boost/functional/hash.hpp>
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -144,6 +144,7 @@ struct DecalId
         TYPE_GROUP
     } type = TYPE_NONE;
     int32_t index = -1;
+    bool active = false;
 
     bool operator==(const DecalId &other) const { return (type == other.type) && (index == other.index); }
     bool operator!=(const DecalId &other) const { return (type != other.type) || (index != other.index); }

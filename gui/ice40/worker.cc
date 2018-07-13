@@ -23,7 +23,6 @@
 #include "design_utils.h"
 #include "jsonparse.h"
 #include "log.h"
-#include "pack.h"
 #include "pcf.h"
 #include "timing.h"
 
@@ -97,7 +96,7 @@ void Worker::pack()
 {
     Q_EMIT taskStarted();
     try {
-        bool res = pack_design(ctx);
+        bool res = ctx->pack();
         print_utilisation(ctx);
         Q_EMIT pack_finished(res);
     } catch (WorkerInterruptionRequested) {
