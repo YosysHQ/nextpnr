@@ -80,7 +80,7 @@ bool Arch::isBelLocationValid(BelId bel) const
     if (getBelType(bel) == TYPE_ICESTORM_LC) {
         std::vector<const CellInfo *> bel_cells;
         for (auto bel_other : getBelsAtSameTile(bel)) {
-            IdString cell_other = getBoundBelCell(bel_other);
+            IdString cell_other = getBoundBelCellUnlocked(bel_other);
             if (cell_other != IdString()) {
                 const CellInfo *ci_other = cells.at(cell_other).get();
                 bel_cells.push_back(ci_other);
@@ -88,7 +88,7 @@ bool Arch::isBelLocationValid(BelId bel) const
         }
         return logicCellsCompatible(bel_cells);
     } else {
-        IdString cellId = getBoundBelCell(bel);
+        IdString cellId = getBoundBelCellUnlocked(bel);
         if (cellId == IdString())
             return true;
         else
@@ -104,7 +104,7 @@ bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const
         std::vector<const CellInfo *> bel_cells;
 
         for (auto bel_other : getBelsAtSameTile(bel)) {
-            IdString cell_other = getBoundBelCell(bel_other);
+            IdString cell_other = getBoundBelCellUnlocked(bel_other);
             if (cell_other != IdString() && bel_other != bel) {
                 const CellInfo *ci_other = cells.at(cell_other).get();
                 bel_cells.push_back(ci_other);

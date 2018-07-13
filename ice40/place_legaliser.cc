@@ -143,7 +143,7 @@ class PlacementLegaliser
                 // Using the non-standard API here to get (x, y, z) rather than just (x, y)
                 auto bi = ctx->chip_info->bel_data[bel.index];
                 int x = bi.x, y = bi.y, z = bi.z;
-                IdString cell = ctx->getBoundBelCell(bel);
+                IdString cell = ctx->getBoundBelCellUnlocked(bel);
                 if (cell != IdString() && ctx->cells.at(cell)->belStrength >= STRENGTH_FIXED)
                     logic_bels.at(x).at(y).at(z) = std::make_pair(bel, true); // locked out of use
                 else
@@ -331,16 +331,16 @@ class PlacementLegaliser
         NPNR_ASSERT(!loc.second);
         BelId bel = loc.first;
         // Check if there is a cell presently at the location, which we will need to rip up
-        IdString existing = ctx->getBoundBelCell(bel);
+        IdString existing = ctx->getBoundBelCellUnlocked(bel);
         if (existing != IdString()) {
             // TODO: keep track of the previous position of the ripped up cell, as a hint
             rippedCells.insert(existing);
-            ctx->unbindBel(bel);
+            ctx->unbindBelUnlocked(bel);
         }
         if (cell->bel != BelId()) {
-            ctx->unbindBel(cell->bel);
+            ctx->unbindBelUnlocked(cell->bel);
         }
-        ctx->bindBel(bel, cell->name, STRENGTH_LOCKED);
+        ctx->bindBelUnlocked(bel, cell->name, STRENGTH_LOCKED);
         rippedCells.erase(cell->name); // If cell was ripped up previously, no need to re-place
         loc.second = true;             // Bel is now unavailable for further use
     }
@@ -435,7 +435,7 @@ class PlacementLegaliser
                         CellInfo *target = nullptr;
                         for (int z = 0; z < 8; z++) {
                             BelId bel = logic_bels.at(x).at(y).at(z).first;
-                            IdString cell = ctx->getBoundBelCell(bel);
+                            IdString cell = ctx->getBoundBelCellUnlocked(bel);
                             if (cell != IdString()) {
                                 CellInfo *ci = ctx->cells.at(cell).get();
                                 if (ci->belStrength >= STRENGTH_STRONG)
@@ -448,7 +448,7 @@ class PlacementLegaliser
                             }
                         }
                         if (target != nullptr) {
-                            ctx->unbindBel(target->bel);
+                            ctx->unbindBelUnlocked(target->bel);
                             rippedCells.insert(target->name);
                             changed = true;
                         }

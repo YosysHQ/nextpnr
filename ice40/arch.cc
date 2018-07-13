@@ -242,6 +242,11 @@ IdString Arch::archArgsToId(ArchArgs args) const
 BelId Arch::getBelByName(IdString name) const
 {
     boost::lock_guard<boost::shared_mutex> lock(mtx_);
+    return getBelByNameUnlocked(name);
+}
+
+BelId Arch::getBelByNameUnlocked(IdString name) const
+{
     BelId ret;
 
     if (bel_by_name.empty()) {
@@ -276,8 +281,13 @@ BelRange Arch::getBelsAtSameTile(BelId bel) const
 
 WireId Arch::getWireBelPin(BelId bel, PortPin pin) const
 {
-    WireId ret;
     boost::shared_lock_guard<boost::shared_mutex> lock(mtx_);
+    return getWireBelPinUnlocked(bel, pin);
+}
+
+WireId Arch::getWireBelPinUnlocked(BelId bel, PortPin pin) const
+{
+    WireId ret;
 
     NPNR_ASSERT(bel != BelId());
 
@@ -297,8 +307,13 @@ WireId Arch::getWireBelPin(BelId bel, PortPin pin) const
 
 WireId Arch::getWireByName(IdString name) const
 {
-    WireId ret;
     boost::shared_lock_guard<boost::shared_mutex> lock(mtx_);
+    return getWireByNameUnlocked(name);
+}
+
+WireId Arch::getWireByNameUnlocked(IdString name) const
+{
+    WireId ret;
 
     if (wire_by_name.empty()) {
         for (int i = 0; i < chip_info->num_wires; i++)
@@ -316,8 +331,13 @@ WireId Arch::getWireByName(IdString name) const
 
 PipId Arch::getPipByName(IdString name) const
 {
-    PipId ret;
     boost::shared_lock_guard<boost::shared_mutex> lock(mtx_);
+    return getPipByNameUnlocked(name);
+}
+
+PipId Arch::getPipByNameUnlocked(IdString name) const
+{
+    PipId ret;
 
     if (pip_by_name.empty()) {
         for (int i = 0; i < chip_info->num_pips; i++) {
