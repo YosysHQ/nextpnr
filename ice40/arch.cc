@@ -603,14 +603,42 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
         }
 
         if (bel_type == TYPE_ICESTORM_RAM) {
-            GraphicElement el;
-            el.type = GraphicElement::G_BOX;
-            el.x1 = chip_info->bel_data[bel.index].x + 0.1;
-            el.x2 = chip_info->bel_data[bel.index].x + 0.9;
-            el.y1 = chip_info->bel_data[bel.index].y + 0.1;
-            el.y2 = chip_info->bel_data[bel.index].y + 1.9;
-            el.z = 0;
-            ret.push_back(el);
+            for (int i = 0; i < 2; i++)
+            {
+                int tx = chip_info->bel_data[bel.index].x;
+                int ty = chip_info->bel_data[bel.index].y + i;
+
+                GraphicElement el;
+                el.type = GraphicElement::G_BOX;
+                el.style = decal.active ? GraphicElement::G_ACTIVE : GraphicElement::G_INACTIVE;
+                el.x1 = chip_info->bel_data[bel.index].x + logic_cell_x1;
+                el.x2 = chip_info->bel_data[bel.index].x + logic_cell_x2;
+                el.y1 = chip_info->bel_data[bel.index].y + logic_cell_y1;
+                el.y2 = chip_info->bel_data[bel.index].y + logic_cell_y2 + 7*logic_cell_pitch;
+                el.z = 0;
+                ret.push_back(el);
+
+                // Main switchbox
+                GraphicElement main_sw;
+                main_sw.type = GraphicElement::G_BOX;
+                main_sw.style = GraphicElement::G_FRAME;
+                main_sw.x1 = tx + main_swbox_x1;
+                main_sw.x2 = tx + main_swbox_x2;
+                main_sw.y1 = ty + main_swbox_y1;
+                main_sw.y2 = ty + main_swbox_y2;
+                ret.push_back(main_sw);
+
+                // Local tracks to LUT input switchbox
+                GraphicElement local_sw;
+                local_sw.type = GraphicElement::G_BOX;
+                local_sw.style = GraphicElement::G_FRAME;
+                local_sw.x1 = tx + local_swbox_x1;
+                local_sw.x2 = tx + local_swbox_x2;
+                local_sw.y1 = ty + local_swbox_y1;
+                local_sw.y2 = ty + local_swbox_y2;
+                local_sw.z = 0;
+                ret.push_back(local_sw);
+            }
         }
     }
 
