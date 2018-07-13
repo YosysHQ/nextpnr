@@ -66,7 +66,6 @@ BaseMainWindow::BaseMainWindow(std::unique_ptr<Context> context, QWidget *parent
 
     DesignWidget *designview = new DesignWidget();
     designview->setMinimumWidth(300);
-    designview->setMaximumWidth(300);
     splitter_h->addWidget(designview);
 
     connect(this, SIGNAL(contextChanged(Context *)), designview, SLOT(newContext(Context *)));
