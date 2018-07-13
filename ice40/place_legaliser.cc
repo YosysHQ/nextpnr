@@ -119,13 +119,17 @@ class PlacementLegaliser
 
     bool legalise()
     {
-        log_info("Legalising design..\n");
+        log_info("Legalising logic cells...\n");
         init_logic_cells();
+        log_info("Legalising carries...\n");
         bool legalised_carries = legalise_carries();
         if (!legalised_carries && !ctx->force)
             return false;
+        log_info("Legalising others...\n");
         legalise_others();
+        log_info("Legalising logic tiles...\n");
         legalise_logic_tiles();
+        log_info("Replacing cells...\n");
         bool replaced_cells = replace_cells();
         return legalised_carries && replaced_cells;
     }
@@ -133,6 +137,7 @@ class PlacementLegaliser
   private:
     void init_logic_cells()
     {
+        auto &&proxy = ctx->rproxy();
         for (auto bel : ctx->getBels()) {
             // Initialise the logic bels vector with unavailable invalid bels, dimensions [0..width][0..height[0..7]
             logic_bels.resize(ctx->chip_info->width + 1,
@@ -143,7 +148,7 @@ class PlacementLegaliser
                 // Using the non-standard API here to get (x, y, z) rather than just (x, y)
                 auto bi = ctx->chip_info->bel_data[bel.index];
                 int x = bi.x, y = bi.y, z = bi.z;
-                IdString cell = ctx->getBoundBelCellUnlocked(bel);
+                IdString cell = proxy.getBoundBelCell(bel);
                 if (cell != IdString() && ctx->cells.at(cell)->belStrength >= STRENGTH_FIXED)
                     logic_bels.at(x).at(y).at(z) = std::make_pair(bel, true); // locked out of use
                 else
@@ -195,28 +200,33 @@ class PlacementLegaliser
             }
         }
         bool success = true;
+
         // Find midpoints for all chains, before we start tearing them up
         std::vector<CellChain> all_chains;
-        for (auto &base_chain : carry_chains) {
-            if (ctx->verbose) {
-                log_info("Found carry chain: \n");
-                for (auto entry : base_chain.cells)
-                    log_info("     %s\n", entry->name.c_str(ctx));
-                log_info("\n");
-            }
-            std::vector<CellChain> split_chains = split_carry_chain(base_chain);
-            for (auto &chain : split_chains) {
-                get_chain_midpoint(ctx, chain, chain.mid_x, chain.mid_y);
-                all_chains.push_back(chain);
+        {
+            auto &&proxy = ctx->rproxy();
+            for (auto &base_chain : carry_chains) {
+                if (ctx->verbose) {
+                    log_info("Found carry chain: \n");
+                    for (auto entry : base_chain.cells)
+                        log_info("     %s\n", entry->name.c_str(ctx));
+                    log_info("\n");
+                }
+                std::vector<CellChain> split_chains = split_carry_chain(proxy, base_chain);
+                for (auto &chain : split_chains) {
+                    get_chain_midpoint(ctx, chain, chain.mid_x, chain.mid_y);
+                    all_chains.push_back(chain);
+                }
             }
         }
         // Actual chain placement
+        auto &&proxy = ctx->rwproxy();
         for (auto &chain : all_chains) {
             if (ctx->verbose)
                 log_info("Placing carry chain starting at '%s'\n", chain.cells.front()->name.c_str(ctx));
             float base_x = chain.mid_x, base_y = chain.mid_y - (chain.cells.size() / 16.0f);
             // Find Bel meeting requirements closest to the target base, returning location as <x, y, z>
-            auto chain_origin_bel = find_closest_bel(base_x, base_y, chain);
+            auto chain_origin_bel = find_closest_bel(proxy, base_x, base_y, chain);
             int place_x = std::get<0>(chain_origin_bel), place_y = std::get<1>(chain_origin_bel),
                 place_z = std::get<2>(chain_origin_bel);
             if (place_x == -1) {
@@ -233,7 +243,7 @@ class PlacementLegaliser
             // Place carry chain
             for (int i = 0; i < int(chain.cells.size()); i++) {
                 int target_z = place_y * 8 + place_z + i;
-                place_lc(chain.cells.at(i), place_x, target_z / 8, target_z % 8);
+                place_lc(proxy, chain.cells.at(i), place_x, target_z / 8, target_z % 8);
                 if (ctx->verbose)
                     log_info("    Cell '%s' placed at (%d, %d, %d)\n", chain.cells.at(i)->name.c_str(ctx), place_x,
                              target_z / 8, target_z % 8);
@@ -243,7 +253,7 @@ class PlacementLegaliser
     }
 
     // Find Bel closest to a location, meeting chain requirements
-    std::tuple<int, int, int> find_closest_bel(float target_x, float target_y, CellChain &chain)
+    std::tuple<int, int, int> find_closest_bel(ArchRWProxy &proxy, float target_x, float target_y, CellChain &chain)
     {
         std::tuple<int, int, int> best_origin = std::make_tuple(-1, -1, -1);
         wirelen_t best_wirelength = std::numeric_limits<wirelen_t>::max();
@@ -260,7 +270,7 @@ class PlacementLegaliser
                         valid = false;
                         break;
                     } else {
-                        wirelen += get_cell_wirelength_at_bel(ctx, chain.cells.at(k), lb.first);
+                        wirelen += get_cell_wirelength_at_bel(proxy, ctx, chain.cells.at(k), lb.first);
                     }
                 }
                 if (valid && wirelen < best_wirelength) {
@@ -273,7 +283,7 @@ class PlacementLegaliser
     }
 
     // Split a carry chain into multiple legal chains
-    std::vector<CellChain> split_carry_chain(CellChain &carryc)
+    std::vector<CellChain> split_carry_chain(const ArchRProxy &proxy, CellChain &carryc)
     {
         bool start_of_chain = true;
         std::vector<CellChain> chains;
@@ -298,7 +308,7 @@ class PlacementLegaliser
             }
             tile.push_back(cell);
             chains.back().cells.push_back(cell);
-            bool split_chain = (!ctx->logicCellsCompatible(tile)) || (int(chains.back().cells.size()) > max_length);
+            bool split_chain = (!proxy.logicCellsCompatible(tile)) || (int(chains.back().cells.size()) > max_length);
             if (split_chain) {
                 CellInfo *passout = make_carry_pass_out(cell->ports.at(ctx->id("COUT")));
                 tile.pop_back();
@@ -325,22 +335,22 @@ class PlacementLegaliser
     }
 
     // Place a logic cell at a given grid location, handling rip-up etc
-    void place_lc(CellInfo *cell, int x, int y, int z)
+    void place_lc(ArchRWProxy &proxy, CellInfo *cell, int x, int y, int z)
     {
         auto &loc = logic_bels.at(x).at(y).at(z);
         NPNR_ASSERT(!loc.second);
         BelId bel = loc.first;
         // Check if there is a cell presently at the location, which we will need to rip up
-        IdString existing = ctx->getBoundBelCellUnlocked(bel);
+        IdString existing = proxy.getBoundBelCell(bel);
         if (existing != IdString()) {
             // TODO: keep track of the previous position of the ripped up cell, as a hint
             rippedCells.insert(existing);
-            ctx->unbindBelUnlocked(bel);
+            proxy.unbindBel(bel);
         }
         if (cell->bel != BelId()) {
-            ctx->unbindBelUnlocked(cell->bel);
+            proxy.unbindBel(cell->bel);
         }
-        ctx->bindBelUnlocked(bel, cell->name, STRENGTH_LOCKED);
+        proxy.bindBel(bel, cell->name, STRENGTH_LOCKED);
         rippedCells.erase(cell->name); // If cell was ripped up previously, no need to re-place
         loc.second = true;             // Bel is now unavailable for further use
     }
@@ -423,19 +433,20 @@ class PlacementLegaliser
     // Legalise logic tiles
     void legalise_logic_tiles()
     {
+        auto &&proxy = ctx->rwproxy();
         int width = ctx->chip_info->width, height = ctx->chip_info->height;
         for (int x = 1; x < width; x++) {
             for (int y = 1; y < height; y++) {
                 BelId tileBel = logic_bels.at(x).at(y).at(0).first;
                 if (tileBel != BelId()) {
                     bool changed = true;
-                    while (!ctx->isBelLocationValid(tileBel) && changed) {
+                    while (!proxy.isBelLocationValid(tileBel) && changed) {
                         changed = false;
                         int max_score = 0;
                         CellInfo *target = nullptr;
                         for (int z = 0; z < 8; z++) {
                             BelId bel = logic_bels.at(x).at(y).at(z).first;
-                            IdString cell = ctx->getBoundBelCellUnlocked(bel);
+                            IdString cell = proxy.getBoundBelCell(bel);
                             if (cell != IdString()) {
                                 CellInfo *ci = ctx->cells.at(cell).get();
                                 if (ci->belStrength >= STRENGTH_STRONG)
@@ -448,7 +459,7 @@ class PlacementLegaliser
                             }
                         }
                         if (target != nullptr) {
-                            ctx->unbindBelUnlocked(target->bel);
+                            proxy.unbindBel(target->bel);
                             rippedCells.insert(target->name);
                             changed = true;
                         }
@@ -461,13 +472,14 @@ class PlacementLegaliser
     // Legalise other tiles
     void legalise_others()
     {
+        auto &&proxy = ctx->rwproxy();
         std::vector<CellInfo *> legalised_others;
         for (auto cell : sorted(ctx->cells)) {
             CellInfo *ci = cell.second;
             if (!is_lc(ctx, ci)) {
                 if (ci->belStrength < STRENGTH_STRONG && ci->bel != BelId()) {
-                    if (!ctx->isValidBelForCell(ci, ci->bel)) {
-                        place_single_cell(ctx, ci, true);
+                    if (!proxy.isValidBelForCell(ci, ci->bel)) {
+                        place_single_cell(proxy, ctx, ci, true);
                     }
                     legalised_others.push_back(ci);
                 }
@@ -482,10 +494,11 @@ class PlacementLegaliser
     // Replace ripped-up cells
     bool replace_cells()
     {
+        auto &&proxy = ctx->rwproxy();
         bool success = true;
         for (auto cell : sorted(rippedCells)) {
             CellInfo *ci = ctx->cells.at(cell).get();
-            bool placed = place_single_cell(ctx, ci, true);
+            bool placed = place_single_cell(proxy, ctx, ci, true);
             if (!placed) {
                 if (ctx->force) {
                     log_warning("failed to place cell '%s' of type '%s'\n", cell.c_str(ctx), ci->type.c_str(ctx));
