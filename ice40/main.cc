@@ -47,21 +47,22 @@
 
 USING_NEXTPNR_NAMESPACE
 
-void svg_dump_decal(const Context &ctx, const DecalXY &decal)
+void svg_dump_decal(const Context *ctx, const DecalXY &decal)
 {
     const float scale = 10.0, offset = 10.0;
     const std::string style = "stroke=\"black\" stroke-width=\"0.1\" fill=\"none\"";
 
-    for (auto &el : ctx.getDecalGraphics(decal.decal)) {
+    for (auto &el : ctx->getDecalGraphics(decal.decal)) {
         if (el.type == GraphicElement::G_BOX) {
-            std::cout << "<rect x=\"" << (offset + scale * (decal.x + el.x1)) << "\" y=\"" << (offset + scale * (decal.y + el.y1)) << "\" height=\""
-                      << (scale * (el.y2 - el.y1)) << "\" width=\"" << (scale * (el.x2 - el.x1)) << "\" " << style
-                      << "/>\n";
+            std::cout << "<rect x=\"" << (offset + scale * (decal.x + el.x1)) << "\" y=\""
+                      << (offset + scale * (decal.y + el.y1)) << "\" height=\"" << (scale * (el.y2 - el.y1))
+                      << "\" width=\"" << (scale * (el.x2 - el.x1)) << "\" " << style << "/>\n";
         }
 
         if (el.type == GraphicElement::G_LINE) {
-            std::cout << "<line x1=\"" << (offset + scale * (decal.x + el.x1)) << "\" y1=\"" << (offset + scale * (decal.y + el.y1)) << "\" x2=\""
-                      << (offset + scale * (decal.x + el.x2)) << "\" y2=\"" << (offset + scale * (decal.y + el.y2)) << "\" " << style << "/>\n";
+            std::cout << "<line x1=\"" << (offset + scale * (decal.x + el.x1)) << "\" y1=\""
+                      << (offset + scale * (decal.y + el.y1)) << "\" x2=\"" << (offset + scale * (decal.x + el.x2))
+                      << "\" y2=\"" << (offset + scale * (decal.y + el.y2)) << "\" " << style << "/>\n";
         }
     }
 }
@@ -130,16 +131,18 @@ int main(int argc, char *argv[])
 
         if (vm.count("help") || argc == 1) {
         help:
-            std::cout << boost::filesystem::basename(argv[0]) << " -- Next Generation Place and Route (git "
-                                                                 "sha1 " GIT_COMMIT_HASH_STR ")\n";
+            std::cout << boost::filesystem::basename(argv[0])
+                      << " -- Next Generation Place and Route (git "
+                         "sha1 " GIT_COMMIT_HASH_STR ")\n";
             std::cout << "\n";
             std::cout << options << "\n";
             return argc != 1;
         }
 
         if (vm.count("version")) {
-            std::cout << boost::filesystem::basename(argv[0]) << " -- Next Generation Place and Route (git "
-                                                                 "sha1 " GIT_COMMIT_HASH_STR ")\n";
+            std::cout << boost::filesystem::basename(argv[0])
+                      << " -- Next Generation Place and Route (git "
+                         "sha1 " GIT_COMMIT_HASH_STR ")\n";
             return 1;
         }
 
@@ -269,110 +272,126 @@ int main(int argc, char *argv[])
             return 1;
         }
 
-        Context ctx(chipArgs);
+        std::unique_ptr<Context> ctx = std::unique_ptr<Context>(new Context(chipArgs));
 
         if (vm.count("verbose")) {
-            ctx.verbose = true;
+            ctx->verbose = true;
         }
 
         if (vm.count("debug")) {
-            ctx.verbose = true;
-            ctx.debug = true;
+            ctx->verbose = true;
+            ctx->debug = true;
         }
 
         if (vm.count("force")) {
-            ctx.force = true;
+            ctx->force = true;
         }
 
         if (vm.count("seed")) {
-            ctx.rngseed(vm["seed"].as<int>());
+            ctx->rngseed(vm["seed"].as<int>());
         }
 
         if (vm.count("svg")) {
             std::cout << "<svg xmlns=\"http://www.w3.org/2000/svg\" "
                          "xmlns:xlink=\"http://www.w3.org/1999/xlink\">\n";
-            for (auto bel : ctx.getBels()) {
-                std::cout << "<!-- " << ctx.getBelName(bel).str(&ctx) << " -->\n";
-                svg_dump_decal(ctx, ctx.getBelDecal(bel));
+            for (auto bel : ctx->getBels()) {
+                std::cout << "<!-- " << ctx->getBelName(bel).str(ctx.get()) << " -->\n";
+                svg_dump_decal(ctx.get(), ctx->getBelDecal(bel));
             }
             std::cout << "<!-- Frame -->\n";
-            svg_dump_decal(ctx, ctx.getFrameDecal());
+            svg_dump_decal(ctx.get(), ctx->getFrameDecal());
             std::cout << "</svg>\n";
         }
 
         if (vm.count("tmfuzz")) {
             std::vector<WireId> src_wires, dst_wires;
 
-            /*for (auto w : ctx.getWires())
+            /*for (auto w : ctx->getWires())
                 src_wires.push_back(w);*/
-            for (auto b : ctx.getBels()) {
-                if (ctx.getBelType(b) == TYPE_ICESTORM_LC) {
-                    src_wires.push_back(ctx.getWireBelPin(b, PIN_O));
+            for (auto b : ctx->getBels()) {
+                if (ctx->getBelType(b) == TYPE_ICESTORM_LC) {
+                    src_wires.push_back(ctx->getWireBelPin(b, PIN_O));
                 }
-                if (ctx.getBelType(b) == TYPE_SB_IO) {
-                    src_wires.push_back(ctx.getWireBelPin(b, PIN_D_IN_0));
-                }
-            }
-
-            for (auto b : ctx.getBels()) {
-                if (ctx.getBelType(b) == TYPE_ICESTORM_LC) {
-                    dst_wires.push_back(ctx.getWireBelPin(b, PIN_I0));
-                    dst_wires.push_back(ctx.getWireBelPin(b, PIN_I1));
-                    dst_wires.push_back(ctx.getWireBelPin(b, PIN_I2));
-                    dst_wires.push_back(ctx.getWireBelPin(b, PIN_I3));
-                    dst_wires.push_back(ctx.getWireBelPin(b, PIN_CEN));
-                    dst_wires.push_back(ctx.getWireBelPin(b, PIN_CIN));
-                }
-                if (ctx.getBelType(b) == TYPE_SB_IO) {
-                    dst_wires.push_back(ctx.getWireBelPin(b, PIN_D_OUT_0));
-                    dst_wires.push_back(ctx.getWireBelPin(b, PIN_OUTPUT_ENABLE));
+                if (ctx->getBelType(b) == TYPE_SB_IO) {
+                    src_wires.push_back(ctx->getWireBelPin(b, PIN_D_IN_0));
                 }
             }
 
-            ctx.shuffle(src_wires);
-            ctx.shuffle(dst_wires);
+            for (auto b : ctx->getBels()) {
+                if (ctx->getBelType(b) == TYPE_ICESTORM_LC) {
+                    dst_wires.push_back(ctx->getWireBelPin(b, PIN_I0));
+                    dst_wires.push_back(ctx->getWireBelPin(b, PIN_I1));
+                    dst_wires.push_back(ctx->getWireBelPin(b, PIN_I2));
+                    dst_wires.push_back(ctx->getWireBelPin(b, PIN_I3));
+                    dst_wires.push_back(ctx->getWireBelPin(b, PIN_CEN));
+                    dst_wires.push_back(ctx->getWireBelPin(b, PIN_CIN));
+                }
+                if (ctx->getBelType(b) == TYPE_SB_IO) {
+                    dst_wires.push_back(ctx->getWireBelPin(b, PIN_D_OUT_0));
+                    dst_wires.push_back(ctx->getWireBelPin(b, PIN_OUTPUT_ENABLE));
+                }
+            }
+
+            ctx->shuffle(src_wires);
+            ctx->shuffle(dst_wires);
 
             for (int i = 0; i < int(src_wires.size()) && i < int(dst_wires.size()); i++) {
                 delay_t actual_delay;
                 WireId src = src_wires[i], dst = dst_wires[i];
-                if (!ctx.getActualRouteDelay(src, dst, actual_delay))
+                if (!ctx->getActualRouteDelay(src, dst, actual_delay))
                     continue;
-                printf("%s %s %.3f %.3f %d %d %d %d %d %d\n", ctx.getWireName(src).c_str(&ctx),
-                       ctx.getWireName(dst).c_str(&ctx), ctx.getDelayNS(actual_delay),
-                       ctx.getDelayNS(ctx.estimateDelay(src, dst)), ctx.chip_info->wire_data[src.index].x,
-                       ctx.chip_info->wire_data[src.index].y, ctx.chip_info->wire_data[src.index].type,
-                       ctx.chip_info->wire_data[dst.index].x, ctx.chip_info->wire_data[dst.index].y,
-                       ctx.chip_info->wire_data[dst.index].type);
+                printf("%s %s %.3f %.3f %d %d %d %d %d %d\n", ctx->getWireName(src).c_str(ctx.get()),
+                       ctx->getWireName(dst).c_str(ctx.get()), ctx->getDelayNS(actual_delay),
+                       ctx->getDelayNS(ctx->estimateDelay(src, dst)), ctx->chip_info->wire_data[src.index].x,
+                       ctx->chip_info->wire_data[src.index].y, ctx->chip_info->wire_data[src.index].type,
+                       ctx->chip_info->wire_data[dst.index].x, ctx->chip_info->wire_data[dst.index].y,
+                       ctx->chip_info->wire_data[dst.index].type);
             }
         }
+        if (vm.count("freq"))
+            ctx->target_freq = vm["freq"].as<double>() * 1e6;
+        ctx->timing_driven = true;
+        if (vm.count("no-tmdriv"))
+            ctx->timing_driven = false;
 
+#ifndef NO_GUI
+        if (vm.count("gui")) {
+            Application a(argc, argv);
+            MainWindow w(std::move(ctx));
+            if (vm.count("json")) {
+                std::string filename = vm["json"].as<std::string>();
+                std::string pcf = "";
+                if (vm.count("pcf"))
+                    pcf = vm["pcf"].as<std::string>();
+                w.load_json(filename, pcf);
+            }
+            w.show();
+
+            return a.exec();
+        }
+#endif
         if (vm.count("json")) {
             std::string filename = vm["json"].as<std::string>();
             std::ifstream f(filename);
-            if (!parse_json_file(f, filename, &ctx))
+            if (!parse_json_file(f, filename, ctx.get()))
                 log_error("Loading design failed.\n");
 
             if (vm.count("pcf")) {
                 std::ifstream pcf(vm["pcf"].as<std::string>());
-                if (!apply_pcf(&ctx, pcf))
+                if (!apply_pcf(ctx.get(), pcf))
                     log_error("Loading PCF failed.\n");
             }
 
-            if (!pack_design(&ctx) && !ctx.force)
+            if (!pack_design(ctx.get()) && !ctx->force)
                 log_error("Packing design failed.\n");
-            if (vm.count("freq"))
-                ctx.target_freq = vm["freq"].as<double>() * 1e6;
-            assign_budget(&ctx);
-            ctx.check();
-            print_utilisation(&ctx);
-            ctx.timing_driven = true;
-            if (vm.count("no-tmdriv"))
-                ctx.timing_driven = false;
+            assign_budget(ctx.get());
+            ctx->check();
+            print_utilisation(ctx.get());
             if (!vm.count("pack-only")) {
-                if (!ctx.place() && !ctx.force)
+                if (!ctx->place() && !ctx->force)
                     log_error("Placing design failed.\n");
-                ctx.check();
-                if (!ctx.route() && !ctx.force)
+                ctx->check();
+                if (!ctx->route() && !ctx->force)
                     log_error("Routing design failed.\n");
             }
         }
@@ -380,29 +399,19 @@ int main(int argc, char *argv[])
         if (vm.count("asc")) {
             std::string filename = vm["asc"].as<std::string>();
             std::ofstream f(filename);
-            write_asc(&ctx, f);
+            write_asc(ctx.get(), f);
         }
 
 #ifndef NO_PYTHON
         if (vm.count("run")) {
             init_python(argv[0], true);
-            python_export_global("ctx", ctx);
+            python_export_global("ctx", *ctx.get());
 
             std::vector<std::string> files = vm["run"].as<std::vector<std::string>>();
             for (auto filename : files)
                 execute_python_file(filename.c_str());
 
             deinit_python();
-        }
-#endif
-
-#ifndef NO_GUI
-        if (vm.count("gui")) {
-            Application a(argc, argv);
-            MainWindow w;
-            w.show();
-
-            rc = a.exec();
         }
 #endif
         return rc;

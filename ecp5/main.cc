@@ -93,16 +93,18 @@ int main(int argc, char *argv[])
         }
 
         if (vm.count("help") || argc == 1) {
-            std::cout << boost::filesystem::basename(argv[0]) << " -- Next Generation Place and Route (git "
-                                                                 "sha1 " GIT_COMMIT_HASH_STR ")\n";
+            std::cout << boost::filesystem::basename(argv[0])
+                      << " -- Next Generation Place and Route (git "
+                         "sha1 " GIT_COMMIT_HASH_STR ")\n";
             std::cout << "\n";
             std::cout << options << "\n";
             return argc != 1;
         }
 
         if (vm.count("version")) {
-            std::cout << boost::filesystem::basename(argv[0]) << " -- Next Generation Place and Route (git "
-                                                                 "sha1 " GIT_COMMIT_HASH_STR ")\n";
+            std::cout << boost::filesystem::basename(argv[0])
+                      << " -- Next Generation Place and Route (git "
+                         "sha1 " GIT_COMMIT_HASH_STR ")\n";
             return 1;
         }
 
@@ -112,41 +114,51 @@ int main(int argc, char *argv[])
         args.type = ArchArgs::LFE5U_45F;
         args.package = "CABGA381";
         args.speed = 6;
-        Context ctx(args);
+        std::unique_ptr<Context> ctx = std::unique_ptr<Context>(new Context(args));
 
         if (vm.count("verbose")) {
-            ctx.verbose = true;
+            ctx->verbose = true;
         }
 
         if (vm.count("force")) {
-            ctx.force = true;
+            ctx->force = true;
         }
 
         if (vm.count("seed")) {
-            ctx.rngseed(vm["seed"].as<int>());
+            ctx->rngseed(vm["seed"].as<int>());
         }
 
+        ctx->timing_driven = true;
+        if (vm.count("no-tmdriv"))
+            ctx->timing_driven = false;
+
+#ifndef NO_GUI
+        if (vm.count("gui")) {
+            Application a(argc, argv);
+            MainWindow w(std::move(ctx));
+            w.show();
+
+            return a.exec();
+        }
+#endif
         if (vm.count("json")) {
             std::string filename = vm["json"].as<std::string>();
             std::ifstream f(filename);
-            if (!parse_json_file(f, filename, &ctx))
+            if (!parse_json_file(f, filename, ctx.get()))
                 log_error("Loading design failed.\n");
 
-            if (!pack_design(&ctx) && !ctx.force)
+            if (!pack_design(ctx.get()) && !ctx->force)
                 log_error("Packing design failed.\n");
             if (vm.count("freq"))
-                ctx.target_freq = vm["freq"].as<double>() * 1e6;
-            assign_budget(&ctx);
-            ctx.check();
-            print_utilisation(&ctx);
-            ctx.timing_driven = true;
-            if (vm.count("no-tmdriv"))
-                ctx.timing_driven = false;
+                ctx->target_freq = vm["freq"].as<double>() * 1e6;
+            assign_budget(ctx.get());
+            ctx->check();
+            print_utilisation(ctx.get());
 
-            if (!ctx.place() && !ctx.force)
+            if (!ctx->place() && !ctx->force)
                 log_error("Placing design failed.\n");
-            ctx.check();
-            if (!ctx.route() && !ctx.force)
+            ctx->check();
+            if (!ctx->route() && !ctx->force)
                 log_error("Routing design failed.\n");
 
             std::string basecfg;
@@ -160,7 +172,7 @@ int main(int argc, char *argv[])
             std::string textcfg;
             if (vm.count("textcfg"))
                 textcfg = vm["textcfg"].as<std::string>();
-            write_bitstream(&ctx, basecfg, textcfg, bitstream);
+            write_bitstream(ctx.get(), basecfg, textcfg, bitstream);
         }
 
 #ifndef NO_PYTHON
@@ -173,16 +185,6 @@ int main(int argc, char *argv[])
                 execute_python_file(filename.c_str());
 
             deinit_python();
-        }
-#endif
-
-#ifndef NO_GUI
-        if (vm.count("gui")) {
-            Application a(argc, argv);
-            MainWindow w;
-            w.show();
-
-            rc = a.exec();
         }
 #endif
         return rc;

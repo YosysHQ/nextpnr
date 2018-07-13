@@ -36,7 +36,8 @@ static void initBasenameResource() { Q_INIT_RESOURCE(base); }
 
 NEXTPNR_NAMESPACE_BEGIN
 
-BaseMainWindow::BaseMainWindow(QWidget *parent) : QMainWindow(parent), ctx(nullptr)
+BaseMainWindow::BaseMainWindow(std::unique_ptr<Context> context, QWidget *parent)
+        : QMainWindow(parent), ctx(std::move(context))
 {
     initBasenameResource();
     qRegisterMetaType<std::string>();

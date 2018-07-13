@@ -29,7 +29,7 @@ class MainWindow : public BaseMainWindow
     Q_OBJECT
 
   public:
-    explicit MainWindow(QWidget *parent = 0);
+    explicit MainWindow(std::unique_ptr<Context> context, QWidget *parent = 0);
     virtual ~MainWindow();
 
   public:

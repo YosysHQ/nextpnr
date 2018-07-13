@@ -23,7 +23,7 @@ static void initMainResource() { Q_INIT_RESOURCE(nextpnr); }
 
 NEXTPNR_NAMESPACE_BEGIN
 
-MainWindow::MainWindow(QWidget *parent) : BaseMainWindow(parent)
+MainWindow::MainWindow(std::unique_ptr<Context> context, QWidget *parent) : BaseMainWindow(std::move(context), parent)
 {
     initMainResource();
 
@@ -31,6 +31,7 @@ MainWindow::MainWindow(QWidget *parent) : BaseMainWindow(parent)
     setWindowTitle(title.c_str());
 
     createMenu();
+    Q_EMIT contextChanged(ctx.get());
 }
 
 MainWindow::~MainWindow() {}

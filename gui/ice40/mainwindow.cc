@@ -34,7 +34,8 @@ static void initMainResource() { Q_INIT_RESOURCE(nextpnr); }
 
 NEXTPNR_NAMESPACE_BEGIN
 
-MainWindow::MainWindow(QWidget *parent) : BaseMainWindow(parent), timing_driven(false)
+MainWindow::MainWindow(std::unique_ptr<Context> context, QWidget *parent)
+        : BaseMainWindow(std::move(context), parent), timing_driven(false)
 {
     initMainResource();
 
@@ -60,6 +61,8 @@ MainWindow::MainWindow(QWidget *parent) : BaseMainWindow(parent), timing_driven(
     connect(this, SIGNAL(contextChanged(Context *)), task, SIGNAL(contextChanged(Context *)));
 
     createMenu();
+
+    Q_EMIT contextChanged(ctx.get());
 }
 
 MainWindow::~MainWindow() { delete task; }
@@ -75,7 +78,7 @@ void MainWindow::createMenu()
     actionLoadJSON->setIcon(iconLoadJSON);
     actionLoadJSON->setStatusTip("Open an existing JSON file");
     connect(actionLoadJSON, SIGNAL(triggered()), this, SLOT(open_json()));
-    actionLoadJSON->setEnabled(false);
+    actionLoadJSON->setEnabled(true);
 
     actionLoadPCF = new QAction("Open PCF", this);
     QIcon iconLoadPCF;
@@ -239,22 +242,36 @@ void MainWindow::new_proj()
 
         if (ok && !item.isEmpty()) {
             disableActions();
+            preload_pcf = "";
             chipArgs.package = package.toStdString().c_str();
-            if (ctx)
-                delete ctx;
-            ctx = new Context(chipArgs);
+            ctx = std::unique_ptr<Context>(new Context(chipArgs));
 
-            Q_EMIT contextChanged(ctx);
-
-            actionLoadJSON->setEnabled(true);
+            Q_EMIT contextChanged(ctx.get());
         }
     }
+}
+
+void MainWindow::load_json(std::string filename, std::string pcf)
+{
+    tabWidget->setCurrentWidget(info);
+    preload_pcf = pcf;
+    disableActions();
+    Q_EMIT task->loadfile(filename);
+}
+
+void MainWindow::load_pcf(std::string filename)
+{
+    tabWidget->setCurrentWidget(info);
+
+    disableActions();
+    Q_EMIT task->loadpcf(filename);
 }
 
 void MainWindow::newContext(Context *ctx)
 {
     std::string title = "nextpnr-ice40 - " + ctx->getChipName() + " ( " + chipArgs.package + " )";
     setWindowTitle(title.c_str());
+    info->clearBuffer();
 }
 
 void MainWindow::open_proj()
@@ -272,12 +289,7 @@ void MainWindow::open_json()
 {
     QString fileName = QFileDialog::getOpenFileName(this, QString("Open JSON"), QString(), QString("*.json"));
     if (!fileName.isEmpty()) {
-        tabWidget->setCurrentWidget(info);
-
-        std::string fn = fileName.toStdString();
-        disableActions();
-        timing_driven = false;
-        Q_EMIT task->loadfile(fn);
+        load_json(fileName.toStdString(), "");
     }
 }
 
@@ -285,11 +297,7 @@ void MainWindow::open_pcf()
 {
     QString fileName = QFileDialog::getOpenFileName(this, QString("Open PCF"), QString(), QString("*.pcf"));
     if (!fileName.isEmpty()) {
-        tabWidget->setCurrentWidget(info);
-
-        std::string fn = fileName.toStdString();
-        disableActions();
-        Q_EMIT task->loadpcf(fn);
+        load_pcf(fileName.toStdString());
     }
 }
 
@@ -330,9 +338,12 @@ void MainWindow::loadfile_finished(bool status)
         log("Loading design successful.\n");
         actionLoadPCF->setEnabled(true);
         actionPack->setEnabled(true);
+        if (!preload_pcf.empty())
+            load_pcf(preload_pcf);
         Q_EMIT updateTreeView();
     } else {
         log("Loading design failed.\n");
+        preload_pcf = "";
     }
 }
 

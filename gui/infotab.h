@@ -33,9 +33,10 @@ class InfoTab : public QWidget
   public:
     explicit InfoTab(QWidget *parent = 0);
     void info(std::string str);
+  public Q_SLOTS:
+    void clearBuffer();
   private Q_SLOTS:
     void showContextMenu(const QPoint &pt);
-    void clearBuffer();
 
   private:
     QPlainTextEdit *plainTextEdit;

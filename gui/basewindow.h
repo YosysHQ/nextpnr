@@ -40,9 +40,9 @@ class BaseMainWindow : public QMainWindow
     Q_OBJECT
 
   public:
-    explicit BaseMainWindow(QWidget *parent = 0);
+    explicit BaseMainWindow(std::unique_ptr<Context> context, QWidget *parent = 0);
     virtual ~BaseMainWindow();
-    Context *getContext() { return ctx; }
+    Context *getContext() { return ctx.get(); }
 
   protected:
     void createMenusAndBars();
@@ -59,7 +59,7 @@ class BaseMainWindow : public QMainWindow
     void updateTreeView();
 
   protected:
-    Context *ctx;
+    std::unique_ptr<Context> ctx;
     QTabWidget *tabWidget;
     QTabWidget *centralTabWidget;
     InfoTab *info;
