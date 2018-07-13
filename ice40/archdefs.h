@@ -144,6 +144,7 @@ struct DecalId
         TYPE_GROUP
     } type = TYPE_NONE;
     int32_t index = -1;
+    bool active = false;
 
     bool operator==(const DecalId &other) const { return (type == other.type) && (index == other.index); }
     bool operator!=(const DecalId &other) const { return (type != other.type) || (index != other.index); }

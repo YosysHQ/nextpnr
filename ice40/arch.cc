@@ -455,6 +455,7 @@ DecalXY Arch::getFrameDecal() const
 {
     DecalXY decalxy;
     decalxy.decal.type = DecalId::TYPE_FRAME;
+    decalxy.decal.active = true;
     return decalxy;
 }
 
@@ -463,6 +464,7 @@ DecalXY Arch::getBelDecal(BelId bel) const
     DecalXY decalxy;
     decalxy.decal.type = DecalId::TYPE_BEL;
     decalxy.decal.index = bel.index;
+    decalxy.decal.active = bel_to_cell.at(bel.index) != IdString();
     return decalxy;
 }
 
@@ -471,18 +473,25 @@ DecalXY Arch::getWireDecal(WireId wire) const
     DecalXY decalxy;
     decalxy.decal.type = DecalId::TYPE_WIRE;
     decalxy.decal.index = wire.index;
+    decalxy.decal.active = wire_to_net.at(wire.index) != IdString();
     return decalxy;
 }
 
 DecalXY Arch::getPipDecal(PipId pip) const
 {
     DecalXY decalxy;
+    decalxy.decal.type = DecalId::TYPE_PIP;
+    decalxy.decal.index = pip.index;
+    decalxy.decal.active = pip_to_net.at(pip.index) != IdString();
     return decalxy;
 };
 
 DecalXY Arch::getGroupDecal(GroupId group) const
 {
     DecalXY decalxy;
+    decalxy.decal.type = DecalId::TYPE_GROUP;
+    decalxy.decal.index = (group.type << 16) | (group.x << 8) | (group.y);
+    decalxy.decal.active = true;
     return decalxy;
 };
 
@@ -509,8 +518,7 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
         int n = chip_info->wire_data[wire.index].num_segments;
         const WireSegmentPOD *p = chip_info->wire_data[wire.index].segments.get();
 
-        GraphicElement::style_t style =
-                wire_to_net.at(wire.index) != IdString() ? GraphicElement::G_ACTIVE : GraphicElement::G_INACTIVE;
+        GraphicElement::style_t style = decal.active ? GraphicElement::G_ACTIVE : GraphicElement::G_INACTIVE;
 
         for (int i = 0; i < n; i++)
             gfxTileWire(ret, p[i].x, p[i].y, GfxTileWireId(p[i].index), style);
@@ -525,7 +533,7 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
         if (bel_type == TYPE_ICESTORM_LC) {
             GraphicElement el;
             el.type = GraphicElement::G_BOX;
-            el.style = bel_to_cell.at(bel.index) != IdString() ? GraphicElement::G_ACTIVE : GraphicElement::G_INACTIVE;
+            el.style = decal.active ? GraphicElement::G_ACTIVE : GraphicElement::G_INACTIVE;
             el.x1 = chip_info->bel_data[bel.index].x + logic_cell_x1;
             el.x2 = chip_info->bel_data[bel.index].x + logic_cell_x2;
             el.y1 = chip_info->bel_data[bel.index].y + logic_cell_y1 +

@@ -371,6 +371,7 @@ struct Arch : BaseCtx
         bel_to_cell[bel.index] = cell;
         cells[cell]->bel = bel;
         cells[cell]->belStrength = strength;
+        refreshUiBel(bel);
     }
 
     void unbindBel(BelId bel)
@@ -380,6 +381,7 @@ struct Arch : BaseCtx
         cells[bel_to_cell[bel.index]]->bel = BelId();
         cells[bel_to_cell[bel.index]]->belStrength = STRENGTH_NONE;
         bel_to_cell[bel.index] = IdString();
+        refreshUiBel(bel);
     }
 
     bool checkBelAvail(BelId bel) const
@@ -473,6 +475,7 @@ struct Arch : BaseCtx
         wire_to_net[wire.index] = net;
         nets[net]->wires[wire].pip = PipId();
         nets[net]->wires[wire].strength = strength;
+        refreshUiWire(wire);
     }
 
     void unbindWire(WireId wire)
@@ -488,10 +491,12 @@ struct Arch : BaseCtx
         if (pip != PipId()) {
             pip_to_net[pip.index] = IdString();
             switches_locked[chip_info->pip_data[pip.index].switch_index] = IdString();
+            refreshUiPip(pip);
         }
 
         net_wires.erase(it);
         wire_to_net[wire.index] = IdString();
+        refreshUiWire(wire);
     }
 
     bool checkWireAvail(WireId wire) const
@@ -542,6 +547,9 @@ struct Arch : BaseCtx
         wire_to_net[dst.index] = net;
         nets[net]->wires[dst].pip = pip;
         nets[net]->wires[dst].strength = strength;
+
+        refreshUiPip(pip);
+        refreshUiWire(dst);
     }
 
     void unbindPip(PipId pip)
@@ -558,6 +566,9 @@ struct Arch : BaseCtx
 
         pip_to_net[pip.index] = IdString();
         switches_locked[chip_info->pip_data[pip.index].switch_index] = IdString();
+
+        refreshUiPip(pip);
+        refreshUiWire(dst);
     }
 
     bool checkPipAvail(PipId pip) const
