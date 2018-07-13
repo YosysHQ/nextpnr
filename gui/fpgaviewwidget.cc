@@ -242,6 +242,7 @@ void LineShader::draw(const LineShaderData &line, const QMatrix4x4 &projection)
 
 FPGAViewWidget::FPGAViewWidget(QWidget *parent) : QOpenGLWidget(parent), lineShader_(this), zoom_(500.f), ctx_(nullptr)
 {
+    /*
     backgroundColor = QColor("#ffffff");
     gridColor = QColor("#ddd");
     gFrameColor = QColor("#303030");
@@ -249,6 +250,15 @@ FPGAViewWidget::FPGAViewWidget(QWidget *parent) : QOpenGLWidget(parent), lineSha
     gInactiveColor = QColor("#d0d0d0");
     gActiveColor = QColor("#101010");
     frameColor = QColor("#0066ba");
+    */
+    backgroundColor = QColor("#000000");
+    gridColor = QColor("#333");
+    gFrameColor = QColor("#d0d0d0");
+    gHiddenColor = QColor("#606060");
+    gInactiveColor = QColor("#303030");
+    gActiveColor = QColor("#f0f0f0");
+    frameColor = QColor("#0066ba");
+
     auto fmt = format();
     fmt.setMajorVersion(3);
     fmt.setMinorVersion(1);
