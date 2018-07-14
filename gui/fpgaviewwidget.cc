@@ -272,6 +272,7 @@ FPGAViewWidget::~FPGAViewWidget() {}
 void FPGAViewWidget::newContext(Context *ctx)
 {
     ctx_ = ctx;
+    selectedItems_.clear();
     update();
 }
 
