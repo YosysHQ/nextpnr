@@ -304,31 +304,32 @@ int main(int argc, char *argv[])
         }
 
         if (vm.count("tmfuzz")) {
+            auto &&proxy = ctx->rproxy();
             std::vector<WireId> src_wires, dst_wires;
 
             /*for (auto w : ctx->getWires())
                 src_wires.push_back(w);*/
             for (auto b : ctx->getBels()) {
                 if (ctx->getBelType(b) == TYPE_ICESTORM_LC) {
-                    src_wires.push_back(ctx->getWireBelPin(b, PIN_O));
+                    src_wires.push_back(proxy.getWireBelPin(b, PIN_O));
                 }
                 if (ctx->getBelType(b) == TYPE_SB_IO) {
-                    src_wires.push_back(ctx->getWireBelPin(b, PIN_D_IN_0));
+                    src_wires.push_back(proxy.getWireBelPin(b, PIN_D_IN_0));
                 }
             }
 
             for (auto b : ctx->getBels()) {
                 if (ctx->getBelType(b) == TYPE_ICESTORM_LC) {
-                    dst_wires.push_back(ctx->getWireBelPin(b, PIN_I0));
-                    dst_wires.push_back(ctx->getWireBelPin(b, PIN_I1));
-                    dst_wires.push_back(ctx->getWireBelPin(b, PIN_I2));
-                    dst_wires.push_back(ctx->getWireBelPin(b, PIN_I3));
-                    dst_wires.push_back(ctx->getWireBelPin(b, PIN_CEN));
-                    dst_wires.push_back(ctx->getWireBelPin(b, PIN_CIN));
+                    dst_wires.push_back(proxy.getWireBelPin(b, PIN_I0));
+                    dst_wires.push_back(proxy.getWireBelPin(b, PIN_I1));
+                    dst_wires.push_back(proxy.getWireBelPin(b, PIN_I2));
+                    dst_wires.push_back(proxy.getWireBelPin(b, PIN_I3));
+                    dst_wires.push_back(proxy.getWireBelPin(b, PIN_CEN));
+                    dst_wires.push_back(proxy.getWireBelPin(b, PIN_CIN));
                 }
                 if (ctx->getBelType(b) == TYPE_SB_IO) {
-                    dst_wires.push_back(ctx->getWireBelPin(b, PIN_D_OUT_0));
-                    dst_wires.push_back(ctx->getWireBelPin(b, PIN_OUTPUT_ENABLE));
+                    dst_wires.push_back(proxy.getWireBelPin(b, PIN_D_OUT_0));
+                    dst_wires.push_back(proxy.getWireBelPin(b, PIN_OUTPUT_ENABLE));
                 }
             }
 

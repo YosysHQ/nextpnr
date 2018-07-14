@@ -257,47 +257,6 @@ BelRange Arch::getBelsAtSameTile(BelId bel) const
 }
 
 // -----------------------------------------------------------------------
-// Shorthands to ArchProxy
-
-BelId Arch::getBelByName(IdString name) const { return rproxy().getBelByName(name); }
-
-void Arch::bindWire(WireId wire, IdString net, PlaceStrength strength) { rwproxy().bindWire(wire, net, strength); }
-
-void Arch::unbindWire(WireId wire) { rwproxy().unbindWire(wire); }
-
-void Arch::bindBel(BelId bel, IdString cell, PlaceStrength strength) { rwproxy().bindBel(bel, cell, strength); }
-
-void Arch::unbindBel(BelId bel) { rwproxy().unbindBel(bel); }
-
-bool Arch::checkBelAvail(BelId bel) const { return rproxy().checkBelAvail(bel); }
-
-IdString Arch::getBoundBelCell(BelId bel) const { return rproxy().getBoundBelCell(bel); }
-
-IdString Arch::getConflictingBelCell(BelId bel) const { return rproxy().getConflictingBelCell(bel); }
-
-WireId Arch::getWireByName(IdString name) const { return rproxy().getWireByName(name); }
-
-WireId Arch::getWireBelPin(BelId bel, PortPin pin) const { return rproxy().getWireBelPin(bel, pin); }
-
-bool Arch::checkWireAvail(WireId wire) const { return rproxy().checkWireAvail(wire); }
-
-IdString Arch::getBoundWireNet(WireId wire) const { return rproxy().getBoundWireNet(wire); }
-
-IdString Arch::getConflictingWireNet(WireId wire) const { return rproxy().getConflictingWireNet(wire); }
-
-PipId Arch::getPipByName(IdString name) const { return rproxy().getPipByName(name); }
-
-void Arch::bindPip(PipId pip, IdString net, PlaceStrength strength) { return rwproxy().bindPip(pip, net, strength); }
-
-void Arch::unbindPip(PipId pip) { return rwproxy().unbindPip(pip); }
-
-bool Arch::checkPipAvail(PipId pip) const { return rproxy().checkPipAvail(pip); }
-
-IdString Arch::getBoundPipNet(PipId pip) const { return rproxy().getBoundPipNet(pip); }
-
-IdString Arch::getConflictingPipNet(PipId pip) const { return rproxy().getConflictingPipNet(pip); }
-
-// -----------------------------------------------------------------------
 
 IdString Arch::getPipName(PipId pip) const
 {

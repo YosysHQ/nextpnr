@@ -92,6 +92,7 @@ char get_hexdigit(int i) { return std::string("0123456789ABCDEF").at(i); }
 
 void write_asc(const Context *ctx, std::ostream &out)
 {
+    auto &&proxy = ctx->rproxy();
     // [y][x][row][col]
     const ChipInfoPOD &ci = *ctx->chip_info;
     const BitstreamInfoPOD &bi = *ci.bits_info;
@@ -128,7 +129,7 @@ void write_asc(const Context *ctx, std::ostream &out)
     }
     // Set pips
     for (auto pip : ctx->getPips()) {
-        if (ctx->getBoundPipNet(pip) != IdString()) {
+        if (proxy.getBoundPipNet(pip) != IdString()) {
             const PipInfoPOD &pi = ci.pip_data[pip.index];
             const SwitchInfoPOD &swi = bi.switches[pi.switch_index];
             for (int i = 0; i < swi.num_bits; i++) {
@@ -199,8 +200,8 @@ void write_asc(const Context *ctx, std::ostream &out)
             NPNR_ASSERT(iez != -1);
 
             bool input_en = false;
-            if (!ctx->checkWireAvail(ctx->getWireBelPin(bel, PIN_D_IN_0)) ||
-                !ctx->checkWireAvail(ctx->getWireBelPin(bel, PIN_D_IN_1))) {
+            if (!proxy.checkWireAvail(proxy.getWireBelPin(bel, PIN_D_IN_0)) ||
+                !proxy.checkWireAvail(proxy.getWireBelPin(bel, PIN_D_IN_1))) {
                 input_en = true;
             }
 
@@ -271,7 +272,7 @@ void write_asc(const Context *ctx, std::ostream &out)
     }
     // Set config bits in unused IO and RAM
     for (auto bel : ctx->getBels()) {
-        if (ctx->checkBelAvail(bel) && ctx->getBelType(bel) == TYPE_SB_IO) {
+        if (proxy.checkBelAvail(bel) && ctx->getBelType(bel) == TYPE_SB_IO) {
             const TileInfoPOD &ti = bi.tiles_nonrouting[TILE_IO];
             const BelInfoPOD &beli = ci.bel_data[bel.index];
             int x = beli.x, y = beli.y, z = beli.z;
@@ -284,7 +285,7 @@ void write_asc(const Context *ctx, std::ostream &out)
                     set_config(ti, config.at(iey).at(iex), "IoCtrl.REN_" + std::to_string(iez), false);
                 }
             }
-        } else if (ctx->checkBelAvail(bel) && ctx->getBelType(bel) == TYPE_ICESTORM_RAM) {
+        } else if (proxy.checkBelAvail(bel) && ctx->getBelType(bel) == TYPE_ICESTORM_RAM) {
             const BelInfoPOD &beli = ci.bel_data[bel.index];
             int x = beli.x, y = beli.y;
             const TileInfoPOD &ti = bi.tiles_nonrouting[TILE_RAMB];
@@ -431,7 +432,7 @@ void write_asc(const Context *ctx, std::ostream &out)
     // Write symbols
     // const bool write_symbols = 1;
     for (auto wire : ctx->getWires()) {
-        IdString net = ctx->getBoundWireNet(wire);
+        IdString net = proxy.getBoundWireNet(wire);
         if (net != IdString())
             out << ".sym " << wire.index << " " << net.str(ctx) << std::endl;
     }
