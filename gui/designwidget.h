@@ -43,6 +43,7 @@ class DesignWidget : public QWidget
 
   Q_SIGNALS:
     void info(std::string text);
+    void selected(std::vector<DecalXY> decal);
 
   private Q_SLOTS:
     void prepareMenu(const QPoint &pos);

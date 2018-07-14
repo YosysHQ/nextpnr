@@ -213,6 +213,7 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     Q_PROPERTY(QColor gHiddenColor MEMBER gHiddenColor_ DESIGNABLE true)
     Q_PROPERTY(QColor gInactiveColor MEMBER gInactiveColor_ DESIGNABLE true)
     Q_PROPERTY(QColor gActiveColor MEMBER gActiveColor_ DESIGNABLE true)
+    Q_PROPERTY(QColor gSelectedColor MEMBER gSelectedColor_ DESIGNABLE true)
     Q_PROPERTY(QColor frameColor MEMBER frameColor_ DESIGNABLE true)
 
   public:
@@ -309,7 +310,7 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
 
   public Q_SLOTS:
     void newContext(Context *ctx);
-
+    void onSelectedArchItem(std::vector<DecalXY> decals);
   private:
     QPoint lastPos_;
     LineShader lineShader_;
@@ -332,9 +333,13 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     QColor gHiddenColor_;
     QColor gInactiveColor_;
     QColor gActiveColor_;
+    QColor gSelectedColor_;
     QColor frameColor_;
 
     LineShaderData shaders_[4];
+    LineShaderData selectedShader_;
+    std::vector<DecalXY> selectedItems_;
+    bool selectedItemsChanged;
 };
 
 NEXTPNR_NAMESPACE_END

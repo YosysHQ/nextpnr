@@ -241,7 +241,7 @@ void LineShader::draw(const LineShaderData &line, const QColor &color, const flo
     vao_.release();
 }
 
-FPGAViewWidget::FPGAViewWidget(QWidget *parent) : QOpenGLWidget(parent), lineShader_(this), zoom_(500.f), ctx_(nullptr)
+FPGAViewWidget::FPGAViewWidget(QWidget *parent) : QOpenGLWidget(parent), lineShader_(this), zoom_(500.f), ctx_(nullptr), selectedItemsChanged(false)
 {
     backgroundColor_ = QColor("#000000");
     gridColor_ = QColor("#333");
@@ -249,6 +249,7 @@ FPGAViewWidget::FPGAViewWidget(QWidget *parent) : QOpenGLWidget(parent), lineSha
     gHiddenColor_ = QColor("#606060");
     gInactiveColor_ = QColor("#303030");
     gActiveColor_ = QColor("#f0f0f0");
+    gSelectedColor_ = QColor("#ff6600");
     frameColor_ = QColor("#0066ba");
 
     auto fmt = format();
@@ -364,13 +365,30 @@ void FPGAViewWidget::paintGL()
             // Draw Frame Graphics.
             drawDecal(proxy, shaders_, ctx_->getFrameDecal());
         }
+
+        if (selectedItemsChanged)
+        {
+            selectedItemsChanged = false;
+            selectedShader_.clear();
+            for (auto decal : selectedItems_) {
+                drawDecal(proxy, selectedShader_, decal);
+            }
+        }
     }
 
     lineShader_.draw(shaders_[0], gFrameColor_, thick11Px, matrix);
     lineShader_.draw(shaders_[1], gHiddenColor_, thick11Px, matrix);
     lineShader_.draw(shaders_[2], gInactiveColor_, thick11Px, matrix);
     lineShader_.draw(shaders_[3], gActiveColor_, thick11Px, matrix);
+    lineShader_.draw(selectedShader_, gSelectedColor_, thick11Px, matrix);
     //lineShader_.draw(frame, matrix);
+}
+
+void FPGAViewWidget::onSelectedArchItem(std::vector<DecalXY> decals)
+{
+    selectedItems_ = decals;
+    selectedItemsChanged = true;
+    update();
 }
 
 void FPGAViewWidget::resizeGL(int width, int height) {}

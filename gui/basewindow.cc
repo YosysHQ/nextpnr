@@ -81,6 +81,7 @@ BaseMainWindow::BaseMainWindow(std::unique_ptr<Context> context, QWidget *parent
     centralTabWidget->addTab(fpgaView, "Graphics");
 
     connect(this, SIGNAL(contextChanged(Context *)), fpgaView, SLOT(newContext(Context *)));
+    connect(designview, SIGNAL(selected(std::vector<DecalXY>)), fpgaView, SLOT(onSelectedArchItem(std::vector<DecalXY>)));
 
     splitter_v->addWidget(centralTabWidget);
     splitter_v->addWidget(tabWidget);

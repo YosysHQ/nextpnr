@@ -336,10 +336,15 @@ void DesignWidget::onItemSelectionChanged()
 
     auto &&proxy = ctx->rproxy();
 
+    std::vector<DecalXY> decals;
+
     clearProperties();
     if (type == ElementType::BEL) {
         IdString c = static_cast<IdStringTreeItem *>(clickItem)->getData();
         BelId bel = proxy.getBelByName(c);
+        
+        decals.push_back(ctx->getBelDecal(bel));        
+        Q_EMIT selected(decals);
 
         QtProperty *topItem = groupManager->addProperty("Bel");
         addProperty(topItem, "Bel");
@@ -367,6 +372,9 @@ void DesignWidget::onItemSelectionChanged()
     } else if (type == ElementType::WIRE) {
         IdString c = static_cast<IdStringTreeItem *>(clickItem)->getData();
         WireId wire = proxy.getWireByName(c);
+
+        decals.push_back(ctx->getWireDecal(wire));
+        Q_EMIT selected(decals);
 
         QtProperty *topItem = groupManager->addProperty("Wire");
         addProperty(topItem, "Wire");
@@ -421,7 +429,7 @@ void DesignWidget::onItemSelectionChanged()
             portItem->setValue(pinname);
             dhItem->addSubProperty(portItem);
         }
-
+/*
         QtProperty *pipsDownItem = groupManager->addProperty("Pips Downhill");
         topItem->addSubProperty(pipsDownItem);
         for (const auto &item : ctx->getPipsDownhill(wire)) {
@@ -437,10 +445,13 @@ void DesignWidget::onItemSelectionChanged()
             pipItem->setValue(ctx->getPipName(item).c_str(ctx));
             pipsUpItem->addSubProperty(pipItem);
         }
-
+*/
     } else if (type == ElementType::PIP) {
         IdString c = static_cast<IdStringTreeItem *>(clickItem)->getData();
         PipId pip = proxy.getPipByName(c);
+
+        decals.push_back(ctx->getPipDecal(pip));
+        Q_EMIT selected(decals);
 
         QtProperty *topItem = groupManager->addProperty("Pip");
         addProperty(topItem, "Pip");
