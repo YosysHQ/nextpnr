@@ -46,7 +46,7 @@ class DesignWidget : public QWidget
 
   private Q_SLOTS:
     void prepareMenu(const QPoint &pos);
-    void onItemClicked(QTreeWidgetItem *item, int);
+    void onItemSelectionChanged();
     void selectObject();
   public Q_SLOTS:
     void newContext(Context *ctx);

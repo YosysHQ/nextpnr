@@ -160,7 +160,7 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr), net
     // Connection
     connect(treeWidget, &QTreeWidget::customContextMenuRequested, this, &DesignWidget::prepareMenu);
 
-    connect(treeWidget, SIGNAL(itemClicked(QTreeWidgetItem *, int)), SLOT(onItemClicked(QTreeWidgetItem *, int)));
+    connect(treeWidget, SIGNAL(itemSelectionChanged()), SLOT(onItemSelectionChanged()));
 }
 
 DesignWidget::~DesignWidget() {}
@@ -325,8 +325,12 @@ void DesignWidget::clearProperties()
     idToProperty.clear();
 }
 
-void DesignWidget::onItemClicked(QTreeWidgetItem *clickItem, int pos)
+void DesignWidget::onItemSelectionChanged()
 {
+    if (treeWidget->selectedItems().size()== 0) return;
+    
+    QTreeWidgetItem *clickItem = treeWidget->selectedItems().at(0);
+
     if (!clickItem->parent())
         return;
 
