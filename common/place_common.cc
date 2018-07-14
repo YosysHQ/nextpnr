@@ -36,7 +36,7 @@ wirelen_t get_net_wirelength(const Context *ctx, const NetInfo *net, float &tns)
     if (driver_cell->bel == BelId())
         return 0;
     ctx->estimatePosition(driver_cell->bel, driver_x, driver_y, driver_gb);
-    WireId drv_wire = ctx->getWireBelPinUnlocked(driver_cell->bel, ctx->portPinFromId(net->driver.port));
+    WireId drv_wire = ctx->getWireBelPin(driver_cell->bel, ctx->portPinFromId(net->driver.port));
     if (driver_gb)
         return 0;
     float worst_slack = 1000;
@@ -48,7 +48,7 @@ wirelen_t get_net_wirelength(const Context *ctx, const NetInfo *net, float &tns)
         if (load_cell->bel == BelId())
             continue;
         if (ctx->timing_driven) {
-            WireId user_wire = ctx->getWireBelPinUnlocked(load_cell->bel, ctx->portPinFromId(load.port));
+            WireId user_wire = ctx->getWireBelPin(load_cell->bel, ctx->portPinFromId(load.port));
             delay_t raw_wl = ctx->estimateDelay(drv_wire, user_wire);
             float slack = ctx->getDelayNS(load.budget) - ctx->getDelayNS(raw_wl);
             if (slack < 0)
@@ -112,12 +112,12 @@ bool place_single_cell(Context *ctx, CellInfo *cell, bool require_legality)
         CellInfo *ripup_target = nullptr;
         BelId ripup_bel = BelId();
         if (cell->bel != BelId()) {
-            ctx->unbindBelUnlocked(cell->bel);
+            ctx->unbindBel(cell->bel);
         }
         BelType targetType = ctx->belTypeFromId(cell->type);
         for (auto bel : ctx->getBels()) {
             if (ctx->getBelType(bel) == targetType && (!require_legality || ctx->isValidBelForCell(cell, bel))) {
-                if (ctx->checkBelAvailUnlocked(bel)) {
+                if (ctx->checkBelAvail(bel)) {
                     wirelen_t wirelen = get_cell_wirelength_at_bel(ctx, cell, bel);
                     if (iters >= 4)
                         wirelen += ctx->rng(25);
@@ -130,7 +130,7 @@ bool place_single_cell(Context *ctx, CellInfo *cell, bool require_legality)
                     if (iters >= 4)
                         wirelen += ctx->rng(25);
                     if (wirelen <= best_ripup_wirelen) {
-                        ripup_target = ctx->cells.at(ctx->getBoundBelCellUnlocked(bel)).get();
+                        ripup_target = ctx->cells.at(ctx->getBoundBelCell(bel)).get();
                         if (ripup_target->belStrength < STRENGTH_STRONG) {
                             best_ripup_wirelen = wirelen;
                             ripup_bel = bel;
@@ -148,12 +148,12 @@ bool place_single_cell(Context *ctx, CellInfo *cell, bool require_legality)
                 log_error("failed to place cell '%s' of type '%s'\n", cell->name.c_str(ctx), cell->type.c_str(ctx));
             }
             --iters;
-            ctx->unbindBelUnlocked(ripup_target->bel);
+            ctx->unbindBel(ripup_target->bel);
             best_bel = ripup_bel;
         } else {
             all_placed = true;
         }
-        ctx->bindBelUnlocked(best_bel, cell->name, STRENGTH_WEAK);
+        ctx->bindBel(best_bel, cell->name, STRENGTH_WEAK);
 
         cell = ripup_target;
     }

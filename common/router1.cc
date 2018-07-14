@@ -90,10 +90,10 @@ void ripup_net(Context *ctx, IdString net_name)
     }
 
     for (auto pip : pips)
-        ctx->unbindPipUnlocked(pip);
+        ctx->unbindPip(pip);
 
     for (auto wire : wires)
-        ctx->unbindWireUnlocked(wire);
+        ctx->unbindWire(wire);
 
     NPNR_ASSERT(net_info->wires.empty());
 }
@@ -148,10 +148,10 @@ struct Router
                 bool foundRipupNet = false;
                 thisVisitCnt++;
 
-                if (!ctx->checkWireAvailUnlocked(next_wire)) {
+                if (!ctx->checkWireAvail(next_wire)) {
                     if (!ripup)
                         continue;
-                    IdString ripupWireNet = ctx->getConflictingWireNetUnlocked(next_wire);
+                    IdString ripupWireNet = ctx->getConflictingWireNet(next_wire);
                     if (ripupWireNet == net_name || ripupWireNet == IdString())
                         continue;
 
@@ -166,10 +166,10 @@ struct Router
                     foundRipupNet = true;
                 }
 
-                if (!ctx->checkPipAvailUnlocked(pip)) {
+                if (!ctx->checkPipAvail(pip)) {
                     if (!ripup)
                         continue;
-                    IdString ripupPipNet = ctx->getConflictingPipNetUnlocked(pip);
+                    IdString ripupPipNet = ctx->getConflictingPipNet(pip);
                     if (ripupPipNet == net_name || ripupPipNet == IdString())
                         continue;
 
@@ -272,7 +272,7 @@ struct Router
         if (driver_port_it != net_info->driver.cell->pins.end())
             driver_port = driver_port_it->second;
 
-        auto src_wire = ctx->getWireBelPinUnlocked(src_bel, ctx->portPinFromId(driver_port));
+        auto src_wire = ctx->getWireBelPin(src_bel, ctx->portPinFromId(driver_port));
 
         if (src_wire == WireId())
             log_error("No wire found for port %s (pin %s) on source cell %s "
@@ -287,7 +287,7 @@ struct Router
         src_wires[src_wire] = 0;
 
         ripup_net(ctx, net_name);
-        ctx->bindWireUnlocked(src_wire, net_name, STRENGTH_WEAK);
+        ctx->bindWire(src_wire, net_name, STRENGTH_WEAK);
 
         std::vector<PortRef> users_array = net_info->users;
         ctx->shuffle(users_array);
@@ -312,7 +312,7 @@ struct Router
             if (user_port_it != user_it.cell->pins.end())
                 user_port = user_port_it->second;
 
-            auto dst_wire = ctx->getWireBelPinUnlocked(dst_bel, ctx->portPinFromId(user_port));
+            auto dst_wire = ctx->getWireBelPin(dst_bel, ctx->portPinFromId(user_port));
 
             if (dst_wire == WireId())
                 log_error("No wire found for port %s (pin %s) on destination "
@@ -355,14 +355,14 @@ struct Router
                 if (src_wires.count(cursor))
                     break;
 
-                IdString conflicting_wire_net = ctx->getConflictingWireNetUnlocked(cursor);
+                IdString conflicting_wire_net = ctx->getConflictingWireNet(cursor);
 
                 if (conflicting_wire_net != IdString()) {
                     NPNR_ASSERT(ripup);
                     NPNR_ASSERT(conflicting_wire_net != net_name);
 
-                    ctx->unbindWireUnlocked(cursor);
-                    if (!ctx->checkWireAvailUnlocked(cursor))
+                    ctx->unbindWire(cursor);
+                    if (!ctx->checkWireAvail(cursor))
                         ripup_net(ctx, conflicting_wire_net);
 
                     rippedNets.insert(conflicting_wire_net);
@@ -372,14 +372,14 @@ struct Router
                 }
 
                 PipId pip = visited[cursor].pip;
-                IdString conflicting_pip_net = ctx->getConflictingPipNetUnlocked(pip);
+                IdString conflicting_pip_net = ctx->getConflictingPipNet(pip);
 
                 if (conflicting_pip_net != IdString()) {
                     NPNR_ASSERT(ripup);
                     NPNR_ASSERT(conflicting_pip_net != net_name);
 
-                    ctx->unbindPipUnlocked(pip);
-                    if (!ctx->checkPipAvailUnlocked(pip))
+                    ctx->unbindPip(pip);
+                    if (!ctx->checkPipAvail(pip))
                         ripup_net(ctx, conflicting_pip_net);
 
                     rippedNets.insert(conflicting_pip_net);
@@ -388,7 +388,7 @@ struct Router
                     scores.netPipScores[std::make_pair(conflicting_pip_net, visited[cursor].pip)]++;
                 }
 
-                ctx->bindPipUnlocked(visited[cursor].pip, net_name, STRENGTH_WEAK);
+                ctx->bindPip(visited[cursor].pip, net_name, STRENGTH_WEAK);
                 src_wires[cursor] = visited[cursor].delay;
                 cursor = ctx->getPipSrcWire(visited[cursor].pip);
             }
@@ -451,7 +451,7 @@ bool router1(Context *ctx)
             if (driver_port_it != net_info->driver.cell->pins.end())
                 driver_port = driver_port_it->second;
 
-            auto src_wire = ctx->getWireBelPinUnlocked(src_bel, ctx->portPinFromId(driver_port));
+            auto src_wire = ctx->getWireBelPin(src_bel, ctx->portPinFromId(driver_port));
 
             if (src_wire == WireId())
                 continue;
@@ -469,7 +469,7 @@ bool router1(Context *ctx)
                 if (user_port_it != user_it.cell->pins.end())
                     user_port = user_port_it->second;
 
-                auto dst_wire = ctx->getWireBelPinUnlocked(dst_bel, ctx->portPinFromId(user_port));
+                auto dst_wire = ctx->getWireBelPin(dst_bel, ctx->portPinFromId(user_port));
 
                 if (dst_wire == WireId())
                     continue;

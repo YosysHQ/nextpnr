@@ -362,7 +362,6 @@ public:
     // -------------------------------------------------
 
     BelId getBelByName(IdString name) const;
-    BelId getBelByNameUnlocked(IdString name) const;
 
     IdString getBelName(BelId bel) const
     {
@@ -372,15 +371,11 @@ public:
 
     uint32_t getBelChecksum(BelId bel) const { return bel.index; }
 
-    void bindBel(BelId bel, IdString cell, PlaceStrength strength) {
-        boost::lock_guard<boost::shared_mutex> lock(mtx_);
-        bindBelUnlocked(bel, cell, strength);
-    }
-
-    void bindBelUnlocked(BelId bel, IdString cell, PlaceStrength strength)
+    void bindBel(BelId bel, IdString cell, PlaceStrength strength)
     {
         NPNR_ASSERT(bel != BelId());
         NPNR_ASSERT(bel_to_cell[bel.index] == IdString());
+        boost::lock_guard<boost::shared_mutex> lock(mtx_);
         bel_to_cell[bel.index] = cell;
         cells[cell]->bel = bel;
         cells[cell]->belStrength = strength;
@@ -388,14 +383,9 @@ public:
 
     void unbindBel(BelId bel)
     {
-        boost::lock_guard<boost::shared_mutex> lock(mtx_);
-        unbindBelUnlocked(bel);
-    }
-
-    void unbindBelUnlocked(BelId bel)
-    {
         NPNR_ASSERT(bel != BelId());
         NPNR_ASSERT(bel_to_cell[bel.index] != IdString());
+        boost::lock_guard<boost::shared_mutex> lock(mtx_);
         cells[bel_to_cell[bel.index]]->bel = BelId();
         cells[bel_to_cell[bel.index]]->belStrength = STRENGTH_NONE;
         bel_to_cell[bel.index] = IdString();
@@ -403,37 +393,22 @@ public:
 
     bool checkBelAvail(BelId bel) const
     {
-        boost::shared_lock_guard<boost::shared_mutex> lock(mtx_);
-        return checkBelAvailUnlocked(bel);
-    }
-
-    bool checkBelAvailUnlocked(BelId bel) const
-    {
         NPNR_ASSERT(bel != BelId());
+        boost::shared_lock_guard<boost::shared_mutex> lock(mtx_);
         return bel_to_cell[bel.index] == IdString();
     }
 
     IdString getBoundBelCell(BelId bel) const
     {
-        boost::shared_lock_guard<boost::shared_mutex> lock(mtx_);
-        return getBoundBelCellUnlocked(bel);
-    }
-
-    IdString getBoundBelCellUnlocked(BelId bel) const
-    {
         NPNR_ASSERT(bel != BelId());
+        boost::shared_lock_guard<boost::shared_mutex> lock(mtx_);
         return bel_to_cell[bel.index];
     }
 
     IdString getConflictingBelCell(BelId bel) const
     {
-        boost::shared_lock_guard<boost::shared_mutex> lock(mtx_);
-        return getConflictingBelCellUnlocked(bel);
-    }
-
-    IdString getConflictingBelCellUnlocked(BelId bel) const
-    {
         NPNR_ASSERT(bel != BelId());
+        boost::shared_lock_guard<boost::shared_mutex> lock(mtx_);
         return bel_to_cell[bel.index];
     }
 
@@ -450,11 +425,11 @@ public:
         BelRange range;
 // FIXME
 #if 0
-        if (type == "TYPE_A") {
-            range.b.cursor = bels_type_a_begin;
-            range.e.cursor = bels_type_a_end;
-        }
-        ...
+		if (type == "TYPE_A") {
+			range.b.cursor = bels_type_a_begin;
+			range.e.cursor = bels_type_a_end;
+		}
+		...
 #endif
         return range;
     }
@@ -468,7 +443,6 @@ public:
     }
 
     WireId getWireBelPin(BelId bel, PortPin pin) const;
-    WireId getWireBelPinUnlocked(BelId bel, PortPin pin) const;
 
     BelPin getBelPinUphill(WireId wire) const
     {
@@ -495,7 +469,6 @@ public:
     // -------------------------------------------------
 
     WireId getWireByName(IdString name) const;
-    WireId getWireByNameUnlocked(IdString name) const;
 
     IdString getWireName(WireId wire) const
     {
@@ -507,14 +480,9 @@ public:
 
     void bindWire(WireId wire, IdString net, PlaceStrength strength)
     {
-        boost::lock_guard<boost::shared_mutex> lock(mtx_);
-        bindWireUnlocked(wire, net, strength);
-    }
-
-    void bindWireUnlocked(WireId wire, IdString net, PlaceStrength strength)
-    {
         NPNR_ASSERT(wire != WireId());
         NPNR_ASSERT(wire_to_net[wire.index] == IdString());
+        boost::lock_guard<boost::shared_mutex> lock(mtx_);
 
         wire_to_net[wire.index] = net;
         nets[net]->wires[wire].pip = PipId();
@@ -523,14 +491,9 @@ public:
 
     void unbindWire(WireId wire)
     {
-        boost::lock_guard<boost::shared_mutex> lock(mtx_);
-        unbindWireUnlocked(wire);
-    }
-
-    void unbindWireUnlocked(WireId wire)
-    {
         NPNR_ASSERT(wire != WireId());
         NPNR_ASSERT(wire_to_net[wire.index] != IdString());
+        boost::lock_guard<boost::shared_mutex> lock(mtx_);
 
         auto &net_wires = nets[wire_to_net[wire.index]]->wires;
         auto it = net_wires.find(wire);
@@ -548,37 +511,25 @@ public:
 
     bool checkWireAvail(WireId wire) const
     {
-        boost::shared_lock_guard<boost::shared_mutex> lock(mtx_);
-        return checkWireAvailUnlocked(wire);
-    }
-
-    bool checkWireAvailUnlocked(WireId wire) const
-    {
         NPNR_ASSERT(wire != WireId());
+        boost::shared_lock_guard<boost::shared_mutex> lock(mtx_);
+
         return wire_to_net[wire.index] == IdString();
     }
 
     IdString getBoundWireNet(WireId wire) const
     {
-        boost::shared_lock_guard<boost::shared_mutex> lock(mtx_);
-        return getBoundWireNetUnlocked(wire);
-    }
-
-    IdString getBoundWireNetUnlocked(WireId wire) const
-    {
         NPNR_ASSERT(wire != WireId());
+        boost::shared_lock_guard<boost::shared_mutex> lock(mtx_);
+
         return wire_to_net[wire.index];
     }
 
     IdString getConflictingWireNet(WireId wire) const
     {
-        boost::shared_lock_guard<boost::shared_mutex> lock(mtx_);
-        return getConflictingWireNetUnlocked(wire);
-    }
-
-    IdString getConflictingWireNetUnlocked(WireId wire) const
-    {
         NPNR_ASSERT(wire != WireId());
+        boost::shared_lock_guard<boost::shared_mutex> lock(mtx_);
+
         return wire_to_net[wire.index];
     }
 
@@ -593,22 +544,16 @@ public:
     // -------------------------------------------------
 
     PipId getPipByName(IdString name) const;
-    PipId getPipByNameUnlocked(IdString name) const;
     IdString getPipName(PipId pip) const;
 
     uint32_t getPipChecksum(PipId pip) const { return pip.index; }
 
     void bindPip(PipId pip, IdString net, PlaceStrength strength)
     {
-        boost::lock_guard<boost::shared_mutex> lock(mtx_);
-        bindPipUnlocked(pip, net, strength);
-    }
-
-    void bindPipUnlocked(PipId pip, IdString net, PlaceStrength strength)
-    {
         NPNR_ASSERT(pip != PipId());
         NPNR_ASSERT(pip_to_net[pip.index] == IdString());
         NPNR_ASSERT(switches_locked[chip_info->pip_data[pip.index].switch_index] == IdString());
+        boost::lock_guard<boost::shared_mutex> lock(mtx_);
 
         pip_to_net[pip.index] = net;
         switches_locked[chip_info->pip_data[pip.index].switch_index] = net;
@@ -623,15 +568,10 @@ public:
 
     void unbindPip(PipId pip)
     {
-        boost::lock_guard<boost::shared_mutex> lock(mtx_);
-        unbindPipUnlocked(pip);
-    }
-
-    void unbindPipUnlocked(PipId pip)
-    {
         NPNR_ASSERT(pip != PipId());
         NPNR_ASSERT(pip_to_net[pip.index] != IdString());
         NPNR_ASSERT(switches_locked[chip_info->pip_data[pip.index].switch_index] != IdString());
+        boost::lock_guard<boost::shared_mutex> lock(mtx_);
 
         WireId dst;
         dst.index = chip_info->pip_data[pip.index].dst;
@@ -645,37 +585,22 @@ public:
 
     bool checkPipAvail(PipId pip) const
     {
-        boost::shared_lock_guard<boost::shared_mutex> lock(mtx_);
-        return checkPipAvailUnlocked(pip);
-    }
-
-    bool checkPipAvailUnlocked(PipId pip) const
-    {
         NPNR_ASSERT(pip != PipId());
+        boost::shared_lock_guard<boost::shared_mutex> lock(mtx_);
         return switches_locked[chip_info->pip_data[pip.index].switch_index] == IdString();
     }
 
     IdString getBoundPipNet(PipId pip) const
     {
-        boost::shared_lock_guard<boost::shared_mutex> lock(mtx_);
-        return getBoundPipNetUnlocked(pip);
-    }
-
-    IdString getBoundPipNetUnlocked(PipId pip) const
-    {
         NPNR_ASSERT(pip != PipId());
+        boost::shared_lock_guard<boost::shared_mutex> lock(mtx_);
         return pip_to_net[pip.index];
     }
 
     IdString getConflictingPipNet(PipId pip) const
     {
-        boost::shared_lock_guard<boost::shared_mutex> lock(mtx_);
-        return getConflictingPipNetUnlocked(pip);
-    }
-
-    IdString getConflictingPipNetUnlocked(PipId pip) const
-    {
         NPNR_ASSERT(pip != PipId());
+        boost::shared_lock_guard<boost::shared_mutex> lock(mtx_);
         return switches_locked[chip_info->pip_data[pip.index].switch_index];
     }
 

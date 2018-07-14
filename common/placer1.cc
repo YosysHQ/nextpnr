@@ -85,7 +85,7 @@ class SAPlacer
             auto loc = cell->attrs.find(ctx->id("BEL"));
             if (loc != cell->attrs.end()) {
                 std::string loc_name = loc->second;
-                BelId bel = ctx->getBelByNameUnlocked(ctx->id(loc_name));
+                BelId bel = ctx->getBelByName(ctx->id(loc_name));
                 if (bel == BelId()) {
                     log_error("No Bel named \'%s\' located for "
                               "this chip (processing BEL attribute on \'%s\')\n",
@@ -100,7 +100,7 @@ class SAPlacer
                               cell->type.c_str(ctx));
                 }
 
-                ctx->bindBelUnlocked(bel, cell->name, STRENGTH_USER);
+                ctx->bindBel(bel, cell->name, STRENGTH_USER);
                 locked_bels.insert(bel);
                 placed_cells++;
             }
@@ -235,7 +235,7 @@ class SAPlacer
         }
         // Final post-pacement validitiy check
         for (auto bel : ctx->getBels()) {
-            IdString cell = ctx->getBoundBelCellUnlocked(bel);
+            IdString cell = ctx->getBoundBelCell(bel);
             if (!ctx->isBelLocationValid(bel)) {
                 std::string cell_text = "no cell";
                 if (cell != IdString())
@@ -267,12 +267,12 @@ class SAPlacer
             CellInfo *ripup_target = nullptr;
             BelId ripup_bel = BelId();
             if (cell->bel != BelId()) {
-                ctx->unbindBelUnlocked(cell->bel);
+                ctx->unbindBel(cell->bel);
             }
             BelType targetType = ctx->belTypeFromId(cell->type);
             for (auto bel : ctx->getBels()) {
                 if (ctx->getBelType(bel) == targetType && (ctx->isValidBelForCell(cell, bel) || !require_legal)) {
-                    if (ctx->checkBelAvailUnlocked(bel)) {
+                    if (ctx->checkBelAvail(bel)) {
                         uint64_t score = ctx->rng64();
                         if (score <= best_score) {
                             best_score = score;
@@ -282,7 +282,7 @@ class SAPlacer
                         uint64_t score = ctx->rng64();
                         if (score <= best_ripup_score) {
                             best_ripup_score = score;
-                            ripup_target = ctx->cells.at(ctx->getBoundBelCellUnlocked(bel)).get();
+                            ripup_target = ctx->cells.at(ctx->getBoundBelCell(bel)).get();
                             ripup_bel = bel;
                         }
                     }
@@ -292,12 +292,12 @@ class SAPlacer
                 if (iters == 0 || ripup_bel == BelId())
                     log_error("failed to place cell '%s' of type '%s'\n", cell->name.c_str(ctx), cell->type.c_str(ctx));
                 --iters;
-                ctx->unbindBelUnlocked(ripup_target->bel);
+                ctx->unbindBel(ripup_target->bel);
                 best_bel = ripup_bel;
             } else {
                 all_placed = true;
             }
-            ctx->bindBelUnlocked(best_bel, cell->name, STRENGTH_WEAK);
+            ctx->bindBel(best_bel, cell->name, STRENGTH_WEAK);
 
             // Back annotate location
             cell->attrs[ctx->id("BEL")] = ctx->getBelName(cell->bel).str(ctx);
@@ -313,7 +313,7 @@ class SAPlacer
         new_lengths.clear();
         update.clear();
         BelId oldBel = cell->bel;
-        IdString other = ctx->getBoundBelCellUnlocked(newBel);
+        IdString other = ctx->getBoundBelCell(newBel);
         CellInfo *other_cell = nullptr;
         if (other != IdString()) {
             other_cell = ctx->cells[other].get();
@@ -321,9 +321,9 @@ class SAPlacer
                 return false;
         }
         wirelen_t new_wirelength = 0, delta;
-        ctx->unbindBelUnlocked(oldBel);
+        ctx->unbindBel(oldBel);
         if (other != IdString()) {
-            ctx->unbindBelUnlocked(newBel);
+            ctx->unbindBel(newBel);
         }
 
         for (const auto &port : cell->ports)
@@ -336,16 +336,16 @@ class SAPlacer
                     update.insert(port.second.net);
         }
 
-        ctx->bindBelUnlocked(newBel, cell->name, STRENGTH_WEAK);
+        ctx->bindBel(newBel, cell->name, STRENGTH_WEAK);
 
         if (other != IdString()) {
-            ctx->bindBelUnlocked(oldBel, other_cell->name, STRENGTH_WEAK);
+            ctx->bindBel(oldBel, other_cell->name, STRENGTH_WEAK);
         }
         if (require_legal) {
             if (!ctx->isBelLocationValid(newBel) || ((other != IdString() && !ctx->isBelLocationValid(oldBel)))) {
-                ctx->unbindBelUnlocked(newBel);
+                ctx->unbindBel(newBel);
                 if (other != IdString())
-                    ctx->unbindBelUnlocked(oldBel);
+                    ctx->unbindBel(oldBel);
                 goto swap_fail;
             }
         }
@@ -369,8 +369,8 @@ class SAPlacer
                 improved = true;
         } else {
             if (other != IdString())
-                ctx->unbindBelUnlocked(oldBel);
-            ctx->unbindBelUnlocked(newBel);
+                ctx->unbindBel(oldBel);
+            ctx->unbindBel(newBel);
             goto swap_fail;
         }
         curr_wirelength = new_wirelength;
@@ -379,9 +379,9 @@ class SAPlacer
 
         return true;
     swap_fail:
-        ctx->bindBelUnlocked(oldBel, cell->name, STRENGTH_WEAK);
+        ctx->bindBel(oldBel, cell->name, STRENGTH_WEAK);
         if (other != IdString()) {
-            ctx->bindBelUnlocked(newBel, other, STRENGTH_WEAK);
+            ctx->bindBel(newBel, other, STRENGTH_WEAK);
         }
         return false;
     }
