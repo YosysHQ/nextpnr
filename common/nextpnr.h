@@ -238,16 +238,6 @@ struct CellInfo
     std::unordered_map<IdString, IdString> pins;
 };
 
-struct UIUpdatesRequired
-{
-    bool allUIReload;
-    bool frameUIReload;
-    std::unordered_set<BelId> belUIReload;
-    std::unordered_set<WireId> wireUIReload;
-    std::unordered_set<PipId> pipUIReload;
-    std::unordered_set<GroupId> groupUIReload;
-};
-
 struct BaseCtx
 {
     // --------------------------------------------------------------
@@ -270,8 +260,6 @@ struct BaseCtx
         idstring_idx_to_str = new std::vector<const std::string *>;
         IdString::initialize_add(this, "", 0);
         IdString::initialize_arch(this);
-
-        allUiReload = true;
     }
 
     ~BaseCtx()
@@ -304,25 +292,6 @@ struct BaseCtx
     void refreshUiPip(PipId pip) { pipUiReload.insert(pip); }
 
     void refreshUiGroup(GroupId group) { groupUiReload.insert(group); }
-
-    UIUpdatesRequired getUIUpdatesRequired(void)
-    {
-        UIUpdatesRequired req;
-        req.allUIReload = allUiReload;
-        req.frameUIReload = frameUiReload;
-        req.belUIReload = belUiReload;
-        req.wireUIReload = wireUiReload;
-        req.pipUIReload = pipUiReload;
-        req.groupUIReload = groupUiReload;
-
-        allUiReload = false;
-        frameUiReload = false;
-        belUiReload.clear();
-        wireUiReload.clear();
-        pipUiReload.clear();
-        groupUiReload.clear();
-        return req;
-    }
 };
 
 NEXTPNR_NAMESPACE_END
