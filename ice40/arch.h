@@ -345,6 +345,7 @@ class Arch : public BaseCtx
     friend class ArchReadMethods;
 
   private:
+    // All of the following...
     std::vector<IdString> bel_to_cell;
     std::vector<IdString> wire_to_net;
     std::vector<IdString> pip_to_net;
@@ -632,12 +633,15 @@ class ArchReadMethods : public BaseReadCtx
     ArchReadMethods(const ArchReadMethods &other) : ArchReadMethods(other.parent_) {}
 
     /// Perform placement validity checks, returning false on failure (all implemented in arch_place.cc)
+
     // Whether or not a given cell can be placed at a given Bel
     // This is not intended for Bel type checks, but finer-grained constraints
     // such as conflicting set/reset signals, etc
     bool isValidBelForCell(CellInfo *cell, BelId bel) const;
+
     // Return true whether all Bels at a given location are valid
     bool isBelLocationValid(BelId bel) const;
+
     // Helper function for above
     bool logicCellsCompatible(const std::vector<const CellInfo *> &cells) const;
 
