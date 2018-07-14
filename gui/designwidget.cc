@@ -335,10 +335,12 @@ void DesignWidget::onItemClicked(QTreeWidgetItem *clickItem, int pos)
         return;
     }
 
+    auto &&proxy = ctx->rproxy();
+
     clearProperties();
     if (type == ElementType::BEL) {
         IdString c = static_cast<IdStringTreeItem *>(clickItem)->getData();
-        BelId bel = ctx->getBelByName(c);
+        BelId bel = proxy.getBelByName(c);
 
         QtProperty *topItem = groupManager->addProperty("Bel");
         addProperty(topItem, "Bel");
@@ -352,20 +354,20 @@ void DesignWidget::onItemClicked(QTreeWidgetItem *clickItem, int pos)
         topItem->addSubProperty(typeItem);
 
         QtVariantProperty *availItem = readOnlyManager->addProperty(QVariant::Bool, "Available");
-        availItem->setValue(ctx->checkBelAvail(bel));
+        availItem->setValue(proxy.checkBelAvail(bel));
         topItem->addSubProperty(availItem);
 
         QtVariantProperty *cellItem = readOnlyManager->addProperty(QVariant::String, "Bound Cell");
-        cellItem->setValue(ctx->getBoundBelCell(bel).c_str(ctx));
+        cellItem->setValue(proxy.getBoundBelCell(bel).c_str(ctx));
         topItem->addSubProperty(cellItem);
 
         QtVariantProperty *conflictItem = readOnlyManager->addProperty(QVariant::String, "Conflicting Cell");
-        conflictItem->setValue(ctx->getConflictingBelCell(bel).c_str(ctx));
+        conflictItem->setValue(proxy.getConflictingBelCell(bel).c_str(ctx));
         topItem->addSubProperty(conflictItem);
 
     } else if (type == ElementType::WIRE) {
         IdString c = static_cast<IdStringTreeItem *>(clickItem)->getData();
-        WireId wire = ctx->getWireByName(c);
+        WireId wire = proxy.getWireByName(c);
 
         QtProperty *topItem = groupManager->addProperty("Wire");
         addProperty(topItem, "Wire");
@@ -375,15 +377,15 @@ void DesignWidget::onItemClicked(QTreeWidgetItem *clickItem, int pos)
         topItem->addSubProperty(nameItem);
 
         QtVariantProperty *availItem = readOnlyManager->addProperty(QVariant::Bool, "Available");
-        availItem->setValue(ctx->checkWireAvail(wire));
+        availItem->setValue(proxy.checkWireAvail(wire));
         topItem->addSubProperty(availItem);
 
         QtVariantProperty *cellItem = readOnlyManager->addProperty(QVariant::String, "Bound Net");
-        cellItem->setValue(ctx->getBoundWireNet(wire).c_str(ctx));
+        cellItem->setValue(proxy.getBoundWireNet(wire).c_str(ctx));
         topItem->addSubProperty(cellItem);
 
         QtVariantProperty *conflictItem = readOnlyManager->addProperty(QVariant::String, "Conflicting Net");
-        conflictItem->setValue(ctx->getConflictingWireNet(wire).c_str(ctx));
+        conflictItem->setValue(proxy.getConflictingWireNet(wire).c_str(ctx));
         topItem->addSubProperty(conflictItem);
 
         BelPin uphill = ctx->getBelPinUphill(wire);
@@ -439,7 +441,7 @@ void DesignWidget::onItemClicked(QTreeWidgetItem *clickItem, int pos)
 
     } else if (type == ElementType::PIP) {
         IdString c = static_cast<IdStringTreeItem *>(clickItem)->getData();
-        PipId pip = ctx->getPipByName(c);
+        PipId pip = proxy.getPipByName(c);
 
         QtProperty *topItem = groupManager->addProperty("Pip");
         addProperty(topItem, "Pip");
@@ -449,15 +451,15 @@ void DesignWidget::onItemClicked(QTreeWidgetItem *clickItem, int pos)
         topItem->addSubProperty(nameItem);
 
         QtVariantProperty *availItem = readOnlyManager->addProperty(QVariant::Bool, "Available");
-        availItem->setValue(ctx->checkPipAvail(pip));
+        availItem->setValue(proxy.checkPipAvail(pip));
         topItem->addSubProperty(availItem);
 
         QtVariantProperty *cellItem = readOnlyManager->addProperty(QVariant::String, "Bound Net");
-        cellItem->setValue(ctx->getBoundPipNet(pip).c_str(ctx));
+        cellItem->setValue(proxy.getBoundPipNet(pip).c_str(ctx));
         topItem->addSubProperty(cellItem);
 
         QtVariantProperty *conflictItem = readOnlyManager->addProperty(QVariant::String, "Conflicting Net");
-        conflictItem->setValue(ctx->getConflictingPipNet(pip).c_str(ctx));
+        conflictItem->setValue(proxy.getConflictingPipNet(pip).c_str(ctx));
         topItem->addSubProperty(conflictItem);
 
         QtVariantProperty *srcWireItem = readOnlyManager->addProperty(QVariant::String, "Src Wire");

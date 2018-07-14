@@ -170,20 +170,21 @@ uint32_t Context::checksum() const
 
 void Context::check() const
 {
+    auto &&proxy = rproxy();
     for (auto &n : nets) {
         auto ni = n.second.get();
         NPNR_ASSERT(n.first == ni->name);
         for (auto &w : ni->wires) {
-            NPNR_ASSERT(n.first == getBoundWireNet(w.first));
+            NPNR_ASSERT(n.first == proxy.getBoundWireNet(w.first));
             if (w.second.pip != PipId()) {
                 NPNR_ASSERT(w.first == getPipDstWire(w.second.pip));
-                NPNR_ASSERT(n.first == getBoundPipNet(w.second.pip));
+                NPNR_ASSERT(n.first == proxy.getBoundPipNet(w.second.pip));
             }
         }
     }
 
     for (auto w : getWires()) {
-        IdString net = getBoundWireNet(w);
+        IdString net = proxy.getBoundWireNet(w);
         if (net != IdString()) {
             NPNR_ASSERT(nets.at(net)->wires.count(w));
         }
@@ -192,7 +193,7 @@ void Context::check() const
     for (auto &c : cells) {
         NPNR_ASSERT(c.first == c.second->name);
         if (c.second->bel != BelId())
-            NPNR_ASSERT(getBoundBelCell(c.second->bel) == c.first);
+            NPNR_ASSERT(proxy.getBoundBelCell(c.second->bel) == c.first);
         for (auto &port : c.second->ports) {
             NetInfo *net = port.second.net;
             if (net != nullptr) {

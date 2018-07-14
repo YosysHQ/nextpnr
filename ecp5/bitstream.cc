@@ -155,6 +155,7 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
 {
     Trellis::Chip empty_chip(ctx->getChipName());
     Trellis::ChipConfig cc;
+    auto &&proxy = ctx->rproxy();
 
     std::set<std::string> cib_tiles = {"CIB", "CIB_LR", "CIB_LR_S", "CIB_EFB0", "CIB_EFB1"};
 
@@ -172,7 +173,7 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
 
     // Add all set, configurable pips to the config
     for (auto pip : ctx->getPips()) {
-        if (ctx->getBoundPipNet(pip) != IdString()) {
+        if (proxy.getBoundPipNet(pip) != IdString()) {
             if (ctx->getPipType(pip) == 0) { // ignore fixed pips
                 std::string tile = empty_chip.get_tile_by_position_and_type(pip.location.y, pip.location.x,
                                                                             ctx->getPipTiletype(pip));
@@ -227,7 +228,7 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                 (ci->ports.find(ctx->id("T")) == ci->ports.end() || ci->ports.at(ctx->id("T")).net == nullptr)) {
                 // Tie tristate low if unconnected for outputs or bidir
                 std::string jpt = fmt_str("X" << bel.location.x << "/Y" << bel.location.y << "/JPADDT" << pio.back());
-                WireId jpt_wire = ctx->getWireByName(ctx->id(jpt));
+                WireId jpt_wire = proxy.getWireByName(ctx->id(jpt));
                 PipId jpt_pip = *ctx->getPipsUphill(jpt_wire).begin();
                 WireId cib_wire = ctx->getPipSrcWire(jpt_pip);
                 std::string cib_tile =
