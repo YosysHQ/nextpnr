@@ -22,9 +22,6 @@
 #error Include "arch.h" via "nextpnr.h" only.
 #endif
 
-#include <boost/thread/shared_lock_guard.hpp>
-#include <boost/thread/shared_mutex.hpp>
-
 NEXTPNR_NAMESPACE_BEGIN
 
 /**** Everything in this section must be kept in sync with chipdb.py ****/
@@ -330,11 +327,8 @@ struct ArchArgs
 
 /// Forward declare proxy classes for Arch.
 
-class ArchRWProxyMethods;
-class ArchRProxyMethods;
-class ArchRWProxy;
-class ArchRProxy;
-
+class ArchMutateMethods;
+class ArchReadMethods;
 
 /// Arch/Context
 // Arch is the main state class of the PnR algorithms. It keeps note of mapped
@@ -347,11 +341,8 @@ class ArchRProxy;
 class Arch : public BaseCtx
 {
     // We let proxy methods access our state.
-    friend class ArchRWProxyMethods;
-    friend class ArchRProxyMethods;
-    // We let proxy objects access our mutex.
-    friend class ArchRWProxy;
-    friend class ArchRProxy;
+    friend class ArchMutateMethods;
+    friend class ArchReadMethods;
 private:
     // All of the following...
     std::vector<IdString> bel_to_cell;
@@ -362,24 +353,12 @@ private:
     mutable std::unordered_map<IdString, int> wire_by_name;
     mutable std::unordered_map<IdString, int> pip_by_name;
 
-    // ... are guarded by the following lock:
-    mutable boost::shared_mutex mtx_;
-
 public:
     const ChipInfoPOD *chip_info;
     const PackageInfoPOD *package_info;
 
     ArchArgs args;
     Arch(ArchArgs args);
-
-    // Get a readwrite proxy to arch - this will keep a readwrite lock on the
-    // entire architecture until the proxy object goes out of scope.
-    ArchRWProxy rwproxy(void);
-    // Get a read-only proxy to arch - this will keep a  read lock on the
-    // entire architecture until the proxy object goes out of scope. Other read
-    // locks can be taken while this one still exists. Ie., the UI can draw
-    // elements while the PnR is going a RO operation.
-    ArchRProxy rproxy(void) const;
 
     std::string getChipName();
 
@@ -632,22 +611,9 @@ public:
 };
 
 // Read-only methods on Arch that require state access.
-class ArchRProxyMethods {
-    // We let proxy objects access our private constructors.
-    friend class ArchRProxy;
-    friend class ArchRWProxy;
+class ArchReadMethods : public BaseReadCtx {
 private:
     const Arch *parent_;
-    ArchRProxyMethods(const Arch *parent) : parent_(parent), chip_info(parent->chip_info),
-        bel_to_cell(parent->bel_to_cell), wire_to_net(parent->wire_to_net),
-        pip_to_net(parent->pip_to_net), switches_locked(parent->switches_locked),
-        bel_by_name(parent->bel_by_name), wire_by_name(parent->wire_by_name),
-        pip_by_name(parent->pip_by_name) {}
-    ArchRProxyMethods(ArchRProxyMethods &&other) noexcept : ArchRProxyMethods(other.parent_) {}
-    ArchRProxyMethods(const ArchRProxyMethods &other) : ArchRProxyMethods(other.parent_) {}
-
-    // Let methods access hot members directly without having to go through
-    // parent_.
     const ChipInfoPOD *chip_info;
     const std::vector<IdString> &bel_to_cell;
     const std::vector<IdString> &wire_to_net;
@@ -656,8 +622,17 @@ private:
     std::unordered_map<IdString, int> &bel_by_name;
     std::unordered_map<IdString, int> &wire_by_name;
     std::unordered_map<IdString, int> &pip_by_name;
+
 public:
-    ~ArchRProxyMethods() noexcept { }
+    ~ArchReadMethods() noexcept { }
+    ArchReadMethods(const Arch *parent) : BaseReadCtx(parent), parent_(parent),
+        chip_info(parent->chip_info), bel_to_cell(parent->bel_to_cell), 
+        wire_to_net(parent->wire_to_net), pip_to_net(parent->pip_to_net),
+        switches_locked(parent->switches_locked),
+        bel_by_name(parent->bel_by_name), wire_by_name(parent->wire_by_name),
+        pip_by_name(parent->pip_by_name) {}
+    ArchReadMethods(ArchReadMethods &&other) noexcept : ArchReadMethods(other.parent_) {}
+    ArchReadMethods(const ArchReadMethods &other) : ArchReadMethods(other.parent_) {}
 
     /// Perform placement validity checks, returning false on failure (all implemented in arch_place.cc)
 
@@ -693,44 +668,11 @@ public:
     std::vector<GraphicElement> getDecalGraphics(DecalId decal) const;
 };
 
-// A proxy object that keeps an Arch shared/readonly lock until it goes out
-// of scope. All const/read-only ArchRProxyMethods are available on it.
-class ArchRProxy : public ArchRProxyMethods {
-    friend class Arch;
-    friend class ArchRWProxy;
-private:
-    boost::shared_mutex *lock_;
-    ArchRProxy(const Arch *parent) : ArchRProxyMethods(parent), lock_(&parent->mtx_)
-    {
-        lock_->lock_shared();
-    }
-
-public:
-    ~ArchRProxy() {
-        if (lock_ != nullptr) {
-            lock_->unlock_shared();
-        }
-    }
-    ArchRProxy(ArchRProxy &&other) : ArchRProxyMethods(other), lock_(other.lock_)
-    {
-        other.lock_ = nullptr;
-    }
-};
-
 // State mutating methods on Arch.
-class ArchRWProxyMethods {
-    // We let proxy objects access our private constructors.
-    friend class ArchRWProxy;
+class ArchMutateMethods : public BaseMutateCtx {
+    friend class MutateContext;
 private:
     Arch *parent_;
-    ArchRWProxyMethods(Arch *parent) : parent_(parent), chip_info(parent->chip_info),
-        bel_to_cell(parent->bel_to_cell), wire_to_net(parent->wire_to_net),
-        pip_to_net(parent->pip_to_net), switches_locked(parent->switches_locked),
-        bel_by_name(parent->bel_by_name), wire_by_name(parent->wire_by_name),
-        pip_by_name(parent->pip_by_name) {}
-    ArchRWProxyMethods(ArchRWProxyMethods &&other) : ArchRWProxyMethods(other.parent_) {}
-    ArchRWProxyMethods(const ArchRWProxyMethods &other) : ArchRWProxyMethods(other.parent_) {}
-
     const ChipInfoPOD *chip_info;
     std::vector<IdString> &bel_to_cell;
     std::vector<IdString> &wire_to_net;
@@ -739,8 +681,17 @@ private:
     std::unordered_map<IdString, int> &bel_by_name;
     std::unordered_map<IdString, int> &wire_by_name;
     std::unordered_map<IdString, int> &pip_by_name;
+
 public:
-    ~ArchRWProxyMethods() {}
+    ArchMutateMethods(Arch *parent) : BaseMutateCtx(parent), parent_(parent),
+        chip_info(parent->chip_info), bel_to_cell(parent->bel_to_cell), 
+        wire_to_net(parent->wire_to_net), pip_to_net(parent->pip_to_net),
+        switches_locked(parent->switches_locked),
+        bel_by_name(parent->bel_by_name), wire_by_name(parent->wire_by_name),
+        pip_by_name(parent->pip_by_name) {}
+    ArchMutateMethods(ArchMutateMethods &&other) : ArchMutateMethods(other.parent_) {}
+    ArchMutateMethods(const ArchMutateMethods &other) : ArchMutateMethods(other.parent_) {}
+    ~ArchMutateMethods() {}
 
     void unbindWire(WireId wire);
     void unbindPip(PipId pip);
@@ -750,33 +701,6 @@ public:
     void bindBel(BelId bel, IdString cell, PlaceStrength strength);
     // Returned pointer is valid as long as Proxy object exists.
     CellInfo *getCell(IdString cell);
-
-
-    // Methods to be used by UI for detecting whether we need to redraw.
-    UIUpdatesRequired getUIUpdatesRequired(void);
-};
-
-// A proxy object that keeps an Arch readwrite lock until it goes out of scope.
-// All ArchRProxyMethods and ArchRWProxyMethods are available on it.
-class ArchRWProxy : public ArchRProxyMethods, public ArchRWProxyMethods {
-    friend class Arch;
-private:
-    boost::shared_mutex *lock_;
-    ArchRWProxy(Arch *parent) : ArchRProxyMethods(parent), ArchRWProxyMethods(parent), lock_(&parent->mtx_) {
-        lock_->lock();
-    }
-
-public:
-    ArchRWProxy(ArchRWProxy &&other) : ArchRProxyMethods(other), ArchRWProxyMethods(other), lock_(other.lock_)
-    {
-        other.lock_ = nullptr;
-    }
-    ~ArchRWProxy()
-    {
-        if (lock_ != nullptr) {
-            lock_->unlock();
-        }
-    }
 };
 
 NEXTPNR_NAMESPACE_END

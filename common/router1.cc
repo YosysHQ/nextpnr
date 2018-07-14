@@ -74,7 +74,7 @@ struct RipupScoreboard
     std::unordered_map<std::pair<IdString, PipId>, int, hash_id_pip> netPipScores;
 };
 
-void ripup_net(ArchRWProxy &proxy, Context *ctx, IdString net_name)
+void ripup_net(MutateContext &proxy, Context *ctx, IdString net_name)
 {
     auto net_info = ctx->nets.at(net_name).get();
     std::vector<PipId> pips;
@@ -115,7 +115,7 @@ struct Router
     delay_t maxDelay = 0.0;
     WireId failedDest;
 
-    void route(ArchRWProxy &proxy, const std::unordered_map<WireId, delay_t> &src_wires, WireId dst_wire)
+    void route(MutateContext &proxy, const std::unordered_map<WireId, delay_t> &src_wires, WireId dst_wire)
     {
         std::priority_queue<QueuedWire, std::vector<QueuedWire>, QueuedWire::Greater> queue;
 
