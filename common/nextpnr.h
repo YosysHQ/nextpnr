@@ -265,65 +265,15 @@ class IdStringDB
     }
 };
 
-class BaseCtx : public IdStringDB
+class DeterministicRNG
 {
+  private:
+    uint64_t rngstate;
+
   public:
-    std::unordered_map<IdString, std::unique_ptr<NetInfo>> nets;
-    std::unordered_map<IdString, std::unique_ptr<CellInfo>> cells;
-
-    BaseCtx() {}
-    ~BaseCtx() {}
-
-    Context *getCtx() { return reinterpret_cast<Context *>(this); }
-
-    const Context *getCtx() const { return reinterpret_cast<const Context *>(this); }
-
-    // --------------------------------------------------------------
-
-    bool allUiReload = false;
-    bool frameUiReload = false;
-    std::unordered_set<BelId> belUiReload;
-    std::unordered_set<WireId> wireUiReload;
-    std::unordered_set<PipId> pipUiReload;
-    std::unordered_set<GroupId> groupUiReload;
-
-    void refreshUi() { allUiReload = true; }
-
-    void refreshUiFrame() { frameUiReload = true; }
-
-    void refreshUiBel(BelId bel) { belUiReload.insert(bel); }
-
-    void refreshUiWire(WireId wire) { wireUiReload.insert(wire); }
-
-    void refreshUiPip(PipId pip) { pipUiReload.insert(pip); }
-
-    void refreshUiGroup(GroupId group) { groupUiReload.insert(group); }
-};
-
-NEXTPNR_NAMESPACE_END
-
-#include "arch.h"
-
-NEXTPNR_NAMESPACE_BEGIN
-
-struct Context : Arch
-{
-    bool verbose = false;
-    bool debug = false;
-    bool force = false;
-    bool timing_driven = true;
-    float target_freq = 12e6;
-
-    Context(ArchArgs args) : Arch(args) {}
-
-    // --------------------------------------------------------------
-
-    // provided by router1.cc
-    bool getActualRouteDelay(WireId src_wire, WireId dst_wire, delay_t &delay);
-
-    // --------------------------------------------------------------
-
-    uint64_t rngstate = 0x3141592653589793;
+    DeterministicRNG() : rngstate(0x3141592653589793)
+    {
+    }
 
     uint64_t rng64()
     {
@@ -382,6 +332,66 @@ struct Context : Arch
         std::sort(a.begin(), a.end());
         shuffle(a);
     }
+
+};
+
+class BaseCtx : public IdStringDB, public DeterministicRNG
+{
+  public:
+    std::unordered_map<IdString, std::unique_ptr<NetInfo>> nets;
+    std::unordered_map<IdString, std::unique_ptr<CellInfo>> cells;
+
+    BaseCtx() {}
+    ~BaseCtx() {}
+
+    Context *getCtx() { return reinterpret_cast<Context *>(this); }
+
+    const Context *getCtx() const { return reinterpret_cast<const Context *>(this); }
+
+    // --------------------------------------------------------------
+
+    bool allUiReload = false;
+    bool frameUiReload = false;
+    std::unordered_set<BelId> belUiReload;
+    std::unordered_set<WireId> wireUiReload;
+    std::unordered_set<PipId> pipUiReload;
+    std::unordered_set<GroupId> groupUiReload;
+
+    void refreshUi() { allUiReload = true; }
+
+    void refreshUiFrame() { frameUiReload = true; }
+
+    void refreshUiBel(BelId bel) { belUiReload.insert(bel); }
+
+    void refreshUiWire(WireId wire) { wireUiReload.insert(wire); }
+
+    void refreshUiPip(PipId pip) { pipUiReload.insert(pip); }
+
+    void refreshUiGroup(GroupId group) { groupUiReload.insert(group); }
+};
+
+NEXTPNR_NAMESPACE_END
+
+#include "arch.h"
+
+NEXTPNR_NAMESPACE_BEGIN
+
+struct Context : Arch
+{
+    bool verbose = false;
+    bool debug = false;
+    bool force = false;
+    bool timing_driven = true;
+    float target_freq = 12e6;
+
+    Context(ArchArgs args) : Arch(args) {}
+
+    // --------------------------------------------------------------
+
+    // provided by router1.cc
+    bool getActualRouteDelay(WireId src_wire, WireId dst_wire, delay_t &delay);
+
+    // --------------------------------------------------------------
 
     uint32_t checksum() const;
 
