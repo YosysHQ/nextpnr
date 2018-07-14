@@ -29,8 +29,7 @@ NEXTPNR_NAMESPACE_BEGIN
 typedef int64_t wirelen_t;
 
 // Get the total estimated wirelength for a net
-template <typename T>
-wirelen_t get_net_wirelength(const T &proxy, const Context *ctx, const NetInfo *net, float &tns)
+template <typename T> wirelen_t get_net_wirelength(const T &proxy, const Context *ctx, const NetInfo *net, float &tns)
 {
     wirelen_t wirelength = 0;
     int driver_x, driver_y;
@@ -81,8 +80,7 @@ wirelen_t get_net_wirelength(const T &proxy, const Context *ctx, const NetInfo *
 }
 
 // Return the wirelength of all nets connected to a cell
-template <typename T>
-wirelen_t get_cell_wirelength(const T &proxy, const Context *ctx, const CellInfo *cell)
+template <typename T> wirelen_t get_cell_wirelength(const T &proxy, const Context *ctx, const CellInfo *cell)
 {
     std::set<IdString> nets;
     for (auto p : cell->ports) {

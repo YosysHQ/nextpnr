@@ -343,7 +343,8 @@ class Arch : public BaseCtx
     // We let proxy methods access our state.
     friend class ArchMutateMethods;
     friend class ArchReadMethods;
-private:
+
+  private:
     // All of the following...
     std::vector<IdString> bel_to_cell;
     std::vector<IdString> wire_to_net;
@@ -353,7 +354,7 @@ private:
     mutable std::unordered_map<IdString, int> wire_by_name;
     mutable std::unordered_map<IdString, int> pip_by_name;
 
-public:
+  public:
     const ChipInfoPOD *chip_info;
     const PackageInfoPOD *package_info;
 
@@ -410,10 +411,7 @@ public:
         return id(chip_info->bel_data[bel.index].name.get());
     }
 
-    uint32_t getBelChecksum(BelId bel) const
-    {
-        return bel.index;
-    }
+    uint32_t getBelChecksum(BelId bel) const { return bel.index; }
 
     BelRange getBels() const
     {
@@ -444,7 +442,6 @@ public:
         NPNR_ASSERT(bel != BelId());
         return chip_info->bel_data[bel.index].type;
     }
-
 
     BelPin getBelPinUphill(WireId wire) const
     {
@@ -549,7 +546,6 @@ public:
         return range;
     }
 
-
     BelId getPackagePinBel(const std::string &pin) const;
     std::string getBelPackagePin(BelId bel) const;
 
@@ -611,8 +607,9 @@ public:
 };
 
 // Read-only methods on Arch that require state access.
-class ArchReadMethods : public BaseReadCtx {
-private:
+class ArchReadMethods : public BaseReadCtx
+{
+  private:
     const Arch *parent_;
     const ChipInfoPOD *chip_info;
     const std::vector<IdString> &bel_to_cell;
@@ -623,14 +620,15 @@ private:
     std::unordered_map<IdString, int> &wire_by_name;
     std::unordered_map<IdString, int> &pip_by_name;
 
-public:
-    ~ArchReadMethods() noexcept { }
-    ArchReadMethods(const Arch *parent) : BaseReadCtx(parent), parent_(parent),
-        chip_info(parent->chip_info), bel_to_cell(parent->bel_to_cell), 
-        wire_to_net(parent->wire_to_net), pip_to_net(parent->pip_to_net),
-        switches_locked(parent->switches_locked),
-        bel_by_name(parent->bel_by_name), wire_by_name(parent->wire_by_name),
-        pip_by_name(parent->pip_by_name) {}
+  public:
+    ~ArchReadMethods() noexcept {}
+    ArchReadMethods(const Arch *parent)
+            : BaseReadCtx(parent), parent_(parent), chip_info(parent->chip_info), bel_to_cell(parent->bel_to_cell),
+              wire_to_net(parent->wire_to_net), pip_to_net(parent->pip_to_net),
+              switches_locked(parent->switches_locked), bel_by_name(parent->bel_by_name),
+              wire_by_name(parent->wire_by_name), pip_by_name(parent->pip_by_name)
+    {
+    }
     ArchReadMethods(ArchReadMethods &&other) noexcept : ArchReadMethods(other.parent_) {}
     ArchReadMethods(const ArchReadMethods &other) : ArchReadMethods(other.parent_) {}
 
@@ -669,9 +667,11 @@ public:
 };
 
 // State mutating methods on Arch.
-class ArchMutateMethods : public BaseMutateCtx {
+class ArchMutateMethods : public BaseMutateCtx
+{
     friend class MutateContext;
-private:
+
+  private:
     Arch *parent_;
     const ChipInfoPOD *chip_info;
     std::vector<IdString> &bel_to_cell;
@@ -682,13 +682,14 @@ private:
     std::unordered_map<IdString, int> &wire_by_name;
     std::unordered_map<IdString, int> &pip_by_name;
 
-public:
-    ArchMutateMethods(Arch *parent) : BaseMutateCtx(parent), parent_(parent),
-        chip_info(parent->chip_info), bel_to_cell(parent->bel_to_cell), 
-        wire_to_net(parent->wire_to_net), pip_to_net(parent->pip_to_net),
-        switches_locked(parent->switches_locked),
-        bel_by_name(parent->bel_by_name), wire_by_name(parent->wire_by_name),
-        pip_by_name(parent->pip_by_name) {}
+  public:
+    ArchMutateMethods(Arch *parent)
+            : BaseMutateCtx(parent), parent_(parent), chip_info(parent->chip_info), bel_to_cell(parent->bel_to_cell),
+              wire_to_net(parent->wire_to_net), pip_to_net(parent->pip_to_net),
+              switches_locked(parent->switches_locked), bel_by_name(parent->bel_by_name),
+              wire_by_name(parent->wire_by_name), pip_by_name(parent->pip_by_name)
+    {
+    }
     ArchMutateMethods(ArchMutateMethods &&other) : ArchMutateMethods(other.parent_) {}
     ArchMutateMethods(const ArchMutateMethods &other) : ArchMutateMethods(other.parent_) {}
     ~ArchMutateMethods() {}
