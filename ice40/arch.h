@@ -328,28 +328,15 @@ struct ArchArgs
     std::string package;
 };
 
-/// Forward declare proxy classes for Arch.
-
 class ArchRWProxyMethods;
 class ArchRProxyMethods;
 class ArchRWProxy;
 class ArchRProxy;
 
-
-/// Arch/Context
-// Arch is the main state class of the PnR algorithms. It keeps note of mapped
-// cells/nets, locked switches, etc.
-// 
-// In order to mutate state in Arch, you can do one of two things:
-//   - directly call one of the wrapper methods to mutate state
-//   - get a read or readwrite proxy to the Arch, and call methods on it
-
 class Arch : public BaseCtx
 {
-    // We let proxy methods access our state.
     friend class ArchRWProxyMethods;
     friend class ArchRProxyMethods;
-    // We let proxy objects access our mutex.
     friend class ArchRWProxy;
     friend class ArchRProxy;
 private:
@@ -372,13 +359,7 @@ public:
     ArchArgs args;
     Arch(ArchArgs args);
 
-    // Get a readwrite proxy to arch - this will keep a readwrite lock on the
-    // entire architecture until the proxy object goes out of scope.
     ArchRWProxy rwproxy(void);
-    // Get a read-only proxy to arch - this will keep a  read lock on the
-    // entire architecture until the proxy object goes out of scope. Other read
-    // locks can be taken while this one still exists. Ie., the UI can draw
-    // elements while the PnR is going a RO operation.
     ArchRProxy rproxy(void) const;
 
     std::string getChipName();
@@ -397,9 +378,6 @@ public:
     /// Wrappers around getting a r(w)proxy and calling a single method.
     // Deprecated: please acquire a proxy yourself and call the methods
     // you want on it.
-    // Warning: these will content with locks taken by the r(w)proxies, and
-    // thus can cause difficult to debug deadlocks - we'll be getting rid of
-    // them because of that.
     void unbindWire(WireId wire);
     void unbindPip(PipId pip);
     void unbindBel(BelId bel);
@@ -576,7 +554,6 @@ public:
 
     // -------------------------------------------------
 
-    // TODO(q3k) move this to archproxies?
     GroupId getGroupByName(IdString name) const;
     IdString getGroupName(GroupId group) const;
     std::vector<GroupId> getGroups() const;
@@ -587,8 +564,6 @@ public:
 
     // -------------------------------------------------
 
-    // These are also specific to the chip and not state, so they're available
-    // on arch directly.
     void estimatePosition(BelId bel, int &x, int &y, bool &gb) const;
     delay_t estimateDelay(WireId src, WireId dst) const;
     delay_t getDelayEpsilon() const { return 20; }
@@ -633,9 +608,7 @@ public:
     IdString id_dff_en, id_neg_clk;
 };
 
-// Read-only methods on Arch that require state access.
 class ArchRProxyMethods {
-    // We let proxy objects access our private constructors.
     friend class ArchRProxy;
     friend class ArchRWProxy;
 private:
@@ -668,6 +641,7 @@ public:
     WireId getWireBelPin(BelId bel, PortPin pin) const;
     PipId getPipByName(IdString name) const;
     
+    
     IdString getConflictingWireNet(WireId wire) const;
     IdString getConflictingPipNet(PipId pip) const;
     IdString getConflictingBelCell(BelId bel) const;
@@ -679,8 +653,6 @@ public:
     BelId getBelByName(IdString name) const;
 };
 
-// A proxy object that keeps an Arch shared/readonly lock until it goes out
-// of scope. All const/read-only ArchRProxyMethods are available on it.
 class ArchRProxy : public ArchRProxyMethods {
     friend class Arch;
     friend class ArchRWProxy;
@@ -703,9 +675,7 @@ public:
     }
 };
 
-// State mutating methods on Arch.
 class ArchRWProxyMethods {
-    // We let proxy objects access our private constructors.
     friend class ArchRWProxy;
 private:
     Arch *parent_;
@@ -721,12 +691,9 @@ public:
     void bindWire(WireId wire, IdString net, PlaceStrength strength);
     void bindPip(PipId pip, IdString net, PlaceStrength strength);
     void bindBel(BelId bel, IdString cell, PlaceStrength strength);
-    // Returned pointer is valid as long as Proxy object exists.
     CellInfo *getCell(IdString cell);
 };
 
-// A proxy object that keeps an Arch readwrite lock until it goes out of scope.
-// All ArchRProxyMethods and ArchRWProxyMethods are available on it.
 class ArchRWProxy : public ArchRProxyMethods, public ArchRWProxyMethods {
     friend class Arch;
 private:
