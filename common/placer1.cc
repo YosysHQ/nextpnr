@@ -3,7 +3,6 @@
  *
  *  Copyright (C) 2018  Clifford Wolf <clifford@symbioticeda.com>
  *  Copyright (C) 2018  David Shah <david@symbioticeda.com>
- *  Copyright (C) 2018  Serge Bazanski  <q3k@symbioticeda.com>
  *
  *  Simulated annealing implementation based on arachne-pnr
  *  Copyright (C) 2015-2018 Cotton Seed
@@ -80,33 +79,30 @@ class SAPlacer
         log_break();
 
         size_t placed_cells = 0;
-        {
-            auto &&proxy = ctx->rwproxy();
-            // Initial constraints placer
-            for (auto &cell_entry : ctx->cells) {
-                CellInfo *cell = cell_entry.second.get();
-                auto loc = cell->attrs.find(ctx->id("BEL"));
-                if (loc != cell->attrs.end()) {
-                    std::string loc_name = loc->second;
-                    BelId bel = proxy.getBelByName(ctx->id(loc_name));
-                    if (bel == BelId()) {
-                        log_error("No Bel named \'%s\' located for "
-                                  "this chip (processing BEL attribute on \'%s\')\n",
-                                  loc_name.c_str(), cell->name.c_str(ctx));
-                    }
-
-                    BelType bel_type = ctx->getBelType(bel);
-                    if (bel_type != ctx->belTypeFromId(cell->type)) {
-                        log_error("Bel \'%s\' of type \'%s\' does not match cell "
-                                  "\'%s\' of type \'%s\'",
-                                  loc_name.c_str(), ctx->belTypeToId(bel_type).c_str(ctx), cell->name.c_str(ctx),
-                                  cell->type.c_str(ctx));
-                    }
-
-                    proxy.bindBel(bel, cell->name, STRENGTH_USER);
-                    locked_bels.insert(bel);
-                    placed_cells++;
+        // Initial constraints placer
+        for (auto &cell_entry : ctx->cells) {
+            CellInfo *cell = cell_entry.second.get();
+            auto loc = cell->attrs.find(ctx->id("BEL"));
+            if (loc != cell->attrs.end()) {
+                std::string loc_name = loc->second;
+                BelId bel = ctx->getBelByNameUnlocked(ctx->id(loc_name));
+                if (bel == BelId()) {
+                    log_error("No Bel named \'%s\' located for "
+                              "this chip (processing BEL attribute on \'%s\')\n",
+                              loc_name.c_str(), cell->name.c_str(ctx));
                 }
+
+                BelType bel_type = ctx->getBelType(bel);
+                if (bel_type != ctx->belTypeFromId(cell->type)) {
+                    log_error("Bel \'%s\' of type \'%s\' does not match cell "
+                              "\'%s\' of type \'%s\'",
+                              loc_name.c_str(), ctx->belTypeToId(bel_type).c_str(ctx), cell->name.c_str(ctx),
+                              cell->type.c_str(ctx));
+                }
+
+                ctx->bindBelUnlocked(bel, cell->name, STRENGTH_USER);
+                locked_bels.insert(bel);
+                placed_cells++;
             }
         }
         int constr_placed_cells = placed_cells;
@@ -126,15 +122,12 @@ class SAPlacer
         // Place cells randomly initially
         log_info("Creating initial placement for remaining %d cells.\n", int(autoplaced.size()));
 
-        {
-            auto &&proxy = ctx->rwproxy();
-            for (auto cell : autoplaced) {
-                place_initial(proxy, cell);
-                placed_cells++;
-                if ((placed_cells - constr_placed_cells) % 500 == 0)
-                    log_info("  initial placement placed %d/%d cells\n", int(placed_cells - constr_placed_cells),
-                             int(autoplaced.size()));
-            }
+        for (auto cell : autoplaced) {
+            place_initial(cell);
+            placed_cells++;
+            if ((placed_cells - constr_placed_cells) % 500 == 0)
+                log_info("  initial placement placed %d/%d cells\n", int(placed_cells - constr_placed_cells),
+                         int(autoplaced.size()));
         }
         if ((placed_cells - constr_placed_cells) % 500 != 0)
             log_info("  initial placement placed %d/%d cells\n", int(placed_cells - constr_placed_cells),
@@ -145,13 +138,10 @@ class SAPlacer
         // Calculate wirelength after initial placement
         curr_wirelength = 0;
         curr_tns = 0;
-        {
-            auto &&proxy = ctx->rproxy();
-            for (auto &net : ctx->nets) {
-                wirelen_t wl = get_net_wirelength(proxy, ctx, net.second.get(), curr_tns);
-                wirelengths[net.first] = wl;
-                curr_wirelength += wl;
-            }
+        for (auto &net : ctx->nets) {
+            wirelen_t wl = get_net_wirelength(ctx, net.second.get(), curr_tns);
+            wirelengths[net.first] = wl;
+            curr_wirelength += wl;
         }
 
         int n_no_progress = 0;
@@ -168,18 +158,15 @@ class SAPlacer
                          "%.0f, est tns = %.02fns\n",
                          iter, temp, double(curr_wirelength), curr_tns);
 
-            {
-                auto &&proxy = ctx->rwproxy();
-                for (int m = 0; m < 15; ++m) {
-                    // Loop through all automatically placed cells
-                    for (auto cell : autoplaced) {
-                        // Find another random Bel for this cell
-                        BelId try_bel = random_bel_for_cell(cell);
-                        // If valid, try and swap to a new position and see if
-                        // the new position is valid/worthwhile
-                        if (try_bel != BelId() && try_bel != cell->bel)
-                            try_swap_position(proxy, cell, try_bel);
-                    }
+            for (int m = 0; m < 15; ++m) {
+                // Loop through all automatically placed cells
+                for (auto cell : autoplaced) {
+                    // Find another random Bel for this cell
+                    BelId try_bel = random_bel_for_cell(cell);
+                    // If valid, try and swap to a new position and see if
+                    // the new position is valid/worthwhile
+                    if (try_bel != BelId() && try_bel != cell->bel)
+                        try_swap_position(cell, try_bel);
                 }
             }
             // Heuristic to improve placement on the 8k
@@ -240,33 +227,27 @@ class SAPlacer
             // accumulating over time
             curr_wirelength = 0;
             curr_tns = 0;
-            {
-                auto &&proxy = ctx->rproxy();
-                for (auto &net : ctx->nets) {
-                    wirelen_t wl = get_net_wirelength(proxy, ctx, net.second.get(), curr_tns);
-                    wirelengths[net.first] = wl;
-                    curr_wirelength += wl;
-                }
+            for (auto &net : ctx->nets) {
+                wirelen_t wl = get_net_wirelength(ctx, net.second.get(), curr_tns);
+                wirelengths[net.first] = wl;
+                curr_wirelength += wl;
             }
         }
-        {
-            // Final post-pacement validitiy check
-            auto &&proxy = ctx->rproxy();
-            for (auto bel : ctx->getBels()) {
-                IdString cell = proxy.getBoundBelCell(bel);
-                if (!proxy.isBelLocationValid(bel)) {
-                    std::string cell_text = "no cell";
-                    if (cell != IdString())
-                        cell_text = std::string("cell '") + cell.str(ctx) + "'";
-                    if (ctx->force) {
-                        log_warning("post-placement validity check failed for Bel '%s' "
-                                    "(%s)\n",
-                                    ctx->getBelName(bel).c_str(ctx), cell_text.c_str());
-                    } else {
-                        log_error("post-placement validity check failed for Bel '%s' "
-                                  "(%s)\n",
-                                  ctx->getBelName(bel).c_str(ctx), cell_text.c_str());
-                    }
+        // Final post-pacement validitiy check
+        for (auto bel : ctx->getBels()) {
+            IdString cell = ctx->getBoundBelCellUnlocked(bel);
+            if (!ctx->isBelLocationValid(bel)) {
+                std::string cell_text = "no cell";
+                if (cell != IdString())
+                    cell_text = std::string("cell '") + cell.str(ctx) + "'";
+                if (ctx->force) {
+                    log_warning("post-placement validity check failed for Bel '%s' "
+                                "(%s)\n",
+                                ctx->getBelName(bel).c_str(ctx), cell_text.c_str());
+                } else {
+                    log_error("post-placement validity check failed for Bel '%s' "
+                              "(%s)\n",
+                              ctx->getBelName(bel).c_str(ctx), cell_text.c_str());
                 }
             }
         }
@@ -275,7 +256,7 @@ class SAPlacer
 
   private:
     // Initial random placement
-    void place_initial(ArchRWProxy &proxy, CellInfo *cell)
+    void place_initial(CellInfo *cell)
     {
         bool all_placed = false;
         int iters = 25;
@@ -286,12 +267,12 @@ class SAPlacer
             CellInfo *ripup_target = nullptr;
             BelId ripup_bel = BelId();
             if (cell->bel != BelId()) {
-                proxy.unbindBel(cell->bel);
+                ctx->unbindBelUnlocked(cell->bel);
             }
             BelType targetType = ctx->belTypeFromId(cell->type);
             for (auto bel : ctx->getBels()) {
-                if (ctx->getBelType(bel) == targetType && (proxy.isValidBelForCell(cell, bel) || !require_legal)) {
-                    if (proxy.checkBelAvail(bel)) {
+                if (ctx->getBelType(bel) == targetType && (ctx->isValidBelForCell(cell, bel) || !require_legal)) {
+                    if (ctx->checkBelAvailUnlocked(bel)) {
                         uint64_t score = ctx->rng64();
                         if (score <= best_score) {
                             best_score = score;
@@ -301,7 +282,7 @@ class SAPlacer
                         uint64_t score = ctx->rng64();
                         if (score <= best_ripup_score) {
                             best_ripup_score = score;
-                            ripup_target = ctx->cells.at(proxy.getBoundBelCell(bel)).get();
+                            ripup_target = ctx->cells.at(ctx->getBoundBelCellUnlocked(bel)).get();
                             ripup_bel = bel;
                         }
                     }
@@ -311,12 +292,12 @@ class SAPlacer
                 if (iters == 0 || ripup_bel == BelId())
                     log_error("failed to place cell '%s' of type '%s'\n", cell->name.c_str(ctx), cell->type.c_str(ctx));
                 --iters;
-                proxy.unbindBel(ripup_target->bel);
+                ctx->unbindBelUnlocked(ripup_target->bel);
                 best_bel = ripup_bel;
             } else {
                 all_placed = true;
             }
-            proxy.bindBel(best_bel, cell->name, STRENGTH_WEAK);
+            ctx->bindBelUnlocked(best_bel, cell->name, STRENGTH_WEAK);
 
             // Back annotate location
             cell->attrs[ctx->id("BEL")] = ctx->getBelName(cell->bel).str(ctx);
@@ -325,14 +306,14 @@ class SAPlacer
     }
 
     // Attempt a SA position swap, return true on success or false on failure
-    bool try_swap_position(ArchRWProxy &proxy, CellInfo *cell, BelId newBel)
+    bool try_swap_position(CellInfo *cell, BelId newBel)
     {
         static std::unordered_set<NetInfo *> update;
         static std::vector<std::pair<IdString, wirelen_t>> new_lengths;
         new_lengths.clear();
         update.clear();
         BelId oldBel = cell->bel;
-        IdString other = proxy.getBoundBelCell(newBel);
+        IdString other = ctx->getBoundBelCellUnlocked(newBel);
         CellInfo *other_cell = nullptr;
         if (other != IdString()) {
             other_cell = ctx->cells[other].get();
@@ -340,9 +321,9 @@ class SAPlacer
                 return false;
         }
         wirelen_t new_wirelength = 0, delta;
-        proxy.unbindBel(oldBel);
+        ctx->unbindBelUnlocked(oldBel);
         if (other != IdString()) {
-            proxy.unbindBel(newBel);
+            ctx->unbindBelUnlocked(newBel);
         }
 
         for (const auto &port : cell->ports)
@@ -355,16 +336,16 @@ class SAPlacer
                     update.insert(port.second.net);
         }
 
-        proxy.bindBel(newBel, cell->name, STRENGTH_WEAK);
+        ctx->bindBelUnlocked(newBel, cell->name, STRENGTH_WEAK);
 
         if (other != IdString()) {
-            proxy.bindBel(oldBel, other_cell->name, STRENGTH_WEAK);
+            ctx->bindBelUnlocked(oldBel, other_cell->name, STRENGTH_WEAK);
         }
         if (require_legal) {
-            if (!proxy.isBelLocationValid(newBel) || ((other != IdString() && !proxy.isBelLocationValid(oldBel)))) {
-                proxy.unbindBel(newBel);
+            if (!ctx->isBelLocationValid(newBel) || ((other != IdString() && !ctx->isBelLocationValid(oldBel)))) {
+                ctx->unbindBelUnlocked(newBel);
                 if (other != IdString())
-                    proxy.unbindBel(oldBel);
+                    ctx->unbindBelUnlocked(oldBel);
                 goto swap_fail;
             }
         }
@@ -375,7 +356,7 @@ class SAPlacer
         for (auto net : update) {
             new_wirelength -= wirelengths.at(net->name);
             float temp_tns = 0;
-            wirelen_t net_new_wl = get_net_wirelength<>(proxy, ctx, net, temp_tns);
+            wirelen_t net_new_wl = get_net_wirelength(ctx, net, temp_tns);
             new_wirelength += net_new_wl;
             new_lengths.push_back(std::make_pair(net->name, net_new_wl));
         }
@@ -388,8 +369,8 @@ class SAPlacer
                 improved = true;
         } else {
             if (other != IdString())
-                proxy.unbindBel(oldBel);
-            proxy.unbindBel(newBel);
+                ctx->unbindBelUnlocked(oldBel);
+            ctx->unbindBelUnlocked(newBel);
             goto swap_fail;
         }
         curr_wirelength = new_wirelength;
@@ -398,9 +379,9 @@ class SAPlacer
 
         return true;
     swap_fail:
-        proxy.bindBel(oldBel, cell->name, STRENGTH_WEAK);
+        ctx->bindBelUnlocked(oldBel, cell->name, STRENGTH_WEAK);
         if (other != IdString()) {
-            proxy.bindBel(newBel, other, STRENGTH_WEAK);
+            ctx->bindBelUnlocked(newBel, other, STRENGTH_WEAK);
         }
         return false;
     }

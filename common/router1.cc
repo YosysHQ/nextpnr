@@ -2,7 +2,6 @@
  *  nextpnr -- Next Generation Place and Route
  *
  *  Copyright (C) 2018  Clifford Wolf <clifford@symbioticeda.com>
- *  Copyright (C) 2018  Serge Bazanski  <q3k@symbioticeda.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -74,7 +73,7 @@ struct RipupScoreboard
     std::unordered_map<std::pair<IdString, PipId>, int, hash_id_pip> netPipScores;
 };
 
-void ripup_net(ArchRWProxy &proxy, Context *ctx, IdString net_name)
+void ripup_net(Context *ctx, IdString net_name)
 {
     auto net_info = ctx->nets.at(net_name).get();
     std::vector<PipId> pips;
@@ -91,10 +90,10 @@ void ripup_net(ArchRWProxy &proxy, Context *ctx, IdString net_name)
     }
 
     for (auto pip : pips)
-        proxy.unbindPip(pip);
+        ctx->unbindPipUnlocked(pip);
 
     for (auto wire : wires)
-        proxy.unbindWire(wire);
+        ctx->unbindWireUnlocked(wire);
 
     NPNR_ASSERT(net_info->wires.empty());
 }
@@ -115,7 +114,7 @@ struct Router
     delay_t maxDelay = 0.0;
     WireId failedDest;
 
-    void route(ArchRWProxy &proxy, const std::unordered_map<WireId, delay_t> &src_wires, WireId dst_wire)
+    void route(const std::unordered_map<WireId, delay_t> &src_wires, WireId dst_wire)
     {
         std::priority_queue<QueuedWire, std::vector<QueuedWire>, QueuedWire::Greater> queue;
 
@@ -136,7 +135,6 @@ struct Router
         int thisVisitCnt = 0;
         int thisVisitCntLimit = 0;
 
-
         while (!queue.empty() && (thisVisitCntLimit == 0 || thisVisitCnt < thisVisitCntLimit)) {
             QueuedWire qw = queue.top();
             queue.pop();
@@ -150,10 +148,10 @@ struct Router
                 bool foundRipupNet = false;
                 thisVisitCnt++;
 
-                if (!proxy.checkWireAvail(next_wire)) {
+                if (!ctx->checkWireAvailUnlocked(next_wire)) {
                     if (!ripup)
                         continue;
-                    IdString ripupWireNet = proxy.getConflictingWireNet(next_wire);
+                    IdString ripupWireNet = ctx->getConflictingWireNetUnlocked(next_wire);
                     if (ripupWireNet == net_name || ripupWireNet == IdString())
                         continue;
 
@@ -168,10 +166,10 @@ struct Router
                     foundRipupNet = true;
                 }
 
-                if (!proxy.checkPipAvail(pip)) {
+                if (!ctx->checkPipAvailUnlocked(pip)) {
                     if (!ripup)
                         continue;
-                    IdString ripupPipNet = proxy.getConflictingPipNet(pip);
+                    IdString ripupPipNet = ctx->getConflictingPipNetUnlocked(pip);
                     if (ripupPipNet == net_name || ripupPipNet == IdString())
                         continue;
 
@@ -229,10 +227,7 @@ struct Router
     {
         std::unordered_map<WireId, delay_t> src_wires;
         src_wires[src_wire] = 0;
-        {
-            auto &&proxy = ctx->rwproxy();
-            route(proxy, src_wires, dst_wire);
-        }
+        route(src_wires, dst_wire);
         routedOkay = visited.count(dst_wire);
 
         if (ctx->debug) {
@@ -277,7 +272,7 @@ struct Router
         if (driver_port_it != net_info->driver.cell->pins.end())
             driver_port = driver_port_it->second;
 
-        auto src_wire = ctx->rproxy().getWireBelPin(src_bel, ctx->portPinFromId(driver_port));
+        auto src_wire = ctx->getWireBelPinUnlocked(src_bel, ctx->portPinFromId(driver_port));
 
         if (src_wire == WireId())
             log_error("No wire found for port %s (pin %s) on source cell %s "
@@ -291,10 +286,8 @@ struct Router
         std::unordered_map<WireId, delay_t> src_wires;
         src_wires[src_wire] = 0;
 
-        auto &&proxy = ctx->rwproxy();
-
-        ripup_net(proxy, ctx, net_name);
-        proxy.bindWire(src_wire, net_name, STRENGTH_WEAK);
+        ripup_net(ctx, net_name);
+        ctx->bindWireUnlocked(src_wire, net_name, STRENGTH_WEAK);
 
         std::vector<PortRef> users_array = net_info->users;
         ctx->shuffle(users_array);
@@ -319,7 +312,7 @@ struct Router
             if (user_port_it != user_it.cell->pins.end())
                 user_port = user_port_it->second;
 
-            auto dst_wire = proxy.getWireBelPin(dst_bel, ctx->portPinFromId(user_port));
+            auto dst_wire = ctx->getWireBelPinUnlocked(dst_bel, ctx->portPinFromId(user_port));
 
             if (dst_wire == WireId())
                 log_error("No wire found for port %s (pin %s) on destination "
@@ -332,7 +325,7 @@ struct Router
                 log("    Path delay estimate: %.2f\n", float(ctx->estimateDelay(src_wire, dst_wire)));
             }
 
-            route(proxy, src_wires, dst_wire);
+            route(src_wires, dst_wire);
 
             if (visited.count(dst_wire) == 0) {
                 if (ctx->debug)
@@ -341,7 +334,7 @@ struct Router
                 else if (ripup)
                     log_info("Failed to route %s -> %s.\n", ctx->getWireName(src_wire).c_str(ctx),
                              ctx->getWireName(dst_wire).c_str(ctx));
-                ripup_net(proxy, ctx, net_name);
+                ripup_net(ctx, net_name);
                 failedDest = dst_wire;
                 return;
             }
@@ -362,15 +355,15 @@ struct Router
                 if (src_wires.count(cursor))
                     break;
 
-                IdString conflicting_wire_net = proxy.getConflictingWireNet(cursor);
+                IdString conflicting_wire_net = ctx->getConflictingWireNetUnlocked(cursor);
 
                 if (conflicting_wire_net != IdString()) {
                     NPNR_ASSERT(ripup);
                     NPNR_ASSERT(conflicting_wire_net != net_name);
 
-                    proxy.unbindWire(cursor);
-                    if (!proxy.checkWireAvail(cursor))
-                        ripup_net(proxy, ctx, conflicting_wire_net);
+                    ctx->unbindWireUnlocked(cursor);
+                    if (!ctx->checkWireAvailUnlocked(cursor))
+                        ripup_net(ctx, conflicting_wire_net);
 
                     rippedNets.insert(conflicting_wire_net);
                     scores.wireScores[cursor]++;
@@ -379,15 +372,15 @@ struct Router
                 }
 
                 PipId pip = visited[cursor].pip;
-                IdString conflicting_pip_net = proxy.getConflictingPipNet(pip);
+                IdString conflicting_pip_net = ctx->getConflictingPipNetUnlocked(pip);
 
                 if (conflicting_pip_net != IdString()) {
                     NPNR_ASSERT(ripup);
                     NPNR_ASSERT(conflicting_pip_net != net_name);
 
-                    proxy.unbindPip(pip);
-                    if (!proxy.checkPipAvail(pip))
-                        ripup_net(proxy, ctx, conflicting_pip_net);
+                    ctx->unbindPipUnlocked(pip);
+                    if (!ctx->checkPipAvailUnlocked(pip))
+                        ripup_net(ctx, conflicting_pip_net);
 
                     rippedNets.insert(conflicting_pip_net);
                     scores.pipScores[visited[cursor].pip]++;
@@ -395,7 +388,7 @@ struct Router
                     scores.netPipScores[std::make_pair(conflicting_pip_net, visited[cursor].pip)]++;
                 }
 
-                proxy.bindPip(visited[cursor].pip, net_name, STRENGTH_WEAK);
+                ctx->bindPipUnlocked(visited[cursor].pip, net_name, STRENGTH_WEAK);
                 src_wires[cursor] = visited[cursor].delay;
                 cursor = ctx->getPipSrcWire(visited[cursor].pip);
             }
@@ -444,48 +437,45 @@ bool router1(Context *ctx)
         delay_t estimatedTotalDelay = 0.0;
         int estimatedTotalDelayCnt = 0;
 
-        {
-            auto &&proxy = ctx->rproxy();
-            for (auto net_name : netsQueue) {
-                auto net_info = ctx->nets.at(net_name).get();
+        for (auto net_name : netsQueue) {
+            auto net_info = ctx->nets.at(net_name).get();
 
-                auto src_bel = net_info->driver.cell->bel;
+            auto src_bel = net_info->driver.cell->bel;
 
-                if (src_bel == BelId())
+            if (src_bel == BelId())
+                continue;
+
+            IdString driver_port = net_info->driver.port;
+
+            auto driver_port_it = net_info->driver.cell->pins.find(driver_port);
+            if (driver_port_it != net_info->driver.cell->pins.end())
+                driver_port = driver_port_it->second;
+
+            auto src_wire = ctx->getWireBelPinUnlocked(src_bel, ctx->portPinFromId(driver_port));
+
+            if (src_wire == WireId())
+                continue;
+
+            for (auto &user_it : net_info->users) {
+                auto dst_bel = user_it.cell->bel;
+
+                if (dst_bel == BelId())
                     continue;
 
-                IdString driver_port = net_info->driver.port;
+                IdString user_port = user_it.port;
 
-                auto driver_port_it = net_info->driver.cell->pins.find(driver_port);
-                if (driver_port_it != net_info->driver.cell->pins.end())
-                    driver_port = driver_port_it->second;
+                auto user_port_it = user_it.cell->pins.find(user_port);
 
-                auto src_wire = proxy.getWireBelPin(src_bel, ctx->portPinFromId(driver_port));
+                if (user_port_it != user_it.cell->pins.end())
+                    user_port = user_port_it->second;
 
-                if (src_wire == WireId())
+                auto dst_wire = ctx->getWireBelPinUnlocked(dst_bel, ctx->portPinFromId(user_port));
+
+                if (dst_wire == WireId())
                     continue;
 
-                for (auto &user_it : net_info->users) {
-                    auto dst_bel = user_it.cell->bel;
-
-                    if (dst_bel == BelId())
-                        continue;
-
-                    IdString user_port = user_it.port;
-
-                    auto user_port_it = user_it.cell->pins.find(user_port);
-
-                    if (user_port_it != user_it.cell->pins.end())
-                        user_port = user_port_it->second;
-
-                    auto dst_wire = proxy.getWireBelPin(dst_bel, ctx->portPinFromId(user_port));
-
-                    if (dst_wire == WireId())
-                        continue;
-
-                    estimatedTotalDelay += ctx->estimateDelay(src_wire, dst_wire);
-                    estimatedTotalDelayCnt++;
-                }
+                estimatedTotalDelay += ctx->estimateDelay(src_wire, dst_wire);
+                estimatedTotalDelayCnt++;
             }
         }
 

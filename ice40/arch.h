@@ -2,7 +2,6 @@
  *  nextpnr -- Next Generation Place and Route
  *
  *  Copyright (C) 2018  Clifford Wolf <clifford@symbioticeda.com>
- *  Copyright (C) 2018  Serge Bazanski  <q3k@symbioticeda.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -328,39 +327,26 @@ struct ArchArgs
     std::string package;
 };
 
-class ArchRWProxyMethods;
-class ArchRProxyMethods;
-class ArchRWProxy;
-class ArchRProxy;
-
 class Arch : public BaseCtx
 {
-    friend class ArchRWProxyMethods;
-    friend class ArchRProxyMethods;
-    friend class ArchRWProxy;
-    friend class ArchRProxy;
 private:
     // All of the following...
     std::vector<IdString> bel_to_cell;
     std::vector<IdString> wire_to_net;
     std::vector<IdString> pip_to_net;
     std::vector<IdString> switches_locked;
-    mutable std::unordered_map<IdString, int> bel_by_name;
-    mutable std::unordered_map<IdString, int> wire_by_name;
-    mutable std::unordered_map<IdString, int> pip_by_name;
-
     // ... are guarded by the following lock:
     mutable boost::shared_mutex mtx_;
-
 public:
     const ChipInfoPOD *chip_info;
     const PackageInfoPOD *package_info;
 
+    mutable std::unordered_map<IdString, int> bel_by_name;
+    mutable std::unordered_map<IdString, int> wire_by_name;
+    mutable std::unordered_map<IdString, int> pip_by_name;
+
     ArchArgs args;
     Arch(ArchArgs args);
-
-    ArchRWProxy rwproxy(void);
-    ArchRProxy rproxy(void) const;
 
     std::string getChipName();
 
@@ -375,33 +361,8 @@ public:
 
     // -------------------------------------------------
 
-    /// Wrappers around getting a r(w)proxy and calling a single method.
-    // Deprecated: please acquire a proxy yourself and call the methods
-    // you want on it.
-    void unbindWire(WireId wire);
-    void unbindPip(PipId pip);
-    void unbindBel(BelId bel);
-    void bindWire(WireId wire, IdString net, PlaceStrength strength);
-    void bindPip(PipId pip, IdString net, PlaceStrength strength);
-    void bindBel(BelId bel, IdString cell, PlaceStrength strength);
-    bool checkWireAvail(WireId wire) const;
-    bool checkPipAvail(PipId pip) const;
-    bool checkBelAvail(BelId bel) const;
-    WireId getWireByName(IdString name) const;
-    WireId getWireBelPin(BelId bel, PortPin pin) const;
-    PipId getPipByName(IdString name) const;
-    IdString getConflictingWireNet(WireId wire) const;
-    IdString getConflictingPipNet(PipId pip) const;
-    IdString getConflictingBelCell(BelId bel) const;
-    IdString getBoundWireNet(WireId wire) const;
-    IdString getBoundPipNet(PipId pip) const;
-    IdString getBoundBelCell(BelId bel) const;
     BelId getBelByName(IdString name) const;
- 
-    // -------------------------------------------------
-
-    /// Methods to get chip info - don't need to use a wrapper, as these are
-    /// static per lifetime of object.
+    BelId getBelByNameUnlocked(IdString name) const;
 
     IdString getBelName(BelId bel) const
     {
@@ -409,9 +370,71 @@ public:
         return id(chip_info->bel_data[bel.index].name.get());
     }
 
-    uint32_t getBelChecksum(BelId bel) const
+    uint32_t getBelChecksum(BelId bel) const { return bel.index; }
+
+    void bindBel(BelId bel, IdString cell, PlaceStrength strength) {
+        boost::lock_guard<boost::shared_mutex> lock(mtx_);
+        bindBelUnlocked(bel, cell, strength);
+    }
+
+    void bindBelUnlocked(BelId bel, IdString cell, PlaceStrength strength)
     {
-        return bel.index;
+        NPNR_ASSERT(bel != BelId());
+        NPNR_ASSERT(bel_to_cell[bel.index] == IdString());
+        bel_to_cell[bel.index] = cell;
+        cells[cell]->bel = bel;
+        cells[cell]->belStrength = strength;
+    }
+
+    void unbindBel(BelId bel)
+    {
+        boost::lock_guard<boost::shared_mutex> lock(mtx_);
+        unbindBelUnlocked(bel);
+    }
+
+    void unbindBelUnlocked(BelId bel)
+    {
+        NPNR_ASSERT(bel != BelId());
+        NPNR_ASSERT(bel_to_cell[bel.index] != IdString());
+        cells[bel_to_cell[bel.index]]->bel = BelId();
+        cells[bel_to_cell[bel.index]]->belStrength = STRENGTH_NONE;
+        bel_to_cell[bel.index] = IdString();
+    }
+
+    bool checkBelAvail(BelId bel) const
+    {
+        boost::shared_lock_guard<boost::shared_mutex> lock(mtx_);
+        return checkBelAvailUnlocked(bel);
+    }
+
+    bool checkBelAvailUnlocked(BelId bel) const
+    {
+        NPNR_ASSERT(bel != BelId());
+        return bel_to_cell[bel.index] == IdString();
+    }
+
+    IdString getBoundBelCell(BelId bel) const
+    {
+        boost::shared_lock_guard<boost::shared_mutex> lock(mtx_);
+        return getBoundBelCellUnlocked(bel);
+    }
+
+    IdString getBoundBelCellUnlocked(BelId bel) const
+    {
+        NPNR_ASSERT(bel != BelId());
+        return bel_to_cell[bel.index];
+    }
+
+    IdString getConflictingBelCell(BelId bel) const
+    {
+        boost::shared_lock_guard<boost::shared_mutex> lock(mtx_);
+        return getConflictingBelCellUnlocked(bel);
+    }
+
+    IdString getConflictingBelCellUnlocked(BelId bel) const
+    {
+        NPNR_ASSERT(bel != BelId());
+        return bel_to_cell[bel.index];
     }
 
     BelRange getBels() const
@@ -444,6 +467,8 @@ public:
         return chip_info->bel_data[bel.index].type;
     }
 
+    WireId getWireBelPin(BelId bel, PortPin pin) const;
+    WireId getWireBelPinUnlocked(BelId bel, PortPin pin) const;
 
     BelPin getBelPinUphill(WireId wire) const
     {
@@ -469,6 +494,9 @@ public:
 
     // -------------------------------------------------
 
+    WireId getWireByName(IdString name) const;
+    WireId getWireByNameUnlocked(IdString name) const;
+
     IdString getWireName(WireId wire) const
     {
         NPNR_ASSERT(wire != WireId());
@@ -476,6 +504,180 @@ public:
     }
 
     uint32_t getWireChecksum(WireId wire) const { return wire.index; }
+
+    void bindWire(WireId wire, IdString net, PlaceStrength strength)
+    {
+        boost::lock_guard<boost::shared_mutex> lock(mtx_);
+        bindWireUnlocked(wire, net, strength);
+    }
+
+    void bindWireUnlocked(WireId wire, IdString net, PlaceStrength strength)
+    {
+        NPNR_ASSERT(wire != WireId());
+        NPNR_ASSERT(wire_to_net[wire.index] == IdString());
+
+        wire_to_net[wire.index] = net;
+        nets[net]->wires[wire].pip = PipId();
+        nets[net]->wires[wire].strength = strength;
+    }
+
+    void unbindWire(WireId wire)
+    {
+        boost::lock_guard<boost::shared_mutex> lock(mtx_);
+        unbindWireUnlocked(wire);
+    }
+
+    void unbindWireUnlocked(WireId wire)
+    {
+        NPNR_ASSERT(wire != WireId());
+        NPNR_ASSERT(wire_to_net[wire.index] != IdString());
+
+        auto &net_wires = nets[wire_to_net[wire.index]]->wires;
+        auto it = net_wires.find(wire);
+        NPNR_ASSERT(it != net_wires.end());
+
+        auto pip = it->second.pip;
+        if (pip != PipId()) {
+            pip_to_net[pip.index] = IdString();
+            switches_locked[chip_info->pip_data[pip.index].switch_index] = IdString();
+        }
+
+        net_wires.erase(it);
+        wire_to_net[wire.index] = IdString();
+    }
+
+    bool checkWireAvail(WireId wire) const
+    {
+        boost::shared_lock_guard<boost::shared_mutex> lock(mtx_);
+        return checkWireAvailUnlocked(wire);
+    }
+
+    bool checkWireAvailUnlocked(WireId wire) const
+    {
+        NPNR_ASSERT(wire != WireId());
+        return wire_to_net[wire.index] == IdString();
+    }
+
+    IdString getBoundWireNet(WireId wire) const
+    {
+        boost::shared_lock_guard<boost::shared_mutex> lock(mtx_);
+        return getBoundWireNetUnlocked(wire);
+    }
+
+    IdString getBoundWireNetUnlocked(WireId wire) const
+    {
+        NPNR_ASSERT(wire != WireId());
+        return wire_to_net[wire.index];
+    }
+
+    IdString getConflictingWireNet(WireId wire) const
+    {
+        boost::shared_lock_guard<boost::shared_mutex> lock(mtx_);
+        return getConflictingWireNetUnlocked(wire);
+    }
+
+    IdString getConflictingWireNetUnlocked(WireId wire) const
+    {
+        NPNR_ASSERT(wire != WireId());
+        return wire_to_net[wire.index];
+    }
+
+    WireRange getWires() const
+    {
+        WireRange range;
+        range.b.cursor = 0;
+        range.e.cursor = chip_info->num_wires;
+        return range;
+    }
+
+    // -------------------------------------------------
+
+    PipId getPipByName(IdString name) const;
+    PipId getPipByNameUnlocked(IdString name) const;
+    IdString getPipName(PipId pip) const;
+
+    uint32_t getPipChecksum(PipId pip) const { return pip.index; }
+
+    void bindPip(PipId pip, IdString net, PlaceStrength strength)
+    {
+        boost::lock_guard<boost::shared_mutex> lock(mtx_);
+        bindPipUnlocked(pip, net, strength);
+    }
+
+    void bindPipUnlocked(PipId pip, IdString net, PlaceStrength strength)
+    {
+        NPNR_ASSERT(pip != PipId());
+        NPNR_ASSERT(pip_to_net[pip.index] == IdString());
+        NPNR_ASSERT(switches_locked[chip_info->pip_data[pip.index].switch_index] == IdString());
+
+        pip_to_net[pip.index] = net;
+        switches_locked[chip_info->pip_data[pip.index].switch_index] = net;
+
+        WireId dst;
+        dst.index = chip_info->pip_data[pip.index].dst;
+        NPNR_ASSERT(wire_to_net[dst.index] == IdString());
+        wire_to_net[dst.index] = net;
+        nets[net]->wires[dst].pip = pip;
+        nets[net]->wires[dst].strength = strength;
+    }
+
+    void unbindPip(PipId pip)
+    {
+        boost::lock_guard<boost::shared_mutex> lock(mtx_);
+        unbindPipUnlocked(pip);
+    }
+
+    void unbindPipUnlocked(PipId pip)
+    {
+        NPNR_ASSERT(pip != PipId());
+        NPNR_ASSERT(pip_to_net[pip.index] != IdString());
+        NPNR_ASSERT(switches_locked[chip_info->pip_data[pip.index].switch_index] != IdString());
+
+        WireId dst;
+        dst.index = chip_info->pip_data[pip.index].dst;
+        NPNR_ASSERT(wire_to_net[dst.index] != IdString());
+        wire_to_net[dst.index] = IdString();
+        nets[pip_to_net[pip.index]]->wires.erase(dst);
+
+        pip_to_net[pip.index] = IdString();
+        switches_locked[chip_info->pip_data[pip.index].switch_index] = IdString();
+    }
+
+    bool checkPipAvail(PipId pip) const
+    {
+        boost::shared_lock_guard<boost::shared_mutex> lock(mtx_);
+        return checkPipAvailUnlocked(pip);
+    }
+
+    bool checkPipAvailUnlocked(PipId pip) const
+    {
+        NPNR_ASSERT(pip != PipId());
+        return switches_locked[chip_info->pip_data[pip.index].switch_index] == IdString();
+    }
+
+    IdString getBoundPipNet(PipId pip) const
+    {
+        boost::shared_lock_guard<boost::shared_mutex> lock(mtx_);
+        return getBoundPipNetUnlocked(pip);
+    }
+
+    IdString getBoundPipNetUnlocked(PipId pip) const
+    {
+        NPNR_ASSERT(pip != PipId());
+        return pip_to_net[pip.index];
+    }
+
+    IdString getConflictingPipNet(PipId pip) const
+    {
+        boost::shared_lock_guard<boost::shared_mutex> lock(mtx_);
+        return getConflictingPipNetUnlocked(pip);
+    }
+
+    IdString getConflictingPipNetUnlocked(PipId pip) const
+    {
+        NPNR_ASSERT(pip != PipId());
+        return switches_locked[chip_info->pip_data[pip.index].switch_index];
+    }
 
     AllPipRange getPips() const
     {
@@ -601,26 +803,7 @@ public:
 
     // -------------------------------------------------
 
-    IdString id_glb_buf_out;
-    IdString id_icestorm_lc, id_sb_io, id_sb_gb;
-    IdString id_cen, id_clk, id_sr;
-    IdString id_i0, id_i1, id_i2, id_i3;
-    IdString id_dff_en, id_neg_clk;
-};
-
-class ArchRProxyMethods {
-    friend class ArchRProxy;
-    friend class ArchRWProxy;
-private:
-    const Arch *parent_;
-    ArchRProxyMethods(const Arch *parent) : parent_(parent) {}
-    ArchRProxyMethods(ArchRProxyMethods &&other) noexcept : parent_(other.parent_) {}
-    ArchRProxyMethods(const ArchRProxyMethods &other) : parent_(other.parent_) {}
-
-public:
-    ~ArchRProxyMethods() noexcept { }
-    
-    /// Perform placement validity checks, returning false on failure (all implemented in arch_place.cc)
+    // Perform placement validity checks, returning false on failure (all implemented in arch_place.cc)
 
     // Whether or not a given cell can be placed at a given Bel
     // This is not intended for Bel type checks, but finer-grained constraints
@@ -633,88 +816,11 @@ public:
     // Helper function for above
     bool logicCellsCompatible(const std::vector<const CellInfo *> &cells) const;
 
-    bool checkWireAvail(WireId wire) const;
-    bool checkPipAvail(PipId pip) const;
-    bool checkBelAvail(BelId bel) const;
-
-    WireId getWireByName(IdString name) const;
-    WireId getWireBelPin(BelId bel, PortPin pin) const;
-    PipId getPipByName(IdString name) const;
-    
-    
-    IdString getConflictingWireNet(WireId wire) const;
-    IdString getConflictingPipNet(PipId pip) const;
-    IdString getConflictingBelCell(BelId bel) const;
-
-    IdString getBoundWireNet(WireId wire) const;
-    IdString getBoundPipNet(PipId pip) const;
-    IdString getBoundBelCell(BelId bel) const;
-
-    BelId getBelByName(IdString name) const;
-};
-
-class ArchRProxy : public ArchRProxyMethods {
-    friend class Arch;
-    friend class ArchRWProxy;
-private:
-    boost::shared_mutex *lock_;
-    ArchRProxy(const Arch *parent) : ArchRProxyMethods(parent), lock_(&parent->mtx_)
-    {
-        lock_->lock_shared();
-    }
-
-public:
-    ~ArchRProxy() {
-        if (lock_ != nullptr) {
-            lock_->unlock_shared();
-        }
-    }
-    ArchRProxy(ArchRProxy &&other) : ArchRProxyMethods(other), lock_(other.lock_)
-    {
-        other.lock_ = nullptr;
-    }
-};
-
-class ArchRWProxyMethods {
-    friend class ArchRWProxy;
-private:
-    Arch *parent_;
-    ArchRWProxyMethods(Arch *parent) : parent_(parent) {}
-    ArchRWProxyMethods(ArchRWProxyMethods &&other) : parent_(other.parent_) {}
-    ArchRWProxyMethods(const ArchRWProxyMethods &other) : parent_(other.parent_) {}
-public:
-    ~ArchRWProxyMethods() {}
-
-    void unbindWire(WireId wire);
-    void unbindPip(PipId pip);
-    void unbindBel(BelId bel);
-    void bindWire(WireId wire, IdString net, PlaceStrength strength);
-    void bindPip(PipId pip, IdString net, PlaceStrength strength);
-    void bindBel(BelId bel, IdString cell, PlaceStrength strength);
-    CellInfo *getCell(IdString cell);
-};
-
-class ArchRWProxy : public ArchRProxyMethods, public ArchRWProxyMethods {
-    friend class Arch;
-private:
-    boost::shared_mutex *lock_;
-    ArchRWProxy(Arch *parent) : ArchRProxyMethods(parent), ArchRWProxyMethods(parent), lock_(&parent->mtx_) {
-        lock_->lock();
-    }
-
-public:
-    ArchRWProxy(ArchRWProxy &&other) : ArchRProxyMethods(other), ArchRWProxyMethods(other), lock_(other.lock_)
-    {
-        other.lock_ = nullptr;
-    }
-    ~ArchRWProxy()
-    {
-        if (lock_ != nullptr) {
-            lock_->unlock();
-        }
-    }
-    
-
+    IdString id_glb_buf_out;
+    IdString id_icestorm_lc, id_sb_io, id_sb_gb;
+    IdString id_cen, id_clk, id_sr;
+    IdString id_i0, id_i1, id_i2, id_i3;
+    IdString id_dff_en, id_neg_clk;
 };
 
 NEXTPNR_NAMESPACE_END
