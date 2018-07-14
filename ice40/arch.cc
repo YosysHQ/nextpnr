@@ -736,19 +736,19 @@ bool Arch::isGlobalNet(const NetInfo *net) const
 bool ArchRProxyMethods::checkBelAvail(BelId bel) const
 {
     NPNR_ASSERT(bel != BelId());
-    return bel_to_cell[bel.index] == IdString();
+    return parent_->bel_to_cell[bel.index] == IdString();
 }
 
 IdString ArchRProxyMethods::getBoundBelCell(BelId bel) const
 {
     NPNR_ASSERT(bel != BelId());
-    return bel_to_cell[bel.index];
+    return parent_->bel_to_cell[bel.index];
 }
 
 IdString ArchRProxyMethods::getConflictingBelCell(BelId bel) const
 {
     NPNR_ASSERT(bel != BelId());
-    return bel_to_cell[bel.index];
+    return parent_->bel_to_cell[bel.index];
 }
 
 WireId ArchRProxyMethods::getWireBelPin(BelId bel, PortPin pin) const
@@ -757,8 +757,8 @@ WireId ArchRProxyMethods::getWireBelPin(BelId bel, PortPin pin) const
 
     NPNR_ASSERT(bel != BelId());
 
-    int num_bel_wires = chip_info->bel_data[bel.index].num_bel_wires;
-    const BelWirePOD *bel_wires = chip_info->bel_data[bel.index].bel_wires.get();
+    int num_bel_wires = parent_->chip_info->bel_data[bel.index].num_bel_wires;
+    const BelWirePOD *bel_wires = parent_->chip_info->bel_data[bel.index].bel_wires.get();
 
     for (int i = 0; i < num_bel_wires; i++)
         if (bel_wires[i].port == pin) {
@@ -773,13 +773,13 @@ WireId ArchRProxyMethods::getWireByName(IdString name) const
 {
     WireId ret;
 
-    if (wire_by_name.empty()) {
-        for (int i = 0; i < chip_info->num_wires; i++)
-            wire_by_name[parent_->id(chip_info->wire_data[i].name.get())] = i;
+    if (parent_->wire_by_name.empty()) {
+        for (int i = 0; i < parent_->chip_info->num_wires; i++)
+            parent_->wire_by_name[parent_->id(parent_->chip_info->wire_data[i].name.get())] = i;
     }
 
-    auto it = wire_by_name.find(name);
-    if (it != wire_by_name.end())
+    auto it = parent_->wire_by_name.find(name);
+    if (it != parent_->wire_by_name.end())
         ret.index = it->second;
 
     return ret;
@@ -788,35 +788,35 @@ WireId ArchRProxyMethods::getWireByName(IdString name) const
 bool ArchRProxyMethods::checkWireAvail(WireId wire) const
 {
     NPNR_ASSERT(wire != WireId());
-    return wire_to_net[wire.index] == IdString();
+    return parent_->wire_to_net[wire.index] == IdString();
 }
 
 IdString ArchRProxyMethods::getBoundWireNet(WireId wire) const
 {
     NPNR_ASSERT(wire != WireId());
-    return wire_to_net[wire.index];
+    return parent_->wire_to_net[wire.index];
 }
 
 IdString ArchRProxyMethods::getConflictingWireNet(WireId wire) const
 {
     NPNR_ASSERT(wire != WireId());
-    return wire_to_net[wire.index];
+    return parent_->wire_to_net[wire.index];
 }
 
 PipId ArchRProxyMethods::getPipByName(IdString name) const
 {
     PipId ret;
 
-    if (pip_by_name.empty()) {
-        for (int i = 0; i < chip_info->num_pips; i++) {
+    if (parent_->pip_by_name.empty()) {
+        for (int i = 0; i < parent_->chip_info->num_pips; i++) {
             PipId pip;
             pip.index = i;
-            pip_by_name[parent_->getPipName(pip)] = i;
+            parent_->pip_by_name[parent_->getPipName(pip)] = i;
         }
     }
 
-    auto it = pip_by_name.find(name);
-    if (it != pip_by_name.end())
+    auto it = parent_->pip_by_name.find(name);
+    if (it != parent_->pip_by_name.end())
         ret.index = it->second;
 
     return ret;
@@ -825,32 +825,32 @@ PipId ArchRProxyMethods::getPipByName(IdString name) const
 bool ArchRProxyMethods::checkPipAvail(PipId pip) const
 {
     NPNR_ASSERT(pip != PipId());
-    return switches_locked[chip_info->pip_data[pip.index].switch_index] == IdString();
+    return parent_->switches_locked[parent_->chip_info->pip_data[pip.index].switch_index] == IdString();
 }
 
 IdString ArchRProxyMethods::getBoundPipNet(PipId pip) const
 {
     NPNR_ASSERT(pip != PipId());
-    return pip_to_net[pip.index];
+    return parent_->pip_to_net[pip.index];
 }
 
 IdString ArchRProxyMethods::getConflictingPipNet(PipId pip) const
 {
     NPNR_ASSERT(pip != PipId());
-    return switches_locked[chip_info->pip_data[pip.index].switch_index];
+    return parent_->switches_locked[parent_->chip_info->pip_data[pip.index].switch_index];
 }
 
 BelId ArchRProxyMethods::getBelByName(IdString name) const
 {
     BelId ret;
 
-    if (bel_by_name.empty()) {
-        for (int i = 0; i < chip_info->num_bels; i++)
-            bel_by_name[parent_->id(chip_info->bel_data[i].name.get())] = i;
+    if (parent_->bel_by_name.empty()) {
+        for (int i = 0; i < parent_->chip_info->num_bels; i++)
+            parent_->bel_by_name[parent_->id(parent_->chip_info->bel_data[i].name.get())] = i;
     }
 
-    auto it = bel_by_name.find(name);
-    if (it != bel_by_name.end())
+    auto it = parent_->bel_by_name.find(name);
+    if (it != parent_->bel_by_name.end())
         ret.index = it->second;
 
     return ret;
@@ -861,8 +861,8 @@ BelId ArchRProxyMethods::getBelByName(IdString name) const
 void ArchRWProxyMethods::bindBel(BelId bel, IdString cell, PlaceStrength strength)
 {
     NPNR_ASSERT(bel != BelId());
-    NPNR_ASSERT(bel_to_cell[bel.index] == IdString());
-    bel_to_cell[bel.index] = cell;
+    NPNR_ASSERT(parent_->bel_to_cell[bel.index] == IdString());
+    parent_->bel_to_cell[bel.index] = cell;
     parent_->cells[cell]->bel = bel;
     parent_->cells[cell]->belStrength = strength;
     parent_->refreshUiBel(bel);
@@ -871,19 +871,19 @@ void ArchRWProxyMethods::bindBel(BelId bel, IdString cell, PlaceStrength strengt
 void ArchRWProxyMethods::unbindBel(BelId bel)
 {
     NPNR_ASSERT(bel != BelId());
-    NPNR_ASSERT(bel_to_cell[bel.index] != IdString());
-    parent_->cells[bel_to_cell[bel.index]]->bel = BelId();
-    parent_->cells[bel_to_cell[bel.index]]->belStrength = STRENGTH_NONE;
-    bel_to_cell[bel.index] = IdString();
+    NPNR_ASSERT(parent_->bel_to_cell[bel.index] != IdString());
+    parent_->cells[parent_->bel_to_cell[bel.index]]->bel = BelId();
+    parent_->cells[parent_->bel_to_cell[bel.index]]->belStrength = STRENGTH_NONE;
+    parent_->bel_to_cell[bel.index] = IdString();
     parent_->refreshUiBel(bel);
 }
 
 void ArchRWProxyMethods::bindWire(WireId wire, IdString net, PlaceStrength strength)
 {
     NPNR_ASSERT(wire != WireId());
-    NPNR_ASSERT(wire_to_net[wire.index] == IdString());
+    NPNR_ASSERT(parent_->wire_to_net[wire.index] == IdString());
 
-    wire_to_net[wire.index] = net;
+    parent_->wire_to_net[wire.index] = net;
     parent_->nets[net]->wires[wire].pip = PipId();
     parent_->nets[net]->wires[wire].strength = strength;
     parent_->refreshUiWire(wire);
@@ -892,37 +892,37 @@ void ArchRWProxyMethods::bindWire(WireId wire, IdString net, PlaceStrength stren
 void ArchRWProxyMethods::unbindWire(WireId wire)
 {
     NPNR_ASSERT(wire != WireId());
-    NPNR_ASSERT(wire_to_net[wire.index] != IdString());
+    NPNR_ASSERT(parent_->wire_to_net[wire.index] != IdString());
 
-    auto &net_wires = parent_->nets[wire_to_net[wire.index]]->wires;
+    auto &net_wires = parent_->nets[parent_->wire_to_net[wire.index]]->wires;
     auto it = net_wires.find(wire);
     NPNR_ASSERT(it != net_wires.end());
 
     auto pip = it->second.pip;
     if (pip != PipId()) {
-        pip_to_net[pip.index] = IdString();
-        switches_locked[chip_info->pip_data[pip.index].switch_index] = IdString();
+        parent_->pip_to_net[pip.index] = IdString();
+        parent_->switches_locked[parent_->chip_info->pip_data[pip.index].switch_index] = IdString();
         parent_->refreshUiPip(pip);
     }
 
     net_wires.erase(it);
-    wire_to_net[wire.index] = IdString();
+    parent_->wire_to_net[wire.index] = IdString();
     parent_->refreshUiWire(wire);
 }
 
 void ArchRWProxyMethods::bindPip(PipId pip, IdString net, PlaceStrength strength)
 {
     NPNR_ASSERT(pip != PipId());
-    NPNR_ASSERT(pip_to_net[pip.index] == IdString());
-    NPNR_ASSERT(switches_locked[chip_info->pip_data[pip.index].switch_index] == IdString());
+    NPNR_ASSERT(parent_->pip_to_net[pip.index] == IdString());
+    NPNR_ASSERT(parent_->switches_locked[parent_->chip_info->pip_data[pip.index].switch_index] == IdString());
 
-    pip_to_net[pip.index] = net;
-    switches_locked[chip_info->pip_data[pip.index].switch_index] = net;
+    parent_->pip_to_net[pip.index] = net;
+    parent_->switches_locked[parent_->chip_info->pip_data[pip.index].switch_index] = net;
 
     WireId dst;
-    dst.index = chip_info->pip_data[pip.index].dst;
-    NPNR_ASSERT(wire_to_net[dst.index] == IdString());
-    wire_to_net[dst.index] = net;
+    dst.index = parent_->chip_info->pip_data[pip.index].dst;
+    NPNR_ASSERT(parent_->wire_to_net[dst.index] == IdString());
+    parent_->wire_to_net[dst.index] = net;
     parent_->nets[net]->wires[dst].pip = pip;
     parent_->nets[net]->wires[dst].strength = strength;
 
@@ -933,17 +933,17 @@ void ArchRWProxyMethods::bindPip(PipId pip, IdString net, PlaceStrength strength
 void ArchRWProxyMethods::unbindPip(PipId pip)
 {
     NPNR_ASSERT(pip != PipId());
-    NPNR_ASSERT(pip_to_net[pip.index] != IdString());
-    NPNR_ASSERT(switches_locked[chip_info->pip_data[pip.index].switch_index] != IdString());
+    NPNR_ASSERT(parent_->pip_to_net[pip.index] != IdString());
+    NPNR_ASSERT(parent_->switches_locked[parent_->chip_info->pip_data[pip.index].switch_index] != IdString());
 
     WireId dst;
-    dst.index = chip_info->pip_data[pip.index].dst;
-    NPNR_ASSERT(wire_to_net[dst.index] != IdString());
-    wire_to_net[dst.index] = IdString();
-    parent_->nets[pip_to_net[pip.index]]->wires.erase(dst);
+    dst.index = parent_->chip_info->pip_data[pip.index].dst;
+    NPNR_ASSERT(parent_->wire_to_net[dst.index] != IdString());
+    parent_->wire_to_net[dst.index] = IdString();
+    parent_->nets[parent_->pip_to_net[pip.index]]->wires.erase(dst);
 
-    pip_to_net[pip.index] = IdString();
-    switches_locked[chip_info->pip_data[pip.index].switch_index] = IdString();
+    parent_->pip_to_net[pip.index] = IdString();
+    parent_->switches_locked[parent_->chip_info->pip_data[pip.index].switch_index] = IdString();
 
     parent_->refreshUiPip(pip);
     parent_->refreshUiWire(dst);

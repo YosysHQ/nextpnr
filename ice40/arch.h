@@ -339,7 +339,7 @@ class ArchRProxy;
 /// Arch/Context
 // Arch is the main state class of the PnR algorithms. It keeps note of mapped
 // cells/nets, locked switches, etc.
-//
+// 
 // In order to mutate state in Arch, you can do one of two things:
 //   - directly call one of the wrapper methods to mutate state
 //   - get a read or readwrite proxy to the Arch, and call methods on it
@@ -419,7 +419,7 @@ public:
     IdString getBoundPipNet(PipId pip) const;
     IdString getBoundBelCell(BelId bel) const;
     BelId getBelByName(IdString name) const;
-
+ 
     // -------------------------------------------------
 
     /// Methods to get chip info - don't need to use a wrapper, as these are
@@ -506,7 +506,7 @@ public:
         range.e.cursor = chip_info->num_pips;
         return range;
     }
-
+    
     IdString getPipName(PipId pip) const;
 
     uint32_t getPipChecksum(PipId pip) const { return pip.index; }
@@ -640,27 +640,13 @@ class ArchRProxyMethods {
     friend class ArchRWProxy;
 private:
     const Arch *parent_;
-    ArchRProxyMethods(const Arch *parent) : parent_(parent), chip_info(parent->chip_info),
-        bel_to_cell(parent->bel_to_cell), wire_to_net(parent->wire_to_net),
-        pip_to_net(parent->pip_to_net), switches_locked(parent->switches_locked),
-        bel_by_name(parent->bel_by_name), wire_by_name(parent->wire_by_name),
-        pip_by_name(parent->pip_by_name) {}
-    ArchRProxyMethods(ArchRProxyMethods &&other) noexcept : ArchRProxyMethods(other.parent_) {}
-    ArchRProxyMethods(const ArchRProxyMethods &other) : ArchRProxyMethods(other.parent_) {}
+    ArchRProxyMethods(const Arch *parent) : parent_(parent) {}
+    ArchRProxyMethods(ArchRProxyMethods &&other) noexcept : parent_(other.parent_) {}
+    ArchRProxyMethods(const ArchRProxyMethods &other) : parent_(other.parent_) {}
 
-    // Let methods access hot members directly without having to go through
-    // parent_.
-    const ChipInfoPOD *chip_info;
-    const std::vector<IdString> &bel_to_cell;
-    const std::vector<IdString> &wire_to_net;
-    const std::vector<IdString> &pip_to_net;
-    const std::vector<IdString> &switches_locked;
-    std::unordered_map<IdString, int> &bel_by_name;
-    std::unordered_map<IdString, int> &wire_by_name;
-    std::unordered_map<IdString, int> &pip_by_name;
 public:
     ~ArchRProxyMethods() noexcept { }
-
+    
     /// Perform placement validity checks, returning false on failure (all implemented in arch_place.cc)
 
     // Whether or not a given cell can be placed at a given Bel
@@ -681,7 +667,7 @@ public:
     WireId getWireByName(IdString name) const;
     WireId getWireBelPin(BelId bel, PortPin pin) const;
     PipId getPipByName(IdString name) const;
-
+    
     IdString getConflictingWireNet(WireId wire) const;
     IdString getConflictingPipNet(PipId pip) const;
     IdString getConflictingBelCell(BelId bel) const;
@@ -723,22 +709,9 @@ class ArchRWProxyMethods {
     friend class ArchRWProxy;
 private:
     Arch *parent_;
-    ArchRWProxyMethods(Arch *parent) : parent_(parent), chip_info(parent->chip_info),
-        bel_to_cell(parent->bel_to_cell), wire_to_net(parent->wire_to_net),
-        pip_to_net(parent->pip_to_net), switches_locked(parent->switches_locked),
-        bel_by_name(parent->bel_by_name), wire_by_name(parent->wire_by_name),
-        pip_by_name(parent->pip_by_name) {}
-    ArchRWProxyMethods(ArchRWProxyMethods &&other) : ArchRWProxyMethods(other.parent_) {}
-    ArchRWProxyMethods(const ArchRWProxyMethods &other) : ArchRWProxyMethods(other.parent_) {}
-
-    const ChipInfoPOD *chip_info;
-    std::vector<IdString> &bel_to_cell;
-    std::vector<IdString> &wire_to_net;
-    std::vector<IdString> &pip_to_net;
-    std::vector<IdString> &switches_locked;
-    std::unordered_map<IdString, int> &bel_by_name;
-    std::unordered_map<IdString, int> &wire_by_name;
-    std::unordered_map<IdString, int> &pip_by_name;
+    ArchRWProxyMethods(Arch *parent) : parent_(parent) {}
+    ArchRWProxyMethods(ArchRWProxyMethods &&other) : parent_(other.parent_) {}
+    ArchRWProxyMethods(const ArchRWProxyMethods &other) : parent_(other.parent_) {}
 public:
     ~ArchRWProxyMethods() {}
 
@@ -773,6 +746,8 @@ public:
             lock_->unlock();
         }
     }
+    
+
 };
 
 NEXTPNR_NAMESPACE_END
