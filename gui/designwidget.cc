@@ -89,31 +89,26 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr), net
     propertyEditor->setPropertiesWithoutValueMarked(true);
 
     propertyEditor->show();
-
-    const QIcon searchIcon(":/icons/resources/zoom.png");
+    
     QLineEdit *lineEdit = new QLineEdit();
     lineEdit->setClearButtonEnabled(true);
-    lineEdit->addAction(searchIcon, QLineEdit::LeadingPosition);
+    lineEdit->addAction(QIcon(":/icons/resources/zoom.png"), QLineEdit::LeadingPosition);
     lineEdit->setPlaceholderText("Search...");
 
-    actionFirst = new QAction("", this);
-    QIcon iconFirst(QStringLiteral(":/icons/resources/resultset_first.png"));
-    actionFirst->setIcon(iconFirst);
+    actionFirst = new QAction("", this);    
+    actionFirst->setIcon(QIcon(":/icons/resources/resultset_first.png"));
     actionFirst->setEnabled(false);
 
-    actionPrev = new QAction("", this);
-    QIcon iconPrev(QStringLiteral(":/icons/resources/resultset_previous.png"));
-    actionPrev->setIcon(iconPrev);
+    actionPrev = new QAction("", this);    
+    actionPrev->setIcon(QIcon(":/icons/resources/resultset_previous.png"));
     actionPrev->setEnabled(false);
 
-    actionNext = new QAction("", this);
-    QIcon iconNext(QStringLiteral(":/icons/resources/resultset_next.png"));
-    actionNext->setIcon(iconNext);
+    actionNext = new QAction("", this);    
+    actionNext->setIcon(QIcon(":/icons/resources/resultset_next.png"));
     actionNext->setEnabled(false);
 
-    actionLast = new QAction("", this);
-    QIcon iconLast(QStringLiteral(":/icons/resources/resultset_last.png"));
-    actionLast->setIcon(iconLast);
+    actionLast = new QAction("", this);    
+    actionLast->setIcon(QIcon(":/icons/resources/resultset_last.png"));
     actionLast->setEnabled(false);
 
     QToolBar *toolbar = new QToolBar();
