@@ -373,6 +373,34 @@ class Arch : public BaseCtx
 
     // -------------------------------------------------
 
+    /// Wrappers around getting a r(w)proxy and calling a single method.
+    // Deprecated: please acquire a proxy yourself and call the methods
+    // you want on it.
+    // Warning: these will content with locks taken by the r(w)proxies, and
+    // thus can cause difficult to debug deadlocks - we'll be getting rid of
+    // them because of that.
+    void unbindWire(WireId wire);
+    void unbindPip(PipId pip);
+    void unbindBel(BelId bel);
+    void bindWire(WireId wire, IdString net, PlaceStrength strength);
+    void bindPip(PipId pip, IdString net, PlaceStrength strength);
+    void bindBel(BelId bel, IdString cell, PlaceStrength strength);
+    bool checkWireAvail(WireId wire) const;
+    bool checkPipAvail(PipId pip) const;
+    bool checkBelAvail(BelId bel) const;
+    WireId getWireByName(IdString name) const;
+    WireId getWireBelPin(BelId bel, PortPin pin) const;
+    PipId getPipByName(IdString name) const;
+    IdString getConflictingWireNet(WireId wire) const;
+    IdString getConflictingPipNet(PipId pip) const;
+    IdString getConflictingBelCell(BelId bel) const;
+    IdString getBoundWireNet(WireId wire) const;
+    IdString getBoundPipNet(PipId pip) const;
+    IdString getBoundBelCell(BelId bel) const;
+    BelId getBelByName(IdString name) const;
+
+    // -------------------------------------------------
+
     /// Methods to get chip info - don't need to use a wrapper, as these are
     /// static per lifetime of object.
 
