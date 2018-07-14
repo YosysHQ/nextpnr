@@ -136,6 +136,7 @@ struct Router
         int thisVisitCnt = 0;
         int thisVisitCntLimit = 0;
 
+
         while (!queue.empty() && (thisVisitCntLimit == 0 || thisVisitCnt < thisVisitCntLimit)) {
             QueuedWire qw = queue.top();
             queue.pop();

@@ -21,9 +21,16 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-MutateContext BaseCtx::rwproxy(void) { return MutateContext(reinterpret_cast<Arch *>(this)); }
+MutateContext BaseCtx::rwproxy(void)
+{
+    return MutateContext(reinterpret_cast<Arch *>(this));
+}
 
-ReadContext BaseCtx::rproxy(void) const { return ReadContext(reinterpret_cast<const Arch *>(this)); }
+ReadContext BaseCtx::rproxy(void) const
+{
+    return ReadContext(reinterpret_cast<const Arch *>(this));
+}
+
 
 assertion_failure::assertion_failure(std::string msg, std::string expr_str, std::string filename, int line)
         : runtime_error("Assertion failure: " + msg + " (" + filename + ":" + std::to_string(line) + ")"), msg(msg),

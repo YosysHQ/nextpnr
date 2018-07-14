@@ -19,7 +19,6 @@
 
 #include <algorithm>
 #include <assert.h>
-#include <boost/thread/shared_mutex.hpp>
 #include <memory>
 #include <stdexcept>
 #include <stdint.h>
@@ -27,6 +26,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+#include <boost/thread/shared_mutex.hpp>
 
 #ifndef NEXTPNR_H
 #define NEXTPNR_H
@@ -261,8 +261,7 @@ class BaseCtx
     friend class MutateContext;
     friend class BaseReadCtx;
     friend class BaseMutateCtx;
-
-  private:
+private:
     mutable boost::shared_mutex mtx_;
 
     bool allUiReload = false;
@@ -272,7 +271,7 @@ class BaseCtx
     std::unordered_set<PipId> pipUiReload;
     std::unordered_set<GroupId> groupUiReload;
 
-  public:
+public:
     IdString id(const std::string &s) const { return IdString(this, s); }
     IdString id(const char *s) const { return IdString(this, s); }
 
@@ -312,16 +311,16 @@ class BaseCtx
     // locks can be taken while this one still exists. Ie., the UI can draw
     // elements while the PnR is going a RO operation.
     ReadContext rproxy(void) const;
+
 };
 
 // State-accessing read-only methods that every architecture object should
 // contain.
 class BaseReadCtx
 {
-  protected:
+protected:
     const BaseCtx *base_;
-
-  public:
+public:
     BaseReadCtx(const BaseCtx *base) : base_(base) {}
 };
 
@@ -329,23 +328,41 @@ class BaseReadCtx
 // contain.
 class BaseMutateCtx
 {
-  protected:
+protected:
     BaseCtx *base_;
 
-  public:
+public:
     BaseMutateCtx(BaseCtx *base) : base_(base) {}
 
-    void refreshUi(void) { base_->allUiReload = true; }
+    void refreshUi(void)
+    {
+        base_->allUiReload = true;
+    }
 
-    void refreshUiFrame(void) { base_->frameUiReload = true; }
+    void refreshUiFrame(void)
+    {
+        base_->frameUiReload = true;
+    }
 
-    void refreshUiBel(BelId bel) { base_->belUiReload.insert(bel); }
+    void refreshUiBel(BelId bel)
+    {
+        base_->belUiReload.insert(bel);
+    }
 
-    void refreshUiWire(WireId wire) { base_->wireUiReload.insert(wire); }
+    void refreshUiWire(WireId wire)
+    {
+        base_->wireUiReload.insert(wire);
+    }
 
-    void refreshUiPip(PipId pip) { base_->pipUiReload.insert(pip); }
+    void refreshUiPip(PipId pip)
+    {
+        base_->pipUiReload.insert(pip);
+    }
 
-    void refreshUiGroup(GroupId group) { base_->groupUiReload.insert(group); }
+    void refreshUiGroup(GroupId group)
+    {
+        base_->groupUiReload.insert(group);
+    }
 
     UIUpdatesRequired getUIUpdatesRequired(void)
     {
@@ -377,45 +394,48 @@ NEXTPNR_NAMESPACE_BEGIN
 class ReadContext : public ArchReadMethods
 {
     friend class BaseCtx;
-
-  private:
+private:
     boost::shared_mutex *lock_;
-    ReadContext(const Arch *parent) : ArchReadMethods(parent), lock_(&parent->mtx_) { lock_->lock_shared(); }
-
-  public:
+    ReadContext(const Arch *parent) : ArchReadMethods(parent), lock_(&parent->mtx_)
+    {
+        lock_->lock_shared();
+    }
+public:
     ~ReadContext()
     {
         if (lock_ != nullptr) {
             lock_->unlock_shared();
         }
     }
-    ReadContext(ReadContext &&other) : ArchReadMethods(other), lock_(other.lock_) { other.lock_ = nullptr; }
+    ReadContext(ReadContext &&other): ArchReadMethods(other), lock_(other.lock_)
+    {
+        other.lock_ = nullptr;
+    }
 };
 
 // Read proxy to access MutateMethods while holding lock on underlying BaseCtx.
 class MutateContext : public ArchReadMethods, public ArchMutateMethods
 {
     friend class BaseCtx;
-
-  private:
+private:
     boost::shared_mutex *lock_;
     MutateContext(Arch *parent) : ArchReadMethods(parent), ArchMutateMethods(parent), lock_(&parent->mtx_)
     {
         lock_->lock();
     }
-
-  public:
+public:
     ~MutateContext()
     {
         if (lock_ != nullptr) {
             lock_->unlock();
         }
     }
-    MutateContext(MutateContext &&other) : ArchReadMethods(other), ArchMutateMethods(other), lock_(other.lock_)
+    MutateContext(MutateContext &&other): ArchReadMethods(other), ArchMutateMethods(other), lock_(other.lock_)
     {
         other.lock_ = nullptr;
     }
 };
+
 
 struct Context : Arch
 {
