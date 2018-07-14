@@ -89,31 +89,26 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr), net
     propertyEditor->setPropertiesWithoutValueMarked(true);
 
     propertyEditor->show();
-
-    const QIcon searchIcon(":/icons/resources/zoom.png");
+    
     QLineEdit *lineEdit = new QLineEdit();
     lineEdit->setClearButtonEnabled(true);
-    lineEdit->addAction(searchIcon, QLineEdit::LeadingPosition);
+    lineEdit->addAction(QIcon(":/icons/resources/zoom.png"), QLineEdit::LeadingPosition);
     lineEdit->setPlaceholderText("Search...");
 
-    actionFirst = new QAction("", this);
-    QIcon iconFirst(QStringLiteral(":/icons/resources/resultset_first.png"));
-    actionFirst->setIcon(iconFirst);
+    actionFirst = new QAction("", this);    
+    actionFirst->setIcon(QIcon(":/icons/resources/resultset_first.png"));
     actionFirst->setEnabled(false);
 
-    actionPrev = new QAction("", this);
-    QIcon iconPrev(QStringLiteral(":/icons/resources/resultset_previous.png"));
-    actionPrev->setIcon(iconPrev);
+    actionPrev = new QAction("", this);    
+    actionPrev->setIcon(QIcon(":/icons/resources/resultset_previous.png"));
     actionPrev->setEnabled(false);
 
-    actionNext = new QAction("", this);
-    QIcon iconNext(QStringLiteral(":/icons/resources/resultset_next.png"));
-    actionNext->setIcon(iconNext);
+    actionNext = new QAction("", this);    
+    actionNext->setIcon(QIcon(":/icons/resources/resultset_next.png"));
     actionNext->setEnabled(false);
 
-    actionLast = new QAction("", this);
-    QIcon iconLast(QStringLiteral(":/icons/resources/resultset_last.png"));
-    actionLast->setIcon(iconLast);
+    actionLast = new QAction("", this);    
+    actionLast->setIcon(QIcon(":/icons/resources/resultset_last.png"));
     actionLast->setEnabled(false);
 
     QToolBar *toolbar = new QToolBar();
@@ -160,7 +155,7 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr), net
     // Connection
     connect(treeWidget, &QTreeWidget::customContextMenuRequested, this, &DesignWidget::prepareMenu);
 
-    connect(treeWidget, SIGNAL(itemClicked(QTreeWidgetItem *, int)), SLOT(onItemClicked(QTreeWidgetItem *, int)));
+    connect(treeWidget, SIGNAL(itemSelectionChanged()), SLOT(onItemSelectionChanged()));
 }
 
 DesignWidget::~DesignWidget() {}
@@ -325,8 +320,12 @@ void DesignWidget::clearProperties()
     idToProperty.clear();
 }
 
-void DesignWidget::onItemClicked(QTreeWidgetItem *clickItem, int pos)
+void DesignWidget::onItemSelectionChanged()
 {
+    if (treeWidget->selectedItems().size()== 0) return;
+    
+    QTreeWidgetItem *clickItem = treeWidget->selectedItems().at(0);
+
     if (!clickItem->parent())
         return;
 
@@ -335,10 +334,15 @@ void DesignWidget::onItemClicked(QTreeWidgetItem *clickItem, int pos)
         return;
     }
 
+    std::vector<DecalXY> decals;
+
     clearProperties();
     if (type == ElementType::BEL) {
         IdString c = static_cast<IdStringTreeItem *>(clickItem)->getData();
         BelId bel = ctx->getBelByName(c);
+        
+        decals.push_back(ctx->getBelDecal(bel));        
+        Q_EMIT selected(decals);
 
         QtProperty *topItem = groupManager->addProperty("Bel");
         addProperty(topItem, "Bel");
@@ -366,6 +370,9 @@ void DesignWidget::onItemClicked(QTreeWidgetItem *clickItem, int pos)
     } else if (type == ElementType::WIRE) {
         IdString c = static_cast<IdStringTreeItem *>(clickItem)->getData();
         WireId wire = ctx->getWireByName(c);
+
+        decals.push_back(ctx->getWireDecal(wire));
+        Q_EMIT selected(decals);
 
         QtProperty *topItem = groupManager->addProperty("Wire");
         addProperty(topItem, "Wire");
@@ -420,7 +427,7 @@ void DesignWidget::onItemClicked(QTreeWidgetItem *clickItem, int pos)
             portItem->setValue(pinname);
             dhItem->addSubProperty(portItem);
         }
-
+/*
         QtProperty *pipsDownItem = groupManager->addProperty("Pips Downhill");
         topItem->addSubProperty(pipsDownItem);
         for (const auto &item : ctx->getPipsDownhill(wire)) {
@@ -436,10 +443,13 @@ void DesignWidget::onItemClicked(QTreeWidgetItem *clickItem, int pos)
             pipItem->setValue(ctx->getPipName(item).c_str(ctx));
             pipsUpItem->addSubProperty(pipItem);
         }
-
+*/
     } else if (type == ElementType::PIP) {
         IdString c = static_cast<IdStringTreeItem *>(clickItem)->getData();
         PipId pip = ctx->getPipByName(c);
+
+        decals.push_back(ctx->getPipDecal(pip));
+        Q_EMIT selected(decals);
 
         QtProperty *topItem = groupManager->addProperty("Pip");
         addProperty(topItem, "Pip");

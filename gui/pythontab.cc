@@ -16,7 +16,6 @@
  *  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
  */
-#ifndef NO_PYTHON
 
 #include "pythontab.h"
 #include <QGridLayout>
@@ -77,7 +76,6 @@ PythonTab::~PythonTab()
 void PythonTab::editLineReturnPressed(QString text)
 {
     console->displayString(prompt + text + "\n");
-    console->moveCursorToEnd();
 
     parseHelper.process(text.toStdString());
 
@@ -114,6 +112,6 @@ void PythonTab::showContextMenu(const QPoint &pt) { contextMenu->exec(mapToGloba
 
 void PythonTab::clearBuffer() { console->clear(); }
 
-NEXTPNR_NAMESPACE_END
+void PythonTab::info(std::string str) { console->displayString(str.c_str()); }
 
-#endif // NO_PYTHON
+NEXTPNR_NAMESPACE_END

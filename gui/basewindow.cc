@@ -27,10 +27,7 @@
 #include "jsonparse.h"
 #include "log.h"
 #include "mainwindow.h"
-
-#ifndef NO_PYTHON
 #include "pythontab.h"
-#endif
 
 static void initBasenameResource() { Q_INIT_RESOURCE(base); }
 
@@ -45,7 +42,7 @@ BaseMainWindow::BaseMainWindow(std::unique_ptr<Context> context, QWidget *parent
     log_files.clear();
     log_streams.clear();
 
-    setObjectName(QStringLiteral("BaseMainWindow"));
+    setObjectName("BaseMainWindow");
     resize(1024, 768);
 
     createMenusAndBars();
@@ -74,19 +71,17 @@ BaseMainWindow::BaseMainWindow(std::unique_ptr<Context> context, QWidget *parent
     connect(designview, SIGNAL(info(std::string)), this, SLOT(writeInfo(std::string)));
 
     tabWidget = new QTabWidget();
-#ifndef NO_PYTHON
-    PythonTab *pythontab = new PythonTab();
-    tabWidget->addTab(pythontab, "Console");
-    connect(this, SIGNAL(contextChanged(Context *)), pythontab, SLOT(newContext(Context *)));
-#endif
-    info = new InfoTab();
-    tabWidget->addTab(info, "Info");
+
+    console = new PythonTab();
+    tabWidget->addTab(console, "Console");
+    connect(this, SIGNAL(contextChanged(Context *)), console, SLOT(newContext(Context *)));
 
     centralTabWidget = new QTabWidget();
     FPGAViewWidget *fpgaView = new FPGAViewWidget();
     centralTabWidget->addTab(fpgaView, "Graphics");
 
     connect(this, SIGNAL(contextChanged(Context *)), fpgaView, SLOT(newContext(Context *)));
+    connect(designview, SIGNAL(selected(std::vector<DecalXY>)), fpgaView, SLOT(onSelectedArchItem(std::vector<DecalXY>)));
 
     splitter_v->addWidget(centralTabWidget);
     splitter_v->addWidget(tabWidget);
@@ -94,39 +89,31 @@ BaseMainWindow::BaseMainWindow(std::unique_ptr<Context> context, QWidget *parent
 
 BaseMainWindow::~BaseMainWindow() {}
 
-void BaseMainWindow::writeInfo(std::string text) { info->info(text); }
+void BaseMainWindow::writeInfo(std::string text) { console->info(text); }
 
 void BaseMainWindow::createMenusAndBars()
 {
-    actionNew = new QAction("New", this);
-    QIcon iconNew;
-    iconNew.addFile(QStringLiteral(":/icons/resources/new.png"));
-    actionNew->setIcon(iconNew);
+    actionNew = new QAction("New", this);    
+    actionNew->setIcon(QIcon(":/icons/resources/new.png"));
     actionNew->setShortcuts(QKeySequence::New);
     actionNew->setStatusTip("New project file");
     connect(actionNew, SIGNAL(triggered()), this, SLOT(new_proj()));
 
-    actionOpen = new QAction("Open", this);
-    QIcon iconOpen;
-    iconOpen.addFile(QStringLiteral(":/icons/resources/open.png"));
-    actionOpen->setIcon(iconOpen);
+    actionOpen = new QAction("Open", this);    
+    actionOpen->setIcon(QIcon(":/icons/resources/open.png"));
     actionOpen->setShortcuts(QKeySequence::Open);
     actionOpen->setStatusTip("Open an existing project file");
     connect(actionOpen, SIGNAL(triggered()), this, SLOT(open_proj()));
 
-    QAction *actionSave = new QAction("Save", this);
-    QIcon iconSave;
-    iconSave.addFile(QStringLiteral(":/icons/resources/save.png"));
-    actionSave->setIcon(iconSave);
+    QAction *actionSave = new QAction("Save", this);    
+    actionSave->setIcon(QIcon(":/icons/resources/save.png"));
     actionSave->setShortcuts(QKeySequence::Save);
     actionSave->setStatusTip("Save existing project to disk");
-    connect(actionSave, SIGNAL(triggered()), this, SLOT(save_proj()));
     actionSave->setEnabled(false);
+    connect(actionSave, SIGNAL(triggered()), this, SLOT(save_proj()));
 
-    QAction *actionExit = new QAction("Exit", this);
-    QIcon iconExit;
-    iconExit.addFile(QStringLiteral(":/icons/resources/exit.png"));
-    actionExit->setIcon(iconExit);
+    QAction *actionExit = new QAction("Exit", this);    
+    actionExit->setIcon(QIcon(":/icons/resources/exit.png"));
     actionExit->setShortcuts(QKeySequence::Quit);
     actionExit->setStatusTip("Exit the application");
     connect(actionExit, SIGNAL(triggered()), this, SLOT(close()));

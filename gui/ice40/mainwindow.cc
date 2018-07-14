@@ -71,61 +71,47 @@ void MainWindow::createMenu()
     QMenu *menu_Design = new QMenu("&Design", menuBar);
     menuBar->addAction(menu_Design->menuAction());
 
-    actionLoadJSON = new QAction("Open JSON", this);
-    QIcon iconLoadJSON;
-    iconLoadJSON.addFile(QStringLiteral(":/icons/resources/open_json.png"));
-    actionLoadJSON->setIcon(iconLoadJSON);
+    actionLoadJSON = new QAction("Open JSON", this);    
+    actionLoadJSON->setIcon(QIcon(":/icons/resources/open_json.png"));
     actionLoadJSON->setStatusTip("Open an existing JSON file");
-    connect(actionLoadJSON, SIGNAL(triggered()), this, SLOT(open_json()));
     actionLoadJSON->setEnabled(true);
+    connect(actionLoadJSON, SIGNAL(triggered()), this, SLOT(open_json()));
 
-    actionLoadPCF = new QAction("Open PCF", this);
-    QIcon iconLoadPCF;
-    iconLoadPCF.addFile(QStringLiteral(":/icons/resources/open_pcf.png"));
-    actionLoadPCF->setIcon(iconLoadPCF);
+    actionLoadPCF = new QAction("Open PCF", this);    
+    actionLoadPCF->setIcon(QIcon(":/icons/resources/open_pcf.png"));
     actionLoadPCF->setStatusTip("Open PCF file");
-    connect(actionLoadPCF, SIGNAL(triggered()), this, SLOT(open_pcf()));
     actionLoadPCF->setEnabled(false);
+    connect(actionLoadPCF, SIGNAL(triggered()), this, SLOT(open_pcf()));
 
-    actionPack = new QAction("Pack", this);
-    QIcon iconPack;
-    iconPack.addFile(QStringLiteral(":/icons/resources/pack.png"));
-    actionPack->setIcon(iconPack);
+    actionPack = new QAction("Pack", this);    
+    actionPack->setIcon(QIcon(":/icons/resources/pack.png"));
     actionPack->setStatusTip("Pack current design");
-    connect(actionPack, SIGNAL(triggered()), task, SIGNAL(pack()));
     actionPack->setEnabled(false);
+    connect(actionPack, SIGNAL(triggered()), task, SIGNAL(pack()));
 
-    actionAssignBudget = new QAction("Assign Budget", this);
-    QIcon iconAssignBudget;
-    iconAssignBudget.addFile(QStringLiteral(":/icons/resources/time_add.png"));
-    actionAssignBudget->setIcon(iconAssignBudget);
+    actionAssignBudget = new QAction("Assign Budget", this);    
+    actionAssignBudget->setIcon(QIcon(":/icons/resources/time_add.png"));
     actionAssignBudget->setStatusTip("Assign time budget for current design");
-    connect(actionAssignBudget, SIGNAL(triggered()), this, SLOT(budget()));
     actionAssignBudget->setEnabled(false);
+    connect(actionAssignBudget, SIGNAL(triggered()), this, SLOT(budget()));
 
-    actionPlace = new QAction("Place", this);
-    QIcon iconPlace;
-    iconPlace.addFile(QStringLiteral(":/icons/resources/place.png"));
-    actionPlace->setIcon(iconPlace);
+    actionPlace = new QAction("Place", this);    
+    actionPlace->setIcon(QIcon(":/icons/resources/place.png"));
     actionPlace->setStatusTip("Place current design");
-    connect(actionPlace, SIGNAL(triggered()), this, SLOT(place()));
     actionPlace->setEnabled(false);
+    connect(actionPlace, SIGNAL(triggered()), this, SLOT(place()));
 
-    actionRoute = new QAction("Route", this);
-    QIcon iconRoute;
-    iconRoute.addFile(QStringLiteral(":/icons/resources/route.png"));
-    actionRoute->setIcon(iconRoute);
+    actionRoute = new QAction("Route", this);    
+    actionRoute->setIcon(QIcon(":/icons/resources/route.png"));
     actionRoute->setStatusTip("Route current design");
-    connect(actionRoute, SIGNAL(triggered()), task, SIGNAL(route()));
     actionRoute->setEnabled(false);
+    connect(actionRoute, SIGNAL(triggered()), task, SIGNAL(route()));
 
-    actionSaveAsc = new QAction("Save ASC", this);
-    QIcon iconSaveAsc;
-    iconSaveAsc.addFile(QStringLiteral(":/icons/resources/save_asc.png"));
-    actionSaveAsc->setIcon(iconSaveAsc);
+    actionSaveAsc = new QAction("Save ASC", this);    
+    actionSaveAsc->setIcon(QIcon(":/icons/resources/save_asc.png"));
     actionSaveAsc->setStatusTip("Save ASC file");
-    connect(actionSaveAsc, SIGNAL(triggered()), this, SLOT(save_asc()));
     actionSaveAsc->setEnabled(false);
+    connect(actionSaveAsc, SIGNAL(triggered()), this, SLOT(save_asc()));
 
     QToolBar *taskFPGABar = new QToolBar();
     addToolBar(Qt::TopToolBarArea, taskFPGABar);
@@ -146,29 +132,23 @@ void MainWindow::createMenu()
     menu_Design->addAction(actionRoute);
     menu_Design->addAction(actionSaveAsc);
 
-    actionPlay = new QAction("Play", this);
-    QIcon iconPlay;
-    iconPlay.addFile(QStringLiteral(":/icons/resources/control_play.png"));
-    actionPlay->setIcon(iconPlay);
+    actionPlay = new QAction("Play", this);    
+    actionPlay->setIcon(QIcon(":/icons/resources/control_play.png"));
     actionPlay->setStatusTip("Continue running task");
-    connect(actionPlay, SIGNAL(triggered()), task, SLOT(continue_thread()));
     actionPlay->setEnabled(false);
+    connect(actionPlay, SIGNAL(triggered()), task, SLOT(continue_thread()));
 
-    actionPause = new QAction("Pause", this);
-    QIcon iconPause;
-    iconPause.addFile(QStringLiteral(":/icons/resources/control_pause.png"));
-    actionPause->setIcon(iconPause);
+    actionPause = new QAction("Pause", this);    
+    actionPause->setIcon(QIcon(":/icons/resources/control_pause.png"));
     actionPause->setStatusTip("Pause running task");
-    connect(actionPause, SIGNAL(triggered()), task, SLOT(pause_thread()));
     actionPause->setEnabled(false);
+    connect(actionPause, SIGNAL(triggered()), task, SLOT(pause_thread()));
 
-    actionStop = new QAction("Stop", this);
-    QIcon iconStop;
-    iconStop.addFile(QStringLiteral(":/icons/resources/control_stop.png"));
-    actionStop->setIcon(iconStop);
+    actionStop = new QAction("Stop", this);    
+    actionStop->setIcon(QIcon(":/icons/resources/control_stop.png"));
     actionStop->setStatusTip("Stop running task");
-    connect(actionStop, SIGNAL(triggered()), task, SLOT(terminate_thread()));
     actionStop->setEnabled(false);
+    connect(actionStop, SIGNAL(triggered()), task, SLOT(terminate_thread()));
 
     QToolBar *taskToolBar = new QToolBar();
     addToolBar(Qt::TopToolBarArea, taskToolBar);
@@ -253,7 +233,6 @@ void MainWindow::new_proj()
 
 void MainWindow::load_json(std::string filename, std::string pcf)
 {
-    tabWidget->setCurrentWidget(info);
     preload_pcf = pcf;
     disableActions();
     Q_EMIT task->loadfile(filename);
@@ -261,8 +240,6 @@ void MainWindow::load_json(std::string filename, std::string pcf)
 
 void MainWindow::load_pcf(std::string filename)
 {
-    tabWidget->setCurrentWidget(info);
-
     disableActions();
     Q_EMIT task->loadpcf(filename);
 }
@@ -271,15 +248,12 @@ void MainWindow::newContext(Context *ctx)
 {
     std::string title = "nextpnr-ice40 - " + ctx->getChipName() + " ( " + chipArgs.package + " )";
     setWindowTitle(title.c_str());
-    info->clearBuffer();
 }
 
 void MainWindow::open_proj()
 {
     QString fileName = QFileDialog::getOpenFileName(this, QString("Open Project"), QString(), QString("*.proj"));
     if (!fileName.isEmpty()) {
-        tabWidget->setCurrentWidget(info);
-
         std::string fn = fileName.toStdString();
         disableActions();
     }

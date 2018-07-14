@@ -43,10 +43,11 @@ class DesignWidget : public QWidget
 
   Q_SIGNALS:
     void info(std::string text);
+    void selected(std::vector<DecalXY> decal);
 
   private Q_SLOTS:
     void prepareMenu(const QPoint &pos);
-    void onItemClicked(QTreeWidgetItem *item, int);
+    void onItemSelectionChanged();
     void selectObject();
   public Q_SLOTS:
     void newContext(Context *ctx);

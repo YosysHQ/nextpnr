@@ -195,7 +195,7 @@ bool LineShader::compile(void)
     return true;
 }
 
-void LineShader::draw(const LineShaderData &line, const QMatrix4x4 &projection)
+void LineShader::draw(const LineShaderData &line, const QColor &color, float thickness, const QMatrix4x4 &projection)
 {
     auto gl = QOpenGLContext::currentContext()->functions();
     vao_.bind();
@@ -214,8 +214,8 @@ void LineShader::draw(const LineShaderData &line, const QMatrix4x4 &projection)
     buffers_.index.allocate(&line.indices[0], sizeof(GLuint) * line.indices.size());
 
     program_->setUniformValue(uniforms_.projection, projection);
-    program_->setUniformValue(uniforms_.thickness, line.thickness);
-    program_->setUniformValue(uniforms_.color, line.color.r, line.color.g, line.color.b, line.color.a);
+    program_->setUniformValue(uniforms_.thickness, thickness);
+    program_->setUniformValue(uniforms_.color, color.redF(), color.greenF(), color.blueF(), color.alphaF());
 
     buffers_.position.bind();
     program_->enableAttributeArray("position");
@@ -240,7 +240,7 @@ void LineShader::draw(const LineShaderData &line, const QMatrix4x4 &projection)
     vao_.release();
 }
 
-FPGAViewWidget::FPGAViewWidget(QWidget *parent) : QOpenGLWidget(parent), lineShader_(this), zoom_(500.f), ctx_(nullptr)
+FPGAViewWidget::FPGAViewWidget(QWidget *parent) : QOpenGLWidget(parent), lineShader_(this), zoom_(500.f), ctx_(nullptr), selectedItemsChanged(false)
 {
     backgroundColor_ = QColor("#000000");
     gridColor_ = QColor("#333");
@@ -248,6 +248,7 @@ FPGAViewWidget::FPGAViewWidget(QWidget *parent) : QOpenGLWidget(parent), lineSha
     gHiddenColor_ = QColor("#606060");
     gInactiveColor_ = QColor("#303030");
     gActiveColor_ = QColor("#f0f0f0");
+    gSelectedColor_ = QColor("#ff6600");
     frameColor_ = QColor("#0066ba");
 
     auto fmt = format();
@@ -380,17 +381,17 @@ void FPGAViewWidget::paintGL()
     float thick11Px = mouseToWorldCoordinates(1.1, 0).x();
 
     // Draw grid.
-    auto grid = LineShaderData(thick1Px, gridColor_);
+    auto grid = LineShaderData();
     for (float i = -100.0f; i < 100.0f; i += 1.0f) {
         PolyLine(-100.0f, i, 100.0f, i).build(grid);
         PolyLine(i, -100.0f, i, 100.0f).build(grid);
     }
-    lineShader_.draw(grid, matrix);
+    lineShader_.draw(grid, gridColor_, thick1Px, matrix);
 
-    LineShaderData shaders[4] = {[GraphicElement::G_FRAME] = LineShaderData(thick11Px, gFrameColor_),
-                                 [GraphicElement::G_HIDDEN] = LineShaderData(thick11Px, gHiddenColor_),
-                                 [GraphicElement::G_INACTIVE] = LineShaderData(thick11Px, gInactiveColor_),
-                                 [GraphicElement::G_ACTIVE] = LineShaderData(thick11Px, gActiveColor_)};
+    LineShaderData shaders[4] = {[GraphicElement::G_FRAME] = LineShaderData(),
+                                 [GraphicElement::G_HIDDEN] = LineShaderData(),
+                                 [GraphicElement::G_INACTIVE] = LineShaderData(),
+                                 [GraphicElement::G_ACTIVE] = LineShaderData()};
 
     if (ctx_) {
         // Draw Bels.
@@ -409,18 +410,29 @@ void FPGAViewWidget::paintGL()
         for (auto group : ctx_->getGroups()) {
             drawDecal(shaders, ctx_->getGroupDecal(group));
         }
-    }
-    lineShader_.draw(shaders[0], matrix);
-    lineShader_.draw(shaders[1], matrix);
-    lineShader_.draw(shaders[2], matrix);
-    lineShader_.draw(shaders[3], matrix);
 
-    // Draw Frame Graphics.
-    auto frames = LineShaderData(thick11Px, frameColor_);
-    if (ctx_) {
-        drawDecal(frames, ctx_->getFrameDecal());
-        lineShader_.draw(frames, matrix);
+        if (selectedItemsChanged)
+        {
+            selectedItemsChanged = false;
+            selectedShader_.clear();
+            for (auto decal : selectedItems_) {
+                drawDecal(selectedShader_, decal);
+            }
+        }
     }
+
+    lineShader_.draw(shaders[0], gFrameColor_, thick11Px, matrix);
+    lineShader_.draw(shaders[1], gHiddenColor_, thick11Px, matrix);
+    lineShader_.draw(shaders[2], gInactiveColor_, thick11Px, matrix);
+    lineShader_.draw(shaders[3], gActiveColor_, thick11Px, matrix);
+    lineShader_.draw(selectedShader_, gSelectedColor_, thick11Px, matrix);
+}
+
+void FPGAViewWidget::onSelectedArchItem(std::vector<DecalXY> decals)
+{
+    selectedItems_ = decals;
+    selectedItemsChanged = true;
+    update();
 }
 
 void FPGAViewWidget::resizeGL(int width, int height) {}

@@ -54,6 +54,10 @@ find_package(Sanitizers)
 # List of Boost libraries to include
 set(boost_libs filesystem thread program_options)
 
+if (BUILD_GUI AND NOT BUILD_PYTHON)
+    message(FATAL_ERROR "GUI requires Python to build")
+endif()
+
 if (BUILD_PYTHON)
     # TODO: sensible minimum Python version
     find_package(PythonInterp 3.5 REQUIRED)

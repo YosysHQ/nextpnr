@@ -21,8 +21,6 @@
 #ifndef LINE_EDITOR_H
 #define LINE_EDITOR_H
 
-#ifndef NO_PYTHON
-
 #include <QLineEdit>
 #include <QMenu>
 #include "ParseHelper.h"
@@ -58,7 +56,5 @@ class LineEditor : public QLineEdit
 };
 
 NEXTPNR_NAMESPACE_END
-
-#endif // NO_PYTHON
 
 #endif // LINE_EDITOR_H

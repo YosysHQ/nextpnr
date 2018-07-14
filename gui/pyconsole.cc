@@ -18,8 +18,6 @@
  *
  */
 
-#ifndef NO_PYTHON
-
 #include "pyconsole.h"
 #include "pyinterpreter.h"
 
@@ -68,6 +66,7 @@ void PythonConsole::displayString(QString text)
     setTextColor(NORMAL_COLOR);
     cursor.insertText(text);
     cursor.movePosition(QTextCursor::EndOfLine);
+    moveCursorToEnd();
 }
 
 void PythonConsole::moveCursorToEnd()
@@ -78,5 +77,3 @@ void PythonConsole::moveCursorToEnd()
 }
 
 NEXTPNR_NAMESPACE_END
-
-#endif // NO_PYTHON

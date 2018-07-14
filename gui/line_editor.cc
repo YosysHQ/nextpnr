@@ -18,8 +18,6 @@
  *
  */
 
-#ifndef NO_PYTHON
-
 #include "line_editor.h"
 #include <QKeyEvent>
 #include <QToolTip>
@@ -131,5 +129,3 @@ void LineEditor::autocomplete()
 }
 
 NEXTPNR_NAMESPACE_END
-
-#endif // NO_PYTHON
