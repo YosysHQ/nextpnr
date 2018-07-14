@@ -371,6 +371,8 @@ public:
 
     // -------------------------------------------------
 
+    BelId getBelByName(IdString name) const;
+
     template <typename Id> const LocationTypePOD *locInfo(Id &id) const
     {
         return &(chip_info->locations[chip_info->location_type[id.location.y * chip_info->width + id.location.x]]);
@@ -402,6 +404,30 @@ public:
         cells[bel_to_cell[bel]]->bel = BelId();
         cells[bel_to_cell[bel]]->belStrength = STRENGTH_NONE;
         bel_to_cell[bel] = IdString();
+    }
+
+    bool checkBelAvail(BelId bel) const
+    {
+        NPNR_ASSERT(bel != BelId());
+        return bel_to_cell.find(bel) == bel_to_cell.end() || bel_to_cell.at(bel) == IdString();
+    }
+
+    IdString getBoundBelCell(BelId bel) const
+    {
+        NPNR_ASSERT(bel != BelId());
+        if (bel_to_cell.find(bel) == bel_to_cell.end())
+            return IdString();
+        else
+            return bel_to_cell.at(bel);
+    }
+
+    IdString getConflictingBelCell(BelId bel) const
+    {
+        NPNR_ASSERT(bel != BelId());
+        if (bel_to_cell.find(bel) == bel_to_cell.end())
+            return IdString();
+        else
+            return bel_to_cell.at(bel);
     }
 
     BelRange getBels() const
@@ -439,6 +465,8 @@ public:
         return locInfo(bel)->bel_data[bel.index].type;
     }
 
+    WireId getWireBelPin(BelId bel, PortPin pin) const;
+
     BelPin getBelPinUphill(WireId wire) const
     {
         BelPin ret;
@@ -465,6 +493,8 @@ public:
     }
 
     // -------------------------------------------------
+
+    WireId getWireByName(IdString name) const;
 
     IdString getWireName(WireId wire) const
     {
@@ -505,6 +535,30 @@ public:
         wire_to_net[wire] = IdString();
     }
 
+    bool checkWireAvail(WireId wire) const
+    {
+        NPNR_ASSERT(wire != WireId());
+        return wire_to_net.find(wire) == wire_to_net.end() || wire_to_net.at(wire) == IdString();
+    }
+
+    IdString getBoundWireNet(WireId wire) const
+    {
+        NPNR_ASSERT(wire != WireId());
+        if (wire_to_net.find(wire) == wire_to_net.end())
+            return IdString();
+        else
+            return wire_to_net.at(wire);
+    }
+
+    IdString getConflictingWireNet(WireId wire) const
+    {
+        NPNR_ASSERT(wire != WireId());
+        if (wire_to_net.find(wire) == wire_to_net.end())
+            return IdString();
+        else
+            return wire_to_net.at(wire);
+    }
+
     WireRange getWires() const
     {
         WireRange range;
@@ -520,6 +574,7 @@ public:
 
     // -------------------------------------------------
 
+    PipId getPipByName(IdString name) const;
     IdString getPipName(PipId pip) const;
 
     uint32_t getPipChecksum(PipId pip) const { return pip.index; }
@@ -553,6 +608,30 @@ public:
         nets[pip_to_net[pip]]->wires.erase(dst);
 
         pip_to_net[pip] = IdString();
+    }
+
+    bool checkPipAvail(PipId pip) const
+    {
+        NPNR_ASSERT(pip != PipId());
+        return pip_to_net.find(pip) == pip_to_net.end() || pip_to_net.at(pip) == IdString();
+    }
+
+    IdString getBoundPipNet(PipId pip) const
+    {
+        NPNR_ASSERT(pip != PipId());
+        if (pip_to_net.find(pip) == pip_to_net.end())
+            return IdString();
+        else
+            return pip_to_net.at(pip);
+    }
+
+    IdString getConflictingPipNet(PipId pip) const
+    {
+        NPNR_ASSERT(pip != PipId());
+        if (pip_to_net.find(pip) == pip_to_net.end())
+            return IdString();
+        else
+            return pip_to_net.at(pip);
     }
 
     AllPipRange getPips() const
@@ -637,7 +716,6 @@ public:
 
     // -------------------------------------------------
 
-    // TODO(q3k) move this to archproxies?
     GroupId getGroupByName(IdString name) const { return GroupId(); }
     IdString getGroupName(GroupId group) const { return IdString(); }
     std::vector<GroupId> getGroups() const { return std::vector<GroupId>(); }
@@ -648,8 +726,6 @@ public:
 
     // -------------------------------------------------
 
-    // These are also specific to the chip and not state, so they're available
-    // on arch directly.
     void estimatePosition(BelId bel, int &x, int &y, bool &gb) const;
     delay_t estimateDelay(WireId src, WireId dst) const;
     delay_t getDelayEpsilon() const { return 20; }
@@ -665,7 +741,8 @@ public:
 
     // -------------------------------------------------
 
-    // TODO(q3k) move this to archproxies?
+    std::vector<GraphicElement> getDecalGraphics(DecalId decal) const;
+
     DecalXY getFrameDecal() const;
     DecalXY getBelDecal(BelId bel) const;
     DecalXY getWireDecal(WireId wire) const;
@@ -683,6 +760,11 @@ public:
     bool isClockPort(const CellInfo *cell, IdString port) const;
     // Return true if a port is a net
     bool isGlobalNet(const NetInfo *net) const;
+
+    // -------------------------------------------------
+    // Placement validity checks
+    bool isValidBelForCell(CellInfo *cell, BelId bel) const;
+    bool isBelLocationValid(BelId bel) const;
 };
 
 class ArchReadMethods : public BaseReadCtx
@@ -718,6 +800,8 @@ class ArchReadMethods : public BaseReadCtx
     bool isValidBelForCell(CellInfo *cell, BelId bel) const;
     // Return true whether all Bels at a given location are valid
     bool isBelLocationValid(BelId bel) const;
+    // Helper function for above
+    bool logicCellsCompatible(const std::vector<const CellInfo *> &cells) const;
 
     bool checkWireAvail(WireId wire) const;
     bool checkPipAvail(PipId pip) const;

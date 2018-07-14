@@ -151,7 +151,7 @@ IdString Arch::archArgsToId(ArchArgs args) const
 
 // -----------------------------------------------------------------------
 
-BelId ArchReadMethods::getBelByName(IdString name) const
+BelId Arch::getBelByName(IdString name) const
 {
     BelId ret;
     auto it = bel_by_name.find(name);
@@ -160,9 +160,9 @@ BelId ArchReadMethods::getBelByName(IdString name) const
 
     Location loc;
     std::string basename;
-    std::tie(loc.x, loc.y, basename) = split_identifier_name(name.str(parent_));
+    std::tie(loc.x, loc.y, basename) = split_identifier_name(name.str(this));
     ret.location = loc;
-    const LocationTypePOD *loci = parent_->locInfo(ret);
+    const LocationTypePOD *loci = locInfo(ret);
     for (int i = 0; i < loci->num_bels; i++) {
         if (std::strcmp(loci->bel_data[i].name.get(), basename.c_str()) == 0) {
             ret.index = i;
@@ -185,14 +185,14 @@ BelRange Arch::getBelsAtSameTile(BelId bel) const
     return br;
 }
 
-WireId ArchReadMethods::getWireBelPin(BelId bel, PortPin pin) const
+WireId Arch::getWireBelPin(BelId bel, PortPin pin) const
 {
     WireId ret;
 
     NPNR_ASSERT(bel != BelId());
 
-    int num_bel_wires = parent_->locInfo(bel)->bel_data[bel.index].num_bel_wires;
-    const BelWirePOD *bel_wires = parent_->locInfo(bel)->bel_data[bel.index].bel_wires.get();
+    int num_bel_wires = locInfo(bel)->bel_data[bel.index].num_bel_wires;
+    const BelWirePOD *bel_wires = locInfo(bel)->bel_data[bel.index].bel_wires.get();
     for (int i = 0; i < num_bel_wires; i++)
         if (bel_wires[i].port == pin) {
             ret.location = bel.location + bel_wires[i].rel_wire_loc;
@@ -205,7 +205,7 @@ WireId ArchReadMethods::getWireBelPin(BelId bel, PortPin pin) const
 
 // -----------------------------------------------------------------------
 
-WireId ArchReadMethods::getWireByName(IdString name) const
+WireId Arch::getWireByName(IdString name) const
 {
     WireId ret;
     auto it = wire_by_name.find(name);
@@ -214,9 +214,9 @@ WireId ArchReadMethods::getWireByName(IdString name) const
 
     Location loc;
     std::string basename;
-    std::tie(loc.x, loc.y, basename) = split_identifier_name(name.str(parent_));
+    std::tie(loc.x, loc.y, basename) = split_identifier_name(name.str(this));
     ret.location = loc;
-    const LocationTypePOD *loci = parent_->locInfo(ret);
+    const LocationTypePOD *loci = locInfo(ret);
     for (int i = 0; i < loci->num_wires; i++) {
         if (std::strcmp(loci->wire_data[i].name.get(), basename.c_str()) == 0) {
             ret.index = i;
@@ -233,7 +233,7 @@ WireId ArchReadMethods::getWireByName(IdString name) const
 
 // -----------------------------------------------------------------------
 
-PipId ArchReadMethods::getPipByName(IdString name) const
+PipId Arch::getPipByName(IdString name) const
 {
     auto it = pip_by_name.find(name);
     if (it != pip_by_name.end())
@@ -242,13 +242,13 @@ PipId ArchReadMethods::getPipByName(IdString name) const
     PipId ret;
     Location loc;
     std::string basename;
-    std::tie(loc.x, loc.y, basename) = split_identifier_name(name.str(parent_));
-    const LocationTypePOD *loci = parent_->locInfo(ret);
+    std::tie(loc.x, loc.y, basename) = split_identifier_name(name.str(this));
+    const LocationTypePOD *loci = locInfo(ret);
     for (int i = 0; i < loci->num_pips; i++) {
         PipId curr;
         curr.location = loc;
         curr.index = i;
-        pip_by_name[parent_->getPipName(curr)] = curr;
+        pip_by_name[getPipName(curr)] = curr;
     }
     return pip_by_name[name];
 }
@@ -296,7 +296,7 @@ bool Arch::route() { return router1(getCtx()); }
 
 // -----------------------------------------------------------------------
 
-std::vector<GraphicElement> ArchReadMethods::getDecalGraphics(DecalId decalId) const
+std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decalId) const
 {
     std::vector<GraphicElement> ret;
     // FIXME
@@ -315,9 +315,9 @@ DecalXY Arch::getGroupDecal(GroupId pip) const { return {}; };
 
 // -----------------------------------------------------------------------
 
-bool ArchReadMethods::isValidBelForCell(CellInfo *cell, BelId bel) const { return true; }
+bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const { return true; }
 
-bool ArchReadMethods::isBelLocationValid(BelId bel) const { return true; }
+bool Arch::isBelLocationValid(BelId bel) const { return true; }
 
 // -----------------------------------------------------------------------
 
@@ -329,78 +329,5 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
 IdString Arch::getPortClock(const CellInfo *cell, IdString port) const { return IdString(); }
 
 bool Arch::isClockPort(const CellInfo *cell, IdString port) const { return false; }
-
-bool ArchReadMethods::checkWireAvail(WireId wire) const
-{
-    NPNR_ASSERT(wire != WireId());
-    return wire_to_net.find(wire) == wire_to_net.end() || wire_to_net.at(wire) == IdString();
-}
-
-bool ArchReadMethods::checkPipAvail(PipId pip) const
-{
-    NPNR_ASSERT(pip != PipId());
-    return pip_to_net.find(pip) == pip_to_net.end() || pip_to_net.at(pip) == IdString();
-}
-
-bool ArchReadMethods::checkBelAvail(BelId bel) const
-{
-    NPNR_ASSERT(bel != BelId());
-    return bel_to_cell.find(bel) == bel_to_cell.end() || bel_to_cell.at(bel) == IdString();
-}
-
-IdString ArchReadMethods::getConflictingBelCell(BelId bel) const
-{
-    NPNR_ASSERT(bel != BelId());
-    if (bel_to_cell.find(bel) == bel_to_cell.end())
-        return IdString();
-    else
-        return bel_to_cell.at(bel);
-}
-
-IdString ArchReadMethods::getConflictingWireNet(WireId wire) const
-{
-    NPNR_ASSERT(wire != WireId());
-    if (wire_to_net.find(wire) == wire_to_net.end())
-        return IdString();
-    else
-        return wire_to_net.at(wire);
-}
-
-IdString ArchReadMethods::getConflictingPipNet(PipId pip) const
-{
-    NPNR_ASSERT(pip != PipId());
-    if (pip_to_net.find(pip) == pip_to_net.end())
-        return IdString();
-    else
-        return pip_to_net.at(pip);
-}
-
-IdString ArchReadMethods::getBoundWireNet(WireId wire) const
-{
-    NPNR_ASSERT(wire != WireId());
-    if (wire_to_net.find(wire) == wire_to_net.end())
-        return IdString();
-    else
-        return wire_to_net.at(wire);
-}
-
-IdString ArchReadMethods::getBoundPipNet(PipId pip) const
-{
-    NPNR_ASSERT(pip != PipId());
-    if (pip_to_net.find(pip) == pip_to_net.end())
-        return IdString();
-    else
-        return pip_to_net.at(pip);
-}
-
-IdString ArchReadMethods::getBoundBelCell(BelId bel) const
-{
-    NPNR_ASSERT(bel != BelId());
-    if (bel_to_cell.find(bel) == bel_to_cell.end())
-        return IdString();
-    else
-        return bel_to_cell.at(bel);
-}
-
 
 NEXTPNR_NAMESPACE_END

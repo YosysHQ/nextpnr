@@ -578,7 +578,6 @@ class Arch : public BaseCtx
 
     // -------------------------------------------------
 
-    // TODO(q3k) move this to archproxies?
     DecalXY getFrameDecal() const;
     DecalXY getBelDecal(BelId bel) const;
     DecalXY getWireDecal(WireId wire) const;
