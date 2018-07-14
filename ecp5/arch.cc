@@ -62,7 +62,7 @@ BelType Arch::belTypeFromId(IdString type) const
 
 // -----------------------------------------------------------------------
 
-void IdString::initialize_arch(const BaseCtx *ctx)
+void IdString::initialize_arch(const IdStringDB *ctx)
 {
 #define X(t) initialize_add(ctx, #t, PIN_##t);
 

@@ -2,6 +2,7 @@
  *  nextpnr -- Next Generation Place and Route
  *
  *  Copyright (C) 2018  Clifford Wolf <clifford@symbioticeda.com>
+ *  Copyright (C) 2018  Serge Bazanski <q3k@symbioticeda.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -88,28 +89,28 @@ inline void assert_false_impl(std::string message, std::string filename, int lin
 #define NPNR_ASSERT_MSG(cond, msg) except_assert_impl((cond), msg, #cond, __FILE__, __LINE__)
 #define NPNR_ASSERT_FALSE(msg) assert_false_impl(msg, __FILE__, __LINE__)
 
-struct BaseCtx;
+struct IdStringDB;
 struct Context;
 
 struct IdString
 {
     int index = 0;
 
-    static void initialize_arch(const BaseCtx *ctx);
+    static void initialize_arch(const IdStringDB *ctx);
 
-    static void initialize_add(const BaseCtx *ctx, const char *s, int idx);
+    static void initialize_add(const IdStringDB *ctx, const char *s, int idx);
 
     IdString() {}
 
-    void set(const BaseCtx *ctx, const std::string &s);
+    void set(const IdStringDB *ctx, const std::string &s);
 
-    IdString(const BaseCtx *ctx, const std::string &s) { set(ctx, s); }
+    IdString(const IdStringDB *ctx, const std::string &s) { set(ctx, s); }
 
-    IdString(const BaseCtx *ctx, const char *s) { set(ctx, s); }
+    IdString(const IdStringDB *ctx, const char *s) { set(ctx, s); }
 
-    const std::string &str(const BaseCtx *ctx) const;
+    const std::string &str(const IdStringDB *ctx) const;
 
-    const char *c_str(const BaseCtx *ctx) const;
+    const char *c_str(const IdStringDB *ctx) const;
 
     bool operator<(const IdString &other) const { return index < other.index; }
 
@@ -238,23 +239,18 @@ struct CellInfo
     std::unordered_map<IdString, IdString> pins;
 };
 
-struct BaseCtx
+class IdStringDB
 {
-    // --------------------------------------------------------------
-
+    friend class IdString;
+  private:
     mutable std::unordered_map<std::string, int> *idstring_str_to_idx;
     mutable std::vector<const std::string *> *idstring_idx_to_str;
-
+  
+  public:
     IdString id(const std::string &s) const { return IdString(this, s); }
-
     IdString id(const char *s) const { return IdString(this, s); }
 
-    // --------------------------------------------------------------
-
-    std::unordered_map<IdString, std::unique_ptr<NetInfo>> nets;
-    std::unordered_map<IdString, std::unique_ptr<CellInfo>> cells;
-
-    BaseCtx()
+    IdStringDB()
     {
         idstring_str_to_idx = new std::unordered_map<std::string, int>;
         idstring_idx_to_str = new std::vector<const std::string *>;
@@ -262,11 +258,21 @@ struct BaseCtx
         IdString::initialize_arch(this);
     }
 
-    ~BaseCtx()
+    ~IdStringDB()
     {
         delete idstring_str_to_idx;
         delete idstring_idx_to_str;
     }
+};
+
+class BaseCtx : public IdStringDB
+{
+  public:
+    std::unordered_map<IdString, std::unique_ptr<NetInfo>> nets;
+    std::unordered_map<IdString, std::unique_ptr<CellInfo>> cells;
+
+    BaseCtx() {}
+    ~BaseCtx() {}
 
     Context *getCtx() { return reinterpret_cast<Context *>(this); }
 
