@@ -523,9 +523,6 @@ struct Arch : BaseCtx
     // -------------------------------------------------
 
     PipId getPipByName(IdString name) const;
-    IdString getPipName(PipId pip) const;
-
-    uint32_t getPipChecksum(PipId pip) const { return pip.index; }
 
     void bindPip(PipId pip, IdString net, PlaceStrength strength)
     {
@@ -640,15 +637,6 @@ struct Arch : BaseCtx
         range.e.cursor = nullptr;
         return range;
     }
-
-    WireRange getWires() const
-    {
-        WireRange range;
-        range.b.cursor = 0;
-        range.e.cursor = chip_info->num_wires;
-        return range;
-    }
-
 
     BelId getPackagePinBel(const std::string &pin) const;
     std::string getBelPackagePin(BelId bel) const;
