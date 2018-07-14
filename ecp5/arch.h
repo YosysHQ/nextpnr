@@ -386,24 +386,6 @@ public:
 
     uint32_t getBelChecksum(BelId bel) const { return bel.index; }
 
-    void bindBel(BelId bel, IdString cell, PlaceStrength strength)
-    {
-        NPNR_ASSERT(bel != BelId());
-        NPNR_ASSERT(bel_to_cell[bel] == IdString());
-        bel_to_cell[bel] = cell;
-        cells[cell]->bel = bel;
-        cells[cell]->belStrength = strength;
-    }
-
-    void unbindBel(BelId bel)
-    {
-        NPNR_ASSERT(bel != BelId());
-        NPNR_ASSERT(bel_to_cell[bel] != IdString());
-        cells[bel_to_cell[bel]]->bel = BelId();
-        cells[bel_to_cell[bel]]->belStrength = STRENGTH_NONE;
-        bel_to_cell[bel] = IdString();
-    }
-
     BelRange getBels() const
     {
         BelRange range;
@@ -478,33 +460,6 @@ public:
 
     uint32_t getWireChecksum(WireId wire) const { return wire.index; }
 
-    void bindWire(WireId wire, IdString net, PlaceStrength strength)
-    {
-        NPNR_ASSERT(wire != WireId());
-        NPNR_ASSERT(wire_to_net[wire] == IdString());
-        wire_to_net[wire] = net;
-        nets[net]->wires[wire].pip = PipId();
-        nets[net]->wires[wire].strength = strength;
-    }
-
-    void unbindWire(WireId wire)
-    {
-        NPNR_ASSERT(wire != WireId());
-        NPNR_ASSERT(wire_to_net[wire] != IdString());
-
-        auto &net_wires = nets[wire_to_net[wire]]->wires;
-        auto it = net_wires.find(wire);
-        NPNR_ASSERT(it != net_wires.end());
-
-        auto pip = it->second.pip;
-        if (pip != PipId()) {
-            pip_to_net[pip] = IdString();
-        }
-
-        net_wires.erase(it);
-        wire_to_net[wire] = IdString();
-    }
-
     WireRange getWires() const
     {
         WireRange range;
@@ -523,37 +478,6 @@ public:
     IdString getPipName(PipId pip) const;
 
     uint32_t getPipChecksum(PipId pip) const { return pip.index; }
-
-    void bindPip(PipId pip, IdString net, PlaceStrength strength)
-    {
-        NPNR_ASSERT(pip != PipId());
-        NPNR_ASSERT(pip_to_net[pip] == IdString());
-
-        pip_to_net[pip] = net;
-
-        WireId dst;
-        dst.index = locInfo(pip)->pip_data[pip.index].dst_idx;
-        dst.location = pip.location + locInfo(pip)->pip_data[pip.index].rel_dst_loc;
-        NPNR_ASSERT(wire_to_net[dst] == IdString());
-        wire_to_net[dst] = net;
-        nets[net]->wires[dst].pip = pip;
-        nets[net]->wires[dst].strength = strength;
-    }
-
-    void unbindPip(PipId pip)
-    {
-        NPNR_ASSERT(pip != PipId());
-        NPNR_ASSERT(pip_to_net[pip] != IdString());
-
-        WireId dst;
-        dst.index = locInfo(pip)->pip_data[pip.index].dst_idx;
-        dst.location = pip.location + locInfo(pip)->pip_data[pip.index].rel_dst_loc;
-        NPNR_ASSERT(wire_to_net[dst] != IdString());
-        wire_to_net[dst] = IdString();
-        nets[pip_to_net[pip]]->wires.erase(dst);
-
-        pip_to_net[pip] = IdString();
-    }
 
     AllPipRange getPips() const
     {
