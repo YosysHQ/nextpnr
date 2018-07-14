@@ -43,8 +43,8 @@ in
     enableParallelBuilding = true;
 
     meta = with stdenv.lib; {
-      description = "Next Generation Place-and-Route tool for FPGAs";
-      homepage    = "https://gitlab.com/symbioticeda/nextpnr";
+      description = "A computer-aided design (CAD) tool from a parallel universe";
+      homepage    = "https://github.com/mkeeter/antimony";
       license     = licenses.bsd0;
       platforms   = platforms.linux;
     };
