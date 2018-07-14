@@ -253,7 +253,7 @@ class PlacementLegaliser
     }
 
     // Find Bel closest to a location, meeting chain requirements
-    std::tuple<int, int, int> find_closest_bel(MutateContext &proxy, float target_x, float target_y, CellChain &chain)
+    std::tuple<int, int, int> find_closest_bel(ArchRWProxy &proxy, float target_x, float target_y, CellChain &chain)
     {
         std::tuple<int, int, int> best_origin = std::make_tuple(-1, -1, -1);
         wirelen_t best_wirelength = std::numeric_limits<wirelen_t>::max();
@@ -283,7 +283,7 @@ class PlacementLegaliser
     }
 
     // Split a carry chain into multiple legal chains
-    std::vector<CellChain> split_carry_chain(const ReadContext &proxy, CellChain &carryc)
+    std::vector<CellChain> split_carry_chain(const ArchRProxy &proxy, CellChain &carryc)
     {
         bool start_of_chain = true;
         std::vector<CellChain> chains;
@@ -335,7 +335,7 @@ class PlacementLegaliser
     }
 
     // Place a logic cell at a given grid location, handling rip-up etc
-    void place_lc(MutateContext &proxy, CellInfo *cell, int x, int y, int z)
+    void place_lc(ArchRWProxy &proxy, CellInfo *cell, int x, int y, int z)
     {
         auto &loc = logic_bels.at(x).at(y).at(z);
         NPNR_ASSERT(!loc.second);

@@ -26,7 +26,6 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
-#include <boost/thread/shared_mutex.hpp>
 
 #ifndef NEXTPNR_H
 #define NEXTPNR_H
@@ -249,37 +248,21 @@ struct UIUpdatesRequired
     std::unordered_set<GroupId> groupUIReload;
 };
 
-class ReadContext;
-class MutateContext;
-class BaseReadCtx;
-class BaseMutateCtx;
-
-// Data that every architecture object should contain.
-class BaseCtx
+struct BaseCtx
 {
-    friend class ReadContext;
-    friend class MutateContext;
-    friend class BaseReadCtx;
-    friend class BaseMutateCtx;
-private:
-    mutable boost::shared_mutex mtx_;
+    // --------------------------------------------------------------
 
-    bool allUiReload = false;
-    bool frameUiReload = false;
-    std::unordered_set<BelId> belUiReload;
-    std::unordered_set<WireId> wireUiReload;
-    std::unordered_set<PipId> pipUiReload;
-    std::unordered_set<GroupId> groupUiReload;
-
-public:
-    IdString id(const std::string &s) const { return IdString(this, s); }
-    IdString id(const char *s) const { return IdString(this, s); }
-
-    // TODO(q3k): These need to be made private.
-    std::unordered_map<IdString, std::unique_ptr<NetInfo>> nets;
-    std::unordered_map<IdString, std::unique_ptr<CellInfo>> cells;
     mutable std::unordered_map<std::string, int> *idstring_str_to_idx;
     mutable std::vector<const std::string *> *idstring_idx_to_str;
+
+    IdString id(const std::string &s) const { return IdString(this, s); }
+
+    IdString id(const char *s) const { return IdString(this, s); }
+
+    // --------------------------------------------------------------
+
+    std::unordered_map<IdString, std::unique_ptr<NetInfo>> nets;
+    std::unordered_map<IdString, std::unique_ptr<CellInfo>> cells;
 
     BaseCtx()
     {
@@ -303,83 +286,41 @@ public:
 
     // --------------------------------------------------------------
 
-    // Get a readwrite proxy to arch - this will keep a readwrite lock on the
-    // entire architecture until the proxy object goes out of scope.
-    MutateContext rwproxy(void);
-    // Get a read-only proxy to arch - this will keep a  read lock on the
-    // entire architecture until the proxy object goes out of scope. Other read
-    // locks can be taken while this one still exists. Ie., the UI can draw
-    // elements while the PnR is going a RO operation.
-    ReadContext rproxy(void) const;
+    bool allUiReload = false;
+    bool frameUiReload = false;
+    std::unordered_set<BelId> belUiReload;
+    std::unordered_set<WireId> wireUiReload;
+    std::unordered_set<PipId> pipUiReload;
+    std::unordered_set<GroupId> groupUiReload;
 
-};
+    void refreshUi() { allUiReload = true; }
 
-// State-accessing read-only methods that every architecture object should
-// contain.
-class BaseReadCtx
-{
-protected:
-    const BaseCtx *base_;
-public:
-    BaseReadCtx(const BaseCtx *base) : base_(base) {}
-};
+    void refreshUiFrame() { frameUiReload = true; }
 
-// State-accesssing read/write methods that every architecture object should
-// contain.
-class BaseMutateCtx
-{
-protected:
-    BaseCtx *base_;
+    void refreshUiBel(BelId bel) { belUiReload.insert(bel); }
 
-public:
-    BaseMutateCtx(BaseCtx *base) : base_(base) {}
+    void refreshUiWire(WireId wire) { wireUiReload.insert(wire); }
 
-    void refreshUi(void)
-    {
-        base_->allUiReload = true;
-    }
+    void refreshUiPip(PipId pip) { pipUiReload.insert(pip); }
 
-    void refreshUiFrame(void)
-    {
-        base_->frameUiReload = true;
-    }
-
-    void refreshUiBel(BelId bel)
-    {
-        base_->belUiReload.insert(bel);
-    }
-
-    void refreshUiWire(WireId wire)
-    {
-        base_->wireUiReload.insert(wire);
-    }
-
-    void refreshUiPip(PipId pip)
-    {
-        base_->pipUiReload.insert(pip);
-    }
-
-    void refreshUiGroup(GroupId group)
-    {
-        base_->groupUiReload.insert(group);
-    }
+    void refreshUiGroup(GroupId group) { groupUiReload.insert(group); }
 
     UIUpdatesRequired getUIUpdatesRequired(void)
     {
         UIUpdatesRequired req;
-        req.allUIReload = base_->allUiReload;
-        req.frameUIReload = base_->frameUiReload;
-        req.belUIReload = base_->belUiReload;
-        req.wireUIReload = base_->wireUiReload;
-        req.pipUIReload = base_->pipUiReload;
-        req.groupUIReload = base_->groupUiReload;
+        req.allUIReload = allUiReload;
+        req.frameUIReload = frameUiReload;
+        req.belUIReload = belUiReload;
+        req.wireUIReload = wireUiReload;
+        req.pipUIReload = pipUiReload;
+        req.groupUIReload = groupUiReload;
 
-        base_->allUiReload = false;
-        base_->frameUiReload = false;
-        base_->belUiReload.clear();
-        base_->wireUiReload.clear();
-        base_->pipUiReload.clear();
-        base_->groupUiReload.clear();
+        allUiReload = false;
+        frameUiReload = false;
+        belUiReload.clear();
+        wireUiReload.clear();
+        pipUiReload.clear();
+        groupUiReload.clear();
         return req;
     }
 };
@@ -389,53 +330,6 @@ NEXTPNR_NAMESPACE_END
 #include "arch.h"
 
 NEXTPNR_NAMESPACE_BEGIN
-
-// Read proxy to access ReadMethods while holding lock on underlying BaseCtx.
-class ReadContext : public ArchReadMethods
-{
-    friend class BaseCtx;
-private:
-    boost::shared_mutex *lock_;
-    ReadContext(const Arch *parent) : ArchReadMethods(parent), lock_(&parent->mtx_)
-    {
-        lock_->lock_shared();
-    }
-public:
-    ~ReadContext()
-    {
-        if (lock_ != nullptr) {
-            lock_->unlock_shared();
-        }
-    }
-    ReadContext(ReadContext &&other): ArchReadMethods(other), lock_(other.lock_)
-    {
-        other.lock_ = nullptr;
-    }
-};
-
-// Read proxy to access MutateMethods while holding lock on underlying BaseCtx.
-class MutateContext : public ArchReadMethods, public ArchMutateMethods
-{
-    friend class BaseCtx;
-private:
-    boost::shared_mutex *lock_;
-    MutateContext(Arch *parent) : ArchReadMethods(parent), ArchMutateMethods(parent), lock_(&parent->mtx_)
-    {
-        lock_->lock();
-    }
-public:
-    ~MutateContext()
-    {
-        if (lock_ != nullptr) {
-            lock_->unlock();
-        }
-    }
-    MutateContext(MutateContext &&other): ArchReadMethods(other), ArchMutateMethods(other), lock_(other.lock_)
-    {
-        other.lock_ = nullptr;
-    }
-};
-
 
 struct Context : Arch
 {

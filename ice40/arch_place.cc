@@ -25,7 +25,7 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-bool ArchReadMethods::logicCellsCompatible(const std::vector<const CellInfo *> &cells) const
+bool ArchRProxyMethods::logicCellsCompatible(const std::vector<const CellInfo *> &cells) const
 {
     bool dffs_exist = false, dffs_neg = false;
     const NetInfo *cen = nullptr, *clk = nullptr, *sr = nullptr;
@@ -76,7 +76,7 @@ bool ArchReadMethods::logicCellsCompatible(const std::vector<const CellInfo *> &
     return locals_count <= 32;
 }
 
-bool ArchReadMethods::isBelLocationValid(BelId bel) const
+bool ArchRProxyMethods::isBelLocationValid(BelId bel) const
 {
     if (parent_->getBelType(bel) == TYPE_ICESTORM_LC) {
         std::vector<const CellInfo *> bel_cells;
@@ -97,7 +97,7 @@ bool ArchReadMethods::isBelLocationValid(BelId bel) const
     }
 }
 
-bool ArchReadMethods::isValidBelForCell(CellInfo *cell, BelId bel) const
+bool ArchRProxyMethods::isValidBelForCell(CellInfo *cell, BelId bel) const
 {
     if (cell->type == parent_->id_icestorm_lc) {
         NPNR_ASSERT(parent_->getBelType(bel) == TYPE_ICESTORM_LC);

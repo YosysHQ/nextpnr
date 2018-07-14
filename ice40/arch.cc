@@ -29,6 +29,18 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+ArchRWProxy Arch::rwproxy(void) {
+    ArchRWProxy res(this);
+    return res;
+}
+
+ArchRProxy Arch::rproxy(void) const {
+    ArchRProxy res(this);
+    return res;
+}
+
+// -----------------------------------------------------------------------
+
 IdString Arch::belTypeToId(BelType type) const
 {
     if (type == TYPE_ICESTORM_LC)
@@ -522,7 +534,7 @@ DecalXY Arch::getGroupDecal(GroupId group) const
     return decalxy;
 };
 
-std::vector<GraphicElement> ArchReadMethods::getDecalGraphics(DecalId decal) const
+std::vector<GraphicElement> ArchRProxyMethods::getDecalGraphics(DecalId decal) const
 {
     std::vector<GraphicElement> ret;
 
@@ -720,25 +732,25 @@ bool Arch::isGlobalNet(const NetInfo *net) const
 
 // -----------------------------------------------------------------------
 
-bool ArchReadMethods::checkBelAvail(BelId bel) const
+bool ArchRProxyMethods::checkBelAvail(BelId bel) const
 {
     NPNR_ASSERT(bel != BelId());
     return bel_to_cell[bel.index] == IdString();
 }
 
-IdString ArchReadMethods::getBoundBelCell(BelId bel) const
+IdString ArchRProxyMethods::getBoundBelCell(BelId bel) const
 {
     NPNR_ASSERT(bel != BelId());
     return bel_to_cell[bel.index];
 }
 
-IdString ArchReadMethods::getConflictingBelCell(BelId bel) const
+IdString ArchRProxyMethods::getConflictingBelCell(BelId bel) const
 {
     NPNR_ASSERT(bel != BelId());
     return bel_to_cell[bel.index];
 }
 
-WireId ArchReadMethods::getWireBelPin(BelId bel, PortPin pin) const
+WireId ArchRProxyMethods::getWireBelPin(BelId bel, PortPin pin) const
 {
     WireId ret;
 
@@ -756,7 +768,7 @@ WireId ArchReadMethods::getWireBelPin(BelId bel, PortPin pin) const
     return ret;
 }
 
-WireId ArchReadMethods::getWireByName(IdString name) const
+WireId ArchRProxyMethods::getWireByName(IdString name) const
 {
     WireId ret;
 
@@ -772,25 +784,25 @@ WireId ArchReadMethods::getWireByName(IdString name) const
     return ret;
 }
 
-bool ArchReadMethods::checkWireAvail(WireId wire) const
+bool ArchRProxyMethods::checkWireAvail(WireId wire) const
 {
     NPNR_ASSERT(wire != WireId());
     return wire_to_net[wire.index] == IdString();
 }
 
-IdString ArchReadMethods::getBoundWireNet(WireId wire) const
+IdString ArchRProxyMethods::getBoundWireNet(WireId wire) const
 {
     NPNR_ASSERT(wire != WireId());
     return wire_to_net[wire.index];
 }
 
-IdString ArchReadMethods::getConflictingWireNet(WireId wire) const
+IdString ArchRProxyMethods::getConflictingWireNet(WireId wire) const
 {
     NPNR_ASSERT(wire != WireId());
     return wire_to_net[wire.index];
 }
 
-PipId ArchReadMethods::getPipByName(IdString name) const
+PipId ArchRProxyMethods::getPipByName(IdString name) const
 {
     PipId ret;
 
@@ -809,25 +821,25 @@ PipId ArchReadMethods::getPipByName(IdString name) const
     return ret;
 }
 
-bool ArchReadMethods::checkPipAvail(PipId pip) const
+bool ArchRProxyMethods::checkPipAvail(PipId pip) const
 {
     NPNR_ASSERT(pip != PipId());
     return switches_locked[chip_info->pip_data[pip.index].switch_index] == IdString();
 }
 
-IdString ArchReadMethods::getBoundPipNet(PipId pip) const
+IdString ArchRProxyMethods::getBoundPipNet(PipId pip) const
 {
     NPNR_ASSERT(pip != PipId());
     return pip_to_net[pip.index];
 }
 
-IdString ArchReadMethods::getConflictingPipNet(PipId pip) const
+IdString ArchRProxyMethods::getConflictingPipNet(PipId pip) const
 {
     NPNR_ASSERT(pip != PipId());
     return switches_locked[chip_info->pip_data[pip.index].switch_index];
 }
 
-BelId ArchReadMethods::getBelByName(IdString name) const
+BelId ArchRProxyMethods::getBelByName(IdString name) const
 {
     BelId ret;
 
@@ -845,27 +857,27 @@ BelId ArchReadMethods::getBelByName(IdString name) const
 
 // -----------------------------------------------------------------------
 
-void ArchMutateMethods::bindBel(BelId bel, IdString cell, PlaceStrength strength)
+void ArchRWProxyMethods::bindBel(BelId bel, IdString cell, PlaceStrength strength)
 {
     NPNR_ASSERT(bel != BelId());
     NPNR_ASSERT(bel_to_cell[bel.index] == IdString());
     bel_to_cell[bel.index] = cell;
     parent_->cells[cell]->bel = bel;
     parent_->cells[cell]->belStrength = strength;
-    refreshUiBel(bel);
+    parent_->refreshUiBel(bel);
 }
 
-void ArchMutateMethods::unbindBel(BelId bel)
+void ArchRWProxyMethods::unbindBel(BelId bel)
 {
     NPNR_ASSERT(bel != BelId());
     NPNR_ASSERT(bel_to_cell[bel.index] != IdString());
     parent_->cells[bel_to_cell[bel.index]]->bel = BelId();
     parent_->cells[bel_to_cell[bel.index]]->belStrength = STRENGTH_NONE;
     bel_to_cell[bel.index] = IdString();
-    refreshUiBel(bel);
+    parent_->refreshUiBel(bel);
 }
 
-void ArchMutateMethods::bindWire(WireId wire, IdString net, PlaceStrength strength)
+void ArchRWProxyMethods::bindWire(WireId wire, IdString net, PlaceStrength strength)
 {
     NPNR_ASSERT(wire != WireId());
     NPNR_ASSERT(wire_to_net[wire.index] == IdString());
@@ -873,10 +885,10 @@ void ArchMutateMethods::bindWire(WireId wire, IdString net, PlaceStrength streng
     wire_to_net[wire.index] = net;
     parent_->nets[net]->wires[wire].pip = PipId();
     parent_->nets[net]->wires[wire].strength = strength;
-    refreshUiWire(wire);
+    parent_->refreshUiWire(wire);
 }
 
-void ArchMutateMethods::unbindWire(WireId wire)
+void ArchRWProxyMethods::unbindWire(WireId wire)
 {
     NPNR_ASSERT(wire != WireId());
     NPNR_ASSERT(wire_to_net[wire.index] != IdString());
@@ -889,15 +901,15 @@ void ArchMutateMethods::unbindWire(WireId wire)
     if (pip != PipId()) {
         pip_to_net[pip.index] = IdString();
         switches_locked[chip_info->pip_data[pip.index].switch_index] = IdString();
-        refreshUiPip(pip);
+        parent_->refreshUiPip(pip);
     }
 
     net_wires.erase(it);
     wire_to_net[wire.index] = IdString();
-    refreshUiWire(wire);
+    parent_->refreshUiWire(wire);
 }
 
-void ArchMutateMethods::bindPip(PipId pip, IdString net, PlaceStrength strength)
+void ArchRWProxyMethods::bindPip(PipId pip, IdString net, PlaceStrength strength)
 {
     NPNR_ASSERT(pip != PipId());
     NPNR_ASSERT(pip_to_net[pip.index] == IdString());
@@ -913,11 +925,11 @@ void ArchMutateMethods::bindPip(PipId pip, IdString net, PlaceStrength strength)
     parent_->nets[net]->wires[dst].pip = pip;
     parent_->nets[net]->wires[dst].strength = strength;
 
-    refreshUiPip(pip);
-    refreshUiWire(dst);
+    parent_->refreshUiPip(pip);
+    parent_->refreshUiWire(dst);
 }
 
-void ArchMutateMethods::unbindPip(PipId pip)
+void ArchRWProxyMethods::unbindPip(PipId pip)
 {
     NPNR_ASSERT(pip != PipId());
     NPNR_ASSERT(pip_to_net[pip.index] != IdString());
@@ -932,13 +944,18 @@ void ArchMutateMethods::unbindPip(PipId pip)
     pip_to_net[pip.index] = IdString();
     switches_locked[chip_info->pip_data[pip.index].switch_index] = IdString();
 
-    refreshUiPip(pip);
-    refreshUiWire(dst);
+    parent_->refreshUiPip(pip);
+    parent_->refreshUiWire(dst);
 }
 
-CellInfo *ArchMutateMethods::getCell(IdString cell)
+CellInfo *ArchRWProxyMethods::getCell(IdString cell)
 {
     return parent_->cells.at(cell).get();
+}
+
+UIUpdatesRequired ArchRWProxyMethods::getUIUpdatesRequired(void)
+{
+    return parent_->getUIUpdatesRequired();
 }
 
 NEXTPNR_NAMESPACE_END

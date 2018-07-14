@@ -109,7 +109,7 @@ wirelen_t get_cell_wirelength_at_bel(const T &proxy, const Context *ctx, CellInf
 }
 
 // Place a single cell in the lowest wirelength Bel available, optionally requiring validity check
-bool place_single_cell(MutateContext &proxy, Context *ctx, CellInfo *cell, bool require_legality);
+bool place_single_cell(ArchRWProxy &proxy, Context *ctx, CellInfo *cell, bool require_legality);
 
 NEXTPNR_NAMESPACE_END
 

@@ -26,7 +26,7 @@
 NEXTPNR_NAMESPACE_BEGIN
 
 // Placing a single cell
-bool place_single_cell(MutateContext &proxy, Context *ctx, CellInfo *cell, bool require_legality)
+bool place_single_cell(ArchRWProxy &proxy, Context *ctx, CellInfo *cell, bool require_legality)
 {
     bool all_placed = false;
     int iters = 25;

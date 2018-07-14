@@ -275,7 +275,7 @@ class SAPlacer
 
   private:
     // Initial random placement
-    void place_initial(MutateContext &proxy, CellInfo *cell)
+    void place_initial(ArchRWProxy &proxy, CellInfo *cell)
     {
         bool all_placed = false;
         int iters = 25;
@@ -325,7 +325,7 @@ class SAPlacer
     }
 
     // Attempt a SA position swap, return true on success or false on failure
-    bool try_swap_position(MutateContext &proxy, CellInfo *cell, BelId newBel)
+    bool try_swap_position(ArchRWProxy &proxy, CellInfo *cell, BelId newBel)
     {
         static std::unordered_set<NetInfo *> update;
         static std::vector<std::pair<IdString, wirelen_t>> new_lengths;
