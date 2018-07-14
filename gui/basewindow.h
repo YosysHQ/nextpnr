@@ -20,7 +20,6 @@
 #ifndef BASEMAINWINDOW_H
 #define BASEMAINWINDOW_H
 
-#include "infotab.h"
 #include "nextpnr.h"
 
 #include <QMainWindow>
@@ -34,6 +33,8 @@
 Q_DECLARE_METATYPE(std::string)
 
 NEXTPNR_NAMESPACE_BEGIN
+
+class PythonTab;
 
 class BaseMainWindow : public QMainWindow
 {
@@ -62,7 +63,7 @@ class BaseMainWindow : public QMainWindow
     std::unique_ptr<Context> ctx;
     QTabWidget *tabWidget;
     QTabWidget *centralTabWidget;
-    InfoTab *info;
+    PythonTab *console;
 
     QMenuBar *menuBar;
     QToolBar *mainToolBar;

@@ -253,7 +253,6 @@ void MainWindow::new_proj()
 
 void MainWindow::load_json(std::string filename, std::string pcf)
 {
-    tabWidget->setCurrentWidget(info);
     preload_pcf = pcf;
     disableActions();
     Q_EMIT task->loadfile(filename);
@@ -261,8 +260,6 @@ void MainWindow::load_json(std::string filename, std::string pcf)
 
 void MainWindow::load_pcf(std::string filename)
 {
-    tabWidget->setCurrentWidget(info);
-
     disableActions();
     Q_EMIT task->loadpcf(filename);
 }
@@ -271,15 +268,12 @@ void MainWindow::newContext(Context *ctx)
 {
     std::string title = "nextpnr-ice40 - " + ctx->getChipName() + " ( " + chipArgs.package + " )";
     setWindowTitle(title.c_str());
-    info->clearBuffer();
 }
 
 void MainWindow::open_proj()
 {
     QString fileName = QFileDialog::getOpenFileName(this, QString("Open Project"), QString(), QString("*.proj"));
     if (!fileName.isEmpty()) {
-        tabWidget->setCurrentWidget(info);
-
         std::string fn = fileName.toStdString();
         disableActions();
     }

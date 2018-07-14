@@ -20,8 +20,6 @@
 #ifndef PYTHONTAB_H
 #define PYTHONTAB_H
 
-#ifndef NO_PYTHON
-
 #include <QLineEdit>
 #include <QMenu>
 #include <QPlainTextEdit>
@@ -42,10 +40,11 @@ class PythonTab : public QWidget
 
   private Q_SLOTS:
     void showContextMenu(const QPoint &pt);
-    void clearBuffer();
     void editLineReturnPressed(QString text);
   public Q_SLOTS:
     void newContext(Context *ctx);
+    void info(std::string str);
+    void clearBuffer();
 
   private:
     PythonConsole *console;
@@ -60,6 +59,5 @@ class PythonTab : public QWidget
 };
 
 NEXTPNR_NAMESPACE_END
-#endif // NO_PYTHON
 
 #endif // PYTHONTAB_H

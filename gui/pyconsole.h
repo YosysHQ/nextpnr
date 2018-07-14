@@ -21,8 +21,6 @@
 #ifndef PYCONSOLE_H
 #define PYCONSOLE_H
 
-#ifndef NO_PYTHON
-
 #include <QColor>
 #include <QMimeData>
 #include <QTextEdit>
@@ -53,6 +51,5 @@ class PythonConsole : public QTextEdit, public ParseListener
 };
 
 NEXTPNR_NAMESPACE_END
-#endif // NO_PYTHON
 
 #endif // PYCONSOLE_H

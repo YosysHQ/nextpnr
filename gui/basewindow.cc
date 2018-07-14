@@ -27,10 +27,7 @@
 #include "jsonparse.h"
 #include "log.h"
 #include "mainwindow.h"
-
-#ifndef NO_PYTHON
 #include "pythontab.h"
-#endif
 
 static void initBasenameResource() { Q_INIT_RESOURCE(base); }
 
@@ -74,13 +71,10 @@ BaseMainWindow::BaseMainWindow(std::unique_ptr<Context> context, QWidget *parent
     connect(designview, SIGNAL(info(std::string)), this, SLOT(writeInfo(std::string)));
 
     tabWidget = new QTabWidget();
-#ifndef NO_PYTHON
-    PythonTab *pythontab = new PythonTab();
-    tabWidget->addTab(pythontab, "Console");
-    connect(this, SIGNAL(contextChanged(Context *)), pythontab, SLOT(newContext(Context *)));
-#endif
-    info = new InfoTab();
-    tabWidget->addTab(info, "Info");
+
+    console = new PythonTab();
+    tabWidget->addTab(console, "Console");
+    connect(this, SIGNAL(contextChanged(Context *)), console, SLOT(newContext(Context *)));
 
     centralTabWidget = new QTabWidget();
     FPGAViewWidget *fpgaView = new FPGAViewWidget();
@@ -94,7 +88,7 @@ BaseMainWindow::BaseMainWindow(std::unique_ptr<Context> context, QWidget *parent
 
 BaseMainWindow::~BaseMainWindow() {}
 
-void BaseMainWindow::writeInfo(std::string text) { info->info(text); }
+void BaseMainWindow::writeInfo(std::string text) { console->info(text); }
 
 void BaseMainWindow::createMenusAndBars()
 {
