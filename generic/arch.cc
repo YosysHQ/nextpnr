@@ -19,6 +19,8 @@
 
 #include <math.h>
 #include "nextpnr.h"
+#include "placer1.h"
+#include "router1.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -107,28 +109,48 @@ void Arch::addBelInout(IdString bel, IdString name, IdString wire)
     wires.at(wire).downhill_bel_pins.push_back(BelPin{bel, name});
 }
 
-void Arch::addFrameGraphic(const GraphicElement &graphic)
+void Arch::addGroupBel(IdString group, IdString bel) { groups[group].bels.push_back(bel); }
+
+void Arch::addGroupWire(IdString group, IdString wire) { groups[group].wires.push_back(wire); }
+
+void Arch::addGroupPip(IdString group, IdString pip) { groups[group].pips.push_back(pip); }
+
+void Arch::addGroupGroup(IdString group, IdString grp) { groups[group].groups.push_back(grp); }
+
+void Arch::addDecalGraphic(DecalId decal, const GraphicElement &graphic)
 {
-    frame_graphics.push_back(graphic);
-    frameGraphicsReload = true;
+    decal_graphics[decal].push_back(graphic);
+    refreshUi();
 }
 
-void Arch::addWireGraphic(WireId wire, const GraphicElement &graphic)
+void Arch::setFrameDecal(DecalXY decalxy)
 {
-    wires.at(wire).graphics.push_back(graphic);
-    wireGraphicsReload.insert(wire);
+    frame_decalxy = decalxy;
+    refreshUiFrame();
 }
 
-void Arch::addPipGraphic(PipId pip, const GraphicElement &graphic)
+void Arch::setWireDecal(WireId wire, DecalXY decalxy)
 {
-    pips.at(pip).graphics.push_back(graphic);
-    pipGraphicsReload.insert(pip);
+    wires.at(wire).decalxy = decalxy;
+    refreshUiWire(wire);
 }
 
-void Arch::addBelGraphic(BelId bel, const GraphicElement &graphic)
+void Arch::setPipDecal(PipId pip, DecalXY decalxy)
 {
-    bels.at(bel).graphics.push_back(graphic);
-    belGraphicsReload.insert(bel);
+    pips.at(pip).decalxy = decalxy;
+    refreshUiPip(pip);
+}
+
+void Arch::setBelDecal(BelId bel, DecalXY decalxy)
+{
+    bels.at(bel).decalxy = decalxy;
+    refreshUiBel(bel);
+}
+
+void Arch::setGroupDecal(GroupId group, DecalXY decalxy)
+{
+    groups[group].decalxy = decalxy;
+    refreshUiGroup(group);
 }
 
 // ---------------------------------------------------------------
@@ -159,6 +181,7 @@ void Arch::bindBel(BelId bel, IdString cell, PlaceStrength strength)
     bels.at(bel).bound_cell = cell;
     cells.at(cell)->bel = bel;
     cells.at(cell)->belStrength = strength;
+    refreshUiBel(bel);
 }
 
 void Arch::unbindBel(BelId bel)
@@ -166,6 +189,7 @@ void Arch::unbindBel(BelId bel)
     cells.at(bels.at(bel).bound_cell)->bel = BelId();
     cells.at(bels.at(bel).bound_cell)->belStrength = STRENGTH_NONE;
     bels.at(bel).bound_cell = IdString();
+    refreshUiBel(bel);
 }
 
 bool Arch::checkBelAvail(BelId bel) const { return bels.at(bel).bound_cell == IdString(); }
@@ -214,6 +238,7 @@ void Arch::bindWire(WireId wire, IdString net, PlaceStrength strength)
     wires.at(wire).bound_net = net;
     nets.at(net)->wires[wire].pip = PipId();
     nets.at(net)->wires[wire].strength = strength;
+    refreshUiWire(wire);
 }
 
 void Arch::unbindWire(WireId wire)
@@ -221,11 +246,14 @@ void Arch::unbindWire(WireId wire)
     auto &net_wires = nets[wires.at(wire).bound_net]->wires;
 
     auto pip = net_wires.at(wire).pip;
-    if (pip != PipId())
+    if (pip != PipId()) {
         pips.at(pip).bound_net = IdString();
+        refreshUiPip(pip);
+    }
 
     net_wires.erase(wire);
     wires.at(wire).bound_net = IdString();
+    refreshUiWire(wire);
 }
 
 bool Arch::checkWireAvail(WireId wire) const { return wires.at(wire).bound_net == IdString(); }
@@ -260,6 +288,8 @@ void Arch::bindPip(PipId pip, IdString net, PlaceStrength strength)
     wires.at(wire).bound_net = net;
     nets.at(net)->wires[wire].pip = pip;
     nets.at(net)->wires[wire].strength = strength;
+    refreshUiPip(pip);
+    refreshUiWire(wire);
 }
 
 void Arch::unbindPip(PipId pip)
@@ -268,6 +298,8 @@ void Arch::unbindPip(PipId pip)
     nets.at(wires.at(wire).bound_net)->wires.erase(wire);
     pips.at(pip).bound_net = IdString();
     wires.at(wire).bound_net = IdString();
+    refreshUiPip(pip);
+    refreshUiWire(wire);
 }
 
 bool Arch::checkPipAvail(PipId pip) const { return pips.at(pip).bound_net == IdString(); }
@@ -292,6 +324,28 @@ const std::vector<PipId> &Arch::getWireAliases(WireId wire) const { return wires
 
 // ---------------------------------------------------------------
 
+GroupId Arch::getGroupByName(IdString name) const { return name; }
+
+IdString Arch::getGroupName(GroupId group) const { return group; }
+
+std::vector<GroupId> Arch::getGroups() const
+{
+    std::vector<GroupId> ret;
+    for (auto &it : groups)
+        ret.push_back(it.first);
+    return ret;
+}
+
+const std::vector<BelId> &Arch::getGroupBels(GroupId group) const { return groups.at(group).bels; }
+
+const std::vector<WireId> &Arch::getGroupWires(GroupId group) const { return groups.at(group).wires; }
+
+const std::vector<PipId> &Arch::getGroupPips(GroupId group) const { return groups.at(group).pips; }
+
+const std::vector<GroupId> &Arch::getGroupGroups(GroupId group) const { return groups.at(group).groups; }
+
+// ---------------------------------------------------------------
+
 void Arch::estimatePosition(BelId bel, int &x, int &y, bool &gb) const
 {
     x = bels.at(bel).grid_x;
@@ -310,13 +364,23 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
 
 // ---------------------------------------------------------------
 
-const std::vector<GraphicElement> &Arch::getFrameGraphics() const { return frame_graphics; }
+bool Arch::place() { return placer1(getCtx()); }
 
-const std::vector<GraphicElement> &Arch::getBelGraphics(BelId bel) const { return bels.at(bel).graphics; }
+bool Arch::route() { return router1(getCtx()); }
 
-const std::vector<GraphicElement> &Arch::getWireGraphics(WireId wire) const { return wires.at(wire).graphics; }
+// ---------------------------------------------------------------
 
-const std::vector<GraphicElement> &Arch::getPipGraphics(PipId pip) const { return pips.at(pip).graphics; }
+const std::vector<GraphicElement> &Arch::getDecalGraphics(DecalId decal) const { return decal_graphics.at(decal); }
+
+DecalXY Arch::getFrameDecal() const { return frame_decalxy; }
+
+DecalXY Arch::getBelDecal(BelId bel) const { return bels.at(bel).decalxy; }
+
+DecalXY Arch::getWireDecal(WireId wire) const { return wires.at(wire).decalxy; }
+
+DecalXY Arch::getPipDecal(PipId pip) const { return pips.at(pip).decalxy; }
+
+DecalXY Arch::getGroupDecal(GroupId group) const { return groups.at(group).decalxy; }
 
 // ---------------------------------------------------------------
 

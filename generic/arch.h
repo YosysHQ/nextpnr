@@ -34,16 +34,16 @@ struct PipInfo
     IdString name, bound_net;
     WireId srcWire, dstWire;
     DelayInfo delay;
-    std::vector<GraphicElement> graphics;
+    DecalXY decalxy;
 };
 
 struct WireInfo
 {
     IdString name, bound_net;
-    std::vector<GraphicElement> graphics;
     std::vector<PipId> downhill, uphill, aliases;
     BelPin uphill_bel_pin;
     std::vector<BelPin> downhill_bel_pins;
+    DecalXY decalxy;
     int grid_x, grid_y;
 };
 
@@ -58,9 +58,19 @@ struct BelInfo
 {
     IdString name, type, bound_cell;
     std::unordered_map<IdString, PinInfo> pins;
-    std::vector<GraphicElement> graphics;
+    DecalXY decalxy;
     int grid_x, grid_y;
     bool gb;
+};
+
+struct GroupInfo
+{
+    IdString name;
+    std::vector<BelId> bels;
+    std::vector<WireId> wires;
+    std::vector<PipId> pips;
+    std::vector<GroupId> groups;
+    DecalXY decalxy;
 };
 
 struct Arch : BaseCtx
@@ -70,11 +80,14 @@ struct Arch : BaseCtx
     std::unordered_map<IdString, WireInfo> wires;
     std::unordered_map<IdString, PipInfo> pips;
     std::unordered_map<IdString, BelInfo> bels;
+    std::unordered_map<GroupId, GroupInfo> groups;
 
     std::vector<IdString> bel_ids, wire_ids, pip_ids;
     std::unordered_map<IdString, std::vector<IdString>> bel_ids_by_type;
 
-    std::vector<GraphicElement> frame_graphics;
+    std::unordered_map<DecalId, std::vector<GraphicElement>> decal_graphics;
+    DecalXY frame_decalxy;
+
     float grid_distance_to_delay;
 
     void addWire(IdString name, int x, int y);
@@ -86,10 +99,17 @@ struct Arch : BaseCtx
     void addBelOutput(IdString bel, IdString name, IdString wire);
     void addBelInout(IdString bel, IdString name, IdString wire);
 
-    void addFrameGraphic(const GraphicElement &graphic);
-    void addWireGraphic(WireId wire, const GraphicElement &graphic);
-    void addPipGraphic(PipId pip, const GraphicElement &graphic);
-    void addBelGraphic(BelId bel, const GraphicElement &graphic);
+    void addGroupBel(IdString group, IdString bel);
+    void addGroupWire(IdString group, IdString wire);
+    void addGroupPip(IdString group, IdString pip);
+    void addGroupGroup(IdString group, IdString grp);
+
+    void addDecalGraphic(DecalId decal, const GraphicElement &graphic);
+    void setFrameDecal(DecalXY decalxy);
+    void setWireDecal(WireId wire, DecalXY decalxy);
+    void setPipDecal(PipId pip, DecalXY decalxy);
+    void setBelDecal(BelId bel, DecalXY decalxy);
+    void setGroupDecal(GroupId group, DecalXY decalxy);
 
     // ---------------------------------------------------------------
     // Common Arch API. Every arch must provide the following methods.
@@ -148,6 +168,14 @@ struct Arch : BaseCtx
     const std::vector<PipId> &getPipsUphill(WireId wire) const;
     const std::vector<PipId> &getWireAliases(WireId wire) const;
 
+    GroupId getGroupByName(IdString name) const;
+    IdString getGroupName(GroupId group) const;
+    std::vector<GroupId> getGroups() const;
+    const std::vector<BelId> &getGroupBels(GroupId group) const;
+    const std::vector<WireId> &getGroupWires(GroupId group) const;
+    const std::vector<PipId> &getGroupPips(GroupId group) const;
+    const std::vector<GroupId> &getGroupGroups(GroupId group) const;
+
     void estimatePosition(BelId bel, int &x, int &y, bool &gb) const;
     delay_t estimateDelay(WireId src, WireId dst) const;
     delay_t getDelayEpsilon() const { return 0.01; }
@@ -155,16 +183,16 @@ struct Arch : BaseCtx
     float getDelayNS(delay_t v) const { return v; }
     uint32_t getDelayChecksum(delay_t v) const { return 0; }
 
-    const std::vector<GraphicElement> &getFrameGraphics() const;
-    const std::vector<GraphicElement> &getBelGraphics(BelId bel) const;
-    const std::vector<GraphicElement> &getWireGraphics(WireId wire) const;
-    const std::vector<GraphicElement> &getPipGraphics(PipId pip) const;
+    bool pack() { return true; }
+    bool place();
+    bool route();
 
-    bool allGraphicsReload = false;
-    bool frameGraphicsReload = false;
-    std::unordered_set<BelId> belGraphicsReload;
-    std::unordered_set<WireId> wireGraphicsReload;
-    std::unordered_set<PipId> pipGraphicsReload;
+    const std::vector<GraphicElement> &getDecalGraphics(DecalId decal) const;
+    DecalXY getFrameDecal() const;
+    DecalXY getBelDecal(BelId bel) const;
+    DecalXY getWireDecal(WireId wire) const;
+    DecalXY getPipDecal(PipId pip) const;
+    DecalXY getGroupDecal(GroupId group) const;
 
     bool getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, delay_t &delay) const;
     IdString getPortClock(const CellInfo *cell, IdString port) const;

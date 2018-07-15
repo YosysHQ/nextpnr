@@ -341,9 +341,8 @@ void write_asc(const Context *ctx, std::ostream &out)
                             set_config(ti, config.at(y).at(x),
                                        "Cascade.IPCON_LC0" + std::to_string(lc_idx) + "_inmux02_5", true);
                         else
-                            set_config(ti, config.at(y).at(x),
-                                       "Cascade.MULT" + std::to_string(int(tile - TILE_DSP0)) + "_LC0" +
-                                               std::to_string(lc_idx) + "_inmux02_5",
+                            set_config(ti, config.at(y).at(x), "Cascade.MULT" + std::to_string(int(tile - TILE_DSP0)) +
+                                                                       "_LC0" + std::to_string(lc_idx) + "_inmux02_5",
                                        true);
                     }
                 }

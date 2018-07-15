@@ -70,6 +70,11 @@ NPNR_PACKED_STRUCT(struct PipInfoPOD {
     int32_t switch_index;
 });
 
+NPNR_PACKED_STRUCT(struct WireSegmentPOD {
+    int8_t x, y;
+    int16_t index;
+});
+
 NPNR_PACKED_STRUCT(struct WireInfoPOD {
     RelPtr<char> name;
     int32_t num_uphill, num_downhill;
@@ -78,6 +83,9 @@ NPNR_PACKED_STRUCT(struct WireInfoPOD {
     int32_t num_bels_downhill;
     BelPortPOD bel_uphill;
     RelPtr<BelPortPOD> bels_downhill;
+
+    int32_t num_segments;
+    RelPtr<WireSegmentPOD> segments;
 
     int8_t x, y;
     WireType type;
@@ -515,9 +523,6 @@ struct Arch : BaseCtx
     // -------------------------------------------------
 
     PipId getPipByName(IdString name) const;
-    IdString getPipName(PipId pip) const;
-
-    uint32_t getPipChecksum(PipId pip) const { return pip.index; }
 
     void bindPip(PipId pip, IdString net, PlaceStrength strength)
     {
@@ -577,6 +582,10 @@ struct Arch : BaseCtx
         range.e.cursor = chip_info->num_pips;
         return range;
     }
+    
+    IdString getPipName(PipId pip) const;
+
+    uint32_t getPipChecksum(PipId pip) const { return pip.index; }
 
     WireId getPipSrcWire(PipId pip) const
     {
@@ -634,6 +643,16 @@ struct Arch : BaseCtx
 
     // -------------------------------------------------
 
+    GroupId getGroupByName(IdString name) const;
+    IdString getGroupName(GroupId group) const;
+    std::vector<GroupId> getGroups() const;
+    std::vector<BelId> getGroupBels(GroupId group) const;
+    std::vector<WireId> getGroupWires(GroupId group) const;
+    std::vector<PipId> getGroupPips(GroupId group) const;
+    std::vector<GroupId> getGroupGroups(GroupId group) const;
+
+    // -------------------------------------------------
+
     void estimatePosition(BelId bel, int &x, int &y, bool &gb) const;
     delay_t estimateDelay(WireId src, WireId dst) const;
     delay_t getDelayEpsilon() const { return 20; }
@@ -643,16 +662,19 @@ struct Arch : BaseCtx
 
     // -------------------------------------------------
 
-    std::vector<GraphicElement> getFrameGraphics() const;
-    std::vector<GraphicElement> getBelGraphics(BelId bel) const;
-    std::vector<GraphicElement> getWireGraphics(WireId wire) const;
-    std::vector<GraphicElement> getPipGraphics(PipId pip) const;
+    bool pack();
+    bool place();
+    bool route();
 
-    bool allGraphicsReload = false;
-    bool frameGraphicsReload = false;
-    std::unordered_set<BelId> belGraphicsReload;
-    std::unordered_set<WireId> wireGraphicsReload;
-    std::unordered_set<PipId> pipGraphicsReload;
+    // -------------------------------------------------
+
+    std::vector<GraphicElement> getDecalGraphics(DecalId decal) const;
+
+    DecalXY getFrameDecal() const;
+    DecalXY getBelDecal(BelId bel) const;
+    DecalXY getWireDecal(WireId wire) const;
+    DecalXY getPipDecal(PipId pip) const;
+    DecalXY getGroupDecal(GroupId group) const;
 
     // -------------------------------------------------
 

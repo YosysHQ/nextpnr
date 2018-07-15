@@ -7,7 +7,31 @@ option(BUILD_PYTHON "Build Python Integration" ON)
 option(BUILD_TESTS "Build GUI" OFF)
 
 # List of families to build
-set(FAMILIES generic ice40)
+set(FAMILIES generic ice40 ecp5)
+
+set(ARCH "" CACHE STRING "Architecture family for nextpnr build")
+set_property(CACHE ARCH PROPERTY STRINGS ${FAMILIES})
+
+if (NOT ARCH)
+    message(STATUS "Architecture needs to be set, set desired one with -DARCH=xxx")
+    message(STATUS "Supported architectures are :")
+    message(STATUS "  all")
+    foreach(item ${FAMILIES})
+        message(STATUS "  ${item}")
+    endforeach()
+    message(FATAL_ERROR "Architecture setting is mandatory")
+endif ()
+
+if (ARCH STREQUAL "all")
+    SET(ARCH ${FAMILIES})
+endif()
+
+foreach(item ${ARCH})
+    if (NOT item IN_LIST FAMILIES)
+        message(FATAL_ERROR "Architecture '${item}' not in list of supported architectures")
+    endif()
+endforeach()
+
 set(CMAKE_CXX_STANDARD 11)
 if (MSVC)
 set(CMAKE_CONFIGURATION_TYPES "Debug;Release" CACHE STRING "" FORCE)
@@ -29,6 +53,10 @@ find_package(Sanitizers)
 
 # List of Boost libraries to include
 set(boost_libs filesystem thread program_options)
+
+if (BUILD_GUI AND NOT BUILD_PYTHON)
+    message(FATAL_ERROR "GUI requires Python to build")
+endif()
 
 if (BUILD_PYTHON)
     # TODO: sensible minimum Python version
@@ -62,7 +90,7 @@ if (BUILD_TESTS)
 endif()
 
 if (BUILD_GUI)
-    add_subdirectory(3rdparty/QtPropertyBrowser ${CMAKE_CURRENT_BINARY_DIR}/generated/3rdparty/QtPropertyBrowser)
+    add_subdirectory(3rdparty/QtPropertyBrowser ${CMAKE_CURRENT_BINARY_DIR}/generated/3rdparty/QtPropertyBrowser EXCLUDE_FROM_ALL)
 endif()
 
 add_definitions("-DGIT_COMMIT_HASH=${GIT_COMMIT_HASH}")
@@ -110,6 +138,13 @@ if (BUILD_PYTHON)
     endif ()
 
     if (NOT Boost_PYTHON_FOUND)
+        find_package(Boost COMPONENTS python37 ${boost_libs})
+        if ("${Boost_LIBRARIES}" MATCHES ".*(python|PYTHON).*" )
+            set(Boost_PYTHON_FOUND TRUE)
+        endif ()
+    endif ()
+
+    if (NOT Boost_PYTHON_FOUND)
         STRING(REGEX REPLACE "([0-9]+\\.[0-9]+).*" "\\1" gentoo_version ${PYTHONLIBS_VERSION_STRING})
         find_package(Boost COMPONENTS python-${gentoo_version} ${boost_libs})
         if ("${Boost_LIBRARIES}" MATCHES ".*(python|PYTHON).*" )
@@ -132,22 +167,23 @@ if(MINGW)
     add_definitions("-Wa,-mbig-obj")
 endif(MINGW)
 
-foreach (family ${FAMILIES})
+foreach (family ${ARCH})
+    message(STATUS "Configuring architecture : ${family}")
     string(TOUPPER ${family} ufamily)
     aux_source_directory(${family}/ ${ufamily}_FILES)    
 
     if (BUILD_GUI)
-       add_subdirectory(gui ${CMAKE_CURRENT_BINARY_DIR}/generated/gui/${family})
+       add_subdirectory(gui ${CMAKE_CURRENT_BINARY_DIR}/generated/gui/${family} EXCLUDE_FROM_ALL)
     endif()
 
     # Add the CLI binary target
-    add_executable(nextpnr-${family} ${COMMON_FILES} ${${ufamily}_FILES} )
+    add_executable(nextpnr-${family} ${COMMON_FILES} ${${ufamily}_FILES})
     install(TARGETS nextpnr-${family} RUNTIME DESTINATION bin)
     target_compile_definitions(nextpnr-${family} PRIVATE MAIN_EXECUTABLE)
 
     if (BUILD_PYTHON)
         # Add the importable Python module target
-        PYTHON_ADD_MODULE(nextpnrpy_${family} EXCLUDE_FROM_ALL ${COMMON_FILES} ${${ufamily}_FILES})
+        PYTHON_ADD_MODULE(nextpnrpy_${family} ${COMMON_FILES} ${${ufamily}_FILES})
     endif()
 
     # Add any new per-architecture targets here
@@ -178,7 +214,7 @@ foreach (family ${FAMILIES})
         # Include family-specific source files to all family targets and set defines appropriately
         target_include_directories(${target} PRIVATE ${family}/ ${CMAKE_CURRENT_BINARY_DIR}/generated/)
         target_compile_definitions(${target} PRIVATE NEXTPNR_NAMESPACE=nextpnr_${family} ARCH_${ufamily} ARCHNAME=${family})
-        target_link_libraries(${target} LINK_PUBLIC ${Boost_LIBRARIES})
+        target_link_libraries(${target} LINK_PUBLIC ${Boost_LIBRARIES} pthread)
         add_sanitizers(${target})
         if (BUILD_GUI)
             target_include_directories(${target} PRIVATE gui/${family}/ gui/)
@@ -193,6 +229,7 @@ endforeach (family)
 
 file(GLOB_RECURSE CLANGFORMAT_FILES *.cc *.h)
 string(REGEX REPLACE "[^;]*/ice40/chipdbs/chipdb-[^;]*.cc" "" CLANGFORMAT_FILES "${CLANGFORMAT_FILES}")
+string(REGEX REPLACE "[^;]*/ecp5/chipdbs/chipdb-[^;]*.cc" "" CLANGFORMAT_FILES "${CLANGFORMAT_FILES}")
 string(REGEX REPLACE "[^;]*/3rdparty[^;]*" "" CLANGFORMAT_FILES "${CLANGFORMAT_FILES}")
 string(REGEX REPLACE "[^;]*/generated[^;]*" "" CLANGFORMAT_FILES "${CLANGFORMAT_FILES}")
 

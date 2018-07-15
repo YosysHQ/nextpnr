@@ -58,7 +58,10 @@ void arch_wrap_python()
 
     auto arch_cls = class_<Arch, Arch *, bases<BaseCtx>, boost::noncopyable>("Arch", init<ArchArgs>());
     auto ctx_cls = class_<Context, Context *, bases<Arch>, boost::noncopyable>("Context", no_init)
-                           .def("checksum", &Context::checksum);
+                           .def("checksum", &Context::checksum)
+                           .def("pack", &Context::pack)
+                           .def("place", &Context::place)
+                           .def("route", &Context::route);
 
     fn_wrapper_1a<Context, decltype(&Context::getBelType), &Context::getBelType, conv_to_str<BelType>,
                   conv_from_str<BelId>>::def_wrap(ctx_cls, "getBelType");
@@ -75,7 +78,7 @@ void arch_wrap_python()
     fn_wrapper_1a<Context, decltype(&Context::getConflictingBelCell), &Context::getConflictingBelCell,
                   conv_to_str<IdString>, conv_from_str<BelId>>::def_wrap(ctx_cls, "getConflictingBelCell");
     fn_wrapper_0a<Context, decltype(&Context::getBels), &Context::getBels, wrap_context<BelRange>>::def_wrap(ctx_cls,
-                                                                                                           "getBels");
+                                                                                                             "getBels");
     fn_wrapper_1a<Context, decltype(&Context::getBelsAtSameTile), &Context::getBelsAtSameTile, wrap_context<BelRange>,
                   conv_from_str<BelId>>::def_wrap(ctx_cls, "getBelsAtSameTile");
 
@@ -139,15 +142,15 @@ void arch_wrap_python()
     fn_wrapper_0a<Context, decltype(&Context::getChipName), &Context::getChipName, pass_through<std::string>>::def_wrap(
             ctx_cls, "getChipName");
     fn_wrapper_0a<Context, decltype(&Context::archId), &Context::archId, conv_to_str<IdString>>::def_wrap(ctx_cls,
-                                                                                                        "archId");
+                                                                                                          "archId");
 
     typedef std::unordered_map<IdString, std::unique_ptr<CellInfo>> CellMap;
     typedef std::unordered_map<IdString, std::unique_ptr<NetInfo>> NetMap;
 
     readonly_wrapper<Context, decltype(&Context::cells), &Context::cells, wrap_context<CellMap &>>::def_wrap(ctx_cls,
-                                                                                                           "cells");
+                                                                                                             "cells");
     readonly_wrapper<Context, decltype(&Context::nets), &Context::nets, wrap_context<NetMap &>>::def_wrap(ctx_cls,
-                                                                                                        "nets");
+                                                                                                          "nets");
     WRAP_RANGE(Bel, conv_to_str<BelId>);
     WRAP_RANGE(Wire, conv_to_str<WireId>);
     WRAP_RANGE(AllPip, conv_to_str<PipId>);

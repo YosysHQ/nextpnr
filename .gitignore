@@ -2,6 +2,7 @@
 /objs/
 /nextpnr-generic*
 /nextpnr-ice40*
+/nextpnr-ecp5*
 cmake-build-*/
 Makefile
 cmake_install.cmake

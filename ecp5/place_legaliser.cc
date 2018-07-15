@@ -1,7 +1,7 @@
 /*
  *  nextpnr -- Next Generation Place and Route
  *
- *  Copyright (C) 2018  Clifford Wolf <clifford@symbioticeda.com>
+ *  Copyright (C) 2018  David Shah <david@symbioticeda.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -17,16 +17,10 @@
  *
  */
 
-#ifndef ROUTE_H
-#define ROUTE_H
-
-#include "nextpnr.h"
+#include "place_legaliser.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
-extern bool route_design(Context *ctx);
-extern bool get_actual_route_delay(Context *ctx, WireId src_wire, WireId dst_wire, delay_t &delay);
+bool legalise_design(Context *ctx) { return true; }
 
 NEXTPNR_NAMESPACE_END
-
-#endif // ROUTE_H

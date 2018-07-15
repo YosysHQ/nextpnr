@@ -2,7 +2,6 @@
  *  nextpnr -- Next Generation Place and Route
  *
  *  Copyright (C) 2018  Clifford Wolf <clifford@symbioticeda.com>
- *  Copyright (C) 2018  David Shah <david@symbioticeda.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -17,16 +16,15 @@
  *  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
  */
-
-#ifndef PACK_H
-#define PACK_H
+#ifndef PLACE_H
+#define PLACE_H
 
 #include "nextpnr.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
-bool pack_design(Context *ctx);
+extern bool placer1(Context *ctx);
 
 NEXTPNR_NAMESPACE_END
 
-#endif // ROUTE_H
+#endif // PLACE_H

@@ -16,15 +16,16 @@
  *  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
  */
-#ifndef PLACE_H
-#define PLACE_H
+
+#ifndef ROUTER1_H
+#define ROUTER1_H
 
 #include "nextpnr.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
-extern bool place_design_sa(Context *ctx);
+extern bool router1(Context *ctx);
 
 NEXTPNR_NAMESPACE_END
 
-#endif // PLACE_H
+#endif // ROUTER1_H

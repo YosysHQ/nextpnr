@@ -19,9 +19,13 @@
 
 #include <algorithm>
 #include <cmath>
+#include "gfx.h"
 #include "log.h"
 #include "nextpnr.h"
+#include "placer1.h"
+#include "router1.h"
 #include "util.h"
+
 NEXTPNR_NAMESPACE_BEGIN
 
 // -----------------------------------------------------------------------
@@ -365,6 +369,49 @@ std::string Arch::getBelPackagePin(BelId bel) const
     }
     return "";
 }
+
+// -----------------------------------------------------------------------
+
+GroupId Arch::getGroupByName(IdString name) const
+{
+    for (auto g : getGroups())
+        if (getGroupName(g) == name)
+            return g;
+    return GroupId();
+}
+
+IdString Arch::getGroupName(GroupId group) const { return IdString(); }
+
+std::vector<GroupId> Arch::getGroups() const
+{
+    std::vector<GroupId> ret;
+    return ret;
+}
+
+std::vector<BelId> Arch::getGroupBels(GroupId group) const
+{
+    std::vector<BelId> ret;
+    return ret;
+}
+
+std::vector<WireId> Arch::getGroupWires(GroupId group) const
+{
+    std::vector<WireId> ret;
+    return ret;
+}
+
+std::vector<PipId> Arch::getGroupPips(GroupId group) const
+{
+    std::vector<PipId> ret;
+    return ret;
+}
+
+std::vector<GroupId> Arch::getGroupGroups(GroupId group) const
+{
+    std::vector<GroupId> ret;
+    return ret;
+}
+
 // -----------------------------------------------------------------------
 
 void Arch::estimatePosition(BelId bel, int &x, int &y, bool &gb) const
@@ -398,99 +445,205 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
 
 // -----------------------------------------------------------------------
 
-std::vector<GraphicElement> Arch::getFrameGraphics() const
+bool Arch::place() { return placer1(getCtx()); }
+
+bool Arch::route() { return router1(getCtx()); }
+
+// -----------------------------------------------------------------------
+
+DecalXY Arch::getFrameDecal() const
 {
-    std::vector<GraphicElement> ret;
-
-    for (int x = 0; x <= chip_info->width; x++)
-        for (int y = 0; y <= chip_info->height; y++) {
-            GraphicElement el;
-            el.type = GraphicElement::G_LINE;
-            el.x1 = x - 0.05, el.x2 = x + 0.05, el.y1 = y, el.y2 = y, el.z = 0;
-            ret.push_back(el);
-            el.x1 = x, el.x2 = x, el.y1 = y - 0.05, el.y2 = y + 0.05, el.z = 0;
-            ret.push_back(el);
-        }
-
-    return ret;
+    DecalXY decalxy;
+    decalxy.decal.type = DecalId::TYPE_FRAME;
+    decalxy.decal.active = true;
+    return decalxy;
 }
 
-std::vector<GraphicElement> Arch::getBelGraphics(BelId bel) const
+DecalXY Arch::getBelDecal(BelId bel) const
 {
-    std::vector<GraphicElement> ret;
-
-    auto bel_type = getBelType(bel);
-
-    if (bel_type == TYPE_ICESTORM_LC) {
-        GraphicElement el;
-        el.type = GraphicElement::G_BOX;
-        el.x1 = chip_info->bel_data[bel.index].x + 0.1;
-        el.x2 = chip_info->bel_data[bel.index].x + 0.9;
-        el.y1 = chip_info->bel_data[bel.index].y + 0.10 + (chip_info->bel_data[bel.index].z) * (0.8 / 8);
-        el.y2 = chip_info->bel_data[bel.index].y + 0.18 + (chip_info->bel_data[bel.index].z) * (0.8 / 8);
-        el.z = 0;
-        ret.push_back(el);
-    }
-
-    if (bel_type == TYPE_SB_IO) {
-        if (chip_info->bel_data[bel.index].x == 0 || chip_info->bel_data[bel.index].x == chip_info->width - 1) {
-            GraphicElement el;
-            el.type = GraphicElement::G_BOX;
-            el.x1 = chip_info->bel_data[bel.index].x + 0.1;
-            el.x2 = chip_info->bel_data[bel.index].x + 0.9;
-            if (chip_info->bel_data[bel.index].z == 0) {
-                el.y1 = chip_info->bel_data[bel.index].y + 0.10;
-                el.y2 = chip_info->bel_data[bel.index].y + 0.45;
-            } else {
-                el.y1 = chip_info->bel_data[bel.index].y + 0.55;
-                el.y2 = chip_info->bel_data[bel.index].y + 0.90;
-            }
-            el.z = 0;
-            ret.push_back(el);
-        } else {
-            GraphicElement el;
-            el.type = GraphicElement::G_BOX;
-            if (chip_info->bel_data[bel.index].z == 0) {
-                el.x1 = chip_info->bel_data[bel.index].x + 0.10;
-                el.x2 = chip_info->bel_data[bel.index].x + 0.45;
-            } else {
-                el.x1 = chip_info->bel_data[bel.index].x + 0.55;
-                el.x2 = chip_info->bel_data[bel.index].x + 0.90;
-            }
-            el.y1 = chip_info->bel_data[bel.index].y + 0.1;
-            el.y2 = chip_info->bel_data[bel.index].y + 0.9;
-            el.z = 0;
-            ret.push_back(el);
-        }
-    }
-
-    if (bel_type == TYPE_ICESTORM_RAM) {
-        GraphicElement el;
-        el.type = GraphicElement::G_BOX;
-        el.x1 = chip_info->bel_data[bel.index].x + 0.1;
-        el.x2 = chip_info->bel_data[bel.index].x + 0.9;
-        el.y1 = chip_info->bel_data[bel.index].y + 0.1;
-        el.y2 = chip_info->bel_data[bel.index].y + 1.9;
-        el.z = 0;
-        ret.push_back(el);
-    }
-
-    return ret;
+    DecalXY decalxy;
+    decalxy.decal.type = DecalId::TYPE_BEL;
+    decalxy.decal.index = bel.index;
+    decalxy.decal.active = bel_to_cell.at(bel.index) != IdString();
+    return decalxy;
 }
 
-std::vector<GraphicElement> Arch::getWireGraphics(WireId wire) const
+DecalXY Arch::getWireDecal(WireId wire) const
 {
-    std::vector<GraphicElement> ret;
-    // FIXME
-    return ret;
+    DecalXY decalxy;
+    decalxy.decal.type = DecalId::TYPE_WIRE;
+    decalxy.decal.index = wire.index;
+    decalxy.decal.active = wire_to_net.at(wire.index) != IdString();
+    return decalxy;
 }
 
-std::vector<GraphicElement> Arch::getPipGraphics(PipId pip) const
+DecalXY Arch::getPipDecal(PipId pip) const
 {
-    std::vector<GraphicElement> ret;
-    // FIXME
-    return ret;
+    DecalXY decalxy;
+    decalxy.decal.type = DecalId::TYPE_PIP;
+    decalxy.decal.index = pip.index;
+    decalxy.decal.active = pip_to_net.at(pip.index) != IdString();
+    return decalxy;
 };
+
+DecalXY Arch::getGroupDecal(GroupId group) const
+{
+    DecalXY decalxy;
+    decalxy.decal.type = DecalId::TYPE_GROUP;
+    decalxy.decal.index = (group.type << 16) | (group.x << 8) | (group.y);
+    decalxy.decal.active = true;
+    return decalxy;
+};
+
+std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
+{
+    std::vector<GraphicElement> ret;
+
+    if (decal.type == DecalId::TYPE_FRAME) {
+        for (int x = 0; x <= chip_info->width; x++)
+            for (int y = 0; y <= chip_info->height; y++) {
+                GraphicElement el;
+                el.type = GraphicElement::G_LINE;
+                el.x1 = x - 0.05, el.x2 = x + 0.05, el.y1 = y, el.y2 = y, el.z = 0;
+                ret.push_back(el);
+                el.x1 = x, el.x2 = x, el.y1 = y - 0.05, el.y2 = y + 0.05, el.z = 0;
+                ret.push_back(el);
+            }
+    }
+
+    if (decal.type == DecalId::TYPE_WIRE) {
+        WireId wire;
+        wire.index = decal.index;
+
+        int n = chip_info->wire_data[wire.index].num_segments;
+        const WireSegmentPOD *p = chip_info->wire_data[wire.index].segments.get();
+
+        GraphicElement::style_t style = decal.active ? GraphicElement::G_ACTIVE : GraphicElement::G_INACTIVE;
+
+        for (int i = 0; i < n; i++)
+            gfxTileWire(ret, p[i].x, p[i].y, GfxTileWireId(p[i].index), style);
+    }
+
+    if (decal.type == DecalId::TYPE_BEL) {
+        BelId bel;
+        bel.index = decal.index;
+
+        auto bel_type = getBelType(bel);
+
+        if (bel_type == TYPE_ICESTORM_LC) {
+            GraphicElement el;
+            el.type = GraphicElement::G_BOX;
+            el.style = decal.active ? GraphicElement::G_ACTIVE : GraphicElement::G_INACTIVE;
+            el.x1 = chip_info->bel_data[bel.index].x + logic_cell_x1;
+            el.x2 = chip_info->bel_data[bel.index].x + logic_cell_x2;
+            el.y1 = chip_info->bel_data[bel.index].y + logic_cell_y1 +
+                    (chip_info->bel_data[bel.index].z) * logic_cell_pitch;
+            el.y2 = chip_info->bel_data[bel.index].y + logic_cell_y2 +
+                    (chip_info->bel_data[bel.index].z) * logic_cell_pitch;
+            el.z = 0;
+            ret.push_back(el);
+
+            if (chip_info->bel_data[bel.index].z == 0) {
+                int tx = chip_info->bel_data[bel.index].x;
+                int ty = chip_info->bel_data[bel.index].y;
+
+                // Main switchbox
+                GraphicElement main_sw;
+                main_sw.type = GraphicElement::G_BOX;
+                main_sw.style = GraphicElement::G_FRAME;
+                main_sw.x1 = tx + main_swbox_x1;
+                main_sw.x2 = tx + main_swbox_x2;
+                main_sw.y1 = ty + main_swbox_y1;
+                main_sw.y2 = ty + main_swbox_y2;
+                ret.push_back(main_sw);
+
+                // Local tracks to LUT input switchbox
+                GraphicElement local_sw;
+                local_sw.type = GraphicElement::G_BOX;
+                local_sw.style = GraphicElement::G_FRAME;
+                local_sw.x1 = tx + local_swbox_x1;
+                local_sw.x2 = tx + local_swbox_x2;
+                local_sw.y1 = ty + local_swbox_y1;
+                local_sw.y2 = ty + local_swbox_y2;
+                local_sw.z = 0;
+                ret.push_back(local_sw);
+            }
+        }
+
+        if (bel_type == TYPE_SB_IO) {
+            if (chip_info->bel_data[bel.index].x == 0 || chip_info->bel_data[bel.index].x == chip_info->width - 1) {
+                GraphicElement el;
+                el.type = GraphicElement::G_BOX;
+                el.x1 = chip_info->bel_data[bel.index].x + 0.1;
+                el.x2 = chip_info->bel_data[bel.index].x + 0.9;
+                if (chip_info->bel_data[bel.index].z == 0) {
+                    el.y1 = chip_info->bel_data[bel.index].y + 0.10;
+                    el.y2 = chip_info->bel_data[bel.index].y + 0.45;
+                } else {
+                    el.y1 = chip_info->bel_data[bel.index].y + 0.55;
+                    el.y2 = chip_info->bel_data[bel.index].y + 0.90;
+                }
+                el.z = 0;
+                ret.push_back(el);
+            } else {
+                GraphicElement el;
+                el.type = GraphicElement::G_BOX;
+                if (chip_info->bel_data[bel.index].z == 0) {
+                    el.x1 = chip_info->bel_data[bel.index].x + 0.10;
+                    el.x2 = chip_info->bel_data[bel.index].x + 0.45;
+                } else {
+                    el.x1 = chip_info->bel_data[bel.index].x + 0.55;
+                    el.x2 = chip_info->bel_data[bel.index].x + 0.90;
+                }
+                el.y1 = chip_info->bel_data[bel.index].y + 0.1;
+                el.y2 = chip_info->bel_data[bel.index].y + 0.9;
+                el.z = 0;
+                ret.push_back(el);
+            }
+        }
+
+        if (bel_type == TYPE_ICESTORM_RAM) {
+            for (int i = 0; i < 2; i++)
+            {
+                int tx = chip_info->bel_data[bel.index].x;
+                int ty = chip_info->bel_data[bel.index].y + i;
+
+                GraphicElement el;
+                el.type = GraphicElement::G_BOX;
+                el.style = decal.active ? GraphicElement::G_ACTIVE : GraphicElement::G_INACTIVE;
+                el.x1 = chip_info->bel_data[bel.index].x + logic_cell_x1;
+                el.x2 = chip_info->bel_data[bel.index].x + logic_cell_x2;
+                el.y1 = chip_info->bel_data[bel.index].y + logic_cell_y1;
+                el.y2 = chip_info->bel_data[bel.index].y + logic_cell_y2 + 7*logic_cell_pitch;
+                el.z = 0;
+                ret.push_back(el);
+
+                // Main switchbox
+                GraphicElement main_sw;
+                main_sw.type = GraphicElement::G_BOX;
+                main_sw.style = GraphicElement::G_FRAME;
+                main_sw.x1 = tx + main_swbox_x1;
+                main_sw.x2 = tx + main_swbox_x2;
+                main_sw.y1 = ty + main_swbox_y1;
+                main_sw.y2 = ty + main_swbox_y2;
+                ret.push_back(main_sw);
+
+                // Local tracks to LUT input switchbox
+                GraphicElement local_sw;
+                local_sw.type = GraphicElement::G_BOX;
+                local_sw.style = GraphicElement::G_FRAME;
+                local_sw.x1 = tx + local_swbox_x1;
+                local_sw.x2 = tx + local_swbox_x2;
+                local_sw.y1 = ty + local_swbox_y1;
+                local_sw.y2 = ty + local_swbox_y2;
+                local_sw.z = 0;
+                ret.push_back(local_sw);
+            }
+        }
+    }
+
+    return ret;
+}
 
 // -----------------------------------------------------------------------
 

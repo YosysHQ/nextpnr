@@ -30,12 +30,13 @@ class MainWindow : public BaseMainWindow
     Q_OBJECT
 
   public:
-    explicit MainWindow(QWidget *parent = 0);
+    explicit MainWindow(std::unique_ptr<Context> context, ArchArgs args, QWidget *parent = 0);
     virtual ~MainWindow();
 
   public:
     void createMenu();
-
+    void load_json(std::string filename, std::string pcf);
+    void load_pcf(std::string filename);
   protected Q_SLOTS:
     virtual void new_proj();
     virtual void open_proj();
@@ -78,6 +79,7 @@ class MainWindow : public BaseMainWindow
 
     bool timing_driven;
     ArchArgs chipArgs;
+    std::string preload_pcf;
 };
 
 NEXTPNR_NAMESPACE_END

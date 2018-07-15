@@ -2,6 +2,7 @@
  *  nextpnr -- Next Generation Place and Route
  *
  *  Copyright (C) 2018  Miodrag Milanovic <miodrag@symbioticeda.com>
+ *  Copyright (C) 2018  Alex Tsui
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -22,6 +23,7 @@
 
 #include <QLineEdit>
 #include <QMenu>
+#include "ParseHelper.h"
 #include "nextpnr.h"
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -31,7 +33,7 @@ class LineEditor : public QLineEdit
     Q_OBJECT
 
   public:
-    explicit LineEditor(QWidget *parent = 0);
+    explicit LineEditor(ParseHelper *helper, QWidget *parent = 0);
 
   private Q_SLOTS:
     void textInserted();
@@ -43,11 +45,14 @@ class LineEditor : public QLineEdit
 
   protected:
     void keyPressEvent(QKeyEvent *) Q_DECL_OVERRIDE;
+    bool focusNextPrevChild(bool next) Q_DECL_OVERRIDE;
+    void autocomplete();
 
   private:
     int index;
     QStringList lines;
     QMenu *contextMenu;
+    ParseHelper *parseHelper;
 };
 
 NEXTPNR_NAMESPACE_END

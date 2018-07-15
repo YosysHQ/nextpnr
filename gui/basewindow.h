@@ -20,34 +20,41 @@
 #ifndef BASEMAINWINDOW_H
 #define BASEMAINWINDOW_H
 
-#include "infotab.h"
 #include "nextpnr.h"
 
 #include <QMainWindow>
 #include <QMenu>
 #include <QMenuBar>
+#include <QProgressBar>
+#include <QSplashScreen>
 #include <QStatusBar>
 #include <QTabWidget>
 #include <QToolBar>
 
 Q_DECLARE_METATYPE(std::string)
+Q_DECLARE_METATYPE(NEXTPNR_NAMESPACE_PREFIX DecalXY)
 
 NEXTPNR_NAMESPACE_BEGIN
+
+class PythonTab;
+class DesignWidget;
 
 class BaseMainWindow : public QMainWindow
 {
     Q_OBJECT
 
   public:
-    explicit BaseMainWindow(QWidget *parent = 0);
+    explicit BaseMainWindow(std::unique_ptr<Context> context, QWidget *parent = 0);
     virtual ~BaseMainWindow();
-    Context *getContext() { return ctx; }
+    Context *getContext() { return ctx.get(); }
 
   protected:
     void createMenusAndBars();
+    void displaySplash();
 
   protected Q_SLOTS:
     void writeInfo(std::string text);
+    void displaySplashMessage(std::string msg);
 
     virtual void new_proj() = 0;
     virtual void open_proj() = 0;
@@ -58,16 +65,19 @@ class BaseMainWindow : public QMainWindow
     void updateTreeView();
 
   protected:
-    Context *ctx;
+    std::unique_ptr<Context> ctx;
     QTabWidget *tabWidget;
     QTabWidget *centralTabWidget;
-    InfoTab *info;
+    PythonTab *console;
 
     QMenuBar *menuBar;
     QToolBar *mainToolBar;
     QStatusBar *statusBar;
     QAction *actionNew;
     QAction *actionOpen;
+    QProgressBar *progressBar;
+    QSplashScreen *splash;
+    DesignWidget *designview;
 };
 
 NEXTPNR_NAMESPACE_END

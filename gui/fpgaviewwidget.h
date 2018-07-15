@@ -41,18 +41,6 @@ NPNR_PACKED_STRUCT(struct Vertex2DPOD {
     Vertex2DPOD(GLfloat X, GLfloat Y) : x(X), y(Y) {}
 });
 
-// Vertex2DPOD is a structure of R, G, B, A values that can be passed to OpenGL
-// directly.
-NPNR_PACKED_STRUCT(struct ColorPOD {
-    GLfloat r;
-    GLfloat g;
-    GLfloat b;
-    GLfloat a;
-
-    ColorPOD(GLfloat R, GLfloat G, GLfloat B, GLfloat A) : r(R), g(G), b(B), a(A) {}
-    ColorPOD(const QColor &color) : r(color.redF()), g(color.greenF()), b(color.blueF()), a(color.alphaF()) {}
-});
-
 // LineShaderData is a built set of vertices that can be rendered by the
 // LineShader.
 // Each LineShaderData can have its' own color and thickness.
@@ -63,10 +51,15 @@ struct LineShaderData
     std::vector<GLfloat> miters;
     std::vector<GLuint> indices;
 
-    GLfloat thickness;
-    ColorPOD color;
+    LineShaderData(void) {}
 
-    LineShaderData(GLfloat Thickness, QColor Color) : thickness(Thickness), color(Color) {}
+    void clear(void)
+    {
+        vertices.clear();
+        normals.clear();
+        miters.clear();
+        indices.clear();
+    }
 };
 
 // PolyLine is a set of segments defined by points, that can be built to a
@@ -210,12 +203,20 @@ class LineShader
     bool compile(void);
 
     // Render a LineShaderData with a given M/V/P transformation.
-    void draw(const LineShaderData &data, const QMatrix4x4 &projection);
+    void draw(const LineShaderData &data, const QColor &color, float thickness, const QMatrix4x4 &projection);
 };
 
 class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
 {
     Q_OBJECT
+    Q_PROPERTY(QColor backgroundColor MEMBER backgroundColor_ DESIGNABLE true)
+    Q_PROPERTY(QColor gridColor MEMBER gridColor_ DESIGNABLE true)
+    Q_PROPERTY(QColor gFrameColor MEMBER gFrameColor_ DESIGNABLE true)
+    Q_PROPERTY(QColor gHiddenColor MEMBER gHiddenColor_ DESIGNABLE true)
+    Q_PROPERTY(QColor gInactiveColor MEMBER gInactiveColor_ DESIGNABLE true)
+    Q_PROPERTY(QColor gActiveColor MEMBER gActiveColor_ DESIGNABLE true)
+    Q_PROPERTY(QColor gSelectedColor MEMBER gSelectedColor_ DESIGNABLE true)
+    Q_PROPERTY(QColor frameColor MEMBER frameColor_ DESIGNABLE true)
 
   public:
     FPGAViewWidget(QWidget *parent = 0);
@@ -239,20 +240,46 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     void mousePressEvent(QMouseEvent *event) Q_DECL_OVERRIDE;
     void mouseMoveEvent(QMouseEvent *event) Q_DECL_OVERRIDE;
     void wheelEvent(QWheelEvent *event) Q_DECL_OVERRIDE;
-    void drawElement(LineShaderData &data, const GraphicElement &el);
+    void drawDecal(LineShaderData &data, const DecalXY &decal);
+    void drawDecal(LineShaderData out[], const DecalXY &decal);
   public Q_SLOTS:
     void newContext(Context *ctx);
+    void onSelectedArchItem(std::vector<DecalXY> decals);
+    void onHighlightGroupChanged(std::vector<DecalXY> decals, int group);
 
   private:
     QPoint lastPos_;
-    float moveX_;
-    float moveY_;
-    float zoom_;
     LineShader lineShader_;
+    QMatrix4x4 viewMove_;
+    float zoom_;
+    QMatrix4x4 getProjection(void);
+    QVector4D mouseToWorldCoordinates(int x, int y);
 
-    float startDragX_;
-    float startDragY_;
+    const float zoomNear_ = 1.0f;    // do not zoom closer than this
+    const float zoomFar_ = 10000.0f; // do not zoom further than this
+
+    const float zoomLvl1_ = 100.0f;
+    const float zoomLvl2_ = 50.0f;
+
     Context *ctx_;
+
+    QColor backgroundColor_;
+    QColor gridColor_;
+    QColor gFrameColor_;
+    QColor gHiddenColor_;
+    QColor gInactiveColor_;
+    QColor gActiveColor_;
+    QColor gSelectedColor_;
+    QColor frameColor_;
+
+    LineShaderData selectedShader_;
+    std::vector<DecalXY> selectedItems_;
+    bool selectedItemsChanged_;
+
+    LineShaderData highlightShader_[8];
+    std::vector<DecalXY> highlightItems_[8];
+    bool highlightItemsChanged_[8];
+    QColor highlightColors[8];
 };
 
 NEXTPNR_NAMESPACE_END

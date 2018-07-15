@@ -4,5 +4,11 @@
         <file>resources/open.png</file>
         <file>resources/save.png</file>
         <file>resources/exit.png</file>
+        <file>resources/zoom.png</file>
+        <file>resources/resultset_first.png</file>
+        <file>resources/resultset_previous.png</file>
+        <file>resources/resultset_next.png</file>
+        <file>resources/resultset_last.png</file>
+        <file>resources/splash.png</file>
     </qresource>
 </RCC>

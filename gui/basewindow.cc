@@ -18,6 +18,7 @@
  */
 
 #include <QAction>
+#include <QCoreApplication>
 #include <QFileDialog>
 #include <QGridLayout>
 #include <QIcon>
@@ -27,16 +28,14 @@
 #include "jsonparse.h"
 #include "log.h"
 #include "mainwindow.h"
-
-#ifndef NO_PYTHON
 #include "pythontab.h"
-#endif
 
 static void initBasenameResource() { Q_INIT_RESOURCE(base); }
 
 NEXTPNR_NAMESPACE_BEGIN
 
-BaseMainWindow::BaseMainWindow(QWidget *parent) : QMainWindow(parent), ctx(nullptr)
+BaseMainWindow::BaseMainWindow(std::unique_ptr<Context> context, QWidget *parent)
+        : QMainWindow(parent), ctx(std::move(context))
 {
     initBasenameResource();
     qRegisterMetaType<std::string>();
@@ -44,7 +43,7 @@ BaseMainWindow::BaseMainWindow(QWidget *parent) : QMainWindow(parent), ctx(nullp
     log_files.clear();
     log_streams.clear();
 
-    setObjectName(QStringLiteral("BaseMainWindow"));
+    setObjectName("BaseMainWindow");
     resize(1024, 768);
 
     createMenusAndBars();
@@ -63,70 +62,80 @@ BaseMainWindow::BaseMainWindow(QWidget *parent) : QMainWindow(parent), ctx(nullp
 
     setCentralWidget(centralWidget);
 
-    DesignWidget *designview = new DesignWidget();
+    designview = new DesignWidget();
     designview->setMinimumWidth(300);
-    designview->setMaximumWidth(300);
     splitter_h->addWidget(designview);
 
-    connect(this, SIGNAL(contextChanged(Context *)), designview, SLOT(newContext(Context *)));
-    connect(this, SIGNAL(updateTreeView()), designview, SLOT(updateTree()));
-
-    connect(designview, SIGNAL(info(std::string)), this, SLOT(writeInfo(std::string)));
-
     tabWidget = new QTabWidget();
-#ifndef NO_PYTHON
-    PythonTab *pythontab = new PythonTab();
-    tabWidget->addTab(pythontab, "Python");
-    connect(this, SIGNAL(contextChanged(Context *)), pythontab, SLOT(newContext(Context *)));
-#endif
-    info = new InfoTab();
-    tabWidget->addTab(info, "Info");
+
+    console = new PythonTab();
+    tabWidget->addTab(console, "Console");
+    connect(this, SIGNAL(contextChanged(Context *)), console, SLOT(newContext(Context *)));
 
     centralTabWidget = new QTabWidget();
     FPGAViewWidget *fpgaView = new FPGAViewWidget();
     centralTabWidget->addTab(fpgaView, "Graphics");
 
     connect(this, SIGNAL(contextChanged(Context *)), fpgaView, SLOT(newContext(Context *)));
+    connect(designview, SIGNAL(selected(std::vector<DecalXY>)), fpgaView,
+            SLOT(onSelectedArchItem(std::vector<DecalXY>)));
+
+    connect(designview, SIGNAL(highlight(std::vector<DecalXY>, int)), fpgaView,
+            SLOT(onHighlightGroupChanged(std::vector<DecalXY>, int)));
+
+    connect(this, SIGNAL(contextChanged(Context *)), designview, SLOT(newContext(Context *)));
+    connect(this, SIGNAL(updateTreeView()), designview, SLOT(updateTree()));
+
+    connect(designview, SIGNAL(info(std::string)), this, SLOT(writeInfo(std::string)));
 
     splitter_v->addWidget(centralTabWidget);
     splitter_v->addWidget(tabWidget);
+    displaySplash();
 }
 
 BaseMainWindow::~BaseMainWindow() {}
 
-void BaseMainWindow::writeInfo(std::string text) { info->info(text); }
+void BaseMainWindow::displaySplash()
+{
+    splash = new QSplashScreen();
+    splash->setPixmap(QPixmap(":/icons/resources/splash.png"));
+    splash->show();
+    connect(designview, SIGNAL(finishContextLoad()), splash, SLOT(close()));
+    connect(designview, SIGNAL(contextLoadStatus(std::string)), this, SLOT(displaySplashMessage(std::string)));
+    QCoreApplication::instance()->processEvents();
+}
+
+void BaseMainWindow::displaySplashMessage(std::string msg)
+{
+    splash->showMessage(msg.c_str(), Qt::AlignCenter | Qt::AlignBottom, Qt::white);
+    QCoreApplication::instance()->processEvents();
+}
+
+void BaseMainWindow::writeInfo(std::string text) { console->info(text); }
 
 void BaseMainWindow::createMenusAndBars()
 {
     actionNew = new QAction("New", this);
-    QIcon iconNew;
-    iconNew.addFile(QStringLiteral(":/icons/resources/new.png"));
-    actionNew->setIcon(iconNew);
+    actionNew->setIcon(QIcon(":/icons/resources/new.png"));
     actionNew->setShortcuts(QKeySequence::New);
     actionNew->setStatusTip("New project file");
     connect(actionNew, SIGNAL(triggered()), this, SLOT(new_proj()));
 
     actionOpen = new QAction("Open", this);
-    QIcon iconOpen;
-    iconOpen.addFile(QStringLiteral(":/icons/resources/open.png"));
-    actionOpen->setIcon(iconOpen);
+    actionOpen->setIcon(QIcon(":/icons/resources/open.png"));
     actionOpen->setShortcuts(QKeySequence::Open);
     actionOpen->setStatusTip("Open an existing project file");
     connect(actionOpen, SIGNAL(triggered()), this, SLOT(open_proj()));
 
     QAction *actionSave = new QAction("Save", this);
-    QIcon iconSave;
-    iconSave.addFile(QStringLiteral(":/icons/resources/save.png"));
-    actionSave->setIcon(iconSave);
+    actionSave->setIcon(QIcon(":/icons/resources/save.png"));
     actionSave->setShortcuts(QKeySequence::Save);
     actionSave->setStatusTip("Save existing project to disk");
-    connect(actionSave, SIGNAL(triggered()), this, SLOT(save_proj()));
     actionSave->setEnabled(false);
+    connect(actionSave, SIGNAL(triggered()), this, SLOT(save_proj()));
 
     QAction *actionExit = new QAction("Exit", this);
-    QIcon iconExit;
-    iconExit.addFile(QStringLiteral(":/icons/resources/exit.png"));
-    actionExit->setIcon(iconExit);
+    actionExit->setIcon(QIcon(":/icons/resources/exit.png"));
     actionExit->setShortcuts(QKeySequence::Quit);
     actionExit->setStatusTip("Exit the application");
     connect(actionExit, SIGNAL(triggered()), this, SLOT(close()));
@@ -145,6 +154,12 @@ void BaseMainWindow::createMenusAndBars()
     addToolBar(Qt::TopToolBarArea, mainToolBar);
 
     statusBar = new QStatusBar();
+    progressBar = new QProgressBar(statusBar);
+    progressBar->setAlignment(Qt::AlignRight);
+    progressBar->setMaximumSize(180, 19);
+    statusBar->addPermanentWidget(progressBar);
+    progressBar->setValue(0);
+    progressBar->setEnabled(false);
     setStatusBar(statusBar);
 
     menu_File->addAction(actionNew);

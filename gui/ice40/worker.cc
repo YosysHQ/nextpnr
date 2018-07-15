@@ -23,10 +23,7 @@
 #include "design_utils.h"
 #include "jsonparse.h"
 #include "log.h"
-#include "pack.h"
 #include "pcf.h"
-#include "place_sa.h"
-#include "route.h"
 #include "timing.h"
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -99,7 +96,7 @@ void Worker::pack()
 {
     Q_EMIT taskStarted();
     try {
-        bool res = pack_design(ctx);
+        bool res = ctx->pack();
         print_utilisation(ctx);
         Q_EMIT pack_finished(res);
     } catch (WorkerInterruptionRequested) {
@@ -124,7 +121,7 @@ void Worker::place(bool timing_driven)
     Q_EMIT taskStarted();
     try {
         ctx->timing_driven = timing_driven;
-        Q_EMIT place_finished(place_design_sa(ctx));
+        Q_EMIT place_finished(ctx->place());
     } catch (WorkerInterruptionRequested) {
         Q_EMIT taskCanceled();
     }
@@ -134,7 +131,7 @@ void Worker::route()
 {
     Q_EMIT taskStarted();
     try {
-        Q_EMIT route_finished(route_design(ctx));
+        Q_EMIT route_finished(ctx->route());
     } catch (WorkerInterruptionRequested) {
         Q_EMIT taskCanceled();
     }

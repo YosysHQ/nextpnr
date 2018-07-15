@@ -49,5 +49,7 @@ typedef IdString PortPin;
 typedef IdString BelId;
 typedef IdString WireId;
 typedef IdString PipId;
+typedef IdString GroupId;
+typedef IdString DecalId;
 
 NEXTPNR_NAMESPACE_END

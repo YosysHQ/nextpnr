@@ -2,6 +2,7 @@
  *  nextpnr -- Next Generation Place and Route
  *
  *  Copyright (C) 2018  Miodrag Milanovic <miodrag@symbioticeda.com>
+ *  Copyright (C) 2018  Alex Tsui
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -19,10 +20,14 @@
 
 #include "line_editor.h"
 #include <QKeyEvent>
+#include <QToolTip>
+#include "ColumnFormatter.h"
+#include "Utils.h"
+#include "pyinterpreter.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
-LineEditor::LineEditor(QWidget *parent) : QLineEdit(parent), index(0)
+LineEditor::LineEditor(ParseHelper *helper, QWidget *parent) : QLineEdit(parent), index(0), parseHelper(helper)
 {
     setContextMenuPolicy(Qt::CustomContextMenu);
     QAction *clearAction = new QAction("Clear &history", this);
@@ -38,10 +43,12 @@ LineEditor::LineEditor(QWidget *parent) : QLineEdit(parent), index(0)
 
 void LineEditor::keyPressEvent(QKeyEvent *ev)
 {
+
     if (ev->key() == Qt::Key_Up || ev->key() == Qt::Key_Down) {
+        QToolTip::hideText();
         if (lines.empty())
             return;
-
+        printf("Key_Up\n");
         if (ev->key() == Qt::Key_Up)
             index--;
         if (ev->key() == Qt::Key_Down)
@@ -56,11 +63,20 @@ void LineEditor::keyPressEvent(QKeyEvent *ev)
         }
         setText(lines[index]);
     } else if (ev->key() == Qt::Key_Escape) {
+        QToolTip::hideText();
         clear();
         return;
+    } else if (ev->key() == Qt::Key_Tab) {
+        autocomplete();
+        return;
     }
+    QToolTip::hideText();
+
     QLineEdit::keyPressEvent(ev);
 }
+
+// This makes TAB work
+bool LineEditor::focusNextPrevChild(bool next) { return false; }
 
 void LineEditor::textInserted()
 {
@@ -80,6 +96,36 @@ void LineEditor::clearHistory()
     lines.clear();
     index = 0;
     clear();
+}
+
+void LineEditor::autocomplete()
+{
+    QString line = text();
+    const std::list<std::string> &suggestions = pyinterpreter_suggest(line.toStdString());
+    if (suggestions.size() == 1) {
+        line = suggestions.back().c_str();
+    } else {
+        // try to complete to longest common prefix
+        std::string prefix = LongestCommonPrefix(suggestions.begin(), suggestions.end());
+        if (prefix.size() > (size_t)line.size()) {
+            line = prefix.c_str();
+        } else {
+            ColumnFormatter fmt;
+            fmt.setItems(suggestions.begin(), suggestions.end());
+            fmt.format(width() / 5);
+            QString out = "";
+            for (auto &it : fmt.formattedOutput()) {
+                if (!out.isEmpty())
+                    out += "\n";
+                out += it.c_str();
+            }
+            QToolTip::setFont(font());
+            if (!out.trimmed().isEmpty())
+                QToolTip::showText(mapToGlobal(QPoint(0, 0)), out);
+        }
+    }
+    // set up the next line on the console
+    setText(line);
 }
 
 NEXTPNR_NAMESPACE_END

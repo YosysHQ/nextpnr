@@ -136,7 +136,7 @@ NEXTPNR_NAMESPACE_BEGIN
 
 struct GraphicElement
 {
-    enum
+    enum type_t
     {
         G_NONE,
         G_LINE,
@@ -144,6 +144,14 @@ struct GraphicElement
         G_CIRCLE,
         G_LABEL
     } type = G_NONE;
+
+    enum style_t
+    {
+        G_FRAME,
+        G_HIDDEN,
+        G_INACTIVE,
+        G_ACTIVE,
+    } style = G_FRAME;
 
     float x1 = 0, y1 = 0, x2 = 0, y2 = 0, z = 0;
     std::string text;
@@ -154,6 +162,12 @@ NEXTPNR_NAMESPACE_END
 #include "archdefs.h"
 
 NEXTPNR_NAMESPACE_BEGIN
+
+struct DecalXY
+{
+    DecalId decal;
+    float x = 0, y = 0;
+};
 
 struct BelPin
 {
@@ -253,6 +267,31 @@ struct BaseCtx
         delete idstring_str_to_idx;
         delete idstring_idx_to_str;
     }
+
+    Context *getCtx() { return reinterpret_cast<Context *>(this); }
+
+    const Context *getCtx() const { return reinterpret_cast<const Context *>(this); }
+
+    // --------------------------------------------------------------
+
+    bool allUiReload = false;
+    bool frameUiReload = false;
+    std::unordered_set<BelId> belUiReload;
+    std::unordered_set<WireId> wireUiReload;
+    std::unordered_set<PipId> pipUiReload;
+    std::unordered_set<GroupId> groupUiReload;
+
+    void refreshUi() { allUiReload = true; }
+
+    void refreshUiFrame() { frameUiReload = true; }
+
+    void refreshUiBel(BelId bel) { belUiReload.insert(bel); }
+
+    void refreshUiWire(WireId wire) { wireUiReload.insert(wire); }
+
+    void refreshUiPip(PipId pip) { pipUiReload.insert(pip); }
+
+    void refreshUiGroup(GroupId group) { groupUiReload.insert(group); }
 };
 
 NEXTPNR_NAMESPACE_END
@@ -270,6 +309,11 @@ struct Context : Arch
     float target_freq = 12e6;
 
     Context(ArchArgs args) : Arch(args) {}
+
+    // --------------------------------------------------------------
+
+    // provided by router1.cc
+    bool getActualRouteDelay(WireId src_wire, WireId dst_wire, delay_t &delay);
 
     // --------------------------------------------------------------
 

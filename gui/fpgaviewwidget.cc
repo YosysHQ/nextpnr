@@ -195,7 +195,7 @@ bool LineShader::compile(void)
     return true;
 }
 
-void LineShader::draw(const LineShaderData &line, const QMatrix4x4 &projection)
+void LineShader::draw(const LineShaderData &line, const QColor &color, float thickness, const QMatrix4x4 &projection)
 {
     auto gl = QOpenGLContext::currentContext()->functions();
     vao_.bind();
@@ -214,8 +214,8 @@ void LineShader::draw(const LineShaderData &line, const QMatrix4x4 &projection)
     buffers_.index.allocate(&line.indices[0], sizeof(GLuint) * line.indices.size());
 
     program_->setUniformValue(uniforms_.projection, projection);
-    program_->setUniformValue(uniforms_.thickness, line.thickness);
-    program_->setUniformValue(uniforms_.color, line.color.r, line.color.g, line.color.b, line.color.a);
+    program_->setUniformValue(uniforms_.thickness, thickness);
+    program_->setUniformValue(uniforms_.color, color.redF(), color.greenF(), color.blueF(), color.alphaF());
 
     buffers_.position.bind();
     program_->enableAttributeArray("position");
@@ -241,8 +241,27 @@ void LineShader::draw(const LineShaderData &line, const QMatrix4x4 &projection)
 }
 
 FPGAViewWidget::FPGAViewWidget(QWidget *parent)
-        : QOpenGLWidget(parent), moveX_(0), moveY_(0), zoom_(10.0f), lineShader_(this), ctx_(nullptr)
+        : QOpenGLWidget(parent), lineShader_(this), zoom_(500.f), ctx_(nullptr), selectedItemsChanged_(false)
 {
+    backgroundColor_ = QColor("#000000");
+    gridColor_ = QColor("#333");
+    gFrameColor_ = QColor("#d0d0d0");
+    gHiddenColor_ = QColor("#606060");
+    gInactiveColor_ = QColor("#303030");
+    gActiveColor_ = QColor("#f0f0f0");
+    gSelectedColor_ = QColor("#ff6600");
+    frameColor_ = QColor("#0066ba");
+    highlightColors[0] = QColor("#6495ed");
+    highlightColors[1] = QColor("#7fffd4");
+    highlightColors[2] = QColor("#98fb98");
+    highlightColors[3] = QColor("#ffd700");
+    highlightColors[4] = QColor("#cd5c5c");
+    highlightColors[5] = QColor("#fa8072");
+    highlightColors[6] = QColor("#ff69b4");
+    highlightColors[7] = QColor("#da70d6");
+    for (int i = 0; i < 8; i++)
+        highlightItemsChanged_[i] = false;
+
     auto fmt = format();
     fmt.setMajorVersion(3);
     fmt.setMinorVersion(1);
@@ -264,6 +283,7 @@ FPGAViewWidget::~FPGAViewWidget() {}
 void FPGAViewWidget::newContext(Context *ctx)
 {
     ctx_ = ctx;
+    selectedItems_.clear();
     update();
 }
 
@@ -271,64 +291,90 @@ QSize FPGAViewWidget::minimumSizeHint() const { return QSize(640, 480); }
 
 QSize FPGAViewWidget::sizeHint() const { return QSize(640, 480); }
 
-void FPGAViewWidget::setXTranslation(float t_x)
-{
-    if (t_x == moveX_)
-        return;
-
-    moveX_ = t_x;
-    update();
-}
-
-void FPGAViewWidget::setYTranslation(float t_y)
-{
-    if (t_y == moveY_)
-        return;
-
-    moveY_ = t_y;
-    update();
-}
-
-void FPGAViewWidget::setZoom(float t_z)
-{
-    if (t_z == zoom_)
-        return;
-    zoom_ = t_z;
-
-    if (zoom_ < 1.0f)
-        zoom_ = 1.0f;
-    if (zoom_ > 100.f)
-        zoom_ = 100.0f;
-
-    update();
-}
-
 void FPGAViewWidget::initializeGL()
 {
     if (!lineShader_.compile()) {
         log_error("Could not compile shader.\n");
     }
     initializeOpenGLFunctions();
-    glClearColor(1.0, 1.0, 1.0, 0.0);
+    glClearColor(backgroundColor_.red() / 255, backgroundColor_.green() / 255, backgroundColor_.blue() / 255, 0.0);
 }
 
-void FPGAViewWidget::drawElement(LineShaderData &out, const GraphicElement &el)
+void FPGAViewWidget::drawDecal(LineShaderData &out, const DecalXY &decal)
 {
-    const float scale = 1.0, offset = 0.0;
+    const float scale = 1.0;
+    float offsetX = 0.0, offsetY = 0.0;
 
-    if (el.type == GraphicElement::G_BOX) {
-        auto line = PolyLine(true);
-        line.point(offset + scale * el.x1, offset + scale * el.y1);
-        line.point(offset + scale * el.x2, offset + scale * el.y1);
-        line.point(offset + scale * el.x2, offset + scale * el.y2);
-        line.point(offset + scale * el.x1, offset + scale * el.y2);
-        line.build(out);
-    }
+    for (auto &el : ctx_->getDecalGraphics(decal.decal)) {
+        offsetX = decal.x;
+        offsetY = decal.y;
 
-    if (el.type == GraphicElement::G_LINE) {
-        PolyLine(offset + scale * el.x1, offset + scale * el.y1, offset + scale * el.x2, offset + scale * el.y2)
-                .build(out);
+        if (el.type == GraphicElement::G_BOX) {
+            auto line = PolyLine(true);
+            line.point(offsetX + scale * el.x1, offsetY + scale * el.y1);
+            line.point(offsetX + scale * el.x2, offsetY + scale * el.y1);
+            line.point(offsetX + scale * el.x2, offsetY + scale * el.y2);
+            line.point(offsetX + scale * el.x1, offsetY + scale * el.y2);
+            line.build(out);
+        }
+
+        if (el.type == GraphicElement::G_LINE) {
+            PolyLine(offsetX + scale * el.x1, offsetY + scale * el.y1, offsetX + scale * el.x2, offsetY + scale * el.y2)
+                    .build(out);
+        }
     }
+}
+
+void FPGAViewWidget::drawDecal(LineShaderData out[], const DecalXY &decal)
+{
+    const float scale = 1.0;
+    float offsetX = 0.0, offsetY = 0.0;
+
+    for (auto &el : ctx_->getDecalGraphics(decal.decal)) {
+        offsetX = decal.x;
+        offsetY = decal.y;
+
+        if (el.type == GraphicElement::G_BOX) {
+            auto line = PolyLine(true);
+            line.point(offsetX + scale * el.x1, offsetY + scale * el.y1);
+            line.point(offsetX + scale * el.x2, offsetY + scale * el.y1);
+            line.point(offsetX + scale * el.x2, offsetY + scale * el.y2);
+            line.point(offsetX + scale * el.x1, offsetY + scale * el.y2);
+            switch (el.style) {
+            case GraphicElement::G_FRAME:
+            case GraphicElement::G_INACTIVE:
+            case GraphicElement::G_ACTIVE:
+                line.build(out[el.style]);
+                break;
+            default:
+                break;
+            }
+        }
+
+        if (el.type == GraphicElement::G_LINE) {
+            auto line = PolyLine(offsetX + scale * el.x1, offsetY + scale * el.y1, offsetX + scale * el.x2,
+                                 offsetY + scale * el.y2);
+            switch (el.style) {
+            case GraphicElement::G_FRAME:
+            case GraphicElement::G_INACTIVE:
+            case GraphicElement::G_ACTIVE:
+                line.build(out[el.style]);
+                break;
+            default:
+                break;
+            }
+        }
+    }
+}
+
+QMatrix4x4 FPGAViewWidget::getProjection(void)
+{
+    QMatrix4x4 matrix;
+
+    const float aspect = float(width()) / float(height());
+    matrix.perspective(3.14 / 2, aspect, zoomNear_, zoomFar_);
+    matrix.translate(0.0f, 0.0f, -zoom_);
+    return matrix;
 }
 
 void FPGAViewWidget::paintGL()
@@ -338,65 +384,112 @@ void FPGAViewWidget::paintGL()
     gl->glViewport(0, 0, width() * retinaScale, height() * retinaScale);
     gl->glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    const float aspect = float(width()) / float(height());
+    QMatrix4x4 matrix = getProjection();
 
-    QMatrix4x4 matrix;
-    matrix.ortho(QRectF(-aspect / 2.0, -0.5, aspect, 1.0f));
-    matrix.translate(moveX_, moveY_, -0.5);
-    matrix.scale(zoom_ * 0.01f, zoom_ * 0.01f, 0);
+    matrix *= viewMove_;
+
+    // Calculate world thickness to achieve a screen 1px/1.1px line.
+    float thick1Px = mouseToWorldCoordinates(1, 0).x();
+    float thick11Px = mouseToWorldCoordinates(1.1, 0).x();
 
     // Draw grid.
-    auto grid = LineShaderData(0.01f, QColor("#DDD"));
+    auto grid = LineShaderData();
     for (float i = -100.0f; i < 100.0f; i += 1.0f) {
         PolyLine(-100.0f, i, 100.0f, i).build(grid);
         PolyLine(i, -100.0f, i, 100.0f).build(grid);
     }
-    lineShader_.draw(grid, matrix);
+    lineShader_.draw(grid, gridColor_, thick1Px, matrix);
 
-    // Draw Bels.
-    auto bels = LineShaderData(0.02f, QColor("#b000ba"));
+    LineShaderData shaders[4] = {[GraphicElement::G_FRAME] = LineShaderData(),
+                                 [GraphicElement::G_HIDDEN] = LineShaderData(),
+                                 [GraphicElement::G_INACTIVE] = LineShaderData(),
+                                 [GraphicElement::G_ACTIVE] = LineShaderData()};
+
     if (ctx_) {
+        // Draw Bels.
         for (auto bel : ctx_->getBels()) {
-            for (auto &el : ctx_->getBelGraphics(bel))
-                drawElement(bels, el);
+            drawDecal(shaders, ctx_->getBelDecal(bel));
         }
-        lineShader_.draw(bels, matrix);
+        // Draw Wires.
+        for (auto wire : ctx_->getWires()) {
+            drawDecal(shaders, ctx_->getWireDecal(wire));
+        }
+        // Draw Pips.
+        for (auto pip : ctx_->getPips()) {
+            drawDecal(shaders, ctx_->getPipDecal(pip));
+        }
+        // Draw Groups.
+        for (auto group : ctx_->getGroups()) {
+            drawDecal(shaders, ctx_->getGroupDecal(group));
+        }
+
+        if (selectedItemsChanged_) {
+            selectedItemsChanged_ = false;
+            selectedShader_.clear();
+            for (auto decal : selectedItems_) {
+                drawDecal(selectedShader_, decal);
+            }
+        }
+        for (int i = 0; i < 8; i++) {
+            if (highlightItemsChanged_[i]) {
+                highlightItemsChanged_[i] = false;
+                highlightShader_[i].clear();
+                for (auto decal : highlightItems_[i]) {
+                    drawDecal(highlightShader_[i], decal);
+                }
+            }
+        }
     }
 
-    // Draw Frame Graphics.
-    auto frames = LineShaderData(0.02f, QColor("#0066ba"));
-    if (ctx_) {
-        for (auto &el : ctx_->getFrameGraphics()) {
-            drawElement(frames, el);
-        }
-        lineShader_.draw(frames, matrix);
-    }
+    lineShader_.draw(shaders[0], gFrameColor_, thick11Px, matrix);
+    lineShader_.draw(shaders[1], gHiddenColor_, thick11Px, matrix);
+    lineShader_.draw(shaders[2], gInactiveColor_, thick11Px, matrix);
+    lineShader_.draw(shaders[3], gActiveColor_, thick11Px, matrix);
+    for (int i = 0; i < 8; i++)
+        lineShader_.draw(highlightShader_[i], highlightColors[i], thick11Px, matrix);
+    lineShader_.draw(selectedShader_, gSelectedColor_, thick11Px, matrix);
+}
+
+void FPGAViewWidget::onSelectedArchItem(std::vector<DecalXY> decals)
+{
+    selectedItems_ = decals;
+    selectedItemsChanged_ = true;
+    update();
+}
+
+void FPGAViewWidget::onHighlightGroupChanged(std::vector<DecalXY> decals, int group)
+{
+    highlightItems_[group] = decals;
+    highlightItemsChanged_[group] = true;
+    update();
 }
 
 void FPGAViewWidget::resizeGL(int width, int height) {}
 
-void FPGAViewWidget::mousePressEvent(QMouseEvent *event)
+void FPGAViewWidget::mousePressEvent(QMouseEvent *event) { lastPos_ = event->pos(); }
+
+// Invert the projection matrix to calculate screen/mouse to world/grid
+// coordinates.
+QVector4D FPGAViewWidget::mouseToWorldCoordinates(int x, int y)
 {
-    startDragX_ = moveX_;
-    startDragY_ = moveY_;
-    lastPos_ = event->pos();
+    QMatrix4x4 p = getProjection();
+    QVector2D unit = p.map(QVector4D(1, 1, 0, 1)).toVector2DAffine();
+
+    float sx = (((float)x) / (width() / 2));
+    float sy = (((float)y) / (height() / 2));
+    return QVector4D(sx / unit.x(), sy / unit.y(), 0, 1);
 }
 
 void FPGAViewWidget::mouseMoveEvent(QMouseEvent *event)
 {
     const int dx = event->x() - lastPos_.x();
     const int dy = event->y() - lastPos_.y();
+    lastPos_ = event->pos();
 
-    const qreal retinaScale = devicePixelRatio();
-    float aspect = float(width()) / float(height());
-    const float dx_scale = dx * (1 / (float)width() * retinaScale * aspect);
-    const float dy_scale = dy * (1 / (float)height() * retinaScale);
+    auto world = mouseToWorldCoordinates(dx, dy);
+    viewMove_.translate(world.x(), -world.y());
 
-    float xpos = dx_scale + startDragX_;
-    float ypos = dy_scale + startDragY_;
-
-    setXTranslation(xpos);
-    setYTranslation(ypos);
+    update();
 }
 
 void FPGAViewWidget::wheelEvent(QWheelEvent *event)
@@ -404,8 +497,19 @@ void FPGAViewWidget::wheelEvent(QWheelEvent *event)
     QPoint degree = event->angleDelta() / 8;
 
     if (!degree.isNull()) {
-        float steps = degree.y() / 15.0;
-        setZoom(zoom_ + steps);
+
+        if (zoom_ < zoomNear_) {
+            zoom_ = zoomNear_;
+        } else if (zoom_ < zoomLvl1_) {
+            zoom_ -= degree.y() / 10.0;
+        } else if (zoom_ < zoomLvl2_) {
+            zoom_ -= degree.y() / 5.0;
+        } else if (zoom_ < zoomFar_) {
+            zoom_ -= degree.y();
+        } else {
+            zoom_ = zoomFar_;
+        }
+        update();
     }
 }
 

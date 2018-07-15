@@ -90,24 +90,34 @@ int main(int argc, char *argv[])
             return 1;
         }
 
-        Context ctx(ArchArgs{});
+        std::unique_ptr<Context> ctx = std::unique_ptr<Context>(new Context(ArchArgs{}));
 
         if (vm.count("verbose")) {
-            ctx.verbose = true;
+            ctx->verbose = true;
         }
 
         if (vm.count("force")) {
-            ctx.force = true;
+            ctx->force = true;
         }
 
         if (vm.count("seed")) {
-            ctx.rngseed(vm["seed"].as<int>());
+            ctx->rngseed(vm["seed"].as<int>());
         }
+
+#ifndef NO_GUI
+        if (vm.count("gui")) {
+            Application a(argc, argv);
+            MainWindow w(std::move(ctx));
+            w.show();
+
+            return a.exec();
+        }
+#endif
 
 #ifndef NO_PYTHON
         if (vm.count("run")) {
             init_python(argv[0], true);
-            python_export_global("ctx", ctx);
+            python_export_global("ctx", *ctx.get());
 
             std::vector<std::string> files = vm["run"].as<std::vector<std::string>>();
             for (auto filename : files)
@@ -117,15 +127,6 @@ int main(int argc, char *argv[])
         }
 #endif
 
-#ifndef NO_GUI
-        if (vm.count("gui")) {
-            Application a(argc, argv);
-            MainWindow w;
-            w.show();
-
-            rc = a.exec();
-        }
-#endif
         return rc;
     } catch (log_execution_error_exception) {
 #if defined(_MSC_VER)

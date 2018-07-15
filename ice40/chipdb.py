@@ -11,6 +11,7 @@ group.add_argument("-b", "--binary", action="store_true")
 group.add_argument("-c", "--c_file", action="store_true")
 parser.add_argument("filename", type=str, help="chipdb input filename")
 parser.add_argument("-p", "--portspins", type=str, help="path to portpins.inc")
+parser.add_argument("-g", "--gfxh", type=str, help="path to gfx.h")
 args = parser.parse_args()
 
 endianness = "le"
@@ -54,6 +55,9 @@ beltypes = dict()
 tiletypes = dict()
 wiretypes = dict()
 
+gfx_wire_ids = dict()
+wire_segments = dict()
+
 with open(args.portspins) as f:
     for line in f:
         line = line.replace("(", " ")
@@ -65,6 +69,20 @@ with open(args.portspins) as f:
         assert line[0] == "X"
         idx = len(portpins) + 1
         portpins[line[1]] = idx
+
+with open(args.gfxh) as f:
+    state = 0
+    for line in f:
+        if state == 0 and line.startswith("enum GfxTileWireId"):
+            state = 1
+        elif state == 1 and line.startswith("};"):
+            state = 0
+        elif state == 1 and (line.startswith("{") or line.strip() == ""):
+            pass
+        elif state == 1:
+            idx = len(gfx_wire_ids)
+            name = line.strip().rstrip(",")
+            gfx_wire_ids[name] = idx
 
 beltypes["ICESTORM_LC"] = 1
 beltypes["ICESTORM_RAM"] = 2
@@ -371,6 +389,10 @@ with open(args.filename, "r") as f:
             if mode[1] not in wire_xy:
                 wire_xy[mode[1]] = list()
             wire_xy[mode[1]].append((int(line[0]), int(line[1])))
+            if mode[1] not in wire_segments:
+                wire_segments[mode[1]] = set()
+            if ("TILE_WIRE_" + wname[2].upper().replace("/", "_")) in gfx_wire_ids:
+                wire_segments[mode[1]].add((wname[0], wname[1], gfx_wire_ids["TILE_WIRE_" + wname[2].upper().replace("/", "_")]))
             continue
 
         if mode[0] in ("buffer", "routing"):
@@ -712,7 +734,7 @@ class BinaryBlobAssembler:
 
     def finalize(self):
         assert not self.finalized
-        for s, index in self.strings.items():
+        for s, index in sorted(self.strings.items()):
             self.l("str%d" % index, "char")
             for c in s:
                 self.data.append(ord(c))
@@ -947,7 +969,7 @@ for wire in range(num_wires):
     if wire in wire_downhill_belports:
         num_bels_downhill = len(wire_downhill_belports[wire])
         bba.l("wire%d_downbels" % wire, "BelPortPOD")
-        for belport in wire_downhill_belports[wire]:
+        for belport in sorted(wire_downhill_belports[wire]):
             bba.u32(belport[0], "bel_index")
             bba.u32(portpins[belport[1]], "port")
     else:
@@ -1040,7 +1062,7 @@ for t in range(num_tile_types):
     tileinfo.append(ti)
 
 bba.l("wire_data_%s" % dev_name, "WireInfoPOD")
-for info in wireinfo:
+for wire, info in enumerate(wireinfo):
     bba.s(info["name"], "name")
     bba.u32(info["num_uphill"], "num_uphill")
     bba.u32(info["num_downhill"], "num_downhill")
@@ -1050,10 +1072,23 @@ for info in wireinfo:
     bba.u32(info["uphill_bel"], "bel_uphill.bel_index")
     bba.u32(info["uphill_pin"], "bel_uphill.port")
     bba.r(info["list_bels_downhill"], "bels_downhill")
+    bba.u32(len(wire_segments[wire]), "num_segments")
+    if len(wire_segments[wire]):
+        bba.r("wire_segments_%d" % wire, "segments")
+    else:
+        bba.u32(0, "segments")
     bba.u8(info["x"], "x")
     bba.u8(info["y"], "y")
     bba.u8(wiretypes[wire_type(info["name"])], "type")
     bba.u8(0, "padding")
+
+for wire in range(num_wires):
+    if len(wire_segments[wire]):
+        bba.l("wire_segments_%d" % wire, "WireSegmentPOD")
+        for seg in sorted(wire_segments[wire]):
+            bba.u8(seg[0], "x")
+            bba.u8(seg[1], "y")
+            bba.u16(seg[2], "index")
 
 bba.l("pip_data_%s" % dev_name, "PipInfoPOD")
 for info in pipinfo:
