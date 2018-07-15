@@ -333,17 +333,7 @@ PipId Arch::getPipByName(IdString name) const
 IdString Arch::getPipName(PipId pip) const
 {
     NPNR_ASSERT(pip != PipId());
-
-    int x = chip_info->pip_data[pip.index].x;
-    int y = chip_info->pip_data[pip.index].y;
-
-    std::string src_name = chip_info->wire_data[chip_info->pip_data[pip.index].src].name.get();
-    std::replace(src_name.begin(), src_name.end(), '/', '.');
-
-    std::string dst_name = chip_info->wire_data[chip_info->pip_data[pip.index].dst].name.get();
-    std::replace(dst_name.begin(), dst_name.end(), '/', '.');
-
-    return id("X" + std::to_string(x) + "/Y" + std::to_string(y) + "/" + src_name + ".->." + dst_name);
+    return id(chip_info->pip_data[pip.index].name.get());
 }
 
 // -----------------------------------------------------------------------
@@ -512,16 +502,19 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
     }
 
     if (decal.type == DecalId::TYPE_WIRE) {
-        WireId wire;
-        wire.index = decal.index;
-
-        int n = chip_info->wire_data[wire.index].num_segments;
-        const WireSegmentPOD *p = chip_info->wire_data[wire.index].segments.get();
+        int n = chip_info->wire_data[decal.index].num_segments;
+        const WireSegmentPOD *p = chip_info->wire_data[decal.index].segments.get();
 
         GraphicElement::style_t style = decal.active ? GraphicElement::G_ACTIVE : GraphicElement::G_INACTIVE;
 
         for (int i = 0; i < n; i++)
             gfxTileWire(ret, p[i].x, p[i].y, GfxTileWireId(p[i].index), style);
+    }
+
+    if (decal.type == DecalId::TYPE_PIP) {
+        const PipInfoPOD &p = chip_info->pip_data[decal.index];
+        GraphicElement::style_t style = decal.active ? GraphicElement::G_ACTIVE : GraphicElement::G_HIDDEN;
+        gfxTilePip(ret, p.x, p.y, GfxTileWireId(p.src_seg), GfxTileWireId(p.dst_seg), style);
     }
 
     if (decal.type == DecalId::TYPE_BEL) {
