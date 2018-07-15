@@ -18,6 +18,7 @@
  */
 
 #include <QAction>
+#include <QCoreApplication>
 #include <QFileDialog>
 #include <QGridLayout>
 #include <QIcon>
@@ -61,14 +62,9 @@ BaseMainWindow::BaseMainWindow(std::unique_ptr<Context> context, QWidget *parent
 
     setCentralWidget(centralWidget);
 
-    DesignWidget *designview = new DesignWidget();
+    designview = new DesignWidget();
     designview->setMinimumWidth(300);
     splitter_h->addWidget(designview);
-
-    connect(this, SIGNAL(contextChanged(Context *)), designview, SLOT(newContext(Context *)));
-    connect(this, SIGNAL(updateTreeView()), designview, SLOT(updateTree()));
-
-    connect(designview, SIGNAL(info(std::string)), this, SLOT(writeInfo(std::string)));
 
     tabWidget = new QTabWidget();
 
@@ -87,11 +83,33 @@ BaseMainWindow::BaseMainWindow(std::unique_ptr<Context> context, QWidget *parent
     connect(designview, SIGNAL(highlight(std::vector<DecalXY>, int)), fpgaView,
             SLOT(onHighlightGroupChanged(std::vector<DecalXY>, int)));
 
+    connect(this, SIGNAL(contextChanged(Context *)), designview, SLOT(newContext(Context *)));
+    connect(this, SIGNAL(updateTreeView()), designview, SLOT(updateTree()));
+
+    connect(designview, SIGNAL(info(std::string)), this, SLOT(writeInfo(std::string)));
+
     splitter_v->addWidget(centralTabWidget);
     splitter_v->addWidget(tabWidget);
+    displaySplash();
 }
 
 BaseMainWindow::~BaseMainWindow() {}
+
+void BaseMainWindow::displaySplash()
+{
+    splash = new QSplashScreen();
+    splash->setPixmap(QPixmap(":/icons/resources/splash.png"));
+    splash->show();
+    connect(designview, SIGNAL(finishContextLoad()), splash, SLOT(close()));
+    connect(designview, SIGNAL(contextLoadStatus(std::string)), this, SLOT(displaySplashMessage(std::string)));
+    QCoreApplication::instance()->processEvents();
+}
+
+void BaseMainWindow::displaySplashMessage(std::string msg)
+{
+    splash->showMessage(msg.c_str(), Qt::AlignCenter | Qt::AlignBottom, Qt::white);
+    QCoreApplication::instance()->processEvents();
+}
 
 void BaseMainWindow::writeInfo(std::string text) { console->info(text); }
 

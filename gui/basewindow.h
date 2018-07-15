@@ -26,6 +26,7 @@
 #include <QMenu>
 #include <QMenuBar>
 #include <QProgressBar>
+#include <QSplashScreen>
 #include <QStatusBar>
 #include <QTabWidget>
 #include <QToolBar>
@@ -36,6 +37,7 @@ Q_DECLARE_METATYPE(NEXTPNR_NAMESPACE_PREFIX DecalXY)
 NEXTPNR_NAMESPACE_BEGIN
 
 class PythonTab;
+class DesignWidget;
 
 class BaseMainWindow : public QMainWindow
 {
@@ -48,9 +50,11 @@ class BaseMainWindow : public QMainWindow
 
   protected:
     void createMenusAndBars();
+    void displaySplash();
 
   protected Q_SLOTS:
     void writeInfo(std::string text);
+    void displaySplashMessage(std::string msg);
 
     virtual void new_proj() = 0;
     virtual void open_proj() = 0;
@@ -72,6 +76,8 @@ class BaseMainWindow : public QMainWindow
     QAction *actionNew;
     QAction *actionOpen;
     QProgressBar *progressBar;
+    QSplashScreen *splash;
+    DesignWidget *designview;
 };
 
 NEXTPNR_NAMESPACE_END
