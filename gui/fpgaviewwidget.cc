@@ -240,7 +240,8 @@ void LineShader::draw(const LineShaderData &line, const QColor &color, float thi
     vao_.release();
 }
 
-FPGAViewWidget::FPGAViewWidget(QWidget *parent) : QOpenGLWidget(parent), lineShader_(this), zoom_(500.f), ctx_(nullptr), selectedItemsChanged(false)
+FPGAViewWidget::FPGAViewWidget(QWidget *parent)
+        : QOpenGLWidget(parent), lineShader_(this), zoom_(500.f), ctx_(nullptr), selectedItemsChanged(false)
 {
     backgroundColor_ = QColor("#000000");
     gridColor_ = QColor("#333");
@@ -412,8 +413,7 @@ void FPGAViewWidget::paintGL()
             drawDecal(shaders, ctx_->getGroupDecal(group));
         }
 
-        if (selectedItemsChanged)
-        {
+        if (selectedItemsChanged) {
             selectedItemsChanged = false;
             selectedShader_.clear();
             for (auto decal : selectedItems_) {

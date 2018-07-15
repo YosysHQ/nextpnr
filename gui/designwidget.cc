@@ -77,9 +77,8 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr), net
     propertyEditor = new QtTreePropertyBrowser(this);
     propertyEditor->setFactoryForManager(variantManager, variantFactory);
     propertyEditor->setPropertiesWithoutValueMarked(true);
-    connect(propertyEditor, SIGNAL(currentItemChanged(QtBrowserItem *)), this,
-            SLOT(onCurrentPropertyChanged(QtBrowserItem *)));
     propertyEditor->show();
+    propertyEditor->treeWidget()->setContextMenuPolicy(Qt::CustomContextMenu);
 
     QLineEdit *lineEdit = new QLineEdit();
     lineEdit->setClearButtonEnabled(true);
@@ -144,7 +143,9 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr), net
     setLayout(mainLayout);
 
     // Connection
-    connect(treeWidget, &QTreeWidget::customContextMenuRequested, this, &DesignWidget::prepareMenu);
+    connect(propertyEditor->treeWidget(), &QTreeWidget::customContextMenuRequested, this,
+            &DesignWidget::prepareMenuProperty);
+    connect(propertyEditor->treeWidget(), &QTreeWidget::itemDoubleClicked, this, &DesignWidget::onItemDoubleClicked);
 
     connect(treeWidget, SIGNAL(itemSelectionChanged()), SLOT(onItemSelectionChanged()));
 }
@@ -312,33 +313,41 @@ void DesignWidget::clearProperties()
     idToProperty.clear();
 }
 
-void DesignWidget::onCurrentPropertyChanged(QtBrowserItem *_item)
+void DesignWidget::onCurrentPropertySelected(QtBrowserItem *_item)
 {
     if (_item) {
         QtProperty *selectedProperty = _item->property();
-        QString type = selectedProperty->propertyId();
+        ElementType type = getElementTypeByName(selectedProperty->propertyId());
         IdString value = ctx->id(selectedProperty->valueText().toStdString());
         std::vector<DecalXY> decals;
-        if (type == "BEL") {
+        switch (type) {
+        case ElementType::BEL: {
             BelId bel = ctx->getBelByName(value);
             if (bel != BelId()) {
                 decals.push_back(ctx->getBelDecal(bel));
                 Q_EMIT selected(decals);
             }
-        } else if (type == "WIRE") {
+        } break;
+        case ElementType::WIRE: {
             WireId wire = ctx->getWireByName(value);
             if (wire != WireId()) {
                 decals.push_back(ctx->getWireDecal(wire));
                 Q_EMIT selected(decals);
             }
-        } else if (type == "PIP") {
+        } break;
+        case ElementType::PIP: {
             PipId pip = ctx->getPipByName(value);
             if (pip != PipId()) {
                 decals.push_back(ctx->getPipDecal(pip));
                 Q_EMIT selected(decals);
             }
-        } else if (type == "NET") {
-        } else if (type == "CELL") {
+        } break;
+        case ElementType::NET: {
+        } break;
+        case ElementType::CELL: {
+        } break;
+        default:
+            break;
         }
     }
 }
@@ -596,23 +605,38 @@ void DesignWidget::onItemSelectionChanged()
     }
 }
 
-void DesignWidget::prepareMenu(const QPoint &pos)
+void DesignWidget::prepareMenuProperty(const QPoint &pos)
 {
-    QTreeWidget *tree = treeWidget;
+    QTreeWidget *tree = propertyEditor->treeWidget();
 
     itemContextMenu = tree->itemAt(pos);
+    if (itemContextMenu->parent() == nullptr)
+        return;
 
-    QAction *selectAction = new QAction("&Select", this);
-    selectAction->setStatusTip("Select item on view");
+    QtBrowserItem *browserItem = propertyEditor->itemToBrowserItem(itemContextMenu);
 
-    connect(selectAction, SIGNAL(triggered()), this, SLOT(selectObject()));
-
+    // if (((ElementTreeItem*)itemContextMenu)->getType() == ElementType::NONE) return;
     QMenu menu(this);
+    QAction *selectAction = new QAction("&Select", this);
+    connect(selectAction, &QAction::triggered, this, [this, browserItem] { onCurrentPropertySelected(browserItem); });
+
     menu.addAction(selectAction);
 
     menu.exec(tree->mapToGlobal(pos));
 }
 
-void DesignWidget::selectObject() { Q_EMIT info("selected " + itemContextMenu->text(0).toStdString() + "\n"); }
+void DesignWidget::onItemDoubleClicked(QTreeWidgetItem *item, int column)
+{
+    QtProperty *selectedProperty = propertyEditor->itemToBrowserItem(item)->property();
+    ElementType type = getElementTypeByName(selectedProperty->propertyId());
+    IdString value = ctx->id(selectedProperty->valueText().toStdString());
+    switch (type) {
+    case ElementType::NONE:
+        return;
+    default:
+        Q_EMIT info("double clicked " + std::string(value.c_str(ctx)) + "\n");
+        break;
+    }
+}
 
 NEXTPNR_NAMESPACE_END

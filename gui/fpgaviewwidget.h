@@ -245,6 +245,7 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
   public Q_SLOTS:
     void newContext(Context *ctx);
     void onSelectedArchItem(std::vector<DecalXY> decals);
+
   private:
     QPoint lastPos_;
     LineShader lineShader_;

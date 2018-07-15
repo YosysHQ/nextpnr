@@ -61,10 +61,10 @@ class DesignWidget : public QWidget
     void selected(std::vector<DecalXY> decal);
 
   private Q_SLOTS:
-    void prepareMenu(const QPoint &pos);
+    void prepareMenuProperty(const QPoint &pos);
     void onItemSelectionChanged();
-    void selectObject();
-    void onCurrentPropertyChanged(QtBrowserItem *_item);
+    void onItemDoubleClicked(QTreeWidgetItem *item, int column);
+    void onCurrentPropertySelected(QtBrowserItem *_item);
   public Q_SLOTS:
     void newContext(Context *ctx);
     void updateTree();

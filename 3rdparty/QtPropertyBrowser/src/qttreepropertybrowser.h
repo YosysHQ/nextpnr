@@ -47,6 +47,7 @@
 QT_BEGIN_NAMESPACE
 #endif
 
+class QTreeWidget;
 class QTreeWidgetItem;
 class QtTreePropertyBrowserPrivate;
 
@@ -107,6 +108,9 @@ public:
 
     void editItem(QtBrowserItem *item);
 
+    //ADDED:miodrag
+    QTreeWidget *treeWidget() const;
+    QtBrowserItem *itemToBrowserItem(QTreeWidgetItem *item);
 Q_SIGNALS:
 
     void collapsed(QtBrowserItem *item);
