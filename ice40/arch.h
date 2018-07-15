@@ -63,7 +63,7 @@ NPNR_PACKED_STRUCT(struct BelPortPOD {
 });
 
 NPNR_PACKED_STRUCT(struct PipInfoPOD {
-    RelPtr<char> name;
+    // RelPtr<char> name;
     int32_t src, dst;
     int32_t delay;
     int8_t x, y;

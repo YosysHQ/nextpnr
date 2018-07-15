@@ -1107,7 +1107,7 @@ for info in pipinfo:
         dst_seg = gfx_wire_ids["TILE_WIRE_" + dst_segname.upper().replace("/", "_")]
         dst_segname = dst_segname.replace("/", ".")
 
-    bba.s("X%d/Y%d/%s->%s" % (info["x"], info["y"], src_segname, dst_segname), "name")
+    # bba.s("X%d/Y%d/%s->%s" % (info["x"], info["y"], src_segname, dst_segname), "name")
     bba.u32(info["src"], "src")
     bba.u32(info["dst"], "dst")
     bba.u32(info["delay"], "delay")

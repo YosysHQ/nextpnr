@@ -333,7 +333,21 @@ PipId Arch::getPipByName(IdString name) const
 IdString Arch::getPipName(PipId pip) const
 {
     NPNR_ASSERT(pip != PipId());
+
+#if 1
+    int x = chip_info->pip_data[pip.index].x;
+    int y = chip_info->pip_data[pip.index].y;
+
+    std::string src_name = chip_info->wire_data[chip_info->pip_data[pip.index].src].name.get();
+    std::replace(src_name.begin(), src_name.end(), '/', '.');
+
+    std::string dst_name = chip_info->wire_data[chip_info->pip_data[pip.index].dst].name.get();
+    std::replace(dst_name.begin(), dst_name.end(), '/', '.');
+
+    return id("X" + std::to_string(x) + "/Y" + std::to_string(y) + "/" + src_name + ".->." + dst_name);
+#else
     return id(chip_info->pip_data[pip.index].name.get());
+#endif
 }
 
 // -----------------------------------------------------------------------
@@ -470,9 +484,9 @@ DecalXY Arch::getWireDecal(WireId wire) const
 DecalXY Arch::getPipDecal(PipId pip) const
 {
     DecalXY decalxy;
-    decalxy.decal.type = DecalId::TYPE_PIP;
-    decalxy.decal.index = pip.index;
-    decalxy.decal.active = pip_to_net.at(pip.index) != IdString();
+    // decalxy.decal.type = DecalId::TYPE_PIP;
+    // decalxy.decal.index = pip.index;
+    // decalxy.decal.active = pip_to_net.at(pip.index) != IdString();
     return decalxy;
 };
 
