@@ -21,6 +21,7 @@
 #define DESIGNWIDGET_H
 
 #include <QTreeWidget>
+#include <QVariant>
 #include "nextpnr.h"
 #include "qtgroupboxpropertybrowser.h"
 #include "qtpropertymanager.h"
@@ -28,6 +29,16 @@
 #include "qtvariantproperty.h"
 
 NEXTPNR_NAMESPACE_BEGIN
+
+enum class ElementType
+{
+    NONE,
+    BEL,
+    WIRE,
+    PIP,
+    NET,
+    CELL
+};
 
 class DesignWidget : public QWidget
 {
@@ -38,9 +49,13 @@ class DesignWidget : public QWidget
     ~DesignWidget();
 
   private:
-    void addProperty(QtProperty *property, const QString &id);
     void clearProperties();
-
+    QtProperty *addTopLevelProperty(const QString &id);
+    QtProperty *addSubGroup(QtProperty *topItem, const QString &name);
+    void addProperty(QtProperty *topItem, int propertyType, const QString &name, QVariant value,
+                     const ElementType &type = ElementType::NONE);
+    QString getElementTypeName(ElementType type);
+    ElementType getElementTypeByName(QString type);
   Q_SIGNALS:
     void info(std::string text);
     void selected(std::vector<DecalXY> decal);
@@ -49,6 +64,7 @@ class DesignWidget : public QWidget
     void prepareMenu(const QPoint &pos);
     void onItemSelectionChanged();
     void selectObject();
+    void onCurrentPropertyChanged(QtBrowserItem *_item);
   public Q_SLOTS:
     void newContext(Context *ctx);
     void updateTree();

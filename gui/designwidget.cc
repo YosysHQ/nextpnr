@@ -29,16 +29,6 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-enum class ElementType
-{
-    NONE,
-    BEL,
-    WIRE,
-    PIP,
-    NET,
-    CELL
-};
-
 class ElementTreeItem : public QTreeWidgetItem
 {
   public:
@@ -87,27 +77,28 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr), net
     propertyEditor = new QtTreePropertyBrowser(this);
     propertyEditor->setFactoryForManager(variantManager, variantFactory);
     propertyEditor->setPropertiesWithoutValueMarked(true);
-
+    connect(propertyEditor, SIGNAL(currentItemChanged(QtBrowserItem *)), this,
+            SLOT(onCurrentPropertyChanged(QtBrowserItem *)));
     propertyEditor->show();
-    
+
     QLineEdit *lineEdit = new QLineEdit();
     lineEdit->setClearButtonEnabled(true);
     lineEdit->addAction(QIcon(":/icons/resources/zoom.png"), QLineEdit::LeadingPosition);
     lineEdit->setPlaceholderText("Search...");
 
-    actionFirst = new QAction("", this);    
+    actionFirst = new QAction("", this);
     actionFirst->setIcon(QIcon(":/icons/resources/resultset_first.png"));
     actionFirst->setEnabled(false);
 
-    actionPrev = new QAction("", this);    
+    actionPrev = new QAction("", this);
     actionPrev->setIcon(QIcon(":/icons/resources/resultset_previous.png"));
     actionPrev->setEnabled(false);
 
-    actionNext = new QAction("", this);    
+    actionNext = new QAction("", this);
     actionNext->setIcon(QIcon(":/icons/resources/resultset_next.png"));
     actionNext->setEnabled(false);
 
-    actionLast = new QAction("", this);    
+    actionLast = new QAction("", this);
     actionLast->setIcon(QIcon(":/icons/resources/resultset_last.png"));
     actionLast->setEnabled(false);
 
@@ -301,12 +292,13 @@ void DesignWidget::updateTree()
         cells_root->addChild(item.second);
     }
 }
-
-void DesignWidget::addProperty(QtProperty *property, const QString &id)
+QtProperty *DesignWidget::addTopLevelProperty(const QString &id)
 {
-    propertyToId[property] = id;
-    idToProperty[id] = property;
-    propertyEditor->addProperty(property);
+    QtProperty *topItem = groupManager->addProperty(id);
+    propertyToId[topItem] = id;
+    idToProperty[id] = topItem;
+    propertyEditor->addProperty(topItem);
+    return topItem;
 }
 
 void DesignWidget::clearProperties()
@@ -320,10 +312,90 @@ void DesignWidget::clearProperties()
     idToProperty.clear();
 }
 
+void DesignWidget::onCurrentPropertyChanged(QtBrowserItem *_item)
+{
+    if (_item) {
+        QtProperty *selectedProperty = _item->property();
+        QString type = selectedProperty->propertyId();
+        IdString value = ctx->id(selectedProperty->valueText().toStdString());
+        std::vector<DecalXY> decals;
+        if (type == "BEL") {
+            BelId bel = ctx->getBelByName(value);
+            if (bel != BelId()) {
+                decals.push_back(ctx->getBelDecal(bel));
+                Q_EMIT selected(decals);
+            }
+        } else if (type == "WIRE") {
+            WireId wire = ctx->getWireByName(value);
+            if (wire != WireId()) {
+                decals.push_back(ctx->getWireDecal(wire));
+                Q_EMIT selected(decals);
+            }
+        } else if (type == "PIP") {
+            PipId pip = ctx->getPipByName(value);
+            if (pip != PipId()) {
+                decals.push_back(ctx->getPipDecal(pip));
+                Q_EMIT selected(decals);
+            }
+        } else if (type == "NET") {
+        } else if (type == "CELL") {
+        }
+    }
+}
+
+QString DesignWidget::getElementTypeName(ElementType type)
+{
+    if (type == ElementType::NONE)
+        return "";
+    if (type == ElementType::BEL)
+        return "BEL";
+    if (type == ElementType::WIRE)
+        return "WIRE";
+    if (type == ElementType::PIP)
+        return "PIP";
+    if (type == ElementType::NET)
+        return "NET";
+    if (type == ElementType::CELL)
+        return "CELL";
+    return "";
+}
+
+ElementType DesignWidget::getElementTypeByName(QString type)
+{
+    if (type == "BEL")
+        return ElementType::BEL;
+    if (type == "WIRE")
+        return ElementType::WIRE;
+    if (type == "PIP")
+        return ElementType::PIP;
+    if (type == "NET")
+        return ElementType::NET;
+    if (type == "CELL")
+        return ElementType::CELL;
+    return ElementType::NONE;
+}
+
+void DesignWidget::addProperty(QtProperty *topItem, int propertyType, const QString &name, QVariant value,
+                               const ElementType &type)
+{
+    QtVariantProperty *item = readOnlyManager->addProperty(propertyType, name);
+    item->setValue(value);
+    item->setPropertyId(getElementTypeName(type));
+    topItem->addSubProperty(item);
+}
+
+QtProperty *DesignWidget::addSubGroup(QtProperty *topItem, const QString &name)
+{
+    QtProperty *item = groupManager->addProperty(name);
+    topItem->addSubProperty(item);
+    return item;
+}
+
 void DesignWidget::onItemSelectionChanged()
 {
-    if (treeWidget->selectedItems().size()== 0) return;
-    
+    if (treeWidget->selectedItems().size() == 0)
+        return;
+
     QTreeWidgetItem *clickItem = treeWidget->selectedItems().at(0);
 
     if (!clickItem->parent())
@@ -340,32 +412,18 @@ void DesignWidget::onItemSelectionChanged()
     if (type == ElementType::BEL) {
         IdString c = static_cast<IdStringTreeItem *>(clickItem)->getData();
         BelId bel = ctx->getBelByName(c);
-        
-        decals.push_back(ctx->getBelDecal(bel));        
+
+        decals.push_back(ctx->getBelDecal(bel));
         Q_EMIT selected(decals);
 
-        QtProperty *topItem = groupManager->addProperty("Bel");
-        addProperty(topItem, "Bel");
+        QtProperty *topItem = addTopLevelProperty("Bel");
 
-        QtVariantProperty *nameItem = readOnlyManager->addProperty(QVariant::String, "Name");
-        nameItem->setValue(c.c_str(ctx));
-        topItem->addSubProperty(nameItem);
-
-        QtVariantProperty *typeItem = readOnlyManager->addProperty(QVariant::String, "Type");
-        typeItem->setValue(ctx->belTypeToId(ctx->getBelType(bel)).c_str(ctx));
-        topItem->addSubProperty(typeItem);
-
-        QtVariantProperty *availItem = readOnlyManager->addProperty(QVariant::Bool, "Available");
-        availItem->setValue(ctx->checkBelAvail(bel));
-        topItem->addSubProperty(availItem);
-
-        QtVariantProperty *cellItem = readOnlyManager->addProperty(QVariant::String, "Bound Cell");
-        cellItem->setValue(ctx->getBoundBelCell(bel).c_str(ctx));
-        topItem->addSubProperty(cellItem);
-
-        QtVariantProperty *conflictItem = readOnlyManager->addProperty(QVariant::String, "Conflicting Cell");
-        conflictItem->setValue(ctx->getConflictingBelCell(bel).c_str(ctx));
-        topItem->addSubProperty(conflictItem);
+        addProperty(topItem, QVariant::String, "Name", c.c_str(ctx));
+        addProperty(topItem, QVariant::String, "Type", ctx->belTypeToId(ctx->getBelType(bel)).c_str(ctx));
+        addProperty(topItem, QVariant::Bool, "Available", ctx->checkBelAvail(bel));
+        addProperty(topItem, QVariant::String, "Bound Cell", ctx->getBoundBelCell(bel).c_str(ctx), ElementType::CELL);
+        addProperty(topItem, QVariant::String, "Conflicting Cell", ctx->getConflictingBelCell(bel).c_str(ctx),
+                    ElementType::CELL);
 
     } else if (type == ElementType::WIRE) {
         IdString c = static_cast<IdStringTreeItem *>(clickItem)->getData();
@@ -374,76 +432,45 @@ void DesignWidget::onItemSelectionChanged()
         decals.push_back(ctx->getWireDecal(wire));
         Q_EMIT selected(decals);
 
-        QtProperty *topItem = groupManager->addProperty("Wire");
-        addProperty(topItem, "Wire");
+        QtProperty *topItem = addTopLevelProperty("Wire");
 
-        QtVariantProperty *nameItem = readOnlyManager->addProperty(QVariant::String, "Name");
-        nameItem->setValue(c.c_str(ctx));
-        topItem->addSubProperty(nameItem);
+        addProperty(topItem, QVariant::String, "Name", c.c_str(ctx));
+        addProperty(topItem, QVariant::Bool, "Available", ctx->checkWireAvail(wire));
+        addProperty(topItem, QVariant::String, "Bound Net", ctx->getBoundWireNet(wire).c_str(ctx), ElementType::NET);
+        addProperty(topItem, QVariant::String, "Conflicting Net", ctx->getConflictingWireNet(wire).c_str(ctx),
+                    ElementType::NET);
 
-        QtVariantProperty *availItem = readOnlyManager->addProperty(QVariant::Bool, "Available");
-        availItem->setValue(ctx->checkWireAvail(wire));
-        topItem->addSubProperty(availItem);
-
-        QtVariantProperty *cellItem = readOnlyManager->addProperty(QVariant::String, "Bound Net");
-        cellItem->setValue(ctx->getBoundWireNet(wire).c_str(ctx));
-        topItem->addSubProperty(cellItem);
-
-        QtVariantProperty *conflictItem = readOnlyManager->addProperty(QVariant::String, "Conflicting Net");
-        conflictItem->setValue(ctx->getConflictingWireNet(wire).c_str(ctx));
-        topItem->addSubProperty(conflictItem);
-
+        QtProperty *belpinItem = addSubGroup(topItem, "BelPin Uphill");
         BelPin uphill = ctx->getBelPinUphill(wire);
-        QtProperty *belpinItem = groupManager->addProperty("BelPin Uphill");
-        topItem->addSubProperty(belpinItem);
-
-        QtVariantProperty *belUphillItem = readOnlyManager->addProperty(QVariant::String, "Bel");
         if (uphill.bel != BelId())
-            belUphillItem->setValue(ctx->getBelName(uphill.bel).c_str(ctx));
+            addProperty(belpinItem, QVariant::String, "Bel", ctx->getBelName(uphill.bel).c_str(ctx), ElementType::BEL);
         else
-            belUphillItem->setValue("");
-        belpinItem->addSubProperty(belUphillItem);
+            addProperty(belpinItem, QVariant::String, "Bel", "", ElementType::BEL);
 
-        QtVariantProperty *portUphillItem = readOnlyManager->addProperty(QVariant::String, "PortPin");
-        portUphillItem->setValue(ctx->portPinToId(uphill.pin).c_str(ctx));
-        belpinItem->addSubProperty(portUphillItem);
+        addProperty(belpinItem, QVariant::String, "PortPin", ctx->portPinToId(uphill.pin).c_str(ctx), ElementType::BEL);
 
-        QtProperty *downhillItem = groupManager->addProperty("BelPins Downhill");
-        topItem->addSubProperty(downhillItem);
+        QtProperty *downhillItem = addSubGroup(topItem, "BelPin Downhill");
         for (const auto &item : ctx->getBelPinsDownhill(wire)) {
             QString belname = "";
             if (item.bel != BelId())
                 belname = ctx->getBelName(item.bel).c_str(ctx);
             QString pinname = ctx->portPinToId(item.pin).c_str(ctx);
 
-            QtProperty *dhItem = groupManager->addProperty(belname + "-" + pinname);
-            downhillItem->addSubProperty(dhItem);
-
-            QtVariantProperty *belItem = readOnlyManager->addProperty(QVariant::String, "Bel");
-            belItem->setValue(belname);
-            dhItem->addSubProperty(belItem);
-
-            QtVariantProperty *portItem = readOnlyManager->addProperty(QVariant::String, "PortPin");
-            portItem->setValue(pinname);
-            dhItem->addSubProperty(portItem);
+            QtProperty *dhItem = addSubGroup(downhillItem, belname + "-" + pinname);
+            addProperty(dhItem, QVariant::String, "Bel", belname, ElementType::BEL);
+            addProperty(dhItem, QVariant::String, "PortPin", pinname);
         }
-/*
-        QtProperty *pipsDownItem = groupManager->addProperty("Pips Downhill");
-        topItem->addSubProperty(pipsDownItem);
-        for (const auto &item : ctx->getPipsDownhill(wire)) {
-            QtVariantProperty *pipItem = readOnlyManager->addProperty(QVariant::String, "");
-            pipItem->setValue(ctx->getPipName(item).c_str(ctx));
-            pipsDownItem->addSubProperty(pipItem);
-        }
+        /*
+                QtProperty *pipsDownItem = addSubGroup(downhillItem, "Pips Downhill");
+                for (const auto &item : ctx->getPipsDownhill(wire)) {
+                    addProperty(pipsDownItem, QVariant::String, "", ctx->getPipName(item).c_str(ctx), ElementType::PIP);
+                }
 
-        QtProperty *pipsUpItem = groupManager->addProperty("Pips Uphill");
-        topItem->addSubProperty(pipsUpItem);
-        for (const auto &item : ctx->getPipsUphill(wire)) {
-            QtVariantProperty *pipItem = readOnlyManager->addProperty(QVariant::String, "");
-            pipItem->setValue(ctx->getPipName(item).c_str(ctx));
-            pipsUpItem->addSubProperty(pipItem);
-        }
-*/
+                QtProperty *pipsUpItem = addSubGroup(downhillItem, "Pips Uphill");
+                for (const auto &item : ctx->getPipsUphill(wire)) {
+                    addProperty(pipsUpItem, QVariant::String, "", ctx->getPipName(item).c_str(ctx), ElementType::PIP);
+                }
+        */
     } else if (type == ElementType::PIP) {
         IdString c = static_cast<IdStringTreeItem *>(clickItem)->getData();
         PipId pip = ctx->getPipByName(c);
@@ -451,199 +478,108 @@ void DesignWidget::onItemSelectionChanged()
         decals.push_back(ctx->getPipDecal(pip));
         Q_EMIT selected(decals);
 
-        QtProperty *topItem = groupManager->addProperty("Pip");
-        addProperty(topItem, "Pip");
+        QtProperty *topItem = addTopLevelProperty("Pip");
 
-        QtVariantProperty *nameItem = readOnlyManager->addProperty(QVariant::String, "Name");
-        nameItem->setValue(c.c_str(ctx));
-        topItem->addSubProperty(nameItem);
-
-        QtVariantProperty *availItem = readOnlyManager->addProperty(QVariant::Bool, "Available");
-        availItem->setValue(ctx->checkPipAvail(pip));
-        topItem->addSubProperty(availItem);
-
-        QtVariantProperty *cellItem = readOnlyManager->addProperty(QVariant::String, "Bound Net");
-        cellItem->setValue(ctx->getBoundPipNet(pip).c_str(ctx));
-        topItem->addSubProperty(cellItem);
-
-        QtVariantProperty *conflictItem = readOnlyManager->addProperty(QVariant::String, "Conflicting Net");
-        conflictItem->setValue(ctx->getConflictingPipNet(pip).c_str(ctx));
-        topItem->addSubProperty(conflictItem);
-
-        QtVariantProperty *srcWireItem = readOnlyManager->addProperty(QVariant::String, "Src Wire");
-        srcWireItem->setValue(ctx->getWireName(ctx->getPipSrcWire(pip)).c_str(ctx));
-        topItem->addSubProperty(srcWireItem);
-
-        QtVariantProperty *destWireItem = readOnlyManager->addProperty(QVariant::String, "Dest Wire");
-        destWireItem->setValue(ctx->getWireName(ctx->getPipDstWire(pip)).c_str(ctx));
-        topItem->addSubProperty(destWireItem);
+        addProperty(topItem, QVariant::String, "Name", c.c_str(ctx));
+        addProperty(topItem, QVariant::Bool, "Available", ctx->checkPipAvail(pip));
+        addProperty(topItem, QVariant::String, "Bound Net", ctx->getBoundPipNet(pip).c_str(ctx), ElementType::NET);
+        addProperty(topItem, QVariant::String, "Conflicting Net", ctx->getConflictingPipNet(pip).c_str(ctx),
+                    ElementType::NET);
+        addProperty(topItem, QVariant::String, "Src Wire", ctx->getWireName(ctx->getPipSrcWire(pip)).c_str(ctx),
+                    ElementType::WIRE);
+        addProperty(topItem, QVariant::String, "Dest Wire", ctx->getWireName(ctx->getPipDstWire(pip)).c_str(ctx),
+                    ElementType::WIRE);
 
         DelayInfo delay = ctx->getPipDelay(pip);
-        QtProperty *delayItem = groupManager->addProperty("Delay");
-        topItem->addSubProperty(delayItem);
 
-        QtVariantProperty *raiseDelayItem = readOnlyManager->addProperty(QVariant::Double, "Raise");
-        raiseDelayItem->setValue(delay.raiseDelay());
-        delayItem->addSubProperty(raiseDelayItem);
-
-        QtVariantProperty *fallDelayItem = readOnlyManager->addProperty(QVariant::Double, "Fall");
-        fallDelayItem->setValue(delay.fallDelay());
-        delayItem->addSubProperty(fallDelayItem);
-
-        QtVariantProperty *avgDelayItem = readOnlyManager->addProperty(QVariant::Double, "Average");
-        avgDelayItem->setValue(delay.avgDelay());
-        delayItem->addSubProperty(avgDelayItem);
-
+        QtProperty *delayItem = addSubGroup(topItem, "Delay");
+        addProperty(delayItem, QVariant::Double, "Raise", delay.raiseDelay());
+        addProperty(delayItem, QVariant::Double, "Fall", delay.fallDelay());
+        addProperty(delayItem, QVariant::Double, "Average", delay.avgDelay());
     } else if (type == ElementType::NET) {
         IdString c = static_cast<IdStringTreeItem *>(clickItem)->getData();
         NetInfo *net = ctx->nets.at(c).get();
 
-        QtProperty *topItem = groupManager->addProperty("Net");
-        addProperty(topItem, "Net");
+        QtProperty *topItem = addTopLevelProperty("Net");
 
-        QtVariantProperty *nameItem = readOnlyManager->addProperty(QVariant::String, "Name");
-        nameItem->setValue(net->name.c_str(ctx));
-        topItem->addSubProperty(nameItem);
+        addProperty(topItem, QVariant::String, "Name", net->name.c_str(ctx));
 
-        QtProperty *driverItem = groupManager->addProperty("Driver");
-        topItem->addSubProperty(driverItem);
-
-        QtVariantProperty *portItem = readOnlyManager->addProperty(QVariant::String, "Port");
-        portItem->setValue(net->driver.port.c_str(ctx));
-        driverItem->addSubProperty(portItem);
-
-        QtVariantProperty *budgetItem = readOnlyManager->addProperty(QVariant::Double, "Budget");
-        budgetItem->setValue(net->driver.budget);
-        driverItem->addSubProperty(budgetItem);
-
-        QtVariantProperty *cellNameItem = readOnlyManager->addProperty(QVariant::String, "Cell");
+        QtProperty *driverItem = addSubGroup(topItem, "Driver");
+        addProperty(driverItem, QVariant::String, "Port", net->driver.port.c_str(ctx));
+        addProperty(driverItem, QVariant::Double, "Budget", net->driver.budget);
         if (net->driver.cell)
-            cellNameItem->setValue(net->driver.cell->name.c_str(ctx));
+            addProperty(driverItem, QVariant::String, "Cell", net->driver.cell->name.c_str(ctx), ElementType::CELL);
         else
-            cellNameItem->setValue("");
-        driverItem->addSubProperty(cellNameItem);
+            addProperty(driverItem, QVariant::String, "Cell", "", ElementType::CELL);
 
-        QtProperty *usersItem = groupManager->addProperty("Users");
-        topItem->addSubProperty(usersItem);
+        QtProperty *usersItem = addSubGroup(topItem, "Users");
         for (auto &item : net->users) {
-            QtProperty *portItem = groupManager->addProperty(item.port.c_str(ctx));
-            usersItem->addSubProperty(portItem);
+            QtProperty *portItem = addSubGroup(usersItem, item.port.c_str(ctx));
 
-            QtVariantProperty *nameItem = readOnlyManager->addProperty(QVariant::String, "Port");
-            nameItem->setValue(item.port.c_str(ctx));
-            portItem->addSubProperty(nameItem);
-
-            QtVariantProperty *budgetItem = readOnlyManager->addProperty(QVariant::Double, "Budget");
-            budgetItem->setValue(item.budget);
-            portItem->addSubProperty(budgetItem);
-
-            QtVariantProperty *userItem = readOnlyManager->addProperty(QVariant::String, "Cell");
+            addProperty(portItem, QVariant::String, "Port", item.port.c_str(ctx));
+            addProperty(portItem, QVariant::Double, "Budget", item.budget);
             if (item.cell)
-                userItem->setValue(item.cell->name.c_str(ctx));
+                addProperty(portItem, QVariant::String, "Cell", item.cell->name.c_str(ctx), ElementType::CELL);
             else
-                userItem->setValue("");
-            portItem->addSubProperty(userItem);
+                addProperty(portItem, QVariant::String, "Cell", "", ElementType::CELL);
         }
 
-        QtProperty *attrsItem = groupManager->addProperty("Attributes");
-        topItem->addSubProperty(attrsItem);
+        QtProperty *attrsItem = addSubGroup(topItem, "Attributes");
         for (auto &item : net->attrs) {
-            QtVariantProperty *attrItem = readOnlyManager->addProperty(QVariant::String, item.first.c_str(ctx));
-            attrItem->setValue(item.second.c_str());
-            attrsItem->addSubProperty(attrItem);
+            addProperty(attrsItem, QVariant::String, item.first.c_str(ctx), item.second.c_str());
         }
 
-        QtProperty *wiresItem = groupManager->addProperty("Wires");
-        topItem->addSubProperty(wiresItem);
+        QtProperty *wiresItem = addSubGroup(topItem, "Wires");
         for (auto &item : net->wires) {
             auto name = ctx->getWireName(item.first).c_str(ctx);
 
-            QtProperty *wireItem = groupManager->addProperty(name);
-
-            QtVariantProperty *nameItem = readOnlyManager->addProperty(QVariant::String, "Name");
-            nameItem->setValue(name);
-            wireItem->addSubProperty(nameItem);
-
-            QtVariantProperty *pipItem = readOnlyManager->addProperty(QVariant::String, "Pip");
+            QtProperty *wireItem = addSubGroup(wiresItem, name);
+            addProperty(wireItem, QVariant::String, "Name", name);
 
             if (item.second.pip != PipId())
-                pipItem->setValue(ctx->getPipName(item.second.pip).c_str(ctx));
+                addProperty(wireItem, QVariant::String, "Pip", ctx->getPipName(item.second.pip).c_str(ctx),
+                            ElementType::PIP);
             else
-                pipItem->setValue("");
-            wireItem->addSubProperty(pipItem);
+                addProperty(wireItem, QVariant::String, "Pip", "", ElementType::PIP);
 
-            QtVariantProperty *strengthItem = readOnlyManager->addProperty(QVariant::Int, "Strength");
-            strengthItem->setValue((int)item.second.strength);
-            wireItem->addSubProperty(strengthItem);
-
-            wiresItem->addSubProperty(wireItem);
+            addProperty(wireItem, QVariant::Int, "Strength", (int)item.second.strength);
         }
 
     } else if (type == ElementType::CELL) {
         IdString c = static_cast<IdStringTreeItem *>(clickItem)->getData();
         CellInfo *cell = ctx->cells.at(c).get();
 
-        QtProperty *topItem = groupManager->addProperty("Cell");
-        addProperty(topItem, "Cell");
+        QtProperty *topItem = addTopLevelProperty("Cell");
 
-        QtVariantProperty *cellNameItem = readOnlyManager->addProperty(QVariant::String, "Name");
-        cellNameItem->setValue(cell->name.c_str(ctx));
-        topItem->addSubProperty(cellNameItem);
-
-        QtVariantProperty *cellTypeItem = readOnlyManager->addProperty(QVariant::String, "Type");
-        cellTypeItem->setValue(cell->type.c_str(ctx));
-        topItem->addSubProperty(cellTypeItem);
-
-        QtVariantProperty *cellBelItem = readOnlyManager->addProperty(QVariant::String, "Bel");
+        addProperty(topItem, QVariant::String, "Name", cell->name.c_str(ctx));
+        addProperty(topItem, QVariant::String, "Type", cell->type.c_str(ctx));
         if (cell->bel != BelId())
-            cellBelItem->setValue(ctx->getBelName(cell->bel).c_str(ctx));
+            addProperty(topItem, QVariant::String, "Bel", ctx->getBelName(cell->bel).c_str(ctx), ElementType::BEL);
         else
-            cellBelItem->setValue("");
-        topItem->addSubProperty(cellBelItem);
+            addProperty(topItem, QVariant::String, "Bel", "", ElementType::BEL);
+        addProperty(topItem, QVariant::Int, "Bel strength", int(cell->belStrength));
 
-        QtVariantProperty *cellBelStrItem = readOnlyManager->addProperty(QVariant::Int, "Bel strength");
-        cellBelStrItem->setValue(int(cell->belStrength));
-        topItem->addSubProperty(cellBelStrItem);
-
-        QtProperty *cellPortsItem = groupManager->addProperty("Ports");
-        topItem->addSubProperty(cellPortsItem);
+        QtProperty *cellPortsItem = addSubGroup(topItem, "Ports");
         for (auto &item : cell->ports) {
             PortInfo p = item.second;
 
-            QtProperty *portInfoItem = groupManager->addProperty(p.name.c_str(ctx));
-
-            QtVariantProperty *portInfoNameItem = readOnlyManager->addProperty(QVariant::String, "Name");
-            portInfoNameItem->setValue(p.name.c_str(ctx));
-            portInfoItem->addSubProperty(portInfoNameItem);
-
-            QtVariantProperty *portInfoTypeItem = readOnlyManager->addProperty(QVariant::Int, "Type");
-            portInfoTypeItem->setValue(int(p.type));
-            portInfoItem->addSubProperty(portInfoTypeItem);
-
-            QtVariantProperty *portInfoNetItem = readOnlyManager->addProperty(QVariant::String, "Net");
+            QtProperty *portInfoItem = addSubGroup(cellPortsItem, p.name.c_str(ctx));
+            addProperty(portInfoItem, QVariant::String, "Name", p.name.c_str(ctx));
+            addProperty(portInfoItem, QVariant::Int, "Type", int(p.type));
             if (p.net)
-                portInfoNetItem->setValue(p.net->name.c_str(ctx));
+                addProperty(portInfoItem, QVariant::String, "Net", p.net->name.c_str(ctx), ElementType::NET);
             else
-                portInfoNetItem->setValue("");
-            portInfoItem->addSubProperty(portInfoNetItem);
-
-            cellPortsItem->addSubProperty(portInfoItem);
+                addProperty(portInfoItem, QVariant::String, "Net", "", ElementType::NET);
         }
 
-        QtProperty *cellAttrItem = groupManager->addProperty("Attributes");
-        topItem->addSubProperty(cellAttrItem);
+        QtProperty *cellAttrItem = addSubGroup(topItem, "Attributes");
         for (auto &item : cell->attrs) {
-            QtVariantProperty *attrItem = readOnlyManager->addProperty(QVariant::String, item.first.c_str(ctx));
-            attrItem->setValue(item.second.c_str());
-            cellAttrItem->addSubProperty(attrItem);
+            addProperty(cellAttrItem, QVariant::String, item.first.c_str(ctx), item.second.c_str());
         }
 
-        QtProperty *cellParamsItem = groupManager->addProperty("Parameters");
-        topItem->addSubProperty(cellParamsItem);
+        QtProperty *cellParamsItem = addSubGroup(topItem, "Parameters");
         for (auto &item : cell->params) {
-            QtVariantProperty *paramItem = readOnlyManager->addProperty(QVariant::String, item.first.c_str(ctx));
-            paramItem->setValue(item.second.c_str());
-            cellParamsItem->addSubProperty(paramItem);
+            addProperty(cellParamsItem, QVariant::String, item.first.c_str(ctx), item.second.c_str());
         }
 
         QtProperty *cellPinsItem = groupManager->addProperty("Pins");
@@ -652,17 +588,10 @@ void DesignWidget::onItemSelectionChanged()
             std::string cell_port = item.first.c_str(ctx);
             std::string bel_pin = item.second.c_str(ctx);
 
-            QtProperty *pinGroupItem = groupManager->addProperty((cell_port + " -> " + bel_pin).c_str());
+            QtProperty *pinGroupItem = addSubGroup(cellPortsItem, (cell_port + " -> " + bel_pin).c_str());
 
-            QtVariantProperty *cellItem = readOnlyManager->addProperty(QVariant::String, "Cell");
-            cellItem->setValue(cell_port.c_str());
-            pinGroupItem->addSubProperty(cellItem);
-
-            QtVariantProperty *belItem = readOnlyManager->addProperty(QVariant::String, "Bel");
-            belItem->setValue(bel_pin.c_str());
-            pinGroupItem->addSubProperty(belItem);
-
-            cellPinsItem->addSubProperty(pinGroupItem);
+            addProperty(pinGroupItem, QVariant::String, "Cell", cell_port.c_str(), ElementType::CELL);
+            addProperty(pinGroupItem, QVariant::String, "Bel", bel_pin.c_str(), ElementType::BEL);
         }
     }
 }
