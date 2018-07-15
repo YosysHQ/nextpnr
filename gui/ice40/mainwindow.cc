@@ -71,43 +71,43 @@ void MainWindow::createMenu()
     QMenu *menu_Design = new QMenu("&Design", menuBar);
     menuBar->addAction(menu_Design->menuAction());
 
-    actionLoadJSON = new QAction("Open JSON", this);    
+    actionLoadJSON = new QAction("Open JSON", this);
     actionLoadJSON->setIcon(QIcon(":/icons/resources/open_json.png"));
     actionLoadJSON->setStatusTip("Open an existing JSON file");
     actionLoadJSON->setEnabled(true);
     connect(actionLoadJSON, SIGNAL(triggered()), this, SLOT(open_json()));
 
-    actionLoadPCF = new QAction("Open PCF", this);    
+    actionLoadPCF = new QAction("Open PCF", this);
     actionLoadPCF->setIcon(QIcon(":/icons/resources/open_pcf.png"));
     actionLoadPCF->setStatusTip("Open PCF file");
     actionLoadPCF->setEnabled(false);
     connect(actionLoadPCF, SIGNAL(triggered()), this, SLOT(open_pcf()));
 
-    actionPack = new QAction("Pack", this);    
+    actionPack = new QAction("Pack", this);
     actionPack->setIcon(QIcon(":/icons/resources/pack.png"));
     actionPack->setStatusTip("Pack current design");
     actionPack->setEnabled(false);
     connect(actionPack, SIGNAL(triggered()), task, SIGNAL(pack()));
 
-    actionAssignBudget = new QAction("Assign Budget", this);    
+    actionAssignBudget = new QAction("Assign Budget", this);
     actionAssignBudget->setIcon(QIcon(":/icons/resources/time_add.png"));
     actionAssignBudget->setStatusTip("Assign time budget for current design");
     actionAssignBudget->setEnabled(false);
     connect(actionAssignBudget, SIGNAL(triggered()), this, SLOT(budget()));
 
-    actionPlace = new QAction("Place", this);    
+    actionPlace = new QAction("Place", this);
     actionPlace->setIcon(QIcon(":/icons/resources/place.png"));
     actionPlace->setStatusTip("Place current design");
     actionPlace->setEnabled(false);
     connect(actionPlace, SIGNAL(triggered()), this, SLOT(place()));
 
-    actionRoute = new QAction("Route", this);    
+    actionRoute = new QAction("Route", this);
     actionRoute->setIcon(QIcon(":/icons/resources/route.png"));
     actionRoute->setStatusTip("Route current design");
     actionRoute->setEnabled(false);
     connect(actionRoute, SIGNAL(triggered()), task, SIGNAL(route()));
 
-    actionSaveAsc = new QAction("Save ASC", this);    
+    actionSaveAsc = new QAction("Save ASC", this);
     actionSaveAsc->setIcon(QIcon(":/icons/resources/save_asc.png"));
     actionSaveAsc->setStatusTip("Save ASC file");
     actionSaveAsc->setEnabled(false);
@@ -132,19 +132,19 @@ void MainWindow::createMenu()
     menu_Design->addAction(actionRoute);
     menu_Design->addAction(actionSaveAsc);
 
-    actionPlay = new QAction("Play", this);    
+    actionPlay = new QAction("Play", this);
     actionPlay->setIcon(QIcon(":/icons/resources/control_play.png"));
     actionPlay->setStatusTip("Continue running task");
     actionPlay->setEnabled(false);
     connect(actionPlay, SIGNAL(triggered()), task, SLOT(continue_thread()));
 
-    actionPause = new QAction("Pause", this);    
+    actionPause = new QAction("Pause", this);
     actionPause->setIcon(QIcon(":/icons/resources/control_pause.png"));
     actionPause->setStatusTip("Pause running task");
     actionPause->setEnabled(false);
     connect(actionPause, SIGNAL(triggered()), task, SLOT(pause_thread()));
 
-    actionStop = new QAction("Stop", this);    
+    actionStop = new QAction("Stop", this);
     actionStop->setIcon(QIcon(":/icons/resources/control_stop.png"));
     actionStop->setStatusTip("Stop running task");
     actionStop->setEnabled(false);
@@ -226,6 +226,7 @@ void MainWindow::new_proj()
             ctx = std::unique_ptr<Context>(new Context(chipArgs));
             actionLoadJSON->setEnabled(true);
 
+            Q_EMIT displaySplash();
             Q_EMIT contextChanged(ctx.get());
         }
     }

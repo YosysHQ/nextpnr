@@ -390,9 +390,9 @@ with open(args.filename, "r") as f:
                 wire_xy[mode[1]] = list()
             wire_xy[mode[1]].append((int(line[0]), int(line[1])))
             if mode[1] not in wire_segments:
-                wire_segments[mode[1]] = set()
+                wire_segments[mode[1]] = dict()
             if ("TILE_WIRE_" + wname[2].upper().replace("/", "_")) in gfx_wire_ids:
-                wire_segments[mode[1]].add((wname[0], wname[1], gfx_wire_ids["TILE_WIRE_" + wname[2].upper().replace("/", "_")]))
+                wire_segments[mode[1]][(wname[0], wname[1])] = wname[2]
             continue
 
         if mode[0] in ("buffer", "routing"):
@@ -1077,6 +1077,7 @@ for wire, info in enumerate(wireinfo):
         bba.r("wire_segments_%d" % wire, "segments")
     else:
         bba.u32(0, "segments")
+
     bba.u8(info["x"], "x")
     bba.u8(info["y"], "y")
     bba.u8(wiretypes[wire_type(info["name"])], "type")
@@ -1085,18 +1086,35 @@ for wire, info in enumerate(wireinfo):
 for wire in range(num_wires):
     if len(wire_segments[wire]):
         bba.l("wire_segments_%d" % wire, "WireSegmentPOD")
-        for seg in sorted(wire_segments[wire]):
-            bba.u8(seg[0], "x")
-            bba.u8(seg[1], "y")
-            bba.u16(seg[2], "index")
+        for xy, seg in sorted(wire_segments[wire].items()):
+            bba.u8(xy[0], "x")
+            bba.u8(xy[1], "y")
+            bba.u16(gfx_wire_ids["TILE_WIRE_" + seg.upper().replace("/", "_")], "index")
 
 bba.l("pip_data_%s" % dev_name, "PipInfoPOD")
 for info in pipinfo:
+    src_seg = -1
+    src_segname = wire_names_r[info["src"]]
+    if (info["x"], info["y"]) in wire_segments[info["src"]]:
+        src_segname = wire_segments[info["src"]][(info["x"], info["y"])]
+        src_seg = gfx_wire_ids["TILE_WIRE_" + src_segname.upper().replace("/", "_")]
+        src_segname = src_segname.replace("/", ".")
+
+    dst_seg = -1
+    dst_segname = wire_names_r[info["dst"]]
+    if (info["x"], info["y"]) in wire_segments[info["dst"]]:
+        dst_segname = wire_segments[info["dst"]][(info["x"], info["y"])]
+        dst_seg = gfx_wire_ids["TILE_WIRE_" + dst_segname.upper().replace("/", "_")]
+        dst_segname = dst_segname.replace("/", ".")
+
+    # bba.s("X%d/Y%d/%s->%s" % (info["x"], info["y"], src_segname, dst_segname), "name")
     bba.u32(info["src"], "src")
     bba.u32(info["dst"], "dst")
     bba.u32(info["delay"], "delay")
     bba.u8(info["x"], "x")
     bba.u8(info["y"], "y")
+    bba.u16(src_seg, "src_seg")
+    bba.u16(dst_seg, "dst_seg")
     bba.u16(info["switch_mask"], "switch_mask")
     bba.u32(info["switch_index"], "switch_index")
 

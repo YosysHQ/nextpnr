@@ -74,6 +74,7 @@ public:
     QtProperty *indexToProperty(const QModelIndex &index) const;
     QTreeWidgetItem *indexToItem(const QModelIndex &index) const;
     QtBrowserItem *indexToBrowserItem(const QModelIndex &index) const;
+    QtBrowserItem *itemToBrowserItem(QTreeWidgetItem *item) const { return m_itemToIndex.value(item); };
     bool lastColumn(int column) const;
     void disableItem(QTreeWidgetItem *item) const;
     void enableItem(QTreeWidgetItem *item) const;
@@ -1066,6 +1067,16 @@ void QtTreePropertyBrowser::itemChanged(QtBrowserItem *item)
 void QtTreePropertyBrowser::editItem(QtBrowserItem *item)
 {
     d_ptr->editItem(item);
+}
+
+QTreeWidget *QtTreePropertyBrowser::treeWidget() const
+{
+    return d_ptr->treeWidget();
+}
+
+QtBrowserItem *QtTreePropertyBrowser::itemToBrowserItem(QTreeWidgetItem *item)
+{
+    return d_ptr->itemToBrowserItem(item);
 }
 
 #if QT_VERSION >= 0x040400

@@ -240,7 +240,8 @@ void LineShader::draw(const LineShaderData &line, const QColor &color, float thi
     vao_.release();
 }
 
-FPGAViewWidget::FPGAViewWidget(QWidget *parent) : QOpenGLWidget(parent), lineShader_(this), zoom_(500.f), ctx_(nullptr), selectedItemsChanged(false)
+FPGAViewWidget::FPGAViewWidget(QWidget *parent)
+        : QOpenGLWidget(parent), lineShader_(this), zoom_(500.f), ctx_(nullptr), selectedItemsChanged_(false)
 {
     backgroundColor_ = QColor("#000000");
     gridColor_ = QColor("#333");
@@ -250,6 +251,16 @@ FPGAViewWidget::FPGAViewWidget(QWidget *parent) : QOpenGLWidget(parent), lineSha
     gActiveColor_ = QColor("#f0f0f0");
     gSelectedColor_ = QColor("#ff6600");
     frameColor_ = QColor("#0066ba");
+    highlightColors[0] = QColor("#6495ed");
+    highlightColors[1] = QColor("#7fffd4");
+    highlightColors[2] = QColor("#98fb98");
+    highlightColors[3] = QColor("#ffd700");
+    highlightColors[4] = QColor("#cd5c5c");
+    highlightColors[5] = QColor("#fa8072");
+    highlightColors[6] = QColor("#ff69b4");
+    highlightColors[7] = QColor("#da70d6");
+    for (int i = 0; i < 8; i++)
+        highlightItemsChanged_[i] = false;
 
     auto fmt = format();
     fmt.setMajorVersion(3);
@@ -272,6 +283,7 @@ FPGAViewWidget::~FPGAViewWidget() {}
 void FPGAViewWidget::newContext(Context *ctx)
 {
     ctx_ = ctx;
+    selectedItems_.clear();
     update();
 }
 
@@ -411,12 +423,20 @@ void FPGAViewWidget::paintGL()
             drawDecal(shaders, ctx_->getGroupDecal(group));
         }
 
-        if (selectedItemsChanged)
-        {
-            selectedItemsChanged = false;
+        if (selectedItemsChanged_) {
+            selectedItemsChanged_ = false;
             selectedShader_.clear();
             for (auto decal : selectedItems_) {
                 drawDecal(selectedShader_, decal);
+            }
+        }
+        for (int i = 0; i < 8; i++) {
+            if (highlightItemsChanged_[i]) {
+                highlightItemsChanged_[i] = false;
+                highlightShader_[i].clear();
+                for (auto decal : highlightItems_[i]) {
+                    drawDecal(highlightShader_[i], decal);
+                }
             }
         }
     }
@@ -425,13 +445,22 @@ void FPGAViewWidget::paintGL()
     lineShader_.draw(shaders[1], gHiddenColor_, thick11Px, matrix);
     lineShader_.draw(shaders[2], gInactiveColor_, thick11Px, matrix);
     lineShader_.draw(shaders[3], gActiveColor_, thick11Px, matrix);
+    for (int i = 0; i < 8; i++)
+        lineShader_.draw(highlightShader_[i], highlightColors[i], thick11Px, matrix);
     lineShader_.draw(selectedShader_, gSelectedColor_, thick11Px, matrix);
 }
 
 void FPGAViewWidget::onSelectedArchItem(std::vector<DecalXY> decals)
 {
     selectedItems_ = decals;
-    selectedItemsChanged = true;
+    selectedItemsChanged_ = true;
+    update();
+}
+
+void FPGAViewWidget::onHighlightGroupChanged(std::vector<DecalXY> decals, int group)
+{
+    highlightItems_[group] = decals;
+    highlightItemsChanged_[group] = true;
     update();
 }
 

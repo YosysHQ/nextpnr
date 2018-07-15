@@ -18,6 +18,7 @@
  */
 
 #include <QAction>
+#include <QCoreApplication>
 #include <QFileDialog>
 #include <QGridLayout>
 #include <QIcon>
@@ -61,14 +62,9 @@ BaseMainWindow::BaseMainWindow(std::unique_ptr<Context> context, QWidget *parent
 
     setCentralWidget(centralWidget);
 
-    DesignWidget *designview = new DesignWidget();
+    designview = new DesignWidget();
     designview->setMinimumWidth(300);
     splitter_h->addWidget(designview);
-
-    connect(this, SIGNAL(contextChanged(Context *)), designview, SLOT(newContext(Context *)));
-    connect(this, SIGNAL(updateTreeView()), designview, SLOT(updateTree()));
-
-    connect(designview, SIGNAL(info(std::string)), this, SLOT(writeInfo(std::string)));
 
     tabWidget = new QTabWidget();
 
@@ -81,38 +77,64 @@ BaseMainWindow::BaseMainWindow(std::unique_ptr<Context> context, QWidget *parent
     centralTabWidget->addTab(fpgaView, "Graphics");
 
     connect(this, SIGNAL(contextChanged(Context *)), fpgaView, SLOT(newContext(Context *)));
-    connect(designview, SIGNAL(selected(std::vector<DecalXY>)), fpgaView, SLOT(onSelectedArchItem(std::vector<DecalXY>)));
+    connect(designview, SIGNAL(selected(std::vector<DecalXY>)), fpgaView,
+            SLOT(onSelectedArchItem(std::vector<DecalXY>)));
+
+    connect(designview, SIGNAL(highlight(std::vector<DecalXY>, int)), fpgaView,
+            SLOT(onHighlightGroupChanged(std::vector<DecalXY>, int)));
+
+    connect(this, SIGNAL(contextChanged(Context *)), designview, SLOT(newContext(Context *)));
+    connect(this, SIGNAL(updateTreeView()), designview, SLOT(updateTree()));
+
+    connect(designview, SIGNAL(info(std::string)), this, SLOT(writeInfo(std::string)));
 
     splitter_v->addWidget(centralTabWidget);
     splitter_v->addWidget(tabWidget);
+    displaySplash();
 }
 
 BaseMainWindow::~BaseMainWindow() {}
+
+void BaseMainWindow::displaySplash()
+{
+    splash = new QSplashScreen();
+    splash->setPixmap(QPixmap(":/icons/resources/splash.png"));
+    splash->show();
+    connect(designview, SIGNAL(finishContextLoad()), splash, SLOT(close()));
+    connect(designview, SIGNAL(contextLoadStatus(std::string)), this, SLOT(displaySplashMessage(std::string)));
+    QCoreApplication::instance()->processEvents();
+}
+
+void BaseMainWindow::displaySplashMessage(std::string msg)
+{
+    splash->showMessage(msg.c_str(), Qt::AlignCenter | Qt::AlignBottom, Qt::white);
+    QCoreApplication::instance()->processEvents();
+}
 
 void BaseMainWindow::writeInfo(std::string text) { console->info(text); }
 
 void BaseMainWindow::createMenusAndBars()
 {
-    actionNew = new QAction("New", this);    
+    actionNew = new QAction("New", this);
     actionNew->setIcon(QIcon(":/icons/resources/new.png"));
     actionNew->setShortcuts(QKeySequence::New);
     actionNew->setStatusTip("New project file");
     connect(actionNew, SIGNAL(triggered()), this, SLOT(new_proj()));
 
-    actionOpen = new QAction("Open", this);    
+    actionOpen = new QAction("Open", this);
     actionOpen->setIcon(QIcon(":/icons/resources/open.png"));
     actionOpen->setShortcuts(QKeySequence::Open);
     actionOpen->setStatusTip("Open an existing project file");
     connect(actionOpen, SIGNAL(triggered()), this, SLOT(open_proj()));
 
-    QAction *actionSave = new QAction("Save", this);    
+    QAction *actionSave = new QAction("Save", this);
     actionSave->setIcon(QIcon(":/icons/resources/save.png"));
     actionSave->setShortcuts(QKeySequence::Save);
     actionSave->setStatusTip("Save existing project to disk");
     actionSave->setEnabled(false);
     connect(actionSave, SIGNAL(triggered()), this, SLOT(save_proj()));
 
-    QAction *actionExit = new QAction("Exit", this);    
+    QAction *actionExit = new QAction("Exit", this);
     actionExit->setIcon(QIcon(":/icons/resources/exit.png"));
     actionExit->setShortcuts(QKeySequence::Quit);
     actionExit->setStatusTip("Exit the application");

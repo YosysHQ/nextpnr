@@ -334,6 +334,7 @@ IdString Arch::getPipName(PipId pip) const
 {
     NPNR_ASSERT(pip != PipId());
 
+#if 1
     int x = chip_info->pip_data[pip.index].x;
     int y = chip_info->pip_data[pip.index].y;
 
@@ -344,6 +345,9 @@ IdString Arch::getPipName(PipId pip) const
     std::replace(dst_name.begin(), dst_name.end(), '/', '.');
 
     return id("X" + std::to_string(x) + "/Y" + std::to_string(y) + "/" + src_name + ".->." + dst_name);
+#else
+    return id(chip_info->pip_data[pip.index].name.get());
+#endif
 }
 
 // -----------------------------------------------------------------------
@@ -480,9 +484,9 @@ DecalXY Arch::getWireDecal(WireId wire) const
 DecalXY Arch::getPipDecal(PipId pip) const
 {
     DecalXY decalxy;
-    decalxy.decal.type = DecalId::TYPE_PIP;
-    decalxy.decal.index = pip.index;
-    decalxy.decal.active = pip_to_net.at(pip.index) != IdString();
+    // decalxy.decal.type = DecalId::TYPE_PIP;
+    // decalxy.decal.index = pip.index;
+    // decalxy.decal.active = pip_to_net.at(pip.index) != IdString();
     return decalxy;
 };
 
@@ -512,16 +516,19 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
     }
 
     if (decal.type == DecalId::TYPE_WIRE) {
-        WireId wire;
-        wire.index = decal.index;
-
-        int n = chip_info->wire_data[wire.index].num_segments;
-        const WireSegmentPOD *p = chip_info->wire_data[wire.index].segments.get();
+        int n = chip_info->wire_data[decal.index].num_segments;
+        const WireSegmentPOD *p = chip_info->wire_data[decal.index].segments.get();
 
         GraphicElement::style_t style = decal.active ? GraphicElement::G_ACTIVE : GraphicElement::G_INACTIVE;
 
         for (int i = 0; i < n; i++)
             gfxTileWire(ret, p[i].x, p[i].y, GfxTileWireId(p[i].index), style);
+    }
+
+    if (decal.type == DecalId::TYPE_PIP) {
+        const PipInfoPOD &p = chip_info->pip_data[decal.index];
+        GraphicElement::style_t style = decal.active ? GraphicElement::G_ACTIVE : GraphicElement::G_HIDDEN;
+        gfxTilePip(ret, p.x, p.y, GfxTileWireId(p.src_seg), GfxTileWireId(p.dst_seg), style);
     }
 
     if (decal.type == DecalId::TYPE_BEL) {
