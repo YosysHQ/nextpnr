@@ -230,6 +230,7 @@ void DesignWidget::newContext(Context *ctx)
     bel_root->setText(0, "Bels");
     treeWidget->insertTopLevelItem(0, bel_root);
     if (ctx) {
+        Q_EMIT contextLoadStatus("Configuring bels...");
         for (auto bel : ctx->getBels()) {
             auto id = ctx->getBelName(bel);
             QStringList items = QString(id.c_str(ctx)).split("/");
@@ -262,6 +263,7 @@ void DesignWidget::newContext(Context *ctx)
     wire_root->setText(0, "Wires");
     treeWidget->insertTopLevelItem(0, wire_root);
     if (ctx) {
+        Q_EMIT contextLoadStatus("Configuring wires...");
         for (auto wire : ctx->getWires()) {
             auto id = ctx->getWireName(wire);
             QStringList items = QString(id.c_str(ctx)).split("/");
@@ -293,6 +295,7 @@ void DesignWidget::newContext(Context *ctx)
     pip_root->setText(0, "Pips");
     treeWidget->insertTopLevelItem(0, pip_root);
     if (ctx) {
+        Q_EMIT contextLoadStatus("Configuring pips...");
         for (auto pip : ctx->getPips()) {
             auto id = ctx->getPipName(pip);
             QStringList items = QString(id.c_str(ctx)).split("/");
@@ -328,6 +331,8 @@ void DesignWidget::newContext(Context *ctx)
     cells_root = new QTreeWidgetItem(treeWidget);
     cells_root->setText(0, "Cells");
     treeWidget->insertTopLevelItem(0, cells_root);
+
+    Q_EMIT finishContextLoad();
 }
 
 void DesignWidget::updateTree()

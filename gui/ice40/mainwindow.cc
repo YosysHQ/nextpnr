@@ -226,6 +226,7 @@ void MainWindow::new_proj()
             ctx = std::unique_ptr<Context>(new Context(chipArgs));
             actionLoadJSON->setEnabled(true);
 
+            Q_EMIT displaySplash();
             Q_EMIT contextChanged(ctx.get());
         }
     }
