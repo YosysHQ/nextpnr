@@ -88,18 +88,42 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr), net
     actionFirst = new QAction("", this);
     actionFirst->setIcon(QIcon(":/icons/resources/resultset_first.png"));
     actionFirst->setEnabled(false);
+    connect(actionFirst, &QAction::triggered, this, [this] {
+        history_ignore = true;
+        history_index = 0;
+        treeWidget->setCurrentItem(history.at(history_index));
+        updateButtons();
+    });
 
     actionPrev = new QAction("", this);
     actionPrev->setIcon(QIcon(":/icons/resources/resultset_previous.png"));
     actionPrev->setEnabled(false);
+    connect(actionPrev, &QAction::triggered, this, [this] {
+        history_ignore = true;
+        history_index--;
+        treeWidget->setCurrentItem(history.at(history_index));
+        updateButtons();
+    });
 
     actionNext = new QAction("", this);
     actionNext->setIcon(QIcon(":/icons/resources/resultset_next.png"));
     actionNext->setEnabled(false);
+    connect(actionNext, &QAction::triggered, this, [this] {
+        history_ignore = true;
+        history_index++;
+        treeWidget->setCurrentItem(history.at(history_index));
+        updateButtons();
+    });
 
     actionLast = new QAction("", this);
     actionLast->setIcon(QIcon(":/icons/resources/resultset_last.png"));
     actionLast->setEnabled(false);
+    connect(actionLast, &QAction::triggered, this, [this] {
+        history_ignore = true;
+        history_index = int(history.size() - 1);
+        treeWidget->setCurrentItem(history.at(history_index));
+        updateButtons();
+    });
 
     QToolBar *toolbar = new QToolBar();
     toolbar->addAction(actionFirst);
@@ -148,13 +172,43 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr), net
     connect(propertyEditor->treeWidget(), &QTreeWidget::itemDoubleClicked, this, &DesignWidget::onItemDoubleClicked);
 
     connect(treeWidget, SIGNAL(itemSelectionChanged()), SLOT(onItemSelectionChanged()));
+
+    history_index = -1;
+    history_ignore = false;
 }
 
 DesignWidget::~DesignWidget() {}
 
+void DesignWidget::updateButtons()
+{
+    int count = int(history.size());
+    actionFirst->setEnabled(history_index > 0);
+    actionPrev->setEnabled(history_index > 0);
+    actionNext->setEnabled(history_index < (count - 1));
+    actionLast->setEnabled(history_index < (count - 1));
+}
+
+void DesignWidget::addToHistory(QTreeWidgetItem *item)
+{
+    if (!history_ignore) {
+        int count = int(history.size());
+        for (int i = count - 1; i > history_index; i--)
+            history.pop_back();
+        history.push_back(item);
+        history_index++;
+    }
+    history_ignore = false;
+    updateButtons();
+}
+
 void DesignWidget::newContext(Context *ctx)
 {
     treeWidget->clear();
+    history_ignore = false;
+    history_index = -1;
+    history.clear();
+    updateButtons();
+
     for (int i = 0; i < 6; i++)
         nameToItem[i].clear();
 
@@ -443,6 +497,8 @@ void DesignWidget::onItemSelectionChanged()
     }
 
     std::vector<DecalXY> decals;
+
+    addToHistory(clickItem);
 
     clearProperties();
     if (type == ElementType::BEL) {

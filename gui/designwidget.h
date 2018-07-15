@@ -57,6 +57,8 @@ class DesignWidget : public QWidget
     QString getElementTypeName(ElementType type);
     ElementType getElementTypeByName(QString type);
     int getElementIndex(ElementType type);
+    void updateButtons();
+    void addToHistory(QTreeWidgetItem *item);
   Q_SIGNALS:
     void info(std::string text);
     void selected(std::vector<DecalXY> decal);
@@ -86,6 +88,9 @@ class DesignWidget : public QWidget
     QMap<QString, QtProperty *> idToProperty;
 
     QMap<QString, QTreeWidgetItem *> nameToItem[6];
+    std::vector<QTreeWidgetItem *> history;
+    int history_index;
+    bool history_ignore;
 
     QTreeWidgetItem *nets_root;
     QTreeWidgetItem *cells_root;
