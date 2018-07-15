@@ -155,6 +155,9 @@ DesignWidget::~DesignWidget() {}
 void DesignWidget::newContext(Context *ctx)
 {
     treeWidget->clear();
+    for (int i = 0; i < 6; i++)
+        nameToItem[i].clear();
+
     this->ctx = ctx;
 
     // Add bels to tree
@@ -174,7 +177,7 @@ void DesignWidget::newContext(Context *ctx)
                 name += items.at(i);
                 if (!bel_items.contains(name)) {
                     if (i == items.size() - 1)
-                        bel_items.insert(name, new IdStringTreeItem(id, ElementType::BEL, items.at(i), parent));
+                        nameToItem[0].insert(name, new IdStringTreeItem(id, ElementType::BEL, items.at(i), parent));
                     else
                         bel_items.insert(name, new ElementTreeItem(ElementType::NONE, items.at(i), parent));
                 }
@@ -183,6 +186,9 @@ void DesignWidget::newContext(Context *ctx)
         }
     }
     for (auto bel : bel_items.toStdMap()) {
+        bel_root->addChild(bel.second);
+    }
+    for (auto bel : nameToItem[0].toStdMap()) {
         bel_root->addChild(bel.second);
     }
 
@@ -203,7 +209,7 @@ void DesignWidget::newContext(Context *ctx)
                 name += items.at(i);
                 if (!wire_items.contains(name)) {
                     if (i == items.size() - 1)
-                        wire_items.insert(name, new IdStringTreeItem(id, ElementType::WIRE, items.at(i), parent));
+                        nameToItem[1].insert(name, new IdStringTreeItem(id, ElementType::WIRE, items.at(i), parent));
                     else
                         wire_items.insert(name, new ElementTreeItem(ElementType::NONE, items.at(i), parent));
                 }
@@ -214,7 +220,9 @@ void DesignWidget::newContext(Context *ctx)
     for (auto wire : wire_items.toStdMap()) {
         wire_root->addChild(wire.second);
     }
-
+    for (auto wire : nameToItem[1].toStdMap()) {
+        wire_root->addChild(wire.second);
+    }
     // Add pips to tree
     QTreeWidgetItem *pip_root = new QTreeWidgetItem(treeWidget);
     QMap<QString, QTreeWidgetItem *> pip_items;
@@ -232,7 +240,7 @@ void DesignWidget::newContext(Context *ctx)
                 name += items.at(i);
                 if (!pip_items.contains(name)) {
                     if (i == items.size() - 1)
-                        pip_items.insert(name, new IdStringTreeItem(id, ElementType::PIP, items.at(i), parent));
+                        nameToItem[2].insert(name, new IdStringTreeItem(id, ElementType::PIP, items.at(i), parent));
                     else
                         pip_items.insert(name, new ElementTreeItem(ElementType::NONE, items.at(i), parent));
                 }
@@ -241,6 +249,9 @@ void DesignWidget::newContext(Context *ctx)
         }
     }
     for (auto pip : pip_items.toStdMap()) {
+        pip_root->addChild(pip.second);
+    }
+    for (auto pip : nameToItem[2].toStdMap()) {
         pip_root->addChild(pip.second);
     }
 
@@ -260,36 +271,38 @@ void DesignWidget::updateTree()
     clearProperties();
     delete nets_root;
     delete cells_root;
+    nameToItem[3].clear();
+    nameToItem[4].clear();
 
     // Add nets to tree
     nets_root = new QTreeWidgetItem(treeWidget);
-    QMap<QString, QTreeWidgetItem *> nets_items;
     nets_root->setText(0, "Nets");
     treeWidget->insertTopLevelItem(0, nets_root);
     if (ctx) {
         for (auto &item : ctx->nets) {
             auto id = item.first;
             QString name = QString(id.c_str(ctx));
-            nets_items.insert(name, new IdStringTreeItem(id, ElementType::NET, name, nullptr));
+            IdStringTreeItem *newItem = new IdStringTreeItem(id, ElementType::NET, name, nullptr);
+            nameToItem[3].insert(name, newItem);
         }
     }
-    for (auto item : nets_items.toStdMap()) {
+    for (auto item : nameToItem[3].toStdMap()) {
         nets_root->addChild(item.second);
     }
 
     // Add cells to tree
     cells_root = new QTreeWidgetItem(treeWidget);
-    QMap<QString, QTreeWidgetItem *> cells_items;
     cells_root->setText(0, "Cells");
     treeWidget->insertTopLevelItem(0, cells_root);
     if (ctx) {
         for (auto &item : ctx->cells) {
             auto id = item.first;
             QString name = QString(id.c_str(ctx));
-            cells_items.insert(name, new IdStringTreeItem(id, ElementType::CELL, name, nullptr));
+            IdStringTreeItem *newItem = new IdStringTreeItem(id, ElementType::CELL, name, nullptr);
+            nameToItem[4].insert(name, newItem);
         }
     }
-    for (auto item : cells_items.toStdMap()) {
+    for (auto item : nameToItem[4].toStdMap()) {
         cells_root->addChild(item.second);
     }
 }
@@ -367,6 +380,20 @@ QString DesignWidget::getElementTypeName(ElementType type)
     if (type == ElementType::CELL)
         return "CELL";
     return "";
+}
+int DesignWidget::getElementIndex(ElementType type)
+{
+    if (type == ElementType::BEL)
+        return 0;
+    if (type == ElementType::WIRE)
+        return 1;
+    if (type == ElementType::PIP)
+        return 2;
+    if (type == ElementType::NET)
+        return 3;
+    if (type == ElementType::CELL)
+        return 4;
+    return -1;
 }
 
 ElementType DesignWidget::getElementTypeByName(QString type)
@@ -615,7 +642,6 @@ void DesignWidget::prepareMenuProperty(const QPoint &pos)
 
     QtBrowserItem *browserItem = propertyEditor->itemToBrowserItem(itemContextMenu);
 
-    // if (((ElementTreeItem*)itemContextMenu)->getType() == ElementType::NONE) return;
     QMenu menu(this);
     QAction *selectAction = new QAction("&Select", this);
     connect(selectAction, &QAction::triggered, this, [this, browserItem] { onCurrentPropertySelected(browserItem); });
@@ -629,13 +655,15 @@ void DesignWidget::onItemDoubleClicked(QTreeWidgetItem *item, int column)
 {
     QtProperty *selectedProperty = propertyEditor->itemToBrowserItem(item)->property();
     ElementType type = getElementTypeByName(selectedProperty->propertyId());
-    IdString value = ctx->id(selectedProperty->valueText().toStdString());
+    QString value = selectedProperty->valueText();
+    int index = getElementIndex(type);
     switch (type) {
     case ElementType::NONE:
         return;
-    default:
-        Q_EMIT info("double clicked " + std::string(value.c_str(ctx)) + "\n");
-        break;
+    default: {
+        if (nameToItem[index].contains(value))
+            treeWidget->setCurrentItem(nameToItem[index].value(value));
+    } break;
     }
 }
 

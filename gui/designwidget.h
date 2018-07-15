@@ -56,6 +56,7 @@ class DesignWidget : public QWidget
                      const ElementType &type = ElementType::NONE);
     QString getElementTypeName(ElementType type);
     ElementType getElementTypeByName(QString type);
+    int getElementIndex(ElementType type);
   Q_SIGNALS:
     void info(std::string text);
     void selected(std::vector<DecalXY> decal);
@@ -83,6 +84,9 @@ class DesignWidget : public QWidget
 
     QMap<QtProperty *, QString> propertyToId;
     QMap<QString, QtProperty *> idToProperty;
+
+    QMap<QString, QTreeWidgetItem *> nameToItem[6];
+
     QTreeWidgetItem *nets_root;
     QTreeWidgetItem *cells_root;
 
