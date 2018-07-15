@@ -172,9 +172,19 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr), net
     connect(propertyEditor->treeWidget(), &QTreeWidget::itemDoubleClicked, this, &DesignWidget::onItemDoubleClicked);
 
     connect(treeWidget, SIGNAL(itemSelectionChanged()), SLOT(onItemSelectionChanged()));
+    connect(treeWidget, &QTreeWidget::customContextMenuRequested, this, &DesignWidget::prepareMenuTree);
 
     history_index = -1;
     history_ignore = false;
+
+    highlightColors[0] = QColor("#6495ed");
+    highlightColors[1] = QColor("#7fffd4");
+    highlightColors[2] = QColor("#98fb98");
+    highlightColors[3] = QColor("#ffd700");
+    highlightColors[4] = QColor("#cd5c5c");
+    highlightColors[5] = QColor("#fa8072");
+    highlightColors[6] = QColor("#ff69b4");
+    highlightColors[7] = QColor("#da70d6");
 }
 
 DesignWidget::~DesignWidget() {}
@@ -378,45 +388,6 @@ void DesignWidget::clearProperties()
     }
     propertyToId.clear();
     idToProperty.clear();
-}
-
-void DesignWidget::onCurrentPropertySelected(QtBrowserItem *_item)
-{
-    if (_item) {
-        QtProperty *selectedProperty = _item->property();
-        ElementType type = getElementTypeByName(selectedProperty->propertyId());
-        IdString value = ctx->id(selectedProperty->valueText().toStdString());
-        std::vector<DecalXY> decals;
-        switch (type) {
-        case ElementType::BEL: {
-            BelId bel = ctx->getBelByName(value);
-            if (bel != BelId()) {
-                decals.push_back(ctx->getBelDecal(bel));
-                Q_EMIT selected(decals);
-            }
-        } break;
-        case ElementType::WIRE: {
-            WireId wire = ctx->getWireByName(value);
-            if (wire != WireId()) {
-                decals.push_back(ctx->getWireDecal(wire));
-                Q_EMIT selected(decals);
-            }
-        } break;
-        case ElementType::PIP: {
-            PipId pip = ctx->getPipByName(value);
-            if (pip != PipId()) {
-                decals.push_back(ctx->getPipDecal(pip));
-                Q_EMIT selected(decals);
-            }
-        } break;
-        case ElementType::NET: {
-        } break;
-        case ElementType::CELL: {
-        } break;
-        default:
-            break;
-        }
-    }
 }
 
 QString DesignWidget::getElementTypeName(ElementType type)
@@ -688,6 +659,64 @@ void DesignWidget::onItemSelectionChanged()
     }
 }
 
+std::vector<DecalXY> DesignWidget::getDecals(ElementType type, IdString value)
+{
+    std::vector<DecalXY> decals;
+    switch (type) {
+    case ElementType::BEL: {
+        BelId bel = ctx->getBelByName(value);
+        if (bel != BelId()) {
+            decals.push_back(ctx->getBelDecal(bel));
+        }
+    } break;
+    case ElementType::WIRE: {
+        WireId wire = ctx->getWireByName(value);
+        if (wire != WireId()) {
+            decals.push_back(ctx->getWireDecal(wire));
+            Q_EMIT selected(decals);
+        }
+    } break;
+    case ElementType::PIP: {
+        PipId pip = ctx->getPipByName(value);
+        if (pip != PipId()) {
+            decals.push_back(ctx->getPipDecal(pip));
+            Q_EMIT selected(decals);
+        }
+    } break;
+    case ElementType::NET: {
+    } break;
+    case ElementType::CELL: {
+    } break;
+    default:
+        break;
+    }
+    return decals;
+}
+
+void DesignWidget::updateHighlightGroup(QTreeWidgetItem *item, int group)
+{
+    if (highlightSelected.contains(item)) {
+        if (highlightSelected[item] == group) {
+            highlightSelected.remove(item);
+        } else
+            highlightSelected[item] = group;
+    } else
+        highlightSelected.insert(item, group);
+
+    std::vector<DecalXY> decals;
+
+    for (auto it : highlightSelected.toStdMap()) {
+        if (it.second == group) {
+            ElementType type = static_cast<ElementTreeItem *>(it.first)->getType();
+            IdString value = static_cast<IdStringTreeItem *>(it.first)->getData();
+            std::vector<DecalXY> d = getDecals(type, value);
+            std::move(d.begin(), d.end(), std::back_inserter(decals));
+        }
+    }
+
+    Q_EMIT highlight(decals, group);
+}
+
 void DesignWidget::prepareMenuProperty(const QPoint &pos)
 {
     QTreeWidget *tree = propertyEditor->treeWidget();
@@ -697,13 +726,67 @@ void DesignWidget::prepareMenuProperty(const QPoint &pos)
         return;
 
     QtBrowserItem *browserItem = propertyEditor->itemToBrowserItem(itemContextMenu);
+    if (!browserItem)
+        return;
+    QtProperty *selectedProperty = browserItem->property();
+    ElementType type = getElementTypeByName(selectedProperty->propertyId());
+    if (type == ElementType::NONE)
+        return;
+    IdString value = ctx->id(selectedProperty->valueText().toStdString());
+
+    QTreeWidgetItem *item = nameToItem[getElementIndex(type)].value(value.c_str(ctx));
 
     QMenu menu(this);
     QAction *selectAction = new QAction("&Select", this);
-    connect(selectAction, &QAction::triggered, this, [this, browserItem] { onCurrentPropertySelected(browserItem); });
-
+    connect(selectAction, &QAction::triggered, this, [this, type, value] { Q_EMIT selected(getDecals(type, value)); });
     menu.addAction(selectAction);
 
+    QMenu *subMenu = menu.addMenu("Highlight");
+    QActionGroup *group = new QActionGroup(this);
+    group->setExclusive(true);
+    for (int i = 0; i < 8; i++) {
+        QPixmap pixmap(32, 32);
+        pixmap.fill(QColor(highlightColors[i]));
+        QAction *action = new QAction(QIcon(pixmap), ("Group " + std::to_string(i)).c_str(), this);
+        action->setCheckable(true);
+        subMenu->addAction(action);
+        group->addAction(action);
+        if (highlightSelected.contains(item) && highlightSelected[item] == i)
+            action->setChecked(true);
+        connect(action, &QAction::triggered, this, [this, i, item] { updateHighlightGroup(item, i); });
+    }
+    menu.exec(tree->mapToGlobal(pos));
+}
+
+void DesignWidget::prepareMenuTree(const QPoint &pos)
+{
+    QTreeWidget *tree = treeWidget;
+
+    itemContextMenu = tree->itemAt(pos);
+
+    ElementType type = static_cast<ElementTreeItem *>(itemContextMenu)->getType();
+    IdString value = static_cast<IdStringTreeItem *>(itemContextMenu)->getData();
+
+    if (type == ElementType::NONE)
+        return;
+
+    QTreeWidgetItem *item = nameToItem[getElementIndex(type)].value(value.c_str(ctx));
+
+    QMenu menu(this);
+    QMenu *subMenu = menu.addMenu("Highlight");
+    QActionGroup *group = new QActionGroup(this);
+    group->setExclusive(true);
+    for (int i = 0; i < 8; i++) {
+        QPixmap pixmap(32, 32);
+        pixmap.fill(QColor(highlightColors[i]));
+        QAction *action = new QAction(QIcon(pixmap), ("Group " + std::to_string(i)).c_str(), this);
+        action->setCheckable(true);
+        subMenu->addAction(action);
+        group->addAction(action);
+        if (highlightSelected.contains(item) && highlightSelected[item] == i)
+            action->setChecked(true);
+        connect(action, &QAction::triggered, this, [this, i, item] { updateHighlightGroup(item, i); });
+    }
     menu.exec(tree->mapToGlobal(pos));
 }
 

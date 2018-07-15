@@ -59,15 +59,18 @@ class DesignWidget : public QWidget
     int getElementIndex(ElementType type);
     void updateButtons();
     void addToHistory(QTreeWidgetItem *item);
+    std::vector<DecalXY> getDecals(ElementType type, IdString value);
+    void updateHighlightGroup(QTreeWidgetItem *item, int group);
   Q_SIGNALS:
     void info(std::string text);
     void selected(std::vector<DecalXY> decal);
+    void highlight(std::vector<DecalXY> decal, int group);
 
   private Q_SLOTS:
     void prepareMenuProperty(const QPoint &pos);
+    void prepareMenuTree(const QPoint &pos);
     void onItemSelectionChanged();
     void onItemDoubleClicked(QTreeWidgetItem *item, int column);
-    void onCurrentPropertySelected(QtBrowserItem *_item);
   public Q_SLOTS:
     void newContext(Context *ctx);
     void updateTree();
@@ -99,6 +102,9 @@ class DesignWidget : public QWidget
     QAction *actionPrev;
     QAction *actionNext;
     QAction *actionLast;
+
+    QColor highlightColors[8];
+    QMap<QTreeWidgetItem *, int> highlightSelected;
 };
 
 NEXTPNR_NAMESPACE_END

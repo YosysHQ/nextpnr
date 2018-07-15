@@ -245,6 +245,7 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
   public Q_SLOTS:
     void newContext(Context *ctx);
     void onSelectedArchItem(std::vector<DecalXY> decals);
+    void onHighlightGroupChanged(std::vector<DecalXY> decals, int group);
 
   private:
     QPoint lastPos_;
@@ -273,7 +274,12 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
 
     LineShaderData selectedShader_;
     std::vector<DecalXY> selectedItems_;
-    bool selectedItemsChanged;
+    bool selectedItemsChanged_;
+
+    LineShaderData highlightShader_[8];
+    std::vector<DecalXY> highlightItems_[8];
+    bool highlightItemsChanged_[8];
+    QColor highlightColors[8];
 };
 
 NEXTPNR_NAMESPACE_END
