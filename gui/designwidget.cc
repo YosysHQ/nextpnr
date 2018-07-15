@@ -528,17 +528,28 @@ void DesignWidget::onItemSelectionChanged()
             addProperty(dhItem, QVariant::String, "Bel", belname, ElementType::BEL);
             addProperty(dhItem, QVariant::String, "PortPin", pinname);
         }
-        /*
-                QtProperty *pipsDownItem = addSubGroup(downhillItem, "Pips Downhill");
-                for (const auto &item : ctx->getPipsDownhill(wire)) {
-                    addProperty(pipsDownItem, QVariant::String, "", ctx->getPipName(item).c_str(ctx), ElementType::PIP);
-                }
 
-                QtProperty *pipsUpItem = addSubGroup(downhillItem, "Pips Uphill");
-                for (const auto &item : ctx->getPipsUphill(wire)) {
-                    addProperty(pipsUpItem, QVariant::String, "", ctx->getPipName(item).c_str(ctx), ElementType::PIP);
-                }
-        */
+        int counter = 0;
+        QtProperty *pipsDownItem = addSubGroup(downhillItem, "Pips Downhill");
+        for (const auto &item : ctx->getPipsDownhill(wire)) {
+            addProperty(pipsDownItem, QVariant::String, "", ctx->getPipName(item).c_str(ctx), ElementType::PIP);
+            counter++;
+            if (counter == 50) {
+                addProperty(pipsDownItem, QVariant::String, "Warning", "Too many items...", ElementType::NONE);
+                break;
+            }
+        }
+
+        counter = 0;
+        QtProperty *pipsUpItem = addSubGroup(downhillItem, "Pips Uphill");
+        for (const auto &item : ctx->getPipsUphill(wire)) {
+            addProperty(pipsUpItem, QVariant::String, "", ctx->getPipName(item).c_str(ctx), ElementType::PIP);
+            counter++;
+            if (counter == 50) {
+                addProperty(pipsUpItem, QVariant::String, "Warning", "Too many items...", ElementType::NONE);
+                break;
+            }
+        }
     } else if (type == ElementType::PIP) {
         IdString c = static_cast<IdStringTreeItem *>(clickItem)->getData();
         PipId pip = ctx->getPipByName(c);
