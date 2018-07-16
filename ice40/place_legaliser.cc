@@ -246,7 +246,7 @@ class PlacementLegaliser
     std::tuple<int, int, int> find_closest_bel(float target_x, float target_y, CellChain &chain)
     {
         std::tuple<int, int, int> best_origin = std::make_tuple(-1, -1, -1);
-        wirelen_t best_wirelength = std::numeric_limits<wirelen_t>::max();
+        wirelen_t best_metric = std::numeric_limits<wirelen_t>::max();
         int width = ctx->chip_info->width, height = ctx->chip_info->height;
         // Slow, should radiate outwards from target position - TODO
         int chain_size = int(chain.cells.size());
@@ -260,11 +260,11 @@ class PlacementLegaliser
                         valid = false;
                         break;
                     } else {
-                        wirelen += get_cell_wirelength_at_bel(ctx, chain.cells.at(k), lb.first);
+                        wirelen += get_cell_metric_at_bel(ctx, chain.cells.at(k), lb.first, MetricType::COST);
                     }
                 }
-                if (valid && wirelen < best_wirelength) {
-                    best_wirelength = wirelen;
+                if (valid && wirelen < best_metric) {
+                    best_metric = wirelen;
                     best_origin = std::make_tuple(x, y, 0);
                 }
             }

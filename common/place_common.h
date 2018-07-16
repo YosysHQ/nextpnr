@@ -26,14 +26,20 @@ NEXTPNR_NAMESPACE_BEGIN
 
 typedef int64_t wirelen_t;
 
+enum class MetricType
+{
+    COST,
+    WIRELENGTH
+};
+
 // Return the wirelength of a net
-wirelen_t get_net_wirelength(const Context *ctx, const NetInfo *net, float &tns);
+wirelen_t get_net_metric(const Context *ctx, const NetInfo *net, MetricType type, float &tns);
 
 // Return the wirelength of all nets connected to a cell
-wirelen_t get_cell_wirelength(const Context *ctx, const CellInfo *cell);
+wirelen_t get_cell_metric(const Context *ctx, const CellInfo *cell, MetricType type);
 
 // Return the wirelength of all nets connected to a cell, when the cell is at a given bel
-wirelen_t get_cell_wirelength_at_bel(const Context *ctx, CellInfo *cell, BelId bel);
+wirelen_t get_cell_metric_at_bel(const Context *ctx, CellInfo *cell, BelId bel, MetricType type);
 
 // Place a single cell in the lowest wirelength Bel available, optionally requiring validity check
 bool place_single_cell(Context *ctx, CellInfo *cell, bool require_legality);

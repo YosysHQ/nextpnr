@@ -135,17 +135,17 @@ class SAPlacer
 
         log_info("Running simulated annealing placer.\n");
 
-        // Calculate wirelength after initial placement
-        curr_wirelength = 0;
+        // Calculate metric after initial placement
+        curr_metric = 0;
         curr_tns = 0;
         for (auto &net : ctx->nets) {
-            wirelen_t wl = get_net_wirelength(ctx, net.second.get(), curr_tns);
-            wirelengths[net.first] = wl;
-            curr_wirelength += wl;
+            wirelen_t wl = get_net_metric(ctx, net.second.get(), MetricType::COST, curr_tns);
+            metrics[net.first] = wl;
+            curr_metric += wl;
         }
 
         int n_no_progress = 0;
-        double avg_wirelength = curr_wirelength;
+        double avg_metric = curr_metric;
         temp = 10000;
 
         // Main simulated annealing loop
@@ -154,9 +154,9 @@ class SAPlacer
             improved = false;
 
             if (iter % 5 == 0 || iter == 1)
-                log_info("  at iteration #%d: temp = %f, wire length = "
+                log_info("  at iteration #%d: temp = %f, cost = "
                          "%.0f, est tns = %.02fns\n",
-                         iter, temp, double(curr_wirelength), curr_tns);
+                         iter, temp, double(curr_metric), curr_tns);
 
             for (int m = 0; m < 15; ++m) {
                 // Loop through all automatically placed cells
@@ -177,7 +177,7 @@ class SAPlacer
 
             if (temp <= 1e-3 && n_no_progress >= 5) {
                 if (iter % 5 != 0)
-                    log_info("  at iteration #%d: temp = %f, wire length = %f\n", iter, temp, double(curr_wirelength));
+                    log_info("  at iteration #%d: temp = %f, cost = %f\n", iter, temp, double(curr_metric));
                 break;
             }
 
@@ -187,8 +187,8 @@ class SAPlacer
 
             double upper = 0.6, lower = 0.4;
 
-            if (curr_wirelength < 0.95 * avg_wirelength) {
-                avg_wirelength = 0.8 * avg_wirelength + 0.2 * curr_wirelength;
+            if (curr_metric < 0.95 * avg_metric) {
+                avg_metric = 0.8 * avg_metric + 0.2 * curr_metric;
             } else {
                 if (Raccept >= 0.8) {
                     temp *= 0.7;
@@ -223,14 +223,14 @@ class SAPlacer
                 assign_budget(ctx);
             }
 
-            // Recalculate total wirelength entirely to avoid rounding errors
+            // Recalculate total metric entirely to avoid rounding errors
             // accumulating over time
-            curr_wirelength = 0;
+            curr_metric = 0;
             curr_tns = 0;
             for (auto &net : ctx->nets) {
-                wirelen_t wl = get_net_wirelength(ctx, net.second.get(), curr_tns);
-                wirelengths[net.first] = wl;
-                curr_wirelength += wl;
+                wirelen_t wl = get_net_metric(ctx, net.second.get(), MetricType::COST, curr_tns);
+                metrics[net.first] = wl;
+                curr_metric += wl;
             }
         }
         // Final post-pacement validitiy check
@@ -320,7 +320,7 @@ class SAPlacer
             if (other_cell->belStrength > STRENGTH_WEAK)
                 return false;
         }
-        wirelen_t new_wirelength = 0, delta;
+        wirelen_t new_metric = 0, delta;
         ctx->unbindBel(oldBel);
         if (other != IdString()) {
             ctx->unbindBel(newBel);
@@ -350,17 +350,17 @@ class SAPlacer
             }
         }
 
-        new_wirelength = curr_wirelength;
+        new_metric = curr_metric;
 
-        // Recalculate wirelengths for all nets touched by the peturbation
+        // Recalculate metrics for all nets touched by the peturbation
         for (auto net : update) {
-            new_wirelength -= wirelengths.at(net->name);
+            new_metric -= metrics.at(net->name);
             float temp_tns = 0;
-            wirelen_t net_new_wl = get_net_wirelength(ctx, net, temp_tns);
-            new_wirelength += net_new_wl;
+            wirelen_t net_new_wl = get_net_metric(ctx, net, MetricType::COST, temp_tns);
+            new_metric += net_new_wl;
             new_lengths.push_back(std::make_pair(net->name, net_new_wl));
         }
-        delta = new_wirelength - curr_wirelength;
+        delta = new_metric - curr_metric;
         n_move++;
         // SA acceptance criterea
         if (delta < 0 || (temp > 1e-6 && (ctx->rng() / float(0x3fffffff)) <= std::exp(-delta / temp))) {
@@ -373,9 +373,9 @@ class SAPlacer
             ctx->unbindBel(newBel);
             goto swap_fail;
         }
-        curr_wirelength = new_wirelength;
+        curr_metric = new_metric;
         for (auto new_wl : new_lengths)
-            wirelengths.at(new_wl.first) = new_wl.second;
+            metrics.at(new_wl.first) = new_wl.second;
 
         return true;
     swap_fail:
@@ -413,8 +413,8 @@ class SAPlacer
     }
 
     Context *ctx;
-    std::unordered_map<IdString, wirelen_t> wirelengths;
-    wirelen_t curr_wirelength = std::numeric_limits<wirelen_t>::max();
+    std::unordered_map<IdString, wirelen_t> metrics;
+    wirelen_t curr_metric = std::numeric_limits<wirelen_t>::max();
     float curr_tns = 0;
     float temp = 1000;
     bool improved = false;
