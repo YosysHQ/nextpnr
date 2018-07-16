@@ -195,6 +195,7 @@ void BaseMainWindow::yosys()
         yosysTab->setAttribute(Qt::WA_DeleteOnClose);
         centralTabWidget->addTab(yosysTab, "Yosys");
         centralTabWidget->setCurrentWidget(yosysTab);
+        centralTabWidget->setTabToolTip(centralTabWidget->indexOf(yosysTab),folder);
     }
 }
 NEXTPNR_NAMESPACE_END
