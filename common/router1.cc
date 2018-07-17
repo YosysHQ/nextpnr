@@ -637,7 +637,9 @@ bool router1(Context *ctx)
 
         log_info("Checksum: 0x%08x\n", ctx->checksum());
 #ifndef NDEBUG
+        ctx->lock();
         ctx->check();
+        ctx->unlock();
 #endif
         return true;
     } catch (log_execution_error_exception) {

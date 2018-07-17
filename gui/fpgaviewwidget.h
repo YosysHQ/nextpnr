@@ -21,12 +21,15 @@
 #define MAPGLWIDGET_H
 
 #include <QMainWindow>
+#include <QMutex>
 #include <QOpenGLBuffer>
 #include <QOpenGLFunctions>
 #include <QOpenGLShaderProgram>
 #include <QOpenGLVertexArrayObject>
 #include <QOpenGLWidget>
 #include <QPainter>
+#include <QThread>
+#include <QWaitCondition>
 
 #include "nextpnr.h"
 
@@ -209,14 +212,6 @@ class LineShader
 class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
 {
     Q_OBJECT
-    Q_PROPERTY(QColor backgroundColor MEMBER backgroundColor_ DESIGNABLE true)
-    Q_PROPERTY(QColor gridColor MEMBER gridColor_ DESIGNABLE true)
-    Q_PROPERTY(QColor gFrameColor MEMBER gFrameColor_ DESIGNABLE true)
-    Q_PROPERTY(QColor gHiddenColor MEMBER gHiddenColor_ DESIGNABLE true)
-    Q_PROPERTY(QColor gInactiveColor MEMBER gInactiveColor_ DESIGNABLE true)
-    Q_PROPERTY(QColor gActiveColor MEMBER gActiveColor_ DESIGNABLE true)
-    Q_PROPERTY(QColor gSelectedColor MEMBER gSelectedColor_ DESIGNABLE true)
-    Q_PROPERTY(QColor frameColor MEMBER frameColor_ DESIGNABLE true)
 
   public:
     FPGAViewWidget(QWidget *parent = 0);
@@ -246,8 +241,12 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     void newContext(Context *ctx);
     void onSelectedArchItem(std::vector<DecalXY> decals);
     void onHighlightGroupChanged(std::vector<DecalXY> decals, int group);
+    void pokeRenderer(void);
 
   private:
+    void renderLines(void);
+    void renderLinesWorker(void);
+
     QPoint lastPos_;
     LineShader lineShader_;
     QMatrix4x4 viewMove_;
@@ -263,23 +262,36 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
 
     Context *ctx_;
 
-    QColor backgroundColor_;
-    QColor gridColor_;
-    QColor gFrameColor_;
-    QColor gHiddenColor_;
-    QColor gInactiveColor_;
-    QColor gActiveColor_;
-    QColor gSelectedColor_;
-    QColor frameColor_;
+    QWaitCondition render_;
+    std::unique_ptr<QThread> renderThread_;
 
-    LineShaderData selectedShader_;
-    std::vector<DecalXY> selectedItems_;
-    bool selectedItemsChanged_;
+    struct {
+        QColor background;
+        QColor grid;
+        QColor frame;
+        QColor hidden;
+        QColor inactive;
+        QColor active;
+        QColor selected;
+        QColor highlight[8];
+    } colors_;
 
-    LineShaderData highlightShader_[8];
-    std::vector<DecalXY> highlightItems_[8];
-    bool highlightItemsChanged_[8];
-    QColor highlightColors[8];
+    struct RendererData {
+        LineShaderData decals[4];
+        LineShaderData selected;
+        LineShaderData highlighted[8];
+    };
+    
+    struct RendererArgs {
+        std::vector<DecalXY> selectedItems;
+        std::vector<DecalXY> highlightedItems[8];
+        bool highlightedOrSelectedChanged;
+    };
+
+    std::unique_ptr<RendererData> rendererData_;
+    QMutex rendererDataLock_;
+    std::unique_ptr<RendererArgs> rendererArgs_;
+    QMutex rendererArgsLock_;
 };
 
 NEXTPNR_NAMESPACE_END

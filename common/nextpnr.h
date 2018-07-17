@@ -369,7 +369,7 @@ class BaseCtx : public IdStringDB, public DeterministicRNG
 
     // --------------------------------------------------------------
 
-    bool allUiReload = false;
+    bool allUiReload = true;
     bool frameUiReload = false;
     std::unordered_set<BelId> belUiReload;
     std::unordered_set<WireId> wireUiReload;

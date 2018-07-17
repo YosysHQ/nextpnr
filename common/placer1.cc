@@ -29,6 +29,7 @@
 #include <list>
 #include <map>
 #include <ostream>
+#include <pthread.h>
 #include <queue>
 #include <set>
 #include <stdarg.h>
@@ -156,6 +157,14 @@ class SAPlacer
 
         // Main simulated annealing loop
         for (int iter = 1;; iter++) {
+            // TODO(q3k): unwat
+            pthread_yield();
+            pthread_yield();
+            pthread_yield();
+            pthread_yield();
+            pthread_yield();
+            pthread_yield();
+            pthread_yield();
             ctx->lock();
             n_move = n_accept = 0;
             improved = false;
