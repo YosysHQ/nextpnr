@@ -32,213 +32,6 @@ def get_tiletype_index(name):
 
 portpins = dict()
 
-loc_wire_indices = dict()
-loc_wires = dict()
-
-loc_bels = dict()
-wire_bel_pins_uphill = dict()
-wire_bel_pins_downhill = dict()
-
-
-# Import all wire names at all locations
-def import_location_wires(rg, x, y):
-    loc_wire_indices[x, y] = dict()
-    loc_wires[x, y] = list()
-    wire_bel_pins_uphill[x, y] = list()
-    wire_bel_pins_downhill[x, y] = list()
-    rtile = rg.tiles[pytrellis.Location(x, y)]
-    for wire in rtile.wires:
-        name = rg.to_str(wire.key())
-        idx = len(loc_wires[x, y])
-        loc_wires[x, y].append(name)
-        loc_wire_indices[x, y][name] = idx
-        wire_bel_pins_uphill[x, y].append([])
-        wire_bel_pins_downhill[x, y].append([])
-
-
-# Take a RoutingId from Trellis and make into a (relx, rely, name) tuple
-def resolve_wirename(rg, rid, cur_x, cur_y):
-    if is_global(rid.loc):
-        return (cur_x, cur_y, rg.to_str(rid.id))
-    else:
-        x = rid.loc.x
-        y = rid.loc.y
-        widx = loc_wire_indices[x, y][rg.to_str(rid.id)]
-        return (x - cur_x, y - cur_y, widx)
-
-
-loc_arc_indices = dict()  # Map RoutingId index to nextpnr index
-loc_arcs = dict()
-
-
-# Import all arc indices at a location
-def index_location_arcs(rg, x, y):
-    loc_arc_indices[x, y] = dict()
-    loc_arcs[x, y] = list()
-    rtile = rg.tiles[pytrellis.Location(x, y)]
-    for arc in rtile.arcs:
-        idx = len(loc_arcs[x, y])
-        trid = arc.key()
-        loc_arcs[x, y].append(trid)
-        loc_arc_indices[x, y][trid] = idx
-
-
-def add_bel_input(bel_x, bel_y, bel_idx, bel_pin, wire_x, wire_y, wire_name):
-    bel_pin = portpins[bel_pin]
-    loc_bels[bel_x, bel_y][bel_idx][2].append((bel_pin, (wire_x, wire_y, loc_wire_indices[wire_x, wire_y][wire_name])))
-    wire_bel_pins_downhill[wire_x, wire_y][loc_wire_indices[wire_x, wire_y][wire_name]].append((
-        (bel_x, bel_y, bel_idx), bel_pin))
-
-
-def add_bel_output(bel_x, bel_y, bel_idx, bel_pin, wire_x, wire_y, wire_name):
-    bel_pin = portpins[bel_pin]
-    loc_bels[bel_x, bel_y][bel_idx][2].append((bel_pin, (wire_x, wire_y, loc_wire_indices[wire_x, wire_y][wire_name])))
-    wire_bel_pins_uphill[wire_x, wire_y][loc_wire_indices[wire_x, wire_y][wire_name]].append((
-        (bel_x, bel_y, bel_idx), bel_pin))
-
-
-def add_slice(x, y, z):
-    idx = len(loc_bels[x, y])
-    l = ("A", "B", "C", "D")[z]
-    name = "SLICE" + l
-    loc_bels[x, y].append((name, "SLICE", []))
-    lc0 = z * 2
-    lc1 = z * 2 + 1
-    add_bel_input(x, y, idx, "A0", x, y, "A{}_SLICE".format(lc0))
-    add_bel_input(x, y, idx, "B0", x, y, "B{}_SLICE".format(lc0))
-    add_bel_input(x, y, idx, "C0", x, y, "C{}_SLICE".format(lc0))
-    add_bel_input(x, y, idx, "D0", x, y, "D{}_SLICE".format(lc0))
-    add_bel_input(x, y, idx, "M0", x, y, "M{}_SLICE".format(lc0))
-
-    add_bel_input(x, y, idx, "A1", x, y, "A{}_SLICE".format(lc1))
-    add_bel_input(x, y, idx, "B1", x, y, "B{}_SLICE".format(lc1))
-    add_bel_input(x, y, idx, "C1", x, y, "C{}_SLICE".format(lc1))
-    add_bel_input(x, y, idx, "D1", x, y, "D{}_SLICE".format(lc1))
-    add_bel_input(x, y, idx, "M1", x, y, "M{}_SLICE".format(lc1))
-
-    add_bel_input(x, y, idx, "FCI", x, y, "FCI{}_SLICE".format(l if z > 0 else ""))
-    add_bel_input(x, y, idx, "FXA", x, y, "FXA{}_SLICE".format(l))
-    add_bel_input(x, y, idx, "FXB", x, y, "FXB{}_SLICE".format(l))
-
-    add_bel_input(x, y, idx, "CLK", x, y, "CLK{}_SLICE".format(z))
-    add_bel_input(x, y, idx, "LSR", x, y, "LSR{}_SLICE".format(z))
-    add_bel_input(x, y, idx, "CE", x, y, "CE{}_SLICE".format(z))
-
-    add_bel_input(x, y, idx, "DI0", x, y, "DI{}_SLICE".format(lc0))
-    add_bel_input(x, y, idx, "DI1", x, y, "DI{}_SLICE".format(lc1))
-
-    if z == 0 or z == 1:
-        add_bel_input(x, y, idx, "WD0", x, y, "WD0{}_SLICE".format(l))
-        add_bel_input(x, y, idx, "WD1", x, y, "WD1{}_SLICE".format(l))
-
-        add_bel_input(x, y, idx, "WAD0", x, y, "WAD0{}_SLICE".format(l))
-        add_bel_input(x, y, idx, "WAD1", x, y, "WAD1{}_SLICE".format(l))
-        add_bel_input(x, y, idx, "WAD2", x, y, "WAD2{}_SLICE".format(l))
-        add_bel_input(x, y, idx, "WAD3", x, y, "WAD3{}_SLICE".format(l))
-
-        add_bel_input(x, y, idx, "WRE", x, y, "WRE{}_SLICE".format(z))
-        add_bel_input(x, y, idx, "WCK", x, y, "WCK{}_SLICE".format(z))
-
-    add_bel_output(x, y, idx, "F0", x, y, "F{}_SLICE".format(lc0))
-    add_bel_output(x, y, idx, "Q0", x, y, "Q{}_SLICE".format(lc0))
-
-    add_bel_output(x, y, idx, "F1", x, y, "F{}_SLICE".format(lc1))
-    add_bel_output(x, y, idx, "Q1", x, y, "Q{}_SLICE".format(lc1))
-
-    add_bel_output(x, y, idx, "OFX0", x, y, "F5{}_SLICE".format(l))
-    add_bel_output(x, y, idx, "OFX1", x, y, "FX{}_SLICE".format(l))
-
-    add_bel_output(x, y, idx, "FCO", x, y, "FCO{}_SLICE".format(l if z < 3 else ""))
-
-    if z == 2:
-        add_bel_output(x, y, idx, "WDO0", x, y, "WDO0C_SLICE")
-        add_bel_output(x, y, idx, "WDO1", x, y, "WDO1C_SLICE")
-        add_bel_output(x, y, idx, "WDO2", x, y, "WDO2C_SLICE")
-        add_bel_output(x, y, idx, "WDO3", x, y, "WDO3C_SLICE")
-
-        add_bel_output(x, y, idx, "WADO0", x, y, "WADO0C_SLICE")
-        add_bel_output(x, y, idx, "WADO1", x, y, "WADO1C_SLICE")
-        add_bel_output(x, y, idx, "WADO2", x, y, "WADO2C_SLICE")
-        add_bel_output(x, y, idx, "WADO3", x, y, "WADO3C_SLICE")
-
-
-def add_pio(x, y, z):
-    idx = len(loc_bels[x, y])
-    l = ("A", "B", "C", "D")[z]
-    name = "PIO" + l
-    loc_bels[x, y].append((name, "PIO", []))
-    add_bel_input(x, y, idx, "I", x, y, "PADDO{}_PIO".format(l))
-    add_bel_input(x, y, idx, "T", x, y, "PADDT{}_PIO".format(l))
-    add_bel_output(x, y, idx, "O", x, y, "JPADDI{}_PIO".format(l))
-
-
-def add_bels(chip, x, y):
-    loc_bels[x, y] = []
-    tiles = chip.get_tiles_by_position(y, x)
-    num_slices = 0
-    num_pios = 0
-    for tile in tiles:
-        tt = tile.info.type
-        if tt == "PLC2":
-            num_slices = 4
-        elif "PICL0" in tt or "PICR0" in tt:
-            num_pios = 4
-        elif "PIOT0" in tt or ("PICB0" in tt and "SPICB" not in tt):
-            num_pios = 2
-    for i in range(num_slices):
-        add_slice(x, y, i)
-    for i in range(num_pios):
-        add_pio(x, y, i)
-
-
-# Import a location, deduplicating if appropriate
-def import_location(rg, x, y):
-    rtile = rg.tiles[pytrellis.Location(x, y)]
-    arcs = []  # (src, dst, configurable, tiletype)
-    wires = []  # (name, uphill, downhill, belpin_uphill, belpins_downhill)
-    bels = []  # (name, [(pin, wire)])
-    for name in loc_wires[x, y]:
-        w = rtile.wires[rg.ident(name)]
-        arcs_uphill = []
-        arcs_downhill = []
-        belpins_uphill = []
-        belpins_downhill = []
-        for uh in w.uphill:
-            arcidx = loc_arc_indices[uh.loc.x, uh.loc.y][uh.id]
-            arcs_uphill.append((uh.loc.x - x, uh.loc.y - y, arcidx))
-        for dh in w.downhill:
-            arcidx = loc_arc_indices[dh.loc.x, dh.loc.y][dh.id]
-            arcs_downhill.append((dh.loc.x - x, dh.loc.y - y, arcidx))
-        for bp in wire_bel_pins_uphill[x, y][loc_wire_indices[x, y][name]]:
-            bel, pin = bp
-            bel_x, bel_y, bel_idx = bel
-            belpins_uphill.append(((bel_x - x, bel_y - y, bel_idx), pin))
-        for bp in wire_bel_pins_downhill[x, y][loc_wire_indices[x, y][name]]:
-            bel, pin = bp
-            bel_x, bel_y, bel_idx = bel
-            belpins_downhill.append(((bel_x - x, bel_y - y, bel_idx), pin))
-        assert len(belpins_uphill) <= 1
-        wires.append((name, tuple(arcs_downhill), tuple(arcs_uphill), tuple(belpins_uphill), tuple(belpins_downhill)))
-
-    for bel in loc_bels[x, y]:
-        name, beltype, pins = bel
-        xformed_pins = tuple((p[0], (p[1][0] - x, p[1][1] - y, p[1][2])) for p in pins)
-        bels.append((name, beltype, xformed_pins))
-
-    for arcidx in loc_arcs[x, y]:
-        a = rtile.arcs[arcidx]
-        source_wire = resolve_wirename(rg, a.source, x, y)
-        dest_wire = resolve_wirename(rg, a.sink, x, y)
-        arcs.append((source_wire, dest_wire, a.configurable, get_tiletype_index(rg.to_str(a.tiletype))))
-
-    tile_data = (tuple(wires), tuple(arcs), tuple(bels))
-    if tile_data in location_types:
-        type_at_location[x, y] = location_types[tile_data]
-    else:
-        idx = len(location_types)
-        location_types[tile_data] = idx
-        type_at_location[x, y] = idx
-
 
 class BinaryBlobAssembler:
     def __init__(self, cname, endianness, nodebug=False):
@@ -526,100 +319,96 @@ bel_types = {
     "PIO": 2
 }
 
-def write_database(dev_name, endianness):
-    def write_loc(x, y, sym_name):
-        bba.s16(x, "%s.x" % sym_name)
-        bba.s16(y, "%s.y" % sym_name)
+
+def write_database(dev_name, ddrg, endianness):
+    def write_loc(loc, sym_name):
+        bba.s16(loc.x, "%s.x" % sym_name)
+        bba.s16(loc.y, "%s.y" % sym_name)
 
     bba = BinaryBlobAssembler("chipdb_blob_%s" % dev_name, endianness)
     bba.r("chip_info", "chip_info")
 
-    for loctype, idx in sorted(location_types.items(), key=lambda x: x[1]):
-        wires, arcs, bels = loctype
-        if len(arcs) > 0:
+    loctypes = list([_.key() for _ in ddrg.locationTypes])
+
+    for idx in range(len(loctypes)):
+        loctype = ddrg.locationTypes[loctypes[idx]]
+        if len(loctype.arcs) > 0:
             bba.l("loc%d_pips" % idx, "PipInfoPOD")
-            for arc in arcs:
-                src_wire, dst_wire, configurable, tile_type = arc
-                write_loc(src_wire[0], src_wire[1], "src")
-                write_loc(dst_wire[0], dst_wire[1], "dst")
-                bba.u32(src_wire[2], "src_idx")
-                bba.u32(dst_wire[2], "dst_idx")
-                bba.u32(1, "delay")  # TODO:delay
-                bba.u16(tile_type, "tile_type")
-                bba.u8(1 if not configurable else 0, "pip_type")
+            for arc in loctype.arcs:
+                write_loc(arc.srcWire.rel, "src")
+                write_loc(arc.sinkWire.rel, "dst")
+                bba.u32(arc.srcWire.id, "src_idx")
+                bba.u32(arc.sinkWire.id, "dst_idx")
+                bba.u32(arc.delay, "delay")  # TODO:delay
+                bba.u16(get_tiletype_index(ddrg.to_str(arc.tiletype)), "tile_type")
+                bba.u8(int(arc.cls), "pip_type")
                 bba.u8(0, "padding")
-        if len(wires) > 0:
-            for wire_idx in range(len(wires)):
-                wire = wires[wire_idx]
-                name, downpips, uppips, downbels, upbels = wire
-                if len(downpips) > 0:
+        if len(loctype.wires) > 0:
+            for wire_idx in range(len(loctype.wires)):
+                wire = loctype.wires[wire_idx]
+                if len(wire.arcsDownhill) > 0:
                     bba.l("loc%d_wire%d_downpips" % (idx, wire_idx), "PipLocatorPOD")
-                    for dp in downpips:
-                        write_loc(dp[0], dp[1], "rel_loc")
-                        bba.u32(dp[2], "index")
-                if len(uppips) > 0:
+                    for dp in wire.arcsDownhill:
+                        write_loc(dp.rel, "rel_loc")
+                        bba.u32(dp.id, "index")
+                if len(wire.arcsUphill) > 0:
                     bba.l("loc%d_wire%d_uppips" % (idx, wire_idx), "PipLocatorPOD")
-                    for up in uppips:
-                        write_loc(up[0], up[1], "rel_loc")
-                        bba.u32(up[2], "index")
-                if len(downbels) > 0:
+                    for up in wire.arcsUphill:
+                        write_loc(up.rel, "rel_loc")
+                        bba.u32(up.id, "index")
+                if len(wire.belsDownhill) > 0:
                     bba.l("loc%d_wire%d_downbels" % (idx, wire_idx), "BelPortPOD")
-                    for db in downbels:
-                        bel, pin = db
-                        write_loc(bel[0], bel[1], "rel_bel_loc")
-                        bba.u32(bel[2], "bel_index")
-                        bba.u32(pin, "port")
+                    for db in wire.belsDownhill:
+                        write_loc(db.bel.rel, "rel_bel_loc")
+                        bba.u32(db.bel.id, "bel_index")
+                        bba.u32(portpins[ddrg.to_str(db.pin)], "port")
             bba.l("loc%d_wires" % idx, "WireInfoPOD")
-            for wire_idx in range(len(wires)):
-                wire = wires[wire_idx]
-                name, downpips, uppips, downbels, upbels = wire
-                bba.s(name, "name")
-                bba.u32(len(uppips), "num_uphill")
-                bba.u32(len(downpips), "num_downhill")
-                bba.r("loc%d_wire%d_uppips" % (idx, wire_idx) if len(uppips) > 0 else None, "pips_uphill")
-                bba.r("loc%d_wire%d_downpips" % (idx, wire_idx) if len(downpips) > 0 else None, "pips_downhill")
-                bba.u32(len(downbels), "num_bels_downhill")
-                if len(upbels) == 1:
-                    bel, pin = upbels[0]
-                    write_loc(bel[0], bel[1], "uphill_bel_loc")
-                    bba.u32(bel[2], "uphill_bel_idx")
-                    bba.u32(pin, "uphill_bel_pin")
+            for wire_idx in range(len(loctype.wires)):
+                wire = loctype.wires[wire_idx]
+                bba.s(ddrg.to_str(wire.name), "name")
+                bba.u32(len(wire.arcsUphill), "num_uphill")
+                bba.u32(len(wire.arcsDownhill), "num_downhill")
+                bba.r("loc%d_wire%d_uppips" % (idx, wire_idx) if len(wire.arcsUphill) > 0 else None, "pips_uphill")
+                bba.r("loc%d_wire%d_downpips" % (idx, wire_idx) if len(wire.arcsDownhill) > 0 else None, "pips_downhill")
+                bba.u32(len(wire.belsDownhill), "num_bels_downhill")
+                write_loc(wire.belUphill.bel.rel, "uphill_bel_loc")
+                if wire.belUphill.pin != -1:
+                    bba.u32(wire.belUphill.bel.id, "uphill_bel_idx")
+                    bba.u32(portpins[ddrg.to_str(wire.belUphill.pin)], "uphill_bel_pin")
                 else:
-                    write_loc(-1, -1, "bel_uphill.rel_bel_loc")
                     bba.u32(0xFFFFFFFF, "bel_uphill.bel_index")
                     bba.u32(0, "bel_uphill.port")
-                bba.r("loc%d_wire%d_downbels" % (idx, wire_idx) if len(downbels) > 0 else None, "bels_downhill")
-        if len(bels) > 0:
-            for bel_idx in range(len(bels)):
-                bel, beltype, pins = bels[bel_idx]
+                bba.r("loc%d_wire%d_downbels" % (idx, wire_idx) if len(wire.belsDownhill) > 0 else None, "bels_downhill")
+        if len(loctype.bels) > 0:
+            for bel_idx in range(len(loctype.bels)):
+                bel = loctype.bels[bel_idx]
                 bba.l("loc%d_bel%d_wires" % (idx, bel_idx), "BelPortPOD")
-                for pin in pins:
-                    port, wire = pin
-                    write_loc(wire[0], wire[1], "rel_wire_loc")
-                    bba.u32(wire[2], "wire_index")
-                    bba.u32(port, "port")
+                for pin in bel.wires:
+                    write_loc(pin.wire.rel, "rel_wire_loc")
+                    bba.u32(pin.wire.id, "wire_index")
+                    bba.u32(portpins[ddrg.to_str(pin.pin)], "port")
             bba.l("loc%d_bels" % idx, "BelInfoPOD")
-            for bel_idx in range(len(bels)):
-                bel, beltype, pins = bels[bel_idx]
-                bba.s(bel, "name")
-                bba.u32(bel_types[beltype], "type")
-                bba.u32(len(pins), "num_bel_wires")
+            for bel_idx in range(len(loctype.bels)):
+                bel = loctype.bels[bel_idx]
+                bba.s(ddrg.to_str(bel.name), "name")
+                bba.u32(bel_types[ddrg.to_str(bel.type)], "type")
+                bba.u32(len(bel.wires), "num_bel_wires")
                 bba.r("loc%d_bel%d_wires" % (idx, bel_idx), "bel_wires")
 
     bba.l("locations", "LocationTypePOD")
-    for loctype, idx in sorted(location_types.items(), key=lambda x: x[1]):
-        wires, arcs, bels = loctype
-        bba.u32(len(bels), "num_bels")
-        bba.u32(len(wires), "num_wires")
-        bba.u32(len(arcs), "num_pips")
-        bba.r("loc%d_bels" % idx if len(bels) > 0 else None, "bel_data")
-        bba.r("loc%d_wires" % idx if len(wires) > 0 else None, "wire_data")
-        bba.r("loc%d_pips" % idx if len(arcs) > 0 else None, "pips_data")
+    for idx in range(len(loctypes)):
+        loctype = ddrg.locationTypes[loctypes[idx]]
+        bba.u32(len(loctype.bels), "num_bels")
+        bba.u32(len(loctype.wires), "num_wires")
+        bba.u32(len(loctype.arcs), "num_pips")
+        bba.r("loc%d_bels" % idx if len(loctype.bels) > 0 else None, "bel_data")
+        bba.r("loc%d_wires" % idx if len(loctype.wires) > 0 else None, "wire_data")
+        bba.r("loc%d_pips" % idx if len(loctype.arcs) > 0 else None, "pips_data")
 
     bba.l("location_types", "int32_t")
     for y in range(0, max_row+1):
         for x in range(0, max_col+1):
-            bba.u32(type_at_location[x, y], "loctype")
+            bba.u32(loctypes.index(ddrg.typeAtLocation[pytrellis.Location(x, y)]), "loctype")
 
     bba.l("tiletype_names", "RelPtr<char>")
     for tt in tiletype_names:
@@ -659,28 +448,11 @@ def main():
     print("Initialising chip...")
     chip = pytrellis.Chip(dev_names[args.device])
     print("Building routing graph...")
-    rg = chip.get_routing_graph()
+    ddrg = pytrellis.make_dedup_chipdb(chip)
     max_row = chip.get_max_row()
     max_col = chip.get_max_col()
-    print("Indexing wires...")
-    for y in range(0, max_row + 1):
-        for x in range(0, max_col + 1):
-            import_location_wires(rg, x, y)
-    print("Indexing arcs...")
-    for y in range(0, max_row + 1):
-        for x in range(0, max_col + 1):
-            index_location_arcs(rg, x, y)
-    print("Adding bels...")
-    for y in range(0, max_row + 1):
-        for x in range(0, max_col + 1):
-            add_bels(chip, x, y)
-    print("Importing tiles...")
-    for y in range(0, max_row + 1):
-        for x in range(0, max_col + 1):
-            print("     At R{}C{}".format(y, x))
-            import_location(rg, x, y)
-    print("{} unique location types".format(len(location_types)))
-    bba = write_database(args.device, "le")
+    print("{} unique location types".format(len(ddrg.locationTypes)))
+    bba = write_database(args.device, ddrg, "le")
 
 
     if args.c_file:
