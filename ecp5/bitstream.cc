@@ -214,6 +214,18 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             cc.tiles[tname].add_enum(slice + ".REG1.REGSET",
                                      str_or_default(ci->params, ctx->id("REG1_REGSET"), "RESET"));
             cc.tiles[tname].add_enum(slice + ".CEMUX", str_or_default(ci->params, ctx->id("CEMUX"), "1"));
+            IdString lsrnet;
+            if (ci->ports.find(ctx->id("LSR")) != ci->ports.end() && ci->ports.at(ctx->id("LSR")).net != nullptr)
+                lsrnet = ci->ports.at(ctx->id("LSR")).net->name;
+            if (ctx->getBoundWireNet(ctx->getWireByName(
+                        ctx->id(fmt_str("X" << bel.location.x << "/Y" << bel.location.y << "/LSR0")))) == lsrnet) {
+                cc.tiles[tname].add_enum("LSR0.SRMODE", str_or_default(ci->params, ctx->id("SRMODE"), "LSR_OVER_CE"));
+                cc.tiles[tname].add_enum("LSR0.LSRMUX", str_or_default(ci->params, ctx->id("LSRMUX"), "LSR"));
+            } else if (ctx->getBoundWireNet(ctx->getWireByName(ctx->id(
+                               fmt_str("X" << bel.location.x << "/Y" << bel.location.y << "/LSR1")))) == lsrnet) {
+                cc.tiles[tname].add_enum("LSR1.SRMODE", str_or_default(ci->params, ctx->id("SRMODE"), "LSR_OVER_CE"));
+                cc.tiles[tname].add_enum("LSR1.LSRMUX", str_or_default(ci->params, ctx->id("LSRMUX"), "LSR"));
+            }
             // TODO: CLKMUX, CEMUX, carry
         } else if (ci->type == ctx->id("TRELLIS_IO")) {
             std::string pio = ctx->locInfo(bel)->bel_data[bel.index].name.get();

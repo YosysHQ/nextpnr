@@ -55,10 +55,12 @@ class BaseMainWindow : public QMainWindow
   protected Q_SLOTS:
     void writeInfo(std::string text);
     void displaySplashMessage(std::string msg);
+    void closeTab(int index);
 
     virtual void new_proj() = 0;
     virtual void open_proj() = 0;
     virtual bool save_proj() = 0;
+    void yosys();
 
   Q_SIGNALS:
     void contextChanged(Context *ctx);

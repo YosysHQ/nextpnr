@@ -73,6 +73,8 @@ template <typename F1> CellInfo *net_driven_by(const Context *ctx, const NetInfo
 {
     if (net == nullptr)
         return nullptr;
+    if (net->driver.cell == nullptr)
+        return nullptr;
     if (cell_pred(ctx, net->driver.cell) && net->driver.port == port) {
         return net->driver.cell;
     } else {
