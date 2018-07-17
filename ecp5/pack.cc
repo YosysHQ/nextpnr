@@ -52,6 +52,23 @@ class Ecp5Packer
         new_cells.clear();
     }
 
+    // Find FFs associated with LUTs, or LUT expansion muxes
+    void find_lutff_pairs()
+    {
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (is_lut(ctx, ci) || is_pfumx(ctx, ci) || is_l6mux(ctx, ci)) {
+                NetInfo *znet = ci->ports.at(ctx->id("Z")).net;
+                if (znet != nullptr) {
+                    CellInfo *ff = net_only_drives(ctx, znet, is_ff, ctx->id("DI"), false);
+                    if (ff != nullptr) {
+                        lutffPairs[ci->name] = ff->name;
+                    }
+                }
+            }
+        }
+    }
+
     // Simple "packer" to remove nextpnr IOBUFs, this assumes IOBUFs are manually instantiated
     void pack_io()
     {
@@ -126,6 +143,13 @@ class Ecp5Packer
                 replace_port(ci, ctx->id("Z"), packed.get(), ctx->id("OFX0"));
                 ctx->nets.erase(f0->name);
                 ctx->nets.erase(f1->name);
+
+                if (lutffPairs.find(ci->name) != lutffPairs.end()) {
+                    CellInfo *ff = ctx->cells.at(lutffPairs[ci->name]).get();
+                    ff_to_lc(ctx, ff, packed.get(), 0, true);
+                    packed_cells.insert(ff->name);
+                }
+
                 new_cells.push_back(std::move(packed));
                 packed_cells.insert(lc0->name);
                 packed_cells.insert(lc1->name);
@@ -157,6 +181,7 @@ class Ecp5Packer
     };
 
     std::unordered_map<IdString, SliceUsage> sliceUsage;
+    std::unordered_map<IdString, IdString> lutffPairs;
 };
 
 // Main pack function

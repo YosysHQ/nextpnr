@@ -18,6 +18,7 @@
  */
 
 #include "cells.h"
+#include <algorithm>
 #include "design_utils.h"
 #include "log.h"
 #include "util.h"
@@ -119,6 +120,49 @@ std::unique_ptr<CellInfo> create_ecp5_cell(Context *ctx, IdString type, std::str
         log_error("unable to create ECP5 cell of type %s", type.c_str(ctx));
     }
     return new_cell;
+}
+
+static void set_param_safe(bool has_ff, CellInfo *lc, IdString name, const std::string &value)
+{
+    NPNR_ASSERT(!has_ff || lc->params.at(name) == value);
+    lc->params[name] = value;
+}
+
+static void replace_port_safe(bool has_ff, CellInfo *ff, IdString ff_port, CellInfo *lc, IdString lc_port)
+{
+    if (has_ff) {
+        assert(lc->ports.at(lc_port).net == ff->ports.at(ff_port).net);
+        NetInfo *ffnet = ff->ports.at(ff_port).net;
+        if (ffnet != nullptr)
+            ffnet->users.erase(
+                    std::remove_if(ffnet->users.begin(), ffnet->users.end(),
+                                   [ff, ff_port](PortRef port) { return port.cell == ff && port.port == ff_port; }),
+                    ffnet->users.end());
+    } else {
+        replace_port(ff, ff_port, lc, lc_port);
+    }
+}
+
+void ff_to_lc(Context *ctx, CellInfo *ff, CellInfo *lc, int index, bool driven_by_lut)
+{
+    bool has_ff = lc->ports.at(ctx->id("Q0")).net != nullptr || lc->ports.at(ctx->id("Q1")).net != nullptr;
+    std::string reg = "REG" + std::to_string(index);
+    set_param_safe(has_ff, lc, ctx->id("SRMODE"), str_or_default(ff->params, ctx->id("SRMODE"), "LSR_OVER_CE"));
+    set_param_safe(has_ff, lc, ctx->id("GSR"), str_or_default(ff->params, ctx->id("GSR"), "DISABLED"));
+    set_param_safe(has_ff, lc, ctx->id("CEMUX"), str_or_default(ff->params, ctx->id("CEMUX"), "1"));
+    set_param_safe(has_ff, lc, ctx->id("LSRMUX"), str_or_default(ff->params, ctx->id("LSRMUX"), "LSR"));
+    lc->params[ctx->id(reg + "_SD")] = driven_by_lut ? "1" : "0";
+    lc->params[ctx->id(reg + "_REGSET")] = str_or_default(ff->params, ctx->id("REGSET"), "RESET");
+    replace_port_safe(has_ff, ff, ctx->id("CLK"), lc, ctx->id("CLK"));
+    replace_port_safe(has_ff, ff, ctx->id("LSR"), lc, ctx->id("LSR"));
+    replace_port_safe(has_ff, ff, ctx->id("CE"), lc, ctx->id("CE"));
+
+    replace_port(ff, ctx->id("Q"), lc, ctx->id("Q" + std::to_string(index)));
+    if (driven_by_lut) {
+        replace_port(ff, ctx->id("DI"), lc, ctx->id("DI" + std::to_string(index)));
+    } else {
+        replace_port(ff, ctx->id("DI"), lc, ctx->id("M" + std::to_string(index)));
+    }
 }
 
 NEXTPNR_NAMESPACE_END

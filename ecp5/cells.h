@@ -46,6 +46,8 @@ inline bool is_pfumx(const BaseCtx *ctx, const CellInfo *cell) { return cell->ty
 
 inline bool is_l6mux(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("L6MUX21"); }
 
+void ff_to_lc(Context *ctx, CellInfo *ff, CellInfo *lc, int index, bool driven_by_lut);
+
 NEXTPNR_NAMESPACE_END
 
 #endif
