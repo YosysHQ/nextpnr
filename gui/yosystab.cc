@@ -19,6 +19,7 @@
 
 #include "yosystab.h"
 #include <QGridLayout>
+#include <QMessageBox>
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -47,6 +48,7 @@ YosysTab::YosysTab(QString folder, QWidget *parent) : QWidget(parent)
     lineEdit->setMaximumHeight(30);
     lineEdit->setFont(f);
     lineEdit->setFocus();
+    lineEdit->setEnabled(false);
     lineEdit->setPlaceholderText("yosys>");
     connect(lineEdit, SIGNAL(textLineInserted(QString)), this, SLOT(editLineReturnPressed(QString)));
 
@@ -58,6 +60,15 @@ YosysTab::YosysTab(QString folder, QWidget *parent) : QWidget(parent)
     process = new QProcess();
     connect(process, SIGNAL(readyReadStandardError()), this, SLOT(onReadyReadStandardError()));
     connect(process, SIGNAL(readyReadStandardOutput()), this, SLOT(onReadyReadStandardOutput()));
+    connect(process, &QProcess::started, this, [this] { lineEdit->setEnabled(true); });
+    connect(process, &QProcess::errorOccurred, this, [this](QProcess::ProcessError error) {
+        if (error == QProcess::FailedToStart) {
+            QMessageBox::critical(
+                    this, QString::fromUtf8("Yosys cannot be started!"),
+                    QString::fromUtf8("<p>Please make sure you have Yosys installed and available in path</p>"));
+            Q_EMIT deleteLater();
+        }
+    });
     process->setWorkingDirectory(folder);
     process->start("yosys");
 }
