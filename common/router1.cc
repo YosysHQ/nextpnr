@@ -414,6 +414,7 @@ bool router1(Context *ctx)
 
         std::unordered_set<IdString> netsQueue;
 
+        ctx->lock();
         for (auto &net_it : ctx->nets) {
             auto net_name = net_it.first;
             auto net_info = net_it.second.get();
@@ -478,6 +479,7 @@ bool router1(Context *ctx)
                 estimatedTotalDelayCnt++;
             }
         }
+        ctx->unlock();
 
         log_info("estimated total wire delay: %.2f (avg %.2f)\n", float(estimatedTotalDelay),
                  float(estimatedTotalDelay) / estimatedTotalDelayCnt);
@@ -493,6 +495,7 @@ bool router1(Context *ctx)
 #endif
                 return false;
             }
+            ctx->lock();
 
             iterCnt++;
             if (ctx->verbose)
@@ -621,6 +624,8 @@ bool router1(Context *ctx)
 
             if (iterCnt == 8 || iterCnt == 16 || iterCnt == 32 || iterCnt == 64 || iterCnt == 128)
                 ripup_penalty += ctx->getRipupDelayPenalty();
+
+            ctx->unlock();
         }
 
         log_info("routing complete after %d iterations.\n", iterCnt);
@@ -637,7 +642,9 @@ bool router1(Context *ctx)
         return true;
     } catch (log_execution_error_exception) {
 #ifndef NDEBUG
+        ctx->lock();
         ctx->check();
+        ctx->unlock();
 #endif
         return false;
     }

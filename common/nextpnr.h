@@ -21,6 +21,8 @@
 #include <algorithm>
 #include <assert.h>
 #include <memory>
+#include <mutex>
+#include <pthread.h>
 #include <stdexcept>
 #include <stdint.h>
 #include <string>
@@ -337,12 +339,29 @@ class DeterministicRNG
 
 class BaseCtx : public IdStringDB, public DeterministicRNG
 {
+  private:
+    std::mutex mutex;
+    bool mutex_owned;
+    pthread_t mutex_owner;
+
   public:
     std::unordered_map<IdString, std::unique_ptr<NetInfo>> nets;
     std::unordered_map<IdString, std::unique_ptr<CellInfo>> cells;
 
     BaseCtx() {}
     ~BaseCtx() {}
+
+    void lock(void)
+    {
+        mutex.lock();
+        mutex_owner = pthread_self();
+    }
+
+    void unlock(void)
+    {
+        NPNR_ASSERT(pthread_equal(pthread_self(), mutex_owner) != 0);
+        mutex.unlock();
+    }
 
     Context *getCtx() { return reinterpret_cast<Context *>(this); }
 
