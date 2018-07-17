@@ -359,6 +359,32 @@ class Ecp5Packer
         flush_cells();
     }
 
+    void set_lut_input_constant(CellInfo *cell, IdString input, bool value)
+    {
+        int index = std::string("ABCD").find(input.str(ctx));
+        int init = int_or_default(cell->params, ctx->id("INIT"));
+        int new_init = 0;
+        for (int i = 0; i < 16; i++) {
+            if (((i >> index) & 0x1) != value) {
+                int other_i = (i & (~(1 << index))) | (value << index);
+                if ((init >> other_i) & 0x1)
+                    new_init |= (1 << i);
+            } else {
+                if ((init >> i) & 0x1)
+                    new_init |= (1 << i);
+            }
+        }
+        cell->params[ctx->id("INIT")] = std::to_string(init);
+        NetInfo *innet = cell->ports.at(input).net;
+        if (innet != nullptr) {
+            innet->users.erase(
+                    std::remove_if(innet->users.begin(), innet->users.end(),
+                                   [cell, input](PortRef port) { return port.cell == cell && port.port == input; }),
+                    innet->users.end());
+        }
+        cell->ports.at(input).net = nullptr;
+    }
+
   public:
     void pack()
     {
