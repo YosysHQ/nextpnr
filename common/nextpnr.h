@@ -157,6 +157,11 @@ struct GraphicElement
     std::string text;
 };
 
+struct Loc
+{
+    int x = -1, y = -1, z = -1;
+};
+
 NEXTPNR_NAMESPACE_END
 
 #include "archdefs.h"
@@ -309,6 +314,10 @@ struct Context : Arch
     float target_freq = 12e6;
 
     Context(ArchArgs args) : Arch(args) {}
+
+    BelId getBelByLocation(Loc loc) const {
+        return getBelByLocation(loc.x, loc.y, loc.z);
+    }
 
     // --------------------------------------------------------------
 

@@ -424,7 +424,34 @@ struct Arch : BaseCtx
         return range;
     }
 
-    BelRange getBelsAtSameTile(BelId bel) const;
+    Loc getBelLocation(BelId bel) const
+    {
+        Loc loc;
+        loc.x = chip_info->bel_data[bel.index].x;
+        loc.y = chip_info->bel_data[bel.index].y;
+        loc.z = chip_info->bel_data[bel.index].z;
+        return loc;
+    }
+
+    BelId getBelByLocation(int x, int y, int z) const
+    {
+        // FIXME
+        return BelId();
+    }
+
+    BelRange getBelsByTile(int x, int y) const
+    {
+        BelRange range;
+        // FIXME
+        return range;
+    }
+
+    bool getBelGlobalBuf(BelId bel) const
+    {
+        return chip_info->bel_data[bel.index].type == TYPE_SB_GB;
+    }
+
+    BelRange getBelsAtSameTile(BelId bel) const NPNR_DEPRECATED;
 
     BelType getBelType(BelId bel) const
     {
@@ -655,7 +682,7 @@ struct Arch : BaseCtx
 
     // -------------------------------------------------
 
-    void estimatePosition(BelId bel, int &x, int &y, bool &gb) const;
+    void estimatePosition(BelId bel, int &x, int &y, bool &gb) const NPNR_DEPRECATED;
     delay_t estimateDelay(WireId src, WireId dst) const;
     delay_t getDelayEpsilon() const { return 20; }
     delay_t getRipupDelayPenalty() const { return 200; }
