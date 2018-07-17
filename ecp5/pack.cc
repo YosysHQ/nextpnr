@@ -318,7 +318,7 @@ class Ecp5Packer
     // with an optional FF also
     void pack_remaining_luts()
     {
-        log_info("Unpaired LUTs into a SLICE...\n");
+        log_info("Packing unpaired LUTs into a SLICE...\n");
         for (auto cell : sorted(ctx->cells)) {
             CellInfo *ci = cell.second;
             if (is_lut(ctx, ci)) {
@@ -339,6 +339,23 @@ class Ecp5Packer
         flush_cells();
     }
 
+    // Pack flipflops that weren't paired with a LUT
+    void pack_remaining_ffs()
+    {
+        log_info("Packing unpaired FFs into a SLICE...\n");
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (is_ff(ctx, ci)) {
+                std::unique_ptr<CellInfo> slice =
+                        create_ecp5_cell(ctx, ctx->id("TRELLIS_SLICE"), ci->name.str(ctx) + "_SLICE");
+                ff_to_slice(ctx, ci, slice.get(), 0, false);
+                new_cells.push_back(std::move(slice));
+                packed_cells.insert(ci->name);
+            }
+        }
+        flush_cells();
+    }
+
   public:
     void pack()
     {
@@ -348,6 +365,7 @@ class Ecp5Packer
         pair_luts();
         pack_lut_pairs();
         pack_remaining_luts();
+        pack_remaining_ffs();
     }
 
   private:
