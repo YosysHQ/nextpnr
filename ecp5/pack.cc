@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <iterator>
 #include <unordered_set>
+#include "cells.h"
 #include "design_utils.h"
 #include "log.h"
 #include "util.h"
@@ -32,55 +33,66 @@ static bool is_nextpnr_iob(Context *ctx, CellInfo *cell)
            cell->type == ctx->id("$nextpnr_iobuf");
 }
 
-static bool is_trellis_io(const Context *ctx, const CellInfo *cell) { return cell->type == ctx->id("TRELLIS_IO"); }
-
-// Simple "packer" to remove nextpnr IOBUFs, this assumes IOBUFs are manually instantiated
-void pack_io(Context *ctx)
+class Ecp5Packer
 {
-    std::unordered_set<IdString> packed_cells;
-    std::vector<std::unique_ptr<CellInfo>> new_cells;
-    log_info("Packing IOs..\n");
+  public:
+    Ecp5Packer(Context *ctx) : ctx(ctx){};
 
-    for (auto cell : sorted(ctx->cells)) {
-        CellInfo *ci = cell.second;
-        if (is_nextpnr_iob(ctx, ci)) {
-            CellInfo *trio = nullptr;
-            if (ci->type == ctx->id("$nextpnr_ibuf") || ci->type == ctx->id("$nextpnr_iobuf")) {
-                trio = net_only_drives(ctx, ci->ports.at(ctx->id("O")).net, is_trellis_io, ctx->id("B"), true, ci);
+  private:
+    // Simple "packer" to remove nextpnr IOBUFs, this assumes IOBUFs are manually instantiated
+    void pack_io(Context *ctx)
+    {
+        std::unordered_set<IdString> packed_cells;
+        std::vector<std::unique_ptr<CellInfo>> new_cells;
+        log_info("Packing IOs..\n");
 
-            } else if (ci->type == ctx->id("$nextpnr_obuf")) {
-                trio = net_only_drives(ctx, ci->ports.at(ctx->id("I")).net, is_trellis_io, ctx->id("B"), true, ci);
-            }
-            if (trio != nullptr) {
-                // Trivial case, TRELLIS_IO used. Just destroy the net and the
-                // iobuf
-                log_info("%s feeds TRELLIS_IO %s, removing %s %s.\n", ci->name.c_str(ctx), trio->name.c_str(ctx),
-                         ci->type.c_str(ctx), ci->name.c_str(ctx));
-                NetInfo *net = trio->ports.at(ctx->id("B")).net;
-                if (net != nullptr) {
-                    ctx->nets.erase(net->name);
-                    trio->ports.at(ctx->id("B")).net = nullptr;
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (is_nextpnr_iob(ctx, ci)) {
+                CellInfo *trio = nullptr;
+                if (ci->type == ctx->id("$nextpnr_ibuf") || ci->type == ctx->id("$nextpnr_iobuf")) {
+                    trio = net_only_drives(ctx, ci->ports.at(ctx->id("O")).net, is_trellis_io, ctx->id("B"), true, ci);
+
+                } else if (ci->type == ctx->id("$nextpnr_obuf")) {
+                    trio = net_only_drives(ctx, ci->ports.at(ctx->id("I")).net, is_trellis_io, ctx->id("B"), true, ci);
                 }
-                if (ci->type == ctx->id("$nextpnr_iobuf")) {
-                    NetInfo *net2 = ci->ports.at(ctx->id("I")).net;
-                    if (net2 != nullptr) {
-                        ctx->nets.erase(net2->name);
+                if (trio != nullptr) {
+                    // Trivial case, TRELLIS_IO used. Just destroy the net and the
+                    // iobuf
+                    log_info("%s feeds TRELLIS_IO %s, removing %s %s.\n", ci->name.c_str(ctx), trio->name.c_str(ctx),
+                             ci->type.c_str(ctx), ci->name.c_str(ctx));
+                    NetInfo *net = trio->ports.at(ctx->id("B")).net;
+                    if (net != nullptr) {
+                        ctx->nets.erase(net->name);
+                        trio->ports.at(ctx->id("B")).net = nullptr;
                     }
+                    if (ci->type == ctx->id("$nextpnr_iobuf")) {
+                        NetInfo *net2 = ci->ports.at(ctx->id("I")).net;
+                        if (net2 != nullptr) {
+                            ctx->nets.erase(net2->name);
+                        }
+                    }
+                } else {
+                    log_error("TRELLIS_IO required on all top level IOs...\n");
                 }
-            } else {
-                log_error("TRELLIS_IO required on all top level IOs...\n");
+                packed_cells.insert(ci->name);
+                std::copy(ci->attrs.begin(), ci->attrs.end(), std::inserter(trio->attrs, trio->attrs.begin()));
             }
-            packed_cells.insert(ci->name);
-            std::copy(ci->attrs.begin(), ci->attrs.end(), std::inserter(trio->attrs, trio->attrs.begin()));
+        }
+        for (auto pcell : packed_cells) {
+            ctx->cells.erase(pcell);
+        }
+        for (auto &ncell : new_cells) {
+            ctx->cells[ncell->name] = std::move(ncell);
         }
     }
-    for (auto pcell : packed_cells) {
-        ctx->cells.erase(pcell);
-    }
-    for (auto &ncell : new_cells) {
-        ctx->cells[ncell->name] = std::move(ncell);
-    }
-}
+
+  public:
+    void pack() { pack_io(ctx); }
+
+  private:
+    Context *ctx;
+};
 
 // Main pack function
 bool Arch::pack()
@@ -88,7 +100,7 @@ bool Arch::pack()
     Context *ctx = getCtx();
     try {
         log_break();
-        pack_io(ctx);
+        Ecp5Packer(ctx).pack();
         log_info("Checksum: 0x%08x\n", ctx->checksum());
         return true;
     } catch (log_execution_error_exception) {

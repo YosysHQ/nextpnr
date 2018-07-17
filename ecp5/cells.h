@@ -38,6 +38,8 @@ inline bool is_carry(const BaseCtx *ctx, const CellInfo *cell) { return cell->ty
 
 inline bool is_lc(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("TRELLIS_LC"); }
 
+inline bool is_trellis_io(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("TRELLIS_IO"); }
+
 inline bool is_dpram(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("TRELLIS_DPR16X4"); }
 
 inline bool is_pfumx(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("PFUMX"); }
