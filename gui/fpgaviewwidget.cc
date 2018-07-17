@@ -400,10 +400,7 @@ void FPGAViewWidget::paintGL()
     }
     lineShader_.draw(grid, gridColor_, thick1Px, matrix);
 
-    LineShaderData shaders[4] = {LineShaderData(),
-                                 LineShaderData(),
-                                 LineShaderData(),
-                                 LineShaderData()};
+    LineShaderData shaders[4] = {LineShaderData(), LineShaderData(), LineShaderData(), LineShaderData()};
 
     if (ctx_) {
         // Draw Bels.
