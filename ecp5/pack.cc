@@ -55,6 +55,7 @@ class Ecp5Packer
     // Find FFs associated with LUTs, or LUT expansion muxes
     void find_lutff_pairs()
     {
+        log_info("Finding LUTFF pairs...\n");
         for (auto cell : sorted(ctx->cells)) {
             CellInfo *ci = cell.second;
             if (is_lut(ctx, ci) || is_pfumx(ctx, ci) || is_l6mux(ctx, ci)) {
@@ -108,8 +109,9 @@ class Ecp5Packer
     }
 
     // Find "closely connected" LUTs and pair them together
-    void pair_luts(std::unordered_map<IdString, IdString> &lutPairs)
+    void pair_luts()
     {
+        log_info("Finding LUT-LUT pairs...\n");
         std::unordered_set<IdString> procdLuts;
         for (auto cell : sorted(ctx->cells)) {
             CellInfo *ci = cell.second;
@@ -240,22 +242,25 @@ class Ecp5Packer
                 NetInfo *f1 = ci->ports.at(ctx->id("ALUT")).net;
                 if (f1 == nullptr)
                     log_error("PFUMX '%s' has disconnected port 'ALUT'\n", ci->name.c_str(ctx));
-                CellInfo *lc0 = net_driven_by(ctx, f0, is_lut, ctx->id("Z"));
-                CellInfo *lc1 = net_driven_by(ctx, f1, is_lut, ctx->id("Z"));
-                if (lc0 == nullptr)
+                CellInfo *lut0 = net_driven_by(ctx, f0, is_lut, ctx->id("Z"));
+                CellInfo *lut1 = net_driven_by(ctx, f1, is_lut, ctx->id("Z"));
+                if (lut0 == nullptr)
                     log_error("PFUMX '%s' has BLUT driven by cell other than a LUT\n", ci->name.c_str(ctx));
-                if (lc1 == nullptr)
+                if (lut1 == nullptr)
                     log_error("PFUMX '%s' has ALUT driven by cell other than a LUT\n", ci->name.c_str(ctx));
-                replace_port(lc0, ctx->id("A"), packed.get(), ctx->id("A0"));
-                replace_port(lc0, ctx->id("B"), packed.get(), ctx->id("B0"));
-                replace_port(lc0, ctx->id("C"), packed.get(), ctx->id("C0"));
-                replace_port(lc0, ctx->id("D"), packed.get(), ctx->id("D0"));
-                replace_port(lc1, ctx->id("A"), packed.get(), ctx->id("A1"));
-                replace_port(lc1, ctx->id("B"), packed.get(), ctx->id("B1"));
-                replace_port(lc1, ctx->id("C"), packed.get(), ctx->id("C1"));
-                replace_port(lc1, ctx->id("D"), packed.get(), ctx->id("D1"));
+                replace_port(lut0, ctx->id("A"), packed.get(), ctx->id("A0"));
+                replace_port(lut0, ctx->id("B"), packed.get(), ctx->id("B0"));
+                replace_port(lut0, ctx->id("C"), packed.get(), ctx->id("C0"));
+                replace_port(lut0, ctx->id("D"), packed.get(), ctx->id("D0"));
+                replace_port(lut1, ctx->id("A"), packed.get(), ctx->id("A1"));
+                replace_port(lut1, ctx->id("B"), packed.get(), ctx->id("B1"));
+                replace_port(lut1, ctx->id("C"), packed.get(), ctx->id("C1"));
+                replace_port(lut1, ctx->id("D"), packed.get(), ctx->id("D1"));
                 replace_port(ci, ctx->id("C0"), packed.get(), ctx->id("M0"));
                 replace_port(ci, ctx->id("Z"), packed.get(), ctx->id("OFX0"));
+                packed->params[ctx->id("LUT0_INITVAL")] = str_or_default(lut0->params, ctx->id("INIT"), "0");
+                packed->params[ctx->id("LUT1_INITVAL")] = str_or_default(lut1->params, ctx->id("INIT"), "0");
+
                 ctx->nets.erase(f0->name);
                 ctx->nets.erase(f1->name);
                 sliceUsage[packed->name].lut0_used = true;
@@ -264,14 +269,70 @@ class Ecp5Packer
 
                 if (lutffPairs.find(ci->name) != lutffPairs.end()) {
                     CellInfo *ff = ctx->cells.at(lutffPairs[ci->name]).get();
-                    ff_to_lc(ctx, ff, packed.get(), 0, true);
+                    ff_to_slice(ctx, ff, packed.get(), 0, true);
                     packed_cells.insert(ff->name);
                     sliceUsage[packed->name].ff0_used = true;
                 }
 
                 new_cells.push_back(std::move(packed));
-                packed_cells.insert(lc0->name);
-                packed_cells.insert(lc1->name);
+                packed_cells.insert(lut0->name);
+                packed_cells.insert(lut1->name);
+                packed_cells.insert(ci->name);
+            }
+        }
+        flush_cells();
+    }
+
+    // Pack LUTs that have been paired together
+    void pack_lut_pairs()
+    {
+        log_info("Packing paired LUTs into a SLICE...\n");
+        for (auto pair : lutPairs) {
+            CellInfo *lut0 = ctx->cells.at(pair.first).get();
+            CellInfo *lut1 = ctx->cells.at(pair.second).get();
+            std::unique_ptr<CellInfo> slice =
+                    create_ecp5_cell(ctx, ctx->id("TRELLIS_SLICE"), lut0->name.str(ctx) + "_SLICE");
+
+            lut_to_slice(ctx, lut0, slice.get(), 0);
+            lut_to_slice(ctx, lut1, slice.get(), 1);
+
+            auto ff0 = lutffPairs.find(lut0->name), ff1 = lutffPairs.find(lut1->name);
+
+            if (ff0 != lutffPairs.end()) {
+                ff_to_slice(ctx, ctx->cells.at(ff0->second).get(), slice.get(), 0, true);
+                packed_cells.insert(ff0->second);
+            }
+            if (ff1 != lutffPairs.end()) {
+                ff_to_slice(ctx, ctx->cells.at(ff1->second).get(), slice.get(), 1, true);
+                packed_cells.insert(ff1->second);
+            }
+
+            new_cells.push_back(std::move(slice));
+            packed_cells.insert(lut0->name);
+            packed_cells.insert(lut1->name);
+        }
+        flush_cells();
+    }
+
+    // Pack single LUTs that weren't paired into their own slice,
+    // with an optional FF also
+    void pack_remaining_luts()
+    {
+        log_info("Unpaired LUTs into a SLICE...\n");
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (is_lut(ctx, ci)) {
+                std::unique_ptr<CellInfo> slice =
+                        create_ecp5_cell(ctx, ctx->id("TRELLIS_SLICE"), ci->name.str(ctx) + "_SLICE");
+                lut_to_slice(ctx, ci, slice.get(), 0);
+                auto ff = lutffPairs.find(ci->name);
+
+                if (ff != lutffPairs.end()) {
+                    ff_to_slice(ctx, ctx->cells.at(ff->second).get(), slice.get(), 0, true);
+                    packed_cells.insert(ff->second);
+                }
+
+                new_cells.push_back(std::move(slice));
                 packed_cells.insert(ci->name);
             }
         }
@@ -282,7 +343,11 @@ class Ecp5Packer
     void pack()
     {
         pack_io();
+        find_lutff_pairs();
         pack_lut5s();
+        pair_luts();
+        pack_lut_pairs();
+        pack_remaining_luts();
     }
 
   private:
@@ -302,8 +367,8 @@ class Ecp5Packer
     std::unordered_map<IdString, SliceUsage> sliceUsage;
     std::unordered_map<IdString, IdString> lutffPairs;
     std::unordered_map<IdString, IdString> fflutPairs;
+    std::unordered_map<IdString, IdString> lutPairs;
 };
-
 // Main pack function
 bool Arch::pack()
 {

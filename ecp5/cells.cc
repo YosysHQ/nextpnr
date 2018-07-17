@@ -143,7 +143,7 @@ static void replace_port_safe(bool has_ff, CellInfo *ff, IdString ff_port, CellI
     }
 }
 
-void ff_to_lc(Context *ctx, CellInfo *ff, CellInfo *lc, int index, bool driven_by_lut)
+void ff_to_slice(Context *ctx, CellInfo *ff, CellInfo *lc, int index, bool driven_by_lut)
 {
     bool has_ff = lc->ports.at(ctx->id("Q0")).net != nullptr || lc->ports.at(ctx->id("Q1")).net != nullptr;
     std::string reg = "REG" + std::to_string(index);
@@ -163,6 +163,16 @@ void ff_to_lc(Context *ctx, CellInfo *ff, CellInfo *lc, int index, bool driven_b
     } else {
         replace_port(ff, ctx->id("DI"), lc, ctx->id("M" + std::to_string(index)));
     }
+}
+
+void lut_to_slice(Context *ctx, CellInfo *lut, CellInfo *lc, int index)
+{
+    lc->params[ctx->id("LUT" + std::to_string(index) + "_INITVAL")] = str_or_default(lc->params, ctx->id("INIT"), "0");
+    replace_port(lut, ctx->id("A"), lc, ctx->id("A" + std::to_string(index)));
+    replace_port(lut, ctx->id("B"), lc, ctx->id("B" + std::to_string(index)));
+    replace_port(lut, ctx->id("C"), lc, ctx->id("C" + std::to_string(index)));
+    replace_port(lut, ctx->id("D"), lc, ctx->id("D" + std::to_string(index)));
+    replace_port(lut, ctx->id("Z"), lc, ctx->id("F" + std::to_string(index)));
 }
 
 NEXTPNR_NAMESPACE_END
