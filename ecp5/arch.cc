@@ -94,7 +94,7 @@ static const ChipInfoPOD *get_chip_info(const RelPtr<ChipInfoPOD> *ptr) { return
 void load_chipdb();
 #endif
 
-#define LFE5U_45F_ONLY
+//#define LFE5U_45F_ONLY
 
 Arch::Arch(ArchArgs args) : args(args)
 {

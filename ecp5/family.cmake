@@ -1,5 +1,5 @@
 
-set(devices 45k)
+set(devices 25k 45k 85k)
 
 if (NOT DEFINED TRELLIS_ROOT)
     message(FATAL_ERROR "you must define TRELLIS_ROOT using -DTRELLIS_ROOT=/path/to/prjtrellis for ECP5 support")
