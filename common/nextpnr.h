@@ -200,7 +200,7 @@ struct PipMap
     PlaceStrength strength = STRENGTH_NONE;
 };
 
-struct NetInfo
+struct NetInfo : ArchNetInfo
 {
     IdString name;
     PortRef driver;
@@ -225,7 +225,7 @@ struct PortInfo
     PortType type;
 };
 
-struct CellInfo
+struct CellInfo : ArchCellInfo
 {
     IdString name, type;
     std::unordered_map<IdString, PortInfo> ports;

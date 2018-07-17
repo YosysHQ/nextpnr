@@ -150,6 +150,9 @@ struct DecalId
     bool operator!=(const DecalId &other) const { return (type != other.type) || (index != other.index); }
 };
 
+struct ArchNetInfo { };
+struct ArchCellInfo { };
+
 NEXTPNR_NAMESPACE_END
 
 namespace std {
@@ -201,5 +204,4 @@ template <> struct hash<NEXTPNR_NAMESPACE_PREFIX DecalId>
         return seed;
     }
 };
-
 } // namespace std
