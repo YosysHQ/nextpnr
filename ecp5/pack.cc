@@ -63,7 +63,122 @@ class Ecp5Packer
                     CellInfo *ff = net_only_drives(ctx, znet, is_ff, ctx->id("DI"), false);
                     if (ff != nullptr) {
                         lutffPairs[ci->name] = ff->name;
+                        fflutPairs[ff->name] = ci->name;
                     }
+                }
+            }
+        }
+    }
+
+    // Return whether two FFs can be packed together in the same slice
+    bool can_pack_ffs(CellInfo *ff0, CellInfo *ff1)
+    {
+        if (str_or_default(ff0->params, ctx->id("GSR"), "DISABLED") !=
+            str_or_default(ff1->params, ctx->id("GSR"), "DISABLED"))
+            return false;
+        if (str_or_default(ff0->params, ctx->id("SRMODE"), "LSR_OVER_CE") !=
+            str_or_default(ff1->params, ctx->id("SRMODE"), "LSR_OVER_CE"))
+            return false;
+        if (str_or_default(ff0->params, ctx->id("CEMUX"), "1") != str_or_default(ff1->params, ctx->id("CEMUX"), "1"))
+            return false;
+        if (str_or_default(ff0->params, ctx->id("LSRMUX"), "LSR") !=
+            str_or_default(ff1->params, ctx->id("LSRMUX"), "LSR"))
+            return false;
+        if (str_or_default(ff0->params, ctx->id("CLKMUX"), "CLK") !=
+            str_or_default(ff1->params, ctx->id("CLKMUX"), "CLK"))
+            return false;
+        if (ff0->ports.at(ctx->id("CLK")).net != ff1->ports.at(ctx->id("CLK")).net)
+            return false;
+        if (ff0->ports.at(ctx->id("CE")).net != ff1->ports.at(ctx->id("CE")).net)
+            return false;
+        if (ff0->ports.at(ctx->id("LSR")).net != ff1->ports.at(ctx->id("LSR")).net)
+            return false;
+        return true;
+    }
+
+    // Return true if two LUTs can be paired considering FF compatibility
+    bool can_pack_lutff(IdString lut0, IdString lut1)
+    {
+        auto ff0 = lutffPairs.find(lut0), ff1 = lutffPairs.find(lut1);
+        if (ff0 != lutffPairs.end() && ff1 != lutffPairs.end()) {
+            return can_pack_ffs(ctx->cells.at(ff0->second).get(), ctx->cells.at(ff1->second).get());
+        } else {
+            return true;
+        }
+    }
+
+    // Find "closely connected" LUTs and pair them together
+    void pair_luts(std::unordered_map<IdString, IdString> &lutPairs)
+    {
+        std::unordered_set<IdString> procdLuts;
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (is_lut(ctx, ci) && procdLuts.find(cell.first) == procdLuts.end()) {
+                NetInfo *znet = ci->ports.at(ctx->id("Z")).net;
+                if (znet != nullptr) {
+                    for (auto user : znet->users) {
+                        if (is_lut(ctx, user.cell) && procdLuts.find(user.cell->name) == procdLuts.end()) {
+                            if (can_pack_lutff(ci->name, user.cell->name)) {
+                                procdLuts.insert(ci->name);
+                                procdLuts.insert(user.cell->name);
+                                lutPairs[ci->name] = user.cell->name;
+                                goto paired;
+                            }
+                        }
+                    }
+                    if (false) {
+                    paired:
+                        continue;
+                    }
+                }
+                if (lutffPairs.find(ci->name) != lutffPairs.end()) {
+                    NetInfo *qnet = ctx->cells.at(lutffPairs[ci->name])->ports.at(ctx->id("Q")).net;
+                    if (qnet != nullptr) {
+                        for (auto user : qnet->users) {
+                            if (is_lut(ctx, user.cell) && procdLuts.find(user.cell->name) == procdLuts.end()) {
+                                if (can_pack_lutff(ci->name, user.cell->name)) {
+                                    procdLuts.insert(ci->name);
+                                    procdLuts.insert(user.cell->name);
+                                    lutPairs[ci->name] = user.cell->name;
+                                    goto paired_ff;
+                                }
+                            }
+                        }
+                        if (false) {
+                        paired_ff:
+                            continue;
+                        }
+                    }
+                }
+                for (char inp : "ABCD") {
+                    NetInfo *innet = ci->ports.at(ctx->id(std::string("") + inp)).net;
+                    if (innet != nullptr && innet->driver.cell != nullptr) {
+                        CellInfo *drv = innet->driver.cell;
+                        if (is_lut(ctx, drv) && innet->driver.port == ctx->id("Z")) {
+                            if (procdLuts.find(drv->name) == procdLuts.end()) {
+                                if (can_pack_lutff(ci->name, drv->name)) {
+                                    procdLuts.insert(ci->name);
+                                    procdLuts.insert(drv->name);
+                                    lutPairs[ci->name] = drv->name;
+                                    goto paired_inlut;
+                                }
+                            }
+                        } else if (is_ff(ctx, drv) && innet->driver.port == ctx->id("Q")) {
+                            auto fflut = fflutPairs.find(drv->name);
+                            if (fflut != fflutPairs.end() && procdLuts.find(fflut->second) == procdLuts.end()) {
+                                if (can_pack_lutff(ci->name, fflut->second)) {
+                                    procdLuts.insert(ci->name);
+                                    procdLuts.insert(fflut->second);
+                                    lutPairs[ci->name] = fflut->second;
+                                    goto paired_inlut;
+                                }
+                            }
+                        }
+                    }
+                }
+                if (false) {
+                paired_inlut:
+                    continue;
                 }
             }
         }
@@ -143,11 +258,15 @@ class Ecp5Packer
                 replace_port(ci, ctx->id("Z"), packed.get(), ctx->id("OFX0"));
                 ctx->nets.erase(f0->name);
                 ctx->nets.erase(f1->name);
+                sliceUsage[packed->name].lut0_used = true;
+                sliceUsage[packed->name].lut1_used = true;
+                sliceUsage[packed->name].mux5_used = true;
 
                 if (lutffPairs.find(ci->name) != lutffPairs.end()) {
                     CellInfo *ff = ctx->cells.at(lutffPairs[ci->name]).get();
                     ff_to_lc(ctx, ff, packed.get(), 0, true);
                     packed_cells.insert(ff->name);
+                    sliceUsage[packed->name].ff0_used = true;
                 }
 
                 new_cells.push_back(std::move(packed));
@@ -182,6 +301,7 @@ class Ecp5Packer
 
     std::unordered_map<IdString, SliceUsage> sliceUsage;
     std::unordered_map<IdString, IdString> lutffPairs;
+    std::unordered_map<IdString, IdString> fflutPairs;
 };
 
 // Main pack function
