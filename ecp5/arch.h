@@ -760,6 +760,14 @@ struct Arch : BaseCtx
     // Placement validity checks
     bool isValidBelForCell(CellInfo *cell, BelId bel) const;
     bool isBelLocationValid(BelId bel) const;
+
+    // Helper function for above
+    bool slicesCompatible(const std::vector<const CellInfo *> &cells) const;
+
+    IdString id_trellis_slice;
+    IdString id_clk, id_lsr;
+    IdString id_clkmux, id_lsrmux;
+    IdString id_srmode, id_mode;
 };
 
 NEXTPNR_NAMESPACE_END

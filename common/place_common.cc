@@ -25,7 +25,7 @@
 NEXTPNR_NAMESPACE_BEGIN
 
 // Get the total estimated wirelength for a net
-wirelen_t get_net_wirelength(const Context *ctx, const NetInfo *net, float &tns)
+wirelen_t get_net_metric(const Context *ctx, const NetInfo *net, MetricType type, float &tns)
 {
     wirelen_t wirelength = 0;
     int driver_x, driver_y;
@@ -47,7 +47,7 @@ wirelen_t get_net_wirelength(const Context *ctx, const NetInfo *net, float &tns)
         CellInfo *load_cell = load.cell;
         if (load_cell->bel == BelId())
             continue;
-        if (ctx->timing_driven) {
+        if (ctx->timing_driven && type == MetricType::COST) {
             WireId user_wire = ctx->getWireBelPin(load_cell->bel, ctx->portPinFromId(load.port));
             delay_t raw_wl = ctx->estimateDelay(drv_wire, user_wire);
             float slack = ctx->getDelayNS(load.budget) - ctx->getDelayNS(raw_wl);
@@ -66,7 +66,7 @@ wirelen_t get_net_wirelength(const Context *ctx, const NetInfo *net, float &tns)
         xmax = std::max(xmax, load_x);
         ymax = std::max(ymax, load_y);
     }
-    if (ctx->timing_driven) {
+    if (ctx->timing_driven && type == MetricType::COST) {
         wirelength = wirelen_t((((ymax - ymin) + (xmax - xmin)) * std::min(5.0, (1.0 + std::exp(-worst_slack / 5)))));
     } else {
         wirelength = wirelen_t((ymax - ymin) + (xmax - xmin));
@@ -76,7 +76,7 @@ wirelen_t get_net_wirelength(const Context *ctx, const NetInfo *net, float &tns)
 }
 
 // Get the total wirelength for a cell
-wirelen_t get_cell_wirelength(const Context *ctx, const CellInfo *cell)
+wirelen_t get_cell_metric(const Context *ctx, const CellInfo *cell, MetricType type)
 {
     std::set<IdString> nets;
     for (auto p : cell->ports) {
@@ -86,16 +86,16 @@ wirelen_t get_cell_wirelength(const Context *ctx, const CellInfo *cell)
     wirelen_t wirelength = 0;
     float tns = 0;
     for (auto n : nets) {
-        wirelength += get_net_wirelength(ctx, ctx->nets.at(n).get(), tns);
+        wirelength += get_net_metric(ctx, ctx->nets.at(n).get(), type, tns);
     }
     return wirelength;
 }
 
-wirelen_t get_cell_wirelength_at_bel(const Context *ctx, CellInfo *cell, BelId bel)
+wirelen_t get_cell_metric_at_bel(const Context *ctx, CellInfo *cell, BelId bel, MetricType type)
 {
     BelId oldBel = cell->bel;
     cell->bel = bel;
-    wirelen_t wirelen = get_cell_wirelength(ctx, cell);
+    wirelen_t wirelen = get_cell_metric(ctx, cell, type);
     cell->bel = oldBel;
     return wirelen;
 }
@@ -118,7 +118,7 @@ bool place_single_cell(Context *ctx, CellInfo *cell, bool require_legality)
         for (auto bel : ctx->getBels()) {
             if (ctx->getBelType(bel) == targetType && (!require_legality || ctx->isValidBelForCell(cell, bel))) {
                 if (ctx->checkBelAvail(bel)) {
-                    wirelen_t wirelen = get_cell_wirelength_at_bel(ctx, cell, bel);
+                    wirelen_t wirelen = get_cell_metric_at_bel(ctx, cell, bel, MetricType::COST);
                     if (iters >= 4)
                         wirelen += ctx->rng(25);
                     if (wirelen <= best_wirelen) {
@@ -126,7 +126,7 @@ bool place_single_cell(Context *ctx, CellInfo *cell, bool require_legality)
                         best_bel = bel;
                     }
                 } else {
-                    wirelen_t wirelen = get_cell_wirelength_at_bel(ctx, cell, bel);
+                    wirelen_t wirelen = get_cell_metric_at_bel(ctx, cell, bel, MetricType::COST);
                     if (iters >= 4)
                         wirelen += ctx->rng(25);
                     if (wirelen <= best_ripup_wirelen) {

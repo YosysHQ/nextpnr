@@ -1,7 +1,8 @@
 /*
  *  nextpnr -- Next Generation Place and Route
  *
- *  Copyright (C) 2018  David Shah <david@symbioticeda.com>
+ *  Copyright (C) 2018  Miodrag Milanovic <miodrag@symbioticeda.com>
+ *  Copyright (C) 2018  Alex Tsui
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -17,33 +18,40 @@
  *
  */
 
-#ifndef PLACE_COMMON_H
-#define PLACE_COMMON_H
+#ifndef YOSYS_EDIT_H
+#define YOSYS_EDIT_H
 
+#include <QLineEdit>
+#include <QMenu>
 #include "nextpnr.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
-typedef int64_t wirelen_t;
-
-enum class MetricType
+class YosysLineEditor : public QLineEdit
 {
-    COST,
-    WIRELENGTH
+    Q_OBJECT
+
+  public:
+    explicit YosysLineEditor(QWidget *parent = 0);
+
+  private Q_SLOTS:
+    void textInserted();
+    void showContextMenu(const QPoint &pt);
+    void clearHistory();
+
+  Q_SIGNALS:
+    void textLineInserted(QString);
+
+  protected:
+    void keyPressEvent(QKeyEvent *) Q_DECL_OVERRIDE;
+    bool focusNextPrevChild(bool next) Q_DECL_OVERRIDE;
+
+  private:
+    int index;
+    QStringList lines;
+    QMenu *contextMenu;
 };
-
-// Return the wirelength of a net
-wirelen_t get_net_metric(const Context *ctx, const NetInfo *net, MetricType type, float &tns);
-
-// Return the wirelength of all nets connected to a cell
-wirelen_t get_cell_metric(const Context *ctx, const CellInfo *cell, MetricType type);
-
-// Return the wirelength of all nets connected to a cell, when the cell is at a given bel
-wirelen_t get_cell_metric_at_bel(const Context *ctx, CellInfo *cell, BelId bel, MetricType type);
-
-// Place a single cell in the lowest wirelength Bel available, optionally requiring validity check
-bool place_single_cell(Context *ctx, CellInfo *cell, bool require_legality);
 
 NEXTPNR_NAMESPACE_END
 
-#endif
+#endif // YOSYS_EDIT_H

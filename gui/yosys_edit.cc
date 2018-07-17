@@ -18,16 +18,13 @@
  *
  */
 
-#include "line_editor.h"
+#include "yosys_edit.h"
 #include <QKeyEvent>
 #include <QToolTip>
-#include "ColumnFormatter.h"
-#include "Utils.h"
-#include "pyinterpreter.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
-LineEditor::LineEditor(ParseHelper *helper, QWidget *parent) : QLineEdit(parent), index(0), parseHelper(helper)
+YosysLineEditor::YosysLineEditor(QWidget *parent) : QLineEdit(parent), index(0)
 {
     setContextMenuPolicy(Qt::CustomContextMenu);
     QAction *clearAction = new QAction("Clear &history", this);
@@ -41,7 +38,7 @@ LineEditor::LineEditor(ParseHelper *helper, QWidget *parent) : QLineEdit(parent)
     connect(this, SIGNAL(customContextMenuRequested(const QPoint)), this, SLOT(showContextMenu(const QPoint)));
 }
 
-void LineEditor::keyPressEvent(QKeyEvent *ev)
+void YosysLineEditor::keyPressEvent(QKeyEvent *ev)
 {
 
     if (ev->key() == Qt::Key_Up || ev->key() == Qt::Key_Down) {
@@ -66,7 +63,6 @@ void LineEditor::keyPressEvent(QKeyEvent *ev)
         clear();
         return;
     } else if (ev->key() == Qt::Key_Tab) {
-        autocomplete();
         return;
     }
     QToolTip::hideText();
@@ -75,9 +71,9 @@ void LineEditor::keyPressEvent(QKeyEvent *ev)
 }
 
 // This makes TAB work
-bool LineEditor::focusNextPrevChild(bool next) { return false; }
+bool YosysLineEditor::focusNextPrevChild(bool next) { return false; }
 
-void LineEditor::textInserted()
+void YosysLineEditor::textInserted()
 {
     if (lines.empty() || lines.back() != text())
         lines += text();
@@ -88,43 +84,13 @@ void LineEditor::textInserted()
     Q_EMIT textLineInserted(lines.back());
 }
 
-void LineEditor::showContextMenu(const QPoint &pt) { contextMenu->exec(mapToGlobal(pt)); }
+void YosysLineEditor::showContextMenu(const QPoint &pt) { contextMenu->exec(mapToGlobal(pt)); }
 
-void LineEditor::clearHistory()
+void YosysLineEditor::clearHistory()
 {
     lines.clear();
     index = 0;
     clear();
-}
-
-void LineEditor::autocomplete()
-{
-    QString line = text();
-    const std::list<std::string> &suggestions = pyinterpreter_suggest(line.toStdString());
-    if (suggestions.size() == 1) {
-        line = suggestions.back().c_str();
-    } else {
-        // try to complete to longest common prefix
-        std::string prefix = LongestCommonPrefix(suggestions.begin(), suggestions.end());
-        if (prefix.size() > (size_t)line.size()) {
-            line = prefix.c_str();
-        } else {
-            ColumnFormatter fmt;
-            fmt.setItems(suggestions.begin(), suggestions.end());
-            fmt.format(width() / 5);
-            QString out = "";
-            for (auto &it : fmt.formattedOutput()) {
-                if (!out.isEmpty())
-                    out += "\n";
-                out += it.c_str();
-            }
-            QToolTip::setFont(font());
-            if (!out.trimmed().isEmpty())
-                QToolTip::showText(mapToGlobal(QPoint(0, 0)), out);
-        }
-    }
-    // set up the next line on the console
-    setText(line);
 }
 
 NEXTPNR_NAMESPACE_END

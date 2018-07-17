@@ -94,7 +94,7 @@ static const ChipInfoPOD *get_chip_info(const RelPtr<ChipInfoPOD> *ptr) { return
 void load_chipdb();
 #endif
 
-#define LFE5U_45F_ONLY
+//#define LFE5U_45F_ONLY
 
 Arch::Arch(ArchArgs args) : args(args)
 {
@@ -118,6 +118,14 @@ Arch::Arch(ArchArgs args) : args(args)
         log_error("Unsupported ECP5 chip type.\n");
     }
 #endif
+
+    id_trellis_slice = id("TRELLIS_SLICE");
+    id_clk = id("CLK");
+    id_lsr = id("LSR");
+    id_clkmux = id("CLKMUX");
+    id_lsrmux = id("LSRMUX");
+    id_srmode = id("SRMODE");
+    id_mode = id("MODE");
 }
 
 // -----------------------------------------------------------------------
@@ -181,7 +189,10 @@ BelRange Arch::getBelsAtSameTile(BelId bel) const
     br.b.cursor_tile = bel.location.y * chip_info->width + bel.location.x;
     br.e.cursor_tile = bel.location.y * chip_info->width + bel.location.x;
     br.b.cursor_index = 0;
-    br.e.cursor_index = locInfo(bel)->num_bels;
+    br.e.cursor_index = locInfo(bel)->num_bels - 1;
+    br.b.chip = chip_info;
+    br.e.chip = chip_info;
+    ++br.e;
     return br;
 }
 
@@ -312,12 +323,6 @@ DecalXY Arch::getWireDecal(WireId wire) const { return {}; }
 DecalXY Arch::getPipDecal(PipId pip) const { return {}; };
 
 DecalXY Arch::getGroupDecal(GroupId pip) const { return {}; };
-
-// -----------------------------------------------------------------------
-
-bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const { return true; }
-
-bool Arch::isBelLocationValid(BelId bel) const { return true; }
 
 // -----------------------------------------------------------------------
 
