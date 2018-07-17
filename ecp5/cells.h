@@ -24,35 +24,25 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-
 // Create a standard ECP5 cell and return it
 // Name will be automatically assigned if not specified
 std::unique_ptr<CellInfo> create_ecp5_cell(Context *ctx, IdString type, std::string name = "");
 
 // Return true if a cell is a LUT
-inline bool is_lut(const BaseCtx *ctx, const CellInfo *cell)
-{ return cell->type == ctx->id("LUT4"); }
+inline bool is_lut(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("LUT4"); }
 
 // Return true if a cell is a flipflop
-inline bool is_ff(const BaseCtx *ctx, const CellInfo *cell)
-{
-    return cell->type == ctx->id("TRELLIS_FF");
-}
+inline bool is_ff(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("TRELLIS_FF"); }
 
-inline bool is_carry(const BaseCtx *ctx, const CellInfo *cell)
-{ return cell->type == ctx->id("CCU2C"); }
+inline bool is_carry(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("CCU2C"); }
 
-inline bool is_lc(const BaseCtx *ctx, const CellInfo *cell)
-{ return cell->type == ctx->id("TRELLIS_LC"); }
+inline bool is_lc(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("TRELLIS_LC"); }
 
-inline bool is_dpram(const BaseCtx *ctx, const CellInfo *cell)
-{ return cell->type == ctx->id("TRELLIS_DPR16X4"); }
+inline bool is_dpram(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("TRELLIS_DPR16X4"); }
 
-inline bool is_pfumx(const BaseCtx *ctx, const CellInfo *cell)
-{ return cell->type == ctx->id("PFUMX"); }
+inline bool is_pfumx(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("PFUMX"); }
 
-inline bool is_l6mux(const BaseCtx *ctx, const CellInfo *cell)
-{ return cell->type == ctx->id("L6MUX21"); }
+inline bool is_l6mux(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("L6MUX21"); }
 
 NEXTPNR_NAMESPACE_END
 

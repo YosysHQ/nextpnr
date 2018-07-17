@@ -18,9 +18,9 @@
  */
 
 #include "cells.h"
+#include "design_utils.h"
 #include "log.h"
 #include "util.h"
-#include "design_utils.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -30,8 +30,8 @@ void add_port(const Context *ctx, CellInfo *cell, std::string name, PortType dir
     cell->ports[id] = PortInfo{id, nullptr, dir};
 }
 
-
-std::unique_ptr<CellInfo> create_ecp5_cell(Context *ctx, IdString type, std::string name) {
+std::unique_ptr<CellInfo> create_ecp5_cell(Context *ctx, IdString type, std::string name)
+{
     static int auto_idx = 0;
     std::unique_ptr<CellInfo> new_cell = std::unique_ptr<CellInfo>(new CellInfo());
     if (name.empty()) {
