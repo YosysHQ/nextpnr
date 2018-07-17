@@ -39,11 +39,22 @@ class Ecp5Packer
     Ecp5Packer(Context *ctx) : ctx(ctx){};
 
   private:
-    // Simple "packer" to remove nextpnr IOBUFs, this assumes IOBUFs are manually instantiated
-    void pack_io(Context *ctx)
+    // Process the contents of packed_cells and new_cells
+    void flush_cells()
     {
-        std::unordered_set<IdString> packed_cells;
-        std::vector<std::unique_ptr<CellInfo>> new_cells;
+        for (auto pcell : packed_cells) {
+            ctx->cells.erase(pcell);
+        }
+        for (auto &ncell : new_cells) {
+            ctx->cells[ncell->name] = std::move(ncell);
+        }
+        packed_cells.clear();
+        new_cells.clear();
+    }
+
+    // Simple "packer" to remove nextpnr IOBUFs, this assumes IOBUFs are manually instantiated
+    void pack_io()
+    {
         log_info("Packing IOs..\n");
 
         for (auto cell : sorted(ctx->cells)) {
@@ -79,19 +90,73 @@ class Ecp5Packer
                 std::copy(ci->attrs.begin(), ci->attrs.end(), std::inserter(trio->attrs, trio->attrs.begin()));
             }
         }
-        for (auto pcell : packed_cells) {
-            ctx->cells.erase(pcell);
+        flush_cells();
+    }
+
+    // Pass to pack LUT5s into a newly created slice
+    void pack_lut5s()
+    {
+        log_info("Packing LUT5s...\n");
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (is_pfumx(ctx, ci)) {
+                std::unique_ptr<CellInfo> packed =
+                        create_ecp5_cell(ctx, ctx->id("TRELLIS_SLICE"), ci->name.str(ctx) + "_SLICE");
+                NetInfo *f0 = ci->ports.at(ctx->id("BLUT")).net;
+                if (f0 == nullptr)
+                    log_error("PFUMX '%s' has disconnected port 'BLUT'\n", ci->name.c_str(ctx));
+                NetInfo *f1 = ci->ports.at(ctx->id("ALUT")).net;
+                if (f1 == nullptr)
+                    log_error("PFUMX '%s' has disconnected port 'ALUT'\n", ci->name.c_str(ctx));
+                CellInfo *lc0 = net_driven_by(ctx, f0, is_lut, ctx->id("Z"));
+                CellInfo *lc1 = net_driven_by(ctx, f1, is_lut, ctx->id("Z"));
+                if (lc0 == nullptr)
+                    log_error("PFUMX '%s' has BLUT driven by cell other than a LUT\n", ci->name.c_str(ctx));
+                if (lc1 == nullptr)
+                    log_error("PFUMX '%s' has ALUT driven by cell other than a LUT\n", ci->name.c_str(ctx));
+                replace_port(lc0, ctx->id("A"), packed.get(), ctx->id("A0"));
+                replace_port(lc0, ctx->id("B"), packed.get(), ctx->id("B0"));
+                replace_port(lc0, ctx->id("C"), packed.get(), ctx->id("C0"));
+                replace_port(lc0, ctx->id("D"), packed.get(), ctx->id("D0"));
+                replace_port(lc1, ctx->id("A"), packed.get(), ctx->id("A1"));
+                replace_port(lc1, ctx->id("B"), packed.get(), ctx->id("B1"));
+                replace_port(lc1, ctx->id("C"), packed.get(), ctx->id("C1"));
+                replace_port(lc1, ctx->id("D"), packed.get(), ctx->id("D1"));
+                replace_port(ci, ctx->id("C0"), packed.get(), ctx->id("M0"));
+                replace_port(ci, ctx->id("Z"), packed.get(), ctx->id("OFX0"));
+                ctx->nets.erase(f0->name);
+                ctx->nets.erase(f1->name);
+                new_cells.push_back(std::move(packed));
+                packed_cells.insert(lc0->name);
+                packed_cells.insert(lc1->name);
+                packed_cells.insert(ci->name);
+            }
         }
-        for (auto &ncell : new_cells) {
-            ctx->cells[ncell->name] = std::move(ncell);
-        }
+        flush_cells();
     }
 
   public:
-    void pack() { pack_io(ctx); }
+    void pack()
+    {
+        pack_io();
+        pack_lut5s();
+    }
 
   private:
     Context *ctx;
+
+    std::unordered_set<IdString> packed_cells;
+    std::vector<std::unique_ptr<CellInfo>> new_cells;
+
+    struct SliceUsage
+    {
+        bool lut0_used = false, lut1_used = false;
+        bool ccu2_used = false, dpram_used = false, ramw_used = false;
+        bool ff0_used = false, ff1_used = false;
+        bool mux5_used = false, muxx_used = false;
+    };
+
+    std::unordered_map<IdString, SliceUsage> sliceUsage;
 };
 
 // Main pack function
