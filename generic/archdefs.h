@@ -52,4 +52,7 @@ typedef IdString PipId;
 typedef IdString GroupId;
 typedef IdString DecalId;
 
+struct ArchNetInfo { };
+struct ArchCellInfo { };
+
 NEXTPNR_NAMESPACE_END

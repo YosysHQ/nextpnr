@@ -61,9 +61,9 @@ YosysTab::YosysTab(QString folder, QWidget *parent) : QWidget(parent)
     connect(process, SIGNAL(readyReadStandardError()), this, SLOT(onReadyReadStandardError()));
     connect(process, SIGNAL(readyReadStandardOutput()), this, SLOT(onReadyReadStandardOutput()));
     connect(process, &QProcess::started, this, [this] { lineEdit->setEnabled(true); });
-/*
+
 #if QT_VERSION < QT_VERSION_CHECK(5, 6, 0)
-    connect(process, &QProcess::error, this, [this](QProcess::ProcessError error) {
+    connect(process, static_cast<void (QProcess::*)(QProcess::ProcessError)>(&QProcess::error), this, [this](QProcess::ProcessError error) {
 #else
     connect(process, &QProcess::errorOccurred, this, [this](QProcess::ProcessError error) {
 #endif
@@ -74,7 +74,6 @@ YosysTab::YosysTab(QString folder, QWidget *parent) : QWidget(parent)
             Q_EMIT deleteLater();
         }
     });
-*/
     process->setWorkingDirectory(folder);
     process->start("yosys");
 }

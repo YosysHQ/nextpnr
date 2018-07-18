@@ -119,7 +119,8 @@ class Ecp5Packer
                 NetInfo *znet = ci->ports.at(ctx->id("Z")).net;
                 if (znet != nullptr) {
                     for (auto user : znet->users) {
-                        if (is_lut(ctx, user.cell) && procdLuts.find(user.cell->name) == procdLuts.end()) {
+                        if (is_lut(ctx, user.cell) && user.cell != ci &&
+                            procdLuts.find(user.cell->name) == procdLuts.end()) {
                             if (can_pack_lutff(ci->name, user.cell->name)) {
                                 procdLuts.insert(ci->name);
                                 procdLuts.insert(user.cell->name);
@@ -137,7 +138,8 @@ class Ecp5Packer
                     NetInfo *qnet = ctx->cells.at(lutffPairs[ci->name])->ports.at(ctx->id("Q")).net;
                     if (qnet != nullptr) {
                         for (auto user : qnet->users) {
-                            if (is_lut(ctx, user.cell) && procdLuts.find(user.cell->name) == procdLuts.end()) {
+                            if (is_lut(ctx, user.cell) && user.cell != ci &&
+                                procdLuts.find(user.cell->name) == procdLuts.end()) {
                                 if (can_pack_lutff(ci->name, user.cell->name)) {
                                     procdLuts.insert(ci->name);
                                     procdLuts.insert(user.cell->name);
@@ -152,11 +154,11 @@ class Ecp5Packer
                         }
                     }
                 }
-                for (char inp : "ABCD") {
-                    NetInfo *innet = ci->ports.at(ctx->id(std::string("") + inp)).net;
+                for (const char *inp : {"A", "B", "C", "D"}) {
+                    NetInfo *innet = ci->ports.at(ctx->id(inp)).net;
                     if (innet != nullptr && innet->driver.cell != nullptr) {
                         CellInfo *drv = innet->driver.cell;
-                        if (is_lut(ctx, drv) && innet->driver.port == ctx->id("Z")) {
+                        if (is_lut(ctx, drv) && drv != ci && innet->driver.port == ctx->id("Z")) {
                             if (procdLuts.find(drv->name) == procdLuts.end()) {
                                 if (can_pack_lutff(ci->name, drv->name)) {
                                     procdLuts.insert(ci->name);
@@ -167,7 +169,8 @@ class Ecp5Packer
                             }
                         } else if (is_ff(ctx, drv) && innet->driver.port == ctx->id("Q")) {
                             auto fflut = fflutPairs.find(drv->name);
-                            if (fflut != fflutPairs.end() && procdLuts.find(fflut->second) == procdLuts.end()) {
+                            if (fflut != fflutPairs.end() && fflut->second != ci->name &&
+                                procdLuts.find(fflut->second) == procdLuts.end()) {
                                 if (can_pack_lutff(ci->name, fflut->second)) {
                                     procdLuts.insert(ci->name);
                                     procdLuts.insert(fflut->second);
@@ -354,6 +357,32 @@ class Ecp5Packer
             }
         }
         flush_cells();
+    }
+
+    void set_lut_input_constant(CellInfo *cell, IdString input, bool value)
+    {
+        int index = std::string("ABCD").find(input.str(ctx));
+        int init = int_or_default(cell->params, ctx->id("INIT"));
+        int new_init = 0;
+        for (int i = 0; i < 16; i++) {
+            if (((i >> index) & 0x1) != value) {
+                int other_i = (i & (~(1 << index))) | (value << index);
+                if ((init >> other_i) & 0x1)
+                    new_init |= (1 << i);
+            } else {
+                if ((init >> i) & 0x1)
+                    new_init |= (1 << i);
+            }
+        }
+        cell->params[ctx->id("INIT")] = std::to_string(init);
+        NetInfo *innet = cell->ports.at(input).net;
+        if (innet != nullptr) {
+            innet->users.erase(
+                    std::remove_if(innet->users.begin(), innet->users.end(),
+                                   [cell, input](PortRef port) { return port.cell == cell && port.port == input; }),
+                    innet->users.end());
+        }
+        cell->ports.at(input).net = nullptr;
     }
 
   public:
