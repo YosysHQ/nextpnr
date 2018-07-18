@@ -5,32 +5,32 @@ module top(input clk_pin, input btn_pin, output [7:0] led_pin, output gpio0_pin)
     wire btn;
     wire gpio0;
 
-	(* BEL="X0/Y35/PIOA" *) (* IO_TYPE="LVCMOS33" *)
+	(* LOC="G2" *) (* IO_TYPE="LVCMOS33" *)
 	TRELLIS_IO #(.DIR("INPUT")) clk_buf (.B(clk_pin), .O(clk));
 
-	(* BEL="X4/Y71/PIOA" *) (* IO_TYPE="LVCMOS33" *)
+	(* LOC="R1" *) (* IO_TYPE="LVCMOS33" *)
 	TRELLIS_IO #(.DIR("INPUT")) btn_buf (.B(btn_pin), .O(btn));
 
-	(* BEL="X0/Y23/PIOC" *) (* IO_TYPE="LVCMOS33" *)
+	(* LOC="B2" *) (* IO_TYPE="LVCMOS33" *)
 	TRELLIS_IO #(.DIR("OUTPUT")) led_buf_0 (.B(led_pin[0]), .I(led[0]));
-	(* BEL="X0/Y23/PIOD" *) (* IO_TYPE="LVCMOS33" *)
+	(* LOC="C2" *) (* IO_TYPE="LVCMOS33" *)
 	TRELLIS_IO #(.DIR("OUTPUT")) led_buf_1 (.B(led_pin[1]), .I(led[1]));
-	(* BEL="X0/Y26/PIOA" *) (* IO_TYPE="LVCMOS33" *)
+	(* LOC="C1" *) (* IO_TYPE="LVCMOS33" *)
 	TRELLIS_IO #(.DIR("OUTPUT")) led_buf_2 (.B(led_pin[2]), .I(led[2]));
-    (* BEL="X0/Y26/PIOC" *) (* IO_TYPE="LVCMOS33" *)
+    (* LOC="D2" *) (* IO_TYPE="LVCMOS33" *)
 	TRELLIS_IO #(.DIR("OUTPUT")) led_buf_3 (.B(led_pin[3]), .I(led[3]));
 
-	(* BEL="X0/Y26/PIOB" *) (* IO_TYPE="LVCMOS33" *)
+	(* LOC="D1" *) (* IO_TYPE="LVCMOS33" *)
 	TRELLIS_IO #(.DIR("OUTPUT")) led_buf_4 (.B(led_pin[4]), .I(led[4]));
-	(* BEL="X0/Y32/PIOD" *) (* IO_TYPE="LVCMOS33" *)
+	(* LOC="E2" *) (* IO_TYPE="LVCMOS33" *)
 	TRELLIS_IO #(.DIR("OUTPUT")) led_buf_5 (.B(led_pin[5]), .I(led[5]));
-	(* BEL="X0/Y26/PIOD" *) (* IO_TYPE="LVCMOS33" *)
+	(* LOC="E1" *) (* IO_TYPE="LVCMOS33" *)
 	TRELLIS_IO #(.DIR("OUTPUT")) led_buf_6 (.B(led_pin[6]), .I(led[6]));
-    (* BEL="X0/Y29/PIOD" *) (* IO_TYPE="LVCMOS33" *)
+    (* LOC="H3" *) (* IO_TYPE="LVCMOS33" *)
 	TRELLIS_IO #(.DIR("OUTPUT")) led_buf_7 (.B(led_pin[7]), .I(led[7]));
 
 
-	(* BEL="X0/Y62/PIOD" *) (* IO_TYPE="LVCMOS33" *)
+	(* LOC="L2" *) (* IO_TYPE="LVCMOS33" *)
 	TRELLIS_IO #(.DIR("OUTPUT")) gpio0_buf (.B(gpio0_pin), .I(gpio0));
 
     localparam ctr_width = 24;

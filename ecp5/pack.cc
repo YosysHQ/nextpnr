@@ -232,8 +232,23 @@ class Ecp5Packer
                 } else {
                     log_error("TRELLIS_IO required on all top level IOs...\n");
                 }
+
                 packed_cells.insert(ci->name);
                 std::copy(ci->attrs.begin(), ci->attrs.end(), std::inserter(trio->attrs, trio->attrs.begin()));
+
+                auto loc_attr = trio->attrs.find(ctx->id("LOC"));
+                if (loc_attr != trio->attrs.end()) {
+                    std::string pin = loc_attr->second;
+                    BelId pinBel = ctx->getPackagePinBel(pin);
+                    if (pinBel == BelId()) {
+                        log_error("IO pin '%s' constrained to pin '%s', which does not exist for package '%s'.\n",
+                                  trio->name.c_str(ctx), pin.c_str(), ctx->args.package.c_str());
+                    } else {
+                        log_info("pin '%s' constrained to Bel '%s'.\n", trio->name.c_str(ctx),
+                                 ctx->getBelName(pinBel).c_str(ctx));
+                    }
+                    trio->attrs[ctx->id("BEL")] = ctx->getBelName(pinBel).str(ctx);
+                }
             }
         }
         flush_cells();

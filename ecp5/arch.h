@@ -363,6 +363,7 @@ struct ArchArgs
 struct Arch : BaseCtx
 {
     const ChipInfoPOD *chip_info;
+    const PackageInfoPOD *package_info;
 
     mutable std::unordered_map<IdString, BelId> bel_by_name;
     mutable std::unordered_map<IdString, WireId> wire_by_name;
