@@ -705,6 +705,11 @@ struct Arch : BaseCtx
     // Helper function for above
     bool logicCellsCompatible(const std::vector<const CellInfo *> &cells) const;
 
+    // -------------------------------------------------
+    // Assign architecure-specific arguments to nets and cells, which must be called between packing or further
+    // netlist modifications, and validity checks
+    void assignArchArgs();
+
     IdString id_glb_buf_out;
     IdString id_icestorm_lc, id_sb_io, id_sb_gb;
     IdString id_cen, id_clk, id_sr;

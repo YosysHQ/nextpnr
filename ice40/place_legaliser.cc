@@ -127,6 +127,7 @@ class PlacementLegaliser
         legalise_others();
         legalise_logic_tiles();
         bool replaced_cells = replace_cells();
+        ctx->assignArchArgs();
         return legalised_carries && replaced_cells;
     }
 

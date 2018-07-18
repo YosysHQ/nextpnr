@@ -697,4 +697,34 @@ bool Arch::isGlobalNet(const NetInfo *net) const
     return net->driver.cell != nullptr && net->driver.port == id_glb_buf_out;
 }
 
+// Assign arch arg info
+void Arch::assignArchArgs()
+{
+    for (auto &net : getCtx()->nets) {
+        NetInfo *ni = net.second.get();
+        if (isGlobalNet(ni))
+            ni->is_global = true;
+    }
+    for (auto &cell : getCtx()->cells) {
+        CellInfo *ci = cell.second.get();
+        ci->belType = belTypeFromId(ci->type);
+        if (ci->type == id_icestorm_lc) {
+            ci->lcInfo.dffEnable = bool_or_default(ci->params, id_dff_en);
+            ci->lcInfo.negClk = bool_or_default(ci->params, id_neg_clk);
+            ci->lcInfo.clk = get_net_or_empty(ci, id_clk);
+            ci->lcInfo.cen = get_net_or_empty(ci, id_cen);
+            ci->lcInfo.sr = get_net_or_empty(ci, id_sr);
+            ci->lcInfo.inputCount = 0;
+            if (get_net_or_empty(ci, id_i0))
+                ci->lcInfo.inputCount++;
+            if (get_net_or_empty(ci, id_i1))
+                ci->lcInfo.inputCount++;
+            if (get_net_or_empty(ci, id_i2))
+                ci->lcInfo.inputCount++;
+            if (get_net_or_empty(ci, id_i3))
+                ci->lcInfo.inputCount++;
+        }
+    }
+}
+
 NEXTPNR_NAMESPACE_END
