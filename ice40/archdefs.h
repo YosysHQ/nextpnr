@@ -150,8 +150,26 @@ struct DecalId
     bool operator!=(const DecalId &other) const { return (type != other.type) || (index != other.index); }
 };
 
-struct ArchNetInfo { };
-struct ArchCellInfo { };
+struct ArchNetInfo
+{
+    bool is_global = false;
+};
+
+struct NetInfo;
+
+struct ArchCellInfo
+{
+    BelType belType = TYPE_NONE;
+    union
+    {
+        struct
+        {
+            bool dffEnable, negClk;
+            int inputCount;
+            const NetInfo *clk, *cen, *sr;
+        } lcInfo;
+    };
+};
 
 NEXTPNR_NAMESPACE_END
 

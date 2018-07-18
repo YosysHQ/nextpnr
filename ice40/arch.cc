@@ -610,8 +610,7 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
         }
 
         if (bel_type == TYPE_ICESTORM_RAM) {
-            for (int i = 0; i < 2; i++)
-            {
+            for (int i = 0; i < 2; i++) {
                 int tx = chip_info->bel_data[bel.index].x;
                 int ty = chip_info->bel_data[bel.index].y + i;
 
@@ -621,7 +620,7 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
                 el.x1 = chip_info->bel_data[bel.index].x + logic_cell_x1;
                 el.x2 = chip_info->bel_data[bel.index].x + logic_cell_x2;
                 el.y1 = chip_info->bel_data[bel.index].y + logic_cell_y1;
-                el.y2 = chip_info->bel_data[bel.index].y + logic_cell_y2 + 7*logic_cell_pitch;
+                el.y2 = chip_info->bel_data[bel.index].y + logic_cell_y2 + 7 * logic_cell_pitch;
                 el.z = 0;
                 ret.push_back(el);
 

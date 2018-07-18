@@ -575,6 +575,36 @@ static void pack_special(Context *ctx)
     }
 }
 
+// Assign arch arg info
+static void assign_archargs(Context *ctx)
+{
+    for (auto &net : ctx->nets) {
+        NetInfo *ni = net.second.get();
+        if (ctx->isGlobalNet(ni))
+            ni->is_global = true;
+    }
+    for (auto &cell : ctx->cells) {
+        CellInfo *ci = cell.second.get();
+        ci->belType = ctx->belTypeFromId(ci->type);
+        if (is_lc(ctx, ci)) {
+            ci->lcInfo.dffEnable = bool_or_default(ci->params, ctx->id("DFF_ENABLE"));
+            ci->lcInfo.negClk = bool_or_default(ci->params, ctx->id("NEG_CLK"));
+            ci->lcInfo.clk = get_net_or_empty(ci, ctx->id("CLK"));
+            ci->lcInfo.cen = get_net_or_empty(ci, ctx->id("CEN"));
+            ci->lcInfo.sr = get_net_or_empty(ci, ctx->id("SR"));
+            ci->lcInfo.inputCount = 0;
+            if (get_net_or_empty(ci, ctx->id("I0")))
+                ci->lcInfo.inputCount++;
+            if (get_net_or_empty(ci, ctx->id("I1")))
+                ci->lcInfo.inputCount++;
+            if (get_net_or_empty(ci, ctx->id("I2")))
+                ci->lcInfo.inputCount++;
+            if (get_net_or_empty(ci, ctx->id("I3")))
+                ci->lcInfo.inputCount++;
+        }
+    }
+}
+
 // Main pack function
 bool Arch::pack()
 {
@@ -589,6 +619,7 @@ bool Arch::pack()
         pack_carries(ctx);
         pack_ram(ctx);
         pack_special(ctx);
+        assign_archargs(ctx);
         log_info("Checksum: 0x%08x\n", ctx->checksum());
         return true;
     } catch (log_execution_error_exception) {

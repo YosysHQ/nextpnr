@@ -584,7 +584,7 @@ struct Arch : BaseCtx
         range.e.cursor = chip_info->num_pips;
         return range;
     }
-    
+
     IdString getPipName(PipId pip) const;
 
     uint32_t getPipChecksum(PipId pip) const { return pip.index; }
