@@ -1,9 +1,2 @@
 read_verilog blinky.v
-read_verilog -lib cells.v
-synth -top top
-abc -lut 4
-techmap -map simple_map.v
-splitnets
-opt_clean
-stat
-write_json blinky.json
+synth_ecp5 -noccu2 -nomux -nodram -json blinky.json
