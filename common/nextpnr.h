@@ -203,6 +203,8 @@ struct PipMap
 struct NetInfo : ArchNetInfo
 {
     IdString name;
+    int32_t udata;
+
     PortRef driver;
     std::vector<PortRef> users;
     std::unordered_map<IdString, std::string> attrs;
@@ -228,6 +230,8 @@ struct PortInfo
 struct CellInfo : ArchCellInfo
 {
     IdString name, type;
+    int32_t udata;
+
     std::unordered_map<IdString, PortInfo> ports;
     std::unordered_map<IdString, std::string> attrs, params;
 
