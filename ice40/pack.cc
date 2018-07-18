@@ -277,6 +277,10 @@ static void pack_ram(Context *ctx)
                 if (bpos != std::string::npos) {
                     newname = newname.substr(0, bpos) + "_" + newname.substr(bpos + 1, (newname.size() - bpos) - 2);
                 }
+                if (pi.name == ctx->id("RCLKN"))
+                    newname = "RCLK";
+                else if (pi.name == ctx->id("WCLKN"))
+                    newname = "WCLK";
                 replace_port(ci, ctx->id(pi.name.c_str(ctx)), packed.get(), ctx->id(newname));
             }
             new_cells.push_back(std::move(packed));

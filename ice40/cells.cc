@@ -256,7 +256,8 @@ bool is_clock_port(const BaseCtx *ctx, const PortRef &port)
     if (port.cell->type == ctx->id("ICESTORM_LC"))
         return port.port == ctx->id("CLK");
     if (is_ram(ctx, port.cell) || port.cell->type == ctx->id("ICESTORM_RAM"))
-        return port.port == ctx->id("RCLK") || port.port == ctx->id("WCLK");
+        return port.port == ctx->id("RCLK") || port.port == ctx->id("WCLK") || port.port == ctx->id("RCLKN") ||
+               port.port == ctx->id("WCLKN");
     return false;
 }
 

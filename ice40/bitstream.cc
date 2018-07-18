@@ -192,7 +192,7 @@ void write_asc(const Context *ctx, std::ostream &out)
                 bool val = (pin_type >> i) & 0x01;
                 set_config(ti, config.at(y).at(x), "IOB_" + std::to_string(z) + ".PINTYPE_" + std::to_string(i), val);
             }
-
+            set_config(ti, config.at(y).at(x), "NegClk", neg_trigger);
             auto ieren = get_ieren(bi, x, y, z);
             int iex, iey, iez;
             std::tie(iex, iey, iez) = ieren;
