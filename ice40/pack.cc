@@ -593,7 +593,7 @@ bool Arch::pack()
         pack_carries(ctx);
         pack_ram(ctx);
         pack_special(ctx);
-        ctx->assignArchArgs();
+        ctx->assignArchInfo();
         log_info("Checksum: 0x%08x\n", ctx->checksum());
         return true;
     } catch (log_execution_error_exception) {

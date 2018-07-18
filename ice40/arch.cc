@@ -698,7 +698,7 @@ bool Arch::isGlobalNet(const NetInfo *net) const
 }
 
 // Assign arch arg info
-void Arch::assignArchArgs()
+void Arch::assignArchInfo()
 {
     for (auto &net : getCtx()->nets) {
         NetInfo *ni = net.second.get();
@@ -707,11 +707,11 @@ void Arch::assignArchArgs()
     }
     for (auto &cell : getCtx()->cells) {
         CellInfo *ci = cell.second.get();
-        assignCellArgs(ci);
+        assignCellInfo(ci);
     }
 }
 
-void Arch::assignCellArgs(CellInfo *cell)
+void Arch::assignCellInfo(CellInfo *cell)
 {
     cell->belType = belTypeFromId(cell->type);
     if (cell->type == id_icestorm_lc) {
