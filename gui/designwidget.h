@@ -102,6 +102,7 @@ class DesignWidget : public QWidget
     QAction *actionPrev;
     QAction *actionNext;
     QAction *actionLast;
+    QAction *actionClear;
 
     QColor highlightColors[8];
     QMap<QTreeWidgetItem *, int> highlightSelected;

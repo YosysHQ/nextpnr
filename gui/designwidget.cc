@@ -125,11 +125,27 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr), net
         updateButtons();
     });
 
+    actionClear = new QAction("", this);
+    actionClear->setIcon(QIcon(":/icons/resources/cross.png"));
+    actionClear->setEnabled(true);
+    connect(actionClear, &QAction::triggered, this, [this] {
+        history_index = -1;
+        history.clear();
+        QTreeWidgetItem *clickItem = treeWidget->selectedItems().at(0);
+        if (clickItem->parent()) {
+            ElementType type = static_cast<ElementTreeItem *>(clickItem)->getType();
+            if (type != ElementType::NONE)
+                addToHistory(treeWidget->selectedItems().at(0));
+        }
+        updateButtons();
+    });
+
     QToolBar *toolbar = new QToolBar();
     toolbar->addAction(actionFirst);
     toolbar->addAction(actionPrev);
     toolbar->addAction(actionNext);
     toolbar->addAction(actionLast);
+    toolbar->addAction(actionClear);
 
     QWidget *topWidget = new QWidget();
     QVBoxLayout *vbox1 = new QVBoxLayout();
