@@ -488,13 +488,12 @@ void DesignWidget::onItemSelectionChanged()
     addToHistory(clickItem);
 
     clearProperties();
+
+    IdString c = static_cast<IdStringTreeItem *>(clickItem)->getData();
+    Q_EMIT selected(getDecals(type, c));
+
     if (type == ElementType::BEL) {
-        IdString c = static_cast<IdStringTreeItem *>(clickItem)->getData();
         BelId bel = ctx->getBelByName(c);
-
-        decals.push_back(ctx->getBelDecal(bel));
-        Q_EMIT selected(decals);
-
         QtProperty *topItem = addTopLevelProperty("Bel");
 
         addProperty(topItem, QVariant::String, "Name", c.c_str(ctx));
@@ -505,12 +504,7 @@ void DesignWidget::onItemSelectionChanged()
                     ElementType::CELL);
 
     } else if (type == ElementType::WIRE) {
-        IdString c = static_cast<IdStringTreeItem *>(clickItem)->getData();
         WireId wire = ctx->getWireByName(c);
-
-        decals.push_back(ctx->getWireDecal(wire));
-        Q_EMIT selected(decals);
-
         QtProperty *topItem = addTopLevelProperty("Wire");
 
         addProperty(topItem, QVariant::String, "Name", c.c_str(ctx));
@@ -562,12 +556,7 @@ void DesignWidget::onItemSelectionChanged()
             }
         }
     } else if (type == ElementType::PIP) {
-        IdString c = static_cast<IdStringTreeItem *>(clickItem)->getData();
         PipId pip = ctx->getPipByName(c);
-
-        decals.push_back(ctx->getPipDecal(pip));
-        Q_EMIT selected(decals);
-
         QtProperty *topItem = addTopLevelProperty("Pip");
 
         addProperty(topItem, QVariant::String, "Name", c.c_str(ctx));
@@ -587,7 +576,6 @@ void DesignWidget::onItemSelectionChanged()
         addProperty(delayItem, QVariant::Double, "Fall", delay.fallDelay());
         addProperty(delayItem, QVariant::Double, "Average", delay.avgDelay());
     } else if (type == ElementType::NET) {
-        IdString c = static_cast<IdStringTreeItem *>(clickItem)->getData();
         NetInfo *net = ctx->nets.at(c).get();
 
         QtProperty *topItem = addTopLevelProperty("Net");
@@ -636,7 +624,6 @@ void DesignWidget::onItemSelectionChanged()
         }
 
     } else if (type == ElementType::CELL) {
-        IdString c = static_cast<IdStringTreeItem *>(clickItem)->getData();
         CellInfo *cell = ctx->cells.at(c).get();
 
         QtProperty *topItem = addTopLevelProperty("Cell");
@@ -700,19 +687,28 @@ std::vector<DecalXY> DesignWidget::getDecals(ElementType type, IdString value)
         WireId wire = ctx->getWireByName(value);
         if (wire != WireId()) {
             decals.push_back(ctx->getWireDecal(wire));
-            Q_EMIT selected(decals);
         }
     } break;
     case ElementType::PIP: {
         PipId pip = ctx->getPipByName(value);
         if (pip != PipId()) {
             decals.push_back(ctx->getPipDecal(pip));
-            Q_EMIT selected(decals);
         }
     } break;
     case ElementType::NET: {
+        NetInfo *net = ctx->nets.at(value).get();
+        for (auto &item : net->wires) {
+            decals.push_back(ctx->getWireDecal(item.first));
+            if (item.second.pip != PipId()) {
+                decals.push_back(ctx->getPipDecal(item.second.pip));
+            }
+        }
     } break;
     case ElementType::CELL: {
+        CellInfo *cell = ctx->cells.at(value).get();
+        if (cell->bel != BelId()) {
+            decals.push_back(ctx->getBelDecal(cell->bel));
+        }
     } break;
     default:
         break;
