@@ -709,6 +709,7 @@ struct Arch : BaseCtx
     // Assign architecure-specific arguments to nets and cells, which must be called between packing or further
     // netlist modifications, and validity checks
     void assignArchArgs();
+    void assignCellArgs(CellInfo *cell);
 
     IdString id_glb_buf_out;
     IdString id_icestorm_lc, id_sb_io, id_sb_gb;

@@ -707,23 +707,28 @@ void Arch::assignArchArgs()
     }
     for (auto &cell : getCtx()->cells) {
         CellInfo *ci = cell.second.get();
-        ci->belType = belTypeFromId(ci->type);
-        if (ci->type == id_icestorm_lc) {
-            ci->lcInfo.dffEnable = bool_or_default(ci->params, id_dff_en);
-            ci->lcInfo.negClk = bool_or_default(ci->params, id_neg_clk);
-            ci->lcInfo.clk = get_net_or_empty(ci, id_clk);
-            ci->lcInfo.cen = get_net_or_empty(ci, id_cen);
-            ci->lcInfo.sr = get_net_or_empty(ci, id_sr);
-            ci->lcInfo.inputCount = 0;
-            if (get_net_or_empty(ci, id_i0))
-                ci->lcInfo.inputCount++;
-            if (get_net_or_empty(ci, id_i1))
-                ci->lcInfo.inputCount++;
-            if (get_net_or_empty(ci, id_i2))
-                ci->lcInfo.inputCount++;
-            if (get_net_or_empty(ci, id_i3))
-                ci->lcInfo.inputCount++;
-        }
+        assignCellArgs(ci);
+    }
+}
+
+void Arch::assignCellArgs(CellInfo *cell)
+{
+    cell->belType = belTypeFromId(cell->type);
+    if (cell->type == id_icestorm_lc) {
+        cell->lcInfo.dffEnable = bool_or_default(cell->params, id_dff_en);
+        cell->lcInfo.negClk = bool_or_default(cell->params, id_neg_clk);
+        cell->lcInfo.clk = get_net_or_empty(cell, id_clk);
+        cell->lcInfo.cen = get_net_or_empty(cell, id_cen);
+        cell->lcInfo.sr = get_net_or_empty(cell, id_sr);
+        cell->lcInfo.inputCount = 0;
+        if (get_net_or_empty(cell, id_i0))
+            cell->lcInfo.inputCount++;
+        if (get_net_or_empty(cell, id_i1))
+            cell->lcInfo.inputCount++;
+        if (get_net_or_empty(cell, id_i2))
+            cell->lcInfo.inputCount++;
+        if (get_net_or_empty(cell, id_i3))
+            cell->lcInfo.inputCount++;
     }
 }
 
