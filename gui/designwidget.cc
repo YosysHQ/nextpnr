@@ -612,7 +612,7 @@ void DesignWidget::onItemSelectionChanged()
             auto name = ctx->getWireName(item.first).c_str(ctx);
 
             QtProperty *wireItem = addSubGroup(wiresItem, name);
-            addProperty(wireItem, QVariant::String, "Name", name);
+            addProperty(wireItem, QVariant::String, "Wire", name, ElementType::WIRE);
 
             if (item.second.pip != PipId())
                 addProperty(wireItem, QVariant::String, "Pip", ctx->getPipName(item.second.pip).c_str(ctx),
