@@ -177,7 +177,7 @@ void ff_to_slice(Context *ctx, CellInfo *ff, CellInfo *lc, int index, bool drive
 
 void lut_to_slice(Context *ctx, CellInfo *lut, CellInfo *lc, int index)
 {
-    lc->params[ctx->id("LUT" + std::to_string(index) + "_INITVAL")] = str_or_default(lc->params, ctx->id("INIT"), "0");
+    lc->params[ctx->id("LUT" + std::to_string(index) + "_INITVAL")] = str_or_default(lut->params, ctx->id("INIT"), "0");
     replace_port(lut, ctx->id("A"), lc, ctx->id("A" + std::to_string(index)));
     replace_port(lut, ctx->id("B"), lc, ctx->id("B" + std::to_string(index)));
     replace_port(lut, ctx->id("C"), lc, ctx->id("C" + std::to_string(index)));

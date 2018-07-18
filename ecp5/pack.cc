@@ -71,6 +71,15 @@ class Ecp5Packer
         }
     }
 
+    const NetInfo *net_or_nullptr(CellInfo *cell, IdString port)
+    {
+        auto fnd = cell->ports.find(port);
+        if (fnd == cell->ports.end())
+            return nullptr;
+        else
+            return fnd->second.net;
+    }
+
     // Return whether two FFs can be packed together in the same slice
     bool can_pack_ffs(CellInfo *ff0, CellInfo *ff1)
     {
@@ -88,11 +97,11 @@ class Ecp5Packer
         if (str_or_default(ff0->params, ctx->id("CLKMUX"), "CLK") !=
             str_or_default(ff1->params, ctx->id("CLKMUX"), "CLK"))
             return false;
-        if (ff0->ports.at(ctx->id("CLK")).net != ff1->ports.at(ctx->id("CLK")).net)
+        if (net_or_nullptr(ff0, ctx->id("CLK")) != net_or_nullptr(ff1, ctx->id("CLK")))
             return false;
-        if (ff0->ports.at(ctx->id("CE")).net != ff1->ports.at(ctx->id("CE")).net)
+        if (net_or_nullptr(ff0, ctx->id("CE")) != net_or_nullptr(ff1, ctx->id("CE")))
             return false;
-        if (ff0->ports.at(ctx->id("LSR")).net != ff1->ports.at(ctx->id("LSR")).net)
+        if (net_or_nullptr(ff0, ctx->id("LSR")) != net_or_nullptr(ff1, ctx->id("LSR")))
             return false;
         return true;
     }
@@ -275,6 +284,8 @@ class Ecp5Packer
                     ff_to_slice(ctx, ff, packed.get(), 0, true);
                     packed_cells.insert(ff->name);
                     sliceUsage[packed->name].ff0_used = true;
+                    lutffPairs.erase(ci->name);
+                    fflutPairs.erase(ff->name);
                 }
 
                 new_cells.push_back(std::move(packed));
@@ -304,10 +315,14 @@ class Ecp5Packer
             if (ff0 != lutffPairs.end()) {
                 ff_to_slice(ctx, ctx->cells.at(ff0->second).get(), slice.get(), 0, true);
                 packed_cells.insert(ff0->second);
+                lutffPairs.erase(lut0->name);
+                fflutPairs.erase(ff0->second);
             }
             if (ff1 != lutffPairs.end()) {
                 ff_to_slice(ctx, ctx->cells.at(ff1->second).get(), slice.get(), 1, true);
                 packed_cells.insert(ff1->second);
+                lutffPairs.erase(lut1->name);
+                fflutPairs.erase(ff1->second);
             }
 
             new_cells.push_back(std::move(slice));
@@ -333,6 +348,8 @@ class Ecp5Packer
                 if (ff != lutffPairs.end()) {
                     ff_to_slice(ctx, ctx->cells.at(ff->second).get(), slice.get(), 0, true);
                     packed_cells.insert(ff->second);
+                    lutffPairs.erase(ci->name);
+                    fflutPairs.erase(ff->second);
                 }
 
                 new_cells.push_back(std::move(slice));
@@ -374,14 +391,7 @@ class Ecp5Packer
                     new_init |= (1 << i);
             }
         }
-        cell->params[ctx->id("INIT")] = std::to_string(init);
-        NetInfo *innet = cell->ports.at(input).net;
-        if (innet != nullptr) {
-            innet->users.erase(
-                    std::remove_if(innet->users.begin(), innet->users.end(),
-                                   [cell, input](PortRef port) { return port.cell == cell && port.port == input; }),
-                    innet->users.end());
-        }
+        cell->params[ctx->id("INIT")] = std::to_string(new_init);
         cell->ports.at(input).net = nullptr;
     }
 
@@ -418,7 +428,7 @@ class Ecp5Packer
         log_info("Packing constants..\n");
 
         std::unique_ptr<CellInfo> gnd_cell = create_ecp5_cell(ctx, ctx->id("LUT4"), "$PACKER_GND");
-        gnd_cell->params[ctx->id("LUT_INIT")] = "0";
+        gnd_cell->params[ctx->id("INIT")] = "0";
         std::unique_ptr<NetInfo> gnd_net = std::unique_ptr<NetInfo>(new NetInfo);
         gnd_net->name = ctx->id("$PACKER_GND_NET");
         gnd_net->driver.cell = gnd_cell.get();
@@ -426,7 +436,7 @@ class Ecp5Packer
         gnd_cell->ports.at(ctx->id("Z")).net = gnd_net.get();
 
         std::unique_ptr<CellInfo> vcc_cell = create_ecp5_cell(ctx, ctx->id("LUT4"), "$PACKER_VCC");
-        vcc_cell->params[ctx->id("LUT_INIT")] = "65535";
+        vcc_cell->params[ctx->id("INIT")] = "65535";
         std::unique_ptr<NetInfo> vcc_net = std::unique_ptr<NetInfo>(new NetInfo);
         vcc_net->name = ctx->id("$PACKER_VCC_NET");
         vcc_net->driver.cell = vcc_cell.get();
