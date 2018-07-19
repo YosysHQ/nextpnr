@@ -307,6 +307,10 @@ static void set_net_constant(const Context *ctx, NetInfo *orig, NetInfo *constne
             if ((is_lut(ctx, uc) || is_lc(ctx, uc) || is_carry(ctx, uc)) && (user.port.str(ctx).at(0) == 'I') &&
                 !constval) {
                 uc->ports[user.port].net = nullptr;
+            } else if ((is_sb_mac16(ctx, uc) || uc->type == ctx->id("ICESTORM_DSP")) &&
+                       (user.port != ctx->id("CLK") &&
+                        ((constval && user.port == ctx->id("CE")) || (!constval && user.port != ctx->id("CE"))))) {
+                uc->ports[user.port].net = nullptr;
             } else {
                 uc->ports[user.port].net = constnet;
                 constnet->users.push_back(user);
