@@ -54,7 +54,7 @@ enum BelType : int32_t
     TYPE_SB_GB,
     TYPE_ICESTORM_PLL,
     TYPE_SB_WARMBOOT,
-    TYPE_SB_MAC16,
+    TYPE_ICESTORM_DSP,
     TYPE_ICESTORM_HFOSC,
     TYPE_ICESTORM_LFOSC,
     TYPE_SB_I2C,
@@ -150,8 +150,26 @@ struct DecalId
     bool operator!=(const DecalId &other) const { return (type != other.type) || (index != other.index); }
 };
 
-struct ArchNetInfo { };
-struct ArchCellInfo { };
+struct ArchNetInfo
+{
+    bool is_global = false;
+};
+
+struct NetInfo;
+
+struct ArchCellInfo
+{
+    BelType belType = TYPE_NONE;
+    union
+    {
+        struct
+        {
+            bool dffEnable, negClk;
+            int inputCount;
+            const NetInfo *clk, *cen, *sr;
+        } lcInfo;
+    };
+};
 
 NEXTPNR_NAMESPACE_END
 

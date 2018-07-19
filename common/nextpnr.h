@@ -72,21 +72,22 @@ class assertion_failure : public std::runtime_error
     int line;
 };
 
-inline void except_assert_impl(bool expr, const char *message, const char *expr_str, const char *filename, int line)
+NPNR_NORETURN
+inline bool assert_fail_impl(const char *message, const char *expr_str, const char *filename, int line)
 {
-    if (!expr)
-        throw assertion_failure(message, expr_str, filename, line);
+    throw assertion_failure(message, expr_str, filename, line);
 }
 
 NPNR_NORETURN
-inline void assert_false_impl(std::string message, std::string filename, int line)
+inline bool assert_fail_impl_str(std::string message, const char *expr_str, const char *filename, int line)
 {
-    throw assertion_failure(message, "false", filename, line);
+    throw assertion_failure(message, expr_str, filename, line);
 }
 
-#define NPNR_ASSERT(cond) except_assert_impl((cond), #cond, #cond, __FILE__, __LINE__)
-#define NPNR_ASSERT_MSG(cond, msg) except_assert_impl((cond), msg, #cond, __FILE__, __LINE__)
-#define NPNR_ASSERT_FALSE(msg) assert_false_impl(msg, __FILE__, __LINE__)
+#define NPNR_ASSERT(cond) ((void)((cond) || (assert_fail_impl(#cond, #cond, __FILE__, __LINE__))))
+#define NPNR_ASSERT_MSG(cond, msg) ((void)((cond) || (assert_fail_impl(msg, #cond, __FILE__, __LINE__))))
+#define NPNR_ASSERT_FALSE(msg) (assert_fail_impl(msg, "false", __FILE__, __LINE__))
+#define NPNR_ASSERT_FALSE_STR(msg) (assert_fail_impl_str(msg, "false", __FILE__, __LINE__))
 
 struct BaseCtx;
 struct Context;
@@ -203,6 +204,8 @@ struct PipMap
 struct NetInfo : ArchNetInfo
 {
     IdString name;
+    int32_t udata;
+
     PortRef driver;
     std::vector<PortRef> users;
     std::unordered_map<IdString, std::string> attrs;
@@ -228,6 +231,8 @@ struct PortInfo
 struct CellInfo : ArchCellInfo
 {
     IdString name, type;
+    int32_t udata;
+
     std::unordered_map<IdString, PortInfo> ports;
     std::unordered_map<IdString, std::string> attrs, params;
 

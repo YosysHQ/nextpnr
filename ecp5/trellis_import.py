@@ -2,6 +2,8 @@
 import pytrellis
 import database
 import argparse
+import json
+from os import path
 
 location_types = dict()
 type_at_location = dict()
@@ -319,6 +321,49 @@ bel_types = {
     "PIO": 2
 }
 
+def get_bel_index(ddrg, loc, name):
+    loctype = ddrg.locationTypes[ddrg.typeAtLocation[loc]]
+    idx = 0
+    for bel in loctype.bels:
+        if ddrg.to_str(bel.name) == name:
+            return idx
+        idx += 1
+    assert loc.y == max_row # Only missing IO should be special pins at bottom of device
+    return None
+
+
+packages = {}
+pindata = []
+
+def process_pio_db(ddrg, device):
+    piofile = path.join(database.get_db_root(), "ECP5", dev_names[device], "iodb.json")
+    with open(piofile, 'r') as f:
+        piodb = json.load(f)
+        for pkgname, pkgdata in sorted(piodb["packages"].items()):
+            pins = []
+            for name, pinloc in sorted(pkgdata.items()):
+                x = pinloc["col"]
+                y = pinloc["row"]
+                loc = pytrellis.Location(x, y)
+                pio = "PIO" + pinloc["pio"]
+                bel_idx = get_bel_index(ddrg, loc, pio)
+                if bel_idx is not None:
+                    pins.append((name, loc, bel_idx))
+            packages[pkgname] = pins
+        for metaitem in piodb["pio_metadata"]:
+            x = metaitem["col"]
+            y = metaitem["row"]
+            loc = pytrellis.Location(x, y)
+            pio = "PIO" + metaitem["pio"]
+            bank = metaitem["bank"]
+            if "function" in metaitem:
+                pinfunc = metaitem["function"]
+            else:
+                pinfunc = None
+            bel_idx = get_bel_index(ddrg, loc, pio)
+            if bel_idx is not None:
+                pindata.append((loc, bel_idx, bank, pinfunc))
+
 
 def write_database(dev_name, ddrg, endianness):
     def write_loc(loc, sym_name):
@@ -409,6 +454,32 @@ def write_database(dev_name, ddrg, endianness):
     for y in range(0, max_row+1):
         for x in range(0, max_col+1):
             bba.u32(loctypes.index(ddrg.typeAtLocation[pytrellis.Location(x, y)]), "loctype")
+    for package, pkgdata in sorted(packages.items()):
+        bba.l("package_data_%s" % package, "PackagePinPOD")
+        for pin in pkgdata:
+            name, loc, bel_idx = pin
+            bba.s(name, "name")
+            write_loc(loc, "abs_loc")
+            bba.u32(bel_idx, "bel_index")
+
+    bba.l("package_data", "PackageInfoPOD")
+    for package, pkgdata in sorted(packages.items()):
+        bba.s(package, "name")
+        bba.u32(len(pkgdata), "num_pins")
+        bba.r("package_data_%s" % package, "pin_data")
+
+    bba.l("pio_info", "PIOInfoPOD")
+    for pin in pindata:
+        loc, bel_idx, bank, func = pin
+        write_loc(loc, "abs_loc")
+        bba.u32(bel_idx, "bel_index")
+        if func is not None:
+            bba.s(func, "function_name")
+        else:
+            bba.r(None, "function_name")
+        bba.u16(bank, "bank")
+        bba.u16(0, "padding")
+
 
     bba.l("tiletype_names", "RelPtr<char>")
     for tt in tiletype_names:
@@ -419,9 +490,15 @@ def write_database(dev_name, ddrg, endianness):
     bba.u32(max_row + 1, "height")
     bba.u32((max_col + 1) * (max_row + 1), "num_tiles")
     bba.u32(len(location_types), "num_location_types")
+    bba.u32(len(packages), "num_packages")
+    bba.u32(len(pindata), "num_pios")
+
     bba.r("locations", "locations")
     bba.r("location_types", "location_type")
     bba.r("tiletype_names", "tiletype_names")
+    bba.r("package_data", "package_info")
+    bba.r("pio_info", "pio_info")
+
     bba.finalize()
     return bba
 
@@ -451,6 +528,7 @@ def main():
     ddrg = pytrellis.make_dedup_chipdb(chip)
     max_row = chip.get_max_row()
     max_col = chip.get_max_col()
+    process_pio_db(ddrg, args.device)
     print("{} unique location types".format(len(ddrg.locationTypes)))
     bba = write_database(args.device, ddrg, "le")
 

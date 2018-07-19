@@ -36,7 +36,7 @@ const ConfigEntryPOD &find_config(const TileInfoPOD &tile, const std::string &na
             return tile.entries[i];
         }
     }
-    NPNR_ASSERT_FALSE("unable to find config bit " + name);
+    NPNR_ASSERT_FALSE_STR("unable to find config bit " + name);
 }
 
 std::tuple<int8_t, int8_t, int8_t> get_ieren(const BitstreamInfoPOD &bi, int8_t x, int8_t y, int8_t z)
@@ -90,12 +90,79 @@ std::string get_param_str_or_def(const CellInfo *cell, const IdString param, std
 
 char get_hexdigit(int i) { return std::string("0123456789ABCDEF").at(i); }
 
+static const BelConfigPOD &get_ec_config(const ChipInfoPOD *chip, BelId bel)
+{
+    for (int i = 0; i < chip->num_belcfgs; i++) {
+        if (chip->bel_config[i].bel_index == bel.index)
+            return chip->bel_config[i];
+    }
+    NPNR_ASSERT_FALSE("failed to find bel config");
+}
+
+typedef std::vector<std::vector<std::vector<std::vector<int8_t>>>> chipconfig_t;
+
+static void set_ec_cbit(chipconfig_t &config, const Context *ctx, const BelConfigPOD &cell_cbits, std::string name,
+                        bool value)
+{
+    const ChipInfoPOD *chip = ctx->chip_info;
+
+    for (int i = 0; i < cell_cbits.num_entries; i++) {
+        const auto &cbit = cell_cbits.entries[i];
+        if (cbit.entry_name.get() == name) {
+            const auto &ti = chip->bits_info->tiles_nonrouting[tile_at(ctx, cbit.x, cbit.y)];
+            set_config(ti, config.at(cbit.y).at(cbit.x), std::string("IpConfig.") + cbit.cbit_name.get(), value);
+            return;
+        }
+    }
+    NPNR_ASSERT_FALSE_STR("failed to config extra cell config bit " + name);
+}
+
+void configure_extra_cell(chipconfig_t &config, const Context *ctx, CellInfo *cell,
+                          const std::vector<std::pair<std::string, int>> &params, bool string_style)
+{
+    const ChipInfoPOD *chip = ctx->chip_info;
+    const auto &bc = get_ec_config(chip, cell->bel);
+    for (auto p : params) {
+        std::vector<bool> value;
+        if (string_style) {
+            // Lattice's weird string style params, not sure if
+            // prefixes other than 0b should be supported, only 0b features in docs
+            std::string raw = get_param_str_or_def(cell, ctx->id(p.first), "0b0");
+            assert(raw.substr(0, 2) == "0b");
+            raw = raw.substr(2);
+            value.resize(raw.length());
+            for (int i = 0; i < (int)raw.length(); i++) {
+                if (raw[i] == '1') {
+                    value[(raw.length() - 1) - i] = 1;
+                } else {
+                    assert(raw[i] == '0');
+                    value[(raw.length() - 1) - i] = 0;
+                }
+            }
+        } else {
+            int ival = get_param_or_def(cell, ctx->id(p.first), 0);
+
+            for (int i = 0; i < p.second; i++)
+                value.push_back((ival >> i) & 0x1);
+        }
+
+        value.resize(p.second);
+        if (p.second == 1) {
+            set_ec_cbit(config, ctx, bc, p.first, value.at(0));
+        } else {
+            for (int i = 0; i < p.second; i++) {
+                set_ec_cbit(config, ctx, bc, p.first + "_" + std::to_string(i), value.at(i));
+            }
+        }
+    }
+}
+
 void write_asc(const Context *ctx, std::ostream &out)
 {
     // [y][x][row][col]
     const ChipInfoPOD &ci = *ctx->chip_info;
     const BitstreamInfoPOD &bi = *ci.bits_info;
-    std::vector<std::vector<std::vector<std::vector<int8_t>>>> config;
+    chipconfig_t config;
     config.resize(ci.height);
     for (int y = 0; y < ci.height; y++) {
         config.at(y).resize(ci.width);
@@ -192,7 +259,7 @@ void write_asc(const Context *ctx, std::ostream &out)
                 bool val = (pin_type >> i) & 0x01;
                 set_config(ti, config.at(y).at(x), "IOB_" + std::to_string(z) + ".PINTYPE_" + std::to_string(i), val);
             }
-
+            set_config(ti, config.at(y).at(x), "NegClk", neg_trigger);
             auto ieren = get_ieren(bi, x, y, z);
             int iex, iey, iez;
             std::tie(iex, iey, iez) = ieren;
@@ -265,6 +332,27 @@ void write_asc(const Context *ctx, std::ostream &out)
                     NPNR_ASSERT(false);
                 }
             }
+        } else if (cell.second->type == ctx->id("ICESTORM_DSP")) {
+            const std::vector<std::pair<std::string, int>> mac16_params = {{"C_REG", 1},
+                                                                           {"A_REG", 1},
+                                                                           {"B_REG", 1},
+                                                                           {"D_REG", 1},
+                                                                           {"TOP_8x8_MULT_REG", 1},
+                                                                           {"BOT_8x8_MULT_REG", 1},
+                                                                           {"PIPELINE_16x16_MULT_REG1", 1},
+                                                                           {"PIPELINE_16x16_MULT_REG2", 1},
+                                                                           {"TOPOUTPUT_SELECT", 2},
+                                                                           {"TOPADDSUB_LOWERINPUT", 2},
+                                                                           {"TOPADDSUB_UPPERINPUT", 1},
+                                                                           {"TOPADDSUB_CARRYSELECT", 2},
+                                                                           {"BOTOUTPUT_SELECT", 2},
+                                                                           {"BOTADDSUB_LOWERINPUT", 2},
+                                                                           {"BOTADDSUB_UPPERINPUT", 1},
+                                                                           {"BOTADDSUB_CARRYSELECT", 2},
+                                                                           {"MODE_8x8", 1},
+                                                                           {"A_SIGNED", 1},
+                                                                           {"B_SIGNED", 1}};
+            configure_extra_cell(config, ctx, cell.second.get(), mac16_params, false);
         } else {
             NPNR_ASSERT(false);
         }
@@ -341,8 +429,9 @@ void write_asc(const Context *ctx, std::ostream &out)
                             set_config(ti, config.at(y).at(x),
                                        "Cascade.IPCON_LC0" + std::to_string(lc_idx) + "_inmux02_5", true);
                         else
-                            set_config(ti, config.at(y).at(x), "Cascade.MULT" + std::to_string(int(tile - TILE_DSP0)) +
-                                                                       "_LC0" + std::to_string(lc_idx) + "_inmux02_5",
+                            set_config(ti, config.at(y).at(x),
+                                       "Cascade.MULT" + std::to_string(int(tile - TILE_DSP0)) + "_LC0" +
+                                               std::to_string(lc_idx) + "_inmux02_5",
                                        true);
                     }
                 }

@@ -116,6 +116,14 @@ std::unique_ptr<CellInfo> create_ecp5_cell(Context *ctx, IdString type, std::str
         add_port(ctx, new_cell.get(), "I", PORT_IN);
         add_port(ctx, new_cell.get(), "T", PORT_IN);
         add_port(ctx, new_cell.get(), "O", PORT_OUT);
+    } else if (type == ctx->id("LUT4")) {
+        new_cell->params[ctx->id("INIT")] = "0";
+
+        add_port(ctx, new_cell.get(), "A", PORT_IN);
+        add_port(ctx, new_cell.get(), "B", PORT_IN);
+        add_port(ctx, new_cell.get(), "C", PORT_IN);
+        add_port(ctx, new_cell.get(), "D", PORT_IN);
+        add_port(ctx, new_cell.get(), "Z", PORT_OUT);
     } else {
         log_error("unable to create ECP5 cell of type %s", type.c_str(ctx));
     }
@@ -169,7 +177,7 @@ void ff_to_slice(Context *ctx, CellInfo *ff, CellInfo *lc, int index, bool drive
 
 void lut_to_slice(Context *ctx, CellInfo *lut, CellInfo *lc, int index)
 {
-    lc->params[ctx->id("LUT" + std::to_string(index) + "_INITVAL")] = str_or_default(lc->params, ctx->id("INIT"), "0");
+    lc->params[ctx->id("LUT" + std::to_string(index) + "_INITVAL")] = str_or_default(lut->params, ctx->id("INIT"), "0");
     replace_port(lut, ctx->id("A"), lc, ctx->id("A" + std::to_string(index)));
     replace_port(lut, ctx->id("B"), lc, ctx->id("B" + std::to_string(index)));
     replace_port(lut, ctx->id("C"), lc, ctx->id("C" + std::to_string(index)));

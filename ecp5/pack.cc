@@ -71,6 +71,15 @@ class Ecp5Packer
         }
     }
 
+    const NetInfo *net_or_nullptr(CellInfo *cell, IdString port)
+    {
+        auto fnd = cell->ports.find(port);
+        if (fnd == cell->ports.end())
+            return nullptr;
+        else
+            return fnd->second.net;
+    }
+
     // Return whether two FFs can be packed together in the same slice
     bool can_pack_ffs(CellInfo *ff0, CellInfo *ff1)
     {
@@ -88,11 +97,11 @@ class Ecp5Packer
         if (str_or_default(ff0->params, ctx->id("CLKMUX"), "CLK") !=
             str_or_default(ff1->params, ctx->id("CLKMUX"), "CLK"))
             return false;
-        if (ff0->ports.at(ctx->id("CLK")).net != ff1->ports.at(ctx->id("CLK")).net)
+        if (net_or_nullptr(ff0, ctx->id("CLK")) != net_or_nullptr(ff1, ctx->id("CLK")))
             return false;
-        if (ff0->ports.at(ctx->id("CE")).net != ff1->ports.at(ctx->id("CE")).net)
+        if (net_or_nullptr(ff0, ctx->id("CE")) != net_or_nullptr(ff1, ctx->id("CE")))
             return false;
-        if (ff0->ports.at(ctx->id("LSR")).net != ff1->ports.at(ctx->id("LSR")).net)
+        if (net_or_nullptr(ff0, ctx->id("LSR")) != net_or_nullptr(ff1, ctx->id("LSR")))
             return false;
         return true;
     }
@@ -223,8 +232,23 @@ class Ecp5Packer
                 } else {
                     log_error("TRELLIS_IO required on all top level IOs...\n");
                 }
+
                 packed_cells.insert(ci->name);
                 std::copy(ci->attrs.begin(), ci->attrs.end(), std::inserter(trio->attrs, trio->attrs.begin()));
+
+                auto loc_attr = trio->attrs.find(ctx->id("LOC"));
+                if (loc_attr != trio->attrs.end()) {
+                    std::string pin = loc_attr->second;
+                    BelId pinBel = ctx->getPackagePinBel(pin);
+                    if (pinBel == BelId()) {
+                        log_error("IO pin '%s' constrained to pin '%s', which does not exist for package '%s'.\n",
+                                  trio->name.c_str(ctx), pin.c_str(), ctx->args.package.c_str());
+                    } else {
+                        log_info("pin '%s' constrained to Bel '%s'.\n", trio->name.c_str(ctx),
+                                 ctx->getBelName(pinBel).c_str(ctx));
+                    }
+                    trio->attrs[ctx->id("BEL")] = ctx->getBelName(pinBel).str(ctx);
+                }
             }
         }
         flush_cells();
@@ -275,6 +299,8 @@ class Ecp5Packer
                     ff_to_slice(ctx, ff, packed.get(), 0, true);
                     packed_cells.insert(ff->name);
                     sliceUsage[packed->name].ff0_used = true;
+                    lutffPairs.erase(ci->name);
+                    fflutPairs.erase(ff->name);
                 }
 
                 new_cells.push_back(std::move(packed));
@@ -304,10 +330,14 @@ class Ecp5Packer
             if (ff0 != lutffPairs.end()) {
                 ff_to_slice(ctx, ctx->cells.at(ff0->second).get(), slice.get(), 0, true);
                 packed_cells.insert(ff0->second);
+                lutffPairs.erase(lut0->name);
+                fflutPairs.erase(ff0->second);
             }
             if (ff1 != lutffPairs.end()) {
                 ff_to_slice(ctx, ctx->cells.at(ff1->second).get(), slice.get(), 1, true);
                 packed_cells.insert(ff1->second);
+                lutffPairs.erase(lut1->name);
+                fflutPairs.erase(ff1->second);
             }
 
             new_cells.push_back(std::move(slice));
@@ -333,6 +363,8 @@ class Ecp5Packer
                 if (ff != lutffPairs.end()) {
                     ff_to_slice(ctx, ctx->cells.at(ff->second).get(), slice.get(), 0, true);
                     packed_cells.insert(ff->second);
+                    lutffPairs.erase(ci->name);
+                    fflutPairs.erase(ff->second);
                 }
 
                 new_cells.push_back(std::move(slice));
@@ -374,21 +406,98 @@ class Ecp5Packer
                     new_init |= (1 << i);
             }
         }
-        cell->params[ctx->id("INIT")] = std::to_string(init);
-        NetInfo *innet = cell->ports.at(input).net;
-        if (innet != nullptr) {
-            innet->users.erase(
-                    std::remove_if(innet->users.begin(), innet->users.end(),
-                                   [cell, input](PortRef port) { return port.cell == cell && port.port == input; }),
-                    innet->users.end());
-        }
+        cell->params[ctx->id("INIT")] = std::to_string(new_init);
         cell->ports.at(input).net = nullptr;
+    }
+
+    // Merge a net into a constant net
+    void set_net_constant(const Context *ctx, NetInfo *orig, NetInfo *constnet, bool constval)
+    {
+        orig->driver.cell = nullptr;
+        for (auto user : orig->users) {
+            if (user.cell != nullptr) {
+                CellInfo *uc = user.cell;
+                if (ctx->verbose)
+                    log_info("%s user %s\n", orig->name.c_str(ctx), uc->name.c_str(ctx));
+                if (is_lut(ctx, uc)) {
+                    set_lut_input_constant(uc, user.port, constval);
+                } else if (is_ff(ctx, uc) && user.port == ctx->id("CE")) {
+                    uc->params[ctx->id("CEMUX")] = constval ? "1" : "0";
+                    uc->ports[user.port].net = nullptr;
+                } else if (is_ff(ctx, uc) && user.port == ctx->id("LSR") &&
+                           ((!constval && str_or_default(uc->params, ctx->id("LSRMUX"), "LSR") == "LSR") ||
+                            (constval && str_or_default(uc->params, ctx->id("LSRMUX"), "LSR") == "INV"))) {
+                    uc->ports[user.port].net = nullptr;
+                } else {
+                    uc->ports[user.port].net = constnet;
+                    constnet->users.push_back(user);
+                }
+            }
+        }
+        orig->users.clear();
+    }
+
+    // Pack constants (simple implementation)
+    void pack_constants()
+    {
+        log_info("Packing constants..\n");
+
+        std::unique_ptr<CellInfo> gnd_cell = create_ecp5_cell(ctx, ctx->id("LUT4"), "$PACKER_GND");
+        gnd_cell->params[ctx->id("INIT")] = "0";
+        std::unique_ptr<NetInfo> gnd_net = std::unique_ptr<NetInfo>(new NetInfo);
+        gnd_net->name = ctx->id("$PACKER_GND_NET");
+        gnd_net->driver.cell = gnd_cell.get();
+        gnd_net->driver.port = ctx->id("Z");
+        gnd_cell->ports.at(ctx->id("Z")).net = gnd_net.get();
+
+        std::unique_ptr<CellInfo> vcc_cell = create_ecp5_cell(ctx, ctx->id("LUT4"), "$PACKER_VCC");
+        vcc_cell->params[ctx->id("INIT")] = "65535";
+        std::unique_ptr<NetInfo> vcc_net = std::unique_ptr<NetInfo>(new NetInfo);
+        vcc_net->name = ctx->id("$PACKER_VCC_NET");
+        vcc_net->driver.cell = vcc_cell.get();
+        vcc_net->driver.port = ctx->id("Z");
+        vcc_cell->ports.at(ctx->id("Z")).net = vcc_net.get();
+
+        std::vector<IdString> dead_nets;
+
+        bool gnd_used = false, vcc_used = false;
+
+        for (auto net : sorted(ctx->nets)) {
+            NetInfo *ni = net.second;
+            if (ni->driver.cell != nullptr && ni->driver.cell->type == ctx->id("GND")) {
+                IdString drv_cell = ni->driver.cell->name;
+                set_net_constant(ctx, ni, gnd_net.get(), false);
+                gnd_used = true;
+                dead_nets.push_back(net.first);
+                ctx->cells.erase(drv_cell);
+            } else if (ni->driver.cell != nullptr && ni->driver.cell->type == ctx->id("VCC")) {
+                IdString drv_cell = ni->driver.cell->name;
+                set_net_constant(ctx, ni, vcc_net.get(), true);
+                vcc_used = true;
+                dead_nets.push_back(net.first);
+                ctx->cells.erase(drv_cell);
+            }
+        }
+
+        if (gnd_used) {
+            ctx->cells[gnd_cell->name] = std::move(gnd_cell);
+            ctx->nets[gnd_net->name] = std::move(gnd_net);
+        }
+        if (vcc_used) {
+            ctx->cells[vcc_cell->name] = std::move(vcc_cell);
+            ctx->nets[vcc_net->name] = std::move(vcc_net);
+        }
+
+        for (auto dn : dead_nets) {
+            ctx->nets.erase(dn);
+        }
     }
 
   public:
     void pack()
     {
         pack_io();
+        pack_constants();
         find_lutff_pairs();
         pack_lut5s();
         pair_luts();

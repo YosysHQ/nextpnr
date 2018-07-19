@@ -118,6 +118,16 @@ Arch::Arch(ArchArgs args) : args(args)
         log_error("Unsupported ECP5 chip type.\n");
     }
 #endif
+    package_info = nullptr;
+    for (int i = 0; i < chip_info->num_packages; i++) {
+        if (args.package == chip_info->package_info[i].name.get()) {
+            package_info = &(chip_info->package_info[i]);
+            break;
+        }
+    }
+
+    if (!package_info)
+        log_error("Unsupported package '%s' for '%s'.\n", args.package.c_str(), getChipName().c_str());
 
     id_trellis_slice = id("TRELLIS_SLICE");
     id_clk = id("CLK");
@@ -282,9 +292,28 @@ IdString Arch::getPipName(PipId pip) const
 
 // -----------------------------------------------------------------------
 
-BelId Arch::getPackagePinBel(const std::string &pin) const { return BelId(); }
+BelId Arch::getPackagePinBel(const std::string &pin) const
+{
+    for (int i = 0; i < package_info->num_pins; i++) {
+        if (package_info->pin_data[i].name.get() == pin) {
+            BelId bel;
+            bel.location = package_info->pin_data[i].abs_loc;
+            bel.index = package_info->pin_data[i].bel_index;
+            return bel;
+        }
+    }
+    return BelId();
+}
 
-std::string Arch::getBelPackagePin(BelId bel) const { return ""; }
+std::string Arch::getBelPackagePin(BelId bel) const
+{
+    for (int i = 0; i < package_info->num_pins; i++) {
+        if (package_info->pin_data[i].abs_loc == bel.location && package_info->pin_data[i].bel_index == bel.index) {
+            return package_info->pin_data[i].name.get();
+        }
+    }
+    return "";
+}
 // -----------------------------------------------------------------------
 
 void Arch::estimatePosition(BelId bel, int &x, int &y, bool &gb) const
