@@ -568,6 +568,25 @@ static void pack_special(Context *ctx)
                 replace_port(ci, ctx->id(pi.name.c_str(ctx)), packed.get(), ctx->id(newname));
             }
             new_cells.push_back(std::move(packed));
+        } else if (is_sb_mac16(ctx, ci)) {
+            std::unique_ptr<CellInfo> packed =
+                    create_ice_cell(ctx, ctx->id("ICESTORM_DSP"), ci->name.str(ctx) + "_DSP");
+            packed_cells.insert(ci->name);
+            for (auto attr : ci->attrs)
+                packed->attrs[attr.first] = attr.second;
+            for (auto param : ci->params)
+                packed->params[param.first] = param.second;
+
+            for (auto port : ci->ports) {
+                PortInfo &pi = port.second;
+                std::string newname = pi.name.str(ctx);
+                size_t bpos = newname.find('[');
+                if (bpos != std::string::npos) {
+                    newname = newname.substr(0, bpos) + "_" + newname.substr(bpos + 1, (newname.size() - bpos) - 2);
+                }
+                replace_port(ci, ctx->id(pi.name.c_str(ctx)), packed.get(), ctx->id(newname));
+            }
+            new_cells.push_back(std::move(packed));
         }
     }
 

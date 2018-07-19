@@ -350,8 +350,9 @@ bool is_enable_port(const BaseCtx *ctx, const PortRef &port)
         return port.port == ctx->id("E");
     if (port.cell->type == ctx->id("ICESTORM_LC"))
         return port.port == ctx->id("CEN");
-    if (is_sb_mac16(ctx, port.cell) || port.cell->type == ctx->id("ICESTORM_DSP"))
-        return port.port == ctx->id("CE");
+    // FIXME
+    // if (is_sb_mac16(ctx, port.cell) || port.cell->type == ctx->id("ICESTORM_DSP"))
+    //    return port.port == ctx->id("CE");
     return false;
 }
 
