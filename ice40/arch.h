@@ -153,15 +153,31 @@ NPNR_PACKED_STRUCT(struct BitstreamInfoPOD {
     RelPtr<IerenInfoPOD> ierens;
 });
 
+NPNR_PACKED_STRUCT(struct BelConfigEntryPOD {
+    RelPtr<char> entry_name;
+    RelPtr<char> cbit_name;
+    int8_t x, y;
+    int16_t padding;
+});
+
+// Stores mapping between bel parameters and config bits,
+// for extra cells where this mapping is non-trivial
+NPNR_PACKED_STRUCT(struct BelConfigPOD {
+    int32_t bel_index;
+    int32_t num_entries;
+    RelPtr<BelConfigEntryPOD> entries;
+});
+
 NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     int32_t width, height;
     int32_t num_bels, num_wires, num_pips;
-    int32_t num_switches, num_packages;
+    int32_t num_switches, num_belcfgs, num_packages;
     RelPtr<BelInfoPOD> bel_data;
     RelPtr<WireInfoPOD> wire_data;
     RelPtr<PipInfoPOD> pip_data;
     RelPtr<TileType> tile_grid;
     RelPtr<BitstreamInfoPOD> bits_info;
+    RelPtr<BelConfigPOD> bel_config;
     RelPtr<PackageInfoPOD> packages_data;
 });
 

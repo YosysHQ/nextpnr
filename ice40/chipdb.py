@@ -38,7 +38,7 @@ switches = list()
 ierens = list()
 
 extra_cells = dict()
-
+extra_cell_config = dict()
 packages = list()
 
 wire_uphill_belport = dict()
@@ -567,6 +567,7 @@ def is_ec_output(ec_entry):
 def add_bel_ec(ec):
     ectype, x, y, z = ec
     bel = len(bel_name)
+    extra_cell_config[bel] = []
     bel_name.append("X%d/Y%d/%s_%d" % (x, y, ectype.lower(), z))
     bel_type.append(ectype)
     bel_pos.append((x, y, z))
@@ -578,8 +579,7 @@ def add_bel_ec(ec):
             else:
                 add_bel_input(bel, wire_names[entry[1]], entry[0])
         else:
-            # Configuration bit, need to create a structure for these
-            pass
+            extra_cell_config[bel].append(entry)
 
 for tile_xy, tile_type in sorted(tiles.items()):
     if tile_type == "logic":
@@ -1175,6 +1175,23 @@ bba.l("tile_grid_%s" % dev_name, "TileType")
 for t in tilegrid:
     bba.u32(tiletypes[t], "tiletype")
 
+for bel_idx, entries in sorted(extra_cell_config.items()):
+    if len(entries) > 0:
+        bba.l("bel%d_config_entries" % bel_idx, "BelConfigEntryPOD")
+        for entry in entries:
+            bba.s(entry[0], "entry_name")
+            bba.s(entry[1][2], "cbit_name")
+            bba.u8(entry[1][0], "x")
+            bba.u8(entry[1][1], "y")
+            bba.u16(0, "padding")
+
+if len(extra_cell_config) > 0:
+    bba.l("bel_config_%s" % dev_name, "BelConfigPOD")
+    for bel_idx, entries in sorted(extra_cell_config.items()):
+        bba.u32(bel_idx, "bel_index")
+        bba.u32(len(entries), "num_entries")
+        bba.r("bel%d_config_entries" % bel_idx if len(entries) > 0 else None, "entries")
+
 bba.l("package_info_%s" % dev_name, "PackageInfoPOD")
 for info in packageinfo:
     bba.s(info[0], "name")
@@ -1188,12 +1205,14 @@ bba.u32(len(bel_name), "num_bels")
 bba.u32(num_wires, "num_wires")
 bba.u32(len(pipinfo), "num_pips")
 bba.u32(len(switchinfo), "num_switches")
+bba.u32(len(extra_cell_config), "num_belcfgs")
 bba.u32(len(packageinfo), "num_packages")
 bba.r("bel_data_%s" % dev_name, "bel_data")
 bba.r("wire_data_%s" % dev_name, "wire_data")
 bba.r("pip_data_%s" % dev_name, "pip_data")
 bba.r("tile_grid_%s" % dev_name, "tile_grid")
 bba.r("bits_info_%s" % dev_name, "bits_info")
+bba.r("bel_config_%s" % dev_name if len(extra_cell_config) > 0 else None, "bel_config")
 bba.r("package_info_%s" % dev_name, "packages_data")
 
 bba.finalize()
