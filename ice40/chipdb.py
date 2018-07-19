@@ -159,7 +159,7 @@ def wire_type(name):
     name = name.split('/')[-1]
     wt = None
 
-    if name.startswith("glb_netwk_"):
+    if name.startswith("glb_netwk_") or name.startswith("padin_"):
         wt = "GLOBAL"
     elif name.startswith("D_IN_") or name.startswith("D_OUT_"):
         wt = "LOCAL"
@@ -431,6 +431,19 @@ with open(args.filename, "r") as f:
             else:
                 extra_cells[mode[1]].append((line[0], (int(line[1]), int(line[2]), line[3])))
             continue
+
+def add_wire(x, y, name):
+    global num_wires
+    wire_idx = num_wires
+    num_wires = num_wires + 1
+    wname = (x, y, name)
+    wire_names[wname] = wire_idx
+    wire_names_r[wire_idx] = wname
+    wire_segments[wire_idx] = dict()
+
+# Add virtual padin wires
+for i in range(8):
+    add_wire(0, 0, "padin_%d" % i)
 
 def add_bel_input(bel, wire, port):
     if wire not in wire_downhill_belports:
