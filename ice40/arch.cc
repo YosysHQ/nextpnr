@@ -44,8 +44,8 @@ IdString Arch::belTypeToId(BelType type) const
         return id("ICESTORM_PLL");
     if (type == TYPE_SB_WARMBOOT)
         return id("SB_WARMBOOT");
-    if (type == TYPE_SB_MAC16)
-        return id("SB_MAC16");
+    if (type == TYPE_ICESTORM_DSP)
+        return id("ICESTORM_DSP");
     if (type == TYPE_ICESTORM_HFOSC)
         return id("ICESTORM_HFOSC");
     if (type == TYPE_ICESTORM_LFOSC)
@@ -79,8 +79,8 @@ BelType Arch::belTypeFromId(IdString type) const
         return TYPE_ICESTORM_PLL;
     if (type == id("SB_WARMBOOT"))
         return TYPE_SB_WARMBOOT;
-    if (type == id("SB_MAC16"))
-        return TYPE_SB_MAC16;
+    if (type == id("ICESTORM_DSP"))
+        return TYPE_ICESTORM_DSP;
     if (type == id("ICESTORM_HFOSC"))
         return TYPE_ICESTORM_HFOSC;
     if (type == id("ICESTORM_LFOSC"))

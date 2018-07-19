@@ -84,9 +84,8 @@ inline bool assert_fail_impl_str(std::string message, const char *expr_str, cons
     throw assertion_failure(message, expr_str, filename, line);
 }
 
-
 #define NPNR_ASSERT(cond) ((void)((cond) || (assert_fail_impl(#cond, #cond, __FILE__, __LINE__))))
-#define NPNR_ASSERT_MSG(cond, msg)  ((void)((cond) || (assert_fail_impl(msg, #cond, __FILE__, __LINE__))))
+#define NPNR_ASSERT_MSG(cond, msg) ((void)((cond) || (assert_fail_impl(msg, #cond, __FILE__, __LINE__))))
 #define NPNR_ASSERT_FALSE(msg) (assert_fail_impl(msg, "false", __FILE__, __LINE__))
 #define NPNR_ASSERT_FALSE_STR(msg) (assert_fail_impl_str(msg, "false", __FILE__, __LINE__))
 

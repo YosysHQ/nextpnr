@@ -142,6 +142,71 @@ std::unique_ptr<CellInfo> create_ice_cell(Context *ctx, IdString type, std::stri
         for (int i = 0; i < 4; i++) {
             add_port(ctx, new_cell.get(), "MASKWREN_" + std::to_string(i), PORT_IN);
         }
+    } else if (type == ctx->id("ICESTORM_DSP")) {
+        new_cell->params[ctx->id("NEG_TRIGGER")] = "0";
+
+        new_cell->params[ctx->id("C_REG")] = "0";
+        new_cell->params[ctx->id("A_REG")] = "0";
+        new_cell->params[ctx->id("B_REG")] = "0";
+        new_cell->params[ctx->id("D_REG")] = "0";
+        new_cell->params[ctx->id("TOP_8x8_MULT_REG")] = "0";
+        new_cell->params[ctx->id("BOT_8x8_MULT_REG")] = "0";
+        new_cell->params[ctx->id("PIPELINE_16x16_MULT_REG1")] = "0";
+        new_cell->params[ctx->id("PIPELINE_16x16_MULT_REG2")] = "0";
+
+        new_cell->params[ctx->id("TOPOUTPUT_SELECT")] = "0";
+        new_cell->params[ctx->id("TOPADDSUB_LOWERINPUT")] = "0";
+        new_cell->params[ctx->id("TOPADDSUB_UPPERINPUT")] = "0";
+        new_cell->params[ctx->id("TOPADDSUB_CARRYSELECT")] = "0";
+
+        new_cell->params[ctx->id("BOTOUTPUT_SELECT")] = "0";
+        new_cell->params[ctx->id("BOTADDSUB_LOWERINPUT")] = "0";
+        new_cell->params[ctx->id("BOTADDSUB_UPPERINPUT")] = "0";
+        new_cell->params[ctx->id("BOTADDSUB_CARRYSELECT")] = "0";
+
+        new_cell->params[ctx->id("MODE_8x8")] = "0";
+        new_cell->params[ctx->id("A_SIGNED")] = "0";
+        new_cell->params[ctx->id("B_SIGNED")] = "0";
+
+        add_port(ctx, new_cell.get(), "CLK", PORT_IN);
+        add_port(ctx, new_cell.get(), "CE", PORT_IN);
+        for (int i = 0; i < 16; i++) {
+            add_port(ctx, new_cell.get(), "C_" + std::to_string(i), PORT_IN);
+            add_port(ctx, new_cell.get(), "A_" + std::to_string(i), PORT_IN);
+            add_port(ctx, new_cell.get(), "B_" + std::to_string(i), PORT_IN);
+            add_port(ctx, new_cell.get(), "D_" + std::to_string(i), PORT_IN);
+        }
+        add_port(ctx, new_cell.get(), "AHOLD", PORT_IN);
+        add_port(ctx, new_cell.get(), "BHOLD", PORT_IN);
+        add_port(ctx, new_cell.get(), "CHOLD", PORT_IN);
+        add_port(ctx, new_cell.get(), "DHOLD", PORT_IN);
+
+        add_port(ctx, new_cell.get(), "IRSTTOP", PORT_IN);
+        add_port(ctx, new_cell.get(), "IRSTBOT", PORT_IN);
+        add_port(ctx, new_cell.get(), "ORSTTOP", PORT_IN);
+        add_port(ctx, new_cell.get(), "ORSTBOT", PORT_IN);
+
+        add_port(ctx, new_cell.get(), "OLOADTOP", PORT_IN);
+        add_port(ctx, new_cell.get(), "OLOADBOT", PORT_IN);
+
+        add_port(ctx, new_cell.get(), "ADDSUBTOP", PORT_IN);
+        add_port(ctx, new_cell.get(), "ADDSUBBOT", PORT_IN);
+
+        add_port(ctx, new_cell.get(), "OHOLDTOP", PORT_IN);
+        add_port(ctx, new_cell.get(), "OHOLDBOT", PORT_IN);
+
+        add_port(ctx, new_cell.get(), "CI", PORT_IN);
+        add_port(ctx, new_cell.get(), "ACCUMCI", PORT_IN);
+        add_port(ctx, new_cell.get(), "SIGNEXTIN", PORT_IN);
+
+        for (int i = 0; i < 32; i++) {
+            add_port(ctx, new_cell.get(), "O_" + std::to_string(i), PORT_OUT);
+        }
+
+        add_port(ctx, new_cell.get(), "CO", PORT_OUT);
+        add_port(ctx, new_cell.get(), "ACCUMCO", PORT_OUT);
+        add_port(ctx, new_cell.get(), "SIGNEXTOUT", PORT_OUT);
+
     } else {
         log_error("unable to create iCE40 cell of type %s", type.c_str(ctx));
     }
@@ -258,6 +323,8 @@ bool is_clock_port(const BaseCtx *ctx, const PortRef &port)
     if (is_ram(ctx, port.cell) || port.cell->type == ctx->id("ICESTORM_RAM"))
         return port.port == ctx->id("RCLK") || port.port == ctx->id("WCLK") || port.port == ctx->id("RCLKN") ||
                port.port == ctx->id("WCLKN");
+    if (is_sb_mac16(ctx, port.cell) || port.cell->type == ctx->id("ICESTORM_DSP"))
+        return port.port == ctx->id("CLK");
     return false;
 }
 
@@ -269,6 +336,9 @@ bool is_reset_port(const BaseCtx *ctx, const PortRef &port)
         return port.port == ctx->id("R") || port.port == ctx->id("S");
     if (port.cell->type == ctx->id("ICESTORM_LC"))
         return port.port == ctx->id("SR");
+    if (is_sb_mac16(ctx, port.cell) || port.cell->type == ctx->id("ICESTORM_DSP"))
+        return port.port == ctx->id("IRSTTOP") || port.port == ctx->id("IRSTBOT") || port.port == ctx->id("ORSTTOP") ||
+               port.port == ctx->id("ORSTBOT");
     return false;
 }
 
@@ -280,6 +350,8 @@ bool is_enable_port(const BaseCtx *ctx, const PortRef &port)
         return port.port == ctx->id("E");
     if (port.cell->type == ctx->id("ICESTORM_LC"))
         return port.port == ctx->id("CEN");
+    if (is_sb_mac16(ctx, port.cell) || port.cell->type == ctx->id("ICESTORM_DSP"))
+        return port.port == ctx->id("CE");
     return false;
 }
 
