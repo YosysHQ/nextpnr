@@ -129,6 +129,13 @@ struct DecalId
     }
 };
 
+struct ArchNetInfo
+{
+};
+struct ArchCellInfo
+{
+};
+
 NEXTPNR_NAMESPACE_END
 
 namespace std {

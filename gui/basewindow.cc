@@ -29,7 +29,6 @@
 #include "log.h"
 #include "mainwindow.h"
 #include "pythontab.h"
-#include "yosystab.h"
 
 static void initBasenameResource() { Q_INIT_RESOURCE(base); }
 
@@ -95,28 +94,11 @@ BaseMainWindow::BaseMainWindow(std::unique_ptr<Context> context, QWidget *parent
 
     splitter_v->addWidget(centralTabWidget);
     splitter_v->addWidget(tabWidget);
-    displaySplash();
 }
 
 BaseMainWindow::~BaseMainWindow() {}
 
 void BaseMainWindow::closeTab(int index) { delete centralTabWidget->widget(index); }
-
-void BaseMainWindow::displaySplash()
-{
-    splash = new QSplashScreen();
-    splash->setPixmap(QPixmap(":/icons/resources/splash.png"));
-    splash->show();
-    connect(designview, SIGNAL(finishContextLoad()), splash, SLOT(close()));
-    connect(designview, SIGNAL(contextLoadStatus(std::string)), this, SLOT(displaySplashMessage(std::string)));
-    QCoreApplication::instance()->processEvents();
-}
-
-void BaseMainWindow::displaySplashMessage(std::string msg)
-{
-    splash->showMessage(msg.c_str(), Qt::AlignCenter | Qt::AlignBottom, Qt::white);
-    QCoreApplication::instance()->processEvents();
-}
 
 void BaseMainWindow::writeInfo(std::string text) { console->info(text); }
 
@@ -146,10 +128,6 @@ void BaseMainWindow::createMenusAndBars()
     actionExit->setShortcuts(QKeySequence::Quit);
     actionExit->setStatusTip("Exit the application");
     connect(actionExit, SIGNAL(triggered()), this, SLOT(close()));
-
-    QAction *actionYosys = new QAction("Yosys", this);
-    actionYosys->setStatusTip("Run Yosys");
-    connect(actionYosys, SIGNAL(triggered()), this, SLOT(yosys()));
 
     QAction *actionAbout = new QAction("About", this);
 
@@ -183,19 +161,6 @@ void BaseMainWindow::createMenusAndBars()
     mainToolBar->addAction(actionNew);
     mainToolBar->addAction(actionOpen);
     mainToolBar->addAction(actionSave);
-    mainToolBar->addAction(actionYosys);
 }
 
-void BaseMainWindow::yosys()
-{
-    QString folder = QFileDialog::getExistingDirectory(0, ("Select Work Folder"), QDir::currentPath(),
-                                                       QFileDialog::ShowDirsOnly);
-    if (!folder.isEmpty() && !folder.isNull()) {
-        YosysTab *yosysTab = new YosysTab(folder);
-        yosysTab->setAttribute(Qt::WA_DeleteOnClose);
-        centralTabWidget->addTab(yosysTab, "Yosys");
-        centralTabWidget->setCurrentWidget(yosysTab);
-        centralTabWidget->setTabToolTip(centralTabWidget->indexOf(yosysTab), folder);
-    }
-}
 NEXTPNR_NAMESPACE_END

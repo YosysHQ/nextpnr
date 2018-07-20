@@ -66,6 +66,12 @@ void svg_dump_decal(const Context *ctx, const DecalXY &decal)
     }
 }
 
+void conflicting_options(const boost::program_options::variables_map &vm, const char *opt1, const char *opt2)
+{
+    if (vm.count(opt1) && !vm[opt1].defaulted() && vm.count(opt2) && !vm[opt2].defaulted())
+        log_error((std::string("Conflicting options '") + opt1 + "' and '" + opt2 + "'.").c_str());
+}
+
 int main(int argc, char *argv[])
 {
     try {
@@ -95,6 +101,7 @@ int main(int argc, char *argv[])
         options.add_options()("json", po::value<std::string>(), "JSON design file to ingest");
         options.add_options()("pcf", po::value<std::string>(), "PCF constraints file to ingest");
         options.add_options()("asc", po::value<std::string>(), "asc bitstream file to write");
+        options.add_options()("read", po::value<std::string>(), "asc bitstream file to read");
         options.add_options()("seed", po::value<int>(), "seed value for random number generator");
         options.add_options()("version,V", "show version");
         options.add_options()("tmfuzz", "run path delay estimate fuzzer");
@@ -121,13 +128,17 @@ int main(int argc, char *argv[])
             po::store(parsed, vm);
 
             po::notify(vm);
-        }
-
-        catch (std::exception &e) {
+        } catch (std::exception &e) {
             std::cout << e.what() << "\n";
             return 1;
         }
 
+        conflicting_options(vm, "read", "json");
+#ifndef ICE40_HX1K_ONLY
+        if ((vm.count("lp384") + vm.count("lp1k") + vm.count("lp8k") + vm.count("hx1k") + vm.count("hx8k") +
+             vm.count("up5k")) > 1)
+            log_error("Only one device type can be set\n");
+#endif
         if (vm.count("help") || argc == 1) {
         help:
             std::cout << boost::filesystem::basename(argv[0])
@@ -352,6 +363,13 @@ int main(int argc, char *argv[])
         ctx->timing_driven = true;
         if (vm.count("no-tmdriv"))
             ctx->timing_driven = false;
+
+        if (vm.count("read")) {
+            std::string filename = vm["read"].as<std::string>();
+            std::ifstream f(filename);
+            if (!read_asc(ctx.get(), f))
+                log_error("Loading ASC failed.\n");
+        }
 
 #ifndef NO_GUI
         if (vm.count("gui")) {

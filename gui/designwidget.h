@@ -65,8 +65,6 @@ class DesignWidget : public QWidget
     void info(std::string text);
     void selected(std::vector<DecalXY> decal);
     void highlight(std::vector<DecalXY> decal, int group);
-    void finishContextLoad();
-    void contextLoadStatus(std::string text);
 
   private Q_SLOTS:
     void prepareMenuProperty(const QPoint &pos);
@@ -104,6 +102,7 @@ class DesignWidget : public QWidget
     QAction *actionPrev;
     QAction *actionNext;
     QAction *actionLast;
+    QAction *actionClear;
 
     QColor highlightColors[8];
     QMap<QTreeWidgetItem *, int> highlightSelected;

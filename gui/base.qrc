@@ -9,6 +9,6 @@
         <file>resources/resultset_previous.png</file>
         <file>resources/resultset_next.png</file>
         <file>resources/resultset_last.png</file>
-        <file>resources/splash.png</file>
+        <file>resources/cross.png</file>
     </qresource>
 </RCC>

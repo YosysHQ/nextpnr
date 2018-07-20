@@ -26,7 +26,6 @@
 #include <QMenu>
 #include <QMenuBar>
 #include <QProgressBar>
-#include <QSplashScreen>
 #include <QStatusBar>
 #include <QTabWidget>
 #include <QToolBar>
@@ -50,17 +49,14 @@ class BaseMainWindow : public QMainWindow
 
   protected:
     void createMenusAndBars();
-    void displaySplash();
 
   protected Q_SLOTS:
     void writeInfo(std::string text);
-    void displaySplashMessage(std::string msg);
     void closeTab(int index);
 
     virtual void new_proj() = 0;
     virtual void open_proj() = 0;
     virtual bool save_proj() = 0;
-    void yosys();
 
   Q_SIGNALS:
     void contextChanged(Context *ctx);
@@ -78,7 +74,6 @@ class BaseMainWindow : public QMainWindow
     QAction *actionNew;
     QAction *actionOpen;
     QProgressBar *progressBar;
-    QSplashScreen *splash;
     DesignWidget *designview;
 };
 

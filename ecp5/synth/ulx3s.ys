@@ -1,9 +1,0 @@
-read_verilog ulx3s.v
-read_verilog -lib cells.v
-synth -top top
-abc -lut 4
-techmap -map simple_map.v
-splitnets
-opt_clean
-stat
-write_json ulx3s.json

@@ -640,10 +640,8 @@ static bool getWireXY_local(GfxTileWireId id, float &x, float &y)
     return false;
 }
 
-void pipGfx(std::vector<GraphicElement> &g, int x, int y,
-            float x1, float y1, float x2, float y2,
-            float swx1, float swy1, float swx2, float swy2,
-            GraphicElement::style_t style)
+void pipGfx(std::vector<GraphicElement> &g, int x, int y, float x1, float y1, float x2, float y2, float swx1,
+            float swy1, float swx2, float swy2, GraphicElement::style_t style)
 {
     float tx = 0.5 * (x1 + x2);
     float ty = 0.5 * (y1 + y2);
@@ -693,7 +691,8 @@ edge_pip:
     g.push_back(el);
 }
 
-void gfxTilePip(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId src, GfxTileWireId dst, GraphicElement::style_t style)
+void gfxTilePip(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId src, GfxTileWireId dst,
+                GraphicElement::style_t style)
 {
     float x1, y1, x2, y2;
 
