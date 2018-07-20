@@ -250,9 +250,9 @@ void write_asc(const Context *ctx, std::ostream &out)
             std::cout << "Found unplaced cell " << cell.first.str(ctx) << " while generating bitstream!" << std::endl;
             continue;
         }
-        const BelInfoPOD &beli = ci.bel_data[bel.index];
-        int x = beli.x, y = beli.y, z = beli.z;
         if (cell.second->type == ctx->id("ICESTORM_LC")) {
+            const BelInfoPOD &beli = ci.bel_data[bel.index];
+            int x = beli.x, y = beli.y, z = beli.z;
             const TileInfoPOD &ti = bi.tiles_nonrouting[TILE_LOGIC];
             unsigned lut_init = get_param_or_def(cell.second.get(), ctx->id("LUT_INIT"));
             bool neg_clk = get_param_or_def(cell.second.get(), ctx->id("NEG_CLK"));
@@ -287,6 +287,8 @@ void write_asc(const Context *ctx, std::ostream &out)
                 set_config(ti, config.at(y).at(x), "CarryInSet", carry_set);
             }
         } else if (cell.second->type == ctx->id("SB_IO")) {
+            const BelInfoPOD &beli = ci.bel_data[bel.index];
+            int x = beli.x, y = beli.y, z = beli.z;
             const TileInfoPOD &ti = bi.tiles_nonrouting[TILE_IO];
             unsigned pin_type = get_param_or_def(cell.second.get(), ctx->id("PIN_TYPE"));
             bool neg_trigger = get_param_or_def(cell.second.get(), ctx->id("NEG_TRIGGER"));
@@ -584,12 +586,18 @@ void read_config(Context *ctx, std::istream &in, chipconfig_t &config)
                 std::tuple<int, int, int> key(b, x, y);
                 extra_bits.insert(key);
                 */
-            } else if (!strcmp(tok, ".sym")) {
-                int net = atoi(strtok(nullptr, " \t\r\n")); (void)net;
+            } else if (!strcmp(tok, ".sym")) {                
+                int wireIndex = atoi(strtok(nullptr, " \t\r\n"));
                 const char *name = strtok(nullptr, " \t\r\n");
+                                
                 std::unique_ptr<NetInfo> created_net = std::unique_ptr<NetInfo>(new NetInfo);
-                created_net->name = ctx->id(name);
-                ctx->nets[created_net->name] = std::move(created_net);
+                IdString netName = ctx->id(name);
+                created_net->name = netName;
+                ctx->nets[netName] = std::move(created_net);                
+                
+                WireId wire;
+                wire.index = wireIndex;
+                ctx->bindWire(wire, netName, STRENGTH_WEAK);
             }
         } else if (line_nr >= 0 && strlen(buffer) > 0) {
             if (line_nr > int(config.at(tile_y).at(tile_x).size() - 1))
@@ -620,7 +628,7 @@ bool read_asc(Context *ctx, std::istream &in)
                 config.at(y).at(x).resize(rows, std::vector<int8_t>(cols));
             }
         }
-        read_config(ctx, in, config);
+        read_config(ctx, in, config);    
         return true;
     } catch (log_execution_error_exception) {
         return false;
