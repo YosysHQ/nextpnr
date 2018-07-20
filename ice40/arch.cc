@@ -484,9 +484,9 @@ DecalXY Arch::getWireDecal(WireId wire) const
 DecalXY Arch::getPipDecal(PipId pip) const
 {
     DecalXY decalxy;
-    // decalxy.decal.type = DecalId::TYPE_PIP;
-    // decalxy.decal.index = pip.index;
-    // decalxy.decal.active = pip_to_net.at(pip.index) != IdString();
+    decalxy.decal.type = DecalId::TYPE_PIP;
+    decalxy.decal.index = pip.index;
+    decalxy.decal.active = pip_to_net.at(pip.index) != IdString();
     return decalxy;
 };
 
