@@ -347,8 +347,6 @@ class BaseCtx : public IdStringDB
     std::mutex mutex;
     pthread_t mutex_owner;
 
-    std::mutex generation_mutex;
-
   public:
     std::unordered_map<IdString, std::unique_ptr<NetInfo>> nets;
     std::unordered_map<IdString, std::unique_ptr<CellInfo>> cells;
