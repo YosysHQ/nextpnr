@@ -227,7 +227,7 @@ void write_asc(const Context *ctx, std::ostream &out)
         out << ".device 5k" << std::endl;
         break;
     default:
-        NPNR_ASSERT_FALSE("unsupported device type");
+        NPNR_ASSERT_FALSE("unsupported device type\n");
     }
     // Set pips
     for (auto pip : ctx->getPips()) {
@@ -561,10 +561,10 @@ void read_config(Context *ctx, std::istream &in, chipconfig_t &config)
                     expected = "5k";
                     break;
                 default:
-                    log_error("unsupported device type");
+                    log_error("unsupported device type\n");
                 }
                 if (expected != config_device)
-                    log_error("device type does not match");
+                    log_error("device type does not match\n");
             } else if (!strcmp(tok, ".io_tile") || !strcmp(tok, ".logic_tile") || !strcmp(tok, ".ramb_tile") ||
                        !strcmp(tok, ".ramt_tile") || !strcmp(tok, ".ipcon_tile") || !strcmp(tok, ".dsp0_tile") ||
                        !strcmp(tok, ".dsp1_tile") || !strcmp(tok, ".dsp2_tile") || !strcmp(tok, ".dsp3_tile")) {
@@ -574,7 +574,7 @@ void read_config(Context *ctx, std::istream &in, chipconfig_t &config)
 
                 TileType tile = tile_at(ctx, tile_x, tile_y);
                 if (tok != tagTileType(tile))
-                    log_error("Wrong tile type for specified position");
+                    log_error("Wrong tile type for specified position\n");
 
             } else if (!strcmp(tok, ".extra_bit")) {
                 /*

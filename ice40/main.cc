@@ -66,6 +66,12 @@ void svg_dump_decal(const Context *ctx, const DecalXY &decal)
     }
 }
 
+void conflicting_options(const boost::program_options::variables_map &vm, const char *opt1, const char *opt2)
+{
+    if (vm.count(opt1) && !vm[opt1].defaulted() && vm.count(opt2) && !vm[opt2].defaulted())
+        log_error((std::string("Conflicting options '") + opt1 + "' and '" + opt2 + "'.").c_str());
+}
+
 int main(int argc, char *argv[])
 {
     try {
@@ -122,13 +128,17 @@ int main(int argc, char *argv[])
             po::store(parsed, vm);
 
             po::notify(vm);
-        }
-
-        catch (std::exception &e) {
+        } catch (std::exception &e) {
             std::cout << e.what() << "\n";
             return 1;
         }
 
+        conflicting_options(vm, "read", "json");
+#ifndef ICE40_HX1K_ONLY
+        if ((vm.count("lp384") + vm.count("lp1k") + vm.count("lp8k") + vm.count("hx1k") + vm.count("hx8k") +
+             vm.count("up5k")) > 1)
+            log_error("Only one device type can be set\n");
+#endif
         if (vm.count("help") || argc == 1) {
         help:
             std::cout << boost::filesystem::basename(argv[0])
