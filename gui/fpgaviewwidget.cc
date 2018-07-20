@@ -426,7 +426,7 @@ void FPGAViewWidget::renderLines(void)
     if (ctx_ == nullptr)
         return;
 
-    ctx_->lock();
+    ctx_->lock_ui();
 
     // For now, collapse any decal changes into change of all decals.
     // TODO(q3k): fix this
@@ -475,7 +475,7 @@ void FPGAViewWidget::renderLines(void)
             groupDecals.push_back(ctx_->getGroupDecal(group));
         }
     }
-    ctx_->unlock();
+    ctx_->unlock_ui();
 
     rendererArgsLock_.lock();
     auto selectedItems = rendererArgs_->selectedItems;

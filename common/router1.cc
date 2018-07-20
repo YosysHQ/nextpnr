@@ -495,8 +495,6 @@ bool router1(Context *ctx)
 #endif
                 return false;
             }
-            ctx->yield();
-            ctx->lock();
 
             iterCnt++;
             if (ctx->verbose)
@@ -533,9 +531,11 @@ bool router1(Context *ctx)
                     ripupQueue.insert(net_name);
                 }
 
-                if ((ctx->verbose || iterCnt == 1) && !printNets && (netCnt % 100 == 0))
+                if ((ctx->verbose || iterCnt == 1) && !printNets && (netCnt % 100 == 0)) {
                     log_info("  processed %d nets. (%d routed, %d failed)\n", netCnt, netCnt - int(ripupQueue.size()),
                              int(ripupQueue.size()));
+                    ctx->yield();
+                }
             }
 
             int normalRouteCnt = netCnt - int(ripupQueue.size());
@@ -596,8 +596,10 @@ bool router1(Context *ctx)
 
                     ripCnt += router.rippedNets.size();
 
-                    if ((ctx->verbose || iterCnt == 1) && !printNets && (netCnt % 100 == 0))
+                    if ((ctx->verbose || iterCnt == 1) && !printNets && (netCnt % 100 == 0)) {
                         log_info("  routed %d nets, ripped %d nets.\n", netCnt, ripCnt);
+                        ctx->yield();
+                    }
                 }
 
                 if ((ctx->verbose || iterCnt == 1) && (netCnt % 100 != 0))
@@ -626,7 +628,7 @@ bool router1(Context *ctx)
             if (iterCnt == 8 || iterCnt == 16 || iterCnt == 32 || iterCnt == 64 || iterCnt == 128)
                 ripup_penalty += ctx->getRipupDelayPenalty();
 
-            ctx->unlock();
+            ctx->yield();
         }
 
         log_info("routing complete after %d iterations.\n", iterCnt);

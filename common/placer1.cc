@@ -156,8 +156,6 @@ class SAPlacer
 
         // Main simulated annealing loop
         for (int iter = 1;; iter++) {
-            ctx->yield();
-            ctx->lock();
             n_move = n_accept = 0;
             improved = false;
 
@@ -242,7 +240,9 @@ class SAPlacer
                 metrics[net.first] = wl;
                 curr_metric += wl;
             }
-            ctx->unlock();
+
+            // Let the UI show visualization updates.
+            ctx->yield();
         }
         // Final post-pacement validitiy check
         ctx->lock();

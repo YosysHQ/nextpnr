@@ -318,6 +318,11 @@ struct BaseCtx
     std::mutex mutex;
     pthread_t mutex_owner;
 
+    // Lock to be taken by UI when wanting to access context - the yield()
+    // method will lock/unlock it when its' released the main mutex to make
+    // sure the UI is not starved.
+    std::mutex ui_mutex;
+
     // ID String database.
     mutable std::unordered_map<std::string, int> *idstring_str_to_idx;
     mutable std::vector<const std::string *> *idstring_idx_to_str;
@@ -353,12 +358,31 @@ struct BaseCtx
         mutex.unlock();
     }
 
-    // TODO(q3k): get rid of this hack
+    // Must be called by the UI before rendering data. This lock will be
+    // prioritized when processing code calls yield().
+    void lock_ui(void)
+    {
+        ui_mutex.lock();
+        mutex.lock();
+    }
+
+    void unlock_ui(void)
+    {
+        mutex.unlock();
+        ui_mutex.unlock();
+    }
+
+    // Yield to UI by unlocking the main mutex, flashing the UI mutex and
+    // relocking the main mutex. Call this when you're performing a
+    // long-standing action while holding a lock to let the UI show
+    // visualization updates.
+    // Must be called with the main lock taken.
     void yield(void)
     {
-        for (int i = 0; i < 10; i++) {
-            pthread_yield();
-        }
+        unlock();
+        ui_mutex.lock();
+        ui_mutex.unlock();
+        lock();
     }
 
     IdString id(const std::string &s) const { return IdString(this, s); }
