@@ -495,6 +495,7 @@ bool router1(Context *ctx)
 #endif
                 return false;
             }
+            ctx->yield();
             ctx->lock();
 
             iterCnt++;

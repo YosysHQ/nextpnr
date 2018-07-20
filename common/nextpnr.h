@@ -20,6 +20,7 @@
 
 #include <algorithm>
 #include <assert.h>
+#include <condition_variable>
 #include <memory>
 #include <mutex>
 #include <pthread.h>
@@ -346,8 +347,9 @@ class BaseCtx : public IdStringDB
 {
   private:
     std::mutex mutex;
-    bool mutex_owned;
     pthread_t mutex_owner;
+    
+    std::mutex generation_mutex;
 
   public:
     std::unordered_map<IdString, std::unique_ptr<NetInfo>> nets;
@@ -360,12 +362,21 @@ class BaseCtx : public IdStringDB
     {
         mutex.lock();
         mutex_owner = pthread_self();
+
     }
 
     void unlock(void)
     {
         NPNR_ASSERT(pthread_equal(pthread_self(), mutex_owner) != 0);
         mutex.unlock();
+    }
+
+    // TODO(q3k): get rid of this hack
+    void yield(void)
+    {
+        for (int i = 0; i < 10; i++) {
+            pthread_yield();
+        }
     }
 
     Context *getCtx() { return reinterpret_cast<Context *>(this); }
