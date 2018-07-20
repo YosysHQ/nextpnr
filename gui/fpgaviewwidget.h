@@ -28,8 +28,8 @@
 #include <QOpenGLVertexArrayObject>
 #include <QOpenGLWidget>
 #include <QPainter>
-#include <QTimer>
 #include <QThread>
+#include <QTimer>
 #include <QWaitCondition>
 
 #include "nextpnr.h"
@@ -213,15 +213,16 @@ class LineShader
 class PeriodicRunner : public QThread
 {
     Q_OBJECT
-private:
+  private:
     QMutex mutex_;
     QWaitCondition condition_;
     bool abort_;
     std::function<void()> target_;
     QTimer timer_;
-public:
-    explicit PeriodicRunner(QObject *parent, std::function<void()> target) :
-        QThread(parent), abort_(false), target_(target), timer_(this)
+
+  public:
+    explicit PeriodicRunner(QObject *parent, std::function<void()> target)
+            : QThread(parent), abort_(false), target_(target), timer_(this)
     {
         connect(&timer_, &QTimer::timeout, this, &PeriodicRunner::poke);
     }
@@ -243,10 +244,7 @@ public:
         }
     }
 
-    void startTimer(std::chrono::milliseconds value)
-    {
-        timer_.start(value);
-    }
+    void startTimer(std::chrono::milliseconds value) { timer_.start(value); }
 
     ~PeriodicRunner()
     {
@@ -258,10 +256,7 @@ public:
         wait();
     }
 
-    void poke(void)
-    {
-        condition_.wakeOne();
-    }
+    void poke(void) { condition_.wakeOne(); }
 };
 
 class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
@@ -319,7 +314,8 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
 
     std::unique_ptr<PeriodicRunner> renderRunner_;
 
-    struct {
+    struct
+    {
         QColor background;
         QColor grid;
         QColor frame;
@@ -330,13 +326,15 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
         QColor highlight[8];
     } colors_;
 
-    struct RendererData {
+    struct RendererData
+    {
         LineShaderData decals[4];
         LineShaderData selected;
         LineShaderData highlighted[8];
     };
-    
-    struct RendererArgs {
+
+    struct RendererArgs
+    {
         std::vector<DecalXY> selectedItems;
         std::vector<DecalXY> highlightedItems[8];
         bool highlightedOrSelectedChanged;

@@ -250,10 +250,11 @@ struct CellInfo : ArchCellInfo
 class IdStringDB
 {
     friend class IdString;
+
   private:
     mutable std::unordered_map<std::string, int> *idstring_str_to_idx;
     mutable std::vector<const std::string *> *idstring_idx_to_str;
-  
+
   public:
     IdString id(const std::string &s) const { return IdString(this, s); }
     IdString id(const char *s) const { return IdString(this, s); }
@@ -279,9 +280,7 @@ class DeterministicRNG
     uint64_t rngstate;
 
   public:
-    DeterministicRNG() : rngstate(0x3141592653589793)
-    {
-    }
+    DeterministicRNG() : rngstate(0x3141592653589793) {}
 
     uint64_t rng64()
     {
@@ -340,7 +339,6 @@ class DeterministicRNG
         std::sort(a.begin(), a.end());
         shuffle(a);
     }
-
 };
 
 class BaseCtx : public IdStringDB
@@ -348,7 +346,7 @@ class BaseCtx : public IdStringDB
   private:
     std::mutex mutex;
     pthread_t mutex_owner;
-    
+
     std::mutex generation_mutex;
 
   public:
@@ -362,7 +360,6 @@ class BaseCtx : public IdStringDB
     {
         mutex.lock();
         mutex_owner = pthread_self();
-
     }
 
     void unlock(void)

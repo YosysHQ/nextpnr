@@ -241,9 +241,10 @@ void LineShader::draw(const LineShaderData &line, const QColor &color, float thi
 }
 
 FPGAViewWidget::FPGAViewWidget(QWidget *parent)
-        : QOpenGLWidget(parent), lineShader_(this), zoom_(500.f), ctx_(nullptr), paintTimer_(this), rendererData_(new FPGAViewWidget::RendererData), rendererArgs_(new FPGAViewWidget::RendererArgs)
+        : QOpenGLWidget(parent), lineShader_(this), zoom_(500.f), ctx_(nullptr), paintTimer_(this),
+          rendererData_(new FPGAViewWidget::RendererData), rendererArgs_(new FPGAViewWidget::RendererArgs)
 {
-    colors_.background  = QColor("#000000");
+    colors_.background = QColor("#000000");
     colors_.grid = QColor("#333");
     colors_.frame = QColor("#d0d0d0");
     colors_.hidden = QColor("#606060");
@@ -275,12 +276,12 @@ FPGAViewWidget::FPGAViewWidget(QWidget *parent)
         printf("Could not get OpenGL 3.1 context - trying anyway...\n ");
     }
 
-	connect(&paintTimer_, SIGNAL(timeout()), this, SLOT(update()));
-	paintTimer_.start(std::chrono::duration<int, std::milli>(1000/20));  // paint GL 20 times per second
+    connect(&paintTimer_, SIGNAL(timeout()), this, SLOT(update()));
+    paintTimer_.start(std::chrono::duration<int, std::milli>(1000 / 20)); // paint GL 20 times per second
 
     renderRunner_ = std::unique_ptr<PeriodicRunner>(new PeriodicRunner(this, [this] { renderLines(); }));
     renderRunner_->start();
-    renderRunner_->startTimer(std::chrono::duration<int, std::milli>(1000/2));  // render line 2 times per second
+    renderRunner_->startTimer(std::chrono::duration<int, std::milli>(1000 / 2)); // render line 2 times per second
 }
 
 FPGAViewWidget::~FPGAViewWidget() {}
@@ -301,7 +302,8 @@ void FPGAViewWidget::initializeGL()
         log_error("Could not compile shader.\n");
     }
     initializeOpenGLFunctions();
-    glClearColor(colors_.background.red() / 255, colors_.background.green() / 255, colors_.background.blue() / 255, 0.0);
+    glClearColor(colors_.background.red() / 255, colors_.background.green() / 255, colors_.background.blue() / 255,
+                 0.0);
 }
 
 void FPGAViewWidget::drawDecal(LineShaderData &out, const DecalXY &decal)
@@ -417,9 +419,7 @@ void FPGAViewWidget::paintGL()
     rendererDataLock_.unlock();
 }
 
-void FPGAViewWidget::pokeRenderer(void) {
-    renderRunner_->poke();
-}
+void FPGAViewWidget::pokeRenderer(void) { renderRunner_->poke(); }
 
 void FPGAViewWidget::renderLines(void)
 {
@@ -439,7 +439,7 @@ void FPGAViewWidget::renderLines(void)
         ctx_->frameUiReload = false;
         decalsChanged = true;
     }
-    if (ctx_->belUiReload.size() > 0){
+    if (ctx_->belUiReload.size() > 0) {
         ctx_->belUiReload.clear();
         decalsChanged = true;
     }
@@ -524,7 +524,6 @@ void FPGAViewWidget::renderLines(void)
     }
     rendererDataLock_.unlock();
 }
-
 
 void FPGAViewWidget::onSelectedArchItem(std::vector<DecalXY> decals)
 {
