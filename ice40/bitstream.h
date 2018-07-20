@@ -27,6 +27,7 @@
 NEXTPNR_NAMESPACE_BEGIN
 
 void write_asc(const Context *ctx, std::ostream &out);
+bool read_asc(Context *ctx, std::istream &in);
 
 NEXTPNR_NAMESPACE_END
 

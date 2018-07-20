@@ -95,6 +95,7 @@ int main(int argc, char *argv[])
         options.add_options()("json", po::value<std::string>(), "JSON design file to ingest");
         options.add_options()("pcf", po::value<std::string>(), "PCF constraints file to ingest");
         options.add_options()("asc", po::value<std::string>(), "asc bitstream file to write");
+        options.add_options()("read", po::value<std::string>(), "asc bitstream file to read");
         options.add_options()("seed", po::value<int>(), "seed value for random number generator");
         options.add_options()("version,V", "show version");
         options.add_options()("tmfuzz", "run path delay estimate fuzzer");
@@ -352,6 +353,13 @@ int main(int argc, char *argv[])
         ctx->timing_driven = true;
         if (vm.count("no-tmdriv"))
             ctx->timing_driven = false;
+
+        if (vm.count("read")) {
+            std::string filename = vm["read"].as<std::string>();
+            std::ifstream f(filename);
+            if (!read_asc(ctx.get(), f))
+                log_error("Loading ASC failed.\n");
+        }
 
 #ifndef NO_GUI
         if (vm.count("gui")) {
