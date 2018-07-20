@@ -25,7 +25,7 @@
 #include "placer1.h"
 #include "router1.h"
 #include "util.h"
-
+#include "cells.h"
 NEXTPNR_NAMESPACE_BEGIN
 
 // -----------------------------------------------------------------------
@@ -44,8 +44,8 @@ IdString Arch::belTypeToId(BelType type) const
         return id("ICESTORM_PLL");
     if (type == TYPE_SB_WARMBOOT)
         return id("SB_WARMBOOT");
-    if (type == TYPE_SB_MAC16)
-        return id("SB_MAC16");
+    if (type == TYPE_ICESTORM_DSP)
+        return id("ICESTORM_DSP");
     if (type == TYPE_ICESTORM_HFOSC)
         return id("ICESTORM_HFOSC");
     if (type == TYPE_ICESTORM_LFOSC)
@@ -79,8 +79,8 @@ BelType Arch::belTypeFromId(IdString type) const
         return TYPE_ICESTORM_PLL;
     if (type == id("SB_WARMBOOT"))
         return TYPE_SB_WARMBOOT;
-    if (type == id("SB_MAC16"))
-        return TYPE_SB_MAC16;
+    if (type == id("ICESTORM_DSP"))
+        return TYPE_ICESTORM_DSP;
     if (type == id("ICESTORM_HFOSC"))
         return TYPE_ICESTORM_HFOSC;
     if (type == id("ICESTORM_LFOSC"))
@@ -610,8 +610,7 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
         }
 
         if (bel_type == TYPE_ICESTORM_RAM) {
-            for (int i = 0; i < 2; i++)
-            {
+            for (int i = 0; i < 2; i++) {
                 int tx = chip_info->bel_data[bel.index].x;
                 int ty = chip_info->bel_data[bel.index].y + i;
 
@@ -621,7 +620,7 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
                 el.x1 = chip_info->bel_data[bel.index].x + logic_cell_x1;
                 el.x2 = chip_info->bel_data[bel.index].x + logic_cell_x2;
                 el.y1 = chip_info->bel_data[bel.index].y + logic_cell_y1;
-                el.y2 = chip_info->bel_data[bel.index].y + logic_cell_y2 + 7*logic_cell_pitch;
+                el.y2 = chip_info->bel_data[bel.index].y + logic_cell_y2 + 7 * logic_cell_pitch;
                 el.z = 0;
                 ret.push_back(el);
 
@@ -696,6 +695,49 @@ bool Arch::isGlobalNet(const NetInfo *net) const
     if (net == nullptr)
         return false;
     return net->driver.cell != nullptr && net->driver.port == id_glb_buf_out;
+}
+
+// Assign arch arg info
+void Arch::assignArchInfo()
+{
+    for (auto &net : getCtx()->nets) {
+        NetInfo *ni = net.second.get();
+        if (isGlobalNet(ni))
+            ni->is_global = true;
+        ni->is_enable = false;
+        ni->is_reset = false;
+        for (auto usr : ni->users) {
+            if (is_enable_port(this, usr))
+                ni->is_enable = true;
+            if (is_reset_port(this, usr))
+                ni->is_reset = true;
+        }
+    }
+    for (auto &cell : getCtx()->cells) {
+        CellInfo *ci = cell.second.get();
+        assignCellInfo(ci);
+    }
+}
+
+void Arch::assignCellInfo(CellInfo *cell)
+{
+    cell->belType = belTypeFromId(cell->type);
+    if (cell->type == id_icestorm_lc) {
+        cell->lcInfo.dffEnable = bool_or_default(cell->params, id_dff_en);
+        cell->lcInfo.negClk = bool_or_default(cell->params, id_neg_clk);
+        cell->lcInfo.clk = get_net_or_empty(cell, id_clk);
+        cell->lcInfo.cen = get_net_or_empty(cell, id_cen);
+        cell->lcInfo.sr = get_net_or_empty(cell, id_sr);
+        cell->lcInfo.inputCount = 0;
+        if (get_net_or_empty(cell, id_i0))
+            cell->lcInfo.inputCount++;
+        if (get_net_or_empty(cell, id_i1))
+            cell->lcInfo.inputCount++;
+        if (get_net_or_empty(cell, id_i2))
+            cell->lcInfo.inputCount++;
+        if (get_net_or_empty(cell, id_i3))
+            cell->lcInfo.inputCount++;
+    }
 }
 
 NEXTPNR_NAMESPACE_END

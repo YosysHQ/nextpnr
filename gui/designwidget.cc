@@ -125,11 +125,27 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr), net
         updateButtons();
     });
 
+    actionClear = new QAction("", this);
+    actionClear->setIcon(QIcon(":/icons/resources/cross.png"));
+    actionClear->setEnabled(true);
+    connect(actionClear, &QAction::triggered, this, [this] {
+        history_index = -1;
+        history.clear();
+        QTreeWidgetItem *clickItem = treeWidget->selectedItems().at(0);
+        if (clickItem->parent()) {
+            ElementType type = static_cast<ElementTreeItem *>(clickItem)->getType();
+            if (type != ElementType::NONE)
+                addToHistory(treeWidget->selectedItems().at(0));
+        }
+        updateButtons();
+    });
+
     QToolBar *toolbar = new QToolBar();
     toolbar->addAction(actionFirst);
     toolbar->addAction(actionPrev);
     toolbar->addAction(actionNext);
     toolbar->addAction(actionLast);
+    toolbar->addAction(actionClear);
 
     QWidget *topWidget = new QWidget();
     QVBoxLayout *vbox1 = new QVBoxLayout();
@@ -230,7 +246,6 @@ void DesignWidget::newContext(Context *ctx)
     bel_root->setText(0, "Bels");
     treeWidget->insertTopLevelItem(0, bel_root);
     if (ctx) {
-        Q_EMIT contextLoadStatus("Configuring bels...");
         for (auto bel : ctx->getBels()) {
             auto id = ctx->getBelName(bel);
             QStringList items = QString(id.c_str(ctx)).split("/");
@@ -263,7 +278,6 @@ void DesignWidget::newContext(Context *ctx)
     wire_root->setText(0, "Wires");
     treeWidget->insertTopLevelItem(0, wire_root);
     if (ctx) {
-        Q_EMIT contextLoadStatus("Configuring wires...");
         for (auto wire : ctx->getWires()) {
             auto id = ctx->getWireName(wire);
             QStringList items = QString(id.c_str(ctx)).split("/");
@@ -295,7 +309,6 @@ void DesignWidget::newContext(Context *ctx)
     pip_root->setText(0, "Pips");
     treeWidget->insertTopLevelItem(0, pip_root);
     if (ctx) {
-        Q_EMIT contextLoadStatus("Configuring pips...");
         for (auto pip : ctx->getPips()) {
             auto id = ctx->getPipName(pip);
             QStringList items = QString(id.c_str(ctx)).split("/");
@@ -331,8 +344,6 @@ void DesignWidget::newContext(Context *ctx)
     cells_root = new QTreeWidgetItem(treeWidget);
     cells_root->setText(0, "Cells");
     treeWidget->insertTopLevelItem(0, cells_root);
-
-    Q_EMIT finishContextLoad();
 }
 
 void DesignWidget::updateTree()
@@ -477,13 +488,12 @@ void DesignWidget::onItemSelectionChanged()
     addToHistory(clickItem);
 
     clearProperties();
+
+    IdString c = static_cast<IdStringTreeItem *>(clickItem)->getData();
+    Q_EMIT selected(getDecals(type, c));
+
     if (type == ElementType::BEL) {
-        IdString c = static_cast<IdStringTreeItem *>(clickItem)->getData();
         BelId bel = ctx->getBelByName(c);
-
-        decals.push_back(ctx->getBelDecal(bel));
-        Q_EMIT selected(decals);
-
         QtProperty *topItem = addTopLevelProperty("Bel");
 
         addProperty(topItem, QVariant::String, "Name", c.c_str(ctx));
@@ -494,12 +504,7 @@ void DesignWidget::onItemSelectionChanged()
                     ElementType::CELL);
 
     } else if (type == ElementType::WIRE) {
-        IdString c = static_cast<IdStringTreeItem *>(clickItem)->getData();
         WireId wire = ctx->getWireByName(c);
-
-        decals.push_back(ctx->getWireDecal(wire));
-        Q_EMIT selected(decals);
-
         QtProperty *topItem = addTopLevelProperty("Wire");
 
         addProperty(topItem, QVariant::String, "Name", c.c_str(ctx));
@@ -551,12 +556,7 @@ void DesignWidget::onItemSelectionChanged()
             }
         }
     } else if (type == ElementType::PIP) {
-        IdString c = static_cast<IdStringTreeItem *>(clickItem)->getData();
         PipId pip = ctx->getPipByName(c);
-
-        decals.push_back(ctx->getPipDecal(pip));
-        Q_EMIT selected(decals);
-
         QtProperty *topItem = addTopLevelProperty("Pip");
 
         addProperty(topItem, QVariant::String, "Name", c.c_str(ctx));
@@ -576,7 +576,6 @@ void DesignWidget::onItemSelectionChanged()
         addProperty(delayItem, QVariant::Double, "Fall", delay.fallDelay());
         addProperty(delayItem, QVariant::Double, "Average", delay.avgDelay());
     } else if (type == ElementType::NET) {
-        IdString c = static_cast<IdStringTreeItem *>(clickItem)->getData();
         NetInfo *net = ctx->nets.at(c).get();
 
         QtProperty *topItem = addTopLevelProperty("Net");
@@ -613,7 +612,7 @@ void DesignWidget::onItemSelectionChanged()
             auto name = ctx->getWireName(item.first).c_str(ctx);
 
             QtProperty *wireItem = addSubGroup(wiresItem, name);
-            addProperty(wireItem, QVariant::String, "Name", name);
+            addProperty(wireItem, QVariant::String, "Wire", name, ElementType::WIRE);
 
             if (item.second.pip != PipId())
                 addProperty(wireItem, QVariant::String, "Pip", ctx->getPipName(item.second.pip).c_str(ctx),
@@ -625,7 +624,6 @@ void DesignWidget::onItemSelectionChanged()
         }
 
     } else if (type == ElementType::CELL) {
-        IdString c = static_cast<IdStringTreeItem *>(clickItem)->getData();
         CellInfo *cell = ctx->cells.at(c).get();
 
         QtProperty *topItem = addTopLevelProperty("Cell");
@@ -689,19 +687,28 @@ std::vector<DecalXY> DesignWidget::getDecals(ElementType type, IdString value)
         WireId wire = ctx->getWireByName(value);
         if (wire != WireId()) {
             decals.push_back(ctx->getWireDecal(wire));
-            Q_EMIT selected(decals);
         }
     } break;
     case ElementType::PIP: {
         PipId pip = ctx->getPipByName(value);
         if (pip != PipId()) {
             decals.push_back(ctx->getPipDecal(pip));
-            Q_EMIT selected(decals);
         }
     } break;
     case ElementType::NET: {
+        NetInfo *net = ctx->nets.at(value).get();
+        for (auto &item : net->wires) {
+            decals.push_back(ctx->getWireDecal(item.first));
+            if (item.second.pip != PipId()) {
+                decals.push_back(ctx->getPipDecal(item.second.pip));
+            }
+        }
     } break;
     case ElementType::CELL: {
+        CellInfo *cell = ctx->cells.at(value).get();
+        if (cell->bel != BelId()) {
+            decals.push_back(ctx->getBelDecal(cell->bel));
+        }
     } break;
     default:
         break;

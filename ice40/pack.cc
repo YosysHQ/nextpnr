@@ -277,6 +277,10 @@ static void pack_ram(Context *ctx)
                 if (bpos != std::string::npos) {
                     newname = newname.substr(0, bpos) + "_" + newname.substr(bpos + 1, (newname.size() - bpos) - 2);
                 }
+                if (pi.name == ctx->id("RCLKN"))
+                    newname = "RCLK";
+                else if (pi.name == ctx->id("WCLKN"))
+                    newname = "WCLK";
                 replace_port(ci, ctx->id(pi.name.c_str(ctx)), packed.get(), ctx->id(newname));
             }
             new_cells.push_back(std::move(packed));
@@ -302,6 +306,10 @@ static void set_net_constant(const Context *ctx, NetInfo *orig, NetInfo *constne
                 log_info("%s user %s\n", orig->name.c_str(ctx), uc->name.c_str(ctx));
             if ((is_lut(ctx, uc) || is_lc(ctx, uc) || is_carry(ctx, uc)) && (user.port.str(ctx).at(0) == 'I') &&
                 !constval) {
+                uc->ports[user.port].net = nullptr;
+            } else if ((is_sb_mac16(ctx, uc) || uc->type == ctx->id("ICESTORM_DSP")) &&
+                       (user.port != ctx->id("CLK") &&
+                        ((constval && user.port == ctx->id("CE")) || (!constval && user.port != ctx->id("CE"))))) {
                 uc->ports[user.port].net = nullptr;
             } else {
                 uc->ports[user.port].net = constnet;
@@ -564,6 +572,25 @@ static void pack_special(Context *ctx)
                 replace_port(ci, ctx->id(pi.name.c_str(ctx)), packed.get(), ctx->id(newname));
             }
             new_cells.push_back(std::move(packed));
+        } else if (is_sb_mac16(ctx, ci)) {
+            std::unique_ptr<CellInfo> packed =
+                    create_ice_cell(ctx, ctx->id("ICESTORM_DSP"), ci->name.str(ctx) + "_DSP");
+            packed_cells.insert(ci->name);
+            for (auto attr : ci->attrs)
+                packed->attrs[attr.first] = attr.second;
+            for (auto param : ci->params)
+                packed->params[param.first] = param.second;
+
+            for (auto port : ci->ports) {
+                PortInfo &pi = port.second;
+                std::string newname = pi.name.str(ctx);
+                size_t bpos = newname.find('[');
+                if (bpos != std::string::npos) {
+                    newname = newname.substr(0, bpos) + "_" + newname.substr(bpos + 1, (newname.size() - bpos) - 2);
+                }
+                replace_port(ci, ctx->id(pi.name.c_str(ctx)), packed.get(), ctx->id(newname));
+            }
+            new_cells.push_back(std::move(packed));
         }
     }
 
@@ -589,6 +616,7 @@ bool Arch::pack()
         pack_carries(ctx);
         pack_ram(ctx);
         pack_special(ctx);
+        ctx->assignArchInfo();
         log_info("Checksum: 0x%08x\n", ctx->checksum());
         return true;
     } catch (log_execution_error_exception) {

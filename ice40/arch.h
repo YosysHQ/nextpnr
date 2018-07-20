@@ -153,15 +153,31 @@ NPNR_PACKED_STRUCT(struct BitstreamInfoPOD {
     RelPtr<IerenInfoPOD> ierens;
 });
 
+NPNR_PACKED_STRUCT(struct BelConfigEntryPOD {
+    RelPtr<char> entry_name;
+    RelPtr<char> cbit_name;
+    int8_t x, y;
+    int16_t padding;
+});
+
+// Stores mapping between bel parameters and config bits,
+// for extra cells where this mapping is non-trivial
+NPNR_PACKED_STRUCT(struct BelConfigPOD {
+    int32_t bel_index;
+    int32_t num_entries;
+    RelPtr<BelConfigEntryPOD> entries;
+});
+
 NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     int32_t width, height;
     int32_t num_bels, num_wires, num_pips;
-    int32_t num_switches, num_packages;
+    int32_t num_switches, num_belcfgs, num_packages;
     RelPtr<BelInfoPOD> bel_data;
     RelPtr<WireInfoPOD> wire_data;
     RelPtr<PipInfoPOD> pip_data;
     RelPtr<TileType> tile_grid;
     RelPtr<BitstreamInfoPOD> bits_info;
+    RelPtr<BelConfigPOD> bel_config;
     RelPtr<PackageInfoPOD> packages_data;
 });
 
@@ -592,7 +608,7 @@ struct Arch : BaseCtx
         range.e.cursor = chip_info->num_pips;
         return range;
     }
-    
+
     IdString getPipName(PipId pip) const;
 
     uint32_t getPipChecksum(PipId pip) const { return pip.index; }
@@ -712,6 +728,12 @@ struct Arch : BaseCtx
 
     // Helper function for above
     bool logicCellsCompatible(const std::vector<const CellInfo *> &cells) const;
+
+    // -------------------------------------------------
+    // Assign architecure-specific arguments to nets and cells, which must be called between packing or further
+    // netlist modifications, and validity checks
+    void assignArchInfo();
+    void assignCellInfo(CellInfo *cell);
 
     IdString id_glb_buf_out;
     IdString id_icestorm_lc, id_sb_io, id_sb_gb;

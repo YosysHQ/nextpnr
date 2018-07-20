@@ -96,13 +96,36 @@ NPNR_PACKED_STRUCT(struct LocationTypePOD {
     RelPtr<PipInfoPOD> pip_data;
 });
 
+NPNR_PACKED_STRUCT(struct PIOInfoPOD {
+    Location abs_loc;
+    int32_t bel_index;
+    RelPtr<char> function_name;
+    int16_t bank;
+    int16_t padding;
+});
+
+NPNR_PACKED_STRUCT(struct PackagePinPOD {
+    RelPtr<char> name;
+    Location abs_loc;
+    int32_t bel_index;
+});
+
+NPNR_PACKED_STRUCT(struct PackageInfoPOD {
+    RelPtr<char> name;
+    int32_t num_pins;
+    RelPtr<PackagePinPOD> pin_data;
+});
+
 NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     int32_t width, height;
     int32_t num_tiles;
     int32_t num_location_types;
+    int32_t num_packages, num_pios;
     RelPtr<LocationTypePOD> locations;
     RelPtr<int32_t> location_type;
     RelPtr<RelPtr<char>> tiletype_names;
+    RelPtr<PackageInfoPOD> package_info;
+    RelPtr<PIOInfoPOD> pio_info;
 });
 
 #if defined(_MSC_VER)
@@ -340,6 +363,7 @@ struct ArchArgs
 struct Arch : BaseCtx
 {
     const ChipInfoPOD *chip_info;
+    const PackageInfoPOD *package_info;
 
     mutable std::unordered_map<IdString, BelId> bel_by_name;
     mutable std::unordered_map<IdString, WireId> wire_by_name;

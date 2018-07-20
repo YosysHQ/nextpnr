@@ -68,6 +68,8 @@ int main(int argc, char *argv[])
         options.add_options()("45k", "set device type to LFE5U-45F");
         options.add_options()("85k", "set device type to LFE5U-85F");
 
+        options.add_options()("package", po::value<std::string>(), "select device package (defaults to CABGA381)");
+
         options.add_options()("json", po::value<std::string>(), "JSON design file to ingest");
         options.add_options()("seed", po::value<int>(), "seed value for random number generator");
 
@@ -123,8 +125,10 @@ int main(int argc, char *argv[])
             args.type = ArchArgs::LFE5U_45F;
         if (vm.count("85k"))
             args.type = ArchArgs::LFE5U_85F;
-
-        args.package = "CABGA381";
+        if (vm.count("package"))
+            args.package = vm["package"].as<std::string>();
+        else
+            args.package = "CABGA381";
         args.speed = 6;
         std::unique_ptr<Context> ctx = std::unique_ptr<Context>(new Context(args));
 

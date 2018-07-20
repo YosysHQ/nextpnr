@@ -31,45 +31,37 @@ bool Arch::logicCellsCompatible(const std::vector<const CellInfo *> &cells) cons
     int locals_count = 0;
 
     for (auto cell : cells) {
-        if (bool_or_default(cell->params, id_dff_en)) {
+        NPNR_ASSERT(cell->belType == TYPE_ICESTORM_LC);
+        if (cell->lcInfo.dffEnable) {
             if (!dffs_exist) {
                 dffs_exist = true;
-                cen = get_net_or_empty(cell, id_cen);
-                clk = get_net_or_empty(cell, id_clk);
-                sr = get_net_or_empty(cell, id_sr);
+                cen = cell->lcInfo.cen;
+                clk = cell->lcInfo.clk;
+                sr = cell->lcInfo.sr;
 
-                if (!isGlobalNet(cen) && cen != nullptr)
+                if (cen != nullptr && !cen->is_global)
                     locals_count++;
-                if (!isGlobalNet(clk) && clk != nullptr)
+                if (clk != nullptr && !clk->is_global)
                     locals_count++;
-                if (!isGlobalNet(sr) && sr != nullptr)
+                if (sr != nullptr && !sr->is_global)
                     locals_count++;
 
-                if (bool_or_default(cell->params, id_neg_clk)) {
+                if (cell->lcInfo.negClk) {
                     dffs_neg = true;
                 }
             } else {
-                if (cen != get_net_or_empty(cell, id_cen))
+                if (cen != cell->lcInfo.cen)
                     return false;
-                if (clk != get_net_or_empty(cell, id_clk))
+                if (clk != cell->lcInfo.clk)
                     return false;
-                if (sr != get_net_or_empty(cell, id_sr))
+                if (sr != cell->lcInfo.sr)
                     return false;
-                if (dffs_neg != bool_or_default(cell->params, id_neg_clk))
+                if (dffs_neg != cell->lcInfo.negClk)
                     return false;
             }
         }
 
-        const NetInfo *i0 = get_net_or_empty(cell, id_i0), *i1 = get_net_or_empty(cell, id_i1),
-                      *i2 = get_net_or_empty(cell, id_i2), *i3 = get_net_or_empty(cell, id_i3);
-        if (i0 != nullptr)
-            locals_count++;
-        if (i1 != nullptr)
-            locals_count++;
-        if (i2 != nullptr)
-            locals_count++;
-        if (i3 != nullptr)
-            locals_count++;
+        locals_count += cell->lcInfo.inputCount;
     }
 
     return locals_count <= 32;
@@ -116,21 +108,15 @@ bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const
     } else if (cell->type == id_sb_io) {
         return getBelPackagePin(bel) != "";
     } else if (cell->type == id_sb_gb) {
-        bool is_reset = false, is_cen = false;
         NPNR_ASSERT(cell->ports.at(id_glb_buf_out).net != nullptr);
-        for (auto user : cell->ports.at(id_glb_buf_out).net->users) {
-            if (is_reset_port(this, user))
-                is_reset = true;
-            if (is_enable_port(this, user))
-                is_cen = true;
-        }
+        const NetInfo *net = cell->ports.at(id_glb_buf_out).net;
         IdString glb_net = getWireName(getWireBelPin(bel, PIN_GLOBAL_BUFFER_OUTPUT));
         int glb_id = std::stoi(std::string("") + glb_net.str(this).back());
-        if (is_reset && is_cen)
+        if (net->is_reset && net->is_enable)
             return false;
-        else if (is_reset)
+        else if (net->is_reset)
             return (glb_id % 2) == 0;
-        else if (is_cen)
+        else if (net->is_enable)
             return (glb_id % 2) == 1;
         else
             return true;

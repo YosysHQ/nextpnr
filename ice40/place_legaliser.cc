@@ -127,6 +127,7 @@ class PlacementLegaliser
         legalise_others();
         legalise_logic_tiles();
         bool replaced_cells = replace_cells();
+        ctx->assignArchInfo();
         return legalised_carries && replaced_cells;
     }
 
@@ -371,6 +372,7 @@ class PlacementLegaliser
         NPNR_ASSERT(ctx->nets.find(co_i3_name) == ctx->nets.end());
         ctx->nets[co_i3_name] = std::move(co_i3_net);
         IdString name = lc->name;
+        ctx->assignCellInfo(lc.get());
         ctx->cells[lc->name] = std::move(lc);
         createdCells.insert(name);
         return ctx->cells[name].get();
@@ -415,6 +417,7 @@ class PlacementLegaliser
         ctx->nets[out_net_name] = std::move(out_net);
 
         IdString name = lc->name;
+        ctx->assignCellInfo(lc.get());
         ctx->cells[lc->name] = std::move(lc);
         createdCells.insert(name);
         return ctx->cells[name].get();
