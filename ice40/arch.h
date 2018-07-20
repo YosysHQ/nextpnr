@@ -350,6 +350,7 @@ struct Arch : BaseCtx
     mutable std::unordered_map<IdString, int> bel_by_name;
     mutable std::unordered_map<IdString, int> wire_by_name;
     mutable std::unordered_map<IdString, int> pip_by_name;
+    mutable std::unordered_map<Loc, int> bel_by_loc;
 
     std::vector<IdString> bel_to_cell;
     std::vector<IdString> wire_to_net;
@@ -449,18 +450,8 @@ struct Arch : BaseCtx
         return loc;
     }
 
-    BelId getBelByLocation(int x, int y, int z) const
-    {
-        // FIXME
-        return BelId();
-    }
-
-    BelRange getBelsByTile(int x, int y) const
-    {
-        BelRange range;
-        // FIXME
-        return range;
-    }
+    BelId getBelByLocation(int x, int y, int z) const;
+    BelRange getBelsByTile(int x, int y) const;
 
     bool getBelGlobalBuf(BelId bel) const
     {

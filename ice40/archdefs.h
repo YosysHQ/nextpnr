@@ -21,8 +21,6 @@
 #error Include "archdefs.h" via "nextpnr.h" only.
 #endif
 
-#include <boost/functional/hash.hpp>
-
 NEXTPNR_NAMESPACE_BEGIN
 
 typedef int delay_t;
