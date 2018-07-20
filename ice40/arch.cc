@@ -19,13 +19,13 @@
 
 #include <algorithm>
 #include <cmath>
+#include "cells.h"
 #include "gfx.h"
 #include "log.h"
 #include "nextpnr.h"
 #include "placer1.h"
 #include "router1.h"
 #include "util.h"
-#include "cells.h"
 NEXTPNR_NAMESPACE_BEGIN
 
 // -----------------------------------------------------------------------
