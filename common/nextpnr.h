@@ -339,10 +339,6 @@ struct Context : Arch
 
     Context(ArchArgs args) : Arch(args) {}
 
-    BelId getBelByLocation(Loc loc) const {
-        return getBelByLocation(loc.x, loc.y, loc.z);
-    }
-
     // --------------------------------------------------------------
 
     // provided by router1.cc

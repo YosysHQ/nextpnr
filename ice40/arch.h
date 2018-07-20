@@ -450,7 +450,7 @@ struct Arch : BaseCtx
         return loc;
     }
 
-    BelId getBelByLocation(int x, int y, int z) const;
+    BelId getBelByLocation(Loc loc) const;
     BelRange getBelsByTile(int x, int y) const;
 
     bool getBelGlobalBuf(BelId bel) const

@@ -255,24 +255,36 @@ BelId Arch::getBelByName(IdString name) const
     return ret;
 }
 
-BelId Arch::getBelByLocation(int x, int y, int z) const
+BelId Arch::getBelByLocation(Loc loc) const
 {
+    BelId bel;
+
     if (bel_by_loc.empty()) {
-        for (int i = 0; i < chip_info->num_bels; i++)
-            bel_by_loc[getBelLocation(BelId{i})] = i;
+        for (int i = 0; i < chip_info->num_bels; i++) {
+            BelId b;
+            b.index = i;
+            bel_by_loc[getBelLocation(b)] = i;
+        }
     }
 
-    auto it = bel_by_loc.find(Loc{x, y, z});
+    auto it = bel_by_loc.find(loc);
     if (it != bel_by_loc.end())
-        return BelId{it->second};
-    return BelId();
+        bel.index = it->second;
+
+    return bel;
 }
 
 BelRange Arch::getBelsByTile(int x, int y) const
 {
     // In iCE40 chipdb bels at the same tile are consecutive and dense z ordinates are used
     BelRange br;
-    br.b.cursor = Arch::getBelByLocation(x, y, 0);
+
+    Loc loc;
+    loc.x = x;
+    loc.y = y;
+    loc.z = 0;
+
+    br.b.cursor = Arch::getBelByLocation(loc).index;
     br.e.cursor = br.b.cursor;
 
     if (br.e.cursor != -1) {
