@@ -28,6 +28,7 @@
 #include <QOpenGLVertexArrayObject>
 #include <QOpenGLWidget>
 #include <QPainter>
+#include <QTimer>
 #include <QThread>
 #include <QWaitCondition>
 
@@ -209,6 +210,60 @@ class LineShader
     void draw(const LineShaderData &data, const QColor &color, float thickness, const QMatrix4x4 &projection);
 };
 
+class PeriodicRunner : public QThread
+{
+    Q_OBJECT
+private:
+    QMutex mutex_;
+    QWaitCondition condition_;
+    bool abort_;
+    std::function<void()> target_;
+    QTimer timer_;
+public:
+    explicit PeriodicRunner(QObject *parent, std::function<void()> target) :
+        QThread(parent), abort_(false), target_(target), timer_(this)
+    {
+        connect(&timer_, &QTimer::timeout, this, &PeriodicRunner::poke);
+    }
+
+    void run(void) override
+    {
+        for (;;) {
+            mutex_.lock();
+            condition_.wait(&mutex_);
+
+            if (abort_) {
+                mutex_.unlock();
+                return;
+            }
+
+            target_();
+
+            mutex_.unlock();
+        }
+    }
+
+    void startTimer(std::chrono::milliseconds value)
+    {
+        timer_.start(value);
+    }
+
+    ~PeriodicRunner()
+    {
+        mutex_.lock();
+        abort_ = true;
+        condition_.wakeOne();
+        mutex_.unlock();
+
+        wait();
+    }
+
+    void poke(void)
+    {
+        condition_.wakeOne();
+    }
+};
+
 class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
 {
     Q_OBJECT
@@ -245,7 +300,6 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
 
   private:
     void renderLines(void);
-    void renderLinesWorker(void);
 
     QPoint lastPos_;
     LineShader lineShader_;
@@ -261,9 +315,9 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     const float zoomLvl2_ = 50.0f;
 
     Context *ctx_;
+    QTimer paintTimer_;
 
-    QWaitCondition render_;
-    std::unique_ptr<QThread> renderThread_;
+    std::unique_ptr<PeriodicRunner> renderRunner_;
 
     struct {
         QColor background;

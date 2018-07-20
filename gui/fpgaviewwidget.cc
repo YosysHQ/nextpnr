@@ -23,7 +23,6 @@
 #include <QApplication>
 #include <QCoreApplication>
 #include <QMouseEvent>
-#include <QTimer>
 #include <QWidget>
 
 #include "fpgaviewwidget.h"
@@ -242,7 +241,7 @@ void LineShader::draw(const LineShaderData &line, const QColor &color, float thi
 }
 
 FPGAViewWidget::FPGAViewWidget(QWidget *parent)
-        : QOpenGLWidget(parent), lineShader_(this), zoom_(500.f), ctx_(nullptr), rendererData_(new FPGAViewWidget::RendererData), rendererArgs_(new FPGAViewWidget::RendererArgs)
+        : QOpenGLWidget(parent), lineShader_(this), zoom_(500.f), ctx_(nullptr), paintTimer_(this), rendererData_(new FPGAViewWidget::RendererData), rendererArgs_(new FPGAViewWidget::RendererArgs)
 {
     colors_.background  = QColor("#000000");
     colors_.grid = QColor("#333");
@@ -276,16 +275,12 @@ FPGAViewWidget::FPGAViewWidget(QWidget *parent)
         printf("Could not get OpenGL 3.1 context - trying anyway...\n ");
     }
 
-    QTimer *timer = new QTimer(this);
-	connect(timer, SIGNAL(timeout()), this, SLOT(update()));
-	timer->start(1000/20);
+	connect(&paintTimer_, SIGNAL(timeout()), this, SLOT(update()));
+	paintTimer_.start(std::chrono::duration<int, std::milli>(1000/20));  // paint GL 20 times per second
 
-    timer = new QTimer(this);
-	connect(timer, SIGNAL(timeout()), this, SLOT(pokeRenderer()));
-	timer->start(1000/2);
-
-    renderThread_ = std::unique_ptr<QThread>(QThread::create([this] { renderLinesWorker(); }));
-    renderThread_->start();
+    renderRunner_ = std::unique_ptr<PeriodicRunner>(new PeriodicRunner(this, [this] { renderLines(); }));
+    renderRunner_->start();
+    renderRunner_->startTimer(std::chrono::duration<int, std::milli>(1000/2));  // render line 2 times per second
 }
 
 FPGAViewWidget::~FPGAViewWidget() {}
@@ -423,19 +418,7 @@ void FPGAViewWidget::paintGL()
 }
 
 void FPGAViewWidget::pokeRenderer(void) {
-    render_.wakeOne();
-}
-
-void FPGAViewWidget::renderLinesWorker(void) {
-    for (;;) {
-        QMutex mutex;
-        mutex.lock();
-        render_.wait(&mutex);
-
-        renderLines();
-
-        mutex.unlock();
-    }
+    renderRunner_->poke();
 }
 
 void FPGAViewWidget::renderLines(void)
