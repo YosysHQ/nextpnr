@@ -342,7 +342,7 @@ class DeterministicRNG
 
 };
 
-class BaseCtx : public IdStringDB, public DeterministicRNG
+class BaseCtx : public IdStringDB
 {
   private:
     std::mutex mutex;
@@ -400,7 +400,7 @@ NEXTPNR_NAMESPACE_END
 
 NEXTPNR_NAMESPACE_BEGIN
 
-struct Context : Arch
+struct Context : Arch, DeterministicRNG
 {
     bool verbose = false;
     bool debug = false;
