@@ -153,6 +153,7 @@ struct DecalId
 struct ArchNetInfo
 {
     bool is_global = false;
+    bool is_reset = false, is_enable = false;
 };
 
 struct NetInfo;

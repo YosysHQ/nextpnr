@@ -25,7 +25,7 @@
 #include "placer1.h"
 #include "router1.h"
 #include "util.h"
-
+#include "cells.h"
 NEXTPNR_NAMESPACE_BEGIN
 
 // -----------------------------------------------------------------------
@@ -704,6 +704,14 @@ void Arch::assignArchInfo()
         NetInfo *ni = net.second.get();
         if (isGlobalNet(ni))
             ni->is_global = true;
+        ni->is_enable = false;
+        ni->is_reset = false;
+        for (auto usr : ni->users) {
+            if (is_enable_port(this, usr))
+                ni->is_enable = true;
+            if (is_reset_port(this, usr))
+                ni->is_reset = true;
+        }
     }
     for (auto &cell : getCtx()->cells) {
         CellInfo *ci = cell.second.get();
