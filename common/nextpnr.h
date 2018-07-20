@@ -93,28 +93,28 @@ inline bool assert_fail_impl_str(std::string message, const char *expr_str, cons
 #define NPNR_ASSERT_FALSE(msg) (assert_fail_impl(msg, "false", __FILE__, __LINE__))
 #define NPNR_ASSERT_FALSE_STR(msg) (assert_fail_impl_str(msg, "false", __FILE__, __LINE__))
 
-struct IdStringDB;
+struct BaseCtx;
 struct Context;
 
 struct IdString
 {
     int index = 0;
 
-    static void initialize_arch(const IdStringDB *ctx);
+    static void initialize_arch(const BaseCtx *ctx);
 
-    static void initialize_add(const IdStringDB *ctx, const char *s, int idx);
+    static void initialize_add(const BaseCtx *ctx, const char *s, int idx);
 
     IdString() {}
 
-    void set(const IdStringDB *ctx, const std::string &s);
+    void set(const BaseCtx *ctx, const std::string &s);
 
-    IdString(const IdStringDB *ctx, const std::string &s) { set(ctx, s); }
+    IdString(const BaseCtx *ctx, const std::string &s) { set(ctx, s); }
 
-    IdString(const IdStringDB *ctx, const char *s) { set(ctx, s); }
+    IdString(const BaseCtx *ctx, const char *s) { set(ctx, s); }
 
-    const std::string &str(const IdStringDB *ctx) const;
+    const std::string &str(const BaseCtx *ctx) const;
 
-    const char *c_str(const IdStringDB *ctx) const;
+    const char *c_str(const BaseCtx *ctx) const;
 
     bool operator<(const IdString &other) const { return index < other.index; }
 
@@ -247,39 +247,10 @@ struct CellInfo : ArchCellInfo
     std::unordered_map<IdString, IdString> pins;
 };
 
-class IdStringDB
+struct DeterministicRNG
 {
-    friend class IdString;
-
-  private:
-    mutable std::unordered_map<std::string, int> *idstring_str_to_idx;
-    mutable std::vector<const std::string *> *idstring_idx_to_str;
-
-  public:
-    IdString id(const std::string &s) const { return IdString(this, s); }
-    IdString id(const char *s) const { return IdString(this, s); }
-
-    IdStringDB()
-    {
-        idstring_str_to_idx = new std::unordered_map<std::string, int>;
-        idstring_idx_to_str = new std::vector<const std::string *>;
-        IdString::initialize_add(this, "", 0);
-        IdString::initialize_arch(this);
-    }
-
-    ~IdStringDB()
-    {
-        delete idstring_str_to_idx;
-        delete idstring_idx_to_str;
-    }
-};
-
-class DeterministicRNG
-{
-  private:
     uint64_t rngstate;
 
-  public:
     DeterministicRNG() : rngstate(0x3141592653589793) {}
 
     uint64_t rng64()
@@ -341,19 +312,35 @@ class DeterministicRNG
     }
 };
 
-class BaseCtx : public IdStringDB
+struct BaseCtx
 {
-  private:
+    // Lock to perform mutating actions on the Context.
     std::mutex mutex;
     pthread_t mutex_owner;
 
-  public:
+    // ID String database.
+    mutable std::unordered_map<std::string, int> *idstring_str_to_idx;
+    mutable std::vector<const std::string *> *idstring_idx_to_str;
+
+    // Placed nets and cells.
     std::unordered_map<IdString, std::unique_ptr<NetInfo>> nets;
     std::unordered_map<IdString, std::unique_ptr<CellInfo>> cells;
 
-    BaseCtx() {}
-    ~BaseCtx() {}
+    BaseCtx()
+    {
+        idstring_str_to_idx = new std::unordered_map<std::string, int>;
+        idstring_idx_to_str = new std::vector<const std::string *>;
+        IdString::initialize_add(this, "", 0);
+        IdString::initialize_arch(this);
+    }
 
+    ~BaseCtx()
+    {
+        delete idstring_str_to_idx;
+        delete idstring_idx_to_str;
+    }
+
+    // Must be called before performing any mutating changes on the Ctx/Arch.
     void lock(void)
     {
         mutex.lock();
@@ -373,6 +360,10 @@ class BaseCtx : public IdStringDB
             pthread_yield();
         }
     }
+
+    IdString id(const std::string &s) const { return IdString(this, s); }
+
+    IdString id(const char *s) const { return IdString(this, s); }
 
     Context *getCtx() { return reinterpret_cast<Context *>(this); }
 

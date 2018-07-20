@@ -27,7 +27,7 @@ assertion_failure::assertion_failure(std::string msg, std::string expr_str, std:
 {
 }
 
-void IdString::set(const IdStringDB *ctx, const std::string &s)
+void IdString::set(const BaseCtx *ctx, const std::string &s)
 {
     auto it = ctx->idstring_str_to_idx->find(s);
     if (it == ctx->idstring_str_to_idx->end()) {
@@ -39,11 +39,11 @@ void IdString::set(const IdStringDB *ctx, const std::string &s)
     }
 }
 
-const std::string &IdString::str(const IdStringDB *ctx) const { return *ctx->idstring_idx_to_str->at(index); }
+const std::string &IdString::str(const BaseCtx *ctx) const { return *ctx->idstring_idx_to_str->at(index); }
 
-const char *IdString::c_str(const IdStringDB *ctx) const { return str(ctx).c_str(); }
+const char *IdString::c_str(const BaseCtx *ctx) const { return str(ctx).c_str(); }
 
-void IdString::initialize_add(const IdStringDB *ctx, const char *s, int idx)
+void IdString::initialize_add(const BaseCtx *ctx, const char *s, int idx)
 {
     NPNR_ASSERT(ctx->idstring_str_to_idx->count(s) == 0);
     NPNR_ASSERT(int(ctx->idstring_idx_to_str->size()) == idx);

@@ -157,7 +157,7 @@ void Arch::setGroupDecal(GroupId group, DecalXY decalxy)
 
 Arch::Arch(ArchArgs) {}
 
-void IdString::initialize_arch(const IdStringDB *ctx) {}
+void IdString::initialize_arch(const BaseCtx *ctx) {}
 
 // ---------------------------------------------------------------
 
