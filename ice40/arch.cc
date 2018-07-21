@@ -19,13 +19,13 @@
 
 #include <algorithm>
 #include <cmath>
+#include "cells.h"
 #include "gfx.h"
 #include "log.h"
 #include "nextpnr.h"
 #include "placer1.h"
 #include "router1.h"
 #include "util.h"
-#include "cells.h"
 NEXTPNR_NAMESPACE_BEGIN
 
 // -----------------------------------------------------------------------
@@ -520,9 +520,9 @@ DecalXY Arch::getWireDecal(WireId wire) const
 DecalXY Arch::getPipDecal(PipId pip) const
 {
     DecalXY decalxy;
-    // decalxy.decal.type = DecalId::TYPE_PIP;
-    // decalxy.decal.index = pip.index;
-    // decalxy.decal.active = pip_to_net.at(pip.index) != IdString();
+    decalxy.decal.type = DecalId::TYPE_PIP;
+    decalxy.decal.index = pip.index;
+    decalxy.decal.active = pip_to_net.at(pip.index) != IdString();
     return decalxy;
 };
 

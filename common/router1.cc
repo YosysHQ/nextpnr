@@ -695,6 +695,7 @@ bool router1(Context *ctx)
 
         log_break();
         log_info("Routing..\n");
+        ctx->lock();
 
         std::unordered_map<IdString, std::vector<bool>> jobCache;
         std::priority_queue<RouteJob, std::vector<RouteJob>, RouteJob::Greater> jobQueue;
@@ -766,15 +767,19 @@ bool router1(Context *ctx)
                     normalRouteNets.insert(net_name);
                 }
 
-                if ((ctx->verbose || iterCnt == 1) && !printNets && (jobCnt % 100 == 0))
+                if ((ctx->verbose || iterCnt == 1) && !printNets && (jobCnt % 100 == 0)) {
                     log_info("  processed %d jobs. (%d routed, %d failed)\n", jobCnt, jobCnt - failedCnt, failedCnt);
+                    ctx->yield();
+                }
             }
 
             NPNR_ASSERT(jobQueue.empty());
             jobCache.clear();
 
-            if ((ctx->verbose || iterCnt == 1) && (jobCnt % 100 != 0))
+            if ((ctx->verbose || iterCnt == 1) && (jobCnt % 100 != 0)) {
                 log_info("  processed %d jobs. (%d routed, %d failed)\n", jobCnt, jobCnt - failedCnt, failedCnt);
+                ctx->yield();
+            }
 
             if (ctx->verbose)
                 log_info("  visited %d PIPs (%.2f%% revisits, %.2f%% overtime "
@@ -828,8 +833,10 @@ bool router1(Context *ctx)
 
                     ripCnt += router.rippedNets.size();
 
-                    if ((ctx->verbose || iterCnt == 1) && !printNets && (netCnt % 100 == 0))
+                    if ((ctx->verbose || iterCnt == 1) && !printNets && (netCnt % 100 == 0)) {
                         log_info("  routed %d nets, ripped %d nets.\n", netCnt, ripCnt);
+                        ctx->yield();
+                    }
                 }
 
                 if ((ctx->verbose || iterCnt == 1) && (netCnt % 100 != 0))
@@ -857,6 +864,8 @@ bool router1(Context *ctx)
 
             if (iterCnt == 8 || iterCnt == 16 || iterCnt == 32 || iterCnt == 64 || iterCnt == 128)
                 ripup_penalty += ctx->getRipupDelayPenalty();
+
+            ctx->yield();
         }
 
         log_info("routing complete after %d iterations.\n", iterCnt);
@@ -888,11 +897,13 @@ bool router1(Context *ctx)
         log_info("Checksum: 0x%08x\n", ctx->checksum());
 #ifndef NDEBUG
         ctx->check();
+        ctx->unlock();
 #endif
         return true;
     } catch (log_execution_error_exception) {
 #ifndef NDEBUG
         ctx->check();
+        ctx->unlock();
 #endif
         return false;
     }
