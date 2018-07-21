@@ -592,10 +592,13 @@ void read_config(Context *ctx, std::istream &in, chipconfig_t &config)
                 int wireIndex = atoi(strtok(nullptr, " \t\r\n"));
                 const char *name = strtok(nullptr, " \t\r\n");
                                 
-                std::unique_ptr<NetInfo> created_net = std::unique_ptr<NetInfo>(new NetInfo);
                 IdString netName = ctx->id(name);
-                created_net->name = netName;
-                ctx->nets[netName] = std::move(created_net);                
+
+                if (ctx->nets.find(netName) == ctx->nets.end()) {
+                    std::unique_ptr<NetInfo> created_net = std::unique_ptr<NetInfo>(new NetInfo);
+                    created_net->name = netName;
+                    ctx->nets[netName] = std::move(created_net);     
+                }           
                 
                 WireId wire;
                 wire.index = wireIndex;
