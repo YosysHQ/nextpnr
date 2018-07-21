@@ -767,6 +767,14 @@ bool read_asc(Context *ctx, std::istream &in)
                         IdString name = ctx->getBoundWireNet(wire);
                         if (name != IdString()) {
                             port.second.net = ctx->nets[name].get();
+                            PortRef ref;
+                            ref.cell = cell.second.get();
+                            ref.port = port.second.name;
+
+                            if (port.second.type == PORT_OUT)
+                                ctx->nets[name]->driver = ref;
+                            else
+                                ctx->nets[name]->users.push_back(ref);
                         }
                     }
                 }
