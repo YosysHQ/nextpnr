@@ -27,6 +27,8 @@ NEXTPNR_NAMESPACE_BEGIN
 // Assign "budget" values for all user ports in the design
 void assign_budget(Context *ctx);
 
+void update_budget(Context *ctx);
+
 NEXTPNR_NAMESPACE_END
 
 #endif
