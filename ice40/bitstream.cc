@@ -20,6 +20,7 @@
 #include "bitstream.h"
 #include <cctype>
 #include <vector>
+#include "cells.h"
 #include "log.h"
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -50,6 +51,20 @@ std::tuple<int8_t, int8_t, int8_t> get_ieren(const BitstreamInfoPOD &bi, int8_t 
     // No pin at this location
     return std::make_tuple(-1, -1, -1);
 };
+
+bool get_config(const TileInfoPOD &ti, std::vector<std::vector<int8_t>> &tile_cfg, const std::string &name,
+                int index = -1)
+{
+    const ConfigEntryPOD &cfg = find_config(ti, name);
+    if (index == -1) {
+        for (int i = 0; i < cfg.num_bits; i++) {
+            return tile_cfg.at(cfg.bits[i].row).at(cfg.bits[i].col);
+        }
+    } else {
+        return tile_cfg.at(cfg.bits[index].row).at(cfg.bits[index].col);
+    }
+    return false;
+}
 
 void set_config(const TileInfoPOD &ti, std::vector<std::vector<int8_t>> &tile_cfg, const std::string &name, bool value,
                 int index = -1)
@@ -650,6 +665,30 @@ bool read_asc(Context *ctx, std::istream &in)
                 wire.index = pi.dst;
                 ctx->unbindWire(wire);
                 ctx->bindPip(pip, net, STRENGTH_WEAK);
+            }
+        }
+        for (auto bel : ctx->getBels()) {
+            if (ctx->getBelType(bel) == TYPE_ICESTORM_LC) {
+                const TileInfoPOD &ti = bi.tiles_nonrouting[TILE_LOGIC];
+                const BelInfoPOD &beli = ci.bel_data[bel.index];
+                int x = beli.x, y = beli.y, z = beli.z;
+                std::vector<bool> lc(20, false);
+                bool isUsed = false;
+                for (int i = 0; i < 20; i++) {
+                    lc.at(i) = get_config(ti, config.at(y).at(x), "LC_" + std::to_string(z), i);
+                    isUsed |= lc.at(i);
+                }
+                bool neg_clk = get_config(ti, config.at(y).at(x), "NegClk");
+                isUsed |= neg_clk;
+                bool carry_set = get_config(ti, config.at(y).at(x), "CarryInSet");
+                isUsed |= carry_set;
+
+                if (isUsed) {
+                    std::unique_ptr<CellInfo> created = create_ice_cell(ctx, ctx->id("ICESTORM_LC"));
+                    IdString name = created->name;
+                    ctx->cells[name] = std::move(created);
+                    ctx->bindBel(bel, name, STRENGTH_WEAK);
+                }
             }
         }
         return true;
