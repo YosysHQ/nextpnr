@@ -224,7 +224,9 @@ void MainWindow::new_proj()
 
         if (ok && !item.isEmpty()) {
             disableActions();
-            preload_pcf = "";
+            currentProj = "";
+            currentJson = "";
+            currentPCF = "";
             chipArgs.package = package.toStdString().c_str();
             ctx = std::unique_ptr<Context>(new Context(chipArgs));
             actionLoadJSON->setEnabled(true);
@@ -236,14 +238,16 @@ void MainWindow::new_proj()
 
 void MainWindow::load_json(std::string filename, std::string pcf)
 {
-    preload_pcf = pcf;
     disableActions();
+    currentJson = filename;
+    currentPCF = pcf;
     Q_EMIT task->loadfile(filename);
 }
 
 void MainWindow::load_pcf(std::string filename)
 {
     disableActions();
+    currentPCF = filename;
     Q_EMIT task->loadpcf(filename);
 }
 
@@ -273,6 +277,7 @@ void MainWindow::open_proj()
             namespace pt = boost::property_tree;
 
             std::string fn = fileName.toStdString();
+            currentProj = fn;
             disableActions();
 
             pt::ptree root;
@@ -346,7 +351,35 @@ void MainWindow::open_pcf()
     }
 }
 
-bool MainWindow::save_proj() { return false; }
+bool MainWindow::save_proj()
+{
+    if (currentProj.empty()) {
+        QString fileName = QFileDialog::getSaveFileName(this, QString("Save Project"), QString(), QString("*.proj"));
+        if (fileName.isEmpty())
+            return false;
+        currentProj = fileName.toStdString();
+    }
+    if (!currentProj.empty()) {
+        namespace pt = boost::property_tree;
+        QFileInfo fi(currentProj.c_str());
+        QDir dir(fi.absoluteDir().absolutePath());
+        std::ofstream f(currentProj);
+        pt::ptree root;
+        root.put("project.version", 1);
+        root.put("project.name", fi.baseName().toStdString());
+        root.put("project.arch.name", ctx->archId().c_str(ctx.get()));
+        root.put("project.arch.type", ctx->archArgsToId(chipArgs).c_str(ctx.get()));
+        root.put("project.arch.package", chipArgs.package);
+        if (!currentJson.empty())
+            root.put("project.input.json", dir.relativeFilePath(currentJson.c_str()).toStdString());
+        if (!currentPCF.empty())
+            root.put("project.input.pcf", dir.relativeFilePath(currentPCF.c_str()).toStdString());
+        pt::write_json(f, root);
+        log_info("Project %s saved...\n", fi.baseName().toStdString().c_str());
+        return true;
+    }
+    return false;
+}
 
 void MainWindow::save_asc()
 {
@@ -374,6 +407,7 @@ void MainWindow::disableActions()
 
     actionNew->setEnabled(true);
     actionOpen->setEnabled(true);
+    actionSave->setEnabled(!currentJson.empty());
 }
 
 void MainWindow::loadfile_finished(bool status)
@@ -383,12 +417,12 @@ void MainWindow::loadfile_finished(bool status)
         log("Loading design successful.\n");
         actionLoadPCF->setEnabled(true);
         actionPack->setEnabled(true);
-        if (!preload_pcf.empty())
-            load_pcf(preload_pcf);
+        if (!currentPCF.empty())
+            load_pcf(currentPCF);
         Q_EMIT updateTreeView();
     } else {
         log("Loading design failed.\n");
-        preload_pcf = "";
+        currentPCF = "";
     }
 }
 
