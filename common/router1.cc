@@ -143,12 +143,12 @@ struct Router
                 thisVisitCntLimit = (thisVisitCnt * 3) / 2;
 
             for (auto pip : ctx->getPipsDownhill(qw.wire)) {
-                delay_t next_delay = qw.delay + ctx->getPipDelay(pip).avgDelay();
+                delay_t next_delay = qw.delay + ctx->getPipDelay(pip).maxDelay();
                 WireId next_wire = ctx->getPipDstWire(pip);
                 bool foundRipupNet = false;
                 thisVisitCnt++;
 
-                next_delay += ctx->getWireDelay(next_wire).avgDelay();
+                next_delay += ctx->getWireDelay(next_wire).maxDelay();
 
                 if (!ctx->checkWireAvail(next_wire)) {
                     if (!ripup)
@@ -228,7 +228,7 @@ struct Router
             : ctx(ctx), scores(scores), ripup(ripup), ripup_penalty(ripup_penalty)
     {
         std::unordered_map<WireId, delay_t> src_wires;
-        src_wires[src_wire] = ctx->getWireDelay(src_wire).avgDelay();
+        src_wires[src_wire] = ctx->getWireDelay(src_wire).maxDelay();
         route(src_wires, dst_wire);
         routedOkay = visited.count(dst_wire);
 
@@ -286,7 +286,7 @@ struct Router
             log("    Source wire: %s\n", ctx->getWireName(src_wire).c_str(ctx));
 
         std::unordered_map<WireId, delay_t> src_wires;
-        src_wires[src_wire] = ctx->getWireDelay(src_wire).avgDelay();
+        src_wires[src_wire] = ctx->getWireDelay(src_wire).maxDelay();
 
         ripup_net(ctx, net_name);
         ctx->bindWire(src_wire, net_name, STRENGTH_WEAK);
