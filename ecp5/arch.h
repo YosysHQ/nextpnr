@@ -578,6 +578,12 @@ struct Arch : BaseCtx
             return wire_to_net.at(wire);
     }
 
+    DelayInfo getWireDelay(WireId wire) const
+    {
+        DelayInfo delay;
+        return delay;
+    }
+
     WireRange getWires() const
     {
         WireRange range;
@@ -751,6 +757,7 @@ struct Arch : BaseCtx
     delay_t getRipupDelayPenalty() const { return 200; }
     float getDelayNS(delay_t v) const { return v * 0.001; }
     uint32_t getDelayChecksum(delay_t v) const { return v; }
+    delay_t getBudgetOverride(const PortRef& pr, delay_t v) const;
 
     // -------------------------------------------------
 

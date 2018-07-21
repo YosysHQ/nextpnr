@@ -157,6 +157,7 @@ struct Arch : BaseCtx
     bool checkWireAvail(WireId wire) const;
     IdString getBoundWireNet(WireId wire) const;
     IdString getConflictingWireNet(WireId wire) const;
+    DelayInfo getWireDelay(WireId wire) const { return DelayInfo(); }
     const std::vector<WireId> &getWires() const;
 
     PipId getPipByName(IdString name) const;
@@ -189,6 +190,7 @@ struct Arch : BaseCtx
     delay_t getRipupDelayPenalty() const { return 1.0; }
     float getDelayNS(delay_t v) const { return v; }
     uint32_t getDelayChecksum(delay_t v) const { return 0; }
+    delay_t getBudgetOverride(const PortRef& pr, delay_t v) const;
 
     bool pack() { return true; }
     bool place();

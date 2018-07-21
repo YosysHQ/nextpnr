@@ -215,24 +215,22 @@ void update_budget(Context *ctx)
             auto pi = &user.cell->ports.at(user.port);
             auto it = updates.find(pi);
             if (it == updates.end()) continue;
-            user.budget = delays.at(pi) + it->second;
-
-            // HACK HACK HACK
-            if (net.second->driver.port == ctx->id("COUT"))
-                user.budget = 0;
-            // HACK HACK HACK
+            auto budget = delays.at(pi) + it->second;
+            user.budget = ctx->getBudgetOverride(net.second->driver, budget);
 
             // Post-update check
-//            if (user.budget < 0)
-//                log_warning("port %s.%s, connected to net '%s', has negative "
-//                            "timing budget of %fns\n",
-//                            user.cell->name.c_str(ctx), user.port.c_str(ctx), net.first.c_str(ctx),
-//                            ctx->getDelayNS(user.budget));
-//            if (ctx->verbose)
-//                log_info("port %s.%s, connected to net '%s', has "
-//                         "timing budget of %fns\n",
-//                         user.cell->name.c_str(ctx), user.port.c_str(ctx), net.first.c_str(ctx),
-//                         ctx->getDelayNS(user.budget));
+            if (ctx->verbose) {
+                if (user.budget < 0)
+                    log_warning("port %s.%s, connected to net '%s', has negative "
+                                "timing budget of %fns\n",
+                                user.cell->name.c_str(ctx), user.port.c_str(ctx), net.first.c_str(ctx),
+                                ctx->getDelayNS(user.budget));
+                else
+                    log_info("port %s.%s, connected to net '%s', has "
+                             "timing budget of %fns\n",
+                             user.cell->name.c_str(ctx), user.port.c_str(ctx), net.first.c_str(ctx),
+                             ctx->getDelayNS(user.budget));
+            }
         }
     }
 }

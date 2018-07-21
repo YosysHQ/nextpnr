@@ -20,6 +20,7 @@
 #include "bitstream.h"
 #include <cctype>
 #include <vector>
+#include "cells.h"
 #include "log.h"
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -50,6 +51,20 @@ std::tuple<int8_t, int8_t, int8_t> get_ieren(const BitstreamInfoPOD &bi, int8_t 
     // No pin at this location
     return std::make_tuple(-1, -1, -1);
 };
+
+bool get_config(const TileInfoPOD &ti, std::vector<std::vector<int8_t>> &tile_cfg, const std::string &name,
+                int index = -1)
+{
+    const ConfigEntryPOD &cfg = find_config(ti, name);
+    if (index == -1) {
+        for (int i = 0; i < cfg.num_bits; i++) {
+            return tile_cfg.at(cfg.bits[i].row).at(cfg.bits[i].col);
+        }
+    } else {
+        return tile_cfg.at(cfg.bits[index].row).at(cfg.bits[index].col);
+    }
+    return false;
+}
 
 void set_config(const TileInfoPOD &ti, std::vector<std::vector<int8_t>> &tile_cfg, const std::string &name, bool value,
                 int index = -1)
@@ -467,9 +482,8 @@ void write_asc(const Context *ctx, std::ostream &out)
                             set_config(ti, config.at(y).at(x),
                                        "Cascade.IPCON_LC0" + std::to_string(lc_idx) + "_inmux02_5", true);
                         else
-                            set_config(ti, config.at(y).at(x),
-                                       "Cascade.MULT" + std::to_string(int(tile - TILE_DSP0)) + "_LC0" +
-                                               std::to_string(lc_idx) + "_inmux02_5",
+                            set_config(ti, config.at(y).at(x), "Cascade.MULT" + std::to_string(int(tile - TILE_DSP0)) +
+                                                                       "_LC0" + std::to_string(lc_idx) + "_inmux02_5",
                                        true);
                     }
                 }
@@ -588,15 +602,18 @@ void read_config(Context *ctx, std::istream &in, chipconfig_t &config)
                 std::tuple<int, int, int> key(b, x, y);
                 extra_bits.insert(key);
                 */
-            } else if (!strcmp(tok, ".sym")) {                
+            } else if (!strcmp(tok, ".sym")) {
                 int wireIndex = atoi(strtok(nullptr, " \t\r\n"));
                 const char *name = strtok(nullptr, " \t\r\n");
-                                
-                std::unique_ptr<NetInfo> created_net = std::unique_ptr<NetInfo>(new NetInfo);
+
                 IdString netName = ctx->id(name);
-                created_net->name = netName;
-                ctx->nets[netName] = std::move(created_net);                
-                
+
+                if (ctx->nets.find(netName) == ctx->nets.end()) {
+                    std::unique_ptr<NetInfo> created_net = std::unique_ptr<NetInfo>(new NetInfo);
+                    created_net->name = netName;
+                    ctx->nets[netName] = std::move(created_net);
+                }
+
                 WireId wire;
                 wire.index = wireIndex;
                 ctx->bindWire(wire, netName, STRENGTH_WEAK);
@@ -630,7 +647,139 @@ bool read_asc(Context *ctx, std::istream &in)
                 config.at(y).at(x).resize(rows, std::vector<int8_t>(cols));
             }
         }
-        read_config(ctx, in, config);    
+        read_config(ctx, in, config);
+
+        // Set pips
+        for (auto pip : ctx->getPips()) {
+            const PipInfoPOD &pi = ci.pip_data[pip.index];
+            const SwitchInfoPOD &swi = bi.switches[pi.switch_index];
+            bool isUsed = true;
+            for (int i = 0; i < swi.num_bits; i++) {
+                bool val = (pi.switch_mask & (1 << ((swi.num_bits - 1) - i))) != 0;
+                int8_t cbit = config.at(swi.y).at(swi.x).at(swi.cbits[i].row).at(swi.cbits[i].col);
+                isUsed &= !(bool(cbit) ^ val);
+            }
+            if (isUsed) {
+                IdString net = ctx->wire_to_net[pi.dst];
+                WireId wire;
+                wire.index = pi.dst;
+                ctx->unbindWire(wire);
+                ctx->bindPip(pip, net, STRENGTH_WEAK);
+            }
+        }
+        for (auto bel : ctx->getBels()) {
+            if (ctx->getBelType(bel) == TYPE_ICESTORM_LC) {
+                const TileInfoPOD &ti = bi.tiles_nonrouting[TILE_LOGIC];
+                const BelInfoPOD &beli = ci.bel_data[bel.index];
+                int x = beli.x, y = beli.y, z = beli.z;
+                std::vector<bool> lc(20, false);
+                bool isUsed = false;
+                for (int i = 0; i < 20; i++) {
+                    lc.at(i) = get_config(ti, config.at(y).at(x), "LC_" + std::to_string(z), i);
+                    isUsed |= lc.at(i);
+                }
+                bool neg_clk = get_config(ti, config.at(y).at(x), "NegClk");
+                isUsed |= neg_clk;
+                bool carry_set = get_config(ti, config.at(y).at(x), "CarryInSet");
+                isUsed |= carry_set;
+
+                if (isUsed) {
+                    std::unique_ptr<CellInfo> created = create_ice_cell(ctx, ctx->id("ICESTORM_LC"));
+                    IdString name = created->name;
+                    ctx->cells[name] = std::move(created);
+                    ctx->bindBel(bel, name, STRENGTH_WEAK);
+                    // TODO: Add port mapping to nets and assign values of properties
+                }
+            }
+            if (ctx->getBelType(bel) == TYPE_SB_IO) {
+                const TileInfoPOD &ti = bi.tiles_nonrouting[TILE_IO];
+                const BelInfoPOD &beli = ci.bel_data[bel.index];
+                int x = beli.x, y = beli.y, z = beli.z;
+                bool isUsed = false;
+                for (int i = 0; i < 6; i++) {
+                    isUsed |= get_config(ti, config.at(y).at(x),
+                                         "IOB_" + std::to_string(z) + ".PINTYPE_" + std::to_string(i));
+                }
+                bool neg_trigger = get_config(ti, config.at(y).at(x), "NegClk");
+                isUsed |= neg_trigger;
+
+                if (isUsed) {
+                    std::unique_ptr<CellInfo> created = create_ice_cell(ctx, ctx->id("SB_IO"));
+                    IdString name = created->name;
+                    ctx->cells[name] = std::move(created);
+                    ctx->bindBel(bel, name, STRENGTH_WEAK);
+                    // TODO: Add port mapping to nets and assign values of properties
+                }
+            }
+        }
+        // Add cells that are without change in initial state of configuration
+        for (auto &net : ctx->nets) {
+            for (auto w : net.second->wires) {
+                if (w.second.pip == PipId()) {
+                    WireId wire = w.first;
+                    BelPin belpin = ctx->getBelPinUphill(wire);
+                    if (ctx->checkBelAvail(belpin.bel)) {
+                        if (ctx->getBelType(belpin.bel) == TYPE_ICESTORM_LC) {
+                            std::unique_ptr<CellInfo> created = create_ice_cell(ctx, ctx->id("ICESTORM_LC"));
+                            IdString name = created->name;
+                            ctx->cells[name] = std::move(created);
+                            ctx->bindBel(belpin.bel, name, STRENGTH_WEAK);
+                            // TODO: Add port mapping to nets
+                        }
+                        if (ctx->getBelType(belpin.bel) == TYPE_SB_IO) {
+                            std::unique_ptr<CellInfo> created = create_ice_cell(ctx, ctx->id("SB_IO"));
+                            IdString name = created->name;
+                            ctx->cells[name] = std::move(created);
+                            ctx->bindBel(belpin.bel, name, STRENGTH_WEAK);
+                            // TODO: Add port mapping to nets
+                        }
+                        if (ctx->getBelType(belpin.bel) == TYPE_SB_GB) {
+                            std::unique_ptr<CellInfo> created = create_ice_cell(ctx, ctx->id("SB_GB"));
+                            IdString name = created->name;
+                            ctx->cells[name] = std::move(created);
+                            ctx->bindBel(belpin.bel, name, STRENGTH_WEAK);
+                            // TODO: Add port mapping to nets
+                        }
+                        if (ctx->getBelType(belpin.bel) == TYPE_SB_WARMBOOT) {
+                            std::unique_ptr<CellInfo> created = create_ice_cell(ctx, ctx->id("SB_WARMBOOT"));
+                            IdString name = created->name;
+                            ctx->cells[name] = std::move(created);
+                            ctx->bindBel(belpin.bel, name, STRENGTH_WEAK);
+                            // TODO: Add port mapping to nets
+                        }
+                        if (ctx->getBelType(belpin.bel) == TYPE_ICESTORM_LFOSC) {
+                            std::unique_ptr<CellInfo> created = create_ice_cell(ctx, ctx->id("ICESTORM_LFOSC"));
+                            IdString name = created->name;
+                            ctx->cells[name] = std::move(created);
+                            ctx->bindBel(belpin.bel, name, STRENGTH_WEAK);
+                            // TODO: Add port mapping to nets
+                        }
+                    }
+                }
+            }
+        }
+        for (auto &cell : ctx->cells) {
+            if (cell.second->bel != BelId()) {
+                for (auto &port : cell.second->ports) {
+                    PortPin pin = ctx->portPinFromId(port.first);
+                    WireId wire = ctx->getWireBelPin(cell.second->bel, pin);
+                    if (wire != WireId()) {
+                        IdString name = ctx->getBoundWireNet(wire);
+                        if (name != IdString()) {
+                            port.second.net = ctx->nets[name].get();
+                            PortRef ref;
+                            ref.cell = cell.second.get();
+                            ref.port = port.second.name;
+
+                            if (port.second.type == PORT_OUT)
+                                ctx->nets[name]->driver = ref;
+                            else
+                                ctx->nets[name]->users.push_back(ref);
+                        }
+                    }
+                }
+            }
+        }
         return true;
     } catch (log_execution_error_exception) {
         return false;

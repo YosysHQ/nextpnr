@@ -73,6 +73,7 @@ class BaseMainWindow : public QMainWindow
     QStatusBar *statusBar;
     QAction *actionNew;
     QAction *actionOpen;
+    QAction *actionSave;
     QProgressBar *progressBar;
     DesignWidget *designview;
 };
