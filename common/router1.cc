@@ -402,6 +402,21 @@ struct Router
 
 NEXTPNR_NAMESPACE_BEGIN
 
+static void prioritise_nets(Context *ctx, std::vector<IdString> &netsArray)
+{
+    std::unordered_map<IdString, delay_t> netScores;
+    for (auto net_name : netsArray) {
+        delay_t score = std::numeric_limits<delay_t>::max();
+        for (const auto &sink : ctx->nets.at(net_name)->users) {
+            if (sink.budget < score)
+                score = sink.budget;
+        }
+        netScores[net_name] = score;
+    }
+    std::sort(netsArray.begin(), netsArray.end(),
+              [&netScores](IdString a, IdString b) { return netScores[a] < netScores[b]; });
+}
+
 bool router1(Context *ctx)
 {
     try {
@@ -508,7 +523,7 @@ bool router1(Context *ctx)
             bool printNets = ctx->verbose && (netsQueue.size() < 10);
 
             std::vector<IdString> netsArray(netsQueue.begin(), netsQueue.end());
-            ctx->sorted_shuffle(netsArray);
+            prioritise_nets(ctx, netsArray);
             netsQueue.clear();
 
             for (auto net_name : netsArray) {
@@ -560,7 +575,7 @@ bool router1(Context *ctx)
                 int ripCnt = 0;
 
                 std::vector<IdString> ripupArray(ripupQueue.begin(), ripupQueue.end());
-                ctx->sorted_shuffle(ripupArray);
+                prioritise_nets(ctx, ripupArray);
 
                 for (auto net_name : ripupArray) {
                     if (printNets)
