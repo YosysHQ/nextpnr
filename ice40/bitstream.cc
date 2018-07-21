@@ -481,6 +481,8 @@ void write_asc(const Context *ctx, std::ostream &out)
     for (int y = 0; y < ci.height; y++) {
         for (int x = 0; x < ci.width; x++) {
             TileType tile = tile_at(ctx, x, y);
+            if (tile == TILE_NONE)
+                continue;
             out << tagTileType(tile);
             out << " " << x << " " << y << std::endl;
             for (auto row : config.at(y).at(x)) {
