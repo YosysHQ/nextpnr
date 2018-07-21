@@ -758,6 +758,20 @@ bool read_asc(Context *ctx, std::istream &in)
                 }
             }
         }
+        for (auto &cell : ctx->cells) {
+            if (cell.second->bel != BelId()) {
+                for (auto &port : cell.second->ports) {
+                    PortPin pin = ctx->portPinFromId(port.first);
+                    WireId wire = ctx->getWireBelPin(cell.second->bel, pin);
+                    if (wire != WireId()) {
+                        IdString name = ctx->getBoundWireNet(wire);
+                        if (name != IdString()) {
+                            port.second.net = ctx->nets[name].get();
+                        }
+                    }
+                }
+            }
+        }
         return true;
     } catch (log_execution_error_exception) {
         return false;
