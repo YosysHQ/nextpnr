@@ -537,7 +537,7 @@ void DesignWidget::onItemSelectionChanged()
         }
 
         int counter = 0;
-        QtProperty *pipsDownItem = addSubGroup(downhillItem, "Pips Downhill");
+        QtProperty *pipsDownItem = addSubGroup(topItem, "Pips Downhill");
         for (const auto &item : ctx->getPipsDownhill(wire)) {
             addProperty(pipsDownItem, QVariant::String, "", ctx->getPipName(item).c_str(ctx), ElementType::PIP);
             counter++;
@@ -548,7 +548,7 @@ void DesignWidget::onItemSelectionChanged()
         }
 
         counter = 0;
-        QtProperty *pipsUpItem = addSubGroup(downhillItem, "Pips Uphill");
+        QtProperty *pipsUpItem = addSubGroup(topItem, "Pips Uphill");
         for (const auto &item : ctx->getPipsUphill(wire)) {
             addProperty(pipsUpItem, QVariant::String, "", ctx->getPipName(item).c_str(ctx), ElementType::PIP);
             counter++;
