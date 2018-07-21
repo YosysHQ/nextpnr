@@ -130,10 +130,11 @@ bool place_single_cell(Context *ctx, CellInfo *cell, bool require_legality)
                     if (iters >= 4)
                         wirelen += ctx->rng(25);
                     if (wirelen <= best_ripup_wirelen) {
-                        ripup_target = ctx->cells.at(ctx->getBoundBelCell(bel)).get();
-                        if (ripup_target->belStrength < STRENGTH_STRONG) {
+                        CellInfo *curr_cell = ctx->cells.at(ctx->getBoundBelCell(bel)).get();
+                        if (curr_cell->belStrength < STRENGTH_STRONG) {
                             best_ripup_wirelen = wirelen;
                             ripup_bel = bel;
+                            ripup_target = curr_cell;
                         }
                     }
                 }

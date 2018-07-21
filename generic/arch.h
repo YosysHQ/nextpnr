@@ -157,6 +157,7 @@ struct Arch : BaseCtx
     bool checkWireAvail(WireId wire) const;
     IdString getBoundWireNet(WireId wire) const;
     IdString getConflictingWireNet(WireId wire) const;
+    DelayInfo getWireDelay(WireId wire) const { return DelayInfo(); }
     const std::vector<WireId> &getWires() const;
 
     PipId getPipByName(IdString name) const;

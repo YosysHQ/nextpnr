@@ -578,6 +578,12 @@ struct Arch : BaseCtx
             return wire_to_net.at(wire);
     }
 
+    DelayInfo getWireDelay(WireId wire) const
+    {
+        DelayInfo delay;
+        return delay;
+    }
+
     WireRange getWires() const
     {
         WireRange range;

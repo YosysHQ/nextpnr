@@ -507,6 +507,14 @@ void DesignWidget::onItemSelectionChanged()
         addProperty(topItem, QVariant::String, "Conflicting Net", ctx->getConflictingWireNet(wire).c_str(ctx),
                     ElementType::NET);
 
+        DelayInfo delay = ctx->getWireDelay(wire);
+
+        QtProperty *delayItem = addSubGroup(topItem, "Delay");
+        addProperty(delayItem, QVariant::Double, "Min Raise", delay.minRaiseDelay());
+        addProperty(delayItem, QVariant::Double, "Max Raise", delay.maxRaiseDelay());
+        addProperty(delayItem, QVariant::Double, "Min Fall", delay.minFallDelay());
+        addProperty(delayItem, QVariant::Double, "Max Fall", delay.maxFallDelay());
+
         QtProperty *belpinItem = addSubGroup(topItem, "BelPin Uphill");
         BelPin uphill = ctx->getBelPinUphill(wire);
         if (uphill.bel != BelId())
@@ -529,7 +537,7 @@ void DesignWidget::onItemSelectionChanged()
         }
 
         int counter = 0;
-        QtProperty *pipsDownItem = addSubGroup(downhillItem, "Pips Downhill");
+        QtProperty *pipsDownItem = addSubGroup(topItem, "Pips Downhill");
         for (const auto &item : ctx->getPipsDownhill(wire)) {
             addProperty(pipsDownItem, QVariant::String, "", ctx->getPipName(item).c_str(ctx), ElementType::PIP);
             counter++;
@@ -540,7 +548,7 @@ void DesignWidget::onItemSelectionChanged()
         }
 
         counter = 0;
-        QtProperty *pipsUpItem = addSubGroup(downhillItem, "Pips Uphill");
+        QtProperty *pipsUpItem = addSubGroup(topItem, "Pips Uphill");
         for (const auto &item : ctx->getPipsUphill(wire)) {
             addProperty(pipsUpItem, QVariant::String, "", ctx->getPipName(item).c_str(ctx), ElementType::PIP);
             counter++;
@@ -566,9 +574,10 @@ void DesignWidget::onItemSelectionChanged()
         DelayInfo delay = ctx->getPipDelay(pip);
 
         QtProperty *delayItem = addSubGroup(topItem, "Delay");
-        addProperty(delayItem, QVariant::Double, "Raise", delay.raiseDelay());
-        addProperty(delayItem, QVariant::Double, "Fall", delay.fallDelay());
-        addProperty(delayItem, QVariant::Double, "Average", delay.avgDelay());
+        addProperty(delayItem, QVariant::Double, "Min Raise", delay.minRaiseDelay());
+        addProperty(delayItem, QVariant::Double, "Max Raise", delay.maxRaiseDelay());
+        addProperty(delayItem, QVariant::Double, "Min Fall", delay.minFallDelay());
+        addProperty(delayItem, QVariant::Double, "Max Fall", delay.maxFallDelay());
     } else if (type == ElementType::NET) {
         NetInfo *net = ctx->nets.at(c).get();
 
