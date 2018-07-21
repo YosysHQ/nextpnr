@@ -222,11 +222,11 @@ void MainWindow::new_proj()
         QString package = QInputDialog::getItem(this, "Select package", "Package:", getSupportedPackages(chipArgs.type),
                                                 0, false, &ok);
 
-        if (ok && !item.isEmpty()) {
-            disableActions();
+        if (ok && !item.isEmpty()) {            
             currentProj = "";
             currentJson = "";
             currentPCF = "";
+            disableActions();
             chipArgs.package = package.toStdString().c_str();
             ctx = std::unique_ptr<Context>(new Context(chipArgs));
             actionLoadJSON->setEnabled(true);

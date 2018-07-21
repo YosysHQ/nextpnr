@@ -68,8 +68,10 @@ void svg_dump_decal(const Context *ctx, const DecalXY &decal)
 
 void conflicting_options(const boost::program_options::variables_map &vm, const char *opt1, const char *opt2)
 {
-    if (vm.count(opt1) && !vm[opt1].defaulted() && vm.count(opt2) && !vm[opt2].defaulted())
-        log_error((std::string("Conflicting options '") + opt1 + "' and '" + opt2 + "'.").c_str());
+    if (vm.count(opt1) && !vm[opt1].defaulted() && vm.count(opt2) && !vm[opt2].defaulted()) {
+        std::string msg = "Conflicting options '"+ std::string(opt1) + "' and '" + std::string(opt1) + "'.";
+        log_error("%s\n",msg.c_str());
+    }
 }
 
 int main(int argc, char *argv[])
