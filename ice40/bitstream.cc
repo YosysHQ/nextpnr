@@ -691,6 +691,26 @@ bool read_asc(Context *ctx, std::istream &in)
                     // TODO: Add port mapping to nets and assign values of properties
                 }
             }
+            if (ctx->getBelType(bel) == TYPE_SB_IO) {
+                const TileInfoPOD &ti = bi.tiles_nonrouting[TILE_IO];
+                const BelInfoPOD &beli = ci.bel_data[bel.index];
+                int x = beli.x, y = beli.y, z = beli.z;
+                bool isUsed = false;
+                for (int i = 0; i < 6; i++) {
+                    isUsed |= get_config(ti, config.at(y).at(x),
+                                         "IOB_" + std::to_string(z) + ".PINTYPE_" + std::to_string(i));
+                }
+                bool neg_trigger = get_config(ti, config.at(y).at(x), "NegClk");
+                isUsed |= neg_trigger;
+
+                if (isUsed) {
+                    std::unique_ptr<CellInfo> created = create_ice_cell(ctx, ctx->id("SB_IO"));
+                    IdString name = created->name;
+                    ctx->cells[name] = std::move(created);
+                    ctx->bindBel(bel, name, STRENGTH_WEAK);
+                    // TODO: Add port mapping to nets and assign values of properties
+                }
+            }
         }
         // Add cells that are without change in initial state of configuration
         for (auto &net : ctx->nets) {
@@ -701,6 +721,13 @@ bool read_asc(Context *ctx, std::istream &in)
                     if (ctx->checkBelAvail(belpin.bel)) {
                         if (ctx->getBelType(belpin.bel) == TYPE_ICESTORM_LC) {
                             std::unique_ptr<CellInfo> created = create_ice_cell(ctx, ctx->id("ICESTORM_LC"));
+                            IdString name = created->name;
+                            ctx->cells[name] = std::move(created);
+                            ctx->bindBel(belpin.bel, name, STRENGTH_WEAK);
+                            // TODO: Add port mapping to nets
+                        }
+                        if (ctx->getBelType(belpin.bel) == TYPE_SB_IO) {
+                            std::unique_ptr<CellInfo> created = create_ice_cell(ctx, ctx->id("SB_IO"));
                             IdString name = created->name;
                             ctx->cells[name] = std::move(created);
                             ctx->bindBel(belpin.bel, name, STRENGTH_WEAK);
