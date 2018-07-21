@@ -372,6 +372,11 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
     return (dx + dy) * grid_distance_to_delay;
 }
 
+delay_t Arch::getBudgetOverride(const PortRef& pr, delay_t v) const
+{
+    return v;
+}
+
 // ---------------------------------------------------------------
 
 bool Arch::place() { return placer1(getCtx()); }

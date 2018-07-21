@@ -215,12 +215,8 @@ void update_budget(Context *ctx)
             auto pi = &user.cell->ports.at(user.port);
             auto it = updates.find(pi);
             if (it == updates.end()) continue;
-            user.budget = delays.at(pi) + it->second;
-
-            // HACK HACK HACK
-            if (net.second->driver.port == ctx->id("COUT"))
-                user.budget = 0;
-            // HACK HACK HACK
+            auto budget = delays.at(pi) + it->second;
+            user.budget = ctx->getBudgetOverride(net.second->driver, budget);
 
             // Post-update check
             if (ctx->verbose) {
