@@ -27,7 +27,7 @@ NEXTPNR_NAMESPACE_BEGIN
 // Assign "budget" values for all user ports in the design
 void assign_budget(Context *ctx);
 
-void update_budget(Context *ctx);
+void update_budget(Context *ctx, std::function<delay_t(Context*,WireId,WireId)> delay_fn=&Context::estimateDelay);
 
 NEXTPNR_NAMESPACE_END
 

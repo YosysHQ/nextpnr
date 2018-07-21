@@ -22,6 +22,7 @@
 
 #include "log.h"
 #include "router1.h"
+#include "timing.h"
 
 namespace {
 
@@ -730,8 +731,25 @@ bool router1(Context *ctx)
 
             std::unordered_set<IdString> normalRouteNets, ripupQueue;
 
-            if (ctx->verbose || iterCnt == 1)
-                log_info("routing queue contains %d jobs.\n", int(jobQueue.size()));
+            if (iterCnt == 1) {
+                if (ctx->verbose)
+                    log_info("routing queue contains %d jobs.\n", int(jobQueue.size()));
+            } else {
+                static auto actual_delay = [](Context *ctx, WireId src, WireId dst) {
+                    delay_t total_delay = ctx->getWireDelay(dst).maxDelay();
+                    WireId last_wire = dst;
+                    for (auto pip : ctx->getPipsDownhill(dst)) {
+                        total_delay += ctx->getPipDelay(pip).maxDelay();
+                        WireId next_wire = ctx->getPipDstWire(pip);
+                        total_delay += ctx->getWireDelay(next_wire).maxDelay();
+                    }
+                    NPNR_ASSERT(last_wire != WireId());
+                    if (last_wire != src)
+                        total_delay += ctx->estimateDelay(src, last_wire);
+                    return total_delay;
+                };
+                update_budget(ctx, actual_delay);
+            }
 
             bool printNets = ctx->verbose && (jobQueue.size() < 10);
 
