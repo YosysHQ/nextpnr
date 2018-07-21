@@ -44,7 +44,7 @@ struct WireInfo
     BelPin uphill_bel_pin;
     std::vector<BelPin> downhill_bel_pins;
     DecalXY decalxy;
-    int grid_x, grid_y;
+    int x, y;
 };
 
 struct PinInfo
@@ -59,7 +59,7 @@ struct BelInfo
     IdString name, type, bound_cell;
     std::unordered_map<IdString, PinInfo> pins;
     DecalXY decalxy;
-    int grid_x, grid_y;
+    int x, y, z;
     bool gb;
 };
 
@@ -85,6 +85,9 @@ struct Arch : BaseCtx
     std::vector<IdString> bel_ids, wire_ids, pip_ids;
     std::unordered_map<IdString, std::vector<IdString>> bel_ids_by_type;
 
+    std::unordered_map<Loc, BelId> bel_by_loc;
+    std::unordered_map<int, std::unordered_map<int, std::vector<BelId>>> bels_by_tile;
+
     std::unordered_map<DecalId, std::vector<GraphicElement>> decal_graphics;
     DecalXY frame_decalxy;
 
@@ -94,7 +97,7 @@ struct Arch : BaseCtx
     void addPip(IdString name, IdString srcWire, IdString dstWire, DelayInfo delay);
     void addAlias(IdString name, IdString srcWire, IdString dstWire, DelayInfo delay);
 
-    void addBel(IdString name, IdString type, int x, int y, bool gb);
+    void addBel(IdString name, IdString type, int x, int y, int z, bool gb);
     void addBelInput(IdString bel, IdString name, IdString wire);
     void addBelOutput(IdString bel, IdString name, IdString wire);
     void addBelInout(IdString bel, IdString name, IdString wire);
@@ -129,6 +132,10 @@ struct Arch : BaseCtx
 
     BelId getBelByName(IdString name) const;
     IdString getBelName(BelId bel) const;
+    Loc getBelLocation(BelId bel) const;
+    BelId getBelByLocation(Loc loc) const;
+    std::vector<BelId> getBelsByTile(int x, int y) const;
+    bool getBelGlobalBuf(BelId bel) const;
     uint32_t getBelChecksum(BelId bel) const;
     void bindBel(BelId bel, IdString cell, PlaceStrength strength);
     void unbindBel(BelId bel);
@@ -150,6 +157,7 @@ struct Arch : BaseCtx
     bool checkWireAvail(WireId wire) const;
     IdString getBoundWireNet(WireId wire) const;
     IdString getConflictingWireNet(WireId wire) const;
+    DelayInfo getWireDelay(WireId wire) const { return DelayInfo(); }
     const std::vector<WireId> &getWires() const;
 
     PipId getPipByName(IdString name) const;

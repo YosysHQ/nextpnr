@@ -108,21 +108,15 @@ bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const
     } else if (cell->type == id_sb_io) {
         return getBelPackagePin(bel) != "";
     } else if (cell->type == id_sb_gb) {
-        bool is_reset = false, is_cen = false;
         NPNR_ASSERT(cell->ports.at(id_glb_buf_out).net != nullptr);
-        for (auto user : cell->ports.at(id_glb_buf_out).net->users) {
-            if (is_reset_port(this, user))
-                is_reset = true;
-            if (is_enable_port(this, user))
-                is_cen = true;
-        }
+        const NetInfo *net = cell->ports.at(id_glb_buf_out).net;
         IdString glb_net = getWireName(getWireBelPin(bel, PIN_GLOBAL_BUFFER_OUTPUT));
         int glb_id = std::stoi(std::string("") + glb_net.str(this).back());
-        if (is_reset && is_cen)
+        if (net->is_reset && net->is_enable)
             return false;
-        else if (is_reset)
+        else if (net->is_reset)
             return (glb_id % 2) == 0;
-        else if (is_cen)
+        else if (net->is_enable)
             return (glb_id % 2) == 1;
         else
             return true;

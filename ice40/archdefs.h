@@ -21,8 +21,6 @@
 #error Include "archdefs.h" via "nextpnr.h" only.
 #endif
 
-#include <boost/functional/hash.hpp>
-
 NEXTPNR_NAMESPACE_BEGIN
 
 typedef int delay_t;
@@ -31,9 +29,14 @@ struct DelayInfo
 {
     delay_t delay = 0;
 
-    delay_t raiseDelay() const { return delay; }
-    delay_t fallDelay() const { return delay; }
-    delay_t avgDelay() const { return delay; }
+    delay_t minRaiseDelay() const { return delay; }
+    delay_t maxRaiseDelay() const { return delay; }
+
+    delay_t minFallDelay() const { return delay; }
+    delay_t maxFallDelay() const { return delay; }
+
+    delay_t minDelay() const { return delay; }
+    delay_t maxDelay() const { return delay; }
 
     DelayInfo operator+(const DelayInfo &other) const
     {
@@ -153,6 +156,7 @@ struct DecalId
 struct ArchNetInfo
 {
     bool is_global = false;
+    bool is_reset = false, is_enable = false;
 };
 
 struct NetInfo;

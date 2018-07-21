@@ -20,6 +20,7 @@
 #include "bitstream.h"
 #include <cctype>
 #include <vector>
+#include "cells.h"
 #include "log.h"
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -50,6 +51,20 @@ std::tuple<int8_t, int8_t, int8_t> get_ieren(const BitstreamInfoPOD &bi, int8_t 
     // No pin at this location
     return std::make_tuple(-1, -1, -1);
 };
+
+bool get_config(const TileInfoPOD &ti, std::vector<std::vector<int8_t>> &tile_cfg, const std::string &name,
+                int index = -1)
+{
+    const ConfigEntryPOD &cfg = find_config(ti, name);
+    if (index == -1) {
+        for (int i = 0; i < cfg.num_bits; i++) {
+            return tile_cfg.at(cfg.bits[i].row).at(cfg.bits[i].col);
+        }
+    } else {
+        return tile_cfg.at(cfg.bits[index].row).at(cfg.bits[index].col);
+    }
+    return false;
+}
 
 void set_config(const TileInfoPOD &ti, std::vector<std::vector<int8_t>> &tile_cfg, const std::string &name, bool value,
                 int index = -1)
@@ -157,6 +172,42 @@ void configure_extra_cell(chipconfig_t &config, const Context *ctx, CellInfo *ce
     }
 }
 
+std::string tagTileType(TileType &tile)
+{
+    if (tile == TILE_NONE)
+        return "";
+    switch (tile) {
+    case TILE_LOGIC:
+        return ".logic_tile";
+        break;
+    case TILE_IO:
+        return ".io_tile";
+        break;
+    case TILE_RAMB:
+        return ".ramb_tile";
+        break;
+    case TILE_RAMT:
+        return ".ramt_tile";
+        break;
+    case TILE_DSP0:
+        return ".dsp0_tile";
+        break;
+    case TILE_DSP1:
+        return ".dsp1_tile";
+        break;
+    case TILE_DSP2:
+        return ".dsp2_tile";
+        break;
+    case TILE_DSP3:
+        return ".dsp3_tile";
+        break;
+    case TILE_IPCON:
+        return ".ipcon_tile";
+        break;
+    default:
+        NPNR_ASSERT(false);
+    }
+}
 void write_asc(const Context *ctx, std::ostream &out)
 {
     // [y][x][row][col]
@@ -191,7 +242,7 @@ void write_asc(const Context *ctx, std::ostream &out)
         out << ".device 5k" << std::endl;
         break;
     default:
-        NPNR_ASSERT_FALSE("unsupported device type");
+        NPNR_ASSERT_FALSE("unsupported device type\n");
     }
     // Set pips
     for (auto pip : ctx->getPips()) {
@@ -214,9 +265,9 @@ void write_asc(const Context *ctx, std::ostream &out)
             std::cout << "Found unplaced cell " << cell.first.str(ctx) << " while generating bitstream!" << std::endl;
             continue;
         }
-        const BelInfoPOD &beli = ci.bel_data[bel.index];
-        int x = beli.x, y = beli.y, z = beli.z;
         if (cell.second->type == ctx->id("ICESTORM_LC")) {
+            const BelInfoPOD &beli = ci.bel_data[bel.index];
+            int x = beli.x, y = beli.y, z = beli.z;
             const TileInfoPOD &ti = bi.tiles_nonrouting[TILE_LOGIC];
             unsigned lut_init = get_param_or_def(cell.second.get(), ctx->id("LUT_INIT"));
             bool neg_clk = get_param_or_def(cell.second.get(), ctx->id("NEG_CLK"));
@@ -251,6 +302,8 @@ void write_asc(const Context *ctx, std::ostream &out)
                 set_config(ti, config.at(y).at(x), "CarryInSet", carry_set);
             }
         } else if (cell.second->type == ctx->id("SB_IO")) {
+            const BelInfoPOD &beli = ci.bel_data[bel.index];
+            int x = beli.x, y = beli.y, z = beli.z;
             const TileInfoPOD &ti = bi.tiles_nonrouting[TILE_IO];
             unsigned pin_type = get_param_or_def(cell.second.get(), ctx->id("PIN_TYPE"));
             bool neg_trigger = get_param_or_def(cell.second.get(), ctx->id("NEG_TRIGGER"));
@@ -429,9 +482,8 @@ void write_asc(const Context *ctx, std::ostream &out)
                             set_config(ti, config.at(y).at(x),
                                        "Cascade.IPCON_LC0" + std::to_string(lc_idx) + "_inmux02_5", true);
                         else
-                            set_config(ti, config.at(y).at(x),
-                                       "Cascade.MULT" + std::to_string(int(tile - TILE_DSP0)) + "_LC0" +
-                                               std::to_string(lc_idx) + "_inmux02_5",
+                            set_config(ti, config.at(y).at(x), "Cascade.MULT" + std::to_string(int(tile - TILE_DSP0)) +
+                                                                       "_LC0" + std::to_string(lc_idx) + "_inmux02_5",
                                        true);
                     }
                 }
@@ -445,37 +497,7 @@ void write_asc(const Context *ctx, std::ostream &out)
             TileType tile = tile_at(ctx, x, y);
             if (tile == TILE_NONE)
                 continue;
-            switch (tile) {
-            case TILE_LOGIC:
-                out << ".logic_tile";
-                break;
-            case TILE_IO:
-                out << ".io_tile";
-                break;
-            case TILE_RAMB:
-                out << ".ramb_tile";
-                break;
-            case TILE_RAMT:
-                out << ".ramt_tile";
-                break;
-            case TILE_DSP0:
-                out << ".dsp0_tile";
-                break;
-            case TILE_DSP1:
-                out << ".dsp1_tile";
-                break;
-            case TILE_DSP2:
-                out << ".dsp2_tile";
-                break;
-            case TILE_DSP3:
-                out << ".dsp3_tile";
-                break;
-            case TILE_IPCON:
-                out << ".ipcon_tile";
-                break;
-            default:
-                NPNR_ASSERT(false);
-            }
+            out << tagTileType(tile);
             out << " " << x << " " << y << std::endl;
             for (auto row : config.at(y).at(x)) {
                 for (auto col : row) {
@@ -526,4 +548,241 @@ void write_asc(const Context *ctx, std::ostream &out)
     }
 }
 
+void read_config(Context *ctx, std::istream &in, chipconfig_t &config)
+{
+    constexpr size_t line_buf_size = 65536;
+    char buffer[line_buf_size];
+    int tile_x = -1, tile_y = -1, line_nr = -1;
+
+    while (1) {
+        in.getline(buffer, line_buf_size);
+        if (buffer[0] == '.') {
+            line_nr = -1;
+            const char *tok = strtok(buffer, " \t\r\n");
+
+            if (!strcmp(tok, ".device")) {
+                std::string config_device = strtok(nullptr, " \t\r\n");
+                std::string expected;
+                switch (ctx->args.type) {
+                case ArchArgs::LP384:
+                    expected = "384";
+                    break;
+                case ArchArgs::HX1K:
+                case ArchArgs::LP1K:
+                    expected = "1k";
+                    break;
+                case ArchArgs::HX8K:
+                case ArchArgs::LP8K:
+                    expected = "8k";
+                    break;
+                case ArchArgs::UP5K:
+                    expected = "5k";
+                    break;
+                default:
+                    log_error("unsupported device type\n");
+                }
+                if (expected != config_device)
+                    log_error("device type does not match\n");
+            } else if (!strcmp(tok, ".io_tile") || !strcmp(tok, ".logic_tile") || !strcmp(tok, ".ramb_tile") ||
+                       !strcmp(tok, ".ramt_tile") || !strcmp(tok, ".ipcon_tile") || !strcmp(tok, ".dsp0_tile") ||
+                       !strcmp(tok, ".dsp1_tile") || !strcmp(tok, ".dsp2_tile") || !strcmp(tok, ".dsp3_tile")) {
+                line_nr = 0;
+                tile_x = atoi(strtok(nullptr, " \t\r\n"));
+                tile_y = atoi(strtok(nullptr, " \t\r\n"));
+
+                TileType tile = tile_at(ctx, tile_x, tile_y);
+                if (tok != tagTileType(tile))
+                    log_error("Wrong tile type for specified position\n");
+
+            } else if (!strcmp(tok, ".extra_bit")) {
+                /*
+                int b = atoi(strtok(nullptr, " \t\r\n"));
+                int x = atoi(strtok(nullptr, " \t\r\n"));
+                int y = atoi(strtok(nullptr, " \t\r\n"));
+                std::tuple<int, int, int> key(b, x, y);
+                extra_bits.insert(key);
+                */
+            } else if (!strcmp(tok, ".sym")) {
+                int wireIndex = atoi(strtok(nullptr, " \t\r\n"));
+                const char *name = strtok(nullptr, " \t\r\n");
+
+                IdString netName = ctx->id(name);
+
+                if (ctx->nets.find(netName) == ctx->nets.end()) {
+                    std::unique_ptr<NetInfo> created_net = std::unique_ptr<NetInfo>(new NetInfo);
+                    created_net->name = netName;
+                    ctx->nets[netName] = std::move(created_net);
+                }
+
+                WireId wire;
+                wire.index = wireIndex;
+                ctx->bindWire(wire, netName, STRENGTH_WEAK);
+            }
+        } else if (line_nr >= 0 && strlen(buffer) > 0) {
+            if (line_nr > int(config.at(tile_y).at(tile_x).size() - 1))
+                log_error("Invalid data in input asc file");
+            for (int i = 0; buffer[i] == '0' || buffer[i] == '1'; i++)
+                config.at(tile_y).at(tile_x).at(line_nr).at(i) = (buffer[i] == '1') ? 1 : 0;
+            line_nr++;
+        }
+        if (in.eof())
+            break;
+    }
+}
+
+bool read_asc(Context *ctx, std::istream &in)
+{
+    try {
+        // [y][x][row][col]
+        const ChipInfoPOD &ci = *ctx->chip_info;
+        const BitstreamInfoPOD &bi = *ci.bits_info;
+        chipconfig_t config;
+        config.resize(ci.height);
+        for (int y = 0; y < ci.height; y++) {
+            config.at(y).resize(ci.width);
+            for (int x = 0; x < ci.width; x++) {
+                TileType tile = tile_at(ctx, x, y);
+                int rows = bi.tiles_nonrouting[tile].rows;
+                int cols = bi.tiles_nonrouting[tile].cols;
+                config.at(y).at(x).resize(rows, std::vector<int8_t>(cols));
+            }
+        }
+        read_config(ctx, in, config);
+
+        // Set pips
+        for (auto pip : ctx->getPips()) {
+            const PipInfoPOD &pi = ci.pip_data[pip.index];
+            const SwitchInfoPOD &swi = bi.switches[pi.switch_index];
+            bool isUsed = true;
+            for (int i = 0; i < swi.num_bits; i++) {
+                bool val = (pi.switch_mask & (1 << ((swi.num_bits - 1) - i))) != 0;
+                int8_t cbit = config.at(swi.y).at(swi.x).at(swi.cbits[i].row).at(swi.cbits[i].col);
+                isUsed &= !(bool(cbit) ^ val);
+            }
+            if (isUsed) {
+                IdString net = ctx->wire_to_net[pi.dst];
+                WireId wire;
+                wire.index = pi.dst;
+                ctx->unbindWire(wire);
+                ctx->bindPip(pip, net, STRENGTH_WEAK);
+            }
+        }
+        for (auto bel : ctx->getBels()) {
+            if (ctx->getBelType(bel) == TYPE_ICESTORM_LC) {
+                const TileInfoPOD &ti = bi.tiles_nonrouting[TILE_LOGIC];
+                const BelInfoPOD &beli = ci.bel_data[bel.index];
+                int x = beli.x, y = beli.y, z = beli.z;
+                std::vector<bool> lc(20, false);
+                bool isUsed = false;
+                for (int i = 0; i < 20; i++) {
+                    lc.at(i) = get_config(ti, config.at(y).at(x), "LC_" + std::to_string(z), i);
+                    isUsed |= lc.at(i);
+                }
+                bool neg_clk = get_config(ti, config.at(y).at(x), "NegClk");
+                isUsed |= neg_clk;
+                bool carry_set = get_config(ti, config.at(y).at(x), "CarryInSet");
+                isUsed |= carry_set;
+
+                if (isUsed) {
+                    std::unique_ptr<CellInfo> created = create_ice_cell(ctx, ctx->id("ICESTORM_LC"));
+                    IdString name = created->name;
+                    ctx->cells[name] = std::move(created);
+                    ctx->bindBel(bel, name, STRENGTH_WEAK);
+                    // TODO: Add port mapping to nets and assign values of properties
+                }
+            }
+            if (ctx->getBelType(bel) == TYPE_SB_IO) {
+                const TileInfoPOD &ti = bi.tiles_nonrouting[TILE_IO];
+                const BelInfoPOD &beli = ci.bel_data[bel.index];
+                int x = beli.x, y = beli.y, z = beli.z;
+                bool isUsed = false;
+                for (int i = 0; i < 6; i++) {
+                    isUsed |= get_config(ti, config.at(y).at(x),
+                                         "IOB_" + std::to_string(z) + ".PINTYPE_" + std::to_string(i));
+                }
+                bool neg_trigger = get_config(ti, config.at(y).at(x), "NegClk");
+                isUsed |= neg_trigger;
+
+                if (isUsed) {
+                    std::unique_ptr<CellInfo> created = create_ice_cell(ctx, ctx->id("SB_IO"));
+                    IdString name = created->name;
+                    ctx->cells[name] = std::move(created);
+                    ctx->bindBel(bel, name, STRENGTH_WEAK);
+                    // TODO: Add port mapping to nets and assign values of properties
+                }
+            }
+        }
+        // Add cells that are without change in initial state of configuration
+        for (auto &net : ctx->nets) {
+            for (auto w : net.second->wires) {
+                if (w.second.pip == PipId()) {
+                    WireId wire = w.first;
+                    BelPin belpin = ctx->getBelPinUphill(wire);
+                    if (ctx->checkBelAvail(belpin.bel)) {
+                        if (ctx->getBelType(belpin.bel) == TYPE_ICESTORM_LC) {
+                            std::unique_ptr<CellInfo> created = create_ice_cell(ctx, ctx->id("ICESTORM_LC"));
+                            IdString name = created->name;
+                            ctx->cells[name] = std::move(created);
+                            ctx->bindBel(belpin.bel, name, STRENGTH_WEAK);
+                            // TODO: Add port mapping to nets
+                        }
+                        if (ctx->getBelType(belpin.bel) == TYPE_SB_IO) {
+                            std::unique_ptr<CellInfo> created = create_ice_cell(ctx, ctx->id("SB_IO"));
+                            IdString name = created->name;
+                            ctx->cells[name] = std::move(created);
+                            ctx->bindBel(belpin.bel, name, STRENGTH_WEAK);
+                            // TODO: Add port mapping to nets
+                        }
+                        if (ctx->getBelType(belpin.bel) == TYPE_SB_GB) {
+                            std::unique_ptr<CellInfo> created = create_ice_cell(ctx, ctx->id("SB_GB"));
+                            IdString name = created->name;
+                            ctx->cells[name] = std::move(created);
+                            ctx->bindBel(belpin.bel, name, STRENGTH_WEAK);
+                            // TODO: Add port mapping to nets
+                        }
+                        if (ctx->getBelType(belpin.bel) == TYPE_SB_WARMBOOT) {
+                            std::unique_ptr<CellInfo> created = create_ice_cell(ctx, ctx->id("SB_WARMBOOT"));
+                            IdString name = created->name;
+                            ctx->cells[name] = std::move(created);
+                            ctx->bindBel(belpin.bel, name, STRENGTH_WEAK);
+                            // TODO: Add port mapping to nets
+                        }
+                        if (ctx->getBelType(belpin.bel) == TYPE_ICESTORM_LFOSC) {
+                            std::unique_ptr<CellInfo> created = create_ice_cell(ctx, ctx->id("ICESTORM_LFOSC"));
+                            IdString name = created->name;
+                            ctx->cells[name] = std::move(created);
+                            ctx->bindBel(belpin.bel, name, STRENGTH_WEAK);
+                            // TODO: Add port mapping to nets
+                        }
+                    }
+                }
+            }
+        }
+        for (auto &cell : ctx->cells) {
+            if (cell.second->bel != BelId()) {
+                for (auto &port : cell.second->ports) {
+                    PortPin pin = ctx->portPinFromId(port.first);
+                    WireId wire = ctx->getWireBelPin(cell.second->bel, pin);
+                    if (wire != WireId()) {
+                        IdString name = ctx->getBoundWireNet(wire);
+                        if (name != IdString()) {
+                            port.second.net = ctx->nets[name].get();
+                            PortRef ref;
+                            ref.cell = cell.second.get();
+                            ref.port = port.second.name;
+
+                            if (port.second.type == PORT_OUT)
+                                ctx->nets[name]->driver = ref;
+                            else
+                                ctx->nets[name]->users.push_back(ref);
+                        }
+                    }
+                }
+            }
+        }
+        return true;
+    } catch (log_execution_error_exception) {
+        return false;
+    }
+}
 NEXTPNR_NAMESPACE_END

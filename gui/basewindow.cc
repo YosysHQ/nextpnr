@@ -116,7 +116,7 @@ void BaseMainWindow::createMenusAndBars()
     actionOpen->setStatusTip("Open an existing project file");
     connect(actionOpen, SIGNAL(triggered()), this, SLOT(open_proj()));
 
-    QAction *actionSave = new QAction("Save", this);
+    actionSave = new QAction("Save", this);
     actionSave->setIcon(QIcon(":/icons/resources/save.png"));
     actionSave->setShortcuts(QKeySequence::Save);
     actionSave->setStatusTip("Save existing project to disk");
