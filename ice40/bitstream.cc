@@ -467,9 +467,8 @@ void write_asc(const Context *ctx, std::ostream &out)
                             set_config(ti, config.at(y).at(x),
                                        "Cascade.IPCON_LC0" + std::to_string(lc_idx) + "_inmux02_5", true);
                         else
-                            set_config(ti, config.at(y).at(x),
-                                       "Cascade.MULT" + std::to_string(int(tile - TILE_DSP0)) + "_LC0" +
-                                               std::to_string(lc_idx) + "_inmux02_5",
+                            set_config(ti, config.at(y).at(x), "Cascade.MULT" + std::to_string(int(tile - TILE_DSP0)) +
+                                                                       "_LC0" + std::to_string(lc_idx) + "_inmux02_5",
                                        true);
                     }
                 }
@@ -588,18 +587,18 @@ void read_config(Context *ctx, std::istream &in, chipconfig_t &config)
                 std::tuple<int, int, int> key(b, x, y);
                 extra_bits.insert(key);
                 */
-            } else if (!strcmp(tok, ".sym")) {                
+            } else if (!strcmp(tok, ".sym")) {
                 int wireIndex = atoi(strtok(nullptr, " \t\r\n"));
                 const char *name = strtok(nullptr, " \t\r\n");
-                                
+
                 IdString netName = ctx->id(name);
 
                 if (ctx->nets.find(netName) == ctx->nets.end()) {
                     std::unique_ptr<NetInfo> created_net = std::unique_ptr<NetInfo>(new NetInfo);
                     created_net->name = netName;
-                    ctx->nets[netName] = std::move(created_net);     
-                }           
-                
+                    ctx->nets[netName] = std::move(created_net);
+                }
+
                 WireId wire;
                 wire.index = wireIndex;
                 ctx->bindWire(wire, netName, STRENGTH_WEAK);
@@ -633,7 +632,26 @@ bool read_asc(Context *ctx, std::istream &in)
                 config.at(y).at(x).resize(rows, std::vector<int8_t>(cols));
             }
         }
-        read_config(ctx, in, config);    
+        read_config(ctx, in, config);
+
+        // Set pips
+        for (auto pip : ctx->getPips()) {
+            const PipInfoPOD &pi = ci.pip_data[pip.index];
+            const SwitchInfoPOD &swi = bi.switches[pi.switch_index];
+            bool isUsed = true;
+            for (int i = 0; i < swi.num_bits; i++) {
+                bool val = (pi.switch_mask & (1 << ((swi.num_bits - 1) - i))) != 0;
+                int8_t cbit = config.at(swi.y).at(swi.x).at(swi.cbits[i].row).at(swi.cbits[i].col);
+                isUsed &= !(bool(cbit) ^ val);
+            }
+            if (isUsed) {
+                IdString net = ctx->wire_to_net[pi.dst];
+                WireId wire;
+                wire.index = pi.dst;
+                ctx->unbindWire(wire);
+                ctx->bindPip(pip, net, STRENGTH_WEAK);
+            }
+        }
         return true;
     } catch (log_execution_error_exception) {
         return false;
