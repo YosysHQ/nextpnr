@@ -223,16 +223,18 @@ void update_budget(Context *ctx)
             // HACK HACK HACK
 
             // Post-update check
-//            if (user.budget < 0)
-//                log_warning("port %s.%s, connected to net '%s', has negative "
-//                            "timing budget of %fns\n",
-//                            user.cell->name.c_str(ctx), user.port.c_str(ctx), net.first.c_str(ctx),
-//                            ctx->getDelayNS(user.budget));
-//            if (ctx->verbose)
-//                log_info("port %s.%s, connected to net '%s', has "
-//                         "timing budget of %fns\n",
-//                         user.cell->name.c_str(ctx), user.port.c_str(ctx), net.first.c_str(ctx),
-//                         ctx->getDelayNS(user.budget));
+            if (ctx->verbose) {
+                if (user.budget < 0)
+                    log_warning("port %s.%s, connected to net '%s', has negative "
+                                "timing budget of %fns\n",
+                                user.cell->name.c_str(ctx), user.port.c_str(ctx), net.first.c_str(ctx),
+                                ctx->getDelayNS(user.budget));
+                else
+                    log_info("port %s.%s, connected to net '%s', has "
+                             "timing budget of %fns\n",
+                             user.cell->name.c_str(ctx), user.port.c_str(ctx), net.first.c_str(ctx),
+                             ctx->getDelayNS(user.budget));
+            }
         }
     }
 }
