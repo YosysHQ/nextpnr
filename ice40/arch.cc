@@ -279,12 +279,7 @@ BelRange Arch::getBelsByTile(int x, int y) const
     // In iCE40 chipdb bels at the same tile are consecutive and dense z ordinates are used
     BelRange br;
 
-    Loc loc;
-    loc.x = x;
-    loc.y = y;
-    loc.z = 0;
-
-    br.b.cursor = Arch::getBelByLocation(loc).index;
+    br.b.cursor = Arch::getBelByLocation(Loc(x, y, 0)).index;
     br.e.cursor = br.b.cursor;
 
     if (br.e.cursor != -1) {

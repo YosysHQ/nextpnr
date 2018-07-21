@@ -62,28 +62,23 @@ void Arch::addAlias(IdString name, IdString srcWire, IdString dstWire, DelayInfo
     pip_ids.push_back(name);
 }
 
-void Arch::addBel(IdString name, IdString type, int x, int y, int z, bool gb)
+void Arch::addBel(IdString name, IdString type, Loc loc, bool gb)
 {
-    Loc loc;
-    loc.x = x;
-    loc.y = y;
-    loc.z = z;
-
     NPNR_ASSERT(bels.count(name) == 0);
     NPNR_ASSERT(bel_by_loc.count(loc) == 0);
     BelInfo &bi = bels[name];
     bi.name = name;
     bi.type = type;
-    bi.x = x;
-    bi.y = y;
-    bi.z = z;
+    bi.x = loc.x;
+    bi.y = loc.y;
+    bi.z = loc.z;
     bi.gb = gb;
 
     bel_ids.push_back(name);
     bel_ids_by_type[type].push_back(name);
 
     bel_by_loc[loc] = name;
-    bels_by_tile[x][y].push_back(name);
+    bels_by_tile[loc.x][loc.y].push_back(name);
 }
 
 void Arch::addBelInput(IdString bel, IdString name, IdString wire)

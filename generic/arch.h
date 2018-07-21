@@ -97,7 +97,7 @@ struct Arch : BaseCtx
     void addPip(IdString name, IdString srcWire, IdString dstWire, DelayInfo delay);
     void addAlias(IdString name, IdString srcWire, IdString dstWire, DelayInfo delay);
 
-    void addBel(IdString name, IdString type, int x, int y, int z, bool gb);
+    void addBel(IdString name, IdString type, Loc loc, bool gb);
     void addBelInput(IdString bel, IdString name, IdString wire);
     void addBelOutput(IdString bel, IdString name, IdString wire);
     void addBelInout(IdString bel, IdString name, IdString wire);
