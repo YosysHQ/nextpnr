@@ -244,7 +244,7 @@ class PeriodicRunner : public QThread
         }
     }
 
-    void startTimer(std::chrono::milliseconds value) { timer_.start(value); }
+    void startTimer(int msecs) { timer_.start(msecs); }
 
     ~PeriodicRunner()
     {

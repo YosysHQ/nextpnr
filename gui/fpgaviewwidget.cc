@@ -277,11 +277,11 @@ FPGAViewWidget::FPGAViewWidget(QWidget *parent)
     }
 
     connect(&paintTimer_, SIGNAL(timeout()), this, SLOT(update()));
-    paintTimer_.start(std::chrono::duration<int, std::milli>(1000 / 20)); // paint GL 20 times per second
+    paintTimer_.start(1000 / 20); // paint GL 20 times per second
 
     renderRunner_ = std::unique_ptr<PeriodicRunner>(new PeriodicRunner(this, [this] { renderLines(); }));
     renderRunner_->start();
-    renderRunner_->startTimer(std::chrono::duration<int, std::milli>(1000 / 2)); // render line 2 times per second
+    renderRunner_->startTimer(1000 / 2); // render lines 2 times per second
 }
 
 FPGAViewWidget::~FPGAViewWidget() {}
