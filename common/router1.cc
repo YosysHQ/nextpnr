@@ -307,6 +307,8 @@ struct Router
             src_wires[src_wire] = ctx->getWireDelay(src_wire).maxDelay();
         } else {
             // re-use existing routes as much as possible
+            if (net_info->wires.count(src_wire) == 0)
+                ctx->bindWire(src_wire, net_name, STRENGTH_WEAK);
             src_wires[src_wire] = ctx->getWireDelay(src_wire).maxDelay();
 
             for (auto &user_it : net_info->users) {
