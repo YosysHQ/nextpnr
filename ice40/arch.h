@@ -455,10 +455,7 @@ struct Arch : BaseCtx
     BelId getBelByLocation(Loc loc) const;
     BelRange getBelsByTile(int x, int y) const;
 
-    bool getBelGlobalBuf(BelId bel) const
-    {
-        return chip_info->bel_data[bel.index].type == TYPE_SB_GB;
-    }
+    bool getBelGlobalBuf(BelId bel) const { return chip_info->bel_data[bel.index].type == TYPE_SB_GB; }
 
     BelRange getBelsAtSameTile(BelId bel) const NPNR_DEPRECATED;
 

@@ -222,7 +222,7 @@ void MainWindow::new_proj()
         QString package = QInputDialog::getItem(this, "Select package", "Package:", getSupportedPackages(chipArgs.type),
                                                 0, false, &ok);
 
-        if (ok && !item.isEmpty()) {            
+        if (ok && !item.isEmpty()) {
             currentProj = "";
             currentJson = "";
             currentPCF = "";

@@ -251,7 +251,8 @@ struct Router
         }
     }
 
-    Router(Context *ctx, RipupScoreboard &scores, IdString net_name, int user_idx = -1, bool reroute = false, bool ripup = false, delay_t ripup_penalty = 0)
+    Router(Context *ctx, RipupScoreboard &scores, IdString net_name, int user_idx = -1, bool reroute = false,
+           bool ripup = false, delay_t ripup_penalty = 0)
             : ctx(ctx), scores(scores), net_name(net_name), ripup(ripup), ripup_penalty(ripup_penalty)
     {
         auto net_info = ctx->nets.at(net_name).get();
@@ -336,7 +337,8 @@ struct Router
                               user_it.port.c_str(ctx), user_port.c_str(ctx), user_it.cell->name.c_str(ctx),
                               ctx->getBelName(dst_bel).c_str(ctx));
 
-                std::function<delay_t(WireId)> register_existing_path = [ctx, net_info, &src_wires, &register_existing_path](WireId wire) -> delay_t {
+                std::function<delay_t(WireId)> register_existing_path =
+                        [ctx, net_info, &src_wires, &register_existing_path](WireId wire) -> delay_t {
                     auto it = src_wires.find(wire);
                     if (it != src_wires.end())
                         return it->second;
@@ -345,7 +347,7 @@ struct Router
                     delay_t delay = register_existing_path(ctx->getPipSrcWire(pip));
                     delay += ctx->getPipDelay(pip).maxDelay();
                     delay += ctx->getWireDelay(wire).maxDelay();
-                    delay -= 2*ctx->getDelayEpsilon();
+                    delay -= 2 * ctx->getDelayEpsilon();
                     src_wires[wire] = delay;
 
                     return delay;
@@ -361,7 +363,7 @@ struct Router
                 }
 
                 register_existing_path(dst_wire);
-        check_next_user_for_existing_path:;
+            check_next_user_for_existing_path:;
             }
 
             std::vector<WireId> ripup_wires;
@@ -371,8 +373,8 @@ struct Router
 
             for (auto &it : ripup_wires) {
                 if (ctx->debug)
-                    log("  Unbind dangling wire for net %s: %s\n",
-                        net_name.c_str(ctx), ctx->getWireName(it).c_str(ctx));
+                    log("  Unbind dangling wire for net %s: %s\n", net_name.c_str(ctx),
+                        ctx->getWireName(it).c_str(ctx));
                 ctx->unbindWire(it);
             }
         }
@@ -499,9 +501,8 @@ struct RouteJob
     };
 };
 
-void addFullNetRouteJob(Context *ctx, IdString net_name,
-                     std::unordered_map<IdString, std::vector<bool>> &cache,
-                     std::priority_queue<RouteJob, std::vector<RouteJob>, RouteJob::Greater> &queue)
+void addFullNetRouteJob(Context *ctx, IdString net_name, std::unordered_map<IdString, std::vector<bool>> &cache,
+                        std::priority_queue<RouteJob, std::vector<RouteJob>, RouteJob::Greater> &queue)
 {
     NetInfo *net_info = ctx->nets.at(net_name).get();
 
@@ -541,8 +542,7 @@ void addFullNetRouteJob(Context *ctx, IdString net_name,
 
     bool got_slack = false;
 
-    for (int user_idx = 0; user_idx < int(net_info->users.size()); user_idx++)
-    {
+    for (int user_idx = 0; user_idx < int(net_info->users.size()); user_idx++) {
         if (net_cache[user_idx])
             continue;
 
@@ -550,8 +550,8 @@ void addFullNetRouteJob(Context *ctx, IdString net_name,
         auto dst_bel = user_info.cell->bel;
 
         if (dst_bel == BelId())
-            log_error("Destination cell %s (%s) is not mapped to a bel.\n",
-                      user_info.cell->name.c_str(ctx), user_info.cell->type.c_str(ctx));
+            log_error("Destination cell %s (%s) is not mapped to a bel.\n", user_info.cell->name.c_str(ctx),
+                      user_info.cell->type.c_str(ctx));
 
         IdString user_port = user_info.port;
 
@@ -595,8 +595,7 @@ void addFullNetRouteJob(Context *ctx, IdString net_name,
         net_cache[user_idx] = true;
 }
 
-void addNetRouteJobs(Context *ctx, IdString net_name,
-                     std::unordered_map<IdString, std::vector<bool>> &cache,
+void addNetRouteJobs(Context *ctx, IdString net_name, std::unordered_map<IdString, std::vector<bool>> &cache,
                      std::priority_queue<RouteJob, std::vector<RouteJob>, RouteJob::Greater> &queue)
 {
     NetInfo *net_info = ctx->nets.at(net_name).get();
@@ -629,8 +628,7 @@ void addNetRouteJobs(Context *ctx, IdString net_name,
     if (net_cache.empty())
         net_cache.resize(net_info->users.size());
 
-    for (int user_idx = 0; user_idx < int(net_info->users.size()); user_idx++)
-    {
+    for (int user_idx = 0; user_idx < int(net_info->users.size()); user_idx++) {
         if (net_cache[user_idx])
             continue;
 
@@ -638,8 +636,8 @@ void addNetRouteJobs(Context *ctx, IdString net_name,
         auto dst_bel = user_info.cell->bel;
 
         if (dst_bel == BelId())
-            log_error("Destination cell %s (%s) is not mapped to a bel.\n",
-                      user_info.cell->name.c_str(ctx), user_info.cell->type.c_str(ctx));
+            log_error("Destination cell %s (%s) is not mapped to a bel.\n", user_info.cell->name.c_str(ctx),
+                      user_info.cell->type.c_str(ctx));
 
         IdString user_port = user_info.port;
 
@@ -661,12 +659,10 @@ void addNetRouteJobs(Context *ctx, IdString net_name,
             auto it = net_info->wires.find(cursor);
             if (it == net_info->wires.end()) {
                 if (ctx->debug)
-                    log("Adding job [%s %d]: %s %s (%s) -> %s %s (%s)\n",
-                        net_name.c_str(ctx), user_idx,
+                    log("Adding job [%s %d]: %s %s (%s) -> %s %s (%s)\n", net_name.c_str(ctx), user_idx,
                         ctx->getBelName(src_bel).c_str(ctx), driver_port.c_str(ctx),
-                        ctx->getWireName(src_wire).c_str(ctx),
-                        ctx->getBelName(dst_bel).c_str(ctx), user_port.c_str(ctx),
-                        ctx->getWireName(dst_wire).c_str(ctx));
+                        ctx->getWireName(src_wire).c_str(ctx), ctx->getBelName(dst_bel).c_str(ctx),
+                        user_port.c_str(ctx), ctx->getWireName(dst_wire).c_str(ctx));
                 RouteJob job;
                 job.net = net_name;
                 job.user_idx = user_idx;
@@ -736,7 +732,7 @@ bool router1(Context *ctx)
             bool printNets = ctx->verbose && (jobQueue.size() < 10);
 
             while (!jobQueue.empty()) {
-                if(ctx->debug)
+                if (ctx->debug)
                     log("Next job slack: %f\n", double(jobQueue.top().slack));
 
                 auto net_name = jobQueue.top().net;
@@ -745,8 +741,8 @@ bool router1(Context *ctx)
 
                 if (printNets) {
                     if (user_idx < 0)
-                        log_info("  routing all %d users of net %s\n",
-                                 int(ctx->nets.at(net_name)->users.size()), net_name.c_str(ctx));
+                        log_info("  routing all %d users of net %s\n", int(ctx->nets.at(net_name)->users.size()),
+                                 net_name.c_str(ctx));
                     else
                         log_info("  routing user %d of net %s\n", user_idx, net_name.c_str(ctx));
                 }
@@ -854,9 +850,8 @@ bool router1(Context *ctx)
             }
 
             if (!ctx->verbose)
-                log_info("iteration %d: routed %d nets without ripup, routed %d nets with ripup.\n",
-                         iterCnt, int(normalRouteNets.size()), int(ripupQueue.size()));
-
+                log_info("iteration %d: routed %d nets without ripup, routed %d nets with ripup.\n", iterCnt,
+                         int(normalRouteNets.size()), int(ripupQueue.size()));
 
             totalVisitCnt += visitCnt;
             totalRevisitCnt += revisitCnt;

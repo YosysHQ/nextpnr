@@ -283,8 +283,7 @@ BelRange Arch::getBelsByTile(int x, int y) const
     br.e.cursor = br.b.cursor;
 
     if (br.e.cursor != -1) {
-        while (br.e.cursor < chip_info->num_bels &&
-               chip_info->bel_data[br.e.cursor].x == x &&
+        while (br.e.cursor < chip_info->num_bels && chip_info->bel_data[br.e.cursor].x == x &&
                chip_info->bel_data[br.e.cursor].y == y)
             br.e.cursor++;
     }
