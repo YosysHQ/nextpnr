@@ -864,6 +864,25 @@ bool router1(Context *ctx)
                  totalVisitCnt, (100.0 * totalRevisitCnt) / totalVisitCnt,
                  (100.0 * totalOvertimeRevisitCnt) / totalVisitCnt);
 
+        NPNR_ASSERT(jobQueue.empty());
+        jobCache.clear();
+
+        for (auto &net_it : ctx->nets)
+            addNetRouteJobs(ctx, net_it.first, jobCache, jobQueue);
+
+#ifndef NDEBUG
+        if (!jobQueue.empty()) {
+            log_info("Design strangely still contains unrouted source-sink pairs:\n");
+            while (!jobQueue.empty()) {
+                log_info("  user %d on net %s.\n", jobQueue.top().user_idx, jobQueue.top().net.c_str(ctx));
+                jobQueue.pop();
+            }
+            log_info("Checksum: 0x%08x\n", ctx->checksum());
+            ctx->check();
+            return false;
+        }
+#endif
+
         log_info("Checksum: 0x%08x\n", ctx->checksum());
 #ifndef NDEBUG
         ctx->check();
