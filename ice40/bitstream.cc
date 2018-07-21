@@ -688,6 +688,46 @@ bool read_asc(Context *ctx, std::istream &in)
                     IdString name = created->name;
                     ctx->cells[name] = std::move(created);
                     ctx->bindBel(bel, name, STRENGTH_WEAK);
+                    // TODO: Add port mapping to nets and assign values of properties
+                }
+            }
+        }
+        // Add cells that are without change in initial state of configuration
+        for (auto &net : ctx->nets) {
+            for (auto w : net.second->wires) {
+                if (w.second.pip == PipId()) {
+                    WireId wire = w.first;
+                    BelPin belpin = ctx->getBelPinUphill(wire);
+                    if (ctx->checkBelAvail(belpin.bel)) {
+                        if (ctx->getBelType(belpin.bel) == TYPE_ICESTORM_LC) {
+                            std::unique_ptr<CellInfo> created = create_ice_cell(ctx, ctx->id("ICESTORM_LC"));
+                            IdString name = created->name;
+                            ctx->cells[name] = std::move(created);
+                            ctx->bindBel(belpin.bel, name, STRENGTH_WEAK);
+                            // TODO: Add port mapping to nets
+                        }
+                        if (ctx->getBelType(belpin.bel) == TYPE_SB_GB) {
+                            std::unique_ptr<CellInfo> created = create_ice_cell(ctx, ctx->id("SB_GB"));
+                            IdString name = created->name;
+                            ctx->cells[name] = std::move(created);
+                            ctx->bindBel(belpin.bel, name, STRENGTH_WEAK);
+                            // TODO: Add port mapping to nets
+                        }
+                        if (ctx->getBelType(belpin.bel) == TYPE_SB_WARMBOOT) {
+                            std::unique_ptr<CellInfo> created = create_ice_cell(ctx, ctx->id("SB_WARMBOOT"));
+                            IdString name = created->name;
+                            ctx->cells[name] = std::move(created);
+                            ctx->bindBel(belpin.bel, name, STRENGTH_WEAK);
+                            // TODO: Add port mapping to nets
+                        }
+                        if (ctx->getBelType(belpin.bel) == TYPE_ICESTORM_LFOSC) {
+                            std::unique_ptr<CellInfo> created = create_ice_cell(ctx, ctx->id("ICESTORM_LFOSC"));
+                            IdString name = created->name;
+                            ctx->cells[name] = std::move(created);
+                            ctx->bindBel(belpin.bel, name, STRENGTH_WEAK);
+                            // TODO: Add port mapping to nets
+                        }
+                    }
                 }
             }
         }
