@@ -10,9 +10,6 @@
         "input": {
             "json": "blinky.json",
             "pcf": "blinky.pcf"
-        },
-        "params": {
-            "freq": "50"
         }
     }
 }

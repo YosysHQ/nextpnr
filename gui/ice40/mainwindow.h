@@ -79,7 +79,10 @@ class MainWindow : public BaseMainWindow
 
     bool timing_driven;
     ArchArgs chipArgs;
-    std::string preload_pcf;
+
+    std::string currentProj;
+    std::string currentJson;
+    std::string currentPCF;
 };
 
 NEXTPNR_NAMESPACE_END

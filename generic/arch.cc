@@ -29,8 +29,8 @@ void Arch::addWire(IdString name, int x, int y)
     NPNR_ASSERT(wires.count(name) == 0);
     WireInfo &wi = wires[name];
     wi.name = name;
-    wi.grid_x = x;
-    wi.grid_y = y;
+    wi.x = x;
+    wi.y = y;
 
     wire_ids.push_back(name);
 }
@@ -62,18 +62,28 @@ void Arch::addAlias(IdString name, IdString srcWire, IdString dstWire, DelayInfo
     pip_ids.push_back(name);
 }
 
-void Arch::addBel(IdString name, IdString type, int x, int y, bool gb)
+void Arch::addBel(IdString name, IdString type, int x, int y, int z, bool gb)
 {
+    Loc loc;
+    loc.x = x;
+    loc.y = y;
+    loc.z = z;
+
     NPNR_ASSERT(bels.count(name) == 0);
+    NPNR_ASSERT(bel_by_loc.count(loc) == 0);
     BelInfo &bi = bels[name];
     bi.name = name;
     bi.type = type;
-    bi.grid_x = x;
-    bi.grid_y = y;
+    bi.x = x;
+    bi.y = y;
+    bi.z = z;
     bi.gb = gb;
 
     bel_ids.push_back(name);
     bel_ids_by_type[type].push_back(name);
+
+    bel_by_loc[loc] = name;
+    bels_by_tile[x][y].push_back(name);
 }
 
 void Arch::addBelInput(IdString bel, IdString name, IdString wire)
@@ -348,8 +358,8 @@ const std::vector<GroupId> &Arch::getGroupGroups(GroupId group) const { return g
 
 void Arch::estimatePosition(BelId bel, int &x, int &y, bool &gb) const
 {
-    x = bels.at(bel).grid_x;
-    y = bels.at(bel).grid_y;
+    x = bels.at(bel).x;
+    y = bels.at(bel).y;
     gb = bels.at(bel).gb;
 }
 
@@ -357,8 +367,8 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
 {
     const WireInfo &s = wires.at(src);
     const WireInfo &d = wires.at(dst);
-    int dx = abs(s.grid_x - d.grid_x);
-    int dy = abs(s.grid_y - d.grid_y);
+    int dx = abs(s.x - d.x);
+    int dy = abs(s.y - d.y);
     return (dx + dy) * grid_distance_to_delay;
 }
 
