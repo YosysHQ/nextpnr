@@ -230,6 +230,9 @@ void DesignWidget::addToHistory(QTreeWidgetItem *item)
 void DesignWidget::newContext(Context *ctx)
 {
     treeWidget->clear();
+    // reset pointers since they are not valid after clear
+    nets_root = nullptr;
+    cells_root = nullptr;
     history_ignore = false;
     history_index = -1;
     history.clear();
@@ -334,16 +337,7 @@ void DesignWidget::newContext(Context *ctx)
     for (auto pip : nameToItem[2].toStdMap()) {
         pip_root->addChild(pip.second);
     }
-
-    // Add nets to tree
-    nets_root = new QTreeWidgetItem(treeWidget);
-    nets_root->setText(0, "Nets");
-    treeWidget->insertTopLevelItem(0, nets_root);
-
-    // Add cells to tree
-    cells_root = new QTreeWidgetItem(treeWidget);
-    cells_root->setText(0, "Cells");
-    treeWidget->insertTopLevelItem(0, cells_root);
+    updateTree();
 }
 
 void DesignWidget::updateTree()

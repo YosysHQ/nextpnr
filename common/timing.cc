@@ -217,6 +217,11 @@ void update_budget(Context *ctx)
             if (it == updates.end()) continue;
             user.budget = delays.at(pi) + it->second;
 
+            // HACK HACK HACK
+            if (net.second->driver.port == ctx->id("COUT"))
+                user.budget = 0;
+            // HACK HACK HACK
+
             // Post-update check
 //            if (user.budget < 0)
 //                log_warning("port %s.%s, connected to net '%s', has negative "

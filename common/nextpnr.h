@@ -27,6 +27,8 @@
 #include <unordered_set>
 #include <vector>
 
+#include <boost/functional/hash.hpp>
+
 #ifndef NEXTPNR_H
 #define NEXTPNR_H
 
@@ -158,7 +160,29 @@ struct GraphicElement
     std::string text;
 };
 
+struct Loc
+{
+    int x = -1, y = -1, z = -1;
+
+    bool operator==(const Loc &other) const { return (x == other.x) && (y == other.y) && (z == other.z); }
+    bool operator!=(const Loc &other) const { return (x != other.x) || (y != other.y) || (z == other.z); }
+};
+
 NEXTPNR_NAMESPACE_END
+
+namespace std {
+template <> struct hash<NEXTPNR_NAMESPACE_PREFIX Loc>
+{
+    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX Loc &obj) const noexcept
+    {
+        std::size_t seed = 0;
+        boost::hash_combine(seed, hash<int>()(obj.x));
+        boost::hash_combine(seed, hash<int>()(obj.y));
+        boost::hash_combine(seed, hash<int>()(obj.z));
+        return seed;
+    }
+};
+} // namespace std
 
 #include "archdefs.h"
 

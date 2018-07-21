@@ -157,6 +157,42 @@ void configure_extra_cell(chipconfig_t &config, const Context *ctx, CellInfo *ce
     }
 }
 
+std::string tagTileType(TileType &tile)
+{
+    if (tile == TILE_NONE)
+        return "";
+    switch (tile) {
+    case TILE_LOGIC:
+        return ".logic_tile";
+        break;
+    case TILE_IO:
+        return ".io_tile";
+        break;
+    case TILE_RAMB:
+        return ".ramb_tile";
+        break;
+    case TILE_RAMT:
+        return ".ramt_tile";
+        break;
+    case TILE_DSP0:
+        return ".dsp0_tile";
+        break;
+    case TILE_DSP1:
+        return ".dsp1_tile";
+        break;
+    case TILE_DSP2:
+        return ".dsp2_tile";
+        break;
+    case TILE_DSP3:
+        return ".dsp3_tile";
+        break;
+    case TILE_IPCON:
+        return ".ipcon_tile";
+        break;
+    default:
+        NPNR_ASSERT(false);
+    }
+}
 void write_asc(const Context *ctx, std::ostream &out)
 {
     // [y][x][row][col]
@@ -191,7 +227,7 @@ void write_asc(const Context *ctx, std::ostream &out)
         out << ".device 5k" << std::endl;
         break;
     default:
-        NPNR_ASSERT_FALSE("unsupported device type");
+        NPNR_ASSERT_FALSE("unsupported device type\n");
     }
     // Set pips
     for (auto pip : ctx->getPips()) {
@@ -214,9 +250,9 @@ void write_asc(const Context *ctx, std::ostream &out)
             std::cout << "Found unplaced cell " << cell.first.str(ctx) << " while generating bitstream!" << std::endl;
             continue;
         }
-        const BelInfoPOD &beli = ci.bel_data[bel.index];
-        int x = beli.x, y = beli.y, z = beli.z;
         if (cell.second->type == ctx->id("ICESTORM_LC")) {
+            const BelInfoPOD &beli = ci.bel_data[bel.index];
+            int x = beli.x, y = beli.y, z = beli.z;
             const TileInfoPOD &ti = bi.tiles_nonrouting[TILE_LOGIC];
             unsigned lut_init = get_param_or_def(cell.second.get(), ctx->id("LUT_INIT"));
             bool neg_clk = get_param_or_def(cell.second.get(), ctx->id("NEG_CLK"));
@@ -251,6 +287,8 @@ void write_asc(const Context *ctx, std::ostream &out)
                 set_config(ti, config.at(y).at(x), "CarryInSet", carry_set);
             }
         } else if (cell.second->type == ctx->id("SB_IO")) {
+            const BelInfoPOD &beli = ci.bel_data[bel.index];
+            int x = beli.x, y = beli.y, z = beli.z;
             const TileInfoPOD &ti = bi.tiles_nonrouting[TILE_IO];
             unsigned pin_type = get_param_or_def(cell.second.get(), ctx->id("PIN_TYPE"));
             bool neg_trigger = get_param_or_def(cell.second.get(), ctx->id("NEG_TRIGGER"));
@@ -445,37 +483,7 @@ void write_asc(const Context *ctx, std::ostream &out)
             TileType tile = tile_at(ctx, x, y);
             if (tile == TILE_NONE)
                 continue;
-            switch (tile) {
-            case TILE_LOGIC:
-                out << ".logic_tile";
-                break;
-            case TILE_IO:
-                out << ".io_tile";
-                break;
-            case TILE_RAMB:
-                out << ".ramb_tile";
-                break;
-            case TILE_RAMT:
-                out << ".ramt_tile";
-                break;
-            case TILE_DSP0:
-                out << ".dsp0_tile";
-                break;
-            case TILE_DSP1:
-                out << ".dsp1_tile";
-                break;
-            case TILE_DSP2:
-                out << ".dsp2_tile";
-                break;
-            case TILE_DSP3:
-                out << ".dsp3_tile";
-                break;
-            case TILE_IPCON:
-                out << ".ipcon_tile";
-                break;
-            default:
-                NPNR_ASSERT(false);
-            }
+            out << tagTileType(tile);
             out << " " << x << " " << y << std::endl;
             for (auto row : config.at(y).at(x)) {
                 for (auto col : row) {
@@ -526,4 +534,106 @@ void write_asc(const Context *ctx, std::ostream &out)
     }
 }
 
+void read_config(Context *ctx, std::istream &in, chipconfig_t &config)
+{
+    constexpr size_t line_buf_size = 65536;
+    char buffer[line_buf_size];
+    int tile_x = -1, tile_y = -1, line_nr = -1;
+
+    while (1) {
+        in.getline(buffer, line_buf_size);
+        if (buffer[0] == '.') {
+            line_nr = -1;
+            const char *tok = strtok(buffer, " \t\r\n");
+
+            if (!strcmp(tok, ".device")) {
+                std::string config_device = strtok(nullptr, " \t\r\n");
+                std::string expected;
+                switch (ctx->args.type) {
+                case ArchArgs::LP384:
+                    expected = "384";
+                    break;
+                case ArchArgs::HX1K:
+                case ArchArgs::LP1K:
+                    expected = "1k";
+                    break;
+                case ArchArgs::HX8K:
+                case ArchArgs::LP8K:
+                    expected = "8k";
+                    break;
+                case ArchArgs::UP5K:
+                    expected = "5k";
+                    break;
+                default:
+                    log_error("unsupported device type\n");
+                }
+                if (expected != config_device)
+                    log_error("device type does not match\n");
+            } else if (!strcmp(tok, ".io_tile") || !strcmp(tok, ".logic_tile") || !strcmp(tok, ".ramb_tile") ||
+                       !strcmp(tok, ".ramt_tile") || !strcmp(tok, ".ipcon_tile") || !strcmp(tok, ".dsp0_tile") ||
+                       !strcmp(tok, ".dsp1_tile") || !strcmp(tok, ".dsp2_tile") || !strcmp(tok, ".dsp3_tile")) {
+                line_nr = 0;
+                tile_x = atoi(strtok(nullptr, " \t\r\n"));
+                tile_y = atoi(strtok(nullptr, " \t\r\n"));
+
+                TileType tile = tile_at(ctx, tile_x, tile_y);
+                if (tok != tagTileType(tile))
+                    log_error("Wrong tile type for specified position\n");
+
+            } else if (!strcmp(tok, ".extra_bit")) {
+                /*
+                int b = atoi(strtok(nullptr, " \t\r\n"));
+                int x = atoi(strtok(nullptr, " \t\r\n"));
+                int y = atoi(strtok(nullptr, " \t\r\n"));
+                std::tuple<int, int, int> key(b, x, y);
+                extra_bits.insert(key);
+                */
+            } else if (!strcmp(tok, ".sym")) {                
+                int wireIndex = atoi(strtok(nullptr, " \t\r\n"));
+                const char *name = strtok(nullptr, " \t\r\n");
+                                
+                std::unique_ptr<NetInfo> created_net = std::unique_ptr<NetInfo>(new NetInfo);
+                IdString netName = ctx->id(name);
+                created_net->name = netName;
+                ctx->nets[netName] = std::move(created_net);                
+                
+                WireId wire;
+                wire.index = wireIndex;
+                ctx->bindWire(wire, netName, STRENGTH_WEAK);
+            }
+        } else if (line_nr >= 0 && strlen(buffer) > 0) {
+            if (line_nr > int(config.at(tile_y).at(tile_x).size() - 1))
+                log_error("Invalid data in input asc file");
+            for (int i = 0; buffer[i] == '0' || buffer[i] == '1'; i++)
+                config.at(tile_y).at(tile_x).at(line_nr).at(i) = (buffer[i] == '1') ? 1 : 0;
+            line_nr++;
+        }
+        if (in.eof())
+            break;
+    }
+}
+
+bool read_asc(Context *ctx, std::istream &in)
+{
+    try {
+        // [y][x][row][col]
+        const ChipInfoPOD &ci = *ctx->chip_info;
+        const BitstreamInfoPOD &bi = *ci.bits_info;
+        chipconfig_t config;
+        config.resize(ci.height);
+        for (int y = 0; y < ci.height; y++) {
+            config.at(y).resize(ci.width);
+            for (int x = 0; x < ci.width; x++) {
+                TileType tile = tile_at(ctx, x, y);
+                int rows = bi.tiles_nonrouting[tile].rows;
+                int cols = bi.tiles_nonrouting[tile].cols;
+                config.at(y).at(x).resize(rows, std::vector<int8_t>(cols));
+            }
+        }
+        read_config(ctx, in, config);    
+        return true;
+    } catch (log_execution_error_exception) {
+        return false;
+    }
+}
 NEXTPNR_NAMESPACE_END
