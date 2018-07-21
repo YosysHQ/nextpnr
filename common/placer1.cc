@@ -145,6 +145,7 @@ class SAPlacer
         }
 
         int n_no_progress = 0;
+        wirelen_t min_metric = curr_metric;
         double avg_metric = curr_metric;
         temp = 10000;
 
@@ -169,6 +170,12 @@ class SAPlacer
                         try_swap_position(cell, try_bel);
                 }
             }
+
+            if (curr_metric < min_metric) {
+                min_metric = curr_metric;
+                improved = true;
+            }
+
             // Heuristic to improve placement on the 8k
             if (improved)
                 n_no_progress = 0;
@@ -221,6 +228,9 @@ class SAPlacer
                 diameter *= post_legalise_dia_scale;
                 ctx->shuffle(autoplaced);
                 assign_budget(ctx);
+            }
+            else {
+                update_budget(ctx);
             }
 
             // Recalculate total metric entirely to avoid rounding errors
@@ -365,8 +375,8 @@ class SAPlacer
         // SA acceptance criterea
         if (delta < 0 || (temp > 1e-6 && (ctx->rng() / float(0x3fffffff)) <= std::exp(-delta / temp))) {
             n_accept++;
-            if (delta < 2)
-                improved = true;
+            //if (delta < 2)
+            //    improved = true;
         } else {
             if (other != IdString())
                 ctx->unbindBel(oldBel);
