@@ -226,6 +226,13 @@ BelPin Arch::getBelPinUphill(WireId wire) const { return wires.at(wire).uphill_b
 
 const std::vector<BelPin> &Arch::getBelPinsDownhill(WireId wire) const { return wires.at(wire).downhill_bel_pins; }
 
+std::vector<PortPin> Arch::getBelPins(BelId bel) const
+{
+    std::vector<PortPin> ret;
+    for (auto &it : bels.at(bel).pins)
+        ret.push_back(it.first);
+}
+
 // ---------------------------------------------------------------
 
 WireId Arch::getWireByName(IdString name) const

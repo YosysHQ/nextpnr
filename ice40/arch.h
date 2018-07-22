@@ -494,6 +494,8 @@ struct Arch : BaseCtx
         return range;
     }
 
+    std::vector<PortPin> getBelPins(BelId bel) const;
+
     // -------------------------------------------------
 
     WireId getWireByName(IdString name) const;

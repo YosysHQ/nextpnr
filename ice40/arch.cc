@@ -340,6 +340,21 @@ WireId Arch::getBelPinWire(BelId bel, PortPin pin) const
     return ret;
 }
 
+std::vector<PortPin> Arch::getBelPins(BelId bel) const
+{
+    std::vector<PortPin> ret;
+
+    NPNR_ASSERT(bel != BelId());
+
+    int num_bel_wires = chip_info->bel_data[bel.index].num_bel_wires;
+    const BelWirePOD *bel_wires = chip_info->bel_data[bel.index].bel_wires.get();
+
+    for (int i = 0; i < num_bel_wires; i++)
+        ret.push_back(bel_wires[i].port);
+
+    return ret;
+}
+
 // -----------------------------------------------------------------------
 
 WireId Arch::getWireByName(IdString name) const

@@ -150,6 +150,7 @@ struct Arch : BaseCtx
     PortType getBelPinType(BelId bel, PortPin pin) const;
     BelPin getBelPinUphill(WireId wire) const NPNR_DEPRECATED;
     const std::vector<BelPin> &getBelPinsDownhill(WireId wire) const NPNR_DEPRECATED;
+    std::vector<PortPin> getBelPins(BelId bel) const;
 
     WireId getWireByName(IdString name) const;
     IdString getWireName(WireId wire) const;
