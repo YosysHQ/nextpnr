@@ -490,31 +490,6 @@ struct Arch : BaseCtx
 
     WireId getBelPinWire(BelId bel, PortPin pin) const;
 
-    BelPin getBelPinUphill(WireId wire) const NPNR_DEPRECATED
-    {
-        BelPin ret;
-        NPNR_ASSERT(wire != WireId());
-
-        if (locInfo(wire)->wire_data[wire.index].bel_uphill.bel_index >= 0) {
-            ret.bel.index = locInfo(wire)->wire_data[wire.index].bel_uphill.bel_index;
-            ret.bel.location = wire.location + locInfo(wire)->wire_data[wire.index].bel_uphill.rel_bel_loc;
-            ret.pin = locInfo(wire)->wire_data[wire.index].bel_uphill.port;
-        }
-
-        return ret;
-    }
-
-    BelPinRange getBelPinsDownhill(WireId wire) const NPNR_DEPRECATED
-    {
-        BelPinRange range;
-        NPNR_ASSERT(wire != WireId());
-        range.b.ptr = locInfo(wire)->wire_data[wire.index].bels_downhill.get();
-        range.b.wire_loc = wire.location;
-        range.e.ptr = range.b.ptr + locInfo(wire)->wire_data[wire.index].num_bels_downhill;
-        range.e.wire_loc = wire.location;
-        return range;
-    }
-
     BelPinRange getWireBelPins(WireId wire) const
     {
         BelPinRange range;

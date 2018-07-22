@@ -222,10 +222,6 @@ WireId Arch::getBelPinWire(BelId bel, PortPin pin) const { return bels.at(bel).p
 
 PortType Arch::getBelPinType(BelId bel, PortPin pin) const { return bels.at(bel).pins.at(pin).type; }
 
-BelPin Arch::getBelPinUphill(WireId wire) const { return wires.at(wire).uphill_bel_pin; }
-
-const std::vector<BelPin> &Arch::getBelPinsDownhill(WireId wire) const { return wires.at(wire).downhill_bel_pins; }
-
 std::vector<PortPin> Arch::getBelPins(BelId bel) const
 {
     std::vector<PortPin> ret;
