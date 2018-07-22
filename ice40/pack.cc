@@ -591,6 +591,38 @@ static void pack_special(Context *ctx)
                 replace_port(ci, ctx->id(pi.name.c_str(ctx)), packed.get(), ctx->id(newname));
             }
             new_cells.push_back(std::move(packed));
+        } else if (is_sb_pll40(ctx, ci)) {
+            std::unique_ptr<CellInfo> packed =
+                    create_ice_cell(ctx, ctx->id("ICESTORM_PLL"), ci->name.str(ctx) + "_PLL");
+            packed_cells.insert(ci->name);
+            for (auto attr : ci->attrs)
+                packed->attrs[attr.first] = attr.second;
+            for (auto param : ci->params)
+                packed->params[param.first] = param.second;
+
+            auto feedback_path = packed->params[ctx->id("FEEDBACK_PATH")];
+            packed->params[ctx->id("FEEDBACK_PATH")] = feedback_path == "DELAY" ?  "0" :
+                                                       feedback_path == "SIMPLE" ? "1" :
+                                                       feedback_path == "PHASE_AND_DELAY" ? "2" :
+                                                       feedback_path == "EXTERNAL" ? "6" : feedback_path;
+            packed->params[ctx->id("PLLTYPE")] = std::to_string(sb_pll40_type(ctx, ci));
+            
+            for (auto port : ci->ports) {
+                PortInfo &pi = port.second;
+                std::string newname = pi.name.str(ctx);
+                size_t bpos = newname.find('[');
+                if (bpos != std::string::npos) {
+                    newname = newname.substr(0, bpos) + "_" + newname.substr(bpos + 1, (newname.size() - bpos) - 2);
+                }
+                if (pi.name == ctx->id("PLLOUTCOREA"))
+                    newname = "PLLOUT_A";
+                if (pi.name == ctx->id("PLLOUTCOREB"))
+                    newname = "PLLOUT_B";
+                if (pi.name == ctx->id("PLLOUTCORE"))
+                    newname = "PLLOUT_A";
+                replace_port(ci, ctx->id(pi.name.c_str(ctx)), packed.get(), ctx->id(newname));
+            }
+            new_cells.push_back(std::move(packed));
         }
     }
 

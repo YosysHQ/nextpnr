@@ -62,6 +62,31 @@ bool apply_pcf(Context *ctx, std::istream &in)
                     log_info("constrained '%s' to bel '%s'\n", cell.c_str(),
                              fnd_cell->second->attrs[ctx->id("BEL")].c_str());
                 }
+            } else if (cmd == "set_loc") {
+                size_t args_end = 1;
+                while (args_end < words.size() && words.at(args_end).at(0) == '-')
+                    args_end++;
+                std::string cell = words.at(args_end);
+                std::string x = words.at(args_end + 1);
+                std::string y = words.at(args_end + 2);
+                std::string z = words.at(args_end + 3);
+                auto fnd_cell = ctx->cells.find(ctx->id(cell));
+                if (fnd_cell == ctx->cells.end()) {
+                    log_error("unmatched pcf constraint %s\n", cell.c_str());
+                }
+
+                Loc loc;
+                loc.x = std::stoi(x);
+                loc.y = std::stoi(y);
+                loc.z = std::stoi(z);
+                auto bel = ctx->getBelByLocation(loc);
+                if (bel == BelId()) {
+                    log_error("constrain '%s': unknown bel\n", line.c_str());
+                }
+
+                fnd_cell->second->attrs[ctx->id("BEL")] = ctx->getBelName(bel).str(ctx);
+                log_info("constrained '%s' to bel '%s'\n", cell.c_str(), ctx->getBelName(bel).c_str(ctx));
+
             } else {
                 log_error("unsupported pcf command '%s'\n", cmd.c_str());
             }

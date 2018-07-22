@@ -331,11 +331,12 @@ WireId Arch::getBelPinWire(BelId bel, PortPin pin) const
     int num_bel_wires = chip_info->bel_data[bel.index].num_bel_wires;
     const BelWirePOD *bel_wires = chip_info->bel_data[bel.index].bel_wires.get();
 
-    for (int i = 0; i < num_bel_wires; i++)
+    for (int i = 0; i < num_bel_wires; i++) {
         if (bel_wires[i].port == pin) {
             ret.index = bel_wires[i].wire_index;
             break;
         }
+    }
 
     return ret;
 }

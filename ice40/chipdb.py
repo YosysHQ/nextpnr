@@ -184,6 +184,8 @@ def wire_type(name):
         wt = "LOCAL"
     elif name in ("WCLK", "WCLKE", "WE", "RCLK", "RCLKE", "RE"):
         wt = "LOCAL"
+    elif name in ("PLLOUT_A", "PLLOUT_B"):
+        wt = "LOCAL"
 
     if wt is None:
         print("No type for wire: %s (%s)" % (longname, name), file=sys.stderr)
@@ -591,6 +593,43 @@ def is_ec_output(ec_entry):
     if "glb_netwk_" in wirename: return True
     return False
 
+def is_ec_pll_clock_output(ec, ec_entry):
+    return ec[0] == 'PLL' and ec_entry[0] in ('PLLOUT_A', 'PLLOUT_B')
+
+def add_pll_clock_output(bel, ec, ec_entry):
+    #print('add_pll_clock_output', ec, ec_entry)
+    pll_x, pll_y, pll_z = ec[1], ec[2], ec[3]
+    port = ec_entry[0]
+    io_x, io_y, io_z = ec_entry[1]
+    io_z = int(io_z)
+
+    global num_wires
+    wire_idx = num_wires
+    num_wires = num_wires + 1
+    
+    wire_xy[wire_idx] = [(pll_x, pll_y)]
+
+    wire_names_r[wire_idx] = (pll_x, pll_y, port)
+    wire_names[(pll_x, pll_y, port)] = wire_idx
+    wire_segments[wire_idx] = {
+        (pll_x, pll_y): port,
+        (io_x, io_y): 'PLLIN',
+    }
+
+    wire_downhill_belports[wire_idx] = {(bel, port),}
+    bel_wires[bel].append((wire_idx, port))
+
+    io_wire = wire_names[(io_x, io_y, 'io_{}/D_IN_0'.format(io_z))]
+    wire_downhill[wire_idx] = {io_wire,}
+    if io_wire not in wire_uphill:
+        wire_uphill[io_wire] = set()
+    wire_uphill[io_wire].add(wire_idx)
+
+    switches.append((io_x, io_y, 0, []))
+    switchnum = len(switches) - 1
+    pip_xy[(wire_idx, io_wire)] = (io_x, io_y, 0, switchnum)
+
+
 def add_bel_ec(ec):
     ectype, x, y, z = ec
     bel = len(bel_name)
@@ -605,6 +644,8 @@ def add_bel_ec(ec):
                 add_bel_output(bel, wire_names[entry[1]], entry[0])
             else:
                 add_bel_input(bel, wire_names[entry[1]], entry[0])
+        elif is_ec_pll_clock_output(ec, entry):
+            add_pll_clock_output(bel, ec, entry)
         else:
             extra_cell_config[bel].append(entry)
 

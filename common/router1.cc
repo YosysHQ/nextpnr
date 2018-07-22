@@ -210,6 +210,7 @@ struct Router
                     else
                         overtimeRevisitCnt++;
                 }
+                    
 
                 QueuedWire next_qw;
                 next_qw.wire = next_wire;

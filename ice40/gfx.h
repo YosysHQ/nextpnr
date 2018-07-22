@@ -464,7 +464,11 @@ enum GfxTileWireId
     TILE_WIRE_SP12_H_R_23,
 
     TILE_WIRE_SP12_H_L_22,
-    TILE_WIRE_SP12_H_L_23
+    TILE_WIRE_SP12_H_L_23,
+
+    TILE_WIRE_PLLIN,
+    TILE_WIRE_PLLOUT_A,
+    TILE_WIRE_PLLOUT_B
 };
 
 void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId id, GraphicElement::style_t style);
