@@ -736,16 +736,29 @@ bool router1(Context *ctx)
                     log_info("routing queue contains %d jobs.\n", int(jobQueue.size()));
             } else {
                 static auto actual_delay = [](Context *ctx, WireId src, WireId dst) {
-                    delay_t total_delay = ctx->getWireDelay(dst).maxDelay();
-                    WireId last_wire = dst;
-                    for (auto pip : ctx->getPipsDownhill(dst)) {
-                        total_delay += ctx->getPipDelay(pip).maxDelay();
-                        WireId next_wire = ctx->getPipDstWire(pip);
-                        total_delay += ctx->getWireDelay(next_wire).maxDelay();
+                    delay_t total_delay = 0;
+                    WireId last = dst;
+                    auto net_name = ctx->getBoundWireNet(src);
+                    if (net_name != IdString()) {
+                        auto net = ctx->nets.at(net_name).get();
+                        while (last != src) {
+                            total_delay += ctx->getWireDelay(last).maxDelay();
+                            auto pip = net->wires.at(last).pip;
+                            NPNR_ASSERT(ctx->getBoundPipNet(pip) == net_name);
+                            total_delay += ctx->getPipDelay(pip).maxDelay();
+                            last = ctx->getPipSrcWire(pip);
+                            if (ctx->getBoundWireNet(last) != net_name) {
+                                log_warning("Wire %s bound to %s not %s!\n", ctx->getWireName(last).c_str(ctx), ctx->getBoundWireNet(last).c_str(ctx), net_name.c_str(ctx));
+                                break;
+                            }
+                            NPNR_ASSERT(ctx->getBoundWireNet(last) == net_name);
+                        }
+                        NPNR_ASSERT(last != WireId());
                     }
-                    NPNR_ASSERT(last_wire != WireId());
-                    if (last_wire != src)
-                        total_delay += ctx->estimateDelay(src, last_wire);
+                    if (last != src)
+                        total_delay += ctx->estimateDelay(src, last);
+                    else
+                        total_delay += ctx->getWireDelay(last).maxDelay();
                     return total_delay;
                 };
                 update_budget(ctx, actual_delay);
