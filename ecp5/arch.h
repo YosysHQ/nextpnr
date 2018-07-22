@@ -50,6 +50,7 @@ NPNR_PACKED_STRUCT(struct BelWirePOD {
     LocationPOD rel_wire_loc;
     int32_t wire_index;
     PortPin port;
+    int32_t type;
 });
 
 NPNR_PACKED_STRUCT(struct BelInfoPOD {
@@ -87,6 +88,9 @@ NPNR_PACKED_STRUCT(struct WireInfoPOD {
     int32_t num_bels_downhill;
     BelPortPOD bel_uphill;
     RelPtr<BelPortPOD> bels_downhill;
+
+    int32_t num_bel_pins;
+    RelPtr<BelPortPOD> bel_pins;
 });
 
 NPNR_PACKED_STRUCT(struct LocationTypePOD {
@@ -486,7 +490,7 @@ struct Arch : BaseCtx
 
     WireId getBelPinWire(BelId bel, PortPin pin) const;
 
-    BelPin getBelPinUphill(WireId wire) const
+    BelPin getBelPinUphill(WireId wire) const NPNR_DEPRECATED
     {
         BelPin ret;
         NPNR_ASSERT(wire != WireId());
@@ -500,7 +504,7 @@ struct Arch : BaseCtx
         return ret;
     }
 
-    BelPinRange getBelPinsDownhill(WireId wire) const
+    BelPinRange getBelPinsDownhill(WireId wire) const NPNR_DEPRECATED
     {
         BelPinRange range;
         NPNR_ASSERT(wire != WireId());
@@ -510,6 +514,19 @@ struct Arch : BaseCtx
         range.e.wire_loc = wire.location;
         return range;
     }
+
+    BelPinRange getWireBelPins(WireId wire) const
+    {
+        BelPinRange range;
+        NPNR_ASSERT(wire != WireId());
+        range.b.ptr = locInfo(wire)->wire_data[wire.index].bel_pins.get();
+        range.b.wire_loc = wire.location;
+        range.e.ptr = range.b.ptr + locInfo(wire)->wire_data[wire.index].num_bel_pins;
+        range.e.wire_loc = wire.location;
+        return range;
+    }
+
+    std::vector<PortPin> getBelPins(BelId bel) const;
 
     // -------------------------------------------------
 
@@ -581,6 +598,7 @@ struct Arch : BaseCtx
     DelayInfo getWireDelay(WireId wire) const
     {
         DelayInfo delay;
+        delay.delay = 0;
         return delay;
     }
 
@@ -738,6 +756,8 @@ struct Arch : BaseCtx
 
     BelId getPackagePinBel(const std::string &pin) const;
     std::string getBelPackagePin(BelId bel) const;
+
+    PortType getBelPinType(BelId bel, PortPin pin) const;
 
     // -------------------------------------------------
 

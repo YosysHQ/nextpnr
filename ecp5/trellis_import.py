@@ -407,6 +407,12 @@ def write_database(dev_name, ddrg, endianness):
                         write_loc(db.bel.rel, "rel_bel_loc")
                         bba.u32(db.bel.id, "bel_index")
                         bba.u32(portpins[ddrg.to_str(db.pin)], "port")
+                if len(wire.belPins) > 0:
+                    bba.l("loc%d_wire%d_belpins" % (idx, wire_idx), "BelPortPOD")
+                    for bp in wire.belPins:
+                        write_loc(bp.bel.rel, "rel_bel_loc")
+                        bba.u32(bp.bel.id, "bel_index")
+                        bba.u32(portpins[ddrg.to_str(bp.pin)], "port")
             bba.l("loc%d_wires" % idx, "WireInfoPOD")
             for wire_idx in range(len(loctype.wires)):
                 wire = loctype.wires[wire_idx]
@@ -424,14 +430,18 @@ def write_database(dev_name, ddrg, endianness):
                     bba.u32(0xFFFFFFFF, "bel_uphill.bel_index")
                     bba.u32(0, "bel_uphill.port")
                 bba.r("loc%d_wire%d_downbels" % (idx, wire_idx) if len(wire.belsDownhill) > 0 else None, "bels_downhill")
+                bba.u32(len(wire.belPins), "num_bel_pins")
+                bba.r("loc%d_wire%d_belpins" % (idx, wire_idx) if len(wire.belPins) > 0 else None, "bel_pins")
+
         if len(loctype.bels) > 0:
             for bel_idx in range(len(loctype.bels)):
                 bel = loctype.bels[bel_idx]
-                bba.l("loc%d_bel%d_wires" % (idx, bel_idx), "BelPortPOD")
+                bba.l("loc%d_bel%d_wires" % (idx, bel_idx), "BelWirePOD")
                 for pin in bel.wires:
                     write_loc(pin.wire.rel, "rel_wire_loc")
                     bba.u32(pin.wire.id, "wire_index")
                     bba.u32(portpins[ddrg.to_str(pin.pin)], "port")
+                    bba.u32(int(pin.dir), "dir")
             bba.l("loc%d_bels" % idx, "BelInfoPOD")
             for bel_idx in range(len(loctype.bels)):
                 bel = loctype.bels[bel_idx]
