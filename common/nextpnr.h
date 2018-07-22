@@ -460,6 +460,10 @@ struct Context : Arch, DeterministicRNG
 
     // --------------------------------------------------------------
 
+    WireId getNetinfoSourceWire(NetInfo *net_info) const;
+    WireId getNetinfoSinkWire(NetInfo *net_info, int user_idx) const;
+    delay_t getNetinfoRouteDelay(NetInfo *net_info, int user_idx) const;
+
     // provided by router1.cc
     bool getActualRouteDelay(WireId src_wire, WireId dst_wire, delay_t &delay);
 
