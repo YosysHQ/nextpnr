@@ -325,7 +325,7 @@ void Arch::estimatePosition(BelId bel, int &x, int &y, bool &gb) const
 
 delay_t Arch::estimateDelay(WireId src, WireId dst) const
 {
-    return abs(src.location.x - dst.location.x) + abs(src.location.y - dst.location.y);
+    return 200 * (abs(src.location.x - dst.location.x) + abs(src.location.y - dst.location.y));
 }
 
 // -----------------------------------------------------------------------

@@ -694,7 +694,7 @@ struct Arch : BaseCtx
     {
         DelayInfo delay;
         NPNR_ASSERT(pip != PipId());
-        delay.delay = locInfo(pip)->pip_data[pip.index].delay;
+        delay.delay = locInfo(pip)->pip_data[pip.index].delay * 100;
         return delay;
     }
 
