@@ -497,6 +497,14 @@ void DesignWidget::onItemSelectionChanged()
         addProperty(topItem, QVariant::String, "Conflicting Cell", ctx->getConflictingBelCell(bel).c_str(ctx),
                     ElementType::CELL);
 
+        QtProperty *belpinsItem = addSubGroup(topItem, "Ports");
+        for (const auto &item : ctx->getBelPins(bel)) {
+            QtProperty *portInfoItem = addSubGroup(belpinsItem, ctx->portPinToId(item).c_str(ctx));
+            addProperty(portInfoItem, QVariant::String, "Name", ctx->portPinToId(item).c_str(ctx));
+            addProperty(portInfoItem, QVariant::Int, "Type", int(ctx->getBelPinType(bel, item)));
+            WireId wire = ctx->getBelPinWire(bel, item);
+            addProperty(portInfoItem, QVariant::String, "Wire", ctx->getWireName(wire).c_str(ctx), ElementType::WIRE);
+        }
     } else if (type == ElementType::WIRE) {
         WireId wire = ctx->getWireByName(c);
         QtProperty *topItem = addTopLevelProperty("Wire");
