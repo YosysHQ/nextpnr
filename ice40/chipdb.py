@@ -1027,9 +1027,6 @@ for wire in range(num_wires):
         info["uphill_bel"] = -1
         info["uphill_pin"] = 0
 
-    if num_bels_downhill == 0:
-        info["list_bel_pins"] = None
-
     avg_x, avg_y = 0, 0
     if wire in wire_xy:
         for x, y in wire_xy[wire]:
