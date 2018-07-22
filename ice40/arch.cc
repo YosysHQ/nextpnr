@@ -308,6 +308,20 @@ BelRange Arch::getBelsAtSameTile(BelId bel) const
     return br;
 }
 
+PortType Arch::getBelPinType(BelId bel, PortPin pin) const
+{
+    NPNR_ASSERT(bel != BelId());
+
+    int num_bel_wires = chip_info->bel_data[bel.index].num_bel_wires;
+    const BelWirePOD *bel_wires = chip_info->bel_data[bel.index].bel_wires.get();
+
+    for (int i = 0; i < num_bel_wires; i++)
+        if (bel_wires[i].port == pin)
+            return PortType(bel_wires[i].type);
+
+    return PORT_INOUT;
+}
+
 WireId Arch::getBelPinWire(BelId bel, PortPin pin) const
 {
     WireId ret;

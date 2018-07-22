@@ -46,6 +46,7 @@ template <typename T> struct RelPtr
 NPNR_PACKED_STRUCT(struct BelWirePOD {
     int32_t wire_index;
     PortPin port;
+    int32_t type;
 });
 
 NPNR_PACKED_STRUCT(struct BelInfoPOD {
@@ -85,6 +86,9 @@ NPNR_PACKED_STRUCT(struct WireInfoPOD {
     int32_t num_bels_downhill;
     BelPortPOD bel_uphill;
     RelPtr<BelPortPOD> bels_downhill;
+
+    int32_t num_bel_pins;
+    RelPtr<BelPortPOD> bel_pins;
 
     int32_t num_segments;
     RelPtr<WireSegmentPOD> segments;
@@ -466,8 +470,9 @@ struct Arch : BaseCtx
     }
 
     WireId getBelPinWire(BelId bel, PortPin pin) const;
+    PortType getBelPinType(BelId bel, PortPin pin) const;
 
-    BelPin getBelPinUphill(WireId wire) const
+    BelPin getBelPinUphill(WireId wire) const NPNR_DEPRECATED
     {
         BelPin ret;
         NPNR_ASSERT(wire != WireId());
@@ -480,7 +485,7 @@ struct Arch : BaseCtx
         return ret;
     }
 
-    BelPinRange getBelPinsDownhill(WireId wire) const
+    BelPinRange getBelPinsDownhill(WireId wire) const NPNR_DEPRECATED
     {
         BelPinRange range;
         NPNR_ASSERT(wire != WireId());
@@ -553,6 +558,15 @@ struct Arch : BaseCtx
     {
         DelayInfo delay;
         return delay;
+    }
+
+    BelPinRange getWireBelPins(WireId wire) const
+    {
+        BelPinRange range;
+        NPNR_ASSERT(wire != WireId());
+        range.b.ptr = chip_info->wire_data[wire.index].bel_pins.get();
+        range.e.ptr = range.b.ptr + chip_info->wire_data[wire.index].num_bel_pins;
+        return range;
     }
 
     WireRange getWires() const
