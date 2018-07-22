@@ -43,6 +43,7 @@ struct WireInfo
     std::vector<PipId> downhill, uphill, aliases;
     BelPin uphill_bel_pin;
     std::vector<BelPin> downhill_bel_pins;
+    std::vector<BelPin> bel_pins;
     DecalXY decalxy;
     int x, y;
 };
@@ -146,8 +147,9 @@ struct Arch : BaseCtx
     const std::vector<BelId> &getBelsByType(BelType type) const;
     BelType getBelType(BelId bel) const;
     WireId getBelPinWire(BelId bel, PortPin pin) const;
-    BelPin getBelPinUphill(WireId wire) const;
-    const std::vector<BelPin> &getBelPinsDownhill(WireId wire) const;
+    PortType getBelPinType(BelId bel, PortPin pin) const;
+    BelPin getBelPinUphill(WireId wire) const NPNR_DEPRECATED;
+    const std::vector<BelPin> &getBelPinsDownhill(WireId wire) const NPNR_DEPRECATED;
 
     WireId getWireByName(IdString name) const;
     IdString getWireName(WireId wire) const;
@@ -159,6 +161,7 @@ struct Arch : BaseCtx
     IdString getConflictingWireNet(WireId wire) const;
     DelayInfo getWireDelay(WireId wire) const { return DelayInfo(); }
     const std::vector<WireId> &getWires() const;
+    const std::vector<BelPin> &getWireBelPins(WireId wire) const;
 
     PipId getPipByName(IdString name) const;
     IdString getPipName(PipId pip) const;

@@ -90,6 +90,7 @@ void Arch::addBelInput(IdString bel, IdString name, IdString wire)
     pi.type = PORT_IN;
 
     wires.at(wire).downhill_bel_pins.push_back(BelPin{bel, name});
+    wires.at(wire).bel_pins.push_back(BelPin{bel, name});
 }
 
 void Arch::addBelOutput(IdString bel, IdString name, IdString wire)
@@ -101,6 +102,7 @@ void Arch::addBelOutput(IdString bel, IdString name, IdString wire)
     pi.type = PORT_OUT;
 
     wires.at(wire).uphill_bel_pin = BelPin{bel, name};
+    wires.at(wire).bel_pins.push_back(BelPin{bel, name});
 }
 
 void Arch::addBelInout(IdString bel, IdString name, IdString wire)
@@ -112,6 +114,7 @@ void Arch::addBelInout(IdString bel, IdString name, IdString wire)
     pi.type = PORT_INOUT;
 
     wires.at(wire).downhill_bel_pins.push_back(BelPin{bel, name});
+    wires.at(wire).bel_pins.push_back(BelPin{bel, name});
 }
 
 void Arch::addGroupBel(IdString group, IdString bel) { groups[group].bels.push_back(bel); }
@@ -217,6 +220,8 @@ BelType Arch::getBelType(BelId bel) const { return bels.at(bel).type; }
 
 WireId Arch::getBelPinWire(BelId bel, PortPin pin) const { return bels.at(bel).pins.at(pin).wire; }
 
+PortType Arch::getBelPinType(BelId bel, PortPin pin) const { return bels.at(bel).pins.at(pin).type; }
+
 BelPin Arch::getBelPinUphill(WireId wire) const { return wires.at(wire).uphill_bel_pin; }
 
 const std::vector<BelPin> &Arch::getBelPinsDownhill(WireId wire) const { return wires.at(wire).downhill_bel_pins; }
@@ -266,6 +271,8 @@ bool Arch::checkWireAvail(WireId wire) const { return wires.at(wire).bound_net =
 IdString Arch::getBoundWireNet(WireId wire) const { return wires.at(wire).bound_net; }
 
 IdString Arch::getConflictingWireNet(WireId wire) const { return wires.at(wire).bound_net; }
+
+const std::vector<BelPin> &Arch::getWireBelPins(WireId wire) const { return wires.at(wire).bel_pins; }
 
 const std::vector<WireId> &Arch::getWires() const { return wire_ids; }
 
