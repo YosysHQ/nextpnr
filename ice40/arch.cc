@@ -308,7 +308,7 @@ BelRange Arch::getBelsAtSameTile(BelId bel) const
     return br;
 }
 
-WireId Arch::getWireBelPin(BelId bel, PortPin pin) const
+WireId Arch::getBelPinWire(BelId bel, PortPin pin) const
 {
     WireId ret;
 

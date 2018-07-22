@@ -319,8 +319,8 @@ void write_asc(const Context *ctx, std::ostream &out)
             NPNR_ASSERT(iez != -1);
 
             bool input_en = false;
-            if ((ctx->wire_to_net[ctx->getWireBelPin(bel, PIN_D_IN_0).index] != IdString()) ||
-                (ctx->wire_to_net[ctx->getWireBelPin(bel, PIN_D_IN_1).index] != IdString())) {
+            if ((ctx->wire_to_net[ctx->getBelPinWire(bel, PIN_D_IN_0).index] != IdString()) ||
+                (ctx->wire_to_net[ctx->getBelPinWire(bel, PIN_D_IN_1).index] != IdString())) {
                 input_en = true;
             }
 
@@ -762,7 +762,7 @@ bool read_asc(Context *ctx, std::istream &in)
             if (cell.second->bel != BelId()) {
                 for (auto &port : cell.second->ports) {
                     PortPin pin = ctx->portPinFromId(port.first);
-                    WireId wire = ctx->getWireBelPin(cell.second->bel, pin);
+                    WireId wire = ctx->getBelPinWire(cell.second->bel, pin);
                     if (wire != WireId()) {
                         IdString name = ctx->getBoundWireNet(wire);
                         if (name != IdString()) {

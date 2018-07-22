@@ -145,7 +145,7 @@ struct Arch : BaseCtx
     const std::vector<BelId> &getBels() const;
     const std::vector<BelId> &getBelsByType(BelType type) const;
     BelType getBelType(BelId bel) const;
-    WireId getWireBelPin(BelId bel, PortPin pin) const;
+    WireId getBelPinWire(BelId bel, PortPin pin) const;
     BelPin getBelPinUphill(WireId wire) const;
     const std::vector<BelPin> &getBelPinsDownhill(WireId wire) const;
 

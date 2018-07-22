@@ -484,7 +484,7 @@ struct Arch : BaseCtx
         return locInfo(bel)->bel_data[bel.index].type;
     }
 
-    WireId getWireBelPin(BelId bel, PortPin pin) const;
+    WireId getBelPinWire(BelId bel, PortPin pin) const;
 
     BelPin getBelPinUphill(WireId wire) const
     {

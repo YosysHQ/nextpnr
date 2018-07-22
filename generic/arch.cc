@@ -215,7 +215,7 @@ const std::vector<BelId> &Arch::getBelsByType(BelType type) const
 
 BelType Arch::getBelType(BelId bel) const { return bels.at(bel).type; }
 
-WireId Arch::getWireBelPin(BelId bel, PortPin pin) const { return bels.at(bel).pins.at(pin).wire; }
+WireId Arch::getBelPinWire(BelId bel, PortPin pin) const { return bels.at(bel).pins.at(pin).wire; }
 
 BelPin Arch::getBelPinUphill(WireId wire) const { return wires.at(wire).uphill_bel_pin; }
 
