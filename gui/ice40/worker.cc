@@ -120,6 +120,7 @@ void Worker::place(bool timing_driven)
     Q_EMIT taskStarted();
     try {
         ctx->timing_driven = timing_driven;
+        log_info("Assigned budget %0.2f MHz",ctx->target_freq / 1e6);
         assign_budget(ctx);
         Q_EMIT place_finished(ctx->place());
     } catch (WorkerInterruptionRequested) {
