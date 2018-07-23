@@ -388,7 +388,12 @@ struct Arch : BaseCtx
 
     IdString portPinToId(PortPin type) const;
     PortPin portPinFromId(IdString id) const;
+    // -------------------------------------------------
 
+    int getGridDimX() const { return chip_info->width; };
+    int getGridDimY() const { return chip_info->height; };
+    int getTileDimZ(int,int) const { return 4; };
+    
     // -------------------------------------------------
 
     BelId getBelByName(IdString name) const;
