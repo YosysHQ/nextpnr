@@ -266,8 +266,8 @@ struct Router
         auto src_wire = ctx->getNetinfoSourceWire(net_info);
 
         if (src_wire == WireId())
-            log_error("No wire found for port %s on source cell %s.\n",
-                      net_info->driver.port.c_str(ctx), net_info->driver.cell->name.c_str(ctx));
+            log_error("No wire found for port %s on source cell %s.\n", net_info->driver.port.c_str(ctx),
+                      net_info->driver.cell->name.c_str(ctx));
 
         if (ctx->debug)
             log("    Source wire: %s\n", ctx->getWireName(src_wire).c_str(ctx));
@@ -301,7 +301,8 @@ struct Router
 
                 if (dst_wire == WireId())
                     log_error("No wire found for port %s on destination cell %s.\n",
-                              net_info->users[user_idx].port.c_str(ctx), net_info->users[user_idx].cell->name.c_str(ctx));
+                              net_info->users[user_idx].port.c_str(ctx),
+                              net_info->users[user_idx].cell->name.c_str(ctx));
 
                 std::function<delay_t(WireId)> register_existing_path =
                         [ctx, net_info, &src_wires, &register_existing_path](WireId wire) -> delay_t {
@@ -347,7 +348,8 @@ struct Router
 
         for (int user_idx : users_array) {
             if (ctx->debug)
-                log("  Route to: %s.%s.\n", net_info->users[user_idx].cell->name.c_str(ctx), net_info->users[user_idx].port.c_str(ctx));
+                log("  Route to: %s.%s.\n", net_info->users[user_idx].cell->name.c_str(ctx),
+                    net_info->users[user_idx].port.c_str(ctx));
 
             auto dst_wire = ctx->getNetinfoSinkWire(net_info, user_idx);
 
@@ -460,8 +462,8 @@ void addFullNetRouteJob(Context *ctx, IdString net_name, std::unordered_map<IdSt
     auto src_wire = ctx->getNetinfoSourceWire(net_info);
 
     if (src_wire == WireId())
-        log_error("No wire found for port %s on source cell %s.\n",
-                  net_info->driver.port.c_str(ctx), net_info->driver.cell->name.c_str(ctx));
+        log_error("No wire found for port %s on source cell %s.\n", net_info->driver.port.c_str(ctx),
+                  net_info->driver.cell->name.c_str(ctx));
 
     auto &net_cache = cache[net_name];
 
@@ -483,8 +485,8 @@ void addFullNetRouteJob(Context *ctx, IdString net_name, std::unordered_map<IdSt
         auto dst_wire = ctx->getNetinfoSinkWire(net_info, user_idx);
 
         if (dst_wire == WireId())
-            log_error("No wire found for port %s on destination cell %s.\n",
-                      net_info->users[user_idx].port.c_str(ctx), net_info->users[user_idx].cell->name.c_str(ctx));
+            log_error("No wire found for port %s on destination cell %s.\n", net_info->users[user_idx].port.c_str(ctx),
+                      net_info->users[user_idx].cell->name.c_str(ctx));
 
         if (user_idx == 0)
             job.slack = net_info->users[user_idx].budget - ctx->estimateDelay(src_wire, dst_wire);
@@ -498,7 +500,8 @@ void addFullNetRouteJob(Context *ctx, IdString net_name, std::unordered_map<IdSt
                 if (!got_slack)
                     job.slack = net_info->users[user_idx].budget - ctx->estimateDelay(src_wire, dst_wire);
                 else
-                    job.slack = std::min(job.slack, net_info->users[user_idx].budget - ctx->estimateDelay(src_wire, dst_wire));
+                    job.slack = std::min(job.slack,
+                                         net_info->users[user_idx].budget - ctx->estimateDelay(src_wire, dst_wire));
                 got_slack = true;
                 break;
             }
@@ -524,8 +527,8 @@ void addNetRouteJobs(Context *ctx, IdString net_name, std::unordered_map<IdStrin
     auto src_wire = ctx->getNetinfoSourceWire(net_info);
 
     if (src_wire == WireId())
-        log_error("No wire found for port %s on source cell %s.\n",
-                  net_info->driver.port.c_str(ctx), net_info->driver.cell->name.c_str(ctx));
+        log_error("No wire found for port %s on source cell %s.\n", net_info->driver.port.c_str(ctx),
+                  net_info->driver.cell->name.c_str(ctx));
 
     auto &net_cache = cache[net_name];
 
@@ -539,8 +542,8 @@ void addNetRouteJobs(Context *ctx, IdString net_name, std::unordered_map<IdStrin
         auto dst_wire = ctx->getNetinfoSinkWire(net_info, user_idx);
 
         if (dst_wire == WireId())
-            log_error("No wire found for port %s on destination cell %s.\n",
-                      net_info->users[user_idx].port.c_str(ctx), net_info->users[user_idx].cell->name.c_str(ctx));
+            log_error("No wire found for port %s on destination cell %s.\n", net_info->users[user_idx].port.c_str(ctx),
+                      net_info->users[user_idx].cell->name.c_str(ctx));
 
         WireId cursor = dst_wire;
         while (src_wire != cursor) {
@@ -772,16 +775,17 @@ bool router1(Context *ctx)
                         }
                         if (ctx->verbose)
                             log_info("  arc %s -> %s has %f ns slack (delay %f, budget %f)\n",
-                                ctx->getWireName(ctx->getNetinfoSourceWire(net_info)).c_str(ctx),
-                                ctx->getWireName(ctx->getNetinfoSinkWire(net_info, user_idx)).c_str(ctx),
-                                ctx->getDelayNS(arc_slack), ctx->getDelayNS(arc_delay), ctx->getDelayNS(arc_budget));
+                                     ctx->getWireName(ctx->getNetinfoSourceWire(net_info)).c_str(ctx),
+                                     ctx->getWireName(ctx->getNetinfoSinkWire(net_info, user_idx)).c_str(ctx),
+                                     ctx->getDelayNS(arc_slack), ctx->getDelayNS(arc_delay),
+                                     ctx->getDelayNS(arc_budget));
                         tns += ctx->getDelayNS(arc_slack);
                         tns_arc_count++;
                     }
                 }
             }
-            log_info("final tns with respect to arc budgets: %f ns (%d nets, %d arcs)\n",
-                     tns, tns_net_count, tns_arc_count);
+            log_info("final tns with respect to arc budgets: %f ns (%d nets, %d arcs)\n", tns, tns_net_count,
+                     tns_arc_count);
         }
 
         NPNR_ASSERT(jobQueue.empty());

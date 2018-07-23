@@ -344,7 +344,8 @@ std::vector<PortPin> Arch::getBelPins(BelId bel) const
     return ret;
 }
 
-BelId Arch::getBelByLocation(Loc loc) const {
+BelId Arch::getBelByLocation(Loc loc) const
+{
     if (loc.x >= chip_info->width || loc.y >= chip_info->height)
         return BelId();
     const LocationTypePOD &locI = chip_info->locations[chip_info->location_type[loc.y * chip_info->width + loc.x]];
@@ -360,7 +361,8 @@ BelId Arch::getBelByLocation(Loc loc) const {
     return BelId();
 }
 
-BelRange Arch::getBelsByTile(int x, int y) const {
+BelRange Arch::getBelsByTile(int x, int y) const
+{
     BelRange br;
 
     int num_bels = 0;
