@@ -229,6 +229,7 @@ void DesignWidget::addToHistory(QTreeWidgetItem *item)
 
 void DesignWidget::newContext(Context *ctx)
 {
+    highlightSelected.clear();
     treeWidget->clear();
     // reset pointers since they are not valid after clear
     nets_root = nullptr;

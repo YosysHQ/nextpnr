@@ -289,6 +289,9 @@ FPGAViewWidget::~FPGAViewWidget() {}
 void FPGAViewWidget::newContext(Context *ctx)
 {
     ctx_ = ctx;
+    onSelectedArchItem(std::vector<DecalXY>());
+    for (int i = 0; i < 8; i++)
+        onHighlightGroupChanged(std::vector<DecalXY>(), i);
     pokeRenderer();
 }
 
