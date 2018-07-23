@@ -733,6 +733,10 @@ struct Arch : BaseCtx
 
     BelId getPackagePinBel(const std::string &pin) const;
     std::string getBelPackagePin(BelId bel) const;
+    int getPioBelBank(BelId bel) const;
+    // For getting GCLK, PLL, Vref, etc, pins
+    std::string getPioFunctionName(BelId bel) const;
+    BelId getPioByFunctionName(const std::string &name) const;
 
     PortType getBelPinType(BelId bel, PortPin pin) const;
 
