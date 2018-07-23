@@ -92,7 +92,7 @@ delay_t Context::getNetinfoRouteDelay(NetInfo *net_info, int user_idx) const
 {
     WireId src_wire = getNetinfoSourceWire(net_info);
     WireId cursor = getNetinfoSinkWire(net_info, user_idx);
-    delay_t delay = getWireDelay(src_wire).maxDelay();
+    delay_t delay = 0;
 
     while (cursor != WireId() && cursor != src_wire) {
         auto it = net_info->wires.find(cursor);
@@ -103,6 +103,11 @@ delay_t Context::getNetinfoRouteDelay(NetInfo *net_info, int user_idx) const
         delay += getWireDelay(cursor).maxDelay();
         cursor = getPipSrcWire(pip);
     }
+
+    if (cursor == src_wire)
+        delay += getWireDelay(src_wire).maxDelay();
+    else
+        delay += estimateDelay(src_wire, cursor);
 
     return delay;
 }
