@@ -595,6 +595,13 @@ static void pack_special(Context *ctx)
             std::unique_ptr<CellInfo> packed =
                     create_ice_cell(ctx, ctx->id("ICESTORM_PLL"), ci->name.str(ctx) + "_PLL");
             packed_cells.insert(ci->name);
+
+            if (is_sb_pll40_pad(ctx, ci)) {
+                // TODO(q3k): Implement these after checking their behaviour on
+                // a board with exposed 'clock pads'.
+                log_error("SB_PLL40_*_PAD cells are not supported yet.\n");
+            }
+
             for (auto attr : ci->attrs)
                 packed->attrs[attr.first] = attr.second;
             for (auto param : ci->params)

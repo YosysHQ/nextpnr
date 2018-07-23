@@ -78,6 +78,13 @@ inline bool is_sb_pll40(const BaseCtx *ctx, const CellInfo *cell)
            cell->type == ctx->id("SB_PLL40_2F_CORE");
 }
 
+inline bool is_sb_pll40_pad(const BaseCtx *ctx, const CellInfo *cell)
+{
+    return cell->type == ctx->id("SB_PLL40_PAD") || cell->type == ctx->id("SB_PLL40_2_PAD") ||
+           cell->type == ctx->id("SB_PLL40_2F_PAD");
+}
+
+
 uint8_t sb_pll40_type(const BaseCtx *ctx, const CellInfo *cell);
 
 // Convert a SB_LUT primitive to (part of) an ICESTORM_LC, swapping ports
