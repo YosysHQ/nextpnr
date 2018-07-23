@@ -87,10 +87,13 @@ struct Arch : BaseCtx
     std::unordered_map<IdString, std::vector<IdString>> bel_ids_by_type;
 
     std::unordered_map<Loc, BelId> bel_by_loc;
-    std::unordered_map<int, std::unordered_map<int, std::vector<BelId>>> bels_by_tile;
+    std::vector<std::vector<std::vector<BelId>>> bels_by_tile;
 
     std::unordered_map<DecalId, std::vector<GraphicElement>> decal_graphics;
     DecalXY frame_decalxy;
+
+    int gridDimX, gridDimY;
+    std::vector<std::vector<int>> tileDimZ;
 
     float grid_distance_to_delay;
 
@@ -130,6 +133,10 @@ struct Arch : BaseCtx
 
     BelType belTypeFromId(IdString id) const { return id; }
     PortPin portPinFromId(IdString id) const { return id; }
+
+    int getGridDimX() const { return gridDimX; }
+    int getGridDimY() const { return gridDimY; }
+    int getTileDimZ(int x, int y) const { return tileDimZ[x][y]; }
 
     BelId getBelByName(IdString name) const;
     IdString getBelName(BelId bel) const;

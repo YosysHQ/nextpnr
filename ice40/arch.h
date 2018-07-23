@@ -377,6 +377,12 @@ struct Arch : BaseCtx
 
     // -------------------------------------------------
 
+    int getGridDimX() const { return 34; }
+    int getGridDimY() const { return 34; }
+    int getTileDimZ(int, int) const { return 8; }
+
+    // -------------------------------------------------
+
     BelId getBelByName(IdString name) const;
 
     IdString getBelName(BelId bel) const

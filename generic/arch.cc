@@ -78,7 +78,24 @@ void Arch::addBel(IdString name, IdString type, Loc loc, bool gb)
     bel_ids_by_type[type].push_back(name);
 
     bel_by_loc[loc] = name;
+
+    if (bels_by_tile.size() <= loc.x)
+        bels_by_tile.resize(loc.x + 1);
+
+    if (bels_by_tile[loc.x].size() <= loc.y)
+        bels_by_tile[loc.x].resize(loc.y + 1);
+
     bels_by_tile[loc.x][loc.y].push_back(name);
+
+    if (tileDimZ.size() <= loc.x)
+        tileDimZ.resize(loc.x + 1);
+
+    if (tileDimZ[loc.x].size() <= loc.y)
+        tileDimZ[loc.x].resize(loc.y + 1);
+
+    gridDimX = std::max(gridDimX, loc.x + 1);
+    gridDimY = std::max(gridDimY, loc.x + 1);
+    tileDimZ[loc.x][loc.y] = std::max(tileDimZ[loc.x][loc.y], loc.z + 1);
 }
 
 void Arch::addBelInput(IdString bel, IdString name, IdString wire)
