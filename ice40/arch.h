@@ -439,20 +439,6 @@ struct Arch : BaseCtx
         return range;
     }
 
-    BelRange getBelsByType(BelType type) const
-    {
-        BelRange range;
-// FIXME
-#if 0
-		if (type == "TYPE_A") {
-			range.b.cursor = bels_type_a_begin;
-			range.e.cursor = bels_type_a_end;
-		}
-		...
-#endif
-        return range;
-    }
-
     Loc getBelLocation(BelId bel) const
     {
         Loc loc;

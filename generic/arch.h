@@ -84,7 +84,6 @@ struct Arch : BaseCtx
     std::unordered_map<GroupId, GroupInfo> groups;
 
     std::vector<IdString> bel_ids, wire_ids, pip_ids;
-    std::unordered_map<IdString, std::vector<IdString>> bel_ids_by_type;
 
     std::unordered_map<Loc, BelId> bel_by_loc;
     std::vector<std::vector<std::vector<BelId>>> bels_by_tile;
@@ -151,7 +150,6 @@ struct Arch : BaseCtx
     IdString getBoundBelCell(BelId bel) const;
     IdString getConflictingBelCell(BelId bel) const;
     const std::vector<BelId> &getBels() const;
-    const std::vector<BelId> &getBelsByType(BelType type) const;
     BelType getBelType(BelId bel) const;
     WireId getBelPinWire(BelId bel, PortPin pin) const;
     PortType getBelPinType(BelId bel, PortPin pin) const;

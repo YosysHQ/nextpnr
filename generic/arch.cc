@@ -75,8 +75,6 @@ void Arch::addBel(IdString name, IdString type, Loc loc, bool gb)
     bi.gb = gb;
 
     bel_ids.push_back(name);
-    bel_ids_by_type[type].push_back(name);
-
     bel_by_loc[loc] = name;
 
     if (bels_by_tile.size() <= loc.x)
@@ -224,14 +222,6 @@ IdString Arch::getBoundBelCell(BelId bel) const { return bels.at(bel).bound_cell
 IdString Arch::getConflictingBelCell(BelId bel) const { return bels.at(bel).bound_cell; }
 
 const std::vector<BelId> &Arch::getBels() const { return bel_ids; }
-
-const std::vector<BelId> &Arch::getBelsByType(BelType type) const
-{
-    static std::vector<BelId> empty_list;
-    if (bel_ids_by_type.count(type))
-        return bel_ids_by_type.at(type);
-    return empty_list;
-}
 
 BelType Arch::getBelType(BelId bel) const { return bels.at(bel).type; }
 
