@@ -206,7 +206,7 @@ BelRange Arch::getBelsAtSameTile(BelId bel) const
     return br;
 }
 
-WireId Arch::getWireBelPin(BelId bel, PortPin pin) const
+WireId Arch::getBelPinWire(BelId bel, PortPin pin) const
 {
     WireId ret;
 
@@ -222,6 +222,20 @@ WireId Arch::getWireBelPin(BelId bel, PortPin pin) const
         }
 
     return ret;
+}
+
+PortType Arch::getBelPinType(BelId bel, PortPin pin) const
+{
+    NPNR_ASSERT(bel != BelId());
+
+    int num_bel_wires = locInfo(bel)->bel_data[bel.index].num_bel_wires;
+    const BelWirePOD *bel_wires = locInfo(bel)->bel_data[bel.index].bel_wires.get();
+
+    for (int i = 0; i < num_bel_wires; i++)
+        if (bel_wires[i].port == pin)
+            return PortType(bel_wires[i].type);
+
+    return PORT_INOUT;
 }
 
 // -----------------------------------------------------------------------
@@ -314,6 +328,60 @@ std::string Arch::getBelPackagePin(BelId bel) const
     }
     return "";
 }
+
+std::vector<PortPin> Arch::getBelPins(BelId bel) const
+
+{
+    std::vector<PortPin> ret;
+    NPNR_ASSERT(bel != BelId());
+
+    int num_bel_wires = locInfo(bel)->bel_data[bel.index].num_bel_wires;
+    const BelWirePOD *bel_wires = locInfo(bel)->bel_data[bel.index].bel_wires.get();
+
+    for (int i = 0; i < num_bel_wires; i++)
+        ret.push_back(bel_wires[i].port);
+
+    return ret;
+}
+
+BelId Arch::getBelByLocation(Loc loc) const
+{
+    if (loc.x >= chip_info->width || loc.y >= chip_info->height)
+        return BelId();
+    const LocationTypePOD &locI = chip_info->locations[chip_info->location_type[loc.y * chip_info->width + loc.x]];
+    for (int i = 0; i < locI.num_bels; i++) {
+        if (locI.bel_data[i].z == loc.z) {
+            BelId bi;
+            bi.location.x = loc.x;
+            bi.location.y = loc.y;
+            bi.index = i;
+            return bi;
+        }
+    }
+    return BelId();
+}
+
+BelRange Arch::getBelsByTile(int x, int y) const
+{
+    BelRange br;
+
+    int num_bels = 0;
+
+    if (x < chip_info->width && y < chip_info->height) {
+        const LocationTypePOD &locI = chip_info->locations[chip_info->location_type[y * chip_info->width + x]];
+        num_bels = locI.num_bels;
+    }
+
+    br.b.cursor_tile = y * chip_info->width + x;
+    br.e.cursor_tile = y * chip_info->width + x;
+    br.b.cursor_index = 0;
+    br.e.cursor_index = num_bels - 1;
+    br.b.chip = chip_info;
+    br.e.chip = chip_info;
+    ++br.e;
+    return br;
+}
+
 // -----------------------------------------------------------------------
 
 void Arch::estimatePosition(BelId bel, int &x, int &y, bool &gb) const
@@ -325,7 +393,7 @@ void Arch::estimatePosition(BelId bel, int &x, int &y, bool &gb) const
 
 delay_t Arch::estimateDelay(WireId src, WireId dst) const
 {
-    return abs(src.location.x - dst.location.x) + abs(src.location.y - dst.location.y);
+    return 200 * (abs(src.location.x - dst.location.x) + abs(src.location.y - dst.location.y));
 }
 
 delay_t Arch::getBudgetOverride(const PortRef& pr, delay_t v) const

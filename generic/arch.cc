@@ -62,28 +62,38 @@ void Arch::addAlias(IdString name, IdString srcWire, IdString dstWire, DelayInfo
     pip_ids.push_back(name);
 }
 
-void Arch::addBel(IdString name, IdString type, int x, int y, int z, bool gb)
+void Arch::addBel(IdString name, IdString type, Loc loc, bool gb)
 {
-    Loc loc;
-    loc.x = x;
-    loc.y = y;
-    loc.z = z;
-
     NPNR_ASSERT(bels.count(name) == 0);
     NPNR_ASSERT(bel_by_loc.count(loc) == 0);
     BelInfo &bi = bels[name];
     bi.name = name;
     bi.type = type;
-    bi.x = x;
-    bi.y = y;
-    bi.z = z;
+    bi.x = loc.x;
+    bi.y = loc.y;
+    bi.z = loc.z;
     bi.gb = gb;
 
     bel_ids.push_back(name);
-    bel_ids_by_type[type].push_back(name);
-
     bel_by_loc[loc] = name;
-    bels_by_tile[x][y].push_back(name);
+
+    if (bels_by_tile.size() <= loc.x)
+        bels_by_tile.resize(loc.x + 1);
+
+    if (bels_by_tile[loc.x].size() <= loc.y)
+        bels_by_tile[loc.x].resize(loc.y + 1);
+
+    bels_by_tile[loc.x][loc.y].push_back(name);
+
+    if (tileDimZ.size() <= loc.x)
+        tileDimZ.resize(loc.x + 1);
+
+    if (tileDimZ[loc.x].size() <= loc.y)
+        tileDimZ[loc.x].resize(loc.y + 1);
+
+    gridDimX = std::max(gridDimX, loc.x + 1);
+    gridDimY = std::max(gridDimY, loc.x + 1);
+    tileDimZ[loc.x][loc.y] = std::max(tileDimZ[loc.x][loc.y], loc.z + 1);
 }
 
 void Arch::addBelInput(IdString bel, IdString name, IdString wire)
@@ -95,6 +105,7 @@ void Arch::addBelInput(IdString bel, IdString name, IdString wire)
     pi.type = PORT_IN;
 
     wires.at(wire).downhill_bel_pins.push_back(BelPin{bel, name});
+    wires.at(wire).bel_pins.push_back(BelPin{bel, name});
 }
 
 void Arch::addBelOutput(IdString bel, IdString name, IdString wire)
@@ -106,6 +117,7 @@ void Arch::addBelOutput(IdString bel, IdString name, IdString wire)
     pi.type = PORT_OUT;
 
     wires.at(wire).uphill_bel_pin = BelPin{bel, name};
+    wires.at(wire).bel_pins.push_back(BelPin{bel, name});
 }
 
 void Arch::addBelInout(IdString bel, IdString name, IdString wire)
@@ -117,6 +129,7 @@ void Arch::addBelInout(IdString bel, IdString name, IdString wire)
     pi.type = PORT_INOUT;
 
     wires.at(wire).downhill_bel_pins.push_back(BelPin{bel, name});
+    wires.at(wire).bel_pins.push_back(BelPin{bel, name});
 }
 
 void Arch::addGroupBel(IdString group, IdString bel) { groups[group].bels.push_back(bel); }
@@ -210,21 +223,18 @@ IdString Arch::getConflictingBelCell(BelId bel) const { return bels.at(bel).boun
 
 const std::vector<BelId> &Arch::getBels() const { return bel_ids; }
 
-const std::vector<BelId> &Arch::getBelsByType(BelType type) const
-{
-    static std::vector<BelId> empty_list;
-    if (bel_ids_by_type.count(type))
-        return bel_ids_by_type.at(type);
-    return empty_list;
-}
-
 BelType Arch::getBelType(BelId bel) const { return bels.at(bel).type; }
 
-WireId Arch::getWireBelPin(BelId bel, PortPin pin) const { return bels.at(bel).pins.at(pin).wire; }
+WireId Arch::getBelPinWire(BelId bel, PortPin pin) const { return bels.at(bel).pins.at(pin).wire; }
 
-BelPin Arch::getBelPinUphill(WireId wire) const { return wires.at(wire).uphill_bel_pin; }
+PortType Arch::getBelPinType(BelId bel, PortPin pin) const { return bels.at(bel).pins.at(pin).type; }
 
-const std::vector<BelPin> &Arch::getBelPinsDownhill(WireId wire) const { return wires.at(wire).downhill_bel_pins; }
+std::vector<PortPin> Arch::getBelPins(BelId bel) const
+{
+    std::vector<PortPin> ret;
+    for (auto &it : bels.at(bel).pins)
+        ret.push_back(it.first);
+}
 
 // ---------------------------------------------------------------
 
@@ -271,6 +281,8 @@ bool Arch::checkWireAvail(WireId wire) const { return wires.at(wire).bound_net =
 IdString Arch::getBoundWireNet(WireId wire) const { return wires.at(wire).bound_net; }
 
 IdString Arch::getConflictingWireNet(WireId wire) const { return wires.at(wire).bound_net; }
+
+const std::vector<BelPin> &Arch::getWireBelPins(WireId wire) const { return wires.at(wire).bel_pins; }
 
 const std::vector<WireId> &Arch::getWires() const { return wire_ids; }
 

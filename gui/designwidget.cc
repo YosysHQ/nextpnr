@@ -497,6 +497,14 @@ void DesignWidget::onItemSelectionChanged()
         addProperty(topItem, QVariant::String, "Conflicting Cell", ctx->getConflictingBelCell(bel).c_str(ctx),
                     ElementType::CELL);
 
+        QtProperty *belpinsItem = addSubGroup(topItem, "Ports");
+        for (const auto &item : ctx->getBelPins(bel)) {
+            QtProperty *portInfoItem = addSubGroup(belpinsItem, ctx->portPinToId(item).c_str(ctx));
+            addProperty(portInfoItem, QVariant::String, "Name", ctx->portPinToId(item).c_str(ctx));
+            addProperty(portInfoItem, QVariant::Int, "Type", int(ctx->getBelPinType(bel, item)));
+            WireId wire = ctx->getBelPinWire(bel, item);
+            addProperty(portInfoItem, QVariant::String, "Wire", ctx->getWireName(wire).c_str(ctx), ElementType::WIRE);
+        }
     } else if (type == ElementType::WIRE) {
         WireId wire = ctx->getWireByName(c);
         QtProperty *topItem = addTopLevelProperty("Wire");
@@ -515,23 +523,14 @@ void DesignWidget::onItemSelectionChanged()
         addProperty(delayItem, QVariant::Double, "Min Fall", delay.minFallDelay());
         addProperty(delayItem, QVariant::Double, "Max Fall", delay.maxFallDelay());
 
-        QtProperty *belpinItem = addSubGroup(topItem, "BelPin Uphill");
-        BelPin uphill = ctx->getBelPinUphill(wire);
-        if (uphill.bel != BelId())
-            addProperty(belpinItem, QVariant::String, "Bel", ctx->getBelName(uphill.bel).c_str(ctx), ElementType::BEL);
-        else
-            addProperty(belpinItem, QVariant::String, "Bel", "", ElementType::BEL);
-
-        addProperty(belpinItem, QVariant::String, "PortPin", ctx->portPinToId(uphill.pin).c_str(ctx), ElementType::BEL);
-
-        QtProperty *downhillItem = addSubGroup(topItem, "BelPin Downhill");
-        for (const auto &item : ctx->getBelPinsDownhill(wire)) {
+        QtProperty *belpinsItem = addSubGroup(topItem, "BelPins");
+        for (const auto &item : ctx->getWireBelPins(wire)) {
             QString belname = "";
             if (item.bel != BelId())
                 belname = ctx->getBelName(item.bel).c_str(ctx);
             QString pinname = ctx->portPinToId(item.pin).c_str(ctx);
 
-            QtProperty *dhItem = addSubGroup(downhillItem, belname + "-" + pinname);
+            QtProperty *dhItem = addSubGroup(belpinsItem, belname + "-" + pinname);
             addProperty(dhItem, QVariant::String, "Bel", belname, ElementType::BEL);
             addProperty(dhItem, QVariant::String, "PortPin", pinname);
         }

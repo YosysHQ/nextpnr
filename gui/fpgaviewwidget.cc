@@ -241,26 +241,26 @@ void LineShader::draw(const LineShaderData &line, const QColor &color, float thi
 }
 
 FPGAViewWidget::FPGAViewWidget(QWidget *parent)
-        : QOpenGLWidget(parent), lineShader_(this), zoom_(500.f), ctx_(nullptr), selectedItemsChanged_(false)
+        : QOpenGLWidget(parent), lineShader_(this), zoom_(500.f), ctx_(nullptr), paintTimer_(this),
+          rendererData_(new FPGAViewWidget::RendererData), rendererArgs_(new FPGAViewWidget::RendererArgs)
 {
-    backgroundColor_ = QColor("#000000");
-    gridColor_ = QColor("#333");
-    gFrameColor_ = QColor("#d0d0d0");
-    gHiddenColor_ = QColor("#606060");
-    gInactiveColor_ = QColor("#303030");
-    gActiveColor_ = QColor("#f0f0f0");
-    gSelectedColor_ = QColor("#ff6600");
-    frameColor_ = QColor("#0066ba");
-    highlightColors[0] = QColor("#6495ed");
-    highlightColors[1] = QColor("#7fffd4");
-    highlightColors[2] = QColor("#98fb98");
-    highlightColors[3] = QColor("#ffd700");
-    highlightColors[4] = QColor("#cd5c5c");
-    highlightColors[5] = QColor("#fa8072");
-    highlightColors[6] = QColor("#ff69b4");
-    highlightColors[7] = QColor("#da70d6");
-    for (int i = 0; i < 8; i++)
-        highlightItemsChanged_[i] = false;
+    colors_.background = QColor("#000000");
+    colors_.grid = QColor("#333");
+    colors_.frame = QColor("#d0d0d0");
+    colors_.hidden = QColor("#606060");
+    colors_.inactive = QColor("#303030");
+    colors_.active = QColor("#f0f0f0");
+    colors_.selected = QColor("#ff6600");
+    colors_.highlight[0] = QColor("#6495ed");
+    colors_.highlight[1] = QColor("#7fffd4");
+    colors_.highlight[2] = QColor("#98fb98");
+    colors_.highlight[3] = QColor("#ffd700");
+    colors_.highlight[4] = QColor("#cd5c5c");
+    colors_.highlight[5] = QColor("#fa8072");
+    colors_.highlight[6] = QColor("#ff69b4");
+    colors_.highlight[7] = QColor("#da70d6");
+
+    rendererArgs_->highlightedOrSelectedChanged = false;
 
     auto fmt = format();
     fmt.setMajorVersion(3);
@@ -268,7 +268,6 @@ FPGAViewWidget::FPGAViewWidget(QWidget *parent)
     setFormat(fmt);
 
     fmt = format();
-    // printf("FPGAViewWidget running on OpenGL %d.%d\n", fmt.majorVersion(), fmt.minorVersion());
     if (fmt.majorVersion() < 3) {
         printf("Could not get OpenGL 3.0 context. Aborting.\n");
         log_abort();
@@ -276,6 +275,13 @@ FPGAViewWidget::FPGAViewWidget(QWidget *parent)
     if (fmt.minorVersion() < 1) {
         printf("Could not get OpenGL 3.1 context - trying anyway...\n ");
     }
+
+    connect(&paintTimer_, SIGNAL(timeout()), this, SLOT(update()));
+    paintTimer_.start(1000 / 20); // paint GL 20 times per second
+
+    renderRunner_ = std::unique_ptr<PeriodicRunner>(new PeriodicRunner(this, [this] { renderLines(); }));
+    renderRunner_->start();
+    renderRunner_->startTimer(1000 / 2); // render lines 2 times per second
 }
 
 FPGAViewWidget::~FPGAViewWidget() {}
@@ -283,8 +289,7 @@ FPGAViewWidget::~FPGAViewWidget() {}
 void FPGAViewWidget::newContext(Context *ctx)
 {
     ctx_ = ctx;
-    selectedItems_.clear();
-    update();
+    pokeRenderer();
 }
 
 QSize FPGAViewWidget::minimumSizeHint() const { return QSize(640, 480); }
@@ -297,7 +302,8 @@ void FPGAViewWidget::initializeGL()
         log_error("Could not compile shader.\n");
     }
     initializeOpenGLFunctions();
-    glClearColor(backgroundColor_.red() / 255, backgroundColor_.green() / 255, backgroundColor_.blue() / 255, 0.0);
+    glClearColor(colors_.background.red() / 255, colors_.background.green() / 255, colors_.background.blue() / 255,
+                 0.0);
 }
 
 void FPGAViewWidget::drawDecal(LineShaderData &out, const DecalXY &decal)
@@ -398,67 +404,143 @@ void FPGAViewWidget::paintGL()
         PolyLine(-100.0f, i, 100.0f, i).build(grid);
         PolyLine(i, -100.0f, i, 100.0f).build(grid);
     }
-    lineShader_.draw(grid, gridColor_, thick1Px, matrix);
+    lineShader_.draw(grid, colors_.grid, thick1Px, matrix);
 
-    LineShaderData shaders[4] = {LineShaderData(), LineShaderData(), LineShaderData(), LineShaderData()};
+    rendererDataLock_.lock();
+    lineShader_.draw(rendererData_->decals[0], colors_.frame, thick11Px, matrix);
+    lineShader_.draw(rendererData_->decals[1], colors_.hidden, thick11Px, matrix);
+    lineShader_.draw(rendererData_->decals[2], colors_.inactive, thick11Px, matrix);
+    lineShader_.draw(rendererData_->decals[3], colors_.active, thick11Px, matrix);
 
-    if (ctx_) {
-        // Draw Bels.
+    for (int i = 0; i < 8; i++)
+        lineShader_.draw(rendererData_->highlighted[i], colors_.highlight[i], thick11Px, matrix);
+
+    lineShader_.draw(rendererData_->selected, colors_.selected, thick11Px, matrix);
+    rendererDataLock_.unlock();
+}
+
+void FPGAViewWidget::pokeRenderer(void) { renderRunner_->poke(); }
+
+void FPGAViewWidget::renderLines(void)
+{
+    if (ctx_ == nullptr)
+        return;
+
+    ctx_->lock_ui();
+
+    // For now, collapse any decal changes into change of all decals.
+    // TODO(q3k): fix this
+    bool decalsChanged = false;
+    if (ctx_->allUiReload) {
+        ctx_->allUiReload = false;
+        decalsChanged = true;
+    }
+    if (ctx_->frameUiReload) {
+        ctx_->frameUiReload = false;
+        decalsChanged = true;
+    }
+    if (ctx_->belUiReload.size() > 0) {
+        ctx_->belUiReload.clear();
+        decalsChanged = true;
+    }
+    if (ctx_->wireUiReload.size() > 0) {
+        ctx_->wireUiReload.clear();
+        decalsChanged = true;
+    }
+    if (ctx_->pipUiReload.size() > 0) {
+        ctx_->pipUiReload.clear();
+        decalsChanged = true;
+    }
+    if (ctx_->groupUiReload.size() > 0) {
+        ctx_->groupUiReload.clear();
+        decalsChanged = true;
+    }
+
+    // Local copy of decals, taken as fast as possible to not block the P&R.
+    std::vector<DecalXY> belDecals;
+    std::vector<DecalXY> wireDecals;
+    std::vector<DecalXY> pipDecals;
+    std::vector<DecalXY> groupDecals;
+    if (decalsChanged) {
         for (auto bel : ctx_->getBels()) {
-            drawDecal(shaders, ctx_->getBelDecal(bel));
+            belDecals.push_back(ctx_->getBelDecal(bel));
+        }
+        for (auto wire : ctx_->getWires()) {
+            wireDecals.push_back(ctx_->getWireDecal(wire));
+        }
+        for (auto pip : ctx_->getPips()) {
+            pipDecals.push_back(ctx_->getPipDecal(pip));
+        }
+        for (auto group : ctx_->getGroups()) {
+            groupDecals.push_back(ctx_->getGroupDecal(group));
+        }
+    }
+    ctx_->unlock_ui();
+
+    rendererArgsLock_.lock();
+    auto selectedItems = rendererArgs_->selectedItems;
+    auto highlightedItems = rendererArgs_->highlightedItems;
+    auto highlightedOrSelectedChanged = rendererArgs_->highlightedOrSelectedChanged;
+    rendererArgs_->highlightedOrSelectedChanged = false;
+    rendererArgsLock_.unlock();
+
+    if (decalsChanged) {
+        auto data = std::unique_ptr<FPGAViewWidget::RendererData>(new FPGAViewWidget::RendererData);
+        // Draw Bels.
+        for (auto const &decal : belDecals) {
+            drawDecal(data->decals, decal);
         }
         // Draw Wires.
-        for (auto wire : ctx_->getWires()) {
-            drawDecal(shaders, ctx_->getWireDecal(wire));
+        for (auto const &decal : wireDecals) {
+            drawDecal(data->decals, decal);
         }
         // Draw Pips.
-        for (auto pip : ctx_->getPips()) {
-            drawDecal(shaders, ctx_->getPipDecal(pip));
+        for (auto const &decal : pipDecals) {
+            drawDecal(data->decals, decal);
         }
         // Draw Groups.
-        for (auto group : ctx_->getGroups()) {
-            drawDecal(shaders, ctx_->getGroupDecal(group));
+        for (auto const &decal : groupDecals) {
+            drawDecal(data->decals, decal);
         }
 
-        if (selectedItemsChanged_) {
-            selectedItemsChanged_ = false;
-            selectedShader_.clear();
-            for (auto decal : selectedItems_) {
-                drawDecal(selectedShader_, decal);
-            }
+        // Swap over.
+        rendererDataLock_.lock();
+        rendererData_ = std::move(data);
+        rendererDataLock_.unlock();
+    }
+
+    rendererDataLock_.lock();
+    if (decalsChanged || highlightedOrSelectedChanged) {
+        rendererData_->selected.clear();
+        for (auto &decal : selectedItems) {
+            drawDecal(rendererData_->selected, decal);
         }
         for (int i = 0; i < 8; i++) {
-            if (highlightItemsChanged_[i]) {
-                highlightItemsChanged_[i] = false;
-                highlightShader_[i].clear();
-                for (auto decal : highlightItems_[i]) {
-                    drawDecal(highlightShader_[i], decal);
-                }
+            rendererData_->highlighted[i].clear();
+            for (auto &decal : highlightedItems[i]) {
+                drawDecal(rendererData_->highlighted[i], decal);
             }
         }
     }
-
-    lineShader_.draw(shaders[0], gFrameColor_, thick11Px, matrix);
-    lineShader_.draw(shaders[1], gHiddenColor_, thick11Px, matrix);
-    lineShader_.draw(shaders[2], gInactiveColor_, thick11Px, matrix);
-    lineShader_.draw(shaders[3], gActiveColor_, thick11Px, matrix);
-    for (int i = 0; i < 8; i++)
-        lineShader_.draw(highlightShader_[i], highlightColors[i], thick11Px, matrix);
-    lineShader_.draw(selectedShader_, gSelectedColor_, thick11Px, matrix);
+    rendererDataLock_.unlock();
 }
 
 void FPGAViewWidget::onSelectedArchItem(std::vector<DecalXY> decals)
 {
-    selectedItems_ = decals;
-    selectedItemsChanged_ = true;
-    update();
+    rendererArgsLock_.lock();
+    rendererArgs_->selectedItems = decals;
+    rendererArgs_->highlightedOrSelectedChanged = true;
+    rendererArgsLock_.unlock();
+    pokeRenderer();
 }
 
 void FPGAViewWidget::onHighlightGroupChanged(std::vector<DecalXY> decals, int group)
 {
-    highlightItems_[group] = decals;
-    highlightItemsChanged_[group] = true;
-    update();
+    rendererArgsLock_.lock();
+    rendererArgs_->highlightedItems[group] = decals;
+    rendererArgs_->highlightedOrSelectedChanged = true;
+    rendererArgsLock_.unlock();
+    pokeRenderer();
 }
 
 void FPGAViewWidget::resizeGL(int width, int height) {}

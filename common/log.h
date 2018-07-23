@@ -69,17 +69,13 @@ NPNR_NORETURN void log_cmd_error(const char *format, ...) NPNR_ATTRIBUTE(format(
 void log_break();
 void log_flush();
 
-#ifndef NDEBUG
 static inline void log_assert_worker(bool cond, const char *expr, const char *file, int line)
 {
     if (!cond)
         log_error("Assert `%s' failed in %s:%d.\n", expr, file, line);
 }
 #define log_assert(_assert_expr_)                                                                                      \
-    YOSYS_NAMESPACE_PREFIX log_assert_worker(_assert_expr_, #_assert_expr_, __FILE__, __LINE__)
-#else
-#define log_assert(_assert_expr_)
-#endif
+    NEXTPNR_NAMESPACE_PREFIX log_assert_worker(_assert_expr_, #_assert_expr_, __FILE__, __LINE__)
 
 #define log_abort() log_error("Abort in %s:%d.\n", __FILE__, __LINE__)
 #define log_ping() log("-- %s:%d %s --\n", __FILE__, __LINE__, __PRETTY_FUNCTION__)
