@@ -107,6 +107,7 @@ int main(int argc, char *argv[])
         options.add_options()("seed", po::value<int>(), "seed value for random number generator");
         options.add_options()("version,V", "show version");
         options.add_options()("tmfuzz", "run path delay estimate fuzzer");
+        options.add_options()("test", "check architecture database integrity");
 #ifdef ICE40_HX1K_ONLY
         options.add_options()("hx1k", "set device type to iCE40HX1K");
 #else
@@ -315,6 +316,9 @@ int main(int argc, char *argv[])
             std::cout << "</svg>\n";
         }
 
+        if (vm.count("test"))
+            ctx->archcheck();
+
         if (vm.count("tmfuzz")) {
             std::vector<WireId> src_wires, dst_wires;
 
@@ -360,8 +364,10 @@ int main(int argc, char *argv[])
                        ctx->chip_info->wire_data[dst.index].type);
             }
         }
+
         if (vm.count("freq"))
             ctx->target_freq = vm["freq"].as<double>() * 1e6;
+
         ctx->timing_driven = true;
         if (vm.count("no-tmdriv"))
             ctx->timing_driven = false;

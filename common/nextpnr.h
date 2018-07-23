@@ -472,6 +472,7 @@ struct Context : Arch, DeterministicRNG
     uint32_t checksum() const;
 
     void check() const;
+    void archcheck() const;
 };
 
 NEXTPNR_NAMESPACE_END
