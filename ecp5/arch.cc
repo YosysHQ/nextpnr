@@ -344,6 +344,42 @@ std::vector<PortPin> Arch::getBelPins(BelId bel) const
     return ret;
 }
 
+BelId Arch::getBelByLocation(Loc loc) const {
+    if (loc.x >= chip_info->width || loc.y >= chip_info->height)
+        return BelId();
+    const LocationTypePOD &locI = chip_info->locations[chip_info->location_type[loc.y * chip_info->width + loc.x]];
+    for (int i = 0; i < locI.num_bels; i++) {
+        if (locI.bel_data[i].z == loc.z) {
+            BelId bi;
+            bi.location.x = loc.x;
+            bi.location.y = loc.y;
+            bi.index = i;
+            return bi;
+        }
+    }
+    return BelId();
+}
+
+BelRange Arch::getBelsByTile(int x, int y) const {
+    BelRange br;
+
+    int num_bels = 0;
+
+    if (x < chip_info->width && y < chip_info->height) {
+        const LocationTypePOD &locI = chip_info->locations[chip_info->location_type[y * chip_info->width + x]];
+        num_bels = locI.num_bels;
+    }
+
+    br.b.cursor_tile = y * chip_info->width + x;
+    br.e.cursor_tile = y * chip_info->width + x;
+    br.b.cursor_index = 0;
+    br.e.cursor_index = num_bels - 1;
+    br.b.chip = chip_info;
+    br.e.chip = chip_info;
+    ++br.e;
+    return br;
+}
+
 // -----------------------------------------------------------------------
 
 void Arch::estimatePosition(BelId bel, int &x, int &y, bool &gb) const

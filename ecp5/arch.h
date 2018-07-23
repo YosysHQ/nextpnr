@@ -426,6 +426,20 @@ struct Arch : BaseCtx
         bel_to_cell[bel] = IdString();
     }
 
+    Loc getBelLocation(BelId bel) const
+    {
+        Loc loc;
+        loc.x = bel.location.x;
+        loc.y = bel.location.y;
+        loc.z = locInfo(bel)->bel_data[bel.index].z;
+        return loc;
+    }
+
+    BelId getBelByLocation(Loc loc) const;
+    BelRange getBelsByTile(int x, int y) const;
+
+    bool getBelGlobalBuf(BelId bel) const { return false; }
+
     bool checkBelAvail(BelId bel) const
     {
         NPNR_ASSERT(bel != BelId());
