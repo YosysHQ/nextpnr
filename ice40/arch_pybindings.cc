@@ -82,12 +82,10 @@ void arch_wrap_python()
     fn_wrapper_1a<Context, decltype(&Context::getBelsAtSameTile), &Context::getBelsAtSameTile, wrap_context<BelRange>,
                   conv_from_str<BelId>>::def_wrap(ctx_cls, "getBelsAtSameTile");
 
-    fn_wrapper_2a<Context, decltype(&Context::getWireBelPin), &Context::getWireBelPin, conv_to_str<WireId>,
-                  conv_from_str<BelId>, conv_from_str<PortPin>>::def_wrap(ctx_cls, "getWireBelPin");
-    fn_wrapper_1a<Context, decltype(&Context::getBelPinUphill), &Context::getBelPinUphill, wrap_context<BelPin>,
-                  conv_from_str<WireId>>::def_wrap(ctx_cls, "getBelPinUphill");
-    fn_wrapper_1a<Context, decltype(&Context::getBelPinsDownhill), &Context::getBelPinsDownhill,
-                  wrap_context<BelPinRange>, conv_from_str<WireId>>::def_wrap(ctx_cls, "getBelPinsDownhill");
+    fn_wrapper_2a<Context, decltype(&Context::getBelPinWire), &Context::getBelPinWire, conv_to_str<WireId>,
+                  conv_from_str<BelId>, conv_from_str<PortPin>>::def_wrap(ctx_cls, "getBelPinWire");
+    fn_wrapper_1a<Context, decltype(&Context::getWireBelPins), &Context::getWireBelPins, wrap_context<BelPinRange>,
+                  conv_from_str<WireId>>::def_wrap(ctx_cls, "getWireBelPins");
 
     fn_wrapper_1a<Context, decltype(&Context::getWireChecksum), &Context::getWireChecksum, pass_through<uint32_t>,
                   conv_from_str<WireId>>::def_wrap(ctx_cls, "getWireChecksum");

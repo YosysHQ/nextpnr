@@ -80,6 +80,7 @@ class SAPlacer
 
         size_t placed_cells = 0;
         // Initial constraints placer
+        ctx->lock();
         for (auto &cell_entry : ctx->cells) {
             CellInfo *cell = cell_entry.second.get();
             auto loc = cell->attrs.find(ctx->id("BEL"));
@@ -118,16 +119,19 @@ class SAPlacer
         }
         std::sort(autoplaced.begin(), autoplaced.end(), [](CellInfo *a, CellInfo *b) { return a->name < b->name; });
         ctx->shuffle(autoplaced);
+        ctx->unlock();
 
         // Place cells randomly initially
         log_info("Creating initial placement for remaining %d cells.\n", int(autoplaced.size()));
 
         for (auto cell : autoplaced) {
+            ctx->lock();
             place_initial(cell);
             placed_cells++;
             if ((placed_cells - constr_placed_cells) % 500 == 0)
                 log_info("  initial placement placed %d/%d cells\n", int(placed_cells - constr_placed_cells),
                          int(autoplaced.size()));
+            ctx->unlock();
         }
         if ((placed_cells - constr_placed_cells) % 500 != 0)
             log_info("  initial placement placed %d/%d cells\n", int(placed_cells - constr_placed_cells),
@@ -136,6 +140,7 @@ class SAPlacer
         log_info("Running simulated annealing placer.\n");
 
         // Calculate metric after initial placement
+        ctx->lock();
         curr_metric = 0;
         curr_tns = 0;
         for (auto &net : ctx->nets) {
@@ -143,6 +148,7 @@ class SAPlacer
             metrics[net.first] = wl;
             curr_metric += wl;
         }
+        ctx->unlock();
 
         int n_no_progress = 0;
         double avg_metric = curr_metric;
@@ -169,6 +175,7 @@ class SAPlacer
                         try_swap_position(cell, try_bel);
                 }
             }
+
             // Heuristic to improve placement on the 8k
             if (improved)
                 n_no_progress = 0;
@@ -178,6 +185,7 @@ class SAPlacer
             if (temp <= 1e-3 && n_no_progress >= 5) {
                 if (iter % 5 != 0)
                     log_info("  at iteration #%d: temp = %f, cost = %f\n", iter, temp, double(curr_metric));
+                ctx->unlock();
                 break;
             }
 
@@ -232,8 +240,12 @@ class SAPlacer
                 metrics[net.first] = wl;
                 curr_metric += wl;
             }
+
+            // Let the UI show visualization updates.
+            ctx->yield();
         }
         // Final post-pacement validitiy check
+        ctx->lock();
         for (auto bel : ctx->getBels()) {
             IdString cell = ctx->getBoundBelCell(bel);
             if (!ctx->isBelLocationValid(bel)) {
@@ -251,6 +263,7 @@ class SAPlacer
                 }
             }
         }
+        ctx->unlock();
         return true;
     }
 
@@ -436,7 +449,9 @@ bool placer1(Context *ctx)
         placer.place();
         log_info("Checksum: 0x%08x\n", ctx->checksum());
 #ifndef NDEBUG
+        ctx->lock();
         ctx->check();
+        ctx->unlock();
 #endif
         return true;
     } catch (log_execution_error_exception) {

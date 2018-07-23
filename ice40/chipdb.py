@@ -43,6 +43,7 @@ packages = list()
 
 wire_uphill_belport = dict()
 wire_downhill_belports = dict()
+wire_belports = dict()
 
 wire_names = dict()
 wire_names_r = dict()
@@ -372,8 +373,12 @@ with open(args.filename, "r") as f:
         if line[0] == ".extra_cell":
             if len(line) >= 5:
                 mode = ("extra_cell", (line[4], int(line[1]), int(line[2]), int(line[3])))
-            else:
+            elif line[3] == "WARMBOOT":
+                mode = ("extra_cell", (line[3], int(line[1]), int(line[2]), 0))
+            elif line[3] == "PLL":
                 mode = ("extra_cell", (line[3], int(line[1]), int(line[2]), 3))
+            else:
+                assert 0
             extra_cells[mode[1]] = []
             continue
 
@@ -449,12 +454,18 @@ def add_bel_input(bel, wire, port):
     if wire not in wire_downhill_belports:
         wire_downhill_belports[wire] = set()
     wire_downhill_belports[wire].add((bel, port))
-    bel_wires[bel].append((wire, port))
+    if wire not in wire_belports:
+        wire_belports[wire] = set()
+    wire_belports[wire].add((bel, port))
+    bel_wires[bel].append((wire, port, 0))
 
 def add_bel_output(bel, wire, port):
     assert wire not in wire_uphill_belport
     wire_uphill_belport[wire] = (bel, port)
-    bel_wires[bel].append((wire, port))
+    if wire not in wire_belports:
+        wire_belports[wire] = set()
+    wire_belports[wire].add((bel, port))
+    bel_wires[bel].append((wire, port, 1))
 
 def add_bel_lc(x, y, z):
     bel = len(bel_name)
@@ -557,11 +568,14 @@ def add_bel_ram(x, y):
     add_bel_input(bel, wire_names[(x, y1, "ram/RCLKE")], "RCLKE")
     add_bel_input(bel, wire_names[(x, y1, "ram/RE")], "RE")
 
-def add_bel_gb(x, y, g):
+def add_bel_gb(xy, x, y, g):
+    if xy[0] != x or xy[1] != y:
+        return
+
     bel = len(bel_name)
     bel_name.append("X%d/Y%d/gb" % (x, y))
     bel_type.append("SB_GB")
-    bel_pos.append((x, y, 0))
+    bel_pos.append((x, y, 2))
     bel_wires.append(list())
 
     add_bel_input(bel, wire_names[(x, y, "fabout")], "USER_SIGNAL_TO_GLOBAL_BUFFER")
@@ -598,51 +612,58 @@ for tile_xy, tile_type in sorted(tiles.items()):
     if tile_type == "logic":
         for i in range(8):
             add_bel_lc(tile_xy[0], tile_xy[1], i)
+
     if tile_type == "io":
         for i in range(2):
             add_bel_io(tile_xy[0], tile_xy[1], i)
+
+        if dev_name == "1k":
+            add_bel_gb(tile_xy,  7,  0, 0)
+            add_bel_gb(tile_xy,  7, 17, 1)
+            add_bel_gb(tile_xy, 13,  9, 2)
+            add_bel_gb(tile_xy,  0,  9, 3)
+            add_bel_gb(tile_xy,  6, 17, 4)
+            add_bel_gb(tile_xy,  6,  0, 5)
+            add_bel_gb(tile_xy,  0,  8, 6)
+            add_bel_gb(tile_xy, 13,  8, 7)
+        elif dev_name == "5k":
+            add_bel_gb(tile_xy, 13,  0, 0)
+            add_bel_gb(tile_xy, 13, 31, 1)
+            add_bel_gb(tile_xy, 19, 31, 2)
+            add_bel_gb(tile_xy,  6, 31, 3)
+            add_bel_gb(tile_xy, 12, 31, 4)
+            add_bel_gb(tile_xy, 12,  0, 5)
+            add_bel_gb(tile_xy,  6,  0, 6)
+            add_bel_gb(tile_xy, 19,  0, 7)
+        elif dev_name == "8k":
+            add_bel_gb(tile_xy, 33, 16,  7)
+            add_bel_gb(tile_xy,  0, 16,  6)
+            add_bel_gb(tile_xy, 17, 33,  1)
+            add_bel_gb(tile_xy, 17,  0,  0)
+            add_bel_gb(tile_xy,  0, 17,  3)
+            add_bel_gb(tile_xy, 33, 17,  2)
+            add_bel_gb(tile_xy, 16,  0,  5)
+            add_bel_gb(tile_xy, 16, 33,  4)
+        elif dev_name == "384":
+            add_bel_gb(tile_xy,  7,  4,  7)
+            add_bel_gb(tile_xy,  0,  4,  6)
+            add_bel_gb(tile_xy,  4,  9,  1)
+            add_bel_gb(tile_xy,  4,  0,  0)
+            add_bel_gb(tile_xy,  0,  5,  3)
+            add_bel_gb(tile_xy,  7,  5,  2)
+            add_bel_gb(tile_xy,  3,  0,  5)
+            add_bel_gb(tile_xy,  3,  9,  4)
+
     if tile_type == "ramb":
         add_bel_ram(tile_xy[0], tile_xy[1])
 
-if dev_name == "1k":
-    add_bel_gb( 7,  0, 0)
-    add_bel_gb( 7, 17, 1)
-    add_bel_gb(13,  9, 2)
-    add_bel_gb( 0,  9, 3)
-    add_bel_gb( 6, 17, 4)
-    add_bel_gb( 6,  0, 5)
-    add_bel_gb( 0,  8, 6)
-    add_bel_gb(13,  8, 7)
-elif dev_name == "5k":
-    add_bel_gb(13,  0, 0)
-    add_bel_gb(13, 31, 1)
-    add_bel_gb(19, 31, 2)
-    add_bel_gb( 6, 31, 3)
-    add_bel_gb(12, 31, 4)
-    add_bel_gb(12,  0, 5)
-    add_bel_gb( 6,  0, 6)
-    add_bel_gb(19,  0, 7)
-elif dev_name == "8k":
-    add_bel_gb(33, 16,  7)
-    add_bel_gb( 0, 16,  6)
-    add_bel_gb(17, 33,  1)
-    add_bel_gb(17,  0,  0)
-    add_bel_gb( 0, 17,  3)
-    add_bel_gb(33, 17,  2)
-    add_bel_gb(16,  0,  5)
-    add_bel_gb(16, 33,  4)
-elif dev_name == "384":
-    add_bel_gb( 7,  4,  7)
-    add_bel_gb( 0,  4,  6)
-    add_bel_gb( 4,  9,  1)
-    add_bel_gb( 4,  0,  0)
-    add_bel_gb( 0,  5,  3)
-    add_bel_gb( 7,  5,  2)
-    add_bel_gb( 3,  0,  5)
-    add_bel_gb( 3,  9,  4)
+    for ec in sorted(extra_cells.keys()):
+        if ec[1] == tile_xy[0] and ec[2] == tile_xy[1]:
+            add_bel_ec(ec)
 
 for ec in sorted(extra_cells.keys()):
-    add_bel_ec(ec)
+    if ec[1] == 0 and ec[2] == 0:
+        add_bel_ec(ec)
 
 class BinaryBlobAssembler:
     def __init__(self, cname, endianness, nodebug = False):
@@ -913,6 +934,7 @@ for bel in range(len(bel_name)):
     for i in range(len(bel_wires[bel])):
         bba.u32(bel_wires[bel][i][0], "wire_index")
         bba.u32(portpins[bel_wires[bel][i][1]], "port")
+        bba.u32(bel_wires[bel][i][2], "type")
         index += 1
 
 bba.l("bel_data_%s" % dev_name, "BelInfoPOD")
@@ -988,6 +1010,15 @@ for wire in range(num_wires):
     else:
         num_bels_downhill = 0
 
+    if wire in wire_belports:
+        num_bel_pins = len(wire_belports[wire])
+        bba.l("wire%d_bels" % wire, "BelPortPOD")
+        for belport in sorted(wire_belports[wire]):
+            bba.u32(belport[0], "bel_index")
+            bba.u32(portpins[belport[1]], "port")
+    else:
+        num_bel_pins = 0
+
     info = dict()
     info["name"] = "X%d/Y%d/%s" % wire_names_r[wire]
 
@@ -999,6 +1030,9 @@ for wire in range(num_wires):
 
     info["num_bels_downhill"] = num_bels_downhill
     info["list_bels_downhill"] = ("wire%d_downbels" % wire) if num_bels_downhill > 0 else None
+
+    info["num_bel_pins"] = num_bel_pins
+    info["list_bel_pins"] = ("wire%d_bels" % wire) if num_bel_pins > 0 else None
 
     if wire in wire_uphill_belport:
         info["uphill_bel"] = wire_uphill_belport[wire][0]
@@ -1085,6 +1119,8 @@ for wire, info in enumerate(wireinfo):
     bba.u32(info["uphill_bel"], "bel_uphill.bel_index")
     bba.u32(info["uphill_pin"], "bel_uphill.port")
     bba.r(info["list_bels_downhill"], "bels_downhill")
+    bba.u32(info["num_bel_pins"], "num_bel_pins")
+    bba.r(info["list_bel_pins"], "bel_pins")
     bba.u32(len(wire_segments[wire]), "num_segments")
     if len(wire_segments[wire]):
         bba.r("wire_segments_%d" % wire, "segments")

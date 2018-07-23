@@ -50,11 +50,13 @@ NPNR_PACKED_STRUCT(struct BelWirePOD {
     LocationPOD rel_wire_loc;
     int32_t wire_index;
     PortPin port;
+    int32_t type;
 });
 
 NPNR_PACKED_STRUCT(struct BelInfoPOD {
     RelPtr<char> name;
     BelType type;
+    int32_t z;
     int32_t num_bel_wires;
     RelPtr<BelWirePOD> bel_wires;
 });
@@ -84,9 +86,8 @@ NPNR_PACKED_STRUCT(struct WireInfoPOD {
     int32_t num_uphill, num_downhill;
     RelPtr<PipLocatorPOD> pips_uphill, pips_downhill;
 
-    int32_t num_bels_downhill;
-    BelPortPOD bel_uphill;
-    RelPtr<BelPortPOD> bels_downhill;
+    int32_t num_bel_pins;
+    RelPtr<BelPortPOD> bel_pins;
 });
 
 NPNR_PACKED_STRUCT(struct LocationTypePOD {
@@ -387,6 +388,11 @@ struct Arch : BaseCtx
 
     IdString portPinToId(PortPin type) const;
     PortPin portPinFromId(IdString id) const;
+    // -------------------------------------------------
+
+    int getGridDimX() const { return chip_info->width; };
+    int getGridDimY() const { return chip_info->height; };
+    int getTileDimZ(int, int) const { return 4; };
 
     // -------------------------------------------------
 
@@ -425,6 +431,20 @@ struct Arch : BaseCtx
         bel_to_cell[bel] = IdString();
     }
 
+    Loc getBelLocation(BelId bel) const
+    {
+        Loc loc;
+        loc.x = bel.location.x;
+        loc.y = bel.location.y;
+        loc.z = locInfo(bel)->bel_data[bel.index].z;
+        return loc;
+    }
+
+    BelId getBelByLocation(Loc loc) const;
+    BelRange getBelsByTile(int x, int y) const;
+
+    bool getBelGlobalBuf(BelId bel) const { return false; }
+
     bool checkBelAvail(BelId bel) const
     {
         NPNR_ASSERT(bel != BelId());
@@ -462,20 +482,6 @@ struct Arch : BaseCtx
         return range;
     }
 
-    BelRange getBelsByType(BelType type) const
-    {
-        BelRange range;
-// FIXME
-#if 0
-        if (type == "TYPE_A") {
-			range.b.cursor = bels_type_a_begin;
-			range.e.cursor = bels_type_a_end;
-		}
-		...
-#endif
-        return range;
-    }
-
     BelRange getBelsAtSameTile(BelId bel) const;
 
     BelType getBelType(BelId bel) const
@@ -484,32 +490,20 @@ struct Arch : BaseCtx
         return locInfo(bel)->bel_data[bel.index].type;
     }
 
-    WireId getWireBelPin(BelId bel, PortPin pin) const;
+    WireId getBelPinWire(BelId bel, PortPin pin) const;
 
-    BelPin getBelPinUphill(WireId wire) const
-    {
-        BelPin ret;
-        NPNR_ASSERT(wire != WireId());
-
-        if (locInfo(wire)->wire_data[wire.index].bel_uphill.bel_index >= 0) {
-            ret.bel.index = locInfo(wire)->wire_data[wire.index].bel_uphill.bel_index;
-            ret.bel.location = wire.location + locInfo(wire)->wire_data[wire.index].bel_uphill.rel_bel_loc;
-            ret.pin = locInfo(wire)->wire_data[wire.index].bel_uphill.port;
-        }
-
-        return ret;
-    }
-
-    BelPinRange getBelPinsDownhill(WireId wire) const
+    BelPinRange getWireBelPins(WireId wire) const
     {
         BelPinRange range;
         NPNR_ASSERT(wire != WireId());
-        range.b.ptr = locInfo(wire)->wire_data[wire.index].bels_downhill.get();
+        range.b.ptr = locInfo(wire)->wire_data[wire.index].bel_pins.get();
         range.b.wire_loc = wire.location;
-        range.e.ptr = range.b.ptr + locInfo(wire)->wire_data[wire.index].num_bels_downhill;
+        range.e.ptr = range.b.ptr + locInfo(wire)->wire_data[wire.index].num_bel_pins;
         range.e.wire_loc = wire.location;
         return range;
     }
+
+    std::vector<PortPin> getBelPins(BelId bel) const;
 
     // -------------------------------------------------
 
@@ -581,6 +575,7 @@ struct Arch : BaseCtx
     DelayInfo getWireDelay(WireId wire) const
     {
         DelayInfo delay;
+        delay.delay = 0;
         return delay;
     }
 
@@ -694,7 +689,7 @@ struct Arch : BaseCtx
     {
         DelayInfo delay;
         NPNR_ASSERT(pip != PipId());
-        delay.delay = locInfo(pip)->pip_data[pip.index].delay;
+        delay.delay = locInfo(pip)->pip_data[pip.index].delay * 100;
         return delay;
     }
 
@@ -738,6 +733,8 @@ struct Arch : BaseCtx
 
     BelId getPackagePinBel(const std::string &pin) const;
     std::string getBelPackagePin(BelId bel) const;
+
+    PortType getBelPinType(BelId bel, PortPin pin) const;
 
     // -------------------------------------------------
 
