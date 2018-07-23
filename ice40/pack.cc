@@ -3,6 +3,7 @@
  *
  *  Copyright (C) 2018  Clifford Wolf <clifford@symbioticeda.com>
  *  Copyright (C) 2018  David Shah <david@symbioticeda.com>
+ *  Copyright (C) 2018  Serge Bazanski <q3k@symbioticeda.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -673,84 +674,12 @@ static void pack_special(Context *ctx)
                 } else if (found_lut && !all_luts && lut_count < 8) {
                     // Strategy: create a pass-through LUT, move all non-LUT users behind it.
                     log_info("    LUT strategy for %s: move non-LUT users to new LUT\n", port.name.c_str(ctx));
-                    // Create pass-through LUT.
-                    std::unique_ptr<CellInfo> pt =
-                        create_ice_cell(ctx, ctx->id("ICESTORM_LC"), ci->name.str(ctx) + "$nextpnr_ice40_pack_pll_lc");
-                    packed_cells.insert(pt->name);
-                    pt->params[ctx->id("LUT_INIT")] = "255";  // all lower bits lit, so output is always I3
-
-                    // Create net to which all non-LUTs will be moved.
-                    std::unique_ptr<NetInfo> out_net = std::unique_ptr<NetInfo>(new NetInfo);
-                    out_net->name = ctx->id(ci->name.str(ctx) + "$nextnr_ice40_pack_pll_net");
-                    out_net->driver.cell = pt.get();
-                    out_net->driver.port = ctx->id("O");
-                    pt->ports.at(ctx->id("O")).net = out_net.get();
-
-                    // Move all non-LUTs to new net.
-                    std::vector<PortRef> new_users;
-                    for (const auto &user : port.net->users) {
-                        if (user.cell->type == ctx->id("ICESTORM_LC")) {
-                            new_users.push_back(user);
-                        }
-                        // Rewrite pointer into net in user.
-                        user.cell->ports[user.port].net = out_net.get();
-                        // Add user to net.
-                        PortRef pr;
-                        pr.cell = user.cell;
-                        pr.port = user.port;
-                        out_net->users.push_back(pr);
-                    }
-                    // Add LUT to new users.
-                    PortRef pr;
-                    pr.cell = pt.get();
-                    pr.port = ctx->id("I3");
-                    new_users.push_back(pr);
-                    pt->ports.at(ctx->id("I3")).net = port.net;
-
-                    // Replace users of the original net.
-                    port.net->users = new_users;
-
-                    ctx->nets[out_net->name] = std::move(out_net);
+                    auto pt = ctx->spliceLUT(packed.get(), port.name, true);
                     new_cells.push_back(std::move(pt));
                 } else {
                     // Strategy: create a pass-through LUT, move every user behind it.
                     log_info("    LUT strategy for %s: move all users to new LUT\n", port.name.c_str(ctx));
-                    // Create pass-through LUT.
-                    std::unique_ptr<CellInfo> pt =
-                        create_ice_cell(ctx, ctx->id("ICESTORM_LC"), ci->name.str(ctx) + "$nextpnr_ice40_pack_pll_lc");
-                    packed_cells.insert(pt->name);
-                    pt->params[ctx->id("LUT_INIT")] = "255";  // all lower bits lit, so output is always I3
-
-                    // Create net to which all current users will be moved.
-                    std::unique_ptr<NetInfo> out_net = std::unique_ptr<NetInfo>(new NetInfo);
-                    out_net->name = ctx->id(ci->name.str(ctx) + "$nextnr_ice40_pack_pll_net");
-                    out_net->driver.cell = pt.get();
-                    out_net->driver.port = ctx->id("O");
-                    pt->ports.at(ctx->id("O")).net = out_net.get();
-
-                    // Move all users to new net.
-                    for (const auto &user : port.net->users) {
-                        // Rewrite pointer into net in user.
-                        user.cell->ports[user.port].net = out_net.get();
-                        // Add user to net.
-                        PortRef pr;
-                        pr.cell = user.cell;
-                        pr.port = user.port;
-                        out_net->users.push_back(pr);
-                    }
-
-                    // Add LUT to new users.
-                    std::vector<PortRef> new_users;
-                    PortRef pr;
-                    pr.cell = pt.get();
-                    pr.port = ctx->id("I3");
-                    new_users.push_back(pr);
-                    pt->ports.at(ctx->id("I3")).net = port.net;
-
-                    // Replace users of the original net.
-                    port.net->users = new_users;
-
-                    ctx->nets[out_net->name] = std::move(out_net);
+                    auto pt = ctx->spliceLUT(packed.get(), port.name, false);
                     new_cells.push_back(std::move(pt));
                 }
 
