@@ -56,6 +56,7 @@ NPNR_PACKED_STRUCT(struct BelWirePOD {
 NPNR_PACKED_STRUCT(struct BelInfoPOD {
     RelPtr<char> name;
     BelType type;
+    int32_t z;
     int32_t num_bel_wires;
     RelPtr<BelWirePOD> bel_wires;
 });
@@ -84,10 +85,6 @@ NPNR_PACKED_STRUCT(struct WireInfoPOD {
     RelPtr<char> name;
     int32_t num_uphill, num_downhill;
     RelPtr<PipLocatorPOD> pips_uphill, pips_downhill;
-
-    int32_t num_bels_downhill;
-    BelPortPOD bel_uphill;
-    RelPtr<BelPortPOD> bels_downhill;
 
     int32_t num_bel_pins;
     RelPtr<BelPortPOD> bel_pins;
