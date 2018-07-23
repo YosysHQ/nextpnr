@@ -617,7 +617,7 @@ def add_pll_clock_output(bel, ec, ec_entry):
     }
 
     wire_downhill_belports[wire_idx] = {(bel, port),}
-    bel_wires[bel].append((wire_idx, port))
+    bel_wires[bel].append((wire_idx, port, beltypes['PLL']))
 
     io_wire = wire_names[(io_x, io_y, 'io_{}/D_IN_0'.format(io_z))]
     wire_downhill[wire_idx] = {io_wire,}

@@ -613,7 +613,7 @@ static void pack_special(Context *ctx)
                                                        feedback_path == "PHASE_AND_DELAY" ? "2" :
                                                        feedback_path == "EXTERNAL" ? "6" : feedback_path;
             packed->params[ctx->id("PLLTYPE")] = std::to_string(sb_pll40_type(ctx, ci));
-            
+
             for (auto port : ci->ports) {
                 PortInfo &pi = port.second;
                 std::string newname = pi.name.str(ctx);
@@ -629,6 +629,162 @@ static void pack_special(Context *ctx)
                     newname = "PLLOUT_A";
                 replace_port(ci, ctx->id(pi.name.c_str(ctx)), packed.get(), ctx->id(newname));
             }
+
+            // If PLL is not constrained already, do that - we need this
+            // information to then constrain the LOCK LUT.
+            BelId pll_bel;
+            bool constrained = false;
+            if (packed->attrs.find(ctx->id("BEL")) == packed->attrs.end()) {
+                //FIXME replace by getBelsByType when implemented
+                for (auto bel : ctx->getBels()) {
+                    if (ctx->getBelType(bel) != TYPE_ICESTORM_PLL)
+                        continue;
+                    log_info("  constrained '%s' to %s\n", packed->name.c_str(ctx), ctx->getBelName(bel).c_str(ctx));
+                    packed->attrs[ctx->id("BEL")] = ctx->getBelName(bel).str(ctx);
+                    pll_bel = bel;
+                    constrained = true;
+                }
+                if (!constrained) {
+                    log_error("  could not constrain '%s' to any PLL Bel\n", packed->name.c_str(ctx));
+                }
+            }
+
+            // The LOCK signal on iCE40 PLLs goes through the neigh_op_bnl_1 wire.
+            // In practice, this means the LOCK signal can only directly reach LUT
+            // inputs.
+            // If we have a net connected to LOCK, make sure it only drives LUTs.
+            auto port = packed->ports[ctx->id("LOCK")];
+            if (port.net != nullptr) {
+                bool found_lut = false;
+                bool all_luts = true;
+                unsigned int lut_count = 0;
+                for (const auto &user : port.net->users) {
+                    NPNR_ASSERT(user.cell != nullptr);
+                    if (user.cell->type == ctx->id("ICESTORM_LC")) {
+                        found_lut = true;
+                        lut_count++;
+                    } else {
+                        all_luts = false;
+                    }
+                }
+
+                if (found_lut && all_luts) {
+                    // Every user is a LUT, carry on now.
+                } else if (found_lut && !all_luts && lut_count < 8) {
+                    // Strategy: create a pass-through LUT, move all non-LUT users behind it.
+                    log_info("    LUT strategy for %s: move non-LUT users to new LUT\n", port.name.c_str(ctx));
+                    // Create pass-through LUT.
+                    std::unique_ptr<CellInfo> pt =
+                        create_ice_cell(ctx, ctx->id("ICESTORM_LC"), ci->name.str(ctx) + "$nextpnr_ice40_pack_pll_lc");
+                    packed_cells.insert(pt->name);
+                    pt->params[ctx->id("LUT_INIT")] = "255";  // all lower bits lit, so output is always I3
+
+                    // Create net to which all non-LUTs will be moved.
+                    std::unique_ptr<NetInfo> out_net = std::unique_ptr<NetInfo>(new NetInfo);
+                    out_net->name = ctx->id(ci->name.str(ctx) + "$nextnr_ice40_pack_pll_net");
+                    out_net->driver.cell = pt.get();
+                    out_net->driver.port = ctx->id("O");
+                    pt->ports.at(ctx->id("O")).net = out_net.get();
+
+                    // Move all non-LUTs to new net.
+                    std::vector<PortRef> new_users;
+                    for (const auto &user : port.net->users) {
+                        if (user.cell->type == ctx->id("ICESTORM_LC")) {
+                            new_users.push_back(user);
+                        }
+                        // Rewrite pointer into net in user.
+                        user.cell->ports[user.port].net = out_net.get();
+                        // Add user to net.
+                        PortRef pr;
+                        pr.cell = user.cell;
+                        pr.port = user.port;
+                        out_net->users.push_back(pr);
+                    }
+                    // Add LUT to new users.
+                    PortRef pr;
+                    pr.cell = pt.get();
+                    pr.port = ctx->id("I3");
+                    new_users.push_back(pr);
+                    pt->ports.at(ctx->id("I3")).net = port.net;
+
+                    // Replace users of the original net.
+                    port.net->users = new_users;
+
+                    ctx->nets[out_net->name] = std::move(out_net);
+                    new_cells.push_back(std::move(pt));
+                } else {
+                    // Strategy: create a pass-through LUT, move every user behind it.
+                    log_info("    LUT strategy for %s: move all users to new LUT\n", port.name.c_str(ctx));
+                    // Create pass-through LUT.
+                    std::unique_ptr<CellInfo> pt =
+                        create_ice_cell(ctx, ctx->id("ICESTORM_LC"), ci->name.str(ctx) + "$nextpnr_ice40_pack_pll_lc");
+                    packed_cells.insert(pt->name);
+                    pt->params[ctx->id("LUT_INIT")] = "255";  // all lower bits lit, so output is always I3
+
+                    // Create net to which all current users will be moved.
+                    std::unique_ptr<NetInfo> out_net = std::unique_ptr<NetInfo>(new NetInfo);
+                    out_net->name = ctx->id(ci->name.str(ctx) + "$nextnr_ice40_pack_pll_net");
+                    out_net->driver.cell = pt.get();
+                    out_net->driver.port = ctx->id("O");
+                    pt->ports.at(ctx->id("O")).net = out_net.get();
+
+                    // Move all users to new net.
+                    for (const auto &user : port.net->users) {
+                        // Rewrite pointer into net in user.
+                        user.cell->ports[user.port].net = out_net.get();
+                        // Add user to net.
+                        PortRef pr;
+                        pr.cell = user.cell;
+                        pr.port = user.port;
+                        out_net->users.push_back(pr);
+                    }
+
+                    // Add LUT to new users.
+                    std::vector<PortRef> new_users;
+                    PortRef pr;
+                    pr.cell = pt.get();
+                    pr.port = ctx->id("I3");
+                    new_users.push_back(pr);
+                    pt->ports.at(ctx->id("I3")).net = port.net;
+
+                    // Replace users of the original net.
+                    port.net->users = new_users;
+
+                    ctx->nets[out_net->name] = std::move(out_net);
+                    new_cells.push_back(std::move(pt));
+                }
+
+                // Find wire driven by this port.
+                const auto &pll_beli = ctx->chip_info->bel_data[pll_bel.index];
+                const WireInfoPOD *wirei = nullptr;
+                for (int i = 0; i < pll_beli.num_bel_wires; i++) {
+                    auto bel_port = ctx->portPinToId(pll_beli.bel_wires[i].port);
+                    if (port.name != bel_port)
+                        continue;
+                    wirei = &ctx->chip_info->wire_data[pll_beli.bel_wires[i].wire_index];
+                    break;
+                }
+                NPNR_ASSERT(wirei != nullptr);
+
+                // Now, constrain all LUTs on the output of the signal to be at
+                // the correct Bel relative to the PLL Bel.
+                int x = wirei->x;
+                int y = wirei->y;
+                int z = 0;
+                for (const auto &user : port.net->users) {
+                    NPNR_ASSERT(user.cell != nullptr);
+                    NPNR_ASSERT(user.cell->type == ctx->id("ICESTORM_LC"));
+
+                    // TODO(q3k): handle when the Bel might be already the
+                    // target of another constraint.
+                    NPNR_ASSERT(z < 8);
+                    auto target_bel = ctx->getBelByLocation(Loc(x, y, z++));
+                    auto target_bel_name =  ctx->getBelName(target_bel).str(ctx);
+                    user.cell->attrs[ctx->id("BEL")] = target_bel_name;
+                    log_info("    constrained '%s' to %s\n", user.cell->name.c_str(ctx), target_bel_name.c_str());
+                }
+            }
+
             new_cells.push_back(std::move(packed));
         }
     }
@@ -649,6 +805,7 @@ bool Arch::pack()
         log_break();
         pack_constants(ctx);
         promote_globals(ctx);
+
         pack_io(ctx);
         pack_lut_lutffs(ctx);
         pack_nonlut_ffs(ctx);
