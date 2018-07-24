@@ -30,6 +30,7 @@
 #include <fstream>
 #include <streambuf>
 
+#include "io.h"
 #include "log.h"
 #include "util.h"
 
@@ -182,12 +183,34 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             }
         }
     }
+    // Find bank voltages
+    std::unordered_map<int, IOVoltage> bankVcc;
+    for (auto &cell : ctx->cells) {
+        CellInfo *ci = cell.second.get();
+        if (ci->bel != BelId() && ci->type == ctx->id("TRELLIS_IO")) {
+            int bank = ctx->getPioBelBank(ci->bel);
+            std::string iotype = str_or_default(ci->attrs, ctx->id("IO_TYPE"), "LVCMOS33");
+            IOVoltage vcc = get_vccio(ioType_from_str(iotype));
+            if (bankVcc.find(bank) != bankVcc.end()) {
+                // TODO: strong and weak constraints
+                if (bankVcc[bank] != vcc) {
+                    log_error("Error processing '%s': incompatible IO voltages %s and %s on bank %d.",
+                              cell.first.c_str(ctx), iovoltage_to_str(bankVcc[bank]).c_str(),
+                              iovoltage_to_str(vcc).c_str(), bank);
+                }
+            } else {
+                bankVcc[bank] = vcc;
+            }
+        }
+    }
 
-    // Set all bankref tiles to 3.3V (TODO)
+    // Set all bankref tiles to appropriate VccIO
     for (const auto &tile : empty_chip.tiles) {
         std::string type = tile.second->info.type;
         if (type.find("BANKREF") != std::string::npos && type != "BANKREF8") {
-            cc.tiles[tile.first].add_enum("BANK.VCCIO", "3V3");
+            int bank = std::stoi(type.substr(7));
+            if (bankVcc.find(bank) != bankVcc.end())
+                cc.tiles[tile.first].add_enum("BANK.VCCIO", iovoltage_to_str(bankVcc[bank]));
         }
     }
 
