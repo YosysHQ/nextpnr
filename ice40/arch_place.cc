@@ -107,26 +107,28 @@ bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const
         return logicCellsCompatible(bel_cells);
     } else if (cell->type == id_sb_io) {
         // Do not allow placement of input SB_IOs on blocks where there a PLL is outputting to.
-        for (auto iter_bel : getBels()) {
-            if (getBelType(iter_bel) != TYPE_ICESTORM_PLL)
-                continue;
-            if (checkBelAvail(iter_bel))
-                continue;
 
-            auto bel_cell = cells.at(getBoundBelCell(iter_bel)).get();
-            for (auto type : {id("PLLOUT_A"), id("PLLOUT_B")}) {
-                auto it = bel_cell->ports.find(type);
-                if (it == bel_cell->ports.end())
-                    continue;
-                if (it->second.net == nullptr)
-                    continue;
-                auto wire = getBelPinWire(iter_bel, portPinFromId(type));
-                for (auto pip : getPipsDownhill(wire)) {
-                    auto driven_wire = getPipDstWire(pip);
-                    auto io_bel = chip_info->wire_data[driven_wire.index].bels_uphill[0].bel_index;
-                    if (io_bel == bel.index) {
-                        return false;
-                    }
+        // Find shared PLL by looking for driving bel siblings from D_IN_0
+        // that are a PLL clock output.
+        auto wire = getBelPinWire(bel, PIN_D_IN_0);
+        PortPin pll_bel_pin;
+        BelId pll_bel;
+        for (auto pin : getWireBelPins(wire)) {
+            if (pin.pin == PIN_PLLOUT_A || pin.pin == PIN_PLLOUT_B) {
+                pll_bel = pin.bel;
+                pll_bel_pin = pin.pin;
+                break;
+            }
+        }
+        // Is there a PLL that shares this IO buffer?
+        if (pll_bel.index != -1) {
+            // Is a PLL placed in this PLL bel?
+            if (!checkBelAvail(pll_bel)) {
+                // Is the shared port driving a net?
+                auto pll_cell = getBoundBelCell(pll_bel);
+                auto pi = cells.at(pll_cell)->ports[portPinToId(pll_bel_pin)];
+                if (pi.net != nullptr) {
+                    return false;
                 }
             }
         }

@@ -452,26 +452,27 @@ void write_asc(const Context *ctx, std::ostream &out)
                 if (port.second.net == nullptr)
                     continue;
 
-                // Get IO Bel that this PLL port goes through.
-                // We navigate one pip downhill to the next wire (there should
-                // be only one). Then, the bel that drives that wire should be
-                // the SB_IO that we're looking for.
+                // Get IO Bel that this PLL port goes through by finding sibling
+                // Bel driving the same wire via PIN_D_IN_0.
                 auto wire = ctx->getBelPinWire(cell.second->bel, ctx->portPinFromId(port.second.name));
-                auto pips = ctx->getPipsDownhill(wire).begin();
-                auto driven_wire = ctx->getPipDstWire(*pips);
-                auto io_bel = ctx->chip_info->wire_data[driven_wire.index].bels_uphill[0].bel_index;
-                auto io_beli = ctx->chip_info->bel_data[io_bel];
-                NPNR_ASSERT(io_beli.type == TYPE_SB_IO);
+                BelId io_bel;
+                for (auto pin : ctx->getWireBelPins(wire)) {
+                    if (pin.pin == PIN_D_IN_0) {
+                        io_bel = pin.bel;
+                        break;
+                    }
+                }
+                NPNR_ASSERT(io_bel.index != -1);
+                auto io_bel_loc = ctx->getBelLocation(io_bel);
 
                 // Check that this SB_IO is either unused or just used as an output.
-                auto io_loc = Loc(io_beli.x, io_beli.y, io_beli.z);
-                if (sb_io_used_by_user.count(io_loc)) {
+                if (sb_io_used_by_user.count(io_bel_loc)) {
                     log_error("SB_IO '%s' already in use, cannot route PLL through\n", ctx->getBelName(bel).c_str(ctx));
                 }
-                sb_io_used_by_pll.insert(Loc(io_beli.x, io_beli.y, io_beli.z));
+                sb_io_used_by_pll.insert(io_bel_loc);
 
                 // Get IE/REN config location (cf. http://www.clifford.at/icestorm/io_tile.html)
-                auto ieren = get_ieren(bi, io_beli.x, io_beli.y, io_beli.z);
+                auto ieren = get_ieren(bi, io_bel_loc.x, io_bel_loc.y, io_bel_loc.z);
                 int iex, iey, iez;
                 std::tie(iex, iey, iez) = ieren;
                 NPNR_ASSERT(iez != -1);
@@ -483,8 +484,8 @@ void write_asc(const Context *ctx, std::ostream &out)
                 set_ie_bit_logical(ctx, ti, config.at(iey).at(iex), "IoCtrl.IE_" + std::to_string(iez), true);
                 set_ie_bit_logical(ctx, ti, config.at(iey).at(iex), "IoCtrl.REN_" + std::to_string(iez), false);
                 // PINTYPE[0] passes the PLL through to the fabric.
-                set_config(ti, config.at(io_beli.y).at(io_beli.x), "IOB_" + std::to_string(io_beli.z) + ".PINTYPE_0",
-                           true);
+                set_config(ti, config.at(io_bel_loc.y).at(io_bel_loc.x),
+                           "IOB_" + std::to_string(io_bel_loc.z) + ".PINTYPE_0", true);
             }
 
         } else {
