@@ -83,8 +83,8 @@ NPNR_PACKED_STRUCT(struct WireInfoPOD {
     int32_t num_uphill, num_downhill;
     RelPtr<int32_t> pips_uphill, pips_downhill;
 
-    int32_t num_bels_downhill;
-    BelPortPOD bel_uphill;
+    int32_t num_bels_uphill, num_bels_downhill;
+    RelPtr<BelPortPOD> bels_uphill;
     RelPtr<BelPortPOD> bels_downhill;
 
     int32_t num_bel_pins;

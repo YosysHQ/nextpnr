@@ -459,7 +459,7 @@ void write_asc(const Context *ctx, std::ostream &out)
                 auto wire = ctx->getBelPinWire(cell.second->bel, ctx->portPinFromId(port.second.name));
                 auto pips = ctx->getPipsDownhill(wire).begin();
                 auto driven_wire = ctx->getPipDstWire(*pips);
-                auto io_bel = ctx->chip_info->wire_data[driven_wire.index].bel_uphill.bel_index;
+                auto io_bel = ctx->chip_info->wire_data[driven_wire.index].bels_uphill[0].bel_index;
                 auto io_beli = ctx->chip_info->bel_data[io_bel];
                 NPNR_ASSERT(io_beli.type == TYPE_SB_IO);
 

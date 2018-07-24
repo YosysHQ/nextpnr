@@ -123,7 +123,7 @@ bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const
                 auto wire = getBelPinWire(iter_bel, portPinFromId(type));
                 for (auto pip : getPipsDownhill(wire)) {
                     auto driven_wire = getPipDstWire(pip);
-                    auto io_bel = chip_info->wire_data[driven_wire.index].bel_uphill.bel_index;
+                    auto io_bel = chip_info->wire_data[driven_wire.index].bels_uphill[0].bel_index;
                     if (io_bel == bel.index) {
                         return false;
                     }

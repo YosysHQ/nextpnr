@@ -41,7 +41,7 @@ extra_cells = dict()
 extra_cell_config = dict()
 packages = list()
 
-wire_uphill_belport = dict()
+wire_uphill_belports = dict()
 wire_downhill_belports = dict()
 wire_belports = dict()
 
@@ -462,8 +462,9 @@ def add_bel_input(bel, wire, port):
     bel_wires[bel].append((wire, port, 0))
 
 def add_bel_output(bel, wire, port):
-    assert wire not in wire_uphill_belport
-    wire_uphill_belport[wire] = (bel, port)
+    if wire not in wire_uphill_belports:
+        wire_uphill_belports[wire] = set()
+    wire_uphill_belports[wire].add((bel, port))
     if wire not in wire_belports:
         wire_belports[wire] = set()
     wire_belports[wire].add((bel, port))
@@ -1042,6 +1043,15 @@ for wire in range(num_wires):
         num_downhill = 0
         list_downhill = None
 
+    if wire in wire_uphill_belports:
+        num_bels_uphill = len(wire_uphill_belports[wire])
+        bba.l("wire%d_upbels" % wire, "BelPortPOD")
+        for belport in sorted(wire_uphill_belports[wire]):
+            bba.u32(belport[0], "bel_index")
+            bba.u32(portpins[belport[1]], "port")
+    else:
+        num_bels_uphill = 0
+
     if wire in wire_downhill_belports:
         num_bels_downhill = len(wire_downhill_belports[wire])
         bba.l("wire%d_downbels" % wire, "BelPortPOD")
@@ -1072,15 +1082,11 @@ for wire in range(num_wires):
     info["num_bels_downhill"] = num_bels_downhill
     info["list_bels_downhill"] = ("wire%d_downbels" % wire) if num_bels_downhill > 0 else None
 
+    info["num_bels_uphill"] = num_bels_uphill
+    info["list_bels_uphill"] = ("wire%d_upbels" % wire) if num_bels_uphill > 0 else None
+
     info["num_bel_pins"] = num_bel_pins
     info["list_bel_pins"] = ("wire%d_bels" % wire) if num_bel_pins > 0 else None
-
-    if wire in wire_uphill_belport:
-        info["uphill_bel"] = wire_uphill_belport[wire][0]
-        info["uphill_pin"] = portpins[wire_uphill_belport[wire][1]]
-    else:
-        info["uphill_bel"] = -1
-        info["uphill_pin"] = 0
 
     avg_x, avg_y = 0, 0
     if wire in wire_xy:
@@ -1156,9 +1162,9 @@ for wire, info in enumerate(wireinfo):
     bba.u32(info["num_downhill"], "num_downhill")
     bba.r(info["list_uphill"], "pips_uphill")
     bba.r(info["list_downhill"], "pips_downhill")
+    bba.u32(info["num_bels_uphill"], "num_bels_uphill")
     bba.u32(info["num_bels_downhill"], "num_bels_downhill")
-    bba.u32(info["uphill_bel"], "bel_uphill.bel_index")
-    bba.u32(info["uphill_pin"], "bel_uphill.port")
+    bba.r(info["list_bels_uphill"], "bels_uphill")
     bba.r(info["list_bels_downhill"], "bels_downhill")
     bba.u32(info["num_bel_pins"], "num_bel_pins")
     bba.r(info["list_bel_pins"], "bel_pins")
