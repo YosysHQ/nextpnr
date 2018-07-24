@@ -246,7 +246,7 @@ FPGAViewWidget::FPGAViewWidget(QWidget *parent)
 {
     colors_.background = QColor("#000000");
     colors_.grid = QColor("#333");
-    colors_.frame = QColor("#d0d0d0");
+    colors_.frame = QColor("#808080");
     colors_.hidden = QColor("#606060");
     colors_.inactive = QColor("#303030");
     colors_.active = QColor("#f0f0f0");
