@@ -291,23 +291,6 @@ BelRange Arch::getBelsByTile(int x, int y) const
     return br;
 }
 
-BelRange Arch::getBelsAtSameTile(BelId bel) const
-{
-    BelRange br;
-    NPNR_ASSERT(bel != BelId());
-    int x = chip_info->bel_data[bel.index].x;
-    int y = chip_info->bel_data[bel.index].y;
-    int start = bel.index, end = bel.index;
-    while (start >= 0 && chip_info->bel_data[start].x == x && chip_info->bel_data[start].y == y)
-        start--;
-    start++;
-    br.b.cursor = start;
-    while (end < chip_info->num_bels && chip_info->bel_data[end].x == x && chip_info->bel_data[end].y == y)
-        end++;
-    br.e.cursor = end;
-    return br;
-}
-
 PortType Arch::getBelPinType(BelId bel, PortPin pin) const
 {
     NPNR_ASSERT(bel != BelId());
@@ -481,14 +464,6 @@ std::vector<GroupId> Arch::getGroupGroups(GroupId group) const
 }
 
 // -----------------------------------------------------------------------
-
-void Arch::estimatePosition(BelId bel, int &x, int &y, bool &gb) const
-{
-    NPNR_ASSERT(bel != BelId());
-    x = chip_info->bel_data[bel.index].x;
-    y = chip_info->bel_data[bel.index].y;
-    gb = chip_info->bel_data[bel.index].type == TYPE_SB_GB;
-}
 
 delay_t Arch::estimateDelay(WireId src, WireId dst) const
 {

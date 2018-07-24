@@ -368,13 +368,6 @@ const std::vector<GroupId> &Arch::getGroupGroups(GroupId group) const { return g
 
 // ---------------------------------------------------------------
 
-void Arch::estimatePosition(BelId bel, int &x, int &y, bool &gb) const
-{
-    x = bels.at(bel).x;
-    y = bels.at(bel).y;
-    gb = bels.at(bel).gb;
-}
-
 delay_t Arch::estimateDelay(WireId src, WireId dst) const
 {
     const WireInfo &s = wires.at(src);

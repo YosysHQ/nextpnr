@@ -66,7 +66,8 @@ bool Arch::isBelLocationValid(BelId bel) const
 {
     if (getBelType(bel) == TYPE_TRELLIS_SLICE) {
         std::vector<const CellInfo *> bel_cells;
-        for (auto bel_other : getBelsAtSameTile(bel)) {
+        Loc bel_loc = getBelLocation(bel);
+        for (auto bel_other : getBelsByTile(bel_loc.x, bel_loc.y)) {
             IdString cell_other = getBoundBelCell(bel_other);
             if (cell_other != IdString()) {
                 const CellInfo *ci_other = cells.at(cell_other).get();
@@ -89,8 +90,8 @@ bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const
         NPNR_ASSERT(getBelType(bel) == TYPE_TRELLIS_SLICE);
 
         std::vector<const CellInfo *> bel_cells;
-
-        for (auto bel_other : getBelsAtSameTile(bel)) {
+        Loc bel_loc = getBelLocation(bel);
+        for (auto bel_other : getBelsByTile(bel_loc.x, bel_loc.y)) {
             IdString cell_other = getBoundBelCell(bel_other);
             if (cell_other != IdString() && bel_other != bel) {
                 const CellInfo *ci_other = cells.at(cell_other).get();
