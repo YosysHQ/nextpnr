@@ -613,7 +613,7 @@ bool router1(Context *ctx)
 
             std::unordered_set<IdString> normalRouteNets, ripupQueue;
 
-            if (iterCnt == 1 && ctx->verbose)
+            if (ctx->verbose || iterCnt == 1)
                 log_info("routing queue contains %d jobs.\n", int(jobQueue.size()));
 
             update_budget(ctx);

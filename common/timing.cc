@@ -174,16 +174,8 @@ void update_budget(Context *ctx)
             if (port.second.type == PORT_OUT) {
                 IdString clock_domain = ctx->getPortClock(cell.second.get(), port.first);
                 if (clock_domain != IdString()) {
-                    auto net = port.second.net;
-                    if (net) {
-                        delay_t delay = 0;
-                        if (port.second.name != net->driver.port) {
-                            const auto& users = net->users;
-                            auto it = std::find_if(users.begin(), users.end(), [&port](const PortRef& pr) { return pr.port == port.second.name; });
-                            delay = ctx->getNetinfoRouteDelay(net, std::distance(users.begin(), it));
-                        }
-                        follow_net_update(ctx, net, 0, delay_t(1.0e12 / ctx->target_freq - delay), updates);
-                    }
+                    if (port.second.net)
+                        follow_net_update(ctx, port.second.net, 0, delay_t(1.0e12 / ctx->target_freq), updates);
                 }
             }
         }
@@ -192,7 +184,7 @@ void update_budget(Context *ctx)
     // Update the budgets
     for (auto &net : ctx->nets) {
         for (size_t i = 0; i < net.second->users.size(); ++i) {
-            auto user = net.second->users[i];
+            auto& user = net.second->users[i];
             auto pi = &user.cell->ports.at(user.port);
             auto it = updates.find(pi);
             if (it == updates.end()) continue;
