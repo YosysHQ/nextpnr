@@ -26,10 +26,12 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-static delay_t follow_net(Context *ctx, NetInfo *net, int path_length, delay_t slack);
+typedef std::unordered_map<const PortInfo*, delay_t> UpdateMap;
+
+static delay_t follow_net(Context *ctx, NetInfo *net, int path_length, delay_t slack, UpdateMap &updates);
 
 // Follow a path, returning budget to annotate
-static delay_t follow_user_port(Context *ctx, PortRef &user, int path_length, delay_t slack)
+static delay_t follow_user_port(Context *ctx, PortRef &user, int path_length, delay_t slack, UpdateMap &updates)
 {
     delay_t value;
     if (ctx->getPortClock(user.cell, user.port) != IdString()) {
@@ -48,7 +50,7 @@ static delay_t follow_user_port(Context *ctx, PortRef &user, int path_length, de
                 if (is_path) {
                     NetInfo *net = port.second.net;
                     if (net) {
-                        delay_t path_budget = follow_net(ctx, net, path_length, slack - comb_delay);
+                        delay_t path_budget = follow_net(ctx, net, path_length, slack - comb_delay, updates);
                         value = std::min(value, path_budget);
                     }
                 }
@@ -56,23 +58,26 @@ static delay_t follow_user_port(Context *ctx, PortRef &user, int path_length, de
         }
     }
 
-    if (value < user.budget) {
-        user.budget = value;
+    auto ret = updates.emplace(&user.cell->ports.at(user.port), value);
+    if (!ret.second && value < ret.first->second) {
+        ret.first->second = value;
     }
     return value;
 }
 
-static delay_t follow_net(Context *ctx, NetInfo *net, int path_length, delay_t slack)
+static delay_t follow_net(Context *ctx, NetInfo *net, int path_length, delay_t slack, UpdateMap &updates)
 {
     delay_t net_budget = slack / (path_length + 1);
     for (auto &usr : net->users) {
-        net_budget = std::min(net_budget, follow_user_port(ctx, usr, path_length + 1, slack));
+        net_budget = std::min(net_budget, follow_user_port(ctx, usr, path_length + 1, slack, updates));
     }
     return net_budget;
 }
 
 void assign_budget(Context *ctx)
 {
+    UpdateMap updates;
+
     log_break();
     log_info("Annotating ports with timing budgets\n");
     // Clear delays to a very high value first
@@ -90,15 +95,23 @@ void assign_budget(Context *ctx)
                 if (clock_domain != IdString()) {
                     delay_t slack = delay_t(1.0e12 / ctx->target_freq); // TODO: clock constraints
                     if (port.second.net)
-                        follow_net(ctx, port.second.net, 0, slack);
+                        follow_net(ctx, port.second.net, 0, slack, updates);
                 }
             }
         }
     }
 
-    // Post-allocation check
+    // Update the budgets
     for (auto &net : ctx->nets) {
-        for (auto user : net.second->users) {
+        for (size_t i = 0; i < net.second->users.size(); ++i) {
+            auto& user = net.second->users[i];
+            auto pi = &user.cell->ports.at(user.port);
+            auto it = updates.find(pi);
+            if (it == updates.end()) continue;
+            auto budget = ctx->getNetinfoRouteDelay(net.second.get(), i) + it->second;
+            user.budget = ctx->getBudgetOverride(net.second->driver, budget);
+
+            // Post-update check
             if (user.budget < 0)
                 log_warning("port %s.%s, connected to net '%s', has negative "
                             "timing budget of %fns\n",
@@ -115,58 +128,9 @@ void assign_budget(Context *ctx)
     log_info("Checksum: 0x%08x\n", ctx->checksum());
 }
 
-typedef std::unordered_map<const PortInfo*, delay_t> updates_t;
-
-static delay_t follow_net_update(Context *ctx, NetInfo *net, int path_length, delay_t slack, updates_t& updates);
-
-// Follow a path, returning budget to annotate
-static delay_t follow_user_port_update(Context *ctx, PortRef &user, int path_length, delay_t slack, updates_t& updates)
-{
-    delay_t value;
-    if (ctx->getPortClock(user.cell, user.port) != IdString()) {
-        // At the end of a timing path (arguably, should check setup time
-        // here too)
-        value = slack / path_length;
-    } else {
-        // Default to the path ending here, if no further paths found
-        value = slack / path_length;
-        // Follow outputs of the user
-        for (auto& port : user.cell->ports) {
-            if (port.second.type == PORT_OUT) {
-                delay_t comb_delay;
-                // Look up delay through this path
-                bool is_path = ctx->getCellDelay(user.cell, user.port, port.first, comb_delay);
-                if (is_path) {
-                    NetInfo *net = port.second.net;
-                    if (net) {
-                        delay_t path_budget = follow_net_update(ctx, net, path_length, slack - comb_delay, updates);
-                        value = std::min(value, path_budget);
-                    }
-                }
-            }
-        }
-    }
-
-    auto ret = updates.emplace(&user.cell->ports.at(user.port), value);
-    if (!ret.second && value < ret.first->second) {
-        ret.first->second = value;
-    }
-    return value;
-}
-
-static delay_t follow_net_update(Context *ctx, NetInfo *net, int path_length, delay_t slack, updates_t& updates)
-{
-    delay_t net_budget = slack / (path_length + 1);
-    for (size_t i = 0; i < net->users.size(); ++i) {
-        auto& usr = net->users[i];
-        net_budget = std::min(net_budget, follow_user_port_update(ctx, usr, path_length + 1, slack - ctx->getNetinfoRouteDelay(net, i), updates));
-    }
-    return net_budget;
-}
-
 void update_budget(Context *ctx)
 {
-    updates_t updates;
+    UpdateMap updates;
 
     // Go through all clocked drivers and distribute the available path slack evenly into every budget
     for (auto &cell : ctx->cells) {
@@ -175,7 +139,7 @@ void update_budget(Context *ctx)
                 IdString clock_domain = ctx->getPortClock(cell.second.get(), port.first);
                 if (clock_domain != IdString()) {
                     if (port.second.net)
-                        follow_net_update(ctx, port.second.net, 0, delay_t(1.0e12 / ctx->target_freq), updates);
+                        follow_net(ctx, port.second.net, 0, delay_t(1.0e12 / ctx->target_freq), updates);
                 }
             }
         }
