@@ -185,6 +185,8 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
     }
     // Find bank voltages
     std::unordered_map<int, IOVoltage> bankVcc;
+    std::unordered_map<int, bool> bankLvds;
+
     for (auto &cell : ctx->cells) {
         CellInfo *ci = cell.second.get();
         if (ci->bel != BelId() && ci->type == ctx->id("TRELLIS_IO")) {
@@ -201,6 +203,8 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             } else {
                 bankVcc[bank] = vcc;
             }
+            if (iotype == "LVDS")
+                bankLvds[bank] = true;
         }
     }
 
@@ -211,6 +215,10 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             int bank = std::stoi(type.substr(7));
             if (bankVcc.find(bank) != bankVcc.end())
                 cc.tiles[tile.first].add_enum("BANK.VCCIO", iovoltage_to_str(bankVcc[bank]));
+            if (bankLvds[bank]) {
+                cc.tiles[tile.first].add_enum("BANK.DIFF_REF", "ON");
+                cc.tiles[tile.first].add_enum("BANK.LVDSO", "ON");
+            }
         }
     }
 
