@@ -312,6 +312,7 @@ void DesignWidget::newContext(Context *ctx)
     QMap<QString, QTreeWidgetItem *> pip_items;
     pip_root->setText(0, "Pips");
     treeWidget->insertTopLevelItem(0, pip_root);
+#ifndef ARCH_ECP5    
     if (ctx) {
         for (auto pip : ctx->getPips()) {
             auto id = ctx->getPipName(pip);
@@ -338,6 +339,7 @@ void DesignWidget::newContext(Context *ctx)
     for (auto pip : nameToItem[2].toStdMap()) {
         pip_root->addChild(pip.second);
     }
+#endif    
 
     nets_root = new QTreeWidgetItem(treeWidget);
     nets_root->setText(0, "Nets");
