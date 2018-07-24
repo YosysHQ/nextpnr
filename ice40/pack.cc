@@ -541,51 +541,50 @@ static void promote_globals(Context *ctx)
 // and either all users or only non_LUT users.
 static std::unique_ptr<CellInfo> spliceLUT(Context *ctx, CellInfo *ci, IdString portId, bool onlyNonLUTs)
 {
-     auto port = ci->ports[portId];
+    auto port = ci->ports[portId];
 
-     NPNR_ASSERT(port.net != nullptr);
+    NPNR_ASSERT(port.net != nullptr);
 
+    // Create pass-through LUT.
+    std::unique_ptr<CellInfo> pt =
+            create_ice_cell(ctx, ctx->id("ICESTORM_LC"), ci->name.str(ctx) + "$nextpnr_ice40_pack_pll_lc");
+    pt->params[ctx->id("LUT_INIT")] = "255"; // output is always I3
 
-     // Create pass-through LUT.
-     std::unique_ptr<CellInfo> pt =
-         create_ice_cell(ctx, ctx->id("ICESTORM_LC"), ci->name.str(ctx) + "$nextpnr_ice40_pack_pll_lc");
-     pt->params[ctx->id("LUT_INIT")] = "255";  // output is always I3
+    // Create LUT output net.
+    std::unique_ptr<NetInfo> out_net = std::unique_ptr<NetInfo>(new NetInfo);
+    out_net->name = ctx->id(ci->name.str(ctx) + "$nextnr_ice40_pack_pll_net");
+    out_net->driver.cell = pt.get();
+    out_net->driver.port = ctx->id("O");
+    pt->ports.at(ctx->id("O")).net = out_net.get();
 
-     // Create LUT output net.
-     std::unique_ptr<NetInfo> out_net = std::unique_ptr<NetInfo>(new NetInfo);
-     out_net->name = ctx->id(ci->name.str(ctx) + "$nextnr_ice40_pack_pll_net");
-     out_net->driver.cell = pt.get();
-     out_net->driver.port = ctx->id("O");
-     pt->ports.at(ctx->id("O")).net = out_net.get();
+    // New users of the original cell's port
+    std::vector<PortRef> new_users;
+    for (const auto &user : port.net->users) {
+        if (onlyNonLUTs && user.cell->type == ctx->id("ICESTORM_LC")) {
+            new_users.push_back(user);
+            continue;
+        }
+        // Rewrite pointer into net in user.
+        user.cell->ports[user.port].net = out_net.get();
+        // Add user to net.
+        PortRef pr;
+        pr.cell = user.cell;
+        pr.port = user.port;
+        out_net->users.push_back(pr);
+    }
 
-     // New users of the original cell's port
-     std::vector<PortRef> new_users;
-     for (const auto &user : port.net->users) {
-         if (onlyNonLUTs && user.cell->type == ctx->id("ICESTORM_LC")) {
-             new_users.push_back(user);
-             continue;
-         }
-         // Rewrite pointer into net in user.
-         user.cell->ports[user.port].net = out_net.get();
-         // Add user to net.
-         PortRef pr;
-         pr.cell = user.cell;
-         pr.port = user.port;
-         out_net->users.push_back(pr);
-     }
+    // Add LUT to new users.
+    PortRef pr;
+    pr.cell = pt.get();
+    pr.port = ctx->id("I3");
+    new_users.push_back(pr);
+    pt->ports.at(ctx->id("I3")).net = port.net;
 
-     // Add LUT to new users.
-     PortRef pr;
-     pr.cell = pt.get();
-     pr.port = ctx->id("I3");
-     new_users.push_back(pr);
-     pt->ports.at(ctx->id("I3")).net = port.net;
+    // Replace users of the original net.
+    port.net->users = new_users;
 
-     // Replace users of the original net.
-     port.net->users = new_users;
-
-     ctx->nets[out_net->name] = std::move(out_net);
-     return pt;
+    ctx->nets[out_net->name] = std::move(out_net);
+    return pt;
 }
 
 // Pack special functions
@@ -660,10 +659,13 @@ static void pack_special(Context *ctx)
                 packed->params[param.first] = param.second;
 
             auto feedback_path = packed->params[ctx->id("FEEDBACK_PATH")];
-            packed->params[ctx->id("FEEDBACK_PATH")] = feedback_path == "DELAY" ?  "0" :
-                                                       feedback_path == "SIMPLE" ? "1" :
-                                                       feedback_path == "PHASE_AND_DELAY" ? "2" :
-                                                       feedback_path == "EXTERNAL" ? "6" : feedback_path;
+            packed->params[ctx->id("FEEDBACK_PATH")] =
+                    feedback_path == "DELAY"
+                            ? "0"
+                            : feedback_path == "SIMPLE" ? "1"
+                                                        : feedback_path == "PHASE_AND_DELAY"
+                                                                  ? "2"
+                                                                  : feedback_path == "EXTERNAL" ? "6" : feedback_path;
             packed->params[ctx->id("PLLTYPE")] = std::to_string(sb_pll40_type(ctx, ci));
 
             for (auto port : ci->ports) {
@@ -687,7 +689,7 @@ static void pack_special(Context *ctx)
             BelId pll_bel;
             bool constrained = false;
             if (packed->attrs.find(ctx->id("BEL")) == packed->attrs.end()) {
-                //FIXME replace by getBelsByType when implemented
+                // FIXME replace by getBelsByType when implemented
                 for (auto bel : ctx->getBels()) {
                     if (ctx->getBelType(bel) != TYPE_ICESTORM_PLL)
                         continue;
@@ -759,7 +761,7 @@ static void pack_special(Context *ctx)
                     // target of another constraint.
                     NPNR_ASSERT(z < 8);
                     auto target_bel = ctx->getBelByLocation(Loc(x, y, z++));
-                    auto target_bel_name =  ctx->getBelName(target_bel).str(ctx);
+                    auto target_bel_name = ctx->getBelName(target_bel).str(ctx);
                     user.cell->attrs[ctx->id("BEL")] = target_bel_name;
                     log_info("    constrained '%s' to %s\n", user.cell->name.c_str(ctx), target_bel_name.c_str());
                 }

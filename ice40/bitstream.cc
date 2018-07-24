@@ -88,7 +88,9 @@ void set_config(const TileInfoPOD &ti, std::vector<std::vector<int8_t>> &tile_cf
 
 // Set an IE_{EN,REN} logical bit in a tile config. Logical means enabled.
 // On {HX,LP}1K devices these bits are active low, so we need to inver them.
-void set_ie_bit_logical(const Context *ctx, const TileInfoPOD &ti, std::vector<std::vector<int8_t>> &tile_cfg, const std::string &name, bool value) {
+void set_ie_bit_logical(const Context *ctx, const TileInfoPOD &ti, std::vector<std::vector<int8_t>> &tile_cfg,
+                        const std::string &name, bool value)
+{
     if (ctx->args.type == ArchArgs::LP1K || ctx->args.type == ArchArgs::HX1K) {
         set_config(ti, tile_cfg, name, !value);
     } else {
@@ -320,7 +322,7 @@ void write_asc(const Context *ctx, std::ostream &out)
         } else if (cell.second->type == ctx->id("SB_IO")) {
             const BelInfoPOD &beli = ci.bel_data[bel.index];
             int x = beli.x, y = beli.y, z = beli.z;
-            sb_io_used_by_user.insert(Loc(x,y,z));
+            sb_io_used_by_user.insert(Loc(x, y, z));
             const TileInfoPOD &ti = bi.tiles_nonrouting[TILE_IO];
             unsigned pin_type = get_param_or_def(cell.second.get(), ctx->id("PIN_TYPE"));
             bool neg_trigger = get_param_or_def(cell.second.get(), ctx->id("NEG_TRIGGER"));
@@ -424,14 +426,20 @@ void write_asc(const Context *ctx, std::ostream &out)
                                                                            {"B_SIGNED", 1}};
             configure_extra_cell(config, ctx, cell.second.get(), mac16_params, false, std::string("IpConfig."));
         } else if (cell.second->type == ctx->id("ICESTORM_PLL")) {
-            const std::vector<std::pair<std::string, int>> pll_params = {
-                {"DELAY_ADJMODE_FB", 1}, {"DELAY_ADJMODE_REL", 1},
-                {"DIVF", 7}, {"DIVQ", 3}, {"DIVR", 4},
-                {"FDA_FEEDBACK", 4}, {"FDA_RELATIVE", 4},
-                {"FEEDBACK_PATH", 3}, {"FILTER_RANGE", 3},
-                {"PLLOUT_SELECT_A", 2}, {"PLLOUT_SELECT_B", 2},
-                {"PLLTYPE", 3}, {"SHIFTREG_DIV_MODE", 1}, {"TEST_MODE", 1}
-            };
+            const std::vector<std::pair<std::string, int>> pll_params = {{"DELAY_ADJMODE_FB", 1},
+                                                                         {"DELAY_ADJMODE_REL", 1},
+                                                                         {"DIVF", 7},
+                                                                         {"DIVQ", 3},
+                                                                         {"DIVR", 4},
+                                                                         {"FDA_FEEDBACK", 4},
+                                                                         {"FDA_RELATIVE", 4},
+                                                                         {"FEEDBACK_PATH", 3},
+                                                                         {"FILTER_RANGE", 3},
+                                                                         {"PLLOUT_SELECT_A", 2},
+                                                                         {"PLLOUT_SELECT_B", 2},
+                                                                         {"PLLTYPE", 3},
+                                                                         {"SHIFTREG_DIV_MODE", 1},
+                                                                         {"TEST_MODE", 1}};
             configure_extra_cell(config, ctx, cell.second.get(), pll_params, false, std::string("PLL."));
 
             // Configure the SB_IOs that the clock outputs are going through.
@@ -458,8 +466,7 @@ void write_asc(const Context *ctx, std::ostream &out)
                 // Check that this SB_IO is either unused or just used as an output.
                 auto io_loc = Loc(io_beli.x, io_beli.y, io_beli.z);
                 if (sb_io_used_by_user.count(io_loc)) {
-                    log_error("SB_IO '%s' already in use, cannot route PLL through\n",
-                            ctx->getBelName(bel).c_str(ctx));
+                    log_error("SB_IO '%s' already in use, cannot route PLL through\n", ctx->getBelName(bel).c_str(ctx));
                 }
                 sb_io_used_by_pll.insert(Loc(io_beli.x, io_beli.y, io_beli.z));
 
@@ -476,8 +483,8 @@ void write_asc(const Context *ctx, std::ostream &out)
                 set_ie_bit_logical(ctx, ti, config.at(iey).at(iex), "IoCtrl.IE_" + std::to_string(iez), true);
                 set_ie_bit_logical(ctx, ti, config.at(iey).at(iex), "IoCtrl.REN_" + std::to_string(iez), false);
                 // PINTYPE[0] passes the PLL through to the fabric.
-                set_config(ti, config.at(io_beli.y).at(io_beli.x), "IOB_" + std::to_string(io_beli.z) + ".PINTYPE_0", true);
-
+                set_config(ti, config.at(io_beli.y).at(io_beli.x), "IOB_" + std::to_string(io_beli.z) + ".PINTYPE_0",
+                           true);
             }
 
         } else {
