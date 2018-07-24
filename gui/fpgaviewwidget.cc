@@ -327,7 +327,7 @@ void FPGAViewWidget::drawDecal(LineShaderData &out, const DecalXY &decal)
             line.build(out);
         }
 
-        if (el.type == GraphicElement::G_LINE) {
+        if (el.type == GraphicElement::G_LINE || el.type == GraphicElement::G_ARROW) {
             PolyLine(offsetX + scale * el.x1, offsetY + scale * el.y1, offsetX + scale * el.x2, offsetY + scale * el.y2)
                     .build(out);
         }
@@ -360,7 +360,7 @@ void FPGAViewWidget::drawDecal(LineShaderData out[], const DecalXY &decal)
             }
         }
 
-        if (el.type == GraphicElement::G_LINE) {
+        if (el.type == GraphicElement::G_LINE || el.type == GraphicElement::G_ARROW) {
             auto line = PolyLine(offsetX + scale * el.x1, offsetY + scale * el.y1, offsetX + scale * el.x2,
                                  offsetY + scale * el.y2);
             switch (el.style) {
