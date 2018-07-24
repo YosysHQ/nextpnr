@@ -693,7 +693,6 @@ static void pack_special(Context *ctx)
             BelId pll_bel;
             bool constrained = false;
             if (packed->attrs.find(ctx->id("BEL")) == packed->attrs.end()) {
-                // FIXME replace by getBelsByType when implemented
                 for (auto bel : ctx->getBels()) {
                     if (ctx->getBelType(bel) != TYPE_ICESTORM_PLL)
                         continue;
