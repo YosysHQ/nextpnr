@@ -164,7 +164,7 @@ static delay_t follow_net_update(Context *ctx, NetInfo *net, int path_length, de
     return net_budget;
 }
 
-void update_budget(Context *ctx)
+void update_budget(Context *ctx, std::function<delay_t(Context*,WireId,WireId)> delay_fn)
 {
     delays_t delays;
     updates_t updates;
@@ -191,7 +191,7 @@ void update_budget(Context *ctx)
             if (load_cell->bel == BelId())
                 continue;
             WireId user_wire = ctx->getWireBelPin(load_cell->bel, ctx->portPinFromId(load.port));
-            delay_t raw_wl = ctx->estimateDelay(drv_wire, user_wire);
+            delay_t raw_wl = delay_fn(ctx, drv_wire, user_wire);
             delays.emplace(&load_cell->ports.at(load.port), raw_wl);
         }
     }

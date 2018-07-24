@@ -51,6 +51,67 @@ void IdString::initialize_add(const BaseCtx *ctx, const char *s, int idx)
     ctx->idstring_idx_to_str->push_back(&insert_rc.first->first);
 }
 
+WireId Context::getNetinfoSourceWire(NetInfo *net_info) const
+{
+    if (net_info->driver.cell == nullptr)
+        return WireId();
+
+    auto src_bel = net_info->driver.cell->bel;
+
+    if (src_bel == BelId())
+        return WireId();
+
+    IdString driver_port = net_info->driver.port;
+
+    auto driver_port_it = net_info->driver.cell->pins.find(driver_port);
+    if (driver_port_it != net_info->driver.cell->pins.end())
+        driver_port = driver_port_it->second;
+
+    return getBelPinWire(src_bel, portPinFromId(driver_port));
+}
+
+WireId Context::getNetinfoSinkWire(NetInfo *net_info, int user_idx) const
+{
+    auto &user_info = net_info->users[user_idx];
+    auto dst_bel = user_info.cell->bel;
+
+    if (dst_bel == BelId())
+        return WireId();
+
+    IdString user_port = user_info.port;
+
+    auto user_port_it = user_info.cell->pins.find(user_port);
+
+    if (user_port_it != user_info.cell->pins.end())
+        user_port = user_port_it->second;
+
+    return getBelPinWire(dst_bel, portPinFromId(user_port));
+}
+
+delay_t Context::getNetinfoRouteDelay(NetInfo *net_info, int user_idx) const
+{
+    WireId src_wire = getNetinfoSourceWire(net_info);
+    WireId cursor = getNetinfoSinkWire(net_info, user_idx);
+    delay_t delay = 0;
+
+    while (cursor != WireId() && cursor != src_wire) {
+        auto it = net_info->wires.find(cursor);
+        if (it == net_info->wires.end())
+            break;
+        PipId pip = it->second.pip;
+        delay += getPipDelay(pip).maxDelay();
+        delay += getWireDelay(cursor).maxDelay();
+        cursor = getPipSrcWire(pip);
+    }
+
+    if (cursor == src_wire)
+        delay += getWireDelay(src_wire).maxDelay();
+    else
+        delay += estimateDelay(src_wire, cursor);
+
+    return delay;
+}
+
 static uint32_t xorshift32(uint32_t x)
 {
     x ^= x << 13;

@@ -69,8 +69,8 @@ void svg_dump_decal(const Context *ctx, const DecalXY &decal)
 void conflicting_options(const boost::program_options::variables_map &vm, const char *opt1, const char *opt2)
 {
     if (vm.count(opt1) && !vm[opt1].defaulted() && vm.count(opt2) && !vm[opt2].defaulted()) {
-        std::string msg = "Conflicting options '"+ std::string(opt1) + "' and '" + std::string(opt1) + "'.";
-        log_error("%s\n",msg.c_str());
+        std::string msg = "Conflicting options '" + std::string(opt1) + "' and '" + std::string(opt1) + "'.";
+        log_error("%s\n", msg.c_str());
     }
 }
 
@@ -107,6 +107,7 @@ int main(int argc, char *argv[])
         options.add_options()("seed", po::value<int>(), "seed value for random number generator");
         options.add_options()("version,V", "show version");
         options.add_options()("tmfuzz", "run path delay estimate fuzzer");
+        options.add_options()("test", "check architecture database integrity");
 #ifdef ICE40_HX1K_ONLY
         options.add_options()("hx1k", "set device type to iCE40HX1K");
 #else
@@ -315,6 +316,9 @@ int main(int argc, char *argv[])
             std::cout << "</svg>\n";
         }
 
+        if (vm.count("test"))
+            ctx->archcheck();
+
         if (vm.count("tmfuzz")) {
             std::vector<WireId> src_wires, dst_wires;
 
@@ -322,25 +326,25 @@ int main(int argc, char *argv[])
                 src_wires.push_back(w);*/
             for (auto b : ctx->getBels()) {
                 if (ctx->getBelType(b) == TYPE_ICESTORM_LC) {
-                    src_wires.push_back(ctx->getWireBelPin(b, PIN_O));
+                    src_wires.push_back(ctx->getBelPinWire(b, PIN_O));
                 }
                 if (ctx->getBelType(b) == TYPE_SB_IO) {
-                    src_wires.push_back(ctx->getWireBelPin(b, PIN_D_IN_0));
+                    src_wires.push_back(ctx->getBelPinWire(b, PIN_D_IN_0));
                 }
             }
 
             for (auto b : ctx->getBels()) {
                 if (ctx->getBelType(b) == TYPE_ICESTORM_LC) {
-                    dst_wires.push_back(ctx->getWireBelPin(b, PIN_I0));
-                    dst_wires.push_back(ctx->getWireBelPin(b, PIN_I1));
-                    dst_wires.push_back(ctx->getWireBelPin(b, PIN_I2));
-                    dst_wires.push_back(ctx->getWireBelPin(b, PIN_I3));
-                    dst_wires.push_back(ctx->getWireBelPin(b, PIN_CEN));
-                    dst_wires.push_back(ctx->getWireBelPin(b, PIN_CIN));
+                    dst_wires.push_back(ctx->getBelPinWire(b, PIN_I0));
+                    dst_wires.push_back(ctx->getBelPinWire(b, PIN_I1));
+                    dst_wires.push_back(ctx->getBelPinWire(b, PIN_I2));
+                    dst_wires.push_back(ctx->getBelPinWire(b, PIN_I3));
+                    dst_wires.push_back(ctx->getBelPinWire(b, PIN_CEN));
+                    dst_wires.push_back(ctx->getBelPinWire(b, PIN_CIN));
                 }
                 if (ctx->getBelType(b) == TYPE_SB_IO) {
-                    dst_wires.push_back(ctx->getWireBelPin(b, PIN_D_OUT_0));
-                    dst_wires.push_back(ctx->getWireBelPin(b, PIN_OUTPUT_ENABLE));
+                    dst_wires.push_back(ctx->getBelPinWire(b, PIN_D_OUT_0));
+                    dst_wires.push_back(ctx->getBelPinWire(b, PIN_OUTPUT_ENABLE));
                 }
             }
 
@@ -360,8 +364,10 @@ int main(int argc, char *argv[])
                        ctx->chip_info->wire_data[dst.index].type);
             }
         }
+
         if (vm.count("freq"))
             ctx->target_freq = vm["freq"].as<double>() * 1e6;
+
         ctx->timing_driven = true;
         if (vm.count("no-tmdriv"))
             ctx->timing_driven = false;

@@ -2,6 +2,7 @@
  *  nextpnr -- Next Generation Place and Route
  *
  *  Copyright (C) 2018  Clifford Wolf <clifford@symbioticeda.com>
+ *  Copyright (C) 2018  Serge Bazanski <q3k@symbioticeda.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -19,7 +20,10 @@
 
 #include <algorithm>
 #include <assert.h>
+#include <condition_variable>
 #include <memory>
+#include <mutex>
+#include <pthread.h>
 #include <stdexcept>
 #include <stdint.h>
 #include <string>
@@ -164,6 +168,9 @@ struct Loc
 {
     int x = -1, y = -1, z = -1;
 
+    Loc() {}
+    Loc(int x, int y, int z) : x(x), y(y), z(z) {}
+
     bool operator==(const Loc &other) const { return (x == other.x) && (y == other.y) && (z == other.z); }
     bool operator!=(const Loc &other) const { return (x != other.x) || (y != other.y) || (z == other.z); }
 };
@@ -267,86 +274,11 @@ struct CellInfo : ArchCellInfo
     std::unordered_map<IdString, IdString> pins;
 };
 
-struct BaseCtx
+struct DeterministicRNG
 {
-    // --------------------------------------------------------------
+    uint64_t rngstate;
 
-    mutable std::unordered_map<std::string, int> *idstring_str_to_idx;
-    mutable std::vector<const std::string *> *idstring_idx_to_str;
-
-    IdString id(const std::string &s) const { return IdString(this, s); }
-
-    IdString id(const char *s) const { return IdString(this, s); }
-
-    // --------------------------------------------------------------
-
-    std::unordered_map<IdString, std::unique_ptr<NetInfo>> nets;
-    std::unordered_map<IdString, std::unique_ptr<CellInfo>> cells;
-
-    BaseCtx()
-    {
-        idstring_str_to_idx = new std::unordered_map<std::string, int>;
-        idstring_idx_to_str = new std::vector<const std::string *>;
-        IdString::initialize_add(this, "", 0);
-        IdString::initialize_arch(this);
-    }
-
-    ~BaseCtx()
-    {
-        delete idstring_str_to_idx;
-        delete idstring_idx_to_str;
-    }
-
-    Context *getCtx() { return reinterpret_cast<Context *>(this); }
-
-    const Context *getCtx() const { return reinterpret_cast<const Context *>(this); }
-
-    // --------------------------------------------------------------
-
-    bool allUiReload = false;
-    bool frameUiReload = false;
-    std::unordered_set<BelId> belUiReload;
-    std::unordered_set<WireId> wireUiReload;
-    std::unordered_set<PipId> pipUiReload;
-    std::unordered_set<GroupId> groupUiReload;
-
-    void refreshUi() { allUiReload = true; }
-
-    void refreshUiFrame() { frameUiReload = true; }
-
-    void refreshUiBel(BelId bel) { belUiReload.insert(bel); }
-
-    void refreshUiWire(WireId wire) { wireUiReload.insert(wire); }
-
-    void refreshUiPip(PipId pip) { pipUiReload.insert(pip); }
-
-    void refreshUiGroup(GroupId group) { groupUiReload.insert(group); }
-};
-
-NEXTPNR_NAMESPACE_END
-
-#include "arch.h"
-
-NEXTPNR_NAMESPACE_BEGIN
-
-struct Context : Arch
-{
-    bool verbose = false;
-    bool debug = false;
-    bool force = false;
-    bool timing_driven = true;
-    float target_freq = 12e6;
-
-    Context(ArchArgs args) : Arch(args) {}
-
-    // --------------------------------------------------------------
-
-    // provided by router1.cc
-    bool getActualRouteDelay(WireId src_wire, WireId dst_wire, delay_t &delay);
-
-    // --------------------------------------------------------------
-
-    uint64_t rngstate = 0x3141592653589793;
+    DeterministicRNG() : rngstate(0x3141592653589793) {}
 
     uint64_t rng64()
     {
@@ -405,10 +337,142 @@ struct Context : Arch
         std::sort(a.begin(), a.end());
         shuffle(a);
     }
+};
+
+struct BaseCtx
+{
+    // Lock to perform mutating actions on the Context.
+    std::mutex mutex;
+    pthread_t mutex_owner;
+
+    // Lock to be taken by UI when wanting to access context - the yield()
+    // method will lock/unlock it when its' released the main mutex to make
+    // sure the UI is not starved.
+    std::mutex ui_mutex;
+
+    // ID String database.
+    mutable std::unordered_map<std::string, int> *idstring_str_to_idx;
+    mutable std::vector<const std::string *> *idstring_idx_to_str;
+
+    // Placed nets and cells.
+    std::unordered_map<IdString, std::unique_ptr<NetInfo>> nets;
+    std::unordered_map<IdString, std::unique_ptr<CellInfo>> cells;
+
+    BaseCtx()
+    {
+        idstring_str_to_idx = new std::unordered_map<std::string, int>;
+        idstring_idx_to_str = new std::vector<const std::string *>;
+        IdString::initialize_add(this, "", 0);
+        IdString::initialize_arch(this);
+    }
+
+    ~BaseCtx()
+    {
+        delete idstring_str_to_idx;
+        delete idstring_idx_to_str;
+    }
+
+    // Must be called before performing any mutating changes on the Ctx/Arch.
+    void lock(void)
+    {
+        mutex.lock();
+        mutex_owner = pthread_self();
+    }
+
+    void unlock(void)
+    {
+        NPNR_ASSERT(pthread_equal(pthread_self(), mutex_owner) != 0);
+        mutex.unlock();
+    }
+
+    // Must be called by the UI before rendering data. This lock will be
+    // prioritized when processing code calls yield().
+    void lock_ui(void)
+    {
+        ui_mutex.lock();
+        mutex.lock();
+    }
+
+    void unlock_ui(void)
+    {
+        mutex.unlock();
+        ui_mutex.unlock();
+    }
+
+    // Yield to UI by unlocking the main mutex, flashing the UI mutex and
+    // relocking the main mutex. Call this when you're performing a
+    // long-standing action while holding a lock to let the UI show
+    // visualization updates.
+    // Must be called with the main lock taken.
+    void yield(void)
+    {
+        unlock();
+        ui_mutex.lock();
+        ui_mutex.unlock();
+        lock();
+    }
+
+    IdString id(const std::string &s) const { return IdString(this, s); }
+
+    IdString id(const char *s) const { return IdString(this, s); }
+
+    Context *getCtx() { return reinterpret_cast<Context *>(this); }
+
+    const Context *getCtx() const { return reinterpret_cast<const Context *>(this); }
+
+    // --------------------------------------------------------------
+
+    bool allUiReload = true;
+    bool frameUiReload = false;
+    std::unordered_set<BelId> belUiReload;
+    std::unordered_set<WireId> wireUiReload;
+    std::unordered_set<PipId> pipUiReload;
+    std::unordered_set<GroupId> groupUiReload;
+
+    void refreshUi() { allUiReload = true; }
+
+    void refreshUiFrame() { frameUiReload = true; }
+
+    void refreshUiBel(BelId bel) { belUiReload.insert(bel); }
+
+    void refreshUiWire(WireId wire) { wireUiReload.insert(wire); }
+
+    void refreshUiPip(PipId pip) { pipUiReload.insert(pip); }
+
+    void refreshUiGroup(GroupId group) { groupUiReload.insert(group); }
+};
+
+NEXTPNR_NAMESPACE_END
+
+#include "arch.h"
+
+NEXTPNR_NAMESPACE_BEGIN
+
+struct Context : Arch, DeterministicRNG
+{
+    bool verbose = false;
+    bool debug = false;
+    bool force = false;
+    bool timing_driven = true;
+    float target_freq = 12e6;
+
+    Context(ArchArgs args) : Arch(args) {}
+
+    // --------------------------------------------------------------
+
+    WireId getNetinfoSourceWire(NetInfo *net_info) const;
+    WireId getNetinfoSinkWire(NetInfo *net_info, int user_idx) const;
+    delay_t getNetinfoRouteDelay(NetInfo *net_info, int user_idx) const;
+
+    // provided by router1.cc
+    bool getActualRouteDelay(WireId src_wire, WireId dst_wire, delay_t &delay);
+
+    // --------------------------------------------------------------
 
     uint32_t checksum() const;
 
     void check() const;
+    void archcheck() const;
 };
 
 NEXTPNR_NAMESPACE_END

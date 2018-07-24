@@ -21,12 +21,16 @@
 #define MAPGLWIDGET_H
 
 #include <QMainWindow>
+#include <QMutex>
 #include <QOpenGLBuffer>
 #include <QOpenGLFunctions>
 #include <QOpenGLShaderProgram>
 #include <QOpenGLVertexArrayObject>
 #include <QOpenGLWidget>
 #include <QPainter>
+#include <QThread>
+#include <QTimer>
+#include <QWaitCondition>
 
 #include "nextpnr.h"
 
@@ -206,17 +210,58 @@ class LineShader
     void draw(const LineShaderData &data, const QColor &color, float thickness, const QMatrix4x4 &projection);
 };
 
+class PeriodicRunner : public QThread
+{
+    Q_OBJECT
+  private:
+    QMutex mutex_;
+    QWaitCondition condition_;
+    bool abort_;
+    std::function<void()> target_;
+    QTimer timer_;
+
+  public:
+    explicit PeriodicRunner(QObject *parent, std::function<void()> target)
+            : QThread(parent), abort_(false), target_(target), timer_(this)
+    {
+        connect(&timer_, &QTimer::timeout, this, &PeriodicRunner::poke);
+    }
+
+    void run(void) override
+    {
+        for (;;) {
+            mutex_.lock();
+            condition_.wait(&mutex_);
+
+            if (abort_) {
+                mutex_.unlock();
+                return;
+            }
+
+            target_();
+
+            mutex_.unlock();
+        }
+    }
+
+    void startTimer(int msecs) { timer_.start(msecs); }
+
+    ~PeriodicRunner()
+    {
+        mutex_.lock();
+        abort_ = true;
+        condition_.wakeOne();
+        mutex_.unlock();
+
+        wait();
+    }
+
+    void poke(void) { condition_.wakeOne(); }
+};
+
 class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
 {
     Q_OBJECT
-    Q_PROPERTY(QColor backgroundColor MEMBER backgroundColor_ DESIGNABLE true)
-    Q_PROPERTY(QColor gridColor MEMBER gridColor_ DESIGNABLE true)
-    Q_PROPERTY(QColor gFrameColor MEMBER gFrameColor_ DESIGNABLE true)
-    Q_PROPERTY(QColor gHiddenColor MEMBER gHiddenColor_ DESIGNABLE true)
-    Q_PROPERTY(QColor gInactiveColor MEMBER gInactiveColor_ DESIGNABLE true)
-    Q_PROPERTY(QColor gActiveColor MEMBER gActiveColor_ DESIGNABLE true)
-    Q_PROPERTY(QColor gSelectedColor MEMBER gSelectedColor_ DESIGNABLE true)
-    Q_PROPERTY(QColor frameColor MEMBER frameColor_ DESIGNABLE true)
 
   public:
     FPGAViewWidget(QWidget *parent = 0);
@@ -246,8 +291,11 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     void newContext(Context *ctx);
     void onSelectedArchItem(std::vector<DecalXY> decals);
     void onHighlightGroupChanged(std::vector<DecalXY> decals, int group);
+    void pokeRenderer(void);
 
   private:
+    void renderLines(void);
+
     QPoint lastPos_;
     LineShader lineShader_;
     QMatrix4x4 viewMove_;
@@ -262,24 +310,40 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     const float zoomLvl2_ = 50.0f;
 
     Context *ctx_;
+    QTimer paintTimer_;
 
-    QColor backgroundColor_;
-    QColor gridColor_;
-    QColor gFrameColor_;
-    QColor gHiddenColor_;
-    QColor gInactiveColor_;
-    QColor gActiveColor_;
-    QColor gSelectedColor_;
-    QColor frameColor_;
+    std::unique_ptr<PeriodicRunner> renderRunner_;
 
-    LineShaderData selectedShader_;
-    std::vector<DecalXY> selectedItems_;
-    bool selectedItemsChanged_;
+    struct
+    {
+        QColor background;
+        QColor grid;
+        QColor frame;
+        QColor hidden;
+        QColor inactive;
+        QColor active;
+        QColor selected;
+        QColor highlight[8];
+    } colors_;
 
-    LineShaderData highlightShader_[8];
-    std::vector<DecalXY> highlightItems_[8];
-    bool highlightItemsChanged_[8];
-    QColor highlightColors[8];
+    struct RendererData
+    {
+        LineShaderData decals[4];
+        LineShaderData selected;
+        LineShaderData highlighted[8];
+    };
+
+    struct RendererArgs
+    {
+        std::vector<DecalXY> selectedItems;
+        std::vector<DecalXY> highlightedItems[8];
+        bool highlightedOrSelectedChanged;
+    };
+
+    std::unique_ptr<RendererData> rendererData_;
+    QMutex rendererDataLock_;
+    std::unique_ptr<RendererArgs> rendererArgs_;
+    QMutex rendererArgsLock_;
 };
 
 NEXTPNR_NAMESPACE_END

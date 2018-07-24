@@ -46,6 +46,7 @@ template <typename T> struct RelPtr
 NPNR_PACKED_STRUCT(struct BelWirePOD {
     int32_t wire_index;
     PortPin port;
+    int32_t type;
 });
 
 NPNR_PACKED_STRUCT(struct BelInfoPOD {
@@ -85,6 +86,9 @@ NPNR_PACKED_STRUCT(struct WireInfoPOD {
     int32_t num_bels_downhill;
     BelPortPOD bel_uphill;
     RelPtr<BelPortPOD> bels_downhill;
+
+    int32_t num_bel_pins;
+    RelPtr<BelPortPOD> bel_pins;
 
     int32_t num_segments;
     RelPtr<WireSegmentPOD> segments;
@@ -373,6 +377,12 @@ struct Arch : BaseCtx
 
     // -------------------------------------------------
 
+    int getGridDimX() const { return 34; }
+    int getGridDimY() const { return 34; }
+    int getTileDimZ(int, int) const { return 8; }
+
+    // -------------------------------------------------
+
     BelId getBelByName(IdString name) const;
 
     IdString getBelName(BelId bel) const
@@ -390,6 +400,7 @@ struct Arch : BaseCtx
         bel_to_cell[bel.index] = cell;
         cells[cell]->bel = bel;
         cells[cell]->belStrength = strength;
+        refreshUiBel(bel);
     }
 
     void unbindBel(BelId bel)
@@ -399,6 +410,7 @@ struct Arch : BaseCtx
         cells[bel_to_cell[bel.index]]->bel = BelId();
         cells[bel_to_cell[bel.index]]->belStrength = STRENGTH_NONE;
         bel_to_cell[bel.index] = IdString();
+        refreshUiBel(bel);
     }
 
     bool checkBelAvail(BelId bel) const
@@ -427,20 +439,6 @@ struct Arch : BaseCtx
         return range;
     }
 
-    BelRange getBelsByType(BelType type) const
-    {
-        BelRange range;
-// FIXME
-#if 0
-		if (type == "TYPE_A") {
-			range.b.cursor = bels_type_a_begin;
-			range.e.cursor = bels_type_a_end;
-		}
-		...
-#endif
-        return range;
-    }
-
     Loc getBelLocation(BelId bel) const
     {
         Loc loc;
@@ -453,10 +451,7 @@ struct Arch : BaseCtx
     BelId getBelByLocation(Loc loc) const;
     BelRange getBelsByTile(int x, int y) const;
 
-    bool getBelGlobalBuf(BelId bel) const
-    {
-        return chip_info->bel_data[bel.index].type == TYPE_SB_GB;
-    }
+    bool getBelGlobalBuf(BelId bel) const { return chip_info->bel_data[bel.index].type == TYPE_SB_GB; }
 
     BelRange getBelsAtSameTile(BelId bel) const NPNR_DEPRECATED;
 
@@ -466,29 +461,9 @@ struct Arch : BaseCtx
         return chip_info->bel_data[bel.index].type;
     }
 
-    WireId getWireBelPin(BelId bel, PortPin pin) const;
-
-    BelPin getBelPinUphill(WireId wire) const
-    {
-        BelPin ret;
-        NPNR_ASSERT(wire != WireId());
-
-        if (chip_info->wire_data[wire.index].bel_uphill.bel_index >= 0) {
-            ret.bel.index = chip_info->wire_data[wire.index].bel_uphill.bel_index;
-            ret.pin = chip_info->wire_data[wire.index].bel_uphill.port;
-        }
-
-        return ret;
-    }
-
-    BelPinRange getBelPinsDownhill(WireId wire) const
-    {
-        BelPinRange range;
-        NPNR_ASSERT(wire != WireId());
-        range.b.ptr = chip_info->wire_data[wire.index].bels_downhill.get();
-        range.e.ptr = range.b.ptr + chip_info->wire_data[wire.index].num_bels_downhill;
-        return range;
-    }
+    WireId getBelPinWire(BelId bel, PortPin pin) const;
+    PortType getBelPinType(BelId bel, PortPin pin) const;
+    std::vector<PortPin> getBelPins(BelId bel) const;
 
     // -------------------------------------------------
 
@@ -509,6 +484,7 @@ struct Arch : BaseCtx
         wire_to_net[wire.index] = net;
         nets[net]->wires[wire].pip = PipId();
         nets[net]->wires[wire].strength = strength;
+        refreshUiWire(wire);
     }
 
     void unbindWire(WireId wire)
@@ -528,6 +504,7 @@ struct Arch : BaseCtx
 
         net_wires.erase(it);
         wire_to_net[wire.index] = IdString();
+        refreshUiWire(wire);
     }
 
     bool checkWireAvail(WireId wire) const
@@ -552,6 +529,15 @@ struct Arch : BaseCtx
     {
         DelayInfo delay;
         return delay;
+    }
+
+    BelPinRange getWireBelPins(WireId wire) const
+    {
+        BelPinRange range;
+        NPNR_ASSERT(wire != WireId());
+        range.b.ptr = chip_info->wire_data[wire.index].bel_pins.get();
+        range.e.ptr = range.b.ptr + chip_info->wire_data[wire.index].num_bel_pins;
+        return range;
     }
 
     WireRange getWires() const
@@ -581,6 +567,8 @@ struct Arch : BaseCtx
         wire_to_net[dst.index] = net;
         nets[net]->wires[dst].pip = pip;
         nets[net]->wires[dst].strength = strength;
+        refreshUiPip(pip);
+        refreshUiWire(dst);
     }
 
     void unbindPip(PipId pip)
@@ -597,6 +585,8 @@ struct Arch : BaseCtx
 
         pip_to_net[pip.index] = IdString();
         switches_locked[chip_info->pip_data[pip.index].switch_index] = IdString();
+        refreshUiPip(pip);
+        refreshUiWire(dst);
     }
 
     bool checkPipAvail(PipId pip) const

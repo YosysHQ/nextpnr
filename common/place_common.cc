@@ -36,7 +36,7 @@ wirelen_t get_net_metric(const Context *ctx, const NetInfo *net, MetricType type
     if (driver_cell->bel == BelId())
         return 0;
     ctx->estimatePosition(driver_cell->bel, driver_x, driver_y, driver_gb);
-    WireId drv_wire = ctx->getWireBelPin(driver_cell->bel, ctx->portPinFromId(net->driver.port));
+    WireId drv_wire = ctx->getBelPinWire(driver_cell->bel, ctx->portPinFromId(net->driver.port));
     if (driver_gb)
         return 0;
     float worst_slack = 1000;
@@ -48,7 +48,7 @@ wirelen_t get_net_metric(const Context *ctx, const NetInfo *net, MetricType type
         if (load_cell->bel == BelId())
             continue;
         if (ctx->timing_driven && type == MetricType::COST) {
-            WireId user_wire = ctx->getWireBelPin(load_cell->bel, ctx->portPinFromId(load.port));
+            WireId user_wire = ctx->getBelPinWire(load_cell->bel, ctx->portPinFromId(load.port));
             delay_t raw_wl = ctx->estimateDelay(drv_wire, user_wire);
             float slack = ctx->getDelayNS(load.budget) - ctx->getDelayNS(raw_wl);
             if (slack < 0)
