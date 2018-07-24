@@ -258,6 +258,20 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             std::string pic_tile = get_pic_tile(ctx, empty_chip, bel);
             cc.tiles[pio_tile].add_enum(pio + ".BASE_TYPE", dir + "_" + iotype);
             cc.tiles[pic_tile].add_enum(pio + ".BASE_TYPE", dir + "_" + iotype);
+            if (is_differential(ioType_from_str(iotype))) {
+                // Explicitly disable other pair
+                std::string other;
+                if (pio == "PIOA")
+                    other = "PIOB";
+                else if (pio == "PIOC")
+                    other = "PIOD";
+                else
+                    log_error("cannot place differential IO at location %s\n", pio.c_str());
+                cc.tiles[pio_tile].add_enum(other + ".BASE_TYPE", "_NONE_");
+                cc.tiles[pic_tile].add_enum(other + ".BASE_TYPE", "_NONE_");
+                cc.tiles[pio_tile].add_enum(other + ".PULLMODE", "NONE");
+                cc.tiles[pio_tile].add_enum(pio + ".PULLMODE", "NONE");
+            }
             if (dir != "INPUT" &&
                 (ci->ports.find(ctx->id("T")) == ci->ports.end() || ci->ports.at(ctx->id("T")).net == nullptr)) {
                 // Tie tristate low if unconnected for outputs or bidir
@@ -270,7 +284,7 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                 std::string cib_wirename = ctx->locInfo(cib_wire)->wire_data[cib_wire.index].name.get();
                 cc.tiles[cib_tile].add_enum("CIB." + cib_wirename + "MUX", "0");
             }
-            if (dir == "INPUT") {
+            if (dir == "INPUT" && !is_differential(ioType_from_str(iotype))) {
                 cc.tiles[pio_tile].add_enum(pio + ".HYSTERESIS", "ON");
             }
         } else {
