@@ -647,7 +647,7 @@ void pipGfx(std::vector<GraphicElement> &g, int x, int y, float x1, float y1, fl
     float ty = 0.5 * (y1 + y2);
 
     GraphicElement el;
-    el.type = GraphicElement::G_LINE;
+    el.type = GraphicElement::G_ARROW;
     el.style = style;
 
     if (fabsf(x1 - swx1) < 0.001 && fabsf(x2 - swx1) < 0.001) {

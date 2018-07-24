@@ -79,8 +79,6 @@ void arch_wrap_python()
                   conv_to_str<IdString>, conv_from_str<BelId>>::def_wrap(ctx_cls, "getConflictingBelCell");
     fn_wrapper_0a<Context, decltype(&Context::getBels), &Context::getBels, wrap_context<BelRange>>::def_wrap(ctx_cls,
                                                                                                              "getBels");
-    fn_wrapper_1a<Context, decltype(&Context::getBelsAtSameTile), &Context::getBelsAtSameTile, wrap_context<BelRange>,
-                  conv_from_str<BelId>>::def_wrap(ctx_cls, "getBelsAtSameTile");
 
     fn_wrapper_2a<Context, decltype(&Context::getBelPinWire), &Context::getBelPinWire, conv_to_str<WireId>,
                   conv_from_str<BelId>, conv_from_str<PortPin>>::def_wrap(ctx_cls, "getBelPinWire");

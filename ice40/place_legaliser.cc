@@ -75,11 +75,9 @@ static void get_chain_midpoint(const Context *ctx, const CellChain &chain, float
     for (auto cell : chain.cells) {
         if (cell->bel == BelId())
             continue;
-        int bel_x, bel_y;
-        bool bel_gb;
-        ctx->estimatePosition(cell->bel, bel_x, bel_y, bel_gb);
-        total_x += bel_x;
-        total_y += bel_y;
+        Loc bel_loc = ctx->getBelLocation(cell->bel);
+        total_x += bel_loc.x;
+        total_y += bel_loc.y;
         N++;
     }
     NPNR_ASSERT(N > 0);

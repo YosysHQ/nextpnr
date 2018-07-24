@@ -167,6 +167,8 @@ if(MINGW)
     add_definitions("-Wa,-mbig-obj")
 endif(MINGW)
 
+include(bba/bba.cmake)
+
 foreach (family ${ARCH})
     message(STATUS "Configuring architecture : ${family}")
     string(TOUPPER ${family} ufamily)

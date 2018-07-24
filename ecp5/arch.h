@@ -482,8 +482,6 @@ struct Arch : BaseCtx
         return range;
     }
 
-    BelRange getBelsAtSameTile(BelId bel) const;
-
     BelType getBelType(BelId bel) const
     {
         NPNR_ASSERT(bel != BelId());
@@ -752,7 +750,6 @@ struct Arch : BaseCtx
 
     // -------------------------------------------------
 
-    void estimatePosition(BelId bel, int &x, int &y, bool &gb) const;
     delay_t estimateDelay(WireId src, WireId dst) const;
     delay_t getDelayEpsilon() const { return 20; }
     delay_t getRipupDelayPenalty() const { return 200; }

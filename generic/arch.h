@@ -141,7 +141,7 @@ struct Arch : BaseCtx
     IdString getBelName(BelId bel) const;
     Loc getBelLocation(BelId bel) const;
     BelId getBelByLocation(Loc loc) const;
-    std::vector<BelId> getBelsByTile(int x, int y) const;
+    const std::vector<BelId> &getBelsByTile(int x, int y) const;
     bool getBelGlobalBuf(BelId bel) const;
     uint32_t getBelChecksum(BelId bel) const;
     void bindBel(BelId bel, IdString cell, PlaceStrength strength);
@@ -191,7 +191,6 @@ struct Arch : BaseCtx
     const std::vector<PipId> &getGroupPips(GroupId group) const;
     const std::vector<GroupId> &getGroupGroups(GroupId group) const;
 
-    void estimatePosition(BelId bel, int &x, int &y, bool &gb) const;
     delay_t estimateDelay(WireId src, WireId dst) const;
     delay_t getDelayEpsilon() const { return 0.01; }
     delay_t getRipupDelayPenalty() const { return 1.0; }

@@ -192,17 +192,20 @@ BelId Arch::getBelByName(IdString name) const
     return ret;
 }
 
-BelRange Arch::getBelsAtSameTile(BelId bel) const
+BelRange Arch::getBelsByTile(int x, int y) const
 {
     BelRange br;
-    NPNR_ASSERT(bel != BelId());
-    br.b.cursor_tile = bel.location.y * chip_info->width + bel.location.x;
-    br.e.cursor_tile = bel.location.y * chip_info->width + bel.location.x;
+
+    br.b.cursor_tile = y * chip_info->width + x;
+    br.e.cursor_tile = y * chip_info->width + x;
     br.b.cursor_index = 0;
-    br.e.cursor_index = locInfo(bel)->num_bels - 1;
+    br.e.cursor_index = chip_info->locations[chip_info->location_type[br.b.cursor_tile]].num_bels - 1;
     br.b.chip = chip_info;
     br.e.chip = chip_info;
-    ++br.e;
+    if (br.e.cursor_index == -1)
+        ++br.e.cursor_index;
+    else
+        ++br.e;
     return br;
 }
 
@@ -278,6 +281,7 @@ PipId Arch::getPipByName(IdString name) const
     Location loc;
     std::string basename;
     std::tie(loc.x, loc.y, basename) = split_identifier_name(name.str(this));
+    ret.location = loc;
     const LocationTypePOD *loci = locInfo(ret);
     for (int i = 0; i < loci->num_pips; i++) {
         PipId curr;
@@ -285,6 +289,8 @@ PipId Arch::getPipByName(IdString name) const
         curr.index = i;
         pip_by_name[getPipName(curr)] = curr;
     }
+    if (pip_by_name.find(name) == pip_by_name.end())
+        NPNR_ASSERT_FALSE_STR("no pip named " + name.str(this));
     return pip_by_name[name];
 }
 
@@ -399,35 +405,7 @@ BelId Arch::getBelByLocation(Loc loc) const
     return BelId();
 }
 
-BelRange Arch::getBelsByTile(int x, int y) const
-{
-    BelRange br;
-
-    int num_bels = 0;
-
-    if (x < chip_info->width && y < chip_info->height) {
-        const LocationTypePOD &locI = chip_info->locations[chip_info->location_type[y * chip_info->width + x]];
-        num_bels = locI.num_bels;
-    }
-
-    br.b.cursor_tile = y * chip_info->width + x;
-    br.e.cursor_tile = y * chip_info->width + x;
-    br.b.cursor_index = 0;
-    br.e.cursor_index = num_bels - 1;
-    br.b.chip = chip_info;
-    br.e.chip = chip_info;
-    ++br.e;
-    return br;
-}
-
 // -----------------------------------------------------------------------
-
-void Arch::estimatePosition(BelId bel, int &x, int &y, bool &gb) const
-{
-    x = bel.location.x;
-    y = bel.location.y;
-    gb = false;
-}
 
 delay_t Arch::estimateDelay(WireId src, WireId dst) const
 {

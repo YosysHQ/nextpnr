@@ -88,6 +88,9 @@ void assign_budget(Context *ctx)
                 IdString clock_domain = ctx->getPortClock(cell.second.get(), port.first);
                 if (clock_domain != IdString()) {
                     delay_t slack = delay_t(1.0e12 / ctx->target_freq); // TODO: clock constraints
+                    delay_t clkToQ;
+                    if (ctx->getCellDelay(cell.second.get(), clock_domain, port.first, clkToQ))
+                        slack -= clkToQ;
                     if (port.second.net)
                         follow_net(ctx, port.second.net, 0, slack);
                 }

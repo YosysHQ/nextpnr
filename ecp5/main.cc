@@ -63,6 +63,7 @@ int main(int argc, char *argv[])
 #ifndef NO_GUI
         options.add_options()("gui", "start gui");
 #endif
+        options.add_options()("test", "check architecture database integrity");
 
         options.add_options()("25k", "set device type to LFE5U-25F");
         options.add_options()("45k", "set device type to LFE5U-45F");
@@ -147,6 +148,9 @@ int main(int argc, char *argv[])
         ctx->timing_driven = true;
         if (vm.count("no-tmdriv"))
             ctx->timing_driven = false;
+
+        if (vm.count("test"))
+            ctx->archcheck();
 
 #ifndef NO_GUI
         if (vm.count("gui")) {

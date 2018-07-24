@@ -147,6 +147,7 @@ struct GraphicElement
     {
         G_NONE,
         G_LINE,
+        G_ARROW,
         G_BOX,
         G_CIRCLE,
         G_LABEL
