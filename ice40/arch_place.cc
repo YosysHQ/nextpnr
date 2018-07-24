@@ -3,6 +3,7 @@
  *
  *  Copyright (C) 2018  Clifford Wolf <clifford@symbioticeda.com>
  *  Copyright (C) 2018  David Shah <david@symbioticeda.com>
+ *  Copyright (C) 2018  Serge Bazanski <q3k@symbioticeda.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -107,6 +108,32 @@ bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const
         bel_cells.push_back(cell);
         return logicCellsCompatible(bel_cells);
     } else if (cell->type == id_sb_io) {
+        // Do not allow placement of input SB_IOs on blocks where there a PLL is outputting to.
+
+        // Find shared PLL by looking for driving bel siblings from D_IN_0
+        // that are a PLL clock output.
+        auto wire = getBelPinWire(bel, PIN_D_IN_0);
+        PortPin pll_bel_pin;
+        BelId pll_bel;
+        for (auto pin : getWireBelPins(wire)) {
+            if (pin.pin == PIN_PLLOUT_A || pin.pin == PIN_PLLOUT_B) {
+                pll_bel = pin.bel;
+                pll_bel_pin = pin.pin;
+                break;
+            }
+        }
+        // Is there a PLL that shares this IO buffer?
+        if (pll_bel.index != -1) {
+            // Is a PLL placed in this PLL bel?
+            if (!checkBelAvail(pll_bel)) {
+                // Is the shared port driving a net?
+                auto pll_cell = getBoundBelCell(pll_bel);
+                auto pi = cells.at(pll_cell)->ports[portPinToId(pll_bel_pin)];
+                if (pi.net != nullptr) {
+                    return false;
+                }
+            }
+        }
         return getBelPackagePin(bel) != "";
     } else if (cell->type == id_sb_gb) {
         NPNR_ASSERT(cell->ports.at(id_glb_buf_out).net != nullptr);

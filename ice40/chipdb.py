@@ -182,6 +182,8 @@ def wire_type(name):
         wt = "LOCAL"
     elif name in ("WCLK", "WCLKE", "WE", "RCLK", "RCLKE", "RE"):
         wt = "LOCAL"
+    elif name in ("PLLOUT_A", "PLLOUT_B"):
+        wt = "LOCAL"
 
     if wt is None:
         print("No type for wire: %s (%s)" % (longname, name), file=sys.stderr)
@@ -584,6 +586,9 @@ def is_ec_output(ec_entry):
     if "glb_netwk_" in wirename: return True
     return False
 
+def is_ec_pll_clock_output(ec, ec_entry):
+    return ec[0] == 'PLL' and ec_entry[0] in ('PLLOUT_A', 'PLLOUT_B')
+
 def add_bel_ec(ec):
     ectype, x, y, z = ec
     bel = len(bel_name)
@@ -598,6 +603,10 @@ def add_bel_ec(ec):
                 add_bel_output(bel, wire_names[entry[1]], entry[0])
             else:
                 add_bel_input(bel, wire_names[entry[1]], entry[0])
+        elif is_ec_pll_clock_output(ec, entry):
+            x, y, z = entry[1]
+            z = 'io_{}/D_IN_0'.format(z)
+            add_bel_output(bel, wire_names[(x, y, z)], entry[0])
         else:
             extra_cell_config[bel].append(entry)
 
