@@ -28,19 +28,20 @@ NEXTPNR_NAMESPACE_BEGIN
 wirelen_t get_net_metric(const Context *ctx, const NetInfo *net, MetricType type, float &tns)
 {
     wirelen_t wirelength = 0;
-    int driver_x, driver_y;
+    Loc driver_loc;
     bool driver_gb;
     CellInfo *driver_cell = net->driver.cell;
     if (!driver_cell)
         return 0;
     if (driver_cell->bel == BelId())
         return 0;
-    ctx->estimatePosition(driver_cell->bel, driver_x, driver_y, driver_gb);
+    driver_gb = ctx->getBelGlobalBuf(driver_cell->bel);
+    driver_loc = ctx->getBelLocation(driver_cell->bel);
     WireId drv_wire = ctx->getBelPinWire(driver_cell->bel, ctx->portPinFromId(net->driver.port));
     if (driver_gb)
         return 0;
     float worst_slack = 1000;
-    int xmin = driver_x, xmax = driver_x, ymin = driver_y, ymax = driver_y;
+    int xmin = driver_loc.x, xmax = driver_loc.x, ymin = driver_loc.y, ymax = driver_loc.y;
     for (auto load : net->users) {
         if (load.cell == nullptr)
             continue;
@@ -56,15 +57,14 @@ wirelen_t get_net_metric(const Context *ctx, const NetInfo *net, MetricType type
             worst_slack = std::min(slack, worst_slack);
         }
 
-        int load_x, load_y;
-        bool load_gb;
-        ctx->estimatePosition(load_cell->bel, load_x, load_y, load_gb);
-        if (load_gb)
+        if (ctx->getBelGlobalBuf(load_cell->bel))
             continue;
-        xmin = std::min(xmin, load_x);
-        ymin = std::min(ymin, load_y);
-        xmax = std::max(xmax, load_x);
-        ymax = std::max(ymax, load_y);
+        Loc load_loc = ctx->getBelLocation(load_cell->bel);
+
+        xmin = std::min(xmin, load_loc.x);
+        ymin = std::min(ymin, load_loc.y);
+        xmax = std::max(xmax, load_loc.x);
+        ymax = std::max(ymax, load_loc.y);
     }
     if (ctx->timing_driven && type == MetricType::COST) {
         wirelength = wirelen_t((((ymax - ymin) + (xmax - xmin)) * std::min(5.0, (1.0 + std::exp(-worst_slack / 5)))));
