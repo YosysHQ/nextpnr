@@ -329,6 +329,44 @@ std::string Arch::getBelPackagePin(BelId bel) const
     return "";
 }
 
+int Arch::getPioBelBank(BelId bel) const
+{
+    for (int i = 0; i < chip_info->num_pios; i++) {
+        if (chip_info->pio_info[i].abs_loc == bel.location && chip_info->pio_info[i].bel_index == bel.index) {
+            return chip_info->pio_info[i].bank;
+        }
+    }
+    NPNR_ASSERT_FALSE("failed to find PIO");
+}
+
+std::string Arch::getPioFunctionName(BelId bel) const
+{
+    for (int i = 0; i < chip_info->num_pios; i++) {
+        if (chip_info->pio_info[i].abs_loc == bel.location && chip_info->pio_info[i].bel_index == bel.index) {
+            const char *func = chip_info->pio_info[i].function_name.get();
+            if (func == nullptr)
+                return "";
+            else
+                return func;
+        }
+    }
+    NPNR_ASSERT_FALSE("failed to find PIO");
+}
+
+BelId Arch::getPioByFunctionName(const std::string &name) const
+{
+    for (int i = 0; i < chip_info->num_pios; i++) {
+        const char *func = chip_info->pio_info[i].function_name.get();
+        if (func != nullptr && func == name) {
+            BelId bel;
+            bel.location = chip_info->pio_info[i].abs_loc;
+            bel.index = chip_info->pio_info[i].bel_index;
+            return bel;
+        }
+    }
+    return BelId();
+}
+
 std::vector<PortPin> Arch::getBelPins(BelId bel) const
 
 {

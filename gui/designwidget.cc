@@ -229,6 +229,7 @@ void DesignWidget::addToHistory(QTreeWidgetItem *item)
 
 void DesignWidget::newContext(Context *ctx)
 {
+    highlightSelected.clear();
     treeWidget->clear();
     // reset pointers since they are not valid after clear
     nets_root = nullptr;
@@ -337,48 +338,78 @@ void DesignWidget::newContext(Context *ctx)
     for (auto pip : nameToItem[2].toStdMap()) {
         pip_root->addChild(pip.second);
     }
+
+    nets_root = new QTreeWidgetItem(treeWidget);
+    nets_root->setText(0, "Nets");
+    treeWidget->insertTopLevelItem(0, nets_root);
+
+    cells_root = new QTreeWidgetItem(treeWidget);
+    cells_root->setText(0, "Cells");
+    treeWidget->insertTopLevelItem(0, cells_root);
+
     updateTree();
 }
 
 void DesignWidget::updateTree()
 {
-    clearProperties();
-    delete nets_root;
-    delete cells_root;
-    nameToItem[3].clear();
-    nameToItem[4].clear();
+    if (!ctx)
+        return;
 
+    clearProperties();
+
+    // treeWidget->setSortingEnabled(false);
+
+    // Remove nets not existing any more
+    QMap<QString, QTreeWidgetItem *>::iterator i = nameToItem[3].begin();
+    while (i != nameToItem[3].end()) {
+        QMap<QString, QTreeWidgetItem *>::iterator prev = i;
+        ++i;
+        if (ctx->nets.find(ctx->id(prev.key().toStdString())) == ctx->nets.end()) {
+            if (treeWidget->currentItem() == prev.value())
+                treeWidget->setCurrentItem(nets_root);
+            if (highlightSelected.contains(prev.value()))
+                highlightSelected.remove(prev.value());
+            delete prev.value();
+            nameToItem[3].erase(prev);
+        }
+    }
     // Add nets to tree
-    nets_root = new QTreeWidgetItem(treeWidget);
-    nets_root->setText(0, "Nets");
-    treeWidget->insertTopLevelItem(0, nets_root);
-    if (ctx) {
-        for (auto &item : ctx->nets) {
-            auto id = item.first;
-            QString name = QString(id.c_str(ctx));
+    for (auto &item : ctx->nets) {
+        auto id = item.first;
+        QString name = QString(id.c_str(ctx));
+        if (!nameToItem[3].contains(name)) {
             IdStringTreeItem *newItem = new IdStringTreeItem(id, ElementType::NET, name, nullptr);
+            nets_root->addChild(newItem);
             nameToItem[3].insert(name, newItem);
         }
     }
-    for (auto item : nameToItem[3].toStdMap()) {
-        nets_root->addChild(item.second);
-    }
 
+    // Remove cells not existing any more
+    i = nameToItem[4].begin();
+    while (i != nameToItem[4].end()) {
+        QMap<QString, QTreeWidgetItem *>::iterator prev = i;
+        ++i;
+        if (ctx->cells.find(ctx->id(prev.key().toStdString())) == ctx->cells.end()) {
+            if (treeWidget->currentItem() == prev.value())
+                treeWidget->setCurrentItem(cells_root);
+            if (highlightSelected.contains(prev.value()))
+                highlightSelected.remove(prev.value());
+            delete prev.value();
+            nameToItem[4].erase(prev);
+        }
+    }
     // Add cells to tree
-    cells_root = new QTreeWidgetItem(treeWidget);
-    cells_root->setText(0, "Cells");
-    treeWidget->insertTopLevelItem(0, cells_root);
-    if (ctx) {
-        for (auto &item : ctx->cells) {
-            auto id = item.first;
-            QString name = QString(id.c_str(ctx));
+    for (auto &item : ctx->cells) {
+        auto id = item.first;
+        QString name = QString(id.c_str(ctx));
+        if (!nameToItem[4].contains(name)) {
             IdStringTreeItem *newItem = new IdStringTreeItem(id, ElementType::CELL, name, nullptr);
+            cells_root->addChild(newItem);
             nameToItem[4].insert(name, newItem);
         }
     }
-    for (auto item : nameToItem[4].toStdMap()) {
-        cells_root->addChild(item.second);
-    }
+    // treeWidget->sortByColumn(0, Qt::AscendingOrder);
+    // treeWidget->setSortingEnabled(true);
 }
 QtProperty *DesignWidget::addTopLevelProperty(const QString &id)
 {
