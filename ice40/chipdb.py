@@ -662,7 +662,7 @@ for tile_xy, tile_type in sorted(tiles.items()):
             add_bel_ec(ec)
 
 for ec in sorted(extra_cells.keys()):
-    if ec[1] == 0 and ec[2] == 0:
+    if ec[1] in (0, dev_width - 1) and ec[2] in (0, dev_height - 1):
         add_bel_ec(ec)
 
 class BinaryBlobAssembler:
