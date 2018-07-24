@@ -202,7 +202,10 @@ BelRange Arch::getBelsByTile(int x, int y) const
     br.e.cursor_index = chip_info->locations[chip_info->location_type[br.b.cursor_tile]].num_bels - 1;
     br.b.chip = chip_info;
     br.e.chip = chip_info;
-    ++br.e;
+    if (br.e.cursor_index == -1)
+        ++br.e.cursor_index;
+    else
+        ++br.e;
     return br;
 }
 
@@ -278,6 +281,7 @@ PipId Arch::getPipByName(IdString name) const
     Location loc;
     std::string basename;
     std::tie(loc.x, loc.y, basename) = split_identifier_name(name.str(this));
+    ret.location = loc;
     const LocationTypePOD *loci = locInfo(ret);
     for (int i = 0; i < loci->num_pips; i++) {
         PipId curr;
@@ -285,6 +289,8 @@ PipId Arch::getPipByName(IdString name) const
         curr.index = i;
         pip_by_name[getPipName(curr)] = curr;
     }
+    if (pip_by_name.find(name) == pip_by_name.end())
+        NPNR_ASSERT_FALSE_STR("no pip named " + name.str(this));
     return pip_by_name[name];
 }
 
