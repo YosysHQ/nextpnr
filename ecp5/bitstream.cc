@@ -191,18 +191,23 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
         CellInfo *ci = cell.second.get();
         if (ci->bel != BelId() && ci->type == ctx->id("TRELLIS_IO")) {
             int bank = ctx->getPioBelBank(ci->bel);
+            std::string dir = str_or_default(ci->params, ctx->id("DIR"), "INPUT");
             std::string iotype = str_or_default(ci->attrs, ctx->id("IO_TYPE"), "LVCMOS33");
-            IOVoltage vcc = get_vccio(ioType_from_str(iotype));
-            if (bankVcc.find(bank) != bankVcc.end()) {
-                // TODO: strong and weak constraints
-                if (bankVcc[bank] != vcc) {
-                    log_error("Error processing '%s': incompatible IO voltages %s and %s on bank %d.",
-                              cell.first.c_str(ctx), iovoltage_to_str(bankVcc[bank]).c_str(),
-                              iovoltage_to_str(vcc).c_str(), bank);
+
+            if (dir != "INPUT") {
+                IOVoltage vcc = get_vccio(ioType_from_str(iotype));
+                if (bankVcc.find(bank) != bankVcc.end()) {
+                    // TODO: strong and weak constraints
+                    if (bankVcc[bank] != vcc) {
+                        log_error("Error processing '%s': incompatible IO voltages %s and %s on bank %d.",
+                                  cell.first.c_str(ctx), iovoltage_to_str(bankVcc[bank]).c_str(),
+                                  iovoltage_to_str(vcc).c_str(), bank);
+                    }
+                } else {
+                    bankVcc[bank] = vcc;
                 }
-            } else {
-                bankVcc[bank] = vcc;
             }
+
             if (iotype == "LVDS")
                 bankLvds[bank] = true;
         }
@@ -275,8 +280,8 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                     other = "PIOD";
                 else
                     log_error("cannot place differential IO at location %s\n", pio.c_str());
-                cc.tiles[pio_tile].add_enum(other + ".BASE_TYPE", "_NONE_");
-                cc.tiles[pic_tile].add_enum(other + ".BASE_TYPE", "_NONE_");
+                //cc.tiles[pio_tile].add_enum(other + ".BASE_TYPE", "_NONE_");
+                //cc.tiles[pic_tile].add_enum(other + ".BASE_TYPE", "_NONE_");
                 cc.tiles[pio_tile].add_enum(other + ".PULLMODE", "NONE");
                 cc.tiles[pio_tile].add_enum(pio + ".PULLMODE", "NONE");
             }
