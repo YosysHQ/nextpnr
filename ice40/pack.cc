@@ -311,6 +311,9 @@ static void set_net_constant(const Context *ctx, NetInfo *orig, NetInfo *constne
                        (user.port != ctx->id("CLK") &&
                         ((constval && user.port == ctx->id("CE")) || (!constval && user.port != ctx->id("CE"))))) {
                 uc->ports[user.port].net = nullptr;
+            } else if (is_ram(ctx, uc) && !constval && user.port != ctx->id("RCLK") && user.port != ctx->id("RCLKN") && user.port != ctx->id("WCLK") && user.port != ctx->id("WCLKN")
+                       && user.port != ctx->id("RCLKE") && user.port != ctx->id("WCLKE")) {
+                uc->ports[user.port].net = nullptr;
             } else {
                 uc->ports[user.port].net = constnet;
                 constnet->users.push_back(user);
