@@ -746,11 +746,6 @@ struct Arch : BaseCtx
     IdString id_cen, id_clk, id_sr;
     IdString id_i0, id_i1, id_i2, id_i3;
     IdString id_dff_en, id_neg_clk;
-
-
-    // -------------------------------------------------
-    // Insert a LUT/LC in between a given output port of a cell and all its' users.
-    std::unique_ptr<CellInfo> spliceLUT(CellInfo *ci, IdString portId, bool onlyNonLUTs);
 };
 
 NEXTPNR_NAMESPACE_END
