@@ -87,7 +87,7 @@ void set_config(const TileInfoPOD &ti, std::vector<std::vector<int8_t>> &tile_cf
 }
 
 // Set an IE_{EN,REN} logical bit in a tile config. Logical means enabled.
-// On {HX,LP}1K devices these bits are active low, so we need to inver them.
+// On {HX,LP}1K devices these bits are active low, so we need to invert them.
 void set_ie_bit_logical(const Context *ctx, const TileInfoPOD &ti, std::vector<std::vector<int8_t>> &tile_cfg,
                         const std::string &name, bool value)
 {
@@ -101,9 +101,9 @@ void set_ie_bit_logical(const Context *ctx, const TileInfoPOD &ti, std::vector<s
 int get_param_or_def(const CellInfo *cell, const IdString param, int defval = 0)
 {
     auto found = cell->params.find(param);
-    if (found != cell->params.end()) {
+    if (found != cell->params.end())
         return std::stoi(found->second);
-    } else
+    else
         return defval;
 }
 
@@ -273,7 +273,7 @@ void write_asc(const Context *ctx, std::ostream &out)
     }
 
     std::unordered_set<Loc> sb_io_used_by_pll;
-    std::unordered_set<Loc> sb_io_used_by_user;
+    std::unordered_set<Loc> sb_io_used_by_io;
 
     // Set logic cell config
     for (auto &cell : ctx->cells) {
@@ -322,7 +322,7 @@ void write_asc(const Context *ctx, std::ostream &out)
         } else if (cell.second->type == ctx->id("SB_IO")) {
             const BelInfoPOD &beli = ci.bel_data[bel.index];
             int x = beli.x, y = beli.y, z = beli.z;
-            sb_io_used_by_user.insert(Loc(x, y, z));
+            sb_io_used_by_io.insert(Loc(x, y, z));
             const TileInfoPOD &ti = bi.tiles_nonrouting[TILE_IO];
             unsigned pin_type = get_param_or_def(cell.second.get(), ctx->id("PIN_TYPE"));
             bool neg_trigger = get_param_or_def(cell.second.get(), ctx->id("NEG_TRIGGER"));
@@ -466,7 +466,7 @@ void write_asc(const Context *ctx, std::ostream &out)
                 auto io_bel_loc = ctx->getBelLocation(io_bel);
 
                 // Check that this SB_IO is either unused or just used as an output.
-                if (sb_io_used_by_user.count(io_bel_loc)) {
+                if (sb_io_used_by_io.count(io_bel_loc)) {
                     log_error("SB_IO '%s' already in use, cannot route PLL through\n", ctx->getBelName(bel).c_str(ctx));
                 }
                 sb_io_used_by_pll.insert(io_bel_loc);

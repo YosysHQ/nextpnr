@@ -736,22 +736,14 @@ static void pack_special(Context *ctx)
                     new_cells.push_back(std::move(pt));
                 }
 
-                // Find wire driven by this port.
-                const auto &pll_beli = ctx->chip_info->bel_data[pll_bel.index];
-                const WireInfoPOD *wirei = nullptr;
-                for (int i = 0; i < pll_beli.num_bel_wires; i++) {
-                    auto bel_port = ctx->portPinToId(pll_beli.bel_wires[i].port);
-                    if (port.name != bel_port)
-                        continue;
-                    wirei = &ctx->chip_info->wire_data[pll_beli.bel_wires[i].wire_index];
-                    break;
-                }
-                NPNR_ASSERT(wirei != nullptr);
+                // Find wire that will be driven by this port.
+                const auto pll_out_wire = ctx->getBelPinWire(pll_bel, ctx->portPinFromId(port.name));
+                NPNR_ASSERT(pll_out_wire.index != -1);
 
                 // Now, constrain all LUTs on the output of the signal to be at
                 // the correct Bel relative to the PLL Bel.
-                int x = wirei->x;
-                int y = wirei->y;
+                int x = ctx->chip_info->wire_data[pll_out_wire.index].x;
+                int y = ctx->chip_info->wire_data[pll_out_wire.index].y;
                 int z = 0;
                 for (const auto &user : port.net->users) {
                     NPNR_ASSERT(user.cell != nullptr);
@@ -787,7 +779,6 @@ bool Arch::pack()
         log_break();
         pack_constants(ctx);
         promote_globals(ctx);
-
         pack_io(ctx);
         pack_lut_lutffs(ctx);
         pack_nonlut_ffs(ctx);

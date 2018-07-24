@@ -400,7 +400,6 @@ void FPGAViewWidget::paintGL()
     // Calculate world thickness to achieve a screen 1px/1.1px line.
     float thick1Px = mouseToWorldCoordinates(1, 0).x();
     float thick11Px = mouseToWorldCoordinates(1.1, 0).x();
-    float thick2Px = mouseToWorldCoordinates(2, 0).x();
 
     // Draw grid.
     auto grid = LineShaderData();
@@ -419,7 +418,7 @@ void FPGAViewWidget::paintGL()
     for (int i = 0; i < 8; i++)
         lineShader_.draw(rendererData_->highlighted[i], colors_.highlight[i], thick11Px, matrix);
 
-    lineShader_.draw(rendererData_->selected, colors_.selected, thick2Px, matrix);
+    lineShader_.draw(rendererData_->selected, colors_.selected, thick11Px, matrix);
     rendererDataLock_.unlock();
 }
 
