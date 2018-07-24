@@ -387,8 +387,6 @@ class SAPlacer
         // SA acceptance criterea
         if (delta < 0 || (temp > 1e-6 && (ctx->rng() / float(0x3fffffff)) <= std::exp(-delta / temp))) {
             n_accept++;
-            //if (delta < 2)
-            //    improved = true;
         } else {
             if (other != IdString())
                 ctx->unbindBel(oldBel);
