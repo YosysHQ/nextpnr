@@ -106,6 +106,30 @@ bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const
         bel_cells.push_back(cell);
         return logicCellsCompatible(bel_cells);
     } else if (cell->type == id_sb_io) {
+        // Do not allow placement of input SB_IOs on blocks where there a PLL is outputting to.
+        for (auto iter_bel : getBels()) {
+            if (getBelType(iter_bel) != TYPE_ICESTORM_PLL)
+                continue;
+            if (checkBelAvail(iter_bel))
+                continue;
+
+            auto bel_cell = cells.at(getBoundBelCell(iter_bel)).get();
+            for (auto type : {id("PLLOUT_A"), id("PLLOUT_B")}) {
+                auto it = bel_cell->ports.find(type);
+                if (it == bel_cell->ports.end())
+                    continue;
+                if (it->second.net == nullptr)
+                    continue;
+                auto wire = getBelPinWire(iter_bel, portPinFromId(type));
+                for (auto pip : getPipsDownhill(wire)) {
+                    auto driven_wire = getPipDstWire(pip);
+                    auto io_bel = chip_info->wire_data[driven_wire.index].bel_uphill.bel_index;
+                    if (io_bel == bel.index) {
+                        return false;
+                    }
+                }
+            }
+        }
         return getBelPackagePin(bel) != "";
     } else if (cell->type == id_sb_gb) {
         NPNR_ASSERT(cell->ports.at(id_glb_buf_out).net != nullptr);
