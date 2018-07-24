@@ -444,55 +444,40 @@ void write_asc(const Context *ctx, std::ostream &out)
                 if (port.second.net == nullptr)
                     continue;
 
-                // Find SB_IO Bel in net that's driving a wire. That's the one
-                // we're routing the signal through.
-                // TODO(q3k): Is there a nicer way to do this?
-                bool found = false;
+                // Get IO Bel that this PLL port goes through.
+                // We navigate one pip downhill to the next wire (there should
+                // be only one). Then, the bel that drives that wire should be
+                // the SB_IO that we're looking for.
+                auto wire = ctx->getBelPinWire(cell.second->bel, ctx->portPinFromId(port.second.name));
+                auto pips = ctx->getPipsDownhill(wire).begin();
+                auto driven_wire = ctx->getPipDstWire(*pips);
+                auto io_bel = ctx->chip_info->wire_data[driven_wire.index].bel_uphill.bel_index;
+                auto io_beli = ctx->chip_info->bel_data[io_bel];
+                NPNR_ASSERT(io_beli.type == TYPE_SB_IO);
 
-                // For every wire in the PLLOUT net...
-                for (auto wp : port.second.net->wires) {
-                    // ... get its' uphill bel ...
-                    auto bel = ctx->getBelPinUphill(wp.first).bel;
-                    if (bel == BelId()) {
-                        continue;
-                    }
-                    // ... and check if it's an SB_IO.
-                    if (ctx->getBelType(bel) != TYPE_SB_IO)
-                        continue;
-
-                    // Check that this SB_IO is either unused or just used as an output.
-                    const BelInfoPOD &io_beli = ci.bel_data[bel.index];
-                    auto io_loc = Loc(io_beli.x, io_beli.y, io_beli.z);
-
-                    if (sb_io_used_by_user.count(io_loc)) {
-                        log_error("SB_IO '%s' already in use, cannot route PLL through\n",
-                                ctx->getBelName(bel).c_str(ctx));
-                    }
-                    sb_io_used_by_pll.insert(Loc(io_beli.x, io_beli.y, io_beli.z));
-
-                    // Get IE/REN config location (cf. http://www.clifford.at/icestorm/io_tile.html)
-                    auto ieren = get_ieren(bi, io_beli.x, io_beli.y, io_beli.z);
-                    int iex, iey, iez;
-                    std::tie(iex, iey, iez) = ieren;
-                    NPNR_ASSERT(iez != -1);
-
-                    // Write config.
-                    const TileInfoPOD &ti = bi.tiles_nonrouting[TILE_IO];
-                    // Enable input buffer and disable pull-up resistor in block
-                    // (this is used by the PLL).
-                    set_ie_bit_logical(ctx, ti, config.at(iey).at(iex), "IoCtrl.IE_" + std::to_string(iez), true);
-                    set_ie_bit_logical(ctx, ti, config.at(iey).at(iex), "IoCtrl.REN_" + std::to_string(iez), false);
-                    // PINTYPE[0] passes the PLL through to the fabric.
-                    set_config(ti, config.at(io_beli.y).at(io_beli.x), "IOB_" + std::to_string(io_beli.z) + ".PINTYPE_0", true);
-
-                    found = true;
-                    break;
+                // Check that this SB_IO is either unused or just used as an output.
+                auto io_loc = Loc(io_beli.x, io_beli.y, io_beli.z);
+                if (sb_io_used_by_user.count(io_loc)) {
+                    log_error("SB_IO '%s' already in use, cannot route PLL through\n",
+                            ctx->getBelName(bel).c_str(ctx));
                 }
+                sb_io_used_by_pll.insert(Loc(io_beli.x, io_beli.y, io_beli.z));
 
-                if (!found) {
-                    log_error("Could not find SB_IO forwarding PLL '%s' %s signal\n",
-                            cell.second->name.c_str(ctx), port.second.name.c_str(ctx));
-                }
+                // Get IE/REN config location (cf. http://www.clifford.at/icestorm/io_tile.html)
+                auto ieren = get_ieren(bi, io_beli.x, io_beli.y, io_beli.z);
+                int iex, iey, iez;
+                std::tie(iex, iey, iez) = ieren;
+                NPNR_ASSERT(iez != -1);
+
+                // Write config.
+                const TileInfoPOD &ti = bi.tiles_nonrouting[TILE_IO];
+                // Enable input buffer and disable pull-up resistor in block
+                // (this is used by the PLL).
+                set_ie_bit_logical(ctx, ti, config.at(iey).at(iex), "IoCtrl.IE_" + std::to_string(iez), true);
+                set_ie_bit_logical(ctx, ti, config.at(iey).at(iex), "IoCtrl.REN_" + std::to_string(iez), false);
+                // PINTYPE[0] passes the PLL through to the fabric.
+                set_config(ti, config.at(io_beli.y).at(io_beli.x), "IOB_" + std::to_string(io_beli.z) + ".PINTYPE_0", true);
+
             }
 
         } else {
