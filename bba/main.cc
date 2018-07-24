@@ -3,8 +3,10 @@
 #include <string>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <string.h>
 #include <assert.h>
+#include <unistd.h>
 
 enum TokenType : int8_t
 {
@@ -35,18 +37,48 @@ std::vector<std::string> preText, postText;
 
 const char *skipWhitespace(const char *p)
 {
+    if (p == nullptr)
+        return "";
     while (*p == ' ' || *p == '\t')
         p++;
     return p;
 }
 
-int main()
+int main(int argc, char **argv)
 {
-    bool verbose = true;
-    // bool bigEndian = false;
+    bool verbose = false;
+    bool bigEndian = false;
+    bool writeC = false;
     char buffer[512];
 
-    while (fgets(buffer, 512, stdin) != nullptr)
+    int opt;
+    while ((opt = getopt(argc, argv, "vbc")) != -1)
+    {
+        switch (opt)
+        {
+        case 'v':
+            verbose = true;
+            break;
+        case 'b':
+            bigEndian = true;
+            break;
+        case 'c':
+            writeC = true;
+            break;
+        default:
+            assert(0);
+        }
+    }
+
+    assert(optind+2 == argc);
+
+    FILE *fileIn = fopen(argv[optind], "rt");
+    assert(fileIn != nullptr);
+
+    FILE *fileOut = fopen(argv[optind+1], writeC ? "wt" : "wb");
+    assert(fileOut != nullptr);
+
+    while (fgets(buffer, 512, fileIn) != nullptr)
     {
         std::string cmd = strtok(buffer, " \t\r\n");
 
@@ -63,7 +95,7 @@ int main()
         }
 
         if (cmd == "push") {
-            const char *p = strtok(buffer, " \t\r\n");
+            const char *p = strtok(nullptr, " \t\r\n");
             if (streamIndex.count(p) == 0) {
                 streamIndex[p] = streams.size();
                 streams.resize(streams.size() + 1);
@@ -79,8 +111,8 @@ int main()
         }
 
         if (cmd == "label" || cmd == "ref") {
-            const char *label = strtok(buffer, " \t\r\n");
-            const char *comment = skipWhitespace(strtok(buffer, "\r\n"));
+            const char *label = strtok(nullptr, " \t\r\n");
+            const char *comment = skipWhitespace(strtok(nullptr, "\r\n"));
             Stream &s = streams.at(streamStack.back());
             if (labelIndex.count(label) == 0) {
                 labelIndex[label] = labels.size();
@@ -94,8 +126,8 @@ int main()
         }
 
         if (cmd == "u8" || cmd == "u16" || cmd == "u32") {
-            const char *value = strtok(buffer, " \t\r\n");
-            const char *comment = skipWhitespace(strtok(buffer, "\r\n"));
+            const char *value = strtok(nullptr, " \t\r\n");
+            const char *comment = skipWhitespace(strtok(nullptr, "\r\n"));
             Stream &s = streams.at(streamStack.back());
             s.tokenTypes.push_back(cmd == "u8" ? TOK_U8 : cmd == "u16" ? TOK_U16 : TOK_U32);
             s.tokenValues.push_back(atoll(value));
@@ -104,8 +136,8 @@ int main()
             continue;
         }
 
-        if (cmd == "s") {
-            const char *value = skipWhitespace(strtok(buffer, "\r\n"));
+        if (cmd == "str") {
+            const char *value = skipWhitespace(strtok(nullptr, "\r\n"));
             std::string label = std::string("str:") + value;
             Stream &s = streams.at(streamStack.back());
             if (labelIndex.count(label) == 0) {
@@ -128,7 +160,13 @@ int main()
             continue;
         }
 
-        abort();
+        assert(0);
+    }
+
+    if (verbose) {
+        printf("Constructed %d streams:\n", int(streams.size()));
+        for (auto &s : streams)
+            printf("    stream '%s' with %d tokens\n", s.name.c_str(), int(s.tokenTypes.size()));
     }
 
     assert(!streams.empty());
@@ -136,6 +174,150 @@ int main()
     streams.push_back(Stream());
     streams.back().tokenTypes.swap(stringStream.tokenTypes);
     streams.back().tokenValues.swap(stringStream.tokenValues);
+
+    int cursor = 0;
+    for (auto &s : streams) {
+        for (int i = 0; i < int(s.tokenTypes.size()); i++) {
+            switch (s.tokenTypes[i])
+            {
+            case TOK_LABEL:
+                labels[s.tokenValues[i]] = cursor;
+                break;
+            case TOK_REF:
+                cursor += 4;
+                break;
+            case TOK_U8:
+                cursor += 1;
+                break;
+            case TOK_U16:
+                assert(cursor % 2 == 0);
+                cursor += 2;
+                break;
+            case TOK_U32:
+                assert(cursor % 4 == 0);
+                cursor += 4;
+                break;
+            default:
+                assert(0);
+            }
+        }
+    }
+
+    if (verbose) {
+        printf("resolved positions for %d labels.\n", int(labels.size()));
+        printf("total data (including strings): %.2f MB\n", double(cursor) / (1024*1024));
+    }
+
+    std::vector<uint8_t> data(cursor);
+
+    cursor = 0;
+    for (auto &s : streams) {
+        for (int i = 0; i < int(s.tokenTypes.size()); i++) {
+            uint32_t value = s.tokenValues[i];
+            int numBytes = 0;
+
+            switch (s.tokenTypes[i])
+            {
+            case TOK_LABEL:
+                break;
+            case TOK_REF:
+                value = labels[value] - cursor;
+                numBytes = 4;
+                break;
+            case TOK_U8:
+                numBytes = 1;
+                break;
+            case TOK_U16:
+                numBytes = 2;
+                break;
+            case TOK_U32:
+                numBytes = 4;
+                break;
+            default:
+                assert(0);
+            }
+
+            if (bigEndian) {
+                switch (numBytes)
+                {
+                case 4:
+                    data[cursor++] = value >> 24;
+                    data[cursor++] = value >> 16;
+                    /* fall-through */
+                case 2:
+                    data[cursor++] = value >> 8;
+                    /* fall-through */
+                case 1:
+                    data[cursor++] = value;
+                    /* fall-through */
+                case 0:
+                    break;
+                default:
+                    assert(0);
+                }
+            } else {
+                switch (numBytes)
+                {
+                case 4:
+                    data[cursor+3] = value >> 24;
+                    data[cursor+2] = value >> 16;
+                    /* fall-through */
+                case 2:
+                    data[cursor+1] = value >> 8;
+                    /* fall-through */
+                case 1:
+                    data[cursor] = value;
+                    /* fall-through */
+                case 0:
+                    break;
+                default:
+                    assert(0);
+                }
+                cursor += numBytes;
+            }
+        }
+    }
+
+    assert(cursor == int(data.size()));
+
+    if (writeC) {
+        for (auto &s : preText)
+            fprintf(fileOut, "%s\n", s.c_str());
+
+        fprintf(fileOut, "const char %s[%d] =\n\"", streams[0].name.c_str(), int(data.size())+1);
+
+        cursor = 1;
+        for (auto d : data) {
+            if (cursor > 70) {
+                fputc('\"', fileOut);
+                fputc('\n', fileOut);
+                cursor = 0;
+            }
+            if (cursor == 0) {
+                fputc('\"', fileOut);
+                cursor = 1;
+            }
+            if (d < 32 || d >= 128) {
+                fprintf(fileOut, "\\%03o", int(d));
+                cursor += 4;
+            } else
+            if (d == '\"' || d == '\'' || d == '\\') {
+                fputc('\\', fileOut);
+                fputc(d, fileOut);
+                cursor += 2;
+            } else {
+                fputc(d, fileOut);
+                cursor++;
+            }
+        }
+
+        fprintf(fileOut, "\";\n");
+
+        for (auto &s : postText)
+            fprintf(fileOut, "%s\n", s.c_str());
+    } else {
+        fwrite(data.data(), int(data.size()), 1, fileOut);
+    }
 
     return 0;
 }
