@@ -276,7 +276,7 @@ struct CellInfo : ArchCellInfo
 
     // placement constraints
     CellInfo *constr_parent;
-    stdL::vector<CellInfo*> constr_children;
+    std::vector<CellInfo*> constr_children;
     const int UNCONSTR = INT_MIN;
     int constr_x = UNCONSTR; // this.x - parent.x
     int constr_y = UNCONSTR; // this.y - parent.y
