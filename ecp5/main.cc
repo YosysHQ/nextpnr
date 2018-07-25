@@ -169,8 +169,13 @@ int main(int argc, char *argv[])
 
             if (!ctx->pack() && !ctx->force)
                 log_error("Packing design failed.\n");
-            if (vm.count("freq"))
+            if (vm.count("freq")) {
                 ctx->target_freq = vm["freq"].as<double>() * 1e6;
+                ctx->user_freq = true;
+            }
+            else {
+                log_warning("Target frequency not specified. Will optimise for max frequency.\n");
+            }
             assign_budget(ctx.get());
             ctx->check();
             print_utilisation(ctx.get());
