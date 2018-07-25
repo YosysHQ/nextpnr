@@ -392,7 +392,7 @@ struct BaseCtx
 
     void unlock(void)
     {
-        NPNR_ASSERT(std::this_thread::get_id() != mutex_owner);
+        NPNR_ASSERT(std::this_thread::get_id() == mutex_owner);
         mutex.unlock();
     }
 
