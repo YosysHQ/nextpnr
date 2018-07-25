@@ -79,19 +79,19 @@ class assertion_failure : public std::runtime_error
 };
 
 NPNR_NORETURN
-inline bool assert_fail_impl(const char *message, const char *expr_str, const char *filename, int line)
+inline void assert_fail_impl(const char *message, const char *expr_str, const char *filename, int line)
 {
     throw assertion_failure(message, expr_str, filename, line);
 }
 
 NPNR_NORETURN
-inline bool assert_fail_impl_str(std::string message, const char *expr_str, const char *filename, int line)
+inline void assert_fail_impl_str(std::string message, const char *expr_str, const char *filename, int line)
 {
     throw assertion_failure(message, expr_str, filename, line);
 }
 
-#define NPNR_ASSERT(cond) ((void)((cond) || (assert_fail_impl(#cond, #cond, __FILE__, __LINE__))))
-#define NPNR_ASSERT_MSG(cond, msg) ((void)((cond) || (assert_fail_impl(msg, #cond, __FILE__, __LINE__))))
+#define NPNR_ASSERT(cond) (!(cond) ? assert_fail_impl(#cond, #cond, __FILE__, __LINE__) : (void)true)
+#define NPNR_ASSERT_MSG(cond, msg) (!(cond) ? assert_fail_impl(msg, #cond, __FILE__, __LINE__) : (void)true)
 #define NPNR_ASSERT_FALSE(msg) (assert_fail_impl(msg, "false", __FILE__, __LINE__))
 #define NPNR_ASSERT_FALSE_STR(msg) (assert_fail_impl_str(msg, "false", __FILE__, __LINE__))
 
