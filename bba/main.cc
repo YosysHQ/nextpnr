@@ -1,12 +1,13 @@
+#include <assert.h>
+#include <boost/program_options.hpp>
+#include <iostream>
 #include <map>
-#include <vector>
-#include <string>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
 #include <string.h>
-#include <assert.h>
-#include <unistd.h>
+#include <string>
+#include <vector>
 
 enum TokenType : int8_t
 {
@@ -51,35 +52,50 @@ int main(int argc, char **argv)
     bool writeC = false;
     char buffer[512];
 
-    int opt;
-    while ((opt = getopt(argc, argv, "vbc")) != -1)
-    {
-        switch (opt)
-        {
-        case 'v':
-            verbose = true;
-            break;
-        case 'b':
-            bigEndian = true;
-            break;
-        case 'c':
-            writeC = true;
-            break;
-        default:
-            assert(0);
-        }
+    namespace po = boost::program_options;
+    po::positional_options_description pos;
+    po::options_description options("Allowed options");
+    options.add_options()("v", "verbose output");
+    options.add_options()("b", "big endian");
+    options.add_options()("c", "write c strings");
+    options.add_options()("files", po::value<std::vector<std::string>>(), "file parameters");
+    pos.add("files", -1);
+
+    po::variables_map vm;
+    try {
+        po::parsed_options parsed = po::command_line_parser(argc, argv).options(options).positional(pos).run();
+
+        po::store(parsed, vm);
+
+        po::notify(vm);
+    } catch (std::exception &e) {
+        std::cout << e.what() << "\n";
+        return 1;
+    }
+    if (vm.count("v"))
+        verbose = true;
+    if (vm.count("b"))
+        bigEndian = true;
+    if (vm.count("c"))
+        writeC = true;
+
+    if (vm.count("files") == 0) {
+        printf("File parameters are mandatory\n");
+        exit(-1);
+    }
+    std::vector<std::string> files = vm["files"].as<std::vector<std::string>>();
+    if (files.size() != 2) {
+        printf("Input and output parameters must be set\n");
+        exit(-1);
     }
 
-    assert(optind+2 == argc);
-
-    FILE *fileIn = fopen(argv[optind], "rt");
+    FILE *fileIn = fopen(files.at(0).c_str(), "rt");
     assert(fileIn != nullptr);
 
-    FILE *fileOut = fopen(argv[optind+1], writeC ? "wt" : "wb");
+    FILE *fileOut = fopen(files.at(1).c_str(), writeC ? "wt" : "wb");
     assert(fileOut != nullptr);
 
-    while (fgets(buffer, 512, fileIn) != nullptr)
-    {
+    while (fgets(buffer, 512, fileIn) != nullptr) {
         std::string cmd = strtok(buffer, " \t\r\n");
 
         if (cmd == "pre") {
@@ -178,8 +194,7 @@ int main(int argc, char **argv)
     int cursor = 0;
     for (auto &s : streams) {
         for (int i = 0; i < int(s.tokenTypes.size()); i++) {
-            switch (s.tokenTypes[i])
-            {
+            switch (s.tokenTypes[i]) {
             case TOK_LABEL:
                 labels[s.tokenValues[i]] = cursor;
                 break;
@@ -205,7 +220,7 @@ int main(int argc, char **argv)
 
     if (verbose) {
         printf("resolved positions for %d labels.\n", int(labels.size()));
-        printf("total data (including strings): %.2f MB\n", double(cursor) / (1024*1024));
+        printf("total data (including strings): %.2f MB\n", double(cursor) / (1024 * 1024));
     }
 
     std::vector<uint8_t> data(cursor);
@@ -216,8 +231,7 @@ int main(int argc, char **argv)
             uint32_t value = s.tokenValues[i];
             int numBytes = 0;
 
-            switch (s.tokenTypes[i])
-            {
+            switch (s.tokenTypes[i]) {
             case TOK_LABEL:
                 break;
             case TOK_REF:
@@ -238,8 +252,7 @@ int main(int argc, char **argv)
             }
 
             if (bigEndian) {
-                switch (numBytes)
-                {
+                switch (numBytes) {
                 case 4:
                     data[cursor++] = value >> 24;
                     data[cursor++] = value >> 16;
@@ -256,14 +269,13 @@ int main(int argc, char **argv)
                     assert(0);
                 }
             } else {
-                switch (numBytes)
-                {
+                switch (numBytes) {
                 case 4:
-                    data[cursor+3] = value >> 24;
-                    data[cursor+2] = value >> 16;
+                    data[cursor + 3] = value >> 24;
+                    data[cursor + 2] = value >> 16;
                     /* fall-through */
                 case 2:
-                    data[cursor+1] = value >> 8;
+                    data[cursor + 1] = value >> 8;
                     /* fall-through */
                 case 1:
                     data[cursor] = value;
@@ -284,7 +296,7 @@ int main(int argc, char **argv)
         for (auto &s : preText)
             fprintf(fileOut, "%s\n", s.c_str());
 
-        fprintf(fileOut, "const char %s[%d] =\n\"", streams[0].name.c_str(), int(data.size())+1);
+        fprintf(fileOut, "const char %s[%d] =\n\"", streams[0].name.c_str(), int(data.size()) + 1);
 
         cursor = 1;
         for (auto d : data) {
@@ -300,8 +312,7 @@ int main(int argc, char **argv)
             if (d < 32 || d >= 128) {
                 fprintf(fileOut, "\\%03o", int(d));
                 cursor += 4;
-            } else
-            if (d == '\"' || d == '\'' || d == '\\') {
+            } else if (d == '\"' || d == '\'' || d == '\\') {
                 fputc('\\', fileOut);
                 fputc(d, fileOut);
                 cursor += 2;
