@@ -550,13 +550,13 @@ static std::unique_ptr<CellInfo> spliceLUT(Context *ctx, CellInfo *ci, IdString 
     NPNR_ASSERT(port.net != nullptr);
 
     // Create pass-through LUT.
-    std::unique_ptr<CellInfo> pt =
-            create_ice_cell(ctx, ctx->id("ICESTORM_LC"), ci->name.str(ctx) + "$nextpnr_ice40_pack_pll_lc");
+    std::unique_ptr<CellInfo> pt = create_ice_cell(ctx, ctx->id("ICESTORM_LC"),
+                                                   ci->name.str(ctx) + "$nextpnr_" + portId.str(ctx) + "_lut_through");
     pt->params[ctx->id("LUT_INIT")] = "65280"; // output is always I3
 
     // Create LUT output net.
     std::unique_ptr<NetInfo> out_net = std::unique_ptr<NetInfo>(new NetInfo);
-    out_net->name = ctx->id(ci->name.str(ctx) + "$nextnr_ice40_pack_pll_net");
+    out_net->name = ctx->id(ci->name.str(ctx) + "$nextnr_" + portId.str(ctx) + "_lut_through_net");
     out_net->driver.cell = pt.get();
     out_net->driver.port = ctx->id("O");
     pt->ports.at(ctx->id("O")).net = out_net.get();
@@ -738,6 +738,10 @@ static void pack_special(Context *ctx)
                                       ci->name.c_str(ctx), ctx->getBelPackagePin(packagepin_bel).c_str(),
                                       ctx->getBelPackagePin(pll_sb_io_belpin.bel).c_str());
                         }
+                        if (pad_packagepin_net->users.size() != 1) {
+                            log_error("  PLL '%s' clock input '%s' can only drive PLL\n", ci->name.c_str(ctx),
+                                      pad_packagepin_net->name.c_str(ctx));
+                        }
                         // Set an attribute about this PLL's PAD SB_IO.
                         packed->attrs[ctx->id("BEL_PAD_INPUT")] = packagepin_bel_name->second;
                         // Remove the connection from the SB_IO to the PLL.
@@ -757,7 +761,6 @@ static void pack_special(Context *ctx)
             // Delete the original PACKAGEPIN net if needed.
             if (pad_packagepin_net != nullptr) {
                 for (auto user : pad_packagepin_net->users) {
-                    log_info("  deleting %s from %s\n", user.port.c_str(ctx), user.cell->name.c_str(ctx));
                     user.cell->ports.erase(user.port);
                 }
                 ctx->nets.erase(pad_packagepin_net->name);
