@@ -35,6 +35,7 @@ class ElementTreeItem : public QTreeWidgetItem
     ElementTreeItem(ElementType t, QString str, QTreeWidgetItem *parent)
             : QTreeWidgetItem(parent, QStringList(str)), type(t)
     {
+        this->setFlags(this->flags() & ~Qt::ItemIsSelectable);
     }
     virtual ~ElementTreeItem(){};
 
@@ -49,6 +50,7 @@ class IdStringTreeItem : public ElementTreeItem
   public:
     IdStringTreeItem(IdString d, ElementType t, QString str, QTreeWidgetItem *parent) : ElementTreeItem(t, str, parent)
     {
+        this->setFlags(this->flags() | Qt::ItemIsSelectable);
         this->data = d;
     }
     virtual ~IdStringTreeItem(){};
@@ -68,6 +70,7 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr), net
     treeWidget->setColumnCount(1);
     treeWidget->setHeaderLabel("Items");
     treeWidget->setContextMenuPolicy(Qt::CustomContextMenu);
+    treeWidget->setSelectionMode(QAbstractItemView::ExtendedSelection);
 
     // Add property view
     variantManager = new QtVariantPropertyManager(this);
@@ -79,6 +82,7 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr), net
     propertyEditor->setPropertiesWithoutValueMarked(true);
     propertyEditor->show();
     propertyEditor->treeWidget()->setContextMenuPolicy(Qt::CustomContextMenu);
+    propertyEditor->treeWidget()->setSelectionMode(QAbstractItemView::ExtendedSelection);
 
     QLineEdit *lineEdit = new QLineEdit();
     lineEdit->setClearButtonEnabled(true);
@@ -248,6 +252,7 @@ void DesignWidget::newContext(Context *ctx)
     QTreeWidgetItem *bel_root = new QTreeWidgetItem(treeWidget);
     QMap<QString, QTreeWidgetItem *> bel_items;
     bel_root->setText(0, "Bels");
+    bel_root->setFlags(bel_root->flags() & ~Qt::ItemIsSelectable);
     treeWidget->insertTopLevelItem(0, bel_root);
     if (ctx) {
         for (auto bel : ctx->getBels()) {
@@ -280,6 +285,7 @@ void DesignWidget::newContext(Context *ctx)
     QTreeWidgetItem *wire_root = new QTreeWidgetItem(treeWidget);
     QMap<QString, QTreeWidgetItem *> wire_items;
     wire_root->setText(0, "Wires");
+    wire_root->setFlags(wire_root->flags() & ~Qt::ItemIsSelectable);
     treeWidget->insertTopLevelItem(0, wire_root);
     if (ctx) {
         for (auto wire : ctx->getWires()) {
@@ -311,6 +317,7 @@ void DesignWidget::newContext(Context *ctx)
     QTreeWidgetItem *pip_root = new QTreeWidgetItem(treeWidget);
     QMap<QString, QTreeWidgetItem *> pip_items;
     pip_root->setText(0, "Pips");
+    pip_root->setFlags(pip_root->flags() & ~Qt::ItemIsSelectable);
     treeWidget->insertTopLevelItem(0, pip_root);
 #ifndef ARCH_ECP5    
     if (ctx) {
@@ -343,10 +350,12 @@ void DesignWidget::newContext(Context *ctx)
 
     nets_root = new QTreeWidgetItem(treeWidget);
     nets_root->setText(0, "Nets");
+    nets_root->setFlags(nets_root->flags() & ~Qt::ItemIsSelectable);
     treeWidget->insertTopLevelItem(0, nets_root);
 
     cells_root = new QTreeWidgetItem(treeWidget);
     cells_root->setText(0, "Cells");
+    cells_root->setFlags(cells_root->flags() & ~Qt::ItemIsSelectable);
     treeWidget->insertTopLevelItem(0, cells_root);
 
     updateTree();
@@ -418,6 +427,7 @@ QtProperty *DesignWidget::addTopLevelProperty(const QString &id)
     QtProperty *topItem = groupManager->addProperty(id);
     propertyToId[topItem] = id;
     idToProperty[id] = topItem;
+    topItem->setSelectable(false);
     propertyEditor->addProperty(topItem);
     return topItem;
 }
@@ -485,12 +495,14 @@ void DesignWidget::addProperty(QtProperty *topItem, int propertyType, const QStr
     QtVariantProperty *item = readOnlyManager->addProperty(propertyType, name);
     item->setValue(value);
     item->setPropertyId(getElementTypeName(type));
+    item->setSelectable(type != ElementType::NONE);
     topItem->addSubProperty(item);
 }
 
 QtProperty *DesignWidget::addSubGroup(QtProperty *topItem, const QString &name)
 {
     QtProperty *item = groupManager->addProperty(name);
+    item->setSelectable(false);
     topItem->addSubProperty(item);
     return item;
 }
