@@ -512,6 +512,19 @@ void DesignWidget::onItemSelectionChanged()
     if (treeWidget->selectedItems().size() == 0)
         return;
 
+    if (treeWidget->selectedItems().size() > 1)
+    {
+        std::vector<DecalXY> decals;
+        for (auto clickItem : treeWidget->selectedItems()) {
+            IdString value = static_cast<IdStringTreeItem *>(clickItem)->getData();
+            ElementType type = static_cast<ElementTreeItem *>(clickItem)->getType();
+            std::vector<DecalXY> d = getDecals(type, value);
+            std::move(d.begin(), d.end(), std::back_inserter(decals));
+        }
+        Q_EMIT selected(decals);
+        return;
+    }
+
     QTreeWidgetItem *clickItem = treeWidget->selectedItems().at(0);
 
     if (!clickItem->parent())
