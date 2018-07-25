@@ -83,10 +83,6 @@ NPNR_PACKED_STRUCT(struct WireInfoPOD {
     int32_t num_uphill, num_downhill;
     RelPtr<int32_t> pips_uphill, pips_downhill;
 
-    int32_t num_bels_downhill;
-    BelPortPOD bel_uphill;
-    RelPtr<BelPortPOD> bels_downhill;
-
     int32_t num_bel_pins;
     RelPtr<BelPortPOD> bel_pins;
 
@@ -453,8 +449,6 @@ struct Arch : BaseCtx
 
     bool getBelGlobalBuf(BelId bel) const { return chip_info->bel_data[bel.index].type == TYPE_SB_GB; }
 
-    BelRange getBelsAtSameTile(BelId bel) const NPNR_DEPRECATED;
-
     BelType getBelType(BelId bel) const
     {
         NPNR_ASSERT(bel != BelId());
@@ -685,7 +679,6 @@ struct Arch : BaseCtx
 
     // -------------------------------------------------
 
-    void estimatePosition(BelId bel, int &x, int &y, bool &gb) const NPNR_DEPRECATED;
     delay_t estimateDelay(WireId src, WireId dst) const;
     delay_t getDelayEpsilon() const { return 20; }
     delay_t getRipupDelayPenalty() const { return 200; }

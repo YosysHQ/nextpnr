@@ -77,18 +77,18 @@ void Arch::addBel(IdString name, IdString type, Loc loc, bool gb)
     bel_ids.push_back(name);
     bel_by_loc[loc] = name;
 
-    if (bels_by_tile.size() <= loc.x)
+    if (int(bels_by_tile.size()) <= loc.x)
         bels_by_tile.resize(loc.x + 1);
 
-    if (bels_by_tile[loc.x].size() <= loc.y)
+    if (int(bels_by_tile[loc.x].size()) <= loc.y)
         bels_by_tile[loc.x].resize(loc.y + 1);
 
     bels_by_tile[loc.x][loc.y].push_back(name);
 
-    if (tileDimZ.size() <= loc.x)
+    if (int(tileDimZ.size()) <= loc.x)
         tileDimZ.resize(loc.x + 1);
 
-    if (tileDimZ[loc.x].size() <= loc.y)
+    if (int(tileDimZ[loc.x].size()) <= loc.y)
         tileDimZ[loc.x].resize(loc.y + 1);
 
     gridDimX = std::max(gridDimX, loc.x + 1);
@@ -193,6 +193,30 @@ BelId Arch::getBelByName(IdString name) const
 
 IdString Arch::getBelName(BelId bel) const { return bel; }
 
+Loc Arch::getBelLocation(BelId bel) const
+{
+    auto &info = bels.at(bel);
+    return Loc(info.x, info.y, info.z);
+}
+
+BelId Arch::getBelByLocation(Loc loc) const
+{
+    auto it = bel_by_loc.find(loc);
+    if (it != bel_by_loc.end())
+        return it->second;
+    return BelId();
+}
+
+const std::vector<BelId> &Arch::getBelsByTile(int x, int y) const
+{
+    return bels_by_tile.at(x).at(y);
+}
+
+bool Arch::getBelGlobalBuf(BelId bel) const
+{
+    return  bels.at(bel).gb;
+}
+
 uint32_t Arch::getBelChecksum(BelId bel) const
 {
     // FIXME
@@ -234,6 +258,7 @@ std::vector<PortPin> Arch::getBelPins(BelId bel) const
     std::vector<PortPin> ret;
     for (auto &it : bels.at(bel).pins)
         ret.push_back(it.first);
+    return ret;
 }
 
 // ---------------------------------------------------------------
@@ -367,13 +392,6 @@ const std::vector<PipId> &Arch::getGroupPips(GroupId group) const { return group
 const std::vector<GroupId> &Arch::getGroupGroups(GroupId group) const { return groups.at(group).groups; }
 
 // ---------------------------------------------------------------
-
-void Arch::estimatePosition(BelId bel, int &x, int &y, bool &gb) const
-{
-    x = bels.at(bel).x;
-    y = bels.at(bel).y;
-    gb = bels.at(bel).gb;
-}
 
 delay_t Arch::estimateDelay(WireId src, WireId dst) const
 {
