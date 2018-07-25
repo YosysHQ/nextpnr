@@ -721,22 +721,22 @@ static void pack_special(Context *ctx)
                         auto pll_packagepin_driver = pad_packagepin_net->driver;
                         NPNR_ASSERT(pll_packagepin_driver.cell != nullptr);
                         if (pll_packagepin_driver.cell->type != ctx->id("SB_IO")) {
-                             log_error("  PLL '%s' has a PACKAGEPIN driven by "
-                                   "an %s, should be directly connected to an input SB_IO\n",
-                                   ci->name.c_str(ctx), pll_packagepin_driver.cell->type.c_str(ctx));
+                            log_error("  PLL '%s' has a PACKAGEPIN driven by "
+                                      "an %s, should be directly connected to an input SB_IO\n",
+                                      ci->name.c_str(ctx), pll_packagepin_driver.cell->type.c_str(ctx));
                         }
 
                         auto packagepin_cell = pll_packagepin_driver.cell;
                         auto packagepin_bel_name = packagepin_cell->attrs.find(ctx->id("BEL"));
                         if (packagepin_bel_name == packagepin_cell->attrs.end()) {
-                            log_error("  PLL '%s' PACKAGEPIN SB_IO '%s' is unconstrained\n",
-                                   ci->name.c_str(ctx), packagepin_cell->name.c_str(ctx));
+                            log_error("  PLL '%s' PACKAGEPIN SB_IO '%s' is unconstrained\n", ci->name.c_str(ctx),
+                                      packagepin_cell->name.c_str(ctx));
                         }
                         auto packagepin_bel = ctx->getBelByName(ctx->id(packagepin_bel_name->second));
                         if (pll_sb_io_belpin.bel != packagepin_bel) {
                             log_error("  PLL '%s' PACKAGEPIN is connected to pin %s, can only be pin %s\n",
-                                   ci->name.c_str(ctx), ctx->getBelPackagePin(packagepin_bel).c_str(),
-                                   ctx->getBelPackagePin(pll_sb_io_belpin.bel).c_str());
+                                      ci->name.c_str(ctx), ctx->getBelPackagePin(packagepin_bel).c_str(),
+                                      ctx->getBelPackagePin(pll_sb_io_belpin.bel).c_str());
                         }
                         // Set an attribute about this PLL's PAD SB_IO.
                         packed->attrs[ctx->id("BEL_PAD_INPUT")] = packagepin_bel_name->second;
