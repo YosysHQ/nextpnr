@@ -23,10 +23,10 @@
 #include <condition_variable>
 #include <memory>
 #include <mutex>
-#include <pthread.h>
 #include <stdexcept>
 #include <stdint.h>
 #include <string>
+#include <thread>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -344,7 +344,7 @@ struct BaseCtx
 {
     // Lock to perform mutating actions on the Context.
     std::mutex mutex;
-    pthread_t mutex_owner;
+    std::thread::id mutex_owner;
 
     // Lock to be taken by UI when wanting to access context - the yield()
     // method will lock/unlock it when its' released the main mutex to make
@@ -377,12 +377,12 @@ struct BaseCtx
     void lock(void)
     {
         mutex.lock();
-        mutex_owner = pthread_self();
+        mutex_owner = std::this_thread::get_id();
     }
 
     void unlock(void)
     {
-        NPNR_ASSERT(pthread_equal(pthread_self(), mutex_owner) != 0);
+        NPNR_ASSERT(std::this_thread::get_id() != mutex_owner);
         mutex.unlock();
     }
 
