@@ -188,6 +188,13 @@ Arch::Arch(ArchArgs args) : args(args)
     id_i3 = id("I3");
     id_dff_en = id("DFF_ENABLE");
     id_neg_clk = id("NEG_CLK");
+    id_cin = id("CIN");
+    id_cout = id("COUT");
+    id_o = id("O");
+    id_lo = id("LO");
+    id_icestorm_ram = id("ICESTORM_RAM");
+    id_rclk = id("RCLK");
+    id_wclk = id("WCLK");
 }
 
 // -----------------------------------------------------------------------
@@ -696,26 +703,26 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
 
 bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, delay_t &delay) const
 {
-    if (cell->type == id("ICESTORM_LC")) {
-        if ((fromPort == id("I0") || fromPort == id("I1") || fromPort == id("I2") || fromPort == id("I3")) &&
-            (toPort == id("O") || toPort == id("LO"))) {
+    if (cell->type == id_icestorm_lc) {
+        if ((fromPort == id_i0 || fromPort == id_i1 || fromPort == id_i2 || fromPort == id_i3) &&
+            (toPort == id_o || toPort == id_lo)) {
             delay = 450;
             return true;
-        } else if (fromPort == id("CIN") && toPort == id("COUT")) {
+        } else if (fromPort == id_cin && toPort == id_cout) {
             delay = 120;
             return true;
-        } else if (fromPort == id("I1") && toPort == id("COUT")) {
+        } else if (fromPort == id_i1 && toPort == id_cout) {
             delay = 260;
             return true;
-        } else if (fromPort == id("I2") && toPort == id("COUT")) {
+        } else if (fromPort == id_i2 && toPort == id_cout) {
             delay = 230;
             return true;
-        } else if (fromPort == id("CLK") && toPort == id("O")) {
+        } else if (fromPort == id_clk && toPort == id_o) {
             delay = 540;
             return true;
         }
-    } else if (cell->type == id("ICESTORM_RAM")) {
-        if (fromPort == id("RCLK")) {
+    } else if (cell->type == id_icestorm_ram) {
+        if (fromPort == id_rclk) {
             delay = 2140;
             return true;
         }
@@ -725,14 +732,14 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
 
 IdString Arch::getPortClock(const CellInfo *cell, IdString port) const
 {
-    if (cell->type == id("ICESTORM_LC") && bool_or_default(cell->params, id("DFF_ENABLE"))) {
-        if (port != id("LO") && port != id("CIN") && port != id("COUT"))
-            return id("CLK");
-    } else if (cell->type == id("ICESTORM_RAM")) {
+    if (cell->type == id_icestorm_lc && cell->lcInfo.dffEnable) {
+        if (port != id_lo && port != id_cin && port != id_cout)
+            return id_clk;
+    } else if (cell->type == id_icestorm_ram) {
         if (port.str(this)[0] == 'R')
-            return id("RCLK");
+            return id_rclk;
         else
-            return id("WCLK");
+            return id_wclk;
     }
     return IdString();
 }
