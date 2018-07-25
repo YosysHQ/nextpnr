@@ -276,11 +276,11 @@ struct CellInfo : ArchCellInfo
 
     // placement constraints
     CellInfo *constr_parent;
-    std::vector<CellInfo*> constr_children;
+    std::vector<CellInfo *> constr_children;
     const int UNCONSTR = INT_MIN;
-    int constr_x = UNCONSTR; // this.x - parent.x
-    int constr_y = UNCONSTR; // this.y - parent.y
-    int constr_z = UNCONSTR; // this.z - parent.z
+    int constr_x = UNCONSTR;   // this.x - parent.x
+    int constr_y = UNCONSTR;   // this.y - parent.y
+    int constr_z = UNCONSTR;   // this.z - parent.z
     bool constr_abs_z = false; // parent.z := 0
     // parent.[xyz] := 0 when (constr_parent == nullptr)
 };

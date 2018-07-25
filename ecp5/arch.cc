@@ -328,7 +328,8 @@ BelId Arch::getPackagePinBel(const std::string &pin) const
 std::string Arch::getBelPackagePin(BelId bel) const
 {
     for (int i = 0; i < package_info->num_pins; i++) {
-        if (Location(package_info->pin_data[i].abs_loc) == bel.location && package_info->pin_data[i].bel_index == bel.index) {
+        if (Location(package_info->pin_data[i].abs_loc) == bel.location &&
+            package_info->pin_data[i].bel_index == bel.index) {
             return package_info->pin_data[i].name.get();
         }
     }

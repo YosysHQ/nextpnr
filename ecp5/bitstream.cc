@@ -280,8 +280,8 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                     other = "PIOD";
                 else
                     log_error("cannot place differential IO at location %s\n", pio.c_str());
-                //cc.tiles[pio_tile].add_enum(other + ".BASE_TYPE", "_NONE_");
-                //cc.tiles[pic_tile].add_enum(other + ".BASE_TYPE", "_NONE_");
+                // cc.tiles[pio_tile].add_enum(other + ".BASE_TYPE", "_NONE_");
+                // cc.tiles[pic_tile].add_enum(other + ".BASE_TYPE", "_NONE_");
                 cc.tiles[pio_tile].add_enum(other + ".PULLMODE", "NONE");
                 cc.tiles[pio_tile].add_enum(pio + ".PULLMODE", "NONE");
             }
