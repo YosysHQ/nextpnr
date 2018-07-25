@@ -51,7 +51,7 @@ else()
                 DEPENDS ${DEV_TXT_DB} ${DB_PY}
         )
         add_custom_command(OUTPUT ${DEV_CC_DB}
-                COMMAND bbasm -c ${DEV_CC_BBA_DB} ${DEV_CC_DB}.new
+                COMMAND bbasm --c ${DEV_CC_BBA_DB} ${DEV_CC_DB}.new
                 COMMAND mv ${DEV_CC_DB}.new ${DEV_CC_DB}
                 DEPENDS bbasm ${DEV_CC_BBA_DB}
         )
