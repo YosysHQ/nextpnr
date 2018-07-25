@@ -111,7 +111,7 @@ void assign_budget(Context *ctx)
     }
 
     if (!ctx->user_freq) {
-        ctx->target_freq = delay_t(1e12 / (default_slack - min_slack));
+        ctx->target_freq = 1e12 / (default_slack - min_slack);
         if (ctx->verbose)
             log_info("minimum slack for this assign = %d, target Fmax for next update = %f\n", min_slack, ctx->target_freq/1e6);
     }
@@ -127,7 +127,7 @@ void assign_budget(Context *ctx)
             user.budget = ctx->getBudgetOverride(net.second->driver, budget);
 
             // Post-update check
-            if (user.budget < 0)
+            if (ctx->user_freq && user.budget < 0)
                 log_warning("port %s.%s, connected to net '%s', has negative "
                             "timing budget of %fns\n",
                             user.cell->name.c_str(ctx), user.port.c_str(ctx), net.first.c_str(ctx),
@@ -167,7 +167,7 @@ void update_budget(Context *ctx)
     }
 
     if (!ctx->user_freq) {
-        ctx->target_freq = delay_t(1e12 / (default_slack - min_slack));
+        ctx->target_freq = 1.05 * (1e12 / (default_slack - min_slack));
         if (ctx->verbose)
             log_info("minimum slack for this update = %d, target Fmax for next update = %f\n", min_slack, ctx->target_freq/1e6);
     }
@@ -184,7 +184,7 @@ void update_budget(Context *ctx)
 
             // Post-update check
             if (ctx->verbose) {
-                if (user.budget < 0)
+                if (ctx->user_freq && user.budget < 0)
                     log_warning("port %s.%s, connected to net '%s', has negative "
                                 "timing budget of %fns\n",
                                 user.cell->name.c_str(ctx), user.port.c_str(ctx), net.first.c_str(ctx),
