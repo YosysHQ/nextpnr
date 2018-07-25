@@ -59,7 +59,7 @@ TEST_F(UP5KTest, wire_names)
         assert(wire == ctx->getWireByName(name));
         wire_count++;
     }
-    ASSERT_EQ(wire_count, 103383);
+    ASSERT_EQ(wire_count, 103391);
 }
 
 TEST_F(UP5KTest, pip_names)
