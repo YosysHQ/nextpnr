@@ -198,6 +198,8 @@ bool LineShader::compile(void)
 void LineShader::draw(const LineShaderData &line, const QColor &color, float thickness, const QMatrix4x4 &projection)
 {
     auto gl = QOpenGLContext::currentContext()->functions();
+    if (line.vertices.size() == 0)
+        return;
     vao_.bind();
     program_->bind();
 
