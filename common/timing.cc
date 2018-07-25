@@ -68,8 +68,9 @@ static delay_t follow_user_port(Context *ctx, PortRef &user, int path_length, de
 static delay_t follow_net(Context *ctx, NetInfo *net, int path_length, delay_t slack, UpdateMap &updates)
 {
     delay_t net_budget = slack / (path_length + 1);
-    for (auto &usr : net->users) {
-        net_budget = std::min(net_budget, follow_user_port(ctx, usr, path_length + 1, slack, updates));
+    for (unsigned i = 0; i < net->users.size(); ++i) {
+        auto &usr = net->users[i];
+        net_budget = std::min(net_budget, follow_user_port(ctx, usr, path_length + 1, slack - ctx->getNetinfoRouteDelay(net, i), updates));
     }
     return net_budget;
 }
@@ -141,8 +142,12 @@ void update_budget(Context *ctx)
             if (port.second.type == PORT_OUT) {
                 IdString clock_domain = ctx->getPortClock(cell.second.get(), port.first);
                 if (clock_domain != IdString()) {
+                    delay_t slack = delay_t(1.0e12 / ctx->target_freq); // TODO: clock constraints
+                    delay_t clkToQ;
+                    if (ctx->getCellDelay(cell.second.get(), clock_domain, port.first, clkToQ))
+                        slack -= clkToQ;
                     if (port.second.net)
-                        follow_net(ctx, port.second.net, 0, delay_t(1.0e12 / ctx->target_freq), updates);
+                        follow_net(ctx, port.second.net, 0, slack, updates);
                 }
             }
         }
