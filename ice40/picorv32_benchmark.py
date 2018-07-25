@@ -7,7 +7,6 @@ import re
 num_runs = 8
 
 if not path.exists("picorv32.json"):
-    os.remove("picorv32.json")
     subprocess.run(["wget", "https://raw.githubusercontent.com/cliffordwolf/picorv32/master/picorv32.v"], check=True)
     subprocess.run(["yosys", "-q", "-p", "synth_ice40 -json picorv32.json -top top", "picorv32.v", "picorv32_top.v"], check=True)
 
@@ -23,7 +22,7 @@ for i in range(num_runs):
         ascfile = "picorv32_work/picorv32_s{}.asc".format(run)
         if path.exists(ascfile):
             os.remove(ascfile)
-        result = subprocess.run(["../nextpnr-ice40", "--hx8k", "--seed", str(run), "--json", "picorv32.json", "--asc", ascfile], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+        result = subprocess.run(["../nextpnr-ice40", "--hx8k", "--seed", str(run), "--json", "picorv32.json", "--asc", ascfile, "--freq", "70"], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
         if result.returncode != 0:
             print("Run {} failed!".format(run))
         else:
