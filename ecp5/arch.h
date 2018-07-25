@@ -98,7 +98,7 @@ NPNR_PACKED_STRUCT(struct LocationTypePOD {
 });
 
 NPNR_PACKED_STRUCT(struct PIOInfoPOD {
-    Location abs_loc;
+    LocationPOD abs_loc;
     int32_t bel_index;
     RelPtr<char> function_name;
     int16_t bank;
@@ -107,7 +107,7 @@ NPNR_PACKED_STRUCT(struct PIOInfoPOD {
 
 NPNR_PACKED_STRUCT(struct PackagePinPOD {
     RelPtr<char> name;
-    Location abs_loc;
+    LocationPOD abs_loc;
     int32_t bel_index;
 });
 
