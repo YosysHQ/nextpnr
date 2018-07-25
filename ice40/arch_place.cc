@@ -130,6 +130,10 @@ bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const
                 auto pll_cell = getBoundBelCell(pll_bel);
                 auto pi = cells.at(pll_cell)->ports[portPinToId(pll_bel_pin)];
                 if (pi.net != nullptr) {
+                    // Are we perhaps a PAD INPUT Bel that can be placed here?
+                    if (cells.at(pll_cell)->attrs[id("BEL_PAD_INPUT")] == getBelName(bel).str(this)) {
+                        return true;
+                    }
                     return false;
                 }
             }

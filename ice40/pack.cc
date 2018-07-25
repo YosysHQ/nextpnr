@@ -552,7 +552,7 @@ static std::unique_ptr<CellInfo> spliceLUT(Context *ctx, CellInfo *ci, IdString 
     // Create pass-through LUT.
     std::unique_ptr<CellInfo> pt =
             create_ice_cell(ctx, ctx->id("ICESTORM_LC"), ci->name.str(ctx) + "$nextpnr_ice40_pack_pll_lc");
-    pt->params[ctx->id("LUT_INIT")] = "255"; // output is always I3
+    pt->params[ctx->id("LUT_INIT")] = "65280"; // output is always I3
 
     // Create LUT output net.
     std::unique_ptr<NetInfo> out_net = std::unique_ptr<NetInfo>(new NetInfo);
@@ -647,15 +647,13 @@ static void pack_special(Context *ctx)
             }
             new_cells.push_back(std::move(packed));
         } else if (is_sb_pll40(ctx, ci)) {
+            bool is_pad = is_sb_pll40_pad(ctx, ci);
+            bool is_core = !is_pad;
+
             std::unique_ptr<CellInfo> packed =
                     create_ice_cell(ctx, ctx->id("ICESTORM_PLL"), ci->name.str(ctx) + "_PLL");
+            packed->attrs[ctx->id("TYPE")] = ci->type.str(ctx);
             packed_cells.insert(ci->name);
-
-            if (is_sb_pll40_pad(ctx, ci)) {
-                // TODO(q3k): Implement these after checking their behaviour on
-                // a board with exposed 'clock pads'.
-                log_error("SB_PLL40_*_PAD cells are not supported yet.\n");
-            }
 
             for (auto attr : ci->attrs)
                 packed->attrs[attr.first] = attr.second;
@@ -672,6 +670,8 @@ static void pack_special(Context *ctx)
                                                                   : feedback_path == "EXTERNAL" ? "6" : feedback_path;
             packed->params[ctx->id("PLLTYPE")] = std::to_string(sb_pll40_type(ctx, ci));
 
+            NetInfo *pad_packagepin_net = nullptr;
+
             for (auto port : ci->ports) {
                 PortInfo &pi = port.second;
                 std::string newname = pi.name.str(ctx);
@@ -685,6 +685,22 @@ static void pack_special(Context *ctx)
                     newname = "PLLOUT_B";
                 if (pi.name == ctx->id("PLLOUTCORE"))
                     newname = "PLLOUT_A";
+
+                if (pi.name == ctx->id("PACKAGEPIN")) {
+                    if (!is_pad) {
+                        log_error("  PLL '%s' has a PACKAGEPIN but is not a PAD PLL", ci->name.c_str(ctx));
+                    } else {
+                        // We drop this port and instead place the PLL adequately below.
+                        pad_packagepin_net = port.second.net;
+                        NPNR_ASSERT(pad_packagepin_net != nullptr);
+                        continue;
+                    }
+                }
+                if (pi.name == ctx->id("REFERENCECLK")) {
+                    if (!is_core)
+                        log_error("  PLL '%s' has a REFERENCECLK but is not a CORE PLL", ci->name.c_str(ctx));
+                }
+
                 replace_port(ci, ctx->id(pi.name.c_str(ctx)), packed.get(), ctx->id(newname));
             }
 
@@ -696,6 +712,38 @@ static void pack_special(Context *ctx)
                 for (auto bel : ctx->getBels()) {
                     if (ctx->getBelType(bel) != TYPE_ICESTORM_PLL)
                         continue;
+
+                    // A PAD PLL must have its' PACKAGEPIN on the SB_IO that's shared
+                    // with PLLOUT_A.
+                    if (is_pad) {
+                        auto pll_sb_io_belpin = ctx->getIOBSharingPLLPin(bel, PIN_PLLOUT_A);
+                        NPNR_ASSERT(pad_packagepin_net != nullptr);
+                        auto pll_packagepin_driver = pad_packagepin_net->driver;
+                        NPNR_ASSERT(pll_packagepin_driver.cell != nullptr);
+                        if (pll_packagepin_driver.cell->type != ctx->id("SB_IO")) {
+                             log_error("  PLL '%s' has a PACKAGEPIN driven by "
+                                   "an %s, should be directly connected to an input SB_IO\n",
+                                   ci->name.c_str(ctx), pll_packagepin_driver.cell->type.c_str(ctx));
+                        }
+
+                        auto packagepin_cell = pll_packagepin_driver.cell;
+                        auto packagepin_bel_name = packagepin_cell->attrs.find(ctx->id("BEL"));
+                        if (packagepin_bel_name == packagepin_cell->attrs.end()) {
+                            log_error("  PLL '%s' PACKAGEPIN SB_IO '%s' is unconstrained\n",
+                                   ci->name.c_str(ctx), packagepin_cell->name.c_str(ctx));
+                        }
+                        auto packagepin_bel = ctx->getBelByName(ctx->id(packagepin_bel_name->second));
+                        if (pll_sb_io_belpin.bel != packagepin_bel) {
+                            log_error("  PLL '%s' PACKAGEPIN is connected to pin %s, can only be pin %s\n",
+                                   ci->name.c_str(ctx), ctx->getBelPackagePin(packagepin_bel).c_str(),
+                                   ctx->getBelPackagePin(pll_sb_io_belpin.bel).c_str());
+                        }
+                        // Set an attribute about this PLL's PAD SB_IO.
+                        packed->attrs[ctx->id("BEL_PAD_INPUT")] = packagepin_bel_name->second;
+                        // Remove the connection from the SB_IO to the PLL.
+                        packagepin_cell->ports.erase(pll_packagepin_driver.port);
+                    }
+
                     log_info("  constrained '%s' to %s\n", packed->name.c_str(ctx), ctx->getBelName(bel).c_str(ctx));
                     packed->attrs[ctx->id("BEL")] = ctx->getBelName(bel).str(ctx);
                     pll_bel = bel;
@@ -704,6 +752,16 @@ static void pack_special(Context *ctx)
                 if (!constrained) {
                     log_error("  could not constrain '%s' to any PLL Bel\n", packed->name.c_str(ctx));
                 }
+            }
+
+            // Delete the original PACKAGEPIN net if needed.
+            if (pad_packagepin_net != nullptr) {
+                for (auto user : pad_packagepin_net->users) {
+                    log_info("  deleting %s from %s\n", user.port.c_str(ctx), user.cell->name.c_str(ctx));
+                    user.cell->ports.erase(user.port);
+                }
+                ctx->nets.erase(pad_packagepin_net->name);
+                pad_packagepin_net = nullptr;
             }
 
             // The LOCK signal on iCE40 PLLs goes through the neigh_op_bnl_1 wire.
