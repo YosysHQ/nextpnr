@@ -126,6 +126,14 @@ def process_pio_db(ddrg, device):
             if bel_idx is not None:
                 pindata.append((loc, bel_idx, bank, pinfunc))
 
+global_data = {}
+quadrants = ["UL", "UR", "LL", "LR"]
+def process_loc_globals(chip):
+    for y in range(0, max_row+1):
+        for x in range(0, max_col+1):
+            quad = chip.global_data.get_quadrant(y, x)
+            tapdrv = chip.global_data.get_tap_driver(y, x)
+            global_data[x, y] = (quadrants.index(quad), int(tapdrv.dir), tapdrv.col)
 
 def write_database(dev_name, ddrg, endianness):
     def write_loc(loc, sym_name):
@@ -216,6 +224,14 @@ def write_database(dev_name, ddrg, endianness):
     for y in range(0, max_row+1):
         for x in range(0, max_col+1):
             bba.u32(loctypes.index(ddrg.typeAtLocation[pytrellis.Location(x, y)]), "loctype")
+
+    bba.l("location_glbinfo", "GlobalInfoPOD")
+    for y in range(0, max_row+1):
+        for x in range(0, max_col+1):
+            bba.u16(global_data[x, y][2], "tap_col")
+            bba.u8(global_data[x, y][1], "tap_dir")
+            bba.u8(global_data[x, y][0], "quad")
+
     for package, pkgdata in sorted(packages.items()):
         bba.l("package_data_%s" % package, "PackagePinPOD")
         for pin in pkgdata:
@@ -257,6 +273,7 @@ def write_database(dev_name, ddrg, endianness):
 
     bba.r("locations", "locations")
     bba.r("location_types", "location_type")
+    bba.r("location_glbinfo", "location_glbinfo")
     bba.r("tiletype_names", "tiletype_names")
     bba.r("package_data", "package_info")
     bba.r("pio_info", "pio_info")
@@ -291,6 +308,7 @@ def main():
     max_row = chip.get_max_row()
     max_col = chip.get_max_col()
     process_pio_db(ddrg, args.device)
+    process_loc_globals(chip)
     # print("{} unique location types".format(len(ddrg.locationTypes)))
     bba = write_database(args.device, ddrg, "le")
 

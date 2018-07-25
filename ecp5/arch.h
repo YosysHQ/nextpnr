@@ -117,6 +117,26 @@ NPNR_PACKED_STRUCT(struct PackageInfoPOD {
     RelPtr<PackagePinPOD> pin_data;
 });
 
+enum TapDirection : int8_t
+{
+    TAP_DIR_LEFT = 0,
+    TAP_DIR_RIGHT = 1
+};
+
+enum GlobalQuadrant : int8_t
+{
+    QUAD_UL = 0,
+    QUAD_UR = 1,
+    QUAD_LL = 2,
+    QUAD_LR = 3,
+};
+
+NPNR_PACKED_STRUCT(struct GlobalInfoPOD {
+    int16_t tap_col;
+    TapDirection tap_dir;
+    GlobalQuadrant quad;
+});
+
 NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     int32_t width, height;
     int32_t num_tiles;
@@ -124,6 +144,7 @@ NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     int32_t num_packages, num_pios;
     RelPtr<LocationTypePOD> locations;
     RelPtr<int32_t> location_type;
+    RelPtr<GlobalInfoPOD> location_glbinfo;
     RelPtr<RelPtr<char>> tiletype_names;
     RelPtr<PackageInfoPOD> package_info;
     RelPtr<PIOInfoPOD> pio_info;
