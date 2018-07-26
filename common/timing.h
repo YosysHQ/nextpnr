@@ -27,7 +27,10 @@ NEXTPNR_NAMESPACE_BEGIN
 // Assign "budget" values for all user ports in the design
 void assign_budget(Context *ctx);
 
+// Evenly redistribute the total path slack amongst all sinks on each path
 void update_budget(Context *ctx);
+
+float compute_fmax(Context *ctx);
 
 NEXTPNR_NAMESPACE_END
 

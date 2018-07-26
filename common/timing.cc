@@ -76,10 +76,35 @@ static delay_t follow_net(Context *ctx, NetInfo *net, int path_length, delay_t s
     return net_budget;
 }
 
-void assign_budget(Context *ctx)
+static UpdateMap compute_min_slack(Context *ctx, delay_t &min_slack)
 {
     UpdateMap updates;
-    delay_t min_slack = delay_t(1.0e12 / ctx->target_freq);
+    delay_t default_slack = delay_t(1.0e12 / ctx->target_freq);
+
+    // Go through all clocked drivers and distribute the available path 
+    //   slack evenly into the budget of every sink on the path ---
+    //   record this value into the UpdateMap
+    for (auto &cell : ctx->cells) {
+        for (auto port : cell.second->ports) {
+            if (port.second.type == PORT_OUT) {
+                IdString clock_domain = ctx->getPortClock(cell.second.get(), port.first);
+                if (clock_domain != IdString()) {
+                    delay_t slack = default_slack; // TODO: clock constraints
+                    delay_t clkToQ;
+                    if (ctx->getCellDelay(cell.second.get(), clock_domain, port.first, clkToQ))
+                        slack -= clkToQ;
+                    if (port.second.net)
+                        follow_net(ctx, port.second.net, 0, slack, updates, min_slack);
+                }
+            }
+        }
+    }
+
+    return updates;
+}
+
+void assign_budget(Context *ctx)
+{
 
     log_break();
     log_info("Annotating ports with timing budgets\n");
@@ -90,26 +115,12 @@ void assign_budget(Context *ctx)
             usr.budget = default_slack;
         }
     }
-    min_slack = default_slack;
-    // Go through all clocked drivers and set up paths
-    for (auto &cell : ctx->cells) {
-        for (auto port : cell.second->ports) {
-            if (port.second.type == PORT_OUT) {
-                IdString clock_domain = ctx->getPortClock(cell.second.get(), port.first);
-                if (clock_domain != IdString()) {
-                    delay_t slack = delay_t(1.0e12 / ctx->target_freq); // TODO: clock constraints
-                    delay_t clkToQ;
-                    if (ctx->getCellDelay(cell.second.get(), clock_domain, port.first, clkToQ))
-                        slack -= clkToQ;
-                    if (port.second.net) {
-                        log_break();
-                        follow_net(ctx, port.second.net, 0, slack, updates, min_slack);
-                    }
-                }
-            }
-        }
-    }
 
+    delay_t min_slack = default_slack;
+    auto updates = compute_min_slack(ctx, min_slack);
+
+    // If user has not specified a frequency, adjust the target frequency 
+    //   to be equivalent to the critical path
     if (!ctx->user_freq) {
         ctx->target_freq = 1e12 / (default_slack - min_slack);
         if (ctx->verbose)
@@ -145,27 +156,12 @@ void assign_budget(Context *ctx)
 
 void update_budget(Context *ctx)
 {
-    UpdateMap updates;
     delay_t default_slack = delay_t(1.0e12 / ctx->target_freq);
-    delay_t min_slack = delay_t(1.0e12 / ctx->target_freq);
+    delay_t min_slack = default_slack;
+    auto updates = compute_min_slack(ctx, min_slack);
 
-    // Go through all clocked drivers and distribute the available path slack evenly into every budget
-    for (auto &cell : ctx->cells) {
-        for (auto& port : cell.second->ports) {
-            if (port.second.type == PORT_OUT) {
-                IdString clock_domain = ctx->getPortClock(cell.second.get(), port.first);
-                if (clock_domain != IdString()) {
-                    delay_t slack = default_slack; // TODO: clock constraints
-                    delay_t clkToQ;
-                    if (ctx->getCellDelay(cell.second.get(), clock_domain, port.first, clkToQ))
-                        slack -= clkToQ;
-                    if (port.second.net)
-                        follow_net(ctx, port.second.net, 0, slack, updates, min_slack);
-                }
-            }
-        }
-    }
-
+    // If user has not specified a frequency, adjust the target frequency 
+    //   to be +5% higher than the current critical path
     if (!ctx->user_freq) {
         ctx->target_freq = 1.05 * (1e12 / (default_slack - min_slack));
         if (ctx->verbose)
@@ -197,6 +193,14 @@ void update_budget(Context *ctx)
             }
         }
     }
+}
+
+float compute_fmax(Context *ctx)
+{
+    delay_t default_slack = delay_t(1.0e12 / ctx->target_freq);
+    delay_t min_slack = default_slack;
+    compute_min_slack(ctx, min_slack);
+    return 1e12 / (default_slack - min_slack);
 }
 
 NEXTPNR_NAMESPACE_END

@@ -815,6 +815,7 @@ bool router1(Context *ctx)
         ctx->check();
         ctx->unlock();
 #endif
+        log_info("estimated Fmax = %.2f MHz\n", compute_fmax(ctx) / 1e6);
         return true;
     } catch (log_execution_error_exception) {
 #ifndef NDEBUG
