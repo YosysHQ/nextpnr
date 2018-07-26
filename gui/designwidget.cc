@@ -838,6 +838,19 @@ void DesignWidget::prepareMenuProperty(const QPoint &pos)
     }
 
     QMenu menu(this);
+    QAction *selectAction = new QAction("&Select", this);
+    connect(selectAction, &QAction::triggered, this, [this, items] {
+        std::vector<DecalXY> decals;
+        for (auto clickItem : items) {
+            IdString value = static_cast<IdStringTreeItem *>(clickItem)->getData();
+            ElementType type = static_cast<ElementTreeItem *>(clickItem)->getType();
+            std::vector<DecalXY> d = getDecals(type, value);
+            std::move(d.begin(), d.end(), std::back_inserter(decals));
+        }
+        Q_EMIT selected(decals);
+    });
+    menu.addAction(selectAction);
+
     QMenu *subMenu = menu.addMenu("Highlight");
     QActionGroup *group = new QActionGroup(this);
     group->setExclusive(true);
@@ -890,14 +903,8 @@ void DesignWidget::onItemDoubleClicked(QTreeWidgetItem *item, int column)
     ElementType type = getElementTypeByName(selectedProperty->propertyId());
     QString value = selectedProperty->valueText();
     int index = getElementIndex(type);
-    switch (type) {
-    case ElementType::NONE:
-        return;
-    default: {
-        if (nameToItem[index].contains(value))
-            treeWidget->setCurrentItem(nameToItem[index].value(value));
-    } break;
-    }
+    if (type != ElementType::NONE && nameToItem[index].contains(value))
+        treeWidget->setCurrentItem(nameToItem[index].value(value));
 }
 
 NEXTPNR_NAMESPACE_END

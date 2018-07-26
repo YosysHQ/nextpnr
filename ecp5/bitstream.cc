@@ -174,7 +174,7 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
     // Add all set, configurable pips to the config
     for (auto pip : ctx->getPips()) {
         if (ctx->getBoundPipNet(pip) != IdString()) {
-            if (ctx->getPipType(pip) == 0) { // ignore fixed pips
+            if (ctx->getPipClass(pip) == 0) { // ignore fixed pips
                 std::string tile = empty_chip.get_tile_by_position_and_type(pip.location.y, pip.location.x,
                                                                             ctx->getPipTiletype(pip));
                 std::string source = get_trellis_wirename(ctx, pip.location, ctx->getPipSrcWire(pip));
