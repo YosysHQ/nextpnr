@@ -267,16 +267,17 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     FPGAViewWidget(QWidget *parent = 0);
     ~FPGAViewWidget();
 
-    QSize minimumSizeHint() const override;
-    QSize sizeHint() const override;
-
   protected:
+    // Qt callbacks.
     void initializeGL() Q_DECL_OVERRIDE;
     void paintGL() Q_DECL_OVERRIDE;
     void resizeGL(int width, int height) Q_DECL_OVERRIDE;
     void mousePressEvent(QMouseEvent *event) Q_DECL_OVERRIDE;
     void mouseMoveEvent(QMouseEvent *event) Q_DECL_OVERRIDE;
     void wheelEvent(QWheelEvent *event) Q_DECL_OVERRIDE;
+    QSize minimumSizeHint() const override;
+    QSize sizeHint() const override;
+
 
   public Q_SLOTS:
     void newContext(Context *ctx);
@@ -289,29 +290,19 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     void zoomOutbound();
 
   private:
-    void drawGraphicElement(LineShaderData &out, const GraphicElement &el, float x, float y);
-    void drawArchDecal(LineShaderData out[GraphicElement::STYLE_MAX], const DecalXY &decal);
-    void drawDecal(LineShaderData &out, const DecalXY &decal);
-    void renderLines(void);
-    void zoom(int level);
-
-    QPoint lastPos_;
-    LineShader lineShader_;
-    QMatrix4x4 viewMove_;
-    float zoom_;
-    QMatrix4x4 getProjection(void);
-    QVector4D mouseToWorldCoordinates(int x, int y);
-
     const float zoomNear_ = 1.0f;    // do not zoom closer than this
     const float zoomFar_ = 10000.0f; // do not zoom further than this
-
     const float zoomLvl1_ = 100.0f;
     const float zoomLvl2_ = 50.0f;
 
     Context *ctx_;
     QTimer paintTimer_;
-
     std::unique_ptr<PeriodicRunner> renderRunner_;
+
+    QPoint lastDragPos_;
+    LineShader lineShader_;
+    QMatrix4x4 viewMove_;
+    float zoom_;
 
     struct
     {
@@ -331,6 +322,8 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
         LineShaderData gfxSelected;
         LineShaderData gfxHighlighted[8];
     };
+    std::unique_ptr<RendererData> rendererData_;
+    QMutex rendererDataLock_;
 
     struct RendererArgs
     {
@@ -338,11 +331,16 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
         std::vector<DecalXY> highlightedDecals[8];
         bool highlightedOrSelectedChanged;
     };
-
-    std::unique_ptr<RendererData> rendererData_;
-    QMutex rendererDataLock_;
     std::unique_ptr<RendererArgs> rendererArgs_;
     QMutex rendererArgsLock_;
+
+    void zoom(int level);
+    void renderLines(void);
+    void drawGraphicElement(LineShaderData &out, const GraphicElement &el, float x, float y);
+    void drawDecal(LineShaderData &out, const DecalXY &decal);
+    void drawArchDecal(LineShaderData out[GraphicElement::STYLE_MAX], const DecalXY &decal);
+    QVector4D mouseToWorldCoordinates(int x, int y);
+    QMatrix4x4 getProjection(void);
 };
 
 NEXTPNR_NAMESPACE_END

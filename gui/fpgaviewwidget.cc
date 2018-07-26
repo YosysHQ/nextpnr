@@ -242,9 +242,11 @@ void LineShader::draw(const LineShaderData &line, const QColor &color, float thi
     vao_.release();
 }
 
-FPGAViewWidget::FPGAViewWidget(QWidget *parent)
-        : QOpenGLWidget(parent), lineShader_(this), zoom_(500.f), ctx_(nullptr), paintTimer_(this),
-          rendererData_(new FPGAViewWidget::RendererData), rendererArgs_(new FPGAViewWidget::RendererArgs)
+FPGAViewWidget::FPGAViewWidget(QWidget *parent) :
+        QOpenGLWidget(parent), ctx_(nullptr), paintTimer_(this),
+        lineShader_(this), zoom_(500.0f),
+        rendererData_(new FPGAViewWidget::RendererData),
+        rendererArgs_(new FPGAViewWidget::RendererArgs)
 {
     colors_.background = QColor("#000000");
     colors_.grid = QColor("#333");
@@ -562,7 +564,7 @@ void FPGAViewWidget::onHighlightGroupChanged(std::vector<DecalXY> decals, int gr
 
 void FPGAViewWidget::resizeGL(int width, int height) {}
 
-void FPGAViewWidget::mousePressEvent(QMouseEvent *event) { lastPos_ = event->pos(); }
+void FPGAViewWidget::mousePressEvent(QMouseEvent *event) { lastDragPos_ = event->pos(); }
 
 // Invert the projection matrix to calculate screen/mouse to world/grid
 // coordinates.
@@ -578,9 +580,9 @@ QVector4D FPGAViewWidget::mouseToWorldCoordinates(int x, int y)
 
 void FPGAViewWidget::mouseMoveEvent(QMouseEvent *event)
 {
-    const int dx = event->x() - lastPos_.x();
-    const int dy = event->y() - lastPos_.y();
-    lastPos_ = event->pos();
+    const int dx = event->x() - lastDragPos_.x();
+    const int dy = event->y() - lastDragPos_.y();
+    lastDragPos_ = event->pos();
 
     auto world = mouseToWorldCoordinates(dx, dy);
     viewMove_.translate(world.x(), -world.y());
