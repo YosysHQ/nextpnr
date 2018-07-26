@@ -23,10 +23,10 @@
 #include <condition_variable>
 #include <memory>
 #include <mutex>
-#include <pthread.h>
 #include <stdexcept>
 #include <stdint.h>
 #include <string>
+#include <thread>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -79,19 +79,19 @@ class assertion_failure : public std::runtime_error
 };
 
 NPNR_NORETURN
-inline bool assert_fail_impl(const char *message, const char *expr_str, const char *filename, int line)
+inline void assert_fail_impl(const char *message, const char *expr_str, const char *filename, int line)
 {
     throw assertion_failure(message, expr_str, filename, line);
 }
 
 NPNR_NORETURN
-inline bool assert_fail_impl_str(std::string message, const char *expr_str, const char *filename, int line)
+inline void assert_fail_impl_str(std::string message, const char *expr_str, const char *filename, int line)
 {
     throw assertion_failure(message, expr_str, filename, line);
 }
 
-#define NPNR_ASSERT(cond) ((void)((cond) || (assert_fail_impl(#cond, #cond, __FILE__, __LINE__))))
-#define NPNR_ASSERT_MSG(cond, msg) ((void)((cond) || (assert_fail_impl(msg, #cond, __FILE__, __LINE__))))
+#define NPNR_ASSERT(cond) (!(cond) ? assert_fail_impl(#cond, #cond, __FILE__, __LINE__) : (void)true)
+#define NPNR_ASSERT_MSG(cond, msg) (!(cond) ? assert_fail_impl(msg, #cond, __FILE__, __LINE__) : (void)true)
 #define NPNR_ASSERT_FALSE(msg) (assert_fail_impl(msg, "false", __FILE__, __LINE__))
 #define NPNR_ASSERT_FALSE_STR(msg) (assert_fail_impl_str(msg, "false", __FILE__, __LINE__))
 
@@ -276,11 +276,11 @@ struct CellInfo : ArchCellInfo
 
     // placement constraints
     CellInfo *constr_parent;
-    std::vector<CellInfo*> constr_children;
+    std::vector<CellInfo *> constr_children;
     const int UNCONSTR = INT_MIN;
-    int constr_x = UNCONSTR; // this.x - parent.x
-    int constr_y = UNCONSTR; // this.y - parent.y
-    int constr_z = UNCONSTR; // this.z - parent.z
+    int constr_x = UNCONSTR;   // this.x - parent.x
+    int constr_y = UNCONSTR;   // this.y - parent.y
+    int constr_z = UNCONSTR;   // this.z - parent.z
     bool constr_abs_z = false; // parent.z := 0
     // parent.[xyz] := 0 when (constr_parent == nullptr)
 };
@@ -354,7 +354,7 @@ struct BaseCtx
 {
     // Lock to perform mutating actions on the Context.
     std::mutex mutex;
-    pthread_t mutex_owner;
+    std::thread::id mutex_owner;
 
     // Lock to be taken by UI when wanting to access context - the yield()
     // method will lock/unlock it when its' released the main mutex to make
@@ -387,12 +387,12 @@ struct BaseCtx
     void lock(void)
     {
         mutex.lock();
-        mutex_owner = pthread_self();
+        mutex_owner = std::this_thread::get_id();
     }
 
     void unlock(void)
     {
-        NPNR_ASSERT(pthread_equal(pthread_self(), mutex_owner) != 0);
+        NPNR_ASSERT(std::this_thread::get_id() == mutex_owner);
         mutex.unlock();
     }
 

@@ -54,7 +54,7 @@ QT_BEGIN_NAMESPACE
 class QtPropertyPrivate
 {
 public:
-    QtPropertyPrivate(QtAbstractPropertyManager *manager) : m_enabled(true), m_modified(false), m_manager(manager) {}
+    QtPropertyPrivate(QtAbstractPropertyManager *manager) : m_enabled(true), m_selectable(true), m_modified(false), m_manager(manager) {}
     QtProperty *q_ptr;
 
     QSet<QtProperty *> m_parentItems;
@@ -66,6 +66,7 @@ public:
     QString m_name;
     QString m_id;
     bool m_enabled;
+    bool m_selectable;
     bool m_modified;
 
     QtAbstractPropertyManager * const m_manager;
@@ -260,6 +261,11 @@ bool QtProperty::isEnabled() const
     return d_ptr->m_enabled;
 }
 
+bool QtProperty::isSelectable() const
+{
+    return d_ptr->m_selectable;
+}
+
 /*!
     Returns whether the property is modified.
 
@@ -406,6 +412,15 @@ void QtProperty::setEnabled(bool enable)
         return;
 
     d_ptr->m_enabled = enable;
+    propertyChanged();
+}
+
+void QtProperty::setSelectable(bool selectable)
+{
+    if (d_ptr->m_selectable == selectable)
+        return;
+
+    d_ptr->m_selectable = selectable;
     propertyChanged();
 }
 

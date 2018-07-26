@@ -94,7 +94,13 @@ class SAPlacer
                 BelType bel_type = ctx->getBelType(bel);
                 if (bel_type != ctx->belTypeFromId(cell->type)) {
                     log_error("Bel \'%s\' of type \'%s\' does not match cell "
-                              "\'%s\' of type \'%s\'",
+                              "\'%s\' of type \'%s\'\n",
+                              loc_name.c_str(), ctx->belTypeToId(bel_type).c_str(ctx), cell->name.c_str(ctx),
+                              cell->type.c_str(ctx));
+                }
+                if (!ctx->isValidBelForCell(cell, bel)) {
+                    log_error("Bel \'%s\' of type \'%s\' is not valid for cell "
+                              "\'%s\' of type \'%s\'\n",
                               loc_name.c_str(), ctx->belTypeToId(bel_type).c_str(ctx), cell->name.c_str(ctx),
                               cell->type.c_str(ctx));
                 }
