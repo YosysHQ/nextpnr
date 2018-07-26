@@ -276,13 +276,13 @@ int main(int argc, char **argv)
                 case 4:
                     data[cursor++] = value >> 24;
                     data[cursor++] = value >> 16;
-                    /* fall-through */
+                /* fall-through */
                 case 2:
                     data[cursor++] = value >> 8;
-                    /* fall-through */
+                /* fall-through */
                 case 1:
                     data[cursor++] = value;
-                    /* fall-through */
+                /* fall-through */
                 case 0:
                     break;
                 default:
@@ -293,13 +293,13 @@ int main(int argc, char **argv)
                 case 4:
                     data[cursor + 3] = value >> 24;
                     data[cursor + 2] = value >> 16;
-                    /* fall-through */
+                /* fall-through */
                 case 2:
                     data[cursor + 1] = value >> 8;
-                    /* fall-through */
+                /* fall-through */
                 case 1:
                     data[cursor] = value;
-                    /* fall-through */
+                /* fall-through */
                 case 0:
                     break;
                 default:
