@@ -239,8 +239,7 @@ class SAPlacer
                 diameter *= post_legalise_dia_scale;
                 ctx->shuffle(autoplaced);
                 assign_budget(ctx);
-            }
-            else {
+            } else {
                 update_budget(ctx);
             }
 

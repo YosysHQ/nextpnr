@@ -26,12 +26,14 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-typedef std::unordered_map<const PortInfo*, delay_t> UpdateMap;
+typedef std::unordered_map<const PortInfo *, delay_t> UpdateMap;
 
-static delay_t follow_net(Context *ctx, NetInfo *net, int path_length, delay_t slack, UpdateMap &updates, delay_t &min_slack);
+static delay_t follow_net(Context *ctx, NetInfo *net, int path_length, delay_t slack, UpdateMap &updates,
+                          delay_t &min_slack);
 
 // Follow a path, returning budget to annotate
-static delay_t follow_user_port(Context *ctx, PortRef &user, int path_length, delay_t slack, UpdateMap &updates, delay_t &min_slack)
+static delay_t follow_user_port(Context *ctx, PortRef &user, int path_length, delay_t slack, UpdateMap &updates,
+                                delay_t &min_slack)
 {
     delay_t value;
     if (ctx->getPortClock(user.cell, user.port) != IdString()) {
@@ -66,12 +68,15 @@ static delay_t follow_user_port(Context *ctx, PortRef &user, int path_length, de
     return value;
 }
 
-static delay_t follow_net(Context *ctx, NetInfo *net, int path_length, delay_t slack, UpdateMap &updates, delay_t &min_slack)
+static delay_t follow_net(Context *ctx, NetInfo *net, int path_length, delay_t slack, UpdateMap &updates,
+                          delay_t &min_slack)
 {
     delay_t net_budget = slack / (path_length + 1);
     for (unsigned i = 0; i < net->users.size(); ++i) {
         auto &usr = net->users[i];
-        net_budget = std::min(net_budget, follow_user_port(ctx, usr, path_length + 1, slack - ctx->getNetinfoRouteDelay(net, i), updates, min_slack));
+        net_budget =
+                std::min(net_budget, follow_user_port(ctx, usr, path_length + 1,
+                                                      slack - ctx->getNetinfoRouteDelay(net, i), updates, min_slack));
     }
     return net_budget;
 }
@@ -81,7 +86,7 @@ static UpdateMap compute_min_slack(Context *ctx, delay_t &min_slack)
     UpdateMap updates;
     delay_t default_slack = delay_t(1.0e12 / ctx->target_freq);
 
-    // Go through all clocked drivers and distribute the available path 
+    // Go through all clocked drivers and distribute the available path
     //   slack evenly into the budget of every sink on the path ---
     //   record this value into the UpdateMap
     for (auto &cell : ctx->cells) {
@@ -119,21 +124,23 @@ void assign_budget(Context *ctx)
     delay_t min_slack = default_slack;
     auto updates = compute_min_slack(ctx, min_slack);
 
-    // If user has not specified a frequency, adjust the target frequency 
+    // If user has not specified a frequency, adjust the target frequency
     //   to be equivalent to the critical path
     if (!ctx->user_freq) {
         ctx->target_freq = 1e12 / (default_slack - min_slack);
         if (ctx->verbose)
-            log_info("minimum slack for this assign = %d, target Fmax for next update = %f\n", min_slack, ctx->target_freq/1e6);
+            log_info("minimum slack for this assign = %d, target Fmax for next update = %f\n", min_slack,
+                     ctx->target_freq / 1e6);
     }
 
     // Update the budgets
     for (auto &net : ctx->nets) {
         for (size_t i = 0; i < net.second->users.size(); ++i) {
-            auto& user = net.second->users[i];
+            auto &user = net.second->users[i];
             auto pi = &user.cell->ports.at(user.port);
             auto it = updates.find(pi);
-            if (it == updates.end()) continue;
+            if (it == updates.end())
+                continue;
             auto budget = ctx->getNetinfoRouteDelay(net.second.get(), i) + it->second;
             user.budget = ctx->getBudgetOverride(net.second->driver, budget);
 
@@ -160,21 +167,23 @@ void update_budget(Context *ctx)
     delay_t min_slack = default_slack;
     auto updates = compute_min_slack(ctx, min_slack);
 
-    // If user has not specified a frequency, adjust the target frequency 
+    // If user has not specified a frequency, adjust the target frequency
     //   to be +5% higher than the current critical path
     if (!ctx->user_freq) {
         ctx->target_freq = 1.05 * (1e12 / (default_slack - min_slack));
         if (ctx->verbose)
-            log_info("minimum slack for this update = %d, target Fmax for next update = %f\n", min_slack, ctx->target_freq/1e6);
+            log_info("minimum slack for this update = %d, target Fmax for next update = %f\n", min_slack,
+                     ctx->target_freq / 1e6);
     }
 
     // Update the budgets
     for (auto &net : ctx->nets) {
         for (size_t i = 0; i < net.second->users.size(); ++i) {
-            auto& user = net.second->users[i];
+            auto &user = net.second->users[i];
             auto pi = &user.cell->ports.at(user.port);
             auto it = updates.find(pi);
-            if (it == updates.end()) continue;
+            if (it == updates.end())
+                continue;
             auto budget = ctx->getNetinfoRouteDelay(net.second.get(), i) + it->second;
             user.budget = ctx->getBudgetOverride(net.second->driver, budget);
 
