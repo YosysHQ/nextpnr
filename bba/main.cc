@@ -52,6 +52,7 @@ std::map<std::string, int> streamIndex;
 std::vector<int> streamStack;
 
 std::vector<int> labels;
+std::vector<std::string> labelNames;
 std::map<std::string, int> labelIndex;
 
 std::vector<std::string> preText, postText;
@@ -67,6 +68,7 @@ const char *skipWhitespace(const char *p)
 
 int main(int argc, char **argv)
 {
+    bool debug = false;
     bool verbose = false;
     bool bigEndian = false;
     bool writeC = false;
@@ -76,6 +78,7 @@ int main(int argc, char **argv)
     po::positional_options_description pos;
     po::options_description options("Allowed options");
     options.add_options()("v", "verbose output");
+    options.add_options()("d", "debug output");
     options.add_options()("b", "big endian");
     options.add_options()("c", "write c strings");
     options.add_options()("files", po::value<std::vector<std::string>>(), "file parameters");
@@ -94,6 +97,8 @@ int main(int argc, char **argv)
     }
     if (vm.count("v"))
         verbose = true;
+    if (vm.count("d"))
+        debug = true;
     if (vm.count("b"))
         bigEndian = true;
     if (vm.count("c"))
@@ -152,11 +157,13 @@ int main(int argc, char **argv)
             Stream &s = streams.at(streamStack.back());
             if (labelIndex.count(label) == 0) {
                 labelIndex[label] = labels.size();
+                if (debug)
+                    labelNames.push_back(label);
                 labels.push_back(-1);
             }
             s.tokenTypes.push_back(cmd == "label" ? TOK_LABEL : TOK_REF);
             s.tokenValues.push_back(labelIndex.at(label));
-            if (verbose)
+            if (debug)
                 s.tokenComments.push_back(comment);
             continue;
         }
@@ -167,28 +174,41 @@ int main(int argc, char **argv)
             Stream &s = streams.at(streamStack.back());
             s.tokenTypes.push_back(cmd == "u8" ? TOK_U8 : cmd == "u16" ? TOK_U16 : TOK_U32);
             s.tokenValues.push_back(atoll(value));
-            if (verbose)
+            if (debug)
                 s.tokenComments.push_back(comment);
             continue;
         }
 
         if (cmd == "str") {
             const char *value = skipWhitespace(strtok(nullptr, "\r\n"));
+            char terminator[2] = {*value, 0};
+            assert(terminator[0] != 0);
+            value = strtok((char*)value+1, terminator);
+            const char *comment = skipWhitespace(strtok(nullptr, "\r\n"));
             std::string label = std::string("str:") + value;
             Stream &s = streams.at(streamStack.back());
             if (labelIndex.count(label) == 0) {
                 labelIndex[label] = labels.size();
+                if (debug)
+                    labelNames.push_back(label);
                 labels.push_back(-1);
             }
             s.tokenTypes.push_back(TOK_REF);
             s.tokenValues.push_back(labelIndex.at(label));
-            if (verbose)
-                s.tokenComments.push_back(value);
+            if (debug)
+                s.tokenComments.push_back(comment);
             stringStream.tokenTypes.push_back(TOK_LABEL);
             stringStream.tokenValues.push_back(labelIndex.at(label));
+            stringStream.tokenComments.push_back("");
             while (1) {
                 stringStream.tokenTypes.push_back(TOK_U8);
                 stringStream.tokenValues.push_back(*value);
+                if (debug) {
+                    char char_comment[4] = {'\'', *value, '\'', 0};
+                    if (*value < 32 || *value >= 127)
+                        char_comment[0] = 0;
+                    stringStream.tokenComments.push_back(char_comment);
+                }
                 if (*value == 0)
                     break;
                 value++;
@@ -208,8 +228,10 @@ int main(int argc, char **argv)
     assert(!streams.empty());
     assert(streamStack.empty());
     streams.push_back(Stream());
+    streams.back().name = "strings";
     streams.back().tokenTypes.swap(stringStream.tokenTypes);
     streams.back().tokenValues.swap(stringStream.tokenValues);
+    streams.back().tokenComments.swap(stringStream.tokenComments);
 
     int cursor = 0;
     for (auto &s : streams) {
@@ -247,6 +269,9 @@ int main(int argc, char **argv)
 
     cursor = 0;
     for (auto &s : streams) {
+        if (debug)
+            printf("-- %s --\n", s.name.c_str());
+
         for (int i = 0; i < int(s.tokenTypes.size()); i++) {
             uint32_t value = s.tokenValues[i];
             int numBytes = 0;
@@ -307,6 +332,51 @@ int main(int argc, char **argv)
                 }
                 cursor += numBytes;
             }
+
+            if (debug) {
+                printf("%08x ", cursor - numBytes);
+                for (int k = cursor - numBytes; k < cursor; k++)
+                    printf("%02x ", data[k]);
+                for (int k = numBytes; k < 4; k++)
+                    printf("   ");
+
+                unsigned long long v = s.tokenValues[i];
+
+                switch (s.tokenTypes[i]) {
+                case TOK_LABEL:
+                    if (s.tokenComments[i].empty())
+                        printf("label %s\n", labelNames[v].c_str());
+                    else
+                        printf("label %-24s %s\n", labelNames[v].c_str(), s.tokenComments[i].c_str());
+                    break;
+                case TOK_REF:
+                    if (s.tokenComments[i].empty())
+                        printf("ref %s %s\n", labelNames[v].c_str());
+                    else
+                        printf("ref %-26s %s\n", labelNames[v].c_str(), s.tokenComments[i].c_str());
+                    break;
+                case TOK_U8:
+                    if (s.tokenComments[i].empty())
+                        printf("u8 %llu\n", v);
+                    else
+                        printf("u8 %-27llu %s\n", v, s.tokenComments[i].c_str());
+                    break;
+                case TOK_U16:
+                    if (s.tokenComments[i].empty())
+                        printf("u16 %-26llu\n", v);
+                    else
+                        printf("u16 %-26llu %s\n", v, s.tokenComments[i].c_str());
+                    break;
+                case TOK_U32:
+                    if (s.tokenComments[i].empty())
+                        printf("u32 %-26llu\n", v);
+                    else
+                        printf("u32 %-26llu %s\n", v, s.tokenComments[i].c_str());
+                    break;
+                default:
+                    assert(0);
+                }
+            }
         }
     }
 
@@ -319,7 +389,8 @@ int main(int argc, char **argv)
         fprintf(fileOut, "const char %s[%d] =\n\"", streams[0].name.c_str(), int(data.size()) + 1);
 
         cursor = 1;
-        for (auto d : data) {
+        for (int i = 0; i < int(data.size()); i++) {
+            auto d = data[i];
             if (cursor > 70) {
                 fputc('\"', fileOut);
                 fputc('\n', fileOut);
@@ -329,9 +400,11 @@ int main(int argc, char **argv)
                 fputc('\"', fileOut);
                 cursor = 1;
             }
-            if (d < 32 || d >= 128) {
-                fprintf(fileOut, "\\%03o", int(d));
-                cursor += 4;
+            if (d < 32 || d >= 127) {
+                if (i+1 < int(data.size()) && (data[i+1] < '0' || '9' < data[i+1]))
+                    cursor += fprintf(fileOut, "\\%o", int(d));
+                else
+                    cursor += fprintf(fileOut, "\\%03o", int(d));
             } else if (d == '\"' || d == '\'' || d == '\\') {
                 fputc('\\', fileOut);
                 fputc(d, fileOut);
