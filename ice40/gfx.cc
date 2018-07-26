@@ -701,6 +701,17 @@ void gfxTilePip(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId src,
 
     if (getWireXY_local(src, x1, y1) && getWireXY_local(dst, x2, y2))
         pipGfx(g, x, y, x1, y1, x2, y2, local_swbox_x1, local_swbox_y1, local_swbox_x2, local_swbox_y2, style);
+
+    if (src == TILE_WIRE_CARRY_IN && dst == TILE_WIRE_CARRY_IN_MUX) {
+        GraphicElement el;
+        el.type = GraphicElement::G_ARROW;
+        el.style = style;
+        el.x1 = x + logic_cell_x1 + 0.005 * 3;
+        el.x2 = el.x1;
+        el.y1 = y + 0.01;
+        el.y2 = y + 0.02;
+        g.push_back(el);
+    }
 }
 
 NEXTPNR_NAMESPACE_END
