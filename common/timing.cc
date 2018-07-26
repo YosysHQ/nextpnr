@@ -222,7 +222,7 @@ void compute_fmax(Context *ctx, bool print_fmax, bool print_path)
     if (print_path) {
         delay_t total = 0;
         log_break();
-        log_info("Critical path:\n");
+        log_info("Critical path report:\n");
         log_info("curr total\n");
         auto& front = crit_path.front();
         auto& front_port = front->cell->ports.at(front->port);
@@ -240,11 +240,12 @@ void compute_fmax(Context *ctx, bool print_fmax, bool print_path)
             delay_t comb_delay;
             ctx->getCellDelay(sink_cell, last_port, driver.port, comb_delay);
             total += comb_delay;
-            log_info("%4d %4d  Source %s.%s (s)\n", comb_delay, total, driver_cell->name.c_str(ctx), driver.port.c_str(ctx)); 
+            log_info("%4d %4d  Source %s.%s\n", comb_delay, total, driver_cell->name.c_str(ctx), driver.port.c_str(ctx));
             delay_t net_delay = ctx->getNetinfoRouteDelay(net, i);
-            net_delay = ctx->getBudgetOverride(driver, net_delay);
             total += net_delay;
-            log_info("%4d %4d    Net %s\n", net_delay, total, net->name.c_str(ctx));
+            auto driver_loc = ctx->getBelLocation(driver_cell->bel);
+            auto sink_loc = ctx->getBelLocation(sink_cell->bel);
+            log_info("%4d %4d    Net %s budget %d (%d,%d) -> (%d,%d)\n", net_delay, total, net->name.c_str(ctx), sink->budget, driver_loc.x, driver_loc.y, sink_loc.x, sink_loc.y);
             log_info("                Sink %s.%s\n", sink_cell->name.c_str(ctx), sink->port.c_str(ctx));
             last_port = sink->port;
         }
