@@ -662,12 +662,12 @@ static void pack_special(Context *ctx)
 
             auto feedback_path = packed->params[ctx->id("FEEDBACK_PATH")];
             packed->params[ctx->id("FEEDBACK_PATH")] =
-                    feedback_path == "DELAY"
-                            ? "0"
-                            : feedback_path == "SIMPLE" ? "1"
-                                                        : feedback_path == "PHASE_AND_DELAY"
-                                                                  ? "2"
-                                                                  : feedback_path == "EXTERNAL" ? "6" : feedback_path;
+                    feedback_path == "DELAY" ? "0" : feedback_path == "SIMPLE"
+                                                             ? "1"
+                                                             : feedback_path == "PHASE_AND_DELAY"
+                                                                       ? "2"
+                                                                       : feedback_path == "EXTERNAL" ? "6"
+                                                                                                     : feedback_path;
             packed->params[ctx->id("PLLTYPE")] = std::to_string(sb_pll40_type(ctx, ci));
 
             NetInfo *pad_packagepin_net = nullptr;

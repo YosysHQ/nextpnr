@@ -319,7 +319,7 @@ void DesignWidget::newContext(Context *ctx)
     pip_root->setText(0, "Pips");
     pip_root->setFlags(pip_root->flags() & ~Qt::ItemIsSelectable);
     treeWidget->insertTopLevelItem(0, pip_root);
-#ifndef ARCH_ECP5    
+#ifndef ARCH_ECP5
     if (ctx) {
         for (auto pip : ctx->getPips()) {
             auto id = ctx->getPipName(pip);
@@ -346,7 +346,7 @@ void DesignWidget::newContext(Context *ctx)
     for (auto pip : nameToItem[2].toStdMap()) {
         pip_root->addChild(pip.second);
     }
-#endif    
+#endif
 
     nets_root = new QTreeWidgetItem(treeWidget);
     nets_root->setText(0, "Nets");
@@ -512,8 +512,7 @@ void DesignWidget::onItemSelectionChanged()
     if (treeWidget->selectedItems().size() == 0)
         return;
 
-    if (treeWidget->selectedItems().size() > 1)
-    {
+    if (treeWidget->selectedItems().size() > 1) {
         std::vector<DecalXY> decals;
         for (auto clickItem : treeWidget->selectedItems()) {
             IdString value = static_cast<IdStringTreeItem *>(clickItem)->getData();
