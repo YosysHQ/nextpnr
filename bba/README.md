@@ -28,8 +28,11 @@ push \<name\>
 -------------
 
 All following commands up until the matching "pop" will be writen to stream
-<name>. Everything written to the same stream will end up in a continous
-region of the output.
+\<name\>. Everything written to the same stream will end up in a continous
+region of the output. The statements `pop`, `label`, `ref`, `u8`, `u16`,
+`u32`, and `str` are only valid within such a block. The name used in the
+first push statement also determines the name of the variable in the generated
+C output (when C is selected as output file format).
 
 pop
 ---
