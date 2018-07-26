@@ -351,7 +351,7 @@ int main(int argc, char **argv)
                     break;
                 case TOK_REF:
                     if (s.tokenComments[i].empty())
-                        printf("ref %s %s\n", labelNames[v].c_str());
+                        printf("ref %s\n", labelNames[v].c_str());
                     else
                         printf("ref %-26s %s\n", labelNames[v].c_str(), s.tokenComments[i].c_str());
                     break;
