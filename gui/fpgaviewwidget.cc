@@ -624,21 +624,32 @@ void FPGAViewWidget::wheelEvent(QWheelEvent *event)
 {
     QPoint degree = event->angleDelta() / 8;
 
-    if (!degree.isNull()) {
-
-        if (zoom_ < zoomNear_) {
-            zoom_ = zoomNear_;
-        } else if (zoom_ < zoomLvl1_) {
-            zoom_ -= degree.y() / 10.0;
-        } else if (zoom_ < zoomLvl2_) {
-            zoom_ -= degree.y() / 5.0;
-        } else if (zoom_ < zoomFar_) {
-            zoom_ -= degree.y();
-        } else {
-            zoom_ = zoomFar_;
-        }
-        update();
-    }
+    if (!degree.isNull())
+        zoom(degree.y());
 }
+
+void FPGAViewWidget::zoom(int level)
+{
+    if (zoom_ < zoomNear_) {
+        zoom_ = zoomNear_;
+    } else if (zoom_ < zoomLvl1_) {
+        zoom_ -= level / 10.0;
+    } else if (zoom_ < zoomLvl2_) {
+        zoom_ -= level / 5.0;
+    } else if (zoom_ < zoomFar_) {
+        zoom_ -= level;
+    } else {
+        zoom_ = zoomFar_;
+    }
+    update();
+}
+
+void FPGAViewWidget::zoom_in() { zoom(10); }
+
+void FPGAViewWidget::zoom_out() { zoom(-10); }
+
+void FPGAViewWidget::zoom_selected() {}
+
+void FPGAViewWidget::zoom_outbound() {}
 
 NEXTPNR_NAMESPACE_END
