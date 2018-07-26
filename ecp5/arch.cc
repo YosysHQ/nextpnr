@@ -328,7 +328,8 @@ BelId Arch::getPackagePinBel(const std::string &pin) const
 std::string Arch::getBelPackagePin(BelId bel) const
 {
     for (int i = 0; i < package_info->num_pins; i++) {
-        if (package_info->pin_data[i].abs_loc == bel.location && package_info->pin_data[i].bel_index == bel.index) {
+        if (Location(package_info->pin_data[i].abs_loc) == bel.location &&
+            package_info->pin_data[i].bel_index == bel.index) {
             return package_info->pin_data[i].name.get();
         }
     }
@@ -338,7 +339,7 @@ std::string Arch::getBelPackagePin(BelId bel) const
 int Arch::getPioBelBank(BelId bel) const
 {
     for (int i = 0; i < chip_info->num_pios; i++) {
-        if (chip_info->pio_info[i].abs_loc == bel.location && chip_info->pio_info[i].bel_index == bel.index) {
+        if (Location(chip_info->pio_info[i].abs_loc) == bel.location && chip_info->pio_info[i].bel_index == bel.index) {
             return chip_info->pio_info[i].bank;
         }
     }
@@ -348,7 +349,7 @@ int Arch::getPioBelBank(BelId bel) const
 std::string Arch::getPioFunctionName(BelId bel) const
 {
     for (int i = 0; i < chip_info->num_pios; i++) {
-        if (chip_info->pio_info[i].abs_loc == bel.location && chip_info->pio_info[i].bel_index == bel.index) {
+        if (Location(chip_info->pio_info[i].abs_loc) == bel.location && chip_info->pio_info[i].bel_index == bel.index) {
             const char *func = chip_info->pio_info[i].function_name.get();
             if (func == nullptr)
                 return "";

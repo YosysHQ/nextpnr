@@ -740,6 +740,18 @@ struct Arch : BaseCtx
     IdString id_cen, id_clk, id_sr;
     IdString id_i0, id_i1, id_i2, id_i3;
     IdString id_dff_en, id_neg_clk;
+
+    // -------------------------------------------------
+    BelPin getIOBSharingPLLPin(BelId pll, PortPin pll_pin) const
+    {
+        auto wire = getBelPinWire(pll, pll_pin);
+        for (auto src_bel : getWireBelPins(wire)) {
+            if (getBelType(src_bel.bel) == TYPE_SB_IO && src_bel.pin == PIN_D_IN_0) {
+                return src_bel;
+            }
+        }
+        NPNR_ASSERT_FALSE("Expected PLL pin to share an output with an SB_IO D_IN_{0,1}");
+    }
 };
 
 NEXTPNR_NAMESPACE_END

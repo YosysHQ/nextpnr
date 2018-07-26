@@ -207,15 +207,9 @@ BelId Arch::getBelByLocation(Loc loc) const
     return BelId();
 }
 
-const std::vector<BelId> &Arch::getBelsByTile(int x, int y) const
-{
-    return bels_by_tile.at(x).at(y);
-}
+const std::vector<BelId> &Arch::getBelsByTile(int x, int y) const { return bels_by_tile.at(x).at(y); }
 
-bool Arch::getBelGlobalBuf(BelId bel) const
-{
-    return  bels.at(bel).gb;
-}
+bool Arch::getBelGlobalBuf(BelId bel) const { return bels.at(bel).gb; }
 
 uint32_t Arch::getBelChecksum(BelId bel) const
 {
