@@ -153,8 +153,7 @@ void assign_budget(Context *ctx)
             auto it = updates.find(pi);
             if (it == updates.end())
                 continue;
-            auto budget = ctx->getNetinfoRouteDelay(net.second.get(), i) + it->second;
-            user.budget = ctx->getBudgetOverride(net.second->driver, budget);
+            user.budget = ctx->getNetinfoRouteDelay(net.second.get(), i) - it->second;
 
             // Post-update check
             if (ctx->user_freq && user.budget < 0)
@@ -198,8 +197,7 @@ void update_budget(Context *ctx)
             auto it = updates.find(pi);
             if (it == updates.end())
                 continue;
-            auto budget = ctx->getNetinfoRouteDelay(net.second.get(), i) + it->second;
-            user.budget = ctx->getBudgetOverride(net.second->driver, budget);
+            user.budget = ctx->getNetinfoRouteDelay(net.second.get(), i) + it->second;
 
             // Post-update check
             if (ctx->verbose) {
