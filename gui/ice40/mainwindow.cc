@@ -159,6 +159,8 @@ void MainWindow::createMenu()
     taskToolBar->addAction(actionPlay);
     taskToolBar->addAction(actionPause);
     taskToolBar->addAction(actionStop);
+
+    createGraphicsBar();
 }
 
 #if defined(_MSC_VER)

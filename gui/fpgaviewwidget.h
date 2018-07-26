@@ -292,9 +292,13 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     void onSelectedArchItem(std::vector<DecalXY> decals);
     void onHighlightGroupChanged(std::vector<DecalXY> decals, int group);
     void pokeRenderer(void);
-
+    void zoom_in();
+    void zoom_out();
+    void zoom_selected();
+    void zoom_outbound();
   private:
     void renderLines(void);
+    void zoom(int level);
 
     QPoint lastPos_;
     LineShader lineShader_;
