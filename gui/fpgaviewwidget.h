@@ -20,6 +20,7 @@
 #ifndef MAPGLWIDGET_H
 #define MAPGLWIDGET_H
 
+#include <boost/optional.hpp>
 #include <QMainWindow>
 #include <QMutex>
 #include <QOpenGLBuffer>
@@ -120,6 +121,7 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
 
   Q_SIGNALS:
     void clickedBel(BelId bel);
+    void clickedWire(WireId wire);
 
   private:
     const float zoomNear_ = 1.0f;    // do not zoom closer than this
@@ -127,7 +129,49 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     const float zoomLvl1_ = 100.0f;
     const float zoomLvl2_ = 50.0f;
 
-    using QuadTreeElements = QuadTree<float, std::pair<ElementType, IdString>>;
+    struct PickedElement {
+        ElementType type;
+        union Inner {
+            BelId bel;
+            WireId wire;
+            PipId pip;
+            GroupId group;
+
+            Inner(BelId _bel) : bel(_bel) {}
+            Inner(WireId _wire) : wire(_wire) {}
+            Inner(PipId _pip) : pip(_pip) {}
+            Inner(GroupId _group) : group(_group) {}
+        } element;
+        float x, y; // Decal X and Y
+        PickedElement(BelId bel, float x, float y) : type(ElementType::BEL), element(bel), x(x), y(y) {}
+        PickedElement(WireId wire, float x, float y) : type(ElementType::WIRE), element(wire), x(x), y(y) {}
+        PickedElement(PipId pip, float x, float y) : type(ElementType::PIP), element(pip), x(x), y(y) {}
+        PickedElement(GroupId group, float x, float y) : type(ElementType::GROUP), element(group), x(x), y(y) {}
+
+        DecalXY decal(Context *ctx) const
+        {
+            DecalXY decal;
+            switch (type) {
+            case ElementType::BEL:
+                decal = ctx->getBelDecal(element.bel);
+                break;
+            case ElementType::WIRE:
+                decal = ctx->getWireDecal(element.wire);
+                break;
+            case ElementType::PIP:
+                decal = ctx->getPipDecal(element.pip);
+                break;
+            case ElementType::GROUP:
+                decal = ctx->getGroupDecal(element.group);
+                break;
+            default:
+                NPNR_ASSERT_FALSE("Invalid ElementType");
+            }
+            return decal;
+        }
+        float distance(Context *ctx, float wx, float wy) const;
+    };
+    using PickQuadTree = QuadTree<float, PickedElement>;
 
     Context *ctx_;
     QTimer paintTimer_;
@@ -147,6 +191,7 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
         QColor inactive;
         QColor active;
         QColor selected;
+        QColor hovered;
         QColor highlight[8];
     } colors_;
 
@@ -154,11 +199,12 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     {
         LineShaderData gfxByStyle[GraphicElement::STYLE_MAX];
         LineShaderData gfxSelected;
+        LineShaderData gfxHovered;
         LineShaderData gfxHighlighted[8];
         // Global bounding box of data from Arch.
         float bbX0, bbY0, bbX1, bbY1;
         // Quadtree for picking objects.
-        std::unique_ptr<QuadTreeElements> qt;
+        std::unique_ptr<PickQuadTree> qt;
     };
     std::unique_ptr<RendererData> rendererData_;
     QMutex rendererDataLock_;
@@ -167,7 +213,8 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     {
         std::vector<DecalXY> selectedDecals;
         std::vector<DecalXY> highlightedDecals[8];
-        bool highlightedOrSelectedChanged;
+        DecalXY hoveredDecal;
+        bool changed;
     };
     std::unique_ptr<RendererArgs> rendererArgs_;
     QMutex rendererArgsLock_;
@@ -177,9 +224,10 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     void renderGraphicElement(RendererData *data, LineShaderData &out, const GraphicElement &el, float x, float y);
     void renderDecal(RendererData *data, LineShaderData &out, const DecalXY &decal);
     void renderArchDecal(RendererData *data, const DecalXY &decal);
-    void populateQuadTree(RendererData *data, const DecalXY &decal, IdString id);
+    void populateQuadTree(RendererData *data, const DecalXY &decal, const PickedElement& element);
+    boost::optional<PickedElement> pickElement(float worldx, float worldy);
     QVector4D mouseToWorldCoordinates(int x, int y);
-    QVector4D mouseToWorldDimensions(int x, int y);
+    QVector4D mouseToWorldDimensions(float x, float y);
     QMatrix4x4 getProjection(void);
 };
 

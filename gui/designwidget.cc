@@ -514,6 +514,13 @@ void DesignWidget::onClickedBel(BelId bel)
     Q_EMIT selected(getDecals(ElementType::BEL, ctx->getBelName(bel)));
 }
 
+void DesignWidget::onClickedWire(WireId wire)
+{
+    QTreeWidgetItem *item = nameToItem[getElementIndex(ElementType::WIRE)].value(ctx->getWireName(wire).c_str(ctx));
+    treeWidget->setCurrentItem(item);
+    Q_EMIT selected(getDecals(ElementType::WIRE, ctx->getWireName(wire)));
+}
+
 void DesignWidget::onItemSelectionChanged()
 {
     if (treeWidget->selectedItems().size() == 0)

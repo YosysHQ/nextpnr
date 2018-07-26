@@ -37,7 +37,8 @@ enum class ElementType
     WIRE,
     PIP,
     NET,
-    CELL
+    CELL,
+    GROUP
 };
 
 class DesignWidget : public QWidget
@@ -75,6 +76,7 @@ class DesignWidget : public QWidget
     void newContext(Context *ctx);
     void updateTree();
     void onClickedBel(BelId bel);
+    void onClickedWire(WireId wire);
 
   private:
     Context *ctx;
