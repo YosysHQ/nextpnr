@@ -64,7 +64,8 @@ u32 \<value\> \[\<comment\>\]
 Add a 32-bit value to the binary blob. Note that the input must be structured
 in a way that ensures that all u32 are aligned to 4-byte addresses.
 
-str \<string\>
---------------
+str "\<string\>" \[\<comment\>\]
+--------------------------------
 
-Add a reference to a zero-terminated copy of the specified string.
+Add a reference to a zero-terminated copy of that string. Any character may be
+used to quote the string, but the most common choices are `"` and `|`.
