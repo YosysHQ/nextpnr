@@ -745,9 +745,9 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
             el.x1 = chip_info->bel_data[bel.index].x + logic_cell_x1;
             el.x2 = chip_info->bel_data[bel.index].x + logic_cell_x2;
             el.y1 = chip_info->bel_data[bel.index].y + logic_cell_y1 +
-                    (4*chip_info->bel_data[bel.index].z) * logic_cell_pitch;
+                    (4 * chip_info->bel_data[bel.index].z) * logic_cell_pitch;
             el.y2 = chip_info->bel_data[bel.index].y + logic_cell_y2 +
-                    (4*chip_info->bel_data[bel.index].z + 3) * logic_cell_pitch;
+                    (4 * chip_info->bel_data[bel.index].z + 3) * logic_cell_pitch;
             ret.push_back(el);
         }
 

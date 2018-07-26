@@ -777,18 +777,16 @@ std::vector<DecalXY> DesignWidget::getDecals(ElementType type, IdString value)
     return decals;
 }
 
-void DesignWidget::updateHighlightGroup(QList<QTreeWidgetItem*> items, int group)
+void DesignWidget::updateHighlightGroup(QList<QTreeWidgetItem *> items, int group)
 {
     const bool shouldClear = items.size() == 1;
     for (auto item : items) {
         if (highlightSelected.contains(item)) {
             if (shouldClear && highlightSelected[item] == group) {
                 highlightSelected.remove(item);
-            }
-            else
+            } else
                 highlightSelected[item] = group;
-        }
-        else
+        } else
             highlightSelected.insert(item, group);
     }
     std::vector<DecalXY> decals[8];
@@ -799,14 +797,14 @@ void DesignWidget::updateHighlightGroup(QList<QTreeWidgetItem*> items, int group
         std::vector<DecalXY> d = getDecals(type, value);
         std::move(d.begin(), d.end(), std::back_inserter(decals[it.second]));
     }
-    for (int i=0;i<8;i++)
+    for (int i = 0; i < 8; i++)
         Q_EMIT highlight(decals[i], i);
 }
 
 void DesignWidget::prepareMenuProperty(const QPoint &pos)
 {
     QTreeWidget *tree = propertyEditor->treeWidget();
-    QList<QTreeWidgetItem*> items;
+    QList<QTreeWidgetItem *> items;
     for (auto itemContextMenu : tree->selectedItems()) {
         QtBrowserItem *browserItem = propertyEditor->itemToBrowserItem(itemContextMenu);
         if (!browserItem)
@@ -848,7 +846,7 @@ void DesignWidget::prepareMenuTree(const QPoint &pos)
     if (treeWidget->selectedItems().size() == 0)
         return;
     int selectedIndex = -1;
-    QList<QTreeWidgetItem*> items = treeWidget->selectedItems();
+    QList<QTreeWidgetItem *> items = treeWidget->selectedItems();
     if (treeWidget->selectedItems().size() == 1) {
         QTreeWidgetItem *item = treeWidget->selectedItems().at(0);
         if (highlightSelected.contains(item))

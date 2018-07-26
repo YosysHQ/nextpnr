@@ -60,7 +60,7 @@ class DesignWidget : public QWidget
     void updateButtons();
     void addToHistory(QTreeWidgetItem *item);
     std::vector<DecalXY> getDecals(ElementType type, IdString value);
-    void updateHighlightGroup(QList<QTreeWidgetItem*> item, int group);
+    void updateHighlightGroup(QList<QTreeWidgetItem *> item, int group);
   Q_SIGNALS:
     void info(std::string text);
     void selected(std::vector<DecalXY> decal);

@@ -296,6 +296,7 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     void zoom_out();
     void zoom_selected();
     void zoom_outbound();
+
   private:
     void renderLines(void);
     void zoom(int level);

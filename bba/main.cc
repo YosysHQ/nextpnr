@@ -183,7 +183,7 @@ int main(int argc, char **argv)
             const char *value = skipWhitespace(strtok(nullptr, "\r\n"));
             char terminator[2] = {*value, 0};
             assert(terminator[0] != 0);
-            value = strtok((char*)value+1, terminator);
+            value = strtok((char *)value + 1, terminator);
             const char *comment = skipWhitespace(strtok(nullptr, "\r\n"));
             std::string label = std::string("str:") + value;
             Stream &s = streams.at(streamStack.back());
@@ -401,7 +401,7 @@ int main(int argc, char **argv)
                 cursor = 1;
             }
             if (d < 32 || d >= 127) {
-                if (i+1 < int(data.size()) && (data[i+1] < '0' || '9' < data[i+1]))
+                if (i + 1 < int(data.size()) && (data[i + 1] < '0' || '9' < data[i + 1]))
                     cursor += fprintf(fileOut, "\\%o", int(d));
                 else
                     cursor += fprintf(fileOut, "\\%03o", int(d));

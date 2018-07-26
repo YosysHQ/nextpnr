@@ -155,10 +155,10 @@ struct GraphicElement
 
     enum style_t
     {
-        G_FRAME,
-        G_HIDDEN,
-        G_INACTIVE,
-        G_ACTIVE,
+        G_FRAME,    // Static "frame". Contrast between G_INACTIVE and G_ACTIVE
+        G_HIDDEN,   // Only display when object is selected or highlighted
+        G_INACTIVE, // Render using low-contrast color
+        G_ACTIVE,   // Render using high-contast color
     } style = G_FRAME;
 
     float x1 = 0, y1 = 0, x2 = 0, y2 = 0, z = 0;
