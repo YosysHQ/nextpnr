@@ -275,7 +275,7 @@ class SAPlacer
                 }
             }
         }
-        log_info("estimated Fmax = %.2f MHz\n", compute_fmax(ctx) / 1e6);
+        compute_fmax(ctx, true /* print_fmax */);
         ctx->unlock();
         return true;
     }
