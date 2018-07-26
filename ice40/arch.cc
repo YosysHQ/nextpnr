@@ -495,9 +495,10 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
     return xscale * abs(xd) + yscale * abs(yd) + offset;
 }
 
-delay_t Arch::getBudgetOverride(const PortRef& pr, delay_t v) const
+delay_t Arch::getBudgetOverride(const PortRef &pr, delay_t v) const
 {
-    if (pr.port == id("COUT")) return 0;
+    if (pr.port == id("COUT"))
+        return 0;
     return v;
 }
 
