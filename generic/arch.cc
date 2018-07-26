@@ -41,7 +41,7 @@ void Arch::addPip(IdString name, IdString type, IdString srcWire, IdString dstWi
     NPNR_ASSERT(pips.count(name) == 0);
     PipInfo &pi = pips[name];
     pi.name = name;
-    wi.type = type;
+    pi.type = type;
     pi.srcWire = srcWire;
     pi.dstWire = dstWire;
     pi.delay = delay;
@@ -56,7 +56,7 @@ void Arch::addAlias(IdString name, IdString type, IdString srcWire, IdString dst
     NPNR_ASSERT(pips.count(name) == 0);
     PipInfo &pi = pips[name];
     pi.name = name;
-    wi.type = type;
+    pi.type = type;
     pi.srcWire = srcWire;
     pi.dstWire = dstWire;
     pi.delay = delay;
