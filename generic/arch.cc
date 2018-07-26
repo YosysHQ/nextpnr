@@ -24,22 +24,24 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-void Arch::addWire(IdString name, int x, int y)
+void Arch::addWire(IdString name, IdString type, int x, int y)
 {
     NPNR_ASSERT(wires.count(name) == 0);
     WireInfo &wi = wires[name];
     wi.name = name;
+    wi.type = type;
     wi.x = x;
     wi.y = y;
 
     wire_ids.push_back(name);
 }
 
-void Arch::addPip(IdString name, IdString srcWire, IdString dstWire, DelayInfo delay)
+void Arch::addPip(IdString name, IdString type, IdString srcWire, IdString dstWire, DelayInfo delay)
 {
     NPNR_ASSERT(pips.count(name) == 0);
     PipInfo &pi = pips[name];
     pi.name = name;
+    wi.type = type;
     pi.srcWire = srcWire;
     pi.dstWire = dstWire;
     pi.delay = delay;
@@ -49,11 +51,12 @@ void Arch::addPip(IdString name, IdString srcWire, IdString dstWire, DelayInfo d
     pip_ids.push_back(name);
 }
 
-void Arch::addAlias(IdString name, IdString srcWire, IdString dstWire, DelayInfo delay)
+void Arch::addAlias(IdString name, IdString type, IdString srcWire, IdString dstWire, DelayInfo delay)
 {
     NPNR_ASSERT(pips.count(name) == 0);
     PipInfo &pi = pips[name];
     pi.name = name;
+    wi.type = type;
     pi.srcWire = srcWire;
     pi.dstWire = dstWire;
     pi.delay = delay;
@@ -266,6 +269,8 @@ WireId Arch::getWireByName(IdString name) const
 
 IdString Arch::getWireName(WireId wire) const { return wire; }
 
+IdString Arch::getWireType(WireId wire) const { return wires.at(wire).type; }
+
 uint32_t Arch::getWireChecksum(WireId wire) const
 {
     // FIXME
@@ -315,6 +320,8 @@ PipId Arch::getPipByName(IdString name) const
 }
 
 IdString Arch::getPipName(PipId pip) const { return pip; }
+
+IdString Arch::getPipType(PipId pip) const { return pips.at(pip).type; }
 
 uint32_t Arch::getPipChecksum(PipId wire) const
 {

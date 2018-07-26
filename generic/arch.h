@@ -31,7 +31,7 @@ struct WireInfo;
 
 struct PipInfo
 {
-    IdString name, bound_net;
+    IdString name, type, bound_net;
     WireId srcWire, dstWire;
     DelayInfo delay;
     DecalXY decalxy;
@@ -39,7 +39,7 @@ struct PipInfo
 
 struct WireInfo
 {
-    IdString name, bound_net;
+    IdString name, type, bound_net;
     std::vector<PipId> downhill, uphill, aliases;
     BelPin uphill_bel_pin;
     std::vector<BelPin> downhill_bel_pins;
@@ -96,9 +96,9 @@ struct Arch : BaseCtx
 
     float grid_distance_to_delay;
 
-    void addWire(IdString name, int x, int y);
-    void addPip(IdString name, IdString srcWire, IdString dstWire, DelayInfo delay);
-    void addAlias(IdString name, IdString srcWire, IdString dstWire, DelayInfo delay);
+    void addWire(IdString name, IdString type, int x, int y);
+    void addPip(IdString name, IdString type, IdString srcWire, IdString dstWire, DelayInfo delay);
+    void addAlias(IdString name, IdString type, IdString srcWire, IdString dstWire, DelayInfo delay);
 
     void addBel(IdString name, IdString type, Loc loc, bool gb);
     void addBelInput(IdString bel, IdString name, IdString wire);
@@ -157,6 +157,7 @@ struct Arch : BaseCtx
 
     WireId getWireByName(IdString name) const;
     IdString getWireName(WireId wire) const;
+    IdString getWireType(WireId wire) const;
     uint32_t getWireChecksum(WireId wire) const;
     void bindWire(WireId wire, IdString net, PlaceStrength strength);
     void unbindWire(WireId wire);
@@ -169,6 +170,7 @@ struct Arch : BaseCtx
 
     PipId getPipByName(IdString name) const;
     IdString getPipName(PipId pip) const;
+    IdString getPipType(PipId pip) const;
     uint32_t getPipChecksum(PipId pip) const;
     void bindPip(PipId pip, IdString net, PlaceStrength strength);
     void unbindPip(PipId pip);
