@@ -271,14 +271,6 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     QSize minimumSizeHint() const override;
     QSize sizeHint() const override;
 
-    void setXTranslation(float t_x);
-    void setYTranslation(float t_y);
-    void setZoom(float t_z);
-
-    void xRotationChanged(int angle);
-    void yRotationChanged(int angle);
-    void zRotationChanged(int angle);
-
   protected:
     void initializeGL() Q_DECL_OVERRIDE;
     void paintGL() Q_DECL_OVERRIDE;
@@ -288,15 +280,16 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     void wheelEvent(QWheelEvent *event) Q_DECL_OVERRIDE;
     void drawDecal(LineShaderData &data, const DecalXY &decal);
     void drawDecal(LineShaderData out[], const DecalXY &decal);
+
   public Q_SLOTS:
     void newContext(Context *ctx);
     void onSelectedArchItem(std::vector<DecalXY> decals);
     void onHighlightGroupChanged(std::vector<DecalXY> decals, int group);
     void pokeRenderer(void);
-    void zoom_in();
-    void zoom_out();
-    void zoom_selected();
-    void zoom_outbound();
+    void zoomIn();
+    void zoomOut();
+    void zoomSelected();
+    void zoomOutbound();
 
   Q_SIGNALS:
     void clickedBel(BelId bel);

@@ -167,19 +167,19 @@ void BaseMainWindow::createGraphicsBar()
 {
     QAction *actionZoomIn = new QAction("Zoom In", this);
     actionZoomIn->setIcon(QIcon(":/icons/resources/zoom_in.png"));
-    connect(actionZoomIn, SIGNAL(triggered()), fpgaView, SLOT(zoom_in()));
+    connect(actionZoomIn, SIGNAL(triggered()), fpgaView, SLOT(zoomIn()));
 
     QAction *actionZoomOut = new QAction("Zoom Out", this);
     actionZoomOut->setIcon(QIcon(":/icons/resources/zoom_out.png"));
-    connect(actionZoomOut, SIGNAL(triggered()), fpgaView, SLOT(zoom_out()));
+    connect(actionZoomOut, SIGNAL(triggered()), fpgaView, SLOT(zoomOut()));
 
     QAction *actionZoomSelected = new QAction("Zoom Selected", this);
     actionZoomSelected->setIcon(QIcon(":/icons/resources/shape_handles.png"));
-    connect(actionZoomSelected, SIGNAL(triggered()), fpgaView, SLOT(zoom_selected()));
+    connect(actionZoomSelected, SIGNAL(triggered()), fpgaView, SLOT(zoomSelected()));
 
     QAction *actionZoomOutbound = new QAction("Zoom Outbound", this);
     actionZoomOutbound->setIcon(QIcon(":/icons/resources/shape_square.png"));
-    connect(actionZoomOutbound, SIGNAL(triggered()), fpgaView, SLOT(zoom_outbound()));
+    connect(actionZoomOutbound, SIGNAL(triggered()), fpgaView, SLOT(zoomOutbound()));
 
     graphicsToolBar = new QToolBar();
     addToolBar(Qt::TopToolBarArea, graphicsToolBar);
