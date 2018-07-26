@@ -320,7 +320,7 @@ void FPGAViewWidget::drawDecal(LineShaderData &out, const DecalXY &decal)
         offsetX = decal.x;
         offsetY = decal.y;
 
-        if (el.type == GraphicElement::G_BOX) {
+        if (el.type == GraphicElement::TYPE_BOX) {
             auto line = PolyLine(true);
             line.point(offsetX + scale * el.x1, offsetY + scale * el.y1);
             line.point(offsetX + scale * el.x2, offsetY + scale * el.y1);
@@ -329,7 +329,7 @@ void FPGAViewWidget::drawDecal(LineShaderData &out, const DecalXY &decal)
             line.build(out);
         }
 
-        if (el.type == GraphicElement::G_LINE || el.type == GraphicElement::G_ARROW) {
+        if (el.type == GraphicElement::TYPE_LINE || el.type == GraphicElement::TYPE_ARROW) {
             PolyLine(offsetX + scale * el.x1, offsetY + scale * el.y1, offsetX + scale * el.x2, offsetY + scale * el.y2)
                     .build(out);
         }
@@ -345,16 +345,16 @@ void FPGAViewWidget::drawDecal(LineShaderData out[], const DecalXY &decal)
         offsetX = decal.x;
         offsetY = decal.y;
 
-        if (el.type == GraphicElement::G_BOX) {
+        if (el.type == GraphicElement::TYPE_BOX) {
             auto line = PolyLine(true);
             line.point(offsetX + scale * el.x1, offsetY + scale * el.y1);
             line.point(offsetX + scale * el.x2, offsetY + scale * el.y1);
             line.point(offsetX + scale * el.x2, offsetY + scale * el.y2);
             line.point(offsetX + scale * el.x1, offsetY + scale * el.y2);
             switch (el.style) {
-            case GraphicElement::G_FRAME:
-            case GraphicElement::G_INACTIVE:
-            case GraphicElement::G_ACTIVE:
+            case GraphicElement::STYLE_FRAME:
+            case GraphicElement::STYLE_INACTIVE:
+            case GraphicElement::STYLE_ACTIVE:
                 line.build(out[el.style]);
                 break;
             default:
@@ -362,13 +362,13 @@ void FPGAViewWidget::drawDecal(LineShaderData out[], const DecalXY &decal)
             }
         }
 
-        if (el.type == GraphicElement::G_LINE || el.type == GraphicElement::G_ARROW) {
+        if (el.type == GraphicElement::TYPE_LINE || el.type == GraphicElement::TYPE_ARROW) {
             auto line = PolyLine(offsetX + scale * el.x1, offsetY + scale * el.y1, offsetX + scale * el.x2,
                                  offsetY + scale * el.y2);
             switch (el.style) {
-            case GraphicElement::G_FRAME:
-            case GraphicElement::G_INACTIVE:
-            case GraphicElement::G_ACTIVE:
+            case GraphicElement::STYLE_FRAME:
+            case GraphicElement::STYLE_INACTIVE:
+            case GraphicElement::STYLE_ACTIVE:
                 line.build(out[el.style]);
                 break;
             default:
