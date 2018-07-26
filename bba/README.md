@@ -12,20 +12,20 @@ independent.
 
 Valid commands for the input are as follows.
 
-pre <string>
-------------
+pre \<string\>
+--------------
 
 When a C file is generated as output, all the "pre" strings will be included
 before the binary blob.
 
-post <string>
--------------
+post \<string\>
+---------------
 
 When a C file is generated as output, all the "post" strings will be included
 after the binary blob.
 
-push <name>
------------
+push \<name\>
+-------------
 
 All following commands up until the matching "pop" will be writen to stream
 <name>. Everything written to the same stream will end up in a continous
@@ -36,35 +36,35 @@ pop
 
 End of a push..pop block.
 
-label <name> [<comment>]
-------------------------
+label \<name\> \[\<comment\>\]
+------------------------------
 
 Add a label for the current position.
 
-ref <name> [<comment>]
-----------------------
+ref \<name\> \[\<comment\>\]
+----------------------------
 
 Add a 32-bit reference to the specified label. The reference will be a byte
 offset relative to the memory location of the reference itself.
 
-u8 <value> [<comment>]
-----------------------
+u8 \<value\> \[\<comment\>\]
+----------------------------
 
 Add a 8-bit value to the binary blob.
 
-u16 <value> [<comment>]
------------------------
+u16 \<value\> \[\<comment\>\]
+-----------------------------
 
 Add a 16-bit value to the binary blob. Note that the input must be structured
 in a way that ensures that all u16 are aligned to 2-byte addresses.
 
-u32 <value> [<comment>]
-----------------------
+u32 \<value\> \[\<comment\>\]
+-----------------------------
 
 Add a 32-bit value to the binary blob. Note that the input must be structured
 in a way that ensures that all u32 are aligned to 4-byte addresses.
 
-str <string>
-------------
+str \<string\>
+--------------
 
 Add a reference to a zero-terminated copy of the specified string.
