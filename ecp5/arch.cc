@@ -579,4 +579,10 @@ std::vector<std::pair<std::string, std::string>> Arch::getTilesAtLocation(int ro
     return ret;
 }
 
+GlobalInfoPOD Arch::globalInfoAtLoc(Location loc)
+{
+    int locidx = loc.y * chip_info->width + loc.x;
+    return chip_info->location_glbinfo[locidx];
+}
+
 NEXTPNR_NAMESPACE_END
