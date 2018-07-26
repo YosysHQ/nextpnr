@@ -102,36 +102,40 @@ void FPGAViewWidget::initializeGL()
                  0.0);
 }
 
-void FPGAViewWidget::drawGraphicElement(LineShaderData &out, const GraphicElement &el, float x, float y)
+void FPGAViewWidget::renderGraphicElement(RendererData *data, LineShaderData &out, const GraphicElement &el, float x, float y)
 {
-    const float scale = 1.0;
-
     if (el.type == GraphicElement::TYPE_BOX) {
         auto line = PolyLine(true);
-        line.point(x + scale * el.x1, y + scale * el.y1);
-        line.point(x + scale * el.x2, y + scale * el.y1);
-        line.point(x + scale * el.x2, y + scale * el.y2);
-        line.point(x + scale * el.x1, y + scale * el.y2);
+        line.point(x + el.x1, y + el.y1);
+        line.point(x + el.x2, y + el.y1);
+        line.point(x + el.x2, y + el.y2);
+        line.point(x + el.x1, y + el.y2);
         line.build(out);
+
+        data->bbX0 = std::min(data->bbX0, x + el.x1);
+        data->bbY0 = std::min(data->bbY0, x + el.y1);
+        data->bbX1 = std::max(data->bbX1, x + el.x2);
+        data->bbY1 = std::max(data->bbY1, x + el.y2);
+        return;
     }
 
     if (el.type == GraphicElement::TYPE_LINE || el.type == GraphicElement::TYPE_ARROW) {
-        PolyLine(x + scale * el.x1, y + scale * el.y1, x + scale * el.x2, y + scale * el.y2)
-            .build(out);
+        PolyLine(x + el.x1, y + el.y1, x + el.x2, y + el.y2).build(out);
+        return;
     }
 }
 
-void FPGAViewWidget::drawDecal(LineShaderData &out, const DecalXY &decal)
+void FPGAViewWidget::renderDecal(RendererData *data, LineShaderData &out, const DecalXY &decal)
 {
     float offsetX = decal.x;
     float offsetY = decal.y;
 
     for (auto &el : ctx_->getDecalGraphics(decal.decal)) {
-        drawGraphicElement(out, el, offsetX, offsetY);
+        renderGraphicElement(data, out, el, offsetX, offsetY);
     }
 }
 
-void FPGAViewWidget::drawArchDecal(LineShaderData out[GraphicElement::STYLE_MAX], const DecalXY &decal)
+void FPGAViewWidget::renderArchDecal(RendererData *data, const DecalXY &decal)
 {
     float offsetX = decal.x;
     float offsetY = decal.y;
@@ -141,12 +145,16 @@ void FPGAViewWidget::drawArchDecal(LineShaderData out[GraphicElement::STYLE_MAX]
         case GraphicElement::STYLE_FRAME:
         case GraphicElement::STYLE_INACTIVE:
         case GraphicElement::STYLE_ACTIVE:
-            drawGraphicElement(out[el.style], el, offsetX, offsetY);
+            renderGraphicElement(data, data->gfxByStyle[el.style], el, offsetX, offsetY);
             break;
         default:
             break;
         }
     }
+}
+
+void FPGAViewWidget::populateQuadTree(RendererData *data, const DecalXY &decal, IdString id)
+{
 }
 
 QMatrix4x4 FPGAViewWidget::getProjection(void)
@@ -183,20 +191,21 @@ void FPGAViewWidget::paintGL()
     // Draw grid.
     lineShader_.draw(grid, colors_.grid, thick1Px, matrix);
 
-    rendererDataLock_.lock();
+    {
+        QMutexLocker locker(&rendererDataLock_);
 
-    // Render Arch graphics.
-    lineShader_.draw(rendererData_->gfxByStyle[GraphicElement::STYLE_FRAME], colors_.frame, thick11Px, matrix);
-    lineShader_.draw(rendererData_->gfxByStyle[GraphicElement::STYLE_HIDDEN], colors_.hidden, thick11Px, matrix);
-    lineShader_.draw(rendererData_->gfxByStyle[GraphicElement::STYLE_INACTIVE], colors_.inactive, thick11Px, matrix);
-    lineShader_.draw(rendererData_->gfxByStyle[GraphicElement::STYLE_ACTIVE], colors_.active, thick11Px, matrix);
+        // Render Arch graphics.
+        lineShader_.draw(rendererData_->gfxByStyle[GraphicElement::STYLE_FRAME], colors_.frame, thick11Px, matrix);
+        lineShader_.draw(rendererData_->gfxByStyle[GraphicElement::STYLE_HIDDEN], colors_.hidden, thick11Px, matrix);
+        lineShader_.draw(rendererData_->gfxByStyle[GraphicElement::STYLE_INACTIVE], colors_.inactive, thick11Px, matrix);
+        lineShader_.draw(rendererData_->gfxByStyle[GraphicElement::STYLE_ACTIVE], colors_.active, thick11Px, matrix);
 
-    // Draw highlighted items.
-    for (int i = 0; i < 8; i++)
-        lineShader_.draw(rendererData_->gfxHighlighted[i], colors_.highlight[i], thick11Px, matrix);
+        // Draw highlighted items.
+        for (int i = 0; i < 8; i++)
+            lineShader_.draw(rendererData_->gfxHighlighted[i], colors_.highlight[i], thick11Px, matrix);
 
-    lineShader_.draw(rendererData_->gfxSelected, colors_.selected, thick11Px, matrix);
-    rendererDataLock_.unlock();
+        lineShader_.draw(rendererData_->gfxSelected, colors_.selected, thick11Px, matrix);
+    }
 }
 
 void FPGAViewWidget::pokeRenderer(void) { renderRunner_->poke(); }
@@ -207,10 +216,10 @@ void FPGAViewWidget::renderLines(void)
         return;
 
     // Data from Context needed to render all decals.
-    std::vector<DecalXY> belDecals;
-    std::vector<DecalXY> wireDecals;
-    std::vector<DecalXY> pipDecals;
-    std::vector<DecalXY> groupDecals;
+    std::vector<std::pair<DecalXY, IdString>> belDecals;
+    std::vector<std::pair<DecalXY, IdString>> wireDecals;
+    std::vector<std::pair<DecalXY, IdString>> pipDecals;
+    std::vector<std::pair<DecalXY, IdString>> groupDecals;
     bool decalsChanged = false;
     {
         // Take the UI/Normal mutex on the Context, copy over all we need as
@@ -248,16 +257,16 @@ void FPGAViewWidget::renderLines(void)
         // Local copy of decals, taken as fast as possible to not block the P&R.
         if (decalsChanged) {
             for (auto bel : ctx_->getBels()) {
-                belDecals.push_back(ctx_->getBelDecal(bel));
+                belDecals.push_back({ctx_->getBelDecal(bel), ctx_->getBelName(bel)});
             }
             for (auto wire : ctx_->getWires()) {
-                wireDecals.push_back(ctx_->getWireDecal(wire));
+                wireDecals.push_back({ctx_->getWireDecal(wire), ctx_->getWireName(wire)});
             }
             for (auto pip : ctx_->getPips()) {
-                pipDecals.push_back(ctx_->getPipDecal(pip));
+                pipDecals.push_back({ctx_->getPipDecal(pip), ctx_->getPipName(pip)});
             }
             for (auto group : ctx_->getGroups()) {
-                groupDecals.push_back(ctx_->getGroupDecal(group));
+                groupDecals.push_back({ctx_->getGroupDecal(group), ctx_->getGroupName(group)});
             }
         }
     }
@@ -276,28 +285,44 @@ void FPGAViewWidget::renderLines(void)
         rendererArgs_->highlightedOrSelectedChanged = false;
     }
 
-    QuadTreeBels::BoundingBox globalBB = QuadTreeBels::BoundingBox(-1000, -1000, 1000, 1000);
 
     // Render decals if necessary.
     if (decalsChanged) {
         auto data = std::unique_ptr<FPGAViewWidget::RendererData>(new FPGAViewWidget::RendererData);
+        // Reset bounding box.
+        data->bbX0 = 0;
+        data->bbY0 = 0;
+        data->bbX1 = 0;
+        data->bbY1 = 0;
+
         // Draw Bels.
-        data->qtBels = std::unique_ptr<QuadTreeBels>(new QuadTreeBels(globalBB));
         for (auto const &decal : belDecals) {
-            drawArchDecal(data->gfxByStyle, decal);
+            renderArchDecal(data.get(), decal.first);
         }
         // Draw Wires.
         for (auto const &decal : wireDecals) {
-            drawArchDecal(data->gfxByStyle, decal);
+            renderArchDecal(data.get(), decal.first);
         }
         // Draw Pips.
         for (auto const &decal : pipDecals) {
-            drawArchDecal(data->gfxByStyle, decal);
+            renderArchDecal(data.get(), decal.first);
         }
         // Draw Groups.
         for (auto const &decal : groupDecals) {
-            drawArchDecal(data->gfxByStyle, decal);
+            renderArchDecal(data.get(), decal.first);
         }
+
+        // Bounding box should be calculated by now.
+        NPNR_ASSERT((data->bbX1 - data->bbX0) != 0);
+        NPNR_ASSERT((data->bbY1 - data->bbY0) != 0);
+        auto bb = QuadTreeElements::BoundingBox(data->bbX0, data->bbY0, data->bbX1, data->bbY1);
+
+        // Populate picking quadtree.
+        //data->qt = std::unique_ptr<QuadTreeElements>(new QuadTreeElements(bb));
+
+        //for (auto const &decal : belDecals) {
+        //    populateQuadTree(data.get(), decal.first, decal.second);
+        //}
 
         // Swap over.
         {
@@ -321,14 +346,14 @@ void FPGAViewWidget::renderLines(void)
         // Render selected.
         rendererData_->gfxSelected.clear();
         for (auto &decal : selectedDecals) {
-            drawDecal(rendererData_->gfxSelected, decal);
+            renderDecal(rendererData_.get(), rendererData_->gfxSelected, decal);
         }
 
         // Render highlighted.
         for (int i = 0; i < 8; i++) {
             rendererData_->gfxHighlighted[i].clear();
             for (auto &decal : highlightedDecals[i]) {
-                drawDecal(rendererData_->gfxHighlighted[i], decal);
+                renderDecal(rendererData_.get(), rendererData_->gfxHighlighted[i], decal);
             }
         }
     }
@@ -366,12 +391,12 @@ void FPGAViewWidget::mousePressEvent(QMouseEvent *event)
         int y = event->y();
         auto world = mouseToWorldCoordinates(x, y);
         rendererDataLock_.lock();
-        if (rendererData_->qtBels != nullptr) {
-            auto elems = rendererData_->qtBels->get(world.x(), world.y());
-            if (elems.size() > 0) {
-                clickedBel(elems[0]);
-            }
-        }
+        //if (rendererData_->qtBels != nullptr) {
+        //    auto elems = rendererData_->qtBels->get(world.x(), world.y());
+        //    if (elems.size() > 0) {
+        //        clickedBel(elems[0]);
+        //    }
+        //}
         rendererDataLock_.unlock();
     }
 }

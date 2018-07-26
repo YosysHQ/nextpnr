@@ -35,6 +35,7 @@
 #include "nextpnr.h"
 #include "quadtree.h"
 #include "lineshader.h"
+#include "designwidget.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -126,24 +127,11 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     const float zoomLvl1_ = 100.0f;
     const float zoomLvl2_ = 50.0f;
 
+    using QuadTreeElements = QuadTree<float, std::pair<ElementType, IdString>>;
+
     Context *ctx_;
     QTimer paintTimer_;
     std::unique_ptr<PeriodicRunner> renderRunner_;
-
-    using QuadTreeBels = QuadTree<float, BelId>;
-
-    template <typename T>
-    void commitToQuadtree(T *tree, const DecalXY &decal, BelId bel)
-    {
-        float offsetX = decal.x;
-        float offsetY = decal.y;
-
-        for (auto &el : ctx_->getDecalGraphics(decal.decal)) {
-            if (el.type == GraphicElement::TYPE_BOX) {
-                tree->insert(typename T::BoundingBox(offsetX + el.x1, offsetY + el.y1, offsetX + el.x2, offsetY + el.y2), bel);
-            }
-        }
-    }
 
     QPoint lastDragPos_;
     LineShader lineShader_;
@@ -167,7 +155,10 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
         LineShaderData gfxByStyle[GraphicElement::STYLE_MAX];
         LineShaderData gfxSelected;
         LineShaderData gfxHighlighted[8];
-        std::unique_ptr<QuadTreeBels> qtBels;
+        // Global bounding box of data from Arch.
+        float bbX0, bbY0, bbX1, bbY1;
+        // Quadtree for picking objects.
+        std::unique_ptr<QuadTreeElements> qt;
     };
     std::unique_ptr<RendererData> rendererData_;
     QMutex rendererDataLock_;
@@ -183,9 +174,10 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
 
     void zoom(int level);
     void renderLines(void);
-    void drawGraphicElement(LineShaderData &out, const GraphicElement &el, float x, float y);
-    void drawDecal(LineShaderData &out, const DecalXY &decal);
-    void drawArchDecal(LineShaderData out[GraphicElement::STYLE_MAX], const DecalXY &decal);
+    void renderGraphicElement(RendererData *data, LineShaderData &out, const GraphicElement &el, float x, float y);
+    void renderDecal(RendererData *data, LineShaderData &out, const DecalXY &decal);
+    void renderArchDecal(RendererData *data, const DecalXY &decal);
+    void populateQuadTree(RendererData *data, const DecalXY &decal, IdString id);
     QVector4D mouseToWorldCoordinates(int x, int y);
     QVector4D mouseToWorldDimensions(int x, int y);
     QMatrix4x4 getProjection(void);
