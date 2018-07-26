@@ -311,69 +311,49 @@ void FPGAViewWidget::initializeGL()
                  0.0);
 }
 
-void FPGAViewWidget::drawDecal(LineShaderData &out, const DecalXY &decal)
+void FPGAViewWidget::drawGraphicElement(LineShaderData &out, const GraphicElement &el, float x, float y)
 {
     const float scale = 1.0;
-    float offsetX = 0.0, offsetY = 0.0;
 
-    for (auto &el : ctx_->getDecalGraphics(decal.decal)) {
-        offsetX = decal.x;
-        offsetY = decal.y;
+    if (el.type == GraphicElement::TYPE_BOX) {
+        auto line = PolyLine(true);
+        line.point(x + scale * el.x1, y + scale * el.y1);
+        line.point(x + scale * el.x2, y + scale * el.y1);
+        line.point(x + scale * el.x2, y + scale * el.y2);
+        line.point(x + scale * el.x1, y + scale * el.y2);
+        line.build(out);
+    }
 
-        if (el.type == GraphicElement::TYPE_BOX) {
-            auto line = PolyLine(true);
-            line.point(offsetX + scale * el.x1, offsetY + scale * el.y1);
-            line.point(offsetX + scale * el.x2, offsetY + scale * el.y1);
-            line.point(offsetX + scale * el.x2, offsetY + scale * el.y2);
-            line.point(offsetX + scale * el.x1, offsetY + scale * el.y2);
-            line.build(out);
-        }
-
-        if (el.type == GraphicElement::TYPE_LINE || el.type == GraphicElement::TYPE_ARROW) {
-            PolyLine(offsetX + scale * el.x1, offsetY + scale * el.y1, offsetX + scale * el.x2, offsetY + scale * el.y2)
-                    .build(out);
-        }
+    if (el.type == GraphicElement::TYPE_LINE || el.type == GraphicElement::TYPE_ARROW) {
+        PolyLine(x + scale * el.x1, y + scale * el.y1, x + scale * el.x2, y + scale * el.y2)
+            .build(out);
     }
 }
 
-void FPGAViewWidget::drawDecal(LineShaderData out[], const DecalXY &decal)
+void FPGAViewWidget::drawDecal(LineShaderData &out, const DecalXY &decal)
 {
-    const float scale = 1.0;
-    float offsetX = 0.0, offsetY = 0.0;
+    float offsetX = decal.x;
+    float offsetY = decal.y;
 
     for (auto &el : ctx_->getDecalGraphics(decal.decal)) {
-        offsetX = decal.x;
-        offsetY = decal.y;
+        drawGraphicElement(out, el, offsetX, offsetY);
+    }
+}
 
-        if (el.type == GraphicElement::TYPE_BOX) {
-            auto line = PolyLine(true);
-            line.point(offsetX + scale * el.x1, offsetY + scale * el.y1);
-            line.point(offsetX + scale * el.x2, offsetY + scale * el.y1);
-            line.point(offsetX + scale * el.x2, offsetY + scale * el.y2);
-            line.point(offsetX + scale * el.x1, offsetY + scale * el.y2);
-            switch (el.style) {
-            case GraphicElement::STYLE_FRAME:
-            case GraphicElement::STYLE_INACTIVE:
-            case GraphicElement::STYLE_ACTIVE:
-                line.build(out[el.style]);
-                break;
-            default:
-                break;
-            }
-        }
+void FPGAViewWidget::drawArchDecal(LineShaderData out[GraphicElement::STYLE_MAX], const DecalXY &decal)
+{
+    float offsetX = decal.x;
+    float offsetY = decal.y;
 
-        if (el.type == GraphicElement::TYPE_LINE || el.type == GraphicElement::TYPE_ARROW) {
-            auto line = PolyLine(offsetX + scale * el.x1, offsetY + scale * el.y1, offsetX + scale * el.x2,
-                                 offsetY + scale * el.y2);
-            switch (el.style) {
-            case GraphicElement::STYLE_FRAME:
-            case GraphicElement::STYLE_INACTIVE:
-            case GraphicElement::STYLE_ACTIVE:
-                line.build(out[el.style]);
-                break;
-            default:
-                break;
-            }
+    for (auto &el : ctx_->getDecalGraphics(decal.decal)) {
+        switch (el.style) {
+        case GraphicElement::STYLE_FRAME:
+        case GraphicElement::STYLE_INACTIVE:
+        case GraphicElement::STYLE_ACTIVE:
+            drawGraphicElement(out[el.style], el, offsetX, offsetY);
+            break;
+        default:
+            break;
         }
     }
 }
@@ -403,24 +383,28 @@ void FPGAViewWidget::paintGL()
     float thick1Px = mouseToWorldCoordinates(1, 0).x();
     float thick11Px = mouseToWorldCoordinates(1.1, 0).x();
 
-    // Draw grid.
+    // Render grid.
     auto grid = LineShaderData();
     for (float i = -100.0f; i < 100.0f; i += 1.0f) {
         PolyLine(-100.0f, i, 100.0f, i).build(grid);
         PolyLine(i, -100.0f, i, 100.0f).build(grid);
     }
+    // Draw grid.
     lineShader_.draw(grid, colors_.grid, thick1Px, matrix);
 
     rendererDataLock_.lock();
-    lineShader_.draw(rendererData_->decals[0], colors_.frame, thick11Px, matrix);
-    lineShader_.draw(rendererData_->decals[1], colors_.hidden, thick11Px, matrix);
-    lineShader_.draw(rendererData_->decals[2], colors_.inactive, thick11Px, matrix);
-    lineShader_.draw(rendererData_->decals[3], colors_.active, thick11Px, matrix);
 
+    // Render Arch graphics.
+    lineShader_.draw(rendererData_->gfxByStyle[GraphicElement::STYLE_FRAME], colors_.frame, thick11Px, matrix);
+    lineShader_.draw(rendererData_->gfxByStyle[GraphicElement::STYLE_HIDDEN], colors_.hidden, thick11Px, matrix);
+    lineShader_.draw(rendererData_->gfxByStyle[GraphicElement::STYLE_INACTIVE], colors_.inactive, thick11Px, matrix);
+    lineShader_.draw(rendererData_->gfxByStyle[GraphicElement::STYLE_ACTIVE], colors_.active, thick11Px, matrix);
+
+    // Draw highlighted items.
     for (int i = 0; i < 8; i++)
-        lineShader_.draw(rendererData_->highlighted[i], colors_.highlight[i], thick11Px, matrix);
+        lineShader_.draw(rendererData_->gfxHighlighted[i], colors_.highlight[i], thick11Px, matrix);
 
-    lineShader_.draw(rendererData_->selected, colors_.selected, thick11Px, matrix);
+    lineShader_.draw(rendererData_->gfxSelected, colors_.selected, thick11Px, matrix);
     rendererDataLock_.unlock();
 }
 
@@ -431,120 +415,148 @@ void FPGAViewWidget::renderLines(void)
     if (ctx_ == nullptr)
         return;
 
-    ctx_->lock_ui();
-
-    // For now, collapse any decal changes into change of all decals.
-    // TODO(q3k): fix this
-    bool decalsChanged = false;
-    if (ctx_->allUiReload) {
-        ctx_->allUiReload = false;
-        decalsChanged = true;
-    }
-    if (ctx_->frameUiReload) {
-        ctx_->frameUiReload = false;
-        decalsChanged = true;
-    }
-    if (ctx_->belUiReload.size() > 0) {
-        ctx_->belUiReload.clear();
-        decalsChanged = true;
-    }
-    if (ctx_->wireUiReload.size() > 0) {
-        ctx_->wireUiReload.clear();
-        decalsChanged = true;
-    }
-    if (ctx_->pipUiReload.size() > 0) {
-        ctx_->pipUiReload.clear();
-        decalsChanged = true;
-    }
-    if (ctx_->groupUiReload.size() > 0) {
-        ctx_->groupUiReload.clear();
-        decalsChanged = true;
-    }
-
-    // Local copy of decals, taken as fast as possible to not block the P&R.
+    // Data from Context needed to render all decals.
     std::vector<DecalXY> belDecals;
     std::vector<DecalXY> wireDecals;
     std::vector<DecalXY> pipDecals;
     std::vector<DecalXY> groupDecals;
-    if (decalsChanged) {
-        for (auto bel : ctx_->getBels()) {
-            belDecals.push_back(ctx_->getBelDecal(bel));
+    bool decalsChanged = false;
+    {
+        // Take the UI/Normal mutex on the Context, copy over all we need as
+        // fast as we can.
+        std::lock_guard<std::mutex> lock_ui(ctx_->ui_mutex);
+        std::lock_guard<std::mutex> lock(ctx_->mutex);
+
+        // For now, collapse any decal changes into change of all decals.
+        // TODO(q3k): fix this
+        if (ctx_->allUiReload) {
+            ctx_->allUiReload = false;
+            decalsChanged = true;
         }
-        for (auto wire : ctx_->getWires()) {
-            wireDecals.push_back(ctx_->getWireDecal(wire));
+        if (ctx_->frameUiReload) {
+            ctx_->frameUiReload = false;
+            decalsChanged = true;
         }
-        for (auto pip : ctx_->getPips()) {
-            pipDecals.push_back(ctx_->getPipDecal(pip));
+        if (ctx_->belUiReload.size() > 0) {
+            ctx_->belUiReload.clear();
+            decalsChanged = true;
         }
-        for (auto group : ctx_->getGroups()) {
-            groupDecals.push_back(ctx_->getGroupDecal(group));
+        if (ctx_->wireUiReload.size() > 0) {
+            ctx_->wireUiReload.clear();
+            decalsChanged = true;
+        }
+        if (ctx_->pipUiReload.size() > 0) {
+            ctx_->pipUiReload.clear();
+            decalsChanged = true;
+        }
+        if (ctx_->groupUiReload.size() > 0) {
+            ctx_->groupUiReload.clear();
+            decalsChanged = true;
+        }
+
+        // Local copy of decals, taken as fast as possible to not block the P&R.
+        if (decalsChanged) {
+            for (auto bel : ctx_->getBels()) {
+                belDecals.push_back(ctx_->getBelDecal(bel));
+            }
+            for (auto wire : ctx_->getWires()) {
+                wireDecals.push_back(ctx_->getWireDecal(wire));
+            }
+            for (auto pip : ctx_->getPips()) {
+                pipDecals.push_back(ctx_->getPipDecal(pip));
+            }
+            for (auto group : ctx_->getGroups()) {
+                groupDecals.push_back(ctx_->getGroupDecal(group));
+            }
         }
     }
-    ctx_->unlock_ui();
 
-    rendererArgsLock_.lock();
-    auto selectedItems = rendererArgs_->selectedItems;
-    auto highlightedItems = rendererArgs_->highlightedItems;
-    auto highlightedOrSelectedChanged = rendererArgs_->highlightedOrSelectedChanged;
-    rendererArgs_->highlightedOrSelectedChanged = false;
-    rendererArgsLock_.unlock();
+    // Arguments from the main UI thread on what we should render.
+    std::vector<DecalXY> selectedDecals;
+    std::vector<DecalXY> highlightedDecals[8];
+    bool highlightedOrSelectedChanged;
+    {
+        // Take the renderer arguments lock, copy over all we need.
+        QMutexLocker lock(&rendererArgsLock_);
+        selectedDecals = rendererArgs_->selectedDecals;
+        for (int i = 0; i < 8; i++)
+            highlightedDecals[i] = rendererArgs_->highlightedDecals[i];
+        highlightedOrSelectedChanged = rendererArgs_->highlightedOrSelectedChanged;
+        rendererArgs_->highlightedOrSelectedChanged = false;
+    }
 
+    // Render decals if necessary.
     if (decalsChanged) {
         auto data = std::unique_ptr<FPGAViewWidget::RendererData>(new FPGAViewWidget::RendererData);
         // Draw Bels.
         for (auto const &decal : belDecals) {
-            drawDecal(data->decals, decal);
+            drawArchDecal(data->gfxByStyle, decal);
         }
         // Draw Wires.
         for (auto const &decal : wireDecals) {
-            drawDecal(data->decals, decal);
+            drawArchDecal(data->gfxByStyle, decal);
         }
         // Draw Pips.
         for (auto const &decal : pipDecals) {
-            drawDecal(data->decals, decal);
+            drawArchDecal(data->gfxByStyle, decal);
         }
         // Draw Groups.
         for (auto const &decal : groupDecals) {
-            drawDecal(data->decals, decal);
+            drawArchDecal(data->gfxByStyle, decal);
         }
 
         // Swap over.
-        rendererDataLock_.lock();
-        rendererData_ = std::move(data);
-        rendererDataLock_.unlock();
+        {
+            QMutexLocker lock(&rendererDataLock_);
+
+            // If we're not re-rendering any highlights/selections, let's
+            // copy them over from teh current object.
+            if (!highlightedOrSelectedChanged) {
+                data->gfxSelected = rendererData_->gfxSelected;
+                for (int i = 0; i < 8; i++)
+                    data->gfxHighlighted[i] = rendererData_->gfxHighlighted[i];
+            }
+
+            rendererData_ = std::move(data);
+        }
     }
 
-    rendererDataLock_.lock();
-    if (decalsChanged || highlightedOrSelectedChanged) {
-        rendererData_->selected.clear();
-        for (auto &decal : selectedItems) {
-            drawDecal(rendererData_->selected, decal);
+    if (highlightedOrSelectedChanged) {
+        QMutexLocker locker(&rendererDataLock_);
+
+        // Render selected.
+        rendererData_->gfxSelected.clear();
+        for (auto &decal : selectedDecals) {
+            drawDecal(rendererData_->gfxSelected, decal);
         }
+
+        // Render highlighted.
         for (int i = 0; i < 8; i++) {
-            rendererData_->highlighted[i].clear();
-            for (auto &decal : highlightedItems[i]) {
-                drawDecal(rendererData_->highlighted[i], decal);
+            rendererData_->gfxHighlighted[i].clear();
+            for (auto &decal : highlightedDecals[i]) {
+                drawDecal(rendererData_->gfxHighlighted[i], decal);
             }
         }
     }
-    rendererDataLock_.unlock();
 }
 
 void FPGAViewWidget::onSelectedArchItem(std::vector<DecalXY> decals)
 {
-    rendererArgsLock_.lock();
-    rendererArgs_->selectedItems = decals;
-    rendererArgs_->highlightedOrSelectedChanged = true;
-    rendererArgsLock_.unlock();
+    {
+        QMutexLocker locker(&rendererArgsLock_);
+        rendererArgs_->selectedDecals = decals;
+        rendererArgs_->highlightedOrSelectedChanged = true;
+    }
     pokeRenderer();
 }
 
 void FPGAViewWidget::onHighlightGroupChanged(std::vector<DecalXY> decals, int group)
 {
-    rendererArgsLock_.lock();
-    rendererArgs_->highlightedItems[group] = decals;
-    rendererArgs_->highlightedOrSelectedChanged = true;
-    rendererArgsLock_.unlock();
+    {
+        QMutexLocker locker(&rendererArgsLock_);
+        rendererArgs_->highlightedDecals[group] = decals;
+        rendererArgs_->highlightedOrSelectedChanged = true;
+    }
     pokeRenderer();
 }
 

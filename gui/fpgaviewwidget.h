@@ -277,8 +277,6 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     void mousePressEvent(QMouseEvent *event) Q_DECL_OVERRIDE;
     void mouseMoveEvent(QMouseEvent *event) Q_DECL_OVERRIDE;
     void wheelEvent(QWheelEvent *event) Q_DECL_OVERRIDE;
-    void drawDecal(LineShaderData &data, const DecalXY &decal);
-    void drawDecal(LineShaderData out[], const DecalXY &decal);
 
   public Q_SLOTS:
     void newContext(Context *ctx);
@@ -291,6 +289,9 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     void zoomOutbound();
 
   private:
+    void drawGraphicElement(LineShaderData &out, const GraphicElement &el, float x, float y);
+    void drawArchDecal(LineShaderData out[GraphicElement::STYLE_MAX], const DecalXY &decal);
+    void drawDecal(LineShaderData &out, const DecalXY &decal);
     void renderLines(void);
     void zoom(int level);
 
@@ -326,15 +327,15 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
 
     struct RendererData
     {
-        LineShaderData decals[4];
-        LineShaderData selected;
-        LineShaderData highlighted[8];
+        LineShaderData gfxByStyle[GraphicElement::STYLE_MAX];
+        LineShaderData gfxSelected;
+        LineShaderData gfxHighlighted[8];
     };
 
     struct RendererArgs
     {
-        std::vector<DecalXY> selectedItems;
-        std::vector<DecalXY> highlightedItems[8];
+        std::vector<DecalXY> selectedDecals;
+        std::vector<DecalXY> highlightedDecals[8];
         bool highlightedOrSelectedChanged;
     };
 
