@@ -413,8 +413,6 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
     return 200 * (abs(src.location.x - dst.location.x) + abs(src.location.y - dst.location.y));
 }
 
-delay_t Arch::getBudgetOverride(const PortRef &pr, delay_t v) const { return v; }
-
 // -----------------------------------------------------------------------
 
 bool Arch::place() { return placer1(getCtx()); }
