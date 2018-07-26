@@ -30,11 +30,11 @@ typedef std::unordered_map<const PortInfo *, delay_t> UpdateMap;
 typedef std::list<const PortRef *> PortRefList;
 
 static delay_t follow_net(Context *ctx, NetInfo *net, int path_length, delay_t slack, UpdateMap *updates,
-                          delay_t &min_slack, PortRefList *current_path, PortRefList* crit_path);
+                          delay_t &min_slack, PortRefList *current_path, PortRefList *crit_path);
 
 // Follow a path, returning budget to annotate
 static delay_t follow_user_port(Context *ctx, PortRef &user, int path_length, delay_t slack, UpdateMap *updates,
-                                delay_t &min_slack, PortRefList *current_path, PortRefList* crit_path)
+                                delay_t &min_slack, PortRefList *current_path, PortRefList *crit_path)
 {
     delay_t value;
     if (ctx->getPortClock(user.cell, user.port) != IdString()) {
@@ -43,7 +43,8 @@ static delay_t follow_user_port(Context *ctx, PortRef &user, int path_length, de
         value = slack / path_length;
         if (slack < min_slack) {
             min_slack = slack;
-            if (crit_path) *crit_path = *current_path;
+            if (crit_path)
+                *crit_path = *current_path;
         }
     } else {
         // Default to the path ending here, if no further paths found
@@ -57,7 +58,8 @@ static delay_t follow_user_port(Context *ctx, PortRef &user, int path_length, de
                 if (is_path) {
                     NetInfo *net = port.second.net;
                     if (net) {
-                        delay_t path_budget = follow_net(ctx, net, path_length, slack - comb_delay, updates, min_slack, current_path, crit_path);
+                        delay_t path_budget = follow_net(ctx, net, path_length, slack - comb_delay, updates, min_slack,
+                                                         current_path, crit_path);
                         value = std::min(value, path_budget);
                     }
                 }
@@ -79,11 +81,13 @@ static delay_t follow_net(Context *ctx, NetInfo *net, int path_length, delay_t s
     delay_t net_budget = slack / (path_length + 1);
     for (unsigned i = 0; i < net->users.size(); ++i) {
         auto &usr = net->users[i];
-        if (crit_path) current_path->push_back(&usr);
-        net_budget =
-                std::min(net_budget, follow_user_port(ctx, usr, path_length + 1,
-                                                      slack - ctx->getNetinfoRouteDelay(net, i), updates, min_slack, current_path, crit_path));
-        if (crit_path) current_path->pop_back();
+        if (crit_path)
+            current_path->push_back(&usr);
+        net_budget = std::min(net_budget,
+                              follow_user_port(ctx, usr, path_length + 1, slack - ctx->getNetinfoRouteDelay(net, i),
+                                               updates, min_slack, current_path, crit_path));
+        if (crit_path)
+            current_path->pop_back();
     }
     return net_budget;
 }
@@ -224,35 +228,38 @@ void compute_fmax(Context *ctx, bool print_fmax, bool print_path)
         log_break();
         log_info("Critical path report:\n");
         log_info("curr total\n");
-        auto& front = crit_path.front();
-        auto& front_port = front->cell->ports.at(front->port);
-        auto& front_driver = front_port.net->driver;
+        auto &front = crit_path.front();
+        auto &front_port = front->cell->ports.at(front->port);
+        auto &front_driver = front_port.net->driver;
         auto last_port = ctx->getPortClock(front_driver.cell, front_driver.port);
         for (auto sink : crit_path) {
             auto sink_cell = sink->cell;
-            auto& port = sink_cell->ports.at(sink->port);
+            auto &port = sink_cell->ports.at(sink->port);
             auto net = port.net;
             unsigned i = 0;
-            for (auto& usr : net->users)
-                if (&usr == sink) break;
-            auto& driver = net->driver;
+            for (auto &usr : net->users)
+                if (&usr == sink)
+                    break;
+            auto &driver = net->driver;
             auto driver_cell = driver.cell;
             delay_t comb_delay;
             ctx->getCellDelay(sink_cell, last_port, driver.port, comb_delay);
             total += comb_delay;
-            log_info("%4d %4d  Source %s.%s\n", comb_delay, total, driver_cell->name.c_str(ctx), driver.port.c_str(ctx));
+            log_info("%4d %4d  Source %s.%s\n", comb_delay, total, driver_cell->name.c_str(ctx),
+                     driver.port.c_str(ctx));
             delay_t net_delay = ctx->getNetinfoRouteDelay(net, i);
             total += net_delay;
             auto driver_loc = ctx->getBelLocation(driver_cell->bel);
             auto sink_loc = ctx->getBelLocation(sink_cell->bel);
-            log_info("%4d %4d    Net %s budget %d (%d,%d) -> (%d,%d)\n", net_delay, total, net->name.c_str(ctx), sink->budget, driver_loc.x, driver_loc.y, sink_loc.x, sink_loc.y);
+            log_info("%4d %4d    Net %s budget %d (%d,%d) -> (%d,%d)\n", net_delay, total, net->name.c_str(ctx),
+                     sink->budget, driver_loc.x, driver_loc.y, sink_loc.x, sink_loc.y);
             log_info("                Sink %s.%s\n", sink_cell->name.c_str(ctx), sink->port.c_str(ctx));
             last_port = sink->port;
         }
         log_break();
     }
     if (print_fmax)
-        log_info("estimated Fmax = %.2f MHz\n",  1e6 / (default_slack - min_slack));
+        log_info("estimated Fmax = %.2f MHz\n", 1e6 / (default_slack - min_slack));
 }
 
 NEXTPNR_NAMESPACE_END

@@ -30,7 +30,7 @@ void assign_budget(Context *ctx);
 // Evenly redistribute the total path slack amongst all sinks on each path
 void update_budget(Context *ctx);
 
-void compute_fmax(Context *ctx, bool print_fmax=false, bool print_path=false);
+void compute_fmax(Context *ctx, bool print_fmax = false, bool print_path = false);
 
 NEXTPNR_NAMESPACE_END
 
