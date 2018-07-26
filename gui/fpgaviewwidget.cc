@@ -314,11 +314,10 @@ void FPGAViewWidget::initializeGL()
 void FPGAViewWidget::drawDecal(LineShaderData &out, const DecalXY &decal)
 {
     const float scale = 1.0;
-    float offsetX = 0.0, offsetY = 0.0;
+    float offsetX = decal.x;
+    float offsetY = decal.y;
 
     for (auto &el : ctx_->getDecalGraphics(decal.decal)) {
-        offsetX = decal.x;
-        offsetY = decal.y;
 
         if (el.type == GraphicElement::G_BOX) {
             auto line = PolyLine(true);
@@ -400,8 +399,8 @@ void FPGAViewWidget::paintGL()
     matrix *= viewMove_;
 
     // Calculate world thickness to achieve a screen 1px/1.1px line.
-    float thick1Px = mouseToWorldCoordinates(1, 0).x();
-    float thick11Px = mouseToWorldCoordinates(1.1, 0).x();
+    float thick1Px = mouseToWorldDimensions(1, 0).x();
+    float thick11Px = mouseToWorldDimensions(1.1, 0).x();
 
     // Draw grid.
     auto grid = LineShaderData();
@@ -462,13 +461,14 @@ void FPGAViewWidget::renderLines(void)
     }
 
     // Local copy of decals, taken as fast as possible to not block the P&R.
-    std::vector<DecalXY> belDecals;
+    std::vector<std::pair<BelId, DecalXY>> belDecals;
     std::vector<DecalXY> wireDecals;
     std::vector<DecalXY> pipDecals;
     std::vector<DecalXY> groupDecals;
+
     if (decalsChanged) {
         for (auto bel : ctx_->getBels()) {
-            belDecals.push_back(ctx_->getBelDecal(bel));
+            belDecals.push_back(std::pair<BelId, DecalXY>(bel, ctx_->getBelDecal(bel)));
         }
         for (auto wire : ctx_->getWires()) {
             wireDecals.push_back(ctx_->getWireDecal(wire));
@@ -489,11 +489,15 @@ void FPGAViewWidget::renderLines(void)
     rendererArgs_->highlightedOrSelectedChanged = false;
     rendererArgsLock_.unlock();
 
+    QuadTreeBels::BoundingBox globalBB = QuadTreeBels::BoundingBox(-1000, -1000, 1000, 1000);
+
     if (decalsChanged) {
         auto data = std::unique_ptr<FPGAViewWidget::RendererData>(new FPGAViewWidget::RendererData);
         // Draw Bels.
+        data->qtBels = std::unique_ptr<QuadTreeBels>(new QuadTreeBels(globalBB));
         for (auto const &decal : belDecals) {
-            drawDecal(data->decals, decal);
+            drawDecal(data->decals, decal.second);
+            commitToQuadtree(data->qtBels.get(), decal.second, decal.first);
         }
         // Draw Wires.
         for (auto const &decal : wireDecals) {
@@ -550,11 +554,49 @@ void FPGAViewWidget::onHighlightGroupChanged(std::vector<DecalXY> decals, int gr
 
 void FPGAViewWidget::resizeGL(int width, int height) {}
 
-void FPGAViewWidget::mousePressEvent(QMouseEvent *event) { lastPos_ = event->pos(); }
+void FPGAViewWidget::mousePressEvent(QMouseEvent *event)
+{
+    if (event->buttons() & Qt::RightButton || event->buttons() & Qt::MidButton) {
+        lastPos_ = event->pos();
+    }
+    if (event->buttons() & Qt::LeftButton) {
+        int x = event->x();
+        int y = event->y();
+        auto world = mouseToWorldCoordinates(x, y);
+        rendererDataLock_.lock();
+        if (rendererData_->qtBels != nullptr) {
+            auto elems = rendererData_->qtBels->get(world.x(), world.y());
+            if (elems.size() > 0) {
+                clickedBel(elems[0]);
+            }
+        }
+        rendererDataLock_.unlock();
+    }
+}
 
 // Invert the projection matrix to calculate screen/mouse to world/grid
 // coordinates.
 QVector4D FPGAViewWidget::mouseToWorldCoordinates(int x, int y)
+{
+    const qreal retinaScale = devicePixelRatio();
+
+    auto projection = getProjection();
+
+    QMatrix4x4 vp;
+    vp.viewport(0, 0, width() * retinaScale, height() * retinaScale);
+
+    QVector4D vec(x, y, 0, 1);
+    vec = vp.inverted() * vec;
+    vec = projection.inverted() * vec;
+
+    auto ray = vec.toVector3DAffine();
+    auto world = QVector4D(ray.x()*ray.z(), -ray.y()*ray.z(), 0, 1);
+    world = viewMove_.inverted() * world;
+
+    return world;
+}
+
+QVector4D FPGAViewWidget::mouseToWorldDimensions(int x, int y)
 {
     QMatrix4x4 p = getProjection();
     QVector2D unit = p.map(QVector4D(1, 1, 0, 1)).toVector2DAffine();
@@ -566,14 +608,16 @@ QVector4D FPGAViewWidget::mouseToWorldCoordinates(int x, int y)
 
 void FPGAViewWidget::mouseMoveEvent(QMouseEvent *event)
 {
-    const int dx = event->x() - lastPos_.x();
-    const int dy = event->y() - lastPos_.y();
-    lastPos_ = event->pos();
+    if (event->buttons() & Qt::RightButton || event->buttons() & Qt::MidButton) {
+        const int dx = event->x() - lastPos_.x();
+        const int dy = event->y() - lastPos_.y();
+        lastPos_ = event->pos();
 
-    auto world = mouseToWorldCoordinates(dx, dy);
-    viewMove_.translate(world.x(), -world.y());
+        auto world = mouseToWorldDimensions(dx, dy);
+        viewMove_.translate(world.x(), -world.y());
 
-    update();
+        update();
+    }
 }
 
 void FPGAViewWidget::wheelEvent(QWheelEvent *event)

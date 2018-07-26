@@ -495,6 +495,13 @@ QtProperty *DesignWidget::addSubGroup(QtProperty *topItem, const QString &name)
     return item;
 }
 
+void DesignWidget::onClickedBel(BelId bel)
+{
+    QTreeWidgetItem *item = nameToItem[getElementIndex(ElementType::BEL)].value(ctx->getBelName(bel).c_str(ctx));
+    treeWidget->setCurrentItem(item);
+    Q_EMIT selected(getDecals(ElementType::BEL, ctx->getBelName(bel)));
+}
+
 void DesignWidget::onItemSelectionChanged()
 {
     if (treeWidget->selectedItems().size() == 0)

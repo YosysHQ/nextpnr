@@ -74,6 +74,7 @@ class DesignWidget : public QWidget
   public Q_SLOTS:
     void newContext(Context *ctx);
     void updateTree();
+    void onClickedBel(BelId bel);
 
   private:
     Context *ctx;

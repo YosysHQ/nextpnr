@@ -33,6 +33,7 @@
 #include <QWaitCondition>
 
 #include "nextpnr.h"
+#include "quadtree.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -292,6 +293,8 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     void onSelectedArchItem(std::vector<DecalXY> decals);
     void onHighlightGroupChanged(std::vector<DecalXY> decals, int group);
     void pokeRenderer(void);
+  Q_SIGNALS:
+    void clickedBel(BelId bel);
 
   private:
     void renderLines(void);
@@ -302,6 +305,7 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     float zoom_;
     QMatrix4x4 getProjection(void);
     QVector4D mouseToWorldCoordinates(int x, int y);
+    QVector4D mouseToWorldDimensions(int x, int y);
 
     const float zoomNear_ = 1.0f;    // do not zoom closer than this
     const float zoomFar_ = 10000.0f; // do not zoom further than this
@@ -313,6 +317,21 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     QTimer paintTimer_;
 
     std::unique_ptr<PeriodicRunner> renderRunner_;
+
+    using QuadTreeBels = QuadTree<float, BelId>;
+
+    template <typename T>
+    void commitToQuadtree(T *tree, const DecalXY &decal, BelId bel)
+    {
+        float offsetX = decal.x;
+        float offsetY = decal.y;
+
+        for (auto &el : ctx_->getDecalGraphics(decal.decal)) {
+            if (el.type == GraphicElement::G_BOX) {
+                tree->insert(typename T::BoundingBox(offsetX + el.x1, offsetY + el.y1, offsetX + el.x2, offsetY + el.y2), bel);
+            }
+        }
+    }
 
     struct
     {
@@ -331,6 +350,7 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
         LineShaderData decals[4];
         LineShaderData selected;
         LineShaderData highlighted[8];
+        std::unique_ptr<QuadTreeBels> qtBels;
     };
 
     struct RendererArgs
