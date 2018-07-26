@@ -58,7 +58,7 @@ TEST_F(QuadTreeTest, insert_count)
     auto rng = NEXTPNR_NAMESPACE::DeterministicRNG();
 
     // Add 10000 random rectangles.
-    for (int i = 0; i < 10000; i++) {
+    for (unsigned int i = 0; i < 10000; i++) {
         int x0 = rng.rng(width_);
         int y0 = rng.rng(height_);
         int w = rng.rng(width_ - x0);
@@ -69,7 +69,7 @@ TEST_F(QuadTreeTest, insert_count)
         ASSERT_EQ(qt_->size(), i+1);
     }
     // Add 100000 random points.
-    for (int i = 0; i < 100000; i++) {
+    for (unsigned int i = 0; i < 100000; i++) {
         int x0 = rng.rng(width_);
         int y0 = rng.rng(height_);
         int x1 = x0;
@@ -113,7 +113,7 @@ TEST_F(QuadTreeTest, insert_retrieve_same)
         auto res = qt_->get(x, y);
         // Somewhat arbirary test to make sure we don't return obscene
         // amounts of data.
-        ASSERT_LT(res.size(), 200);
+        ASSERT_LT(res.size(), 200UL);
         bool found = false;
         for (auto elem : res) {
             // Is this what we're looking for?

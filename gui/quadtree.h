@@ -61,6 +61,15 @@ class QuadTreeNode
                 return false;
             return true;
         }
+
+        // Sort the bounding box coordinates.
+        void fixup()
+        {
+            if (x1_ < x0_)
+                std::swap(x0_, x1_);
+            if (y1_ < y0_)
+                std::swap(y0_, y1_);
+        }
     };
 
   private:
@@ -281,7 +290,7 @@ class QuadTreeNode
 
     // Return count of BoundingBoxes/Elements contained.
     // @returns count of elements contained.
-    size_t size(void) const
+    size_t size() const
     {
         size_t res = elems_.size();
         if (children_ != nullptr) {
@@ -351,20 +360,21 @@ class QuadTree
     // @param k Bounding box at which to store value.
     // @param v Value at a given bounding box.
     // @returns Whether the insert was succesful.
-    bool insert(const BoundingBox &k, ElementT v)
+    bool insert(BoundingBox k, ElementT v)
     {
+        k.fixup();
         return root_.insert(k, v);
     }
 
     // Dump a human-readable representation of the tree to stdout.
-    void dump(void) const
+    void dump() const
     {
         root_.dump(0);
     }
 
     // Return count of BoundingBoxes/Elements contained.
     // @returns count of elements contained.
-    size_t size(void) const
+    size_t size() const
     {
         return root_.size();
     }
@@ -378,7 +388,7 @@ class QuadTree
     {
         std::vector<ElementT> res;
         root_.get(x, y, res);
-        return std::move(res);
+        return res;
     }
 };
 
