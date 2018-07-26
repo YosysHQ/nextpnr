@@ -600,12 +600,12 @@ void FPGAViewWidget::zoom(int level)
     update();
 }
 
-void FPGAViewWidget::zoom_in() { zoom(10); }
+void FPGAViewWidget::zoomIn() { zoom(10); }
 
-void FPGAViewWidget::zoom_out() { zoom(-10); }
+void FPGAViewWidget::zoomOut() { zoom(-10); }
 
-void FPGAViewWidget::zoom_selected() {}
+void FPGAViewWidget::zoomSelected() {}
 
-void FPGAViewWidget::zoom_outbound() {}
+void FPGAViewWidget::zoomOutbound() {}
 
 NEXTPNR_NAMESPACE_END
