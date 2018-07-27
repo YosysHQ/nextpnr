@@ -45,7 +45,8 @@ class BinaryBlobAssembler:
             print("ref %s %s" % (name, comment))
 
     def s(self, s, comment):
-        print("str %s" % s)
+        assert "|" not in s
+        print("str |%s| %s" % (s, comment))
 
     def u8(self, v, comment):
         if comment is None:
