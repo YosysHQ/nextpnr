@@ -83,8 +83,15 @@ static delay_t follow_net(Context *ctx, NetInfo *net, int path_length, delay_t s
         auto &usr = net->users[i];
         if (crit_path)
             current_path->push_back(&usr);
+        // If budget override is less than existing budget, then do not increment path length
+        int pl = path_length + 1;
+        auto budget = ctx->getBudgetOverride(net, i, net_budget);
+        if (budget < net_budget) {
+            net_budget = budget;
+            pl = std::max(1, path_length);
+        }
         net_budget = std::min(net_budget,
-                              follow_user_port(ctx, usr, path_length + 1, slack - ctx->getNetinfoRouteDelay(net, i),
+                              follow_user_port(ctx, usr, pl, slack - ctx->getNetinfoRouteDelay(net, i),
                                                updates, min_slack, current_path, crit_path));
         if (crit_path)
             current_path->pop_back();
@@ -136,10 +143,13 @@ void assign_budget(Context *ctx)
     UpdateMap updates;
     delay_t min_slack = compute_min_slack(ctx, &updates, nullptr);
 
-    // If user has not specified a frequency, adjust the target frequency
-    //   to be equivalent to the estimate Fmax
+    // If user has not specified a frequency, adjust the target frequency dynamically
+    // TODO(eddieh): Tune these factors
     if (!ctx->user_freq) {
-        ctx->target_freq = 1e12 / (default_slack - min_slack);
+        if (min_slack < 0)
+            ctx->target_freq = 1e12 / (default_slack - 0.95 * min_slack);
+        else
+            ctx->target_freq = 1e12 / (default_slack - 1.2 * min_slack);
         if (ctx->verbose)
             log_info("minimum slack for this assign = %d, target Fmax for next update = %.2f MHz\n", min_slack,
                      ctx->target_freq / 1e6);
@@ -153,7 +163,8 @@ void assign_budget(Context *ctx)
             auto it = updates.find(pi);
             if (it == updates.end())
                 continue;
-            user.budget = ctx->getNetinfoRouteDelay(net.second.get(), i) - it->second;
+            auto budget = ctx->getNetinfoRouteDelay(net.second.get(), i) - it->second;
+            user.budget = ctx->getBudgetOverride(net.second.get(), i, budget);
 
             // Post-update check
             if (ctx->user_freq && user.budget < 0)
@@ -185,7 +196,8 @@ void update_budget(Context *ctx)
             auto it = updates.find(pi);
             if (it == updates.end())
                 continue;
-            user.budget = ctx->getNetinfoRouteDelay(net.second.get(), i) - it->second;
+            auto budget = ctx->getNetinfoRouteDelay(net.second.get(), i) - it->second;
+            user.budget = ctx->getBudgetOverride(net.second.get(), i, budget);
 
             // Post-update check
             if (ctx->verbose) {
