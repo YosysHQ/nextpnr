@@ -592,6 +592,8 @@ void FPGAViewWidget::mousePressEvent(QMouseEvent *event)
             clickedBel(closest.element.bel, ctrl);
         } else if (closest.type == ElementType::WIRE) {
             clickedWire(closest.element.wire, ctrl);
+        } else if (closest.type == ElementType::PIP) {
+            clickedPip(closest.element.pip, ctrl);
         }
     }
 }

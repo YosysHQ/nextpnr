@@ -2,6 +2,7 @@
  *  nextpnr -- Next Generation Place and Route
  *
  *  Copyright (C) 2018  Miodrag Milanovic <miodrag@symbioticeda.com>
+ *  Copyright (C) 2018  Serge Bazanski <q3k@symbioticeda.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -519,6 +520,13 @@ void DesignWidget::onClickedWire(WireId wire, bool keep)
     QTreeWidgetItem *item = nameToItem[getElementIndex(ElementType::WIRE)].value(ctx->getWireName(wire).c_str(ctx));
     treeWidget->setCurrentItem(item);
     Q_EMIT selected(getDecals(ElementType::WIRE, ctx->getWireName(wire)), keep);
+}
+
+void DesignWidget::onClickedPip(PipId pip, bool keep)
+{
+    QTreeWidgetItem *item = nameToItem[getElementIndex(ElementType::PIP)].value(ctx->getPipName(pip).c_str(ctx));
+    treeWidget->setCurrentItem(item);
+    Q_EMIT selected(getDecals(ElementType::PIP, ctx->getPipName(pip)), keep);
 }
 
 void DesignWidget::onItemSelectionChanged()

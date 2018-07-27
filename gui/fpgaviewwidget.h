@@ -121,6 +121,7 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
   Q_SIGNALS:
     void clickedBel(BelId bel, bool add);
     void clickedWire(WireId wire, bool add);
+    void clickedPip(PipId pip, bool add);
 
   private:
     const float zoomNear_ = 0.1f;  // do not zoom closer than this

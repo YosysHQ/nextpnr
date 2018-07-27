@@ -77,6 +77,7 @@ class DesignWidget : public QWidget
     void updateTree();
     void onClickedBel(BelId bel, bool keep);
     void onClickedWire(WireId wire, bool keep);
+    void onClickedPip(PipId pip, bool keep);
 
   private:
     Context *ctx;
