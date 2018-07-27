@@ -180,10 +180,7 @@ void update_budget(Context *ctx)
 
     // If user has not specified a frequency, adjust the frequency dynamically:
     if (!ctx->user_freq) {
-        if (min_slack < 0)
-            ctx->target_freq = 1e12 / (default_slack - 0.99 * min_slack);
-        else
-            ctx->target_freq = 1e12 / (default_slack - 1.05 * min_slack);
+        ctx->target_freq = 1e12 / (default_slack - min_slack);
         if (ctx->verbose)
             log_info("minimum slack for this update = %d, target Fmax for next update = %.2f MHz\n", min_slack,
                      ctx->target_freq / 1e6);
@@ -197,7 +194,7 @@ void update_budget(Context *ctx)
             auto it = updates.find(pi);
             if (it == updates.end())
                 continue;
-            user.budget = ctx->getNetinfoRouteDelay(net.second.get(), i) + it->second;
+            user.budget = ctx->getNetinfoRouteDelay(net.second.get(), i) - it->second;
 
             // Post-update check
             if (ctx->verbose) {
@@ -236,8 +233,8 @@ void compute_fmax(Context *ctx, bool print_fmax, bool print_path)
             auto net = port.net;
             unsigned i = 0;
             for (auto &usr : net->users)
-                if (&usr == sink)
-                    break;
+                if (&usr == sink) break;
+                else ++i;
             auto &driver = net->driver;
             auto driver_cell = driver.cell;
             delay_t comb_delay;
