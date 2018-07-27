@@ -170,8 +170,7 @@ float FPGAViewWidget::PickedElement::distance(Context *ctx, float wx, float wy) 
     });
 }
 
-void FPGAViewWidget::renderGraphicElement(RendererData *data, LineShaderData &out, const GraphicElement &el, float x,
-                                          float y)
+void FPGAViewWidget::renderGraphicElement(LineShaderData &out, PickQuadTree::BoundingBox &bb, const GraphicElement &el, float x, float y)
 {
     if (el.type == GraphicElement::TYPE_BOX) {
         auto line = PolyLine(true);
@@ -181,30 +180,34 @@ void FPGAViewWidget::renderGraphicElement(RendererData *data, LineShaderData &ou
         line.point(x + el.x1, y + el.y2);
         line.build(out);
 
-        data->bbX0 = std::min(data->bbX0, x + el.x1);
-        data->bbY0 = std::min(data->bbY0, x + el.y1);
-        data->bbX1 = std::max(data->bbX1, x + el.x2);
-        data->bbY1 = std::max(data->bbY1, x + el.y2);
+        bb.setX0(std::min(bb.x0(), x + el.x1));
+        bb.setY0(std::min(bb.y0(), y + el.y1));
+        bb.setX1(std::max(bb.x1(), x + el.x2));
+        bb.setY1(std::max(bb.y1(), y + el.y2));
         return;
     }
 
     if (el.type == GraphicElement::TYPE_LINE || el.type == GraphicElement::TYPE_ARROW) {
         PolyLine(x + el.x1, y + el.y1, x + el.x2, y + el.y2).build(out);
+        bb.setX0(std::min(bb.x0(), x + el.x1));
+        bb.setY0(std::min(bb.y0(), y + el.y1));
+        bb.setX1(std::max(bb.x1(), x + el.x2));
+        bb.setY1(std::max(bb.y1(), y + el.y2));
         return;
     }
 }
 
-void FPGAViewWidget::renderDecal(RendererData *data, LineShaderData &out, const DecalXY &decal)
+void FPGAViewWidget::renderDecal(LineShaderData &out, PickQuadTree::BoundingBox &bb, const DecalXY &decal)
 {
     float offsetX = decal.x;
     float offsetY = decal.y;
 
     for (auto &el : ctx_->getDecalGraphics(decal.decal)) {
-        renderGraphicElement(data, out, el, offsetX, offsetY);
+        renderGraphicElement(out, bb, el, offsetX, offsetY);
     }
 }
 
-void FPGAViewWidget::renderArchDecal(RendererData *data, const DecalXY &decal)
+void FPGAViewWidget::renderArchDecal(LineShaderData out[GraphicElement::STYLE_MAX], PickQuadTree::BoundingBox &bb, const DecalXY &decal)
 {
     float offsetX = decal.x;
     float offsetY = decal.y;
@@ -214,7 +217,7 @@ void FPGAViewWidget::renderArchDecal(RendererData *data, const DecalXY &decal)
         case GraphicElement::STYLE_FRAME:
         case GraphicElement::STYLE_INACTIVE:
         case GraphicElement::STYLE_ACTIVE:
-            renderGraphicElement(data, data->gfxByStyle[el.style], el, offsetX, offsetY);
+            renderGraphicElement(out[el.style], bb, el, offsetX, offsetY);
             break;
         default:
             break;
@@ -415,35 +418,31 @@ void FPGAViewWidget::renderLines(void)
     if (decalsChanged) {
         auto data = std::unique_ptr<FPGAViewWidget::RendererData>(new FPGAViewWidget::RendererData);
         // Reset bounding box.
-        data->bbX0 = 0;
-        data->bbY0 = 0;
-        data->bbX1 = 0;
-        data->bbY1 = 0;
+        data->bbGlobal.clear();
 
         // Draw Bels.
         for (auto const &decal : belDecals) {
-            renderArchDecal(data.get(), decal.first);
+            renderArchDecal(data->gfxByStyle, data->bbGlobal, decal.first);
         }
         // Draw Wires.
         for (auto const &decal : wireDecals) {
-            renderArchDecal(data.get(), decal.first);
+            renderArchDecal(data->gfxByStyle, data->bbGlobal, decal.first);
         }
         // Draw Pips.
         for (auto const &decal : pipDecals) {
-            renderArchDecal(data.get(), decal.first);
+            renderArchDecal(data->gfxByStyle, data->bbGlobal, decal.first);
         }
         // Draw Groups.
         for (auto const &decal : groupDecals) {
-            renderArchDecal(data.get(), decal.first);
+            renderArchDecal(data->gfxByStyle, data->bbGlobal, decal.first);
         }
 
         // Bounding box should be calculated by now.
-        NPNR_ASSERT((data->bbX1 - data->bbX0) != 0);
-        NPNR_ASSERT((data->bbY1 - data->bbY0) != 0);
-        auto bb = PickQuadTree::BoundingBox(data->bbX0, data->bbY0, data->bbX1, data->bbY1);
+        NPNR_ASSERT(data->bbGlobal.w() != 0);
+        NPNR_ASSERT(data->bbGlobal.h() != 0);
 
         // Populate picking quadtree.
-        data->qt = std::unique_ptr<PickQuadTree>(new PickQuadTree(bb));
+        data->qt = std::unique_ptr<PickQuadTree>(new PickQuadTree(data->bbGlobal));
         for (auto const &decal : belDecals) {
             populateQuadTree(data.get(), decal.first, PickedElement(decal.second, decal.first.x, decal.first.y));
         }
@@ -480,24 +479,25 @@ void FPGAViewWidget::renderLines(void)
         // Whether the currently being hovered decal is also selected.
         bool hoveringSelected = false;
         // Render selected.
+        rendererData_->bbSelected.clear();
         rendererData_->gfxSelected.clear();
         for (auto &decal : selectedDecals) {
             if (decal == hoveredDecal)
                 hoveringSelected = true;
-            renderDecal(rendererData_.get(), rendererData_->gfxSelected, decal);
+            renderDecal(rendererData_->gfxSelected, rendererData_->bbSelected, decal);
         }
 
         // Render hovered.
         rendererData_->gfxHovered.clear();
         if (!hoveringSelected) {
-            renderDecal(rendererData_.get(), rendererData_->gfxHovered, hoveredDecal);
+            renderDecal(rendererData_->gfxHovered, rendererData_->bbGlobal, hoveredDecal);
         }
 
         // Render highlighted.
         for (int i = 0; i < 8; i++) {
             rendererData_->gfxHighlighted[i].clear();
             for (auto &decal : highlightedDecals[i]) {
-                renderDecal(rendererData_.get(), rendererData_->gfxHighlighted[i], decal);
+                renderDecal(rendererData_->gfxHighlighted[i], rendererData_->bbGlobal, decal);
             }
         }
     }
@@ -690,31 +690,36 @@ void FPGAViewWidget::zoomIn() { zoom(10); }
 
 void FPGAViewWidget::zoomOut() { zoom(-10); }
 
-void FPGAViewWidget::zoomSelected() {}
-
-void FPGAViewWidget::zoomOutbound()
+void FPGAViewWidget::zoomToBB(const PickQuadTree::BoundingBox &bb)
 {
-    // Get design bounding box.
-    float x0, y0, x1, y1;
-    {
-        QMutexLocker lock(&rendererDataLock_);
-        x0 = rendererData_->bbX0;
-        y0 = rendererData_->bbY0;
-        x1 = rendererData_->bbX1;
-        y1 = rendererData_->bbY1;
-    }
-    float w = x1 - x0;
-    float h = y1 - y0;
+    if (bb.w() < 0.00005 && bb.h() < 0.00005)
+        return;
 
     viewMove_.setToIdentity();
-    viewMove_.translate(-w / 2, -h / 2);
+    viewMove_.translate(-(bb.x0() + bb.w() / 2), -(bb.y0() + bb.h() / 2));
 
     // Our FOV is π/2, so distance for camera to see a plane of width H is H/2.
     // We add 1 unit to cover half a unit of extra space around.
-    float distance_w = w / 2 + 1;
-    float distance_h = h / 2 + 1;
+    float distance_w = bb.w() / 2 + 1;
+    float distance_h = bb.h() / 2 + 1;
     zoom_ = std::max(distance_w, distance_h);
+}
+
+void FPGAViewWidget::zoomSelected()
+{
+    {
+        QMutexLocker lock(&rendererDataLock_);
+        zoomToBB(rendererData_->bbSelected);
+    }
     update();
+}
+
+void FPGAViewWidget::zoomOutbound()
+{
+    {
+        QMutexLocker lock(&rendererDataLock_);
+        zoomToBB(rendererData_->bbGlobal);
+    }
 }
 
 NEXTPNR_NAMESPACE_END

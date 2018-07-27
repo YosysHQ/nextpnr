@@ -237,7 +237,9 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
         LineShaderData gfxHovered;
         LineShaderData gfxHighlighted[8];
         // Global bounding box of data from Arch.
-        float bbX0, bbY0, bbX1, bbY1;
+        PickQuadTree::BoundingBox bbGlobal;
+        // Bounding box of selected items.
+        PickQuadTree::BoundingBox bbSelected;
         // Quadtree for picking objects.
         std::unique_ptr<PickQuadTree> qt;
         // Flags from args.
@@ -246,11 +248,12 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     std::unique_ptr<RendererData> rendererData_;
     QMutex rendererDataLock_;
 
+    void zoomToBB(const PickQuadTree::BoundingBox &bb);
     void zoom(int level);
     void renderLines(void);
-    void renderGraphicElement(RendererData *data, LineShaderData &out, const GraphicElement &el, float x, float y);
-    void renderDecal(RendererData *data, LineShaderData &out, const DecalXY &decal);
-    void renderArchDecal(RendererData *data, const DecalXY &decal);
+    void renderGraphicElement(LineShaderData &out, PickQuadTree::BoundingBox &bb, const GraphicElement &el, float x, float y);
+    void renderDecal(LineShaderData &out, PickQuadTree::BoundingBox &bb, const DecalXY &decal);
+    void renderArchDecal(LineShaderData out[GraphicElement::STYLE_MAX], PickQuadTree::BoundingBox &bb, const DecalXY &decal);
     void populateQuadTree(RendererData *data, const DecalXY &decal, const PickedElement &element);
     boost::optional<PickedElement> pickElement(float worldx, float worldy);
     QVector4D mouseToWorldCoordinates(int x, int y);

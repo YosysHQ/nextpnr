@@ -34,7 +34,10 @@ template <typename CoordinateT, typename ElementT> class QuadTreeNode
         friend class QuadTreeNode;
 
       private:
-        CoordinateT x0_, x1_, y0_, y1_;
+        CoordinateT x0_, y0_, x1_, y1_;
+
+        static constexpr float pinf = std::numeric_limits<CoordinateT>::infinity();
+        static constexpr float ninf = -std::numeric_limits<CoordinateT>::infinity();
 
       public:
         // Standard constructor for a given (x0,y0), (x1,y1) bounding box
@@ -43,11 +46,14 @@ template <typename CoordinateT, typename ElementT> class QuadTreeNode
         // @param y0 y coordinate of top-left corner of box
         // @param x1 x coordinate of bottom-right corner of box
         // @param y1 y coordinate of bottom-right corner of box
-        BoundingBox(CoordinateT x0, CoordinateT y0, CoordinateT x1, CoordinateT y1) : x0_(x0), x1_(x1), y0_(y0), y1_(y1)
+        BoundingBox(CoordinateT x0, CoordinateT y0, CoordinateT x1, CoordinateT y1) : x0_(x0), y0_(y0), x1_(x1), y1_(y1)
         {
         }
 
-        BoundingBox(const BoundingBox &other) : x0_(other.x0_), x1_(other.x1_), y0_(other.y0_), y1_(other.y1_) {}
+
+        BoundingBox() : x0_(pinf), y0_(pinf), x1_(ninf), y1_(ninf) {}
+
+        BoundingBox(const BoundingBox &other) : x0_(other.x0_), y0_(other.y0_), x1_(other.x1_), y1_(other.y1_) {}
 
         // Whether a bounding box contains a given points.
         // A point is defined to be in a bounding box when it's not lesser than
@@ -72,6 +78,27 @@ template <typename CoordinateT, typename ElementT> class QuadTreeNode
             if (y1_ < y0_)
                 std::swap(y0_, y1_);
         }
+
+        CoordinateT x0() const { return x0_; }
+        CoordinateT y0() const { return y0_; }
+        CoordinateT x1() const { return x1_; }
+        CoordinateT y1() const { return y1_; }
+        
+        void setX0(CoordinateT v) { x0_ = v; }
+        void setY0(CoordinateT v) { y0_ = v; }
+        void setX1(CoordinateT v) { x1_ = v; }
+        void setY1(CoordinateT v) { y1_ = v; }
+
+        void clear()
+        {
+            x0_ = pinf;
+            y0_ = pinf;
+            x1_ = ninf;
+            y1_ = ninf;
+        }
+
+        CoordinateT w() const { return x1_ - x0_; }
+        CoordinateT h() const { return y1_ - y0_; }
     };
 
   private:
