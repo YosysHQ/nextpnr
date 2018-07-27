@@ -612,8 +612,14 @@ void FPGAViewWidget::mouseMoveEvent(QMouseEvent *event)
 
     auto world = mouseToWorldCoordinates(event->x(), event->y());
     auto closestOr = pickElement(world.x(), world.y());
-    if (!closestOr)
+    // No elements? No decal.
+    if (!closestOr) {
+        QMutexLocker locked(&rendererArgsLock_);
+        rendererArgs_->hoveredDecal = DecalXY();
+        rendererArgs_->changed = true;
+        pokeRenderer();
         return;
+    }
 
     auto closest = closestOr.value();
 
