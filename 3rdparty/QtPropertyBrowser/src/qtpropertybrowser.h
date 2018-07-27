@@ -83,6 +83,7 @@ public:
     QString propertyName() const;
     QString propertyId() const;
     bool isEnabled() const;
+    bool isSelectable() const;
     bool isModified() const;
 
     bool hasValue() const;
@@ -97,6 +98,7 @@ public:
     void setPropertyName(const QString &text);
     void setPropertyId(const QString &text);
     void setEnabled(bool enable);
+    void setSelectable(bool selectable);
     void setModified(bool modified);
 
     bool isSubProperty()const;

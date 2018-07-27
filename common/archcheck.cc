@@ -17,8 +17,8 @@
  *
  */
 
-#include "nextpnr.h"
 #include "log.h"
+#include "nextpnr.h"
 
 #if 0
 #define dbg(...) log(__VA_ARGS__)
@@ -84,8 +84,7 @@ void archcheck_locs(const Context *ctx)
 
     log_info("Checking all locations..\n");
     for (int x = 0; x < ctx->getGridDimX(); x++)
-        for (int y = 0; y < ctx->getGridDimY(); y++)
-        {
+        for (int y = 0; y < ctx->getGridDimY(); y++) {
             dbg("> %d %d\n", x, y);
             std::unordered_set<int> usedz;
 

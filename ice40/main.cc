@@ -52,13 +52,13 @@ void svg_dump_decal(const Context *ctx, const DecalXY &decal)
     const std::string style = "stroke=\"black\" stroke-width=\"0.1\" fill=\"none\"";
 
     for (auto &el : ctx->getDecalGraphics(decal.decal)) {
-        if (el.type == GraphicElement::G_BOX) {
+        if (el.type == GraphicElement::TYPE_BOX) {
             std::cout << "<rect x=\"" << (offset + scale * (decal.x + el.x1)) << "\" y=\""
                       << (offset + scale * (decal.y + el.y1)) << "\" height=\"" << (scale * (el.y2 - el.y1))
                       << "\" width=\"" << (scale * (el.x2 - el.x1)) << "\" " << style << "/>\n";
         }
 
-        if (el.type == GraphicElement::G_LINE) {
+        if (el.type == GraphicElement::TYPE_LINE) {
             std::cout << "<line x1=\"" << (offset + scale * (decal.x + el.x1)) << "\" y1=\""
                       << (offset + scale * (decal.y + el.y1)) << "\" x2=\"" << (offset + scale * (decal.x + el.x2))
                       << "\" y2=\"" << (offset + scale * (decal.y + el.y2)) << "\" " << style << "/>\n";
@@ -144,18 +144,16 @@ int main(int argc, char *argv[])
 #endif
         if (vm.count("help") || argc == 1) {
         help:
-            std::cout << boost::filesystem::basename(argv[0])
-                      << " -- Next Generation Place and Route (git "
-                         "sha1 " GIT_COMMIT_HASH_STR ")\n";
+            std::cout << boost::filesystem::basename(argv[0]) << " -- Next Generation Place and Route (git "
+                                                                 "sha1 " GIT_COMMIT_HASH_STR ")\n";
             std::cout << "\n";
             std::cout << options << "\n";
             return argc != 1;
         }
 
         if (vm.count("version")) {
-            std::cout << boost::filesystem::basename(argv[0])
-                      << " -- Next Generation Place and Route (git "
-                         "sha1 " GIT_COMMIT_HASH_STR ")\n";
+            std::cout << boost::filesystem::basename(argv[0]) << " -- Next Generation Place and Route (git "
+                                                                 "sha1 " GIT_COMMIT_HASH_STR ")\n";
             return 1;
         }
 
@@ -365,8 +363,12 @@ int main(int argc, char *argv[])
             }
         }
 
-        if (vm.count("freq"))
+        if (vm.count("freq")) {
             ctx->target_freq = vm["freq"].as<double>() * 1e6;
+            ctx->user_freq = true;
+        } else {
+            log_warning("Target frequency not specified. Will optimise for max frequency.\n");
+        }
 
         ctx->timing_driven = true;
         if (vm.count("no-tmdriv"))

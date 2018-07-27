@@ -30,6 +30,7 @@
 #include <fstream>
 #include <streambuf>
 
+#include "io.h"
 #include "log.h"
 #include "util.h"
 
@@ -173,7 +174,7 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
     // Add all set, configurable pips to the config
     for (auto pip : ctx->getPips()) {
         if (ctx->getBoundPipNet(pip) != IdString()) {
-            if (ctx->getPipType(pip) == 0) { // ignore fixed pips
+            if (ctx->getPipClass(pip) == 0) { // ignore fixed pips
                 std::string tile = empty_chip.get_tile_by_position_and_type(pip.location.y, pip.location.x,
                                                                             ctx->getPipTiletype(pip));
                 std::string source = get_trellis_wirename(ctx, pip.location, ctx->getPipSrcWire(pip));
@@ -182,12 +183,47 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             }
         }
     }
+    // Find bank voltages
+    std::unordered_map<int, IOVoltage> bankVcc;
+    std::unordered_map<int, bool> bankLvds;
 
-    // Set all bankref tiles to 3.3V (TODO)
+    for (auto &cell : ctx->cells) {
+        CellInfo *ci = cell.second.get();
+        if (ci->bel != BelId() && ci->type == ctx->id("TRELLIS_IO")) {
+            int bank = ctx->getPioBelBank(ci->bel);
+            std::string dir = str_or_default(ci->params, ctx->id("DIR"), "INPUT");
+            std::string iotype = str_or_default(ci->attrs, ctx->id("IO_TYPE"), "LVCMOS33");
+
+            if (dir != "INPUT") {
+                IOVoltage vcc = get_vccio(ioType_from_str(iotype));
+                if (bankVcc.find(bank) != bankVcc.end()) {
+                    // TODO: strong and weak constraints
+                    if (bankVcc[bank] != vcc) {
+                        log_error("Error processing '%s': incompatible IO voltages %s and %s on bank %d.",
+                                  cell.first.c_str(ctx), iovoltage_to_str(bankVcc[bank]).c_str(),
+                                  iovoltage_to_str(vcc).c_str(), bank);
+                    }
+                } else {
+                    bankVcc[bank] = vcc;
+                }
+            }
+
+            if (iotype == "LVDS")
+                bankLvds[bank] = true;
+        }
+    }
+
+    // Set all bankref tiles to appropriate VccIO
     for (const auto &tile : empty_chip.tiles) {
         std::string type = tile.second->info.type;
         if (type.find("BANKREF") != std::string::npos && type != "BANKREF8") {
-            cc.tiles[tile.first].add_enum("BANK.VCCIO", "3V3");
+            int bank = std::stoi(type.substr(7));
+            if (bankVcc.find(bank) != bankVcc.end())
+                cc.tiles[tile.first].add_enum("BANK.VCCIO", iovoltage_to_str(bankVcc[bank]));
+            if (bankLvds[bank]) {
+                cc.tiles[tile.first].add_enum("BANK.DIFF_REF", "ON");
+                cc.tiles[tile.first].add_enum("BANK.LVDSO", "ON");
+            }
         }
     }
 
@@ -235,6 +271,20 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             std::string pic_tile = get_pic_tile(ctx, empty_chip, bel);
             cc.tiles[pio_tile].add_enum(pio + ".BASE_TYPE", dir + "_" + iotype);
             cc.tiles[pic_tile].add_enum(pio + ".BASE_TYPE", dir + "_" + iotype);
+            if (is_differential(ioType_from_str(iotype))) {
+                // Explicitly disable other pair
+                std::string other;
+                if (pio == "PIOA")
+                    other = "PIOB";
+                else if (pio == "PIOC")
+                    other = "PIOD";
+                else
+                    log_error("cannot place differential IO at location %s\n", pio.c_str());
+                // cc.tiles[pio_tile].add_enum(other + ".BASE_TYPE", "_NONE_");
+                // cc.tiles[pic_tile].add_enum(other + ".BASE_TYPE", "_NONE_");
+                cc.tiles[pio_tile].add_enum(other + ".PULLMODE", "NONE");
+                cc.tiles[pio_tile].add_enum(pio + ".PULLMODE", "NONE");
+            }
             if (dir != "INPUT" &&
                 (ci->ports.find(ctx->id("T")) == ci->ports.end() || ci->ports.at(ctx->id("T")).net == nullptr)) {
                 // Tie tristate low if unconnected for outputs or bidir
@@ -247,7 +297,7 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                 std::string cib_wirename = ctx->locInfo(cib_wire)->wire_data[cib_wire.index].name.get();
                 cc.tiles[cib_tile].add_enum("CIB." + cib_wirename + "MUX", "0");
             }
-            if (dir == "INPUT") {
+            if (dir == "INPUT" && !is_differential(ioType_from_str(iotype))) {
                 cc.tiles[pio_tile].add_enum(pio + ".HYSTERESIS", "ON");
             }
         } else {

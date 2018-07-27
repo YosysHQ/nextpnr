@@ -75,11 +75,9 @@ static void get_chain_midpoint(const Context *ctx, const CellChain &chain, float
     for (auto cell : chain.cells) {
         if (cell->bel == BelId())
             continue;
-        int bel_x, bel_y;
-        bool bel_gb;
-        ctx->estimatePosition(cell->bel, bel_x, bel_y, bel_gb);
-        total_x += bel_x;
-        total_y += bel_y;
+        Loc bel_loc = ctx->getBelLocation(cell->bel);
+        total_x += bel_loc.x;
+        total_y += bel_loc.y;
         N++;
     }
     NPNR_ASSERT(N > 0);
@@ -92,21 +90,20 @@ static int get_cell_evilness(const Context *ctx, const CellInfo *cell)
     // This returns how "evil" a logic cell is, and thus how likely it is to be ripped up
     // during logic tile legalisation
     int score = 0;
-    if (get_net_or_empty(cell, ctx->id("I0")))
+    if (get_net_or_empty(cell, ctx->id_i0))
         ++score;
-    if (get_net_or_empty(cell, ctx->id("I1")))
+    if (get_net_or_empty(cell, ctx->id_i1))
         ++score;
-    if (get_net_or_empty(cell, ctx->id("I2")))
+    if (get_net_or_empty(cell, ctx->id_i2))
         ++score;
-    if (get_net_or_empty(cell, ctx->id("I3")))
+    if (get_net_or_empty(cell, ctx->id_i3))
         ++score;
-    if (bool_or_default(cell->params, ctx->id("DFF_ENABLE"))) {
-        const NetInfo *cen = get_net_or_empty(cell, ctx->id("CEN")), *sr = get_net_or_empty(cell, ctx->id("SR"));
-        if (cen)
+    if (cell->lcInfo.dffEnable) {
+        if (cell->lcInfo.cen)
             score += 10;
-        if (sr)
+        if (cell->lcInfo.sr)
             score += 10;
-        if (bool_or_default(cell->params, ctx->id("NEG_CLK")))
+        if (cell->lcInfo.negClk)
             score += 5;
     }
     return score;

@@ -24,22 +24,24 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-void Arch::addWire(IdString name, int x, int y)
+void Arch::addWire(IdString name, IdString type, int x, int y)
 {
     NPNR_ASSERT(wires.count(name) == 0);
     WireInfo &wi = wires[name];
     wi.name = name;
+    wi.type = type;
     wi.x = x;
     wi.y = y;
 
     wire_ids.push_back(name);
 }
 
-void Arch::addPip(IdString name, IdString srcWire, IdString dstWire, DelayInfo delay)
+void Arch::addPip(IdString name, IdString type, IdString srcWire, IdString dstWire, DelayInfo delay)
 {
     NPNR_ASSERT(pips.count(name) == 0);
     PipInfo &pi = pips[name];
     pi.name = name;
+    pi.type = type;
     pi.srcWire = srcWire;
     pi.dstWire = dstWire;
     pi.delay = delay;
@@ -49,11 +51,12 @@ void Arch::addPip(IdString name, IdString srcWire, IdString dstWire, DelayInfo d
     pip_ids.push_back(name);
 }
 
-void Arch::addAlias(IdString name, IdString srcWire, IdString dstWire, DelayInfo delay)
+void Arch::addAlias(IdString name, IdString type, IdString srcWire, IdString dstWire, DelayInfo delay)
 {
     NPNR_ASSERT(pips.count(name) == 0);
     PipInfo &pi = pips[name];
     pi.name = name;
+    pi.type = type;
     pi.srcWire = srcWire;
     pi.dstWire = dstWire;
     pi.delay = delay;
@@ -77,18 +80,18 @@ void Arch::addBel(IdString name, IdString type, Loc loc, bool gb)
     bel_ids.push_back(name);
     bel_by_loc[loc] = name;
 
-    if (bels_by_tile.size() <= loc.x)
+    if (int(bels_by_tile.size()) <= loc.x)
         bels_by_tile.resize(loc.x + 1);
 
-    if (bels_by_tile[loc.x].size() <= loc.y)
+    if (int(bels_by_tile[loc.x].size()) <= loc.y)
         bels_by_tile[loc.x].resize(loc.y + 1);
 
     bels_by_tile[loc.x][loc.y].push_back(name);
 
-    if (tileDimZ.size() <= loc.x)
+    if (int(tileDimZ.size()) <= loc.x)
         tileDimZ.resize(loc.x + 1);
 
-    if (tileDimZ[loc.x].size() <= loc.y)
+    if (int(tileDimZ[loc.x].size()) <= loc.y)
         tileDimZ[loc.x].resize(loc.y + 1);
 
     gridDimX = std::max(gridDimX, loc.x + 1);
@@ -193,6 +196,24 @@ BelId Arch::getBelByName(IdString name) const
 
 IdString Arch::getBelName(BelId bel) const { return bel; }
 
+Loc Arch::getBelLocation(BelId bel) const
+{
+    auto &info = bels.at(bel);
+    return Loc(info.x, info.y, info.z);
+}
+
+BelId Arch::getBelByLocation(Loc loc) const
+{
+    auto it = bel_by_loc.find(loc);
+    if (it != bel_by_loc.end())
+        return it->second;
+    return BelId();
+}
+
+const std::vector<BelId> &Arch::getBelsByTile(int x, int y) const { return bels_by_tile.at(x).at(y); }
+
+bool Arch::getBelGlobalBuf(BelId bel) const { return bels.at(bel).gb; }
+
 uint32_t Arch::getBelChecksum(BelId bel) const
 {
     // FIXME
@@ -234,6 +255,7 @@ std::vector<PortPin> Arch::getBelPins(BelId bel) const
     std::vector<PortPin> ret;
     for (auto &it : bels.at(bel).pins)
         ret.push_back(it.first);
+    return ret;
 }
 
 // ---------------------------------------------------------------
@@ -246,6 +268,8 @@ WireId Arch::getWireByName(IdString name) const
 }
 
 IdString Arch::getWireName(WireId wire) const { return wire; }
+
+IdString Arch::getWireType(WireId wire) const { return wires.at(wire).type; }
 
 uint32_t Arch::getWireChecksum(WireId wire) const
 {
@@ -296,6 +320,8 @@ PipId Arch::getPipByName(IdString name) const
 }
 
 IdString Arch::getPipName(PipId pip) const { return pip; }
+
+IdString Arch::getPipType(PipId pip) const { return pips.at(pip).type; }
 
 uint32_t Arch::getPipChecksum(PipId wire) const
 {
@@ -368,13 +394,6 @@ const std::vector<GroupId> &Arch::getGroupGroups(GroupId group) const { return g
 
 // ---------------------------------------------------------------
 
-void Arch::estimatePosition(BelId bel, int &x, int &y, bool &gb) const
-{
-    x = bels.at(bel).x;
-    y = bels.at(bel).y;
-    gb = bels.at(bel).gb;
-}
-
 delay_t Arch::estimateDelay(WireId src, WireId dst) const
 {
     const WireInfo &s = wires.at(src);
@@ -384,10 +403,7 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
     return (dx + dy) * grid_distance_to_delay;
 }
 
-delay_t Arch::getBudgetOverride(const PortRef& pr, delay_t v) const
-{
-    return v;
-}
+delay_t Arch::getBudgetOverride(NetInfo *net_info, int user_idx, delay_t budget) const { return budget; }
 
 // ---------------------------------------------------------------
 

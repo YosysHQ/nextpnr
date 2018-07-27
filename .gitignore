@@ -25,3 +25,5 @@ build/
 /Testing/*
 CTestTestfile.cmake
 install_manifest.txt
+/bbasm
+/ImportExecutables.cmake

@@ -3,6 +3,7 @@
  *
  *  Copyright (C) 2018  Clifford Wolf <clifford@symbioticeda.com>
  *  Copyright (C) 2018  David Shah <david@symbioticeda.com>
+ *  Copyright (C) 2018  Serge Bazanski <q3k@symbioticeda.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -207,6 +208,40 @@ std::unique_ptr<CellInfo> create_ice_cell(Context *ctx, IdString type, std::stri
         add_port(ctx, new_cell.get(), "ACCUMCO", PORT_OUT);
         add_port(ctx, new_cell.get(), "SIGNEXTOUT", PORT_OUT);
 
+    } else if (type == ctx->id("ICESTORM_PLL")) {
+        new_cell->params[ctx->id("DELAY_ADJMODE_FB")] = "0";
+        new_cell->params[ctx->id("DELAY_ADJMODE_REL")] = "0";
+
+        new_cell->params[ctx->id("DIVF")] = "0";
+        new_cell->params[ctx->id("DIVQ")] = "0";
+        new_cell->params[ctx->id("DIVR")] = "0";
+
+        new_cell->params[ctx->id("FDA_FEEDBACK")] = "0";
+        new_cell->params[ctx->id("FDA_RELATIVE")] = "0";
+        new_cell->params[ctx->id("FEEDBACK_PATH")] = "0";
+        new_cell->params[ctx->id("FILTER_RANGE")] = "0";
+
+        new_cell->params[ctx->id("PLLOUT_SELECT_A")] = "0";
+        new_cell->params[ctx->id("PLLOUT_SELECT_B")] = "0";
+
+        new_cell->params[ctx->id("PLLTYPE")] = "0";
+        new_cell->params[ctx->id("SHIFTREG_DIVMODE")] = "0";
+        new_cell->params[ctx->id("TEST_MODE")] = "0";
+
+        add_port(ctx, new_cell.get(), "BYPASS", PORT_IN);
+        add_port(ctx, new_cell.get(), "DYNAMICDELAY", PORT_IN);
+        add_port(ctx, new_cell.get(), "EXTFEEDBACK", PORT_IN);
+        add_port(ctx, new_cell.get(), "LATCHINPUTVALUE", PORT_IN);
+        add_port(ctx, new_cell.get(), "REFERENCECLK", PORT_IN);
+        add_port(ctx, new_cell.get(), "RESETB", PORT_IN);
+
+        add_port(ctx, new_cell.get(), "SCLK", PORT_IN);
+        add_port(ctx, new_cell.get(), "SDI", PORT_IN);
+        add_port(ctx, new_cell.get(), "SDI", PORT_OUT);
+
+        add_port(ctx, new_cell.get(), "LOCK", PORT_OUT);
+        add_port(ctx, new_cell.get(), "PLLOUT_A", PORT_OUT);
+        add_port(ctx, new_cell.get(), "PLLOUT_B", PORT_OUT);
     } else {
         log_error("unable to create iCE40 cell of type %s", type.c_str(ctx));
     }
@@ -310,6 +345,21 @@ void nxio_to_sb(Context *ctx, CellInfo *nxio, CellInfo *sbio)
                       nxio->name.c_str(ctx));
         ctx->cells.erase(tbuf->name);
     }
+}
+
+uint8_t sb_pll40_type(const BaseCtx *ctx, const CellInfo *cell)
+{
+    if (cell->type == ctx->id("SB_PLL40_PAD"))
+        return 2;
+    if (cell->type == ctx->id("SB_PLL40_2_PAD"))
+        return 4;
+    if (cell->type == ctx->id("SB_PLL40_2F_PAD"))
+        return 5;
+    if (cell->type == ctx->id("SB_PLL40_CORE"))
+        return 3;
+    if (cell->type == ctx->id("SB_PLL40_2F_CORE"))
+        return 7;
+    NPNR_ASSERT(0);
 }
 
 bool is_clock_port(const BaseCtx *ctx, const PortRef &port)

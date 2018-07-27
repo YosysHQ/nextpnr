@@ -10,5 +10,9 @@
         <file>resources/resultset_next.png</file>
         <file>resources/resultset_last.png</file>
         <file>resources/cross.png</file>
+        <file>resources/zoom_in.png</file>
+        <file>resources/zoom_out.png</file>
+        <file>resources/shape_handles.png</file>
+        <file>resources/shape_square.png</file>
     </qresource>
 </RCC>

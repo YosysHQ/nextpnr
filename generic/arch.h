@@ -31,7 +31,7 @@ struct WireInfo;
 
 struct PipInfo
 {
-    IdString name, bound_net;
+    IdString name, type, bound_net;
     WireId srcWire, dstWire;
     DelayInfo delay;
     DecalXY decalxy;
@@ -39,7 +39,7 @@ struct PipInfo
 
 struct WireInfo
 {
-    IdString name, bound_net;
+    IdString name, type, bound_net;
     std::vector<PipId> downhill, uphill, aliases;
     BelPin uphill_bel_pin;
     std::vector<BelPin> downhill_bel_pins;
@@ -96,9 +96,9 @@ struct Arch : BaseCtx
 
     float grid_distance_to_delay;
 
-    void addWire(IdString name, int x, int y);
-    void addPip(IdString name, IdString srcWire, IdString dstWire, DelayInfo delay);
-    void addAlias(IdString name, IdString srcWire, IdString dstWire, DelayInfo delay);
+    void addWire(IdString name, IdString type, int x, int y);
+    void addPip(IdString name, IdString type, IdString srcWire, IdString dstWire, DelayInfo delay);
+    void addAlias(IdString name, IdString type, IdString srcWire, IdString dstWire, DelayInfo delay);
 
     void addBel(IdString name, IdString type, Loc loc, bool gb);
     void addBelInput(IdString bel, IdString name, IdString wire);
@@ -141,7 +141,7 @@ struct Arch : BaseCtx
     IdString getBelName(BelId bel) const;
     Loc getBelLocation(BelId bel) const;
     BelId getBelByLocation(Loc loc) const;
-    std::vector<BelId> getBelsByTile(int x, int y) const;
+    const std::vector<BelId> &getBelsByTile(int x, int y) const;
     bool getBelGlobalBuf(BelId bel) const;
     uint32_t getBelChecksum(BelId bel) const;
     void bindBel(BelId bel, IdString cell, PlaceStrength strength);
@@ -157,6 +157,7 @@ struct Arch : BaseCtx
 
     WireId getWireByName(IdString name) const;
     IdString getWireName(WireId wire) const;
+    IdString getWireType(WireId wire) const;
     uint32_t getWireChecksum(WireId wire) const;
     void bindWire(WireId wire, IdString net, PlaceStrength strength);
     void unbindWire(WireId wire);
@@ -169,6 +170,7 @@ struct Arch : BaseCtx
 
     PipId getPipByName(IdString name) const;
     IdString getPipName(PipId pip) const;
+    IdString getPipType(PipId pip) const;
     uint32_t getPipChecksum(PipId pip) const;
     void bindPip(PipId pip, IdString net, PlaceStrength strength);
     void unbindPip(PipId pip);
@@ -191,13 +193,12 @@ struct Arch : BaseCtx
     const std::vector<PipId> &getGroupPips(GroupId group) const;
     const std::vector<GroupId> &getGroupGroups(GroupId group) const;
 
-    void estimatePosition(BelId bel, int &x, int &y, bool &gb) const;
     delay_t estimateDelay(WireId src, WireId dst) const;
     delay_t getDelayEpsilon() const { return 0.01; }
     delay_t getRipupDelayPenalty() const { return 1.0; }
     float getDelayNS(delay_t v) const { return v; }
     uint32_t getDelayChecksum(delay_t v) const { return 0; }
-    delay_t getBudgetOverride(const PortRef& pr, delay_t v) const;
+    delay_t getBudgetOverride(NetInfo *net_info, int user_idx, delay_t budget) const;
 
     bool pack() { return true; }
     bool place();

@@ -25,7 +25,6 @@
 #include <QSplitter>
 #include "designwidget.h"
 #include "fpgaviewwidget.h"
-#include "jsonparse.h"
 #include "log.h"
 #include "mainwindow.h"
 #include "pythontab.h"
@@ -76,7 +75,7 @@ BaseMainWindow::BaseMainWindow(std::unique_ptr<Context> context, QWidget *parent
     centralTabWidget->setTabsClosable(true);
     connect(centralTabWidget, SIGNAL(tabCloseRequested(int)), this, SLOT(closeTab(int)));
 
-    FPGAViewWidget *fpgaView = new FPGAViewWidget();
+    fpgaView = new FPGAViewWidget();
     centralTabWidget->addTab(fpgaView, "Graphics");
     centralTabWidget->tabBar()->tabButton(0, QTabBar::RightSide)->resize(0, 0);
 
@@ -161,6 +160,32 @@ void BaseMainWindow::createMenusAndBars()
     mainToolBar->addAction(actionNew);
     mainToolBar->addAction(actionOpen);
     mainToolBar->addAction(actionSave);
+}
+
+void BaseMainWindow::createGraphicsBar()
+{
+    QAction *actionZoomIn = new QAction("Zoom In", this);
+    actionZoomIn->setIcon(QIcon(":/icons/resources/zoom_in.png"));
+    connect(actionZoomIn, SIGNAL(triggered()), fpgaView, SLOT(zoomIn()));
+
+    QAction *actionZoomOut = new QAction("Zoom Out", this);
+    actionZoomOut->setIcon(QIcon(":/icons/resources/zoom_out.png"));
+    connect(actionZoomOut, SIGNAL(triggered()), fpgaView, SLOT(zoomOut()));
+
+    QAction *actionZoomSelected = new QAction("Zoom Selected", this);
+    actionZoomSelected->setIcon(QIcon(":/icons/resources/shape_handles.png"));
+    connect(actionZoomSelected, SIGNAL(triggered()), fpgaView, SLOT(zoomSelected()));
+
+    QAction *actionZoomOutbound = new QAction("Zoom Outbound", this);
+    actionZoomOutbound->setIcon(QIcon(":/icons/resources/shape_square.png"));
+    connect(actionZoomOutbound, SIGNAL(triggered()), fpgaView, SLOT(zoomOutbound()));
+
+    graphicsToolBar = new QToolBar();
+    addToolBar(Qt::TopToolBarArea, graphicsToolBar);
+    graphicsToolBar->addAction(actionZoomIn);
+    graphicsToolBar->addAction(actionZoomOut);
+    graphicsToolBar->addAction(actionZoomSelected);
+    graphicsToolBar->addAction(actionZoomOutbound);
 }
 
 NEXTPNR_NAMESPACE_END

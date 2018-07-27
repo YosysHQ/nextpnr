@@ -27,7 +27,10 @@ NEXTPNR_NAMESPACE_BEGIN
 // Assign "budget" values for all user ports in the design
 void assign_budget(Context *ctx);
 
-void update_budget(Context *ctx, std::function<delay_t(Context*,WireId,WireId)> delay_fn=&Context::estimateDelay);
+// Evenly redistribute the total path slack amongst all sinks on each path
+void update_budget(Context *ctx);
+
+void compute_fmax(Context *ctx, bool print_fmax = false, bool print_path = false);
 
 NEXTPNR_NAMESPACE_END
 

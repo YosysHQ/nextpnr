@@ -63,6 +63,7 @@ int main(int argc, char *argv[])
 #ifndef NO_GUI
         options.add_options()("gui", "start gui");
 #endif
+        options.add_options()("test", "check architecture database integrity");
 
         options.add_options()("25k", "set device type to LFE5U-25F");
         options.add_options()("45k", "set device type to LFE5U-45F");
@@ -99,18 +100,16 @@ int main(int argc, char *argv[])
         }
 
         if (vm.count("help") || argc == 1) {
-            std::cout << boost::filesystem::basename(argv[0])
-                      << " -- Next Generation Place and Route (git "
-                         "sha1 " GIT_COMMIT_HASH_STR ")\n";
+            std::cout << boost::filesystem::basename(argv[0]) << " -- Next Generation Place and Route (git "
+                                                                 "sha1 " GIT_COMMIT_HASH_STR ")\n";
             std::cout << "\n";
             std::cout << options << "\n";
             return argc != 1;
         }
 
         if (vm.count("version")) {
-            std::cout << boost::filesystem::basename(argv[0])
-                      << " -- Next Generation Place and Route (git "
-                         "sha1 " GIT_COMMIT_HASH_STR ")\n";
+            std::cout << boost::filesystem::basename(argv[0]) << " -- Next Generation Place and Route (git "
+                                                                 "sha1 " GIT_COMMIT_HASH_STR ")\n";
             return 1;
         }
 
@@ -148,6 +147,9 @@ int main(int argc, char *argv[])
         if (vm.count("no-tmdriv"))
             ctx->timing_driven = false;
 
+        if (vm.count("test"))
+            ctx->archcheck();
+
 #ifndef NO_GUI
         if (vm.count("gui")) {
             Application a(argc, argv);
@@ -165,8 +167,12 @@ int main(int argc, char *argv[])
 
             if (!ctx->pack() && !ctx->force)
                 log_error("Packing design failed.\n");
-            if (vm.count("freq"))
+            if (vm.count("freq")) {
                 ctx->target_freq = vm["freq"].as<double>() * 1e6;
+                ctx->user_freq = true;
+            } else {
+                log_warning("Target frequency not specified. Will optimise for max frequency.\n");
+            }
             assign_budget(ctx.get());
             ctx->check();
             print_utilisation(ctx.get());

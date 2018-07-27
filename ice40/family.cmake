@@ -19,13 +19,18 @@ if (MSVC)
     set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/ice40/resources/chipdb.rc PROPERTIES LANGUAGE RC)
     foreach (dev ${devices})
         set(DEV_TXT_DB ${ICEBOX_ROOT}/chipdb-${dev}.txt)
+        set(DEV_CC_BBA_DB ${CMAKE_CURRENT_SOURCE_DIR}/ice40/chipdbs/chipdb-${dev}.bba)
         set(DEV_CC_DB ${CMAKE_CURRENT_SOURCE_DIR}/ice40/chipdbs/chipdb-${dev}.bin)
         set(DEV_PORTS_INC ${CMAKE_CURRENT_SOURCE_DIR}/ice40/portpins.inc)
         set(DEV_GFXH ${CMAKE_CURRENT_SOURCE_DIR}/ice40/gfx.h)
-        add_custom_command(OUTPUT ${DEV_CC_DB}
-                COMMAND ${PYTHON_EXECUTABLE} ${DB_PY} -b -p ${DEV_PORTS_INC} -g ${DEV_GFXH} ${DEV_TXT_DB} > ${DEV_CC_DB}
+        add_custom_command(OUTPUT ${DEV_CC_BBA_DB}
+                COMMAND ${PYTHON_EXECUTABLE} ${DB_PY} -p ${DEV_PORTS_INC} -g ${DEV_GFXH} ${DEV_TXT_DB} > ${DEV_CC_BBA_DB}
                 DEPENDS ${DEV_TXT_DB} ${DB_PY}
                 )
+        add_custom_command(OUTPUT ${DEV_CC_DB}
+                COMMAND bbasm ${DEV_CC_BBA_DB} ${DEV_CC_DB}
+                DEPENDS bbasm ${DEV_CC_BBA_DB}
+        )
         target_sources(ice40_chipdb PRIVATE ${DEV_CC_DB})
         set_source_files_properties(${DEV_CC_DB} PROPERTIES HEADER_FILE_ONLY TRUE)
         foreach (target ${family_targets})
@@ -36,14 +41,20 @@ else()
     target_compile_options(ice40_chipdb PRIVATE -g0 -O0 -w)
     foreach (dev ${devices})
         set(DEV_TXT_DB ${ICEBOX_ROOT}/chipdb-${dev}.txt)
+        set(DEV_CC_BBA_DB ${CMAKE_CURRENT_SOURCE_DIR}/ice40/chipdbs/chipdb-${dev}.bba)
         set(DEV_CC_DB ${CMAKE_CURRENT_SOURCE_DIR}/ice40/chipdbs/chipdb-${dev}.cc)
         set(DEV_PORTS_INC ${CMAKE_CURRENT_SOURCE_DIR}/ice40/portpins.inc)
         set(DEV_GFXH ${CMAKE_CURRENT_SOURCE_DIR}/ice40/gfx.h)
-        add_custom_command(OUTPUT ${DEV_CC_DB}
-                COMMAND ${PYTHON_EXECUTABLE} ${DB_PY} -c -p ${DEV_PORTS_INC} -g ${DEV_GFXH} ${DEV_TXT_DB} > ${DEV_CC_DB}.new
-                COMMAND mv ${DEV_CC_DB}.new ${DEV_CC_DB}
+        add_custom_command(OUTPUT ${DEV_CC_BBA_DB}
+                COMMAND ${PYTHON_EXECUTABLE} ${DB_PY} -p ${DEV_PORTS_INC} -g ${DEV_GFXH} ${DEV_TXT_DB} > ${DEV_CC_BBA_DB}.new
+                COMMAND mv ${DEV_CC_BBA_DB}.new ${DEV_CC_BBA_DB}
                 DEPENDS ${DEV_TXT_DB} ${DB_PY}
-                )
+        )
+        add_custom_command(OUTPUT ${DEV_CC_DB}
+                COMMAND bbasm --c ${DEV_CC_BBA_DB} ${DEV_CC_DB}.new
+                COMMAND mv ${DEV_CC_DB}.new ${DEV_CC_DB}
+                DEPENDS bbasm ${DEV_CC_BBA_DB}
+        )
         target_sources(ice40_chipdb PRIVATE ${DEV_CC_DB})
         foreach (target ${family_targets})
             target_sources(${target} PRIVATE $<TARGET_OBJECTS:ice40_chipdb>)

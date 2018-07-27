@@ -50,9 +50,7 @@ class SAPlacer
     {
         int num_bel_types = 0;
         for (auto bel : ctx->getBels()) {
-            int x, y;
-            bool gb;
-            ctx->estimatePosition(bel, x, y, gb);
+            Loc loc = ctx->getBelLocation(bel);
             BelType type = ctx->getBelType(bel);
             int type_idx;
             if (bel_types.find(type) == bel_types.end()) {
@@ -63,13 +61,13 @@ class SAPlacer
             }
             if (int(fast_bels.size()) < type_idx + 1)
                 fast_bels.resize(type_idx + 1);
-            if (int(fast_bels.at(type_idx).size()) < (x + 1))
-                fast_bels.at(type_idx).resize(x + 1);
-            if (int(fast_bels.at(type_idx).at(x).size()) < (y + 1))
-                fast_bels.at(type_idx).at(x).resize(y + 1);
-            max_x = std::max(max_x, x);
-            max_y = std::max(max_y, y);
-            fast_bels.at(type_idx).at(x).at(y).push_back(bel);
+            if (int(fast_bels.at(type_idx).size()) < (loc.x + 1))
+                fast_bels.at(type_idx).resize(loc.x + 1);
+            if (int(fast_bels.at(type_idx).at(loc.x).size()) < (loc.y + 1))
+                fast_bels.at(type_idx).at(loc.x).resize(loc.y + 1);
+            max_x = std::max(max_x, loc.x);
+            max_y = std::max(max_y, loc.y);
+            fast_bels.at(type_idx).at(loc.x).at(loc.y).push_back(bel);
         }
         diameter = std::max(max_x, max_y) + 1;
     }
@@ -96,7 +94,13 @@ class SAPlacer
                 BelType bel_type = ctx->getBelType(bel);
                 if (bel_type != ctx->belTypeFromId(cell->type)) {
                     log_error("Bel \'%s\' of type \'%s\' does not match cell "
-                              "\'%s\' of type \'%s\'",
+                              "\'%s\' of type \'%s\'\n",
+                              loc_name.c_str(), ctx->belTypeToId(bel_type).c_str(ctx), cell->name.c_str(ctx),
+                              cell->type.c_str(ctx));
+                }
+                if (!ctx->isValidBelForCell(cell, bel)) {
+                    log_error("Bel \'%s\' of type \'%s\' is not valid for cell "
+                              "\'%s\' of type \'%s\'\n",
                               loc_name.c_str(), ctx->belTypeToId(bel_type).c_str(ctx), cell->name.c_str(ctx),
                               cell->type.c_str(ctx));
                 }
@@ -235,8 +239,7 @@ class SAPlacer
                 diameter *= post_legalise_dia_scale;
                 ctx->shuffle(autoplaced);
                 assign_budget(ctx);
-            }
-            else {
+            } else {
                 update_budget(ctx);
             }
 
@@ -272,6 +275,7 @@ class SAPlacer
                 }
             }
         }
+        compute_fmax(ctx, true /* print_fmax */);
         ctx->unlock();
         return true;
     }
@@ -387,8 +391,6 @@ class SAPlacer
         // SA acceptance criterea
         if (delta < 0 || (temp > 1e-6 && (ctx->rng() / float(0x3fffffff)) <= std::exp(-delta / temp))) {
             n_accept++;
-            //if (delta < 2)
-            //    improved = true;
         } else {
             if (other != IdString())
                 ctx->unbindBel(oldBel);
@@ -413,12 +415,10 @@ class SAPlacer
     BelId random_bel_for_cell(CellInfo *cell)
     {
         BelType targetType = ctx->belTypeFromId(cell->type);
-        int x, y;
-        bool gb;
-        ctx->estimatePosition(cell->bel, x, y, gb);
+        Loc curr_loc = ctx->getBelLocation(cell->bel);
         while (true) {
-            int nx = ctx->rng(2 * diameter + 1) + std::max(x - diameter, 0);
-            int ny = ctx->rng(2 * diameter + 1) + std::max(y - diameter, 0);
+            int nx = ctx->rng(2 * diameter + 1) + std::max(curr_loc.x - diameter, 0);
+            int ny = ctx->rng(2 * diameter + 1) + std::max(curr_loc.y - diameter, 0);
             int beltype_idx = bel_types.at(targetType);
             if (nx >= int(fast_bels.at(beltype_idx).size()))
                 continue;

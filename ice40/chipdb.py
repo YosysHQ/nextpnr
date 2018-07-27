@@ -6,16 +6,10 @@ import textwrap
 import argparse
 
 parser = argparse.ArgumentParser(description="convert ICE40 chip database")
-group = parser.add_mutually_exclusive_group()
-group.add_argument("-b", "--binary", action="store_true")
-group.add_argument("-c", "--c_file", action="store_true")
 parser.add_argument("filename", type=str, help="chipdb input filename")
 parser.add_argument("-p", "--portspins", type=str, help="path to portpins.inc")
 parser.add_argument("-g", "--gfxh", type=str, help="path to gfx.h")
 args = parser.parse_args()
-
-endianness = "le"
-nodebug = True
 
 dev_name = None
 dev_width = None
@@ -41,8 +35,6 @@ extra_cells = dict()
 extra_cell_config = dict()
 packages = list()
 
-wire_uphill_belport = dict()
-wire_downhill_belports = dict()
 wire_belports = dict()
 
 wire_names = dict()
@@ -183,6 +175,8 @@ def wire_type(name):
     elif name.startswith("RDATA_")  or name.startswith("WDATA_") or name.startswith("neigh_op_"):
         wt = "LOCAL"
     elif name in ("WCLK", "WCLKE", "WE", "RCLK", "RCLKE", "RE"):
+        wt = "LOCAL"
+    elif name in ("PLLOUT_A", "PLLOUT_B"):
         wt = "LOCAL"
 
     if wt is None:
@@ -451,17 +445,12 @@ for i in range(8):
     add_wire(0, 0, "padin_%d" % i)
 
 def add_bel_input(bel, wire, port):
-    if wire not in wire_downhill_belports:
-        wire_downhill_belports[wire] = set()
-    wire_downhill_belports[wire].add((bel, port))
     if wire not in wire_belports:
         wire_belports[wire] = set()
     wire_belports[wire].add((bel, port))
     bel_wires[bel].append((wire, port, 0))
 
 def add_bel_output(bel, wire, port):
-    assert wire not in wire_uphill_belport
-    wire_uphill_belport[wire] = (bel, port)
     if wire not in wire_belports:
         wire_belports[wire] = set()
     wire_belports[wire].add((bel, port))
@@ -591,6 +580,9 @@ def is_ec_output(ec_entry):
     if "glb_netwk_" in wirename: return True
     return False
 
+def is_ec_pll_clock_output(ec, ec_entry):
+    return ec[0] == 'PLL' and ec_entry[0] in ('PLLOUT_A', 'PLLOUT_B')
+
 def add_bel_ec(ec):
     ectype, x, y, z = ec
     bel = len(bel_name)
@@ -605,6 +597,10 @@ def add_bel_ec(ec):
                 add_bel_output(bel, wire_names[entry[1]], entry[0])
             else:
                 add_bel_input(bel, wire_names[entry[1]], entry[0])
+        elif is_ec_pll_clock_output(ec, entry):
+            x, y, z = entry[1]
+            z = 'io_{}/D_IN_0'.format(z)
+            add_bel_output(bel, wire_names[(x, y, z)], entry[0])
         else:
             extra_cell_config[bel].append(entry)
 
@@ -662,270 +658,61 @@ for tile_xy, tile_type in sorted(tiles.items()):
             add_bel_ec(ec)
 
 for ec in sorted(extra_cells.keys()):
-    if ec[1] == 0 and ec[2] == 0:
+    if ec[1] in (0, dev_width - 1) and ec[2] in (0, dev_height - 1):
         add_bel_ec(ec)
 
 class BinaryBlobAssembler:
-    def __init__(self, cname, endianness, nodebug = False):
-        assert endianness in ["le", "be"]
-        self.cname = cname
-        self.endianness = endianness
-        self.finalized = False
-        self.data = bytearray()
-        self.comments = dict()
-        self.labels = dict()
-        self.exports = set()
-        self.labels_byaddr = dict()
-        self.ltypes_byaddr = dict()
-        self.strings = dict()
-        self.refs = dict()
-        self.nodebug = nodebug
-
     def l(self, name, ltype = None, export = False):
-        assert not self.finalized
-        assert name not in self.labels
-        assert len(self.data) not in self.labels_byaddr
-        self.labels[name] = len(self.data)
-        if ltype is not None:
-            self.ltypes_byaddr[len(self.data)] = ltype
-        self.labels_byaddr[len(self.data)] = name
-        if export:
-            assert ltype is not None
-            self.exports.add(len(self.data))
+        if ltype is None:
+            print("label %s" % (name,))
+        else:
+            print("label %s %s" % (name, ltype))
 
     def r(self, name, comment):
-        assert not self.finalized
-        assert len(self.data) % 4 == 0
-        assert len(self.data) not in self.refs
-        if self.nodebug:
-            comment = None
-        if name is not None:
-            self.refs[len(self.data)] = (name, comment)
-        self.data.append(0)
-        self.data.append(0)
-        self.data.append(0)
-        self.data.append(0)
-        if (name is None) and (comment is not None):
-            self.comments[len(self.data)] = comment + " (null reference)"
+        if comment is None:
+            print("ref %s" % (name,))
+        else:
+            print("ref %s %s" % (name, comment))
 
     def s(self, s, comment):
-        assert not self.finalized
-        if self.nodebug:
-            comment = None
-        if s not in self.strings:
-            index = len(self.strings)
-            self.strings[s] = index
-        else:
-            index = self.strings[s]
-        if comment is not None:
-            self.r("str%d" % index, '%s: "%s"' % (comment, s))
-        else:
-            self.r("str%d" % index, None)
+        assert "|" not in s
+        print("str |%s| %s" % (s, comment))
 
     def u8(self, v, comment):
-        assert not self.finalized
-        if self.nodebug:
-            comment = None
-        self.data.append(v)
-        if comment is not None:
-            self.comments[len(self.data)] = comment
+        if comment is None:
+            print("u8 %d" % (v,))
+        else:
+            print("u8 %d %s" % (v, comment))
 
     def u16(self, v, comment):
-        assert not self.finalized
-        assert len(self.data) % 2 == 0
-        if self.nodebug:
-            comment = None
-        if self.endianness == "le":
-            self.data.append(v & 255)
-            self.data.append((v >> 8) & 255)
-        elif self.endianness == "be":
-            self.data.append((v >> 8) & 255)
-            self.data.append(v & 255)
+        if comment is None:
+            print("u16 %d" % (v,))
         else:
-            assert 0
-        if comment is not None:
-            self.comments[len(self.data)] = comment
+            print("u16 %d %s" % (v, comment))
 
     def u32(self, v, comment):
-        assert not self.finalized
-        assert len(self.data) % 4 == 0
-        if self.nodebug:
-            comment = None
-        if self.endianness == "le":
-            self.data.append(v & 255)
-            self.data.append((v >> 8) & 255)
-            self.data.append((v >> 16) & 255)
-            self.data.append((v >> 24) & 255)
-        elif self.endianness == "be":
-            self.data.append((v >> 24) & 255)
-            self.data.append((v >> 16) & 255)
-            self.data.append((v >> 8) & 255)
-            self.data.append(v & 255)
+        if comment is None:
+            print("u32 %d" % (v,))
         else:
-            assert 0
-        if comment is not None:
-            self.comments[len(self.data)] = comment
+            print("u32 %d %s" % (v, comment))
 
-    def finalize(self):
-        assert not self.finalized
-        for s, index in sorted(self.strings.items()):
-            self.l("str%d" % index, "char")
-            for c in s:
-                self.data.append(ord(c))
-            self.data.append(0)
-        self.finalized = True
-        cursor = 0
-        while cursor < len(self.data):
-            if cursor in self.refs:
-                v = self.labels[self.refs[cursor][0]] - cursor
-                if self.endianness == "le":
-                    self.data[cursor+0] = (v & 255)
-                    self.data[cursor+1] = ((v >> 8) & 255)
-                    self.data[cursor+2] = ((v >> 16) & 255)
-                    self.data[cursor+3] = ((v >> 24) & 255)
-                elif self.endianness == "be":
-                    self.data[cursor+0] = ((v >> 24) & 255)
-                    self.data[cursor+1] = ((v >> 16) & 255)
-                    self.data[cursor+2] = ((v >> 8) & 255)
-                    self.data[cursor+3] = (v & 255)
-                else:
-                    assert 0
-                cursor += 4
-            else:
-                cursor += 1
+    def pre(self, s):
+        print("pre %s" % s)
 
-    def write_verbose_c(self, f, ctype = "const unsigned char"):
-        assert self.finalized
-        print("%s %s[%d] = {" % (ctype, self.cname, len(self.data)), file=f)
-        cursor = 0
-        bytecnt = 0
-        while cursor < len(self.data):
-            if cursor in self.comments:
-                if bytecnt == 0:
-                    print(" ", end="", file=f)
-                print(" // %s" % self.comments[cursor], file=f)
-                bytecnt = 0
-            if cursor in self.labels_byaddr:
-                if bytecnt != 0:
-                    print(file=f)
-                if cursor in self.exports:
-                    print("#define %s ((%s*)(%s+%d))" % (self.labels_byaddr[cursor], self.ltypes_byaddr[cursor], self.cname, cursor), file=f)
-                else:
-                    print("  // [%d] %s" % (cursor, self.labels_byaddr[cursor]), file=f)
-                bytecnt = 0
-            if cursor in self.refs:
-                if bytecnt != 0:
-                    print(file=f)
-                print(" ", end="", file=f)
-                print(" %-4s" % ("%d," % self.data[cursor+0]), end="", file=f)
-                print(" %-4s" % ("%d," % self.data[cursor+1]), end="", file=f)
-                print(" %-4s" % ("%d," % self.data[cursor+2]), end="", file=f)
-                print(" %-4s" % ("%d," % self.data[cursor+3]), end="", file=f)
-                print(" // [%d] %s (reference to %s)" % (cursor, self.refs[cursor][1], self.refs[cursor][0]), file=f)
-                bytecnt = 0
-                cursor += 4
-            else:
-                if bytecnt == 0:
-                    print(" ", end="", file=f)
-                print(" %-4s" % ("%d," % self.data[cursor]), end=("" if bytecnt < 15 else "\n"), file=f)
-                bytecnt = (bytecnt + 1) & 15
-                cursor += 1
-        if bytecnt != 0:
-            print(file=f)
-        print("};", file=f)
+    def post(self, s):
+        print("post %s" % s)
 
-    def write_compact_c(self, f, ctype = "const unsigned char"):
-        assert self.finalized
-        print("%s %s[%d] = {" % (ctype, self.cname, len(self.data)), file=f)
-        column = 0
-        for v in self.data:
-            if column == 0:
-                print("  ", end="", file=f)
-                column += 2
-            s = "%d," % v
-            print(s, end="", file=f)
-            column += len(s)
-            if column > 75:
-                print(file=f)
-                column = 0
-        if column != 0:
-            print(file=f)
-        for cursor in self.exports:
-            print("#define %s ((%s*)(%s+%d))" % (self.labels_byaddr[cursor], self.ltypes_byaddr[cursor], self.cname, cursor), file=f)
-        print("};", file=f)
+    def push(self, name):
+        print("push %s" % name)
 
-    def write_uint64_c(self, f, ctype = "const uint64_t"):
-        assert self.finalized
-        print("%s %s[%d] = {" % (ctype, self.cname, (len(self.data)+7) // 8), file=f)
-        column = 0
-        for i in range((len(self.data)+7) // 8):
-            v0 = self.data[8*i+0] if 8*i+0 < len(self.data) else 0
-            v1 = self.data[8*i+1] if 8*i+1 < len(self.data) else 0
-            v2 = self.data[8*i+2] if 8*i+2 < len(self.data) else 0
-            v3 = self.data[8*i+3] if 8*i+3 < len(self.data) else 0
-            v4 = self.data[8*i+4] if 8*i+4 < len(self.data) else 0
-            v5 = self.data[8*i+5] if 8*i+5 < len(self.data) else 0
-            v6 = self.data[8*i+6] if 8*i+6 < len(self.data) else 0
-            v7 = self.data[8*i+7] if 8*i+7 < len(self.data) else 0
-            if self.endianness == "le":
-                v  = v0 <<  0
-                v |= v1 <<  8
-                v |= v2 << 16
-                v |= v3 << 24
-                v |= v4 << 32
-                v |= v5 << 40
-                v |= v6 << 48
-                v |= v7 << 56
-            elif self.endianness == "be":
-                v  = v7 <<  0
-                v |= v6 <<  8
-                v |= v5 << 16
-                v |= v4 << 24
-                v |= v3 << 32
-                v |= v2 << 40
-                v |= v1 << 48
-                v |= v0 << 56
-            else:
-                assert 0
-            if column == 3:
-                print(" 0x%016x," % v, file=f)
-                column = 0
-            else:
-                if column == 0:
-                    print(" ", end="", file=f)
-                print(" 0x%016x," % v, end="", file=f)
-                column += 1
-        if column != 0:
-            print("", file=f)
-        print("};", file=f)
+    def pop(self):
+        print("pop")
 
-    def write_string_c(self, f, ctype = "const char"):
-        assert self.finalized
-        assert self.data[len(self.data)-1] == 0
-        print("%s %s[%d] =" % (ctype, self.cname, len(self.data)), file=f)
-        print("  \"", end="", file=f)
-        column = 0
-        for i in range(len(self.data)-1):
-            if (self.data[i] < 32) or (self.data[i] > 126):
-                print("\\%03o" % self.data[i], end="", file=f)
-                column += 4
-            elif self.data[i] == ord('"') or self.data[i] == ord('\\'):
-                print("\\" + chr(self.data[i]), end="", file=f)
-                column += 2
-            else:
-                print(chr(self.data[i]), end="", file=f)
-                column += 1
-            if column > 70 and (i != len(self.data)-2):
-                print("\"\n  \"", end="", file=f)
-                column = 0
-        print("\";", file=f)
-
-    def write_binary(self, f):
-        assert self.finalized
-        assert self.data[len(self.data)-1] == 0
-        f.buffer.write(self.data)
-
-bba = BinaryBlobAssembler("chipdb_blob_%s" % dev_name, endianness)
+bba = BinaryBlobAssembler()
+bba.pre('#include "nextpnr.h"')
+bba.pre('NEXTPNR_NAMESPACE_BEGIN')
+bba.post('NEXTPNR_NAMESPACE_END')
+bba.push("chipdb_blob_%s" % dev_name)
 bba.r("chip_info_%s" % dev_name, "chip_info")
 
 index = 0
@@ -1001,15 +788,6 @@ for wire in range(num_wires):
         num_downhill = 0
         list_downhill = None
 
-    if wire in wire_downhill_belports:
-        num_bels_downhill = len(wire_downhill_belports[wire])
-        bba.l("wire%d_downbels" % wire, "BelPortPOD")
-        for belport in sorted(wire_downhill_belports[wire]):
-            bba.u32(belport[0], "bel_index")
-            bba.u32(portpins[belport[1]], "port")
-    else:
-        num_bels_downhill = 0
-
     if wire in wire_belports:
         num_bel_pins = len(wire_belports[wire])
         bba.l("wire%d_bels" % wire, "BelPortPOD")
@@ -1028,18 +806,8 @@ for wire in range(num_wires):
     info["num_downhill"] = num_downhill
     info["list_downhill"] = list_downhill
 
-    info["num_bels_downhill"] = num_bels_downhill
-    info["list_bels_downhill"] = ("wire%d_downbels" % wire) if num_bels_downhill > 0 else None
-
     info["num_bel_pins"] = num_bel_pins
     info["list_bel_pins"] = ("wire%d_bels" % wire) if num_bel_pins > 0 else None
-
-    if wire in wire_uphill_belport:
-        info["uphill_bel"] = wire_uphill_belport[wire][0]
-        info["uphill_pin"] = portpins[wire_uphill_belport[wire][1]]
-    else:
-        info["uphill_bel"] = -1
-        info["uphill_pin"] = 0
 
     avg_x, avg_y = 0, 0
     if wire in wire_xy:
@@ -1115,10 +883,6 @@ for wire, info in enumerate(wireinfo):
     bba.u32(info["num_downhill"], "num_downhill")
     bba.r(info["list_uphill"], "pips_uphill")
     bba.r(info["list_downhill"], "pips_downhill")
-    bba.u32(info["num_bels_downhill"], "num_bels_downhill")
-    bba.u32(info["uphill_bel"], "bel_uphill.bel_index")
-    bba.u32(info["uphill_pin"], "bel_uphill.port")
-    bba.r(info["list_bels_downhill"], "bels_downhill")
     bba.u32(info["num_bel_pins"], "num_bel_pins")
     bba.r(info["list_bel_pins"], "bel_pins")
     bba.u32(len(wire_segments[wire]), "num_segments")
@@ -1264,23 +1028,4 @@ bba.r("bits_info_%s" % dev_name, "bits_info")
 bba.r("bel_config_%s" % dev_name if len(extra_cell_config) > 0 else None, "bel_config")
 bba.r("package_info_%s" % dev_name, "packages_data")
 
-bba.finalize()
-
-if args.c_file:
-    print('#include "nextpnr.h"')
-    print('NEXTPNR_NAMESPACE_BEGIN')
-
-
-if args.binary:
-    bba.write_binary(sys.stdout)
-
-if args.c_file:
-    bba.write_string_c(sys.stdout)
-
-# bba.write_uint64_c(sys.stdout)
-# bba.write_compact_c(sys.stdout, "uint8_t")
-# bba.write_verbose_c(sys.stdout, "uint8_t")
-
-if args.c_file:
-    print('NEXTPNR_NAMESPACE_END')
-
+bba.pop()

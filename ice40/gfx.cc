@@ -24,7 +24,7 @@ NEXTPNR_NAMESPACE_BEGIN
 void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId id, GraphicElement::style_t style)
 {
     GraphicElement el;
-    el.type = GraphicElement::G_LINE;
+    el.type = GraphicElement::TYPE_LINE;
     el.style = style;
 
     // Horizontal Span-4 Wires
@@ -647,7 +647,7 @@ void pipGfx(std::vector<GraphicElement> &g, int x, int y, float x1, float y1, fl
     float ty = 0.5 * (y1 + y2);
 
     GraphicElement el;
-    el.type = GraphicElement::G_LINE;
+    el.type = GraphicElement::TYPE_ARROW;
     el.style = style;
 
     if (fabsf(x1 - swx1) < 0.001 && fabsf(x2 - swx1) < 0.001) {
@@ -701,6 +701,17 @@ void gfxTilePip(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId src,
 
     if (getWireXY_local(src, x1, y1) && getWireXY_local(dst, x2, y2))
         pipGfx(g, x, y, x1, y1, x2, y2, local_swbox_x1, local_swbox_y1, local_swbox_x2, local_swbox_y2, style);
+
+    if (src == TILE_WIRE_CARRY_IN && dst == TILE_WIRE_CARRY_IN_MUX) {
+        GraphicElement el;
+        el.type = GraphicElement::TYPE_ARROW;
+        el.style = style;
+        el.x1 = x + logic_cell_x1 + 0.005 * 3;
+        el.x2 = el.x1;
+        el.y1 = y + 0.01;
+        el.y2 = y + 0.02;
+        g.push_back(el);
+    }
 }
 
 NEXTPNR_NAMESPACE_END

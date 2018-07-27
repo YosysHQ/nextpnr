@@ -651,6 +651,11 @@ void QtTreePropertyBrowserPrivate::updateItem(QTreeWidgetItem *item)
         else
             disableItem(item);
     }
+    if (property->isSelectable()) {
+        item->setFlags(item->flags() | Qt::ItemIsSelectable);
+    } else {
+        item->setFlags(item->flags() & ~Qt::ItemIsSelectable);
+    }
     m_treeWidget->viewport()->update();
 }
 

@@ -3,6 +3,7 @@
  *
  *  Copyright (C) 2018  Clifford Wolf <clifford@symbioticeda.com>
  *  Copyright (C) 2018  David Shah <david@symbioticeda.com>
+ *  Copyright (C) 2018  Serge Bazanski <q3k@symbioticeda.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -74,14 +75,26 @@ void set_config(const TileInfoPOD &ti, std::vector<std::vector<int8_t>> &tile_cf
         for (int i = 0; i < cfg.num_bits; i++) {
             int8_t &cbit = tile_cfg.at(cfg.bits[i].row).at(cfg.bits[i].col);
             if (cbit && !value)
-                log_error("clearing already set config bit %s", name.c_str());
+                log_error("clearing already set config bit %s\n", name.c_str());
             cbit = value;
         }
     } else {
         int8_t &cbit = tile_cfg.at(cfg.bits[index].row).at(cfg.bits[index].col);
         cbit = value;
         if (cbit && !value)
-            log_error("clearing already set config bit %s[%d]", name.c_str(), index);
+            log_error("clearing already set config bit %s[%d]\n", name.c_str(), index);
+    }
+}
+
+// Set an IE_{EN,REN} logical bit in a tile config. Logical means enabled.
+// On {HX,LP}1K devices these bits are active low, so we need to invert them.
+void set_ie_bit_logical(const Context *ctx, const TileInfoPOD &ti, std::vector<std::vector<int8_t>> &tile_cfg,
+                        const std::string &name, bool value)
+{
+    if (ctx->args.type == ArchArgs::LP1K || ctx->args.type == ArchArgs::HX1K) {
+        set_config(ti, tile_cfg, name, !value);
+    } else {
+        set_config(ti, tile_cfg, name, value);
     }
 }
 
@@ -117,7 +130,7 @@ static const BelConfigPOD &get_ec_config(const ChipInfoPOD *chip, BelId bel)
 typedef std::vector<std::vector<std::vector<std::vector<int8_t>>>> chipconfig_t;
 
 static void set_ec_cbit(chipconfig_t &config, const Context *ctx, const BelConfigPOD &cell_cbits, std::string name,
-                        bool value)
+                        bool value, std::string prefix)
 {
     const ChipInfoPOD *chip = ctx->chip_info;
 
@@ -125,7 +138,7 @@ static void set_ec_cbit(chipconfig_t &config, const Context *ctx, const BelConfi
         const auto &cbit = cell_cbits.entries[i];
         if (cbit.entry_name.get() == name) {
             const auto &ti = chip->bits_info->tiles_nonrouting[tile_at(ctx, cbit.x, cbit.y)];
-            set_config(ti, config.at(cbit.y).at(cbit.x), std::string("IpConfig.") + cbit.cbit_name.get(), value);
+            set_config(ti, config.at(cbit.y).at(cbit.x), prefix + cbit.cbit_name.get(), value);
             return;
         }
     }
@@ -133,7 +146,7 @@ static void set_ec_cbit(chipconfig_t &config, const Context *ctx, const BelConfi
 }
 
 void configure_extra_cell(chipconfig_t &config, const Context *ctx, CellInfo *cell,
-                          const std::vector<std::pair<std::string, int>> &params, bool string_style)
+                          const std::vector<std::pair<std::string, int>> &params, bool string_style, std::string prefix)
 {
     const ChipInfoPOD *chip = ctx->chip_info;
     const auto &bc = get_ec_config(chip, cell->bel);
@@ -163,10 +176,10 @@ void configure_extra_cell(chipconfig_t &config, const Context *ctx, CellInfo *ce
 
         value.resize(p.second);
         if (p.second == 1) {
-            set_ec_cbit(config, ctx, bc, p.first, value.at(0));
+            set_ec_cbit(config, ctx, bc, p.first, value.at(0), prefix);
         } else {
             for (int i = 0; i < p.second; i++) {
-                set_ec_cbit(config, ctx, bc, p.first + "_" + std::to_string(i), value.at(i));
+                set_ec_cbit(config, ctx, bc, p.first + "_" + std::to_string(i), value.at(i), prefix);
             }
         }
     }
@@ -258,8 +271,13 @@ void write_asc(const Context *ctx, std::ostream &out)
             }
         }
     }
+
+    std::unordered_set<Loc> sb_io_used_by_pll;
+    std::unordered_set<Loc> sb_io_used_by_io;
+
     // Set logic cell config
     for (auto &cell : ctx->cells) {
+
         BelId bel = cell.second.get()->bel;
         if (bel == BelId()) {
             std::cout << "Found unplaced cell " << cell.first.str(ctx) << " while generating bitstream!" << std::endl;
@@ -304,6 +322,7 @@ void write_asc(const Context *ctx, std::ostream &out)
         } else if (cell.second->type == ctx->id("SB_IO")) {
             const BelInfoPOD &beli = ci.bel_data[bel.index];
             int x = beli.x, y = beli.y, z = beli.z;
+            sb_io_used_by_io.insert(Loc(x, y, z));
             const TileInfoPOD &ti = bi.tiles_nonrouting[TILE_IO];
             unsigned pin_type = get_param_or_def(cell.second.get(), ctx->id("PIN_TYPE"));
             bool neg_trigger = get_param_or_def(cell.second.get(), ctx->id("NEG_TRIGGER"));
@@ -405,7 +424,70 @@ void write_asc(const Context *ctx, std::ostream &out)
                                                                            {"MODE_8x8", 1},
                                                                            {"A_SIGNED", 1},
                                                                            {"B_SIGNED", 1}};
-            configure_extra_cell(config, ctx, cell.second.get(), mac16_params, false);
+            configure_extra_cell(config, ctx, cell.second.get(), mac16_params, false, std::string("IpConfig."));
+        } else if (cell.second->type == ctx->id("ICESTORM_PLL")) {
+            const std::vector<std::pair<std::string, int>> pll_params = {{"DELAY_ADJMODE_FB", 1},
+                                                                         {"DELAY_ADJMODE_REL", 1},
+                                                                         {"DIVF", 7},
+                                                                         {"DIVQ", 3},
+                                                                         {"DIVR", 4},
+                                                                         {"FDA_FEEDBACK", 4},
+                                                                         {"FDA_RELATIVE", 4},
+                                                                         {"FEEDBACK_PATH", 3},
+                                                                         {"FILTER_RANGE", 3},
+                                                                         {"PLLOUT_SELECT_A", 2},
+                                                                         {"PLLOUT_SELECT_B", 2},
+                                                                         {"PLLTYPE", 3},
+                                                                         {"SHIFTREG_DIV_MODE", 1},
+                                                                         {"TEST_MODE", 1}};
+            configure_extra_cell(config, ctx, cell.second.get(), pll_params, false, std::string("PLL."));
+
+            // Configure the SB_IOs that the clock outputs are going through.
+            for (auto &port : cell.second->ports) {
+                // If this port is not a PLLOUT port, ignore it.
+                if (port.second.name != ctx->id("PLLOUT_A") && port.second.name != ctx->id("PLLOUT_B"))
+                    continue;
+
+                // If the output is not driving any net, ignore it.
+                if (port.second.net == nullptr)
+                    continue;
+
+                // Get IO Bel that this PLL port goes through by finding sibling
+                // Bel driving the same wire via PIN_D_IN_0.
+                auto wire = ctx->getBelPinWire(cell.second->bel, ctx->portPinFromId(port.second.name));
+                BelId io_bel;
+                for (auto pin : ctx->getWireBelPins(wire)) {
+                    if (pin.pin == PIN_D_IN_0) {
+                        io_bel = pin.bel;
+                        break;
+                    }
+                }
+                NPNR_ASSERT(io_bel.index != -1);
+                auto io_bel_loc = ctx->getBelLocation(io_bel);
+
+                // Check that this SB_IO is either unused or just used as an output.
+                if (sb_io_used_by_io.count(io_bel_loc)) {
+                    log_error("SB_IO '%s' already in use, cannot route PLL through\n", ctx->getBelName(bel).c_str(ctx));
+                }
+                sb_io_used_by_pll.insert(io_bel_loc);
+
+                // Get IE/REN config location (cf. http://www.clifford.at/icestorm/io_tile.html)
+                auto ieren = get_ieren(bi, io_bel_loc.x, io_bel_loc.y, io_bel_loc.z);
+                int iex, iey, iez;
+                std::tie(iex, iey, iez) = ieren;
+                NPNR_ASSERT(iez != -1);
+
+                // Write config.
+                const TileInfoPOD &ti = bi.tiles_nonrouting[TILE_IO];
+                // Enable input buffer and disable pull-up resistor in block
+                // (this is used by the PLL).
+                set_ie_bit_logical(ctx, ti, config.at(iey).at(iex), "IoCtrl.IE_" + std::to_string(iez), true);
+                set_ie_bit_logical(ctx, ti, config.at(iey).at(iex), "IoCtrl.REN_" + std::to_string(iez), false);
+                // PINTYPE[0] passes the PLL through to the fabric.
+                set_config(ti, config.at(io_bel_loc.y).at(io_bel_loc.x),
+                           "IOB_" + std::to_string(io_bel_loc.z) + ".PINTYPE_0", true);
+            }
+
         } else {
             NPNR_ASSERT(false);
         }
@@ -416,14 +498,16 @@ void write_asc(const Context *ctx, std::ostream &out)
             const TileInfoPOD &ti = bi.tiles_nonrouting[TILE_IO];
             const BelInfoPOD &beli = ci.bel_data[bel.index];
             int x = beli.x, y = beli.y, z = beli.z;
+            if (sb_io_used_by_pll.count(Loc(x, y, z))) {
+                continue;
+            }
+
             auto ieren = get_ieren(bi, x, y, z);
             int iex, iey, iez;
             std::tie(iex, iey, iez) = ieren;
             if (iez != -1) {
-                if (ctx->args.type == ArchArgs::LP1K || ctx->args.type == ArchArgs::HX1K) {
-                    set_config(ti, config.at(iey).at(iex), "IoCtrl.IE_" + std::to_string(iez), true);
-                    set_config(ti, config.at(iey).at(iex), "IoCtrl.REN_" + std::to_string(iez), false);
-                }
+                set_ie_bit_logical(ctx, ti, config.at(iey).at(iex), "IoCtrl.IE_" + std::to_string(iez), true);
+                set_ie_bit_logical(ctx, ti, config.at(iey).at(iex), "IoCtrl.REN_" + std::to_string(iez), false);
             }
         } else if (ctx->bel_to_cell[bel.index] == IdString() && ctx->getBelType(bel) == TYPE_ICESTORM_RAM) {
             const BelInfoPOD &beli = ci.bel_data[bel.index];
@@ -482,9 +566,8 @@ void write_asc(const Context *ctx, std::ostream &out)
                             set_config(ti, config.at(y).at(x),
                                        "Cascade.IPCON_LC0" + std::to_string(lc_idx) + "_inmux02_5", true);
                         else
-                            set_config(ti, config.at(y).at(x),
-                                       "Cascade.MULT" + std::to_string(int(tile - TILE_DSP0)) + "_LC0" +
-                                               std::to_string(lc_idx) + "_inmux02_5",
+                            set_config(ti, config.at(y).at(x), "Cascade.MULT" + std::to_string(int(tile - TILE_DSP0)) +
+                                                                       "_LC0" + std::to_string(lc_idx) + "_inmux02_5",
                                        true);
                     }
                 }

@@ -3,6 +3,7 @@
  *
  *  Copyright (C) 2018  Clifford Wolf <clifford@symbioticeda.com>
  *  Copyright (C) 2018  David Shah <david@symbioticeda.com>
+ *  Copyright (C) 2018  Serge Bazanski <q3k@symbioticeda.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -71,7 +72,8 @@ bool Arch::isBelLocationValid(BelId bel) const
 {
     if (getBelType(bel) == TYPE_ICESTORM_LC) {
         std::vector<const CellInfo *> bel_cells;
-        for (auto bel_other : getBelsAtSameTile(bel)) {
+        Loc bel_loc = getBelLocation(bel);
+        for (auto bel_other : getBelsByTile(bel_loc.x, bel_loc.y)) {
             IdString cell_other = getBoundBelCell(bel_other);
             if (cell_other != IdString()) {
                 const CellInfo *ci_other = cells.at(cell_other).get();
@@ -94,8 +96,8 @@ bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const
         NPNR_ASSERT(getBelType(bel) == TYPE_ICESTORM_LC);
 
         std::vector<const CellInfo *> bel_cells;
-
-        for (auto bel_other : getBelsAtSameTile(bel)) {
+        Loc bel_loc = getBelLocation(bel);
+        for (auto bel_other : getBelsByTile(bel_loc.x, bel_loc.y)) {
             IdString cell_other = getBoundBelCell(bel_other);
             if (cell_other != IdString() && bel_other != bel) {
                 const CellInfo *ci_other = cells.at(cell_other).get();
@@ -106,6 +108,36 @@ bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const
         bel_cells.push_back(cell);
         return logicCellsCompatible(bel_cells);
     } else if (cell->type == id_sb_io) {
+        // Do not allow placement of input SB_IOs on blocks where there a PLL is outputting to.
+
+        // Find shared PLL by looking for driving bel siblings from D_IN_0
+        // that are a PLL clock output.
+        auto wire = getBelPinWire(bel, PIN_D_IN_0);
+        PortPin pll_bel_pin;
+        BelId pll_bel;
+        for (auto pin : getWireBelPins(wire)) {
+            if (pin.pin == PIN_PLLOUT_A || pin.pin == PIN_PLLOUT_B) {
+                pll_bel = pin.bel;
+                pll_bel_pin = pin.pin;
+                break;
+            }
+        }
+        // Is there a PLL that shares this IO buffer?
+        if (pll_bel.index != -1) {
+            auto pll_cell = getBoundBelCell(pll_bel);
+            // Is a PLL placed in this PLL bel?
+            if (pll_cell != IdString()) {
+                // Is the shared port driving a net?
+                auto pi = cells.at(pll_cell)->ports[portPinToId(pll_bel_pin)];
+                if (pi.net != nullptr) {
+                    // Are we perhaps a PAD INPUT Bel that can be placed here?
+                    if (cells.at(pll_cell)->attrs[id("BEL_PAD_INPUT")] == getBelName(bel).str(this)) {
+                        return true;
+                    }
+                    return false;
+                }
+            }
+        }
         return getBelPackagePin(bel) != "";
     } else if (cell->type == id_sb_gb) {
         NPNR_ASSERT(cell->ports.at(id_glb_buf_out).net != nullptr);

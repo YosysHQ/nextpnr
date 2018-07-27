@@ -192,17 +192,20 @@ BelId Arch::getBelByName(IdString name) const
     return ret;
 }
 
-BelRange Arch::getBelsAtSameTile(BelId bel) const
+BelRange Arch::getBelsByTile(int x, int y) const
 {
     BelRange br;
-    NPNR_ASSERT(bel != BelId());
-    br.b.cursor_tile = bel.location.y * chip_info->width + bel.location.x;
-    br.e.cursor_tile = bel.location.y * chip_info->width + bel.location.x;
+
+    br.b.cursor_tile = y * chip_info->width + x;
+    br.e.cursor_tile = y * chip_info->width + x;
     br.b.cursor_index = 0;
-    br.e.cursor_index = locInfo(bel)->num_bels - 1;
+    br.e.cursor_index = chip_info->locations[chip_info->location_type[br.b.cursor_tile]].num_bels - 1;
     br.b.chip = chip_info;
     br.e.chip = chip_info;
-    ++br.e;
+    if (br.e.cursor_index == -1)
+        ++br.e.cursor_index;
+    else
+        ++br.e;
     return br;
 }
 
@@ -278,6 +281,7 @@ PipId Arch::getPipByName(IdString name) const
     Location loc;
     std::string basename;
     std::tie(loc.x, loc.y, basename) = split_identifier_name(name.str(this));
+    ret.location = loc;
     const LocationTypePOD *loci = locInfo(ret);
     for (int i = 0; i < loci->num_pips; i++) {
         PipId curr;
@@ -285,6 +289,8 @@ PipId Arch::getPipByName(IdString name) const
         curr.index = i;
         pip_by_name[getPipName(curr)] = curr;
     }
+    if (pip_by_name.find(name) == pip_by_name.end())
+        NPNR_ASSERT_FALSE_STR("no pip named " + name.str(this));
     return pip_by_name[name];
 }
 
@@ -322,11 +328,50 @@ BelId Arch::getPackagePinBel(const std::string &pin) const
 std::string Arch::getBelPackagePin(BelId bel) const
 {
     for (int i = 0; i < package_info->num_pins; i++) {
-        if (package_info->pin_data[i].abs_loc == bel.location && package_info->pin_data[i].bel_index == bel.index) {
+        if (Location(package_info->pin_data[i].abs_loc) == bel.location &&
+            package_info->pin_data[i].bel_index == bel.index) {
             return package_info->pin_data[i].name.get();
         }
     }
     return "";
+}
+
+int Arch::getPioBelBank(BelId bel) const
+{
+    for (int i = 0; i < chip_info->num_pios; i++) {
+        if (Location(chip_info->pio_info[i].abs_loc) == bel.location && chip_info->pio_info[i].bel_index == bel.index) {
+            return chip_info->pio_info[i].bank;
+        }
+    }
+    NPNR_ASSERT_FALSE("failed to find PIO");
+}
+
+std::string Arch::getPioFunctionName(BelId bel) const
+{
+    for (int i = 0; i < chip_info->num_pios; i++) {
+        if (Location(chip_info->pio_info[i].abs_loc) == bel.location && chip_info->pio_info[i].bel_index == bel.index) {
+            const char *func = chip_info->pio_info[i].function_name.get();
+            if (func == nullptr)
+                return "";
+            else
+                return func;
+        }
+    }
+    NPNR_ASSERT_FALSE("failed to find PIO");
+}
+
+BelId Arch::getPioByFunctionName(const std::string &name) const
+{
+    for (int i = 0; i < chip_info->num_pios; i++) {
+        const char *func = chip_info->pio_info[i].function_name.get();
+        if (func != nullptr && func == name) {
+            BelId bel;
+            bel.location = chip_info->pio_info[i].abs_loc;
+            bel.index = chip_info->pio_info[i].bel_index;
+            return bel;
+        }
+    }
+    return BelId();
 }
 
 std::vector<PortPin> Arch::getBelPins(BelId bel) const
@@ -361,45 +406,14 @@ BelId Arch::getBelByLocation(Loc loc) const
     return BelId();
 }
 
-BelRange Arch::getBelsByTile(int x, int y) const
-{
-    BelRange br;
-
-    int num_bels = 0;
-
-    if (x < chip_info->width && y < chip_info->height) {
-        const LocationTypePOD &locI = chip_info->locations[chip_info->location_type[y * chip_info->width + x]];
-        num_bels = locI.num_bels;
-    }
-
-    br.b.cursor_tile = y * chip_info->width + x;
-    br.e.cursor_tile = y * chip_info->width + x;
-    br.b.cursor_index = 0;
-    br.e.cursor_index = num_bels - 1;
-    br.b.chip = chip_info;
-    br.e.chip = chip_info;
-    ++br.e;
-    return br;
-}
-
 // -----------------------------------------------------------------------
-
-void Arch::estimatePosition(BelId bel, int &x, int &y, bool &gb) const
-{
-    x = bel.location.x;
-    y = bel.location.y;
-    gb = false;
-}
 
 delay_t Arch::estimateDelay(WireId src, WireId dst) const
 {
     return 200 * (abs(src.location.x - dst.location.x) + abs(src.location.y - dst.location.y));
 }
 
-delay_t Arch::getBudgetOverride(const PortRef& pr, delay_t v) const
-{
-    return v;
-}
+delay_t Arch::getBudgetOverride(NetInfo *net_info, int user_idx, delay_t budget) const { return budget; }
 
 // -----------------------------------------------------------------------
 

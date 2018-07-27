@@ -83,10 +83,6 @@ NPNR_PACKED_STRUCT(struct WireInfoPOD {
     int32_t num_uphill, num_downhill;
     RelPtr<int32_t> pips_uphill, pips_downhill;
 
-    int32_t num_bels_downhill;
-    BelPortPOD bel_uphill;
-    RelPtr<BelPortPOD> bels_downhill;
-
     int32_t num_bel_pins;
     RelPtr<BelPortPOD> bel_pins;
 
@@ -453,8 +449,6 @@ struct Arch : BaseCtx
 
     bool getBelGlobalBuf(BelId bel) const { return chip_info->bel_data[bel.index].type == TYPE_SB_GB; }
 
-    BelRange getBelsAtSameTile(BelId bel) const NPNR_DEPRECATED;
-
     BelType getBelType(BelId bel) const
     {
         NPNR_ASSERT(bel != BelId());
@@ -474,6 +468,8 @@ struct Arch : BaseCtx
         NPNR_ASSERT(wire != WireId());
         return id(chip_info->wire_data[wire.index].name.get());
     }
+
+    IdString getWireType(WireId wire) const { return IdString(); }
 
     uint32_t getWireChecksum(WireId wire) const { return wire.index; }
 
@@ -617,6 +613,8 @@ struct Arch : BaseCtx
 
     IdString getPipName(PipId pip) const;
 
+    IdString getPipType(PipId pip) const { return IdString(); }
+
     uint32_t getPipChecksum(PipId pip) const { return pip.index; }
 
     WireId getPipSrcWire(PipId pip) const
@@ -685,13 +683,12 @@ struct Arch : BaseCtx
 
     // -------------------------------------------------
 
-    void estimatePosition(BelId bel, int &x, int &y, bool &gb) const NPNR_DEPRECATED;
     delay_t estimateDelay(WireId src, WireId dst) const;
     delay_t getDelayEpsilon() const { return 20; }
     delay_t getRipupDelayPenalty() const { return 200; }
     float getDelayNS(delay_t v) const { return v * 0.001; }
     uint32_t getDelayChecksum(delay_t v) const { return v; }
-    delay_t getBudgetOverride(const PortRef& pr, delay_t v) const;
+    delay_t getBudgetOverride(NetInfo *net_info, int user_idx, delay_t budget) const;
 
     // -------------------------------------------------
 
@@ -747,6 +744,21 @@ struct Arch : BaseCtx
     IdString id_cen, id_clk, id_sr;
     IdString id_i0, id_i1, id_i2, id_i3;
     IdString id_dff_en, id_neg_clk;
+    IdString id_cin, id_cout;
+    IdString id_o, id_lo;
+    IdString id_icestorm_ram, id_rclk, id_wclk;
+
+    // -------------------------------------------------
+    BelPin getIOBSharingPLLPin(BelId pll, PortPin pll_pin) const
+    {
+        auto wire = getBelPinWire(pll, pll_pin);
+        for (auto src_bel : getWireBelPins(wire)) {
+            if (getBelType(src_bel.bel) == TYPE_SB_IO && src_bel.pin == PIN_D_IN_0) {
+                return src_bel;
+            }
+        }
+        NPNR_ASSERT_FALSE("Expected PLL pin to share an output with an SB_IO D_IN_{0,1}");
+    }
 };
 
 NEXTPNR_NAMESPACE_END

@@ -98,7 +98,7 @@ NPNR_PACKED_STRUCT(struct LocationTypePOD {
 });
 
 NPNR_PACKED_STRUCT(struct PIOInfoPOD {
-    Location abs_loc;
+    LocationPOD abs_loc;
     int32_t bel_index;
     RelPtr<char> function_name;
     int16_t bank;
@@ -107,7 +107,7 @@ NPNR_PACKED_STRUCT(struct PIOInfoPOD {
 
 NPNR_PACKED_STRUCT(struct PackagePinPOD {
     RelPtr<char> name;
-    Location abs_loc;
+    LocationPOD abs_loc;
     int32_t bel_index;
 });
 
@@ -117,6 +117,26 @@ NPNR_PACKED_STRUCT(struct PackageInfoPOD {
     RelPtr<PackagePinPOD> pin_data;
 });
 
+enum TapDirection : int8_t
+{
+    TAP_DIR_LEFT = 0,
+    TAP_DIR_RIGHT = 1
+};
+
+enum GlobalQuadrant : int8_t
+{
+    QUAD_UL = 0,
+    QUAD_UR = 1,
+    QUAD_LL = 2,
+    QUAD_LR = 3,
+};
+
+NPNR_PACKED_STRUCT(struct GlobalInfoPOD {
+    int16_t tap_col;
+    TapDirection tap_dir;
+    GlobalQuadrant quad;
+});
+
 NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     int32_t width, height;
     int32_t num_tiles;
@@ -124,6 +144,7 @@ NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     int32_t num_packages, num_pios;
     RelPtr<LocationTypePOD> locations;
     RelPtr<int32_t> location_type;
+    RelPtr<GlobalInfoPOD> location_glbinfo;
     RelPtr<RelPtr<char>> tiletype_names;
     RelPtr<PackageInfoPOD> package_info;
     RelPtr<PIOInfoPOD> pio_info;
@@ -482,8 +503,6 @@ struct Arch : BaseCtx
         return range;
     }
 
-    BelRange getBelsAtSameTile(BelId bel) const;
-
     BelType getBelType(BelId bel) const
     {
         NPNR_ASSERT(bel != BelId());
@@ -518,6 +537,8 @@ struct Arch : BaseCtx
              << locInfo(wire)->wire_data[wire.index].name.get();
         return id(name.str());
     }
+
+    IdString getWireType(WireId wire) const { return IdString(); }
 
     uint32_t getWireChecksum(WireId wire) const { return wire.index; }
 
@@ -596,6 +617,8 @@ struct Arch : BaseCtx
 
     PipId getPipByName(IdString name) const;
     IdString getPipName(PipId pip) const;
+
+    IdString getPipType(PipId pip) const { return IdString(); }
 
     uint32_t getPipChecksum(PipId pip) const { return pip.index; }
 
@@ -729,10 +752,14 @@ struct Arch : BaseCtx
         return chip_info->tiletype_names[locInfo(pip)->pip_data[pip.index].tile_type].get();
     }
 
-    int8_t getPipType(PipId pip) const { return locInfo(pip)->pip_data[pip.index].pip_type; }
+    int8_t getPipClass(PipId pip) const { return locInfo(pip)->pip_data[pip.index].pip_type; }
 
     BelId getPackagePinBel(const std::string &pin) const;
     std::string getBelPackagePin(BelId bel) const;
+    int getPioBelBank(BelId bel) const;
+    // For getting GCLK, PLL, Vref, etc, pins
+    std::string getPioFunctionName(BelId bel) const;
+    BelId getPioByFunctionName(const std::string &name) const;
 
     PortType getBelPinType(BelId bel, PortPin pin) const;
 
@@ -748,13 +775,12 @@ struct Arch : BaseCtx
 
     // -------------------------------------------------
 
-    void estimatePosition(BelId bel, int &x, int &y, bool &gb) const;
     delay_t estimateDelay(WireId src, WireId dst) const;
     delay_t getDelayEpsilon() const { return 20; }
     delay_t getRipupDelayPenalty() const { return 200; }
     float getDelayNS(delay_t v) const { return v * 0.001; }
     uint32_t getDelayChecksum(delay_t v) const { return v; }
-    delay_t getBudgetOverride(const PortRef& pr, delay_t v) const;
+    delay_t getBudgetOverride(NetInfo *net_info, int user_idx, delay_t budget) const;
 
     // -------------------------------------------------
 

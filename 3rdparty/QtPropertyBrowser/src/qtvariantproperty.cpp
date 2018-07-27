@@ -1339,6 +1339,7 @@ void addPropertyRecusively(QtVariantPropertyManager * manager,
   newProp->setWhatsThis(prop->whatsThis());
   newProp->setModified(prop->isModified());
   newProp->setEnabled(prop->isEnabled());
+  newProp->setSelectable(prop->isSelectable());
   newProp->setValue(prop->value());
 
   foreach(QtProperty * subProp, prop->subProperties())
