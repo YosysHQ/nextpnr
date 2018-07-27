@@ -175,16 +175,7 @@ void assign_budget(Context *ctx)
 void update_budget(Context *ctx)
 {
     UpdateMap updates;
-    delay_t default_slack = delay_t(1.0e12 / ctx->target_freq);
     delay_t min_slack = compute_min_slack(ctx, &updates, nullptr);
-
-    // If user has not specified a frequency, adjust the frequency dynamically:
-    if (!ctx->user_freq) {
-        ctx->target_freq = 1e12 / (default_slack - min_slack);
-        if (ctx->verbose)
-            log_info("minimum slack for this update = %d, target Fmax for next update = %.2f MHz\n", min_slack,
-                     ctx->target_freq / 1e6);
-    }
 
     // Update the budgets
     for (auto &net : ctx->nets) {
@@ -210,6 +201,15 @@ void update_budget(Context *ctx)
                              ctx->getDelayNS(user.budget));
             }
         }
+    }
+
+    // If user has not specified a frequency, adjust the frequency dynamically:
+    if (!ctx->user_freq) {
+        delay_t default_slack = delay_t(1.0e12 / ctx->target_freq);
+        ctx->target_freq = 1e12 / (default_slack - min_slack);
+        if (ctx->verbose)
+            log_info("minimum slack for this update = %d, target Fmax for next update = %.2f MHz\n", min_slack,
+                     ctx->target_freq / 1e6);
     }
 }
 
