@@ -587,11 +587,18 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
     return xscale * abs(xd) + yscale * abs(yd) + offset;
 }
 
-delay_t Arch::getBudgetOverride(const PortRef &pr, delay_t v) const
+delay_t Arch::getBudgetOverride(NetInfo *net_info, int user_idx, delay_t budget) const
 {
-    if (pr.port == id("COUT"))
-        return 0;
-    return v;
+    const auto& driver = net_info->driver;
+    if (driver.port == id_cout) {
+        const auto& sink = net_info->users[user_idx];
+        auto driver_loc = getBelLocation(driver.cell->bel);
+        auto sink_loc = getBelLocation(sink.cell->bel);
+        if (driver_loc.y == sink_loc.y)
+            return 0;
+        return 250;
+    }
+    return budget;
 }
 
 // -----------------------------------------------------------------------
