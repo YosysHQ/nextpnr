@@ -26,14 +26,16 @@
 NEXTPNR_NAMESPACE_BEGIN
 
 // A node of a QuadTree. Internal.
-template <typename CoordinateT, typename ElementT>
-class QuadTreeNode
+template <typename CoordinateT, typename ElementT> class QuadTreeNode
 {
   public:
-    class BoundingBox {
-      friend class QuadTreeNode;
+    class BoundingBox
+    {
+        friend class QuadTreeNode;
+
       private:
         CoordinateT x0_, x1_, y0_, y1_;
+
       public:
         // Standard constructor for a given (x0,y0), (x1,y1) bounding box
         //
@@ -41,11 +43,11 @@ class QuadTreeNode
         // @param y0 y coordinate of top-left corner of box
         // @param x1 x coordinate of bottom-right corner of box
         // @param y1 y coordinate of bottom-right corner of box
-        BoundingBox(CoordinateT x0, CoordinateT y0, CoordinateT x1, CoordinateT y1) :
-                x0_(x0), x1_(x1), y0_(y0), y1_(y1) {}
+        BoundingBox(CoordinateT x0, CoordinateT y0, CoordinateT x1, CoordinateT y1) : x0_(x0), x1_(x1), y0_(y0), y1_(y1)
+        {
+        }
 
-        BoundingBox(const BoundingBox &other) :
-                x0_(other.x0_), x1_(other.x1_), y0_(other.y0_), y1_(other.y1_) {}
+        BoundingBox(const BoundingBox &other) : x0_(other.x0_), x1_(other.x1_), y0_(other.y0_), y1_(other.y1_) {}
 
         // Whether a bounding box contains a given points.
         // A point is defined to be in a bounding box when it's not lesser than
@@ -74,14 +76,16 @@ class QuadTreeNode
 
   private:
     // A pair of Element and BoundingBox that contains it.
-    class BoundElement {
-      friend class QuadTreeNode;
+    class BoundElement
+    {
+        friend class QuadTreeNode;
+
       private:
         BoundingBox bb_;
         ElementT elem_;
+
       public:
-        BoundElement(BoundingBox bb, ElementT elem) :
-                bb_(bb), elem_(elem) {}
+        BoundElement(BoundingBox bb, ElementT elem) : bb_(bb), elem_(elem) {}
     };
 
     // The bounding box that this node describes.
@@ -103,7 +107,7 @@ class QuadTreeNode
     // Depth at which this node is - root is at 0, first level at 1, etc.
     int depth_;
 
-    // Checks whether a given bounding box fits within this node - used for 
+    // Checks whether a given bounding box fits within this node - used for
     // sanity checking on insertion.
     // @param b bounding box to check
     // @returns whether b fits in this node entirely
@@ -124,7 +128,8 @@ class QuadTreeNode
     // Used to describe one of 5 possible places an element can exist:
     //  - the node itself (THIS)
     //  - any of the 4 children nodes.
-    enum Quadrant {
+    enum Quadrant
+    {
         THIS = -1,
         NW = 0,
         NE = 1,
@@ -175,23 +180,19 @@ class QuadTreeNode
         return true;
     }
 
-
   public:
     // Standard constructor for node.
     // @param b BoundingBox this node covers.
     // @param depth depth at which this node is in the tree
     // @max_elems how many elements should this node contain before it splits
-    QuadTreeNode(BoundingBox b, int depth, size_t max_elems = 4) :
-            bound_(b), max_elems_(max_elems), depth_(depth)
-    {
-    }
+    QuadTreeNode(BoundingBox b, int depth, size_t max_elems = 4) : bound_(b), max_elems_(max_elems), depth_(depth) {}
     // Disallow copies.
     QuadTreeNode(const QuadTreeNode &other) = delete;
     QuadTreeNode &operator=(const QuadTreeNode &other) = delete;
     // Allow moves.
-    QuadTreeNode(QuadTreeNode &&other) :
-            bound_(other.bound_), max_elems_(other.max_elems_), children_(std::move(other.children_)),
-            splitx_(other.splitx_), splity_(other.splity_), elems_(std::move(other.elems_)), depth_(other.depth_)
+    QuadTreeNode(QuadTreeNode &&other)
+            : bound_(other.bound_), max_elems_(other.max_elems_), children_(std::move(other.children_)),
+              splitx_(other.splitx_), splity_(other.splity_), elems_(std::move(other.elems_)), depth_(other.depth_)
     {
         other.children_ = nullptr;
     }
@@ -221,14 +222,14 @@ class QuadTreeNode
 
         // Do we have children?
         if (children_ != nullptr) {
-           // Put the element either recursively into a child if it fits
-           // entirely or keep it for ourselves if not.
-           auto quad = quadrant(k);
-           if (quad == THIS) {
-               elems_.push_back(BoundElement(k, std::move(v)));
-           } else {
-               return children_[quad].insert(k, std::move(v));
-           }
+            // Put the element either recursively into a child if it fits
+            // entirely or keep it for ourselves if not.
+            auto quad = quadrant(k);
+            if (quad == THIS) {
+                elems_.push_back(BoundElement(k, std::move(v)));
+            } else {
+                return children_[quad].insert(k, std::move(v));
+            }
         } else {
             // No children and not about to have any.
             if (!should_split()) {
@@ -242,10 +243,17 @@ class QuadTreeNode
             children_ = decltype(children_)(new QuadTreeNode<CoordinateT, ElementT>[4] {
                 // Note: not using [NW] = QuadTreeNode because that seems to
                 //       crash g++ 7.3.0.
-                /* NW */ QuadTreeNode<CoordinateT, ElementT>(BoundingBox(bound_.x0_, bound_.y0_, splitx_, splity_), depth_+1, max_elems_),
-                /* NE */ QuadTreeNode<CoordinateT, ElementT>(BoundingBox(splitx_, bound_.y0_, bound_.x1_, splity_), depth_+1, max_elems_),
-                /* SW */ QuadTreeNode<CoordinateT, ElementT>(BoundingBox(bound_.x0_, splity_, splitx_, bound_.y1_), depth_+1, max_elems_),
-                /* SE */ QuadTreeNode<CoordinateT, ElementT>(BoundingBox(splitx_, splity_, bound_.x1_, bound_.y1_), depth_+1, max_elems_),
+                /* NW */ QuadTreeNode<CoordinateT, ElementT>(BoundingBox(bound_.x0_, bound_.y0_, splitx_, splity_),
+                                                             depth_ + 1, max_elems_),
+                        /* NE */
+                        QuadTreeNode<CoordinateT, ElementT>(BoundingBox(splitx_, bound_.y0_, bound_.x1_, splity_),
+                                                            depth_ + 1, max_elems_),
+                        /* SW */
+                        QuadTreeNode<CoordinateT, ElementT>(BoundingBox(bound_.x0_, splity_, splitx_, bound_.y1_),
+                                                            depth_ + 1, max_elems_),
+                        /* SE */
+                        QuadTreeNode<CoordinateT, ElementT>(BoundingBox(splitx_, splity_, bound_.x1_, bound_.y1_),
+                                                            depth_ + 1, max_elems_),
             });
             // Move all elements to where they belong.
             auto it = elems_.begin();
@@ -271,20 +279,23 @@ class QuadTreeNode
     // Dump a human-readable representation of the tree to stdout.
     void dump(int level) const
     {
-        for (int i = 0; i < level; i++) printf("  ");
+        for (int i = 0; i < level; i++)
+            printf("  ");
         printf("loc: % 3d % 3d % 3d % 3d\n", bound_.x0_, bound_.y0_, bound_.x1_, bound_.y1_);
         if (elems_.size() != 0) {
-            for (int i = 0; i < level; i++) printf("  ");
+            for (int i = 0; i < level; i++)
+                printf("  ");
             printf("elems: %zu\n", elems_.size());
         }
 
         if (children_ != nullptr) {
-            for (int i = 0; i < level; i++) printf("  ");
+            for (int i = 0; i < level; i++)
+                printf("  ");
             printf("children:\n");
-            children_[NW].dump(level+1);
-            children_[NE].dump(level+1);
-            children_[SW].dump(level+1);
-            children_[SE].dump(level+1);
+            children_[NW].dump(level + 1);
+            children_[NE].dump(level + 1);
+            children_[SW].dump(level + 1);
+            children_[SE].dump(level + 1);
         }
     }
 
@@ -331,8 +342,7 @@ class QuadTreeNode
 //
 // @param CoodinateT scalar type of the coordinate system - int, float, ...
 // @param ElementT type of the contained element. Must be movable or copiable.
-template <typename CoordinateT, typename ElementT>
-class QuadTree
+template <typename CoordinateT, typename ElementT> class QuadTree
 {
   private:
     // Root of the tree.
@@ -348,10 +358,7 @@ class QuadTree
     //
     // @param b Bounding box of the entire tree - all comitted elements must
     //          fit within in.
-    QuadTree(BoundingBox b) :
-       root_(b, 0)
-    {
-    }
+    QuadTree(BoundingBox b) : root_(b, 0) {}
 
     // Inserts a new value at a given bounding box.e
     // BoundingBoxes are not deduplicated - if two are pushed with the same
@@ -367,17 +374,11 @@ class QuadTree
     }
 
     // Dump a human-readable representation of the tree to stdout.
-    void dump() const
-    {
-        root_.dump(0);
-    }
+    void dump() const { root_.dump(0); }
 
     // Return count of BoundingBoxes/Elements contained.
     // @returns count of elements contained.
-    size_t size() const
-    {
-        return root_.size();
-    }
+    size_t size() const { return root_.size(); }
 
     // Retrieve elements whose bounding boxes cover the given coordinates.
     //

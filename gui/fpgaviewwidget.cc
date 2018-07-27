@@ -31,11 +31,9 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-FPGAViewWidget::FPGAViewWidget(QWidget *parent) :
-        QOpenGLWidget(parent), ctx_(nullptr), paintTimer_(this),
-        lineShader_(this), zoom_(10.0f),
-        rendererArgs_(new FPGAViewWidget::RendererArgs),
-        rendererData_(new FPGAViewWidget::RendererData)
+FPGAViewWidget::FPGAViewWidget(QWidget *parent)
+        : QOpenGLWidget(parent), ctx_(nullptr), paintTimer_(this), lineShader_(this), zoom_(10.0f),
+          rendererArgs_(new FPGAViewWidget::RendererArgs), rendererData_(new FPGAViewWidget::RendererData)
 {
     colors_.background = QColor("#000000");
     colors_.grid = QColor("#333");
@@ -126,52 +124,54 @@ float FPGAViewWidget::PickedElement::distance(Context *ctx, float wx, float wy) 
 
     // Go over its' GraphicElements, and calculate the distance to them.
     std::vector<float> distances;
-    std::transform(graphics.begin(), graphics.end(), std::back_inserter(distances), [&](const GraphicElement &ge) -> float {
-        switch(ge.type) {
-        case GraphicElement::TYPE_BOX:
-            {
-                // If outside the box, return unit distance to closest border.
-                float outside_x = -1, outside_y = -1;
-                if (dx < ge.x1 || dx > ge.x2) {
-                    outside_x = std::min(std::abs(dx - ge.x1), std::abs(dx - ge.x2));
-                }
-                if (dy < ge.y1 || dy > ge.y2) {
-                    outside_y = std::min(std::abs(dy - ge.y1), std::abs(dy - ge.y2));
-                }
-                if (outside_x != -1 && outside_y != -1)
-                    return std::min(outside_x, outside_y);
+    std::transform(graphics.begin(), graphics.end(), std::back_inserter(distances),
+                   [&](const GraphicElement &ge) -> float {
+                       switch (ge.type) {
+                       case GraphicElement::TYPE_BOX: {
+                           // If outside the box, return unit distance to closest border.
+                           float outside_x = -1, outside_y = -1;
+                           if (dx < ge.x1 || dx > ge.x2) {
+                               outside_x = std::min(std::abs(dx - ge.x1), std::abs(dx - ge.x2));
+                           }
+                           if (dy < ge.y1 || dy > ge.y2) {
+                               outside_y = std::min(std::abs(dy - ge.y1), std::abs(dy - ge.y2));
+                           }
+                           if (outside_x != -1 && outside_y != -1)
+                               return std::min(outside_x, outside_y);
 
-                // If in box, return 0.
-                return 0;
-            }
-        case GraphicElement::TYPE_LINE:
-        case GraphicElement::TYPE_ARROW:
-            {
-                // Return somewhat primitively calculated distance to segment.
-                // TODO(q3k): consider coming up with a better algorithm
-                QVector2D w(wx, wy);
-                QVector2D a(ge.x1, ge.y1);
-                QVector2D b(ge.x2, ge.y2);
-                float dw = a.distanceToPoint(w) + b.distanceToPoint(w);
-                float dab = a.distanceToPoint(b);
-                return std::abs(dw-dab) / dab;
-            }
-        default:
-            // Not close to antyhing.
-            return -1;
-        }
-    });
+                           // If in box, return 0.
+                           return 0;
+                       }
+                       case GraphicElement::TYPE_LINE:
+                       case GraphicElement::TYPE_ARROW: {
+                           // Return somewhat primitively calculated distance to segment.
+                           // TODO(q3k): consider coming up with a better algorithm
+                           QVector2D w(wx, wy);
+                           QVector2D a(ge.x1, ge.y1);
+                           QVector2D b(ge.x2, ge.y2);
+                           float dw = a.distanceToPoint(w) + b.distanceToPoint(w);
+                           float dab = a.distanceToPoint(b);
+                           return std::abs(dw - dab) / dab;
+                       }
+                       default:
+                           // Not close to antyhing.
+                           return -1;
+                       }
+                   });
 
     // Find smallest non -1 distance.
     // Find closest element.
     return *std::min_element(distances.begin(), distances.end(), [&](float a, float b) {
-        if (a == -1) return false;
-        if (b == -1) return true;
+        if (a == -1)
+            return false;
+        if (b == -1)
+            return true;
         return a < b;
     });
 }
 
-void FPGAViewWidget::renderGraphicElement(RendererData *data, LineShaderData &out, const GraphicElement &el, float x, float y)
+void FPGAViewWidget::renderGraphicElement(RendererData *data, LineShaderData &out, const GraphicElement &el, float x,
+                                          float y)
 {
     if (el.type == GraphicElement::TYPE_BOX) {
         auto line = PolyLine(true);
@@ -234,15 +234,15 @@ void FPGAViewWidget::populateQuadTree(RendererData *data, const DecalXY &decal, 
 
         if (el.type == GraphicElement::TYPE_BOX) {
             // Boxes are bounded by themselves.
-            data->qt->insert(PickQuadTree::BoundingBox(x+el.x1, y+el.y1, x+el.x2, y+el.y2), element);
+            data->qt->insert(PickQuadTree::BoundingBox(x + el.x1, y + el.y1, x + el.x2, y + el.y2), element);
         }
 
         if (el.type == GraphicElement::TYPE_LINE || el.type == GraphicElement::TYPE_ARROW) {
             // Lines are bounded by their AABB slightly enlarged.
-            float x0 = x+el.x1;
-            float y0 = y+el.y1;
-            float x1 = x+el.x2;
-            float y1 = y+el.y2;
+            float x0 = x + el.x1;
+            float y0 = y + el.y1;
+            float x1 = x + el.x2;
+            float y1 = y + el.y2;
             if (x1 < x0)
                 std::swap(x0, x1);
             if (y1 < y0)
@@ -301,7 +301,8 @@ void FPGAViewWidget::paintGL()
         // Render Arch graphics.
         lineShader_.draw(rendererData_->gfxByStyle[GraphicElement::STYLE_FRAME], colors_.frame, thick11Px, matrix);
         lineShader_.draw(rendererData_->gfxByStyle[GraphicElement::STYLE_HIDDEN], colors_.hidden, thick11Px, matrix);
-        lineShader_.draw(rendererData_->gfxByStyle[GraphicElement::STYLE_INACTIVE], colors_.inactive, thick11Px, matrix);
+        lineShader_.draw(rendererData_->gfxByStyle[GraphicElement::STYLE_INACTIVE], colors_.inactive, thick11Px,
+                         matrix);
         lineShader_.draw(rendererData_->gfxByStyle[GraphicElement::STYLE_ACTIVE], colors_.active, thick11Px, matrix);
 
         // Draw highlighted items.
@@ -313,7 +314,7 @@ void FPGAViewWidget::paintGL()
 
         flags = rendererData_->flags;
     }
-    
+
     {
         QMutexLocker locker(&rendererArgsLock_);
         rendererArgs_->flags.clear();
@@ -410,7 +411,6 @@ void FPGAViewWidget::renderLines(void)
         flags = rendererArgs_->flags;
     }
 
-
     // Render decals if necessary.
     if (decalsChanged) {
         auto data = std::unique_ptr<FPGAViewWidget::RendererData>(new FPGAViewWidget::RendererData);
@@ -469,7 +469,7 @@ void FPGAViewWidget::renderLines(void)
                 for (int i = 0; i < 8; i++)
                     data->gfxHighlighted[i] = rendererData_->gfxHighlighted[i];
             }
-        
+
             rendererData_ = std::move(data);
         }
     }
@@ -549,15 +549,16 @@ boost::optional<FPGAViewWidget::PickedElement> FPGAViewWidget::pickElement(float
     // Calculate distances to all elements picked.
     using ElemDist = std::pair<const PickedElement *, float>;
     std::vector<ElemDist> distances;
-    std::transform(elems.begin(), elems.end(), std::back_inserter(distances),
-        [&](const PickedElement &e) -> ElemDist {
-            return std::make_pair(&e, e.distance(ctx_, worldx, worldy));
-        });
+    std::transform(elems.begin(), elems.end(), std::back_inserter(distances), [&](const PickedElement &e) -> ElemDist {
+        return std::make_pair(&e, e.distance(ctx_, worldx, worldy));
+    });
 
     // Find closest non -1 element.
-    auto closest = std::min_element(distances.begin(), distances.end(), [&](const ElemDist &a, const ElemDist &b){
-        if (a.second == -1) return false;
-        if (b.second == -1) return true;
+    auto closest = std::min_element(distances.begin(), distances.end(), [&](const ElemDist &a, const ElemDist &b) {
+        if (a.second == -1)
+            return false;
+        if (b.second == -1)
+            return true;
         return a.second < b.second;
     });
 
@@ -619,7 +620,6 @@ void FPGAViewWidget::mouseMoveEvent(QMouseEvent *event)
     update();
 }
 
-
 // Invert the projection matrix to calculate screen/mouse to world/grid
 // coordinates.
 QVector4D FPGAViewWidget::mouseToWorldCoordinates(int x, int y)
@@ -640,8 +640,8 @@ QVector4D FPGAViewWidget::mouseToWorldCoordinates(int x, int y)
     // operation properly.
     QVector3D ray = vec.toVector3DAffine();
     ray.normalize();
-    ray.setX((ray.x()/-ray.z()) * zoom_);
-    ray.setY((ray.y()/ray.z()) * zoom_);
+    ray.setX((ray.x() / -ray.z()) * zoom_);
+    ray.setY((ray.y() / ray.z()) * zoom_);
     ray.setZ(1.0);
 
     vec = viewMove_.inverted() * QVector4D(ray.x(), ray.y(), ray.z(), 1.0);
@@ -677,7 +677,6 @@ void FPGAViewWidget::zoom(int level)
         zoom_ -= level / 100.0;
     } else {
         zoom_ -= level / 10.0;
-
     }
 
     if (zoom_ < zoomNear_)
@@ -708,12 +707,12 @@ void FPGAViewWidget::zoomOutbound()
     float h = y1 - y0;
 
     viewMove_.setToIdentity();
-    viewMove_.translate(-w/2, -h/2);
+    viewMove_.translate(-w / 2, -h / 2);
 
     // Our FOV is π/2, so distance for camera to see a plane of width H is H/2.
     // We add 1 unit to cover half a unit of extra space around.
-    float distance_w = w/2 + 1;
-    float distance_h = h/2 + 1;
+    float distance_w = w / 2 + 1;
+    float distance_h = h / 2 + 1;
     zoom_ = std::max(distance_w, distance_h);
     update();
 }

@@ -20,7 +20,6 @@
 #ifndef MAPGLWIDGET_H
 #define MAPGLWIDGET_H
 
-#include <boost/optional.hpp>
 #include <QMainWindow>
 #include <QMutex>
 #include <QOpenGLBuffer>
@@ -32,11 +31,12 @@
 #include <QThread>
 #include <QTimer>
 #include <QWaitCondition>
+#include <boost/optional.hpp>
 
+#include "designwidget.h"
+#include "lineshader.h"
 #include "nextpnr.h"
 #include "quadtree.h"
-#include "lineshader.h"
-#include "designwidget.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -108,7 +108,6 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     QSize minimumSizeHint() const override;
     QSize sizeHint() const override;
 
-
   public Q_SLOTS:
     void newContext(Context *ctx);
     void onSelectedArchItem(std::vector<DecalXY> decals);
@@ -124,14 +123,16 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     void clickedWire(WireId wire);
 
   private:
-    const float zoomNear_ = 0.1f;    // do not zoom closer than this
+    const float zoomNear_ = 0.1f;  // do not zoom closer than this
     const float zoomFar_ = 100.0f; // do not zoom further than this
     const float zoomLvl1_ = 1.0f;
     const float zoomLvl2_ = 5.0f;
 
-    struct PickedElement {
+    struct PickedElement
+    {
         ElementType type;
-        union Inner {
+        union Inner
+        {
             BelId bel;
             WireId wire;
             PipId pip;
@@ -202,17 +203,14 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     {
         bool zoomOutbound;
 
-        PassthroughFlags() :
-            zoomOutbound(false) {}
-        PassthroughFlags &operator=(const PassthroughFlags &other) noexcept {
+        PassthroughFlags() : zoomOutbound(false) {}
+        PassthroughFlags &operator=(const PassthroughFlags &other) noexcept
+        {
             zoomOutbound = other.zoomOutbound;
             return *this;
         }
 
-        void clear()
-        {
-            zoomOutbound = false;
-        }
+        void clear() { zoomOutbound = false; }
     };
 
     struct RendererArgs
@@ -253,7 +251,7 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     void renderGraphicElement(RendererData *data, LineShaderData &out, const GraphicElement &el, float x, float y);
     void renderDecal(RendererData *data, LineShaderData &out, const DecalXY &decal);
     void renderArchDecal(RendererData *data, const DecalXY &decal);
-    void populateQuadTree(RendererData *data, const DecalXY &decal, const PickedElement& element);
+    void populateQuadTree(RendererData *data, const DecalXY &decal, const PickedElement &element);
     boost::optional<PickedElement> pickElement(float worldx, float worldy);
     QVector4D mouseToWorldCoordinates(int x, int y);
     QVector4D mouseToWorldDimensions(float x, float y);
