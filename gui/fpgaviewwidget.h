@@ -290,7 +290,8 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     std::unique_ptr<RendererData> rendererData_;
     QMutex rendererDataLock_;
 
-    void zoomToBB(const PickQuadTree::BoundingBox &bb);
+    void clampZoom();
+    void zoomToBB(const PickQuadTree::BoundingBox &bb, float margin);
     void zoom(int level);
     void renderLines(void);
     void renderGraphicElement(LineShaderData &out, PickQuadTree::BoundingBox &bb, const GraphicElement &el, float x,

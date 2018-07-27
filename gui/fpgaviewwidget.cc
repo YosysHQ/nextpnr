@@ -593,8 +593,17 @@ void FPGAViewWidget::mousePressEvent(QMouseEvent *event)
 
         auto world = mouseToWorldCoordinates(event->x(), event->y());
         auto closestOr = pickElement(world.x(), world.y());
-        if (!closestOr)
+        if (!closestOr) {
+            // If we clicked on empty space and aren't holding down ctrl,
+            // clear the selection.
+            if (!ctrl) {
+                QMutexLocker locked(&rendererArgsLock_);
+                rendererArgs_->selectedDecals.clear();
+                rendererArgs_->changed = true;
+                pokeRenderer();
+            }
             return;
+        }
 
         auto closest = closestOr.value();
         if (closest.type == ElementType::BEL) {
@@ -709,11 +718,19 @@ void FPGAViewWidget::zoom(int level)
     update();
 }
 
+void FPGAViewWidget::clampZoom()
+{
+    if (zoom_ < zoomNear_)
+        zoom_ = zoomNear_;
+    else if (zoom_ > zoomFar_)
+        zoom_ = zoomFar_;
+}
+
 void FPGAViewWidget::zoomIn() { zoom(10); }
 
 void FPGAViewWidget::zoomOut() { zoom(-10); }
 
-void FPGAViewWidget::zoomToBB(const PickQuadTree::BoundingBox &bb)
+void FPGAViewWidget::zoomToBB(const PickQuadTree::BoundingBox &bb, float margin)
 {
     if (bb.w() < 0.00005 && bb.h() < 0.00005)
         return;
@@ -723,16 +740,17 @@ void FPGAViewWidget::zoomToBB(const PickQuadTree::BoundingBox &bb)
 
     // Our FOV is π/2, so distance for camera to see a plane of width H is H/2.
     // We add 1 unit to cover half a unit of extra space around.
-    float distance_w = bb.w() / 2 + 1;
-    float distance_h = bb.h() / 2 + 1;
+    float distance_w = bb.w() / 2 + margin;
+    float distance_h = bb.h() / 2 + margin;
     zoom_ = std::max(distance_w, distance_h);
+    clampZoom();
 }
 
 void FPGAViewWidget::zoomSelected()
 {
     {
         QMutexLocker lock(&rendererDataLock_);
-        zoomToBB(rendererData_->bbSelected);
+        zoomToBB(rendererData_->bbSelected, 0.5f);
     }
     update();
 }
@@ -741,7 +759,7 @@ void FPGAViewWidget::zoomOutbound()
 {
     {
         QMutexLocker lock(&rendererDataLock_);
-        zoomToBB(rendererData_->bbGlobal);
+        zoomToBB(rendererData_->bbGlobal, 1.0f);
     }
 }
 
