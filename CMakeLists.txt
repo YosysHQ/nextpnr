@@ -191,8 +191,12 @@ foreach (family ${ARCH})
     # Add any new per-architecture targets here
     if (BUILD_TESTS)
         aux_source_directory(tests/${family}/ ${ufamily}_TEST_FILES)
+        if (BUILD_GUI)
+            aux_source_directory(tests/gui/ GUI_TEST_FILES)
+        endif()
 
-        add_executable(nextpnr-${family}-test ${${ufamily}_TEST_FILES} ${COMMON_FILES} ${${ufamily}_FILES})
+        add_executable(nextpnr-${family}-test ${${ufamily}_TEST_FILES}
+                ${COMMON_FILES} ${${ufamily}_FILES} ${GUI_TEST_FILES})
         target_link_libraries(nextpnr-${family}-test PRIVATE gtest_main)
         add_sanitizers(nextpnr-${family}-test)
 
