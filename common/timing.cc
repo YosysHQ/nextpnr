@@ -193,10 +193,10 @@ void update_budget(Context *ctx)
         for (size_t i = 0; i < net.second->users.size(); ++i) {
             auto &user = net.second->users[i];
             auto pi = &user.cell->ports.at(user.port);
+            auto budget = ctx->getNetinfoRouteDelay(net.second.get(), i);
             auto it = updates.find(pi);
-            if (it == updates.end())
-                continue;
-            auto budget = ctx->getNetinfoRouteDelay(net.second.get(), i) - it->second;
+            if (it != updates.end())
+                budget -= it->second;
             user.budget = ctx->getBudgetOverride(net.second.get(), i, budget);
 
             // Post-update check
