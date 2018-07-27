@@ -37,6 +37,7 @@ NEXTPNR_NAMESPACE_BEGIN
 
 class PythonTab;
 class DesignWidget;
+class FPGAViewWidget;
 
 class BaseMainWindow : public QMainWindow
 {
@@ -49,6 +50,7 @@ class BaseMainWindow : public QMainWindow
 
   protected:
     void createMenusAndBars();
+    void createGraphicsBar();
 
   protected Q_SLOTS:
     void writeInfo(std::string text);
@@ -70,12 +72,14 @@ class BaseMainWindow : public QMainWindow
 
     QMenuBar *menuBar;
     QToolBar *mainToolBar;
+    QToolBar *graphicsToolBar;
     QStatusBar *statusBar;
     QAction *actionNew;
     QAction *actionOpen;
     QAction *actionSave;
     QProgressBar *progressBar;
     DesignWidget *designview;
+    FPGAViewWidget *fpgaView;
 };
 
 NEXTPNR_NAMESPACE_END

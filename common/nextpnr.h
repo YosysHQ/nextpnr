@@ -145,21 +145,25 @@ struct GraphicElement
 {
     enum type_t
     {
-        G_NONE,
-        G_LINE,
-        G_ARROW,
-        G_BOX,
-        G_CIRCLE,
-        G_LABEL
-    } type = G_NONE;
+        TYPE_NONE,
+        TYPE_LINE,
+        TYPE_ARROW,
+        TYPE_BOX,
+        TYPE_CIRCLE,
+        TYPE_LABEL,
+
+        TYPE_MAX
+    } type = TYPE_NONE;
 
     enum style_t
     {
-        G_FRAME,
-        G_HIDDEN,
-        G_INACTIVE,
-        G_ACTIVE,
-    } style = G_FRAME;
+        STYLE_FRAME,    // Static "frame". Contrast between STYLE_INACTIVE and STYLE_ACTIVE
+        STYLE_HIDDEN,   // Only display when object is selected or highlighted
+        STYLE_INACTIVE, // Render using low-contrast color
+        STYLE_ACTIVE,   // Render using high-contast color
+
+        STYLE_MAX
+    } style = STYLE_FRAME;
 
     float x1 = 0, y1 = 0, x2 = 0, y2 = 0, z = 0;
     std::string text;

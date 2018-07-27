@@ -538,6 +538,8 @@ struct Arch : BaseCtx
         return id(name.str());
     }
 
+    IdString getWireType(WireId wire) const { return IdString(); }
+
     uint32_t getWireChecksum(WireId wire) const { return wire.index; }
 
     void bindWire(WireId wire, IdString net, PlaceStrength strength)
@@ -615,6 +617,8 @@ struct Arch : BaseCtx
 
     PipId getPipByName(IdString name) const;
     IdString getPipName(PipId pip) const;
+
+    IdString getPipType(PipId pip) const { return IdString(); }
 
     uint32_t getPipChecksum(PipId pip) const { return pip.index; }
 
@@ -748,7 +752,7 @@ struct Arch : BaseCtx
         return chip_info->tiletype_names[locInfo(pip)->pip_data[pip.index].tile_type].get();
     }
 
-    int8_t getPipType(PipId pip) const { return locInfo(pip)->pip_data[pip.index].pip_type; }
+    int8_t getPipClass(PipId pip) const { return locInfo(pip)->pip_data[pip.index].pip_type; }
 
     BelId getPackagePinBel(const std::string &pin) const;
     std::string getBelPackagePin(BelId bel) const;
