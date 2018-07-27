@@ -231,7 +231,7 @@ void FPGAViewWidget::populateQuadTree(RendererData *data, const DecalXY &decal, 
     float y = decal.y;
 
     for (auto &el : ctx_->getDecalGraphics(decal.decal)) {
-        if (el.style == GraphicElement::STYLE_HIDDEN) {
+        if (el.style == GraphicElement::STYLE_HIDDEN || el.style == GraphicElement::STYLE_FRAME) {
             continue;
         }
 
