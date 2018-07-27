@@ -124,10 +124,10 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     void clickedWire(WireId wire);
 
   private:
-    const float zoomNear_ = 1.0f;    // do not zoom closer than this
-    const float zoomFar_ = 10000.0f; // do not zoom further than this
-    const float zoomLvl1_ = 100.0f;
-    const float zoomLvl2_ = 50.0f;
+    const float zoomNear_ = 0.1f;    // do not zoom closer than this
+    const float zoomFar_ = 100.0f; // do not zoom further than this
+    const float zoomLvl1_ = 1.0f;
+    const float zoomLvl2_ = 5.0f;
 
     struct PickedElement {
         ElementType type;
@@ -195,6 +195,43 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
         QColor highlight[8];
     } colors_;
 
+    // Flags that are passed through from renderer arguments to renderer data.
+    // These are used by the UI code to signal events that will only fire when
+    // the next frame gets rendered.
+    struct PassthroughFlags
+    {
+        bool zoomOutbound;
+
+        PassthroughFlags() :
+            zoomOutbound(false) {}
+        PassthroughFlags &operator=(const PassthroughFlags &other) noexcept {
+            zoomOutbound = other.zoomOutbound;
+            return *this;
+        }
+
+        void clear()
+        {
+            zoomOutbound = false;
+        }
+    };
+
+    struct RendererArgs
+    {
+        // Decals that he user selected.
+        std::vector<DecalXY> selectedDecals;
+        // Decals that the user highlighted.
+        std::vector<DecalXY> highlightedDecals[8];
+        // Decals that the user's mouse is hovering in.
+        DecalXY hoveredDecal;
+        // Whether to render the above three or skip it.
+        bool changed;
+
+        // Flags to pass back into the RendererData.
+        PassthroughFlags flags;
+    };
+    std::unique_ptr<RendererArgs> rendererArgs_;
+    QMutex rendererArgsLock_;
+
     struct RendererData
     {
         LineShaderData gfxByStyle[GraphicElement::STYLE_MAX];
@@ -205,19 +242,11 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
         float bbX0, bbY0, bbX1, bbY1;
         // Quadtree for picking objects.
         std::unique_ptr<PickQuadTree> qt;
+        // Flags from args.
+        PassthroughFlags flags;
     };
     std::unique_ptr<RendererData> rendererData_;
     QMutex rendererDataLock_;
-
-    struct RendererArgs
-    {
-        std::vector<DecalXY> selectedDecals;
-        std::vector<DecalXY> highlightedDecals[8];
-        DecalXY hoveredDecal;
-        bool changed;
-    };
-    std::unique_ptr<RendererArgs> rendererArgs_;
-    QMutex rendererArgsLock_;
 
     void zoom(int level);
     void renderLines(void);

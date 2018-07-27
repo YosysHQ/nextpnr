@@ -33,9 +33,9 @@ NEXTPNR_NAMESPACE_BEGIN
 
 FPGAViewWidget::FPGAViewWidget(QWidget *parent) :
         QOpenGLWidget(parent), ctx_(nullptr), paintTimer_(this),
-        lineShader_(this), zoom_(500.0f),
-        rendererData_(new FPGAViewWidget::RendererData),
-        rendererArgs_(new FPGAViewWidget::RendererArgs)
+        lineShader_(this), zoom_(10.0f),
+        rendererArgs_(new FPGAViewWidget::RendererArgs),
+        rendererData_(new FPGAViewWidget::RendererData)
 {
     colors_.background = QColor("#000000");
     colors_.grid = QColor("#333");
@@ -55,6 +55,7 @@ FPGAViewWidget::FPGAViewWidget(QWidget *parent) :
     colors_.highlight[7] = QColor("#da70d6");
 
     rendererArgs_->changed = false;
+    rendererArgs_->flags.zoomOutbound = true;
 
     auto fmt = format();
     fmt.setMajorVersion(3);
@@ -87,6 +88,10 @@ void FPGAViewWidget::newContext(Context *ctx)
     onSelectedArchItem(std::vector<DecalXY>());
     for (int i = 0; i < 8; i++)
         onHighlightGroupChanged(std::vector<DecalXY>(), i);
+    {
+        QMutexLocker lock(&rendererArgsLock_);
+        rendererArgs_->flags.zoomOutbound = true;
+    }
     pokeRenderer();
 }
 
@@ -258,8 +263,7 @@ QMatrix4x4 FPGAViewWidget::getProjection(void)
     QMatrix4x4 matrix;
 
     const float aspect = float(width()) / float(height());
-    matrix.perspective(3.14 / 2, aspect, zoomNear_, zoomFar_);
-    matrix.translate(0.0f, 0.0f, -zoom_);
+    matrix.perspective(90, aspect, zoomNear_, zoomFar_);
     return matrix;
 }
 
@@ -271,6 +275,7 @@ void FPGAViewWidget::paintGL()
     gl->glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     QMatrix4x4 matrix = getProjection();
+    matrix.translate(0.0f, 0.0f, -zoom_);
 
     matrix *= viewMove_;
 
@@ -285,6 +290,8 @@ void FPGAViewWidget::paintGL()
         PolyLine(-100.0f, i, 100.0f, i).build(grid);
         PolyLine(i, -100.0f, i, 100.0f).build(grid);
     }
+    // Flags from pipeline.
+    PassthroughFlags flags;
     // Draw grid.
     lineShader_.draw(grid, colors_.grid, thick1Px, matrix);
 
@@ -303,6 +310,18 @@ void FPGAViewWidget::paintGL()
 
         lineShader_.draw(rendererData_->gfxSelected, colors_.selected, thick11Px, matrix);
         lineShader_.draw(rendererData_->gfxHovered, colors_.hovered, thick2Px, matrix);
+
+        flags = rendererData_->flags;
+    }
+    
+    {
+        QMutexLocker locker(&rendererArgsLock_);
+        rendererArgs_->flags.clear();
+    }
+
+    // Check flags passed through pipeline.
+    if (flags.zoomOutbound) {
+        zoomOutbound();
     }
 }
 
@@ -374,15 +393,21 @@ void FPGAViewWidget::renderLines(void)
     DecalXY hoveredDecal;
     std::vector<DecalXY> highlightedDecals[8];
     bool highlightedOrSelectedChanged;
+    PassthroughFlags flags;
     {
         // Take the renderer arguments lock, copy over all we need.
         QMutexLocker lock(&rendererArgsLock_);
+
         selectedDecals = rendererArgs_->selectedDecals;
         hoveredDecal = rendererArgs_->hoveredDecal;
+
         for (int i = 0; i < 8; i++)
             highlightedDecals[i] = rendererArgs_->highlightedDecals[i];
+
         highlightedOrSelectedChanged = rendererArgs_->changed;
         rendererArgs_->changed = false;
+
+        flags = rendererArgs_->flags;
     }
 
 
@@ -444,7 +469,7 @@ void FPGAViewWidget::renderLines(void)
                 for (int i = 0; i < 8; i++)
                     data->gfxHighlighted[i] = rendererData_->gfxHighlighted[i];
             }
-
+        
             rendererData_ = std::move(data);
         }
     }
@@ -475,6 +500,11 @@ void FPGAViewWidget::renderLines(void)
                 renderDecal(rendererData_.get(), rendererData_->gfxHighlighted[i], decal);
             }
         }
+    }
+
+    {
+        QMutexLocker locker(&rendererDataLock_);
+        rendererData_->flags = flags;
     }
 }
 
@@ -601,20 +631,29 @@ QVector4D FPGAViewWidget::mouseToWorldCoordinates(int x, int y)
     QMatrix4x4 vp;
     vp.viewport(0, 0, width() * retinaScale, height() * retinaScale);
 
-    QVector4D vec(x, y, 0, 1);
+    QVector4D vec(x, y, 1, 1);
     vec = vp.inverted() * vec;
-    vec = projection.inverted() * vec;
+    vec = projection.inverted() * QVector4D(vec.x(), vec.y(), -1, 1);
 
-    auto ray = vec.toVector3DAffine();
-    auto world = QVector4D(ray.x()*ray.z(), -ray.y()*ray.z(), 0, 1);
-    world = viewMove_.inverted() * world;
+    // Hic sunt dracones.
+    // TODO(q3k): grab a book, remind yourselfl linear algebra and undo this
+    // operation properly.
+    QVector3D ray = vec.toVector3DAffine();
+    ray.normalize();
+    ray.setX((ray.x()/-ray.z()) * zoom_);
+    ray.setY((ray.y()/ray.z()) * zoom_);
+    ray.setZ(1.0);
 
-    return world;
+    vec = viewMove_.inverted() * QVector4D(ray.x(), ray.y(), ray.z(), 1.0);
+    vec.setZ(0);
+
+    return vec;
 }
 
 QVector4D FPGAViewWidget::mouseToWorldDimensions(float x, float y)
 {
     QMatrix4x4 p = getProjection();
+    p.translate(0.0f, 0.0f, -zoom_);
     QVector2D unit = p.map(QVector4D(1, 1, 0, 1)).toVector2DAffine();
 
     float sx = (((float)x) / (width() / 2));
@@ -632,17 +671,19 @@ void FPGAViewWidget::wheelEvent(QWheelEvent *event)
 
 void FPGAViewWidget::zoom(int level)
 {
-    if (zoom_ < zoomNear_) {
-        zoom_ = zoomNear_;
-    } else if (zoom_ < zoomLvl1_) {
-        zoom_ -= level / 10.0;
+    if (zoom_ < zoomLvl1_) {
+        zoom_ -= level / 500.0;
     } else if (zoom_ < zoomLvl2_) {
-        zoom_ -= level / 5.0;
-    } else if (zoom_ < zoomFar_) {
-        zoom_ -= level;
+        zoom_ -= level / 100.0;
     } else {
-        zoom_ = zoomFar_;
+        zoom_ -= level / 10.0;
+
     }
+
+    if (zoom_ < zoomNear_)
+        zoom_ = zoomNear_;
+    else if (zoom_ > zoomFar_)
+        zoom_ = zoomFar_;
     update();
 }
 
@@ -652,6 +693,29 @@ void FPGAViewWidget::zoomOut() { zoom(-10); }
 
 void FPGAViewWidget::zoomSelected() {}
 
-void FPGAViewWidget::zoomOutbound() {}
+void FPGAViewWidget::zoomOutbound()
+{
+    // Get design bounding box.
+    float x0, y0, x1, y1;
+    {
+        QMutexLocker lock(&rendererDataLock_);
+        x0 = rendererData_->bbX0;
+        y0 = rendererData_->bbY0;
+        x1 = rendererData_->bbX1;
+        y1 = rendererData_->bbY1;
+    }
+    float w = x1 - x0;
+    float h = y1 - y0;
+
+    viewMove_.setToIdentity();
+    viewMove_.translate(-w/2, -h/2);
+
+    // Our FOV is π/2, so distance for camera to see a plane of width H is H/2.
+    // We add 1 unit to cover half a unit of extra space around.
+    float distance_w = w/2 + 1;
+    float distance_h = h/2 + 1;
+    zoom_ = std::max(distance_w, distance_h);
+    update();
+}
 
 NEXTPNR_NAMESPACE_END
