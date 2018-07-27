@@ -157,7 +157,7 @@ template <typename CoordinateT, typename ElementT> class QuadTreeNode
     //  - any of the 4 children nodes.
     enum Quadrant
     {
-        THIS = -1,
+        THIS_NODE = -1,
         NW = 0,
         NE = 1,
         SW = 2,
@@ -171,7 +171,7 @@ template <typename CoordinateT, typename ElementT> class QuadTreeNode
     Quadrant quadrant(const BoundingBox &b) const
     {
         if (children_ == nullptr) {
-            return THIS;
+            return THIS_NODE;
         }
 
         bool west0 = b.x0_ < splitx_;
@@ -187,7 +187,7 @@ template <typename CoordinateT, typename ElementT> class QuadTreeNode
             return SW;
         if (!west0 && !west1 && !north0 && !north1)
             return SE;
-        return THIS;
+        return THIS_NODE;
     }
 
     // Checks whether this node should split.
@@ -252,7 +252,7 @@ template <typename CoordinateT, typename ElementT> class QuadTreeNode
             // Put the element either recursively into a child if it fits
             // entirely or keep it for ourselves if not.
             auto quad = quadrant(k);
-            if (quad == THIS) {
+            if (quad == THIS_NODE) {
                 elems_.push_back(BoundElement(k, std::move(v)));
             } else {
                 return children_[quad].insert(k, std::move(v));
@@ -286,7 +286,7 @@ template <typename CoordinateT, typename ElementT> class QuadTreeNode
             auto it = elems_.begin();
             while (it != elems_.end()) {
                 auto quad = quadrant(it->bb_);
-                if (quad != THIS) {
+                if (quad != THIS_NODE) {
                     // Move to one of the children.
                     if (!children_[quad].insert(it->bb_, std::move(it->elem_)))
                         return false;

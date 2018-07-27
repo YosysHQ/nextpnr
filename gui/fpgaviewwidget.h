@@ -143,12 +143,32 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
             Inner(WireId _wire) : wire(_wire) {}
             Inner(PipId _pip) : pip(_pip) {}
             Inner(GroupId _group) : group(_group) {}
+            Inner() {}
         } element;
         float x, y; // Decal X and Y
         PickedElement(BelId bel, float x, float y) : type(ElementType::BEL), element(bel), x(x), y(y) {}
         PickedElement(WireId wire, float x, float y) : type(ElementType::WIRE), element(wire), x(x), y(y) {}
         PickedElement(PipId pip, float x, float y) : type(ElementType::PIP), element(pip), x(x), y(y) {}
         PickedElement(GroupId group, float x, float y) : type(ElementType::GROUP), element(group), x(x), y(y) {}
+        PickedElement(const PickedElement &other) : type(other.type)
+        {
+            switch (type) {
+            case ElementType::BEL:
+                element.bel = other.element.bel;
+                break;
+            case ElementType::WIRE:
+                element.wire = other.element.wire;
+                break;
+            case ElementType::PIP:
+                element.pip = other.element.pip;
+                break;
+            case ElementType::GROUP:
+                element.group = other.element.group;
+                break;
+            default:
+                NPNR_ASSERT_FALSE("Invalid ElementType");
+            }
+        }
 
         DecalXY decal(Context *ctx) const
         {
