@@ -64,7 +64,7 @@ class DesignWidget : public QWidget
     void updateHighlightGroup(QList<QTreeWidgetItem *> item, int group);
   Q_SIGNALS:
     void info(std::string text);
-    void selected(std::vector<DecalXY> decal);
+    void selected(std::vector<DecalXY> decal, bool keep);
     void highlight(std::vector<DecalXY> decal, int group);
 
   private Q_SLOTS:
@@ -75,8 +75,8 @@ class DesignWidget : public QWidget
   public Q_SLOTS:
     void newContext(Context *ctx);
     void updateTree();
-    void onClickedBel(BelId bel);
-    void onClickedWire(WireId wire);
+    void onClickedBel(BelId bel, bool keep);
+    void onClickedWire(WireId wire, bool keep);
 
   private:
     Context *ctx;

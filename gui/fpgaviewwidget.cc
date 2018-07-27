@@ -83,7 +83,7 @@ FPGAViewWidget::~FPGAViewWidget() {}
 void FPGAViewWidget::newContext(Context *ctx)
 {
     ctx_ = ctx;
-    onSelectedArchItem(std::vector<DecalXY>());
+    onSelectedArchItem(std::vector<DecalXY>(), false);
     for (int i = 0; i < 8; i++)
         onHighlightGroupChanged(std::vector<DecalXY>(), i);
     {
@@ -508,11 +508,15 @@ void FPGAViewWidget::renderLines(void)
     }
 }
 
-void FPGAViewWidget::onSelectedArchItem(std::vector<DecalXY> decals)
+void FPGAViewWidget::onSelectedArchItem(std::vector<DecalXY> decals, bool keep)
 {
     {
         QMutexLocker locker(&rendererArgsLock_);
-        rendererArgs_->selectedDecals = decals;
+        if (keep) {
+            std::copy(decals.begin(), decals.end(), std::back_inserter(rendererArgs_->selectedDecals));
+        } else {
+            rendererArgs_->selectedDecals = decals;
+        }
         rendererArgs_->changed = true;
     }
     pokeRenderer();
@@ -576,6 +580,8 @@ void FPGAViewWidget::mousePressEvent(QMouseEvent *event)
         lastDragPos_ = event->pos();
     }
     if (event->buttons() & Qt::LeftButton) {
+        bool ctrl = QApplication::keyboardModifiers().testFlag(Qt::ControlModifier);
+
         auto world = mouseToWorldCoordinates(event->x(), event->y());
         auto closestOr = pickElement(world.x(), world.y());
         if (!closestOr)
@@ -583,9 +589,9 @@ void FPGAViewWidget::mousePressEvent(QMouseEvent *event)
 
         auto closest = closestOr.value();
         if (closest.type == ElementType::BEL) {
-            clickedBel(closest.element.bel);
+            clickedBel(closest.element.bel, ctrl);
         } else if (closest.type == ElementType::WIRE) {
-            clickedWire(closest.element.wire);
+            clickedWire(closest.element.wire, ctrl);
         }
     }
 }

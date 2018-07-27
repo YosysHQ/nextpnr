@@ -507,18 +507,18 @@ QtProperty *DesignWidget::addSubGroup(QtProperty *topItem, const QString &name)
     return item;
 }
 
-void DesignWidget::onClickedBel(BelId bel)
+void DesignWidget::onClickedBel(BelId bel, bool keep)
 {
     QTreeWidgetItem *item = nameToItem[getElementIndex(ElementType::BEL)].value(ctx->getBelName(bel).c_str(ctx));
     treeWidget->setCurrentItem(item);
-    Q_EMIT selected(getDecals(ElementType::BEL, ctx->getBelName(bel)));
+    Q_EMIT selected(getDecals(ElementType::BEL, ctx->getBelName(bel)), keep);
 }
 
-void DesignWidget::onClickedWire(WireId wire)
+void DesignWidget::onClickedWire(WireId wire, bool keep)
 {
     QTreeWidgetItem *item = nameToItem[getElementIndex(ElementType::WIRE)].value(ctx->getWireName(wire).c_str(ctx));
     treeWidget->setCurrentItem(item);
-    Q_EMIT selected(getDecals(ElementType::WIRE, ctx->getWireName(wire)));
+    Q_EMIT selected(getDecals(ElementType::WIRE, ctx->getWireName(wire)), keep);
 }
 
 void DesignWidget::onItemSelectionChanged()
@@ -534,7 +534,7 @@ void DesignWidget::onItemSelectionChanged()
             std::vector<DecalXY> d = getDecals(type, value);
             std::move(d.begin(), d.end(), std::back_inserter(decals));
         }
-        Q_EMIT selected(decals);
+        Q_EMIT selected(decals, false);
         return;
     }
 
@@ -555,7 +555,7 @@ void DesignWidget::onItemSelectionChanged()
     clearProperties();
 
     IdString c = static_cast<IdStringTreeItem *>(clickItem)->getData();
-    Q_EMIT selected(getDecals(type, c));
+    Q_EMIT selected(getDecals(type, c), false);
 
     if (type == ElementType::BEL) {
         BelId bel = ctx->getBelByName(c);
@@ -847,7 +847,7 @@ void DesignWidget::prepareMenuProperty(const QPoint &pos)
             std::vector<DecalXY> d = getDecals(type, value);
             std::move(d.begin(), d.end(), std::back_inserter(decals));
         }
-        Q_EMIT selected(decals);
+        Q_EMIT selected(decals, false);
     });
     menu.addAction(selectAction);
 

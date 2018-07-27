@@ -110,7 +110,7 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
 
   public Q_SLOTS:
     void newContext(Context *ctx);
-    void onSelectedArchItem(std::vector<DecalXY> decals);
+    void onSelectedArchItem(std::vector<DecalXY> decals, bool keep);
     void onHighlightGroupChanged(std::vector<DecalXY> decals, int group);
     void pokeRenderer(void);
     void zoomIn();
@@ -119,8 +119,8 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     void zoomOutbound();
 
   Q_SIGNALS:
-    void clickedBel(BelId bel);
-    void clickedWire(WireId wire);
+    void clickedBel(BelId bel, bool add);
+    void clickedWire(WireId wire, bool add);
 
   private:
     const float zoomNear_ = 0.1f;  // do not zoom closer than this
