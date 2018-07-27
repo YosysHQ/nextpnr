@@ -170,7 +170,8 @@ float FPGAViewWidget::PickedElement::distance(Context *ctx, float wx, float wy) 
     });
 }
 
-void FPGAViewWidget::renderGraphicElement(LineShaderData &out, PickQuadTree::BoundingBox &bb, const GraphicElement &el, float x, float y)
+void FPGAViewWidget::renderGraphicElement(LineShaderData &out, PickQuadTree::BoundingBox &bb, const GraphicElement &el,
+                                          float x, float y)
 {
     if (el.type == GraphicElement::TYPE_BOX) {
         auto line = PolyLine(true);
@@ -199,6 +200,9 @@ void FPGAViewWidget::renderGraphicElement(LineShaderData &out, PickQuadTree::Bou
 
 void FPGAViewWidget::renderDecal(LineShaderData &out, PickQuadTree::BoundingBox &bb, const DecalXY &decal)
 {
+    if (decal.decal == DecalId())
+        return;
+
     float offsetX = decal.x;
     float offsetY = decal.y;
 
@@ -207,7 +211,8 @@ void FPGAViewWidget::renderDecal(LineShaderData &out, PickQuadTree::BoundingBox 
     }
 }
 
-void FPGAViewWidget::renderArchDecal(LineShaderData out[GraphicElement::STYLE_MAX], PickQuadTree::BoundingBox &bb, const DecalXY &decal)
+void FPGAViewWidget::renderArchDecal(LineShaderData out[GraphicElement::STYLE_MAX], PickQuadTree::BoundingBox &bb,
+                                     const DecalXY &decal)
 {
     float offsetX = decal.x;
     float offsetY = decal.y;
@@ -444,16 +449,20 @@ void FPGAViewWidget::renderLines(void)
         // Populate picking quadtree.
         data->qt = std::unique_ptr<PickQuadTree>(new PickQuadTree(data->bbGlobal));
         for (auto const &decal : belDecals) {
-            populateQuadTree(data.get(), decal.first, PickedElement(decal.second, decal.first.x, decal.first.y));
+            populateQuadTree(data.get(), decal.first,
+                             PickedElement::fromBel(decal.second, decal.first.x, decal.first.y));
         }
         for (auto const &decal : wireDecals) {
-            populateQuadTree(data.get(), decal.first, PickedElement(decal.second, decal.first.x, decal.first.y));
+            populateQuadTree(data.get(), decal.first,
+                             PickedElement::fromWire(decal.second, decal.first.x, decal.first.y));
         }
         for (auto const &decal : pipDecals) {
-            populateQuadTree(data.get(), decal.first, PickedElement(decal.second, decal.first.x, decal.first.y));
+            populateQuadTree(data.get(), decal.first,
+                             PickedElement::fromPip(decal.second, decal.first.x, decal.first.y));
         }
         for (auto const &decal : groupDecals) {
-            populateQuadTree(data.get(), decal.first, PickedElement(decal.second, decal.first.x, decal.first.y));
+            populateQuadTree(data.get(), decal.first,
+                             PickedElement::fromGroup(decal.second, decal.first.x, decal.first.y));
         }
 
         // Swap over.
@@ -589,11 +598,11 @@ void FPGAViewWidget::mousePressEvent(QMouseEvent *event)
 
         auto closest = closestOr.value();
         if (closest.type == ElementType::BEL) {
-            clickedBel(closest.element.bel, ctrl);
+            clickedBel(closest.bel, ctrl);
         } else if (closest.type == ElementType::WIRE) {
-            clickedWire(closest.element.wire, ctrl);
+            clickedWire(closest.wire, ctrl);
         } else if (closest.type == ElementType::PIP) {
-            clickedPip(closest.element.pip, ctrl);
+            clickedPip(closest.pip, ctrl);
         }
     }
 }

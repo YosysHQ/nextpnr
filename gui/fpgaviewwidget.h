@@ -124,7 +124,7 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     void clickedPip(PipId pip, bool add);
 
   private:
-    const float zoomNear_ = 0.1f;  // do not zoom closer than this
+    const float zoomNear_ = 0.1f; // do not zoom closer than this
     const float zoomFar_ = 30.0f; // do not zoom further than this
     const float zoomLvl1_ = 1.0f;
     const float zoomLvl2_ = 5.0f;
@@ -132,38 +132,59 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     struct PickedElement
     {
         ElementType type;
-        union Inner
-        {
-            BelId bel;
-            WireId wire;
-            PipId pip;
-            GroupId group;
 
-            Inner(BelId _bel) : bel(_bel) {}
-            Inner(WireId _wire) : wire(_wire) {}
-            Inner(PipId _pip) : pip(_pip) {}
-            Inner(GroupId _group) : group(_group) {}
-            Inner() {}
-        } element;
+        // These are not in an union (and thus this structure is very verbose
+        // and somewhat heavy) because the Id types are typedef'd to StringIds
+        // in the generic architecture. Once that changes (or we get an AnyId
+        // construct from Arches), this should go away.
+        BelId bel;
+        WireId wire;
+        PipId pip;
+        GroupId group;
+
         float x, y; // Decal X and Y
-        PickedElement(BelId bel, float x, float y) : type(ElementType::BEL), element(bel), x(x), y(y) {}
-        PickedElement(WireId wire, float x, float y) : type(ElementType::WIRE), element(wire), x(x), y(y) {}
-        PickedElement(PipId pip, float x, float y) : type(ElementType::PIP), element(pip), x(x), y(y) {}
-        PickedElement(GroupId group, float x, float y) : type(ElementType::GROUP), element(group), x(x), y(y) {}
+
+        PickedElement(ElementType type, float x, float y) : type(type), x(x), y(y) {}
+
+        static PickedElement fromBel(BelId bel, float x, float y)
+        {
+            PickedElement e(ElementType::BEL, x, y);
+            e.bel = bel;
+            return e;
+        }
+        static PickedElement fromWire(WireId wire, float x, float y)
+        {
+            PickedElement e(ElementType::WIRE, x, y);
+            e.wire = wire;
+            return e;
+        }
+        static PickedElement fromPip(PipId pip, float x, float y)
+        {
+            PickedElement e(ElementType::PIP, x, y);
+            e.pip = pip;
+            return e;
+        }
+        static PickedElement fromGroup(GroupId group, float x, float y)
+        {
+            PickedElement e(ElementType::GROUP, x, y);
+            e.group = group;
+            return e;
+        }
+
         PickedElement(const PickedElement &other) : type(other.type)
         {
             switch (type) {
             case ElementType::BEL:
-                element.bel = other.element.bel;
+                bel = other.bel;
                 break;
             case ElementType::WIRE:
-                element.wire = other.element.wire;
+                wire = other.wire;
                 break;
             case ElementType::PIP:
-                element.pip = other.element.pip;
+                pip = other.pip;
                 break;
             case ElementType::GROUP:
-                element.group = other.element.group;
+                group = other.group;
                 break;
             default:
                 NPNR_ASSERT_FALSE("Invalid ElementType");
@@ -175,16 +196,16 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
             DecalXY decal;
             switch (type) {
             case ElementType::BEL:
-                decal = ctx->getBelDecal(element.bel);
+                decal = ctx->getBelDecal(bel);
                 break;
             case ElementType::WIRE:
-                decal = ctx->getWireDecal(element.wire);
+                decal = ctx->getWireDecal(wire);
                 break;
             case ElementType::PIP:
-                decal = ctx->getPipDecal(element.pip);
+                decal = ctx->getPipDecal(pip);
                 break;
             case ElementType::GROUP:
-                decal = ctx->getGroupDecal(element.group);
+                decal = ctx->getGroupDecal(group);
                 break;
             default:
                 NPNR_ASSERT_FALSE("Invalid ElementType");
@@ -272,9 +293,11 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     void zoomToBB(const PickQuadTree::BoundingBox &bb);
     void zoom(int level);
     void renderLines(void);
-    void renderGraphicElement(LineShaderData &out, PickQuadTree::BoundingBox &bb, const GraphicElement &el, float x, float y);
+    void renderGraphicElement(LineShaderData &out, PickQuadTree::BoundingBox &bb, const GraphicElement &el, float x,
+                              float y);
     void renderDecal(LineShaderData &out, PickQuadTree::BoundingBox &bb, const DecalXY &decal);
-    void renderArchDecal(LineShaderData out[GraphicElement::STYLE_MAX], PickQuadTree::BoundingBox &bb, const DecalXY &decal);
+    void renderArchDecal(LineShaderData out[GraphicElement::STYLE_MAX], PickQuadTree::BoundingBox &bb,
+                         const DecalXY &decal);
     void populateQuadTree(RendererData *data, const DecalXY &decal, const PickedElement &element);
     boost::optional<PickedElement> pickElement(float worldx, float worldy);
     QVector4D mouseToWorldCoordinates(int x, int y);
