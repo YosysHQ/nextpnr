@@ -263,21 +263,6 @@ void vcc_net(Context *ctx, NetInfo *net)
     ctx->cells[cell->name] = std::move(cell);
 }
 
-void floating_net(Context *ctx, NetInfo *net)
-{
-    PortInfo port_info;
-    PortRef port_ref;
-
-    port_info.name = ctx->id(net->name.str(ctx) + ".floating");
-    port_info.net = net;
-    port_info.type = PORT_OUT;
-
-    port_ref.cell = NULL;
-    port_ref.port = port_info.name;
-
-    net->driver = port_ref;
-}
-
 //
 // is_blackbox
 //
@@ -475,10 +460,10 @@ void json_import_ports(Context *ctx, const string &modname, const std::vector<Id
 
                 } else if (wire_node->data_string.compare(string("x")) == 0) {
 
-                    floating_net(ctx, net.get());
-                    log_warning("      Floating wire node value, "
+                    ground_net(ctx, net.get());
+                    log_info("      Floating wire node value, "
                                 "\'%s\' of port \'%s\' "
-                                "in cell \'%s\' of module \'%s\'\n",
+                                "in cell \'%s\' of module \'%s\'\n, converted to zero driver",
                                 wire_node->data_string.c_str(), port_name.c_str(), obj_name.c_str(), modname.c_str());
 
                 } else
