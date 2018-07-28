@@ -2,6 +2,7 @@
  *  nextpnr -- Next Generation Place and Route
  *
  *  Copyright (C) 2018  Miodrag Milanovic <miodrag@symbioticeda.com>
+ *  Copyright (C) 2018  Serge Bazanski <q3k@symbioticeda.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -80,8 +81,11 @@ BaseMainWindow::BaseMainWindow(std::unique_ptr<Context> context, QWidget *parent
     centralTabWidget->tabBar()->tabButton(0, QTabBar::RightSide)->resize(0, 0);
 
     connect(this, SIGNAL(contextChanged(Context *)), fpgaView, SLOT(newContext(Context *)));
-    connect(designview, SIGNAL(selected(std::vector<DecalXY>)), fpgaView,
-            SLOT(onSelectedArchItem(std::vector<DecalXY>)));
+    connect(designview, SIGNAL(selected(std::vector<DecalXY>, bool)), fpgaView,
+            SLOT(onSelectedArchItem(std::vector<DecalXY>, bool)));
+    connect(fpgaView, SIGNAL(clickedBel(BelId, bool)), designview, SLOT(onClickedBel(BelId, bool)));
+    connect(fpgaView, SIGNAL(clickedWire(WireId, bool)), designview, SLOT(onClickedWire(WireId, bool)));
+    connect(fpgaView, SIGNAL(clickedPip(PipId, bool)), designview, SLOT(onClickedPip(PipId, bool)));
 
     connect(designview, SIGNAL(highlight(std::vector<DecalXY>, int)), fpgaView,
             SLOT(onHighlightGroupChanged(std::vector<DecalXY>, int)));

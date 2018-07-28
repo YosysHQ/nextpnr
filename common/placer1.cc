@@ -75,10 +75,10 @@ class SAPlacer
     bool place()
     {
         log_break();
+        ctx->lock();
 
         size_t placed_cells = 0;
         // Initial constraints placer
-        ctx->lock();
         for (auto &cell_entry : ctx->cells) {
             CellInfo *cell = cell_entry.second.get();
             auto loc = cell->attrs.find(ctx->id("BEL"));
@@ -112,6 +112,7 @@ class SAPlacer
         }
         int constr_placed_cells = placed_cells;
         log_info("Placed %d cells based on constraints.\n", int(placed_cells));
+        ctx->yield();
 
         // Sort to-place cells for deterministic initial placement
         std::vector<CellInfo *> autoplaced;
@@ -123,28 +124,25 @@ class SAPlacer
         }
         std::sort(autoplaced.begin(), autoplaced.end(), [](CellInfo *a, CellInfo *b) { return a->name < b->name; });
         ctx->shuffle(autoplaced);
-        ctx->unlock();
 
         // Place cells randomly initially
         log_info("Creating initial placement for remaining %d cells.\n", int(autoplaced.size()));
 
         for (auto cell : autoplaced) {
-            ctx->lock();
             place_initial(cell);
             placed_cells++;
             if ((placed_cells - constr_placed_cells) % 500 == 0)
                 log_info("  initial placement placed %d/%d cells\n", int(placed_cells - constr_placed_cells),
                          int(autoplaced.size()));
-            ctx->unlock();
         }
         if ((placed_cells - constr_placed_cells) % 500 != 0)
             log_info("  initial placement placed %d/%d cells\n", int(placed_cells - constr_placed_cells),
                      int(autoplaced.size()));
+        ctx->yield();
 
         log_info("Running simulated annealing placer.\n");
 
         // Calculate metric after initial placement
-        ctx->lock();
         curr_metric = 0;
         curr_tns = 0;
         for (auto &net : ctx->nets) {
@@ -152,7 +150,6 @@ class SAPlacer
             metrics[net.first] = wl;
             curr_metric += wl;
         }
-        ctx->unlock();
 
         int n_no_progress = 0;
         wirelen_t min_metric = curr_metric;
@@ -257,7 +254,7 @@ class SAPlacer
             ctx->yield();
         }
         // Final post-pacement validitiy check
-        ctx->lock();
+        ctx->yield();
         for (auto bel : ctx->getBels()) {
             IdString cell = ctx->getBoundBelCell(bel);
             if (!ctx->isBelLocationValid(bel)) {

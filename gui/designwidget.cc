@@ -2,6 +2,7 @@
  *  nextpnr -- Next Generation Place and Route
  *
  *  Copyright (C) 2018  Miodrag Milanovic <miodrag@symbioticeda.com>
+ *  Copyright (C) 2018  Serge Bazanski <q3k@symbioticeda.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -507,6 +508,27 @@ QtProperty *DesignWidget::addSubGroup(QtProperty *topItem, const QString &name)
     return item;
 }
 
+void DesignWidget::onClickedBel(BelId bel, bool keep)
+{
+    QTreeWidgetItem *item = nameToItem[getElementIndex(ElementType::BEL)].value(ctx->getBelName(bel).c_str(ctx));
+    treeWidget->setCurrentItem(item);
+    Q_EMIT selected(getDecals(ElementType::BEL, ctx->getBelName(bel)), keep);
+}
+
+void DesignWidget::onClickedWire(WireId wire, bool keep)
+{
+    QTreeWidgetItem *item = nameToItem[getElementIndex(ElementType::WIRE)].value(ctx->getWireName(wire).c_str(ctx));
+    treeWidget->setCurrentItem(item);
+    Q_EMIT selected(getDecals(ElementType::WIRE, ctx->getWireName(wire)), keep);
+}
+
+void DesignWidget::onClickedPip(PipId pip, bool keep)
+{
+    QTreeWidgetItem *item = nameToItem[getElementIndex(ElementType::PIP)].value(ctx->getPipName(pip).c_str(ctx));
+    treeWidget->setCurrentItem(item);
+    Q_EMIT selected(getDecals(ElementType::PIP, ctx->getPipName(pip)), keep);
+}
+
 void DesignWidget::onItemSelectionChanged()
 {
     if (treeWidget->selectedItems().size() == 0)
@@ -520,7 +542,7 @@ void DesignWidget::onItemSelectionChanged()
             std::vector<DecalXY> d = getDecals(type, value);
             std::move(d.begin(), d.end(), std::back_inserter(decals));
         }
-        Q_EMIT selected(decals);
+        Q_EMIT selected(decals, false);
         return;
     }
 
@@ -541,7 +563,7 @@ void DesignWidget::onItemSelectionChanged()
     clearProperties();
 
     IdString c = static_cast<IdStringTreeItem *>(clickItem)->getData();
-    Q_EMIT selected(getDecals(type, c));
+    Q_EMIT selected(getDecals(type, c), false);
 
     if (type == ElementType::BEL) {
         BelId bel = ctx->getBelByName(c);
@@ -833,7 +855,7 @@ void DesignWidget::prepareMenuProperty(const QPoint &pos)
             std::vector<DecalXY> d = getDecals(type, value);
             std::move(d.begin(), d.end(), std::back_inserter(decals));
         }
-        Q_EMIT selected(decals);
+        Q_EMIT selected(decals, false);
     });
     menu.addAction(selectAction);
 

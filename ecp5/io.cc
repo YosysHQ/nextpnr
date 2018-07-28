@@ -209,7 +209,7 @@ bool valid_loc_for_io(IOType type, PortType dir, IOSide side, int z)
         return false;
     if (is_differential(type) && (!is_lr || ((z % 2) == 1)))
         return false;
-    if ((type == IOType::LVCMOS18D || type == IOType::LVDS) && (dir == PORT_OUT || PORT_INOUT) && z != 0)
+    if ((type == IOType::LVCMOS18D || type == IOType::LVDS) && (dir == PORT_OUT || dir == PORT_INOUT) && z != 0)
         return false;
     return true;
 }
