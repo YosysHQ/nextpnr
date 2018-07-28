@@ -143,18 +143,6 @@ void assign_budget(Context *ctx)
     UpdateMap updates;
     delay_t min_slack = compute_min_slack(ctx, &updates, nullptr);
 
-    // If user has not specified a frequency, adjust the target frequency dynamically
-    // TODO(eddieh): Tune these factors
-    if (!ctx->user_freq) {
-        if (min_slack < 0)
-            ctx->target_freq = 1e12 / (default_slack - 0.95 * min_slack);
-        else
-            ctx->target_freq = 1e12 / (default_slack - 1.2 * min_slack);
-        if (ctx->verbose)
-            log_info("minimum slack for this assign = %d, target Fmax for next update = %.2f MHz\n", min_slack,
-                     ctx->target_freq / 1e6);
-    }
-
     // Update the budgets
     for (auto &net : ctx->nets) {
         for (size_t i = 0; i < net.second->users.size(); ++i) {
@@ -178,6 +166,18 @@ void assign_budget(Context *ctx)
                          user.cell->name.c_str(ctx), user.port.c_str(ctx), net.first.c_str(ctx),
                          ctx->getDelayNS(user.budget));
         }
+    }
+
+    // If user has not specified a frequency, adjust the target frequency dynamically
+    // TODO(eddieh): Tune these factors
+    if (!ctx->user_freq) {
+        if (min_slack < 0)
+            ctx->target_freq = 1e12 / (default_slack - 0.95 * min_slack);
+        else
+            ctx->target_freq = 1e12 / (default_slack - 1.2 * min_slack);
+        if (ctx->verbose)
+            log_info("minimum slack for this assign = %d, target Fmax for next update = %.2f MHz\n", min_slack,
+                     ctx->target_freq / 1e6);
     }
 
     log_info("Checksum: 0x%08x\n", ctx->checksum());
@@ -215,12 +215,16 @@ void update_budget(Context *ctx)
         }
     }
 
-    // If user has not specified a frequency, adjust the frequency dynamically:
+    // If user has not specified a frequency, adjust the target frequency dynamically
+    // TODO(eddieh): Tune these factors
     if (!ctx->user_freq) {
         delay_t default_slack = delay_t(1.0e12 / ctx->target_freq);
-        ctx->target_freq = 1e12 / (default_slack - min_slack);
+        if (min_slack < 0)
+            ctx->target_freq = 1e12 / (default_slack - 0.95 * min_slack);
+        else
+            ctx->target_freq = 1e12 / (default_slack - 1.2 * min_slack);
         if (ctx->verbose)
-            log_info("minimum slack for this update = %d, target Fmax for next update = %.2f MHz\n", min_slack,
+            log_info("minimum slack for this assign = %d, target Fmax for next update = %.2f MHz\n", min_slack,
                      ctx->target_freq / 1e6);
     }
 }
