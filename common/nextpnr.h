@@ -204,6 +204,11 @@ struct DecalXY
 {
     DecalId decal;
     float x = 0, y = 0;
+
+    bool operator==(const DecalXY &other) const
+    {
+        return (decal == other.decal && x == other.x && y == other.y);
+    }
 };
 
 struct BelPin

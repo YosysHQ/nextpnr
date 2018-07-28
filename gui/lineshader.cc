@@ -17,8 +17,8 @@
  *
  */
 
-#include "log.h"
 #include "lineshader.h"
+#include "log.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
