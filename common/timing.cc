@@ -28,8 +28,8 @@ NEXTPNR_NAMESPACE_BEGIN
 
 typedef std::list<const PortRef *> PortRefList;
 
-static delay_t follow_net(Context *ctx, NetInfo *net, int path_length, delay_t slack, bool update,
-                          delay_t &min_slack, PortRefList *current_path, PortRefList *crit_path);
+static delay_t follow_net(Context *ctx, NetInfo *net, int path_length, delay_t slack, bool update, delay_t &min_slack,
+                          PortRefList *current_path, PortRefList *crit_path);
 
 // Follow a path, returning budget to annotate
 static delay_t follow_user_port(Context *ctx, PortRef &user, int path_length, delay_t slack, bool update,
@@ -68,8 +68,8 @@ static delay_t follow_user_port(Context *ctx, PortRef &user, int path_length, de
     return value;
 }
 
-static delay_t follow_net(Context *ctx, NetInfo *net, int path_length, delay_t slack, bool update,
-                          delay_t &min_slack, PortRefList *current_path, PortRefList *crit_path)
+static delay_t follow_net(Context *ctx, NetInfo *net, int path_length, delay_t slack, bool update, delay_t &min_slack,
+                          PortRefList *current_path, PortRefList *crit_path)
 {
     delay_t net_budget = slack / (path_length + 1);
     for (unsigned i = 0; i < net->users.size(); ++i) {
@@ -84,9 +84,8 @@ static delay_t follow_net(Context *ctx, NetInfo *net, int path_length, delay_t s
             pl = std::max(1, path_length);
         }
         auto delay = ctx->getNetinfoRouteDelay(net, i);
-        net_budget = std::min(net_budget,
-                              follow_user_port(ctx, usr, pl, slack - delay,
-                                               update, min_slack, current_path, crit_path));
+        net_budget = std::min(
+                net_budget, follow_user_port(ctx, usr, pl, slack - delay, update, min_slack, current_path, crit_path));
         if (update)
             usr.budget = std::min(usr.budget, delay + net_budget);
         if (crit_path)
@@ -195,8 +194,10 @@ delay_t timing_analysis(Context *ctx, bool print_fmax, bool print_path)
             auto net = port.net;
             unsigned i = 0;
             for (auto &usr : net->users)
-                if (&usr == sink) break;
-                else ++i;
+                if (&usr == sink)
+                    break;
+                else
+                    ++i;
             auto &driver = net->driver;
             auto driver_cell = driver.cell;
             delay_t comb_delay;
