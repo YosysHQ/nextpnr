@@ -28,8 +28,8 @@ NEXTPNR_NAMESPACE_BEGIN
 
 typedef std::list<const PortRef *> PortRefList;
 
-static delay_t follow_net(Context *ctx, NetInfo *net, int path_length, delay_t slack, bool update,
-                          delay_t &min_slack, PortRefList *current_path, PortRefList *crit_path);
+static delay_t follow_net(Context *ctx, NetInfo *net, int path_length, delay_t slack, bool update, delay_t &min_slack,
+                          PortRefList *current_path, PortRefList *crit_path);
 
 // Follow a path, returning budget to annotate
 static delay_t follow_user_port(Context *ctx, PortRef &user, int path_length, delay_t slack, bool update,
@@ -68,8 +68,8 @@ static delay_t follow_user_port(Context *ctx, PortRef &user, int path_length, de
     return value;
 }
 
-static delay_t follow_net(Context *ctx, NetInfo *net, int path_length, delay_t slack, bool update,
-                          delay_t &min_slack, PortRefList *current_path, PortRefList *crit_path)
+static delay_t follow_net(Context *ctx, NetInfo *net, int path_length, delay_t slack, bool update, delay_t &min_slack,
+                          PortRefList *current_path, PortRefList *crit_path)
 {
     delay_t net_budget = slack / (path_length + 1);
     for (unsigned i = 0; i < net->users.size(); ++i) {
@@ -83,11 +83,11 @@ static delay_t follow_net(Context *ctx, NetInfo *net, int path_length, delay_t s
             net_budget = budget;
             pl = std::max(1, path_length);
         }
-        net_budget = std::min(net_budget,
-                              follow_user_port(ctx, usr, pl, slack - ctx->getNetinfoRouteDelay(net, i),
-                                               update, min_slack, current_path, crit_path));
+        auto delay = ctx->getNetinfoRouteDelay(net, i);
+        net_budget = std::min(
+                net_budget, follow_user_port(ctx, usr, pl, slack - delay, update, min_slack, current_path, crit_path));
         if (update)
-            usr.budget = std::min(usr.budget, net_budget);
+            usr.budget = std::min(usr.budget, delay + net_budget);
         if (crit_path)
             current_path->pop_back();
     }
@@ -123,10 +123,13 @@ static delay_t walk_paths(Context *ctx, bool update, PortRefList *crit_path)
     return min_slack;
 }
 
-void assign_budget(Context *ctx)
+void assign_budget(Context *ctx, bool quiet)
 {
-    log_break();
-    log_info("Annotating ports with timing budgets\n");
+    if (!quiet) {
+        log_break();
+        log_info("Annotating ports with timing budgets\n");
+    }
+
     // Clear delays to a very high value first
     delay_t default_slack = delay_t(1.0e12 / ctx->target_freq);
     for (auto &net : ctx->nets) {
@@ -137,42 +140,7 @@ void assign_budget(Context *ctx)
 
     delay_t min_slack = walk_paths(ctx, true, nullptr);
 
-    for (auto &net : ctx->nets) {
-        for (auto &user : net.second->users) {
-            // Post-update check
-            if (ctx->user_freq && user.budget < 0)
-                log_warning("port %s.%s, connected to net '%s', has negative "
-                            "timing budget of %fns\n",
-                            user.cell->name.c_str(ctx), user.port.c_str(ctx), net.first.c_str(ctx),
-                            ctx->getDelayNS(user.budget));
-            if (ctx->verbose)
-                log_info("port %s.%s, connected to net '%s', has "
-                         "timing budget of %fns\n",
-                         user.cell->name.c_str(ctx), user.port.c_str(ctx), net.first.c_str(ctx),
-                         ctx->getDelayNS(user.budget));
-        }
-    }
-
-    // If user has not specified a frequency, adjust the target frequency dynamically
-    // TODO(eddieh): Tune these factors
-    if (!ctx->user_freq) {
-        if (min_slack < 0)
-            ctx->target_freq = 1e12 / (default_slack - 0.95 * min_slack);
-        else
-            ctx->target_freq = 1e12 / (default_slack - 1.2 * min_slack);
-        if (ctx->verbose)
-            log_info("minimum slack for this assign = %d, target Fmax for next update = %.2f MHz\n", min_slack,
-                     ctx->target_freq / 1e6);
-    }
-
-    log_info("Checksum: 0x%08x\n", ctx->checksum());
-}
-
-void update_budget(Context *ctx)
-{
-    delay_t min_slack = walk_paths(ctx, true, nullptr);
-
-    if (ctx->verbose) {
+    if (!quiet || ctx->verbose) {
         for (auto &net : ctx->nets) {
             for (auto &user : net.second->users) {
                 // Post-update check
@@ -181,7 +149,7 @@ void update_budget(Context *ctx)
                                 "timing budget of %fns\n",
                                 user.cell->name.c_str(ctx), user.port.c_str(ctx), net.first.c_str(ctx),
                                 ctx->getDelayNS(user.budget));
-                else
+                else if (ctx->verbose)
                     log_info("port %s.%s, connected to net '%s', has "
                              "timing budget of %fns\n",
                              user.cell->name.c_str(ctx), user.port.c_str(ctx), net.first.c_str(ctx),
@@ -193,7 +161,6 @@ void update_budget(Context *ctx)
     // If user has not specified a frequency, adjust the target frequency dynamically
     // TODO(eddieh): Tune these factors
     if (!ctx->user_freq) {
-        delay_t default_slack = delay_t(1.0e12 / ctx->target_freq);
         if (min_slack < 0)
             ctx->target_freq = 1e12 / (default_slack - 0.95 * min_slack);
         else
@@ -202,6 +169,9 @@ void update_budget(Context *ctx)
             log_info("minimum slack for this assign = %d, target Fmax for next update = %.2f MHz\n", min_slack,
                      ctx->target_freq / 1e6);
     }
+
+    if (!quiet)
+        log_info("Checksum: 0x%08x\n", ctx->checksum());
 }
 
 delay_t timing_analysis(Context *ctx, bool print_fmax, bool print_path)
@@ -224,8 +194,10 @@ delay_t timing_analysis(Context *ctx, bool print_fmax, bool print_path)
             auto net = port.net;
             unsigned i = 0;
             for (auto &usr : net->users)
-                if (&usr == sink) break;
-                else ++i;
+                if (&usr == sink)
+                    break;
+                else
+                    ++i;
             auto &driver = net->driver;
             auto driver_cell = driver.cell;
             delay_t comb_delay;

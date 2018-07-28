@@ -585,7 +585,7 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
     // }
 
     // Estimate for output mux
-    for (const auto& bp : getWireBelPins(src)) {
+    for (const auto &bp : getWireBelPins(src)) {
         if (bp.pin == PIN_O && getBelType(bp.bel) == TYPE_ICESTORM_LC) {
             offset += 330;
             break;
@@ -593,8 +593,9 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
     }
 
     // Estimate for input mux
-    for (const auto& bp : getWireBelPins(dst)) {
-        if ((bp.pin == PIN_I0 || bp.pin == PIN_I1 || bp.pin == PIN_I2 || bp.pin == PIN_I3) && getBelType(bp.bel) == TYPE_ICESTORM_LC) {
+    for (const auto &bp : getWireBelPins(dst)) {
+        if ((bp.pin == PIN_I0 || bp.pin == PIN_I1 || bp.pin == PIN_I2 || bp.pin == PIN_I3) &&
+            getBelType(bp.bel) == TYPE_ICESTORM_LC) {
             offset += 260;
             break;
         }
@@ -605,9 +606,9 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
 
 delay_t Arch::getBudgetOverride(NetInfo *net_info, int user_idx, delay_t budget) const
 {
-    const auto& driver = net_info->driver;
+    const auto &driver = net_info->driver;
     if (driver.port == id_cout) {
-        const auto& sink = net_info->users[user_idx];
+        const auto &sink = net_info->users[user_idx];
         auto driver_loc = getBelLocation(driver.cell->bel);
         auto sink_loc = getBelLocation(sink.cell->bel);
         if (driver_loc.y == sink_loc.y)
