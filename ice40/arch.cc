@@ -584,6 +584,22 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
     //     offset = 500;
     // }
 
+    // Estimate for output mux
+    for (const auto& bp : getWireBelPins(src)) {
+        if (bp.pin == PIN_O && getBelType(bp.bel) == TYPE_ICESTORM_LC) {
+            offset += 330;
+            break;
+        }
+    }
+
+    // Estimate for input mux
+    for (const auto& bp : getWireBelPins(dst)) {
+        if ((bp.pin == PIN_I0 || bp.pin == PIN_I1 || bp.pin == PIN_I2 || bp.pin == PIN_I3) && getBelType(bp.bel) == TYPE_ICESTORM_LC) {
+            offset += 260;
+            break;
+        }
+    }
+
     return xscale * abs(xd) + yscale * abs(yd) + offset;
 }
 
