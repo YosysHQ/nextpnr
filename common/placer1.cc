@@ -237,7 +237,7 @@ class SAPlacer
                 ctx->shuffle(autoplaced);
                 assign_budget(ctx);
             } else {
-                update_budget(ctx);
+                assign_budget(ctx, true /* quiet */);
             }
 
             // Recalculate total metric entirely to avoid rounding errors

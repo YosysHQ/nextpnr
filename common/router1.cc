@@ -616,7 +616,7 @@ bool router1(Context *ctx)
             if (ctx->verbose || iterCnt == 1)
                 log_info("routing queue contains %d jobs.\n", int(jobQueue.size()));
 
-            update_budget(ctx);
+            assign_budget(ctx, true /* quiet */);
 
             bool printNets = ctx->verbose && (jobQueue.size() < 10);
 
