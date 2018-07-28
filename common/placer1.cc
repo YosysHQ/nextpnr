@@ -275,7 +275,7 @@ class SAPlacer
                 }
             }
         }
-        compute_fmax(ctx, true /* print_fmax */);
+        timing_analysis(ctx, true /* print_fmax */);
         ctx->unlock();
         return true;
     }

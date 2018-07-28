@@ -26,14 +26,13 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-typedef std::unordered_map<const PortInfo *, delay_t> UpdateMap;
 typedef std::list<const PortRef *> PortRefList;
 
-static delay_t follow_net(Context *ctx, NetInfo *net, int path_length, delay_t slack, UpdateMap *updates,
+static delay_t follow_net(Context *ctx, NetInfo *net, int path_length, delay_t slack, bool update,
                           delay_t &min_slack, PortRefList *current_path, PortRefList *crit_path);
 
 // Follow a path, returning budget to annotate
-static delay_t follow_user_port(Context *ctx, PortRef &user, int path_length, delay_t slack, UpdateMap *updates,
+static delay_t follow_user_port(Context *ctx, PortRef &user, int path_length, delay_t slack, bool update,
                                 delay_t &min_slack, PortRefList *current_path, PortRefList *crit_path)
 {
     delay_t value;
@@ -58,7 +57,7 @@ static delay_t follow_user_port(Context *ctx, PortRef &user, int path_length, de
                 if (is_path) {
                     NetInfo *net = port.second.net;
                     if (net) {
-                        delay_t path_budget = follow_net(ctx, net, path_length, slack - comb_delay, updates, min_slack,
+                        delay_t path_budget = follow_net(ctx, net, path_length, slack - comb_delay, update, min_slack,
                                                          current_path, crit_path);
                         value = std::min(value, path_budget);
                     }
@@ -66,16 +65,10 @@ static delay_t follow_user_port(Context *ctx, PortRef &user, int path_length, de
             }
         }
     }
-
-    if (updates) {
-        auto ret = updates->emplace(&user.cell->ports.at(user.port), value);
-        if (!ret.second)
-            ret.first->second = std::min(value, ret.first->second);
-    }
     return value;
 }
 
-static delay_t follow_net(Context *ctx, NetInfo *net, int path_length, delay_t slack, UpdateMap *updates,
+static delay_t follow_net(Context *ctx, NetInfo *net, int path_length, delay_t slack, bool update,
                           delay_t &min_slack, PortRefList *current_path, PortRefList *crit_path)
 {
     delay_t net_budget = slack / (path_length + 1);
@@ -92,14 +85,16 @@ static delay_t follow_net(Context *ctx, NetInfo *net, int path_length, delay_t s
         }
         net_budget = std::min(net_budget,
                               follow_user_port(ctx, usr, pl, slack - ctx->getNetinfoRouteDelay(net, i),
-                                               updates, min_slack, current_path, crit_path));
+                                               update, min_slack, current_path, crit_path));
+        if (update)
+            usr.budget = std::min(usr.budget, net_budget);
         if (crit_path)
             current_path->pop_back();
     }
     return net_budget;
 }
 
-static delay_t compute_min_slack(Context *ctx, UpdateMap *updates, PortRefList *crit_path)
+static delay_t walk_paths(Context *ctx, bool update, PortRefList *crit_path)
 {
     delay_t default_slack = delay_t(1.0e12 / ctx->target_freq);
     delay_t min_slack = default_slack;
@@ -119,7 +114,7 @@ static delay_t compute_min_slack(Context *ctx, UpdateMap *updates, PortRefList *
                     if (ctx->getCellDelay(cell.second.get(), clock_domain, port.first, clkToQ))
                         slack -= clkToQ;
                     if (port.second.net)
-                        follow_net(ctx, port.second.net, 0, slack, updates, min_slack, &current_path, crit_path);
+                        follow_net(ctx, port.second.net, 0, slack, update, min_slack, &current_path, crit_path);
                 }
             }
         }
@@ -140,20 +135,10 @@ void assign_budget(Context *ctx)
         }
     }
 
-    UpdateMap updates;
-    delay_t min_slack = compute_min_slack(ctx, &updates, nullptr);
+    delay_t min_slack = walk_paths(ctx, true, nullptr);
 
-    // Update the budgets
     for (auto &net : ctx->nets) {
-        for (size_t i = 0; i < net.second->users.size(); ++i) {
-            auto &user = net.second->users[i];
-            auto pi = &user.cell->ports.at(user.port);
-            auto budget = ctx->getNetinfoRouteDelay(net.second.get(), i);
-            auto it = updates.find(pi);
-            if (it != updates.end())
-                budget += it->second;
-            user.budget = ctx->getBudgetOverride(net.second.get(), i, budget);
-
+        for (auto &user : net.second->users) {
             // Post-update check
             if (ctx->user_freq && user.budget < 0)
                 log_warning("port %s.%s, connected to net '%s', has negative "
@@ -185,22 +170,12 @@ void assign_budget(Context *ctx)
 
 void update_budget(Context *ctx)
 {
-    UpdateMap updates;
-    delay_t min_slack = compute_min_slack(ctx, &updates, nullptr);
+    delay_t min_slack = walk_paths(ctx, true, nullptr);
 
-    // Update the budgets
-    for (auto &net : ctx->nets) {
-        for (size_t i = 0; i < net.second->users.size(); ++i) {
-            auto &user = net.second->users[i];
-            auto pi = &user.cell->ports.at(user.port);
-            auto budget = ctx->getNetinfoRouteDelay(net.second.get(), i);
-            auto it = updates.find(pi);
-            if (it != updates.end())
-                budget += it->second;
-            user.budget = ctx->getBudgetOverride(net.second.get(), i, budget);
-
-            // Post-update check
-            if (ctx->verbose) {
+    if (ctx->verbose) {
+        for (auto &net : ctx->nets) {
+            for (auto &user : net.second->users) {
+                // Post-update check
                 if (ctx->user_freq && user.budget < 0)
                     log_warning("port %s.%s, connected to net '%s', has negative "
                                 "timing budget of %fns\n",
@@ -229,11 +204,11 @@ void update_budget(Context *ctx)
     }
 }
 
-void compute_fmax(Context *ctx, bool print_fmax, bool print_path)
+delay_t timing_analysis(Context *ctx, bool print_fmax, bool print_path)
 {
     delay_t default_slack = delay_t(1.0e12 / ctx->target_freq);
     PortRefList crit_path;
-    delay_t min_slack = compute_min_slack(ctx, nullptr, &crit_path);
+    delay_t min_slack = walk_paths(ctx, false, &crit_path);
     if (print_path) {
         delay_t total = 0;
         log_break();
@@ -271,6 +246,7 @@ void compute_fmax(Context *ctx, bool print_fmax, bool print_path)
     }
     if (print_fmax)
         log_info("estimated Fmax = %.2f MHz\n", 1e6 / (default_slack - min_slack));
+    return min_slack;
 }
 
 NEXTPNR_NAMESPACE_END

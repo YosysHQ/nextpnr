@@ -814,7 +814,7 @@ bool router1(Context *ctx)
 #ifndef NDEBUG
         ctx->check();
 #endif
-        compute_fmax(ctx, true /* print_fmax */, true /* print_path */);
+        timing_analysis(ctx, true /* print_fmax */, true /* print_path */);
         ctx->unlock();
         return true;
     } catch (log_execution_error_exception) {
