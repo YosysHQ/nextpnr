@@ -160,6 +160,10 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr), sel
 
     connect(treeView, &QTreeWidget::customContextMenuRequested, this, &DesignWidget::prepareMenuTree);
 
+    selectionModel = treeView->selectionModel();
+    connect(selectionModel, SIGNAL(selectionChanged(const QItemSelection &, const QItemSelection &)),
+            SLOT(onSelectionChanged(const QItemSelection &, const QItemSelection &)));
+
     history_index = -1;
     history_ignore = false;
 
@@ -210,7 +214,6 @@ void DesignWidget::newContext(Context *ctx)
 
     highlightSelected.clear();
     this->ctx = ctx;
-    treeView->setModel(nullptr);
     treeModel->loadData(ctx);
     updateTree();
 }
@@ -232,10 +235,6 @@ void DesignWidget::updateTree()
     }
 
     treeModel->updateData(ctx);
-    treeView->setModel(treeModel);
-    selectionModel = treeView->selectionModel();
-    connect(selectionModel, SIGNAL(selectionChanged(const QItemSelection &, const QItemSelection &)),
-            SLOT(onSelectionChanged(const QItemSelection &, const QItemSelection &)));
 }
 QtProperty *DesignWidget::addTopLevelProperty(const QString &id)
 {
@@ -310,21 +309,24 @@ QtProperty *DesignWidget::addSubGroup(QtProperty *topItem, const QString &name)
 void DesignWidget::onClickedBel(BelId bel, bool keep)
 {
     ContextTreeItem *item = treeModel->nodeForIdType(ElementType::BEL, ctx->getBelName(bel).c_str(ctx));
-    selectionModel->setCurrentIndex(treeModel->indexFromNode(item), keep ? QItemSelectionModel::Select : QItemSelectionModel::ClearAndSelect);
+    selectionModel->setCurrentIndex(treeModel->indexFromNode(item),
+                                    keep ? QItemSelectionModel::Select : QItemSelectionModel::ClearAndSelect);
     Q_EMIT selected(getDecals(ElementType::BEL, ctx->getBelName(bel)), keep);
 }
 
 void DesignWidget::onClickedWire(WireId wire, bool keep)
 {
     ContextTreeItem *item = treeModel->nodeForIdType(ElementType::WIRE, ctx->getWireName(wire).c_str(ctx));
-    selectionModel->setCurrentIndex(treeModel->indexFromNode(item), keep ? QItemSelectionModel::Select : QItemSelectionModel::ClearAndSelect);
+    selectionModel->setCurrentIndex(treeModel->indexFromNode(item),
+                                    keep ? QItemSelectionModel::Select : QItemSelectionModel::ClearAndSelect);
     Q_EMIT selected(getDecals(ElementType::WIRE, ctx->getWireName(wire)), keep);
 }
 
 void DesignWidget::onClickedPip(PipId pip, bool keep)
 {
     ContextTreeItem *item = treeModel->nodeForIdType(ElementType::PIP, ctx->getPipName(pip).c_str(ctx));
-    selectionModel->setCurrentIndex(treeModel->indexFromNode(item), keep ? QItemSelectionModel::Select : QItemSelectionModel::ClearAndSelect);
+    selectionModel->setCurrentIndex(treeModel->indexFromNode(item),
+                                    keep ? QItemSelectionModel::Select : QItemSelectionModel::ClearAndSelect);
     Q_EMIT selected(getDecals(ElementType::PIP, ctx->getPipName(pip)), keep);
 }
 

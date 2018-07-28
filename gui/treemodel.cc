@@ -53,6 +53,9 @@ void ContextTreeModel::loadData(Context *ctx)
 {
     if (!ctx)
         return;
+
+    beginResetModel();
+
     delete root;
     root = new ContextTreeItem();
 
@@ -153,6 +156,8 @@ void ContextTreeModel::loadData(Context *ctx)
 
     cells_root = new ContextTreeItem("Cells");
     root->addChild(cells_root);
+
+    endResetModel();
 }
 
 void ContextTreeModel::updateData(Context *ctx)
@@ -160,14 +165,18 @@ void ContextTreeModel::updateData(Context *ctx)
     if (!ctx)
         return;
 
+    QModelIndex nets_index = indexFromNode(nets_root);
     // Remove nets not existing any more
     QMap<QString, ContextTreeItem *>::iterator i = nameToItem[3].begin();
     while (i != nameToItem[3].end()) {
         QMap<QString, ContextTreeItem *>::iterator prev = i;
         ++i;
         if (ctx->nets.find(ctx->id(prev.key().toStdString())) == ctx->nets.end()) {
+            int pos = prev.value()->parent()->indexOf(prev.value());
+            beginRemoveRows(nets_index, pos, pos);
             delete prev.value();
             nameToItem[3].erase(prev);
+            endRemoveRows();
         }
     }
     // Add nets to tree
@@ -175,20 +184,26 @@ void ContextTreeModel::updateData(Context *ctx)
         auto id = item.first;
         QString name = QString(id.c_str(ctx));
         if (!nameToItem[3].contains(name)) {
+            beginInsertRows(nets_index, nets_root->count() + 1, nets_root->count() + 1);
             ContextTreeItem *newItem = new ContextTreeItem(id, ElementType::NET, name);
             nets_root->addChild(newItem);
             nameToItem[3].insert(name, newItem);
+            endInsertRows();
         }
     }
 
+    QModelIndex cell_index = indexFromNode(cells_root);
     // Remove cells not existing any more
     i = nameToItem[4].begin();
     while (i != nameToItem[4].end()) {
         QMap<QString, ContextTreeItem *>::iterator prev = i;
         ++i;
         if (ctx->cells.find(ctx->id(prev.key().toStdString())) == ctx->cells.end()) {
+            int pos = prev.value()->parent()->indexOf(prev.value());
+            beginRemoveRows(cell_index, pos, pos);
             delete prev.value();
             nameToItem[4].erase(prev);
+            endRemoveRows();
         }
     }
     // Add cells to tree
@@ -196,9 +211,11 @@ void ContextTreeModel::updateData(Context *ctx)
         auto id = item.first;
         QString name = QString(id.c_str(ctx));
         if (!nameToItem[4].contains(name)) {
+            beginInsertRows(cell_index, cells_root->count() + 1, cells_root->count() + 1);
             ContextTreeItem *newItem = new ContextTreeItem(id, ElementType::CELL, name);
             cells_root->addChild(newItem);
             nameToItem[4].insert(name, newItem);
+            endInsertRows();
         }
     }
 }
