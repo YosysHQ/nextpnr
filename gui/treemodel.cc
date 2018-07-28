@@ -166,10 +166,6 @@ void ContextTreeModel::updateData(Context *ctx)
         QMap<QString, ContextTreeItem *>::iterator prev = i;
         ++i;
         if (ctx->nets.find(ctx->id(prev.key().toStdString())) == ctx->nets.end()) {
-            /*            if (treeWidget->currentItem() == prev.value())
-                            treeWidget->setCurrentItem(nets_root);
-                        if (highlightSelected.contains(prev.value()))
-                            highlightSelected.remove(prev.value());*/
             delete prev.value();
             nameToItem[3].erase(prev);
         }
@@ -191,10 +187,6 @@ void ContextTreeModel::updateData(Context *ctx)
         QMap<QString, ContextTreeItem *>::iterator prev = i;
         ++i;
         if (ctx->cells.find(ctx->id(prev.key().toStdString())) == ctx->cells.end()) {
-            /*            if (treeWidget->currentItem() == prev.value())
-                            treeWidget->setCurrentItem(cells_root);
-                        if (highlightSelected.contains(prev.value()))
-                            highlightSelected.remove(prev.value());*/
             delete prev.value();
             nameToItem[4].erase(prev);
         }

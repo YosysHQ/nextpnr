@@ -223,6 +223,18 @@ void DesignWidget::updateTree()
 
     clearProperties();
 
+    QMap<ContextTreeItem *, int>::iterator i = highlightSelected.begin();
+    while (i != highlightSelected.end()) {
+        QMap<ContextTreeItem *, int>::iterator prev = i;
+        ++i;
+        if (prev.key()->type() == ElementType::NET && ctx->nets.find(prev.key()->id()) == ctx->nets.end()) {
+            highlightSelected.erase(prev);
+        }
+        if (prev.key()->type() == ElementType::CELL && ctx->cells.find(prev.key()->id()) == ctx->cells.end()) {
+            highlightSelected.erase(prev);
+        }
+    }
+
     treeModel->updateData(ctx);
 }
 QtProperty *DesignWidget::addTopLevelProperty(const QString &id)
