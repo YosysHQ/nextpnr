@@ -18,6 +18,7 @@
  */
 
 #include "nextpnr.h"
+#include <algorithm>
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -25,6 +26,39 @@ class Ecp5GlobalRouter
 {
   public:
     Ecp5GlobalRouter(Context *ctx) : ctx(ctx){};
+  private:
+
+    bool is_clock_port(const PortRef &user) {
+        if (user.cell->type == ctx->id("TRELLIS_LC") && user.port == ctx->id("CLK"))
+            return true;
+        return false;
+    }
+
+    std::vector<NetInfo*> get_clocks()
+    {
+        std::unordered_map<IdString, int> clockCount;
+        for (auto &net : ctx->nets) {
+            NetInfo *ni = net.second.get();
+            clockCount[ni->name] = 0;
+            for (const auto &user : ni->users) {
+                if (is_clock_port(user))
+                    clockCount[ni->name]++;
+            }
+        }
+        std::vector<NetInfo*> clocks;
+        while (clocks.size() < 16) {
+            auto max = std::max_element(clockCount.begin(), clockCount.end(), [](
+                    const decltype(clockCount)::value_type &a, const decltype(clockCount)::value_type &b
+                    ) {
+                return a.second < b.second;
+            });
+            if (max == clockCount.end() || max->second < 3)
+                break;
+            clocks.push_back(ctx->nets.at(max->first).get());
+            clockCount.erase(max->first);
+        }
+        return clocks;
+    }
 
     PipId find_tap_pip(WireId tile_glb)
     {
@@ -43,7 +77,6 @@ class Ecp5GlobalRouter
         return *(ctx->getPipsUphill(tap_wire).begin());
     }
 
-  private:
     Context *ctx;
 };
 
