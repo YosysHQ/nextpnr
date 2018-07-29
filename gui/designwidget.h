@@ -56,12 +56,14 @@ class DesignWidget : public QWidget
     void info(std::string text);
     void selected(std::vector<DecalXY> decal, bool keep);
     void highlight(std::vector<DecalXY> decal, int group);
+    void zoomSelected();
 
   private Q_SLOTS:
     void prepareMenuProperty(const QPoint &pos);
     void prepareMenuTree(const QPoint &pos);
     void onSelectionChanged(const QItemSelection &selected, const QItemSelection &deselected);
     void onItemDoubleClicked(QTreeWidgetItem *item, int column);
+    void onDoubleClicked(const QModelIndex &index);
   public Q_SLOTS:
     void newContext(Context *ctx);
     void updateTree();

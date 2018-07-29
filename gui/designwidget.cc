@@ -158,8 +158,8 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr), sel
             &DesignWidget::prepareMenuProperty);
     connect(propertyEditor->treeWidget(), &QTreeWidget::itemDoubleClicked, this, &DesignWidget::onItemDoubleClicked);
 
-    connect(treeView, &QTreeWidget::customContextMenuRequested, this, &DesignWidget::prepareMenuTree);
-
+    connect(treeView, &QTreeView::customContextMenuRequested, this, &DesignWidget::prepareMenuTree);
+    connect(treeView, &QTreeView::doubleClicked, this, &DesignWidget::onDoubleClicked);
     selectionModel = treeView->selectionModel();
     connect(selectionModel, SIGNAL(selectionChanged(const QItemSelection &, const QItemSelection &)),
             SLOT(onSelectionChanged(const QItemSelection &, const QItemSelection &)));
@@ -713,4 +713,5 @@ void DesignWidget::onItemDoubleClicked(QTreeWidgetItem *item, int column)
         selectionModel->setCurrentIndex(treeModel->indexFromNode(it), QItemSelectionModel::ClearAndSelect);
 }
 
+void DesignWidget::onDoubleClicked(const QModelIndex &index) { Q_EMIT zoomSelected(); }
 NEXTPNR_NAMESPACE_END

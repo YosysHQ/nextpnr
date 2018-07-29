@@ -86,6 +86,7 @@ BaseMainWindow::BaseMainWindow(std::unique_ptr<Context> context, QWidget *parent
     connect(fpgaView, SIGNAL(clickedBel(BelId, bool)), designview, SLOT(onClickedBel(BelId, bool)));
     connect(fpgaView, SIGNAL(clickedWire(WireId, bool)), designview, SLOT(onClickedWire(WireId, bool)));
     connect(fpgaView, SIGNAL(clickedPip(PipId, bool)), designview, SLOT(onClickedPip(PipId, bool)));
+    connect(designview, SIGNAL(zoomSelected()), fpgaView, SLOT(zoomSelected()));
 
     connect(designview, SIGNAL(highlight(std::vector<DecalXY>, int)), fpgaView,
             SLOT(onHighlightGroupChanged(std::vector<DecalXY>, int)));
