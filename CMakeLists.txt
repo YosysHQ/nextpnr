@@ -58,9 +58,9 @@ if (BUILD_GUI AND NOT BUILD_PYTHON)
     message(FATAL_ERROR "GUI requires Python to build")
 endif()
 
+find_package(PythonInterp 3.5 REQUIRED)
 if (BUILD_PYTHON)
     # TODO: sensible minimum Python version
-    find_package(PythonInterp 3.5 REQUIRED)
     find_package(PythonLibs 3.5 REQUIRED)
 else()
     add_definitions("-DNO_PYTHON")
