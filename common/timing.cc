@@ -158,13 +158,10 @@ void assign_budget(Context *ctx, bool quiet)
         }
     }
 
-    // If user has not specified a frequency, adjust the target frequency dynamically
-    // TODO(eddieh): Tune these factors
+    // If user has not specified a frequency, dynamically adjust the target 
+    //   frequency to be the current maximum
     if (!ctx->user_freq) {
-        if (min_slack < 0)
-            ctx->target_freq = 1e12 / (default_slack - 0.95 * min_slack);
-        else
-            ctx->target_freq = 1e12 / (default_slack - 1.2 * min_slack);
+        ctx->target_freq = 1e12 / (default_slack - 1.2 * min_slack);
         if (ctx->verbose)
             log_info("minimum slack for this assign = %d, target Fmax for next update = %.2f MHz\n", min_slack,
                      ctx->target_freq / 1e6);
