@@ -71,10 +71,15 @@ make -j$(nproc)
 sudo make install
 ```
 
-- For an ECP5 blinky, first synthesise using `yosys blinky.ys` in `ecp5/synth`.
+ - For an ECP5 blinky, first synthesise using `yosys blinky.ys` in `ecp5/synth`.
   - Then run ECP5 place-and route using `./nextpnr-ecp5 --json ecp5/synth/blinky.json --basecfg ecp5/synth/ulx3s_empty.config --bit ecp5/synth/ulx3s.bit`
   - Note that `ulx3s_empty.config` contains fixed/unknown bits to be copied to the output bitstream
   - You can also use `--textcfg out.config` to write a text file describing the bitstream for debugging
+
+ - More examples of the ECP5 flow for a range of boards can be found in the [Project Trellis Examples](https://github.com/SymbiFlow/prjtrellis/tree/master/examples).
+
+ - Currently the ECP5 flow supports LUTs, flipflops and IO. IO must be instantiated using `TRELLIS_IO` primitives and constraints specified
+   using `LOC` and `IO_TYPE` attributes on those instances, as is used in the examples.
 
 ### nextpnr-generic
 
