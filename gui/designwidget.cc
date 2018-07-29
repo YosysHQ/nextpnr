@@ -30,48 +30,14 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-class ElementTreeItem : public QTreeWidgetItem
+DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr), selectionModel(nullptr)
 {
-  public:
-    ElementTreeItem(ElementType t, QString str, QTreeWidgetItem *parent)
-            : QTreeWidgetItem(parent, QStringList(str)), type(t)
-    {
-        this->setFlags(this->flags() & ~Qt::ItemIsSelectable);
-    }
-    virtual ~ElementTreeItem(){};
-
-    ElementType getType() { return type; };
-
-  private:
-    ElementType type;
-};
-
-class IdStringTreeItem : public ElementTreeItem
-{
-  public:
-    IdStringTreeItem(IdString d, ElementType t, QString str, QTreeWidgetItem *parent) : ElementTreeItem(t, str, parent)
-    {
-        this->setFlags(this->flags() | Qt::ItemIsSelectable);
-        this->data = d;
-    }
-    virtual ~IdStringTreeItem(){};
-
-    IdString getData() { return this->data; };
-
-  private:
-    IdString data;
-};
-
-DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr), nets_root(nullptr), cells_root(nullptr)
-{
-
-    treeWidget = new QTreeWidget();
-
     // Add tree view
-    treeWidget->setColumnCount(1);
-    treeWidget->setHeaderLabel("Items");
-    treeWidget->setContextMenuPolicy(Qt::CustomContextMenu);
-    treeWidget->setSelectionMode(QAbstractItemView::ExtendedSelection);
+    treeView = new QTreeView();
+    treeModel = new ContextTreeModel();
+    treeView->setModel(treeModel);
+    treeView->setContextMenuPolicy(Qt::CustomContextMenu);
+    treeView->setSelectionMode(QAbstractItemView::ExtendedSelection);
 
     // Add property view
     variantManager = new QtVariantPropertyManager(this);
@@ -96,7 +62,7 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr), net
     connect(actionFirst, &QAction::triggered, this, [this] {
         history_ignore = true;
         history_index = 0;
-        treeWidget->setCurrentItem(history.at(history_index));
+        selectionModel->setCurrentIndex(history.at(history_index), QItemSelectionModel::ClearAndSelect);
         updateButtons();
     });
 
@@ -106,7 +72,7 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr), net
     connect(actionPrev, &QAction::triggered, this, [this] {
         history_ignore = true;
         history_index--;
-        treeWidget->setCurrentItem(history.at(history_index));
+        selectionModel->setCurrentIndex(history.at(history_index), QItemSelectionModel::ClearAndSelect);
         updateButtons();
     });
 
@@ -116,7 +82,7 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr), net
     connect(actionNext, &QAction::triggered, this, [this] {
         history_ignore = true;
         history_index++;
-        treeWidget->setCurrentItem(history.at(history_index));
+        selectionModel->setCurrentIndex(history.at(history_index), QItemSelectionModel::ClearAndSelect);
         updateButtons();
     });
 
@@ -126,7 +92,7 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr), net
     connect(actionLast, &QAction::triggered, this, [this] {
         history_ignore = true;
         history_index = int(history.size() - 1);
-        treeWidget->setCurrentItem(history.at(history_index));
+        selectionModel->setCurrentIndex(history.at(history_index), QItemSelectionModel::ClearAndSelect);
         updateButtons();
     });
 
@@ -136,11 +102,11 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr), net
     connect(actionClear, &QAction::triggered, this, [this] {
         history_index = -1;
         history.clear();
-        QTreeWidgetItem *clickItem = treeWidget->selectedItems().at(0);
-        if (clickItem->parent()) {
-            ElementType type = static_cast<ElementTreeItem *>(clickItem)->getType();
+        QModelIndex index = selectionModel->selectedIndexes().at(0);
+        if (index.isValid()) {
+            ElementType type = treeModel->nodeFromIndex(index)->type();
             if (type != ElementType::NONE)
-                addToHistory(treeWidget->selectedItems().at(0));
+                addToHistory(index);
         }
         updateButtons();
     });
@@ -158,7 +124,7 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr), net
     vbox1->setSpacing(5);
     vbox1->setContentsMargins(0, 0, 0, 0);
     vbox1->addWidget(lineEdit);
-    vbox1->addWidget(treeWidget);
+    vbox1->addWidget(treeView);
 
     QWidget *toolbarWidget = new QWidget();
     QHBoxLayout *hbox = new QHBoxLayout;
@@ -192,8 +158,11 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr), net
             &DesignWidget::prepareMenuProperty);
     connect(propertyEditor->treeWidget(), &QTreeWidget::itemDoubleClicked, this, &DesignWidget::onItemDoubleClicked);
 
-    connect(treeWidget, SIGNAL(itemSelectionChanged()), SLOT(onItemSelectionChanged()));
-    connect(treeWidget, &QTreeWidget::customContextMenuRequested, this, &DesignWidget::prepareMenuTree);
+    connect(treeView, &QTreeWidget::customContextMenuRequested, this, &DesignWidget::prepareMenuTree);
+
+    selectionModel = treeView->selectionModel();
+    connect(selectionModel, SIGNAL(selectionChanged(const QItemSelection &, const QItemSelection &)),
+            SLOT(onSelectionChanged(const QItemSelection &, const QItemSelection &)));
 
     history_index = -1;
     history_ignore = false;
@@ -219,7 +188,7 @@ void DesignWidget::updateButtons()
     actionLast->setEnabled(history_index < (count - 1));
 }
 
-void DesignWidget::addToHistory(QTreeWidgetItem *item)
+void DesignWidget::addToHistory(QModelIndex item)
 {
     if (!history_ignore) {
         int count = int(history.size());
@@ -234,194 +203,38 @@ void DesignWidget::addToHistory(QTreeWidgetItem *item)
 
 void DesignWidget::newContext(Context *ctx)
 {
+    if (!ctx)
+        return;
+
     highlightSelected.clear();
-    treeWidget->clear();
-    // reset pointers since they are not valid after clear
-    nets_root = nullptr;
-    cells_root = nullptr;
     history_ignore = false;
     history_index = -1;
     history.clear();
     updateButtons();
 
-    for (int i = 0; i < 6; i++)
-        nameToItem[i].clear();
-
+    highlightSelected.clear();
     this->ctx = ctx;
-
-    // Add bels to tree
-    QTreeWidgetItem *bel_root = new QTreeWidgetItem(treeWidget);
-    QMap<QString, QTreeWidgetItem *> bel_items;
-    bel_root->setText(0, "Bels");
-    bel_root->setFlags(bel_root->flags() & ~Qt::ItemIsSelectable);
-    treeWidget->insertTopLevelItem(0, bel_root);
-    if (ctx) {
-        for (auto bel : ctx->getBels()) {
-            auto id = ctx->getBelName(bel);
-            QStringList items = QString(id.c_str(ctx)).split("/");
-            QString name;
-            QTreeWidgetItem *parent = nullptr;
-            for (int i = 0; i < items.size(); i++) {
-                if (!name.isEmpty())
-                    name += "/";
-                name += items.at(i);
-                if (!bel_items.contains(name)) {
-                    if (i == items.size() - 1)
-                        nameToItem[0].insert(name, new IdStringTreeItem(id, ElementType::BEL, items.at(i), parent));
-                    else
-                        bel_items.insert(name, new ElementTreeItem(ElementType::NONE, items.at(i), parent));
-                }
-                parent = bel_items[name];
-            }
-        }
-    }
-    for (auto bel : bel_items.toStdMap()) {
-        bel_root->addChild(bel.second);
-    }
-    for (auto bel : nameToItem[0].toStdMap()) {
-        bel_root->addChild(bel.second);
-    }
-
-    // Add wires to tree
-    QTreeWidgetItem *wire_root = new QTreeWidgetItem(treeWidget);
-    QMap<QString, QTreeWidgetItem *> wire_items;
-    wire_root->setText(0, "Wires");
-    wire_root->setFlags(wire_root->flags() & ~Qt::ItemIsSelectable);
-    treeWidget->insertTopLevelItem(0, wire_root);
-    if (ctx) {
-        for (auto wire : ctx->getWires()) {
-            auto id = ctx->getWireName(wire);
-            QStringList items = QString(id.c_str(ctx)).split("/");
-            QString name;
-            QTreeWidgetItem *parent = nullptr;
-            for (int i = 0; i < items.size(); i++) {
-                if (!name.isEmpty())
-                    name += "/";
-                name += items.at(i);
-                if (!wire_items.contains(name)) {
-                    if (i == items.size() - 1)
-                        nameToItem[1].insert(name, new IdStringTreeItem(id, ElementType::WIRE, items.at(i), parent));
-                    else
-                        wire_items.insert(name, new ElementTreeItem(ElementType::NONE, items.at(i), parent));
-                }
-                parent = wire_items[name];
-            }
-        }
-    }
-    for (auto wire : wire_items.toStdMap()) {
-        wire_root->addChild(wire.second);
-    }
-    for (auto wire : nameToItem[1].toStdMap()) {
-        wire_root->addChild(wire.second);
-    }
-    // Add pips to tree
-    QTreeWidgetItem *pip_root = new QTreeWidgetItem(treeWidget);
-    QMap<QString, QTreeWidgetItem *> pip_items;
-    pip_root->setText(0, "Pips");
-    pip_root->setFlags(pip_root->flags() & ~Qt::ItemIsSelectable);
-    treeWidget->insertTopLevelItem(0, pip_root);
-#ifndef ARCH_ECP5
-    if (ctx) {
-        for (auto pip : ctx->getPips()) {
-            auto id = ctx->getPipName(pip);
-            QStringList items = QString(id.c_str(ctx)).split("/");
-            QString name;
-            QTreeWidgetItem *parent = nullptr;
-            for (int i = 0; i < items.size(); i++) {
-                if (!name.isEmpty())
-                    name += "/";
-                name += items.at(i);
-                if (!pip_items.contains(name)) {
-                    if (i == items.size() - 1)
-                        nameToItem[2].insert(name, new IdStringTreeItem(id, ElementType::PIP, items.at(i), parent));
-                    else
-                        pip_items.insert(name, new ElementTreeItem(ElementType::NONE, items.at(i), parent));
-                }
-                parent = pip_items[name];
-            }
-        }
-    }
-    for (auto pip : pip_items.toStdMap()) {
-        pip_root->addChild(pip.second);
-    }
-    for (auto pip : nameToItem[2].toStdMap()) {
-        pip_root->addChild(pip.second);
-    }
-#endif
-
-    nets_root = new QTreeWidgetItem(treeWidget);
-    nets_root->setText(0, "Nets");
-    nets_root->setFlags(nets_root->flags() & ~Qt::ItemIsSelectable);
-    treeWidget->insertTopLevelItem(0, nets_root);
-
-    cells_root = new QTreeWidgetItem(treeWidget);
-    cells_root->setText(0, "Cells");
-    cells_root->setFlags(cells_root->flags() & ~Qt::ItemIsSelectable);
-    treeWidget->insertTopLevelItem(0, cells_root);
-
+    treeModel->loadData(ctx);
     updateTree();
 }
 
 void DesignWidget::updateTree()
 {
-    if (!ctx)
-        return;
-
     clearProperties();
 
-    // treeWidget->setSortingEnabled(false);
-
-    // Remove nets not existing any more
-    QMap<QString, QTreeWidgetItem *>::iterator i = nameToItem[3].begin();
-    while (i != nameToItem[3].end()) {
-        QMap<QString, QTreeWidgetItem *>::iterator prev = i;
+    QMap<ContextTreeItem *, int>::iterator i = highlightSelected.begin();
+    while (i != highlightSelected.end()) {
+        QMap<ContextTreeItem *, int>::iterator prev = i;
         ++i;
-        if (ctx->nets.find(ctx->id(prev.key().toStdString())) == ctx->nets.end()) {
-            if (treeWidget->currentItem() == prev.value())
-                treeWidget->setCurrentItem(nets_root);
-            if (highlightSelected.contains(prev.value()))
-                highlightSelected.remove(prev.value());
-            delete prev.value();
-            nameToItem[3].erase(prev);
+        if (prev.key()->type() == ElementType::NET && ctx->nets.find(prev.key()->id()) == ctx->nets.end()) {
+            highlightSelected.erase(prev);
         }
-    }
-    // Add nets to tree
-    for (auto &item : ctx->nets) {
-        auto id = item.first;
-        QString name = QString(id.c_str(ctx));
-        if (!nameToItem[3].contains(name)) {
-            IdStringTreeItem *newItem = new IdStringTreeItem(id, ElementType::NET, name, nullptr);
-            nets_root->addChild(newItem);
-            nameToItem[3].insert(name, newItem);
+        if (prev.key()->type() == ElementType::CELL && ctx->cells.find(prev.key()->id()) == ctx->cells.end()) {
+            highlightSelected.erase(prev);
         }
     }
 
-    // Remove cells not existing any more
-    i = nameToItem[4].begin();
-    while (i != nameToItem[4].end()) {
-        QMap<QString, QTreeWidgetItem *>::iterator prev = i;
-        ++i;
-        if (ctx->cells.find(ctx->id(prev.key().toStdString())) == ctx->cells.end()) {
-            if (treeWidget->currentItem() == prev.value())
-                treeWidget->setCurrentItem(cells_root);
-            if (highlightSelected.contains(prev.value()))
-                highlightSelected.remove(prev.value());
-            delete prev.value();
-            nameToItem[4].erase(prev);
-        }
-    }
-    // Add cells to tree
-    for (auto &item : ctx->cells) {
-        auto id = item.first;
-        QString name = QString(id.c_str(ctx));
-        if (!nameToItem[4].contains(name)) {
-            IdStringTreeItem *newItem = new IdStringTreeItem(id, ElementType::CELL, name, nullptr);
-            cells_root->addChild(newItem);
-            nameToItem[4].insert(name, newItem);
-        }
-    }
-    // treeWidget->sortByColumn(0, Qt::AscendingOrder);
-    // treeWidget->setSortingEnabled(true);
+    treeModel->updateData(ctx);
 }
 QtProperty *DesignWidget::addTopLevelProperty(const QString &id)
 {
@@ -460,21 +273,6 @@ QString DesignWidget::getElementTypeName(ElementType type)
         return "CELL";
     return "";
 }
-int DesignWidget::getElementIndex(ElementType type)
-{
-    if (type == ElementType::BEL)
-        return 0;
-    if (type == ElementType::WIRE)
-        return 1;
-    if (type == ElementType::PIP)
-        return 2;
-    if (type == ElementType::NET)
-        return 3;
-    if (type == ElementType::CELL)
-        return 4;
-    return -1;
-}
-
 ElementType DesignWidget::getElementTypeByName(QString type)
 {
     if (type == "BEL")
@@ -510,59 +308,58 @@ QtProperty *DesignWidget::addSubGroup(QtProperty *topItem, const QString &name)
 
 void DesignWidget::onClickedBel(BelId bel, bool keep)
 {
-    QTreeWidgetItem *item = nameToItem[getElementIndex(ElementType::BEL)].value(ctx->getBelName(bel).c_str(ctx));
-    treeWidget->setCurrentItem(item);
+    ContextTreeItem *item = treeModel->nodeForIdType(ElementType::BEL, ctx->getBelName(bel).c_str(ctx));
+    selectionModel->setCurrentIndex(treeModel->indexFromNode(item),
+                                    keep ? QItemSelectionModel::Select : QItemSelectionModel::ClearAndSelect);
     Q_EMIT selected(getDecals(ElementType::BEL, ctx->getBelName(bel)), keep);
 }
 
 void DesignWidget::onClickedWire(WireId wire, bool keep)
 {
-    QTreeWidgetItem *item = nameToItem[getElementIndex(ElementType::WIRE)].value(ctx->getWireName(wire).c_str(ctx));
-    treeWidget->setCurrentItem(item);
+    ContextTreeItem *item = treeModel->nodeForIdType(ElementType::WIRE, ctx->getWireName(wire).c_str(ctx));
+    selectionModel->setCurrentIndex(treeModel->indexFromNode(item),
+                                    keep ? QItemSelectionModel::Select : QItemSelectionModel::ClearAndSelect);
     Q_EMIT selected(getDecals(ElementType::WIRE, ctx->getWireName(wire)), keep);
 }
 
 void DesignWidget::onClickedPip(PipId pip, bool keep)
 {
-    QTreeWidgetItem *item = nameToItem[getElementIndex(ElementType::PIP)].value(ctx->getPipName(pip).c_str(ctx));
-    treeWidget->setCurrentItem(item);
+    ContextTreeItem *item = treeModel->nodeForIdType(ElementType::PIP, ctx->getPipName(pip).c_str(ctx));
+    selectionModel->setCurrentIndex(treeModel->indexFromNode(item),
+                                    keep ? QItemSelectionModel::Select : QItemSelectionModel::ClearAndSelect);
     Q_EMIT selected(getDecals(ElementType::PIP, ctx->getPipName(pip)), keep);
 }
 
-void DesignWidget::onItemSelectionChanged()
+void DesignWidget::onSelectionChanged(const QItemSelection &, const QItemSelection &)
 {
-    if (treeWidget->selectedItems().size() == 0)
+    if (selectionModel->selectedIndexes().size() == 0)
         return;
 
-    if (treeWidget->selectedItems().size() > 1) {
+    if (selectionModel->selectedIndexes().size() > 1) {
         std::vector<DecalXY> decals;
-        for (auto clickItem : treeWidget->selectedItems()) {
-            IdString value = static_cast<IdStringTreeItem *>(clickItem)->getData();
-            ElementType type = static_cast<ElementTreeItem *>(clickItem)->getType();
-            std::vector<DecalXY> d = getDecals(type, value);
+        for (auto index : selectionModel->selectedIndexes()) {
+            ContextTreeItem *item = treeModel->nodeFromIndex(index);
+            std::vector<DecalXY> d = getDecals(item->type(), item->id());
             std::move(d.begin(), d.end(), std::back_inserter(decals));
         }
         Q_EMIT selected(decals, false);
         return;
     }
-
-    QTreeWidgetItem *clickItem = treeWidget->selectedItems().at(0);
-
-    if (!clickItem->parent())
+    QModelIndex index = selectionModel->selectedIndexes().at(0);
+    if (!index.isValid())
         return;
+    ContextTreeItem *clickItem = treeModel->nodeFromIndex(index);
 
-    ElementType type = static_cast<ElementTreeItem *>(clickItem)->getType();
-    if (type == ElementType::NONE) {
+    ElementType type = clickItem->type();
+    if (type == ElementType::NONE)
         return;
-    }
-
     std::vector<DecalXY> decals;
 
-    addToHistory(clickItem);
+    addToHistory(index);
 
     clearProperties();
 
-    IdString c = static_cast<IdStringTreeItem *>(clickItem)->getData();
+    IdString c = clickItem->id();
     Q_EMIT selected(getDecals(type, c), false);
 
     if (type == ElementType::BEL) {
@@ -799,7 +596,7 @@ std::vector<DecalXY> DesignWidget::getDecals(ElementType type, IdString value)
     return decals;
 }
 
-void DesignWidget::updateHighlightGroup(QList<QTreeWidgetItem *> items, int group)
+void DesignWidget::updateHighlightGroup(QList<ContextTreeItem *> items, int group)
 {
     const bool shouldClear = items.size() == 1;
     for (auto item : items) {
@@ -814,9 +611,7 @@ void DesignWidget::updateHighlightGroup(QList<QTreeWidgetItem *> items, int grou
     std::vector<DecalXY> decals[8];
 
     for (auto it : highlightSelected.toStdMap()) {
-        ElementType type = static_cast<ElementTreeItem *>(it.first)->getType();
-        IdString value = static_cast<IdStringTreeItem *>(it.first)->getData();
-        std::vector<DecalXY> d = getDecals(type, value);
+        std::vector<DecalXY> d = getDecals(it.first->type(), it.first->id());
         std::move(d.begin(), d.end(), std::back_inserter(decals[it.second]));
     }
     for (int i = 0; i < 8; i++)
@@ -826,7 +621,7 @@ void DesignWidget::updateHighlightGroup(QList<QTreeWidgetItem *> items, int grou
 void DesignWidget::prepareMenuProperty(const QPoint &pos)
 {
     QTreeWidget *tree = propertyEditor->treeWidget();
-    QList<QTreeWidgetItem *> items;
+    QList<ContextTreeItem *> items;
     for (auto itemContextMenu : tree->selectedItems()) {
         QtBrowserItem *browserItem = propertyEditor->itemToBrowserItem(itemContextMenu);
         if (!browserItem)
@@ -836,11 +631,11 @@ void DesignWidget::prepareMenuProperty(const QPoint &pos)
         if (type == ElementType::NONE)
             continue;
         IdString value = ctx->id(selectedProperty->valueText().toStdString());
-        items.append(nameToItem[getElementIndex(type)].value(value.c_str(ctx)));
+        items.append(treeModel->nodeForIdType(type, value.c_str(ctx)));
     }
     int selectedIndex = -1;
     if (items.size() == 1) {
-        QTreeWidgetItem *item = items.at(0);
+        ContextTreeItem *item = items.at(0);
         if (highlightSelected.contains(item))
             selectedIndex = highlightSelected[item];
     }
@@ -850,9 +645,7 @@ void DesignWidget::prepareMenuProperty(const QPoint &pos)
     connect(selectAction, &QAction::triggered, this, [this, items] {
         std::vector<DecalXY> decals;
         for (auto clickItem : items) {
-            IdString value = static_cast<IdStringTreeItem *>(clickItem)->getData();
-            ElementType type = static_cast<ElementTreeItem *>(clickItem)->getType();
-            std::vector<DecalXY> d = getDecals(type, value);
+            std::vector<DecalXY> d = getDecals(clickItem->type(), clickItem->id());
             std::move(d.begin(), d.end(), std::back_inserter(decals));
         }
         Q_EMIT selected(decals, false);
@@ -878,12 +671,18 @@ void DesignWidget::prepareMenuProperty(const QPoint &pos)
 
 void DesignWidget::prepareMenuTree(const QPoint &pos)
 {
-    if (treeWidget->selectedItems().size() == 0)
-        return;
     int selectedIndex = -1;
-    QList<QTreeWidgetItem *> items = treeWidget->selectedItems();
-    if (treeWidget->selectedItems().size() == 1) {
-        QTreeWidgetItem *item = treeWidget->selectedItems().at(0);
+
+    if (selectionModel->selectedIndexes().size() == 0)
+        return;
+
+    QList<ContextTreeItem *> items;
+    for (auto index : selectionModel->selectedIndexes()) {
+        ContextTreeItem *item = treeModel->nodeFromIndex(index);
+        items.append(item);
+    }
+    if (items.size() == 1) {
+        ContextTreeItem *item = items.at(0);
         if (highlightSelected.contains(item))
             selectedIndex = highlightSelected[item];
     }
@@ -902,17 +701,16 @@ void DesignWidget::prepareMenuTree(const QPoint &pos)
             action->setChecked(true);
         connect(action, &QAction::triggered, this, [this, i, items] { updateHighlightGroup(items, i); });
     }
-    menu.exec(treeWidget->mapToGlobal(pos));
+    menu.exec(treeView->mapToGlobal(pos));
 }
 
 void DesignWidget::onItemDoubleClicked(QTreeWidgetItem *item, int column)
 {
     QtProperty *selectedProperty = propertyEditor->itemToBrowserItem(item)->property();
     ElementType type = getElementTypeByName(selectedProperty->propertyId());
-    QString value = selectedProperty->valueText();
-    int index = getElementIndex(type);
-    if (type != ElementType::NONE && nameToItem[index].contains(value))
-        treeWidget->setCurrentItem(nameToItem[index].value(value));
+    ContextTreeItem *it = treeModel->nodeForIdType(type, selectedProperty->valueText());
+    if (it)
+        selectionModel->setCurrentIndex(treeModel->indexFromNode(it), QItemSelectionModel::ClearAndSelect);
 }
 
 NEXTPNR_NAMESPACE_END
