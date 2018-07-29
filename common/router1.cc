@@ -217,7 +217,7 @@ struct Router
                 next_qw.pip = pip;
                 next_qw.delay = next_delay;
                 next_qw.togo = ctx->estimateDelay(next_wire, dst_wire);
-                qw.randtag = ctx->rng();
+                next_qw.randtag = ctx->rng();
 
                 visited[next_qw.wire] = next_qw;
                 queue.push(next_qw);
