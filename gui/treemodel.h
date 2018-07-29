@@ -52,6 +52,7 @@ class ContextTreeItem
     IdString id() const { return itemId; }
     ElementType type() const { return itemType; }
     QString name() const { return itemName; }
+    void sort();
   private:
     ContextTreeItem *parentNode;
     QList<ContextTreeItem *> children;
