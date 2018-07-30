@@ -1,10 +1,11 @@
 nextpnr -- a portable FPGA place and route tool
 ===============================================
 
-nextpnr is an FPGA place and route tool with emphasis on supporting a wide
-range of real-world FPGA devices. It currently supports Lattice iCE40 devices
-and Lattice ECP5 devices, as well as a "generic" back-end for user-defined
-architectures. (ECP5 and "generic" support are still experimental.)
+nextpnr is an FPGA place and route tool with emphasis on supporting
+timing-driven place and route for a wide range of real-world FPGA devices.
+It currently supports Lattice iCE40 devices and Lattice ECP5 devices,
+as well as a "generic" back-end for user-defined architectures.
+(ECP5 and "generic" support are still experimental.)
 
 Currently nextpnr is beta software at best. But we aim at replacing
 arachne-pnr as official place-and-route tool for the icestorm flow soon.
