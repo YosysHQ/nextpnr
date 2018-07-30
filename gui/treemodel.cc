@@ -21,11 +21,6 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-static bool contextTreeItemLessThan(const ContextTreeItem *v1, const ContextTreeItem *v2)
- {
-     return v1->name() < v2->name();
- }
-
 ContextTreeItem::ContextTreeItem() { parentNode = nullptr; }
 
 ContextTreeItem::ContextTreeItem(QString name)
@@ -54,7 +49,40 @@ void ContextTreeItem::sort()
 {
     for (auto item : children)
         if (item->count()>1) item->sort();
-    qSort(children.begin(), children.end(), contextTreeItemLessThan);
+    qSort(children.begin(), children.end(), [&](const ContextTreeItem *a, const ContextTreeItem *b){
+        QString name_a = a->name();
+        QString name_b = b->name();
+        // Try to extract a common prefix from both strings.
+        QString common;
+        for (int i = 0; i < std::min(name_a.size(), name_b.size()); i++) {
+            const QChar c_a = name_a[i];
+            const QChar c_b = name_b[i];
+            if (c_a == c_b) {
+                common.push_back(c_a);
+            } else {
+                break;
+            }
+        }
+        // No common part? lexical sort.
+        if (common.size() == 0) {
+            return a->name() < b->name();
+        }
+
+        // Get the non-common parts.
+        name_a.remove(0, common.size());
+        name_b.remove(0, common.size());
+        // And see if they're strings.
+        bool ok = true;
+        int num_a = name_a.toInt(&ok);
+        if (!ok) {
+            return a->name() < b->name();
+        }
+        int num_b = name_b.toInt(&ok);
+        if (!ok) {
+            return a->name() < b->name();
+        }
+        return num_a < num_b;
+    });
 }
 
 ContextTreeModel::ContextTreeModel(QObject *parent) : QAbstractItemModel(parent) { root = new ContextTreeItem(); }
