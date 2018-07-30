@@ -72,6 +72,7 @@ class ContextTreeModel : public QAbstractItemModel
     ContextTreeItem *nodeFromIndex(const QModelIndex &idx) const;
     QModelIndex indexFromNode(ContextTreeItem *node);
     ContextTreeItem *nodeForIdType(const ElementType type, const QString name) const;
+    QList<QModelIndex> search(QString text);
     // Override QAbstractItemModel methods
     int rowCount(const QModelIndex &parent = QModelIndex()) const Q_DECL_OVERRIDE;
     int columnCount(const QModelIndex &parent = QModelIndex()) const Q_DECL_OVERRIDE;

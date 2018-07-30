@@ -51,10 +51,11 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr), sel
     propertyEditor->treeWidget()->setContextMenuPolicy(Qt::CustomContextMenu);
     propertyEditor->treeWidget()->setSelectionMode(QAbstractItemView::ExtendedSelection);
 
-    QLineEdit *lineEdit = new QLineEdit();
-    lineEdit->setClearButtonEnabled(true);
-    lineEdit->addAction(QIcon(":/icons/resources/zoom.png"), QLineEdit::LeadingPosition);
-    lineEdit->setPlaceholderText("Search...");
+    searchEdit = new QLineEdit();
+    searchEdit->setClearButtonEnabled(true);
+    searchEdit->addAction(QIcon(":/icons/resources/zoom.png"), QLineEdit::LeadingPosition);
+    searchEdit->setPlaceholderText("Search...");
+    connect(searchEdit, SIGNAL(returnPressed()), this, SLOT(onSearchInserted()));
 
     actionFirst = new QAction("", this);
     actionFirst->setIcon(QIcon(":/icons/resources/resultset_first.png"));
@@ -123,7 +124,7 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr), sel
     topWidget->setLayout(vbox1);
     vbox1->setSpacing(5);
     vbox1->setContentsMargins(0, 0, 0, 0);
-    vbox1->addWidget(lineEdit);
+    vbox1->addWidget(searchEdit);
     vbox1->addWidget(treeView);
 
     QWidget *toolbarWidget = new QWidget();
@@ -714,4 +715,19 @@ void DesignWidget::onItemDoubleClicked(QTreeWidgetItem *item, int column)
 }
 
 void DesignWidget::onDoubleClicked(const QModelIndex &index) { Q_EMIT zoomSelected(); }
+
+void DesignWidget::onSearchInserted()
+{
+    if (currentSearch == searchEdit->text()) {
+        currentIndex++;
+        if (currentIndex >= currentSearchIndexes.size())
+            currentIndex = 0;
+    } else {
+        currentSearch = searchEdit->text();
+        currentSearchIndexes = treeModel->search(searchEdit->text());
+        currentIndex = 0;
+    }
+    if (currentSearchIndexes.size() > 0 && currentIndex < currentSearchIndexes.size())
+        selectionModel->setCurrentIndex(currentSearchIndexes.at(currentIndex), QItemSelectionModel::ClearAndSelect);
+}
 NEXTPNR_NAMESPACE_END

@@ -326,4 +326,19 @@ Qt::ItemFlags ContextTreeModel::flags(const QModelIndex &index) const
     ContextTreeItem *node = nodeFromIndex(index);
     return Qt::ItemIsEnabled | (node->type() != ElementType::NONE ? Qt::ItemIsSelectable : Qt::NoItemFlags);
 }
+
+QList<QModelIndex> ContextTreeModel::search(QString text)
+{
+    QList<QModelIndex> list;
+    for (int i = 0; i < 6; i++) {
+        for (auto key : nameToItem[i].keys()) {
+            if (key.contains(text, Qt::CaseInsensitive)) {
+                list.append(indexFromNode(nameToItem[i].value(key)));
+                if (list.count() > 500)
+                    break; // limit to 500 results
+            }
+        }
+    }
+    return list;
+}
 NEXTPNR_NAMESPACE_END
