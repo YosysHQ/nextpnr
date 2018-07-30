@@ -775,29 +775,29 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
 
 // -----------------------------------------------------------------------
 
-bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, delay_t &delay) const
+bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const
 {
     if (cell->type == id_icestorm_lc) {
         if ((fromPort == id_i0 || fromPort == id_i1 || fromPort == id_i2 || fromPort == id_i3) &&
             (toPort == id_o || toPort == id_lo)) {
-            delay = 450;
+            delay.delay = 450;
             return true;
         } else if (fromPort == id_cin && toPort == id_cout) {
-            delay = 120;
+            delay.delay = 120;
             return true;
         } else if (fromPort == id_i1 && toPort == id_cout) {
-            delay = 260;
+            delay.delay = 260;
             return true;
         } else if (fromPort == id_i2 && toPort == id_cout) {
-            delay = 230;
+            delay.delay = 230;
             return true;
         } else if (fromPort == id_clk && toPort == id_o) {
-            delay = 540;
+            delay.delay = 540;
             return true;
         }
     } else if (cell->type == id_icestorm_ram) {
         if (fromPort == id_rclk) {
-            delay = 2140;
+            delay.delay = 2140;
             return true;
         }
     }
