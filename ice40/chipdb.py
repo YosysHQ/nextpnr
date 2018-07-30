@@ -214,11 +214,17 @@ def wire_type(name):
         assert 0
     return wt
 
-def pipdelay(src, dst):
+def pipdelay(src, dst, db):
+    if db is None:
+        return 0
+
     src = wire_names_r[src]
     dst = wire_names_r[dst]
     src_type = wire_type(src[2])
     dst_type = wire_type(dst[2])
+
+    if dst[2].startswith("local_"):
+        return db["LocalMux.I.O"]
 
     if src_type == "LOCAL" and dst_type == "LOCAL":
        return 250
@@ -253,7 +259,15 @@ def pipdelay(src, dst):
     # print(src, dst, src_type, dst_type, file=sys.stderr)
     assert 0
 
+def wiredelay(wire, db):
+    if db is None:
+        return 0
 
+    wire = wire_names_r[wire]
+    wtype = wire_type(wire[2])
+
+    # FIXME
+    return 0
 
 def init_tiletypes(device):
     global num_tile_types, tile_sizes, tile_bits
@@ -778,8 +792,8 @@ for wire in range(num_wires):
                 pi = dict()
                 pi["src"] = src
                 pi["dst"] = wire
-                pi["fast_delay"] = pipdelay(src, wire)
-                pi["slow_delay"] = pipdelay(src, wire)
+                pi["fast_delay"] = pipdelay(src, wire, fast_timings)
+                pi["slow_delay"] = pipdelay(src, wire, slow_timings)
                 pi["x"] = pip_xy[(src, wire)][0]
                 pi["y"] = pip_xy[(src, wire)][1]
                 pi["switch_mask"] = pip_xy[(src, wire)][2]
@@ -803,8 +817,8 @@ for wire in range(num_wires):
                 pi = dict()
                 pi["src"] = wire
                 pi["dst"] = dst
-                pi["fast_delay"] = pipdelay(wire, dst)
-                pi["slow_delay"] = pipdelay(wire, dst)
+                pi["fast_delay"] = pipdelay(wire, dst, fast_timings)
+                pi["slow_delay"] = pipdelay(wire, dst, slow_timings)
                 pi["x"] = pip_xy[(wire, dst)][0]
                 pi["y"] = pip_xy[(wire, dst)][1]
                 pi["switch_mask"] = pip_xy[(wire, dst)][2]
@@ -923,8 +937,8 @@ for wire, info in enumerate(wireinfo):
     else:
         bba.u32(0, "segments")
 
-    bba.u32(0, "fast_delay")
-    bba.u32(0, "slow_delay")
+    bba.u32(wiredelay(wire, fast_timings), "fast_delay")
+    bba.u32(wiredelay(wire, slow_timings), "slow_delay")
 
     bba.u8(info["x"], "x")
     bba.u8(info["y"], "y")
