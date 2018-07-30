@@ -748,7 +748,8 @@ for wire in range(num_wires):
                 pi = dict()
                 pi["src"] = src
                 pi["dst"] = wire
-                pi["delay"] = pipdelay(src, wire)
+                pi["fast_delay"] = pipdelay(src, wire)
+                pi["slow_delay"] = pipdelay(src, wire)
                 pi["x"] = pip_xy[(src, wire)][0]
                 pi["y"] = pip_xy[(src, wire)][1]
                 pi["switch_mask"] = pip_xy[(src, wire)][2]
@@ -772,7 +773,8 @@ for wire in range(num_wires):
                 pi = dict()
                 pi["src"] = wire
                 pi["dst"] = dst
-                pi["delay"] = pipdelay(wire, dst)
+                pi["fast_delay"] = pipdelay(wire, dst)
+                pi["slow_delay"] = pipdelay(wire, dst)
                 pi["x"] = pip_xy[(wire, dst)][0]
                 pi["y"] = pip_xy[(wire, dst)][1]
                 pi["switch_mask"] = pip_xy[(wire, dst)][2]
@@ -891,6 +893,9 @@ for wire, info in enumerate(wireinfo):
     else:
         bba.u32(0, "segments")
 
+    bba.u32(0, "fast_delay")
+    bba.u32(0, "slow_delay")
+
     bba.u8(info["x"], "x")
     bba.u8(info["y"], "y")
     bba.u8(wiretypes[wire_type(info["name"])], "type")
@@ -923,7 +928,8 @@ for info in pipinfo:
     # bba.s("X%d/Y%d/%s->%s" % (info["x"], info["y"], src_segname, dst_segname), "name")
     bba.u32(info["src"], "src")
     bba.u32(info["dst"], "dst")
-    bba.u32(info["delay"], "delay")
+    bba.u32(info["fast_delay"], "fast_delay")
+    bba.u32(info["slow_delay"], "slow_delay")
     bba.u8(info["x"], "x")
     bba.u8(info["y"], "y")
     bba.u16(src_seg, "src_seg")

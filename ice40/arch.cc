@@ -141,18 +141,23 @@ Arch::Arch(ArchArgs args) : args(args)
 
 #ifdef ICE40_HX1K_ONLY
     if (args.type == ArchArgs::HX1K) {
+        fast_part = true;
         chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_1k));
     } else {
         log_error("Unsupported iCE40 chip type.\n");
     }
 #else
     if (args.type == ArchArgs::LP384) {
+        fast_part = false;
         chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_384));
     } else if (args.type == ArchArgs::LP1K || args.type == ArchArgs::HX1K) {
+        fast_part = args.type == ArchArgs::HX1K;
         chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_1k));
     } else if (args.type == ArchArgs::UP5K) {
+        fast_part = false;
         chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_5k));
     } else if (args.type == ArchArgs::LP8K || args.type == ArchArgs::HX8K) {
+        fast_part = args.type == ArchArgs::HX8K;
         chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_8k));
     } else {
         log_error("Unsupported iCE40 chip type.\n");
