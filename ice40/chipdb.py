@@ -105,7 +105,7 @@ if args.fast is not None:
     fast_timings = read_timings(args.fast)
 
 if args.slow is not None:
-    slow_timings = read_timings(args.fast)
+    slow_timings = read_timings(args.slow)
 
 beltypes["ICESTORM_LC"] = 1
 beltypes["ICESTORM_RAM"] = 2
