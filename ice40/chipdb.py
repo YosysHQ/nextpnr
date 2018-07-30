@@ -9,6 +9,8 @@ parser = argparse.ArgumentParser(description="convert ICE40 chip database")
 parser.add_argument("filename", type=str, help="chipdb input filename")
 parser.add_argument("-p", "--portspins", type=str, help="path to portpins.inc")
 parser.add_argument("-g", "--gfxh", type=str, help="path to gfx.h")
+parser.add_argument("--fast", type=str, help="path to timing data for fast part")
+parser.add_argument("--slow", type=str, help="path to timing data for slow part")
 args = parser.parse_args()
 
 dev_name = None
@@ -51,6 +53,9 @@ wiretypes = dict()
 gfx_wire_ids = dict()
 wire_segments = dict()
 
+fast_timings = None
+slow_timings = None
+
 with open(args.portspins) as f:
     for line in f:
         line = line.replace("(", " ")
@@ -76,6 +81,31 @@ with open(args.gfxh) as f:
             idx = len(gfx_wire_ids)
             name = line.strip().rstrip(",")
             gfx_wire_ids[name] = idx
+
+def read_timings(filename):
+    db = dict()
+    with open(filename) as f:
+        cell = None
+        for line in f:
+            line = line.split()
+            if len(line) == 0:
+                continue
+            if line[0] == "CELL":
+                cell = line[1]
+            if line[0] == "IOPATH":
+                key = "%s.%s.%s" % (cell, line[1], line[2])
+                v1 = line[3].split(":")[2]
+                v2 = line[4].split(":")[2]
+                v1 = 0 if v1 == "*" else float(v1)
+                v2 = 0 if v2 == "*" else float(v2)
+                db[key] = max(v1, v2)
+    return db
+
+if args.fast is not None:
+    fast_timings = read_timings(args.fast)
+
+if args.slow is not None:
+    slow_timings = read_timings(args.fast)
 
 beltypes["ICESTORM_LC"] = 1
 beltypes["ICESTORM_RAM"] = 2
