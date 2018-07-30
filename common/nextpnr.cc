@@ -91,6 +91,8 @@ WireId Context::getNetinfoSinkWire(NetInfo *net_info, int user_idx) const
 delay_t Context::getNetinfoRouteDelay(NetInfo *net_info, int user_idx) const
 {
     WireId src_wire = getNetinfoSourceWire(net_info);
+    if (src_wire == WireId())
+        return 0;
     WireId cursor = getNetinfoSinkWire(net_info, user_idx);
     delay_t delay = 0;
 

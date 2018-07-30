@@ -1,87 +1,152 @@
 nextpnr -- a portable FPGA place and route tool
 ===============================================
 
-Supported Architectures
------------------------
+nextpnr is an FPGA place and route tool with emphasis on supporting a wide
+range of real-world FPGA devices. It currently supports Lattice iCE40 devices
+and Lattice ECP5 devices, as well as a "generic" back-end for user-defined
+architectures. (ECP5 and "generic" support are still experimental.)
 
-- iCE40
-- ECP5
+Prerequisites
+-------------
 
-Prequisites
------------
- 
- - CMake 3.3 or later
- - Modern C++11 compiler (`clang-format` required for development)
- - Qt5 or later (`qt5-default` for Ubuntu 16.04)
- - Python 3.5 or later, including development libraries (`python3-dev` for Ubuntu)
-    - on Windows make sure to install same version as supported by [vcpkg](https://github.com/Microsoft/vcpkg/blob/master/ports/python3/CONTROL)
- - Boost libraries (`libboost-dev` or `libboost-all-dev` for Ubuntu)
- - Icestorm, with chipdbs installed in `/usr/local/share/icebox`
- - Latest git Yosys is required to synthesise the demo design
- - For building on Windows with MSVC, usage of vcpkg is advised for dependency installation.
-     - For 32 bit builds: `vcpkg install boost-filesystem boost-program-options boost-thread boost-python qt5-base`
-     - For 64 bit builds: `vcpkg install boost-filesystem:x64-windows boost-program-options:x64-windows boost-thread:x64-windows boost-python:x64-windows qt5-base:x64-windows`
- - For building on macOS, brew utility is needed.
-     - Install all needed packages `brew install cmake python boost boost-python3 qt5`
-     - Do not forget to add qt5 in path as well `echo 'export PATH="/usr/local/opt/qt/bin:$PATH"' >> ~/.bash_profile`
- - For ECP5 support, you must download [Project Trellis](https://github.com/SymbiFlow/prjtrellis), then follow its instructions to
-   download the latest database and build _libtrellis_.
- 
- 
-Building
---------
+The following packages need to be installed for building nextpnr, independent
+of the selected architecture:
 
- - Specifying target architecture is mandatory use ARCH parameter to set it. It is semicolon separated list.
-    - Use `cmake . -DARCH=all` to build all supported targets
-    - For example `cmake . -DARCH=ice40` would build just ICE40 support
- - Use CMake to generate the Makefiles (only needs to be done when `CMakeLists.txt` changes)
-    - For an iCE40 debug build, run `cmake -DARCH=ice40 -DCMAKE_BUILD_TYPE=Debug .`
-    - For an iCE40 debug build with HX1K support only, run `cmake -DARCH=ice40 -DCMAKE_BUILD_TYPE=Debug -DICE40_HX1K_ONLY=1 .`
-    - For an iCE40 and ECP5 release build, run `cmake -DARCH="ice40;ecp5" .`
-    - Add `-DCMAKE_INSTALL_PREFIX=/your/install/prefix` to use a different install prefix to the default `/usr/local`
-    - For MSVC build with vcpkg use `-DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake` using your vcpkg location
-    - For MSVC x64 build adding `-G"Visual Studio 14 2015 Win64"` is needed.
-    - For ECP5 support, you must also specify the path to Project Trellis using `-DTRELLIS_ROOT=/path/trellis`
- - Use Make to run the build itself
-    - For all binary targets, just run `make`
-    - For just the iCE40 CLI&GUI binary, run `make nextpnr-ice40`
-    - To build binary without Python support, use `-DBUILD_PYTHON=OFF`
-    - To build binary without GUI, use `-DBUILD_GUI=OFF`
-    - For minimal binary without Python and GUI, use `-DBUILD_PYTHON=OFF -DBUILD_GUI=OFF`
-    - For just the iCE40 Python module, run `make nextpnrpy_ice40`
-    - Using too many parallel jobs may lead to out-of-memory issues due to the significant memory needed to build the chipdbs
-    - To install nextpnr, run `make install`
+- CMake 3.3 or later
+- Modern C++11 compiler (`clang-format` required for development)
+- Qt5 or later (`qt5-default` for Ubuntu 16.04)
+- Python 3.5 or later, including development libraries (`python3-dev` for Ubuntu)
+  - on Windows make sure to install same version as supported by [vcpkg](https://github.com/Microsoft/vcpkg/blob/master/ports/python3/CONTROL)
+- Boost libraries (`libboost-dev` or `libboost-all-dev` for Ubuntu)
+- Latest git Yosys is required to synthesise the demo design
+- For building on Windows with MSVC, usage of vcpkg is advised for dependency installation.
+  - For 32 bit builds: `vcpkg install boost-filesystem boost-program-options boost-thread boost-python qt5-base`
+  - For 64 bit builds: `vcpkg install boost-filesystem:x64-windows boost-program-options:x64-windows boost-thread:x64-windows boost-python:x64-windows qt5-base:x64-windows`
+- For building on macOS, brew utility is needed.
+  - Install all needed packages `brew install cmake python boost boost-python3 qt5`
+  - Do not forget to add qt5 in path as well `echo 'export PATH="/usr/local/opt/qt/bin:$PATH"' >> ~/.bash_profile`
+
+Getting started
+---------------
+
+### nextpnr-ice40
+
+To build the iCE40 version of nextpnr, install [icestorm](http://www.clifford.at/icestorm/) with chipdbs installed in `/usr/local/share/icebox`.
+Then build and install `nextpnr-ice40` using the following commands:
+
+```
+cmake -DARCH=ice40 .
+make -j$(nproc)
+sudo make install
+```
+
+A simple example that runs on the iCEstick dev board can be found in `ice40/blinky.*`.
+Usage example:
+
+```
+cd ice40
+yosys -p 'synth_ice40 -top blinky -json blinky.json' blinky.v               # synthesize into blinky.json
+nextpnr-ice40 --hx1k --json blinky.json --pcf blinky.pcf --asc blinky.asc   # run place and route
+icepack blinky.asc blinky.bin                                               # generate binary bitstream file
+iceprog blinky.bin                                                          # upload design to iCEstick
+```
+
+Running nextpnr in GUI mode:
+
+```
+nextpnr-ice40 --json blinky.json --pcf blinky.pcf --asc blinky.asc --gui
+```
+
+(Use the toolbar buttons or the Python command console to perform actions
+such as pack, place, route, and write output files.)
+
+### nextpnr-ecp5
+
+For ECP5 support, you must download [Project Trellis](https://github.com/SymbiFlow/prjtrellis),
+then follow its instructions to download the latest database and build _libtrellis_.
+
+```
+cmake -DARCH=ecp5 .
+make -j$(nproc)
+sudo make install
+```
+
+ - For an ECP5 blinky, first synthesise using `yosys blinky.ys` in `ecp5/synth`.
+  - Then run ECP5 place-and route using `./nextpnr-ecp5 --json ecp5/synth/blinky.json --basecfg ecp5/synth/ulx3s_empty.config --bit ecp5/synth/ulx3s.bit`
+  - Note that `ulx3s_empty.config` contains fixed/unknown bits to be copied to the output bitstream
+  - You can also use `--textcfg out.config` to write a text file describing the bitstream for debugging
+
+ - More examples of the ECP5 flow for a range of boards can be found in the [Project Trellis Examples](https://github.com/SymbiFlow/prjtrellis/tree/master/examples).
+
+ - Currently the ECP5 flow supports LUTs, flipflops and IO. IO must be instantiated using `TRELLIS_IO` primitives and constraints specified
+   using `LOC` and `IO_TYPE` attributes on those instances, as is used in the examples.
+
+### nextpnr-generic
+
+The generic target allows to run place and route for an arbitrary custom architecture.
+
+```
+cmake -DARCH=generic .
+make -j$(nproc)
+sudo make install
+```
+
+TBD: Getting started example for generic target.
+
+Additional notes for building nextpnr
+-------------------------------------
+
+Use cmake `-D` options to specify which version of nextpnr you want to build.
+
+Use `-DARCH=...` to set the architecture. It is semicolon separated list.
+Use `cmake . -DARCH=all` to build all supported architectures.
+
+The following runs a debug build of the iCE40 architecture without GUI
+and without Python support and only HX1K support:
+
+```
+cmake -DARCH=ice40 -DCMAKE_BUILD_TYPE=Debug -DBUILD_PYTHON=OFF -DBUILD_GUI=OFF -DICE40_HX1K_ONLY=1 .
+make -j$(nproc)
+```
+
+Notes for developers
+--------------------
+ 
+- All code is formatted using `clang-format` according to the style rules in `.clang-format` (LLVM based with 
+  increased indent widths and brace wraps after classes).
+- To automatically format all source code, run `make clangformat`.
+- See the wiki for additional documentation on the architecture API.
 
 Testing
 -------
 
- - To build test binaries as well, use `-DBUILD_TESTS=OFF` and after run `make tests` to run them, or you can run separate binaries.
- - To use code sanitizers use the `cmake` options:
-    - `-DSANITIZE_ADDRESS=ON`
-    - `-DSANITIZE_MEMORY=ON -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++`
-    - `-DSANITIZE_THREAD=ON`
-    - `-DSANITIZE_UNDEFINED=ON`
- - Running valgrind example `valgrind --leak-check=yes --tool=memcheck ./nextpnr-ice40 --json ice40/blinky.json`
+- To build test binaries as well, use `-DBUILD_TESTS=ON` and after `make` run `make tests` to run them, or you can run separate binaries.
+- To use code sanitizers use the `cmake` options:
+  - `-DSANITIZE_ADDRESS=ON`
+  - `-DSANITIZE_MEMORY=ON -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++`
+  - `-DSANITIZE_THREAD=ON`
+  - `-DSANITIZE_UNDEFINED=ON`
+- Running valgrind example `valgrind --leak-check=yes --tool=memcheck ./nextpnr-ice40 --json ice40/blinky.json`
 
-Running
---------
+Links and references
+--------------------
 
- - To run the CLI binary, just run `./nextpnr-ice40` (you should see command line help)
- - To start the UI, run `./nextpnr-ice40 --gui`
- - The Python module is called `nextpnrpy_ice40.so`. To test it, run `PYTHONPATH=. python3 python/python_mod_test.py`
- - Run `yosys blinky.ys` in `ice40/` to synthesise the blinky design and 
-   produce `blinky.json`.
- - To place-and-route the blinky using nextpnr, run `./nextpnr-ice40 --hx1k --json ice40/blinky.json --pcf ice40/blinky.pcf --asc blinky.asc`
+### Synthesis, simulation, and logic optimization
 
- - For an ECP5 blinky, first synthesise using `yosys blinky.ys` in `ecp5/synth`.
- - Then run ECP5 place-and route using
- `./nextpnr-ecp5 --json ecp5/synth/blinky.json --basecfg ecp5/synth/ulx3s_empty.config --bit ecp5/synth/ulx3s.bit`
-    - Note that `ulx3s_empty.config` contains fixed/unknown bits to be copied to the output bitstream
-    - You can also use `--textcfg out.config` to write a text file describing the bitstream for debugging
-  
-Notes
--------
- 
- - All code is formatted using `clang-format` according to the style rules in `.clang-format` (LLVM based with 
- increased indent widths and brace wraps after classes).
- - To automatically format all source code, run `make clangformat`.
+- [Yosys](http://www.clifford.at/yosys/)
+- [Icarus Verilog](http://iverilog.icarus.com/)
+- [ABC](https://people.eecs.berkeley.edu/~alanmi/abc/)
+
+### FPGA bitstream documentation (and tools) projects
+
+- [Project IceStorm (Lattice iCE40)](http://www.clifford.at/icestorm/)
+- [Project Trellis (Lattice ECP5)](https://symbiflow.github.io/prjtrellis-db/)
+- [Project X-Ray (Xilinx 7-Series)](https://symbiflow.github.io/prjxray-db/)
+- [Project Chibi (Intel MAX-V)](https://github.com/rqou/project-chibi)
+
+### Other FOSS place and route tools (FPGA and ASIC)
+
+- [Arachne PNR](https://github.com/cseed/arachne-pnr)
+- [VPR/VTR](https://verilogtorouting.org/)
+- [graywolf/timberwolf](https://github.com/rubund/graywolf)
+- [qrouter](http://opencircuitdesign.com/qrouter/)
