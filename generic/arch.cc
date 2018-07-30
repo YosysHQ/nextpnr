@@ -403,6 +403,15 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
     return (dx + dy) * grid_distance_to_delay;
 }
 
+delay_t Arch::predictDelay(WireId src, WireId dst) const
+{
+    const WireInfo &s = wires.at(src);
+    const WireInfo &d = wires.at(dst);
+    int dx = abs(s.x - d.x);
+    int dy = abs(s.y - d.y);
+    return (dx + dy) * grid_distance_to_delay;
+}
+
 // ---------------------------------------------------------------
 
 bool Arch::place() { return placer1(getCtx()); }

@@ -413,6 +413,11 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
     return 200 * (abs(src.location.x - dst.location.x) + abs(src.location.y - dst.location.y));
 }
 
+delay_t Arch::predictDelay(WireId src, WireId dst) const
+{
+    return 200 * (abs(src.location.x - dst.location.x) + abs(src.location.y - dst.location.y));
+}
+
 // -----------------------------------------------------------------------
 
 bool Arch::place() { return placer1(getCtx()); }

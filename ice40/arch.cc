@@ -579,6 +579,22 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
     int xd = x2 - x1, yd = y2 - y1;
     int xscale = 120, yscale = 120, offset = 0;
 
+    return xscale * abs(xd) + yscale * abs(yd) + offset;
+}
+
+delay_t Arch::predictDelay(WireId src, WireId dst) const
+{
+    NPNR_ASSERT(src != WireId());
+    int x1 = chip_info->wire_data[src.index].x;
+    int y1 = chip_info->wire_data[src.index].y;
+
+    NPNR_ASSERT(dst != WireId());
+    int x2 = chip_info->wire_data[dst.index].x;
+    int y2 = chip_info->wire_data[dst.index].y;
+
+    int xd = x2 - x1, yd = y2 - y1;
+    int xscale = 120, yscale = 120, offset = 0;
+
     // if (chip_info->wire_data[src.index].type == WIRE_TYPE_SP4_VERT) {
     //     yd = yd < -4 ? yd + 4 : (yd < 0 ? 0 : yd);
     //     offset = 500;
