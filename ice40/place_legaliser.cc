@@ -119,9 +119,12 @@ class PlacementLegaliser
         float distance_sum = 0;
         float max_distance = 0;
         int moved_cells = 0;
+        int unplaced_cells = 0;
         for (auto orig : originalPositions) {
-            if (ctx->cells.at(orig.first)->bel == BelId())
+            if (ctx->cells.at(orig.first)->bel == BelId()) {
+                unplaced_cells++;
                 continue;
+            }
             Loc newLoc = ctx->getBelLocation(ctx->cells.at(orig.first)->bel);
             if (newLoc != orig.second) {
                 float distance = std::sqrt(std::pow(newLoc.x - orig.second.x, 2) + pow(newLoc.y - orig.second.y, 2));
@@ -131,7 +134,7 @@ class PlacementLegaliser
                     max_distance = distance;
             }
         }
-        log_info("    moved %d cells (after %s)\n", moved_cells, point);
+        log_info("    moved %d cells, %d unplaced (after %s)\n", moved_cells, unplaced_cells, point);
         if (moved_cells > 0) {
             log_info("       average distance %f\n", (distance_sum / moved_cells));
             log_info("       maximum distance %f\n", max_distance);
