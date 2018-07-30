@@ -20,26 +20,16 @@
 #ifndef DESIGNWIDGET_H
 #define DESIGNWIDGET_H
 
-#include <QTreeWidget>
+#include <QTreeView>
 #include <QVariant>
 #include "nextpnr.h"
 #include "qtgroupboxpropertybrowser.h"
 #include "qtpropertymanager.h"
 #include "qttreepropertybrowser.h"
 #include "qtvariantproperty.h"
+#include "treemodel.h"
 
 NEXTPNR_NAMESPACE_BEGIN
-
-enum class ElementType
-{
-    NONE,
-    BEL,
-    WIRE,
-    PIP,
-    NET,
-    CELL,
-    GROUP
-};
 
 class DesignWidget : public QWidget
 {
@@ -59,19 +49,21 @@ class DesignWidget : public QWidget
     ElementType getElementTypeByName(QString type);
     int getElementIndex(ElementType type);
     void updateButtons();
-    void addToHistory(QTreeWidgetItem *item);
+    void addToHistory(QModelIndex item);
     std::vector<DecalXY> getDecals(ElementType type, IdString value);
-    void updateHighlightGroup(QList<QTreeWidgetItem *> item, int group);
+    void updateHighlightGroup(QList<ContextTreeItem *> item, int group);
   Q_SIGNALS:
     void info(std::string text);
     void selected(std::vector<DecalXY> decal, bool keep);
     void highlight(std::vector<DecalXY> decal, int group);
+    void zoomSelected();
 
   private Q_SLOTS:
     void prepareMenuProperty(const QPoint &pos);
     void prepareMenuTree(const QPoint &pos);
-    void onItemSelectionChanged();
+    void onSelectionChanged(const QItemSelection &selected, const QItemSelection &deselected);
     void onItemDoubleClicked(QTreeWidgetItem *item, int column);
+    void onDoubleClicked(const QModelIndex &index);
   public Q_SLOTS:
     void newContext(Context *ctx);
     void updateTree();
@@ -82,8 +74,9 @@ class DesignWidget : public QWidget
   private:
     Context *ctx;
 
-    QTreeWidget *treeWidget;
-
+    QTreeView *treeView;
+    QItemSelectionModel *selectionModel;
+    ContextTreeModel *treeModel;
     QtVariantPropertyManager *variantManager;
     QtVariantPropertyManager *readOnlyManager;
     QtGroupPropertyManager *groupManager;
@@ -93,13 +86,9 @@ class DesignWidget : public QWidget
     QMap<QtProperty *, QString> propertyToId;
     QMap<QString, QtProperty *> idToProperty;
 
-    QMap<QString, QTreeWidgetItem *> nameToItem[6];
-    std::vector<QTreeWidgetItem *> history;
+    std::vector<QModelIndex> history;
     int history_index;
     bool history_ignore;
-
-    QTreeWidgetItem *nets_root;
-    QTreeWidgetItem *cells_root;
 
     QAction *actionFirst;
     QAction *actionPrev;
@@ -108,7 +97,7 @@ class DesignWidget : public QWidget
     QAction *actionClear;
 
     QColor highlightColors[8];
-    QMap<QTreeWidgetItem *, int> highlightSelected;
+    QMap<ContextTreeItem *, int> highlightSelected;
 };
 
 NEXTPNR_NAMESPACE_END
