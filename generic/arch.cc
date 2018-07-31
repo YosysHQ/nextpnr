@@ -427,7 +427,7 @@ DecalXY Arch::getGroupDecal(GroupId group) const { return groups.at(group).decal
 
 // ---------------------------------------------------------------
 
-bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, delay_t &delay) const
+bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const
 {
     return false;
 }

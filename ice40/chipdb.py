@@ -9,6 +9,8 @@ parser = argparse.ArgumentParser(description="convert ICE40 chip database")
 parser.add_argument("filename", type=str, help="chipdb input filename")
 parser.add_argument("-p", "--portspins", type=str, help="path to portpins.inc")
 parser.add_argument("-g", "--gfxh", type=str, help="path to gfx.h")
+parser.add_argument("--fast", type=str, help="path to timing data for fast part")
+parser.add_argument("--slow", type=str, help="path to timing data for slow part")
 args = parser.parse_args()
 
 dev_name = None
@@ -51,6 +53,9 @@ wiretypes = dict()
 gfx_wire_ids = dict()
 wire_segments = dict()
 
+fast_timings = None
+slow_timings = None
+
 with open(args.portspins) as f:
     for line in f:
         line = line.replace("(", " ")
@@ -76,6 +81,31 @@ with open(args.gfxh) as f:
             idx = len(gfx_wire_ids)
             name = line.strip().rstrip(",")
             gfx_wire_ids[name] = idx
+
+def read_timings(filename):
+    db = dict()
+    with open(filename) as f:
+        cell = None
+        for line in f:
+            line = line.split()
+            if len(line) == 0:
+                continue
+            if line[0] == "CELL":
+                cell = line[1]
+            if line[0] == "IOPATH":
+                key = "%s.%s.%s" % (cell, line[1], line[2])
+                v1 = line[3].split(":")[2]
+                v2 = line[4].split(":")[2]
+                v1 = 0 if v1 == "*" else float(v1)
+                v2 = 0 if v2 == "*" else float(v2)
+                db[key] = max(v1, v2)
+    return db
+
+if args.fast is not None:
+    fast_timings = read_timings(args.fast)
+
+if args.slow is not None:
+    slow_timings = read_timings(args.slow)
 
 beltypes["ICESTORM_LC"] = 1
 beltypes["ICESTORM_RAM"] = 2
@@ -184,11 +214,17 @@ def wire_type(name):
         assert 0
     return wt
 
-def pipdelay(src, dst):
+def pipdelay(src, dst, db):
+    if db is None:
+        return 0
+
     src = wire_names_r[src]
     dst = wire_names_r[dst]
     src_type = wire_type(src[2])
     dst_type = wire_type(dst[2])
+
+    if dst[2].startswith("local_"):
+        return db["LocalMux.I.O"]
 
     if src_type == "LOCAL" and dst_type == "LOCAL":
        return 250
@@ -223,7 +259,15 @@ def pipdelay(src, dst):
     # print(src, dst, src_type, dst_type, file=sys.stderr)
     assert 0
 
+def wiredelay(wire, db):
+    if db is None:
+        return 0
 
+    wire = wire_names_r[wire]
+    wtype = wire_type(wire[2])
+
+    # FIXME
+    return 0
 
 def init_tiletypes(device):
     global num_tile_types, tile_sizes, tile_bits
@@ -748,7 +792,8 @@ for wire in range(num_wires):
                 pi = dict()
                 pi["src"] = src
                 pi["dst"] = wire
-                pi["delay"] = pipdelay(src, wire)
+                pi["fast_delay"] = pipdelay(src, wire, fast_timings)
+                pi["slow_delay"] = pipdelay(src, wire, slow_timings)
                 pi["x"] = pip_xy[(src, wire)][0]
                 pi["y"] = pip_xy[(src, wire)][1]
                 pi["switch_mask"] = pip_xy[(src, wire)][2]
@@ -772,7 +817,8 @@ for wire in range(num_wires):
                 pi = dict()
                 pi["src"] = wire
                 pi["dst"] = dst
-                pi["delay"] = pipdelay(wire, dst)
+                pi["fast_delay"] = pipdelay(wire, dst, fast_timings)
+                pi["slow_delay"] = pipdelay(wire, dst, slow_timings)
                 pi["x"] = pip_xy[(wire, dst)][0]
                 pi["y"] = pip_xy[(wire, dst)][1]
                 pi["switch_mask"] = pip_xy[(wire, dst)][2]
@@ -891,6 +937,9 @@ for wire, info in enumerate(wireinfo):
     else:
         bba.u32(0, "segments")
 
+    bba.u32(wiredelay(wire, fast_timings), "fast_delay")
+    bba.u32(wiredelay(wire, slow_timings), "slow_delay")
+
     bba.u8(info["x"], "x")
     bba.u8(info["y"], "y")
     bba.u8(wiretypes[wire_type(info["name"])], "type")
@@ -923,7 +972,8 @@ for info in pipinfo:
     # bba.s("X%d/Y%d/%s->%s" % (info["x"], info["y"], src_segname, dst_segname), "name")
     bba.u32(info["src"], "src")
     bba.u32(info["dst"], "dst")
-    bba.u32(info["delay"], "delay")
+    bba.u32(info["fast_delay"], "fast_delay")
+    bba.u32(info["slow_delay"], "slow_delay")
     bba.u8(info["x"], "x")
     bba.u8(info["y"], "y")
     bba.u16(src_seg, "src_seg")

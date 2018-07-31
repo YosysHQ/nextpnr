@@ -114,17 +114,58 @@ class PlacementLegaliser
   public:
     PlacementLegaliser(Context *ctx) : ctx(ctx){};
 
+    void print_stats(const char *point)
+    {
+        float distance_sum = 0;
+        float max_distance = 0;
+        int moved_cells = 0;
+        int unplaced_cells = 0;
+        for (auto orig : originalPositions) {
+            if (ctx->cells.at(orig.first)->bel == BelId()) {
+                unplaced_cells++;
+                continue;
+            }
+            Loc newLoc = ctx->getBelLocation(ctx->cells.at(orig.first)->bel);
+            if (newLoc != orig.second) {
+                float distance = std::sqrt(std::pow(newLoc.x - orig.second.x, 2) + pow(newLoc.y - orig.second.y, 2));
+                moved_cells++;
+                distance_sum += distance;
+                if (distance > max_distance)
+                    max_distance = distance;
+            }
+        }
+        log_info("    moved %d cells, %d unplaced (after %s)\n", moved_cells, unplaced_cells, point);
+        if (moved_cells > 0) {
+            log_info("       average distance %f\n", (distance_sum / moved_cells));
+            log_info("       maximum distance %f\n", max_distance);
+        }
+    }
+
     bool legalise()
     {
         log_info("Legalising design..\n");
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
+            if (!ctx->getBelGlobalBuf(ci->bel) && cell.second->type == ctx->id("ICESTORM_LC")) {
+                originalPositions[cell.first] = ctx->getBelLocation(ci->bel);
+            }
+        }
         init_logic_cells();
         bool legalised_carries = legalise_carries();
         if (!legalised_carries && !ctx->force)
             return false;
+        print_stats("carry legalisation");
         legalise_others();
+        print_stats("misc. cell legalisation");
         legalise_logic_tiles();
+        print_stats("logic cell legalisation");
         bool replaced_cells = replace_cells();
+        print_stats("cell replacement");
+
         ctx->assignArchInfo();
+
+
+
         return legalised_carries && replaced_cells;
     }
 
@@ -501,6 +542,7 @@ class PlacementLegaliser
     Context *ctx;
     std::unordered_set<IdString> rippedCells;
     std::unordered_set<IdString> createdCells;
+    std::unordered_map<IdString, Loc> originalPositions;
     // Go from X and Y position to logic cells, setting occupied to true if a Bel is unavailable
     std::vector<std::vector<std::vector<std::pair<BelId, bool>>>> logic_bels;
 };

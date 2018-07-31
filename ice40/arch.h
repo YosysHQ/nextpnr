@@ -66,7 +66,8 @@ NPNR_PACKED_STRUCT(struct BelPortPOD {
 NPNR_PACKED_STRUCT(struct PipInfoPOD {
     // RelPtr<char> name;
     int32_t src, dst;
-    int32_t delay;
+    int32_t fast_delay;
+    int32_t slow_delay;
     int8_t x, y;
     int16_t src_seg, dst_seg;
     int16_t switch_mask;
@@ -88,6 +89,9 @@ NPNR_PACKED_STRUCT(struct WireInfoPOD {
 
     int32_t num_segments;
     RelPtr<WireSegmentPOD> segments;
+
+    int32_t fast_delay;
+    int32_t slow_delay;
 
     int8_t x, y;
     WireType type;
@@ -344,6 +348,7 @@ struct ArchArgs
 
 struct Arch : BaseCtx
 {
+    bool fast_part;
     const ChipInfoPOD *chip_info;
     const PackageInfoPOD *package_info;
 
@@ -524,6 +529,11 @@ struct Arch : BaseCtx
     DelayInfo getWireDelay(WireId wire) const
     {
         DelayInfo delay;
+        NPNR_ASSERT(wire != WireId());
+        if (fast_part)
+            delay.delay =  chip_info->wire_data[wire.index].fast_delay;
+        else
+            delay.delay =  chip_info->wire_data[wire.index].slow_delay;
         return delay;
     }
 
@@ -637,7 +647,10 @@ struct Arch : BaseCtx
     {
         DelayInfo delay;
         NPNR_ASSERT(pip != PipId());
-        delay.delay = chip_info->pip_data[pip.index].delay;
+        if (fast_part)
+            delay.delay = chip_info->pip_data[pip.index].fast_delay;
+        else
+            delay.delay = chip_info->pip_data[pip.index].slow_delay;
         return delay;
     }
 
@@ -710,7 +723,7 @@ struct Arch : BaseCtx
 
     // Get the delay through a cell from one port to another, returning false
     // if no path exists
-    bool getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, delay_t &delay) const;
+    bool getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const;
     // Get the associated clock to a port, or empty if the port is combinational
     IdString getPortClock(const CellInfo *cell, IdString port) const;
     // Return true if a port is a clock
