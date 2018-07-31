@@ -41,13 +41,13 @@ static delay_t follow_user_port(Context *ctx, PortRef &user, int path_length, de
         // Follow outputs of the user
         for (auto port : user.cell->ports) {
             if (port.second.type == PORT_OUT) {
-                delay_t comb_delay;
+                DelayInfo comb_delay;
                 // Look up delay through this path
                 bool is_path = ctx->getCellDelay(user.cell, user.port, port.first, comb_delay);
                 if (is_path) {
                     NetInfo *net = port.second.net;
                     if (net) {
-                        delay_t path_budget = follow_net(ctx, net, path_length, slack - comb_delay);
+                        delay_t path_budget = follow_net(ctx, net, path_length, slack - comb_delay.maxDelay());
                         value = std::min(value, path_budget);
                     }
                 }
@@ -88,9 +88,9 @@ void assign_budget(Context *ctx)
                 IdString clock_domain = ctx->getPortClock(cell.second.get(), port.first);
                 if (clock_domain != IdString()) {
                     delay_t slack = delay_t(1.0e12 / ctx->target_freq); // TODO: clock constraints
-                    delay_t clkToQ;
+                    DelayInfo clkToQ;
                     if (ctx->getCellDelay(cell.second.get(), clock_domain, port.first, clkToQ))
-                        slack -= clkToQ;
+                        slack -= clkToQ.maxDelay();
                     if (port.second.net)
                         follow_net(ctx, port.second.net, 0, slack);
                 }

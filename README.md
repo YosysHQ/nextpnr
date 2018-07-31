@@ -1,10 +1,21 @@
 nextpnr -- a portable FPGA place and route tool
 ===============================================
 
-nextpnr is an FPGA place and route tool with emphasis on supporting a wide
-range of real-world FPGA devices. It currently supports Lattice iCE40 devices
-and Lattice ECP5 devices, as well as a "generic" back-end for user-defined
-architectures. (ECP5 and "generic" support are still experimental.)
+nextpnr is an FPGA place and route tool with emphasis on supporting
+timing-driven place and route for a wide range of real-world FPGA devices.
+It currently supports Lattice iCE40 devices and Lattice ECP5 devices,
+as well as a "generic" back-end for user-defined architectures.
+(ECP5 and "generic" support are still experimental.)
+
+Currently nextpnr is beta software at best. But we aim at replacing
+arachne-pnr as official place-and-route tool for the icestorm flow soon.
+
+Here is a screenshot of nextpnr for iCE40. Build instructions and getting
+started notes can be found below.
+
+
+<img src="https://i.imgur.com/0spmlBa.png" width="640"/>
+
 
 Prerequisites
 -------------
@@ -144,9 +155,15 @@ Links and references
 - [Project X-Ray (Xilinx 7-Series)](https://symbiflow.github.io/prjxray-db/)
 - [Project Chibi (Intel MAX-V)](https://github.com/rqou/project-chibi)
 
-### Other FOSS place and route tools (FPGA and ASIC)
+### Other FOSS FPGA place and route projects
 
 - [Arachne PNR](https://github.com/cseed/arachne-pnr)
 - [VPR/VTR](https://verilogtorouting.org/)
-- [graywolf/timberwolf](https://github.com/rubund/graywolf)
-- [qrouter](http://opencircuitdesign.com/qrouter/)
+- [SymbiFlow](https://github.com/SymbiFlow/symbiflow-arch-defs)
+- [Gaffe](https://github.com/kc8apf/gaffe)
+- [KinglerPAR](https://github.com/rqou/KinglerPAR)
+
+> SymbiFlow is working with the Verilog to Routing tool to extend the current
+research tool to support real architectures. VtR is strongly focused on
+architecture research but having support for real architectures might enable
+research nextpnr zu providing documentation and explanation.

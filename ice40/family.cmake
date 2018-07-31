@@ -14,17 +14,28 @@ file(MAKE_DIRECTORY ice40/chipdbs/)
 add_library(ice40_chipdb OBJECT ice40/chipdbs/)
 target_compile_definitions(ice40_chipdb PRIVATE NEXTPNR_NAMESPACE=nextpnr_${family})
 target_include_directories(ice40_chipdb PRIVATE ${family}/)
+
 if (MSVC)
     target_sources(ice40_chipdb PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/ice40/resource/embed.cc)
     set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/ice40/resources/chipdb.rc PROPERTIES LANGUAGE RC)
     foreach (dev ${devices})
+        if (dev EQUAL "5k")
+            set(OPT_FAST "")
+            set(OPT_SLOW --slow ${ICEBOX_ROOT}/timings-up5k.txt)
+        elseif(dev EQUAL "384")
+            set(OPT_FAST "")
+            set(OPT_SLOW --slow ${ICEBOX_ROOT}/timings-lp384.txt)
+        else()
+            set(OPT_FAST --fast ${ICEBOX_ROOT}/timings-hx${dev}.txt)
+            set(OPT_SLOW --slow ${ICEBOX_ROOT}/timings-lp${dev}.txt)
+        endif()
         set(DEV_TXT_DB ${ICEBOX_ROOT}/chipdb-${dev}.txt)
         set(DEV_CC_BBA_DB ${CMAKE_CURRENT_SOURCE_DIR}/ice40/chipdbs/chipdb-${dev}.bba)
         set(DEV_CC_DB ${CMAKE_CURRENT_SOURCE_DIR}/ice40/chipdbs/chipdb-${dev}.bin)
         set(DEV_PORTS_INC ${CMAKE_CURRENT_SOURCE_DIR}/ice40/portpins.inc)
         set(DEV_GFXH ${CMAKE_CURRENT_SOURCE_DIR}/ice40/gfx.h)
         add_custom_command(OUTPUT ${DEV_CC_BBA_DB}
-                COMMAND ${PYTHON_EXECUTABLE} ${DB_PY} -p ${DEV_PORTS_INC} -g ${DEV_GFXH} ${DEV_TXT_DB} > ${DEV_CC_BBA_DB}
+                COMMAND ${PYTHON_EXECUTABLE} ${DB_PY} -p ${DEV_PORTS_INC} -g ${DEV_GFXH} ${OPT_FAST} ${OPT_SLOW} ${DEV_TXT_DB} > ${DEV_CC_BBA_DB}
                 DEPENDS ${DEV_TXT_DB} ${DB_PY}
                 )
         add_custom_command(OUTPUT ${DEV_CC_DB}
@@ -40,13 +51,23 @@ if (MSVC)
 else()
     target_compile_options(ice40_chipdb PRIVATE -g0 -O0 -w)
     foreach (dev ${devices})
+        if (dev EQUAL "5k")
+            set(OPT_FAST "")
+            set(OPT_SLOW --slow ${ICEBOX_ROOT}/timings_up5k.txt)
+        elseif(dev EQUAL "384")
+            set(OPT_FAST "")
+            set(OPT_SLOW --slow ${ICEBOX_ROOT}/timings_lp384.txt)
+        else()
+            set(OPT_FAST --fast ${ICEBOX_ROOT}/timings_hx${dev}.txt)
+            set(OPT_SLOW --slow ${ICEBOX_ROOT}/timings_lp${dev}.txt)
+        endif()
         set(DEV_TXT_DB ${ICEBOX_ROOT}/chipdb-${dev}.txt)
         set(DEV_CC_BBA_DB ${CMAKE_CURRENT_SOURCE_DIR}/ice40/chipdbs/chipdb-${dev}.bba)
         set(DEV_CC_DB ${CMAKE_CURRENT_SOURCE_DIR}/ice40/chipdbs/chipdb-${dev}.cc)
         set(DEV_PORTS_INC ${CMAKE_CURRENT_SOURCE_DIR}/ice40/portpins.inc)
         set(DEV_GFXH ${CMAKE_CURRENT_SOURCE_DIR}/ice40/gfx.h)
         add_custom_command(OUTPUT ${DEV_CC_BBA_DB}
-                COMMAND ${PYTHON_EXECUTABLE} ${DB_PY} -p ${DEV_PORTS_INC} -g ${DEV_GFXH} ${DEV_TXT_DB} > ${DEV_CC_BBA_DB}.new
+                COMMAND ${PYTHON_EXECUTABLE} ${DB_PY} -p ${DEV_PORTS_INC} -g ${DEV_GFXH} ${OPT_FAST} ${OPT_SLOW} ${DEV_TXT_DB} > ${DEV_CC_BBA_DB}.new
                 COMMAND mv ${DEV_CC_BBA_DB}.new ${DEV_CC_BBA_DB}
                 DEPENDS ${DEV_TXT_DB} ${DB_PY}
         )

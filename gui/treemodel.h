@@ -22,6 +22,7 @@
 
 #include <QAbstractItemModel>
 #include "nextpnr.h"
+#include "log.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -34,31 +35,6 @@ enum class ElementType
     NET,
     CELL,
     GROUP
-};
-
-class ContextTreeItem
-{
-  public:
-    ContextTreeItem();
-    ContextTreeItem(QString name);
-    ContextTreeItem(IdString id, ElementType type, QString name);
-    ~ContextTreeItem();
-
-    void addChild(ContextTreeItem *item);
-    int indexOf(ContextTreeItem *n) const { return children.indexOf(n); }
-    ContextTreeItem *at(int idx) const { return children.at(idx); }
-    int count() const { return children.count(); }
-    ContextTreeItem *parent() const { return parentNode; }
-    IdString id() const { return itemId; }
-    ElementType type() const { return itemType; }
-    QString name() const { return itemName; }
-    void sort();
-  private:
-    ContextTreeItem *parentNode;
-    QList<ContextTreeItem *> children;
-    IdString itemId;
-    ElementType itemType;
-    QString itemName;
 };
 
 class LazyTreeItem
@@ -207,6 +183,74 @@ class ElementList : public LazyTreeItem
     }
 };
 
+class IdStringList : public StaticTreeItem
+{
+  private:
+    std::unordered_map<IdString, std::unique_ptr<StaticTreeItem>> managed_;
+  public:
+    using StaticTreeItem::StaticTreeItem;
+
+    void updateElements(Context *ctx, std::vector<IdString> elements)
+    {
+        // for any elements that are not yet in managed_, created them.
+        std::unordered_set<IdString> element_set;
+        for (auto elem : elements) {
+            element_set.insert(elem);
+            auto existing = managed_.find(elem);
+            if (existing == managed_.end()) {
+                auto item = new StaticTreeItem(elem.c_str(ctx), this);
+                managed_.emplace(elem, std::unique_ptr<StaticTreeItem>(item));
+            }
+        }
+        
+        children_.clear();
+        // for any elements that are in managed_ but not in new, delete them.
+        for (auto &pair : managed_) {
+            if (element_set.count(pair.first) != 0) {
+                children_.push_back(pair.second.get());
+                continue;
+            }
+            managed_.erase(pair.first);
+        }
+
+        // sort new children
+        qSort(children_.begin(), children_.end(), [&](const LazyTreeItem *a, const LazyTreeItem *b){
+            QString name_a = a->name();
+            QString name_b = b->name();
+            // Try to extract a common prefix from both strings.
+            QString common;
+            for (int i = 0; i < std::min(name_a.size(), name_b.size()); i++) {
+                const QChar c_a = name_a[i];
+                const QChar c_b = name_b[i];
+                if (c_a == c_b) {
+                    common.push_back(c_a);
+                } else {
+                    break;
+                }
+            }
+            // No common part? lexical sort.
+            if (common.size() == 0) {
+                return a->name() < b->name();
+            }
+
+            // Get the non-common parts.
+            name_a.remove(0, common.size());
+            name_b.remove(0, common.size());
+            // And see if they're strings.
+            bool ok = true;
+            int num_a = name_a.toInt(&ok);
+            if (!ok) {
+                return a->name() < b->name();
+            }
+            int num_b = name_b.toInt(&ok);
+            if (!ok) {
+                return a->name() < b->name();
+            }
+            return num_a < num_b;
+        });
+    }
+};
+
 template <typename ElementT>
 class ElementXYRoot : public StaticTreeItem
 {
@@ -217,7 +261,7 @@ class ElementXYRoot : public StaticTreeItem
 
   private:
     Context *ctx_;
-    std::vector<std::unique_ptr<LazyTreeItem>> bels_;
+    std::vector<std::unique_ptr<LazyTreeItem>> managed_;
     ElementMap map_;
     ElementGetter getter_;
 
@@ -241,11 +285,11 @@ class ElementXYRoot : public StaticTreeItem
 
             // create X item for tree
             auto item = new StaticTreeItem(QString("X%1").arg(i), this);
-            bels_.push_back(std::move(std::unique_ptr<LazyTreeItem>(item)));
+            managed_.push_back(std::move(std::unique_ptr<LazyTreeItem>(item)));
             for (auto j : y_present) {
                 auto item2 = new ElementList<ElementT>(ctx_, QString("Y%1").arg(j), item, &map_, i, j, getter_);
                 item2->fetchMore(1);
-                bels_.push_back(std::move(std::unique_ptr<LazyTreeItem>(item2)));
+                managed_.push_back(std::move(std::unique_ptr<LazyTreeItem>(item2)));
             }
         }
     }
@@ -261,11 +305,10 @@ class ContextTreeModel : public QAbstractItemModel
     ContextTreeModel(QObject *parent = nullptr);
     ~ContextTreeModel();
 
-    void loadData(Context *ctx);
-    void updateData(Context *ctx);
+    void loadContext(Context *ctx);
+    void updateCellsNets(Context *ctx);
     LazyTreeItem *nodeFromIndex(const QModelIndex &idx) const;
-    //QModelIndex indexFromNode(ContextTreeItem *node);
-    //ContextTreeItem *nodeForIdType(const ElementType type, const QString name) const;
+    QList<QModelIndex> search(QString text);
  
     // Override QAbstractItemModel methods
     int rowCount(const QModelIndex &parent = QModelIndex()) const Q_DECL_OVERRIDE;
@@ -283,11 +326,8 @@ class ContextTreeModel : public QAbstractItemModel
     std::unique_ptr<BelXYRoot> bel_root_;
     std::unique_ptr<WireXYRoot> wire_root_;
     std::unique_ptr<PipXYRoot> pip_root_;
-    //std::unique_ptr<ElementXYRoot> wires_root_;
-    //std::unique_ptr<ElementXYRoot> pips_root_;
-    //QMap<QString, ContextTreeItem *> nameToItem[6];
-    //ContextTreeItem *nets_root;
-    //ContextTreeItem *cells_root;
+    std::unique_ptr<IdStringList> cell_root_;
+    std::unique_ptr<IdStringList> net_root_;
 };
 
 NEXTPNR_NAMESPACE_END

@@ -64,6 +64,7 @@ class DesignWidget : public QWidget
     void onSelectionChanged(const QItemSelection &selected, const QItemSelection &deselected);
     void onItemDoubleClicked(QTreeWidgetItem *item, int column);
     void onDoubleClicked(const QModelIndex &index);
+    void onSearchInserted();
   public Q_SLOTS:
     void newContext(Context *ctx);
     void updateTree();
@@ -77,6 +78,7 @@ class DesignWidget : public QWidget
     QTreeView *treeView;
     QItemSelectionModel *selectionModel;
     ContextTreeModel *treeModel;
+    QLineEdit *searchEdit;
     QtVariantPropertyManager *variantManager;
     QtVariantPropertyManager *readOnlyManager;
     QtGroupPropertyManager *groupManager;
@@ -98,6 +100,10 @@ class DesignWidget : public QWidget
 
     QColor highlightColors[8];
     QMap<LazyTreeItem *, int> highlightSelected;
+
+    QString currentSearch;
+    QList<QModelIndex> currentSearchIndexes;
+    int currentIndex;
 };
 
 NEXTPNR_NAMESPACE_END

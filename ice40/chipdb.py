@@ -9,6 +9,8 @@ parser = argparse.ArgumentParser(description="convert ICE40 chip database")
 parser.add_argument("filename", type=str, help="chipdb input filename")
 parser.add_argument("-p", "--portspins", type=str, help="path to portpins.inc")
 parser.add_argument("-g", "--gfxh", type=str, help="path to gfx.h")
+parser.add_argument("--fast", type=str, help="path to timing data for fast part")
+parser.add_argument("--slow", type=str, help="path to timing data for slow part")
 args = parser.parse_args()
 
 dev_name = None
@@ -51,6 +53,9 @@ wiretypes = dict()
 gfx_wire_ids = dict()
 wire_segments = dict()
 
+fast_timings = None
+slow_timings = None
+
 with open(args.portspins) as f:
     for line in f:
         line = line.replace("(", " ")
@@ -76,6 +81,31 @@ with open(args.gfxh) as f:
             idx = len(gfx_wire_ids)
             name = line.strip().rstrip(",")
             gfx_wire_ids[name] = idx
+
+def read_timings(filename):
+    db = dict()
+    with open(filename) as f:
+        cell = None
+        for line in f:
+            line = line.split()
+            if len(line) == 0:
+                continue
+            if line[0] == "CELL":
+                cell = line[1]
+            if line[0] == "IOPATH":
+                key = "%s.%s.%s" % (cell, line[1], line[2])
+                v1 = line[3].split(":")[2]
+                v2 = line[4].split(":")[2]
+                v1 = 0 if v1 == "*" else float(v1)
+                v2 = 0 if v2 == "*" else float(v2)
+                db[key] = max(v1, v2)
+    return db
+
+if args.fast is not None:
+    fast_timings = read_timings(args.fast)
+
+if args.slow is not None:
+    slow_timings = read_timings(args.slow)
 
 beltypes["ICESTORM_LC"] = 1
 beltypes["ICESTORM_RAM"] = 2
@@ -184,46 +214,75 @@ def wire_type(name):
         assert 0
     return wt
 
-def pipdelay(src, dst):
-    src = wire_names_r[src]
-    dst = wire_names_r[dst]
+def pipdelay(src_idx, dst_idx, db):
+    if db is None:
+        return 0
+
+    src = wire_names_r[src_idx]
+    dst = wire_names_r[dst_idx]
     src_type = wire_type(src[2])
     dst_type = wire_type(dst[2])
 
-    if src_type == "LOCAL" and dst_type == "LOCAL":
-       return 250
+    if dst[2].startswith("sp4_") or dst[2].startswith("span4_"):
+        if src[2].startswith("sp12_") or src[2].startswith("span12_"):
+            return db["Sp12to4.I.O"]
 
-    if src_type == "GLOBAL" and dst_type == "LOCAL":
-       return 400
+        if src[2].startswith("span4_"):
+            return db["IoSpan4Mux.I.O"]
 
-    # Local -> Span
+        if dst[2].startswith("sp4_h_"):
+            return db["Span4Mux_h4.I.O"]
+        else:
+            return db["Span4Mux_v4.I.O"]
 
-    if src_type == "LOCAL" and dst_type in ("SP4_HORZ", "SP4_VERT"):
-       return 350
+    if dst[2].startswith("sp12_") or dst[2].startswith("span12_"):
+        if dst[2].startswith("sp12_h_"):
+            return db["Span12Mux_h12.I.O"]
+        else:
+            return db["Span12Mux_v12.I.O"]
 
-    if src_type == "LOCAL" and dst_type in ("SP12_HORZ", "SP12_VERT"):
-       return 500
+    if dst[2] in ("fabout", "clk"):
+        return 0 # FIXME?
 
-    # Span -> Local
+    if src[2].startswith("glb_netwk_") and dst[2].startswith("glb2local_"):
+        return 0 # FIXME?
 
-    if src_type in ("SP4_HORZ", "SP4_VERT", "SP12_HORZ", "SP12_VERT") and dst_type == "LOCAL":
-       return 300
+    if dst[2] == "carry_in_mux":
+        return db["ICE_CARRY_IN_MUX.carryinitin.carryinitout"]
 
-    # Span -> Span
+    if dst[2] in ("lutff_global/clk", "io_global/inclk", "io_global/outclk", "ram/RCLK", "ram/WCLK"):
+        return db["ClkMux.I.O"]
 
-    if src_type in ("SP12_HORZ", "SP12_VERT") and dst_type in ("SP12_HORZ", "SP12_VERT"):
-       return 450
+    if dst[2] in ("lutff_global/s_r", "io_global/latch", "ram/RE", "ram/WE"):
+        return db["SRMux.I.O"]
 
-    if src_type in ("SP4_HORZ", "SP4_VERT") and dst_type in ("SP4_HORZ", "SP4_VERT"):
-       return 300
+    if dst[2] in ("lutff_global/cen", "io_global/cen", "ram/RCLKE", "ram/WCLKE"):
+        return db["CEMux.I.O"]
 
-    if src_type in ("SP12_HORZ", "SP12_VERT") and dst_type in ("SP4_HORZ", "SP4_VERT"):
-       return 380
+    if dst[2].startswith("local_"):
+        return db["LocalMux.I.O"]
 
-    # print(src, dst, src_type, dst_type, file=sys.stderr)
+    if src[2].startswith("local_") and dst[2] in ("io_0/D_OUT_0", "io_0/D_OUT_1", "io_0/OUT_ENB", "io_1/D_OUT_0", "io_1/D_OUT_1", "io_1/OUT_ENB"):
+        return db["IoInMux.I.O"]
+
+    if re.match(r"lutff_\d+/in_\d+", dst[2]):
+        return db["InMux.I.O"]
+
+    if re.match(r"ram/(MASK|RADDR|WADDR|WDATA)_", dst[2]):
+        return db["InMux.I.O"]
+
+    print(src, dst, src_idx, dst_idx, src_type, dst_type, file=sys.stderr)
     assert 0
 
+def wiredelay(wire_idx, db):
+    if db is None:
+        return 0
 
+    wire = wire_names_r[wire_idx]
+    wtype = wire_type(wire[2])
+
+    # FIXME
+    return 0
 
 def init_tiletypes(device):
     global num_tile_types, tile_sizes, tile_bits
@@ -448,13 +507,13 @@ def add_bel_input(bel, wire, port):
     if wire not in wire_belports:
         wire_belports[wire] = set()
     wire_belports[wire].add((bel, port))
-    bel_wires[bel].append((wire, port, 0))
+    bel_wires[bel].append((portpins[port], 0, wire))
 
 def add_bel_output(bel, wire, port):
     if wire not in wire_belports:
         wire_belports[wire] = set()
     wire_belports[wire].add((bel, port))
-    bel_wires[bel].append((wire, port, 1))
+    bel_wires[bel].append((portpins[port], 1, wire))
 
 def add_bel_lc(x, y, z):
     bel = len(bel_name)
@@ -715,14 +774,12 @@ bba.post('NEXTPNR_NAMESPACE_END')
 bba.push("chipdb_blob_%s" % dev_name)
 bba.r("chip_info_%s" % dev_name, "chip_info")
 
-index = 0
 for bel in range(len(bel_name)):
     bba.l("bel_wires_%d" % bel, "BelWirePOD")
-    for i in range(len(bel_wires[bel])):
-        bba.u32(bel_wires[bel][i][0], "wire_index")
-        bba.u32(portpins[bel_wires[bel][i][1]], "port")
-        bba.u32(bel_wires[bel][i][2], "type")
-        index += 1
+    for data in sorted(bel_wires[bel]):
+        bba.u32(data[0], "port")
+        bba.u32(data[1], "type")
+        bba.u32(data[2], "wire_index")
 
 bba.l("bel_data_%s" % dev_name, "BelInfoPOD")
 for bel in range(len(bel_name)):
@@ -748,7 +805,8 @@ for wire in range(num_wires):
                 pi = dict()
                 pi["src"] = src
                 pi["dst"] = wire
-                pi["delay"] = pipdelay(src, wire)
+                pi["fast_delay"] = pipdelay(src, wire, fast_timings)
+                pi["slow_delay"] = pipdelay(src, wire, slow_timings)
                 pi["x"] = pip_xy[(src, wire)][0]
                 pi["y"] = pip_xy[(src, wire)][1]
                 pi["switch_mask"] = pip_xy[(src, wire)][2]
@@ -772,7 +830,8 @@ for wire in range(num_wires):
                 pi = dict()
                 pi["src"] = wire
                 pi["dst"] = dst
-                pi["delay"] = pipdelay(wire, dst)
+                pi["fast_delay"] = pipdelay(wire, dst, fast_timings)
+                pi["slow_delay"] = pipdelay(wire, dst, slow_timings)
                 pi["x"] = pip_xy[(wire, dst)][0]
                 pi["y"] = pip_xy[(wire, dst)][1]
                 pi["switch_mask"] = pip_xy[(wire, dst)][2]
@@ -891,6 +950,9 @@ for wire, info in enumerate(wireinfo):
     else:
         bba.u32(0, "segments")
 
+    bba.u32(wiredelay(wire, fast_timings), "fast_delay")
+    bba.u32(wiredelay(wire, slow_timings), "slow_delay")
+
     bba.u8(info["x"], "x")
     bba.u8(info["y"], "y")
     bba.u8(wiretypes[wire_type(info["name"])], "type")
@@ -923,7 +985,8 @@ for info in pipinfo:
     # bba.s("X%d/Y%d/%s->%s" % (info["x"], info["y"], src_segname, dst_segname), "name")
     bba.u32(info["src"], "src")
     bba.u32(info["dst"], "dst")
-    bba.u32(info["delay"], "delay")
+    bba.u32(info["fast_delay"], "fast_delay")
+    bba.u32(info["slow_delay"], "slow_delay")
     bba.u8(info["x"], "x")
     bba.u8(info["y"], "y")
     bba.u16(src_seg, "src_seg")
