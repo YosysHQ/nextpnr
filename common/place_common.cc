@@ -70,6 +70,7 @@ wirelen_t get_net_metric(const Context *ctx, const NetInfo *net, MetricType type
         wirelength = wirelen_t((ymax - ymin) + (xmax - xmin));
     }
 
+    tns = ctx->getDelayNS(tns);
     return wirelength;
 }
 
