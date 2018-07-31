@@ -138,6 +138,7 @@ class SAPlacer
         if ((placed_cells - constr_placed_cells) % 500 != 0)
             log_info("  initial placement placed %d/%d cells\n", int(placed_cells - constr_placed_cells),
                      int(autoplaced.size()));
+        assign_budget(ctx, true);
         ctx->yield();
 
         log_info("Running simulated annealing placer.\n");

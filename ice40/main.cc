@@ -411,7 +411,7 @@ int main(int argc, char *argv[])
 
             if (!ctx->pack() && !ctx->force)
                 log_error("Packing design failed.\n");
-            assign_budget(ctx.get());
+            //assign_budget(ctx.get());
             ctx->check();
             print_utilisation(ctx.get());
             if (!vm.count("pack-only")) {
