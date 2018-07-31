@@ -141,9 +141,8 @@ Arch::Arch(ArchArgs args) : args(args)
 
 // -----------------------------------------------------------------------
 
-std::string Arch::getChipName()
+std::string Arch::getChipName() const
 {
-
     if (args.type == ArchArgs::LFE5U_25F) {
         return "LFE5U-25F";
     } else if (args.type == ArchArgs::LFE5U_45F) {

@@ -204,7 +204,7 @@ Arch::Arch(ArchArgs args) : args(args)
 
 // -----------------------------------------------------------------------
 
-std::string Arch::getChipName()
+std::string Arch::getChipName() const
 {
 #ifdef ICE40_HX1K_ONLY
     if (args.type == ArchArgs::HX1K) {
