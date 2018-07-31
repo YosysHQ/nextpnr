@@ -40,6 +40,8 @@ void MainWindow::createMenu()
 {
     QMenu *menu_Custom = new QMenu("&Generic", menuBar);
     menuBar->addAction(menu_Custom->menuAction());
+
+    createGraphicsBar();
 }
 
 void MainWindow::new_proj() {}
