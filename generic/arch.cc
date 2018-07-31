@@ -403,6 +403,8 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
     return (dx + dy) * grid_distance_to_delay;
 }
 
+delay_t Arch::getBudgetOverride(NetInfo *net_info, int user_idx, delay_t budget) const { return budget; }
+
 // ---------------------------------------------------------------
 
 bool Arch::place() { return placer1(getCtx()); }

@@ -22,6 +22,7 @@
 
 #include "log.h"
 #include "router1.h"
+#include "timing.h"
 
 namespace {
 
@@ -615,6 +616,8 @@ bool router1(Context *ctx)
             if (ctx->verbose || iterCnt == 1)
                 log_info("routing queue contains %d jobs.\n", int(jobQueue.size()));
 
+            assign_budget(ctx, true /* quiet */);
+
             bool printNets = ctx->verbose && (jobQueue.size() < 10);
 
             while (!jobQueue.empty()) {
@@ -811,6 +814,7 @@ bool router1(Context *ctx)
 #ifndef NDEBUG
         ctx->check();
 #endif
+        timing_analysis(ctx, true /* print_fmax */, true /* print_path */);
         ctx->unlock();
         return true;
     } catch (log_execution_error_exception) {

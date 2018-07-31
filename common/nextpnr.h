@@ -475,6 +475,7 @@ struct Context : Arch, DeterministicRNG
     bool force = false;
     bool timing_driven = true;
     float target_freq = 12e6;
+    bool user_freq = false;
 
     Context(ArchArgs args) : Arch(args) {}
 
