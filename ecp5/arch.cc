@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include "gfx.h"
 #include "log.h"
 #include "nextpnr.h"
 #include "placer1.h"
@@ -421,16 +422,64 @@ bool Arch::route() { return router1(getCtx()); }
 
 // -----------------------------------------------------------------------
 
-std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decalId) const
+std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
 {
     std::vector<GraphicElement> ret;
-    // FIXME
+
+    if (decal.type == DecalId::TYPE_FRAME) {
+        /* nothing */
+    }
+
+    if (decal.type == DecalId::TYPE_BEL) {
+        BelId bel;
+        bel.index = decal.z;
+        bel.location = decal.location;
+        int z = locInfo(bel)->bel_data[bel.index].z;
+        auto bel_type = getBelType(bel);
+
+        if (bel_type == TYPE_TRELLIS_SLICE) {
+            GraphicElement el;
+            el.type = GraphicElement::TYPE_BOX;
+            el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
+            el.x1 = bel.location.x + logic_cell_x1;
+            el.x2 = bel.location.x + logic_cell_x2;
+            el.y1 = bel.location.y + logic_cell_y1 + (z)*logic_cell_pitch;
+            el.y2 = bel.location.y + logic_cell_y2 + (z)*logic_cell_pitch;
+            ret.push_back(el);
+        }
+
+        if (bel_type == TYPE_TRELLIS_IO) {
+            GraphicElement el;
+            el.type = GraphicElement::TYPE_BOX;
+            el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
+            el.x1 = bel.location.x + logic_cell_x1;
+            el.x2 = bel.location.x + logic_cell_x2;
+            el.y1 = bel.location.y + logic_cell_y1 + (2 * z) * logic_cell_pitch;
+            el.y2 = bel.location.y + logic_cell_y2 + (2 * z + 1) * logic_cell_pitch;
+            ret.push_back(el);
+        }
+    }
+
     return ret;
 }
 
-DecalXY Arch::getFrameDecal() const { return {}; }
+DecalXY Arch::getFrameDecal() const
+{
+    DecalXY decalxy;
+    decalxy.decal.type = DecalId::TYPE_FRAME;
+    decalxy.decal.active = true;
+    return decalxy;
+}
 
-DecalXY Arch::getBelDecal(BelId bel) const { return {}; }
+DecalXY Arch::getBelDecal(BelId bel) const
+{
+    DecalXY decalxy;
+    decalxy.decal.type = DecalId::TYPE_BEL;
+    decalxy.decal.location = bel.location;
+    decalxy.decal.z = bel.index;
+    decalxy.decal.active = bel_to_cell.count(bel) && (bel_to_cell.at(bel) != IdString());
+    return decalxy;
+}
 
 DecalXY Arch::getWireDecal(WireId wire) const { return {}; }
 
