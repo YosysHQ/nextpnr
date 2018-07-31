@@ -141,6 +141,7 @@ void ContextTreeModel::loadData(Context *ctx)
     QMap<QString, ContextTreeItem *> pip_items;
 
     // Add pips to tree
+#ifndef ARCH_ECP5
     for (auto pip : ctx->getPips()) {
         auto id = ctx->getPipName(pip);
         QStringList items = QString(id.c_str(ctx)).split("/");
@@ -164,6 +165,7 @@ void ContextTreeModel::loadData(Context *ctx)
             parent = pip_items[name];
         }
     }
+#endif
     pip_root->sort();
 
     nets_root = new ContextTreeItem("Nets");
