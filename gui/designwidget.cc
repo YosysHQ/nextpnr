@@ -222,9 +222,9 @@ void DesignWidget::updateTree()
 {
     clearProperties();
 
-    QMap<ContextTreeItem *, int>::iterator i = highlightSelected.begin();
+    QMap<LazyTreeItem *, int>::iterator i = highlightSelected.begin();
     while (i != highlightSelected.end()) {
-        QMap<ContextTreeItem *, int>::iterator prev = i;
+        QMap<LazyTreeItem *, int>::iterator prev = i;
         ++i;
         if (prev.key()->type() == ElementType::NET && ctx->nets.find(prev.key()->id()) == ctx->nets.end()) {
             highlightSelected.erase(prev);
@@ -308,25 +308,25 @@ QtProperty *DesignWidget::addSubGroup(QtProperty *topItem, const QString &name)
 
 void DesignWidget::onClickedBel(BelId bel, bool keep)
 {
-    ContextTreeItem *item = treeModel->nodeForIdType(ElementType::BEL, ctx->getBelName(bel).c_str(ctx));
-    selectionModel->setCurrentIndex(treeModel->indexFromNode(item),
-                                    keep ? QItemSelectionModel::Select : QItemSelectionModel::ClearAndSelect);
+    //LazyTreeItem *item = treeModel->nodeForIdType(ElementType::BEL, ctx->getBelName(bel).c_str(ctx));
+    //selectionModel->setCurrentIndex(treeModel->indexFromNode(item),
+    //                                keep ? QItemSelectionModel::Select : QItemSelectionModel::ClearAndSelect);
     Q_EMIT selected(getDecals(ElementType::BEL, ctx->getBelName(bel)), keep);
 }
 
 void DesignWidget::onClickedWire(WireId wire, bool keep)
 {
-    ContextTreeItem *item = treeModel->nodeForIdType(ElementType::WIRE, ctx->getWireName(wire).c_str(ctx));
-    selectionModel->setCurrentIndex(treeModel->indexFromNode(item),
-                                    keep ? QItemSelectionModel::Select : QItemSelectionModel::ClearAndSelect);
+    //LazyTreeItem *item = treeModel->nodeForIdType(ElementType::WIRE, ctx->getWireName(wire).c_str(ctx));
+    //selectionModel->setCurrentIndex(treeModel->indexFromNode(item),
+    //                                keep ? QItemSelectionModel::Select : QItemSelectionModel::ClearAndSelect);
     Q_EMIT selected(getDecals(ElementType::WIRE, ctx->getWireName(wire)), keep);
 }
 
 void DesignWidget::onClickedPip(PipId pip, bool keep)
 {
-    ContextTreeItem *item = treeModel->nodeForIdType(ElementType::PIP, ctx->getPipName(pip).c_str(ctx));
-    selectionModel->setCurrentIndex(treeModel->indexFromNode(item),
-                                    keep ? QItemSelectionModel::Select : QItemSelectionModel::ClearAndSelect);
+    //LazyTreeItem *item = treeModel->nodeForIdType(ElementType::PIP, ctx->getPipName(pip).c_str(ctx));
+    //selectionModel->setCurrentIndex(treeModel->indexFromNode(item),
+    //                                keep ? QItemSelectionModel::Select : QItemSelectionModel::ClearAndSelect);
     Q_EMIT selected(getDecals(ElementType::PIP, ctx->getPipName(pip)), keep);
 }
 
@@ -338,7 +338,7 @@ void DesignWidget::onSelectionChanged(const QItemSelection &, const QItemSelecti
     if (selectionModel->selectedIndexes().size() > 1) {
         std::vector<DecalXY> decals;
         for (auto index : selectionModel->selectedIndexes()) {
-            ContextTreeItem *item = treeModel->nodeFromIndex(index);
+            LazyTreeItem *item = treeModel->nodeFromIndex(index);
             std::vector<DecalXY> d = getDecals(item->type(), item->id());
             std::move(d.begin(), d.end(), std::back_inserter(decals));
         }
@@ -348,7 +348,7 @@ void DesignWidget::onSelectionChanged(const QItemSelection &, const QItemSelecti
     QModelIndex index = selectionModel->selectedIndexes().at(0);
     if (!index.isValid())
         return;
-    ContextTreeItem *clickItem = treeModel->nodeFromIndex(index);
+    LazyTreeItem *clickItem = treeModel->nodeFromIndex(index);
 
     ElementType type = clickItem->type();
     if (type == ElementType::NONE)
@@ -596,7 +596,7 @@ std::vector<DecalXY> DesignWidget::getDecals(ElementType type, IdString value)
     return decals;
 }
 
-void DesignWidget::updateHighlightGroup(QList<ContextTreeItem *> items, int group)
+void DesignWidget::updateHighlightGroup(QList<LazyTreeItem *> items, int group)
 {
     const bool shouldClear = items.size() == 1;
     for (auto item : items) {
@@ -620,53 +620,53 @@ void DesignWidget::updateHighlightGroup(QList<ContextTreeItem *> items, int grou
 
 void DesignWidget::prepareMenuProperty(const QPoint &pos)
 {
-    QTreeWidget *tree = propertyEditor->treeWidget();
-    QList<ContextTreeItem *> items;
-    for (auto itemContextMenu : tree->selectedItems()) {
-        QtBrowserItem *browserItem = propertyEditor->itemToBrowserItem(itemContextMenu);
-        if (!browserItem)
-            continue;
-        QtProperty *selectedProperty = browserItem->property();
-        ElementType type = getElementTypeByName(selectedProperty->propertyId());
-        if (type == ElementType::NONE)
-            continue;
-        IdString value = ctx->id(selectedProperty->valueText().toStdString());
-        items.append(treeModel->nodeForIdType(type, value.c_str(ctx)));
-    }
-    int selectedIndex = -1;
-    if (items.size() == 1) {
-        ContextTreeItem *item = items.at(0);
-        if (highlightSelected.contains(item))
-            selectedIndex = highlightSelected[item];
-    }
+    //QTreeWidget *tree = propertyEditor->treeWidget();
+    //QList<LazyTreeItem *> items;
+    //for (auto itemContextMenu : tree->selectedItems()) {
+    //    QtBrowserItem *browserItem = propertyEditor->itemToBrowserItem(itemContextMenu);
+    //    if (!browserItem)
+    //        continue;
+    //    QtProperty *selectedProperty = browserItem->property();
+    //    ElementType type = getElementTypeByName(selectedProperty->propertyId());
+    //    if (type == ElementType::NONE)
+    //        continue;
+    //    IdString value = ctx->id(selectedProperty->valueText().toStdString());
+    //    items.append(treeModel->nodeForIdType(type, value.c_str(ctx)));
+    //}
+    //int selectedIndex = -1;
+    //if (items.size() == 1) {
+    //    LazyTreeItem *item = items.at(0);
+    //    if (highlightSelected.contains(item))
+    //        selectedIndex = highlightSelected[item];
+    //}
 
-    QMenu menu(this);
-    QAction *selectAction = new QAction("&Select", this);
-    connect(selectAction, &QAction::triggered, this, [this, items] {
-        std::vector<DecalXY> decals;
-        for (auto clickItem : items) {
-            std::vector<DecalXY> d = getDecals(clickItem->type(), clickItem->id());
-            std::move(d.begin(), d.end(), std::back_inserter(decals));
-        }
-        Q_EMIT selected(decals, false);
-    });
-    menu.addAction(selectAction);
+    //QMenu menu(this);
+    //QAction *selectAction = new QAction("&Select", this);
+    //connect(selectAction, &QAction::triggered, this, [this, items] {
+    //    std::vector<DecalXY> decals;
+    //    for (auto clickItem : items) {
+    //        std::vector<DecalXY> d = getDecals(clickItem->type(), clickItem->id());
+    //        std::move(d.begin(), d.end(), std::back_inserter(decals));
+    //    }
+    //    Q_EMIT selected(decals, false);
+    //});
+    //menu.addAction(selectAction);
 
-    QMenu *subMenu = menu.addMenu("Highlight");
-    QActionGroup *group = new QActionGroup(this);
-    group->setExclusive(true);
-    for (int i = 0; i < 8; i++) {
-        QPixmap pixmap(32, 32);
-        pixmap.fill(QColor(highlightColors[i]));
-        QAction *action = new QAction(QIcon(pixmap), ("Group " + std::to_string(i)).c_str(), this);
-        action->setCheckable(true);
-        subMenu->addAction(action);
-        group->addAction(action);
-        if (selectedIndex == i)
-            action->setChecked(true);
-        connect(action, &QAction::triggered, this, [this, i, items] { updateHighlightGroup(items, i); });
-    }
-    menu.exec(tree->mapToGlobal(pos));
+    //QMenu *subMenu = menu.addMenu("Highlight");
+    //QActionGroup *group = new QActionGroup(this);
+    //group->setExclusive(true);
+    //for (int i = 0; i < 8; i++) {
+    //    QPixmap pixmap(32, 32);
+    //    pixmap.fill(QColor(highlightColors[i]));
+    //    QAction *action = new QAction(QIcon(pixmap), ("Group " + std::to_string(i)).c_str(), this);
+    //    action->setCheckable(true);
+    //    subMenu->addAction(action);
+    //    group->addAction(action);
+    //    if (selectedIndex == i)
+    //        action->setChecked(true);
+    //    connect(action, &QAction::triggered, this, [this, i, items] { updateHighlightGroup(items, i); });
+    //}
+    //menu.exec(tree->mapToGlobal(pos));
 }
 
 void DesignWidget::prepareMenuTree(const QPoint &pos)
@@ -676,13 +676,13 @@ void DesignWidget::prepareMenuTree(const QPoint &pos)
     if (selectionModel->selectedIndexes().size() == 0)
         return;
 
-    QList<ContextTreeItem *> items;
+    QList<LazyTreeItem *> items;
     for (auto index : selectionModel->selectedIndexes()) {
-        ContextTreeItem *item = treeModel->nodeFromIndex(index);
+        LazyTreeItem *item = treeModel->nodeFromIndex(index);
         items.append(item);
     }
     if (items.size() == 1) {
-        ContextTreeItem *item = items.at(0);
+        LazyTreeItem *item = items.at(0);
         if (highlightSelected.contains(item))
             selectedIndex = highlightSelected[item];
     }
@@ -706,11 +706,11 @@ void DesignWidget::prepareMenuTree(const QPoint &pos)
 
 void DesignWidget::onItemDoubleClicked(QTreeWidgetItem *item, int column)
 {
-    QtProperty *selectedProperty = propertyEditor->itemToBrowserItem(item)->property();
-    ElementType type = getElementTypeByName(selectedProperty->propertyId());
-    ContextTreeItem *it = treeModel->nodeForIdType(type, selectedProperty->valueText());
-    if (it)
-        selectionModel->setCurrentIndex(treeModel->indexFromNode(it), QItemSelectionModel::ClearAndSelect);
+    //QtProperty *selectedProperty = propertyEditor->itemToBrowserItem(item)->property();
+    //ElementType type = getElementTypeByName(selectedProperty->propertyId());
+    //LazyTreeItem *it = treeModel->nodeForIdType(type, selectedProperty->valueText());
+    //if (it)
+    //    selectionModel->setCurrentIndex(treeModel->indexFromNode(it), QItemSelectionModel::ClearAndSelect);
 }
 
 void DesignWidget::onDoubleClicked(const QModelIndex &index) { Q_EMIT zoomSelected(); }

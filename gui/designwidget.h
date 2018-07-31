@@ -51,7 +51,7 @@ class DesignWidget : public QWidget
     void updateButtons();
     void addToHistory(QModelIndex item);
     std::vector<DecalXY> getDecals(ElementType type, IdString value);
-    void updateHighlightGroup(QList<ContextTreeItem *> item, int group);
+    void updateHighlightGroup(QList<LazyTreeItem *> item, int group);
   Q_SIGNALS:
     void info(std::string text);
     void selected(std::vector<DecalXY> decal, bool keep);
@@ -97,7 +97,7 @@ class DesignWidget : public QWidget
     QAction *actionClear;
 
     QColor highlightColors[8];
-    QMap<ContextTreeItem *, int> highlightSelected;
+    QMap<LazyTreeItem *, int> highlightSelected;
 };
 
 NEXTPNR_NAMESPACE_END

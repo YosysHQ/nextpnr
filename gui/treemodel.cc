@@ -39,11 +39,12 @@ ContextTreeItem::~ContextTreeItem()
         parentNode->children.removeOne(this);
     qDeleteAll(children);
 }
-void ContextTreeItem::addChild(ContextTreeItem *item)
-{
-    item->parentNode = this;
-    children.append(item);
-}
+
+//void ContextTreeItem::addChild(ContextTreeItem *item)
+//{
+//    item->parentNode = this;
+//    children.append(item);
+//}
 
 void ContextTreeItem::sort()
 {
@@ -85,9 +86,11 @@ void ContextTreeItem::sort()
     });
 }
 
-ContextTreeModel::ContextTreeModel(QObject *parent) : QAbstractItemModel(parent) { root = new ContextTreeItem(); }
+ContextTreeModel::ContextTreeModel(QObject *parent) :
+        QAbstractItemModel(parent),
+        root_(new StaticTreeItem("Elements", nullptr)) {}
 
-ContextTreeModel::~ContextTreeModel() { delete root; }
+ContextTreeModel::~ContextTreeModel() {}
 
 void ContextTreeModel::loadData(Context *ctx)
 {
@@ -96,109 +99,49 @@ void ContextTreeModel::loadData(Context *ctx)
 
     beginResetModel();
 
-    delete root;
-    root = new ContextTreeItem();
-
-    for (int i = 0; i < 6; i++)
-        nameToItem[i].clear();
-
-    IdString none;
-
-    ContextTreeItem *bels_root = new ContextTreeItem("Bels");
-    root->addChild(bels_root);
-    QMap<QString, ContextTreeItem *> bel_items;
-
-    // Add bels to tree
-    for (auto bel : ctx->getBels()) {
-        IdString id = ctx->getBelName(bel);
-        QStringList items = QString(id.c_str(ctx)).split("/");
-        QString name;
-        ContextTreeItem *parent = bels_root;
-        for (int i = 0; i < items.size(); i++) {
-            if (!name.isEmpty())
-                name += "/";
-            name += items.at(i);
-            if (!bel_items.contains(name)) {
-                if (i == items.size() - 1) {
-                    ContextTreeItem *item = new ContextTreeItem(id, ElementType::BEL, items.at(i));
-                    parent->addChild(item);
-                    nameToItem[0].insert(name, item);
-                } else {
-                    ContextTreeItem *item = new ContextTreeItem(none, ElementType::NONE, items.at(i));
-                    parent->addChild(item);
-                    bel_items.insert(name, item);
-                }
-            }
-            parent = bel_items[name];
+    {
+        printf("generating bel map...\n");
+        std::map<std::pair<int, int>, std::vector<BelId>> belMap;
+        for (auto bel : ctx->getBels()) {
+            auto loc = ctx->getBelLocation(bel);
+            belMap[std::pair<int, int>(loc.x, loc.y)].push_back(bel);
         }
-    }    
-    bels_root->sort();
-    
-    ContextTreeItem *wire_root = new ContextTreeItem("Wires");
-    root->addChild(wire_root);
-    QMap<QString, ContextTreeItem *> wire_items;
+        printf("generating bel static tree...\n");
+        auto belGetter = [](Context *ctx, BelId id) { return ctx->getBelName(id); };
+        bel_root_ = std::unique_ptr<BelXYRoot>(new BelXYRoot(ctx, "Bels", root_.get(), belMap, belGetter));
 
-    // Add wires to tree
-    for (auto wire : ctx->getWires()) {
-        auto id = ctx->getWireName(wire);
-        QStringList items = QString(id.c_str(ctx)).split("/");
-        QString name;
-        ContextTreeItem *parent = wire_root;
-        for (int i = 0; i < items.size(); i++) {
-            if (!name.isEmpty())
-                name += "/";
-            name += items.at(i);
-            if (!wire_items.contains(name)) {
-                if (i == items.size() - 1) {
-                    ContextTreeItem *item = new ContextTreeItem(id, ElementType::WIRE, items.at(i));
-                    parent->addChild(item);
-                    nameToItem[1].insert(name, item);
-                } else {
-                    ContextTreeItem *item = new ContextTreeItem(none, ElementType::NONE, items.at(i));
-                    parent->addChild(item);
-                    wire_items.insert(name, item);
-                }
-            }
-            parent = wire_items[name];
+        printf("generating wire map...\n");
+        std::map<std::pair<int, int>, std::vector<WireId>> wireMap;
+        //TODO(q3k): change this once we have an API to get wire categories/locations/labels
+        for (int i = 0; i < ctx->chip_info->num_wires; i++) {
+            const auto wire = &ctx->chip_info->wire_data[i];
+            WireId wireid;
+            wireid.index = i;
+            wireMap[std::pair<int, int>(wire->x, wire->y)].push_back(wireid);
         }
+        printf("generating wire static tree...\n");
+        auto wireGetter = [](Context *ctx, WireId id) { return ctx->getWireName(id); };
+        wire_root_ = std::unique_ptr<WireXYRoot>(new WireXYRoot(ctx, "Wires", root_.get(), wireMap, wireGetter));
+
+        printf("generating pip map...\n");
+        std::map<std::pair<int, int>, std::vector<PipId>> pipMap;
+        //TODO(q3k): change this once we have an API to get wire categories/locations/labels
+        for (int i = 0; i < ctx->chip_info->num_pips; i++) {
+            const auto pip = &ctx->chip_info->pip_data[i];
+            PipId pipid;
+            pipid.index = i;
+            pipMap[std::pair<int, int>(pip->x, pip->y)].push_back(pipid);
+        }
+        printf("generating pip static tree...\n");
+        auto pipGetter = [](Context *ctx, PipId id) { return ctx->getPipName(id); };
+        pip_root_ = std::unique_ptr<PipXYRoot>(new PipXYRoot(ctx, "Pips", root_.get(), pipMap, pipGetter));
     }
-    wire_root->sort();
 
-    ContextTreeItem *pip_root = new ContextTreeItem("Pips");
-    root->addChild(pip_root);
-    QMap<QString, ContextTreeItem *> pip_items;
+    //nets_root = new ContextTreeItem("Nets");
+    //root->addChild(nets_root);
 
-    // Add pips to tree
-    for (auto pip : ctx->getPips()) {
-        auto id = ctx->getPipName(pip);
-        QStringList items = QString(id.c_str(ctx)).split("/");
-        QString name;
-        ContextTreeItem *parent = pip_root;
-        for (int i = 0; i < items.size(); i++) {
-            if (!name.isEmpty())
-                name += "/";
-            name += items.at(i);
-            if (!pip_items.contains(name)) {
-                if (i == items.size() - 1) {
-                    ContextTreeItem *item = new ContextTreeItem(id, ElementType::PIP, items.at(i));
-                    parent->addChild(item);
-                    nameToItem[2].insert(name, item);
-                } else {
-                    ContextTreeItem *item = new ContextTreeItem(none, ElementType::NONE, items.at(i));
-                    parent->addChild(item);
-                    pip_items.insert(name, item);
-                }
-            }
-            parent = pip_items[name];
-        }
-    }
-    pip_root->sort();
-
-    nets_root = new ContextTreeItem("Nets");
-    root->addChild(nets_root);
-
-    cells_root = new ContextTreeItem("Cells");
-    root->addChild(cells_root);
+    //cells_root = new ContextTreeItem("Cells");
+    //root->addChild(cells_root);
 
     endResetModel();
 }
@@ -212,61 +155,61 @@ void ContextTreeModel::updateData(Context *ctx)
 
     //QModelIndex nets_index = indexFromNode(nets_root);
     // Remove nets not existing any more
-    QMap<QString, ContextTreeItem *>::iterator i = nameToItem[3].begin();
-    while (i != nameToItem[3].end()) {
-        QMap<QString, ContextTreeItem *>::iterator prev = i;
-        ++i;
-        if (ctx->nets.find(ctx->id(prev.key().toStdString())) == ctx->nets.end()) {
-            //int pos = prev.value()->parent()->indexOf(prev.value());
-            //beginRemoveRows(nets_index, pos, pos);
-            delete prev.value();
-            nameToItem[3].erase(prev);
-            //endRemoveRows();
-        }
-    }
-    // Add nets to tree
-    for (auto &item : ctx->nets) {
-        auto id = item.first;
-        QString name = QString(id.c_str(ctx));
-        if (!nameToItem[3].contains(name)) {
-            //beginInsertRows(nets_index, nets_root->count() + 1, nets_root->count() + 1);
-            ContextTreeItem *newItem = new ContextTreeItem(id, ElementType::NET, name);
-            nets_root->addChild(newItem);
-            nameToItem[3].insert(name, newItem);
-            //endInsertRows();
-        }
-    }
+    //QMap<QString, ContextTreeItem *>::iterator i = nameToItem[3].begin();
+    //while (i != nameToItem[3].end()) {
+    //    QMap<QString, ContextTreeItem *>::iterator prev = i;
+    //    ++i;
+    //    if (ctx->nets.find(ctx->id(prev.key().toStdString())) == ctx->nets.end()) {
+    //        //int pos = prev.value()->parent()->indexOf(prev.value());
+    //        //beginRemoveRows(nets_index, pos, pos);
+    //        delete prev.value();
+    //        nameToItem[3].erase(prev);
+    //        //endRemoveRows();
+    //    }
+    //}
+    //// Add nets to tree
+    //for (auto &item : ctx->nets) {
+    //    auto id = item.first;
+    //    QString name = QString(id.c_str(ctx));
+    //    if (!nameToItem[3].contains(name)) {
+    //        //beginInsertRows(nets_index, nets_root->count() + 1, nets_root->count() + 1);
+    //        ContextTreeItem *newItem = new ContextTreeItem(id, ElementType::NET, name);
+    //        nets_root->addChild(newItem);
+    //        nameToItem[3].insert(name, newItem);
+    //        //endInsertRows();
+    //    }
+    //}
 
-    nets_root->sort();
+    //nets_root->sort();
 
     //QModelIndex cell_index = indexFromNode(cells_root);
     // Remove cells not existing any more
-    i = nameToItem[4].begin();
-    while (i != nameToItem[4].end()) {
-        QMap<QString, ContextTreeItem *>::iterator prev = i;
-        ++i;
-        if (ctx->cells.find(ctx->id(prev.key().toStdString())) == ctx->cells.end()) {
-            //int pos = prev.value()->parent()->indexOf(prev.value());
-            //beginRemoveRows(cell_index, pos, pos);
-            delete prev.value();
-            nameToItem[4].erase(prev);
-            //endRemoveRows();
-        }
-    }
-    // Add cells to tree
-    for (auto &item : ctx->cells) {
-        auto id = item.first;
-        QString name = QString(id.c_str(ctx));
-        if (!nameToItem[4].contains(name)) {
-            //beginInsertRows(cell_index, cells_root->count() + 1, cells_root->count() + 1);
-            ContextTreeItem *newItem = new ContextTreeItem(id, ElementType::CELL, name);
-            cells_root->addChild(newItem);
-            nameToItem[4].insert(name, newItem);
-            //endInsertRows();
-        }
-    }
+    //i = nameToItem[4].begin();
+    //while (i != nameToItem[4].end()) {
+    //    QMap<QString, ContextTreeItem *>::iterator prev = i;
+    //    ++i;
+    //    if (ctx->cells.find(ctx->id(prev.key().toStdString())) == ctx->cells.end()) {
+    //        //int pos = prev.value()->parent()->indexOf(prev.value());
+    //        //beginRemoveRows(cell_index, pos, pos);
+    //        delete prev.value();
+    //        nameToItem[4].erase(prev);
+    //        //endRemoveRows();
+    //    }
+    //}
+    //// Add cells to tree
+    //for (auto &item : ctx->cells) {
+    //    auto id = item.first;
+    //    QString name = QString(id.c_str(ctx));
+    //    if (!nameToItem[4].contains(name)) {
+    //        //beginInsertRows(cell_index, cells_root->count() + 1, cells_root->count() + 1);
+    //        ContextTreeItem *newItem = new ContextTreeItem(id, ElementType::CELL, name);
+    //        cells_root->addChild(newItem);
+    //        nameToItem[4].insert(name, newItem);
+    //        //endInsertRows();
+    //    }
+    //}
 
-    cells_root->sort();
+    //cells_root->sort();
 
     endResetModel();
 }
@@ -277,18 +220,19 @@ int ContextTreeModel::columnCount(const QModelIndex &parent) const { return 1; }
 
 QModelIndex ContextTreeModel::index(int row, int column, const QModelIndex &parent) const
 {
-    ContextTreeItem *node = nodeFromIndex(parent);
+    LazyTreeItem *node = nodeFromIndex(parent);
     if (row >= node->count())
         return QModelIndex();
-    return createIndex(row, column, node->at(row));
+
+    return createIndex(row, column, node->child(row));
 }
 
 QModelIndex ContextTreeModel::parent(const QModelIndex &child) const
 {
-    ContextTreeItem *parent = nodeFromIndex(child)->parent();
-    if (parent == root)
+    LazyTreeItem *parent = nodeFromIndex(child)->parent();
+    if (parent == root_.get())
         return QModelIndex();
-    ContextTreeItem *node = parent->parent();
+    LazyTreeItem *node = parent->parent();
     return createIndex(node->indexOf(parent), 0, parent);
 }
 
@@ -298,7 +242,7 @@ QVariant ContextTreeModel::data(const QModelIndex &index, int role) const
         return QVariant();
     if (role != Qt::DisplayRole)
         return QVariant();
-    ContextTreeItem *node = nodeFromIndex(index);
+    LazyTreeItem *node = nodeFromIndex(index);
     return node->name();
 }
 
@@ -311,11 +255,11 @@ QVariant ContextTreeModel::headerData(int section, Qt::Orientation orientation, 
     return QVariant();
 }
 
-ContextTreeItem *ContextTreeModel::nodeFromIndex(const QModelIndex &idx) const
+LazyTreeItem *ContextTreeModel::nodeFromIndex(const QModelIndex &idx) const
 {
     if (idx.isValid())
-        return (ContextTreeItem *)idx.internalPointer();
-    return root;
+        return (LazyTreeItem *)idx.internalPointer();
+    return root_.get();
 }
 
 static int getElementIndex(ElementType type)
@@ -333,25 +277,37 @@ static int getElementIndex(ElementType type)
     return -1;
 }
 
-ContextTreeItem *ContextTreeModel::nodeForIdType(const ElementType type, const QString name) const
-{
-    int index = getElementIndex(type);
-    if (type != ElementType::NONE && nameToItem[index].contains(name))
-        return nameToItem[index].value(name);
-    return nullptr;
-}
+//ContextTreeItem *ContextTreeModel::nodeForIdType(const ElementType type, const QString name) const
+//{
+//    int index = getElementIndex(type);
+//    if (type != ElementType::NONE && nameToItem[index].contains(name))
+//        return nameToItem[index].value(name);
+//    return nullptr;
+//}
 
-QModelIndex ContextTreeModel::indexFromNode(ContextTreeItem *node)
-{
-    ContextTreeItem *parent = node->parent();
-    if (parent == root)
-        return QModelIndex();
-    return createIndex(parent->indexOf(node), 0, node);
-}
+//QModelIndex ContextTreeModel::indexFromNode(ContextTreeItem *node)
+//{
+//    ContextTreeItem *parent = node->parent();
+//    if (parent == root)
+//        return QModelIndex();
+//    return createIndex(parent->indexOf(node), 0, node);
+//}
 
 Qt::ItemFlags ContextTreeModel::flags(const QModelIndex &index) const
 {
-    ContextTreeItem *node = nodeFromIndex(index);
+    LazyTreeItem *node = nodeFromIndex(index);
     return Qt::ItemIsEnabled | (node->type() != ElementType::NONE ? Qt::ItemIsSelectable : Qt::NoItemFlags);
 }
+
+
+void ContextTreeModel::fetchMore(const QModelIndex &parent)
+{
+    nodeFromIndex(parent)->fetchMore();
+}
+
+bool ContextTreeModel::canFetchMore(const QModelIndex &parent) const
+{
+    return nodeFromIndex(parent)->canFetchMore();
+}
+
 NEXTPNR_NAMESPACE_END
