@@ -24,7 +24,7 @@ NEXTPNR_NAMESPACE_BEGIN
 
 ContextTreeModel::ContextTreeModel(QObject *parent) :
         QAbstractItemModel(parent),
-        root_(new StaticTreeItem("Elements", nullptr)) {}
+        root_(new StaticTreeItem("Elements", nullptr, ElementType::NONE)) {}
 
 ContextTreeModel::~ContextTreeModel() {}
 
@@ -47,7 +47,7 @@ void ContextTreeModel::loadContext(Context *ctx)
             belMap[std::pair<int, int>(loc.x, loc.y)].push_back(bel);
         }
         auto belGetter = [](Context *ctx, BelId id) { return ctx->getBelName(id); };
-        bel_root_ = std::unique_ptr<BelXYRoot>(new BelXYRoot(ctx, "Bels", root_.get(), belMap, belGetter));
+        bel_root_ = std::unique_ptr<BelXYRoot>(new BelXYRoot(ctx, "Bels", root_.get(), belMap, belGetter, ElementType::BEL));
 
         std::map<std::pair<int, int>, std::vector<WireId>> wireMap;
         for (int i = 0; i < ctx->chip_info->num_wires; i++) {
@@ -57,7 +57,7 @@ void ContextTreeModel::loadContext(Context *ctx)
             wireMap[std::pair<int, int>(wire->x, wire->y)].push_back(wireid);
         }
         auto wireGetter = [](Context *ctx, WireId id) { return ctx->getWireName(id); };
-        wire_root_ = std::unique_ptr<WireXYRoot>(new WireXYRoot(ctx, "Wires", root_.get(), wireMap, wireGetter));
+        wire_root_ = std::unique_ptr<WireXYRoot>(new WireXYRoot(ctx, "Wires", root_.get(), wireMap, wireGetter, ElementType::WIRE));
 
         std::map<std::pair<int, int>, std::vector<PipId>> pipMap;
         for (int i = 0; i < ctx->chip_info->num_pips; i++) {
@@ -68,12 +68,12 @@ void ContextTreeModel::loadContext(Context *ctx)
         }
         printf("generating pip static tree...\n");
         auto pipGetter = [](Context *ctx, PipId id) { return ctx->getPipName(id); };
-        pip_root_ = std::unique_ptr<PipXYRoot>(new PipXYRoot(ctx, "Pips", root_.get(), pipMap, pipGetter));
+        pip_root_ = std::unique_ptr<PipXYRoot>(new PipXYRoot(ctx, "Pips", root_.get(), pipMap, pipGetter, ElementType::PIP));
     }
 #endif
 
-    cell_root_ = std::unique_ptr<IdStringList>(new IdStringList(QString("Cells"), root_.get()));
-    net_root_ = std::unique_ptr<IdStringList>(new IdStringList(QString("Nets"), root_.get()));
+    cell_root_ = std::unique_ptr<IdStringList>(new IdStringList(QString("Cells"), root_.get(), ElementType::CELL));
+    net_root_ = std::unique_ptr<IdStringList>(new IdStringList(QString("Nets"), root_.get(), ElementType::NET));
 
     endResetModel();
 

@@ -43,6 +43,7 @@ class LazyTreeItem
     QString name_;
     LazyTreeItem *parent_;
     QList<LazyTreeItem *> children_;
+    ElementType type_;
 
     void addChild(LazyTreeItem *child)
     {
@@ -50,8 +51,8 @@ class LazyTreeItem
     }
 
   public:
-    LazyTreeItem(QString name, LazyTreeItem *parent) :
-            name_(name), parent_(parent)
+    LazyTreeItem(QString name, LazyTreeItem *parent, ElementType type) :
+            name_(name), parent_(parent), type_(type)
     {
         // Register in parent if exists.
         if (parent_ != nullptr) {
@@ -84,9 +85,13 @@ class LazyTreeItem
         return parent_;
     }
 
+    ElementType type() const
+    {
+        return type_;
+    }
+
     virtual bool canFetchMore() const = 0;
     virtual void fetchMore() = 0;
-    virtual ElementType type() const = 0;
     virtual IdString id() const = 0;
 
     virtual ~LazyTreeItem() {}
@@ -108,11 +113,6 @@ class StaticTreeItem : public LazyTreeItem
 
     virtual ~StaticTreeItem() {}
 
-    virtual ElementType type() const override
-    {
-        return ElementType::NONE;
-    }
-    
     virtual IdString id() const override
     {
         return IdString();
@@ -132,6 +132,7 @@ class ElementList : public LazyTreeItem
     int x_, y_;
     ElementGetter getter_;
     std::vector<std::unique_ptr<StaticTreeItem>> managed_;
+    ElementType child_type_;
 
     // scope valid until map gets mutated...
     const std::vector<ElementT> *elements() const
@@ -140,8 +141,8 @@ class ElementList : public LazyTreeItem
     }
 
   public:
-    ElementList(Context *ctx, QString name, LazyTreeItem *parent, ElementMap *map, int x, int y, ElementGetter getter) :
-            LazyTreeItem(name, parent), ctx_(ctx), map_(map), x_(x), y_(y), getter_(getter)
+    ElementList(Context *ctx, QString name, LazyTreeItem *parent, ElementMap *map, int x, int y, ElementGetter getter, ElementType type) :
+            LazyTreeItem(name, parent, ElementType::NONE), ctx_(ctx), map_(map), x_(x), y_(y), getter_(getter), child_type_(type)
     {
     }
 
@@ -162,7 +163,7 @@ class ElementList : public LazyTreeItem
             if (name.startsWith(prefix))
                 name.remove(0, prefix.size());
 
-            auto item = new StaticTreeItem(name, this);
+            auto item = new StaticTreeItem(name, this, child_type_);
             managed_.push_back(std::move(std::unique_ptr<StaticTreeItem>(item)));
         }
     }
@@ -172,11 +173,6 @@ class ElementList : public LazyTreeItem
          fetchMore(100);
     }
 
-    virtual ElementType type() const override
-    {
-        return ElementType::NONE;
-    }
-    
     virtual IdString id() const override
     {
         return IdString();
@@ -187,7 +183,10 @@ class IdStringList : public StaticTreeItem
 {
   private:
     std::unordered_map<IdString, std::unique_ptr<StaticTreeItem>> managed_;
+    ElementType child_type_;
   public:
+    IdStringList(QString name, LazyTreeItem *parent, ElementType type) :
+            StaticTreeItem(name, parent, ElementType::NONE), child_type_(type) {}
     using StaticTreeItem::StaticTreeItem;
 
     void updateElements(Context *ctx, std::vector<IdString> elements)
@@ -198,7 +197,7 @@ class IdStringList : public StaticTreeItem
             element_set.insert(elem);
             auto existing = managed_.find(elem);
             if (existing == managed_.end()) {
-                auto item = new StaticTreeItem(elem.c_str(ctx), this);
+                auto item = new StaticTreeItem(elem.c_str(ctx), this, child_type_);
                 managed_.emplace(elem, std::unique_ptr<StaticTreeItem>(item));
             }
         }
@@ -264,10 +263,11 @@ class ElementXYRoot : public StaticTreeItem
     std::vector<std::unique_ptr<LazyTreeItem>> managed_;
     ElementMap map_;
     ElementGetter getter_;
+    ElementType child_type_;
 
   public:
-    ElementXYRoot(Context *ctx, QString name, LazyTreeItem *parent, ElementMap map, ElementGetter getter) :
-            StaticTreeItem(name, parent), ctx_(ctx), map_(map), getter_(getter)
+    ElementXYRoot(Context *ctx, QString name, LazyTreeItem *parent, ElementMap map, ElementGetter getter, ElementType type) :
+            StaticTreeItem(name, parent, ElementType::NONE), ctx_(ctx), map_(map), getter_(getter), child_type_(type)
     {
         std::vector<int> y_present;
 
@@ -284,10 +284,10 @@ class ElementXYRoot : public StaticTreeItem
                 continue;
 
             // create X item for tree
-            auto item = new StaticTreeItem(QString("X%1").arg(i), this);
+            auto item = new StaticTreeItem(QString("X%1").arg(i), this, child_type_);
             managed_.push_back(std::move(std::unique_ptr<LazyTreeItem>(item)));
             for (auto j : y_present) {
-                auto item2 = new ElementList<ElementT>(ctx_, QString("Y%1").arg(j), item, &map_, i, j, getter_);
+                auto item2 = new ElementList<ElementT>(ctx_, QString("Y%1").arg(j), item, &map_, i, j, getter_, child_type_);
                 item2->fetchMore(1);
                 managed_.push_back(std::move(std::unique_ptr<LazyTreeItem>(item2)));
             }
