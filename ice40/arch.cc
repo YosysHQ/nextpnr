@@ -311,9 +311,23 @@ PortType Arch::getBelPinType(BelId bel, PortPin pin) const
     int num_bel_wires = chip_info->bel_data[bel.index].num_bel_wires;
     const BelWirePOD *bel_wires = chip_info->bel_data[bel.index].bel_wires.get();
 
-    for (int i = 0; i < num_bel_wires; i++)
-        if (bel_wires[i].port == pin)
-            return PortType(bel_wires[i].type);
+    if (num_bel_wires < 7) {
+        for (int i = 0; i < num_bel_wires; i++) {
+            if (bel_wires[i].port == pin)
+                return PortType(bel_wires[i].type);
+        }
+    } else {
+        int b = 0, e = num_bel_wires-1;
+        while (b <= e) {
+            int i = (b+e) / 2;
+            if (bel_wires[i].port == pin)
+                return PortType(bel_wires[i].type);
+            if (bel_wires[i].port > pin)
+                e = i-1;
+            else
+                b = i+1;
+        }
+    }
 
     return PORT_INOUT;
 }
@@ -327,10 +341,25 @@ WireId Arch::getBelPinWire(BelId bel, PortPin pin) const
     int num_bel_wires = chip_info->bel_data[bel.index].num_bel_wires;
     const BelWirePOD *bel_wires = chip_info->bel_data[bel.index].bel_wires.get();
 
-    for (int i = 0; i < num_bel_wires; i++) {
-        if (bel_wires[i].port == pin) {
-            ret.index = bel_wires[i].wire_index;
-            break;
+    if (num_bel_wires < 7) {
+        for (int i = 0; i < num_bel_wires; i++) {
+            if (bel_wires[i].port == pin) {
+                ret.index = bel_wires[i].wire_index;
+                break;
+            }
+        }
+    } else {
+        int b = 0, e = num_bel_wires-1;
+        while (b <= e) {
+            int i = (b+e) / 2;
+            if (bel_wires[i].port == pin) {
+                ret.index = bel_wires[i].wire_index;
+                break;
+            }
+            if (bel_wires[i].port > pin)
+                e = i-1;
+            else
+                b = i+1;
         }
     }
 

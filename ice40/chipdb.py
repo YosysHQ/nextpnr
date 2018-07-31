@@ -492,13 +492,13 @@ def add_bel_input(bel, wire, port):
     if wire not in wire_belports:
         wire_belports[wire] = set()
     wire_belports[wire].add((bel, port))
-    bel_wires[bel].append((wire, port, 0))
+    bel_wires[bel].append((portpins[port], 0, wire))
 
 def add_bel_output(bel, wire, port):
     if wire not in wire_belports:
         wire_belports[wire] = set()
     wire_belports[wire].add((bel, port))
-    bel_wires[bel].append((wire, port, 1))
+    bel_wires[bel].append((portpins[port], 1, wire))
 
 def add_bel_lc(x, y, z):
     bel = len(bel_name)
@@ -759,14 +759,12 @@ bba.post('NEXTPNR_NAMESPACE_END')
 bba.push("chipdb_blob_%s" % dev_name)
 bba.r("chip_info_%s" % dev_name, "chip_info")
 
-index = 0
 for bel in range(len(bel_name)):
     bba.l("bel_wires_%d" % bel, "BelWirePOD")
-    for i in range(len(bel_wires[bel])):
-        bba.u32(bel_wires[bel][i][0], "wire_index")
-        bba.u32(portpins[bel_wires[bel][i][1]], "port")
-        bba.u32(bel_wires[bel][i][2], "type")
-        index += 1
+    for data in sorted(bel_wires[bel]):
+        bba.u32(data[0], "port")
+        bba.u32(data[1], "type")
+        bba.u32(data[2], "wire_index")
 
 bba.l("bel_data_%s" % dev_name, "BelInfoPOD")
 for bel in range(len(bel_name)):
