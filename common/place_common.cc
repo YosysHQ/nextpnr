@@ -40,7 +40,7 @@ wirelen_t get_net_metric(const Context *ctx, const NetInfo *net, MetricType type
     WireId drv_wire = ctx->getBelPinWire(driver_cell->bel, ctx->portPinFromId(net->driver.port));
     if (driver_gb)
         return 0;
-    float worst_slack = 1000;
+    delay_t worst_slack = std::numeric_limits<delay_t>::max();
     int xmin = driver_loc.x, xmax = driver_loc.x, ymin = driver_loc.y, ymax = driver_loc.y;
     for (auto load : net->users) {
         if (load.cell == nullptr)
@@ -51,7 +51,7 @@ wirelen_t get_net_metric(const Context *ctx, const NetInfo *net, MetricType type
         if (ctx->timing_driven && type == MetricType::COST) {
             WireId user_wire = ctx->getBelPinWire(load_cell->bel, ctx->portPinFromId(load.port));
             delay_t raw_wl = ctx->estimateDelay(drv_wire, user_wire);
-            float slack = ctx->getDelayNS(load.budget) - ctx->getDelayNS(raw_wl);
+            auto slack = load.budget - raw_wl;
             if (slack < 0)
                 tns += slack;
             worst_slack = std::min(slack, worst_slack);
@@ -67,7 +67,7 @@ wirelen_t get_net_metric(const Context *ctx, const NetInfo *net, MetricType type
         ymax = std::max(ymax, load_loc.y);
     }
     if (ctx->timing_driven && type == MetricType::COST) {
-        wirelength = wirelen_t((((ymax - ymin) + (xmax - xmin)) * std::min(5.0, (1.0 + std::exp(-worst_slack / 5)))));
+        wirelength = wirelen_t((((ymax - ymin) + (xmax - xmin)) * std::min(5.0, (1.0 + std::exp(-ctx->getDelayNS(worst_slack) / 5)))));
     } else {
         wirelength = wirelen_t((ymax - ymin) + (xmax - xmin));
     }
