@@ -28,6 +28,21 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+static std::string get_quad_name(GlobalQuadrant quad)
+{
+    switch (quad) {
+    case QUAD_UL:
+        return "UL";
+    case QUAD_UR:
+        return "UR";
+    case QUAD_LL:
+        return "LL";
+    case QUAD_LR:
+        return "LR";
+    }
+    return "";
+}
+
 class Ecp5GlobalRouter
 {
   public:
@@ -139,6 +154,79 @@ class Ecp5GlobalRouter
             } else {
                 NPNR_ASSERT(tap_net == net);
             }
+        }
+    }
+
+    bool is_global_io(CellInfo *io, std::string &glb_name)
+    {
+        std::string func_name = ctx->getPioFunctionName(io->bel);
+        if (func_name.substr(0, 5) == "PCLKT") {
+            func_name.erase(func_name.find('_'), 1);
+            glb_name = "G_" + func_name;
+            return true;
+        }
+        return false;
+    }
+
+    WireId get_global_wire(GlobalQuadrant quad, int network)
+    {
+        return ctx->getWireByLocAndBasename(Location(0, 0), get_quad_name(quad) + "PCLK" + std::to_string(network));
+    }
+
+    void simple_router(IdString net, WireId src, WireId dst)
+    {
+        std::queue<WireId> visit;
+        std::unordered_map<WireId, PipId> backtrace;
+        visit.push(src);
+        WireId cursor;
+        while (true) {
+            if (visit.empty() || visit.size() > 50000) {
+                log_error("cannot route global from %s to %s.\n", ctx->getWireName(src).c_str(ctx),
+                          ctx->getWireName(dst).c_str(ctx));
+            }
+            cursor = visit.back();
+            visit.pop();
+            IdString bound = ctx->getBoundWireNet(cursor);
+            if (bound == net) {
+                break;
+            } else if (bound != IdString()) {
+                continue;
+            }
+            if (cursor == dst)
+                break;
+            for (auto dh : ctx->getPipsDownhill(cursor)) {
+                WireId pipDst = ctx->getPipDstWire(dh);
+                if (backtrace.count(pipDst))
+                    continue;
+                backtrace[pipDst] = dh;
+                visit.push(pipDst);
+            }
+        }
+        while (true) {
+            auto fnd = backtrace.find(cursor);
+            if (fnd == backtrace.end())
+                break;
+            ctx->bindPip(fnd->second, net, STRENGTH_LOCKED);
+            cursor = ctx->getPipSrcWire(fnd->second);
+        }
+    }
+
+    void route_onto_global(NetInfo *net, int network)
+    {
+        WireId glb_src;
+        if (net->driver.cell->type == ctx->id("TRELLIS_IO")) {
+            std::string ioglb;
+            if (!is_global_io(net->driver.cell, ioglb))
+                goto non_dedicated;
+            glb_src = ctx->getWireByLocAndBasename(Location(0, 0), ioglb);
+        }
+        for (int quad = QUAD_UL; quad < QUAD_LR + 1; quad++) {
+            WireId glb_dst = get_global_wire(GlobalQuadrant(quad), network);
+            simple_router(net->name, glb_src, glb_dst);
+        }
+        if (false) {
+        non_dedicated:
+            log_error("FIXME: currenly global networks can only be driven by dedicated global input pins");
         }
     }
 
