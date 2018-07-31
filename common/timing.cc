@@ -102,8 +102,7 @@ static delay_t walk_paths(Context *ctx, bool update, PortRefList *crit_path)
     PortRefList current_path;
 
     // Go through all clocked drivers and distribute the available path
-    //   slack evenly into the budget of every sink on the path ---
-    //   record this value into the UpdateMap
+    //   slack evenly into the budget of every sink on the path
     for (auto &cell : ctx->cells) {
         for (auto port : cell.second->ports) {
             if (port.second.type == PORT_OUT) {
