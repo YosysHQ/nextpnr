@@ -403,6 +403,17 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
     return (dx + dy) * grid_distance_to_delay;
 }
 
+delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const;
+{
+    const auto& driver = net_info->driver;
+    auto driver_loc = getBelLocation(driver.cell->bel);
+    auto sink_loc = getBelLocation(sink.cell->bel);
+
+    int dx = abs(driver_loc.x - driver_loc.x);
+    int dy = abs(sink_loc.y - sink_locy);
+    return (dx + dy) * grid_distance_to_delay;
+}
+
 delay_t Arch::getBudgetOverride(NetInfo *net_info, int user_idx, delay_t budget) const { return budget; }
 
 // ---------------------------------------------------------------

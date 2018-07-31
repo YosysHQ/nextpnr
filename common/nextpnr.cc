@@ -93,7 +93,9 @@ delay_t Context::getNetinfoRouteDelay(NetInfo *net_info, int user_idx) const
     WireId src_wire = getNetinfoSourceWire(net_info);
     if (src_wire == WireId())
         return 0;
-    WireId cursor = getNetinfoSinkWire(net_info, user_idx);
+
+    WireId dst_wire = getNetinfoSinkWire(net_info, user_idx);
+    WireId cursor = dst_wire;
     delay_t delay = 0;
 
     while (cursor != WireId() && cursor != src_wire) {
@@ -107,11 +109,9 @@ delay_t Context::getNetinfoRouteDelay(NetInfo *net_info, int user_idx) const
     }
 
     if (cursor == src_wire)
-        delay += getWireDelay(src_wire).maxDelay();
-    else
-        delay += estimateDelay(src_wire, cursor);
+        return delay + getWireDelay(src_wire).maxDelay();
 
-    return delay;
+    return predictDelay(net_info, net_info->users[user_idx]);
 }
 
 static uint32_t xorshift32(uint32_t x)
