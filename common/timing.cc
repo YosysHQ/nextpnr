@@ -57,7 +57,7 @@ static delay_t follow_user_port(Context *ctx, PortRef &user, int path_length, de
                 if (is_path) {
                     NetInfo *net = port.second.net;
                     if (net) {
-                        delay_t path_budget = follow_net(ctx, net, path_length, slack - comb_delay, update, min_slack,
+                        delay_t path_budget = follow_net(ctx, net, path_length, slack - comb_delay.maxDelay(), update, min_slack,
                                                          current_path, crit_path);
                         value = std::min(value, path_budget);
                     }
@@ -110,7 +110,7 @@ static delay_t walk_paths(Context *ctx, bool update, PortRefList *crit_path)
                 IdString clock_domain = ctx->getPortClock(cell.second.get(), port.first);
                 if (clock_domain != IdString()) {
                     delay_t slack = default_slack; // TODO: clock constraints
-                    delay_t clkToQ;
+                    DelayInfo clkToQ;
                     if (ctx->getCellDelay(cell.second.get(), clock_domain, port.first, clkToQ))
                         slack -= clkToQ.maxDelay();
                     if (port.second.net)
@@ -197,10 +197,10 @@ delay_t timing_analysis(Context *ctx, bool print_fmax, bool print_path)
                     ++i;
             auto &driver = net->driver;
             auto driver_cell = driver.cell;
-            delay_t comb_delay;
+            DelayInfo comb_delay;
             ctx->getCellDelay(sink_cell, last_port, driver.port, comb_delay);
-            total += comb_delay;
-            log_info("%4d %4d  Source %s.%s\n", comb_delay, total, driver_cell->name.c_str(ctx),
+            total += comb_delay.maxDelay();
+            log_info("%4d %4d  Source %s.%s\n", comb_delay.maxDelay(), total, driver_cell->name.c_str(ctx),
                      driver.port.c_str(ctx));
             delay_t net_delay = ctx->getNetinfoRouteDelay(net, i);
             total += net_delay;
