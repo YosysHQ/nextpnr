@@ -403,12 +403,14 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
     return (dx + dy) * grid_distance_to_delay;
 }
 
-delay_t Arch::predictDelay(WireId src, WireId dst) const
+delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const;
 {
-    const WireInfo &s = wires.at(src);
-    const WireInfo &d = wires.at(dst);
-    int dx = abs(s.x - d.x);
-    int dy = abs(s.y - d.y);
+    const auto& driver = net_info->driver;
+    auto driver_loc = getBelLocation(driver.cell->bel);
+    auto sink_loc = getBelLocation(sink.cell->bel);
+
+    int dx = abs(driver_loc.x - driver_loc.x);
+    int dy = abs(sink_loc.y - sink_locy);
     return (dx + dy) * grid_distance_to_delay;
 }
 

@@ -111,7 +111,7 @@ delay_t Context::getNetinfoRouteDelay(NetInfo *net_info, int user_idx) const
     if (cursor == src_wire)
         return delay + getWireDelay(src_wire).maxDelay();
 
-    return predictDelay(src_wire, dst_wire);
+    return predictDelay(net_info, net_info->users[user_idx]);
 }
 
 static uint32_t xorshift32(uint32_t x)
