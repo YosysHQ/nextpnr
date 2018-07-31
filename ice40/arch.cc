@@ -587,40 +587,23 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
     return xscale * abs(xd) + yscale * abs(yd) + offset;
 }
 
-delay_t Arch::predictDelay(WireId src, WireId dst) const
+delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
 {
-    NPNR_ASSERT(src != WireId());
-    int x1 = chip_info->wire_data[src.index].x;
-    int y1 = chip_info->wire_data[src.index].y;
+    const auto& driver = net_info->driver;
+    auto driver_loc = getBelLocation(driver.cell->bel);
+    auto sink_loc = getBelLocation(sink.cell->bel);
 
-    NPNR_ASSERT(dst != WireId());
-    int x2 = chip_info->wire_data[dst.index].x;
-    int y2 = chip_info->wire_data[dst.index].y;
+    if (driver.port == id_cout) {
+        if (driver_loc.y == sink_loc.y)
+            return 0;
+        return 250;
+    }
 
-    int xd = x2 - x1, yd = y2 - y1;
+    int xd = sink_loc.x - driver_loc.x, yd = sink_loc.y - driver_loc.y;
     int xscale = 120, yscale = 120, offset = 0;
 
-    // if (chip_info->wire_data[src.index].type == WIRE_TYPE_SP4_VERT) {
-    //     yd = yd < -4 ? yd + 4 : (yd < 0 ? 0 : yd);
-    //     offset = 500;
-    // }
-
-    // Estimate for output mux
-    for (const auto &bp : getWireBelPins(src)) {
-        if (bp.pin == PIN_O && getBelType(bp.bel) == TYPE_ICESTORM_LC) {
-            offset += 330;
-            break;
-        }
-    }
-
-    // Estimate for input mux
-    for (const auto &bp : getWireBelPins(dst)) {
-        if ((bp.pin == PIN_I0 || bp.pin == PIN_I1 || bp.pin == PIN_I2 || bp.pin == PIN_I3) &&
-            getBelType(bp.bel) == TYPE_ICESTORM_LC) {
-            offset += 260;
-            break;
-        }
-    }
+    if (driver.port == id_o) offset += 330;
+    if (sink.port == id_i0 || sink.port == id_i1 || sink.port == id_i2 || sink.port == id_i3) offset += 260;
 
     return xscale * abs(xd) + yscale * abs(yd) + offset;
 }
