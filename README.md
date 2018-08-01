@@ -4,15 +4,15 @@ nextpnr -- a portable FPGA place and route tool
 nextpnr aims to be a vendor neutral, timing driven, FOSS FPGA place and route
 tool.
 
-Currently nextpnr supports;
- * Lattice iCE40 devices supported by [Project IceStorm](http://www.clifford.at/icestorm/),
- * *(experimental)* Lattice ECP5 devices supported by [Project Trellis](https://github.com/SymbiFlow/prjtrellis),
+Currently nextpnr supports:
+ * Lattice iCE40 devices supported by [Project IceStorm](http://www.clifford.at/icestorm/)
+ * *(experimental)* Lattice ECP5 devices supported by [Project Trellis](https://github.com/SymbiFlow/prjtrellis)
  * *(experimental)* a "generic" back-end for user-defined architectures
 
 We hope to see Xilinx 7 Series thanks to
-[Project X-Ray](https://github.com/SymbiFlow/prjxray) and even more vendor's
-FPGAs supported in the future. We would love your help in developing this
-awesome new project.
+[Project X-Ray](https://github.com/SymbiFlow/prjxray) and even more FPGA families
+supported in the future. We would love your help in developing this
+awesome new project!
 
 Here is a screenshot of nextpnr for iCE40. Build instructions and
 [getting started notes](#getting-started) can be found below.
@@ -84,7 +84,7 @@ For ECP5 support, you must download [Project Trellis](https://github.com/SymbiFl
 then follow its instructions to download the latest database and build _libtrellis_.
 
 ```
-cmake -DARCH=ecp5 .
+cmake -DARCH=ecp5 -DTRELLIS_ROOT=/path/to/prjtrellis .
 make -j$(nproc)
 sudo make install
 ```

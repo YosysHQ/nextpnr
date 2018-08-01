@@ -26,12 +26,12 @@ For nextpnr we are using the following terminology.
 ### Flow Terminology
 
 - **Packing**: The action of grouping cells in synthesis output into larger (logic) cells
-- **Placing**: The action of binding packed cells to bels
+- **Placing**: The action of binding packed cells to Bels
 - **Routing**: The action of binding nets to wires
 
 ### Other Terminology
 
-- **Binding**: Assigning nets to wires and cells to bels
+- **Binding**: Assigning nets to wires and cells to Bels
 - **Path**: All the arcs connecting a FF output (or primary input) to a FF input (or primary output)
 
 Adding new architectures to nextpnr
@@ -42,37 +42,39 @@ TBD
 Nextpnr and other tools
 -----------------------
 
-### Which tool chain should I use and why?
+### Which toolchain should I use and why?
 
  * If you wish to do new **research** into FPGA architectures, place and route
    algorithms or other similar topics, we suggest you look at using
    [Verilog to Routing](https://verilogtorouting.org).
 
  * If you are developing FPGA code in **Verilog** for a **Lattice iCE40** and
-   need an open source toolchain, we suggest you use nextpnr.
+   need an open source toolchain, we suggest you use Yosys and nextpnr.
 
  * If you are developing FPGA code in **Verilog** for a **Lattice iCE40** with
-   the **existing Arachne-PNR toolchain**, we suggest you start thinking about
+   Yosys and the **existing Arachne-PNR toolchain**, we suggest you start thinking about
    migrating to nextpnr.
 
  * If you are developing Verilog FPGA code targeted at the Lattice ECP5 and
    need an open source toolchain, you may consider the **extremely
-   experimental** ECP5 support in nextpnr.
+   experimental** ECP5 support in Yosys and nextpnr
 
  * If you are developing FPGA code in **VHDL** you will need to use either a
-   version of [Yosys with Verific support]() or the vendor provided tools due
-   to the lack of open source VHDL support in Yosys.
+   version of [Yosys with Verific support](https://github.com/YosysHQ/yosys/tree/master/frontends/verific) or the vendor provided tools due
+   to the lack of useful open source VHDL support in Yosys. You could also look at developing
+   one of the experimental open source VHDL frontends, such as [yavhdl](https://github.com/rqou/yavhdl)
+   or [ghdlsynth-beta](https://github.com/tgingold/ghdlsynth-beta), further.
 
-### Why didn't you just improve [Arachne-PNR](https://github.com/cseed/arachne-pnr)?
+### Why didn't you just improve [arachne-pnr](https://github.com/cseed/arachne-pnr)?
 
-[Arachne-PNR](https://github.com/cseed/arachne-pnr) was originally developed as
+[arachne-pnr](https://github.com/cseed/arachne-pnr) was originally developed as
 part of [Project IceStorm](http://www.clifford.at/icestorm/) to demonstrate it
 was possible to create an open source place and route tool for the iCE40 FPGAs
 that actually produced valid bitstreams.
 
 For it's original purpose it has served the community extremely well. However,
 it was never designed to support multiple different FPGA devices, nor more
-complicated timing driven routing used by most commercial place and route
+complicated timing driven placement and routing used by most commercial place and route
 tools.
 
 It felt like extending Arachne-PNR was not going to be the best path forward, so
@@ -81,11 +83,10 @@ it was decided to build nextpnr as replacement.
 ### Arachne-PNR does X better!
 
 If you have a use case which prevents you from switching to nextpnr from
-Arachne, we want to hear about it! Please create an issue following the
-[Arachne-PNR regression template]() and we will do our best to solve the problem!
+arachne, we want to hear about it! Please create an issue and we will do our best to solve the problem!
 
 We want nextpnr to be a suitable replacement for anyone who is currently a user
-of Arachne.
+of arachne-pnr.
 
 ### Why are you not just contributing to [Verilog to Routing](https://verilogtorouting.org)?
 
@@ -93,7 +94,7 @@ We believe that [Verilog to Routing](https://verilogtorouting.org) is a great
 tool and many of the nextpnr developers have made (and continue to make)
 contributions to the project.
 
-VtR is an extremely flexible tool but focuses on research around FPGA
+VtR is an extremely flexible toolchain but focuses on research around FPGA
 architecture and algorithm development. If your goal is research, then we very
 much encourage you to look into VtR further!
 
@@ -101,8 +102,8 @@ nextpnr takes a different approach by focusing on users developing FPGA code
 for current FPGAs.
 
 We also believe that support for real architectures will enable interesting new
-research. nextpnr (like all place and route systems). depends heavily on
-research groups like the VtR developers to investigate and push forward FPGA
+research. nextpnr (like all place and route tools) depends heavily on
+research groups like the VtR developers to investigate and push forward FPGA placement and routing
 algorithms in new and exciting ways.
 
 #### What is VPR?
@@ -113,17 +114,17 @@ role in an FPGA development flow as nextpnr.
 ### What about [SymbiFlow](http://symbiflow.github.io)?
 
 For the moment [SymbiFlow](http://github.com/SymbiFlow) is concentrating on
-extending Verilog to Routing tool to work with real world architectures.
+extending VPR to work with real world architectures.
 nextpnr may or may not become a part of SymbiFlow in the future.
 
 ### What is [Project Trellis](https://github.com/SymbiFlow/prjtrellis)?
 
 [Project Trellis](https://github.com/SymbiFlow/prjtrellis) is the effort to
 document the bitstream format for the Lattice ECP5 series of FPGAs. It also
-includes tooling around bitstream creation.
+includes tools for ECP5 bitstream generation.
 
-Project Trellis is used by nextpnr to enable support for creation of bitstreams
-for these parts.
+Project Trellis is used by nextpnr to build the ECP5 chip database and
+enable support for creation of bitstreams for these parts.
 
 ### What is [Project X-Ray](https://github.com/SymbiFlow/prjxray)?
 
@@ -132,15 +133,15 @@ the bitstream format for the Xilinx Series 7 series of FPGAs. It also includes
 tooling around bitstream generation for these parts.
 
 While nextpnr currently does **not** support these Xilinx parts, we expect it
-will soon by using Project X Ray in a similar manner to Project Trellis.
+will soon be using Project X-Ray in a similar manner to Project Trellis.
 
 ### What is [Project IceStorm](http://www.clifford.at/icestorm/)?
 
-[Project IceStorm](http://www.clifford.at/icestorm/) was both a project to
+[Project IceStorm](http://www.clifford.at/icestorm/) is both a project to
 document the bitstream for the Lattice iCE40 series of parts **and** a full
 flow including Yosys and Arachne-PNR for converting Verilog into a bitstream for
 these parts.
 
 As the open source community now has support for multiple different FPGA parts,
-in the nextpnr documentation we generally use Project IceStorm to mean the
+in the nextpnr documentation we generally use Project IceStorm to mean the database and
 tools that fulfil the same role as Project Trellis or Project X-Ray.
