@@ -195,7 +195,7 @@ class ElementList : public Item
     // short-lived (as it will change when the map mutates.
     const std::vector<ElementT> *elements() const
     {
-        return &map_->at(std::pair<int, int>(x_, y_));
+        return &map_->at(std::make_pair(x_, y_));
     }
 
   public:
@@ -306,7 +306,7 @@ class ElementXYRoot : public Item
             y_present.clear();
             // First find all the elements in all Y coordinates in this X.
             for (int j = 0; j < ctx->getGridDimY(); j++) {
-                if (map_.count(std::pair<int, int>(i, j)) == 0)
+                if (map_.count(std::make_pair(i, j)) == 0)
                     continue;
                 y_present.push_back(j);
             }
