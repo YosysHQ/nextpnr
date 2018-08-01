@@ -193,7 +193,6 @@ class SAPlacer
             if (temp <= 1e-3 && n_no_progress >= 5) {
                 if (iter % 5 != 0)
                     log_info("  at iteration #%d: temp = %f, cost = %f\n", iter, temp, double(curr_metric));
-                ctx->unlock();
                 break;
             }
 
