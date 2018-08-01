@@ -122,8 +122,8 @@ make -j$(nproc)
 
 Notes for developers
 --------------------
- 
-- All code is formatted using `clang-format` according to the style rules in `.clang-format` (LLVM based with 
+
+- All code is formatted using `clang-format` according to the style rules in `.clang-format` (LLVM based with
   increased indent widths and brace wraps after classes).
 - To automatically format all source code, run `make clangformat`.
 - See the wiki for additional documentation on the architecture API.
