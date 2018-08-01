@@ -24,8 +24,7 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-void write_bitstream(Context *ctx, std::string base_config_file = "", std::string text_config_file = "",
-                     std::string bitstream_file = "");
+void write_bitstream(Context *ctx, std::string base_config_file = "", std::string text_config_file = "");
 
 NEXTPNR_NAMESPACE_END
 

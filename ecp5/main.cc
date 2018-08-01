@@ -32,10 +32,6 @@
 #include <fstream>
 #include <iostream>
 
-#include "Chip.hpp"
-#include "Database.hpp"
-#include "Tile.hpp"
-
 #include "log.h"
 #include "nextpnr.h"
 #include "version.h"
@@ -75,7 +71,6 @@ int main(int argc, char *argv[])
         options.add_options()("seed", po::value<int>(), "seed value for random number generator");
 
         options.add_options()("basecfg", po::value<std::string>(), "base chip configuration in Trellis text format");
-        options.add_options()("bit", po::value<std::string>(), "bitstream file to write");
         options.add_options()("textcfg", po::value<std::string>(), "textual configuration in Trellis format to write");
 
         po::positional_options_description pos;
@@ -114,8 +109,6 @@ int main(int argc, char *argv[])
                          "sha1 " GIT_COMMIT_HASH_STR ")\n";
             return 1;
         }
-
-        Trellis::load_database(TRELLIS_ROOT "/database");
 
         ArchArgs args;
         args.type = ArchArgs::LFE5U_45F;
@@ -189,14 +182,10 @@ int main(int argc, char *argv[])
             if (vm.count("basecfg"))
                 basecfg = vm["basecfg"].as<std::string>();
 
-            std::string bitstream;
-            if (vm.count("bit"))
-                bitstream = vm["bit"].as<std::string>();
-
             std::string textcfg;
             if (vm.count("textcfg"))
                 textcfg = vm["textcfg"].as<std::string>();
-            write_bitstream(ctx.get(), basecfg, textcfg, bitstream);
+            write_bitstream(ctx.get(), basecfg, textcfg);
         }
 
 #ifndef NO_PYTHON
