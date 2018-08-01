@@ -425,6 +425,10 @@ void write_asc(const Context *ctx, std::ostream &out)
                                                                            {"A_SIGNED", 1},
                                                                            {"B_SIGNED", 1}};
             configure_extra_cell(config, ctx, cell.second.get(), mac16_params, false, std::string("IpConfig."));
+        } else if (cell.second->type == ctx->id("ICESTORM_HFOSC")) {
+            const std::vector<std::pair<std::string, int>> hfosc_params = {{"CLKHF_DIV", 2}, {"TRIM_EN", 1}};
+            configure_extra_cell(config, ctx, cell.second.get(), hfosc_params, true, std::string("IpConfig."));
+
         } else if (cell.second->type == ctx->id("ICESTORM_PLL")) {
             const std::vector<std::pair<std::string, int>> pll_params = {{"DELAY_ADJMODE_FB", 1},
                                                                          {"DELAY_ADJMODE_REL", 1},

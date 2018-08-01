@@ -113,8 +113,8 @@ std::unique_ptr<CellInfo> create_ice_cell(Context *ctx, IdString type, std::stri
         add_port(ctx, new_cell.get(), "CLKLF", PORT_OUT);
         add_port(ctx, new_cell.get(), "CLKLF_FABRIC", PORT_OUT);
     } else if (type == ctx->id("ICESTORM_HFOSC")) {
-        new_cell->params[ctx->id("CLKHF_DIV")] = "0";
-        new_cell->params[ctx->id("TRIM_EN")] = "0";
+        new_cell->params[ctx->id("CLKHF_DIV")] = "0b00";
+        new_cell->params[ctx->id("TRIM_EN")] = "0b0";
 
         add_port(ctx, new_cell.get(), "CLKHFEN", PORT_IN);
         add_port(ctx, new_cell.get(), "CLKHFPU", PORT_IN);
