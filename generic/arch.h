@@ -199,7 +199,7 @@ struct Arch : BaseCtx
     delay_t getRipupDelayPenalty() const { return 1.0; }
     float getDelayNS(delay_t v) const { return v; }
     uint32_t getDelayChecksum(delay_t v) const { return 0; }
-    delay_t getBudgetOverride(NetInfo *net_info, int user_idx, delay_t budget) const;
+    delay_t getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t budget) const;
 
     bool pack() { return true; }
     bool place();

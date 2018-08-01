@@ -414,7 +414,7 @@ delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const;
     return (dx + dy) * grid_distance_to_delay;
 }
 
-delay_t Arch::getBudgetOverride(NetInfo *net_info, int user_idx, delay_t budget) const { return budget; }
+delay_t getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t budget) const { return budget; }
 
 // ---------------------------------------------------------------
 

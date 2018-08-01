@@ -298,7 +298,7 @@ struct Router
             src_wires[src_wire] = ctx->getWireDelay(src_wire).maxDelay();
 
             for (int user_idx = 0; user_idx < int(net_info->users.size()); user_idx++) {
-                auto dst_wire = ctx->getNetinfoSinkWire(net_info, user_idx);
+                auto dst_wire = ctx->getNetinfoSinkWire(net_info, net_info->users[user_idx]);
 
                 if (dst_wire == WireId())
                     log_error("No wire found for port %s on destination cell %s.\n",
@@ -352,7 +352,7 @@ struct Router
                 log("  Route to: %s.%s.\n", net_info->users[user_idx].cell->name.c_str(ctx),
                     net_info->users[user_idx].port.c_str(ctx));
 
-            auto dst_wire = ctx->getNetinfoSinkWire(net_info, user_idx);
+            auto dst_wire = ctx->getNetinfoSinkWire(net_info, net_info->users[user_idx]);
 
             if (dst_wire == WireId())
                 log_error("No wire found for port %s on destination cell %s.\n",
@@ -483,7 +483,7 @@ void addFullNetRouteJob(Context *ctx, IdString net_name, std::unordered_map<IdSt
         if (net_cache[user_idx])
             continue;
 
-        auto dst_wire = ctx->getNetinfoSinkWire(net_info, user_idx);
+        auto dst_wire = ctx->getNetinfoSinkWire(net_info, net_info->users[user_idx]);
 
         if (dst_wire == WireId())
             log_error("No wire found for port %s on destination cell %s.\n", net_info->users[user_idx].port.c_str(ctx),
@@ -540,7 +540,7 @@ void addNetRouteJobs(Context *ctx, IdString net_name, std::unordered_map<IdStrin
         if (net_cache[user_idx])
             continue;
 
-        auto dst_wire = ctx->getNetinfoSinkWire(net_info, user_idx);
+        auto dst_wire = ctx->getNetinfoSinkWire(net_info, net_info->users[user_idx]);
 
         if (dst_wire == WireId())
             log_error("No wire found for port %s on destination cell %s.\n", net_info->users[user_idx].port.c_str(ctx),
@@ -767,7 +767,7 @@ bool router1(Context *ctx)
                 bool got_negative_slack = false;
                 NetInfo *net_info = ctx->nets.at(net_it.first).get();
                 for (int user_idx = 0; user_idx < int(net_info->users.size()); user_idx++) {
-                    delay_t arc_delay = ctx->getNetinfoRouteDelay(net_info, user_idx);
+                    delay_t arc_delay = ctx->getNetinfoRouteDelay(net_info, net_info->users[user_idx]);
                     delay_t arc_budget = net_info->users[user_idx].budget;
                     delay_t arc_slack = arc_budget - arc_delay;
                     if (arc_slack < 0) {
@@ -779,7 +779,7 @@ bool router1(Context *ctx)
                         if (ctx->verbose)
                             log_info("  arc %s -> %s has %f ns slack (delay %f, budget %f)\n",
                                      ctx->getWireName(ctx->getNetinfoSourceWire(net_info)).c_str(ctx),
-                                     ctx->getWireName(ctx->getNetinfoSinkWire(net_info, user_idx)).c_str(ctx),
+                                     ctx->getWireName(ctx->getNetinfoSinkWire(net_info, net_info->users[user_idx])).c_str(ctx),
                                      ctx->getDelayNS(arc_slack), ctx->getDelayNS(arc_delay),
                                      ctx->getDelayNS(arc_budget));
                         tns += ctx->getDelayNS(arc_slack);

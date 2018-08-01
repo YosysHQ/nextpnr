@@ -72,18 +72,17 @@ static delay_t follow_net(Context *ctx, NetInfo *net, int path_length, delay_t s
                           PortRefList *current_path, PortRefList *crit_path)
 {
     delay_t net_budget = slack / (path_length + 1);
-    for (unsigned i = 0; i < net->users.size(); ++i) {
-        auto &usr = net->users[i];
+    for (auto &usr : net->users) {
         if (crit_path)
             current_path->push_back(&usr);
         // If budget override is less than existing budget, then do not increment path length
         int pl = path_length + 1;
-        auto budget = ctx->getBudgetOverride(net, i, net_budget);
+        auto budget = ctx->getBudgetOverride(net, usr, net_budget);
         if (budget < net_budget) {
             net_budget = budget;
             pl = std::max(1, path_length);
         }
-        auto delay = ctx->getNetinfoRouteDelay(net, i);
+        auto delay = ctx->getNetinfoRouteDelay(net, usr);
         net_budget = std::min(
                 net_budget, follow_user_port(ctx, usr, pl, slack - delay, update, min_slack, current_path, crit_path));
         if (update)
@@ -189,12 +188,6 @@ delay_t timing_analysis(Context *ctx, bool print_fmax, bool print_path)
             auto sink_cell = sink->cell;
             auto &port = sink_cell->ports.at(sink->port);
             auto net = port.net;
-            unsigned i = 0;
-            for (auto &usr : net->users)
-                if (&usr == sink)
-                    break;
-                else
-                    ++i;
             auto &driver = net->driver;
             auto driver_cell = driver.cell;
             DelayInfo comb_delay;
@@ -202,7 +195,7 @@ delay_t timing_analysis(Context *ctx, bool print_fmax, bool print_path)
             total += comb_delay.maxDelay();
             log_info("%4d %4d  Source %s.%s\n", comb_delay.maxDelay(), total, driver_cell->name.c_str(ctx),
                      driver.port.c_str(ctx));
-            auto net_delay = ctx->getNetinfoRouteDelay(net, i);
+            auto net_delay = ctx->getNetinfoRouteDelay(net, *sink);
             total += net_delay;
             auto driver_loc = ctx->getBelLocation(driver_cell->bel);
             auto sink_loc = ctx->getBelLocation(sink_cell->bel);
