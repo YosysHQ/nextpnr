@@ -176,35 +176,40 @@ delay_t timing_analysis(Context *ctx, bool print_fmax, bool print_path)
     PortRefList crit_path;
     delay_t min_slack = walk_paths(ctx, false, &crit_path);
     if (print_path) {
-        delay_t total = 0;
-        log_break();
-        log_info("Critical path report:\n");
-        log_info("curr total\n");
-        auto &front = crit_path.front();
-        auto &front_port = front->cell->ports.at(front->port);
-        auto &front_driver = front_port.net->driver;
-        auto last_port = ctx->getPortClock(front_driver.cell, front_driver.port);
-        for (auto sink : crit_path) {
-            auto sink_cell = sink->cell;
-            auto &port = sink_cell->ports.at(sink->port);
-            auto net = port.net;
-            auto &driver = net->driver;
-            auto driver_cell = driver.cell;
-            DelayInfo comb_delay;
-            ctx->getCellDelay(sink_cell, last_port, driver.port, comb_delay);
-            total += comb_delay.maxDelay();
-            log_info("%4d %4d  Source %s.%s\n", comb_delay.maxDelay(), total, driver_cell->name.c_str(ctx),
-                     driver.port.c_str(ctx));
-            auto net_delay = ctx->getNetinfoRouteDelay(net, *sink);
-            total += net_delay;
-            auto driver_loc = ctx->getBelLocation(driver_cell->bel);
-            auto sink_loc = ctx->getBelLocation(sink_cell->bel);
-            log_info("%4d %4d    Net %s budget %d (%d,%d) -> (%d,%d)\n", net_delay, total, net->name.c_str(ctx),
-                     sink->budget, driver_loc.x, driver_loc.y, sink_loc.x, sink_loc.y);
-            log_info("                Sink %s.%s\n", sink_cell->name.c_str(ctx), sink->port.c_str(ctx));
-            last_port = sink->port;
+        if (crit_path.empty()) {
+            log_info("Design contains no timing paths\n");
+        } else {
+            delay_t total = 0;
+            log_break();
+            log_info("Critical path report:\n");
+            log_info("curr total\n");
+
+            auto &front = crit_path.front();
+            auto &front_port = front->cell->ports.at(front->port);
+            auto &front_driver = front_port.net->driver;
+            auto last_port = ctx->getPortClock(front_driver.cell, front_driver.port);
+            for (auto sink : crit_path) {
+                auto sink_cell = sink->cell;
+                auto &port = sink_cell->ports.at(sink->port);
+                auto net = port.net;
+                auto &driver = net->driver;
+                auto driver_cell = driver.cell;
+                DelayInfo comb_delay;
+                ctx->getCellDelay(sink_cell, last_port, driver.port, comb_delay);
+                total += comb_delay.maxDelay();
+                log_info("%4d %4d  Source %s.%s\n", comb_delay.maxDelay(), total, driver_cell->name.c_str(ctx),
+                         driver.port.c_str(ctx));
+                auto net_delay = ctx->getNetinfoRouteDelay(net, *sink);
+                total += net_delay;
+                auto driver_loc = ctx->getBelLocation(driver_cell->bel);
+                auto sink_loc = ctx->getBelLocation(sink_cell->bel);
+                log_info("%4d %4d    Net %s budget %d (%d,%d) -> (%d,%d)\n", net_delay, total, net->name.c_str(ctx),
+                         sink->budget, driver_loc.x, driver_loc.y, sink_loc.x, sink_loc.y);
+                log_info("                Sink %s.%s\n", sink_cell->name.c_str(ctx), sink->port.c_str(ctx));
+                last_port = sink->port;
+            }
+            log_break();
         }
-        log_break();
     }
     if (print_fmax)
         log_info("estimated Fmax = %.2f MHz\n", 1e6 / (default_slack - min_slack));
