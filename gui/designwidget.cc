@@ -215,7 +215,11 @@ void DesignWidget::newContext(Context *ctx)
 
     highlightSelected.clear();
     this->ctx = ctx;
-    treeModel->loadContext(ctx);
+    {
+        std::lock_guard<std::mutex> lock_ui(ctx->ui_mutex);
+        std::lock_guard<std::mutex> lock(ctx->mutex);
+        treeModel->loadContext(ctx);
+    }
     updateTree();
 }
 
@@ -235,7 +239,11 @@ void DesignWidget::updateTree()
         }
     }
 
-    treeModel->updateCellsNets(ctx);
+    {
+        std::lock_guard<std::mutex> lock_ui(ctx->ui_mutex);
+        std::lock_guard<std::mutex> lock(ctx->mutex);
+        treeModel->updateCellsNets(ctx);
+    }
 }
 QtProperty *DesignWidget::addTopLevelProperty(const QString &id)
 {
@@ -735,6 +743,9 @@ void DesignWidget::onSearchInserted()
         if (currentIndex >= currentSearchIndexes.size())
             currentIndex = 0;
     } else {
+        std::lock_guard<std::mutex> lock_ui(ctx->ui_mutex);
+        std::lock_guard<std::mutex> lock(ctx->mutex);
+
         currentSearch = searchEdit->text();
         currentSearchIndexes = treeModel->search(searchEdit->text());
         currentIndex = 0;

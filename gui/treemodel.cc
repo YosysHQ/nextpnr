@@ -146,6 +146,7 @@ void Model::loadContext(Context *ctx)
 {
     if (!ctx)
         return;
+    ctx_ = ctx;
 
     beginResetModel();
 
@@ -273,6 +274,12 @@ Qt::ItemFlags Model::flags(const QModelIndex &index) const
 
 void Model::fetchMore(const QModelIndex &parent)
 {
+    if (ctx_ == nullptr)
+        return;
+
+    std::lock_guard<std::mutex> lock_ui(ctx_->ui_mutex);
+    std::lock_guard<std::mutex> lock(ctx_->mutex);
+
     nodeFromIndex(parent)->fetchMore();
 }
 
@@ -284,7 +291,6 @@ bool Model::canFetchMore(const QModelIndex &parent) const
 QList<QModelIndex> Model::search(QString text)
 {
     const int limit = 500;
-
     QList<Item*> list;
     cell_root_->search(list, text, limit);
     net_root_->search(list, text, limit);

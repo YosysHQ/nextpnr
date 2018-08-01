@@ -355,6 +355,9 @@ class ElementXYRoot : public Item
 
 class Model : public QAbstractItemModel
 {
+  private:
+    Context *ctx_ = nullptr;
+
   public:
     using BelXYRoot = ElementXYRoot<BelId>;
     using WireXYRoot = ElementXYRoot<WireId>;
