@@ -588,6 +588,7 @@ bool router1(Context *ctx)
 
         if (jobQueue.empty()) {
             log_info("found no unrouted source-sink pairs. no routing necessary.\n");
+            ctx->unlock();
             return true;
         }
 
@@ -602,6 +603,7 @@ bool router1(Context *ctx)
 #ifndef NDEBUG
                 ctx->check();
 #endif
+                ctx->unlock();
                 return false;
             }
 
@@ -807,6 +809,7 @@ bool router1(Context *ctx)
             }
             log_info("Checksum: 0x%08x\n", ctx->checksum());
             ctx->check();
+            ctx->unlock();
             return false;
         }
 #endif
