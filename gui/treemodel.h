@@ -119,6 +119,21 @@ class StaticTreeItem : public LazyTreeItem
     }
 };
 
+class IdStringItem : public StaticTreeItem
+{
+  private:
+    IdString id_;
+
+  public:
+    IdStringItem(Context *ctx, IdString str, LazyTreeItem *parent, ElementType type) :
+            StaticTreeItem(QString(str.c_str(ctx)), parent, type), id_(str) {}
+
+    virtual IdString id() const override
+    {
+        return id_;
+    }
+};
+
 template <typename ElementT>
 class ElementList : public LazyTreeItem
 {
@@ -156,14 +171,15 @@ class ElementList : public LazyTreeItem
         int start = children_.size();
         size_t end = std::min(start + count, (int)elements()->size());
         for (int i = start; i < end; i++) {
-            QString name(getter_(ctx_, elements()->at(i)).c_str(ctx_));
+            auto idstring = getter_(ctx_, elements()->at(i));
+            QString name(idstring.c_str(ctx_));
 
             // Remove X.../Y.../ prefix
             QString prefix = QString("X%1/Y%2/").arg(x_).arg(y_);
             if (name.startsWith(prefix))
                 name.remove(0, prefix.size());
 
-            auto item = new StaticTreeItem(name, this, child_type_);
+            auto item = new IdStringItem(ctx_, idstring, this, child_type_);
             managed_.push_back(std::move(std::unique_ptr<StaticTreeItem>(item)));
         }
     }
@@ -182,12 +198,39 @@ class ElementList : public LazyTreeItem
 class IdStringList : public StaticTreeItem
 {
   private:
-    std::unordered_map<IdString, std::unique_ptr<StaticTreeItem>> managed_;
+    std::unordered_map<IdString, std::unique_ptr<IdStringItem>> managed_;
     ElementType child_type_;
   public:
     IdStringList(QString name, LazyTreeItem *parent, ElementType type) :
             StaticTreeItem(name, parent, ElementType::NONE), child_type_(type) {}
     using StaticTreeItem::StaticTreeItem;
+
+    static std::vector<QString> alphaNumSplit(const QString &str)
+    {
+        std::vector<QString> res;
+
+        QString current_part;
+        bool number = true;
+        for (const auto c : str) {
+            if (current_part.size() == 0 && res.size() == 0) {
+                current_part.push_back(c);
+                number = c.isNumber();
+                continue;
+            }
+
+            if (number != c.isNumber()) {
+                number = c.isNumber();
+                res.push_back(current_part);
+                current_part.clear();
+            }
+
+            current_part.push_back(c);
+        }
+        
+        res.push_back(current_part);
+
+        return res;
+    }
 
     void updateElements(Context *ctx, std::vector<IdString> elements)
     {
@@ -197,8 +240,8 @@ class IdStringList : public StaticTreeItem
             element_set.insert(elem);
             auto existing = managed_.find(elem);
             if (existing == managed_.end()) {
-                auto item = new StaticTreeItem(elem.c_str(ctx), this, child_type_);
-                managed_.emplace(elem, std::unique_ptr<StaticTreeItem>(item));
+                auto item = new IdStringItem(ctx, elem, this, child_type_);
+                managed_.emplace(elem, std::unique_ptr<IdStringItem>(item));
             }
         }
         
@@ -214,38 +257,45 @@ class IdStringList : public StaticTreeItem
 
         // sort new children
         qSort(children_.begin(), children_.end(), [&](const LazyTreeItem *a, const LazyTreeItem *b){
-            QString name_a = a->name();
-            QString name_b = b->name();
-            // Try to extract a common prefix from both strings.
-            QString common;
-            for (int i = 0; i < std::min(name_a.size(), name_b.size()); i++) {
-                const QChar c_a = name_a[i];
-                const QChar c_b = name_b[i];
-                if (c_a == c_b) {
-                    common.push_back(c_a);
-                } else {
-                    break;
-                }
-            }
-            // No common part? lexical sort.
-            if (common.size() == 0) {
-                return a->name() < b->name();
+            auto parts_a = alphaNumSplit(a->name());
+            auto parts_b = alphaNumSplit(b->name());
+
+            if (parts_a.size() != parts_b.size()) {
+                return parts_a.size() < parts_b.size();
             }
 
-            // Get the non-common parts.
-            name_a.remove(0, common.size());
-            name_b.remove(0, common.size());
-            // And see if they're strings.
-            bool ok = true;
-            int num_a = name_a.toInt(&ok);
-            if (!ok) {
-                return a->name() < b->name();
+            for (int i = 0; i < parts_a.size(); i++) {
+                auto &part_a = parts_a.at(i);
+                auto &part_b = parts_b.at(i);
+
+                
+                bool a_is_number, b_is_number;
+                int a_number = part_a.toInt(&a_is_number);
+                int b_number = part_b.toInt(&b_is_number);
+
+                if (a_is_number && b_is_number) {
+                    if (a_number != b_number) {
+                        return a_number < b_number;
+                    } else {
+                        continue;
+                    }
+                }
+
+                if (a_is_number != b_is_number) {
+                    return a_is_number;
+                }
+
+                // both strings
+
+                if (part_a == part_b) {
+                    continue;
+                }
+                
+                return part_a < part_b;
             }
-            int num_b = name_b.toInt(&ok);
-            if (!ok) {
-                return a->name() < b->name();
-            }
-            return num_a < num_b;
+
+            // both equal
+            return true;
         });
     }
 };
