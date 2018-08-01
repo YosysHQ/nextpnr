@@ -175,14 +175,14 @@ class ElementList : public LazyTreeItem
 
     virtual bool canFetchMore() const override
     {
-        return children_.size() < elements()->size();
+        return (size_t)children_.size() < elements()->size();
     }
 
     void fetchMore(int count)
     {
-        int start = children_.size();
-        size_t end = std::min(start + count, (int)elements()->size());
-        for (int i = start; i < end; i++) {
+        size_t start = children_.size();
+        size_t end = std::min(start + count, elements()->size());
+        for (size_t i = start; i < end; i++) {
             auto idstring = getter_(ctx_, elements()->at(i));
             QString name(idstring.c_str(ctx_));
 
@@ -293,7 +293,7 @@ class IdStringList : public StaticTreeItem
                 return parts_a.size() < parts_b.size();
             }
 
-            for (int i = 0; i < parts_a.size(); i++) {
+            for (size_t i = 0; i < parts_a.size(); i++) {
                 auto &part_a = parts_a.at(i);
                 auto &part_b = parts_b.at(i);
 

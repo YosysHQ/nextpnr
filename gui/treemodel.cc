@@ -150,21 +150,6 @@ LazyTreeItem *ContextTreeModel::nodeFromIndex(const QModelIndex &idx) const
     return root_.get();
 }
 
-static int getElementIndex(ElementType type)
-{
-    if (type == ElementType::BEL)
-        return 0;
-    if (type == ElementType::WIRE)
-        return 1;
-    if (type == ElementType::PIP)
-        return 2;
-    if (type == ElementType::NET)
-        return 3;
-    if (type == ElementType::CELL)
-        return 4;
-    return -1;
-}
-
 Qt::ItemFlags ContextTreeModel::flags(const QModelIndex &index) const
 {
     LazyTreeItem *node = nodeFromIndex(index);
