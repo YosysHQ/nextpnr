@@ -22,13 +22,15 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-ContextTreeModel::ContextTreeModel(QObject *parent) :
+namespace TreeModel {
+
+Model::Model(QObject *parent) :
         QAbstractItemModel(parent),
         root_(new StaticTreeItem("Elements", nullptr, ElementType::NONE)) {}
 
-ContextTreeModel::~ContextTreeModel() {}
+Model::~Model() {}
 
-void ContextTreeModel::loadContext(Context *ctx)
+void Model::loadContext(Context *ctx)
 {
     if (!ctx)
         return;
@@ -80,7 +82,7 @@ void ContextTreeModel::loadContext(Context *ctx)
     updateCellsNets(ctx);
 }
 
-void ContextTreeModel::updateCellsNets(Context *ctx)
+void Model::updateCellsNets(Context *ctx)
 {
     if (!ctx)
         return;
@@ -102,39 +104,39 @@ void ContextTreeModel::updateCellsNets(Context *ctx)
     endResetModel();
 }
 
-int ContextTreeModel::rowCount(const QModelIndex &parent) const { return nodeFromIndex(parent)->count(); }
+int Model::rowCount(const QModelIndex &parent) const { return nodeFromIndex(parent)->count(); }
 
-int ContextTreeModel::columnCount(const QModelIndex &parent) const { return 1; }
+int Model::columnCount(const QModelIndex &parent) const { return 1; }
 
-QModelIndex ContextTreeModel::index(int row, int column, const QModelIndex &parent) const
+QModelIndex Model::index(int row, int column, const QModelIndex &parent) const
 {
-    LazyTreeItem *node = nodeFromIndex(parent);
+    Item *node = nodeFromIndex(parent);
     if (row >= node->count())
         return QModelIndex();
 
     return createIndex(row, column, node->child(row));
 }
 
-QModelIndex ContextTreeModel::parent(const QModelIndex &child) const
+QModelIndex Model::parent(const QModelIndex &child) const
 {
-    LazyTreeItem *parent = nodeFromIndex(child)->parent();
+    Item *parent = nodeFromIndex(child)->parent();
     if (parent == root_.get())
         return QModelIndex();
-    LazyTreeItem *node = parent->parent();
+    Item *node = parent->parent();
     return createIndex(node->indexOf(parent), 0, parent);
 }
 
-QVariant ContextTreeModel::data(const QModelIndex &index, int role) const
+QVariant Model::data(const QModelIndex &index, int role) const
 {
     if (index.column() != 0)
         return QVariant();
     if (role != Qt::DisplayRole)
         return QVariant();
-    LazyTreeItem *node = nodeFromIndex(index);
+    Item *node = nodeFromIndex(index);
     return node->name();
 }
 
-QVariant ContextTreeModel::headerData(int section, Qt::Orientation orientation, int role) const
+QVariant Model::headerData(int section, Qt::Orientation orientation, int role) const
 {
     Q_UNUSED(section);
     if (orientation == Qt::Horizontal && role == Qt::DisplayRole)
@@ -143,31 +145,31 @@ QVariant ContextTreeModel::headerData(int section, Qt::Orientation orientation, 
     return QVariant();
 }
 
-LazyTreeItem *ContextTreeModel::nodeFromIndex(const QModelIndex &idx) const
+Item *Model::nodeFromIndex(const QModelIndex &idx) const
 {
     if (idx.isValid())
-        return (LazyTreeItem *)idx.internalPointer();
+        return (Item *)idx.internalPointer();
     return root_.get();
 }
 
-Qt::ItemFlags ContextTreeModel::flags(const QModelIndex &index) const
+Qt::ItemFlags Model::flags(const QModelIndex &index) const
 {
-    LazyTreeItem *node = nodeFromIndex(index);
+    Item *node = nodeFromIndex(index);
     return Qt::ItemIsEnabled | (node->type() != ElementType::NONE ? Qt::ItemIsSelectable : Qt::NoItemFlags);
 }
 
 
-void ContextTreeModel::fetchMore(const QModelIndex &parent)
+void Model::fetchMore(const QModelIndex &parent)
 {
     nodeFromIndex(parent)->fetchMore();
 }
 
-bool ContextTreeModel::canFetchMore(const QModelIndex &parent) const
+bool Model::canFetchMore(const QModelIndex &parent) const
 {
     return nodeFromIndex(parent)->canFetchMore();
 }
 
-QList<QModelIndex> ContextTreeModel::search(QString text)
+QList<QModelIndex> Model::search(QString text)
 {
     QList<QModelIndex> list;
     //for (int i = 0; i < 6; i++) {
@@ -181,5 +183,7 @@ QList<QModelIndex> ContextTreeModel::search(QString text)
     //}
     return list;
 }
+
+}; // namespace TreeModel
 
 NEXTPNR_NAMESPACE_END

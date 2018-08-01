@@ -34,7 +34,7 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr), sel
 {
     // Add tree view
     treeView = new QTreeView();
-    treeModel = new ContextTreeModel();
+    treeModel = new TreeModel::Model();
     treeView->setModel(treeModel);
     treeView->setContextMenuPolicy(Qt::CustomContextMenu);
     treeView->setSelectionMode(QAbstractItemView::ExtendedSelection);
@@ -223,9 +223,9 @@ void DesignWidget::updateTree()
 {
     clearProperties();
 
-    QMap<LazyTreeItem *, int>::iterator i = highlightSelected.begin();
+    QMap<TreeModel::Item *, int>::iterator i = highlightSelected.begin();
     while (i != highlightSelected.end()) {
-        QMap<LazyTreeItem *, int>::iterator prev = i;
+        QMap<TreeModel::Item *, int>::iterator prev = i;
         ++i;
         if (prev.key()->type() == ElementType::NET && ctx->nets.find(prev.key()->id()) == ctx->nets.end()) {
             highlightSelected.erase(prev);
@@ -348,7 +348,7 @@ void DesignWidget::onSelectionChanged(const QItemSelection &, const QItemSelecti
     if (selectionModel->selectedIndexes().size() > 1) {
         std::vector<DecalXY> decals;
         for (auto index : selectionModel->selectedIndexes()) {
-            LazyTreeItem *item = treeModel->nodeFromIndex(index);
+            TreeModel::Item *item = treeModel->nodeFromIndex(index);
             std::vector<DecalXY> d = getDecals(item->type(), item->id());
             std::move(d.begin(), d.end(), std::back_inserter(decals));
         }
@@ -358,7 +358,7 @@ void DesignWidget::onSelectionChanged(const QItemSelection &, const QItemSelecti
     QModelIndex index = selectionModel->selectedIndexes().at(0);
     if (!index.isValid())
         return;
-    LazyTreeItem *clickItem = treeModel->nodeFromIndex(index);
+    TreeModel::Item *clickItem = treeModel->nodeFromIndex(index);
 
     ElementType type = clickItem->type();
     if (type == ElementType::NONE)
@@ -606,7 +606,7 @@ std::vector<DecalXY> DesignWidget::getDecals(ElementType type, IdString value)
     return decals;
 }
 
-void DesignWidget::updateHighlightGroup(QList<LazyTreeItem *> items, int group)
+void DesignWidget::updateHighlightGroup(QList<TreeModel::Item *> items, int group)
 {
     const bool shouldClear = items.size() == 1;
     for (auto item : items) {
@@ -631,7 +631,7 @@ void DesignWidget::updateHighlightGroup(QList<LazyTreeItem *> items, int group)
 void DesignWidget::prepareMenuProperty(const QPoint &pos)
 {
     QTreeWidget *tree = propertyEditor->treeWidget();
-    QList<LazyTreeItem *> items;
+    QList<TreeModel::Item *> items;
     for (auto itemContextMenu : tree->selectedItems()) {
         QtBrowserItem *browserItem = propertyEditor->itemToBrowserItem(itemContextMenu);
         if (!browserItem)
@@ -648,7 +648,7 @@ void DesignWidget::prepareMenuProperty(const QPoint &pos)
     }
     int selectedIndex = -1;
     if (items.size() == 1) {
-        LazyTreeItem *item = items.at(0);
+        TreeModel::Item *item = items.at(0);
         if (highlightSelected.contains(item))
             selectedIndex = highlightSelected[item];
     }
@@ -689,13 +689,13 @@ void DesignWidget::prepareMenuTree(const QPoint &pos)
     if (selectionModel->selectedIndexes().size() == 0)
         return;
 
-    QList<LazyTreeItem *> items;
+    QList<TreeModel::Item *> items;
     for (auto index : selectionModel->selectedIndexes()) {
-        LazyTreeItem *item = treeModel->nodeFromIndex(index);
+        TreeModel::Item *item = treeModel->nodeFromIndex(index);
         items.append(item);
     }
     if (items.size() == 1) {
-        LazyTreeItem *item = items.at(0);
+        TreeModel::Item *item = items.at(0);
         if (highlightSelected.contains(item))
             selectedIndex = highlightSelected[item];
     }
