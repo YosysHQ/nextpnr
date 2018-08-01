@@ -476,6 +476,7 @@ struct Context : Arch, DeterministicRNG
     bool timing_driven = true;
     float target_freq = 12e6;
     bool user_freq = false;
+    int slack_redist_iter = 0;
 
     Context(ArchArgs args) : Arch(args) {}
 

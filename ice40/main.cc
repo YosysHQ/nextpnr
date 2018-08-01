@@ -105,6 +105,7 @@ int main(int argc, char *argv[])
         options.add_options()("asc", po::value<std::string>(), "asc bitstream file to write");
         options.add_options()("read", po::value<std::string>(), "asc bitstream file to read");
         options.add_options()("seed", po::value<int>(), "seed value for random number generator");
+        options.add_options()("slack_redist_iter", po::value<int>(), "number of iterations between slack redistribution");
         options.add_options()("version,V", "show version");
         options.add_options()("tmfuzz", "run path delay estimate fuzzer");
         options.add_options()("test", "check architecture database integrity");
@@ -302,6 +303,10 @@ int main(int argc, char *argv[])
             ctx->rngseed(vm["seed"].as<int>());
         }
 
+        if (vm.count("slack_redist_iter")) {
+            ctx->slack_redist_iter = vm["slack_redist_iter"].as<int>();
+        }
+
         if (vm.count("svg")) {
             std::cout << "<svg xmlns=\"http://www.w3.org/2000/svg\" "
                          "xmlns:xlink=\"http://www.w3.org/1999/xlink\">\n";
@@ -411,7 +416,6 @@ int main(int argc, char *argv[])
 
             if (!ctx->pack() && !ctx->force)
                 log_error("Packing design failed.\n");
-            //assign_budget(ctx.get());
             ctx->check();
             print_utilisation(ctx.get());
             if (!vm.count("pack-only")) {
