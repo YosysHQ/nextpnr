@@ -104,43 +104,29 @@ class Item
         return type_;
     }
 
-    virtual bool canFetchMore() const = 0;
-    virtual void fetchMore() = 0;
-    virtual IdString id() const = 0;
-
-    virtual ~Item() {}
-};
-
-class StaticTreeItem : public Item
-{
-  public:
-    using Item::Item;
-
-    virtual bool canFetchMore() const override
+    virtual bool canFetchMore() const
     {
         return false;
     }
 
-    virtual void fetchMore() override
-    {
-    }
+    virtual void fetchMore() {}
 
-    virtual ~StaticTreeItem() {}
-
-    virtual IdString id() const override
+    virtual IdString id() const
     {
         return IdString();
     }
+
+    ~Item() {}
 };
 
-class IdStringItem : public StaticTreeItem
+class IdStringItem : public Item
 {
   private:
     IdString id_;
 
   public:
     IdStringItem(Context *ctx, IdString str, Item *parent, ElementType type) :
-            StaticTreeItem(QString(str.c_str(ctx)), parent, type), id_(str) {}
+            Item(QString(str.c_str(ctx)), parent, type), id_(str) {}
 
     virtual IdString id() const override
     {
@@ -160,7 +146,7 @@ class ElementList : public Item
     const ElementMap *map_;
     int x_, y_;
     ElementGetter getter_;
-    std::unordered_map<IdString, std::unique_ptr<StaticTreeItem>> managed_;
+    std::unordered_map<IdString, std::unique_ptr<Item>> managed_;
     ElementType child_type_;
 
     // scope valid until map gets mutated...
@@ -194,7 +180,7 @@ class ElementList : public Item
                 name.remove(0, prefix.size());
 
             auto item = new IdStringItem(ctx_, idstring, this, child_type_);
-            managed_[idstring] = std::move(std::unique_ptr<StaticTreeItem>(item));
+            managed_[idstring] = std::move(std::unique_ptr<Item>(item));
         }
     }
 
@@ -221,15 +207,15 @@ class ElementList : public Item
     }
 };
 
-class IdStringList : public StaticTreeItem
+class IdStringList : public Item
 {
   private:
     std::unordered_map<IdString, std::unique_ptr<IdStringItem>> managed_;
     ElementType child_type_;
   public:
     IdStringList(QString name, Item *parent, ElementType type) :
-            StaticTreeItem(name, parent, ElementType::NONE), child_type_(type) {}
-    using StaticTreeItem::StaticTreeItem;
+            Item(name, parent, ElementType::NONE), child_type_(type) {}
+    using Item::Item;
 
     static std::vector<QString> alphaNumSplit(const QString &str)
     {
@@ -332,7 +318,7 @@ class IdStringList : public StaticTreeItem
 };
 
 template <typename ElementT>
-class ElementXYRoot : public StaticTreeItem
+class ElementXYRoot : public Item
 {
   public:
     using ElementMap = std::map<std::pair<int, int>, std::vector<ElementT>>;
@@ -341,7 +327,7 @@ class ElementXYRoot : public StaticTreeItem
 
   private:
     Context *ctx_;
-    std::vector<std::unique_ptr<StaticTreeItem>> managed_labels_;
+    std::vector<std::unique_ptr<Item>> managed_labels_;
     std::vector<std::unique_ptr<ElementList<ElementT>>> managed_lists_;
     ElementMap map_;
     ElementGetter getter_;
@@ -349,7 +335,7 @@ class ElementXYRoot : public StaticTreeItem
 
   public:
     ElementXYRoot(Context *ctx, QString name, Item *parent, ElementMap map, ElementGetter getter, ElementType type) :
-            StaticTreeItem(name, parent, ElementType::NONE), ctx_(ctx), map_(map), getter_(getter), child_type_(type)
+            Item(name, parent, ElementType::NONE), ctx_(ctx), map_(map), getter_(getter), child_type_(type)
     {
         std::vector<int> y_present;
 
@@ -366,8 +352,8 @@ class ElementXYRoot : public StaticTreeItem
                 continue;
 
             // create X item for tree
-            auto item = new StaticTreeItem(QString("X%1").arg(i), this, child_type_);
-            managed_labels_.push_back(std::move(std::unique_ptr<StaticTreeItem>(item)));
+            auto item = new Item(QString("X%1").arg(i), this, child_type_);
+            managed_labels_.push_back(std::move(std::unique_ptr<Item>(item)));
             for (auto j : y_present) {
                 auto item2 = new ElementList<ElementT>(ctx_, QString("Y%1").arg(j), item, &map_, i, j, getter_, child_type_);
                 item2->fetchMore(1);

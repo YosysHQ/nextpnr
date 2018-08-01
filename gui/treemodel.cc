@@ -26,7 +26,7 @@ namespace TreeModel {
 
 Model::Model(QObject *parent) :
         QAbstractItemModel(parent),
-        root_(new StaticTreeItem("Elements", nullptr, ElementType::NONE)) {}
+        root_(new Item("Elements", nullptr, ElementType::NONE)) {}
 
 Model::~Model() {}
 
