@@ -367,7 +367,7 @@ Delay Methods
 
 ### delay\_t estimateDelay(WireId src, WireId dst) const
 
-Return an estimate for the total `maxDelay()` delay from the given src wire to
+Return a rough estimate for the total `maxDelay()` delay from the given src wire to
 the given dst wire.
 
 This should return a low upper bound for the fastest route from `src` to `dst`.
@@ -377,6 +377,11 @@ But it only produces an estimate for that fastest route, not an exact
 result, and for that estimate it is considered more accaptable to return a
 slightly too high result and it is considered less accaptable to return a
 too low result (thus "low upper bound").
+
+### delay\_t predictDelay(const NetInfo \*net\_info, const PortRef &sink) const
+
+Return a reasonably good estimate for the total `maxDelay()` delay for the
+given arc. This should return a low upper bound for the fastest route for that arc.
 
 ### delay\_t getDelayEpsilon() const
 
@@ -396,6 +401,10 @@ Convert an `delay_t` to an actual real-world delay in nanoseconds.
 ### uint32\_t getDelayChecksum(delay\_t v) const
 
 Convert a `delay_t` to an integer for checksum calculations.
+
+### delay\_t getBudgetOverride(const NetInfo \*net\_info, const PortRef &sink, delay\_t budget) const
+
+Overwrite or modify the timing budget for a given arc. Returns the new budget.
 
 Flow Methods
 ------------
