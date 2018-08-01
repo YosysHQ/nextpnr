@@ -759,6 +759,27 @@ struct Arch : BaseCtx
         return range;
     }
 
+    std::string getTileByTypeAndLocation(int row, int col, std::string type) const
+    {
+        auto &tileloc = chip_info->tile_info[row * chip_info->width + col];
+        for (int i = 0; i < tileloc.num_tiles; i++) {
+            if (chip_info->tiletype_names[tileloc.tile_names[i].type_idx].get() == type)
+                return tileloc.tile_names[i].name.get();
+        }
+        NPNR_ASSERT_FALSE_STR("no tile at (" + std::to_string(col) + ", " + std::to_string(row) + ") with type " +
+                              type);
+    }
+
+    std::string getPipTilename(PipId pip) const
+    {
+        auto &tileloc = chip_info->tile_info[pip.location.y * chip_info->width + pip.location.x];
+        for (int i = 0; i < tileloc.num_tiles; i++) {
+            if (tileloc.tile_names[i].type_idx == locInfo(pip)->pip_data[pip.index].tile_type)
+                return tileloc.tile_names[i].name.get();
+        }
+        NPNR_ASSERT_FALSE("failed to find Pip tile");
+    }
+
     std::string getPipTiletype(PipId pip) const
     {
         return chip_info->tiletype_names[locInfo(pip)->pip_data[pip.index].tile_type].get();
