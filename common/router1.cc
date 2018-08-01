@@ -128,7 +128,7 @@ struct Router
             QueuedWire qw;
             qw.wire = it.first;
             qw.pip = PipId();
-            qw.delay = it.second;
+            qw.delay = it.second - (it.second / 16);
             qw.togo = ctx->estimateDelay(qw.wire, dst_wire);
             qw.randtag = ctx->rng();
 
@@ -200,8 +200,7 @@ struct Router
                         continue;
 #if 0 // FIXME
                     if (ctx->debug)
-                        log("Found better route to %s. Old vs new delay "
-                            "estimate: %.3f %.3f\n",
+                        log("Found better route to %s. Old vs new delay estimate: %.3f %.3f\n",
                             ctx->getWireName(next_wire).c_str(),
                             ctx->getDelayNS(visited.at(next_wire).delay),
                             ctx->getDelayNS(next_delay));
@@ -274,16 +273,19 @@ struct Router
             log("    Source wire: %s\n", ctx->getWireName(src_wire).c_str(ctx));
 
         std::unordered_map<WireId, delay_t> src_wires;
-        std::vector<int> users_array;
+        std::vector<std::pair<delay_t, int>> users_array;
 
         if (user_idx < 0) {
-            // route all users
-            for (int user_idx = 0; user_idx < int(net_info->users.size()); user_idx++)
-                users_array.push_back(user_idx);
-            ctx->shuffle(users_array);
+            // route all users, from worst to best slack
+            for (int user_idx = 0; user_idx < int(net_info->users.size()); user_idx++) {
+                auto dst_wire = ctx->getNetinfoSinkWire(net_info, net_info->users[user_idx]);
+                delay_t slack = net_info->users[user_idx].budget - ctx->estimateDelay(src_wire, dst_wire);
+                users_array.push_back(std::pair<delay_t, int>(slack, user_idx));
+            }
+            std::sort(users_array.begin(), users_array.end());
         } else {
             // route only the selected user
-            users_array.push_back(user_idx);
+            users_array.push_back(std::pair<delay_t, int>(delay_t(), user_idx));
         }
 
         if (reroute) {
@@ -315,7 +317,6 @@ struct Router
                     delay_t delay = register_existing_path(ctx->getPipSrcWire(pip));
                     delay += ctx->getPipDelay(pip).maxDelay();
                     delay += ctx->getWireDelay(wire).maxDelay();
-                    delay -= 2 * ctx->getDelayEpsilon();
                     src_wires[wire] = delay;
 
                     return delay;
@@ -347,7 +348,9 @@ struct Router
             }
         }
 
-        for (int user_idx : users_array) {
+        for (auto user_idx_it : users_array) {
+            int user_idx = user_idx_it.second;
+
             if (ctx->debug)
                 log("  Route to: %s.%s.\n", net_info->users[user_idx].cell->name.c_str(ctx),
                     net_info->users[user_idx].port.c_str(ctx));
@@ -565,6 +568,73 @@ void addNetRouteJobs(Context *ctx, IdString net_name, std::unordered_map<IdStrin
     }
 }
 
+void cleanupPass(Context *ctx, RipupScoreboard &scores, std::unordered_set<IdString> &cleanupQueue,
+                 std::priority_queue<RouteJob, std::vector<RouteJob>, RouteJob::Greater> &jobQueue,
+                 int &totalVisitCnt, int &totalRevisitCnt, int &totalOvertimeRevisitCnt)
+{
+    std::priority_queue<RouteJob, std::vector<RouteJob>, RouteJob::Greater> cleanupJobs;
+
+    for (auto net_name : cleanupQueue) {
+        NetInfo *net_info = ctx->nets.at(net_name).get();
+        auto src_wire = ctx->getNetinfoSourceWire(net_info);
+
+        for (int user_idx = 0; user_idx < int(net_info->users.size()); user_idx++) {
+            auto dst_wire = ctx->getNetinfoSinkWire(net_info, net_info->users[user_idx]);
+            RouteJob job;
+            job.net = net_name;
+            job.user_idx = user_idx;
+            job.slack = net_info->users[user_idx].budget - ctx->estimateDelay(src_wire, dst_wire);
+            job.randtag = ctx->rng();
+            cleanupJobs.push(job);
+        }
+    }
+
+    log_info("running cleanup re-route of %d nets (%d arcs).\n",
+             int(cleanupQueue.size()), int(cleanupJobs.size()));
+
+    cleanupQueue.clear();
+
+    int visitCnt = 0, revisitCnt = 0, overtimeRevisitCnt = 0;
+
+    while (!cleanupJobs.empty()) {
+        RouteJob job = cleanupJobs.top();
+        cleanupJobs.pop();
+
+        auto net_name = job.net;
+        auto user_idx = job.user_idx;
+
+        NetInfo *net_info = ctx->nets.at(net_name).get();
+        auto dst_wire = ctx->getNetinfoSinkWire(net_info, net_info->users[user_idx]);
+
+        if (net_info->wires.count(dst_wire) == 0) {
+            cleanupQueue.insert(net_name);
+            continue;
+        }
+
+        ctx->unbindWire(dst_wire);
+
+        Router router(ctx, scores, net_name, user_idx, false, false);
+
+        if (!router.routedOkay) {
+            // FIXME: This should never happen
+            log_warning("Failed to re-route arc %d on net %s.\n", user_idx, net_name.c_str(ctx));
+            jobQueue.push(job);
+        }
+
+        visitCnt += router.visitCnt;
+        revisitCnt += router.revisitCnt;
+        overtimeRevisitCnt += router.overtimeRevisitCnt;
+    }
+
+    if (ctx->verbose)
+        log_info("  visited %d PIPs (%.2f%% revisits, %.2f%% overtime revisits).\n",
+                 visitCnt, (100.0 * revisitCnt) / visitCnt, (100.0 * overtimeRevisitCnt) / visitCnt);
+
+    totalVisitCnt += visitCnt;
+    totalRevisitCnt += revisitCnt;
+    totalOvertimeRevisitCnt += overtimeRevisitCnt;
+}
+
 } // namespace
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -580,6 +650,7 @@ bool router1(Context *ctx)
         log_info("Routing..\n");
         ctx->lock();
 
+        std::unordered_set<IdString> cleanupQueue;
         std::unordered_map<IdString, std::vector<bool>> jobCache;
         std::priority_queue<RouteJob, std::vector<RouteJob>, RouteJob::Greater> jobQueue;
 
@@ -669,14 +740,12 @@ bool router1(Context *ctx)
             }
 
             if (ctx->verbose)
-                log_info("  visited %d PIPs (%.2f%% revisits, %.2f%% overtime "
-                         "revisits).\n",
+                log_info("  visited %d PIPs (%.2f%% revisits, %.2f%% overtime revisits).\n",
                          visitCnt, (100.0 * revisitCnt) / visitCnt, (100.0 * overtimeRevisitCnt) / visitCnt);
 
             if (!ripupQueue.empty()) {
                 if (ctx->verbose || iterCnt == 1)
-                    log_info("failed to route %d nets. re-routing in ripup "
-                             "mode.\n",
+                    log_info("failed to route %d nets. re-routing in ripup mode.\n",
                              int(ripupQueue.size()));
 
                 printNets = ctx->verbose && (ripupQueue.size() < 10);
@@ -691,6 +760,8 @@ bool router1(Context *ctx)
                 ctx->sorted_shuffle(ripupArray);
 
                 for (auto net_name : ripupArray) {
+                    cleanupQueue.insert(net_name);
+
                     if (printNets)
                         log_info("  routing net %s. (%d users)\n", net_name.c_str(ctx),
                                  int(ctx->nets.at(net_name)->users.size()));
@@ -705,8 +776,10 @@ bool router1(Context *ctx)
                     if (!router.routedOkay)
                         log_error("Net %s is impossible to route.\n", net_name.c_str(ctx));
 
-                    for (auto it : router.rippedNets)
+                    for (auto it : router.rippedNets) {
                         addFullNetRouteJob(ctx, it, jobCache, jobQueue);
+                        cleanupQueue.insert(it);
+                    }
 
                     if (printNets) {
                         if (router.rippedNets.size() < 10) {
@@ -730,13 +803,11 @@ bool router1(Context *ctx)
                     log_info("  routed %d nets, ripped %d nets.\n", netCnt, ripCnt);
 
                 if (ctx->verbose)
-                    log_info("  visited %d PIPs (%.2f%% revisits, %.2f%% "
-                             "overtime revisits).\n",
+                    log_info("  visited %d PIPs (%.2f%% revisits, %.2f%% overtime revisits).\n",
                              visitCnt, (100.0 * revisitCnt) / visitCnt, (100.0 * overtimeRevisitCnt) / visitCnt);
 
                 if (ctx->verbose && !jobQueue.empty())
-                    log_info("  ripped up %d previously routed nets. continue "
-                             "routing.\n",
+                    log_info("  ripped up %d previously routed nets. continue routing.\n",
                              int(jobQueue.size()));
             }
 
@@ -751,13 +822,15 @@ bool router1(Context *ctx)
             if (iterCnt == 8 || iterCnt == 16 || iterCnt == 32 || iterCnt == 64 || iterCnt == 128)
                 ripup_penalty += ctx->getRipupDelayPenalty();
 
+            if (jobQueue.empty() || (iterCnt % 5) == 4)
+                cleanupPass(ctx, scores, cleanupQueue, jobQueue, totalVisitCnt, totalRevisitCnt, totalOvertimeRevisitCnt);
+
             ctx->yield();
         }
 
         log_info("routing complete after %d iterations.\n", iterCnt);
 
-        log_info("visited %d PIPs (%.2f%% revisits, %.2f%% "
-                 "overtime revisits).\n",
+        log_info("visited %d PIPs (%.2f%% revisits, %.2f%% overtime revisits).\n",
                  totalVisitCnt, (100.0 * totalRevisitCnt) / totalVisitCnt,
                  (100.0 * totalOvertimeRevisitCnt) / totalVisitCnt);
 
