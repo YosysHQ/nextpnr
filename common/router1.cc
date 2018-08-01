@@ -615,7 +615,7 @@ bool router1(Context *ctx)
 
             if (ctx->verbose || iterCnt == 1)
                 log_info("routing queue contains %d jobs.\n", int(jobQueue.size()));
-            else if (iterCnt % ctx->slack_redist_iter == 0)
+            else if (ctx->slack_redist_iter > 0 && iterCnt % ctx->slack_redist_iter == 0)
                 assign_budget(ctx, true /* quiet */);
 
             bool printNets = ctx->verbose && (jobQueue.size() < 10);
