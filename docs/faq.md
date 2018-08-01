@@ -49,7 +49,7 @@ Nextpnr and other tools
    [Verilog to Routing](https://verilogtorouting.org).
 
  * If you are developing FPGA code in **Verilog** for a **Lattice iCE40** and
-   need an open source toolchain, we suggest you use Yosys and nextpnr.
+   need an open source toolchain, we suggest you use [Yosys](http://www.clifford.at/yosys/) and nextpnr.
 
  * If you are developing FPGA code in **Verilog** for a **Lattice iCE40** with
    Yosys and the **existing Arachne-PNR toolchain**, we suggest you start thinking about
@@ -77,10 +77,10 @@ it was never designed to support multiple different FPGA devices, nor more
 complicated timing driven placement and routing used by most commercial place and route
 tools.
 
-It felt like extending Arachne-PNR was not going to be the best path forward, so
+It felt like extending arachne-pnr was not going to be the best path forward, so
 it was decided to build nextpnr as replacement.
 
-### Arachne-PNR does X better!
+### arachne-pnr does X better!
 
 If you have a use case which prevents you from switching to nextpnr from
 arachne, we want to hear about it! Please create an issue and we will do our best to solve the problem!
