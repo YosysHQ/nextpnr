@@ -375,8 +375,11 @@ int main(int argc, char *argv[])
             ctx->target_freq = vm["freq"].as<double>() * 1e6;
             ctx->user_freq = true;
         } else {
-            log_warning("Target frequency not specified. Will optimise for max frequency.\n");
-        }
+#ifndef NO_GUI
+            if (!vm.count("gui"))
+#endif
+                log_warning("Target frequency not specified. Will optimise for max frequency.\n");
+            }
 
         ctx->timing_driven = true;
         if (vm.count("no-tmdriv"))
