@@ -1,6 +1,44 @@
 FAQ
 ===
 
+Terminology
+-----------
+
+For nextpnr we are using the following terminology.
+
+### Design Database Terminology
+
+- **Cell**: an instantiation of a physical block inside the netlist. The packer may combine or otherwise modify cells; and the placer places them onto Bels.
+- **Port**: an input or output of a Cell, can be connected to a single net.
+- **Net**: a connection between cell ports inside the netlist. One net will be routed using one or more wires inside the chip. Nets are always one bit in size, multibit nets are always split.
+- **Source**: The cell output port driving a given net
+- **Sink**: A cell input port driven by a given net
+- **Arc**: A source-sink-pair on a net
+
+### Architecture Database Terminology
+
+- **Bel**: Basic Element, the functional blocks of an FPGA such as logic cells, IO cells, blockrams, etc. Up to one cell may be placed at each Bel.
+- **Pin**: an input or output of a Bel, permanently connected to a single wire.
+- **Pip**: Programmable Interconnect Point, a configurable connection in one direction between two wires
+- **Wire**: a fixed physical connection inside the FPGA between Pips and/or Bel pins.
+- **Alias**: a special automatic-on Pip to represent a permanent connection between two wires
+
+### Flow Terminology
+
+- **Packing**: The action of grouping cells in synthesis output into larger (logic) cells
+- **Placing**: The action of binding packed cells to bels
+- **Routing**: The action of binding nets to wires
+
+### Other Terminology
+
+- **Binding**: Assigning nets to wires and cells to bels
+- **Path**: All the arcs connecting a FF output (or primary input) to a FF input (or primary output)
+
+Adding new architectures to nextpnr
+-----------------------------------
+
+TBD
+
 Nextpnr and other tools
 -----------------------
 
@@ -38,10 +76,7 @@ complicated timing driven routing used by most commercial place and route
 tools.
 
 It felt like extending Arachne-PNR was not going to be the best path forward, so
-[SymbioticEDA](https://www.symbioticeda.com/) decided to invest in an
-experiment around creating a replacement. nextpnr is the result of that
-experiment and we believe well on it's way to being a direct replacement for
-Arachne-PNR (and hence why it is called *next*pnr).
+it was decided to build nextpnr as replacement.
 
 ### Arachne-PNR does X better!
 
@@ -77,26 +112,9 @@ role in an FPGA development flow as nextpnr.
 
 ### What about [SymbiFlow](http://symbiflow.github.io)?
 
-We expect that as nextpnr matures, it will become a key part of the
-[SymbiFlow](http://github.com/SymbiFlow). For now, while still in a more
-experimental state SymbioticEDA will continue to host the project.
-
-For the moment SymbiFlow is continuing to concentrate on extending Verilog to
-Routing tool to work with real world architectures.
-
-### Who is working on this project?
-
-nextpnr was
-[started as an experiment by SymbioticEDA](https://www.symbioticeda.com/) but
-hopes to grow beyond being both just an experiment and developed by a single
-company. Like Linux grew from Linus Torvalds experiment in creating his own
-operating system to something contributed too by many different companies, are
-hope is the same will happen here.
-
-The project has already accepted a number of contributions from people not
-employed by SymbioticEDA and now with the public release encourages the
-community to contribute too.
-
+For the moment [SymbiFlow](http://github.com/SymbiFlow) is concentrating on
+extending Verilog to Routing tool to work with real world architectures.
+nextpnr may or may not become a part of SymbiFlow in the future.
 
 ### What is [Project Trellis](https://github.com/SymbiFlow/prjtrellis)?
 
