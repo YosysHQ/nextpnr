@@ -462,9 +462,8 @@ void json_import_ports(Context *ctx, const string &modname, const std::vector<Id
 
                     ground_net(ctx, net.get());
                     log_info("      Floating wire node value, "
-                             "\'%s\' of port \'%s\' "
-                             "in cell \'%s\' of module \'%s\'\n, converted to zero driver",
-                             wire_node->data_string.c_str(), port_name.c_str(), obj_name.c_str(), modname.c_str());
+                             "'%s' on '%s'/'%s', converted to zero driver\n",
+                             this_port.name.c_str(ctx), modname.c_str(), obj_name.c_str());
 
                 } else
                     log_error("      Unknown fixed type wire node "
