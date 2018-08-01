@@ -716,11 +716,11 @@ void DesignWidget::prepareMenuTree(const QPoint &pos)
 
 void DesignWidget::onItemDoubleClicked(QTreeWidgetItem *item, int column)
 {
-    //QtProperty *selectedProperty = propertyEditor->itemToBrowserItem(item)->property();
-    //ElementType type = getElementTypeByName(selectedProperty->propertyId());
-    //LazyTreeItem *it = treeModel->nodeForIdType(type, selectedProperty->valueText());
-    //if (it)
-    //    selectionModel->setCurrentIndex(treeModel->indexFromNode(it), QItemSelectionModel::ClearAndSelect);
+    QtProperty *selectedProperty = propertyEditor->itemToBrowserItem(item)->property();
+    ElementType type = getElementTypeByName(selectedProperty->propertyId());
+    auto it = treeModel->nodeForIdType(type, ctx->id(selectedProperty->valueText().toStdString()));
+    if (it)
+        selectionModel->setCurrentIndex(treeModel->indexFromNode(*it), QItemSelectionModel::ClearAndSelect);
 }
 
 void DesignWidget::onDoubleClicked(const QModelIndex &index) { Q_EMIT zoomSelected(); }
