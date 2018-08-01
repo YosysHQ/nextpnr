@@ -317,35 +317,53 @@ QtProperty *DesignWidget::addSubGroup(QtProperty *topItem, const QString &name)
 
 void DesignWidget::onClickedBel(BelId bel, bool keep)
 {
-    auto item = treeModel->nodeForIdType(ElementType::BEL, ctx->getBelName(bel));
-    if (!item)
-        return;
+    boost::optional<TreeModel::Item*> item;
+    {
+        std::lock_guard<std::mutex> lock_ui(ctx->ui_mutex);
+        std::lock_guard<std::mutex> lock(ctx->mutex);
 
+        item = treeModel->nodeForIdType(ElementType::BEL, ctx->getBelName(bel));
+        if (!item)
+            return;
+
+        Q_EMIT selected(getDecals(ElementType::BEL, ctx->getBelName(bel)), keep);
+    }
     selectionModel->setCurrentIndex(treeModel->indexFromNode(*item),
                                     keep ? QItemSelectionModel::Select : QItemSelectionModel::ClearAndSelect);
-    Q_EMIT selected(getDecals(ElementType::BEL, ctx->getBelName(bel)), keep);
 }
 
 void DesignWidget::onClickedWire(WireId wire, bool keep)
 {
-    auto item = treeModel->nodeForIdType(ElementType::WIRE, ctx->getWireName(wire));
-    if (!item)
-        return;
+    boost::optional<TreeModel::Item*> item;
+    {
+        std::lock_guard<std::mutex> lock_ui(ctx->ui_mutex);
+        std::lock_guard<std::mutex> lock(ctx->mutex);
 
+        item = treeModel->nodeForIdType(ElementType::WIRE, ctx->getWireName(wire));
+        if (!item)
+            return;
+
+        Q_EMIT selected(getDecals(ElementType::WIRE, ctx->getWireName(wire)), keep);
+    }
     selectionModel->setCurrentIndex(treeModel->indexFromNode(*item),
                                     keep ? QItemSelectionModel::Select : QItemSelectionModel::ClearAndSelect);
-    Q_EMIT selected(getDecals(ElementType::WIRE, ctx->getWireName(wire)), keep);
 }
 
 void DesignWidget::onClickedPip(PipId pip, bool keep)
 {
-    auto item = treeModel->nodeForIdType(ElementType::PIP, ctx->getPipName(pip));
-    if (!item)
-        return;
+    boost::optional<TreeModel::Item*> item;
+    {
+        std::lock_guard<std::mutex> lock_ui(ctx->ui_mutex);
+        std::lock_guard<std::mutex> lock(ctx->mutex);
 
+        item = treeModel->nodeForIdType(ElementType::PIP, ctx->getPipName(pip));
+        if (!item)
+            return;
+
+        Q_EMIT selected(getDecals(ElementType::PIP, ctx->getPipName(pip)), keep);
+    }
     selectionModel->setCurrentIndex(treeModel->indexFromNode(*item),
                                     keep ? QItemSelectionModel::Select : QItemSelectionModel::ClearAndSelect);
-    Q_EMIT selected(getDecals(ElementType::PIP, ctx->getPipName(pip)), keep);
 }
 
 void DesignWidget::onSelectionChanged(const QItemSelection &, const QItemSelection &)
@@ -381,6 +399,9 @@ void DesignWidget::onSelectionChanged(const QItemSelection &, const QItemSelecti
     Q_EMIT selected(getDecals(type, c), false);
 
     if (type == ElementType::BEL) {
+        std::lock_guard<std::mutex> lock_ui(ctx->ui_mutex);
+        std::lock_guard<std::mutex> lock(ctx->mutex);
+
         BelId bel = ctx->getBelByName(c);
         QtProperty *topItem = addTopLevelProperty("Bel");
 
@@ -400,6 +421,9 @@ void DesignWidget::onSelectionChanged(const QItemSelection &, const QItemSelecti
             addProperty(portInfoItem, QVariant::String, "Wire", ctx->getWireName(wire).c_str(ctx), ElementType::WIRE);
         }
     } else if (type == ElementType::WIRE) {
+        std::lock_guard<std::mutex> lock_ui(ctx->ui_mutex);
+        std::lock_guard<std::mutex> lock(ctx->mutex);
+
         WireId wire = ctx->getWireByName(c);
         QtProperty *topItem = addTopLevelProperty("Wire");
 
@@ -452,6 +476,9 @@ void DesignWidget::onSelectionChanged(const QItemSelection &, const QItemSelecti
             }
         }
     } else if (type == ElementType::PIP) {
+        std::lock_guard<std::mutex> lock_ui(ctx->ui_mutex);
+        std::lock_guard<std::mutex> lock(ctx->mutex);
+
         PipId pip = ctx->getPipByName(c);
         QtProperty *topItem = addTopLevelProperty("Pip");
 
@@ -474,6 +501,9 @@ void DesignWidget::onSelectionChanged(const QItemSelection &, const QItemSelecti
         addProperty(delayItem, QVariant::Double, "Min Fall", delay.minFallDelay());
         addProperty(delayItem, QVariant::Double, "Max Fall", delay.maxFallDelay());
     } else if (type == ElementType::NET) {
+        std::lock_guard<std::mutex> lock_ui(ctx->ui_mutex);
+        std::lock_guard<std::mutex> lock(ctx->mutex);
+
         NetInfo *net = ctx->nets.at(c).get();
 
         QtProperty *topItem = addTopLevelProperty("Net");
@@ -522,6 +552,9 @@ void DesignWidget::onSelectionChanged(const QItemSelection &, const QItemSelecti
         }
 
     } else if (type == ElementType::CELL) {
+        std::lock_guard<std::mutex> lock_ui(ctx->ui_mutex);
+        std::lock_guard<std::mutex> lock(ctx->mutex);
+
         CellInfo *cell = ctx->cells.at(c).get();
 
         QtProperty *topItem = addTopLevelProperty("Cell");
