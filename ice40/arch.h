@@ -44,9 +44,9 @@ template <typename T> struct RelPtr
 };
 
 NPNR_PACKED_STRUCT(struct BelWirePOD {
-    int32_t wire_index;
     PortPin port;
     int32_t type;
+    int32_t wire_index;
 });
 
 NPNR_PACKED_STRUCT(struct BelInfoPOD {
@@ -365,7 +365,7 @@ struct Arch : BaseCtx
     ArchArgs args;
     Arch(ArchArgs args);
 
-    std::string getChipName();
+    std::string getChipName() const;
 
     IdString archId() const { return id("ice40"); }
     IdString archArgsToId(ArchArgs args) const;

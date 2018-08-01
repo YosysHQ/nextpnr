@@ -120,17 +120,21 @@ struct GroupId
 
 struct DecalId
 {
-    char type = 0; // Bel/Wire/Pip/Frame (b/w/p/f)
+    enum
+    {
+        TYPE_FRAME,
+        TYPE_BEL
+    } type;
     Location location;
     uint32_t z = 0;
-
+    bool active = false;
     bool operator==(const DecalId &other) const
     {
-        return type == other.type && location == other.location && z == other.z;
+        return type == other.type && location == other.location && z == other.z && active == other.active;
     }
     bool operator!=(const DecalId &other) const
     {
-        return type != other.type || location != other.location || z != other.z;
+        return type != other.type || location != other.location || z != other.z || active != other.active;
     }
 };
 
@@ -200,6 +204,7 @@ template <> struct hash<NEXTPNR_NAMESPACE_PREFIX DecalId>
         boost::hash_combine(seed, hash<int>()(decal.type));
         boost::hash_combine(seed, hash<NEXTPNR_NAMESPACE_PREFIX Location>()(decal.location));
         boost::hash_combine(seed, hash<int>()(decal.z));
+        boost::hash_combine(seed, hash<bool>()(decal.active));
         return seed;
     }
 };

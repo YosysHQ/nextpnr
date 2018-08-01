@@ -162,3 +162,8 @@ Links and references
 - [SymbiFlow](https://github.com/SymbiFlow/symbiflow-arch-defs)
 - [Gaffe](https://github.com/kc8apf/gaffe)
 - [KinglerPAR](https://github.com/rqou/KinglerPAR)
+
+> SymbiFlow is working with the Verilog to Routing tool to extend the current
+research tool to support real architectures. VtR is strongly focused on
+architecture research but having support for real architectures might enable
+research nextpnr zu providing documentation and explanation.

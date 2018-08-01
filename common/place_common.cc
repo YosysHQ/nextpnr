@@ -39,6 +39,8 @@ wirelen_t get_net_metric(const Context *ctx, const NetInfo *net, MetricType type
     driver_loc = ctx->getBelLocation(driver_cell->bel);
     if (driver_gb)
         return 0;
+
+    delay_t negative_slack = 0;
     delay_t worst_slack = std::numeric_limits<delay_t>::max();
     int xmin = driver_loc.x, xmax = driver_loc.x, ymin = driver_loc.y, ymax = driver_loc.y;
     for (auto load : net->users) {
@@ -51,7 +53,7 @@ wirelen_t get_net_metric(const Context *ctx, const NetInfo *net, MetricType type
             delay_t net_delay = ctx->predictDelay(net, load);
             auto slack = load.budget - net_delay;
             if (slack < 0)
-                tns += slack;
+                negative_slack += slack;
             worst_slack = std::min(slack, worst_slack);
         }
 
@@ -70,7 +72,7 @@ wirelen_t get_net_metric(const Context *ctx, const NetInfo *net, MetricType type
         wirelength = wirelen_t((ymax - ymin) + (xmax - xmin));
     }
 
-    tns = ctx->getDelayNS(tns);
+    tns += ctx->getDelayNS(negative_slack);
     return wirelength;
 }
 

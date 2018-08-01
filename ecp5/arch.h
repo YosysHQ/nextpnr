@@ -399,7 +399,7 @@ struct Arch : BaseCtx
     ArchArgs args;
     Arch(ArchArgs args);
 
-    std::string getChipName();
+    std::string getChipName() const;
 
     IdString archId() const { return id("ecp5"); }
     IdString archArgsToId(ArchArgs args) const;

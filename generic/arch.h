@@ -122,7 +122,7 @@ struct Arch : BaseCtx
 
     Arch(ArchArgs args);
 
-    std::string getChipName() { return chipName; }
+    std::string getChipName() const { return chipName; }
 
     IdString archId() const { return id("generic"); }
     IdString archArgsToId(ArchArgs args) const { return id("none"); }
