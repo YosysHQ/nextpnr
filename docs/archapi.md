@@ -9,7 +9,7 @@ The architecture-specific `archdefs.h` must define the following types.
 
 With the exception of `ArchNetInfo` and `ArchCellInfo`, the following types should be "lightweight" enough so that passing them by value is sensible.
 
-### delay_t
+### delay\_t
 
 A scalar type that is used to  represent delays. May be an integer or float type.
 
@@ -127,7 +127,7 @@ Get the X/Y/Z location of a given bel.
 
 Lookup a bel by its X/Y/Z location.
 
-### const_range\<BelId\> getBelsByTile(int x, int y) const
+### const\_range\<BelId\> getBelsByTile(int x, int y) const
 
 Return a list of all bels at the give X/Y location.
 
@@ -135,17 +135,21 @@ Return a list of all bels at the give X/Y location.
 
 Returns true if the given bel is a global buffer. A global buffer does not "pull in" other cells it drives to be close to the location of the global buffer.
 
-### uint32_t getBelChecksum(BelId bel) const
+### uint32\_t getBelChecksum(BelId bel) const
 
-Return a checksum for the state of a bel. (Used to calculate the design checksum.)
+Return a (preferably unique) number that represents this bel. This is used in design state checksum calculations.
 
 ### void bindBel(BelId bel, IdString cell, PlaceStrength strength)
 
 Bind a given bel to a given cell with the given strength.
 
+This method must also update `CellInfo::bel` and `CellInfo::belStrength`.
+
 ### void unbindBel(BelId bel)
 
 Unbind a bel.
+
+This method must also update `CellInfo::bel` and `CellInfo::belStrength`.
 
 ### bool checkBelAvail(BelId bel) const
 
@@ -159,7 +163,7 @@ Return the cell the given bel is bound to, or `IdString()` if the bel is not bou
 
 If the bel is unavailable, and unbinding a single cell would make it available, then this method must return the name of that cell.
 
-### const_range\<BelId\> getBels() const
+### const\_range\<BelId\> getBels() const
 
 Return a list of all bels on the device.
 
@@ -175,108 +179,291 @@ Return the wire connected to the given bel pin.
 
 Return the type (input/output/inout) of the given bel pin.
 
-### const_range\<PortPin\> getBelPins(BelId bel) const
+### const\_range\<PortPin\> getBelPins(BelId bel) const
 
 Return a list of all pins on that bel.
 
 Wire Methods
 ------------
 
-```
-WireId getWireByName(IdString name) const
-IdString getWireName(WireId wire) const
-IdString getWireType(WireId wire) const
-uint32_t getWireChecksum(WireId wire) const
-void bindWire(WireId wire, IdString net, PlaceStrength strength)
-void unbindWire(WireId wire)
-bool checkWireAvail(WireId wire) const
-IdString getBoundWireNet(WireId wire) const
-IdString getConflictingWireNet(WireId wire) const
-DelayInfo getWireDelay(WireId wire) const
-const_range<WireId> getWires() const
-const_range<BelPin> getWireBelPins(WireId wire) const
-```
+### WireId getWireByName(IdString name) const
+
+Lookup a wire by its name.
+
+### IdString getWireName(WireId wire) const
+
+Get the name for a wire. (Wire names must be unique.)
+
+### IdString getWireType(WireId wire) const
+
+Get the type of a wire. The wire type is purely informal and
+isn't used by any of the core algorithms. Implementations may
+simply return `IdString()`.
+
+### uint32\_t getWireChecksum(WireId wire) const
+
+Return a (preferably unique) number that represents this wire. This is used in design state checksum calculations.
+
+### void bindWire(WireId wire, IdString net, PlaceStrength strength)
+
+Bind a wire to a net. This method must be used when binding a wire that is driven by a bel pin. Use `binPip()`
+when binding a wire that is driven by a pip.
+
+This method must also update `NetInfo::wires`.
+
+### void unbindWire(WireId wire)
+
+Unbind a wire. For wires that are driven by a pip, this will also unbind the driving pip.
+
+This method must also update `NetInfo::wires`.
+
+### bool checkWireAvail(WireId wire) const
+
+Return true if the wire is available, i.e. can be bound to a net.
+
+### IdString getBoundWireNet(WireId wire) const
+
+Return the net a wire is bound to.
+
+### IdString getConflictingWireNet(WireId wire) const
+
+If this returns a non-empty IdString, then unbinding that net
+will make the given wire available.
+
+This returns an empty IdString if the wire is already available,
+or if there is no single net that can be unbound to make this
+wire available.
+
+### DelayInfo getWireDelay(WireId wire) const
+
+Get the delay for a wire.
+
+### const\_range\<WireId\> getWires() const
+
+Get a list of all wires on the device.
+
+### const\_range\<BelPin\> getWireBelPins(WireId wire) const
+
+Get a list of all bel pins attached to a given wire.
 
 Pip Methods
 -----------
 
-```
-PipId getPipByName(IdString name) const
-IdString getPipName(PipId pip) const
-IdString getPipType(PipId pip) const
-uint32_t getPipChecksum(PipId pip) const
-void bindPip(PipId pip, IdString net, PlaceStrength strength)
-void unbindPip(PipId pip)
-bool checkPipAvail(PipId pip) const
-IdString getBoundPipNet(PipId pip) const
-IdString getConflictingPipNet(PipId pip) const
-const_range<PipId> getPips() const
-WireId getPipSrcWire(PipId pip) const
-WireId getPipDstWire(PipId pip) const
-DelayInfo getPipDelay(PipId pip) const
-const_range<PipId> getPipsDownhill(WireId wire) const
-const_range<PipId> getPipsUphill(WireId wire) const
-const_range<PipId> getWireAliases(WireId wire) const
-```
+### PipId getPipByName(IdString name) const
+
+Lookup a pip by its name.
+
+### IdString getPipName(PipId pip) const
+
+Get the name for a pip. (Pip names must be unique.)
+
+### IdString getPipType(PipId pip) const
+
+Get the type of a pip. Pip types are purely informal and
+implementations may simply return `IdString()`.
+
+### uint32\_t getPipChecksum(PipId pip) const
+
+Return a (preferably unique) number that represents this pip. This is used in design state checksum calculations.
+
+### void bindPip(PipId pip, IdString net, PlaceStrength strength)
+
+Bid a pip to a net. This also bind the destination wire of that pip.
+
+This method must also update `NetInfo::wires`.
+
+### void unbindPip(PipId pip)
+
+Unbind a pip and the wire driven by that pip.
+
+This method must also update `NetInfo::wires`.
+
+### bool checkPipAvail(PipId pip) const
+
+Returns true if the given pip is available to be bound to a net.
+
+### IdString getBoundPipNet(PipId pip) const
+
+Return the net this pip is bound to.
+
+### IdString getConflictingPipNet(PipId pip) const
+
+Return the net that needs to be unbound in order to make this
+pip available.
+
+This does not need to (but may) return the conflicting wire if the conflict is
+limited to the conflicting wire being bound to the destination wire for this
+pip.
+
+### const\_range\<PipId\> getPips() const
+
+Return a list of all pips on the device.
+
+### WireId getPipSrcWire(PipId pip) const
+
+Get the source wire for a pip.
+
+### WireId getPipDstWire(PipId pip) const
+
+Get the destination wire for a pip.
+
+Bi-directional switches (transfer gates) are modelled using two
+antiparallel pips.
+
+### DelayInfo getPipDelay(PipId pip) const
+
+Get the delay for a pip.
+
+### const\_range\<PipId\> getPipsDownhill(WireId wire) const
+
+Get all pips downhill of a wire, i.e. pips that use this wire as source wire.
+
+### const\_range\<PipId\> getPipsUphill(WireId wire) const
+
+Get all pips uphill of a wire, i.e. pips that use this wire as destination wire.
+
+### const\_range\<PipId\> getWireAliases(WireId wire) const
+
+Get all alias pips downhill of a wire.
+
+There is no api for getting the alias pips uphill of a wire.
+
+Alias pips come in antiparallel pairs if a signal can be injected on either
+side of the alias pip.
 
 Group Methods
 -------------
 
-```
-GroupId getGroupByName(IdString name) const
-IdString getGroupName(GroupId group) const
-const_range<GroupId> getGroups() const
-const_range<BelId> getGroupBels(GroupId group) const
-const_range<WireId> getGroupWires(GroupId group) const
-const_range<PipId> getGroupPips(GroupId group) const
-const_range<GroupId> getGroupGroups(GroupId group) const
-```
+### GroupId getGroupByName(IdString name) const
+
+Lookup a group by its name.
+
+### IdString getGroupName(GroupId group) const
+
+Get the name for a group. (Group names must be unique.)
+
+### const\_range\<GroupId\> getGroups() const
+
+Get a list of all groups on the device.
+
+### const\_range\<BelId\> getGroupBels(GroupId group) const
+
+Get a list of all bels within a group.
+
+### const\_range\<WireId\> getGroupWires(GroupId group) const
+
+Get a list of all wires within a group.
+
+### const\_range\<PipId\> getGroupPips(GroupId group) const
+
+Get a list of all pips within a group.
+
+### const\_range\<GroupId\> getGroupGroups(GroupId group) const
+
+Get a list of all groups within a group.
 
 Delay Methods
 -------------
 
-```
-delay_t estimateDelay(WireId src, WireId dst) const
-delay_t getDelayEpsilon() const
-delay_t getRipupDelayPenalty() const
-float getDelayNS(delay_t v) const
-uint32_t getDelayChecksum(delay_t v) const
-```
+### delay\_t estimateDelay(WireId src, WireId dst) const
+
+Return an estimate for the total `maxDelay()` delay from the given src wire to
+the given dst wire.
+
+This should return a low upper bound for the fastest route from `src` to `dst`.
+
+Or in other words it should assume an otherwise unused chip (thus "fastest route").
+But it only produces an estimate for that fastest route, not an exact 
+result, and for that estimate it is considered more accaptable to return a
+slightly too high result and it is considered less accaptable to return a
+too low result (thus "low upper bound").
+
+### delay\_t getDelayEpsilon() const
+
+Return a small delay value that can be used as small epsilon during routing.
+The router will for example not re-calculate cached routing data if faster routes
+are found when the difference is smaller than this value.
+
+### delay\_t getRipupDelayPenalty() const
+
+The base penality when calculating delay penalty for ripping up routed nets. The
+actual penalty used is a multiple of this value (i.e. a weighted version of this value).
+
+### float getDelayNS(delay\_t v) const
+
+Convert an `delay_t` to an actual real-world delay in nanoseconds.
+
+### uint32\_t getDelayChecksum(delay\_t v) const
+
+Convert a `delay_t` to an integer for checksum calculations.
 
 Flow Methods
 ------------
 
-```
-bool pack()
-bool place()
-bool route()
-```
+### bool pack()
+
+Run the packer.
+
+### bool place()
+
+Run the placer.
+
+### bool route()
+
+run the router.
 
 Graphics Methods
 ----------------
 
-```
-const_range<GraphicElement> getDecalGraphics(DecalId decal) const
-DecalXY getFrameDecal() const
-DecalXY getBelDecal(BelId bel) const
-DecalXY getWireDecal(WireId wire) const
-DecalXY getPipDecal(PipId pip) const
-DecalXY getGroupDecal(GroupId group) const
-```
+### const\_range\<GraphicElement\> getDecalGraphics(DecalId decal) const
+
+Return the graphic elements that make up a decal.
+
+The same decal must always produce the same list. If the graphics for
+a design element changes, that element must return another decal.
+
+### DecalXY getBelDecal(BelId bel) const
+
+Return the decal and X/Y position for the graphics representing a bel.
+
+### DecalXY getWireDecal(WireId wire) const
+
+Return the decal and X/Y position for the graphics representing a wire.
+
+### DecalXY getPipDecal(PipId pip) const
+
+Return the decal and X/Y position for the graphics representing a pip.
+
+### DecalXY getGroupDecal(GroupId group) const
+
+Return the decal and X/Y position for the graphics representing a group.
 
 Cell Delay Methods
 ------------------
 
-```
-bool getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const
-IdString getPortClock(const CellInfo *cell, IdString port) const
-bool isClockPort(const CellInfo *cell, IdString port) const
-```
+### bool getCellDelay(const CellInfo \*cell, IdString fromPort, IdString toPort, DelayInfo &delay) const
+
+Returns the delay for the specified path through a cell in the `&delay` argument. The method returns
+false if there is no timing relationship from `fromPort` to `toPort`.
+
+### IdString getPortClock(const CellInfo \*cell, IdString port) const
+
+Returns the clock input port for the specified output port.
+
+### bool isClockPort(const CellInfo \*cell, IdString port) const
+
+Returns true if the specified port is a clock input.
 
 Placer Methods
 --------------
 
-```
-bool isValidBelForCell(CellInfo *cell, BelId bel) const
-bool isBelLocationValid(BelId bel) const
-```
+### bool isValidBelForCell(CellInfo \*cell, BelId bel) const
+
+Returns true if the given cell can be bound to the given bel, considering
+other bound resources. For example, this can be used if there is only
+a certain number of different clock signals allowed for a group of bels.
+
+### bool isBelLocationValid(BelId bel) const
+
+Returns true if a bell in the current configuration is valid, i.e. if
+`isValidBelForCell()` would return true for the current mapping.
