@@ -363,10 +363,16 @@ class Model : public QAbstractItemModel
     {
         switch (type) {
         case ElementType::BEL:
+            if (bel_root_ == nullptr)
+                return boost::none;
             return bel_root_->getById(id);
         case ElementType::WIRE:
+            if (wire_root_ == nullptr)
+                return boost::none;
             return wire_root_->getById(id);
         case ElementType::PIP:
+            if (pip_root_ == nullptr)
+                return boost::none;
             return pip_root_->getById(id);
         case ElementType::CELL:
             return cell_root_->getById(id);

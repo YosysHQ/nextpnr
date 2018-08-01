@@ -19,6 +19,7 @@
 
 #include "gtest/gtest.h"
 #include "nextpnr.h"
+
 #include "quadtree.h"
 
 USING_NEXTPNR_NAMESPACE
