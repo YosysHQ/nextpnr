@@ -472,14 +472,16 @@ struct Context : Arch, DeterministicRNG
     bool force = false;
     bool timing_driven = true;
     float target_freq = 12e6;
+    bool user_freq = false;
+    int slack_redist_iter = 0;
 
     Context(ArchArgs args) : Arch(args) {}
 
     // --------------------------------------------------------------
 
-    WireId getNetinfoSourceWire(NetInfo *net_info) const;
-    WireId getNetinfoSinkWire(NetInfo *net_info, int user_idx) const;
-    delay_t getNetinfoRouteDelay(NetInfo *net_info, int user_idx) const;
+    WireId getNetinfoSourceWire(const NetInfo *net_info) const;
+    WireId getNetinfoSinkWire(const NetInfo *net_info, const PortRef &sink) const;
+    delay_t getNetinfoRouteDelay(const NetInfo *net_info, const PortRef &sink) const;
 
     // provided by router1.cc
     bool getActualRouteDelay(WireId src_wire, WireId dst_wire, delay_t &delay);

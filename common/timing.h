@@ -24,8 +24,12 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-// Assign "budget" values for all user ports in the design
-void assign_budget(Context *ctx);
+// Evenly redistribute the total path slack amongst all sinks on each path
+void assign_budget(Context *ctx, bool quiet = false);
+
+// Perform timing analysis and return the minimum path slack,
+//   optionally, print out the fmax and critical path
+delay_t timing_analysis(Context *ctx, bool print_fmax = false, bool print_path = false);
 
 NEXTPNR_NAMESPACE_END
 

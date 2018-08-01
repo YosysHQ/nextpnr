@@ -613,12 +613,48 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
     int xd = x2 - x1, yd = y2 - y1;
     int xscale = 120, yscale = 120, offset = 0;
 
+    return xscale * abs(xd) + yscale * abs(yd) + offset;
+}
+
+delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
+{
+    const auto &driver = net_info->driver;
+    auto driver_loc = getBelLocation(driver.cell->bel);
+    auto sink_loc = getBelLocation(sink.cell->bel);
+
+    if (driver.port == id_cout) {
+        if (driver_loc.y == sink_loc.y)
+            return 0;
+        return 250;
+    }
+
+    int xd = sink_loc.x - driver_loc.x, yd = sink_loc.y - driver_loc.y;
+    int xscale = 120, yscale = 120, offset = 0;
+
     // if (chip_info->wire_data[src.index].type == WIRE_TYPE_SP4_VERT) {
     //     yd = yd < -4 ? yd + 4 : (yd < 0 ? 0 : yd);
     //     offset = 500;
     // }
 
+    if (driver.port == id_o)
+        offset += 330;
+    if (sink.port == id_i0 || sink.port == id_i1 || sink.port == id_i2 || sink.port == id_i3)
+        offset += 260;
+
     return xscale * abs(xd) + yscale * abs(yd) + offset;
+}
+
+delay_t Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t budget) const
+{
+    const auto &driver = net_info->driver;
+    if (driver.port == id_cout) {
+        auto driver_loc = getBelLocation(driver.cell->bel);
+        auto sink_loc = getBelLocation(sink.cell->bel);
+        if (driver_loc.y == sink_loc.y)
+            return 0;
+        return 250;
+    }
+    return budget;
 }
 
 // -----------------------------------------------------------------------
