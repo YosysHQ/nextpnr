@@ -306,8 +306,8 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
     }
 
     // Configure chip
-    Trellis::Chip cfg_chip = cc.to_chip();
     if (!bitstream_file.empty()) {
+        Trellis::Chip cfg_chip = cc.to_chip();
         Trellis::Bitstream::serialise_chip(cfg_chip).write_bit_py(bitstream_file);
     }
     if (!text_config_file.empty()) {
