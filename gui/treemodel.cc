@@ -2,6 +2,7 @@
  *  nextpnr -- Next Generation Place and Route
  *
  *  Copyright (C) 2018  Miodrag Milanovic <miodrag@symbioticeda.com>
+ *  Copyright (C) 2018  Serge Bazanski <q3k@symbioticeda.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -24,9 +25,109 @@ NEXTPNR_NAMESPACE_BEGIN
 
 namespace TreeModel {
 
+
+// converts 'aa123bb432' -> ['aa', '123', 'bb', '432']
+std::vector<QString> IdStringList::alphaNumSplit(const QString &str)
+{
+    std::vector<QString> res;
+    QString current_part;
+
+    bool number = true;
+    for (const auto c : str) {
+        if (current_part.size() == 0 && res.size() == 0) {
+            current_part.push_back(c);
+            number = c.isNumber();
+            continue;
+        }
+
+        if (number != c.isNumber()) {
+            number = c.isNumber();
+            res.push_back(current_part);
+            current_part.clear();
+        }
+
+        current_part.push_back(c);
+    }
+    
+    res.push_back(current_part);
+
+    return res;
+}
+
+void IdStringList::updateElements(Context *ctx, std::vector<IdString> elements)
+{
+    // For any elements that are not yet in managed_, created them.
+    std::unordered_set<IdString> element_set;
+    for (auto elem : elements) {
+        element_set.insert(elem);
+        auto existing = managed_.find(elem);
+        if (existing == managed_.end()) {
+            auto item = new IdStringItem(ctx, elem, this, child_type_);
+            managed_.emplace(elem, std::unique_ptr<IdStringItem>(item));
+        }
+    }
+    
+    children_.clear();
+    // For any elements that are in managed_ but not in new, delete them.
+    for (auto &pair : managed_) {
+        if (element_set.count(pair.first) != 0) {
+            children_.push_back(pair.second.get());
+            continue;
+        }
+        managed_.erase(pair.first);
+    }
+
+    // Sort new children
+    qSort(children_.begin(), children_.end(), [&](const Item *a, const Item *b){
+        auto parts_a = alphaNumSplit(a->name());
+        auto parts_b = alphaNumSplit(b->name());
+
+        // Short-circuit for different part count.
+        if (parts_a.size() != parts_b.size()) {
+            return parts_a.size() < parts_b.size();
+        }
+
+        for (size_t i = 0; i < parts_a.size(); i++) {
+            auto &part_a = parts_a.at(i);
+            auto &part_b = parts_b.at(i);
+            
+            bool a_is_number, b_is_number;
+            int a_number = part_a.toInt(&a_is_number);
+            int b_number = part_b.toInt(&b_is_number);
+
+            // If both parts are numbers, compare numerically.
+            // If they're equal, continue to next part.
+            if (a_is_number && b_is_number) {
+                if (a_number != b_number) {
+                    return a_number < b_number;
+                } else {
+                    continue;
+                }
+            }
+
+            // For different alpha/nonalpha types, make numeric parts appear
+            // first.
+            if (a_is_number != b_is_number) {
+                return a_is_number;
+            }
+
+            // If both parts are numbers, compare lexically.
+            // If they're equal, continue to next part.
+            if (part_a == part_b) {
+                continue;
+            }
+            return part_a < part_b;
+        }
+
+        // Same string.
+        return true;
+    });
+}
+
+
 Model::Model(QObject *parent) :
         QAbstractItemModel(parent),
-        root_(new Item("Elements", nullptr, ElementType::NONE)) {}
+        root_(new Item("Elements", nullptr)) {}
 
 Model::~Model() {}
 
