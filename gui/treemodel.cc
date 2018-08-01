@@ -56,6 +56,8 @@ std::vector<QString> IdStringList::alphaNumSplit(const QString &str)
 
 void IdStringList::updateElements(Context *ctx, std::vector<IdString> elements)
 {
+    bool changed = false;
+
     // For any elements that are not yet in managed_, created them.
     std::unordered_set<IdString> element_set;
     for (auto elem : elements) {
@@ -64,17 +66,29 @@ void IdStringList::updateElements(Context *ctx, std::vector<IdString> elements)
         if (existing == managed_.end()) {
             auto item = new IdStringItem(ctx, elem, this, child_type_);
             managed_.emplace(elem, std::unique_ptr<IdStringItem>(item));
+            changed = true;
         }
     }
     
-    children_.clear();
     // For any elements that are in managed_ but not in new, delete them.
     for (auto &pair : managed_) {
         if (element_set.count(pair.first) != 0) {
-            children_.push_back(pair.second.get());
             continue;
         }
         managed_.erase(pair.first);
+        changed = true;
+    }
+
+    // Return early if there are no changes.
+    if (!changed)
+        return;
+
+    // Rebuild children list.
+    children_.clear();
+    for (auto &pair : managed_) {
+        if (element_set.count(pair.first) != 0) {
+            children_.push_back(pair.second.get());
+        }
     }
 
     // Sort new children
