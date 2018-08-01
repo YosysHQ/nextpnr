@@ -379,7 +379,7 @@ int main(int argc, char *argv[])
             if (!vm.count("gui"))
 #endif
                 log_warning("Target frequency not specified. Will optimise for max frequency.\n");
-            }
+        }
 
         ctx->timing_driven = true;
         if (vm.count("no-tmdriv"))
