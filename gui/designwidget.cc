@@ -34,7 +34,7 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr), sel
 {
     // Add tree view
     treeView = new QTreeView();
-    treeModel = new ContextTreeModel();
+    treeModel = new TreeModel::Model();
     treeView->setModel(treeModel);
     treeView->setContextMenuPolicy(Qt::CustomContextMenu);
     treeView->setSelectionMode(QAbstractItemView::ExtendedSelection);
@@ -215,7 +215,11 @@ void DesignWidget::newContext(Context *ctx)
 
     highlightSelected.clear();
     this->ctx = ctx;
-    treeModel->loadData(ctx);
+    {
+        std::lock_guard<std::mutex> lock_ui(ctx->ui_mutex);
+        std::lock_guard<std::mutex> lock(ctx->mutex);
+        treeModel->loadContext(ctx);
+    }
     updateTree();
 }
 
@@ -223,9 +227,9 @@ void DesignWidget::updateTree()
 {
     clearProperties();
 
-    QMap<ContextTreeItem *, int>::iterator i = highlightSelected.begin();
+    QMap<TreeModel::Item *, int>::iterator i = highlightSelected.begin();
     while (i != highlightSelected.end()) {
-        QMap<ContextTreeItem *, int>::iterator prev = i;
+        QMap<TreeModel::Item *, int>::iterator prev = i;
         ++i;
         if (prev.key()->type() == ElementType::NET && ctx->nets.find(prev.key()->id()) == ctx->nets.end()) {
             highlightSelected.erase(prev);
@@ -235,7 +239,11 @@ void DesignWidget::updateTree()
         }
     }
 
-    treeModel->updateData(ctx);
+    {
+        std::lock_guard<std::mutex> lock_ui(ctx->ui_mutex);
+        std::lock_guard<std::mutex> lock(ctx->mutex);
+        treeModel->updateCellsNets(ctx);
+    }
 }
 QtProperty *DesignWidget::addTopLevelProperty(const QString &id)
 {
@@ -309,24 +317,33 @@ QtProperty *DesignWidget::addSubGroup(QtProperty *topItem, const QString &name)
 
 void DesignWidget::onClickedBel(BelId bel, bool keep)
 {
-    ContextTreeItem *item = treeModel->nodeForIdType(ElementType::BEL, ctx->getBelName(bel).c_str(ctx));
-    selectionModel->setCurrentIndex(treeModel->indexFromNode(item),
+    auto item = treeModel->nodeForIdType(ElementType::BEL, ctx->getBelName(bel));
+    if (!item)
+        return;
+
+    selectionModel->setCurrentIndex(treeModel->indexFromNode(*item),
                                     keep ? QItemSelectionModel::Select : QItemSelectionModel::ClearAndSelect);
     Q_EMIT selected(getDecals(ElementType::BEL, ctx->getBelName(bel)), keep);
 }
 
 void DesignWidget::onClickedWire(WireId wire, bool keep)
 {
-    ContextTreeItem *item = treeModel->nodeForIdType(ElementType::WIRE, ctx->getWireName(wire).c_str(ctx));
-    selectionModel->setCurrentIndex(treeModel->indexFromNode(item),
+    auto item = treeModel->nodeForIdType(ElementType::WIRE, ctx->getWireName(wire));
+    if (!item)
+        return;
+
+    selectionModel->setCurrentIndex(treeModel->indexFromNode(*item),
                                     keep ? QItemSelectionModel::Select : QItemSelectionModel::ClearAndSelect);
     Q_EMIT selected(getDecals(ElementType::WIRE, ctx->getWireName(wire)), keep);
 }
 
 void DesignWidget::onClickedPip(PipId pip, bool keep)
 {
-    ContextTreeItem *item = treeModel->nodeForIdType(ElementType::PIP, ctx->getPipName(pip).c_str(ctx));
-    selectionModel->setCurrentIndex(treeModel->indexFromNode(item),
+    auto item = treeModel->nodeForIdType(ElementType::PIP, ctx->getPipName(pip));
+    if (!item)
+        return;
+
+    selectionModel->setCurrentIndex(treeModel->indexFromNode(*item),
                                     keep ? QItemSelectionModel::Select : QItemSelectionModel::ClearAndSelect);
     Q_EMIT selected(getDecals(ElementType::PIP, ctx->getPipName(pip)), keep);
 }
@@ -339,7 +356,7 @@ void DesignWidget::onSelectionChanged(const QItemSelection &, const QItemSelecti
     if (selectionModel->selectedIndexes().size() > 1) {
         std::vector<DecalXY> decals;
         for (auto index : selectionModel->selectedIndexes()) {
-            ContextTreeItem *item = treeModel->nodeFromIndex(index);
+            TreeModel::Item *item = treeModel->nodeFromIndex(index);
             std::vector<DecalXY> d = getDecals(item->type(), item->id());
             std::move(d.begin(), d.end(), std::back_inserter(decals));
         }
@@ -349,7 +366,7 @@ void DesignWidget::onSelectionChanged(const QItemSelection &, const QItemSelecti
     QModelIndex index = selectionModel->selectedIndexes().at(0);
     if (!index.isValid())
         return;
-    ContextTreeItem *clickItem = treeModel->nodeFromIndex(index);
+    TreeModel::Item *clickItem = treeModel->nodeFromIndex(index);
 
     ElementType type = clickItem->type();
     if (type == ElementType::NONE)
@@ -597,7 +614,7 @@ std::vector<DecalXY> DesignWidget::getDecals(ElementType type, IdString value)
     return decals;
 }
 
-void DesignWidget::updateHighlightGroup(QList<ContextTreeItem *> items, int group)
+void DesignWidget::updateHighlightGroup(QList<TreeModel::Item *> items, int group)
 {
     const bool shouldClear = items.size() == 1;
     for (auto item : items) {
@@ -622,7 +639,7 @@ void DesignWidget::updateHighlightGroup(QList<ContextTreeItem *> items, int grou
 void DesignWidget::prepareMenuProperty(const QPoint &pos)
 {
     QTreeWidget *tree = propertyEditor->treeWidget();
-    QList<ContextTreeItem *> items;
+    QList<TreeModel::Item *> items;
     for (auto itemContextMenu : tree->selectedItems()) {
         QtBrowserItem *browserItem = propertyEditor->itemToBrowserItem(itemContextMenu);
         if (!browserItem)
@@ -632,11 +649,14 @@ void DesignWidget::prepareMenuProperty(const QPoint &pos)
         if (type == ElementType::NONE)
             continue;
         IdString value = ctx->id(selectedProperty->valueText().toStdString());
-        items.append(treeModel->nodeForIdType(type, value.c_str(ctx)));
+        auto node = treeModel->nodeForIdType(type, value);
+        if (!node)
+            continue;
+        items.append(*node);
     }
     int selectedIndex = -1;
     if (items.size() == 1) {
-        ContextTreeItem *item = items.at(0);
+        TreeModel::Item *item = items.at(0);
         if (highlightSelected.contains(item))
             selectedIndex = highlightSelected[item];
     }
@@ -677,13 +697,13 @@ void DesignWidget::prepareMenuTree(const QPoint &pos)
     if (selectionModel->selectedIndexes().size() == 0)
         return;
 
-    QList<ContextTreeItem *> items;
+    QList<TreeModel::Item *> items;
     for (auto index : selectionModel->selectedIndexes()) {
-        ContextTreeItem *item = treeModel->nodeFromIndex(index);
+        TreeModel::Item *item = treeModel->nodeFromIndex(index);
         items.append(item);
     }
     if (items.size() == 1) {
-        ContextTreeItem *item = items.at(0);
+        TreeModel::Item *item = items.at(0);
         if (highlightSelected.contains(item))
             selectedIndex = highlightSelected[item];
     }
@@ -709,9 +729,9 @@ void DesignWidget::onItemDoubleClicked(QTreeWidgetItem *item, int column)
 {
     QtProperty *selectedProperty = propertyEditor->itemToBrowserItem(item)->property();
     ElementType type = getElementTypeByName(selectedProperty->propertyId());
-    ContextTreeItem *it = treeModel->nodeForIdType(type, selectedProperty->valueText());
+    auto it = treeModel->nodeForIdType(type, ctx->id(selectedProperty->valueText().toStdString()));
     if (it)
-        selectionModel->setCurrentIndex(treeModel->indexFromNode(it), QItemSelectionModel::ClearAndSelect);
+        selectionModel->setCurrentIndex(treeModel->indexFromNode(*it), QItemSelectionModel::ClearAndSelect);
 }
 
 void DesignWidget::onDoubleClicked(const QModelIndex &index) { Q_EMIT zoomSelected(); }
@@ -723,6 +743,9 @@ void DesignWidget::onSearchInserted()
         if (currentIndex >= currentSearchIndexes.size())
             currentIndex = 0;
     } else {
+        std::lock_guard<std::mutex> lock_ui(ctx->ui_mutex);
+        std::lock_guard<std::mutex> lock(ctx->mutex);
+
         currentSearch = searchEdit->text();
         currentSearchIndexes = treeModel->search(searchEdit->text());
         currentIndex = 0;

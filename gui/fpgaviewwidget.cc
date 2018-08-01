@@ -323,14 +323,18 @@ void FPGAViewWidget::paintGL()
         flags = rendererData_->flags;
     }
 
-    {
-        QMutexLocker locker(&rendererArgsLock_);
-        rendererArgs_->flags.clear();
-    }
-
     // Check flags passed through pipeline.
     if (flags.zoomOutbound) {
-        zoomOutbound();
+        // If we're doing init zoomOutbound, make sure we're actually drawing
+        // something already.
+        if (rendererData_->gfxByStyle[GraphicElement::STYLE_FRAME].vertices.size() != 0) {
+            zoomOutbound();
+            flags.zoomOutbound = false;
+            {
+                QMutexLocker lock(&rendererArgsLock_);
+                rendererArgs_->flags.zoomOutbound = false;
+            }
+        }
     }
 }
 

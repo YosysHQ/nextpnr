@@ -51,7 +51,7 @@ class DesignWidget : public QWidget
     void updateButtons();
     void addToHistory(QModelIndex item);
     std::vector<DecalXY> getDecals(ElementType type, IdString value);
-    void updateHighlightGroup(QList<ContextTreeItem *> item, int group);
+    void updateHighlightGroup(QList<TreeModel::Item *> item, int group);
   Q_SIGNALS:
     void info(std::string text);
     void selected(std::vector<DecalXY> decal, bool keep);
@@ -77,7 +77,7 @@ class DesignWidget : public QWidget
 
     QTreeView *treeView;
     QItemSelectionModel *selectionModel;
-    ContextTreeModel *treeModel;
+    TreeModel::Model *treeModel;
     QLineEdit *searchEdit;
     QtVariantPropertyManager *variantManager;
     QtVariantPropertyManager *readOnlyManager;
@@ -99,7 +99,7 @@ class DesignWidget : public QWidget
     QAction *actionClear;
 
     QColor highlightColors[8];
-    QMap<ContextTreeItem *, int> highlightSelected;
+    QMap<TreeModel::Item *, int> highlightSelected;
 
     QString currentSearch;
     QList<QModelIndex> currentSearchIndexes;
