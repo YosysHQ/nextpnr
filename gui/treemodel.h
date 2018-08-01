@@ -60,14 +60,10 @@ class Item
     // Children that are loaded into memory.
     QList<Item *> children_;
 
-    void addChild(Item *child)
-    {
-        children_.append(child);
-    }
+    void addChild(Item *child) { children_.append(child); }
 
   public:
-    Item(QString name, Item *parent) :
-            name_(name), parent_(parent)
+    Item(QString name, Item *parent) : name_(name), parent_(parent)
     {
         // Register in parent if exists.
         if (parent_ != nullptr) {
@@ -90,7 +86,7 @@ class Item
 
     // indexOf gets index of child in children array.
     int indexOf(const Item *child) const
-    { 
+    {
         // Dropping the const for indexOf to work.
         return children_.indexOf((Item *)child, 0);
     }
@@ -115,23 +111,19 @@ class IdStringItem : public Item
     ElementType type_;
 
   public:
-    IdStringItem(Context *ctx, IdString str, Item *parent, ElementType type) :
-            Item(QString(str.c_str(ctx)), parent), id_(str), type_(type) {}
-
-    virtual IdString id() const override
+    IdStringItem(Context *ctx, IdString str, Item *parent, ElementType type)
+            : Item(QString(str.c_str(ctx)), parent), id_(str), type_(type)
     {
-        return id_;
     }
 
-    virtual ElementType type() const override
-    {
-       return type_;
-    }
+    virtual IdString id() const override { return id_; }
+
+    virtual ElementType type() const override { return type_; }
 };
 
 // IdString list is a static list of IdStrings which can be set/updates from
 // a vector of IdStrings. It will render each IdStrings as a child, with the
-// list sorted in a smart way. 
+// list sorted in a smart way.
 class IdStringList : public Item
 {
   private:
@@ -144,33 +136,27 @@ class IdStringList : public Item
   public:
     // Create an IdStringList at given partent that will contain elements of
     // the given type.
-    IdStringList(QString name, Item *parent, ElementType type) :
-            Item(name, parent), child_type_(type) {}
+    IdStringList(QString name, Item *parent, ElementType type) : Item(name, parent), child_type_(type) {}
 
     // Split a name into alpha/non-alpha parts, which is then used for sorting
     // of children.
     static std::vector<QString> alphaNumSplit(const QString &str);
 
     // getById finds a child for the given IdString.
-    IdStringItem *getById(IdString id) const
-    {
-        return managed_.at(id).get();
-    }
+    IdStringItem *getById(IdString id) const { return managed_.at(id).get(); }
 
     // (Re-)create children from a list of IdStrings.
     void updateElements(Context *ctx, std::vector<IdString> elements);
 
     // Find children that contain the given text.
-    void search(QList<Item*> &results, QString text, int limit);
+    void search(QList<Item *> &results, QString text, int limit);
 };
-
 
 // ElementList is a dynamic list of ElementT (BelId,WireId,...) that are
 // automatically generated based on an overall map of elements.
 // ElementList is emitted from ElementXYRoot, and contains the actual
 // Bels/Wires/Pips underneath it.
-template <typename ElementT>
-class ElementList : public Item
+template <typename ElementT> class ElementList : public Item
 {
   public:
     // A map from tile (X,Y) to list of ElementTs in that tile.
@@ -193,23 +179,18 @@ class ElementList : public Item
 
     // Gets elements that this list should create from the map. This pointer is
     // short-lived (as it will change when the map mutates.
-    const std::vector<ElementT> *elements() const
-    {
-        return &map_->at(std::make_pair(x_, y_));
-    }
+    const std::vector<ElementT> *elements() const { return &map_->at(std::make_pair(x_, y_)); }
 
   public:
-    ElementList(Context *ctx, QString name, Item *parent, ElementMap *map, int x, int y, ElementGetter getter, ElementType type) :
-            Item(name, parent), ctx_(ctx), map_(map), x_(x), y_(y), getter_(getter), child_type_(type)
+    ElementList(Context *ctx, QString name, Item *parent, ElementMap *map, int x, int y, ElementGetter getter,
+                ElementType type)
+            : Item(name, parent), ctx_(ctx), map_(map), x_(x), y_(y), getter_(getter), child_type_(type)
     {
     }
 
     // Lazy loading of elements.
 
-    virtual bool canFetchMore() const override
-    {
-        return (size_t)children_.size() < elements()->size();
-    }
+    virtual bool canFetchMore() const override { return (size_t)children_.size() < elements()->size(); }
 
     void fetchMore(int count)
     {
@@ -229,16 +210,14 @@ class ElementList : public Item
         }
     }
 
-    virtual void fetchMore() override
-    {
-         fetchMore(100);
-    }
+    virtual void fetchMore() override { fetchMore(100); }
 
     // getById finds a child for the given IdString.
-    boost::optional<Item*> getById(IdString id)
+    boost::optional<Item *> getById(IdString id)
     {
         // Search requires us to load all our elements...
-        while (canFetchMore()) fetchMore();
+        while (canFetchMore())
+            fetchMore();
 
         auto res = managed_.find(id);
         if (res != managed_.end()) {
@@ -248,14 +227,15 @@ class ElementList : public Item
     }
 
     // Find children that contain the given text.
-    void search(QList<Item*> &results, QString text, int limit)
+    void search(QList<Item *> &results, QString text, int limit)
     {
         // Last chance to bail out from loading entire tree into memory.
         if (limit != -1 && results.size() > limit)
             return;
 
         // Search requires us to load all our elements...
-        while (canFetchMore()) fetchMore();
+        while (canFetchMore())
+            fetchMore();
 
         for (const auto &child : children_) {
             if (limit != -1 && results.size() > limit)
@@ -270,15 +250,13 @@ class ElementList : public Item
 // It can take any of {BelId,WireId,PipId} and create a tree that
 // hierarchizes them by X and Y tile positions, when given a map from X,Y to
 // list of ElementTs in that tile.
-template <typename ElementT>
-class ElementXYRoot : public Item
+template <typename ElementT> class ElementXYRoot : public Item
 {
   public:
     // A map from tile (X,Y) to list of ElementTs in that tile.
     using ElementMap = std::map<std::pair<int, int>, std::vector<ElementT>>;
     // A method that converts an ElementT to an IdString.
     using ElementGetter = std::function<IdString(Context *, ElementT)>;
-
 
   private:
     Context *ctx_;
@@ -293,8 +271,8 @@ class ElementXYRoot : public Item
     ElementType child_type_;
 
   public:
-    ElementXYRoot(Context *ctx, QString name, Item *parent, ElementMap map, ElementGetter getter, ElementType type) :
-            Item(name, parent), ctx_(ctx), map_(map), getter_(getter), child_type_(type)
+    ElementXYRoot(Context *ctx, QString name, Item *parent, ElementMap map, ElementGetter getter, ElementType type)
+            : Item(name, parent), ctx_(ctx), map_(map), getter_(getter), child_type_(type)
     {
         // Create all X and Y label Items/ElementLists.
 
@@ -320,7 +298,8 @@ class ElementXYRoot : public Item
 
             for (auto j : y_present) {
                 // Create Y list ElementList.
-                auto item2 = new ElementList<ElementT>(ctx_, QString("Y%1").arg(j), item, &map_, i, j, getter_, child_type_);
+                auto item2 =
+                        new ElementList<ElementT>(ctx_, QString("Y%1").arg(j), item, &map_, i, j, getter_, child_type_);
                 // Pre-populate list with one element, other Qt will never ask for more.
                 item2->fetchMore(1);
                 managed_lists_.push_back(std::move(std::unique_ptr<ElementList<ElementT>>(item2)));
@@ -329,7 +308,7 @@ class ElementXYRoot : public Item
     }
 
     // getById finds a child for the given IdString.
-    boost::optional<Item*> getById(IdString id)
+    boost::optional<Item *> getById(IdString id)
     {
         // For now, scan linearly all ElementLists.
         // TODO(q3k) fix this once we have tree API from arch
@@ -343,7 +322,7 @@ class ElementXYRoot : public Item
     }
 
     // Find children that contain the given text.
-    void search(QList<Item*> &results, QString text, int limit)
+    void search(QList<Item *> &results, QString text, int limit)
     {
         for (auto &l : managed_lists_) {
             if (limit != -1 && results.size() > limit)
@@ -374,13 +353,13 @@ class Model : public QAbstractItemModel
         const Item *parent = node->parent();
         if (parent == nullptr)
             return QModelIndex();
-        
+
         return createIndex(parent->indexOf(node), 0, node);
     }
 
     QList<QModelIndex> search(QString text);
 
-    boost::optional<Item*> nodeForIdType(ElementType type, IdString id) const
+    boost::optional<Item *> nodeForIdType(ElementType type, IdString id) const
     {
         switch (type) {
         case ElementType::BEL:
@@ -397,7 +376,7 @@ class Model : public QAbstractItemModel
             return boost::none;
         }
     }
- 
+
     // Override QAbstractItemModel methods
     int rowCount(const QModelIndex &parent = QModelIndex()) const Q_DECL_OVERRIDE;
     int columnCount(const QModelIndex &parent = QModelIndex()) const Q_DECL_OVERRIDE;
@@ -410,7 +389,6 @@ class Model : public QAbstractItemModel
     bool canFetchMore(const QModelIndex &parent) const Q_DECL_OVERRIDE;
 
   private:
-
     // Tree elements that we manage the memory for.
     std::unique_ptr<Item> root_;
     std::unique_ptr<BelXYRoot> bel_root_;

@@ -17,9 +17,9 @@
  *
  */
 
+#include "quadtree.h"
 #include "gtest/gtest.h"
 #include "nextpnr.h"
-#include "quadtree.h"
 
 USING_NEXTPNR_NAMESPACE
 
@@ -28,18 +28,12 @@ using QT = QuadTree<int, int>;
 class QuadTreeTest : public ::testing::Test
 {
   protected:
-    virtual void SetUp()
-    {
-       qt_ = new QT(QT::BoundingBox(0, 0, width_, height_));
-    }
-    virtual void TearDown()
-    {
-       delete qt_;
-    }
+    virtual void SetUp() { qt_ = new QT(QT::BoundingBox(0, 0, width_, height_)); }
+    virtual void TearDown() { delete qt_; }
 
-  int width_ = 100;
-  int height_ = 100;
-  QT *qt_;
+    int width_ = 100;
+    int height_ = 100;
+    QT *qt_;
 };
 
 // Test that we're doing bound checking correctly.
@@ -66,7 +60,7 @@ TEST_F(QuadTreeTest, insert_count)
         int x1 = x0 + w;
         int y1 = y0 + h;
         ASSERT_TRUE(qt_->insert(QT::BoundingBox(x0, y0, x1, y1), i));
-        ASSERT_EQ(qt_->size(), i+1);
+        ASSERT_EQ(qt_->size(), i + 1);
     }
     // Add 100000 random points.
     for (unsigned int i = 0; i < 100000; i++) {
@@ -75,7 +69,7 @@ TEST_F(QuadTreeTest, insert_count)
         int x1 = x0;
         int y1 = y0;
         ASSERT_TRUE(qt_->insert(QT::BoundingBox(x0, y0, x1, y1), i));
-        ASSERT_EQ(qt_->size(), i+10001);
+        ASSERT_EQ(qt_->size(), i + 10001);
     }
 }
 
@@ -91,8 +85,8 @@ TEST_F(QuadTreeTest, insert_retrieve_same)
         int y0 = rng.rng(height_);
         int w = rng.rng(width_ - x0);
         int h = rng.rng(width_ - y0);
-        int x1 = x0 + w/4;
-        int y1 = y0 + h/4;
+        int x1 = x0 + w / 4;
+        int y1 = y0 + h / 4;
         ASSERT_TRUE(qt_->insert(QT::BoundingBox(x0, y0, x1, y1), i));
     }
 
@@ -103,12 +97,12 @@ TEST_F(QuadTreeTest, insert_retrieve_same)
         int y0 = rng.rng(height_);
         int w = rng.rng(width_ - x0);
         int h = rng.rng(width_ - y0);
-        int x1 = x0 + w/4;
-        int y1 = y0 + h/4;
+        int x1 = x0 + w / 4;
+        int y1 = y0 + h / 4;
 
         // try to find something in the middle of the square
-        int x = (x1-x0)/2+x0;
-        int y = (y1-y0)/2+y0;
+        int x = (x1 - x0) / 2 + x0;
+        int y = (y1 - y0) / 2 + y0;
 
         auto res = qt_->get(x, y);
         // Somewhat arbirary test to make sure we don't return obscene

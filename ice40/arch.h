@@ -531,9 +531,9 @@ struct Arch : BaseCtx
         DelayInfo delay;
         NPNR_ASSERT(wire != WireId());
         if (fast_part)
-            delay.delay =  chip_info->wire_data[wire.index].fast_delay;
+            delay.delay = chip_info->wire_data[wire.index].fast_delay;
         else
-            delay.delay =  chip_info->wire_data[wire.index].slow_delay;
+            delay.delay = chip_info->wire_data[wire.index].slow_delay;
         return delay;
     }
 

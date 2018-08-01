@@ -164,8 +164,6 @@ class PlacementLegaliser
 
         ctx->assignArchInfo();
 
-
-
         return legalised_carries && replaced_cells;
     }
 

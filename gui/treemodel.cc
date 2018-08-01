@@ -25,7 +25,6 @@ NEXTPNR_NAMESPACE_BEGIN
 
 namespace TreeModel {
 
-
 // converts 'aa123bb432' -> ['aa', '123', 'bb', '432']
 std::vector<QString> IdStringList::alphaNumSplit(const QString &str)
 {
@@ -48,7 +47,7 @@ std::vector<QString> IdStringList::alphaNumSplit(const QString &str)
 
         current_part.push_back(c);
     }
-    
+
     res.push_back(current_part);
 
     return res;
@@ -69,7 +68,7 @@ void IdStringList::updateElements(Context *ctx, std::vector<IdString> elements)
             changed = true;
         }
     }
-    
+
     // For any elements that are in managed_ but not in new, delete them.
     for (auto &pair : managed_) {
         if (element_set.count(pair.first) != 0) {
@@ -92,7 +91,7 @@ void IdStringList::updateElements(Context *ctx, std::vector<IdString> elements)
     }
 
     // Sort new children
-    qSort(children_.begin(), children_.end(), [&](const Item *a, const Item *b){
+    qSort(children_.begin(), children_.end(), [&](const Item *a, const Item *b) {
         auto parts_a = alphaNumSplit(a->name());
         auto parts_b = alphaNumSplit(b->name());
 
@@ -104,7 +103,7 @@ void IdStringList::updateElements(Context *ctx, std::vector<IdString> elements)
         for (size_t i = 0; i < parts_a.size(); i++) {
             auto &part_a = parts_a.at(i);
             auto &part_b = parts_b.at(i);
-            
+
             bool a_is_number, b_is_number;
             int a_number = part_a.toInt(&a_is_number);
             int b_number = part_b.toInt(&b_is_number);
@@ -138,7 +137,7 @@ void IdStringList::updateElements(Context *ctx, std::vector<IdString> elements)
     });
 }
 
-void IdStringList::search(QList<Item*> &results, QString text, int limit)
+void IdStringList::search(QList<Item *> &results, QString text, int limit)
 {
     for (const auto &child : children_) {
         if (limit != -1 && results.size() > limit)
@@ -149,10 +148,7 @@ void IdStringList::search(QList<Item*> &results, QString text, int limit)
     }
 }
 
-
-Model::Model(QObject *parent) :
-        QAbstractItemModel(parent),
-        root_(new Item("Elements", nullptr)) {}
+Model::Model(QObject *parent) : QAbstractItemModel(parent), root_(new Item("Elements", nullptr)) {}
 
 Model::~Model() {}
 
@@ -176,7 +172,8 @@ void Model::loadContext(Context *ctx)
             belMap[std::pair<int, int>(loc.x, loc.y)].push_back(bel);
         }
         auto belGetter = [](Context *ctx, BelId id) { return ctx->getBelName(id); };
-        bel_root_ = std::unique_ptr<BelXYRoot>(new BelXYRoot(ctx, "Bels", root_.get(), belMap, belGetter, ElementType::BEL));
+        bel_root_ = std::unique_ptr<BelXYRoot>(
+                new BelXYRoot(ctx, "Bels", root_.get(), belMap, belGetter, ElementType::BEL));
 
         std::map<std::pair<int, int>, std::vector<WireId>> wireMap;
         for (int i = 0; i < ctx->chip_info->num_wires; i++) {
@@ -186,7 +183,8 @@ void Model::loadContext(Context *ctx)
             wireMap[std::pair<int, int>(wire->x, wire->y)].push_back(wireid);
         }
         auto wireGetter = [](Context *ctx, WireId id) { return ctx->getWireName(id); };
-        wire_root_ = std::unique_ptr<WireXYRoot>(new WireXYRoot(ctx, "Wires", root_.get(), wireMap, wireGetter, ElementType::WIRE));
+        wire_root_ = std::unique_ptr<WireXYRoot>(
+                new WireXYRoot(ctx, "Wires", root_.get(), wireMap, wireGetter, ElementType::WIRE));
 
         std::map<std::pair<int, int>, std::vector<PipId>> pipMap;
         for (int i = 0; i < ctx->chip_info->num_pips; i++) {
@@ -196,7 +194,8 @@ void Model::loadContext(Context *ctx)
             pipMap[std::pair<int, int>(pip->x, pip->y)].push_back(pipid);
         }
         auto pipGetter = [](Context *ctx, PipId id) { return ctx->getPipName(id); };
-        pip_root_ = std::unique_ptr<PipXYRoot>(new PipXYRoot(ctx, "Pips", root_.get(), pipMap, pipGetter, ElementType::PIP));
+        pip_root_ = std::unique_ptr<PipXYRoot>(
+                new PipXYRoot(ctx, "Pips", root_.get(), pipMap, pipGetter, ElementType::PIP));
     }
 #endif
 
@@ -284,7 +283,6 @@ Qt::ItemFlags Model::flags(const QModelIndex &index) const
     return Qt::ItemIsEnabled | (node->type() != ElementType::NONE ? Qt::ItemIsSelectable : Qt::NoItemFlags);
 }
 
-
 void Model::fetchMore(const QModelIndex &parent)
 {
     if (ctx_ == nullptr)
@@ -296,15 +294,12 @@ void Model::fetchMore(const QModelIndex &parent)
     nodeFromIndex(parent)->fetchMore();
 }
 
-bool Model::canFetchMore(const QModelIndex &parent) const
-{
-    return nodeFromIndex(parent)->canFetchMore();
-}
+bool Model::canFetchMore(const QModelIndex &parent) const { return nodeFromIndex(parent)->canFetchMore(); }
 
 QList<QModelIndex> Model::search(QString text)
 {
     const int limit = 500;
-    QList<Item*> list;
+    QList<Item *> list;
     cell_root_->search(list, text, limit);
     net_root_->search(list, text, limit);
     bel_root_->search(list, text, limit);

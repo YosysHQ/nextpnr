@@ -50,7 +50,6 @@ template <typename CoordinateT, typename ElementT> class QuadTreeNode
         {
         }
 
-
         BoundingBox() : x0_(pinf), y0_(pinf), x1_(ninf), y1_(ninf) {}
 
         BoundingBox(const BoundingBox &other) : x0_(other.x0_), y0_(other.y0_), x1_(other.x1_), y1_(other.y1_) {}
@@ -83,7 +82,7 @@ template <typename CoordinateT, typename ElementT> class QuadTreeNode
         CoordinateT y0() const { return y0_; }
         CoordinateT x1() const { return x1_; }
         CoordinateT y1() const { return y1_; }
-        
+
         void setX0(CoordinateT v) { x0_ = v; }
         void setY0(CoordinateT v) { y0_ = v; }
         void setX1(CoordinateT v) { x1_ = v; }
