@@ -630,53 +630,56 @@ void DesignWidget::updateHighlightGroup(QList<LazyTreeItem *> items, int group)
 
 void DesignWidget::prepareMenuProperty(const QPoint &pos)
 {
-    //QTreeWidget *tree = propertyEditor->treeWidget();
-    //QList<LazyTreeItem *> items;
-    //for (auto itemContextMenu : tree->selectedItems()) {
-    //    QtBrowserItem *browserItem = propertyEditor->itemToBrowserItem(itemContextMenu);
-    //    if (!browserItem)
-    //        continue;
-    //    QtProperty *selectedProperty = browserItem->property();
-    //    ElementType type = getElementTypeByName(selectedProperty->propertyId());
-    //    if (type == ElementType::NONE)
-    //        continue;
-    //    IdString value = ctx->id(selectedProperty->valueText().toStdString());
-    //    items.append(treeModel->nodeForIdType(type, value.c_str(ctx)));
-    //}
-    //int selectedIndex = -1;
-    //if (items.size() == 1) {
-    //    LazyTreeItem *item = items.at(0);
-    //    if (highlightSelected.contains(item))
-    //        selectedIndex = highlightSelected[item];
-    //}
+    QTreeWidget *tree = propertyEditor->treeWidget();
+    QList<LazyTreeItem *> items;
+    for (auto itemContextMenu : tree->selectedItems()) {
+        QtBrowserItem *browserItem = propertyEditor->itemToBrowserItem(itemContextMenu);
+        if (!browserItem)
+            continue;
+        QtProperty *selectedProperty = browserItem->property();
+        ElementType type = getElementTypeByName(selectedProperty->propertyId());
+        if (type == ElementType::NONE)
+            continue;
+        IdString value = ctx->id(selectedProperty->valueText().toStdString());
+        auto node = treeModel->nodeForIdType(type, value);
+        if (!node)
+            continue;
+        items.append(*node);
+    }
+    int selectedIndex = -1;
+    if (items.size() == 1) {
+        LazyTreeItem *item = items.at(0);
+        if (highlightSelected.contains(item))
+            selectedIndex = highlightSelected[item];
+    }
 
-    //QMenu menu(this);
-    //QAction *selectAction = new QAction("&Select", this);
-    //connect(selectAction, &QAction::triggered, this, [this, items] {
-    //    std::vector<DecalXY> decals;
-    //    for (auto clickItem : items) {
-    //        std::vector<DecalXY> d = getDecals(clickItem->type(), clickItem->id());
-    //        std::move(d.begin(), d.end(), std::back_inserter(decals));
-    //    }
-    //    Q_EMIT selected(decals, false);
-    //});
-    //menu.addAction(selectAction);
+    QMenu menu(this);
+    QAction *selectAction = new QAction("&Select", this);
+    connect(selectAction, &QAction::triggered, this, [this, items] {
+        std::vector<DecalXY> decals;
+        for (auto clickItem : items) {
+            std::vector<DecalXY> d = getDecals(clickItem->type(), clickItem->id());
+            std::move(d.begin(), d.end(), std::back_inserter(decals));
+        }
+        Q_EMIT selected(decals, false);
+    });
+    menu.addAction(selectAction);
 
-    //QMenu *subMenu = menu.addMenu("Highlight");
-    //QActionGroup *group = new QActionGroup(this);
-    //group->setExclusive(true);
-    //for (int i = 0; i < 8; i++) {
-    //    QPixmap pixmap(32, 32);
-    //    pixmap.fill(QColor(highlightColors[i]));
-    //    QAction *action = new QAction(QIcon(pixmap), ("Group " + std::to_string(i)).c_str(), this);
-    //    action->setCheckable(true);
-    //    subMenu->addAction(action);
-    //    group->addAction(action);
-    //    if (selectedIndex == i)
-    //        action->setChecked(true);
-    //    connect(action, &QAction::triggered, this, [this, i, items] { updateHighlightGroup(items, i); });
-    //}
-    //menu.exec(tree->mapToGlobal(pos));
+    QMenu *subMenu = menu.addMenu("Highlight");
+    QActionGroup *group = new QActionGroup(this);
+    group->setExclusive(true);
+    for (int i = 0; i < 8; i++) {
+        QPixmap pixmap(32, 32);
+        pixmap.fill(QColor(highlightColors[i]));
+        QAction *action = new QAction(QIcon(pixmap), ("Group " + std::to_string(i)).c_str(), this);
+        action->setCheckable(true);
+        subMenu->addAction(action);
+        group->addAction(action);
+        if (selectedIndex == i)
+            action->setChecked(true);
+        connect(action, &QAction::triggered, this, [this, i, items] { updateHighlightGroup(items, i); });
+    }
+    menu.exec(tree->mapToGlobal(pos));
 }
 
 void DesignWidget::prepareMenuTree(const QPoint &pos)
