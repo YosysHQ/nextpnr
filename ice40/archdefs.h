@@ -140,7 +140,6 @@ struct DecalId
     enum : int8_t
     {
         TYPE_NONE,
-        TYPE_FRAME,
         TYPE_BEL,
         TYPE_WIRE,
         TYPE_PIP,

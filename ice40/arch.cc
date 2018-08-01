@@ -665,14 +665,6 @@ bool Arch::route() { return router1(getCtx()); }
 
 // -----------------------------------------------------------------------
 
-DecalXY Arch::getFrameDecal() const
-{
-    DecalXY decalxy;
-    decalxy.decal.type = DecalId::TYPE_FRAME;
-    decalxy.decal.active = true;
-    return decalxy;
-}
-
 DecalXY Arch::getBelDecal(BelId bel) const
 {
     DecalXY decalxy;
@@ -712,10 +704,6 @@ DecalXY Arch::getGroupDecal(GroupId group) const
 std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
 {
     std::vector<GraphicElement> ret;
-
-    if (decal.type == DecalId::TYPE_FRAME) {
-        /* nothing */
-    }
 
     if (decal.type == DecalId::TYPE_GROUP) {
         int type = (decal.index >> 16) & 255;

@@ -714,7 +714,6 @@ struct Arch : BaseCtx
 
     std::vector<GraphicElement> getDecalGraphics(DecalId decal) const;
 
-    DecalXY getFrameDecal() const;
     DecalXY getBelDecal(BelId bel) const;
     DecalXY getWireDecal(WireId wire) const;
     DecalXY getPipDecal(PipId pip) const;

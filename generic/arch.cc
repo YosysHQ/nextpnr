@@ -426,8 +426,6 @@ bool Arch::route() { return router1(getCtx()); }
 
 const std::vector<GraphicElement> &Arch::getDecalGraphics(DecalId decal) const { return decal_graphics.at(decal); }
 
-DecalXY Arch::getFrameDecal() const { return frame_decalxy; }
-
 DecalXY Arch::getBelDecal(BelId bel) const { return bels.at(bel).decalxy; }
 
 DecalXY Arch::getWireDecal(WireId wire) const { return wires.at(wire).decalxy; }

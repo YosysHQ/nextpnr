@@ -317,8 +317,6 @@ int main(int argc, char *argv[])
                 std::cout << "<!-- " << ctx->getBelName(bel).str(ctx.get()) << " -->\n";
                 svg_dump_decal(ctx.get(), ctx->getBelDecal(bel));
             }
-            std::cout << "<!-- Frame -->\n";
-            svg_dump_decal(ctx.get(), ctx->getFrameDecal());
             std::cout << "</svg>\n";
         }
 

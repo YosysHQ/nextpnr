@@ -122,7 +122,7 @@ struct DecalId
 {
     enum
     {
-        TYPE_FRAME,
+        TYPE_NONE,
         TYPE_BEL
     } type;
     Location location;
