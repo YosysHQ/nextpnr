@@ -309,25 +309,34 @@ QtProperty *DesignWidget::addSubGroup(QtProperty *topItem, const QString &name)
 
 void DesignWidget::onClickedBel(BelId bel, bool keep)
 {
-    //LazyTreeItem *item = treeModel->nodeForIdType(ElementType::BEL, ctx->getBelName(bel).c_str(ctx));
-    //selectionModel->setCurrentIndex(treeModel->indexFromNode(item),
-    //                                keep ? QItemSelectionModel::Select : QItemSelectionModel::ClearAndSelect);
+    auto item = treeModel->nodeForIdType(ElementType::BEL, ctx->getBelName(bel));
+    if (!item)
+        return;
+
+    selectionModel->setCurrentIndex(treeModel->indexFromNode(*item),
+                                    keep ? QItemSelectionModel::Select : QItemSelectionModel::ClearAndSelect);
     Q_EMIT selected(getDecals(ElementType::BEL, ctx->getBelName(bel)), keep);
 }
 
 void DesignWidget::onClickedWire(WireId wire, bool keep)
 {
-    //LazyTreeItem *item = treeModel->nodeForIdType(ElementType::WIRE, ctx->getWireName(wire).c_str(ctx));
-    //selectionModel->setCurrentIndex(treeModel->indexFromNode(item),
-    //                                keep ? QItemSelectionModel::Select : QItemSelectionModel::ClearAndSelect);
+    auto item = treeModel->nodeForIdType(ElementType::WIRE, ctx->getWireName(wire));
+    if (!item)
+        return;
+
+    selectionModel->setCurrentIndex(treeModel->indexFromNode(*item),
+                                    keep ? QItemSelectionModel::Select : QItemSelectionModel::ClearAndSelect);
     Q_EMIT selected(getDecals(ElementType::WIRE, ctx->getWireName(wire)), keep);
 }
 
 void DesignWidget::onClickedPip(PipId pip, bool keep)
 {
-    //LazyTreeItem *item = treeModel->nodeForIdType(ElementType::PIP, ctx->getPipName(pip).c_str(ctx));
-    //selectionModel->setCurrentIndex(treeModel->indexFromNode(item),
-    //                                keep ? QItemSelectionModel::Select : QItemSelectionModel::ClearAndSelect);
+    auto item = treeModel->nodeForIdType(ElementType::PIP, ctx->getPipName(pip));
+    if (!item)
+        return;
+
+    selectionModel->setCurrentIndex(treeModel->indexFromNode(*item),
+                                    keep ? QItemSelectionModel::Select : QItemSelectionModel::ClearAndSelect);
     Q_EMIT selected(getDecals(ElementType::PIP, ctx->getPipName(pip)), keep);
 }
 

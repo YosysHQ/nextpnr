@@ -21,8 +21,9 @@
 #define TREEMODEL_H
 
 #include <QAbstractItemModel>
+#include <boost/optional.hpp>
+
 #include "nextpnr.h"
-#include "log.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -75,9 +76,20 @@ class LazyTreeItem
         return children_.at(index);
     }
 
-    int indexOf(LazyTreeItem *child) const
+    int indexOf(const LazyTreeItem *child) const
+    { 
+        // Dropping the const for indexOf to work.
+        return children_.indexOf((LazyTreeItem *)child, 0);
+    }
+
+    int indexOf(LazyTreeItem *child)
     { 
         return children_.indexOf(child, 0);
+    }
+
+    const LazyTreeItem *parent() const
+    {
+        return parent_;
     }
 
     LazyTreeItem *parent()
@@ -146,7 +158,7 @@ class ElementList : public LazyTreeItem
     const ElementMap *map_;
     int x_, y_;
     ElementGetter getter_;
-    std::vector<std::unique_ptr<StaticTreeItem>> managed_;
+    std::unordered_map<IdString, std::unique_ptr<StaticTreeItem>> managed_;
     ElementType child_type_;
 
     // scope valid until map gets mutated...
@@ -180,7 +192,7 @@ class ElementList : public LazyTreeItem
                 name.remove(0, prefix.size());
 
             auto item = new IdStringItem(ctx_, idstring, this, child_type_);
-            managed_.push_back(std::move(std::unique_ptr<StaticTreeItem>(item)));
+            managed_[idstring] = std::move(std::unique_ptr<StaticTreeItem>(item));
         }
     }
 
@@ -192,6 +204,18 @@ class ElementList : public LazyTreeItem
     virtual IdString id() const override
     {
         return IdString();
+    }
+
+    boost::optional<LazyTreeItem*> getById(IdString id)
+    {
+        // Search requires us to load all our elements...
+        while (canFetchMore()) fetchMore();
+
+        auto res = managed_.find(id);
+        if (res != managed_.end()) {
+            return res->second.get();
+        }
+        return boost::none;
     }
 };
 
@@ -230,6 +254,11 @@ class IdStringList : public StaticTreeItem
         res.push_back(current_part);
 
         return res;
+    }
+
+    IdStringItem *getById(IdString id) const
+    {
+        return managed_.at(id).get();
     }
 
     void updateElements(Context *ctx, std::vector<IdString> elements)
@@ -310,7 +339,8 @@ class ElementXYRoot : public StaticTreeItem
 
   private:
     Context *ctx_;
-    std::vector<std::unique_ptr<LazyTreeItem>> managed_;
+    std::vector<std::unique_ptr<StaticTreeItem>> managed_labels_;
+    std::vector<std::unique_ptr<ElementList<ElementT>>> managed_lists_;
     ElementMap map_;
     ElementGetter getter_;
     ElementType child_type_;
@@ -335,13 +365,26 @@ class ElementXYRoot : public StaticTreeItem
 
             // create X item for tree
             auto item = new StaticTreeItem(QString("X%1").arg(i), this, child_type_);
-            managed_.push_back(std::move(std::unique_ptr<LazyTreeItem>(item)));
+            managed_labels_.push_back(std::move(std::unique_ptr<StaticTreeItem>(item)));
             for (auto j : y_present) {
                 auto item2 = new ElementList<ElementT>(ctx_, QString("Y%1").arg(j), item, &map_, i, j, getter_, child_type_);
                 item2->fetchMore(1);
-                managed_.push_back(std::move(std::unique_ptr<LazyTreeItem>(item2)));
+                managed_lists_.push_back(std::move(std::unique_ptr<ElementList<ElementT>>(item2)));
             }
         }
+    }
+
+    boost::optional<LazyTreeItem*> getById(IdString id)
+    {
+        // For now, scan linearly all ElementLists.
+        // TODO(q3k) fix this once we have tree API from arch
+        for (auto &l : managed_lists_) {
+            auto res = l->getById(id);
+            if (res) {
+                return res;
+            }
+        }
+        return boost::none;
     }
 };
 
@@ -358,7 +401,33 @@ class ContextTreeModel : public QAbstractItemModel
     void loadContext(Context *ctx);
     void updateCellsNets(Context *ctx);
     LazyTreeItem *nodeFromIndex(const QModelIndex &idx) const;
+    QModelIndex indexFromNode(LazyTreeItem *node)
+    {
+        const LazyTreeItem *parent = node->parent();
+        if (parent == nullptr)
+            return QModelIndex();
+        
+        return createIndex(parent->indexOf(node), 0, node);
+    }
+
     QList<QModelIndex> search(QString text);
+    boost::optional<LazyTreeItem*> nodeForIdType(ElementType type, IdString id) const
+    {
+        switch (type) {
+        case ElementType::BEL:
+            return bel_root_->getById(id);
+        case ElementType::WIRE:
+            return wire_root_->getById(id);
+        case ElementType::PIP:
+            return pip_root_->getById(id);
+        case ElementType::CELL:
+            return cell_root_->getById(id);
+        case ElementType::NET:
+            return net_root_->getById(id);
+        default:
+            return boost::none;
+        }
+    }
  
     // Override QAbstractItemModel methods
     int rowCount(const QModelIndex &parent = QModelIndex()) const Q_DECL_OVERRIDE;
