@@ -39,7 +39,6 @@ wirelen_t get_net_metric(const Context *ctx, const NetInfo *net, MetricType type
     driver_loc = ctx->getBelLocation(driver_cell->bel);
     if (driver_gb)
         return 0;
-
     delay_t negative_slack = 0;
     delay_t worst_slack = std::numeric_limits<delay_t>::max();
     int xmin = driver_loc.x, xmax = driver_loc.x, ymin = driver_loc.y, ymax = driver_loc.y;
