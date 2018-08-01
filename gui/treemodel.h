@@ -62,6 +62,8 @@ class Item
 
     void addChild(Item *child) { children_.append(child); }
 
+    void deleteChild(Item *child) { children_.removeAll(child); }
+
   public:
     Item(QString name, Item *parent) : name_(name), parent_(parent)
     {
@@ -100,7 +102,12 @@ class Item
     virtual bool canFetchMore() const { return false; }
     virtual void fetchMore() {}
 
-    ~Item() {}
+    ~Item()
+    {
+        if (parent_ != nullptr) {
+            parent_->deleteChild(this);
+        }
+    }
 };
 
 // IdString is an Item that corresponds to a real element in Arch.
