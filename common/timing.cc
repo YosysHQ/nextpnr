@@ -57,8 +57,8 @@ static delay_t follow_user_port(Context *ctx, PortRef &user, int path_length, de
                 if (is_path) {
                     NetInfo *net = port.second.net;
                     if (net) {
-                        delay_t path_budget = follow_net(ctx, net, path_length, slack - comb_delay.maxDelay(), update, min_slack,
-                                                         current_path, crit_path);
+                        delay_t path_budget = follow_net(ctx, net, path_length, slack - comb_delay.maxDelay(), update,
+                                                         min_slack, current_path, crit_path);
                         value = std::min(value, path_budget);
                     }
                 }
@@ -162,8 +162,8 @@ void assign_budget(Context *ctx, bool quiet)
     if (!ctx->user_freq && ctx->slack_redist_iter > 0) {
         ctx->target_freq = 1e12 / (default_slack - min_slack);
         /*if (ctx->verbose)*/
-            log_info("minimum slack for this assign = %d, target Fmax for next update = %.2f MHz\n", min_slack,
-                     ctx->target_freq / 1e6);
+        log_info("minimum slack for this assign = %d, target Fmax for next update = %.2f MHz\n", min_slack,
+                 ctx->target_freq / 1e6);
     }
 
     if (!quiet)

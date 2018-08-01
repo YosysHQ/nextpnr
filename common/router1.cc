@@ -779,7 +779,8 @@ bool router1(Context *ctx)
                         if (ctx->verbose)
                             log_info("  arc %s -> %s has %f ns slack (delay %f, budget %f)\n",
                                      ctx->getWireName(ctx->getNetinfoSourceWire(net_info)).c_str(ctx),
-                                     ctx->getWireName(ctx->getNetinfoSinkWire(net_info, net_info->users[user_idx])).c_str(ctx),
+                                     ctx->getWireName(ctx->getNetinfoSinkWire(net_info, net_info->users[user_idx]))
+                                             .c_str(ctx),
                                      ctx->getDelayNS(arc_slack), ctx->getDelayNS(arc_delay),
                                      ctx->getDelayNS(arc_budget));
                         tns += ctx->getDelayNS(arc_slack);

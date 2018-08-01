@@ -105,7 +105,8 @@ int main(int argc, char *argv[])
         options.add_options()("asc", po::value<std::string>(), "asc bitstream file to write");
         options.add_options()("read", po::value<std::string>(), "asc bitstream file to read");
         options.add_options()("seed", po::value<int>(), "seed value for random number generator");
-        options.add_options()("slack_redist_iter", po::value<int>(), "number of iterations between slack redistribution");
+        options.add_options()("slack_redist_iter", po::value<int>(),
+                              "number of iterations between slack redistribution");
         options.add_options()("version,V", "show version");
         options.add_options()("tmfuzz", "run path delay estimate fuzzer");
         options.add_options()("test", "check architecture database integrity");

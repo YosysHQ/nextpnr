@@ -415,7 +415,7 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
 
 delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const;
 {
-    const auto& driver = net_info->driver;
+    const auto &driver = net_info->driver;
     auto driver_loc = getBelLocation(driver.cell->bel);
     auto sink_loc = getBelLocation(sink.cell->bel);
 

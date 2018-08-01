@@ -205,10 +205,7 @@ struct DecalXY
     DecalId decal;
     float x = 0, y = 0;
 
-    bool operator==(const DecalXY &other) const
-    {
-        return (decal == other.decal && x == other.x && y == other.y);
-    }
+    bool operator==(const DecalXY &other) const { return (decal == other.decal && x == other.x && y == other.y); }
 };
 
 struct BelPin
@@ -483,8 +480,8 @@ struct Context : Arch, DeterministicRNG
     // --------------------------------------------------------------
 
     WireId getNetinfoSourceWire(const NetInfo *net_info) const;
-    WireId getNetinfoSinkWire(const NetInfo *net_info, const PortRef& sink) const;
-    delay_t getNetinfoRouteDelay(const NetInfo *net_info, const PortRef& sink) const;
+    WireId getNetinfoSinkWire(const NetInfo *net_info, const PortRef &sink) const;
+    delay_t getNetinfoRouteDelay(const NetInfo *net_info, const PortRef &sink) const;
 
     // provided by router1.cc
     bool getActualRouteDelay(WireId src_wire, WireId dst_wire, delay_t &delay);

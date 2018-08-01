@@ -66,7 +66,8 @@ wirelen_t get_net_metric(const Context *ctx, const NetInfo *net, MetricType type
         ymax = std::max(ymax, load_loc.y);
     }
     if (ctx->timing_driven && type == MetricType::COST) {
-        wirelength = wirelen_t((((ymax - ymin) + (xmax - xmin)) * std::min(5.0, (1.0 + std::exp(-ctx->getDelayNS(worst_slack) / 5)))));
+        wirelength = wirelen_t(
+                (((ymax - ymin) + (xmax - xmin)) * std::min(5.0, (1.0 + std::exp(-ctx->getDelayNS(worst_slack) / 5)))));
     } else {
         wirelength = wirelen_t((ymax - ymin) + (xmax - xmin));
     }

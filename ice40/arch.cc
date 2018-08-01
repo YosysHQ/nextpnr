@@ -317,15 +317,15 @@ PortType Arch::getBelPinType(BelId bel, PortPin pin) const
                 return PortType(bel_wires[i].type);
         }
     } else {
-        int b = 0, e = num_bel_wires-1;
+        int b = 0, e = num_bel_wires - 1;
         while (b <= e) {
-            int i = (b+e) / 2;
+            int i = (b + e) / 2;
             if (bel_wires[i].port == pin)
                 return PortType(bel_wires[i].type);
             if (bel_wires[i].port > pin)
-                e = i-1;
+                e = i - 1;
             else
-                b = i+1;
+                b = i + 1;
         }
     }
 
@@ -349,17 +349,17 @@ WireId Arch::getBelPinWire(BelId bel, PortPin pin) const
             }
         }
     } else {
-        int b = 0, e = num_bel_wires-1;
+        int b = 0, e = num_bel_wires - 1;
         while (b <= e) {
-            int i = (b+e) / 2;
+            int i = (b + e) / 2;
             if (bel_wires[i].port == pin) {
                 ret.index = bel_wires[i].wire_index;
                 break;
             }
             if (bel_wires[i].port > pin)
-                e = i-1;
+                e = i - 1;
             else
-                b = i+1;
+                b = i + 1;
         }
     }
 
@@ -618,7 +618,7 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
 
 delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
 {
-    const auto& driver = net_info->driver;
+    const auto &driver = net_info->driver;
     auto driver_loc = getBelLocation(driver.cell->bel);
     auto sink_loc = getBelLocation(sink.cell->bel);
 
@@ -636,13 +636,15 @@ delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
     //     offset = 500;
     // }
 
-    if (driver.port == id_o) offset += 330;
-    if (sink.port == id_i0 || sink.port == id_i1 || sink.port == id_i2 || sink.port == id_i3) offset += 260;
+    if (driver.port == id_o)
+        offset += 330;
+    if (sink.port == id_i0 || sink.port == id_i1 || sink.port == id_i2 || sink.port == id_i3)
+        offset += 260;
 
     return xscale * abs(xd) + yscale * abs(yd) + offset;
 }
 
-delay_t Arch::getBudgetOverride(const NetInfo *net_info, const PortRef& sink, delay_t budget) const
+delay_t Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t budget) const
 {
     const auto &driver = net_info->driver;
     if (driver.port == id_cout) {
