@@ -52,12 +52,12 @@ Nextpnr and other tools
    need an open source toolchain, we suggest you use [Yosys](http://www.clifford.at/yosys/) and nextpnr.
 
  * If you are developing FPGA code in **Verilog** for a **Lattice iCE40** with
-   Yosys and the **existing Arachne-PNR toolchain**, we suggest you start thinking about
+   Yosys and the **existing arachne-pnr toolchain**, we suggest you start thinking about
    migrating to nextpnr.
 
  * If you are developing Verilog FPGA code targeted at the Lattice ECP5 and
    need an open source toolchain, you may consider the **extremely
-   experimental** ECP5 support in Yosys and nextpnr
+   experimental** ECP5 support in Yosys and nextpnr.
 
  * If you are developing FPGA code in **VHDL** you will need to use either a
    version of [Yosys with Verific support](https://github.com/YosysHQ/yosys/tree/master/frontends/verific) or the vendor provided tools due
@@ -72,8 +72,8 @@ part of [Project IceStorm](http://www.clifford.at/icestorm/) to demonstrate it
 was possible to create an open source place and route tool for the iCE40 FPGAs
 that actually produced valid bitstreams.
 
-For it's original purpose it has served the community extremely well. However,
-it was never designed to support multiple different FPGA devices, nor more
+For its original purpose, it has served the community extremely well. However,
+it was never designed to support multiple different FPGA families, nor more
 complicated timing driven placement and routing used by most commercial place and route
 tools.
 
@@ -91,7 +91,7 @@ of arachne-pnr.
 ### Why are you not just contributing to [Verilog to Routing](https://verilogtorouting.org)?
 
 We believe that [Verilog to Routing](https://verilogtorouting.org) is a great
-tool and many of the nextpnr developers have made (and continue to make)
+toolchain and many of the nextpnr developers have made (and continue to make)
 contributions to the project.
 
 VtR is an extremely flexible toolchain but focuses on research around FPGA
@@ -139,7 +139,7 @@ will soon be using Project X-Ray in a similar manner to Project Trellis.
 
 [Project IceStorm](http://www.clifford.at/icestorm/) is both a project to
 document the bitstream for the Lattice iCE40 series of parts **and** a full
-flow including Yosys and Arachne-PNR for converting Verilog into a bitstream for
+flow including Yosys and arachne-pnr for converting Verilog into a bitstream for
 these parts.
 
 As the open source community now has support for multiple different FPGA parts,
