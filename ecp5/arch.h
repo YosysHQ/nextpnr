@@ -117,6 +117,17 @@ NPNR_PACKED_STRUCT(struct PackageInfoPOD {
     RelPtr<PackagePinPOD> pin_data;
 });
 
+NPNR_PACKED_STRUCT(struct TileNamePOD {
+    RelPtr<char> name;
+    int16_t type_idx;
+    int16_t padding;
+});
+
+NPNR_PACKED_STRUCT(struct TileInfoPOD {
+    int32_t num_tiles;
+    RelPtr<TileNamePOD> tile_names;
+});
+
 enum TapDirection : int8_t
 {
     TAP_DIR_LEFT = 0,
@@ -148,6 +159,7 @@ NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     RelPtr<RelPtr<char>> tiletype_names;
     RelPtr<PackageInfoPOD> package_info;
     RelPtr<PIOInfoPOD> pio_info;
+    RelPtr<TileInfoPOD> tile_info;
 });
 
 #if defined(_MSC_VER)
