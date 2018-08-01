@@ -124,6 +124,17 @@ void IdStringList::updateElements(Context *ctx, std::vector<IdString> elements)
     });
 }
 
+void IdStringList::search(QList<Item*> &results, QString text, int limit)
+{
+    for (const auto &child : children_) {
+        if (limit != -1 && results.size() > limit)
+            return;
+
+        if (child->name().contains(text))
+            results.push_back(child);
+    }
+}
+
 
 Model::Model(QObject *parent) :
         QAbstractItemModel(parent),
@@ -272,17 +283,20 @@ bool Model::canFetchMore(const QModelIndex &parent) const
 
 QList<QModelIndex> Model::search(QString text)
 {
-    QList<QModelIndex> list;
-    //for (int i = 0; i < 6; i++) {
-    //    for (auto key : nameToItem[i].keys()) {
-    //        if (key.contains(text, Qt::CaseInsensitive)) {
-    //            list.append(indexFromNode(nameToItem[i].value(key)));
-    //            if (list.count() > 500)
-    //                break; // limit to 500 results
-    //        }
-    //    }
-    //}
-    return list;
+    const int limit = 500;
+
+    QList<Item*> list;
+    cell_root_->search(list, text, limit);
+    net_root_->search(list, text, limit);
+    bel_root_->search(list, text, limit);
+    wire_root_->search(list, text, limit);
+    pip_root_->search(list, text, limit);
+
+    QList<QModelIndex> res;
+    for (auto i : list) {
+        res.push_back(indexFromNode(i));
+    }
+    return res;
 }
 
 }; // namespace TreeModel

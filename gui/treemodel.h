@@ -159,6 +159,9 @@ class IdStringList : public Item
 
     // (Re-)create children from a list of IdStrings.
     void updateElements(Context *ctx, std::vector<IdString> elements);
+
+    // Find children that contain the given text.
+    void search(QList<Item*> &results, QString text, int limit);
 };
 
 
@@ -243,6 +246,24 @@ class ElementList : public Item
         }
         return boost::none;
     }
+
+    // Find children that contain the given text.
+    void search(QList<Item*> &results, QString text, int limit)
+    {
+        // Last chance to bail out from loading entire tree into memory.
+        if (limit != -1 && results.size() > limit)
+            return;
+
+        // Search requires us to load all our elements...
+        while (canFetchMore()) fetchMore();
+
+        for (const auto &child : children_) {
+            if (limit != -1 && results.size() > limit)
+                return;
+            if (child->name().contains(text))
+                results.push_back(child);
+        }
+    }
 };
 
 // ElementXYRoot is the root of an ElementT multi-level lazy loading list.
@@ -320,6 +341,16 @@ class ElementXYRoot : public Item
         }
         return boost::none;
     }
+
+    // Find children that contain the given text.
+    void search(QList<Item*> &results, QString text, int limit)
+    {
+        for (auto &l : managed_lists_) {
+            if (limit != -1 && results.size() > limit)
+                return;
+            l->search(results, text, limit);
+        }
+    }
 };
 
 class Model : public QAbstractItemModel
@@ -345,6 +376,7 @@ class Model : public QAbstractItemModel
     }
 
     QList<QModelIndex> search(QString text);
+
     boost::optional<Item*> nodeForIdType(ElementType type, IdString id) const
     {
         switch (type) {
