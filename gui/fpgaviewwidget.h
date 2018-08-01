@@ -251,8 +251,6 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
             zoomOutbound = other.zoomOutbound;
             return *this;
         }
-
-        void clear() { zoomOutbound = false; }
     };
 
     struct RendererArgs
