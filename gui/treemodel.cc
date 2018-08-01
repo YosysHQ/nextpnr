@@ -195,7 +195,6 @@ void Model::loadContext(Context *ctx)
             pipid.index = i;
             pipMap[std::pair<int, int>(pip->x, pip->y)].push_back(pipid);
         }
-        printf("generating pip static tree...\n");
         auto pipGetter = [](Context *ctx, PipId id) { return ctx->getPipName(id); };
         pip_root_ = std::unique_ptr<PipXYRoot>(new PipXYRoot(ctx, "Pips", root_.get(), pipMap, pipGetter, ElementType::PIP));
     }
