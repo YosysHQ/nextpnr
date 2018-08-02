@@ -36,13 +36,7 @@ MainWindow::MainWindow(std::unique_ptr<Context> context, QWidget *parent) : Base
 
 MainWindow::~MainWindow() {}
 
-void MainWindow::createMenu()
-{
-    QMenu *menu_Custom = new QMenu("&Generic", menuBar);
-    menuBar->addAction(menu_Custom->menuAction());
-
-    createGraphicsBar();
-}
+void MainWindow::createMenu() {}
 
 void MainWindow::new_proj() {}
 

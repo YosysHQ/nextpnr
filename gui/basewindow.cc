@@ -23,19 +23,22 @@
 #include <QFileDialog>
 #include <QGridLayout>
 #include <QIcon>
+#include <QInputDialog>
 #include <QSplitter>
 #include "designwidget.h"
 #include "fpgaviewwidget.h"
 #include "log.h"
 #include "mainwindow.h"
 #include "pythontab.h"
+#include "jsonparse.h"
+#include <fstream>
 
 static void initBasenameResource() { Q_INIT_RESOURCE(base); }
 
 NEXTPNR_NAMESPACE_BEGIN
 
 BaseMainWindow::BaseMainWindow(std::unique_ptr<Context> context, QWidget *parent)
-        : QMainWindow(parent), ctx(std::move(context))
+        : QMainWindow(parent), ctx(std::move(context)), timing_driven(false)
 {
     initBasenameResource();
     qRegisterMetaType<std::string>();
@@ -46,7 +49,18 @@ BaseMainWindow::BaseMainWindow(std::unique_ptr<Context> context, QWidget *parent
     setObjectName("BaseMainWindow");
     resize(1024, 768);
 
-    createMenusAndBars();
+    task = new TaskManager();
+    connect(task, SIGNAL(log(std::string)), this, SLOT(writeInfo(std::string)));
+
+    connect(task, SIGNAL(pack_finished(bool)), this, SLOT(pack_finished(bool)));
+    connect(task, SIGNAL(budget_finish(bool)), this, SLOT(budget_finish(bool)));
+    connect(task, SIGNAL(place_finished(bool)), this, SLOT(place_finished(bool)));
+    connect(task, SIGNAL(route_finished(bool)), this, SLOT(route_finished(bool)));
+
+    connect(task, SIGNAL(taskCanceled()), this, SLOT(taskCanceled()));
+    connect(task, SIGNAL(taskStarted()), this, SLOT(taskStarted()));
+    connect(task, SIGNAL(taskPaused()), this, SLOT(taskPaused()));
+    connect(this, SIGNAL(contextChanged(Context *)), task, SIGNAL(contextChanged(Context *)));
 
     QWidget *centralWidget = new QWidget(this);
 
@@ -99,9 +113,11 @@ BaseMainWindow::BaseMainWindow(std::unique_ptr<Context> context, QWidget *parent
 
     splitter_v->addWidget(centralTabWidget);
     splitter_v->addWidget(tabWidget);
+
+    createMenusAndBars();
 }
 
-BaseMainWindow::~BaseMainWindow() {}
+BaseMainWindow::~BaseMainWindow() { delete task; }
 
 void BaseMainWindow::closeTab(int index) { delete centralTabWidget->widget(index); }
 
@@ -138,10 +154,9 @@ void BaseMainWindow::createMenusAndBars()
 
     menuBar = new QMenuBar();
     menuBar->setGeometry(QRect(0, 0, 1024, 27));
-    QMenu *menu_File = new QMenu("&File", menuBar);
-    QMenu *menu_Help = new QMenu("&Help", menuBar);
-    menuBar->addAction(menu_File->menuAction());
-    menuBar->addAction(menu_Help->menuAction());
+    QMenu *menuFile = new QMenu("&File", menuBar);
+    QMenu *menuHelp = new QMenu("&Help", menuBar);
+    menuDesign = new QMenu("&Design", menuBar);
     setMenuBar(menuBar);
 
     mainToolBar = new QToolBar();
@@ -156,20 +171,92 @@ void BaseMainWindow::createMenusAndBars()
     progressBar->setEnabled(false);
     setStatusBar(statusBar);
 
-    menu_File->addAction(actionNew);
-    menu_File->addAction(actionOpen);
-    menu_File->addAction(actionSave);
-    menu_File->addSeparator();
-    menu_File->addAction(actionExit);
-    menu_Help->addAction(actionAbout);
+    menuFile->addAction(actionNew);
+    menuFile->addAction(actionOpen);
+    menuFile->addAction(actionSave);
+    menuFile->addSeparator();
+    menuFile->addAction(actionExit);
+    menuHelp->addAction(actionAbout);
 
     mainToolBar->addAction(actionNew);
     mainToolBar->addAction(actionOpen);
     mainToolBar->addAction(actionSave);
-}
 
-void BaseMainWindow::createGraphicsBar()
-{
+    menuBar->addAction(menuFile->menuAction());
+    menuBar->addAction(menuDesign->menuAction());
+    menuBar->addAction(menuHelp->menuAction());
+
+    actionLoadJSON = new QAction("Open JSON", this);
+    actionLoadJSON->setIcon(QIcon(":/icons/resources/open_json.png"));
+    actionLoadJSON->setStatusTip("Open an existing JSON file");
+    actionLoadJSON->setEnabled(true);
+    connect(actionLoadJSON, SIGNAL(triggered()), this, SLOT(open_json()));
+
+    actionPack = new QAction("Pack", this);
+    actionPack->setIcon(QIcon(":/icons/resources/pack.png"));
+    actionPack->setStatusTip("Pack current design");
+    actionPack->setEnabled(false);
+    connect(actionPack, SIGNAL(triggered()), task, SIGNAL(pack()));
+
+    actionAssignBudget = new QAction("Assign Budget", this);
+    actionAssignBudget->setIcon(QIcon(":/icons/resources/time_add.png"));
+    actionAssignBudget->setStatusTip("Assign time budget for current design");
+    actionAssignBudget->setEnabled(false);
+    connect(actionAssignBudget, SIGNAL(triggered()), this, SLOT(budget()));
+
+    actionPlace = new QAction("Place", this);
+    actionPlace->setIcon(QIcon(":/icons/resources/place.png"));
+    actionPlace->setStatusTip("Place current design");
+    actionPlace->setEnabled(false);
+    connect(actionPlace, SIGNAL(triggered()), this, SLOT(place()));
+
+    actionRoute = new QAction("Route", this);
+    actionRoute->setIcon(QIcon(":/icons/resources/route.png"));
+    actionRoute->setStatusTip("Route current design");
+    actionRoute->setEnabled(false);
+    connect(actionRoute, SIGNAL(triggered()), task, SIGNAL(route()));
+
+    taskFPGABar = new QToolBar();
+    addToolBar(Qt::TopToolBarArea, taskFPGABar);
+
+    taskFPGABar->addAction(actionLoadJSON);
+    taskFPGABar->addAction(actionPack);
+    taskFPGABar->addAction(actionAssignBudget);
+    taskFPGABar->addAction(actionPlace);
+    taskFPGABar->addAction(actionRoute);
+
+
+    menuDesign->addAction(actionLoadJSON);
+    menuDesign->addAction(actionPack);
+    menuDesign->addAction(actionAssignBudget);
+    menuDesign->addAction(actionPlace);
+    menuDesign->addAction(actionRoute);
+
+    actionPlay = new QAction("Play", this);
+    actionPlay->setIcon(QIcon(":/icons/resources/control_play.png"));
+    actionPlay->setStatusTip("Continue running task");
+    actionPlay->setEnabled(false);
+    connect(actionPlay, SIGNAL(triggered()), task, SLOT(continue_thread()));
+
+    actionPause = new QAction("Pause", this);
+    actionPause->setIcon(QIcon(":/icons/resources/control_pause.png"));
+    actionPause->setStatusTip("Pause running task");
+    actionPause->setEnabled(false);
+    connect(actionPause, SIGNAL(triggered()), task, SLOT(pause_thread()));
+
+    actionStop = new QAction("Stop", this);
+    actionStop->setIcon(QIcon(":/icons/resources/control_stop.png"));
+    actionStop->setStatusTip("Stop running task");
+    actionStop->setEnabled(false);
+    connect(actionStop, SIGNAL(triggered()), task, SLOT(terminate_thread()));
+
+    QToolBar *taskToolBar = new QToolBar();
+    addToolBar(Qt::TopToolBarArea, taskToolBar);
+
+    taskToolBar->addAction(actionPlay);
+    taskToolBar->addAction(actionPause);
+    taskToolBar->addAction(actionStop);
+
     QAction *actionZoomIn = new QAction("Zoom In", this);
     actionZoomIn->setIcon(QIcon(":/icons/resources/zoom_in.png"));
     connect(actionZoomIn, SIGNAL(triggered()), fpgaView, SLOT(zoomIn()));
@@ -192,6 +279,137 @@ void BaseMainWindow::createGraphicsBar()
     graphicsToolBar->addAction(actionZoomOut);
     graphicsToolBar->addAction(actionZoomSelected);
     graphicsToolBar->addAction(actionZoomOutbound);
+}
+
+void BaseMainWindow::load_json(std::string filename)
+{
+    disableActions();
+    currentJson = filename;
+    std::ifstream f(filename);
+    if (parse_json_file(f, filename, ctx.get())) {
+        log("Loading design successful.\n");
+        Q_EMIT updateTreeView();
+        actionPack->setEnabled(true);
+        onJsonLoaded();
+    } else {
+        actionLoadJSON->setEnabled(true);
+        log("Loading design failed.\n");
+    }
+}
+
+void BaseMainWindow::open_json()
+{
+    QString fileName = QFileDialog::getOpenFileName(this, QString("Open JSON"), QString(), QString("*.json"));
+    if (!fileName.isEmpty()) {
+        load_json(fileName.toStdString());
+    }
+}
+
+void BaseMainWindow::pack_finished(bool status)
+{
+    disableActions();
+    if (status) {
+        log("Packing design successful.\n");
+        Q_EMIT updateTreeView();
+        actionPlace->setEnabled(true);
+        actionAssignBudget->setEnabled(true);
+        onPackFinished();
+    } else {
+        log("Packing design failed.\n");
+    }
+}
+
+void BaseMainWindow::budget_finish(bool status)
+{
+    disableActions();
+    if (status) {
+        log("Assigning timing budget successful.\n");
+        actionPlace->setEnabled(true);
+        onBudgetFinished();
+    } else {
+        log("Assigning timing budget failed.\n");
+    }
+}
+
+void BaseMainWindow::place_finished(bool status)
+{
+    disableActions();
+    if (status) {
+        log("Placing design successful.\n");
+        Q_EMIT updateTreeView();
+        actionRoute->setEnabled(true);
+        onPlaceFinished();
+    } else {
+        log("Placing design failed.\n");
+    }
+}
+void BaseMainWindow::route_finished(bool status)
+{
+    disableActions();
+    if (status) {
+        log("Routing design successful.\n");
+        Q_EMIT updateTreeView();
+        onRouteFinished();
+    } else
+        log("Routing design failed.\n");
+}
+
+void BaseMainWindow::taskCanceled()
+{
+    log("CANCELED\n");
+    disableActions();
+}
+
+void BaseMainWindow::taskStarted()
+{
+    disableActions();
+    actionPause->setEnabled(true);
+    actionStop->setEnabled(true);
+
+    actionNew->setEnabled(false);
+    actionOpen->setEnabled(false);
+}
+
+void BaseMainWindow::taskPaused()
+{
+    disableActions();
+    actionPlay->setEnabled(true);
+    actionStop->setEnabled(true);
+
+    actionNew->setEnabled(false);
+    actionOpen->setEnabled(false);
+}
+
+void BaseMainWindow::budget()
+{
+    bool ok;
+    double freq = QInputDialog::getDouble(this, "Assign timing budget", "Frequency [MHz]:", 50, 0, 250, 2, &ok);
+    if (ok) {
+        freq *= 1e6;
+        timing_driven = true;
+        Q_EMIT task->budget(freq);
+    }
+}
+
+void BaseMainWindow::place() { Q_EMIT task->place(timing_driven); }
+
+void BaseMainWindow::disableActions()
+{
+    actionLoadJSON->setEnabled(false);
+    actionPack->setEnabled(false);
+    actionAssignBudget->setEnabled(false);
+    actionPlace->setEnabled(false);
+    actionRoute->setEnabled(false);
+
+    actionPlay->setEnabled(false);
+    actionPause->setEnabled(false);
+    actionStop->setEnabled(false);
+
+    actionNew->setEnabled(true);
+    actionOpen->setEnabled(true);
+    actionSave->setEnabled(!currentJson.empty());
+
+    onDisableActions();
 }
 
 NEXTPNR_NAMESPACE_END

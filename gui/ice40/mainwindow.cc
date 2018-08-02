@@ -37,75 +37,30 @@ static void initMainResource() { Q_INIT_RESOURCE(nextpnr); }
 NEXTPNR_NAMESPACE_BEGIN
 
 MainWindow::MainWindow(std::unique_ptr<Context> context, ArchArgs args, QWidget *parent)
-        : BaseMainWindow(std::move(context), parent), timing_driven(false), chipArgs(args)
+        : BaseMainWindow(std::move(context), parent), chipArgs(args)
 {
     initMainResource();
 
     std::string title = "nextpnr-ice40 - [EMPTY]";
     setWindowTitle(title.c_str());
 
-    task = new TaskManager();
-    connect(task, SIGNAL(log(std::string)), this, SLOT(writeInfo(std::string)));
-
-    connect(task, SIGNAL(pack_finished(bool)), this, SLOT(pack_finished(bool)));
-    connect(task, SIGNAL(budget_finish(bool)), this, SLOT(budget_finish(bool)));
-    connect(task, SIGNAL(place_finished(bool)), this, SLOT(place_finished(bool)));
-    connect(task, SIGNAL(route_finished(bool)), this, SLOT(route_finished(bool)));
-
-    connect(task, SIGNAL(taskCanceled()), this, SLOT(taskCanceled()));
-    connect(task, SIGNAL(taskStarted()), this, SLOT(taskStarted()));
-    connect(task, SIGNAL(taskPaused()), this, SLOT(taskPaused()));
-
     connect(this, SIGNAL(contextChanged(Context *)), this, SLOT(newContext(Context *)));
-    connect(this, SIGNAL(contextChanged(Context *)), task, SIGNAL(contextChanged(Context *)));
 
     createMenu();
 
     Q_EMIT contextChanged(ctx.get());
 }
 
-MainWindow::~MainWindow() { delete task; }
+MainWindow::~MainWindow() {}
 
 void MainWindow::createMenu()
 {
-    QMenu *menu_Design = new QMenu("&Design", menuBar);
-    menuBar->addAction(menu_Design->menuAction());
-
-    actionLoadJSON = new QAction("Open JSON", this);
-    actionLoadJSON->setIcon(QIcon(":/icons/resources/open_json.png"));
-    actionLoadJSON->setStatusTip("Open an existing JSON file");
-    actionLoadJSON->setEnabled(true);
-    connect(actionLoadJSON, SIGNAL(triggered()), this, SLOT(open_json()));
-
+    
     actionLoadPCF = new QAction("Open PCF", this);
     actionLoadPCF->setIcon(QIcon(":/icons/resources/open_pcf.png"));
     actionLoadPCF->setStatusTip("Open PCF file");
     actionLoadPCF->setEnabled(false);
     connect(actionLoadPCF, SIGNAL(triggered()), this, SLOT(open_pcf()));
-
-    actionPack = new QAction("Pack", this);
-    actionPack->setIcon(QIcon(":/icons/resources/pack.png"));
-    actionPack->setStatusTip("Pack current design");
-    actionPack->setEnabled(false);
-    connect(actionPack, SIGNAL(triggered()), task, SIGNAL(pack()));
-
-    actionAssignBudget = new QAction("Assign Budget", this);
-    actionAssignBudget->setIcon(QIcon(":/icons/resources/time_add.png"));
-    actionAssignBudget->setStatusTip("Assign time budget for current design");
-    actionAssignBudget->setEnabled(false);
-    connect(actionAssignBudget, SIGNAL(triggered()), this, SLOT(budget()));
-
-    actionPlace = new QAction("Place", this);
-    actionPlace->setIcon(QIcon(":/icons/resources/place.png"));
-    actionPlace->setStatusTip("Place current design");
-    actionPlace->setEnabled(false);
-    connect(actionPlace, SIGNAL(triggered()), this, SLOT(place()));
-
-    actionRoute = new QAction("Route", this);
-    actionRoute->setIcon(QIcon(":/icons/resources/route.png"));
-    actionRoute->setStatusTip("Route current design");
-    actionRoute->setEnabled(false);
-    connect(actionRoute, SIGNAL(triggered()), task, SIGNAL(route()));
 
     actionSaveAsc = new QAction("Save ASC", this);
     actionSaveAsc->setIcon(QIcon(":/icons/resources/save_asc.png"));
@@ -113,51 +68,14 @@ void MainWindow::createMenu()
     actionSaveAsc->setEnabled(false);
     connect(actionSaveAsc, SIGNAL(triggered()), this, SLOT(save_asc()));
 
-    QToolBar *taskFPGABar = new QToolBar();
-    addToolBar(Qt::TopToolBarArea, taskFPGABar);
-
-    taskFPGABar->addAction(actionLoadJSON);
+    taskFPGABar->addSeparator();
     taskFPGABar->addAction(actionLoadPCF);
-    taskFPGABar->addAction(actionPack);
-    taskFPGABar->addAction(actionAssignBudget);
-    taskFPGABar->addAction(actionPlace);
-    taskFPGABar->addAction(actionRoute);
     taskFPGABar->addAction(actionSaveAsc);
+    
+    menuDesign->addSeparator();
+    menuDesign->addAction(actionLoadPCF);
+    menuDesign->addAction(actionSaveAsc);
 
-    menu_Design->addAction(actionLoadJSON);
-    menu_Design->addAction(actionLoadPCF);
-    menu_Design->addAction(actionPack);
-    menu_Design->addAction(actionAssignBudget);
-    menu_Design->addAction(actionPlace);
-    menu_Design->addAction(actionRoute);
-    menu_Design->addAction(actionSaveAsc);
-
-    actionPlay = new QAction("Play", this);
-    actionPlay->setIcon(QIcon(":/icons/resources/control_play.png"));
-    actionPlay->setStatusTip("Continue running task");
-    actionPlay->setEnabled(false);
-    connect(actionPlay, SIGNAL(triggered()), task, SLOT(continue_thread()));
-
-    actionPause = new QAction("Pause", this);
-    actionPause->setIcon(QIcon(":/icons/resources/control_pause.png"));
-    actionPause->setStatusTip("Pause running task");
-    actionPause->setEnabled(false);
-    connect(actionPause, SIGNAL(triggered()), task, SLOT(pause_thread()));
-
-    actionStop = new QAction("Stop", this);
-    actionStop->setIcon(QIcon(":/icons/resources/control_stop.png"));
-    actionStop->setStatusTip("Stop running task");
-    actionStop->setEnabled(false);
-    connect(actionStop, SIGNAL(triggered()), task, SLOT(terminate_thread()));
-
-    QToolBar *taskToolBar = new QToolBar();
-    addToolBar(Qt::TopToolBarArea, taskToolBar);
-
-    taskToolBar->addAction(actionPlay);
-    taskToolBar->addAction(actionPause);
-    taskToolBar->addAction(actionStop);
-
-    createGraphicsBar();
 }
 
 #if defined(_MSC_VER)
@@ -232,22 +150,6 @@ void MainWindow::new_proj()
 
             Q_EMIT contextChanged(ctx.get());
         }
-    }
-}
-
-void MainWindow::load_json(std::string filename)
-{
-    disableActions();
-    currentJson = filename;
-    std::ifstream f(filename);
-    if (parse_json_file(f, filename, ctx.get())) {
-        log("Loading design successful.\n");
-        actionLoadPCF->setEnabled(true);
-        actionPack->setEnabled(true);
-        Q_EMIT updateTreeView();
-    } else {
-        actionLoadJSON->setEnabled(true);
-        log("Loading design failed.\n");
     }
 }
 
@@ -351,14 +253,6 @@ void MainWindow::open_proj()
     }
 }
 
-void MainWindow::open_json()
-{
-    QString fileName = QFileDialog::getOpenFileName(this, QString("Open JSON"), QString(), QString("*.json"));
-    if (!fileName.isEmpty()) {
-        load_json(fileName.toStdString());
-    }
-}
-
 void MainWindow::open_pcf()
 {
     QString fileName = QFileDialog::getOpenFileName(this, QString("Open PCF"), QString(), QString("*.pcf"));
@@ -409,108 +303,20 @@ void MainWindow::save_asc()
     }
 }
 
-void MainWindow::disableActions()
+void MainWindow::onDisableActions()
 {
-    actionLoadJSON->setEnabled(false);
     actionLoadPCF->setEnabled(false);
-    actionPack->setEnabled(false);
-    actionAssignBudget->setEnabled(false);
-    actionPlace->setEnabled(false);
-    actionRoute->setEnabled(false);
     actionSaveAsc->setEnabled(false);
-
-    actionPlay->setEnabled(false);
-    actionPause->setEnabled(false);
-    actionStop->setEnabled(false);
-
-    actionNew->setEnabled(true);
-    actionOpen->setEnabled(true);
-    actionSave->setEnabled(!currentJson.empty());
 }
 
-void MainWindow::pack_finished(bool status)
+void MainWindow::onJsonLoaded() 
 {
-    disableActions();
-    if (status) {
-        log("Packing design successful.\n");
-        Q_EMIT updateTreeView();
-        actionPlace->setEnabled(true);
-        actionAssignBudget->setEnabled(true);
-    } else {
-        log("Packing design failed.\n");
-    }
+    actionLoadPCF->setEnabled(true);
 }
-
-void MainWindow::budget_finish(bool status)
+void MainWindow::onRouteFinished()
 {
-    disableActions();
-    if (status) {
-        log("Assigning timing budget successful.\n");
-        actionPlace->setEnabled(true);
-    } else {
-        log("Assigning timing budget failed.\n");
-    }
+    actionSaveAsc->setEnabled(true);
 }
 
-void MainWindow::place_finished(bool status)
-{
-    disableActions();
-    if (status) {
-        log("Placing design successful.\n");
-        Q_EMIT updateTreeView();
-        actionRoute->setEnabled(true);
-    } else {
-        log("Placing design failed.\n");
-    }
-}
-void MainWindow::route_finished(bool status)
-{
-    disableActions();
-    if (status) {
-        log("Routing design successful.\n");
-        Q_EMIT updateTreeView();
-        actionSaveAsc->setEnabled(true);
-    } else
-        log("Routing design failed.\n");
-}
-
-void MainWindow::taskCanceled()
-{
-    log("CANCELED\n");
-    disableActions();
-}
-
-void MainWindow::taskStarted()
-{
-    disableActions();
-    actionPause->setEnabled(true);
-    actionStop->setEnabled(true);
-
-    actionNew->setEnabled(false);
-    actionOpen->setEnabled(false);
-}
-
-void MainWindow::taskPaused()
-{
-    disableActions();
-    actionPlay->setEnabled(true);
-    actionStop->setEnabled(true);
-
-    actionNew->setEnabled(false);
-    actionOpen->setEnabled(false);
-}
-
-void MainWindow::budget()
-{
-    bool ok;
-    double freq = QInputDialog::getDouble(this, "Assign timing budget", "Frequency [MHz]:", 50, 0, 250, 2, &ok);
-    if (ok) {
-        freq *= 1e6;
-        timing_driven = true;
-        Q_EMIT task->budget(freq);
-    }
-}
-
-void MainWindow::place() { Q_EMIT task->place(timing_driven); }
 
 NEXTPNR_NAMESPACE_END
