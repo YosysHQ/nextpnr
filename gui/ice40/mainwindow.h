@@ -35,7 +35,7 @@ class MainWindow : public BaseMainWindow
 
   public:
     void createMenu();
-    void load_json(std::string filename, std::string pcf);
+    void load_json(std::string filename);
     void load_pcf(std::string filename);
   protected Q_SLOTS:
     virtual void new_proj();
@@ -48,9 +48,6 @@ class MainWindow : public BaseMainWindow
     void place();
     void save_asc();
 
-    void loadfile_finished(bool status);
-    void loadpcf_finished(bool status);
-    void saveasc_finished(bool status);
     void pack_finished(bool status);
     void budget_finish(bool status);
     void place_finished(bool status);

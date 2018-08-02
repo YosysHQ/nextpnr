@@ -19,11 +19,8 @@
 
 #include "worker.h"
 #include <fstream>
-#include "bitstream.h"
 #include "design_utils.h"
-#include "jsonparse.h"
 #include "log.h"
-#include "pcf.h"
 #include "timing.h"
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -54,43 +51,6 @@ Worker::Worker(TaskManager *parent) : ctx(nullptr)
 }
 
 void Worker::newContext(Context *ctx_) { ctx = ctx_; }
-
-void Worker::loadfile(const std::string &filename)
-{
-    Q_EMIT taskStarted();
-    std::string fn = filename;
-    std::ifstream f(fn);
-    try {
-        Q_EMIT loadfile_finished(parse_json_file(f, fn, ctx));
-    } catch (WorkerInterruptionRequested) {
-        Q_EMIT taskCanceled();
-    }
-}
-
-void Worker::loadpcf(const std::string &filename)
-{
-    Q_EMIT taskStarted();
-    std::string fn = filename;
-    std::ifstream f(fn);
-    try {
-        Q_EMIT loadpcf_finished(apply_pcf(ctx, f));
-    } catch (WorkerInterruptionRequested) {
-        Q_EMIT taskCanceled();
-    }
-}
-
-void Worker::saveasc(const std::string &filename)
-{
-    Q_EMIT taskStarted();
-    std::string fn = filename;
-    std::ofstream f(fn);
-    try {
-        write_asc(ctx, f);
-        Q_EMIT saveasc_finished(true);
-    } catch (WorkerInterruptionRequested) {
-        Q_EMIT taskCanceled();
-    }
-}
 
 void Worker::pack()
 {
@@ -144,9 +104,6 @@ TaskManager::TaskManager() : toTerminate(false), toPause(false)
 
     connect(&workerThread, &QThread::finished, worker, &QObject::deleteLater);
 
-    connect(this, &TaskManager::loadfile, worker, &Worker::loadfile);
-    connect(this, &TaskManager::loadpcf, worker, &Worker::loadpcf);
-    connect(this, &TaskManager::saveasc, worker, &Worker::saveasc);
     connect(this, &TaskManager::pack, worker, &Worker::pack);
     connect(this, &TaskManager::budget, worker, &Worker::budget);
     connect(this, &TaskManager::place, worker, &Worker::place);
@@ -155,9 +112,6 @@ TaskManager::TaskManager() : toTerminate(false), toPause(false)
     connect(this, &TaskManager::contextChanged, worker, &Worker::newContext);
 
     connect(worker, &Worker::log, this, &TaskManager::info);
-    connect(worker, &Worker::loadfile_finished, this, &TaskManager::loadfile_finished);
-    connect(worker, &Worker::loadpcf_finished, this, &TaskManager::loadpcf_finished);
-    connect(worker, &Worker::saveasc_finished, this, &TaskManager::saveasc_finished);
     connect(worker, &Worker::pack_finished, this, &TaskManager::pack_finished);
     connect(worker, &Worker::budget_finish, this, &TaskManager::budget_finish);
     connect(worker, &Worker::place_finished, this, &TaskManager::place_finished);

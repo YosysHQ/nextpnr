@@ -35,18 +35,12 @@ class Worker : public QObject
     explicit Worker(TaskManager *parent);
   public Q_SLOTS:
     void newContext(Context *);
-    void loadfile(const std::string &);
-    void loadpcf(const std::string &);
-    void saveasc(const std::string &);
     void pack();
     void budget(double freq);
     void place(bool timing_driven);
     void route();
   Q_SIGNALS:
     void log(const std::string &text);
-    void loadfile_finished(bool status);
-    void loadpcf_finished(bool status);
-    void saveasc_finished(bool status);
     void pack_finished(bool status);
     void budget_finish(bool status);
     void place_finished(bool status);
@@ -78,9 +72,6 @@ class TaskManager : public QObject
   Q_SIGNALS:
     void contextChanged(Context *ctx);
     void terminate();
-    void loadfile(const std::string &);
-    void loadpcf(const std::string &);
-    void saveasc(const std::string &);
     void pack();
     void budget(double freq);
     void place(bool timing_driven);
@@ -88,9 +79,6 @@ class TaskManager : public QObject
 
     // redirected signals
     void log(const std::string &text);
-    void loadfile_finished(bool status);
-    void loadpcf_finished(bool status);
-    void saveasc_finished(bool status);
     void pack_finished(bool status);
     void budget_finish(bool status);
     void place_finished(bool status);

@@ -47,9 +47,6 @@ MainWindow::MainWindow(std::unique_ptr<Context> context, ArchArgs args, QWidget 
     task = new TaskManager();
     connect(task, SIGNAL(log(std::string)), this, SLOT(writeInfo(std::string)));
 
-    connect(task, SIGNAL(loadfile_finished(bool)), this, SLOT(loadfile_finished(bool)));
-    connect(task, SIGNAL(loadpcf_finished(bool)), this, SLOT(loadpcf_finished(bool)));
-    connect(task, SIGNAL(saveasc_finished(bool)), this, SLOT(saveasc_finished(bool)));
     connect(task, SIGNAL(pack_finished(bool)), this, SLOT(pack_finished(bool)));
     connect(task, SIGNAL(budget_finish(bool)), this, SLOT(budget_finish(bool)));
     connect(task, SIGNAL(place_finished(bool)), this, SLOT(place_finished(bool)));
@@ -238,19 +235,34 @@ void MainWindow::new_proj()
     }
 }
 
-void MainWindow::load_json(std::string filename, std::string pcf)
+void MainWindow::load_json(std::string filename)
 {
     disableActions();
     currentJson = filename;
-    currentPCF = pcf;
-    Q_EMIT task->loadfile(filename);
+    std::ifstream f(filename);
+    if (parse_json_file(f, filename, ctx.get())) {
+        log("Loading design successful.\n");
+        actionLoadPCF->setEnabled(true);
+        actionPack->setEnabled(true);
+        Q_EMIT updateTreeView();
+    } else {
+        actionLoadJSON->setEnabled(true);
+        log("Loading design failed.\n");
+    }
 }
 
 void MainWindow::load_pcf(std::string filename)
 {
     disableActions();
     currentPCF = filename;
-    Q_EMIT task->loadpcf(filename);
+    std::ifstream f(filename);    
+    if (apply_pcf(ctx.get(), f)) {
+        log("Loading PCF successful.\n");
+        actionPack->setEnabled(true);
+    } else {
+        actionLoadPCF->setEnabled(true);
+        log("Loading PCF failed.\n");
+    }
 }
 
 void MainWindow::newContext(Context *ctx)
@@ -331,7 +343,9 @@ void MainWindow::open_proj()
             }
 
             log_info("Loading json: %s...\n", json.c_str());
-            load_json(json, pcf);
+            load_json(json);
+            if (!pcf.empty())
+                load_pcf(json);
         } catch (log_execution_error_exception) {
         }
     }
@@ -341,7 +355,7 @@ void MainWindow::open_json()
 {
     QString fileName = QFileDialog::getOpenFileName(this, QString("Open JSON"), QString(), QString("*.json"));
     if (!fileName.isEmpty()) {
-        load_json(fileName.toStdString(), "");
+        load_json(fileName.toStdString());
     }
 }
 
@@ -389,7 +403,9 @@ void MainWindow::save_asc()
     if (!fileName.isEmpty()) {
         std::string fn = fileName.toStdString();
         disableActions();
-        Q_EMIT task->saveasc(fn);
+        std::ofstream f(fn);
+        write_asc(ctx.get(), f);
+        log("Saving ASC successful.\n");
     }
 }
 
@@ -410,43 +426,6 @@ void MainWindow::disableActions()
     actionNew->setEnabled(true);
     actionOpen->setEnabled(true);
     actionSave->setEnabled(!currentJson.empty());
-}
-
-void MainWindow::loadfile_finished(bool status)
-{
-    disableActions();
-    if (status) {
-        log("Loading design successful.\n");
-        actionLoadPCF->setEnabled(true);
-        actionPack->setEnabled(true);
-        if (!currentPCF.empty())
-            load_pcf(currentPCF);
-        Q_EMIT updateTreeView();
-    } else {
-        log("Loading design failed.\n");
-        currentPCF = "";
-    }
-}
-
-void MainWindow::loadpcf_finished(bool status)
-{
-    disableActions();
-    if (status) {
-        log("Loading PCF successful.\n");
-        actionPack->setEnabled(true);
-    } else {
-        log("Loading PCF failed.\n");
-    }
-}
-
-void MainWindow::saveasc_finished(bool status)
-{
-    disableActions();
-    if (status) {
-        log("Saving ASC successful.\n");
-    } else {
-        log("Saving ASC failed.\n");
-    }
 }
 
 void MainWindow::pack_finished(bool status)
