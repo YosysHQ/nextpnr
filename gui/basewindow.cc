@@ -78,7 +78,8 @@ BaseMainWindow::BaseMainWindow(std::unique_ptr<Context> context, QWidget *parent
 
     fpgaView = new FPGAViewWidget();
     centralTabWidget->addTab(fpgaView, "Device");
-    centralTabWidget->tabBar()->tabButton(0, QTabBar::RightSide)->resize(0, 0);
+    centralTabWidget->tabBar()->setTabButton(0, QTabBar::RightSide, 0);
+    centralTabWidget->tabBar()->setTabButton(0, QTabBar::LeftSide, 0);
 
     connect(this, SIGNAL(contextChanged(Context *)), fpgaView, SLOT(newContext(Context *)));
     connect(designview, SIGNAL(selected(std::vector<DecalXY>, bool)), fpgaView,
