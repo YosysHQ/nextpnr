@@ -21,6 +21,7 @@
 #define ECP5_CONFIG_H
 
 #include "nextpnr.h"
+#include <map>
 
 NEXTPNR_NAMESPACE_BEGIN
 
