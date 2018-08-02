@@ -666,14 +666,14 @@ def add_bel_ec(ec):
 cell_timings = {}
 tmport_to_portpin = {
     "posedge:clk": "CLK",
-    "ce": "CE",
+    "ce": "CEN",
     "sr": "SR",
     "in0": "I0",
     "in1": "I1",
     "in2": "I2",
     "in3": "I3",
     "carryin": "CIN",
-    "carrout": "COUT",
+    "carryout": "COUT",
     "lcout": "O",
     "ltout": "LO",
     "posedge:RCLK": "RCLK",
@@ -711,8 +711,8 @@ def add_cell_timingdata(bel_type, timing_cell, fast_db, slow_db):
     cell_timings[bel_type] = timing_entries
 
 add_cell_timingdata("ICESTORM_LC", "LogicCell40", fast_timings, slow_timings)
-add_cell_timingdata("ICESTORM_RAM", "SB_RAM40_4K", fast_timings, slow_timings)
-
+if dev_name != "384":
+    add_cell_timingdata("ICESTORM_RAM", "SB_RAM40_4K", fast_timings, slow_timings)
 if dev_name == "5k":
     add_cell_timingdata("SPRAM", "SB_SPRAM256KA", fast_timings, slow_timings)
 
@@ -1154,6 +1154,7 @@ bba.u32(len(pipinfo), "num_pips")
 bba.u32(len(switchinfo), "num_switches")
 bba.u32(len(extra_cell_config), "num_belcfgs")
 bba.u32(len(packageinfo), "num_packages")
+bba.u32(len(cell_timings), "num_timing_cells")
 bba.r("bel_data_%s" % dev_name, "bel_data")
 bba.r("wire_data_%s" % dev_name, "wire_data")
 bba.r("pip_data_%s" % dev_name, "pip_data")
@@ -1161,6 +1162,6 @@ bba.r("tile_grid_%s" % dev_name, "tile_grid")
 bba.r("bits_info_%s" % dev_name, "bits_info")
 bba.r("bel_config_%s" % dev_name if len(extra_cell_config) > 0 else None, "bel_config")
 bba.r("package_info_%s" % dev_name, "packages_data")
-bba.r("cell_timing_%s" % dev_name, "cell_timing")
+bba.r("cell_timings_%s" % dev_name, "cell_timing")
 
 bba.pop()

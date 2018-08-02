@@ -180,7 +180,7 @@ NPNR_PACKED_STRUCT(struct CellPathDelayPOD {
 });
 
 NPNR_PACKED_STRUCT(struct CellTimingPOD {
-    BelType type;
+    int32_t type;
     int32_t num_paths;
     RelPtr<CellPathDelayPOD> path_delays;
 });
