@@ -275,7 +275,7 @@ def write_database(dev_name, chip, ddrg, endianness):
 
 
     bba.l("tiletype_names", "RelPtr<char>")
-    for tt in tiletype_names:
+    for tt, idx in sorted(tiletype_names.items(), key=lambda x: x[1]):
         bba.s(tt, "name")
 
     bba.l("chip_info")
