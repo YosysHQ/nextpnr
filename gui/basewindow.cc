@@ -255,14 +255,14 @@ void BaseMainWindow::createMenusAndBars()
     menuHelp->addAction(actionAbout);
 
     // Project toolbar
-    QToolBar *projectToolBar = new QToolBar();
+    QToolBar *projectToolBar = new QToolBar("Project");
     addToolBar(Qt::TopToolBarArea, projectToolBar);
     projectToolBar->addAction(actionNew);
     projectToolBar->addAction(actionOpen);
     projectToolBar->addAction(actionSave);
 
     // Main action bar
-    mainActionBar = new QToolBar();
+    mainActionBar = new QToolBar("Main");
     addToolBar(Qt::TopToolBarArea, mainActionBar);
     mainActionBar->addAction(actionLoadJSON);
     mainActionBar->addAction(actionPack);
@@ -271,14 +271,14 @@ void BaseMainWindow::createMenusAndBars()
     mainActionBar->addAction(actionRoute);
 
     // Add worker control toolbar
-    QToolBar *workerControlToolBar = new QToolBar();
+    QToolBar *workerControlToolBar = new QToolBar("Worker");
     addToolBar(Qt::TopToolBarArea, workerControlToolBar);
     workerControlToolBar->addAction(actionPlay);
     workerControlToolBar->addAction(actionPause);
     workerControlToolBar->addAction(actionStop);
 
     // Add device view control toolbar
-    QToolBar *deviceViewToolBar = new QToolBar();
+    QToolBar *deviceViewToolBar = new QToolBar("Device");
     addToolBar(Qt::TopToolBarArea, deviceViewToolBar);
     deviceViewToolBar->addAction(actionZoomIn);
     deviceViewToolBar->addAction(actionZoomOut);
