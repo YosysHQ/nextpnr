@@ -420,7 +420,7 @@ delay_t getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t 
 
 bool Arch::place() { return placer1(getCtx()); }
 
-bool Arch::route() { return router1(getCtx()); }
+bool Arch::route() { return router1(getCtx(), Router1Cfg()); }
 
 // ---------------------------------------------------------------
 
