@@ -50,20 +50,9 @@ BaseMainWindow::BaseMainWindow(std::unique_ptr<Context> context, QWidget *parent
     resize(1024, 768);
 
     task = new TaskManager();
-    connect(task, SIGNAL(log(std::string)), this, SLOT(writeInfo(std::string)));
 
-    connect(task, SIGNAL(pack_finished(bool)), this, SLOT(pack_finished(bool)));
-    connect(task, SIGNAL(budget_finish(bool)), this, SLOT(budget_finish(bool)));
-    connect(task, SIGNAL(place_finished(bool)), this, SLOT(place_finished(bool)));
-    connect(task, SIGNAL(route_finished(bool)), this, SLOT(route_finished(bool)));
-
-    connect(task, SIGNAL(taskCanceled()), this, SLOT(taskCanceled()));
-    connect(task, SIGNAL(taskStarted()), this, SLOT(taskStarted()));
-    connect(task, SIGNAL(taskPaused()), this, SLOT(taskPaused()));
-    connect(this, SIGNAL(contextChanged(Context *)), task, SIGNAL(contextChanged(Context *)));
-
+    // Create and deploy widgets on main screen
     QWidget *centralWidget = new QWidget(this);
-
     QGridLayout *gridLayout = new QGridLayout(centralWidget);
     gridLayout->setSpacing(6);
     gridLayout->setContentsMargins(11, 11, 11, 11);
@@ -84,35 +73,51 @@ BaseMainWindow::BaseMainWindow(std::unique_ptr<Context> context, QWidget *parent
 
     console = new PythonTab();
     tabWidget->addTab(console, "Console");
-    connect(this, SIGNAL(contextChanged(Context *)), console, SLOT(newContext(Context *)));
 
     centralTabWidget = new QTabWidget();
     centralTabWidget->setTabsClosable(true);
-    connect(centralTabWidget, SIGNAL(tabCloseRequested(int)), this, SLOT(closeTab(int)));
 
     fpgaView = new FPGAViewWidget();
     centralTabWidget->addTab(fpgaView, "Device");
     centralTabWidget->tabBar()->setTabButton(0, QTabBar::RightSide, 0);
     centralTabWidget->tabBar()->setTabButton(0, QTabBar::LeftSide, 0);
 
+    splitter_v->addWidget(centralTabWidget);
+    splitter_v->addWidget(tabWidget);
+
+    // Connect Worker 
+    connect(task, SIGNAL(log(std::string)), this, SLOT(writeInfo(std::string)));
+    connect(task, SIGNAL(pack_finished(bool)), this, SLOT(pack_finished(bool)));
+    connect(task, SIGNAL(budget_finish(bool)), this, SLOT(budget_finish(bool)));
+    connect(task, SIGNAL(place_finished(bool)), this, SLOT(place_finished(bool)));
+    connect(task, SIGNAL(route_finished(bool)), this, SLOT(route_finished(bool)));
+    connect(task, SIGNAL(taskCanceled()), this, SLOT(taskCanceled()));
+    connect(task, SIGNAL(taskStarted()), this, SLOT(taskStarted()));
+    connect(task, SIGNAL(taskPaused()), this, SLOT(taskPaused()));
+
+    // Events for context change    
+    connect(this, SIGNAL(contextChanged(Context *)), task, SIGNAL(contextChanged(Context *)));
+    connect(this, SIGNAL(contextChanged(Context *)), console, SLOT(newContext(Context *)));
     connect(this, SIGNAL(contextChanged(Context *)), fpgaView, SLOT(newContext(Context *)));
+    connect(this, SIGNAL(contextChanged(Context *)), designview, SLOT(newContext(Context *)));
+
+    // Catch close tab events
+    connect(centralTabWidget, SIGNAL(tabCloseRequested(int)), this, SLOT(closeTab(int)));
+
+    // Propagate events from design view to device view 
     connect(designview, SIGNAL(selected(std::vector<DecalXY>, bool)), fpgaView,
             SLOT(onSelectedArchItem(std::vector<DecalXY>, bool)));
-    connect(fpgaView, SIGNAL(clickedBel(BelId, bool)), designview, SLOT(onClickedBel(BelId, bool)));
-    connect(fpgaView, SIGNAL(clickedWire(WireId, bool)), designview, SLOT(onClickedWire(WireId, bool)));
-    connect(fpgaView, SIGNAL(clickedPip(PipId, bool)), designview, SLOT(onClickedPip(PipId, bool)));
     connect(designview, SIGNAL(zoomSelected()), fpgaView, SLOT(zoomSelected()));
-
     connect(designview, SIGNAL(highlight(std::vector<DecalXY>, int)), fpgaView,
             SLOT(onHighlightGroupChanged(std::vector<DecalXY>, int)));
 
-    connect(this, SIGNAL(contextChanged(Context *)), designview, SLOT(newContext(Context *)));
+    // Click event on device view
+    connect(fpgaView, SIGNAL(clickedBel(BelId, bool)), designview, SLOT(onClickedBel(BelId, bool)));
+    connect(fpgaView, SIGNAL(clickedWire(WireId, bool)), designview, SLOT(onClickedWire(WireId, bool)));
+    connect(fpgaView, SIGNAL(clickedPip(PipId, bool)), designview, SLOT(onClickedPip(PipId, bool)));
+
+    // Update tree event
     connect(this, SIGNAL(updateTreeView()), designview, SLOT(updateTree()));
-
-    connect(designview, SIGNAL(info(std::string)), this, SLOT(writeInfo(std::string)));
-
-    splitter_v->addWidget(centralTabWidget);
-    splitter_v->addWidget(tabWidget);
 
     createMenusAndBars();
 }
@@ -125,6 +130,7 @@ void BaseMainWindow::writeInfo(std::string text) { console->info(text); }
 
 void BaseMainWindow::createMenusAndBars()
 {
+    // File menu / project toolbar actions
     actionNew = new QAction("New", this);
     actionNew->setIcon(QIcon(":/icons/resources/new.png"));
     actionNew->setShortcuts(QKeySequence::New);
@@ -150,42 +156,10 @@ void BaseMainWindow::createMenusAndBars()
     actionExit->setStatusTip("Exit the application");
     connect(actionExit, SIGNAL(triggered()), this, SLOT(close()));
 
+    // Help menu actions
     QAction *actionAbout = new QAction("About", this);
 
-    menuBar = new QMenuBar();
-    menuBar->setGeometry(QRect(0, 0, 1024, 27));
-    QMenu *menuFile = new QMenu("&File", menuBar);
-    QMenu *menuHelp = new QMenu("&Help", menuBar);
-    menuDesign = new QMenu("&Design", menuBar);
-    setMenuBar(menuBar);
-
-    mainToolBar = new QToolBar();
-    addToolBar(Qt::TopToolBarArea, mainToolBar);
-
-    statusBar = new QStatusBar();
-    progressBar = new QProgressBar(statusBar);
-    progressBar->setAlignment(Qt::AlignRight);
-    progressBar->setMaximumSize(180, 19);
-    statusBar->addPermanentWidget(progressBar);
-    progressBar->setValue(0);
-    progressBar->setEnabled(false);
-    setStatusBar(statusBar);
-
-    menuFile->addAction(actionNew);
-    menuFile->addAction(actionOpen);
-    menuFile->addAction(actionSave);
-    menuFile->addSeparator();
-    menuFile->addAction(actionExit);
-    menuHelp->addAction(actionAbout);
-
-    mainToolBar->addAction(actionNew);
-    mainToolBar->addAction(actionOpen);
-    mainToolBar->addAction(actionSave);
-
-    menuBar->addAction(menuFile->menuAction());
-    menuBar->addAction(menuDesign->menuAction());
-    menuBar->addAction(menuHelp->menuAction());
-
+    // Design menu options
     actionLoadJSON = new QAction("Open JSON", this);
     actionLoadJSON->setIcon(QIcon(":/icons/resources/open_json.png"));
     actionLoadJSON->setStatusTip("Open an existing JSON file");
@@ -216,22 +190,7 @@ void BaseMainWindow::createMenusAndBars()
     actionRoute->setEnabled(false);
     connect(actionRoute, SIGNAL(triggered()), task, SIGNAL(route()));
 
-    taskFPGABar = new QToolBar();
-    addToolBar(Qt::TopToolBarArea, taskFPGABar);
-
-    taskFPGABar->addAction(actionLoadJSON);
-    taskFPGABar->addAction(actionPack);
-    taskFPGABar->addAction(actionAssignBudget);
-    taskFPGABar->addAction(actionPlace);
-    taskFPGABar->addAction(actionRoute);
-
-
-    menuDesign->addAction(actionLoadJSON);
-    menuDesign->addAction(actionPack);
-    menuDesign->addAction(actionAssignBudget);
-    menuDesign->addAction(actionPlace);
-    menuDesign->addAction(actionRoute);
-
+    // Worker control toolbar actions
     actionPlay = new QAction("Play", this);
     actionPlay->setIcon(QIcon(":/icons/resources/control_play.png"));
     actionPlay->setStatusTip("Continue running task");
@@ -250,13 +209,7 @@ void BaseMainWindow::createMenusAndBars()
     actionStop->setEnabled(false);
     connect(actionStop, SIGNAL(triggered()), task, SLOT(terminate_thread()));
 
-    QToolBar *taskToolBar = new QToolBar();
-    addToolBar(Qt::TopToolBarArea, taskToolBar);
-
-    taskToolBar->addAction(actionPlay);
-    taskToolBar->addAction(actionPause);
-    taskToolBar->addAction(actionStop);
-
+    // Device view control toolbar actions
     QAction *actionZoomIn = new QAction("Zoom In", this);
     actionZoomIn->setIcon(QIcon(":/icons/resources/zoom_in.png"));
     connect(actionZoomIn, SIGNAL(triggered()), fpgaView, SLOT(zoomIn()));
@@ -273,12 +226,74 @@ void BaseMainWindow::createMenusAndBars()
     actionZoomOutbound->setIcon(QIcon(":/icons/resources/shape_square.png"));
     connect(actionZoomOutbound, SIGNAL(triggered()), fpgaView, SLOT(zoomOutbound()));
 
-    graphicsToolBar = new QToolBar();
-    addToolBar(Qt::TopToolBarArea, graphicsToolBar);
-    graphicsToolBar->addAction(actionZoomIn);
-    graphicsToolBar->addAction(actionZoomOut);
-    graphicsToolBar->addAction(actionZoomSelected);
-    graphicsToolBar->addAction(actionZoomOutbound);
+    // Add main menu
+    menuBar = new QMenuBar();
+    menuBar->setGeometry(QRect(0, 0, 1024, 27));
+    setMenuBar(menuBar);
+    QMenu *menuFile = new QMenu("&File", menuBar);
+    QMenu *menuHelp = new QMenu("&Help", menuBar);
+    menuDesign = new QMenu("&Design", menuBar);
+    menuBar->addAction(menuFile->menuAction());
+    menuBar->addAction(menuDesign->menuAction());
+    menuBar->addAction(menuHelp->menuAction());
+
+    // Add File menu actions
+    menuFile->addAction(actionNew);
+    menuFile->addAction(actionOpen);
+    menuFile->addAction(actionSave);
+    menuFile->addSeparator();
+    menuFile->addAction(actionExit);
+
+    // Add Design menu actions
+    menuDesign->addAction(actionLoadJSON);
+    menuDesign->addAction(actionPack);
+    menuDesign->addAction(actionAssignBudget);
+    menuDesign->addAction(actionPlace);
+    menuDesign->addAction(actionRoute);
+
+    // Add Help menu actions
+    menuHelp->addAction(actionAbout);
+
+    // Project toolbar
+    QToolBar *projectToolBar = new QToolBar();
+    addToolBar(Qt::TopToolBarArea, projectToolBar);
+    projectToolBar->addAction(actionNew);
+    projectToolBar->addAction(actionOpen);
+    projectToolBar->addAction(actionSave);
+
+    // Main action bar
+    mainActionBar = new QToolBar();
+    addToolBar(Qt::TopToolBarArea, mainActionBar);
+    mainActionBar->addAction(actionLoadJSON);
+    mainActionBar->addAction(actionPack);
+    mainActionBar->addAction(actionAssignBudget);
+    mainActionBar->addAction(actionPlace);
+    mainActionBar->addAction(actionRoute);
+
+    // Add worker control toolbar
+    QToolBar *workerControlToolBar = new QToolBar();
+    addToolBar(Qt::TopToolBarArea, workerControlToolBar);
+    workerControlToolBar->addAction(actionPlay);
+    workerControlToolBar->addAction(actionPause);
+    workerControlToolBar->addAction(actionStop);
+
+    // Add device view control toolbar
+    QToolBar *deviceViewToolBar = new QToolBar();
+    addToolBar(Qt::TopToolBarArea, deviceViewToolBar);
+    deviceViewToolBar->addAction(actionZoomIn);
+    deviceViewToolBar->addAction(actionZoomOut);
+    deviceViewToolBar->addAction(actionZoomSelected);
+    deviceViewToolBar->addAction(actionZoomOutbound);
+
+    // Add status bar with progress bar
+    statusBar = new QStatusBar();
+    progressBar = new QProgressBar(statusBar);
+    progressBar->setAlignment(Qt::AlignRight);
+    progressBar->setMaximumSize(180, 19);
+    statusBar->addPermanentWidget(progressBar);
+    progressBar->setValue(0);
+    progressBar->setEnabled(false);
+    setStatusBar(statusBar);
 }
 
 void BaseMainWindow::load_json(std::string filename)

@@ -86,16 +86,26 @@ class BaseMainWindow : public QMainWindow
     void updateTreeView();
 
   protected:
+    // state variables
     std::unique_ptr<Context> ctx;
     TaskManager *task;
+    bool timing_driven;
+    std::string currentJson;
+
+    // main widgets
     QTabWidget *tabWidget;
     QTabWidget *centralTabWidget;
     PythonTab *console;
+    DesignWidget *designview;
+    FPGAViewWidget *fpgaView;
 
+    // Menus, bars and actions
     QMenuBar *menuBar;
-    QToolBar *mainToolBar;
-    QToolBar *graphicsToolBar;
+    QMenu *menuDesign;
     QStatusBar *statusBar;
+    QToolBar *mainActionBar;
+    QProgressBar *progressBar;
+    
     QAction *actionNew;
     QAction *actionOpen;
     QAction *actionSave;
@@ -108,15 +118,6 @@ class BaseMainWindow : public QMainWindow
     QAction *actionPlay;
     QAction *actionPause;
     QAction *actionStop;
-
-    QMenu *menuDesign;
-    QToolBar *taskFPGABar;
-
-    QProgressBar *progressBar;
-    DesignWidget *designview;
-    FPGAViewWidget *fpgaView;
-    bool timing_driven;
-    std::string currentJson;
 };
 
 NEXTPNR_NAMESPACE_END

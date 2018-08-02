@@ -54,8 +54,8 @@ MainWindow::MainWindow(std::unique_ptr<Context> context, ArchArgs args, QWidget 
 MainWindow::~MainWindow() {}
 
 void MainWindow::createMenu()
-{
-    
+{   
+    // Add arch specific actions    
     actionLoadPCF = new QAction("Open PCF", this);
     actionLoadPCF->setIcon(QIcon(":/icons/resources/open_pcf.png"));
     actionLoadPCF->setStatusTip("Open PCF file");
@@ -68,14 +68,14 @@ void MainWindow::createMenu()
     actionSaveAsc->setEnabled(false);
     connect(actionSaveAsc, SIGNAL(triggered()), this, SLOT(save_asc()));
 
-    taskFPGABar->addSeparator();
-    taskFPGABar->addAction(actionLoadPCF);
-    taskFPGABar->addAction(actionSaveAsc);
+    // Add actions in menus
+    mainActionBar->addSeparator();
+    mainActionBar->addAction(actionLoadPCF);
+    mainActionBar->addAction(actionSaveAsc);
     
     menuDesign->addSeparator();
     menuDesign->addAction(actionLoadPCF);
     menuDesign->addAction(actionSaveAsc);
-
 }
 
 #if defined(_MSC_VER)
