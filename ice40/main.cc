@@ -168,6 +168,11 @@ int main(int argc, char *argv[])
                 pt::read_json(filename, root);
                 log_info("Loading project %s...\n", filename.c_str());
                 log_break();
+
+                bool isLoadingGui = vm.count("gui") > 0;
+                std::string ascOutput;
+                if (vm.count("asc"))
+                    ascOutput = vm["asc"].as<std::string>();
                 vm.clear();
 
                 int version = root.get<int>("project.version");
@@ -199,6 +204,10 @@ int main(int argc, char *argv[])
                     if (params.count("seed"))
                         vm.insert(std::make_pair("seed", po::variable_value(params.get<int>("seed"), false)));
                 }
+                if (!ascOutput.empty())
+                    vm.insert(std::make_pair("asc", po::variable_value(ascOutput, false)));
+                if (isLoadingGui)
+                    vm.insert(std::make_pair("gui", po::variable_value()));
                 po::notify(vm);
             } catch (...) {
                 log_error("Error loading project file.\n");
