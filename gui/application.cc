@@ -27,11 +27,24 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+#ifdef _WIN32
+#include <windows.h>
+BOOL WINAPI WinHandler(DWORD dwCtrlType)
+{
+    if (dwCtrlType == CTRL_C_EVENT)
+        qApp->quit();
+    return TRUE;
+}
+#endif
+
 Application::Application(int &argc, char **argv) : QApplication(argc, argv)
 {
     QSurfaceFormat fmt;
     fmt.setSamples(10);
     QSurfaceFormat::setDefaultFormat(fmt);
+#ifdef _WIN32
+    SetConsoleCtrlHandler((PHANDLER_ROUTINE)WinHandler, TRUE);
+#endif
 }
 
 bool Application::notify(QObject *receiver, QEvent *event)
