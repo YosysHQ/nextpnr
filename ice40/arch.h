@@ -172,10 +172,24 @@ NPNR_PACKED_STRUCT(struct BelConfigPOD {
     RelPtr<BelConfigEntryPOD> entries;
 });
 
+NPNR_PACKED_STRUCT(struct CellPathDelayPOD {
+    PortPin from_port;
+    PortPin to_port;
+    int32_t fast_delay;
+    int32_t slow_delay;
+});
+
+NPNR_PACKED_STRUCT(struct CellTimingPOD {
+    BelType type;
+    int32_t num_paths;
+    RelPtr<CellPathDelayPOD> path_delays;
+});
+
 NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     int32_t width, height;
     int32_t num_bels, num_wires, num_pips;
     int32_t num_switches, num_belcfgs, num_packages;
+    int32_t num_timing_cells;
     RelPtr<BelInfoPOD> bel_data;
     RelPtr<WireInfoPOD> wire_data;
     RelPtr<PipInfoPOD> pip_data;
@@ -183,6 +197,7 @@ NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     RelPtr<BitstreamInfoPOD> bits_info;
     RelPtr<BelConfigPOD> bel_config;
     RelPtr<PackageInfoPOD> packages_data;
+    RelPtr<CellTimingPOD> cell_timing;
 });
 
 #if defined(_MSC_VER)
