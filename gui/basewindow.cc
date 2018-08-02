@@ -25,13 +25,13 @@
 #include <QIcon>
 #include <QInputDialog>
 #include <QSplitter>
+#include <fstream>
 #include "designwidget.h"
 #include "fpgaviewwidget.h"
+#include "jsonparse.h"
 #include "log.h"
 #include "mainwindow.h"
 #include "pythontab.h"
-#include "jsonparse.h"
-#include <fstream>
 
 static void initBasenameResource() { Q_INIT_RESOURCE(base); }
 
@@ -85,7 +85,7 @@ BaseMainWindow::BaseMainWindow(std::unique_ptr<Context> context, QWidget *parent
     splitter_v->addWidget(centralTabWidget);
     splitter_v->addWidget(tabWidget);
 
-    // Connect Worker 
+    // Connect Worker
     connect(task, SIGNAL(log(std::string)), this, SLOT(writeInfo(std::string)));
     connect(task, SIGNAL(pack_finished(bool)), this, SLOT(pack_finished(bool)));
     connect(task, SIGNAL(budget_finish(bool)), this, SLOT(budget_finish(bool)));
@@ -95,7 +95,7 @@ BaseMainWindow::BaseMainWindow(std::unique_ptr<Context> context, QWidget *parent
     connect(task, SIGNAL(taskStarted()), this, SLOT(taskStarted()));
     connect(task, SIGNAL(taskPaused()), this, SLOT(taskPaused()));
 
-    // Events for context change    
+    // Events for context change
     connect(this, SIGNAL(contextChanged(Context *)), task, SIGNAL(contextChanged(Context *)));
     connect(this, SIGNAL(contextChanged(Context *)), console, SLOT(newContext(Context *)));
     connect(this, SIGNAL(contextChanged(Context *)), fpgaView, SLOT(newContext(Context *)));
@@ -104,7 +104,7 @@ BaseMainWindow::BaseMainWindow(std::unique_ptr<Context> context, QWidget *parent
     // Catch close tab events
     connect(centralTabWidget, SIGNAL(tabCloseRequested(int)), this, SLOT(closeTab(int)));
 
-    // Propagate events from design view to device view 
+    // Propagate events from design view to device view
     connect(designview, SIGNAL(selected(std::vector<DecalXY>, bool)), fpgaView,
             SLOT(onSelectedArchItem(std::vector<DecalXY>, bool)));
     connect(designview, SIGNAL(zoomSelected()), fpgaView, SLOT(zoomSelected()));

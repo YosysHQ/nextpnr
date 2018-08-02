@@ -54,8 +54,8 @@ MainWindow::MainWindow(std::unique_ptr<Context> context, ArchArgs args, QWidget 
 MainWindow::~MainWindow() {}
 
 void MainWindow::createMenu()
-{   
-    // Add arch specific actions    
+{
+    // Add arch specific actions
     actionLoadPCF = new QAction("Open PCF", this);
     actionLoadPCF->setIcon(QIcon(":/icons/resources/open_pcf.png"));
     actionLoadPCF->setStatusTip("Open PCF file");
@@ -72,7 +72,7 @@ void MainWindow::createMenu()
     mainActionBar->addSeparator();
     mainActionBar->addAction(actionLoadPCF);
     mainActionBar->addAction(actionSaveAsc);
-    
+
     menuDesign->addSeparator();
     menuDesign->addAction(actionLoadPCF);
     menuDesign->addAction(actionSaveAsc);
@@ -157,7 +157,7 @@ void MainWindow::load_pcf(std::string filename)
 {
     disableActions();
     currentPCF = filename;
-    std::ifstream f(filename);    
+    std::ifstream f(filename);
     if (apply_pcf(ctx.get(), f)) {
         log("Loading PCF successful.\n");
         actionPack->setEnabled(true);
@@ -309,14 +309,7 @@ void MainWindow::onDisableActions()
     actionSaveAsc->setEnabled(false);
 }
 
-void MainWindow::onJsonLoaded() 
-{
-    actionLoadPCF->setEnabled(true);
-}
-void MainWindow::onRouteFinished()
-{
-    actionSaveAsc->setEnabled(true);
-}
-
+void MainWindow::onJsonLoaded() { actionLoadPCF->setEnabled(true); }
+void MainWindow::onRouteFinished() { actionSaveAsc->setEnabled(true); }
 
 NEXTPNR_NAMESPACE_END

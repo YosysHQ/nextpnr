@@ -317,7 +317,7 @@ QtProperty *DesignWidget::addSubGroup(QtProperty *topItem, const QString &name)
 
 void DesignWidget::onClickedBel(BelId bel, bool keep)
 {
-    boost::optional<TreeModel::Item*> item;
+    boost::optional<TreeModel::Item *> item;
     {
         std::lock_guard<std::mutex> lock_ui(ctx->ui_mutex);
         std::lock_guard<std::mutex> lock(ctx->mutex);
@@ -334,7 +334,7 @@ void DesignWidget::onClickedBel(BelId bel, bool keep)
 
 void DesignWidget::onClickedWire(WireId wire, bool keep)
 {
-    boost::optional<TreeModel::Item*> item;
+    boost::optional<TreeModel::Item *> item;
     {
         std::lock_guard<std::mutex> lock_ui(ctx->ui_mutex);
         std::lock_guard<std::mutex> lock(ctx->mutex);
@@ -351,7 +351,7 @@ void DesignWidget::onClickedWire(WireId wire, bool keep)
 
 void DesignWidget::onClickedPip(PipId pip, bool keep)
 {
-    boost::optional<TreeModel::Item*> item;
+    boost::optional<TreeModel::Item *> item;
     {
         std::lock_guard<std::mutex> lock_ui(ctx->ui_mutex);
         std::lock_guard<std::mutex> lock(ctx->mutex);

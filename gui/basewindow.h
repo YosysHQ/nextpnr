@@ -50,15 +50,16 @@ class BaseMainWindow : public QMainWindow
     Context *getContext() { return ctx.get(); }
 
     void load_json(std::string filename);
+
   protected:
     void createMenusAndBars();
     void disableActions();
-    virtual void onDisableActions() {};
-    virtual void onJsonLoaded() {};
-    virtual void onPackFinished() {};
-    virtual void onBudgetFinished() {};
-    virtual void onPlaceFinished() {};
-    virtual void onRouteFinished() {};
+    virtual void onDisableActions(){};
+    virtual void onJsonLoaded(){};
+    virtual void onPackFinished(){};
+    virtual void onBudgetFinished(){};
+    virtual void onPlaceFinished(){};
+    virtual void onRouteFinished(){};
 
   protected Q_SLOTS:
     void writeInfo(std::string text);
@@ -105,7 +106,7 @@ class BaseMainWindow : public QMainWindow
     QStatusBar *statusBar;
     QToolBar *mainActionBar;
     QProgressBar *progressBar;
-    
+
     QAction *actionNew;
     QAction *actionOpen;
     QAction *actionSave;
