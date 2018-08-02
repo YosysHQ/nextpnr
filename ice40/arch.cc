@@ -834,28 +834,23 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
 
 bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const
 {
-    if (cell->type == id_icestorm_lc) {
-        if ((fromPort == id_i0 || fromPort == id_i1 || fromPort == id_i2 || fromPort == id_i3) &&
-            (toPort == id_o || toPort == id_lo)) {
-            delay.delay = 450;
-            return true;
-        } else if (fromPort == id_cin && toPort == id_cout) {
-            delay.delay = 120;
-            return true;
-        } else if (fromPort == id_i1 && toPort == id_cout) {
-            delay.delay = 260;
-            return true;
-        } else if (fromPort == id_i2 && toPort == id_cout) {
-            delay.delay = 230;
-            return true;
-        } else if (fromPort == id_clk && toPort == id_o) {
-            delay.delay = 540;
-            return true;
-        }
-    } else if (cell->type == id_icestorm_ram) {
-        if (fromPort == id_rclk) {
-            delay.delay = 2140;
-            return true;
+    BelType type = belTypeFromId(cell->type);
+    for (int i = 0; i < chip_info->num_timing_cells; i++) {
+        const auto &tc = chip_info->cell_timing[i];
+        if (tc.type == type) {
+            PortPin fromPin = portPinFromId(fromPort);
+            PortPin toPin = portPinFromId(toPort);
+            for (int j = 0; j < tc.num_paths; j++) {
+                const auto &path = tc.path_delays[j];
+                if (path.from_port == fromPin && path.to_port == toPin) {
+                    if (fast_part)
+                        delay.delay = path.fast_delay;
+                    else
+                        delay.delay = path.slow_delay;
+                    return true;
+                }
+            }
+            break;
         }
     }
     return false;

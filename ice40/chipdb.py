@@ -663,6 +663,60 @@ def add_bel_ec(ec):
         else:
             extra_cell_config[bel].append(entry)
 
+cell_timings = {}
+tmport_to_portpin = {
+    "posedge:clk": "CLK",
+    "ce": "CEN",
+    "sr": "SR",
+    "in0": "I0",
+    "in1": "I1",
+    "in2": "I2",
+    "in3": "I3",
+    "carryin": "CIN",
+    "carryout": "COUT",
+    "lcout": "O",
+    "ltout": "LO",
+    "posedge:RCLK": "RCLK",
+    "posedge:WCLK": "WCLK",
+    "RCLKE": "RCLKE",
+    "RE": "RE",
+    "WCLKE": "WCLKE",
+    "WE": "WE",
+    "posedge:CLOCK": "CLOCK",
+    "posedge:SLEEP": "SLEEP"
+}
+
+for i in range(16):
+    tmport_to_portpin["RDATA[%d]" % i] = "RDATA_%d" % i
+    tmport_to_portpin["WDATA[%d]" % i] = "WDATA_%d" % i
+    tmport_to_portpin["MASK[%d]" % i] = "MASK_%d" % i
+    tmport_to_portpin["DATAOUT[%d]" % i] = "DATAOUT_%d" % i
+
+for i in range(11):
+    tmport_to_portpin["RADDR[%d]" % i] = "RADDR_%d" % i
+    tmport_to_portpin["WADDR[%d]" % i] = "WADDR_%d" % i
+
+def add_cell_timingdata(bel_type, timing_cell, fast_db, slow_db):
+    timing_entries = []
+    database = slow_db if slow_db is not None else fast_db
+    for key in database.keys():
+        skey = key.split(".")
+        if skey[0] == timing_cell:
+            if skey[1] in tmport_to_portpin and skey[2] in tmport_to_portpin:
+                iport = tmport_to_portpin[skey[1]]
+                oport = tmport_to_portpin[skey[2]]
+                fastdel = fast_db[key] if fast_db is not None else 0
+                slowdel = slow_db[key] if slow_db is not None else 0
+                timing_entries.append((iport, oport, fastdel, slowdel))
+    cell_timings[bel_type] = timing_entries
+
+add_cell_timingdata("ICESTORM_LC", "LogicCell40", fast_timings, slow_timings)
+if dev_name != "384":
+    add_cell_timingdata("ICESTORM_RAM", "SB_RAM40_4K", fast_timings, slow_timings)
+if dev_name == "5k":
+    add_cell_timingdata("SPRAM", "SB_SPRAM256KA", fast_timings, slow_timings)
+
+
 for tile_xy, tile_type in sorted(tiles.items()):
     if tile_type == "logic":
         for i in range(8):
@@ -1074,6 +1128,23 @@ for info in packageinfo:
     bba.u32(info[1], "num_pins")
     bba.r(info[2], "pins")
 
+for cell, timings in sorted(cell_timings.items()):
+    beltype = beltypes[cell]
+    bba.l("cell_paths_%d" % beltype, "CellPathDelayPOD")
+    for entry in timings:
+        fromport, toport, fast, slow = entry
+        bba.u32(portpins[fromport], "from_port")
+        bba.u32(portpins[toport], "to_port")
+        bba.u32(fast, "fast_delay")
+        bba.u32(slow, "slow_delay")
+
+bba.l("cell_timings_%s" % dev_name, "CellTimingPOD")
+for cell, timings in sorted(cell_timings.items()):
+    beltype = beltypes[cell]
+    bba.u32(beltype, "type")
+    bba.u32(len(timings), "num_paths")
+    bba.r("cell_paths_%d" % beltype, "path_delays")
+
 bba.l("chip_info_%s" % dev_name)
 bba.u32(dev_width, "dev_width")
 bba.u32(dev_height, "dev_height")
@@ -1083,6 +1154,7 @@ bba.u32(len(pipinfo), "num_pips")
 bba.u32(len(switchinfo), "num_switches")
 bba.u32(len(extra_cell_config), "num_belcfgs")
 bba.u32(len(packageinfo), "num_packages")
+bba.u32(len(cell_timings), "num_timing_cells")
 bba.r("bel_data_%s" % dev_name, "bel_data")
 bba.r("wire_data_%s" % dev_name, "wire_data")
 bba.r("pip_data_%s" % dev_name, "pip_data")
@@ -1090,5 +1162,6 @@ bba.r("tile_grid_%s" % dev_name, "tile_grid")
 bba.r("bits_info_%s" % dev_name, "bits_info")
 bba.r("bel_config_%s" % dev_name if len(extra_cell_config) > 0 else None, "bel_config")
 bba.r("package_info_%s" % dev_name, "packages_data")
+bba.r("cell_timings_%s" % dev_name, "cell_timing")
 
 bba.pop()
