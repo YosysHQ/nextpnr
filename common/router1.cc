@@ -586,8 +586,38 @@ void cleanupReroute(Context *ctx, const Router1Cfg &cfg,
         if (ctx->verbose)
             allNetinfos.push_back(net_info);
 
+        std::unordered_map<WireId, int> useCounters;
+        std::vector<int> candidateArcs;
+
         for (int user_idx = 0; user_idx < int(net_info->users.size()); user_idx++) {
             auto dst_wire = ctx->getNetinfoSinkWire(net_info, net_info->users[user_idx]);
+
+            if (dst_wire == src_wire)
+                continue;
+
+            auto cursor = dst_wire;
+            useCounters[cursor]++;
+
+            while (cursor != src_wire) {
+                auto it = net_info->wires.find(cursor);
+                if (it == net_info->wires.end())
+                    break;
+                cursor = ctx->getPipSrcWire(it->second.pip);
+                useCounters[cursor]++;
+            }
+
+            if (cursor != src_wire)
+                continue;
+
+            candidateArcs.push_back(user_idx);
+        }
+
+        for (int user_idx : candidateArcs) {
+            auto dst_wire = ctx->getNetinfoSinkWire(net_info, net_info->users[user_idx]);
+
+            if (useCounters.at(dst_wire) != 1)
+                continue;
+
             RouteJob job;
             job.net = net_name;
             job.user_idx = user_idx;
@@ -618,24 +648,7 @@ void cleanupReroute(Context *ctx, const Router1Cfg &cfg,
         auto user_idx = job.user_idx;
 
         NetInfo *net_info = ctx->nets.at(net_name).get();
-        auto src_wire = ctx->getNetinfoSourceWire(net_info);
         auto dst_wire = ctx->getNetinfoSinkWire(net_info, net_info->users[user_idx]);
-
-        auto cursor = dst_wire;
-        while (cursor != src_wire) {
-            auto it = net_info->wires.find(cursor);
-            if (it == net_info->wires.end()) {
-                cleanupQueue.insert(net_name);
-                goto skipThisJob;
-            }
-            cursor = ctx->getPipSrcWire(it->second.pip);
-        }
-
-        if (0)
-    skipThisJob:
-            continue;
-
-        int oldWireCount = net_info->wires.size();
 
         ctx->unbindWire(dst_wire);
 
@@ -643,12 +656,6 @@ void cleanupReroute(Context *ctx, const Router1Cfg &cfg,
 
         if (!router.routedOkay)
             log_error("Failed to re-route arc %d of net %s.\n", user_idx, net_name.c_str(ctx));
-
-        int newWireCount = net_info->wires.size();
-
-        if (ctx->debug && oldWireCount != newWireCount)
-            log_info("  rerouting arc %d of net %s changed wire count: %d -> %d (%+d)\n",
-                     user_idx, net_name.c_str(ctx), oldWireCount, newWireCount, newWireCount - oldWireCount);
 
         visitCnt += router.visitCnt;
         revisitCnt += router.revisitCnt;
@@ -659,7 +666,7 @@ void cleanupReroute(Context *ctx, const Router1Cfg &cfg,
         for (auto it : allNetinfos)
             totalWireCountDelta += it->wires.size();
 
-        log_info("  visited %d PIPs (%.2f%% revisits, %.2f%% overtime revisits), %+d bound wires.\n",
+        log_info("  visited %d PIPs (%.2f%% revisits, %.2f%% overtime), %+d wires.\n",
                  visitCnt, (100.0 * revisitCnt) / visitCnt, (100.0 * overtimeRevisitCnt) / visitCnt,
                  totalWireCountDelta);
     }
@@ -861,7 +868,7 @@ bool router1(Context *ctx, const Router1Cfg &cfg)
             if (iterCnt == 8 || iterCnt == 16 || iterCnt == 32 || iterCnt == 64 || iterCnt == 128)
                 ripup_penalty += ctx->getRipupDelayPenalty();
 
-            if (jobQueue.empty() || (iterCnt % 5) == 4 || (cfg.fullCleanupReroute && iterCnt == 1))
+            if (jobQueue.empty() || (iterCnt % 5) == 0 || (cfg.fullCleanupReroute && iterCnt == 1))
                 cleanupReroute(ctx, cfg, scores, cleanupQueue, jobQueue, totalVisitCnt, totalRevisitCnt, totalOvertimeRevisitCnt);
 
             ctx->yield();
