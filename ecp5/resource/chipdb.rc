@@ -1,0 +1,5 @@
+#include "resource.h"
+
+IDR_CHIPDB_25K  BINARYFILE "..\chipdbs\chipdb-25k.bin"
+IDR_CHIPDB_45K  BINARYFILE "..\chipdbs\chipdb-45k.bin"
+IDR_CHIPDB_88K  BINARYFILE "..\chipdbs\chipdb-85k.bin"

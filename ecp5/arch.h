@@ -22,6 +22,7 @@
 #error Include "arch.h" via "nextpnr.h" only.
 #endif
 
+#include <set>
 #include <sstream>
 
 NEXTPNR_NAMESPACE_BEGIN

@@ -1,0 +1,4 @@
+#define BINARYFILE 256
+#define IDR_CHIPDB_25K 101
+#define IDR_CHIPDB_45K 102
+#define IDR_CHIPDB_85K 103
