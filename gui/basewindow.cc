@@ -77,7 +77,7 @@ BaseMainWindow::BaseMainWindow(std::unique_ptr<Context> context, QWidget *parent
     connect(centralTabWidget, SIGNAL(tabCloseRequested(int)), this, SLOT(closeTab(int)));
 
     fpgaView = new FPGAViewWidget();
-    centralTabWidget->addTab(fpgaView, "Graphics");
+    centralTabWidget->addTab(fpgaView, "Device");
     centralTabWidget->tabBar()->tabButton(0, QTabBar::RightSide)->resize(0, 0);
 
     connect(this, SIGNAL(contextChanged(Context *)), fpgaView, SLOT(newContext(Context *)));
