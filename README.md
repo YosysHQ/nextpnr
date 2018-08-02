@@ -90,9 +90,9 @@ sudo make install
 ```
 
  - For an ECP5 blinky on the 45k ULX3S board, first synthesise using `yosys blinky.ys` in `ecp5/synth`.
-  - Then run ECP5 place-and route using `./nextpnr-ecp5 --json ecp5/synth/blinky.json --basecfg ecp5/synth/ulx3s_empty.config --bit ecp5/synth/ulx3s.bit`
+  - Then run ECP5 place-and route using `./nextpnr-ecp5 --json ecp5/synth/blinky.json --basecfg ecp5/synth/ulx3s_empty.config --textcfg ecp5/synth/ulx3s_out.config`
+  - Create a bitstream using `ecppack ulx3s_out.config ulx3s.bit`
   - Note that `ulx3s_empty.config` contains fixed/unknown bits to be copied to the output bitstream
-  - You can also use `--textcfg out.config` to write a text file describing the bitstream for debugging
 
  - More examples of the ECP5 flow for a range of boards can be found in the [Project Trellis Examples](https://github.com/SymbiFlow/prjtrellis/tree/master/examples).
 
