@@ -102,7 +102,7 @@ class Item
     virtual bool canFetchMore() const { return false; }
     virtual void fetchMore() {}
 
-    ~Item()
+    virtual ~Item()
     {
         if (parent_ != nullptr) {
             parent_->deleteChild(this);
