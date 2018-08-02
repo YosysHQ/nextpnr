@@ -568,15 +568,19 @@ void addNetRouteJobs(Context *ctx, IdString net_name, std::unordered_map<IdStrin
     }
 }
 
-void cleanupPass(Context *ctx, RipupScoreboard &scores, std::unordered_set<IdString> &cleanupQueue,
-                 std::priority_queue<RouteJob, std::vector<RouteJob>, RouteJob::Greater> &jobQueue,
-                 int &totalVisitCnt, int &totalRevisitCnt, int &totalOvertimeRevisitCnt)
+void cleanupReroute(Context *ctx, RipupScoreboard &scores, std::unordered_set<IdString> &cleanupQueue,
+                    std::priority_queue<RouteJob, std::vector<RouteJob>, RouteJob::Greater> &jobQueue,
+                    int &totalVisitCnt, int &totalRevisitCnt, int &totalOvertimeRevisitCnt)
 {
     std::priority_queue<RouteJob, std::vector<RouteJob>, RouteJob::Greater> cleanupJobs;
+    std::vector<NetInfo*> allNetinfos;
 
     for (auto net_name : cleanupQueue) {
         NetInfo *net_info = ctx->nets.at(net_name).get();
         auto src_wire = ctx->getNetinfoSourceWire(net_info);
+
+        if (ctx->verbose)
+            allNetinfos.push_back(net_info);
 
         for (int user_idx = 0; user_idx < int(net_info->users.size()); user_idx++) {
             auto dst_wire = ctx->getNetinfoSinkWire(net_info, net_info->users[user_idx]);
@@ -595,6 +599,12 @@ void cleanupPass(Context *ctx, RipupScoreboard &scores, std::unordered_set<IdStr
     cleanupQueue.clear();
 
     int visitCnt = 0, revisitCnt = 0, overtimeRevisitCnt = 0;
+    int totalWireCountDelta = 0;
+
+    if (ctx->verbose) {
+        for (auto it : allNetinfos)
+            totalWireCountDelta -= it->wires.size();
+    }
 
     while (!cleanupJobs.empty()) {
         RouteJob job = cleanupJobs.top();
@@ -604,31 +614,51 @@ void cleanupPass(Context *ctx, RipupScoreboard &scores, std::unordered_set<IdStr
         auto user_idx = job.user_idx;
 
         NetInfo *net_info = ctx->nets.at(net_name).get();
+        auto src_wire = ctx->getNetinfoSourceWire(net_info);
         auto dst_wire = ctx->getNetinfoSinkWire(net_info, net_info->users[user_idx]);
 
-        if (net_info->wires.count(dst_wire) == 0) {
-            cleanupQueue.insert(net_name);
-            continue;
+        auto cursor = dst_wire;
+        while (cursor != src_wire) {
+            auto it = net_info->wires.find(cursor);
+            if (it == net_info->wires.end()) {
+                cleanupQueue.insert(net_name);
+                goto skipThisJob;
+            }
+            cursor = ctx->getPipSrcWire(it->second.pip);
         }
+
+        if (0)
+    skipThisJob:
+            continue;
+
+        int oldWireCount = net_info->wires.size();
 
         ctx->unbindWire(dst_wire);
 
         Router router(ctx, scores, net_name, user_idx, false, false);
 
-        if (!router.routedOkay) {
-            // FIXME: This should never happen
-            log_warning("Failed to re-route arc %d on net %s.\n", user_idx, net_name.c_str(ctx));
-            jobQueue.push(job);
-        }
+        if (!router.routedOkay)
+            log_error("Failed to re-route arc %d of net %s.\n", user_idx, net_name.c_str(ctx));
+
+        int newWireCount = net_info->wires.size();
+
+        if (ctx->debug && oldWireCount != newWireCount)
+            log_info("  rerouting arc %d of net %s changed wire count: %d -> %d (%+d)\n",
+                     user_idx, net_name.c_str(ctx), oldWireCount, newWireCount, newWireCount - oldWireCount);
 
         visitCnt += router.visitCnt;
         revisitCnt += router.revisitCnt;
         overtimeRevisitCnt += router.overtimeRevisitCnt;
     }
 
-    if (ctx->verbose)
-        log_info("  visited %d PIPs (%.2f%% revisits, %.2f%% overtime revisits).\n",
-                 visitCnt, (100.0 * revisitCnt) / visitCnt, (100.0 * overtimeRevisitCnt) / visitCnt);
+    if (ctx->verbose) {
+        for (auto it : allNetinfos)
+            totalWireCountDelta += it->wires.size();
+
+        log_info("  visited %d PIPs (%.2f%% revisits, %.2f%% overtime revisits), %+d bound wires.\n",
+                 visitCnt, (100.0 * revisitCnt) / visitCnt, (100.0 * overtimeRevisitCnt) / visitCnt,
+                 totalWireCountDelta);
+    }
 
     totalVisitCnt += visitCnt;
     totalRevisitCnt += revisitCnt;
@@ -823,7 +853,7 @@ bool router1(Context *ctx)
                 ripup_penalty += ctx->getRipupDelayPenalty();
 
             if (jobQueue.empty() || (iterCnt % 5) == 4)
-                cleanupPass(ctx, scores, cleanupQueue, jobQueue, totalVisitCnt, totalRevisitCnt, totalOvertimeRevisitCnt);
+                cleanupReroute(ctx, scores, cleanupQueue, jobQueue, totalVisitCnt, totalRevisitCnt, totalOvertimeRevisitCnt);
 
             ctx->yield();
         }
