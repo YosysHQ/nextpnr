@@ -110,7 +110,6 @@ struct Arch : BaseCtx
     void addGroupGroup(IdString group, IdString grp);
 
     void addDecalGraphic(DecalId decal, const GraphicElement &graphic);
-    void setFrameDecal(DecalXY decalxy);
     void setWireDecal(WireId wire, DecalXY decalxy);
     void setPipDecal(PipId pip, DecalXY decalxy);
     void setBelDecal(BelId bel, DecalXY decalxy);
