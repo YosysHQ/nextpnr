@@ -70,12 +70,14 @@ void IdStringList::updateElements(Context *ctx, std::vector<IdString> elements)
     }
 
     // For any elements that are in managed_ but not in new, delete them.
-    for (auto &pair : managed_) {
-        if (element_set.count(pair.first) != 0) {
-            continue;
+    auto it = managed_.begin();
+    while (it != managed_.end()) {
+        if (element_set.count(it->first) != 0) {
+            ++it;
+        } else {
+            it = managed_.erase(it);
+            changed = true;
         }
-        managed_.erase(pair.first);
-        changed = true;
     }
 
     // Return early if there are no changes.

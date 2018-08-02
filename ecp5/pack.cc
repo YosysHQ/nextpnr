@@ -325,19 +325,22 @@ class Ecp5Packer
             lut_to_slice(ctx, lut0, slice.get(), 0);
             lut_to_slice(ctx, lut1, slice.get(), 1);
 
-            auto ff0 = lutffPairs.find(lut0->name), ff1 = lutffPairs.find(lut1->name);
+            auto ff0 = lutffPairs.find(lut0->name);
 
             if (ff0 != lutffPairs.end()) {
                 ff_to_slice(ctx, ctx->cells.at(ff0->second).get(), slice.get(), 0, true);
                 packed_cells.insert(ff0->second);
-                lutffPairs.erase(lut0->name);
                 fflutPairs.erase(ff0->second);
+                lutffPairs.erase(lut0->name);
             }
+
+            auto ff1 = lutffPairs.find(lut1->name);
+
             if (ff1 != lutffPairs.end()) {
                 ff_to_slice(ctx, ctx->cells.at(ff1->second).get(), slice.get(), 1, true);
                 packed_cells.insert(ff1->second);
-                lutffPairs.erase(lut1->name);
                 fflutPairs.erase(ff1->second);
+                lutffPairs.erase(lut1->name);
             }
 
             new_cells.push_back(std::move(slice));
@@ -363,8 +366,8 @@ class Ecp5Packer
                 if (ff != lutffPairs.end()) {
                     ff_to_slice(ctx, ctx->cells.at(ff->second).get(), slice.get(), 0, true);
                     packed_cells.insert(ff->second);
-                    lutffPairs.erase(ci->name);
                     fflutPairs.erase(ff->second);
+                    lutffPairs.erase(ci->name);
                 }
 
                 new_cells.push_back(std::move(slice));

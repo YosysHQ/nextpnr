@@ -496,4 +496,15 @@ IdString Arch::getPortClock(const CellInfo *cell, IdString port) const { return 
 
 bool Arch::isClockPort(const CellInfo *cell, IdString port) const { return false; }
 
+std::vector<std::pair<std::string, std::string>> Arch::getTilesAtLocation(int row, int col)
+{
+    std::vector<std::pair<std::string, std::string>> ret;
+    auto &tileloc = chip_info->tile_info[row * chip_info->width + col];
+    for (int i = 0; i < tileloc.num_tiles; i++) {
+        ret.push_back(std::make_pair(tileloc.tile_names[i].name.get(),
+                                     chip_info->tiletype_names[tileloc.tile_names[i].type_idx].get()));
+    }
+    return ret;
+}
+
 NEXTPNR_NAMESPACE_END

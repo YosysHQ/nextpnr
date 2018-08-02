@@ -117,6 +117,17 @@ NPNR_PACKED_STRUCT(struct PackageInfoPOD {
     RelPtr<PackagePinPOD> pin_data;
 });
 
+NPNR_PACKED_STRUCT(struct TileNamePOD {
+    RelPtr<char> name;
+    int16_t type_idx;
+    int16_t padding;
+});
+
+NPNR_PACKED_STRUCT(struct TileInfoPOD {
+    int32_t num_tiles;
+    RelPtr<TileNamePOD> tile_names;
+});
+
 enum TapDirection : int8_t
 {
     TAP_DIR_LEFT = 0,
@@ -148,6 +159,7 @@ NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     RelPtr<RelPtr<char>> tiletype_names;
     RelPtr<PackageInfoPOD> package_info;
     RelPtr<PIOInfoPOD> pio_info;
+    RelPtr<TileInfoPOD> tile_info;
 });
 
 #if defined(_MSC_VER)
@@ -747,6 +759,16 @@ struct Arch : BaseCtx
         return range;
     }
 
+    std::string getPipTilename(PipId pip) const
+    {
+        auto &tileloc = chip_info->tile_info[pip.location.y * chip_info->width + pip.location.x];
+        for (int i = 0; i < tileloc.num_tiles; i++) {
+            if (tileloc.tile_names[i].type_idx == locInfo(pip)->pip_data[pip.index].tile_type)
+                return tileloc.tile_names[i].name.get();
+        }
+        NPNR_ASSERT_FALSE("failed to find Pip tile");
+    }
+
     std::string getPipTiletype(PipId pip) const
     {
         return chip_info->tiletype_names[locInfo(pip)->pip_data[pip.index].tile_type].get();
@@ -817,6 +839,28 @@ struct Arch : BaseCtx
 
     // Helper function for above
     bool slicesCompatible(const std::vector<const CellInfo *> &cells) const;
+
+    std::vector<std::pair<std::string, std::string>> getTilesAtLocation(int row, int col);
+    std::string getTileByTypeAndLocation(int row, int col, std::string type) const
+    {
+        auto &tileloc = chip_info->tile_info[row * chip_info->width + col];
+        for (int i = 0; i < tileloc.num_tiles; i++) {
+            if (chip_info->tiletype_names[tileloc.tile_names[i].type_idx].get() == type)
+                return tileloc.tile_names[i].name.get();
+        }
+        NPNR_ASSERT_FALSE_STR("no tile at (" + std::to_string(col) + ", " + std::to_string(row) + ") with type " +
+                              type);
+    }
+
+    std::string getTileByTypeAndLocation(int row, int col, const std::set<std::string> &type) const
+    {
+        auto &tileloc = chip_info->tile_info[row * chip_info->width + col];
+        for (int i = 0; i < tileloc.num_tiles; i++) {
+            if (type.count(chip_info->tiletype_names[tileloc.tile_names[i].type_idx].get()))
+                return tileloc.tile_names[i].name.get();
+        }
+        NPNR_ASSERT_FALSE_STR("no tile at (" + std::to_string(col) + ", " + std::to_string(row) + ") with type in set");
+    }
 
     IdString id_trellis_slice;
     IdString id_clk, id_lsr;

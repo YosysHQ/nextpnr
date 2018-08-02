@@ -136,7 +136,7 @@ def process_loc_globals(chip):
             tapdrv = chip.global_data.get_tap_driver(y, x)
             global_data[x, y] = (quadrants.index(quad), int(tapdrv.dir), tapdrv.col)
 
-def write_database(dev_name, ddrg, endianness):
+def write_database(dev_name, chip, ddrg, endianness):
     def write_loc(loc, sym_name):
         bba.u16(loc.x, "%s.x" % sym_name)
         bba.u16(loc.y, "%s.y" % sym_name)
@@ -221,6 +221,20 @@ def write_database(dev_name, ddrg, endianness):
         bba.r("loc%d_wires" % idx if len(loctype.wires) > 0 else None, "wire_data")
         bba.r("loc%d_pips" % idx if len(loctype.arcs) > 0 else None, "pips_data")
 
+    for y in range(0, max_row+1):
+        for x in range(0, max_col+1):
+            bba.l("tile_info_%d_%d" % (x, y), "TileNamePOD")
+            for tile in chip.get_tiles_by_position(y, x):
+                bba.s(tile.info.name, "name")
+                bba.u16(get_tiletype_index(tile.info.type), "type_idx")
+                bba.u16(0, "padding")
+
+    bba.l("tiles_info", "TileInfoPOD")
+    for y in range(0, max_row+1):
+        for x in range(0, max_col+1):
+            bba.u32(len(chip.get_tiles_by_position(y, x)), "num_tiles")
+            bba.r("tile_info_%d_%d" % (x, y), "tile_names")
+
     bba.l("location_types", "int32_t")
     for y in range(0, max_row+1):
         for x in range(0, max_col+1):
@@ -278,6 +292,7 @@ def write_database(dev_name, ddrg, endianness):
     bba.r("tiletype_names", "tiletype_names")
     bba.r("package_data", "package_info")
     bba.r("pio_info", "pio_info")
+    bba.r("tiles_info", "tile_info")
 
     bba.pop()
     return bba
@@ -311,7 +326,7 @@ def main():
     process_pio_db(ddrg, args.device)
     process_loc_globals(chip)
     # print("{} unique location types".format(len(ddrg.locationTypes)))
-    bba = write_database(args.device, ddrg, "le")
+    bba = write_database(args.device, chip, ddrg, "le")
 
 
 

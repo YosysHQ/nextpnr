@@ -19,17 +19,10 @@
 
 #include "bitstream.h"
 
-// From Project Trellis
-#include "BitDatabase.hpp"
-#include "Bitstream.hpp"
-#include "Chip.hpp"
-#include "ChipConfig.hpp"
-#include "Tile.hpp"
-#include "TileConfig.hpp"
-
 #include <fstream>
 #include <streambuf>
 
+#include "config.h"
 #include "io.h"
 #include "log.h"
 #include "util.h"
@@ -49,13 +42,13 @@ static std::string get_trellis_wirename(Context *ctx, Location loc, WireId wire)
         return basename;
     std::string rel_prefix;
     if (wire.location.y < loc.y)
-        rel_prefix += "N" + to_string(loc.y - wire.location.y);
+        rel_prefix += "N" + std::to_string(loc.y - wire.location.y);
     if (wire.location.y > loc.y)
-        rel_prefix += "S" + to_string(wire.location.y - loc.y);
+        rel_prefix += "S" + std::to_string(wire.location.y - loc.y);
     if (wire.location.x > loc.x)
-        rel_prefix += "E" + to_string(wire.location.x - loc.x);
+        rel_prefix += "E" + std::to_string(wire.location.x - loc.x);
     if (wire.location.x < loc.x)
-        rel_prefix += "W" + to_string(loc.x - wire.location.x);
+        rel_prefix += "W" + std::to_string(loc.x - wire.location.x);
     return rel_prefix + "_" + basename;
 }
 
@@ -69,7 +62,7 @@ static std::vector<bool> int_to_bitvector(int val, int size)
 }
 
 // Get the PIO tile corresponding to a PIO bel
-static std::string get_pio_tile(Context *ctx, Trellis::Chip &chip, BelId bel)
+static std::string get_pio_tile(Context *ctx, BelId bel)
 {
     static const std::set<std::string> pioabcd_l = {"PICL1", "PICL1_DQS0", "PICL1_DQS3"};
     static const std::set<std::string> pioabcd_r = {"PICR1", "PICR1_DQS0", "PICR1_DQS3"};
@@ -79,31 +72,31 @@ static std::string get_pio_tile(Context *ctx, Trellis::Chip &chip, BelId bel)
     std::string pio_name = ctx->locInfo(bel)->bel_data[bel.index].name.get();
     if (bel.location.y == 0) {
         if (pio_name == "PIOA") {
-            return chip.get_tile_by_position_and_type(0, bel.location.x, "PIOT0");
+            return ctx->getTileByTypeAndLocation(0, bel.location.x, "PIOT0");
         } else if (pio_name == "PIOB") {
-            return chip.get_tile_by_position_and_type(0, bel.location.x + 1, "PIOT1");
+            return ctx->getTileByTypeAndLocation(0, bel.location.x + 1, "PIOT1");
         } else {
             NPNR_ASSERT_FALSE("bad PIO location");
         }
     } else if (bel.location.y == ctx->chip_info->height - 1) {
         if (pio_name == "PIOA") {
-            return chip.get_tile_by_position_and_type(bel.location.y, bel.location.x, pioa_b);
+            return ctx->getTileByTypeAndLocation(bel.location.y, bel.location.x, pioa_b);
         } else if (pio_name == "PIOB") {
-            return chip.get_tile_by_position_and_type(bel.location.y, bel.location.x + 1, piob_b);
+            return ctx->getTileByTypeAndLocation(bel.location.y, bel.location.x + 1, piob_b);
         } else {
             NPNR_ASSERT_FALSE("bad PIO location");
         }
     } else if (bel.location.x == 0) {
-        return chip.get_tile_by_position_and_type(bel.location.y + 1, bel.location.x, pioabcd_l);
+        return ctx->getTileByTypeAndLocation(bel.location.y + 1, bel.location.x, pioabcd_l);
     } else if (bel.location.x == ctx->chip_info->width - 1) {
-        return chip.get_tile_by_position_and_type(bel.location.y + 1, bel.location.x, pioabcd_r);
+        return ctx->getTileByTypeAndLocation(bel.location.y + 1, bel.location.x, pioabcd_r);
     } else {
         NPNR_ASSERT_FALSE("bad PIO location");
     }
 }
 
 // Get the PIC tile corresponding to a PIO bel
-static std::string get_pic_tile(Context *ctx, Trellis::Chip &chip, BelId bel)
+static std::string get_pic_tile(Context *ctx, BelId bel)
 {
     static const std::set<std::string> picab_l = {"PICL0", "PICL0_DQS2"};
     static const std::set<std::string> piccd_l = {"PICL2", "PICL2_DQS1", "MIB_CIB_LR"};
@@ -116,33 +109,33 @@ static std::string get_pic_tile(Context *ctx, Trellis::Chip &chip, BelId bel)
     std::string pio_name = ctx->locInfo(bel)->bel_data[bel.index].name.get();
     if (bel.location.y == 0) {
         if (pio_name == "PIOA") {
-            return chip.get_tile_by_position_and_type(1, bel.location.x, "PICT0");
+            return ctx->getTileByTypeAndLocation(1, bel.location.x, "PICT0");
         } else if (pio_name == "PIOB") {
-            return chip.get_tile_by_position_and_type(1, bel.location.x + 1, "PICT1");
+            return ctx->getTileByTypeAndLocation(1, bel.location.x + 1, "PICT1");
         } else {
             NPNR_ASSERT_FALSE("bad PIO location");
         }
     } else if (bel.location.y == ctx->chip_info->height - 1) {
         if (pio_name == "PIOA") {
-            return chip.get_tile_by_position_and_type(bel.location.y, bel.location.x, pica_b);
+            return ctx->getTileByTypeAndLocation(bel.location.y, bel.location.x, pica_b);
         } else if (pio_name == "PIOB") {
-            return chip.get_tile_by_position_and_type(bel.location.y, bel.location.x + 1, picb_b);
+            return ctx->getTileByTypeAndLocation(bel.location.y, bel.location.x + 1, picb_b);
         } else {
             NPNR_ASSERT_FALSE("bad PIO location");
         }
     } else if (bel.location.x == 0) {
         if (pio_name == "PIOA" || pio_name == "PIOB") {
-            return chip.get_tile_by_position_and_type(bel.location.y, bel.location.x, picab_l);
+            return ctx->getTileByTypeAndLocation(bel.location.y, bel.location.x, picab_l);
         } else if (pio_name == "PIOC" || pio_name == "PIOD") {
-            return chip.get_tile_by_position_and_type(bel.location.y + 2, bel.location.x, piccd_l);
+            return ctx->getTileByTypeAndLocation(bel.location.y + 2, bel.location.x, piccd_l);
         } else {
             NPNR_ASSERT_FALSE("bad PIO location");
         }
     } else if (bel.location.x == ctx->chip_info->width - 1) {
         if (pio_name == "PIOA" || pio_name == "PIOB") {
-            return chip.get_tile_by_position_and_type(bel.location.y, bel.location.x, picab_r);
+            return ctx->getTileByTypeAndLocation(bel.location.y, bel.location.x, picab_r);
         } else if (pio_name == "PIOC" || pio_name == "PIOD") {
-            return chip.get_tile_by_position_and_type(bel.location.y + 2, bel.location.x, piccd_r);
+            return ctx->getTileByTypeAndLocation(bel.location.y + 2, bel.location.x, piccd_r);
         } else {
             NPNR_ASSERT_FALSE("bad PIO location");
         }
@@ -151,11 +144,9 @@ static std::string get_pic_tile(Context *ctx, Trellis::Chip &chip, BelId bel)
     }
 }
 
-void write_bitstream(Context *ctx, std::string base_config_file, std::string text_config_file,
-                     std::string bitstream_file)
+void write_bitstream(Context *ctx, std::string base_config_file, std::string text_config_file)
 {
-    Trellis::Chip empty_chip(ctx->getChipName());
-    Trellis::ChipConfig cc;
+    ChipConfig cc;
 
     std::set<std::string> cib_tiles = {"CIB", "CIB_LR", "CIB_LR_S", "CIB_EFB0", "CIB_EFB1"};
 
@@ -164,8 +155,7 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
         if (!config_file) {
             log_error("failed to open base config file '%s'\n", base_config_file.c_str());
         }
-        std::string str((std::istreambuf_iterator<char>(config_file)), std::istreambuf_iterator<char>());
-        cc = Trellis::ChipConfig::from_string(str);
+        config_file >> cc;
     } else {
         cc.chip_name = ctx->getChipName();
         // TODO: .bit metadata
@@ -175,8 +165,7 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
     for (auto pip : ctx->getPips()) {
         if (ctx->getBoundPipNet(pip) != IdString()) {
             if (ctx->getPipClass(pip) == 0) { // ignore fixed pips
-                std::string tile = empty_chip.get_tile_by_position_and_type(pip.location.y, pip.location.x,
-                                                                            ctx->getPipTiletype(pip));
+                std::string tile = ctx->getPipTilename(pip);
                 std::string source = get_trellis_wirename(ctx, pip.location, ctx->getPipSrcWire(pip));
                 std::string sink = get_trellis_wirename(ctx, pip.location, ctx->getPipDstWire(pip));
                 cc.tiles[tile].add_arc(sink, source);
@@ -214,15 +203,20 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
     }
 
     // Set all bankref tiles to appropriate VccIO
-    for (const auto &tile : empty_chip.tiles) {
-        std::string type = tile.second->info.type;
-        if (type.find("BANKREF") != std::string::npos && type != "BANKREF8") {
-            int bank = std::stoi(type.substr(7));
-            if (bankVcc.find(bank) != bankVcc.end())
-                cc.tiles[tile.first].add_enum("BANK.VCCIO", iovoltage_to_str(bankVcc[bank]));
-            if (bankLvds[bank]) {
-                cc.tiles[tile.first].add_enum("BANK.DIFF_REF", "ON");
-                cc.tiles[tile.first].add_enum("BANK.LVDSO", "ON");
+    for (int y = 0; y < ctx->getGridDimY(); y++) {
+        for (int x = 0; x < ctx->getGridDimX(); x++) {
+            auto tiles = ctx->getTilesAtLocation(y, x);
+            for (auto tile : tiles) {
+                std::string type = tile.second;
+                if (type.find("BANKREF") != std::string::npos && type != "BANKREF8") {
+                    int bank = std::stoi(type.substr(7));
+                    if (bankVcc.find(bank) != bankVcc.end())
+                        cc.tiles[tile.first].add_enum("BANK.VCCIO", iovoltage_to_str(bankVcc[bank]));
+                    if (bankLvds[bank]) {
+                        cc.tiles[tile.first].add_enum("BANK.DIFF_REF", "ON");
+                        cc.tiles[tile.first].add_enum("BANK.LVDSO", "ON");
+                    }
+                }
             }
         }
     }
@@ -235,7 +229,7 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
         }
         BelId bel = ci->bel;
         if (ci->type == ctx->id("TRELLIS_SLICE")) {
-            std::string tname = empty_chip.get_tile_by_position_and_type(bel.location.y, bel.location.x, "PLC2");
+            std::string tname = ctx->getTileByTypeAndLocation(bel.location.y, bel.location.x, "PLC2");
             std::string slice = ctx->locInfo(bel)->bel_data[bel.index].name.get();
             int lut0_init = int_or_default(ci->params, ctx->id("LUT0_INITVAL"));
             int lut1_init = int_or_default(ci->params, ctx->id("LUT1_INITVAL"));
@@ -267,8 +261,8 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             std::string pio = ctx->locInfo(bel)->bel_data[bel.index].name.get();
             std::string iotype = str_or_default(ci->attrs, ctx->id("IO_TYPE"), "LVCMOS33");
             std::string dir = str_or_default(ci->params, ctx->id("DIR"), "INPUT");
-            std::string pio_tile = get_pio_tile(ctx, empty_chip, bel);
-            std::string pic_tile = get_pic_tile(ctx, empty_chip, bel);
+            std::string pio_tile = get_pio_tile(ctx, bel);
+            std::string pic_tile = get_pic_tile(ctx, bel);
             cc.tiles[pio_tile].add_enum(pio + ".BASE_TYPE", dir + "_" + iotype);
             cc.tiles[pic_tile].add_enum(pio + ".BASE_TYPE", dir + "_" + iotype);
             if (is_differential(ioType_from_str(iotype))) {
@@ -293,7 +287,7 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                 PipId jpt_pip = *ctx->getPipsUphill(jpt_wire).begin();
                 WireId cib_wire = ctx->getPipSrcWire(jpt_pip);
                 std::string cib_tile =
-                        empty_chip.get_tile_by_position_and_type(cib_wire.location.y, cib_wire.location.x, cib_tiles);
+                        ctx->getTileByTypeAndLocation(cib_wire.location.y, cib_wire.location.x, cib_tiles);
                 std::string cib_wirename = ctx->locInfo(cib_wire)->wire_data[cib_wire.index].name.get();
                 cc.tiles[cib_tile].add_enum("CIB." + cib_wirename + "MUX", "0");
             }
@@ -306,13 +300,9 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
     }
 
     // Configure chip
-    Trellis::Chip cfg_chip = cc.to_chip();
-    if (!bitstream_file.empty()) {
-        Trellis::Bitstream::serialise_chip(cfg_chip).write_bit_py(bitstream_file);
-    }
     if (!text_config_file.empty()) {
         std::ofstream out_config(text_config_file);
-        out_config << cc.to_string();
+        out_config << cc;
     }
 }
 
