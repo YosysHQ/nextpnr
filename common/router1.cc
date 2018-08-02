@@ -105,6 +105,7 @@ void ripup_net(Context *ctx, IdString net_name)
 struct Router
 {
     Context *ctx;
+    const Router1Cfg &cfg;
     RipupScoreboard scores;
     IdString net_name;
 
@@ -226,9 +227,9 @@ struct Router
         visitCnt += thisVisitCnt;
     }
 
-    Router(Context *ctx, RipupScoreboard &scores, WireId src_wire, WireId dst_wire, bool ripup = false,
-           delay_t ripup_penalty = 0)
-            : ctx(ctx), scores(scores), ripup(ripup), ripup_penalty(ripup_penalty)
+    Router(Context *ctx, const Router1Cfg &cfg, RipupScoreboard &scores, WireId src_wire, WireId dst_wire,
+           bool ripup = false, delay_t ripup_penalty = 0)
+            : ctx(ctx), cfg(cfg), scores(scores), ripup(ripup), ripup_penalty(ripup_penalty)
     {
         std::unordered_map<WireId, delay_t> src_wires;
         src_wires[src_wire] = ctx->getWireDelay(src_wire).maxDelay();
@@ -251,9 +252,9 @@ struct Router
         }
     }
 
-    Router(Context *ctx, RipupScoreboard &scores, IdString net_name, int user_idx = -1, bool reroute = false,
-           bool ripup = false, delay_t ripup_penalty = 0)
-            : ctx(ctx), scores(scores), net_name(net_name), ripup(ripup), ripup_penalty(ripup_penalty)
+    Router(Context *ctx, const Router1Cfg &cfg, RipupScoreboard &scores, IdString net_name, int user_idx = -1,
+           bool reroute = false, bool ripup = false, delay_t ripup_penalty = 0)
+            : ctx(ctx), cfg(cfg), scores(scores), net_name(net_name), ripup(ripup), ripup_penalty(ripup_penalty)
     {
         auto net_info = ctx->nets.at(net_name).get();
 
@@ -455,7 +456,8 @@ struct RouteJob
     };
 };
 
-void addFullNetRouteJob(Context *ctx, IdString net_name, std::unordered_map<IdString, std::vector<bool>> &cache,
+void addFullNetRouteJob(Context *ctx, const Router1Cfg &cfg,
+                        IdString net_name, std::unordered_map<IdString, std::vector<bool>> &cache,
                         std::priority_queue<RouteJob, std::vector<RouteJob>, RouteJob::Greater> &queue)
 {
     NetInfo *net_info = ctx->nets.at(net_name).get();
@@ -520,7 +522,8 @@ void addFullNetRouteJob(Context *ctx, IdString net_name, std::unordered_map<IdSt
         net_cache[user_idx] = true;
 }
 
-void addNetRouteJobs(Context *ctx, IdString net_name, std::unordered_map<IdString, std::vector<bool>> &cache,
+void addNetRouteJobs(Context *ctx, const Router1Cfg &cfg,
+                     IdString net_name, std::unordered_map<IdString, std::vector<bool>> &cache,
                      std::priority_queue<RouteJob, std::vector<RouteJob>, RouteJob::Greater> &queue)
 {
     NetInfo *net_info = ctx->nets.at(net_name).get();
@@ -568,7 +571,8 @@ void addNetRouteJobs(Context *ctx, IdString net_name, std::unordered_map<IdStrin
     }
 }
 
-void cleanupReroute(Context *ctx, RipupScoreboard &scores, std::unordered_set<IdString> &cleanupQueue,
+void cleanupReroute(Context *ctx, const Router1Cfg &cfg,
+                    RipupScoreboard &scores, std::unordered_set<IdString> &cleanupQueue,
                     std::priority_queue<RouteJob, std::vector<RouteJob>, RouteJob::Greater> &jobQueue,
                     int &totalVisitCnt, int &totalRevisitCnt, int &totalOvertimeRevisitCnt)
 {
@@ -635,7 +639,7 @@ void cleanupReroute(Context *ctx, RipupScoreboard &scores, std::unordered_set<Id
 
         ctx->unbindWire(dst_wire);
 
-        Router router(ctx, scores, net_name, user_idx, false, false);
+        Router router(ctx, cfg, scores, net_name, user_idx, false, false);
 
         if (!router.routedOkay)
             log_error("Failed to re-route arc %d of net %s.\n", user_idx, net_name.c_str(ctx));
@@ -669,7 +673,7 @@ void cleanupReroute(Context *ctx, RipupScoreboard &scores, std::unordered_set<Id
 
 NEXTPNR_NAMESPACE_BEGIN
 
-bool router1(Context *ctx)
+bool router1(Context *ctx, const Router1Cfg &cfg)
 {
     try {
         int totalVisitCnt = 0, totalRevisitCnt = 0, totalOvertimeRevisitCnt = 0;
@@ -685,7 +689,7 @@ bool router1(Context *ctx)
         std::priority_queue<RouteJob, std::vector<RouteJob>, RouteJob::Greater> jobQueue;
 
         for (auto &net_it : ctx->nets)
-            addNetRouteJobs(ctx, net_it.first, jobCache, jobQueue);
+            addNetRouteJobs(ctx, cfg, net_it.first, jobCache, jobQueue);
 
         if (jobQueue.empty()) {
             log_info("found no unrouted source-sink pairs. no routing necessary.\n");
@@ -698,7 +702,7 @@ bool router1(Context *ctx)
         int iterCnt = 0;
 
         while (!jobQueue.empty()) {
-            if (iterCnt == 200) {
+            if (iterCnt == cfg.maxIterCnt) {
                 log_warning("giving up after %d iterations.\n", iterCnt);
                 log_info("Checksum: 0x%08x\n", ctx->checksum());
 #ifndef NDEBUG
@@ -731,6 +735,9 @@ bool router1(Context *ctx)
                 auto user_idx = jobQueue.top().user_idx;
                 jobQueue.pop();
 
+                if (cfg.fullCleanupReroute)
+                    cleanupQueue.insert(net_name);
+
                 if (printNets) {
                     if (user_idx < 0)
                         log_info("  routing all %d users of net %s\n", int(ctx->nets.at(net_name)->users.size()),
@@ -739,7 +746,7 @@ bool router1(Context *ctx)
                         log_info("  routing user %d of net %s\n", user_idx, net_name.c_str(ctx));
                 }
 
-                Router router(ctx, scores, net_name, user_idx, false, false);
+                Router router(ctx, cfg, scores, net_name, user_idx, false, false);
 
                 jobCnt++;
                 visitCnt += router.visitCnt;
@@ -790,13 +797,14 @@ bool router1(Context *ctx)
                 ctx->sorted_shuffle(ripupArray);
 
                 for (auto net_name : ripupArray) {
-                    cleanupQueue.insert(net_name);
+                    if (cfg.cleanupReroute)
+                        cleanupQueue.insert(net_name);
 
                     if (printNets)
                         log_info("  routing net %s. (%d users)\n", net_name.c_str(ctx),
                                  int(ctx->nets.at(net_name)->users.size()));
 
-                    Router router(ctx, scores, net_name, -1, false, true, ripup_penalty);
+                    Router router(ctx, cfg, scores, net_name, -1, false, true, ripup_penalty);
 
                     netCnt++;
                     visitCnt += router.visitCnt;
@@ -807,8 +815,9 @@ bool router1(Context *ctx)
                         log_error("Net %s is impossible to route.\n", net_name.c_str(ctx));
 
                     for (auto it : router.rippedNets) {
-                        addFullNetRouteJob(ctx, it, jobCache, jobQueue);
-                        cleanupQueue.insert(it);
+                        addFullNetRouteJob(ctx, cfg, it, jobCache, jobQueue);
+                        if (cfg.cleanupReroute)
+                            cleanupQueue.insert(it);
                     }
 
                     if (printNets) {
@@ -852,8 +861,8 @@ bool router1(Context *ctx)
             if (iterCnt == 8 || iterCnt == 16 || iterCnt == 32 || iterCnt == 64 || iterCnt == 128)
                 ripup_penalty += ctx->getRipupDelayPenalty();
 
-            if (jobQueue.empty() || (iterCnt % 5) == 4)
-                cleanupReroute(ctx, scores, cleanupQueue, jobQueue, totalVisitCnt, totalRevisitCnt, totalOvertimeRevisitCnt);
+            if (jobQueue.empty() || (iterCnt % 5) == 4 || (cfg.fullCleanupReroute && iterCnt == 1))
+                cleanupReroute(ctx, cfg, scores, cleanupQueue, jobQueue, totalVisitCnt, totalRevisitCnt, totalOvertimeRevisitCnt);
 
             ctx->yield();
         }
@@ -901,7 +910,7 @@ bool router1(Context *ctx)
         jobCache.clear();
 
         for (auto &net_it : ctx->nets)
-            addNetRouteJobs(ctx, net_it.first, jobCache, jobQueue);
+            addNetRouteJobs(ctx, cfg, net_it.first, jobCache, jobQueue);
 
 #ifndef NDEBUG
         if (!jobQueue.empty()) {
@@ -936,7 +945,7 @@ bool router1(Context *ctx)
 bool Context::getActualRouteDelay(WireId src_wire, WireId dst_wire, delay_t &delay)
 {
     RipupScoreboard scores;
-    Router router(this, scores, src_wire, dst_wire);
+    Router router(this, Router1Cfg(), scores, src_wire, dst_wire);
     if (router.routedOkay)
         delay = router.visited.at(dst_wire).delay;
     return router.routedOkay;

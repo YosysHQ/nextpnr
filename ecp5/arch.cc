@@ -428,7 +428,11 @@ delay_t Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, de
 
 bool Arch::place() { return placer1(getCtx()); }
 
-bool Arch::route() { return router1(getCtx()); }
+bool Arch::route()
+{
+    Router1Cfg cfg;
+    return router1(getCtx(), cfg);
+}
 
 // -----------------------------------------------------------------------
 
