@@ -42,18 +42,18 @@ PythonTab::PythonTab(QWidget *parent) : QWidget(parent), initialized(false)
     console->setContextMenuPolicy(Qt::CustomContextMenu);
     QAction *clearAction = new QAction("Clear &buffer", this);
     clearAction->setStatusTip("Clears display buffer");
-    connect(clearAction, SIGNAL(triggered()), this, SLOT(clearBuffer()));
+    connect(clearAction, &QAction::triggered, this, &PythonTab::clearBuffer);
     contextMenu = console->createStandardContextMenu();
     contextMenu->addSeparator();
     contextMenu->addAction(clearAction);
-    connect(console, SIGNAL(customContextMenuRequested(const QPoint)), this, SLOT(showContextMenu(const QPoint)));
+    connect(console, &PythonConsole::customContextMenuRequested, this, &PythonTab::showContextMenu);
 
     lineEdit = new LineEditor(&parseHelper);
     lineEdit->setMinimumHeight(30);
     lineEdit->setMaximumHeight(30);
     lineEdit->setFont(f);
     lineEdit->setPlaceholderText(PythonTab::PROMPT);
-    connect(lineEdit, SIGNAL(textLineInserted(QString)), this, SLOT(editLineReturnPressed(QString)));
+    connect(lineEdit, &LineEditor::textLineInserted, this, &PythonTab::editLineReturnPressed);
 
     QGridLayout *mainLayout = new QGridLayout();
     mainLayout->addWidget(console, 0, 0);

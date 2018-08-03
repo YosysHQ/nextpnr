@@ -32,13 +32,13 @@ LineEditor::LineEditor(ParseHelper *helper, QWidget *parent) : QLineEdit(parent)
     setContextMenuPolicy(Qt::CustomContextMenu);
     QAction *clearAction = new QAction("Clear &history", this);
     clearAction->setStatusTip("Clears line edit history");
-    connect(clearAction, SIGNAL(triggered()), this, SLOT(clearHistory()));
+    connect(clearAction, &QAction::triggered, this, &LineEditor::clearHistory);
     contextMenu = createStandardContextMenu();
     contextMenu->addSeparator();
     contextMenu->addAction(clearAction);
 
-    connect(this, SIGNAL(returnPressed()), SLOT(textInserted()));
-    connect(this, SIGNAL(customContextMenuRequested(const QPoint)), this, SLOT(showContextMenu(const QPoint)));
+    connect(this, &LineEditor::returnPressed, this, &LineEditor::textInserted);
+    connect(this, &LineEditor::customContextMenuRequested, this, &LineEditor::showContextMenu);
 }
 
 void LineEditor::keyPressEvent(QKeyEvent *ev)

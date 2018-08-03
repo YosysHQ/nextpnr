@@ -21,6 +21,7 @@
 #define BASEMAINWINDOW_H
 
 #include "nextpnr.h"
+#include "worker.h"
 
 #include <QMainWindow>
 #include <QMenu>
@@ -48,9 +49,17 @@ class BaseMainWindow : public QMainWindow
     virtual ~BaseMainWindow();
     Context *getContext() { return ctx.get(); }
 
+    void load_json(std::string filename);
+
   protected:
     void createMenusAndBars();
-    void createGraphicsBar();
+    void disableActions();
+    virtual void onDisableActions(){};
+    virtual void onJsonLoaded(){};
+    virtual void onPackFinished(){};
+    virtual void onBudgetFinished(){};
+    virtual void onPlaceFinished(){};
+    virtual void onRouteFinished(){};
 
   protected Q_SLOTS:
     void writeInfo(std::string text);
@@ -60,26 +69,56 @@ class BaseMainWindow : public QMainWindow
     virtual void open_proj() = 0;
     virtual bool save_proj() = 0;
 
+    void open_json();
+    void budget();
+    void place();
+
+    void pack_finished(bool status);
+    void budget_finish(bool status);
+    void place_finished(bool status);
+    void route_finished(bool status);
+
+    void taskCanceled();
+    void taskStarted();
+    void taskPaused();
+
   Q_SIGNALS:
     void contextChanged(Context *ctx);
     void updateTreeView();
 
   protected:
+    // state variables
     std::unique_ptr<Context> ctx;
+    TaskManager *task;
+    bool timing_driven;
+    std::string currentJson;
+
+    // main widgets
     QTabWidget *tabWidget;
     QTabWidget *centralTabWidget;
     PythonTab *console;
+    DesignWidget *designview;
+    FPGAViewWidget *fpgaView;
 
+    // Menus, bars and actions
     QMenuBar *menuBar;
-    QToolBar *mainToolBar;
-    QToolBar *graphicsToolBar;
+    QMenu *menuDesign;
     QStatusBar *statusBar;
+    QToolBar *mainActionBar;
+    QProgressBar *progressBar;
+
     QAction *actionNew;
     QAction *actionOpen;
     QAction *actionSave;
-    QProgressBar *progressBar;
-    DesignWidget *designview;
-    FPGAViewWidget *fpgaView;
+
+    QAction *actionLoadJSON;
+    QAction *actionPack;
+    QAction *actionAssignBudget;
+    QAction *actionPlace;
+    QAction *actionRoute;
+    QAction *actionPlay;
+    QAction *actionPause;
+    QAction *actionStop;
 };
 
 NEXTPNR_NAMESPACE_END

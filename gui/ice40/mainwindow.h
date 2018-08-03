@@ -21,7 +21,6 @@
 #define MAINWINDOW_H
 
 #include "../basewindow.h"
-#include "worker.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -35,53 +34,30 @@ class MainWindow : public BaseMainWindow
 
   public:
     void createMenu();
-    void load_json(std::string filename, std::string pcf);
     void load_pcf(std::string filename);
+
+  protected:
+    void onDisableActions() override;
+    void onJsonLoaded() override;
+    void onRouteFinished() override;
+
   protected Q_SLOTS:
     virtual void new_proj();
     virtual void open_proj();
     virtual bool save_proj();
 
-    void open_json();
     void open_pcf();
-    void budget();
-    void place();
     void save_asc();
-
-    void loadfile_finished(bool status);
-    void loadpcf_finished(bool status);
-    void saveasc_finished(bool status);
-    void pack_finished(bool status);
-    void budget_finish(bool status);
-    void place_finished(bool status);
-    void route_finished(bool status);
-
-    void taskCanceled();
-    void taskStarted();
-    void taskPaused();
 
     void newContext(Context *ctx);
 
   private:
-    void disableActions();
-
-    TaskManager *task;
-    QAction *actionLoadJSON;
     QAction *actionLoadPCF;
-    QAction *actionPack;
-    QAction *actionAssignBudget;
-    QAction *actionPlace;
-    QAction *actionRoute;
     QAction *actionSaveAsc;
-    QAction *actionPlay;
-    QAction *actionPause;
-    QAction *actionStop;
 
-    bool timing_driven;
     ArchArgs chipArgs;
 
     std::string currentProj;
-    std::string currentJson;
     std::string currentPCF;
 };
 

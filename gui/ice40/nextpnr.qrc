@@ -1,14 +1,6 @@
 <RCC>
     <qresource prefix="/icons">
-        <file>resources/control_play.png</file>
-        <file>resources/control_pause.png</file>
-        <file>resources/control_stop.png</file>
-        <file>resources/pack.png</file>
-        <file>resources/place.png</file>
-        <file>resources/route.png</file>
-        <file>resources/time_add.png</file>
         <file>resources/open_pcf.png</file>
         <file>resources/save_asc.png</file>
-        <file>resources/open_json.png</file>
     </qresource>
 </RCC>

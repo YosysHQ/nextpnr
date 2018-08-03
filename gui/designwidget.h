@@ -53,7 +53,6 @@ class DesignWidget : public QWidget
     std::vector<DecalXY> getDecals(ElementType type, IdString value);
     void updateHighlightGroup(QList<TreeModel::Item *> item, int group);
   Q_SIGNALS:
-    void info(std::string text);
     void selected(std::vector<DecalXY> decal, bool keep);
     void highlight(std::vector<DecalXY> decal, int group);
     void zoomSelected();

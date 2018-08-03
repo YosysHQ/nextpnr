@@ -454,6 +454,7 @@ struct Arch : BaseCtx
         bel_to_cell[bel] = cell;
         cells[cell]->bel = bel;
         cells[cell]->belStrength = strength;
+        refreshUiBel(bel);
     }
 
     void unbindBel(BelId bel)
@@ -463,6 +464,7 @@ struct Arch : BaseCtx
         cells[bel_to_cell[bel]]->bel = BelId();
         cells[bel_to_cell[bel]]->belStrength = STRENGTH_NONE;
         bel_to_cell[bel] = IdString();
+        refreshUiBel(bel);
     }
 
     Loc getBelLocation(BelId bel) const

@@ -406,9 +406,11 @@ int main(int argc, char *argv[])
             if (vm.count("json")) {
                 std::string filename = vm["json"].as<std::string>();
                 std::string pcf = "";
-                if (vm.count("pcf"))
+                w.load_json(filename);
+                if (vm.count("pcf")) {
                     pcf = vm["pcf"].as<std::string>();
-                w.load_json(filename, pcf);
+                    w.load_pcf(pcf);
+                }
             }
             w.show();
 

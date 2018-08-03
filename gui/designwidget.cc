@@ -55,7 +55,7 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr), sel
     searchEdit->setClearButtonEnabled(true);
     searchEdit->addAction(QIcon(":/icons/resources/zoom.png"), QLineEdit::LeadingPosition);
     searchEdit->setPlaceholderText("Search...");
-    connect(searchEdit, SIGNAL(returnPressed()), this, SLOT(onSearchInserted()));
+    connect(searchEdit, &QLineEdit::returnPressed, this, &DesignWidget::onSearchInserted);
 
     actionFirst = new QAction("", this);
     actionFirst->setIcon(QIcon(":/icons/resources/resultset_first.png"));
@@ -162,8 +162,7 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr), sel
     connect(treeView, &QTreeView::customContextMenuRequested, this, &DesignWidget::prepareMenuTree);
     connect(treeView, &QTreeView::doubleClicked, this, &DesignWidget::onDoubleClicked);
     selectionModel = treeView->selectionModel();
-    connect(selectionModel, SIGNAL(selectionChanged(const QItemSelection &, const QItemSelection &)),
-            SLOT(onSelectionChanged(const QItemSelection &, const QItemSelection &)));
+    connect(selectionModel, &QItemSelectionModel::selectionChanged, this, &DesignWidget::onSelectionChanged);
 
     history_index = -1;
     history_ignore = false;
@@ -317,7 +316,7 @@ QtProperty *DesignWidget::addSubGroup(QtProperty *topItem, const QString &name)
 
 void DesignWidget::onClickedBel(BelId bel, bool keep)
 {
-    boost::optional<TreeModel::Item*> item;
+    boost::optional<TreeModel::Item *> item;
     {
         std::lock_guard<std::mutex> lock_ui(ctx->ui_mutex);
         std::lock_guard<std::mutex> lock(ctx->mutex);
@@ -334,7 +333,7 @@ void DesignWidget::onClickedBel(BelId bel, bool keep)
 
 void DesignWidget::onClickedWire(WireId wire, bool keep)
 {
-    boost::optional<TreeModel::Item*> item;
+    boost::optional<TreeModel::Item *> item;
     {
         std::lock_guard<std::mutex> lock_ui(ctx->ui_mutex);
         std::lock_guard<std::mutex> lock(ctx->mutex);
@@ -351,7 +350,7 @@ void DesignWidget::onClickedWire(WireId wire, bool keep)
 
 void DesignWidget::onClickedPip(PipId pip, bool keep)
 {
-    boost::optional<TreeModel::Item*> item;
+    boost::optional<TreeModel::Item *> item;
     {
         std::lock_guard<std::mutex> lock_ui(ctx->ui_mutex);
         std::lock_guard<std::mutex> lock(ctx->mutex);
