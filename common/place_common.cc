@@ -425,6 +425,34 @@ class ConstraintLegaliseWorker
             print_chain(child, depth + 1);
     }
 
+    void print_stats(const char *point)
+    {
+        float distance_sum = 0;
+        float max_distance = 0;
+        int moved_cells = 0;
+        int unplaced_cells = 0;
+        for (auto orig : oldLocations) {
+            if (ctx->cells.at(orig.first)->bel == BelId()) {
+                unplaced_cells++;
+                continue;
+            }
+            Loc newLoc = ctx->getBelLocation(ctx->cells.at(orig.first)->bel);
+            if (newLoc != orig.second) {
+                float distance = std::sqrt(std::pow(newLoc.x - orig.second.x, 2) + pow(newLoc.y - orig.second.y, 2));
+                moved_cells++;
+                distance_sum += distance;
+                if (distance > max_distance)
+                    max_distance = distance;
+            }
+        }
+        log_info("    moved %d cells, %d unplaced (after %s)\n", moved_cells, unplaced_cells, point);
+        if (moved_cells > 0) {
+            log_info("       average distance %f\n", (distance_sum / moved_cells));
+            log_info("       maximum distance %f\n", max_distance);
+        }
+    }
+
+
     bool legalise_constraints()
     {
         log_info("Legalising relative constraints...\n");
@@ -440,6 +468,7 @@ class ConstraintLegaliseWorker
                 return false;
             }
         }
+        print_stats("after legalising chains");
         for (auto rippedCell : rippedCells) {
             bool res = place_single_cell(ctx, ctx->cells.at(rippedCell).get(), true);
             if (!res) {
@@ -448,6 +477,7 @@ class ConstraintLegaliseWorker
                 return false;
             }
         }
+        print_stats("after replacing ripped up cells");
         for (auto cell : sorted(ctx->cells))
             if (get_constraints_distance(ctx, cell.second) != 0)
                 log_error("constraint satisfaction check failed for cell '%s' at Bel '%s'\n", cell.first.c_str(ctx),

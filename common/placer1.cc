@@ -395,7 +395,7 @@ private:
         if (other != IdString())
             new_dist += get_constraints_distance(ctx, other_cell);
         delta = new_metric - curr_metric;
-        delta += (1 / temp) * (new_dist - old_dist);
+        delta += (10 / temp) * (new_dist - old_dist);
         n_move++;
         // SA acceptance criterea
         if (delta < 0 || (temp > 1e-6 && (ctx->rng() / float(0x3fffffff)) <= std::exp(-delta / temp))) {
