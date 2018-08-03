@@ -134,12 +134,21 @@ tiletypes["DSP2"] = 7
 tiletypes["DSP3"] = 8
 tiletypes["IPCON"] = 9
 
-wiretypes["LOCAL"] = 1
-wiretypes["GLOBAL"] = 2
-wiretypes["SP4_VERT"] = 3
-wiretypes["SP4_HORZ"] = 4
-wiretypes["SP12_HORZ"] = 5
-wiretypes["SP12_VERT"] = 6
+wiretypes["NONE"]         = 0
+wiretypes["GLB2LOCAL"]    = 1
+wiretypes["GLB_NETWK"]    = 2
+wiretypes["LOCAL"]        = 3
+wiretypes["LUTFF_IN"]     = 4
+wiretypes["LUTFF_IN_LUT"] = 5
+wiretypes["LUTFF_LOUT"]   = 6
+wiretypes["LUTFF_OUT"]    = 7
+wiretypes["LUTFF_COUT"]   = 8
+wiretypes["LUTFF_GLOBAL"] = 9
+wiretypes["CARRY_IN_MUX"] = 10
+wiretypes["SP4_V"]        = 11
+wiretypes["SP4_H"]        = 12
+wiretypes["SP12_V"]       = 13
+wiretypes["SP12_H"]       = 14
 
 def maj_wire_name(name):
     if name[2].startswith("lutff_"):
@@ -179,42 +188,84 @@ def cmp_wire_names(newname, oldname):
 
 def wire_type(name):
     longname = name
-    name = name.split('/')[-1]
-    wt = None
+    name = name.split('/')
 
-    if name.startswith("glb_netwk_") or name.startswith("padin_"):
-        wt = "GLOBAL"
-    elif name.startswith("D_IN_") or name.startswith("D_OUT_"):
-        wt = "LOCAL"
-    elif name in ("OUT_ENB", "cen", "inclk", "latch", "outclk", "clk", "s_r", "carry_in", "carry_in_mux"):
-        wt = "LOCAL"
-    elif name in ("in_0", "in_1", "in_2", "in_3", "cout", "lout", "out", "fabout") or name.startswith("slf_op") or name.startswith("O_"):
-        wt = "LOCAL"
-    elif name in ("in_0_lut", "in_1_lut", "in_2_lut", "in_3_lut"):
-        wt = "LOCAL"
-    elif name.startswith("local_g") or name.startswith("glb2local_"):
-        wt = "LOCAL"
-    elif name.startswith("span4_horz_") or name.startswith("sp4_h_"):
-        wt = "SP4_HORZ"
-    elif name.startswith("span4_vert_") or name.startswith("sp4_v_") or name.startswith("sp4_r_v_"):
-        wt = "SP4_VERT"
-    elif name.startswith("span12_horz_") or name.startswith("sp12_h_"):
-        wt = "SP12_HORZ"
-    elif name.startswith("span12_vert_") or name.startswith("sp12_v_"):
-        wt = "SP12_VERT"
-    elif name.startswith("MASK_") or name.startswith("RADDR_") or name.startswith("WADDR_"):
-        wt = "LOCAL"
-    elif name.startswith("RDATA_")  or name.startswith("WDATA_") or name.startswith("neigh_op_"):
-        wt = "LOCAL"
-    elif name in ("WCLK", "WCLKE", "WE", "RCLK", "RCLKE", "RE"):
-        wt = "LOCAL"
-    elif name in ("PLLOUT_A", "PLLOUT_B"):
-        wt = "LOCAL"
+    if name[0].startswith("X") and name[1].startswith("Y"):
+        name = name[2:]
 
-    if wt is None:
-        print("No type for wire: %s (%s)" % (longname, name), file=sys.stderr)
-        assert 0
-    return wt
+    if name[0].startswith("sp4_v_") or name[0].startswith("sp4_r_v_") or name[0].startswith("span4_vert_"):
+        return "SP4_V"
+
+    if name[0].startswith("sp4_h_") or name[0].startswith("span4_horz_"):
+        return "SP4_H"
+
+    if name[0].startswith("sp12_v_") or name[0].startswith("span12_vert_"):
+        return "SP12_V"
+
+    if name[0].startswith("sp12_h_") or name[0].startswith("span12_horz_"):
+        return "SP12_H"
+
+    if name[0].startswith("glb2local"):
+        return "GLB2LOCAL"
+
+    if name[0].startswith("glb_netwk_"):
+        return "GLB_NETWK"
+
+    if name[0].startswith("local_"):
+        return "LOCAL"
+
+    if name[0].startswith("lutff_"):
+        if name[1].startswith("in_"):
+            return "LUTFF_IN_LUT" if name[1].endswith("_lut") else "LUTFF_IN"
+
+        if name[1] == "lout":
+            return "LUTFF_LOUT"
+        if name[1] == "out":
+            return "LUTFF_OUT"
+        if name[1] == "cout":
+            return "LUTFF_COUT"
+
+    if name[0] == "ram":
+        if name[1].startswith("RADDR_"):
+            return "LUTFF_IN"
+        if name[1].startswith("WADDR_"):
+            return "LUTFF_IN"
+        if name[1].startswith("WDATA_"):
+            return "LUTFF_IN"
+        if name[1].startswith("MASK_"):
+            return "LUTFF_IN"
+        if name[1].startswith("RDATA_"):
+            return "LUTFF_OUT"
+        if name[1] in ("WCLK", "WCLKE", "WE", "RCLK", "RCLKE", "RE"):
+            return "LUTFF_GLOBAL"
+
+    if name[0].startswith("io_"):
+        if name[1].startswith("D_IN_") or name[1] == "OUT_ENB":
+            return "LUTFF_IN"
+        if name[1].startswith("D_OUT_"):
+            return "LUTFF_OUT"
+    if name[0] == "fabout":
+        return "LUTFF_IN"
+
+    if name[0] == "lutff_global" or name[0] == "io_global":
+        return "LUTFF_GLOBAL"
+
+    if name[0] == "carry_in_mux":
+        return "CARRY_IN_MUX"
+
+    if name[0] == "carry_in":
+        return "LUTFF_COUT"
+
+    if name[0].startswith("neigh_op_"):
+        return "NONE"
+
+    if name[0].startswith("padin_"):
+        return "NONE"
+
+    # print("No type for wire: %s (%s)" % (longname, name), file=sys.stderr)
+    # assert 0
+
+    return "NONE"
 
 def pipdelay(src_idx, dst_idx, db):
     if db is None:

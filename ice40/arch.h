@@ -88,6 +88,25 @@ NPNR_PACKED_STRUCT(struct WireSegmentPOD {
 });
 
 NPNR_PACKED_STRUCT(struct WireInfoPOD {
+    enum WireType : int8_t
+    {
+        WIRE_TYPE_NONE         = 0,
+        WIRE_TYPE_GLB2LOCAL    = 1,
+        WIRE_TYPE_GLB_NETWK    = 2,
+        WIRE_TYPE_LOCAL        = 3,
+        WIRE_TYPE_LUTFF_IN     = 4,
+        WIRE_TYPE_LUTFF_IN_LUT = 5,
+        WIRE_TYPE_LUTFF_LOUT   = 6,
+        WIRE_TYPE_LUTFF_OUT    = 7,
+        WIRE_TYPE_LUTFF_COUT   = 8,
+        WIRE_TYPE_LUTFF_GLOBAL = 9,
+        WIRE_TYPE_CARRY_IN_MUX = 10,
+        WIRE_TYPE_SP4_V        = 11,
+        WIRE_TYPE_SP4_H        = 12,
+        WIRE_TYPE_SP12_V       = 13,
+        WIRE_TYPE_SP12_H       = 14
+    };
+
     RelPtr<char> name;
     int32_t num_uphill, num_downhill;
     RelPtr<int32_t> pips_uphill, pips_downhill;
@@ -503,7 +522,7 @@ struct Arch : BaseCtx
         return id(chip_info->wire_data[wire.index].name.get());
     }
 
-    IdString getWireType(WireId wire) const { return IdString(); }
+    IdString getWireType(WireId wire) const;
 
     uint32_t getWireChecksum(WireId wire) const { return wire.index; }
 

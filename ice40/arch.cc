@@ -401,6 +401,45 @@ WireId Arch::getWireByName(IdString name) const
     return ret;
 }
 
+IdString Arch::getWireType(WireId wire) const
+{
+    NPNR_ASSERT(wire != WireId());
+    switch (chip_info->wire_data[wire.index].type)
+    {
+        case WireInfoPOD::WIRE_TYPE_NONE:
+            return IdString();
+        case WireInfoPOD::WIRE_TYPE_GLB2LOCAL:
+            return id("GLB2LOCAL");
+        case WireInfoPOD::WIRE_TYPE_GLB_NETWK:
+            return id("GLB_NETWK");
+        case WireInfoPOD::WIRE_TYPE_LOCAL:
+            return id("LOCAL");
+        case WireInfoPOD::WIRE_TYPE_LUTFF_IN:
+            return id("LUTFF_IN");
+        case WireInfoPOD::WIRE_TYPE_LUTFF_IN_LUT:
+            return id("LUTFF_IN_LUT");
+        case WireInfoPOD::WIRE_TYPE_LUTFF_LOUT:
+            return id("LUTFF_LOUT");
+        case WireInfoPOD::WIRE_TYPE_LUTFF_OUT:
+            return id("LUTFF_OUT");
+        case WireInfoPOD::WIRE_TYPE_LUTFF_COUT:
+            return id("LUTFF_COUT");
+        case WireInfoPOD::WIRE_TYPE_LUTFF_GLOBAL:
+            return id("LUTFF_GLOBAL");
+        case WireInfoPOD::WIRE_TYPE_CARRY_IN_MUX:
+            return id("CARRY_IN_MUX");
+        case WireInfoPOD::WIRE_TYPE_SP4_V:
+            return id("SP4_V");
+        case WireInfoPOD::WIRE_TYPE_SP4_H:
+            return id("SP4_H");
+        case WireInfoPOD::WIRE_TYPE_SP12_V:
+            return id("SP12_V");
+        case WireInfoPOD::WIRE_TYPE_SP12_H:
+            return id("SP12_H");
+    }
+    return IdString();
+}
+
 // -----------------------------------------------------------------------
 
 PipId Arch::getPipByName(IdString name) const
