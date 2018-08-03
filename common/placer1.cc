@@ -38,7 +38,6 @@
 #include <vector>
 #include "log.h"
 #include "place_common.h"
-#include "place_legaliser.h"
 #include "timing.h"
 #include "util.h"
 NEXTPNR_NAMESPACE_BEGIN
@@ -225,7 +224,8 @@ class SAPlacer
             // Once cooled below legalise threshold, run legalisation and start requiring
             // legal moves only
             if (temp < legalise_temp && !require_legal) {
-                legalise_design(ctx);
+                // legalise_design(ctx);
+                // FIXME
                 require_legal = true;
                 autoplaced.clear();
                 for (auto cell : sorted(ctx->cells)) {

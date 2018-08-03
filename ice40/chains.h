@@ -1,7 +1,7 @@
 /*
  *  nextpnr -- Next Generation Place and Route
  *
- *  Copyright (C) 2018  David Shah <david@symbioticeda.com>
+ *  Copyright (C) 2018  David Shah <clifford@symbioticeda.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -17,10 +17,11 @@
  *
  */
 
-#include "place_legaliser.h"
+#include "nextpnr.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
-bool legalise_design(Context *ctx) { return true; }
+// This finds chains, inserts LCs to legalise them as needed, and sets relative constraints as appropriate
+void constrain_chains(Context *ctx);
 
 NEXTPNR_NAMESPACE_END

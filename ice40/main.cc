@@ -40,7 +40,6 @@
 #include "log.h"
 #include "nextpnr.h"
 #include "pcf.h"
-#include "place_legaliser.h"
 #include "timing.h"
 #include "version.h"
 
