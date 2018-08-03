@@ -306,10 +306,18 @@ class ConstraintLegaliseWorker
                 currentLoc = ctx->getBelLocation(cell->bel);
             if (cell->constr_x == cell->UNCONSTR)
                 xRootSearch = IncreasingDiameterSearch(currentLoc.x, 0, ctx->getGridDimX() - 1);
+            else
+                xRootSearch = IncreasingDiameterSearch(cell->constr_x);
+
             if (cell->constr_y == cell->UNCONSTR)
                 yRootSearch = IncreasingDiameterSearch(currentLoc.y, 0, ctx->getGridDimY() - 1);
+            else
+                yRootSearch = IncreasingDiameterSearch(cell->constr_y);
+
             if (cell->constr_z == cell->UNCONSTR)
                 zRootSearch = IncreasingDiameterSearch(currentLoc.z, 0, ctx->getTileDimZ(currentLoc.x, currentLoc.y));
+            else
+                zRootSearch = IncreasingDiameterSearch(cell->constr_z);
             while (!xRootSearch.done()) {
                 Loc rootLoc;
                 rootLoc.x = xRootSearch.get();
@@ -352,6 +360,7 @@ class ConstraintLegaliseWorker
                         }
                         ctx->bindBel(target, cp.first, STRENGTH_LOCKED);
                     }
+                    NPNR_ASSERT(constraints_satisfied(cell));
                     return true;
                 }
             }

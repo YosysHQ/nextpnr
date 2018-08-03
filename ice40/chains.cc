@@ -260,7 +260,8 @@ class ChainConstrainer
                 log_info("Placing carry chain starting at '%s'\n", chain.cells.front()->name.c_str(ctx));
 
             // Place carry chain
-            chain.cells.at(0)->constr_abs_z = 0;
+            chain.cells.at(0)->constr_abs_z = true;
+            chain.cells.at(0)->constr_z = 0;
             for (int i = 1; i < int(chain.cells.size()); i++) {
                 chain.cells.at(i)->constr_x = 0;
                 chain.cells.at(i)->constr_y = (i / 8);
