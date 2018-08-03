@@ -348,6 +348,10 @@ private:
             if (other_cell->belStrength > STRENGTH_WEAK)
                 return false;
         }
+        int old_dist = get_constraints_distance(ctx, cell);
+        int new_dist;
+        if (other != IdString())
+            old_dist += get_constraints_distance(ctx, other_cell);
         wirelen_t new_metric = 0, delta;
         ctx->unbindBel(oldBel);
         if (other != IdString()) {
@@ -386,7 +390,12 @@ private:
             new_metric += net_new_wl;
             new_lengths.push_back(std::make_pair(net->name, net_new_wl));
         }
+
+        new_dist = get_constraints_distance(ctx, cell);
+        if (other != IdString())
+            new_dist += get_constraints_distance(ctx, other_cell);
         delta = new_metric - curr_metric;
+        delta += (1 / temp) * (new_dist - old_dist);
         n_move++;
         // SA acceptance criterea
         if (delta < 0 || (temp > 1e-6 && (ctx->rng() / float(0x3fffffff)) <= std::exp(-delta / temp))) {
@@ -447,8 +456,8 @@ private:
     std::unordered_set<BelId> locked_bels;
     bool require_legal = false;
     const float legalise_temp = 1;
-    const float post_legalise_temp = 20;
-    const float post_legalise_dia_scale = 2;
+    const float post_legalise_temp = 10;
+    const float post_legalise_dia_scale = 1.5;
 };
 
 bool placer1(Context *ctx)
