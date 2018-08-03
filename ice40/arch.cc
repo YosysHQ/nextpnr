@@ -174,6 +174,7 @@ Arch::Arch(ArchArgs args) : args(args)
     if (package_info == nullptr)
         log_error("Unsupported package '%s'.\n", args.package.c_str());
 
+    bel_carry.resize(chip_info->num_bels);
     bel_to_cell.resize(chip_info->num_bels);
     wire_to_net.resize(chip_info->num_wires);
     pip_to_net.resize(chip_info->num_pips);
@@ -192,6 +193,7 @@ Arch::Arch(ArchArgs args) : args(args)
     id_i2 = id("I2");
     id_i3 = id("I3");
     id_dff_en = id("DFF_ENABLE");
+    id_carry_en = id("CARRY_ENABLE");
     id_neg_clk = id("NEG_CLK");
     id_cin = id("CIN");
     id_cout = id("COUT");
@@ -541,7 +543,6 @@ std::vector<GroupId> Arch::getGroups() const
             group.type = GroupId::TYPE_LOCAL_SW;
             ret.push_back(group);
 
-#if 0
             if (type == TILE_LOGIC)
             {
                 group.type = GroupId::TYPE_LC0_SW;
@@ -568,7 +569,6 @@ std::vector<GroupId> Arch::getGroups() const
                 group.type = GroupId::TYPE_LC7_SW;
                 ret.push_back(group);
             }
-#endif
         }
     }
     return ret;
@@ -763,6 +763,18 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
             el.y2 = y + local_swbox_y2;
             ret.push_back(el);
         }
+
+        if (GroupId::TYPE_LC0_SW <= type && type <= GroupId::TYPE_LC7_SW) {
+            GraphicElement el;
+            el.type = GraphicElement::TYPE_BOX;
+            el.style = GraphicElement::STYLE_FRAME;
+
+            el.x1 = x + lut_swbox_x1;
+            el.x2 = x + lut_swbox_x2;
+            el.y1 = y + logic_cell_y1 + logic_cell_pitch * (type - GroupId::TYPE_LC0_SW);
+            el.y2 = y + logic_cell_y2 + logic_cell_pitch * (type - GroupId::TYPE_LC0_SW);
+            ret.push_back(el);
+        }
     }
 
     if (decal.type == DecalId::TYPE_WIRE) {
@@ -913,6 +925,7 @@ void Arch::assignCellInfo(CellInfo *cell)
     cell->belType = belTypeFromId(cell->type);
     if (cell->type == id_icestorm_lc) {
         cell->lcInfo.dffEnable = bool_or_default(cell->params, id_dff_en);
+        cell->lcInfo.carryEnable = bool_or_default(cell->params, id_carry_en);
         cell->lcInfo.negClk = bool_or_default(cell->params, id_neg_clk);
         cell->lcInfo.clk = get_net_or_empty(cell, id_clk);
         cell->lcInfo.cen = get_net_or_empty(cell, id_cen);

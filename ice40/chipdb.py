@@ -190,6 +190,8 @@ def wire_type(name):
         wt = "LOCAL"
     elif name in ("in_0", "in_1", "in_2", "in_3", "cout", "lout", "out", "fabout") or name.startswith("slf_op") or name.startswith("O_"):
         wt = "LOCAL"
+    elif name in ("in_0_lut", "in_1_lut", "in_2_lut", "in_3_lut"):
+        wt = "LOCAL"
     elif name.startswith("local_g") or name.startswith("glb2local_"):
         wt = "LOCAL"
     elif name.startswith("span4_horz_") or name.startswith("sp4_h_"):
@@ -265,8 +267,11 @@ def pipdelay(src_idx, dst_idx, db):
     if src[2].startswith("local_") and dst[2] in ("io_0/D_OUT_0", "io_0/D_OUT_1", "io_0/OUT_ENB", "io_1/D_OUT_0", "io_1/D_OUT_1", "io_1/OUT_ENB"):
         return db["IoInMux.I.O"]
 
-    if re.match(r"lutff_\d+/in_\d+", dst[2]):
+    if re.match(r"lutff_\d+/in_\d+$", dst[2]):
         return db["InMux.I.O"]
+
+    if re.match(r"lutff_\d+/in_\d+_lut", dst[2]):
+        return 0
 
     if re.match(r"ram/(MASK|RADDR|WADDR|WDATA)_", dst[2]):
         return db["InMux.I.O"]
@@ -472,7 +477,7 @@ with open(args.filename, "r") as f:
                 wire_uphill[wire_b] = set()
             wire_downhill[wire_a].add(wire_b)
             wire_uphill[wire_b].add(wire_a)
-            pip_xy[(wire_a, wire_b)] = (mode[2], mode[3], int(line[0], 2), len(switches) - 1)
+            pip_xy[(wire_a, wire_b)] = (mode[2], mode[3], int(line[0], 2), len(switches) - 1, 0)
             continue
 
         if mode[0] == "bits":
@@ -508,11 +513,14 @@ def add_wire(x, y, name):
     wire_names[wname] = wire_idx
     wire_names_r[wire_idx] = wname
     wire_segments[wire_idx] = dict()
+    if ("TILE_WIRE_" + wname[2].upper().replace("/", "_")) in gfx_wire_ids:
+        wire_segments[wire_idx][(wname[0], wname[1])] = wname[2]
+    return wire_idx
 
 def add_switch(x, y, bel=-1):
     switches.append((x, y, [], bel))
 
-def add_pip(src, dst):
+def add_pip(src, dst, flags=0):
     x, y, _, _ = switches[-1]
 
     if src not in wire_downhill:
@@ -523,7 +531,7 @@ def add_pip(src, dst):
         wire_uphill[dst] = set()
     wire_uphill[dst].add(src)
 
-    pip_xy[(src, dst)] = (x, y, 0, len(switches) - 1)
+    pip_xy[(src, dst)] = (x, y, 0, len(switches) - 1, flags)
 
 # Add virtual padin wires
 for i in range(8):
@@ -557,10 +565,11 @@ def add_bel_lc(x, y, z):
     else:
         wire_cin = wire_names[(x, y, "lutff_%d/cout" % (z-1))]
 
-    wire_in_0 = wire_names[(x, y, "lutff_%d/in_0" % z)]
-    wire_in_1 = wire_names[(x, y, "lutff_%d/in_1" % z)]
-    wire_in_2 = wire_names[(x, y, "lutff_%d/in_2" % z)]
-    wire_in_3 = wire_names[(x, y, "lutff_%d/in_3" % z)]
+    wire_in_0 = add_wire(x, y, "lutff_%d/in_0_lut" % z)
+    wire_in_1 = add_wire(x, y, "lutff_%d/in_1_lut" % z)
+    wire_in_2 = add_wire(x, y, "lutff_%d/in_2_lut" % z)
+    wire_in_3 = add_wire(x, y, "lutff_%d/in_3_lut" % z)
+
     wire_out  = wire_names[(x, y, "lutff_%d/out"  % z)]
     wire_cout = wire_names[(x, y, "lutff_%d/cout" % z)]
     wire_lout = wire_names[(x, y, "lutff_%d/lout" % z)] if z < 7 else None
@@ -583,10 +592,21 @@ def add_bel_lc(x, y, z):
 
     # route-through LUTs
     add_switch(x, y, bel)
-    add_pip(wire_in_0, wire_out)
-    add_pip(wire_in_1, wire_out)
-    add_pip(wire_in_2, wire_out)
-    add_pip(wire_in_3, wire_out)
+    add_pip(wire_in_0, wire_out, 1)
+    add_pip(wire_in_1, wire_out, 1)
+    add_pip(wire_in_2, wire_out, 1)
+    add_pip(wire_in_3, wire_out, 1)
+
+    # LUT permutation pips
+    for i in range(4):
+        add_switch(x, y, bel)
+        for j in range(4):
+            if (i == j) or ((i, j) == (1, 2)) or ((i, j) == (2, 1)):
+                flags = 0
+            else:
+                flags = 2
+            add_pip(wire_names[(x, y, "lutff_%d/in_%d" % (z, i))],
+                    wire_names[(x, y, "lutff_%d/in_%d_lut"  % (z, j))], flags)
 
 def add_bel_io(x, y, z):
     bel = len(bel_name)
@@ -898,6 +918,7 @@ for wire in range(num_wires):
                 pi["y"] = pip_xy[(src, wire)][1]
                 pi["switch_mask"] = pip_xy[(src, wire)][2]
                 pi["switch_index"] = pip_xy[(src, wire)][3]
+                pi["flags"] = pip_xy[(src, wire)][4]
                 pipinfo.append(pi)
             pips.append(pipcache[(src, wire)])
         num_uphill = len(pips)
@@ -923,6 +944,7 @@ for wire in range(num_wires):
                 pi["y"] = pip_xy[(wire, dst)][1]
                 pi["switch_mask"] = pip_xy[(wire, dst)][2]
                 pi["switch_index"] = pip_xy[(wire, dst)][3]
+                pi["flags"] = pip_xy[(wire, dst)][4]
                 pipinfo.append(pi)
             pips.append(pipcache[(wire, dst)])
         num_downhill = len(pips)
@@ -1080,6 +1102,7 @@ for info in pipinfo:
     bba.u16(dst_seg, "dst_seg")
     bba.u16(info["switch_mask"], "switch_mask")
     bba.u32(info["switch_index"], "switch_index")
+    bba.u32(info["flags"], "flags")
 
 switchinfo = []
 for switch in switches:

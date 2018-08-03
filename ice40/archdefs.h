@@ -167,7 +167,9 @@ struct ArchCellInfo
     {
         struct
         {
-            bool dffEnable, negClk;
+            bool dffEnable;
+            bool carryEnable;
+            bool negClk;
             int inputCount;
             const NetInfo *clk, *cen, *sr;
         } lcInfo;

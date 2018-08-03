@@ -64,6 +64,13 @@ NPNR_PACKED_STRUCT(struct BelPortPOD {
 });
 
 NPNR_PACKED_STRUCT(struct PipInfoPOD {
+    enum PipFlags : uint32_t
+    {
+        FLAG_NONE = 0,
+        FLAG_ROUTETHRU = 1,
+        FLAG_NOCARRY = 2
+    };
+
     // RelPtr<char> name;
     int32_t src, dst;
     int32_t fast_delay;
@@ -72,6 +79,7 @@ NPNR_PACKED_STRUCT(struct PipInfoPOD {
     int16_t src_seg, dst_seg;
     int16_t switch_mask;
     int32_t switch_index;
+    PipFlags flags;
 });
 
 NPNR_PACKED_STRUCT(struct WireSegmentPOD {
@@ -373,6 +381,7 @@ struct Arch : BaseCtx
     mutable std::unordered_map<IdString, int> pip_by_name;
     mutable std::unordered_map<Loc, int> bel_by_loc;
 
+    std::vector<bool> bel_carry;
     std::vector<IdString> bel_to_cell;
     std::vector<IdString> wire_to_net;
     std::vector<IdString> pip_to_net;
@@ -414,9 +423,12 @@ struct Arch : BaseCtx
     {
         NPNR_ASSERT(bel != BelId());
         NPNR_ASSERT(bel_to_cell[bel.index] == IdString());
+        auto &c = cells[cell];
+
         bel_to_cell[bel.index] = cell;
-        cells[cell]->bel = bel;
-        cells[cell]->belStrength = strength;
+        bel_carry[bel.index] = (c->type == id_icestorm_lc && c->lcInfo.carryEnable);
+        c->bel = bel;
+        c->belStrength = strength;
         refreshUiBel(bel);
     }
 
@@ -427,6 +439,7 @@ struct Arch : BaseCtx
         cells[bel_to_cell[bel.index]]->bel = BelId();
         cells[bel_to_cell[bel.index]]->belStrength = STRENGTH_NONE;
         bel_to_cell[bel.index] = IdString();
+        bel_carry[bel.index] = false;
         refreshUiBel(bel);
     }
 
@@ -614,14 +627,23 @@ struct Arch : BaseCtx
     bool checkPipAvail(PipId pip) const
     {
         NPNR_ASSERT(pip != PipId());
-        int switch_idx = chip_info->pip_data[pip.index].switch_index;
+        auto &pi = chip_info->pip_data[pip.index];
+        auto &si = chip_info->bits_info->switches[pi.switch_index];
 
-        if (switches_locked[switch_idx] != IdString())
+        if (switches_locked[pi.switch_index] != IdString())
             return false;
 
-        int bel_idx = chip_info->bits_info->switches[switch_idx].bel;
-        if (bel_idx >= 0 && bel_to_cell[bel_idx] != IdString())
-            return false;
+        if (pi.flags & PipInfoPOD::FLAG_ROUTETHRU) {
+            NPNR_ASSERT(si.bel >= 0);
+            if (bel_to_cell[si.bel] != IdString())
+                return false;
+        }
+
+        if (pi.flags & PipInfoPOD::FLAG_NOCARRY) {
+            NPNR_ASSERT(si.bel >= 0);
+            if (bel_carry[si.bel])
+                return false;
+        }
 
         return true;
     }
@@ -781,7 +803,7 @@ struct Arch : BaseCtx
     IdString id_icestorm_lc, id_sb_io, id_sb_gb;
     IdString id_cen, id_clk, id_sr;
     IdString id_i0, id_i1, id_i2, id_i3;
-    IdString id_dff_en, id_neg_clk;
+    IdString id_dff_en, id_carry_en, id_neg_clk;
     IdString id_cin, id_cout;
     IdString id_o, id_lo;
     IdString id_icestorm_ram, id_rclk, id_wclk;
