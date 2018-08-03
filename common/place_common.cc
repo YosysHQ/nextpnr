@@ -438,13 +438,17 @@ class ConstraintLegaliseWorker
             }
         }
         for (auto rippedCell : rippedCells) {
-            bool res = place_single_cell(ctx, rippedCell, STRENGTH_WEAK);
+            bool res = place_single_cell(ctx, rippedCell, true);
             if (!res) {
                 log_error("failed to place cell '%s' after relative constraint legalisation\n",
                           rippedCell->name.c_str(ctx));
                 return false;
             }
         }
+        for (auto cell : sorted(ctx->cells))
+            if (get_constraints_distance(ctx, cell.second) != 0)
+                log_error("constraint satisfaction check failed for cell '%s' at Bel '%s'\n", cell.first.c_str(ctx),
+                          ctx->getBelName(cell.second->bel).c_str(ctx));
         return true;
     }
 };

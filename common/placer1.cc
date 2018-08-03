@@ -40,11 +40,12 @@
 #include "place_common.h"
 #include "timing.h"
 #include "util.h"
+
 NEXTPNR_NAMESPACE_BEGIN
 
 class SAPlacer
 {
-  public:
+public:
     SAPlacer(Context *ctx) : ctx(ctx)
     {
         int num_bel_types = 0;
@@ -59,11 +60,11 @@ class SAPlacer
                 type_idx = bel_types.at(type);
             }
             if (int(fast_bels.size()) < type_idx + 1)
-                fast_bels.resize(type_idx + 1);
+            fast_bels.resize(type_idx + 1);
             if (int(fast_bels.at(type_idx).size()) < (loc.x + 1))
-                fast_bels.at(type_idx).resize(loc.x + 1);
+            fast_bels.at(type_idx).resize(loc.x + 1);
             if (int(fast_bels.at(type_idx).at(loc.x).size()) < (loc.y + 1))
-                fast_bels.at(type_idx).at(loc.x).resize(loc.y + 1);
+            fast_bels.at(type_idx).at(loc.x).resize(loc.y + 1);
             max_x = std::max(max_x, loc.x);
             max_y = std::max(max_y, loc.y);
             fast_bels.at(type_idx).at(loc.x).at(loc.y).push_back(bel);
@@ -272,12 +273,16 @@ class SAPlacer
                 }
             }
         }
+        for (auto cell : sorted(ctx->cells))
+            if (get_constraints_distance(ctx, cell.second) != 0)
+                log_error("constraint satisfaction check failed for cell '%s' at Bel '%s'\n", cell.first.c_str(ctx),
+                          ctx->getBelName(cell.second->bel).c_str(ctx));
         timing_analysis(ctx, true /* print_fmax */);
         ctx->unlock();
         return true;
     }
 
-  private:
+private:
     // Initial random placement
     void place_initial(CellInfo *cell)
     {
@@ -286,7 +291,7 @@ class SAPlacer
         while (!all_placed) {
             BelId best_bel = BelId();
             uint64_t best_score = std::numeric_limits<uint64_t>::max(),
-                     best_ripup_score = std::numeric_limits<uint64_t>::max();
+                    best_ripup_score = std::numeric_limits<uint64_t>::max();
             CellInfo *ripup_target = nullptr;
             BelId ripup_bel = BelId();
             if (cell->bel != BelId()) {
@@ -397,7 +402,7 @@ class SAPlacer
             metrics.at(new_wl.first) = new_wl.second;
 
         return true;
-    swap_fail:
+        swap_fail:
         ctx->bindBel(oldBel, cell->name, STRENGTH_WEAK);
         if (other != IdString()) {
             ctx->bindBel(newBel, other, STRENGTH_WEAK);
