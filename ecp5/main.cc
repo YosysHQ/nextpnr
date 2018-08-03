@@ -148,7 +148,7 @@ int main(int argc, char *argv[])
 #ifndef NO_GUI
         if (vm.count("gui")) {
             Application a(argc, argv);
-            MainWindow w(std::move(ctx));
+            MainWindow w(std::move(ctx),args);
             w.show();
 
             return a.exec();
