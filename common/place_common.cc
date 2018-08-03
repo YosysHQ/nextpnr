@@ -162,4 +162,125 @@ bool place_single_cell(Context *ctx, CellInfo *cell, bool require_legality)
     return true;
 }
 
+class ConstraintLegaliseWorker
+{
+  private:
+    Context *ctx;
+    std::vector<CellInfo *> rippedCells;
+
+    class IncreasingDiameterSearch
+    {
+      public:
+        IncreasingDiameterSearch() : start(0), min(0), max(-1){};
+        IncreasingDiameterSearch(int x) : start(x), min(x), max(x){};
+        IncreasingDiameterSearch(int start, int min, int max) : start(start), min(min), max(max){};
+        bool done() { return (diameter > (max - min)); };
+        int next()
+        {
+            int val = start + sign * diameter;
+            val = std::max(val, min);
+            val = std::min(val, max);
+
+            if (sign == 0) {
+                sign = 1;
+                diameter = 1;
+            } else if (sign == -1) {
+                sign = 1;
+                ++diameter;
+            } else {
+                sign = -1;
+            }
+
+            return val;
+        }
+
+      private:
+        int start, min, max;
+        int diameter = 0;
+        int sign = 0;
+    };
+
+    typedef std::unordered_map<IdString, Loc> CellLocations;
+
+    // Check if a location would be suitable for a cell and all its constrained children
+    // This also makes a crude attempt to "solve" unconstrained constraints, that is slow and horrible
+    // and will need to be reworked if mixed constrained/unconstrained chains become common
+    bool valid_loc_for(const CellInfo *cell, Loc loc, CellLocations &solution)
+    {
+        BelId locBel = ctx->getBelByLocation(loc);
+        if (locBel == BelId())
+            return false;
+        if (ctx->getBelType(locBel) != ctx->belTypeFromId(cell->type))
+            return false;
+        for (auto child : cell->constr_children) {
+            IncreasingDiameterSearch xSearch, ySearch, zSearch;
+            if (child->constr_x == child->UNCONSTR) {
+                xSearch = IncreasingDiameterSearch(loc.x, 0, ctx->getGridDimX());
+            } else {
+                xSearch = IncreasingDiameterSearch(loc.x + child->constr_x);
+            }
+            if (child->constr_y == child->UNCONSTR) {
+                ySearch = IncreasingDiameterSearch(loc.y, 0, ctx->getGridDimY());
+            } else {
+                ySearch = IncreasingDiameterSearch(loc.y + child->constr_y);
+            }
+            if (child->constr_z == child->UNCONSTR) {
+                zSearch = IncreasingDiameterSearch(loc.z, 0, ctx->getTileDimZ(loc.x, loc.y));
+            } else {
+                if (child->constr_abs_z) {
+                    zSearch = IncreasingDiameterSearch(child->constr_z);
+                } else {
+                    zSearch = IncreasingDiameterSearch(loc.z + child->constr_z);
+                }
+            }
+            while (!(xSearch.done() && ySearch.done() && zSearch.done())) {
+                Loc cloc;
+                cloc.x = xSearch.next();
+                cloc.y = ySearch.next();
+                cloc.z = zSearch.next();
+                if (valid_loc_for(child, cloc, solution))
+                    return true;
+            }
+            return false;
+        }
+
+        solution[cell->name] = loc;
+        return true;
+    }
+
+    // Check if constraints are currently satisfied on a cell and its children
+    bool constraints_satisfied(const CellInfo *cell) { return get_constraints_distance(ctx, cell) == 0; }
+};
+
+// Get the total distance from satisfied constraints for a cell
+int get_constraints_distance(const Context *ctx, const CellInfo *cell)
+{
+    int dist = 0;
+    NPNR_ASSERT(cell->bel != BelId());
+    Loc loc = ctx->getBelLocation(cell->bel);
+    if (cell->constr_parent == nullptr) {
+        if (cell->constr_x != cell->UNCONSTR)
+            dist += std::abs(cell->constr_x - loc.x);
+        if (cell->constr_y != cell->UNCONSTR)
+            dist += std::abs(cell->constr_y - loc.y);
+        if (cell->constr_z != cell->UNCONSTR)
+            dist += std::abs(cell->constr_z - loc.z);
+    } else {
+        Loc parent_loc = ctx->getBelLocation(cell->constr_parent->bel);
+        if (cell->constr_x != cell->UNCONSTR)
+            dist += std::abs(cell->constr_x - (loc.x - parent_loc.x));
+        if (cell->constr_y != cell->UNCONSTR)
+            dist += std::abs(cell->constr_y - (loc.y - parent_loc.y));
+        if (cell->constr_z != cell->UNCONSTR) {
+            if (cell->constr_abs_z)
+                dist += std::abs(cell->constr_z - loc.z);
+            else
+                dist += std::abs(cell->constr_z - (loc.z - parent_loc.z));
+        }
+    }
+    for (auto child : cell->constr_children)
+        dist += get_constraints_distance(ctx, child);
+    return dist;
+}
+
 NEXTPNR_NAMESPACE_END

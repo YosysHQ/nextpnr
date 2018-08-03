@@ -44,6 +44,11 @@ wirelen_t get_cell_metric_at_bel(const Context *ctx, CellInfo *cell, BelId bel, 
 // Place a single cell in the lowest wirelength Bel available, optionally requiring validity check
 bool place_single_cell(Context *ctx, CellInfo *cell, bool require_legality);
 
+// Modify a design s.t. all relative placement constraints are satisfied
+bool legalise_relative_constraints(Context *ctx);
+
+// Get the total distance from satisfied constraints for a cell
+int get_constraints_distance(const Context *ctx, const CellInfo *cell);
 NEXTPNR_NAMESPACE_END
 
 #endif
