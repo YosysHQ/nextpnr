@@ -155,6 +155,8 @@ bool place_single_cell(Context *ctx, CellInfo *cell, bool require_legality)
         } else {
             all_placed = true;
         }
+        if (ctx->verbose)
+            log_info("   placed single cell '%s' at '%s'\n", cell->name.c_str(ctx), ctx->getBelName(best_bel).c_str(ctx));
         ctx->bindBel(best_bel, cell->name, STRENGTH_WEAK);
 
         cell = ripup_target;
@@ -166,7 +168,7 @@ class ConstraintLegaliseWorker
 {
   private:
     Context *ctx;
-    std::vector<CellInfo *> rippedCells;
+    std::set<IdString> rippedCells;
     std::unordered_map<IdString, Loc> oldLocations;
     class IncreasingDiameterSearch
     {
@@ -380,10 +382,11 @@ class ConstraintLegaliseWorker
                                              ctx->getBelName(confl_cell->bel).c_str(ctx));
                                 NPNR_ASSERT(confl_cell->belStrength < STRENGTH_STRONG);
                                 ctx->unbindBel(target);
-                                rippedCells.push_back(confl_cell);
+                                rippedCells.insert(conflicting);
                             }
                         }
                         ctx->bindBel(target, cp.first, STRENGTH_LOCKED);
+                        rippedCells.erase(cp.first);
                     }
                     NPNR_ASSERT(constraints_satisfied(cell));
                     return true;
@@ -438,10 +441,10 @@ class ConstraintLegaliseWorker
             }
         }
         for (auto rippedCell : rippedCells) {
-            bool res = place_single_cell(ctx, rippedCell, true);
+            bool res = place_single_cell(ctx, ctx->cells.at(rippedCell).get(), true);
             if (!res) {
                 log_error("failed to place cell '%s' after relative constraint legalisation\n",
-                          rippedCell->name.c_str(ctx));
+                          rippedCell.c_str(ctx));
                 return false;
             }
         }
