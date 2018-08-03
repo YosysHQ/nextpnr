@@ -224,7 +224,7 @@ class SAPlacer
             // Once cooled below legalise threshold, run legalisation and start requiring
             // legal moves only
             if (temp < legalise_temp && !require_legal) {
-                // legalise_design(ctx);
+                legalise_relative_constraints(ctx);
                 // FIXME
                 require_legal = true;
                 autoplaced.clear();
@@ -294,7 +294,7 @@ class SAPlacer
             }
             BelType targetType = ctx->belTypeFromId(cell->type);
             for (auto bel : ctx->getBels()) {
-                if (ctx->getBelType(bel) == targetType && (ctx->isValidBelForCell(cell, bel) || !require_legal)) {
+                if (ctx->getBelType(bel) == targetType && ctx->isValidBelForCell(cell, bel)) {
                     if (ctx->checkBelAvail(bel)) {
                         uint64_t score = ctx->rng64();
                         if (score <= best_score) {
@@ -364,14 +364,13 @@ class SAPlacer
         if (other != IdString()) {
             ctx->bindBel(oldBel, other_cell->name, STRENGTH_WEAK);
         }
-        if (require_legal) {
-            if (!ctx->isBelLocationValid(newBel) || ((other != IdString() && !ctx->isBelLocationValid(oldBel)))) {
-                ctx->unbindBel(newBel);
-                if (other != IdString())
-                    ctx->unbindBel(oldBel);
-                goto swap_fail;
-            }
+        if (!ctx->isBelLocationValid(newBel) || ((other != IdString() && !ctx->isBelLocationValid(oldBel)))) {
+            ctx->unbindBel(newBel);
+            if (other != IdString())
+                ctx->unbindBel(oldBel);
+            goto swap_fail;
         }
+
 
         new_metric = curr_metric;
 

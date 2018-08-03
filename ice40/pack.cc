@@ -26,6 +26,7 @@
 #include "design_utils.h"
 #include "log.h"
 #include "util.h"
+#include "chains.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -892,6 +893,8 @@ bool Arch::pack()
         pack_carries(ctx);
         pack_ram(ctx);
         pack_special(ctx);
+        ctx->assignArchInfo();
+        constrain_chains(ctx);
         ctx->assignArchInfo();
         log_info("Checksum: 0x%08x\n", ctx->checksum());
         return true;

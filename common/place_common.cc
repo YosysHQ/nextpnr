@@ -189,9 +189,15 @@ class ConstraintLegaliseWorker
                 diameter = 1;
             } else if (sign == -1) {
                 sign = 1;
+                if ((start + sign * diameter) > max)
+                    sign = -1;
                 ++diameter;
             } else {
                 sign = -1;
+                if ((start + sign * diameter) > max) {
+                    sign = 1;
+                    ++diameter;
+                }
             }
         }
 
