@@ -106,6 +106,8 @@ int main(int argc, char *argv[])
         options.add_options()("seed", po::value<int>(), "seed value for random number generator");
         options.add_options()("slack_redist_iter", po::value<int>(),
                               "number of iterations between slack redistribution");
+        options.add_options()("cstrweight", po::value<float>(), "placer weighting for relative constraint satisfaction");
+
         options.add_options()("version,V", "show version");
         options.add_options()("tmfuzz", "run path delay estimate fuzzer");
         options.add_options()("test", "check architecture database integrity");
@@ -316,6 +318,10 @@ int main(int argc, char *argv[])
 
         if (vm.count("slack_redist_iter")) {
             ctx->slack_redist_iter = vm["slack_redist_iter"].as<int>();
+        }
+
+        if (vm.count("cstrweight")) {
+            ctx->placer_constraintWeight = vm["cstrweight"].as<float>();
         }
 
         if (vm.count("svg")) {

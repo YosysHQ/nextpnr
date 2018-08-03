@@ -46,7 +46,7 @@ NEXTPNR_NAMESPACE_BEGIN
 class SAPlacer
 {
 public:
-    SAPlacer(Context *ctx) : ctx(ctx)
+    SAPlacer(Context *ctx, Placer1Cfg cfg) : ctx(ctx), cfg(cfg)
     {
         int num_bel_types = 0;
         for (auto bel : ctx->getBels()) {
@@ -395,7 +395,7 @@ private:
         if (other != IdString())
             new_dist += get_constraints_distance(ctx, other_cell);
         delta = new_metric - curr_metric;
-        delta += (10 / temp) * (new_dist - old_dist);
+        delta += (cfg.constraintWeight / temp) * (new_dist - old_dist);
         n_move++;
         // SA acceptance criterea
         if (delta < 0 || (temp > 1e-6 && (ctx->rng() / float(0x3fffffff)) <= std::exp(-delta / temp))) {
@@ -458,12 +458,13 @@ private:
     const float legalise_temp = 1;
     const float post_legalise_temp = 10;
     const float post_legalise_dia_scale = 1.5;
+    Placer1Cfg cfg;
 };
 
-bool placer1(Context *ctx)
+bool placer1(Context *ctx, Placer1Cfg cfg)
 {
     try {
-        SAPlacer placer(ctx);
+        SAPlacer placer(ctx, cfg);
         placer.place();
         log_info("Checksum: 0x%08x\n", ctx->checksum());
 #ifndef NDEBUG
