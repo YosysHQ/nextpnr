@@ -251,6 +251,7 @@ class ConstraintLegaliseWorker
                     zSearch = IncreasingDiameterSearch(loc.z + child->constr_z);
                 }
             }
+            bool success = false;
             while (!xSearch.done()) {
                 Loc cloc;
                 cloc.x = xSearch.get();
@@ -269,12 +270,15 @@ class ConstraintLegaliseWorker
 
                 if (usedLocations.count(cloc))
                     continue;
-                if (valid_loc_for(child, cloc, solution, usedLocations))
-                    return true;
-
+                if (valid_loc_for(child, cloc, solution, usedLocations)) {
+                    success = true;
+                    break;
+                }
             }
-            usedLocations.erase(loc);
-            return false;
+            if (!success) {
+                usedLocations.erase(loc);
+                return false;
+            }
         }
         if (solution.count(cell->name))
             usedLocations.erase(solution.at(cell->name));
@@ -325,13 +329,26 @@ class ConstraintLegaliseWorker
                 std::unordered_set<Loc> used;
                 if (valid_loc_for(cell, rootLoc, solution, used)) {
                     for (auto cp : solution) {
+                        // First unbind all cells
+                        if (ctx->cells.at(cp.first)->bel != BelId())
+                            ctx->unbindBel(ctx->cells.at(cp.first)->bel);
+                    }
+                    for (auto cp : solution) {
+                        if (ctx->verbose)
+                            log_info("     placing '%s' at (%d, %d, %d)\n", cp.first.c_str(ctx), cp.second.x, cp.second.y, cp.second.z);
                         BelId target = ctx->getBelByLocation(cp.second);
-                        IdString conflicting = ctx->getConflictingBelCell(target);
-                        if (conflicting != IdString()) {
-                            CellInfo *confl_cell = ctx->cells.at(conflicting).get();
-                            NPNR_ASSERT(confl_cell->belStrength < STRENGTH_STRONG);
-                            ctx->unbindBel(target);
-                            rippedCells.push_back(confl_cell);
+                        if(ctx->verbose)
+                            log_info("         resolved to bel: '%s'\n", ctx->getBelName(target).c_str(ctx));
+                        if (!ctx->checkBelAvail(target)) {
+                            IdString conflicting = ctx->getConflictingBelCell(target);
+                            if (conflicting != IdString()) {
+                                CellInfo *confl_cell = ctx->cells.at(conflicting).get();
+                                if (ctx->verbose)
+                                    log_info("       '%s' already placed at '%s'\n", conflicting.c_str(ctx), ctx->getBelName(confl_cell->bel).c_str(ctx));
+                                NPNR_ASSERT(confl_cell->belStrength < STRENGTH_STRONG);
+                                ctx->unbindBel(target);
+                                rippedCells.push_back(confl_cell);
+                            }
                         }
                         ctx->bindBel(target, cp.first, STRENGTH_LOCKED);
                     }
