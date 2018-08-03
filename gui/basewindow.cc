@@ -86,38 +86,36 @@ BaseMainWindow::BaseMainWindow(std::unique_ptr<Context> context, QWidget *parent
     splitter_v->addWidget(tabWidget);
 
     // Connect Worker
-    connect(task, SIGNAL(log(std::string)), this, SLOT(writeInfo(std::string)));
-    connect(task, SIGNAL(pack_finished(bool)), this, SLOT(pack_finished(bool)));
-    connect(task, SIGNAL(budget_finish(bool)), this, SLOT(budget_finish(bool)));
-    connect(task, SIGNAL(place_finished(bool)), this, SLOT(place_finished(bool)));
-    connect(task, SIGNAL(route_finished(bool)), this, SLOT(route_finished(bool)));
-    connect(task, SIGNAL(taskCanceled()), this, SLOT(taskCanceled()));
-    connect(task, SIGNAL(taskStarted()), this, SLOT(taskStarted()));
-    connect(task, SIGNAL(taskPaused()), this, SLOT(taskPaused()));
+    connect(task, &TaskManager::log, this, &BaseMainWindow::writeInfo);
+    connect(task, &TaskManager::pack_finished, this, &BaseMainWindow::pack_finished);
+    connect(task, &TaskManager::budget_finish, this, &BaseMainWindow::budget_finish);
+    connect(task, &TaskManager::place_finished, this, &BaseMainWindow::place_finished);
+    connect(task, &TaskManager::route_finished, this, &BaseMainWindow::route_finished);
+    connect(task, &TaskManager::taskCanceled, this, &BaseMainWindow::taskCanceled);
+    connect(task, &TaskManager::taskStarted, this, &BaseMainWindow::taskStarted);
+    connect(task, &TaskManager::taskPaused, this, &BaseMainWindow::taskPaused);
 
     // Events for context change
-    connect(this, SIGNAL(contextChanged(Context *)), task, SIGNAL(contextChanged(Context *)));
-    connect(this, SIGNAL(contextChanged(Context *)), console, SLOT(newContext(Context *)));
-    connect(this, SIGNAL(contextChanged(Context *)), fpgaView, SLOT(newContext(Context *)));
-    connect(this, SIGNAL(contextChanged(Context *)), designview, SLOT(newContext(Context *)));
+    connect(this, &BaseMainWindow::contextChanged, task, &TaskManager::contextChanged);
+    connect(this, &BaseMainWindow::contextChanged, console, &PythonTab::newContext);
+    connect(this, &BaseMainWindow::contextChanged, fpgaView, &FPGAViewWidget::newContext);
+    connect(this, &BaseMainWindow::contextChanged, designview, &DesignWidget::newContext);
 
     // Catch close tab events
-    connect(centralTabWidget, SIGNAL(tabCloseRequested(int)), this, SLOT(closeTab(int)));
+    connect(centralTabWidget, &QTabWidget::tabCloseRequested, this, &BaseMainWindow::closeTab);
 
     // Propagate events from design view to device view
-    connect(designview, SIGNAL(selected(std::vector<DecalXY>, bool)), fpgaView,
-            SLOT(onSelectedArchItem(std::vector<DecalXY>, bool)));
-    connect(designview, SIGNAL(zoomSelected()), fpgaView, SLOT(zoomSelected()));
-    connect(designview, SIGNAL(highlight(std::vector<DecalXY>, int)), fpgaView,
-            SLOT(onHighlightGroupChanged(std::vector<DecalXY>, int)));
+    connect(designview, &DesignWidget::selected, fpgaView, &FPGAViewWidget::onSelectedArchItem);
+    connect(designview, &DesignWidget::zoomSelected, fpgaView, &FPGAViewWidget::zoomSelected);
+    connect(designview, &DesignWidget::highlight, fpgaView, &FPGAViewWidget::onHighlightGroupChanged);
 
     // Click event on device view
-    connect(fpgaView, SIGNAL(clickedBel(BelId, bool)), designview, SLOT(onClickedBel(BelId, bool)));
-    connect(fpgaView, SIGNAL(clickedWire(WireId, bool)), designview, SLOT(onClickedWire(WireId, bool)));
-    connect(fpgaView, SIGNAL(clickedPip(PipId, bool)), designview, SLOT(onClickedPip(PipId, bool)));
+    connect(fpgaView, &FPGAViewWidget::clickedBel, designview, &DesignWidget::onClickedBel);
+    connect(fpgaView, &FPGAViewWidget::clickedWire, designview, &DesignWidget::onClickedWire);
+    connect(fpgaView, &FPGAViewWidget::clickedPip, designview, &DesignWidget::onClickedPip);
 
     // Update tree event
-    connect(this, SIGNAL(updateTreeView()), designview, SLOT(updateTree()));
+    connect(this, &BaseMainWindow::updateTreeView, designview, &DesignWidget::updateTree);
 
     createMenusAndBars();
 }
@@ -135,26 +133,26 @@ void BaseMainWindow::createMenusAndBars()
     actionNew->setIcon(QIcon(":/icons/resources/new.png"));
     actionNew->setShortcuts(QKeySequence::New);
     actionNew->setStatusTip("New project file");
-    connect(actionNew, SIGNAL(triggered()), this, SLOT(new_proj()));
+    connect(actionNew, &QAction::triggered, this, &BaseMainWindow::new_proj);
 
     actionOpen = new QAction("Open", this);
     actionOpen->setIcon(QIcon(":/icons/resources/open.png"));
     actionOpen->setShortcuts(QKeySequence::Open);
     actionOpen->setStatusTip("Open an existing project file");
-    connect(actionOpen, SIGNAL(triggered()), this, SLOT(open_proj()));
+    connect(actionOpen, &QAction::triggered, this, &BaseMainWindow::open_proj);
 
     actionSave = new QAction("Save", this);
     actionSave->setIcon(QIcon(":/icons/resources/save.png"));
     actionSave->setShortcuts(QKeySequence::Save);
     actionSave->setStatusTip("Save existing project to disk");
     actionSave->setEnabled(false);
-    connect(actionSave, SIGNAL(triggered()), this, SLOT(save_proj()));
+    connect(actionSave, &QAction::triggered, this, &BaseMainWindow::save_proj);
 
     QAction *actionExit = new QAction("Exit", this);
     actionExit->setIcon(QIcon(":/icons/resources/exit.png"));
     actionExit->setShortcuts(QKeySequence::Quit);
     actionExit->setStatusTip("Exit the application");
-    connect(actionExit, SIGNAL(triggered()), this, SLOT(close()));
+    connect(actionExit, &QAction::triggered, this, &BaseMainWindow::close);
 
     // Help menu actions
     QAction *actionAbout = new QAction("About", this);
@@ -164,67 +162,67 @@ void BaseMainWindow::createMenusAndBars()
     actionLoadJSON->setIcon(QIcon(":/icons/resources/open_json.png"));
     actionLoadJSON->setStatusTip("Open an existing JSON file");
     actionLoadJSON->setEnabled(true);
-    connect(actionLoadJSON, SIGNAL(triggered()), this, SLOT(open_json()));
+    connect(actionLoadJSON, &QAction::triggered, this, &BaseMainWindow::open_json);
 
     actionPack = new QAction("Pack", this);
     actionPack->setIcon(QIcon(":/icons/resources/pack.png"));
     actionPack->setStatusTip("Pack current design");
     actionPack->setEnabled(false);
-    connect(actionPack, SIGNAL(triggered()), task, SIGNAL(pack()));
+    connect(actionPack, &QAction::triggered, task, &TaskManager::pack);
 
     actionAssignBudget = new QAction("Assign Budget", this);
     actionAssignBudget->setIcon(QIcon(":/icons/resources/time_add.png"));
     actionAssignBudget->setStatusTip("Assign time budget for current design");
     actionAssignBudget->setEnabled(false);
-    connect(actionAssignBudget, SIGNAL(triggered()), this, SLOT(budget()));
+    connect(actionAssignBudget, &QAction::triggered, this, &BaseMainWindow::budget);
 
     actionPlace = new QAction("Place", this);
     actionPlace->setIcon(QIcon(":/icons/resources/place.png"));
     actionPlace->setStatusTip("Place current design");
     actionPlace->setEnabled(false);
-    connect(actionPlace, SIGNAL(triggered()), this, SLOT(place()));
+    connect(actionPlace, &QAction::triggered, this, &BaseMainWindow::place);
 
     actionRoute = new QAction("Route", this);
     actionRoute->setIcon(QIcon(":/icons/resources/route.png"));
     actionRoute->setStatusTip("Route current design");
     actionRoute->setEnabled(false);
-    connect(actionRoute, SIGNAL(triggered()), task, SIGNAL(route()));
+    connect(actionRoute, &QAction::triggered, task, &TaskManager::route);
 
     // Worker control toolbar actions
     actionPlay = new QAction("Play", this);
     actionPlay->setIcon(QIcon(":/icons/resources/control_play.png"));
     actionPlay->setStatusTip("Continue running task");
     actionPlay->setEnabled(false);
-    connect(actionPlay, SIGNAL(triggered()), task, SLOT(continue_thread()));
+    connect(actionPlay, &QAction::triggered, task, &TaskManager::continue_thread);
 
     actionPause = new QAction("Pause", this);
     actionPause->setIcon(QIcon(":/icons/resources/control_pause.png"));
     actionPause->setStatusTip("Pause running task");
     actionPause->setEnabled(false);
-    connect(actionPause, SIGNAL(triggered()), task, SLOT(pause_thread()));
+    connect(actionPause, &QAction::triggered, task, &TaskManager::pause_thread);
 
     actionStop = new QAction("Stop", this);
     actionStop->setIcon(QIcon(":/icons/resources/control_stop.png"));
     actionStop->setStatusTip("Stop running task");
     actionStop->setEnabled(false);
-    connect(actionStop, SIGNAL(triggered()), task, SLOT(terminate_thread()));
+    connect(actionStop, &QAction::triggered, task, &TaskManager::terminate_thread);
 
     // Device view control toolbar actions
     QAction *actionZoomIn = new QAction("Zoom In", this);
     actionZoomIn->setIcon(QIcon(":/icons/resources/zoom_in.png"));
-    connect(actionZoomIn, SIGNAL(triggered()), fpgaView, SLOT(zoomIn()));
+    connect(actionZoomIn, &QAction::triggered, fpgaView, &FPGAViewWidget::zoomIn);
 
     QAction *actionZoomOut = new QAction("Zoom Out", this);
     actionZoomOut->setIcon(QIcon(":/icons/resources/zoom_out.png"));
-    connect(actionZoomOut, SIGNAL(triggered()), fpgaView, SLOT(zoomOut()));
+    connect(actionZoomOut, &QAction::triggered, fpgaView, &FPGAViewWidget::zoomOut);
 
     QAction *actionZoomSelected = new QAction("Zoom Selected", this);
     actionZoomSelected->setIcon(QIcon(":/icons/resources/shape_handles.png"));
-    connect(actionZoomSelected, SIGNAL(triggered()), fpgaView, SLOT(zoomSelected()));
+    connect(actionZoomSelected, &QAction::triggered, fpgaView, &FPGAViewWidget::zoomSelected);
 
     QAction *actionZoomOutbound = new QAction("Zoom Outbound", this);
     actionZoomOutbound->setIcon(QIcon(":/icons/resources/shape_square.png"));
-    connect(actionZoomOutbound, SIGNAL(triggered()), fpgaView, SLOT(zoomOutbound()));
+    connect(actionZoomOutbound, &QAction::triggered, fpgaView, &FPGAViewWidget::zoomOutbound);
 
     // Add main menu
     menuBar = new QMenuBar();

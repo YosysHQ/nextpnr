@@ -44,7 +44,7 @@ MainWindow::MainWindow(std::unique_ptr<Context> context, ArchArgs args, QWidget 
     std::string title = "nextpnr-ice40 - [EMPTY]";
     setWindowTitle(title.c_str());
 
-    connect(this, SIGNAL(contextChanged(Context *)), this, SLOT(newContext(Context *)));
+    connect(this, &BaseMainWindow::contextChanged, this, &MainWindow::newContext);
 
     createMenu();
 
@@ -60,13 +60,13 @@ void MainWindow::createMenu()
     actionLoadPCF->setIcon(QIcon(":/icons/resources/open_pcf.png"));
     actionLoadPCF->setStatusTip("Open PCF file");
     actionLoadPCF->setEnabled(false);
-    connect(actionLoadPCF, SIGNAL(triggered()), this, SLOT(open_pcf()));
+    connect(actionLoadPCF, &QAction::triggered, this, &MainWindow::open_pcf);
 
     actionSaveAsc = new QAction("Save ASC", this);
     actionSaveAsc->setIcon(QIcon(":/icons/resources/save_asc.png"));
     actionSaveAsc->setStatusTip("Save ASC file");
     actionSaveAsc->setEnabled(false);
-    connect(actionSaveAsc, SIGNAL(triggered()), this, SLOT(save_asc()));
+    connect(actionSaveAsc, &QAction::triggered, this, &MainWindow::save_asc);
 
     // Add actions in menus
     mainActionBar->addSeparator();
