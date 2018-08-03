@@ -194,7 +194,7 @@ class ConstraintLegaliseWorker
                 ++diameter;
             } else {
                 sign = -1;
-                if ((start + sign * diameter) > max) {
+                if ((start + sign * diameter) < min) {
                     sign = 1;
                     ++diameter;
                 }
@@ -257,6 +257,7 @@ class ConstraintLegaliseWorker
                 cloc.x = xSearch.get();
                 cloc.y = ySearch.get();
                 cloc.z = zSearch.get();
+                log_info("         checking '%s' at (%d, %d, %d)\n", child->name.c_str(ctx), cloc.x, cloc.y, cloc.z);
 
                 zSearch.next();
                 if (zSearch.done()) {
@@ -304,6 +305,8 @@ class ConstraintLegaliseWorker
             Loc currentLoc;
             if (cell->bel != BelId())
                 currentLoc = ctx->getBelLocation(cell->bel);
+            else
+                currentLoc = oldLocations[cell->name];
             if (cell->constr_x == cell->UNCONSTR)
                 xRootSearch = IncreasingDiameterSearch(currentLoc.x, 0, ctx->getGridDimX() - 1);
             else
@@ -320,9 +323,12 @@ class ConstraintLegaliseWorker
                 zRootSearch = IncreasingDiameterSearch(cell->constr_z);
             while (!xRootSearch.done()) {
                 Loc rootLoc;
+
                 rootLoc.x = xRootSearch.get();
                 rootLoc.y = yRootSearch.get();
                 rootLoc.z = zRootSearch.get();
+                if (ctx->verbose)
+                    log_info("       trying (%d, %d, %d)\n", rootLoc.x, rootLoc.y, rootLoc.z);
                 zRootSearch.next();
                 if (zRootSearch.done()) {
                     zRootSearch.reset();
@@ -374,6 +380,28 @@ class ConstraintLegaliseWorker
 
 public:
     ConstraintLegaliseWorker(Context *ctx) : ctx(ctx) {};
+
+    void print_chain(CellInfo *cell, int depth = 0) {
+        for (int i = 0; i < depth; i++)
+            log("    ");
+        log("'%s'   (", cell->name.c_str(ctx));
+        if (cell->constr_x != cell->UNCONSTR)
+            log("%d, ", cell->constr_x);
+        else
+            log("*, ");
+        if (cell->constr_y != cell->UNCONSTR)
+            log("%d, ", cell->constr_y);
+        else
+            log("*, ");
+        if (cell->constr_z != cell->UNCONSTR)
+            log("%d", cell->constr_z);
+        else
+            log("*");
+        log(")\n");
+        for (auto child : cell->constr_children)
+            print_chain(child, depth+1);
+    }
+
     bool legalise_constraints() {
         log_info("Legalising relative constraints...\n");
         for (auto cell : sorted(ctx->cells)) {
@@ -382,6 +410,8 @@ public:
         for (auto cell : sorted(ctx->cells)) {
             bool res = legalise_cell(cell.second);
             if (!res) {
+                if(ctx->verbose)
+                    print_chain(cell.second);
                 log_error("failed to place chain starting at cell '%s'\n", cell.first.c_str(ctx));
                 return false;
             }
