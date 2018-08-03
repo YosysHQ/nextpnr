@@ -371,7 +371,6 @@ class SAPlacer
             goto swap_fail;
         }
 
-
         new_metric = curr_metric;
 
         // Recalculate metrics for all nets touched by the peturbation

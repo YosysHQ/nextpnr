@@ -278,6 +278,10 @@ class ChainConstrainer
     void constrain_chains() { process_carries(); }
 };
 
-void constrain_chains(Context *ctx) { log_info("Constraining chains...\n"); ChainConstrainer(ctx).constrain_chains(); }
+void constrain_chains(Context *ctx)
+{
+    log_info("Constraining chains...\n");
+    ChainConstrainer(ctx).constrain_chains();
+}
 
 NEXTPNR_NAMESPACE_END

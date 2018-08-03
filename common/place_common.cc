@@ -183,7 +183,8 @@ class ConstraintLegaliseWorker
             return val;
         }
 
-        void next() {
+        void next()
+        {
             if (sign == 0) {
                 sign = 1;
                 diameter = 1;
@@ -201,7 +202,8 @@ class ConstraintLegaliseWorker
             }
         }
 
-        void reset() {
+        void reset()
+        {
             sign = 0;
             diameter = 0;
         }
@@ -220,25 +222,34 @@ class ConstraintLegaliseWorker
     bool valid_loc_for(const CellInfo *cell, Loc loc, CellLocations &solution, std::unordered_set<Loc> &usedLocations)
     {
         BelId locBel = ctx->getBelByLocation(loc);
-        if (locBel == BelId())
+        if (locBel == BelId()) {
+            if (ctx->verbose)
+                log_info("              no bel at location\n");
             return false;
-        if (ctx->getBelType(locBel) != ctx->belTypeFromId(cell->type))
+        }
+        if (ctx->getBelType(locBel) != ctx->belTypeFromId(cell->type)) {
+            if (ctx->verbose)
+                log_info("              bel of incorrect type\n");
             return false;
+        }
         if (!ctx->checkBelAvail(locBel)) {
             IdString confCell = ctx->getConflictingBelCell(locBel);
-            if (ctx->cells[confCell]->belStrength >= STRENGTH_STRONG)
+            if (ctx->cells[confCell]->belStrength >= STRENGTH_STRONG) {
+                if (ctx->verbose)
+                    log_info("              bel already bound strongly to '%s'\n", confCell.c_str(ctx));
                 return false;
+            }
         }
         usedLocations.insert(loc);
         for (auto child : cell->constr_children) {
             IncreasingDiameterSearch xSearch, ySearch, zSearch;
             if (child->constr_x == child->UNCONSTR) {
-                xSearch = IncreasingDiameterSearch(loc.x, 0, ctx->getGridDimX()-1);
+                xSearch = IncreasingDiameterSearch(loc.x, 0, ctx->getGridDimX() - 1);
             } else {
                 xSearch = IncreasingDiameterSearch(loc.x + child->constr_x);
             }
             if (child->constr_y == child->UNCONSTR) {
-                ySearch = IncreasingDiameterSearch(loc.y, 0, ctx->getGridDimY()-1);
+                ySearch = IncreasingDiameterSearch(loc.y, 0, ctx->getGridDimY() - 1);
             } else {
                 ySearch = IncreasingDiameterSearch(loc.y + child->constr_y);
             }
@@ -257,7 +268,9 @@ class ConstraintLegaliseWorker
                 cloc.x = xSearch.get();
                 cloc.y = ySearch.get();
                 cloc.z = zSearch.get();
-                log_info("         checking '%s' at (%d, %d, %d)\n", child->name.c_str(ctx), cloc.x, cloc.y, cloc.z);
+                if (ctx->verbose)
+                    log_info("         checking '%s' at (%d, %d, %d)\n", child->name.c_str(ctx), cloc.x, cloc.y,
+                             cloc.z);
 
                 zSearch.next();
                 if (zSearch.done()) {
@@ -288,18 +301,22 @@ class ConstraintLegaliseWorker
     }
 
     // Set the strength to locked on all cells in chain
-    void lockdown_chain(CellInfo *root) {
+    void lockdown_chain(CellInfo *root)
+    {
         root->belStrength = STRENGTH_LOCKED;
         for (auto child : root->constr_children)
             lockdown_chain(child);
     }
 
     // Legalise placement constraints on a cell
-    bool legalise_cell(CellInfo *cell) {
+    bool legalise_cell(CellInfo *cell)
+    {
         if (cell->constr_parent != nullptr)
             return true; // Only process chain roots
         if (constraints_satisfied(cell)) {
-            lockdown_chain(cell);
+            if (cell->constr_children.size() > 0 || cell->constr_x != cell->UNCONSTR ||
+                cell->constr_y != cell->UNCONSTR || cell->constr_z != cell->UNCONSTR)
+                lockdown_chain(cell);
         } else {
             IncreasingDiameterSearch xRootSearch, yRootSearch, zRootSearch;
             Loc currentLoc;
@@ -349,16 +366,18 @@ class ConstraintLegaliseWorker
                     }
                     for (auto cp : solution) {
                         if (ctx->verbose)
-                            log_info("     placing '%s' at (%d, %d, %d)\n", cp.first.c_str(ctx), cp.second.x, cp.second.y, cp.second.z);
+                            log_info("     placing '%s' at (%d, %d, %d)\n", cp.first.c_str(ctx), cp.second.x,
+                                     cp.second.y, cp.second.z);
                         BelId target = ctx->getBelByLocation(cp.second);
-                        if(ctx->verbose)
+                        if (ctx->verbose)
                             log_info("         resolved to bel: '%s'\n", ctx->getBelName(target).c_str(ctx));
                         if (!ctx->checkBelAvail(target)) {
                             IdString conflicting = ctx->getConflictingBelCell(target);
                             if (conflicting != IdString()) {
                                 CellInfo *confl_cell = ctx->cells.at(conflicting).get();
                                 if (ctx->verbose)
-                                    log_info("       '%s' already placed at '%s'\n", conflicting.c_str(ctx), ctx->getBelName(confl_cell->bel).c_str(ctx));
+                                    log_info("       '%s' already placed at '%s'\n", conflicting.c_str(ctx),
+                                             ctx->getBelName(confl_cell->bel).c_str(ctx));
                                 NPNR_ASSERT(confl_cell->belStrength < STRENGTH_STRONG);
                                 ctx->unbindBel(target);
                                 rippedCells.push_back(confl_cell);
@@ -378,10 +397,11 @@ class ConstraintLegaliseWorker
     // Check if constraints are currently satisfied on a cell and its children
     bool constraints_satisfied(const CellInfo *cell) { return get_constraints_distance(ctx, cell) == 0; }
 
-public:
-    ConstraintLegaliseWorker(Context *ctx) : ctx(ctx) {};
+  public:
+    ConstraintLegaliseWorker(Context *ctx) : ctx(ctx){};
 
-    void print_chain(CellInfo *cell, int depth = 0) {
+    void print_chain(CellInfo *cell, int depth = 0)
+    {
         for (int i = 0; i < depth; i++)
             log("    ");
         log("'%s'   (", cell->name.c_str(ctx));
@@ -399,10 +419,11 @@ public:
             log("*");
         log(")\n");
         for (auto child : cell->constr_children)
-            print_chain(child, depth+1);
+            print_chain(child, depth + 1);
     }
 
-    bool legalise_constraints() {
+    bool legalise_constraints()
+    {
         log_info("Legalising relative constraints...\n");
         for (auto cell : sorted(ctx->cells)) {
             oldLocations[cell.first] = ctx->getBelLocation(cell.second->bel);
@@ -410,7 +431,7 @@ public:
         for (auto cell : sorted(ctx->cells)) {
             bool res = legalise_cell(cell.second);
             if (!res) {
-                if(ctx->verbose)
+                if (ctx->verbose)
                     print_chain(cell.second);
                 log_error("failed to place chain starting at cell '%s'\n", cell.first.c_str(ctx));
                 return false;
@@ -419,7 +440,8 @@ public:
         for (auto rippedCell : rippedCells) {
             bool res = place_single_cell(ctx, rippedCell, STRENGTH_WEAK);
             if (!res) {
-                log_error("failed to place cell '%s' after relative constraint legalisation\n", rippedCell->name.c_str(ctx));
+                log_error("failed to place cell '%s' after relative constraint legalisation\n",
+                          rippedCell->name.c_str(ctx));
                 return false;
             }
         }
@@ -427,15 +449,13 @@ public:
     }
 };
 
-bool legalise_relative_constraints(Context *ctx) {
-    return ConstraintLegaliseWorker(ctx).legalise_constraints();
-}
+bool legalise_relative_constraints(Context *ctx) { return ConstraintLegaliseWorker(ctx).legalise_constraints(); }
 
 // Get the total distance from satisfied constraints for a cell
 int get_constraints_distance(const Context *ctx, const CellInfo *cell)
 {
     int dist = 0;
-    if(cell->bel == BelId())
+    if (cell->bel == BelId())
         return 100000;
     Loc loc = ctx->getBelLocation(cell->bel);
     if (cell->constr_parent == nullptr) {
@@ -446,7 +466,7 @@ int get_constraints_distance(const Context *ctx, const CellInfo *cell)
         if (cell->constr_z != cell->UNCONSTR)
             dist += std::abs(cell->constr_z - loc.z);
     } else {
-        if(cell->constr_parent->bel == BelId())
+        if (cell->constr_parent->bel == BelId())
             return 100000;
         Loc parent_loc = ctx->getBelLocation(cell->constr_parent->bel);
         if (cell->constr_x != cell->UNCONSTR)
