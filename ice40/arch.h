@@ -141,6 +141,7 @@ static const int max_switch_bits = 5;
 
 NPNR_PACKED_STRUCT(struct SwitchInfoPOD {
     int32_t num_bits;
+    int32_t bel;
     int8_t x, y;
     ConfigBitPOD cbits[max_switch_bits];
 });
@@ -613,7 +614,16 @@ struct Arch : BaseCtx
     bool checkPipAvail(PipId pip) const
     {
         NPNR_ASSERT(pip != PipId());
-        return switches_locked[chip_info->pip_data[pip.index].switch_index] == IdString();
+        int switch_idx = chip_info->pip_data[pip.index].switch_index;
+
+        if (switches_locked[switch_idx] != IdString())
+            return false;
+
+        int bel_idx = chip_info->bits_info->switches[switch_idx].bel;
+        if (bel_idx >= 0 && bel_to_cell[bel_idx] != IdString())
+            return false;
+
+        return true;
     }
 
     IdString getBoundPipNet(PipId pip) const

@@ -696,11 +696,30 @@ void gfxTilePip(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId src,
 {
     float x1, y1, x2, y2;
 
-    if (getWireXY_main(src, x1, y1) && getWireXY_main(dst, x2, y2))
+    if (getWireXY_main(src, x1, y1) && getWireXY_main(dst, x2, y2)) {
         pipGfx(g, x, y, x1, y1, x2, y2, main_swbox_x1, main_swbox_y1, main_swbox_x2, main_swbox_y2, style);
+        return;
+    }
 
-    if (getWireXY_local(src, x1, y1) && getWireXY_local(dst, x2, y2))
+    if (getWireXY_local(src, x1, y1) && getWireXY_local(dst, x2, y2)) {
         pipGfx(g, x, y, x1, y1, x2, y2, local_swbox_x1, local_swbox_y1, local_swbox_x2, local_swbox_y2, style);
+        return;
+    }
+
+    if (TILE_WIRE_LUTFF_0_IN_0 <= src && src <= TILE_WIRE_LUTFF_7_IN_3 && TILE_WIRE_LUTFF_0_OUT <= dst && dst <= TILE_WIRE_LUTFF_7_OUT) {
+        int lut_idx = (src - TILE_WIRE_LUTFF_0_IN_0) / 4;
+        int in_idx = (src - TILE_WIRE_LUTFF_0_IN_0) % 4;
+
+        GraphicElement el;
+        el.type = GraphicElement::TYPE_ARROW;
+        el.style = style;
+        el.x1 = x + logic_cell_x1;
+        el.x2 = x + logic_cell_x2;
+        el.y1 = y + (logic_cell_y1 + logic_cell_y2) / 2 - 0.0075 + (0.005 * in_idx) + lut_idx * logic_cell_pitch;
+        el.y2 = y + (logic_cell_y1 + logic_cell_y2) / 2 + lut_idx * logic_cell_pitch;
+        g.push_back(el);
+        return;
+    }
 
     if (src == TILE_WIRE_CARRY_IN && dst == TILE_WIRE_CARRY_IN_MUX) {
         GraphicElement el;
@@ -711,6 +730,7 @@ void gfxTilePip(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId src,
         el.y1 = y + 0.01;
         el.y2 = y + 0.02;
         g.push_back(el);
+        return;
     }
 }
 

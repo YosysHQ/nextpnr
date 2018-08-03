@@ -271,6 +271,16 @@ def pipdelay(src_idx, dst_idx, db):
     if re.match(r"ram/(MASK|RADDR|WADDR|WDATA)_", dst[2]):
         return db["InMux.I.O"]
 
+    if re.match(r"lutff_\d+/out", dst[2]):
+        if re.match(r"lutff_\d+/in_0", src[2]):
+            return db["LogicCell40.in0.lcout"]
+        if re.match(r"lutff_\d+/in_1", src[2]):
+            return db["LogicCell40.in1.lcout"]
+        if re.match(r"lutff_\d+/in_2", src[2]):
+            return db["LogicCell40.in2.lcout"]
+        if re.match(r"lutff_\d+/in_3", src[2]):
+            return db["LogicCell40.in3.lcout"]
+
     print(src, dst, src_idx, dst_idx, src_type, dst_type, file=sys.stderr)
     assert 0
 
@@ -316,12 +326,12 @@ with open(args.filename, "r") as f:
 
         if line[0] == ".buffer":
             mode = ("buffer", int(line[3]), int(line[1]), int(line[2]))
-            switches.append((line[3], int(line[1]), int(line[2]), line[4:]))
+            switches.append((int(line[1]), int(line[2]), line[4:], -1))
             continue
 
         if line[0] == ".routing":
             mode = ("routing", int(line[3]), int(line[1]), int(line[2]))
-            switches.append((line[3], int(line[1]), int(line[2]), line[4:]))
+            switches.append((int(line[1]), int(line[2]), line[4:], -1))
             continue
 
         if line[0] == ".io_tile":
@@ -499,6 +509,22 @@ def add_wire(x, y, name):
     wire_names_r[wire_idx] = wname
     wire_segments[wire_idx] = dict()
 
+def add_switch(x, y, bel=-1):
+    switches.append((x, y, [], bel))
+
+def add_pip(src, dst):
+    x, y, _, _ = switches[-1]
+
+    if src not in wire_downhill:
+        wire_downhill[src] = set()
+    wire_downhill[src].add(dst)
+
+    if dst not in wire_uphill:
+        wire_uphill[dst] = set()
+    wire_uphill[dst].add(src)
+
+    pip_xy[(src, dst)] = (x, y, 0, len(switches) - 1)
+
 # Add virtual padin wires
 for i in range(8):
     add_wire(0, 0, "padin_%d" % i)
@@ -554,6 +580,13 @@ def add_bel_lc(x, y, z):
 
     if wire_lout is not None:
         add_bel_output(bel, wire_lout, "LO")
+
+    # route-through LUTs
+    add_switch(x, y, bel)
+    add_pip(wire_in_0, wire_out)
+    add_pip(wire_in_1, wire_out)
+    add_pip(wire_in_2, wire_out)
+    add_pip(wire_in_3, wire_out)
 
 def add_bel_io(x, y, z):
     bel = len(bel_name)
@@ -1050,7 +1083,7 @@ for info in pipinfo:
 
 switchinfo = []
 for switch in switches:
-    dst, x, y, bits = switch
+    x, y, bits, bel = switch
     bitlist = []
     for b in bits:
         m = cbit_re.match(b)
@@ -1060,11 +1093,13 @@ for switch in switches:
     si["x"] = x
     si["y"] = y
     si["bits"] = bitlist
+    si["bel"] = bel
     switchinfo.append(si)
 
 bba.l("switch_data_%s" % dev_name, "SwitchInfoPOD")
 for info in switchinfo:
     bba.u32(len(info["bits"]), "num_bits")
+    bba.u32(info["bel"], "bel")
     bba.u8(info["x"], "x")
     bba.u8(info["y"], "y")
     for i in range(5):
