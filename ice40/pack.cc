@@ -439,7 +439,15 @@ static void pack_io(Context *ctx)
     }
 }
 
-static void insert_global(Context *ctx, NetInfo *net, bool is_reset, bool is_cen)
+// Return true if a port counts as "logic" for global promotion
+static bool is_logic_port(BaseCtx *ctx, const PortRef &port)
+{
+    if (is_clock_port(ctx, port) || is_reset_port(ctx, port) || is_enable_port(ctx, port))
+        return false;
+    return !is_sb_io(ctx, port.cell) && !is_sb_pll40(ctx, port.cell) && !is_sb_pll40_pad(ctx, port.cell) && port.cell->type != ctx->id("SB_GB");
+}
+
+static void insert_global(Context *ctx, NetInfo *net, bool is_reset, bool is_cen, bool is_logic)
 {
     std::string glb_name = net->name.str(ctx) + std::string("_$glb_") + (is_reset ? "sr" : (is_cen ? "ce" : "clk"));
     std::unique_ptr<CellInfo> gb = create_ice_cell(ctx, ctx->id("SB_GB"), "$gbuf_" + glb_name);
@@ -458,7 +466,7 @@ static void insert_global(Context *ctx, NetInfo *net, bool is_reset, bool is_cen
     std::vector<PortRef> keep_users;
     for (auto user : net->users) {
         if (is_clock_port(ctx, user) || (is_reset && is_reset_port(ctx, user)) ||
-            (is_cen && is_enable_port(ctx, user))) {
+            (is_cen && is_enable_port(ctx, user)) || (is_logic && is_logic_port(ctx, user))) {
             user.cell->ports[user.port].net = glbnet.get();
             glbnet->users.push_back(user);
         } else {
@@ -474,8 +482,9 @@ static void insert_global(Context *ctx, NetInfo *net, bool is_reset, bool is_cen
 static void promote_globals(Context *ctx)
 {
     log_info("Promoting globals..\n");
-
-    std::map<IdString, int> clock_count, reset_count, cen_count;
+    const int logic_fanout_thresh = 15;
+    const int enable_fanout_thresh = 5;
+    std::map<IdString, int> clock_count, reset_count, cen_count, logic_count;
     for (auto net : sorted(ctx->nets)) {
         NetInfo *ni = net.second;
         if (ni->driver.cell != nullptr && !ctx->isGlobalNet(ni)) {
@@ -490,10 +499,12 @@ static void promote_globals(Context *ctx)
                     reset_count[net.first]++;
                 if (is_enable_port(ctx, user))
                     cen_count[net.first]++;
+                if (is_logic_port(ctx, user))
+                    logic_count[net.first]++;
             }
         }
     }
-    int prom_globals = 0, prom_resets = 0, prom_cens = 0;
+    int prom_globals = 0, prom_resets = 0, prom_cens = 0, prom_logics = 0;
     int gbs_available = 8;
     for (auto &cell : ctx->cells)
         if (is_gbuf(ctx, cell.second.get()))
@@ -512,29 +523,48 @@ static void promote_globals(Context *ctx)
                                            [](const std::pair<IdString, int> &a, const std::pair<IdString, int> &b) {
                                                return a.second < b.second;
                                            });
-        if (global_reset->second > global_clock->second && prom_resets < 4) {
+        auto global_logic = std::max_element(logic_count.begin(), logic_count.end(),
+                                             [](const std::pair<IdString, int> &a, const std::pair<IdString, int> &b) {
+                                                 return a.second < b.second;
+                                             });
+        if (global_clock->second == 0 && prom_logics < 4 && global_logic->second > logic_fanout_thresh &&
+            (global_logic->second > global_cen->second || prom_cens >= 4) &&
+            (global_logic->second > global_reset->second || prom_resets >= 4)) {
+            NetInfo *logicnet = ctx->nets[global_logic->first].get();
+            insert_global(ctx, logicnet, false, false, true);
+            ++prom_globals;
+            ++prom_logics;
+            clock_count.erase(logicnet->name);
+            reset_count.erase(logicnet->name);
+            cen_count.erase(logicnet->name);
+            logic_count.erase(logicnet->name);
+        } else if (global_reset->second > global_clock->second && prom_resets < 4) {
             NetInfo *rstnet = ctx->nets[global_reset->first].get();
-            insert_global(ctx, rstnet, true, false);
+            insert_global(ctx, rstnet, true, false, false);
             ++prom_globals;
             ++prom_resets;
             clock_count.erase(rstnet->name);
             reset_count.erase(rstnet->name);
             cen_count.erase(rstnet->name);
-        } else if (global_cen->second > global_clock->second && prom_cens < 4) {
+            logic_count.erase(rstnet->name);
+        } else if (global_cen->second > global_clock->second && prom_cens < 4 &&
+                   global_cen->second > enable_fanout_thresh) {
             NetInfo *cennet = ctx->nets[global_cen->first].get();
-            insert_global(ctx, cennet, false, true);
+            insert_global(ctx, cennet, false, true, false);
             ++prom_globals;
             ++prom_cens;
             clock_count.erase(cennet->name);
             reset_count.erase(cennet->name);
             cen_count.erase(cennet->name);
+            logic_count.erase(cennet->name);
         } else if (global_clock->second != 0) {
             NetInfo *clknet = ctx->nets[global_clock->first].get();
-            insert_global(ctx, clknet, false, false);
+            insert_global(ctx, clknet, false, false, false);
             ++prom_globals;
             clock_count.erase(clknet->name);
             reset_count.erase(clknet->name);
             cen_count.erase(clknet->name);
+            logic_count.erase(clknet->name);
         } else {
             break;
         }
