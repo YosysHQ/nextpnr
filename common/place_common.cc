@@ -251,7 +251,7 @@ class ConstraintLegaliseWorker
                     zSearch = IncreasingDiameterSearch(loc.z + child->constr_z);
                 }
             }
-            while (!(xSearch.done() && ySearch.done() && zSearch.done())) {
+            while (!xSearch.done()) {
                 Loc cloc;
                 cloc.x = xSearch.get();
                 cloc.y = ySearch.get();
@@ -267,7 +267,7 @@ class ConstraintLegaliseWorker
                     }
                 }
 
-                if (usedLocations.count(loc))
+                if (usedLocations.count(cloc))
                     continue;
                 if (valid_loc_for(child, cloc, solution, usedLocations))
                     return true;
@@ -306,7 +306,7 @@ class ConstraintLegaliseWorker
                 yRootSearch = IncreasingDiameterSearch(currentLoc.y, 0, ctx->getGridDimY() - 1);
             if (cell->constr_z == cell->UNCONSTR)
                 zRootSearch = IncreasingDiameterSearch(currentLoc.z, 0, ctx->getTileDimZ(currentLoc.x, currentLoc.y));
-            while (!(xRootSearch.done() && yRootSearch.done() && zRootSearch.done())) {
+            while (!xRootSearch.done()) {
                 Loc rootLoc;
                 rootLoc.x = xRootSearch.get();
                 rootLoc.y = yRootSearch.get();
