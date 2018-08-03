@@ -221,8 +221,21 @@ std::string tagTileType(TileType &tile)
         NPNR_ASSERT(false);
     }
 }
+
+static BelPin get_one_bel_pin(const Context *ctx, WireId wire)
+{
+    auto pins = ctx->getWireBelPins(wire);
+    NPNR_ASSERT(pins.begin() != pins.end());
+    return *pins.begin();
+}
+
 void write_asc(const Context *ctx, std::ostream &out)
 {
+
+    static const std::vector<int> lut_perm = {
+            4, 14, 15, 5, 6, 16, 17, 7, 3, 13, 12, 2, 1, 11, 10, 0,
+    };
+
     // [y][x][row][col]
     const ChipInfoPOD &ci = *ctx->chip_info;
     const BitstreamInfoPOD &bi = *ci.bits_info;
@@ -262,12 +275,50 @@ void write_asc(const Context *ctx, std::ostream &out)
         if (ctx->pip_to_net[pip.index] != IdString()) {
             const PipInfoPOD &pi = ci.pip_data[pip.index];
             const SwitchInfoPOD &swi = bi.switches[pi.switch_index];
-            for (int i = 0; i < swi.num_bits; i++) {
-                bool val = (pi.switch_mask & (1 << ((swi.num_bits - 1) - i))) != 0;
-                int8_t &cbit = config.at(swi.y).at(swi.x).at(swi.cbits[i].row).at(swi.cbits[i].col);
-                if (bool(cbit) != 0)
-                    NPNR_ASSERT(false);
-                cbit = val;
+            int sw_bel_idx = swi.bel;
+            if (sw_bel_idx >= 0) {
+                const BelInfoPOD &beli = ci.bel_data[sw_bel_idx];
+                const TileInfoPOD &ti = bi.tiles_nonrouting[TILE_LOGIC];
+                BelId sw_bel;
+                sw_bel.index = sw_bel_idx;
+                NPNR_ASSERT(ctx->getBelType(sw_bel) == TYPE_ICESTORM_LC);
+                BelPin input = get_one_bel_pin(ctx, ctx->getPipSrcWire(pip));
+                BelPin output = get_one_bel_pin(ctx, ctx->getPipDstWire(pip));
+                NPNR_ASSERT(input.bel == sw_bel);
+                NPNR_ASSERT(output.bel == sw_bel && output.pin == PIN_O);
+                unsigned lut_init;
+                switch (input.pin) {
+                case PIN_I0:
+                    lut_init = 2;
+                    break;
+                case PIN_I1:
+                    lut_init = 4;
+                    break;
+                case PIN_I2:
+                    lut_init = 16;
+                    break;
+                case PIN_I3:
+                    lut_init = 256;
+                    break;
+                default:
+                    NPNR_ASSERT_FALSE("bad feedthru LUT input");
+                }
+                std::vector<bool> lc(20, false);
+                for (int i = 0; i < 16; i++) {
+                    if ((lut_init >> i) & 0x1)
+                        lc.at(lut_perm.at(i)) = true;
+                }
+
+                for (int i = 0; i < 20; i++)
+                    set_config(ti, config.at(beli.y).at(beli.x), "LC_" + std::to_string(beli.z), lc.at(i), i);
+            } else {
+                for (int i = 0; i < swi.num_bits; i++) {
+                    bool val = (pi.switch_mask & (1 << ((swi.num_bits - 1) - i))) != 0;
+                    int8_t &cbit = config.at(swi.y).at(swi.x).at(swi.cbits[i].row).at(swi.cbits[i].col);
+                    if (bool(cbit) != 0)
+                        NPNR_ASSERT(false);
+                    cbit = val;
+                }
             }
         }
     }
@@ -295,9 +346,7 @@ void write_asc(const Context *ctx, std::ostream &out)
             bool carry_enable = get_param_or_def(cell.second.get(), ctx->id("CARRY_ENABLE"));
             std::vector<bool> lc(20, false);
             // From arachne-pnr
-            static std::vector<int> lut_perm = {
-                    4, 14, 15, 5, 6, 16, 17, 7, 3, 13, 12, 2, 1, 11, 10, 0,
-            };
+
             for (int i = 0; i < 16; i++) {
                 if ((lut_init >> i) & 0x1)
                     lc.at(lut_perm.at(i)) = true;
