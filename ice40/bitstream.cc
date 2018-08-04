@@ -229,6 +229,24 @@ static BelPin get_one_bel_pin(const Context *ctx, WireId wire)
     return *pins.begin();
 }
 
+// Permute LUT init value given map (LUT input -> ext input)
+unsigned permute_lut(unsigned orig_init, const std::unordered_map<int, int> &input_permute) {
+    unsigned new_init = 0;
+
+    for (int i = 0; i < 16; i++) {
+        int permute_address = 0;
+        for (int j = 0; j < 4; j++) {
+            if ((i >> j) & 0x1)
+                permute_address |= (1 << input_permute.at(j));
+        }
+        if ((orig_init >> i) & 0x1) {
+            new_init |= (1 << permute_address);
+        }
+    }
+
+    return new_init;
+}
+
 void write_asc(const Context *ctx, std::ostream &out)
 {
 
@@ -282,22 +300,33 @@ void write_asc(const Context *ctx, std::ostream &out)
                 BelId sw_bel;
                 sw_bel.index = sw_bel_idx;
                 NPNR_ASSERT(ctx->getBelType(sw_bel) == TYPE_ICESTORM_LC);
-                BelPin input = get_one_bel_pin(ctx, ctx->getPipSrcWire(pip));
+
+                if (ci.wire_data[ctx->getPipDstWire(pip).index].type == WireInfoPOD::WIRE_TYPE_LUTFF_IN_LUT)
+                    continue; // Permutation pips
                 BelPin output = get_one_bel_pin(ctx, ctx->getPipDstWire(pip));
-                NPNR_ASSERT(input.bel == sw_bel);
                 NPNR_ASSERT(output.bel == sw_bel && output.pin == PIN_O);
                 unsigned lut_init;
-                switch (input.pin) {
-                case PIN_I0:
+
+                WireId permWire;
+                for (auto permPip : ctx->getPipsUphill(ctx->getPipSrcWire(pip))) {
+                    if (ctx->getBoundPipNet(permPip) != IdString()) {
+                        permWire = ctx->getPipSrcWire(permPip);
+                    }
+                }
+                NPNR_ASSERT(permWire != WireId());
+                std::string dName = ci.wire_data[permWire.index].name.get();
+
+                switch (dName.back()) {
+                case '0':
                     lut_init = 2;
                     break;
-                case PIN_I1:
+                case '1':
                     lut_init = 4;
                     break;
-                case PIN_I2:
+                case '2':
                     lut_init = 16;
                     break;
-                case PIN_I3:
+                case '3':
                     lut_init = 256;
                     break;
                 default:
@@ -345,8 +374,49 @@ void write_asc(const Context *ctx, std::ostream &out)
             bool set_noreset = get_param_or_def(cell.second.get(), ctx->id("SET_NORESET"));
             bool carry_enable = get_param_or_def(cell.second.get(), ctx->id("CARRY_ENABLE"));
             std::vector<bool> lc(20, false);
-            // From arachne-pnr
 
+            // Discover permutation
+            std::unordered_map<int, int> input_perm;
+            std::set<int> unused;
+            for (int i = 0; i < 4; i++)
+                unused.insert(i);
+            for (int i = 0; i < 4; i++) {
+                WireId lut_wire = ctx->getBelPinWire(bel, PortPin(PIN_I0+i));
+                for (auto pip : ctx->getPipsUphill(lut_wire)) {
+                    if (ctx->getBoundPipNet(pip) != IdString()) {
+                        std::string name = ci.wire_data[ctx->getPipSrcWire(pip).index].name.get();
+                        switch(name.back()) {
+                            case '0':
+                                input_perm[i] = 0;
+                                unused.erase(0);
+                                break;
+                            case '1':
+                                input_perm[i] = 1;
+                                unused.erase(1);
+                                break;
+                            case '2':
+                                input_perm[i] = 2;
+                                unused.erase(2);
+                                break;
+                            case '3':
+                                input_perm[i] = 3;
+                                unused.erase(3);
+                                break;
+                            default:
+                                NPNR_ASSERT_FALSE("failed to determine LUT permutation");
+                        }
+                        break;
+                    }
+                }
+            }
+            for (int i = 0; i < 4; i++) {
+                if (!input_perm.count(i)) {
+                    NPNR_ASSERT(!unused.empty());
+                    input_perm[i] = *(unused.begin());
+                    unused.erase(input_perm[i]);
+                }
+            }
+            lut_init = permute_lut(lut_init, input_perm);
             for (int i = 0; i < 16; i++) {
                 if ((lut_init >> i) & 0x1)
                     lc.at(lut_perm.at(i)) = true;
