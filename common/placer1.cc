@@ -226,7 +226,6 @@ public:
             // legal moves only
             if (temp < legalise_temp && !require_legal) {
                 legalise_relative_constraints(ctx);
-                // FIXME
                 require_legal = true;
                 autoplaced.clear();
                 for (auto cell : sorted(ctx->cells)) {
