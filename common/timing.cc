@@ -27,6 +27,7 @@
 NEXTPNR_NAMESPACE_BEGIN
 
 typedef std::vector<const PortRef*> PortRefVector;
+typedef std::map<delay_t, unsigned> DelayFrequency;
 
 struct Timing
 {
@@ -35,8 +36,10 @@ struct Timing
     delay_t min_slack;
     PortRefVector current_path;
     PortRefVector *crit_path;
+    DelayFrequency *slack_histogram;
 
-    Timing(Context *ctx, bool update, PortRefVector *crit_path = nullptr): ctx(ctx), update(update), min_slack(1.0e12 / ctx->target_freq), crit_path(crit_path) {}
+    Timing(Context *ctx, bool update, PortRefVector *crit_path = nullptr, DelayFrequency *slack_histogram = nullptr) 
+        : ctx(ctx), update(update), min_slack(1.0e12 / ctx->target_freq), crit_path(crit_path), slack_histogram(slack_histogram) {}
 
     delay_t follow_net(NetInfo *net, int path_length, delay_t slack)
     {
@@ -75,6 +78,8 @@ struct Timing
                 if (crit_path)
                     *crit_path = current_path;
             }
+            if (slack_histogram)
+                (*slack_histogram)[slack]++;
         } else {
             // Default to the path ending here, if no further paths found
             value = slack / path_length;
@@ -178,11 +183,12 @@ void assign_budget(Context *ctx, bool quiet)
         log_info("Checksum: 0x%08x\n", ctx->checksum());
 }
 
-void timing_analysis(Context *ctx, bool print_path)
+void timing_analysis(Context *ctx, bool print_histogram, bool print_path)
 {
     PortRefVector crit_path;
+    DelayFrequency slack_histogram;
 
-    Timing timing(ctx, false /* update */, &crit_path);
+    Timing timing(ctx, false /* update */, print_path ? &crit_path : nullptr, print_histogram ? &slack_histogram : nullptr);
     auto min_slack = timing.walk_paths();
 
     if (print_path) {
@@ -224,6 +230,28 @@ void timing_analysis(Context *ctx, bool print_path)
 
     delay_t default_slack = delay_t(1.0e12 / ctx->target_freq);
     log_info("estimated Fmax = %.2f MHz\n", 1e6 / (default_slack - min_slack));
+
+    if (print_histogram) {
+        constexpr unsigned num_bins = 20;
+        unsigned bar_width = 60;
+        auto min_slack = slack_histogram.begin()->first;
+        auto max_slack = slack_histogram.rbegin()->first;
+        auto bin_size = (max_slack - min_slack) / num_bins;
+        std::vector<unsigned> bins(num_bins+1);
+        unsigned max_freq = 0;
+        for (const auto& i : slack_histogram) {
+            auto& bin = bins[(i.first-min_slack) / bin_size];
+            bin += i.second;
+            max_freq = std::max(max_freq, bin);
+        }
+        bar_width = std::min(bar_width, max_freq);
+
+        log_break();
+        log_info("Slack histogram:\n");
+        log_info(" legend: * represents %d endpoint(s)\n", max_freq / bar_width);
+        for (unsigned i = 0; i < bins.size(); ++i)
+            log_info("%6d < ps < %6d |%s\n", min_slack + bin_size*i, min_slack + bin_size*(i+1), std::string(bins[i] * bar_width / max_freq, '*').c_str());
+    }
 }
 
 NEXTPNR_NAMESPACE_END
