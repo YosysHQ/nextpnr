@@ -1123,8 +1123,8 @@ for wire, info in enumerate(wireinfo):
 
     bba.u8(info["x"], "x")
     bba.u8(info["y"], "y")
+    bba.u8(0, "z") # FIXME
     bba.u8(wiretypes[wire_type(info["name"])], "type")
-    bba.u8(0, "padding")
 
 for wire in range(num_wires):
     if len(wire_segments[wire]):

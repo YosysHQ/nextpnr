@@ -120,9 +120,8 @@ NPNR_PACKED_STRUCT(struct WireInfoPOD {
     int32_t fast_delay;
     int32_t slow_delay;
 
-    int8_t x, y;
+    int8_t x, y, z;
     WireType type;
-    int8_t padding_0;
 });
 
 NPNR_PACKED_STRUCT(struct PackagePinPOD {

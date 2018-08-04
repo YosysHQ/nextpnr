@@ -639,64 +639,6 @@ std::vector<GroupId> Arch::getGroupGroups(GroupId group) const
 
 // -----------------------------------------------------------------------
 
-delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
-{
-    const auto &driver = net_info->driver;
-    auto driver_loc = getBelLocation(driver.cell->bel);
-    auto sink_loc = getBelLocation(sink.cell->bel);
-
-    if (driver.port == id_cout) {
-        if (driver_loc.y == sink_loc.y)
-            return 0;
-        return 250;
-    }
-
-#if 1
-    int xd = sink_loc.x - driver_loc.x, yd = sink_loc.y - driver_loc.y;
-    int xscale = 120, yscale = 120, offset = 0;
-
-    // if (chip_info->wire_data[src.index].type == WIRE_TYPE_SP4_VERT) {
-    //     yd = yd < -4 ? yd + 4 : (yd < 0 ? 0 : yd);
-    //     offset = 500;
-    // }
-
-    if (driver.port == id_o)
-        offset += 330;
-    if (sink.port == id_i0 || sink.port == id_i1 || sink.port == id_i2 || sink.port == id_i3)
-        offset += 260;
-
-    return xscale * abs(xd) + yscale * abs(yd) + offset;
-#else
-    float model1_param_offset = 902.1066988;
-    float model1_param_norm1 = 169.80428447;
-    float model1_param_norm2 = -503.28635487;
-    float model1_param_norm3 = 402.96583807;
-
-    float model2_param_offset = -1.09578873e+03;
-    float model2_param_linear = 5.01094876e-01;
-    float model2_param_sqrt = 4.71761281e+01;
-
-    float dx = fabsf(sink_loc.x - driver_loc.x);
-    float dy = fabsf(sink_loc.y - driver_loc.y);
-    float norm1 = dx + dy;
-
-    float dx2 = dx * dx;
-    float dy2 = dy * dy;
-    float norm2 = sqrtf(dx2 + dy2);
-
-    float dx3 = dx2 * dx;
-    float dy3 = dy2 * dy;
-    float norm3 = powf(dx3 + dy3, 1.0/3.0);
-
-    float v = model1_param_offset;
-    v += model1_param_norm1 * norm1;
-    v += model1_param_norm2 * norm2;
-    v += model1_param_norm3 * norm3;
-
-    return model2_param_offset + model2_param_linear * v + model2_param_sqrt * sqrtf(v);
-#endif
-}
-
 delay_t Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t budget) const
 {
     const auto &driver = net_info->driver;
