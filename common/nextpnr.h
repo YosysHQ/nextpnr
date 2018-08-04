@@ -281,7 +281,7 @@ struct CellInfo : ArchCellInfo
     std::unordered_map<IdString, IdString> pins;
 
     // placement constraints
-    CellInfo *constr_parent;
+    CellInfo *constr_parent = nullptr;
     std::vector<CellInfo *> constr_children;
     const int UNCONSTR = INT_MIN;
     int constr_x = UNCONSTR;   // this.x - parent.x
