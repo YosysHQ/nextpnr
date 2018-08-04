@@ -314,51 +314,8 @@ int main(int argc, char *argv[])
         if (vm.count("test"))
             ctx->archcheck();
 
-        if (vm.count("tmfuzz")) {
-            std::vector<WireId> src_wires, dst_wires;
-
-            /*for (auto w : ctx->getWires())
-                src_wires.push_back(w);*/
-            for (auto b : ctx->getBels()) {
-                if (ctx->getBelType(b) == TYPE_ICESTORM_LC) {
-                    src_wires.push_back(ctx->getBelPinWire(b, PIN_O));
-                }
-                if (ctx->getBelType(b) == TYPE_SB_IO) {
-                    src_wires.push_back(ctx->getBelPinWire(b, PIN_D_IN_0));
-                }
-            }
-
-            for (auto b : ctx->getBels()) {
-                if (ctx->getBelType(b) == TYPE_ICESTORM_LC) {
-                    dst_wires.push_back(ctx->getBelPinWire(b, PIN_I0));
-                    dst_wires.push_back(ctx->getBelPinWire(b, PIN_I1));
-                    dst_wires.push_back(ctx->getBelPinWire(b, PIN_I2));
-                    dst_wires.push_back(ctx->getBelPinWire(b, PIN_I3));
-                    dst_wires.push_back(ctx->getBelPinWire(b, PIN_CEN));
-                    dst_wires.push_back(ctx->getBelPinWire(b, PIN_CIN));
-                }
-                if (ctx->getBelType(b) == TYPE_SB_IO) {
-                    dst_wires.push_back(ctx->getBelPinWire(b, PIN_D_OUT_0));
-                    dst_wires.push_back(ctx->getBelPinWire(b, PIN_OUTPUT_ENABLE));
-                }
-            }
-
-            ctx->shuffle(src_wires);
-            ctx->shuffle(dst_wires);
-
-            for (int i = 0; i < int(src_wires.size()) && i < int(dst_wires.size()); i++) {
-                delay_t actual_delay;
-                WireId src = src_wires[i], dst = dst_wires[i];
-                if (!ctx->getActualRouteDelay(src, dst, actual_delay))
-                    continue;
-                printf("%s %s %.3f %.3f %d %d %d %d %d %d\n", ctx->getWireName(src).c_str(ctx.get()),
-                       ctx->getWireName(dst).c_str(ctx.get()), ctx->getDelayNS(actual_delay),
-                       ctx->getDelayNS(ctx->estimateDelay(src, dst)), ctx->chip_info->wire_data[src.index].x,
-                       ctx->chip_info->wire_data[src.index].y, ctx->chip_info->wire_data[src.index].type,
-                       ctx->chip_info->wire_data[dst.index].x, ctx->chip_info->wire_data[dst.index].y,
-                       ctx->chip_info->wire_data[dst.index].type);
-            }
-        }
+        if (vm.count("tmfuzz"))
+            ice40DelayFuzzerMain(ctx.get());
 
         if (vm.count("freq")) {
             auto freq = vm["freq"].as<double>();

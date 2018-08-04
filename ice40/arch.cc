@@ -639,22 +639,6 @@ std::vector<GroupId> Arch::getGroupGroups(GroupId group) const
 
 // -----------------------------------------------------------------------
 
-delay_t Arch::estimateDelay(WireId src, WireId dst) const
-{
-    NPNR_ASSERT(src != WireId());
-    int x1 = chip_info->wire_data[src.index].x;
-    int y1 = chip_info->wire_data[src.index].y;
-
-    NPNR_ASSERT(dst != WireId());
-    int x2 = chip_info->wire_data[dst.index].x;
-    int y2 = chip_info->wire_data[dst.index].y;
-
-    int xd = x2 - x1, yd = y2 - y1;
-    int xscale = 120, yscale = 120, offset = 0;
-
-    return xscale * abs(xd) + yscale * abs(yd) + offset;
-}
-
 delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
 {
     const auto &driver = net_info->driver;

@@ -947,7 +947,7 @@ bool router1(Context *ctx, const Router1Cfg &cfg)
     }
 }
 
-bool Context::getActualRouteDelay(WireId src_wire, WireId dst_wire, delay_t &delay,
+bool Context::getActualRouteDelay(WireId src_wire, WireId dst_wire, delay_t *delay,
                                   std::unordered_map<WireId, PipId> *route, bool useEstimate)
 {
     RipupScoreboard scores;
@@ -959,7 +959,8 @@ bool Context::getActualRouteDelay(WireId src_wire, WireId dst_wire, delay_t &del
     if (!router.routedOkay)
         return false;
 
-    delay = router.visited.at(dst_wire).delay;
+    if (delay != nullptr)
+        *delay = router.visited.at(dst_wire).delay;
 
     if (route != nullptr) {
         WireId cursor = dst_wire;

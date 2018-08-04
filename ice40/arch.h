@@ -842,4 +842,6 @@ struct Arch : BaseCtx
     float placer_constraintWeight = 10;
 };
 
+void ice40DelayFuzzerMain(Context *ctx);
+
 NEXTPNR_NAMESPACE_END
