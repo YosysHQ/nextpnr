@@ -37,7 +37,7 @@ static void initMainResource() { Q_INIT_RESOURCE(nextpnr); }
 NEXTPNR_NAMESPACE_BEGIN
 
 MainWindow::MainWindow(std::unique_ptr<Context> context, ArchArgs args, QWidget *parent)
-        : BaseMainWindow(std::move(context), parent), chipArgs(args)
+        : BaseMainWindow(std::move(context), args, parent)
 {
     initMainResource();
 
