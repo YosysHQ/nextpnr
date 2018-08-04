@@ -29,6 +29,7 @@ struct Router1Cfg
     int maxIterCnt = 200;
     bool cleanupReroute = true;
     bool fullCleanupReroute = true;
+    bool useEstimate = true;
 };
 
 extern bool router1(Context *ctx, const Router1Cfg &cfg);
