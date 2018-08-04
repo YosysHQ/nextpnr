@@ -226,20 +226,14 @@ class ConstraintLegaliseWorker
     {
         BelId locBel = ctx->getBelByLocation(loc);
         if (locBel == BelId()) {
-            if (ctx->verbose)
-                log_info("              no bel at location\n");
             return false;
         }
         if (ctx->getBelType(locBel) != ctx->belTypeFromId(cell->type)) {
-            if (ctx->verbose)
-                log_info("              bel of incorrect type\n");
             return false;
         }
         if (!ctx->checkBelAvail(locBel)) {
             IdString confCell = ctx->getConflictingBelCell(locBel);
             if (ctx->cells[confCell]->belStrength >= STRENGTH_STRONG) {
-                if (ctx->verbose)
-                    log_info("              bel already bound strongly to '%s'\n", confCell.c_str(ctx));
                 return false;
             }
         }
@@ -271,9 +265,6 @@ class ConstraintLegaliseWorker
                 cloc.x = xSearch.get();
                 cloc.y = ySearch.get();
                 cloc.z = zSearch.get();
-                if (ctx->verbose)
-                    log_info("         checking '%s' at (%d, %d, %d)\n", child->name.c_str(ctx), cloc.x, cloc.y,
-                             cloc.z);
 
                 zSearch.next();
                 if (zSearch.done()) {
@@ -347,8 +338,6 @@ class ConstraintLegaliseWorker
                 rootLoc.x = xRootSearch.get();
                 rootLoc.y = yRootSearch.get();
                 rootLoc.z = zRootSearch.get();
-                if (ctx->verbose)
-                    log_info("       trying (%d, %d, %d)\n", rootLoc.x, rootLoc.y, rootLoc.z);
                 zRootSearch.next();
                 if (zRootSearch.done()) {
                     zRootSearch.reset();
@@ -372,8 +361,6 @@ class ConstraintLegaliseWorker
                             log_info("     placing '%s' at (%d, %d, %d)\n", cp.first.c_str(ctx), cp.second.x,
                                      cp.second.y, cp.second.z);
                         BelId target = ctx->getBelByLocation(cp.second);
-                        if (ctx->verbose)
-                            log_info("         resolved to bel: '%s'\n", ctx->getBelName(target).c_str(ctx));
                         if (!ctx->checkBelAvail(target)) {
                             IdString conflicting = ctx->getConflictingBelCell(target);
                             if (conflicting != IdString()) {
