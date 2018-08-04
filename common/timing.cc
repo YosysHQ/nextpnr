@@ -26,7 +26,7 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-typedef std::vector<const PortRef*> PortRefVector;
+typedef std::vector<const PortRef *> PortRefVector;
 typedef std::map<delay_t, unsigned> DelayFrequency;
 
 struct Timing
@@ -38,8 +38,11 @@ struct Timing
     PortRefVector *crit_path;
     DelayFrequency *slack_histogram;
 
-    Timing(Context *ctx, bool update, PortRefVector *crit_path = nullptr, DelayFrequency *slack_histogram = nullptr) 
-        : ctx(ctx), update(update), min_slack(1.0e12 / ctx->target_freq), crit_path(crit_path), slack_histogram(slack_histogram) {}
+    Timing(Context *ctx, bool update, PortRefVector *crit_path = nullptr, DelayFrequency *slack_histogram = nullptr)
+            : ctx(ctx), update(update), min_slack(1.0e12 / ctx->target_freq), crit_path(crit_path),
+              slack_histogram(slack_histogram)
+    {
+    }
 
     delay_t follow_net(NetInfo *net, int path_length, delay_t slack)
     {
@@ -47,7 +50,8 @@ struct Timing
         for (auto &usr : net->users) {
             if (crit_path)
                 current_path.push_back(&usr);
-            // If budget override is less than existing budget, then do not increment path length
+            // If budget override is less than existing budget, then do not increment
+            // path length
             int pl = path_length + 1;
             auto budget = ctx->getBudgetOverride(net, usr, net_budget);
             if (budget < net_budget) {
@@ -55,8 +59,7 @@ struct Timing
                 pl = std::max(1, path_length);
             }
             auto delay = ctx->getNetinfoRouteDelay(net, usr);
-            net_budget = std::min(
-                    net_budget, follow_user_port(usr, pl, slack - delay));
+            net_budget = std::min(net_budget, follow_user_port(usr, pl, slack - delay));
             if (update)
                 usr.budget = std::min(usr.budget, delay + net_budget);
             if (crit_path)
@@ -105,7 +108,7 @@ struct Timing
     delay_t walk_paths()
     {
         delay_t default_slack = delay_t(1.0e12 / ctx->target_freq);
-    
+
         // Go through all clocked drivers and distribute the available path
         //   slack evenly into the budget of every sink on the path
         for (auto &cell : ctx->cells) {
@@ -175,8 +178,9 @@ void assign_budget(Context *ctx, bool quiet)
         delay_t default_slack = delay_t(1.0e12 / ctx->target_freq);
         ctx->target_freq = 1e12 / (default_slack - timing.min_slack);
         if (ctx->verbose)
-            log_info("minimum slack for this assign = %d, target Fmax for next update = %.2f MHz\n", timing.min_slack,
-                     ctx->target_freq / 1e6);
+            log_info("minimum slack for this assign = %d, target Fmax for next "
+                     "update = %.2f MHz\n",
+                     timing.min_slack, ctx->target_freq / 1e6);
     }
 
     if (!quiet)
@@ -188,7 +192,8 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_path)
     PortRefVector crit_path;
     DelayFrequency slack_histogram;
 
-    Timing timing(ctx, false /* update */, print_path ? &crit_path : nullptr, print_histogram ? &slack_histogram : nullptr);
+    Timing timing(ctx, false /* update */, print_path ? &crit_path : nullptr,
+                  print_histogram ? &slack_histogram : nullptr);
     auto min_slack = timing.walk_paths();
 
     if (print_path) {
@@ -237,10 +242,10 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_path)
         auto min_slack = slack_histogram.begin()->first;
         auto max_slack = slack_histogram.rbegin()->first;
         auto bin_size = (max_slack - min_slack) / num_bins;
-        std::vector<unsigned> bins(num_bins+1);
+        std::vector<unsigned> bins(num_bins + 1);
         unsigned max_freq = 0;
-        for (const auto& i : slack_histogram) {
-            auto& bin = bins[(i.first-min_slack) / bin_size];
+        for (const auto &i : slack_histogram) {
+            auto &bin = bins[(i.first - min_slack) / bin_size];
             bin += i.second;
             max_freq = std::max(max_freq, bin);
         }
@@ -250,7 +255,8 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_path)
         log_info("Slack histogram:\n");
         log_info(" legend: * represents %d endpoint(s)\n", max_freq / bar_width);
         for (unsigned i = 0; i < bins.size(); ++i)
-            log_info("%6d < ps < %6d |%s\n", min_slack + bin_size*i, min_slack + bin_size*(i+1), std::string(bins[i] * bar_width / max_freq, '*').c_str());
+            log_info("%6d < ps < %6d |%s\n", min_slack + bin_size * i, min_slack + bin_size * (i + 1),
+                     std::string(bins[i] * bar_width / max_freq, '*').c_str());
     }
 }
 
