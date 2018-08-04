@@ -272,7 +272,7 @@ class SAPlacer
                 }
             }
         }
-        timing_analysis(ctx, true /* print_fmax */);
+        timing_analysis(ctx);
         ctx->unlock();
         return true;
     }

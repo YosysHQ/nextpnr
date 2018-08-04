@@ -26,100 +26,114 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-typedef std::list<const PortRef *> PortRefList;
+typedef std::vector<const PortRef*> PortRefVector;
 
-static delay_t follow_net(Context *ctx, NetInfo *net, int path_length, delay_t slack, bool update, delay_t &min_slack,
-                          PortRefList *current_path, PortRefList *crit_path);
-
-// Follow a path, returning budget to annotate
-static delay_t follow_user_port(Context *ctx, PortRef &user, int path_length, delay_t slack, bool update,
-                                delay_t &min_slack, PortRefList *current_path, PortRefList *crit_path)
+struct Timing
 {
-    delay_t value;
-    if (ctx->getPortClock(user.cell, user.port) != IdString()) {
-        // At the end of a timing path (arguably, should check setup time
-        // here too)
-        value = slack / path_length;
-        if (slack < min_slack) {
-            min_slack = slack;
+    Context *ctx;
+    bool update;
+    delay_t min_slack;
+    PortRefVector current_path;
+    PortRefVector *crit_path;
+
+    Timing(Context *ctx, bool update, PortRefVector *crit_path = nullptr): ctx(ctx), update(update), min_slack(1.0e12 / ctx->target_freq), crit_path(crit_path) {}
+
+    delay_t follow_net(NetInfo *net, int path_length, delay_t slack)
+    {
+        delay_t net_budget = slack / (path_length + 1);
+        for (auto &usr : net->users) {
             if (crit_path)
-                *crit_path = *current_path;
+                current_path.push_back(&usr);
+            // If budget override is less than existing budget, then do not increment path length
+            int pl = path_length + 1;
+            auto budget = ctx->getBudgetOverride(net, usr, net_budget);
+            if (budget < net_budget) {
+                net_budget = budget;
+                pl = std::max(1, path_length);
+            }
+            auto delay = ctx->getNetinfoRouteDelay(net, usr);
+            net_budget = std::min(
+                    net_budget, follow_user_port(usr, pl, slack - delay));
+            if (update)
+                usr.budget = std::min(usr.budget, delay + net_budget);
+            if (crit_path)
+                current_path.pop_back();
         }
-    } else {
-        // Default to the path ending here, if no further paths found
-        value = slack / path_length;
-        // Follow outputs of the user
-        for (auto port : user.cell->ports) {
-            if (port.second.type == PORT_OUT) {
-                DelayInfo comb_delay;
-                // Look up delay through this path
-                bool is_path = ctx->getCellDelay(user.cell, user.port, port.first, comb_delay);
-                if (is_path) {
-                    NetInfo *net = port.second.net;
-                    if (net) {
-                        delay_t path_budget = follow_net(ctx, net, path_length, slack - comb_delay.maxDelay(), update,
-                                                         min_slack, current_path, crit_path);
-                        value = std::min(value, path_budget);
+        return net_budget;
+    }
+
+    // Follow a path, returning budget to annotate
+    delay_t follow_user_port(PortRef &user, int path_length, delay_t slack)
+    {
+        delay_t value;
+        if (ctx->getPortClock(user.cell, user.port) != IdString()) {
+            // At the end of a timing path (arguably, should check setup time
+            // here too)
+            value = slack / path_length;
+            if (slack < min_slack) {
+                min_slack = slack;
+                if (crit_path)
+                    *crit_path = current_path;
+            }
+        } else {
+            // Default to the path ending here, if no further paths found
+            value = slack / path_length;
+            // Follow outputs of the user
+            for (auto port : user.cell->ports) {
+                if (port.second.type == PORT_OUT) {
+                    DelayInfo comb_delay;
+                    // Look up delay through this path
+                    bool is_path = ctx->getCellDelay(user.cell, user.port, port.first, comb_delay);
+                    if (is_path) {
+                        NetInfo *net = port.second.net;
+                        if (net) {
+                            delay_t path_budget = follow_net(net, path_length, slack - comb_delay.maxDelay());
+                            value = std::min(value, path_budget);
+                        }
                     }
                 }
             }
         }
+        return value;
     }
-    return value;
-}
 
-static delay_t follow_net(Context *ctx, NetInfo *net, int path_length, delay_t slack, bool update, delay_t &min_slack,
-                          PortRefList *current_path, PortRefList *crit_path)
-{
-    delay_t net_budget = slack / (path_length + 1);
-    for (auto &usr : net->users) {
-        if (crit_path)
-            current_path->push_back(&usr);
-        // If budget override is less than existing budget, then do not increment path length
-        int pl = path_length + 1;
-        auto budget = ctx->getBudgetOverride(net, usr, net_budget);
-        if (budget < net_budget) {
-            net_budget = budget;
-            pl = std::max(1, path_length);
-        }
-        auto delay = ctx->getNetinfoRouteDelay(net, usr);
-        net_budget = std::min(
-                net_budget, follow_user_port(ctx, usr, pl, slack - delay, update, min_slack, current_path, crit_path));
-        if (update)
-            usr.budget = std::min(usr.budget, delay + net_budget);
-        if (crit_path)
-            current_path->pop_back();
-    }
-    return net_budget;
-}
-
-static delay_t walk_paths(Context *ctx, bool update, PortRefList *crit_path)
-{
-    delay_t default_slack = delay_t(1.0e12 / ctx->target_freq);
-    delay_t min_slack = default_slack;
-
-    PortRefList current_path;
-
-    // Go through all clocked drivers and distribute the available path
-    //   slack evenly into the budget of every sink on the path
-    for (auto &cell : ctx->cells) {
-        for (auto port : cell.second->ports) {
-            if (port.second.type == PORT_OUT) {
-                IdString clock_domain = ctx->getPortClock(cell.second.get(), port.first);
-                if (clock_domain != IdString()) {
-                    delay_t slack = default_slack; // TODO: clock constraints
-                    DelayInfo clkToQ;
-                    if (ctx->getCellDelay(cell.second.get(), clock_domain, port.first, clkToQ))
-                        slack -= clkToQ.maxDelay();
-                    if (port.second.net)
-                        follow_net(ctx, port.second.net, 0, slack, update, min_slack, &current_path, crit_path);
+    delay_t walk_paths()
+    {
+        delay_t default_slack = delay_t(1.0e12 / ctx->target_freq);
+    
+        // Go through all clocked drivers and distribute the available path
+        //   slack evenly into the budget of every sink on the path
+        for (auto &cell : ctx->cells) {
+            for (auto port : cell.second->ports) {
+                if (port.second.type == PORT_OUT) {
+                    IdString clock_domain = ctx->getPortClock(cell.second.get(), port.first);
+                    if (clock_domain != IdString()) {
+                        delay_t slack = default_slack; // TODO: clock constraints
+                        DelayInfo clkToQ;
+                        if (ctx->getCellDelay(cell.second.get(), clock_domain, port.first, clkToQ))
+                            slack -= clkToQ.maxDelay();
+                        if (port.second.net)
+                            follow_net(port.second.net, 0, slack);
+                    }
                 }
             }
         }
+        return min_slack;
     }
 
-    return min_slack;
-}
+    void assign_budget()
+    {
+        // Clear delays to a very high value first
+        delay_t default_slack = delay_t(1.0e12 / ctx->target_freq);
+        for (auto &net : ctx->nets) {
+            for (auto &usr : net.second->users) {
+                usr.budget = default_slack;
+            }
+        }
+
+        walk_paths();
+    }
+};
 
 void assign_budget(Context *ctx, bool quiet)
 {
@@ -128,15 +142,9 @@ void assign_budget(Context *ctx, bool quiet)
         log_info("Annotating ports with timing budgets\n");
     }
 
-    // Clear delays to a very high value first
-    delay_t default_slack = delay_t(1.0e12 / ctx->target_freq);
-    for (auto &net : ctx->nets) {
-        for (auto &usr : net.second->users) {
-            usr.budget = default_slack;
-        }
-    }
+    Timing timing(ctx, true /* update */);
+    timing.assign_budget();
 
-    delay_t min_slack = walk_paths(ctx, true, nullptr);
 
     if (!quiet || ctx->verbose) {
         for (auto &net : ctx->nets) {
@@ -160,21 +168,24 @@ void assign_budget(Context *ctx, bool quiet)
     //   dynamically adjust the target frequency to be the currently
     //   achieved maximum
     if (!ctx->user_freq && ctx->slack_redist_iter > 0) {
-        ctx->target_freq = 1e12 / (default_slack - min_slack);
-        /*if (ctx->verbose)*/
-        log_info("minimum slack for this assign = %d, target Fmax for next update = %.2f MHz\n", min_slack,
-                 ctx->target_freq / 1e6);
+        delay_t default_slack = delay_t(1.0e12 / ctx->target_freq);
+        ctx->target_freq = 1e12 / (default_slack - timing.min_slack);
+        if (ctx->verbose)
+            log_info("minimum slack for this assign = %d, target Fmax for next update = %.2f MHz\n", timing.min_slack,
+                     ctx->target_freq / 1e6);
     }
 
     if (!quiet)
         log_info("Checksum: 0x%08x\n", ctx->checksum());
 }
 
-delay_t timing_analysis(Context *ctx, bool print_fmax, bool print_path)
+void timing_analysis(Context *ctx, bool print_path)
 {
-    delay_t default_slack = delay_t(1.0e12 / ctx->target_freq);
-    PortRefList crit_path;
-    delay_t min_slack = walk_paths(ctx, false, &crit_path);
+    PortRefVector crit_path;
+
+    Timing timing(ctx, false /* update */, &crit_path);
+    auto min_slack = timing.walk_paths();
+
     if (print_path) {
         if (crit_path.empty()) {
             log_info("Design contains no timing paths\n");
@@ -211,9 +222,9 @@ delay_t timing_analysis(Context *ctx, bool print_fmax, bool print_path)
             log_break();
         }
     }
-    if (print_fmax)
-        log_info("estimated Fmax = %.2f MHz\n", 1e6 / (default_slack - min_slack));
-    return min_slack;
+
+    delay_t default_slack = delay_t(1.0e12 / ctx->target_freq);
+    log_info("estimated Fmax = %.2f MHz\n", 1e6 / (default_slack - min_slack));
 }
 
 NEXTPNR_NAMESPACE_END
