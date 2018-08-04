@@ -422,7 +422,9 @@ struct Router
                     NPNR_ASSERT(ripup);
                     NPNR_ASSERT(conflicting_pip_net != net_name);
 
-                    ctx->unbindPip(pip);
+                    if (ctx->getBoundPipNet(pip) == conflicting_pip_net)
+                        ctx->unbindPip(pip);
+
                     if (!ctx->checkPipAvail(pip))
                         ripup_net(ctx, conflicting_pip_net);
 
