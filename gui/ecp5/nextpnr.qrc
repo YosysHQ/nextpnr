@@ -1,2 +1,6 @@
 <RCC>
+    <qresource prefix="/icons">
+        <file>resources/open_base.png</file>
+        <file>resources/save_config.png</file>
+    </qresource>
 </RCC>

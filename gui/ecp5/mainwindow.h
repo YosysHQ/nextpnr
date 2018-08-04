@@ -34,15 +34,26 @@ class MainWindow : public BaseMainWindow
 
   public:
     void createMenu();
+    void load_base_config(std::string filename);
+
+  protected:
+    void onDisableActions() override;
+    void onRouteFinished() override;
 
   protected Q_SLOTS:
     virtual void new_proj();
     virtual void open_proj();
     virtual bool save_proj();
     void newContext(Context *ctx);
+    void open_base();
+    void save_config();
+  private:
+    QAction *actionLoadBase;
+    QAction *actionSaveConfig;
 
-private:
     ArchArgs chipArgs;
+
+    std::string currentBaseConfig;
 };
 
 NEXTPNR_NAMESPACE_END
