@@ -147,7 +147,7 @@ void assign_budget(Context *ctx, bool quiet)
 {
     if (!quiet) {
         log_break();
-        log_info("Annotating ports with timing budgets\n");
+        log_info("Annotating ports with timing budgets for target frequency %.2f MHz\n", ctx->target_freq/1e6);
     }
 
     Timing timing(ctx, true /* update */);
@@ -157,7 +157,7 @@ void assign_budget(Context *ctx, bool quiet)
         for (auto &net : ctx->nets) {
             for (auto &user : net.second->users) {
                 // Post-update check
-                if (ctx->user_freq && user.budget < 0)
+                if (!ctx->auto_freq && user.budget < 0)
                     log_warning("port %s.%s, connected to net '%s', has negative "
                                 "timing budget of %fns\n",
                                 user.cell->name.c_str(ctx), user.port.c_str(ctx), net.first.c_str(ctx),
@@ -174,7 +174,7 @@ void assign_budget(Context *ctx, bool quiet)
     // For slack redistribution, if user has not specified a frequency
     //   dynamically adjust the target frequency to be the currently
     //   achieved maximum
-    if (!ctx->user_freq && ctx->slack_redist_iter > 0) {
+    if (ctx->auto_freq && ctx->slack_redist_iter > 0) {
         delay_t default_slack = delay_t(1.0e12 / ctx->target_freq);
         ctx->target_freq = 1e12 / (default_slack - timing.min_slack);
         if (ctx->verbose)
