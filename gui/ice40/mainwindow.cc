@@ -37,7 +37,7 @@ static void initMainResource() { Q_INIT_RESOURCE(nextpnr); }
 NEXTPNR_NAMESPACE_BEGIN
 
 MainWindow::MainWindow(std::unique_ptr<Context> context, ArchArgs args, QWidget *parent)
-        : BaseMainWindow(std::move(context), parent), chipArgs(args)
+        : BaseMainWindow(std::move(context), args, parent)
 {
     initMainResource();
 
@@ -78,18 +78,11 @@ void MainWindow::createMenu()
     menuDesign->addAction(actionSaveAsc);
 }
 
-#if defined(_MSC_VER)
-void load_chipdb();
-#endif
-
 static const ChipInfoPOD *get_chip_info(const RelPtr<ChipInfoPOD> *ptr) { return ptr->get(); }
 
-QStringList getSupportedPackages(ArchArgs::ArchArgsTypes chip)
+static QStringList getSupportedPackages(ArchArgs::ArchArgsTypes chip)
 {
     QStringList packages;
-#if defined(_MSC_VER)
-    load_chipdb();
-#endif
     const ChipInfoPOD *chip_info;
 #ifdef ICE40_HX1K_ONLY
     if (chip == ArchArgs::HX1K) {

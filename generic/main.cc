@@ -90,7 +90,8 @@ int main(int argc, char *argv[])
             return 1;
         }
 
-        std::unique_ptr<Context> ctx = std::unique_ptr<Context>(new Context(ArchArgs{}));
+        ArchArgs chipArgs{};
+        std::unique_ptr<Context> ctx = std::unique_ptr<Context>(new Context(chipArgs));
 
         if (vm.count("verbose")) {
             ctx->verbose = true;
@@ -107,7 +108,7 @@ int main(int argc, char *argv[])
 #ifndef NO_GUI
         if (vm.count("gui")) {
             Application a(argc, argv);
-            MainWindow w(std::move(ctx));
+            MainWindow w(std::move(ctx), chipArgs);
             w.show();
 
             return a.exec();

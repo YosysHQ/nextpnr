@@ -55,8 +55,6 @@ class MainWindow : public BaseMainWindow
     QAction *actionLoadPCF;
     QAction *actionSaveAsc;
 
-    ArchArgs chipArgs;
-
     std::string currentProj;
     std::string currentPCF;
 };
