@@ -787,7 +787,9 @@ tmport_to_portpin = {
     "WCLKE": "WCLKE",
     "WE": "WE",
     "posedge:CLOCK": "CLOCK",
-    "posedge:SLEEP": "SLEEP"
+    "posedge:SLEEP": "SLEEP",
+    "USERSIGNALTOGLOBALBUFFER": "USER_SIGNAL_TO_GLOBAL_BUFFER",
+    "GLOBALBUFFEROUTPUT": "GLOBAL_BUFFER_OUTPUT"
 }
 
 for i in range(16):
@@ -815,6 +817,8 @@ def add_cell_timingdata(bel_type, timing_cell, fast_db, slow_db):
     cell_timings[bel_type] = timing_entries
 
 add_cell_timingdata("ICESTORM_LC", "LogicCell40", fast_timings, slow_timings)
+add_cell_timingdata("SB_GB", "ICE_GB", fast_timings, slow_timings)
+
 if dev_name != "384":
     add_cell_timingdata("ICESTORM_RAM", "SB_RAM40_4K", fast_timings, slow_timings)
 if dev_name == "5k":

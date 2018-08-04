@@ -17,10 +17,11 @@
  *
  */
 
-#include "place_legaliser.h"
+#include "nextpnr.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
-bool legalise_design(Context *ctx) { return true; }
+// This finds chains, inserts LCs to legalise them as needed, and sets relative constraints as appropriate
+void constrain_chains(Context *ctx);
 
 NEXTPNR_NAMESPACE_END

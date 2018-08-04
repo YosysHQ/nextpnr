@@ -40,7 +40,6 @@
 #include "log.h"
 #include "nextpnr.h"
 #include "pcf.h"
-#include "place_legaliser.h"
 #include "timing.h"
 #include "version.h"
 
@@ -107,6 +106,9 @@ int main(int argc, char *argv[])
         options.add_options()("seed", po::value<int>(), "seed value for random number generator");
         options.add_options()("slack_redist_iter", po::value<int>(),
                               "number of iterations between slack redistribution");
+        options.add_options()("cstrweight", po::value<float>(),
+                              "placer weighting for relative constraint satisfaction");
+
         options.add_options()("version,V", "show version");
         options.add_options()("tmfuzz", "run path delay estimate fuzzer");
         options.add_options()("test", "check architecture database integrity");
@@ -317,6 +319,17 @@ int main(int argc, char *argv[])
 
         if (vm.count("slack_redist_iter")) {
             ctx->slack_redist_iter = vm["slack_redist_iter"].as<int>();
+            if (vm.count("freq") && vm["freq"].as<double>() == 0) {
+                ctx->auto_freq = true;
+#ifndef NO_GUI
+                if (!vm.count("gui"))
+#endif
+                    log_warning("Target frequency not specified. Will optimise for max frequency.\n");
+            }
+        }
+
+        if (vm.count("cstrweight")) {
+            ctx->placer_constraintWeight = vm["cstrweight"].as<float>();
         }
 
         if (vm.count("svg")) {
@@ -379,13 +392,9 @@ int main(int argc, char *argv[])
         }
 
         if (vm.count("freq")) {
-            ctx->target_freq = vm["freq"].as<double>() * 1e6;
-            ctx->user_freq = true;
-        } else {
-#ifndef NO_GUI
-            if (!vm.count("gui"))
-#endif
-                log_warning("Target frequency not specified. Will optimise for max frequency.\n");
+            auto freq = vm["freq"].as<double>();
+            if (freq > 0)
+                ctx->target_freq = freq * 1e6;
         }
 
         ctx->timing_driven = true;

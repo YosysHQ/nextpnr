@@ -20,8 +20,8 @@
 #ifndef ECP5_CONFIG_H
 #define ECP5_CONFIG_H
 
-#include "nextpnr.h"
 #include <map>
+#include "nextpnr.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 

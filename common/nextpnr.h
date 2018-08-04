@@ -281,7 +281,7 @@ struct CellInfo : ArchCellInfo
     std::unordered_map<IdString, IdString> pins;
 
     // placement constraints
-    CellInfo *constr_parent;
+    CellInfo *constr_parent = nullptr;
     std::vector<CellInfo *> constr_children;
     const int UNCONSTR = INT_MIN;
     int constr_x = UNCONSTR;   // this.x - parent.x
@@ -472,7 +472,7 @@ struct Context : Arch, DeterministicRNG
     bool force = false;
     bool timing_driven = true;
     float target_freq = 12e6;
-    bool user_freq = false;
+    bool auto_freq = false;
     int slack_redist_iter = 0;
 
     Context(ArchArgs args) : Arch(args) {}
