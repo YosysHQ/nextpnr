@@ -23,7 +23,12 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-extern bool placer1(Context *ctx);
+struct Placer1Cfg
+{
+    float constraintWeight = 10;
+};
+
+extern bool placer1(Context *ctx, Placer1Cfg cfg);
 
 NEXTPNR_NAMESPACE_END
 
