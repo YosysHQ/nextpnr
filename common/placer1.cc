@@ -38,15 +38,15 @@
 #include <vector>
 #include "log.h"
 #include "place_common.h"
-#include "place_legaliser.h"
 #include "timing.h"
 #include "util.h"
+
 NEXTPNR_NAMESPACE_BEGIN
 
 class SAPlacer
 {
   public:
-    SAPlacer(Context *ctx) : ctx(ctx)
+    SAPlacer(Context *ctx, Placer1Cfg cfg) : ctx(ctx), cfg(cfg)
     {
         int num_bel_types = 0;
         for (auto bel : ctx->getBels()) {
@@ -225,7 +225,7 @@ class SAPlacer
             // Once cooled below legalise threshold, run legalisation and start requiring
             // legal moves only
             if (temp < legalise_temp && !require_legal) {
-                legalise_design(ctx);
+                legalise_relative_constraints(ctx);
                 require_legal = true;
                 autoplaced.clear();
                 for (auto cell : sorted(ctx->cells)) {
@@ -272,6 +272,10 @@ class SAPlacer
                 }
             }
         }
+        for (auto cell : sorted(ctx->cells))
+            if (get_constraints_distance(ctx, cell.second) != 0)
+                log_error("constraint satisfaction check failed for cell '%s' at Bel '%s'\n", cell.first.c_str(ctx),
+                          ctx->getBelName(cell.second->bel).c_str(ctx));
         timing_analysis(ctx);
         ctx->unlock();
         return true;
@@ -294,7 +298,7 @@ class SAPlacer
             }
             BelType targetType = ctx->belTypeFromId(cell->type);
             for (auto bel : ctx->getBels()) {
-                if (ctx->getBelType(bel) == targetType && (ctx->isValidBelForCell(cell, bel) || !require_legal)) {
+                if (ctx->getBelType(bel) == targetType && ctx->isValidBelForCell(cell, bel)) {
                     if (ctx->checkBelAvail(bel)) {
                         uint64_t score = ctx->rng64();
                         if (score <= best_score) {
@@ -343,6 +347,10 @@ class SAPlacer
             if (other_cell->belStrength > STRENGTH_WEAK)
                 return false;
         }
+        int old_dist = get_constraints_distance(ctx, cell);
+        int new_dist;
+        if (other != IdString())
+            old_dist += get_constraints_distance(ctx, other_cell);
         wirelen_t new_metric = 0, delta;
         ctx->unbindBel(oldBel);
         if (other != IdString()) {
@@ -364,13 +372,11 @@ class SAPlacer
         if (other != IdString()) {
             ctx->bindBel(oldBel, other_cell->name, STRENGTH_WEAK);
         }
-        if (require_legal) {
-            if (!ctx->isBelLocationValid(newBel) || ((other != IdString() && !ctx->isBelLocationValid(oldBel)))) {
-                ctx->unbindBel(newBel);
-                if (other != IdString())
-                    ctx->unbindBel(oldBel);
-                goto swap_fail;
-            }
+        if (!ctx->isBelLocationValid(newBel) || ((other != IdString() && !ctx->isBelLocationValid(oldBel)))) {
+            ctx->unbindBel(newBel);
+            if (other != IdString())
+                ctx->unbindBel(oldBel);
+            goto swap_fail;
         }
 
         new_metric = curr_metric;
@@ -383,7 +389,12 @@ class SAPlacer
             new_metric += net_new_wl;
             new_lengths.push_back(std::make_pair(net->name, net_new_wl));
         }
+
+        new_dist = get_constraints_distance(ctx, cell);
+        if (other != IdString())
+            new_dist += get_constraints_distance(ctx, other_cell);
         delta = new_metric - curr_metric;
+        delta += (cfg.constraintWeight / temp) * (new_dist - old_dist);
         n_move++;
         // SA acceptance criterea
         if (delta < 0 || (temp > 1e-6 && (ctx->rng() / float(0x3fffffff)) <= std::exp(-delta / temp))) {
@@ -444,14 +455,15 @@ class SAPlacer
     std::unordered_set<BelId> locked_bels;
     bool require_legal = false;
     const float legalise_temp = 1;
-    const float post_legalise_temp = 20;
-    const float post_legalise_dia_scale = 2;
+    const float post_legalise_temp = 10;
+    const float post_legalise_dia_scale = 1.5;
+    Placer1Cfg cfg;
 };
 
-bool placer1(Context *ctx)
+bool placer1(Context *ctx, Placer1Cfg cfg)
 {
     try {
-        SAPlacer placer(ctx);
+        SAPlacer placer(ctx, cfg);
         placer.place();
         log_info("Checksum: 0x%08x\n", ctx->checksum());
 #ifndef NDEBUG

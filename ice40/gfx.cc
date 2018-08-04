@@ -706,7 +706,8 @@ void gfxTilePip(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId src,
         return;
     }
 
-    if (TILE_WIRE_LUTFF_0_IN_0 <= src && src <= TILE_WIRE_LUTFF_7_IN_3 && TILE_WIRE_LUTFF_0_OUT <= dst && dst <= TILE_WIRE_LUTFF_7_OUT) {
+    if (TILE_WIRE_LUTFF_0_IN_0 <= src && src <= TILE_WIRE_LUTFF_7_IN_3 && TILE_WIRE_LUTFF_0_OUT <= dst &&
+        dst <= TILE_WIRE_LUTFF_7_OUT) {
         int lut_idx = (src - TILE_WIRE_LUTFF_0_IN_0) / 4;
         int in_idx = (src - TILE_WIRE_LUTFF_0_IN_0) % 4;
 
