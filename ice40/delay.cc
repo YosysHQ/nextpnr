@@ -183,11 +183,13 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
     if (dx > 1 || dy > 1)
         v = (p.model0_offset + p.model0_norm1 * (dx + dy)) / 128;
 
-    if (type == WireInfoPOD::WIRE_TYPE_LOCAL)
-        v += p.delta_local;
+    if (dx == 0 && dy == 0) {
+        if (type == WireInfoPOD::WIRE_TYPE_LOCAL)
+            v += p.delta_local;
 
-    if (type == WireInfoPOD::WIRE_TYPE_LUTFF_IN || type == WireInfoPOD::WIRE_TYPE_LUTFF_IN_LUT)
-        v += (z1 == z2) ? p.delta_lutffin : 1000;
+        if (type == WireInfoPOD::WIRE_TYPE_LUTFF_IN || type == WireInfoPOD::WIRE_TYPE_LUTFF_IN_LUT)
+            v += (z1 == z2) ? p.delta_lutffin : 0;
+    }
 
     if (type == WireInfoPOD::WIRE_TYPE_SP4_V || type == WireInfoPOD::WIRE_TYPE_SP4_H)
         v += p.delta_sp4;
