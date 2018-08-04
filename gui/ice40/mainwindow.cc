@@ -80,7 +80,7 @@ void MainWindow::createMenu()
 
 static const ChipInfoPOD *get_chip_info(const RelPtr<ChipInfoPOD> *ptr) { return ptr->get(); }
 
-QStringList getSupportedPackages(ArchArgs::ArchArgsTypes chip)
+static QStringList getSupportedPackages(ArchArgs::ArchArgsTypes chip)
 {
     QStringList packages;
     const ChipInfoPOD *chip_info;
