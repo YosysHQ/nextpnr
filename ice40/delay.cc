@@ -23,7 +23,7 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-#define NUM_FUZZ_ROUTES 1000
+#define NUM_FUZZ_ROUTES 100000
 
 void ice40DelayFuzzerMain(Context *ctx)
 {
@@ -218,6 +218,10 @@ delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
     if (dx <= 1 && dy <= 1)
         return p.neighbourhood;
 
+#if 1
+    // Model #0
+    return (p.model0_offset + p.model0_norm1 * (dx + dy)) / 128;
+#else
     float norm1 = dx + dy;
 
     float dx2 = dx * dx;
@@ -240,6 +244,7 @@ delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
     v /= 128;
 
     return v;
+#endif
 }
 
 NEXTPNR_NAMESPACE_END
