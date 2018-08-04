@@ -145,7 +145,6 @@ void assign_budget(Context *ctx, bool quiet)
     Timing timing(ctx, true /* update */);
     timing.assign_budget();
 
-
     if (!quiet || ctx->verbose) {
         for (auto &net : ctx->nets) {
             for (auto &user : net.second->users) {
