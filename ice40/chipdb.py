@@ -1032,16 +1032,20 @@ for wire in range(num_wires):
     info["num_bel_pins"] = num_bel_pins
     info["list_bel_pins"] = ("wire%d_bels" % wire) if num_bel_pins > 0 else None
 
-    avg_x, avg_y = 0, 0
     if wire in wire_xy:
+        avg_x, avg_y = 0, 0
+
         for x, y in wire_xy[wire]:
             avg_x += x
             avg_y += y
         avg_x /= len(wire_xy[wire])
         avg_y /= len(wire_xy[wire])
 
-    info["x"] = int(round(avg_x))
-    info["y"] = int(round(avg_y))
+        info["x"] = int(round(avg_x))
+        info["y"] = int(round(avg_y))
+    else:
+        info["x"] = wire_names_r[wire][0]
+        info["y"] = wire_names_r[wire][1]
 
     wireinfo.append(info)
 
