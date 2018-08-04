@@ -22,6 +22,8 @@
 #include "log.h"
 
 #include <QFileDialog>
+#include <QInputDialog>
+#include <QLineEdit>
 
 static void initMainResource() { Q_INIT_RESOURCE(nextpnr); }
 
@@ -72,7 +74,55 @@ void MainWindow::createMenu() {
     menuDesign->addAction(actionSaveConfig);    
 }
 
-void MainWindow::new_proj() {}
+static const ChipInfoPOD *get_chip_info(const RelPtr<ChipInfoPOD> *ptr) { return ptr->get(); }
+
+QStringList getSupportedPackages(ArchArgs::ArchArgsTypes chip)
+{
+    QStringList packages;
+    const ChipInfoPOD *chip_info;
+    if (chip == ArchArgs::LFE5U_25F) {
+        chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_25k));
+    } else if (chip == ArchArgs::LFE5U_45F) {
+        chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_45k));
+    } else if (chip == ArchArgs::LFE5U_85F) {
+        chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_85k));
+    } else {
+        log_error("Unsupported ECP5 chip type.\n");
+    }
+
+    for (int i = 0; i < chip_info->num_packages; i++) {
+        packages << chip_info->package_info[i].name.get();
+    }
+    return packages;
+}
+
+
+void MainWindow::new_proj() {
+    QMap<QString, int> arch;
+    arch.insert("Lattice ECP5 25K", ArchArgs::LFE5U_25F);
+    arch.insert("Lattice ECP5 45K", ArchArgs::LFE5U_45F);
+    arch.insert("Lattice ECP5 85K", ArchArgs::LFE5U_85F);
+    bool ok;
+    QString item = QInputDialog::getItem(this, "Select new context", "Chip:", arch.keys(), 0, false, &ok);
+    if (ok && !item.isEmpty()) {
+
+        chipArgs.type = (ArchArgs::ArchArgsTypes)arch.value(item);
+
+        QString package = QInputDialog::getItem(this, "Select package", "Package:", getSupportedPackages(chipArgs.type),
+                                                0, false, &ok);
+
+        if (ok && !item.isEmpty()) {
+            currentProj = "";
+            currentJson = "";
+            disableActions();
+            chipArgs.package = package.toStdString().c_str();
+            ctx = std::unique_ptr<Context>(new Context(chipArgs));
+            actionLoadJSON->setEnabled(true);
+
+            Q_EMIT contextChanged(ctx.get());
+        }
+    }
+}
 
 void MainWindow::open_proj() {}
 

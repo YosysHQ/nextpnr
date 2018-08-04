@@ -384,7 +384,7 @@ struct PipRange
 
 struct ArchArgs
 {
-    enum ArchArgsType
+    enum ArchArgsTypes
     {
         NONE,
         LFE5U_25F,
