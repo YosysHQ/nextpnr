@@ -23,6 +23,8 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+#define NUM_FUZZ_ROUTES 100000
+
 void ice40DelayFuzzerMain(Context *ctx)
 {
     std::vector<WireId> srcWires, dstWires;
@@ -53,17 +55,25 @@ void ice40DelayFuzzerMain(Context *ctx)
     int index = 0;
     int cnt = 0;
 
-    while (cnt < 1000)
+    while (cnt < NUM_FUZZ_ROUTES)
     {
-        NPNR_ASSERT(index < int(srcWires.size()));
-        NPNR_ASSERT(index < int(dstWires.size()));
+        if (index >= int(srcWires.size()) || index >= int(dstWires.size())) {
+            index = 0;
+            ctx->shuffle(srcWires);
+            ctx->shuffle(dstWires);
+        }
 
         WireId src = srcWires[index];
         WireId dst = dstWires[index++];
         std::unordered_map<WireId, PipId> route;
 
+#if NUM_FUZZ_ROUTES <= 1000
         if (!ctx->getActualRouteDelay(src, dst, nullptr, &route, false))
             continue;
+#else
+        if (!ctx->getActualRouteDelay(src, dst, nullptr, &route, true))
+            continue;
+#endif
 
         WireId cursor = dst;
         delay_t delay = 0;
@@ -85,6 +95,9 @@ void ice40DelayFuzzerMain(Context *ctx)
         }
 
         cnt++;
+
+        if (cnt % 100 == 0)
+            fprintf(stderr, "Fuzzed %d arcs.\n", cnt);
     }
 }
 
