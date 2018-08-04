@@ -799,7 +799,6 @@ struct Arch : BaseCtx
     }
 
     float placer_constraintWeight = 10;
-
 };
 
 NEXTPNR_NAMESPACE_END

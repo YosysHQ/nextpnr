@@ -156,7 +156,8 @@ bool place_single_cell(Context *ctx, CellInfo *cell, bool require_legality)
             all_placed = true;
         }
         if (ctx->verbose)
-            log_info("   placed single cell '%s' at '%s'\n", cell->name.c_str(ctx), ctx->getBelName(best_bel).c_str(ctx));
+            log_info("   placed single cell '%s' at '%s'\n", cell->name.c_str(ctx),
+                     ctx->getBelName(best_bel).c_str(ctx));
         ctx->bindBel(best_bel, cell->name, STRENGTH_WEAK);
 
         cell = ripup_target;
@@ -452,7 +453,6 @@ class ConstraintLegaliseWorker
         }
     }
 
-
     bool legalise_constraints()
     {
         log_info("Legalising relative constraints...\n");
@@ -472,8 +472,7 @@ class ConstraintLegaliseWorker
         for (auto rippedCell : rippedCells) {
             bool res = place_single_cell(ctx, ctx->cells.at(rippedCell).get(), true);
             if (!res) {
-                log_error("failed to place cell '%s' after relative constraint legalisation\n",
-                          rippedCell.c_str(ctx));
+                log_error("failed to place cell '%s' after relative constraint legalisation\n", rippedCell.c_str(ctx));
                 return false;
             }
         }

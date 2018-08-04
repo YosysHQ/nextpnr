@@ -659,7 +659,8 @@ delay_t Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, de
 
 // -----------------------------------------------------------------------
 
-bool Arch::place() {
+bool Arch::place()
+{
     Placer1Cfg cfg;
     cfg.constraintWeight = placer_constraintWeight;
     return placer1(getCtx(), cfg);
