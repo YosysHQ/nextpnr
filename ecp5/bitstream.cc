@@ -163,7 +163,7 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
 
     // Add all set, configurable pips to the config
     for (auto pip : ctx->getPips()) {
-        if (ctx->getBoundPipNet(pip) != IdString()) {
+        if (ctx->getBoundPipNet(pip) != nullptr) {
             if (ctx->getPipClass(pip) == 0) { // ignore fixed pips
                 std::string tile = ctx->getPipTilename(pip);
                 std::string source = get_trellis_wirename(ctx, pip.location, ctx->getPipSrcWire(pip));
@@ -244,9 +244,9 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             cc.tiles[tname].add_enum(slice + ".REG1.REGSET",
                                      str_or_default(ci->params, ctx->id("REG1_REGSET"), "RESET"));
             cc.tiles[tname].add_enum(slice + ".CEMUX", str_or_default(ci->params, ctx->id("CEMUX"), "1"));
-            IdString lsrnet;
+            NetInfo *lsrnet = nullptr;
             if (ci->ports.find(ctx->id("LSR")) != ci->ports.end() && ci->ports.at(ctx->id("LSR")).net != nullptr)
-                lsrnet = ci->ports.at(ctx->id("LSR")).net->name;
+                lsrnet = ci->ports.at(ctx->id("LSR")).net;
             if (ctx->getBoundWireNet(ctx->getWireByName(
                         ctx->id(fmt_str("X" << bel.location.x << "/Y" << bel.location.y << "/LSR0")))) == lsrnet) {
                 cc.tiles[tname].add_enum("LSR0.SRMODE", str_or_default(ci->params, ctx->id("SRMODE"), "LSR_OVER_CE"));

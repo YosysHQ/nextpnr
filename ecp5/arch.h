@@ -404,10 +404,9 @@ struct Arch : BaseCtx
     mutable std::unordered_map<IdString, WireId> wire_by_name;
     mutable std::unordered_map<IdString, PipId> pip_by_name;
 
-    std::unordered_map<BelId, IdString> bel_to_cell;
-    std::unordered_map<WireId, IdString> wire_to_net;
-    std::unordered_map<PipId, IdString> pip_to_net;
-    std::unordered_map<PipId, IdString> switches_locked;
+    std::unordered_map<BelId, CellInfo *> bel_to_cell;
+    std::unordered_map<WireId, NetInfo *> wire_to_net;
+    std::unordered_map<PipId, NetInfo *> pip_to_net;
 
     ArchArgs args;
     Arch(ArchArgs args);
@@ -447,23 +446,23 @@ struct Arch : BaseCtx
 
     uint32_t getBelChecksum(BelId bel) const { return bel.index; }
 
-    void bindBel(BelId bel, IdString cell, PlaceStrength strength)
+    void bindBel(BelId bel, CellInfo *cell, PlaceStrength strength)
     {
         NPNR_ASSERT(bel != BelId());
-        NPNR_ASSERT(bel_to_cell[bel] == IdString());
+        NPNR_ASSERT(bel_to_cell[bel] == nullptr);
         bel_to_cell[bel] = cell;
-        cells[cell]->bel = bel;
-        cells[cell]->belStrength = strength;
+        cell->bel = bel;
+        cell->belStrength = strength;
         refreshUiBel(bel);
     }
 
     void unbindBel(BelId bel)
     {
         NPNR_ASSERT(bel != BelId());
-        NPNR_ASSERT(bel_to_cell[bel] != IdString());
-        cells[bel_to_cell[bel]]->bel = BelId();
-        cells[bel_to_cell[bel]]->belStrength = STRENGTH_NONE;
-        bel_to_cell[bel] = IdString();
+        NPNR_ASSERT(bel_to_cell[bel] != nullptr);
+        bel_to_cell[bel]->bel = BelId();
+        bel_to_cell[bel]->belStrength = STRENGTH_NONE;
+        bel_to_cell[bel] = nullptr;
         refreshUiBel(bel);
     }
 
@@ -484,23 +483,23 @@ struct Arch : BaseCtx
     bool checkBelAvail(BelId bel) const
     {
         NPNR_ASSERT(bel != BelId());
-        return bel_to_cell.find(bel) == bel_to_cell.end() || bel_to_cell.at(bel) == IdString();
+        return bel_to_cell.find(bel) == bel_to_cell.end() || bel_to_cell.at(bel) == nullptr;
     }
 
-    IdString getBoundBelCell(BelId bel) const
+    CellInfo *getBoundBelCell(BelId bel) const
     {
         NPNR_ASSERT(bel != BelId());
         if (bel_to_cell.find(bel) == bel_to_cell.end())
-            return IdString();
+            return nullptr;
         else
             return bel_to_cell.at(bel);
     }
 
-    IdString getConflictingBelCell(BelId bel) const
+    CellInfo *getConflictingBelCell(BelId bel) const
     {
         NPNR_ASSERT(bel != BelId());
         if (bel_to_cell.find(bel) == bel_to_cell.end())
-            return IdString();
+            return nullptr;
         else
             return bel_to_cell.at(bel);
     }
@@ -557,53 +556,53 @@ struct Arch : BaseCtx
 
     uint32_t getWireChecksum(WireId wire) const { return wire.index; }
 
-    void bindWire(WireId wire, IdString net, PlaceStrength strength)
+    void bindWire(WireId wire, NetInfo *net, PlaceStrength strength)
     {
         NPNR_ASSERT(wire != WireId());
-        NPNR_ASSERT(wire_to_net[wire] == IdString());
+        NPNR_ASSERT(wire_to_net[wire] == nullptr);
         wire_to_net[wire] = net;
-        nets[net]->wires[wire].pip = PipId();
-        nets[net]->wires[wire].strength = strength;
+        net->wires[wire].pip = PipId();
+        net->wires[wire].strength = strength;
     }
 
     void unbindWire(WireId wire)
     {
         NPNR_ASSERT(wire != WireId());
-        NPNR_ASSERT(wire_to_net[wire] != IdString());
+        NPNR_ASSERT(wire_to_net[wire] != nullptr);
 
-        auto &net_wires = nets[wire_to_net[wire]]->wires;
+        auto &net_wires = wire_to_net[wire]->wires;
         auto it = net_wires.find(wire);
         NPNR_ASSERT(it != net_wires.end());
 
         auto pip = it->second.pip;
         if (pip != PipId()) {
-            pip_to_net[pip] = IdString();
+            pip_to_net[pip] = nullptr;
         }
 
         net_wires.erase(it);
-        wire_to_net[wire] = IdString();
+        wire_to_net[wire] = nullptr;
     }
 
     bool checkWireAvail(WireId wire) const
     {
         NPNR_ASSERT(wire != WireId());
-        return wire_to_net.find(wire) == wire_to_net.end() || wire_to_net.at(wire) == IdString();
+        return wire_to_net.find(wire) == wire_to_net.end() || wire_to_net.at(wire) == nullptr;
     }
 
-    IdString getBoundWireNet(WireId wire) const
+    NetInfo *getBoundWireNet(WireId wire) const
     {
         NPNR_ASSERT(wire != WireId());
         if (wire_to_net.find(wire) == wire_to_net.end())
-            return IdString();
+            return nullptr;
         else
             return wire_to_net.at(wire);
     }
 
-    IdString getConflictingWireNet(WireId wire) const
+    NetInfo *getConflictingWireNet(WireId wire) const
     {
         NPNR_ASSERT(wire != WireId());
         if (wire_to_net.find(wire) == wire_to_net.end())
-            return IdString();
+            return nullptr;
         else
             return wire_to_net.at(wire);
     }
@@ -637,57 +636,57 @@ struct Arch : BaseCtx
 
     uint32_t getPipChecksum(PipId pip) const { return pip.index; }
 
-    void bindPip(PipId pip, IdString net, PlaceStrength strength)
+    void bindPip(PipId pip, NetInfo *net, PlaceStrength strength)
     {
         NPNR_ASSERT(pip != PipId());
-        NPNR_ASSERT(pip_to_net[pip] == IdString());
+        NPNR_ASSERT(pip_to_net[pip] == nullptr);
 
         pip_to_net[pip] = net;
 
         WireId dst;
         dst.index = locInfo(pip)->pip_data[pip.index].dst_idx;
         dst.location = pip.location + locInfo(pip)->pip_data[pip.index].rel_dst_loc;
-        NPNR_ASSERT(wire_to_net[dst] == IdString());
+        NPNR_ASSERT(wire_to_net[dst] == nullptr);
         wire_to_net[dst] = net;
-        nets[net]->wires[dst].pip = pip;
-        nets[net]->wires[dst].strength = strength;
+        net->wires[dst].pip = pip;
+        net->wires[dst].strength = strength;
     }
 
     void unbindPip(PipId pip)
     {
         NPNR_ASSERT(pip != PipId());
-        NPNR_ASSERT(pip_to_net[pip] != IdString());
+        NPNR_ASSERT(pip_to_net[pip] != nullptr);
 
         WireId dst;
         dst.index = locInfo(pip)->pip_data[pip.index].dst_idx;
         dst.location = pip.location + locInfo(pip)->pip_data[pip.index].rel_dst_loc;
-        NPNR_ASSERT(wire_to_net[dst] != IdString());
-        wire_to_net[dst] = IdString();
-        nets[pip_to_net[pip]]->wires.erase(dst);
+        NPNR_ASSERT(wire_to_net[dst] != nullptr);
+        wire_to_net[dst] = nullptr;
+        pip_to_net[pip]->wires.erase(dst);
 
-        pip_to_net[pip] = IdString();
+        pip_to_net[pip] = nullptr;
     }
 
     bool checkPipAvail(PipId pip) const
     {
         NPNR_ASSERT(pip != PipId());
-        return pip_to_net.find(pip) == pip_to_net.end() || pip_to_net.at(pip) == IdString();
+        return pip_to_net.find(pip) == pip_to_net.end() || pip_to_net.at(pip) == nullptr;
     }
 
-    IdString getBoundPipNet(PipId pip) const
+    NetInfo *getBoundPipNet(PipId pip) const
     {
         NPNR_ASSERT(pip != PipId());
         if (pip_to_net.find(pip) == pip_to_net.end())
-            return IdString();
+            return nullptr;
         else
             return pip_to_net.at(pip);
     }
 
-    IdString getConflictingPipNet(PipId pip) const
+    NetInfo *getConflictingPipNet(PipId pip) const
     {
         NPNR_ASSERT(pip != PipId());
         if (pip_to_net.find(pip) == pip_to_net.end())
-            return IdString();
+            return nullptr;
         else
             return pip_to_net.at(pip);
     }
