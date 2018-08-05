@@ -140,6 +140,14 @@ template <typename T> struct deref_and_wrap
     using ret_type = ContextualWrapper<T &>;
 };
 
+template <typename T> struct addr_and_unwrap
+{
+    inline T *operator()(Context *ctx, ContextualWrapper<T &> x) { return &(x.base); }
+
+    using arg_type = ContextualWrapper<T &>;
+    using ret_type = T *;
+};
+
 // Function wrapper
 // Zero parameters, one return
 template <typename Class, typename FuncT, FuncT fn, typename rv_conv> struct fn_wrapper_0a

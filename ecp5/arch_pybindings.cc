@@ -60,13 +60,13 @@ void arch_wrap_python()
     fn_wrapper_1a<Context, decltype(&Context::getBelChecksum), &Context::getBelChecksum, pass_through<uint32_t>,
                   conv_from_str<BelId>>::def_wrap(ctx_cls, "getBelChecksum");
     fn_wrapper_3a_v<Context, decltype(&Context::bindBel), &Context::bindBel, conv_from_str<BelId>,
-                    conv_from_str<IdString>, pass_through<PlaceStrength>>::def_wrap(ctx_cls, "bindBel");
+                    addr_and_unwrap<CellInfo>, pass_through<PlaceStrength>>::def_wrap(ctx_cls, "bindBel");
     fn_wrapper_1a_v<Context, decltype(&Context::unbindBel), &Context::unbindBel, conv_from_str<BelId>>::def_wrap(
             ctx_cls, "unbindBel");
-    fn_wrapper_1a<Context, decltype(&Context::getBoundBelCell), &Context::getBoundBelCell, conv_to_str<IdString>,
+    fn_wrapper_1a<Context, decltype(&Context::getBoundBelCell), &Context::getBoundBelCell, deref_and_wrap<CellInfo>,
                   conv_from_str<BelId>>::def_wrap(ctx_cls, "getBoundBelCell");
     fn_wrapper_1a<Context, decltype(&Context::getConflictingBelCell), &Context::getConflictingBelCell,
-                  conv_to_str<IdString>, conv_from_str<BelId>>::def_wrap(ctx_cls, "getConflictingBelCell");
+                  deref_and_wrap<CellInfo>, conv_from_str<BelId>>::def_wrap(ctx_cls, "getConflictingBelCell");
     fn_wrapper_0a<Context, decltype(&Context::getBels), &Context::getBels, wrap_context<BelRange>>::def_wrap(ctx_cls,
                                                                                                              "getBels");
 
@@ -78,15 +78,15 @@ void arch_wrap_python()
     fn_wrapper_1a<Context, decltype(&Context::getWireChecksum), &Context::getWireChecksum, pass_through<uint32_t>,
                   conv_from_str<WireId>>::def_wrap(ctx_cls, "getWireChecksum");
     fn_wrapper_3a_v<Context, decltype(&Context::bindWire), &Context::bindWire, conv_from_str<WireId>,
-                    conv_from_str<IdString>, pass_through<PlaceStrength>>::def_wrap(ctx_cls, "bindWire");
+                    addr_and_unwrap<NetInfo>, pass_through<PlaceStrength>>::def_wrap(ctx_cls, "bindWire");
     fn_wrapper_1a_v<Context, decltype(&Context::unbindWire), &Context::unbindWire, conv_from_str<WireId>>::def_wrap(
             ctx_cls, "unbindWire");
     fn_wrapper_1a<Context, decltype(&Context::checkWireAvail), &Context::checkWireAvail, pass_through<bool>,
                   conv_from_str<WireId>>::def_wrap(ctx_cls, "checkWireAvail");
-    fn_wrapper_1a<Context, decltype(&Context::getBoundWireNet), &Context::getBoundWireNet, conv_to_str<IdString>,
+    fn_wrapper_1a<Context, decltype(&Context::getBoundWireNet), &Context::getBoundWireNet, deref_and_wrap<NetInfo>,
                   conv_from_str<WireId>>::def_wrap(ctx_cls, "getBoundWireNet");
     fn_wrapper_1a<Context, decltype(&Context::getConflictingWireNet), &Context::getConflictingWireNet,
-                  conv_to_str<IdString>, conv_from_str<WireId>>::def_wrap(ctx_cls, "getConflictingWireNet");
+                  deref_and_wrap<NetInfo>, conv_from_str<WireId>>::def_wrap(ctx_cls, "getConflictingWireNet");
 
     fn_wrapper_0a<Context, decltype(&Context::getWires), &Context::getWires, wrap_context<WireRange>>::def_wrap(
             ctx_cls, "getWires");
@@ -96,15 +96,15 @@ void arch_wrap_python()
     fn_wrapper_1a<Context, decltype(&Context::getPipChecksum), &Context::getPipChecksum, pass_through<uint32_t>,
                   conv_from_str<PipId>>::def_wrap(ctx_cls, "getPipChecksum");
     fn_wrapper_3a_v<Context, decltype(&Context::bindPip), &Context::bindPip, conv_from_str<PipId>,
-                    conv_from_str<IdString>, pass_through<PlaceStrength>>::def_wrap(ctx_cls, "bindPip");
+                    addr_and_unwrap<NetInfo>, pass_through<PlaceStrength>>::def_wrap(ctx_cls, "bindPip");
     fn_wrapper_1a_v<Context, decltype(&Context::unbindPip), &Context::unbindPip, conv_from_str<PipId>>::def_wrap(
             ctx_cls, "unbindPip");
     fn_wrapper_1a<Context, decltype(&Context::checkPipAvail), &Context::checkPipAvail, pass_through<bool>,
                   conv_from_str<PipId>>::def_wrap(ctx_cls, "checkPipAvail");
-    fn_wrapper_1a<Context, decltype(&Context::getBoundPipNet), &Context::getBoundPipNet, conv_to_str<IdString>,
+    fn_wrapper_1a<Context, decltype(&Context::getBoundPipNet), &Context::getBoundPipNet, deref_and_wrap<NetInfo>,
                   conv_from_str<PipId>>::def_wrap(ctx_cls, "getBoundPipNet");
     fn_wrapper_1a<Context, decltype(&Context::getConflictingPipNet), &Context::getConflictingPipNet,
-                  conv_to_str<IdString>, conv_from_str<PipId>>::def_wrap(ctx_cls, "getConflictingPipNet");
+                  deref_and_wrap<NetInfo>, conv_from_str<PipId>>::def_wrap(ctx_cls, "getConflictingPipNet");
 
     fn_wrapper_1a<Context, decltype(&Context::getPipsDownhill), &Context::getPipsDownhill, wrap_context<PipRange>,
                   conv_from_str<WireId>>::def_wrap(ctx_cls, "getPipsDownhill");
