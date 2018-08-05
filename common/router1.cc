@@ -159,15 +159,15 @@ struct Router
                 if (!ctx->checkWireAvail(next_wire)) {
                     if (!ripup)
                         continue;
-                    IdString ripupWireNet = ctx->getConflictingWireNet(next_wire);
-                    if (ripupWireNet == net_name || ripupWireNet == IdString())
+                    NetInfo *ripupWireNet = ctx->getConflictingWireNet(next_wire);
+                    if (ripupWireNet == nullptr || ripupWireNet->name == net_name)
                         continue;
 
                     auto it1 = scores.wireScores.find(next_wire);
                     if (it1 != scores.wireScores.end())
                         next_delay += (it1->second * ripup_penalty) / 8;
 
-                    auto it2 = scores.netWireScores.find(std::make_pair(ripupWireNet, next_wire));
+                    auto it2 = scores.netWireScores.find(std::make_pair(ripupWireNet->name, next_wire));
                     if (it2 != scores.netWireScores.end())
                         next_delay += it2->second * ripup_penalty;
 
@@ -177,15 +177,15 @@ struct Router
                 if (!ctx->checkPipAvail(pip)) {
                     if (!ripup)
                         continue;
-                    IdString ripupPipNet = ctx->getConflictingPipNet(pip);
-                    if (ripupPipNet == net_name || ripupPipNet == IdString())
+                    NetInfo *ripupPipNet = ctx->getConflictingPipNet(pip);
+                    if (ripupPipNet == nullptr || ripupPipNet->name == net_name)
                         continue;
 
                     auto it1 = scores.pipScores.find(pip);
                     if (it1 != scores.pipScores.end())
                         next_delay += (it1->second * ripup_penalty) / 8;
 
-                    auto it2 = scores.netPipScores.find(std::make_pair(ripupPipNet, pip));
+                    auto it2 = scores.netPipScores.find(std::make_pair(ripupPipNet->name, pip));
                     if (it2 != scores.netPipScores.end())
                         next_delay += it2->second * ripup_penalty;
 
@@ -294,12 +294,12 @@ struct Router
         if (reroute) {
             // complete ripup
             ripup_net(ctx, net_name);
-            ctx->bindWire(src_wire, net_name, STRENGTH_WEAK);
+            ctx->bindWire(src_wire, ctx->nets.at(net_name).get(), STRENGTH_WEAK);
             src_wires[src_wire] = ctx->getWireDelay(src_wire).maxDelay();
         } else {
             // re-use existing routes as much as possible
             if (net_info->wires.count(src_wire) == 0)
-                ctx->bindWire(src_wire, net_name, STRENGTH_WEAK);
+                ctx->bindWire(src_wire, ctx->nets.at(net_name).get(), STRENGTH_WEAK);
             src_wires[src_wire] = ctx->getWireDelay(src_wire).maxDelay();
 
             for (int user_idx = 0; user_idx < int(net_info->users.size()); user_idx++) {
@@ -399,42 +399,42 @@ struct Router
                 if (src_wires.count(cursor))
                     break;
 
-                IdString conflicting_wire_net = ctx->getConflictingWireNet(cursor);
+                NetInfo *conflicting_wire_net = ctx->getConflictingWireNet(cursor);
 
-                if (conflicting_wire_net != IdString()) {
+                if (conflicting_wire_net != nullptr) {
                     NPNR_ASSERT(ripup);
-                    NPNR_ASSERT(conflicting_wire_net != net_name);
+                    NPNR_ASSERT(conflicting_wire_net->name != net_name);
 
                     ctx->unbindWire(cursor);
                     if (!ctx->checkWireAvail(cursor))
-                        ripup_net(ctx, conflicting_wire_net);
+                        ripup_net(ctx, conflicting_wire_net->name);
 
-                    rippedNets.insert(conflicting_wire_net);
+                    rippedNets.insert(conflicting_wire_net->name);
                     scores.wireScores[cursor]++;
                     scores.netWireScores[std::make_pair(net_name, cursor)]++;
-                    scores.netWireScores[std::make_pair(conflicting_wire_net, cursor)]++;
+                    scores.netWireScores[std::make_pair(conflicting_wire_net->name, cursor)]++;
                 }
 
                 PipId pip = visited[cursor].pip;
-                IdString conflicting_pip_net = ctx->getConflictingPipNet(pip);
+                NetInfo *conflicting_pip_net = ctx->getConflictingPipNet(pip);
 
-                if (conflicting_pip_net != IdString()) {
+                if (conflicting_pip_net != nullptr) {
                     NPNR_ASSERT(ripup);
-                    NPNR_ASSERT(conflicting_pip_net != net_name);
+                    NPNR_ASSERT(conflicting_pip_net->name != net_name);
 
                     if (ctx->getBoundPipNet(pip) == conflicting_pip_net)
                         ctx->unbindPip(pip);
 
                     if (!ctx->checkPipAvail(pip))
-                        ripup_net(ctx, conflicting_pip_net);
+                        ripup_net(ctx, conflicting_pip_net->name);
 
-                    rippedNets.insert(conflicting_pip_net);
+                    rippedNets.insert(conflicting_pip_net->name);
                     scores.pipScores[visited[cursor].pip]++;
                     scores.netPipScores[std::make_pair(net_name, visited[cursor].pip)]++;
-                    scores.netPipScores[std::make_pair(conflicting_pip_net, visited[cursor].pip)]++;
+                    scores.netPipScores[std::make_pair(conflicting_pip_net->name, visited[cursor].pip)]++;
                 }
 
-                ctx->bindPip(visited[cursor].pip, net_name, STRENGTH_WEAK);
+                ctx->bindPip(visited[cursor].pip, ctx->nets.at(net_name).get(), STRENGTH_WEAK);
                 src_wires[cursor] = visited[cursor].delay;
                 cursor = ctx->getPipSrcWire(visited[cursor].pip);
             }

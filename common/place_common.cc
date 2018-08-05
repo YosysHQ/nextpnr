@@ -131,7 +131,7 @@ bool place_single_cell(Context *ctx, CellInfo *cell, bool require_legality)
                     if (iters >= 4)
                         wirelen += ctx->rng(25);
                     if (wirelen <= best_ripup_wirelen) {
-                        CellInfo *curr_cell = ctx->cells.at(ctx->getBoundBelCell(bel)).get();
+                        CellInfo *curr_cell = ctx->getBoundBelCell(bel);
                         if (curr_cell->belStrength < STRENGTH_STRONG) {
                             best_ripup_wirelen = wirelen;
                             ripup_bel = bel;
@@ -158,7 +158,7 @@ bool place_single_cell(Context *ctx, CellInfo *cell, bool require_legality)
         if (ctx->verbose)
             log_info("   placed single cell '%s' at '%s'\n", cell->name.c_str(ctx),
                      ctx->getBelName(best_bel).c_str(ctx));
-        ctx->bindBel(best_bel, cell->name, STRENGTH_WEAK);
+        ctx->bindBel(best_bel, cell, STRENGTH_WEAK);
 
         cell = ripup_target;
     }
@@ -232,8 +232,8 @@ class ConstraintLegaliseWorker
             return false;
         }
         if (!ctx->checkBelAvail(locBel)) {
-            IdString confCell = ctx->getConflictingBelCell(locBel);
-            if (ctx->cells[confCell]->belStrength >= STRENGTH_STRONG) {
+            CellInfo *confCell = ctx->getConflictingBelCell(locBel);
+            if (confCell->belStrength >= STRENGTH_STRONG) {
                 return false;
             }
         }
@@ -362,18 +362,17 @@ class ConstraintLegaliseWorker
                                      cp.second.y, cp.second.z);
                         BelId target = ctx->getBelByLocation(cp.second);
                         if (!ctx->checkBelAvail(target)) {
-                            IdString conflicting = ctx->getConflictingBelCell(target);
-                            if (conflicting != IdString()) {
-                                CellInfo *confl_cell = ctx->cells.at(conflicting).get();
+                            CellInfo *confl_cell = ctx->getConflictingBelCell(target);
+                            if (confl_cell != nullptr) {
                                 if (ctx->verbose)
-                                    log_info("       '%s' already placed at '%s'\n", conflicting.c_str(ctx),
+                                    log_info("       '%s' already placed at '%s'\n", ctx->nameOf(confl_cell),
                                              ctx->getBelName(confl_cell->bel).c_str(ctx));
                                 NPNR_ASSERT(confl_cell->belStrength < STRENGTH_STRONG);
                                 ctx->unbindBel(target);
-                                rippedCells.insert(conflicting);
+                                rippedCells.insert(confl_cell->name);
                             }
                         }
-                        ctx->bindBel(target, cp.first, STRENGTH_LOCKED);
+                        ctx->bindBel(target, ctx->cells.at(cp.first).get(), STRENGTH_LOCKED);
                         rippedCells.erase(cp.first);
                     }
                     NPNR_ASSERT(constraints_satisfied(cell));
