@@ -29,7 +29,7 @@ class MainWindow : public BaseMainWindow
     Q_OBJECT
 
   public:
-    explicit MainWindow(std::unique_ptr<Context> context, QWidget *parent = 0);
+    explicit MainWindow(std::unique_ptr<Context> context, ArchArgs args, QWidget *parent = 0);
     virtual ~MainWindow();
 
   public:
@@ -39,6 +39,7 @@ class MainWindow : public BaseMainWindow
     virtual void new_proj();
     virtual void open_proj();
     virtual bool save_proj();
+    void newContext(Context *ctx);
 };
 
 NEXTPNR_NAMESPACE_END

@@ -45,7 +45,7 @@ class BaseMainWindow : public QMainWindow
     Q_OBJECT
 
   public:
-    explicit BaseMainWindow(std::unique_ptr<Context> context, QWidget *parent = 0);
+    explicit BaseMainWindow(std::unique_ptr<Context> context, ArchArgs args, QWidget *parent = 0);
     virtual ~BaseMainWindow();
     Context *getContext() { return ctx.get(); }
 
@@ -88,6 +88,7 @@ class BaseMainWindow : public QMainWindow
 
   protected:
     // state variables
+    ArchArgs chipArgs;
     std::unique_ptr<Context> ctx;
     TaskManager *task;
     bool timing_driven;

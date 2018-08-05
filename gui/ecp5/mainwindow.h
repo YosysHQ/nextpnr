@@ -29,16 +29,32 @@ class MainWindow : public BaseMainWindow
     Q_OBJECT
 
   public:
-    explicit MainWindow(std::unique_ptr<Context> context, QWidget *parent = 0);
+    explicit MainWindow(std::unique_ptr<Context> context, ArchArgs args, QWidget *parent = 0);
     virtual ~MainWindow();
 
   public:
     void createMenu();
+    void load_base_config(std::string filename);
+
+  protected:
+    void onDisableActions() override;
+    void onRouteFinished() override;
 
   protected Q_SLOTS:
     virtual void new_proj();
     virtual void open_proj();
     virtual bool save_proj();
+    void newContext(Context *ctx);
+    void open_base();
+    void save_config();
+  private:
+    QAction *actionLoadBase;
+    QAction *actionSaveConfig;
+
+    ArchArgs chipArgs;
+
+    std::string currentProj;
+    std::string currentBaseConfig;
 };
 
 NEXTPNR_NAMESPACE_END
