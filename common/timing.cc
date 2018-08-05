@@ -27,7 +27,7 @@
 NEXTPNR_NAMESPACE_BEGIN
 
 typedef std::vector<const PortRef *> PortRefVector;
-typedef std::map<delay_t, unsigned> DelayFrequency;
+typedef std::map<int, unsigned> DelayFrequency;
 
 struct Timing
 {
@@ -81,8 +81,10 @@ struct Timing
                 if (crit_path)
                     *crit_path = current_path;
             }
-            if (slack_histogram)
-                (*slack_histogram)[slack]++;
+            if (slack_histogram) {
+                int slack_ps = ctx->getDelayNS(slack) * 1000;
+                (*slack_histogram)[slack_ps]++;
+            }
         } else {
             // Default to the path ending here, if no further paths found
             value = slack / path_length;
