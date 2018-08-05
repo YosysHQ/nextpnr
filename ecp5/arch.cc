@@ -479,7 +479,7 @@ DecalXY Arch::getBelDecal(BelId bel) const
     decalxy.decal.type = DecalId::TYPE_BEL;
     decalxy.decal.location = bel.location;
     decalxy.decal.z = bel.index;
-    decalxy.decal.active = bel_to_cell.count(bel) && (bel_to_cell.at(bel) != IdString());
+    decalxy.decal.active = bel_to_cell.count(bel) && (bel_to_cell.at(bel) != nullptr);
     return decalxy;
 }
 

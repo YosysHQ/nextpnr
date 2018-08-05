@@ -672,7 +672,7 @@ DecalXY Arch::getBelDecal(BelId bel) const
     DecalXY decalxy;
     decalxy.decal.type = DecalId::TYPE_BEL;
     decalxy.decal.index = bel.index;
-    decalxy.decal.active = bel_to_cell.at(bel.index) != IdString();
+    decalxy.decal.active = bel_to_cell.at(bel.index) != nullptr;
     return decalxy;
 }
 
@@ -681,7 +681,7 @@ DecalXY Arch::getWireDecal(WireId wire) const
     DecalXY decalxy;
     decalxy.decal.type = DecalId::TYPE_WIRE;
     decalxy.decal.index = wire.index;
-    decalxy.decal.active = wire_to_net.at(wire.index) != IdString();
+    decalxy.decal.active = wire_to_net.at(wire.index) != nullptr;
     return decalxy;
 }
 
@@ -690,7 +690,7 @@ DecalXY Arch::getPipDecal(PipId pip) const
     DecalXY decalxy;
     decalxy.decal.type = DecalId::TYPE_PIP;
     decalxy.decal.index = pip.index;
-    decalxy.decal.active = pip_to_net.at(pip.index) != IdString();
+    decalxy.decal.active = pip_to_net.at(pip.index) != nullptr;
     return decalxy;
 };
 
