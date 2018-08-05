@@ -238,7 +238,7 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_path)
     delay_t default_slack = delay_t(1.0e12 / ctx->target_freq);
     log_info("estimated Fmax = %.2f MHz\n", 1e6 / (default_slack - min_slack));
 
-    if (print_histogram) {
+    if (print_histogram && slack_histogram.size() > 0) {
         constexpr unsigned num_bins = 20;
         unsigned bar_width = 60;
         auto min_slack = slack_histogram.begin()->first;
