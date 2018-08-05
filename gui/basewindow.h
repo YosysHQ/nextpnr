@@ -48,12 +48,12 @@ class BaseMainWindow : public QMainWindow
     explicit BaseMainWindow(std::unique_ptr<Context> context, ArchArgs args, QWidget *parent = 0);
     virtual ~BaseMainWindow();
     Context *getContext() { return ctx.get(); }
-
-    void load_json(std::string filename);
-
+    void updateJsonLoaded();
   protected:
     void createMenusAndBars();
     void disableActions();
+    void load_json(std::string filename);
+
     virtual void onDisableActions(){};
     virtual void onJsonLoaded(){};
     virtual void onPackFinished(){};

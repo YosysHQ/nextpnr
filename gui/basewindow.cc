@@ -302,8 +302,7 @@ void BaseMainWindow::load_json(std::string filename)
     if (parse_json_file(f, filename, ctx.get())) {
         log("Loading design successful.\n");
         Q_EMIT updateTreeView();
-        actionPack->setEnabled(true);
-        onJsonLoaded();
+        updateJsonLoaded();
     } else {
         actionLoadJSON->setEnabled(true);
         log("Loading design failed.\n");
@@ -423,6 +422,13 @@ void BaseMainWindow::disableActions()
     actionSave->setEnabled(!currentJson.empty());
 
     onDisableActions();
+}
+
+void BaseMainWindow::updateJsonLoaded()
+{
+    disableActions();
+    actionPack->setEnabled(true);
+    onJsonLoaded();
 }
 
 NEXTPNR_NAMESPACE_END

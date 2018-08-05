@@ -34,9 +34,10 @@ class MainWindow : public BaseMainWindow
 
   public:
     void createMenu();
-    void load_pcf(std::string filename);
 
   protected:
+    void load_pcf(std::string filename);
+
     void onDisableActions() override;
     void onJsonLoaded() override;
     void onRouteFinished() override;

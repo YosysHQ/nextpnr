@@ -170,6 +170,7 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
                     log_error("Loading design failed.\n");
 
                 customAfterLoad(w.getContext());
+                w.updateJsonLoaded();
             }
         } catch (log_execution_error_exception) {
             // show error is handled by gui itself
