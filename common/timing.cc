@@ -27,7 +27,7 @@
 NEXTPNR_NAMESPACE_BEGIN
 
 typedef std::vector<const PortRef *> PortRefVector;
-typedef std::map<delay_t, unsigned> DelayFrequency;
+typedef std::map<int, unsigned> DelayFrequency;
 
 struct Timing
 {
@@ -239,9 +239,9 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_path)
     if (print_histogram) {
         constexpr unsigned num_bins = 20;
         unsigned bar_width = 60;
-        auto min_slack = slack_histogram.begin()->first;
-        auto max_slack = slack_histogram.rbegin()->first;
-        auto bin_size = (max_slack - min_slack) / num_bins;
+        int min_slack = slack_histogram.begin()->first;
+        int max_slack = slack_histogram.rbegin()->first;
+        int bin_size = (max_slack - min_slack) / num_bins;
         std::vector<unsigned> bins(num_bins + 1);
         unsigned max_freq = 0;
         for (const auto &i : slack_histogram) {
