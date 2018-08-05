@@ -214,27 +214,27 @@ uint32_t Arch::getBelChecksum(BelId bel) const
     return 0;
 }
 
-void Arch::bindBel(BelId bel, IdString cell, PlaceStrength strength)
+void Arch::bindBel(BelId bel, CellInfo *cell, PlaceStrength strength)
 {
     bels.at(bel).bound_cell = cell;
-    cells.at(cell)->bel = bel;
-    cells.at(cell)->belStrength = strength;
+    cell->bel = bel;
+    cell->belStrength = strength;
     refreshUiBel(bel);
 }
 
 void Arch::unbindBel(BelId bel)
 {
-    cells.at(bels.at(bel).bound_cell)->bel = BelId();
-    cells.at(bels.at(bel).bound_cell)->belStrength = STRENGTH_NONE;
-    bels.at(bel).bound_cell = IdString();
+    bels.at(bel).bound_cell->bel = BelId();
+    bels.at(bel).bound_cell->belStrength = STRENGTH_NONE;
+    bels.at(bel).bound_cell = nullptr;
     refreshUiBel(bel);
 }
 
-bool Arch::checkBelAvail(BelId bel) const { return bels.at(bel).bound_cell == IdString(); }
+bool Arch::checkBelAvail(BelId bel) const { return bels.at(bel).bound_cell == nullptr; }
 
-IdString Arch::getBoundBelCell(BelId bel) const { return bels.at(bel).bound_cell; }
+CellInfo *Arch::getBoundBelCell(BelId bel) const { return bels.at(bel).bound_cell; }
 
-IdString Arch::getConflictingBelCell(BelId bel) const { return bels.at(bel).bound_cell; }
+CellInfo *Arch::getConflictingBelCell(BelId bel) const { return bels.at(bel).bound_cell; }
 
 const std::vector<BelId> &Arch::getBels() const { return bel_ids; }
 
@@ -271,34 +271,34 @@ uint32_t Arch::getWireChecksum(WireId wire) const
     return 0;
 }
 
-void Arch::bindWire(WireId wire, IdString net, PlaceStrength strength)
+void Arch::bindWire(WireId wire, NetInfo *net, PlaceStrength strength)
 {
     wires.at(wire).bound_net = net;
-    nets.at(net)->wires[wire].pip = PipId();
-    nets.at(net)->wires[wire].strength = strength;
+    net->wires[wire].pip = PipId();
+    net->wires[wire].strength = strength;
     refreshUiWire(wire);
 }
 
 void Arch::unbindWire(WireId wire)
 {
-    auto &net_wires = nets[wires.at(wire).bound_net]->wires;
+    auto &net_wires = wires.at(wire).bound_net->wires;
 
     auto pip = net_wires.at(wire).pip;
     if (pip != PipId()) {
-        pips.at(pip).bound_net = IdString();
+        pips.at(pip).bound_net = nullptr;
         refreshUiPip(pip);
     }
 
     net_wires.erase(wire);
-    wires.at(wire).bound_net = IdString();
+    wires.at(wire).bound_net = nullptr;
     refreshUiWire(wire);
 }
 
-bool Arch::checkWireAvail(WireId wire) const { return wires.at(wire).bound_net == IdString(); }
+bool Arch::checkWireAvail(WireId wire) const { return wires.at(wire).bound_net == nullptr; }
 
-IdString Arch::getBoundWireNet(WireId wire) const { return wires.at(wire).bound_net; }
+NetInfo *Arch::getBoundWireNet(WireId wire) const { return wires.at(wire).bound_net; }
 
-IdString Arch::getConflictingWireNet(WireId wire) const { return wires.at(wire).bound_net; }
+NetInfo *Arch::getConflictingWireNet(WireId wire) const { return wires.at(wire).bound_net; }
 
 const std::vector<BelPin> &Arch::getWireBelPins(WireId wire) const { return wires.at(wire).bel_pins; }
 
@@ -323,13 +323,13 @@ uint32_t Arch::getPipChecksum(PipId wire) const
     return 0;
 }
 
-void Arch::bindPip(PipId pip, IdString net, PlaceStrength strength)
+void Arch::bindPip(PipId pip, NetInfo *net, PlaceStrength strength)
 {
     WireId wire = pips.at(pip).dstWire;
     pips.at(pip).bound_net = net;
     wires.at(wire).bound_net = net;
-    nets.at(net)->wires[wire].pip = pip;
-    nets.at(net)->wires[wire].strength = strength;
+    net->wires[wire].pip = pip;
+    net->wires[wire].strength = strength;
     refreshUiPip(pip);
     refreshUiWire(wire);
 }
@@ -337,18 +337,18 @@ void Arch::bindPip(PipId pip, IdString net, PlaceStrength strength)
 void Arch::unbindPip(PipId pip)
 {
     WireId wire = pips.at(pip).dstWire;
-    nets.at(wires.at(wire).bound_net)->wires.erase(wire);
-    pips.at(pip).bound_net = IdString();
-    wires.at(wire).bound_net = IdString();
+    wires.at(wire).bound_net->wires.erase(wire);
+    pips.at(pip).bound_net = nullptr;
+    wires.at(wire).bound_net = nullptr;
     refreshUiPip(pip);
     refreshUiWire(wire);
 }
 
-bool Arch::checkPipAvail(PipId pip) const { return pips.at(pip).bound_net == IdString(); }
+bool Arch::checkPipAvail(PipId pip) const { return pips.at(pip).bound_net == nullptr; }
 
-IdString Arch::getBoundPipNet(PipId pip) const { return pips.at(pip).bound_net; }
+NetInfo *Arch::getBoundPipNet(PipId pip) const { return pips.at(pip).bound_net; }
 
-IdString Arch::getConflictingPipNet(PipId pip) const { return pips.at(pip).bound_net; }
+NetInfo *Arch::getConflictingPipNet(PipId pip) const { return pips.at(pip).bound_net; }
 
 const std::vector<PipId> &Arch::getPips() const { return pip_ids; }
 
