@@ -27,9 +27,9 @@ NEXTPNR_NAMESPACE_BEGIN
 // Evenly redistribute the total path slack amongst all sinks on each path
 void assign_budget(Context *ctx, bool quiet = false);
 
-// Perform timing analysis and return the minimum path slack,
-//   optionally, print out the fmax and critical path
-delay_t timing_analysis(Context *ctx, bool print_fmax = false, bool print_path = false);
+// Perform timing analysis and print out the fmax, and optionally the
+//    critical path
+void timing_analysis(Context *ctx, bool slack_histogram = true, bool print_path = false);
 
 NEXTPNR_NAMESPACE_END
 

@@ -276,7 +276,7 @@ class SAPlacer
             if (get_constraints_distance(ctx, cell.second) != 0)
                 log_error("constraint satisfaction check failed for cell '%s' at Bel '%s'\n", cell.first.c_str(ctx),
                           ctx->getBelName(cell.second->bel).c_str(ctx));
-        timing_analysis(ctx, true /* print_fmax */);
+        timing_analysis(ctx);
         ctx->unlock();
         return true;
     }
