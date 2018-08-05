@@ -29,13 +29,11 @@ void ice40DelayFuzzerMain(Context *ctx)
 {
     std::vector<WireId> srcWires, dstWires;
 
-    for (int i = 0; i < ctx->chip_info->num_wires; i++)
-    {
+    for (int i = 0; i < ctx->chip_info->num_wires; i++) {
         WireId wire;
         wire.index = i;
 
-        switch (ctx->chip_info->wire_data[i].type)
-        {
+        switch (ctx->chip_info->wire_data[i].type) {
         case WireInfoPOD::WIRE_TYPE_LUTFF_OUT:
             srcWires.push_back(wire);
             break;
@@ -55,8 +53,7 @@ void ice40DelayFuzzerMain(Context *ctx)
     int index = 0;
     int cnt = 0;
 
-    while (cnt < NUM_FUZZ_ROUTES)
-    {
+    while (cnt < NUM_FUZZ_ROUTES) {
         if (index >= int(srcWires.size()) || index >= int(dstWires.size())) {
             index = 0;
             ctx->shuffle(srcWires);
@@ -103,7 +100,8 @@ void ice40DelayFuzzerMain(Context *ctx)
 
 namespace {
 
-struct model_params_t {
+struct model_params_t
+{
     int neighbourhood;
 
     int model0_offset;
@@ -125,26 +123,14 @@ struct model_params_t {
 
     static const model_params_t &get(ArchArgs args)
     {
-        static const model_params_t model_hx8k = {
-            588, 129253, 8658,
-            118333, 23915, -73105, 57696,
-            -86797, 89, 3706,
-            -316, -575, -158, -296
-        };
+        static const model_params_t model_hx8k = {588,    129253, 8658, 118333, 23915, -73105, 57696,
+                                                  -86797, 89,     3706, -316,   -575,  -158,   -296};
 
-        static const model_params_t model_lp8k = {
-            867, 206236, 11043,
-            191910, 31074, -95972, 75739,
-            -309793, 30, 11056,
-            -474, -856, -363, -536
-        };
+        static const model_params_t model_lp8k = {867,     206236, 11043, 191910, 31074, -95972, 75739,
+                                                  -309793, 30,     11056, -474,   -856,  -363,   -536};
 
-        static const model_params_t model_up5k = {
-            1761, 305798, 16705,
-            296830, 24430, -40369, 33038,
-            -162662, 94, 4705,
-            -1099, -1761, -418, -838
-        };
+        static const model_params_t model_up5k = {1761,    305798, 16705, 296830, 24430, -40369, 33038,
+                                                  -162662, 94,     4705,  -1099,  -1761, -418,   -838};
 
         if (args.type == ArchArgs::HX1K || args.type == ArchArgs::HX8K)
             return model_hx8k;
@@ -232,7 +218,7 @@ delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
 
     float dx3 = dx2 * dx;
     float dy3 = dy2 * dy;
-    float norm3 = powf(dx3 + dy3, 1.0/3.0);
+    float norm3 = powf(dx3 + dy3, 1.0 / 3.0);
 
     // Model #1
     float v = p.model1_offset;

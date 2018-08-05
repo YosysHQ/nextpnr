@@ -230,7 +230,8 @@ static BelPin get_one_bel_pin(const Context *ctx, WireId wire)
 }
 
 // Permute LUT init value given map (LUT input -> ext input)
-unsigned permute_lut(unsigned orig_init, const std::unordered_map<int, int> &input_permute) {
+unsigned permute_lut(unsigned orig_init, const std::unordered_map<int, int> &input_permute)
+{
     unsigned new_init = 0;
 
     for (int i = 0; i < 16; i++) {
@@ -381,29 +382,29 @@ void write_asc(const Context *ctx, std::ostream &out)
             for (int i = 0; i < 4; i++)
                 unused.insert(i);
             for (int i = 0; i < 4; i++) {
-                WireId lut_wire = ctx->getBelPinWire(bel, PortPin(PIN_I0+i));
+                WireId lut_wire = ctx->getBelPinWire(bel, PortPin(PIN_I0 + i));
                 for (auto pip : ctx->getPipsUphill(lut_wire)) {
                     if (ctx->getBoundPipNet(pip) != IdString()) {
                         std::string name = ci.wire_data[ctx->getPipSrcWire(pip).index].name.get();
-                        switch(name.back()) {
-                            case '0':
-                                input_perm[i] = 0;
-                                unused.erase(0);
-                                break;
-                            case '1':
-                                input_perm[i] = 1;
-                                unused.erase(1);
-                                break;
-                            case '2':
-                                input_perm[i] = 2;
-                                unused.erase(2);
-                                break;
-                            case '3':
-                                input_perm[i] = 3;
-                                unused.erase(3);
-                                break;
-                            default:
-                                NPNR_ASSERT_FALSE("failed to determine LUT permutation");
+                        switch (name.back()) {
+                        case '0':
+                            input_perm[i] = 0;
+                            unused.erase(0);
+                            break;
+                        case '1':
+                            input_perm[i] = 1;
+                            unused.erase(1);
+                            break;
+                        case '2':
+                            input_perm[i] = 2;
+                            unused.erase(2);
+                            break;
+                        case '3':
+                            input_perm[i] = 3;
+                            unused.erase(3);
+                            break;
+                        default:
+                            NPNR_ASSERT_FALSE("failed to determine LUT permutation");
                         }
                         break;
                     }
