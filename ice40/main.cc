@@ -45,26 +45,6 @@
 
 USING_NEXTPNR_NAMESPACE
 
-void svg_dump_decal(const Context *ctx, const DecalXY &decal)
-{
-    const float scale = 10.0, offset = 10.0;
-    const std::string style = "stroke=\"black\" stroke-width=\"0.1\" fill=\"none\"";
-
-    for (auto &el : ctx->getDecalGraphics(decal.decal)) {
-        if (el.type == GraphicElement::TYPE_BOX) {
-            std::cout << "<rect x=\"" << (offset + scale * (decal.x + el.x1)) << "\" y=\""
-                      << (offset + scale * (decal.y + el.y1)) << "\" height=\"" << (scale * (el.y2 - el.y1))
-                      << "\" width=\"" << (scale * (el.x2 - el.x1)) << "\" " << style << "/>\n";
-        }
-
-        if (el.type == GraphicElement::TYPE_LINE) {
-            std::cout << "<line x1=\"" << (offset + scale * (decal.x + el.x1)) << "\" y1=\""
-                      << (offset + scale * (decal.y + el.y1)) << "\" x2=\"" << (offset + scale * (decal.x + el.x2))
-                      << "\" y2=\"" << (offset + scale * (decal.y + el.y2)) << "\" " << style << "/>\n";
-        }
-    }
-}
-
 void conflicting_options(const boost::program_options::variables_map &vm, const char *opt1, const char *opt2)
 {
     if (vm.count(opt1) && !vm[opt1].defaulted() && vm.count(opt2) && !vm[opt2].defaulted()) {
@@ -91,7 +71,6 @@ int main(int argc, char *argv[])
 #ifndef NO_GUI
         options.add_options()("gui", "start gui");
 #endif
-        options.add_options()("svg", "dump SVG file");
         options.add_options()("pack-only", "pack design only without placement or routing");
 
         po::positional_options_description pos;
@@ -332,64 +311,11 @@ int main(int argc, char *argv[])
             ctx->placer_constraintWeight = vm["cstrweight"].as<float>();
         }
 
-        if (vm.count("svg")) {
-            std::cout << "<svg xmlns=\"http://www.w3.org/2000/svg\" "
-                         "xmlns:xlink=\"http://www.w3.org/1999/xlink\">\n";
-            for (auto bel : ctx->getBels()) {
-                std::cout << "<!-- " << ctx->getBelName(bel).str(ctx.get()) << " -->\n";
-                svg_dump_decal(ctx.get(), ctx->getBelDecal(bel));
-            }
-            std::cout << "</svg>\n";
-        }
-
         if (vm.count("test"))
             ctx->archcheck();
 
-        if (vm.count("tmfuzz")) {
-            std::vector<WireId> src_wires, dst_wires;
-
-            /*for (auto w : ctx->getWires())
-                src_wires.push_back(w);*/
-            for (auto b : ctx->getBels()) {
-                if (ctx->getBelType(b) == TYPE_ICESTORM_LC) {
-                    src_wires.push_back(ctx->getBelPinWire(b, PIN_O));
-                }
-                if (ctx->getBelType(b) == TYPE_SB_IO) {
-                    src_wires.push_back(ctx->getBelPinWire(b, PIN_D_IN_0));
-                }
-            }
-
-            for (auto b : ctx->getBels()) {
-                if (ctx->getBelType(b) == TYPE_ICESTORM_LC) {
-                    dst_wires.push_back(ctx->getBelPinWire(b, PIN_I0));
-                    dst_wires.push_back(ctx->getBelPinWire(b, PIN_I1));
-                    dst_wires.push_back(ctx->getBelPinWire(b, PIN_I2));
-                    dst_wires.push_back(ctx->getBelPinWire(b, PIN_I3));
-                    dst_wires.push_back(ctx->getBelPinWire(b, PIN_CEN));
-                    dst_wires.push_back(ctx->getBelPinWire(b, PIN_CIN));
-                }
-                if (ctx->getBelType(b) == TYPE_SB_IO) {
-                    dst_wires.push_back(ctx->getBelPinWire(b, PIN_D_OUT_0));
-                    dst_wires.push_back(ctx->getBelPinWire(b, PIN_OUTPUT_ENABLE));
-                }
-            }
-
-            ctx->shuffle(src_wires);
-            ctx->shuffle(dst_wires);
-
-            for (int i = 0; i < int(src_wires.size()) && i < int(dst_wires.size()); i++) {
-                delay_t actual_delay;
-                WireId src = src_wires[i], dst = dst_wires[i];
-                if (!ctx->getActualRouteDelay(src, dst, actual_delay))
-                    continue;
-                printf("%s %s %.3f %.3f %d %d %d %d %d %d\n", ctx->getWireName(src).c_str(ctx.get()),
-                       ctx->getWireName(dst).c_str(ctx.get()), ctx->getDelayNS(actual_delay),
-                       ctx->getDelayNS(ctx->estimateDelay(src, dst)), ctx->chip_info->wire_data[src.index].x,
-                       ctx->chip_info->wire_data[src.index].y, ctx->chip_info->wire_data[src.index].type,
-                       ctx->chip_info->wire_data[dst.index].x, ctx->chip_info->wire_data[dst.index].y,
-                       ctx->chip_info->wire_data[dst.index].type);
-            }
-        }
+        if (vm.count("tmfuzz"))
+            ice40DelayFuzzerMain(ctx.get());
 
         if (vm.count("freq")) {
             auto freq = vm["freq"].as<double>();

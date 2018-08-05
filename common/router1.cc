@@ -130,7 +130,8 @@ struct Router
             qw.wire = it.first;
             qw.pip = PipId();
             qw.delay = it.second - (it.second / 16);
-            qw.togo = ctx->estimateDelay(qw.wire, dst_wire);
+            if (cfg.useEstimate)
+                qw.togo = ctx->estimateDelay(qw.wire, dst_wire);
             qw.randtag = ctx->rng();
 
             queue.push(qw);
@@ -216,7 +217,8 @@ struct Router
                 next_qw.wire = next_wire;
                 next_qw.pip = pip;
                 next_qw.delay = next_delay;
-                next_qw.togo = ctx->estimateDelay(next_wire, dst_wire);
+                if (cfg.useEstimate)
+                    next_qw.togo = ctx->estimateDelay(next_wire, dst_wire);
                 next_qw.randtag = ctx->rng();
 
                 visited[next_qw.wire] = next_qw;
@@ -420,7 +422,9 @@ struct Router
                     NPNR_ASSERT(ripup);
                     NPNR_ASSERT(conflicting_pip_net != net_name);
 
-                    ctx->unbindPip(pip);
+                    if (ctx->getBoundPipNet(pip) == conflicting_pip_net)
+                        ctx->unbindPip(pip);
+
                     if (!ctx->checkPipAvail(pip))
                         ripup_net(ctx, conflicting_pip_net);
 
@@ -945,13 +949,33 @@ bool router1(Context *ctx, const Router1Cfg &cfg)
     }
 }
 
-bool Context::getActualRouteDelay(WireId src_wire, WireId dst_wire, delay_t &delay)
+bool Context::getActualRouteDelay(WireId src_wire, WireId dst_wire, delay_t *delay,
+                                  std::unordered_map<WireId, PipId> *route, bool useEstimate)
 {
     RipupScoreboard scores;
-    Router router(this, Router1Cfg(), scores, src_wire, dst_wire);
-    if (router.routedOkay)
-        delay = router.visited.at(dst_wire).delay;
-    return router.routedOkay;
+    Router1Cfg cfg;
+    cfg.useEstimate = useEstimate;
+
+    Router router(this, cfg, scores, src_wire, dst_wire);
+
+    if (!router.routedOkay)
+        return false;
+
+    if (delay != nullptr)
+        *delay = router.visited.at(dst_wire).delay;
+
+    if (route != nullptr) {
+        WireId cursor = dst_wire;
+        while (1) {
+            PipId pip = router.visited.at(cursor).pip;
+            (*route)[cursor] = pip;
+            if (pip == PipId())
+                break;
+            cursor = getPipSrcWire(pip);
+        }
+    }
+
+    return true;
 }
 
 NEXTPNR_NAMESPACE_END

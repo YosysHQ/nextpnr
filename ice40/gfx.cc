@@ -391,6 +391,17 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId id,
         int z = idx / 4;
         int input = idx % 4;
         el.x1 = x + local_swbox_x2;
+        el.x2 = x + lut_swbox_x1;
+        el.y1 = y + (logic_cell_y1 + logic_cell_y2) / 2 - 0.0075 + (0.005 * input) + z * logic_cell_pitch;
+        el.y2 = el.y1;
+        g.push_back(el);
+    }
+
+    if (id >= TILE_WIRE_LUTFF_0_IN_0_LUT && id <= TILE_WIRE_LUTFF_7_IN_3_LUT) {
+        int idx = id - TILE_WIRE_LUTFF_0_IN_0_LUT;
+        int z = idx / 4;
+        int input = idx % 4;
+        el.x1 = x + lut_swbox_x2;
         el.x2 = x + logic_cell_x1;
         el.y1 = y + (logic_cell_y1 + logic_cell_y2) / 2 - 0.0075 + (0.005 * input) + z * logic_cell_pitch;
         el.y2 = el.y1;
@@ -706,10 +717,10 @@ void gfxTilePip(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId src,
         return;
     }
 
-    if (TILE_WIRE_LUTFF_0_IN_0 <= src && src <= TILE_WIRE_LUTFF_7_IN_3 && TILE_WIRE_LUTFF_0_OUT <= dst &&
+    if (TILE_WIRE_LUTFF_0_IN_0_LUT <= src && src <= TILE_WIRE_LUTFF_7_IN_3_LUT && TILE_WIRE_LUTFF_0_OUT <= dst &&
         dst <= TILE_WIRE_LUTFF_7_OUT) {
-        int lut_idx = (src - TILE_WIRE_LUTFF_0_IN_0) / 4;
-        int in_idx = (src - TILE_WIRE_LUTFF_0_IN_0) % 4;
+        int lut_idx = (src - TILE_WIRE_LUTFF_0_IN_0_LUT) / 4;
+        int in_idx = (src - TILE_WIRE_LUTFF_0_IN_0_LUT) % 4;
 
         GraphicElement el;
         el.type = GraphicElement::TYPE_ARROW;
@@ -718,6 +729,23 @@ void gfxTilePip(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId src,
         el.x2 = x + logic_cell_x2;
         el.y1 = y + (logic_cell_y1 + logic_cell_y2) / 2 - 0.0075 + (0.005 * in_idx) + lut_idx * logic_cell_pitch;
         el.y2 = y + (logic_cell_y1 + logic_cell_y2) / 2 + lut_idx * logic_cell_pitch;
+        g.push_back(el);
+        return;
+    }
+
+    if (TILE_WIRE_LUTFF_0_IN_0 <= src && src <= TILE_WIRE_LUTFF_7_IN_3 && TILE_WIRE_LUTFF_0_IN_0_LUT <= dst &&
+        dst <= TILE_WIRE_LUTFF_7_IN_3_LUT) {
+        int lut_idx = (src - TILE_WIRE_LUTFF_0_IN_0) / 4;
+        int in_idx = (src - TILE_WIRE_LUTFF_0_IN_0) % 4;
+        int out_idx = (dst - TILE_WIRE_LUTFF_0_IN_0_LUT) % 4;
+
+        GraphicElement el;
+        el.type = GraphicElement::TYPE_ARROW;
+        el.style = style;
+        el.x1 = x + lut_swbox_x1;
+        el.x2 = x + lut_swbox_x2;
+        el.y1 = y + (logic_cell_y1 + logic_cell_y2) / 2 - 0.0075 + (0.005 * in_idx) + lut_idx * logic_cell_pitch;
+        el.y2 = y + (logic_cell_y1 + logic_cell_y2) / 2 - 0.0075 + (0.005 * out_idx) + lut_idx * logic_cell_pitch;
         g.push_back(el);
         return;
     }

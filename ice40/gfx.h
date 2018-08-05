@@ -34,7 +34,10 @@ const float local_swbox_x2 = 0.73;
 const float local_swbox_y1 = 0.05;
 const float local_swbox_y2 = 0.55;
 
-const float logic_cell_x1 = 0.76;
+const float lut_swbox_x1 = 0.76;
+const float lut_swbox_x2 = 0.80;
+
+const float logic_cell_x1 = 0.83;
 const float logic_cell_x2 = 0.95;
 const float logic_cell_y1 = 0.05;
 const float logic_cell_y2 = 0.10;
@@ -92,9 +95,6 @@ enum GfxTileWireId
     TILE_WIRE_LOCAL_G3_6,
     TILE_WIRE_LOCAL_G3_7,
 
-    TILE_WIRE_CARRY_IN,
-    TILE_WIRE_CARRY_IN_MUX,
-
     TILE_WIRE_LUTFF_0_IN_0,
     TILE_WIRE_LUTFF_0_IN_1,
     TILE_WIRE_LUTFF_0_IN_2,
@@ -135,6 +135,46 @@ enum GfxTileWireId
     TILE_WIRE_LUTFF_7_IN_2,
     TILE_WIRE_LUTFF_7_IN_3,
 
+    TILE_WIRE_LUTFF_0_IN_0_LUT,
+    TILE_WIRE_LUTFF_0_IN_1_LUT,
+    TILE_WIRE_LUTFF_0_IN_2_LUT,
+    TILE_WIRE_LUTFF_0_IN_3_LUT,
+
+    TILE_WIRE_LUTFF_1_IN_0_LUT,
+    TILE_WIRE_LUTFF_1_IN_1_LUT,
+    TILE_WIRE_LUTFF_1_IN_2_LUT,
+    TILE_WIRE_LUTFF_1_IN_3_LUT,
+
+    TILE_WIRE_LUTFF_2_IN_0_LUT,
+    TILE_WIRE_LUTFF_2_IN_1_LUT,
+    TILE_WIRE_LUTFF_2_IN_2_LUT,
+    TILE_WIRE_LUTFF_2_IN_3_LUT,
+
+    TILE_WIRE_LUTFF_3_IN_0_LUT,
+    TILE_WIRE_LUTFF_3_IN_1_LUT,
+    TILE_WIRE_LUTFF_3_IN_2_LUT,
+    TILE_WIRE_LUTFF_3_IN_3_LUT,
+
+    TILE_WIRE_LUTFF_4_IN_0_LUT,
+    TILE_WIRE_LUTFF_4_IN_1_LUT,
+    TILE_WIRE_LUTFF_4_IN_2_LUT,
+    TILE_WIRE_LUTFF_4_IN_3_LUT,
+
+    TILE_WIRE_LUTFF_5_IN_0_LUT,
+    TILE_WIRE_LUTFF_5_IN_1_LUT,
+    TILE_WIRE_LUTFF_5_IN_2_LUT,
+    TILE_WIRE_LUTFF_5_IN_3_LUT,
+
+    TILE_WIRE_LUTFF_6_IN_0_LUT,
+    TILE_WIRE_LUTFF_6_IN_1_LUT,
+    TILE_WIRE_LUTFF_6_IN_2_LUT,
+    TILE_WIRE_LUTFF_6_IN_3_LUT,
+
+    TILE_WIRE_LUTFF_7_IN_0_LUT,
+    TILE_WIRE_LUTFF_7_IN_1_LUT,
+    TILE_WIRE_LUTFF_7_IN_2_LUT,
+    TILE_WIRE_LUTFF_7_IN_3_LUT,
+
     TILE_WIRE_LUTFF_0_LOUT,
     TILE_WIRE_LUTFF_1_LOUT,
     TILE_WIRE_LUTFF_2_LOUT,
@@ -164,6 +204,9 @@ enum GfxTileWireId
     TILE_WIRE_LUTFF_GLOBAL_CEN,
     TILE_WIRE_LUTFF_GLOBAL_CLK,
     TILE_WIRE_LUTFF_GLOBAL_S_R,
+
+    TILE_WIRE_CARRY_IN,
+    TILE_WIRE_CARRY_IN_MUX,
 
     TILE_WIRE_NEIGH_OP_BNL_0,
     TILE_WIRE_NEIGH_OP_BNL_1,

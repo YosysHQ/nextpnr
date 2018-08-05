@@ -134,12 +134,21 @@ tiletypes["DSP2"] = 7
 tiletypes["DSP3"] = 8
 tiletypes["IPCON"] = 9
 
-wiretypes["LOCAL"] = 1
-wiretypes["GLOBAL"] = 2
-wiretypes["SP4_VERT"] = 3
-wiretypes["SP4_HORZ"] = 4
-wiretypes["SP12_HORZ"] = 5
-wiretypes["SP12_VERT"] = 6
+wiretypes["NONE"]         = 0
+wiretypes["GLB2LOCAL"]    = 1
+wiretypes["GLB_NETWK"]    = 2
+wiretypes["LOCAL"]        = 3
+wiretypes["LUTFF_IN"]     = 4
+wiretypes["LUTFF_IN_LUT"] = 5
+wiretypes["LUTFF_LOUT"]   = 6
+wiretypes["LUTFF_OUT"]    = 7
+wiretypes["LUTFF_COUT"]   = 8
+wiretypes["LUTFF_GLOBAL"] = 9
+wiretypes["CARRY_IN_MUX"] = 10
+wiretypes["SP4_V"]        = 11
+wiretypes["SP4_H"]        = 12
+wiretypes["SP12_V"]       = 13
+wiretypes["SP12_H"]       = 14
 
 def maj_wire_name(name):
     if name[2].startswith("lutff_"):
@@ -179,40 +188,84 @@ def cmp_wire_names(newname, oldname):
 
 def wire_type(name):
     longname = name
-    name = name.split('/')[-1]
-    wt = None
+    name = name.split('/')
 
-    if name.startswith("glb_netwk_") or name.startswith("padin_"):
-        wt = "GLOBAL"
-    elif name.startswith("D_IN_") or name.startswith("D_OUT_"):
-        wt = "LOCAL"
-    elif name in ("OUT_ENB", "cen", "inclk", "latch", "outclk", "clk", "s_r", "carry_in", "carry_in_mux"):
-        wt = "LOCAL"
-    elif name in ("in_0", "in_1", "in_2", "in_3", "cout", "lout", "out", "fabout") or name.startswith("slf_op") or name.startswith("O_"):
-        wt = "LOCAL"
-    elif name.startswith("local_g") or name.startswith("glb2local_"):
-        wt = "LOCAL"
-    elif name.startswith("span4_horz_") or name.startswith("sp4_h_"):
-        wt = "SP4_HORZ"
-    elif name.startswith("span4_vert_") or name.startswith("sp4_v_") or name.startswith("sp4_r_v_"):
-        wt = "SP4_VERT"
-    elif name.startswith("span12_horz_") or name.startswith("sp12_h_"):
-        wt = "SP12_HORZ"
-    elif name.startswith("span12_vert_") or name.startswith("sp12_v_"):
-        wt = "SP12_VERT"
-    elif name.startswith("MASK_") or name.startswith("RADDR_") or name.startswith("WADDR_"):
-        wt = "LOCAL"
-    elif name.startswith("RDATA_")  or name.startswith("WDATA_") or name.startswith("neigh_op_"):
-        wt = "LOCAL"
-    elif name in ("WCLK", "WCLKE", "WE", "RCLK", "RCLKE", "RE"):
-        wt = "LOCAL"
-    elif name in ("PLLOUT_A", "PLLOUT_B"):
-        wt = "LOCAL"
+    if name[0].startswith("X") and name[1].startswith("Y"):
+        name = name[2:]
 
-    if wt is None:
-        print("No type for wire: %s (%s)" % (longname, name), file=sys.stderr)
-        assert 0
-    return wt
+    if name[0].startswith("sp4_v_") or name[0].startswith("sp4_r_v_") or name[0].startswith("span4_vert_"):
+        return "SP4_V"
+
+    if name[0].startswith("sp4_h_") or name[0].startswith("span4_horz_"):
+        return "SP4_H"
+
+    if name[0].startswith("sp12_v_") or name[0].startswith("span12_vert_"):
+        return "SP12_V"
+
+    if name[0].startswith("sp12_h_") or name[0].startswith("span12_horz_"):
+        return "SP12_H"
+
+    if name[0].startswith("glb2local"):
+        return "GLB2LOCAL"
+
+    if name[0].startswith("glb_netwk_"):
+        return "GLB_NETWK"
+
+    if name[0].startswith("local_"):
+        return "LOCAL"
+
+    if name[0].startswith("lutff_"):
+        if name[1].startswith("in_"):
+            return "LUTFF_IN_LUT" if name[1].endswith("_lut") else "LUTFF_IN"
+
+        if name[1] == "lout":
+            return "LUTFF_LOUT"
+        if name[1] == "out":
+            return "LUTFF_OUT"
+        if name[1] == "cout":
+            return "LUTFF_COUT"
+
+    if name[0] == "ram":
+        if name[1].startswith("RADDR_"):
+            return "LUTFF_IN"
+        if name[1].startswith("WADDR_"):
+            return "LUTFF_IN"
+        if name[1].startswith("WDATA_"):
+            return "LUTFF_IN"
+        if name[1].startswith("MASK_"):
+            return "LUTFF_IN"
+        if name[1].startswith("RDATA_"):
+            return "LUTFF_OUT"
+        if name[1] in ("WCLK", "WCLKE", "WE", "RCLK", "RCLKE", "RE"):
+            return "LUTFF_GLOBAL"
+
+    if name[0].startswith("io_"):
+        if name[1].startswith("D_IN_") or name[1] == "OUT_ENB":
+            return "LUTFF_IN"
+        if name[1].startswith("D_OUT_"):
+            return "LUTFF_OUT"
+    if name[0] == "fabout":
+        return "LUTFF_IN"
+
+    if name[0] == "lutff_global" or name[0] == "io_global":
+        return "LUTFF_GLOBAL"
+
+    if name[0] == "carry_in_mux":
+        return "CARRY_IN_MUX"
+
+    if name[0] == "carry_in":
+        return "LUTFF_COUT"
+
+    if name[0].startswith("neigh_op_"):
+        return "NONE"
+
+    if name[0].startswith("padin_"):
+        return "NONE"
+
+    # print("No type for wire: %s (%s)" % (longname, name), file=sys.stderr)
+    # assert 0
+
+    return "NONE"
 
 def pipdelay(src_idx, dst_idx, db):
     if db is None:
@@ -265,8 +318,11 @@ def pipdelay(src_idx, dst_idx, db):
     if src[2].startswith("local_") and dst[2] in ("io_0/D_OUT_0", "io_0/D_OUT_1", "io_0/OUT_ENB", "io_1/D_OUT_0", "io_1/D_OUT_1", "io_1/OUT_ENB"):
         return db["IoInMux.I.O"]
 
-    if re.match(r"lutff_\d+/in_\d+", dst[2]):
+    if re.match(r"lutff_\d+/in_\d+$", dst[2]):
         return db["InMux.I.O"]
+
+    if re.match(r"lutff_\d+/in_\d+_lut", dst[2]):
+        return 0
 
     if re.match(r"ram/(MASK|RADDR|WADDR|WDATA)_", dst[2]):
         return db["InMux.I.O"]
@@ -472,7 +528,7 @@ with open(args.filename, "r") as f:
                 wire_uphill[wire_b] = set()
             wire_downhill[wire_a].add(wire_b)
             wire_uphill[wire_b].add(wire_a)
-            pip_xy[(wire_a, wire_b)] = (mode[2], mode[3], int(line[0], 2), len(switches) - 1)
+            pip_xy[(wire_a, wire_b)] = (mode[2], mode[3], int(line[0], 2), len(switches) - 1, 0)
             continue
 
         if mode[0] == "bits":
@@ -508,11 +564,14 @@ def add_wire(x, y, name):
     wire_names[wname] = wire_idx
     wire_names_r[wire_idx] = wname
     wire_segments[wire_idx] = dict()
+    if ("TILE_WIRE_" + wname[2].upper().replace("/", "_")) in gfx_wire_ids:
+        wire_segments[wire_idx][(wname[0], wname[1])] = wname[2]
+    return wire_idx
 
 def add_switch(x, y, bel=-1):
     switches.append((x, y, [], bel))
 
-def add_pip(src, dst):
+def add_pip(src, dst, flags=0):
     x, y, _, _ = switches[-1]
 
     if src not in wire_downhill:
@@ -523,7 +582,7 @@ def add_pip(src, dst):
         wire_uphill[dst] = set()
     wire_uphill[dst].add(src)
 
-    pip_xy[(src, dst)] = (x, y, 0, len(switches) - 1)
+    pip_xy[(src, dst)] = (x, y, 0, len(switches) - 1, flags)
 
 # Add virtual padin wires
 for i in range(8):
@@ -557,10 +616,11 @@ def add_bel_lc(x, y, z):
     else:
         wire_cin = wire_names[(x, y, "lutff_%d/cout" % (z-1))]
 
-    wire_in_0 = wire_names[(x, y, "lutff_%d/in_0" % z)]
-    wire_in_1 = wire_names[(x, y, "lutff_%d/in_1" % z)]
-    wire_in_2 = wire_names[(x, y, "lutff_%d/in_2" % z)]
-    wire_in_3 = wire_names[(x, y, "lutff_%d/in_3" % z)]
+    wire_in_0 = add_wire(x, y, "lutff_%d/in_0_lut" % z)
+    wire_in_1 = add_wire(x, y, "lutff_%d/in_1_lut" % z)
+    wire_in_2 = add_wire(x, y, "lutff_%d/in_2_lut" % z)
+    wire_in_3 = add_wire(x, y, "lutff_%d/in_3_lut" % z)
+
     wire_out  = wire_names[(x, y, "lutff_%d/out"  % z)]
     wire_cout = wire_names[(x, y, "lutff_%d/cout" % z)]
     wire_lout = wire_names[(x, y, "lutff_%d/lout" % z)] if z < 7 else None
@@ -583,10 +643,21 @@ def add_bel_lc(x, y, z):
 
     # route-through LUTs
     add_switch(x, y, bel)
-    add_pip(wire_in_0, wire_out)
-    add_pip(wire_in_1, wire_out)
-    add_pip(wire_in_2, wire_out)
-    add_pip(wire_in_3, wire_out)
+    add_pip(wire_in_0, wire_out, 1)
+    add_pip(wire_in_1, wire_out, 1)
+    add_pip(wire_in_2, wire_out, 1)
+    add_pip(wire_in_3, wire_out, 1)
+
+    # LUT permutation pips
+    for i in range(4):
+        add_switch(x, y, bel)
+        for j in range(4):
+            if (i == j) or ((i, j) == (1, 2)) or ((i, j) == (2, 1)):
+                flags = 0
+            else:
+                flags = 2
+            add_pip(wire_names[(x, y, "lutff_%d/in_%d" % (z, i))],
+                    wire_names[(x, y, "lutff_%d/in_%d_lut"  % (z, j))], flags)
 
 def add_bel_io(x, y, z):
     bel = len(bel_name)
@@ -902,6 +973,7 @@ for wire in range(num_wires):
                 pi["y"] = pip_xy[(src, wire)][1]
                 pi["switch_mask"] = pip_xy[(src, wire)][2]
                 pi["switch_index"] = pip_xy[(src, wire)][3]
+                pi["flags"] = pip_xy[(src, wire)][4]
                 pipinfo.append(pi)
             pips.append(pipcache[(src, wire)])
         num_uphill = len(pips)
@@ -927,6 +999,7 @@ for wire in range(num_wires):
                 pi["y"] = pip_xy[(wire, dst)][1]
                 pi["switch_mask"] = pip_xy[(wire, dst)][2]
                 pi["switch_index"] = pip_xy[(wire, dst)][3]
+                pi["flags"] = pip_xy[(wire, dst)][4]
                 pipinfo.append(pi)
             pips.append(pipcache[(wire, dst)])
         num_downhill = len(pips)
@@ -959,16 +1032,20 @@ for wire in range(num_wires):
     info["num_bel_pins"] = num_bel_pins
     info["list_bel_pins"] = ("wire%d_bels" % wire) if num_bel_pins > 0 else None
 
-    avg_x, avg_y = 0, 0
     if wire in wire_xy:
+        avg_x, avg_y = 0, 0
+
         for x, y in wire_xy[wire]:
             avg_x += x
             avg_y += y
         avg_x /= len(wire_xy[wire])
         avg_y /= len(wire_xy[wire])
 
-    info["x"] = int(round(avg_x))
-    info["y"] = int(round(avg_y))
+        info["x"] = int(round(avg_x))
+        info["y"] = int(round(avg_y))
+    else:
+        info["x"] = wire_names_r[wire][0]
+        info["y"] = wire_names_r[wire][1]
 
     wireinfo.append(info)
 
@@ -1046,8 +1123,8 @@ for wire, info in enumerate(wireinfo):
 
     bba.u8(info["x"], "x")
     bba.u8(info["y"], "y")
+    bba.u8(0, "z") # FIXME
     bba.u8(wiretypes[wire_type(info["name"])], "type")
-    bba.u8(0, "padding")
 
 for wire in range(num_wires):
     if len(wire_segments[wire]):
@@ -1084,6 +1161,7 @@ for info in pipinfo:
     bba.u16(dst_seg, "dst_seg")
     bba.u16(info["switch_mask"], "switch_mask")
     bba.u32(info["switch_index"], "switch_index")
+    bba.u32(info["flags"], "flags")
 
 switchinfo = []
 for switch in switches:

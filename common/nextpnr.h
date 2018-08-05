@@ -484,7 +484,8 @@ struct Context : Arch, DeterministicRNG
     delay_t getNetinfoRouteDelay(const NetInfo *net_info, const PortRef &sink) const;
 
     // provided by router1.cc
-    bool getActualRouteDelay(WireId src_wire, WireId dst_wire, delay_t &delay);
+    bool getActualRouteDelay(WireId src_wire, WireId dst_wire, delay_t *delay = nullptr,
+                             std::unordered_map<WireId, PipId> *route = nullptr, bool useEstimate = true);
 
     // --------------------------------------------------------------
 

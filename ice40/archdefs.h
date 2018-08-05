@@ -77,17 +77,6 @@ enum PortPin : int32_t
     PIN_MAXIDX
 };
 
-enum WireType : int8_t
-{
-    WIRE_TYPE_NONE = 0,
-    WIRE_TYPE_LOCAL = 1,
-    WIRE_TYPE_GLOBAL = 2,
-    WIRE_TYPE_SP4_VERT = 3,
-    WIRE_TYPE_SP4_HORZ = 4,
-    WIRE_TYPE_SP12_HORZ = 5,
-    WIRE_TYPE_SP12_VERT = 6
-};
-
 struct BelId
 {
     int32_t index = -1;
@@ -167,7 +156,9 @@ struct ArchCellInfo
     {
         struct
         {
-            bool dffEnable, negClk;
+            bool dffEnable;
+            bool carryEnable;
+            bool negClk;
             int inputCount;
             const NetInfo *clk, *cen, *sr;
         } lcInfo;
