@@ -23,6 +23,7 @@
 #include <utility>
 #include "log.h"
 #include "util.h"
+#include <boost/range/adaptor/reversed.hpp>
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -37,6 +38,14 @@ struct Timing
     PortRefVector current_path;
     PortRefVector *crit_path;
     DelayFrequency *slack_histogram;
+
+    struct TimingData {
+        TimingData() : max_arrival(), max_path_length(), min_remaining_budget() {}
+        TimingData(delay_t max_arrival) : max_arrival(max_arrival), max_path_length(), min_remaining_budget() {}
+        delay_t max_arrival;
+        unsigned max_path_length = 0;
+        delay_t min_remaining_budget;
+    };
 
     Timing(Context *ctx, bool update, PortRefVector *crit_path = nullptr, DelayFrequency *slack_histogram = nullptr)
             : ctx(ctx), update(update), min_slack(1.0e12 / ctx->target_freq), crit_path(crit_path),
@@ -53,8 +62,8 @@ struct Timing
             // If budget override is less than existing budget, then do not increment
             // path length
             int pl = path_length + 1;
-            auto budget = ctx->getBudgetOverride(net, usr, net_budget);
-            if (budget < net_budget) {
+            auto budget = net_budget;
+            if (ctx->getBudgetOverride(net, usr, budget) && budget < net_budget) {
                 net_budget = budget;
                 pl = std::max(1, path_length);
             }
@@ -109,16 +118,17 @@ struct Timing
 
     delay_t walk_paths()
     {
-        delay_t default_slack = delay_t(1.0e12 / ctx->target_freq);
+        const auto clk_period = delay_t(1.0e12 / ctx->target_freq);
 
         // Go through all clocked drivers and distribute the available path
         //   slack evenly into the budget of every sink on the path
+#if 0
         for (auto &cell : ctx->cells) {
             for (auto port : cell.second->ports) {
                 if (port.second.type == PORT_OUT) {
                     IdString clock_domain = ctx->getPortClock(cell.second.get(), port.first);
                     if (clock_domain != IdString()) {
-                        delay_t slack = default_slack; // TODO: clock constraints
+                        delay_t slack = clk_period; // TODO: clock constraints
                         DelayInfo clkToQ;
                         if (ctx->getCellDelay(cell.second.get(), clock_domain, port.first, clkToQ))
                             slack -= clkToQ.maxDelay();
@@ -128,16 +138,165 @@ struct Timing
                 }
             }
         }
+
+#else
+        std::vector<NetInfo*> topographical_order;
+        std::unordered_map<const PortInfo*, unsigned> port_fanin;
+        std::unordered_map<const NetInfo*, TimingData> net_data;
+
+        std::vector<IdString> input_ports;
+        std::vector<const PortInfo*> output_ports;
+        for (auto &cell : ctx->cells) {
+            input_ports.clear();
+            output_ports.clear();
+            bool is_io = cell.second->type == ctx->id_sb_io;
+            for (auto& port : cell.second->ports) {
+                if (!port.second.net) continue;
+                if (port.second.type == PORT_OUT)
+                    output_ports.push_back(&port.second);
+                else
+                    input_ports.push_back(port.first);
+            }
+
+            for (auto o : output_ports) {
+                IdString clock_domain = ctx->getPortClock(cell.second.get(), o->name);
+                if (clock_domain != IdString()) {
+                    DelayInfo clkToQ;
+                    ctx->getCellDelay(cell.second.get(), clock_domain, o->name, clkToQ);
+                    topographical_order.emplace_back(o->net);
+                    net_data.emplace(o->net, TimingData{ clkToQ.maxDelay() });
+                }
+                else {
+                    if (is_io) {
+                        topographical_order.emplace_back(o->net);
+                        net_data.emplace(o->net, TimingData{});
+                    }
+                    for (auto i : input_ports) {
+                        DelayInfo comb_delay;
+                        bool is_path = ctx->getCellDelay(cell.second.get(), i, o->name, comb_delay);
+                        if (is_path)
+                            port_fanin[o]++;
+                    }
+                }
+            }
+        }
+
+        std::deque<NetInfo*> queue(topographical_order.begin(), topographical_order.end());
+
+        while (!queue.empty()) {
+            const auto net = queue.front();
+            queue.pop_front();
+
+            for (auto &usr : net->users) {
+                if (ctx->getPortClock(usr.cell, usr.port) != IdString()) {
+                } else {
+                    // Follow outputs of the user
+                    for (auto& port : usr.cell->ports) {
+                        if (port.second.type == PORT_OUT && port.second.net) {
+                            DelayInfo comb_delay;
+                            bool is_path = ctx->getCellDelay(usr.cell, usr.port, port.first, comb_delay);
+                            if (is_path) {
+                                auto it = port_fanin.find(&port.second);
+                                NPNR_ASSERT(it != port_fanin.end());
+                                if (--it->second == 0) {
+                                    topographical_order.emplace_back(port.second.net);
+                                    queue.emplace_back(port.second.net);
+                                    port_fanin.erase(it);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Find the maximum arrival time and max path length for each net
+        for (auto net : topographical_order) {
+            auto &nd = net_data.at(net);
+            const auto net_arrival = nd.max_arrival;
+            const auto net_length_plus_one = nd.max_path_length + 1;
+            nd.min_remaining_budget = clk_period;
+            for (auto &usr : net->users) {
+                if (ctx->getPortClock(usr.cell, usr.port) != IdString()) {
+                } else {
+                    auto net_delay = ctx->getNetinfoRouteDelay(net, usr);
+                    delay_t budget;
+                    auto budget_override = ctx->getBudgetOverride(net, usr, budget);
+                    auto usr_arrival = net_arrival + net_delay;
+                    // Follow outputs of the user
+                    for (auto port : usr.cell->ports) {
+                        if (port.second.type == PORT_OUT && port.second.net) {
+                            DelayInfo comb_delay;
+                            // Look up delay through this path
+                            bool is_path = ctx->getCellDelay(usr.cell, usr.port, port.first, comb_delay);
+                            if (is_path) {
+                                auto& data = net_data[port.second.net];
+                                auto& arrival = data.max_arrival;
+                                arrival = std::max(arrival, usr_arrival + comb_delay.maxDelay());
+                                if (!budget_override) {
+                                    auto& path_length = data.max_path_length;
+                                    path_length = std::max(path_length, net_length_plus_one);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        for (auto net : boost::adaptors::reverse(topographical_order)) {
+            auto &nd = net_data.at(net);
+            const delay_t net_length_plus_one = nd.max_path_length + 1;
+            auto& net_min_remaining_budget = nd.min_remaining_budget;
+            for (auto &usr : net->users) {
+                const auto net_delay = ctx->getNetinfoRouteDelay(net, usr);
+                auto budget_override = ctx->getBudgetOverride(net, usr, usr.budget);
+                if (ctx->getPortClock(usr.cell, usr.port) != IdString()) {
+                    const auto net_arrival = nd.max_arrival;
+                    auto path_budget = clk_period - (net_arrival + net_delay);
+                    auto budget_share = path_budget / net_length_plus_one;
+                    if (budget_override)
+                        budget_share = 0;
+                    else
+                        usr.budget = std::min(usr.budget, net_delay + budget_share);
+                    net_min_remaining_budget = std::min(net_min_remaining_budget, path_budget - budget_share);
+
+                    min_slack = std::min(min_slack, path_budget);
+                    if (slack_histogram) {
+                        int slack_ps = ctx->getDelayNS(path_budget) * 1000;
+                        (*slack_histogram)[slack_ps]++;
+                    }
+                } else {
+                    // Follow outputs of the user
+                    for (auto port : usr.cell->ports) {
+                        if (port.second.type == PORT_OUT && port.second.net) {
+                            DelayInfo comb_delay;
+                            // Look up delay through this path
+                            bool is_path = ctx->getCellDelay(usr.cell, usr.port, port.first, comb_delay);
+                            if (is_path) {
+                                auto path_budget = net_data.at(port.second.net).min_remaining_budget;
+                                auto budget_share = path_budget / net_length_plus_one;
+                                if (budget_override)
+                                    budget_share = 0;
+                                else
+                                    usr.budget = std::min(usr.budget, net_delay + budget_share);
+                                net_min_remaining_budget = std::min(net_min_remaining_budget, path_budget - budget_share);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+#endif
         return min_slack;
     }
 
     void assign_budget()
     {
         // Clear delays to a very high value first
-        delay_t default_slack = delay_t(1.0e12 / ctx->target_freq);
         for (auto &net : ctx->nets) {
             for (auto &usr : net.second->users) {
-                usr.budget = default_slack;
+                usr.budget = std::numeric_limits<delay_t>::max();
             }
         }
 
