@@ -2,6 +2,7 @@
  *  nextpnr -- Next Generation Place and Route
  *
  *  Copyright (C) 2018  David Shah <david@symbioticeda.com>
+ *  Copyright (C) 2018  Eddie Hung <eddieh@ece.ubc.ca>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
