@@ -33,6 +33,7 @@ typedef std::map<int, unsigned> DelayFrequency;
 struct Timing
 {
     Context *ctx;
+    bool net_delays;
     bool update;
     delay_t min_slack;
     PortRefVector current_path;
@@ -47,9 +48,10 @@ struct Timing
         delay_t min_remaining_budget;
     };
 
-    Timing(Context *ctx, bool update, PortRefVector *crit_path = nullptr, DelayFrequency *slack_histogram = nullptr)
-            : ctx(ctx), update(update), min_slack(1.0e12 / ctx->target_freq), crit_path(crit_path),
-              slack_histogram(slack_histogram)
+    Timing(Context *ctx, bool net_delays, bool update, PortRefVector *crit_path = nullptr,
+           DelayFrequency *slack_histogram = nullptr)
+            : ctx(ctx), net_delays(net_delays), update(update), min_slack(1.0e12 / ctx->target_freq),
+              crit_path(crit_path), slack_histogram(slack_histogram)
     {
     }
 
@@ -67,7 +69,7 @@ struct Timing
                 net_budget = budget;
                 pl = std::max(1, path_length);
             }
-            auto delay = ctx->getNetinfoRouteDelay(net, usr);
+            auto delay = net_delays ? ctx->getNetinfoRouteDelay(net, usr) : delay_t();
             net_budget = std::min(net_budget, follow_user_port(usr, pl, slack - delay));
             if (update)
                 usr.budget = std::min(usr.budget, delay + net_budget);
@@ -308,10 +310,10 @@ void assign_budget(Context *ctx, bool quiet)
 {
     if (!quiet) {
         log_break();
-        log_info("Annotating ports with timing budgets for target frequency %.2f MHz\n", ctx->target_freq/1e6);
+        log_info("Annotating ports with timing budgets for target frequency %.2f MHz\n", ctx->target_freq / 1e6);
     }
 
-    Timing timing(ctx, true /* update */);
+    Timing timing(ctx, ctx->slack_redist_iter > 0 /* net_delays */, true /* update */);
     timing.assign_budget();
 
     if (!quiet || ctx->verbose) {
@@ -353,7 +355,7 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_path)
     PortRefVector crit_path;
     DelayFrequency slack_histogram;
 
-    Timing timing(ctx, false /* update */, print_path ? &crit_path : nullptr,
+    Timing timing(ctx, true /* net_delays */, false /* update */, print_path ? &crit_path : nullptr,
                   print_histogram ? &slack_histogram : nullptr);
     auto min_slack = timing.walk_paths();
 
