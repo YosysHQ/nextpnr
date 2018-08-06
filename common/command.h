@@ -23,6 +23,7 @@
 
 #include <boost/program_options.hpp>
 #include "nextpnr.h"
+#include "project.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -61,6 +62,7 @@ class CommandHandler
     po::positional_options_description pos;
     int argc;
     char **argv;
+    ProjectHandler project;
 };
 
 NEXTPNR_NAMESPACE_END

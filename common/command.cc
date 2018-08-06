@@ -187,7 +187,9 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
             log_error("Loading design failed.\n");
 
         customAfterLoad(ctx.get());
+    }
 
+    if (vm.count("json") || vm.count("load")) {
         if (!ctx->pack() && !ctx->force)
             log_error("Packing design failed.\n");
         ctx->check();
@@ -215,6 +217,11 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
         deinit_python();
     }
 #endif
+
+    if (vm.count("save")) {
+        project.save(ctx.get(), vm["save"].as<std::string>());
+    }
+
     return 0;
 }
 
@@ -235,7 +242,13 @@ int CommandHandler::exec()
 
         if (executeBeforeContext())
             return 0;
-        std::unique_ptr<Context> ctx = createContext();
+        
+        std::unique_ptr<Context> ctx;
+        if (vm.count("load")) {
+            ctx = project.load(vm["load"].as<std::string>());
+        } else {
+            ctx = createContext();
+        }
         setupContext(ctx.get());
         setupArchContext(ctx.get());
         return executeMain(std::move(ctx));
