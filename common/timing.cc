@@ -145,7 +145,6 @@ struct Timing
                 }
             }
         }
-
 #else
         // First, compute the topographical order of nets to walk through
         //   the circuit, assuming it is a _acyclic_ graph
@@ -297,6 +296,8 @@ struct Timing
             }
         }
 
+        const NetInfo* crit_net = nullptr;
+
         // Now go backwards topographically to determine the minimum path slack,
         //   and to distribute all path slack evenly between all nets on the path
         for (auto net : boost::adaptors::reverse(topographical_order)) {
@@ -314,7 +315,14 @@ struct Timing
                         usr.budget = std::min(usr.budget, net_delay + budget_share);
                     net_min_remaining_budget = std::min(net_min_remaining_budget, path_budget - budget_share);
 
-                    min_slack = std::min(min_slack, path_budget);
+                    if (path_budget < min_slack) {
+                        min_slack = path_budget;
+                        if (crit_path) {
+                            crit_path->clear();
+                            crit_path->push_back(&usr);
+                            crit_net = net;
+                        }
+                    }
                     if (slack_histogram) {
                         int slack_ps = ctx->getDelayNS(path_budget) * 1000;
                         (*slack_histogram)[slack_ps]++;
@@ -336,6 +344,45 @@ struct Timing
                     }
                 }
             }
+        }
+
+        if (crit_path) {
+            // Walk backwards from the most critical net
+            while (crit_net) {
+                const PortInfo* crit_ipin = nullptr;
+                delay_t max_arrival = std::numeric_limits<delay_t>::min();
+
+                // Look at all input ports on its driving cell
+                for (const auto& port : crit_net->driver.cell->ports) {
+                    if (port.second.type == PORT_IN && port.second.net) {
+                        DelayInfo comb_delay;
+                        bool is_path = ctx->getCellDelay(crit_net->driver.cell, port.first, crit_net->driver.port, comb_delay);
+                        if (is_path) {
+                            // If input port is influenced by a clock, skip
+                            if (ctx->getPortClock(crit_net->driver.cell, port.first) != IdString())
+                                continue;
+
+                            // And find the fanin net with the latest arrival time
+                            const auto net_arrival = net_data.at(port.second.net).max_arrival;
+                            if (net_arrival > max_arrival) {
+                                max_arrival = net_arrival;
+                                crit_ipin = &port.second;
+                            }
+                        }
+                    }
+                }
+
+                if (!crit_ipin) break;
+
+                for (auto &usr : crit_ipin->net->users) {
+                    if (usr.cell->name == crit_net->driver.cell->name && usr.port == crit_ipin->name) {
+                        crit_path->push_back(&usr);
+                        break;
+                    }
+                }
+                crit_net = crit_ipin->net;
+            }
+            std::reverse(crit_path->begin(), crit_path->end());
         }
 #endif
         return min_slack;
