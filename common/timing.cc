@@ -37,7 +37,6 @@ struct Timing
     bool net_delays;
     bool update;
     delay_t min_slack;
-    PortRefVector current_path;
     PortRefVector *crit_path;
     DelayFrequency *slack_histogram;
 
@@ -56,96 +55,10 @@ struct Timing
     {
     }
 
-    delay_t follow_net(NetInfo *net, int path_length, delay_t slack)
-    {
-        const delay_t default_budget = slack / (path_length + 1);
-        delay_t net_budget = default_budget;
-        for (auto &usr : net->users) {
-            auto delay = net_delays ? ctx->getNetinfoRouteDelay(net, usr) : delay_t();
-            if (crit_path)
-                current_path.push_back(&usr);
-            // If budget override exists, use that value and do not increment path_length
-            auto budget = default_budget;
-            if (ctx->getBudgetOverride(net, usr, budget)) {
-                if (update)
-                    usr.budget = std::min(usr.budget, budget);
-                budget = follow_user_port(usr, path_length, slack - budget);
-                net_budget = std::min(net_budget, budget);
-            }
-            else {
-                budget = follow_user_port(usr, path_length + 1, slack - delay);
-                net_budget = std::min(net_budget, budget);
-                if (update)
-                    usr.budget = std::min(usr.budget, delay + budget);
-            }
-            if (crit_path)
-                current_path.pop_back();
-        }
-        return net_budget;
-    }
-
-    // Follow a path, returning budget to annotate
-    delay_t follow_user_port(PortRef &user, int path_length, delay_t slack)
-    {
-        delay_t value;
-        if (ctx->getPortClock(user.cell, user.port) != IdString()) {
-            // At the end of a timing path (arguably, should check setup time
-            // here too)
-            value = slack / path_length;
-            if (slack < min_slack) {
-                min_slack = slack;
-                if (crit_path)
-                    *crit_path = current_path;
-            }
-            if (slack_histogram) {
-                int slack_ps = ctx->getDelayNS(slack) * 1000;
-                (*slack_histogram)[slack_ps]++;
-            }
-        } else {
-            // Default to the path ending here, if no further paths found
-            value = slack / path_length;
-            // Follow outputs of the user
-            for (auto port : user.cell->ports) {
-                if (port.second.type == PORT_OUT) {
-                    DelayInfo comb_delay;
-                    // Look up delay through this path
-                    bool is_path = ctx->getCellDelay(user.cell, user.port, port.first, comb_delay);
-                    if (is_path) {
-                        NetInfo *net = port.second.net;
-                        if (net) {
-                            delay_t path_budget = follow_net(net, path_length, slack - comb_delay.maxDelay());
-                            value = std::min(value, path_budget);
-                        }
-                    }
-                }
-            }
-        }
-        return value;
-    }
-
     delay_t walk_paths()
     {
         const auto clk_period = delay_t(1.0e12 / ctx->target_freq);
 
-#if 0
-        // Go through all clocked drivers and distribute the available path
-        //   slack evenly into the budget of every sink on the path
-        for (auto &cell : ctx->cells) {
-            for (auto port : cell.second->ports) {
-                if (port.second.type == PORT_OUT) {
-                    IdString clock_domain = ctx->getPortClock(cell.second.get(), port.first);
-                    if (clock_domain != IdString()) {
-                        delay_t slack = clk_period; // TODO: clock constraints
-                        DelayInfo clkToQ;
-                        if (ctx->getCellDelay(cell.second.get(), clock_domain, port.first, clkToQ))
-                            slack -= clkToQ.maxDelay();
-                        if (port.second.net)
-                            follow_net(port.second.net, 0, slack);
-                    }
-                }
-            }
-        }
-#else
         // First, compute the topographical order of nets to walk through
         //   the circuit, assuming it is a _acyclic_ graph
         //   TODO: Handle the case where it is cyclic, e.g. combinatorial loops
@@ -384,7 +297,6 @@ struct Timing
             }
             std::reverse(crit_path->begin(), crit_path->end());
         }
-#endif
         return min_slack;
     }
 
