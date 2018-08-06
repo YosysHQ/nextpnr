@@ -58,7 +58,7 @@ struct Timing
                 net_budget = budget;
                 pl = std::max(1, path_length);
             }
-            auto delay = ctx->getNetinfoRouteDelay(net, usr);
+            auto delay = ctx->slack_redist_iter > 0 ? ctx->getNetinfoRouteDelay(net, usr) : delay_t();
             net_budget = std::min(net_budget, follow_user_port(usr, pl, slack - delay));
             if (update)
                 usr.budget = std::min(usr.budget, delay + net_budget);
