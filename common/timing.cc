@@ -127,9 +127,9 @@ struct Timing
     {
         const auto clk_period = delay_t(1.0e12 / ctx->target_freq);
 
+#if 0
         // Go through all clocked drivers and distribute the available path
         //   slack evenly into the budget of every sink on the path
-#if 0
         for (auto &cell : ctx->cells) {
             for (auto port : cell.second->ports) {
                 if (port.second.type == PORT_OUT) {
@@ -147,16 +147,20 @@ struct Timing
         }
 
 #else
+        // First, compute the topographical order of nets to walk through
+        //   the circuit, assuming it is a _acyclic_ graph
+        //   TODO: Handle the case where it is cyclic, e.g. combinatorial loops
         std::vector<NetInfo*> topographical_order;
-        std::unordered_map<const PortInfo*, unsigned> port_fanin;
         std::unordered_map<const NetInfo*, TimingData> net_data;
+        // In lieu of deleting edges from the graph, simply count
+        //   the number of fanins to each output port
+        std::unordered_map<const PortInfo*, unsigned> port_fanin;
 
         std::vector<IdString> input_ports;
         std::vector<const PortInfo*> output_ports;
         for (auto &cell : ctx->cells) {
             input_ports.clear();
             output_ports.clear();
-            bool is_io = ctx->isIOCell(cell.second.get());
             for (auto& port : cell.second->ports) {
                 if (!port.second.net) continue;
                 if (port.second.type == PORT_OUT)
@@ -165,8 +169,11 @@ struct Timing
                     input_ports.push_back(port.first);
             }
 
+            bool is_io = ctx->isIOCell(cell.second.get());
             for (auto o : output_ports) {
                 IdString clock_domain = ctx->getPortClock(cell.second.get(), o->name);
+                // If output port is influenced by a clock (e.g. FF output)
+                //   then add it to the ordering as a timing start-point
                 if (clock_domain != IdString()) {
                     DelayInfo clkToQ;
                     ctx->getCellDelay(cell.second.get(), clock_domain, o->name, clkToQ);
@@ -174,10 +181,14 @@ struct Timing
                     net_data.emplace(o->net, TimingData{ clkToQ.maxDelay() });
                 }
                 else {
+                    // Also add I/O cells too
                     if (is_io) {
                         topographical_order.emplace_back(o->net);
                         net_data.emplace(o->net, TimingData{});
                     }
+                    // Otherwise, for all driven input ports on this cell,
+                    //   if a timing arch exists between the input and
+                    //   the current output port, increment fanin counter
                     for (auto i : input_ports) {
                         DelayInfo comb_delay;
                         bool is_path = ctx->getCellDelay(cell.second.get(), i, o->name, comb_delay);
@@ -188,6 +199,7 @@ struct Timing
             }
         }
 
+        // If these constant nets exist, add them to the topographical ordering too
         auto it = ctx->nets.find(ctx->id("$PACKER_VCC_NET"));
         if (it != ctx->nets.end()) {
             topographical_order.emplace_back(it->second.get());
@@ -201,6 +213,8 @@ struct Timing
 
         std::deque<NetInfo*> queue(topographical_order.begin(), topographical_order.end());
 
+        // Now walk the design, from the start points identified previously, building
+        //   up a topographical order
         while (!queue.empty()) {
             const auto net = queue.front();
             queue.pop_front();
@@ -208,15 +222,16 @@ struct Timing
             DelayInfo clkToQ;
             for (auto &usr : net->users) {
                 auto clock_domain = ctx->getPortClock(usr.cell, usr.port);
-                // Follow outputs of the user
                 for (auto& port : usr.cell->ports) {
                     if (port.second.type == PORT_OUT && port.second.net) {
-                        // Skip if this is a clocked output
+                        // Skip if this is a clocked output (but allow non-clocked ones)
                         if (clock_domain != IdString() && ctx->getCellDelay(usr.cell, clock_domain, port.first, clkToQ))
                             continue;
                         DelayInfo comb_delay;
                         bool is_path = ctx->getCellDelay(usr.cell, usr.port, port.first, comb_delay);
                         if (is_path) {
+                            // Decrement the fanin count, and only add to topographical
+                            //   order if all its fanins have already been visited
                             auto it = port_fanin.find(&port.second);
                             NPNR_ASSERT(it != port_fanin.end());
                             if (--it->second == 0) {
@@ -230,10 +245,25 @@ struct Timing
             }
         }
 
+#if 0
+        // Sanity check to ensure that all ports where fanins were recorded
+        //   were indeed visited
+        log_info("port_fanin = %d\n", port_fanin.size());
+        for (auto i : port_fanin) {
+            log_info("%s %s.%s has %d fanins left\n", i.first->net->name.c_str(ctx),i.first->net->driver.cell->name.c_str(ctx), i.first->name.c_str(ctx), i.second);
+            auto cell = i.first->net->driver.cell;
+            for (auto& port : cell->ports) {
+                if (!port.second.net) continue;
+                if (port.second.type == PORT_IN)
+                    log_info("    %s connected to %s\n", port.second.name.c_str(ctx), port.second.net->name.c_str(ctx));
+            }
+        }
         NPNR_ASSERT(port_fanin.empty());
+#endif
         port_fanin.clear();
 
-        // Find the maximum arrival time and max path length for each net
+        // Go forwards topographically to find the maximum arrival time
+        //   and max path length for each net
         for (auto net : topographical_order) {
             auto &nd = net_data.at(net);
             const auto net_arrival = nd.max_arrival;
@@ -245,7 +275,7 @@ struct Timing
                     auto net_delay = net_delays ? ctx->getNetinfoRouteDelay(net, usr) : delay_t();
                     auto budget_override = ctx->getBudgetOverride(net, usr, net_delay);
                     auto usr_arrival = net_arrival + net_delay;
-                    // Follow outputs of the user
+                    // Iterate over all output ports on the same cell as the sink
                     for (auto port : usr.cell->ports) {
                         if (port.second.type == PORT_OUT && port.second.net) {
                             DelayInfo comb_delay;
@@ -255,7 +285,8 @@ struct Timing
                                 auto& data = net_data[port.second.net];
                                 auto& arrival = data.max_arrival;
                                 arrival = std::max(arrival, usr_arrival + comb_delay.maxDelay());
-                                if (!budget_override) {
+                                if (!budget_override) { // Do not increment path length if budget overriden
+                                                        //   since it doesn't require a share of the slack
                                     auto& path_length = data.max_path_length;
                                     path_length = std::max(path_length, net_length_plus_one);
                                 }
@@ -266,6 +297,8 @@ struct Timing
             }
         }
 
+        // Now go backwards topographically to determine the minimum path slack,
+        //   and to distribute all path slack evenly between all nets on the path
         for (auto net : boost::adaptors::reverse(topographical_order)) {
             auto &nd = net_data.at(net);
             const delay_t net_length_plus_one = nd.max_path_length + 1;
@@ -287,11 +320,10 @@ struct Timing
                         (*slack_histogram)[slack_ps]++;
                     }
                 } else {
-                    // Follow outputs of the user
-                    for (auto port : usr.cell->ports) {
+                    // Iterate over all output ports on the same cell as the sink
+                    for (const auto& port : usr.cell->ports) {
                         if (port.second.type == PORT_OUT && port.second.net) {
                             DelayInfo comb_delay;
-                            // Look up delay through this path
                             bool is_path = ctx->getCellDelay(usr.cell, usr.port, port.first, comb_delay);
                             if (is_path) {
                                 auto path_budget = net_data.at(port.second.net).min_remaining_budget;
