@@ -43,6 +43,7 @@ static std::tuple<int, int, std::string> split_identifier_name(const std::string
 
 // -----------------------------------------------------------------------
 
+
 void IdString::initialize_arch(const BaseCtx *ctx)
 {
 #define X(t) initialize_add(ctx, #t, ID_##t);

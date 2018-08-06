@@ -97,7 +97,7 @@ class Ecp5GlobalRouter
         return *(ctx->getPipsUphill(tap_wire).begin());
     }
 
-    void route_logic_tile_global(IdString net, int global_index, PortRef user)
+    void route_logic_tile_global(NetInfo *net, int global_index, PortRef user)
     {
         WireId userWire = ctx->getBelPinWire(user.cell->bel, ctx->portPinFromId(user.port));
         WireId globalWire;
@@ -147,8 +147,8 @@ class Ecp5GlobalRouter
         if (!already_routed) {
             ctx->bindWire(cursor, net, STRENGTH_LOCKED);
             PipId tap_pip = find_tap_pip(cursor);
-            IdString tap_net = ctx->getBoundPipNet(tap_pip);
-            if (tap_net == IdString()) {
+            NetInfo *tap_net = ctx->getBoundPipNet(tap_pip);
+            if (tap_net == nullptr) {
                 ctx->bindPip(tap_pip, net, STRENGTH_LOCKED);
                 // TODO: SPINE
             } else {
@@ -173,7 +173,7 @@ class Ecp5GlobalRouter
         return ctx->getWireByLocAndBasename(Location(0, 0), get_quad_name(quad) + "PCLK" + std::to_string(network));
     }
 
-    void simple_router(IdString net, WireId src, WireId dst)
+    void simple_router(NetInfo *net, WireId src, WireId dst)
     {
         std::queue<WireId> visit;
         std::unordered_map<WireId, PipId> backtrace;
@@ -186,10 +186,10 @@ class Ecp5GlobalRouter
             }
             cursor = visit.back();
             visit.pop();
-            IdString bound = ctx->getBoundWireNet(cursor);
+            NetInfo *bound = ctx->getBoundWireNet(cursor);
             if (bound == net) {
                 break;
-            } else if (bound != IdString()) {
+            } else if (bound != nullptr) {
                 continue;
             }
             if (cursor == dst)
@@ -222,7 +222,7 @@ class Ecp5GlobalRouter
         }
         for (int quad = QUAD_UL; quad < QUAD_LR + 1; quad++) {
             WireId glb_dst = get_global_wire(GlobalQuadrant(quad), network);
-            simple_router(net->name, glb_src, glb_dst);
+            simple_router(net, glb_src, glb_dst);
         }
         if (false) {
         non_dedicated:
