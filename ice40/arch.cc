@@ -637,17 +637,34 @@ std::vector<GroupId> Arch::getGroupGroups(GroupId group) const
 
 // -----------------------------------------------------------------------
 
-delay_t Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t budget) const
+bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const
 {
     const auto &driver = net_info->driver;
-    if (driver.port == id_cout) {
+    if (driver.port == id_cout && sink.port == id_cin) {
         auto driver_loc = getBelLocation(driver.cell->bel);
         auto sink_loc = getBelLocation(sink.cell->bel);
         if (driver_loc.y == sink_loc.y)
-            return 0;
-        return 250;
+            budget = 0;
+        else switch (args.type) {
+#ifndef ICE40_HX1K_ONLY
+            case ArchArgs::HX8K:
+#endif
+            case ArchArgs::HX1K:
+                budget = 190; break;
+#ifndef ICE40_HX1K_ONLY
+            case ArchArgs::LP384:
+            case ArchArgs::LP1K:
+            case ArchArgs::LP8K:
+                budget = 290; break;
+            case ArchArgs::UP5K:
+                budget = 560; break;
+#endif
+            default:
+                log_error("Unsupported iCE40 chip type.\n");
+        }
+        return true;
     }
-    return budget;
+    return false;
 }
 
 // -----------------------------------------------------------------------

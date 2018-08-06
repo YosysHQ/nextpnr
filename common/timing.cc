@@ -2,6 +2,7 @@
  *  nextpnr -- Next Generation Place and Route
  *
  *  Copyright (C) 2018  David Shah <david@symbioticeda.com>
+ *  Copyright (C) 2018  Eddie Hung <eddieh@ece.ubc.ca>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -48,22 +49,26 @@ struct Timing
 
     delay_t follow_net(NetInfo *net, int path_length, delay_t slack)
     {
-        delay_t net_budget = slack / (path_length + 1);
+        const delay_t default_budget = slack / (path_length + 1);
+        delay_t net_budget = default_budget;
         for (auto &usr : net->users) {
+            auto delay = net_delays ? ctx->getNetinfoRouteDelay(net, usr) : delay_t();
             if (crit_path)
                 current_path.push_back(&usr);
-            // If budget override is less than existing budget, then do not increment
-            // path length
-            int pl = path_length + 1;
-            auto budget = ctx->getBudgetOverride(net, usr, net_budget);
-            if (budget < net_budget) {
-                net_budget = budget;
-                pl = std::max(1, path_length);
+            // If budget override exists, use that value and do not increment path_length
+            auto budget = default_budget;
+            if (ctx->getBudgetOverride(net, usr, budget)) {
+                if (update)
+                    usr.budget = std::min(usr.budget, budget);
+                budget = follow_user_port(usr, path_length, slack - budget);
+                net_budget = std::min(net_budget, budget);
             }
-            auto delay = net_delays ? ctx->getNetinfoRouteDelay(net, usr) : delay_t();
-            net_budget = std::min(net_budget, follow_user_port(usr, pl, slack - delay));
-            if (update)
-                usr.budget = std::min(usr.budget, delay + net_budget);
+            else {
+                budget = follow_user_port(usr, path_length + 1, slack - delay);
+                net_budget = std::min(net_budget, budget);
+                if (update)
+                    usr.budget = std::min(usr.budget, delay + budget);
+            }
             if (crit_path)
                 current_path.pop_back();
         }
