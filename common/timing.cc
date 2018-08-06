@@ -39,9 +39,10 @@ struct Timing
     PortRefVector *crit_path;
     DelayFrequency *slack_histogram;
 
-    Timing(Context *ctx, bool net_delays, bool update, PortRefVector *crit_path = nullptr, DelayFrequency *slack_histogram = nullptr)
-            : ctx(ctx), net_delays(net_delays), update(update), min_slack(1.0e12 / ctx->target_freq), crit_path(crit_path),
-              slack_histogram(slack_histogram)
+    Timing(Context *ctx, bool net_delays, bool update, PortRefVector *crit_path = nullptr,
+           DelayFrequency *slack_histogram = nullptr)
+            : ctx(ctx), net_delays(net_delays), update(update), min_slack(1.0e12 / ctx->target_freq),
+              crit_path(crit_path), slack_histogram(slack_histogram)
     {
     }
 
@@ -150,7 +151,7 @@ void assign_budget(Context *ctx, bool quiet)
 {
     if (!quiet) {
         log_break();
-        log_info("Annotating ports with timing budgets for target frequency %.2f MHz\n", ctx->target_freq/1e6);
+        log_info("Annotating ports with timing budgets for target frequency %.2f MHz\n", ctx->target_freq / 1e6);
     }
 
     Timing timing(ctx, ctx->slack_redist_iter > 0 /* net_delays */, true /* update */);
