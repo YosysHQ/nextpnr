@@ -794,6 +794,8 @@ struct Arch : BaseCtx
     bool isClockPort(const CellInfo *cell, IdString port) const;
     // Return true if a port is a net
     bool isGlobalNet(const NetInfo *net) const;
+    // Return true if a cell is an IO
+    bool isIOCell(const CellInfo *cell) const;
 
     // -------------------------------------------------
 
