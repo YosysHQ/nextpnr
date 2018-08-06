@@ -155,7 +155,7 @@ struct Timing
         for (auto &cell : ctx->cells) {
             input_ports.clear();
             output_ports.clear();
-            bool is_io = cell.second->type == ctx->id_sb_io;
+            bool is_io = cell.second->type == ctx->id_sb_io; // HACK HACK HACK
             for (auto& port : cell.second->ports) {
                 if (!port.second.net) continue;
                 if (port.second.type == PORT_OUT)
@@ -187,34 +187,50 @@ struct Timing
             }
         }
 
+        auto it = ctx->nets.find(ctx->id("$PACKER_VCC_NET"));
+        if (it != ctx->nets.end()) {
+            topographical_order.emplace_back(it->second.get());
+            net_data.emplace(it->second.get(), TimingData{});
+        }
+        it = ctx->nets.find(ctx->id("$PACKER_GND_NET"));
+        if (it != ctx->nets.end()) {
+            topographical_order.emplace_back(it->second.get());
+            net_data.emplace(it->second.get(), TimingData{});
+        }
+
         std::deque<NetInfo*> queue(topographical_order.begin(), topographical_order.end());
 
         while (!queue.empty()) {
             const auto net = queue.front();
             queue.pop_front();
 
+            DelayInfo clkToQ;
             for (auto &usr : net->users) {
-                if (ctx->getPortClock(usr.cell, usr.port) != IdString()) {
-                } else {
-                    // Follow outputs of the user
-                    for (auto& port : usr.cell->ports) {
-                        if (port.second.type == PORT_OUT && port.second.net) {
-                            DelayInfo comb_delay;
-                            bool is_path = ctx->getCellDelay(usr.cell, usr.port, port.first, comb_delay);
-                            if (is_path) {
-                                auto it = port_fanin.find(&port.second);
-                                NPNR_ASSERT(it != port_fanin.end());
-                                if (--it->second == 0) {
-                                    topographical_order.emplace_back(port.second.net);
-                                    queue.emplace_back(port.second.net);
-                                    port_fanin.erase(it);
-                                }
+                auto clock_domain = ctx->getPortClock(usr.cell, usr.port);
+                // Follow outputs of the user
+                for (auto& port : usr.cell->ports) {
+                    if (port.second.type == PORT_OUT && port.second.net) {
+                        // Skip if this is a clocked output
+                        if (clock_domain != IdString() && ctx->getCellDelay(usr.cell, clock_domain, port.first, clkToQ))
+                            continue;
+                        DelayInfo comb_delay;
+                        bool is_path = ctx->getCellDelay(usr.cell, usr.port, port.first, comb_delay);
+                        if (is_path) {
+                            auto it = port_fanin.find(&port.second);
+                            NPNR_ASSERT(it != port_fanin.end());
+                            if (--it->second == 0) {
+                                topographical_order.emplace_back(port.second.net);
+                                queue.emplace_back(port.second.net);
+                                port_fanin.erase(it);
                             }
                         }
                     }
                 }
             }
         }
+
+        NPNR_ASSERT(port_fanin.empty());
+        port_fanin.clear();
 
         // Find the maximum arrival time and max path length for each net
         for (auto net : topographical_order) {
@@ -225,7 +241,7 @@ struct Timing
             for (auto &usr : net->users) {
                 if (ctx->getPortClock(usr.cell, usr.port) != IdString()) {
                 } else {
-                    auto net_delay = ctx->getNetinfoRouteDelay(net, usr);
+                    auto net_delay = net_delays ? ctx->getNetinfoRouteDelay(net, usr) : delay_t();
                     auto budget_override = ctx->getBudgetOverride(net, usr, net_delay);
                     auto usr_arrival = net_arrival + net_delay;
                     // Follow outputs of the user
@@ -254,13 +270,14 @@ struct Timing
             const delay_t net_length_plus_one = nd.max_path_length + 1;
             auto& net_min_remaining_budget = nd.min_remaining_budget;
             for (auto &usr : net->users) {
-                const auto net_delay = ctx->getNetinfoRouteDelay(net, usr);
+                auto net_delay = net_delays ? ctx->getNetinfoRouteDelay(net, usr) : delay_t();
                 auto budget_override = ctx->getBudgetOverride(net, usr, net_delay);
                 if (ctx->getPortClock(usr.cell, usr.port) != IdString()) {
                     const auto net_arrival = nd.max_arrival;
                     auto path_budget = clk_period - (net_arrival + net_delay);
                     auto budget_share = budget_override ? 0 : path_budget / net_length_plus_one;
-                    usr.budget = std::min(usr.budget, net_delay + budget_share);
+                    if (update)
+                        usr.budget = std::min(usr.budget, net_delay + budget_share);
                     net_min_remaining_budget = std::min(net_min_remaining_budget, path_budget - budget_share);
 
                     min_slack = std::min(min_slack, path_budget);
@@ -278,7 +295,8 @@ struct Timing
                             if (is_path) {
                                 auto path_budget = net_data.at(port.second.net).min_remaining_budget;
                                 auto budget_share = budget_override ? 0 : path_budget / net_length_plus_one;
-                                usr.budget = std::min(usr.budget, net_delay + budget_share);
+                                if (update)
+                                    usr.budget = std::min(usr.budget, net_delay + budget_share);
                                 net_min_remaining_budget = std::min(net_min_remaining_budget, path_budget - budget_share);
                             }
                         }
