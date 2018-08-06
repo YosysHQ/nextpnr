@@ -57,22 +57,26 @@ struct Timing
 
     delay_t follow_net(NetInfo *net, int path_length, delay_t slack)
     {
-        delay_t net_budget = slack / (path_length + 1);
+        const delay_t default_budget = slack / (path_length + 1);
+        delay_t net_budget = default_budget;
         for (auto &usr : net->users) {
+            auto delay = net_delays ? ctx->getNetinfoRouteDelay(net, usr) : delay_t();
             if (crit_path)
                 current_path.push_back(&usr);
-            // If budget override is less than existing budget, then do not increment
-            // path length
-            int pl = path_length + 1;
-            auto budget = net_budget;
-            if (ctx->getBudgetOverride(net, usr, budget) && budget < net_budget) {
-                net_budget = budget;
-                pl = std::max(1, path_length);
+            // If budget override exists, use that value and do not increment path_length
+            auto budget = default_budget;
+            if (ctx->getBudgetOverride(net, usr, budget)) {
+                if (update)
+                    usr.budget = std::min(usr.budget, budget);
+                budget = follow_user_port(usr, path_length, slack - budget);
+                net_budget = std::min(net_budget, budget);
             }
-            auto delay = net_delays ? ctx->getNetinfoRouteDelay(net, usr) : delay_t();
-            net_budget = std::min(net_budget, follow_user_port(usr, pl, slack - delay));
-            if (update)
-                usr.budget = std::min(usr.budget, delay + net_budget);
+            else {
+                budget = follow_user_port(usr, path_length + 1, slack - delay);
+                net_budget = std::min(net_budget, budget);
+                if (update)
+                    usr.budget = std::min(usr.budget, delay + budget);
+            }
             if (crit_path)
                 current_path.pop_back();
         }
@@ -222,8 +226,7 @@ struct Timing
                 if (ctx->getPortClock(usr.cell, usr.port) != IdString()) {
                 } else {
                     auto net_delay = ctx->getNetinfoRouteDelay(net, usr);
-                    delay_t budget;
-                    auto budget_override = ctx->getBudgetOverride(net, usr, budget);
+                    auto budget_override = ctx->getBudgetOverride(net, usr, net_delay);
                     auto usr_arrival = net_arrival + net_delay;
                     // Follow outputs of the user
                     for (auto port : usr.cell->ports) {
@@ -252,15 +255,12 @@ struct Timing
             auto& net_min_remaining_budget = nd.min_remaining_budget;
             for (auto &usr : net->users) {
                 const auto net_delay = ctx->getNetinfoRouteDelay(net, usr);
-                auto budget_override = ctx->getBudgetOverride(net, usr, usr.budget);
+                auto budget_override = ctx->getBudgetOverride(net, usr, net_delay);
                 if (ctx->getPortClock(usr.cell, usr.port) != IdString()) {
                     const auto net_arrival = nd.max_arrival;
                     auto path_budget = clk_period - (net_arrival + net_delay);
-                    auto budget_share = path_budget / net_length_plus_one;
-                    if (budget_override)
-                        budget_share = 0;
-                    else
-                        usr.budget = std::min(usr.budget, net_delay + budget_share);
+                    auto budget_share = budget_override ? 0 : path_budget / net_length_plus_one;
+                    usr.budget = std::min(usr.budget, net_delay + budget_share);
                     net_min_remaining_budget = std::min(net_min_remaining_budget, path_budget - budget_share);
 
                     min_slack = std::min(min_slack, path_budget);
@@ -277,11 +277,8 @@ struct Timing
                             bool is_path = ctx->getCellDelay(usr.cell, usr.port, port.first, comb_delay);
                             if (is_path) {
                                 auto path_budget = net_data.at(port.second.net).min_remaining_budget;
-                                auto budget_share = path_budget / net_length_plus_one;
-                                if (budget_override)
-                                    budget_share = 0;
-                                else
-                                    usr.budget = std::min(usr.budget, net_delay + budget_share);
+                                auto budget_share = budget_override ? 0 : path_budget / net_length_plus_one;
+                                usr.budget = std::min(usr.budget, net_delay + budget_share);
                                 net_min_remaining_budget = std::min(net_min_remaining_budget, path_budget - budget_share);
                             }
                         }

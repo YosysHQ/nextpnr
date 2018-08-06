@@ -640,7 +640,7 @@ std::vector<GroupId> Arch::getGroupGroups(GroupId group) const
 bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const
 {
     const auto &driver = net_info->driver;
-    if (driver.port == id_cout) {
+    if (driver.port == id_cout && sink.port == id_cin) {
         auto driver_loc = getBelLocation(driver.cell->bel);
         auto sink_loc = getBelLocation(sink.cell->bel);
         if (driver_loc.y == sink_loc.y)

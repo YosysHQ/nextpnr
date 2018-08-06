@@ -402,9 +402,9 @@ Convert an `delay_t` to an actual real-world delay in nanoseconds.
 
 Convert a `delay_t` to an integer for checksum calculations.
 
-### delay\_t getBudgetOverride(const NetInfo \*net\_info, const PortRef &sink, delay\_t budget) const
+### bool getBudgetOverride(const NetInfo \*net\_info, const PortRef &sink, delay\_t &budget) const
 
-Overwrite or modify the timing budget for a given arc. Returns the new budget.
+Overwrite or modify (in-place) the timing budget for a given arc. Returns a bool to indicate whether this was done.
 
 Flow Methods
 ------------
