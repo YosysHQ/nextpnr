@@ -2,6 +2,7 @@
  *  nextpnr -- Next Generation Place and Route
  *
  *  Copyright (C) 2018  David Shah <david@symbioticeda.com>
+ *  Copyright (C) 2018  Eddie Hung <eddieh@ece.ubc.ca>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -432,9 +433,11 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_path)
         log_break();
         log_info("Slack histogram:\n");
         log_info(" legend: * represents %d endpoint(s)\n", max_freq / bar_width);
+        log_info("         + represents [1,%d) endpoint(s)\n", max_freq / bar_width);
         for (unsigned i = 0; i < bins.size(); ++i)
-            log_info("%6d < ps < %6d |%s\n", min_slack + bin_size * i, min_slack + bin_size * (i + 1),
-                     std::string(bins[i] * bar_width / max_freq, '*').c_str());
+            log_info("[%6d, %6d) |%s%c\n", min_slack + bin_size * i, min_slack + bin_size * (i + 1),
+                     std::string(bins[i] * bar_width / max_freq, '*').c_str(),
+                     (bins[i] * bar_width) % max_freq > 0 ? '+' : ' ');
     }
 }
 
