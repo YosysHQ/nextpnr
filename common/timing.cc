@@ -155,7 +155,7 @@ struct Timing
         for (auto &cell : ctx->cells) {
             input_ports.clear();
             output_ports.clear();
-            bool is_io = cell.second->type == ctx->id_sb_io; // HACK HACK HACK
+            bool is_io = ctx->isIOCell(cell.second.get());
             for (auto& port : cell.second->ports) {
                 if (!port.second.net) continue;
                 if (port.second.type == PORT_OUT)
