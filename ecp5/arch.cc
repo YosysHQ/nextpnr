@@ -422,7 +422,7 @@ delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
     return 200 * (abs(driver_loc.x - sink_loc.x) + abs(driver_loc.y - sink_loc.y));
 }
 
-delay_t Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t budget) const { return budget; }
+bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const { return false; }
 
 // -----------------------------------------------------------------------
 
