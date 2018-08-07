@@ -216,6 +216,13 @@ struct BelPin
 
 struct CellInfo;
 
+struct Region
+{
+    IdString name;
+    std::unordered_set<BelId> bels;
+    std::unordered_set<WireId> wires;
+};
+
 enum PlaceStrength
 {
     STRENGTH_NONE = 0,
@@ -250,6 +257,8 @@ struct NetInfo : ArchNetInfo
 
     // wire -> uphill_pip
     std::unordered_map<WireId, PipMap> wires;
+
+    Region *region = nullptr;
 };
 
 enum PortType
@@ -289,6 +298,8 @@ struct CellInfo : ArchCellInfo
     int constr_z = UNCONSTR;   // this.z - parent.z
     bool constr_abs_z = false; // parent.z := 0
     // parent.[xyz] := 0 when (constr_parent == nullptr)
+
+    Region *region = nullptr;
 };
 
 enum TimingPortClass
@@ -390,6 +401,9 @@ struct BaseCtx
     // Placed nets and cells.
     std::unordered_map<IdString, std::unique_ptr<NetInfo>> nets;
     std::unordered_map<IdString, std::unique_ptr<CellInfo>> cells;
+
+    // Floorplanning regions
+    std::unordered_map<IdString, std::unique_ptr<Region>> region;
 
     BaseCtx()
     {
