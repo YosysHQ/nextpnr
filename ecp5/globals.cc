@@ -21,6 +21,7 @@
 #include <iomanip>
 #include <queue>
 #include "nextpnr.h"
+#include "cells.h"
 
 #include "log.h"
 
@@ -228,6 +229,34 @@ class Ecp5GlobalRouter
         non_dedicated:
             log_error("FIXME: currenly global networks can only be driven by dedicated global input pins");
         }
+    }
+
+
+    // Insert a DCC into a net to promote it to a global
+    NetInfo *insert_dcc(NetInfo *net)
+    {
+        auto dcc = create_ecp5_cell(ctx, ctx->id("DCCA"), "$gbuf$" + net->name.str(ctx));
+
+        std::unique_ptr<NetInfo> glbnet = std::unique_ptr<NetInfo>(new NetInfo);
+        glbnet->name = ctx->id("$glbnet$" + net->name.str(ctx));
+        glbnet->driver.cell = dcc.get();
+        glbnet->driver.port = ctx->id("CLKO");
+
+        for (auto user : net->users) {
+            user.cell->ports.at(user.port).net = glbnet.get();
+        }
+        net->users.clear();
+
+        dcc->ports[ctx->id("CLKI")].net = net;
+        PortRef clki_pr;
+        clki_pr.port = ctx->id("CLKI");
+        clki_pr.cell = dcc.get();
+        net->users.push_back(clki_pr);
+
+        ctx->cells[dcc->name] = std::move(dcc);
+        NetInfo *glbptr = glbnet.get();
+        ctx->nets[glbnet->name] = std::move(glbnet);
+        return glbptr;
     }
 
     Context *ctx;

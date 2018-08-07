@@ -124,6 +124,10 @@ std::unique_ptr<CellInfo> create_ecp5_cell(Context *ctx, IdString type, std::str
         add_port(ctx, new_cell.get(), "C", PORT_IN);
         add_port(ctx, new_cell.get(), "D", PORT_IN);
         add_port(ctx, new_cell.get(), "Z", PORT_OUT);
+    } else if (type == ctx->id("DCCA")) {
+        add_port(ctx, new_cell.get(), "CLKI", PORT_IN);
+        add_port(ctx, new_cell.get(), "CLKO", PORT_OUT);
+        add_port(ctx, new_cell.get(), "CE", PORT_IN);
     } else {
         log_error("unable to create ECP5 cell of type %s", type.c_str(ctx));
     }
