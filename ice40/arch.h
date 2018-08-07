@@ -400,10 +400,10 @@ struct Arch : BaseCtx
     mutable std::unordered_map<Loc, int> bel_by_loc;
 
     std::vector<bool> bel_carry;
-    std::vector<CellInfo*> bel_to_cell;
-    std::vector<NetInfo*> wire_to_net;
-    std::vector<NetInfo*> pip_to_net;
-    std::vector<NetInfo*> switches_locked;
+    std::vector<CellInfo *> bel_to_cell;
+    std::vector<NetInfo *> wire_to_net;
+    std::vector<NetInfo *> pip_to_net;
+    std::vector<NetInfo *> switches_locked;
 
     ArchArgs args;
     Arch(ArchArgs args);
@@ -794,10 +794,13 @@ struct Arch : BaseCtx
     bool isClockPort(const CellInfo *cell, IdString port) const;
     // Return true if a port is a net
     bool isGlobalNet(const NetInfo *net) const;
+    // Return true if a cell is an IO
+    bool isIOCell(const CellInfo *cell) const;
 
     // -------------------------------------------------
 
-    // Perform placement validity checks, returning false on failure (all implemented in arch_place.cc)
+    // Perform placement validity checks, returning false on failure (all
+    // implemented in arch_place.cc)
 
     // Whether or not a given cell can be placed at a given Bel
     // This is not intended for Bel type checks, but finer-grained constraints
@@ -811,7 +814,8 @@ struct Arch : BaseCtx
     bool logicCellsCompatible(const std::vector<const CellInfo *> &cells) const;
 
     // -------------------------------------------------
-    // Assign architecure-specific arguments to nets and cells, which must be called between packing or further
+    // Assign architecure-specific arguments to nets and cells, which must be
+    // called between packing or further
     // netlist modifications, and validity checks
     void assignArchInfo();
     void assignCellInfo(CellInfo *cell);

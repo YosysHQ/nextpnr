@@ -291,7 +291,8 @@ BelId Arch::getBelByLocation(Loc loc) const
 
 BelRange Arch::getBelsByTile(int x, int y) const
 {
-    // In iCE40 chipdb bels at the same tile are consecutive and dense z ordinates are used
+    // In iCE40 chipdb bels at the same tile are consecutive and dense z ordinates
+    // are used
     BelRange br;
 
     br.b.cursor = Arch::getBelByLocation(Loc(x, y, 0)).index;
@@ -645,23 +646,27 @@ bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay
         auto sink_loc = getBelLocation(sink.cell->bel);
         if (driver_loc.y == sink_loc.y)
             budget = 0;
-        else switch (args.type) {
+        else
+            switch (args.type) {
 #ifndef ICE40_HX1K_ONLY
             case ArchArgs::HX8K:
 #endif
             case ArchArgs::HX1K:
-                budget = 190; break;
+                budget = 190;
+                break;
 #ifndef ICE40_HX1K_ONLY
             case ArchArgs::LP384:
             case ArchArgs::LP1K:
             case ArchArgs::LP8K:
-                budget = 290; break;
+                budget = 290;
+                break;
             case ArchArgs::UP5K:
-                budget = 560; break;
+                budget = 560;
+                break;
 #endif
             default:
                 log_error("Unsupported iCE40 chip type.\n");
-        }
+            }
         return true;
     }
     return false;
@@ -912,6 +917,8 @@ bool Arch::isGlobalNet(const NetInfo *net) const
         return false;
     return net->driver.cell != nullptr && net->driver.port == id_glb_buf_out;
 }
+
+bool Arch::isIOCell(const CellInfo *cell) const { return cell->type == id_sb_io; }
 
 // Assign arch arg info
 void Arch::assignArchInfo()
