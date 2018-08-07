@@ -98,6 +98,16 @@ class Ecp5GlobalRouter
         return *(ctx->getPipsUphill(tap_wire).begin());
     }
 
+    PipId find_spine_pip(WireId tap_wire)
+    {
+        std::string wireName = ctx->getWireBasename(tap_wire).str(ctx);
+        Location spine_loc;
+        spine_loc.x = ctx->globalInfoAtLoc(tap_wire.location).spine_col;
+        spine_loc.y = ctx->globalInfoAtLoc(tap_wire.location).spine_row;
+        WireId spine_wire = ctx->getWireByLocAndBasename(spine_loc, wireName);
+        return *(ctx->getPipsUphill(spine_wire).begin());
+    }
+
     void route_logic_tile_global(NetInfo *net, int global_index, PortRef user)
     {
         WireId userWire = ctx->getBelPinWire(user.cell->bel, ctx->portPinFromId(user.port));
@@ -151,7 +161,13 @@ class Ecp5GlobalRouter
             NetInfo *tap_net = ctx->getBoundPipNet(tap_pip);
             if (tap_net == nullptr) {
                 ctx->bindPip(tap_pip, net, STRENGTH_LOCKED);
-                // TODO: SPINE
+                PipId spine_pip = find_spine_pip(ctx->getPipSrcWire(tap_pip));
+                NetInfo *spine_net = ctx->getBoundPipNet(spine_pip);
+                if (spine_net == nullptr) {
+                    ctx->bindPip(spine_pip, net, STRENGTH_LOCKED);
+                } else {
+                    NPNR_ASSERT(spine_net == net);
+                }
             } else {
                 NPNR_ASSERT(tap_net == net);
             }
