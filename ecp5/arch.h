@@ -147,6 +147,8 @@ NPNR_PACKED_STRUCT(struct GlobalInfoPOD {
     int16_t tap_col;
     TapDirection tap_dir;
     GlobalQuadrant quad;
+    int16_t spine_row;
+    int16_t spine_col;
 });
 
 NPNR_PACKED_STRUCT(struct ChipInfoPOD {
