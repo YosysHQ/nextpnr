@@ -215,10 +215,11 @@ struct Timing
                 if (ctx->getPortClock(usr.cell, usr.port) != IdString()) {
                     const auto net_arrival = nd.max_arrival;
                     auto path_budget = clk_period - (net_arrival + net_delay);
-                    auto budget_share = budget_override ? 0 : path_budget / net_length_plus_one;
-                    if (update)
+                    if (update) {
+                        auto budget_share = budget_override ? 0 : path_budget / net_length_plus_one;
                         usr.budget = std::min(usr.budget, net_delay + budget_share);
-                    net_min_remaining_budget = std::min(net_min_remaining_budget, path_budget - budget_share);
+                        net_min_remaining_budget = std::min(net_min_remaining_budget, path_budget - budget_share);
+                    }
 
                     if (path_budget < min_slack) {
                         min_slack = path_budget;
@@ -232,7 +233,7 @@ struct Timing
                         int slack_ps = ctx->getDelayNS(path_budget) * 1000;
                         (*slack_histogram)[slack_ps]++;
                     }
-                } else {
+                } else if (update) {
                     // Iterate over all output ports on the same cell as the sink
                     for (const auto &port : usr.cell->ports) {
                         if (port.second.type == PORT_OUT && port.second.net) {
@@ -241,8 +242,7 @@ struct Timing
                             if (is_path) {
                                 auto path_budget = net_data.at(port.second.net).min_remaining_budget;
                                 auto budget_share = budget_override ? 0 : path_budget / net_length_plus_one;
-                                if (update)
-                                    usr.budget = std::min(usr.budget, net_delay + budget_share);
+                                usr.budget = std::min(usr.budget, net_delay + budget_share);
                                 net_min_remaining_budget =
                                         std::min(net_min_remaining_budget, path_budget - budget_share);
                             }
