@@ -375,7 +375,6 @@ BelId Arch::getPioByFunctionName(const std::string &name) const
 }
 
 std::vector<PortPin> Arch::getBelPins(BelId bel) const
-
 {
     std::vector<PortPin> ret;
     NPNR_ASSERT(bel != BelId());
@@ -500,11 +499,7 @@ IdString Arch::getPortClock(const CellInfo *cell, IdString port) const { return 
 
 bool Arch::isClockPort(const CellInfo *cell, IdString port) const { return false; }
 
-bool Arch::isIOCell(const CellInfo *cell) const
-{
-    return cell->type == id("TRELLIS_IO");
-}
-
+bool Arch::isIOCell(const CellInfo *cell) const { return cell->type == id("TRELLIS_IO"); }
 
 std::vector<std::pair<std::string, std::string>> Arch::getTilesAtLocation(int row, int col)
 {
