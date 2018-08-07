@@ -61,7 +61,7 @@ struct Timing
 
         // First, compute the topographical order of nets to walk through
         //   the circuit, assuming it is a _acyclic_ graph
-        //   TODO: Handle the case where it is cyclic, e.g. combinatorial loops
+        //   TODO(eddieh): Handle the case where it is cyclic, e.g. combinatorial loops
         std::vector<NetInfo*> topographical_order;
         std::unordered_map<const NetInfo*, TimingData> net_data;
         // In lieu of deleting edges from the graph, simply count
@@ -94,7 +94,8 @@ struct Timing
                 }
                 else {
                     // Also add I/O cells too
-                    if (is_io) {
+                                                      // TODO(eddieh): More generic way of detecting PLLs
+                    if (is_io || cell.second->type == ctx->id("ICESTORM_PLL")) {
                         topographical_order.emplace_back(o->net);
                         net_data.emplace(o->net, TimingData{});
                     }
@@ -157,22 +158,9 @@ struct Timing
             }
         }
 
-#if 0
         // Sanity check to ensure that all ports where fanins were recorded
         //   were indeed visited
-        log_info("port_fanin = %d\n", port_fanin.size());
-        for (auto i : port_fanin) {
-            log_info("%s %s.%s has %d fanins left\n", i.first->net->name.c_str(ctx),i.first->net->driver.cell->name.c_str(ctx), i.first->name.c_str(ctx), i.second);
-            auto cell = i.first->net->driver.cell;
-            for (auto& port : cell->ports) {
-                if (!port.second.net) continue;
-                if (port.second.type == PORT_IN)
-                    log_info("    %s connected to %s\n", port.second.name.c_str(ctx), port.second.net->name.c_str(ctx));
-            }
-        }
         NPNR_ASSERT(port_fanin.empty());
-#endif
-        port_fanin.clear();
 
         // Go forwards topographically to find the maximum arrival time
         //   and max path length for each net
