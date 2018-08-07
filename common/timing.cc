@@ -139,23 +139,23 @@ struct Timing
             for (auto &usr : net->users) {
                 auto clock_domain = ctx->getPortClock(usr.cell, usr.port);
                 for (auto &port : usr.cell->ports) {
-                    if (port.second.type == PORT_OUT && port.second.net) {
-                        // Skip if this is a clocked output (but allow non-clocked ones)
-                        if (clock_domain != IdString() && ctx->getCellDelay(usr.cell, clock_domain, port.first, clkToQ))
-                            continue;
-                        DelayInfo comb_delay;
-                        bool is_path = ctx->getCellDelay(usr.cell, usr.port, port.first, comb_delay);
-                        if (is_path) {
-                            // Decrement the fanin count, and only add to topographical
-                            //   order if all its fanins have already been visited
-                            auto it = port_fanin.find(&port.second);
-                            NPNR_ASSERT(it != port_fanin.end());
-                            if (--it->second == 0) {
-                                topographical_order.emplace_back(port.second.net);
-                                queue.emplace_back(port.second.net);
-                                port_fanin.erase(it);
-                            }
-                        }
+                    if (port.second.type != PORT_OUT || !port.second.net)
+                        continue;
+                    // Skip if this is a clocked output (but allow non-clocked ones)
+                    if (clock_domain != IdString() && ctx->getCellDelay(usr.cell, clock_domain, port.first, clkToQ))
+                        continue;
+                    DelayInfo comb_delay;
+                    bool is_path = ctx->getCellDelay(usr.cell, usr.port, port.first, comb_delay);
+                    if (!is_path)
+                        continue;
+                    // Decrement the fanin count, and only add to topographical
+                    //   order if all its fanins have already been visited
+                    auto it = port_fanin.find(&port.second);
+                    NPNR_ASSERT(it != port_fanin.end());
+                    if (--it->second == 0) {
+                        topographical_order.emplace_back(port.second.net);
+                        queue.emplace_back(port.second.net);
+                        port_fanin.erase(it);
                     }
                 }
             }
@@ -180,21 +180,21 @@ struct Timing
                     auto usr_arrival = net_arrival + net_delay;
                     // Iterate over all output ports on the same cell as the sink
                     for (auto port : usr.cell->ports) {
-                        if (port.second.type == PORT_OUT && port.second.net) {
-                            DelayInfo comb_delay;
-                            // Look up delay through this path
-                            bool is_path = ctx->getCellDelay(usr.cell, usr.port, port.first, comb_delay);
-                            if (is_path) {
-                                auto &data = net_data[port.second.net];
-                                auto &arrival = data.max_arrival;
-                                arrival = std::max(arrival, usr_arrival + comb_delay.maxDelay());
-                                if (!budget_override) { // Do not increment path length if
-                                                        // budget overriden
-                                    //   since it doesn't require a share of the slack
-                                    auto &path_length = data.max_path_length;
-                                    path_length = std::max(path_length, net_length_plus_one);
-                                }
-                            }
+                        if (port.second.type != PORT_OUT || !port.second.net)
+                            continue;
+                        DelayInfo comb_delay;
+                        // Look up delay through this path
+                        bool is_path = ctx->getCellDelay(usr.cell, usr.port, port.first, comb_delay);
+                        if (!is_path)
+                            continue;
+                        auto &data = net_data[port.second.net];
+                        auto &arrival = data.max_arrival;
+                        arrival = std::max(arrival, usr_arrival + comb_delay.maxDelay());
+                        if (!budget_override) { // Do not increment path length if
+                                                // budget overriden
+                            //   since it doesn't require a share of the slack
+                            auto &path_length = data.max_path_length;
+                            path_length = std::max(path_length, net_length_plus_one);
                         }
                     }
                 }
@@ -236,17 +236,16 @@ struct Timing
                 } else if (update) {
                     // Iterate over all output ports on the same cell as the sink
                     for (const auto &port : usr.cell->ports) {
-                        if (port.second.type == PORT_OUT && port.second.net) {
-                            DelayInfo comb_delay;
-                            bool is_path = ctx->getCellDelay(usr.cell, usr.port, port.first, comb_delay);
-                            if (is_path) {
-                                auto path_budget = net_data.at(port.second.net).min_remaining_budget;
-                                auto budget_share = budget_override ? 0 : path_budget / net_length_plus_one;
-                                usr.budget = std::min(usr.budget, net_delay + budget_share);
-                                net_min_remaining_budget =
-                                        std::min(net_min_remaining_budget, path_budget - budget_share);
-                            }
-                        }
+                        if (port.second.type != PORT_OUT || !port.second.net)
+                            continue;
+                        DelayInfo comb_delay;
+                        bool is_path = ctx->getCellDelay(usr.cell, usr.port, port.first, comb_delay);
+                        if (!is_path)
+                            continue;
+                        auto path_budget = net_data.at(port.second.net).min_remaining_budget;
+                        auto budget_share = budget_override ? 0 : path_budget / net_length_plus_one;
+                        usr.budget = std::min(usr.budget, net_delay + budget_share);
+                        net_min_remaining_budget = std::min(net_min_remaining_budget, path_budget - budget_share);
                     }
                 }
             }
@@ -260,28 +259,29 @@ struct Timing
 
                 // Look at all input ports on its driving cell
                 for (const auto &port : crit_net->driver.cell->ports) {
-                    if (port.second.type == PORT_IN && port.second.net) {
-                        DelayInfo comb_delay;
-                        bool is_path =
-                                ctx->getCellDelay(crit_net->driver.cell, port.first, crit_net->driver.port, comb_delay);
-                        if (is_path) {
-                            // If input port is influenced by a clock, skip
-                            if (ctx->getPortClock(crit_net->driver.cell, port.first) != IdString())
-                                continue;
+                    if (port.second.type != PORT_IN || !port.second.net)
+                        continue;
+                    DelayInfo comb_delay;
+                    bool is_path =
+                            ctx->getCellDelay(crit_net->driver.cell, port.first, crit_net->driver.port, comb_delay);
+                    if (!is_path)
+                        continue;
+                    // If input port is influenced by a clock, skip
+                    if (ctx->getPortClock(crit_net->driver.cell, port.first) != IdString())
+                        continue;
 
-                            // And find the fanin net with the latest arrival time
-                            const auto net_arrival = net_data.at(port.second.net).max_arrival;
-                            if (net_arrival > max_arrival) {
-                                max_arrival = net_arrival;
-                                crit_ipin = &port.second;
-                            }
-                        }
+                    // And find the fanin net with the latest arrival time
+                    const auto net_arrival = net_data.at(port.second.net).max_arrival;
+                    if (net_arrival > max_arrival) {
+                        max_arrival = net_arrival;
+                        crit_ipin = &port.second;
                     }
                 }
 
                 if (!crit_ipin)
                     break;
 
+                // Now convert PortInfo* into a PortRef*
                 for (auto &usr : crit_ipin->net->users) {
                     if (usr.cell->name == crit_net->driver.cell->name && usr.port == crit_ipin->name) {
                         crit_path->push_back(&usr);
