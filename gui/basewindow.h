@@ -56,6 +56,7 @@ class BaseMainWindow : public QMainWindow
 
     virtual void onDisableActions(){};
     virtual void onJsonLoaded(){};
+    virtual void onProjectLoaded(){};
     virtual void onPackFinished(){};
     virtual void onBudgetFinished(){};
     virtual void onPlaceFinished(){};
@@ -66,8 +67,9 @@ class BaseMainWindow : public QMainWindow
     void closeTab(int index);
 
     virtual void new_proj() = 0;
-    virtual void open_proj() = 0;
-    virtual bool save_proj() = 0;
+
+    void open_proj();
+    void save_proj();
 
     void open_json();
     void budget();
@@ -93,6 +95,7 @@ class BaseMainWindow : public QMainWindow
     TaskManager *task;
     bool timing_driven;
     std::string currentJson;
+    std::string currentProj;
 
     // main widgets
     QTabWidget *tabWidget;

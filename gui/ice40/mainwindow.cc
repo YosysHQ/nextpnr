@@ -29,7 +29,6 @@
 #include "jsonparse.h"
 #include "log.h"
 #include "pcf.h"
-#include "project.h"
 #include <fstream>
 
 static void initMainResource() { Q_INIT_RESOURCE(nextpnr); }
@@ -166,45 +165,12 @@ void MainWindow::newContext(Context *ctx)
     setWindowTitle(title.c_str());
 }
 
-void MainWindow::open_proj()
-{
-    QString fileName = QFileDialog::getOpenFileName(this, QString("Open Project"), QString(), QString("*.proj"));
-    if (!fileName.isEmpty()) {
-        try {
-            ProjectHandler proj;
-            disableActions();
-            ctx = proj.load(fileName.toStdString());
-            Q_EMIT contextChanged(ctx.get());
-            log_info("Loaded project %s...\n", fileName.toStdString().c_str());
-            updateJsonLoaded();
-            actionLoadPCF->setEnabled(false);
-        } catch (log_execution_error_exception) {
-        }
-    }
-}
-
 void MainWindow::open_pcf()
 {
     QString fileName = QFileDialog::getOpenFileName(this, QString("Open PCF"), QString(), QString("*.pcf"));
     if (!fileName.isEmpty()) {
         load_pcf(fileName.toStdString());
     }
-}
-
-bool MainWindow::save_proj()
-{
-    if (currentProj.empty()) {
-        QString fileName = QFileDialog::getSaveFileName(this, QString("Save Project"), QString(), QString("*.proj"));
-        if (fileName.isEmpty())
-            return false;
-        currentProj = fileName.toStdString();
-    }
-    if (!currentProj.empty()) {
-        ProjectHandler proj;
-        proj.save(ctx.get(), currentProj);
-        return true;
-    }
-    return false;
 }
 
 void MainWindow::save_asc()
@@ -227,5 +193,6 @@ void MainWindow::onDisableActions()
 
 void MainWindow::onJsonLoaded() { actionLoadPCF->setEnabled(true); }
 void MainWindow::onRouteFinished() { actionSaveAsc->setEnabled(true); }
+void MainWindow::onProjectLoaded() { actionLoadPCF->setEnabled(false); }
 
 NEXTPNR_NAMESPACE_END
