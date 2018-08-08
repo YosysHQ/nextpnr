@@ -110,6 +110,7 @@ struct Timing
         }
 
         // If these constant nets exist, add them to the topographical ordering too
+        // TODO(eddieh): Also false paths and should be removed from ordering
         auto it = ctx->nets.find(ctx->id("$PACKER_VCC_NET"));
         if (it != ctx->nets.end()) {
             topographical_order.emplace_back(it->second.get());
