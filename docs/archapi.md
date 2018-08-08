@@ -74,15 +74,19 @@ Return a string representation of the ArchArgs that was used to construct this o
 
 ### int getGridDimX() const
 
-Get grid X dimension. All bels must have Y coordinates in the range `0 .. getGridDimX()-1` (inclusive).
+Get grid X dimension. All bels and pips must have Y coordinates in the range `0 .. getGridDimX()-1` (inclusive).
 
 ### int getGridDimY() const
 
-Get grid Y dimension. All bels must have Y coordinates in the range `0 .. getGridDimY()-1` (inclusive).
+Get grid Y dimension. All bels and pips must have Y coordinates in the range `0 .. getGridDimY()-1` (inclusive).
 
-### int getTileDimZ(int x, int y) const
+### int getTileBelDimZ(int x, int y) const
 
-Get Z dimension for the specified tile. All bels with the specified X and Y coordinates must have a Z coordinate in the range `0 .. getTileDimZ(X,Y)-1` (inclusive).
+Get Z dimension for the specified tile for bels. All bels with at specified X and Y coordinates must have a Z coordinate in the range `0 .. getTileDimZ(X,Y)-1` (inclusive).
+
+### int getTilePipDimZ(int x, int y) const
+
+Get Z dimension for the specified tile for pips. All pips with at specified X and Y coordinates must have a Z coordinate in the range `0 .. getTileDimZ(X,Y)-1` (inclusive).
 
 Bel Methods
 -----------
@@ -97,7 +101,7 @@ Get the name for a bel. (Bel names must be unique.)
 
 ### Loc getBelLocation(BelId bel) const
 
-Get the X/Y/Z location of a given bel.
+Get the X/Y/Z location of a given bel. Each bel must have a unique X/Y/Z location.
 
 ### BelId getBelByLocation(Loc loc) const
 
@@ -237,6 +241,11 @@ Get the name for a pip. (Pip names must be unique.)
 
 Get the type of a pip. Pip types are purely informal and
 implementations may simply return `IdString()`.
+
+### Loc getPipLocation(PipId pip) const
+
+Get the X/Y/Z location of a given pip. Pip locations do not need to be unique, and in most cases they aren't. So
+for pips a X/Y/Z location refers to a group of pips, not an individual pip.
 
 ### uint32\_t getPipChecksum(PipId pip) const
 

@@ -219,8 +219,14 @@ struct CellInfo;
 struct Region
 {
     IdString name;
+
+    bool constr_bels = false;
+    bool constr_wires = false;
+    bool constr_pips = false;
+
     std::unordered_set<BelId> bels;
     std::unordered_set<WireId> wires;
+    std::unordered_set<Loc> piplocs;
 };
 
 enum PlaceStrength
