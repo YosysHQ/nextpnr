@@ -31,7 +31,7 @@ bool apply_pcf(Context *ctx, std::istream &in)
 {
     try {
         if (!in)
-            log_error("failed to open PCF file");
+            log_error("failed to open PCF file\n");
         std::string line;
         while (std::getline(in, line)) {
             size_t cstart = line.find("#");

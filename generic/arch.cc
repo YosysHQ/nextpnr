@@ -175,7 +175,7 @@ void Arch::setGroupDecal(GroupId group, DecalXY decalxy)
 
 // ---------------------------------------------------------------
 
-Arch::Arch(ArchArgs) : chipName("generic") {}
+Arch::Arch(ArchArgs args) : chipName("generic"), args(args) {}
 
 void IdString::initialize_arch(const BaseCtx *ctx) {}
 
@@ -435,9 +435,11 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
     return false;
 }
 
-IdString Arch::getPortClock(const CellInfo *cell, IdString port) const { return IdString(); }
-
-bool Arch::isClockPort(const CellInfo *cell, IdString port) const { return false; }
+// Get the port class, also setting clockPort if applicable
+TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, IdString &clockPort) const
+{
+    return TMG_IGNORE;
+}
 
 bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const { return true; }
 bool Arch::isBelLocationValid(BelId bel) const { return true; }

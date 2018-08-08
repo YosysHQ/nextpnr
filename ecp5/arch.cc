@@ -330,7 +330,6 @@ BelId Arch::getPioByFunctionName(const std::string &name) const
 }
 
 std::vector<IdString> Arch::getBelPins(BelId bel) const
-
 {
     std::vector<IdString> ret;
     NPNR_ASSERT(bel != BelId());
@@ -454,9 +453,10 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
     return false;
 }
 
-IdString Arch::getPortClock(const CellInfo *cell, IdString port) const { return IdString(); }
-
-bool Arch::isClockPort(const CellInfo *cell, IdString port) const { return false; }
+TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, IdString &clockPort) const
+{
+    return TMG_IGNORE;
+}
 
 std::vector<std::pair<std::string, std::string>> Arch::getTilesAtLocation(int row, int col)
 {

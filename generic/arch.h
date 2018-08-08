@@ -121,11 +121,13 @@ struct Arch : BaseCtx
     // ---------------------------------------------------------------
     // Common Arch API. Every arch must provide the following methods.
 
+    ArchArgs args;
     Arch(ArchArgs args);
 
     std::string getChipName() const { return chipName; }
 
     IdString archId() const { return id("generic"); }
+    ArchArgs archArgs() const { return args; }
     IdString archArgsToId(ArchArgs args) const { return id("none"); }
 
     int getGridDimX() const { return gridDimX; }
@@ -207,8 +209,8 @@ struct Arch : BaseCtx
     DecalXY getGroupDecal(GroupId group) const;
 
     bool getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const;
-    IdString getPortClock(const CellInfo *cell, IdString port) const;
-    bool isClockPort(const CellInfo *cell, IdString port) const;
+    // Get the port class, also setting clockPort if applicable
+    TimingPortClass getPortTimingClass(const CellInfo *cell, IdString port, IdString &clockPort) const;
 
     bool isValidBelForCell(CellInfo *cell, BelId bel) const;
     bool isBelLocationValid(BelId bel) const;

@@ -291,6 +291,19 @@ struct CellInfo : ArchCellInfo
     // parent.[xyz] := 0 when (constr_parent == nullptr)
 };
 
+enum TimingPortClass
+{
+    TMG_CLOCK_INPUT,     // Clock input to a sequential cell
+    TMG_GEN_CLOCK,       // Generated clock output (PLL, DCC, etc)
+    TMG_REGISTER_INPUT,  // Input to a register, with an associated clock (may also have comb. fanout too)
+    TMG_REGISTER_OUTPUT, // Output from a register
+    TMG_COMB_INPUT,      // Combinational input, no paths end here
+    TMG_COMB_OUTPUT,     // Combinational output, no paths start here
+    TMG_STARTPOINT,      // Unclocked primary startpoint, such as an IO cell output
+    TMG_ENDPOINT,        // Unclocked primary endpoint, such as an IO cell input
+    TMG_IGNORE,          // Asynchronous to all clocks, "don't care", and should be ignored (false path) for analysis
+};
+
 struct DeterministicRNG
 {
     uint64_t rngstate;
@@ -371,6 +384,9 @@ struct BaseCtx
     mutable std::unordered_map<std::string, int> *idstring_str_to_idx;
     mutable std::vector<const std::string *> *idstring_idx_to_str;
 
+    // Project settings and config switches
+    std::unordered_map<IdString, std::string> settings;
+
     // Placed nets and cells.
     std::unordered_map<IdString, std::unique_ptr<NetInfo>> nets;
     std::unordered_map<IdString, std::unique_ptr<CellInfo>> cells;
@@ -437,7 +453,7 @@ struct BaseCtx
 
     const Context *getCtx() const { return reinterpret_cast<const Context *>(this); }
 
-    template<typename T> const char *nameOf(const T *obj)
+    template <typename T> const char *nameOf(const T *obj)
     {
         if (obj == nullptr)
             return "";

@@ -23,7 +23,8 @@ static void initMainResource() { Q_INIT_RESOURCE(nextpnr); }
 
 NEXTPNR_NAMESPACE_BEGIN
 
-MainWindow::MainWindow(std::unique_ptr<Context> context, ArchArgs args, QWidget *parent) : BaseMainWindow(std::move(context), args, parent)
+MainWindow::MainWindow(std::unique_ptr<Context> context, ArchArgs args, QWidget *parent)
+        : BaseMainWindow(std::move(context), args, parent)
 {
     initMainResource();
 
@@ -47,9 +48,5 @@ void MainWindow::newContext(Context *ctx)
 void MainWindow::createMenu() {}
 
 void MainWindow::new_proj() {}
-
-void MainWindow::open_proj() {}
-
-bool MainWindow::save_proj() { return false; }
 
 NEXTPNR_NAMESPACE_END

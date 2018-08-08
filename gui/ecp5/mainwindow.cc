@@ -29,7 +29,8 @@ static void initMainResource() { Q_INIT_RESOURCE(nextpnr); }
 
 NEXTPNR_NAMESPACE_BEGIN
 
-MainWindow::MainWindow(std::unique_ptr<Context> context, ArchArgs args, QWidget *parent) : BaseMainWindow(std::move(context), args, parent)
+MainWindow::MainWindow(std::unique_ptr<Context> context, ArchArgs args, QWidget *parent)
+        : BaseMainWindow(std::move(context), args, parent)
 {
     initMainResource();
 
@@ -50,7 +51,8 @@ void MainWindow::newContext(Context *ctx)
     setWindowTitle(title.c_str());
 }
 
-void MainWindow::createMenu() {
+void MainWindow::createMenu()
+{
     // Add arch specific actions
     actionLoadBase = new QAction("Open Base Config", this);
     actionLoadBase->setIcon(QIcon(":/icons/resources/open_base.png"));
@@ -71,7 +73,7 @@ void MainWindow::createMenu() {
 
     menuDesign->addSeparator();
     menuDesign->addAction(actionLoadBase);
-    menuDesign->addAction(actionSaveConfig);    
+    menuDesign->addAction(actionSaveConfig);
 }
 
 static const ChipInfoPOD *get_chip_info(const RelPtr<ChipInfoPOD> *ptr) { return ptr->get(); }
@@ -96,8 +98,8 @@ static QStringList getSupportedPackages(ArchArgs::ArchArgsTypes chip)
     return packages;
 }
 
-
-void MainWindow::new_proj() {
+void MainWindow::new_proj()
+{
     QMap<QString, int> arch;
     arch.insert("Lattice ECP5 25K", ArchArgs::LFE5U_25F);
     arch.insert("Lattice ECP5 45K", ArchArgs::LFE5U_45F);
@@ -123,10 +125,6 @@ void MainWindow::new_proj() {
         }
     }
 }
-
-void MainWindow::open_proj() {}
-
-bool MainWindow::save_proj() { return false; }
 
 void MainWindow::load_base_config(std::string filename)
 {

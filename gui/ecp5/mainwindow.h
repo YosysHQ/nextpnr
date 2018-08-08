@@ -42,11 +42,10 @@ class MainWindow : public BaseMainWindow
 
   protected Q_SLOTS:
     virtual void new_proj();
-    virtual void open_proj();
-    virtual bool save_proj();
     void newContext(Context *ctx);
     void open_base();
     void save_config();
+
   private:
     QAction *actionLoadBase;
     QAction *actionSaveConfig;
