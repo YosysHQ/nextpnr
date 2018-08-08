@@ -371,6 +371,9 @@ struct BaseCtx
     mutable std::unordered_map<std::string, int> *idstring_str_to_idx;
     mutable std::vector<const std::string *> *idstring_idx_to_str;
 
+    // Project settings and config switches
+    std::unordered_map<IdString, std::string> settings;
+
     // Placed nets and cells.
     std::unordered_map<IdString, std::unique_ptr<NetInfo>> nets;
     std::unordered_map<IdString, std::unique_ptr<CellInfo>> cells;
