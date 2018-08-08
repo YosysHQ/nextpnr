@@ -115,7 +115,7 @@ bool place_single_cell(Context *ctx, CellInfo *cell, bool require_legality)
         if (cell->bel != BelId()) {
             ctx->unbindBel(cell->bel);
         }
-        BelType targetType = ctx->belTypeFromId(cell->type);
+        IdString targetType = cell->type;
         for (auto bel : ctx->getBels()) {
             if (ctx->getBelType(bel) == targetType && (!require_legality || ctx->isValidBelForCell(cell, bel))) {
                 if (ctx->checkBelAvail(bel)) {
@@ -228,7 +228,7 @@ class ConstraintLegaliseWorker
         if (locBel == BelId()) {
             return false;
         }
-        if (ctx->getBelType(locBel) != ctx->belTypeFromId(cell->type)) {
+        if (ctx->getBelType(locBel) != cell->type) {
             return false;
         }
         if (!ctx->checkBelAvail(locBel)) {

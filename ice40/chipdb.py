@@ -7,7 +7,7 @@ import argparse
 
 parser = argparse.ArgumentParser(description="convert ICE40 chip database")
 parser.add_argument("filename", type=str, help="chipdb input filename")
-parser.add_argument("-p", "--portspins", type=str, help="path to portpins.inc")
+parser.add_argument("-p", "--constids", type=str, help="path to constids.inc")
 parser.add_argument("-g", "--gfxh", type=str, help="path to gfx.h")
 parser.add_argument("--fast", type=str, help="path to timing data for fast part")
 parser.add_argument("--slow", type=str, help="path to timing data for slow part")
@@ -45,8 +45,7 @@ wire_xy = dict()
 
 cbit_re = re.compile(r'B(\d+)\[(\d+)\]')
 
-portpins = dict()
-beltypes = dict()
+constids = dict()
 tiletypes = dict()
 wiretypes = dict()
 
@@ -56,7 +55,7 @@ wire_segments = dict()
 fast_timings = None
 slow_timings = None
 
-with open(args.portspins) as f:
+with open(args.constids) as f:
     for line in f:
         line = line.replace("(", " ")
         line = line.replace(")", " ")
@@ -65,8 +64,19 @@ with open(args.portspins) as f:
             continue
         assert len(line) == 2
         assert line[0] == "X"
-        idx = len(portpins) + 1
-        portpins[line[1]] = idx
+        idx = len(constids) + 1
+        constids[line[1]] = idx
+
+constids["PLL"] = constids["ICESTORM_PLL"]
+constids["WARMBOOT"] = constids["SB_WARMBOOT"]
+constids["MAC16"] = constids["ICESTORM_DSP"]
+constids["HFOSC"] = constids["ICESTORM_HFOSC"]
+constids["LFOSC"] = constids["ICESTORM_LFOSC"]
+constids["I2C"] = constids["SB_I2C"]
+constids["SPI"] = constids["SB_SPI"]
+constids["LEDDA_IP"] = constids["SB_LEDDA_IP"]
+constids["RGBA_DRV"] = constids["SB_RGBA_DRV"]
+constids["SPRAM"] = constids["ICESTORM_SPRAM"]
 
 with open(args.gfxh) as f:
     state = 0
@@ -106,22 +116,6 @@ if args.fast is not None:
 
 if args.slow is not None:
     slow_timings = read_timings(args.slow)
-
-beltypes["ICESTORM_LC"] = 1
-beltypes["ICESTORM_RAM"] = 2
-beltypes["SB_IO"] = 3
-beltypes["SB_GB"] = 4
-beltypes["PLL"] = 5
-beltypes["WARMBOOT"] = 6
-beltypes["MAC16"] = 7
-beltypes["HFOSC"] = 8
-beltypes["LFOSC"] = 9
-beltypes["I2C"] = 10
-beltypes["SPI"] = 11
-beltypes["IO_I3C"] = 12
-beltypes["LEDDA_IP"] = 13
-beltypes["RGBA_DRV"] = 14
-beltypes["SPRAM"] = 15
 
 tiletypes["NONE"] = 0
 tiletypes["LOGIC"] = 1
@@ -592,13 +586,13 @@ def add_bel_input(bel, wire, port):
     if wire not in wire_belports:
         wire_belports[wire] = set()
     wire_belports[wire].add((bel, port))
-    bel_wires[bel].append((portpins[port], 0, wire))
+    bel_wires[bel].append((constids[port], 0, wire))
 
 def add_bel_output(bel, wire, port):
     if wire not in wire_belports:
         wire_belports[wire] = set()
     wire_belports[wire].add((bel, port))
-    bel_wires[bel].append((portpins[port], 1, wire))
+    bel_wires[bel].append((constids[port], 1, wire))
 
 def add_bel_lc(x, y, z):
     bel = len(bel_name)
@@ -768,7 +762,7 @@ def add_bel_ec(ec):
             extra_cell_config[bel].append(entry)
 
 cell_timings = {}
-tmport_to_portpin = {
+tmport_to_constids = {
     "posedge:clk": "CLK",
     "ce": "CEN",
     "sr": "SR",
@@ -793,14 +787,14 @@ tmport_to_portpin = {
 }
 
 for i in range(16):
-    tmport_to_portpin["RDATA[%d]" % i] = "RDATA_%d" % i
-    tmport_to_portpin["WDATA[%d]" % i] = "WDATA_%d" % i
-    tmport_to_portpin["MASK[%d]" % i] = "MASK_%d" % i
-    tmport_to_portpin["DATAOUT[%d]" % i] = "DATAOUT_%d" % i
+    tmport_to_constids["RDATA[%d]" % i] = "RDATA_%d" % i
+    tmport_to_constids["WDATA[%d]" % i] = "WDATA_%d" % i
+    tmport_to_constids["MASK[%d]" % i] = "MASK_%d" % i
+    tmport_to_constids["DATAOUT[%d]" % i] = "DATAOUT_%d" % i
 
 for i in range(11):
-    tmport_to_portpin["RADDR[%d]" % i] = "RADDR_%d" % i
-    tmport_to_portpin["WADDR[%d]" % i] = "WADDR_%d" % i
+    tmport_to_constids["RADDR[%d]" % i] = "RADDR_%d" % i
+    tmport_to_constids["WADDR[%d]" % i] = "WADDR_%d" % i
 
 def add_cell_timingdata(bel_type, timing_cell, fast_db, slow_db):
     timing_entries = []
@@ -808,9 +802,9 @@ def add_cell_timingdata(bel_type, timing_cell, fast_db, slow_db):
     for key in database.keys():
         skey = key.split(".")
         if skey[0] == timing_cell:
-            if skey[1] in tmport_to_portpin and skey[2] in tmport_to_portpin:
-                iport = tmport_to_portpin[skey[1]]
-                oport = tmport_to_portpin[skey[2]]
+            if skey[1] in tmport_to_constids and skey[2] in tmport_to_constids:
+                iport = tmport_to_constids[skey[1]]
+                oport = tmport_to_constids[skey[2]]
                 fastdel = fast_db[key] if fast_db is not None else 0
                 slowdel = slow_db[key] if slow_db is not None else 0
                 timing_entries.append((iport, oport, fastdel, slowdel))
@@ -946,7 +940,7 @@ for bel in range(len(bel_name)):
 bba.l("bel_data_%s" % dev_name, "BelInfoPOD")
 for bel in range(len(bel_name)):
     bba.s(bel_name[bel], "name")
-    bba.u32(beltypes[bel_type[bel]], "type")
+    bba.u32(constids[bel_type[bel]], "type")
     bba.u32(len(bel_wires[bel]), "num_bel_wires")
     bba.r("bel_wires_%d" % bel, "bel_wires")
     bba.u8(bel_pos[bel][0], "x")
@@ -1016,7 +1010,7 @@ for wire in range(num_wires):
         bba.l("wire%d_bels" % wire, "BelPortPOD")
         for belport in sorted(wire_belports[wire]):
             bba.u32(belport[0], "bel_index")
-            bba.u32(portpins[belport[1]], "port")
+            bba.u32(constids[belport[1]], "port")
     else:
         num_bel_pins = 0
 
@@ -1246,18 +1240,18 @@ for info in packageinfo:
     bba.r(info[2], "pins")
 
 for cell, timings in sorted(cell_timings.items()):
-    beltype = beltypes[cell]
+    beltype = constids[cell]
     bba.l("cell_paths_%d" % beltype, "CellPathDelayPOD")
     for entry in timings:
         fromport, toport, fast, slow = entry
-        bba.u32(portpins[fromport], "from_port")
-        bba.u32(portpins[toport], "to_port")
+        bba.u32(constids[fromport], "from_port")
+        bba.u32(constids[toport], "to_port")
         bba.u32(fast, "fast_delay")
         bba.u32(slow, "slow_delay")
 
 bba.l("cell_timings_%s" % dev_name, "CellTimingPOD")
 for cell, timings in sorted(cell_timings.items()):
-    beltype = beltypes[cell]
+    beltype = constids[cell]
     bba.u32(beltype, "type")
     bba.u32(len(timings), "num_paths")
     bba.r("cell_paths_%d" % beltype, "path_delays")

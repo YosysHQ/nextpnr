@@ -41,13 +41,6 @@ template <> struct string_converter<BelId>
     }
 };
 
-template <> struct string_converter<BelType>
-{
-    BelType from_str(Context *ctx, std::string name) { return ctx->belTypeFromId(ctx->id(name)); }
-
-    std::string to_str(Context *ctx, BelType typ) { return ctx->belTypeToId(typ).str(ctx); }
-};
-
 template <> struct string_converter<WireId>
 {
     WireId from_str(Context *ctx, std::string name) { return ctx->getWireByName(ctx->id(name)); }
@@ -60,13 +53,6 @@ template <> struct string_converter<PipId>
     PipId from_str(Context *ctx, std::string name) { return ctx->getPipByName(ctx->id(name)); }
 
     std::string to_str(Context *ctx, PipId id) { return ctx->getPipName(id).str(ctx); }
-};
-
-template <> struct string_converter<PortPin>
-{
-    PortPin from_str(Context *ctx, std::string name) { return ctx->portPinFromId(ctx->id(name)); }
-
-    std::string to_str(Context *ctx, PortPin id) { return ctx->portPinToId(id).str(ctx); }
 };
 
 } // namespace PythonConversion

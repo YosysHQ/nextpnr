@@ -100,13 +100,13 @@ struct Context;
 
 struct IdString
 {
-    int index = 0;
+    int index;
 
     static void initialize_arch(const BaseCtx *ctx);
 
     static void initialize_add(const BaseCtx *ctx, const char *s, int idx);
 
-    IdString() {}
+    constexpr IdString(int index = 0) : index(index) {}
 
     void set(const BaseCtx *ctx, const std::string &s);
 
@@ -211,7 +211,7 @@ struct DecalXY
 struct BelPin
 {
     BelId bel;
-    PortPin pin;
+    IdString pin;
 };
 
 struct CellInfo;

@@ -31,98 +31,11 @@ NEXTPNR_NAMESPACE_BEGIN
 
 // -----------------------------------------------------------------------
 
-IdString Arch::belTypeToId(BelType type) const
-{
-    if (type == TYPE_ICESTORM_LC)
-        return id("ICESTORM_LC");
-    if (type == TYPE_ICESTORM_RAM)
-        return id("ICESTORM_RAM");
-    if (type == TYPE_SB_IO)
-        return id("SB_IO");
-    if (type == TYPE_SB_GB)
-        return id("SB_GB");
-    if (type == TYPE_ICESTORM_PLL)
-        return id("ICESTORM_PLL");
-    if (type == TYPE_SB_WARMBOOT)
-        return id("SB_WARMBOOT");
-    if (type == TYPE_ICESTORM_DSP)
-        return id("ICESTORM_DSP");
-    if (type == TYPE_ICESTORM_HFOSC)
-        return id("ICESTORM_HFOSC");
-    if (type == TYPE_ICESTORM_LFOSC)
-        return id("ICESTORM_LFOSC");
-    if (type == TYPE_SB_I2C)
-        return id("SB_I2C");
-    if (type == TYPE_SB_SPI)
-        return id("SB_SPI");
-    if (type == TYPE_IO_I3C)
-        return id("IO_I3C");
-    if (type == TYPE_SB_LEDDA_IP)
-        return id("SB_LEDDA_IP");
-    if (type == TYPE_SB_RGBA_DRV)
-        return id("SB_RGBA_DRV");
-    if (type == TYPE_ICESTORM_SPRAM)
-        return id("ICESTORM_SPRAM");
-    return IdString();
-}
-
-BelType Arch::belTypeFromId(IdString type) const
-{
-    if (type == id("ICESTORM_LC"))
-        return TYPE_ICESTORM_LC;
-    if (type == id("ICESTORM_RAM"))
-        return TYPE_ICESTORM_RAM;
-    if (type == id("SB_IO"))
-        return TYPE_SB_IO;
-    if (type == id("SB_GB"))
-        return TYPE_SB_GB;
-    if (type == id("ICESTORM_PLL"))
-        return TYPE_ICESTORM_PLL;
-    if (type == id("SB_WARMBOOT"))
-        return TYPE_SB_WARMBOOT;
-    if (type == id("ICESTORM_DSP"))
-        return TYPE_ICESTORM_DSP;
-    if (type == id("ICESTORM_HFOSC"))
-        return TYPE_ICESTORM_HFOSC;
-    if (type == id("ICESTORM_LFOSC"))
-        return TYPE_ICESTORM_LFOSC;
-    if (type == id("SB_I2C"))
-        return TYPE_SB_I2C;
-    if (type == id("SB_SPI"))
-        return TYPE_SB_SPI;
-    if (type == id("IO_I3C"))
-        return TYPE_IO_I3C;
-    if (type == id("SB_LEDDA_IP"))
-        return TYPE_SB_LEDDA_IP;
-    if (type == id("SB_RGBA_DRV"))
-        return TYPE_SB_RGBA_DRV;
-    if (type == id("ICESTORM_SPRAM"))
-        return TYPE_ICESTORM_SPRAM;
-    return TYPE_NONE;
-}
-
-// -----------------------------------------------------------------------
-
 void IdString::initialize_arch(const BaseCtx *ctx)
 {
-#define X(t) initialize_add(ctx, #t, PIN_##t);
-#include "portpins.inc"
+#define X(t) initialize_add(ctx, #t, ID_##t);
+#include "constids.inc"
 #undef X
-}
-
-IdString Arch::portPinToId(PortPin type) const
-{
-    IdString ret;
-    if (type > 0 && type < PIN_MAXIDX)
-        ret.index = type;
-    return ret;
-}
-
-PortPin Arch::portPinFromId(IdString type) const
-{
-    if (type.index > 0 && type.index < PIN_MAXIDX)
-        return PortPin(type.index);
-    return PIN_NONE;
 }
 
 // -----------------------------------------------------------------------
@@ -306,7 +219,7 @@ BelRange Arch::getBelsByTile(int x, int y) const
     return br;
 }
 
-PortType Arch::getBelPinType(BelId bel, PortPin pin) const
+PortType Arch::getBelPinType(BelId bel, IdString pin) const
 {
     NPNR_ASSERT(bel != BelId());
 
@@ -315,16 +228,16 @@ PortType Arch::getBelPinType(BelId bel, PortPin pin) const
 
     if (num_bel_wires < 7) {
         for (int i = 0; i < num_bel_wires; i++) {
-            if (bel_wires[i].port == pin)
+            if (bel_wires[i].port == pin.index)
                 return PortType(bel_wires[i].type);
         }
     } else {
         int b = 0, e = num_bel_wires - 1;
         while (b <= e) {
             int i = (b + e) / 2;
-            if (bel_wires[i].port == pin)
+            if (bel_wires[i].port == pin.index)
                 return PortType(bel_wires[i].type);
-            if (bel_wires[i].port > pin)
+            if (bel_wires[i].port > pin.index)
                 e = i - 1;
             else
                 b = i + 1;
@@ -334,7 +247,7 @@ PortType Arch::getBelPinType(BelId bel, PortPin pin) const
     return PORT_INOUT;
 }
 
-WireId Arch::getBelPinWire(BelId bel, PortPin pin) const
+WireId Arch::getBelPinWire(BelId bel, IdString pin) const
 {
     WireId ret;
 
@@ -345,7 +258,7 @@ WireId Arch::getBelPinWire(BelId bel, PortPin pin) const
 
     if (num_bel_wires < 7) {
         for (int i = 0; i < num_bel_wires; i++) {
-            if (bel_wires[i].port == pin) {
+            if (bel_wires[i].port == pin.index) {
                 ret.index = bel_wires[i].wire_index;
                 break;
             }
@@ -354,11 +267,11 @@ WireId Arch::getBelPinWire(BelId bel, PortPin pin) const
         int b = 0, e = num_bel_wires - 1;
         while (b <= e) {
             int i = (b + e) / 2;
-            if (bel_wires[i].port == pin) {
+            if (bel_wires[i].port == pin.index) {
                 ret.index = bel_wires[i].wire_index;
                 break;
             }
-            if (bel_wires[i].port > pin)
+            if (bel_wires[i].port > pin.index)
                 e = i - 1;
             else
                 b = i + 1;
@@ -368,9 +281,9 @@ WireId Arch::getBelPinWire(BelId bel, PortPin pin) const
     return ret;
 }
 
-std::vector<PortPin> Arch::getBelPins(BelId bel) const
+std::vector<IdString> Arch::getBelPins(BelId bel) const
 {
-    std::vector<PortPin> ret;
+    std::vector<IdString> ret;
 
     NPNR_ASSERT(bel != BelId());
 
@@ -378,7 +291,7 @@ std::vector<PortPin> Arch::getBelPins(BelId bel) const
     const BelWirePOD *bel_wires = chip_info->bel_data[bel.index].bel_wires.get();
 
     for (int i = 0; i < num_bel_wires; i++)
-        ret.push_back(bel_wires[i].port);
+        ret.push_back(IdString(bel_wires[i].port));
 
     return ret;
 }
@@ -814,7 +727,7 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
 
         auto bel_type = getBelType(bel);
 
-        if (bel_type == TYPE_ICESTORM_LC) {
+        if (bel_type == id_ICESTORM_LC) {
             GraphicElement el;
             el.type = GraphicElement::TYPE_BOX;
             el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
@@ -827,7 +740,7 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
             ret.push_back(el);
         }
 
-        if (bel_type == TYPE_SB_IO) {
+        if (bel_type == id_SB_IO) {
             GraphicElement el;
             el.type = GraphicElement::TYPE_BOX;
             el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
@@ -840,7 +753,7 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
             ret.push_back(el);
         }
 
-        if (bel_type == TYPE_ICESTORM_RAM) {
+        if (bel_type == id_ICESTORM_RAM) {
             for (int i = 0; i < 2; i++) {
                 GraphicElement el;
                 el.type = GraphicElement::TYPE_BOX;
@@ -861,15 +774,12 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
 
 bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const
 {
-    BelType type = belTypeFromId(cell->type);
     for (int i = 0; i < chip_info->num_timing_cells; i++) {
         const auto &tc = chip_info->cell_timing[i];
-        if (tc.type == type) {
-            PortPin fromPin = portPinFromId(fromPort);
-            PortPin toPin = portPinFromId(toPort);
+        if (tc.type == cell->type.index) {
             for (int j = 0; j < tc.num_paths; j++) {
                 const auto &path = tc.path_delays[j];
-                if (path.from_port == fromPin && path.to_port == toPin) {
+                if (path.from_port == fromPort.index && path.to_port == toPort.index) {
                     if (fast_part)
                         delay.delay = path.fast_delay;
                     else
@@ -937,8 +847,8 @@ void Arch::assignArchInfo()
 
 void Arch::assignCellInfo(CellInfo *cell)
 {
-    cell->belType = belTypeFromId(cell->type);
-    if (cell->type == id_icestorm_lc) {
+    cell->belType = cell->type;
+    if (cell->type == id_ICESTORM_LC) {
         cell->lcInfo.dffEnable = bool_or_default(cell->params, id_dff_en);
         cell->lcInfo.carryEnable = bool_or_default(cell->params, id_carry_en);
         cell->lcInfo.negClk = bool_or_default(cell->params, id_neg_clk);

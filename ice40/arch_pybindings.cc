@@ -49,13 +49,6 @@ void arch_wrap_python()
 
     class_<BelPin>("BelPin").def_readwrite("bel", &BelPin::bel).def_readwrite("pin", &BelPin::pin);
 
-    enum_<PortPin>("PortPin")
-#define X(t) .value("PIN_" #t, PIN_##t)
-
-#include "portpins.inc"
-            ;
-#undef X
-
     auto arch_cls = class_<Arch, Arch *, bases<BaseCtx>, boost::noncopyable>("Arch", init<ArchArgs>());
     auto ctx_cls = class_<Context, Context *, bases<Arch>, boost::noncopyable>("Context", no_init)
                            .def("checksum", &Context::checksum)
@@ -63,7 +56,7 @@ void arch_wrap_python()
                            .def("place", &Context::place)
                            .def("route", &Context::route);
 
-    fn_wrapper_1a<Context, decltype(&Context::getBelType), &Context::getBelType, conv_to_str<BelType>,
+    fn_wrapper_1a<Context, decltype(&Context::getBelType), &Context::getBelType, conv_to_str<IdString>,
                   conv_from_str<BelId>>::def_wrap(ctx_cls, "getBelType");
     fn_wrapper_1a<Context, decltype(&Context::checkBelAvail), &Context::checkBelAvail, pass_through<bool>,
                   conv_from_str<BelId>>::def_wrap(ctx_cls, "checkBelAvail");
@@ -81,7 +74,7 @@ void arch_wrap_python()
                                                                                                              "getBels");
 
     fn_wrapper_2a<Context, decltype(&Context::getBelPinWire), &Context::getBelPinWire, conv_to_str<WireId>,
-                  conv_from_str<BelId>, conv_from_str<PortPin>>::def_wrap(ctx_cls, "getBelPinWire");
+                  conv_from_str<BelId>, conv_from_str<IdString>>::def_wrap(ctx_cls, "getBelPinWire");
     fn_wrapper_1a<Context, decltype(&Context::getWireBelPins), &Context::getWireBelPins, wrap_context<BelPinRange>,
                   conv_from_str<WireId>>::def_wrap(ctx_cls, "getWireBelPins");
 

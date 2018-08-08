@@ -755,13 +755,13 @@ static void pack_special(Context *ctx)
             bool constrained = false;
             if (packed->attrs.find(ctx->id("BEL")) == packed->attrs.end()) {
                 for (auto bel : ctx->getBels()) {
-                    if (ctx->getBelType(bel) != TYPE_ICESTORM_PLL)
+                    if (ctx->getBelType(bel) != id_ICESTORM_PLL)
                         continue;
 
                     // A PAD PLL must have its' PACKAGEPIN on the SB_IO that's shared
                     // with PLLOUT_A.
                     if (is_pad) {
-                        auto pll_sb_io_belpin = ctx->getIOBSharingPLLPin(bel, PIN_PLLOUT_A);
+                        auto pll_sb_io_belpin = ctx->getIOBSharingPLLPin(bel, id_PLLOUT_A);
                         NPNR_ASSERT(pad_packagepin_net != nullptr);
                         auto pll_packagepin_driver = pad_packagepin_net->driver;
                         NPNR_ASSERT(pll_packagepin_driver.cell != nullptr);
@@ -846,7 +846,7 @@ static void pack_special(Context *ctx)
                 }
 
                 // Find wire that will be driven by this port.
-                const auto pll_out_wire = ctx->getBelPinWire(pll_bel, ctx->portPinFromId(port.name));
+                const auto pll_out_wire = ctx->getBelPinWire(pll_bel, port.name);
                 NPNR_ASSERT(pll_out_wire.index != -1);
 
                 // Now, constrain all LUTs on the output of the signal to be at
