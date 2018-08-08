@@ -24,12 +24,12 @@
 #include <QIcon>
 #include <QInputDialog>
 #include <QLineEdit>
+#include <fstream>
 #include "bitstream.h"
 #include "design_utils.h"
 #include "jsonparse.h"
 #include "log.h"
 #include "pcf.h"
-#include <fstream>
 
 static void initMainResource() { Q_INIT_RESOURCE(nextpnr); }
 

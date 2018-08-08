@@ -17,10 +17,10 @@
  *
  */
 
-#include <boost/filesystem/convenience.hpp>
 #include "project.h"
-#include "log.h"
+#include <boost/filesystem/convenience.hpp>
 #include <fstream>
+#include "log.h"
 #include "pcf.h"
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -28,7 +28,7 @@ NEXTPNR_NAMESPACE_BEGIN
 void ProjectHandler::saveArch(Context *ctx, pt::ptree &root)
 {
     root.put("project.arch.package", ctx->archArgs().package);
-    // if(!pcfFilename.empty()) 
+    // if(!pcfFilename.empty())
     //      root.put("project.input.pcf", pcfFilename);
 }
 
@@ -62,7 +62,7 @@ std::unique_ptr<Context> ProjectHandler::createContext(pt::ptree &root)
 void ProjectHandler::loadArch(Context *ctx, pt::ptree &root, std::string path)
 {
     auto input = root.get_child("project").get_child("input");
-    boost::filesystem::path pcf =  boost::filesystem::path(path) / input.get<std::string>("pcf");
+    boost::filesystem::path pcf = boost::filesystem::path(path) / input.get<std::string>("pcf");
     std::ifstream f(pcf.string());
     if (!apply_pcf(ctx, f))
         log_error("Loading PCF failed.\n");

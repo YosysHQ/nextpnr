@@ -49,6 +49,7 @@ class BaseMainWindow : public QMainWindow
     virtual ~BaseMainWindow();
     Context *getContext() { return ctx.get(); }
     void updateJsonLoaded();
+
   protected:
     void createMenusAndBars();
     void disableActions();

@@ -17,16 +17,14 @@
  *
  */
 
-#include <boost/filesystem/convenience.hpp>
 #include "project.h"
-#include "log.h"
+#include <boost/filesystem/convenience.hpp>
 #include <fstream>
+#include "log.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
-void ProjectHandler::saveArch(Context *ctx, pt::ptree &root)
-{
-}
+void ProjectHandler::saveArch(Context *ctx, pt::ptree &root) {}
 
 std::unique_ptr<Context> ProjectHandler::createContext(pt::ptree &root)
 {
@@ -34,8 +32,6 @@ std::unique_ptr<Context> ProjectHandler::createContext(pt::ptree &root)
     return std::unique_ptr<Context>(new Context(chipArgs));
 }
 
-void ProjectHandler::loadArch(Context *ctx, pt::ptree &root, std::string path)
-{
-}
+void ProjectHandler::loadArch(Context *ctx, pt::ptree &root, std::string path) {}
 
 NEXTPNR_NAMESPACE_END

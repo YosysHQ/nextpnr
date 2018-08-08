@@ -17,12 +17,12 @@
  *
  */
 
+#include "project.h"
 #include <boost/filesystem/convenience.hpp>
 #include <boost/property_tree/json_parser.hpp>
-#include "project.h"
-#include "log.h"
-#include "jsonparse.h"
 #include <fstream>
+#include "jsonparse.h"
+#include "log.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -34,10 +34,10 @@ void ProjectHandler::save(Context *ctx, std::string filename)
     root.put("project.name", boost::filesystem::basename(filename));
     root.put("project.arch.name", ctx->archId().c_str(ctx));
     root.put("project.arch.type", ctx->archArgsToId(ctx->archArgs()).c_str(ctx));
-/*  root.put("project.input.json", );*/
+    /*  root.put("project.input.json", );*/
     root.put("project.params.freq", int(ctx->target_freq / 1e6));
     root.put("project.params.seed", ctx->rngstate);
-    saveArch(ctx,root);
+    saveArch(ctx, root);
     pt::write_json(f, root);
 }
 
@@ -54,7 +54,6 @@ std::unique_ptr<Context> ProjectHandler::load(std::string filename)
         int version = root.get<int>("project.version");
         if (version != 1)
             log_error("Wrong project format version.\n");
-
 
         ctx = createContext(root);
 
@@ -77,7 +76,7 @@ std::unique_ptr<Context> ProjectHandler::load(std::string filename)
             if (params.count("seed"))
                 ctx->rngseed(params.get<uint64_t>("seed"));
         }
-        loadArch(ctx.get(),root, proj.parent_path().string());
+        loadArch(ctx.get(), root, proj.parent_path().string());
     } catch (...) {
         log_error("Error loading project file.\n");
     }

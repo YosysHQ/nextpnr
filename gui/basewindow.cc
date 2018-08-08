@@ -463,5 +463,4 @@ void BaseMainWindow::save_proj()
     }
 }
 
-
 NEXTPNR_NAMESPACE_END

@@ -35,8 +35,8 @@
 #include "design_utils.h"
 #include "jsonparse.h"
 #include "log.h"
+#include "timing.h"
 #include "version.h"
-#include <timing.h>
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -244,7 +244,7 @@ int CommandHandler::exec()
 
         if (executeBeforeContext())
             return 0;
-        
+
         std::unique_ptr<Context> ctx;
         if (vm.count("load")) {
             ctx = project.load(vm["load"].as<std::string>());
