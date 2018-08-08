@@ -57,6 +57,8 @@ slow_timings = None
 
 with open(args.constids) as f:
     for line in f:
+        if line.startswith("//"):
+            continue
         line = line.replace("(", " ")
         line = line.replace(")", " ")
         line = line.split()

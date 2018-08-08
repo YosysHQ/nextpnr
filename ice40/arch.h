@@ -437,7 +437,7 @@ struct Arch : BaseCtx
         NPNR_ASSERT(bel_to_cell[bel.index] == nullptr);
 
         bel_to_cell[bel.index] = cell;
-        bel_carry[bel.index] = (cell->type == id_icestorm_lc && cell->lcInfo.carryEnable);
+        bel_carry[bel.index] = (cell->type == id_ICESTORM_LC && cell->lcInfo.carryEnable);
         cell->bel = bel;
         cell->belStrength = strength;
         refreshUiBel(bel);
@@ -809,15 +809,6 @@ struct Arch : BaseCtx
     // netlist modifications, and validity checks
     void assignArchInfo();
     void assignCellInfo(CellInfo *cell);
-
-    IdString id_glb_buf_out;
-    IdString id_icestorm_lc, id_sb_io, id_sb_gb;
-    IdString id_cen, id_clk, id_sr;
-    IdString id_i0, id_i1, id_i2, id_i3;
-    IdString id_dff_en, id_carry_en, id_neg_clk;
-    IdString id_cin, id_cout;
-    IdString id_o, id_lo;
-    IdString id_icestorm_ram, id_rclk, id_wclk;
 
     // -------------------------------------------------
     BelPin getIOBSharingPLLPin(BelId pll, IdString pll_pin) const

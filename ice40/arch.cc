@@ -92,29 +92,6 @@ Arch::Arch(ArchArgs args) : args(args)
     wire_to_net.resize(chip_info->num_wires);
     pip_to_net.resize(chip_info->num_pips);
     switches_locked.resize(chip_info->num_switches);
-
-    // Initialise regularly used IDStrings for performance
-    id_glb_buf_out = id("GLOBAL_BUFFER_OUTPUT");
-    id_icestorm_lc = id("ICESTORM_LC");
-    id_sb_io = id("SB_IO");
-    id_sb_gb = id("SB_GB");
-    id_cen = id("CEN");
-    id_clk = id("CLK");
-    id_sr = id("SR");
-    id_i0 = id("I0");
-    id_i1 = id("I1");
-    id_i2 = id("I2");
-    id_i3 = id("I3");
-    id_dff_en = id("DFF_ENABLE");
-    id_carry_en = id("CARRY_ENABLE");
-    id_neg_clk = id("NEG_CLK");
-    id_cin = id("CIN");
-    id_cout = id("COUT");
-    id_o = id("O");
-    id_lo = id("LO");
-    id_icestorm_ram = id("ICESTORM_RAM");
-    id_rclk = id("RCLK");
-    id_wclk = id("WCLK");
 }
 
 // -----------------------------------------------------------------------
@@ -553,7 +530,7 @@ std::vector<GroupId> Arch::getGroupGroups(GroupId group) const
 bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const
 {
     const auto &driver = net_info->driver;
-    if (driver.port == id_cout && sink.port == id_cin) {
+    if (driver.port == id_COUT && sink.port == id_CIN) {
         auto driver_loc = getBelLocation(driver.cell->bel);
         auto sink_loc = getBelLocation(sink.cell->bel);
         if (driver_loc.y == sink_loc.y)
@@ -795,23 +772,23 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
 
 IdString Arch::getPortClock(const CellInfo *cell, IdString port) const
 {
-    if (cell->type == id_icestorm_lc && cell->lcInfo.dffEnable) {
-        if (port != id_lo && port != id_cin && port != id_cout)
-            return id_clk;
-    } else if (cell->type == id_icestorm_ram) {
+    if (cell->type == id_ICESTORM_LC && cell->lcInfo.dffEnable) {
+        if (port != id_LO && port != id_CIN && port != id_COUT)
+            return id_CLK;
+    } else if (cell->type == id_ICESTORM_RAM) {
         if (port.str(this)[0] == 'R')
-            return id_rclk;
+            return id_RCLK;
         else
-            return id_wclk;
+            return id_WCLK;
     }
     return IdString();
 }
 
 bool Arch::isClockPort(const CellInfo *cell, IdString port) const
 {
-    if (cell->type == id("ICESTORM_LC") && port == id("CLK"))
+    if (cell->type == id_ICESTORM_LC && port == id_CLK)
         return true;
-    if (cell->type == id("ICESTORM_RAM") && (port == id("RCLK") || (port == id("WCLK"))))
+    if (cell->type == id_ICESTORM_RAM && (port == id_RCLK || port == id_WCLK))
         return true;
     return false;
 }
@@ -820,7 +797,7 @@ bool Arch::isGlobalNet(const NetInfo *net) const
 {
     if (net == nullptr)
         return false;
-    return net->driver.cell != nullptr && net->driver.port == id_glb_buf_out;
+    return net->driver.cell != nullptr && net->driver.port == id_GLOBAL_BUFFER_OUTPUT;
 }
 
 // Assign arch arg info
@@ -849,20 +826,20 @@ void Arch::assignCellInfo(CellInfo *cell)
 {
     cell->belType = cell->type;
     if (cell->type == id_ICESTORM_LC) {
-        cell->lcInfo.dffEnable = bool_or_default(cell->params, id_dff_en);
-        cell->lcInfo.carryEnable = bool_or_default(cell->params, id_carry_en);
-        cell->lcInfo.negClk = bool_or_default(cell->params, id_neg_clk);
-        cell->lcInfo.clk = get_net_or_empty(cell, id_clk);
-        cell->lcInfo.cen = get_net_or_empty(cell, id_cen);
-        cell->lcInfo.sr = get_net_or_empty(cell, id_sr);
+        cell->lcInfo.dffEnable = bool_or_default(cell->params, id_DFF_ENABLE);
+        cell->lcInfo.carryEnable = bool_or_default(cell->params, id_CARRY_ENABLE);
+        cell->lcInfo.negClk = bool_or_default(cell->params, id_NEG_CLK);
+        cell->lcInfo.clk = get_net_or_empty(cell, id_CLK);
+        cell->lcInfo.cen = get_net_or_empty(cell, id_CEN);
+        cell->lcInfo.sr = get_net_or_empty(cell, id_SR);
         cell->lcInfo.inputCount = 0;
-        if (get_net_or_empty(cell, id_i0))
+        if (get_net_or_empty(cell, id_I0))
             cell->lcInfo.inputCount++;
-        if (get_net_or_empty(cell, id_i1))
+        if (get_net_or_empty(cell, id_I1))
             cell->lcInfo.inputCount++;
-        if (get_net_or_empty(cell, id_i2))
+        if (get_net_or_empty(cell, id_I2))
             cell->lcInfo.inputCount++;
-        if (get_net_or_empty(cell, id_i3))
+        if (get_net_or_empty(cell, id_I3))
             cell->lcInfo.inputCount++;
     }
 }

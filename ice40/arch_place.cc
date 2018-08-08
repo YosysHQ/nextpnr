@@ -91,7 +91,7 @@ bool Arch::isBelLocationValid(BelId bel) const
 
 bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const
 {
-    if (cell->type == id_icestorm_lc) {
+    if (cell->type == id_ICESTORM_LC) {
         NPNR_ASSERT(getBelType(bel) == id_ICESTORM_LC);
 
         std::vector<const CellInfo *> bel_cells;
@@ -105,7 +105,7 @@ bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const
 
         bel_cells.push_back(cell);
         return logicCellsCompatible(bel_cells);
-    } else if (cell->type == id_sb_io) {
+    } else if (cell->type == id_SB_IO) {
         // Do not allow placement of input SB_IOs on blocks where there a PLL is outputting to.
 
         // Find shared PLL by looking for driving bel siblings from D_IN_0
@@ -137,9 +137,9 @@ bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const
             }
         }
         return getBelPackagePin(bel) != "";
-    } else if (cell->type == id_sb_gb) {
-        NPNR_ASSERT(cell->ports.at(id_glb_buf_out).net != nullptr);
-        const NetInfo *net = cell->ports.at(id_glb_buf_out).net;
+    } else if (cell->type == id_SB_GB) {
+        NPNR_ASSERT(cell->ports.at(id_GLOBAL_BUFFER_OUTPUT).net != nullptr);
+        const NetInfo *net = cell->ports.at(id_GLOBAL_BUFFER_OUTPUT).net;
         IdString glb_net = getWireName(getBelPinWire(bel, id_GLOBAL_BUFFER_OUTPUT));
         int glb_id = std::stoi(std::string("") + glb_net.str(this).back());
         if (net->is_reset && net->is_enable)

@@ -1,3 +1,4 @@
+// pin and port names
 X(I0)
 X(I1)
 X(I2)
@@ -413,6 +414,7 @@ X(SLEEP)
 X(STANDBY)
 X(WREN)
 
+// cell and bel types
 X(ICESTORM_LC)
 X(ICESTORM_RAM)
 X(SB_IO)
@@ -428,3 +430,8 @@ X(IO_I3C)
 X(SB_LEDDA_IP)
 X(SB_RGBA_DRV)
 X(ICESTORM_SPRAM)
+
+// cell parameters
+X(DFF_ENABLE)
+X(CARRY_ENABLE)
+X(NEG_CLK)
