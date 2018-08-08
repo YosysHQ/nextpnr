@@ -126,10 +126,6 @@ void MainWindow::new_proj()
     }
 }
 
-void MainWindow::open_proj() {}
-
-bool MainWindow::save_proj() { return false; }
-
 void MainWindow::load_base_config(std::string filename)
 {
     disableActions();
