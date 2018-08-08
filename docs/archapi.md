@@ -455,13 +455,11 @@ Cell Delay Methods
 Returns the delay for the specified path through a cell in the `&delay` argument. The method returns
 false if there is no timing relationship from `fromPort` to `toPort`.
 
-### IdString getPortClock(const CellInfo \*cell, IdString port) const
+### TimingPortClass getPortTimingClass(const CellInfo *cell, IdString port, IdString &clockPort) const
 
-Returns the clock input port for the specified output port.
-
-### bool isClockPort(const CellInfo \*cell, IdString port) const
-
-Returns true if the specified port is a clock input.
+Return the _timing port class_ of a port. This can be a register or combinational input or output; clock input or
+output; general startpoint or endpoint; or a port ignored for timing purposes. For register ports, clockPort is set
+to the associated clock port.
 
 Placer Methods
 --------------
