@@ -215,8 +215,6 @@ struct Arch : BaseCtx
     bool getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const;
     // Get the port class, also setting clockPort if applicable
     TimingPortClass getPortTimingClass(const CellInfo *cell, IdString port, IdString &clockPort) const;
-    // Return true if a cell is an IO
-    bool isIOCell(const CellInfo *cell) const;
 
     bool isValidBelForCell(CellInfo *cell, BelId bel) const;
     bool isBelLocationValid(BelId bel) const;

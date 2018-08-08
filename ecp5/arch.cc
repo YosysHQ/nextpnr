@@ -500,8 +500,6 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, Id
     return TMG_IGNORE;
 }
 
-bool Arch::isIOCell(const CellInfo *cell) const { return cell->type == id("TRELLIS_IO"); }
-
 std::vector<std::pair<std::string, std::string>> Arch::getTilesAtLocation(int row, int col)
 {
     std::vector<std::pair<std::string, std::string>> ret;
