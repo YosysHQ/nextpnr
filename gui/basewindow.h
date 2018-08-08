@@ -48,7 +48,9 @@ class BaseMainWindow : public QMainWindow
     explicit BaseMainWindow(std::unique_ptr<Context> context, ArchArgs args, QWidget *parent = 0);
     virtual ~BaseMainWindow();
     Context *getContext() { return ctx.get(); }
-    void updateJsonLoaded();
+    void updateLoaded();
+    void projectLoad(std::string filename);
+    void notifyChangeContext();
 
   protected:
     void createMenusAndBars();
@@ -95,7 +97,6 @@ class BaseMainWindow : public QMainWindow
     std::unique_ptr<Context> ctx;
     TaskManager *task;
     bool timing_driven;
-    std::string currentJson;
     std::string currentProj;
 
     // main widgets

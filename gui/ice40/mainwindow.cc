@@ -46,8 +46,6 @@ MainWindow::MainWindow(std::unique_ptr<Context> context, ArchArgs args, QWidget 
     connect(this, &BaseMainWindow::contextChanged, this, &MainWindow::newContext);
 
     createMenu();
-
-    Q_EMIT contextChanged(ctx.get());
 }
 
 MainWindow::~MainWindow() {}
@@ -133,8 +131,6 @@ void MainWindow::new_proj()
 
         if (ok && !item.isEmpty()) {
             currentProj = "";
-            currentJson = "";
-            currentPCF = "";
             disableActions();
             chipArgs.package = package.toStdString().c_str();
             ctx = std::unique_ptr<Context>(new Context(chipArgs));
@@ -148,7 +144,6 @@ void MainWindow::new_proj()
 void MainWindow::load_pcf(std::string filename)
 {
     disableActions();
-    currentPCF = filename;
     std::ifstream f(filename);
     if (apply_pcf(ctx.get(), filename, f)) {
         log("Loading PCF successful.\n");
@@ -193,6 +188,11 @@ void MainWindow::onDisableActions()
 
 void MainWindow::onJsonLoaded() { actionLoadPCF->setEnabled(true); }
 void MainWindow::onRouteFinished() { actionSaveAsc->setEnabled(true); }
-void MainWindow::onProjectLoaded() { actionLoadPCF->setEnabled(false); }
+
+void MainWindow::onProjectLoaded()
+{
+    if (ctx->settings.find(ctx->id("project/input/pcf")) != ctx->settings.end())
+        actionLoadPCF->setEnabled(false);
+}
 
 NEXTPNR_NAMESPACE_END

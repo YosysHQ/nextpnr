@@ -40,7 +40,6 @@ MainWindow::MainWindow(std::unique_ptr<Context> context, ArchArgs args, QWidget 
     connect(this, &BaseMainWindow::contextChanged, this, &MainWindow::newContext);
 
     createMenu();
-    Q_EMIT contextChanged(ctx.get());
 }
 
 MainWindow::~MainWindow() {}
@@ -115,7 +114,6 @@ void MainWindow::new_proj()
 
         if (ok && !item.isEmpty()) {
             currentProj = "";
-            currentJson = "";
             disableActions();
             chipArgs.package = package.toStdString().c_str();
             ctx = std::unique_ptr<Context>(new Context(chipArgs));

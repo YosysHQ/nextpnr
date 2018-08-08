@@ -168,12 +168,16 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
             if (vm.count("json")) {
                 std::string filename = vm["json"].as<std::string>();
                 std::ifstream f(filename);
+                w.notifyChangeContext();
                 if (!parse_json_file(f, filename, w.getContext()))
                     log_error("Loading design failed.\n");
 
                 customAfterLoad(w.getContext());
-                w.updateJsonLoaded();
-            }
+                w.updateLoaded();
+            } else if (vm.count("load")) {
+                w.projectLoad(vm["load"].as<std::string>());
+            } else
+                w.notifyChangeContext();
         } catch (log_execution_error_exception) {
             // show error is handled by gui itself
         }
@@ -247,7 +251,7 @@ int CommandHandler::exec()
             return 0;
 
         std::unique_ptr<Context> ctx;
-        if (vm.count("load")) {
+        if (vm.count("load") && vm.count("gui") == 0) {
             ctx = project.load(vm["load"].as<std::string>());
         } else {
             ctx = createContext();

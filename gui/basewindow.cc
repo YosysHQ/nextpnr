@@ -298,12 +298,11 @@ void BaseMainWindow::createMenusAndBars()
 void BaseMainWindow::load_json(std::string filename)
 {
     disableActions();
-    currentJson = filename;
     std::ifstream f(filename);
     if (parse_json_file(f, filename, ctx.get())) {
         log("Loading design successful.\n");
         Q_EMIT updateTreeView();
-        updateJsonLoaded();
+        updateLoaded();
     } else {
         actionLoadJSON->setEnabled(true);
         log("Loading design failed.\n");
@@ -420,35 +419,42 @@ void BaseMainWindow::disableActions()
 
     actionNew->setEnabled(true);
     actionOpen->setEnabled(true);
-    actionSave->setEnabled(!currentJson.empty());
+
+    if (ctx->settings.find(ctx->id("project/input/json")) != ctx->settings.end())
+        actionSave->setEnabled(true);
+    else
+        actionSave->setEnabled(false);
 
     onDisableActions();
 }
 
-void BaseMainWindow::updateJsonLoaded()
+void BaseMainWindow::updateLoaded()
 {
     disableActions();
     actionPack->setEnabled(true);
     onJsonLoaded();
+    onProjectLoaded();
+}
+
+void BaseMainWindow::projectLoad(std::string filename)
+{
+    ProjectHandler proj;
+    disableActions();
+    ctx = proj.load(filename);
+    Q_EMIT contextChanged(ctx.get());
+    log_info("Loaded project %s...\n", filename.c_str());
+    updateLoaded();
 }
 
 void BaseMainWindow::open_proj()
 {
     QString fileName = QFileDialog::getOpenFileName(this, QString("Open Project"), QString(), QString("*.proj"));
     if (!fileName.isEmpty()) {
-        try {
-            ProjectHandler proj;
-            disableActions();
-            ctx = proj.load(fileName.toStdString());
-            Q_EMIT contextChanged(ctx.get());
-            log_info("Loaded project %s...\n", fileName.toStdString().c_str());
-            updateJsonLoaded();
-            onProjectLoaded();
-        } catch (log_execution_error_exception) {
-        }
+        projectLoad(fileName.toStdString());
     }
 }
 
+void BaseMainWindow::notifyChangeContext() { Q_EMIT contextChanged(ctx.get()); }
 void BaseMainWindow::save_proj()
 {
     if (currentProj.empty()) {

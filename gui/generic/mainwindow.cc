@@ -34,7 +34,6 @@ MainWindow::MainWindow(std::unique_ptr<Context> context, ArchArgs args, QWidget 
     connect(this, &BaseMainWindow::contextChanged, this, &MainWindow::newContext);
 
     createMenu();
-    Q_EMIT contextChanged(ctx.get());
 }
 
 MainWindow::~MainWindow() {}

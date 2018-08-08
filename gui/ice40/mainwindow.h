@@ -54,8 +54,6 @@ class MainWindow : public BaseMainWindow
   private:
     QAction *actionLoadPCF;
     QAction *actionSaveAsc;
-
-    std::string currentPCF;
 };
 
 NEXTPNR_NAMESPACE_END
