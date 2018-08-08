@@ -128,12 +128,6 @@ struct Arch : BaseCtx
     IdString archId() const { return id("generic"); }
     IdString archArgsToId(ArchArgs args) const { return id("none"); }
 
-    IdString belTypeToId(BelType type) const { return type; }
-    IdString portPinToId(PortPin type) const { return type; }
-
-    BelType belTypeFromId(IdString id) const { return id; }
-    PortPin portPinFromId(IdString id) const { return id; }
-
     int getGridDimX() const { return gridDimX; }
     int getGridDimY() const { return gridDimY; }
     int getTileDimZ(int x, int y) const { return tileDimZ[x][y]; }
@@ -151,10 +145,10 @@ struct Arch : BaseCtx
     CellInfo *getBoundBelCell(BelId bel) const;
     CellInfo *getConflictingBelCell(BelId bel) const;
     const std::vector<BelId> &getBels() const;
-    BelType getBelType(BelId bel) const;
-    WireId getBelPinWire(BelId bel, PortPin pin) const;
-    PortType getBelPinType(BelId bel, PortPin pin) const;
-    std::vector<PortPin> getBelPins(BelId bel) const;
+    IdString getBelType(BelId bel) const;
+    WireId getBelPinWire(BelId bel, IdString pin) const;
+    PortType getBelPinType(BelId bel, IdString pin) const;
+    std::vector<IdString> getBelPins(BelId bel) const;
 
     WireId getWireByName(IdString name) const;
     IdString getWireName(WireId wire) const;
