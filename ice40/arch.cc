@@ -913,9 +913,23 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, Id
             else
                 return TMG_COMB_INPUT;
         }
-    } else if (cell->type == id_icestorm_ram || cell->type == id("ICESTORM_DSP") ||
-               cell->type == id("ICESTORM_SPRAM")) {
-        if (port == id_clk || port == id_rclk || port == id_wclk)
+    } else if (cell->type == id_icestorm_ram) {
+
+        if (port == id_rclk || port == id_wclk)
+            return TMG_CLOCK_INPUT;
+
+        if (port.str(this)[0] == 'R')
+            clockPort = id_rclk;
+        else
+            clockPort = id_wclk;
+
+        if (cell->ports.at(port).type == PORT_OUT)
+            return TMG_REGISTER_OUTPUT;
+        else
+            return TMG_REGISTER_INPUT;
+    } else if (cell->type == id("ICESTORM_DSP") || cell->type == id("ICESTORM_SPRAM")) {
+        clockPort = id_clk;
+        if (port == id_clk)
             return TMG_CLOCK_INPUT;
         else if (cell->ports.at(port).type == PORT_OUT)
             return TMG_REGISTER_OUTPUT;
