@@ -47,6 +47,7 @@ class MainWindow : public BaseMainWindow
     void newContext(Context *ctx);
     void open_base();
     void save_config();
+
   private:
     QAction *actionLoadBase;
     QAction *actionSaveConfig;

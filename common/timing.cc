@@ -84,20 +84,20 @@ struct Timing
                     input_ports.push_back(port.first);
             }
 
-            bool is_io = ctx->isIOCell(cell.second.get());
             for (auto o : output_ports) {
-                IdString clock_domain = ctx->getPortClock(cell.second.get(), o->name);
+                IdString clockPort;
+                TimingPortClass portClass = ctx->getPortTimingClass(cell.second.get(), o->name, clockPort);
                 // If output port is influenced by a clock (e.g. FF output)
                 //   then add it to the ordering as a timing start-point
-                if (clock_domain != IdString()) {
+                if (portClass == TMG_REGISTER_OUTPUT) {
                     DelayInfo clkToQ;
-                    ctx->getCellDelay(cell.second.get(), clock_domain, o->name, clkToQ);
+                    ctx->getCellDelay(cell.second.get(), clockPort, o->name, clkToQ);
                     topographical_order.emplace_back(o->net);
                     net_data.emplace(o->net, TimingData{clkToQ.maxDelay()});
                 } else {
                     // Also add I/O cells too
                     // TODO(eddieh): More generic way of detecting PLLs
-                    if (is_io || cell.second->type == ctx->id("ICESTORM_PLL")) {
+                    if (portClass == TMG_STARTPOINT || portClass == TMG_IGNORE) { // IGNORE: ????
                         topographical_order.emplace_back(o->net);
                         net_data.emplace(o->net, TimingData{});
                     }
@@ -137,12 +137,13 @@ struct Timing
 
             DelayInfo clkToQ;
             for (auto &usr : net->users) {
-                auto clock_domain = ctx->getPortClock(usr.cell, usr.port);
+                IdString clockPort;
+                TimingPortClass portClass = ctx->getPortTimingClass(usr.cell, usr.port, clockPort);
                 for (auto &port : usr.cell->ports) {
                     if (port.second.type != PORT_OUT || !port.second.net)
                         continue;
                     // Skip if this is a clocked output (but allow non-clocked ones)
-                    if (clock_domain != IdString() && ctx->getCellDelay(usr.cell, clock_domain, port.first, clkToQ))
+                    if (portClass == TMG_REGISTER_OUTPUT || portClass == TMG_ENDPOINT || portClass == TMG_IGNORE)
                         continue;
                     DelayInfo comb_delay;
                     bool is_path = ctx->getCellDelay(usr.cell, usr.port, port.first, comb_delay);
@@ -173,7 +174,9 @@ struct Timing
             const auto net_length_plus_one = nd.max_path_length + 1;
             nd.min_remaining_budget = clk_period;
             for (auto &usr : net->users) {
-                if (ctx->getPortClock(usr.cell, usr.port) != IdString()) {
+                IdString clockPort;
+                TimingPortClass portClass = ctx->getPortTimingClass(usr.cell, usr.port, clockPort);
+                if (portClass == TMG_REGISTER_INPUT || portClass == TMG_ENDPOINT || portClass == TMG_IGNORE) {
                 } else {
                     auto net_delay = net_delays ? ctx->getNetinfoRouteDelay(net, usr) : delay_t();
                     auto budget_override = ctx->getBudgetOverride(net, usr, net_delay);
@@ -212,7 +215,9 @@ struct Timing
             for (auto &usr : net->users) {
                 auto net_delay = net_delays ? ctx->getNetinfoRouteDelay(net, usr) : delay_t();
                 auto budget_override = ctx->getBudgetOverride(net, usr, net_delay);
-                if (ctx->getPortClock(usr.cell, usr.port) != IdString()) {
+                IdString associatedClock;
+                TimingPortClass portClass = ctx->getPortTimingClass(usr.cell, usr.port, associatedClock);
+                if (portClass == TMG_REGISTER_INPUT || portClass == TMG_ENDPOINT) {
                     const auto net_arrival = nd.max_arrival;
                     auto path_budget = clk_period - (net_arrival + net_delay);
                     if (update) {
@@ -267,7 +272,10 @@ struct Timing
                     if (!is_path)
                         continue;
                     // If input port is influenced by a clock, skip
-                    if (ctx->getPortClock(crit_net->driver.cell, port.first) != IdString())
+                    IdString portClock;
+                    TimingPortClass portClass = ctx->getPortTimingClass(crit_net->driver.cell, port.first, portClock);
+                    if (portClass == TMG_REGISTER_INPUT || portClass == TMG_CLOCK_INPUT || portClass == TMG_ENDPOINT ||
+                        portClass == TMG_IGNORE)
                         continue;
 
                     // And find the fanin net with the latest arrival time
@@ -373,7 +381,9 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_path)
             auto &front = crit_path.front();
             auto &front_port = front->cell->ports.at(front->port);
             auto &front_driver = front_port.net->driver;
-            auto last_port = ctx->getPortClock(front_driver.cell, front_driver.port);
+
+            IdString last_port;
+            ctx->getPortTimingClass(front_driver.cell, front_driver.port, last_port);
             for (auto sink : crit_path) {
                 auto sink_cell = sink->cell;
                 auto &port = sink_cell->ports.at(sink->port);
