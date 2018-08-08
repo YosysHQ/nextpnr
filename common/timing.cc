@@ -95,14 +95,13 @@ struct Timing
                     topographical_order.emplace_back(o->net);
                     net_data.emplace(o->net, TimingData{clkToQ.maxDelay()});
                 } else {
-                    // Also add I/O cells too
                     // TODO: how to process ignore here
-                    if (portClass == TMG_STARTPOINT || portClass == TMG_IGNORE) {
+                    if (portClass == TMG_STARTPOINT || portClass == TMG_GEN_CLOCK || portClass == TMG_IGNORE) {
                         topographical_order.emplace_back(o->net);
                         net_data.emplace(o->net, TimingData{});
                     }
                     // Otherwise, for all driven input ports on this cell,
-                    //   if a timing arch exists between the input and
+                    //   if a timing arc exists between the input and
                     //   the current output port, increment fanin counter
                     for (auto i : input_ports) {
                         DelayInfo comb_delay;
