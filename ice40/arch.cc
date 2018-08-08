@@ -938,7 +938,7 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, Id
     } else if (cell->type == id_sb_io) {
         if (port == id("D_IN_0") || port == id("D_IN_1"))
             return TMG_STARTPOINT;
-        if (port == id("D_OUT_0") || port == id("D_OUT_1"))
+        if (port == id("D_OUT_0") || port == id("D_OUT_1") || port == id("OUTPUT_ENABLE"))
             return TMG_ENDPOINT;
         return TMG_IGNORE;
     } else if (cell->type == id("ICESTORM_PLL")) {

@@ -96,8 +96,8 @@ struct Timing
                     net_data.emplace(o->net, TimingData{clkToQ.maxDelay()});
                 } else {
                     // Also add I/O cells too
-                    // TODO(eddieh): More generic way of detecting PLLs
-                    if (portClass == TMG_STARTPOINT || portClass == TMG_IGNORE) { // IGNORE: ????
+                    // TODO: how to process ignore here
+                    if (portClass == TMG_STARTPOINT || portClass == TMG_IGNORE) {
                         topographical_order.emplace_back(o->net);
                         net_data.emplace(o->net, TimingData{});
                     }
@@ -138,12 +138,17 @@ struct Timing
             DelayInfo clkToQ;
             for (auto &usr : net->users) {
                 IdString clockPort;
-                TimingPortClass portClass = ctx->getPortTimingClass(usr.cell, usr.port, clockPort);
+                TimingPortClass usrClass = ctx->getPortTimingClass(usr.cell, usr.port, clockPort);
+                if (usrClass == TMG_IGNORE || usrClass == TMG_CLOCK_INPUT)
+                    continue;
                 for (auto &port : usr.cell->ports) {
                     if (port.second.type != PORT_OUT || !port.second.net)
                         continue;
+                    TimingPortClass portClass = ctx->getPortTimingClass(usr.cell, port.first, clockPort);
+
                     // Skip if this is a clocked output (but allow non-clocked ones)
-                    if (portClass == TMG_REGISTER_OUTPUT || portClass == TMG_ENDPOINT || portClass == TMG_IGNORE)
+                    if (portClass == TMG_REGISTER_OUTPUT || portClass == TMG_STARTPOINT || portClass == TMG_IGNORE ||
+                        portClass == TMG_GEN_CLOCK)
                         continue;
                     DelayInfo comb_delay;
                     bool is_path = ctx->getCellDelay(usr.cell, usr.port, port.first, comb_delay);
