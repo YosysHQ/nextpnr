@@ -51,21 +51,17 @@ struct DelayInfo
 
 // -----------------------------------------------------------------------
 
-enum BelType : int32_t
+enum ConstIds
 {
-    TYPE_NONE,
-    TYPE_TRELLIS_SLICE,
-    TYPE_TRELLIS_IO
+    ID_NONE
+#define X(t) , ID_##t
+#include "constids.inc"
+#undef X
 };
 
-enum PortPin : int32_t
-{
-    PIN_NONE,
-#define X(t) PIN_##t,
-#include "portpins.inc"
+#define X(t) static constexpr auto id_##t = IdString(ID_##t);
+#include "constids.inc"
 #undef X
-    PIN_MAXIDX
-};
 
 NPNR_PACKED_STRUCT(struct LocationPOD { int16_t x, y; });
 
@@ -209,11 +205,4 @@ template <> struct hash<NEXTPNR_NAMESPACE_PREFIX DecalId>
     }
 };
 
-template <> struct hash<NEXTPNR_NAMESPACE_PREFIX BelType> : hash<int>
-{
-};
-
-template <> struct hash<NEXTPNR_NAMESPACE_PREFIX PortPin> : hash<int>
-{
-};
 } // namespace std

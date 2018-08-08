@@ -28,14 +28,6 @@ delay_t minDelay() const { return delay; }
 delay_t maxDelay() const { return delay; }
 ```
 
-### BelType
-
-A type representing a bel type name. `BelType()` must construct a unique null-value. Must provide `==` and `!=` operators and a specialization for `std::hash<BelType>`.
-
-### PortPin
-
-A type representing a port or pin name. `PortPin()` must construct a unique null-value. Must provide `==` and `!=` operators and a specialization for `std::hash<PortPin>`.
-
 ### BelId
 
 A type representing a bel name. `BelId()` must construct a unique null-value. Must provide `==` and `!=` operators and a specialization for `std::hash<BelId>`.
@@ -79,22 +71,6 @@ Constructor. ArchArgs is a architecture-specific type (usually a struct also def
 ### std::string getChipName() const
 
 Return a string representation of the ArchArgs that was used to construct this object.
-
-### IdString belTypeToId(BelType type) const
-
-Convert a `BelType` to an `IdString`.
-
-### IdString portPinToId(PortPin type) const
-
-Convert a `PortPin` to an `IdString`.
-
-### BelType belTypeFromId(IdString id) const
-
-Convert `IdString` to `BelType`.
-
-### PortPin portPinFromId(IdString id) const
-
-Convert `IdString` to `PortPin`.
 
 ### int getGridDimX() const
 
@@ -167,19 +143,19 @@ If the bel is unavailable, and unbinding a single cell would make it available, 
 
 Return a list of all bels on the device.
 
-### BelType getBelType(BelId bel) const
+### IdString getBelType(BelId bel) const
 
 Return the type of a given bel.
 
-### WireId getBelPinWire(BelId bel, PortPin pin) const
+### WireId getBelPinWire(BelId bel, IdString pin) const
 
 Return the wire connected to the given bel pin.
 
-### PortType getBelPinType(BelId bel, PortPin pin) const
+### PortType getBelPinType(BelId bel, IdString pin) const
 
 Return the type (input/output/inout) of the given bel pin.
 
-### const\_range\<PortPin\> getBelPins(BelId bel) const
+### const\_range\<IdString\> getBelPins(BelId bel) const
 
 Return a list of all pins on that bel.
 

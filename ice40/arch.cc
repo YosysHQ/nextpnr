@@ -32,100 +32,11 @@ NEXTPNR_NAMESPACE_BEGIN
 
 // -----------------------------------------------------------------------
 
-IdString Arch::belTypeToId(BelType type) const
-{
-    if (type == TYPE_ICESTORM_LC)
-        return id("ICESTORM_LC");
-    if (type == TYPE_ICESTORM_RAM)
-        return id("ICESTORM_RAM");
-    if (type == TYPE_SB_IO)
-        return id("SB_IO");
-    if (type == TYPE_SB_GB)
-        return id("SB_GB");
-    if (type == TYPE_ICESTORM_PLL)
-        return id("ICESTORM_PLL");
-    if (type == TYPE_SB_WARMBOOT)
-        return id("SB_WARMBOOT");
-    if (type == TYPE_ICESTORM_DSP)
-        return id("ICESTORM_DSP");
-    if (type == TYPE_ICESTORM_HFOSC)
-        return id("ICESTORM_HFOSC");
-    if (type == TYPE_ICESTORM_LFOSC)
-        return id("ICESTORM_LFOSC");
-    if (type == TYPE_SB_I2C)
-        return id("SB_I2C");
-    if (type == TYPE_SB_SPI)
-        return id("SB_SPI");
-    if (type == TYPE_IO_I3C)
-        return id("IO_I3C");
-    if (type == TYPE_SB_LEDDA_IP)
-        return id("SB_LEDDA_IP");
-    if (type == TYPE_SB_RGBA_DRV)
-        return id("SB_RGBA_DRV");
-    if (type == TYPE_ICESTORM_SPRAM)
-        return id("ICESTORM_SPRAM");
-    return IdString();
-}
-
-BelType Arch::belTypeFromId(IdString type) const
-{
-    if (type == id("ICESTORM_LC"))
-        return TYPE_ICESTORM_LC;
-    if (type == id("ICESTORM_RAM"))
-        return TYPE_ICESTORM_RAM;
-    if (type == id("SB_IO"))
-        return TYPE_SB_IO;
-    if (type == id("SB_GB"))
-        return TYPE_SB_GB;
-    if (type == id("ICESTORM_PLL"))
-        return TYPE_ICESTORM_PLL;
-    if (type == id("SB_WARMBOOT"))
-        return TYPE_SB_WARMBOOT;
-    if (type == id("ICESTORM_DSP"))
-        return TYPE_ICESTORM_DSP;
-    if (type == id("ICESTORM_HFOSC"))
-        return TYPE_ICESTORM_HFOSC;
-    if (type == id("ICESTORM_LFOSC"))
-        return TYPE_ICESTORM_LFOSC;
-    if (type == id("SB_I2C"))
-        return TYPE_SB_I2C;
-    if (type == id("SB_SPI"))
-        return TYPE_SB_SPI;
-    if (type == id("IO_I3C"))
-        return TYPE_IO_I3C;
-    if (type == id("SB_LEDDA_IP"))
-        return TYPE_SB_LEDDA_IP;
-    if (type == id("SB_RGBA_DRV"))
-        return TYPE_SB_RGBA_DRV;
-    if (type == id("ICESTORM_SPRAM"))
-        return TYPE_ICESTORM_SPRAM;
-    return TYPE_NONE;
-}
-
-// -----------------------------------------------------------------------
-
 void IdString::initialize_arch(const BaseCtx *ctx)
 {
-#define X(t) initialize_add(ctx, #t, PIN_##t);
-
-#include "portpins.inc"
-
+#define X(t) initialize_add(ctx, #t, ID_##t);
+#include "constids.inc"
 #undef X
-}
-
-IdString Arch::portPinToId(PortPin type) const
-{
-    IdString ret;
-    if (type > 0 && type < PIN_MAXIDX)
-        ret.index = type;
-    return ret;
-}
-
-PortPin Arch::portPinFromId(IdString type) const
-{
-    if (type.index > 0 && type.index < PIN_MAXIDX)
-        return PortPin(type.index);
-    return PIN_NONE;
 }
 
 // -----------------------------------------------------------------------
@@ -182,29 +93,6 @@ Arch::Arch(ArchArgs args) : args(args)
     wire_to_net.resize(chip_info->num_wires);
     pip_to_net.resize(chip_info->num_pips);
     switches_locked.resize(chip_info->num_switches);
-
-    // Initialise regularly used IDStrings for performance
-    id_glb_buf_out = id("GLOBAL_BUFFER_OUTPUT");
-    id_icestorm_lc = id("ICESTORM_LC");
-    id_sb_io = id("SB_IO");
-    id_sb_gb = id("SB_GB");
-    id_cen = id("CEN");
-    id_clk = id("CLK");
-    id_sr = id("SR");
-    id_i0 = id("I0");
-    id_i1 = id("I1");
-    id_i2 = id("I2");
-    id_i3 = id("I3");
-    id_dff_en = id("DFF_ENABLE");
-    id_carry_en = id("CARRY_ENABLE");
-    id_neg_clk = id("NEG_CLK");
-    id_cin = id("CIN");
-    id_cout = id("COUT");
-    id_o = id("O");
-    id_lo = id("LO");
-    id_icestorm_ram = id("ICESTORM_RAM");
-    id_rclk = id("RCLK");
-    id_wclk = id("WCLK");
 }
 
 // -----------------------------------------------------------------------
@@ -310,7 +198,7 @@ BelRange Arch::getBelsByTile(int x, int y) const
     return br;
 }
 
-PortType Arch::getBelPinType(BelId bel, PortPin pin) const
+PortType Arch::getBelPinType(BelId bel, IdString pin) const
 {
     NPNR_ASSERT(bel != BelId());
 
@@ -319,16 +207,16 @@ PortType Arch::getBelPinType(BelId bel, PortPin pin) const
 
     if (num_bel_wires < 7) {
         for (int i = 0; i < num_bel_wires; i++) {
-            if (bel_wires[i].port == pin)
+            if (bel_wires[i].port == pin.index)
                 return PortType(bel_wires[i].type);
         }
     } else {
         int b = 0, e = num_bel_wires - 1;
         while (b <= e) {
             int i = (b + e) / 2;
-            if (bel_wires[i].port == pin)
+            if (bel_wires[i].port == pin.index)
                 return PortType(bel_wires[i].type);
-            if (bel_wires[i].port > pin)
+            if (bel_wires[i].port > pin.index)
                 e = i - 1;
             else
                 b = i + 1;
@@ -338,7 +226,7 @@ PortType Arch::getBelPinType(BelId bel, PortPin pin) const
     return PORT_INOUT;
 }
 
-WireId Arch::getBelPinWire(BelId bel, PortPin pin) const
+WireId Arch::getBelPinWire(BelId bel, IdString pin) const
 {
     WireId ret;
 
@@ -349,7 +237,7 @@ WireId Arch::getBelPinWire(BelId bel, PortPin pin) const
 
     if (num_bel_wires < 7) {
         for (int i = 0; i < num_bel_wires; i++) {
-            if (bel_wires[i].port == pin) {
+            if (bel_wires[i].port == pin.index) {
                 ret.index = bel_wires[i].wire_index;
                 break;
             }
@@ -358,11 +246,11 @@ WireId Arch::getBelPinWire(BelId bel, PortPin pin) const
         int b = 0, e = num_bel_wires - 1;
         while (b <= e) {
             int i = (b + e) / 2;
-            if (bel_wires[i].port == pin) {
+            if (bel_wires[i].port == pin.index) {
                 ret.index = bel_wires[i].wire_index;
                 break;
             }
-            if (bel_wires[i].port > pin)
+            if (bel_wires[i].port > pin.index)
                 e = i - 1;
             else
                 b = i + 1;
@@ -372,9 +260,9 @@ WireId Arch::getBelPinWire(BelId bel, PortPin pin) const
     return ret;
 }
 
-std::vector<PortPin> Arch::getBelPins(BelId bel) const
+std::vector<IdString> Arch::getBelPins(BelId bel) const
 {
-    std::vector<PortPin> ret;
+    std::vector<IdString> ret;
 
     NPNR_ASSERT(bel != BelId());
 
@@ -382,7 +270,7 @@ std::vector<PortPin> Arch::getBelPins(BelId bel) const
     const BelWirePOD *bel_wires = chip_info->bel_data[bel.index].bel_wires.get();
 
     for (int i = 0; i < num_bel_wires; i++)
-        ret.push_back(bel_wires[i].port);
+        ret.push_back(IdString(bel_wires[i].port));
 
     return ret;
 }
@@ -644,7 +532,7 @@ std::vector<GroupId> Arch::getGroupGroups(GroupId group) const
 bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const
 {
     const auto &driver = net_info->driver;
-    if (driver.port == id_cout && sink.port == id_cin) {
+    if (driver.port == id_COUT && sink.port == id_CIN) {
         auto driver_loc = getBelLocation(driver.cell->bel);
         auto sink_loc = getBelLocation(sink.cell->bel);
         if (driver_loc.y == sink_loc.y)
@@ -822,7 +710,7 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
 
         auto bel_type = getBelType(bel);
 
-        if (bel_type == TYPE_ICESTORM_LC) {
+        if (bel_type == id_ICESTORM_LC) {
             GraphicElement el;
             el.type = GraphicElement::TYPE_BOX;
             el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
@@ -835,7 +723,7 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
             ret.push_back(el);
         }
 
-        if (bel_type == TYPE_SB_IO) {
+        if (bel_type == id_SB_IO) {
             GraphicElement el;
             el.type = GraphicElement::TYPE_BOX;
             el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
@@ -848,7 +736,7 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
             ret.push_back(el);
         }
 
-        if (bel_type == TYPE_ICESTORM_RAM) {
+        if (bel_type == id_ICESTORM_RAM) {
             for (int i = 0; i < 2; i++) {
                 GraphicElement el;
                 el.type = GraphicElement::TYPE_BOX;
@@ -869,15 +757,12 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
 
 bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const
 {
-    BelType type = belTypeFromId(cell->type);
     for (int i = 0; i < chip_info->num_timing_cells; i++) {
         const auto &tc = chip_info->cell_timing[i];
-        if (tc.type == type) {
-            PortPin fromPin = portPinFromId(fromPort);
-            PortPin toPin = portPinFromId(toPort);
+        if (tc.type == cell->type.index) {
             for (int j = 0; j < tc.num_paths; j++) {
                 const auto &path = tc.path_delays[j];
-                if (path.from_port == fromPin && path.to_port == toPin) {
+                if (path.from_port == fromPort.index && path.to_port == toPort.index) {
                     if (fast_part)
                         delay.delay = path.fast_delay;
                     else
@@ -894,70 +779,70 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
 // Get the port class, also setting clockPort to associated clock if applicable
 TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, IdString &clockPort) const
 {
-    if (cell->type == id_icestorm_lc) {
-        if (port == id_clk)
+    if (cell->type == id_ICESTORM_LC) {
+        if (port == id_CLK)
             return TMG_CLOCK_INPUT;
-        if (port == id_cin)
+        if (port == id_CIN)
             return TMG_COMB_INPUT;
-        if (port == id_cout || port == id_lo)
+        if (port == id_COUT || port == id_LO)
             return TMG_COMB_OUTPUT;
         if (cell->lcInfo.dffEnable) {
-            clockPort = id_clk;
-            if (port == id_o)
+            clockPort = id_CLK;
+            if (port == id_O)
                 return TMG_REGISTER_OUTPUT;
             else
                 return TMG_REGISTER_INPUT;
         } else {
-            if (port == id_o)
+            if (port == id_O)
                 return TMG_COMB_OUTPUT;
             else
                 return TMG_COMB_INPUT;
         }
-    } else if (cell->type == id_icestorm_ram) {
+    } else if (cell->type == id_ICESTORM_RAM) {
 
-        if (port == id_rclk || port == id_wclk)
+        if (port == id_RCLK || port == id_WCLK)
             return TMG_CLOCK_INPUT;
 
         if (port.str(this)[0] == 'R')
-            clockPort = id_rclk;
+            clockPort = id_RCLK;
         else
-            clockPort = id_wclk;
+            clockPort = id_WCLK;
 
         if (cell->ports.at(port).type == PORT_OUT)
             return TMG_REGISTER_OUTPUT;
         else
             return TMG_REGISTER_INPUT;
-    } else if (cell->type == id("ICESTORM_DSP") || cell->type == id("ICESTORM_SPRAM")) {
-        clockPort = id_clk;
-        if (port == id_clk)
+    } else if (cell->type == id_ICESTORM_DSP || cell->type == id_ICESTORM_SPRAM) {
+        clockPort = id_CLK;
+        if (port == id_CLK)
             return TMG_CLOCK_INPUT;
         else if (cell->ports.at(port).type == PORT_OUT)
             return TMG_REGISTER_OUTPUT;
         else
             return TMG_REGISTER_INPUT;
-    } else if (cell->type == id_sb_io) {
-        if (port == id("D_IN_0") || port == id("D_IN_1"))
+    } else if (cell->type == id_SB_IO) {
+        if (port == id_D_IN_0 || port == id_D_IN_1)
             return TMG_STARTPOINT;
-        if (port == id("D_OUT_0") || port == id("D_OUT_1") || port == id("OUTPUT_ENABLE"))
+        if (port == id_D_OUT_0 || port == id_D_OUT_1 || port == id_OUTPUT_ENABLE)
             return TMG_ENDPOINT;
         return TMG_IGNORE;
-    } else if (cell->type == id("ICESTORM_PLL")) {
-        if (port == id("PLLOUT_A") || port == id("PLLOUT_B"))
+    } else if (cell->type == id_ICESTORM_PLL) {
+        if (port == id_PLLOUT_A || port == id_PLLOUT_B)
             return TMG_GEN_CLOCK;
         return TMG_IGNORE;
-    } else if (cell->type == id("ICESTORM_LFOSC")) {
-        if (port == id("CLKLF"))
+    } else if (cell->type == id_ICESTORM_LFOSC) {
+        if (port == id_CLKLF)
             return TMG_GEN_CLOCK;
         return TMG_IGNORE;
-    } else if (cell->type == id("ICESTORM_HFOSC")) {
-        if (port == id("CLKHF"))
+    } else if (cell->type == id_ICESTORM_HFOSC) {
+        if (port == id_CLKHF)
             return TMG_GEN_CLOCK;
         return TMG_IGNORE;
-    } else if (cell->type == id_sb_gb) {
-        if (port == id_glb_buf_out)
+    } else if (cell->type == id_SB_GB) {
+        if (port == id_GLOBAL_BUFFER_OUTPUT)
             return TMG_COMB_OUTPUT;
         return TMG_COMB_INPUT;
-    } else if (cell->type == id("SB_WARMBOOT")) {
+    } else if (cell->type == id_SB_WARMBOOT) {
         return TMG_ENDPOINT;
     }
     log_error("no timing info for port '%s' of cell type '%s'\n", port.c_str(this), cell->type.c_str(this));
@@ -967,7 +852,7 @@ bool Arch::isGlobalNet(const NetInfo *net) const
 {
     if (net == nullptr)
         return false;
-    return net->driver.cell != nullptr && net->driver.port == id_glb_buf_out;
+    return net->driver.cell != nullptr && net->driver.port == id_GLOBAL_BUFFER_OUTPUT;
 }
 
 // Assign arch arg info
@@ -994,22 +879,22 @@ void Arch::assignArchInfo()
 
 void Arch::assignCellInfo(CellInfo *cell)
 {
-    cell->belType = belTypeFromId(cell->type);
-    if (cell->type == id_icestorm_lc) {
-        cell->lcInfo.dffEnable = bool_or_default(cell->params, id_dff_en);
-        cell->lcInfo.carryEnable = bool_or_default(cell->params, id_carry_en);
-        cell->lcInfo.negClk = bool_or_default(cell->params, id_neg_clk);
-        cell->lcInfo.clk = get_net_or_empty(cell, id_clk);
-        cell->lcInfo.cen = get_net_or_empty(cell, id_cen);
-        cell->lcInfo.sr = get_net_or_empty(cell, id_sr);
+    cell->belType = cell->type;
+    if (cell->type == id_ICESTORM_LC) {
+        cell->lcInfo.dffEnable = bool_or_default(cell->params, id_DFF_ENABLE);
+        cell->lcInfo.carryEnable = bool_or_default(cell->params, id_CARRY_ENABLE);
+        cell->lcInfo.negClk = bool_or_default(cell->params, id_NEG_CLK);
+        cell->lcInfo.clk = get_net_or_empty(cell, id_CLK);
+        cell->lcInfo.cen = get_net_or_empty(cell, id_CEN);
+        cell->lcInfo.sr = get_net_or_empty(cell, id_SR);
         cell->lcInfo.inputCount = 0;
-        if (get_net_or_empty(cell, id_i0))
+        if (get_net_or_empty(cell, id_I0))
             cell->lcInfo.inputCount++;
-        if (get_net_or_empty(cell, id_i1))
+        if (get_net_or_empty(cell, id_I1))
             cell->lcInfo.inputCount++;
-        if (get_net_or_empty(cell, id_i2))
+        if (get_net_or_empty(cell, id_I2))
             cell->lcInfo.inputCount++;
-        if (get_net_or_empty(cell, id_i3))
+        if (get_net_or_empty(cell, id_I3))
             cell->lcInfo.inputCount++;
     }
 }

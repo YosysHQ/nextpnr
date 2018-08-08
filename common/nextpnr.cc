@@ -67,7 +67,7 @@ WireId Context::getNetinfoSourceWire(const NetInfo *net_info) const
     if (driver_port_it != net_info->driver.cell->pins.end())
         driver_port = driver_port_it->second;
 
-    return getBelPinWire(src_bel, portPinFromId(driver_port));
+    return getBelPinWire(src_bel, driver_port);
 }
 
 WireId Context::getNetinfoSinkWire(const NetInfo *net_info, const PortRef &user_info) const
@@ -84,7 +84,7 @@ WireId Context::getNetinfoSinkWire(const NetInfo *net_info, const PortRef &user_
     if (user_port_it != user_info.cell->pins.end())
         user_port = user_port_it->second;
 
-    return getBelPinWire(dst_bel, portPinFromId(user_port));
+    return getBelPinWire(dst_bel, user_port);
 }
 
 delay_t Context::getNetinfoRouteDelay(const NetInfo *net_info, const PortRef &user_info) const

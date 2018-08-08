@@ -405,7 +405,7 @@ void DesignWidget::onSelectionChanged(const QItemSelection &, const QItemSelecti
         QtProperty *topItem = addTopLevelProperty("Bel");
 
         addProperty(topItem, QVariant::String, "Name", c.c_str(ctx));
-        addProperty(topItem, QVariant::String, "Type", ctx->belTypeToId(ctx->getBelType(bel)).c_str(ctx));
+        addProperty(topItem, QVariant::String, "Type", ctx->getBelType(bel).c_str(ctx));
         addProperty(topItem, QVariant::Bool, "Available", ctx->checkBelAvail(bel));
         addProperty(topItem, QVariant::String, "Bound Cell", ctx->nameOf(ctx->getBoundBelCell(bel)), ElementType::CELL);
         addProperty(topItem, QVariant::String, "Conflicting Cell", ctx->nameOf(ctx->getConflictingBelCell(bel)),
@@ -413,8 +413,8 @@ void DesignWidget::onSelectionChanged(const QItemSelection &, const QItemSelecti
 
         QtProperty *belpinsItem = addSubGroup(topItem, "Ports");
         for (const auto &item : ctx->getBelPins(bel)) {
-            QtProperty *portInfoItem = addSubGroup(belpinsItem, ctx->portPinToId(item).c_str(ctx));
-            addProperty(portInfoItem, QVariant::String, "Name", ctx->portPinToId(item).c_str(ctx));
+            QtProperty *portInfoItem = addSubGroup(belpinsItem, item.c_str(ctx));
+            addProperty(portInfoItem, QVariant::String, "Name", item.c_str(ctx));
             addProperty(portInfoItem, QVariant::Int, "Type", int(ctx->getBelPinType(bel, item)));
             WireId wire = ctx->getBelPinWire(bel, item);
             addProperty(portInfoItem, QVariant::String, "Wire", ctx->getWireName(wire).c_str(ctx), ElementType::WIRE);
@@ -446,7 +446,7 @@ void DesignWidget::onSelectionChanged(const QItemSelection &, const QItemSelecti
             QString belname = "";
             if (item.bel != BelId())
                 belname = ctx->getBelName(item.bel).c_str(ctx);
-            QString pinname = ctx->portPinToId(item.pin).c_str(ctx);
+            QString pinname = item.pin.c_str(ctx);
 
             QtProperty *dhItem = addSubGroup(belpinsItem, belname + "-" + pinname);
             addProperty(dhItem, QVariant::String, "Bel", belname, ElementType::BEL);

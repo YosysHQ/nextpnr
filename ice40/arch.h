@@ -44,14 +44,14 @@ template <typename T> struct RelPtr
 };
 
 NPNR_PACKED_STRUCT(struct BelWirePOD {
-    PortPin port;
+    int32_t port;
     int32_t type;
     int32_t wire_index;
 });
 
 NPNR_PACKED_STRUCT(struct BelInfoPOD {
     RelPtr<char> name;
-    BelType type;
+    int32_t type;
     int32_t num_bel_wires;
     RelPtr<BelWirePOD> bel_wires;
     int8_t x, y, z;
@@ -60,7 +60,7 @@ NPNR_PACKED_STRUCT(struct BelInfoPOD {
 
 NPNR_PACKED_STRUCT(struct BelPortPOD {
     int32_t bel_index;
-    PortPin port;
+    int32_t port;
 });
 
 NPNR_PACKED_STRUCT(struct PipInfoPOD {
@@ -200,8 +200,8 @@ NPNR_PACKED_STRUCT(struct BelConfigPOD {
 });
 
 NPNR_PACKED_STRUCT(struct CellPathDelayPOD {
-    PortPin from_port;
-    PortPin to_port;
+    int32_t from_port;
+    int32_t to_port;
     int32_t fast_delay;
     int32_t slow_delay;
 });
@@ -414,12 +414,6 @@ struct Arch : BaseCtx
     ArchArgs archArgs() const { return args; }
     IdString archArgsToId(ArchArgs args) const;
 
-    IdString belTypeToId(BelType type) const;
-    BelType belTypeFromId(IdString id) const;
-
-    IdString portPinToId(PortPin type) const;
-    PortPin portPinFromId(IdString id) const;
-
     // -------------------------------------------------
 
     int getGridDimX() const { return 34; }
@@ -444,7 +438,7 @@ struct Arch : BaseCtx
         NPNR_ASSERT(bel_to_cell[bel.index] == nullptr);
 
         bel_to_cell[bel.index] = cell;
-        bel_carry[bel.index] = (cell->type == id_icestorm_lc && cell->lcInfo.carryEnable);
+        bel_carry[bel.index] = (cell->type == id_ICESTORM_LC && cell->lcInfo.carryEnable);
         cell->bel = bel;
         cell->belStrength = strength;
         refreshUiBel(bel);
@@ -499,17 +493,17 @@ struct Arch : BaseCtx
     BelId getBelByLocation(Loc loc) const;
     BelRange getBelsByTile(int x, int y) const;
 
-    bool getBelGlobalBuf(BelId bel) const { return chip_info->bel_data[bel.index].type == TYPE_SB_GB; }
+    bool getBelGlobalBuf(BelId bel) const { return chip_info->bel_data[bel.index].type == ID_SB_GB; }
 
-    BelType getBelType(BelId bel) const
+    IdString getBelType(BelId bel) const
     {
         NPNR_ASSERT(bel != BelId());
-        return chip_info->bel_data[bel.index].type;
+        return IdString(chip_info->bel_data[bel.index].type);
     }
 
-    WireId getBelPinWire(BelId bel, PortPin pin) const;
-    PortType getBelPinType(BelId bel, PortPin pin) const;
-    std::vector<PortPin> getBelPins(BelId bel) const;
+    WireId getBelPinWire(BelId bel, IdString pin) const;
+    PortType getBelPinType(BelId bel, IdString pin) const;
+    std::vector<IdString> getBelPins(BelId bel) const;
 
     // -------------------------------------------------
 
@@ -817,21 +811,12 @@ struct Arch : BaseCtx
     void assignArchInfo();
     void assignCellInfo(CellInfo *cell);
 
-    IdString id_glb_buf_out;
-    IdString id_icestorm_lc, id_sb_io, id_sb_gb;
-    IdString id_cen, id_clk, id_sr;
-    IdString id_i0, id_i1, id_i2, id_i3;
-    IdString id_dff_en, id_carry_en, id_neg_clk;
-    IdString id_cin, id_cout;
-    IdString id_o, id_lo;
-    IdString id_icestorm_ram, id_rclk, id_wclk;
-
     // -------------------------------------------------
-    BelPin getIOBSharingPLLPin(BelId pll, PortPin pll_pin) const
+    BelPin getIOBSharingPLLPin(BelId pll, IdString pll_pin) const
     {
         auto wire = getBelPinWire(pll, pll_pin);
         for (auto src_bel : getWireBelPins(wire)) {
-            if (getBelType(src_bel.bel) == TYPE_SB_IO && src_bel.pin == PIN_D_IN_0) {
+            if (getBelType(src_bel.bel) == id_SB_IO && src_bel.pin == id_D_IN_0) {
                 return src_bel;
             }
         }

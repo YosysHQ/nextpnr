@@ -55,18 +55,18 @@ void replace_port(CellInfo *old_cell, IdString old_name, CellInfo *rep_cell, IdS
 void print_utilisation(const Context *ctx)
 {
     // Sort by Bel type
-    std::map<BelType, int> used_types;
+    std::map<IdString, int> used_types;
     for (auto &cell : ctx->cells) {
-        used_types[ctx->belTypeFromId(cell.second.get()->type)]++;
+        used_types[cell.second.get()->type]++;
     }
-    std::map<BelType, int> available_types;
+    std::map<IdString, int> available_types;
     for (auto bel : ctx->getBels()) {
         available_types[ctx->getBelType(bel)]++;
     }
     log_break();
     log_info("Device utilisation:\n");
     for (auto type : available_types) {
-        IdString type_id = ctx->belTypeToId(type.first);
+        IdString type_id = type.first;
         int used_bels = get_or_default(used_types, type.first, 0);
         log_info("\t%20s: %5d/%5d %5d%%\n", type_id.c_str(ctx), used_bels, type.second, 100 * used_bels / type.second);
     }

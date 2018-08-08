@@ -192,7 +192,7 @@ delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
     auto driver_loc = getBelLocation(driver.cell->bel);
     auto sink_loc = getBelLocation(sink.cell->bel);
 
-    if (driver.port == id_cout) {
+    if (driver.port == id_COUT) {
         if (driver_loc.y == sink_loc.y)
             return 0;
         return 250;

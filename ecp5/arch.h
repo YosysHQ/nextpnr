@@ -50,13 +50,13 @@ template <typename T> struct RelPtr
 NPNR_PACKED_STRUCT(struct BelWirePOD {
     LocationPOD rel_wire_loc;
     int32_t wire_index;
-    PortPin port;
+    int32_t port;
     int32_t type;
 });
 
 NPNR_PACKED_STRUCT(struct BelInfoPOD {
     RelPtr<char> name;
-    BelType type;
+    int32_t type;
     int32_t z;
     int32_t num_bel_wires;
     RelPtr<BelWirePOD> bel_wires;
@@ -65,7 +65,7 @@ NPNR_PACKED_STRUCT(struct BelInfoPOD {
 NPNR_PACKED_STRUCT(struct BelPortPOD {
     LocationPOD rel_bel_loc;
     int32_t bel_index;
-    PortPin port;
+    int32_t port;
 });
 
 NPNR_PACKED_STRUCT(struct PipInfoPOD {
@@ -239,7 +239,7 @@ struct BelPinIterator
         BelPin ret;
         ret.bel.index = ptr->bel_index;
         ret.bel.location = wire_loc + ptr->rel_bel_loc;
-        ret.pin = ptr->port;
+        ret.pin.index = ptr->port;
         return ret;
     }
 };
@@ -417,11 +417,6 @@ struct Arch : BaseCtx
     ArchArgs archArgs() const { return args; }
     IdString archArgsToId(ArchArgs args) const;
 
-    IdString belTypeToId(BelType type) const;
-    BelType belTypeFromId(IdString id) const;
-
-    IdString portPinToId(PortPin type) const;
-    PortPin portPinFromId(IdString id) const;
     // -------------------------------------------------
 
     int getGridDimX() const { return chip_info->width; };
@@ -518,13 +513,15 @@ struct Arch : BaseCtx
         return range;
     }
 
-    BelType getBelType(BelId bel) const
+    IdString getBelType(BelId bel) const
     {
         NPNR_ASSERT(bel != BelId());
-        return locInfo(bel)->bel_data[bel.index].type;
+        IdString id;
+        id.index = locInfo(bel)->bel_data[bel.index].type;
+        return id;
     }
 
-    WireId getBelPinWire(BelId bel, PortPin pin) const;
+    WireId getBelPinWire(BelId bel, IdString pin) const;
 
     BelPinRange getWireBelPins(WireId wire) const
     {
@@ -537,7 +534,7 @@ struct Arch : BaseCtx
         return range;
     }
 
-    std::vector<PortPin> getBelPins(BelId bel) const;
+    std::vector<IdString> getBelPins(BelId bel) const;
 
     // -------------------------------------------------
 
@@ -786,7 +783,7 @@ struct Arch : BaseCtx
     std::string getPioFunctionName(BelId bel) const;
     BelId getPioByFunctionName(const std::string &name) const;
 
-    PortType getBelPinType(BelId bel, PortPin pin) const;
+    PortType getBelPinType(BelId bel, IdString pin) const;
 
     // -------------------------------------------------
 
@@ -862,11 +859,6 @@ struct Arch : BaseCtx
         }
         NPNR_ASSERT_FALSE_STR("no tile at (" + std::to_string(col) + ", " + std::to_string(row) + ") with type in set");
     }
-
-    IdString id_trellis_slice;
-    IdString id_clk, id_lsr;
-    IdString id_clkmux, id_lsrmux;
-    IdString id_srmode, id_mode;
 };
 
 NEXTPNR_NAMESPACE_END

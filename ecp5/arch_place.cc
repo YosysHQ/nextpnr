@@ -40,21 +40,21 @@ bool Arch::slicesCompatible(const std::vector<const CellInfo *> &cells) const
     bool first = true;
     for (auto cell : cells) {
         if (first) {
-            clk_sig = port_or_nullptr(cell, id_clk);
-            lsr_sig = port_or_nullptr(cell, id_lsr);
-            CLKMUX = str_or_default(cell->params, id_clkmux, "CLK");
-            LSRMUX = str_or_default(cell->params, id_lsrmux, "LSR");
-            SRMODE = str_or_default(cell->params, id_srmode, "CE_OVER_LSR");
+            clk_sig = port_or_nullptr(cell, id_CLK);
+            lsr_sig = port_or_nullptr(cell, id_LSR);
+            CLKMUX = str_or_default(cell->params, id_CLKMUX, "CLK");
+            LSRMUX = str_or_default(cell->params, id_LSRMUX, "LSR");
+            SRMODE = str_or_default(cell->params, id_SRMODE, "CE_OVER_LSR");
         } else {
-            if (port_or_nullptr(cell, id_clk) != clk_sig)
+            if (port_or_nullptr(cell, id_CLK) != clk_sig)
                 return false;
-            if (port_or_nullptr(cell, id_lsr) != lsr_sig)
+            if (port_or_nullptr(cell, id_LSR) != lsr_sig)
                 return false;
-            if (str_or_default(cell->params, id_clkmux, "CLK") != CLKMUX)
+            if (str_or_default(cell->params, id_CLKMUX, "CLK") != CLKMUX)
                 return false;
-            if (str_or_default(cell->params, id_lsrmux, "LSR") != LSRMUX)
+            if (str_or_default(cell->params, id_LSRMUX, "LSR") != LSRMUX)
                 return false;
-            if (str_or_default(cell->params, id_srmode, "CE_OVER_LSR") != SRMODE)
+            if (str_or_default(cell->params, id_SRMODE, "CE_OVER_LSR") != SRMODE)
                 return false;
         }
         first = false;
@@ -64,7 +64,7 @@ bool Arch::slicesCompatible(const std::vector<const CellInfo *> &cells) const
 
 bool Arch::isBelLocationValid(BelId bel) const
 {
-    if (getBelType(bel) == TYPE_TRELLIS_SLICE) {
+    if (getBelType(bel) == id_TRELLIS_SLICE) {
         std::vector<const CellInfo *> bel_cells;
         Loc bel_loc = getBelLocation(bel);
         for (auto bel_other : getBelsByTile(bel_loc.x, bel_loc.y)) {
@@ -85,8 +85,8 @@ bool Arch::isBelLocationValid(BelId bel) const
 
 bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const
 {
-    if (cell->type == id_trellis_slice) {
-        NPNR_ASSERT(getBelType(bel) == TYPE_TRELLIS_SLICE);
+    if (cell->type == id_TRELLIS_SLICE) {
+        NPNR_ASSERT(getBelType(bel) == id_TRELLIS_SLICE);
 
         std::vector<const CellInfo *> bel_cells;
         Loc bel_loc = getBelLocation(bel);

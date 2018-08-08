@@ -238,15 +238,15 @@ CellInfo *Arch::getConflictingBelCell(BelId bel) const { return bels.at(bel).bou
 
 const std::vector<BelId> &Arch::getBels() const { return bel_ids; }
 
-BelType Arch::getBelType(BelId bel) const { return bels.at(bel).type; }
+IdString Arch::getBelType(BelId bel) const { return bels.at(bel).type; }
 
-WireId Arch::getBelPinWire(BelId bel, PortPin pin) const { return bels.at(bel).pins.at(pin).wire; }
+WireId Arch::getBelPinWire(BelId bel, IdString pin) const { return bels.at(bel).pins.at(pin).wire; }
 
-PortType Arch::getBelPinType(BelId bel, PortPin pin) const { return bels.at(bel).pins.at(pin).type; }
+PortType Arch::getBelPinType(BelId bel, IdString pin) const { return bels.at(bel).pins.at(pin).type; }
 
-std::vector<PortPin> Arch::getBelPins(BelId bel) const
+std::vector<IdString> Arch::getBelPins(BelId bel) const
 {
-    std::vector<PortPin> ret;
+    std::vector<IdString> ret;
     for (auto &it : bels.at(bel).pins)
         ret.push_back(it.first);
     return ret;

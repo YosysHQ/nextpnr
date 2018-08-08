@@ -11,7 +11,7 @@ tiletype_names = dict()
 
 parser = argparse.ArgumentParser(description="import ECP5 routing and bels from Project Trellis")
 parser.add_argument("device", type=str, help="target device")
-parser.add_argument("-p", "--portspins", type=str, help="path to portpins.inc")
+parser.add_argument("-p", "--constids", type=str, help="path to constids.inc")
 args = parser.parse_args()
 
 
@@ -28,7 +28,7 @@ def get_tiletype_index(name):
     return idx
 
 
-portpins = dict()
+constids = dict()
 
 
 class BinaryBlobAssembler:
@@ -77,12 +77,6 @@ class BinaryBlobAssembler:
 
     def pop(self):
         print("pop")
-
-bel_types = {
-    "NONE": 0,
-    "SLICE": 1,
-    "PIO": 2
-}
 
 def get_bel_index(ddrg, loc, name):
     loctype = ddrg.locationTypes[ddrg.typeAtLocation[loc]]
@@ -181,7 +175,7 @@ def write_database(dev_name, chip, ddrg, endianness):
                     for bp in wire.belPins:
                         write_loc(bp.bel.rel, "rel_bel_loc")
                         bba.u32(bp.bel.id, "bel_index")
-                        bba.u32(portpins[ddrg.to_str(bp.pin)], "port")
+                        bba.u32(constids[ddrg.to_str(bp.pin)], "port")
             bba.l("loc%d_wires" % idx, "WireInfoPOD")
             for wire_idx in range(len(loctype.wires)):
                 wire = loctype.wires[wire_idx]
@@ -200,13 +194,13 @@ def write_database(dev_name, chip, ddrg, endianness):
                 for pin in bel.wires:
                     write_loc(pin.wire.rel, "rel_wire_loc")
                     bba.u32(pin.wire.id, "wire_index")
-                    bba.u32(portpins[ddrg.to_str(pin.pin)], "port")
+                    bba.u32(constids[ddrg.to_str(pin.pin)], "port")
                     bba.u32(int(pin.dir), "dir")
             bba.l("loc%d_bels" % idx, "BelInfoPOD")
             for bel_idx in range(len(loctype.bels)):
                 bel = loctype.bels[bel_idx]
                 bba.s(ddrg.to_str(bel.name), "name")
-                bba.u32(bel_types[ddrg.to_str(bel.type)], "type")
+                bba.u32(constids[ddrg.to_str(bel.type)], "type")
                 bba.u32(bel.z, "z")
                 bba.u32(len(bel.wires), "num_bel_wires")
                 bba.r("loc%d_bel%d_wires" % (idx, bel_idx), "bel_wires")
@@ -305,7 +299,7 @@ def main():
     args = parser.parse_args()
 
     # Read port pin file
-    with open(args.portspins) as f:
+    with open(args.constids) as f:
         for line in f:
             line = line.replace("(", " ")
             line = line.replace(")", " ")
@@ -314,8 +308,12 @@ def main():
                 continue
             assert len(line) == 2
             assert line[0] == "X"
-            idx = len(portpins) + 1
-            portpins[line[1]] = idx
+            idx = len(constids) + 1
+            constids[line[1]] = idx
+    
+
+    constids["SLICE"] = constids["TRELLIS_SLICE"]
+    constids["PIO"] = constids["TRELLIS_IO"]
 
     # print("Initialising chip...")
     chip = pytrellis.Chip(dev_names[args.device])

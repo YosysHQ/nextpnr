@@ -48,34 +48,17 @@ struct DelayInfo
 
 // -----------------------------------------------------------------------
 
-enum BelType : int32_t
+enum ConstIds
 {
-    TYPE_NONE,
-    TYPE_ICESTORM_LC,
-    TYPE_ICESTORM_RAM,
-    TYPE_SB_IO,
-    TYPE_SB_GB,
-    TYPE_ICESTORM_PLL,
-    TYPE_SB_WARMBOOT,
-    TYPE_ICESTORM_DSP,
-    TYPE_ICESTORM_HFOSC,
-    TYPE_ICESTORM_LFOSC,
-    TYPE_SB_I2C,
-    TYPE_SB_SPI,
-    TYPE_IO_I3C,
-    TYPE_SB_LEDDA_IP,
-    TYPE_SB_RGBA_DRV,
-    TYPE_ICESTORM_SPRAM,
+    ID_NONE
+#define X(t) , ID_##t
+#include "constids.inc"
+#undef X
 };
 
-enum PortPin : int32_t
-{
-    PIN_NONE,
-#define X(t) PIN_##t,
-#include "portpins.inc"
+#define X(t) static constexpr auto id_##t = IdString(ID_##t);
+#include "constids.inc"
 #undef X
-    PIN_MAXIDX
-};
 
 struct BelId
 {
@@ -151,7 +134,7 @@ struct NetInfo;
 
 struct ArchCellInfo
 {
-    BelType belType = TYPE_NONE;
+    IdString belType;
     union
     {
         struct
@@ -184,14 +167,6 @@ template <> struct hash<NEXTPNR_NAMESPACE_PREFIX WireId>
 template <> struct hash<NEXTPNR_NAMESPACE_PREFIX PipId>
 {
     std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX PipId &pip) const noexcept { return hash<int>()(pip.index); }
-};
-
-template <> struct hash<NEXTPNR_NAMESPACE_PREFIX BelType> : hash<int>
-{
-};
-
-template <> struct hash<NEXTPNR_NAMESPACE_PREFIX PortPin> : hash<int>
-{
 };
 
 template <> struct hash<NEXTPNR_NAMESPACE_PREFIX GroupId>

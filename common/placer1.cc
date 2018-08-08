@@ -51,7 +51,7 @@ class SAPlacer
         int num_bel_types = 0;
         for (auto bel : ctx->getBels()) {
             Loc loc = ctx->getBelLocation(bel);
-            BelType type = ctx->getBelType(bel);
+            IdString type = ctx->getBelType(bel);
             int type_idx;
             if (bel_types.find(type) == bel_types.end()) {
                 type_idx = num_bel_types++;
@@ -91,17 +91,17 @@ class SAPlacer
                               loc_name.c_str(), cell->name.c_str(ctx));
                 }
 
-                BelType bel_type = ctx->getBelType(bel);
-                if (bel_type != ctx->belTypeFromId(cell->type)) {
+                IdString bel_type = ctx->getBelType(bel);
+                if (bel_type != cell->type) {
                     log_error("Bel \'%s\' of type \'%s\' does not match cell "
                               "\'%s\' of type \'%s\'\n",
-                              loc_name.c_str(), ctx->belTypeToId(bel_type).c_str(ctx), cell->name.c_str(ctx),
+                              loc_name.c_str(), bel_type.c_str(ctx), cell->name.c_str(ctx),
                               cell->type.c_str(ctx));
                 }
                 if (!ctx->isValidBelForCell(cell, bel)) {
                     log_error("Bel \'%s\' of type \'%s\' is not valid for cell "
                               "\'%s\' of type \'%s\'\n",
-                              loc_name.c_str(), ctx->belTypeToId(bel_type).c_str(ctx), cell->name.c_str(ctx),
+                              loc_name.c_str(), bel_type.c_str(ctx), cell->name.c_str(ctx),
                               cell->type.c_str(ctx));
                 }
 
@@ -300,7 +300,7 @@ class SAPlacer
             if (cell->bel != BelId()) {
                 ctx->unbindBel(cell->bel);
             }
-            BelType targetType = ctx->belTypeFromId(cell->type);
+            IdString targetType = cell->type;
             for (auto bel : ctx->getBels()) {
                 if (ctx->getBelType(bel) == targetType && ctx->isValidBelForCell(cell, bel)) {
                     if (ctx->checkBelAvail(bel)) {
@@ -423,7 +423,7 @@ class SAPlacer
     // diameter
     BelId random_bel_for_cell(CellInfo *cell)
     {
-        BelType targetType = ctx->belTypeFromId(cell->type);
+        IdString targetType = cell->type;
         Loc curr_loc = ctx->getBelLocation(cell->bel);
         while (true) {
             int nx = ctx->rng(2 * diameter + 1) + std::max(curr_loc.x - diameter, 0);
@@ -451,7 +451,7 @@ class SAPlacer
     bool improved = false;
     int n_move, n_accept;
     int diameter = 35, max_x = 1, max_y = 1;
-    std::unordered_map<BelType, int> bel_types;
+    std::unordered_map<IdString, int> bel_types;
     std::vector<std::vector<std::vector<std::vector<BelId>>>> fast_bels;
     std::unordered_set<BelId> locked_bels;
     bool require_legal = false;

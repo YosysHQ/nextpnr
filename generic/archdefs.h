@@ -46,9 +46,6 @@ struct DelayInfo
     }
 };
 
-typedef IdString BelType;
-typedef IdString PortPin;
-
 typedef IdString BelId;
 typedef IdString WireId;
 typedef IdString PipId;

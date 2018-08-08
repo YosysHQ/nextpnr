@@ -43,48 +43,11 @@ static std::tuple<int, int, std::string> split_identifier_name(const std::string
 
 // -----------------------------------------------------------------------
 
-IdString Arch::belTypeToId(BelType type) const
-{
-    if (type == TYPE_TRELLIS_SLICE)
-        return id("TRELLIS_SLICE");
-    if (type == TYPE_TRELLIS_IO)
-        return id("TRELLIS_IO");
-    return IdString();
-}
-
-BelType Arch::belTypeFromId(IdString type) const
-{
-    if (type == id("TRELLIS_SLICE"))
-        return TYPE_TRELLIS_SLICE;
-    if (type == id("TRELLIS_IO"))
-        return TYPE_TRELLIS_IO;
-    return TYPE_NONE;
-}
-
-// -----------------------------------------------------------------------
-
 void IdString::initialize_arch(const BaseCtx *ctx)
 {
-#define X(t) initialize_add(ctx, #t, PIN_##t);
-
-#include "portpins.inc"
-
+#define X(t) initialize_add(ctx, #t, ID_##t);
+#include "constids.inc"
 #undef X
-}
-
-IdString Arch::portPinToId(PortPin type) const
-{
-    IdString ret;
-    if (type > 0 && type < PIN_MAXIDX)
-        ret.index = type;
-    return ret;
-}
-
-PortPin Arch::portPinFromId(IdString type) const
-{
-    if (type.index > 0 && type.index < PIN_MAXIDX)
-        return PortPin(type.index);
-    return PIN_NONE;
 }
 
 // -----------------------------------------------------------------------
@@ -129,14 +92,6 @@ Arch::Arch(ArchArgs args) : args(args)
 
     if (!package_info)
         log_error("Unsupported package '%s' for '%s'.\n", args.package.c_str(), getChipName().c_str());
-
-    id_trellis_slice = id("TRELLIS_SLICE");
-    id_clk = id("CLK");
-    id_lsr = id("LSR");
-    id_clkmux = id("CLKMUX");
-    id_lsrmux = id("LSRMUX");
-    id_srmode = id("SRMODE");
-    id_mode = id("MODE");
 }
 
 // -----------------------------------------------------------------------
@@ -209,7 +164,7 @@ BelRange Arch::getBelsByTile(int x, int y) const
     return br;
 }
 
-WireId Arch::getBelPinWire(BelId bel, PortPin pin) const
+WireId Arch::getBelPinWire(BelId bel, IdString pin) const
 {
     WireId ret;
 
@@ -218,7 +173,7 @@ WireId Arch::getBelPinWire(BelId bel, PortPin pin) const
     int num_bel_wires = locInfo(bel)->bel_data[bel.index].num_bel_wires;
     const BelWirePOD *bel_wires = locInfo(bel)->bel_data[bel.index].bel_wires.get();
     for (int i = 0; i < num_bel_wires; i++)
-        if (bel_wires[i].port == pin) {
+        if (bel_wires[i].port == pin.index) {
             ret.location = bel.location + bel_wires[i].rel_wire_loc;
             ret.index = bel_wires[i].wire_index;
             break;
@@ -227,7 +182,7 @@ WireId Arch::getBelPinWire(BelId bel, PortPin pin) const
     return ret;
 }
 
-PortType Arch::getBelPinType(BelId bel, PortPin pin) const
+PortType Arch::getBelPinType(BelId bel, IdString pin) const
 {
     NPNR_ASSERT(bel != BelId());
 
@@ -235,7 +190,7 @@ PortType Arch::getBelPinType(BelId bel, PortPin pin) const
     const BelWirePOD *bel_wires = locInfo(bel)->bel_data[bel.index].bel_wires.get();
 
     for (int i = 0; i < num_bel_wires; i++)
-        if (bel_wires[i].port == pin)
+        if (bel_wires[i].port == pin.index)
             return PortType(bel_wires[i].type);
 
     return PORT_INOUT;
@@ -374,16 +329,19 @@ BelId Arch::getPioByFunctionName(const std::string &name) const
     return BelId();
 }
 
-std::vector<PortPin> Arch::getBelPins(BelId bel) const
+std::vector<IdString> Arch::getBelPins(BelId bel) const
 {
-    std::vector<PortPin> ret;
+    std::vector<IdString> ret;
     NPNR_ASSERT(bel != BelId());
 
     int num_bel_wires = locInfo(bel)->bel_data[bel.index].num_bel_wires;
     const BelWirePOD *bel_wires = locInfo(bel)->bel_data[bel.index].bel_wires.get();
 
-    for (int i = 0; i < num_bel_wires; i++)
-        ret.push_back(bel_wires[i].port);
+    for (int i = 0; i < num_bel_wires; i++) {
+        IdString id;
+        id.index = bel_wires[i].port;
+        ret.push_back(id);
+    }
 
     return ret;
 }
@@ -446,7 +404,7 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
         int z = locInfo(bel)->bel_data[bel.index].z;
         auto bel_type = getBelType(bel);
 
-        if (bel_type == TYPE_TRELLIS_SLICE) {
+        if (bel_type == id_TRELLIS_SLICE) {
             GraphicElement el;
             el.type = GraphicElement::TYPE_BOX;
             el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
@@ -457,7 +415,7 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
             ret.push_back(el);
         }
 
-        if (bel_type == TYPE_TRELLIS_IO) {
+        if (bel_type == id_TRELLIS_IO) {
             GraphicElement el;
             el.type = GraphicElement::TYPE_BOX;
             el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
