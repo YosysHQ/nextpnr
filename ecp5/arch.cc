@@ -422,7 +422,7 @@ delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
     return 200 * (abs(driver_loc.x - sink_loc.x) + abs(driver_loc.y - sink_loc.y));
 }
 
-delay_t Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t budget) const { return budget; }
+bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const { return false; }
 
 // -----------------------------------------------------------------------
 
@@ -479,7 +479,7 @@ DecalXY Arch::getBelDecal(BelId bel) const
     decalxy.decal.type = DecalId::TYPE_BEL;
     decalxy.decal.location = bel.location;
     decalxy.decal.z = bel.index;
-    decalxy.decal.active = bel_to_cell.count(bel) && (bel_to_cell.at(bel) != IdString());
+    decalxy.decal.active = bel_to_cell.count(bel) && (bel_to_cell.at(bel) != nullptr);
     return decalxy;
 }
 

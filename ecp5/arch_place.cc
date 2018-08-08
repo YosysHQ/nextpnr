@@ -68,19 +68,18 @@ bool Arch::isBelLocationValid(BelId bel) const
         std::vector<const CellInfo *> bel_cells;
         Loc bel_loc = getBelLocation(bel);
         for (auto bel_other : getBelsByTile(bel_loc.x, bel_loc.y)) {
-            IdString cell_other = getBoundBelCell(bel_other);
-            if (cell_other != IdString()) {
-                const CellInfo *ci_other = cells.at(cell_other).get();
-                bel_cells.push_back(ci_other);
+            CellInfo *cell_other = getBoundBelCell(bel_other);
+            if (cell_other != nullptr) {
+                bel_cells.push_back(cell_other);
             }
         }
         return slicesCompatible(bel_cells);
     } else {
-        IdString cellId = getBoundBelCell(bel);
-        if (cellId == IdString())
+        CellInfo *cell = getBoundBelCell(bel);
+        if (cell == nullptr)
             return true;
         else
-            return isValidBelForCell(cells.at(cellId).get(), bel);
+            return isValidBelForCell(cell, bel);
     }
 }
 
@@ -92,10 +91,9 @@ bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const
         std::vector<const CellInfo *> bel_cells;
         Loc bel_loc = getBelLocation(bel);
         for (auto bel_other : getBelsByTile(bel_loc.x, bel_loc.y)) {
-            IdString cell_other = getBoundBelCell(bel_other);
-            if (cell_other != IdString() && bel_other != bel) {
-                const CellInfo *ci_other = cells.at(cell_other).get();
-                bel_cells.push_back(ci_other);
+            CellInfo *cell_other = getBoundBelCell(bel_other);
+            if (cell_other != nullptr && bel_other != bel) {
+                bel_cells.push_back(cell_other);
             }
         }
 

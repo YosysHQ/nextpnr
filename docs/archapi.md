@@ -139,11 +139,11 @@ Returns true if the given bel is a global buffer. A global buffer does not "pull
 
 Return a (preferably unique) number that represents this bel. This is used in design state checksum calculations.
 
-### void bindBel(BelId bel, IdString cell, PlaceStrength strength)
+### void bindBel(BelId bel, CellInfo \*cell, PlaceStrength strength)
 
 Bind a given bel to a given cell with the given strength.
 
-This method must also update `CellInfo::bel` and `CellInfo::belStrength`.
+This method must also update `cell->bel` and `cell->belStrength`.
 
 ### void unbindBel(BelId bel)
 
@@ -155,13 +155,13 @@ This method must also update `CellInfo::bel` and `CellInfo::belStrength`.
 
 Returns true if the bel is available. A bel can be unavailable because it is bound, or because it is exclusive to some other resource that is bound.
 
-### IdString getBoundBelCell(BelId bel) const
+### CellInfo \*getBoundBelCell(BelId bel) const
 
-Return the cell the given bel is bound to, or `IdString()` if the bel is not bound.
+Return the cell the given bel is bound to, or nullptr if the bel is not bound.
 
-### IdString getConflictingBelCell(BelId bel) const
+### CellInfo \*getConflictingBelCell(BelId bel) const
 
-If the bel is unavailable, and unbinding a single cell would make it available, then this method must return the name of that cell.
+If the bel is unavailable, and unbinding a single cell would make it available, then this method must return that cell.
 
 ### const\_range\<BelId\> getBels() const
 
@@ -204,12 +204,12 @@ simply return `IdString()`.
 
 Return a (preferably unique) number that represents this wire. This is used in design state checksum calculations.
 
-### void bindWire(WireId wire, IdString net, PlaceStrength strength)
+### void bindWire(WireId wire, NetInfo \*net, PlaceStrength strength)
 
 Bind a wire to a net. This method must be used when binding a wire that is driven by a bel pin. Use `binPip()`
 when binding a wire that is driven by a pip.
 
-This method must also update `NetInfo::wires`.
+This method must also update `net->wires`.
 
 ### void unbindWire(WireId wire)
 
@@ -221,16 +221,16 @@ This method must also update `NetInfo::wires`.
 
 Return true if the wire is available, i.e. can be bound to a net.
 
-### IdString getBoundWireNet(WireId wire) const
+### NetInfo \*getBoundWireNet(WireId wire) const
 
 Return the net a wire is bound to.
 
-### IdString getConflictingWireNet(WireId wire) const
+### NetInfo \*getConflictingWireNet(WireId wire) const
 
-If this returns a non-empty IdString, then unbinding that net
+If this returns a non-nullptr, then unbinding that net
 will make the given wire available.
 
-This returns an empty IdString if the wire is already available,
+This returns nullptr if the wire is already available,
 or if there is no single net that can be unbound to make this
 wire available.
 
@@ -266,11 +266,11 @@ implementations may simply return `IdString()`.
 
 Return a (preferably unique) number that represents this pip. This is used in design state checksum calculations.
 
-### void bindPip(PipId pip, IdString net, PlaceStrength strength)
+### void bindPip(PipId pip, NetInfo \*net, PlaceStrength strength)
 
 Bid a pip to a net. This also bind the destination wire of that pip.
 
-This method must also update `NetInfo::wires`.
+This method must also update `net->wires`.
 
 ### void unbindPip(PipId pip)
 
@@ -282,11 +282,11 @@ This method must also update `NetInfo::wires`.
 
 Returns true if the given pip is available to be bound to a net.
 
-### IdString getBoundPipNet(PipId pip) const
+### NetInfo \*getBoundPipNet(PipId pip) const
 
 Return the net this pip is bound to.
 
-### IdString getConflictingPipNet(PipId pip) const
+### NetInfo \*getConflictingPipNet(PipId pip) const
 
 Return the net that needs to be unbound in order to make this
 pip available.
@@ -402,9 +402,9 @@ Convert an `delay_t` to an actual real-world delay in nanoseconds.
 
 Convert a `delay_t` to an integer for checksum calculations.
 
-### delay\_t getBudgetOverride(const NetInfo \*net\_info, const PortRef &sink, delay\_t budget) const
+### bool getBudgetOverride(const NetInfo \*net\_info, const PortRef &sink, delay\_t &budget) const
 
-Overwrite or modify the timing budget for a given arc. Returns the new budget.
+Overwrite or modify (in-place) the timing budget for a given arc. Returns a bool to indicate whether this was done.
 
 Flow Methods
 ------------

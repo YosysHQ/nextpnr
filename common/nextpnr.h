@@ -437,6 +437,13 @@ struct BaseCtx
 
     const Context *getCtx() const { return reinterpret_cast<const Context *>(this); }
 
+    template<typename T> const char *nameOf(const T *obj)
+    {
+        if (obj == nullptr)
+            return "";
+        return obj->name.c_str(getCtx());
+    }
+
     // --------------------------------------------------------------
 
     bool allUiReload = true;

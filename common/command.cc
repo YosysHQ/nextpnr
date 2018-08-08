@@ -192,6 +192,7 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
     if (vm.count("json") || vm.count("load")) {
         if (!ctx->pack() && !ctx->force)
             log_error("Packing design failed.\n");
+        assign_budget(ctx.get());
         ctx->check();
         print_utilisation(ctx.get());
         if (!vm.count("pack-only")) {

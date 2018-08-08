@@ -31,7 +31,8 @@ struct WireInfo;
 
 struct PipInfo
 {
-    IdString name, type, bound_net;
+    IdString name, type;
+    NetInfo *bound_net;
     WireId srcWire, dstWire;
     DelayInfo delay;
     DecalXY decalxy;
@@ -39,7 +40,8 @@ struct PipInfo
 
 struct WireInfo
 {
-    IdString name, type, bound_net;
+    IdString name, type;
+    NetInfo *bound_net;
     std::vector<PipId> downhill, uphill, aliases;
     BelPin uphill_bel_pin;
     std::vector<BelPin> downhill_bel_pins;
@@ -57,7 +59,8 @@ struct PinInfo
 
 struct BelInfo
 {
-    IdString name, type, bound_cell;
+    IdString name, type;
+    CellInfo *bound_cell;
     std::unordered_map<IdString, PinInfo> pins;
     DecalXY decalxy;
     int x, y, z;
@@ -144,11 +147,11 @@ struct Arch : BaseCtx
     const std::vector<BelId> &getBelsByTile(int x, int y) const;
     bool getBelGlobalBuf(BelId bel) const;
     uint32_t getBelChecksum(BelId bel) const;
-    void bindBel(BelId bel, IdString cell, PlaceStrength strength);
+    void bindBel(BelId bel, CellInfo *cell, PlaceStrength strength);
     void unbindBel(BelId bel);
     bool checkBelAvail(BelId bel) const;
-    IdString getBoundBelCell(BelId bel) const;
-    IdString getConflictingBelCell(BelId bel) const;
+    CellInfo *getBoundBelCell(BelId bel) const;
+    CellInfo *getConflictingBelCell(BelId bel) const;
     const std::vector<BelId> &getBels() const;
     BelType getBelType(BelId bel) const;
     WireId getBelPinWire(BelId bel, PortPin pin) const;
@@ -159,11 +162,11 @@ struct Arch : BaseCtx
     IdString getWireName(WireId wire) const;
     IdString getWireType(WireId wire) const;
     uint32_t getWireChecksum(WireId wire) const;
-    void bindWire(WireId wire, IdString net, PlaceStrength strength);
+    void bindWire(WireId wire, NetInfo *net, PlaceStrength strength);
     void unbindWire(WireId wire);
     bool checkWireAvail(WireId wire) const;
-    IdString getBoundWireNet(WireId wire) const;
-    IdString getConflictingWireNet(WireId wire) const;
+    NetInfo *getBoundWireNet(WireId wire) const;
+    NetInfo *getConflictingWireNet(WireId wire) const;
     DelayInfo getWireDelay(WireId wire) const { return DelayInfo(); }
     const std::vector<WireId> &getWires() const;
     const std::vector<BelPin> &getWireBelPins(WireId wire) const;
@@ -172,11 +175,11 @@ struct Arch : BaseCtx
     IdString getPipName(PipId pip) const;
     IdString getPipType(PipId pip) const;
     uint32_t getPipChecksum(PipId pip) const;
-    void bindPip(PipId pip, IdString net, PlaceStrength strength);
+    void bindPip(PipId pip, NetInfo *net, PlaceStrength strength);
     void unbindPip(PipId pip);
     bool checkPipAvail(PipId pip) const;
-    IdString getBoundPipNet(PipId pip) const;
-    IdString getConflictingPipNet(PipId pip) const;
+    NetInfo *getBoundPipNet(PipId pip) const;
+    NetInfo *getConflictingPipNet(PipId pip) const;
     const std::vector<PipId> &getPips() const;
     WireId getPipSrcWire(PipId pip) const;
     WireId getPipDstWire(PipId pip) const;
@@ -199,7 +202,7 @@ struct Arch : BaseCtx
     delay_t getRipupDelayPenalty() const { return 1.0; }
     float getDelayNS(delay_t v) const { return v; }
     uint32_t getDelayChecksum(delay_t v) const { return 0; }
-    delay_t getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t budget) const;
+    bool getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const;
 
     bool pack() { return true; }
     bool place();

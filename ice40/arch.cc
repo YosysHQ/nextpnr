@@ -637,17 +637,34 @@ std::vector<GroupId> Arch::getGroupGroups(GroupId group) const
 
 // -----------------------------------------------------------------------
 
-delay_t Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t budget) const
+bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const
 {
     const auto &driver = net_info->driver;
-    if (driver.port == id_cout) {
+    if (driver.port == id_cout && sink.port == id_cin) {
         auto driver_loc = getBelLocation(driver.cell->bel);
         auto sink_loc = getBelLocation(sink.cell->bel);
         if (driver_loc.y == sink_loc.y)
-            return 0;
-        return 250;
+            budget = 0;
+        else switch (args.type) {
+#ifndef ICE40_HX1K_ONLY
+            case ArchArgs::HX8K:
+#endif
+            case ArchArgs::HX1K:
+                budget = 190; break;
+#ifndef ICE40_HX1K_ONLY
+            case ArchArgs::LP384:
+            case ArchArgs::LP1K:
+            case ArchArgs::LP8K:
+                budget = 290; break;
+            case ArchArgs::UP5K:
+                budget = 560; break;
+#endif
+            default:
+                log_error("Unsupported iCE40 chip type.\n");
+        }
+        return true;
     }
-    return budget;
+    return false;
 }
 
 // -----------------------------------------------------------------------
@@ -672,7 +689,7 @@ DecalXY Arch::getBelDecal(BelId bel) const
     DecalXY decalxy;
     decalxy.decal.type = DecalId::TYPE_BEL;
     decalxy.decal.index = bel.index;
-    decalxy.decal.active = bel_to_cell.at(bel.index) != IdString();
+    decalxy.decal.active = bel_to_cell.at(bel.index) != nullptr;
     return decalxy;
 }
 
@@ -681,7 +698,7 @@ DecalXY Arch::getWireDecal(WireId wire) const
     DecalXY decalxy;
     decalxy.decal.type = DecalId::TYPE_WIRE;
     decalxy.decal.index = wire.index;
-    decalxy.decal.active = wire_to_net.at(wire.index) != IdString();
+    decalxy.decal.active = wire_to_net.at(wire.index) != nullptr;
     return decalxy;
 }
 
@@ -690,7 +707,7 @@ DecalXY Arch::getPipDecal(PipId pip) const
     DecalXY decalxy;
     decalxy.decal.type = DecalId::TYPE_PIP;
     decalxy.decal.index = pip.index;
-    decalxy.decal.active = pip_to_net.at(pip.index) != IdString();
+    decalxy.decal.active = pip_to_net.at(pip.index) != nullptr;
     return decalxy;
 };
 

@@ -74,19 +74,18 @@ bool Arch::isBelLocationValid(BelId bel) const
         std::vector<const CellInfo *> bel_cells;
         Loc bel_loc = getBelLocation(bel);
         for (auto bel_other : getBelsByTile(bel_loc.x, bel_loc.y)) {
-            IdString cell_other = getBoundBelCell(bel_other);
-            if (cell_other != IdString()) {
-                const CellInfo *ci_other = cells.at(cell_other).get();
+            CellInfo *ci_other = getBoundBelCell(bel_other);
+            if (ci_other != nullptr) {
                 bel_cells.push_back(ci_other);
             }
         }
         return logicCellsCompatible(bel_cells);
     } else {
-        IdString cellId = getBoundBelCell(bel);
-        if (cellId == IdString())
+        CellInfo *ci = getBoundBelCell(bel);
+        if (ci == nullptr)
             return true;
         else
-            return isValidBelForCell(cells.at(cellId).get(), bel);
+            return isValidBelForCell(ci, bel);
     }
 }
 
@@ -98,9 +97,8 @@ bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const
         std::vector<const CellInfo *> bel_cells;
         Loc bel_loc = getBelLocation(bel);
         for (auto bel_other : getBelsByTile(bel_loc.x, bel_loc.y)) {
-            IdString cell_other = getBoundBelCell(bel_other);
-            if (cell_other != IdString() && bel_other != bel) {
-                const CellInfo *ci_other = cells.at(cell_other).get();
+            CellInfo *ci_other = getBoundBelCell(bel_other);
+            if (ci_other != nullptr && bel_other != bel) {
                 bel_cells.push_back(ci_other);
             }
         }
@@ -126,12 +124,12 @@ bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const
         if (pll_bel.index != -1) {
             auto pll_cell = getBoundBelCell(pll_bel);
             // Is a PLL placed in this PLL bel?
-            if (pll_cell != IdString()) {
+            if (pll_cell != nullptr) {
                 // Is the shared port driving a net?
-                auto pi = cells.at(pll_cell)->ports[portPinToId(pll_bel_pin)];
+                auto pi = pll_cell->ports[portPinToId(pll_bel_pin)];
                 if (pi.net != nullptr) {
                     // Are we perhaps a PAD INPUT Bel that can be placed here?
-                    if (cells.at(pll_cell)->attrs[id("BEL_PAD_INPUT")] == getBelName(bel).str(this)) {
+                    if (pll_cell->attrs[id("BEL_PAD_INPUT")] == getBelName(bel).str(this)) {
                         return true;
                     }
                     return false;

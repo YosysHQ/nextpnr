@@ -105,7 +105,7 @@ class SAPlacer
                               cell->type.c_str(ctx));
                 }
 
-                ctx->bindBel(bel, cell->name, STRENGTH_USER);
+                ctx->bindBel(bel, cell, STRENGTH_USER);
                 locked_bels.insert(bel);
                 placed_cells++;
             }
@@ -138,7 +138,8 @@ class SAPlacer
         if ((placed_cells - constr_placed_cells) % 500 != 0)
             log_info("  initial placement placed %d/%d cells\n", int(placed_cells - constr_placed_cells),
                      int(autoplaced.size()));
-        assign_budget(ctx);
+        if (ctx->slack_redist_iter > 0)
+            assign_budget(ctx);
         ctx->yield();
 
         log_info("Running simulated annealing placer.\n");
@@ -256,11 +257,11 @@ class SAPlacer
         // Final post-pacement validitiy check
         ctx->yield();
         for (auto bel : ctx->getBels()) {
-            IdString cell = ctx->getBoundBelCell(bel);
+            CellInfo *cell = ctx->getBoundBelCell(bel);
             if (!ctx->isBelLocationValid(bel)) {
                 std::string cell_text = "no cell";
-                if (cell != IdString())
-                    cell_text = std::string("cell '") + cell.str(ctx) + "'";
+                if (cell != nullptr)
+                    cell_text = std::string("cell '") + ctx->nameOf(cell) + "'";
                 if (ctx->force) {
                     log_warning("post-placement validity check failed for Bel '%s' "
                                 "(%s)\n",
@@ -309,7 +310,7 @@ class SAPlacer
                         uint64_t score = ctx->rng64();
                         if (score <= best_ripup_score) {
                             best_ripup_score = score;
-                            ripup_target = ctx->cells.at(ctx->getBoundBelCell(bel)).get();
+                            ripup_target = ctx->getBoundBelCell(bel);
                             ripup_bel = bel;
                         }
                     }
@@ -324,7 +325,7 @@ class SAPlacer
             } else {
                 all_placed = true;
             }
-            ctx->bindBel(best_bel, cell->name, STRENGTH_WEAK);
+            ctx->bindBel(best_bel, cell, STRENGTH_WEAK);
 
             // Back annotate location
             cell->attrs[ctx->id("BEL")] = ctx->getBelName(cell->bel).str(ctx);
@@ -340,20 +341,17 @@ class SAPlacer
         new_lengths.clear();
         update.clear();
         BelId oldBel = cell->bel;
-        IdString other = ctx->getBoundBelCell(newBel);
-        CellInfo *other_cell = nullptr;
-        if (other != IdString()) {
-            other_cell = ctx->cells[other].get();
-            if (other_cell->belStrength > STRENGTH_WEAK)
-                return false;
+        CellInfo *other_cell = ctx->getBoundBelCell(newBel);
+        if (other_cell != nullptr && other_cell->belStrength > STRENGTH_WEAK) {
+            return false;
         }
         int old_dist = get_constraints_distance(ctx, cell);
         int new_dist;
-        if (other != IdString())
+        if (other_cell != nullptr)
             old_dist += get_constraints_distance(ctx, other_cell);
         wirelen_t new_metric = 0, delta;
         ctx->unbindBel(oldBel);
-        if (other != IdString()) {
+        if (other_cell != nullptr) {
             ctx->unbindBel(newBel);
         }
 
@@ -361,20 +359,20 @@ class SAPlacer
             if (port.second.net != nullptr)
                 update.insert(port.second.net);
 
-        if (other != IdString()) {
+        if (other_cell != nullptr) {
             for (const auto &port : other_cell->ports)
                 if (port.second.net != nullptr)
                     update.insert(port.second.net);
         }
 
-        ctx->bindBel(newBel, cell->name, STRENGTH_WEAK);
+        ctx->bindBel(newBel, cell, STRENGTH_WEAK);
 
-        if (other != IdString()) {
-            ctx->bindBel(oldBel, other_cell->name, STRENGTH_WEAK);
+        if (other_cell != nullptr) {
+            ctx->bindBel(oldBel, other_cell, STRENGTH_WEAK);
         }
-        if (!ctx->isBelLocationValid(newBel) || ((other != IdString() && !ctx->isBelLocationValid(oldBel)))) {
+        if (!ctx->isBelLocationValid(newBel) || ((other_cell != nullptr && !ctx->isBelLocationValid(oldBel)))) {
             ctx->unbindBel(newBel);
-            if (other != IdString())
+            if (other_cell != nullptr)
                 ctx->unbindBel(oldBel);
             goto swap_fail;
         }
@@ -391,7 +389,7 @@ class SAPlacer
         }
 
         new_dist = get_constraints_distance(ctx, cell);
-        if (other != IdString())
+        if (other_cell != nullptr)
             new_dist += get_constraints_distance(ctx, other_cell);
         delta = new_metric - curr_metric;
         delta += (cfg.constraintWeight / temp) * (new_dist - old_dist);
@@ -400,7 +398,7 @@ class SAPlacer
         if (delta < 0 || (temp > 1e-6 && (ctx->rng() / float(0x3fffffff)) <= std::exp(-delta / temp))) {
             n_accept++;
         } else {
-            if (other != IdString())
+            if (other_cell != nullptr)
                 ctx->unbindBel(oldBel);
             ctx->unbindBel(newBel);
             goto swap_fail;
@@ -411,9 +409,9 @@ class SAPlacer
 
         return true;
     swap_fail:
-        ctx->bindBel(oldBel, cell->name, STRENGTH_WEAK);
-        if (other != IdString()) {
-            ctx->bindBel(newBel, other, STRENGTH_WEAK);
+        ctx->bindBel(oldBel, cell, STRENGTH_WEAK);
+        if (other_cell != nullptr) {
+            ctx->bindBel(newBel, other_cell, STRENGTH_WEAK);
         }
         return false;
     }

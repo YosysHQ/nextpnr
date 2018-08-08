@@ -291,7 +291,7 @@ void write_asc(const Context *ctx, std::ostream &out)
     }
     // Set pips
     for (auto pip : ctx->getPips()) {
-        if (ctx->pip_to_net[pip.index] != IdString()) {
+        if (ctx->pip_to_net[pip.index] != nullptr) {
             const PipInfoPOD &pi = ci.pip_data[pip.index];
             const SwitchInfoPOD &swi = bi.switches[pi.switch_index];
             int sw_bel_idx = swi.bel;
@@ -310,7 +310,7 @@ void write_asc(const Context *ctx, std::ostream &out)
 
                 WireId permWire;
                 for (auto permPip : ctx->getPipsUphill(ctx->getPipSrcWire(pip))) {
-                    if (ctx->getBoundPipNet(permPip) != IdString()) {
+                    if (ctx->getBoundPipNet(permPip) != nullptr) {
                         permWire = ctx->getPipSrcWire(permPip);
                     }
                 }
@@ -384,7 +384,7 @@ void write_asc(const Context *ctx, std::ostream &out)
             for (int i = 0; i < 4; i++) {
                 WireId lut_wire = ctx->getBelPinWire(bel, PortPin(PIN_I0 + i));
                 for (auto pip : ctx->getPipsUphill(lut_wire)) {
-                    if (ctx->getBoundPipNet(pip) != IdString()) {
+                    if (ctx->getBoundPipNet(pip) != nullptr) {
                         std::string name = ci.wire_data[ctx->getPipSrcWire(pip).index].name.get();
                         switch (name.back()) {
                         case '0':
@@ -458,8 +458,8 @@ void write_asc(const Context *ctx, std::ostream &out)
             NPNR_ASSERT(iez != -1);
 
             bool input_en = false;
-            if ((ctx->wire_to_net[ctx->getBelPinWire(bel, PIN_D_IN_0).index] != IdString()) ||
-                (ctx->wire_to_net[ctx->getBelPinWire(bel, PIN_D_IN_1).index] != IdString())) {
+            if ((ctx->wire_to_net[ctx->getBelPinWire(bel, PIN_D_IN_0).index] != nullptr) ||
+                (ctx->wire_to_net[ctx->getBelPinWire(bel, PIN_D_IN_1).index] != nullptr)) {
                 input_en = true;
             }
 
@@ -618,7 +618,7 @@ void write_asc(const Context *ctx, std::ostream &out)
     }
     // Set config bits in unused IO and RAM
     for (auto bel : ctx->getBels()) {
-        if (ctx->bel_to_cell[bel.index] == IdString() && ctx->getBelType(bel) == TYPE_SB_IO) {
+        if (ctx->bel_to_cell[bel.index] == nullptr && ctx->getBelType(bel) == TYPE_SB_IO) {
             const TileInfoPOD &ti = bi.tiles_nonrouting[TILE_IO];
             const BelInfoPOD &beli = ci.bel_data[bel.index];
             int x = beli.x, y = beli.y, z = beli.z;
@@ -633,7 +633,7 @@ void write_asc(const Context *ctx, std::ostream &out)
                 set_ie_bit_logical(ctx, ti, config.at(iey).at(iex), "IoCtrl.IE_" + std::to_string(iez), true);
                 set_ie_bit_logical(ctx, ti, config.at(iey).at(iex), "IoCtrl.REN_" + std::to_string(iez), false);
             }
-        } else if (ctx->bel_to_cell[bel.index] == IdString() && ctx->getBelType(bel) == TYPE_ICESTORM_RAM) {
+        } else if (ctx->bel_to_cell[bel.index] == nullptr && ctx->getBelType(bel) == TYPE_ICESTORM_RAM) {
             const BelInfoPOD &beli = ci.bel_data[bel.index];
             int x = beli.x, y = beli.y;
             const TileInfoPOD &ti = bi.tiles_nonrouting[TILE_RAMB];
@@ -751,9 +751,9 @@ void write_asc(const Context *ctx, std::ostream &out)
     // Write symbols
     // const bool write_symbols = 1;
     for (auto wire : ctx->getWires()) {
-        IdString net = ctx->getBoundWireNet(wire);
-        if (net != IdString())
-            out << ".sym " << wire.index << " " << net.str(ctx) << std::endl;
+        NetInfo *net = ctx->getBoundWireNet(wire);
+        if (net != nullptr)
+            out << ".sym " << wire.index << " " << net->name.str(ctx) << std::endl;
     }
 }
 
@@ -825,7 +825,7 @@ void read_config(Context *ctx, std::istream &in, chipconfig_t &config)
 
                 WireId wire;
                 wire.index = wireIndex;
-                ctx->bindWire(wire, netName, STRENGTH_WEAK);
+                ctx->bindWire(wire, ctx->nets.at(netName).get(), STRENGTH_WEAK);
             }
         } else if (line_nr >= 0 && strlen(buffer) > 0) {
             if (line_nr > int(config.at(tile_y).at(tile_x).size() - 1))
@@ -869,7 +869,7 @@ bool read_asc(Context *ctx, std::istream &in)
                 isUsed &= !(bool(cbit) ^ val);
             }
             if (isUsed) {
-                IdString net = ctx->wire_to_net[pi.dst];
+                NetInfo *net = ctx->wire_to_net[pi.dst];
                 WireId wire;
                 wire.index = pi.dst;
                 ctx->unbindWire(wire);
@@ -896,7 +896,7 @@ bool read_asc(Context *ctx, std::istream &in)
                     std::unique_ptr<CellInfo> created = create_ice_cell(ctx, ctx->id("ICESTORM_LC"));
                     IdString name = created->name;
                     ctx->cells[name] = std::move(created);
-                    ctx->bindBel(bel, name, STRENGTH_WEAK);
+                    ctx->bindBel(bel, ctx->cells[name].get(), STRENGTH_WEAK);
                     // TODO: Add port mapping to nets and assign values of properties
                 }
             }
@@ -916,7 +916,7 @@ bool read_asc(Context *ctx, std::istream &in)
                     std::unique_ptr<CellInfo> created = create_ice_cell(ctx, ctx->id("SB_IO"));
                     IdString name = created->name;
                     ctx->cells[name] = std::move(created);
-                    ctx->bindBel(bel, name, STRENGTH_WEAK);
+                    ctx->bindBel(bel, ctx->cells[name].get(), STRENGTH_WEAK);
                     // TODO: Add port mapping to nets and assign values of properties
                 }
             }
@@ -933,35 +933,35 @@ bool read_asc(Context *ctx, std::istream &in)
                                 std::unique_ptr<CellInfo> created = create_ice_cell(ctx, ctx->id("ICESTORM_LC"));
                                 IdString name = created->name;
                                 ctx->cells[name] = std::move(created);
-                                ctx->bindBel(belpin.bel, name, STRENGTH_WEAK);
+                                ctx->bindBel(belpin.bel, ctx->cells[name].get(), STRENGTH_WEAK);
                                 // TODO: Add port mapping to nets
                             }
                             if (ctx->getBelType(belpin.bel) == TYPE_SB_IO) {
                                 std::unique_ptr<CellInfo> created = create_ice_cell(ctx, ctx->id("SB_IO"));
                                 IdString name = created->name;
                                 ctx->cells[name] = std::move(created);
-                                ctx->bindBel(belpin.bel, name, STRENGTH_WEAK);
+                                ctx->bindBel(belpin.bel, ctx->cells[name].get(), STRENGTH_WEAK);
                                 // TODO: Add port mapping to nets
                             }
                             if (ctx->getBelType(belpin.bel) == TYPE_SB_GB) {
                                 std::unique_ptr<CellInfo> created = create_ice_cell(ctx, ctx->id("SB_GB"));
                                 IdString name = created->name;
                                 ctx->cells[name] = std::move(created);
-                                ctx->bindBel(belpin.bel, name, STRENGTH_WEAK);
+                                ctx->bindBel(belpin.bel, ctx->cells[name].get(), STRENGTH_WEAK);
                                 // TODO: Add port mapping to nets
                             }
                             if (ctx->getBelType(belpin.bel) == TYPE_SB_WARMBOOT) {
                                 std::unique_ptr<CellInfo> created = create_ice_cell(ctx, ctx->id("SB_WARMBOOT"));
                                 IdString name = created->name;
                                 ctx->cells[name] = std::move(created);
-                                ctx->bindBel(belpin.bel, name, STRENGTH_WEAK);
+                                ctx->bindBel(belpin.bel, ctx->cells[name].get(), STRENGTH_WEAK);
                                 // TODO: Add port mapping to nets
                             }
                             if (ctx->getBelType(belpin.bel) == TYPE_ICESTORM_LFOSC) {
                                 std::unique_ptr<CellInfo> created = create_ice_cell(ctx, ctx->id("ICESTORM_LFOSC"));
                                 IdString name = created->name;
                                 ctx->cells[name] = std::move(created);
-                                ctx->bindBel(belpin.bel, name, STRENGTH_WEAK);
+                                ctx->bindBel(belpin.bel, ctx->cells[name].get(), STRENGTH_WEAK);
                                 // TODO: Add port mapping to nets
                             }
                         }
@@ -975,17 +975,17 @@ bool read_asc(Context *ctx, std::istream &in)
                     PortPin pin = ctx->portPinFromId(port.first);
                     WireId wire = ctx->getBelPinWire(cell.second->bel, pin);
                     if (wire != WireId()) {
-                        IdString name = ctx->getBoundWireNet(wire);
-                        if (name != IdString()) {
-                            port.second.net = ctx->nets[name].get();
+                        NetInfo *net = ctx->getBoundWireNet(wire);
+                        if (net != nullptr) {
+                            port.second.net = net;
                             PortRef ref;
                             ref.cell = cell.second.get();
                             ref.port = port.second.name;
 
                             if (port.second.type == PORT_OUT)
-                                ctx->nets[name]->driver = ref;
+                                net->driver = ref;
                             else
-                                ctx->nets[name]->users.push_back(ref);
+                                net->users.push_back(ref);
                         }
                     }
                 }

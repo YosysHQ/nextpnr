@@ -2,6 +2,7 @@
  *  nextpnr -- Next Generation Place and Route
  *
  *  Copyright (C) 2018  David Shah <david@symbioticeda.com>
+ *  Copyright (C) 2018  Eddie Hung <eddieh@ece.ubc.ca>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -32,36 +33,42 @@ typedef std::map<int, unsigned> DelayFrequency;
 struct Timing
 {
     Context *ctx;
+    bool net_delays;
     bool update;
     delay_t min_slack;
     PortRefVector current_path;
     PortRefVector *crit_path;
     DelayFrequency *slack_histogram;
 
-    Timing(Context *ctx, bool update, PortRefVector *crit_path = nullptr, DelayFrequency *slack_histogram = nullptr)
-            : ctx(ctx), update(update), min_slack(1.0e12 / ctx->target_freq), crit_path(crit_path),
-              slack_histogram(slack_histogram)
+    Timing(Context *ctx, bool net_delays, bool update, PortRefVector *crit_path = nullptr,
+           DelayFrequency *slack_histogram = nullptr)
+            : ctx(ctx), net_delays(net_delays), update(update), min_slack(1.0e12 / ctx->target_freq),
+              crit_path(crit_path), slack_histogram(slack_histogram)
     {
     }
 
     delay_t follow_net(NetInfo *net, int path_length, delay_t slack)
     {
-        delay_t net_budget = slack / (path_length + 1);
+        const delay_t default_budget = slack / (path_length + 1);
+        delay_t net_budget = default_budget;
         for (auto &usr : net->users) {
+            auto delay = net_delays ? ctx->getNetinfoRouteDelay(net, usr) : delay_t();
             if (crit_path)
                 current_path.push_back(&usr);
-            // If budget override is less than existing budget, then do not increment
-            // path length
-            int pl = path_length + 1;
-            auto budget = ctx->getBudgetOverride(net, usr, net_budget);
-            if (budget < net_budget) {
-                net_budget = budget;
-                pl = std::max(1, path_length);
+            // If budget override exists, use that value and do not increment path_length
+            auto budget = default_budget;
+            if (ctx->getBudgetOverride(net, usr, budget)) {
+                if (update)
+                    usr.budget = std::min(usr.budget, budget);
+                budget = follow_user_port(usr, path_length, slack - budget);
+                net_budget = std::min(net_budget, budget);
             }
-            auto delay = ctx->getNetinfoRouteDelay(net, usr);
-            net_budget = std::min(net_budget, follow_user_port(usr, pl, slack - delay));
-            if (update)
-                usr.budget = std::min(usr.budget, delay + net_budget);
+            else {
+                budget = follow_user_port(usr, path_length + 1, slack - delay);
+                net_budget = std::min(net_budget, budget);
+                if (update)
+                    usr.budget = std::min(usr.budget, delay + budget);
+            }
             if (crit_path)
                 current_path.pop_back();
         }
@@ -149,10 +156,10 @@ void assign_budget(Context *ctx, bool quiet)
 {
     if (!quiet) {
         log_break();
-        log_info("Annotating ports with timing budgets for target frequency %.2f MHz\n", ctx->target_freq/1e6);
+        log_info("Annotating ports with timing budgets for target frequency %.2f MHz\n", ctx->target_freq / 1e6);
     }
 
-    Timing timing(ctx, true /* update */);
+    Timing timing(ctx, ctx->slack_redist_iter > 0 /* net_delays */, true /* update */);
     timing.assign_budget();
 
     if (!quiet || ctx->verbose) {
@@ -194,7 +201,7 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_path)
     PortRefVector crit_path;
     DelayFrequency slack_histogram;
 
-    Timing timing(ctx, false /* update */, print_path ? &crit_path : nullptr,
+    Timing timing(ctx, true /* net_delays */, false /* update */, print_path ? &crit_path : nullptr,
                   print_histogram ? &slack_histogram : nullptr);
     auto min_slack = timing.walk_paths();
 
@@ -238,7 +245,7 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_path)
     delay_t default_slack = delay_t(1.0e12 / ctx->target_freq);
     log_info("estimated Fmax = %.2f MHz\n", 1e6 / (default_slack - min_slack));
 
-    if (print_histogram) {
+    if (print_histogram && slack_histogram.size() > 0) {
         constexpr unsigned num_bins = 20;
         unsigned bar_width = 60;
         auto min_slack = slack_histogram.begin()->first;
@@ -256,9 +263,11 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_path)
         log_break();
         log_info("Slack histogram:\n");
         log_info(" legend: * represents %d endpoint(s)\n", max_freq / bar_width);
+        log_info("         + represents [1,%d) endpoint(s)\n", max_freq / bar_width);
         for (unsigned i = 0; i < bins.size(); ++i)
-            log_info("%6d < ps < %6d |%s\n", min_slack + bin_size * i, min_slack + bin_size * (i + 1),
-                     std::string(bins[i] * bar_width / max_freq, '*').c_str());
+            log_info("[%6d, %6d) |%s%c\n", min_slack + bin_size * i, min_slack + bin_size * (i + 1),
+                     std::string(bins[i] * bar_width / max_freq, '*').c_str(),
+                     (bins[i] * bar_width) % max_freq > 0 ? '+' : ' ');
     }
 }
 

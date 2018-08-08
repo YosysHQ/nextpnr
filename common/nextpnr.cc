@@ -232,25 +232,26 @@ void Context::check() const
         auto ni = n.second.get();
         NPNR_ASSERT(n.first == ni->name);
         for (auto &w : ni->wires) {
-            NPNR_ASSERT(n.first == getBoundWireNet(w.first));
+            NPNR_ASSERT(ni == getBoundWireNet(w.first));
             if (w.second.pip != PipId()) {
                 NPNR_ASSERT(w.first == getPipDstWire(w.second.pip));
-                NPNR_ASSERT(n.first == getBoundPipNet(w.second.pip));
+                NPNR_ASSERT(ni == getBoundPipNet(w.second.pip));
             }
         }
     }
 
     for (auto w : getWires()) {
-        IdString net = getBoundWireNet(w);
-        if (net != IdString()) {
-            NPNR_ASSERT(nets.at(net)->wires.count(w));
+        auto ni = getBoundWireNet(w);
+        if (ni != nullptr) {
+            NPNR_ASSERT(ni->wires.count(w));
         }
     }
 
     for (auto &c : cells) {
-        NPNR_ASSERT(c.first == c.second->name);
-        if (c.second->bel != BelId())
-            NPNR_ASSERT(getBoundBelCell(c.second->bel) == c.first);
+        auto ci = c.second.get();
+        NPNR_ASSERT(c.first == ci->name);
+        if (ci->bel != BelId())
+            NPNR_ASSERT(getBoundBelCell(c.second->bel) == ci);
         for (auto &port : c.second->ports) {
             NetInfo *net = port.second.net;
             if (net != nullptr) {
