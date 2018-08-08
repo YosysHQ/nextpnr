@@ -215,8 +215,8 @@ struct Arch : BaseCtx
     DecalXY getGroupDecal(GroupId group) const;
 
     bool getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const;
-    IdString getPortClock(const CellInfo *cell, IdString port) const;
-    bool isClockPort(const CellInfo *cell, IdString port) const;
+    // Get the port class, also setting clockPort if applicable
+    TimingPortClass getPortTimingClass(const CellInfo *cell, IdString port, IdString &clockPort) const;
 
     bool isValidBelForCell(CellInfo *cell, BelId bel) const;
     bool isBelLocationValid(BelId bel) const;
