@@ -121,11 +121,13 @@ struct Arch : BaseCtx
     // ---------------------------------------------------------------
     // Common Arch API. Every arch must provide the following methods.
 
+    ArchArgs args;
     Arch(ArchArgs args);
 
     std::string getChipName() const { return chipName; }
 
     IdString archId() const { return id("generic"); }
+    ArchArgs archArgs() const { return args; }
     IdString archArgsToId(ArchArgs args) const { return id("none"); }
 
     IdString belTypeToId(BelType type) const { return type; }

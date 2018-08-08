@@ -175,7 +175,7 @@ void Arch::setGroupDecal(GroupId group, DecalXY decalxy)
 
 // ---------------------------------------------------------------
 
-Arch::Arch(ArchArgs) : chipName("generic") {}
+Arch::Arch(ArchArgs args) : chipName("generic"), args(args) {}
 
 void IdString::initialize_arch(const BaseCtx *ctx) {}
 

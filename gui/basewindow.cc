@@ -31,6 +31,7 @@
 #include "jsonparse.h"
 #include "log.h"
 #include "mainwindow.h"
+#include "project.h"
 #include "pythontab.h"
 
 static void initBasenameResource() { Q_INIT_RESOURCE(base); }
@@ -302,8 +303,7 @@ void BaseMainWindow::load_json(std::string filename)
     if (parse_json_file(f, filename, ctx.get())) {
         log("Loading design successful.\n");
         Q_EMIT updateTreeView();
-        actionPack->setEnabled(true);
-        onJsonLoaded();
+        updateJsonLoaded();
     } else {
         actionLoadJSON->setEnabled(true);
         log("Loading design failed.\n");
@@ -423,6 +423,44 @@ void BaseMainWindow::disableActions()
     actionSave->setEnabled(!currentJson.empty());
 
     onDisableActions();
+}
+
+void BaseMainWindow::updateJsonLoaded()
+{
+    disableActions();
+    actionPack->setEnabled(true);
+    onJsonLoaded();
+}
+
+void BaseMainWindow::open_proj()
+{
+    QString fileName = QFileDialog::getOpenFileName(this, QString("Open Project"), QString(), QString("*.proj"));
+    if (!fileName.isEmpty()) {
+        try {
+            ProjectHandler proj;
+            disableActions();
+            ctx = proj.load(fileName.toStdString());
+            Q_EMIT contextChanged(ctx.get());
+            log_info("Loaded project %s...\n", fileName.toStdString().c_str());
+            updateJsonLoaded();
+            onProjectLoaded();
+        } catch (log_execution_error_exception) {
+        }
+    }
+}
+
+void BaseMainWindow::save_proj()
+{
+    if (currentProj.empty()) {
+        QString fileName = QFileDialog::getSaveFileName(this, QString("Save Project"), QString(), QString("*.proj"));
+        if (fileName.isEmpty())
+            return;
+        currentProj = fileName.toStdString();
+    }
+    if (!currentProj.empty()) {
+        ProjectHandler proj;
+        proj.save(ctx.get(), currentProj);
+    }
 }
 
 NEXTPNR_NAMESPACE_END
