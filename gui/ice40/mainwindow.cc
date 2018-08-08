@@ -150,7 +150,7 @@ void MainWindow::load_pcf(std::string filename)
     disableActions();
     currentPCF = filename;
     std::ifstream f(filename);
-    if (apply_pcf(ctx.get(), f)) {
+    if (apply_pcf(ctx.get(), filename, f)) {
         log("Loading PCF successful.\n");
         actionPack->setEnabled(true);
     } else {

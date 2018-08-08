@@ -52,7 +52,6 @@ class MainWindow : public BaseMainWindow
 
     ArchArgs chipArgs;
 
-    std::string currentProj;
     std::string currentBaseConfig;
 };
 
