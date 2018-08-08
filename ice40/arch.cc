@@ -953,6 +953,10 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, Id
         if (port == id("CLKHF"))
             return TMG_GEN_CLOCK;
         return TMG_IGNORE;
+    } else if (cell->type == id_sb_gb) {
+        if (port == id_glb_buf_out)
+            return TMG_COMB_OUTPUT;
+        return TMG_COMB_INPUT;
     }
     return TMG_IGNORE;
 }
