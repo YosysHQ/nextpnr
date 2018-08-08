@@ -131,7 +131,6 @@ struct Timing
             const auto net = queue.front();
             queue.pop_front();
 
-            DelayInfo clkToQ;
             for (auto &usr : net->users) {
                 IdString clockPort;
                 TimingPortClass usrClass = ctx->getPortTimingClass(usr.cell, usr.port, clockPort);
