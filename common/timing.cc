@@ -92,7 +92,9 @@ struct Timing
                     topographical_order.emplace_back(o->net);
                     net_data.emplace(o->net, TimingData{clkToQ.maxDelay()});
                 } else {
-                    // TODO(eddieh): Generated clocks and ignored ports are currently added into the ordering as if it was a regular timing start point in order to enable the full topographical order to be computed, however these false nets (and their downstream paths) should not be in the final ordering
+                    // TODO(eddieh): Generated clocks and ignored ports are currently added into the ordering as if it
+                    // was a regular timing start point in order to enable the full topographical order to be computed,
+                    // however these false nets (and their downstream paths) should not be in the final ordering
                     if (portClass == TMG_STARTPOINT || portClass == TMG_GEN_CLOCK || portClass == TMG_IGNORE) {
                         topographical_order.emplace_back(o->net);
                         net_data.emplace(o->net, TimingData{});
@@ -343,12 +345,12 @@ void assign_budget(Context *ctx, bool quiet)
     // For slack redistribution, if user has not specified a frequency dynamically adjust the target frequency to be the
     // currently achieved maximum
     if (ctx->auto_freq && ctx->slack_redist_iter > 0) {
-        delay_t default_slack = delay_t(1.0e12 / ctx->target_freq);
-        ctx->target_freq = 1e12 / (default_slack - timing.min_slack);
+        delay_t default_slack = delay_t((1.0e9 / ctx->getDelayNS(1)) / ctx->target_freq);
+        ctx->target_freq = 1.0e9 / ctx->getDelayNS(default_slack - timing.min_slack);
         if (ctx->verbose)
-            log_info("minimum slack for this assign = %d, target Fmax for next "
+            log_info("minimum slack for this assign = %.2f ns, target Fmax for next "
                      "update = %.2f MHz\n",
-                     timing.min_slack, ctx->target_freq / 1e6);
+                     ctx->getDelayNS(timing.min_slack), ctx->target_freq / 1e6);
     }
 
     if (!quiet)
@@ -388,14 +390,15 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_path)
                 DelayInfo comb_delay;
                 ctx->getCellDelay(sink_cell, last_port, driver.port, comb_delay);
                 total += comb_delay.maxDelay();
-                log_info("%4d %4d  Source %s.%s\n", comb_delay.maxDelay(), total, driver_cell->name.c_str(ctx),
-                         driver.port.c_str(ctx));
+                log_info("%4.1f %4.1f  Source %s.%s\n", ctx->getDelayNS(comb_delay.maxDelay()), ctx->getDelayNS(total),
+                         driver_cell->name.c_str(ctx), driver.port.c_str(ctx));
                 auto net_delay = ctx->getNetinfoRouteDelay(net, *sink);
                 total += net_delay;
                 auto driver_loc = ctx->getBelLocation(driver_cell->bel);
                 auto sink_loc = ctx->getBelLocation(sink_cell->bel);
-                log_info("%4d %4d    Net %s budget %d (%d,%d) -> (%d,%d)\n", net_delay, total, net->name.c_str(ctx),
-                         sink->budget, driver_loc.x, driver_loc.y, sink_loc.x, sink_loc.y);
+                log_info("%4.1f %4.1f    Net %s budget %f ns (%d,%d) -> (%d,%d)\n", ctx->getDelayNS(net_delay),
+                         ctx->getDelayNS(total), net->name.c_str(ctx), ctx->getDelayNS(sink->budget), driver_loc.x,
+                         driver_loc.y, sink_loc.x, sink_loc.y);
                 log_info("                Sink %s.%s\n", sink_cell->name.c_str(ctx), sink->port.c_str(ctx));
                 last_port = sink->port;
             }
@@ -403,8 +406,8 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_path)
         }
     }
 
-    delay_t default_slack = delay_t(1.0e12 / ctx->target_freq);
-    log_info("estimated Fmax = %.2f MHz\n", 1e6 / (default_slack - min_slack));
+    delay_t default_slack = delay_t((1.0e9 / ctx->getDelayNS(1)) / ctx->target_freq);
+    log_info("estimated Fmax = %.2f MHz\n", 1e3 / ctx->getDelayNS(default_slack - min_slack));
 
     if (print_histogram && slack_histogram.size() > 0) {
         constexpr unsigned num_bins = 20;
