@@ -92,7 +92,7 @@ struct Timing
                     topographical_order.emplace_back(o->net);
                     net_data.emplace(o->net, TimingData{clkToQ.maxDelay()});
                 } else {
-                    // TODO: how to process ignore here
+                    // TODO(eddieh): Generated clocks and ignored ports are currently added into the ordering as if it was a regular timing start point in order to enable the full topographical order to be computed, however these false nets (and their downstream paths) should not be in the final ordering
                     if (portClass == TMG_STARTPOINT || portClass == TMG_GEN_CLOCK || portClass == TMG_IGNORE) {
                         topographical_order.emplace_back(o->net);
                         net_data.emplace(o->net, TimingData{});
