@@ -66,7 +66,6 @@ po::options_description Ice40CommandHandler::getArchOptions()
     specific.add_options()("asc", po::value<std::string>(), "asc bitstream file to write");
     specific.add_options()("read", po::value<std::string>(), "asc bitstream file to read");
     specific.add_options()("tmfuzz", "run path delay estimate fuzzer");
-    specific.add_options()("pack-only", "pack design only without placement or routing");
     return specific;
 }
 void Ice40CommandHandler::validate()

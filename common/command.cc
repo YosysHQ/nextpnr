@@ -97,6 +97,7 @@ po::options_description CommandHandler::getGeneralOptions()
     general.add_options()("seed", po::value<int>(), "seed value for random number generator");
     general.add_options()("slack_redist_iter", po::value<int>(), "number of iterations between slack redistribution");
     general.add_options()("cstrweight", po::value<float>(), "placer weighting for relative constraint satisfaction");
+    general.add_options()("pack-only", "pack design only without placement or routing");
 
     general.add_options()("version,V", "show version");
     general.add_options()("test", "check architecture database integrity");
