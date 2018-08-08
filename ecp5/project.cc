@@ -25,7 +25,7 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-void ProjectHandler::saveArch(Context *ctx, pt::ptree &root)
+void ProjectHandler::saveArch(Context *ctx, pt::ptree &root, std::string path)
 {
     root.put("project.arch.package", ctx->archArgs().package);
     root.put("project.arch.speed", ctx->archArgs().speed);

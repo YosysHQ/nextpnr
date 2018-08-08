@@ -27,7 +27,7 @@
 NEXTPNR_NAMESPACE_BEGIN
 
 // Apply PCF constraints to a pre-packing design
-bool apply_pcf(Context *ctx, std::istream &in);
+bool apply_pcf(Context *ctx, std::string filename, std::istream &in);
 
 NEXTPNR_NAMESPACE_END
 

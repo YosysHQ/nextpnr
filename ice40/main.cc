@@ -79,8 +79,9 @@ void Ice40CommandHandler::validate()
 void Ice40CommandHandler::customAfterLoad(Context *ctx)
 {
     if (vm.count("pcf")) {
-        std::ifstream pcf(vm["pcf"].as<std::string>());
-        if (!apply_pcf(ctx, pcf))
+        std::string filename = vm["pcf"].as<std::string>();
+        std::ifstream pcf(filename);
+        if (!apply_pcf(ctx, filename, pcf))
             log_error("Loading PCF failed.\n");
     }
 }

@@ -20,6 +20,7 @@
 #ifndef PROJECT_H
 #define PROJECT_H
 
+#include <boost/filesystem/convenience.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include "nextpnr.h"
 
@@ -32,10 +33,12 @@ struct ProjectHandler
     void save(Context *ctx, std::string filename);
     std::unique_ptr<Context> load(std::string filename);
     // implemented per arch
-    void saveArch(Context *ctx, pt::ptree &root);
+    void saveArch(Context *ctx, pt::ptree &root, std::string path);
     std::unique_ptr<Context> createContext(pt::ptree &root);
     void loadArch(Context *ctx, pt::ptree &root, std::string path);
 };
+
+boost::filesystem::path make_relative(boost::filesystem::path child, boost::filesystem::path parent);
 
 NEXTPNR_NAMESPACE_END
 

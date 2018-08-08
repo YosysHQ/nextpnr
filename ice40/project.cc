@@ -25,11 +25,13 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-void ProjectHandler::saveArch(Context *ctx, pt::ptree &root)
+void ProjectHandler::saveArch(Context *ctx, pt::ptree &root, std::string path)
 {
     root.put("project.arch.package", ctx->archArgs().package);
-    // if(!pcfFilename.empty())
-    //      root.put("project.input.pcf", pcfFilename);
+    if (ctx->settings.find(ctx->id("project/input/pcf")) != ctx->settings.end()) {
+        std::string fn = ctx->settings[ctx->id("project/input/pcf")];
+        root.put("project.input.pcf", make_relative(fn, path).string());
+    }
 }
 
 std::unique_ptr<Context> ProjectHandler::createContext(pt::ptree &root)
@@ -64,7 +66,7 @@ void ProjectHandler::loadArch(Context *ctx, pt::ptree &root, std::string path)
     auto input = root.get_child("project").get_child("input");
     boost::filesystem::path pcf = boost::filesystem::path(path) / input.get<std::string>("pcf");
     std::ifstream f(pcf.string());
-    if (!apply_pcf(ctx, f))
+    if (!apply_pcf(ctx, input.get<std::string>("pcf"), f))
         log_error("Loading PCF failed.\n");
 }
 

@@ -24,7 +24,7 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-void ProjectHandler::saveArch(Context *ctx, pt::ptree &root) {}
+void ProjectHandler::saveArch(Context *ctx, pt::ptree &root, std::string path) {}
 
 std::unique_ptr<Context> ProjectHandler::createContext(pt::ptree &root)
 {
