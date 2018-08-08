@@ -36,6 +36,7 @@
 #include "jsonparse.h"
 #include "log.h"
 #include "version.h"
+#include <timing.h>
 
 NEXTPNR_NAMESPACE_BEGIN
 
