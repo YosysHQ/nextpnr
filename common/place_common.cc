@@ -375,6 +375,18 @@ class ConstraintLegaliseWorker
                         ctx->bindBel(target, ctx->cells.at(cp.first).get(), STRENGTH_LOCKED);
                         rippedCells.erase(cp.first);
                     }
+                    for (auto cp : solution) {
+                        for (auto bel : ctx->getBelsByTile(cp.second.x, cp.second.y)) {
+                            CellInfo *belCell = ctx->getBoundBelCell(bel);
+                            if (belCell != nullptr && !solution.count(belCell->name)) {
+                                if (!ctx->isValidBelForCell(belCell, bel)) {
+                                    NPNR_ASSERT(belCell->belStrength < STRENGTH_STRONG);
+                                    ctx->unbindBel(bel);
+                                    rippedCells.insert(belCell->name);
+                                }
+                            }
+                        }
+                    }
                     NPNR_ASSERT(constraints_satisfied(cell));
                     return true;
                 }
