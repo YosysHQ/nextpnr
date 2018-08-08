@@ -957,8 +957,10 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, Id
         if (port == id_glb_buf_out)
             return TMG_COMB_OUTPUT;
         return TMG_COMB_INPUT;
+    } else if (cell->type == id("SB_WARMBOOT")) {
+        return TMG_ENDPOINT;
     }
-    return TMG_IGNORE;
+    log_error("no timing info for port '%s' of cell type '%s'\n", port.c_str(this), cell->type.c_str(this));
 }
 
 bool Arch::isGlobalNet(const NetInfo *net) const
