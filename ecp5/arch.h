@@ -827,10 +827,8 @@ struct Arch : BaseCtx
     // Get the delay through a cell from one port to another, returning false
     // if no path exists
     bool getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const;
-    // Get the associated clock to a port, or empty if the port is combinational
-    IdString getPortClock(const CellInfo *cell, IdString port) const;
-    // Return true if a port is a clock
-    bool isClockPort(const CellInfo *cell, IdString port) const;
+    // Get the port class, also setting clockPort if applicable
+    TimingPortClass getPortTimingClass(const CellInfo *cell, IdString port, IdString &clockPort) const;
     // Return true if a port is a net
     bool isGlobalNet(const NetInfo *net) const;
     // Return true if a cell is an IO

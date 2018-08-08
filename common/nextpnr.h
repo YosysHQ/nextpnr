@@ -301,7 +301,7 @@ enum TimingPortClass
     TMG_COMB_OUTPUT,     // Combinational output, no paths start here
     TMG_STARTPOINT,      // Unclocked primary startpoint, such as an IO cell output
     TMG_ENDPOINT,        // Unclocked primary endpoint, such as an IO cell input
-    TMG_ASYNC,           // Asynchronous to all clocks, "don't care", and should be ignored (false path) for analysis
+    TMG_IGNORE,          // Asynchronous to all clocks, "don't care", and should be ignored (false path) for analysis
 };
 
 struct DeterministicRNG

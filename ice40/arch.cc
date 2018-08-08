@@ -27,6 +27,7 @@
 #include "placer1.h"
 #include "router1.h"
 #include "util.h"
+
 NEXTPNR_NAMESPACE_BEGIN
 
 // -----------------------------------------------------------------------
@@ -106,7 +107,9 @@ BelType Arch::belTypeFromId(IdString type) const
 void IdString::initialize_arch(const BaseCtx *ctx)
 {
 #define X(t) initialize_add(ctx, #t, PIN_##t);
+
 #include "portpins.inc"
+
 #undef X
 }
 
@@ -888,27 +891,56 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
     return false;
 }
 
-IdString Arch::getPortClock(const CellInfo *cell, IdString port) const
+// Get the port class, also setting clockPort to associated clock if applicable
+TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, IdString &clockPort) const
 {
-    if (cell->type == id_icestorm_lc && cell->lcInfo.dffEnable) {
-        if (port != id_lo && port != id_cin && port != id_cout)
-            return id_clk;
-    } else if (cell->type == id_icestorm_ram) {
-        if (port.str(this)[0] == 'R')
-            return id_rclk;
+    if (cell->type == id_icestorm_lc) {
+        if (port == id_clk)
+            return TMG_CLOCK_INPUT;
+        if (port == id_cin)
+            return TMG_COMB_INPUT;
+        if (port == id_cout || port == id_lo)
+            return TMG_COMB_OUTPUT;
+        if (cell->lcInfo.dffEnable) {
+            clockPort = id_clk;
+            if (port == id_o)
+                return TMG_REGISTER_OUTPUT;
+            else
+                return TMG_REGISTER_INPUT;
+        } else {
+            if (port == id_o)
+                return TMG_COMB_OUTPUT;
+            else
+                return TMG_COMB_INPUT;
+        }
+    } else if (cell->type == id_icestorm_ram || cell->type == id("ICESTORM_DSP") ||
+               cell->type == id("ICESTORM_SPRAM")) {
+        if (port == id_clk)
+            return TMG_CLOCK_INPUT;
+        else if (cell->ports.at(port).type == PORT_OUT)
+            return TMG_REGISTER_OUTPUT;
         else
-            return id_wclk;
+            return TMG_REGISTER_INPUT;
+    } else if (cell->type == id_sb_io) {
+        if (port == id("D_IN_0") || port == id("D_IN_1"))
+            return TMG_STARTPOINT;
+        if (port == id("D_OUT_0") || port == id("D_OUT_1"))
+            return TMG_STARTPOINT;
+        return TMG_IGNORE;
+    } else if (cell->type == id("ICESTORM_PLL")) {
+        if (port == id("PLLOUT_A") || port == id("PLLOUT_B"))
+            return TMG_GEN_CLOCK;
+        return TMG_IGNORE;
+    } else if (cell->type == id("ICESTORM_LFOSC")) {
+        if (port == id("CLKLF"))
+            return TMG_GEN_CLOCK;
+        return TMG_IGNORE;
+    } else if (cell->type == id("ICESTORM_HFOSC")) {
+        if (port == id("CLKHF"))
+            return TMG_GEN_CLOCK;
+        return TMG_IGNORE;
     }
-    return IdString();
-}
-
-bool Arch::isClockPort(const CellInfo *cell, IdString port) const
-{
-    if (cell->type == id("ICESTORM_LC") && port == id("CLK"))
-        return true;
-    if (cell->type == id("ICESTORM_RAM") && (port == id("RCLK") || (port == id("WCLK"))))
-        return true;
-    return false;
+    return TMG_IGNORE;
 }
 
 bool Arch::isGlobalNet(const NetInfo *net) const

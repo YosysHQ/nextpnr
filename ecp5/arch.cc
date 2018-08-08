@@ -495,9 +495,10 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
     return false;
 }
 
-IdString Arch::getPortClock(const CellInfo *cell, IdString port) const { return IdString(); }
-
-bool Arch::isClockPort(const CellInfo *cell, IdString port) const { return false; }
+TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, IdString &clockPort) const
+{
+    return TMG_IGNORE;
+}
 
 bool Arch::isIOCell(const CellInfo *cell) const { return cell->type == id("TRELLIS_IO"); }
 
