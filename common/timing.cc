@@ -84,7 +84,8 @@ struct Timing
             for (auto o : output_ports) {
                 IdString clockPort;
                 TimingPortClass portClass = ctx->getPortTimingClass(cell.second.get(), o->name, clockPort);
-                // If output port is influenced by a clock (e.g. FF output) then add it to the ordering as a timing start-point
+                // If output port is influenced by a clock (e.g. FF output) then add it to the ordering as a timing
+                // start-point
                 if (portClass == TMG_REGISTER_OUTPUT) {
                     DelayInfo clkToQ;
                     ctx->getCellDelay(cell.second.get(), clockPort, o->name, clkToQ);
@@ -96,7 +97,8 @@ struct Timing
                         topographical_order.emplace_back(o->net);
                         net_data.emplace(o->net, TimingData{});
                     }
-                    // Otherwise, for all driven input ports on this cell, if a timing arc exists between the input and the current output port, increment fanin counter
+                    // Otherwise, for all driven input ports on this cell, if a timing arc exists between the input and
+                    // the current output port, increment fanin counter
                     for (auto i : input_ports) {
                         DelayInfo comb_delay;
                         bool is_path = ctx->getCellDelay(cell.second.get(), i, o->name, comb_delay);
@@ -145,7 +147,8 @@ struct Timing
                     bool is_path = ctx->getCellDelay(usr.cell, usr.port, port.first, comb_delay);
                     if (!is_path)
                         continue;
-                    // Decrement the fanin count, and only add to topographical order if all its fanins have already been visited
+                    // Decrement the fanin count, and only add to topographical order if all its fanins have already
+                    // been visited
                     auto it = port_fanin.find(&port.second);
                     NPNR_ASSERT(it != port_fanin.end());
                     if (--it->second == 0) {
@@ -186,7 +189,8 @@ struct Timing
                         auto &data = net_data[port.second.net];
                         auto &arrival = data.max_arrival;
                         arrival = std::max(arrival, usr_arrival + comb_delay.maxDelay());
-                        if (!budget_override) { // Do not increment path length if budget overriden since it doesn't require a share of the slack
+                        if (!budget_override) { // Do not increment path length if budget overriden since it doesn't
+                                                // require a share of the slack
                             auto &path_length = data.max_path_length;
                             path_length = std::max(path_length, net_length_plus_one);
                         }
@@ -197,7 +201,8 @@ struct Timing
 
         const NetInfo *crit_net = nullptr;
 
-        // Now go backwards topographically to determine the minimum path slack, and to distribute all path slack evenly between all nets on the path
+        // Now go backwards topographically to determine the minimum path slack, and to distribute all path slack evenly
+        // between all nets on the path
         for (auto net : boost::adaptors::reverse(topographical_order)) {
             auto &nd = net_data.at(net);
             const delay_t net_length_plus_one = nd.max_path_length + 1;
@@ -334,7 +339,8 @@ void assign_budget(Context *ctx, bool quiet)
         }
     }
 
-    // For slack redistribution, if user has not specified a frequency dynamically adjust the target frequency to be the currently achieved maximum
+    // For slack redistribution, if user has not specified a frequency dynamically adjust the target frequency to be the
+    // currently achieved maximum
     if (ctx->auto_freq && ctx->slack_redist_iter > 0) {
         delay_t default_slack = delay_t(1.0e12 / ctx->target_freq);
         ctx->target_freq = 1e12 / (default_slack - timing.min_slack);
