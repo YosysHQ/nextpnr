@@ -36,7 +36,7 @@ void Arch::addWire(IdString name, IdString type, int x, int y)
     wire_ids.push_back(name);
 }
 
-void Arch::addPip(IdString name, IdString type, IdString srcWire, IdString dstWire, DelayInfo delay)
+void Arch::addPip(IdString name, IdString type, IdString srcWire, IdString dstWire, DelayInfo delay, Loc loc)
 {
     NPNR_ASSERT(pips.count(name) == 0);
     PipInfo &pi = pips[name];
@@ -45,10 +45,21 @@ void Arch::addPip(IdString name, IdString type, IdString srcWire, IdString dstWi
     pi.srcWire = srcWire;
     pi.dstWire = dstWire;
     pi.delay = delay;
+    pi.loc = loc;
 
     wires.at(srcWire).downhill.push_back(name);
     wires.at(dstWire).uphill.push_back(name);
     pip_ids.push_back(name);
+
+    if (int(tilePipDimZ.size()) <= loc.x)
+        tilePipDimZ.resize(loc.x + 1);
+
+    if (int(tilePipDimZ[loc.x].size()) <= loc.y)
+        tilePipDimZ[loc.x].resize(loc.y + 1);
+
+    gridDimX = std::max(gridDimX, loc.x + 1);
+    gridDimY = std::max(gridDimY, loc.x + 1);
+    tilePipDimZ[loc.x][loc.y] = std::max(tilePipDimZ[loc.x][loc.y], loc.z + 1);
 }
 
 void Arch::addAlias(IdString name, IdString type, IdString srcWire, IdString dstWire, DelayInfo delay)
@@ -88,15 +99,15 @@ void Arch::addBel(IdString name, IdString type, Loc loc, bool gb)
 
     bels_by_tile[loc.x][loc.y].push_back(name);
 
-    if (int(tileDimZ.size()) <= loc.x)
-        tileDimZ.resize(loc.x + 1);
+    if (int(tileBelDimZ.size()) <= loc.x)
+        tileBelDimZ.resize(loc.x + 1);
 
-    if (int(tileDimZ[loc.x].size()) <= loc.y)
-        tileDimZ[loc.x].resize(loc.y + 1);
+    if (int(tileBelDimZ[loc.x].size()) <= loc.y)
+        tileBelDimZ[loc.x].resize(loc.y + 1);
 
     gridDimX = std::max(gridDimX, loc.x + 1);
     gridDimY = std::max(gridDimY, loc.x + 1);
-    tileDimZ[loc.x][loc.y] = std::max(tileDimZ[loc.x][loc.y], loc.z + 1);
+    tileBelDimZ[loc.x][loc.y] = std::max(tileBelDimZ[loc.x][loc.y], loc.z + 1);
 }
 
 void Arch::addBelInput(IdString bel, IdString name, IdString wire)
@@ -351,6 +362,8 @@ NetInfo *Arch::getBoundPipNet(PipId pip) const { return pips.at(pip).bound_net; 
 NetInfo *Arch::getConflictingPipNet(PipId pip) const { return pips.at(pip).bound_net; }
 
 const std::vector<PipId> &Arch::getPips() const { return pip_ids; }
+
+Loc Arch::getPipLocation(PipId pip) const { return pips.at(pip).loc; }
 
 WireId Arch::getPipSrcWire(PipId pip) const { return pips.at(pip).srcWire; }
 

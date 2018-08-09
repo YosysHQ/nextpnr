@@ -36,6 +36,7 @@ struct PipInfo
     WireId srcWire, dstWire;
     DelayInfo delay;
     DecalXY decalxy;
+    Loc loc;
 };
 
 struct WireInfo
@@ -94,12 +95,13 @@ struct Arch : BaseCtx
     std::unordered_map<DecalId, std::vector<GraphicElement>> decal_graphics;
 
     int gridDimX, gridDimY;
-    std::vector<std::vector<int>> tileDimZ;
+    std::vector<std::vector<int>> tileBelDimZ;
+    std::vector<std::vector<int>> tilePipDimZ;
 
     float grid_distance_to_delay;
 
     void addWire(IdString name, IdString type, int x, int y);
-    void addPip(IdString name, IdString type, IdString srcWire, IdString dstWire, DelayInfo delay);
+    void addPip(IdString name, IdString type, IdString srcWire, IdString dstWire, DelayInfo delay, Loc loc);
     void addAlias(IdString name, IdString type, IdString srcWire, IdString dstWire, DelayInfo delay);
 
     void addBel(IdString name, IdString type, Loc loc, bool gb);
@@ -132,7 +134,8 @@ struct Arch : BaseCtx
 
     int getGridDimX() const { return gridDimX; }
     int getGridDimY() const { return gridDimY; }
-    int getTileDimZ(int x, int y) const { return tileDimZ[x][y]; }
+    int getTileBelDimZ(int x, int y) const { return tileBelDimZ[x][y]; }
+    int getTilePipDimZ(int x, int y) const { return tilePipDimZ[x][y]; }
 
     BelId getBelByName(IdString name) const;
     IdString getBelName(BelId bel) const;
@@ -175,6 +178,7 @@ struct Arch : BaseCtx
     NetInfo *getBoundPipNet(PipId pip) const;
     NetInfo *getConflictingPipNet(PipId pip) const;
     const std::vector<PipId> &getPips() const;
+    Loc getPipLocation(PipId pip) const;
     WireId getPipSrcWire(PipId pip) const;
     WireId getPipDstWire(PipId pip) const;
     DelayInfo getPipDelay(PipId pip) const;

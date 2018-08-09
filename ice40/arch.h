@@ -418,7 +418,8 @@ struct Arch : BaseCtx
 
     int getGridDimX() const { return 34; }
     int getGridDimY() const { return 34; }
-    int getTileDimZ(int, int) const { return 8; }
+    int getTileBelDimZ(int, int) const { return 8; }
+    int getTilePipDimZ(int, int) const { return 1; }
 
     // -------------------------------------------------
 
@@ -678,6 +679,15 @@ struct Arch : BaseCtx
         range.b.cursor = 0;
         range.e.cursor = chip_info->num_pips;
         return range;
+    }
+
+    Loc getPipLocation(PipId pip) const
+    {
+        Loc loc;
+        loc.x = chip_info->pip_data[pip.index].x;
+        loc.y = chip_info->pip_data[pip.index].y;
+        loc.z = 0;
+        return loc;
     }
 
     IdString getPipName(PipId pip) const;
