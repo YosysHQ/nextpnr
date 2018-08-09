@@ -53,7 +53,7 @@ extern void (*log_error_atexit)();
 
 extern std::ostream clog;
 void log(const char *format, ...) NPNR_ATTRIBUTE(format(printf, 1, 2));
-void log_header(const char *format, ...) NPNR_ATTRIBUTE(format(printf, 1, 2));
+void log_always(const char *format, ...) NPNR_ATTRIBUTE(format(printf, 1, 2));
 void log_info(const char *format, ...) NPNR_ATTRIBUTE(format(printf, 1, 2));
 void log_warning(const char *format, ...) NPNR_ATTRIBUTE(format(printf, 1, 2));
 void log_warning_noprefix(const char *format, ...) NPNR_ATTRIBUTE(format(printf, 1, 2));

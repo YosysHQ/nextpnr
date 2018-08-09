@@ -30,8 +30,6 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-void log_internal(const char *format, ...) NPNR_ATTRIBUTE(format(printf, 1, 2));
-
 std::vector<FILE *> log_files;
 std::vector<std::ostream *> log_streams;
 FILE *log_errfile = NULL;
@@ -81,7 +79,7 @@ void logv(const char *format, va_list ap)
     //
     // Trim newlines from the beginning
     while (format[0] == '\n' && format[1] != 0) {
-        log_internal("\n");
+        log_always("\n");
         format++;
     }
 
@@ -109,7 +107,7 @@ void logv_info(const char *format, va_list ap)
 {
     std::string message = vstringf(format, ap);
 
-    log_internal("Info: %s", message.c_str());
+    log_always("Info: %s", message.c_str());
     log_flush();
 }
 
@@ -117,7 +115,7 @@ void logv_warning(const char *format, va_list ap)
 {
     std::string message = vstringf(format, ap);
 
-    log_internal("Warning: %s", message.c_str());
+    log_always("Warning: %s", message.c_str());
     log_flush();
 }
 
@@ -125,7 +123,7 @@ void logv_warning_noprefix(const char *format, va_list ap)
 {
     std::string message = vstringf(format, ap);
 
-    log_internal("%s", message.c_str());
+    log_always("%s", message.c_str());
 }
 
 void logv_error(const char *format, va_list ap)
@@ -143,7 +141,7 @@ void logv_error(const char *format, va_list ap)
                 f = stderr;
 
     log_last_error = vstringf(format, ap);
-    log_internal("ERROR: %s", log_last_error.c_str());
+    log_always("ERROR: %s", log_last_error.c_str());
     log_flush();
 
     if (log_error_atexit)
@@ -155,7 +153,7 @@ void logv_error(const char *format, va_list ap)
     throw log_execution_error_exception();
 }
 
-void log_internal(const char *format, ...)
+void log_always(const char *format, ...)
 {
     va_list ap;
     va_start(ap, format);
@@ -213,7 +211,7 @@ void log_cmd_error(const char *format, ...)
 
     if (log_cmd_error_throw) {
         log_last_error = vstringf(format, ap);
-        log_internal("ERROR: %s", log_last_error.c_str());
+        log_always("ERROR: %s", log_last_error.c_str());
         log_flush();
         throw log_cmd_error_exception();
     }
@@ -225,9 +223,9 @@ void log_break()
 {
     if (log_quiet_warnings) return;
     if (log_newline_count < 2)
-        log_internal("\n");
+        log_always("\n");
     if (log_newline_count < 2)
-        log_internal("\n");
+        log_always("\n");
 }
 
 void log_flush()
