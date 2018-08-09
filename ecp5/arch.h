@@ -421,7 +421,8 @@ struct Arch : BaseCtx
 
     int getGridDimX() const { return chip_info->width; };
     int getGridDimY() const { return chip_info->height; };
-    int getTileDimZ(int, int) const { return 4; };
+    int getTileBelDimZ(int, int) const { return 4; };
+    int getTilePipDimZ(int, int) const { return 1; };
 
     // -------------------------------------------------
 
@@ -772,6 +773,15 @@ struct Arch : BaseCtx
     std::string getPipTiletype(PipId pip) const
     {
         return chip_info->tiletype_names[locInfo(pip)->pip_data[pip.index].tile_type].get();
+    }
+
+    Loc getPipLocation(PipId pip) const
+    {
+        Loc loc;
+        loc.x = pip.location.x;
+        loc.y = pip.location.y;
+        loc.z = 0;
+        return loc;
     }
 
     int8_t getPipClass(PipId pip) const { return locInfo(pip)->pip_data[pip.index].pip_type; }
