@@ -30,6 +30,8 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+NPNR_NORETURN void logv_error(const char *format, va_list ap) NPNR_ATTRIBUTE(noreturn);
+
 std::vector<FILE *> log_files;
 std::vector<std::ostream *> log_streams;
 FILE *log_errfile = NULL;
