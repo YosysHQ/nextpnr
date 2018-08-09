@@ -21,15 +21,18 @@
 #define ROUTER1_H
 
 #include "nextpnr.h"
+#include "settings.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
-struct Router1Cfg
+struct Router1Cfg : Settings
 {
-    int maxIterCnt = 200;
-    bool cleanupReroute = true;
-    bool fullCleanupReroute = true;
-    bool useEstimate = true;
+    Router1Cfg(Context *ctx);
+
+    int maxIterCnt;
+    bool cleanupReroute;
+    bool fullCleanupReroute;
+    bool useEstimate;
 };
 
 extern bool router1(Context *ctx, const Router1Cfg &cfg);

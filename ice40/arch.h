@@ -832,8 +832,6 @@ struct Arch : BaseCtx
         }
         NPNR_ASSERT_FALSE("Expected PLL pin to share an output with an SB_IO D_IN_{0,1}");
     }
-
-    float placer_constraintWeight = 10;
 };
 
 void ice40DelayFuzzerMain(Context *ctx);

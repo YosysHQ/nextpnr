@@ -144,7 +144,7 @@ void CommandHandler::setupContext(Context *ctx)
     }
 
     if (vm.count("cstrweight")) {
-        // ctx->placer_constraintWeight = vm["cstrweight"].as<float>();
+        settings->set("placer1/constraintWeight", vm["cstrweight"].as<float>());
     }
 
     if (vm.count("freq")) {
@@ -261,6 +261,7 @@ int CommandHandler::exec()
         } else {
             ctx = createContext();
         }
+        settings = std::unique_ptr<Settings>(new Settings(ctx.get()));
         setupContext(ctx.get());
         setupArchContext(ctx.get());
         return executeMain(std::move(ctx));
