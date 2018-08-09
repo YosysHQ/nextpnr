@@ -84,6 +84,7 @@ po::options_description CommandHandler::getGeneralOptions()
     po::options_description general("General options");
     general.add_options()("help,h", "show help");
     general.add_options()("verbose,v", "verbose output");
+    general.add_options()("quiet,q", "quiet mode, only errors displayed");
     general.add_options()("debug", "debug output");
     general.add_options()("force,f", "keep running after errors");
 #ifndef NO_GUI
@@ -117,6 +118,10 @@ void CommandHandler::setupContext(Context *ctx)
     if (vm.count("debug")) {
         ctx->verbose = true;
         ctx->debug = true;
+    }
+
+    if (vm.count("quiet")) {
+        log_quiet_warnings = true;
     }
 
     if (vm.count("force")) {

@@ -48,14 +48,8 @@ extern FILE *log_errfile;
 extern log_write_type log_write_function;
 
 extern bool log_quiet_warnings;
-extern int log_verbose_level;
 extern std::string log_last_error;
 extern void (*log_error_atexit)();
-
-void logv(const char *format, va_list ap);
-void logv_warning(const char *format, va_list ap);
-void logv_warning_noprefix(const char *format, va_list ap);
-NPNR_NORETURN void logv_error(const char *format, va_list ap) NPNR_ATTRIBUTE(noreturn);
 
 extern std::ostream clog;
 void log(const char *format, ...) NPNR_ATTRIBUTE(format(printf, 1, 2));
