@@ -71,12 +71,13 @@ bool Arch::logicCellsCompatible(const std::vector<const CellInfo *> &cells) cons
 bool Arch::isBelLocationValid(BelId bel) const
 {
     if (getBelType(bel) == id_ICESTORM_LC) {
-        std::vector<const CellInfo *> bel_cells;
+        static std::vector<const CellInfo *> bel_cells;
+        bel_cells.clear();
         Loc bel_loc = getBelLocation(bel);
         for (auto bel_other : getBelsByTile(bel_loc.x, bel_loc.y)) {
             CellInfo *ci_other = getBoundBelCell(bel_other);
             if (ci_other != nullptr) {
-                bel_cells.push_back(ci_other);
+                bel_cells.emplace_back(ci_other);
             }
         }
         return logicCellsCompatible(bel_cells);
@@ -94,16 +95,17 @@ bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const
     if (cell->type == id_ICESTORM_LC) {
         NPNR_ASSERT(getBelType(bel) == id_ICESTORM_LC);
 
-        std::vector<const CellInfo *> bel_cells;
+        static std::vector<const CellInfo *> bel_cells;
+        bel_cells.clear();
         Loc bel_loc = getBelLocation(bel);
         for (auto bel_other : getBelsByTile(bel_loc.x, bel_loc.y)) {
             CellInfo *ci_other = getBoundBelCell(bel_other);
             if (ci_other != nullptr && bel_other != bel) {
-                bel_cells.push_back(ci_other);
+                bel_cells.emplace_back(ci_other);
             }
         }
 
-        bel_cells.push_back(cell);
+        bel_cells.emplace_back(cell);
         return logicCellsCompatible(bel_cells);
     } else if (cell->type == id_SB_IO) {
         // Do not allow placement of input SB_IOs on blocks where there a PLL is outputting to.
