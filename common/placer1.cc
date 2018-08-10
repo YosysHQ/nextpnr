@@ -71,8 +71,7 @@ class SAPlacer
         }
         diameter = std::max(max_x, max_y) + 1;
 
-        curr_cost.reserve(ctx->nets.size());
-        new_cost.reserve(ctx->nets.size());
+        costs.reserve(ctx->nets.size());
         old_udata.reserve(ctx->nets.size());
         decltype(NetInfo::udata) n = 0;
         for (auto &net : ctx->nets) {
@@ -163,8 +162,7 @@ class SAPlacer
         curr_tns = 0;
         for (auto &net : ctx->nets) {
             wirelen_t wl = get_net_metric(ctx, net.second.get(), MetricType::COST, curr_tns);
-            curr_cost[net.second->udata] = wl;
-            new_cost[net.second->udata] = -1;
+            costs[net.second->udata] = CostChange{wl, -1};
             curr_metric += wl;
         }
 
@@ -265,8 +263,7 @@ class SAPlacer
             curr_tns = 0;
             for (auto &net : ctx->nets) {
                 wirelen_t wl = get_net_metric(ctx, net.second.get(), MetricType::COST, curr_tns);
-                curr_cost[net.second->udata] = wl;
-                new_cost[net.second->udata] = -1;
+                costs[net.second->udata] = CostChange{wl, -1};
                 curr_metric += wl;
             }
 
@@ -374,9 +371,9 @@ class SAPlacer
 
         for (const auto &port : cell->ports) {
             if (port.second.net != nullptr) {
-                auto &cost = new_cost[port.second.net->udata];
-                if (cost == 0) continue;
-                cost = 0;
+                auto &cost = costs[port.second.net->udata];
+                if (cost.new_cost == 0) continue;
+                cost.new_cost = 0;
                 updates.emplace_back(port.second.net);
             }
         }
@@ -384,9 +381,9 @@ class SAPlacer
         if (other_cell != nullptr) {
             for (const auto &port : other_cell->ports)
                 if (port.second.net != nullptr) {
-                    auto &cost = new_cost[port.second.net->udata];
-                    if (cost == 0) continue;
-                    cost = 0;
+                    auto &cost = costs[port.second.net->udata];
+                    if (cost.new_cost == 0) continue;
+                    cost.new_cost = 0;
                     updates.emplace_back(port.second.net);
                 }
         }
@@ -407,11 +404,12 @@ class SAPlacer
 
         // Recalculate metrics for all nets touched by the peturbation
         for (const auto &net : updates) {
-            new_metric -= curr_cost[net->udata];
+            auto &c = costs[net->udata];
+            new_metric -= c.curr_cost;
             float temp_tns = 0;
             wirelen_t net_new_wl = get_net_metric(ctx, net, MetricType::COST, temp_tns);
             new_metric += net_new_wl;
-            new_cost[net->udata] = net_new_wl;
+            c.new_cost = net_new_wl;
         }
 
         new_dist = get_constraints_distance(ctx, cell);
@@ -431,8 +429,8 @@ class SAPlacer
         }
         curr_metric = new_metric;
         for (const auto &net : updates) {
-            curr_cost[net->udata] = new_cost[net->udata];
-            new_cost[net->udata] = -1;
+            auto &c = costs[net->udata];
+            c = CostChange{c.new_cost, -1};
         }
 
         return true;
@@ -442,7 +440,7 @@ class SAPlacer
             ctx->bindBel(newBel, other_cell, STRENGTH_WEAK);
         }
         for (const auto &net : updates)
-            new_cost[net->udata] = -1;
+            costs[net->udata].new_cost = -1;
         return false;
     }
 
@@ -486,8 +484,11 @@ class SAPlacer
     const float post_legalise_dia_scale = 1.5;
     Placer1Cfg cfg;
 
-    std::vector<wirelen_t> curr_cost;
-    std::vector<wirelen_t> new_cost;
+    struct CostChange {
+        wirelen_t curr_cost;
+        wirelen_t new_cost;
+    };
+    std::vector<CostChange> costs;
     std::vector<decltype(NetInfo::udata)> old_udata;
 };
 
