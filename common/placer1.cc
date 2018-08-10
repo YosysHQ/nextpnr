@@ -71,7 +71,7 @@ class SAPlacer
         }
         diameter = std::max(max_x, max_y) + 1;
 
-        costs.reserve(ctx->nets.size());
+        costs.resize(ctx->nets.size());
         old_udata.reserve(ctx->nets.size());
         decltype(NetInfo::udata) n = 0;
         for (auto &net : ctx->nets) {
