@@ -18,6 +18,7 @@
  */
 
 #include "project.h"
+#include <algorithm>
 #include <boost/filesystem/convenience.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <fstream>
@@ -64,11 +65,18 @@ void ProjectHandler::save(Context *ctx, std::string filename)
         root.put("project.name", boost::filesystem::basename(filename));
         root.put("project.arch.name", ctx->archId().c_str(ctx));
         root.put("project.arch.type", ctx->archArgsToId(ctx->archArgs()).c_str(ctx));
-        std::string fn = ctx->settings[ctx->id("project/input/json")];
+        std::string fn = ctx->settings[ctx->id("input/json")];
         root.put("project.input.json", make_relative(fn, proj.parent_path()).string());
         root.put("project.params.freq", int(ctx->target_freq / 1e6));
         root.put("project.params.seed", ctx->rngstate);
         saveArch(ctx, root, proj.parent_path().string());
+        for(auto const &item : ctx->settings)
+        {
+            std::string path = "project.settings.";
+            path += item.first.c_str(ctx);
+            std::replace(path.begin(), path.end(), '/', '.');
+            root.put(path, item.second);
+        }
         pt::write_json(f, root);
     } catch (...) {
         log_error("Error saving project file.\n");

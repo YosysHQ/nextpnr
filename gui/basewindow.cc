@@ -420,7 +420,7 @@ void BaseMainWindow::disableActions()
     actionNew->setEnabled(true);
     actionOpen->setEnabled(true);
 
-    if (ctx->settings.find(ctx->id("project/input/json")) != ctx->settings.end())
+    if (ctx->settings.find(ctx->id("input/json")) != ctx->settings.end())
         actionSave->setEnabled(true);
     else
         actionSave->setEnabled(false);

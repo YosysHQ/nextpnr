@@ -191,7 +191,7 @@ void MainWindow::onRouteFinished() { actionSaveAsc->setEnabled(true); }
 
 void MainWindow::onProjectLoaded()
 {
-    if (ctx->settings.find(ctx->id("project/input/pcf")) != ctx->settings.end())
+    if (ctx->settings.find(ctx->id("input/pcf")) != ctx->settings.end())
         actionLoadPCF->setEnabled(false);
 }
 

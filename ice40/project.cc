@@ -28,8 +28,8 @@ NEXTPNR_NAMESPACE_BEGIN
 void ProjectHandler::saveArch(Context *ctx, pt::ptree &root, std::string path)
 {
     root.put("project.arch.package", ctx->archArgs().package);
-    if (ctx->settings.find(ctx->id("project/input/pcf")) != ctx->settings.end()) {
-        std::string fn = ctx->settings[ctx->id("project/input/pcf")];
+    if (ctx->settings.find(ctx->id("input/pcf")) != ctx->settings.end()) {
+        std::string fn = ctx->settings[ctx->id("input/pcf")];
         root.put("project.input.pcf", make_relative(fn, path).string());
     }
 }
