@@ -70,6 +70,20 @@ class SAPlacer
             fast_bels.at(type_idx).at(loc.x).at(loc.y).push_back(bel);
         }
         diameter = std::max(max_x, max_y) + 1;
+
+        curr_cost.reserve(ctx->nets.size());
+        new_cost.reserve(ctx->nets.size());
+        old_udata.reserve(ctx->nets.size());
+        decltype(NetInfo::udata) n = 0;
+        for (auto &net : ctx->nets) {
+            old_udata.emplace_back(net.second->udata);
+            net.second->udata = n++;
+        }
+    }
+
+    ~SAPlacer() {
+        for (auto &net : ctx->nets)
+            net.second->udata = old_udata[net.second->udata];
     }
 
     bool place()
@@ -149,7 +163,8 @@ class SAPlacer
         curr_tns = 0;
         for (auto &net : ctx->nets) {
             wirelen_t wl = get_net_metric(ctx, net.second.get(), MetricType::COST, curr_tns);
-            metrics[net.first] = wl;
+            curr_cost[net.second->udata] = wl;
+            new_cost[net.second->udata] = -1;
             curr_metric += wl;
         }
 
@@ -250,7 +265,8 @@ class SAPlacer
             curr_tns = 0;
             for (auto &net : ctx->nets) {
                 wirelen_t wl = get_net_metric(ctx, net.second.get(), MetricType::COST, curr_tns);
-                metrics[net.first] = wl;
+                curr_cost[net.second->udata] = wl;
+                new_cost[net.second->udata] = -1;
                 curr_metric += wl;
             }
 
@@ -339,10 +355,8 @@ class SAPlacer
     // Attempt a SA position swap, return true on success or false on failure
     bool try_swap_position(CellInfo *cell, BelId newBel)
     {
-        static std::unordered_set<NetInfo *> update;
-        static std::vector<std::pair<IdString, wirelen_t>> new_lengths;
-        new_lengths.clear();
-        update.clear();
+        static std::vector<NetInfo*> updates;
+        updates.clear();
         BelId oldBel = cell->bel;
         CellInfo *other_cell = ctx->getBoundBelCell(newBel);
         if (other_cell != nullptr && other_cell->belStrength > STRENGTH_WEAK) {
@@ -358,14 +372,23 @@ class SAPlacer
             ctx->unbindBel(newBel);
         }
 
-        for (const auto &port : cell->ports)
-            if (port.second.net != nullptr)
-                update.insert(port.second.net);
+        for (const auto &port : cell->ports) {
+            if (port.second.net != nullptr) {
+                auto &cost = new_cost[port.second.net->udata];
+                if (cost == 0) continue;
+                cost = 0;
+                updates.emplace_back(port.second.net);
+            }
+        }
 
         if (other_cell != nullptr) {
             for (const auto &port : other_cell->ports)
-                if (port.second.net != nullptr)
-                    update.insert(port.second.net);
+                if (port.second.net != nullptr) {
+                    auto &cost = new_cost[port.second.net->udata];
+                    if (cost == 0) continue;
+                    cost = 0;
+                    updates.emplace_back(port.second.net);
+                }
         }
 
         ctx->bindBel(newBel, cell, STRENGTH_WEAK);
@@ -383,12 +406,12 @@ class SAPlacer
         new_metric = curr_metric;
 
         // Recalculate metrics for all nets touched by the peturbation
-        for (auto net : update) {
-            new_metric -= metrics.at(net->name);
+        for (const auto &net : updates) {
+            new_metric -= curr_cost[net->udata];
             float temp_tns = 0;
             wirelen_t net_new_wl = get_net_metric(ctx, net, MetricType::COST, temp_tns);
             new_metric += net_new_wl;
-            new_lengths.push_back(std::make_pair(net->name, net_new_wl));
+            new_cost[net->udata] = net_new_wl;
         }
 
         new_dist = get_constraints_distance(ctx, cell);
@@ -407,8 +430,10 @@ class SAPlacer
             goto swap_fail;
         }
         curr_metric = new_metric;
-        for (auto new_wl : new_lengths)
-            metrics.at(new_wl.first) = new_wl.second;
+        for (const auto &net : updates) {
+            curr_cost[net->udata] = new_cost[net->udata];
+            new_cost[net->udata] = -1;
+        }
 
         return true;
     swap_fail:
@@ -416,6 +441,8 @@ class SAPlacer
         if (other_cell != nullptr) {
             ctx->bindBel(newBel, other_cell, STRENGTH_WEAK);
         }
+        for (const auto &net : updates)
+            new_cost[net->udata] = -1;
         return false;
     }
 
@@ -444,7 +471,6 @@ class SAPlacer
     }
 
     Context *ctx;
-    std::unordered_map<IdString, wirelen_t> metrics;
     wirelen_t curr_metric = std::numeric_limits<wirelen_t>::max();
     float curr_tns = 0;
     float temp = 1000;
@@ -459,6 +485,10 @@ class SAPlacer
     const float post_legalise_temp = 10;
     const float post_legalise_dia_scale = 1.5;
     Placer1Cfg cfg;
+
+    std::vector<wirelen_t> curr_cost;
+    std::vector<wirelen_t> new_cost;
+    std::vector<decltype(NetInfo::udata)> old_udata;
 };
 
 bool placer1(Context *ctx, Placer1Cfg cfg)
