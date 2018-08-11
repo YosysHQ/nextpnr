@@ -28,6 +28,8 @@
 #include "router1.h"
 #include "util.h"
 
+#include "torc/common/DirectoryTree.hpp"
+
 NEXTPNR_NAMESPACE_BEGIN
 
 // -----------------------------------------------------------------------
@@ -43,8 +45,9 @@ void IdString::initialize_arch(const BaseCtx *ctx)
 
 Arch::Arch(ArchArgs args) : args(args)
 {
-    if (args.type == ArchArgs::XC7Z020) {
-        //chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_1k));
+    torc::common::DirectoryTree directoryTree("../../torc/src/torc");
+    if (args.type == ArchArgs::Z020) {
+        ddb = new DDB("xc7z020", "clg484");
     } else {
         log_error("Unsupported XC7 chip type.\n");
     }
@@ -64,8 +67,8 @@ Arch::Arch(ArchArgs args) : args(args)
 
 std::string Arch::getChipName() const
 {
-    if (args.type == ArchArgs::XC7Z020) {
-        return "XC7Z020";
+    if (args.type == ArchArgs::Z020) {
+        return "z020";
     } else {
         log_error("Unsupported XC7 chip type.\n");
     }
@@ -75,8 +78,8 @@ std::string Arch::getChipName() const
 
 IdString Arch::archArgsToId(ArchArgs args) const
 {
-    if (args.type == ArchArgs::XC7Z020)
-        return id("xc7z020");
+    if (args.type == ArchArgs::Z020)
+        return id("z020");
     return IdString();
 }
 

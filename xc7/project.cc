@@ -38,8 +38,8 @@ std::unique_ptr<Context> ProjectHandler::createContext(pt::ptree &root)
 {
     ArchArgs chipArgs;
     std::string arch_type = root.get<std::string>("project.arch.type");
-    if (arch_type == "xc7z020") {
-        chipArgs.type = ArchArgs::XC7Z020;
+    if (arch_type == "z020") {
+        chipArgs.type = ArchArgs::Z020;
     }
     chipArgs.package = root.get<std::string>("project.arch.package");
 

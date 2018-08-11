@@ -82,13 +82,13 @@ void Xc7CommandHandler::setupArchContext(Context *ctx)
 
 std::unique_ptr<Context> Xc7CommandHandler::createContext()
 {
-    if (vm.count("xc7z020")) {
-        chipArgs.type = ArchArgs::XC7Z020;
+    if (vm.count("z020")) {
+        chipArgs.type = ArchArgs::Z020;
         chipArgs.package = "clg484";
     }
 
     if (chipArgs.type == ArchArgs::NONE) {
-        chipArgs.type = ArchArgs::XC7Z020;
+        chipArgs.type = ArchArgs::Z020;
         chipArgs.package = "clg484";
     }
 

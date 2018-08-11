@@ -21,6 +21,10 @@
 #error Include "arch.h" via "nextpnr.h" only.
 #endif
 
+#include "torc/Architecture.hpp"
+#include "torc/Common.hpp"
+using namespace torc::architecture;
+
 NEXTPNR_NAMESPACE_BEGIN
 
 /**** Everything in this section must be kept in sync with chipdb.py ****/
@@ -378,7 +382,7 @@ struct ArchArgs
     enum ArchArgsTypes
     {
         NONE,
-        XC7Z020
+        Z020
     } type = NONE;
     std::string package;
 };
@@ -387,6 +391,7 @@ struct Arch : BaseCtx
 {
     bool fast_part;
     const ChipInfoPOD *chip_info;
+    const DDB *ddb;
     const PackageInfoPOD *package_info;
 
     mutable std::unordered_map<IdString, int> bel_by_name;
