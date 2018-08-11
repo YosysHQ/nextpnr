@@ -51,7 +51,7 @@ po::options_description Xc7CommandHandler::getArchOptions()
     po::options_description specific("Architecture specific options");
     specific.add_options()("xc7z020", "set device type to xc7z020");
 //    specific.add_options()("package", po::value<std::string>(), "set device package");
-//    specific.add_options()("pcf", po::value<std::string>(), "PCF constraints file to ingest");
+    specific.add_options()("pcf", po::value<std::string>(), "PCF constraints file to ingest");
     specific.add_options()("xdl", po::value<std::string>(), "XDL file to write");
 //    specific.add_options()("read", po::value<std::string>(), "asc bitstream file to read");
 //    specific.add_options()("tmfuzz", "run path delay estimate fuzzer");
@@ -67,12 +67,12 @@ void Xc7CommandHandler::validate()
 
 void Xc7CommandHandler::customAfterLoad(Context *ctx)
 {
-//    if (vm.count("pcf")) {
+    if (vm.count("pcf")) {
 //        std::string filename = vm["pcf"].as<std::string>();
 //        std::ifstream pcf(filename);
 //        if (!apply_pcf(ctx, filename, pcf))
 //            log_error("Loading PCF failed.\n");
-//    }
+    }
 }
 void Xc7CommandHandler::setupArchContext(Context *ctx)
 {
