@@ -21,7 +21,6 @@
 #ifdef MAIN_EXECUTABLE
 
 #include <fstream>
-#include "bitstream.h"
 #include "command.h"
 #include "design_utils.h"
 #include "jsonparse.h"
@@ -31,133 +30,77 @@
 
 USING_NEXTPNR_NAMESPACE
 
-class Ice40CommandHandler : public CommandHandler
+class Xc7CommandHandler : public CommandHandler
 {
   public:
-    Ice40CommandHandler(int argc, char **argv);
-    virtual ~Ice40CommandHandler(){};
+    Xc7CommandHandler(int argc, char **argv);
+    virtual ~Xc7CommandHandler(){};
     std::unique_ptr<Context> createContext() override;
     void setupArchContext(Context *ctx) override;
     void validate() override;
     void customAfterLoad(Context *ctx) override;
-    void customBitstream(Context *ctx) override;
 
   protected:
     po::options_description getArchOptions();
 };
 
-Ice40CommandHandler::Ice40CommandHandler(int argc, char **argv) : CommandHandler(argc, argv) {}
+Xc7CommandHandler::Xc7CommandHandler(int argc, char **argv) : CommandHandler(argc, argv) {}
 
-po::options_description Ice40CommandHandler::getArchOptions()
+po::options_description Xc7CommandHandler::getArchOptions()
 {
     po::options_description specific("Architecture specific options");
-#ifdef ICE40_HX1K_ONLY
-    specific.add_options()("hx1k", "set device type to iCE40HX1K");
-#else
-    specific.add_options()("lp384", "set device type to iCE40LP384");
-    specific.add_options()("lp1k", "set device type to iCE40LP1K");
-    specific.add_options()("lp8k", "set device type to iCE40LP8K");
-    specific.add_options()("hx1k", "set device type to iCE40HX1K");
-    specific.add_options()("hx8k", "set device type to iCE40HX8K");
-    specific.add_options()("up5k", "set device type to iCE40UP5K");
-#endif
-    specific.add_options()("package", po::value<std::string>(), "set device package");
-    specific.add_options()("pcf", po::value<std::string>(), "PCF constraints file to ingest");
-    specific.add_options()("asc", po::value<std::string>(), "asc bitstream file to write");
-    specific.add_options()("read", po::value<std::string>(), "asc bitstream file to read");
-    specific.add_options()("tmfuzz", "run path delay estimate fuzzer");
+    specific.add_options()("xc7z020", "set device type to xc7z020");
+//    specific.add_options()("package", po::value<std::string>(), "set device package");
+//    specific.add_options()("pcf", po::value<std::string>(), "PCF constraints file to ingest");
+    specific.add_options()("xdl", po::value<std::string>(), "XDL file to write");
+//    specific.add_options()("read", po::value<std::string>(), "asc bitstream file to read");
+//    specific.add_options()("tmfuzz", "run path delay estimate fuzzer");
     return specific;
 }
-void Ice40CommandHandler::validate()
+void Xc7CommandHandler::validate()
 {
     conflicting_options(vm, "read", "json");
-    if ((vm.count("lp384") + vm.count("lp1k") + vm.count("lp8k") + vm.count("hx1k") + vm.count("hx8k") +
-         vm.count("up5k")) > 1)
-        log_error("Only one device type can be set\n");
+//    if ((vm.count("lp384") + vm.count("lp1k") + vm.count("lp8k") + vm.count("hx1k") + vm.count("hx8k") +
+//         vm.count("up5k")) > 1)
+//        log_error("Only one device type can be set\n");
 }
 
-void Ice40CommandHandler::customAfterLoad(Context *ctx)
+void Xc7CommandHandler::customAfterLoad(Context *ctx)
 {
-    if (vm.count("pcf")) {
-        std::string filename = vm["pcf"].as<std::string>();
-        std::ifstream pcf(filename);
-        if (!apply_pcf(ctx, filename, pcf))
-            log_error("Loading PCF failed.\n");
-    }
+//    if (vm.count("pcf")) {
+//        std::string filename = vm["pcf"].as<std::string>();
+//        std::ifstream pcf(filename);
+//        if (!apply_pcf(ctx, filename, pcf))
+//            log_error("Loading PCF failed.\n");
+//    }
 }
-void Ice40CommandHandler::customBitstream(Context *ctx)
+void Xc7CommandHandler::setupArchContext(Context *ctx)
 {
-    if (vm.count("asc")) {
-        std::string filename = vm["asc"].as<std::string>();
-        std::ofstream f(filename);
-        write_asc(ctx, f);
-    }
+//    if (vm.count("tmfuzz"))
+//        ice40DelayFuzzerMain(ctx);
 }
 
-void Ice40CommandHandler::setupArchContext(Context *ctx)
+std::unique_ptr<Context> Xc7CommandHandler::createContext()
 {
-    if (vm.count("tmfuzz"))
-        ice40DelayFuzzerMain(ctx);
-
-    if (vm.count("read")) {
-        std::string filename = vm["read"].as<std::string>();
-        std::ifstream f(filename);
-        if (!read_asc(ctx, f))
-            log_error("Loading ASC failed.\n");
-    }
-}
-
-std::unique_ptr<Context> Ice40CommandHandler::createContext()
-{
-    if (vm.count("lp384")) {
-        chipArgs.type = ArchArgs::LP384;
-        chipArgs.package = "qn32";
-    }
-
-    if (vm.count("lp1k")) {
-        chipArgs.type = ArchArgs::LP1K;
-        chipArgs.package = "tq144";
-    }
-
-    if (vm.count("lp8k")) {
-        chipArgs.type = ArchArgs::LP8K;
-        chipArgs.package = "ct256";
-    }
-
-    if (vm.count("hx1k")) {
-        chipArgs.type = ArchArgs::HX1K;
-        chipArgs.package = "tq144";
-    }
-
-    if (vm.count("hx8k")) {
-        chipArgs.type = ArchArgs::HX8K;
-        chipArgs.package = "ct256";
-    }
-
-    if (vm.count("up5k")) {
-        chipArgs.type = ArchArgs::UP5K;
-        chipArgs.package = "sg48";
+    if (vm.count("xc7z020")) {
+        chipArgs.type = ArchArgs::XC7Z020;
+        chipArgs.package = "clg484";
     }
 
     if (chipArgs.type == ArchArgs::NONE) {
-        chipArgs.type = ArchArgs::HX1K;
-        chipArgs.package = "tq144";
+        chipArgs.type = ArchArgs::XC7Z020;
+        chipArgs.package = "clg484";
     }
-#ifdef ICE40_HX1K_ONLY
-    if (chipArgs.type != ArchArgs::HX1K) {
-        log_error("This version of nextpnr-ice40 is built with HX1K-support only.\n");
-    }
-#endif
 
-    if (vm.count("package"))
-        chipArgs.package = vm["package"].as<std::string>();
+//    if (vm.count("package"))
+//        chipArgs.package = vm["package"].as<std::string>();
 
     return std::unique_ptr<Context>(new Context(chipArgs));
 }
 
 int main(int argc, char *argv[])
 {
-    Ice40CommandHandler handler(argc, argv);
+    Xc7CommandHandler handler(argc, argv);
     return handler.exec();
 }
 

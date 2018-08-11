@@ -41,105 +41,42 @@ void IdString::initialize_arch(const BaseCtx *ctx)
 
 // -----------------------------------------------------------------------
 
-static const ChipInfoPOD *get_chip_info(const RelPtr<ChipInfoPOD> *ptr) { return ptr->get(); }
-
-#if defined(_MSC_VER)
-void load_chipdb();
-#endif
-
 Arch::Arch(ArchArgs args) : args(args)
 {
-#if defined(_MSC_VER)
-    load_chipdb();
-#endif
-
-#ifdef ICE40_HX1K_ONLY
-    if (args.type == ArchArgs::HX1K) {
-        fast_part = true;
-        chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_1k));
+    if (args.type == ArchArgs::XC7Z020) {
+        //chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_1k));
     } else {
-        log_error("Unsupported iCE40 chip type.\n");
+        log_error("Unsupported XC7 chip type.\n");
     }
-#else
-    if (args.type == ArchArgs::LP384) {
-        fast_part = false;
-        chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_384));
-    } else if (args.type == ArchArgs::LP1K || args.type == ArchArgs::HX1K) {
-        fast_part = args.type == ArchArgs::HX1K;
-        chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_1k));
-    } else if (args.type == ArchArgs::UP5K) {
-        fast_part = false;
-        chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_5k));
-    } else if (args.type == ArchArgs::LP8K || args.type == ArchArgs::HX8K) {
-        fast_part = args.type == ArchArgs::HX8K;
-        chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_8k));
-    } else {
-        log_error("Unsupported iCE40 chip type.\n");
-    }
-#endif
 
-    package_info = nullptr;
-    for (int i = 0; i < chip_info->num_packages; i++) {
-        if (chip_info->packages_data[i].name.get() == args.package) {
-            package_info = &(chip_info->packages_data[i]);
-            break;
-        }
-    }
-    if (package_info == nullptr)
-        log_error("Unsupported package '%s'.\n", args.package.c_str());
-
-    bel_carry.resize(chip_info->num_bels);
-    bel_to_cell.resize(chip_info->num_bels);
-    wire_to_net.resize(chip_info->num_wires);
-    pip_to_net.resize(chip_info->num_pips);
-    switches_locked.resize(chip_info->num_switches);
+//    package_info = nullptr;
+//    for (int i = 0; i < chip_info->num_packages; i++) {
+//        if (chip_info->packages_data[i].name.get() == args.package) {
+//            package_info = &(chip_info->packages_data[i]);
+//            break;
+//        }
+//    }
+//    if (package_info == nullptr)
+//        log_error("Unsupported package '%s'.\n", args.package.c_str());
 }
 
 // -----------------------------------------------------------------------
 
 std::string Arch::getChipName() const
 {
-#ifdef ICE40_HX1K_ONLY
-    if (args.type == ArchArgs::HX1K) {
-        return "Lattice LP1K";
+    if (args.type == ArchArgs::XC7Z020) {
+        return "XC7Z020";
     } else {
-        log_error("Unsupported iCE40 chip type.\n");
+        log_error("Unsupported XC7 chip type.\n");
     }
-#else
-    if (args.type == ArchArgs::LP384) {
-        return "Lattice LP384";
-    } else if (args.type == ArchArgs::LP1K) {
-        return "Lattice LP1K";
-    } else if (args.type == ArchArgs::HX1K) {
-        return "Lattice HX1K";
-    } else if (args.type == ArchArgs::UP5K) {
-        return "Lattice UP5K";
-    } else if (args.type == ArchArgs::LP8K) {
-        return "Lattice LP8K";
-    } else if (args.type == ArchArgs::HX8K) {
-        return "Lattice HX8K";
-    } else {
-        log_error("Unknown chip\n");
-    }
-#endif
 }
 
 // -----------------------------------------------------------------------
 
 IdString Arch::archArgsToId(ArchArgs args) const
 {
-    if (args.type == ArchArgs::LP384)
-        return id("lp384");
-    if (args.type == ArchArgs::LP1K)
-        return id("lp1k");
-    if (args.type == ArchArgs::HX1K)
-        return id("hx1k");
-    if (args.type == ArchArgs::UP5K)
-        return id("up5k");
-    if (args.type == ArchArgs::LP8K)
-        return id("lp8k");
-    if (args.type == ArchArgs::HX8K)
-        return id("hx8k");
+    if (args.type == ArchArgs::XC7Z020)
+        return id("xc7z020");
     return IdString();
 }
 
@@ -531,35 +468,6 @@ std::vector<GroupId> Arch::getGroupGroups(GroupId group) const
 
 bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const
 {
-    const auto &driver = net_info->driver;
-    if (driver.port == id_COUT && sink.port == id_CIN) {
-        auto driver_loc = getBelLocation(driver.cell->bel);
-        auto sink_loc = getBelLocation(sink.cell->bel);
-        if (driver_loc.y == sink_loc.y)
-            budget = 0;
-        else
-            switch (args.type) {
-#ifndef ICE40_HX1K_ONLY
-            case ArchArgs::HX8K:
-#endif
-            case ArchArgs::HX1K:
-                budget = 190;
-                break;
-#ifndef ICE40_HX1K_ONLY
-            case ArchArgs::LP384:
-            case ArchArgs::LP1K:
-            case ArchArgs::LP8K:
-                budget = 290;
-                break;
-            case ArchArgs::UP5K:
-                budget = 560;
-                break;
-#endif
-            default:
-                log_error("Unsupported iCE40 chip type.\n");
-            }
-        return true;
-    }
     return false;
 }
 

@@ -378,12 +378,7 @@ struct ArchArgs
     enum ArchArgsTypes
     {
         NONE,
-        LP384,
-        LP1K,
-        LP8K,
-        HX1K,
-        HX8K,
-        UP5K
+        XC7Z020
     } type = NONE;
     std::string package;
 };
@@ -410,7 +405,7 @@ struct Arch : BaseCtx
 
     std::string getChipName() const;
 
-    IdString archId() const { return id("ice40"); }
+    IdString archId() const { return id("xc7"); }
     ArchArgs archArgs() const { return args; }
     IdString archArgsToId(ArchArgs args) const;
 
@@ -836,6 +831,6 @@ struct Arch : BaseCtx
     float placer_constraintWeight = 10;
 };
 
-void ice40DelayFuzzerMain(Context *ctx);
+//void ice40DelayFuzzerMain(Context *ctx);
 
 NEXTPNR_NAMESPACE_END
