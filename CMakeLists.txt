@@ -7,7 +7,7 @@ option(BUILD_PYTHON "Build Python Integration" ON)
 option(BUILD_TESTS "Build GUI" OFF)
 
 # List of families to build
-set(FAMILIES generic ice40 ecp5)
+set(FAMILIES generic ice40 ecp5 xc7)
 
 set(ARCH "" CACHE STRING "Architecture family for nextpnr build")
 set_property(CACHE ARCH PROPERTY STRINGS ${FAMILIES})
