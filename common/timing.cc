@@ -21,6 +21,7 @@
 #include "timing.h"
 #include <algorithm>
 #include <boost/range/adaptor/reversed.hpp>
+#include <deque>
 #include <unordered_map>
 #include <utility>
 #include "log.h"

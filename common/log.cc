@@ -30,6 +30,8 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+NPNR_NORETURN void logv_error(const char *format, va_list ap) NPNR_ATTRIBUTE(noreturn);
+
 std::vector<FILE *> log_files;
 std::vector<std::ostream *> log_streams;
 FILE *log_errfile = NULL;
@@ -38,7 +40,6 @@ log_write_type log_write_function = nullptr;
 bool log_error_stderr = false;
 bool log_cmd_error_throw = false;
 bool log_quiet_warnings = false;
-int log_verbose_level;
 std::string log_last_error;
 void (*log_error_atexit)() = NULL;
 
@@ -80,7 +81,7 @@ void logv(const char *format, va_list ap)
     //
     // Trim newlines from the beginning
     while (format[0] == '\n' && format[1] != 0) {
-        log("\n");
+        log_always("\n");
         format++;
     }
 
@@ -108,7 +109,7 @@ void logv_info(const char *format, va_list ap)
 {
     std::string message = vstringf(format, ap);
 
-    log("Info: %s", message.c_str());
+    log_always("Info: %s", message.c_str());
     log_flush();
 }
 
@@ -116,7 +117,7 @@ void logv_warning(const char *format, va_list ap)
 {
     std::string message = vstringf(format, ap);
 
-    log("Warning: %s", message.c_str());
+    log_always("Warning: %s", message.c_str());
     log_flush();
 }
 
@@ -124,7 +125,7 @@ void logv_warning_noprefix(const char *format, va_list ap)
 {
     std::string message = vstringf(format, ap);
 
-    log("%s", message.c_str());
+    log_always("%s", message.c_str());
 }
 
 void logv_error(const char *format, va_list ap)
@@ -142,7 +143,7 @@ void logv_error(const char *format, va_list ap)
                 f = stderr;
 
     log_last_error = vstringf(format, ap);
-    log("ERROR: %s", log_last_error.c_str());
+    log_always("ERROR: %s", log_last_error.c_str());
     log_flush();
 
     if (log_error_atexit)
@@ -154,8 +155,17 @@ void logv_error(const char *format, va_list ap)
     throw log_execution_error_exception();
 }
 
+void log_always(const char *format, ...)
+{
+    va_list ap;
+    va_start(ap, format);
+    logv(format, ap);
+    va_end(ap);
+}
+
 void log(const char *format, ...)
 {
+    if (log_quiet_warnings) return;
     va_list ap;
     va_start(ap, format);
     logv(format, ap);
@@ -164,6 +174,7 @@ void log(const char *format, ...)
 
 void log_info(const char *format, ...)
 {
+    if (log_quiet_warnings) return;
     va_list ap;
     va_start(ap, format);
     logv_info(format, ap);
@@ -172,6 +183,7 @@ void log_info(const char *format, ...)
 
 void log_warning(const char *format, ...)
 {
+    if (log_quiet_warnings) return;
     va_list ap;
     va_start(ap, format);
     logv_warning(format, ap);
@@ -180,6 +192,7 @@ void log_warning(const char *format, ...)
 
 void log_warning_noprefix(const char *format, ...)
 {
+    if (log_quiet_warnings) return;
     va_list ap;
     va_start(ap, format);
     logv_warning_noprefix(format, ap);
@@ -200,7 +213,7 @@ void log_cmd_error(const char *format, ...)
 
     if (log_cmd_error_throw) {
         log_last_error = vstringf(format, ap);
-        log("ERROR: %s", log_last_error.c_str());
+        log_always("ERROR: %s", log_last_error.c_str());
         log_flush();
         throw log_cmd_error_exception();
     }
@@ -210,10 +223,11 @@ void log_cmd_error(const char *format, ...)
 
 void log_break()
 {
+    if (log_quiet_warnings) return;
     if (log_newline_count < 2)
-        log("\n");
+        log_always("\n");
     if (log_newline_count < 2)
-        log("\n");
+        log_always("\n");
 }
 
 void log_flush()

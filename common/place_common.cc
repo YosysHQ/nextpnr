@@ -251,7 +251,7 @@ class ConstraintLegaliseWorker
                 ySearch = IncreasingDiameterSearch(loc.y + child->constr_y);
             }
             if (child->constr_z == child->UNCONSTR) {
-                zSearch = IncreasingDiameterSearch(loc.z, 0, ctx->getTileDimZ(loc.x, loc.y));
+                zSearch = IncreasingDiameterSearch(loc.z, 0, ctx->getTileBelDimZ(loc.x, loc.y));
             } else {
                 if (child->constr_abs_z) {
                     zSearch = IncreasingDiameterSearch(child->constr_z);
@@ -329,7 +329,7 @@ class ConstraintLegaliseWorker
                 yRootSearch = IncreasingDiameterSearch(cell->constr_y);
 
             if (cell->constr_z == cell->UNCONSTR)
-                zRootSearch = IncreasingDiameterSearch(currentLoc.z, 0, ctx->getTileDimZ(currentLoc.x, currentLoc.y));
+                zRootSearch = IncreasingDiameterSearch(currentLoc.z, 0, ctx->getTileBelDimZ(currentLoc.x, currentLoc.y));
             else
                 zRootSearch = IncreasingDiameterSearch(cell->constr_z);
             while (!xRootSearch.done()) {

@@ -75,7 +75,7 @@ void archcheck_locs(const Context *ctx)
         log_assert(0 <= loc.z);
         log_assert(loc.x < ctx->getGridDimX());
         log_assert(loc.y < ctx->getGridDimY());
-        log_assert(loc.z < ctx->getTileDimZ(loc.x, loc.y));
+        log_assert(loc.z < ctx->getTileBelDimZ(loc.x, loc.y));
 
         BelId bel2 = ctx->getBelByLocation(loc);
         dbg("   ... %s\n", ctx->getBelName(bel2).c_str(ctx));
@@ -88,7 +88,7 @@ void archcheck_locs(const Context *ctx)
             dbg("> %d %d\n", x, y);
             std::unordered_set<int> usedz;
 
-            for (int z = 0; z < ctx->getTileDimZ(x, y); z++) {
+            for (int z = 0; z < ctx->getTileBelDimZ(x, y); z++) {
                 BelId bel = ctx->getBelByLocation(Loc(x, y, z));
                 if (bel == BelId())
                     continue;
