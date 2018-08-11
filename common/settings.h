@@ -20,6 +20,7 @@
 #define SETTINGS_H
 
 #include <boost/lexical_cast.hpp>
+#include "log.h"
 #include "nextpnr.h"
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -31,10 +32,15 @@ class Settings
 
     template <typename T> T get(const char *name, T defaultValue)
     {
-        IdString id = ctx->id(name);
-        if (ctx->settings.find(id) != ctx->settings.end())
-            return boost::lexical_cast<T>(ctx->settings[id]);
-        ctx->settings.emplace(id, std::to_string(defaultValue));
+        try {
+            IdString id = ctx->id(name);
+            if (ctx->settings.find(id) != ctx->settings.end()) {
+                return boost::lexical_cast<T>(ctx->settings[id]);
+            }
+            ctx->settings.emplace(id, std::to_string(defaultValue));
+        } catch (boost::bad_lexical_cast &) {
+            log_error("Problem reading setting %s, using default value\n", name);
+        }
         return defaultValue;
     }
 

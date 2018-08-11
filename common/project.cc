@@ -70,8 +70,7 @@ void ProjectHandler::save(Context *ctx, std::string filename)
         root.put("project.params.freq", int(ctx->target_freq / 1e6));
         root.put("project.params.seed", ctx->rngstate);
         saveArch(ctx, root, proj.parent_path().string());
-        for(auto const &item : ctx->settings)
-        {
+        for (auto const &item : ctx->settings) {
             std::string path = "project.settings.";
             path += item.first.c_str(ctx);
             std::replace(path.begin(), path.end(), '/', '.');
@@ -80,6 +79,19 @@ void ProjectHandler::save(Context *ctx, std::string filename)
         pt::write_json(f, root);
     } catch (...) {
         log_error("Error saving project file.\n");
+    }
+}
+
+void addSettings(Context *ctx, std::string path, pt::ptree sub)
+{
+    for (pt::ptree::value_type &v : sub) {
+        const std::string &key = v.first;
+        const boost::property_tree::ptree &subtree = v.second;
+        if (subtree.empty()) {
+            ctx->settings.emplace(ctx->id(path + key), subtree.get_value<std::string>().c_str());
+        } else {
+            addSettings(ctx, path + key + "/", subtree);
+        }
     }
 }
 
@@ -118,6 +130,10 @@ std::unique_ptr<Context> ProjectHandler::load(std::string filename)
             if (params.count("seed"))
                 ctx->rngseed(params.get<uint64_t>("seed"));
         }
+        if (project.count("settings")) {
+            addSettings(ctx.get(), "", project.get_child("settings"));
+        }
+
         loadArch(ctx.get(), root, proj.parent_path().string());
     } catch (...) {
         log_error("Error loading project file.\n");
