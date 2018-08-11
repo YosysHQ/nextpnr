@@ -23,15 +23,17 @@
 #include "nextpnr.h"
 #include "util.h"
 
+#include <boost/range/iterator_range.hpp>
+
 NEXTPNR_NAMESPACE_BEGIN
 
-bool Arch::logicCellsCompatible(const std::vector<const CellInfo *> &cells) const
+bool Arch::logicCellsCompatible(const CellInfo** it, const size_t size) const
 {
     bool dffs_exist = false, dffs_neg = false;
     const NetInfo *cen = nullptr, *clk = nullptr, *sr = nullptr;
     int locals_count = 0;
 
-    for (auto cell : cells) {
+    for (auto cell : boost::make_iterator_range(it, it+size)) {
         NPNR_ASSERT(cell->belType == id_ICESTORM_LC);
         if (cell->lcInfo.dffEnable) {
             if (!dffs_exist) {
@@ -71,16 +73,15 @@ bool Arch::logicCellsCompatible(const std::vector<const CellInfo *> &cells) cons
 bool Arch::isBelLocationValid(BelId bel) const
 {
     if (getBelType(bel) == id_ICESTORM_LC) {
-        static std::vector<const CellInfo *> bel_cells;
-        bel_cells.clear();
+        std::array<const CellInfo *, 8> bel_cells;
+        size_t num_cells = 0;
         Loc bel_loc = getBelLocation(bel);
         for (auto bel_other : getBelsByTile(bel_loc.x, bel_loc.y)) {
             CellInfo *ci_other = getBoundBelCell(bel_other);
-            if (ci_other != nullptr) {
-                bel_cells.emplace_back(ci_other);
-            }
+            if (ci_other != nullptr)
+                bel_cells[num_cells++] = ci_other;
         }
-        return logicCellsCompatible(bel_cells);
+        return logicCellsCompatible(bel_cells.data(), num_cells);
     } else {
         CellInfo *ci = getBoundBelCell(bel);
         if (ci == nullptr)
@@ -95,18 +96,18 @@ bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const
     if (cell->type == id_ICESTORM_LC) {
         NPNR_ASSERT(getBelType(bel) == id_ICESTORM_LC);
 
-        static std::vector<const CellInfo *> bel_cells;
-        bel_cells.clear();
+        std::array<const CellInfo *, 8> bel_cells;
+        size_t num_cells = 0;
+
         Loc bel_loc = getBelLocation(bel);
         for (auto bel_other : getBelsByTile(bel_loc.x, bel_loc.y)) {
             CellInfo *ci_other = getBoundBelCell(bel_other);
-            if (ci_other != nullptr && bel_other != bel) {
-                bel_cells.emplace_back(ci_other);
-            }
+            if (ci_other != nullptr && bel_other != bel)
+                bel_cells[num_cells++] = ci_other;
         }
 
-        bel_cells.emplace_back(cell);
-        return logicCellsCompatible(bel_cells);
+        bel_cells[num_cells++] = cell;
+        return logicCellsCompatible(bel_cells.data(), num_cells);
     } else if (cell->type == id_SB_IO) {
         // Do not allow placement of input SB_IOs on blocks where there a PLL is outputting to.
 
