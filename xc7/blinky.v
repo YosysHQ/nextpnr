@@ -7,9 +7,9 @@ module blinky (
     output led5
 );
 
-    SB_GB clk_gb (
-        .USER_SIGNAL_TO_GLOBAL_BUFFER(clki),
-        .GLOBAL_BUFFER_OUTPUT(clk)
+    BUFG clk_gb (
+        .I(clki),
+        .O(clk)
     );
 
     localparam BITS = 5;
