@@ -21,6 +21,9 @@
 #error Include "archdefs.h" via "nextpnr.h" only.
 #endif
 
+#include "torc/Architecture.hpp"
+using namespace torc::architecture::xilinx;
+
 NEXTPNR_NAMESPACE_BEGIN
 
 typedef int delay_t;
@@ -62,7 +65,7 @@ enum ConstIds
 
 struct BelId
 {
-    int32_t index = -1;
+    SiteIndex index = SiteIndex(-1);
 
     bool operator==(const BelId &other) const { return index == other.index; }
     bool operator!=(const BelId &other) const { return index != other.index; }

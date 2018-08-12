@@ -24,6 +24,7 @@
 #include "torc/Architecture.hpp"
 #include "torc/Common.hpp"
 using namespace torc::architecture;
+using namespace torc::architecture::xilinx;
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -231,23 +232,17 @@ NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     RelPtr<CellTimingPOD> cell_timing;
 });
 
-#if defined(_MSC_VER)
-extern const char *chipdb_blob_384;
-extern const char *chipdb_blob_1k;
-extern const char *chipdb_blob_5k;
-extern const char *chipdb_blob_8k;
-#else
-extern const char chipdb_blob_384[];
-extern const char chipdb_blob_1k[];
-extern const char chipdb_blob_5k[];
-extern const char chipdb_blob_8k[];
-#endif
+
+extern const DDB *ddb;
+extern const Sites *ddbSites;
+extern const Tiles *ddbTiles;
+
 
 /************************ End of chipdb section. ************************/
 
 struct BelIterator
 {
-    int cursor;
+    Array<const Site>::iterator cursor;
 
     BelIterator operator++()
     {
@@ -268,7 +263,7 @@ struct BelIterator
     BelId operator*() const
     {
         BelId ret;
-        ret.index = cursor;
+        ret.index = SiteIndex(std::distance(ddbSites->getSites().begin(), cursor));
         return ret;
     }
 };
@@ -284,16 +279,17 @@ struct BelRange
 
 struct BelPinIterator
 {
-    const BelPortPOD *ptr = nullptr;
+    const BelId bel;
+    Array<const WireIndex>::iterator it;
 
-    void operator++() { ptr++; }
-    bool operator!=(const BelPinIterator &other) const { return ptr != other.ptr; }
+    void operator++() { it++; }
+    bool operator!=(const BelPinIterator &other) const { return it != other.it && bel != other.bel; }
 
     BelPin operator*() const
     {
         BelPin ret;
-        ret.bel.index = ptr->bel_index;
-        ret.pin = ptr->port;
+        ret.bel = bel;
+        ret.pin = IdString();
         return ret;
     }
 };
@@ -391,13 +387,11 @@ struct Arch : BaseCtx
 {
     bool fast_part;
     const ChipInfoPOD *chip_info;
-    const DDB *ddb;
     const PackageInfoPOD *package_info;
 
-    mutable std::unordered_map<IdString, int> bel_by_name;
     mutable std::unordered_map<IdString, int> wire_by_name;
     mutable std::unordered_map<IdString, int> pip_by_name;
-    mutable std::unordered_map<Loc, int> bel_by_loc;
+    mutable std::unordered_map<Loc, BelId> bel_by_loc;
 
     std::vector<bool> bel_carry;
     std::vector<CellInfo *> bel_to_cell;
@@ -428,7 +422,7 @@ struct Arch : BaseCtx
     IdString getBelName(BelId bel) const
     {
         NPNR_ASSERT(bel != BelId());
-        return id(chip_info->bel_data[bel.index].name.get());
+        return id(ddbSites->getSite(bel.index).getName());
     }
 
     uint32_t getBelChecksum(BelId bel) const { return bel.index; }
@@ -477,17 +471,19 @@ struct Arch : BaseCtx
     BelRange getBels() const
     {
         BelRange range;
-        range.b.cursor = 0;
-        range.e.cursor = chip_info->num_bels;
+        range.b.cursor = ddbSites->getSites().begin();
+        range.e.cursor = ddbSites->getSites().end();
         return range;
     }
 
     Loc getBelLocation(BelId bel) const
     {
+        const auto& site = ddbSites->getSite(bel.index);
+        const auto& tile_info = ddbTiles->getTileInfo(site.getTileIndex());
         Loc loc;
-        loc.x = chip_info->bel_data[bel.index].x;
-        loc.y = chip_info->bel_data[bel.index].y;
-        loc.z = chip_info->bel_data[bel.index].z;
+        loc.x = tile_info.getCol(); 
+        loc.y = tile_info.getRow();
+        loc.z = 0;
         return loc;
     }
 
@@ -499,7 +495,9 @@ struct Arch : BaseCtx
     IdString getBelType(BelId bel) const
     {
         NPNR_ASSERT(bel != BelId());
-        return IdString(chip_info->bel_data[bel.index].type);
+        const auto& site = ddbSites->getSite(bel.index);
+        const auto& tile_info = ddbTiles->getTileInfo(site.getTileIndex());
+        return id(ddbTiles->getTileTypeName(tile_info.getTypeIndex()));
     }
 
     WireId getBelPinWire(BelId bel, IdString pin) const;
@@ -582,9 +580,9 @@ struct Arch : BaseCtx
     BelPinRange getWireBelPins(WireId wire) const
     {
         BelPinRange range;
-        NPNR_ASSERT(wire != WireId());
-        range.b.ptr = chip_info->wire_data[wire.index].bel_pins.get();
-        range.e.ptr = range.b.ptr + chip_info->wire_data[wire.index].num_bel_pins;
+        //NPNR_ASSERT(wire != WireId());
+        //range.b.ptr = chip_info->wire_data[wire.index].bel_pins.get();
+        //range.e.ptr = range.b.ptr + chip_info->wire_data[wire.index].num_bel_pins;
         return range;
     }
 

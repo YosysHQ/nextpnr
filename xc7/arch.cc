@@ -32,6 +32,12 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+
+const DDB *ddb = nullptr;
+const Sites *ddbSites = nullptr;
+const Tiles *ddbTiles = nullptr;
+
+
 // -----------------------------------------------------------------------
 
 void IdString::initialize_arch(const BaseCtx *ctx)
@@ -61,6 +67,9 @@ Arch::Arch(ArchArgs args) : args(args)
 //    }
 //    if (package_info == nullptr)
 //        log_error("Unsupported package '%s'.\n", args.package.c_str());
+
+    ddbSites = &ddb->getSites();
+    ddbTiles = &ddb->getTiles();
 }
 
 // -----------------------------------------------------------------------
@@ -89,14 +98,9 @@ BelId Arch::getBelByName(IdString name) const
 {
     BelId ret;
 
-    if (bel_by_name.empty()) {
-        for (int i = 0; i < chip_info->num_bels; i++)
-            bel_by_name[id(chip_info->bel_data[i].name.get())] = i;
-    }
-
-    auto it = bel_by_name.find(name);
-    if (it != bel_by_name.end())
-        ret.index = it->second;
+    auto it = ddbSites->findSiteIndex(name.str(this));
+    if (it != SiteIndex(-1))
+        ret.index = it;
 
     return ret;
 }
@@ -106,32 +110,29 @@ BelId Arch::getBelByLocation(Loc loc) const
     BelId bel;
 
     if (bel_by_loc.empty()) {
-        for (int i = 0; i < chip_info->num_bels; i++) {
+        for (SiteIndex i(0); i < ddbSites->getSiteCount(); ++i) {
             BelId b;
             b.index = i;
-            bel_by_loc[getBelLocation(b)] = i;
+            bel_by_loc[getBelLocation(b)] = b;
         }
     }
 
     auto it = bel_by_loc.find(loc);
     if (it != bel_by_loc.end())
-        bel.index = it->second;
+        bel = it->second;
 
     return bel;
 }
 
 BelRange Arch::getBelsByTile(int x, int y) const
 {
-    // In iCE40 chipdb bels at the same tile are consecutive and dense z ordinates
-    // are used
     BelRange br;
 
-    br.b.cursor = Arch::getBelByLocation(Loc(x, y, 0)).index;
+    br.b.cursor = std::next(ddbSites->getSites().begin(), Arch::getBelByLocation(Loc(x, y, 0)).index);
     br.e.cursor = br.b.cursor;
 
-    if (br.e.cursor != -1) {
-        while (br.e.cursor < chip_info->num_bels && chip_info->bel_data[br.e.cursor].x == x &&
-               chip_info->bel_data[br.e.cursor].y == y)
+    if (br.e.cursor != ddbSites->getSites().end()) {
+        while (br.e.cursor < ddbSites->getSites().end() && ddbSites->getSite((*br.e).index).getTileIndex() == ddbSites->getSite((*br.b).index).getTileIndex())
             br.e.cursor++;
     }
 
@@ -316,23 +317,23 @@ IdString Arch::getPipName(PipId pip) const
 
 BelId Arch::getPackagePinBel(const std::string &pin) const
 {
-    for (int i = 0; i < package_info->num_pins; i++) {
-        if (package_info->pins[i].name.get() == pin) {
-            BelId id;
-            id.index = package_info->pins[i].bel_index;
-            return id;
-        }
-    }
+//    for (int i = 0; i < package_info->num_pins; i++) {
+//        if (package_info->pins[i].name.get() == pin) {
+//            BelId id;
+//            id.index = package_info->pins[i].bel_index;
+//            return id;
+//        }
+//    }
     return BelId();
 }
 
 std::string Arch::getBelPackagePin(BelId bel) const
 {
-    for (int i = 0; i < package_info->num_pins; i++) {
-        if (package_info->pins[i].bel_index == bel.index) {
-            return std::string(package_info->pins[i].name.get());
-        }
-    }
+//    for (int i = 0; i < package_info->num_pins; i++) {
+//        if (package_info->pins[i].bel_index == bel.index) {
+//            return std::string(package_info->pins[i].name.get());
+//        }
+//    }
     return "";
 }
 
@@ -617,7 +618,7 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
 
     if (decal.type == DecalId::TYPE_BEL) {
         BelId bel;
-        bel.index = decal.index;
+        bel.index = SiteIndex(decal.index);
 
         auto bel_type = getBelType(bel);
 
