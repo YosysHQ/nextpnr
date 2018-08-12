@@ -677,14 +677,47 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
 // Get the port class, also setting clockPort to associated clock if applicable
 TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, IdString &clockPort) const
 {
-    return TMG_IGNORE;
+    if (cell->type == id_SLICEL) {
+        if (port == id_CLK)
+            return TMG_CLOCK_INPUT;
+        if (port == id_CIN)
+            return TMG_COMB_INPUT;
+        if (port == id_COUT || port == id_O)
+            return TMG_COMB_OUTPUT;
+        if (cell->lcInfo.dffEnable) {
+            clockPort = id_CLK;
+            if (port == id_OQ)
+                return TMG_REGISTER_OUTPUT;
+            else
+                return TMG_REGISTER_INPUT;
+        } else {
+            if (port == id_O)
+                return TMG_COMB_OUTPUT;
+            else
+                return TMG_COMB_INPUT;
+        }
+        // TODO
+        //if (port == id_OMUX)
+    }
+    else if (cell->type == id_IOB33S) {
+        if (port == id_I)
+            return TMG_STARTPOINT;
+        else if (port == id_O)
+            return TMG_ENDPOINT;
+    }
+    else if (cell->type == id_BUFGCTRL) {
+        if (port == id_O)
+            return TMG_COMB_OUTPUT;
+        return TMG_COMB_INPUT;
+    }
+    log_error("no timing info for port '%s' of cell type '%s'\n", port.c_str(this), cell->type.c_str(this));
 }
 
 bool Arch::isGlobalNet(const NetInfo *net) const
 {
     if (net == nullptr)
         return false;
-    return net->driver.cell != nullptr && net->driver.port == id_GLOBAL_BUFFER_OUTPUT;
+    return net->driver.cell != nullptr && net->driver.cell->type == id_BUFGCTRL && net->driver.port == id_O;
 }
 
 // Assign arch arg info
@@ -712,7 +745,7 @@ void Arch::assignArchInfo()
 void Arch::assignCellInfo(CellInfo *cell)
 {
     cell->belType = cell->type;
-    if (cell->type == id_ICESTORM_LC) {
+    if (cell->type == id_SLICEL) {
         cell->lcInfo.dffEnable = bool_or_default(cell->params, id_DFF_ENABLE);
         cell->lcInfo.carryEnable = bool_or_default(cell->params, id_CARRY_ENABLE);
         cell->lcInfo.negClk = bool_or_default(cell->params, id_NEG_CLK);
