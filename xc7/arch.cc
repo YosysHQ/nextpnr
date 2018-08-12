@@ -173,6 +173,9 @@ WireId Arch::getBelPinWire(BelId bel, IdString pin) const
 {
     WireId ret;
 
+    const auto& site = ddbSites->getSite(bel.index);
+    ret.index = site.getPinTilewire(pin.str(this));
+
 //    NPNR_ASSERT(bel != BelId());
 //
 //    int num_bel_wires = chip_info->bel_data[bel.index].num_bel_wires;
@@ -229,9 +232,9 @@ WireId Arch::getWireByName(IdString name) const
             wire_by_name[id(chip_info->wire_data[i].name.get())] = i;
     }
 
-    auto it = wire_by_name.find(name);
-    if (it != wire_by_name.end())
-        ret.index = it->second;
+    //auto it = wire_by_name.find(name);
+    //if (it != wire_by_name.end())
+    //    ret.index = it->second;
 
     return ret;
 }
@@ -239,38 +242,38 @@ WireId Arch::getWireByName(IdString name) const
 IdString Arch::getWireType(WireId wire) const
 {
     NPNR_ASSERT(wire != WireId());
-    switch (chip_info->wire_data[wire.index].type) {
-    case WireInfoPOD::WIRE_TYPE_NONE:
-        return IdString();
-    case WireInfoPOD::WIRE_TYPE_GLB2LOCAL:
-        return id("GLB2LOCAL");
-    case WireInfoPOD::WIRE_TYPE_GLB_NETWK:
-        return id("GLB_NETWK");
-    case WireInfoPOD::WIRE_TYPE_LOCAL:
-        return id("LOCAL");
-    case WireInfoPOD::WIRE_TYPE_LUTFF_IN:
-        return id("LUTFF_IN");
-    case WireInfoPOD::WIRE_TYPE_LUTFF_IN_LUT:
-        return id("LUTFF_IN_LUT");
-    case WireInfoPOD::WIRE_TYPE_LUTFF_LOUT:
-        return id("LUTFF_LOUT");
-    case WireInfoPOD::WIRE_TYPE_LUTFF_OUT:
-        return id("LUTFF_OUT");
-    case WireInfoPOD::WIRE_TYPE_LUTFF_COUT:
-        return id("LUTFF_COUT");
-    case WireInfoPOD::WIRE_TYPE_LUTFF_GLOBAL:
-        return id("LUTFF_GLOBAL");
-    case WireInfoPOD::WIRE_TYPE_CARRY_IN_MUX:
-        return id("CARRY_IN_MUX");
-    case WireInfoPOD::WIRE_TYPE_SP4_V:
-        return id("SP4_V");
-    case WireInfoPOD::WIRE_TYPE_SP4_H:
-        return id("SP4_H");
-    case WireInfoPOD::WIRE_TYPE_SP12_V:
-        return id("SP12_V");
-    case WireInfoPOD::WIRE_TYPE_SP12_H:
-        return id("SP12_H");
-    }
+//    switch (chip_info->wire_data[wire.index].type) {
+//    case WireInfoPOD::WIRE_TYPE_NONE:
+//        return IdString();
+//    case WireInfoPOD::WIRE_TYPE_GLB2LOCAL:
+//        return id("GLB2LOCAL");
+//    case WireInfoPOD::WIRE_TYPE_GLB_NETWK:
+//        return id("GLB_NETWK");
+//    case WireInfoPOD::WIRE_TYPE_LOCAL:
+//        return id("LOCAL");
+//    case WireInfoPOD::WIRE_TYPE_LUTFF_IN:
+//        return id("LUTFF_IN");
+//    case WireInfoPOD::WIRE_TYPE_LUTFF_IN_LUT:
+//        return id("LUTFF_IN_LUT");
+//    case WireInfoPOD::WIRE_TYPE_LUTFF_LOUT:
+//        return id("LUTFF_LOUT");
+//    case WireInfoPOD::WIRE_TYPE_LUTFF_OUT:
+//        return id("LUTFF_OUT");
+//    case WireInfoPOD::WIRE_TYPE_LUTFF_COUT:
+//        return id("LUTFF_COUT");
+//    case WireInfoPOD::WIRE_TYPE_LUTFF_GLOBAL:
+//        return id("LUTFF_GLOBAL");
+//    case WireInfoPOD::WIRE_TYPE_CARRY_IN_MUX:
+//        return id("CARRY_IN_MUX");
+//    case WireInfoPOD::WIRE_TYPE_SP4_V:
+//        return id("SP4_V");
+//    case WireInfoPOD::WIRE_TYPE_SP4_H:
+//        return id("SP4_H");
+//    case WireInfoPOD::WIRE_TYPE_SP12_V:
+//        return id("SP12_V");
+//    case WireInfoPOD::WIRE_TYPE_SP12_H:
+//        return id("SP12_H");
+//    }
     return IdString();
 }
 
@@ -507,8 +510,8 @@ DecalXY Arch::getWireDecal(WireId wire) const
 {
     DecalXY decalxy;
     decalxy.decal.type = DecalId::TYPE_WIRE;
-    decalxy.decal.index = wire.index;
-    decalxy.decal.active = wire_to_net.at(wire.index) != nullptr;
+    //decalxy.decal.index = wire.index;
+    //decalxy.decal.active = wire_to_net.at(wire.index) != nullptr;
     return decalxy;
 }
 
@@ -671,6 +674,15 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
 
 bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const
 {
+    if (cell->type == id_SLICEL)
+    {
+        if (fromPort.index >= id_A1.index && fromPort.index <= id_A6.index)
+            return toPort == id_A || toPort == id_AQ;
+    }
+    else if (cell->type == id_BUFGCTRL)
+    {
+        return true;
+    }
     return false;
 }
 
@@ -682,19 +694,16 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, Id
             return TMG_CLOCK_INPUT;
         if (port == id_CIN)
             return TMG_COMB_INPUT;
-        if (port == id_COUT || port == id_O)
+        if (port == id_COUT || port == id_A)
             return TMG_COMB_OUTPUT;
         if (cell->lcInfo.dffEnable) {
             clockPort = id_CLK;
-            if (port == id_OQ)
+            if (port == id_AQ)
                 return TMG_REGISTER_OUTPUT;
             else
                 return TMG_REGISTER_INPUT;
         } else {
-            if (port == id_O)
-                return TMG_COMB_OUTPUT;
-            else
-                return TMG_COMB_INPUT;
+            return TMG_COMB_INPUT;
         }
         // TODO
         //if (port == id_OMUX)

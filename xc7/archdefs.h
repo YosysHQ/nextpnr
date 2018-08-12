@@ -22,6 +22,7 @@
 #endif
 
 #include "torc/Architecture.hpp"
+using namespace torc::architecture;
 using namespace torc::architecture::xilinx;
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -73,10 +74,10 @@ struct BelId
 
 struct WireId
 {
-    int32_t index = -1;
+    Tilewire index;
 
     bool operator==(const WireId &other) const { return index == other.index; }
-    bool operator!=(const WireId &other) const { return index != other.index; }
+    bool operator!=(const WireId &other) const { return !(index == other.index); }
 };
 
 struct PipId
@@ -163,7 +164,7 @@ template <> struct hash<NEXTPNR_NAMESPACE_PREFIX WireId>
 {
     std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX WireId &wire) const noexcept
     {
-        return hash<int>()(wire.index);
+        return hash_value(wire.index);
     }
 };
 

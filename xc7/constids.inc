@@ -441,6 +441,16 @@ X(NEG_CLK)
 
 X(I)
 
+X(A1)
+X(A2)
+X(A3)
+X(A4)
+X(A5)
+X(A6)
+X(A)
+X(AQ)
+X(AMUX)
+
 X(LUT1)
 X(LUT2)
 X(LUT3)

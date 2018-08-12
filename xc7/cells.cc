@@ -53,21 +53,21 @@ std::unique_ptr<CellInfo> create_ice_cell(Context *ctx, IdString type, std::stri
         new_cell->params[ctx->id("CIN_CONST")] = "0";
         new_cell->params[ctx->id("CIN_SET")] = "0";
 
-        add_port(ctx, new_cell.get(), "I0", PORT_IN);
-        add_port(ctx, new_cell.get(), "I1", PORT_IN);
-        add_port(ctx, new_cell.get(), "I2", PORT_IN);
-        add_port(ctx, new_cell.get(), "I3", PORT_IN);
-        add_port(ctx, new_cell.get(), "I4", PORT_IN);
-        add_port(ctx, new_cell.get(), "I5", PORT_IN);
+        add_port(ctx, new_cell.get(), "A1", PORT_IN);
+        add_port(ctx, new_cell.get(), "A2", PORT_IN);
+        add_port(ctx, new_cell.get(), "A3", PORT_IN);
+        add_port(ctx, new_cell.get(), "A4", PORT_IN);
+        add_port(ctx, new_cell.get(), "A5", PORT_IN);
+        add_port(ctx, new_cell.get(), "A6", PORT_IN);
         add_port(ctx, new_cell.get(), "CIN", PORT_IN);
 
         add_port(ctx, new_cell.get(), "CLK", PORT_IN);
         add_port(ctx, new_cell.get(), "CE", PORT_IN);
         add_port(ctx, new_cell.get(), "SR", PORT_IN);
 
-        add_port(ctx, new_cell.get(), "O", PORT_OUT);
-        add_port(ctx, new_cell.get(), "OMUX", PORT_OUT);
-        add_port(ctx, new_cell.get(), "OQ", PORT_OUT);
+        add_port(ctx, new_cell.get(), "A", PORT_OUT);
+        add_port(ctx, new_cell.get(), "AQ", PORT_OUT);
+        add_port(ctx, new_cell.get(), "AMUX", PORT_OUT);
         add_port(ctx, new_cell.get(), "COUT", PORT_OUT);
     } else if (type == ctx->id("IOBUF")) {
         new_cell->type = id_IOB33S;
@@ -259,19 +259,19 @@ std::unique_ptr<CellInfo> create_ice_cell(Context *ctx, IdString type, std::stri
 void lut_to_lc(const Context *ctx, CellInfo *lut, CellInfo *lc, bool no_dff)
 {
     lc->params[ctx->id("LUT_INIT")] = lut->params[ctx->id("LUT_INIT")];
-    replace_port(lut, ctx->id("I0"), lc, ctx->id("I0"));
+    replace_port(lut, ctx->id("I0"), lc, ctx->id("A1"));
     if (get_net_or_empty(lut, ctx->id("I1")))
-        replace_port(lut, ctx->id("I1"), lc, ctx->id("I1"));
+        replace_port(lut, ctx->id("I1"), lc, ctx->id("A2"));
     if (get_net_or_empty(lut, ctx->id("I2")))
-        replace_port(lut, ctx->id("I2"), lc, ctx->id("I2"));
+        replace_port(lut, ctx->id("I2"), lc, ctx->id("A3"));
     if (get_net_or_empty(lut, ctx->id("I3")))
-        replace_port(lut, ctx->id("I3"), lc, ctx->id("I3"));
+        replace_port(lut, ctx->id("I3"), lc, ctx->id("A4"));
     if (get_net_or_empty(lut, ctx->id("I4")))
-        replace_port(lut, ctx->id("I4"), lc, ctx->id("I3"));
+        replace_port(lut, ctx->id("I4"), lc, ctx->id("A5"));
     if (get_net_or_empty(lut, ctx->id("I5")))
-        replace_port(lut, ctx->id("I5"), lc, ctx->id("I3"));
+        replace_port(lut, ctx->id("I5"), lc, ctx->id("A6"));
     if (no_dff) {
-        replace_port(lut, ctx->id("O"), lc, ctx->id("O"));
+        replace_port(lut, ctx->id("O"), lc, ctx->id("A"));
         lc->params[ctx->id("DFF_ENABLE")] = "0";
     }
 }
@@ -318,10 +318,10 @@ void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc, bool pass_thru_l
 
     if (pass_thru_lut) {
         lc->params[ctx->id("LUT_INIT")] = "2";
-        replace_port(dff, ctx->id("D"), lc, ctx->id("I0"));
+        replace_port(dff, ctx->id("D"), lc, ctx->id("A1"));
     }
 
-    replace_port(dff, ctx->id("Q"), lc, ctx->id("OQ"));
+    replace_port(dff, ctx->id("Q"), lc, ctx->id("AQ"));
 }
 
 void nxio_to_sb(Context *ctx, CellInfo *nxio, CellInfo *sbio)

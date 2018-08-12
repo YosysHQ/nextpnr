@@ -336,16 +336,16 @@ static void pack_constants(Context *ctx)
     std::unique_ptr<NetInfo> gnd_net = std::unique_ptr<NetInfo>(new NetInfo);
     gnd_net->name = ctx->id("$PACKER_GND_NET");
     gnd_net->driver.cell = gnd_cell.get();
-    gnd_net->driver.port = ctx->id("O");
-    gnd_cell->ports.at(ctx->id("O")).net = gnd_net.get();
+    gnd_net->driver.port = ctx->id("A");
+    gnd_cell->ports.at(ctx->id("A")).net = gnd_net.get();
 
     std::unique_ptr<CellInfo> vcc_cell = create_ice_cell(ctx, ctx->id("XC7_LC"), "$PACKER_VCC");
     vcc_cell->params[ctx->id("LUT_INIT")] = "1";
     std::unique_ptr<NetInfo> vcc_net = std::unique_ptr<NetInfo>(new NetInfo);
     vcc_net->name = ctx->id("$PACKER_VCC_NET");
     vcc_net->driver.cell = vcc_cell.get();
-    vcc_net->driver.port = ctx->id("O");
-    vcc_cell->ports.at(ctx->id("O")).net = vcc_net.get();
+    vcc_net->driver.port = ctx->id("A");
+    vcc_cell->ports.at(ctx->id("A")).net = vcc_net.get();
 
     std::vector<IdString> dead_nets;
 
@@ -451,6 +451,7 @@ static bool is_logic_port(BaseCtx *ctx, const PortRef &port)
 
 static void insert_global(Context *ctx, NetInfo *net, bool is_reset, bool is_cen, bool is_logic)
 {
+    asm("int3");
     std::string glb_name = net->name.str(ctx) + std::string("_$glb_") + (is_reset ? "sr" : (is_cen ? "ce" : "clk"));
     std::unique_ptr<CellInfo> gb = create_ice_cell(ctx, id_BUFGCTRL, "$bufg_" + glb_name);
     gb->ports[ctx->id("I0")].net = net;
@@ -847,25 +848,25 @@ static void pack_special(Context *ctx)
 
                 // Find wire that will be driven by this port.
                 const auto pll_out_wire = ctx->getBelPinWire(pll_bel, port.name);
-                NPNR_ASSERT(pll_out_wire.index != -1);
+                NPNR_ASSERT(pll_out_wire != WireId());
 
                 // Now, constrain all LUTs on the output of the signal to be at
                 // the correct Bel relative to the PLL Bel.
-                int x = ctx->chip_info->wire_data[pll_out_wire.index].x;
-                int y = ctx->chip_info->wire_data[pll_out_wire.index].y;
-                int z = 0;
-                for (const auto &user : port.net->users) {
-                    NPNR_ASSERT(user.cell != nullptr);
-                    NPNR_ASSERT(user.cell->type == ctx->id("XC7_LC"));
+                //int x = ctx->chip_info->wire_data[pll_out_wire.index].x;
+                //int y = ctx->chip_info->wire_data[pll_out_wire.index].y;
+                //int z = 0;
+                //for (const auto &user : port.net->users) {
+                //    NPNR_ASSERT(user.cell != nullptr);
+                //    NPNR_ASSERT(user.cell->type == ctx->id("XC7_LC"));
 
-                    // TODO(q3k): handle when the Bel might be already the
-                    // target of another constraint.
-                    NPNR_ASSERT(z < 8);
-                    auto target_bel = ctx->getBelByLocation(Loc(x, y, z++));
-                    auto target_bel_name = ctx->getBelName(target_bel).str(ctx);
-                    user.cell->attrs[ctx->id("BEL")] = target_bel_name;
-                    log_info("    constrained '%s' to %s\n", user.cell->name.c_str(ctx), target_bel_name.c_str());
-                }
+                //    // TODO(q3k): handle when the Bel might be already the
+                //    // target of another constraint.
+                //    NPNR_ASSERT(z < 8);
+                //    auto target_bel = ctx->getBelByLocation(Loc(x, y, z++));
+                //    auto target_bel_name = ctx->getBelName(target_bel).str(ctx);
+                //    user.cell->attrs[ctx->id("BEL")] = target_bel_name;
+                //    log_info("    constrained '%s' to %s\n", user.cell->name.c_str(ctx), target_bel_name.c_str());
+                //}
             }
 
             new_cells.push_back(std::move(packed));
@@ -887,7 +888,8 @@ bool Arch::pack()
     try {
         log_break();
         pack_constants(ctx);
-        promote_globals(ctx);
+        // TODO
+        //promote_globals(ctx);
         pack_io(ctx);
         pack_lut_lutffs(ctx);
         pack_nonlut_ffs(ctx);
