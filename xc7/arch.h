@@ -592,7 +592,7 @@ struct Arch : BaseCtx
     {
         WireRange range;
         range.b.cursor = 0;
-        range.e.cursor = chip_info->num_wires;
+        range.e.cursor = 0; //chip_info->num_wires;
         return range;
     }
 
