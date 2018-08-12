@@ -29,45 +29,37 @@ NEXTPNR_NAMESPACE_BEGIN
 
 bool Arch::logicCellsCompatible(const CellInfo** it, const size_t size) const
 {
-    bool dffs_exist = false, dffs_neg = false;
-    const NetInfo *cen = nullptr, *clk = nullptr, *sr = nullptr;
-    int locals_count = 0;
-
-    for (auto cell : boost::make_iterator_range(it, it+size)) {
-        NPNR_ASSERT(cell->belType == id_ICESTORM_LC);
-        if (cell->lcInfo.dffEnable) {
-            if (!dffs_exist) {
-                dffs_exist = true;
-                cen = cell->lcInfo.cen;
-                clk = cell->lcInfo.clk;
-                sr = cell->lcInfo.sr;
-
-                if (cen != nullptr && !cen->is_global)
-                    locals_count++;
-                if (clk != nullptr && !clk->is_global)
-                    locals_count++;
-                if (sr != nullptr && !sr->is_global)
-                    locals_count++;
-
-                if (cell->lcInfo.negClk) {
-                    dffs_neg = true;
-                }
-            } else {
-                if (cen != cell->lcInfo.cen)
-                    return false;
-                if (clk != cell->lcInfo.clk)
-                    return false;
-                if (sr != cell->lcInfo.sr)
-                    return false;
-                if (dffs_neg != cell->lcInfo.negClk)
-                    return false;
-            }
-        }
-
-        locals_count += cell->lcInfo.inputCount;
-    }
-
-    return locals_count <= 32;
+//    bool dffs_exist = false, dffs_neg = false;
+//    const NetInfo *cen = nullptr, *clk = nullptr, *sr = nullptr;
+//
+//    for (auto cell : boost::make_iterator_range(it, it+size)) {
+//        NPNR_ASSERT(cell->belType == id_ICESTORM_LC);
+//        if (cell->lcInfo.dffEnable) {
+//            if (!dffs_exist) {
+//                dffs_exist = true;
+//                cen = cell->lcInfo.cen;
+//                clk = cell->lcInfo.clk;
+//                sr = cell->lcInfo.sr;
+//
+//                if (cell->lcInfo.negClk) {
+//                    dffs_neg = true;
+//                }
+//            } else {
+//                if (cen != cell->lcInfo.cen)
+//                    return false;
+//                if (clk != cell->lcInfo.clk)
+//                    return false;
+//                if (sr != cell->lcInfo.sr)
+//                    return false;
+//                if (dffs_neg != cell->lcInfo.negClk)
+//                    return false;
+//            }
+//        }
+//        locals_count += cell->lcInfo.inputCount;
+//    }
+//
+//    return locals_count <= 32;
+    return true;
 }
 
 bool Arch::isBelLocationValid(BelId bel) const

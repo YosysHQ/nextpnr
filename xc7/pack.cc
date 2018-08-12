@@ -42,7 +42,7 @@ static void pack_lut_lutffs(Context *ctx)
         if (ctx->verbose)
             log_info("cell '%s' is of type '%s'\n", ci->name.c_str(ctx), ci->type.c_str(ctx));
         if (is_lut(ctx, ci)) {
-            std::unique_ptr<CellInfo> packed = create_ice_cell(ctx, ctx->id("ICESTORM_LC"), ci->name.str(ctx) + "_LC");
+            std::unique_ptr<CellInfo> packed = create_ice_cell(ctx, ctx->id("XC7_LC"), ci->name.str(ctx) + "_LC");
             std::copy(ci->attrs.begin(), ci->attrs.end(), std::inserter(packed->attrs, packed->attrs.begin()));
             packed_cells.insert(ci->name);
             if (ctx->verbose)
@@ -97,7 +97,7 @@ static void pack_nonlut_ffs(Context *ctx)
         CellInfo *ci = cell.second;
         if (is_ff(ctx, ci)) {
             std::unique_ptr<CellInfo> packed =
-                    create_ice_cell(ctx, ctx->id("ICESTORM_LC"), ci->name.str(ctx) + "_DFFLC");
+                    create_ice_cell(ctx, ctx->id("XC7_LC"), ci->name.str(ctx) + "_DFFLC");
             std::copy(ci->attrs.begin(), ci->attrs.end(), std::inserter(packed->attrs, packed->attrs.begin()));
             if (ctx->verbose)
                 log_info("packed cell %s into %s\n", ci->name.c_str(ctx), packed->name.c_str(ctx));
@@ -192,7 +192,7 @@ static void pack_carries(Context *ctx)
             } else {
                 // No LC to pack into matching I0/I1, insert a new one
                 std::unique_ptr<CellInfo> created_lc =
-                        create_ice_cell(ctx, ctx->id("ICESTORM_LC"), cell.first.str(ctx) + "$CARRY");
+                        create_ice_cell(ctx, ctx->id("XC7_LC"), cell.first.str(ctx) + "$CARRY");
                 carry_lc = created_lc.get();
                 created_lc->ports.at(ctx->id("I1")).net = i0_net;
                 if (i0_net) {
@@ -331,7 +331,7 @@ static void pack_constants(Context *ctx)
 {
     log_info("Packing constants..\n");
 
-    std::unique_ptr<CellInfo> gnd_cell = create_ice_cell(ctx, ctx->id("ICESTORM_LC"), "$PACKER_GND");
+    std::unique_ptr<CellInfo> gnd_cell = create_ice_cell(ctx, ctx->id("XC7_LC"), "$PACKER_GND");
     gnd_cell->params[ctx->id("LUT_INIT")] = "0";
     std::unique_ptr<NetInfo> gnd_net = std::unique_ptr<NetInfo>(new NetInfo);
     gnd_net->name = ctx->id("$PACKER_GND_NET");
@@ -339,7 +339,7 @@ static void pack_constants(Context *ctx)
     gnd_net->driver.port = ctx->id("O");
     gnd_cell->ports.at(ctx->id("O")).net = gnd_net.get();
 
-    std::unique_ptr<CellInfo> vcc_cell = create_ice_cell(ctx, ctx->id("ICESTORM_LC"), "$PACKER_VCC");
+    std::unique_ptr<CellInfo> vcc_cell = create_ice_cell(ctx, ctx->id("XC7_LC"), "$PACKER_VCC");
     vcc_cell->params[ctx->id("LUT_INIT")] = "1";
     std::unique_ptr<NetInfo> vcc_net = std::unique_ptr<NetInfo>(new NetInfo);
     vcc_net->name = ctx->id("$PACKER_VCC_NET");
@@ -405,9 +405,9 @@ static void pack_io(Context *ctx)
                 sb = net_only_drives(ctx, ci->ports.at(ctx->id("I")).net, is_sb_io, ctx->id("PACKAGE_PIN"), true, ci);
             }
             if (sb != nullptr) {
-                // Trivial case, SB_IO used. Just destroy the net and the
+                // Trivial case, IOBUF used. Just destroy the net and the
                 // iobuf
-                log_info("%s feeds SB_IO %s, removing %s %s.\n", ci->name.c_str(ctx), sb->name.c_str(ctx),
+                log_info("%s feeds IOBUF %s, removing %s %s.\n", ci->name.c_str(ctx), sb->name.c_str(ctx),
                          ci->type.c_str(ctx), ci->name.c_str(ctx));
                 NetInfo *net = sb->ports.at(ctx->id("PACKAGE_PIN")).net;
                 if (net != nullptr) {
@@ -421,9 +421,9 @@ static void pack_io(Context *ctx)
                     }
                 }
             } else {
-                // Create a SB_IO buffer
+                // Create a IOBUF buffer
                 std::unique_ptr<CellInfo> ice_cell =
-                        create_ice_cell(ctx, ctx->id("SB_IO"), ci->name.str(ctx) + "$sb_io");
+                        create_ice_cell(ctx, ctx->id("IOBUF"), ci->name.str(ctx) + "$iob");
                 nxio_to_sb(ctx, ci, ice_cell.get());
                 new_cells.push_back(std::move(ice_cell));
                 sb = new_cells.back().get();
@@ -452,19 +452,19 @@ static bool is_logic_port(BaseCtx *ctx, const PortRef &port)
 static void insert_global(Context *ctx, NetInfo *net, bool is_reset, bool is_cen, bool is_logic)
 {
     std::string glb_name = net->name.str(ctx) + std::string("_$glb_") + (is_reset ? "sr" : (is_cen ? "ce" : "clk"));
-    std::unique_ptr<CellInfo> gb = create_ice_cell(ctx, ctx->id("SB_GB"), "$gbuf_" + glb_name);
-    gb->ports[ctx->id("USER_SIGNAL_TO_GLOBAL_BUFFER")].net = net;
+    std::unique_ptr<CellInfo> gb = create_ice_cell(ctx, id_BUFGCTRL, "$bufg_" + glb_name);
+    gb->ports[ctx->id("I0")].net = net;
     PortRef pr;
     pr.cell = gb.get();
-    pr.port = ctx->id("USER_SIGNAL_TO_GLOBAL_BUFFER");
+    pr.port = ctx->id("I0");
     net->users.push_back(pr);
 
     pr.cell = gb.get();
-    pr.port = ctx->id("GLOBAL_BUFFER_OUTPUT");
+    pr.port = ctx->id("O");
     std::unique_ptr<NetInfo> glbnet = std::unique_ptr<NetInfo>(new NetInfo());
     glbnet->name = ctx->id(glb_name);
     glbnet->driver = pr;
-    gb->ports[ctx->id("GLOBAL_BUFFER_OUTPUT")].net = glbnet.get();
+    gb->ports[ctx->id("O")].net = glbnet.get();
     std::vector<PortRef> keep_users;
     for (auto user : net->users) {
         if (is_clock_port(ctx, user) || (is_reset && is_reset_port(ctx, user)) ||
@@ -582,7 +582,7 @@ static std::unique_ptr<CellInfo> spliceLUT(Context *ctx, CellInfo *ci, IdString 
     NPNR_ASSERT(port.net != nullptr);
 
     // Create pass-through LUT.
-    std::unique_ptr<CellInfo> pt = create_ice_cell(ctx, ctx->id("ICESTORM_LC"),
+    std::unique_ptr<CellInfo> pt = create_ice_cell(ctx, ctx->id("XC7_LC"),
                                                    ci->name.str(ctx) + "$nextpnr_" + portId.str(ctx) + "_lut_through");
     pt->params[ctx->id("LUT_INIT")] = "65280"; // output is always I3
 
@@ -596,7 +596,7 @@ static std::unique_ptr<CellInfo> spliceLUT(Context *ctx, CellInfo *ci, IdString 
     // New users of the original cell's port
     std::vector<PortRef> new_users;
     for (const auto &user : port.net->users) {
-        if (onlyNonLUTs && user.cell->type == ctx->id("ICESTORM_LC")) {
+        if (onlyNonLUTs && user.cell->type == ctx->id("XC7_LC")) {
             new_users.push_back(user);
             continue;
         }
@@ -823,7 +823,7 @@ static void pack_special(Context *ctx)
                 unsigned int lut_count = 0;
                 for (const auto &user : port.net->users) {
                     NPNR_ASSERT(user.cell != nullptr);
-                    if (user.cell->type == ctx->id("ICESTORM_LC")) {
+                    if (user.cell->type == ctx->id("XC7_LC")) {
                         found_lut = true;
                         lut_count++;
                     } else {
@@ -856,7 +856,7 @@ static void pack_special(Context *ctx)
                 int z = 0;
                 for (const auto &user : port.net->users) {
                     NPNR_ASSERT(user.cell != nullptr);
-                    NPNR_ASSERT(user.cell->type == ctx->id("ICESTORM_LC"));
+                    NPNR_ASSERT(user.cell->type == ctx->id("XC7_LC"));
 
                     // TODO(q3k): handle when the Bel might be already the
                     // target of another constraint.

@@ -30,31 +30,23 @@ NEXTPNR_NAMESPACE_BEGIN
 std::unique_ptr<CellInfo> create_ice_cell(Context *ctx, IdString type, std::string name = "");
 
 // Return true if a cell is a LUT
-inline bool is_lut(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("SB_LUT4"); }
+inline bool is_lut(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == id_LUT1 || cell->type == id_LUT2 || cell->type == id_LUT3 || cell->type == id_LUT4 || cell->type == id_LUT5 || cell->type == id_LUT6; }
 
 // Return true if a cell is a flipflop
 inline bool is_ff(const BaseCtx *ctx, const CellInfo *cell)
 {
-    return cell->type == ctx->id("SB_DFF") || cell->type == ctx->id("SB_DFFE") || cell->type == ctx->id("SB_DFFSR") ||
-           cell->type == ctx->id("SB_DFFR") || cell->type == ctx->id("SB_DFFSS") || cell->type == ctx->id("SB_DFFS") ||
-           cell->type == ctx->id("SB_DFFESR") || cell->type == ctx->id("SB_DFFER") ||
-           cell->type == ctx->id("SB_DFFESS") || cell->type == ctx->id("SB_DFFES") ||
-           cell->type == ctx->id("SB_DFFN") || cell->type == ctx->id("SB_DFFNE") ||
-           cell->type == ctx->id("SB_DFFNSR") || cell->type == ctx->id("SB_DFFNR") ||
-           cell->type == ctx->id("SB_DFFNSS") || cell->type == ctx->id("SB_DFFNS") ||
-           cell->type == ctx->id("SB_DFFNESR") || cell->type == ctx->id("SB_DFFNER") ||
-           cell->type == ctx->id("SB_DFFNESS") || cell->type == ctx->id("SB_DFFNES");
+    return cell->type == id_FDRE || cell->type == id_FDSE || cell->type == id_FDCE || cell->type == id_FDPE;
 }
 
 inline bool is_carry(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("SB_CARRY"); }
 
-inline bool is_lc(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("ICESTORM_LC"); }
+inline bool is_lc(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("XC7_LC"); }
 
 // Return true if a cell is a SB_IO
 inline bool is_sb_io(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("SB_IO"); }
 
 // Return true if a cell is a global buffer
-inline bool is_gbuf(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("SB_GB"); }
+inline bool is_gbuf(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("BUFGCTRL"); }
 
 // Return true if a cell is a RAM
 inline bool is_ram(const BaseCtx *ctx, const CellInfo *cell)

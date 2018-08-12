@@ -70,6 +70,8 @@ Arch::Arch(ArchArgs args) : args(args)
 
     ddbSites = &ddb->getSites();
     ddbTiles = &ddb->getTiles();
+
+    bel_to_cell.resize(ddbSites->getSiteCount());
 }
 
 // -----------------------------------------------------------------------
@@ -171,32 +173,32 @@ WireId Arch::getBelPinWire(BelId bel, IdString pin) const
 {
     WireId ret;
 
-    NPNR_ASSERT(bel != BelId());
-
-    int num_bel_wires = chip_info->bel_data[bel.index].num_bel_wires;
-    const BelWirePOD *bel_wires = chip_info->bel_data[bel.index].bel_wires.get();
-
-    if (num_bel_wires < 7) {
-        for (int i = 0; i < num_bel_wires; i++) {
-            if (bel_wires[i].port == pin.index) {
-                ret.index = bel_wires[i].wire_index;
-                break;
-            }
-        }
-    } else {
-        int b = 0, e = num_bel_wires - 1;
-        while (b <= e) {
-            int i = (b + e) / 2;
-            if (bel_wires[i].port == pin.index) {
-                ret.index = bel_wires[i].wire_index;
-                break;
-            }
-            if (bel_wires[i].port > pin.index)
-                e = i - 1;
-            else
-                b = i + 1;
-        }
-    }
+//    NPNR_ASSERT(bel != BelId());
+//
+//    int num_bel_wires = chip_info->bel_data[bel.index].num_bel_wires;
+//    const BelWirePOD *bel_wires = chip_info->bel_data[bel.index].bel_wires.get();
+//
+//    if (num_bel_wires < 7) {
+//        for (int i = 0; i < num_bel_wires; i++) {
+//            if (bel_wires[i].port == pin.index) {
+//                ret.index = bel_wires[i].wire_index;
+//                break;
+//            }
+//        }
+//    } else {
+//        int b = 0, e = num_bel_wires - 1;
+//        while (b <= e) {
+//            int i = (b + e) / 2;
+//            if (bel_wires[i].port == pin.index) {
+//                ret.index = bel_wires[i].wire_index;
+//                break;
+//            }
+//            if (bel_wires[i].port > pin.index)
+//                e = i - 1;
+//            else
+//                b = i + 1;
+//        }
+//    }
 
     return ret;
 }

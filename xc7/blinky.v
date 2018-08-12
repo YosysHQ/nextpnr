@@ -7,8 +7,8 @@ module blinky (
     output led5
 );
 
-    BUFG clk_gb (
-        .I(clki),
+    BUFGCTRL clk_gb (
+        .I0(clki),
         .O(clk)
     );
 

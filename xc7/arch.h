@@ -433,7 +433,7 @@ struct Arch : BaseCtx
         NPNR_ASSERT(bel_to_cell[bel.index] == nullptr);
 
         bel_to_cell[bel.index] = cell;
-        bel_carry[bel.index] = (cell->type == id_ICESTORM_LC && cell->lcInfo.carryEnable);
+        //bel_carry[bel.index] = (cell->type == id_ICESTORM_LC && cell->lcInfo.carryEnable);
         cell->bel = bel;
         cell->belStrength = strength;
         refreshUiBel(bel);
@@ -446,7 +446,7 @@ struct Arch : BaseCtx
         bel_to_cell[bel.index]->bel = BelId();
         bel_to_cell[bel.index]->belStrength = STRENGTH_NONE;
         bel_to_cell[bel.index] = nullptr;
-        bel_carry[bel.index] = false;
+        //bel_carry[bel.index] = false;
         refreshUiBel(bel);
     }
 
@@ -490,14 +490,14 @@ struct Arch : BaseCtx
     BelId getBelByLocation(Loc loc) const;
     BelRange getBelsByTile(int x, int y) const;
 
-    bool getBelGlobalBuf(BelId bel) const { return chip_info->bel_data[bel.index].type == ID_SB_GB; }
+    bool getBelGlobalBuf(BelId bel) const { return getBelType(bel) == id_BUFGCTRL; }
 
     IdString getBelType(BelId bel) const
     {
         NPNR_ASSERT(bel != BelId());
         const auto& site = ddbSites->getSite(bel.index);
-        const auto& tile_info = ddbTiles->getTileInfo(site.getTileIndex());
-        return id(ddbTiles->getTileTypeName(tile_info.getTypeIndex()));
+        auto prim_def = site.getPrimitiveDefPtr();
+        return id(prim_def->getName());
     }
 
     WireId getBelPinWire(BelId bel, IdString pin) const;
