@@ -236,36 +236,41 @@ NPNR_PACKED_STRUCT(struct ChipInfoPOD {
 extern const DDB *torc;
 extern const Sites *torc_sites;
 extern const Tiles *torc_tiles;
+extern std::vector<IdString> bel_index_to_type;
 
 
 /************************ End of chipdb section. ************************/
 
-struct BelIterator
+struct BelIterator : public BelId
 {
-    Array<const Site>::iterator cursor;
-
     BelIterator operator++()
     {
-        cursor++;
+        if (bel_index_to_type[index] == id_QUARTER_SLICE) {
+            if (pos < D) {
+                ++pos;
+                return *this;
+            }
+        }
+
+        if (bel_index_to_type[++index] == id_QUARTER_SLICE)
+            pos = A;
+        else
+            pos = NOT_APPLICABLE;
+
         return *this;
     }
     BelIterator operator++(int)
     {
         BelIterator prior(*this);
-        cursor++;
+        operator++();
         return prior;
     }
 
-    bool operator!=(const BelIterator &other) const { return cursor != other.cursor; }
+    bool operator!=(const BelIterator &other) const { return BelId::operator!=(other); }
 
-    bool operator==(const BelIterator &other) const { return cursor == other.cursor; }
+    bool operator==(const BelIterator &other) const { return BelId::operator==(other); }
 
-    BelId operator*() const
-    {
-        BelId ret;
-        ret.index = SiteIndex(std::distance(torc_sites->getSites().begin(), cursor));
-        return ret;
-    }
+    BelId operator*() const { return *this; }
 };
 
 struct BelRange
@@ -472,8 +477,8 @@ struct Arch : BaseCtx
     BelRange getBels() const
     {
         BelRange range;
-        range.b.cursor = torc_sites->getSites().begin();
-        range.e.cursor = torc_sites->getSites().end();
+        range.b.index = SiteIndex(0);
+        range.e.index = SiteIndex(torc_sites->getSiteCount());
         return range;
     }
 
@@ -496,9 +501,7 @@ struct Arch : BaseCtx
     IdString getBelType(BelId bel) const
     {
         NPNR_ASSERT(bel != BelId());
-        const auto& site = torc_sites->getSite(bel.index);
-        auto prim_def = site.getPrimitiveDefPtr();
-        return id(prim_def->getName());
+        return bel_index_to_type[bel.index];
     }
 
     WireId getBelPinWire(BelId bel, IdString pin) const;

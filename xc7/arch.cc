@@ -36,6 +36,7 @@ NEXTPNR_NAMESPACE_BEGIN
 const DDB *torc = nullptr;
 const Sites *torc_sites = nullptr;
 const Tiles *torc_tiles = nullptr;
+std::vector<IdString> bel_index_to_type;
 
 
 // -----------------------------------------------------------------------
@@ -70,6 +71,17 @@ Arch::Arch(ArchArgs args) : args(args)
 
     torc_sites = &torc->getSites();
     torc_tiles = &torc->getTiles();
+
+    bel_index_to_type.resize(torc_sites->getSiteCount());
+    for (SiteIndex i(0); i < torc_sites->getSiteCount(); ++i) {
+        const auto& s = torc_sites->getSite(i);
+        auto pd = s.getPrimitiveDefPtr();
+        const auto& type = pd->getName();
+        if (type == "SLICEL" || type == "SLICEM")
+            bel_index_to_type[i] = id_QUARTER_SLICE;
+        else
+            bel_index_to_type[i] = id(type);
+    }
 
     bel_to_cell.resize(torc_sites->getSiteCount());
 }
@@ -115,6 +127,15 @@ BelId Arch::getBelByLocation(Loc loc) const
         for (SiteIndex i(0); i < torc_sites->getSiteCount(); ++i) {
             BelId b;
             b.index = i;
+            if (bel_index_to_type[i] == id_QUARTER_SLICE) {
+                b.pos = BelId::A;
+                bel_by_loc[getBelLocation(b)] = b;
+                b.pos = BelId::B;
+                bel_by_loc[getBelLocation(b)] = b;
+                b.pos = BelId::C;
+                bel_by_loc[getBelLocation(b)] = b;
+                b.pos = BelId::D;
+            }
             bel_by_loc[getBelLocation(b)] = b;
         }
     }
@@ -130,12 +151,14 @@ BelRange Arch::getBelsByTile(int x, int y) const
 {
     BelRange br;
 
-    br.b.cursor = std::next(torc_sites->getSites().begin(), Arch::getBelByLocation(Loc(x, y, 0)).index);
-    br.e.cursor = br.b.cursor;
+    auto b = getBelByLocation(Loc(x, y, 0));
+    br.b.index = b.index;
+    br.b.pos = b.pos;
+    br.e = br.b;
 
-    if (br.e.cursor != torc_sites->getSites().end()) {
-        while (br.e.cursor < torc_sites->getSites().end() && torc_sites->getSite((*br.e).index).getTileIndex() == torc_sites->getSite((*br.b).index).getTileIndex())
-            br.e.cursor++;
+    if (br.e.index != SiteIndex(torc_sites->getSiteCount())) {
+        while (br.e.index < SiteIndex(torc_sites->getSiteCount()) && torc_sites->getSite((*br.e).index).getTileIndex() == torc_sites->getSite((*br.b).index).getTileIndex())
+            br.e++;
     }
 
     return br;
@@ -674,7 +697,7 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
 
 bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const
 {
-    if (cell->type == id_SLICEL)
+    if (cell->type == id_QUARTER_SLICE)
     {
         if (fromPort.index >= id_A1.index && fromPort.index <= id_A6.index)
             return toPort == id_A || toPort == id_AQ;
@@ -689,7 +712,7 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
 // Get the port class, also setting clockPort to associated clock if applicable
 TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, IdString &clockPort) const
 {
-    if (cell->type == id_SLICEL) {
+    if (cell->type == id_QUARTER_SLICE) {
         if (port == id_CLK)
             return TMG_CLOCK_INPUT;
         if (port == id_CIN)
@@ -754,7 +777,7 @@ void Arch::assignArchInfo()
 void Arch::assignCellInfo(CellInfo *cell)
 {
     cell->belType = cell->type;
-    if (cell->type == id_SLICEL) {
+    if (cell->type == id_QUARTER_SLICE) {
         cell->lcInfo.dffEnable = bool_or_default(cell->params, id_DFF_ENABLE);
         cell->lcInfo.carryEnable = bool_or_default(cell->params, id_CARRY_ENABLE);
         cell->lcInfo.negClk = bool_or_default(cell->params, id_NEG_CLK);
@@ -771,6 +794,16 @@ void Arch::assignCellInfo(CellInfo *cell)
         if (get_net_or_empty(cell, id_I3))
             cell->lcInfo.inputCount++;
     }
+}
+
+void operator++(BelId::bel &b) {
+    switch (b) {
+        case BelId::A: b = BelId::B; return;
+        case BelId::B: b = BelId::C; return;
+        case BelId::C: b = BelId::D; return;
+        default: break;
+    }
+    throw;
 }
 
 NEXTPNR_NAMESPACE_END

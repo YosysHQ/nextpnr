@@ -464,7 +464,7 @@ X(FDCE)
 X(FDPE)
 
 X(BUFGCTRL)
-X(SLICEL)
+X(QUARTER_SLICE)
 X(IOBUF)
 X(IOB33S)
 X(IOB33M) // What is the difference between IOB33S and IOB33M?
