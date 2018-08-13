@@ -197,7 +197,10 @@ WireId Arch::getBelPinWire(BelId bel, IdString pin) const
     WireId ret;
 
     const auto& site = torc_sites->getSite(bel.index);
-    ret.index = site.getPinTilewire(pin.str(this));
+    auto pin_name = pin.str(this);
+    if (bel_index_to_type[bel.index] == id_QUARTER_SLICE)
+        pin_name[0] = bel.pos;
+    ret.index = site.getPinTilewire(pin_name);
 
 //    NPNR_ASSERT(bel != BelId());
 //
@@ -699,8 +702,8 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
 {
     if (cell->type == id_QUARTER_SLICE)
     {
-        if (fromPort.index >= id_A1.index && fromPort.index <= id_A6.index)
-            return toPort == id_A || toPort == id_AQ;
+        if (fromPort.index >= id_I1.index && fromPort.index <= id_I6.index)
+            return toPort == id_O || toPort == id_OQ;
     }
     else if (cell->type == id_BUFGCTRL)
     {
@@ -717,11 +720,11 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, Id
             return TMG_CLOCK_INPUT;
         if (port == id_CIN)
             return TMG_COMB_INPUT;
-        if (port == id_COUT || port == id_A)
+        if (port == id_COUT || port == id_O)
             return TMG_COMB_OUTPUT;
         if (cell->lcInfo.dffEnable) {
             clockPort = id_CLK;
-            if (port == id_AQ)
+            if (port == id_OQ)
                 return TMG_REGISTER_OUTPUT;
             else
                 return TMG_REGISTER_INPUT;
@@ -784,15 +787,15 @@ void Arch::assignCellInfo(CellInfo *cell)
         cell->lcInfo.clk = get_net_or_empty(cell, id_CLK);
         cell->lcInfo.cen = get_net_or_empty(cell, id_CEN);
         cell->lcInfo.sr = get_net_or_empty(cell, id_SR);
-        cell->lcInfo.inputCount = 0;
-        if (get_net_or_empty(cell, id_I0))
-            cell->lcInfo.inputCount++;
-        if (get_net_or_empty(cell, id_I1))
-            cell->lcInfo.inputCount++;
-        if (get_net_or_empty(cell, id_I2))
-            cell->lcInfo.inputCount++;
-        if (get_net_or_empty(cell, id_I3))
-            cell->lcInfo.inputCount++;
+//        cell->lcInfo.inputCount = 0;
+//        if (get_net_or_empty(cell, id_I0))
+//            cell->lcInfo.inputCount++;
+//        if (get_net_or_empty(cell, id_I1))
+//            cell->lcInfo.inputCount++;
+//        if (get_net_or_empty(cell, id_I2))
+//            cell->lcInfo.inputCount++;
+//        if (get_net_or_empty(cell, id_I3))
+//            cell->lcInfo.inputCount++;
     }
 }
 
