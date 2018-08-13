@@ -33,9 +33,9 @@
 NEXTPNR_NAMESPACE_BEGIN
 
 
-const DDB *ddb = nullptr;
-const Sites *ddbSites = nullptr;
-const Tiles *ddbTiles = nullptr;
+const DDB *torc = nullptr;
+const Sites *torc_sites = nullptr;
+const Tiles *torc_tiles = nullptr;
 
 
 // -----------------------------------------------------------------------
@@ -53,7 +53,7 @@ Arch::Arch(ArchArgs args) : args(args)
 {
     torc::common::DirectoryTree directoryTree("../../torc/src/torc");
     if (args.type == ArchArgs::Z020) {
-        ddb = new DDB("xc7z020", "clg484");
+        torc = new DDB("xc7z020", "clg484");
     } else {
         log_error("Unsupported XC7 chip type.\n");
     }
@@ -68,10 +68,10 @@ Arch::Arch(ArchArgs args) : args(args)
 //    if (package_info == nullptr)
 //        log_error("Unsupported package '%s'.\n", args.package.c_str());
 
-    ddbSites = &ddb->getSites();
-    ddbTiles = &ddb->getTiles();
+    torc_sites = &torc->getSites();
+    torc_tiles = &torc->getTiles();
 
-    bel_to_cell.resize(ddbSites->getSiteCount());
+    bel_to_cell.resize(torc_sites->getSiteCount());
 }
 
 // -----------------------------------------------------------------------
@@ -100,7 +100,7 @@ BelId Arch::getBelByName(IdString name) const
 {
     BelId ret;
 
-    auto it = ddbSites->findSiteIndex(name.str(this));
+    auto it = torc_sites->findSiteIndex(name.str(this));
     if (it != SiteIndex(-1))
         ret.index = it;
 
@@ -112,7 +112,7 @@ BelId Arch::getBelByLocation(Loc loc) const
     BelId bel;
 
     if (bel_by_loc.empty()) {
-        for (SiteIndex i(0); i < ddbSites->getSiteCount(); ++i) {
+        for (SiteIndex i(0); i < torc_sites->getSiteCount(); ++i) {
             BelId b;
             b.index = i;
             bel_by_loc[getBelLocation(b)] = b;
@@ -130,11 +130,11 @@ BelRange Arch::getBelsByTile(int x, int y) const
 {
     BelRange br;
 
-    br.b.cursor = std::next(ddbSites->getSites().begin(), Arch::getBelByLocation(Loc(x, y, 0)).index);
+    br.b.cursor = std::next(torc_sites->getSites().begin(), Arch::getBelByLocation(Loc(x, y, 0)).index);
     br.e.cursor = br.b.cursor;
 
-    if (br.e.cursor != ddbSites->getSites().end()) {
-        while (br.e.cursor < ddbSites->getSites().end() && ddbSites->getSite((*br.e).index).getTileIndex() == ddbSites->getSite((*br.b).index).getTileIndex())
+    if (br.e.cursor != torc_sites->getSites().end()) {
+        while (br.e.cursor < torc_sites->getSites().end() && torc_sites->getSite((*br.e).index).getTileIndex() == torc_sites->getSite((*br.b).index).getTileIndex())
             br.e.cursor++;
     }
 
@@ -173,7 +173,7 @@ WireId Arch::getBelPinWire(BelId bel, IdString pin) const
 {
     WireId ret;
 
-    const auto& site = ddbSites->getSite(bel.index);
+    const auto& site = torc_sites->getSite(bel.index);
     ret.index = site.getPinTilewire(pin.str(this));
 
 //    NPNR_ASSERT(bel != BelId());

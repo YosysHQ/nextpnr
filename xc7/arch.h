@@ -233,9 +233,9 @@ NPNR_PACKED_STRUCT(struct ChipInfoPOD {
 });
 
 
-extern const DDB *ddb;
-extern const Sites *ddbSites;
-extern const Tiles *ddbTiles;
+extern const DDB *torc;
+extern const Sites *torc_sites;
+extern const Tiles *torc_tiles;
 
 
 /************************ End of chipdb section. ************************/
@@ -263,7 +263,7 @@ struct BelIterator
     BelId operator*() const
     {
         BelId ret;
-        ret.index = SiteIndex(std::distance(ddbSites->getSites().begin(), cursor));
+        ret.index = SiteIndex(std::distance(torc_sites->getSites().begin(), cursor));
         return ret;
     }
 };
@@ -423,7 +423,7 @@ struct Arch : BaseCtx
     IdString getBelName(BelId bel) const
     {
         NPNR_ASSERT(bel != BelId());
-        return id(ddbSites->getSite(bel.index).getName());
+        return id(torc_sites->getSite(bel.index).getName());
     }
 
     uint32_t getBelChecksum(BelId bel) const { return bel.index; }
@@ -472,15 +472,15 @@ struct Arch : BaseCtx
     BelRange getBels() const
     {
         BelRange range;
-        range.b.cursor = ddbSites->getSites().begin();
-        range.e.cursor = ddbSites->getSites().end();
+        range.b.cursor = torc_sites->getSites().begin();
+        range.e.cursor = torc_sites->getSites().end();
         return range;
     }
 
     Loc getBelLocation(BelId bel) const
     {
-        const auto& site = ddbSites->getSite(bel.index);
-        const auto& tile_info = ddbTiles->getTileInfo(site.getTileIndex());
+        const auto& site = torc_sites->getSite(bel.index);
+        const auto& tile_info = torc_tiles->getTileInfo(site.getTileIndex());
         Loc loc;
         loc.x = tile_info.getCol(); 
         loc.y = tile_info.getRow();
@@ -496,7 +496,7 @@ struct Arch : BaseCtx
     IdString getBelType(BelId bel) const
     {
         NPNR_ASSERT(bel != BelId());
-        const auto& site = ddbSites->getSite(bel.index);
+        const auto& site = torc_sites->getSite(bel.index);
         auto prim_def = site.getPrimitiveDefPtr();
         return id(prim_def->getName());
     }
