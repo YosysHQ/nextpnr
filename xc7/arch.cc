@@ -33,10 +33,26 @@
 NEXTPNR_NAMESPACE_BEGIN
 
 
-const DDB *torc = nullptr;
-const Sites *torc_sites = nullptr;
-const Tiles *torc_tiles = nullptr;
-std::vector<IdString> bel_index_to_type;
+std::unique_ptr<const TorcInfo> torc_info;
+TorcInfo::TorcInfo(Arch *ctx, const std::string &inDeviceName, const std::string &inPackageName)
+    : ddb(new DDB(inDeviceName, inPackageName)), sites(ddb->getSites()), tiles(ddb->getTiles()), site_index_to_type(construct_site_index_to_type(ctx, sites))
+{
+}
+std::vector<IdString> TorcInfo::construct_site_index_to_type(Arch* ctx, const Sites &sites)
+{
+    std::vector<IdString> site_index_to_type;
+    site_index_to_type.resize(sites.getSiteCount());
+    for (SiteIndex i(0); i < sites.getSiteCount(); ++i) {
+        const auto& s = sites.getSite(i);
+        auto pd = s.getPrimitiveDefPtr();
+        const auto& type = pd->getName();
+        if (type == "SLICEL" || type == "SLICEM")
+            site_index_to_type[i] = id_QUARTER_SLICE;
+        else
+            site_index_to_type[i] = ctx->id(type);
+    }
+    return site_index_to_type;
+}
 
 
 // -----------------------------------------------------------------------
@@ -54,7 +70,7 @@ Arch::Arch(ArchArgs args) : args(args)
 {
     torc::common::DirectoryTree directoryTree("../../torc/src/torc");
     if (args.type == ArchArgs::Z020) {
-        torc = new DDB("xc7z020", "clg484");
+        torc_info = std::unique_ptr<TorcInfo>(new TorcInfo(this, "xc7z020", "clg484"));
     } else {
         log_error("Unsupported XC7 chip type.\n");
     }
@@ -69,21 +85,7 @@ Arch::Arch(ArchArgs args) : args(args)
 //    if (package_info == nullptr)
 //        log_error("Unsupported package '%s'.\n", args.package.c_str());
 
-    torc_sites = &torc->getSites();
-    torc_tiles = &torc->getTiles();
-
-    bel_index_to_type.resize(torc_sites->getSiteCount());
-    for (SiteIndex i(0); i < torc_sites->getSiteCount(); ++i) {
-        const auto& s = torc_sites->getSite(i);
-        auto pd = s.getPrimitiveDefPtr();
-        const auto& type = pd->getName();
-        if (type == "SLICEL" || type == "SLICEM")
-            bel_index_to_type[i] = id_QUARTER_SLICE;
-        else
-            bel_index_to_type[i] = id(type);
-    }
-
-    bel_to_cell.resize(torc_sites->getSiteCount());
+    bel_to_cell.resize(torc_info->sites.getSiteCount());
 }
 
 // -----------------------------------------------------------------------
@@ -112,7 +114,7 @@ BelId Arch::getBelByName(IdString name) const
 {
     BelId ret;
 
-    auto it = torc_sites->findSiteIndex(name.str(this));
+    auto it = torc_info->sites.findSiteIndex(name.str(this));
     if (it != SiteIndex(-1))
         ret.index = it;
 
@@ -124,10 +126,10 @@ BelId Arch::getBelByLocation(Loc loc) const
     BelId bel;
 
     if (bel_by_loc.empty()) {
-        for (SiteIndex i(0); i < torc_sites->getSiteCount(); ++i) {
+        for (SiteIndex i(0); i < torc_info->sites.getSiteCount(); ++i) {
             BelId b;
             b.index = i;
-            if (bel_index_to_type[i] == id_QUARTER_SLICE) {
+            if (torc_info->site_index_to_type[i] == id_QUARTER_SLICE) {
                 b.pos = BelId::A;
                 bel_by_loc[getBelLocation(b)] = b;
                 b.pos = BelId::B;
@@ -156,8 +158,8 @@ BelRange Arch::getBelsByTile(int x, int y) const
     br.b.pos = b.pos;
     br.e = br.b;
 
-    if (br.e.index != SiteIndex(torc_sites->getSiteCount())) {
-        while (br.e.index < SiteIndex(torc_sites->getSiteCount()) && torc_sites->getSite((*br.e).index).getTileIndex() == torc_sites->getSite((*br.b).index).getTileIndex())
+    if (br.e.index != SiteIndex(torc_info->sites.getSiteCount())) {
+        while (br.e.index < SiteIndex(torc_info->sites.getSiteCount()) && torc_info->sites.getSite((*br.e).index).getTileIndex() == torc_info->sites.getSite((*br.b).index).getTileIndex())
             br.e++;
     }
 
@@ -196,9 +198,9 @@ WireId Arch::getBelPinWire(BelId bel, IdString pin) const
 {
     WireId ret;
 
-    const auto& site = torc_sites->getSite(bel.index);
+    const auto& site = torc_info->sites.getSite(bel.index);
     auto pin_name = pin.str(this);
-    if (bel_index_to_type[bel.index] == id_QUARTER_SLICE)
+    if (torc_info->site_index_to_type[bel.index] == id_QUARTER_SLICE)
         pin_name[0] = bel.pos;
     ret.index = site.getPinTilewire(pin_name);
 

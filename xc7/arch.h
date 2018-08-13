@@ -233,10 +233,27 @@ NPNR_PACKED_STRUCT(struct ChipInfoPOD {
 });
 
 
-extern const DDB *torc;
-extern const Sites *torc_sites;
-extern const Tiles *torc_tiles;
-extern std::vector<IdString> bel_index_to_type;
+struct Arch;
+struct TorcInfo {
+    TorcInfo(Arch *ctx, const std::string &inDeviceName, const std::string &inPackageName);
+    std::unique_ptr<const DDB> ddb;
+    const Sites &sites;
+    const Tiles &tiles;
+
+    SiteIndex sites_begin() const { return SiteIndex(0); }
+    SiteIndex sites_end() const { return SiteIndex(sites.getSiteCount()); }
+    const TileInfo& site_index_to_tile_info(SiteIndex si) const {
+        const auto& site = sites.getSite(si);
+        return tiles.getTileInfo(site.getTileIndex());
+    }
+    const std::string& site_index_to_name(SiteIndex si) const {
+        return sites.getSite(si).getName();
+    }
+
+    const std::vector<IdString> site_index_to_type;
+    static std::vector<IdString> construct_site_index_to_type(Arch *ctx, const Sites &sites);
+};
+extern std::unique_ptr<const TorcInfo> torc_info;
 
 
 /************************ End of chipdb section. ************************/
@@ -245,14 +262,14 @@ struct BelIterator : public BelId
 {
     BelIterator operator++()
     {
-        if (bel_index_to_type[index] == id_QUARTER_SLICE) {
+        if (torc_info->site_index_to_type[index] == id_QUARTER_SLICE) {
             if (pos < D) {
                 ++pos;
                 return *this;
             }
         }
 
-        if (bel_index_to_type[++index] == id_QUARTER_SLICE)
+        if (torc_info->site_index_to_type[++index] == id_QUARTER_SLICE)
             pos = A;
         else
             pos = NOT_APPLICABLE;
@@ -428,7 +445,13 @@ struct Arch : BaseCtx
     IdString getBelName(BelId bel) const
     {
         NPNR_ASSERT(bel != BelId());
-        return id(torc_sites->getSite(bel.index).getName());
+        auto name = torc_info->site_index_to_name(bel.index);
+        if (torc_info->site_index_to_type[bel.index] == id_QUARTER_SLICE) {
+            name.reserve(name.size() + 2);
+            name += "_";
+            name += bel.pos;
+        }
+        return id(name);
     }
 
     uint32_t getBelChecksum(BelId bel) const { return bel.index; }
@@ -477,15 +500,14 @@ struct Arch : BaseCtx
     BelRange getBels() const
     {
         BelRange range;
-        range.b.index = SiteIndex(0);
-        range.e.index = SiteIndex(torc_sites->getSiteCount());
+        range.b.index = torc_info->sites_begin();
+        range.e.index = torc_info->sites_end();
         return range;
     }
 
     Loc getBelLocation(BelId bel) const
     {
-        const auto& site = torc_sites->getSite(bel.index);
-        const auto& tile_info = torc_tiles->getTileInfo(site.getTileIndex());
+        const auto& tile_info = torc_info->site_index_to_tile_info(bel.index);
         Loc loc;
         loc.x = tile_info.getCol(); 
         loc.y = tile_info.getRow();
@@ -501,7 +523,7 @@ struct Arch : BaseCtx
     IdString getBelType(BelId bel) const
     {
         NPNR_ASSERT(bel != BelId());
-        return bel_index_to_type[bel.index];
+        return torc_info->site_index_to_type[bel.index];
     }
 
     WireId getBelPinWire(BelId bel, IdString pin) const;
