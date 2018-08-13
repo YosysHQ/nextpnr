@@ -27,6 +27,7 @@
 #include "log.h"
 #include "pcf.h"
 #include "timing.h"
+#include "xdl.h"
 
 USING_NEXTPNR_NAMESPACE
 
@@ -39,6 +40,7 @@ class Xc7CommandHandler : public CommandHandler
     void setupArchContext(Context *ctx) override;
     void validate() override;
     void customAfterLoad(Context *ctx) override;
+    void customBitstream(Context *ctx) override;
 
   protected:
     po::options_description getArchOptions();
@@ -53,7 +55,6 @@ po::options_description Xc7CommandHandler::getArchOptions()
 //    specific.add_options()("package", po::value<std::string>(), "set device package");
     specific.add_options()("pcf", po::value<std::string>(), "PCF constraints file to ingest");
     specific.add_options()("xdl", po::value<std::string>(), "XDL file to write");
-//    specific.add_options()("read", po::value<std::string>(), "asc bitstream file to read");
 //    specific.add_options()("tmfuzz", "run path delay estimate fuzzer");
     return specific;
 }
@@ -74,6 +75,15 @@ void Xc7CommandHandler::customAfterLoad(Context *ctx)
 //            log_error("Loading PCF failed.\n");
     }
 }
+void Xc7CommandHandler::customBitstream(Context *ctx)
+{
+    if (vm.count("xdl")) {
+        std::string filename = vm["xdl"].as<std::string>();
+        std::ofstream f(filename);
+        write_xdl(ctx, f);
+    }
+}
+
 void Xc7CommandHandler::setupArchContext(Context *ctx)
 {
 //    if (vm.count("tmfuzz"))
