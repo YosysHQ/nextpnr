@@ -35,7 +35,7 @@ NEXTPNR_NAMESPACE_BEGIN
 
 std::unique_ptr<const TorcInfo> torc_info;
 TorcInfo::TorcInfo(Arch *ctx, const std::string &inDeviceName, const std::string &inPackageName)
-    : ddb(new DDB(inDeviceName, inPackageName)), sites(ddb->getSites()), tiles(ddb->getTiles()), site_index_to_type(construct_site_index_to_type(ctx, sites))
+    : ddb(new DDB(inDeviceName, inPackageName)), sites(ddb->getSites()), tiles(ddb->getTiles()), site_index_to_type(construct_site_index_to_type(ctx, sites)), site_index_to_z_offset(construct_site_index_to_z_offset(sites, site_index_to_type))
 {
 }
 std::vector<IdString> TorcInfo::construct_site_index_to_type(Arch* ctx, const Sites &sites)
@@ -43,15 +43,30 @@ std::vector<IdString> TorcInfo::construct_site_index_to_type(Arch* ctx, const Si
     std::vector<IdString> site_index_to_type;
     site_index_to_type.resize(sites.getSiteCount());
     for (SiteIndex i(0); i < sites.getSiteCount(); ++i) {
-        const auto& s = sites.getSite(i);
+        auto s = sites.getSite(i);
         auto pd = s.getPrimitiveDefPtr();
-        const auto& type = pd->getName();
+        auto type = pd->getName();
         if (type == "SLICEL" || type == "SLICEM")
-            site_index_to_type[i] = id_QUARTER_SLICE;
+            site_index_to_type[i] = id_SLICE_LUT6;
         else
             site_index_to_type[i] = ctx->id(type);
     }
     return site_index_to_type;
+}
+std::vector<int8_t> TorcInfo::construct_site_index_to_z_offset(const Sites &sites, const std::vector<IdString> &site_index_to_type)
+{
+    std::vector<int8_t> site_index_to_z_offset;
+    site_index_to_z_offset.resize(site_index_to_type.size());
+    for (SiteIndex i(0); i < site_index_to_type.size(); ++i) {
+        if (site_index_to_type[i] == id_SLICE_LUT6) {
+            auto site = sites.getSite(i);
+            auto site_name = site.getName();
+            auto site_name_back = site_name.back();
+            if (site_name_back == '1' || site_name_back == '3' || site_name_back == '5' || site_name_back == '7' || site_name_back == '9')
+                site_index_to_z_offset[i] = 4;
+        }
+    }
+    return site_index_to_z_offset;
 }
 
 
@@ -129,7 +144,7 @@ BelId Arch::getBelByLocation(Loc loc) const
         for (SiteIndex i(0); i < torc_info->sites.getSiteCount(); ++i) {
             BelId b;
             b.index = i;
-            if (torc_info->site_index_to_type[i] == id_QUARTER_SLICE) {
+            if (torc_info->site_index_to_type[i] == id_SLICE_LUT6) {
                 b.pos = BelId::A;
                 bel_by_loc[getBelLocation(b)] = b;
                 b.pos = BelId::B;
@@ -198,11 +213,18 @@ WireId Arch::getBelPinWire(BelId bel, IdString pin) const
 {
     WireId ret;
 
-    const auto& site = torc_info->sites.getSite(bel.index);
+    auto &site = torc_info->sites.getSite(bel.index);
     auto pin_name = pin.str(this);
-    if (torc_info->site_index_to_type[bel.index] == id_QUARTER_SLICE)
-        pin_name[0] = bel.pos;
+    if (torc_info->site_index_to_type[bel.index] == id_SLICE_LUT6) {
+        // For all LUT based inputs (I1-I6,O,OQ,OMUX) then change the I/O into the LUT
+        if (pin_name[0] == 'I' || pin_name[0] == 'O')
+            pin_name[0] = bel.pos;
+    }
     ret.index = site.getPinTilewire(pin_name);
+
+    if (ret.index.isUndefined())
+        log_error("no wire found for site '%s' pin '%s' \n", torc_info->site_index_to_name(bel.index).c_str(), pin_name.c_str());
+        
 
 //    NPNR_ASSERT(bel != BelId());
 //
@@ -702,7 +724,7 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
 
 bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const
 {
-    if (cell->type == id_QUARTER_SLICE)
+    if (cell->type == id_SLICE_LUT6)
     {
         if (fromPort.index >= id_I1.index && fromPort.index <= id_I6.index)
             return toPort == id_O || toPort == id_OQ;
@@ -717,7 +739,7 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
 // Get the port class, also setting clockPort to associated clock if applicable
 TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, IdString &clockPort) const
 {
-    if (cell->type == id_QUARTER_SLICE) {
+    if (cell->type == id_SLICE_LUT6) {
         if (port == id_CLK)
             return TMG_CLOCK_INPUT;
         if (port == id_CIN)
@@ -782,7 +804,7 @@ void Arch::assignArchInfo()
 void Arch::assignCellInfo(CellInfo *cell)
 {
     cell->belType = cell->type;
-    if (cell->type == id_QUARTER_SLICE) {
+    if (cell->type == id_SLICE_LUT6) {
         cell->lcInfo.dffEnable = bool_or_default(cell->params, id_DFF_ENABLE);
         cell->lcInfo.carryEnable = bool_or_default(cell->params, id_CARRY_ENABLE);
         cell->lcInfo.negClk = bool_or_default(cell->params, id_NEG_CLK);

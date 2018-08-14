@@ -43,7 +43,7 @@ std::unique_ptr<CellInfo> create_ice_cell(Context *ctx, IdString type, std::stri
     }
     new_cell->type = type;
     if (type == ctx->id("XC7_LC")) {
-        new_cell->type = id_QUARTER_SLICE; // HACK HACK HACK: Place one LC into each slice
+        new_cell->type = id_SLICE_LUT6;
         new_cell->params[ctx->id("LUT_INIT")] = "0";
         new_cell->params[ctx->id("NEG_CLK")] = "0";
         new_cell->params[ctx->id("CARRY_ENABLE")] = "0";

@@ -243,7 +243,7 @@ struct TorcInfo {
     SiteIndex sites_begin() const { return SiteIndex(0); }
     SiteIndex sites_end() const { return SiteIndex(sites.getSiteCount()); }
     const TileInfo& site_index_to_tile_info(SiteIndex si) const {
-        const auto& site = sites.getSite(si);
+        auto &site = sites.getSite(si);
         return tiles.getTileInfo(site.getTileIndex());
     }
     const std::string& site_index_to_name(SiteIndex si) const {
@@ -251,7 +251,11 @@ struct TorcInfo {
     }
 
     const std::vector<IdString> site_index_to_type;
+    const std::vector<int8_t> site_index_to_z_offset;
+
+private:
     static std::vector<IdString> construct_site_index_to_type(Arch *ctx, const Sites &sites);
+    static std::vector<int8_t> construct_site_index_to_z_offset(const Sites &sites, const std::vector<IdString> &site_index_to_type);
 };
 extern std::unique_ptr<const TorcInfo> torc_info;
 
@@ -262,14 +266,12 @@ struct BelIterator : public BelId
 {
     BelIterator operator++()
     {
-        if (torc_info->site_index_to_type[index] == id_QUARTER_SLICE) {
-            if (pos < D) {
-                ++pos;
-                return *this;
-            }
+        if (pos >= A && pos < D) {
+            ++pos;
+            return *this;
         }
 
-        if (torc_info->site_index_to_type[++index] == id_QUARTER_SLICE)
+        if (torc_info->site_index_to_type[++index] == id_SLICE_LUT6)
             pos = A;
         else
             pos = NOT_APPLICABLE;
@@ -446,7 +448,8 @@ struct Arch : BaseCtx
     {
         NPNR_ASSERT(bel != BelId());
         auto name = torc_info->site_index_to_name(bel.index);
-        if (torc_info->site_index_to_type[bel.index] == id_QUARTER_SLICE) {
+        if (torc_info->site_index_to_type[bel.index] == id_SLICE_LUT6) {
+            // Append LUT name to name
             name.reserve(name.size() + 2);
             name += "_";
             name += bel.pos;
@@ -507,11 +510,16 @@ struct Arch : BaseCtx
 
     Loc getBelLocation(BelId bel) const
     {
-        const auto& tile_info = torc_info->site_index_to_tile_info(bel.index);
+        auto &tile_info = torc_info->site_index_to_tile_info(bel.index);
+
         Loc loc;
         loc.x = tile_info.getCol(); 
         loc.y = tile_info.getRow();
-        loc.z = 0;
+        if (torc_info->site_index_to_type[bel.index] == id_SLICE_LUT6) {
+            loc.z = bel.pos - 'A';
+            // Apply offset if upper slice
+            loc.z += torc_info->site_index_to_z_offset[bel.index];
+        }
         return loc;
     }
 
