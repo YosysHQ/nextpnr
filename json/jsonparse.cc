@@ -116,11 +116,11 @@ struct JsonNode
                     }
 
                     data_number = data_number * 10 + (ch - '0');
-                    if (data_string[0] == '-')
-                        data_number = -data_number;
                     data_string += ch;
                 }
 
+                if (data_string[0] == '-')
+                    data_number = -data_number;
                 data_string = "";
                 break;
 
