@@ -157,10 +157,21 @@ struct GraphicElement
 
     enum style_t
     {
+        STYLE_GRID,
         STYLE_FRAME,    // Static "frame". Contrast between STYLE_INACTIVE and STYLE_ACTIVE
         STYLE_HIDDEN,   // Only display when object is selected or highlighted
         STYLE_INACTIVE, // Render using low-contrast color
         STYLE_ACTIVE,   // Render using high-contast color
+        STYLE_HIGHLIGHTED0,
+        STYLE_HIGHLIGHTED1,
+        STYLE_HIGHLIGHTED2,
+        STYLE_HIGHLIGHTED3,
+        STYLE_HIGHLIGHTED4,
+        STYLE_HIGHLIGHTED5,
+        STYLE_HIGHLIGHTED6,
+        STYLE_HIGHLIGHTED7,
+        STYLE_SELECTED,
+        STYLE_HOVER,
 
         STYLE_MAX
     } style = STYLE_FRAME;

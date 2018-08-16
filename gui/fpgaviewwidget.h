@@ -302,6 +302,7 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     QVector4D mouseToWorldCoordinates(int x, int y);
     QVector4D mouseToWorldDimensions(float x, float y);
     QMatrix4x4 getProjection(void);
+    void update_vbos();
 };
 
 NEXTPNR_NAMESPACE_END
