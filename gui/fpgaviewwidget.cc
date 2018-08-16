@@ -103,8 +103,21 @@ void FPGAViewWidget::initializeGL()
         log_error("Could not compile shader.\n");
     }
     initializeOpenGLFunctions();
-    glClearColor(colors_.background.red() / 255, colors_.background.green() / 255, colors_.background.blue() / 255,
-                 0.0);
+    glClearColor(colors_.background.red() / 255, colors_.background.green() / 255,
+                                            colors_.background.blue() / 255, 0.0);
+
+
+    {
+        QMutexLocker locker(&rendererDataLock_);
+        // Render grid.
+        auto grid = LineShaderData();
+        for (float i = -100.0f; i < 100.0f; i += 1.0f) {
+            PolyLine(-100.0f, i, 100.0f, i).build(grid);
+            PolyLine(i, -100.0f, i, 100.0f).build(grid);
+        }
+        grid.last_render = 1;
+        lineShader_.update_vbos(GraphicElement::STYLE_GRID, grid);
+    }
 }
 
 float FPGAViewWidget::PickedElement::distance(Context *ctx, float wx, float wy) const
@@ -185,6 +198,8 @@ void FPGAViewWidget::renderGraphicElement(LineShaderData &out, PickQuadTree::Bou
         bb.setY0(std::min(bb.y0(), y + el.y1));
         bb.setX1(std::max(bb.x1(), x + el.x2));
         bb.setY1(std::max(bb.y1(), y + el.y2));
+
+        out.last_render++;
         return;
     }
 
@@ -194,6 +209,8 @@ void FPGAViewWidget::renderGraphicElement(LineShaderData &out, PickQuadTree::Bou
         bb.setY0(std::min(bb.y0(), y + el.y1));
         bb.setX1(std::max(bb.x1(), x + el.x2));
         bb.setY1(std::max(bb.y1(), y + el.y2));
+
+        out.last_render++;
         return;
     }
 }
@@ -297,36 +314,40 @@ void FPGAViewWidget::paintGL()
     float thick11Px = mouseToWorldDimensions(1.1, 0).x();
     float thick2Px = mouseToWorldDimensions(2, 0).x();
 
-    // Render grid.
-    auto grid = LineShaderData();
-    for (float i = -100.0f; i < 100.0f; i += 1.0f) {
-        PolyLine(-100.0f, i, 100.0f, i).build(grid);
-        PolyLine(i, -100.0f, i, 100.0f).build(grid);
-    }
-    // Flags from pipeline.
-    PassthroughFlags flags;
-    // Draw grid.
-    lineShader_.draw(grid, colors_.grid, thick1Px, matrix);
-
     {
         QMutexLocker locker(&rendererDataLock_);
-
-        // Render Arch graphics.
-        lineShader_.draw(rendererData_->gfxByStyle[GraphicElement::STYLE_FRAME], colors_.frame, thick11Px, matrix);
-        lineShader_.draw(rendererData_->gfxByStyle[GraphicElement::STYLE_HIDDEN], colors_.hidden, thick11Px, matrix);
-        lineShader_.draw(rendererData_->gfxByStyle[GraphicElement::STYLE_INACTIVE], colors_.inactive, thick11Px,
-                         matrix);
-        lineShader_.draw(rendererData_->gfxByStyle[GraphicElement::STYLE_ACTIVE], colors_.active, thick11Px, matrix);
-
-        // Draw highlighted items.
-        for (int i = 0; i < 8; i++)
-            lineShader_.draw(rendererData_->gfxHighlighted[i], colors_.highlight[i], thick11Px, matrix);
-
-        lineShader_.draw(rendererData_->gfxSelected, colors_.selected, thick11Px, matrix);
-        lineShader_.draw(rendererData_->gfxHovered, colors_.hovered, thick2Px, matrix);
-
-        flags = rendererData_->flags;
+        // Must be called from a thread holding the OpenGL context
+        update_vbos();
     }
+
+    // Render the grid.
+    lineShader_.draw(GraphicElement::STYLE_GRID, colors_.grid, thick1Px,
+                                                                matrix);
+
+    // Render Arch graphics.
+    lineShader_.draw(GraphicElement::STYLE_FRAME, colors_.frame, thick11Px,
+                                                                   matrix);
+    lineShader_.draw(GraphicElement::STYLE_HIDDEN, colors_.hidden, thick11Px,
+                                                                     matrix);
+    lineShader_.draw(GraphicElement::STYLE_INACTIVE, colors_.inactive,
+                                                   thick11Px, matrix);
+    lineShader_.draw(GraphicElement::STYLE_ACTIVE, colors_.active, thick11Px,
+                                                                     matrix);
+
+    // Draw highlighted items.
+    for (int i = 0; i < 8; i++) {
+        GraphicElement::style_t style = (GraphicElement::style_t)(
+                          GraphicElement::STYLE_HIGHLIGHTED0 + i);
+        lineShader_.draw(style, colors_.highlight[i], thick11Px, matrix);
+    }
+
+    lineShader_.draw(GraphicElement::STYLE_SELECTED, colors_.selected,
+                                                   thick11Px, matrix);
+    lineShader_.draw(GraphicElement::STYLE_HOVER, colors_.hovered,
+                                                thick2Px, matrix);
+
+    // Flags from pipeline.
+    PassthroughFlags flags = rendererData_->flags;
 
     // Check flags passed through pipeline.
     if (flags.zoomOutbound) {
@@ -797,6 +818,27 @@ void FPGAViewWidget::leaveEvent(QEvent *event)
     rendererArgs_->hoveredDecal = DecalXY();
     rendererArgs_->changed = true;
     pokeRenderer();
+}
+
+void FPGAViewWidget::update_vbos()
+{
+    for (int style = GraphicElement::STYLE_FRAME; style
+                  < GraphicElement::STYLE_HIGHLIGHTED0;
+                                             style++) {
+        lineShader_.update_vbos((enum GraphicElement::style_t)(style),
+                                    rendererData_->gfxByStyle[style]);
+    }
+
+    for (int i = 0; i < 8; i++) {
+        GraphicElement::style_t style = (GraphicElement::style_t)(
+                          GraphicElement::STYLE_HIGHLIGHTED0 + i);
+        lineShader_.update_vbos(style, rendererData_->gfxHighlighted[i]);
+    }
+
+    lineShader_.update_vbos(GraphicElement::STYLE_SELECTED,
+                               rendererData_->gfxSelected);
+    lineShader_.update_vbos(GraphicElement::STYLE_HOVER,
+                             rendererData_->gfxHovered);
 }
 
 NEXTPNR_NAMESPACE_END
