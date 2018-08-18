@@ -536,9 +536,33 @@ bool Arch::pack()
         log_break();
         Ecp5Packer(ctx).pack();
         log_info("Checksum: 0x%08x\n", ctx->checksum());
+        assignArchInfo();
         return true;
     } catch (log_execution_error_exception) {
+        assignArchInfo();
         return false;
+    }
+}
+
+void Arch::assignArchInfo()
+{
+    for (auto cell : sorted(cells)) {
+        CellInfo *ci = cell.second;
+        if (ci->type == id_TRELLIS_SLICE) {
+            if (ci->ports.count(id_CLK) && ci->ports[id_CLK].net != nullptr)
+                ci->sliceInfo.clk_sig = ci->ports[id_CLK].net->name;
+            else
+                ci->sliceInfo.clk_sig = IdString();
+
+            if (ci->ports.count(id_LSR) && ci->ports[id_LSR].net != nullptr)
+                ci->sliceInfo.lsr_sig = ci->ports[id_LSR].net->name;
+            else
+                ci->sliceInfo.lsr_sig = IdString();
+
+            ci->sliceInfo.clkmux = id(str_or_default(ci->params, id_CLKMUX, "CLK"));
+            ci->sliceInfo.lsrmux = id(str_or_default(ci->params, id_LSRMUX, "LSR"));
+            ci->sliceInfo.srmode = id(str_or_default(ci->params, id_SRMODE, "LSR_OVER_CE"));
+        }
     }
 }
 

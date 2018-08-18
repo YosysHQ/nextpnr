@@ -848,6 +848,8 @@ struct Arch : BaseCtx
     // Helper function for above
     bool slicesCompatible(const std::vector<const CellInfo *> &cells) const;
 
+    void assignArchInfo();
+
     std::vector<std::pair<std::string, std::string>> getTilesAtLocation(int row, int col);
     std::string getTileByTypeAndLocation(int row, int col, std::string type) const
     {
