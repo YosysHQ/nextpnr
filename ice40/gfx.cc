@@ -339,6 +339,78 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId id,
         g.push_back(el);
     }
 
+    // IO Span-4 Wires connecting to fabric
+
+    if (id >= TILE_WIRE_SPAN4_HORZ_0 && id <= TILE_WIRE_SPAN4_HORZ_47) {
+        int idx = id - TILE_WIRE_SPAN4_HORZ_0;
+        float y1 = y + 1.0 - (0.03 + 0.0025 * (48 - (idx ^ 1)));
+
+        el.x1 = x;
+        el.x2 = x + 1.0;
+        el.y1 = y1;
+        el.y2 = y1;
+        g.push_back(el);
+
+        el.x1 = x + main_swbox_x1 + 0.0025 * ((idx ^ 1) + 35);
+        el.x2 = el.x1;
+        el.y1 = y1;
+        el.y2 = y + main_swbox_y2;
+        g.push_back(el);
+    }
+
+    if (id >= TILE_WIRE_SPAN4_VERT_0 && id <= TILE_WIRE_SPAN4_VERT_47) {
+        int idx = id - TILE_WIRE_SPAN4_VERT_0;
+        float x1 = x + 0.03 + 0.0025 * (48 - (idx ^ 1));
+
+        el.x1 = x1;
+        el.x2 = x1;
+        el.y1 = y;
+        el.y2 = y + 1.0;
+        g.push_back(el);
+
+        el.y1 = y + 1.0 - (0.03 + 0.0025 * (270 - (idx ^ 1)));
+        el.y2 = el.y1;
+        el.x1 = x1;
+        el.x2 = x + main_swbox_x1;
+        g.push_back(el);
+    }
+
+    // IO Span-12 Wires connecting to fabric
+
+    if (id >= TILE_WIRE_SPAN12_HORZ_0 && id <= TILE_WIRE_SPAN12_HORZ_23) {
+        int idx = id - TILE_WIRE_SPAN12_HORZ_0;
+        float y1 = y + 1.0 - (0.03 + 0.0025 * (88 - (idx ^ 1)));
+
+        el.x1 = x;
+        el.x2 = x + 1.0;
+        el.y1 = y1;
+        el.y2 = y1;
+        g.push_back(el);
+
+        el.x1 = x + main_swbox_x1 + 0.0025 * ((idx ^ 1) + 5);
+        el.x2 = el.x1;
+        el.y1 = y1;
+        el.y2 = y + main_swbox_y2;
+        g.push_back(el);
+    }
+
+    if (id >= TILE_WIRE_SPAN12_VERT_0 && id <= TILE_WIRE_SPAN12_VERT_23) {
+        int idx = id - TILE_WIRE_SPAN12_VERT_0;
+        float x1 = x + 0.03 + 0.0025 * (88 - (idx ^ 1));
+
+        el.x1 = x1;
+        el.x2 = x1;
+        el.y1 = y;
+        el.y2 = y + 1.0;
+        g.push_back(el);
+
+        el.y1 = y + 1.0 - (0.03 + 0.0025 * (300 - (idx ^ 1)));
+        el.y2 = el.y1;
+        el.x1 = x1;
+        el.x2 = x + main_swbox_x1;
+        g.push_back(el);
+    }
+
     // Global2Local
 
     if (id >= TILE_WIRE_GLB2LOCAL_0 && id <= TILE_WIRE_GLB2LOCAL_3) {
@@ -602,6 +674,38 @@ static bool getWireXY_main(GfxTileWireId id, float &x, float &y)
 
     if (id >= TILE_WIRE_SP12_V_B_0 && id <= TILE_WIRE_SP12_V_B_23) {
         int idx = id - TILE_WIRE_SP12_V_B_0;
+        y = 1.0 - (0.03 + 0.0025 * (300 - (idx ^ 1)));
+        x = main_swbox_x1;
+        return true;
+    }
+
+    // IO Span-4 Wires connecting to fabric
+
+    if (id >= TILE_WIRE_SPAN4_HORZ_0 && id <= TILE_WIRE_SPAN4_HORZ_47) {
+        int idx = id - TILE_WIRE_SPAN4_HORZ_0;
+        x = main_swbox_x1 + 0.0025 * ((idx ^ 1) + 35);
+        y = main_swbox_y2;
+        return true;
+    }
+
+    if (id >= TILE_WIRE_SPAN4_VERT_0 && id <= TILE_WIRE_SPAN4_VERT_47) {
+        int idx = id - TILE_WIRE_SPAN4_VERT_0;
+        y = 1.0 - (0.03 + 0.0025 * (270 - (idx ^ 1)));
+        x = main_swbox_x1;
+        return true;
+    }
+
+    // IO Span-12 Wires connecting to fabric
+
+    if (id >= TILE_WIRE_SPAN12_HORZ_0 && id <= TILE_WIRE_SPAN12_HORZ_23) {
+        int idx = id - TILE_WIRE_SPAN12_HORZ_0;
+        x = main_swbox_x1 + 0.0025 * ((idx ^ 1) + 5);
+        y = main_swbox_y2;
+        return true;
+    }
+
+    if (id >= TILE_WIRE_SPAN12_VERT_0 && id <= TILE_WIRE_SPAN12_VERT_23) {
+        int idx = id - TILE_WIRE_SPAN12_VERT_0;
         y = 1.0 - (0.03 + 0.0025 * (300 - (idx ^ 1)));
         x = main_swbox_x1;
         return true;

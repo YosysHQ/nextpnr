@@ -218,6 +218,13 @@ gfx_wire_alias("TILE_WIRE_FUNC_GLOBAL_S_R", "TILE_WIRE_IO_GLOBAL_OUTCLK")
 
 gfx_wire_alias("TILE_WIRE_FUNC_GLOBAL_G0", "TILE_WIRE_IO_GLOBAL_LATCH")
 
+for neigh in "BNL BNR BOT LFT RGT TNL TNR TOP".split():
+    for i in range(8):
+        gfx_wire_alias("TILE_WIRE_NEIGH_OP_%s_%d" % (neigh, i), "TILE_WIRE_LOGIC_OP_%s_%d" % (neigh, i))
+
+# End of GFX aliases
+
+
 def read_timings(filename):
     db = dict()
     with open(filename) as f:
