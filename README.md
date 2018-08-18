@@ -127,6 +127,13 @@ cmake -DARCH=ice40 -DCMAKE_BUILD_TYPE=Debug -DBUILD_PYTHON=OFF -DBUILD_GUI=OFF -
 make -j$(nproc)
 ```
 
+To make static build relase for iCE40 architecture use the following:
+
+```
+cmake -DARCH=ice40 -DBUILD_PYTHON=OFF -DBUILD_GUI=OFF -DSTATIC_BUILD=ON .
+make -j$(nproc)
+```
+
 Notes for developers
 --------------------
 

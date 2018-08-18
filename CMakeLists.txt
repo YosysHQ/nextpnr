@@ -5,6 +5,13 @@ project(nextpnr)
 option(BUILD_GUI "Build GUI" ON)
 option(BUILD_PYTHON "Build Python Integration" ON)
 option(BUILD_TESTS "Build GUI" OFF)
+option(STATIC_BUILD "Create static build" OFF)
+
+set(link_param "")
+if (STATIC_BUILD)
+    set(Boost_USE_STATIC_LIBS   ON)
+    set(link_param "-static")
+endif()
 
 # List of families to build
 set(FAMILIES generic ice40 ecp5)
@@ -211,7 +218,7 @@ foreach (family ${ARCH})
         # Include family-specific source files to all family targets and set defines appropriately
         target_include_directories(${target} PRIVATE ${family}/ ${CMAKE_CURRENT_BINARY_DIR}/generated/)
         target_compile_definitions(${target} PRIVATE NEXTPNR_NAMESPACE=nextpnr_${family} ARCH_${ufamily} ARCHNAME=${family})
-        target_link_libraries(${target} LINK_PUBLIC ${Boost_LIBRARIES})
+        target_link_libraries(${target} LINK_PUBLIC ${Boost_LIBRARIES} ${link_param})
         if (NOT MSVC)
             target_link_libraries(${target} LINK_PUBLIC pthread)
         endif()
