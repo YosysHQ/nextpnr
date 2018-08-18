@@ -480,25 +480,31 @@ struct Arch : BaseCtx
     bool checkBelAvail(BelId bel) const
     {
         NPNR_ASSERT(bel != BelId());
-        return bel_to_cell.find(bel) == bel_to_cell.end() || bel_to_cell.at(bel) == nullptr;
+        auto found = bel_to_cell.find(bel);
+        if (found == bel_to_cell.end())
+            return true;
+        else
+            return found->second == nullptr;
     }
 
     CellInfo *getBoundBelCell(BelId bel) const
     {
         NPNR_ASSERT(bel != BelId());
-        if (bel_to_cell.find(bel) == bel_to_cell.end())
+        auto found = bel_to_cell.find(bel);
+        if (found == bel_to_cell.end())
             return nullptr;
         else
-            return bel_to_cell.at(bel);
+            return found->second;
     }
 
     CellInfo *getConflictingBelCell(BelId bel) const
     {
         NPNR_ASSERT(bel != BelId());
-        if (bel_to_cell.find(bel) == bel_to_cell.end())
+        auto found = bel_to_cell.find(bel);
+        if (found == bel_to_cell.end())
             return nullptr;
         else
-            return bel_to_cell.at(bel);
+            return found->second;
     }
 
     BelRange getBels() const
