@@ -23,6 +23,7 @@
 
 #include "placer1.h"
 #include <algorithm>
+#include <boost/lexical_cast.hpp>
 #include <cmath>
 #include <iostream>
 #include <limits>
@@ -108,14 +109,12 @@ class SAPlacer
                 if (bel_type != cell->type) {
                     log_error("Bel \'%s\' of type \'%s\' does not match cell "
                               "\'%s\' of type \'%s\'\n",
-                              loc_name.c_str(), bel_type.c_str(ctx), cell->name.c_str(ctx),
-                              cell->type.c_str(ctx));
+                              loc_name.c_str(), bel_type.c_str(ctx), cell->name.c_str(ctx), cell->type.c_str(ctx));
                 }
                 if (!ctx->isValidBelForCell(cell, bel)) {
                     log_error("Bel \'%s\' of type \'%s\' is not valid for cell "
                               "\'%s\' of type \'%s\'\n",
-                              loc_name.c_str(), bel_type.c_str(ctx), cell->name.c_str(ctx),
-                              cell->type.c_str(ctx));
+                              loc_name.c_str(), bel_type.c_str(ctx), cell->name.c_str(ctx), cell->type.c_str(ctx));
                 }
 
                 ctx->bindBel(bel, cell, STRENGTH_USER);
@@ -491,6 +490,8 @@ class SAPlacer
     std::vector<CostChange> costs;
     std::vector<decltype(NetInfo::udata)> old_udata;
 };
+
+Placer1Cfg::Placer1Cfg(Context *ctx) : Settings(ctx) { constraintWeight = get<float>("placer1/constraintWeight", 10); }
 
 bool placer1(Context *ctx, Placer1Cfg cfg)
 {

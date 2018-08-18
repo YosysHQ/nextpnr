@@ -768,7 +768,7 @@ bool parse_json_file(std::istream &f, std::string &filename, Context *ctx)
 
         log_info("Checksum: 0x%08x\n", ctx->checksum());
         log_break();
-        ctx->settings.emplace(ctx->id("project/input/json"), filename);
+        ctx->settings.emplace(ctx->id("input/json"), filename);
         return true;
     } catch (log_execution_error_exception) {
         return false;
