@@ -50,6 +50,7 @@ tiletypes = dict()
 wiretypes = dict()
 
 gfx_wire_ids = dict()
+gfx_wire_names = list()
 wire_segments = dict()
 
 fast_timings = None
@@ -93,6 +94,7 @@ with open(args.gfxh) as f:
             idx = len(gfx_wire_ids)
             name = line.strip().rstrip(",")
             gfx_wire_ids[name] = idx
+            gfx_wire_names.append(name)
 
 def read_timings(filename):
     db = dict()
@@ -932,6 +934,10 @@ bba.post('NEXTPNR_NAMESPACE_END')
 bba.push("chipdb_blob_%s" % dev_name)
 bba.r("chip_info_%s" % dev_name, "chip_info")
 
+bba.l("tile_wire_names")
+for name in gfx_wire_names:
+    bba.s(name, name)
+
 for bel in range(len(bel_name)):
     bba.l("bel_wires_%d" % bel, "BelWirePOD")
     for data in sorted(bel_wires[bel]):
@@ -1276,5 +1282,6 @@ bba.r("bits_info_%s" % dev_name, "bits_info")
 bba.r("bel_config_%s" % dev_name if len(extra_cell_config) > 0 else None, "bel_config")
 bba.r("package_info_%s" % dev_name, "packages_data")
 bba.r("cell_timings_%s" % dev_name, "cell_timing")
+bba.r("tile_wire_names", "tile_wire_names")
 
 bba.pop()

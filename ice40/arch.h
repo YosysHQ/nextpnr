@@ -225,6 +225,7 @@ NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     RelPtr<BelConfigPOD> bel_config;
     RelPtr<PackageInfoPOD> packages_data;
     RelPtr<CellTimingPOD> cell_timing;
+    RelPtr<RelPtr<char>> tile_wire_names;
 });
 
 #if defined(_MSC_VER)
@@ -502,11 +503,7 @@ struct Arch : BaseCtx
         return IdString(chip_info->bel_data[bel.index].type);
     }
 
-    std::vector<std::pair<IdString, std::string>> getBelAttrs(BelId) const
-    {
-        std::vector<std::pair<IdString, std::string>> ret;
-        return ret;
-    }
+    std::vector<std::pair<IdString, std::string>> getBelAttrs(BelId bel) const;
 
     WireId getBelPinWire(BelId bel, IdString pin) const;
     PortType getBelPinType(BelId bel, IdString pin) const;
@@ -523,12 +520,7 @@ struct Arch : BaseCtx
     }
 
     IdString getWireType(WireId wire) const;
-
-    std::vector<std::pair<IdString, std::string>> getWireAttrs(WireId) const
-    {
-        std::vector<std::pair<IdString, std::string>> ret;
-        return ret;
-    }
+    std::vector<std::pair<IdString, std::string>> getWireAttrs(WireId wire) const;
 
     uint32_t getWireChecksum(WireId wire) const { return wire.index; }
 
@@ -704,13 +696,8 @@ struct Arch : BaseCtx
 
     IdString getPipName(PipId pip) const;
 
-    IdString getPipType(PipId pip) const { return IdString(); }
-
-    std::vector<std::pair<IdString, std::string>> getPipAttrs(PipId) const
-    {
-        std::vector<std::pair<IdString, std::string>> ret;
-        return ret;
-    }
+    IdString getPipType(PipId pip) const;
+    std::vector<std::pair<IdString, std::string>> getPipAttrs(PipId pip) const;
 
     uint32_t getPipChecksum(PipId pip) const { return pip.index; }
 
