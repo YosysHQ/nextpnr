@@ -404,7 +404,7 @@ struct Arch : BaseCtx
     mutable std::unordered_map<IdString, WireId> wire_by_name;
     mutable std::unordered_map<IdString, PipId> pip_by_name;
 
-    std::unordered_map<BelId, CellInfo *> bel_to_cell;
+    std::vector<CellInfo *> bel_to_cell;
     std::unordered_map<WireId, NetInfo *> wire_to_net;
     std::unordered_map<PipId, NetInfo *> pip_to_net;
 
@@ -443,11 +443,18 @@ struct Arch : BaseCtx
 
     uint32_t getBelChecksum(BelId bel) const { return bel.index; }
 
+    const int max_loc_bels = 20;
+    int getBelFlatIndex(BelId bel) const
+    {
+        return (bel.location.y * chip_info->width + bel.location.x) * max_loc_bels + bel.index;
+    }
+
     void bindBel(BelId bel, CellInfo *cell, PlaceStrength strength)
     {
         NPNR_ASSERT(bel != BelId());
-        NPNR_ASSERT(bel_to_cell[bel] == nullptr);
-        bel_to_cell[bel] = cell;
+        int idx = getBelFlatIndex(bel);
+        NPNR_ASSERT(bel_to_cell.at(idx) == nullptr);
+        bel_to_cell[idx] = cell;
         cell->bel = bel;
         cell->belStrength = strength;
         refreshUiBel(bel);
@@ -456,10 +463,11 @@ struct Arch : BaseCtx
     void unbindBel(BelId bel)
     {
         NPNR_ASSERT(bel != BelId());
-        NPNR_ASSERT(bel_to_cell[bel] != nullptr);
-        bel_to_cell[bel]->bel = BelId();
-        bel_to_cell[bel]->belStrength = STRENGTH_NONE;
-        bel_to_cell[bel] = nullptr;
+        int idx = getBelFlatIndex(bel);
+        NPNR_ASSERT(bel_to_cell.at(idx) != nullptr);
+        bel_to_cell[idx]->bel = BelId();
+        bel_to_cell[idx]->belStrength = STRENGTH_NONE;
+        bel_to_cell[idx] = nullptr;
         refreshUiBel(bel);
     }
 
@@ -480,31 +488,19 @@ struct Arch : BaseCtx
     bool checkBelAvail(BelId bel) const
     {
         NPNR_ASSERT(bel != BelId());
-        auto found = bel_to_cell.find(bel);
-        if (found == bel_to_cell.end())
-            return true;
-        else
-            return found->second == nullptr;
+        return bel_to_cell[getBelFlatIndex(bel)] == nullptr;
     }
 
     CellInfo *getBoundBelCell(BelId bel) const
     {
         NPNR_ASSERT(bel != BelId());
-        auto found = bel_to_cell.find(bel);
-        if (found == bel_to_cell.end())
-            return nullptr;
-        else
-            return found->second;
+        return bel_to_cell[getBelFlatIndex(bel)];
     }
 
     CellInfo *getConflictingBelCell(BelId bel) const
     {
         NPNR_ASSERT(bel != BelId());
-        auto found = bel_to_cell.find(bel);
-        if (found == bel_to_cell.end())
-            return nullptr;
-        else
-            return found->second;
+        return bel_to_cell[getBelFlatIndex(bel)];
     }
 
     BelRange getBels() const
