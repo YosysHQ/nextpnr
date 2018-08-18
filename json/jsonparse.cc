@@ -52,7 +52,7 @@ struct JsonNode
     std::map<string, JsonNode *> data_dict;
     std::vector<string> data_dict_keys;
 
-    JsonNode(std::istream &f)
+    JsonNode(std::istream &f, int &lineno)
     {
         type = 0;
         data_number = 0;
@@ -63,6 +63,8 @@ struct JsonNode
             if (ch == EOF)
                 log_error("Unexpected EOF in JSON file.\n");
 
+            if (ch == '\n')
+                lineno++;
             if (ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n')
                 continue;
 
@@ -91,9 +93,12 @@ struct JsonNode
                 break;
             }
 
-            if ('0' <= ch && ch <= '9') {
+            if (('0' <= ch && ch <= '9') || ('-' == ch)) {
                 type = 'N';
-                data_number = ch - '0';
+                if (ch == '-')
+                    data_number = 0;
+                else
+                    data_number = ch - '0';
                 data_string += ch;
 
                 while (1) {
@@ -114,6 +119,8 @@ struct JsonNode
                     data_string += ch;
                 }
 
+                if (data_string[0] == '-')
+                    data_number = -data_number;
                 data_string = "";
                 break;
 
@@ -148,6 +155,8 @@ struct JsonNode
                     if (ch == EOF)
                         log_error("Unexpected EOF in JSON file.\n");
 
+                    if (ch == '\n')
+                        lineno++;
                     if (ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n' || ch == ',')
                         continue;
 
@@ -155,7 +164,7 @@ struct JsonNode
                         break;
 
                     f.unget();
-                    data_array.push_back(new JsonNode(f));
+                    data_array.push_back(new JsonNode(f, lineno));
                 }
 
                 break;
@@ -170,6 +179,8 @@ struct JsonNode
                     if (ch == EOF)
                         log_error("Unexpected EOF in JSON file.\n");
 
+                    if (ch == '\n')
+                        lineno++;
                     if (ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n' || ch == ',')
                         continue;
 
@@ -177,7 +188,7 @@ struct JsonNode
                         break;
 
                     f.unget();
-                    JsonNode key(f);
+                    JsonNode key(f, lineno);
 
                     while (1) {
                         ch = f.get();
@@ -185,6 +196,8 @@ struct JsonNode
                         if (ch == EOF)
                             log_error("Unexpected EOF in JSON file.\n");
 
+                        if (ch == '\n')
+                            lineno++;
                         if (ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n' || ch == ':')
                             continue;
 
@@ -192,10 +205,10 @@ struct JsonNode
                         break;
                     }
 
-                    JsonNode *value = new JsonNode(f);
+                    JsonNode *value = new JsonNode(f, lineno);
 
                     if (key.type != 'S')
-                        log_error("Unexpected non-string key in JSON dict.\n");
+                        log_error("Unexpected non-string key in JSON dict, line %d.\n", lineno);
 
                     data_dict[key.data_string] = value;
                     data_dict_keys.push_back(key.data_string);
@@ -204,7 +217,7 @@ struct JsonNode
                 break;
             }
 
-            log_error("Unexpected character in JSON file: '%c'\n", ch);
+            log_error("Unexpected character in JSON file, line %d: '%c'\n", lineno, ch);
         }
     }
 
@@ -736,8 +749,9 @@ bool parse_json_file(std::istream &f, std::string &filename, Context *ctx)
 {
     try {
         using namespace JsonParser;
+        int lineno = 1;
 
-        JsonNode root(f);
+        JsonNode root(f, lineno);
 
         if (root.type != 'D')
             log_error("JSON root node is not a dictionary.\n");
