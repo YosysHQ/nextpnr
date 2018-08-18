@@ -108,6 +108,8 @@ NPNR_PACKED_STRUCT(struct WireInfoPOD {
     };
 
     RelPtr<char> name;
+    int32_t netidx;
+
     int32_t num_uphill, num_downhill;
     RelPtr<int32_t> pips_uphill, pips_downhill;
 

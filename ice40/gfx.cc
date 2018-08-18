@@ -457,6 +457,42 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId id,
         }
     }
 
+    // LC Control for IO and BRAM
+
+    if (id >= TILE_WIRE_FUNC_GLOBAL_CEN && id <= TILE_WIRE_FUNC_GLOBAL_S_R) {
+        int idx = id - TILE_WIRE_FUNC_GLOBAL_CEN;
+
+        el.x1 = x + main_swbox_x2 - 0.005 * (idx + 5);
+        el.x2 = el.x1;
+        el.y1 = y + main_swbox_y1;
+        el.y2 = el.y1 - 0.005 * (idx + 2);
+        g.push_back(el);
+
+        el.y1 = el.y2;
+        el.x2 = x + logic_cell_x2 - 0.005 * (2 - idx + 5);
+        g.push_back(el);
+
+        el.y2 = y + logic_cell_y1;
+        el.x1 = el.x2;
+        g.push_back(el);
+    }
+
+    if (id == TILE_WIRE_FABOUT) {
+        el.y1 = y + main_swbox_y1;
+        el.y2 = el.y1 - 0.005 * 4;
+        el.x1 = x + main_swbox_x2 - 0.005 * 9;
+        el.x2 = el.x1;
+        g.push_back(el);
+    }
+
+    if (id == TILE_WIRE_FUNC_GLOBAL_G0) {
+        el.y1 = y + logic_cell_y1;
+        el.y2 = el.y1 - 0.005 * 4;
+        el.x1 = x + logic_cell_x2 - 0.005 * 3;
+        el.x2 = el.x1;
+        g.push_back(el);
+    }
+
     // LC Cascade
 
     if (id >= TILE_WIRE_LUTFF_0_LOUT && id <= TILE_WIRE_LUTFF_6_LOUT) {
@@ -622,6 +658,19 @@ static bool getWireXY_main(GfxTileWireId id, float &x, float &y)
     if (id >= TILE_WIRE_LUTFF_GLOBAL_CEN && id <= TILE_WIRE_LUTFF_GLOBAL_S_R) {
         int idx = id - TILE_WIRE_LUTFF_GLOBAL_CEN;
         x = main_swbox_x2 - 0.005 * (idx + 5);
+        y = main_swbox_y1;
+        return true;
+    }
+
+    if (id >= TILE_WIRE_FUNC_GLOBAL_CEN && id <= TILE_WIRE_FUNC_GLOBAL_S_R) {
+        int idx = id - TILE_WIRE_FUNC_GLOBAL_CEN;
+        x = main_swbox_x2 - 0.005 * (idx + 5);
+        y = main_swbox_y1;
+        return true;
+    }
+
+    if (id == TILE_WIRE_FABOUT) {
+        x = main_swbox_x2 - 0.005 * 9;
         y = main_swbox_y1;
         return true;
     }
