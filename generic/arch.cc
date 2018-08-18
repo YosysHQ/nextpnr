@@ -184,6 +184,21 @@ void Arch::setGroupDecal(GroupId group, DecalXY decalxy)
     refreshUiGroup(group);
 }
 
+void Arch::setWireAttr(IdString wire, IdString key, const std::string &value)
+{
+    wires.at(wire).attrs[key] = value;
+}
+
+void Arch::setPipAttr(IdString pip, IdString key, const std::string &value)
+{
+    pips.at(pip).attrs[key] = value;
+}
+
+void Arch::setBelAttr(IdString bel, IdString key, const std::string &value)
+{
+    bels.at(bel).attrs[key] = value;
+}
+
 // ---------------------------------------------------------------
 
 Arch::Arch(ArchArgs args) : chipName("generic"), args(args) {}
@@ -251,6 +266,8 @@ const std::vector<BelId> &Arch::getBels() const { return bel_ids; }
 
 IdString Arch::getBelType(BelId bel) const { return bels.at(bel).type; }
 
+const std::map<IdString, std::string> &Arch::getBelAttrs(BelId bel) const { return bels.at(bel).attrs; }
+
 WireId Arch::getBelPinWire(BelId bel, IdString pin) const { return bels.at(bel).pins.at(pin).wire; }
 
 PortType Arch::getBelPinType(BelId bel, IdString pin) const { return bels.at(bel).pins.at(pin).type; }
@@ -275,6 +292,8 @@ WireId Arch::getWireByName(IdString name) const
 IdString Arch::getWireName(WireId wire) const { return wire; }
 
 IdString Arch::getWireType(WireId wire) const { return wires.at(wire).type; }
+
+const std::map<IdString, std::string> &Arch::getWireAttrs(WireId wire) const { return wires.at(wire).attrs; }
 
 uint32_t Arch::getWireChecksum(WireId wire) const
 {
@@ -327,6 +346,8 @@ PipId Arch::getPipByName(IdString name) const
 IdString Arch::getPipName(PipId pip) const { return pip; }
 
 IdString Arch::getPipType(PipId pip) const { return pips.at(pip).type; }
+
+const std::map<IdString, std::string> &Arch::getPipAttrs(PipId pip) const { return pips.at(pip).attrs; }
 
 uint32_t Arch::getPipChecksum(PipId wire) const
 {

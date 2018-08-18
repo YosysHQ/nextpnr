@@ -36,7 +36,7 @@ if (MSVC)
         set(DEV_GFXH ${CMAKE_CURRENT_SOURCE_DIR}/ice40/gfx.h)
         add_custom_command(OUTPUT ${DEV_CC_BBA_DB}
                 COMMAND ${PYTHON_EXECUTABLE} ${DB_PY} -p ${DEV_CONSTIDS_INC} -g ${DEV_GFXH} ${OPT_FAST} ${OPT_SLOW} ${DEV_TXT_DB} > ${DEV_CC_BBA_DB}
-                DEPENDS ${DEV_TXT_DB} ${DB_PY}
+                DEPENDS ${DEV_CONSTIDS_INC} ${DEV_GFXH} ${DEV_TXT_DB} ${DB_PY}
                 )
         add_custom_command(OUTPUT ${DEV_CC_DB}
                 COMMAND bbasm ${DEV_CC_BBA_DB} ${DEV_CC_DB}
@@ -69,7 +69,7 @@ else()
         add_custom_command(OUTPUT ${DEV_CC_BBA_DB}
                 COMMAND ${PYTHON_EXECUTABLE} ${DB_PY} -p ${DEV_CONSTIDS_INC} -g ${DEV_GFXH} ${OPT_FAST} ${OPT_SLOW} ${DEV_TXT_DB} > ${DEV_CC_BBA_DB}.new
                 COMMAND mv ${DEV_CC_BBA_DB}.new ${DEV_CC_BBA_DB}
-                DEPENDS ${DEV_TXT_DB} ${DB_PY}
+                DEPENDS ${DEV_CONSTIDS_INC} ${DEV_GFXH} ${DEV_TXT_DB} ${DB_PY}
         )
         add_custom_command(OUTPUT ${DEV_CC_DB}
                 COMMAND bbasm --c ${DEV_CC_BBA_DB} ${DEV_CC_DB}.new

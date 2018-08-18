@@ -46,6 +46,18 @@ void (*log_error_atexit)() = NULL;
 // static bool next_print_log = false;
 static int log_newline_count = 0;
 
+std::string stringf(const char *fmt, ...)
+{
+    std::string string;
+    va_list ap;
+
+    va_start(ap, fmt);
+    string = vstringf(fmt, ap);
+    va_end(ap);
+
+    return string;
+}
+
 std::string vstringf(const char *fmt, va_list ap)
 {
     std::string string;

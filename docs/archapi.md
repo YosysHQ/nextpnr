@@ -151,6 +151,11 @@ Return a list of all bels on the device.
 
 Return the type of a given bel.
 
+### const\_range\<std\:\:pair\<IdString, std::string\>\> getBelAttrs(BelId bel) const
+
+Return the attributes for that bel. Bel attributes are only informal. They are displayed by the GUI but are otherwise
+unused. An implementation may simply return an empty range.
+
 ### WireId getBelPinWire(BelId bel, IdString pin) const
 
 Return the wire connected to the given bel pin.
@@ -179,6 +184,11 @@ Get the name for a wire. (Wire names must be unique.)
 Get the type of a wire. The wire type is purely informal and
 isn't used by any of the core algorithms. Implementations may
 simply return `IdString()`.
+
+### const\_range\<std\:\:pair\<IdString, std::string\>\> getWireAttrs(WireId wire) const
+
+Return the attributes for that wire. Wire attributes are only informal. They are displayed by the GUI but are otherwise
+unused. An implementation may simply return an empty range.
 
 ### uint32\_t getWireChecksum(WireId wire) const
 
@@ -241,6 +251,11 @@ Get the name for a pip. (Pip names must be unique.)
 
 Get the type of a pip. Pip types are purely informal and
 implementations may simply return `IdString()`.
+
+### const\_range\<std\:\:pair\<IdString, std::string\>\> getPipAttrs(PipId pip) const
+
+Return the attributes for that pip. Pip attributes are only informal. They are displayed by the GUI but are otherwise
+unused. An implementation may simply return an empty range.
 
 ### Loc getPipLocation(PipId pip) const
 

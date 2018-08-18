@@ -226,6 +226,12 @@ PortType Arch::getBelPinType(BelId bel, IdString pin) const
     return PORT_INOUT;
 }
 
+std::vector<std::pair<IdString, std::string>> Arch::getBelAttrs(BelId) const
+{
+    std::vector<std::pair<IdString, std::string>> ret;
+    return ret;
+}
+
 WireId Arch::getBelPinWire(BelId bel, IdString pin) const
 {
     WireId ret;
@@ -331,6 +337,28 @@ IdString Arch::getWireType(WireId wire) const
     return IdString();
 }
 
+std::vector<std::pair<IdString, std::string>> Arch::getWireAttrs(WireId wire) const
+{
+    std::vector<std::pair<IdString, std::string>> ret;
+    auto &wi = chip_info->wire_data[wire.index];
+
+    ret.push_back(std::make_pair(id("INDEX"), stringf("%d", wi.netidx)));
+
+    ret.push_back(std::make_pair(id("GRID_X"), stringf("%d", wi.x)));
+    ret.push_back(std::make_pair(id("GRID_Y"), stringf("%d", wi.y)));
+    ret.push_back(std::make_pair(id("GRID_Z"), stringf("%d", wi.z)));
+
+#if 0
+    for (int i = 0; i < wi.num_segments; i++) {
+        auto &si = wi.segments[i];
+        ret.push_back(std::make_pair(id(stringf("segment[%d]", i)),
+                                     stringf("X%d/Y%d/%s", si.x, si.y, chip_info->tile_wire_names[si.index].get())));
+    }
+#endif
+
+    return ret;
+}
+
 // -----------------------------------------------------------------------
 
 PipId Arch::getPipByName(IdString name) const
@@ -371,6 +399,15 @@ IdString Arch::getPipName(PipId pip) const
     return id(chip_info->pip_data[pip.index].name.get());
 #endif
 }
+
+IdString Arch::getPipType(PipId pip) const { return IdString(); }
+
+std::vector<std::pair<IdString, std::string>> Arch::getPipAttrs(PipId) const
+{
+    std::vector<std::pair<IdString, std::string>> ret;
+    return ret;
+}
+
 
 // -----------------------------------------------------------------------
 
@@ -727,7 +764,7 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
             GraphicElement el;
             el.type = GraphicElement::TYPE_BOX;
             el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
-            el.x1 = chip_info->bel_data[bel.index].x + logic_cell_x1;
+            el.x1 = chip_info->bel_data[bel.index].x + lut_swbox_x1;
             el.x2 = chip_info->bel_data[bel.index].x + logic_cell_x2;
             el.y1 = chip_info->bel_data[bel.index].y + logic_cell_y1 +
                     (4 * chip_info->bel_data[bel.index].z) * logic_cell_pitch;
@@ -741,7 +778,7 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
                 GraphicElement el;
                 el.type = GraphicElement::TYPE_BOX;
                 el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
-                el.x1 = chip_info->bel_data[bel.index].x + logic_cell_x1;
+                el.x1 = chip_info->bel_data[bel.index].x + lut_swbox_x1;
                 el.x2 = chip_info->bel_data[bel.index].x + logic_cell_x2;
                 el.y1 = chip_info->bel_data[bel.index].y + logic_cell_y1 + i;
                 el.y2 = chip_info->bel_data[bel.index].y + logic_cell_y2 + i + 7 * logic_cell_pitch;

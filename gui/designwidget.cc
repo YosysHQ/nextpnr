@@ -411,6 +411,11 @@ void DesignWidget::onSelectionChanged(const QItemSelection &, const QItemSelecti
         addProperty(topItem, QVariant::String, "Conflicting Cell", ctx->nameOf(ctx->getConflictingBelCell(bel)),
                     ElementType::CELL);
 
+        QtProperty *attrsItem = addSubGroup(topItem, "Attributes");
+        for (auto &item : ctx->getBelAttrs(bel)) {
+            addProperty(attrsItem, QVariant::String, item.first.c_str(ctx), item.second.c_str());
+        }
+
         QtProperty *belpinsItem = addSubGroup(topItem, "Ports");
         for (const auto &item : ctx->getBelPins(bel)) {
             QtProperty *portInfoItem = addSubGroup(belpinsItem, item.c_str(ctx));
@@ -432,6 +437,11 @@ void DesignWidget::onSelectionChanged(const QItemSelection &, const QItemSelecti
         addProperty(topItem, QVariant::String, "Bound Net", ctx->nameOf(ctx->getBoundWireNet(wire)), ElementType::NET);
         addProperty(topItem, QVariant::String, "Conflicting Net", ctx->nameOf(ctx->getConflictingWireNet(wire)),
                     ElementType::NET);
+
+        QtProperty *attrsItem = addSubGroup(topItem, "Attributes");
+        for (auto &item : ctx->getWireAttrs(wire)) {
+            addProperty(attrsItem, QVariant::String, item.first.c_str(ctx), item.second.c_str());
+        }
 
         DelayInfo delay = ctx->getWireDelay(wire);
 
@@ -491,6 +501,11 @@ void DesignWidget::onSelectionChanged(const QItemSelection &, const QItemSelecti
                     ElementType::WIRE);
         addProperty(topItem, QVariant::String, "Dest Wire", ctx->getWireName(ctx->getPipDstWire(pip)).c_str(ctx),
                     ElementType::WIRE);
+
+        QtProperty *attrsItem = addSubGroup(topItem, "Attributes");
+        for (auto &item : ctx->getPipAttrs(pip)) {
+            addProperty(attrsItem, QVariant::String, item.first.c_str(ctx), item.second.c_str());
+        }
 
         DelayInfo delay = ctx->getPipDelay(pip);
 
