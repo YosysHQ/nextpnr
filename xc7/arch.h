@@ -240,56 +240,57 @@ struct TorcInfo {
     const Sites &sites;
     const Tiles &tiles;
 
-    SiteIndex sites_begin() const { return SiteIndex(0); }
-    SiteIndex sites_end() const { return SiteIndex(sites.getSiteCount()); }
-    const TileInfo& site_index_to_tile_info(SiteIndex si) const {
+    const TileInfo& bel_to_tile_info(int32_t index) const {
+        auto si = bel_to_site_index[index];
         auto &site = sites.getSite(si);
         return tiles.getTileInfo(site.getTileIndex());
     }
-    const std::string& site_index_to_name(SiteIndex si) const {
+    const std::string& bel_to_name(int32_t index) const {
+        auto si = bel_to_site_index[index];
         return sites.getSite(si).getName();
     }
 
+    const std::vector<SiteIndex> bel_to_site_index;
+    const int num_bels;
     const std::vector<IdString> site_index_to_type;
-    const std::vector<int8_t> site_index_to_z_offset;
+    const std::vector<int8_t> bel_to_z;
 
 private:
+    static std::vector<SiteIndex> construct_bel_to_site_index(Arch *ctx, const Sites &sites);
     static std::vector<IdString> construct_site_index_to_type(Arch *ctx, const Sites &sites);
-    static std::vector<int8_t> construct_site_index_to_z_offset(const Sites &sites, const std::vector<IdString> &site_index_to_type);
+    static std::vector<int8_t> construct_bel_to_z(const Sites &sites, const int num_bels, const std::vector<IdString> &site_index_to_type);
 };
 extern std::unique_ptr<const TorcInfo> torc_info;
 
 
 /************************ End of chipdb section. ************************/
 
-struct BelIterator : public BelId
+struct BelIterator
 {
+    int cursor;
+
     BelIterator operator++()
     {
-        if (pos >= A && pos < D) {
-            ++pos;
-            return *this;
-        }
-
-        if (torc_info->site_index_to_type[++index] == id_SLICE_LUT6)
-            pos = A;
-        else
-            pos = NOT_APPLICABLE;
-
+        cursor++;
         return *this;
     }
     BelIterator operator++(int)
     {
         BelIterator prior(*this);
-        operator++();
+        cursor++;
         return prior;
     }
 
-    bool operator!=(const BelIterator &other) const { return BelId::operator!=(other); }
+    bool operator!=(const BelIterator &other) const { return cursor != other.cursor; }
 
-    bool operator==(const BelIterator &other) const { return BelId::operator==(other); }
+    bool operator==(const BelIterator &other) const { return cursor == other.cursor; }
 
-    BelId operator*() const { return *this; }
+    BelId operator*() const
+    {
+        BelId ret;
+        ret.index = cursor;
+        return ret;
+    }
 };
 
 struct BelRange
@@ -447,12 +448,19 @@ struct Arch : BaseCtx
     IdString getBelName(BelId bel) const
     {
         NPNR_ASSERT(bel != BelId());
-        auto name = torc_info->site_index_to_name(bel.index);
-        if (torc_info->site_index_to_type[bel.index] == id_SLICE_LUT6) {
+        auto name = torc_info->bel_to_name(bel.index);
+        auto site_index = torc_info->bel_to_site_index[bel.index];
+        if (torc_info->site_index_to_type[site_index] == id_SLICE_LUT6) {
             // Append LUT name to name
             name.reserve(name.size() + 2);
             name += "_";
-            name += bel.pos;
+            switch (torc_info->bel_to_z[bel.index]) {
+                case 0: case 4: name += 'A'; break;
+                case 1: case 5: name += 'B'; break;
+                case 2: case 6: name += 'C'; break;
+                case 3: case 7: name += 'D'; break;
+                default: throw;
+            }
         }
         return id(name);
     }
@@ -503,23 +511,19 @@ struct Arch : BaseCtx
     BelRange getBels() const
     {
         BelRange range;
-        range.b.index = torc_info->sites_begin();
-        range.e.index = torc_info->sites_end();
+        range.b.cursor = 0;
+        range.e.cursor = torc_info->num_bels;
         return range;
     }
 
     Loc getBelLocation(BelId bel) const
     {
-        auto &tile_info = torc_info->site_index_to_tile_info(bel.index);
+        auto &tile_info = torc_info->bel_to_tile_info(bel.index);
 
         Loc loc;
         loc.x = tile_info.getCol(); 
         loc.y = tile_info.getRow();
-        if (torc_info->site_index_to_type[bel.index] == id_SLICE_LUT6) {
-            loc.z = bel.pos - 'A';
-            // Apply offset if upper slice
-            loc.z += torc_info->site_index_to_z_offset[bel.index];
-        }
+        loc.z = torc_info->bel_to_z[bel.index];
         return loc;
     }
 
@@ -531,7 +535,8 @@ struct Arch : BaseCtx
     IdString getBelType(BelId bel) const
     {
         NPNR_ASSERT(bel != BelId());
-        return torc_info->site_index_to_type[bel.index];
+        auto site_index = torc_info->bel_to_site_index[bel.index];
+        return torc_info->site_index_to_type[site_index];
     }
 
     WireId getBelPinWire(BelId bel, IdString pin) const;

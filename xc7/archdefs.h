@@ -66,13 +66,11 @@ enum ConstIds
 
 struct BelId
 {
-    SiteIndex index = SiteIndex(-1);
-    enum bel : int8_t { NOT_APPLICABLE, A='A', B='B', C='C', D='D' } pos = NOT_APPLICABLE;
+    int32_t index = -1;
 
-    bool operator==(const BelId &other) const { return index == other.index && pos == pos; }
-    bool operator!=(const BelId &other) const { return index != other.index || pos != pos; }
+    bool operator==(const BelId &other) const { return index == other.index; }
+    bool operator!=(const BelId &other) const { return index != other.index; }
 };
-void operator++(BelId::bel &b);
 
 struct WireId
 {

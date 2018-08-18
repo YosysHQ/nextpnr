@@ -37,7 +37,7 @@ void write_xdl(const Context *ctx, std::ostream &out)
     XdlExporter exporter(out);
     auto designPtr = Factory::newDesignPtr("name", torc_info->ddb->getDeviceName(), "clg484", "", "");
 
-    std::map<SiteIndex,InstanceSharedPtr> site_to_instance;
+    std::unordered_map<int32_t,InstanceSharedPtr> site_to_instance;
 
     for (const auto& cell : ctx->cells) {
         const char* type;
@@ -46,7 +46,8 @@ void write_xdl(const Context *ctx, std::ostream &out)
         else if (cell.second->type == id_BUFGCTRL) type = "BUFGCTRL";
         else log_error("Unsupported cell type '%s'.\n", cell.second->type.c_str(ctx));
 
-        auto ret = site_to_instance.emplace(cell.second->bel.index, nullptr);
+        auto site_index = torc_info->bel_to_site_index[cell.second->bel.index];
+        auto ret = site_to_instance.emplace(site_index, nullptr);
         InstanceSharedPtr instPtr;
         if (ret.second) {
             instPtr = Factory::newInstancePtr(cell.second->name.str(ctx), type, "", "");
@@ -54,15 +55,22 @@ void write_xdl(const Context *ctx, std::ostream &out)
             assert(b);
             ret.first->second = instPtr;
 
-            const auto& tile_info = torc_info->site_index_to_tile_info(cell.second->bel.index);
+            const auto& tile_info = torc_info->bel_to_tile_info(cell.second->bel.index);
             instPtr->setTile(tile_info.getName());
-            instPtr->setSite(torc_info->site_index_to_name(cell.second->bel.index));
+            instPtr->setSite(torc_info->bel_to_name(cell.second->bel.index));
         }
         else
             instPtr = ret.first->second;
 
         if (cell.second->type == id_SLICE_LUT6) {
-            std::string config(1, cell.second->bel.pos);
+            std::string config;
+            switch (torc_info->bel_to_z[cell.second->bel.index]) {
+                case 0: case 4: config += 'A'; break;
+                case 1: case 5: config += 'B'; break;
+                case 2: case 6: config += 'C'; break;
+                case 3: case 7: config += 'D'; break;
+                default: throw;
+            }
             config += "6LUT";
             instPtr->setConfig(config, cell.second->name.str(ctx), "#LUT:O6=");
         }

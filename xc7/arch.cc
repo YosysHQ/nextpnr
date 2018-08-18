@@ -35,17 +35,36 @@ NEXTPNR_NAMESPACE_BEGIN
 
 std::unique_ptr<const TorcInfo> torc_info;
 TorcInfo::TorcInfo(Arch *ctx, const std::string &inDeviceName, const std::string &inPackageName)
-    : ddb(new DDB(inDeviceName, inPackageName)), sites(ddb->getSites()), tiles(ddb->getTiles()), site_index_to_type(construct_site_index_to_type(ctx, sites)), site_index_to_z_offset(construct_site_index_to_z_offset(sites, site_index_to_type))
+    : ddb(new DDB(inDeviceName, inPackageName)), sites(ddb->getSites()), tiles(ddb->getTiles()), bel_to_site_index(construct_bel_to_site_index(ctx, sites)), num_bels(bel_to_site_index.size()), site_index_to_type(construct_site_index_to_type(ctx, sites)), bel_to_z(construct_bel_to_z(sites, num_bels, site_index_to_type))
 {
+}
+std::vector<SiteIndex> TorcInfo::construct_bel_to_site_index(Arch* ctx, const Sites &sites)
+{
+    std::vector<SiteIndex> bel_to_site_index;
+    bel_to_site_index.reserve(sites.getSiteCount());
+    for (SiteIndex i(0); i < sites.getSiteCount(); ++i) {
+        const auto &s = sites.getSite(i);
+        const auto &pd = s.getPrimitiveDefPtr();
+        const auto &type = pd->getName();
+        if (type == "SLICEL" || type == "SLICEM") {
+            bel_to_site_index.push_back(i);
+            bel_to_site_index.push_back(i);
+            bel_to_site_index.push_back(i);
+            bel_to_site_index.push_back(i);
+        }
+        else
+            bel_to_site_index.push_back(i);
+    }
+    return bel_to_site_index;
 }
 std::vector<IdString> TorcInfo::construct_site_index_to_type(Arch* ctx, const Sites &sites)
 {
     std::vector<IdString> site_index_to_type;
     site_index_to_type.resize(sites.getSiteCount());
     for (SiteIndex i(0); i < sites.getSiteCount(); ++i) {
-        auto s = sites.getSite(i);
-        auto pd = s.getPrimitiveDefPtr();
-        auto type = pd->getName();
+        const auto &s = sites.getSite(i);
+        const auto &pd = s.getPrimitiveDefPtr();
+        const auto &type = pd->getName();
         if (type == "SLICEL" || type == "SLICEM")
             site_index_to_type[i] = id_SLICE_LUT6;
         else
@@ -53,20 +72,33 @@ std::vector<IdString> TorcInfo::construct_site_index_to_type(Arch* ctx, const Si
     }
     return site_index_to_type;
 }
-std::vector<int8_t> TorcInfo::construct_site_index_to_z_offset(const Sites &sites, const std::vector<IdString> &site_index_to_type)
+std::vector<int8_t> TorcInfo::construct_bel_to_z(const Sites &sites, const int num_bels, const std::vector<IdString> &site_index_to_type)
 {
-    std::vector<int8_t> site_index_to_z_offset;
-    site_index_to_z_offset.resize(site_index_to_type.size());
+    std::vector<int8_t> bel_to_z;
+    bel_to_z.resize(num_bels);
+    int32_t bel_index = 0;
     for (SiteIndex i(0); i < site_index_to_type.size(); ++i) {
         if (site_index_to_type[i] == id_SLICE_LUT6) {
             auto site = sites.getSite(i);
             auto site_name = site.getName();
             auto site_name_back = site_name.back();
-            if (site_name_back == '1' || site_name_back == '3' || site_name_back == '5' || site_name_back == '7' || site_name_back == '9')
-                site_index_to_z_offset[i] = 4;
+            if (site_name_back == '0' || site_name_back == '2' || site_name_back == '4' || site_name_back == '6' || site_name_back == '8') {
+                bel_to_z[bel_index++] = 0;
+                bel_to_z[bel_index++] = 1;
+                bel_to_z[bel_index++] = 2;
+                bel_to_z[bel_index++] = 3;
+            }
+            else {
+                bel_to_z[bel_index++] = 4;
+                bel_to_z[bel_index++] = 5;
+                bel_to_z[bel_index++] = 6;
+                bel_to_z[bel_index++] = 7;
+            }
         }
+        else
+            ++bel_index;
     }
-    return site_index_to_z_offset;
+    return bel_to_z;
 }
 
 
@@ -100,7 +132,7 @@ Arch::Arch(ArchArgs args) : args(args)
 //    if (package_info == nullptr)
 //        log_error("Unsupported package '%s'.\n", args.package.c_str());
 
-    bel_to_cell.resize(torc_info->sites.getSiteCount());
+    bel_to_cell.resize(torc_info->num_bels);
 }
 
 // -----------------------------------------------------------------------
@@ -141,18 +173,9 @@ BelId Arch::getBelByLocation(Loc loc) const
     BelId bel;
 
     if (bel_by_loc.empty()) {
-        for (SiteIndex i(0); i < torc_info->sites.getSiteCount(); ++i) {
+        for (int i = 0; i < torc_info->num_bels; i++) {
             BelId b;
             b.index = i;
-            if (torc_info->site_index_to_type[i] == id_SLICE_LUT6) {
-                b.pos = BelId::A;
-                bel_by_loc[getBelLocation(b)] = b;
-                b.pos = BelId::B;
-                bel_by_loc[getBelLocation(b)] = b;
-                b.pos = BelId::C;
-                bel_by_loc[getBelLocation(b)] = b;
-                b.pos = BelId::D;
-            }
             bel_by_loc[getBelLocation(b)] = b;
         }
     }
@@ -168,14 +191,13 @@ BelRange Arch::getBelsByTile(int x, int y) const
 {
     BelRange br;
 
-    auto b = getBelByLocation(Loc(x, y, 0));
-    br.b.index = b.index;
-    br.b.pos = b.pos;
-    br.e = br.b;
+    br.b.cursor = Arch::getBelByLocation(Loc(x, y, 0)).index;
+    br.e.cursor = br.b.cursor;
 
-    if (br.e.index != SiteIndex(torc_info->sites.getSiteCount())) {
-        while (br.e.index < SiteIndex(torc_info->sites.getSiteCount()) && torc_info->sites.getSite((*br.e).index).getTileIndex() == torc_info->sites.getSite((*br.b).index).getTileIndex())
-            br.e++;
+    if (br.e.cursor != -1) {
+        while (br.e.cursor < chip_info->num_bels && chip_info->bel_data[br.e.cursor].x == x &&
+               chip_info->bel_data[br.e.cursor].y == y)
+            br.e.cursor++;
     }
 
     return br;
@@ -213,17 +235,25 @@ WireId Arch::getBelPinWire(BelId bel, IdString pin) const
 {
     WireId ret;
 
-    auto &site = torc_info->sites.getSite(bel.index);
+    auto site_index = torc_info->bel_to_site_index[bel.index];
     auto pin_name = pin.str(this);
-    if (torc_info->site_index_to_type[bel.index] == id_SLICE_LUT6) {
+    if (torc_info->site_index_to_type[site_index] == id_SLICE_LUT6) {
         // For all LUT based inputs (I1-I6,O,OQ,OMUX) then change the I/O into the LUT
-        if (pin_name[0] == 'I' || pin_name[0] == 'O')
-            pin_name[0] = bel.pos;
+        if (pin_name[0] == 'I' || pin_name[0] == 'O') {
+            switch (torc_info->bel_to_z[bel.index]) {
+                case 0: case 4: pin_name[0] = 'A'; break;
+                case 1: case 5: pin_name[0] = 'B'; break;
+                case 2: case 6: pin_name[0] = 'C'; break;
+                case 3: case 7: pin_name[0] = 'D'; break;
+                default: throw;
+            }
+        }
     }
+    auto &site = torc_info->sites.getSite(site_index);
     ret.index = site.getPinTilewire(pin_name);
 
     if (ret.index.isUndefined())
-        log_error("no wire found for site '%s' pin '%s' \n", torc_info->site_index_to_name(bel.index).c_str(), pin_name.c_str());
+        log_error("no wire found for site '%s' pin '%s' \n", torc_info->bel_to_name(bel.index).c_str(), pin_name.c_str());
         
 
 //    NPNR_ASSERT(bel != BelId());
@@ -821,16 +851,6 @@ void Arch::assignCellInfo(CellInfo *cell)
 //        if (get_net_or_empty(cell, id_I3))
 //            cell->lcInfo.inputCount++;
     }
-}
-
-void operator++(BelId::bel &b) {
-    switch (b) {
-        case BelId::A: b = BelId::B; return;
-        case BelId::B: b = BelId::C; return;
-        case BelId::C: b = BelId::D; return;
-        default: break;
-    }
-    throw;
 }
 
 NEXTPNR_NAMESPACE_END
