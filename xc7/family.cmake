@@ -43,4 +43,27 @@ target_link_libraries(
 
     PRIVATE ${CMAKE_SOURCE_DIR}/torc/externals/zlib/zfstream.o
     PRIVATE z
+
+    PRIVATE ${CMAKE_SOURCE_DIR}/torc/physical/Circuit.o
+    PRIVATE ${CMAKE_SOURCE_DIR}/torc/physical/ConfigMap.o
+    PRIVATE ${CMAKE_SOURCE_DIR}/torc/physical/Config.o
+    PRIVATE ${CMAKE_SOURCE_DIR}/torc/physical/Design.o
+    PRIVATE ${CMAKE_SOURCE_DIR}/torc/physical/Factory.o
+    PRIVATE ${CMAKE_SOURCE_DIR}/torc/physical/Instance.o
+    PRIVATE ${CMAKE_SOURCE_DIR}/torc/physical/InstancePin.o
+    PRIVATE ${CMAKE_SOURCE_DIR}/torc/physical/InstanceReference.o
+    PRIVATE ${CMAKE_SOURCE_DIR}/torc/physical/Module.o
+    PRIVATE ${CMAKE_SOURCE_DIR}/torc/physical/ModuleTransformer.o
+    PRIVATE ${CMAKE_SOURCE_DIR}/torc/physical/Named.o
+    PRIVATE ${CMAKE_SOURCE_DIR}/torc/physical/Net.o
+    PRIVATE ${CMAKE_SOURCE_DIR}/torc/physical/OutputStreamHelpers.o
+    PRIVATE ${CMAKE_SOURCE_DIR}/torc/physical/Pip.o
+    PRIVATE ${CMAKE_SOURCE_DIR}/torc/physical/Port.o
+    PRIVATE ${CMAKE_SOURCE_DIR}/torc/physical/Progenitor.o
+    PRIVATE ${CMAKE_SOURCE_DIR}/torc/physical/Progeny.o
+    PRIVATE ${CMAKE_SOURCE_DIR}/torc/physical/Renamable.o
+    PRIVATE ${CMAKE_SOURCE_DIR}/torc/physical/Routethrough.o
+    PRIVATE ${CMAKE_SOURCE_DIR}/torc/physical/TilewirePlaceholder.o
+    PRIVATE ${CMAKE_SOURCE_DIR}/torc/physical/XdlExporter.o
+#    PRIVATE ${CMAKE_SOURCE_DIR}/torc/physical/XdlImporter.o
 )

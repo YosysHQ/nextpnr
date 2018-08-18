@@ -18,16 +18,74 @@
  *  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
  */
+#include "nextpnr.h"
 #include "xdl.h"
 #include <cctype>
 #include <vector>
 #include "cells.h"
 #include "log.h"
+#include "util.h"
+
+#include "torc/Physical.hpp"
+using namespace torc::architecture::xilinx;
+using namespace torc::physical;
 
 NEXTPNR_NAMESPACE_BEGIN
 
 void write_xdl(const Context *ctx, std::ostream &out)
 {
+    XdlExporter exporter(out);
+    auto designPtr = Factory::newDesignPtr("name", torc_info->ddb->getDeviceName(), "clg484", "", "");
+
+    std::map<SiteIndex,InstanceSharedPtr> site_to_instance;
+
+    for (const auto& cell : ctx->cells) {
+        const char* type;
+        if (cell.second->type == id_SLICE_LUT6) type = "SLICEL";
+        else if (cell.second->type == id_IOB33S) type = "IOB33S";
+        else if (cell.second->type == id_BUFGCTRL) type = "BUFGCTRL";
+        else log_error("Unsupported cell type '%s'.\n", cell.second->type.c_str(ctx));
+
+        auto ret = site_to_instance.emplace(cell.second->bel.index, nullptr);
+        InstanceSharedPtr instPtr;
+        if (ret.second) {
+            instPtr = Factory::newInstancePtr(cell.second->name.str(ctx), type, "", "");
+            auto b = designPtr->addInstance(instPtr);
+            assert(b);
+            ret.first->second = instPtr;
+
+            const auto& tile_info = torc_info->site_index_to_tile_info(cell.second->bel.index);
+            instPtr->setTile(tile_info.getName());
+            instPtr->setSite(torc_info->site_index_to_name(cell.second->bel.index));
+        }
+        else
+            instPtr = ret.first->second;
+
+        if (cell.second->type == id_SLICE_LUT6) {
+            std::string config(1, cell.second->bel.pos);
+            config += "6LUT";
+            instPtr->setConfig(config, cell.second->name.str(ctx), "#LUT:O6=");
+        }
+        else if (cell.second->type == id_IOB33S) {
+            if (get_net_or_empty(cell.second.get(), id_I)) {
+                instPtr->setConfig("IUSED", "", "0");
+                instPtr->setConfig("IBUF_LOW_PWR", "", "TRUE");
+                instPtr->setConfig("ISTANDARD", "", "LVCMOS25");
+            }
+            else {
+                instPtr->setConfig("OUSED", "", "0");
+                instPtr->setConfig("OSTANDARD", "", "LVCMOS25");
+                instPtr->setConfig("DRIVE", "", "12");
+                instPtr->setConfig("SLEW", "", "SLOW");
+            }
+        }
+        else if (cell.second->type == id_BUFGCTRL) {
+        }
+        else log_error("Unsupported cell type '%s'.\n", cell.second->type.c_str(ctx));
+    }
+
+    exporter(designPtr);
+
 }
 
 NEXTPNR_NAMESPACE_END
