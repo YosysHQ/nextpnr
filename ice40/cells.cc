@@ -28,6 +28,7 @@ NEXTPNR_NAMESPACE_BEGIN
 void add_port(const Context *ctx, CellInfo *cell, std::string name, PortType dir)
 {
     IdString id = ctx->id(name);
+    NPNR_ASSERT(cell->ports.count(id) == 0);
     cell->ports[id] = PortInfo{id, nullptr, dir};
 }
 
@@ -237,7 +238,7 @@ std::unique_ptr<CellInfo> create_ice_cell(Context *ctx, IdString type, std::stri
 
         add_port(ctx, new_cell.get(), "SCLK", PORT_IN);
         add_port(ctx, new_cell.get(), "SDI", PORT_IN);
-        add_port(ctx, new_cell.get(), "SDI", PORT_OUT);
+        add_port(ctx, new_cell.get(), "SDO", PORT_OUT);
 
         add_port(ctx, new_cell.get(), "LOCK", PORT_OUT);
         add_port(ctx, new_cell.get(), "PLLOUT_A", PORT_OUT);
