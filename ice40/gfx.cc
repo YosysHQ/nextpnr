@@ -554,7 +554,7 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, Gfx
         int input = idx % 4;
         el.x1 = x + local_swbox_x2;
         el.x2 = x + lut_swbox_x1;
-        el.y1 = y + (logic_cell_y1 + logic_cell_y2) / 2 - 0.0075 + (0.005 * input) + z * logic_cell_pitch;
+        el.y1 = y + (logic_cell_y1 + logic_cell_y2) / 2 + 0.0075 - (0.005 * input) + z * logic_cell_pitch;
         el.y2 = el.y1;
         g.push_back(el);
     }
@@ -565,7 +565,7 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, Gfx
         int input = idx % 4;
         el.x1 = x + lut_swbox_x2;
         el.x2 = x + logic_cell_x1;
-        el.y1 = y + (logic_cell_y1 + logic_cell_y2) / 2 - 0.0075 + (0.005 * input) + z * logic_cell_pitch;
+        el.y1 = y + (logic_cell_y1 + logic_cell_y2) / 2 + 0.0075 - (0.005 * input) + z * logic_cell_pitch;
         el.y2 = el.y1;
         g.push_back(el);
     }
@@ -985,7 +985,7 @@ void gfxTilePip(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId src,
         el.style = style;
         el.x1 = x + logic_cell_x1;
         el.x2 = x + logic_cell_x2;
-        el.y1 = y + (logic_cell_y1 + logic_cell_y2) / 2 - 0.0075 + (0.005 * in_idx) + lut_idx * logic_cell_pitch;
+        el.y1 = y + (logic_cell_y1 + logic_cell_y2) / 2 + 0.0075 - (0.005 * in_idx) + lut_idx * logic_cell_pitch;
         el.y2 = y + (logic_cell_y1 + logic_cell_y2) / 2 + lut_idx * logic_cell_pitch;
         g.push_back(el);
         return;
@@ -1002,8 +1002,46 @@ void gfxTilePip(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId src,
         el.style = style;
         el.x1 = x + lut_swbox_x1;
         el.x2 = x + lut_swbox_x2;
-        el.y1 = y + (logic_cell_y1 + logic_cell_y2) / 2 - 0.0075 + (0.005 * in_idx) + lut_idx * logic_cell_pitch;
-        el.y2 = y + (logic_cell_y1 + logic_cell_y2) / 2 - 0.0075 + (0.005 * out_idx) + lut_idx * logic_cell_pitch;
+        el.y1 = y + (logic_cell_y1 + logic_cell_y2) / 2 + 0.0075 - (0.005 * in_idx) + lut_idx * logic_cell_pitch;
+        el.y2 = y + (logic_cell_y1 + logic_cell_y2) / 2 + 0.0075 - (0.005 * out_idx) + lut_idx * logic_cell_pitch;
+        g.push_back(el);
+        return;
+    }
+
+    if ((src == TILE_WIRE_CARRY_IN_MUX || (src >= TILE_WIRE_LUTFF_0_COUT && src <= TILE_WIRE_LUTFF_6_COUT)) &&
+        (dst >= TILE_WIRE_LUTFF_0_IN_0 && dst <= TILE_WIRE_LUTFF_7_IN_3 && (dst - TILE_WIRE_LUTFF_0_IN_0) % 4 == 3)) {
+        int lut_idx = (dst - TILE_WIRE_LUTFF_0_IN_0) / 4;
+
+        GraphicElement el;
+        el.type = GraphicElement::TYPE_ARROW;
+        el.style = style;
+        el.x1 = x + (local_swbox_x2 + lut_swbox_x1) / 2;
+        el.x2 = el.x1;
+        el.y1 = y + (logic_cell_y1 + logic_cell_y2) / 2 + 0.0075 - (0.005 * 3) + lut_idx * logic_cell_pitch;
+        el.y2 = y + (logic_cell_y1 + logic_cell_y2 - logic_cell_pitch) / 2 + lut_idx * logic_cell_pitch;
+        g.push_back(el);
+
+        el.x1 = x + logic_cell_x1 + 0.005 * 3;
+        el.y1 = el.y2;
+        g.push_back(el);
+        return;
+    }
+
+    if ((src >= TILE_WIRE_LUTFF_0_LOUT && src <= TILE_WIRE_LUTFF_6_LOUT) &&
+        (dst >= TILE_WIRE_LUTFF_0_IN_0 && dst <= TILE_WIRE_LUTFF_7_IN_3 && (dst - TILE_WIRE_LUTFF_0_IN_0) % 4 == 2)) {
+        int lut_idx = (dst - TILE_WIRE_LUTFF_0_IN_0) / 4;
+
+        GraphicElement el;
+        el.type = GraphicElement::TYPE_ARROW;
+        el.style = style;
+        el.x1 = x + (local_swbox_x2 + lut_swbox_x1) / 2 + 0.005;
+        el.x2 = el.x1;
+        el.y1 = y + (logic_cell_y1 + logic_cell_y2) / 2 + 0.0075 - (0.005 * 2) + lut_idx * logic_cell_pitch;
+        el.y2 = y + (logic_cell_y1 + logic_cell_y2 - logic_cell_pitch) / 2 + lut_idx * logic_cell_pitch + 0.003;
+        g.push_back(el);
+
+        el.x1 = x + logic_cell_x1 + 0.005 * 5;
+        el.y1 = el.y2;
         g.push_back(el);
         return;
     }
