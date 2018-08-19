@@ -736,7 +736,7 @@ void FPGAViewWidget::zoomOut() { zoom(-10); }
 
 void FPGAViewWidget::zoomToBB(const PickQuadTree::BoundingBox &bb, float margin)
 {
-    if (bb.w() < 0.00005 && bb.h() < 0.00005)
+    if (fabs(bb.w()) < 0.00005 && fabs(bb.h()) < 0.00005)
         return;
 
     viewMove_.setToIdentity();
