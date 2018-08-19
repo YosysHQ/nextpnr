@@ -411,6 +411,64 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId id,
         g.push_back(el);
     }
 
+    // Horizontal IO Span-4 Wires
+
+    if (id >= TILE_WIRE_SPAN4_HORZ_R_0 && id <= TILE_WIRE_SPAN4_HORZ_L_15) {
+        int idx = id - TILE_WIRE_SPAN4_HORZ_R_0;
+
+        float y1 = y + 1.0 - (0.03 + 0.0025 * (60 - idx));
+        float y2 = y + 1.0 - (0.03 + 0.0025 * (60 - idx - 4));
+
+        el.x1 = x;
+        el.x2 = x + 0.9;
+        el.y1 = y1;
+        el.y2 = y1;
+        g.push_back(el);
+
+        if (idx <= 15) {
+            el.x1 = x + 0.9;
+            el.x2 = x + 1.0;
+            el.y1 = y1;
+            el.y2 = y2;
+            g.push_back(el);
+        }
+
+        el.x1 = x + main_swbox_x1 + 0.0025 * (idx + 35);
+        el.x2 = el.x1;
+        el.y1 = y1;
+        el.y2 = y + main_swbox_y2;
+        g.push_back(el);
+    }
+
+    // Vertical IO Span-4 Wires
+
+    if (id >= TILE_WIRE_SPAN4_VERT_B_0 && id <= TILE_WIRE_SPAN4_VERT_T_15) {
+        int idx = id - TILE_WIRE_SPAN4_VERT_B_0;
+
+        float x1 = x + 0.03 + 0.0025 * (60 - idx);
+        float x2 = x + 0.03 + 0.0025 * (60 - idx - 4);
+
+        el.y1 = y + 1.00;
+        el.y2 = y + 0.10;
+        el.x1 = x1;
+        el.x2 = x1;
+        g.push_back(el);
+
+        if (idx <= 15) {
+            el.y1 = y + 0.10;
+            el.y2 = y;
+            el.x1 = x1;
+            el.x2 = x2;
+            g.push_back(el);
+        }
+
+        el.y1 = y + 1.0 - (0.03 + 0.0025 * (270 - idx));
+        el.y2 = el.y1;
+        el.x1 = x1;
+        el.x2 = x + main_swbox_x1;
+        g.push_back(el);
+    }
+
     // Global2Local
 
     if (id >= TILE_WIRE_GLB2LOCAL_0 && id <= TILE_WIRE_GLB2LOCAL_3) {
@@ -709,6 +767,21 @@ static bool getWireXY_main(GfxTileWireId id, float &x, float &y)
         y = 1.0 - (0.03 + 0.0025 * (300 - (idx ^ 1)));
         x = main_swbox_x1;
         return true;
+    }
+
+    // IO Span-4 Wires
+
+    if (id >= TILE_WIRE_SPAN4_HORZ_R_0 && id <= TILE_WIRE_SPAN4_HORZ_L_15) {
+        int idx = id - TILE_WIRE_SPAN4_HORZ_R_0;
+        y = main_swbox_y2;
+        x = main_swbox_x1 + 0.0025 * (idx + 35);
+        return true;
+    }
+
+    if (id >= TILE_WIRE_SPAN4_VERT_B_0 && id <= TILE_WIRE_SPAN4_VERT_T_15) {
+        int idx = id - TILE_WIRE_SPAN4_VERT_B_0;
+        y = 1.0 - (0.03 + 0.0025 * (270 - idx));
+        x = main_swbox_x1;
     }
 
     // Global2Local

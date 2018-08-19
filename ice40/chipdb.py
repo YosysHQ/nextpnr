@@ -1265,8 +1265,6 @@ for t in range(num_tile_types):
 bba.l("wire_data_%s" % dev_name, "WireInfoPOD")
 for wire, info in enumerate(wireinfo):
     bba.s(info["name"], "name")
-    bba.u32(wire, "netidx")
-
     bba.u32(info["num_uphill"], "num_uphill")
     bba.u32(info["num_downhill"], "num_downhill")
     bba.r(info["list_uphill"], "pips_uphill")

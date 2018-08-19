@@ -226,9 +226,12 @@ PortType Arch::getBelPinType(BelId bel, IdString pin) const
     return PORT_INOUT;
 }
 
-std::vector<std::pair<IdString, std::string>> Arch::getBelAttrs(BelId) const
+std::vector<std::pair<IdString, std::string>> Arch::getBelAttrs(BelId bel) const
 {
     std::vector<std::pair<IdString, std::string>> ret;
+
+    ret.push_back(std::make_pair(id("INDEX"), stringf("%d", bel.index)));
+
     return ret;
 }
 
@@ -342,7 +345,7 @@ std::vector<std::pair<IdString, std::string>> Arch::getWireAttrs(WireId wire) co
     std::vector<std::pair<IdString, std::string>> ret;
     auto &wi = chip_info->wire_data[wire.index];
 
-    ret.push_back(std::make_pair(id("INDEX"), stringf("%d", wi.netidx)));
+    ret.push_back(std::make_pair(id("INDEX"), stringf("%d", wire.index)));
 
     ret.push_back(std::make_pair(id("GRID_X"), stringf("%d", wi.x)));
     ret.push_back(std::make_pair(id("GRID_Y"), stringf("%d", wi.y)));
@@ -402,9 +405,12 @@ IdString Arch::getPipName(PipId pip) const
 
 IdString Arch::getPipType(PipId pip) const { return IdString(); }
 
-std::vector<std::pair<IdString, std::string>> Arch::getPipAttrs(PipId) const
+std::vector<std::pair<IdString, std::string>> Arch::getPipAttrs(PipId pip) const
 {
     std::vector<std::pair<IdString, std::string>> ret;
+
+    ret.push_back(std::make_pair(id("INDEX"), stringf("%d", pip.index)));
+
     return ret;
 }
 
