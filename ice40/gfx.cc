@@ -920,22 +920,22 @@ void pipGfx(std::vector<GraphicElement> &g, int x, int y, float x1, float y1, fl
     el.style = style;
 
     if (fabsf(x1 - swx1) < 0.001 && fabsf(x2 - swx1) < 0.001) {
-        tx = x1 + 0.25 * fabsf(y1 - y2);
+        tx = swx1 + 0.25 * fabsf(y1 - y2);
         goto edge_pip;
     }
 
     if (fabsf(x1 - swx2) < 0.001 && fabsf(x2 - swx2) < 0.001) {
-        tx = x1 - 0.25 * fabsf(y1 - y2);
+        tx = swx2 - 0.25 * fabsf(y1 - y2);
         goto edge_pip;
     }
 
     if (fabsf(y1 - swy1) < 0.001 && fabsf(y2 - swy1) < 0.001) {
-        ty = y1 + 0.25 * fabsf(x1 - x2);
+        ty = swy1 + 0.25 * fabsf(x1 - x2);
         goto edge_pip;
     }
 
-    if (fabsf(y1 - swy1) < 0.001 && fabsf(y2 - swy1) < 0.001) {
-        ty = y1 + 0.25 * fabsf(x1 - x2);
+    if (fabsf(y1 - swy2) < 0.001 && fabsf(y2 - swy2) < 0.001) {
+        ty = swy2 - 0.25 * fabsf(x1 - x2);
         goto edge_pip;
     }
 
