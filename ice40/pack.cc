@@ -733,7 +733,7 @@ static void pack_special(Context *ctx)
 
                 if (pi.name == ctx->id("PACKAGEPIN")) {
                     if (!is_pad) {
-                        log_error("  PLL '%s' has a PACKAGEPIN but is not a PAD PLL", ci->name.c_str(ctx));
+                        log_error("PLL '%s' has a PACKAGEPIN but is not a PAD PLL", ci->name.c_str(ctx));
                     } else {
                         // We drop this port and instead place the PLL adequately below.
                         pad_packagepin_net = port.second.net;
@@ -743,9 +743,22 @@ static void pack_special(Context *ctx)
                 }
                 if (pi.name == ctx->id("REFERENCECLK")) {
                     if (!is_core)
-                        log_error("  PLL '%s' has a REFERENCECLK but is not a CORE PLL", ci->name.c_str(ctx));
+                        log_error("PLL '%s' has a REFERENCECLK but is not a CORE PLL", ci->name.c_str(ctx));
                 }
 
+                if (packed->ports.count(ctx->id(newname)) == 0) {
+                    if (ci->ports[pi.name].net == nullptr) {
+                        log_warning("PLL '%s' has unknown unconnected port '%s' - ignoring\n", ci->name.c_str(ctx), pi.name.c_str(ctx));
+                        continue;
+                    } else {
+                        if (ctx->force) {
+                            log_error("PLL '%s' has unknown connected port '%s'\n", ci->name.c_str(ctx), pi.name.c_str(ctx));
+                        } else {
+                            log_warning("PLL '%s' has unknown connected port '%s' - ignoring\n", ci->name.c_str(ctx), pi.name.c_str(ctx));
+                            continue;
+                        }
+                    }
+                }
                 replace_port(ci, ctx->id(pi.name.c_str(ctx)), packed.get(), ctx->id(newname));
             }
 
@@ -766,7 +779,7 @@ static void pack_special(Context *ctx)
                         auto pll_packagepin_driver = pad_packagepin_net->driver;
                         NPNR_ASSERT(pll_packagepin_driver.cell != nullptr);
                         if (pll_packagepin_driver.cell->type != ctx->id("SB_IO")) {
-                            log_error("  PLL '%s' has a PACKAGEPIN driven by "
+                            log_error("PLL '%s' has a PACKAGEPIN driven by "
                                       "an %s, should be directly connected to an input SB_IO\n",
                                       ci->name.c_str(ctx), pll_packagepin_driver.cell->type.c_str(ctx));
                         }
@@ -774,17 +787,17 @@ static void pack_special(Context *ctx)
                         auto packagepin_cell = pll_packagepin_driver.cell;
                         auto packagepin_bel_name = packagepin_cell->attrs.find(ctx->id("BEL"));
                         if (packagepin_bel_name == packagepin_cell->attrs.end()) {
-                            log_error("  PLL '%s' PACKAGEPIN SB_IO '%s' is unconstrained\n", ci->name.c_str(ctx),
+                            log_error("PLL '%s' PACKAGEPIN SB_IO '%s' is unconstrained\n", ci->name.c_str(ctx),
                                       packagepin_cell->name.c_str(ctx));
                         }
                         auto packagepin_bel = ctx->getBelByName(ctx->id(packagepin_bel_name->second));
                         if (pll_sb_io_belpin.bel != packagepin_bel) {
-                            log_error("  PLL '%s' PACKAGEPIN is connected to pin %s, can only be pin %s\n",
+                            log_error("PLL '%s' PACKAGEPIN is connected to pin %s, can only be pin %s\n",
                                       ci->name.c_str(ctx), ctx->getBelPackagePin(packagepin_bel).c_str(),
                                       ctx->getBelPackagePin(pll_sb_io_belpin.bel).c_str());
                         }
                         if (pad_packagepin_net->users.size() != 1) {
-                            log_error("  PLL '%s' clock input '%s' can only drive PLL\n", ci->name.c_str(ctx),
+                            log_error("PLL '%s' clock input '%s' can only drive PLL\n", ci->name.c_str(ctx),
                                       pad_packagepin_net->name.c_str(ctx));
                         }
                         // Set an attribute about this PLL's PAD SB_IO.
@@ -793,13 +806,13 @@ static void pack_special(Context *ctx)
                         packagepin_cell->ports.erase(pll_packagepin_driver.port);
                     }
 
-                    log_info("  constrained '%s' to %s\n", packed->name.c_str(ctx), ctx->getBelName(bel).c_str(ctx));
+                    log_info("  constrained PLL '%s' to %s\n", packed->name.c_str(ctx), ctx->getBelName(bel).c_str(ctx));
                     packed->attrs[ctx->id("BEL")] = ctx->getBelName(bel).str(ctx);
                     pll_bel = bel;
                     constrained = true;
                 }
                 if (!constrained) {
-                    log_error("  could not constrain '%s' to any PLL Bel\n", packed->name.c_str(ctx));
+                    log_error("Could not constrain PLL '%s' to any PLL Bel (too many PLLs?)\n", packed->name.c_str(ctx));
                 }
             }
 
@@ -818,6 +831,8 @@ static void pack_special(Context *ctx)
             // If we have a net connected to LOCK, make sure it only drives LUTs.
             auto port = packed->ports[ctx->id("LOCK")];
             if (port.net != nullptr) {
+                log_info("  PLL '%s' has LOCK output, need to pass all outputs via LUT\n",
+                                ci->name.c_str(ctx));
                 bool found_lut = false;
                 bool all_luts = true;
                 unsigned int lut_count = 0;
@@ -835,12 +850,12 @@ static void pack_special(Context *ctx)
                     // Every user is a LUT, carry on now.
                 } else if (found_lut && !all_luts && lut_count < 8) {
                     // Strategy: create a pass-through LUT, move all non-LUT users behind it.
-                    log_info("    LUT strategy for %s: move non-LUT users to new LUT\n", port.name.c_str(ctx));
+                    log_info("  LUT strategy for %s: move non-LUT users to new LUT\n", port.name.c_str(ctx));
                     auto pt = spliceLUT(ctx, packed.get(), port.name, true);
                     new_cells.push_back(std::move(pt));
                 } else {
                     // Strategy: create a pass-through LUT, move every user behind it.
-                    log_info("    LUT strategy for %s: move all users to new LUT\n", port.name.c_str(ctx));
+                    log_info("  LUT strategy for %s: move all users to new LUT\n", port.name.c_str(ctx));
                     auto pt = spliceLUT(ctx, packed.get(), port.name, false);
                     new_cells.push_back(std::move(pt));
                 }
@@ -864,7 +879,7 @@ static void pack_special(Context *ctx)
                     auto target_bel = ctx->getBelByLocation(Loc(x, y, z++));
                     auto target_bel_name = ctx->getBelName(target_bel).str(ctx);
                     user.cell->attrs[ctx->id("BEL")] = target_bel_name;
-                    log_info("    constrained '%s' to %s\n", user.cell->name.c_str(ctx), target_bel_name.c_str());
+                    log_info("  constrained '%s' to %s\n", user.cell->name.c_str(ctx), target_bel_name.c_str());
                 }
             }
 
