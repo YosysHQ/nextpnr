@@ -729,7 +729,7 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
         GraphicElement::style_t style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
 
         for (int i = 0; i < n; i++)
-            gfxTileWire(ret, p[i].x, p[i].y, GfxTileWireId(p[i].index), style);
+            gfxTileWire(ret, p[i].x, p[i].y, chip_info->width, chip_info->height, GfxTileWireId(p[i].index), style);
     }
 
     if (decal.type == DecalId::TYPE_PIP) {

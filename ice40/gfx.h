@@ -713,7 +713,8 @@ enum GfxTileWireId
     TILE_WIRE_PLLOUT_B
 };
 
-void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId id, GraphicElement::style_t style);
+void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, GfxTileWireId id,
+                 GraphicElement::style_t style);
 void gfxTilePip(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId src, GfxTileWireId dst,
                 GraphicElement::style_t style);
 

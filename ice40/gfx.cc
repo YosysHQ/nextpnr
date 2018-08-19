@@ -21,7 +21,7 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId id, GraphicElement::style_t style)
+void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, GfxTileWireId id, GraphicElement::style_t style)
 {
     GraphicElement el;
     el.type = GraphicElement::TYPE_LINE;
@@ -459,6 +459,38 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId id,
             el.y2 = y;
             el.x1 = x1;
             el.x2 = x2;
+            g.push_back(el);
+        }
+
+        if (idx <= 15 && (x == 0 || x == w-1) && y == 1) {
+            float y1 = y - (0.03 + 0.0025 * (60 - idx - 4));
+
+            el.x1 = x2;
+            el.y1 = y;
+            el.x2 = x2;
+            el.y2 = y1;
+            g.push_back(el);
+
+            el.x1 = x2;
+            el.y1 = y1;
+            el.x2 = x + (x == 0);
+            el.y2 = y1;
+            g.push_back(el);
+        }
+
+        if (idx >= 4 && (x == 0 || x == w-1) && y == h-2) {
+            float y1 = y + 2.0 - (0.03 + 0.0025 * (60 - idx));
+
+            el.x1 = x1;
+            el.y1 = y + 1.0;
+            el.x2 = x1;
+            el.y2 = y1;
+            g.push_back(el);
+
+            el.x1 = x1;
+            el.y1 = y1;
+            el.x2 = x + (x == 0);
+            el.y2 = y1;
             g.push_back(el);
         }
 
