@@ -130,10 +130,53 @@ def process_loc_globals(chip):
             tapdrv = chip.global_data.get_tap_driver(y, x)
             global_data[x, y] = (quadrants.index(quad), int(tapdrv.dir), tapdrv.col)
 
+def get_wire_type(name):
+    if "H00" in name or "V00" in name:
+        return "X0"
+    if "H01" in name or "V01" in name:
+        return "X1"
+    if "H02" in name or "V02" in name:
+        return "X2"
+    if "H06" in name or "V06" in name:
+        return "X6"
+    if "_SLICE" in name or "_EBR" in name:
+        return "SLICE"
+    return "LOCAL"
+
+def get_pip_delay(wire_from, wire_to):
+    # ECP5 timings WIP!!!
+    type_from = get_wire_type(wire_from)
+    type_to = get_wire_type(wire_to)
+    if type_from == "X2" and type_to == "X2":
+        return 170
+    if type_from == "SLICE" or type_to == "SLICE":
+        return 205
+    if type_from in ("LOCAL", "X0") and type_to in ("X1", "X2", "X6"):
+        return 90
+    if type_from == "X6" or type_to == "X6":
+        return 200
+    if type_from in ("X1", "X2", "X6") and type_to in ("LOCAL", "X0"):
+        return 90
+    return 100
+
+
+
 def write_database(dev_name, chip, ddrg, endianness):
     def write_loc(loc, sym_name):
         bba.u16(loc.x, "%s.x" % sym_name)
         bba.u16(loc.y, "%s.y" % sym_name)
+
+    loctypes = list([_.key() for _ in ddrg.locationTypes])
+    loc_with_type = {}
+    for y in range(0, max_row+1):
+        for x in range(0, max_col+1):
+            loc_with_type[loctypes.index(ddrg.typeAtLocation[pytrellis.Location(x, y)])] = (x, y)
+
+    def get_wire_name(arc_loctype, rel, idx):
+        loc = loc_with_type[arc_loctype]
+        lt = ddrg.typeAtLocation[pytrellis.Location(loc[0] + rel.x, loc[1] + rel.y)]
+        wire = ddrg.locationTypes[lt].wires[idx]
+        return ddrg.to_str(wire.name)
 
     bba = BinaryBlobAssembler()
     bba.pre('#include "nextpnr.h"')
@@ -142,7 +185,6 @@ def write_database(dev_name, chip, ddrg, endianness):
     bba.push("chipdb_blob_%s" % dev_name)
     bba.r("chip_info", "chip_info")
 
-    loctypes = list([_.key() for _ in ddrg.locationTypes])
 
     for idx in range(len(loctypes)):
         loctype = ddrg.locationTypes[loctypes[idx]]
@@ -153,7 +195,7 @@ def write_database(dev_name, chip, ddrg, endianness):
                 write_loc(arc.sinkWire.rel, "dst")
                 bba.u32(arc.srcWire.id, "src_idx")
                 bba.u32(arc.sinkWire.id, "dst_idx")
-                bba.u32(arc.delay, "delay")  # TODO:delay
+                bba.u32(get_pip_delay(get_wire_name(idx, arc.srcWire.rel, arc.srcWire.id), get_wire_name(idx, arc.sinkWire.rel, arc.sinkWire.id)), "delay")  # TODO:delay
                 bba.u16(get_tiletype_index(ddrg.to_str(arc.tiletype)), "tile_type")
                 bba.u8(int(arc.cls), "pip_type")
                 bba.u8(0, "padding")
