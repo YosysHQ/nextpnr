@@ -92,6 +92,8 @@ Arch::Arch(ArchArgs args) : args(args)
 
     if (!package_info)
         log_error("Unsupported package '%s' for '%s'.\n", args.package.c_str(), getChipName().c_str());
+
+    bel_to_cell.resize(chip_info->height * chip_info->width * max_loc_bels, nullptr);
 }
 
 // -----------------------------------------------------------------------
@@ -432,7 +434,7 @@ DecalXY Arch::getBelDecal(BelId bel) const
     decalxy.decal.type = DecalId::TYPE_BEL;
     decalxy.decal.location = bel.location;
     decalxy.decal.z = bel.index;
-    decalxy.decal.active = bel_to_cell.count(bel) && (bel_to_cell.at(bel) != nullptr);
+    decalxy.decal.active = (bel_to_cell.at(getBelFlatIndex(bel)) != nullptr);
     return decalxy;
 }
 

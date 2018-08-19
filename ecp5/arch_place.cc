@@ -35,26 +35,26 @@ bool Arch::slicesCompatible(const std::vector<const CellInfo *> &cells) const
 {
     // TODO: allow different LSR/CLK and MUX/SRMODE settings once
     // routing details are worked out
-    NetInfo *clk_sig = nullptr, *lsr_sig = nullptr;
-    std::string CLKMUX, LSRMUX, SRMODE;
+    IdString clk_sig, lsr_sig;
+    IdString CLKMUX, LSRMUX, SRMODE;
     bool first = true;
     for (auto cell : cells) {
         if (first) {
-            clk_sig = port_or_nullptr(cell, id_CLK);
-            lsr_sig = port_or_nullptr(cell, id_LSR);
-            CLKMUX = str_or_default(cell->params, id_CLKMUX, "CLK");
-            LSRMUX = str_or_default(cell->params, id_LSRMUX, "LSR");
-            SRMODE = str_or_default(cell->params, id_SRMODE, "CE_OVER_LSR");
+            clk_sig = cell->sliceInfo.clk_sig;
+            lsr_sig = cell->sliceInfo.lsr_sig;
+            CLKMUX = cell->sliceInfo.clkmux;
+            LSRMUX = cell->sliceInfo.lsrmux;
+            SRMODE = cell->sliceInfo.srmode;
         } else {
-            if (port_or_nullptr(cell, id_CLK) != clk_sig)
+            if (cell->sliceInfo.clk_sig != clk_sig)
                 return false;
-            if (port_or_nullptr(cell, id_LSR) != lsr_sig)
+            if (cell->sliceInfo.lsr_sig != lsr_sig)
                 return false;
-            if (str_or_default(cell->params, id_CLKMUX, "CLK") != CLKMUX)
+            if (cell->sliceInfo.clkmux != CLKMUX)
                 return false;
-            if (str_or_default(cell->params, id_LSRMUX, "LSR") != LSRMUX)
+            if (cell->sliceInfo.lsrmux != LSRMUX)
                 return false;
-            if (str_or_default(cell->params, id_SRMODE, "CE_OVER_LSR") != SRMODE)
+            if (cell->sliceInfo.srmode != SRMODE)
                 return false;
         }
         first = false;
