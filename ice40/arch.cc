@@ -226,9 +226,12 @@ PortType Arch::getBelPinType(BelId bel, IdString pin) const
     return PORT_INOUT;
 }
 
-std::vector<std::pair<IdString, std::string>> Arch::getBelAttrs(BelId) const
+std::vector<std::pair<IdString, std::string>> Arch::getBelAttrs(BelId bel) const
 {
     std::vector<std::pair<IdString, std::string>> ret;
+
+    ret.push_back(std::make_pair(id("INDEX"), stringf("%d", bel.index)));
+
     return ret;
 }
 
@@ -342,7 +345,7 @@ std::vector<std::pair<IdString, std::string>> Arch::getWireAttrs(WireId wire) co
     std::vector<std::pair<IdString, std::string>> ret;
     auto &wi = chip_info->wire_data[wire.index];
 
-    ret.push_back(std::make_pair(id("INDEX"), stringf("%d", wi.netidx)));
+    ret.push_back(std::make_pair(id("INDEX"), stringf("%d", wire.index)));
 
     ret.push_back(std::make_pair(id("GRID_X"), stringf("%d", wi.x)));
     ret.push_back(std::make_pair(id("GRID_Y"), stringf("%d", wi.y)));
@@ -402,9 +405,12 @@ IdString Arch::getPipName(PipId pip) const
 
 IdString Arch::getPipType(PipId pip) const { return IdString(); }
 
-std::vector<std::pair<IdString, std::string>> Arch::getPipAttrs(PipId) const
+std::vector<std::pair<IdString, std::string>> Arch::getPipAttrs(PipId pip) const
 {
     std::vector<std::pair<IdString, std::string>> ret;
+
+    ret.push_back(std::make_pair(id("INDEX"), stringf("%d", pip.index)));
+
     return ret;
 }
 
@@ -723,7 +729,7 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
         GraphicElement::style_t style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
 
         for (int i = 0; i < n; i++)
-            gfxTileWire(ret, p[i].x, p[i].y, GfxTileWireId(p[i].index), style);
+            gfxTileWire(ret, p[i].x, p[i].y, chip_info->width, chip_info->height, GfxTileWireId(p[i].index), style);
     }
 
     if (decal.type == DecalId::TYPE_PIP) {

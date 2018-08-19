@@ -664,12 +664,57 @@ enum GfxTileWireId
     TILE_WIRE_SPAN12_HORZ_22,
     TILE_WIRE_SPAN12_HORZ_23,
 
+    TILE_WIRE_SPAN4_VERT_B_0,
+    TILE_WIRE_SPAN4_VERT_B_1,
+    TILE_WIRE_SPAN4_VERT_B_2,
+    TILE_WIRE_SPAN4_VERT_B_3,
+    TILE_WIRE_SPAN4_VERT_B_4,
+    TILE_WIRE_SPAN4_VERT_B_5,
+    TILE_WIRE_SPAN4_VERT_B_6,
+    TILE_WIRE_SPAN4_VERT_B_7,
+    TILE_WIRE_SPAN4_VERT_B_8,
+    TILE_WIRE_SPAN4_VERT_B_9,
+    TILE_WIRE_SPAN4_VERT_B_10,
+    TILE_WIRE_SPAN4_VERT_B_11,
+    TILE_WIRE_SPAN4_VERT_B_12,
+    TILE_WIRE_SPAN4_VERT_B_13,
+    TILE_WIRE_SPAN4_VERT_B_14,
+    TILE_WIRE_SPAN4_VERT_B_15,
+
+    TILE_WIRE_SPAN4_VERT_T_12,
+    TILE_WIRE_SPAN4_VERT_T_13,
+    TILE_WIRE_SPAN4_VERT_T_14,
+    TILE_WIRE_SPAN4_VERT_T_15,
+
+    TILE_WIRE_SPAN4_HORZ_R_0,
+    TILE_WIRE_SPAN4_HORZ_R_1,
+    TILE_WIRE_SPAN4_HORZ_R_2,
+    TILE_WIRE_SPAN4_HORZ_R_3,
+    TILE_WIRE_SPAN4_HORZ_R_4,
+    TILE_WIRE_SPAN4_HORZ_R_5,
+    TILE_WIRE_SPAN4_HORZ_R_6,
+    TILE_WIRE_SPAN4_HORZ_R_7,
+    TILE_WIRE_SPAN4_HORZ_R_8,
+    TILE_WIRE_SPAN4_HORZ_R_9,
+    TILE_WIRE_SPAN4_HORZ_R_10,
+    TILE_WIRE_SPAN4_HORZ_R_11,
+    TILE_WIRE_SPAN4_HORZ_R_12,
+    TILE_WIRE_SPAN4_HORZ_R_13,
+    TILE_WIRE_SPAN4_HORZ_R_14,
+    TILE_WIRE_SPAN4_HORZ_R_15,
+
+    TILE_WIRE_SPAN4_HORZ_L_12,
+    TILE_WIRE_SPAN4_HORZ_L_13,
+    TILE_WIRE_SPAN4_HORZ_L_14,
+    TILE_WIRE_SPAN4_HORZ_L_15,
+
     TILE_WIRE_PLLIN,
     TILE_WIRE_PLLOUT_A,
     TILE_WIRE_PLLOUT_B
 };
 
-void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId id, GraphicElement::style_t style);
+void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, GfxTileWireId id,
+                 GraphicElement::style_t style);
 void gfxTilePip(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId src, GfxTileWireId dst,
                 GraphicElement::style_t style);
 
