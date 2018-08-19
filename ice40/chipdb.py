@@ -727,10 +727,6 @@ def add_pip(src, dst, flags=0):
 
     pip_xy[(src, dst)] = (x, y, 0, len(switches) - 1, flags)
 
-# Add virtual padin wires
-for i in range(8):
-    add_wire(0, 0, "padin_%d" % i)
-
 def add_bel_input(bel, wire, port):
     if wire not in wire_belports:
         wire_belports[wire] = set()

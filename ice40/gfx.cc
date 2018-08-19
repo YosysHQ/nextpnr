@@ -814,6 +814,7 @@ static bool getWireXY_main(GfxTileWireId id, float &x, float &y)
         int idx = id - TILE_WIRE_SPAN4_VERT_B_0;
         y = 1.0 - (0.03 + 0.0025 * (270 - idx));
         x = main_swbox_x1;
+        return true;
     }
 
     // Global2Local

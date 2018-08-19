@@ -730,12 +730,28 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
 
         for (int i = 0; i < n; i++)
             gfxTileWire(ret, p[i].x, p[i].y, chip_info->width, chip_info->height, GfxTileWireId(p[i].index), style);
+
+#if 0
+        if (ret.empty()) {
+            WireId wire;
+            wire.index = decal.index;
+            log_warning("No gfx decal for wire %s (%d).\n", getWireName(wire).c_str(getCtx()), decal.index);
+        }
+#endif
     }
 
     if (decal.type == DecalId::TYPE_PIP) {
         const PipInfoPOD &p = chip_info->pip_data[decal.index];
         GraphicElement::style_t style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_HIDDEN;
         gfxTilePip(ret, p.x, p.y, GfxTileWireId(p.src_seg), GfxTileWireId(p.dst_seg), style);
+
+#if 0
+        if (ret.empty()) {
+            PipId pip;
+            pip.index = decal.index;
+            log_warning("No gfx decal for pip %s (%d).\n", getPipName(pip).c_str(getCtx()), decal.index);
+        }
+#endif
     }
 
     if (decal.type == DecalId::TYPE_BEL) {
@@ -782,6 +798,36 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
                 ret.push_back(el);
             }
         }
+
+        if (bel_type == id_SB_GB) {
+            GraphicElement el;
+            el.type = GraphicElement::TYPE_BOX;
+            el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
+            el.x1 = chip_info->bel_data[bel.index].x + local_swbox_x1 + 0.05;
+            el.x2 = chip_info->bel_data[bel.index].x + logic_cell_x2 - 0.05;
+            el.y1 = chip_info->bel_data[bel.index].y + main_swbox_y2 - 0.05;
+            el.y2 = chip_info->bel_data[bel.index].y + main_swbox_y2 - 0.10;
+            ret.push_back(el);
+        }
+
+        if (bel_type == id_ICESTORM_PLL || bel_type == id_SB_WARMBOOT) {
+            GraphicElement el;
+            el.type = GraphicElement::TYPE_BOX;
+            el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
+            el.x1 = chip_info->bel_data[bel.index].x + local_swbox_x1 + 0.05;
+            el.x2 = chip_info->bel_data[bel.index].x + logic_cell_x2 - 0.05;
+            el.y1 = chip_info->bel_data[bel.index].y + main_swbox_y2;
+            el.y2 = chip_info->bel_data[bel.index].y + main_swbox_y2 + 0.05;
+            ret.push_back(el);
+        }
+
+#if 0
+        if (ret.empty()) {
+            BelId bel;
+            bel.index = decal.index;
+            log_warning("No gfx decal for bel %s (%d).\n", getBelName(bel).c_str(getCtx()), decal.index);
+        }
+#endif
     }
 
     return ret;
