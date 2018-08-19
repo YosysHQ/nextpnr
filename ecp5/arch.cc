@@ -54,8 +54,7 @@ void IdString::initialize_arch(const BaseCtx *ctx)
 
 // -----------------------------------------------------------------------
 
-static const ChipInfoPOD *get_chip_info(const RelPtr<ChipInfoPOD> *ptr)
-{ return ptr->get(); }
+static const ChipInfoPOD *get_chip_info(const RelPtr<ChipInfoPOD> *ptr) { return ptr->get(); }
 
 #if defined(_MSC_VER)
 void load_chipdb();
@@ -384,16 +383,13 @@ delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
     return 100 * (abs(driver_loc.x - sink_loc.x) + abs(driver_loc.y - sink_loc.y));
 }
 
-bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const
-{ return false; }
+bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const { return false; }
 
 // -----------------------------------------------------------------------
 
-bool Arch::place()
-{ return placer1(getCtx(), Placer1Cfg(getCtx())); }
+bool Arch::place() { return placer1(getCtx(), Placer1Cfg(getCtx())); }
 
-bool Arch::route()
-{ return router1(getCtx(), Router1Cfg(getCtx())); }
+bool Arch::route() { return router1(getCtx(), Router1Cfg(getCtx())); }
 
 // -----------------------------------------------------------------------
 
@@ -414,8 +410,8 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
             el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
             el.x1 = bel.location.x + logic_cell_x1;
             el.x2 = bel.location.x + logic_cell_x2;
-            el.y1 = bel.location.y + logic_cell_y1 + (z) * logic_cell_pitch;
-            el.y2 = bel.location.y + logic_cell_y2 + (z) * logic_cell_pitch;
+            el.y1 = bel.location.y + logic_cell_y1 + (z)*logic_cell_pitch;
+            el.y2 = bel.location.y + logic_cell_y2 + (z)*logic_cell_pitch;
             ret.push_back(el);
         }
 
@@ -444,14 +440,11 @@ DecalXY Arch::getBelDecal(BelId bel) const
     return decalxy;
 }
 
-DecalXY Arch::getWireDecal(WireId wire) const
-{ return {}; }
+DecalXY Arch::getWireDecal(WireId wire) const { return {}; }
 
-DecalXY Arch::getPipDecal(PipId pip) const
-{ return {}; };
+DecalXY Arch::getPipDecal(PipId pip) const { return {}; };
 
-DecalXY Arch::getGroupDecal(GroupId pip) const
-{ return {}; };
+DecalXY Arch::getGroupDecal(GroupId pip) const { return {}; };
 
 // -----------------------------------------------------------------------
 
@@ -517,14 +510,10 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
             return true;
         }
 
-        if ((fromPort == id_A0 && toPort == id_WADO3) ||
-                (fromPort == id_A1 && toPort == id_WDO1) ||
-                (fromPort == id_B0 && toPort == id_WADO1) ||
-                (fromPort == id_B1 && toPort == id_WDO3) ||
-                (fromPort == id_C0 && toPort == id_WADO2) ||
-                (fromPort == id_C1 && toPort == id_WDO0) ||
-                (fromPort == id_D0 && toPort == id_WADO0) ||
-                (fromPort == id_D1 && toPort == id_WDO2)) {
+        if ((fromPort == id_A0 && toPort == id_WADO3) || (fromPort == id_A1 && toPort == id_WDO1) ||
+            (fromPort == id_B0 && toPort == id_WADO1) || (fromPort == id_B1 && toPort == id_WDO3) ||
+            (fromPort == id_C0 && toPort == id_WADO2) || (fromPort == id_C1 && toPort == id_WDO0) ||
+            (fromPort == id_D0 && toPort == id_WADO0) || (fromPort == id_D1 && toPort == id_WDO2)) {
             delay.delay = 0;
             return true;
         }
@@ -545,7 +534,8 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, Id
             return TMG_COMB_INPUT;
         if (port == id_F0 || port == id_F1 || port == id_FCO || port == id_OFX0 || port == id_OFX1)
             return TMG_COMB_OUTPUT;
-        if (port == id_DI0 || port == id_DI1 || port == id_CE || port == id_LSR || (sd0 == 1 && port == id_M0) || (sd1 == 1 && port == id_M1)) {
+        if (port == id_DI0 || port == id_DI1 || port == id_CE || port == id_LSR || (sd0 == 1 && port == id_M0) ||
+            (sd1 == 1 && port == id_M1)) {
             clockPort = id_CLK;
             return TMG_REGISTER_INPUT;
         }
@@ -556,10 +546,12 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, Id
             return TMG_REGISTER_OUTPUT;
         }
 
-        if (port == id_WDO0 || port == id_WDO1 || port == id_WDO2 || port == id_WDO3 || port == id_WADO0 || port == id_WADO1 || port == id_WADO2 || port == id_WADO3)
+        if (port == id_WDO0 || port == id_WDO1 || port == id_WDO2 || port == id_WDO3 || port == id_WADO0 ||
+            port == id_WADO1 || port == id_WADO2 || port == id_WADO3)
             return TMG_COMB_OUTPUT;
 
-        if (port == id_WD0 || port == id_WD1 || port == id_WAD0 || port == id_WAD1 || port == id_WAD2 || port == id_WAD3 || port == id_WRE) {
+        if (port == id_WD0 || port == id_WD1 || port == id_WAD0 || port == id_WAD1 || port == id_WAD2 ||
+            port == id_WAD3 || port == id_WRE) {
             clockPort = id_WCK;
             return TMG_REGISTER_INPUT;
         }
