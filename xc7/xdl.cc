@@ -41,6 +41,16 @@ void write_xdl(const Context *ctx, std::ostream &out)
     std::vector<std::pair<std::string,std::string>> lut_inputs;
     lut_inputs.reserve(6);
 
+    auto bel_to_lut = [](const BelId bel) {
+        switch (torc_info->bel_to_z[bel.index]) {
+            case 0: case 4: return "A"; break;
+            case 1: case 5: return "B"; break;
+            case 2: case 6: return "C"; break;
+            case 3: case 7: return "D"; break;
+            default: throw;
+        }
+    };
+
     for (const auto& cell : ctx->cells) {
         const char* type;
         if (cell.second->type == id_SLICE_LUT6) type = "SLICEL";
@@ -66,14 +76,7 @@ void write_xdl(const Context *ctx, std::ostream &out)
 
         if (cell.second->type == id_SLICE_LUT6) {
             std::string setting, value;
-            std::string lut;
-            switch (torc_info->bel_to_z[cell.second->bel.index]) {
-                case 0: case 4: lut = 'A'; break;
-                case 1: case 5: lut = 'B'; break;
-                case 2: case 6: lut = 'C'; break;
-                case 3: case 7: lut = 'D'; break;
-                default: throw;
-            }
+            const std::string lut = bel_to_lut(cell.second->bel);
 
             setting = lut + "6LUT";
             value = "#LUT:O6=";
@@ -149,6 +152,41 @@ void write_xdl(const Context *ctx, std::ostream &out)
         else if (cell.second->type == id_BUFGCTRL) {
         }
         else log_error("Unsupported cell type '%s'.\n", cell.second->type.c_str(ctx));
+    }
+
+    for (const auto &net : ctx->nets) {
+        const auto &driver = net.second->driver;
+
+        auto site_index = torc_info->bel_to_site_index[driver.cell->bel.index];
+        auto instPtr = site_to_instance.at(site_index);
+
+        auto netPtr = Factory::newNetPtr(net.second->name.str(ctx));
+
+        auto pin_name = driver.port.str(ctx);
+        // For all LUT based inputs and outputs (I1-I6,O,OQ,OMUX) then change the I/O into the LUT
+        if (driver.cell->type == id_SLICE_LUT6 && (pin_name[0] == 'I' || pin_name[0] == 'O')) {
+            const auto lut = bel_to_lut(driver.cell->bel);
+            pin_name[0] = lut[0];
+        }
+        auto pinPtr = Factory::newInstancePinPtr(instPtr, pin_name);
+        netPtr->addSource(pinPtr);
+
+        for (const auto &user : net.second->users) {
+            site_index = torc_info->bel_to_site_index[user.cell->bel.index];
+            instPtr = site_to_instance.at(site_index);
+
+            pin_name = user.port.str(ctx);
+            // For all LUT based inputs and outputs (I1-I6,O,OQ,OMUX) then change the I/O into the LUT
+            if (user.cell->type == id_SLICE_LUT6 && (pin_name[0] == 'I' || pin_name[0] == 'O')) {
+                const auto lut = bel_to_lut(user.cell->bel);
+                pin_name[0] = lut[0];
+            }
+            pinPtr = Factory::newInstancePinPtr(instPtr, pin_name);
+            netPtr->addSink(pinPtr);
+        }
+
+        auto b = designPtr->addNet(netPtr);
+        assert(b);
     }
 
     exporter(designPtr);
