@@ -44,7 +44,7 @@ std::unique_ptr<CellInfo> create_ice_cell(Context *ctx, IdString type, std::stri
     new_cell->type = type;
     if (type == ctx->id("XC7_LC")) {
         new_cell->type = id_SLICE_LUT6;
-        new_cell->params[ctx->id("LUT_INIT")] = "0";
+        new_cell->params[ctx->id("INIT")] = "0";
         new_cell->params[ctx->id("NEG_CLK")] = "0";
         new_cell->params[ctx->id("CARRY_ENABLE")] = "0";
         new_cell->params[ctx->id("DFF_ENABLE")] = "0";
@@ -258,7 +258,7 @@ std::unique_ptr<CellInfo> create_ice_cell(Context *ctx, IdString type, std::stri
 
 void lut_to_lc(const Context *ctx, CellInfo *lut, CellInfo *lc, bool no_dff)
 {
-    lc->params[ctx->id("LUT_INIT")] = lut->params[ctx->id("LUT_INIT")];
+    lc->params[ctx->id("INIT")] = lut->params[ctx->id("INIT")];
     replace_port(lut, ctx->id("I0"), lc, id_I1);
     if (get_net_or_empty(lut, id_I1))
         replace_port(lut, id_I1, lc, id_I2);
@@ -317,7 +317,7 @@ void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc, bool pass_thru_l
     NPNR_ASSERT(citer == config.end());
 
     if (pass_thru_lut) {
-        lc->params[ctx->id("LUT_INIT")] = "2";
+        lc->params[ctx->id("INIT")] = "1";
         replace_port(dff, ctx->id("D"), lc, id_I1);
     }
 

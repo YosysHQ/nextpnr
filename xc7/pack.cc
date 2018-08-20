@@ -332,7 +332,7 @@ static void pack_constants(Context *ctx)
     log_info("Packing constants..\n");
 
     std::unique_ptr<CellInfo> gnd_cell = create_ice_cell(ctx, ctx->id("XC7_LC"), "$PACKER_GND");
-    gnd_cell->params[ctx->id("LUT_INIT")] = "0";
+    gnd_cell->params[ctx->id("INIT")] = "0";
     std::unique_ptr<NetInfo> gnd_net = std::unique_ptr<NetInfo>(new NetInfo);
     gnd_net->name = ctx->id("$PACKER_GND_NET");
     gnd_net->driver.cell = gnd_cell.get();
@@ -340,7 +340,7 @@ static void pack_constants(Context *ctx)
     gnd_cell->ports.at(id_O).net = gnd_net.get();
 
     std::unique_ptr<CellInfo> vcc_cell = create_ice_cell(ctx, ctx->id("XC7_LC"), "$PACKER_VCC");
-    vcc_cell->params[ctx->id("LUT_INIT")] = "1";
+    vcc_cell->params[ctx->id("INIT")] = "1";
     std::unique_ptr<NetInfo> vcc_net = std::unique_ptr<NetInfo>(new NetInfo);
     vcc_net->name = ctx->id("$PACKER_VCC_NET");
     vcc_net->driver.cell = vcc_cell.get();
@@ -585,7 +585,7 @@ static std::unique_ptr<CellInfo> spliceLUT(Context *ctx, CellInfo *ci, IdString 
     // Create pass-through LUT.
     std::unique_ptr<CellInfo> pt = create_ice_cell(ctx, ctx->id("XC7_LC"),
                                                    ci->name.str(ctx) + "$nextpnr_" + portId.str(ctx) + "_lut_through");
-    pt->params[ctx->id("LUT_INIT")] = "65280"; // output is always I3
+    pt->params[ctx->id("INIT")] = "65280"; // output is always I3
 
     // Create LUT output net.
     std::unique_ptr<NetInfo> out_net = std::unique_ptr<NetInfo>(new NetInfo);
