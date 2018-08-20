@@ -81,12 +81,12 @@ void write_xdl(const Context *ctx, std::ostream &out)
             setting = lut + "6LUT";
             value = "#LUT:O6=";
             lut_inputs.clear();
-            if (get_net_or_empty(cell.second.get(), id_I1)) lut_inputs.emplace_back(lut + "1", "~" + lut + "1");
-            if (get_net_or_empty(cell.second.get(), id_I2)) lut_inputs.emplace_back(lut + "2", "~" + lut + "2");
-            if (get_net_or_empty(cell.second.get(), id_I3)) lut_inputs.emplace_back(lut + "3", "~" + lut + "3");
-            if (get_net_or_empty(cell.second.get(), id_I4)) lut_inputs.emplace_back(lut + "4", "~" + lut + "4");
-            if (get_net_or_empty(cell.second.get(), id_I5)) lut_inputs.emplace_back(lut + "5", "~" + lut + "5");
-            if (get_net_or_empty(cell.second.get(), id_I6)) lut_inputs.emplace_back(lut + "6", "~" + lut + "6");
+            if (get_net_or_empty(cell.second.get(), id_I1)) lut_inputs.emplace_back("A1", "~A1");
+            if (get_net_or_empty(cell.second.get(), id_I2)) lut_inputs.emplace_back("A2", "~A2");
+            if (get_net_or_empty(cell.second.get(), id_I3)) lut_inputs.emplace_back("A3", "~A3");
+            if (get_net_or_empty(cell.second.get(), id_I4)) lut_inputs.emplace_back("A4", "~A4");
+            if (get_net_or_empty(cell.second.get(), id_I5)) lut_inputs.emplace_back("A5", "~A5");
+            if (get_net_or_empty(cell.second.get(), id_I6)) lut_inputs.emplace_back("A6", "~A6");
             const auto& init = cell.second->params[ctx->id("INIT")];
             // Assume from Yosys that INIT masks of less than 32 bits are output as uint32_t
             if (lut_inputs.size() < 6) {
@@ -110,14 +110,15 @@ void write_xdl(const Context *ctx, std::ostream &out)
             // Otherwise as a bit string
             else {
                 NPNR_ASSERT(init.size() == (1u << lut_inputs.size()));
+                unsigned n = 0;
                 for (unsigned i = 0; i < (1u << lut_inputs.size()); ++i) {
                     if (init[i] == '0') continue;
-                    if (i > 0) value += "+";
+                    if (n++ > 0) value += "+";
                     value += "(";
                     value += (i & 1) ? lut_inputs[0].first : lut_inputs[0].second;
-                    for (unsigned i = 1; i < lut_inputs.size(); ++i) {
+                    for (unsigned j = 1; j < lut_inputs.size(); ++j) {
                         value += "*";
-                        value += i & (1 << i) ? lut_inputs[i].first : lut_inputs[i].second;
+                        value += i & (1 << j) ? lut_inputs[j].first : lut_inputs[j].second;
                     }
                     value += ")";
                 }
