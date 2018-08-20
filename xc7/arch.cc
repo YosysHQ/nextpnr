@@ -235,9 +235,8 @@ WireId Arch::getBelPinWire(BelId bel, IdString pin) const
 {
     WireId ret;
 
-    auto site_index = torc_info->bel_to_site_index[bel.index];
     auto pin_name = pin.str(this);
-    if (torc_info->site_index_to_type[site_index] == id_SLICE_LUT6) {
+    if (getBelType(bel) == id_SLICE_LUT6) {
         // For all LUT based inputs (I1-I6,O,OQ,OMUX) then change the I/O into the LUT
         if (pin_name[0] == 'I' || pin_name[0] == 'O') {
             switch (torc_info->bel_to_z[bel.index]) {
@@ -249,6 +248,7 @@ WireId Arch::getBelPinWire(BelId bel, IdString pin) const
             }
         }
     }
+    auto site_index = torc_info->bel_to_site_index[bel.index];
     auto &site = torc_info->sites.getSite(site_index);
     ret.index = site.getPinTilewire(pin_name);
 

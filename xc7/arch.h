@@ -449,8 +449,7 @@ struct Arch : BaseCtx
     {
         NPNR_ASSERT(bel != BelId());
         auto name = torc_info->bel_to_name(bel.index);
-        auto site_index = torc_info->bel_to_site_index[bel.index];
-        if (torc_info->site_index_to_type[site_index] == id_SLICE_LUT6) {
+        if (getBelType(bel) == id_SLICE_LUT6) {
             // Append LUT name to name
             name.reserve(name.size() + 2);
             name += "_";
