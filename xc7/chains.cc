@@ -127,7 +127,7 @@ class ChainConstrainer
     CellInfo *make_carry_pass_out(PortInfo &cout_port)
     {
         NPNR_ASSERT(cout_port.net != nullptr);
-        std::unique_ptr<CellInfo> lc = create_ice_cell(ctx, ctx->id("ICESTORM_LC"));
+        std::unique_ptr<CellInfo> lc = create_xc7_cell(ctx, ctx->id("ICESTORM_LC"));
         lc->params[ctx->id("LUT_INIT")] = "65280"; // 0xff00: O = I3
         lc->params[ctx->id("CARRY_ENABLE")] = "1";
         lc->ports.at(ctx->id("O")).net = cout_port.net;
@@ -158,7 +158,7 @@ class ChainConstrainer
     CellInfo *make_carry_feed_in(CellInfo *cin_cell, PortInfo &cin_port)
     {
         NPNR_ASSERT(cin_port.net != nullptr);
-        std::unique_ptr<CellInfo> lc = create_ice_cell(ctx, ctx->id("ICESTORM_LC"));
+        std::unique_ptr<CellInfo> lc = create_xc7_cell(ctx, ctx->id("ICESTORM_LC"));
         lc->params[ctx->id("CARRY_ENABLE")] = "1";
         lc->params[ctx->id("CIN_CONST")] = "1";
         lc->params[ctx->id("CIN_SET")] = "1";

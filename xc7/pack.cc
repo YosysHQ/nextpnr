@@ -42,7 +42,7 @@ static void pack_lut_lutffs(Context *ctx)
         if (ctx->verbose)
             log_info("cell '%s' is of type '%s'\n", ci->name.c_str(ctx), ci->type.c_str(ctx));
         if (is_lut(ctx, ci)) {
-            std::unique_ptr<CellInfo> packed = create_ice_cell(ctx, ctx->id("XC7_LC"), ci->name.str(ctx) + "_LC");
+            std::unique_ptr<CellInfo> packed = create_xc7_cell(ctx, ctx->id("XC7_LC"), ci->name.str(ctx) + "_LC");
             std::copy(ci->attrs.begin(), ci->attrs.end(), std::inserter(packed->attrs, packed->attrs.begin()));
             packed_cells.insert(ci->name);
             if (ctx->verbose)
@@ -97,7 +97,7 @@ static void pack_nonlut_ffs(Context *ctx)
         CellInfo *ci = cell.second;
         if (is_ff(ctx, ci)) {
             std::unique_ptr<CellInfo> packed =
-                    create_ice_cell(ctx, ctx->id("XC7_LC"), ci->name.str(ctx) + "_DFFLC");
+                    create_xc7_cell(ctx, ctx->id("XC7_LC"), ci->name.str(ctx) + "_DFFLC");
             std::copy(ci->attrs.begin(), ci->attrs.end(), std::inserter(packed->attrs, packed->attrs.begin()));
             if (ctx->verbose)
                 log_info("packed cell %s into %s\n", ci->name.c_str(ctx), packed->name.c_str(ctx));
@@ -192,7 +192,7 @@ static void pack_carries(Context *ctx)
             } else {
                 // No LC to pack into matching I0/I1, insert a new one
                 std::unique_ptr<CellInfo> created_lc =
-                        create_ice_cell(ctx, ctx->id("XC7_LC"), cell.first.str(ctx) + "$CARRY");
+                        create_xc7_cell(ctx, ctx->id("XC7_LC"), cell.first.str(ctx) + "$CARRY");
                 carry_lc = created_lc.get();
                 created_lc->ports.at(ctx->id("I1")).net = i0_net;
                 if (i0_net) {
@@ -263,7 +263,7 @@ static void pack_ram(Context *ctx)
         CellInfo *ci = cell.second;
         if (is_ram(ctx, ci)) {
             std::unique_ptr<CellInfo> packed =
-                    create_ice_cell(ctx, ctx->id("ICESTORM_RAM"), ci->name.str(ctx) + "_RAM");
+                    create_xc7_cell(ctx, ctx->id("ICESTORM_RAM"), ci->name.str(ctx) + "_RAM");
             packed_cells.insert(ci->name);
             for (auto param : ci->params)
                 packed->params[param.first] = param.second;
@@ -331,7 +331,7 @@ static void pack_constants(Context *ctx)
 {
     log_info("Packing constants..\n");
 
-    std::unique_ptr<CellInfo> gnd_cell = create_ice_cell(ctx, ctx->id("XC7_LC"), "$PACKER_GND");
+    std::unique_ptr<CellInfo> gnd_cell = create_xc7_cell(ctx, ctx->id("XC7_LC"), "$PACKER_GND");
     gnd_cell->params[ctx->id("INIT")] = "0";
     std::unique_ptr<NetInfo> gnd_net = std::unique_ptr<NetInfo>(new NetInfo);
     gnd_net->name = ctx->id("$PACKER_GND_NET");
@@ -339,7 +339,7 @@ static void pack_constants(Context *ctx)
     gnd_net->driver.port = id_O;
     gnd_cell->ports.at(id_O).net = gnd_net.get();
 
-    std::unique_ptr<CellInfo> vcc_cell = create_ice_cell(ctx, ctx->id("XC7_LC"), "$PACKER_VCC");
+    std::unique_ptr<CellInfo> vcc_cell = create_xc7_cell(ctx, ctx->id("XC7_LC"), "$PACKER_VCC");
     vcc_cell->params[ctx->id("INIT")] = "1";
     std::unique_ptr<NetInfo> vcc_net = std::unique_ptr<NetInfo>(new NetInfo);
     vcc_net->name = ctx->id("$PACKER_VCC_NET");
@@ -423,7 +423,7 @@ static void pack_io(Context *ctx)
             } else {
                 // Create a IOBUF buffer
                 std::unique_ptr<CellInfo> ice_cell =
-                        create_ice_cell(ctx, ctx->id("IOBUF"), ci->name.str(ctx) + "$iob");
+                        create_xc7_cell(ctx, ctx->id("IOBUF"), ci->name.str(ctx) + "$iob");
                 nxio_to_sb(ctx, ci, ice_cell.get());
                 new_cells.push_back(std::move(ice_cell));
                 sb = new_cells.back().get();
@@ -453,7 +453,7 @@ static void insert_global(Context *ctx, NetInfo *net, bool is_reset, bool is_cen
 {
     asm("int3");
     std::string glb_name = net->name.str(ctx) + std::string("_$glb_") + (is_reset ? "sr" : (is_cen ? "ce" : "clk"));
-    std::unique_ptr<CellInfo> gb = create_ice_cell(ctx, id_BUFGCTRL, "$bufg_" + glb_name);
+    std::unique_ptr<CellInfo> gb = create_xc7_cell(ctx, id_BUFGCTRL, "$bufg_" + glb_name);
     gb->ports[ctx->id("I0")].net = net;
     PortRef pr;
     pr.cell = gb.get();
@@ -583,7 +583,7 @@ static std::unique_ptr<CellInfo> spliceLUT(Context *ctx, CellInfo *ci, IdString 
     NPNR_ASSERT(port.net != nullptr);
 
     // Create pass-through LUT.
-    std::unique_ptr<CellInfo> pt = create_ice_cell(ctx, ctx->id("XC7_LC"),
+    std::unique_ptr<CellInfo> pt = create_xc7_cell(ctx, ctx->id("XC7_LC"),
                                                    ci->name.str(ctx) + "$nextpnr_" + portId.str(ctx) + "_lut_through");
     pt->params[ctx->id("INIT")] = "65280"; // output is always I3
 
@@ -636,7 +636,7 @@ static void pack_special(Context *ctx)
         CellInfo *ci = cell.second;
         if (is_sb_lfosc(ctx, ci)) {
             std::unique_ptr<CellInfo> packed =
-                    create_ice_cell(ctx, ctx->id("ICESTORM_LFOSC"), ci->name.str(ctx) + "_OSC");
+                    create_xc7_cell(ctx, ctx->id("ICESTORM_LFOSC"), ci->name.str(ctx) + "_OSC");
             packed_cells.insert(ci->name);
             replace_port(ci, ctx->id("CLKLFEN"), packed.get(), ctx->id("CLKLFEN"));
             replace_port(ci, ctx->id("CLKLFPU"), packed.get(), ctx->id("CLKLFPU"));
@@ -648,7 +648,7 @@ static void pack_special(Context *ctx)
             new_cells.push_back(std::move(packed));
         } else if (is_sb_hfosc(ctx, ci)) {
             std::unique_ptr<CellInfo> packed =
-                    create_ice_cell(ctx, ctx->id("ICESTORM_HFOSC"), ci->name.str(ctx) + "_OSC");
+                    create_xc7_cell(ctx, ctx->id("ICESTORM_HFOSC"), ci->name.str(ctx) + "_OSC");
             packed_cells.insert(ci->name);
             packed->params[ctx->id("CLKHF_DIV")] = str_or_default(ci->params, ctx->id("CLKHF_DIV"), "0b00");
             replace_port(ci, ctx->id("CLKHFEN"), packed.get(), ctx->id("CLKHFEN"));
@@ -661,7 +661,7 @@ static void pack_special(Context *ctx)
             new_cells.push_back(std::move(packed));
         } else if (is_sb_spram(ctx, ci)) {
             std::unique_ptr<CellInfo> packed =
-                    create_ice_cell(ctx, ctx->id("ICESTORM_SPRAM"), ci->name.str(ctx) + "_RAM");
+                    create_xc7_cell(ctx, ctx->id("ICESTORM_SPRAM"), ci->name.str(ctx) + "_RAM");
             packed_cells.insert(ci->name);
             for (auto port : ci->ports) {
                 PortInfo &pi = port.second;
@@ -675,7 +675,7 @@ static void pack_special(Context *ctx)
             new_cells.push_back(std::move(packed));
         } else if (is_sb_mac16(ctx, ci)) {
             std::unique_ptr<CellInfo> packed =
-                    create_ice_cell(ctx, ctx->id("ICESTORM_DSP"), ci->name.str(ctx) + "_DSP");
+                    create_xc7_cell(ctx, ctx->id("ICESTORM_DSP"), ci->name.str(ctx) + "_DSP");
             packed_cells.insert(ci->name);
             for (auto attr : ci->attrs)
                 packed->attrs[attr.first] = attr.second;
@@ -697,7 +697,7 @@ static void pack_special(Context *ctx)
             bool is_core = !is_pad;
 
             std::unique_ptr<CellInfo> packed =
-                    create_ice_cell(ctx, ctx->id("ICESTORM_PLL"), ci->name.str(ctx) + "_PLL");
+                    create_xc7_cell(ctx, ctx->id("ICESTORM_PLL"), ci->name.str(ctx) + "_PLL");
             packed->attrs[ctx->id("TYPE")] = ci->type.str(ctx);
             packed_cells.insert(ci->name);
 
