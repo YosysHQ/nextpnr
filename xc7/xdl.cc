@@ -125,10 +125,13 @@ void write_xdl(const Context *ctx, std::ostream &out)
             }
 
             auto O = get_net_or_empty(cell.second.get(), id_O);
+            std::string lut_name;
             if (O)
-                instPtr->setConfig(setting, O->name.str(ctx), value);
+                lut_name = O->name.str(ctx);
             else
-                instPtr->setConfig(setting, cell.second->name.str(ctx), value);
+                lut_name = cell.second->name.str(ctx);
+            boost::replace_all(lut_name, ":", "\\:");
+            instPtr->setConfig(setting, lut_name, value);
 
             auto OQ = get_net_or_empty(cell.second.get(), id_OQ);
             if (OQ) {
