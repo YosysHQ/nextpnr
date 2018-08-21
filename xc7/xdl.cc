@@ -75,7 +75,7 @@ void write_xdl(const Context *ctx, std::ostream &out)
             instPtr = ret.first->second;
 
         if (cell.second->type == id_SLICE_LUT6) {
-            std::string setting, value;
+            std::string setting, name, value;
             const std::string lut = bel_to_lut(cell.second->bel);
 
             setting = lut + "6LUT";
@@ -125,19 +125,20 @@ void write_xdl(const Context *ctx, std::ostream &out)
             }
 
             auto O = get_net_or_empty(cell.second.get(), id_O);
-            std::string lut_name;
             if (O)
-                lut_name = O->name.str(ctx);
+                name = O->name.str(ctx);
             else
-                lut_name = cell.second->name.str(ctx);
-            boost::replace_all(lut_name, ":", "\\:");
-            instPtr->setConfig(setting, lut_name, value);
+                name = cell.second->name.str(ctx);
+            boost::replace_all(name, ":", "\\:");
+            instPtr->setConfig(setting, name, value);
 
             auto OQ = get_net_or_empty(cell.second.get(), id_OQ);
             if (OQ) {
                 setting = lut;
                 setting += "FF";
-                instPtr->setConfig(setting, OQ->name.c_str(ctx), "#FF");
+                name = OQ->name.str(ctx);
+                boost::replace_all(name, ":", "\\:");
+                instPtr->setConfig(setting, name, "#FF");
             }
         }
         else if (cell.second->type == id_IOB33S) {
