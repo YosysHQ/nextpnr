@@ -35,7 +35,7 @@ NEXTPNR_NAMESPACE_BEGIN
 void write_xdl(const Context *ctx, std::ostream &out)
 {
     XdlExporter exporter(out);
-    auto designPtr = Factory::newDesignPtr("name", torc_info->ddb->getDeviceName(), "clg484", "", "");
+    auto designPtr = Factory::newDesignPtr("name", torc_info->ddb->getDeviceName(), "clg484", "-1", "");
 
     std::unordered_map<int32_t,InstanceSharedPtr> site_to_instance;
     std::vector<std::pair<std::string,std::string>> lut_inputs;
@@ -54,7 +54,12 @@ void write_xdl(const Context *ctx, std::ostream &out)
     for (const auto& cell : ctx->cells) {
         const char* type;
         if (cell.second->type == id_SLICE_LUT6) type = "SLICEL";
-        else if (cell.second->type == id_IOB) type = "IOB33S";
+        else if (cell.second->type == id_IOB) {
+            auto site_index = torc_info->bel_to_site_index[cell.second->bel.index];
+            const auto &site = torc_info->sites.getSite(site_index);
+            auto prim_def = site.getPrimitiveDefPtr();
+            type = prim_def->getName().c_str();
+        }
         else if (cell.second->type == id_BUFGCTRL) type = "BUFGCTRL";
         else log_error("Unsupported cell type '%s'.\n", cell.second->type.c_str(ctx));
 
@@ -94,10 +99,11 @@ void write_xdl(const Context *ctx, std::ostream &out)
                 NPNR_ASSERT(init_as_uint < (1ull << (1u << lut_inputs.size())));
                 if (lut_inputs.empty())
                     value += init;
-                else
+                else {
+                    unsigned n = 0;
                     for (unsigned o = 0; o < (1u << lut_inputs.size()); ++o) {
                         if ((init_as_uint >> o) & 0x1) continue;
-                        if (o > 0) value += "+";
+                        if (n++ > 0) value += "+";
                         value += "(";
                         value += (o & 1) ? lut_inputs[0].first : lut_inputs[0].second;
                         for (unsigned i = 1; i < lut_inputs.size(); ++i) {
@@ -106,6 +112,7 @@ void write_xdl(const Context *ctx, std::ostream &out)
                         }
                         value += ")";
                     }
+                }
             }
             // Otherwise as a bit string
             else {
@@ -148,7 +155,7 @@ void write_xdl(const Context *ctx, std::ostream &out)
                 instPtr->setConfig("ISTANDARD", "", "LVCMOS25");
             }
             else {
-                instPtr->setConfig("OUSED", "", "0");
+                //instPtr->setConfig("OUSED", "", "0");
                 instPtr->setConfig("OSTANDARD", "", "LVCMOS25");
                 instPtr->setConfig("DRIVE", "", "12");
                 instPtr->setConfig("SLEW", "", "SLOW");
