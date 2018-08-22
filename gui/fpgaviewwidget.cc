@@ -781,4 +781,12 @@ void FPGAViewWidget::zoomOutbound()
     }
 }
 
+void FPGAViewWidget::leaveEvent(QEvent *event)
+{
+    QMutexLocker locked(&rendererArgsLock_);
+    rendererArgs_->hoveredDecal = DecalXY();
+    rendererArgs_->changed = true;
+    pokeRenderer();
+}
+
 NEXTPNR_NAMESPACE_END

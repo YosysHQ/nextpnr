@@ -107,6 +107,7 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     void wheelEvent(QWheelEvent *event) Q_DECL_OVERRIDE;
     QSize minimumSizeHint() const override;
     QSize sizeHint() const override;
+    void leaveEvent(QEvent *event) override;
 
   public Q_SLOTS:
     void newContext(Context *ctx);
