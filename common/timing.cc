@@ -410,12 +410,13 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_path)
     log_info("estimated Fmax = %.2f MHz\n", 1e3 / ctx->getDelayNS(default_slack - min_slack));
 
     if (print_histogram && slack_histogram.size() > 0) {
-        constexpr unsigned num_bins = 20;
+        unsigned num_bins = 20;
         unsigned bar_width = 60;
         auto min_slack = slack_histogram.begin()->first;
         auto max_slack = slack_histogram.rbegin()->first;
-        auto bin_size = (max_slack - min_slack) / num_bins;
-        std::vector<unsigned> bins(num_bins + 1);
+        auto bin_size = std::max(1u, (max_slack - min_slack) / num_bins);
+        num_bins = std::min((max_slack - min_slack) / bin_size, num_bins) + 1;
+        std::vector<unsigned> bins(num_bins);
         unsigned max_freq = 0;
         for (const auto &i : slack_histogram) {
             auto &bin = bins[(i.first - min_slack) / bin_size];
@@ -428,7 +429,7 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_path)
         log_info("Slack histogram:\n");
         log_info(" legend: * represents %d endpoint(s)\n", max_freq / bar_width);
         log_info("         + represents [1,%d) endpoint(s)\n", max_freq / bar_width);
-        for (unsigned i = 0; i < bins.size(); ++i)
+        for (unsigned i = 0; i < num_bins; ++i)
             log_info("[%6d, %6d) |%s%c\n", min_slack + bin_size * i, min_slack + bin_size * (i + 1),
                      std::string(bins[i] * bar_width / max_freq, '*').c_str(),
                      (bins[i] * bar_width) % max_freq > 0 ? '+' : ' ');
