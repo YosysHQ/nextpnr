@@ -125,15 +125,20 @@ void write_xdl(const Context *ctx, std::ostream &out)
                 }
             }
 
-            auto O = get_net_or_empty(cell.second.get(), id_O);
-            if (O) {
-                name = O->name.str(ctx);
-                instPtr->setConfig(lut + "USED", "", "0");
-            }
+            auto it = cell.second->params.find(ctx->id("LUT_NAME"));
+            if (it != cell.second->params.end())
+                name = it->second;
             else
                 name = cell.second->name.str(ctx);
             boost::replace_all(name, ":", "\\:");
             instPtr->setConfig(setting, name, value);
+
+            auto O = get_net_or_empty(cell.second.get(), id_O);
+            if (O) {
+                setting = lut;
+                setting += name;
+                instPtr->setConfig(setting, "", "0");
+            }
 
             auto OQ = get_net_or_empty(cell.second.get(), id_OQ);
             if (OQ) {

@@ -274,6 +274,7 @@ void lut_to_lc(const Context *ctx, CellInfo *lut, CellInfo *lc, bool no_dff)
         replace_port(lut, id_O, lc, id_O);
         lc->params[ctx->id("DFF_ENABLE")] = "0";
     }
+    lc->params[ctx->id("LUT_NAME")] = lut->name.str(ctx);
 }
 
 void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc, bool pass_thru_lut)
