@@ -70,7 +70,7 @@ std::unique_ptr<CellInfo> create_xc7_cell(Context *ctx, IdString type, std::stri
         add_port(ctx, new_cell.get(), "OMUX", PORT_OUT);
         add_port(ctx, new_cell.get(), "COUT", PORT_OUT);
     } else if (type == ctx->id("IOBUF")) {
-        new_cell->type = id_IOB;
+        new_cell->type = id_IOB33;
         new_cell->params[ctx->id("PIN_TYPE")] = "0";
         new_cell->params[ctx->id("PULLUP")] = "0";
         new_cell->params[ctx->id("NEG_TRIGGER")] = "0";
@@ -130,7 +130,7 @@ std::unique_ptr<CellInfo> create_xc7_cell(Context *ctx, IdString type, std::stri
 //        add_port(ctx, new_cell.get(), "CLKHF_FABRIC", PORT_OUT);
 //        for (int i = 0; i < 10; i++)
 //            add_port(ctx, new_cell.get(), "TRIM" + std::to_string(i), PORT_IN);
-    } else if (type == ctx->id("BUFGCTRL")) {
+    } else if (type == id_BUFGCTRL) {
         add_port(ctx, new_cell.get(), "I0", PORT_IN);
         add_port(ctx, new_cell.get(), "O", PORT_OUT);
 //    } else if (type == ctx->id("ICESTORM_SPRAM")) {
@@ -322,6 +322,10 @@ void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc, bool pass_thru_l
     }
 
     replace_port(dff, ctx->id("Q"), lc, id_OQ);
+
+    auto it = dff->params.find(ctx->id("INIT"));
+    if (it != dff->params.end())
+        lc->params[ctx->id("DFF_INIT")] = it->second;
 }
 
 void nxio_to_sb(Context *ctx, CellInfo *nxio, CellInfo *sbio)

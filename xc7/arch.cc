@@ -68,7 +68,7 @@ std::vector<IdString> TorcInfo::construct_site_index_to_type(Arch* ctx, const Si
         if (type == "SLICEL" || type == "SLICEM")
             site_index_to_type[i] = id_SLICE_LUT6;
         else if (type == "IOB33S" || type == "IOB33M")
-            site_index_to_type[i] = id_IOB;
+            site_index_to_type[i] = id_IOB33;
         else
             site_index_to_type[i] = ctx->id(type);
     }
@@ -790,7 +790,7 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, Id
         // TODO
         //if (port == id_OMUX)
     }
-    else if (cell->type == id_IOB) {
+    else if (cell->type == id_IOB33) {
         if (port == id_I)
             return TMG_STARTPOINT;
         else if (port == id_O)

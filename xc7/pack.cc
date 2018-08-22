@@ -451,7 +451,6 @@ static bool is_logic_port(BaseCtx *ctx, const PortRef &port)
 
 static void insert_global(Context *ctx, NetInfo *net, bool is_reset, bool is_cen, bool is_logic)
 {
-    asm("int3");
     std::string glb_name = net->name.str(ctx) + std::string("_$glb_") + (is_reset ? "sr" : (is_cen ? "ce" : "clk"));
     std::unique_ptr<CellInfo> gb = create_xc7_cell(ctx, id_BUFGCTRL, "$bufg_" + glb_name);
     gb->ports[ctx->id("I0")].net = net;

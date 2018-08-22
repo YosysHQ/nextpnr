@@ -54,13 +54,7 @@ void write_xdl(const Context *ctx, std::ostream &out)
     for (const auto& cell : ctx->cells) {
         const char* type;
         if (cell.second->type == id_SLICE_LUT6) type = "SLICEL";
-        else if (cell.second->type == id_IOB) {
-            auto site_index = torc_info->bel_to_site_index[cell.second->bel.index];
-            const auto &site = torc_info->sites.getSite(site_index);
-            auto prim_def = site.getPrimitiveDefPtr();
-            type = prim_def->getName().c_str();
-        }
-        else if (cell.second->type == id_BUFGCTRL) type = "BUFGCTRL";
+        else if (cell.second->type == id_IOB33 || cell.second->type == id_BUFGCTRL) type = cell.second->type.c_str(ctx);
         else log_error("Unsupported cell type '%s'.\n", cell.second->type.c_str(ctx));
 
         auto site_index = torc_info->bel_to_site_index[cell.second->bel.index];
@@ -132,8 +126,10 @@ void write_xdl(const Context *ctx, std::ostream &out)
             }
 
             auto O = get_net_or_empty(cell.second.get(), id_O);
-            if (O)
+            if (O) {
                 name = O->name.str(ctx);
+                instPtr->setConfig(lut + "USED", "", "0");
+            }
             else
                 name = cell.second->name.str(ctx);
             boost::replace_all(name, ":", "\\:");
@@ -146,22 +142,30 @@ void write_xdl(const Context *ctx, std::ostream &out)
                 name = OQ->name.str(ctx);
                 boost::replace_all(name, ":", "\\:");
                 instPtr->setConfig(setting, name, "#FF");
+                instPtr->setConfig(setting + "MUX", "", "O6");
+                instPtr->setConfig(setting + "INIT", "", "INIT" + cell.second->params.at(ctx->id("DFF_INIT")));
             }
         }
-        else if (cell.second->type == id_IOB) {
+        else if (cell.second->type == id_IOB33) {
             if (get_net_or_empty(cell.second.get(), id_I)) {
                 instPtr->setConfig("IUSED", "", "0");
                 instPtr->setConfig("IBUF_LOW_PWR", "", "TRUE");
-                instPtr->setConfig("ISTANDARD", "", "LVCMOS25");
+                instPtr->setConfig("ISTANDARD", "", "LVCMOS33");
             }
             else {
-                //instPtr->setConfig("OUSED", "", "0");
-                instPtr->setConfig("OSTANDARD", "", "LVCMOS25");
+                instPtr->setConfig("OUSED", "", "0");
+                instPtr->setConfig("OSTANDARD", "", "LVCMOS33");
                 instPtr->setConfig("DRIVE", "", "12");
                 instPtr->setConfig("SLEW", "", "SLOW");
             }
         }
         else if (cell.second->type == id_BUFGCTRL) {
+            static const char* params_whitelist[] = { "PRESELECT_I0", "PRESELECT_I1" };
+            for (auto w : params_whitelist) {
+                auto it = cell.second->params.find(ctx->id(w));
+                if (it != cell.second->params.end())
+                    instPtr->setConfig(it->first.c_str(ctx), "", it->second.c_str());
+            }
         }
         else log_error("Unsupported cell type '%s'.\n", cell.second->type.c_str(ctx));
     }
