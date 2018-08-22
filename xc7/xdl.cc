@@ -136,7 +136,7 @@ void write_xdl(const Context *ctx, std::ostream &out)
             auto O = get_net_or_empty(cell.second.get(), id_O);
             if (O) {
                 setting = lut;
-                setting += name;
+                setting += "USED";
                 instPtr->setConfig(setting, "", "0");
             }
 
@@ -149,6 +149,14 @@ void write_xdl(const Context *ctx, std::ostream &out)
                 instPtr->setConfig(setting, name, "#FF");
                 instPtr->setConfig(setting + "MUX", "", "O6");
                 instPtr->setConfig(setting + "INIT", "", "INIT" + cell.second->params.at(ctx->id("DFF_INIT")));
+                assert(cell.second->params.at(ctx->id("SET_NORESET")) == "0"); // TODO
+                instPtr->setConfig(setting + "SR", "", "SRLOW");
+
+                NPNR_ASSERT(!cell.second->lcInfo.negClk); // TODO
+                instPtr->setConfig("CLKINV", "", "CLK");
+
+                instPtr->setConfig("SRUSEDMUX", "", "IN");
+                instPtr->setConfig("CEUSEDMUX", "", "IN");
             }
         }
         else if (cell.second->type == id_IOB33) {
