@@ -559,6 +559,14 @@ void FPGAViewWidget::onHighlightGroupChanged(std::vector<DecalXY> decals, int gr
     pokeRenderer();
 }
 
+void FPGAViewWidget::onHoverItemChanged(DecalXY decal)
+{
+    QMutexLocker locked(&rendererArgsLock_);
+    rendererArgs_->hoveredDecal = decal;
+    rendererArgs_->changed = true;
+    pokeRenderer();
+}
+
 void FPGAViewWidget::resizeGL(int width, int height) {}
 
 boost::optional<FPGAViewWidget::PickedElement> FPGAViewWidget::pickElement(float worldx, float worldy)

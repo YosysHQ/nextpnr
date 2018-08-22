@@ -30,15 +30,34 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+TreeView::TreeView(QWidget *parent) : QTreeView(parent) {}
+
+TreeView::~TreeView() {}
+
+void TreeView::mouseMoveEvent(QMouseEvent *event)
+{
+    QModelIndex index = indexAt(event->pos());
+    if (index!=current) {
+        current = index;
+        Q_EMIT hoverIndexChanged(index);
+    }
+    QTreeView::mouseMoveEvent(event);
+}
+
+void TreeView::leaveEvent(QEvent *event)
+{
+    Q_EMIT hoverIndexChanged(QModelIndex());
+}
+
 DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr), selectionModel(nullptr)
 {
     // Add tree view
-    treeView = new QTreeView();
+    treeView = new TreeView();
     treeModel = new TreeModel::Model();
     treeView->setModel(treeModel);
     treeView->setContextMenuPolicy(Qt::CustomContextMenu);
     treeView->setSelectionMode(QAbstractItemView::ExtendedSelection);
-
+    treeView->viewport()->setMouseTracking(true);
     // Add property view
     variantManager = new QtVariantPropertyManager(this);
     readOnlyManager = new QtVariantPropertyManager(this);
@@ -159,8 +178,9 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr), sel
             &DesignWidget::prepareMenuProperty);
     connect(propertyEditor->treeWidget(), &QTreeWidget::itemDoubleClicked, this, &DesignWidget::onItemDoubleClicked);
 
-    connect(treeView, &QTreeView::customContextMenuRequested, this, &DesignWidget::prepareMenuTree);
-    connect(treeView, &QTreeView::doubleClicked, this, &DesignWidget::onDoubleClicked);
+    connect(treeView, &TreeView::customContextMenuRequested, this, &DesignWidget::prepareMenuTree);
+    connect(treeView, &TreeView::doubleClicked, this, &DesignWidget::onDoubleClicked);
+    connect(treeView, &TreeView::hoverIndexChanged, this, &DesignWidget::onHoverIndexChanged);
     selectionModel = treeView->selectionModel();
     connect(selectionModel, &QItemSelectionModel::selectionChanged, this, &DesignWidget::onSelectionChanged);
 
@@ -388,7 +408,6 @@ void DesignWidget::onSelectionChanged(const QItemSelection &, const QItemSelecti
     ElementType type = clickItem->type();
     if (type == ElementType::NONE)
         return;
-    std::vector<DecalXY> decals;
 
     addToHistory(index);
 
@@ -800,4 +819,17 @@ void DesignWidget::onSearchInserted()
     if (currentSearchIndexes.size() > 0 && currentIndex < currentSearchIndexes.size())
         selectionModel->setCurrentIndex(currentSearchIndexes.at(currentIndex), QItemSelectionModel::ClearAndSelect);
 }
+
+void DesignWidget::onHoverIndexChanged(QModelIndex index)
+{
+    if (index.isValid()) {
+        TreeModel::Item *item = treeModel->nodeFromIndex(index);
+        if (item->type() != ElementType::NONE) {
+            Q_EMIT hover(getDecals(item->type(), item->id()).at(0));
+            return;
+        }
+    }
+    Q_EMIT hover(DecalXY());    
+}
+
 NEXTPNR_NAMESPACE_END

@@ -113,6 +113,7 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     void newContext(Context *ctx);
     void onSelectedArchItem(std::vector<DecalXY> decals, bool keep);
     void onHighlightGroupChanged(std::vector<DecalXY> decals, int group);
+    void onHoverItemChanged(DecalXY decal);
     void pokeRenderer(void);
     void zoomIn();
     void zoomOut();
