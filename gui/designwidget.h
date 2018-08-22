@@ -83,6 +83,7 @@ class DesignWidget : public QWidget
     void onDoubleClicked(const QModelIndex &index);
     void onSearchInserted();
     void onHoverIndexChanged(QModelIndex index);
+    void onHoverPropertyChanged(QtBrowserItem *item);
   public Q_SLOTS:
     void newContext(Context *ctx);
     void updateTree();

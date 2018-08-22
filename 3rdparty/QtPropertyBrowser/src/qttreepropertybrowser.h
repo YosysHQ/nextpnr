@@ -115,7 +115,7 @@ Q_SIGNALS:
 
     void collapsed(QtBrowserItem *item);
     void expanded(QtBrowserItem *item);
-
+    void hoverPropertyChanged(QtBrowserItem *item);
 protected:
     virtual void itemInserted(QtBrowserItem *item, QtBrowserItem *afterItem);
     virtual void itemRemoved(QtBrowserItem *item);
@@ -130,7 +130,8 @@ private:
     Q_PRIVATE_SLOT(d_func(), void slotCollapsed(const QModelIndex &))
     Q_PRIVATE_SLOT(d_func(), void slotExpanded(const QModelIndex &))
     Q_PRIVATE_SLOT(d_func(), void slotCurrentBrowserItemChanged(QtBrowserItem *))
-    Q_PRIVATE_SLOT(d_func(), void slotCurrentTreeItemChanged(QTreeWidgetItem *, QTreeWidgetItem *))
+    Q_PRIVATE_SLOT(d_func(), void slotCurrentTreeItemChanged(QTreeWidgetItem *, QTreeWidgetItem *))    
+    Q_PRIVATE_SLOT(d_func(), void onHoverPropertyChanged(QtBrowserItem *))
 
 };
 

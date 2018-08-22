@@ -69,6 +69,7 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr), sel
     propertyEditor->show();
     propertyEditor->treeWidget()->setContextMenuPolicy(Qt::CustomContextMenu);
     propertyEditor->treeWidget()->setSelectionMode(QAbstractItemView::ExtendedSelection);
+    propertyEditor->treeWidget()->viewport()->setMouseTracking(true);
 
     searchEdit = new QLineEdit();
     searchEdit->setClearButtonEnabled(true);
@@ -177,6 +178,7 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr), sel
     connect(propertyEditor->treeWidget(), &QTreeWidget::customContextMenuRequested, this,
             &DesignWidget::prepareMenuProperty);
     connect(propertyEditor->treeWidget(), &QTreeWidget::itemDoubleClicked, this, &DesignWidget::onItemDoubleClicked);
+    connect(propertyEditor, &QtTreePropertyBrowser::hoverPropertyChanged, this, &DesignWidget::onHoverPropertyChanged);
 
     connect(treeView, &TreeView::customContextMenuRequested, this, &DesignWidget::prepareMenuTree);
     connect(treeView, &TreeView::doubleClicked, this, &DesignWidget::onDoubleClicked);
@@ -832,4 +834,22 @@ void DesignWidget::onHoverIndexChanged(QModelIndex index)
     Q_EMIT hover(DecalXY());    
 }
 
+void DesignWidget::onHoverPropertyChanged(QtBrowserItem *item)
+{
+    if (item!=nullptr) {
+        QtProperty *selectedProperty = item->property();
+        ElementType type = getElementTypeByName(selectedProperty->propertyId());
+        if (type != ElementType::NONE) {
+            IdString value = ctx->id(selectedProperty->valueText().toStdString());
+            if (value!=IdString()) {
+                auto node = treeModel->nodeForIdType(type, value);
+                if (node) {
+                    Q_EMIT hover(getDecals((*node)->type(), (*node)->id()).at(0));
+                    return;
+                }
+            }
+        }
+    }
+    Q_EMIT hover(DecalXY());
+}
 NEXTPNR_NAMESPACE_END

@@ -82,6 +82,7 @@ public:
 
     void slotCollapsed(const QModelIndex &index);
     void slotExpanded(const QModelIndex &index);
+    void onHoverPropertyChanged(QtBrowserItem *item);
 
     QColor calculatedBackgroundColor(QtBrowserItem *item) const;
 
@@ -129,12 +130,17 @@ public:
         { return itemFromIndex(index); }
 
 protected:
+    void mouseMoveEvent(QMouseEvent *event) override;
+    void leaveEvent(QEvent *event) override;
     void keyPressEvent(QKeyEvent *event);
     void mousePressEvent(QMouseEvent *event);
     void drawRow(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const;
 
+Q_SIGNALS:
+    void hoverPropertyChanged(QtBrowserItem *item);
 private:
     QtTreePropertyBrowserPrivate *m_editorPrivate;
+    QModelIndex current;
 };
 
 QtPropertyEditorView::QtPropertyEditorView(QWidget *parent) :
@@ -170,6 +176,21 @@ void QtPropertyEditorView::drawRow(QPainter *painter, const QStyleOptionViewItem
     painter->setPen(QPen(color));
     painter->drawLine(opt.rect.x(), opt.rect.bottom(), opt.rect.right(), opt.rect.bottom());
     painter->restore();
+}
+
+void QtPropertyEditorView::mouseMoveEvent(QMouseEvent *event)
+{
+    QModelIndex index = indexAt(event->pos());
+    if (index!=current) {
+        current = index;        
+        Q_EMIT hoverPropertyChanged(m_editorPrivate->indexToBrowserItem(index));
+    }
+    QTreeWidget::mouseMoveEvent(event);
+}
+
+void QtPropertyEditorView::leaveEvent(QEvent *event)
+{
+    Q_EMIT hoverPropertyChanged(nullptr);
 }
 
 void QtPropertyEditorView::keyPressEvent(QKeyEvent *event)
@@ -489,6 +510,7 @@ void QtTreePropertyBrowserPrivate::init(QWidget *parent)
     QObject::connect(m_treeWidget, SIGNAL(collapsed(const QModelIndex &)), q_ptr, SLOT(slotCollapsed(const QModelIndex &)));
     QObject::connect(m_treeWidget, SIGNAL(expanded(const QModelIndex &)), q_ptr, SLOT(slotExpanded(const QModelIndex &)));
     QObject::connect(m_treeWidget, SIGNAL(currentItemChanged(QTreeWidgetItem*,QTreeWidgetItem*)), q_ptr, SLOT(slotCurrentTreeItemChanged(QTreeWidgetItem*,QTreeWidgetItem*)));
+    QObject::connect(m_treeWidget, SIGNAL(hoverPropertyChanged(QtBrowserItem *)), q_ptr, SLOT(onHoverPropertyChanged(QtBrowserItem *)));
 }
 
 QtBrowserItem *QtTreePropertyBrowserPrivate::currentItem() const
@@ -687,6 +709,12 @@ void QtTreePropertyBrowserPrivate::slotExpanded(const QModelIndex &index)
     if (item)
         emit q_ptr->expanded(idx);
 }
+
+void QtTreePropertyBrowserPrivate::onHoverPropertyChanged(QtBrowserItem *item)
+{
+    emit q_ptr->hoverPropertyChanged(item);
+}
+
 
 void QtTreePropertyBrowserPrivate::slotCurrentBrowserItemChanged(QtBrowserItem *item)
 {
