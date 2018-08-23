@@ -152,6 +152,9 @@ Testing
   - `-DSANITIZE_THREAD=ON`
   - `-DSANITIZE_UNDEFINED=ON`
 - Running valgrind example `valgrind --leak-check=yes --tool=memcheck ./nextpnr-ice40 --json ice40/blinky.json`
+- Running tests with code coverage use `-DBUILD_TESTS=ON -DCOVERAGE` and after `make` run `make ice40-coverage` 
+- After that open `ice40-coverage/index.html` in your browser to view the coverage report
+- Note that `lcov` is needed in order to generate reports
 
 Links and references
 --------------------

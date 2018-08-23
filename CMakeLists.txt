@@ -5,6 +5,7 @@ project(nextpnr)
 option(BUILD_GUI "Build GUI" ON)
 option(BUILD_PYTHON "Build Python Integration" ON)
 option(BUILD_TESTS "Build GUI" OFF)
+option(COVERAGE "Add code coverage info" OFF)
 option(STATIC_BUILD "Create static build" OFF)
 
 set(link_param "")
@@ -50,7 +51,11 @@ set(CMAKE_CXX_FLAGS_RELEASE "-Wall -fPIC -O3 -g")
 endif()
 set(CMAKE_DEFIN)
 
-set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/3rdparty/sanitizers-cmake/cmake" ${CMAKE_MODULE_PATH})
+set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/3rdparty/sanitizers-cmake/cmake;." ${CMAKE_MODULE_PATH})
+
+if (COVERAGE)
+    include(CodeCoverage)
+endif()
 
 if(NOT DEFINED CMAKE_SUPPRESS_DEVELOPER_WARNINGS)
      set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS 1 CACHE INTERNAL "No dev warnings")
@@ -192,6 +197,16 @@ foreach (family ${ARCH})
         
     # Add any new per-architecture targets here
     if (BUILD_TESTS)
+        if (COVERAGE)
+            APPEND_COVERAGE_COMPILER_FLAGS()
+            set(COVERAGE_LCOV_EXCLUDES '/usr/include/*' '3rdparty/*' 'generated/*' 'bba/*')
+            SETUP_TARGET_FOR_COVERAGE_LCOV(
+                NAME ${family}-coverage 
+                EXECUTABLE nextpnr-${family}-test
+                DEPENDENCIES nextpnr-${family}-test
+            )
+        endif()
+
         aux_source_directory(tests/${family}/ ${ufamily}_TEST_FILES)
         if (BUILD_GUI)
             aux_source_directory(tests/gui/ GUI_TEST_FILES)
