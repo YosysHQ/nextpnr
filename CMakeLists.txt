@@ -199,7 +199,7 @@ foreach (family ${ARCH})
     if (BUILD_TESTS)
         if (COVERAGE)
             APPEND_COVERAGE_COMPILER_FLAGS()
-            set(COVERAGE_LCOV_EXCLUDES '/usr/include/*' '3rdparty/*' 'generated/*' 'bba/*')
+            set(COVERAGE_LCOV_EXCLUDES '/usr/include/*' '3rdparty/*' 'generated/*' 'bba/*' 'tests/*')
             SETUP_TARGET_FOR_COVERAGE_LCOV(
                 NAME ${family}-coverage 
                 EXECUTABLE nextpnr-${family}-test
