@@ -174,6 +174,6 @@ Links and references
 - [Arachne PNR](https://github.com/cseed/arachne-pnr)
 - [VPR/VTR](https://verilogtorouting.org/)
 - [SymbiFlow](https://github.com/SymbiFlow/symbiflow-arch-defs)
-- [Gaffe](https://github.com/kc8apf/gaffe)
+- [Gaffe](https://github.com/gaffe-logic/gaffe)
 - [KinglerPAR](https://github.com/rqou/KinglerPAR)
 
