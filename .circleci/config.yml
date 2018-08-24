@@ -1,0 +1,42 @@
+version: 2
+jobs:
+  build:
+    docker:
+      - image: eu.gcr.io/symbiotic-containers-public/nextpnr-ci:20180824-012428
+    steps:
+      - checkout
+      # Restore cache from arch-deps.sh
+      - restore_cache:
+          key: arch-deps-{{ checksum ".circleci/arch-deps.sh" }}
+      # Get arch deps if not found in cache
+      - run:
+          name: Install Arch dependencies
+          command: |
+            export ICESTORM_ROOT=/circleci/icestorm
+            export TRELLIS_ROOT=/circleci/trellis
+            if [ ! -e $ICESTORM_ROOT ] || [ ! -e $TRELLIS_ROOT ]; then
+              echo "Installing arch dependencies..."
+              bash .circleci/arch-deps.sh
+            fi
+      # Cache arch deps
+      - save_cache:
+          key: arch-deps-{{ checksum ".circleci/arch-deps.sh" }}
+          paths:
+            - /circleci/icestorm
+            - /circleci/trellis
+
+      # Build! We first build BBASm in parallel, then the chipdbs sequentially,
+      # then the rest in parallel. This is to not exceed the default 4G memory
+      # limit on CirclCI.
+      - run:
+          name: Build
+          command: |
+            mkdir build
+            cd build
+            cmake .. -DARCH=all -DBUILD_TESTS=ON -DCOVERAGE=ON \
+              -DTRELLIS_ROOT=/circleci/trellis \
+              -DICEBOX_ROOT=/circleci/icestorm/share/icebox
+            make -j2 bbasm
+            make -j1 ice40_chipdb
+            make -j1 ecp5_chipdb
+            make -j2

@@ -1,0 +1,31 @@
+NextPNR CI Builder Image
+========================
+
+This directory contains a Dockerfile that is used to build an environment image
+for the NextPNR Continuous Integration system.
+
+We use a custom image to speed up the build process - so that we don't have to
+`apt` install all the dependencies on a bare Ubuntu image on every CI run.
+
+Building Locally
+----------------
+
+   docker build -t nextpnr-ci .circleci/env
+
+Updating image used by CircleCI
+-------------------------------
+
+CircleCI will use whatever image is specified in `.circleci/config.yml`.
+Currently we store images in the Google Container Registry, in the
+`symbiotic-containers-public` organization. *If you update the Dockerfile, the
+image will need to be manually rebuilt and pushed by the Yosys/SymbioticEDA
+team.
+
+Here's what needs to be run:
+
+    TAG=eu.gcr.io/symbiotic-containers-public/nextpnr-ci:"$(date +%Y%m%d-%H%M%S)"
+    docker build -t "$TAG" .circleci/env
+    docker push "$TAG"
+    echo "New image: $TAG"
+
+Then update `.circleci/config.yml`.

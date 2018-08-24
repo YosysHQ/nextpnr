@@ -54,7 +54,7 @@ set(CMAKE_DEFIN)
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/3rdparty/sanitizers-cmake/cmake;." ${CMAKE_MODULE_PATH})
 
 if (COVERAGE)
-    include(CodeCoverage)
+        include("${CMAKE_SOURCE_DIR}/CodeCoverage.cmake")
 endif()
 
 if(NOT DEFINED CMAKE_SUPPRESS_DEVELOPER_WARNINGS)
