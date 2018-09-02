@@ -157,6 +157,7 @@ void write_xdl(const Context *ctx, std::ostream &out)
 
                 instPtr->setConfig("SRUSEDMUX", "", "IN");
                 instPtr->setConfig("CEUSEDMUX", "", "IN");
+                instPtr->setConfig("SYNC_ATTR", "", "ASYNC");
             }
         }
         else if (cell.second->type == id_IOB33) {
