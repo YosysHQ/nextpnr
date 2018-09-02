@@ -35,7 +35,7 @@ NEXTPNR_NAMESPACE_BEGIN
 
 std::unique_ptr<const TorcInfo> torc_info;
 TorcInfo::TorcInfo(Arch *ctx, const std::string &inDeviceName, const std::string &inPackageName)
-    : ddb(new DDB(inDeviceName, inPackageName)), sites(ddb->getSites()), tiles(ddb->getTiles()), bel_to_site_index(construct_bel_to_site_index(ctx, sites)), num_bels(bel_to_site_index.size()), site_index_to_type(construct_site_index_to_type(ctx, sites)), bel_to_z(construct_bel_to_z(sites, num_bels, site_index_to_type))
+    : ddb(new DDB(inDeviceName, inPackageName)), sites(ddb->getSites()), tiles(ddb->getTiles()), segments(ddb->getSegments()), bel_to_site_index(construct_bel_to_site_index(ctx, sites)), num_bels(bel_to_site_index.size()), site_index_to_type(construct_site_index_to_type(ctx, sites)), bel_to_z(construct_bel_to_z(sites, num_bels, site_index_to_type)), wire_to_tilewire(construct_wire_to_tilewire(segments, tiles)), num_wires(wire_to_tilewire.size())
 {
 }
 std::vector<SiteIndex> TorcInfo::construct_bel_to_site_index(Arch* ctx, const Sites &sites)
@@ -102,6 +102,29 @@ std::vector<int8_t> TorcInfo::construct_bel_to_z(const Sites &sites, const int n
     }
     return bel_to_z;
 }
+std::vector<Tilewire> TorcInfo::construct_wire_to_tilewire(const Segments& segments, const Tiles& tiles)
+{
+    std::vector<Tilewire> wire_to_tilewire(segments.getCompactSegmentCount());
+
+    Tilewire currentTilewire;
+    for(TileIndex tileIndex(0); tileIndex < tiles.getTileCount(); tileIndex++) {
+        // iterate over every wire in the tile
+        const auto& tileInfo = tiles.getTileInfo(tileIndex);
+        auto tileTypeIndex = tileInfo.getTypeIndex();
+        auto wireCount = tiles.getWireCount(tileTypeIndex);
+        currentTilewire.setTileIndex(tileIndex);
+        for(WireIndex wireIndex(0); wireIndex < wireCount; wireIndex++) {
+            currentTilewire.setWireIndex(wireIndex);
+
+            const auto& currentSegment = segments.getTilewireSegment(currentTilewire);
+            if (currentSegment.getAnchorTileIndex() != tileIndex) continue;
+
+            wire_to_tilewire[currentSegment.getCompactSegmentIndex()] = currentTilewire;
+        }
+    }
+
+    return wire_to_tilewire;
+}
 
 
 // -----------------------------------------------------------------------
@@ -134,7 +157,11 @@ Arch::Arch(ArchArgs args) : args(args)
 //    if (package_info == nullptr)
 //        log_error("Unsupported package '%s'.\n", args.package.c_str());
 
+    //bel_carry.resize(chip_info->num_bels);
     bel_to_cell.resize(torc_info->num_bels);
+    wire_to_net.resize(torc_info->num_wires);
+    //pip_to_net.resize(chip_info->num_pips);
+    //switches_locked.resize(chip_info->num_switches);
 }
 
 // -----------------------------------------------------------------------
@@ -251,12 +278,13 @@ WireId Arch::getBelPinWire(BelId bel, IdString pin) const
         }
     }
     auto site_index = torc_info->bel_to_site_index[bel.index];
-    auto &site = torc_info->sites.getSite(site_index);
-    ret.index = site.getPinTilewire(pin_name);
+    const auto &site = torc_info->sites.getSite(site_index);
+    auto &tw = site.getPinTilewire(pin_name);
 
-    if (ret.index.isUndefined())
+    if (tw.isUndefined())
         log_error("no wire found for site '%s' pin '%s' \n", torc_info->bel_to_name(bel.index).c_str(), pin_name.c_str());
-        
+
+    ret.index = torc_info->tilewire_to_wire(tw);
 
 //    NPNR_ASSERT(bel != BelId());
 //
@@ -592,8 +620,8 @@ DecalXY Arch::getWireDecal(WireId wire) const
 {
     DecalXY decalxy;
     decalxy.decal.type = DecalId::TYPE_WIRE;
-    //decalxy.decal.index = wire.index;
-    //decalxy.decal.active = wire_to_net.at(wire.index) != nullptr;
+    decalxy.decal.index = wire.index;
+    decalxy.decal.active = wire_to_net.at(wire.index) != nullptr;
     return decalxy;
 }
 

@@ -74,10 +74,10 @@ struct BelId
 
 struct WireId
 {
-    Tilewire index;
+    int32_t index = -1;
 
     bool operator==(const WireId &other) const { return index == other.index; }
-    bool operator!=(const WireId &other) const { return !(index == other.index); }
+    bool operator!=(const WireId &other) const { return index != other.index; }
 };
 
 struct PipId
@@ -164,7 +164,7 @@ template <> struct hash<NEXTPNR_NAMESPACE_PREFIX WireId>
 {
     std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX WireId &wire) const noexcept
     {
-        return hash_value(wire.index);
+        return hash<int>()(wire.index);
     }
 };
 

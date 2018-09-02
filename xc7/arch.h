@@ -239,6 +239,7 @@ struct TorcInfo {
     std::unique_ptr<const DDB> ddb;
     const Sites &sites;
     const Tiles &tiles;
+    const Segments &segments;
 
     const TileInfo& bel_to_tile_info(int32_t index) const {
         auto si = bel_to_site_index[index];
@@ -249,16 +250,32 @@ struct TorcInfo {
         auto si = bel_to_site_index[index];
         return sites.getSite(si).getName();
     }
+    std::string wire_to_name(int32_t index) const
+    {
+        const auto tw = wire_to_tilewire[index];
+        ExtendedWireInfo ewi(*ddb, tw);
+        std::stringstream ss;
+        ss << ewi.mTileName << "/" << ewi.mWireName;
+        return ss.str();
+    }
+    int32_t tilewire_to_wire(const Tilewire &tw) const
+    {
+        const auto& segment = segments.getTilewireSegment(tw);
+        return segment.getCompactSegmentIndex();
+    }
 
     const std::vector<SiteIndex> bel_to_site_index;
     const int num_bels;
     const std::vector<IdString> site_index_to_type;
     const std::vector<int8_t> bel_to_z;
+    const std::vector<Tilewire> wire_to_tilewire;
+    const int num_wires;
 
 private:
     static std::vector<SiteIndex> construct_bel_to_site_index(Arch *ctx, const Sites &sites);
     static std::vector<IdString> construct_site_index_to_type(Arch *ctx, const Sites &sites);
     static std::vector<int8_t> construct_bel_to_z(const Sites &sites, const int num_bels, const std::vector<IdString> &site_index_to_type);
+    static std::vector<Tilewire> construct_wire_to_tilewire(const Segments &segments, const Tiles &tiles);
 };
 extern std::unique_ptr<const TorcInfo> torc_info;
 
@@ -330,11 +347,10 @@ struct BelPinRange
 
 struct WireIterator
 {
-    Tilewire cursor;
+    int cursor = -1;
 
-                        // TODO
-    void operator++() { /*cursor++;*/ }
-    bool operator!=(const WireIterator &other) const { return !(cursor == other.cursor); }
+    void operator++() { cursor++; }
+    bool operator!=(const WireIterator &other) const { return cursor != other.cursor; }
 
     WireId operator*() const
     {
@@ -549,19 +565,18 @@ struct Arch : BaseCtx
     IdString getWireName(WireId wire) const
     {
         NPNR_ASSERT(wire != WireId());
-        //return id(chip_info->wire_data[wire.index].name.get());
-        return IdString();
+        return id(torc_info->wire_to_name(wire.index));
     }
 
     IdString getWireType(WireId wire) const;
 
-    uint32_t getWireChecksum(WireId wire) const { return hash_value(wire.index); }
+    uint32_t getWireChecksum(WireId wire) const { return wire.index; }
 
     void bindWire(WireId wire, NetInfo *net, PlaceStrength strength)
     {
         NPNR_ASSERT(wire != WireId());
-        //NPNR_ASSERT(wire_to_net[wire.index] == nullptr);
-        //wire_to_net[wire.index] = net;
+        NPNR_ASSERT(wire_to_net[wire.index] == nullptr);
+        wire_to_net[wire.index] = net;
         net->wires[wire].pip = PipId();
         net->wires[wire].strength = strength;
         refreshUiWire(wire);
@@ -570,11 +585,11 @@ struct Arch : BaseCtx
     void unbindWire(WireId wire)
     {
         NPNR_ASSERT(wire != WireId());
-        //NPNR_ASSERT(wire_to_net[wire.index] != nullptr);
+        NPNR_ASSERT(wire_to_net[wire.index] != nullptr);
 
-        //auto &net_wires = wire_to_net[wire.index]->wires;
-        //auto it = net_wires.find(wire);
-        //NPNR_ASSERT(it != net_wires.end());
+        auto &net_wires = wire_to_net[wire.index]->wires;
+        auto it = net_wires.find(wire);
+        NPNR_ASSERT(it != net_wires.end());
 
         //auto pip = it->second.pip;
         //if (pip != PipId()) {
@@ -582,29 +597,29 @@ struct Arch : BaseCtx
         //    switches_locked[chip_info->pip_data[pip.index].switch_index] = nullptr;
         //}
 
-        //net_wires.erase(it);
-        //wire_to_net[wire.index] = nullptr;
+        net_wires.erase(it);
+        wire_to_net[wire.index] = nullptr;
         refreshUiWire(wire);
     }
 
     bool checkWireAvail(WireId wire) const
     {
-        //NPNR_ASSERT(wire != WireId());
-        //return wire_to_net[wire.index] == nullptr;
+        NPNR_ASSERT(wire != WireId());
+        return wire_to_net[wire.index] == nullptr;
         return true;
     }
 
     NetInfo *getBoundWireNet(WireId wire) const
     {
-        //NPNR_ASSERT(wire != WireId());
-        //return wire_to_net[wire.index];
+        NPNR_ASSERT(wire != WireId());
+        return wire_to_net[wire.index];
         return nullptr;
     }
 
     NetInfo *getConflictingWireNet(WireId wire) const
     {
-        //NPNR_ASSERT(wire != WireId());
-        //return wire_to_net[wire.index];
+        NPNR_ASSERT(wire != WireId());
+        return wire_to_net[wire.index];
         return nullptr;
     }
 
@@ -631,8 +646,8 @@ struct Arch : BaseCtx
     WireRange getWires() const
     {
         WireRange range;
-        //range.b.cursor = 0;
-        //range.e.cursor = chip_info->num_wires;
+        range.b.cursor = 0;
+        range.e.cursor = torc_info->num_wires;
         return range;
     }
 
@@ -651,8 +666,8 @@ struct Arch : BaseCtx
 
         WireId dst;
         //dst.index = chip_info->pip_data[pip.index].dst;
-        //NPNR_ASSERT(wire_to_net[dst.index] == nullptr);
-        //wire_to_net[dst.index] = net;
+        NPNR_ASSERT(wire_to_net[dst.index] == nullptr);
+        wire_to_net[dst.index] = net;
         //net->wires[dst].pip = pip;
         //net->wires[dst].strength = strength;
         refreshUiPip(pip);
@@ -667,8 +682,8 @@ struct Arch : BaseCtx
 
         WireId dst;
         //dst.index = chip_info->pip_data[pip.index].dst;
-        //NPNR_ASSERT(wire_to_net[dst.index] != nullptr);
-        //wire_to_net[dst.index] = nullptr;
+        NPNR_ASSERT(wire_to_net[dst.index] != nullptr);
+        wire_to_net[dst.index] = nullptr;
         pip_to_net[pip.index]->wires.erase(dst);
 
         pip_to_net[pip.index] = nullptr;
