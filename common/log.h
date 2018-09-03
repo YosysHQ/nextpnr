@@ -51,6 +51,9 @@ extern bool log_quiet_warnings;
 extern std::string log_last_error;
 extern void (*log_error_atexit)();
 
+std::string stringf(const char *fmt, ...);
+std::string vstringf(const char *fmt, va_list ap);
+
 extern std::ostream clog;
 void log(const char *format, ...) NPNR_ATTRIBUTE(format(printf, 1, 2));
 void log_always(const char *format, ...) NPNR_ATTRIBUTE(format(printf, 1, 2));

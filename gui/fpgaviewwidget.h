@@ -107,11 +107,13 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     void wheelEvent(QWheelEvent *event) Q_DECL_OVERRIDE;
     QSize minimumSizeHint() const override;
     QSize sizeHint() const override;
+    void leaveEvent(QEvent *event) override;
 
   public Q_SLOTS:
     void newContext(Context *ctx);
     void onSelectedArchItem(std::vector<DecalXY> decals, bool keep);
     void onHighlightGroupChanged(std::vector<DecalXY> decals, int group);
+    void onHoverItemChanged(DecalXY decal);
     void pokeRenderer(void);
     void zoomIn();
     void zoomOut();

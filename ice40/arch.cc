@@ -226,6 +226,15 @@ PortType Arch::getBelPinType(BelId bel, IdString pin) const
     return PORT_INOUT;
 }
 
+std::vector<std::pair<IdString, std::string>> Arch::getBelAttrs(BelId bel) const
+{
+    std::vector<std::pair<IdString, std::string>> ret;
+
+    ret.push_back(std::make_pair(id("INDEX"), stringf("%d", bel.index)));
+
+    return ret;
+}
+
 WireId Arch::getBelPinWire(BelId bel, IdString pin) const
 {
     WireId ret;
@@ -331,6 +340,28 @@ IdString Arch::getWireType(WireId wire) const
     return IdString();
 }
 
+std::vector<std::pair<IdString, std::string>> Arch::getWireAttrs(WireId wire) const
+{
+    std::vector<std::pair<IdString, std::string>> ret;
+    auto &wi = chip_info->wire_data[wire.index];
+
+    ret.push_back(std::make_pair(id("INDEX"), stringf("%d", wire.index)));
+
+    ret.push_back(std::make_pair(id("GRID_X"), stringf("%d", wi.x)));
+    ret.push_back(std::make_pair(id("GRID_Y"), stringf("%d", wi.y)));
+    ret.push_back(std::make_pair(id("GRID_Z"), stringf("%d", wi.z)));
+
+#if 0
+    for (int i = 0; i < wi.num_segments; i++) {
+        auto &si = wi.segments[i];
+        ret.push_back(std::make_pair(id(stringf("segment[%d]", i)),
+                                     stringf("X%d/Y%d/%s", si.x, si.y, chip_info->tile_wire_names[si.index].get())));
+    }
+#endif
+
+    return ret;
+}
+
 // -----------------------------------------------------------------------
 
 PipId Arch::getPipByName(IdString name) const
@@ -371,6 +402,18 @@ IdString Arch::getPipName(PipId pip) const
     return id(chip_info->pip_data[pip.index].name.get());
 #endif
 }
+
+IdString Arch::getPipType(PipId pip) const { return IdString(); }
+
+std::vector<std::pair<IdString, std::string>> Arch::getPipAttrs(PipId pip) const
+{
+    std::vector<std::pair<IdString, std::string>> ret;
+
+    ret.push_back(std::make_pair(id("INDEX"), stringf("%d", pip.index)));
+
+    return ret;
+}
+
 
 // -----------------------------------------------------------------------
 
@@ -565,18 +608,9 @@ bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay
 
 // -----------------------------------------------------------------------
 
-bool Arch::place()
-{
-    Placer1Cfg cfg;
-    cfg.constraintWeight = placer_constraintWeight;
-    return placer1(getCtx(), cfg);
-}
+bool Arch::place() { return placer1(getCtx(), Placer1Cfg(getCtx())); }
 
-bool Arch::route()
-{
-    Router1Cfg cfg;
-    return router1(getCtx(), cfg);
-}
+bool Arch::route() { return router1(getCtx(), Router1Cfg(getCtx())); }
 
 // -----------------------------------------------------------------------
 
@@ -695,13 +729,29 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
         GraphicElement::style_t style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
 
         for (int i = 0; i < n; i++)
-            gfxTileWire(ret, p[i].x, p[i].y, GfxTileWireId(p[i].index), style);
+            gfxTileWire(ret, p[i].x, p[i].y, chip_info->width, chip_info->height, GfxTileWireId(p[i].index), style);
+
+#if 0
+        if (ret.empty()) {
+            WireId wire;
+            wire.index = decal.index;
+            log_warning("No gfx decal for wire %s (%d).\n", getWireName(wire).c_str(getCtx()), decal.index);
+        }
+#endif
     }
 
     if (decal.type == DecalId::TYPE_PIP) {
         const PipInfoPOD &p = chip_info->pip_data[decal.index];
         GraphicElement::style_t style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_HIDDEN;
         gfxTilePip(ret, p.x, p.y, GfxTileWireId(p.src_seg), GfxTileWireId(p.dst_seg), style);
+
+#if 0
+        if (ret.empty()) {
+            PipId pip;
+            pip.index = decal.index;
+            log_warning("No gfx decal for pip %s (%d).\n", getPipName(pip).c_str(getCtx()), decal.index);
+        }
+#endif
     }
 
     if (decal.type == DecalId::TYPE_BEL) {
@@ -727,7 +777,7 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
             GraphicElement el;
             el.type = GraphicElement::TYPE_BOX;
             el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
-            el.x1 = chip_info->bel_data[bel.index].x + logic_cell_x1;
+            el.x1 = chip_info->bel_data[bel.index].x + lut_swbox_x1;
             el.x2 = chip_info->bel_data[bel.index].x + logic_cell_x2;
             el.y1 = chip_info->bel_data[bel.index].y + logic_cell_y1 +
                     (4 * chip_info->bel_data[bel.index].z) * logic_cell_pitch;
@@ -741,13 +791,43 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
                 GraphicElement el;
                 el.type = GraphicElement::TYPE_BOX;
                 el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
-                el.x1 = chip_info->bel_data[bel.index].x + logic_cell_x1;
+                el.x1 = chip_info->bel_data[bel.index].x + lut_swbox_x1;
                 el.x2 = chip_info->bel_data[bel.index].x + logic_cell_x2;
                 el.y1 = chip_info->bel_data[bel.index].y + logic_cell_y1 + i;
                 el.y2 = chip_info->bel_data[bel.index].y + logic_cell_y2 + i + 7 * logic_cell_pitch;
                 ret.push_back(el);
             }
         }
+
+        if (bel_type == id_SB_GB) {
+            GraphicElement el;
+            el.type = GraphicElement::TYPE_BOX;
+            el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
+            el.x1 = chip_info->bel_data[bel.index].x + local_swbox_x1 + 0.05;
+            el.x2 = chip_info->bel_data[bel.index].x + logic_cell_x2 - 0.05;
+            el.y1 = chip_info->bel_data[bel.index].y + main_swbox_y2 - 0.05;
+            el.y2 = chip_info->bel_data[bel.index].y + main_swbox_y2 - 0.10;
+            ret.push_back(el);
+        }
+
+        if (bel_type == id_ICESTORM_PLL || bel_type == id_SB_WARMBOOT) {
+            GraphicElement el;
+            el.type = GraphicElement::TYPE_BOX;
+            el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
+            el.x1 = chip_info->bel_data[bel.index].x + local_swbox_x1 + 0.05;
+            el.x2 = chip_info->bel_data[bel.index].x + logic_cell_x2 - 0.05;
+            el.y1 = chip_info->bel_data[bel.index].y + main_swbox_y2;
+            el.y2 = chip_info->bel_data[bel.index].y + main_swbox_y2 + 0.05;
+            ret.push_back(el);
+        }
+
+#if 0
+        if (ret.empty()) {
+            BelId bel;
+            bel.index = decal.index;
+            log_warning("No gfx decal for bel %s (%d).\n", getBelName(bel).c_str(getCtx()), decal.index);
+        }
+#endif
     }
 
     return ret;

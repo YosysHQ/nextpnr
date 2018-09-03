@@ -59,7 +59,7 @@ TEST_F(UP5KTest, wire_names)
         assert(wire == ctx->getWireByName(name));
         wire_count++;
     }
-    ASSERT_EQ(wire_count, 103391);
+    ASSERT_EQ(wire_count, 124503);
 }
 
 TEST_F(UP5KTest, pip_names)
@@ -70,7 +70,7 @@ TEST_F(UP5KTest, pip_names)
         assert(pip == ctx->getPipByName(name));
         pip_count++;
     }
-    ASSERT_EQ(pip_count, 1219104);
+    ASSERT_EQ(pip_count, 1324704);
 }
 
 TEST_F(UP5KTest, uphill_to_downhill)

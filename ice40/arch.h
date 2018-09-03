@@ -225,6 +225,7 @@ NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     RelPtr<BelConfigPOD> bel_config;
     RelPtr<PackageInfoPOD> packages_data;
     RelPtr<CellTimingPOD> cell_timing;
+    RelPtr<RelPtr<char>> tile_wire_names;
 });
 
 #if defined(_MSC_VER)
@@ -502,6 +503,8 @@ struct Arch : BaseCtx
         return IdString(chip_info->bel_data[bel.index].type);
     }
 
+    std::vector<std::pair<IdString, std::string>> getBelAttrs(BelId bel) const;
+
     WireId getBelPinWire(BelId bel, IdString pin) const;
     PortType getBelPinType(BelId bel, IdString pin) const;
     std::vector<IdString> getBelPins(BelId bel) const;
@@ -517,6 +520,7 @@ struct Arch : BaseCtx
     }
 
     IdString getWireType(WireId wire) const;
+    std::vector<std::pair<IdString, std::string>> getWireAttrs(WireId wire) const;
 
     uint32_t getWireChecksum(WireId wire) const { return wire.index; }
 
@@ -692,7 +696,8 @@ struct Arch : BaseCtx
 
     IdString getPipName(PipId pip) const;
 
-    IdString getPipType(PipId pip) const { return IdString(); }
+    IdString getPipType(PipId pip) const;
+    std::vector<std::pair<IdString, std::string>> getPipAttrs(PipId pip) const;
 
     uint32_t getPipChecksum(PipId pip) const { return pip.index; }
 
@@ -832,8 +837,6 @@ struct Arch : BaseCtx
         }
         NPNR_ASSERT_FALSE("Expected PLL pin to share an output with an SB_IO D_IN_{0,1}");
     }
-
-    float placer_constraintWeight = 10;
 };
 
 void ice40DelayFuzzerMain(Context *ctx);

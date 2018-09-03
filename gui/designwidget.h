@@ -22,6 +22,7 @@
 
 #include <QTreeView>
 #include <QVariant>
+#include <QMouseEvent>
 #include "nextpnr.h"
 #include "qtgroupboxpropertybrowser.h"
 #include "qtpropertymanager.h"
@@ -30,6 +31,22 @@
 #include "treemodel.h"
 
 NEXTPNR_NAMESPACE_BEGIN
+
+class TreeView : public QTreeView
+{
+    Q_OBJECT
+  
+  public:
+    explicit TreeView(QWidget *parent = 0);
+    ~TreeView();
+    void mouseMoveEvent(QMouseEvent *event) override;
+    void leaveEvent(QEvent *event) override;
+
+  Q_SIGNALS:
+    void hoverIndexChanged(QModelIndex index);
+  private:
+    QModelIndex current;
+};
 
 class DesignWidget : public QWidget
 {
@@ -55,6 +72,7 @@ class DesignWidget : public QWidget
   Q_SIGNALS:
     void selected(std::vector<DecalXY> decal, bool keep);
     void highlight(std::vector<DecalXY> decal, int group);
+    void hover(DecalXY decal);
     void zoomSelected();
 
   private Q_SLOTS:
@@ -64,6 +82,8 @@ class DesignWidget : public QWidget
     void onItemDoubleClicked(QTreeWidgetItem *item, int column);
     void onDoubleClicked(const QModelIndex &index);
     void onSearchInserted();
+    void onHoverIndexChanged(QModelIndex index);
+    void onHoverPropertyChanged(QtBrowserItem *item);
   public Q_SLOTS:
     void newContext(Context *ctx);
     void updateTree();
@@ -74,7 +94,7 @@ class DesignWidget : public QWidget
   private:
     Context *ctx;
 
-    QTreeView *treeView;
+    TreeView *treeView;
     QItemSelectionModel *selectionModel;
     TreeModel::Model *treeModel;
     QLineEdit *searchEdit;

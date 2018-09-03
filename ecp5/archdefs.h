@@ -139,6 +139,10 @@ struct ArchNetInfo
 };
 struct ArchCellInfo
 {
+    struct
+    {
+        IdString clk_sig, lsr_sig, clkmux, lsrmux, srmode;
+    } sliceInfo;
 };
 
 NEXTPNR_NAMESPACE_END

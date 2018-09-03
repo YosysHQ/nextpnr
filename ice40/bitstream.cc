@@ -870,10 +870,12 @@ bool read_asc(Context *ctx, std::istream &in)
             }
             if (isUsed) {
                 NetInfo *net = ctx->wire_to_net[pi.dst];
-                WireId wire;
-                wire.index = pi.dst;
-                ctx->unbindWire(wire);
-                ctx->bindPip(pip, net, STRENGTH_WEAK);
+                if (net!=nullptr) {
+                    WireId wire;
+                    wire.index = pi.dst;
+                    ctx->unbindWire(wire);
+                    ctx->bindPip(pip, net, STRENGTH_WEAK);
+                }
             }
         }
         for (auto bel : ctx->getBels()) {

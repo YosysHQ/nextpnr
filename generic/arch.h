@@ -32,6 +32,7 @@ struct WireInfo;
 struct PipInfo
 {
     IdString name, type;
+    std::map<IdString, std::string> attrs;
     NetInfo *bound_net;
     WireId srcWire, dstWire;
     DelayInfo delay;
@@ -42,6 +43,7 @@ struct PipInfo
 struct WireInfo
 {
     IdString name, type;
+    std::map<IdString, std::string> attrs;
     NetInfo *bound_net;
     std::vector<PipId> downhill, uphill, aliases;
     BelPin uphill_bel_pin;
@@ -61,6 +63,7 @@ struct PinInfo
 struct BelInfo
 {
     IdString name, type;
+    std::map<IdString, std::string> attrs;
     CellInfo *bound_cell;
     std::unordered_map<IdString, PinInfo> pins;
     DecalXY decalxy;
@@ -120,6 +123,10 @@ struct Arch : BaseCtx
     void setBelDecal(BelId bel, DecalXY decalxy);
     void setGroupDecal(GroupId group, DecalXY decalxy);
 
+    void setWireAttr(IdString wire, IdString key, const std::string &value);
+    void setPipAttr(IdString pip, IdString key, const std::string &value);
+    void setBelAttr(IdString bel, IdString key, const std::string &value);
+
     // ---------------------------------------------------------------
     // Common Arch API. Every arch must provide the following methods.
 
@@ -151,6 +158,7 @@ struct Arch : BaseCtx
     CellInfo *getConflictingBelCell(BelId bel) const;
     const std::vector<BelId> &getBels() const;
     IdString getBelType(BelId bel) const;
+    const std::map<IdString, std::string> &getBelAttrs(BelId bel) const;
     WireId getBelPinWire(BelId bel, IdString pin) const;
     PortType getBelPinType(BelId bel, IdString pin) const;
     std::vector<IdString> getBelPins(BelId bel) const;
@@ -158,6 +166,7 @@ struct Arch : BaseCtx
     WireId getWireByName(IdString name) const;
     IdString getWireName(WireId wire) const;
     IdString getWireType(WireId wire) const;
+    const std::map<IdString, std::string> &getWireAttrs(WireId wire) const;
     uint32_t getWireChecksum(WireId wire) const;
     void bindWire(WireId wire, NetInfo *net, PlaceStrength strength);
     void unbindWire(WireId wire);
@@ -171,6 +180,7 @@ struct Arch : BaseCtx
     PipId getPipByName(IdString name) const;
     IdString getPipName(PipId pip) const;
     IdString getPipType(PipId pip) const;
+    const std::map<IdString, std::string> &getPipAttrs(PipId pip) const;
     uint32_t getPipChecksum(PipId pip) const;
     void bindPip(PipId pip, NetInfo *net, PlaceStrength strength);
     void unbindPip(PipId pip);

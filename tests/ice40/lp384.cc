@@ -59,7 +59,7 @@ TEST_F(LP384Test, wire_names)
         assert(wire == ctx->getWireByName(name));
         wire_count++;
     }
-    ASSERT_EQ(wire_count, 8302);
+    ASSERT_EQ(wire_count, 9830);
 }
 
 TEST_F(LP384Test, pip_names)
@@ -70,7 +70,7 @@ TEST_F(LP384Test, pip_names)
         assert(pip == ctx->getPipByName(name));
         pip_count++;
     }
-    ASSERT_EQ(pip_count, 86864);
+    ASSERT_EQ(pip_count, 94544);
 }
 
 TEST_F(LP384Test, uphill_to_downhill)

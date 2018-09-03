@@ -127,6 +127,13 @@ cmake -DARCH=ice40 -DCMAKE_BUILD_TYPE=Debug -DBUILD_PYTHON=OFF -DBUILD_GUI=OFF -
 make -j$(nproc)
 ```
 
+To make static build relase for iCE40 architecture use the following:
+
+```
+cmake -DARCH=ice40 -DBUILD_PYTHON=OFF -DBUILD_GUI=OFF -DSTATIC_BUILD=ON .
+make -j$(nproc)
+```
+
 Notes for developers
 --------------------
 
@@ -145,6 +152,9 @@ Testing
   - `-DSANITIZE_THREAD=ON`
   - `-DSANITIZE_UNDEFINED=ON`
 - Running valgrind example `valgrind --leak-check=yes --tool=memcheck ./nextpnr-ice40 --json ice40/blinky.json`
+- Running tests with code coverage use `-DBUILD_TESTS=ON -DCOVERAGE` and after `make` run `make ice40-coverage` 
+- After that open `ice40-coverage/index.html` in your browser to view the coverage report
+- Note that `lcov` is needed in order to generate reports
 
 Links and references
 --------------------
@@ -167,6 +177,6 @@ Links and references
 - [Arachne PNR](https://github.com/cseed/arachne-pnr)
 - [VPR/VTR](https://verilogtorouting.org/)
 - [SymbiFlow](https://github.com/SymbiFlow/symbiflow-arch-defs)
-- [Gaffe](https://github.com/kc8apf/gaffe)
+- [Gaffe](https://github.com/gaffe-logic/gaffe)
 - [KinglerPAR](https://github.com/rqou/KinglerPAR)
 

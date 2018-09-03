@@ -21,7 +21,7 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId id, GraphicElement::style_t style)
+void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, GfxTileWireId id, GraphicElement::style_t style)
 {
     GraphicElement el;
     el.type = GraphicElement::TYPE_LINE;
@@ -339,6 +339,168 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId id,
         g.push_back(el);
     }
 
+    // IO Span-4 Wires connecting to fabric
+
+    if (id >= TILE_WIRE_SPAN4_HORZ_0 && id <= TILE_WIRE_SPAN4_HORZ_47) {
+        int idx = id - TILE_WIRE_SPAN4_HORZ_0;
+        float y1 = y + 1.0 - (0.03 + 0.0025 * (48 - (idx ^ 1)));
+
+        el.x1 = x;
+        el.x2 = x + 1.0;
+        el.y1 = y1;
+        el.y2 = y1;
+        g.push_back(el);
+
+        el.x1 = x + main_swbox_x1 + 0.0025 * ((idx ^ 1) + 35);
+        el.x2 = el.x1;
+        el.y1 = y1;
+        el.y2 = y + main_swbox_y2;
+        g.push_back(el);
+    }
+
+    if (id >= TILE_WIRE_SPAN4_VERT_0 && id <= TILE_WIRE_SPAN4_VERT_47) {
+        int idx = id - TILE_WIRE_SPAN4_VERT_0;
+        float x1 = x + 0.03 + 0.0025 * (48 - (idx ^ 1));
+
+        el.x1 = x1;
+        el.x2 = x1;
+        el.y1 = y;
+        el.y2 = y + 1.0;
+        g.push_back(el);
+
+        el.y1 = y + 1.0 - (0.03 + 0.0025 * (270 - (idx ^ 1)));
+        el.y2 = el.y1;
+        el.x1 = x1;
+        el.x2 = x + main_swbox_x1;
+        g.push_back(el);
+    }
+
+    // IO Span-12 Wires connecting to fabric
+
+    if (id >= TILE_WIRE_SPAN12_HORZ_0 && id <= TILE_WIRE_SPAN12_HORZ_23) {
+        int idx = id - TILE_WIRE_SPAN12_HORZ_0;
+        float y1 = y + 1.0 - (0.03 + 0.0025 * (88 - (idx ^ 1)));
+
+        el.x1 = x;
+        el.x2 = x + 1.0;
+        el.y1 = y1;
+        el.y2 = y1;
+        g.push_back(el);
+
+        el.x1 = x + main_swbox_x1 + 0.0025 * ((idx ^ 1) + 5);
+        el.x2 = el.x1;
+        el.y1 = y1;
+        el.y2 = y + main_swbox_y2;
+        g.push_back(el);
+    }
+
+    if (id >= TILE_WIRE_SPAN12_VERT_0 && id <= TILE_WIRE_SPAN12_VERT_23) {
+        int idx = id - TILE_WIRE_SPAN12_VERT_0;
+        float x1 = x + 0.03 + 0.0025 * (88 - (idx ^ 1));
+
+        el.x1 = x1;
+        el.x2 = x1;
+        el.y1 = y;
+        el.y2 = y + 1.0;
+        g.push_back(el);
+
+        el.y1 = y + 1.0 - (0.03 + 0.0025 * (300 - (idx ^ 1)));
+        el.y2 = el.y1;
+        el.x1 = x1;
+        el.x2 = x + main_swbox_x1;
+        g.push_back(el);
+    }
+
+    // Horizontal IO Span-4 Wires
+
+    if (id >= TILE_WIRE_SPAN4_HORZ_R_0 && id <= TILE_WIRE_SPAN4_HORZ_L_15) {
+        int idx = id - TILE_WIRE_SPAN4_HORZ_R_0;
+
+        float y1 = y + 1.0 - (0.03 + 0.0025 * (60 - idx));
+        float y2 = y + 1.0 - (0.03 + 0.0025 * (60 - idx - 4));
+
+        el.x1 = x;
+        el.x2 = x + 0.9;
+        el.y1 = y1;
+        el.y2 = y1;
+        g.push_back(el);
+
+        if (idx <= 15) {
+            el.x1 = x + 0.9;
+            el.x2 = x + 1.0;
+            el.y1 = y1;
+            el.y2 = y2;
+            g.push_back(el);
+        }
+
+        el.x1 = x + main_swbox_x1 + 0.0025 * (idx + 35);
+        el.x2 = el.x1;
+        el.y1 = y1;
+        el.y2 = y + main_swbox_y2;
+        g.push_back(el);
+    }
+
+    // Vertical IO Span-4 Wires
+
+    if (id >= TILE_WIRE_SPAN4_VERT_B_0 && id <= TILE_WIRE_SPAN4_VERT_T_15) {
+        int idx = id - TILE_WIRE_SPAN4_VERT_B_0;
+
+        float x1 = x + 0.03 + 0.0025 * (60 - idx);
+        float x2 = x + 0.03 + 0.0025 * (60 - idx - 4);
+
+        el.y1 = y + 1.00;
+        el.y2 = y + 0.10;
+        el.x1 = x1;
+        el.x2 = x1;
+        g.push_back(el);
+
+        if (idx <= 15) {
+            el.y1 = y + 0.10;
+            el.y2 = y;
+            el.x1 = x1;
+            el.x2 = x2;
+            g.push_back(el);
+        }
+
+        if (idx <= 15 && (x == 0 || x == w-1) && y == 1) {
+            float y1 = y - (0.03 + 0.0025 * (60 - idx - 4));
+
+            el.x1 = x2;
+            el.y1 = y;
+            el.x2 = x2;
+            el.y2 = y1;
+            g.push_back(el);
+
+            el.x1 = x2;
+            el.y1 = y1;
+            el.x2 = x + (x == 0);
+            el.y2 = y1;
+            g.push_back(el);
+        }
+
+        if (idx >= 4 && (x == 0 || x == w-1) && y == h-2) {
+            float y1 = y + 2.0 - (0.03 + 0.0025 * (60 - idx));
+
+            el.x1 = x1;
+            el.y1 = y + 1.0;
+            el.x2 = x1;
+            el.y2 = y1;
+            g.push_back(el);
+
+            el.x1 = x1;
+            el.y1 = y1;
+            el.x2 = x + (x == 0);
+            el.y2 = y1;
+            g.push_back(el);
+        }
+
+        el.y1 = y + 1.0 - (0.03 + 0.0025 * (270 - idx));
+        el.y2 = el.y1;
+        el.x1 = x1;
+        el.x2 = x + main_swbox_x1;
+        g.push_back(el);
+    }
+
     // Global2Local
 
     if (id >= TILE_WIRE_GLB2LOCAL_0 && id <= TILE_WIRE_GLB2LOCAL_3) {
@@ -392,7 +554,7 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId id,
         int input = idx % 4;
         el.x1 = x + local_swbox_x2;
         el.x2 = x + lut_swbox_x1;
-        el.y1 = y + (logic_cell_y1 + logic_cell_y2) / 2 - 0.0075 + (0.005 * input) + z * logic_cell_pitch;
+        el.y1 = y + (logic_cell_y1 + logic_cell_y2) / 2 + 0.0075 - (0.005 * input) + z * logic_cell_pitch;
         el.y2 = el.y1;
         g.push_back(el);
     }
@@ -403,7 +565,7 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId id,
         int input = idx % 4;
         el.x1 = x + lut_swbox_x2;
         el.x2 = x + logic_cell_x1;
-        el.y1 = y + (logic_cell_y1 + logic_cell_y2) / 2 - 0.0075 + (0.005 * input) + z * logic_cell_pitch;
+        el.y1 = y + (logic_cell_y1 + logic_cell_y2) / 2 + 0.0075 - (0.005 * input) + z * logic_cell_pitch;
         el.y2 = el.y1;
         g.push_back(el);
     }
@@ -455,6 +617,42 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId id,
             el.y2 = y + logic_cell_y1 + (i + 1) * logic_cell_pitch;
             g.push_back(el);
         }
+    }
+
+    // LC Control for IO and BRAM
+
+    if (id >= TILE_WIRE_FUNC_GLOBAL_CEN && id <= TILE_WIRE_FUNC_GLOBAL_S_R) {
+        int idx = id - TILE_WIRE_FUNC_GLOBAL_CEN;
+
+        el.x1 = x + main_swbox_x2 - 0.005 * (idx + 5);
+        el.x2 = el.x1;
+        el.y1 = y + main_swbox_y1;
+        el.y2 = el.y1 - 0.005 * (idx + 2);
+        g.push_back(el);
+
+        el.y1 = el.y2;
+        el.x2 = x + logic_cell_x2 - 0.005 * (2 - idx + 5);
+        g.push_back(el);
+
+        el.y2 = y + logic_cell_y1;
+        el.x1 = el.x2;
+        g.push_back(el);
+    }
+
+    if (id == TILE_WIRE_FABOUT) {
+        el.y1 = y + main_swbox_y1;
+        el.y2 = el.y1 - 0.005 * 4;
+        el.x1 = x + main_swbox_x2 - 0.005 * 9;
+        el.x2 = el.x1;
+        g.push_back(el);
+    }
+
+    if (id == TILE_WIRE_FUNC_GLOBAL_G0) {
+        el.y1 = y + logic_cell_y1;
+        el.y2 = el.y1 - 0.005 * 4;
+        el.x1 = x + logic_cell_x2 - 0.005 * 3;
+        el.x2 = el.x1;
+        g.push_back(el);
     }
 
     // LC Cascade
@@ -571,6 +769,54 @@ static bool getWireXY_main(GfxTileWireId id, float &x, float &y)
         return true;
     }
 
+    // IO Span-4 Wires connecting to fabric
+
+    if (id >= TILE_WIRE_SPAN4_HORZ_0 && id <= TILE_WIRE_SPAN4_HORZ_47) {
+        int idx = id - TILE_WIRE_SPAN4_HORZ_0;
+        x = main_swbox_x1 + 0.0025 * ((idx ^ 1) + 35);
+        y = main_swbox_y2;
+        return true;
+    }
+
+    if (id >= TILE_WIRE_SPAN4_VERT_0 && id <= TILE_WIRE_SPAN4_VERT_47) {
+        int idx = id - TILE_WIRE_SPAN4_VERT_0;
+        y = 1.0 - (0.03 + 0.0025 * (270 - (idx ^ 1)));
+        x = main_swbox_x1;
+        return true;
+    }
+
+    // IO Span-12 Wires connecting to fabric
+
+    if (id >= TILE_WIRE_SPAN12_HORZ_0 && id <= TILE_WIRE_SPAN12_HORZ_23) {
+        int idx = id - TILE_WIRE_SPAN12_HORZ_0;
+        x = main_swbox_x1 + 0.0025 * ((idx ^ 1) + 5);
+        y = main_swbox_y2;
+        return true;
+    }
+
+    if (id >= TILE_WIRE_SPAN12_VERT_0 && id <= TILE_WIRE_SPAN12_VERT_23) {
+        int idx = id - TILE_WIRE_SPAN12_VERT_0;
+        y = 1.0 - (0.03 + 0.0025 * (300 - (idx ^ 1)));
+        x = main_swbox_x1;
+        return true;
+    }
+
+    // IO Span-4 Wires
+
+    if (id >= TILE_WIRE_SPAN4_HORZ_R_0 && id <= TILE_WIRE_SPAN4_HORZ_L_15) {
+        int idx = id - TILE_WIRE_SPAN4_HORZ_R_0;
+        y = main_swbox_y2;
+        x = main_swbox_x1 + 0.0025 * (idx + 35);
+        return true;
+    }
+
+    if (id >= TILE_WIRE_SPAN4_VERT_B_0 && id <= TILE_WIRE_SPAN4_VERT_T_15) {
+        int idx = id - TILE_WIRE_SPAN4_VERT_B_0;
+        y = 1.0 - (0.03 + 0.0025 * (270 - idx));
+        x = main_swbox_x1;
+        return true;
+    }
+
     // Global2Local
 
     if (id >= TILE_WIRE_GLB2LOCAL_0 && id <= TILE_WIRE_GLB2LOCAL_3) {
@@ -626,6 +872,19 @@ static bool getWireXY_main(GfxTileWireId id, float &x, float &y)
         return true;
     }
 
+    if (id >= TILE_WIRE_FUNC_GLOBAL_CEN && id <= TILE_WIRE_FUNC_GLOBAL_S_R) {
+        int idx = id - TILE_WIRE_FUNC_GLOBAL_CEN;
+        x = main_swbox_x2 - 0.005 * (idx + 5);
+        y = main_swbox_y1;
+        return true;
+    }
+
+    if (id == TILE_WIRE_FABOUT) {
+        x = main_swbox_x2 - 0.005 * 9;
+        y = main_swbox_y1;
+        return true;
+    }
+
     return false;
 }
 
@@ -662,22 +921,22 @@ void pipGfx(std::vector<GraphicElement> &g, int x, int y, float x1, float y1, fl
     el.style = style;
 
     if (fabsf(x1 - swx1) < 0.001 && fabsf(x2 - swx1) < 0.001) {
-        tx = x1 + 0.25 * fabsf(y1 - y2);
+        tx = swx1 + 0.25 * fabsf(y1 - y2);
         goto edge_pip;
     }
 
     if (fabsf(x1 - swx2) < 0.001 && fabsf(x2 - swx2) < 0.001) {
-        tx = x1 - 0.25 * fabsf(y1 - y2);
+        tx = swx2 - 0.25 * fabsf(y1 - y2);
         goto edge_pip;
     }
 
     if (fabsf(y1 - swy1) < 0.001 && fabsf(y2 - swy1) < 0.001) {
-        ty = y1 + 0.25 * fabsf(x1 - x2);
+        ty = swy1 + 0.25 * fabsf(x1 - x2);
         goto edge_pip;
     }
 
-    if (fabsf(y1 - swy1) < 0.001 && fabsf(y2 - swy1) < 0.001) {
-        ty = y1 + 0.25 * fabsf(x1 - x2);
+    if (fabsf(y1 - swy2) < 0.001 && fabsf(y2 - swy2) < 0.001) {
+        ty = swy2 - 0.25 * fabsf(x1 - x2);
         goto edge_pip;
     }
 
@@ -727,7 +986,7 @@ void gfxTilePip(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId src,
         el.style = style;
         el.x1 = x + logic_cell_x1;
         el.x2 = x + logic_cell_x2;
-        el.y1 = y + (logic_cell_y1 + logic_cell_y2) / 2 - 0.0075 + (0.005 * in_idx) + lut_idx * logic_cell_pitch;
+        el.y1 = y + (logic_cell_y1 + logic_cell_y2) / 2 + 0.0075 - (0.005 * in_idx) + lut_idx * logic_cell_pitch;
         el.y2 = y + (logic_cell_y1 + logic_cell_y2) / 2 + lut_idx * logic_cell_pitch;
         g.push_back(el);
         return;
@@ -744,8 +1003,46 @@ void gfxTilePip(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId src,
         el.style = style;
         el.x1 = x + lut_swbox_x1;
         el.x2 = x + lut_swbox_x2;
-        el.y1 = y + (logic_cell_y1 + logic_cell_y2) / 2 - 0.0075 + (0.005 * in_idx) + lut_idx * logic_cell_pitch;
-        el.y2 = y + (logic_cell_y1 + logic_cell_y2) / 2 - 0.0075 + (0.005 * out_idx) + lut_idx * logic_cell_pitch;
+        el.y1 = y + (logic_cell_y1 + logic_cell_y2) / 2 + 0.0075 - (0.005 * in_idx) + lut_idx * logic_cell_pitch;
+        el.y2 = y + (logic_cell_y1 + logic_cell_y2) / 2 + 0.0075 - (0.005 * out_idx) + lut_idx * logic_cell_pitch;
+        g.push_back(el);
+        return;
+    }
+
+    if ((src == TILE_WIRE_CARRY_IN_MUX || (src >= TILE_WIRE_LUTFF_0_COUT && src <= TILE_WIRE_LUTFF_6_COUT)) &&
+        (dst >= TILE_WIRE_LUTFF_0_IN_0 && dst <= TILE_WIRE_LUTFF_7_IN_3 && (dst - TILE_WIRE_LUTFF_0_IN_0) % 4 == 3)) {
+        int lut_idx = (dst - TILE_WIRE_LUTFF_0_IN_0) / 4;
+
+        GraphicElement el;
+        el.type = GraphicElement::TYPE_ARROW;
+        el.style = style;
+        el.x1 = x + (local_swbox_x2 + lut_swbox_x1) / 2;
+        el.x2 = el.x1;
+        el.y1 = y + (logic_cell_y1 + logic_cell_y2) / 2 + 0.0075 - (0.005 * 3) + lut_idx * logic_cell_pitch;
+        el.y2 = y + (logic_cell_y1 + logic_cell_y2 - logic_cell_pitch) / 2 + lut_idx * logic_cell_pitch;
+        g.push_back(el);
+
+        el.x1 = x + logic_cell_x1 + 0.005 * 3;
+        el.y1 = el.y2;
+        g.push_back(el);
+        return;
+    }
+
+    if ((src >= TILE_WIRE_LUTFF_0_LOUT && src <= TILE_WIRE_LUTFF_6_LOUT) &&
+        (dst >= TILE_WIRE_LUTFF_0_IN_0 && dst <= TILE_WIRE_LUTFF_7_IN_3 && (dst - TILE_WIRE_LUTFF_0_IN_0) % 4 == 2)) {
+        int lut_idx = (dst - TILE_WIRE_LUTFF_0_IN_0) / 4;
+
+        GraphicElement el;
+        el.type = GraphicElement::TYPE_ARROW;
+        el.style = style;
+        el.x1 = x + (local_swbox_x2 + lut_swbox_x1) / 2 + 0.005;
+        el.x2 = el.x1;
+        el.y1 = y + (logic_cell_y1 + logic_cell_y2) / 2 + 0.0075 - (0.005 * 2) + lut_idx * logic_cell_pitch;
+        el.y2 = y + (logic_cell_y1 + logic_cell_y2 - logic_cell_pitch) / 2 + lut_idx * logic_cell_pitch + 0.003;
+        g.push_back(el);
+
+        el.x1 = x + logic_cell_x1 + 0.005 * 5;
+        el.y1 = el.y2;
         g.push_back(el);
         return;
     }

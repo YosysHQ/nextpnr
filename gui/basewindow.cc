@@ -109,6 +109,7 @@ BaseMainWindow::BaseMainWindow(std::unique_ptr<Context> context, ArchArgs args, 
     connect(designview, &DesignWidget::selected, fpgaView, &FPGAViewWidget::onSelectedArchItem);
     connect(designview, &DesignWidget::zoomSelected, fpgaView, &FPGAViewWidget::zoomSelected);
     connect(designview, &DesignWidget::highlight, fpgaView, &FPGAViewWidget::onHighlightGroupChanged);
+    connect(designview, &DesignWidget::hover, fpgaView, &FPGAViewWidget::onHoverItemChanged);
 
     // Click event on device view
     connect(fpgaView, &FPGAViewWidget::clickedBel, designview, &DesignWidget::onClickedBel);
@@ -420,7 +421,7 @@ void BaseMainWindow::disableActions()
     actionNew->setEnabled(true);
     actionOpen->setEnabled(true);
 
-    if (ctx->settings.find(ctx->id("project/input/json")) != ctx->settings.end())
+    if (ctx->settings.find(ctx->id("input/json")) != ctx->settings.end())
         actionSave->setEnabled(true);
     else
         actionSave->setEnabled(false);

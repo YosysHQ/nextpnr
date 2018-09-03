@@ -59,7 +59,7 @@ TEST_F(LP8KTest, wire_names)
         assert(wire == ctx->getWireByName(name));
         wire_count++;
     }
-    ASSERT_EQ(wire_count, 135182);
+    ASSERT_EQ(wire_count, 165894);
 }
 
 TEST_F(LP8KTest, pip_names)
@@ -70,7 +70,7 @@ TEST_F(LP8KTest, pip_names)
         assert(pip == ctx->getPipByName(name));
         pip_count++;
     }
-    ASSERT_EQ(pip_count, 1652480);
+    ASSERT_EQ(pip_count, 1806080);
 }
 
 TEST_F(LP8KTest, uphill_to_downhill)

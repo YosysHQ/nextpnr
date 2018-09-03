@@ -30,15 +30,34 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+TreeView::TreeView(QWidget *parent) : QTreeView(parent) {}
+
+TreeView::~TreeView() {}
+
+void TreeView::mouseMoveEvent(QMouseEvent *event)
+{
+    QModelIndex index = indexAt(event->pos());
+    if (index!=current) {
+        current = index;
+        Q_EMIT hoverIndexChanged(index);
+    }
+    QTreeView::mouseMoveEvent(event);
+}
+
+void TreeView::leaveEvent(QEvent *event)
+{
+    Q_EMIT hoverIndexChanged(QModelIndex());
+}
+
 DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr), selectionModel(nullptr)
 {
     // Add tree view
-    treeView = new QTreeView();
+    treeView = new TreeView();
     treeModel = new TreeModel::Model();
     treeView->setModel(treeModel);
     treeView->setContextMenuPolicy(Qt::CustomContextMenu);
     treeView->setSelectionMode(QAbstractItemView::ExtendedSelection);
-
+    treeView->viewport()->setMouseTracking(true);
     // Add property view
     variantManager = new QtVariantPropertyManager(this);
     readOnlyManager = new QtVariantPropertyManager(this);
@@ -50,6 +69,7 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr), sel
     propertyEditor->show();
     propertyEditor->treeWidget()->setContextMenuPolicy(Qt::CustomContextMenu);
     propertyEditor->treeWidget()->setSelectionMode(QAbstractItemView::ExtendedSelection);
+    propertyEditor->treeWidget()->viewport()->setMouseTracking(true);
 
     searchEdit = new QLineEdit();
     searchEdit->setClearButtonEnabled(true);
@@ -158,9 +178,11 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr), sel
     connect(propertyEditor->treeWidget(), &QTreeWidget::customContextMenuRequested, this,
             &DesignWidget::prepareMenuProperty);
     connect(propertyEditor->treeWidget(), &QTreeWidget::itemDoubleClicked, this, &DesignWidget::onItemDoubleClicked);
+    connect(propertyEditor, &QtTreePropertyBrowser::hoverPropertyChanged, this, &DesignWidget::onHoverPropertyChanged);
 
-    connect(treeView, &QTreeView::customContextMenuRequested, this, &DesignWidget::prepareMenuTree);
-    connect(treeView, &QTreeView::doubleClicked, this, &DesignWidget::onDoubleClicked);
+    connect(treeView, &TreeView::customContextMenuRequested, this, &DesignWidget::prepareMenuTree);
+    connect(treeView, &TreeView::doubleClicked, this, &DesignWidget::onDoubleClicked);
+    connect(treeView, &TreeView::hoverIndexChanged, this, &DesignWidget::onHoverIndexChanged);
     selectionModel = treeView->selectionModel();
     connect(selectionModel, &QItemSelectionModel::selectionChanged, this, &DesignWidget::onSelectionChanged);
 
@@ -388,7 +410,6 @@ void DesignWidget::onSelectionChanged(const QItemSelection &, const QItemSelecti
     ElementType type = clickItem->type();
     if (type == ElementType::NONE)
         return;
-    std::vector<DecalXY> decals;
 
     addToHistory(index);
 
@@ -411,6 +432,11 @@ void DesignWidget::onSelectionChanged(const QItemSelection &, const QItemSelecti
         addProperty(topItem, QVariant::String, "Conflicting Cell", ctx->nameOf(ctx->getConflictingBelCell(bel)),
                     ElementType::CELL);
 
+        QtProperty *attrsItem = addSubGroup(topItem, "Attributes");
+        for (auto &item : ctx->getBelAttrs(bel)) {
+            addProperty(attrsItem, QVariant::String, item.first.c_str(ctx), item.second.c_str());
+        }
+
         QtProperty *belpinsItem = addSubGroup(topItem, "Ports");
         for (const auto &item : ctx->getBelPins(bel)) {
             QtProperty *portInfoItem = addSubGroup(belpinsItem, item.c_str(ctx));
@@ -432,6 +458,11 @@ void DesignWidget::onSelectionChanged(const QItemSelection &, const QItemSelecti
         addProperty(topItem, QVariant::String, "Bound Net", ctx->nameOf(ctx->getBoundWireNet(wire)), ElementType::NET);
         addProperty(topItem, QVariant::String, "Conflicting Net", ctx->nameOf(ctx->getConflictingWireNet(wire)),
                     ElementType::NET);
+
+        QtProperty *attrsItem = addSubGroup(topItem, "Attributes");
+        for (auto &item : ctx->getWireAttrs(wire)) {
+            addProperty(attrsItem, QVariant::String, item.first.c_str(ctx), item.second.c_str());
+        }
 
         DelayInfo delay = ctx->getWireDelay(wire);
 
@@ -491,6 +522,11 @@ void DesignWidget::onSelectionChanged(const QItemSelection &, const QItemSelecti
                     ElementType::WIRE);
         addProperty(topItem, QVariant::String, "Dest Wire", ctx->getWireName(ctx->getPipDstWire(pip)).c_str(ctx),
                     ElementType::WIRE);
+
+        QtProperty *attrsItem = addSubGroup(topItem, "Attributes");
+        for (auto &item : ctx->getPipAttrs(pip)) {
+            addProperty(attrsItem, QVariant::String, item.first.c_str(ctx), item.second.c_str());
+        }
 
         DelayInfo delay = ctx->getPipDelay(pip);
 
@@ -784,5 +820,36 @@ void DesignWidget::onSearchInserted()
     }
     if (currentSearchIndexes.size() > 0 && currentIndex < currentSearchIndexes.size())
         selectionModel->setCurrentIndex(currentSearchIndexes.at(currentIndex), QItemSelectionModel::ClearAndSelect);
+}
+
+void DesignWidget::onHoverIndexChanged(QModelIndex index)
+{
+    if (index.isValid()) {
+        TreeModel::Item *item = treeModel->nodeFromIndex(index);
+        if (item->type() != ElementType::NONE) {
+            Q_EMIT hover(getDecals(item->type(), item->id()).at(0));
+            return;
+        }
+    }
+    Q_EMIT hover(DecalXY());    
+}
+
+void DesignWidget::onHoverPropertyChanged(QtBrowserItem *item)
+{
+    if (item!=nullptr) {
+        QtProperty *selectedProperty = item->property();
+        ElementType type = getElementTypeByName(selectedProperty->propertyId());
+        if (type != ElementType::NONE) {
+            IdString value = ctx->id(selectedProperty->valueText().toStdString());
+            if (value!=IdString()) {
+                auto node = treeModel->nodeForIdType(type, value);
+                if (node) {
+                    Q_EMIT hover(getDecals((*node)->type(), (*node)->id()).at(0));
+                    return;
+                }
+            }
+        }
+    }
+    Q_EMIT hover(DecalXY());
 }
 NEXTPNR_NAMESPACE_END

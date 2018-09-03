@@ -5,6 +5,16 @@ project(nextpnr)
 option(BUILD_GUI "Build GUI" ON)
 option(BUILD_PYTHON "Build Python Integration" ON)
 option(BUILD_TESTS "Build GUI" OFF)
+option(COVERAGE "Add code coverage info" OFF)
+option(STATIC_BUILD "Create static build" OFF)
+
+set(link_param "")
+if (STATIC_BUILD)
+    set(Boost_USE_STATIC_LIBS   ON)
+    if(NOT ${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+        set(link_param "-static")
+    endif()
+endif()
 
 # List of families to build
 set(FAMILIES generic ice40 ecp5 xc7)
@@ -43,7 +53,11 @@ set(CMAKE_CXX_FLAGS_RELEASE "-Wall -fPIC -O3 -g")
 endif()
 set(CMAKE_DEFIN)
 
-set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/3rdparty/sanitizers-cmake/cmake" ${CMAKE_MODULE_PATH})
+set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/3rdparty/sanitizers-cmake/cmake;." ${CMAKE_MODULE_PATH})
+
+if (COVERAGE)
+    include(CodeCoverage)
+endif()
 
 if(NOT DEFINED CMAKE_SUPPRESS_DEVELOPER_WARNINGS)
      set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS 1 CACHE INTERNAL "No dev warnings")
@@ -185,6 +199,16 @@ foreach (family ${ARCH})
         
     # Add any new per-architecture targets here
     if (BUILD_TESTS)
+        if (COVERAGE)
+            APPEND_COVERAGE_COMPILER_FLAGS()
+            set(COVERAGE_LCOV_EXCLUDES '/usr/include/*' '3rdparty/*' 'generated/*' 'bba/*' 'tests/*')
+            SETUP_TARGET_FOR_COVERAGE_LCOV(
+                NAME ${family}-coverage 
+                EXECUTABLE nextpnr-${family}-test
+                DEPENDENCIES nextpnr-${family}-test
+            )
+        endif()
+
         aux_source_directory(tests/${family}/ ${ufamily}_TEST_FILES)
         if (BUILD_GUI)
             aux_source_directory(tests/gui/ GUI_TEST_FILES)
@@ -211,7 +235,7 @@ foreach (family ${ARCH})
         # Include family-specific source files to all family targets and set defines appropriately
         target_include_directories(${target} PRIVATE ${family}/ ${CMAKE_CURRENT_BINARY_DIR}/generated/)
         target_compile_definitions(${target} PRIVATE NEXTPNR_NAMESPACE=nextpnr_${family} ARCH_${ufamily} ARCHNAME=${family})
-        target_link_libraries(${target} LINK_PUBLIC ${Boost_LIBRARIES})
+        target_link_libraries(${target} LINK_PUBLIC ${Boost_LIBRARIES} ${link_param})
         if (NOT MSVC)
             target_link_libraries(${target} LINK_PUBLIC pthread)
         endif()
