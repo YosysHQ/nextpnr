@@ -217,6 +217,15 @@ void write_xdl(const Context *ctx, std::ostream &out)
 
         auto b = designPtr->addNet(netPtr);
         assert(b);
+
+        for (const auto& i : net.second->wires) {
+            const auto& pip_map = i.second;
+            if (pip_map.pip == PipId()) continue;
+            ExtendedWireInfo ewi_src(*torc_info->ddb, torc_info->pip_to_arc[pip_map.pip.index].getSourceTilewire());
+            ExtendedWireInfo ewi_dst(*torc_info->ddb, torc_info->pip_to_arc[pip_map.pip.index].getSinkTilewire());
+            auto p = Factory::newPip(ewi_src.mTileName, ewi_src.mWireName, ewi_dst.mWireName, ePipUnidirectionalBuffered);
+            netPtr->addPip(p);
+        }
     }
 
     exporter(designPtr);
