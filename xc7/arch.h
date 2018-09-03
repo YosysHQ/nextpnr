@@ -252,7 +252,7 @@ struct TorcInfo {
     }
     std::string wire_to_name(int32_t index) const
     {
-        const auto tw = wire_to_tilewire[index];
+        const auto &tw = wire_to_tilewire[index];
         ExtendedWireInfo ewi(*ddb, tw);
         std::stringstream ss;
         ss << ewi.mTileName << "/" << ewi.mWireName;
@@ -260,8 +260,15 @@ struct TorcInfo {
     }
     int32_t tilewire_to_wire(const Tilewire &tw) const
     {
-        const auto& segment = segments.getTilewireSegment(tw);
+        const auto &segment = segments.getTilewireSegment(tw);
         return segment.getCompactSegmentIndex();
+    }
+    int32_t pip_to_wire(int32_t index) const
+    {
+        const auto &arc = pip_to_arc[index];
+        const auto &segment = segments.getTilewireSegment(arc.getSourceTilewire());
+        return segment.getCompactSegmentIndex();
+
     }
 
     const std::vector<SiteIndex> bel_to_site_index;
@@ -270,12 +277,18 @@ struct TorcInfo {
     const std::vector<int8_t> bel_to_z;
     const std::vector<Tilewire> wire_to_tilewire;
     const int num_wires;
+    std::vector<std::vector<int>> wire_to_pips_uphill;
+    std::vector<std::vector<int>> wire_to_pips_downhill;
+    const std::vector<Arc> pip_to_arc;
+    const int num_pips;
+
 
 private:
     static std::vector<SiteIndex> construct_bel_to_site_index(Arch *ctx, const Sites &sites);
     static std::vector<IdString> construct_site_index_to_type(Arch *ctx, const Sites &sites);
     static std::vector<int8_t> construct_bel_to_z(const Sites &sites, const int num_bels, const std::vector<IdString> &site_index_to_type);
     static std::vector<Tilewire> construct_wire_to_tilewire(const Segments &segments, const Tiles &tiles);
+    static std::vector<Arc> construct_pip_to_arc(const std::vector<Tilewire>& wire_to_tilewire, const DDB& ddb, std::vector<std::vector<int>> &wire_to_pips_uphill, std::vector<std::vector<int>> &wire_to_pips_downhill);
 };
 extern std::unique_ptr<const TorcInfo> torc_info;
 
@@ -435,11 +448,11 @@ struct Arch : BaseCtx
     mutable std::unordered_map<IdString, int> pip_by_name;
     mutable std::unordered_map<Loc, BelId> bel_by_loc;
 
-    std::vector<bool> bel_carry;
+    //std::vector<bool> bel_carry;
     std::vector<CellInfo *> bel_to_cell;
     std::vector<NetInfo *> wire_to_net;
     std::vector<NetInfo *> pip_to_net;
-    std::vector<NetInfo *> switches_locked;
+    //std::vector<NetInfo *> switches_locked;
 
     ArchArgs args;
     Arch(ArchArgs args);
@@ -533,7 +546,7 @@ struct Arch : BaseCtx
 
     Loc getBelLocation(BelId bel) const
     {
-        auto &tile_info = torc_info->bel_to_tile_info(bel.index);
+        const auto &tile_info = torc_info->bel_to_tile_info(bel.index);
 
         Loc loc;
         loc.x = tile_info.getCol(); 
@@ -591,11 +604,11 @@ struct Arch : BaseCtx
         auto it = net_wires.find(wire);
         NPNR_ASSERT(it != net_wires.end());
 
-        //auto pip = it->second.pip;
-        //if (pip != PipId()) {
-        //    pip_to_net[pip.index] = nullptr;
-        //    switches_locked[chip_info->pip_data[pip.index].switch_index] = nullptr;
-        //}
+        auto pip = it->second.pip;
+        if (pip != PipId()) {
+            pip_to_net[pip.index] = nullptr;
+            //switches_locked[chip_info->pip_data[pip.index].switch_index] = nullptr;
+        }
 
         net_wires.erase(it);
         wire_to_net[wire.index] = nullptr;
@@ -640,6 +653,7 @@ struct Arch : BaseCtx
         //NPNR_ASSERT(wire != WireId());
         //range.b.ptr = chip_info->wire_data[wire.index].bel_pins.get();
         //range.e.ptr = range.b.ptr + chip_info->wire_data[wire.index].num_bel_pins;
+        throw;
         return range;
     }
 
@@ -659,17 +673,16 @@ struct Arch : BaseCtx
     {
         NPNR_ASSERT(pip != PipId());
         NPNR_ASSERT(pip_to_net[pip.index] == nullptr);
-        NPNR_ASSERT(switches_locked[chip_info->pip_data[pip.index].switch_index] == nullptr);
+        //NPNR_ASSERT(switches_locked[chip_info->pip_data[pip.index].switch_index] == nullptr);
 
         pip_to_net[pip.index] = net;
-        switches_locked[chip_info->pip_data[pip.index].switch_index] = net;
+        //switches_locked[chip_info->pip_data[pip.index].switch_index] = net;
 
-        WireId dst;
-        //dst.index = chip_info->pip_data[pip.index].dst;
+        WireId dst = getPipDstWire(pip);
         NPNR_ASSERT(wire_to_net[dst.index] == nullptr);
         wire_to_net[dst.index] = net;
-        //net->wires[dst].pip = pip;
-        //net->wires[dst].strength = strength;
+        net->wires[dst].pip = pip;
+        net->wires[dst].strength = strength;
         refreshUiPip(pip);
         refreshUiWire(dst);
     }
@@ -678,16 +691,15 @@ struct Arch : BaseCtx
     {
         NPNR_ASSERT(pip != PipId());
         NPNR_ASSERT(pip_to_net[pip.index] != nullptr);
-        NPNR_ASSERT(switches_locked[chip_info->pip_data[pip.index].switch_index] != nullptr);
+        //NPNR_ASSERT(switches_locked[chip_info->pip_data[pip.index].switch_index] != nullptr);
 
-        WireId dst;
-        //dst.index = chip_info->pip_data[pip.index].dst;
+        WireId dst = getPipDstWire(pip);
         NPNR_ASSERT(wire_to_net[dst.index] != nullptr);
         wire_to_net[dst.index] = nullptr;
         pip_to_net[pip.index]->wires.erase(dst);
 
         pip_to_net[pip.index] = nullptr;
-        switches_locked[chip_info->pip_data[pip.index].switch_index] = nullptr;
+        //switches_locked[chip_info->pip_data[pip.index].switch_index] = nullptr;
         refreshUiPip(pip);
         refreshUiWire(dst);
     }
@@ -695,25 +707,26 @@ struct Arch : BaseCtx
     bool checkPipAvail(PipId pip) const
     {
         NPNR_ASSERT(pip != PipId());
-        auto &pi = chip_info->pip_data[pip.index];
-        auto &si = chip_info->bits_info->switches[pi.switch_index];
+        //auto &pi = chip_info->pip_data[pip.index];
+        //auto &si = chip_info->bits_info->switches[pi.switch_index];
 
-        if (switches_locked[pi.switch_index] != nullptr)
-            return false;
+        //if (switches_locked[pi.switch_index] != nullptr)
+        //    return false;
 
-        if (pi.flags & PipInfoPOD::FLAG_ROUTETHRU) {
-            NPNR_ASSERT(si.bel >= 0);
-            if (bel_to_cell[si.bel] != nullptr)
-                return false;
-        }
+        //if (pi.flags & PipInfoPOD::FLAG_ROUTETHRU) {
+        //    NPNR_ASSERT(si.bel >= 0);
+        //    if (bel_to_cell[si.bel] != nullptr)
+        //        return false;
+        //}
 
-        if (pi.flags & PipInfoPOD::FLAG_NOCARRY) {
-            NPNR_ASSERT(si.bel >= 0);
-            if (bel_carry[si.bel])
-                return false;
-        }
+        //if (pi.flags & PipInfoPOD::FLAG_NOCARRY) {
+        //    NPNR_ASSERT(si.bel >= 0);
+        //    if (bel_carry[si.bel])
+        //        return false;
+        //}
 
-        return true;
+        //return true;
+        return getConflictingPipNet(pip);
     }
 
     NetInfo *getBoundPipNet(PipId pip) const
@@ -725,22 +738,27 @@ struct Arch : BaseCtx
     NetInfo *getConflictingPipNet(PipId pip) const
     {
         NPNR_ASSERT(pip != PipId());
-        return switches_locked[chip_info->pip_data[pip.index].switch_index];
+        //return switches_locked[chip_info->pip_data[pip.index].switch_index];
+        return pip_to_net[pip.index];
     }
 
     AllPipRange getPips() const
     {
         AllPipRange range;
         range.b.cursor = 0;
-        range.e.cursor = chip_info->num_pips;
+        range.e.cursor = torc_info->num_pips;
         return range;
     }
 
     Loc getPipLocation(PipId pip) const
     {
+        const auto &arc = torc_info->pip_to_arc[pip.index];
+        const auto &tw = arc.getSourceTilewire();
+        const auto &tile_info = torc_info->tiles.getTileInfo(tw.getTileIndex());
+
         Loc loc;
-        loc.x = chip_info->pip_data[pip.index].x;
-        loc.y = chip_info->pip_data[pip.index].y;
+        loc.x = tile_info.getCol(); 
+        loc.y = tile_info.getRow();
         loc.z = 0;
         return loc;
     }
@@ -755,7 +773,11 @@ struct Arch : BaseCtx
     {
         WireId wire;
         NPNR_ASSERT(pip != PipId());
-        //wire.index = chip_info->pip_data[pip.index].src;
+
+        const auto &arc = torc_info->pip_to_arc[pip.index];
+        const auto &tw = arc.getSourceTilewire();
+        wire.index = torc_info->tilewire_to_wire(tw);
+
         return wire;
     }
 
@@ -763,7 +785,11 @@ struct Arch : BaseCtx
     {
         WireId wire;
         NPNR_ASSERT(pip != PipId());
-        //wire.index = chip_info->pip_data[pip.index].dst;
+
+        const auto &arc = torc_info->pip_to_arc[pip.index];
+        const auto &tw = arc.getSinkTilewire();
+        wire.index = torc_info->tilewire_to_wire(tw);
+
         return wire;
     }
 
@@ -771,10 +797,10 @@ struct Arch : BaseCtx
     {
         DelayInfo delay;
         NPNR_ASSERT(pip != PipId());
-        if (fast_part)
-            delay.delay = chip_info->pip_data[pip.index].fast_delay;
-        else
-            delay.delay = chip_info->pip_data[pip.index].slow_delay;
+        //if (fast_part)
+        //    delay.delay = chip_info->pip_data[pip.index].fast_delay;
+        //else
+        //    delay.delay = chip_info->pip_data[pip.index].slow_delay;
         return delay;
     }
 
@@ -782,8 +808,9 @@ struct Arch : BaseCtx
     {
         PipRange range;
         NPNR_ASSERT(wire != WireId());
-        //range.b.cursor = chip_info->wire_data[wire.index].pips_downhill.get();
-        //range.e.cursor = range.b.cursor + chip_info->wire_data[wire.index].num_downhill;
+        const auto &pips = torc_info->wire_to_pips_downhill[wire.index];
+        range.b.cursor = pips.data();
+        range.e.cursor = range.b.cursor + pips.size();
         return range;
     }
 
@@ -791,8 +818,9 @@ struct Arch : BaseCtx
     {
         PipRange range;
         NPNR_ASSERT(wire != WireId());
-        //range.b.cursor = chip_info->wire_data[wire.index].pips_uphill.get();
-        //range.e.cursor = range.b.cursor + chip_info->wire_data[wire.index].num_uphill;
+        const auto &pips = torc_info->wire_to_pips_uphill[wire.index];
+        range.b.cursor = pips.data();
+        range.e.cursor = range.b.cursor + pips.size();
         return range;
     }
 
