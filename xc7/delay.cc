@@ -100,8 +100,12 @@ void ice40DelayFuzzerMain(Context *ctx)
 
 delay_t Arch::estimateDelay(WireId src, WireId dst) const
 {
-    //return 200 * (abs(src.location.x - dst.location.x) + abs(src.location.y - dst.location.y));
-    return 0;
+    const auto &src_tw = torc_info->wire_to_tilewire[src.index];
+    const auto &src_info = torc_info->tiles.getTileInfo(src_tw.getTileIndex());
+    const auto &dst_tw = torc_info->wire_to_tilewire[dst.index];
+    const auto &dst_info = torc_info->tiles.getTileInfo(dst_tw.getTileIndex());
+
+    return 200 * (abs(src_info.getCol() - dst_info.getCol()) + abs(src_info.getRow() - dst_info.getRow()));
 }
 
 delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
