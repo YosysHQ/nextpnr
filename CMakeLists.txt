@@ -11,7 +11,9 @@ option(STATIC_BUILD "Create static build" OFF)
 set(link_param "")
 if (STATIC_BUILD)
     set(Boost_USE_STATIC_LIBS   ON)
-    set(link_param "-static")
+    if(NOT ${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+        set(link_param "-static")
+    endif()
 endif()
 
 # List of families to build
