@@ -35,7 +35,7 @@ NEXTPNR_NAMESPACE_BEGIN
 
 std::unique_ptr<const TorcInfo> torc_info;
 TorcInfo::TorcInfo(Arch *ctx, const std::string &inDeviceName, const std::string &inPackageName)
-    : ddb(new DDB(inDeviceName, inPackageName)), sites(ddb->getSites()), tiles(ddb->getTiles()), segments(ddb->getSegments()), bel_to_site_index(construct_bel_to_site_index(ctx, sites)), num_bels(bel_to_site_index.size()), site_index_to_type(construct_site_index_to_type(ctx, sites)), bel_to_z(construct_bel_to_z(sites, num_bels, site_index_to_type)), wire_to_tilewire(construct_wire_to_tilewire(segments, tiles)), num_wires(wire_to_tilewire.size()), pip_to_arc(construct_pip_to_arc(wire_to_tilewire, *ddb, wire_to_pips_uphill, wire_to_pips_downhill)), num_pips(pip_to_arc.size())
+    : ddb(new DDB(inDeviceName, inPackageName)), sites(ddb->getSites()), tiles(ddb->getTiles()), segments(ddb->getSegments()), bel_to_site_index(construct_bel_to_site_index(ctx, sites)), num_bels(bel_to_site_index.size()), site_index_to_type(construct_site_index_to_type(ctx, sites)), bel_to_z(construct_bel_to_z(sites, num_bels, site_index_to_type)), wire_to_tilewire(construct_wire_to_tilewire(segments, tiles, segment_to_wire, trivial_to_wire)), num_wires(wire_to_tilewire.size()), pip_to_arc(construct_pip_to_arc(wire_to_tilewire, *ddb, wire_to_pips_uphill, wire_to_pips_downhill)), num_pips(pip_to_arc.size())
 {
 }
 std::vector<SiteIndex> TorcInfo::construct_bel_to_site_index(Arch* ctx, const Sites &sites)
@@ -102,9 +102,9 @@ std::vector<int8_t> TorcInfo::construct_bel_to_z(const Sites &sites, const int n
     }
     return bel_to_z;
 }
-std::vector<Tilewire> TorcInfo::construct_wire_to_tilewire(const Segments& segments, const Tiles& tiles)
+std::vector<Tilewire> TorcInfo::construct_wire_to_tilewire(const Segments& segments, const Tiles& tiles, std::unordered_map<Segments::SegmentReference,int>& segment_to_wire, std::unordered_map<Tilewire,int>& trivial_to_wire)
 {
-    std::vector<Tilewire> wire_to_tilewire(segments.getCompactSegmentCount());
+    std::vector<Tilewire> wire_to_tilewire;
 
     Tilewire currentTilewire;
     for(TileIndex tileIndex(0); tileIndex < tiles.getTileCount(); tileIndex++) {
@@ -117,12 +117,19 @@ std::vector<Tilewire> TorcInfo::construct_wire_to_tilewire(const Segments& segme
             currentTilewire.setWireIndex(wireIndex);
 
             const auto& currentSegment = segments.getTilewireSegment(currentTilewire);
-            if (currentSegment.getAnchorTileIndex() != tileIndex) continue;
 
-            wire_to_tilewire[currentSegment.getCompactSegmentIndex()] = currentTilewire;
+            if (!currentSegment.isTrivial()) {
+                if (currentSegment.getAnchorTileIndex() != tileIndex) continue;
+                segment_to_wire.emplace(currentSegment, wire_to_tilewire.size());
+            }
+            else
+                trivial_to_wire.emplace(currentTilewire, wire_to_tilewire.size());
+
+            wire_to_tilewire.push_back(currentTilewire);
         }
     }
 
+    wire_to_tilewire.shrink_to_fit();
     return wire_to_tilewire;
 }
 std::vector<Arc> TorcInfo::construct_pip_to_arc(const std::vector<Tilewire>& wire_to_tilewire, const DDB& ddb, std::vector<std::vector<int>> &wire_to_pips_uphill, std::vector<std::vector<int>> &wire_to_pips_downhill)
@@ -130,20 +137,14 @@ std::vector<Arc> TorcInfo::construct_pip_to_arc(const std::vector<Tilewire>& wir
     std::vector<Arc> pip_to_arc;
     wire_to_pips_downhill.resize(wire_to_tilewire.size());
 
-    auto arc_hash = [](const Arc& arc) {
-        size_t seed = 0;
-        boost::hash_combine(seed, hash_value(arc.getSourceTilewire()));
-        boost::hash_combine(seed, hash_value(arc.getSinkTilewire()));
-        return seed;
-    };
-    std::unordered_map<Arc, int, decltype(arc_hash)> arc_to_pip(0, arc_hash);
+    std::unordered_map<Arc, int> arc_to_pip;
 
     ArcVector arcs;
     for (auto i = 0u; i < wire_to_tilewire.size(); ++i) {
         const auto &tw = wire_to_tilewire[i];
         if (tw.isUndefined()) continue;
         arcs.clear();
-        const_cast<DDB&>(ddb).expandSegmentSinks(tw, arcs);
+        const_cast<DDB&>(ddb).expandSegmentSinks(tw, arcs, DDB::eExpandDirectionNone, false /* inUseTied */, true /*inUseRegular */, true /* inUseIrregular */, false /* inUseRoutethrough */);
 
         auto index = pip_to_arc.size();
         pip_to_arc.insert(pip_to_arc.end(), arcs.begin(), arcs.end());
@@ -164,7 +165,7 @@ std::vector<Arc> TorcInfo::construct_pip_to_arc(const std::vector<Tilewire>& wir
         const auto &tw = wire_to_tilewire[i];
         if (tw.isUndefined()) continue;
         arcs.clear();
-        const_cast<DDB&>(ddb).expandSegmentSinks(tw, arcs);
+        //const_cast<DDB&>(ddb).expandSegmentSources(tw, arcs, DDB::eExpandDirectionNone, false /* inUseTied */, true /*inUseRegular */, true /* inUseIrregular */, false /* inUseRoutethrough */);
 
         auto &pips = wire_to_pips_uphill[i];
         pips.reserve(arcs.size());

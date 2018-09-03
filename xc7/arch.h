@@ -26,6 +26,44 @@
 using namespace torc::architecture;
 using namespace torc::architecture::xilinx;
 
+namespace std {
+  template <> struct hash<Segments::SegmentReference>
+  {
+    size_t operator()(const Segments::SegmentReference &s) const
+    {
+        size_t seed = 0;
+        boost::hash_combine(seed, hash<unsigned>()(s.getCompactSegmentIndex()));
+        boost::hash_combine(seed, hash<unsigned>()(s.getAnchorTileIndex()));
+        return seed;
+    }
+  };
+  template <> struct equal_to<Segments::SegmentReference>
+  {
+    bool operator()(const Segments::SegmentReference &lhs, const Segments::SegmentReference &rhs) const
+    {
+        return lhs.getAnchorTileIndex() == rhs.getAnchorTileIndex() && lhs.getCompactSegmentIndex() == rhs.getCompactSegmentIndex();
+    }
+  };
+  template <> struct hash<Tilewire>
+  {
+    size_t operator()(const Tilewire& t) const
+    {
+        return hash_value(t);
+    }
+  };
+
+  template <> struct hash<Arc>
+  {
+    size_t operator()(const Arc &a) const
+    {
+        size_t seed = 0;
+        boost::hash_combine(seed, hash_value(a.getSourceTilewire()));
+        boost::hash_combine(seed, hash_value(a.getSinkTilewire()));
+        return seed;
+    }
+  };
+}
+
 NEXTPNR_NAMESPACE_BEGIN
 
 /**** Everything in this section must be kept in sync with chipdb.py ****/
@@ -256,25 +294,23 @@ struct TorcInfo {
         ExtendedWireInfo ewi(*ddb, tw);
         std::stringstream ss;
         ss << ewi.mTileName << "/" << ewi.mWireName;
+        ss << "(" << tw.getWireIndex() << "@" << tw.getTileIndex() << ")";
         return ss.str();
     }
     int32_t tilewire_to_wire(const Tilewire &tw) const
     {
         const auto &segment = segments.getTilewireSegment(tw);
-        return segment.getCompactSegmentIndex();
-    }
-    int32_t pip_to_wire(int32_t index) const
-    {
-        const auto &arc = pip_to_arc[index];
-        const auto &segment = segments.getTilewireSegment(arc.getSourceTilewire());
-        return segment.getCompactSegmentIndex();
-
+        if (!segment.isTrivial())
+            return segment_to_wire.at(segment);
+        return trivial_to_wire.at(tw);
     }
 
     const std::vector<SiteIndex> bel_to_site_index;
     const int num_bels;
     const std::vector<IdString> site_index_to_type;
     const std::vector<int8_t> bel_to_z;
+    std::unordered_map<Segments::SegmentReference,int> segment_to_wire;
+    std::unordered_map<Tilewire,int> trivial_to_wire;
     const std::vector<Tilewire> wire_to_tilewire;
     const int num_wires;
     std::vector<std::vector<int>> wire_to_pips_uphill;
@@ -282,12 +318,11 @@ struct TorcInfo {
     const std::vector<Arc> pip_to_arc;
     const int num_pips;
 
-
 private:
     static std::vector<SiteIndex> construct_bel_to_site_index(Arch *ctx, const Sites &sites);
     static std::vector<IdString> construct_site_index_to_type(Arch *ctx, const Sites &sites);
     static std::vector<int8_t> construct_bel_to_z(const Sites &sites, const int num_bels, const std::vector<IdString> &site_index_to_type);
-    static std::vector<Tilewire> construct_wire_to_tilewire(const Segments &segments, const Tiles &tiles);
+    static std::vector<Tilewire> construct_wire_to_tilewire(const Segments &segments, const Tiles &tiles, std::unordered_map<Segments::SegmentReference,int>& segment_to_wire, std::unordered_map<Tilewire,int>& trivial_to_wire);
     static std::vector<Arc> construct_pip_to_arc(const std::vector<Tilewire>& wire_to_tilewire, const DDB& ddb, std::vector<std::vector<int>> &wire_to_pips_uphill, std::vector<std::vector<int>> &wire_to_pips_downhill);
 };
 extern std::unique_ptr<const TorcInfo> torc_info;
@@ -619,21 +654,18 @@ struct Arch : BaseCtx
     {
         NPNR_ASSERT(wire != WireId());
         return wire_to_net[wire.index] == nullptr;
-        return true;
     }
 
     NetInfo *getBoundWireNet(WireId wire) const
     {
         NPNR_ASSERT(wire != WireId());
         return wire_to_net[wire.index];
-        return nullptr;
     }
 
     NetInfo *getConflictingWireNet(WireId wire) const
     {
         NPNR_ASSERT(wire != WireId());
         return wire_to_net[wire.index];
-        return nullptr;
     }
 
     DelayInfo getWireDelay(WireId wire) const
@@ -726,7 +758,7 @@ struct Arch : BaseCtx
         //}
 
         //return true;
-        return getConflictingPipNet(pip);
+        return pip_to_net[pip.index] == nullptr;
     }
 
     NetInfo *getBoundPipNet(PipId pip) const
@@ -811,6 +843,7 @@ struct Arch : BaseCtx
         const auto &pips = torc_info->wire_to_pips_downhill[wire.index];
         range.b.cursor = pips.data();
         range.e.cursor = range.b.cursor + pips.size();
+
         return range;
     }
 
