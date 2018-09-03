@@ -115,7 +115,6 @@ std::vector<Tilewire> TorcInfo::construct_wire_to_tilewire(const Segments& segme
         currentTilewire.setTileIndex(tileIndex);
         for(WireIndex wireIndex(0); wireIndex < wireCount; wireIndex++) {
             currentTilewire.setWireIndex(wireIndex);
-
             const auto& currentSegment = segments.getTilewireSegment(currentTilewire);
 
             if (!currentSegment.isTrivial()) {
@@ -134,6 +133,8 @@ std::vector<Tilewire> TorcInfo::construct_wire_to_tilewire(const Segments& segme
 }
 std::vector<Arc> TorcInfo::construct_pip_to_arc(const std::vector<Tilewire>& wire_to_tilewire, const DDB& ddb, std::vector<std::vector<int>> &wire_to_pips_uphill, std::vector<std::vector<int>> &wire_to_pips_downhill)
 {
+    const auto &tiles = ddb.getTiles();
+
     std::vector<Arc> pip_to_arc;
     wire_to_pips_downhill.resize(wire_to_tilewire.size());
 
@@ -144,7 +145,12 @@ std::vector<Arc> TorcInfo::construct_pip_to_arc(const std::vector<Tilewire>& wir
         const auto &tw = wire_to_tilewire[i];
         if (tw.isUndefined()) continue;
         arcs.clear();
-        const_cast<DDB&>(ddb).expandSegmentSinks(tw, arcs, DDB::eExpandDirectionNone, false /* inUseTied */, true /*inUseRegular */, true /* inUseIrregular */, false /* inUseRoutethrough */);
+
+        const auto& tileInfo = tiles.getTileInfo(tw.getTileIndex());
+        const auto tileTypeName = tiles.getTileTypeName(tileInfo.getTypeIndex());
+        bool clb = boost::starts_with(tileTypeName, "CLB");
+
+        const_cast<DDB&>(ddb).expandSegmentSinks(tw, arcs, DDB::eExpandDirectionNone, false /* inUseTied */, true /*inUseRegular */, true /* inUseIrregular */, !clb /* inUseRoutethrough */);
 
         auto index = pip_to_arc.size();
         pip_to_arc.insert(pip_to_arc.end(), arcs.begin(), arcs.end());
