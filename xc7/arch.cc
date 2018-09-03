@@ -648,18 +648,9 @@ bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay
 
 // -----------------------------------------------------------------------
 
-bool Arch::place()
-{
-    Placer1Cfg cfg;
-    cfg.constraintWeight = placer_constraintWeight;
-    return placer1(getCtx(), cfg);
-}
+bool Arch::place() { return placer1(getCtx(), Placer1Cfg(getCtx())); }
 
-bool Arch::route()
-{
-    Router1Cfg cfg;
-    return router1(getCtx(), cfg);
-}
+bool Arch::route() { return router1(getCtx(), Router1Cfg(getCtx())); }
 
 // -----------------------------------------------------------------------
 
