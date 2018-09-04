@@ -197,8 +197,9 @@ struct Router
 
                 NPNR_ASSERT(next_delay >= 0);
 
-                if (visited.count(next_wire)) {
-                    if (visited.at(next_wire).delay <= next_delay + ctx->getDelayEpsilon())
+                auto it = visited.find(next_wire);
+                if (it != visited.end()) {
+                    if (it->second.delay <= next_delay + ctx->getDelayEpsilon())
                         continue;
 #if 0 // FIXME
                     if (ctx->debug)
