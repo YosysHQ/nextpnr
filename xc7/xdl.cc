@@ -174,12 +174,11 @@ void write_xdl(const Context *ctx, std::ostream &out)
             }
         }
         else if (cell.second->type == id_BUFGCTRL) {
-            static const char* params_whitelist[] = { "PRESELECT_I0", "PRESELECT_I1" };
-            for (auto w : params_whitelist) {
-                auto it = cell.second->params.find(ctx->id(w));
-                if (it != cell.second->params.end())
-                    instPtr->setConfig(it->first.c_str(ctx), "", it->second.c_str());
-            }
+            auto it = cell.second->params.find(ctx->id("PRESELECT_I0"));
+            instPtr->setConfig("PRESELECT_I0", "", it != cell.second->params.end() ? it->second : "TRUE");
+
+            instPtr->setConfig("CE0INV", "", "CE0_B");
+            instPtr->setConfig("S0INV", "", "S0_B");
         }
         else log_error("Unsupported cell type '%s'.\n", cell.second->type.c_str(ctx));
     }
