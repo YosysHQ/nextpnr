@@ -313,6 +313,7 @@ struct TorcInfo {
     std::unordered_map<Tilewire,int> trivial_to_wire;
     const std::vector<Tilewire> wire_to_tilewire;
     const int num_wires;
+    const std::vector<DelayInfo> wire_to_delay;
     std::vector<std::vector<int>> wire_to_pips_uphill;
     std::vector<std::vector<int>> wire_to_pips_downhill;
     const std::vector<Arc> pip_to_arc;
@@ -324,6 +325,7 @@ private:
     static std::vector<IdString> construct_site_index_to_type(Arch *ctx, const Sites &sites);
     static std::vector<Loc> construct_bel_to_loc(const Sites &sites, const Tiles &tiles, const int num_bels, const std::vector<IdString> &site_index_to_type);
     static std::vector<Tilewire> construct_wire_to_tilewire(const Segments &segments, const Tiles &tiles, std::unordered_map<Segments::SegmentReference,int>& segment_to_wire, std::unordered_map<Tilewire,int>& trivial_to_wire);
+    static std::vector<DelayInfo> construct_wire_to_delay(const std::vector<Tilewire>& wire_to_tilewire, const DDB &ddb);
     static std::vector<Arc> construct_pip_to_arc(const std::vector<Tilewire>& wire_to_tilewire, const DDB& ddb, std::vector<std::vector<int>> &wire_to_pips_uphill, std::vector<std::vector<int>> &wire_to_pips_downhill);
 };
 extern std::unique_ptr<const TorcInfo> torc_info;
@@ -665,13 +667,7 @@ struct Arch : BaseCtx
 
     DelayInfo getWireDelay(WireId wire) const
     {
-        DelayInfo delay;
-        //NPNR_ASSERT(wire != WireId());
-        //if (fast_part)
-        //    delay.delay = chip_info->wire_data[wire.index].fast_delay;
-        //else
-        //    delay.delay = chip_info->wire_data[wire.index].slow_delay;
-        return delay;
+        return torc_info->wire_to_delay[wire.index];
     }
 
     BelPinRange getWireBelPins(WireId wire) const
