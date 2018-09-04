@@ -53,14 +53,15 @@ struct QueuedWire
     WireId wire;
     PipId pip;
 
-    delay_t delay = 0, togo = 0;
+    delay_t delay = 0, penalty = 0, togo = 0;
     int randtag = 0;
 
     struct Greater
     {
         bool operator()(const QueuedWire &lhs, const QueuedWire &rhs) const noexcept
         {
-            delay_t l = lhs.delay + lhs.togo, r = rhs.delay + rhs.togo;
+            delay_t l = lhs.delay + lhs.penalty + lhs.togo;
+            delay_t r = rhs.delay + rhs.penalty + rhs.togo;
             return l == r ? lhs.randtag > rhs.randtag : l > r;
         }
     };
@@ -119,7 +120,7 @@ struct Router
     delay_t maxDelay = 0.0;
     WireId failedDest;
 
-    void route(const std::unordered_map<WireId, delay_t> &src_wires, WireId dst_wire)
+    void route(const std::unordered_map<WireId, delay_t> &src_wires, WireId dst_wire, delay_t max_delay)
     {
         std::priority_queue<QueuedWire, std::vector<QueuedWire>, QueuedWire::Greater> queue;
 
@@ -129,7 +130,8 @@ struct Router
             QueuedWire qw;
             qw.wire = it.first;
             qw.pip = PipId();
-            qw.delay = it.second - (it.second / 16);
+            qw.delay = it.second;
+            qw.penalty = -(it.second / 16);
             if (cfg.useEstimate)
                 qw.togo = ctx->estimateDelay(qw.wire, dst_wire);
             qw.randtag = ctx->rng();
@@ -150,11 +152,15 @@ struct Router
 
             for (auto pip : ctx->getPipsDownhill(qw.wire)) {
                 delay_t next_delay = qw.delay + ctx->getPipDelay(pip).maxDelay();
+                delay_t next_penalty = qw.penalty;
                 WireId next_wire = ctx->getPipDstWire(pip);
                 bool foundRipupNet = false;
                 thisVisitCnt++;
 
                 next_delay += ctx->getWireDelay(next_wire).maxDelay();
+
+                if (max_delay > 0 && next_delay > max_delay)
+                    continue;
 
                 if (!ctx->checkWireAvail(next_wire)) {
                     if (!ripup)
@@ -165,11 +171,11 @@ struct Router
 
                     auto it1 = scores.wireScores.find(next_wire);
                     if (it1 != scores.wireScores.end())
-                        next_delay += (it1->second * ripup_penalty) / 8;
+                        next_penalty += (it1->second * ripup_penalty) / 8;
 
                     auto it2 = scores.netWireScores.find(std::make_pair(ripupWireNet->name, next_wire));
                     if (it2 != scores.netWireScores.end())
-                        next_delay += it2->second * ripup_penalty;
+                        next_penalty += it2->second * ripup_penalty;
 
                     foundRipupNet = true;
                 }
@@ -183,23 +189,24 @@ struct Router
 
                     auto it1 = scores.pipScores.find(pip);
                     if (it1 != scores.pipScores.end())
-                        next_delay += (it1->second * ripup_penalty) / 8;
+                        next_penalty += (it1->second * ripup_penalty) / 8;
 
                     auto it2 = scores.netPipScores.find(std::make_pair(ripupPipNet->name, pip));
                     if (it2 != scores.netPipScores.end())
-                        next_delay += it2->second * ripup_penalty;
+                        next_penalty += it2->second * ripup_penalty;
 
                     foundRipupNet = true;
                 }
 
                 if (foundRipupNet)
-                    next_delay += ripup_penalty;
+                    next_penalty += ripup_penalty;
 
                 NPNR_ASSERT(next_delay >= 0);
+                NPNR_ASSERT(next_delay + next_penalty >= 0);
 
                 auto it = visited.find(next_wire);
                 if (it != visited.end()) {
-                    if (it->second.delay <= next_delay + ctx->getDelayEpsilon())
+                    if (it->second.delay + it->second.penalty <= next_delay + next_penalty + ctx->getDelayEpsilon())
                         continue;
 #if 0 // FIXME
                     if (ctx->debug)
@@ -218,6 +225,7 @@ struct Router
                 next_qw.wire = next_wire;
                 next_qw.pip = pip;
                 next_qw.delay = next_delay;
+                next_qw.penalty = next_penalty;
                 if (cfg.useEstimate)
                     next_qw.togo = ctx->estimateDelay(next_wire, dst_wire);
                 next_qw.randtag = ctx->rng();
@@ -236,7 +244,7 @@ struct Router
     {
         std::unordered_map<WireId, delay_t> src_wires;
         src_wires[src_wire] = ctx->getWireDelay(src_wire).maxDelay();
-        route(src_wires, dst_wire);
+        route(src_wires, dst_wire, 0);
         routedOkay = visited.count(dst_wire);
 
         if (ctx->debug) {
@@ -370,7 +378,8 @@ struct Router
                 log("    Path delay estimate: %.2f\n", float(ctx->estimateDelay(src_wire, dst_wire)));
             }
 
-            route(src_wires, dst_wire);
+            delay_t max_delay = 3 * ctx->estimateDelay(src_wire, dst_wire);
+            route(src_wires, dst_wire, max_delay);
 
             if (visited.count(dst_wire) == 0) {
                 if (ctx->debug)
