@@ -35,7 +35,7 @@ NEXTPNR_NAMESPACE_BEGIN
 
 std::unique_ptr<const TorcInfo> torc_info;
 TorcInfo::TorcInfo(Arch *ctx, const std::string &inDeviceName, const std::string &inPackageName)
-    : ddb(new DDB(inDeviceName, inPackageName)), sites(ddb->getSites()), tiles(ddb->getTiles()), segments(ddb->getSegments()), bel_to_site_index(construct_bel_to_site_index(ctx, sites)), num_bels(bel_to_site_index.size()), site_index_to_type(construct_site_index_to_type(ctx, sites)), bel_to_z(construct_bel_to_z(sites, num_bels, site_index_to_type)), wire_to_tilewire(construct_wire_to_tilewire(segments, tiles, segment_to_wire, trivial_to_wire)), num_wires(wire_to_tilewire.size()), pip_to_arc(construct_pip_to_arc(wire_to_tilewire, *ddb, wire_to_pips_uphill, wire_to_pips_downhill)), num_pips(pip_to_arc.size())
+    : ddb(new DDB(inDeviceName, inPackageName)), sites(ddb->getSites()), tiles(ddb->getTiles()), segments(ddb->getSegments()), bel_to_site_index(construct_bel_to_site_index(ctx, sites)), num_bels(bel_to_site_index.size()), site_index_to_type(construct_site_index_to_type(ctx, sites)), bel_to_loc(construct_bel_to_loc(sites, tiles, num_bels, site_index_to_type)), wire_to_tilewire(construct_wire_to_tilewire(segments, tiles, segment_to_wire, trivial_to_wire)), num_wires(wire_to_tilewire.size()), pip_to_arc(construct_pip_to_arc(wire_to_tilewire, *ddb, wire_to_pips_uphill, wire_to_pips_downhill)), num_pips(pip_to_arc.size())
 {
 }
 std::vector<SiteIndex> TorcInfo::construct_bel_to_site_index(Arch* ctx, const Sites &sites)
@@ -74,33 +74,37 @@ std::vector<IdString> TorcInfo::construct_site_index_to_type(Arch* ctx, const Si
     }
     return site_index_to_type;
 }
-std::vector<int8_t> TorcInfo::construct_bel_to_z(const Sites &sites, const int num_bels, const std::vector<IdString> &site_index_to_type)
+std::vector<Loc> TorcInfo::construct_bel_to_loc(const Sites &sites, const Tiles &tiles, const int num_bels, const std::vector<IdString> &site_index_to_type)
 {
-    std::vector<int8_t> bel_to_z;
-    bel_to_z.resize(num_bels);
+    std::vector<Loc> bel_to_loc;
+    bel_to_loc.resize(num_bels);
     int32_t bel_index = 0;
     for (SiteIndex i(0); i < site_index_to_type.size(); ++i) {
+        const auto &site = sites.getSite(i);
+        const auto &tile_info = tiles.getTileInfo(site.getTileIndex());
+        const auto x = tile_info.getCol();
+        const auto y = tile_info.getRow();
+
         if (site_index_to_type[i] == id_SLICE_LUT6) {
-            auto site = sites.getSite(i);
-            auto site_name = site.getName();
-            auto site_name_back = site_name.back();
+            const auto site_name = site.getName();
+            const auto site_name_back = site_name.back();
             if (site_name_back == '0' || site_name_back == '2' || site_name_back == '4' || site_name_back == '6' || site_name_back == '8') {
-                bel_to_z[bel_index++] = 0;
-                bel_to_z[bel_index++] = 1;
-                bel_to_z[bel_index++] = 2;
-                bel_to_z[bel_index++] = 3;
+                bel_to_loc[bel_index++] = Loc(x, y, 0);
+                bel_to_loc[bel_index++] = Loc(x, y, 1);
+                bel_to_loc[bel_index++] = Loc(x, y, 2);
+                bel_to_loc[bel_index++] = Loc(x, y, 3);
             }
             else {
-                bel_to_z[bel_index++] = 4;
-                bel_to_z[bel_index++] = 5;
-                bel_to_z[bel_index++] = 6;
-                bel_to_z[bel_index++] = 7;
+                bel_to_loc[bel_index++] = Loc(x, y, 4);
+                bel_to_loc[bel_index++] = Loc(x, y, 5);
+                bel_to_loc[bel_index++] = Loc(x, y, 6);
+                bel_to_loc[bel_index++] = Loc(x, y, 7);
             }
         }
         else
-            ++bel_index;
+            bel_to_loc[bel_index++] = Loc(x, y, 0);
     }
-    return bel_to_z;
+    return bel_to_loc;
 }
 std::vector<Tilewire> TorcInfo::construct_wire_to_tilewire(const Segments& segments, const Tiles& tiles, std::unordered_map<Segments::SegmentReference,int>& segment_to_wire, std::unordered_map<Tilewire,int>& trivial_to_wire)
 {
@@ -324,7 +328,7 @@ WireId Arch::getBelPinWire(BelId bel, IdString pin) const
     if (getBelType(bel) == id_SLICE_LUT6) {
         // For all LUT based inputs and outputs (I1-I6,O,OQ,OMUX) then change the I/O into the LUT
         if (pin_name[0] == 'I' || pin_name[0] == 'O') {
-            switch (torc_info->bel_to_z[bel.index]) {
+            switch (torc_info->bel_to_loc[bel.index].z) {
                 case 0: case 4: pin_name[0] = 'A'; break;
                 case 1: case 5: pin_name[0] = 'B'; break;
                 case 2: case 6: pin_name[0] = 'C'; break;
@@ -650,7 +654,7 @@ bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay
 
 bool Arch::place() { return placer1(getCtx(), Placer1Cfg(getCtx())); }
 
-bool Arch::route() { return router1(getCtx(), Router1Cfg(getCtx())); }
+bool Arch::route() { return /*router1(getCtx(), Router1Cfg(getCtx()))*/ true; }
 
 // -----------------------------------------------------------------------
 

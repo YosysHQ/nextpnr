@@ -42,7 +42,7 @@ void write_xdl(const Context *ctx, std::ostream &out)
     lut_inputs.reserve(6);
 
     auto bel_to_lut = [](const BelId bel) {
-        switch (torc_info->bel_to_z[bel.index]) {
+        switch (torc_info->bel_to_loc[bel.index].z) {
             case 0: case 4: return "A"; break;
             case 1: case 5: return "B"; break;
             case 2: case 6: return "C"; break;

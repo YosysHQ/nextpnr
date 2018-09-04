@@ -281,7 +281,7 @@ struct TorcInfo {
 
     const TileInfo& bel_to_tile_info(int32_t index) const {
         auto si = bel_to_site_index[index];
-        auto &site = sites.getSite(si);
+        const auto &site = sites.getSite(si);
         return tiles.getTileInfo(site.getTileIndex());
     }
     const std::string& bel_to_name(int32_t index) const {
@@ -308,7 +308,7 @@ struct TorcInfo {
     const std::vector<SiteIndex> bel_to_site_index;
     const int num_bels;
     const std::vector<IdString> site_index_to_type;
-    const std::vector<int8_t> bel_to_z;
+    const std::vector<Loc> bel_to_loc;
     std::unordered_map<Segments::SegmentReference,int> segment_to_wire;
     std::unordered_map<Tilewire,int> trivial_to_wire;
     const std::vector<Tilewire> wire_to_tilewire;
@@ -321,7 +321,7 @@ struct TorcInfo {
 private:
     static std::vector<SiteIndex> construct_bel_to_site_index(Arch *ctx, const Sites &sites);
     static std::vector<IdString> construct_site_index_to_type(Arch *ctx, const Sites &sites);
-    static std::vector<int8_t> construct_bel_to_z(const Sites &sites, const int num_bels, const std::vector<IdString> &site_index_to_type);
+    static std::vector<Loc> construct_bel_to_loc(const Sites &sites, const Tiles &tiles, const int num_bels, const std::vector<IdString> &site_index_to_type);
     static std::vector<Tilewire> construct_wire_to_tilewire(const Segments &segments, const Tiles &tiles, std::unordered_map<Segments::SegmentReference,int>& segment_to_wire, std::unordered_map<Tilewire,int>& trivial_to_wire);
     static std::vector<Arc> construct_pip_to_arc(const std::vector<Tilewire>& wire_to_tilewire, const DDB& ddb, std::vector<std::vector<int>> &wire_to_pips_uphill, std::vector<std::vector<int>> &wire_to_pips_downhill);
 };
@@ -517,7 +517,7 @@ struct Arch : BaseCtx
             // Append LUT name to name
             name.reserve(name.size() + 2);
             name += "_";
-            switch (torc_info->bel_to_z[bel.index]) {
+            switch (torc_info->bel_to_loc[bel.index].z) {
                 case 0: case 4: name += 'A'; break;
                 case 1: case 5: name += 'B'; break;
                 case 2: case 6: name += 'C'; break;
@@ -581,13 +581,7 @@ struct Arch : BaseCtx
 
     Loc getBelLocation(BelId bel) const
     {
-        const auto &tile_info = torc_info->bel_to_tile_info(bel.index);
-
-        Loc loc;
-        loc.x = tile_info.getCol(); 
-        loc.y = tile_info.getRow();
-        loc.z = torc_info->bel_to_z[bel.index];
-        return loc;
+        return torc_info->bel_to_loc[bel.index];
     }
 
     BelId getBelByLocation(Loc loc) const;
