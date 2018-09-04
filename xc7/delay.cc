@@ -105,7 +105,7 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
     const auto &dst_tw = torc_info->wire_to_tilewire[dst.index];
     const auto &dst_info = torc_info->tiles.getTileInfo(dst_tw.getTileIndex());
 
-    return 200 * (abs(src_info.getCol() - dst_info.getCol()) + abs(src_info.getRow() - dst_info.getRow()));
+    return 100 * (abs(src_info.getCol() - dst_info.getCol()) + abs(src_info.getRow() - dst_info.getRow()));
 }
 
 delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
@@ -114,7 +114,7 @@ delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
     auto driver_loc = getBelLocation(driver.cell->bel);
     auto sink_loc = getBelLocation(sink.cell->bel);
 
-    return 200 * (abs(driver_loc.x - sink_loc.x) + abs(driver_loc.y - sink_loc.y));
+    return 100 * (abs(driver_loc.x - sink_loc.x) + abs(driver_loc.y - sink_loc.y));
 }
 
 NEXTPNR_NAMESPACE_END
