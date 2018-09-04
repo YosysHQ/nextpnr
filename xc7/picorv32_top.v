@@ -11,13 +11,22 @@ module top (
 	output [ 3:0] mem_wstrb,
 	input  [31:0] mem_rdata
 );
+
+    wire gclk;
+    BUFGCTRL clk_gb (
+        .I0(clk),
+        .CE0(1'b1),
+        .S0(1'b1),
+        .O(gclk)
+    );
+
     picorv32 #(
         .ENABLE_COUNTERS(0),
         .TWO_STAGE_SHIFT(0),
         .CATCH_MISALIGN(0),
         .CATCH_ILLINSN(0)
     ) cpu (
-        .clk      (clk      ),
+        .clk      (gclk     ),
         .resetn   (resetn   ),
         .trap     (trap     ),
         .mem_valid(mem_valid),
