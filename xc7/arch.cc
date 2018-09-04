@@ -149,11 +149,11 @@ std::vector<DelayInfo> TorcInfo::construct_wire_to_delay(const std::vector<Tilew
     const boost::regex re_124   = boost::regex("[NESW][NESWLR](\\d)BEG(_[NS])?\\d");
     const boost::regex re_L     = boost::regex("L(H|V|VB)(_L)?\\d+");
     boost::cmatch what;
-    DelayInfo d;
     ExtendedWireInfo ewi(ddb);
     for (const auto &tw : wire_to_tilewire)
     {
         ewi.set(tw);
+        DelayInfo d;
         if (boost::regex_match(ewi.mWireName, what, re_124)) {
             std::string l(what[1]);
             switch (l[0]) {
@@ -171,7 +171,7 @@ std::vector<DelayInfo> TorcInfo::construct_wire_to_delay(const std::vector<Tilew
             else if (l == "V")  d.delay = 350;
             else throw;
         }
-        wire_to_delay.emplace_back(d);
+        wire_to_delay.emplace_back(std::move(d));
     }
 
     return wire_to_delay;
