@@ -37,6 +37,12 @@ std::unique_ptr<const TorcInfo> torc_info;
 TorcInfo::TorcInfo(Arch *ctx, const std::string &inDeviceName, const std::string &inPackageName)
     : ddb(new DDB(inDeviceName, inPackageName)), sites(ddb->getSites()), tiles(ddb->getTiles()), segments(ddb->getSegments()), bel_to_site_index(construct_bel_to_site_index(ctx, sites)), num_bels(bel_to_site_index.size()), site_index_to_type(construct_site_index_to_type(ctx, sites)), bel_to_loc(construct_bel_to_loc(sites, tiles, num_bels, site_index_to_type)), wire_to_tilewire(construct_wire_to_tilewire(segments, tiles, segment_to_wire, trivial_to_wire)), num_wires(wire_to_tilewire.size()), pip_to_arc(construct_pip_to_arc(wire_to_tilewire, *ddb, wire_to_pips_uphill, wire_to_pips_downhill)), num_pips(pip_to_arc.size())
 {
+    pip_to_dst_wire.reserve(num_pips);
+
+    for (const auto& arc : pip_to_arc) {
+        const auto &tw = arc.getSinkTilewire();
+        pip_to_dst_wire.push_back(tilewire_to_wire(tw));
+    }
 }
 std::vector<SiteIndex> TorcInfo::construct_bel_to_site_index(Arch* ctx, const Sites &sites)
 {
@@ -184,6 +190,13 @@ std::vector<Arc> TorcInfo::construct_pip_to_arc(const std::vector<Tilewire>& wir
     }
 
     return pip_to_arc;
+}
+
+std::vector<int>
+construct_pip_to_dst_wire(const std::vector<Arc>& pip_to_arc)
+{
+    std::vector<int> pip_to_wire;
+    return pip_to_wire;
 }
 
 

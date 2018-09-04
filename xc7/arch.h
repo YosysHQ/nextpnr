@@ -317,6 +317,7 @@ struct TorcInfo {
     std::vector<std::vector<int>> wire_to_pips_downhill;
     const std::vector<Arc> pip_to_arc;
     const int num_pips;
+    std::vector<int> pip_to_dst_wire;
 
 private:
     static std::vector<SiteIndex> construct_bel_to_site_index(Arch *ctx, const Sites &sites);
@@ -811,11 +812,7 @@ struct Arch : BaseCtx
     {
         WireId wire;
         NPNR_ASSERT(pip != PipId());
-
-        const auto &arc = torc_info->pip_to_arc[pip.index];
-        const auto &tw = arc.getSinkTilewire();
-        wire.index = torc_info->tilewire_to_wire(tw);
-
+        wire.index = torc_info->pip_to_dst_wire[pip.index];
         return wire;
     }
 
