@@ -375,7 +375,7 @@ struct Router
 
             if (ctx->debug) {
                 log("    Destination wire: %s\n", ctx->getWireName(dst_wire).c_str(ctx));
-                log("    Path delay estimate: %.2f\n", float(ctx->estimateDelay(src_wire, dst_wire)));
+                log("    Path delay estimate: %.2f\n", ctx->getDelayNS(ctx->estimateDelay(src_wire, dst_wire)));
             }
 
             delay_t max_delay = 3 * ctx->estimateDelay(src_wire, dst_wire);
