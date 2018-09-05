@@ -146,7 +146,7 @@ std::vector<DelayInfo> TorcInfo::construct_wire_to_delay(const std::vector<Tilew
     std::vector<DelayInfo> wire_to_delay;
     wire_to_delay.reserve(wire_to_tilewire.size());
 
-    const boost::regex re_124       = boost::regex("[NESW][NESWLR](\\d)BEG(_[NS])?\\d");
+    const boost::regex re_124       = boost::regex("[NESW][NESWLR](\\d)((BEG(_[NS])?)|END|[A-E])?\\d");
     const boost::regex re_L         = boost::regex("L(H|V|VB)(_L)?\\d+");
     const boost::regex re_BYP       = boost::regex("BYP(_ALT)?\\d");
     const boost::regex re_BYP_B     = boost::regex("BYP_[BL]\\d");
