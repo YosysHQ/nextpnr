@@ -146,8 +146,8 @@ std::vector<DelayInfo> TorcInfo::construct_wire_to_delay(const std::vector<Tilew
     std::vector<DelayInfo> wire_to_delay;
     wire_to_delay.reserve(wire_to_tilewire.size());
 
-    const boost::regex re_124       = boost::regex("[NESW][NESWLR](\\d)((BEG(_[NS])?)|END|[A-E])?\\d");
-    const boost::regex re_L         = boost::regex("L(H|V|VB)(_L)?\\d+");
+    const boost::regex re_124       = boost::regex("(.+_)?[NESW][NESWLR](\\d)((BEG(_[NS])?)|(END(_[NS])?)|[A-E])?\\d(_\\d)?");
+    const boost::regex re_L         = boost::regex("(.+_)?L(H|V|VB)(_L)?\\d+(_\\d)?");
     const boost::regex re_BYP       = boost::regex("BYP(_ALT)?\\d");
     const boost::regex re_BYP_B     = boost::regex("BYP_[BL]\\d");
     const boost::regex re_BOUNCE_NS = boost::regex("(BYP|FAN)_BOUNCE_[NS]3_\\d");
@@ -160,8 +160,7 @@ std::vector<DelayInfo> TorcInfo::construct_wire_to_delay(const std::vector<Tilew
         ewi.set(tw);
         DelayInfo d;
         if (boost::regex_match(ewi.mWireName, what, re_124)) {
-            std::string l(what[1]);
-            switch (l[0]) {
+            switch (what.str(2)[0]) {
                 case '1': d.delay = 150; break;
                 case '2': d.delay = 170; break;
                 case '4': d.delay = 210; break;
@@ -170,7 +169,7 @@ std::vector<DelayInfo> TorcInfo::construct_wire_to_delay(const std::vector<Tilew
             }
         }
         else if (boost::regex_match(ewi.mWireName, what, re_L)) {
-            std::string l(what[1]);
+            std::string l(what[2]);
             if (l == "H")       d.delay = 360;
             else if (l == "VB") d.delay = 300;
             else if (l == "V")  d.delay = 350;
@@ -199,6 +198,7 @@ std::vector<Arc> TorcInfo::construct_pip_to_arc(const std::vector<Tilewire>& wir
     std::unordered_map<Arc, int> arc_to_pip;
 
     ArcVector arcs;
+    ExtendedWireInfo ewi(ddb);
     for (auto i = 0u; i < wire_to_tilewire.size(); ++i) {
         const auto &tw = wire_to_tilewire[i];
         if (tw.isUndefined()) continue;
@@ -206,16 +206,29 @@ std::vector<Arc> TorcInfo::construct_pip_to_arc(const std::vector<Tilewire>& wir
 
         const auto& tileInfo = tiles.getTileInfo(tw.getTileIndex());
         const auto tileTypeName = tiles.getTileTypeName(tileInfo.getTypeIndex());
-        bool clb = boost::starts_with(tileTypeName, "CLB");
+        const bool clb = boost::starts_with(tileTypeName, "CLB"); // Disable all CLB route-throughs (i.e. LUT in->out, LUT A->AMUX, for now)
 
         const_cast<DDB&>(ddb).expandSegmentSinks(tw, arcs, DDB::eExpandDirectionNone, false /* inUseTied */, true /*inUseRegular */, true /* inUseIrregular */, !clb /* inUseRoutethrough */);
 
         auto index = pip_to_arc.size();
         pip_to_arc.insert(pip_to_arc.end(), arcs.begin(), arcs.end());
 
+        const boost::regex bufg_i("(CMT|CLK)_BUFG_BUFGCTRL\\d+_I0");
+        const boost::regex bufg_o("(CMT|CLK)_BUFG_BUFGCTRL\\d+_O");
+
         auto &pips = wire_to_pips_downhill[i];
         pips.reserve(arcs.size());
+        const bool clk_tile = boost::starts_with(tileTypeName, "CMT") || boost::starts_with(tileTypeName, "CLK");
         for (const auto& a : arcs) {
+            // Disable BUFG I0 -> O routethrough
+            if (clk_tile) {
+                ewi.set(a.getSourceTilewire());
+                if (boost::regex_match(ewi.mWireName, bufg_i)) {
+                    ewi.set(a.getSinkTilewire());
+                    if (boost::regex_match(ewi.mWireName, bufg_o))
+                        continue;
+                }
+            }
             pips.push_back(index);
             arc_to_pip.emplace(a, index);
             ++index;
@@ -715,7 +728,7 @@ bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay
 
 bool Arch::place() { return placer1(getCtx(), Placer1Cfg(getCtx())); }
 
-bool Arch::route() { getCtx()->debug = true; return router1(getCtx(), Router1Cfg(getCtx())); }
+bool Arch::route() { getCtx()->debug = true; getCtx()->verbose = true; return router1(getCtx(), Router1Cfg(getCtx())); }
 
 // -----------------------------------------------------------------------
 
