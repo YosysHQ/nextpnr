@@ -730,6 +730,12 @@ static void pack_special(Context *ctx)
                     newname = "PLLOUT_B";
                 if (pi.name == ctx->id("PLLOUTCORE"))
                     newname = "PLLOUT_A";
+                if (pi.name == ctx->id("PLLOUTGLOBALA"))
+                    newname = "PLLOUT_A";
+                if (pi.name == ctx->id("PLLOUTGLOBALB"))
+                    newname = "PLLOUT_B";
+                if (pi.name == ctx->id("PLLOUTGLOBAL"))
+                    newname = "PLLOUT_A";
 
                 if (pi.name == ctx->id("PACKAGEPIN")) {
                     if (!is_pad) {

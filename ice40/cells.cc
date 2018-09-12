@@ -243,6 +243,8 @@ std::unique_ptr<CellInfo> create_ice_cell(Context *ctx, IdString type, std::stri
         add_port(ctx, new_cell.get(), "LOCK", PORT_OUT);
         add_port(ctx, new_cell.get(), "PLLOUT_A", PORT_OUT);
         add_port(ctx, new_cell.get(), "PLLOUT_B", PORT_OUT);
+        add_port(ctx, new_cell.get(), "PLLOUTGLOBALA", PORT_OUT);
+        add_port(ctx, new_cell.get(), "PLLOUTGLOBALB", PORT_OUT);
     } else {
         log_error("unable to create iCE40 cell of type %s", type.c_str(ctx));
     }
