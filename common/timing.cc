@@ -48,6 +48,7 @@ struct Timing
         delay_t max_arrival;
         unsigned max_path_length = 0;
         delay_t min_remaining_budget;
+        bool false_startpoint = false;
     };
 
     Timing(Context *ctx, bool net_delays, bool update, PortRefVector *crit_path = nullptr,
@@ -93,12 +94,11 @@ struct Timing
                     topographical_order.emplace_back(o->net);
                     net_data.emplace(o->net, TimingData{clkToQ.maxDelay()});
                 } else {
-                    // TODO(eddieh): Generated clocks and ignored ports are currently added into the ordering as if it
-                    // was a regular timing start point in order to enable the full topographical order to be computed,
-                    // however these false nets (and their downstream paths) should not be in the final ordering
                     if (portClass == TMG_STARTPOINT || portClass == TMG_GEN_CLOCK || portClass == TMG_IGNORE) {
                         topographical_order.emplace_back(o->net);
-                        net_data.emplace(o->net, TimingData{});
+                        TimingData td;
+                        td.false_startpoint = (portClass == TMG_GEN_CLOCK || portClass == TMG_IGNORE);
+                        net_data.emplace(o->net, std::move(td));
                     }
                     // Otherwise, for all driven input ports on this cell, if a timing arc exists between the input and
                     // the current output port, increment fanin counter
@@ -110,19 +110,6 @@ struct Timing
                     }
                 }
             }
-        }
-
-        // If these constant nets exist, add them to the topographical ordering too
-        // TODO(eddieh): Also false paths and should be removed from ordering
-        auto it = ctx->nets.find(ctx->id("$PACKER_VCC_NET"));
-        if (it != ctx->nets.end()) {
-            topographical_order.emplace_back(it->second.get());
-            net_data.emplace(it->second.get(), TimingData{});
-        }
-        it = ctx->nets.find(ctx->id("$PACKER_GND_NET"));
-        if (it != ctx->nets.end()) {
-            topographical_order.emplace_back(it->second.get());
-            net_data.emplace(it->second.get(), TimingData{});
         }
 
         std::deque<NetInfo *> queue(topographical_order.begin(), topographical_order.end());
@@ -208,6 +195,8 @@ struct Timing
         // between all nets on the path
         for (auto net : boost::adaptors::reverse(topographical_order)) {
             auto &nd = net_data.at(net);
+            // Ignore false startpoints
+            if (nd.false_startpoint) continue;
             const delay_t net_length_plus_one = nd.max_path_length + 1;
             auto &net_min_remaining_budget = nd.min_remaining_budget;
             for (auto &usr : net->users) {
