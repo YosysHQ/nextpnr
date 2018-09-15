@@ -866,15 +866,22 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, Id
             return TMG_COMB_INPUT;
         if (port == id_COUT || port == id_LO)
             return TMG_COMB_OUTPUT;
-        if (cell->lcInfo.dffEnable) {
-            clockPort = id_CLK;
-            if (port == id_O)
+        if (port == id_O) {
+            // LCs with no inputs are constant drivers
+            if (cell->lcInfo.inputCount == 0)
+                return TMG_IGNORE;
+            if (cell->lcInfo.dffEnable) {
+                clockPort = id_CLK;
                 return TMG_REGISTER_OUTPUT;
+            }
             else
-                return TMG_REGISTER_INPUT;
-        } else {
-            if (port == id_O)
                 return TMG_COMB_OUTPUT;
+        }
+        else {
+            if (cell->lcInfo.dffEnable) {
+                clockPort = id_CLK;
+                return TMG_REGISTER_INPUT;
+            }
             else
                 return TMG_COMB_INPUT;
         }
