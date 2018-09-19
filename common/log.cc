@@ -195,7 +195,6 @@ void log_info(const char *format, ...)
 
 void log_warning(const char *format, ...)
 {
-    if (log_quiet_warnings) return;
     va_list ap;
     va_start(ap, format);
     logv_warning(format, ap);
@@ -204,7 +203,6 @@ void log_warning(const char *format, ...)
 
 void log_warning_noprefix(const char *format, ...)
 {
-    if (log_quiet_warnings) return;
     va_list ap;
     va_start(ap, format);
     logv_warning_noprefix(format, ap);
