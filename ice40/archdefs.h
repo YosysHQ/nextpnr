@@ -144,6 +144,11 @@ struct ArchCellInfo
             int inputCount;
             const NetInfo *clk, *cen, *sr;
         } lcInfo;
+        struct
+        {
+            bool lvds;
+            // TODO: clk packing checks...
+        } ioInfo;
     };
 };
 
