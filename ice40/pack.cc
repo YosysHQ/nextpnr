@@ -424,7 +424,7 @@ static void pack_io(Context *ctx)
                 // Create a SB_IO buffer
                 std::unique_ptr<CellInfo> ice_cell =
                         create_ice_cell(ctx, ctx->id("SB_IO"), ci->name.str(ctx) + "$sb_io");
-                nxio_to_sb(ctx, ci, ice_cell.get());
+                nxio_to_sb(ctx, ci, ice_cell.get(), packed_cells);
                 new_cells.push_back(std::move(ice_cell));
                 sb = new_cells.back().get();
             }
