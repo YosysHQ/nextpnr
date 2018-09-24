@@ -959,7 +959,6 @@ void Arch::assignArchInfo()
 
 void Arch::assignCellInfo(CellInfo *cell)
 {
-    cell->belType = cell->type;
     if (cell->type == id_ICESTORM_LC) {
         cell->lcInfo.dffEnable = bool_or_default(cell->params, id_DFF_ENABLE);
         cell->lcInfo.carryEnable = bool_or_default(cell->params, id_CARRY_ENABLE);

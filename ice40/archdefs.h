@@ -134,7 +134,6 @@ struct NetInfo;
 
 struct ArchCellInfo
 {
-    IdString belType;
     union
     {
         struct

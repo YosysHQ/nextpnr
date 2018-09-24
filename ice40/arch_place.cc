@@ -34,7 +34,7 @@ bool Arch::logicCellsCompatible(const CellInfo** it, const size_t size) const
     int locals_count = 0;
 
     for (auto cell : boost::make_iterator_range(it, it+size)) {
-        NPNR_ASSERT(cell->belType == id_ICESTORM_LC);
+        NPNR_ASSERT(cell->type == id_ICESTORM_LC);
         if (cell->lcInfo.dffEnable) {
             if (!dffs_exist) {
                 dffs_exist = true;
