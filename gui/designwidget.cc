@@ -827,7 +827,9 @@ void DesignWidget::onHoverIndexChanged(QModelIndex index)
     if (index.isValid()) {
         TreeModel::Item *item = treeModel->nodeFromIndex(index);
         if (item->type() != ElementType::NONE) {
-            Q_EMIT hover(getDecals(item->type(), item->id()).at(0));
+            std::vector<DecalXY> decals = getDecals(item->type(), item->id());
+            if (decals.size()>0)
+                Q_EMIT hover(decals.at(0));
             return;
         }
     }
