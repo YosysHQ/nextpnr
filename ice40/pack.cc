@@ -159,7 +159,7 @@ static void pack_carries(Context *ctx)
                             exhausted_cells.find(usr.cell->name) == exhausted_cells.end()) {
                             // This clause stops us double-packing cells
                             i0_matches.insert(usr.cell->name);
-                            if (!i1_net) {
+                            if (!i1_net && !usr.cell->ports.at(ctx->id("I2")).net) {
                                 // I1 is don't care when disconnected, duplicate I0
                                 i1_matches.insert(usr.cell->name);
                             }
@@ -174,7 +174,7 @@ static void pack_carries(Context *ctx)
                             exhausted_cells.find(usr.cell->name) == exhausted_cells.end()) {
                             // This clause stops us double-packing cells
                             i1_matches.insert(usr.cell->name);
-                            if (!i0_net) {
+                            if (!i0_net && !usr.cell->ports.at(ctx->id("I1")).net) {
                                 // I0 is don't care when disconnected, duplicate I1
                                 i0_matches.insert(usr.cell->name);
                             }
