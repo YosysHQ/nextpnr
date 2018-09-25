@@ -717,6 +717,30 @@ static void pack_special(Context *ctx)
 
             NetInfo *pad_packagepin_net = nullptr;
 
+            int pllout_a_used = 0;
+            int pllout_b_used = 0;
+            for (auto port : ci->ports) {
+                PortInfo &pi = port.second;
+                if (pi.name == ctx->id("PLLOUTCOREA"))
+                    pllout_a_used++;
+                if (pi.name == ctx->id("PLLOUTCOREB"))
+                    pllout_b_used++;
+                if (pi.name == ctx->id("PLLOUTCORE"))
+                    pllout_a_used++;
+                if (pi.name == ctx->id("PLLOUTGLOBALA"))
+                    pllout_a_used++;
+                if (pi.name == ctx->id("PLLOUTGLOBALB"))
+                    pllout_b_used++;
+                if (pi.name == ctx->id("PLLOUTGLOBAL"))
+                    pllout_a_used++;
+            }
+
+            if (pllout_a_used > 1) 
+                log_error("PLL '%s' is using multiple ports mapping to PLLOUT_A output of the PLL\n", ci->name.c_str(ctx));
+
+            if (pllout_b_used > 1) 
+                log_error("PLL '%s' is using multiple ports mapping to PLLOUT_B output of the PLL\n", ci->name.c_str(ctx));
+
             for (auto port : ci->ports) {
                 PortInfo &pi = port.second;
                 std::string newname = pi.name.str(ctx);
@@ -730,10 +754,20 @@ static void pack_special(Context *ctx)
                     newname = "PLLOUT_B";
                 if (pi.name == ctx->id("PLLOUTCORE"))
                     newname = "PLLOUT_A";
+                if (pi.name == ctx->id("PLLOUTGLOBALA")) 
+                    newname = "PLLOUT_A";
+                if (pi.name == ctx->id("PLLOUTGLOBALB"))
+                    newname = "PLLOUT_B";
+                if (pi.name == ctx->id("PLLOUTGLOBAL"))
+                    newname = "PLLOUT_A";
+                
+                if (pi.name == ctx->id("PLLOUTGLOBALA") || pi.name == ctx->id("PLLOUTGLOBALB") || pi.name == ctx->id("PLLOUTGLOBAL")) 
+                    log_warning("PLL '%s' is using port %s but implementation does not actually "
+                                "use the global clock output of the PLL\n", ci->name.c_str(ctx), pi.name.str(ctx).c_str());
 
                 if (pi.name == ctx->id("PACKAGEPIN")) {
                     if (!is_pad) {
-                        log_error("PLL '%s' has a PACKAGEPIN but is not a PAD PLL", ci->name.c_str(ctx));
+                        log_error("PLL '%s' has a PACKAGEPIN but is not a PAD PLL\n", ci->name.c_str(ctx));
                     } else {
                         // We drop this port and instead place the PLL adequately below.
                         pad_packagepin_net = port.second.net;
@@ -743,7 +777,7 @@ static void pack_special(Context *ctx)
                 }
                 if (pi.name == ctx->id("REFERENCECLK")) {
                     if (!is_core)
-                        log_error("PLL '%s' has a REFERENCECLK but is not a CORE PLL", ci->name.c_str(ctx));
+                        log_error("PLL '%s' has a REFERENCECLK but is not a CORE PLL\n", ci->name.c_str(ctx));
                 }
 
                 if (packed->ports.count(ctx->id(newname)) == 0) {
