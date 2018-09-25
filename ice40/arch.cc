@@ -959,7 +959,6 @@ void Arch::assignArchInfo()
 
 void Arch::assignCellInfo(CellInfo *cell)
 {
-    cell->belType = cell->type;
     if (cell->type == id_ICESTORM_LC) {
         cell->lcInfo.dffEnable = bool_or_default(cell->params, id_DFF_ENABLE);
         cell->lcInfo.carryEnable = bool_or_default(cell->params, id_CARRY_ENABLE);
@@ -976,6 +975,8 @@ void Arch::assignCellInfo(CellInfo *cell)
             cell->lcInfo.inputCount++;
         if (get_net_or_empty(cell, id_I3))
             cell->lcInfo.inputCount++;
+    } else if (cell->type == id_SB_IO) {
+        cell->ioInfo.lvds = str_or_default(cell->params, id_IO_STANDARD, "SB_LVCMOS") == "SB_LVDS_INPUT";
     }
 }
 

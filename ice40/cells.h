@@ -98,7 +98,7 @@ void lut_to_lc(const Context *ctx, CellInfo *lut, CellInfo *lc, bool no_dff = tr
 void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc, bool pass_thru_lut = false);
 
 // Convert a nextpnr IO buffer to a SB_IO
-void nxio_to_sb(Context *ctx, CellInfo *nxio, CellInfo *sbio);
+void nxio_to_sb(Context *ctx, CellInfo *nxio, CellInfo *sbio, std::unordered_set<IdString> &todelete_cells);
 
 // Return true if a port is a clock port
 bool is_clock_port(const BaseCtx *ctx, const PortRef &port);

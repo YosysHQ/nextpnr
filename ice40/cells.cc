@@ -314,7 +314,7 @@ void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc, bool pass_thru_l
     replace_port(dff, ctx->id("Q"), lc, ctx->id("O"));
 }
 
-void nxio_to_sb(Context *ctx, CellInfo *nxio, CellInfo *sbio)
+void nxio_to_sb(Context *ctx, CellInfo *nxio, CellInfo *sbio, std::unordered_set<IdString> &todelete_cells)
 {
     if (nxio->type == ctx->id("$nextpnr_ibuf")) {
         sbio->params[ctx->id("PIN_TYPE")] = "1";
@@ -341,12 +341,16 @@ void nxio_to_sb(Context *ctx, CellInfo *nxio, CellInfo *sbio)
         sbio->params[ctx->id("PIN_TYPE")] = "41";
         replace_port(tbuf, ctx->id("A"), sbio, ctx->id("D_OUT_0"));
         replace_port(tbuf, ctx->id("E"), sbio, ctx->id("OUTPUT_ENABLE"));
-        ctx->nets.erase(donet->name);
-        if (!donet->users.empty())
+
+        if (donet->users.size() > 1) {
+            for (auto user : donet->users)
+                log_info("     remaining tristate user: %s.%s\n", user.cell->name.c_str(ctx), user.port.c_str(ctx));
             log_error("unsupported tristate IO pattern for IO buffer '%s', "
                       "instantiate SB_IO manually to ensure correct behaviour\n",
                       nxio->name.c_str(ctx));
-        ctx->cells.erase(tbuf->name);
+        }
+        ctx->nets.erase(donet->name);
+        todelete_cells.insert(tbuf->name);
     }
 }
 

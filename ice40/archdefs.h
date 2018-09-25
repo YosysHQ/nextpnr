@@ -134,7 +134,6 @@ struct NetInfo;
 
 struct ArchCellInfo
 {
-    IdString belType;
     union
     {
         struct
@@ -145,6 +144,11 @@ struct ArchCellInfo
             int inputCount;
             const NetInfo *clk, *cen, *sr;
         } lcInfo;
+        struct
+        {
+            bool lvds;
+            // TODO: clk packing checks...
+        } ioInfo;
     };
 };
 
