@@ -846,7 +846,9 @@ void DesignWidget::onHoverPropertyChanged(QtBrowserItem *item)
             if (value!=IdString()) {
                 auto node = treeModel->nodeForIdType(type, value);
                 if (node) {
-                    Q_EMIT hover(getDecals((*node)->type(), (*node)->id()).at(0));
+                    std::vector<DecalXY> decals = getDecals((*node)->type(), (*node)->id());
+                    if (decals.size()>0)
+                        Q_EMIT hover(decals.at(0));
                     return;
                 }
             }
