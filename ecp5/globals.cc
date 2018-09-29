@@ -92,10 +92,8 @@ class Ecp5GlobalRouter
         tap_loc.x = ctx->globalInfoAtLoc(tile_glb.location).tap_col;
         tap_loc.y = tile_glb.location.y;
         if (td == TAP_DIR_LEFT) {
-            log_info("    finding tap %d, %d, %s\n", tap_loc.x, tap_loc.y, ("L_" + glbName).c_str());
             tap_wire = ctx->getWireByLocAndBasename(tap_loc, "L_" + glbName);
         } else {
-            log_info("    finding tap %d, %d, %s\n", tap_loc.x, tap_loc.y, ("R_" + glbName).c_str());
             tap_wire = ctx->getWireByLocAndBasename(tap_loc, "R_" + glbName);
         }
         NPNR_ASSERT(tap_wire != WireId());
@@ -149,7 +147,6 @@ class Ecp5GlobalRouter
                           ctx->getBelName(user.cell->bel).c_str(ctx), user.port.c_str(ctx));
             }
         }
-        log_info("   routing net %s from %s\n", net->name.c_str(ctx), ctx->getWireName(next).c_str(ctx));
         // Set all the pips we found along the way
         WireId cursor = next;
         while (true) {
@@ -158,7 +155,6 @@ class Ecp5GlobalRouter
                 break;
             ctx->bindPip(fnd->second, net, STRENGTH_LOCKED);
             cursor = ctx->getPipDstWire(fnd->second);
-            log_info("         via %s\n", ctx->getWireName(cursor).c_str(ctx));
 
         }
         // If the global network inside the tile isn't already set up,
@@ -215,8 +211,6 @@ class Ecp5GlobalRouter
             cursor = visit.front();
             visit.pop();
             NetInfo *bound = ctx->getBoundWireNet(cursor);
-            if (ctx->verbose)
-                log_info("   exploring %s\n", ctx->getWireName(cursor).c_str(ctx));
             if (bound == net) {
             } else if (bound != nullptr) {
                 continue;
@@ -225,8 +219,6 @@ class Ecp5GlobalRouter
                 break;
             for (auto dh : ctx->getPipsDownhill(cursor)) {
                 WireId pipDst = ctx->getPipDstWire(dh);
-                if (ctx->verbose)
-                    log_info("        downhill -> %s\n", ctx->getWireName(pipDst).c_str(ctx));
                 if (backtrace.count(pipDst))
                     continue;
                 backtrace[pipDst] = dh;
@@ -244,7 +236,7 @@ class Ecp5GlobalRouter
             }
             ctx->bindPip(fnd->second, net, STRENGTH_LOCKED);
             cursor = ctx->getPipSrcWire(fnd->second);
-        }
+        }\
         if (ctx->getBoundWireNet(src) == nullptr)
             ctx->bindWire(src, net, STRENGTH_LOCKED);
         return true;
