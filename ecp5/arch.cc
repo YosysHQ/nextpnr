@@ -27,6 +27,7 @@
 #include "placer1.h"
 #include "router1.h"
 #include "util.h"
+#include "globals.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -390,7 +391,10 @@ bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay
 
 bool Arch::place() { return placer1(getCtx(), Placer1Cfg(getCtx())); }
 
-bool Arch::route() { return router1(getCtx(), Router1Cfg(getCtx())); }
+bool Arch::route() {
+    route_ecp5_globals(getCtx());
+    return router1(getCtx(), Router1Cfg(getCtx()));
+}
 
 // -----------------------------------------------------------------------
 

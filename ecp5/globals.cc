@@ -52,7 +52,7 @@ class Ecp5GlobalRouter
   private:
     bool is_clock_port(const PortRef &user)
     {
-        if (user.cell->type == ctx->id("TRELLIS_LC") && user.port == ctx->id("CLK"))
+        if (user.cell->type == id_TRELLIS_SLICE && user.port == id_CLK)
             return true;
         return false;
     }
@@ -67,6 +67,7 @@ class Ecp5GlobalRouter
                 if (is_clock_port(user))
                     clockCount[ni->name]++;
             }
+            //log_info("clkcount %s: %d\n", ni->name.c_str(ctx),clockCount[ni->name]);
         }
         std::vector<NetInfo *> clocks;
         while (clocks.size() < 16) {
@@ -187,7 +188,7 @@ class Ecp5GlobalRouter
 
     WireId get_global_wire(GlobalQuadrant quad, int network)
     {
-        return ctx->getWireByLocAndBasename(Location(0, 0), get_quad_name(quad) + "PCLK" + std::to_string(network));
+        return ctx->getWireByLocAndBasename(Location(0, 0), "G_" + get_quad_name(quad) + "PCLK" + std::to_string(network));
     }
 
     bool simple_router(NetInfo *net, WireId src, WireId dst, bool allow_fail = false)
@@ -238,6 +239,7 @@ class Ecp5GlobalRouter
         glb_src = ctx->getNetinfoSourceWire(net);
         for (int quad = QUAD_UL; quad < QUAD_LR + 1; quad++) {
             WireId glb_dst = get_global_wire(GlobalQuadrant(quad), network);
+            NPNR_ASSERT(glb_dst != WireId());
             bool routed = simple_router(net, glb_src, glb_dst);
             if (!routed)
                 return false;
