@@ -17,13 +17,13 @@
  *
  */
 
+#include "globals.h"
 #include <algorithm>
 #include <iomanip>
 #include <queue>
-#include "nextpnr.h"
 #include "cells.h"
-#include "globals.h"
 #include "log.h"
+#include "nextpnr.h"
 
 #define fmt_str(x) (static_cast<const std::ostringstream &>(std::ostringstream() << x).str())
 
@@ -67,7 +67,7 @@ class Ecp5GlobalRouter
                 if (is_clock_port(user))
                     clockCount[ni->name]++;
             }
-            //log_info("clkcount %s: %d\n", ni->name.c_str(ctx),clockCount[ni->name]);
+            // log_info("clkcount %s: %d\n", ni->name.c_str(ctx),clockCount[ni->name]);
         }
         std::vector<NetInfo *> clocks;
         while (clocks.size() < 16) {
@@ -155,7 +155,6 @@ class Ecp5GlobalRouter
                 break;
             ctx->bindPip(fnd->second, net, STRENGTH_LOCKED);
             cursor = ctx->getPipDstWire(fnd->second);
-
         }
         // If the global network inside the tile isn't already set up,
         // we also need to bind the buffers along the way
@@ -191,7 +190,8 @@ class Ecp5GlobalRouter
 
     WireId get_global_wire(GlobalQuadrant quad, int network)
     {
-        return ctx->getWireByLocAndBasename(Location(0, 0), "G_" + get_quad_name(quad) + "PCLK" + std::to_string(network));
+        return ctx->getWireByLocAndBasename(Location(0, 0),
+                                            "G_" + get_quad_name(quad) + "PCLK" + std::to_string(network));
     }
 
     bool simple_router(NetInfo *net, WireId src, WireId dst, bool allow_fail = false)
@@ -229,14 +229,14 @@ class Ecp5GlobalRouter
             auto fnd = backtrace.find(cursor);
             if (fnd == backtrace.end())
                 break;
-            NetInfo * bound = ctx->getBoundWireNet(cursor);
+            NetInfo *bound = ctx->getBoundWireNet(cursor);
             if (bound != nullptr) {
                 NPNR_ASSERT(bound == net);
                 break;
             }
             ctx->bindPip(fnd->second, net, STRENGTH_LOCKED);
             cursor = ctx->getPipSrcWire(fnd->second);
-        }\
+        }
         if (ctx->getBoundWireNet(src) == nullptr)
             ctx->bindWire(src, net, STRENGTH_LOCKED);
         return true;
@@ -257,9 +257,9 @@ class Ecp5GlobalRouter
         return true;
     }
 
-
     // Attempt to place a DCC
-    void place_dcc(CellInfo *dcc) {
+    void place_dcc(CellInfo *dcc)
+    {
         for (auto bel : ctx->getBels()) {
             if (ctx->getBelType(bel) == id_DCCA && ctx->checkBelAvail(bel)) {
                 if (ctx->isValidBelForCell(dcc, bel)) {
@@ -303,9 +303,9 @@ class Ecp5GlobalRouter
     }
     Context *ctx;
 
-
-public:
-    void promote_and_route_globals() {
+  public:
+    void promote_and_route_globals()
+    {
         log_info("Promoting and routing globals...\n");
         auto clocks = get_clocks();
         std::set<int> all_globals, fab_globals;
@@ -315,9 +315,8 @@ public:
                 fab_globals.insert(i);
         }
         for (auto clock : clocks) {
-            bool drives_fabric = std::any_of(clock->users.begin(), clock->users.end(), [this](const PortRef &port) {
-                return !is_clock_port(port);
-            });
+            bool drives_fabric = std::any_of(clock->users.begin(), clock->users.end(),
+                                             [this](const PortRef &port) { return !is_clock_port(port); });
             int glbid;
             if (drives_fabric) {
                 if (fab_globals.empty())
@@ -338,11 +337,8 @@ public:
             }
         }
     }
-
 };
 
-void route_ecp5_globals(Context *ctx) {
-    Ecp5GlobalRouter(ctx).promote_and_route_globals();
-}
+void route_ecp5_globals(Context *ctx) { Ecp5GlobalRouter(ctx).promote_and_route_globals(); }
 
 NEXTPNR_NAMESPACE_END

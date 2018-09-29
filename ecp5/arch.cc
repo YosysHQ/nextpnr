@@ -22,13 +22,13 @@
 #include <cmath>
 #include <cstring>
 #include "gfx.h"
+#include "globals.h"
 #include "log.h"
 #include "nextpnr.h"
 #include "placer1.h"
 #include "router1.h"
-#include "util.h"
-#include "globals.h"
 #include "timing.h"
+#include "util.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -44,7 +44,6 @@ static std::tuple<int, int, std::string> split_identifier_name(const std::string
 };
 
 // -----------------------------------------------------------------------
-
 
 void IdString::initialize_arch(const BaseCtx *ctx)
 {
@@ -392,7 +391,8 @@ bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay
 
 bool Arch::place() { return placer1(getCtx(), Placer1Cfg(getCtx())); }
 
-bool Arch::route() {
+bool Arch::route()
+{
     route_ecp5_globals(getCtx());
     assign_budget(getCtx(), true);
     return router1(getCtx(), Router1Cfg(getCtx()));

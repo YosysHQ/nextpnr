@@ -915,7 +915,6 @@ struct Arch : BaseCtx
     IdString id_clk, id_lsr;
     IdString id_clkmux, id_lsrmux;
     IdString id_srmode, id_mode;
-
 };
 
 NEXTPNR_NAMESPACE_END
