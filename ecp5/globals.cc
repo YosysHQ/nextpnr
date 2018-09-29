@@ -22,7 +22,7 @@
 #include <queue>
 #include "nextpnr.h"
 #include "cells.h"
-
+#include "globals.h"
 #include "log.h"
 
 #define fmt_str(x) (static_cast<const std::ostringstream &>(std::ostringstream() << x).str())
@@ -73,7 +73,7 @@ class Ecp5GlobalRouter
             auto max = std::max_element(clockCount.begin(), clockCount.end(),
                                         [](const decltype(clockCount)::value_type &a,
                                            const decltype(clockCount)::value_type &b) { return a.second < b.second; });
-            if (max == clockCount.end() || max->second < 3)
+            if (max == clockCount.end() || max->second < 5)
                 break;
             clocks.push_back(ctx->nets.at(max->first).get());
             clockCount.erase(max->first);
@@ -190,7 +190,7 @@ class Ecp5GlobalRouter
         return ctx->getWireByLocAndBasename(Location(0, 0), get_quad_name(quad) + "PCLK" + std::to_string(network));
     }
 
-    void simple_router(NetInfo *net, WireId src, WireId dst)
+    bool simple_router(NetInfo *net, WireId src, WireId dst, bool allow_fail = false)
     {
         std::queue<WireId> visit;
         std::unordered_map<WireId, PipId> backtrace;
@@ -198,6 +198,8 @@ class Ecp5GlobalRouter
         WireId cursor;
         while (true) {
             if (visit.empty() || visit.size() > 50000) {
+                if (allow_fail)
+                    return false;
                 log_error("cannot route global from %s to %s.\n", ctx->getWireName(src).c_str(ctx),
                           ctx->getWireName(dst).c_str(ctx));
             }
@@ -226,58 +228,90 @@ class Ecp5GlobalRouter
             ctx->bindPip(fnd->second, net, STRENGTH_LOCKED);
             cursor = ctx->getPipSrcWire(fnd->second);
         }
+        return true;
     }
 
-    void route_onto_global(NetInfo *net, int network)
+    bool route_onto_global(NetInfo *net, int network)
     {
         WireId glb_src;
-        if (net->driver.cell->type == ctx->id("TRELLIS_IO")) {
-            std::string ioglb;
-            if (!is_global_io(net->driver.cell, ioglb))
-                goto non_dedicated;
-            glb_src = ctx->getWireByLocAndBasename(Location(0, 0), ioglb);
-        }
+        NPNR_ASSERT(net->driver.cell->type == id_DCCA);
+        glb_src = ctx->getNetinfoSourceWire(net);
         for (int quad = QUAD_UL; quad < QUAD_LR + 1; quad++) {
             WireId glb_dst = get_global_wire(GlobalQuadrant(quad), network);
-            simple_router(net, glb_src, glb_dst);
+            bool routed = simple_router(net, glb_src, glb_dst);
+            if (!routed)
+                return false;
         }
-        if (false) {
-        non_dedicated:
-            log_error("FIXME: currenly global networks can only be driven by dedicated global input pins");
-        }
+        return true;
     }
 
+
+    // Attempt to place a DCC
+    void place_dcc(CellInfo *dcc) {
+        for (auto bel : ctx->getBels()) {
+            if (ctx->getBelType(bel) == id_DCCA && ctx->checkBelAvail(bel)) {
+                if (ctx->isValidBelForCell(dcc, bel)) {
+                    ctx->bindBel(bel, dcc, STRENGTH_LOCKED);
+                    return;
+                }
+            }
+        }
+        NPNR_ASSERT_FALSE("failed to place dcca");
+    }
 
     // Insert a DCC into a net to promote it to a global
     NetInfo *insert_dcc(NetInfo *net)
     {
-        auto dcc = create_ecp5_cell(ctx, ctx->id("DCCA"), "$gbuf$" + net->name.str(ctx));
+        auto dcc = create_ecp5_cell(ctx, id_DCCA, "$gbuf$" + net->name.str(ctx));
 
         std::unique_ptr<NetInfo> glbnet = std::unique_ptr<NetInfo>(new NetInfo);
         glbnet->name = ctx->id("$glbnet$" + net->name.str(ctx));
         glbnet->driver.cell = dcc.get();
-        glbnet->driver.port = ctx->id("CLKO");
+        glbnet->driver.port = id_CLKO;
 
         for (auto user : net->users) {
             user.cell->ports.at(user.port).net = glbnet.get();
         }
         net->users.clear();
 
-        dcc->ports[ctx->id("CLKI")].net = net;
+        dcc->ports[id_CLKI].net = net;
         PortRef clki_pr;
-        clki_pr.port = ctx->id("CLKI");
+        clki_pr.port = id_CLKI;
         clki_pr.cell = dcc.get();
         net->users.push_back(clki_pr);
+
+        place_dcc(dcc.get());
 
         ctx->cells[dcc->name] = std::move(dcc);
         NetInfo *glbptr = glbnet.get();
         ctx->nets[glbnet->name] = std::move(glbnet);
         return glbptr;
     }
-
     Context *ctx;
+
+
+public:
+    void promote_and_route_globals() {
+        log_info("Promoting and routing globals...");
+        auto clocks = get_clocks();
+        int glbid = 0;
+        for (auto clock : clocks) {
+            log_info("    promoting clock net %s to global %d\n", clock->name.c_str(ctx), glbid);
+            auto old_users = clock->users;
+            NetInfo *global = insert_dcc(clock);
+            bool routed = route_onto_global(global, glbid);
+            NPNR_ASSERT(routed);
+            for (const auto &user : global->users) {
+                route_logic_tile_global(global, glbid, user);
+            }
+            glbid++;
+        }
+    }
+
 };
 
-void route_ecp5_globals(Context *ctx);
+void route_ecp5_globals(Context *ctx) {
+    Ecp5GlobalRouter(ctx).promote_and_route_globals();
+}
 
 NEXTPNR_NAMESPACE_END
