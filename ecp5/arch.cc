@@ -28,6 +28,7 @@
 #include "router1.h"
 #include "util.h"
 #include "globals.h"
+#include "timing.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -393,6 +394,7 @@ bool Arch::place() { return placer1(getCtx(), Placer1Cfg(getCtx())); }
 
 bool Arch::route() {
     route_ecp5_globals(getCtx());
+    assign_budget(getCtx(), true);
     return router1(getCtx(), Router1Cfg(getCtx()));
 }
 
@@ -523,6 +525,12 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
             return true;
         }
         return false;
+    } else if (cell->type == id_DCCA) {
+        if (fromPort == id_CLKI && toPort == id_CLKO) {
+            delay.delay = 0;
+            return true;
+        }
+        return false;
     } else {
         return false;
     }
@@ -569,6 +577,10 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, Id
             return TMG_STARTPOINT;
         return TMG_IGNORE;
     } else if (cell->type == id_DCCA) {
+        if (port == id_CLKI)
+            return TMG_COMB_INPUT;
+        if (port == id_CLKO)
+            return TMG_COMB_OUTPUT;
         return TMG_IGNORE;
     } else {
         NPNR_ASSERT_FALSE_STR("no timing data for cell type '" + cell->type.str(this) + "'");
