@@ -110,7 +110,7 @@ class Ecp5GlobalRouter
 
     void route_logic_tile_global(NetInfo *net, int global_index, PortRef user)
     {
-        WireId userWire = ctx->getBelPinWire(user.cell->bel, ctx->portPinFromId(user.port));
+        WireId userWire = ctx->getBelPinWire(user.cell->bel, user.port);
         WireId globalWire;
         IdString global_name = ctx->id(fmt_str("G_HPBX" << std::setw(2) << std::setfill('0') << global_index << "00"));
         std::queue<WireId> upstream;
