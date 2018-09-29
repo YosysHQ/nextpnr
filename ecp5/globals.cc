@@ -92,10 +92,13 @@ class Ecp5GlobalRouter
         tap_loc.x = ctx->globalInfoAtLoc(tile_glb.location).tap_col;
         tap_loc.y = tile_glb.location.y;
         if (td == TAP_DIR_LEFT) {
+            log_info("    finding tap %d, %d, %s\n", tap_loc.x, tap_loc.y, ("L_" + glbName).c_str());
             tap_wire = ctx->getWireByLocAndBasename(tap_loc, "L_" + glbName);
         } else {
+            log_info("    finding tap %d, %d, %s\n", tap_loc.x, tap_loc.y, ("R_" + glbName).c_str());
             tap_wire = ctx->getWireByLocAndBasename(tap_loc, "R_" + glbName);
         }
+        NPNR_ASSERT(tap_wire != WireId());
         return *(ctx->getPipsUphill(tap_wire).begin());
     }
 
@@ -118,9 +121,10 @@ class Ecp5GlobalRouter
         std::unordered_map<WireId, PipId> backtrace;
         upstream.push(userWire);
         bool already_routed = false;
+        WireId next;
         // Search back from the pin until we reach the global network
         while (true) {
-            WireId next = upstream.front();
+            next = upstream.front();
             upstream.pop();
 
             if (ctx->getBoundWireNet(next) == net) {
@@ -145,20 +149,23 @@ class Ecp5GlobalRouter
                           ctx->getBelName(user.cell->bel).c_str(ctx), user.port.c_str(ctx));
             }
         }
+        log_info("   routing net %s from %s\n", net->name.c_str(ctx), ctx->getWireName(next).c_str(ctx));
         // Set all the pips we found along the way
-        WireId cursor = userWire;
+        WireId cursor = next;
         while (true) {
             auto fnd = backtrace.find(cursor);
             if (fnd == backtrace.end())
                 break;
             ctx->bindPip(fnd->second, net, STRENGTH_LOCKED);
-            cursor = ctx->getPipSrcWire(fnd->second);
+            cursor = ctx->getPipDstWire(fnd->second);
+            log_info("         via %s\n", ctx->getWireName(cursor).c_str(ctx));
+
         }
         // If the global network inside the tile isn't already set up,
         // we also need to bind the buffers along the way
         if (!already_routed) {
-            ctx->bindWire(cursor, net, STRENGTH_LOCKED);
-            PipId tap_pip = find_tap_pip(cursor);
+            ctx->bindWire(next, net, STRENGTH_LOCKED);
+            PipId tap_pip = find_tap_pip(next);
             NetInfo *tap_net = ctx->getBoundPipNet(tap_pip);
             if (tap_net == nullptr) {
                 ctx->bindPip(tap_pip, net, STRENGTH_LOCKED);
@@ -281,7 +288,7 @@ class Ecp5GlobalRouter
         glbnet->name = ctx->id("$glbnet$" + net->name.str(ctx));
         glbnet->driver.cell = dcc.get();
         glbnet->driver.port = id_CLKO;
-
+        glbnet->users = net->users;
         for (auto user : net->users) {
             user.cell->ports.at(user.port).net = glbnet.get();
         }
