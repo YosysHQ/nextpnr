@@ -99,8 +99,15 @@ delay_t Context::getNetinfoRouteDelay(const NetInfo *net_info, const PortRef &us
 
     while (cursor != WireId() && cursor != src_wire) {
         auto it = net_info->wires.find(cursor);
+
         if (it == net_info->wires.end())
             break;
+#ifdef ARCH_ECP5
+        // ECP5 global nets currently appear part-unrouted due to arch database limitations
+        // Don't touch them in the router
+        if (it->second.strength == STRENGTH_LOCKED)
+            return 0;
+#endif
         PipId pip = it->second.pip;
         delay += getPipDelay(pip).maxDelay();
         delay += getWireDelay(cursor).maxDelay();

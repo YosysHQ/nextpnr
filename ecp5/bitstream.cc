@@ -294,6 +294,8 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             if (dir == "INPUT" && !is_differential(ioType_from_str(iotype))) {
                 cc.tiles[pio_tile].add_enum(pio + ".HYSTERESIS", "ON");
             }
+        } else if (ci->type == ctx->id("DCCA")) {
+            // Nothing to do
         } else {
             NPNR_ASSERT_FALSE("unsupported cell type");
         }
