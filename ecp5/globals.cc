@@ -142,7 +142,7 @@ class Ecp5GlobalRouter
                     upstream.push(src);
                 }
             }
-            if (upstream.size() > 3000) {
+            if (upstream.size() > 30000) {
                 log_error("failed to route HPBX%02d00 to %s.%s\n", global_index,
                           ctx->getBelName(user.cell->bel).c_str(ctx), user.port.c_str(ctx));
             }
@@ -306,8 +306,26 @@ public:
     void promote_and_route_globals() {
         log_info("Promoting and routing globals...\n");
         auto clocks = get_clocks();
-        int glbid = 0;
+        std::set<int> all_globals, fab_globals;
+        for (int i = 0; i < 16; i++) {
+            all_globals.insert(i);
+            if (i < 8)
+                fab_globals.insert(i);
+        }
         for (auto clock : clocks) {
+            bool drives_fabric = std::any_of(clock->users.begin(), clock->users.end(), [this](const PortRef &port) {
+                return !is_clock_port(port);
+            });
+            int glbid;
+            if (drives_fabric) {
+                if (fab_globals.empty())
+                    continue;
+                glbid = *(fab_globals.begin());
+            } else {
+                glbid = *(all_globals.begin());
+            }
+            all_globals.erase(glbid);
+            fab_globals.erase(glbid);
             log_info("    promoting clock net %s to global %d\n", clock->name.c_str(ctx), glbid);
             auto old_users = clock->users;
             NetInfo *global = insert_dcc(clock);
@@ -316,7 +334,6 @@ public:
             for (const auto &user : global->users) {
                 route_logic_tile_global(global, glbid, user);
             }
-            glbid++;
         }
     }
 
