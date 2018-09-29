@@ -89,6 +89,11 @@ WireId Context::getNetinfoSinkWire(const NetInfo *net_info, const PortRef &user_
 
 delay_t Context::getNetinfoRouteDelay(const NetInfo *net_info, const PortRef &user_info) const
 {
+#ifdef ARCH_ECP5
+    if (net_info->is_global)
+        return 0;
+#endif
+
     WireId src_wire = getNetinfoSourceWire(net_info);
     if (src_wire == WireId())
         return 0;
@@ -102,12 +107,7 @@ delay_t Context::getNetinfoRouteDelay(const NetInfo *net_info, const PortRef &us
 
         if (it == net_info->wires.end())
             break;
-#ifdef ARCH_ECP5
-        // ECP5 global nets currently appear part-unrouted due to arch database limitations
-        // Don't touch them in the router
-        if (it->second.strength == STRENGTH_LOCKED)
-            return 0;
-#endif
+
         PipId pip = it->second.pip;
         delay += getPipDelay(pip).maxDelay();
         delay += getWireDelay(cursor).maxDelay();

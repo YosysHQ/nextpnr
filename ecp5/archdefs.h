@@ -136,7 +136,9 @@ struct DecalId
 
 struct ArchNetInfo
 {
+    bool is_global = false;
 };
+
 struct ArchCellInfo
 {
     struct

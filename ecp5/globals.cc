@@ -280,6 +280,7 @@ class Ecp5GlobalRouter
         glbnet->name = ctx->id("$glbnet$" + net->name.str(ctx));
         glbnet->driver.cell = dcc.get();
         glbnet->driver.port = id_CLKO;
+        glbnet->is_global = true;
         dcc->ports[id_CLKO].net = glbnet.get();
 
         glbnet->users = net->users;
