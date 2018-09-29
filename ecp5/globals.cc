@@ -198,17 +198,19 @@ class Ecp5GlobalRouter
         visit.push(src);
         WireId cursor;
         while (true) {
+
             if (visit.empty() || visit.size() > 50000) {
                 if (allow_fail)
                     return false;
                 log_error("cannot route global from %s to %s.\n", ctx->getWireName(src).c_str(ctx),
                           ctx->getWireName(dst).c_str(ctx));
             }
-            cursor = visit.back();
+            cursor = visit.front();
             visit.pop();
             NetInfo *bound = ctx->getBoundWireNet(cursor);
+            if (ctx->verbose)
+                log_info("   exploring %s\n", ctx->getWireName(cursor).c_str(ctx));
             if (bound == net) {
-                break;
             } else if (bound != nullptr) {
                 continue;
             }
@@ -216,6 +218,8 @@ class Ecp5GlobalRouter
                 break;
             for (auto dh : ctx->getPipsDownhill(cursor)) {
                 WireId pipDst = ctx->getPipDstWire(dh);
+                if (ctx->verbose)
+                    log_info("        downhill -> %s\n", ctx->getWireName(pipDst).c_str(ctx));
                 if (backtrace.count(pipDst))
                     continue;
                 backtrace[pipDst] = dh;
@@ -226,9 +230,16 @@ class Ecp5GlobalRouter
             auto fnd = backtrace.find(cursor);
             if (fnd == backtrace.end())
                 break;
+            NetInfo * bound = ctx->getBoundWireNet(cursor);
+            if (bound != nullptr) {
+                NPNR_ASSERT(bound == net);
+                break;
+            }
             ctx->bindPip(fnd->second, net, STRENGTH_LOCKED);
             cursor = ctx->getPipSrcWire(fnd->second);
         }
+        if (ctx->getBoundWireNet(src) == nullptr)
+            ctx->bindWire(src, net, STRENGTH_LOCKED);
         return true;
     }
 
@@ -294,7 +305,7 @@ class Ecp5GlobalRouter
 
 public:
     void promote_and_route_globals() {
-        log_info("Promoting and routing globals...");
+        log_info("Promoting and routing globals...\n");
         auto clocks = get_clocks();
         int glbid = 0;
         for (auto clock : clocks) {
