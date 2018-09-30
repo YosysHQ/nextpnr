@@ -121,8 +121,8 @@ class Ecp5Packer
             if (str_or_default(existing->params, ctx->id("LSRMUX"), "LSR") !=
                 str_or_default(ff0->params, ctx->id("LSRMUX"), "LSR"))
                 return false;
-            if (str_or_default(existing->params, ctx->id("LSRMUX"), "LSR") !=
-                str_or_default(ff0->params, ctx->id("LSRMUX"), "LSR"))
+            if (str_or_default(existing->params, ctx->id("SRMODE"), "LSR_OVER_CE") !=
+                str_or_default(ff0->params, ctx->id("SRMODE"), "LSR_OVER_CE"))
                 return false;
         }
         return true;
@@ -354,6 +354,7 @@ class Ecp5Packer
         std::unique_ptr<NetInfo> new_carry(new NetInfo());
         new_carry->name = ctx->id(feedin->name.str(ctx) + "$COUT");
         connect_port(ctx, new_carry.get(), feedin.get(), ctx->id("COUT"));
+        chain_in.cell->ports[chain_in.port].net = nullptr;
         connect_port(ctx, new_carry.get(), chain_in.cell, chain_in.port);
 
         CellInfo *feedin_ptr = feedin.get();
@@ -492,10 +493,13 @@ class Ecp5Packer
             }
         }
 
+        std::vector<std::vector<CellInfo*>> packed_chains;
+
         // Chain packing
         for (auto &chain : all_chains) {
             int cell_count = 0;
             std::vector<CellInfo *> tile_ffs;
+            std::vector<CellInfo *> packed_chain;
             for (auto &cell : chain.cells) {
                 if (cell_count % 4 == 0)
                     tile_ffs.clear();
@@ -526,24 +530,25 @@ class Ecp5Packer
                         packed_cells.insert(ff1->name);
                     }
                 }
-
+                packed_chain.push_back(slice.get());
                 new_cells.push_back(std::move(slice));
                 packed_cells.insert(cell->name);
                 cell_count++;
             }
+            packed_chains.push_back(packed_chain);
         }
 
         // Relative chain placement
-        for (auto &chain : all_chains) {
-            chain.cells.at(0)->constr_abs_z = true;
-            chain.cells.at(0)->constr_z = 0;
-            for (int i = 1; i < int(chain.cells.size()); i++) {
-                chain.cells.at(i)->constr_x = (i / 4);
-                chain.cells.at(i)->constr_y = 0;
-                chain.cells.at(i)->constr_z = i % 4;
-                chain.cells.at(i)->constr_abs_z = true;
-                chain.cells.at(i)->constr_parent = chain.cells.at(0);
-                chain.cells.at(0)->constr_children.push_back(chain.cells.at(i));
+        for (auto &chain : packed_chains) {
+            chain.at(0)->constr_abs_z = true;
+            chain.at(0)->constr_z = 0;
+            for (int i = 1; i < int(chain.size()); i++) {
+                chain.at(i)->constr_x = (i / 4);
+                chain.at(i)->constr_y = 0;
+                chain.at(i)->constr_z = i % 4;
+                chain.at(i)->constr_abs_z = true;
+                chain.at(i)->constr_parent = chain.at(0);
+                chain.at(0)->constr_children.push_back(chain.at(i));
             }
         }
 
