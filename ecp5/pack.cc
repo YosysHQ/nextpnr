@@ -493,7 +493,7 @@ class Ecp5Packer
             }
         }
 
-        std::vector<std::vector<CellInfo*>> packed_chains;
+        std::vector<std::vector<CellInfo *>> packed_chains;
 
         // Chain packing
         for (auto &chain : all_chains) {
@@ -797,6 +797,13 @@ void Arch::assignArchInfo()
     for (auto cell : sorted(cells)) {
         CellInfo *ci = cell.second;
         if (ci->type == id_TRELLIS_SLICE) {
+
+            ci->sliceInfo.using_dff = false;
+            if (ci->ports.count(id_Q0) && ci->ports[id_Q0].net != nullptr)
+                ci->sliceInfo.using_dff = true;
+            if (ci->ports.count(id_Q1) && ci->ports[id_Q1].net != nullptr)
+                ci->sliceInfo.using_dff = true;
+
             if (ci->ports.count(id_CLK) && ci->ports[id_CLK].net != nullptr)
                 ci->sliceInfo.clk_sig = ci->ports[id_CLK].net->name;
             else
