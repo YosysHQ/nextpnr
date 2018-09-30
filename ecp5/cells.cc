@@ -124,6 +124,28 @@ std::unique_ptr<CellInfo> create_ecp5_cell(Context *ctx, IdString type, std::str
         add_port(ctx, new_cell.get(), "C", PORT_IN);
         add_port(ctx, new_cell.get(), "D", PORT_IN);
         add_port(ctx, new_cell.get(), "Z", PORT_OUT);
+    } else if (type == ctx->id("CCU2C")) {
+        new_cell->params[ctx->id("INIT0")] = "0";
+        new_cell->params[ctx->id("INIT1")] = "0";
+        new_cell->params[ctx->id("INJECT1_0")] = "YES";
+        new_cell->params[ctx->id("INJECT1_1")] = "YES";
+
+        add_port(ctx, new_cell.get(), "CIN", PORT_IN);
+
+        add_port(ctx, new_cell.get(), "A0", PORT_IN);
+        add_port(ctx, new_cell.get(), "B0", PORT_IN);
+        add_port(ctx, new_cell.get(), "C0", PORT_IN);
+        add_port(ctx, new_cell.get(), "D0", PORT_IN);
+
+        add_port(ctx, new_cell.get(), "A1", PORT_IN);
+        add_port(ctx, new_cell.get(), "B1", PORT_IN);
+        add_port(ctx, new_cell.get(), "C1", PORT_IN);
+        add_port(ctx, new_cell.get(), "D1", PORT_IN);
+
+        add_port(ctx, new_cell.get(), "S0", PORT_OUT);
+        add_port(ctx, new_cell.get(), "S1", PORT_OUT);
+        add_port(ctx, new_cell.get(), "COUT", PORT_OUT);
+
     } else if (type == ctx->id("DCCA")) {
         add_port(ctx, new_cell.get(), "CLKI", PORT_IN);
         add_port(ctx, new_cell.get(), "CLKO", PORT_OUT);
