@@ -532,6 +532,12 @@ void addNetRouteJobs(Context *ctx, const Router1Cfg &cfg, IdString net_name,
 {
     NetInfo *net_info = ctx->nets.at(net_name).get();
 
+#ifdef ARCH_ECP5
+    // ECP5 global nets currently appear part-unrouted due to arch database limitations
+    // Don't touch them in the router
+    if (net_info->is_global)
+        return;
+#endif
     if (net_info->driver.cell == nullptr)
         return;
 

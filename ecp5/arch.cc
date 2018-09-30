@@ -22,10 +22,12 @@
 #include <cmath>
 #include <cstring>
 #include "gfx.h"
+#include "globals.h"
 #include "log.h"
 #include "nextpnr.h"
 #include "placer1.h"
 #include "router1.h"
+#include "timing.h"
 #include "util.h"
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -389,7 +391,12 @@ bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay
 
 bool Arch::place() { return placer1(getCtx(), Placer1Cfg(getCtx())); }
 
-bool Arch::route() { return router1(getCtx(), Router1Cfg(getCtx())); }
+bool Arch::route()
+{
+    route_ecp5_globals(getCtx());
+    assign_budget(getCtx(), true);
+    return router1(getCtx(), Router1Cfg(getCtx()));
+}
 
 // -----------------------------------------------------------------------
 
@@ -518,6 +525,12 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
             return true;
         }
         return false;
+    } else if (cell->type == id_DCCA) {
+        if (fromPort == id_CLKI && toPort == id_CLKO) {
+            delay.delay = 0;
+            return true;
+        }
+        return false;
     } else {
         return false;
     }
@@ -563,6 +576,12 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, Id
         if (port == id_O)
             return TMG_STARTPOINT;
         return TMG_IGNORE;
+    } else if (cell->type == id_DCCA) {
+        if (port == id_CLKI)
+            return TMG_COMB_INPUT;
+        if (port == id_CLKO)
+            return TMG_COMB_OUTPUT;
+        return TMG_IGNORE;
     } else {
         NPNR_ASSERT_FALSE_STR("no timing data for cell type '" + cell->type.str(this) + "'");
     }
@@ -577,6 +596,12 @@ std::vector<std::pair<std::string, std::string>> Arch::getTilesAtLocation(int ro
                                      chip_info->tiletype_names[tileloc.tile_names[i].type_idx].get()));
     }
     return ret;
+}
+
+GlobalInfoPOD Arch::globalInfoAtLoc(Location loc)
+{
+    int locidx = loc.y * chip_info->width + loc.x;
+    return chip_info->location_glbinfo[locidx];
 }
 
 NEXTPNR_NAMESPACE_END

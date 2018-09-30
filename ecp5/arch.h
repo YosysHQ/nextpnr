@@ -147,6 +147,8 @@ NPNR_PACKED_STRUCT(struct GlobalInfoPOD {
     int16_t tap_col;
     TapDirection tap_dir;
     GlobalQuadrant quad;
+    int16_t spine_row;
+    int16_t spine_col;
 });
 
 NPNR_PACKED_STRUCT(struct ChipInfoPOD {
@@ -640,6 +642,21 @@ struct Arch : BaseCtx
         return range;
     }
 
+    IdString getWireBasename(WireId wire) const { return id(locInfo(wire)->wire_data[wire.index].name.get()); }
+
+    WireId getWireByLocAndBasename(Location loc, std::string basename) const
+    {
+        WireId wireId;
+        wireId.location = loc;
+        for (int i = 0; i < locInfo(wireId)->num_wires; i++) {
+            if (locInfo(wireId)->wire_data[i].name.get() == basename) {
+                wireId.index = i;
+                return wireId;
+            }
+        }
+        return WireId();
+    }
+
     // -------------------------------------------------
 
     PipId getPipByName(IdString name) const;
@@ -891,6 +908,13 @@ struct Arch : BaseCtx
         }
         NPNR_ASSERT_FALSE_STR("no tile at (" + std::to_string(col) + ", " + std::to_string(row) + ") with type in set");
     }
+
+    GlobalInfoPOD globalInfoAtLoc(Location loc);
+
+    IdString id_trellis_slice;
+    IdString id_clk, id_lsr;
+    IdString id_clkmux, id_lsrmux;
+    IdString id_srmode, id_mode;
 };
 
 NEXTPNR_NAMESPACE_END

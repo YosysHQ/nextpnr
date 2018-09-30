@@ -128,7 +128,12 @@ def process_loc_globals(chip):
         for x in range(0, max_col+1):
             quad = chip.global_data.get_quadrant(y, x)
             tapdrv = chip.global_data.get_tap_driver(y, x)
-            global_data[x, y] = (quadrants.index(quad), int(tapdrv.dir), tapdrv.col)
+            if tapdrv.col == x:
+                spinedrv = chip.global_data.get_spine_driver(quad, x)
+                spine = (spinedrv.second, spinedrv.first)
+            else:
+                spine = (-1, -1)
+            global_data[x, y] = (quadrants.index(quad), int(tapdrv.dir), tapdrv.col, spine)
 
 def get_wire_type(name):
     if "H00" in name or "V00" in name:
@@ -282,6 +287,8 @@ def write_database(dev_name, chip, ddrg, endianness):
             bba.u16(global_data[x, y][2], "tap_col")
             bba.u8(global_data[x, y][1], "tap_dir")
             bba.u8(global_data[x, y][0], "quad")
+            bba.u16(global_data[x, y][3][1], "spine_row")
+            bba.u16(global_data[x, y][3][0], "spine_col")
 
     for package, pkgdata in sorted(packages.items()):
         bba.l("package_data_%s" % package, "PackagePinPOD")
