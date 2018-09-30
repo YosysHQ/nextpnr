@@ -371,7 +371,7 @@ class Ecp5Packer
         std::unique_ptr<CellInfo> feedout = create_ecp5_cell(ctx, ctx->id("CCU2C"));
         feedout->params[ctx->id("INIT0")] = "0";
         feedout->params[ctx->id("INIT1")] = "10"; // LUT4 = 0; LUT2 = A
-        feedout->params[ctx->id("INJECT1_0")] = "YES";
+        feedout->params[ctx->id("INJECT1_0")] = "NO";
         feedout->params[ctx->id("INJECT1_1")] = "NO";
 
         PortRef carry_drv = carry->driver;
