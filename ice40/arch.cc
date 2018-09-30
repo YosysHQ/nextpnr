@@ -414,7 +414,6 @@ std::vector<std::pair<IdString, std::string>> Arch::getPipAttrs(PipId pip) const
     return ret;
 }
 
-
 // -----------------------------------------------------------------------
 
 BelId Arch::getPackagePinBel(const std::string &pin) const

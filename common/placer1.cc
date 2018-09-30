@@ -81,7 +81,8 @@ class SAPlacer
         }
     }
 
-    ~SAPlacer() {
+    ~SAPlacer()
+    {
         for (auto &net : ctx->nets)
             net.second->udata = old_udata[net.second->udata];
     }
@@ -351,7 +352,7 @@ class SAPlacer
     // Attempt a SA position swap, return true on success or false on failure
     bool try_swap_position(CellInfo *cell, BelId newBel)
     {
-        static std::vector<NetInfo*> updates;
+        static std::vector<NetInfo *> updates;
         updates.clear();
         BelId oldBel = cell->bel;
         CellInfo *other_cell = ctx->getBoundBelCell(newBel);
@@ -371,7 +372,8 @@ class SAPlacer
         for (const auto &port : cell->ports) {
             if (port.second.net != nullptr) {
                 auto &cost = costs[port.second.net->udata];
-                if (cost.new_cost == 0) continue;
+                if (cost.new_cost == 0)
+                    continue;
                 cost.new_cost = 0;
                 updates.emplace_back(port.second.net);
             }
@@ -381,7 +383,8 @@ class SAPlacer
             for (const auto &port : other_cell->ports)
                 if (port.second.net != nullptr) {
                     auto &cost = costs[port.second.net->udata];
-                    if (cost.new_cost == 0) continue;
+                    if (cost.new_cost == 0)
+                        continue;
                     cost.new_cost = 0;
                     updates.emplace_back(port.second.net);
                 }
@@ -483,7 +486,8 @@ class SAPlacer
     const float post_legalise_dia_scale = 1.5;
     Placer1Cfg cfg;
 
-    struct CostChange {
+    struct CostChange
+    {
         wirelen_t curr_cost;
         wirelen_t new_cost;
     };

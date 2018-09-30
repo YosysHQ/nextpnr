@@ -472,7 +472,6 @@ void write_asc(const Context *ctx, std::ostream &out)
                 }
             }
 
-
             if (ctx->args.type == ArchArgs::LP1K || ctx->args.type == ArchArgs::HX1K) {
                 set_config(ti, config.at(iey).at(iex), "IoCtrl.IE_" + std::to_string(iez), !input_en);
                 set_config(ti, config.at(iey).at(iex), "IoCtrl.REN_" + std::to_string(iez), !pullup);
@@ -512,8 +511,6 @@ void write_asc(const Context *ctx, std::ostream &out)
                         set_config(ti, config.at(ciey).at(ciex), "IoCtrl.cf_bit_35", !pullup);
                     }
                 }
-
-
             }
         } else if (cell.second->type == ctx->id("SB_GB")) {
             // no cell config bits
@@ -914,7 +911,7 @@ bool read_asc(Context *ctx, std::istream &in)
             }
             if (isUsed) {
                 NetInfo *net = ctx->wire_to_net[pi.dst];
-                if (net!=nullptr) {
+                if (net != nullptr) {
                     WireId wire;
                     wire.index = pi.dst;
                     ctx->unbindWire(wire);

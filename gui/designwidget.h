@@ -20,9 +20,9 @@
 #ifndef DESIGNWIDGET_H
 #define DESIGNWIDGET_H
 
+#include <QMouseEvent>
 #include <QTreeView>
 #include <QVariant>
-#include <QMouseEvent>
 #include "nextpnr.h"
 #include "qtgroupboxpropertybrowser.h"
 #include "qtpropertymanager.h"
@@ -35,7 +35,7 @@ NEXTPNR_NAMESPACE_BEGIN
 class TreeView : public QTreeView
 {
     Q_OBJECT
-  
+
   public:
     explicit TreeView(QWidget *parent = 0);
     ~TreeView();
@@ -44,6 +44,7 @@ class TreeView : public QTreeView
 
   Q_SIGNALS:
     void hoverIndexChanged(QModelIndex index);
+
   private:
     QModelIndex current;
 };

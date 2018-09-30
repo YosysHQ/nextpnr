@@ -735,11 +735,13 @@ static void pack_special(Context *ctx)
                     pllout_a_used++;
             }
 
-            if (pllout_a_used > 1) 
-                log_error("PLL '%s' is using multiple ports mapping to PLLOUT_A output of the PLL\n", ci->name.c_str(ctx));
+            if (pllout_a_used > 1)
+                log_error("PLL '%s' is using multiple ports mapping to PLLOUT_A output of the PLL\n",
+                          ci->name.c_str(ctx));
 
-            if (pllout_b_used > 1) 
-                log_error("PLL '%s' is using multiple ports mapping to PLLOUT_B output of the PLL\n", ci->name.c_str(ctx));
+            if (pllout_b_used > 1)
+                log_error("PLL '%s' is using multiple ports mapping to PLLOUT_B output of the PLL\n",
+                          ci->name.c_str(ctx));
 
             for (auto port : ci->ports) {
                 PortInfo &pi = port.second;
@@ -754,16 +756,18 @@ static void pack_special(Context *ctx)
                     newname = "PLLOUT_B";
                 if (pi.name == ctx->id("PLLOUTCORE"))
                     newname = "PLLOUT_A";
-                if (pi.name == ctx->id("PLLOUTGLOBALA")) 
+                if (pi.name == ctx->id("PLLOUTGLOBALA"))
                     newname = "PLLOUT_A";
                 if (pi.name == ctx->id("PLLOUTGLOBALB"))
                     newname = "PLLOUT_B";
                 if (pi.name == ctx->id("PLLOUTGLOBAL"))
                     newname = "PLLOUT_A";
-                
-                if (pi.name == ctx->id("PLLOUTGLOBALA") || pi.name == ctx->id("PLLOUTGLOBALB") || pi.name == ctx->id("PLLOUTGLOBAL")) 
+
+                if (pi.name == ctx->id("PLLOUTGLOBALA") || pi.name == ctx->id("PLLOUTGLOBALB") ||
+                    pi.name == ctx->id("PLLOUTGLOBAL"))
                     log_warning("PLL '%s' is using port %s but implementation does not actually "
-                                "use the global clock output of the PLL\n", ci->name.c_str(ctx), pi.name.str(ctx).c_str());
+                                "use the global clock output of the PLL\n",
+                                ci->name.c_str(ctx), pi.name.str(ctx).c_str());
 
                 if (pi.name == ctx->id("PACKAGEPIN")) {
                     if (!is_pad) {
@@ -782,13 +786,16 @@ static void pack_special(Context *ctx)
 
                 if (packed->ports.count(ctx->id(newname)) == 0) {
                     if (ci->ports[pi.name].net == nullptr) {
-                        log_warning("PLL '%s' has unknown unconnected port '%s' - ignoring\n", ci->name.c_str(ctx), pi.name.c_str(ctx));
+                        log_warning("PLL '%s' has unknown unconnected port '%s' - ignoring\n", ci->name.c_str(ctx),
+                                    pi.name.c_str(ctx));
                         continue;
                     } else {
                         if (ctx->force) {
-                            log_error("PLL '%s' has unknown connected port '%s'\n", ci->name.c_str(ctx), pi.name.c_str(ctx));
+                            log_error("PLL '%s' has unknown connected port '%s'\n", ci->name.c_str(ctx),
+                                      pi.name.c_str(ctx));
                         } else {
-                            log_warning("PLL '%s' has unknown connected port '%s' - ignoring\n", ci->name.c_str(ctx), pi.name.c_str(ctx));
+                            log_warning("PLL '%s' has unknown connected port '%s' - ignoring\n", ci->name.c_str(ctx),
+                                        pi.name.c_str(ctx));
                             continue;
                         }
                     }
@@ -840,13 +847,15 @@ static void pack_special(Context *ctx)
                         packagepin_cell->ports.erase(pll_packagepin_driver.port);
                     }
 
-                    log_info("  constrained PLL '%s' to %s\n", packed->name.c_str(ctx), ctx->getBelName(bel).c_str(ctx));
+                    log_info("  constrained PLL '%s' to %s\n", packed->name.c_str(ctx),
+                             ctx->getBelName(bel).c_str(ctx));
                     packed->attrs[ctx->id("BEL")] = ctx->getBelName(bel).str(ctx);
                     pll_bel = bel;
                     constrained = true;
                 }
                 if (!constrained) {
-                    log_error("Could not constrain PLL '%s' to any PLL Bel (too many PLLs?)\n", packed->name.c_str(ctx));
+                    log_error("Could not constrain PLL '%s' to any PLL Bel (too many PLLs?)\n",
+                              packed->name.c_str(ctx));
                 }
             }
 
@@ -865,8 +874,7 @@ static void pack_special(Context *ctx)
             // If we have a net connected to LOCK, make sure it only drives LUTs.
             auto port = packed->ports[ctx->id("LOCK")];
             if (port.net != nullptr) {
-                log_info("  PLL '%s' has LOCK output, need to pass all outputs via LUT\n",
-                                ci->name.c_str(ctx));
+                log_info("  PLL '%s' has LOCK output, need to pass all outputs via LUT\n", ci->name.c_str(ctx));
                 bool found_lut = false;
                 bool all_luts = true;
                 unsigned int lut_count = 0;

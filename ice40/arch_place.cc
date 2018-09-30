@@ -27,13 +27,13 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-bool Arch::logicCellsCompatible(const CellInfo** it, const size_t size) const
+bool Arch::logicCellsCompatible(const CellInfo **it, const size_t size) const
 {
     bool dffs_exist = false, dffs_neg = false;
     const NetInfo *cen = nullptr, *clk = nullptr, *sr = nullptr;
     int locals_count = 0;
 
-    for (auto cell : boost::make_iterator_range(it, it+size)) {
+    for (auto cell : boost::make_iterator_range(it, it + size)) {
         NPNR_ASSERT(cell->type == id_ICESTORM_LC);
         if (cell->lcInfo.dffEnable) {
             if (!dffs_exist) {

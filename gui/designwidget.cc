@@ -37,17 +37,14 @@ TreeView::~TreeView() {}
 void TreeView::mouseMoveEvent(QMouseEvent *event)
 {
     QModelIndex index = indexAt(event->pos());
-    if (index!=current) {
+    if (index != current) {
         current = index;
         Q_EMIT hoverIndexChanged(index);
     }
     QTreeView::mouseMoveEvent(event);
 }
 
-void TreeView::leaveEvent(QEvent *event)
-{
-    Q_EMIT hoverIndexChanged(QModelIndex());
-}
+void TreeView::leaveEvent(QEvent *event) { Q_EMIT hoverIndexChanged(QModelIndex()); }
 
 DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr), selectionModel(nullptr)
 {
@@ -828,26 +825,26 @@ void DesignWidget::onHoverIndexChanged(QModelIndex index)
         TreeModel::Item *item = treeModel->nodeFromIndex(index);
         if (item->type() != ElementType::NONE) {
             std::vector<DecalXY> decals = getDecals(item->type(), item->id());
-            if (decals.size()>0)
+            if (decals.size() > 0)
                 Q_EMIT hover(decals.at(0));
             return;
         }
     }
-    Q_EMIT hover(DecalXY());    
+    Q_EMIT hover(DecalXY());
 }
 
 void DesignWidget::onHoverPropertyChanged(QtBrowserItem *item)
 {
-    if (item!=nullptr) {
+    if (item != nullptr) {
         QtProperty *selectedProperty = item->property();
         ElementType type = getElementTypeByName(selectedProperty->propertyId());
         if (type != ElementType::NONE) {
             IdString value = ctx->id(selectedProperty->valueText().toStdString());
-            if (value!=IdString()) {
+            if (value != IdString()) {
                 auto node = treeModel->nodeForIdType(type, value);
                 if (node) {
                     std::vector<DecalXY> decals = getDecals((*node)->type(), (*node)->id());
-                    if (decals.size()>0)
+                    if (decals.size() > 0)
                         Q_EMIT hover(decals.at(0));
                     return;
                 }
