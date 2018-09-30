@@ -357,7 +357,8 @@ class Ecp5Packer
         connect_port(ctx, new_carry.get(), chain_in.cell, chain_in.port);
 
         CellInfo *feedin_ptr = feedin.get();
-        new_cells.push_back(std::move(feedin));
+        IdString feedin_name = feedin->name;
+        ctx->cells[feedin_name] = std::move(feedin);
         IdString new_carry_name = new_carry->name;
         ctx->nets[new_carry_name] = std::move(new_carry);
         return feedin_ptr;
@@ -404,7 +405,8 @@ class Ecp5Packer
         }
 
         CellInfo *feedout_ptr = feedout.get();
-        new_cells.push_back(std::move(feedout));
+        IdString feedout_name = feedout->name;
+        ctx->cells[feedout_name] = std::move(feedout);
 
         IdString new_cin_name = new_cin->name;
         ctx->nets[new_cin_name] = std::move(new_cin);
@@ -464,7 +466,8 @@ class Ecp5Packer
     void pack_carries()
     {
         log_info("Packing carries...\n");
-        auto chains = find_chains(
+        // Find all chains (including single carry cells)
+        auto carry_chains = find_chains(
                 ctx, [](const Context *ctx, const CellInfo *cell) { return is_carry(ctx, cell); },
                 [](const Context *ctx, const CellInfo *cell) {
                     return net_driven_by(ctx, cell->ports.at(ctx->id("CIN")).net, is_carry, ctx->id("COUT"));
@@ -473,6 +476,63 @@ class Ecp5Packer
                     return net_only_drives(ctx, cell->ports.at(ctx->id("COUT")).net, is_carry, ctx->id("CIN"), false);
                 },
                 1);
+        std::vector<CellChain> all_chains;
+
+        // Chain splitting
+        for (auto &base_chain : carry_chains) {
+            if (ctx->verbose) {
+                log_info("Found carry chain: \n");
+                for (auto entry : base_chain.cells)
+                    log_info("     %s\n", entry->name.c_str(ctx));
+                log_info("\n");
+            }
+            std::vector<CellChain> split_chains = split_carry_chain(base_chain);
+            for (auto &chain : split_chains) {
+                all_chains.push_back(chain);
+            }
+        }
+
+        // Chain packing
+        for (auto &chain : all_chains) {
+            int cell_count = 0;
+            std::vector<CellInfo *> tile_ffs;
+            for (auto &cell : chain.cells) {
+                if (cell_count % 4 == 0)
+                    tile_ffs.clear();
+                std::unique_ptr<CellInfo> slice =
+                        create_ecp5_cell(ctx, ctx->id("TRELLIS_SLICE"), cell->name.str(ctx) + "$CCU2_SLICE");
+
+                ccu2c_to_slice(ctx, cell, slice.get());
+
+                CellInfo *ff0 = nullptr;
+                NetInfo *f0net = slice->ports.at(ctx->id("F0")).net;
+                if (f0net != nullptr) {
+                    ff0 = net_only_drives(ctx, f0net, is_ff, ctx->id("DI"), false);
+                    if (ff0 != nullptr && can_add_ff_to_file(tile_ffs, ff0)) {
+                        ff_to_slice(ctx, ff0, slice.get(), 0, true);
+                        tile_ffs.push_back(ff0);
+                        packed_cells.insert(ff0->name);
+                    }
+                }
+
+                CellInfo *ff1 = nullptr;
+                NetInfo *f1net = slice->ports.at(ctx->id("F1")).net;
+                if (f1net != nullptr) {
+                    ff1 = net_only_drives(ctx, f1net, is_ff, ctx->id("DI"), false);
+                    if (ff1 != nullptr && (ff0 == nullptr || can_pack_ffs(ff0, ff1)) &&
+                        can_add_ff_to_file(tile_ffs, ff1)) {
+                        ff_to_slice(ctx, ff1, slice.get(), 1, true);
+                        tile_ffs.push_back(ff1);
+                        packed_cells.insert(ff1->name);
+                    }
+                }
+
+                new_cells.push_back(std::move(slice));
+                packed_cells.insert(cell->name);
+                cell_count++;
+            }
+        }
+        flush_cells();
     }
 
     // Pack LUTs that have been paired together
