@@ -21,51 +21,13 @@
 #include <algorithm>
 #include <vector>
 #include "cells.h"
+#include "chain_utils.h"
 #include "design_utils.h"
 #include "log.h"
 #include "place_common.h"
 #include "util.h"
 
 NEXTPNR_NAMESPACE_BEGIN
-
-struct CellChain
-{
-    std::vector<CellInfo *> cells;
-};
-
-// Generic chain finder
-template <typename F1, typename F2, typename F3>
-std::vector<CellChain> find_chains(const Context *ctx, F1 cell_type_predicate, F2 get_previous, F3 get_next,
-                                   size_t min_length = 2)
-{
-    std::set<IdString> chained;
-    std::vector<CellChain> chains;
-    for (auto cell : sorted(ctx->cells)) {
-        if (chained.find(cell.first) != chained.end())
-            continue;
-        CellInfo *ci = cell.second;
-        if (cell_type_predicate(ctx, ci)) {
-            CellInfo *start = ci;
-            CellInfo *prev_start = ci;
-            while (prev_start != nullptr) {
-                start = prev_start;
-                prev_start = get_previous(ctx, start);
-            }
-            CellChain chain;
-            CellInfo *end = start;
-            while (end != nullptr) {
-                chain.cells.push_back(end);
-                end = get_next(ctx, end);
-            }
-            if (chain.cells.size() >= min_length) {
-                chains.push_back(chain);
-                for (auto c : chain.cells)
-                    chained.insert(c->name);
-            }
-        }
-    }
-    return chains;
-}
 
 class ChainConstrainer
 {

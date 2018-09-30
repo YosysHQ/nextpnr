@@ -18,13 +18,13 @@
  */
 
 #include <algorithm>
+#include <boost/optional.hpp>
 #include <iterator>
 #include <unordered_set>
 #include "cells.h"
 #include "design_utils.h"
 #include "log.h"
 #include "util.h"
-#include <boost/optional.hpp>
 NEXTPNR_NAMESPACE_BEGIN
 
 static bool is_nextpnr_iob(Context *ctx, CellInfo *cell)
@@ -313,9 +313,9 @@ class Ecp5Packer
     }
 
     // Create a feed in to the carry chain
-    CellInfo *make_carry_feed_in(NetInfo *carry, PortRef chain_in) {
-        std::unique_ptr<CellInfo> feedin =
-                create_ecp5_cell(ctx, ctx->id("TRELLIS_SLICE"));
+    CellInfo *make_carry_feed_in(NetInfo *carry, PortRef chain_in)
+    {
+        std::unique_ptr<CellInfo> feedin = create_ecp5_cell(ctx, ctx->id("TRELLIS_SLICE"));
 
         feedin->params[ctx->id("MODE")] = "CCU2";
         feedin->params[ctx->id("LUT0_INITVAL")] = "10"; // LUT4 = 0; LUT2 = A
@@ -323,9 +323,11 @@ class Ecp5Packer
         feedin->params[ctx->id("INJECT1_0")] = "NO";
         feedin->params[ctx->id("INJECT1_1")] = "YES";
 
-        carry->users.erase(std::remove_if(carry->users.begin(), carry->users.end(), [chain_in](const PortRef &user) {
-            return user.port == chain_in.port && user.cell == chain_in.cell;
-        }), carry->users.end());
+        carry->users.erase(std::remove_if(carry->users.begin(), carry->users.end(),
+                                          [chain_in](const PortRef &user) {
+                                              return user.port == chain_in.port && user.cell == chain_in.cell;
+                                          }),
+                           carry->users.end());
         connect_port(ctx, carry, feedin.get(), id_A0);
 
         std::unique_ptr<NetInfo> new_carry(new NetInfo());
@@ -341,9 +343,9 @@ class Ecp5Packer
     }
 
     // Create a feed out and loop through from the carry chain
-    CellInfo *make_carry_feed_out(NetInfo *carry, boost::optional<PortRef> chain_next) {
-        std::unique_ptr<CellInfo> feedout =
-                create_ecp5_cell(ctx, ctx->id("TRELLIS_SLICE"));
+    CellInfo *make_carry_feed_out(NetInfo *carry, boost::optional<PortRef> chain_next)
+    {
+        std::unique_ptr<CellInfo> feedout = create_ecp5_cell(ctx, ctx->id("TRELLIS_SLICE"));
         feedout->params[ctx->id("MODE")] = "CCU2";
         feedout->params[ctx->id("LUT0_INITVAL")] = "0";
         feedout->params[ctx->id("LUT1_INITVAL")] = "10"; // LUT4 = 0; LUT2 = A
@@ -364,9 +366,11 @@ class Ecp5Packer
             // Loop back into LUT4_1 for feedthrough
             connect_port(ctx, carry, feedout.get(), id_A1);
 
-            carry->users.erase(std::remove_if(carry->users.begin(), carry->users.end(), [chain_next](const PortRef &user) {
-                return user.port == chain_next->port && user.cell == chain_next->cell;
-            }), carry->users.end());
+            carry->users.erase(std::remove_if(carry->users.begin(), carry->users.end(),
+                                              [chain_next](const PortRef &user) {
+                                                  return user.port == chain_next->port && user.cell == chain_next->cell;
+                                              }),
+                               carry->users.end());
 
             std::unique_ptr<NetInfo> new_cout(new NetInfo());
             new_cout->name = ctx->id(feedout->name.str(ctx) + "$FCO");
@@ -376,8 +380,7 @@ class Ecp5Packer
 
             IdString new_cout_name = new_cout->name;
             ctx->nets[new_cout_name] = std::move(new_cout);
-
-       }
+        }
 
         CellInfo *feedout_ptr = feedout.get();
         new_cells.push_back(std::move(feedout));
@@ -386,15 +389,10 @@ class Ecp5Packer
         ctx->nets[new_cin_name] = std::move(new_cin);
 
         return feedout_ptr;
-
     }
 
     // Pack carries and set up appropriate relative constraints
-    void pack_carries()
-    {
-        log_info("Packing carries...\n");
-
-    }
+    void pack_carries() { log_info("Packing carries...\n"); }
 
     // Pack LUTs that have been paired together
     void pack_lut_pairs()
