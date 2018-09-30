@@ -82,6 +82,9 @@ template <typename F1> CellInfo *net_driven_by(const Context *ctx, const NetInfo
     }
 }
 
+// Connect a net to a port
+void connect_port(const Context *ctx, NetInfo *net, CellInfo *cell, IdString port_name);
+
 void print_utilisation(const Context *ctx);
 
 NEXTPNR_NAMESPACE_END

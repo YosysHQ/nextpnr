@@ -73,4 +73,23 @@ void print_utilisation(const Context *ctx)
     log_break();
 }
 
+// Connect a net to a port
+void connect_port(const Context *ctx, NetInfo *net, CellInfo *cell, IdString port_name) {
+    PortInfo &port = cell->ports.at(port_name);
+    NPNR_ASSERT(port.net == nullptr);
+    port.net = net;
+    if (port.type == PORT_OUT) {
+        NPNR_ASSERT(net->driver.cell == nullptr);
+        net->driver.cell = cell;
+        net->driver.port = port_name;
+    } else if (port.type == PORT_IN) {
+        PortRef user;
+        user.cell = cell;
+        user.port = port_name;
+        net->users.push_back(user);
+    } else {
+        NPNR_ASSERT_FALSE("invalid port type for connect_port");
+    }
+}
+
 NEXTPNR_NAMESPACE_END
