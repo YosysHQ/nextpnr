@@ -108,7 +108,8 @@ class Ecp5Packer
     }
 
     // Return whether or not an FF can be added to a tile (pairing checks must also be done using the fn above)
-    bool can_add_ff_to_file(const std::vector<CellInfo *> &tile_ffs, CellInfo *ff0) {
+    bool can_add_ff_to_file(const std::vector<CellInfo *> &tile_ffs, CellInfo *ff0)
+    {
         for (const auto &existing : tile_ffs) {
             if (net_or_nullptr(existing, ctx->id("CLK")) != net_or_nullptr(ff0, ctx->id("CLK")))
                 return false;
@@ -459,19 +460,19 @@ class Ecp5Packer
         return chains;
     }
 
-
     // Pack carries and set up appropriate relative constraints
-    void pack_carries() {
+    void pack_carries()
+    {
         log_info("Packing carries...\n");
-        auto chains = find_chains(ctx, [](const Context *ctx, const CellInfo *cell) {
-            return is_carry(ctx, cell);
-        }, [](const Context *ctx, const CellInfo *cell) {
-            return net_driven_by(ctx, cell->ports.at(ctx->id("CIN")).net, is_carry, ctx->id("COUT"));
-        }, [](const Context *ctx, const CellInfo *cell) {
-            return net_only_drives(ctx, cell->ports.at(ctx->id("COUT")).net, is_carry,
-                                   ctx->id("CIN"), false);
-        }, 1);
-
+        auto chains = find_chains(
+                ctx, [](const Context *ctx, const CellInfo *cell) { return is_carry(ctx, cell); },
+                [](const Context *ctx, const CellInfo *cell) {
+                    return net_driven_by(ctx, cell->ports.at(ctx->id("CIN")).net, is_carry, ctx->id("COUT"));
+                },
+                [](const Context *ctx, const CellInfo *cell) {
+                    return net_only_drives(ctx, cell->ports.at(ctx->id("COUT")).net, is_carry, ctx->id("CIN"), false);
+                },
+                1);
     }
 
     // Pack LUTs that have been paired together

@@ -211,4 +211,31 @@ void lut_to_slice(Context *ctx, CellInfo *lut, CellInfo *lc, int index)
     replace_port(lut, ctx->id("Z"), lc, ctx->id("F" + std::to_string(index)));
 }
 
+void ccu2c_to_slice(Context *ctx, CellInfo *ccu, CellInfo *lc)
+{
+    lc->params[ctx->id("MODE")] = "CCU2C";
+    lc->params[ctx->id("LUT0_INITVAL")] = str_or_default(ccu->params, ctx->id("INIT0"), "0");
+    lc->params[ctx->id("LUT1_INITVAL")] = str_or_default(ccu->params, ctx->id("INIT1"), "0");
+
+    lc->params[ctx->id("INJECT1_0")] = str_or_default(ccu->params, ctx->id("INJECT1_0"), "YES");
+    lc->params[ctx->id("INJECT1_1")] = str_or_default(ccu->params, ctx->id("INJECT1_1"), "YES");
+
+    replace_port(ccu, ctx->id("CIN"), lc, ctx->id("FCI"));
+
+    replace_port(ccu, ctx->id("A0"), lc, ctx->id("A0"));
+    replace_port(ccu, ctx->id("B0"), lc, ctx->id("B0"));
+    replace_port(ccu, ctx->id("C0"), lc, ctx->id("C0"));
+    replace_port(ccu, ctx->id("D0"), lc, ctx->id("D0"));
+
+    replace_port(ccu, ctx->id("A1"), lc, ctx->id("A1"));
+    replace_port(ccu, ctx->id("B1"), lc, ctx->id("B1"));
+    replace_port(ccu, ctx->id("C1"), lc, ctx->id("C1"));
+    replace_port(ccu, ctx->id("D1"), lc, ctx->id("D1"));
+
+    replace_port(ccu, ctx->id("S0"), lc, ctx->id("F0"));
+    replace_port(ccu, ctx->id("S1"), lc, ctx->id("F1"));
+
+    replace_port(ccu, ctx->id("COUT"), lc, ctx->id("FCO"));
+}
+
 NEXTPNR_NAMESPACE_END
