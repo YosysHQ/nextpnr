@@ -532,6 +532,21 @@ class Ecp5Packer
                 cell_count++;
             }
         }
+
+        // Relative chain placement
+        for (auto &chain : all_chains) {
+            chain.cells.at(0)->constr_abs_z = true;
+            chain.cells.at(0)->constr_z = 0;
+            for (int i = 1; i < int(chain.cells.size()); i++) {
+                chain.cells.at(i)->constr_x = (i / 4);
+                chain.cells.at(i)->constr_y = 0;
+                chain.cells.at(i)->constr_z = i % 4;
+                chain.cells.at(i)->constr_abs_z = true;
+                chain.cells.at(i)->constr_parent = chain.cells.at(0);
+                chain.cells.at(0)->constr_children.push_back(chain.cells.at(i));
+            }
+        }
+
         flush_cells();
     }
 
@@ -650,6 +665,10 @@ class Ecp5Packer
                 } else if (is_ff(ctx, uc) && user.port == ctx->id("CE")) {
                     uc->params[ctx->id("CEMUX")] = constval ? "1" : "0";
                     uc->ports[user.port].net = nullptr;
+                } else if (is_carry(ctx, uc) && constval &&
+                           (user.port == id_A0 || user.port == id_A1 || user.port == id_B0 || user.port == id_B1 ||
+                            user.port == id_C0 || user.port == id_C1 || user.port == id_D0 || user.port == id_D1)) {
+                    uc->ports[user.port].net = nullptr;
                 } else if (is_ff(ctx, uc) && user.port == ctx->id("LSR") &&
                            ((!constval && str_or_default(uc->params, ctx->id("LSRMUX"), "LSR") == "LSR") ||
                             (constval && str_or_default(uc->params, ctx->id("LSRMUX"), "LSR") == "INV"))) {
@@ -724,6 +743,7 @@ class Ecp5Packer
     {
         pack_io();
         pack_constants();
+        pack_carries();
         find_lutff_pairs();
         pack_lut5s();
         pair_luts();

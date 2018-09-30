@@ -213,7 +213,7 @@ void lut_to_slice(Context *ctx, CellInfo *lut, CellInfo *lc, int index)
 
 void ccu2c_to_slice(Context *ctx, CellInfo *ccu, CellInfo *lc)
 {
-    lc->params[ctx->id("MODE")] = "CCU2C";
+    lc->params[ctx->id("MODE")] = "CCU2";
     lc->params[ctx->id("LUT0_INITVAL")] = str_or_default(ccu->params, ctx->id("INIT0"), "0");
     lc->params[ctx->id("LUT1_INITVAL")] = str_or_default(ccu->params, ctx->id("INIT1"), "0");
 

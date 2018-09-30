@@ -256,7 +256,22 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                 cc.tiles[tname].add_enum("LSR1.SRMODE", str_or_default(ci->params, ctx->id("SRMODE"), "LSR_OVER_CE"));
                 cc.tiles[tname].add_enum("LSR1.LSRMUX", str_or_default(ci->params, ctx->id("LSRMUX"), "LSR"));
             }
-            // TODO: CLKMUX, CEMUX, carry
+
+            if (str_or_default(ci->params, ctx->id("MODE"), "LOGIC") == "CCU2") {
+                cc.tiles[tname].add_enum(slice + ".CCU2.INJECT1_0",
+                                         str_or_default(ci->params, ctx->id("INJECT1_0"), "YES"));
+                cc.tiles[tname].add_enum(slice + ".CCU2.INJECT1_1",
+                                         str_or_default(ci->params, ctx->id("INJECT1_1"), "YES"));
+            }
+
+            // Tie unused inputs high
+            for (auto input : {id_A0, id_B0, id_C0, id_D0, id_A1, id_B1, id_C1, id_D1}) {
+                if (ci->ports.find(input) == ci->ports.end() || ci->ports.at(input).net == nullptr) {
+                    cc.tiles[tname].add_enum(slice + "." + input.str(ctx) + "MUX", "1");
+                }
+            }
+
+            // TODO: CLKMUX
         } else if (ci->type == ctx->id("TRELLIS_IO")) {
             std::string pio = ctx->locInfo(bel)->bel_data[bel.index].name.get();
             std::string iotype = str_or_default(ci->attrs, ctx->id("IO_TYPE"), "LVCMOS33");
