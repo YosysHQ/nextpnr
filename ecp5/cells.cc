@@ -261,7 +261,7 @@ static unsigned get_dram_init(const Context *ctx, const CellInfo *ram, int bit)
     for (int i = 0; i < 16; i++) {
         char c = idata.at(63 - (4 * i + bit));
         if (c == '1')
-            value |= (i << i);
+            value |= (1 << i);
         else
             NPNR_ASSERT(c == '0' || c == 'x');
     }
@@ -275,7 +275,7 @@ void dram_to_ram_slice(Context *ctx, CellInfo *ram, CellInfo *lc, CellInfo *ramw
     lc->params[ctx->id("WCKMUX")] = str_or_default(ram->params, ctx->id("WCKMUX"), "WCK");
 
     unsigned permuted_init0 = 0, permuted_init1 = 0;
-    unsigned init0 = get_dram_init(ctx, ramw, index * 2), init1 = get_dram_init(ctx, ramw, index * 2 + 1);
+    unsigned init0 = get_dram_init(ctx, ram, index * 2), init1 = get_dram_init(ctx, ram, index * 2 + 1);
 
     for (int i = 0; i < 16; i++) {
         int permuted_addr = 0;
