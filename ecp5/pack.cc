@@ -598,9 +598,11 @@ class Ecp5Packer
                     if (f0net != nullptr) {
                         ff0 = net_only_drives(ctx, f0net, is_ff, ctx->id("DI"), false);
                         if (ff0 != nullptr && can_add_ff_to_tile(tile_ffs, ff0)) {
-                            ff_packing.push_back(std::make_tuple(ff0, slice, 0));
-                            tile_ffs.push_back(ff0);
-                            packed_cells.insert(ff0->name);
+                            if (net_or_nullptr(ff0, ctx->id("CLK")) == net_or_nullptr(slice, ctx->id("WCK"))) {
+                                ff_packing.push_back(std::make_tuple(ff0, slice, 0));
+                                tile_ffs.push_back(ff0);
+                                packed_cells.insert(ff0->name);
+                            }
                         }
                     }
 
@@ -610,9 +612,11 @@ class Ecp5Packer
                         ff1 = net_only_drives(ctx, f1net, is_ff, ctx->id("DI"), false);
                         if (ff1 != nullptr && (ff0 == nullptr || can_pack_ffs(ff0, ff1)) &&
                             can_add_ff_to_tile(tile_ffs, ff1)) {
-                            ff_packing.push_back(std::make_tuple(ff1, slice, 1));
-                            tile_ffs.push_back(ff1);
-                            packed_cells.insert(ff1->name);
+                            if (net_or_nullptr(ff1, ctx->id("CLK")) == net_or_nullptr(slice, ctx->id("WCK"))) {
+                                ff_packing.push_back(std::make_tuple(ff1, slice, 1));
+                                tile_ffs.push_back(ff1);
+                                packed_cells.insert(ff1->name);
+                            }
                         }
                     }
                 }
