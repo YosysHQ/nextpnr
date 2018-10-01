@@ -252,13 +252,49 @@ void dram_to_ramw(Context *ctx, CellInfo *ram, CellInfo *lc)
     replace_port(ram, ctx->id("DI[3]"), lc, ctx->id("B1"));
 }
 
+static unsigned get_dram_init(const Context *ctx, const CellInfo *ram, int bit)
+{
+    const std::string &idata = str_or_default(ram->params, ctx->id("INITVAL"),
+                                              "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
+    NPNR_ASSERT(idata.length() == 64);
+    unsigned value = 0;
+    for (int i = 0; i < 16; i++) {
+        char c = idata.at(63 - (4 * i + bit));
+        if (c == '1')
+            value |= (i << i);
+        else
+            NPNR_ASSERT(c == '0' || c == 'x');
+    }
+    return value;
+}
+
 void dram_to_ram_slice(Context *ctx, CellInfo *ram, CellInfo *lc, CellInfo *ramw, int index)
 {
     lc->params[ctx->id("MODE")] = "DPRAM";
     lc->params[ctx->id("WREMUX")] = str_or_default(ram->params, ctx->id("WREMUX"), "WRE");
     lc->params[ctx->id("WCKMUX")] = str_or_default(ram->params, ctx->id("WCKMUX"), "WCK");
 
-    // TODO: INIT
+    unsigned permuted_init0 = 0, permuted_init1 = 0;
+    unsigned init0 = get_dram_init(ctx, ramw, index * 2), init1 = get_dram_init(ctx, ramw, index * 2 + 1);
+
+    for (int i = 0; i < 16; i++) {
+        int permuted_addr = 0;
+        if (i & 1)
+            permuted_addr |= 8;
+        if (i & 2)
+            permuted_addr |= 2;
+        if (i & 4)
+            permuted_addr |= 4;
+        if (i & 8)
+            permuted_addr |= 1;
+        if (init0 & (1 << permuted_addr))
+            permuted_init0 |= (1 << i);
+        if (init1 & (1 << permuted_addr))
+            permuted_init1 |= (1 << i);
+    }
+
+    lc->params[ctx->id("LUT0_INITVAL")] = std::to_string(permuted_init0);
+    lc->params[ctx->id("LUT1_INITVAL")] = std::to_string(permuted_init1);
 
     if (ram->ports.count(ctx->id("RAD[0]"))) {
         connect_port(ctx, ram->ports.at(ctx->id("RAD[0]")).net, lc, ctx->id("D0"));
@@ -281,6 +317,28 @@ void dram_to_ram_slice(Context *ctx, CellInfo *ram, CellInfo *lc, CellInfo *ramw
         connect_port(ctx, ram->ports.at(ctx->id("WRE")).net, lc, ctx->id("WRE"));
     if (ram->ports.count(ctx->id("WCK")))
         connect_port(ctx, ram->ports.at(ctx->id("WCK")).net, lc, ctx->id("WCK"));
+
+    connect_ports(ctx, ramw, id_WADO0, lc, id_WAD0);
+    connect_ports(ctx, ramw, id_WADO1, lc, id_WAD1);
+    connect_ports(ctx, ramw, id_WADO2, lc, id_WAD2);
+    connect_ports(ctx, ramw, id_WADO3, lc, id_WAD3);
+
+    if (index == 0) {
+        connect_ports(ctx, ramw, id_WDO0, lc, id_WD0);
+        connect_ports(ctx, ramw, id_WDO1, lc, id_WD1);
+
+        replace_port(ram, ctx->id("DO[0]"), lc, id_F0);
+        replace_port(ram, ctx->id("DO[1]"), lc, id_F1);
+
+    } else if (index == 1) {
+        connect_ports(ctx, ramw, id_WDO2, lc, id_WD0);
+        connect_ports(ctx, ramw, id_WDO3, lc, id_WD1);
+
+        replace_port(ram, ctx->id("DO[2]"), lc, id_F0);
+        replace_port(ram, ctx->id("DO[3]"), lc, id_F1);
+    } else {
+        NPNR_ASSERT_FALSE("bad DPRAM index");
+    }
 }
 
 NEXTPNR_NAMESPACE_END
