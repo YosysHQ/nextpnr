@@ -496,6 +496,7 @@ class Ecp5Packer
         std::vector<std::vector<CellInfo *>> packed_chains;
 
         // Chain packing
+        std::vector<std::tuple<CellInfo *, CellInfo *, int>> ff_packing;
         for (auto &chain : all_chains) {
             int cell_count = 0;
             std::vector<CellInfo *> tile_ffs;
@@ -513,7 +514,7 @@ class Ecp5Packer
                 if (f0net != nullptr) {
                     ff0 = net_only_drives(ctx, f0net, is_ff, ctx->id("DI"), false);
                     if (ff0 != nullptr && can_add_ff_to_tile(tile_ffs, ff0)) {
-                        ff_to_slice(ctx, ff0, slice.get(), 0, true);
+                        ff_packing.push_back(std::make_tuple(ff0, slice.get(), 0));
                         tile_ffs.push_back(ff0);
                         packed_cells.insert(ff0->name);
                     }
@@ -525,7 +526,7 @@ class Ecp5Packer
                     ff1 = net_only_drives(ctx, f1net, is_ff, ctx->id("DI"), false);
                     if (ff1 != nullptr && (ff0 == nullptr || can_pack_ffs(ff0, ff1)) &&
                             can_add_ff_to_tile(tile_ffs, ff1)) {
-                        ff_to_slice(ctx, ff1, slice.get(), 1, true);
+                        ff_packing.push_back(std::make_tuple(ff1, slice.get(), 1));
                         tile_ffs.push_back(ff1);
                         packed_cells.insert(ff1->name);
                     }
@@ -537,6 +538,9 @@ class Ecp5Packer
             }
             packed_chains.push_back(packed_chain);
         }
+
+        for (auto ff : ff_packing)
+            ff_to_slice(ctx, std::get<0>(ff), std::get<1>(ff), std::get<2>(ff), true);
 
         // Relative chain placement
         for (auto &chain : packed_chains) {
@@ -586,6 +590,7 @@ class Ecp5Packer
                 disconnect_port(ctx, ci, ctx->id("RAD[3]"));
 
                 // Attempt to pack FFs into RAM slices
+                std::vector<std::tuple<CellInfo *, CellInfo *, int>> ff_packing;
                 std::vector<CellInfo *> tile_ffs;
                 for (auto slice : {ram0_slice.get(), ram1_slice.get()}) {
                     CellInfo *ff0 = nullptr;
@@ -593,7 +598,7 @@ class Ecp5Packer
                     if (f0net != nullptr) {
                         ff0 = net_only_drives(ctx, f0net, is_ff, ctx->id("DI"), false);
                         if (ff0 != nullptr && can_add_ff_to_tile(tile_ffs, ff0)) {
-                            ff_to_slice(ctx, ff0, slice, 0, true);
+                            ff_packing.push_back(std::make_tuple(ff0, slice, 0));
                             tile_ffs.push_back(ff0);
                             packed_cells.insert(ff0->name);
                         }
@@ -605,12 +610,15 @@ class Ecp5Packer
                         ff1 = net_only_drives(ctx, f1net, is_ff, ctx->id("DI"), false);
                         if (ff1 != nullptr && (ff0 == nullptr || can_pack_ffs(ff0, ff1)) &&
                                 can_add_ff_to_tile(tile_ffs, ff1)) {
-                            ff_to_slice(ctx, ff1, slice, 1, true);
+                            ff_packing.push_back(std::make_tuple(ff1, slice, 1));
                             tile_ffs.push_back(ff1);
                             packed_cells.insert(ff1->name);
                         }
                     }
                 }
+
+                for (auto ff : ff_packing)
+                    ff_to_slice(ctx, std::get<0>(ff), std::get<1>(ff), std::get<2>(ff), true);
 
                 // Setup placement constraints
                 ram0_slice->constr_abs_z = true;
