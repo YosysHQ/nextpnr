@@ -637,14 +637,12 @@ class Ecp5Packer
         flush_cells();
     }
 
-    void set_lut_input_constant(CellInfo *cell, IdString input, bool value)
+    int make_init_with_const_input(int init, int input, bool value)
     {
-        int index = std::string("ABCD").find(input.str(ctx));
-        int init = int_or_default(cell->params, ctx->id("INIT"));
         int new_init = 0;
         for (int i = 0; i < 16; i++) {
-            if (((i >> index) & 0x1) != value) {
-                int other_i = (i & (~(1 << index))) | (value << index);
+            if (((i >> input) & 0x1) != value) {
+                int other_i = (i & (~(1 << input))) | (value << input);
                 if ((init >> other_i) & 0x1)
                     new_init |= (1 << i);
             } else {
@@ -652,8 +650,39 @@ class Ecp5Packer
                     new_init |= (1 << i);
             }
         }
+        return new_init;
+    }
+
+    void set_lut_input_constant(CellInfo *cell, IdString input, bool value)
+    {
+        int index = std::string("ABCD").find(input.str(ctx));
+        int init = int_or_default(cell->params, ctx->id("INIT"));
+        int new_init = make_init_with_const_input(init, index, value);
         cell->params[ctx->id("INIT")] = std::to_string(new_init);
         cell->ports.at(input).net = nullptr;
+    }
+
+    void set_ccu2c_input_constant(CellInfo *cell, IdString input, bool value)
+    {
+        std::string input_str = input.str(ctx);
+        int lut = std::stoi(input_str.substr(1));
+        int index = std::string("ABCD").find(input_str[0]);
+        int init = int_or_default(cell->params, ctx->id("INIT" + std::to_string(lut)));
+        int new_init = make_init_with_const_input(init, index, value);
+        cell->params[ctx->id("INIT" + std::to_string(lut))] = std::to_string(new_init);
+        cell->ports.at(input).net = nullptr;
+    }
+
+    bool is_ccu2c_port_high(CellInfo *cell, IdString input)
+    {
+        if (!cell->ports.count(input))
+            return true; // disconnected port is high
+        if (cell->ports.at(input).net == nullptr || cell->ports.at(input).net->name == ctx->id("$PACKER_VCC_NET"))
+            return true; // disconnected or tied-high port
+        if (cell->ports.at(input).net->driver.cell != nullptr &&
+            cell->ports.at(input).net->driver.cell->type == ctx->id("VCC"))
+            return true; // pre-pack high
+        return false;
     }
 
     // Merge a net into a constant net
@@ -670,10 +699,37 @@ class Ecp5Packer
                 } else if (is_ff(ctx, uc) && user.port == ctx->id("CE")) {
                     uc->params[ctx->id("CEMUX")] = constval ? "1" : "0";
                     uc->ports[user.port].net = nullptr;
-                } else if (is_carry(ctx, uc) && constval &&
-                           (user.port == id_A0 || user.port == id_A1 || user.port == id_B0 || user.port == id_B1 ||
-                            user.port == id_C0 || user.port == id_C1 || user.port == id_D0 || user.port == id_D1)) {
-                    uc->ports[user.port].net = nullptr;
+                } else if (is_carry(ctx, uc)) {
+                    if (constval &&
+                        (user.port == id_A0 || user.port == id_A1 || user.port == id_B0 || user.port == id_B1 ||
+                         user.port == id_C0 || user.port == id_C1 || user.port == id_D0 || user.port == id_D1)) {
+                        // Input tied high, nothing special to do (bitstream gen will auto-enable tie-high)
+                        uc->ports[user.port].net = nullptr;
+                    } else if (!constval) {
+                        if (user.port == id_A0 || user.port == id_A1 || user.port == id_B0 || user.port == id_B1) {
+                            // These inputs can be switched to tie-high without consequence
+                            set_ccu2c_input_constant(uc, user.port, constval);
+                        } else if (user.port == id_C0 && is_ccu2c_port_high(uc, id_D0)) {
+                            // Partner must be tied high
+                            set_ccu2c_input_constant(uc, user.port, constval);
+                        } else if (user.port == id_D0 && is_ccu2c_port_high(uc, id_C0)) {
+                            // Partner must be tied high
+                            set_ccu2c_input_constant(uc, user.port, constval);
+                        } else if (user.port == id_C1 && is_ccu2c_port_high(uc, id_D1)) {
+                            // Partner must be tied high
+                            set_ccu2c_input_constant(uc, user.port, constval);
+                        } else if (user.port == id_D1 && is_ccu2c_port_high(uc, id_C1)) {
+                            // Partner must be tied high
+                            set_ccu2c_input_constant(uc, user.port, constval);
+                        } else {
+                            // Not allowed to change to a tie-high
+                            uc->ports[user.port].net = constnet;
+                            constnet->users.push_back(user);
+                        }
+                    } else {
+                        uc->ports[user.port].net = constnet;
+                        constnet->users.push_back(user);
+                    }
                 } else if (is_ff(ctx, uc) && user.port == ctx->id("LSR") &&
                            ((!constval && str_or_default(uc->params, ctx->id("LSRMUX"), "LSR") == "LSR") ||
                             (constval && str_or_default(uc->params, ctx->id("LSRMUX"), "LSR") == "INV"))) {
