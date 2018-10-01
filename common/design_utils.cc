@@ -76,6 +76,8 @@ void print_utilisation(const Context *ctx)
 // Connect a net to a port
 void connect_port(const Context *ctx, NetInfo *net, CellInfo *cell, IdString port_name)
 {
+    if (net == nullptr)
+        return;
     PortInfo &port = cell->ports.at(port_name);
     NPNR_ASSERT(port.net == nullptr);
     port.net = net;

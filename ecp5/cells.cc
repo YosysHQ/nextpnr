@@ -238,4 +238,49 @@ void ccu2c_to_slice(Context *ctx, CellInfo *ccu, CellInfo *lc)
     replace_port(ccu, ctx->id("COUT"), lc, ctx->id("FCO"));
 }
 
+void dram_to_ramw(Context *ctx, CellInfo *ram, CellInfo *lc)
+{
+    lc->params[ctx->id("MODE")] = "RAMW";
+    replace_port(ram, ctx->id("WAD[0]"), lc, ctx->id("D0"));
+    replace_port(ram, ctx->id("WAD[1]"), lc, ctx->id("B0"));
+    replace_port(ram, ctx->id("WAD[2]"), lc, ctx->id("C0"));
+    replace_port(ram, ctx->id("WAD[3]"), lc, ctx->id("A0"));
+
+    replace_port(ram, ctx->id("DI[0]"), lc, ctx->id("C1"));
+    replace_port(ram, ctx->id("DI[1]"), lc, ctx->id("A1"));
+    replace_port(ram, ctx->id("DI[2]"), lc, ctx->id("D1"));
+    replace_port(ram, ctx->id("DI[3]"), lc, ctx->id("B1"));
+}
+
+void dram_to_ram_slice(Context *ctx, CellInfo *ram, CellInfo *lc, CellInfo *ramw, int index)
+{
+    lc->params[ctx->id("MODE")] = "DPRAM";
+    lc->params[ctx->id("WREMUX")] = str_or_default(ram->params, ctx->id("WREMUX"), "WRE");
+    lc->params[ctx->id("WCKMUX")] = str_or_default(ram->params, ctx->id("WCKMUX"), "WCK");
+
+    // TODO: INIT
+
+    if (ram->ports.count(ctx->id("RAD[0]"))) {
+        connect_port(ctx, ram->ports.at(ctx->id("RAD[0]")).net, lc, ctx->id("D0"));
+        connect_port(ctx, ram->ports.at(ctx->id("RAD[0]")).net, lc, ctx->id("D1"));
+    }
+    if (ram->ports.count(ctx->id("RAD[1]"))) {
+        connect_port(ctx, ram->ports.at(ctx->id("RAD[1]")).net, lc, ctx->id("B0"));
+        connect_port(ctx, ram->ports.at(ctx->id("RAD[1]")).net, lc, ctx->id("B1"));
+    }
+    if (ram->ports.count(ctx->id("RAD[2]"))) {
+        connect_port(ctx, ram->ports.at(ctx->id("RAD[2]")).net, lc, ctx->id("C0"));
+        connect_port(ctx, ram->ports.at(ctx->id("RAD[2]")).net, lc, ctx->id("C1"));
+    }
+    if (ram->ports.count(ctx->id("RAD[3]"))) {
+        connect_port(ctx, ram->ports.at(ctx->id("RAD[3]")).net, lc, ctx->id("A0"));
+        connect_port(ctx, ram->ports.at(ctx->id("RAD[3]")).net, lc, ctx->id("A1"));
+    }
+
+    if (ram->ports.count(ctx->id("WRE")))
+        connect_port(ctx, ram->ports.at(ctx->id("WRE")).net, lc, ctx->id("WRE"));
+    if (ram->ports.count(ctx->id("WCK")))
+        connect_port(ctx, ram->ports.at(ctx->id("WCK")).net, lc, ctx->id("WCK"));
+}
+
 NEXTPNR_NAMESPACE_END

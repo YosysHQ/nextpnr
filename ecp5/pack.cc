@@ -555,6 +555,23 @@ class Ecp5Packer
         flush_cells();
     }
 
+    // Pack distributed RAM
+    void pack_dram()
+    {
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (is_dpram(ctx, ci)) {
+                std::unique_ptr<CellInfo> ramw_slice =
+                        create_ecp5_cell(ctx, ctx->id("TRELLIS_SLICE"), ci->name.str(ctx) + "$RAMW_SLICE");
+                dram_to_ramw(ctx, ci, ramw_slice.get());
+
+                new_cells.push_back(std::move(ramw_slice));
+                packed_cells.insert(ci->name);
+            }
+        }
+        flush_cells();
+    }
+
     // Pack LUTs that have been paired together
     void pack_lut_pairs()
     {
