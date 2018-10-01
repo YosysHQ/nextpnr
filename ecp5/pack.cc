@@ -525,7 +525,7 @@ class Ecp5Packer
                 if (f1net != nullptr) {
                     ff1 = net_only_drives(ctx, f1net, is_ff, ctx->id("DI"), false);
                     if (ff1 != nullptr && (ff0 == nullptr || can_pack_ffs(ff0, ff1)) &&
-                            can_add_ff_to_tile(tile_ffs, ff1)) {
+                        can_add_ff_to_tile(tile_ffs, ff1)) {
                         ff_packing.push_back(std::make_tuple(ff1, slice.get(), 1));
                         tile_ffs.push_back(ff1);
                         packed_cells.insert(ff1->name);
@@ -609,7 +609,7 @@ class Ecp5Packer
                     if (f1net != nullptr) {
                         ff1 = net_only_drives(ctx, f1net, is_ff, ctx->id("DI"), false);
                         if (ff1 != nullptr && (ff0 == nullptr || can_pack_ffs(ff0, ff1)) &&
-                                can_add_ff_to_tile(tile_ffs, ff1)) {
+                            can_add_ff_to_tile(tile_ffs, ff1)) {
                             ff_packing.push_back(std::make_tuple(ff1, slice, 1));
                             tile_ffs.push_back(ff1);
                             packed_cells.insert(ff1->name);

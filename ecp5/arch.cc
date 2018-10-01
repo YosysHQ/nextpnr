@@ -511,7 +511,7 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
             delay.delay = 193;
             return true;
         }
-#if 0 //FIXME
+#if 0 // FIXME
         if (fromPort == id_WCK && (toPort == id_F0 || toPort == id_F1)) {
             delay.delay = 717;
             return true;

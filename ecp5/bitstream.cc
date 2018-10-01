@@ -270,13 +270,11 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             }
 
             if (str_or_default(ci->params, ctx->id("MODE"), "LOGIC") == "DPRAM" && slice == "SLICEA") {
-                cc.tiles[tname].add_enum(slice + ".WREMUX",
-                                         str_or_default(ci->params, ctx->id("WREMUX"), "WRE"));
+                cc.tiles[tname].add_enum(slice + ".WREMUX", str_or_default(ci->params, ctx->id("WREMUX"), "WRE"));
 
                 // FIXME: WCKMUX
                 NPNR_ASSERT(str_or_default(ci->params, ctx->id("WCKMUX"), "WCK") == "WCK");
             }
-
 
             // Tie unused inputs high
             for (auto input : {id_A0, id_B0, id_C0, id_D0, id_A1, id_B1, id_C1, id_D1}) {

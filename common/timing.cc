@@ -174,11 +174,9 @@ struct Timing
                         log_info("        driver = %s.%s\n", net->driver.cell->name.c_str(ctx),
                                  net->driver.port.c_str(ctx));
                     for (auto net_user : net->users)
-                        log_info("        user: %s.%s\n", net_user.cell->name.c_str(ctx),
-                                 net_user.port.c_str(ctx));
+                        log_info("        user: %s.%s\n", net_user.cell->name.c_str(ctx), net_user.port.c_str(ctx));
                 } else {
                     log_info("   remaining fanin includes %s (no net)\n", fanin.first->name.c_str(ctx));
-
                 }
             }
         }
