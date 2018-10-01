@@ -50,7 +50,7 @@ void ff_to_slice(Context *ctx, CellInfo *ff, CellInfo *lc, int index, bool drive
 void lut_to_slice(Context *ctx, CellInfo *lut, CellInfo *lc, int index);
 void ccu2c_to_slice(Context *ctx, CellInfo *ccu, CellInfo *lc);
 void dram_to_ramw(Context *ctx, CellInfo *ram, CellInfo *lc);
-void dram_to_ram_slice(Context *ctx, CellInfo *ram, CellInfo *lc, int index);
+void dram_to_ram_slice(Context *ctx, CellInfo *ram, CellInfo *lc, CellInfo *ramw, int index);
 
 NEXTPNR_NAMESPACE_END
 

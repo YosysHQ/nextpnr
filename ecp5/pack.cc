@@ -561,10 +561,77 @@ class Ecp5Packer
         for (auto cell : sorted(ctx->cells)) {
             CellInfo *ci = cell.second;
             if (is_dpram(ctx, ci)) {
+
+                // Create RAMW slice
                 std::unique_ptr<CellInfo> ramw_slice =
                         create_ecp5_cell(ctx, ctx->id("TRELLIS_SLICE"), ci->name.str(ctx) + "$RAMW_SLICE");
                 dram_to_ramw(ctx, ci, ramw_slice.get());
 
+                // Create actual RAM slices
+                std::unique_ptr<CellInfo> ram0_slice =
+                        create_ecp5_cell(ctx, ctx->id("TRELLIS_SLICE"), ci->name.str(ctx) + "$DPRAM0_SLICE");
+                dram_to_ram_slice(ctx, ci, ram0_slice.get(), ramw_slice.get(), 0);
+
+                std::unique_ptr<CellInfo> ram1_slice =
+                        create_ecp5_cell(ctx, ctx->id("TRELLIS_SLICE"), ci->name.str(ctx) + "$DPRAM1_SLICE");
+                dram_to_ram_slice(ctx, ci, ram1_slice.get(), ramw_slice.get(), 1);
+
+                // Disconnect ports of original cell after packing
+                disconnect_port(ctx, ci, id_WCK);
+                disconnect_port(ctx, ci, id_WRE);
+
+                disconnect_port(ctx, ci, ctx->id("RAD[0]"));
+                disconnect_port(ctx, ci, ctx->id("RAD[1]"));
+                disconnect_port(ctx, ci, ctx->id("RAD[2]"));
+                disconnect_port(ctx, ci, ctx->id("RAD[3]"));
+
+                // Attempt to pack FFs into RAM slices
+                std::vector<CellInfo *> tile_ffs;
+                for (auto slice : {ram0_slice.get(), ram1_slice.get()}) {
+                    CellInfo *ff0 = nullptr;
+                    NetInfo *f0net = slice->ports.at(ctx->id("F0")).net;
+                    if (f0net != nullptr) {
+                        ff0 = net_only_drives(ctx, f0net, is_ff, ctx->id("DI"), false);
+                        if (ff0 != nullptr && can_add_ff_to_file(tile_ffs, ff0)) {
+                            ff_to_slice(ctx, ff0, slice, 0, true);
+                            tile_ffs.push_back(ff0);
+                            packed_cells.insert(ff0->name);
+                        }
+                    }
+
+                    CellInfo *ff1 = nullptr;
+                    NetInfo *f1net = slice->ports.at(ctx->id("F1")).net;
+                    if (f1net != nullptr) {
+                        ff1 = net_only_drives(ctx, f1net, is_ff, ctx->id("DI"), false);
+                        if (ff1 != nullptr && (ff0 == nullptr || can_pack_ffs(ff0, ff1)) &&
+                            can_add_ff_to_file(tile_ffs, ff1)) {
+                            ff_to_slice(ctx, ff1, slice, 1, true);
+                            tile_ffs.push_back(ff1);
+                            packed_cells.insert(ff1->name);
+                        }
+                    }
+                }
+
+                // Setup placement constraints
+                ram0_slice->constr_abs_z = true;
+                ram0_slice->constr_z = 0;
+
+                ram1_slice->constr_parent = ram0_slice.get();
+                ram1_slice->constr_abs_z = true;
+                ram1_slice->constr_x = 0;
+                ram1_slice->constr_y = 0;
+                ram1_slice->constr_z = 1;
+                ram0_slice->constr_children.push_back(ram1_slice.get());
+
+                ramw_slice->constr_parent = ram0_slice.get();
+                ramw_slice->constr_abs_z = true;
+                ramw_slice->constr_x = 0;
+                ramw_slice->constr_y = 0;
+                ramw_slice->constr_z = 2;
+                ram0_slice->constr_children.push_back(ramw_slice.get());
+
+                new_cells.push_back(std::move(ram0_slice));
+                new_cells.push_back(std::move(ram1_slice));
                 new_cells.push_back(std::move(ramw_slice));
                 packed_cells.insert(ci->name);
             }
