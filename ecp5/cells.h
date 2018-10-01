@@ -48,6 +48,7 @@ inline bool is_l6mux(const BaseCtx *ctx, const CellInfo *cell) { return cell->ty
 
 void ff_to_slice(Context *ctx, CellInfo *ff, CellInfo *lc, int index, bool driven_by_lut);
 void lut_to_slice(Context *ctx, CellInfo *lut, CellInfo *lc, int index);
+void ccu2c_to_slice(Context *ctx, CellInfo *ccu, CellInfo *lc);
 
 NEXTPNR_NAMESPACE_END
 

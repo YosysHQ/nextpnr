@@ -143,6 +143,7 @@ struct ArchCellInfo
 {
     struct
     {
+        bool using_dff;
         IdString clk_sig, lsr_sig, clkmux, lsrmux, srmode;
     } sliceInfo;
 };

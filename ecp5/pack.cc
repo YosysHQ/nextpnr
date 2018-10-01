@@ -18,13 +18,14 @@
  */
 
 #include <algorithm>
+#include <boost/optional.hpp>
 #include <iterator>
 #include <unordered_set>
 #include "cells.h"
+#include "chain_utils.h"
 #include "design_utils.h"
 #include "log.h"
 #include "util.h"
-
 NEXTPNR_NAMESPACE_BEGIN
 
 static bool is_nextpnr_iob(Context *ctx, CellInfo *cell)
@@ -103,6 +104,27 @@ class Ecp5Packer
             return false;
         if (net_or_nullptr(ff0, ctx->id("LSR")) != net_or_nullptr(ff1, ctx->id("LSR")))
             return false;
+        return true;
+    }
+
+    // Return whether or not an FF can be added to a tile (pairing checks must also be done using the fn above)
+    bool can_add_ff_to_file(const std::vector<CellInfo *> &tile_ffs, CellInfo *ff0)
+    {
+        for (const auto &existing : tile_ffs) {
+            if (net_or_nullptr(existing, ctx->id("CLK")) != net_or_nullptr(ff0, ctx->id("CLK")))
+                return false;
+            if (net_or_nullptr(existing, ctx->id("LSR")) != net_or_nullptr(ff0, ctx->id("LSR")))
+                return false;
+            if (str_or_default(existing->params, ctx->id("CLKMUX"), "CLK") !=
+                str_or_default(ff0->params, ctx->id("CLKMUX"), "CLK"))
+                return false;
+            if (str_or_default(existing->params, ctx->id("LSRMUX"), "LSR") !=
+                str_or_default(ff0->params, ctx->id("LSRMUX"), "LSR"))
+                return false;
+            if (str_or_default(existing->params, ctx->id("SRMODE"), "LSR_OVER_CE") !=
+                str_or_default(ff0->params, ctx->id("SRMODE"), "LSR_OVER_CE"))
+                return false;
+        }
         return true;
     }
 
@@ -312,6 +334,227 @@ class Ecp5Packer
         flush_cells();
     }
 
+    // Create a feed in to the carry chain
+    CellInfo *make_carry_feed_in(NetInfo *carry, PortRef chain_in)
+    {
+        std::unique_ptr<CellInfo> feedin = create_ecp5_cell(ctx, ctx->id("CCU2C"));
+
+        feedin->params[ctx->id("INIT0")] = "10"; // LUT4 = 0; LUT2 = A
+        feedin->params[ctx->id("INIT1")] = "65535";
+        feedin->params[ctx->id("INJECT1_0")] = "NO";
+        feedin->params[ctx->id("INJECT1_1")] = "YES";
+
+        carry->users.erase(std::remove_if(carry->users.begin(), carry->users.end(),
+                                          [chain_in](const PortRef &user) {
+                                              return user.port == chain_in.port && user.cell == chain_in.cell;
+                                          }),
+                           carry->users.end());
+        connect_port(ctx, carry, feedin.get(), id_A0);
+
+        std::unique_ptr<NetInfo> new_carry(new NetInfo());
+        new_carry->name = ctx->id(feedin->name.str(ctx) + "$COUT");
+        connect_port(ctx, new_carry.get(), feedin.get(), ctx->id("COUT"));
+        chain_in.cell->ports[chain_in.port].net = nullptr;
+        connect_port(ctx, new_carry.get(), chain_in.cell, chain_in.port);
+
+        CellInfo *feedin_ptr = feedin.get();
+        IdString feedin_name = feedin->name;
+        ctx->cells[feedin_name] = std::move(feedin);
+        IdString new_carry_name = new_carry->name;
+        ctx->nets[new_carry_name] = std::move(new_carry);
+        return feedin_ptr;
+    }
+
+    // Create a feed out and loop through from the carry chain
+    CellInfo *make_carry_feed_out(NetInfo *carry, boost::optional<PortRef> chain_next = boost::optional<PortRef>())
+    {
+        std::unique_ptr<CellInfo> feedout = create_ecp5_cell(ctx, ctx->id("CCU2C"));
+        feedout->params[ctx->id("INIT0")] = "0";
+        feedout->params[ctx->id("INIT1")] = "10"; // LUT4 = 0; LUT2 = A
+        feedout->params[ctx->id("INJECT1_0")] = "NO";
+        feedout->params[ctx->id("INJECT1_1")] = "NO";
+
+        PortRef carry_drv = carry->driver;
+        carry->driver.cell = nullptr;
+        connect_port(ctx, carry, feedout.get(), ctx->id("S0"));
+
+        std::unique_ptr<NetInfo> new_cin(new NetInfo());
+        new_cin->name = ctx->id(feedout->name.str(ctx) + "$CIN");
+        new_cin->driver = carry_drv;
+        carry_drv.cell->ports.at(carry_drv.port).net = new_cin.get();
+        connect_port(ctx, new_cin.get(), feedout.get(), ctx->id("CIN"));
+
+        if (chain_next) {
+            // Loop back into LUT4_1 for feedthrough
+            connect_port(ctx, carry, feedout.get(), id_A1);
+
+            carry->users.erase(std::remove_if(carry->users.begin(), carry->users.end(),
+                                              [chain_next](const PortRef &user) {
+                                                  return user.port == chain_next->port && user.cell == chain_next->cell;
+                                              }),
+                               carry->users.end());
+
+            std::unique_ptr<NetInfo> new_cout(new NetInfo());
+            new_cout->name = ctx->id(feedout->name.str(ctx) + "$COUT");
+            connect_port(ctx, new_cout.get(), feedout.get(), ctx->id("COUT"));
+
+            chain_next->cell->ports[chain_next->port].net = nullptr;
+            connect_port(ctx, new_cout.get(), chain_next->cell, chain_next->port);
+
+            IdString new_cout_name = new_cout->name;
+            ctx->nets[new_cout_name] = std::move(new_cout);
+        }
+
+        CellInfo *feedout_ptr = feedout.get();
+        IdString feedout_name = feedout->name;
+        ctx->cells[feedout_name] = std::move(feedout);
+
+        IdString new_cin_name = new_cin->name;
+        ctx->nets[new_cin_name] = std::move(new_cin);
+
+        return feedout_ptr;
+    }
+
+    // Split a carry chain into multiple legal chains
+    std::vector<CellChain> split_carry_chain(CellChain &carryc)
+    {
+        bool start_of_chain = true;
+        std::vector<CellChain> chains;
+        const int max_length = (ctx->chip_info->width - 4) * 4 - 2;
+        auto curr_cell = carryc.cells.begin();
+        while (curr_cell != carryc.cells.end()) {
+            CellInfo *cell = *curr_cell;
+            if (start_of_chain) {
+                chains.emplace_back();
+                start_of_chain = false;
+                if (cell->ports.at(ctx->id("CIN")).net) {
+                    // CIN is not constant and not part of a chain. Must feed in from fabric
+                    PortRef inport;
+                    inport.cell = cell;
+                    inport.port = ctx->id("CIN");
+                    CellInfo *feedin = make_carry_feed_in(cell->ports.at(ctx->id("CIN")).net, inport);
+                    chains.back().cells.push_back(feedin);
+                }
+            }
+            chains.back().cells.push_back(cell);
+            bool split_chain = int(chains.back().cells.size()) > max_length;
+            if (split_chain) {
+                CellInfo *passout = make_carry_feed_out(cell->ports.at(ctx->id("COUT")).net);
+                chains.back().cells.back() = passout;
+                start_of_chain = true;
+            } else {
+                NetInfo *carry_net = cell->ports.at(ctx->id("COUT")).net;
+                bool at_end = (curr_cell == carryc.cells.end() - 1);
+                if (carry_net != nullptr && (carry_net->users.size() > 1 || at_end)) {
+                    boost::optional<PortRef> nextport;
+                    if (!at_end) {
+                        auto next_cell = *(curr_cell + 1);
+                        PortRef nextpr;
+                        nextpr.cell = next_cell;
+                        nextpr.port = ctx->id("CIN");
+                        nextport = nextpr;
+                    }
+                    CellInfo *passout = make_carry_feed_out(cell->ports.at(ctx->id("COUT")).net, nextport);
+                    chains.back().cells.push_back(passout);
+                }
+                ++curr_cell;
+            }
+        }
+        return chains;
+    }
+
+    // Pack carries and set up appropriate relative constraints
+    void pack_carries()
+    {
+        log_info("Packing carries...\n");
+        // Find all chains (including single carry cells)
+        auto carry_chains = find_chains(
+                ctx, [](const Context *ctx, const CellInfo *cell) { return is_carry(ctx, cell); },
+                [](const Context *ctx, const CellInfo *cell) {
+                    return net_driven_by(ctx, cell->ports.at(ctx->id("CIN")).net, is_carry, ctx->id("COUT"));
+                },
+                [](const Context *ctx, const CellInfo *cell) {
+                    return net_only_drives(ctx, cell->ports.at(ctx->id("COUT")).net, is_carry, ctx->id("CIN"), false);
+                },
+                1);
+        std::vector<CellChain> all_chains;
+
+        // Chain splitting
+        for (auto &base_chain : carry_chains) {
+            if (ctx->verbose) {
+                log_info("Found carry chain: \n");
+                for (auto entry : base_chain.cells)
+                    log_info("     %s\n", entry->name.c_str(ctx));
+                log_info("\n");
+            }
+            std::vector<CellChain> split_chains = split_carry_chain(base_chain);
+            for (auto &chain : split_chains) {
+                all_chains.push_back(chain);
+            }
+        }
+
+        std::vector<std::vector<CellInfo *>> packed_chains;
+
+        // Chain packing
+        for (auto &chain : all_chains) {
+            int cell_count = 0;
+            std::vector<CellInfo *> tile_ffs;
+            std::vector<CellInfo *> packed_chain;
+            for (auto &cell : chain.cells) {
+                if (cell_count % 4 == 0)
+                    tile_ffs.clear();
+                std::unique_ptr<CellInfo> slice =
+                        create_ecp5_cell(ctx, ctx->id("TRELLIS_SLICE"), cell->name.str(ctx) + "$CCU2_SLICE");
+
+                ccu2c_to_slice(ctx, cell, slice.get());
+
+                CellInfo *ff0 = nullptr;
+                NetInfo *f0net = slice->ports.at(ctx->id("F0")).net;
+                if (f0net != nullptr) {
+                    ff0 = net_only_drives(ctx, f0net, is_ff, ctx->id("DI"), false);
+                    if (ff0 != nullptr && can_add_ff_to_file(tile_ffs, ff0)) {
+                        ff_to_slice(ctx, ff0, slice.get(), 0, true);
+                        tile_ffs.push_back(ff0);
+                        packed_cells.insert(ff0->name);
+                    }
+                }
+
+                CellInfo *ff1 = nullptr;
+                NetInfo *f1net = slice->ports.at(ctx->id("F1")).net;
+                if (f1net != nullptr) {
+                    ff1 = net_only_drives(ctx, f1net, is_ff, ctx->id("DI"), false);
+                    if (ff1 != nullptr && (ff0 == nullptr || can_pack_ffs(ff0, ff1)) &&
+                        can_add_ff_to_file(tile_ffs, ff1)) {
+                        ff_to_slice(ctx, ff1, slice.get(), 1, true);
+                        tile_ffs.push_back(ff1);
+                        packed_cells.insert(ff1->name);
+                    }
+                }
+                packed_chain.push_back(slice.get());
+                new_cells.push_back(std::move(slice));
+                packed_cells.insert(cell->name);
+                cell_count++;
+            }
+            packed_chains.push_back(packed_chain);
+        }
+
+        // Relative chain placement
+        for (auto &chain : packed_chains) {
+            chain.at(0)->constr_abs_z = true;
+            chain.at(0)->constr_z = 0;
+            for (int i = 1; i < int(chain.size()); i++) {
+                chain.at(i)->constr_x = (i / 4);
+                chain.at(i)->constr_y = 0;
+                chain.at(i)->constr_z = i % 4;
+                chain.at(i)->constr_abs_z = true;
+                chain.at(i)->constr_parent = chain.at(0);
+                chain.at(0)->constr_children.push_back(chain.at(i));
+            }
+        }
+
+        flush_cells();
+    }
+
     // Pack LUTs that have been paired together
     void pack_lut_pairs()
     {
@@ -394,14 +637,12 @@ class Ecp5Packer
         flush_cells();
     }
 
-    void set_lut_input_constant(CellInfo *cell, IdString input, bool value)
+    int make_init_with_const_input(int init, int input, bool value)
     {
-        int index = std::string("ABCD").find(input.str(ctx));
-        int init = int_or_default(cell->params, ctx->id("INIT"));
         int new_init = 0;
         for (int i = 0; i < 16; i++) {
-            if (((i >> index) & 0x1) != value) {
-                int other_i = (i & (~(1 << index))) | (value << index);
+            if (((i >> input) & 0x1) != value) {
+                int other_i = (i & (~(1 << input))) | (value << input);
                 if ((init >> other_i) & 0x1)
                     new_init |= (1 << i);
             } else {
@@ -409,8 +650,39 @@ class Ecp5Packer
                     new_init |= (1 << i);
             }
         }
+        return new_init;
+    }
+
+    void set_lut_input_constant(CellInfo *cell, IdString input, bool value)
+    {
+        int index = std::string("ABCD").find(input.str(ctx));
+        int init = int_or_default(cell->params, ctx->id("INIT"));
+        int new_init = make_init_with_const_input(init, index, value);
         cell->params[ctx->id("INIT")] = std::to_string(new_init);
         cell->ports.at(input).net = nullptr;
+    }
+
+    void set_ccu2c_input_constant(CellInfo *cell, IdString input, bool value)
+    {
+        std::string input_str = input.str(ctx);
+        int lut = std::stoi(input_str.substr(1));
+        int index = std::string("ABCD").find(input_str[0]);
+        int init = int_or_default(cell->params, ctx->id("INIT" + std::to_string(lut)));
+        int new_init = make_init_with_const_input(init, index, value);
+        cell->params[ctx->id("INIT" + std::to_string(lut))] = std::to_string(new_init);
+        cell->ports.at(input).net = nullptr;
+    }
+
+    bool is_ccu2c_port_high(CellInfo *cell, IdString input)
+    {
+        if (!cell->ports.count(input))
+            return true; // disconnected port is high
+        if (cell->ports.at(input).net == nullptr || cell->ports.at(input).net->name == ctx->id("$PACKER_VCC_NET"))
+            return true; // disconnected or tied-high port
+        if (cell->ports.at(input).net->driver.cell != nullptr &&
+            cell->ports.at(input).net->driver.cell->type == ctx->id("VCC"))
+            return true; // pre-pack high
+        return false;
     }
 
     // Merge a net into a constant net
@@ -427,6 +699,37 @@ class Ecp5Packer
                 } else if (is_ff(ctx, uc) && user.port == ctx->id("CE")) {
                     uc->params[ctx->id("CEMUX")] = constval ? "1" : "0";
                     uc->ports[user.port].net = nullptr;
+                } else if (is_carry(ctx, uc)) {
+                    if (constval &&
+                        (user.port == id_A0 || user.port == id_A1 || user.port == id_B0 || user.port == id_B1 ||
+                         user.port == id_C0 || user.port == id_C1 || user.port == id_D0 || user.port == id_D1)) {
+                        // Input tied high, nothing special to do (bitstream gen will auto-enable tie-high)
+                        uc->ports[user.port].net = nullptr;
+                    } else if (!constval) {
+                        if (user.port == id_A0 || user.port == id_A1 || user.port == id_B0 || user.port == id_B1) {
+                            // These inputs can be switched to tie-high without consequence
+                            set_ccu2c_input_constant(uc, user.port, constval);
+                        } else if (user.port == id_C0 && is_ccu2c_port_high(uc, id_D0)) {
+                            // Partner must be tied high
+                            set_ccu2c_input_constant(uc, user.port, constval);
+                        } else if (user.port == id_D0 && is_ccu2c_port_high(uc, id_C0)) {
+                            // Partner must be tied high
+                            set_ccu2c_input_constant(uc, user.port, constval);
+                        } else if (user.port == id_C1 && is_ccu2c_port_high(uc, id_D1)) {
+                            // Partner must be tied high
+                            set_ccu2c_input_constant(uc, user.port, constval);
+                        } else if (user.port == id_D1 && is_ccu2c_port_high(uc, id_C1)) {
+                            // Partner must be tied high
+                            set_ccu2c_input_constant(uc, user.port, constval);
+                        } else {
+                            // Not allowed to change to a tie-high
+                            uc->ports[user.port].net = constnet;
+                            constnet->users.push_back(user);
+                        }
+                    } else {
+                        uc->ports[user.port].net = constnet;
+                        constnet->users.push_back(user);
+                    }
                 } else if (is_ff(ctx, uc) && user.port == ctx->id("LSR") &&
                            ((!constval && str_or_default(uc->params, ctx->id("LSRMUX"), "LSR") == "LSR") ||
                             (constval && str_or_default(uc->params, ctx->id("LSRMUX"), "LSR") == "INV"))) {
@@ -501,6 +804,7 @@ class Ecp5Packer
     {
         pack_io();
         pack_constants();
+        pack_carries();
         find_lutff_pairs();
         pack_lut5s();
         pair_luts();
@@ -549,6 +853,13 @@ void Arch::assignArchInfo()
     for (auto cell : sorted(cells)) {
         CellInfo *ci = cell.second;
         if (ci->type == id_TRELLIS_SLICE) {
+
+            ci->sliceInfo.using_dff = false;
+            if (ci->ports.count(id_Q0) && ci->ports[id_Q0].net != nullptr)
+                ci->sliceInfo.using_dff = true;
+            if (ci->ports.count(id_Q1) && ci->ports[id_Q1].net != nullptr)
+                ci->sliceInfo.using_dff = true;
+
             if (ci->ports.count(id_CLK) && ci->ports[id_CLK].net != nullptr)
                 ci->sliceInfo.clk_sig = ci->ports[id_CLK].net->name;
             else

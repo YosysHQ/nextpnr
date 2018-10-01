@@ -124,6 +124,28 @@ std::unique_ptr<CellInfo> create_ecp5_cell(Context *ctx, IdString type, std::str
         add_port(ctx, new_cell.get(), "C", PORT_IN);
         add_port(ctx, new_cell.get(), "D", PORT_IN);
         add_port(ctx, new_cell.get(), "Z", PORT_OUT);
+    } else if (type == ctx->id("CCU2C")) {
+        new_cell->params[ctx->id("INIT0")] = "0";
+        new_cell->params[ctx->id("INIT1")] = "0";
+        new_cell->params[ctx->id("INJECT1_0")] = "YES";
+        new_cell->params[ctx->id("INJECT1_1")] = "YES";
+
+        add_port(ctx, new_cell.get(), "CIN", PORT_IN);
+
+        add_port(ctx, new_cell.get(), "A0", PORT_IN);
+        add_port(ctx, new_cell.get(), "B0", PORT_IN);
+        add_port(ctx, new_cell.get(), "C0", PORT_IN);
+        add_port(ctx, new_cell.get(), "D0", PORT_IN);
+
+        add_port(ctx, new_cell.get(), "A1", PORT_IN);
+        add_port(ctx, new_cell.get(), "B1", PORT_IN);
+        add_port(ctx, new_cell.get(), "C1", PORT_IN);
+        add_port(ctx, new_cell.get(), "D1", PORT_IN);
+
+        add_port(ctx, new_cell.get(), "S0", PORT_OUT);
+        add_port(ctx, new_cell.get(), "S1", PORT_OUT);
+        add_port(ctx, new_cell.get(), "COUT", PORT_OUT);
+
     } else if (type == ctx->id("DCCA")) {
         add_port(ctx, new_cell.get(), "CLKI", PORT_IN);
         add_port(ctx, new_cell.get(), "CLKO", PORT_OUT);
@@ -187,6 +209,33 @@ void lut_to_slice(Context *ctx, CellInfo *lut, CellInfo *lc, int index)
     replace_port(lut, ctx->id("C"), lc, ctx->id("C" + std::to_string(index)));
     replace_port(lut, ctx->id("D"), lc, ctx->id("D" + std::to_string(index)));
     replace_port(lut, ctx->id("Z"), lc, ctx->id("F" + std::to_string(index)));
+}
+
+void ccu2c_to_slice(Context *ctx, CellInfo *ccu, CellInfo *lc)
+{
+    lc->params[ctx->id("MODE")] = "CCU2";
+    lc->params[ctx->id("LUT0_INITVAL")] = str_or_default(ccu->params, ctx->id("INIT0"), "0");
+    lc->params[ctx->id("LUT1_INITVAL")] = str_or_default(ccu->params, ctx->id("INIT1"), "0");
+
+    lc->params[ctx->id("INJECT1_0")] = str_or_default(ccu->params, ctx->id("INJECT1_0"), "YES");
+    lc->params[ctx->id("INJECT1_1")] = str_or_default(ccu->params, ctx->id("INJECT1_1"), "YES");
+
+    replace_port(ccu, ctx->id("CIN"), lc, ctx->id("FCI"));
+
+    replace_port(ccu, ctx->id("A0"), lc, ctx->id("A0"));
+    replace_port(ccu, ctx->id("B0"), lc, ctx->id("B0"));
+    replace_port(ccu, ctx->id("C0"), lc, ctx->id("C0"));
+    replace_port(ccu, ctx->id("D0"), lc, ctx->id("D0"));
+
+    replace_port(ccu, ctx->id("A1"), lc, ctx->id("A1"));
+    replace_port(ccu, ctx->id("B1"), lc, ctx->id("B1"));
+    replace_port(ccu, ctx->id("C1"), lc, ctx->id("C1"));
+    replace_port(ccu, ctx->id("D1"), lc, ctx->id("D1"));
+
+    replace_port(ccu, ctx->id("S0"), lc, ctx->id("F0"));
+    replace_port(ccu, ctx->id("S1"), lc, ctx->id("F1"));
+
+    replace_port(ccu, ctx->id("COUT"), lc, ctx->id("FCO"));
 }
 
 NEXTPNR_NAMESPACE_END
