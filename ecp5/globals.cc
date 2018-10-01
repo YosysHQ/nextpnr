@@ -52,7 +52,7 @@ class Ecp5GlobalRouter
   private:
     bool is_clock_port(const PortRef &user)
     {
-        if (user.cell->type == id_TRELLIS_SLICE && user.port == id_CLK)
+        if (user.cell->type == id_TRELLIS_SLICE && (user.port == id_CLK || user.port == id_WCK))
             return true;
         return false;
     }

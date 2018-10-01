@@ -164,6 +164,24 @@ struct Timing
         }
 
         // Sanity check to ensure that all ports where fanins were recorded were indeed visited
+        if (!port_fanin.empty()) {
+            for (auto fanin : port_fanin) {
+                NetInfo *net = fanin.first->net;
+                if (net != nullptr) {
+                    log_info("   remaining fanin includes %s (net %s)\n", fanin.first->name.c_str(ctx),
+                             net->name.c_str(ctx));
+                    if (net->driver.cell != nullptr)
+                        log_info("        driver = %s.%s\n", net->driver.cell->name.c_str(ctx),
+                                 net->driver.port.c_str(ctx));
+                    for (auto net_user : net->users)
+                        log_info("        user: %s.%s\n", net_user.cell->name.c_str(ctx),
+                                 net_user.port.c_str(ctx));
+                } else {
+                    log_info("   remaining fanin includes %s (no net)\n", fanin.first->name.c_str(ctx));
+
+                }
+            }
+        }
         NPNR_ASSERT(port_fanin.empty());
 
         // Go forwards topographically to find the maximum arrival time and max path length for each net

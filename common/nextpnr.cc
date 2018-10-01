@@ -245,6 +245,11 @@ void Context::check() const
                 NPNR_ASSERT(ni == getBoundPipNet(w.second.pip));
             }
         }
+        if (ni->driver.cell != nullptr)
+            NPNR_ASSERT(ni->driver.cell->ports.at(ni->driver.port).net == ni);
+        for (auto user : ni->users) {
+            NPNR_ASSERT(user.cell->ports.at(user.port).net == ni);
+        }
     }
 
     for (auto w : getWires()) {
