@@ -185,6 +185,8 @@ void ff_to_slice(Context *ctx, CellInfo *ff, CellInfo *lc, int index, bool drive
     set_param_safe(has_ff, lc, ctx->id("GSR"), str_or_default(ff->params, ctx->id("GSR"), "DISABLED"));
     set_param_safe(has_ff, lc, ctx->id("CEMUX"), str_or_default(ff->params, ctx->id("CEMUX"), "1"));
     set_param_safe(has_ff, lc, ctx->id("LSRMUX"), str_or_default(ff->params, ctx->id("LSRMUX"), "LSR"));
+    set_param_safe(has_ff, lc, ctx->id("CLKMUX"), str_or_default(ff->params, ctx->id("CLKMUX"), "CLK"));
+
     lc->params[ctx->id(reg + "_SD")] = driven_by_lut ? "1" : "0";
     lc->params[ctx->id(reg + "_REGSET")] = str_or_default(ff->params, ctx->id("REGSET"), "RESET");
     replace_port_safe(has_ff, ff, ctx->id("CLK"), lc, ctx->id("CLK"));

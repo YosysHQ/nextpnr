@@ -128,6 +128,20 @@ class Ecp5Packer
         return true;
     }
 
+    // Return true if a FF can be added to a DPRAM slice
+    bool can_pack_ff_dram(CellInfo *dpram, CellInfo *ff)
+    {
+        std::string wckmux = str_or_default(dpram->params, ctx->id("WCKMUX"), "WCK");
+        std::string clkmux = str_or_default(ff->params, ctx->id("CLKMUX"), "CLK");
+        if (wckmux != clkmux && !(wckmux == "WCK" && clkmux == "CLK"))
+            return false;
+        std::string wremux = str_or_default(dpram->params, ctx->id("WREMUX"), "WRE");
+        std::string lsrmux = str_or_default(ff->params, ctx->id("LSRMUX"), "LSR");
+        if (wremux != lsrmux && !(wremux == "WRE" && lsrmux == "LSR"))
+            return false;
+        return true;
+    }
+
     // Return true if two LUTs can be paired considering FF compatibility
     bool can_pack_lutff(IdString lut0, IdString lut1)
     {
@@ -598,7 +612,7 @@ class Ecp5Packer
                     if (f0net != nullptr) {
                         ff0 = net_only_drives(ctx, f0net, is_ff, ctx->id("DI"), false);
                         if (ff0 != nullptr && can_add_ff_to_tile(tile_ffs, ff0)) {
-                            if (net_or_nullptr(ff0, ctx->id("CLK")) == net_or_nullptr(slice, ctx->id("WCK"))) {
+                            if (can_pack_ff_dram(slice, ff0)) {
                                 ff_packing.push_back(std::make_tuple(ff0, slice, 0));
                                 tile_ffs.push_back(ff0);
                                 packed_cells.insert(ff0->name);
@@ -612,7 +626,7 @@ class Ecp5Packer
                         ff1 = net_only_drives(ctx, f1net, is_ff, ctx->id("DI"), false);
                         if (ff1 != nullptr && (ff0 == nullptr || can_pack_ffs(ff0, ff1)) &&
                             can_add_ff_to_tile(tile_ffs, ff1)) {
-                            if (net_or_nullptr(ff1, ctx->id("CLK")) == net_or_nullptr(slice, ctx->id("WCK"))) {
+                            if (can_pack_ff_dram(slice, ff1)) {
                                 ff_packing.push_back(std::make_tuple(ff1, slice, 1));
                                 tile_ffs.push_back(ff1);
                                 packed_cells.insert(ff1->name);
