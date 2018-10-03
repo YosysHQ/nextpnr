@@ -391,6 +391,8 @@ static bool is_nextpnr_iob(Context *ctx, CellInfo *cell)
 static void pack_io(Context *ctx)
 {
     std::unordered_set<IdString> packed_cells;
+    std::unordered_set<IdString> delete_nets;
+
     std::vector<std::unique_ptr<CellInfo>> new_cells;
     log_info("Packing IOs..\n");
 
@@ -410,14 +412,20 @@ static void pack_io(Context *ctx)
                 log_info("%s feeds SB_IO %s, removing %s %s.\n", ci->name.c_str(ctx), sb->name.c_str(ctx),
                          ci->type.c_str(ctx), ci->name.c_str(ctx));
                 NetInfo *net = sb->ports.at(ctx->id("PACKAGE_PIN")).net;
+                if (((ci->type == ctx->id("$nextpnr_ibuf") || ci->type == ctx->id("$nextpnr_iobuf")) &&
+                     net->users.size() > 1) ||
+                    (ci->type == ctx->id("$nextpnr_obuf") && (net->users.size() > 2 || net->driver.cell != nullptr)))
+                    log_error("PACKAGE_PIN of SB_IO '%s' connected to more than a single top level IO.\n",
+                              sb->name.c_str(ctx));
+
                 if (net != nullptr) {
-                    ctx->nets.erase(net->name);
+                    delete_nets.insert(net->name);
                     sb->ports.at(ctx->id("PACKAGE_PIN")).net = nullptr;
                 }
                 if (ci->type == ctx->id("$nextpnr_iobuf")) {
                     NetInfo *net2 = ci->ports.at(ctx->id("I")).net;
                     if (net2 != nullptr) {
-                        ctx->nets.erase(net2->name);
+                        delete_nets.insert(net2->name);
                     }
                 }
             } else {
@@ -434,6 +442,9 @@ static void pack_io(Context *ctx)
     }
     for (auto pcell : packed_cells) {
         ctx->cells.erase(pcell);
+    }
+    for (auto dnet : delete_nets) {
+        ctx->nets.erase(dnet);
     }
     for (auto &ncell : new_cells) {
         ctx->cells[ncell->name] = std::move(ncell);
