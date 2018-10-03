@@ -108,7 +108,7 @@ class Ecp5Packer
     }
 
     // Return whether or not an FF can be added to a tile (pairing checks must also be done using the fn above)
-    bool can_add_ff_to_file(const std::vector<CellInfo *> &tile_ffs, CellInfo *ff0)
+    bool can_add_ff_to_tile(const std::vector<CellInfo *> &tile_ffs, CellInfo *ff0)
     {
         for (const auto &existing : tile_ffs) {
             if (net_or_nullptr(existing, ctx->id("CLK")) != net_or_nullptr(ff0, ctx->id("CLK")))
@@ -125,6 +125,20 @@ class Ecp5Packer
                 str_or_default(ff0->params, ctx->id("SRMODE"), "LSR_OVER_CE"))
                 return false;
         }
+        return true;
+    }
+
+    // Return true if a FF can be added to a DPRAM slice
+    bool can_pack_ff_dram(CellInfo *dpram, CellInfo *ff)
+    {
+        std::string wckmux = str_or_default(dpram->params, ctx->id("WCKMUX"), "WCK");
+        std::string clkmux = str_or_default(ff->params, ctx->id("CLKMUX"), "CLK");
+        if (wckmux != clkmux && !(wckmux == "WCK" && clkmux == "CLK"))
+            return false;
+        std::string wremux = str_or_default(dpram->params, ctx->id("WREMUX"), "WRE");
+        std::string lsrmux = str_or_default(ff->params, ctx->id("LSRMUX"), "LSR");
+        if (wremux != lsrmux && !(wremux == "WRE" && lsrmux == "LSR"))
+            return false;
         return true;
     }
 
@@ -496,6 +510,7 @@ class Ecp5Packer
         std::vector<std::vector<CellInfo *>> packed_chains;
 
         // Chain packing
+        std::vector<std::tuple<CellInfo *, CellInfo *, int>> ff_packing;
         for (auto &chain : all_chains) {
             int cell_count = 0;
             std::vector<CellInfo *> tile_ffs;
@@ -512,8 +527,8 @@ class Ecp5Packer
                 NetInfo *f0net = slice->ports.at(ctx->id("F0")).net;
                 if (f0net != nullptr) {
                     ff0 = net_only_drives(ctx, f0net, is_ff, ctx->id("DI"), false);
-                    if (ff0 != nullptr && can_add_ff_to_file(tile_ffs, ff0)) {
-                        ff_to_slice(ctx, ff0, slice.get(), 0, true);
+                    if (ff0 != nullptr && can_add_ff_to_tile(tile_ffs, ff0)) {
+                        ff_packing.push_back(std::make_tuple(ff0, slice.get(), 0));
                         tile_ffs.push_back(ff0);
                         packed_cells.insert(ff0->name);
                     }
@@ -524,8 +539,8 @@ class Ecp5Packer
                 if (f1net != nullptr) {
                     ff1 = net_only_drives(ctx, f1net, is_ff, ctx->id("DI"), false);
                     if (ff1 != nullptr && (ff0 == nullptr || can_pack_ffs(ff0, ff1)) &&
-                        can_add_ff_to_file(tile_ffs, ff1)) {
-                        ff_to_slice(ctx, ff1, slice.get(), 1, true);
+                        can_add_ff_to_tile(tile_ffs, ff1)) {
+                        ff_packing.push_back(std::make_tuple(ff1, slice.get(), 1));
                         tile_ffs.push_back(ff1);
                         packed_cells.insert(ff1->name);
                     }
@@ -537,6 +552,9 @@ class Ecp5Packer
             }
             packed_chains.push_back(packed_chain);
         }
+
+        for (auto ff : ff_packing)
+            ff_to_slice(ctx, std::get<0>(ff), std::get<1>(ff), std::get<2>(ff), true);
 
         // Relative chain placement
         for (auto &chain : packed_chains) {
@@ -552,6 +570,98 @@ class Ecp5Packer
             }
         }
 
+        flush_cells();
+    }
+
+    // Pack distributed RAM
+    void pack_dram()
+    {
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (is_dpram(ctx, ci)) {
+
+                // Create RAMW slice
+                std::unique_ptr<CellInfo> ramw_slice =
+                        create_ecp5_cell(ctx, ctx->id("TRELLIS_SLICE"), ci->name.str(ctx) + "$RAMW_SLICE");
+                dram_to_ramw(ctx, ci, ramw_slice.get());
+
+                // Create actual RAM slices
+                std::unique_ptr<CellInfo> ram0_slice =
+                        create_ecp5_cell(ctx, ctx->id("TRELLIS_SLICE"), ci->name.str(ctx) + "$DPRAM0_SLICE");
+                dram_to_ram_slice(ctx, ci, ram0_slice.get(), ramw_slice.get(), 0);
+
+                std::unique_ptr<CellInfo> ram1_slice =
+                        create_ecp5_cell(ctx, ctx->id("TRELLIS_SLICE"), ci->name.str(ctx) + "$DPRAM1_SLICE");
+                dram_to_ram_slice(ctx, ci, ram1_slice.get(), ramw_slice.get(), 1);
+
+                // Disconnect ports of original cell after packing
+                disconnect_port(ctx, ci, id_WCK);
+                disconnect_port(ctx, ci, id_WRE);
+
+                disconnect_port(ctx, ci, ctx->id("RAD[0]"));
+                disconnect_port(ctx, ci, ctx->id("RAD[1]"));
+                disconnect_port(ctx, ci, ctx->id("RAD[2]"));
+                disconnect_port(ctx, ci, ctx->id("RAD[3]"));
+
+                // Attempt to pack FFs into RAM slices
+                std::vector<std::tuple<CellInfo *, CellInfo *, int>> ff_packing;
+                std::vector<CellInfo *> tile_ffs;
+                for (auto slice : {ram0_slice.get(), ram1_slice.get()}) {
+                    CellInfo *ff0 = nullptr;
+                    NetInfo *f0net = slice->ports.at(ctx->id("F0")).net;
+                    if (f0net != nullptr) {
+                        ff0 = net_only_drives(ctx, f0net, is_ff, ctx->id("DI"), false);
+                        if (ff0 != nullptr && can_add_ff_to_tile(tile_ffs, ff0)) {
+                            if (can_pack_ff_dram(slice, ff0)) {
+                                ff_packing.push_back(std::make_tuple(ff0, slice, 0));
+                                tile_ffs.push_back(ff0);
+                                packed_cells.insert(ff0->name);
+                            }
+                        }
+                    }
+
+                    CellInfo *ff1 = nullptr;
+                    NetInfo *f1net = slice->ports.at(ctx->id("F1")).net;
+                    if (f1net != nullptr) {
+                        ff1 = net_only_drives(ctx, f1net, is_ff, ctx->id("DI"), false);
+                        if (ff1 != nullptr && (ff0 == nullptr || can_pack_ffs(ff0, ff1)) &&
+                            can_add_ff_to_tile(tile_ffs, ff1)) {
+                            if (can_pack_ff_dram(slice, ff1)) {
+                                ff_packing.push_back(std::make_tuple(ff1, slice, 1));
+                                tile_ffs.push_back(ff1);
+                                packed_cells.insert(ff1->name);
+                            }
+                        }
+                    }
+                }
+
+                for (auto ff : ff_packing)
+                    ff_to_slice(ctx, std::get<0>(ff), std::get<1>(ff), std::get<2>(ff), true);
+
+                // Setup placement constraints
+                ram0_slice->constr_abs_z = true;
+                ram0_slice->constr_z = 0;
+
+                ram1_slice->constr_parent = ram0_slice.get();
+                ram1_slice->constr_abs_z = true;
+                ram1_slice->constr_x = 0;
+                ram1_slice->constr_y = 0;
+                ram1_slice->constr_z = 1;
+                ram0_slice->constr_children.push_back(ram1_slice.get());
+
+                ramw_slice->constr_parent = ram0_slice.get();
+                ramw_slice->constr_abs_z = true;
+                ramw_slice->constr_x = 0;
+                ramw_slice->constr_y = 0;
+                ramw_slice->constr_z = 2;
+                ram0_slice->constr_children.push_back(ramw_slice.get());
+
+                new_cells.push_back(std::move(ram0_slice));
+                new_cells.push_back(std::move(ram1_slice));
+                new_cells.push_back(std::move(ramw_slice));
+                packed_cells.insert(ci->name);
+            }
+        }
         flush_cells();
     }
 
@@ -804,6 +914,7 @@ class Ecp5Packer
     {
         pack_io();
         pack_constants();
+        pack_dram();
         pack_carries();
         find_lutff_pairs();
         pack_lut5s();
@@ -811,6 +922,7 @@ class Ecp5Packer
         pack_lut_pairs();
         pack_remaining_luts();
         pack_remaining_ffs();
+        ctx->check();
     }
 
   private:

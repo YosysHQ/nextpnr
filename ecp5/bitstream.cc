@@ -260,6 +260,17 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                                              str_or_default(ci->params, ctx->id("SRMODE"), "LSR_OVER_CE"));
                     cc.tiles[tname].add_enum("LSR1.LSRMUX", str_or_default(ci->params, ctx->id("LSRMUX"), "LSR"));
                 }
+
+                NetInfo *clknet = nullptr;
+                if (ci->ports.find(ctx->id("CLK")) != ci->ports.end() && ci->ports.at(ctx->id("CLK")).net != nullptr)
+                    clknet = ci->ports.at(ctx->id("CLK")).net;
+                if (ctx->getBoundWireNet(ctx->getWireByName(
+                            ctx->id(fmt_str("X" << bel.location.x << "/Y" << bel.location.y << "/CLK0")))) == clknet) {
+                    cc.tiles[tname].add_enum("CLK0.CLKMUX", str_or_default(ci->params, ctx->id("CLKMUX"), "CLK"));
+                } else if (ctx->getBoundWireNet(ctx->getWireByName(ctx->id(
+                                   fmt_str("X" << bel.location.x << "/Y" << bel.location.y << "/CLK1")))) == clknet) {
+                    cc.tiles[tname].add_enum("CLK1.CLKMUX", str_or_default(ci->params, ctx->id("CLKMUX"), "CLK"));
+                }
             }
 
             if (str_or_default(ci->params, ctx->id("MODE"), "LOGIC") == "CCU2") {
@@ -267,6 +278,23 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                                          str_or_default(ci->params, ctx->id("INJECT1_0"), "YES"));
                 cc.tiles[tname].add_enum(slice + ".CCU2.INJECT1_1",
                                          str_or_default(ci->params, ctx->id("INJECT1_1"), "YES"));
+            } else {
+                // Don't interfere with cascade mux wiring
+                cc.tiles[tname].add_enum(slice + ".CCU2.INJECT1_0",
+                                         str_or_default(ci->params, ctx->id("INJECT1_0"), "_NONE_"));
+                cc.tiles[tname].add_enum(slice + ".CCU2.INJECT1_1",
+                                         str_or_default(ci->params, ctx->id("INJECT1_1"), "_NONE_"));
+            }
+
+            if (str_or_default(ci->params, ctx->id("MODE"), "LOGIC") == "DPRAM" && slice == "SLICEA") {
+                cc.tiles[tname].add_enum(slice + ".WREMUX", str_or_default(ci->params, ctx->id("WREMUX"), "WRE"));
+
+                NetInfo *wcknet = nullptr;
+                std::string wckmux = str_or_default(ci->params, ctx->id("WCKMUX"), "WCK");
+                wckmux = (wckmux == "WCK") ? "CLK" : wckmux;
+                if (ci->ports.find(ctx->id("WCK")) != ci->ports.end() && ci->ports.at(ctx->id("WCK")).net != nullptr)
+                    wcknet = ci->ports.at(ctx->id("WCK")).net;
+                cc.tiles[tname].add_enum("CLK1.CLKMUX", wckmux);
             }
 
             // Tie unused inputs high

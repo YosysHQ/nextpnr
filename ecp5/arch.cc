@@ -511,12 +511,12 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
             delay.delay = 193;
             return true;
         }
-
+#if 0 // FIXME
         if (fromPort == id_WCK && (toPort == id_F0 || toPort == id_F1)) {
             delay.delay = 717;
             return true;
         }
-
+#endif
         if ((fromPort == id_A0 && toPort == id_WADO3) || (fromPort == id_A1 && toPort == id_WDO1) ||
             (fromPort == id_B0 && toPort == id_WADO1) || (fromPort == id_B1 && toPort == id_WDO3) ||
             (fromPort == id_C0 && toPort == id_WADO2) || (fromPort == id_C1 && toPort == id_WDO0) ||

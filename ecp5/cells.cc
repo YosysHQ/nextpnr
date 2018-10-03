@@ -185,6 +185,8 @@ void ff_to_slice(Context *ctx, CellInfo *ff, CellInfo *lc, int index, bool drive
     set_param_safe(has_ff, lc, ctx->id("GSR"), str_or_default(ff->params, ctx->id("GSR"), "DISABLED"));
     set_param_safe(has_ff, lc, ctx->id("CEMUX"), str_or_default(ff->params, ctx->id("CEMUX"), "1"));
     set_param_safe(has_ff, lc, ctx->id("LSRMUX"), str_or_default(ff->params, ctx->id("LSRMUX"), "LSR"));
+    set_param_safe(has_ff, lc, ctx->id("CLKMUX"), str_or_default(ff->params, ctx->id("CLKMUX"), "CLK"));
+
     lc->params[ctx->id(reg + "_SD")] = driven_by_lut ? "1" : "0";
     lc->params[ctx->id(reg + "_REGSET")] = str_or_default(ff->params, ctx->id("REGSET"), "RESET");
     replace_port_safe(has_ff, ff, ctx->id("CLK"), lc, ctx->id("CLK"));
@@ -236,6 +238,109 @@ void ccu2c_to_slice(Context *ctx, CellInfo *ccu, CellInfo *lc)
     replace_port(ccu, ctx->id("S1"), lc, ctx->id("F1"));
 
     replace_port(ccu, ctx->id("COUT"), lc, ctx->id("FCO"));
+}
+
+void dram_to_ramw(Context *ctx, CellInfo *ram, CellInfo *lc)
+{
+    lc->params[ctx->id("MODE")] = "RAMW";
+    replace_port(ram, ctx->id("WAD[0]"), lc, ctx->id("D0"));
+    replace_port(ram, ctx->id("WAD[1]"), lc, ctx->id("B0"));
+    replace_port(ram, ctx->id("WAD[2]"), lc, ctx->id("C0"));
+    replace_port(ram, ctx->id("WAD[3]"), lc, ctx->id("A0"));
+
+    replace_port(ram, ctx->id("DI[0]"), lc, ctx->id("C1"));
+    replace_port(ram, ctx->id("DI[1]"), lc, ctx->id("A1"));
+    replace_port(ram, ctx->id("DI[2]"), lc, ctx->id("D1"));
+    replace_port(ram, ctx->id("DI[3]"), lc, ctx->id("B1"));
+}
+
+static unsigned get_dram_init(const Context *ctx, const CellInfo *ram, int bit)
+{
+    const std::string &idata = str_or_default(ram->params, ctx->id("INITVAL"),
+                                              "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
+    NPNR_ASSERT(idata.length() == 64);
+    unsigned value = 0;
+    for (int i = 0; i < 16; i++) {
+        char c = idata.at(63 - (4 * i + bit));
+        if (c == '1')
+            value |= (1 << i);
+        else
+            NPNR_ASSERT(c == '0' || c == 'x');
+    }
+    return value;
+}
+
+void dram_to_ram_slice(Context *ctx, CellInfo *ram, CellInfo *lc, CellInfo *ramw, int index)
+{
+    lc->params[ctx->id("MODE")] = "DPRAM";
+    lc->params[ctx->id("WREMUX")] = str_or_default(ram->params, ctx->id("WREMUX"), "WRE");
+    lc->params[ctx->id("WCKMUX")] = str_or_default(ram->params, ctx->id("WCKMUX"), "WCK");
+
+    unsigned permuted_init0 = 0, permuted_init1 = 0;
+    unsigned init0 = get_dram_init(ctx, ram, index * 2), init1 = get_dram_init(ctx, ram, index * 2 + 1);
+
+    for (int i = 0; i < 16; i++) {
+        int permuted_addr = 0;
+        if (i & 1)
+            permuted_addr |= 8;
+        if (i & 2)
+            permuted_addr |= 2;
+        if (i & 4)
+            permuted_addr |= 4;
+        if (i & 8)
+            permuted_addr |= 1;
+        if (init0 & (1 << permuted_addr))
+            permuted_init0 |= (1 << i);
+        if (init1 & (1 << permuted_addr))
+            permuted_init1 |= (1 << i);
+    }
+
+    lc->params[ctx->id("LUT0_INITVAL")] = std::to_string(permuted_init0);
+    lc->params[ctx->id("LUT1_INITVAL")] = std::to_string(permuted_init1);
+
+    if (ram->ports.count(ctx->id("RAD[0]"))) {
+        connect_port(ctx, ram->ports.at(ctx->id("RAD[0]")).net, lc, ctx->id("D0"));
+        connect_port(ctx, ram->ports.at(ctx->id("RAD[0]")).net, lc, ctx->id("D1"));
+    }
+    if (ram->ports.count(ctx->id("RAD[1]"))) {
+        connect_port(ctx, ram->ports.at(ctx->id("RAD[1]")).net, lc, ctx->id("B0"));
+        connect_port(ctx, ram->ports.at(ctx->id("RAD[1]")).net, lc, ctx->id("B1"));
+    }
+    if (ram->ports.count(ctx->id("RAD[2]"))) {
+        connect_port(ctx, ram->ports.at(ctx->id("RAD[2]")).net, lc, ctx->id("C0"));
+        connect_port(ctx, ram->ports.at(ctx->id("RAD[2]")).net, lc, ctx->id("C1"));
+    }
+    if (ram->ports.count(ctx->id("RAD[3]"))) {
+        connect_port(ctx, ram->ports.at(ctx->id("RAD[3]")).net, lc, ctx->id("A0"));
+        connect_port(ctx, ram->ports.at(ctx->id("RAD[3]")).net, lc, ctx->id("A1"));
+    }
+
+    if (ram->ports.count(ctx->id("WRE")))
+        connect_port(ctx, ram->ports.at(ctx->id("WRE")).net, lc, ctx->id("WRE"));
+    if (ram->ports.count(ctx->id("WCK")))
+        connect_port(ctx, ram->ports.at(ctx->id("WCK")).net, lc, ctx->id("WCK"));
+
+    connect_ports(ctx, ramw, id_WADO0, lc, id_WAD0);
+    connect_ports(ctx, ramw, id_WADO1, lc, id_WAD1);
+    connect_ports(ctx, ramw, id_WADO2, lc, id_WAD2);
+    connect_ports(ctx, ramw, id_WADO3, lc, id_WAD3);
+
+    if (index == 0) {
+        connect_ports(ctx, ramw, id_WDO0, lc, id_WD0);
+        connect_ports(ctx, ramw, id_WDO1, lc, id_WD1);
+
+        replace_port(ram, ctx->id("DO[0]"), lc, id_F0);
+        replace_port(ram, ctx->id("DO[1]"), lc, id_F1);
+
+    } else if (index == 1) {
+        connect_ports(ctx, ramw, id_WDO2, lc, id_WD0);
+        connect_ports(ctx, ramw, id_WDO3, lc, id_WD1);
+
+        replace_port(ram, ctx->id("DO[2]"), lc, id_F0);
+        replace_port(ram, ctx->id("DO[3]"), lc, id_F1);
+    } else {
+        NPNR_ASSERT_FALSE("bad DPRAM index");
+    }
 }
 
 NEXTPNR_NAMESPACE_END

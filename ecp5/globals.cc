@@ -52,7 +52,7 @@ class Ecp5GlobalRouter
   private:
     bool is_clock_port(const PortRef &user)
     {
-        if (user.cell->type == id_TRELLIS_SLICE && user.port == id_CLK)
+        if (user.cell->type == id_TRELLIS_SLICE && (user.port == id_CLK || user.port == id_WCK))
             return true;
         return false;
     }
@@ -302,6 +302,14 @@ class Ecp5GlobalRouter
         ctx->nets[glbnet->name] = std::move(glbnet);
         return glbptr;
     }
+
+    int global_route_priority(const PortRef &load)
+    {
+        if (load.port == id_WCK || load.port == id_WRE)
+            return 90;
+        return 99;
+    }
+
     Context *ctx;
 
   public:
@@ -333,7 +341,13 @@ class Ecp5GlobalRouter
             NetInfo *global = insert_dcc(clock);
             bool routed = route_onto_global(global, glbid);
             NPNR_ASSERT(routed);
-            for (const auto &user : global->users) {
+
+            // WCK must have routing priority
+            auto sorted_users = global->users;
+            std::sort(sorted_users.begin(), sorted_users.end(), [this](const PortRef &a, const PortRef &b) {
+                return global_route_priority(a) < global_route_priority(b);
+            });
+            for (const auto &user : sorted_users) {
                 route_logic_tile_global(global, glbid, user);
             }
         }
