@@ -88,6 +88,7 @@ static void tie_cib_signal(Context *ctx, ChipConfig &cc, WireId wire, bool value
         NPNR_ASSERT(uphill.begin() != uphill.end()); // At least one uphill pip
         auto iter = uphill.begin();
         cibsig = ctx->getPipSrcWire(*iter);
+        basename = ctx->getWireBasename(cibsig).str(ctx);
         ++iter;
         NPNR_ASSERT(!(iter != uphill.end())); // Exactly one uphill pip
     }
@@ -454,7 +455,7 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
 
             // Tie signals as appropriate
             for (auto port : ci->ports) {
-                if (port.second.net == nullptr) {
+                if (port.second.net == nullptr && port.second.type == PORT_IN) {
                     if (port.first == id_CLKA || port.first == id_CLKB || port.first == id_WEA ||
                         port.first == id_WEB || port.first == id_CEA || port.first == id_CEB || port.first == id_OCEA ||
                         port.first == id_OCEB || port.first == id_RSTA || port.first == id_RSTB)

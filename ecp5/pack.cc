@@ -909,10 +909,59 @@ class Ecp5Packer
         }
     }
 
+    void autocreate_empty_port(CellInfo *cell, IdString port)
+    {
+        if (!cell->ports.count(port)) {
+            cell->ports[port].name = port;
+            cell->ports[port].net = nullptr;
+            cell->ports[port].type = PORT_IN;
+        }
+    }
+
+    // Pack EBR
+    void pack_ebr()
+    {
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (ci->type == id_DP16KD) {
+                // Add ports, even if disconnected, to ensure correct tie-offs
+                for (int i = 0; i < 14; i++) {
+                    autocreate_empty_port(ci, ctx->id("ADA" + std::to_string(i)));
+                    autocreate_empty_port(ci, ctx->id("ADB" + std::to_string(i)));
+                }
+                for (int i = 0; i < 18; i++) {
+                    autocreate_empty_port(ci, ctx->id("DIA" + std::to_string(i)));
+                    autocreate_empty_port(ci, ctx->id("DIB" + std::to_string(i)));
+                }
+                for (int i = 0; i < 3; i++) {
+                    autocreate_empty_port(ci, ctx->id("CSA" + std::to_string(i)));
+                    autocreate_empty_port(ci, ctx->id("CSB" + std::to_string(i)));
+                }
+                for (int i = 0; i < 3; i++) {
+                    autocreate_empty_port(ci, ctx->id("CSA" + std::to_string(i)));
+                    autocreate_empty_port(ci, ctx->id("CSB" + std::to_string(i)));
+                }
+
+                autocreate_empty_port(ci, id_CLKA);
+                autocreate_empty_port(ci, id_CEA);
+                autocreate_empty_port(ci, id_OCEA);
+                autocreate_empty_port(ci, id_WEA);
+                autocreate_empty_port(ci, id_RSTA);
+
+                autocreate_empty_port(ci, id_CLKB);
+                autocreate_empty_port(ci, id_CEB);
+                autocreate_empty_port(ci, id_OCEB);
+                autocreate_empty_port(ci, id_WEB);
+                autocreate_empty_port(ci, id_RSTB);
+            }
+        }
+    }
+
   public:
     void pack()
     {
         pack_io();
+        pack_ebr();
         pack_constants();
         pack_dram();
         pack_carries();
