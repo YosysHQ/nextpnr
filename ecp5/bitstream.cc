@@ -62,6 +62,20 @@ static std::vector<bool> int_to_bitvector(int val, int size)
     return bv;
 }
 
+static std::vector<bool> str_to_bitvector(std::string str, int size)
+{
+    std::vector<bool> bv;
+    bv.resize(size, 0);
+    if (str.substr(0, 2) != "0b")
+        log_error("error parsing value '%s', expected 0b prefix\n", str.c_str());
+    for (int i = 0; i < int(str.size()) - 2; i++) {
+        char c = str.at((str.size() - i) - 1);
+        NPNR_ASSERT(c == '0' || c == '1');
+        bv.at(i) = (c == '1');
+    }
+    return bv;
+}
+
 // Tie a wire using the CIB ties
 static void tie_cib_signal(Context *ctx, ChipConfig &cc, WireId wire, bool value)
 {
@@ -167,6 +181,44 @@ static std::string get_pic_tile(Context *ctx, BelId bel)
     } else {
         NPNR_ASSERT_FALSE("bad PIO location");
     }
+}
+
+// Get the list of tiles corresponding to a blockram
+std::vector<std::string> get_bram_tiles(Context *ctx, BelId bel)
+{
+    std::vector<std::string> tiles;
+    Loc loc = ctx->getBelLocation(bel);
+
+    static const std::set<std::string> ebr0 = {"MIB_EBR0", "EBR_CMUX_UR", "EBR_CMUX_LR", "EBR_CMUX_LR_25K"};
+    static const std::set<std::string> ebr8 = {"MIB_EBR8",      "EBR_SPINE_UL1",   "EBR_SPINE_UR1", "EBR_SPINE_LL1",
+                                               "EBR_CMUX_UL",   "EBR_SPINE_LL0",   "EBR_CMUX_LL",   "EBR_SPINE_LR0",
+                                               "EBR_SPINE_LR1", "EBR_CMUX_LL_25K", "EBR_SPINE_UL2", "EBR_SPINE_UL0",
+                                               "EBR_SPINE_UR2", "EBR_SPINE_LL2",   "EBR_SPINE_LR2"};
+
+    switch (loc.z) {
+    case 0:
+        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x, ebr0));
+        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 1, "MIB_EBR1"));
+        break;
+    case 1:
+        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x, "MIB_EBR2"));
+        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 1, "MIB_EBR3"));
+        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 2, "MIB_EBR4"));
+        break;
+    case 2:
+        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x, "MIB_EBR4"));
+        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 1, "MIB_EBR5"));
+        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 2, "MIB_EBR6"));
+        break;
+    case 3:
+        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x, "MIB_EBR6"));
+        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 1, "MIB_EBR7"));
+        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 2, ebr8));
+        break;
+    default:
+        NPNR_ASSERT_FALSE("bad EBR z loc");
+    }
+    return tiles;
 }
 
 void write_bitstream(Context *ctx, std::string base_config_file, std::string text_config_file)
@@ -369,6 +421,52 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             }
         } else if (ci->type == ctx->id("DCCA")) {
             // Nothing to do
+        } else if (ci->type == ctx->id("DP16KD")) {
+            TileGroup tg;
+            Loc loc = ctx->getBelLocation(ci->bel);
+            tg.tiles = get_bram_tiles(ctx, ci->bel);
+            std::string ebr = "EBR" + std::to_string(loc.z);
+
+            tg.config.add_enum(ebr + ".MODE", "DP16KD");
+
+            tg.config.add_word(ebr + ".CSDECODE_A",
+                               str_to_bitvector(str_or_default(ci->params, ctx->id("CSDECODE_A"), "0b000"), 3));
+            tg.config.add_word(ebr + ".CSDECODE_B",
+                               str_to_bitvector(str_or_default(ci->params, ctx->id("CSDECODE_B"), "0b000"), 3));
+
+            tg.config.add_enum(ebr + ".DP16KD.DATA_WIDTH_A", str_or_default(ci->params, ctx->id("DATA_WIDTH_A"), "18"));
+            tg.config.add_enum(ebr + ".DP16KD.DATA_WIDTH_B", str_or_default(ci->params, ctx->id("DATA_WIDTH_B"), "18"));
+
+            tg.config.add_enum(ebr + ".DP16KD.WRITEMODE_A",
+                               str_or_default(ci->params, ctx->id("WRITEMODE_A"), "NORMAL"));
+            tg.config.add_enum(ebr + ".DP16KD.WRITEMODE_B",
+                               str_or_default(ci->params, ctx->id("WRITEMODE_B"), "NORMAL"));
+
+            tg.config.add_enum(ebr + ".REGMODE_A", str_or_default(ci->params, ctx->id("REGMODE_A"), "NOREG"));
+            tg.config.add_enum(ebr + ".REGMODE_B", str_or_default(ci->params, ctx->id("REGMODE_B"), "NOREG"));
+
+            tg.config.add_enum(ebr + ".RESETMODE", str_or_default(ci->params, ctx->id("RESETMODE"), "SYNC"));
+            tg.config.add_enum(ebr + ".ASYNC_RESET_RELEASE",
+                               str_or_default(ci->params, ctx->id("ASYNC_RESET_RELEASE"), "SYNC"));
+            tg.config.add_enum(ebr + ".GSR", str_or_default(ci->params, ctx->id("GSR"), "DISABLED"));
+
+            tg.config.add_word(ebr + ".WID", int_to_bitvector(int_or_default(ci->attrs, ctx->id("WID"), 0), 9));
+
+            // Tie signals as appropriate
+            for (auto port : ci->ports) {
+                if (port.second.net == nullptr) {
+                    if (port.first == id_CLKA || port.first == id_CLKB || port.first == id_WEA ||
+                        port.first == id_WEB || port.first == id_CEA || port.first == id_CEB || port.first == id_OCEA ||
+                        port.first == id_OCEB || port.first == id_RSTA || port.first == id_RSTB)
+                        continue; // these don't seem to have CIB ties
+
+                    // Tie signals low unless explicit MUX param specified
+                    bool value = bool_or_default(ci->params, ctx->id(port.first.str(ctx) + "MUX"), false);
+                    tie_cib_signal(ctx, cc, ctx->getBelPinWire(ci->bel, port.first), value);
+                }
+            }
+
+            cc.tilegroups.push_back(tg);
         } else {
             NPNR_ASSERT_FALSE("unsupported cell type");
         }
