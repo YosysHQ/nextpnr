@@ -274,6 +274,15 @@ std::ostream &operator<<(std::ostream &out, const ChipConfig &cc)
             out << std::endl;
         }
     }
+    for (const auto &tg : cc.tilegroups) {
+        out << ".tile_group";
+        for (const auto &tile : tg.tiles) {
+            out << " " << tile;
+        }
+        out << std::endl;
+        out << tg.config;
+        out << std::endl;
+    }
     return out;
 }
 
@@ -294,6 +303,19 @@ std::istream &operator>>(std::istream &in, ChipConfig &cc)
             TileConfig tc;
             in >> tc;
             cc.tiles[tilename] = tc;
+        } else if (verb == ".tile_group") {
+            TileGroup tg;
+            std::string line;
+            getline(in, line);
+            std::stringstream ss2(line);
+
+            std::string tile;
+            while (ss2) {
+                ss2 >> tile;
+                tg.tiles.push_back(tile);
+            }
+            in >> tg.config;
+            cc.tilegroups.push_back(tg);
         } else {
             log_error("unrecognised config entry %s\n", verb.c_str());
         }

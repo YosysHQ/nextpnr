@@ -20,6 +20,7 @@
 #include "bitstream.h"
 
 #include <fstream>
+#include <regex>
 #include <streambuf>
 
 #include "config.h"
@@ -59,6 +60,30 @@ static std::vector<bool> int_to_bitvector(int val, int size)
         bv.push_back((val & (1 << i)) != 0);
     }
     return bv;
+}
+
+// Tie a wire using the CIB ties
+static void tie_cib_signal(Context *ctx, ChipConfig &cc, WireId wire, bool value)
+{
+    static const std::regex cib_re("J([A-D]|CE|LSR|CLK)[0-7]");
+    WireId cibsig = wire;
+    std::string basename = ctx->getWireBasename(wire).str(ctx);
+
+    while (!std::regex_match(basename, cib_re)) {
+        auto uphill = ctx->getPipsUphill(cibsig);
+        NPNR_ASSERT(uphill.begin() != uphill.end()); // At least one uphill pip
+        auto iter = uphill.begin();
+        cibsig = ctx->getPipSrcWire(*iter);
+        ++iter;
+        NPNR_ASSERT(!(iter != uphill.end())); // Exactly one uphill pip
+    }
+    for (const auto &tile : ctx->getTilesAtLocation(cibsig.location.y, cibsig.location.x)) {
+        if (tile.second.substr(0, 3) == "CIB" || tile.second.substr(0, 4) == "VCIB") {
+            cc.tiles[tile.first].add_enum("CIB." + basename + "MUX", value ? "1" : "0");
+            return;
+        }
+    }
+    NPNR_ASSERT_FALSE("CIB tile not found at location");
 }
 
 // Get the PIO tile corresponding to a PIO bel
