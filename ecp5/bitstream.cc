@@ -92,9 +92,19 @@ static void tie_cib_signal(Context *ctx, ChipConfig &cc, WireId wire, bool value
         ++iter;
         NPNR_ASSERT(!(iter != uphill.end())); // Exactly one uphill pip
     }
+
+    bool out_value = value;
+    if (basename.substr(0, 3) == "JCE")
+        NPNR_ASSERT(value);
+    if (basename.substr(0, 4) == "JCLK" || basename.substr(0, 4) == "JLSR") {
+        NPNR_ASSERT(value);
+        out_value = 0;
+    }
+
     for (const auto &tile : ctx->getTilesAtLocation(cibsig.location.y, cibsig.location.x)) {
         if (tile.second.substr(0, 3) == "CIB" || tile.second.substr(0, 4) == "VCIB") {
-            cc.tiles[tile.first].add_enum("CIB." + basename + "MUX", value ? "1" : "0");
+
+            cc.tiles[tile.first].add_enum("CIB." + basename + "MUX", out_value ? "1" : "0");
             return;
         }
     }
@@ -367,11 +377,8 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             if (str_or_default(ci->params, ctx->id("MODE"), "LOGIC") == "DPRAM" && slice == "SLICEA") {
                 cc.tiles[tname].add_enum(slice + ".WREMUX", str_or_default(ci->params, ctx->id("WREMUX"), "WRE"));
 
-                NetInfo *wcknet = nullptr;
                 std::string wckmux = str_or_default(ci->params, ctx->id("WCKMUX"), "WCK");
                 wckmux = (wckmux == "WCK") ? "CLK" : wckmux;
-                if (ci->ports.find(ctx->id("WCK")) != ci->ports.end() && ci->ports.at(ctx->id("WCK")).net != nullptr)
-                    wcknet = ci->ports.at(ctx->id("WCK")).net;
                 cc.tiles[tname].add_enum("CLK1.CLKMUX", wckmux);
             }
 
@@ -430,10 +437,8 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
 
             tg.config.add_enum(ebr + ".MODE", "DP16KD");
 
-            tg.config.add_word(ebr + ".CSDECODE_A",
-                               str_to_bitvector(str_or_default(ci->params, ctx->id("CSDECODE_A"), "0b000"), 3));
-            tg.config.add_word(ebr + ".CSDECODE_B",
-                               str_to_bitvector(str_or_default(ci->params, ctx->id("CSDECODE_B"), "0b000"), 3));
+            auto csd_a = str_to_bitvector(str_or_default(ci->params, ctx->id("CSDECODE_A"), "0b000"), 3),
+                 csd_b = str_to_bitvector(str_or_default(ci->params, ctx->id("CSDECODE_B"), "0b000"), 3);
 
             tg.config.add_enum(ebr + ".DP16KD.DATA_WIDTH_A", str_or_default(ci->params, ctx->id("DATA_WIDTH_A"), "18"));
             tg.config.add_enum(ebr + ".DP16KD.DATA_WIDTH_B", str_or_default(ci->params, ctx->id("DATA_WIDTH_B"), "18"));
@@ -457,15 +462,59 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             for (auto port : ci->ports) {
                 if (port.second.net == nullptr && port.second.type == PORT_IN) {
                     if (port.first == id_CLKA || port.first == id_CLKB || port.first == id_WEA ||
-                        port.first == id_WEB || port.first == id_CEA || port.first == id_CEB || port.first == id_OCEA ||
-                        port.first == id_OCEB || port.first == id_RSTA || port.first == id_RSTB)
-                        continue; // these don't seem to have CIB ties
-
-                    // Tie signals low unless explicit MUX param specified
-                    bool value = bool_or_default(ci->params, ctx->id(port.first.str(ctx) + "MUX"), false);
-                    tie_cib_signal(ctx, cc, ctx->getBelPinWire(ci->bel, port.first), value);
+                        port.first == id_WEB || port.first == id_RSTA || port.first == id_RSTB) {
+                        // CIB clock or LSR. Tie to "1" (also 0 in prjtrellis db?) in CIB
+                        // If MUX doesn't exist, set to INV to emulate default 0
+                        tie_cib_signal(ctx, cc, ctx->getBelPinWire(ci->bel, port.first), true);
+                        if (!ci->params.count(ctx->id(port.first.str(ctx) + "MUX")))
+                            ci->params[ctx->id(port.first.str(ctx) + "MUX")] = "INV";
+                    } else if (port.first == id_CEA || port.first == id_CEB || port.first == id_OCEA ||
+                               port.first == id_OCEB) {
+                        // CIB CE. Tie to "1" in CIB
+                        // If MUX doesn't exist, set to passthru to emulate default 1
+                        tie_cib_signal(ctx, cc, ctx->getBelPinWire(ci->bel, port.first), true);
+                        if (!ci->params.count(ctx->id(port.first.str(ctx) + "MUX")))
+                            ci->params[ctx->id(port.first.str(ctx) + "MUX")] = port.first.str(ctx);
+                    } else if (port.first == id_CSA0 || port.first == id_CSA1 || port.first == id_CSA2 ||
+                               port.first == id_CSB0 || port.first == id_CSB1 || port.first == id_CSB2) {
+                        // CIB CE. Tie to "1" in CIB.
+                        // If MUX doesn't exist, set to INV to emulate default 0
+                        tie_cib_signal(ctx, cc, ctx->getBelPinWire(ci->bel, port.first), true);
+                        if (!ci->params.count(ctx->id(port.first.str(ctx) + "MUX")))
+                            ci->params[ctx->id(port.first.str(ctx) + "MUX")] = "INV";
+                    } else {
+                        // CIB ABCD signal
+                        // Tie signals low unless explicit MUX param specified
+                        bool value = bool_or_default(ci->params, ctx->id(port.first.str(ctx) + "MUX"), false);
+                        tie_cib_signal(ctx, cc, ctx->getBelPinWire(ci->bel, port.first), value);
+                    }
                 }
             }
+
+            // Invert CSDECODE bits to emulate inversion muxes on CSA/CSB signals
+            for (auto port : {std::make_pair("CSA", std::ref(csd_a)), std::make_pair("CSB", std::ref(csd_b))}) {
+                for (int bit = 0; bit < 3; bit++) {
+                    std::string sig = port.first + std::to_string(bit);
+                    if (str_or_default(ci->params, ctx->id(sig + "MUX"), sig) == "INV")
+                        port.second.at(bit) = !port.second.at(bit);
+                }
+            }
+
+            tg.config.add_enum(ebr + ".CLKAMUX", str_or_default(ci->params, ctx->id("CLKAMUX"), "CLKA"));
+            tg.config.add_enum(ebr + ".CLKBMUX", str_or_default(ci->params, ctx->id("CLKBMUX"), "CLKB"));
+
+            tg.config.add_enum(ebr + ".RSTAMUX", str_or_default(ci->params, ctx->id("RSTAMUX"), "RSTA"));
+            tg.config.add_enum(ebr + ".RSTBMUX", str_or_default(ci->params, ctx->id("RSTBMUX"), "RSTB"));
+            tg.config.add_enum(ebr + ".WEAMUX", str_or_default(ci->params, ctx->id("WEAMUX"), "WEA"));
+            tg.config.add_enum(ebr + ".WEBMUX", str_or_default(ci->params, ctx->id("WEBMUX"), "WEB"));
+
+            tg.config.add_enum(ebr + ".CEAMUX", str_or_default(ci->params, ctx->id("CEAMUX"), "CEA"));
+            tg.config.add_enum(ebr + ".CEBMUX", str_or_default(ci->params, ctx->id("CEBMUX"), "CEB"));
+            tg.config.add_enum(ebr + ".OCEAMUX", str_or_default(ci->params, ctx->id("OCEAMUX"), "OCEA"));
+            tg.config.add_enum(ebr + ".OCEBMUX", str_or_default(ci->params, ctx->id("OCEBMUX"), "OCEB"));
+
+            tg.config.add_word(ebr + ".CSDECODE_A", csd_a);
+            tg.config.add_word(ebr + ".CSDECODE_B", csd_b);
 
             cc.tilegroups.push_back(tg);
         } else {
