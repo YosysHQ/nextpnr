@@ -20,6 +20,7 @@
 #include "bitstream.h"
 
 #include <fstream>
+#include <iomanip>
 #include <regex>
 #include <streambuf>
 
@@ -109,6 +110,43 @@ static void tie_cib_signal(Context *ctx, ChipConfig &cc, WireId wire, bool value
         }
     }
     NPNR_ASSERT_FALSE("CIB tile not found at location");
+}
+
+inline int chtohex(char c)
+{
+    static const std::string hex = "0123456789ABCDEF";
+    return hex.find(c);
+}
+
+std::vector<bool> parse_init_str(const std::string &str, int length)
+{
+    // Parse a string that may be binary or hex
+    std::vector<bool> result;
+    result.resize(length, false);
+    if (str.substr(0, 2) == "0x") {
+        // Lattice style hex string
+        if (int(str.length()) > (2 + ((length + 3) / 4)))
+            log_error("hex string value too long, expected up to %d chars and found %d.\n", (2 + ((length + 3) / 4)),
+                      int(str.length()));
+        for (int i = 0; i < int(str.length()) - 2; i++) {
+            char c = str.at((str.size() - i) - 1);
+            int nibble = chtohex(c);
+            result.at(i * 4) = nibble & 0x1;
+            result.at(i * 4 + 1) = nibble & 0x2;
+            result.at(i * 4 + 2) = nibble & 0x4;
+            result.at(i * 4 + 3) = nibble & 0x8;
+        }
+    } else {
+        // Yosys style binary string
+        if (int(str.length()) > length)
+            log_error("hex string value too long, expected up to %d bits and found %d.\n", length, int(str.length()));
+        for (int i = 0; i < int(str.length()); i++) {
+            char c = str.at((str.size() - i) - 1);
+            NPNR_ASSERT(c == '0' || c == '1' || c == 'X');
+            result.at(i) = (c == '1');
+        }
+    }
+    return result;
 }
 
 // Get the PIO tile corresponding to a PIO bel
@@ -516,6 +554,25 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             tg.config.add_word(ebr + ".CSDECODE_A", csd_a);
             tg.config.add_word(ebr + ".CSDECODE_B", csd_b);
 
+            std::vector<uint16_t> init_data;
+            init_data.resize(2048, 0x0);
+            // INIT_00 .. INIT_3F
+            for (int i = 0; i <= 0x3F; i++) {
+                IdString param = ctx->id("INIT_" +
+                                         fmt_str(std::hex << std::uppercase << std::setw(2) << std::setfill('0') << i));
+                auto value = parse_init_str(str_or_default(ci->params, param, "0"), 320);
+                for (int j = 0; j < 16; j++) {
+                    // INIT parameter consists of 16 18-bit words with 2-bit padding
+                    int ofs = 20 * j;
+                    for (int k = 0; k < 18; k++) {
+                        if (init_data.at(ofs + k))
+                            init_data.at(i * 32 + j * 2 + (k / 9)) |= (1 << (k % 9));
+                    }
+                }
+            }
+            int wid = int_or_default(ci->attrs, ctx->id("WID"), 0);
+            NPNR_ASSERT(!cc.bram_data.count(wid));
+            cc.bram_data[wid] = init_data;
             cc.tilegroups.push_back(tg);
         } else {
             NPNR_ASSERT_FALSE("unsupported cell type");
