@@ -142,11 +142,20 @@ std::vector<bool> parse_init_str(const std::string &str, int length)
             log_error("hex string value too long, expected up to %d bits and found %d.\n", length, int(str.length()));
         for (int i = 0; i < int(str.length()); i++) {
             char c = str.at((str.size() - i) - 1);
-            NPNR_ASSERT(c == '0' || c == '1' || c == 'X');
+            NPNR_ASSERT(c == '0' || c == '1' || c == 'X' || c == 'x');
             result.at(i) = (c == '1');
         }
     }
     return result;
+}
+
+inline uint16_t bit_reverse(uint16_t x, int size)
+{
+    uint16_t y = 0;
+    for (int i = 0; i < size; i++)
+        if (x & (1 << i))
+            y |= (1 << ((size - 1) - i));
+    return y;
 }
 
 // Get the PIO tile corresponding to a PIO bel
@@ -494,7 +503,8 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                                str_or_default(ci->params, ctx->id("ASYNC_RESET_RELEASE"), "SYNC"));
             tg.config.add_enum(ebr + ".GSR", str_or_default(ci->params, ctx->id("GSR"), "DISABLED"));
 
-            tg.config.add_word(ebr + ".WID", int_to_bitvector(int_or_default(ci->attrs, ctx->id("WID"), 0), 9));
+            tg.config.add_word(ebr + ".WID",
+                               int_to_bitvector(bit_reverse(int_or_default(ci->attrs, ctx->id("WID"), 0), 9), 9));
 
             // Tie signals as appropriate
             for (auto port : ci->ports) {
@@ -558,14 +568,14 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             init_data.resize(2048, 0x0);
             // INIT_00 .. INIT_3F
             for (int i = 0; i <= 0x3F; i++) {
-                IdString param = ctx->id("INIT_" +
+                IdString param = ctx->id("INITVAL_" +
                                          fmt_str(std::hex << std::uppercase << std::setw(2) << std::setfill('0') << i));
                 auto value = parse_init_str(str_or_default(ci->params, param, "0"), 320);
                 for (int j = 0; j < 16; j++) {
                     // INIT parameter consists of 16 18-bit words with 2-bit padding
                     int ofs = 20 * j;
                     for (int k = 0; k < 18; k++) {
-                        if (init_data.at(ofs + k))
+                        if (value.at(ofs + k))
                             init_data.at(i * 32 + j * 2 + (k / 9)) |= (1 << (k % 9));
                     }
                 }
