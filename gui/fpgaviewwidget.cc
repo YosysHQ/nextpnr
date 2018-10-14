@@ -276,7 +276,7 @@ QMatrix4x4 FPGAViewWidget::getProjection(void)
     QMatrix4x4 matrix;
 
     const float aspect = float(width()) / float(height());
-    matrix.perspective(90, aspect, zoomNear_, zoomFar_);
+    matrix.perspective(90, aspect, zoomNear_, zoomFar_ + 0.1f);
     return matrix;
 }
 
@@ -756,7 +756,7 @@ void FPGAViewWidget::zoomIn() { zoom(10); }
 
 void FPGAViewWidget::zoomOut() { zoom(-10); }
 
-void FPGAViewWidget::zoomToBB(const PickQuadTree::BoundingBox &bb, float margin)
+void FPGAViewWidget::zoomToBB(const PickQuadTree::BoundingBox &bb, float margin, bool clamp)
 {
     if (fabs(bb.w()) < 0.00005 && fabs(bb.h()) < 0.00005)
         return;
@@ -769,14 +769,15 @@ void FPGAViewWidget::zoomToBB(const PickQuadTree::BoundingBox &bb, float margin)
     float distance_w = bb.w() / 2 + margin;
     float distance_h = bb.h() / 2 + margin;
     zoom_ = std::max(distance_w, distance_h);
-    clampZoom();
+    if (clamp)
+        clampZoom();
 }
 
 void FPGAViewWidget::zoomSelected()
 {
     {
         QMutexLocker lock(&rendererDataLock_);
-        zoomToBB(rendererData_->bbSelected, 0.5f);
+        zoomToBB(rendererData_->bbSelected, 0.5f, true);
     }
     update();
 }
@@ -785,7 +786,8 @@ void FPGAViewWidget::zoomOutbound()
 {
     {
         QMutexLocker lock(&rendererDataLock_);
-        zoomToBB(rendererData_->bbGlobal, 1.0f);
+        zoomToBB(rendererData_->bbGlobal, 1.0f, false);
+        zoomFar_ = zoom_;
     }
 }
 
