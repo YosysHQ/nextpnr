@@ -77,11 +77,11 @@ Arch::Arch(ArchArgs args) : args(args)
         log_error("Unsupported ECP5 chip type.\n");
     }
 #else
-    if (args.type == ArchArgs::LFE5U_25F) {
+    if (args.type == ArchArgs::LFE5U_25F || args.type == ArchArgs::LFE5UM_25F || args.type == ArchArgs::LFE5UM5G_25F) {
         chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_25k));
-    } else if (args.type == ArchArgs::LFE5U_45F) {
+    } else if (args.type == ArchArgs::LFE5U_45F || args.type == ArchArgs::LFE5UM_45F || args.type == ArchArgs::LFE5UM5G_45F) {
         chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_45k));
-    } else if (args.type == ArchArgs::LFE5U_85F) {
+    } else if (args.type == ArchArgs::LFE5U_85F || args.type == ArchArgs::LFE5UM_85F || args.type == ArchArgs::LFE5UM5G_85F) {
         chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_85k));
     } else {
         log_error("Unsupported ECP5 chip type.\n");
@@ -111,6 +111,18 @@ std::string Arch::getChipName() const
         return "LFE5U-45F";
     } else if (args.type == ArchArgs::LFE5U_85F) {
         return "LFE5U-85F";
+    } else if (args.type == ArchArgs::LFE5UM_25F) {
+        return "LFE5UM-25F";
+    } else if (args.type == ArchArgs::LFE5UM_45F) {
+        return "LFE5UM-45F";
+    } else if (args.type == ArchArgs::LFE5UM_85F) {
+        return "LFE5UM-85F";
+    } else if (args.type == ArchArgs::LFE5UM5G_25F) {
+        return "LFE5UM5G-25F";
+    } else if (args.type == ArchArgs::LFE5UM5G_45F) {
+        return "LFE5UM5G-45F";
+    } else if (args.type == ArchArgs::LFE5UM5G_85F) {
+        return "LFE5UM5G-85F";
     } else {
         log_error("Unknown chip\n");
     }
@@ -126,6 +138,18 @@ IdString Arch::archArgsToId(ArchArgs args) const
         return id("lfe5u_45f");
     if (args.type == ArchArgs::LFE5U_85F)
         return id("lfe5u_85f");
+    if (args.type == ArchArgs::LFE5UM_25F)
+        return id("lfe5um_25f");
+    if (args.type == ArchArgs::LFE5UM_45F)
+        return id("lfe5um_45f");
+    if (args.type == ArchArgs::LFE5UM_85F)
+        return id("lfe5um_85f");
+    if (args.type == ArchArgs::LFE5UM5G_25F)
+        return id("lfe5um5g_25f");
+    if (args.type == ArchArgs::LFE5UM5G_45F)
+        return id("lfe5um5g_45f");
+    if (args.type == ArchArgs::LFE5UM5G_85F)
+        return id("lfe5um5g_85f");
     return IdString();
 }
 

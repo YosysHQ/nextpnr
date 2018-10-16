@@ -279,6 +279,37 @@ std::vector<std::string> get_bram_tiles(Context *ctx, BelId bel)
     return tiles;
 }
 
+void fix_tile_names(Context *ctx, ChipConfig &cc) {
+    // Remove the V prefix/suffix on certain tiles if device is a SERDES variant
+    if (ctx->args.type == ArchArgs::LFE5UM_25F || ctx->args.type == ArchArgs::LFE5UM_45F || ctx->args.type == ArchArgs::LFE5UM_85F ||
+    ctx->args.type == ArchArgs::LFE5UM5G_25F || ctx->args.type == ArchArgs::LFE5UM5G_45F || ctx->args.type == ArchArgs::LFE5UM5G_85F) {
+        std::map<std::string, std::string> tiletype_xform;
+        for (const auto &tile : cc.tiles) {
+            std::string newname = tile.first;
+            auto vcib = tile.first.find("VCIB");
+            if (vcib != std::string::npos) {
+                // Remove the V
+                newname.erase(vcib);
+                tiletype_xform[tile.first] = newname;
+            } else if (tile.first.back() == 'V') {
+                // BMID_0V or BMID_2V
+                if (tile.first.at(tile.first.size() - 2) == '0') {
+                    newname.at(tile.first.size() - 1) = 'H';
+                    tiletype_xform[tile.first] = newname;
+                } else if (tile.first.at(tile.first.size() - 2) == '2') {
+                    newname.pop_back();
+                    tiletype_xform[tile.first] = newname;
+                }
+            }
+        }
+        // Apply the name changes
+        for (auto xform : tiletype_xform) {
+            cc.tiles[xform.second] = cc.tiles.at(xform.first);
+            cc.tiles.erase(xform.first);
+        }
+    }
+}
+
 void write_bitstream(Context *ctx, std::string base_config_file, std::string text_config_file)
 {
     ChipConfig cc;
@@ -588,7 +619,8 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             NPNR_ASSERT_FALSE("unsupported cell type");
         }
     }
-
+    // Fixup tile names
+    fix_tile_names(ctx, cc);
     // Configure chip
     if (!text_config_file.empty()) {
         std::ofstream out_config(text_config_file);
