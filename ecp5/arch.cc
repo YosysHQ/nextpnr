@@ -19,6 +19,7 @@
  */
 
 #include <algorithm>
+#include <boost/range/adaptor/reversed.hpp>
 #include <cmath>
 #include <cstring>
 #include "gfx.h"
@@ -531,6 +532,19 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
             return true;
         }
         return false;
+    } else if (cell->type == id_DP16KD) {
+        if (fromPort == id_CLKA) {
+            if (toPort.str(this).substr(0, 3) == "DOA") {
+                delay.delay = 4260;
+                return true;
+            }
+        } else if (fromPort == id_CLKB) {
+            if (toPort.str(this).substr(0, 3) == "DOB") {
+                delay.delay = 4280;
+                return true;
+            }
+        }
+        return false;
     } else {
         return false;
     }
@@ -583,8 +597,21 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, Id
             return TMG_COMB_OUTPUT;
         return TMG_IGNORE;
     } else if (cell->type == id_DP16KD) {
-        // FIXME
-        return TMG_IGNORE;
+        if (port == id_CLKA || port == id_CLKB)
+            return TMG_CLOCK_INPUT;
+        std::string port_name = port.str(this);
+        for (auto c : boost::adaptors::reverse(port_name)) {
+            if (std::isdigit(c))
+                continue;
+            if (c == 'A')
+                clockPort = id_CLKA;
+            else if (c == 'B')
+                clockPort = id_CLKB;
+            else
+                NPNR_ASSERT_FALSE_STR("bad ram port");
+            return (cell->ports.at(port).type == PORT_OUT) ? TMG_REGISTER_OUTPUT : TMG_REGISTER_INPUT;
+        }
+        NPNR_ASSERT_FALSE_STR("no timing type for RAM port '" + port.str(this) + "'");
     } else {
         NPNR_ASSERT_FALSE_STR("no timing data for cell type '" + cell->type.str(this) + "'");
     }
