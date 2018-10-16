@@ -279,10 +279,12 @@ std::vector<std::string> get_bram_tiles(Context *ctx, BelId bel)
     return tiles;
 }
 
-void fix_tile_names(Context *ctx, ChipConfig &cc) {
+void fix_tile_names(Context *ctx, ChipConfig &cc)
+{
     // Remove the V prefix/suffix on certain tiles if device is a SERDES variant
-    if (ctx->args.type == ArchArgs::LFE5UM_25F || ctx->args.type == ArchArgs::LFE5UM_45F || ctx->args.type == ArchArgs::LFE5UM_85F ||
-    ctx->args.type == ArchArgs::LFE5UM5G_25F || ctx->args.type == ArchArgs::LFE5UM5G_45F || ctx->args.type == ArchArgs::LFE5UM5G_85F) {
+    if (ctx->args.type == ArchArgs::LFE5UM_25F || ctx->args.type == ArchArgs::LFE5UM_45F ||
+        ctx->args.type == ArchArgs::LFE5UM_85F || ctx->args.type == ArchArgs::LFE5UM5G_25F ||
+        ctx->args.type == ArchArgs::LFE5UM5G_45F || ctx->args.type == ArchArgs::LFE5UM5G_85F) {
         std::map<std::string, std::string> tiletype_xform;
         for (const auto &tile : cc.tiles) {
             std::string newname = tile.first;
