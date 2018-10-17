@@ -115,9 +115,11 @@ void FPGAViewWidget::initializeGL()
         QMutexLocker locker(&rendererDataLock_);
         // Render grid.
         auto grid = LineShaderData();
-        for (float i = -100.0f; i < 100.0f; i += 1.0f) {
-            PolyLine(-100.0f, i, 100.0f, i).build(grid);
-            PolyLine(i, -100.0f, i, 100.0f).build(grid);
+        for (float i = 0.0f; i < 1.0f * ctx_->getGridDimX()+1; i += 1.0f) {
+            PolyLine(i, 0.0f, i, 1.0f * ctx_->getGridDimY()).build(grid);
+        }
+        for (float i = 0.0f; i < 1.0f * ctx_->getGridDimY()+1; i += 1.0f) {
+            PolyLine(0.0f, i, 1.0f * ctx_->getGridDimX(), i).build(grid);
         }
         grid.last_render = 1;
         lineShader_.update_vbos(GraphicElement::STYLE_GRID, grid);
@@ -851,7 +853,8 @@ void FPGAViewWidget::zoomSelected()
 {
     {
         QMutexLocker lock(&rendererDataLock_);
-        zoomToBB(rendererData_->bbSelected, 0.5f, true);
+        if (rendererData_->bbSelected.x0() != std::numeric_limits<float>::infinity())
+            zoomToBB(rendererData_->bbSelected, 0.5f, true);
     }
     update();
 }
