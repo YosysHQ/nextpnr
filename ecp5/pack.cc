@@ -844,6 +844,19 @@ class Ecp5Packer
                            ((!constval && str_or_default(uc->params, ctx->id("LSRMUX"), "LSR") == "LSR") ||
                             (constval && str_or_default(uc->params, ctx->id("LSRMUX"), "LSR") == "INV"))) {
                     uc->ports[user.port].net = nullptr;
+                } else if (uc->type == id_DP16KD) {
+                    if (user.port == id_CLKA || user.port == id_CLKB || user.port == id_RSTA || user.port == id_RSTB ||
+                        user.port == id_WEA || user.port == id_WEB || user.port == id_CEA || user.port == id_CEB ||
+                        user.port == id_OCEA || user.port == id_OCEB || user.port == id_CSA0 || user.port == id_CSA1 ||
+                        user.port == id_CSA2 || user.port == id_CSB0 || user.port == id_CSB1 || user.port == id_CSB2) {
+                        // Connect to CIB CLK, LSR or CE. Default state is 1
+                        uc->params[ctx->id(user.port.str(ctx) + "MUX")] = constval ? user.port.str(ctx) : "INV";
+                    } else {
+                        // Connected to CIB ABCD. Default state is bitstream configurable
+                        uc->params[ctx->id(user.port.str(ctx) + "MUX")] = constval ? "1" : "0";
+                    }
+                    uc->ports[user.port].net = nullptr;
+
                 } else {
                     uc->ports[user.port].net = constnet;
                     constnet->users.push_back(user);
@@ -909,10 +922,63 @@ class Ecp5Packer
         }
     }
 
+    void autocreate_empty_port(CellInfo *cell, IdString port)
+    {
+        if (!cell->ports.count(port)) {
+            cell->ports[port].name = port;
+            cell->ports[port].net = nullptr;
+            cell->ports[port].type = PORT_IN;
+        }
+    }
+
+    // Pack EBR
+    void pack_ebr()
+    {
+        // Autoincrement WID (starting from 3 seems to match vendor behaviour?)
+        int wid = 3;
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (ci->type == id_DP16KD) {
+                // Add ports, even if disconnected, to ensure correct tie-offs
+                for (int i = 0; i < 14; i++) {
+                    autocreate_empty_port(ci, ctx->id("ADA" + std::to_string(i)));
+                    autocreate_empty_port(ci, ctx->id("ADB" + std::to_string(i)));
+                }
+                for (int i = 0; i < 18; i++) {
+                    autocreate_empty_port(ci, ctx->id("DIA" + std::to_string(i)));
+                    autocreate_empty_port(ci, ctx->id("DIB" + std::to_string(i)));
+                }
+                for (int i = 0; i < 3; i++) {
+                    autocreate_empty_port(ci, ctx->id("CSA" + std::to_string(i)));
+                    autocreate_empty_port(ci, ctx->id("CSB" + std::to_string(i)));
+                }
+                for (int i = 0; i < 3; i++) {
+                    autocreate_empty_port(ci, ctx->id("CSA" + std::to_string(i)));
+                    autocreate_empty_port(ci, ctx->id("CSB" + std::to_string(i)));
+                }
+
+                autocreate_empty_port(ci, id_CLKA);
+                autocreate_empty_port(ci, id_CEA);
+                autocreate_empty_port(ci, id_OCEA);
+                autocreate_empty_port(ci, id_WEA);
+                autocreate_empty_port(ci, id_RSTA);
+
+                autocreate_empty_port(ci, id_CLKB);
+                autocreate_empty_port(ci, id_CEB);
+                autocreate_empty_port(ci, id_OCEB);
+                autocreate_empty_port(ci, id_WEB);
+                autocreate_empty_port(ci, id_RSTB);
+
+                ci->attrs[ctx->id("WID")] = std::to_string(wid++);
+            }
+        }
+    }
+
   public:
     void pack()
     {
         pack_io();
+        pack_ebr();
         pack_constants();
         pack_dram();
         pack_carries();

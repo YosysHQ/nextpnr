@@ -19,6 +19,7 @@
 
 #include "config.h"
 #include <boost/range/adaptor/reversed.hpp>
+#include <iomanip>
 #include "log.h"
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -274,6 +275,28 @@ std::ostream &operator<<(std::ostream &out, const ChipConfig &cc)
             out << std::endl;
         }
     }
+    for (const auto &bram : cc.bram_data) {
+        out << ".bram_init " << bram.first << std::endl;
+        std::ios_base::fmtflags f(out.flags());
+        for (size_t i = 0; i < bram.second.size(); i++) {
+            out << std::setw(3) << std::setfill('0') << std::hex << bram.second.at(i);
+            if (i % 8 == 7)
+                out << std::endl;
+            else
+                out << " ";
+        }
+        out.flags(f);
+        out << std::endl;
+    }
+    for (const auto &tg : cc.tilegroups) {
+        out << ".tile_group";
+        for (const auto &tile : tg.tiles) {
+            out << " " << tile;
+        }
+        out << std::endl;
+        out << tg.config;
+        out << std::endl;
+    }
     return out;
 }
 
@@ -294,6 +317,29 @@ std::istream &operator>>(std::istream &in, ChipConfig &cc)
             TileConfig tc;
             in >> tc;
             cc.tiles[tilename] = tc;
+        } else if (verb == ".tile_group") {
+            TileGroup tg;
+            std::string line;
+            getline(in, line);
+            std::stringstream ss2(line);
+
+            std::string tile;
+            while (ss2) {
+                ss2 >> tile;
+                tg.tiles.push_back(tile);
+            }
+            in >> tg.config;
+            cc.tilegroups.push_back(tg);
+        } else if (verb == ".bram_init") {
+            uint16_t bram;
+            in >> bram;
+            std::ios_base::fmtflags f(in.flags());
+            while (!skip_check_eor(in)) {
+                uint16_t value;
+                in >> std::hex >> value;
+                cc.bram_data[bram].push_back(value);
+            }
+            in.flags(f);
         } else {
             log_error("unrecognised config entry %s\n", verb.c_str());
         }

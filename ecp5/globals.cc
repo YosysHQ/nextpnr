@@ -24,7 +24,7 @@
 #include "cells.h"
 #include "log.h"
 #include "nextpnr.h"
-
+#include "place_common.h"
 #define fmt_str(x) (static_cast<const std::ostringstream &>(std::ostringstream() << x).str())
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -260,15 +260,24 @@ class Ecp5GlobalRouter
     // Attempt to place a DCC
     void place_dcc(CellInfo *dcc)
     {
+        BelId best_bel;
+        wirelen_t best_wirelen = 9999999;
         for (auto bel : ctx->getBels()) {
             if (ctx->getBelType(bel) == id_DCCA && ctx->checkBelAvail(bel)) {
                 if (ctx->isValidBelForCell(dcc, bel)) {
                     ctx->bindBel(bel, dcc, STRENGTH_LOCKED);
-                    return;
+                    float tns;
+                    wirelen_t wirelen = get_net_metric(ctx, dcc->ports.at(id_CLKI).net, MetricType::WIRELENGTH, tns);
+                    if (wirelen < best_wirelen) {
+                        best_bel = bel;
+                        best_wirelen = wirelen;
+                    }
+                    ctx->unbindBel(bel);
                 }
             }
         }
-        NPNR_ASSERT_FALSE("failed to place dcca");
+        NPNR_ASSERT(best_bel != BelId());
+        ctx->bindBel(best_bel, dcc, STRENGTH_LOCKED);
     }
 
     // Insert a DCC into a net to promote it to a global

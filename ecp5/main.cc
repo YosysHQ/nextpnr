@@ -50,6 +50,12 @@ po::options_description ECP5CommandHandler::getArchOptions()
     specific.add_options()("25k", "set device type to LFE5U-25F");
     specific.add_options()("45k", "set device type to LFE5U-45F");
     specific.add_options()("85k", "set device type to LFE5U-85F");
+    specific.add_options()("um-25k", "set device type to LFE5UM-25F");
+    specific.add_options()("um-45k", "set device type to LFE5UM-45F");
+    specific.add_options()("um-85k", "set device type to LFE5UM-85F");
+    specific.add_options()("um5g-25k", "set device type to LFE5UM5G-25F");
+    specific.add_options()("um5g-45k", "set device type to LFE5UM5G-45F");
+    specific.add_options()("um5g-85k", "set device type to LFE5UM5G-85F");
     specific.add_options()("package", po::value<std::string>(), "select device package (defaults to CABGA381)");
     specific.add_options()("basecfg", po::value<std::string>(), "base chip configuration in Trellis text format");
     specific.add_options()("textcfg", po::value<std::string>(), "textual configuration in Trellis format to write");
@@ -84,6 +90,18 @@ std::unique_ptr<Context> ECP5CommandHandler::createContext()
         chipArgs.type = ArchArgs::LFE5U_45F;
     if (vm.count("85k"))
         chipArgs.type = ArchArgs::LFE5U_85F;
+    if (vm.count("um-25k"))
+        chipArgs.type = ArchArgs::LFE5UM_25F;
+    if (vm.count("um-45k"))
+        chipArgs.type = ArchArgs::LFE5UM_45F;
+    if (vm.count("um-85k"))
+        chipArgs.type = ArchArgs::LFE5UM_85F;
+    if (vm.count("um5g-25k"))
+        chipArgs.type = ArchArgs::LFE5UM5G_25F;
+    if (vm.count("um5g-45k"))
+        chipArgs.type = ArchArgs::LFE5UM5G_45F;
+    if (vm.count("um5g-85k"))
+        chipArgs.type = ArchArgs::LFE5UM5G_85F;
     if (vm.count("package"))
         chipArgs.package = vm["package"].as<std::string>();
     else

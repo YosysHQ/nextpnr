@@ -19,6 +19,7 @@
  */
 
 #include <algorithm>
+#include <boost/range/adaptor/reversed.hpp>
 #include <cmath>
 #include <cstring>
 #include "gfx.h"
@@ -76,11 +77,13 @@ Arch::Arch(ArchArgs args) : args(args)
         log_error("Unsupported ECP5 chip type.\n");
     }
 #else
-    if (args.type == ArchArgs::LFE5U_25F) {
+    if (args.type == ArchArgs::LFE5U_25F || args.type == ArchArgs::LFE5UM_25F || args.type == ArchArgs::LFE5UM5G_25F) {
         chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_25k));
-    } else if (args.type == ArchArgs::LFE5U_45F) {
+    } else if (args.type == ArchArgs::LFE5U_45F || args.type == ArchArgs::LFE5UM_45F ||
+               args.type == ArchArgs::LFE5UM5G_45F) {
         chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_45k));
-    } else if (args.type == ArchArgs::LFE5U_85F) {
+    } else if (args.type == ArchArgs::LFE5U_85F || args.type == ArchArgs::LFE5UM_85F ||
+               args.type == ArchArgs::LFE5UM5G_85F) {
         chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_85k));
     } else {
         log_error("Unsupported ECP5 chip type.\n");
@@ -110,6 +113,18 @@ std::string Arch::getChipName() const
         return "LFE5U-45F";
     } else if (args.type == ArchArgs::LFE5U_85F) {
         return "LFE5U-85F";
+    } else if (args.type == ArchArgs::LFE5UM_25F) {
+        return "LFE5UM-25F";
+    } else if (args.type == ArchArgs::LFE5UM_45F) {
+        return "LFE5UM-45F";
+    } else if (args.type == ArchArgs::LFE5UM_85F) {
+        return "LFE5UM-85F";
+    } else if (args.type == ArchArgs::LFE5UM5G_25F) {
+        return "LFE5UM5G-25F";
+    } else if (args.type == ArchArgs::LFE5UM5G_45F) {
+        return "LFE5UM5G-45F";
+    } else if (args.type == ArchArgs::LFE5UM5G_85F) {
+        return "LFE5UM5G-85F";
     } else {
         log_error("Unknown chip\n");
     }
@@ -125,6 +140,18 @@ IdString Arch::archArgsToId(ArchArgs args) const
         return id("lfe5u_45f");
     if (args.type == ArchArgs::LFE5U_85F)
         return id("lfe5u_85f");
+    if (args.type == ArchArgs::LFE5UM_25F)
+        return id("lfe5um_25f");
+    if (args.type == ArchArgs::LFE5UM_45F)
+        return id("lfe5um_45f");
+    if (args.type == ArchArgs::LFE5UM_85F)
+        return id("lfe5um_85f");
+    if (args.type == ArchArgs::LFE5UM5G_25F)
+        return id("lfe5um5g_25f");
+    if (args.type == ArchArgs::LFE5UM5G_45F)
+        return id("lfe5um5g_45f");
+    if (args.type == ArchArgs::LFE5UM5G_85F)
+        return id("lfe5um5g_85f");
     return IdString();
 }
 
@@ -531,6 +558,19 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
             return true;
         }
         return false;
+    } else if (cell->type == id_DP16KD) {
+        if (fromPort == id_CLKA) {
+            if (toPort.str(this).substr(0, 3) == "DOA") {
+                delay.delay = 4260;
+                return true;
+            }
+        } else if (fromPort == id_CLKB) {
+            if (toPort.str(this).substr(0, 3) == "DOB") {
+                delay.delay = 4280;
+                return true;
+            }
+        }
+        return false;
     } else {
         return false;
     }
@@ -582,6 +622,22 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, Id
         if (port == id_CLKO)
             return TMG_COMB_OUTPUT;
         return TMG_IGNORE;
+    } else if (cell->type == id_DP16KD) {
+        if (port == id_CLKA || port == id_CLKB)
+            return TMG_CLOCK_INPUT;
+        std::string port_name = port.str(this);
+        for (auto c : boost::adaptors::reverse(port_name)) {
+            if (std::isdigit(c))
+                continue;
+            if (c == 'A')
+                clockPort = id_CLKA;
+            else if (c == 'B')
+                clockPort = id_CLKB;
+            else
+                NPNR_ASSERT_FALSE_STR("bad ram port");
+            return (cell->ports.at(port).type == PORT_OUT) ? TMG_REGISTER_OUTPUT : TMG_REGISTER_INPUT;
+        }
+        NPNR_ASSERT_FALSE_STR("no timing type for RAM port '" + port.str(this) + "'");
     } else {
         NPNR_ASSERT_FALSE_STR("no timing data for cell type '" + cell->type.str(this) + "'");
     }

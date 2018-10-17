@@ -392,6 +392,12 @@ struct ArchArgs
         LFE5U_25F,
         LFE5U_45F,
         LFE5U_85F,
+        LFE5UM_25F,
+        LFE5UM_45F,
+        LFE5UM_85F,
+        LFE5UM5G_25F,
+        LFE5UM5G_45F,
+        LFE5UM5G_85F,
     } type = NONE;
     std::string package;
     int speed = 6;

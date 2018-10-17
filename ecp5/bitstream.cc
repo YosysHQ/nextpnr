@@ -20,6 +20,8 @@
 #include "bitstream.h"
 
 #include <fstream>
+#include <iomanip>
+#include <regex>
 #include <streambuf>
 
 #include "config.h"
@@ -59,6 +61,101 @@ static std::vector<bool> int_to_bitvector(int val, int size)
         bv.push_back((val & (1 << i)) != 0);
     }
     return bv;
+}
+
+static std::vector<bool> str_to_bitvector(std::string str, int size)
+{
+    std::vector<bool> bv;
+    bv.resize(size, 0);
+    if (str.substr(0, 2) != "0b")
+        log_error("error parsing value '%s', expected 0b prefix\n", str.c_str());
+    for (int i = 0; i < int(str.size()) - 2; i++) {
+        char c = str.at((str.size() - i) - 1);
+        NPNR_ASSERT(c == '0' || c == '1');
+        bv.at(i) = (c == '1');
+    }
+    return bv;
+}
+
+// Tie a wire using the CIB ties
+static void tie_cib_signal(Context *ctx, ChipConfig &cc, WireId wire, bool value)
+{
+    static const std::regex cib_re("J([A-D]|CE|LSR|CLK)[0-7]");
+    WireId cibsig = wire;
+    std::string basename = ctx->getWireBasename(wire).str(ctx);
+
+    while (!std::regex_match(basename, cib_re)) {
+        auto uphill = ctx->getPipsUphill(cibsig);
+        NPNR_ASSERT(uphill.begin() != uphill.end()); // At least one uphill pip
+        auto iter = uphill.begin();
+        cibsig = ctx->getPipSrcWire(*iter);
+        basename = ctx->getWireBasename(cibsig).str(ctx);
+        ++iter;
+        NPNR_ASSERT(!(iter != uphill.end())); // Exactly one uphill pip
+    }
+
+    bool out_value = value;
+    if (basename.substr(0, 3) == "JCE")
+        NPNR_ASSERT(value);
+    if (basename.substr(0, 4) == "JCLK" || basename.substr(0, 4) == "JLSR") {
+        NPNR_ASSERT(value);
+        out_value = 0;
+    }
+
+    for (const auto &tile : ctx->getTilesAtLocation(cibsig.location.y, cibsig.location.x)) {
+        if (tile.second.substr(0, 3) == "CIB" || tile.second.substr(0, 4) == "VCIB") {
+
+            cc.tiles[tile.first].add_enum("CIB." + basename + "MUX", out_value ? "1" : "0");
+            return;
+        }
+    }
+    NPNR_ASSERT_FALSE("CIB tile not found at location");
+}
+
+inline int chtohex(char c)
+{
+    static const std::string hex = "0123456789ABCDEF";
+    return hex.find(c);
+}
+
+std::vector<bool> parse_init_str(const std::string &str, int length)
+{
+    // Parse a string that may be binary or hex
+    std::vector<bool> result;
+    result.resize(length, false);
+    if (str.substr(0, 2) == "0x") {
+        // Lattice style hex string
+        if (int(str.length()) > (2 + ((length + 3) / 4)))
+            log_error("hex string value too long, expected up to %d chars and found %d.\n", (2 + ((length + 3) / 4)),
+                      int(str.length()));
+        for (int i = 0; i < int(str.length()) - 2; i++) {
+            char c = str.at((str.size() - i) - 1);
+            int nibble = chtohex(c);
+            result.at(i * 4) = nibble & 0x1;
+            result.at(i * 4 + 1) = nibble & 0x2;
+            result.at(i * 4 + 2) = nibble & 0x4;
+            result.at(i * 4 + 3) = nibble & 0x8;
+        }
+    } else {
+        // Yosys style binary string
+        if (int(str.length()) > length)
+            log_error("hex string value too long, expected up to %d bits and found %d.\n", length, int(str.length()));
+        for (int i = 0; i < int(str.length()); i++) {
+            char c = str.at((str.size() - i) - 1);
+            NPNR_ASSERT(c == '0' || c == '1' || c == 'X' || c == 'x');
+            result.at(i) = (c == '1');
+        }
+    }
+    return result;
+}
+
+inline uint16_t bit_reverse(uint16_t x, int size)
+{
+    uint16_t y = 0;
+    for (int i = 0; i < size; i++)
+        if (x & (1 << i))
+            y |= (1 << ((size - 1) - i));
+    return y;
 }
 
 // Get the PIO tile corresponding to a PIO bel
@@ -141,6 +238,77 @@ static std::string get_pic_tile(Context *ctx, BelId bel)
         }
     } else {
         NPNR_ASSERT_FALSE("bad PIO location");
+    }
+}
+
+// Get the list of tiles corresponding to a blockram
+std::vector<std::string> get_bram_tiles(Context *ctx, BelId bel)
+{
+    std::vector<std::string> tiles;
+    Loc loc = ctx->getBelLocation(bel);
+
+    static const std::set<std::string> ebr0 = {"MIB_EBR0", "EBR_CMUX_UR", "EBR_CMUX_LR", "EBR_CMUX_LR_25K"};
+    static const std::set<std::string> ebr8 = {"MIB_EBR8",      "EBR_SPINE_UL1",   "EBR_SPINE_UR1", "EBR_SPINE_LL1",
+                                               "EBR_CMUX_UL",   "EBR_SPINE_LL0",   "EBR_CMUX_LL",   "EBR_SPINE_LR0",
+                                               "EBR_SPINE_LR1", "EBR_CMUX_LL_25K", "EBR_SPINE_UL2", "EBR_SPINE_UL0",
+                                               "EBR_SPINE_UR2", "EBR_SPINE_LL2",   "EBR_SPINE_LR2", "EBR_SPINE_UR0"};
+
+    switch (loc.z) {
+    case 0:
+        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x, ebr0));
+        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 1, "MIB_EBR1"));
+        break;
+    case 1:
+        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x, "MIB_EBR2"));
+        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 1, "MIB_EBR3"));
+        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 2, "MIB_EBR4"));
+        break;
+    case 2:
+        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x, "MIB_EBR4"));
+        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 1, "MIB_EBR5"));
+        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 2, "MIB_EBR6"));
+        break;
+    case 3:
+        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x, "MIB_EBR6"));
+        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 1, "MIB_EBR7"));
+        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 2, ebr8));
+        break;
+    default:
+        NPNR_ASSERT_FALSE("bad EBR z loc");
+    }
+    return tiles;
+}
+
+void fix_tile_names(Context *ctx, ChipConfig &cc)
+{
+    // Remove the V prefix/suffix on certain tiles if device is a SERDES variant
+    if (ctx->args.type == ArchArgs::LFE5UM_25F || ctx->args.type == ArchArgs::LFE5UM_45F ||
+        ctx->args.type == ArchArgs::LFE5UM_85F || ctx->args.type == ArchArgs::LFE5UM5G_25F ||
+        ctx->args.type == ArchArgs::LFE5UM5G_45F || ctx->args.type == ArchArgs::LFE5UM5G_85F) {
+        std::map<std::string, std::string> tiletype_xform;
+        for (const auto &tile : cc.tiles) {
+            std::string newname = tile.first;
+            auto vcib = tile.first.find("VCIB");
+            if (vcib != std::string::npos) {
+                // Remove the V
+                newname.erase(vcib);
+                tiletype_xform[tile.first] = newname;
+            } else if (tile.first.back() == 'V') {
+                // BMID_0V or BMID_2V
+                if (tile.first.at(tile.first.size() - 2) == '0') {
+                    newname.at(tile.first.size() - 1) = 'H';
+                    tiletype_xform[tile.first] = newname;
+                } else if (tile.first.at(tile.first.size() - 2) == '2') {
+                    newname.pop_back();
+                    tiletype_xform[tile.first] = newname;
+                }
+            }
+        }
+        // Apply the name changes
+        for (auto xform : tiletype_xform) {
+            cc.tiles[xform.second] = cc.tiles.at(xform.first);
+            cc.tiles.erase(xform.first);
+        }
     }
 }
 
@@ -289,11 +457,8 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             if (str_or_default(ci->params, ctx->id("MODE"), "LOGIC") == "DPRAM" && slice == "SLICEA") {
                 cc.tiles[tname].add_enum(slice + ".WREMUX", str_or_default(ci->params, ctx->id("WREMUX"), "WRE"));
 
-                NetInfo *wcknet = nullptr;
                 std::string wckmux = str_or_default(ci->params, ctx->id("WCKMUX"), "WCK");
                 wckmux = (wckmux == "WCK") ? "CLK" : wckmux;
-                if (ci->ports.find(ctx->id("WCK")) != ci->ports.end() && ci->ports.at(ctx->id("WCK")).net != nullptr)
-                    wcknet = ci->ports.at(ctx->id("WCK")).net;
                 cc.tiles[tname].add_enum("CLK1.CLKMUX", wckmux);
             }
 
@@ -344,11 +509,120 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             }
         } else if (ci->type == ctx->id("DCCA")) {
             // Nothing to do
+        } else if (ci->type == ctx->id("DP16KD")) {
+            TileGroup tg;
+            Loc loc = ctx->getBelLocation(ci->bel);
+            tg.tiles = get_bram_tiles(ctx, ci->bel);
+            std::string ebr = "EBR" + std::to_string(loc.z);
+
+            tg.config.add_enum(ebr + ".MODE", "DP16KD");
+
+            auto csd_a = str_to_bitvector(str_or_default(ci->params, ctx->id("CSDECODE_A"), "0b000"), 3),
+                 csd_b = str_to_bitvector(str_or_default(ci->params, ctx->id("CSDECODE_B"), "0b000"), 3);
+
+            tg.config.add_enum(ebr + ".DP16KD.DATA_WIDTH_A", str_or_default(ci->params, ctx->id("DATA_WIDTH_A"), "18"));
+            tg.config.add_enum(ebr + ".DP16KD.DATA_WIDTH_B", str_or_default(ci->params, ctx->id("DATA_WIDTH_B"), "18"));
+
+            tg.config.add_enum(ebr + ".DP16KD.WRITEMODE_A",
+                               str_or_default(ci->params, ctx->id("WRITEMODE_A"), "NORMAL"));
+            tg.config.add_enum(ebr + ".DP16KD.WRITEMODE_B",
+                               str_or_default(ci->params, ctx->id("WRITEMODE_B"), "NORMAL"));
+
+            tg.config.add_enum(ebr + ".REGMODE_A", str_or_default(ci->params, ctx->id("REGMODE_A"), "NOREG"));
+            tg.config.add_enum(ebr + ".REGMODE_B", str_or_default(ci->params, ctx->id("REGMODE_B"), "NOREG"));
+
+            tg.config.add_enum(ebr + ".RESETMODE", str_or_default(ci->params, ctx->id("RESETMODE"), "SYNC"));
+            tg.config.add_enum(ebr + ".ASYNC_RESET_RELEASE",
+                               str_or_default(ci->params, ctx->id("ASYNC_RESET_RELEASE"), "SYNC"));
+            tg.config.add_enum(ebr + ".GSR", str_or_default(ci->params, ctx->id("GSR"), "DISABLED"));
+
+            tg.config.add_word(ebr + ".WID",
+                               int_to_bitvector(bit_reverse(int_or_default(ci->attrs, ctx->id("WID"), 0), 9), 9));
+
+            // Tie signals as appropriate
+            for (auto port : ci->ports) {
+                if (port.second.net == nullptr && port.second.type == PORT_IN) {
+                    if (port.first == id_CLKA || port.first == id_CLKB || port.first == id_WEA ||
+                        port.first == id_WEB || port.first == id_RSTA || port.first == id_RSTB) {
+                        // CIB clock or LSR. Tie to "1" (also 0 in prjtrellis db?) in CIB
+                        // If MUX doesn't exist, set to INV to emulate default 0
+                        tie_cib_signal(ctx, cc, ctx->getBelPinWire(ci->bel, port.first), true);
+                        if (!ci->params.count(ctx->id(port.first.str(ctx) + "MUX")))
+                            ci->params[ctx->id(port.first.str(ctx) + "MUX")] = "INV";
+                    } else if (port.first == id_CEA || port.first == id_CEB || port.first == id_OCEA ||
+                               port.first == id_OCEB) {
+                        // CIB CE. Tie to "1" in CIB
+                        // If MUX doesn't exist, set to passthru to emulate default 1
+                        tie_cib_signal(ctx, cc, ctx->getBelPinWire(ci->bel, port.first), true);
+                        if (!ci->params.count(ctx->id(port.first.str(ctx) + "MUX")))
+                            ci->params[ctx->id(port.first.str(ctx) + "MUX")] = port.first.str(ctx);
+                    } else if (port.first == id_CSA0 || port.first == id_CSA1 || port.first == id_CSA2 ||
+                               port.first == id_CSB0 || port.first == id_CSB1 || port.first == id_CSB2) {
+                        // CIB CE. Tie to "1" in CIB.
+                        // If MUX doesn't exist, set to INV to emulate default 0
+                        tie_cib_signal(ctx, cc, ctx->getBelPinWire(ci->bel, port.first), true);
+                        if (!ci->params.count(ctx->id(port.first.str(ctx) + "MUX")))
+                            ci->params[ctx->id(port.first.str(ctx) + "MUX")] = "INV";
+                    } else {
+                        // CIB ABCD signal
+                        // Tie signals low unless explicit MUX param specified
+                        bool value = bool_or_default(ci->params, ctx->id(port.first.str(ctx) + "MUX"), false);
+                        tie_cib_signal(ctx, cc, ctx->getBelPinWire(ci->bel, port.first), value);
+                    }
+                }
+            }
+
+            // Invert CSDECODE bits to emulate inversion muxes on CSA/CSB signals
+            for (auto port : {std::make_pair("CSA", std::ref(csd_a)), std::make_pair("CSB", std::ref(csd_b))}) {
+                for (int bit = 0; bit < 3; bit++) {
+                    std::string sig = port.first + std::to_string(bit);
+                    if (str_or_default(ci->params, ctx->id(sig + "MUX"), sig) == "INV")
+                        port.second.at(bit) = !port.second.at(bit);
+                }
+            }
+
+            tg.config.add_enum(ebr + ".CLKAMUX", str_or_default(ci->params, ctx->id("CLKAMUX"), "CLKA"));
+            tg.config.add_enum(ebr + ".CLKBMUX", str_or_default(ci->params, ctx->id("CLKBMUX"), "CLKB"));
+
+            tg.config.add_enum(ebr + ".RSTAMUX", str_or_default(ci->params, ctx->id("RSTAMUX"), "RSTA"));
+            tg.config.add_enum(ebr + ".RSTBMUX", str_or_default(ci->params, ctx->id("RSTBMUX"), "RSTB"));
+            tg.config.add_enum(ebr + ".WEAMUX", str_or_default(ci->params, ctx->id("WEAMUX"), "WEA"));
+            tg.config.add_enum(ebr + ".WEBMUX", str_or_default(ci->params, ctx->id("WEBMUX"), "WEB"));
+
+            tg.config.add_enum(ebr + ".CEAMUX", str_or_default(ci->params, ctx->id("CEAMUX"), "CEA"));
+            tg.config.add_enum(ebr + ".CEBMUX", str_or_default(ci->params, ctx->id("CEBMUX"), "CEB"));
+            tg.config.add_enum(ebr + ".OCEAMUX", str_or_default(ci->params, ctx->id("OCEAMUX"), "OCEA"));
+            tg.config.add_enum(ebr + ".OCEBMUX", str_or_default(ci->params, ctx->id("OCEBMUX"), "OCEB"));
+
+            tg.config.add_word(ebr + ".CSDECODE_A", csd_a);
+            tg.config.add_word(ebr + ".CSDECODE_B", csd_b);
+
+            std::vector<uint16_t> init_data;
+            init_data.resize(2048, 0x0);
+            // INIT_00 .. INIT_3F
+            for (int i = 0; i <= 0x3F; i++) {
+                IdString param = ctx->id("INITVAL_" +
+                                         fmt_str(std::hex << std::uppercase << std::setw(2) << std::setfill('0') << i));
+                auto value = parse_init_str(str_or_default(ci->params, param, "0"), 320);
+                for (int j = 0; j < 16; j++) {
+                    // INIT parameter consists of 16 18-bit words with 2-bit padding
+                    int ofs = 20 * j;
+                    for (int k = 0; k < 18; k++) {
+                        if (value.at(ofs + k))
+                            init_data.at(i * 32 + j * 2 + (k / 9)) |= (1 << (k % 9));
+                    }
+                }
+            }
+            int wid = int_or_default(ci->attrs, ctx->id("WID"), 0);
+            NPNR_ASSERT(!cc.bram_data.count(wid));
+            cc.bram_data[wid] = init_data;
+            cc.tilegroups.push_back(tg);
         } else {
             NPNR_ASSERT_FALSE("unsupported cell type");
         }
     }
-
+    // Fixup tile names
+    fix_tile_names(ctx, cc);
     // Configure chip
     if (!text_config_file.empty()) {
         std::ofstream out_config(text_config_file);

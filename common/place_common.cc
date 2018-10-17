@@ -237,6 +237,12 @@ class ConstraintLegaliseWorker
                 return false;
             }
         }
+        // Don't place at tiles where any strongly bound Bels exist, as we might need to rip them up later
+        for (auto tilebel : ctx->getBelsByTile(loc.x, loc.y)) {
+            CellInfo *tcell = ctx->getBoundBelCell(tilebel);
+            if (tcell && tcell->belStrength >= STRENGTH_STRONG)
+                return false;
+        }
         usedLocations.insert(loc);
         for (auto child : cell->constr_children) {
             IncreasingDiameterSearch xSearch, ySearch, zSearch;
