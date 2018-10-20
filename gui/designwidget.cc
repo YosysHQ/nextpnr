@@ -306,8 +306,6 @@ void DesignWidget::newContext(Context *ctx)
 #endif
         getTreeByElementType(ElementType::CELL)->loadData(std::unique_ptr<TreeModel::IdStringList>(new TreeModel::IdStringList(ElementType::CELL)));
         getTreeByElementType(ElementType::NET)->loadData(std::unique_ptr<TreeModel::IdStringList>(new TreeModel::IdStringList(ElementType::NET)));
-        getTreeByElementType(ElementType::CELL)->updateCells(ctx);
-        getTreeByElementType(ElementType::NET)->updateNets(ctx);
     }
     updateTree();
 }
@@ -331,8 +329,18 @@ void DesignWidget::updateTree()
     {
         std::lock_guard<std::mutex> lock_ui(ctx->ui_mutex);
         std::lock_guard<std::mutex> lock(ctx->mutex);
-        getTreeByElementType(ElementType::CELL)->updateCells(ctx);
-        getTreeByElementType(ElementType::NET)->updateNets(ctx);
+
+        std::vector<IdString> cells;
+        for (auto &pair : ctx->cells) {
+            cells.push_back(pair.first);
+        }
+        std::vector<IdString> nets;
+        for (auto &pair : ctx->nets) {
+            nets.push_back(pair.first);
+        }
+
+        getTreeByElementType(ElementType::CELL)->updateElements(ctx, cells);
+        getTreeByElementType(ElementType::NET)->updateElements(ctx, nets);
     }
 }
 QtProperty *DesignWidget::addTopLevelProperty(const QString &id)

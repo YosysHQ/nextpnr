@@ -161,35 +161,13 @@ void Model::loadData(std::unique_ptr<Item> data)
     endResetModel();
 }
 
-void Model::updateCells(Context *ctx)
+void Model::updateElements(Context *ctx, std::vector<IdString> elements)
 {
     if (!ctx)
         return;
 
     beginResetModel();
-
-    std::vector<IdString> cells;
-    for (auto &pair : ctx->cells) {
-        cells.push_back(pair.first);
-    }
-    root_->updateElements(ctx, cells);
-
-    endResetModel();
-}
-
-void Model::updateNets(Context *ctx)
-{
-    if (!ctx)
-        return;
-
-    beginResetModel();
-
-    std::vector<IdString> nets;
-    for (auto &pair : ctx->nets) {
-        nets.push_back(pair.first);
-    }
-    root_->updateElements(ctx, nets);
-
+    root_->updateElements(ctx, elements);
     endResetModel();
 }
 
