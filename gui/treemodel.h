@@ -147,7 +147,7 @@ class IdStringList : public Item
   public:
     // Create an IdStringList at given partent that will contain elements of
     // the given type.
-    IdStringList(QString name, Item *parent, ElementType type) : Item(name, parent), child_type_(type) {}
+    IdStringList(ElementType type) : Item("root", nullptr), child_type_(type) {}
 
     // Split a name into alpha/non-alpha parts, which is then used for sorting
     // of children.
@@ -282,8 +282,8 @@ template <typename ElementT> class ElementXYRoot : public Item
     ElementType child_type_;
 
   public:
-    ElementXYRoot(Context *ctx, QString name, Item *parent, ElementMap map, ElementGetter getter, ElementType type)
-            : Item(name, parent), ctx_(ctx), map_(map), getter_(getter), child_type_(type)
+    ElementXYRoot(Context *ctx, ElementMap map, ElementGetter getter, ElementType type)
+            : Item("root", nullptr), ctx_(ctx), map_(map), getter_(getter), child_type_(type)
     {
         // Create all X and Y label Items/ElementLists.
 
@@ -352,7 +352,7 @@ class Model : public QAbstractItemModel
     Model(QObject *parent = nullptr);
     ~Model();
 
-    void loadContext(ElementType type, Context *ctx);
+    void loadData(std::unique_ptr<Item> data);
     void updateCells(Context *ctx);
     void updateNets(Context *ctx);
     Item *nodeFromIndex(const QModelIndex &idx) const;
@@ -367,17 +367,7 @@ class Model : public QAbstractItemModel
 
     QList<QModelIndex> search(QString text);
 
-    boost::optional<Item *> nodeForIdType(ElementType type, IdString id) const 
-    {
-        switch (type) {
-        case ElementType::NONE:
-            return boost::none;
-        default:
-            if (root_ == nullptr)
-                return boost::none;
-            return root_->getById(id);
-        }        
-    }
+    boost::optional<Item *> nodeForId(IdString id) const { return root_->getById(id); }
 
     // Override QAbstractItemModel methods
     int rowCount(const QModelIndex &parent = QModelIndex()) const Q_DECL_OVERRIDE;

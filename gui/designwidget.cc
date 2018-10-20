@@ -265,11 +265,49 @@ void DesignWidget::newContext(Context *ctx)
         std::lock_guard<std::mutex> lock_ui(ctx->ui_mutex);
         std::lock_guard<std::mutex> lock(ctx->mutex);
         
-        getTreeByElementType(ElementType::BEL)->loadContext(ElementType::BEL, ctx);
-        getTreeByElementType(ElementType::WIRE)->loadContext(ElementType::WIRE, ctx);
-        getTreeByElementType(ElementType::PIP)->loadContext(ElementType::PIP, ctx);
-        getTreeByElementType(ElementType::CELL)->loadContext(ElementType::CELL, ctx);
-        getTreeByElementType(ElementType::NET)->loadContext(ElementType::NET, ctx);
+        {
+            std::map<std::pair<int, int>, std::vector<BelId>> belMap;
+            for (auto bel : ctx->getBels()) {
+                auto loc = ctx->getBelLocation(bel);
+                belMap[std::pair<int, int>(loc.x, loc.y)].push_back(bel);
+            }
+            auto belGetter = [](Context *ctx, BelId id) { return ctx->getBelName(id); };
+            
+            getTreeByElementType(ElementType::BEL)->loadData(std::unique_ptr<TreeModel::ElementXYRoot<BelId>>(
+                    new TreeModel::ElementXYRoot<BelId>(ctx, belMap, belGetter, ElementType::BEL)));
+        }
+
+#ifdef ARCH_ICE40        
+        {
+            std::map<std::pair<int, int>, std::vector<WireId>> wireMap;
+            for (int i = 0; i < ctx->chip_info->num_wires; i++) {
+                const auto wire = &ctx->chip_info->wire_data[i];
+                WireId wireid;
+                wireid.index = i;
+                wireMap[std::pair<int, int>(wire->x, wire->y)].push_back(wireid);
+            }
+            auto wireGetter = [](Context *ctx, WireId id) { return ctx->getWireName(id); };
+            getTreeByElementType(ElementType::WIRE)->loadData(std::unique_ptr<TreeModel::ElementXYRoot<WireId>>(
+                    new TreeModel::ElementXYRoot<WireId>(ctx, wireMap, wireGetter, ElementType::WIRE)));
+        }
+
+        {
+            std::map<std::pair<int, int>, std::vector<PipId>> pipMap;
+            for (int i = 0; i < ctx->chip_info->num_pips; i++) {
+                const auto pip = &ctx->chip_info->pip_data[i];
+                PipId pipid;
+                pipid.index = i;
+                pipMap[std::pair<int, int>(pip->x, pip->y)].push_back(pipid);
+            }
+            auto pipGetter = [](Context *ctx, PipId id) { return ctx->getPipName(id); };
+            getTreeByElementType(ElementType::PIP)->loadData(std::unique_ptr<TreeModel::ElementXYRoot<PipId>>(
+                    new TreeModel::ElementXYRoot<PipId>(ctx, pipMap, pipGetter, ElementType::PIP)));
+        }
+#endif
+        getTreeByElementType(ElementType::CELL)->loadData(std::unique_ptr<TreeModel::IdStringList>(new TreeModel::IdStringList(ElementType::CELL)));
+        getTreeByElementType(ElementType::NET)->loadData(std::unique_ptr<TreeModel::IdStringList>(new TreeModel::IdStringList(ElementType::NET)));
+        getTreeByElementType(ElementType::CELL)->updateCells(ctx);
+        getTreeByElementType(ElementType::NET)->updateNets(ctx);
     }
     updateTree();
 }
@@ -406,7 +444,7 @@ void DesignWidget::onClickedBel(BelId bel, bool keep)
         std::lock_guard<std::mutex> lock_ui(ctx->ui_mutex);
         std::lock_guard<std::mutex> lock(ctx->mutex);
 
-        item = getTreeByElementType(ElementType::BEL)->nodeForIdType(ElementType::BEL, ctx->getBelName(bel));
+        item = getTreeByElementType(ElementType::BEL)->nodeForId(ctx->getBelName(bel));
         if (!item)
             return;
 
@@ -424,7 +462,7 @@ void DesignWidget::onClickedWire(WireId wire, bool keep)
         std::lock_guard<std::mutex> lock_ui(ctx->ui_mutex);
         std::lock_guard<std::mutex> lock(ctx->mutex);
 
-        item = getTreeByElementType(ElementType::WIRE)->nodeForIdType(ElementType::WIRE, ctx->getWireName(wire));
+        item = getTreeByElementType(ElementType::WIRE)->nodeForId(ctx->getWireName(wire));
         if (!item)
             return;
 
@@ -442,7 +480,7 @@ void DesignWidget::onClickedPip(PipId pip, bool keep)
         std::lock_guard<std::mutex> lock_ui(ctx->ui_mutex);
         std::lock_guard<std::mutex> lock(ctx->mutex);
 
-        item = getTreeByElementType(ElementType::PIP)->nodeForIdType(ElementType::PIP, ctx->getPipName(pip));
+        item = getTreeByElementType(ElementType::PIP)->nodeForId(ctx->getPipName(pip));
         if (!item)
             return;
 
@@ -783,7 +821,7 @@ void DesignWidget::prepareMenuProperty(const QPoint &pos)
         if (type == ElementType::NONE)
             continue;
         IdString value = ctx->id(selectedProperty->valueText().toStdString());
-        auto node = getTreeByElementType(type)->nodeForIdType(type, value);
+        auto node = getTreeByElementType(type)->nodeForId(value);
         if (!node)
             continue;
         items.append(*node);
@@ -863,7 +901,9 @@ void DesignWidget::onItemDoubleClicked(QTreeWidgetItem *item, int column)
 {
     QtProperty *selectedProperty = propertyEditor->itemToBrowserItem(item)->property();
     ElementType type = getElementTypeByName(selectedProperty->propertyId());
-    auto it = getTreeByElementType(type)->nodeForIdType(type, ctx->id(selectedProperty->valueText().toStdString()));
+    if (type == ElementType::NONE)
+        return;
+    auto it = getTreeByElementType(type)->nodeForId(ctx->id(selectedProperty->valueText().toStdString()));
     if (it) {
         int num = getIndexByElementType(type);
         if (tabWidget->currentIndex()!=num) tabWidget->setCurrentIndex(num);
@@ -914,7 +954,7 @@ void DesignWidget::onHoverPropertyChanged(QtBrowserItem *item)
         if (type != ElementType::NONE) {
             IdString value = ctx->id(selectedProperty->valueText().toStdString());
             if (value != IdString()) {
-                auto node = getTreeByElementType(type)->nodeForIdType(type, value);
+                auto node = getTreeByElementType(type)->nodeForId(value);
                 if (node) {
                     std::vector<DecalXY> decals = getDecals((*node)->type(), (*node)->id());
                     if (decals.size() > 0)

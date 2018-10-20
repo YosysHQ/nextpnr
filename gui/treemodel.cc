@@ -154,68 +154,11 @@ Model::Model(QObject *parent) : QAbstractItemModel(parent), root_(new Item("Elem
 
 Model::~Model() {}
 
-void Model::loadContext(ElementType type, Context *ctx)
+void Model::loadData(std::unique_ptr<Item> data)
 {
-    if (!ctx)
-        return;
-    ctx_ = ctx;
-
     beginResetModel();
-
-    // Currently we lack an API to get a proper hierarchy of bels/pip/wires
-    // cross-arch. So we only do this for ICE40 by querying the ChipDB
-    // directly.
-    // TODO(q3k): once AnyId and the tree API land in Arch, move this over.
-    {
-        if (type==ElementType::BEL)
-        {
-            std::map<std::pair<int, int>, std::vector<BelId>> belMap;
-            for (auto bel : ctx->getBels()) {
-                auto loc = ctx->getBelLocation(bel);
-                belMap[std::pair<int, int>(loc.x, loc.y)].push_back(bel);
-            }
-            auto belGetter = [](Context *ctx, BelId id) { return ctx->getBelName(id); };
-            root_ = std::unique_ptr<ElementXYRoot<BelId>>(
-                    new ElementXYRoot<BelId>(ctx, "Bels", nullptr, belMap, belGetter, ElementType::BEL));
-        }
-#ifdef ARCH_ICE40        
-        if (type==ElementType::WIRE)
-        {
-            std::map<std::pair<int, int>, std::vector<WireId>> wireMap;
-            for (int i = 0; i < ctx->chip_info->num_wires; i++) {
-                const auto wire = &ctx->chip_info->wire_data[i];
-                WireId wireid;
-                wireid.index = i;
-                wireMap[std::pair<int, int>(wire->x, wire->y)].push_back(wireid);
-            }
-            auto wireGetter = [](Context *ctx, WireId id) { return ctx->getWireName(id); };
-            root_ = std::unique_ptr<ElementXYRoot<WireId>>(
-                    new ElementXYRoot<WireId>(ctx, "Wires", nullptr, wireMap, wireGetter, ElementType::WIRE));
-        }
-
-        if (type==ElementType::PIP)
-        {
-            std::map<std::pair<int, int>, std::vector<PipId>> pipMap;
-            for (int i = 0; i < ctx->chip_info->num_pips; i++) {
-                const auto pip = &ctx->chip_info->pip_data[i];
-                PipId pipid;
-                pipid.index = i;
-                pipMap[std::pair<int, int>(pip->x, pip->y)].push_back(pipid);
-            }
-            auto pipGetter = [](Context *ctx, PipId id) { return ctx->getPipName(id); };
-            root_ = std::unique_ptr<ElementXYRoot<PipId>>(
-                    new ElementXYRoot<PipId>(ctx, "Pips", nullptr, pipMap, pipGetter, ElementType::PIP));
-        }
-#endif
-    }
-
-    if (type==ElementType::CELL) root_ = std::unique_ptr<IdStringList>(new IdStringList(QString("Cells"), nullptr, ElementType::CELL));
-    if (type==ElementType::NET)  root_ = std::unique_ptr<IdStringList>(new IdStringList(QString("Nets"), nullptr, ElementType::NET));
-
+    root_ = std::move(data);
     endResetModel();
-
-    if (type==ElementType::CELL) updateCells(ctx);
-    if (type==ElementType::NET)  updateNets(ctx);
 }
 
 void Model::updateCells(Context *ctx)
