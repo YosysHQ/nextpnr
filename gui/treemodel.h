@@ -102,6 +102,10 @@ class Item
     virtual bool canFetchMore() const { return false; }
     virtual void fetchMore() {}
 
+    virtual boost::optional<Item *> getById(IdString id) { return boost::none; }
+    virtual void search(QList<Item *> &results, QString text, int limit) { }
+    virtual void updateElements(Context *ctx, std::vector<IdString> elements) { }
+
     virtual ~Item()
     {
         if (parent_ != nullptr) {
@@ -150,13 +154,13 @@ class IdStringList : public Item
     static std::vector<QString> alphaNumSplit(const QString &str);
 
     // getById finds a child for the given IdString.
-    IdStringItem *getById(IdString id) const { return managed_.at(id).get(); }
+    virtual boost::optional<Item *> getById(IdString id) override { return managed_.at(id).get(); }
 
     // (Re-)create children from a list of IdStrings.
-    void updateElements(Context *ctx, std::vector<IdString> elements);
+    virtual void updateElements(Context *ctx, std::vector<IdString> elements) override;
 
     // Find children that contain the given text.
-    void search(QList<Item *> &results, QString text, int limit);
+    virtual void search(QList<Item *> &results, QString text, int limit) override;
 };
 
 // ElementList is a dynamic list of ElementT (BelId,WireId,...) that are
@@ -220,7 +224,7 @@ template <typename ElementT> class ElementList : public Item
     virtual void fetchMore() override { fetchMore(100); }
 
     // getById finds a child for the given IdString.
-    boost::optional<Item *> getById(IdString id)
+    virtual boost::optional<Item *> getById(IdString id) override
     {
         // Search requires us to load all our elements...
         while (canFetchMore())
@@ -234,7 +238,7 @@ template <typename ElementT> class ElementList : public Item
     }
 
     // Find children that contain the given text.
-    void search(QList<Item *> &results, QString text, int limit)
+    virtual void search(QList<Item *> &results, QString text, int limit) override
     {
         // Last chance to bail out from loading entire tree into memory.
         if (limit != -1 && results.size() > limit)
@@ -315,7 +319,7 @@ template <typename ElementT> class ElementXYRoot : public Item
     }
 
     // getById finds a child for the given IdString.
-    boost::optional<Item *> getById(IdString id)
+    virtual boost::optional<Item *> getById(IdString id) override
     {
         // For now, scan linearly all ElementLists.
         // TODO(q3k) fix this once we have tree API from arch
@@ -329,7 +333,7 @@ template <typename ElementT> class ElementXYRoot : public Item
     }
 
     // Find children that contain the given text.
-    void search(QList<Item *> &results, QString text, int limit)
+    virtual void search(QList<Item *> &results, QString text, int limit) override
     {
         for (auto &l : managed_lists_) {
             if (limit != -1 && results.size() > limit)
@@ -345,15 +349,12 @@ class Model : public QAbstractItemModel
     Context *ctx_ = nullptr;
 
   public:
-    using BelXYRoot = ElementXYRoot<BelId>;
-    using WireXYRoot = ElementXYRoot<WireId>;
-    using PipXYRoot = ElementXYRoot<PipId>;
-
     Model(QObject *parent = nullptr);
     ~Model();
 
-    void loadContext(Context *ctx);
-    void updateCellsNets(Context *ctx);
+    void loadContext(ElementType type, Context *ctx);
+    void updateCells(Context *ctx);
+    void updateNets(Context *ctx);
     Item *nodeFromIndex(const QModelIndex &idx) const;
     QModelIndex indexFromNode(Item *node)
     {
@@ -366,28 +367,16 @@ class Model : public QAbstractItemModel
 
     QList<QModelIndex> search(QString text);
 
-    boost::optional<Item *> nodeForIdType(ElementType type, IdString id) const
+    boost::optional<Item *> nodeForIdType(ElementType type, IdString id) const 
     {
         switch (type) {
-        case ElementType::BEL:
-            if (bel_root_ == nullptr)
-                return boost::none;
-            return bel_root_->getById(id);
-        case ElementType::WIRE:
-            if (wire_root_ == nullptr)
-                return boost::none;
-            return wire_root_->getById(id);
-        case ElementType::PIP:
-            if (pip_root_ == nullptr)
-                return boost::none;
-            return pip_root_->getById(id);
-        case ElementType::CELL:
-            return cell_root_->getById(id);
-        case ElementType::NET:
-            return net_root_->getById(id);
-        default:
+        case ElementType::NONE:
             return boost::none;
-        }
+        default:
+            if (root_ == nullptr)
+                return boost::none;
+            return root_->getById(id);
+        }        
     }
 
     // Override QAbstractItemModel methods
@@ -404,11 +393,6 @@ class Model : public QAbstractItemModel
   private:
     // Tree elements that we manage the memory for.
     std::unique_ptr<Item> root_;
-    std::unique_ptr<BelXYRoot> bel_root_;
-    std::unique_ptr<WireXYRoot> wire_root_;
-    std::unique_ptr<PipXYRoot> pip_root_;
-    std::unique_ptr<IdStringList> cell_root_;
-    std::unique_ptr<IdStringList> net_root_;
 };
 
 }; // namespace TreeModel
