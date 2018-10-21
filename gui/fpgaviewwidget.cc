@@ -25,6 +25,9 @@
 #include <QMouseEvent>
 #include <QWidget>
 
+#include "QtImGui.h"
+#include "imgui.h"
+
 #include "fpgaviewwidget.h"
 #include "log.h"
 #include "mainwindow.h"
@@ -57,7 +60,7 @@ FPGAViewWidget::FPGAViewWidget(QWidget *parent)
 
     auto fmt = format();
     fmt.setMajorVersion(3);
-    fmt.setMinorVersion(1);
+    fmt.setMinorVersion(2);
     setFormat(fmt);
 
     fmt = format();
@@ -65,8 +68,8 @@ FPGAViewWidget::FPGAViewWidget(QWidget *parent)
         printf("Could not get OpenGL 3.0 context. Aborting.\n");
         log_abort();
     }
-    if (fmt.minorVersion() < 1) {
-        printf("Could not get OpenGL 3.1 context - trying anyway...\n ");
+    if (fmt.minorVersion() < 2) {
+        printf("Could not get OpenGL 3.2 context - trying anyway...\n ");
     }
 
     connect(&paintTimer_, SIGNAL(timeout()), this, SLOT(update()));
@@ -103,6 +106,7 @@ void FPGAViewWidget::initializeGL()
         log_error("Could not compile shader.\n");
     }
     initializeOpenGLFunctions();
+    QtImGui::initialize(this);
     glClearColor(colors_.background.red() / 255, colors_.background.green() / 255,
                                             colors_.background.blue() / 255, 0.0);
 
@@ -362,6 +366,8 @@ void FPGAViewWidget::paintGL()
             }
         }
     }
+    QtImGui::newFrame();
+    ImGui::Render();    
 }
 
 void FPGAViewWidget::pokeRenderer(void) { renderRunner_->poke(); }
@@ -798,7 +804,7 @@ void FPGAViewWidget::zoomSelected()
 {
     {
         QMutexLocker lock(&rendererDataLock_);
-        zoomToBB(rendererData_->bbSelected, 0.5f, true);
+            zoomToBB(rendererData_->bbSelected, 0.5f, true);
     }
     update();
 }
