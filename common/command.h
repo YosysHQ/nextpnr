@@ -53,6 +53,7 @@ class CommandHandler
     void setupContext(Context *ctx);
     int executeMain(std::unique_ptr<Context> ctx);
     po::options_description getGeneralOptions();
+    void run_script_hook(const std::string &name);
 
   protected:
     po::variables_map vm;
