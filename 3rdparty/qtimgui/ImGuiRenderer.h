@@ -1,6 +1,7 @@
 #pragma once
 
-#include <QOpenGLExtraFunctions>
+#include <QOpenGLFunctions>
+#include <QOpenGLFunctions_3_3_Core>
 #include <QObject>
 #include <QPoint>
 #include <imgui.h>
@@ -22,7 +23,7 @@ public:
     virtual QPoint mapFromGlobal(const QPoint &p) const = 0;
 };
 
-class ImGuiRenderer : public QObject, QOpenGLExtraFunctions {
+class ImGuiRenderer : public QObject, QOpenGLFunctions {
     Q_OBJECT
 public:
     void initialize(WindowWrapper *window);
@@ -53,6 +54,7 @@ private:
     int          g_AttribLocationTex = 0, g_AttribLocationProjMtx = 0;
     int          g_AttribLocationPosition = 0, g_AttribLocationUV = 0, g_AttribLocationColor = 0;
     unsigned int g_VboHandle = 0, g_VaoHandle = 0, g_ElementsHandle = 0;
+    QOpenGLFunctions_3_3_Core *g_fun = nullptr;
 };
 
 }

@@ -21,7 +21,7 @@ public:
         return w->size();
     }
     qreal devicePixelRatio() const override {
-        return w->devicePixelRatioF();
+        return w->devicePixelRatio();
     }
     bool isActive() const override {
         return w->isActiveWindow();

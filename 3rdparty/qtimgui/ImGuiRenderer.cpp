@@ -39,6 +39,8 @@ QByteArray g_currentClipboardText;
 void ImGuiRenderer::initialize(WindowWrapper *window) {
     m_window.reset(window);
     initializeOpenGLFunctions();
+    g_fun = new QOpenGLFunctions_3_3_Core();
+    g_fun->initializeOpenGLFunctions();
 
     ImGui::CreateContext();
 
@@ -59,6 +61,7 @@ void ImGuiRenderer::initialize(WindowWrapper *window) {
         g_currentClipboardText = QGuiApplication::clipboard()->text().toUtf8();
         return (const char *)g_currentClipboardText.data();
     };
+    io.IniFilename = nullptr;
 
     window->installEventFilter(this);
 }
@@ -114,7 +117,7 @@ void ImGuiRenderer::renderDrawList(ImDrawData *draw_data)
     glUseProgram(g_ShaderHandle);
     glUniform1i(g_AttribLocationTex, 0);
     glUniformMatrix4fv(g_AttribLocationProjMtx, 1, GL_FALSE, &ortho_projection[0][0]);
-    glBindVertexArray(g_VaoHandle);
+    g_fun->glBindVertexArray(g_VaoHandle);
 
     for (int n = 0; n < draw_data->CmdListsCount; n++)
     {
@@ -148,7 +151,7 @@ void ImGuiRenderer::renderDrawList(ImDrawData *draw_data)
     glUseProgram(last_program);
     glBindTexture(GL_TEXTURE_2D, last_texture);
     glActiveTexture(last_active_texture);
-    glBindVertexArray(last_vertex_array);
+    g_fun->glBindVertexArray(last_vertex_array);
     glBindBuffer(GL_ARRAY_BUFFER, last_array_buffer);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, last_element_array_buffer);
     glBlendEquationSeparate(last_blend_equation_rgb, last_blend_equation_alpha);
@@ -241,8 +244,8 @@ bool ImGuiRenderer::createDeviceObjects()
     glGenBuffers(1, &g_VboHandle);
     glGenBuffers(1, &g_ElementsHandle);
 
-    glGenVertexArrays(1, &g_VaoHandle);
-    glBindVertexArray(g_VaoHandle);
+    g_fun->glGenVertexArrays(1, &g_VaoHandle);
+    g_fun->glBindVertexArray(g_VaoHandle);
     glBindBuffer(GL_ARRAY_BUFFER, g_VboHandle);
     glEnableVertexAttribArray(g_AttribLocationPosition);
     glEnableVertexAttribArray(g_AttribLocationUV);
@@ -259,7 +262,7 @@ bool ImGuiRenderer::createDeviceObjects()
     // Restore modified GL state
     glBindTexture(GL_TEXTURE_2D, last_texture);
     glBindBuffer(GL_ARRAY_BUFFER, last_array_buffer);
-    glBindVertexArray(last_vertex_array);
+    g_fun->glBindVertexArray(last_vertex_array);
 
     return true;
 }
