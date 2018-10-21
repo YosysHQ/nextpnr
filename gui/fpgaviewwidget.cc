@@ -367,6 +367,16 @@ void FPGAViewWidget::paintGL()
         }
     }
     QtImGui::newFrame();
+    QMutexLocker lock(&rendererArgsLock_);
+
+    if (!(rendererArgs_->hoveredDecal == DecalXY()))
+    {
+        ImGui::BeginTooltip();
+        ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f);
+        ImGui::TextUnformatted(rendererArgs_->hintText.c_str());
+        ImGui::PopTextWrapPos();
+        ImGui::EndTooltip();
+    }
     ImGui::Render();    
 }
 
@@ -690,6 +700,7 @@ void FPGAViewWidget::mouseMoveEvent(QMouseEvent *event)
         QMutexLocker locked(&rendererArgsLock_);
         rendererArgs_->hoveredDecal = DecalXY();
         rendererArgs_->changed = true;
+        rendererArgs_->hintText = "";
         pokeRenderer();
         return;
     }
@@ -700,6 +711,14 @@ void FPGAViewWidget::mouseMoveEvent(QMouseEvent *event)
         QMutexLocker locked(&rendererArgsLock_);
         rendererArgs_->hoveredDecal = closest.decal(ctx_);
         rendererArgs_->changed = true;
+        if (closest.type == ElementType::BEL) {
+            rendererArgs_->hintText = std::string("BEL\n") + ctx_->getBelName(closest.bel).c_str(ctx_);
+        } else if (closest.type == ElementType::WIRE) {
+            rendererArgs_->hintText = std::string("WIRE\n") + ctx_->getWireName(closest.wire).c_str(ctx_);
+        } else if (closest.type == ElementType::PIP) {
+            rendererArgs_->hintText = std::string("PIP\n") + ctx_->getPipName(closest.pip).c_str(ctx_);
+        } else rendererArgs_->hintText = "";  
+        
         pokeRenderer();
     }
     update();
