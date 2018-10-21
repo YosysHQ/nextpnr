@@ -103,8 +103,8 @@ class Item
     virtual void fetchMore() {}
 
     virtual boost::optional<Item *> getById(IdString id) { return boost::none; }
-    virtual void search(QList<Item *> &results, QString text, int limit) { }
-    virtual void updateElements(Context *ctx, std::vector<IdString> elements) { }
+    virtual void search(QList<Item *> &results, QString text, int limit) {}
+    virtual void updateElements(Context *ctx, std::vector<IdString> elements) {}
 
     virtual ~Item()
     {

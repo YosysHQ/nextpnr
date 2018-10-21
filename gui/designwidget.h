@@ -113,7 +113,7 @@ class DesignWidget : public QWidget
     QMap<QtProperty *, QString> propertyToId;
     QMap<QString, QtProperty *> idToProperty;
 
-    std::vector<std::pair<int,QModelIndex>> history;
+    std::vector<std::pair<int, QModelIndex>> history;
     int history_index;
     bool history_ignore;
 

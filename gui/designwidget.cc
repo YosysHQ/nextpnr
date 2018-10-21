@@ -51,8 +51,7 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr)
     tabWidget = new QTabWidget();
 
     // Add tree view
-    for(int i=0;i<6;i++)
-    {
+    for (int i = 0; i < 6; i++) {
         treeView[i] = new TreeView();
         treeModel[i] = new TreeModel::Model();
         treeView[i]->setModel(treeModel[i]);
@@ -96,7 +95,8 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr)
         history_index = 0;
         auto h = history.at(history_index);
         selectionModel[h.first]->setCurrentIndex(h.second, QItemSelectionModel::ClearAndSelect);
-        if (tabWidget->currentIndex()!=h.first) tabWidget->setCurrentIndex(h.first);
+        if (tabWidget->currentIndex() != h.first)
+            tabWidget->setCurrentIndex(h.first);
         updateButtons();
     });
 
@@ -108,7 +108,8 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr)
         history_index--;
         auto h = history.at(history_index);
         selectionModel[h.first]->setCurrentIndex(h.second, QItemSelectionModel::ClearAndSelect);
-        if (tabWidget->currentIndex()!=h.first) tabWidget->setCurrentIndex(h.first);
+        if (tabWidget->currentIndex() != h.first)
+            tabWidget->setCurrentIndex(h.first);
         updateButtons();
     });
 
@@ -120,7 +121,8 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr)
         history_index++;
         auto h = history.at(history_index);
         selectionModel[h.first]->setCurrentIndex(h.second, QItemSelectionModel::ClearAndSelect);
-        if (tabWidget->currentIndex()!=h.first) tabWidget->setCurrentIndex(h.first);
+        if (tabWidget->currentIndex() != h.first)
+            tabWidget->setCurrentIndex(h.first);
         updateButtons();
     });
 
@@ -132,7 +134,8 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr)
         history_index = int(history.size() - 1);
         auto h = history.at(history_index);
         selectionModel[h.first]->setCurrentIndex(h.second, QItemSelectionModel::ClearAndSelect);
-        if (tabWidget->currentIndex()!=h.first) tabWidget->setCurrentIndex(h.first);
+        if (tabWidget->currentIndex() != h.first)
+            tabWidget->setCurrentIndex(h.first);
         updateButtons();
     });
 
@@ -143,8 +146,7 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr)
         history_index = -1;
         history.clear();
         int num = tabWidget->currentIndex();
-        if (selectionModel[num]->selectedIndexes().size()> 0)
-        {
+        if (selectionModel[num]->selectedIndexes().size() > 0) {
             QModelIndex index = selectionModel[num]->selectedIndexes().at(0);
             if (index.isValid()) {
                 ElementType type = treeModel[num]->nodeFromIndex(index)->type();
@@ -203,14 +205,19 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr)
     connect(propertyEditor->treeWidget(), &QTreeWidget::itemDoubleClicked, this, &DesignWidget::onItemDoubleClicked);
     connect(propertyEditor, &QtTreePropertyBrowser::hoverPropertyChanged, this, &DesignWidget::onHoverPropertyChanged);
 
-    for(int num=0;num<6;num++) {
-        connect(treeView[num], &TreeView::customContextMenuRequested, [this,num](const QPoint &pos) { prepareMenuTree(num, pos); });
-        connect(treeView[num], &TreeView::doubleClicked, [this](const QModelIndex &index) { onDoubleClicked(index); } );
-        connect(treeView[num], &TreeView::hoverIndexChanged, [this,num](QModelIndex index) { onHoverIndexChanged(num, index); } );
+    for (int num = 0; num < 6; num++) {
+        connect(treeView[num], &TreeView::customContextMenuRequested,
+                [this, num](const QPoint &pos) { prepareMenuTree(num, pos); });
+        connect(treeView[num], &TreeView::doubleClicked, [this](const QModelIndex &index) { onDoubleClicked(index); });
+        connect(treeView[num], &TreeView::hoverIndexChanged,
+                [this, num](QModelIndex index) { onHoverIndexChanged(num, index); });
         selectionModel[num] = treeView[num]->selectionModel();
-        connect(selectionModel[num], &QItemSelectionModel::selectionChanged, [this,num](const QItemSelection &selected, const QItemSelection &deselected) { onSelectionChanged(num, selected, deselected); });
+        connect(selectionModel[num], &QItemSelectionModel::selectionChanged,
+                [this, num](const QItemSelection &selected, const QItemSelection &deselected) {
+                    onSelectionChanged(num, selected, deselected);
+                });
     }
-    
+
     history_index = -1;
     history_ignore = false;
 
@@ -241,7 +248,7 @@ void DesignWidget::addToHistory(int tab, QModelIndex item)
         int count = int(history.size());
         for (int i = count - 1; i > history_index; i--)
             history.pop_back();
-        history.push_back(std::make_pair(tab,item));
+        history.push_back(std::make_pair(tab, item));
         history_index++;
     }
     history_ignore = false;
@@ -264,7 +271,7 @@ void DesignWidget::newContext(Context *ctx)
     {
         std::lock_guard<std::mutex> lock_ui(ctx->ui_mutex);
         std::lock_guard<std::mutex> lock(ctx->mutex);
-        
+
         {
             std::map<std::pair<int, int>, std::vector<BelId>> belMap;
             for (auto bel : ctx->getBels()) {
@@ -272,12 +279,13 @@ void DesignWidget::newContext(Context *ctx)
                 belMap[std::pair<int, int>(loc.x, loc.y)].push_back(bel);
             }
             auto belGetter = [](Context *ctx, BelId id) { return ctx->getBelName(id); };
-            
-            getTreeByElementType(ElementType::BEL)->loadData(std::unique_ptr<TreeModel::ElementXYRoot<BelId>>(
-                    new TreeModel::ElementXYRoot<BelId>(ctx, belMap, belGetter, ElementType::BEL)));
+
+            getTreeByElementType(ElementType::BEL)
+                    ->loadData(std::unique_ptr<TreeModel::ElementXYRoot<BelId>>(
+                            new TreeModel::ElementXYRoot<BelId>(ctx, belMap, belGetter, ElementType::BEL)));
         }
 
-#ifdef ARCH_ICE40        
+#ifdef ARCH_ICE40
         {
             std::map<std::pair<int, int>, std::vector<WireId>> wireMap;
             for (int i = 0; i < ctx->chip_info->num_wires; i++) {
@@ -287,8 +295,9 @@ void DesignWidget::newContext(Context *ctx)
                 wireMap[std::pair<int, int>(wire->x, wire->y)].push_back(wireid);
             }
             auto wireGetter = [](Context *ctx, WireId id) { return ctx->getWireName(id); };
-            getTreeByElementType(ElementType::WIRE)->loadData(std::unique_ptr<TreeModel::ElementXYRoot<WireId>>(
-                    new TreeModel::ElementXYRoot<WireId>(ctx, wireMap, wireGetter, ElementType::WIRE)));
+            getTreeByElementType(ElementType::WIRE)
+                    ->loadData(std::unique_ptr<TreeModel::ElementXYRoot<WireId>>(
+                            new TreeModel::ElementXYRoot<WireId>(ctx, wireMap, wireGetter, ElementType::WIRE)));
         }
 
         {
@@ -300,12 +309,15 @@ void DesignWidget::newContext(Context *ctx)
                 pipMap[std::pair<int, int>(pip->x, pip->y)].push_back(pipid);
             }
             auto pipGetter = [](Context *ctx, PipId id) { return ctx->getPipName(id); };
-            getTreeByElementType(ElementType::PIP)->loadData(std::unique_ptr<TreeModel::ElementXYRoot<PipId>>(
-                    new TreeModel::ElementXYRoot<PipId>(ctx, pipMap, pipGetter, ElementType::PIP)));
+            getTreeByElementType(ElementType::PIP)
+                    ->loadData(std::unique_ptr<TreeModel::ElementXYRoot<PipId>>(
+                            new TreeModel::ElementXYRoot<PipId>(ctx, pipMap, pipGetter, ElementType::PIP)));
         }
 #endif
-        getTreeByElementType(ElementType::CELL)->loadData(std::unique_ptr<TreeModel::IdStringList>(new TreeModel::IdStringList(ElementType::CELL)));
-        getTreeByElementType(ElementType::NET)->loadData(std::unique_ptr<TreeModel::IdStringList>(new TreeModel::IdStringList(ElementType::NET)));
+        getTreeByElementType(ElementType::CELL)
+                ->loadData(std::unique_ptr<TreeModel::IdStringList>(new TreeModel::IdStringList(ElementType::CELL)));
+        getTreeByElementType(ElementType::NET)
+                ->loadData(std::unique_ptr<TreeModel::IdStringList>(new TreeModel::IdStringList(ElementType::NET)));
     }
     updateTree();
 }
@@ -458,9 +470,10 @@ void DesignWidget::onClickedBel(BelId bel, bool keep)
 
         Q_EMIT selected(getDecals(ElementType::BEL, ctx->getBelName(bel)), keep);
     }
-    if (tabWidget->currentIndex()!=0) tabWidget->setCurrentIndex(0);
+    if (tabWidget->currentIndex() != 0)
+        tabWidget->setCurrentIndex(0);
     selectionModel[0]->setCurrentIndex(getTreeByElementType(ElementType::BEL)->indexFromNode(*item),
-                                    keep ? QItemSelectionModel::Select : QItemSelectionModel::ClearAndSelect);
+                                       keep ? QItemSelectionModel::Select : QItemSelectionModel::ClearAndSelect);
 }
 
 void DesignWidget::onClickedWire(WireId wire, bool keep)
@@ -476,9 +489,10 @@ void DesignWidget::onClickedWire(WireId wire, bool keep)
 
         Q_EMIT selected(getDecals(ElementType::WIRE, ctx->getWireName(wire)), keep);
     }
-    if (tabWidget->currentIndex()!=1) tabWidget->setCurrentIndex(1);
+    if (tabWidget->currentIndex() != 1)
+        tabWidget->setCurrentIndex(1);
     selectionModel[1]->setCurrentIndex(getTreeByElementType(ElementType::WIRE)->indexFromNode(*item),
-                                    keep ? QItemSelectionModel::Select : QItemSelectionModel::ClearAndSelect);
+                                       keep ? QItemSelectionModel::Select : QItemSelectionModel::ClearAndSelect);
 }
 
 void DesignWidget::onClickedPip(PipId pip, bool keep)
@@ -494,9 +508,10 @@ void DesignWidget::onClickedPip(PipId pip, bool keep)
 
         Q_EMIT selected(getDecals(ElementType::PIP, ctx->getPipName(pip)), keep);
     }
-    if (tabWidget->currentIndex()!=2) tabWidget->setCurrentIndex(2);
+    if (tabWidget->currentIndex() != 2)
+        tabWidget->setCurrentIndex(2);
     selectionModel[2]->setCurrentIndex(getTreeByElementType(ElementType::PIP)->indexFromNode(*item),
-                                    keep ? QItemSelectionModel::Select : QItemSelectionModel::ClearAndSelect);
+                                       keep ? QItemSelectionModel::Select : QItemSelectionModel::ClearAndSelect);
 }
 
 void DesignWidget::onSelectionChanged(int num, const QItemSelection &, const QItemSelection &)
@@ -782,7 +797,7 @@ std::vector<DecalXY> DesignWidget::getDecals(ElementType type, IdString value)
             }
         }
     } break;
-    case ElementType::CELL: {       
+    case ElementType::CELL: {
         CellInfo *cell = ctx->cells.at(value).get();
         if (cell->bel != BelId()) {
             decals.push_back(ctx->getBelDecal(cell->bel));
@@ -914,8 +929,10 @@ void DesignWidget::onItemDoubleClicked(QTreeWidgetItem *item, int column)
     auto it = getTreeByElementType(type)->nodeForId(ctx->id(selectedProperty->valueText().toStdString()));
     if (it) {
         int num = getIndexByElementType(type);
-        if (tabWidget->currentIndex()!=num) tabWidget->setCurrentIndex(num);
-        selectionModel[num]->setCurrentIndex(getTreeByElementType(type)->indexFromNode(*it), QItemSelectionModel::ClearAndSelect);
+        if (tabWidget->currentIndex() != num)
+            tabWidget->setCurrentIndex(num);
+        selectionModel[num]->setCurrentIndex(getTreeByElementType(type)->indexFromNode(*it),
+                                             QItemSelectionModel::ClearAndSelect);
     }
 }
 
@@ -937,7 +954,8 @@ void DesignWidget::onSearchInserted()
         currentIndexTab = tabWidget->currentIndex();
     }
     if (currentSearchIndexes.size() > 0 && currentIndex < currentSearchIndexes.size())
-        selectionModel[tabWidget->currentIndex()]->setCurrentIndex(currentSearchIndexes.at(currentIndex), QItemSelectionModel::ClearAndSelect);
+        selectionModel[tabWidget->currentIndex()]->setCurrentIndex(currentSearchIndexes.at(currentIndex),
+                                                                   QItemSelectionModel::ClearAndSelect);
 }
 
 void DesignWidget::onHoverIndexChanged(int num, QModelIndex index)

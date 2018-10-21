@@ -115,10 +115,10 @@ void FPGAViewWidget::initializeGL()
         QMutexLocker locker(&rendererDataLock_);
         // Render grid.
         auto grid = LineShaderData();
-        for (float i = 0.0f; i < 1.0f * ctx_->getGridDimX()+1; i += 1.0f) {
+        for (float i = 0.0f; i < 1.0f * ctx_->getGridDimX() + 1; i += 1.0f) {
             PolyLine(i, 0.0f, i, 1.0f * ctx_->getGridDimY()).build(grid);
         }
-        for (float i = 0.0f; i < 1.0f * ctx_->getGridDimY()+1; i += 1.0f) {
+        for (float i = 0.0f; i < 1.0f * ctx_->getGridDimY() + 1; i += 1.0f) {
             PolyLine(0.0f, i, 1.0f * ctx_->getGridDimX(), i).build(grid);
         }
         grid.last_render = 1;
