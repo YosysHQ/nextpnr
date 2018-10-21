@@ -648,6 +648,9 @@ boost::optional<FPGAViewWidget::PickedElement> FPGAViewWidget::pickElement(float
 
 void FPGAViewWidget::mousePressEvent(QMouseEvent *event)
 {
+    ImGuiIO &io = ImGui::GetIO();
+    if (io.WantCaptureMouse) return;
+
     if (event->buttons() & Qt::RightButton || event->buttons() & Qt::MidButton) {
         lastDragPos_ = event->pos();
     }
@@ -681,6 +684,9 @@ void FPGAViewWidget::mousePressEvent(QMouseEvent *event)
 
 void FPGAViewWidget::mouseMoveEvent(QMouseEvent *event)
 {
+    ImGuiIO &io = ImGui::GetIO();
+    if (io.WantCaptureMouse) return;
+
     if (event->buttons() & Qt::RightButton || event->buttons() & Qt::MidButton) {
         const int dx = event->x() - lastDragPos_.x();
         const int dy = event->y() - lastDragPos_.y();
@@ -717,6 +723,8 @@ void FPGAViewWidget::mouseMoveEvent(QMouseEvent *event)
             rendererArgs_->hintText = std::string("WIRE\n") + ctx_->getWireName(closest.wire).c_str(ctx_);
         } else if (closest.type == ElementType::PIP) {
             rendererArgs_->hintText = std::string("PIP\n") + ctx_->getPipName(closest.pip).c_str(ctx_);
+        } else if (closest.type == ElementType::GROUP) {
+            rendererArgs_->hintText = std::string("GROUP\n") + ctx_->getGroupName(closest.group).c_str(ctx_);
         } else rendererArgs_->hintText = "";  
         
         pokeRenderer();
@@ -767,6 +775,9 @@ QVector4D FPGAViewWidget::mouseToWorldDimensions(float x, float y)
 
 void FPGAViewWidget::wheelEvent(QWheelEvent *event)
 {
+    ImGuiIO &io = ImGui::GetIO();
+    if (io.WantCaptureMouse) return;
+    
     QPoint degree = event->angleDelta() / 8;
 
     if (!degree.isNull())
