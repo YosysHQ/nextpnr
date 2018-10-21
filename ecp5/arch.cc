@@ -578,6 +578,8 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
 
 TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, IdString &clockPort) const
 {
+    auto disconnected = [cell](IdString p) { return !cell->ports.count(p) || cell->ports.at(p).net == nullptr; };
+
     if (cell->type == id_TRELLIS_SLICE) {
         int sd0 = int_or_default(cell->params, id("REG0_SD"), 0), sd1 = int_or_default(cell->params, id("REG1_SD"), 0);
         if (port == id_CLK || port == id_WCK)
@@ -585,6 +587,13 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, Id
         if (port == id_A0 || port == id_A1 || port == id_B0 || port == id_B1 || port == id_C0 || port == id_C1 ||
             port == id_D0 || port == id_D1 || port == id_FCI || port == id_FXA || port == id_FXB)
             return TMG_COMB_INPUT;
+        if (port == id_F0 && disconnected(id_A0) && disconnected(id_B0) && disconnected(id_C0) && disconnected(id_D0) &&
+            disconnected(id_FCI))
+            return TMG_IGNORE; // LUT with no inputs is a constant
+        if (port == id_F1 && disconnected(id_A1) && disconnected(id_B1) && disconnected(id_C1) && disconnected(id_D1) &&
+            disconnected(id_FCI))
+            return TMG_IGNORE; // LUT with no inputs is a constant
+
         if (port == id_F0 || port == id_F1 || port == id_FCO || port == id_OFX0 || port == id_OFX1)
             return TMG_COMB_OUTPUT;
         if (port == id_DI0 || port == id_DI1 || port == id_CE || port == id_LSR || (sd0 == 1 && port == id_M0) ||
