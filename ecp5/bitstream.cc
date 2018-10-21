@@ -279,6 +279,98 @@ std::vector<std::string> get_bram_tiles(Context *ctx, BelId bel)
     return tiles;
 }
 
+// Get the list of tiles corresponding to a DSP
+std::vector<std::string> get_dsp_tiles(Context *ctx, BelId bel)
+{
+    std::vector<std::string> tiles;
+    Loc loc = ctx->getBelLocation(bel);
+
+    static const std::set<std::string> dsp8 = {"MIB_DSP8", "DSP_SPINE_UL0", "DSP_SPINE_UR0", "DSP_SPINE_UR1", ""};
+    if (ctx->getBelType(bel) == id_MULT18X18D) {
+        switch (loc.z) {
+        case 0:
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x, "MIB_DSP0"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x, "MIB2_DSP0"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 1, "MIB_DSP1"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 1, "MIB2_DSP1"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 2, "MIB_DSP2"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 2, "MIB2_DSP2"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 3, "MIB_DSP3"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 3, "MIB2_DSP3"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 4, "MIB_DSP4"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 4, "MIB2_DSP4"));
+            break;
+        case 1:
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x - 1, "MIB_DSP0"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x - 1, "MIB2_DSP0"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x, "MIB_DSP1"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x, "MIB2_DSP1"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 1, "MIB_DSP2"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 1, "MIB2_DSP2"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 2, "MIB_DSP3"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 2, "MIB2_DSP3"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 3, "MIB_DSP4"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 3, "MIB2_DSP4"));
+            break;
+        case 4:
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x, "MIB_DSP4"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x, "MIB2_DSP4"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 1, "MIB_DSP5"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 1, "MIB2_DSP5"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 2, "MIB_DSP6"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 2, "MIB2_DSP6"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 3, "MIB_DSP7"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 3, "MIB2_DSP7"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 4, dsp8));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 4, "MIB2_DSP8"));
+            break;
+        case 5:
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x - 1, "MIB_DSP4"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x - 1, "MIB2_DSP4"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x, "MIB_DSP5"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x, "MIB2_DSP5"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 1, "MIB_DSP6"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 1, "MIB2_DSP6"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 2, "MIB_DSP7"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 2, "MIB2_DSP7"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 3, dsp8));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 3, "MIB2_DSP8"));
+            break;
+        default:
+            NPNR_ASSERT_FALSE("bad MULT z loc");
+        }
+    } else if (ctx->getBelType(bel) == id_ALU54B) {
+        switch (loc.z) {
+        case 3:
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x - 3, "MIB_DSP0"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x - 3, "MIB2_DSP0"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x - 2, "MIB_DSP1"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x - 2, "MIB2_DSP1"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x - 1, "MIB_DSP2"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x - 1, "MIB2_DSP2"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x, "MIB_DSP3"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x, "MIB2_DSP3"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 1, "MIB_DSP4"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 1, "MIB2_DSP4"));
+            break;
+        case 7:
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x - 3, "MIB_DSP4"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x - 3, "MIB2_DSP4"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x - 2, "MIB_DSP5"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x - 2, "MIB2_DSP5"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x - 1, "MIB_DSP6"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x - 1, "MIB2_DSP6"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x, "MIB_DSP7"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x, "MIB2_DSP7"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 1, dsp8));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 1, "MIB2_DSP8"));
+            break;
+        default:
+            NPNR_ASSERT_FALSE("bad ALU z loc");
+        }
+    }
+    return tiles;
+}
 void fix_tile_names(Context *ctx, ChipConfig &cc)
 {
     // Remove the V prefix/suffix on certain tiles if device is a SERDES variant
@@ -617,10 +709,97 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             NPNR_ASSERT(!cc.bram_data.count(wid));
             cc.bram_data[wid] = init_data;
             cc.tilegroups.push_back(tg);
+        } else if (ci->type == id_MULT18X18D) {
+            TileGroup tg;
+            Loc loc = ctx->getBelLocation(ci->bel);
+            tg.tiles = get_dsp_tiles(ctx, ci->bel);
+            std::string dsp = "MULT18_" + std::to_string(loc.z);
+            tg.config.add_enum(dsp + ".REG_INPUTA_CLK", str_or_default(ci->params, "REG_INPUTA_CLK", "NONE"));
+            tg.config.add_enum(dsp + ".REG_INPUTA_CE", str_or_default(ci->params, "REG_INPUTA_CE", "CE0"));
+            tg.config.add_enum(dsp + ".REG_INPUTA_RST", str_or_default(ci->params, "REG_INPUTA_RST", "RST0"));
+            tg.config.add_enum(dsp + ".REG_INPUTB_CLK", str_or_default(ci->params, "REG_INPUTB_CLK", "NONE"));
+            tg.config.add_enum(dsp + ".REG_INPUTB_CE", str_or_default(ci->params, "REG_INPUTB_CE", "CE0"));
+            tg.config.add_enum(dsp + ".REG_INPUTB_RST", str_or_default(ci->params, "REG_INPUTB_RST", "RST0"));
+            tg.config.add_enum(dsp + ".REG_INPUTC_CLK", str_or_default(ci->params, "REG_INPUTC_CLK", "NONE"));
+            tg.config.add_enum(dsp + ".REG_INPUTC_CE", str_or_default(ci->params, "REG_INPUTC_CE", "CE0"));
+            tg.config.add_enum(dsp + ".REG_INPUTC_RST", str_or_default(ci->params, "REG_INPUTC_RST", "RST0"));
+            tg.config.add_enum(dsp + ".REG_PIPELINE_CLK", str_or_default(ci->params, "REG_PIPELINE_CLK", "NONE"));
+            tg.config.add_enum(dsp + ".REG_PIPELINE_CE", str_or_default(ci->params, "REG_PIPELINE_CE", "CE0"));
+            tg.config.add_enum(dsp + ".REG_PIPELINE_RST", str_or_default(ci->params, "REG_PIPELINE_RST", "RST0"));
+            tg.config.add_enum(dsp + ".REG_OUTPUT_CLK", str_or_default(ci->params, "REG_OUTPUT_CLK", "NONE"));
+            tg.config.add_enum(dsp + ".REG_OUTPUT_CE", str_or_default(ci->params, "REG_OUTPUT_CE", "CE0"));
+            tg.config.add_enum(dsp + ".REG_OUTPUT_RST", str_or_default(ci->params, "REG_OUTPUT_RST", "RST0"));
+            tg.config.add_enum(dsp + ".CLK0_DIV", str_or_default(ci->params, "CLK0_DIV", "ENABLED"));
+            tg.config.add_enum(dsp + ".CLK1_DIV", str_or_default(ci->params, "CLK1_DIV", "ENABLED"));
+            tg.config.add_enum(dsp + ".CLK2_DIV", str_or_default(ci->params, "CLK2_DIV", "ENABLED"));
+            tg.config.add_enum(dsp + ".CLK3_DIV", str_or_default(ci->params, "CLK3_DIV", "ENABLED"));
+            tg.config.add_enum(dsp + ".HIGHSPEED_CLK", str_or_default(ci->params, "HIGHSPEED_CLK", "NONE"));
+            tg.config.add_enum(dsp + ".GSR", str_or_default(ci->params, "GSR", "ENABLED"));
+            tg.config.add_enum(dsp + ".CAS_MATCH_REG", str_or_default(ci->params, "CAS_MATCH_REG", "FALSE"));
+            tg.config.add_enum(dsp + ".SOURCEB_MODE", str_or_default(ci->params, "SOURCEB_MODE", "B_SHIFT"));
+            tg.config.add_enum(dsp + ".MULT_BYPASS", str_or_default(ci->params, "MULT_BYPASS", "DISABLED"));
+            tg.config.add_enum(dsp + ".RESETMODE", str_or_default(ci->params, "RESETMODE", "SYNC"));
+        } else if (ci->type == id_ALU54B) {
+            TileGroup tg;
+            Loc loc = ctx->getBelLocation(ci->bel);
+            tg.tiles = get_dsp_tiles(ctx, ci->bel);
+            std::string dsp = "ALU54_" + std::to_string(loc.z);
+            tg.config.add_enum(dsp + ".REG_INPUTC0_CLK", str_or_default(ci->params, "REG_INPUTC0_CLK", "NONE"));
+            tg.config.add_enum(dsp + ".REG_INPUTC0_CE", str_or_default(ci->params, "REG_INPUTC0_CE", "CE0"));
+            tg.config.add_enum(dsp + ".REG_INPUTC0_RST", str_or_default(ci->params, "REG_INPUTC0_RST", "RST0"));
+            tg.config.add_enum(dsp + ".REG_INPUTC1_CLK", str_or_default(ci->params, "REG_INPUTC1_CLK", "NONE"));
+            tg.config.add_enum(dsp + ".REG_INPUTC1_CE", str_or_default(ci->params, "REG_INPUTC1_CE", "CE0"));
+            tg.config.add_enum(dsp + ".REG_INPUTC1_RST", str_or_default(ci->params, "REG_INPUTC1_RST", "RST0"));
+            tg.config.add_enum(dsp + ".REG_OPCODEOP0_0_CLK", str_or_default(ci->params, "REG_OPCODEOP0_0_CLK", "NONE"));
+            tg.config.add_enum(dsp + ".REG_OPCODEOP0_0_CE", str_or_default(ci->params, "REG_OPCODEOP0_0_CE", "CE0"));
+            tg.config.add_enum(dsp + ".REG_OPCODEOP0_0_RST", str_or_default(ci->params, "REG_OPCODEOP0_0_RST", "RST0"));
+            tg.config.add_enum(dsp + ".REG_OPCODEOP1_0_CLK", str_or_default(ci->params, "REG_OPCODEOP1_0_CLK", "NONE"));
+            tg.config.add_enum(dsp + ".REG_OPCODEOP0_1_CLK", str_or_default(ci->params, "REG_OPCODEOP0_1_CLK", "NONE"));
+            tg.config.add_enum(dsp + ".REG_OPCODEOP0_1_CE", str_or_default(ci->params, "REG_OPCODEOP0_1_CE", "CE0"));
+            tg.config.add_enum(dsp + ".REG_OPCODEOP0_1_RST", str_or_default(ci->params, "REG_OPCODEOP0_1_RST", "RST0"));
+            tg.config.add_enum(dsp + ".REG_OPCODEIN_0_CLK", str_or_default(ci->params, "REG_OPCODEIN_0_CLK", "NONE"));
+            tg.config.add_enum(dsp + ".REG_OPCODEIN_0_CE", str_or_default(ci->params, "REG_OPCODEIN_0_CE", "CE0"));
+            tg.config.add_enum(dsp + ".REG_OPCODEIN_0_RST", str_or_default(ci->params, "REG_OPCODEIN_0_RST", "RST0"));
+            tg.config.add_enum(dsp + ".REG_OPCODEIN_1_CLK", str_or_default(ci->params, "REG_OPCODEIN_1_CLK", "NONE"));
+            tg.config.add_enum(dsp + ".REG_OPCODEIN_1_CE", str_or_default(ci->params, "REG_OPCODEIN_1_CE", "CE0"));
+            tg.config.add_enum(dsp + ".REG_OPCODEIN_1_RST", str_or_default(ci->params, "REG_OPCODEIN_1_RST", "RST0"));
+            tg.config.add_enum(dsp + ".REG_OUTPUT0_CLK", str_or_default(ci->params, "REG_OUTPUT0_CLK", "NONE"));
+            tg.config.add_enum(dsp + ".REG_OUTPUT0_CE", str_or_default(ci->params, "REG_OUTPUT0_CE", "CE0"));
+            tg.config.add_enum(dsp + ".REG_OUTPUT0_RST", str_or_default(ci->params, "REG_OUTPUT0_RST", "RST0"));
+            tg.config.add_enum(dsp + ".REG_OUTPUT1_CLK", str_or_default(ci->params, "REG_OUTPUT1_CLK", "NONE"));
+            tg.config.add_enum(dsp + ".REG_OUTPUT1_CE", str_or_default(ci->params, "REG_OUTPUT1_CE", "CE0"));
+            tg.config.add_enum(dsp + ".REG_OUTPUT1_RST", str_or_default(ci->params, "REG_OUTPUT1_RST", "RST0"));
+            tg.config.add_enum(dsp + ".REG_FLAG_CLK", str_or_default(ci->params, "REG_FLAG_CLK", "NONE"));
+            tg.config.add_enum(dsp + ".REG_FLAG_CE", str_or_default(ci->params, "REG_FLAG_CE", "CE0"));
+            tg.config.add_enum(dsp + ".REG_FLAG_RST", str_or_default(ci->params, "REG_FLAG_RST", "RST0"));
+            tg.config.add_enum(dsp + ".MCPAT_SOURCE", str_or_default(ci->params, "MCPAT_SOURCE", "STATIC"));
+            tg.config.add_enum(dsp + ".MASKPAT_SOURCE", str_or_default(ci->params, "MASKPAT_SOURCE", "STATIC"));
+            tg.config.add_word(dsp + ".MASK01",
+                               parse_init_str(str_or_default(ci->params, "MASK01", "0x00000000000000"), 54));
+            tg.config.add_enum(dsp + ".REG_INPUTCFB_CLK", str_or_default(ci->params, "REG_INPUTCFB_CLK", "NONE"));
+            tg.config.add_enum(dsp + ".REG_INPUTCFB_CE", str_or_default(ci->params, "REG_INPUTCFB_CE", "CE0"));
+            tg.config.add_enum(dsp + ".REG_INPUTCFB_RST", str_or_default(ci->params, "REG_INPUTCFB_RST", "RST0"));
+            tg.config.add_enum(dsp + ".CLK0_DIV", str_or_default(ci->params, "CLK0_DIV", "ENABLED"));
+            tg.config.add_enum(dsp + ".CLK1_DIV", str_or_default(ci->params, "CLK1_DIV", "ENABLED"));
+            tg.config.add_enum(dsp + ".CLK2_DIV", str_or_default(ci->params, "CLK2_DIV", "ENABLED"));
+            tg.config.add_enum(dsp + ".CLK3_DIV", str_or_default(ci->params, "CLK3_DIV", "ENABLED"));
+            tg.config.add_word(dsp + ".MCPAT",
+                               parse_init_str(str_or_default(ci->params, "MCPAT", "0x00000000000000"), 54));
+            tg.config.add_word(dsp + ".MASKPAT",
+                               parse_init_str(str_or_default(ci->params, "MASKPAT", "0x00000000000000"), 54));
+            tg.config.add_word(dsp + ".RNDPAT",
+                               parse_init_str(str_or_default(ci->params, "RNDPAT", "0x00000000000000"), 54));
+            tg.config.add_enum(dsp + ".GSR", str_or_default(ci->params, "GSR", "ENABLED"));
+            tg.config.add_enum(dsp + ".RESETMODE", str_or_default(ci->params, "RESETMODE", "SYNC"));
+            tg.config.add_enum(dsp + ".MULT9_MODE", str_or_default(ci->params, "MULT9_MODE", "DISABLED"));
+            tg.config.add_enum(dsp + ".FORCE_ZERO_BARREL_SHIFT",
+                               str_or_default(ci->params, "FORCE_ZERO_BARREL_SHIFT", "DISABLED"));
+            tg.config.add_enum(dsp + ".LEGACY", str_or_default(ci->params, "LEGACY", "DISABLED"));
         } else {
             NPNR_ASSERT_FALSE("unsupported cell type");
         }
     }
+
     // Fixup tile names
     fix_tile_names(ctx, cc);
     // Configure chip
