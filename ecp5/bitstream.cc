@@ -21,6 +21,7 @@
 
 #include <fstream>
 #include <iomanip>
+#include <queue>
 #include <regex>
 #include <streambuf>
 
@@ -81,17 +82,23 @@ static std::vector<bool> str_to_bitvector(std::string str, int size)
 static void tie_cib_signal(Context *ctx, ChipConfig &cc, WireId wire, bool value)
 {
     static const std::regex cib_re("J([A-D]|CE|LSR|CLK)[0-7]");
-    WireId cibsig = wire;
-    std::string basename = ctx->getWireBasename(wire).str(ctx);
-
-    while (!std::regex_match(basename, cib_re)) {
-        auto uphill = ctx->getPipsUphill(cibsig);
-        NPNR_ASSERT(uphill.begin() != uphill.end()); // At least one uphill pip
-        auto iter = uphill.begin();
-        cibsig = ctx->getPipSrcWire(*iter);
+    std::queue<WireId> signals;
+    signals.push(wire);
+    WireId cibsig;
+    std::string basename;
+    log_info("wire %s\n", ctx->getWireName(wire).c_str(ctx));
+    while (true) {
+        NPNR_ASSERT(!signals.empty());
+        NPNR_ASSERT(signals.size() < 100);
+        cibsig = signals.front();
         basename = ctx->getWireBasename(cibsig).str(ctx);
-        ++iter;
-        NPNR_ASSERT(!(iter != uphill.end())); // Exactly one uphill pip
+        log_info("       wire %s\n", ctx->getWireName(cibsig).c_str(ctx));
+
+        signals.pop();
+        if (std::regex_match(basename, cib_re))
+            break;
+        for (auto pip : ctx->getPipsUphill(cibsig))
+            signals.push(ctx->getPipSrcWire(pip));
     }
 
     bool out_value = value;
@@ -285,7 +292,7 @@ std::vector<std::string> get_dsp_tiles(Context *ctx, BelId bel)
     std::vector<std::string> tiles;
     Loc loc = ctx->getBelLocation(bel);
 
-    static const std::set<std::string> dsp8 = {"MIB_DSP8", "DSP_SPINE_UL0", "DSP_SPINE_UR0", "DSP_SPINE_UR1", ""};
+    static const std::set<std::string> dsp8 = {"MIB_DSP8", "DSP_SPINE_UL0", "DSP_SPINE_UR0", "DSP_SPINE_UR1"};
     if (ctx->getBelType(bel) == id_MULT18X18D) {
         switch (loc.z) {
         case 0:
@@ -400,6 +407,23 @@ void fix_tile_names(Context *ctx, ChipConfig &cc)
         for (auto xform : tiletype_xform) {
             cc.tiles[xform.second] = cc.tiles.at(xform.first);
             cc.tiles.erase(xform.first);
+        }
+    }
+}
+
+void tieoff_dsp_ports(Context *ctx, ChipConfig &cc, CellInfo *ci)
+{
+    for (auto port : ci->ports) {
+        if (port.second.net == nullptr && port.second.type == PORT_IN) {
+            if (port.first.str(ctx).substr(0, 3) == "CLK" || port.first.str(ctx).substr(0, 2) == "CE" ||
+                port.first.str(ctx).substr(0, 3) == "RST" || port.first.str(ctx).substr(0, 3) == "SRO" ||
+                port.first.str(ctx).substr(0, 3) == "SRI" || port.first.str(ctx).substr(0, 2) == "RO" ||
+                port.first.str(ctx).substr(0, 2) == "MA" || port.first.str(ctx).substr(0, 2) == "MB" ||
+                port.first.str(ctx).substr(0, 3) == "CFB" || port.first.str(ctx).substr(0, 3) == "CIN" ||
+                port.first.str(ctx).substr(0, 6) == "SOURCE" || port.first.str(ctx).substr(0, 6) == "SIGNED")
+                continue;
+            bool value = bool_or_default(ci->params, ctx->id(port.first.str(ctx) + "MUX"), false);
+            tie_cib_signal(ctx, cc, ctx->getBelPinWire(ci->bel, port.first), value);
         }
     }
 }
@@ -714,87 +738,129 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             Loc loc = ctx->getBelLocation(ci->bel);
             tg.tiles = get_dsp_tiles(ctx, ci->bel);
             std::string dsp = "MULT18_" + std::to_string(loc.z);
-            tg.config.add_enum(dsp + ".REG_INPUTA_CLK", str_or_default(ci->params, "REG_INPUTA_CLK", "NONE"));
-            tg.config.add_enum(dsp + ".REG_INPUTA_CE", str_or_default(ci->params, "REG_INPUTA_CE", "CE0"));
-            tg.config.add_enum(dsp + ".REG_INPUTA_RST", str_or_default(ci->params, "REG_INPUTA_RST", "RST0"));
-            tg.config.add_enum(dsp + ".REG_INPUTB_CLK", str_or_default(ci->params, "REG_INPUTB_CLK", "NONE"));
-            tg.config.add_enum(dsp + ".REG_INPUTB_CE", str_or_default(ci->params, "REG_INPUTB_CE", "CE0"));
-            tg.config.add_enum(dsp + ".REG_INPUTB_RST", str_or_default(ci->params, "REG_INPUTB_RST", "RST0"));
-            tg.config.add_enum(dsp + ".REG_INPUTC_CLK", str_or_default(ci->params, "REG_INPUTC_CLK", "NONE"));
-            tg.config.add_enum(dsp + ".REG_INPUTC_CE", str_or_default(ci->params, "REG_INPUTC_CE", "CE0"));
-            tg.config.add_enum(dsp + ".REG_INPUTC_RST", str_or_default(ci->params, "REG_INPUTC_RST", "RST0"));
-            tg.config.add_enum(dsp + ".REG_PIPELINE_CLK", str_or_default(ci->params, "REG_PIPELINE_CLK", "NONE"));
-            tg.config.add_enum(dsp + ".REG_PIPELINE_CE", str_or_default(ci->params, "REG_PIPELINE_CE", "CE0"));
-            tg.config.add_enum(dsp + ".REG_PIPELINE_RST", str_or_default(ci->params, "REG_PIPELINE_RST", "RST0"));
-            tg.config.add_enum(dsp + ".REG_OUTPUT_CLK", str_or_default(ci->params, "REG_OUTPUT_CLK", "NONE"));
-            tg.config.add_enum(dsp + ".REG_OUTPUT_CE", str_or_default(ci->params, "REG_OUTPUT_CE", "CE0"));
-            tg.config.add_enum(dsp + ".REG_OUTPUT_RST", str_or_default(ci->params, "REG_OUTPUT_RST", "RST0"));
-            tg.config.add_enum(dsp + ".CLK0_DIV", str_or_default(ci->params, "CLK0_DIV", "ENABLED"));
-            tg.config.add_enum(dsp + ".CLK1_DIV", str_or_default(ci->params, "CLK1_DIV", "ENABLED"));
-            tg.config.add_enum(dsp + ".CLK2_DIV", str_or_default(ci->params, "CLK2_DIV", "ENABLED"));
-            tg.config.add_enum(dsp + ".CLK3_DIV", str_or_default(ci->params, "CLK3_DIV", "ENABLED"));
-            tg.config.add_enum(dsp + ".HIGHSPEED_CLK", str_or_default(ci->params, "HIGHSPEED_CLK", "NONE"));
-            tg.config.add_enum(dsp + ".GSR", str_or_default(ci->params, "GSR", "ENABLED"));
-            tg.config.add_enum(dsp + ".CAS_MATCH_REG", str_or_default(ci->params, "CAS_MATCH_REG", "FALSE"));
-            tg.config.add_enum(dsp + ".SOURCEB_MODE", str_or_default(ci->params, "SOURCEB_MODE", "B_SHIFT"));
-            tg.config.add_enum(dsp + ".MULT_BYPASS", str_or_default(ci->params, "MULT_BYPASS", "DISABLED"));
-            tg.config.add_enum(dsp + ".RESETMODE", str_or_default(ci->params, "RESETMODE", "SYNC"));
+            tg.config.add_enum(dsp + ".REG_INPUTA_CLK", str_or_default(ci->params, ctx->id("REG_INPUTA_CLK"), "NONE"));
+            tg.config.add_enum(dsp + ".REG_INPUTA_CE", str_or_default(ci->params, ctx->id("REG_INPUTA_CE"), "CE0"));
+            tg.config.add_enum(dsp + ".REG_INPUTA_RST", str_or_default(ci->params, ctx->id("REG_INPUTA_RST"), "RST0"));
+            tg.config.add_enum(dsp + ".REG_INPUTB_CLK", str_or_default(ci->params, ctx->id("REG_INPUTB_CLK"), "NONE"));
+            tg.config.add_enum(dsp + ".REG_INPUTB_CE", str_or_default(ci->params, ctx->id("REG_INPUTB_CE"), "CE0"));
+            tg.config.add_enum(dsp + ".REG_INPUTB_RST", str_or_default(ci->params, ctx->id("REG_INPUTB_RST"), "RST0"));
+            tg.config.add_enum(dsp + ".REG_INPUTC_CLK", str_or_default(ci->params, ctx->id("REG_INPUTC_CLK"), "NONE"));
+            tg.config.add_enum(dsp + ".REG_PIPELINE_CLK",
+                               str_or_default(ci->params, ctx->id("REG_PIPELINE_CLK"), "NONE"));
+            tg.config.add_enum(dsp + ".REG_PIPELINE_CE", str_or_default(ci->params, ctx->id("REG_PIPELINE_CE"), "CE0"));
+            tg.config.add_enum(dsp + ".REG_PIPELINE_RST",
+                               str_or_default(ci->params, ctx->id("REG_PIPELINE_RST"), "RST0"));
+            tg.config.add_enum(dsp + ".REG_OUTPUT_CLK", str_or_default(ci->params, ctx->id("REG_OUTPUT_CLK"), "NONE"));
+            tg.config.add_enum(dsp + ".CLK0_DIV", str_or_default(ci->params, ctx->id("CLK0_DIV"), "ENABLED"));
+            tg.config.add_enum(dsp + ".CLK1_DIV", str_or_default(ci->params, ctx->id("CLK1_DIV"), "ENABLED"));
+            tg.config.add_enum(dsp + ".CLK2_DIV", str_or_default(ci->params, ctx->id("CLK2_DIV"), "ENABLED"));
+            tg.config.add_enum(dsp + ".CLK3_DIV", str_or_default(ci->params, ctx->id("CLK3_DIV"), "ENABLED"));
+            tg.config.add_enum(dsp + ".GSR", str_or_default(ci->params, ctx->id("GSR"), "ENABLED"));
+            tg.config.add_enum(dsp + ".SOURCEB_MODE", str_or_default(ci->params, ctx->id("SOURCEB_MODE"), "B_SHIFT"));
+            tg.config.add_enum(dsp + ".RESETMODE", str_or_default(ci->params, ctx->id("RESETMODE"), "SYNC"));
+
+            tg.config.add_enum(dsp + ".MODE", "MULT18X18D");
+
+            if (loc.z < 4)
+                tg.config.add_enum("DSP_LEFT.CIBOUT", "ON");
+            else
+                tg.config.add_enum("DSP_RIGHT.CIBOUT", "ON");
+
+
+            tieoff_dsp_ports(ctx, cc, ci);
+            cc.tilegroups.push_back(tg);
+
         } else if (ci->type == id_ALU54B) {
             TileGroup tg;
             Loc loc = ctx->getBelLocation(ci->bel);
             tg.tiles = get_dsp_tiles(ctx, ci->bel);
             std::string dsp = "ALU54_" + std::to_string(loc.z);
-            tg.config.add_enum(dsp + ".REG_INPUTC0_CLK", str_or_default(ci->params, "REG_INPUTC0_CLK", "NONE"));
-            tg.config.add_enum(dsp + ".REG_INPUTC0_CE", str_or_default(ci->params, "REG_INPUTC0_CE", "CE0"));
-            tg.config.add_enum(dsp + ".REG_INPUTC0_RST", str_or_default(ci->params, "REG_INPUTC0_RST", "RST0"));
-            tg.config.add_enum(dsp + ".REG_INPUTC1_CLK", str_or_default(ci->params, "REG_INPUTC1_CLK", "NONE"));
-            tg.config.add_enum(dsp + ".REG_INPUTC1_CE", str_or_default(ci->params, "REG_INPUTC1_CE", "CE0"));
-            tg.config.add_enum(dsp + ".REG_INPUTC1_RST", str_or_default(ci->params, "REG_INPUTC1_RST", "RST0"));
-            tg.config.add_enum(dsp + ".REG_OPCODEOP0_0_CLK", str_or_default(ci->params, "REG_OPCODEOP0_0_CLK", "NONE"));
-            tg.config.add_enum(dsp + ".REG_OPCODEOP0_0_CE", str_or_default(ci->params, "REG_OPCODEOP0_0_CE", "CE0"));
-            tg.config.add_enum(dsp + ".REG_OPCODEOP0_0_RST", str_or_default(ci->params, "REG_OPCODEOP0_0_RST", "RST0"));
-            tg.config.add_enum(dsp + ".REG_OPCODEOP1_0_CLK", str_or_default(ci->params, "REG_OPCODEOP1_0_CLK", "NONE"));
-            tg.config.add_enum(dsp + ".REG_OPCODEOP0_1_CLK", str_or_default(ci->params, "REG_OPCODEOP0_1_CLK", "NONE"));
-            tg.config.add_enum(dsp + ".REG_OPCODEOP0_1_CE", str_or_default(ci->params, "REG_OPCODEOP0_1_CE", "CE0"));
-            tg.config.add_enum(dsp + ".REG_OPCODEOP0_1_RST", str_or_default(ci->params, "REG_OPCODEOP0_1_RST", "RST0"));
-            tg.config.add_enum(dsp + ".REG_OPCODEIN_0_CLK", str_or_default(ci->params, "REG_OPCODEIN_0_CLK", "NONE"));
-            tg.config.add_enum(dsp + ".REG_OPCODEIN_0_CE", str_or_default(ci->params, "REG_OPCODEIN_0_CE", "CE0"));
-            tg.config.add_enum(dsp + ".REG_OPCODEIN_0_RST", str_or_default(ci->params, "REG_OPCODEIN_0_RST", "RST0"));
-            tg.config.add_enum(dsp + ".REG_OPCODEIN_1_CLK", str_or_default(ci->params, "REG_OPCODEIN_1_CLK", "NONE"));
-            tg.config.add_enum(dsp + ".REG_OPCODEIN_1_CE", str_or_default(ci->params, "REG_OPCODEIN_1_CE", "CE0"));
-            tg.config.add_enum(dsp + ".REG_OPCODEIN_1_RST", str_or_default(ci->params, "REG_OPCODEIN_1_RST", "RST0"));
-            tg.config.add_enum(dsp + ".REG_OUTPUT0_CLK", str_or_default(ci->params, "REG_OUTPUT0_CLK", "NONE"));
-            tg.config.add_enum(dsp + ".REG_OUTPUT0_CE", str_or_default(ci->params, "REG_OUTPUT0_CE", "CE0"));
-            tg.config.add_enum(dsp + ".REG_OUTPUT0_RST", str_or_default(ci->params, "REG_OUTPUT0_RST", "RST0"));
-            tg.config.add_enum(dsp + ".REG_OUTPUT1_CLK", str_or_default(ci->params, "REG_OUTPUT1_CLK", "NONE"));
-            tg.config.add_enum(dsp + ".REG_OUTPUT1_CE", str_or_default(ci->params, "REG_OUTPUT1_CE", "CE0"));
-            tg.config.add_enum(dsp + ".REG_OUTPUT1_RST", str_or_default(ci->params, "REG_OUTPUT1_RST", "RST0"));
-            tg.config.add_enum(dsp + ".REG_FLAG_CLK", str_or_default(ci->params, "REG_FLAG_CLK", "NONE"));
-            tg.config.add_enum(dsp + ".REG_FLAG_CE", str_or_default(ci->params, "REG_FLAG_CE", "CE0"));
-            tg.config.add_enum(dsp + ".REG_FLAG_RST", str_or_default(ci->params, "REG_FLAG_RST", "RST0"));
-            tg.config.add_enum(dsp + ".MCPAT_SOURCE", str_or_default(ci->params, "MCPAT_SOURCE", "STATIC"));
-            tg.config.add_enum(dsp + ".MASKPAT_SOURCE", str_or_default(ci->params, "MASKPAT_SOURCE", "STATIC"));
+            tg.config.add_enum(dsp + ".REG_INPUTC0_CLK",
+                               str_or_default(ci->params, ctx->id("REG_INPUTC0_CLK"), "NONE"));
+            tg.config.add_enum(dsp + ".REG_INPUTC0_CE", str_or_default(ci->params, ctx->id("REG_INPUTC0_CE"), "CE0"));
+            tg.config.add_enum(dsp + ".REG_INPUTC0_RST",
+                               str_or_default(ci->params, ctx->id("REG_INPUTC0_RST"), "RST0"));
+            tg.config.add_enum(dsp + ".REG_INPUTC1_CLK",
+                               str_or_default(ci->params, ctx->id("REG_INPUTC1_CLK"), "NONE"));
+            tg.config.add_enum(dsp + ".REG_INPUTC1_CE", str_or_default(ci->params, ctx->id("REG_INPUTC1_CE"), "CE0"));
+            tg.config.add_enum(dsp + ".REG_INPUTC1_RST",
+                               str_or_default(ci->params, ctx->id("REG_INPUTC1_RST"), "RST0"));
+            tg.config.add_enum(dsp + ".REG_OPCODEOP0_0_CLK",
+                               str_or_default(ci->params, ctx->id("REG_OPCODEOP0_0_CLK"), "NONE"));
+            tg.config.add_enum(dsp + ".REG_OPCODEOP0_0_CE",
+                               str_or_default(ci->params, ctx->id("REG_OPCODEOP0_0_CE"), "CE0"));
+            tg.config.add_enum(dsp + ".REG_OPCODEOP0_0_RST",
+                               str_or_default(ci->params, ctx->id("REG_OPCODEOP0_0_RST"), "RST0"));
+            tg.config.add_enum(dsp + ".REG_OPCODEOP1_0_CLK",
+                               str_or_default(ci->params, ctx->id("REG_OPCODEOP1_0_CLK"), "NONE"));
+            tg.config.add_enum(dsp + ".REG_OPCODEOP0_1_CLK",
+                               str_or_default(ci->params, ctx->id("REG_OPCODEOP0_1_CLK"), "NONE"));
+            tg.config.add_enum(dsp + ".REG_OPCODEOP0_1_CE",
+                               str_or_default(ci->params, ctx->id("REG_OPCODEOP0_1_CE"), "CE0"));
+            tg.config.add_enum(dsp + ".REG_OPCODEOP0_1_RST",
+                               str_or_default(ci->params, ctx->id("REG_OPCODEOP0_1_RST"), "RST0"));
+            tg.config.add_enum(dsp + ".REG_OPCODEIN_0_CLK",
+                               str_or_default(ci->params, ctx->id("REG_OPCODEIN_0_CLK"), "NONE"));
+            tg.config.add_enum(dsp + ".REG_OPCODEIN_0_CE",
+                               str_or_default(ci->params, ctx->id("REG_OPCODEIN_0_CE"), "CE0"));
+            tg.config.add_enum(dsp + ".REG_OPCODEIN_0_RST",
+                               str_or_default(ci->params, ctx->id("REG_OPCODEIN_0_RST"), "RST0"));
+            tg.config.add_enum(dsp + ".REG_OPCODEIN_1_CLK",
+                               str_or_default(ci->params, ctx->id("REG_OPCODEIN_1_CLK"), "NONE"));
+            tg.config.add_enum(dsp + ".REG_OPCODEIN_1_CE",
+                               str_or_default(ci->params, ctx->id("REG_OPCODEIN_1_CE"), "CE0"));
+            tg.config.add_enum(dsp + ".REG_OPCODEIN_1_RST",
+                               str_or_default(ci->params, ctx->id("REG_OPCODEIN_1_RST"), "RST0"));
+            tg.config.add_enum(dsp + ".REG_OUTPUT0_CLK",
+                               str_or_default(ci->params, ctx->id("REG_OUTPUT0_CLK"), "NONE"));
+            tg.config.add_enum(dsp + ".REG_OUTPUT0_CE", str_or_default(ci->params, ctx->id("REG_OUTPUT0_CE"), "CE0"));
+            tg.config.add_enum(dsp + ".REG_OUTPUT0_RST",
+                               str_or_default(ci->params, ctx->id("REG_OUTPUT0_RST"), "RST0"));
+            tg.config.add_enum(dsp + ".REG_OUTPUT1_CLK",
+                               str_or_default(ci->params, ctx->id("REG_OUTPUT1_CLK"), "NONE"));
+            tg.config.add_enum(dsp + ".REG_OUTPUT1_CE", str_or_default(ci->params, ctx->id("REG_OUTPUT1_CE"), "CE0"));
+            tg.config.add_enum(dsp + ".REG_OUTPUT1_RST",
+                               str_or_default(ci->params, ctx->id("REG_OUTPUT1_RST"), "RST0"));
+            tg.config.add_enum(dsp + ".REG_FLAG_CLK", str_or_default(ci->params, ctx->id("REG_FLAG_CLK"), "NONE"));
+            tg.config.add_enum(dsp + ".REG_FLAG_CE", str_or_default(ci->params, ctx->id("REG_FLAG_CE"), "CE0"));
+            tg.config.add_enum(dsp + ".REG_FLAG_RST", str_or_default(ci->params, ctx->id("REG_FLAG_RST"), "RST0"));
+            tg.config.add_enum(dsp + ".MCPAT_SOURCE", str_or_default(ci->params, ctx->id("MCPAT_SOURCE"), "STATIC"));
+            tg.config.add_enum(dsp + ".MASKPAT_SOURCE",
+                               str_or_default(ci->params, ctx->id("MASKPAT_SOURCE"), "STATIC"));
             tg.config.add_word(dsp + ".MASK01",
-                               parse_init_str(str_or_default(ci->params, "MASK01", "0x00000000000000"), 54));
-            tg.config.add_enum(dsp + ".REG_INPUTCFB_CLK", str_or_default(ci->params, "REG_INPUTCFB_CLK", "NONE"));
-            tg.config.add_enum(dsp + ".REG_INPUTCFB_CE", str_or_default(ci->params, "REG_INPUTCFB_CE", "CE0"));
-            tg.config.add_enum(dsp + ".REG_INPUTCFB_RST", str_or_default(ci->params, "REG_INPUTCFB_RST", "RST0"));
-            tg.config.add_enum(dsp + ".CLK0_DIV", str_or_default(ci->params, "CLK0_DIV", "ENABLED"));
-            tg.config.add_enum(dsp + ".CLK1_DIV", str_or_default(ci->params, "CLK1_DIV", "ENABLED"));
-            tg.config.add_enum(dsp + ".CLK2_DIV", str_or_default(ci->params, "CLK2_DIV", "ENABLED"));
-            tg.config.add_enum(dsp + ".CLK3_DIV", str_or_default(ci->params, "CLK3_DIV", "ENABLED"));
+                               parse_init_str(str_or_default(ci->params, ctx->id("MASK01"), "0x00000000000000"), 54));
+            tg.config.add_enum(dsp + ".REG_INPUTCFB_CLK",
+                               str_or_default(ci->params, ctx->id("REG_INPUTCFB_CLK"), "NONE"));
+            tg.config.add_enum(dsp + ".REG_INPUTCFB_CE", str_or_default(ci->params, ctx->id("REG_INPUTCFB_CE"), "CE0"));
+            tg.config.add_enum(dsp + ".REG_INPUTCFB_RST",
+                               str_or_default(ci->params, ctx->id("REG_INPUTCFB_RST"), "RST0"));
+            tg.config.add_enum(dsp + ".CLK0_DIV", str_or_default(ci->params, ctx->id("CLK0_DIV"), "ENABLED"));
+            tg.config.add_enum(dsp + ".CLK1_DIV", str_or_default(ci->params, ctx->id("CLK1_DIV"), "ENABLED"));
+            tg.config.add_enum(dsp + ".CLK2_DIV", str_or_default(ci->params, ctx->id("CLK2_DIV"), "ENABLED"));
+            tg.config.add_enum(dsp + ".CLK3_DIV", str_or_default(ci->params, ctx->id("CLK3_DIV"), "ENABLED"));
             tg.config.add_word(dsp + ".MCPAT",
-                               parse_init_str(str_or_default(ci->params, "MCPAT", "0x00000000000000"), 54));
+                               parse_init_str(str_or_default(ci->params, ctx->id("MCPAT"), "0x00000000000000"), 54));
             tg.config.add_word(dsp + ".MASKPAT",
-                               parse_init_str(str_or_default(ci->params, "MASKPAT", "0x00000000000000"), 54));
+                               parse_init_str(str_or_default(ci->params, ctx->id("MASKPAT"), "0x00000000000000"), 54));
             tg.config.add_word(dsp + ".RNDPAT",
-                               parse_init_str(str_or_default(ci->params, "RNDPAT", "0x00000000000000"), 54));
-            tg.config.add_enum(dsp + ".GSR", str_or_default(ci->params, "GSR", "ENABLED"));
-            tg.config.add_enum(dsp + ".RESETMODE", str_or_default(ci->params, "RESETMODE", "SYNC"));
-            tg.config.add_enum(dsp + ".MULT9_MODE", str_or_default(ci->params, "MULT9_MODE", "DISABLED"));
+                               parse_init_str(str_or_default(ci->params, ctx->id("RNDPAT"), "0x00000000000000"), 54));
+            tg.config.add_enum(dsp + ".GSR", str_or_default(ci->params, ctx->id("GSR"), "ENABLED"));
+            tg.config.add_enum(dsp + ".RESETMODE", str_or_default(ci->params, ctx->id("RESETMODE"), "SYNC"));
+            tg.config.add_enum(dsp + ".MULT9_MODE", str_or_default(ci->params, ctx->id("MULT9_MODE"), "DISABLED"));
             tg.config.add_enum(dsp + ".FORCE_ZERO_BARREL_SHIFT",
-                               str_or_default(ci->params, "FORCE_ZERO_BARREL_SHIFT", "DISABLED"));
-            tg.config.add_enum(dsp + ".LEGACY", str_or_default(ci->params, "LEGACY", "DISABLED"));
+                               str_or_default(ci->params, ctx->id("FORCE_ZERO_BARREL_SHIFT"), "DISABLED"));
+            tg.config.add_enum(dsp + ".LEGACY", str_or_default(ci->params, ctx->id("LEGACY"), "DISABLED"));
+
+            tg.config.add_enum(dsp + ".MODE", "ALU54B");
+
+            if (loc.z < 4)
+                tg.config.add_enum("DSP_LEFT.CIBOUT", "ON");
+            else
+                tg.config.add_enum("DSP_RIGHT.CIBOUT", "ON");
+
+            tieoff_dsp_ports(ctx, cc, ci);
+            cc.tilegroups.push_back(tg);
+
         } else {
             NPNR_ASSERT_FALSE("unsupported cell type");
         }

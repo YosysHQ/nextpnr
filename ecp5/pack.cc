@@ -856,7 +856,19 @@ class Ecp5Packer
                         uc->params[ctx->id(user.port.str(ctx) + "MUX")] = constval ? "1" : "0";
                     }
                     uc->ports[user.port].net = nullptr;
-
+                } else if (uc->type == id_ALU54B || uc->type == id_MULT18X18D) {
+                    if (user.port.str(ctx).substr(0, 3) == "CLK" || user.port.str(ctx).substr(0, 2) == "CE" ||
+                        user.port.str(ctx).substr(0, 3) == "RST" || user.port.str(ctx).substr(0, 3) == "SRO" ||
+                        user.port.str(ctx).substr(0, 3) == "SRI" || user.port.str(ctx).substr(0, 2) == "RO" ||
+                        user.port.str(ctx).substr(0, 2) == "MA" || user.port.str(ctx).substr(0, 2) == "MB" ||
+                        user.port.str(ctx).substr(0, 3) == "CFB" || user.port.str(ctx).substr(0, 3) == "CIN" ||
+                        user.port.str(ctx).substr(0, 6) == "SOURCE" || user.port.str(ctx).substr(0, 6) == "SIGNED") {
+                        uc->ports[user.port].net = constnet;
+                        constnet->users.push_back(user);
+                    } else {
+                        // Connected to CIB ABCD. Default state is bitstream configurable
+                        uc->params[ctx->id(user.port.str(ctx) + "MUX")] = constval ? "1" : "0";
+                    }
                 } else {
                     uc->ports[user.port].net = constnet;
                     constnet->users.push_back(user);
@@ -974,11 +986,50 @@ class Ecp5Packer
         }
     }
 
+    // Pack DSPs
+    void pack_dsps()
+    {
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (ci->type == id_MULT18X18D) {
+                // Add ports, even if disconnected, to ensure correct tie-offs
+                for (auto sig : {"CLK", "CE", "RST"})
+                    for (int i = 0; i < 4; i++)
+                        autocreate_empty_port(ci, ctx->id(sig + std::to_string(i)));
+                for (auto sig : {"SIGNED", "SOURCE"})
+                    for (auto c : {"A", "B"})
+                        autocreate_empty_port(ci, ctx->id(sig + std::string(c)));
+                for (auto port : {"A", "B", "C"})
+                    for (int i = 0; i < 18; i++)
+                        autocreate_empty_port(ci, ctx->id(port + std::to_string(i)));
+                for (auto port : {"SRIA", "SRIB"})
+                    for (int i = 0; i < 18; i++)
+                        autocreate_empty_port(ci, ctx->id(port + std::to_string(i)));
+            } else if (ci->type == id_ALU54B) {
+                for (auto sig : {"CLK", "CE", "RST"})
+                    for (int i = 0; i < 4; i++)
+                        autocreate_empty_port(ci, ctx->id(sig + std::to_string(i)));
+                autocreate_empty_port(ci, id_SIGNEDIA);
+                autocreate_empty_port(ci, id_SIGNEDIB);
+                autocreate_empty_port(ci, id_SIGNEDCIN);
+                for (auto port : {"A", "B", "MA", "MB"})
+                    for (int i = 0; i < 36; i++)
+                        autocreate_empty_port(ci, ctx->id(port + std::to_string(i)));
+                for (auto port : {"C", "CFB", "CIN"})
+                    for (int i = 0; i < 54; i++)
+                        autocreate_empty_port(ci, ctx->id(port + std::to_string(i)));
+                for (int i = 0; i < 11; i++)
+                    autocreate_empty_port(ci, ctx->id("OP" + std::to_string(i)));
+            }
+        }
+    }
+
   public:
     void pack()
     {
         pack_io();
         pack_ebr();
+        pack_dsps();
         pack_constants();
         pack_dram();
         pack_carries();
