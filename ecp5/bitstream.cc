@@ -86,14 +86,11 @@ static void tie_cib_signal(Context *ctx, ChipConfig &cc, WireId wire, bool value
     signals.push(wire);
     WireId cibsig;
     std::string basename;
-    log_info("wire %s\n", ctx->getWireName(wire).c_str(ctx));
     while (true) {
         NPNR_ASSERT(!signals.empty());
         NPNR_ASSERT(signals.size() < 100);
         cibsig = signals.front();
         basename = ctx->getWireBasename(cibsig).str(ctx);
-        log_info("       wire %s\n", ctx->getWireName(cibsig).c_str(ctx));
-
         signals.pop();
         if (std::regex_match(basename, cib_re))
             break;
@@ -139,9 +136,12 @@ std::vector<bool> parse_init_str(const std::string &str, int length)
             char c = str.at((str.size() - i) - 1);
             int nibble = chtohex(c);
             result.at(i * 4) = nibble & 0x1;
-            result.at(i * 4 + 1) = nibble & 0x2;
-            result.at(i * 4 + 2) = nibble & 0x4;
-            result.at(i * 4 + 3) = nibble & 0x8;
+            if (i * 4 + 1 < length)
+                result.at(i * 4 + 1) = nibble & 0x2;
+            if (i * 4 + 2 < length)
+                result.at(i * 4 + 2) = nibble & 0x4;
+            if (i * 4 + 3 < length)
+                result.at(i * 4 + 3) = nibble & 0x8;
         }
     } else {
         // Yosys style binary string
@@ -420,7 +420,8 @@ void tieoff_dsp_ports(Context *ctx, ChipConfig &cc, CellInfo *ci)
                 port.first.str(ctx).substr(0, 3) == "SRI" || port.first.str(ctx).substr(0, 2) == "RO" ||
                 port.first.str(ctx).substr(0, 2) == "MA" || port.first.str(ctx).substr(0, 2) == "MB" ||
                 port.first.str(ctx).substr(0, 3) == "CFB" || port.first.str(ctx).substr(0, 3) == "CIN" ||
-                port.first.str(ctx).substr(0, 6) == "SOURCE" || port.first.str(ctx).substr(0, 6) == "SIGNED")
+                port.first.str(ctx).substr(0, 6) == "SOURCE" || port.first.str(ctx).substr(0, 6) == "SIGNED" ||
+                port.first.str(ctx).substr(0, 2) == "OP")
                 continue;
             bool value = bool_or_default(ci->params, ctx->id(port.first.str(ctx) + "MUX"), false);
             tie_cib_signal(ctx, cc, ctx->getBelPinWire(ci->bel, port.first), value);
@@ -751,6 +752,10 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             tg.config.add_enum(dsp + ".REG_PIPELINE_RST",
                                str_or_default(ci->params, ctx->id("REG_PIPELINE_RST"), "RST0"));
             tg.config.add_enum(dsp + ".REG_OUTPUT_CLK", str_or_default(ci->params, ctx->id("REG_OUTPUT_CLK"), "NONE"));
+            if (dsp == "MULT18_0" || dsp == "MULT18_4")
+                tg.config.add_enum(dsp + ".REG_OUTPUT_RST",
+                                   str_or_default(ci->params, ctx->id("REG_OUTPUT_RST"), "RST0"));
+
             tg.config.add_enum(dsp + ".CLK0_DIV", str_or_default(ci->params, ctx->id("CLK0_DIV"), "ENABLED"));
             tg.config.add_enum(dsp + ".CLK1_DIV", str_or_default(ci->params, ctx->id("CLK1_DIV"), "ENABLED"));
             tg.config.add_enum(dsp + ".CLK2_DIV", str_or_default(ci->params, ctx->id("CLK2_DIV"), "ENABLED"));
@@ -760,12 +765,21 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             tg.config.add_enum(dsp + ".RESETMODE", str_or_default(ci->params, ctx->id("RESETMODE"), "SYNC"));
 
             tg.config.add_enum(dsp + ".MODE", "MULT18X18D");
+            if (str_or_default(ci->params, ctx->id("REG_OUTPUT_CLK"), "NONE") == "NONE")
+                tg.config.add_enum(dsp + ".CIBOUT_BYP", "ON");
 
             if (loc.z < 4)
                 tg.config.add_enum("DSP_LEFT.CIBOUT", "ON");
             else
                 tg.config.add_enum("DSP_RIGHT.CIBOUT", "ON");
 
+            // Some muxes default to INV, make all pass-thru
+            for (auto port : {"CLK", "CE", "RST"}) {
+                for (int i = 0; i < 4; i++) {
+                    std::string sig = port + std::to_string(i);
+                    tg.config.add_enum(dsp + "." + sig + "MUX", sig);
+                }
+            }
 
             tieoff_dsp_ports(ctx, cc, ci);
             cc.tilegroups.push_back(tg);
@@ -777,14 +791,8 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             std::string dsp = "ALU54_" + std::to_string(loc.z);
             tg.config.add_enum(dsp + ".REG_INPUTC0_CLK",
                                str_or_default(ci->params, ctx->id("REG_INPUTC0_CLK"), "NONE"));
-            tg.config.add_enum(dsp + ".REG_INPUTC0_CE", str_or_default(ci->params, ctx->id("REG_INPUTC0_CE"), "CE0"));
-            tg.config.add_enum(dsp + ".REG_INPUTC0_RST",
-                               str_or_default(ci->params, ctx->id("REG_INPUTC0_RST"), "RST0"));
             tg.config.add_enum(dsp + ".REG_INPUTC1_CLK",
                                str_or_default(ci->params, ctx->id("REG_INPUTC1_CLK"), "NONE"));
-            tg.config.add_enum(dsp + ".REG_INPUTC1_CE", str_or_default(ci->params, ctx->id("REG_INPUTC1_CE"), "CE0"));
-            tg.config.add_enum(dsp + ".REG_INPUTC1_RST",
-                               str_or_default(ci->params, ctx->id("REG_INPUTC1_RST"), "RST0"));
             tg.config.add_enum(dsp + ".REG_OPCODEOP0_0_CLK",
                                str_or_default(ci->params, ctx->id("REG_OPCODEOP0_0_CLK"), "NONE"));
             tg.config.add_enum(dsp + ".REG_OPCODEOP0_0_CE",
@@ -813,40 +821,26 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                                str_or_default(ci->params, ctx->id("REG_OPCODEIN_1_RST"), "RST0"));
             tg.config.add_enum(dsp + ".REG_OUTPUT0_CLK",
                                str_or_default(ci->params, ctx->id("REG_OUTPUT0_CLK"), "NONE"));
-            tg.config.add_enum(dsp + ".REG_OUTPUT0_CE", str_or_default(ci->params, ctx->id("REG_OUTPUT0_CE"), "CE0"));
-            tg.config.add_enum(dsp + ".REG_OUTPUT0_RST",
-                               str_or_default(ci->params, ctx->id("REG_OUTPUT0_RST"), "RST0"));
             tg.config.add_enum(dsp + ".REG_OUTPUT1_CLK",
                                str_or_default(ci->params, ctx->id("REG_OUTPUT1_CLK"), "NONE"));
-            tg.config.add_enum(dsp + ".REG_OUTPUT1_CE", str_or_default(ci->params, ctx->id("REG_OUTPUT1_CE"), "CE0"));
-            tg.config.add_enum(dsp + ".REG_OUTPUT1_RST",
-                               str_or_default(ci->params, ctx->id("REG_OUTPUT1_RST"), "RST0"));
             tg.config.add_enum(dsp + ".REG_FLAG_CLK", str_or_default(ci->params, ctx->id("REG_FLAG_CLK"), "NONE"));
-            tg.config.add_enum(dsp + ".REG_FLAG_CE", str_or_default(ci->params, ctx->id("REG_FLAG_CE"), "CE0"));
-            tg.config.add_enum(dsp + ".REG_FLAG_RST", str_or_default(ci->params, ctx->id("REG_FLAG_RST"), "RST0"));
             tg.config.add_enum(dsp + ".MCPAT_SOURCE", str_or_default(ci->params, ctx->id("MCPAT_SOURCE"), "STATIC"));
             tg.config.add_enum(dsp + ".MASKPAT_SOURCE",
                                str_or_default(ci->params, ctx->id("MASKPAT_SOURCE"), "STATIC"));
             tg.config.add_word(dsp + ".MASK01",
-                               parse_init_str(str_or_default(ci->params, ctx->id("MASK01"), "0x00000000000000"), 54));
-            tg.config.add_enum(dsp + ".REG_INPUTCFB_CLK",
-                               str_or_default(ci->params, ctx->id("REG_INPUTCFB_CLK"), "NONE"));
-            tg.config.add_enum(dsp + ".REG_INPUTCFB_CE", str_or_default(ci->params, ctx->id("REG_INPUTCFB_CE"), "CE0"));
-            tg.config.add_enum(dsp + ".REG_INPUTCFB_RST",
-                               str_or_default(ci->params, ctx->id("REG_INPUTCFB_RST"), "RST0"));
+                               parse_init_str(str_or_default(ci->params, ctx->id("MASK01"), "0x00000000000000"), 56));
             tg.config.add_enum(dsp + ".CLK0_DIV", str_or_default(ci->params, ctx->id("CLK0_DIV"), "ENABLED"));
             tg.config.add_enum(dsp + ".CLK1_DIV", str_or_default(ci->params, ctx->id("CLK1_DIV"), "ENABLED"));
             tg.config.add_enum(dsp + ".CLK2_DIV", str_or_default(ci->params, ctx->id("CLK2_DIV"), "ENABLED"));
             tg.config.add_enum(dsp + ".CLK3_DIV", str_or_default(ci->params, ctx->id("CLK3_DIV"), "ENABLED"));
             tg.config.add_word(dsp + ".MCPAT",
-                               parse_init_str(str_or_default(ci->params, ctx->id("MCPAT"), "0x00000000000000"), 54));
+                               parse_init_str(str_or_default(ci->params, ctx->id("MCPAT"), "0x00000000000000"), 56));
             tg.config.add_word(dsp + ".MASKPAT",
-                               parse_init_str(str_or_default(ci->params, ctx->id("MASKPAT"), "0x00000000000000"), 54));
+                               parse_init_str(str_or_default(ci->params, ctx->id("MASKPAT"), "0x00000000000000"), 56));
             tg.config.add_word(dsp + ".RNDPAT",
-                               parse_init_str(str_or_default(ci->params, ctx->id("RNDPAT"), "0x00000000000000"), 54));
+                               parse_init_str(str_or_default(ci->params, ctx->id("RNDPAT"), "0x00000000000000"), 56));
             tg.config.add_enum(dsp + ".GSR", str_or_default(ci->params, ctx->id("GSR"), "ENABLED"));
             tg.config.add_enum(dsp + ".RESETMODE", str_or_default(ci->params, ctx->id("RESETMODE"), "SYNC"));
-            tg.config.add_enum(dsp + ".MULT9_MODE", str_or_default(ci->params, ctx->id("MULT9_MODE"), "DISABLED"));
             tg.config.add_enum(dsp + ".FORCE_ZERO_BARREL_SHIFT",
                                str_or_default(ci->params, ctx->id("FORCE_ZERO_BARREL_SHIFT"), "DISABLED"));
             tg.config.add_enum(dsp + ".LEGACY", str_or_default(ci->params, ctx->id("LEGACY"), "DISABLED"));
@@ -857,7 +851,20 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                 tg.config.add_enum("DSP_LEFT.CIBOUT", "ON");
             else
                 tg.config.add_enum("DSP_RIGHT.CIBOUT", "ON");
-
+            if (str_or_default(ci->params, ctx->id("REG_FLAG_CLK"), "NONE") == "NONE") {
+                if (dsp == "ALU54_7") {
+                    tg.config.add_enum("MULT18_5.CIBOUT_BYP", "ON");
+                } else if (dsp == "ALU54_3") {
+                    tg.config.add_enum("MULT18_5.CIBOUT_BYP", "ON");
+                }
+            }
+            if (str_or_default(ci->params, ctx->id("REG_OUTPUT0_CLK"), "NONE") == "NONE") {
+                if (dsp == "ALU54_7") {
+                    tg.config.add_enum("MULT18_4.CIBOUT_BYP", "ON");
+                } else if (dsp == "ALU54_3") {
+                    tg.config.add_enum("MULT18_0.CIBOUT_BYP", "ON");
+                }
+            }
             tieoff_dsp_ports(ctx, cc, ci);
             cc.tilegroups.push_back(tg);
 

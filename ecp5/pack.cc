@@ -862,12 +862,14 @@ class Ecp5Packer
                         user.port.str(ctx).substr(0, 3) == "SRI" || user.port.str(ctx).substr(0, 2) == "RO" ||
                         user.port.str(ctx).substr(0, 2) == "MA" || user.port.str(ctx).substr(0, 2) == "MB" ||
                         user.port.str(ctx).substr(0, 3) == "CFB" || user.port.str(ctx).substr(0, 3) == "CIN" ||
-                        user.port.str(ctx).substr(0, 6) == "SOURCE" || user.port.str(ctx).substr(0, 6) == "SIGNED") {
+                        user.port.str(ctx).substr(0, 6) == "SOURCE" || user.port.str(ctx).substr(0, 6) == "SIGNED" ||
+                        user.port.str(ctx).substr(0, 2) == "OP") {
                         uc->ports[user.port].net = constnet;
                         constnet->users.push_back(user);
                     } else {
                         // Connected to CIB ABCD. Default state is bitstream configurable
                         uc->params[ctx->id(user.port.str(ctx) + "MUX")] = constval ? "1" : "0";
+                        uc->ports[user.port].net = nullptr;
                     }
                 } else {
                     uc->ports[user.port].net = constnet;
