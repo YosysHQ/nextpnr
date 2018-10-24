@@ -719,10 +719,19 @@ void FPGAViewWidget::mouseMoveEvent(QMouseEvent *event)
         rendererArgs_->changed = true;
         if (closest.type == ElementType::BEL) {
             rendererArgs_->hintText = std::string("BEL\n") + ctx_->getBelName(closest.bel).c_str(ctx_);
+            CellInfo *cell = ctx_->getBoundBelCell(closest.bel);
+            if (cell!=nullptr)
+                rendererArgs_->hintText += std::string("\nCELL\n") +ctx_->nameOf(cell);
         } else if (closest.type == ElementType::WIRE) {
             rendererArgs_->hintText = std::string("WIRE\n") + ctx_->getWireName(closest.wire).c_str(ctx_);
+            NetInfo *net = ctx_->getBoundWireNet(closest.wire);
+            if (net!=nullptr)
+                rendererArgs_->hintText += std::string("\nNET\n") +ctx_->nameOf(net);
         } else if (closest.type == ElementType::PIP) {
             rendererArgs_->hintText = std::string("PIP\n") + ctx_->getPipName(closest.pip).c_str(ctx_);
+            NetInfo *net = ctx_->getBoundPipNet(closest.pip);
+            if (net!=nullptr)
+                rendererArgs_->hintText += std::string("\nNET\n") +ctx_->nameOf(net);
         } else if (closest.type == ElementType::GROUP) {
             rendererArgs_->hintText = std::string("GROUP\n") + ctx_->getGroupName(closest.group).c_str(ctx_);
         } else rendererArgs_->hintText = "";  
@@ -834,7 +843,7 @@ void FPGAViewWidget::zoomSelected()
 {
     {
         QMutexLocker lock(&rendererDataLock_);
-            zoomToBB(rendererData_->bbSelected, 0.5f, true);
+        zoomToBB(rendererData_->bbSelected, 0.5f, true);
     }
     update();
 }
