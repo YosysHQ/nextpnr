@@ -368,9 +368,9 @@ void FPGAViewWidget::paintGL()
     }
     QtImGui::newFrame();
     QMutexLocker lock(&rendererArgsLock_);
-
     if (!(rendererArgs_->hoveredDecal == DecalXY()))
     {
+        ImGui::SetNextWindowPos(ImVec2(rendererArgs_->x, rendererArgs_->y));
         ImGui::BeginTooltip();
         ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f);
         ImGui::TextUnformatted(rendererArgs_->hintText.c_str());
@@ -717,6 +717,8 @@ void FPGAViewWidget::mouseMoveEvent(QMouseEvent *event)
         QMutexLocker locked(&rendererArgsLock_);
         rendererArgs_->hoveredDecal = closest.decal(ctx_);
         rendererArgs_->changed = true;
+        rendererArgs_->x = event->x();
+        rendererArgs_->y = event->y();
         if (closest.type == ElementType::BEL) {
             rendererArgs_->hintText = std::string("BEL\n") + ctx_->getBelName(closest.bel).c_str(ctx_);
             CellInfo *cell = ctx_->getBoundBelCell(closest.bel);
@@ -862,6 +864,7 @@ void FPGAViewWidget::leaveEvent(QEvent *event)
     QMutexLocker locked(&rendererArgsLock_);
     rendererArgs_->hoveredDecal = DecalXY();
     rendererArgs_->changed = true;
+    rendererArgs_->hintText = "";
     pokeRenderer();
 }
 

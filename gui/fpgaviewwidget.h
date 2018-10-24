@@ -270,6 +270,8 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
         PassthroughFlags flags;
         // Hint text
         std::string hintText;
+        // cursor pos
+        int x,y;
     };
     std::unique_ptr<RendererArgs> rendererArgs_;
     QMutex rendererArgsLock_;
