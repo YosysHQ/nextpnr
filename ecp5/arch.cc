@@ -647,6 +647,10 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, Id
             return (cell->ports.at(port).type == PORT_OUT) ? TMG_REGISTER_OUTPUT : TMG_REGISTER_INPUT;
         }
         NPNR_ASSERT_FALSE_STR("no timing type for RAM port '" + port.str(this) + "'");
+    } else if (cell->type == id_MULT18X18D) {
+        return TMG_IGNORE; // FIXME
+    } else if (cell->type == id_ALU54B) {
+        return TMG_IGNORE; // FIXME
     } else {
         NPNR_ASSERT_FALSE_STR("no timing data for cell type '" + cell->type.str(this) + "'");
     }

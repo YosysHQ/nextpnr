@@ -21,6 +21,7 @@
 
 #include <fstream>
 #include <iomanip>
+#include <queue>
 #include <regex>
 #include <streambuf>
 
@@ -81,17 +82,20 @@ static std::vector<bool> str_to_bitvector(std::string str, int size)
 static void tie_cib_signal(Context *ctx, ChipConfig &cc, WireId wire, bool value)
 {
     static const std::regex cib_re("J([A-D]|CE|LSR|CLK)[0-7]");
-    WireId cibsig = wire;
-    std::string basename = ctx->getWireBasename(wire).str(ctx);
-
-    while (!std::regex_match(basename, cib_re)) {
-        auto uphill = ctx->getPipsUphill(cibsig);
-        NPNR_ASSERT(uphill.begin() != uphill.end()); // At least one uphill pip
-        auto iter = uphill.begin();
-        cibsig = ctx->getPipSrcWire(*iter);
+    std::queue<WireId> signals;
+    signals.push(wire);
+    WireId cibsig;
+    std::string basename;
+    while (true) {
+        NPNR_ASSERT(!signals.empty());
+        NPNR_ASSERT(signals.size() < 100);
+        cibsig = signals.front();
         basename = ctx->getWireBasename(cibsig).str(ctx);
-        ++iter;
-        NPNR_ASSERT(!(iter != uphill.end())); // Exactly one uphill pip
+        signals.pop();
+        if (std::regex_match(basename, cib_re))
+            break;
+        for (auto pip : ctx->getPipsUphill(cibsig))
+            signals.push(ctx->getPipSrcWire(pip));
     }
 
     bool out_value = value;
@@ -132,9 +136,12 @@ std::vector<bool> parse_init_str(const std::string &str, int length)
             char c = str.at((str.size() - i) - 1);
             int nibble = chtohex(c);
             result.at(i * 4) = nibble & 0x1;
-            result.at(i * 4 + 1) = nibble & 0x2;
-            result.at(i * 4 + 2) = nibble & 0x4;
-            result.at(i * 4 + 3) = nibble & 0x8;
+            if (i * 4 + 1 < length)
+                result.at(i * 4 + 1) = nibble & 0x2;
+            if (i * 4 + 2 < length)
+                result.at(i * 4 + 2) = nibble & 0x4;
+            if (i * 4 + 3 < length)
+                result.at(i * 4 + 3) = nibble & 0x8;
         }
     } else {
         // Yosys style binary string
@@ -279,6 +286,98 @@ std::vector<std::string> get_bram_tiles(Context *ctx, BelId bel)
     return tiles;
 }
 
+// Get the list of tiles corresponding to a DSP
+std::vector<std::string> get_dsp_tiles(Context *ctx, BelId bel)
+{
+    std::vector<std::string> tiles;
+    Loc loc = ctx->getBelLocation(bel);
+
+    static const std::set<std::string> dsp8 = {"MIB_DSP8", "DSP_SPINE_UL0", "DSP_SPINE_UR0", "DSP_SPINE_UR1"};
+    if (ctx->getBelType(bel) == id_MULT18X18D) {
+        switch (loc.z) {
+        case 0:
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x, "MIB_DSP0"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x, "MIB2_DSP0"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 1, "MIB_DSP1"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 1, "MIB2_DSP1"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 2, "MIB_DSP2"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 2, "MIB2_DSP2"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 3, "MIB_DSP3"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 3, "MIB2_DSP3"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 4, "MIB_DSP4"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 4, "MIB2_DSP4"));
+            break;
+        case 1:
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x - 1, "MIB_DSP0"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x - 1, "MIB2_DSP0"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x, "MIB_DSP1"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x, "MIB2_DSP1"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 1, "MIB_DSP2"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 1, "MIB2_DSP2"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 2, "MIB_DSP3"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 2, "MIB2_DSP3"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 3, "MIB_DSP4"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 3, "MIB2_DSP4"));
+            break;
+        case 4:
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x, "MIB_DSP4"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x, "MIB2_DSP4"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 1, "MIB_DSP5"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 1, "MIB2_DSP5"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 2, "MIB_DSP6"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 2, "MIB2_DSP6"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 3, "MIB_DSP7"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 3, "MIB2_DSP7"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 4, dsp8));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 4, "MIB2_DSP8"));
+            break;
+        case 5:
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x - 1, "MIB_DSP4"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x - 1, "MIB2_DSP4"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x, "MIB_DSP5"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x, "MIB2_DSP5"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 1, "MIB_DSP6"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 1, "MIB2_DSP6"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 2, "MIB_DSP7"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 2, "MIB2_DSP7"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 3, dsp8));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 3, "MIB2_DSP8"));
+            break;
+        default:
+            NPNR_ASSERT_FALSE("bad MULT z loc");
+        }
+    } else if (ctx->getBelType(bel) == id_ALU54B) {
+        switch (loc.z) {
+        case 3:
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x - 3, "MIB_DSP0"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x - 3, "MIB2_DSP0"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x - 2, "MIB_DSP1"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x - 2, "MIB2_DSP1"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x - 1, "MIB_DSP2"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x - 1, "MIB2_DSP2"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x, "MIB_DSP3"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x, "MIB2_DSP3"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 1, "MIB_DSP4"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 1, "MIB2_DSP4"));
+            break;
+        case 7:
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x - 3, "MIB_DSP4"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x - 3, "MIB2_DSP4"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x - 2, "MIB_DSP5"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x - 2, "MIB2_DSP5"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x - 1, "MIB_DSP6"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x - 1, "MIB2_DSP6"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x, "MIB_DSP7"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x, "MIB2_DSP7"));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 1, dsp8));
+            tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 1, "MIB2_DSP8"));
+            break;
+        default:
+            NPNR_ASSERT_FALSE("bad ALU z loc");
+        }
+    }
+    return tiles;
+}
 void fix_tile_names(Context *ctx, ChipConfig &cc)
 {
     // Remove the V prefix/suffix on certain tiles if device is a SERDES variant
@@ -308,6 +407,24 @@ void fix_tile_names(Context *ctx, ChipConfig &cc)
         for (auto xform : tiletype_xform) {
             cc.tiles[xform.second] = cc.tiles.at(xform.first);
             cc.tiles.erase(xform.first);
+        }
+    }
+}
+
+void tieoff_dsp_ports(Context *ctx, ChipConfig &cc, CellInfo *ci)
+{
+    for (auto port : ci->ports) {
+        if (port.second.net == nullptr && port.second.type == PORT_IN) {
+            if (port.first.str(ctx).substr(0, 3) == "CLK" || port.first.str(ctx).substr(0, 2) == "CE" ||
+                port.first.str(ctx).substr(0, 3) == "RST" || port.first.str(ctx).substr(0, 3) == "SRO" ||
+                port.first.str(ctx).substr(0, 3) == "SRI" || port.first.str(ctx).substr(0, 2) == "RO" ||
+                port.first.str(ctx).substr(0, 2) == "MA" || port.first.str(ctx).substr(0, 2) == "MB" ||
+                port.first.str(ctx).substr(0, 3) == "CFB" || port.first.str(ctx).substr(0, 3) == "CIN" ||
+                port.first.str(ctx).substr(0, 6) == "SOURCE" || port.first.str(ctx).substr(0, 6) == "SIGNED" ||
+                port.first.str(ctx).substr(0, 2) == "OP")
+                continue;
+            bool value = bool_or_default(ci->params, ctx->id(port.first.str(ctx) + "MUX"), false);
+            tie_cib_signal(ctx, cc, ctx->getBelPinWire(ci->bel, port.first), value);
         }
     }
 }
@@ -617,10 +734,145 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             NPNR_ASSERT(!cc.bram_data.count(wid));
             cc.bram_data[wid] = init_data;
             cc.tilegroups.push_back(tg);
+        } else if (ci->type == id_MULT18X18D) {
+            TileGroup tg;
+            Loc loc = ctx->getBelLocation(ci->bel);
+            tg.tiles = get_dsp_tiles(ctx, ci->bel);
+            std::string dsp = "MULT18_" + std::to_string(loc.z);
+            tg.config.add_enum(dsp + ".REG_INPUTA_CLK", str_or_default(ci->params, ctx->id("REG_INPUTA_CLK"), "NONE"));
+            tg.config.add_enum(dsp + ".REG_INPUTA_CE", str_or_default(ci->params, ctx->id("REG_INPUTA_CE"), "CE0"));
+            tg.config.add_enum(dsp + ".REG_INPUTA_RST", str_or_default(ci->params, ctx->id("REG_INPUTA_RST"), "RST0"));
+            tg.config.add_enum(dsp + ".REG_INPUTB_CLK", str_or_default(ci->params, ctx->id("REG_INPUTB_CLK"), "NONE"));
+            tg.config.add_enum(dsp + ".REG_INPUTB_CE", str_or_default(ci->params, ctx->id("REG_INPUTB_CE"), "CE0"));
+            tg.config.add_enum(dsp + ".REG_INPUTB_RST", str_or_default(ci->params, ctx->id("REG_INPUTB_RST"), "RST0"));
+            tg.config.add_enum(dsp + ".REG_INPUTC_CLK", str_or_default(ci->params, ctx->id("REG_INPUTC_CLK"), "NONE"));
+            tg.config.add_enum(dsp + ".REG_PIPELINE_CLK",
+                               str_or_default(ci->params, ctx->id("REG_PIPELINE_CLK"), "NONE"));
+            tg.config.add_enum(dsp + ".REG_PIPELINE_CE", str_or_default(ci->params, ctx->id("REG_PIPELINE_CE"), "CE0"));
+            tg.config.add_enum(dsp + ".REG_PIPELINE_RST",
+                               str_or_default(ci->params, ctx->id("REG_PIPELINE_RST"), "RST0"));
+            tg.config.add_enum(dsp + ".REG_OUTPUT_CLK", str_or_default(ci->params, ctx->id("REG_OUTPUT_CLK"), "NONE"));
+            if (dsp == "MULT18_0" || dsp == "MULT18_4")
+                tg.config.add_enum(dsp + ".REG_OUTPUT_RST",
+                                   str_or_default(ci->params, ctx->id("REG_OUTPUT_RST"), "RST0"));
+
+            tg.config.add_enum(dsp + ".CLK0_DIV", str_or_default(ci->params, ctx->id("CLK0_DIV"), "ENABLED"));
+            tg.config.add_enum(dsp + ".CLK1_DIV", str_or_default(ci->params, ctx->id("CLK1_DIV"), "ENABLED"));
+            tg.config.add_enum(dsp + ".CLK2_DIV", str_or_default(ci->params, ctx->id("CLK2_DIV"), "ENABLED"));
+            tg.config.add_enum(dsp + ".CLK3_DIV", str_or_default(ci->params, ctx->id("CLK3_DIV"), "ENABLED"));
+            tg.config.add_enum(dsp + ".GSR", str_or_default(ci->params, ctx->id("GSR"), "ENABLED"));
+            tg.config.add_enum(dsp + ".SOURCEB_MODE", str_or_default(ci->params, ctx->id("SOURCEB_MODE"), "B_SHIFT"));
+            tg.config.add_enum(dsp + ".RESETMODE", str_or_default(ci->params, ctx->id("RESETMODE"), "SYNC"));
+
+            tg.config.add_enum(dsp + ".MODE", "MULT18X18D");
+            if (str_or_default(ci->params, ctx->id("REG_OUTPUT_CLK"), "NONE") == "NONE")
+                tg.config.add_enum(dsp + ".CIBOUT_BYP", "ON");
+
+            if (loc.z < 4)
+                tg.config.add_enum("DSP_LEFT.CIBOUT", "ON");
+            else
+                tg.config.add_enum("DSP_RIGHT.CIBOUT", "ON");
+
+            // Some muxes default to INV, make all pass-thru
+            for (auto port : {"CLK", "CE", "RST"}) {
+                for (int i = 0; i < 4; i++) {
+                    std::string sig = port + std::to_string(i);
+                    tg.config.add_enum(dsp + "." + sig + "MUX", sig);
+                }
+            }
+
+            tieoff_dsp_ports(ctx, cc, ci);
+            cc.tilegroups.push_back(tg);
+
+        } else if (ci->type == id_ALU54B) {
+            TileGroup tg;
+            Loc loc = ctx->getBelLocation(ci->bel);
+            tg.tiles = get_dsp_tiles(ctx, ci->bel);
+            std::string dsp = "ALU54_" + std::to_string(loc.z);
+            tg.config.add_enum(dsp + ".REG_INPUTC0_CLK",
+                               str_or_default(ci->params, ctx->id("REG_INPUTC0_CLK"), "NONE"));
+            tg.config.add_enum(dsp + ".REG_INPUTC1_CLK",
+                               str_or_default(ci->params, ctx->id("REG_INPUTC1_CLK"), "NONE"));
+            tg.config.add_enum(dsp + ".REG_OPCODEOP0_0_CLK",
+                               str_or_default(ci->params, ctx->id("REG_OPCODEOP0_0_CLK"), "NONE"));
+            tg.config.add_enum(dsp + ".REG_OPCODEOP0_0_CE",
+                               str_or_default(ci->params, ctx->id("REG_OPCODEOP0_0_CE"), "CE0"));
+            tg.config.add_enum(dsp + ".REG_OPCODEOP0_0_RST",
+                               str_or_default(ci->params, ctx->id("REG_OPCODEOP0_0_RST"), "RST0"));
+            tg.config.add_enum(dsp + ".REG_OPCODEOP1_0_CLK",
+                               str_or_default(ci->params, ctx->id("REG_OPCODEOP1_0_CLK"), "NONE"));
+            tg.config.add_enum(dsp + ".REG_OPCODEOP0_1_CLK",
+                               str_or_default(ci->params, ctx->id("REG_OPCODEOP0_1_CLK"), "NONE"));
+            tg.config.add_enum(dsp + ".REG_OPCODEOP0_1_CE",
+                               str_or_default(ci->params, ctx->id("REG_OPCODEOP0_1_CE"), "CE0"));
+            tg.config.add_enum(dsp + ".REG_OPCODEOP0_1_RST",
+                               str_or_default(ci->params, ctx->id("REG_OPCODEOP0_1_RST"), "RST0"));
+            tg.config.add_enum(dsp + ".REG_OPCODEIN_0_CLK",
+                               str_or_default(ci->params, ctx->id("REG_OPCODEIN_0_CLK"), "NONE"));
+            tg.config.add_enum(dsp + ".REG_OPCODEIN_0_CE",
+                               str_or_default(ci->params, ctx->id("REG_OPCODEIN_0_CE"), "CE0"));
+            tg.config.add_enum(dsp + ".REG_OPCODEIN_0_RST",
+                               str_or_default(ci->params, ctx->id("REG_OPCODEIN_0_RST"), "RST0"));
+            tg.config.add_enum(dsp + ".REG_OPCODEIN_1_CLK",
+                               str_or_default(ci->params, ctx->id("REG_OPCODEIN_1_CLK"), "NONE"));
+            tg.config.add_enum(dsp + ".REG_OPCODEIN_1_CE",
+                               str_or_default(ci->params, ctx->id("REG_OPCODEIN_1_CE"), "CE0"));
+            tg.config.add_enum(dsp + ".REG_OPCODEIN_1_RST",
+                               str_or_default(ci->params, ctx->id("REG_OPCODEIN_1_RST"), "RST0"));
+            tg.config.add_enum(dsp + ".REG_OUTPUT0_CLK",
+                               str_or_default(ci->params, ctx->id("REG_OUTPUT0_CLK"), "NONE"));
+            tg.config.add_enum(dsp + ".REG_OUTPUT1_CLK",
+                               str_or_default(ci->params, ctx->id("REG_OUTPUT1_CLK"), "NONE"));
+            tg.config.add_enum(dsp + ".REG_FLAG_CLK", str_or_default(ci->params, ctx->id("REG_FLAG_CLK"), "NONE"));
+            tg.config.add_enum(dsp + ".MCPAT_SOURCE", str_or_default(ci->params, ctx->id("MCPAT_SOURCE"), "STATIC"));
+            tg.config.add_enum(dsp + ".MASKPAT_SOURCE",
+                               str_or_default(ci->params, ctx->id("MASKPAT_SOURCE"), "STATIC"));
+            tg.config.add_word(dsp + ".MASK01",
+                               parse_init_str(str_or_default(ci->params, ctx->id("MASK01"), "0x00000000000000"), 56));
+            tg.config.add_enum(dsp + ".CLK0_DIV", str_or_default(ci->params, ctx->id("CLK0_DIV"), "ENABLED"));
+            tg.config.add_enum(dsp + ".CLK1_DIV", str_or_default(ci->params, ctx->id("CLK1_DIV"), "ENABLED"));
+            tg.config.add_enum(dsp + ".CLK2_DIV", str_or_default(ci->params, ctx->id("CLK2_DIV"), "ENABLED"));
+            tg.config.add_enum(dsp + ".CLK3_DIV", str_or_default(ci->params, ctx->id("CLK3_DIV"), "ENABLED"));
+            tg.config.add_word(dsp + ".MCPAT",
+                               parse_init_str(str_or_default(ci->params, ctx->id("MCPAT"), "0x00000000000000"), 56));
+            tg.config.add_word(dsp + ".MASKPAT",
+                               parse_init_str(str_or_default(ci->params, ctx->id("MASKPAT"), "0x00000000000000"), 56));
+            tg.config.add_word(dsp + ".RNDPAT",
+                               parse_init_str(str_or_default(ci->params, ctx->id("RNDPAT"), "0x00000000000000"), 56));
+            tg.config.add_enum(dsp + ".GSR", str_or_default(ci->params, ctx->id("GSR"), "ENABLED"));
+            tg.config.add_enum(dsp + ".RESETMODE", str_or_default(ci->params, ctx->id("RESETMODE"), "SYNC"));
+            tg.config.add_enum(dsp + ".FORCE_ZERO_BARREL_SHIFT",
+                               str_or_default(ci->params, ctx->id("FORCE_ZERO_BARREL_SHIFT"), "DISABLED"));
+            tg.config.add_enum(dsp + ".LEGACY", str_or_default(ci->params, ctx->id("LEGACY"), "DISABLED"));
+
+            tg.config.add_enum(dsp + ".MODE", "ALU54B");
+
+            if (loc.z < 4)
+                tg.config.add_enum("DSP_LEFT.CIBOUT", "ON");
+            else
+                tg.config.add_enum("DSP_RIGHT.CIBOUT", "ON");
+            if (str_or_default(ci->params, ctx->id("REG_FLAG_CLK"), "NONE") == "NONE") {
+                if (dsp == "ALU54_7") {
+                    tg.config.add_enum("MULT18_5.CIBOUT_BYP", "ON");
+                } else if (dsp == "ALU54_3") {
+                    tg.config.add_enum("MULT18_5.CIBOUT_BYP", "ON");
+                }
+            }
+            if (str_or_default(ci->params, ctx->id("REG_OUTPUT0_CLK"), "NONE") == "NONE") {
+                if (dsp == "ALU54_7") {
+                    tg.config.add_enum("MULT18_4.CIBOUT_BYP", "ON");
+                } else if (dsp == "ALU54_3") {
+                    tg.config.add_enum("MULT18_0.CIBOUT_BYP", "ON");
+                }
+            }
+            tieoff_dsp_ports(ctx, cc, ci);
+            cc.tilegroups.push_back(tg);
+
         } else {
             NPNR_ASSERT_FALSE("unsupported cell type");
         }
     }
+
     // Fixup tile names
     fix_tile_names(ctx, cc);
     // Configure chip
