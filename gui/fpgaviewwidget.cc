@@ -198,8 +198,6 @@ void FPGAViewWidget::renderGraphicElement(LineShaderData &out, PickQuadTree::Bou
         bb.setY0(std::min(bb.y0(), y + el.y1));
         bb.setX1(std::max(bb.x1(), x + el.x2));
         bb.setY1(std::max(bb.y1(), y + el.y2));
-
-        out.last_render++;
         return;
     }
 
@@ -209,14 +207,13 @@ void FPGAViewWidget::renderGraphicElement(LineShaderData &out, PickQuadTree::Bou
         bb.setY0(std::min(bb.y0(), y + el.y1));
         bb.setX1(std::max(bb.x1(), x + el.x2));
         bb.setY1(std::max(bb.y1(), y + el.y2));
-
-        out.last_render++;
         return;
     }
 }
 
 void FPGAViewWidget::renderDecal(LineShaderData &out, PickQuadTree::BoundingBox &bb, const DecalXY &decal)
 {
+    out.last_render++;
     if (decal.decal == DecalId())
         return;
 
@@ -239,6 +236,7 @@ void FPGAViewWidget::renderArchDecal(LineShaderData out[GraphicElement::STYLE_MA
         case GraphicElement::STYLE_FRAME:
         case GraphicElement::STYLE_INACTIVE:
         case GraphicElement::STYLE_ACTIVE:
+            out[el.style].last_render++;
             renderGraphicElement(out[el.style], bb, el, offsetX, offsetY);
             break;
         default:
