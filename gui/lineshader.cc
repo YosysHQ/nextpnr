@@ -214,14 +214,8 @@ void LineShader::update_vbos(enum GraphicElement::style_t style,
     buffers_[style].last_vbo_update = line.last_render;
 
     buffers_[style].indices = line.indices.size();
-    if (buffers_[style].indices == 0) {
-        // invalidate buffers
-        buffers_[style].position.allocate(nullptr, 0);
-        buffers_[style].normal.allocate(nullptr, 0);
-        buffers_[style].miter.allocate(nullptr, 0);
-        buffers_[style].index.allocate(nullptr, 0);
+    if (buffers_[style].indices == 0)
         return;
-    }
 
     buffers_[style].position.bind();
     buffers_[style].position.allocate(&line.vertices[0], sizeof(Vertex2DPOD) * line.vertices.size());
