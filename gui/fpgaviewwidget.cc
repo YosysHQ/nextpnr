@@ -213,7 +213,6 @@ void FPGAViewWidget::renderGraphicElement(LineShaderData &out, PickQuadTree::Bou
 
 void FPGAViewWidget::renderDecal(LineShaderData &out, PickQuadTree::BoundingBox &bb, const DecalXY &decal)
 {
-    out.last_render++;
     if (decal.decal == DecalId())
         return;
 
@@ -236,7 +235,6 @@ void FPGAViewWidget::renderArchDecal(LineShaderData out[GraphicElement::STYLE_MA
         case GraphicElement::STYLE_FRAME:
         case GraphicElement::STYLE_INACTIVE:
         case GraphicElement::STYLE_ACTIVE:
-            out[el.style].last_render++;
             renderGraphicElement(out[el.style], bb, el, offsetX, offsetY);
             break;
         default:
@@ -443,12 +441,18 @@ void FPGAViewWidget::renderLines(void)
 
         highlightedOrSelectedChanged = rendererArgs_->changed;
         rendererArgs_->changed = false;
-
         flags = rendererArgs_->flags;
     }
 
     // Render decals if necessary.
     if (decalsChanged) {
+        int last_render[GraphicElement::STYLE_HIGHLIGHTED0];
+        {
+            QMutexLocker locker(&rendererDataLock_);
+            for(int i =0; i<GraphicElement::STYLE_HIGHLIGHTED0; i++)
+                last_render[i] = rendererData_->gfxByStyle[(enum GraphicElement::style_t)i].last_render;
+        }
+        
         auto data = std::unique_ptr<FPGAViewWidget::RendererData>(new FPGAViewWidget::RendererData);
         // Reset bounding box.
         data->bbGlobal.clear();
@@ -514,7 +518,8 @@ void FPGAViewWidget::renderLines(void)
                 for (int i = 0; i < 8; i++)
                     data->gfxHighlighted[i] = rendererData_->gfxHighlighted[i];
             }
-
+            for(int i =0; i<GraphicElement::STYLE_HIGHLIGHTED0; i++)
+                data->gfxByStyle[(enum GraphicElement::style_t)i].last_render = ++last_render[i];
             rendererData_ = std::move(data);
         }
     }
@@ -525,6 +530,7 @@ void FPGAViewWidget::renderLines(void)
         // Whether the currently being hovered decal is also selected.
         bool hoveringSelected = false;
         // Render selected.
+        int prev = rendererData_->gfxSelected.indices.size();
         rendererData_->bbSelected.clear();
         rendererData_->gfxSelected.clear();
         for (auto &decal : selectedDecals) {
@@ -532,19 +538,27 @@ void FPGAViewWidget::renderLines(void)
                 hoveringSelected = true;
             renderDecal(rendererData_->gfxSelected, rendererData_->bbSelected, decal);
         }
+        int curr = rendererData_->gfxSelected.indices.size();
+        if (curr!=prev) rendererData_->gfxSelected.last_render++;
 
         // Render hovered.
+        prev = rendererData_->gfxHovered.indices.size();
         rendererData_->gfxHovered.clear();
         if (!hoveringSelected) {
             renderDecal(rendererData_->gfxHovered, rendererData_->bbGlobal, hoveredDecal);
         }
+        curr = rendererData_->gfxHovered.indices.size();
+        if (curr!=prev) rendererData_->gfxHovered.last_render++;
 
         // Render highlighted.
         for (int i = 0; i < 8; i++) {
+            prev = rendererData_->gfxHighlighted[i].indices.size();
             rendererData_->gfxHighlighted[i].clear();
             for (auto &decal : highlightedDecals[i]) {
                 renderDecal(rendererData_->gfxHighlighted[i], rendererData_->bbGlobal, decal);
             }
+            curr = rendererData_->gfxHighlighted[i].indices.size();
+            if (curr!=prev) rendererData_->gfxHighlighted[i].last_render++;
         }
     }
 
