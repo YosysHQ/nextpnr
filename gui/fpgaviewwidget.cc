@@ -545,8 +545,7 @@ void FPGAViewWidget::renderLines(void)
 
         // Whether the currently being hovered decal is also selected.
         bool hoveringSelected = false;
-        // Render selected.
-        int prev = rendererData_->gfxSelected.indices.size();
+        // Render selected.        
         rendererData_->bbSelected.clear();
         rendererData_->gfxSelected.clear();
         for (auto &decal : selectedDecals) {
@@ -554,27 +553,22 @@ void FPGAViewWidget::renderLines(void)
                 hoveringSelected = true;
             renderDecal(rendererData_->gfxSelected, rendererData_->bbSelected, decal);
         }
-        int curr = rendererData_->gfxSelected.indices.size();
-        if (curr!=prev) rendererData_->gfxSelected.last_render++;
+        rendererData_->gfxSelected.last_render++;
 
         // Render hovered.
-        prev = rendererData_->gfxHovered.indices.size();
         rendererData_->gfxHovered.clear();
         if (!hoveringSelected) {
             renderDecal(rendererData_->gfxHovered, rendererData_->bbGlobal, hoveredDecal);
         }
-        curr = rendererData_->gfxHovered.indices.size();
-        if (curr!=prev) rendererData_->gfxHovered.last_render++;
+        rendererData_->gfxHovered.last_render++;
 
         // Render highlighted.
         for (int i = 0; i < 8; i++) {
-            prev = rendererData_->gfxHighlighted[i].indices.size();
             rendererData_->gfxHighlighted[i].clear();
             for (auto &decal : highlightedDecals[i]) {
                 renderDecal(rendererData_->gfxHighlighted[i], rendererData_->bbGlobal, decal);
             }
-            curr = rendererData_->gfxHighlighted[i].indices.size();
-            if (curr!=prev) rendererData_->gfxHighlighted[i].last_render++;
+            rendererData_->gfxHighlighted[i].last_render++;
         }
     }
 
