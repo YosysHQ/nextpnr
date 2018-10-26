@@ -25,6 +25,9 @@
 #include <QMouseEvent>
 #include <QWidget>
 
+#include "QtImGui.h"
+#include "imgui.h"
+
 #include "fpgaviewwidget.h"
 #include "log.h"
 #include "mainwindow.h"
@@ -57,7 +60,7 @@ FPGAViewWidget::FPGAViewWidget(QWidget *parent)
 
     auto fmt = format();
     fmt.setMajorVersion(3);
-    fmt.setMinorVersion(1);
+    fmt.setMinorVersion(2);
     setFormat(fmt);
 
     fmt = format();
@@ -65,8 +68,8 @@ FPGAViewWidget::FPGAViewWidget(QWidget *parent)
         printf("Could not get OpenGL 3.0 context. Aborting.\n");
         log_abort();
     }
-    if (fmt.minorVersion() < 1) {
-        printf("Could not get OpenGL 3.1 context - trying anyway...\n ");
+    if (fmt.minorVersion() < 2) {
+        printf("Could not get OpenGL 3.2 context - trying anyway...\n ");
     }
 
     connect(&paintTimer_, SIGNAL(timeout()), this, SLOT(update()));
@@ -103,6 +106,7 @@ void FPGAViewWidget::initializeGL()
         log_error("Could not compile shader.\n");
     }
     initializeOpenGLFunctions();
+    QtImGui::initialize(this);
     glClearColor(colors_.background.red() / 255, colors_.background.green() / 255,
                                             colors_.background.blue() / 255, 0.0);
 
@@ -358,6 +362,18 @@ void FPGAViewWidget::paintGL()
             }
         }
     }
+    QtImGui::newFrame();
+    QMutexLocker lock(&rendererArgsLock_);
+    if (!(rendererArgs_->hoveredDecal == DecalXY()))
+    {
+        ImGui::SetNextWindowPos(ImVec2(rendererArgs_->x, rendererArgs_->y));
+        ImGui::BeginTooltip();
+        ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f);
+        ImGui::TextUnformatted(rendererArgs_->hintText.c_str());
+        ImGui::PopTextWrapPos();
+        ImGui::EndTooltip();
+    }
+    ImGui::Render();    
 }
 
 void FPGAViewWidget::pokeRenderer(void) { renderRunner_->poke(); }
@@ -644,6 +660,9 @@ boost::optional<FPGAViewWidget::PickedElement> FPGAViewWidget::pickElement(float
 
 void FPGAViewWidget::mousePressEvent(QMouseEvent *event)
 {
+    ImGuiIO &io = ImGui::GetIO();
+    if (io.WantCaptureMouse) return;
+
     if (event->buttons() & Qt::RightButton || event->buttons() & Qt::MidButton) {
         lastDragPos_ = event->pos();
     }
@@ -677,6 +696,9 @@ void FPGAViewWidget::mousePressEvent(QMouseEvent *event)
 
 void FPGAViewWidget::mouseMoveEvent(QMouseEvent *event)
 {
+    ImGuiIO &io = ImGui::GetIO();
+    if (io.WantCaptureMouse) return;
+
     if (event->buttons() & Qt::RightButton || event->buttons() & Qt::MidButton) {
         const int dx = event->x() - lastDragPos_.x();
         const int dy = event->y() - lastDragPos_.y();
@@ -696,6 +718,7 @@ void FPGAViewWidget::mouseMoveEvent(QMouseEvent *event)
         QMutexLocker locked(&rendererArgsLock_);
         rendererArgs_->hoveredDecal = DecalXY();
         rendererArgs_->changed = true;
+        rendererArgs_->hintText = "";
         pokeRenderer();
         return;
     }
@@ -706,6 +729,27 @@ void FPGAViewWidget::mouseMoveEvent(QMouseEvent *event)
         QMutexLocker locked(&rendererArgsLock_);
         rendererArgs_->hoveredDecal = closest.decal(ctx_);
         rendererArgs_->changed = true;
+        rendererArgs_->x = event->x();
+        rendererArgs_->y = event->y();
+        if (closest.type == ElementType::BEL) {
+            rendererArgs_->hintText = std::string("BEL\n") + ctx_->getBelName(closest.bel).c_str(ctx_);
+            CellInfo *cell = ctx_->getBoundBelCell(closest.bel);
+            if (cell!=nullptr)
+                rendererArgs_->hintText += std::string("\nCELL\n") +ctx_->nameOf(cell);
+        } else if (closest.type == ElementType::WIRE) {
+            rendererArgs_->hintText = std::string("WIRE\n") + ctx_->getWireName(closest.wire).c_str(ctx_);
+            NetInfo *net = ctx_->getBoundWireNet(closest.wire);
+            if (net!=nullptr)
+                rendererArgs_->hintText += std::string("\nNET\n") +ctx_->nameOf(net);
+        } else if (closest.type == ElementType::PIP) {
+            rendererArgs_->hintText = std::string("PIP\n") + ctx_->getPipName(closest.pip).c_str(ctx_);
+            NetInfo *net = ctx_->getBoundPipNet(closest.pip);
+            if (net!=nullptr)
+                rendererArgs_->hintText += std::string("\nNET\n") +ctx_->nameOf(net);
+        } else if (closest.type == ElementType::GROUP) {
+            rendererArgs_->hintText = std::string("GROUP\n") + ctx_->getGroupName(closest.group).c_str(ctx_);
+        } else rendererArgs_->hintText = "";  
+        
         pokeRenderer();
     }
     update();
@@ -754,6 +798,9 @@ QVector4D FPGAViewWidget::mouseToWorldDimensions(float x, float y)
 
 void FPGAViewWidget::wheelEvent(QWheelEvent *event)
 {
+    ImGuiIO &io = ImGui::GetIO();
+    if (io.WantCaptureMouse) return;
+    
     QPoint degree = event->angleDelta() / 8;
 
     if (!degree.isNull())
@@ -829,6 +876,7 @@ void FPGAViewWidget::leaveEvent(QEvent *event)
     QMutexLocker locked(&rendererArgsLock_);
     rendererArgs_->hoveredDecal = DecalXY();
     rendererArgs_->changed = true;
+    rendererArgs_->hintText = "";
     pokeRenderer();
 }
 
