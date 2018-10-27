@@ -487,8 +487,14 @@ void DesignWidget::onClickedBel(BelId bel, bool keep)
         Q_EMIT selected(getDecals(ElementType::BEL, ctx->getBelName(bel)), keep);
     }
     int index = getIndexByElementType(ElementType::BEL);
-    if (tabWidget->currentIndex() != index)
+    if (!keep)
+    {
+        for(int i=0;i<6;i++)
+            selectionModel[i]->clearSelection();
+    }
+    if (tabWidget->currentIndex() != index) {        
         tabWidget->setCurrentIndex(index);
+    }
     selectionModel[index]->setCurrentIndex(getTreeByElementType(ElementType::BEL)->indexFromNode(*item),
                                        keep ? QItemSelectionModel::Select : QItemSelectionModel::ClearAndSelect);
 }
@@ -507,6 +513,11 @@ void DesignWidget::onClickedWire(WireId wire, bool keep)
         Q_EMIT selected(getDecals(ElementType::WIRE, ctx->getWireName(wire)), keep);
     }
     int index = getIndexByElementType(ElementType::WIRE);    
+    if (!keep)
+    {
+        for(int i=0;i<6;i++)
+            selectionModel[i]->clearSelection();
+    }
     if (tabWidget->currentIndex() != index)
         tabWidget->setCurrentIndex(index);
     selectionModel[index]->setCurrentIndex(getTreeByElementType(ElementType::WIRE)->indexFromNode(*item),
@@ -528,6 +539,11 @@ void DesignWidget::onClickedPip(PipId pip, bool keep)
     }
     
     int index = getIndexByElementType(ElementType::PIP);
+    if (!keep)
+    {
+        for(int i=0;i<6;i++)
+            selectionModel[i]->clearSelection();
+    }
     if (tabWidget->currentIndex() != index)
         tabWidget->setCurrentIndex(index);
     selectionModel[index]->setCurrentIndex(getTreeByElementType(ElementType::PIP)->indexFromNode(*item),
@@ -539,13 +555,17 @@ void DesignWidget::onSelectionChanged(int num, const QItemSelection &, const QIt
     if (selectionModel[num]->selectedIndexes().size() == 0)
         return;
 
-    if (selectionModel[num]->selectedIndexes().size() > 1) {
-        std::vector<DecalXY> decals;
-        for (auto index : selectionModel[num]->selectedIndexes()) {
-            TreeModel::Item *item = treeModel[num]->nodeFromIndex(index);
+    int num_selected = 0;
+    std::vector<DecalXY> decals;
+    for(int i=0;i<6;i++) {
+        num_selected += selectionModel[i]->selectedIndexes().size();
+        for (auto index : selectionModel[i]->selectedIndexes()) {
+            TreeModel::Item *item = treeModel[i]->nodeFromIndex(index);
             std::vector<DecalXY> d = getDecals(item->type(), item->id());
             std::move(d.begin(), d.end(), std::back_inserter(decals));
         }
+    }
+    if (num_selected>1) {
         Q_EMIT selected(decals, false);
         return;
     }
@@ -913,9 +933,11 @@ void DesignWidget::prepareMenuTree(int num, const QPoint &pos)
         return;
 
     QList<TreeModel::Item *> items;
-    for (auto index : selectionModel[num]->selectedIndexes()) {
-        TreeModel::Item *item = treeModel[num]->nodeFromIndex(index);
-        items.append(item);
+    for(int i=0;i<6;i++) {    
+        for (auto index : selectionModel[i]->selectedIndexes()) {
+            TreeModel::Item *item = treeModel[i]->nodeFromIndex(index);
+            items.append(item);
+        }
     }
     if (items.size() == 1) {
         TreeModel::Item *item = items.at(0);
@@ -949,6 +971,8 @@ void DesignWidget::onItemDoubleClicked(QTreeWidgetItem *item, int column)
     auto it = getTreeByElementType(type)->nodeForId(ctx->id(selectedProperty->valueText().toStdString()));
     if (it) {
         int num = getIndexByElementType(type);
+        for(int i=0;i<6;i++)
+            selectionModel[i]->clearSelection();
         if (tabWidget->currentIndex() != num)
             tabWidget->setCurrentIndex(num);
         selectionModel[num]->setCurrentIndex(getTreeByElementType(type)->indexFromNode(*it),
