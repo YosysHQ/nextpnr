@@ -265,6 +265,8 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
         DecalXY hoveredDecal;
         // Whether to render the above three or skip it.
         bool changed;
+        // Whether to render grid or skip it.
+        bool gridChanged;
 
         // Flags to pass back into the RendererData.
         PassthroughFlags flags;
@@ -278,6 +280,7 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
 
     struct RendererData
     {
+        LineShaderData gfxGrid;
         LineShaderData gfxByStyle[GraphicElement::STYLE_MAX];
         LineShaderData gfxSelected;
         LineShaderData gfxHovered;
