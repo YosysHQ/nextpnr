@@ -364,7 +364,7 @@ void FPGAViewWidget::paintGL()
     }
     QtImGui::newFrame();
     QMutexLocker lock(&rendererArgsLock_);
-    if (!(rendererArgs_->hoveredDecal == DecalXY()))
+    if (!(rendererArgs_->hoveredDecal == DecalXY()) && rendererArgs_->hintText.size() > 0)
     {
         ImGui::SetNextWindowPos(ImVec2(rendererArgs_->x, rendererArgs_->y));
         ImGui::BeginTooltip();
