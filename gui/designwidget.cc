@@ -94,9 +94,13 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr)
         history_ignore = true;
         history_index = 0;
         auto h = history.at(history_index);
-        selectionModel[h.first]->setCurrentIndex(h.second, QItemSelectionModel::ClearAndSelect);
-        if (tabWidget->currentIndex() != h.first)
+        if (tabWidget->currentIndex() != h.first) {
+            selectionModel[tabWidget->currentIndex()]->clearSelection();
             tabWidget->setCurrentIndex(h.first);
+            selectionModel[h.first]->setCurrentIndex(h.second, QItemSelectionModel::Select);
+        } else {
+            selectionModel[h.first]->setCurrentIndex(h.second, QItemSelectionModel::ClearAndSelect);
+        }
         updateButtons();
     });
 
@@ -107,9 +111,13 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr)
         history_ignore = true;
         history_index--;
         auto h = history.at(history_index);
-        selectionModel[h.first]->setCurrentIndex(h.second, QItemSelectionModel::ClearAndSelect);
-        if (tabWidget->currentIndex() != h.first)
+        if (tabWidget->currentIndex() != h.first) {
+            selectionModel[tabWidget->currentIndex()]->clearSelection();
             tabWidget->setCurrentIndex(h.first);
+            selectionModel[h.first]->setCurrentIndex(h.second, QItemSelectionModel::Select);
+        } else {
+            selectionModel[h.first]->setCurrentIndex(h.second, QItemSelectionModel::ClearAndSelect);
+        }
         updateButtons();
     });
 
@@ -120,9 +128,13 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr)
         history_ignore = true;
         history_index++;
         auto h = history.at(history_index);
-        selectionModel[h.first]->setCurrentIndex(h.second, QItemSelectionModel::ClearAndSelect);
-        if (tabWidget->currentIndex() != h.first)
+        if (tabWidget->currentIndex() != h.first) {
+            selectionModel[tabWidget->currentIndex()]->clearSelection();
             tabWidget->setCurrentIndex(h.first);
+            selectionModel[h.first]->setCurrentIndex(h.second, QItemSelectionModel::Select);
+        } else {
+            selectionModel[h.first]->setCurrentIndex(h.second, QItemSelectionModel::ClearAndSelect);
+        }
         updateButtons();
     });
 
@@ -133,9 +145,13 @@ DesignWidget::DesignWidget(QWidget *parent) : QWidget(parent), ctx(nullptr)
         history_ignore = true;
         history_index = int(history.size() - 1);
         auto h = history.at(history_index);
-        selectionModel[h.first]->setCurrentIndex(h.second, QItemSelectionModel::ClearAndSelect);
-        if (tabWidget->currentIndex() != h.first)
+        if (tabWidget->currentIndex() != h.first) {
+            selectionModel[tabWidget->currentIndex()]->clearSelection();
             tabWidget->setCurrentIndex(h.first);
+            selectionModel[h.first]->setCurrentIndex(h.second, QItemSelectionModel::Select);
+        } else {
+            selectionModel[h.first]->setCurrentIndex(h.second, QItemSelectionModel::ClearAndSelect);
+        }
         updateButtons();
     });
 
@@ -470,9 +486,10 @@ void DesignWidget::onClickedBel(BelId bel, bool keep)
 
         Q_EMIT selected(getDecals(ElementType::BEL, ctx->getBelName(bel)), keep);
     }
-    if (tabWidget->currentIndex() != 0)
-        tabWidget->setCurrentIndex(0);
-    selectionModel[0]->setCurrentIndex(getTreeByElementType(ElementType::BEL)->indexFromNode(*item),
+    int index = getIndexByElementType(ElementType::BEL);
+    if (tabWidget->currentIndex() != index)
+        tabWidget->setCurrentIndex(index);
+    selectionModel[index]->setCurrentIndex(getTreeByElementType(ElementType::BEL)->indexFromNode(*item),
                                        keep ? QItemSelectionModel::Select : QItemSelectionModel::ClearAndSelect);
 }
 
@@ -489,9 +506,10 @@ void DesignWidget::onClickedWire(WireId wire, bool keep)
 
         Q_EMIT selected(getDecals(ElementType::WIRE, ctx->getWireName(wire)), keep);
     }
-    if (tabWidget->currentIndex() != 1)
-        tabWidget->setCurrentIndex(1);
-    selectionModel[1]->setCurrentIndex(getTreeByElementType(ElementType::WIRE)->indexFromNode(*item),
+    int index = getIndexByElementType(ElementType::WIRE);    
+    if (tabWidget->currentIndex() != index)
+        tabWidget->setCurrentIndex(index);
+    selectionModel[index]->setCurrentIndex(getTreeByElementType(ElementType::WIRE)->indexFromNode(*item),
                                        keep ? QItemSelectionModel::Select : QItemSelectionModel::ClearAndSelect);
 }
 
@@ -508,9 +526,11 @@ void DesignWidget::onClickedPip(PipId pip, bool keep)
 
         Q_EMIT selected(getDecals(ElementType::PIP, ctx->getPipName(pip)), keep);
     }
-    if (tabWidget->currentIndex() != 2)
-        tabWidget->setCurrentIndex(2);
-    selectionModel[2]->setCurrentIndex(getTreeByElementType(ElementType::PIP)->indexFromNode(*item),
+    
+    int index = getIndexByElementType(ElementType::PIP);
+    if (tabWidget->currentIndex() != index)
+        tabWidget->setCurrentIndex(index);
+    selectionModel[index]->setCurrentIndex(getTreeByElementType(ElementType::PIP)->indexFromNode(*item),
                                        keep ? QItemSelectionModel::Select : QItemSelectionModel::ClearAndSelect);
 }
 
