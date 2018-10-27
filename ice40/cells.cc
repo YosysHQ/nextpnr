@@ -230,7 +230,8 @@ std::unique_ptr<CellInfo> create_ice_cell(Context *ctx, IdString type, std::stri
         new_cell->params[ctx->id("TEST_MODE")] = "0";
 
         add_port(ctx, new_cell.get(), "BYPASS", PORT_IN);
-        add_port(ctx, new_cell.get(), "DYNAMICDELAY", PORT_IN);
+        for (int i = 0; i < 8; i++)
+            add_port(ctx, new_cell.get(), "DYNAMICDELAY_" + std::to_string(i), PORT_IN);
         add_port(ctx, new_cell.get(), "EXTFEEDBACK", PORT_IN);
         add_port(ctx, new_cell.get(), "LATCHINPUTVALUE", PORT_IN);
         add_port(ctx, new_cell.get(), "REFERENCECLK", PORT_IN);
