@@ -902,7 +902,7 @@ static bool getWireXY_local(GfxTileWireId id, float &x, float &y)
     if (id >= TILE_WIRE_LUTFF_0_IN_0 && id <= TILE_WIRE_LUTFF_7_IN_3) {
         int idx = id - TILE_WIRE_LUTFF_0_IN_0;
         int z = idx / 4;
-        int input = idx % 4;
+        int input = 3 - idx % 4;
         x = local_swbox_x2;
         y = (logic_cell_y1 + logic_cell_y2) / 2 - 0.0075 + (0.005 * input) + z * logic_cell_pitch;
         return true;
@@ -972,11 +972,11 @@ void gfxTilePip(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId src,
         return;
     }
 
-    if (getWireXY_local(src, x1, y1) && getWireXY_local(dst, x2, y2)) {
+   if (getWireXY_local(src, x1, y1) && getWireXY_local(dst, x2, y2)) {
         pipGfx(g, x, y, x1, y1, x2, y2, local_swbox_x1, local_swbox_y1, local_swbox_x2, local_swbox_y2, style);
         return;
     }
-
+/* 
     if (TILE_WIRE_LUTFF_0_IN_0_LUT <= src && src <= TILE_WIRE_LUTFF_7_IN_3_LUT && TILE_WIRE_LUTFF_0_OUT <= dst &&
         dst <= TILE_WIRE_LUTFF_7_OUT) {
         int lut_idx = (src - TILE_WIRE_LUTFF_0_IN_0_LUT) / 4;
@@ -1058,7 +1058,7 @@ void gfxTilePip(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId src,
         el.y2 = y + 0.02;
         g.push_back(el);
         return;
-    }
+    }*/
 }
 
 NEXTPNR_NAMESPACE_END
