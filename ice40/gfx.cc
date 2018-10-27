@@ -976,7 +976,7 @@ void gfxTilePip(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId src,
         pipGfx(g, x, y, x1, y1, x2, y2, local_swbox_x1, local_swbox_y1, local_swbox_x2, local_swbox_y2, style);
         return;
     }
-/* 
+ 
     if (TILE_WIRE_LUTFF_0_IN_0_LUT <= src && src <= TILE_WIRE_LUTFF_7_IN_3_LUT && TILE_WIRE_LUTFF_0_OUT <= dst &&
         dst <= TILE_WIRE_LUTFF_7_OUT) {
         int lut_idx = (src - TILE_WIRE_LUTFF_0_IN_0_LUT) / 4;
@@ -1058,7 +1058,7 @@ void gfxTilePip(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId src,
         el.y2 = y + 0.02;
         g.push_back(el);
         return;
-    }*/
+    }
 }
 
 NEXTPNR_NAMESPACE_END
