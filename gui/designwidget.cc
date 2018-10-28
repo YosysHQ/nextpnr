@@ -552,9 +552,6 @@ void DesignWidget::onClickedPip(PipId pip, bool keep)
 
 void DesignWidget::onSelectionChanged(int num, const QItemSelection &, const QItemSelection &)
 {
-    if (selectionModel[num]->selectedIndexes().size() == 0)
-        return;
-
     int num_selected = 0;
     std::vector<DecalXY> decals;
     for(int i=0;i<6;i++) {
@@ -565,10 +562,11 @@ void DesignWidget::onSelectionChanged(int num, const QItemSelection &, const QIt
             std::move(d.begin(), d.end(), std::back_inserter(decals));
         }
     }
-    if (num_selected>1) {
+    if (num_selected>1 || (selectionModel[num]->selectedIndexes().size() == 0)) {
         Q_EMIT selected(decals, false);
         return;
     }
+
     QModelIndex index = selectionModel[num]->selectedIndexes().at(0);
     if (!index.isValid())
         return;
