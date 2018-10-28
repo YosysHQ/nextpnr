@@ -299,6 +299,8 @@ struct NetInfo : ArchNetInfo
 
     ClockConstraint *clkconstr = nullptr;
 
+    TimingConstrObjectId tmg_id;
+
     Region *region = nullptr;
 };
 

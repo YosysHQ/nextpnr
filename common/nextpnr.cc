@@ -51,6 +51,100 @@ void IdString::initialize_add(const BaseCtx *ctx, const char *s, int idx)
     ctx->idstring_idx_to_str->push_back(&insert_rc.first->first);
 }
 
+TimingConstrObjectId BaseCtx::timingWildcardObject() {
+    TimingConstrObjectId id;
+    id.index = 0;
+    return id;
+}
+
+TimingConstrObjectId BaseCtx::timingClockDomainObject(NetInfo *clockDomain) {
+    NPNR_ASSERT(clockDomain->clkconstr != nullptr);
+    if (clockDomain->clkconstr->domain_tmg_id != TimingConstrObjectId()) {
+        return clockDomain->clkconstr->domain_tmg_id;
+    } else {
+        TimingConstraintObject obj;
+        TimingConstrObjectId id;
+        id.index = int(constraintObjects.size());
+        obj.id = id;
+        obj.type = TimingConstraintObject::CLOCK_DOMAIN;
+        obj.entity = clockDomain->name;
+        clockDomain->clkconstr->domain_tmg_id = id;
+        constraintObjects.push_back(obj);
+        return id;
+    }
+}
+
+TimingConstrObjectId BaseCtx::timingNetObject(NetInfo *net) {
+    if (net->tmg_id != TimingConstrObjectId()) {
+        return net->tmg_id;
+    } else {
+        TimingConstraintObject obj;
+        TimingConstrObjectId id;
+        id.index = int(constraintObjects.size());
+        obj.id = id;
+        obj.type = TimingConstraintObject::NET;
+        obj.entity = net->name;
+        constraintObjects.push_back(obj);
+        net->tmg_id = id;
+        return id;
+    }
+}
+
+TimingConstrObjectId BaseCtx::timingCellObject(CellInfo *cell) {
+    if (cell->tmg_id != TimingConstrObjectId()) {
+        return cell->tmg_id;
+    } else {
+        TimingConstraintObject obj;
+        TimingConstrObjectId id;
+        id.index = int(constraintObjects.size());
+        obj.id = id;
+        obj.type = TimingConstraintObject::CELL;
+        obj.entity = cell->name;
+        constraintObjects.push_back(obj);
+        cell->tmg_id = id;
+        return id;
+    }
+}
+
+TimingConstrObjectId BaseCtx::timingPortObject(CellInfo *cell, IdString port) {
+    if (cell->ports.at(port).tmg_id != TimingConstrObjectId()) {
+        return cell->ports.at(port).tmg_id;
+    } else {
+        TimingConstraintObject obj;
+        TimingConstrObjectId id;
+        id.index = int(constraintObjects.size());
+        obj.id = id;
+        obj.type = TimingConstraintObject::CELL_PORT;
+        obj.entity = cell->name;
+        obj.port = port;
+        constraintObjects.push_back(obj);
+        cell->ports.at(port).tmg_id = id;
+        return id;
+    }
+}
+
+void BaseCtx::addConstraint(std::unique_ptr<TimingConstraint> constr) {
+    for (auto fromObj : constr->from)
+        constrsFrom.emplace(fromObj, constr.get());
+    for (auto toObj : constr->to)
+        constrsTo.emplace(toObj, constr.get());
+    IdString name = constr->name;
+    constraints[name] = std::move(constr);
+}
+
+void BaseCtx::removeConstraint(IdString constrName) {
+    TimingConstraint *constr = constraints[constrName].get();
+    for (auto fromObj : constr->from) {
+        auto fromConstrs = constrsFrom.equal_range(fromObj);
+        constrsFrom.erase(std::find(fromConstrs.first, fromConstrs.second, std::make_pair(fromObj, constr)));
+    }
+    for (auto toObj : constr->to) {
+        auto toConstrs = constrsFrom.equal_range(toObj);
+        constrsFrom.erase(std::find(toConstrs.first, toConstrs.second, std::make_pair(toObj, constr)));
+    }
+    constraints.erase(constrName);
+}
+
 WireId Context::getNetinfoSourceWire(const NetInfo *net_info) const
 {
     if (net_info->driver.cell == nullptr)
