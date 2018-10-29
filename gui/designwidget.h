@@ -73,6 +73,7 @@ class DesignWidget : public QWidget
     void addToHistory(int tab, QModelIndex item);
     std::vector<DecalXY> getDecals(ElementType type, IdString value);
     void updateHighlightGroup(QList<TreeModel::Item *> item, int group);
+    void clearAllSelectionModels();
   Q_SIGNALS:
     void selected(std::vector<DecalXY> decal, bool keep);
     void highlight(std::vector<DecalXY> decal, int group);
