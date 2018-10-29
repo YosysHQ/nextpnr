@@ -39,7 +39,7 @@ QByteArray g_currentClipboardText;
 void ImGuiRenderer::initialize(WindowWrapper *window) {
     m_window.reset(window);
     initializeOpenGLFunctions();
-    g_fun = new QOpenGLFunctions_3_3_Core();
+    g_fun = new QOpenGLFunctions_3_2_Core();
     g_fun->initializeOpenGLFunctions();
 
     ImGui::CreateContext();

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <QOpenGLFunctions>
-#include <QOpenGLFunctions_3_3_Core>
+#include <QOpenGLFunctions_3_2_Core>
 #include <QObject>
 #include <QPoint>
 #include <imgui.h>
@@ -54,7 +54,7 @@ private:
     int          g_AttribLocationTex = 0, g_AttribLocationProjMtx = 0;
     int          g_AttribLocationPosition = 0, g_AttribLocationUV = 0, g_AttribLocationColor = 0;
     unsigned int g_VboHandle = 0, g_VaoHandle = 0, g_ElementsHandle = 0;
-    QOpenGLFunctions_3_3_Core *g_fun = nullptr;
+    QOpenGLFunctions_3_2_Core *g_fun = nullptr;
 };
 
 }
