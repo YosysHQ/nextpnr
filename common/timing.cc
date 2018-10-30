@@ -29,6 +29,46 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+namespace {
+    struct ClockEvent {
+        IdString clock;
+        enum {
+            POSEDGE,
+            NEGEDGE
+        } edge;
+    };
+
+    struct ClockPair {
+        ClockEvent start, end;
+    };
+}
+
+NEXTPNR_NAMESPACE_END
+namespace std {
+
+    template<>
+    struct hash<NEXTPNR_NAMESPACE_PREFIX ClockEvent> {
+        std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX ClockEvent &obj) const noexcept {
+            std::size_t seed = 0;
+            boost::hash_combine(seed, hash<NEXTPNR_NAMESPACE_PREFIX IdString>()(obj.clock));
+            boost::hash_combine(seed, hash<int>()(int(obj.edge)));
+            return seed;
+        }
+    };
+
+    template<>
+    struct hash<NEXTPNR_NAMESPACE_PREFIX ClockPair> {
+        std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX ClockPair &obj) const noexcept {
+            std::size_t seed = 0;
+            boost::hash_combine(seed, hash<NEXTPNR_NAMESPACE_PREFIX ClockEvent>()(obj.start));
+            boost::hash_combine(seed, hash<NEXTPNR_NAMESPACE_PREFIX ClockEvent>()(obj.start));
+            return seed;
+        }
+    };
+
+}
+NEXTPNR_NAMESPACE_BEGIN
+
 typedef std::vector<const PortRef *> PortRefVector;
 typedef std::map<int, unsigned> DelayFrequency;
 
@@ -41,11 +81,20 @@ struct Timing
     PortRefVector *crit_path;
     DelayFrequency *slack_histogram;
 
+    struct ClockDomain
+    {
+        IdString net;
+        enum {
+            RISING,
+            FALLING
+        } edge;
+    };
+
     struct TimingData
     {
         TimingData() : max_arrival(), max_path_length(), min_remaining_budget() {}
-        TimingData(delay_t max_arrival) : max_arrival(max_arrival), max_path_length(), min_remaining_budget() {}
-        delay_t max_arrival;
+        TimingData(ClockPair dest, delay_t max_arrival) : max_path_length(), min_remaining_budget() {}
+        std::unordedelay_t max_arrival;
         unsigned max_path_length = 0;
         delay_t min_remaining_budget;
         bool false_startpoint = false;
@@ -65,7 +114,7 @@ struct Timing
         // First, compute the topographical order of nets to walk through the circuit, assuming it is a _acyclic_ graph
         // TODO(eddieh): Handle the case where it is cyclic, e.g. combinatorial loops
         std::vector<NetInfo *> topographical_order;
-        std::unordered_map<const NetInfo *, TimingData> net_data;
+        std::unordered_map<const NetInfo *, std::unordered_map<ClockEvent, TimingData>> net_data;
         // In lieu of deleting edges from the graph, simply count the number of fanins to each output port
         std::unordered_map<const PortInfo *, unsigned> port_fanin;
 
@@ -92,13 +141,13 @@ struct Timing
                     DelayInfo clkToQ;
                     ctx->getCellDelay(cell.second.get(), clockPort, o->name, clkToQ);
                     topographical_order.emplace_back(o->net);
-                    net_data.emplace(o->net, TimingData{clkToQ.maxDelay()});
+                    net_data[o->net][ClockEvent{IdString(), ClockEvent::POSEDGE}] = TimingData{clkToQ.maxDelay()};
                 } else {
                     if (portClass == TMG_STARTPOINT || portClass == TMG_GEN_CLOCK || portClass == TMG_IGNORE) {
                         topographical_order.emplace_back(o->net);
                         TimingData td;
                         td.false_startpoint = (portClass == TMG_GEN_CLOCK || portClass == TMG_IGNORE);
-                        net_data.emplace(o->net, std::move(td));
+                        net_data[o->net][ClockEvent{IdString(), ClockEvent::POSEDGE}] = td;
                     }
                     // Otherwise, for all driven input ports on this cell, if a timing arc exists between the input and
                     // the current output port, increment fanin counter
@@ -174,38 +223,43 @@ struct Timing
 
         // Go forwards topographically to find the maximum arrival time and max path length for each net
         for (auto net : topographical_order) {
-            auto &nd = net_data.at(net);
-            const auto net_arrival = nd.max_arrival;
-            const auto net_length_plus_one = nd.max_path_length + 1;
-            nd.min_remaining_budget = clk_period;
-            for (auto &usr : net->users) {
-                IdString clockPort;
-                TimingPortClass portClass = ctx->getPortTimingClass(usr.cell, usr.port, clockPort);
-                if (portClass == TMG_REGISTER_INPUT || portClass == TMG_ENDPOINT || portClass == TMG_IGNORE) {
-                } else {
-                    auto net_delay = net_delays ? ctx->getNetinfoRouteDelay(net, usr) : delay_t();
-                    auto budget_override = ctx->getBudgetOverride(net, usr, net_delay);
-                    auto usr_arrival = net_arrival + net_delay;
-                    // Iterate over all output ports on the same cell as the sink
-                    for (auto port : usr.cell->ports) {
-                        if (port.second.type != PORT_OUT || !port.second.net)
-                            continue;
-                        DelayInfo comb_delay;
-                        // Look up delay through this path
-                        bool is_path = ctx->getCellDelay(usr.cell, usr.port, port.first, comb_delay);
-                        if (!is_path)
-                            continue;
-                        auto &data = net_data[port.second.net];
-                        auto &arrival = data.max_arrival;
-                        arrival = std::max(arrival, usr_arrival + comb_delay.maxDelay());
-                        if (!budget_override) { // Do not increment path length if budget overriden since it doesn't
-                                                // require a share of the slack
-                            auto &path_length = data.max_path_length;
-                            path_length = std::max(path_length, net_length_plus_one);
+            auto &nd_map = net_data.at(net);
+            for (auto &startdomain : nd_map) {
+                ClockEvent start_clk = startdomain.first;
+                auto &nd = startdomain.second;
+                const auto net_arrival = nd.max_arrival;
+                const auto net_length_plus_one = nd.max_path_length + 1;
+                nd.min_remaining_budget = clk_period;
+                for (auto &usr : net->users) {
+                    IdString clockPort;
+                    TimingPortClass portClass = ctx->getPortTimingClass(usr.cell, usr.port, clockPort);
+                    if (portClass == TMG_REGISTER_INPUT || portClass == TMG_ENDPOINT || portClass == TMG_IGNORE) {
+                    } else {
+                        auto net_delay = net_delays ? ctx->getNetinfoRouteDelay(net, usr) : delay_t();
+                        auto budget_override = ctx->getBudgetOverride(net, usr, net_delay);
+                        auto usr_arrival = net_arrival + net_delay;
+                        // Iterate over all output ports on the same cell as the sink
+                        for (auto port : usr.cell->ports) {
+                            if (port.second.type != PORT_OUT || !port.second.net)
+                                continue;
+                            DelayInfo comb_delay;
+                            // Look up delay through this path
+                            bool is_path = ctx->getCellDelay(usr.cell, usr.port, port.first, comb_delay);
+                            if (!is_path)
+                                continue;
+                            auto &data = net_data[port.second.net][start_clk];
+                            auto &arrival = data.max_arrival;
+                            arrival = std::max(arrival, usr_arrival + comb_delay.maxDelay());
+                            if (!budget_override) { // Do not increment path length if budget overriden since it doesn't
+                                // require a share of the slack
+                                auto &path_length = data.max_path_length;
+                                path_length = std::max(path_length, net_length_plus_one);
+                            }
                         }
                     }
                 }
             }
+
         }
 
         const NetInfo *crit_net = nullptr;
