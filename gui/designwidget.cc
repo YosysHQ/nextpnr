@@ -290,7 +290,7 @@ void DesignWidget::newContext(Context *ctx)
 
         {
             TreeModel::ElementXYRoot<BelId>::ElementMap belMap;
-            for (auto bel : ctx->getBels()) {
+            for (const auto& bel : ctx->getBels()) {
                 auto loc = ctx->getBelLocation(bel);
                 belMap[std::pair<int, int>(loc.x, loc.y)].push_back(bel);
             }
