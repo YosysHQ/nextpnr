@@ -917,6 +917,9 @@ struct Arch : BaseCtx
 
     GlobalInfoPOD globalInfoAtLoc(Location loc);
 
+    // Apply LPF constraints to the context
+    bool applyLPF(std::string filename, std::istream &in);
+
     IdString id_trellis_slice;
     IdString id_clk, id_lsr;
     IdString id_clkmux, id_lsrmux;
