@@ -266,11 +266,17 @@ class Ecp5Packer
                         }
                     }
                 } else {
-                    log_error("TRELLIS_IO required on all top level IOs...\n");
+                    // Create a TRELLIS_IO buffer
+                    std::unique_ptr<CellInfo> tr_cell =
+                            create_ecp5_cell(ctx, ctx->id("TRELLIS_IO"), ci->name.str(ctx) + "$tr_io");
+                    nxio_to_tr(ctx, ci, tr_cell.get(), new_cells, packed_cells);
+                    new_cells.push_back(std::move(tr_cell));
+                    trio = new_cells.back().get();
                 }
 
                 packed_cells.insert(ci->name);
-                std::copy(ci->attrs.begin(), ci->attrs.end(), std::inserter(trio->attrs, trio->attrs.begin()));
+                for (const auto &attr : ci->attrs)
+                    trio->attrs[attr.first] = attr.second;
 
                 auto loc_attr = trio->attrs.find(ctx->id("LOC"));
                 if (loc_attr != trio->attrs.end()) {

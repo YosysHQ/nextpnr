@@ -19,19 +19,22 @@
 
 #include <sstream>
 #include "log.h"
-#include "log.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
 bool Arch::applyLPF(std::string filename, std::istream &in)
 {
-    auto isempty = [] (const std::string &str) {return std::all_of(str.begin(), str.end(), [](char c){return isblank(c);});};
-    auto strip_quotes = [] (const std::string &str) {if (str.at(0) == '"') {
-        NPNR_ASSERT(str.back() == '"');
-        return str.substr(1, str.size() - 2);
-    } else {
-        return str;
-    }};
+    auto isempty = [](const std::string &str) {
+        return std::all_of(str.begin(), str.end(), [](char c) { return isblank(c); });
+    };
+    auto strip_quotes = [](const std::string &str) {
+        if (str.at(0) == '"') {
+            NPNR_ASSERT(str.back() == '"');
+            return str.substr(1, str.size() - 2);
+        } else {
+            return str;
+        }
+    };
 
     try {
         if (!in)
@@ -50,24 +53,24 @@ bool Arch::applyLPF(std::string filename, std::istream &in)
             while (scpos != std::string::npos) {
                 std::string command = linebuf.substr(0, scpos);
                 // Split command into words
-                std::stringstream ss(line);
+                std::stringstream ss(command);
                 std::vector<std::string> words;
                 std::string tmp;
                 while (ss >> tmp)
                     words.push_back(tmp);
                 if (words.size() >= 0) {
                     std::string verb = words.at(0);
-                    if(verb == "BLOCK" || verb == "SYSCONFIG" || verb == "FREQUENCY") {
+                    if (verb == "BLOCK" || verb == "SYSCONFIG" || verb == "FREQUENCY") {
                         log_warning("    ignoring unsupported LPF command '%s'\n", command.c_str());
                     } else if (verb == "LOCATE") {
                         NPNR_ASSERT(words.at(1) == "COMP");
                         std::string cell = strip_quotes(words.at(2));
-                        NPNR_ASSERT(words.at(1) == "SITE");
+                        NPNR_ASSERT(words.at(3) == "SITE");
                         auto fnd_cell = cells.find(id(cell));
                         if (fnd_cell == cells.end()) {
                             log_warning("unmatched LPF 'LOCATE COMP' '%s'\n", cell.c_str());
                         } else {
-                            fnd_cell->second->attrs[id("LOC")] = strip_quotes(words.at(3));
+                            fnd_cell->second->attrs[id("LOC")] = strip_quotes(words.at(4));
                         }
                     } else if (verb == "IOBUF") {
                         NPNR_ASSERT(words.at(1) == "PORT");
@@ -87,7 +90,7 @@ bool Arch::applyLPF(std::string filename, std::istream &in)
                     }
                 }
 
-                linebuf = linebuf.substr(scpos+1);
+                linebuf = linebuf.substr(scpos + 1);
                 scpos = linebuf.find(';');
             }
         }
