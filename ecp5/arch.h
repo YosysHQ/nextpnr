@@ -491,7 +491,7 @@ struct Arch : BaseCtx
     BelId getBelByLocation(Loc loc) const;
     BelRange getBelsByTile(int x, int y) const;
 
-    bool getBelGlobalBuf(BelId bel) const { return false; }
+    bool getBelGlobalBuf(BelId bel) const { return getBelType(bel) == id_DCCA; }
 
     bool checkBelAvail(BelId bel) const
     {
