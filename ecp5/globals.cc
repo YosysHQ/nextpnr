@@ -331,11 +331,16 @@ class Ecp5GlobalRouter
         glbnet->is_global = true;
         dcc->ports[id_CLKO].net = glbnet.get();
 
-        glbnet->users = net->users;
+        std::vector<PortRef> keep_users;
         for (auto user : net->users) {
-            user.cell->ports.at(user.port).net = glbnet.get();
+            if (user.port == id_CLKFB) {
+                keep_users.push_back(user);
+            } else {
+                glbnet->users.push_back(user);
+                user.cell->ports.at(user.port).net = glbnet.get();
+            }
         }
-        net->users.clear();
+        net->users = keep_users;
 
         dcc->ports[id_CLKI].net = net;
         PortRef clki_pr;
@@ -396,6 +401,8 @@ class Ecp5GlobalRouter
                 } else {
                     glbid = *(all_globals.begin());
                 }
+                all_globals.erase(glbid);
+                fab_globals.erase(glbid);
 
                 log_info("    routing clock net %s using global %d\n", clock->name.c_str(ctx), glbid);
                 bool routed = route_onto_global(clock, glbid);
