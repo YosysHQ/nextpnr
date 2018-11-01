@@ -664,6 +664,8 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             if (dir == "INPUT" && !is_differential(ioType_from_str(iotype))) {
                 cc.tiles[pio_tile].add_enum(pio + ".HYSTERESIS", "ON");
             }
+            if (ci->attrs.count(ctx->id("SLEWRATE")))
+                cc.tiles[pio_tile].add_enum(pio + ".SLEWRATE", str_or_default(ci->attrs, ctx->id("SLEWRATE"), "SLOW"));
         } else if (ci->type == ctx->id("DCCA")) {
             // Nothing to do
         } else if (ci->type == ctx->id("DP16KD")) {
