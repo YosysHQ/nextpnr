@@ -343,4 +343,46 @@ void dram_to_ram_slice(Context *ctx, CellInfo *ram, CellInfo *lc, CellInfo *ramw
     }
 }
 
+void nxio_to_tr(Context *ctx, CellInfo *nxio, CellInfo *trio, std::vector<std::unique_ptr<CellInfo>> &created_cells,
+                std::unordered_set<IdString> &todelete_cells)
+{
+    if (nxio->type == ctx->id("$nextpnr_ibuf")) {
+        trio->params[ctx->id("DIR")] = "INPUT";
+        replace_port(nxio, ctx->id("O"), trio, ctx->id("O"));
+    } else if (nxio->type == ctx->id("$nextpnr_obuf")) {
+        trio->params[ctx->id("DIR")] = "OUTPUT";
+        replace_port(nxio, ctx->id("I"), trio, ctx->id("I"));
+    } else if (nxio->type == ctx->id("$nextpnr_iobuf")) {
+        // N.B. tristate will be dealt with below
+        trio->params[ctx->id("DIR")] = "BIDIR";
+        replace_port(nxio, ctx->id("I"), trio, ctx->id("I"));
+        replace_port(nxio, ctx->id("O"), trio, ctx->id("O"));
+    } else {
+        NPNR_ASSERT(false);
+    }
+    NetInfo *donet = trio->ports.at(ctx->id("I")).net;
+    CellInfo *tbuf = net_driven_by(
+            ctx, donet, [](const Context *ctx, const CellInfo *cell) { return cell->type == ctx->id("$_TBUF_"); },
+            ctx->id("Y"));
+    if (tbuf) {
+        replace_port(tbuf, ctx->id("I"), trio, ctx->id("I"));
+        // Need to invert E to form T
+        std::unique_ptr<CellInfo> inv_lut = create_ecp5_cell(ctx, ctx->id("LUT4"), trio->name.str(ctx) + "$invert_T");
+        replace_port(tbuf, ctx->id("E"), inv_lut.get(), ctx->id("A"));
+        inv_lut->params[ctx->id("INIT")] = "21845";
+        connect_ports(ctx, inv_lut.get(), ctx->id("Z"), trio, ctx->id("T"));
+        created_cells.push_back(std::move(inv_lut));
+
+        if (donet->users.size() > 1) {
+            for (auto user : donet->users)
+                log_info("     remaining tristate user: %s.%s\n", user.cell->name.c_str(ctx), user.port.c_str(ctx));
+            log_error("unsupported tristate IO pattern for IO buffer '%s', "
+                      "instantiate SB_IO manually to ensure correct behaviour\n",
+                      nxio->name.c_str(ctx));
+        }
+        ctx->nets.erase(donet->name);
+        todelete_cells.insert(tbuf->name);
+    }
+}
+
 NEXTPNR_NAMESPACE_END
