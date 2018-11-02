@@ -360,14 +360,16 @@ enum TimingPortClass
     TMG_IGNORE,          // Asynchronous to all clocks, "don't care", and should be ignored (false path) for analysis
 };
 
+enum ClockEdge
+{
+    RISING_EDGE,
+    FALLING_EDGE
+};
+
 struct TimingClockingInfo
 {
     IdString clock_port; // Port name of clock domain
-    enum
-    {
-        RISING,
-        FALLING
-    } edge;
+    ClockEdge edge;
     DelayInfo setup, hold; // Input timing checks
     DelayInfo clockToQ;    // Output clock-to-Q time
 };

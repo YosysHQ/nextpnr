@@ -936,7 +936,7 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
     TimingClockingInfo info;
     if (cell->type == id_ICESTORM_LC) {
         info.clock_port = id_CLK;
-        info.edge = cell->lcInfo.negClk ? TimingClockingInfo::FALLING : TimingClockingInfo::RISING;
+        info.edge = cell->lcInfo.negClk ? FALLING_EDGE : RISING_EDGE;
         if (port == id_O) {
             bool has_clktoq = getCellDelay(cell, id_CLK, id_O, info.clockToQ);
             NPNR_ASSERT(has_clktoq);
@@ -947,12 +947,10 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
     } else if (cell->type == id_ICESTORM_RAM) {
         if (port.str(this)[0] == 'R') {
             info.clock_port = id_RCLK;
-            info.edge = bool_or_default(cell->params, id("NEG_CLK_R")) ? TimingClockingInfo::FALLING
-                                                                       : TimingClockingInfo::RISING;
+            info.edge = bool_or_default(cell->params, id("NEG_CLK_R")) ? FALLING_EDGE : RISING_EDGE;
         } else {
             info.clock_port = id_WCLK;
-            info.edge = bool_or_default(cell->params, id("NEG_CLK_W")) ? TimingClockingInfo::FALLING
-                                                                       : TimingClockingInfo::RISING;
+            info.edge = bool_or_default(cell->params, id("NEG_CLK_W")) ? FALLING_EDGE : RISING_EDGE;
         }
         if (cell->ports.at(port).type == PORT_OUT) {
             bool has_clktoq = getCellDelay(cell, info.clock_port, port, info.clockToQ);
@@ -963,7 +961,7 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
         }
     } else if (cell->type == id_ICESTORM_DSP || cell->type == id_ICESTORM_SPRAM) {
         info.clock_port = id_CLK;
-        info.edge = TimingClockingInfo::RISING;
+        info.edge = RISING_EDGE;
         if (cell->ports.at(port).type == PORT_OUT) {
             bool has_clktoq = getCellDelay(cell, info.clock_port, port, info.clockToQ);
             if (!has_clktoq)

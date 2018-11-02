@@ -51,13 +51,15 @@ void IdString::initialize_add(const BaseCtx *ctx, const char *s, int idx)
     ctx->idstring_idx_to_str->push_back(&insert_rc.first->first);
 }
 
-TimingConstrObjectId BaseCtx::timingWildcardObject() {
+TimingConstrObjectId BaseCtx::timingWildcardObject()
+{
     TimingConstrObjectId id;
     id.index = 0;
     return id;
 }
 
-TimingConstrObjectId BaseCtx::timingClockDomainObject(NetInfo *clockDomain) {
+TimingConstrObjectId BaseCtx::timingClockDomainObject(NetInfo *clockDomain)
+{
     NPNR_ASSERT(clockDomain->clkconstr != nullptr);
     if (clockDomain->clkconstr->domain_tmg_id != TimingConstrObjectId()) {
         return clockDomain->clkconstr->domain_tmg_id;
@@ -74,7 +76,8 @@ TimingConstrObjectId BaseCtx::timingClockDomainObject(NetInfo *clockDomain) {
     }
 }
 
-TimingConstrObjectId BaseCtx::timingNetObject(NetInfo *net) {
+TimingConstrObjectId BaseCtx::timingNetObject(NetInfo *net)
+{
     if (net->tmg_id != TimingConstrObjectId()) {
         return net->tmg_id;
     } else {
@@ -90,7 +93,8 @@ TimingConstrObjectId BaseCtx::timingNetObject(NetInfo *net) {
     }
 }
 
-TimingConstrObjectId BaseCtx::timingCellObject(CellInfo *cell) {
+TimingConstrObjectId BaseCtx::timingCellObject(CellInfo *cell)
+{
     if (cell->tmg_id != TimingConstrObjectId()) {
         return cell->tmg_id;
     } else {
@@ -106,7 +110,8 @@ TimingConstrObjectId BaseCtx::timingCellObject(CellInfo *cell) {
     }
 }
 
-TimingConstrObjectId BaseCtx::timingPortObject(CellInfo *cell, IdString port) {
+TimingConstrObjectId BaseCtx::timingPortObject(CellInfo *cell, IdString port)
+{
     if (cell->ports.at(port).tmg_id != TimingConstrObjectId()) {
         return cell->ports.at(port).tmg_id;
     } else {
@@ -123,7 +128,8 @@ TimingConstrObjectId BaseCtx::timingPortObject(CellInfo *cell, IdString port) {
     }
 }
 
-void BaseCtx::addConstraint(std::unique_ptr<TimingConstraint> constr) {
+void BaseCtx::addConstraint(std::unique_ptr<TimingConstraint> constr)
+{
     for (auto fromObj : constr->from)
         constrsFrom.emplace(fromObj, constr.get());
     for (auto toObj : constr->to)
@@ -132,7 +138,8 @@ void BaseCtx::addConstraint(std::unique_ptr<TimingConstraint> constr) {
     constraints[name] = std::move(constr);
 }
 
-void BaseCtx::removeConstraint(IdString constrName) {
+void BaseCtx::removeConstraint(IdString constrName)
+{
     TimingConstraint *constr = constraints[constrName].get();
     for (auto fromObj : constr->from) {
         auto fromConstrs = constrsFrom.equal_range(fromObj);
