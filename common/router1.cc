@@ -951,7 +951,7 @@ bool router1(Context *ctx, const Router1Cfg &cfg)
 #ifndef NDEBUG
         ctx->check();
 #endif
-        timing_analysis(ctx, true /* slack_histogram */, true /* print_path */);
+        timing_analysis(ctx, true /* slack_histogram */, true /* print_fmax */, true /* print_path */);
         ctx->unlock();
         return true;
     } catch (log_execution_error_exception) {
