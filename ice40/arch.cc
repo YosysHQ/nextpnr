@@ -856,8 +856,9 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
 }
 
 // Get the port class, also setting clockPort to associated clock if applicable
-TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, IdString &clockPort) const
+TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const
 {
+    clockInfoCount = 0;
     if (cell->type == id_ICESTORM_LC) {
         if (port == id_CLK)
             return TMG_CLOCK_INPUT;
@@ -870,18 +871,15 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, Id
             if (cell->lcInfo.inputCount == 0)
                 return TMG_IGNORE;
             if (cell->lcInfo.dffEnable) {
-                clockPort = id_CLK;
+                clockInfoCount = 1;
                 return TMG_REGISTER_OUTPUT;
-            }
-            else
+            } else
                 return TMG_COMB_OUTPUT;
-        }
-        else {
+        } else {
             if (cell->lcInfo.dffEnable) {
-                clockPort = id_CLK;
+                clockInfoCount = 1;
                 return TMG_REGISTER_INPUT;
-            }
-            else
+            } else
                 return TMG_COMB_INPUT;
         }
     } else if (cell->type == id_ICESTORM_RAM) {
@@ -889,23 +887,22 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, Id
         if (port == id_RCLK || port == id_WCLK)
             return TMG_CLOCK_INPUT;
 
-        if (port.str(this)[0] == 'R')
-            clockPort = id_RCLK;
-        else
-            clockPort = id_WCLK;
+        clockInfoCount = 1;
 
         if (cell->ports.at(port).type == PORT_OUT)
             return TMG_REGISTER_OUTPUT;
         else
             return TMG_REGISTER_INPUT;
     } else if (cell->type == id_ICESTORM_DSP || cell->type == id_ICESTORM_SPRAM) {
-        clockPort = id_CLK;
         if (port == id_CLK)
             return TMG_CLOCK_INPUT;
-        else if (cell->ports.at(port).type == PORT_OUT)
-            return TMG_REGISTER_OUTPUT;
-        else
-            return TMG_REGISTER_INPUT;
+        else {
+            clockInfoCount = 1;
+            if (cell->ports.at(port).type == PORT_OUT)
+                return TMG_REGISTER_OUTPUT;
+            else
+                return TMG_REGISTER_INPUT;
+        }
     } else if (cell->type == id_SB_IO) {
         if (port == id_D_IN_0 || port == id_D_IN_1)
             return TMG_STARTPOINT;
@@ -932,6 +929,53 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, Id
         return TMG_ENDPOINT;
     }
     log_error("no timing info for port '%s' of cell type '%s'\n", port.c_str(this), cell->type.c_str(this));
+}
+
+TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port, int index) const
+{
+    TimingClockingInfo info;
+    if (cell->type == id_ICESTORM_LC) {
+        info.clock_port = id_CLK;
+        info.edge = cell->lcInfo.negClk ? TimingClockingInfo::FALLING : TimingClockingInfo::RISING;
+        if (port == id_O) {
+            bool has_clktoq = getCellDelay(cell, id_CLK, id_O, info.clockToQ);
+            NPNR_ASSERT(has_clktoq);
+        } else {
+            info.setup.delay = 100;
+            info.hold.delay = 0;
+        }
+    } else if (cell->type == id_ICESTORM_RAM) {
+        if (port.str(this)[0] == 'R') {
+            info.clock_port = id_RCLK;
+            info.edge = bool_or_default(cell->params, id("NEG_CLK_R")) ? TimingClockingInfo::FALLING
+                                                                       : TimingClockingInfo::RISING;
+        } else {
+            info.clock_port = id_WCLK;
+            info.edge = bool_or_default(cell->params, id("NEG_CLK_W")) ? TimingClockingInfo::FALLING
+                                                                       : TimingClockingInfo::RISING;
+        }
+        if (cell->ports.at(port).type == PORT_OUT) {
+            bool has_clktoq = getCellDelay(cell, info.clock_port, port, info.clockToQ);
+            NPNR_ASSERT(has_clktoq);
+        } else {
+            info.setup.delay = 100;
+            info.hold.delay = 0;
+        }
+    } else if (cell->type == id_ICESTORM_DSP || cell->type == id_ICESTORM_SPRAM) {
+        info.clock_port = id_CLK;
+        info.edge = TimingClockingInfo::RISING;
+        if (cell->ports.at(port).type == PORT_OUT) {
+            bool has_clktoq = getCellDelay(cell, info.clock_port, port, info.clockToQ);
+            if (!has_clktoq)
+                info.clockToQ.delay = 100;
+        } else {
+            info.setup.delay = 100;
+            info.hold.delay = 0;
+        }
+    } else {
+        NPNR_ASSERT_FALSE("unhandled cell type in getPortClockingInfo");
+    }
+    return info;
 }
 
 bool Arch::isGlobalNet(const NetInfo *net) const
