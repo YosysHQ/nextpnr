@@ -237,10 +237,14 @@ struct Timing
 
         // Go forwards topographically to find the maximum arrival time and max path length for each net
         for (auto net : topographical_order) {
+            if (!net_data.count(net))
+                continue;
             auto &nd_map = net_data.at(net);
             for (auto &startdomain : nd_map) {
                 ClockEvent start_clk = startdomain.first;
                 auto &nd = startdomain.second;
+                if (nd.false_startpoint)
+                    continue;
                 const auto net_arrival = nd.max_arrival;
                 const auto net_length_plus_one = nd.max_path_length + 1;
                 nd.min_remaining_budget = clk_period;
@@ -282,6 +286,8 @@ struct Timing
         // Now go backwards topographically to determine the minimum path slack, and to distribute all path slack evenly
         // between all nets on the path
         for (auto net : boost::adaptors::reverse(topographical_order)) {
+            if (!net_data.count(net))
+                continue;
             auto &nd_map = net_data.at(net);
             for (auto &startdomain : nd_map) {
                 auto &nd = startdomain.second;
@@ -399,7 +405,7 @@ struct Timing
                             continue;
 
                         // And find the fanin net with the latest arrival time
-                        if (net_data.at(port.second.net).count(crit_pair.first.start)) {
+                        if (net_data.count(port.second.net) && net_data.at(port.second.net).count(crit_pair.first.start)) {
                             const auto net_arrival = net_data.at(port.second.net).at(crit_pair.first.start).max_arrival;
                             if (net_arrival > max_arrival) {
                                 max_arrival = net_arrival;
@@ -593,7 +599,7 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
                 log_info("                Sink %s.%s\n", sink_cell->name.c_str(ctx), sink->port.c_str(ctx));
                 last_port = sink->port;
             }
-            
+
         };
 
         for (auto &clock : clock_reports) {
