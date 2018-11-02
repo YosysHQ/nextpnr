@@ -416,6 +416,12 @@ struct TimingConstraint
     std::unordered_set<TimingConstrObjectId> to;
 };
 
+inline bool operator==(const std::pair<const TimingConstrObjectId, TimingConstraint *> &a,
+                       const std::pair<TimingConstrObjectId, TimingConstraint *> &b)
+{
+    return a.first == b.first && a.second == b.second;
+}
+
 struct DeterministicRNG
 {
     uint64_t rngstate;

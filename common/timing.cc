@@ -35,11 +35,15 @@ struct ClockEvent
 {
     IdString clock;
     ClockEdge edge;
+
+    bool operator==(const ClockEvent &other) const { return clock == other.clock && edge == other.edge; }
 };
 
 struct ClockPair
 {
     ClockEvent start, end;
+
+    bool operator==(const ClockPair &other) const { return start == other.start && end == other.end; }
 };
 } // namespace
 
@@ -353,10 +357,15 @@ struct Timing
                             bool is_path = ctx->getCellDelay(usr.cell, usr.port, port.first, comb_delay);
                             if (!is_path)
                                 continue;
-                            auto path_budget = net_data.at(port.second.net).at(startdomain.first).min_remaining_budget;
-                            auto budget_share = budget_override ? 0 : path_budget / net_length_plus_one;
-                            usr.budget = std::min(usr.budget, net_delay + budget_share);
-                            net_min_remaining_budget = std::min(net_min_remaining_budget, path_budget - budget_share);
+                            if (net_data.count(port.second.net) &&
+                                net_data.at(port.second.net).count(startdomain.first)) {
+                                auto path_budget =
+                                        net_data.at(port.second.net).at(startdomain.first).min_remaining_budget;
+                                auto budget_share = budget_override ? 0 : path_budget / net_length_plus_one;
+                                usr.budget = std::min(usr.budget, net_delay + budget_share);
+                                net_min_remaining_budget =
+                                        std::min(net_min_remaining_budget, path_budget - budget_share);
+                            }
                         }
                     }
                 }
@@ -390,11 +399,14 @@ struct Timing
                             continue;
 
                         // And find the fanin net with the latest arrival time
-                        const auto net_arrival = net_data.at(port.second.net).at(crit_pair.first.start).max_arrival;
-                        if (net_arrival > max_arrival) {
-                            max_arrival = net_arrival;
-                            crit_ipin = &port.second;
+                        if (net_data.at(port.second.net).count(crit_pair.first.start)) {
+                            const auto net_arrival = net_data.at(port.second.net).at(crit_pair.first.start).max_arrival;
+                            if (net_arrival > max_arrival) {
+                                max_arrival = net_arrival;
+                                crit_ipin = &port.second;
+                            }
                         }
+
                     }
 
                     if (!crit_ipin)
@@ -539,14 +551,18 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_path)
                     }
                 }
                 log_break();
+            }
+            log_break();
+            for (auto &clock : clock_reports) {
+
                 double Fmax;
                 if (clock.second.first.start.edge == clock.second.first.end.edge)
                     Fmax = 1000 / ctx->getDelayNS(clock.second.second.path_delay);
                 else
                     Fmax = 500 / ctx->getDelayNS(clock.second.second.path_delay);
                 log_info("Max frequency for clock '%s': %.02f MHz\n", clock.first.c_str(ctx), Fmax);
-                log_break();
             }
+            log_break();
         }
     }
 
