@@ -127,7 +127,7 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
 
   private:
     const float zoomNear_ = 0.1f; // do not zoom closer than this
-    const float zoomFar_ = 30.0f; // do not zoom further than this
+    float zoomFar_ = 10.0f; // do not zoom further than this
     const float zoomLvl1_ = 1.0f;
     const float zoomLvl2_ = 5.0f;
 
@@ -268,6 +268,10 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
 
         // Flags to pass back into the RendererData.
         PassthroughFlags flags;
+        // Hint text
+        std::string hintText;
+        // cursor pos
+        int x,y;
     };
     std::unique_ptr<RendererArgs> rendererArgs_;
     QMutex rendererArgsLock_;
@@ -291,7 +295,7 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     QMutex rendererDataLock_;
 
     void clampZoom();
-    void zoomToBB(const PickQuadTree::BoundingBox &bb, float margin);
+    void zoomToBB(const PickQuadTree::BoundingBox &bb, float margin, bool clamp);
     void zoom(int level);
     void renderLines(void);
     void renderGraphicElement(LineShaderData &out, PickQuadTree::BoundingBox &bb, const GraphicElement &el, float x,
@@ -304,6 +308,7 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     QVector4D mouseToWorldCoordinates(int x, int y);
     QVector4D mouseToWorldDimensions(float x, float y);
     QMatrix4x4 getProjection(void);
+    void update_vbos();
 };
 
 NEXTPNR_NAMESPACE_END

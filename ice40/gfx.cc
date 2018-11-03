@@ -21,7 +21,8 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, GfxTileWireId id, GraphicElement::style_t style)
+void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, GfxTileWireId id,
+                 GraphicElement::style_t style)
 {
     GraphicElement el;
     el.type = GraphicElement::TYPE_LINE;
@@ -462,7 +463,7 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, Gfx
             g.push_back(el);
         }
 
-        if (idx <= 15 && (x == 0 || x == w-1) && y == 1) {
+        if (idx <= 15 && (x == 0 || x == w - 1) && y == 1) {
             float y1 = y - (0.03 + 0.0025 * (60 - idx - 4));
 
             el.x1 = x2;
@@ -478,7 +479,7 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, Gfx
             g.push_back(el);
         }
 
-        if (idx >= 4 && (x == 0 || x == w-1) && y == h-2) {
+        if (idx >= 4 && (x == 0 || x == w - 1) && y == h - 2) {
             float y1 = y + 2.0 - (0.03 + 0.0025 * (60 - idx));
 
             el.x1 = x1;
@@ -901,7 +902,7 @@ static bool getWireXY_local(GfxTileWireId id, float &x, float &y)
     if (id >= TILE_WIRE_LUTFF_0_IN_0 && id <= TILE_WIRE_LUTFF_7_IN_3) {
         int idx = id - TILE_WIRE_LUTFF_0_IN_0;
         int z = idx / 4;
-        int input = idx % 4;
+        int input = 3 - idx % 4;
         x = local_swbox_x2;
         y = (logic_cell_y1 + logic_cell_y2) / 2 - 0.0075 + (0.005 * input) + z * logic_cell_pitch;
         return true;
@@ -971,11 +972,11 @@ void gfxTilePip(std::vector<GraphicElement> &g, int x, int y, GfxTileWireId src,
         return;
     }
 
-    if (getWireXY_local(src, x1, y1) && getWireXY_local(dst, x2, y2)) {
+   if (getWireXY_local(src, x1, y1) && getWireXY_local(dst, x2, y2)) {
         pipGfx(g, x, y, x1, y1, x2, y2, local_swbox_x1, local_swbox_y1, local_swbox_x2, local_swbox_y2, style);
         return;
     }
-
+ 
     if (TILE_WIRE_LUTFF_0_IN_0_LUT <= src && src <= TILE_WIRE_LUTFF_7_IN_3_LUT && TILE_WIRE_LUTFF_0_OUT <= dst &&
         dst <= TILE_WIRE_LUTFF_7_OUT) {
         int lut_idx = (src - TILE_WIRE_LUTFF_0_IN_0_LUT) / 4;

@@ -89,6 +89,11 @@ WireId Context::getNetinfoSinkWire(const NetInfo *net_info, const PortRef &user_
 
 delay_t Context::getNetinfoRouteDelay(const NetInfo *net_info, const PortRef &user_info) const
 {
+#ifdef ARCH_ECP5
+    if (net_info->is_global)
+        return 0;
+#endif
+
     WireId src_wire = getNetinfoSourceWire(net_info);
     if (src_wire == WireId())
         return 0;
@@ -99,8 +104,10 @@ delay_t Context::getNetinfoRouteDelay(const NetInfo *net_info, const PortRef &us
 
     while (cursor != WireId() && cursor != src_wire) {
         auto it = net_info->wires.find(cursor);
+
         if (it == net_info->wires.end())
             break;
+
         PipId pip = it->second.pip;
         delay += getPipDelay(pip).maxDelay();
         delay += getWireDelay(cursor).maxDelay();
@@ -237,6 +244,11 @@ void Context::check() const
                 NPNR_ASSERT(w.first == getPipDstWire(w.second.pip));
                 NPNR_ASSERT(ni == getBoundPipNet(w.second.pip));
             }
+        }
+        if (ni->driver.cell != nullptr)
+            NPNR_ASSERT(ni->driver.cell->ports.at(ni->driver.port).net == ni);
+        for (auto user : ni->users) {
+            NPNR_ASSERT(user.cell->ports.at(user.port).net == ni);
         }
     }
 

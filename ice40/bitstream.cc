@@ -447,6 +447,8 @@ void write_asc(const Context *ctx, std::ostream &out)
             unsigned pin_type = get_param_or_def(cell.second.get(), ctx->id("PIN_TYPE"));
             bool neg_trigger = get_param_or_def(cell.second.get(), ctx->id("NEG_TRIGGER"));
             bool pullup = get_param_or_def(cell.second.get(), ctx->id("PULLUP"));
+            bool lvds = get_param_str_or_def(cell.second.get(), ctx->id("IO_STANDARD")) == "SB_LVDS_INPUT";
+
             for (int i = 0; i < 6; i++) {
                 bool val = (pin_type >> i) & 0x01;
                 set_config(ti, config.at(y).at(x), "IOB_" + std::to_string(z) + ".PINTYPE_" + std::to_string(i), val);
@@ -457,10 +459,17 @@ void write_asc(const Context *ctx, std::ostream &out)
             std::tie(iex, iey, iez) = ieren;
             NPNR_ASSERT(iez != -1);
 
-            bool input_en = false;
-            if ((ctx->wire_to_net[ctx->getBelPinWire(bel, id_D_IN_0).index] != nullptr) ||
-                (ctx->wire_to_net[ctx->getBelPinWire(bel, id_D_IN_1).index] != nullptr)) {
-                input_en = true;
+            bool input_en;
+            if (lvds) {
+                input_en = false;
+                pullup = false;
+            } else {
+                if ((ctx->wire_to_net[ctx->getBelPinWire(bel, id_D_IN_0).index] != nullptr) ||
+                    (ctx->wire_to_net[ctx->getBelPinWire(bel, id_D_IN_1).index] != nullptr)) {
+                    input_en = true;
+                } else {
+                    input_en = false;
+                }
             }
 
             if (ctx->args.type == ArchArgs::LP1K || ctx->args.type == ArchArgs::HX1K) {
@@ -476,6 +485,31 @@ void write_asc(const Context *ctx, std::ostream &out)
                     set_config(ti, config.at(iey).at(iex), "IoCtrl.cf_bit_39", !pullup);
                 } else if (iez == 1) {
                     set_config(ti, config.at(iey).at(iex), "IoCtrl.cf_bit_35", !pullup);
+                }
+            }
+
+            if (lvds) {
+                NPNR_ASSERT(z == 0);
+                set_config(ti, config.at(y).at(x), "IoCtrl.LVDS", true);
+                // Set comp IO config
+                auto comp_ieren = get_ieren(bi, x, y, 1);
+                int ciex, ciey, ciez;
+                std::tie(ciex, ciey, ciez) = comp_ieren;
+
+                if (ctx->args.type == ArchArgs::LP1K || ctx->args.type == ArchArgs::HX1K) {
+                    set_config(ti, config.at(ciey).at(ciex), "IoCtrl.IE_" + std::to_string(ciez), !input_en);
+                    set_config(ti, config.at(ciey).at(ciex), "IoCtrl.REN_" + std::to_string(ciez), !pullup);
+                } else {
+                    set_config(ti, config.at(ciey).at(ciex), "IoCtrl.IE_" + std::to_string(ciez), input_en);
+                    set_config(ti, config.at(ciey).at(ciex), "IoCtrl.REN_" + std::to_string(ciez), !pullup);
+                }
+
+                if (ctx->args.type == ArchArgs::UP5K) {
+                    if (ciez == 0) {
+                        set_config(ti, config.at(ciey).at(ciex), "IoCtrl.cf_bit_39", !pullup);
+                    } else if (iez == 1) {
+                        set_config(ti, config.at(ciey).at(ciex), "IoCtrl.cf_bit_35", !pullup);
+                    }
                 }
             }
         } else if (cell.second->type == ctx->id("SB_GB")) {
@@ -630,6 +664,13 @@ void write_asc(const Context *ctx, std::ostream &out)
             int iex, iey, iez;
             std::tie(iex, iey, iez) = ieren;
             if (iez != -1) {
+                // IO is not actually unused if part of an LVDS pair
+                if (z == 1) {
+                    BelId lvds0 = ctx->getBelByLocation(Loc{x, y, 0});
+                    const CellInfo *lvds0cell = ctx->getBoundBelCell(lvds0);
+                    if (lvds0cell != nullptr && lvds0cell->ioInfo.lvds)
+                        continue;
+                }
                 set_ie_bit_logical(ctx, ti, config.at(iey).at(iex), "IoCtrl.IE_" + std::to_string(iez), true);
                 set_ie_bit_logical(ctx, ti, config.at(iey).at(iex), "IoCtrl.REN_" + std::to_string(iez), false);
             }
@@ -870,7 +911,7 @@ bool read_asc(Context *ctx, std::istream &in)
             }
             if (isUsed) {
                 NetInfo *net = ctx->wire_to_net[pi.dst];
-                if (net!=nullptr) {
+                if (net != nullptr) {
                     WireId wire;
                     wire.index = pi.dst;
                     ctx->unbindWire(wire);

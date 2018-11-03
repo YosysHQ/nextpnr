@@ -124,6 +124,32 @@ std::unique_ptr<CellInfo> create_ecp5_cell(Context *ctx, IdString type, std::str
         add_port(ctx, new_cell.get(), "C", PORT_IN);
         add_port(ctx, new_cell.get(), "D", PORT_IN);
         add_port(ctx, new_cell.get(), "Z", PORT_OUT);
+    } else if (type == ctx->id("CCU2C")) {
+        new_cell->params[ctx->id("INIT0")] = "0";
+        new_cell->params[ctx->id("INIT1")] = "0";
+        new_cell->params[ctx->id("INJECT1_0")] = "YES";
+        new_cell->params[ctx->id("INJECT1_1")] = "YES";
+
+        add_port(ctx, new_cell.get(), "CIN", PORT_IN);
+
+        add_port(ctx, new_cell.get(), "A0", PORT_IN);
+        add_port(ctx, new_cell.get(), "B0", PORT_IN);
+        add_port(ctx, new_cell.get(), "C0", PORT_IN);
+        add_port(ctx, new_cell.get(), "D0", PORT_IN);
+
+        add_port(ctx, new_cell.get(), "A1", PORT_IN);
+        add_port(ctx, new_cell.get(), "B1", PORT_IN);
+        add_port(ctx, new_cell.get(), "C1", PORT_IN);
+        add_port(ctx, new_cell.get(), "D1", PORT_IN);
+
+        add_port(ctx, new_cell.get(), "S0", PORT_OUT);
+        add_port(ctx, new_cell.get(), "S1", PORT_OUT);
+        add_port(ctx, new_cell.get(), "COUT", PORT_OUT);
+
+    } else if (type == ctx->id("DCCA")) {
+        add_port(ctx, new_cell.get(), "CLKI", PORT_IN);
+        add_port(ctx, new_cell.get(), "CLKO", PORT_OUT);
+        add_port(ctx, new_cell.get(), "CE", PORT_IN);
     } else {
         log_error("unable to create ECP5 cell of type %s", type.c_str(ctx));
     }
@@ -159,6 +185,8 @@ void ff_to_slice(Context *ctx, CellInfo *ff, CellInfo *lc, int index, bool drive
     set_param_safe(has_ff, lc, ctx->id("GSR"), str_or_default(ff->params, ctx->id("GSR"), "DISABLED"));
     set_param_safe(has_ff, lc, ctx->id("CEMUX"), str_or_default(ff->params, ctx->id("CEMUX"), "1"));
     set_param_safe(has_ff, lc, ctx->id("LSRMUX"), str_or_default(ff->params, ctx->id("LSRMUX"), "LSR"));
+    set_param_safe(has_ff, lc, ctx->id("CLKMUX"), str_or_default(ff->params, ctx->id("CLKMUX"), "CLK"));
+
     lc->params[ctx->id(reg + "_SD")] = driven_by_lut ? "1" : "0";
     lc->params[ctx->id(reg + "_REGSET")] = str_or_default(ff->params, ctx->id("REGSET"), "RESET");
     replace_port_safe(has_ff, ff, ctx->id("CLK"), lc, ctx->id("CLK"));
@@ -183,6 +211,178 @@ void lut_to_slice(Context *ctx, CellInfo *lut, CellInfo *lc, int index)
     replace_port(lut, ctx->id("C"), lc, ctx->id("C" + std::to_string(index)));
     replace_port(lut, ctx->id("D"), lc, ctx->id("D" + std::to_string(index)));
     replace_port(lut, ctx->id("Z"), lc, ctx->id("F" + std::to_string(index)));
+}
+
+void ccu2c_to_slice(Context *ctx, CellInfo *ccu, CellInfo *lc)
+{
+    lc->params[ctx->id("MODE")] = "CCU2";
+    lc->params[ctx->id("LUT0_INITVAL")] = str_or_default(ccu->params, ctx->id("INIT0"), "0");
+    lc->params[ctx->id("LUT1_INITVAL")] = str_or_default(ccu->params, ctx->id("INIT1"), "0");
+
+    lc->params[ctx->id("INJECT1_0")] = str_or_default(ccu->params, ctx->id("INJECT1_0"), "YES");
+    lc->params[ctx->id("INJECT1_1")] = str_or_default(ccu->params, ctx->id("INJECT1_1"), "YES");
+
+    replace_port(ccu, ctx->id("CIN"), lc, ctx->id("FCI"));
+
+    replace_port(ccu, ctx->id("A0"), lc, ctx->id("A0"));
+    replace_port(ccu, ctx->id("B0"), lc, ctx->id("B0"));
+    replace_port(ccu, ctx->id("C0"), lc, ctx->id("C0"));
+    replace_port(ccu, ctx->id("D0"), lc, ctx->id("D0"));
+
+    replace_port(ccu, ctx->id("A1"), lc, ctx->id("A1"));
+    replace_port(ccu, ctx->id("B1"), lc, ctx->id("B1"));
+    replace_port(ccu, ctx->id("C1"), lc, ctx->id("C1"));
+    replace_port(ccu, ctx->id("D1"), lc, ctx->id("D1"));
+
+    replace_port(ccu, ctx->id("S0"), lc, ctx->id("F0"));
+    replace_port(ccu, ctx->id("S1"), lc, ctx->id("F1"));
+
+    replace_port(ccu, ctx->id("COUT"), lc, ctx->id("FCO"));
+}
+
+void dram_to_ramw(Context *ctx, CellInfo *ram, CellInfo *lc)
+{
+    lc->params[ctx->id("MODE")] = "RAMW";
+    replace_port(ram, ctx->id("WAD[0]"), lc, ctx->id("D0"));
+    replace_port(ram, ctx->id("WAD[1]"), lc, ctx->id("B0"));
+    replace_port(ram, ctx->id("WAD[2]"), lc, ctx->id("C0"));
+    replace_port(ram, ctx->id("WAD[3]"), lc, ctx->id("A0"));
+
+    replace_port(ram, ctx->id("DI[0]"), lc, ctx->id("C1"));
+    replace_port(ram, ctx->id("DI[1]"), lc, ctx->id("A1"));
+    replace_port(ram, ctx->id("DI[2]"), lc, ctx->id("D1"));
+    replace_port(ram, ctx->id("DI[3]"), lc, ctx->id("B1"));
+}
+
+static unsigned get_dram_init(const Context *ctx, const CellInfo *ram, int bit)
+{
+    const std::string &idata = str_or_default(ram->params, ctx->id("INITVAL"),
+                                              "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
+    NPNR_ASSERT(idata.length() == 64);
+    unsigned value = 0;
+    for (int i = 0; i < 16; i++) {
+        char c = idata.at(63 - (4 * i + bit));
+        if (c == '1')
+            value |= (1 << i);
+        else
+            NPNR_ASSERT(c == '0' || c == 'x');
+    }
+    return value;
+}
+
+void dram_to_ram_slice(Context *ctx, CellInfo *ram, CellInfo *lc, CellInfo *ramw, int index)
+{
+    lc->params[ctx->id("MODE")] = "DPRAM";
+    lc->params[ctx->id("WREMUX")] = str_or_default(ram->params, ctx->id("WREMUX"), "WRE");
+    lc->params[ctx->id("WCKMUX")] = str_or_default(ram->params, ctx->id("WCKMUX"), "WCK");
+
+    unsigned permuted_init0 = 0, permuted_init1 = 0;
+    unsigned init0 = get_dram_init(ctx, ram, index * 2), init1 = get_dram_init(ctx, ram, index * 2 + 1);
+
+    for (int i = 0; i < 16; i++) {
+        int permuted_addr = 0;
+        if (i & 1)
+            permuted_addr |= 8;
+        if (i & 2)
+            permuted_addr |= 2;
+        if (i & 4)
+            permuted_addr |= 4;
+        if (i & 8)
+            permuted_addr |= 1;
+        if (init0 & (1 << permuted_addr))
+            permuted_init0 |= (1 << i);
+        if (init1 & (1 << permuted_addr))
+            permuted_init1 |= (1 << i);
+    }
+
+    lc->params[ctx->id("LUT0_INITVAL")] = std::to_string(permuted_init0);
+    lc->params[ctx->id("LUT1_INITVAL")] = std::to_string(permuted_init1);
+
+    if (ram->ports.count(ctx->id("RAD[0]"))) {
+        connect_port(ctx, ram->ports.at(ctx->id("RAD[0]")).net, lc, ctx->id("D0"));
+        connect_port(ctx, ram->ports.at(ctx->id("RAD[0]")).net, lc, ctx->id("D1"));
+    }
+    if (ram->ports.count(ctx->id("RAD[1]"))) {
+        connect_port(ctx, ram->ports.at(ctx->id("RAD[1]")).net, lc, ctx->id("B0"));
+        connect_port(ctx, ram->ports.at(ctx->id("RAD[1]")).net, lc, ctx->id("B1"));
+    }
+    if (ram->ports.count(ctx->id("RAD[2]"))) {
+        connect_port(ctx, ram->ports.at(ctx->id("RAD[2]")).net, lc, ctx->id("C0"));
+        connect_port(ctx, ram->ports.at(ctx->id("RAD[2]")).net, lc, ctx->id("C1"));
+    }
+    if (ram->ports.count(ctx->id("RAD[3]"))) {
+        connect_port(ctx, ram->ports.at(ctx->id("RAD[3]")).net, lc, ctx->id("A0"));
+        connect_port(ctx, ram->ports.at(ctx->id("RAD[3]")).net, lc, ctx->id("A1"));
+    }
+
+    if (ram->ports.count(ctx->id("WRE")))
+        connect_port(ctx, ram->ports.at(ctx->id("WRE")).net, lc, ctx->id("WRE"));
+    if (ram->ports.count(ctx->id("WCK")))
+        connect_port(ctx, ram->ports.at(ctx->id("WCK")).net, lc, ctx->id("WCK"));
+
+    connect_ports(ctx, ramw, id_WADO0, lc, id_WAD0);
+    connect_ports(ctx, ramw, id_WADO1, lc, id_WAD1);
+    connect_ports(ctx, ramw, id_WADO2, lc, id_WAD2);
+    connect_ports(ctx, ramw, id_WADO3, lc, id_WAD3);
+
+    if (index == 0) {
+        connect_ports(ctx, ramw, id_WDO0, lc, id_WD0);
+        connect_ports(ctx, ramw, id_WDO1, lc, id_WD1);
+
+        replace_port(ram, ctx->id("DO[0]"), lc, id_F0);
+        replace_port(ram, ctx->id("DO[1]"), lc, id_F1);
+
+    } else if (index == 1) {
+        connect_ports(ctx, ramw, id_WDO2, lc, id_WD0);
+        connect_ports(ctx, ramw, id_WDO3, lc, id_WD1);
+
+        replace_port(ram, ctx->id("DO[2]"), lc, id_F0);
+        replace_port(ram, ctx->id("DO[3]"), lc, id_F1);
+    } else {
+        NPNR_ASSERT_FALSE("bad DPRAM index");
+    }
+}
+
+void nxio_to_tr(Context *ctx, CellInfo *nxio, CellInfo *trio, std::vector<std::unique_ptr<CellInfo>> &created_cells,
+                std::unordered_set<IdString> &todelete_cells)
+{
+    if (nxio->type == ctx->id("$nextpnr_ibuf")) {
+        trio->params[ctx->id("DIR")] = "INPUT";
+        replace_port(nxio, ctx->id("O"), trio, ctx->id("O"));
+    } else if (nxio->type == ctx->id("$nextpnr_obuf")) {
+        trio->params[ctx->id("DIR")] = "OUTPUT";
+        replace_port(nxio, ctx->id("I"), trio, ctx->id("I"));
+    } else if (nxio->type == ctx->id("$nextpnr_iobuf")) {
+        // N.B. tristate will be dealt with below
+        trio->params[ctx->id("DIR")] = "BIDIR";
+        replace_port(nxio, ctx->id("I"), trio, ctx->id("I"));
+        replace_port(nxio, ctx->id("O"), trio, ctx->id("O"));
+    } else {
+        NPNR_ASSERT(false);
+    }
+    NetInfo *donet = trio->ports.at(ctx->id("I")).net;
+    CellInfo *tbuf = net_driven_by(
+            ctx, donet, [](const Context *ctx, const CellInfo *cell) { return cell->type == ctx->id("$_TBUF_"); },
+            ctx->id("Y"));
+    if (tbuf) {
+        replace_port(tbuf, ctx->id("I"), trio, ctx->id("I"));
+        // Need to invert E to form T
+        std::unique_ptr<CellInfo> inv_lut = create_ecp5_cell(ctx, ctx->id("LUT4"), trio->name.str(ctx) + "$invert_T");
+        replace_port(tbuf, ctx->id("E"), inv_lut.get(), ctx->id("A"));
+        inv_lut->params[ctx->id("INIT")] = "21845";
+        connect_ports(ctx, inv_lut.get(), ctx->id("Z"), trio, ctx->id("T"));
+        created_cells.push_back(std::move(inv_lut));
+
+        if (donet->users.size() > 1) {
+            for (auto user : donet->users)
+                log_info("     remaining tristate user: %s.%s\n", user.cell->name.c_str(ctx), user.port.c_str(ctx));
+            log_error("unsupported tristate IO pattern for IO buffer '%s', "
+                      "instantiate SB_IO manually to ensure correct behaviour\n",
+                      nxio->name.c_str(ctx));
+        }
+        ctx->nets.erase(donet->name);
+        todelete_cells.insert(tbuf->name);
+    }
 }
 
 NEXTPNR_NAMESPACE_END

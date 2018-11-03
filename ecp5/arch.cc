@@ -19,13 +19,16 @@
  */
 
 #include <algorithm>
+#include <boost/range/adaptor/reversed.hpp>
 #include <cmath>
 #include <cstring>
 #include "gfx.h"
+#include "globals.h"
 #include "log.h"
 #include "nextpnr.h"
 #include "placer1.h"
 #include "router1.h"
+#include "timing.h"
 #include "util.h"
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -74,11 +77,13 @@ Arch::Arch(ArchArgs args) : args(args)
         log_error("Unsupported ECP5 chip type.\n");
     }
 #else
-    if (args.type == ArchArgs::LFE5U_25F) {
+    if (args.type == ArchArgs::LFE5U_25F || args.type == ArchArgs::LFE5UM_25F || args.type == ArchArgs::LFE5UM5G_25F) {
         chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_25k));
-    } else if (args.type == ArchArgs::LFE5U_45F) {
+    } else if (args.type == ArchArgs::LFE5U_45F || args.type == ArchArgs::LFE5UM_45F ||
+               args.type == ArchArgs::LFE5UM5G_45F) {
         chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_45k));
-    } else if (args.type == ArchArgs::LFE5U_85F) {
+    } else if (args.type == ArchArgs::LFE5U_85F || args.type == ArchArgs::LFE5UM_85F ||
+               args.type == ArchArgs::LFE5UM5G_85F) {
         chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_85k));
     } else {
         log_error("Unsupported ECP5 chip type.\n");
@@ -108,6 +113,18 @@ std::string Arch::getChipName() const
         return "LFE5U-45F";
     } else if (args.type == ArchArgs::LFE5U_85F) {
         return "LFE5U-85F";
+    } else if (args.type == ArchArgs::LFE5UM_25F) {
+        return "LFE5UM-25F";
+    } else if (args.type == ArchArgs::LFE5UM_45F) {
+        return "LFE5UM-45F";
+    } else if (args.type == ArchArgs::LFE5UM_85F) {
+        return "LFE5UM-85F";
+    } else if (args.type == ArchArgs::LFE5UM5G_25F) {
+        return "LFE5UM5G-25F";
+    } else if (args.type == ArchArgs::LFE5UM5G_45F) {
+        return "LFE5UM5G-45F";
+    } else if (args.type == ArchArgs::LFE5UM5G_85F) {
+        return "LFE5UM5G-85F";
     } else {
         log_error("Unknown chip\n");
     }
@@ -123,6 +140,18 @@ IdString Arch::archArgsToId(ArchArgs args) const
         return id("lfe5u_45f");
     if (args.type == ArchArgs::LFE5U_85F)
         return id("lfe5u_85f");
+    if (args.type == ArchArgs::LFE5UM_25F)
+        return id("lfe5um_25f");
+    if (args.type == ArchArgs::LFE5UM_45F)
+        return id("lfe5um_45f");
+    if (args.type == ArchArgs::LFE5UM_85F)
+        return id("lfe5um_85f");
+    if (args.type == ArchArgs::LFE5UM5G_25F)
+        return id("lfe5um5g_25f");
+    if (args.type == ArchArgs::LFE5UM5G_45F)
+        return id("lfe5um5g_45f");
+    if (args.type == ArchArgs::LFE5UM5G_85F)
+        return id("lfe5um5g_85f");
     return IdString();
 }
 
@@ -389,7 +418,12 @@ bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay
 
 bool Arch::place() { return placer1(getCtx(), Placer1Cfg(getCtx())); }
 
-bool Arch::route() { return router1(getCtx(), Router1Cfg(getCtx())); }
+bool Arch::route()
+{
+    route_ecp5_globals(getCtx());
+    assign_budget(getCtx(), true);
+    return router1(getCtx(), Router1Cfg(getCtx()));
+}
 
 // -----------------------------------------------------------------------
 
@@ -504,18 +538,37 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
             delay.delay = 193;
             return true;
         }
-
+#if 0 // FIXME
         if (fromPort == id_WCK && (toPort == id_F0 || toPort == id_F1)) {
             delay.delay = 717;
             return true;
         }
-
+#endif
         if ((fromPort == id_A0 && toPort == id_WADO3) || (fromPort == id_A1 && toPort == id_WDO1) ||
             (fromPort == id_B0 && toPort == id_WADO1) || (fromPort == id_B1 && toPort == id_WDO3) ||
             (fromPort == id_C0 && toPort == id_WADO2) || (fromPort == id_C1 && toPort == id_WDO0) ||
             (fromPort == id_D0 && toPort == id_WADO0) || (fromPort == id_D1 && toPort == id_WDO2)) {
             delay.delay = 0;
             return true;
+        }
+        return false;
+    } else if (cell->type == id_DCCA) {
+        if (fromPort == id_CLKI && toPort == id_CLKO) {
+            delay.delay = 0;
+            return true;
+        }
+        return false;
+    } else if (cell->type == id_DP16KD) {
+        if (fromPort == id_CLKA) {
+            if (toPort.str(this).substr(0, 3) == "DOA") {
+                delay.delay = 4260;
+                return true;
+            }
+        } else if (fromPort == id_CLKB) {
+            if (toPort.str(this).substr(0, 3) == "DOB") {
+                delay.delay = 4280;
+                return true;
+            }
         }
         return false;
     } else {
@@ -525,6 +578,8 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
 
 TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, IdString &clockPort) const
 {
+    auto disconnected = [cell](IdString p) { return !cell->ports.count(p) || cell->ports.at(p).net == nullptr; };
+
     if (cell->type == id_TRELLIS_SLICE) {
         int sd0 = int_or_default(cell->params, id("REG0_SD"), 0), sd1 = int_or_default(cell->params, id("REG1_SD"), 0);
         if (port == id_CLK || port == id_WCK)
@@ -532,6 +587,13 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, Id
         if (port == id_A0 || port == id_A1 || port == id_B0 || port == id_B1 || port == id_C0 || port == id_C1 ||
             port == id_D0 || port == id_D1 || port == id_FCI || port == id_FXA || port == id_FXB)
             return TMG_COMB_INPUT;
+        if (port == id_F0 && disconnected(id_A0) && disconnected(id_B0) && disconnected(id_C0) && disconnected(id_D0) &&
+            disconnected(id_FCI))
+            return TMG_IGNORE; // LUT with no inputs is a constant
+        if (port == id_F1 && disconnected(id_A1) && disconnected(id_B1) && disconnected(id_C1) && disconnected(id_D1) &&
+            disconnected(id_FCI))
+            return TMG_IGNORE; // LUT with no inputs is a constant
+
         if (port == id_F0 || port == id_F1 || port == id_FCO || port == id_OFX0 || port == id_OFX1)
             return TMG_COMB_OUTPUT;
         if (port == id_DI0 || port == id_DI1 || port == id_CE || port == id_LSR || (sd0 == 1 && port == id_M0) ||
@@ -563,6 +625,34 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, Id
         if (port == id_O)
             return TMG_STARTPOINT;
         return TMG_IGNORE;
+    } else if (cell->type == id_DCCA) {
+        if (port == id_CLKI)
+            return TMG_COMB_INPUT;
+        if (port == id_CLKO)
+            return TMG_COMB_OUTPUT;
+        return TMG_IGNORE;
+    } else if (cell->type == id_DP16KD) {
+        if (port == id_CLKA || port == id_CLKB)
+            return TMG_CLOCK_INPUT;
+        std::string port_name = port.str(this);
+        for (auto c : boost::adaptors::reverse(port_name)) {
+            if (std::isdigit(c))
+                continue;
+            if (c == 'A')
+                clockPort = id_CLKA;
+            else if (c == 'B')
+                clockPort = id_CLKB;
+            else
+                NPNR_ASSERT_FALSE_STR("bad ram port");
+            return (cell->ports.at(port).type == PORT_OUT) ? TMG_REGISTER_OUTPUT : TMG_REGISTER_INPUT;
+        }
+        NPNR_ASSERT_FALSE_STR("no timing type for RAM port '" + port.str(this) + "'");
+    } else if (cell->type == id_MULT18X18D) {
+        return TMG_IGNORE; // FIXME
+    } else if (cell->type == id_ALU54B) {
+        return TMG_IGNORE; // FIXME
+    } else if (cell->type == id_EHXPLLL) {
+        return TMG_IGNORE;
     } else {
         NPNR_ASSERT_FALSE_STR("no timing data for cell type '" + cell->type.str(this) + "'");
     }
@@ -577,6 +667,12 @@ std::vector<std::pair<std::string, std::string>> Arch::getTilesAtLocation(int ro
                                      chip_info->tiletype_names[tileloc.tile_names[i].type_idx].get()));
     }
     return ret;
+}
+
+GlobalInfoPOD Arch::globalInfoAtLoc(Location loc)
+{
+    int locidx = loc.y * chip_info->width + loc.x;
+    return chip_info->location_glbinfo[locidx];
 }
 
 NEXTPNR_NAMESPACE_END

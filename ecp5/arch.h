@@ -147,6 +147,8 @@ NPNR_PACKED_STRUCT(struct GlobalInfoPOD {
     int16_t tap_col;
     TapDirection tap_dir;
     GlobalQuadrant quad;
+    int16_t spine_row;
+    int16_t spine_col;
 });
 
 NPNR_PACKED_STRUCT(struct ChipInfoPOD {
@@ -390,6 +392,12 @@ struct ArchArgs
         LFE5U_25F,
         LFE5U_45F,
         LFE5U_85F,
+        LFE5UM_25F,
+        LFE5UM_45F,
+        LFE5UM_85F,
+        LFE5UM5G_25F,
+        LFE5UM5G_45F,
+        LFE5UM5G_85F,
     } type = NONE;
     std::string package;
     int speed = 6;
@@ -483,7 +491,7 @@ struct Arch : BaseCtx
     BelId getBelByLocation(Loc loc) const;
     BelRange getBelsByTile(int x, int y) const;
 
-    bool getBelGlobalBuf(BelId bel) const { return false; }
+    bool getBelGlobalBuf(BelId bel) const { return getBelType(bel) == id_DCCA; }
 
     bool checkBelAvail(BelId bel) const
     {
@@ -638,6 +646,21 @@ struct Arch : BaseCtx
         range.e.cursor_index = 0;
         range.e.chip = chip_info;
         return range;
+    }
+
+    IdString getWireBasename(WireId wire) const { return id(locInfo(wire)->wire_data[wire.index].name.get()); }
+
+    WireId getWireByLocAndBasename(Location loc, std::string basename) const
+    {
+        WireId wireId;
+        wireId.location = loc;
+        for (int i = 0; i < locInfo(wireId)->num_wires; i++) {
+            if (locInfo(wireId)->wire_data[i].name.get() == basename) {
+                wireId.index = i;
+                return wireId;
+            }
+        }
+        return WireId();
     }
 
     // -------------------------------------------------
@@ -891,6 +914,16 @@ struct Arch : BaseCtx
         }
         NPNR_ASSERT_FALSE_STR("no tile at (" + std::to_string(col) + ", " + std::to_string(row) + ") with type in set");
     }
+
+    GlobalInfoPOD globalInfoAtLoc(Location loc);
+
+    // Apply LPF constraints to the context
+    bool applyLPF(std::string filename, std::istream &in);
+
+    IdString id_trellis_slice;
+    IdString id_clk, id_lsr;
+    IdString id_clkmux, id_lsrmux;
+    IdString id_srmode, id_mode;
 };
 
 NEXTPNR_NAMESPACE_END

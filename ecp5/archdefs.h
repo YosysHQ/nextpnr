@@ -136,11 +136,14 @@ struct DecalId
 
 struct ArchNetInfo
 {
+    bool is_global = false;
 };
+
 struct ArchCellInfo
 {
     struct
     {
+        bool using_dff;
         IdString clk_sig, lsr_sig, clkmux, lsrmux, srmode;
     } sliceInfo;
 };
