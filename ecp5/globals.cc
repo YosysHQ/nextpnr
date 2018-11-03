@@ -25,6 +25,7 @@
 #include "log.h"
 #include "nextpnr.h"
 #include "place_common.h"
+#include "util.h"
 #define fmt_str(x) (static_cast<const std::ostringstream &>(std::ostringstream() << x).str())
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -257,6 +258,45 @@ class Ecp5GlobalRouter
         return true;
     }
 
+    // Get DCC wirelength based on source
+    wirelen_t get_dcc_wirelen(CellInfo *dcc)
+    {
+        NetInfo *clki = dcc->ports.at(id_CLKI).net;
+        BelId drv_bel;
+        const PortRef &drv = clki->driver;
+        if (drv.cell == nullptr) {
+            return 0;
+        } else if (drv.cell->attrs.count(ctx->id("BEL"))) {
+            drv_bel = ctx->getBelByName(ctx->id(drv.cell->attrs.at(ctx->id("BEL"))));
+        } else {
+            // Check if driver is a singleton
+            BelId last_bel;
+            bool singleton = true;
+            for (auto bel : ctx->getBels()) {
+                if (ctx->getBelType(bel) == drv.cell->type) {
+                    if (last_bel != BelId()) {
+                        singleton = false;
+                        break;
+                    }
+                    last_bel = bel;
+                }
+            }
+            if (singleton && last_bel != BelId()) {
+                drv_bel = last_bel;
+            }
+        }
+        if (drv_bel == BelId()) {
+            // Driver is not locked. Use standard metric
+            float tns;
+            return get_net_metric(ctx, clki, MetricType::WIRELENGTH, tns);
+        } else {
+            // Driver is locked
+            Loc dcc_loc = ctx->getBelLocation(dcc->bel);
+            Loc drv_loc = ctx->getBelLocation(drv_bel);
+            return std::abs(dcc_loc.x - drv_loc.x) + std::abs(dcc_loc.y - drv_loc.y);
+        }
+    }
+
     // Attempt to place a DCC
     void place_dcc(CellInfo *dcc)
     {
@@ -266,8 +306,7 @@ class Ecp5GlobalRouter
             if (ctx->getBelType(bel) == id_DCCA && ctx->checkBelAvail(bel)) {
                 if (ctx->isValidBelForCell(dcc, bel)) {
                     ctx->bindBel(bel, dcc, STRENGTH_LOCKED);
-                    float tns;
-                    wirelen_t wirelen = get_net_metric(ctx, dcc->ports.at(id_CLKI).net, MetricType::WIRELENGTH, tns);
+                    wirelen_t wirelen = get_dcc_wirelen(dcc);
                     if (wirelen < best_wirelen) {
                         best_bel = bel;
                         best_wirelen = wirelen;
@@ -292,11 +331,16 @@ class Ecp5GlobalRouter
         glbnet->is_global = true;
         dcc->ports[id_CLKO].net = glbnet.get();
 
-        glbnet->users = net->users;
+        std::vector<PortRef> keep_users;
         for (auto user : net->users) {
-            user.cell->ports.at(user.port).net = glbnet.get();
+            if (user.port == id_CLKFB) {
+                keep_users.push_back(user);
+            } else {
+                glbnet->users.push_back(user);
+                user.cell->ports.at(user.port).net = glbnet.get();
+            }
         }
-        net->users.clear();
+        net->users = keep_users;
 
         dcc->ports[id_CLKI].net = net;
         PortRef clki_pr;
@@ -322,47 +366,61 @@ class Ecp5GlobalRouter
     Context *ctx;
 
   public:
-    void promote_and_route_globals()
+    void promote_globals()
     {
-        log_info("Promoting and routing globals...\n");
+        log_info("Promoting globals...\n");
         auto clocks = get_clocks();
+        for (auto clock : clocks) {
+            log_info("    promoting clock net %s to global network\n", clock->name.c_str(ctx));
+            insert_dcc(clock);
+        }
+    }
+
+    void route_globals()
+    {
+        log_info("Routing globals...\n");
         std::set<int> all_globals, fab_globals;
         for (int i = 0; i < 16; i++) {
             all_globals.insert(i);
             if (i < 8)
                 fab_globals.insert(i);
         }
-        for (auto clock : clocks) {
-            bool drives_fabric = std::any_of(clock->users.begin(), clock->users.end(),
-                                             [this](const PortRef &port) { return !is_clock_port(port); });
-            int glbid;
-            if (drives_fabric) {
-                if (fab_globals.empty())
-                    continue;
-                glbid = *(fab_globals.begin());
-            } else {
-                glbid = *(all_globals.begin());
-            }
-            all_globals.erase(glbid);
-            fab_globals.erase(glbid);
-            log_info("    promoting clock net %s to global %d\n", clock->name.c_str(ctx), glbid);
-            auto old_users = clock->users;
-            NetInfo *global = insert_dcc(clock);
-            bool routed = route_onto_global(global, glbid);
-            NPNR_ASSERT(routed);
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (ci->type == id_DCCA) {
+                NetInfo *clock = ci->ports.at(id_CLKO).net;
+                NPNR_ASSERT(clock != nullptr);
+                bool drives_fabric = std::any_of(clock->users.begin(), clock->users.end(),
+                                                 [this](const PortRef &port) { return !is_clock_port(port); });
 
-            // WCK must have routing priority
-            auto sorted_users = global->users;
-            std::sort(sorted_users.begin(), sorted_users.end(), [this](const PortRef &a, const PortRef &b) {
-                return global_route_priority(a) < global_route_priority(b);
-            });
-            for (const auto &user : sorted_users) {
-                route_logic_tile_global(global, glbid, user);
+                int glbid;
+                if (drives_fabric) {
+                    if (fab_globals.empty())
+                        continue;
+                    glbid = *(fab_globals.begin());
+                } else {
+                    glbid = *(all_globals.begin());
+                }
+                all_globals.erase(glbid);
+                fab_globals.erase(glbid);
+
+                log_info("    routing clock net %s using global %d\n", clock->name.c_str(ctx), glbid);
+                bool routed = route_onto_global(clock, glbid);
+                NPNR_ASSERT(routed);
+
+                // WCK must have routing priority
+                auto sorted_users = clock->users;
+                std::sort(sorted_users.begin(), sorted_users.end(), [this](const PortRef &a, const PortRef &b) {
+                    return global_route_priority(a) < global_route_priority(b);
+                });
+                for (const auto &user : sorted_users) {
+                    route_logic_tile_global(clock, glbid, user);
+                }
             }
         }
     }
 };
-
-void route_ecp5_globals(Context *ctx) { Ecp5GlobalRouter(ctx).promote_and_route_globals(); }
+void promote_ecp5_globals(Context *ctx) { Ecp5GlobalRouter(ctx).promote_globals(); }
+void route_ecp5_globals(Context *ctx) { Ecp5GlobalRouter(ctx).route_globals(); }
 
 NEXTPNR_NAMESPACE_END

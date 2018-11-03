@@ -378,6 +378,32 @@ std::vector<std::string> get_dsp_tiles(Context *ctx, BelId bel)
     }
     return tiles;
 }
+
+// Get the list of tiles corresponding to a PLL
+std::vector<std::string> get_pll_tiles(Context *ctx, BelId bel)
+{
+    std::string name = ctx->locInfo(bel)->bel_data[bel.index].name.get();
+    std::vector<std::string> tiles;
+    Loc loc = ctx->getBelLocation(bel);
+
+    if (name == "EHXPLL_UL") {
+        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x - 1, "PLL0_UL"));
+        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y + 1, loc.x - 1, "PLL1_UL"));
+    } else if (name == "EHXPLL_LL") {
+        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y + 1, loc.x, "PLL0_LL"));
+        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y + 1, loc.x + 1, "BANKREF8"));
+    } else if (name == "EHXPLL_LR") {
+        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y + 1, loc.x, "PLL0_LR"));
+        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y + 1, loc.x - 1, "PLL1_LR"));
+    } else if (name == "EHXPLL_UR") {
+        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x - 1, "PLL0_UR"));
+        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y + 1, loc.x - 1, "PLL1_UR"));
+    } else {
+        NPNR_ASSERT_FALSE_STR("bad PLL loc " + name);
+    }
+    return tiles;
+}
+
 void fix_tile_names(Context *ctx, ChipConfig &cc)
 {
     // Remove the V prefix/suffix on certain tiles if device is a SERDES variant
@@ -390,7 +416,7 @@ void fix_tile_names(Context *ctx, ChipConfig &cc)
             auto vcib = tile.first.find("VCIB");
             if (vcib != std::string::npos) {
                 // Remove the V
-                newname.erase(vcib);
+                newname.erase(vcib, 1);
                 tiletype_xform[tile.first] = newname;
             } else if (tile.first.back() == 'V') {
                 // BMID_0V or BMID_2V
@@ -429,6 +455,14 @@ void tieoff_dsp_ports(Context *ctx, ChipConfig &cc, CellInfo *ci)
     }
 }
 
+static void set_pip(Context *ctx, ChipConfig &cc, PipId pip)
+{
+    std::string tile = ctx->getPipTilename(pip);
+    std::string source = get_trellis_wirename(ctx, pip.location, ctx->getPipSrcWire(pip));
+    std::string sink = get_trellis_wirename(ctx, pip.location, ctx->getPipDstWire(pip));
+    cc.tiles[tile].add_arc(sink, source);
+}
+
 void write_bitstream(Context *ctx, std::string base_config_file, std::string text_config_file)
 {
     ChipConfig cc;
@@ -450,10 +484,16 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
     for (auto pip : ctx->getPips()) {
         if (ctx->getBoundPipNet(pip) != nullptr) {
             if (ctx->getPipClass(pip) == 0) { // ignore fixed pips
-                std::string tile = ctx->getPipTilename(pip);
                 std::string source = get_trellis_wirename(ctx, pip.location, ctx->getPipSrcWire(pip));
-                std::string sink = get_trellis_wirename(ctx, pip.location, ctx->getPipDstWire(pip));
-                cc.tiles[tile].add_arc(sink, source);
+                if (source.find("CLKI_PLL") != std::string::npos) {
+                    // Special case - must set pip in all relevant tiles
+                    for (auto equiv_pip : ctx->getPipsUphill(ctx->getPipDstWire(pip))) {
+                        if (ctx->getPipSrcWire(equiv_pip) == ctx->getPipSrcWire(pip))
+                            set_pip(ctx, cc, equiv_pip);
+                    }
+                } else {
+                    set_pip(ctx, cc, pip);
+                }
             }
         }
     }
@@ -624,6 +664,8 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             if (dir == "INPUT" && !is_differential(ioType_from_str(iotype))) {
                 cc.tiles[pio_tile].add_enum(pio + ".HYSTERESIS", "ON");
             }
+            if (ci->attrs.count(ctx->id("SLEWRATE")))
+                cc.tiles[pio_tile].add_enum(pio + ".SLEWRATE", str_or_default(ci->attrs, ctx->id("SLEWRATE"), "SLOW"));
         } else if (ci->type == ctx->id("DCCA")) {
             // Nothing to do
         } else if (ci->type == ctx->id("DP16KD")) {
@@ -867,7 +909,96 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             }
             tieoff_dsp_ports(ctx, cc, ci);
             cc.tilegroups.push_back(tg);
+        } else if (ci->type == id_EHXPLLL) {
+            TileGroup tg;
+            tg.tiles = get_pll_tiles(ctx, ci->bel);
 
+            tg.config.add_enum("MODE", "EHXPLLL");
+
+            tg.config.add_word("CLKI_DIV", int_to_bitvector(int_or_default(ci->params, ctx->id("CLKI_DIV"), 1) - 1, 7));
+            tg.config.add_word("CLKFB_DIV",
+                               int_to_bitvector(int_or_default(ci->params, ctx->id("CLKFB_DIV"), 1) - 1, 7));
+
+            tg.config.add_enum("CLKOP_ENABLE", str_or_default(ci->params, ctx->id("CLKOP_ENABLE"), "ENABLED"));
+            tg.config.add_enum("CLKOS_ENABLE", str_or_default(ci->params, ctx->id("CLKOS_ENABLE"), "ENABLED"));
+            tg.config.add_enum("CLKOS2_ENABLE", str_or_default(ci->params, ctx->id("CLKOS2_ENABLE"), "ENABLED"));
+            tg.config.add_enum("CLKOS3_ENABLE", str_or_default(ci->params, ctx->id("CLKOS3_ENABLE"), "ENABLED"));
+
+            for (std::string out : {"CLKOP", "CLKOS", "CLKOS2", "CLKOS3"}) {
+                tg.config.add_word(out + "_DIV",
+                                   int_to_bitvector(int_or_default(ci->params, ctx->id(out + "_DIV"), 8) - 1, 7));
+                tg.config.add_word(out + "_CPHASE",
+                                   int_to_bitvector(int_or_default(ci->params, ctx->id(out + "_CPHASE"), 0), 7));
+                tg.config.add_word(out + "_FPHASE",
+                                   int_to_bitvector(int_or_default(ci->params, ctx->id(out + "_FPHASE"), 0), 3));
+            }
+
+            tg.config.add_enum("FEEDBK_PATH", str_or_default(ci->params, ctx->id("FEEDBK_PATH"), "CLKOP"));
+            tg.config.add_enum("CLKOP_TRIM_POL", str_or_default(ci->params, ctx->id("CLKOP_TRIM_POL"), "RISING"));
+            tg.config.add_enum("CLKOP_TRIM_DELAY", str_or_default(ci->params, ctx->id("CLKOP_TRIM_DELAY"), "0"));
+            tg.config.add_enum("CLKOS_TRIM_POL", str_or_default(ci->params, ctx->id("CLKOS_TRIM_POL"), "RISING"));
+            tg.config.add_enum("CLKOS_TRIM_DELAY", str_or_default(ci->params, ctx->id("CLKOS_TRIM_DELAY"), "0"));
+
+            tg.config.add_enum("OUTDIVIDER_MUXA", str_or_default(ci->params, ctx->id("OUTDIVIDER_MUXA"),
+                                                                 get_net_or_empty(ci, id_CLKOP) ? "DIVA" : "REFCLK"));
+            tg.config.add_enum("OUTDIVIDER_MUXB", str_or_default(ci->params, ctx->id("OUTDIVIDER_MUXB"),
+                                                                 get_net_or_empty(ci, id_CLKOP) ? "DIVB" : "REFCLK"));
+            tg.config.add_enum("OUTDIVIDER_MUXC", str_or_default(ci->params, ctx->id("OUTDIVIDER_MUXC"),
+                                                                 get_net_or_empty(ci, id_CLKOP) ? "DIVC" : "REFCLK"));
+            tg.config.add_enum("OUTDIVIDER_MUXD", str_or_default(ci->params, ctx->id("OUTDIVIDER_MUXD"),
+                                                                 get_net_or_empty(ci, id_CLKOP) ? "DIVD" : "REFCLK"));
+
+            tg.config.add_word("PLL_LOCK_MODE",
+                               int_to_bitvector(int_or_default(ci->params, ctx->id("PLL_LOCK_MODE"), 0), 3));
+
+            tg.config.add_enum("STDBY_ENABLE", str_or_default(ci->params, ctx->id("STDBY_ENABLE"), "DISABLED"));
+            tg.config.add_enum("REFIN_RESET", str_or_default(ci->params, ctx->id("REFIN_RESET"), "DISABLED"));
+            tg.config.add_enum("SYNC_ENABLE", str_or_default(ci->params, ctx->id("SYNC_ENABLE"), "DISABLED"));
+            tg.config.add_enum("INT_LOCK_STICKY", str_or_default(ci->params, ctx->id("INT_LOCK_STICKY"), "ENABLED"));
+            tg.config.add_enum("DPHASE_SOURCE", str_or_default(ci->params, ctx->id("DPHASE_SOURCE"), "DISABLED"));
+            tg.config.add_enum("PLLRST_ENA", str_or_default(ci->params, ctx->id("PLLRST_ENA"), "DISABLED"));
+            tg.config.add_enum("INTFB_WAKE", str_or_default(ci->params, ctx->id("INTFB_WAKE"), "DISABLED"));
+
+            tg.config.add_word("KVCO", int_to_bitvector(int_or_default(ci->attrs, ctx->id("KVCO"), 0), 3));
+            tg.config.add_word("LPF_CAPACITOR",
+                               int_to_bitvector(int_or_default(ci->attrs, ctx->id("LPF_CAPACITOR"), 0), 2));
+            tg.config.add_word("LPF_RESISTOR",
+                               int_to_bitvector(int_or_default(ci->attrs, ctx->id("LPF_RESISTOR"), 0), 7));
+            tg.config.add_word("ICP_CURRENT",
+                               int_to_bitvector(int_or_default(ci->attrs, ctx->id("ICP_CURRENT"), 0), 5));
+            tg.config.add_word("FREQ_LOCK_ACCURACY",
+                               int_to_bitvector(int_or_default(ci->attrs, ctx->id("FREQ_LOCK_ACCURACY"), 0), 2));
+
+            tg.config.add_word("MFG_GMC_GAIN",
+                               int_to_bitvector(int_or_default(ci->attrs, ctx->id("MFG_GMC_GAIN"), 0), 3));
+            tg.config.add_word("MFG_GMC_TEST",
+                               int_to_bitvector(int_or_default(ci->attrs, ctx->id("MFG_GMC_TEST"), 14), 4));
+            tg.config.add_word("MFG1_TEST", int_to_bitvector(int_or_default(ci->attrs, ctx->id("MFG1_TEST"), 0), 3));
+            tg.config.add_word("MFG2_TEST", int_to_bitvector(int_or_default(ci->attrs, ctx->id("MFG2_TEST"), 0), 3));
+
+            tg.config.add_word("MFG_FORCE_VFILTER",
+                               int_to_bitvector(int_or_default(ci->attrs, ctx->id("MFG_FORCE_VFILTER"), 0), 1));
+            tg.config.add_word("MFG_ICP_TEST",
+                               int_to_bitvector(int_or_default(ci->attrs, ctx->id("MFG_ICP_TEST"), 0), 1));
+            tg.config.add_word("MFG_EN_UP", int_to_bitvector(int_or_default(ci->attrs, ctx->id("MFG_EN_UP"), 0), 1));
+            tg.config.add_word("MFG_FLOAT_ICP",
+                               int_to_bitvector(int_or_default(ci->attrs, ctx->id("MFG_FLOAT_ICP"), 0), 1));
+            tg.config.add_word("MFG_GMC_PRESET",
+                               int_to_bitvector(int_or_default(ci->attrs, ctx->id("MFG_GMC_PRESET"), 0), 1));
+            tg.config.add_word("MFG_LF_PRESET",
+                               int_to_bitvector(int_or_default(ci->attrs, ctx->id("MFG_LF_PRESET"), 0), 1));
+            tg.config.add_word("MFG_GMC_RESET",
+                               int_to_bitvector(int_or_default(ci->attrs, ctx->id("MFG_GMC_RESET"), 0), 1));
+            tg.config.add_word("MFG_LF_RESET",
+                               int_to_bitvector(int_or_default(ci->attrs, ctx->id("MFG_LF_RESET"), 0), 1));
+            tg.config.add_word("MFG_LF_RESGRND",
+                               int_to_bitvector(int_or_default(ci->attrs, ctx->id("MFG_LF_RESGRND"), 0), 1));
+            tg.config.add_word("MFG_GMCREF_SEL",
+                               int_to_bitvector(int_or_default(ci->attrs, ctx->id("MFG_GMCREF_SEL"), 0), 2));
+            tg.config.add_word("MFG_ENABLE_FILTEROPAMP",
+                               int_to_bitvector(int_or_default(ci->attrs, ctx->id("MFG_ENABLE_FILTEROPAMP"), 0), 1));
+
+            cc.tilegroups.push_back(tg);
         } else {
             NPNR_ASSERT_FALSE("unsupported cell type");
         }

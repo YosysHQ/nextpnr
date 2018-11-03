@@ -24,6 +24,7 @@
 #include "cells.h"
 #include "chain_utils.h"
 #include "design_utils.h"
+#include "globals.h"
 #include "log.h"
 #include "util.h"
 NEXTPNR_NAMESPACE_BEGIN
@@ -1047,6 +1048,7 @@ class Ecp5Packer
         pack_lut_pairs();
         pack_remaining_luts();
         pack_remaining_ffs();
+        promote_ecp5_globals(ctx);
         ctx->check();
     }
 

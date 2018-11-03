@@ -21,6 +21,7 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+void promote_ecp5_globals(Context *ctx);
 void route_ecp5_globals(Context *ctx);
 
 NEXTPNR_NAMESPACE_END
