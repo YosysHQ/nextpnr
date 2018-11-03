@@ -154,6 +154,7 @@ void MainWindow::open_lpf()
         if (ctx->applyLPF(fileName.toStdString(), in)) {
             log("Loading LPF successful.\n");
             actionPack->setEnabled(true);
+            actionLoadLPF->setEnabled(false);
         } else {
             actionLoadLPF->setEnabled(true);
             log("Loading LPF failed.\n");
