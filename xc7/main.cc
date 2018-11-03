@@ -69,10 +69,10 @@ void Xc7CommandHandler::validate()
 void Xc7CommandHandler::customAfterLoad(Context *ctx)
 {
     if (vm.count("pcf")) {
-//        std::string filename = vm["pcf"].as<std::string>();
-//        std::ifstream pcf(filename);
-//        if (!apply_pcf(ctx, filename, pcf))
-//            log_error("Loading PCF failed.\n");
+        std::string filename = vm["pcf"].as<std::string>();
+        std::ifstream pcf(filename);
+        if (!apply_pcf(ctx, filename, pcf))
+            log_error("Loading PCF failed.\n");
     }
 }
 void Xc7CommandHandler::customBitstream(Context *ctx)
