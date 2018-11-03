@@ -307,6 +307,7 @@ struct TorcInfo
 
     const std::vector<SiteIndex> bel_to_site_index;
     const int num_bels;
+    const std::vector<BelId> site_index_to_bel;
     const std::vector<IdString> site_index_to_type;
     const std::vector<Loc> bel_to_loc;
     std::unordered_map<Segments::SegmentReference, int> segment_to_wire;
@@ -322,6 +323,7 @@ struct TorcInfo
 
   private:
     static std::vector<SiteIndex> construct_bel_to_site_index(Arch *ctx, const Sites &sites);
+    static std::vector<BelId> construct_site_index_to_bel(Arch *ctx, const Sites &sites, const std::vector<SiteIndex> &bel_to_site_index);
     static std::vector<IdString> construct_site_index_to_type(Arch *ctx, const Sites &sites);
     static std::vector<Loc> construct_bel_to_loc(const Sites &sites, const Tiles &tiles, const int num_bels,
                                                  const std::vector<IdString> &site_index_to_type);

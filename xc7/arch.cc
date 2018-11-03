@@ -36,7 +36,9 @@ std::unique_ptr<const TorcInfo> torc_info;
 TorcInfo::TorcInfo(Arch *ctx, const std::string &inDeviceName, const std::string &inPackageName)
         : ddb(new DDB(inDeviceName, inPackageName)), sites(ddb->getSites()), tiles(ddb->getTiles()),
           segments(ddb->getSegments()), bel_to_site_index(construct_bel_to_site_index(ctx, sites)),
-          num_bels(bel_to_site_index.size()), site_index_to_type(construct_site_index_to_type(ctx, sites)),
+          num_bels(bel_to_site_index.size()),
+          site_index_to_bel(construct_site_index_to_bel(ctx, sites, bel_to_site_index)),
+          site_index_to_type(construct_site_index_to_type(ctx, sites)),
           bel_to_loc(construct_bel_to_loc(sites, tiles, num_bels, site_index_to_type)),
           wire_to_tilewire(construct_wire_to_tilewire(segments, tiles, segment_to_wire, trivial_to_wire)),
           num_wires(wire_to_tilewire.size()), wire_to_delay(construct_wire_to_delay(wire_to_tilewire, *ddb)),
@@ -67,6 +69,18 @@ std::vector<SiteIndex> TorcInfo::construct_bel_to_site_index(Arch *ctx, const Si
             bel_to_site_index.push_back(i);
     }
     return bel_to_site_index;
+}
+std::vector<BelId> TorcInfo::construct_site_index_to_bel(Arch *ctx, const Sites &sites, const std::vector<SiteIndex> &bel_to_site_index)
+{
+    std::vector<BelId> site_index_to_bel;
+    site_index_to_bel.resize(sites.getSiteCount());
+    BelId b;
+    b.index = 0;
+    for (auto i : bel_to_site_index) {
+        site_index_to_bel[i] = b;
+        ++b.index;
+    }
+    return site_index_to_bel;
 }
 std::vector<IdString> TorcInfo::construct_site_index_to_type(Arch *ctx, const Sites &sites)
 {
@@ -344,13 +358,10 @@ IdString Arch::archArgsToId(ArchArgs args) const
 
 BelId Arch::getBelByName(IdString name) const
 {
-    BelId ret;
-
     auto it = torc_info->sites.findSiteIndex(name.str(this));
     if (it != SiteIndex(-1))
-        ret.index = it;
-
-    return ret;
+        return torc_info->site_index_to_bel.at(it);
+    return BelId();
 }
 
 BelId Arch::getBelByLocation(Loc loc) const
@@ -602,14 +613,7 @@ IdString Arch::getPipName(PipId pip) const
 
 BelId Arch::getPackagePinBel(const std::string &pin) const
 {
-    //    for (int i = 0; i < package_info->num_pins; i++) {
-    //        if (package_info->pins[i].name.get() == pin) {
-    //            BelId id;
-    //            id.index = package_info->pins[i].bel_index;
-    //            return id;
-    //        }
-    //    }
-    return BelId();
+    return getBelByName(id(pin));
 }
 
 std::string Arch::getBelPackagePin(BelId bel) const
