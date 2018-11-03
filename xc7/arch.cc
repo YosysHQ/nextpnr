@@ -945,9 +945,9 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, Id
     }
     else if (cell->type == id_IOB33) {
         if (port == id_I)
-            return TMG_STARTPOINT;
-        else if (port == id_O)
             return TMG_ENDPOINT;
+        else if (port == id_O)
+            return TMG_STARTPOINT;
     }
     else if (cell->type == id_BUFGCTRL) {
         if (port == id_O)
