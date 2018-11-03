@@ -160,8 +160,15 @@ struct Timing
                         topographical_order.emplace_back(o->net);
                         TimingData td;
                         td.false_startpoint = (portClass == TMG_GEN_CLOCK || portClass == TMG_IGNORE);
+                        td.max_arrival = 0;
                         net_data[o->net][ClockEvent{async_clock, RISING_EDGE}] = td;
                     }
+
+                    // Don't analyse paths from a clock input to other pins - they will be considered by the
+                    // special-case handling register input/output class ports
+                    if (portClass == TMG_CLOCK_INPUT)
+                        continue;
+
                     // Otherwise, for all driven input ports on this cell, if a timing arc exists between the input and
                     // the current output port, increment fanin counter
                     for (auto i : input_ports) {
@@ -254,7 +261,8 @@ struct Timing
                     auto net_delay = net_delays ? ctx->getNetinfoRouteDelay(net, usr) : delay_t();
                     auto usr_arrival = net_arrival + net_delay;
 
-                    if (portClass == TMG_REGISTER_INPUT || portClass == TMG_ENDPOINT || portClass == TMG_IGNORE) {
+                    if (portClass == TMG_REGISTER_INPUT || portClass == TMG_ENDPOINT || portClass == TMG_IGNORE ||
+                        portClass == TMG_CLOCK_INPUT) {
                         // Skip
                     } else {
                         auto budget_override = ctx->getBudgetOverride(net, usr, net_delay);
@@ -347,7 +355,7 @@ struct Timing
                                 TimingClockingInfo clkInfo = ctx->getPortClockingInfo(usr.cell, usr.port, i);
                                 const NetInfo *clknet = get_net_or_empty(usr.cell, clkInfo.clock_port);
                                 IdString clksig = clknet ? clknet->name : async_clock;
-                                process_endpoint(clksig, clknet ? RISING_EDGE : clkInfo.edge, clkInfo.setup.maxDelay());
+                                process_endpoint(clksig, clknet ? clkInfo.edge : RISING_EDGE, clkInfo.setup.maxDelay());
                             }
                         } else {
                             process_endpoint(async_clock, RISING_EDGE, 0);
@@ -405,7 +413,8 @@ struct Timing
                             continue;
 
                         // And find the fanin net with the latest arrival time
-                        if (net_data.count(port.second.net) && net_data.at(port.second.net).count(crit_pair.first.start)) {
+                        if (net_data.count(port.second.net) &&
+                            net_data.at(port.second.net).count(crit_pair.first.start)) {
                             const auto net_arrival = net_data.at(port.second.net).at(crit_pair.first.start).max_arrival;
                             if (net_arrival > max_arrival) {
                                 max_arrival = net_arrival;
@@ -554,7 +563,7 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
     }
 
     if (print_path) {
-        auto print_path_report = [ctx] (ClockPair &clocks, PortRefVector &crit_path) {
+        auto print_path_report = [ctx](ClockPair &clocks, PortRefVector &crit_path) {
             delay_t total = 0;
             auto &front = crit_path.front();
             auto &front_port = front->cell->ports.at(front->port);
@@ -587,19 +596,18 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
                     ctx->getCellDelay(sink_cell, last_port, driver.port, comb_delay);
                 }
                 total += comb_delay.maxDelay();
-                log_info("%4.1f %4.1f  Source %s.%s\n", ctx->getDelayNS(comb_delay.maxDelay()),
-                         ctx->getDelayNS(total), driver_cell->name.c_str(ctx), driver.port.c_str(ctx));
+                log_info("%4.1f %4.1f  Source %s.%s\n", ctx->getDelayNS(comb_delay.maxDelay()), ctx->getDelayNS(total),
+                         driver_cell->name.c_str(ctx), driver.port.c_str(ctx));
                 auto net_delay = ctx->getNetinfoRouteDelay(net, *sink);
                 total += net_delay;
                 auto driver_loc = ctx->getBelLocation(driver_cell->bel);
                 auto sink_loc = ctx->getBelLocation(sink_cell->bel);
                 log_info("%4.1f %4.1f    Net %s budget %f ns (%d,%d) -> (%d,%d)\n", ctx->getDelayNS(net_delay),
-                         ctx->getDelayNS(total), net->name.c_str(ctx), ctx->getDelayNS(sink->budget),
-                         driver_loc.x, driver_loc.y, sink_loc.x, sink_loc.y);
+                         ctx->getDelayNS(total), net->name.c_str(ctx), ctx->getDelayNS(sink->budget), driver_loc.x,
+                         driver_loc.y, sink_loc.x, sink_loc.y);
                 log_info("                Sink %s.%s\n", sink_cell->name.c_str(ctx), sink->port.c_str(ctx));
                 last_port = sink->port;
             }
-
         };
 
         for (auto &clock : clock_reports) {
@@ -609,7 +617,6 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
             auto &crit_path = clock.second.second.ports;
             print_path_report(clock.second.first, crit_path);
         }
-
 
         for (auto &xclock : xclock_paths) {
             log_break();

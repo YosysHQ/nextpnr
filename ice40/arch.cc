@@ -894,7 +894,7 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
         else
             return TMG_REGISTER_INPUT;
     } else if (cell->type == id_ICESTORM_DSP || cell->type == id_ICESTORM_SPRAM) {
-        if (port == id_CLK)
+        if (port == id_CLK || port == id_CLOCK)
             return TMG_CLOCK_INPUT;
         else {
             clockInfoCount = 1;
@@ -960,7 +960,7 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
             info.hold.delay = 0;
         }
     } else if (cell->type == id_ICESTORM_DSP || cell->type == id_ICESTORM_SPRAM) {
-        info.clock_port = id_CLK;
+        info.clock_port = cell->type == id_ICESTORM_SPRAM ? id_CLOCK : id_CLK;
         info.edge = RISING_EDGE;
         if (cell->ports.at(port).type == PORT_OUT) {
             bool has_clktoq = getCellDelay(cell, info.clock_port, port, info.clockToQ);
