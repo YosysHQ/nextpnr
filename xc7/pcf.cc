@@ -22,6 +22,8 @@
 #include <sstream>
 #include "log.h"
 
+#include <boost/algorithm/string.hpp>
+
 NEXTPNR_NAMESPACE_BEGIN
 
 // Read a w
@@ -45,12 +47,14 @@ bool apply_pcf(Context *ctx, std::string filename, std::istream &in)
             if (words.size() == 0)
                 continue;
             std::string cmd = words.at(0);
-            if (cmd == "set_io") {
+            if (cmd == "COMP") {
                 size_t args_end = 1;
                 while (args_end < words.size() && words.at(args_end).at(0) == '-')
                     args_end++;
                 std::string cell = words.at(args_end);
-                std::string pin = words.at(args_end + 1);
+                boost::trim_if(cell, boost::is_any_of("\""));
+                std::string pin = words.at(args_end + 4);
+                boost::trim_if(pin, boost::is_any_of("\""));
                 auto fnd_cell = ctx->cells.find(ctx->id(cell));
                 if (fnd_cell == ctx->cells.end()) {
                     log_warning("unmatched pcf constraint %s\n", cell.c_str());

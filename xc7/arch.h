@@ -27,8 +27,8 @@ using namespace torc::architecture;
 using namespace torc::architecture::xilinx;
 
 namespace std {
-  template <> struct hash<Segments::SegmentReference>
-  {
+template <> struct hash<Segments::SegmentReference>
+{
     size_t operator()(const Segments::SegmentReference &s) const
     {
         size_t seed = 0;
@@ -36,24 +36,22 @@ namespace std {
         boost::hash_combine(seed, hash<unsigned>()(s.getAnchorTileIndex()));
         return seed;
     }
-  };
-  template <> struct equal_to<Segments::SegmentReference>
-  {
+};
+template <> struct equal_to<Segments::SegmentReference>
+{
     bool operator()(const Segments::SegmentReference &lhs, const Segments::SegmentReference &rhs) const
     {
-        return lhs.getAnchorTileIndex() == rhs.getAnchorTileIndex() && lhs.getCompactSegmentIndex() == rhs.getCompactSegmentIndex();
+        return lhs.getAnchorTileIndex() == rhs.getAnchorTileIndex() &&
+               lhs.getCompactSegmentIndex() == rhs.getCompactSegmentIndex();
     }
-  };
-  template <> struct hash<Tilewire>
-  {
-    size_t operator()(const Tilewire& t) const
-    {
-        return hash_value(t);
-    }
-  };
+};
+template <> struct hash<Tilewire>
+{
+    size_t operator()(const Tilewire &t) const { return hash_value(t); }
+};
 
-  template <> struct hash<Arc>
-  {
+template <> struct hash<Arc>
+{
     size_t operator()(const Arc &a) const
     {
         size_t seed = 0;
@@ -61,8 +59,8 @@ namespace std {
         boost::hash_combine(seed, hash_value(a.getSinkTilewire()));
         return seed;
     }
-  };
-}
+};
+} // namespace std
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -270,21 +268,23 @@ NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     RelPtr<CellTimingPOD> cell_timing;
 });
 
-
 struct Arch;
-struct TorcInfo {
+struct TorcInfo
+{
     TorcInfo(Arch *ctx, const std::string &inDeviceName, const std::string &inPackageName);
     std::unique_ptr<const DDB> ddb;
     const Sites &sites;
     const Tiles &tiles;
     const Segments &segments;
 
-    const TileInfo& bel_to_tile_info(int32_t index) const {
+    const TileInfo &bel_to_tile_info(int32_t index) const
+    {
         auto si = bel_to_site_index[index];
         const auto &site = sites.getSite(si);
         return tiles.getTileInfo(site.getTileIndex());
     }
-    const std::string& bel_to_name(int32_t index) const {
+    const std::string &bel_to_name(int32_t index) const
+    {
         auto si = bel_to_site_index[index];
         return sites.getSite(si).getName();
     }
@@ -309,8 +309,8 @@ struct TorcInfo {
     const int num_bels;
     const std::vector<IdString> site_index_to_type;
     const std::vector<Loc> bel_to_loc;
-    std::unordered_map<Segments::SegmentReference,int> segment_to_wire;
-    std::unordered_map<Tilewire,int> trivial_to_wire;
+    std::unordered_map<Segments::SegmentReference, int> segment_to_wire;
+    std::unordered_map<Tilewire, int> trivial_to_wire;
     const std::vector<Tilewire> wire_to_tilewire;
     const int num_wires;
     const std::vector<DelayInfo> wire_to_delay;
@@ -320,16 +320,22 @@ struct TorcInfo {
     const int num_pips;
     std::vector<int> pip_to_dst_wire;
 
-private:
+  private:
     static std::vector<SiteIndex> construct_bel_to_site_index(Arch *ctx, const Sites &sites);
     static std::vector<IdString> construct_site_index_to_type(Arch *ctx, const Sites &sites);
-    static std::vector<Loc> construct_bel_to_loc(const Sites &sites, const Tiles &tiles, const int num_bels, const std::vector<IdString> &site_index_to_type);
-    static std::vector<Tilewire> construct_wire_to_tilewire(const Segments &segments, const Tiles &tiles, std::unordered_map<Segments::SegmentReference,int>& segment_to_wire, std::unordered_map<Tilewire,int>& trivial_to_wire);
-    static std::vector<DelayInfo> construct_wire_to_delay(const std::vector<Tilewire>& wire_to_tilewire, const DDB &ddb);
-    static std::vector<Arc> construct_pip_to_arc(const std::vector<Tilewire>& wire_to_tilewire, const DDB& ddb, std::vector<std::vector<int>> &wire_to_pips_uphill, std::vector<std::vector<int>> &wire_to_pips_downhill);
+    static std::vector<Loc> construct_bel_to_loc(const Sites &sites, const Tiles &tiles, const int num_bels,
+                                                 const std::vector<IdString> &site_index_to_type);
+    static std::vector<Tilewire>
+    construct_wire_to_tilewire(const Segments &segments, const Tiles &tiles,
+                               std::unordered_map<Segments::SegmentReference, int> &segment_to_wire,
+                               std::unordered_map<Tilewire, int> &trivial_to_wire);
+    static std::vector<DelayInfo> construct_wire_to_delay(const std::vector<Tilewire> &wire_to_tilewire,
+                                                          const DDB &ddb);
+    static std::vector<Arc> construct_pip_to_arc(const std::vector<Tilewire> &wire_to_tilewire, const DDB &ddb,
+                                                 std::vector<std::vector<int>> &wire_to_pips_uphill,
+                                                 std::vector<std::vector<int>> &wire_to_pips_downhill);
 };
 extern std::unique_ptr<const TorcInfo> torc_info;
-
 
 /************************ End of chipdb section. ************************/
 
@@ -486,11 +492,11 @@ struct Arch : BaseCtx
     mutable std::unordered_map<IdString, int> pip_by_name;
     mutable std::unordered_map<Loc, BelId> bel_by_loc;
 
-    //std::vector<bool> bel_carry;
+    // std::vector<bool> bel_carry;
     std::vector<CellInfo *> bel_to_cell;
     std::vector<NetInfo *> wire_to_net;
     std::vector<NetInfo *> pip_to_net;
-    //std::vector<NetInfo *> switches_locked;
+    // std::vector<NetInfo *> switches_locked;
 
     ArchArgs args;
     Arch(ArchArgs args);
@@ -521,11 +527,24 @@ struct Arch : BaseCtx
             name.reserve(name.size() + 2);
             name += "_";
             switch (torc_info->bel_to_loc[bel.index].z) {
-                case 0: case 4: name += 'A'; break;
-                case 1: case 5: name += 'B'; break;
-                case 2: case 6: name += 'C'; break;
-                case 3: case 7: name += 'D'; break;
-                default: throw;
+            case 0:
+            case 4:
+                name += 'A';
+                break;
+            case 1:
+            case 5:
+                name += 'B';
+                break;
+            case 2:
+            case 6:
+                name += 'C';
+                break;
+            case 3:
+            case 7:
+                name += 'D';
+                break;
+            default:
+                throw;
             }
         }
         return id(name);
@@ -539,7 +558,7 @@ struct Arch : BaseCtx
         NPNR_ASSERT(bel_to_cell[bel.index] == nullptr);
 
         bel_to_cell[bel.index] = cell;
-        //bel_carry[bel.index] = (cell->type == id_ICESTORM_LC && cell->lcInfo.carryEnable);
+        // bel_carry[bel.index] = (cell->type == id_ICESTORM_LC && cell->lcInfo.carryEnable);
         cell->bel = bel;
         cell->belStrength = strength;
         refreshUiBel(bel);
@@ -552,7 +571,7 @@ struct Arch : BaseCtx
         bel_to_cell[bel.index]->bel = BelId();
         bel_to_cell[bel.index]->belStrength = STRENGTH_NONE;
         bel_to_cell[bel.index] = nullptr;
-        //bel_carry[bel.index] = false;
+        // bel_carry[bel.index] = false;
         refreshUiBel(bel);
     }
 
@@ -582,10 +601,7 @@ struct Arch : BaseCtx
         return range;
     }
 
-    Loc getBelLocation(BelId bel) const
-    {
-        return torc_info->bel_to_loc[bel.index];
-    }
+    Loc getBelLocation(BelId bel) const { return torc_info->bel_to_loc[bel.index]; }
 
     BelId getBelByLocation(Loc loc) const;
     BelRange getBelsByTile(int x, int y) const;
@@ -639,7 +655,7 @@ struct Arch : BaseCtx
         auto pip = it->second.pip;
         if (pip != PipId()) {
             pip_to_net[pip.index] = nullptr;
-            //switches_locked[chip_info->pip_data[pip.index].switch_index] = nullptr;
+            // switches_locked[chip_info->pip_data[pip.index].switch_index] = nullptr;
         }
 
         net_wires.erase(it);
@@ -665,17 +681,14 @@ struct Arch : BaseCtx
         return wire_to_net[wire.index];
     }
 
-    DelayInfo getWireDelay(WireId wire) const
-    {
-        return torc_info->wire_to_delay[wire.index];
-    }
+    DelayInfo getWireDelay(WireId wire) const { return torc_info->wire_to_delay[wire.index]; }
 
     BelPinRange getWireBelPins(WireId wire) const
     {
         BelPinRange range;
-        //NPNR_ASSERT(wire != WireId());
-        //range.b.ptr = chip_info->wire_data[wire.index].bel_pins.get();
-        //range.e.ptr = range.b.ptr + chip_info->wire_data[wire.index].num_bel_pins;
+        // NPNR_ASSERT(wire != WireId());
+        // range.b.ptr = chip_info->wire_data[wire.index].bel_pins.get();
+        // range.e.ptr = range.b.ptr + chip_info->wire_data[wire.index].num_bel_pins;
         throw;
         return range;
     }
@@ -696,10 +709,10 @@ struct Arch : BaseCtx
     {
         NPNR_ASSERT(pip != PipId());
         NPNR_ASSERT(pip_to_net[pip.index] == nullptr);
-        //NPNR_ASSERT(switches_locked[chip_info->pip_data[pip.index].switch_index] == nullptr);
+        // NPNR_ASSERT(switches_locked[chip_info->pip_data[pip.index].switch_index] == nullptr);
 
         pip_to_net[pip.index] = net;
-        //switches_locked[chip_info->pip_data[pip.index].switch_index] = net;
+        // switches_locked[chip_info->pip_data[pip.index].switch_index] = net;
 
         WireId dst = getPipDstWire(pip);
         NPNR_ASSERT(wire_to_net[dst.index] == nullptr);
@@ -714,7 +727,7 @@ struct Arch : BaseCtx
     {
         NPNR_ASSERT(pip != PipId());
         NPNR_ASSERT(pip_to_net[pip.index] != nullptr);
-        //NPNR_ASSERT(switches_locked[chip_info->pip_data[pip.index].switch_index] != nullptr);
+        // NPNR_ASSERT(switches_locked[chip_info->pip_data[pip.index].switch_index] != nullptr);
 
         WireId dst = getPipDstWire(pip);
         NPNR_ASSERT(wire_to_net[dst.index] != nullptr);
@@ -722,7 +735,7 @@ struct Arch : BaseCtx
         pip_to_net[pip.index]->wires.erase(dst);
 
         pip_to_net[pip.index] = nullptr;
-        //switches_locked[chip_info->pip_data[pip.index].switch_index] = nullptr;
+        // switches_locked[chip_info->pip_data[pip.index].switch_index] = nullptr;
         refreshUiPip(pip);
         refreshUiWire(dst);
     }
@@ -730,25 +743,25 @@ struct Arch : BaseCtx
     bool checkPipAvail(PipId pip) const
     {
         NPNR_ASSERT(pip != PipId());
-        //auto &pi = chip_info->pip_data[pip.index];
-        //auto &si = chip_info->bits_info->switches[pi.switch_index];
+        // auto &pi = chip_info->pip_data[pip.index];
+        // auto &si = chip_info->bits_info->switches[pi.switch_index];
 
-        //if (switches_locked[pi.switch_index] != nullptr)
+        // if (switches_locked[pi.switch_index] != nullptr)
         //    return false;
 
-        //if (pi.flags & PipInfoPOD::FLAG_ROUTETHRU) {
+        // if (pi.flags & PipInfoPOD::FLAG_ROUTETHRU) {
         //    NPNR_ASSERT(si.bel >= 0);
         //    if (bel_to_cell[si.bel] != nullptr)
         //        return false;
         //}
 
-        //if (pi.flags & PipInfoPOD::FLAG_NOCARRY) {
+        // if (pi.flags & PipInfoPOD::FLAG_NOCARRY) {
         //    NPNR_ASSERT(si.bel >= 0);
         //    if (bel_carry[si.bel])
         //        return false;
         //}
 
-        //return true;
+        // return true;
         return pip_to_net[pip.index] == nullptr;
     }
 
@@ -761,7 +774,7 @@ struct Arch : BaseCtx
     NetInfo *getConflictingPipNet(PipId pip) const
     {
         NPNR_ASSERT(pip != PipId());
-        //return switches_locked[chip_info->pip_data[pip.index].switch_index];
+        // return switches_locked[chip_info->pip_data[pip.index].switch_index];
         return pip_to_net[pip.index];
     }
 
@@ -780,7 +793,7 @@ struct Arch : BaseCtx
         const auto &tile_info = torc_info->tiles.getTileInfo(tw.getTileIndex());
 
         Loc loc;
-        loc.x = tile_info.getCol(); 
+        loc.x = tile_info.getCol();
         loc.y = tile_info.getRow();
         loc.z = 0;
         return loc;
@@ -816,9 +829,9 @@ struct Arch : BaseCtx
     {
         DelayInfo delay;
         NPNR_ASSERT(pip != PipId());
-        //if (fast_part)
+        // if (fast_part)
         //    delay.delay = chip_info->pip_data[pip.index].fast_delay;
-        //else
+        // else
         //    delay.delay = chip_info->pip_data[pip.index].slow_delay;
         return delay;
     }
@@ -915,7 +928,7 @@ struct Arch : BaseCtx
     bool isBelLocationValid(BelId bel) const;
 
     // Helper function for above
-    bool logicCellsCompatible(const CellInfo** it, const size_t size) const;
+    bool logicCellsCompatible(const CellInfo **it, const size_t size) const;
 
     // -------------------------------------------------
     // Assign architecure-specific arguments to nets and cells, which must be
@@ -939,6 +952,6 @@ struct Arch : BaseCtx
     float placer_constraintWeight = 10;
 };
 
-//void ice40DelayFuzzerMain(Context *ctx);
+// void ice40DelayFuzzerMain(Context *ctx);
 
 NEXTPNR_NAMESPACE_END

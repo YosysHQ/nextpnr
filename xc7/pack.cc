@@ -96,8 +96,7 @@ static void pack_nonlut_ffs(Context *ctx)
     for (auto cell : sorted(ctx->cells)) {
         CellInfo *ci = cell.second;
         if (is_ff(ctx, ci)) {
-            std::unique_ptr<CellInfo> packed =
-                    create_xc7_cell(ctx, ctx->id("XC7_LC"), ci->name.str(ctx) + "_DFFLC");
+            std::unique_ptr<CellInfo> packed = create_xc7_cell(ctx, ctx->id("XC7_LC"), ci->name.str(ctx) + "_DFFLC");
             std::copy(ci->attrs.begin(), ci->attrs.end(), std::inserter(packed->attrs, packed->attrs.begin()));
             if (ctx->verbose)
                 log_info("packed cell %s into %s\n", ci->name.c_str(ctx), packed->name.c_str(ctx));
@@ -422,8 +421,7 @@ static void pack_io(Context *ctx)
                 }
             } else {
                 // Create a IOBUF buffer
-                std::unique_ptr<CellInfo> ice_cell =
-                        create_xc7_cell(ctx, ctx->id("IOBUF"), ci->name.str(ctx) + "$iob");
+                std::unique_ptr<CellInfo> ice_cell = create_xc7_cell(ctx, ctx->id("IOBUF"), ci->name.str(ctx) + "$iob");
                 nxio_to_sb(ctx, ci, ice_cell.get());
                 new_cells.push_back(std::move(ice_cell));
                 sb = new_cells.back().get();
@@ -582,8 +580,8 @@ static std::unique_ptr<CellInfo> spliceLUT(Context *ctx, CellInfo *ci, IdString 
     NPNR_ASSERT(port.net != nullptr);
 
     // Create pass-through LUT.
-    std::unique_ptr<CellInfo> pt = create_xc7_cell(ctx, ctx->id("XC7_LC"),
-                                                   ci->name.str(ctx) + "$nextpnr_" + portId.str(ctx) + "_lut_through");
+    std::unique_ptr<CellInfo> pt =
+            create_xc7_cell(ctx, ctx->id("XC7_LC"), ci->name.str(ctx) + "$nextpnr_" + portId.str(ctx) + "_lut_through");
     pt->params[ctx->id("INIT")] = "65280"; // output is always I3
 
     // Create LUT output net.
@@ -851,10 +849,10 @@ static void pack_special(Context *ctx)
 
                 // Now, constrain all LUTs on the output of the signal to be at
                 // the correct Bel relative to the PLL Bel.
-                //int x = ctx->chip_info->wire_data[pll_out_wire.index].x;
-                //int y = ctx->chip_info->wire_data[pll_out_wire.index].y;
-                //int z = 0;
-                //for (const auto &user : port.net->users) {
+                // int x = ctx->chip_info->wire_data[pll_out_wire.index].x;
+                // int y = ctx->chip_info->wire_data[pll_out_wire.index].y;
+                // int z = 0;
+                // for (const auto &user : port.net->users) {
                 //    NPNR_ASSERT(user.cell != nullptr);
                 //    NPNR_ASSERT(user.cell->type == ctx->id("XC7_LC"));
 
@@ -888,7 +886,7 @@ bool Arch::pack()
         log_break();
         pack_constants(ctx);
         // TODO
-        //promote_globals(ctx);
+        // promote_globals(ctx);
         pack_io(ctx);
         pack_lut_lutffs(ctx);
         pack_nonlut_ffs(ctx);

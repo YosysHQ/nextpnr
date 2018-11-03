@@ -212,7 +212,8 @@ struct Timing
         for (auto net : boost::adaptors::reverse(topographical_order)) {
             auto &nd = net_data.at(net);
             // Ignore false startpoints
-            if (nd.false_startpoint) continue;
+            if (nd.false_startpoint)
+                continue;
             const delay_t net_length_plus_one = nd.max_path_length + 1;
             auto &net_min_remaining_budget = nd.min_remaining_budget;
             for (auto &usr : net->users) {

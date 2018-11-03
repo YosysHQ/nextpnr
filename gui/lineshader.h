@@ -20,12 +20,12 @@
 #ifndef LINESHADER_H
 #define LINESHADER_H
 
-#include <array>
 #include <QOpenGLBuffer>
 #include <QOpenGLFunctions>
 #include <QOpenGLShaderProgram>
 #include <QOpenGLVertexArrayObject>
 #include <QOpenGLWidget>
+#include <array>
 
 #include "log.h"
 #include "nextpnr.h"
@@ -169,9 +169,7 @@ class LineShader
     } uniforms_;
 
   public:
-    LineShader(QObject *parent) : parent_(parent), program_(nullptr)
-    {
-    }
+    LineShader(QObject *parent) : parent_(parent), program_(nullptr) {}
 
     static constexpr const char *vertexShaderSource_ =
             "#version 110\n"
@@ -194,12 +192,10 @@ class LineShader
     // Must be called on initialization.
     bool compile(void);
 
-    void update_vbos(enum GraphicElement::style_t style,
-                            const LineShaderData &line);
+    void update_vbos(enum GraphicElement::style_t style, const LineShaderData &line);
 
     // Render a LineShaderData with a given M/V/P transformation.
-    void draw(enum GraphicElement::style_t style, const QColor &color,
-                       float thickness, const QMatrix4x4 &projection);
+    void draw(enum GraphicElement::style_t style, const QColor &color, float thickness, const QMatrix4x4 &projection);
 };
 
 NEXTPNR_NAMESPACE_END

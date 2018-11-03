@@ -52,18 +52,18 @@ po::options_description Xc7CommandHandler::getArchOptions()
 {
     po::options_description specific("Architecture specific options");
     specific.add_options()("xc7z020", "set device type to xc7z020");
-//    specific.add_options()("package", po::value<std::string>(), "set device package");
+    //    specific.add_options()("package", po::value<std::string>(), "set device package");
     specific.add_options()("pcf", po::value<std::string>(), "PCF constraints file to ingest");
     specific.add_options()("xdl", po::value<std::string>(), "XDL file to write");
-//    specific.add_options()("tmfuzz", "run path delay estimate fuzzer");
+    //    specific.add_options()("tmfuzz", "run path delay estimate fuzzer");
     return specific;
 }
 void Xc7CommandHandler::validate()
 {
     conflicting_options(vm, "read", "json");
-//    if ((vm.count("lp384") + vm.count("lp1k") + vm.count("lp8k") + vm.count("hx1k") + vm.count("hx8k") +
-//         vm.count("up5k")) > 1)
-//        log_error("Only one device type can be set\n");
+    //    if ((vm.count("lp384") + vm.count("lp1k") + vm.count("lp8k") + vm.count("hx1k") + vm.count("hx8k") +
+    //         vm.count("up5k")) > 1)
+    //        log_error("Only one device type can be set\n");
 }
 
 void Xc7CommandHandler::customAfterLoad(Context *ctx)
@@ -86,8 +86,8 @@ void Xc7CommandHandler::customBitstream(Context *ctx)
 
 void Xc7CommandHandler::setupArchContext(Context *ctx)
 {
-//    if (vm.count("tmfuzz"))
-//        ice40DelayFuzzerMain(ctx);
+    //    if (vm.count("tmfuzz"))
+    //        ice40DelayFuzzerMain(ctx);
 }
 
 std::unique_ptr<Context> Xc7CommandHandler::createContext()

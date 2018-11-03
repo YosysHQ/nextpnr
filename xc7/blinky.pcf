@@ -1,6 +1,6 @@
-set_io led1 99
-set_io led2 98
-set_io led3 97
-set_io led4 96
-set_io led5 95
-set_io clki 21
+COMP "led1" LOCATE = SITE "M14" LEVEL 1;
+COMP "led2" LOCATE = SITE "M15" LEVEL 1;
+COMP "led3" LOCATE = SITE "G14" LEVEL 1;
+COMP "led4" LOCATE = SITE "D18" LEVEL 1;
+COMP "clki" LOCATE = SITE "L16" LEVEL 1;
+

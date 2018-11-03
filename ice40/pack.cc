@@ -462,7 +462,8 @@ static bool is_logic_port(BaseCtx *ctx, const PortRef &port)
 
 static void insert_global(Context *ctx, NetInfo *net, bool is_reset, bool is_cen, bool is_logic)
 {
-    log_info("promoting %s%s%s%s\n", net->name.c_str(ctx), is_reset ? " [reset]" : "", is_cen ? " [cen]" : "", is_logic ? " [logic]" : "");
+    log_info("promoting %s%s%s%s\n", net->name.c_str(ctx), is_reset ? " [reset]" : "", is_cen ? " [cen]" : "",
+             is_logic ? " [logic]" : "");
 
     std::string glb_name = net->name.str(ctx) + std::string("_$glb_") + (is_reset ? "sr" : (is_cen ? "ce" : "clk"));
     std::unique_ptr<CellInfo> gb = create_ice_cell(ctx, ctx->id("SB_GB"), "$gbuf_" + glb_name);

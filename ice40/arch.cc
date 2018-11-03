@@ -872,16 +872,13 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, Id
             if (cell->lcInfo.dffEnable) {
                 clockPort = id_CLK;
                 return TMG_REGISTER_OUTPUT;
-            }
-            else
+            } else
                 return TMG_COMB_OUTPUT;
-        }
-        else {
+        } else {
             if (cell->lcInfo.dffEnable) {
                 clockPort = id_CLK;
                 return TMG_REGISTER_INPUT;
-            }
-            else
+            } else
                 return TMG_COMB_INPUT;
         }
     } else if (cell->type == id_ICESTORM_RAM) {
