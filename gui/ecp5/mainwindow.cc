@@ -20,6 +20,7 @@
 #include "mainwindow.h"
 #include "bitstream.h"
 #include "log.h"
+#include <fstream>
 
 #include <QFileDialog>
 #include <QInputDialog>
@@ -53,6 +54,12 @@ void MainWindow::newContext(Context *ctx)
 void MainWindow::createMenu()
 {
     // Add arch specific actions
+    actionLoadLPF = new QAction("Open LPF", this);
+    actionLoadLPF->setIcon(QIcon(":/icons/resources/open_lpf.png"));
+    actionLoadLPF->setStatusTip("Open LPF file");
+    actionLoadLPF->setEnabled(false);
+    connect(actionLoadLPF, &QAction::triggered, this, &MainWindow::open_lpf);
+
     actionLoadBase = new QAction("Open Base Config", this);
     actionLoadBase->setIcon(QIcon(":/icons/resources/open_base.png"));
     actionLoadBase->setStatusTip("Open Base Config file");
@@ -67,10 +74,12 @@ void MainWindow::createMenu()
 
     // Add actions in menus
     mainActionBar->addSeparator();
+    mainActionBar->addAction(actionLoadLPF);
     mainActionBar->addAction(actionLoadBase);
     mainActionBar->addAction(actionSaveConfig);
 
     menuDesign->addSeparator();
+    menuDesign->addAction(actionLoadLPF);
     menuDesign->addAction(actionLoadBase);
     menuDesign->addAction(actionSaveConfig);
 }
@@ -81,11 +90,11 @@ static QStringList getSupportedPackages(ArchArgs::ArchArgsTypes chip)
 {
     QStringList packages;
     const ChipInfoPOD *chip_info;
-    if (chip == ArchArgs::LFE5U_25F) {
+    if (chip == ArchArgs::LFE5U_25F || chip == ArchArgs::LFE5UM_25F || chip == ArchArgs::LFE5UM5G_25F) {
         chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_25k));
-    } else if (chip == ArchArgs::LFE5U_45F) {
+    } else if (chip == ArchArgs::LFE5U_45F || chip == ArchArgs::LFE5UM_45F || chip == ArchArgs::LFE5UM5G_45F) {
         chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_45k));
-    } else if (chip == ArchArgs::LFE5U_85F) {
+    } else if (chip == ArchArgs::LFE5U_85F || chip == ArchArgs::LFE5UM_85F || chip == ArchArgs::LFE5UM5G_85F) {
         chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_85k));
     } else {
         log_error("Unsupported ECP5 chip type.\n");
@@ -100,9 +109,15 @@ static QStringList getSupportedPackages(ArchArgs::ArchArgsTypes chip)
 void MainWindow::new_proj()
 {
     QMap<QString, int> arch;
-    arch.insert("Lattice ECP5 25K", ArchArgs::LFE5U_25F);
-    arch.insert("Lattice ECP5 45K", ArchArgs::LFE5U_45F);
-    arch.insert("Lattice ECP5 85K", ArchArgs::LFE5U_85F);
+    arch.insert("Lattice ECP5 LFE5U-25F", ArchArgs::LFE5U_25F);
+    arch.insert("Lattice ECP5 LFE5U-45F", ArchArgs::LFE5U_45F);
+    arch.insert("Lattice ECP5 LFE5U-85F", ArchArgs::LFE5U_85F);
+    arch.insert("Lattice ECP5 LFE5UM-25F", ArchArgs::LFE5UM_25F);
+    arch.insert("Lattice ECP5 LFE5UM-45F", ArchArgs::LFE5UM_45F);
+    arch.insert("Lattice ECP5 LFE5UM-85F", ArchArgs::LFE5UM_85F);
+    arch.insert("Lattice ECP5 LFE5UM5G-25F", ArchArgs::LFE5UM5G_25F);
+    arch.insert("Lattice ECP5 LFE5UM5G-45F", ArchArgs::LFE5UM5G_45F);
+    arch.insert("Lattice ECP5 LFE5UM5G-85F", ArchArgs::LFE5UM5G_85F);
     bool ok;
     QString item = QInputDialog::getItem(this, "Select new context", "Chip:", arch.keys(), 0, false, &ok);
     if (ok && !item.isEmpty()) {
@@ -131,6 +146,21 @@ void MainWindow::load_base_config(std::string filename)
     actionSaveConfig->setEnabled(true);
 }
 
+void MainWindow::open_lpf()
+{
+    QString fileName = QFileDialog::getOpenFileName(this, QString("Open LPF"), QString(), QString("*.lpf"));
+    if (!fileName.isEmpty()) {
+        std::ifstream in(fileName.toStdString());        
+        if (ctx->applyLPF(fileName.toStdString(), in)) {
+            log("Loading LPF successful.\n");
+            actionPack->setEnabled(true);
+        } else {
+            actionLoadLPF->setEnabled(true);
+            log("Loading LPF failed.\n");
+        }        
+    }
+}
+
 void MainWindow::open_base()
 {
     QString fileName = QFileDialog::getOpenFileName(this, QString("Open Base Config"), QString(), QString("*.config"));
@@ -152,10 +182,19 @@ void MainWindow::save_config()
 
 void MainWindow::onDisableActions()
 {
+    actionLoadLPF->setEnabled(false);
     actionLoadBase->setEnabled(false);
     actionSaveConfig->setEnabled(false);
 }
 
+void MainWindow::onJsonLoaded() { actionLoadLPF->setEnabled(true); }
+
 void MainWindow::onRouteFinished() { actionLoadBase->setEnabled(true); }
+
+void MainWindow::onProjectLoaded()
+{
+    if (ctx->settings.find(ctx->id("input/lpf")) != ctx->settings.end())
+        actionLoadLPF->setEnabled(false);
+}
 
 NEXTPNR_NAMESPACE_END

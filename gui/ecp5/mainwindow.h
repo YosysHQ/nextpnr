@@ -38,15 +38,19 @@ class MainWindow : public BaseMainWindow
 
   protected:
     void onDisableActions() override;
+    void onJsonLoaded() override;
     void onRouteFinished() override;
+    void onProjectLoaded() override;
 
   protected Q_SLOTS:
     virtual void new_proj();
     void newContext(Context *ctx);
+    void open_lpf();
     void open_base();
     void save_config();
 
   private:
+    QAction *actionLoadLPF;
     QAction *actionLoadBase;
     QAction *actionSaveConfig;
 
