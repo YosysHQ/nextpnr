@@ -4,7 +4,6 @@ module blinky (
     output led2,
     output led3,
     output led4,
-    output led5
 );
 
     BUFGCTRL clk_gb (
@@ -14,7 +13,7 @@ module blinky (
         .O(clk)
     );
 
-    localparam BITS = 5;
+    localparam BITS = 4;
     localparam LOG2DELAY = 21;
 
     reg [BITS+LOG2DELAY-1:0] counter = 0;
@@ -25,5 +24,5 @@ module blinky (
         outcnt <= counter >> LOG2DELAY;
     end
 
-    assign {led1, led2, led3, led4, led5} = outcnt ^ (outcnt >> 1);
+    assign {led1, led2, led3, led4} = outcnt ^ (outcnt >> 1);
 endmodule
