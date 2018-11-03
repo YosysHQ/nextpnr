@@ -30,3 +30,5 @@ install_manifest.txt
 /ImportExecutables.cmake
 *-coverage/
 *-coverage.info
+*.xdl
+*.bit
