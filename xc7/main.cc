@@ -94,16 +94,16 @@ std::unique_ptr<Context> Xc7CommandHandler::createContext()
 {
     if (vm.count("z020")) {
         chipArgs.type = ArchArgs::Z020;
-        chipArgs.package = "clg484";
+        chipArgs.package = "clg400";
     }
 
     if (chipArgs.type == ArchArgs::NONE) {
         chipArgs.type = ArchArgs::Z020;
-        chipArgs.package = "clg484";
+        chipArgs.package = "clg400";
     }
 
-//    if (vm.count("package"))
-//        chipArgs.package = vm["package"].as<std::string>();
+    if (vm.count("package"))
+        chipArgs.package = vm["package"].as<std::string>();
 
     return std::unique_ptr<Context>(new Context(chipArgs));
 }

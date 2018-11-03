@@ -35,7 +35,7 @@ NEXTPNR_NAMESPACE_BEGIN
 void write_xdl(const Context *ctx, std::ostream &out)
 {
     XdlExporter exporter(out);
-    auto designPtr = Factory::newDesignPtr("name", torc_info->ddb->getDeviceName(), "clg484", "-1", "");
+    auto designPtr = Factory::newDesignPtr("name", torc_info->ddb->getDeviceName(), ctx->args.package, "-1", "");
 
     std::unordered_map<int32_t,InstanceSharedPtr> site_to_instance;
     std::vector<std::pair<std::string,std::string>> lut_inputs;

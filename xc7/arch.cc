@@ -276,7 +276,7 @@ Arch::Arch(ArchArgs args) : args(args)
 {
     torc::common::DirectoryTree directoryTree("/opt/torc/src/torc");
     if (args.type == ArchArgs::Z020) {
-        torc_info = std::unique_ptr<TorcInfo>(new TorcInfo(this, "xc7z020", "clg484"));
+        torc_info = std::unique_ptr<TorcInfo>(new TorcInfo(this, "xc7z020", args.package));
     } else {
         log_error("Unsupported XC7 chip type.\n");
     }
