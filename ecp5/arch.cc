@@ -683,15 +683,18 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
             info.clockToQ.delay = 395;
         }
     } else if (cell->type == id_DP16KD) {
-        for (auto c : boost::adaptors::reverse(port.str(this))) {
+        std::string port_name = port.str(this);
+        for (auto c : boost::adaptors::reverse(port_name)) {
             if (std::isdigit(c))
                 continue;
-            if (c == 'A')
+            if (c == 'A') {
                 info.clock_port = id_CLKA;
-            else if (c == 'B')
+                break;
+            } else if (c == 'B') {
                 info.clock_port = id_CLKB;
-            else
-                NPNR_ASSERT_FALSE_STR("bad ram port");
+                break;
+            } else
+                NPNR_ASSERT_FALSE_STR("bad ram port " + port.str(this));
         }
         info.edge = (str_or_default(cell->params, info.clock_port == id_CLKB ? id("CLKBMUX") : id("CLKAMUX"), "CLK") ==
                      "INV")
