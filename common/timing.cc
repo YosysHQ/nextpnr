@@ -517,6 +517,7 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
                   print_histogram ? &slack_histogram : nullptr);
     auto min_slack = timing.walk_paths();
     std::map<IdString, std::pair<ClockPair, CriticalPath>> clock_reports;
+    std::map<IdString, double> clock_fmax;
     std::vector<ClockPair> xclock_paths;
     if (print_path || print_fmax) {
         for (auto path : crit_paths) {
@@ -524,10 +525,15 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
             const ClockEvent &b = path.first.end;
             if (a.clock != b.clock || a.clock == ctx->id("$async$"))
                 continue;
-            delay_t slack = path.second.path_period - path.second.path_delay;
-            if (!clock_reports.count(a.clock) ||
-                slack < (clock_reports.at(a.clock).second.path_period - clock_reports.at(a.clock).second.path_delay)) {
+            double Fmax;
+            if (a.edge == b.edge)
+                Fmax = 1000 / ctx->getDelayNS(path.second.path_delay);
+            else
+                Fmax = 500 / ctx->getDelayNS(path.second.path_delay);
+            if (!clock_fmax.count(a.clock) ||
+                Fmax < clock_fmax.at(a.clock)) {
                 clock_reports[a.clock] = path;
+                clock_fmax[a.clock] = Fmax;
             }
         }
 
@@ -578,6 +584,7 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
                     const NetInfo *clknet = get_net_or_empty(front_driver.cell, clockInfo.clock_port);
                     if (clknet != nullptr && clknet->name == clocks.start.clock &&
                         clockInfo.edge == clocks.start.edge) {
+                        last_port = clockInfo.clock_port;
                     }
                 }
             }
@@ -631,13 +638,7 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
     if (print_fmax) {
         log_break();
         for (auto &clock : clock_reports) {
-
-            double Fmax;
-            if (clock.second.first.start.edge == clock.second.first.end.edge)
-                Fmax = 1000 / ctx->getDelayNS(clock.second.second.path_delay);
-            else
-                Fmax = 500 / ctx->getDelayNS(clock.second.second.path_delay);
-            log_info("Max frequency for clock '%s': %.02f MHz\n", clock.first.c_str(ctx), Fmax);
+            log_info("Max frequency for clock '%s': %.02f MHz\n", clock.first.c_str(ctx), clock_fmax[clock.first]);
         }
         log_break();
 
