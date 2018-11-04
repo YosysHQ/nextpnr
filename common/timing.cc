@@ -117,7 +117,7 @@ struct Timing
 
     delay_t walk_paths()
     {
-        const auto clk_period = delay_t(1.0e12 / ctx->target_freq);
+        const auto clk_period = ctx->getDelayFromNS(1.0e9 / ctx->target_freq).maxDelay();
 
         // First, compute the topographical order of nets to walk through the circuit, assuming it is a _acyclic_ graph
         // TODO(eddieh): Handle the case where it is cyclic, e.g. combinatorial loops
@@ -344,7 +344,7 @@ struct Timing
                                 if (!crit_nets.count(clockPair) || crit_nets.at(clockPair).first < endpoint_arrival) {
                                     crit_nets[clockPair] = std::make_pair(endpoint_arrival, net);
                                     (*crit_path)[clockPair].path_delay = endpoint_arrival;
-                                    (*crit_path)[clockPair].path_period = clk_period;
+                                    (*crit_path)[clockPair].path_period = period;
                                     (*crit_path)[clockPair].ports.clear();
                                     (*crit_path)[clockPair].ports.push_back(&usr);
                                 }
@@ -591,7 +591,7 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
                 DelayInfo comb_delay;
                 if (last_port == driver.port) {
                     // Case where we start with a STARTPOINT etc
-                    comb_delay.delay = 0;
+                    comb_delay = ctx->getDelayFromNS(0);
                 } else {
                     ctx->getCellDelay(sink_cell, last_port, driver.port, comb_delay);
                 }

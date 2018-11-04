@@ -775,6 +775,12 @@ struct Arch : BaseCtx
     delay_t getDelayEpsilon() const { return 20; }
     delay_t getRipupDelayPenalty() const { return 200; }
     float getDelayNS(delay_t v) const { return v * 0.001; }
+    DelayInfo getDelayFromNS(float ns) const
+    {
+        DelayInfo del;
+        del.delay = delay_t(ns * 1000);
+        return del;
+    }
     uint32_t getDelayChecksum(delay_t v) const { return v; }
     bool getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const;
 

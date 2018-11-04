@@ -398,6 +398,10 @@ actual penalty used is a multiple of this value (i.e. a weighted version of this
 
 Convert an `delay_t` to an actual real-world delay in nanoseconds.
 
+### DelayInfo getDelayFromNS(float v) const
+
+Convert a real-world delay in nanoseconds to a DelayInfo with equal min/max rising/falling values.
+
 ### uint32\_t getDelayChecksum(delay\_t v) const
 
 Convert a `delay_t` to an integer for checksum calculations.
