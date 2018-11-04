@@ -461,9 +461,14 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
 }
 
 // Get the port class, also setting clockPort if applicable
-TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, IdString &clockPort) const
+TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const
 {
     return TMG_IGNORE;
+}
+
+TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port, int index) const
+{
+    NPNR_ASSERT_FALSE("no clocking info for generic");
 }
 
 bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const { return true; }

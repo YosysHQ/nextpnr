@@ -209,6 +209,14 @@ struct Arch : BaseCtx
     delay_t getDelayEpsilon() const { return 0.01; }
     delay_t getRipupDelayPenalty() const { return 1.0; }
     float getDelayNS(delay_t v) const { return v; }
+
+    DelayInfo getDelayFromNS(float ns) const
+    {
+        DelayInfo del;
+        del.delay = ns;
+        return del;
+    }
+
     uint32_t getDelayChecksum(delay_t v) const { return 0; }
     bool getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const;
 
@@ -223,8 +231,10 @@ struct Arch : BaseCtx
     DecalXY getGroupDecal(GroupId group) const;
 
     bool getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const;
-    // Get the port class, also setting clockPort if applicable
-    TimingPortClass getPortTimingClass(const CellInfo *cell, IdString port, IdString &clockPort) const;
+    // Get the port class, also setting clockInfoCount to the number of TimingClockingInfos associated with a port
+    TimingPortClass getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const;
+    // Get the TimingClockingInfo of a port
+    TimingClockingInfo getPortClockingInfo(const CellInfo *cell, IdString port, int index) const;
 
     bool isValidBelForCell(CellInfo *cell, BelId bel) const;
     bool isBelLocationValid(BelId bel) const;
