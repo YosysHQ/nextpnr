@@ -44,7 +44,7 @@ class MainWindow : public BaseMainWindow
     void onProjectLoaded() override;
 
   protected Q_SLOTS:
-    virtual void new_proj();
+    void new_proj() override;
 
     void open_pcf();
     void save_asc();
