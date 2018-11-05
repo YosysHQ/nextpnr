@@ -66,6 +66,8 @@ bool apply_pcf(Context *ctx, std::string filename, std::istream &in)
                     log_info("constrained '%s' to bel '%s'\n", cell.c_str(),
                              fnd_cell->second->attrs[ctx->id("BEL")].c_str());
                 }
+            } else if (cmd == "NET") {
+                // TODO
             } else {
                 log_error("unsupported pcf command '%s'\n", cmd.c_str());
             }
