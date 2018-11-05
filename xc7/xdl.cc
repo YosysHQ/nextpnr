@@ -117,7 +117,7 @@ void write_xdl(const Context *ctx, std::ostream &out)
                 else {
                     unsigned n = 0;
                     for (unsigned o = 0; o < (1u << lut_inputs.size()); ++o) {
-                        if ((init_as_uint >> o) & 0x1)
+                        if (!((init_as_uint >> o) & 1))
                             continue;
                         if (n++ > 0)
                             value += "+";
@@ -135,8 +135,8 @@ void write_xdl(const Context *ctx, std::ostream &out)
             else {
                 NPNR_ASSERT(init.size() == (1u << lut_inputs.size()));
                 unsigned n = 0;
-                for (unsigned i = 0; i < (1u << lut_inputs.size()); ++i) {
-                    if (init[i] == '0')
+                for (unsigned i = 0; i < init.size(); ++i) {
+                    if (init[init.size()-1-i] == '0')
                         continue;
                     if (n++ > 0)
                         value += "+";
@@ -197,10 +197,14 @@ void write_xdl(const Context *ctx, std::ostream &out)
             }
         } else if (cell.second->type == id_BUFGCTRL) {
             auto it = cell.second->params.find(ctx->id("PRESELECT_I0"));
-            instPtr->setConfig("PRESELECT_I0", "", it != cell.second->params.end() ? it->second : "TRUE");
+            instPtr->setConfig("PRESELECT_I0", "", it != cell.second->params.end() ? it->second : "FALSE");
 
-            instPtr->setConfig("CE0INV", "", "CE0_B");
-            instPtr->setConfig("S0INV", "", "S0_B");
+            instPtr->setConfig("CE0INV", "", "CE0");
+            instPtr->setConfig("S0INV", "", "S0");
+            instPtr->setConfig("IGNORE0INV", "", "IGNORE0");
+            instPtr->setConfig("CE1INV", "", "CE1");
+            instPtr->setConfig("S1INV", "", "S1");
+            instPtr->setConfig("IGNORE1INV", "", "IGNORE1");
         } else
             log_error("Unsupported cell type '%s'.\n", cell.second->type.c_str(ctx));
     }
