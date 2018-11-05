@@ -68,6 +68,8 @@ bool apply_pcf(Context *ctx, std::string filename, std::istream &in)
                 }
             } else if (cmd == "NET") {
                 // TODO
+            } else if (cmd == "PIN") {
+                // TODO
             } else {
                 log_error("unsupported pcf command '%s'\n", cmd.c_str());
             }
