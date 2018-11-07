@@ -302,7 +302,8 @@ class Ecp5GlobalRouter
     }
 
     // Return true if a short (<5) route exists between two wires
-    bool has_short_route(WireId src, WireId dst, int thresh = 5) {
+    bool has_short_route(WireId src, WireId dst, int thresh = 5)
+    {
         std::queue<WireId> visit;
         std::unordered_map<WireId, PipId> backtrace;
         visit.push(src);
@@ -310,7 +311,8 @@ class Ecp5GlobalRouter
         while (true) {
 
             if (visit.empty() || visit.size() > 1000) {
-                log_info ("dist %s -> %s = inf\n", ctx->getWireName(src).c_str(ctx), ctx->getWireName(dst).c_str(ctx));
+                // log_info ("dist %s -> %s = inf\n", ctx->getWireName(src).c_str(ctx),
+                // ctx->getWireName(dst).c_str(ctx));
                 return false;
             }
             cursor = visit.front();
@@ -334,7 +336,8 @@ class Ecp5GlobalRouter
             cursor = ctx->getPipSrcWire(fnd->second);
             length++;
         }
-        log_info ("dist %s -> %s = %d\n", ctx->getWireName(src).c_str(ctx), ctx->getWireName(dst).c_str(ctx), length);
+        // log_info ("dist %s -> %s = %d\n", ctx->getWireName(src).c_str(ctx), ctx->getWireName(dst).c_str(ctx),
+        // length);
         return length < thresh;
     }
 
@@ -359,8 +362,6 @@ class Ecp5GlobalRouter
         NPNR_ASSERT(best_bel != BelId());
         ctx->bindBel(best_bel, dcc, STRENGTH_LOCKED);
     }
-
-
 
     // Insert a DCC into a net to promote it to a global
     NetInfo *insert_dcc(NetInfo *net)

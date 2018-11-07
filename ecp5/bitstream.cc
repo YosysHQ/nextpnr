@@ -91,7 +91,6 @@ static void tie_cib_signal(Context *ctx, ChipConfig &cc, WireId wire, bool value
         NPNR_ASSERT(signals.size() < 100);
         cibsig = signals.front();
         basename = ctx->getWireBasename(cibsig).str(ctx);
-        log_info("%s\n", basename.c_str());
         signals.pop();
         if (std::regex_match(basename, cib_re))
             break;
@@ -467,14 +466,15 @@ void tieoff_dcu_ports(Context *ctx, ChipConfig &cc, CellInfo *ci)
 {
     for (auto port : ci->ports) {
         if (port.second.net == nullptr && port.second.type == PORT_IN) {
-            if (port.first.str(ctx).find("CLK") != std::string::npos || port.first.str(ctx).find("HDIN") != std::string::npos || port.first.str(ctx).find("HDOUT") != std::string::npos)
+            if (port.first.str(ctx).find("CLK") != std::string::npos ||
+                port.first.str(ctx).find("HDIN") != std::string::npos ||
+                port.first.str(ctx).find("HDOUT") != std::string::npos)
                 continue;
             bool value = bool_or_default(ci->params, ctx->id(port.first.str(ctx) + "MUX"), false);
             tie_cib_signal(ctx, cc, ctx->getBelPinWire(ci->bel, port.first), value);
         }
     }
 }
-
 
 static void set_pip(Context *ctx, ChipConfig &cc, PipId pip)
 {
@@ -484,7 +484,8 @@ static void set_pip(Context *ctx, ChipConfig &cc, PipId pip)
     cc.tiles[tile].add_arc(sink, source);
 }
 
-static std::vector<bool> parse_config_str(std::string str, int length) {
+static std::vector<bool> parse_config_str(std::string str, int length)
+{
     // For DCU config which might be bin, hex or dec using prefices accordingly
     std::string base = str.substr(0, 2);
     std::vector<bool> word;

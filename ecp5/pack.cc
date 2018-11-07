@@ -1034,7 +1034,8 @@ class Ecp5Packer
     }
 
     // "Pack" DCUs
-    void pack_dcus() {
+    void pack_dcus()
+    {
         for (auto cell : sorted(ctx->cells)) {
             CellInfo *ci = cell.second;
             if (ci->type == id_DCUA) {
