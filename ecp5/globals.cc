@@ -290,11 +290,52 @@ class Ecp5GlobalRouter
             float tns;
             return get_net_metric(ctx, clki, MetricType::WIRELENGTH, tns);
         } else {
+            // Check for dedicated routing
+            if (has_short_route(ctx->getBelPinWire(drv_bel, drv.port), ctx->getBelPinWire(dcc->bel, id_CLKI))) {
+                return 0;
+            }
             // Driver is locked
             Loc dcc_loc = ctx->getBelLocation(dcc->bel);
             Loc drv_loc = ctx->getBelLocation(drv_bel);
             return std::abs(dcc_loc.x - drv_loc.x) + std::abs(dcc_loc.y - drv_loc.y);
         }
+    }
+
+    // Return true if a short (<5) route exists between two wires
+    bool has_short_route(WireId src, WireId dst, int thresh = 5) {
+        std::queue<WireId> visit;
+        std::unordered_map<WireId, PipId> backtrace;
+        visit.push(src);
+        WireId cursor;
+        while (true) {
+
+            if (visit.empty() || visit.size() > 1000) {
+                log_info ("dist %s -> %s = inf\n", ctx->getWireName(src).c_str(ctx), ctx->getWireName(dst).c_str(ctx));
+                return false;
+            }
+            cursor = visit.front();
+            visit.pop();
+
+            if (cursor == dst)
+                break;
+            for (auto dh : ctx->getPipsDownhill(cursor)) {
+                WireId pipDst = ctx->getPipDstWire(dh);
+                if (backtrace.count(pipDst))
+                    continue;
+                backtrace[pipDst] = dh;
+                visit.push(pipDst);
+            }
+        }
+        int length = 0;
+        while (true) {
+            auto fnd = backtrace.find(cursor);
+            if (fnd == backtrace.end())
+                break;
+            cursor = ctx->getPipSrcWire(fnd->second);
+            length++;
+        }
+        log_info ("dist %s -> %s = %d\n", ctx->getWireName(src).c_str(ctx), ctx->getWireName(dst).c_str(ctx), length);
+        return length < thresh;
     }
 
     // Attempt to place a DCC
@@ -318,6 +359,8 @@ class Ecp5GlobalRouter
         NPNR_ASSERT(best_bel != BelId());
         ctx->bindBel(best_bel, dcc, STRENGTH_LOCKED);
     }
+
+
 
     // Insert a DCC into a net to promote it to a global
     NetInfo *insert_dcc(NetInfo *net)
