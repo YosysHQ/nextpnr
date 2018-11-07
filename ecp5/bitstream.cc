@@ -414,20 +414,17 @@ void fix_tile_names(Context *ctx, ChipConfig &cc)
         std::map<std::string, std::string> tiletype_xform;
         for (const auto &tile : cc.tiles) {
             std::string newname = tile.first;
-            auto vcib = tile.first.find("VCIB");
-            if (vcib != std::string::npos) {
-                // Remove the V
-                newname.erase(vcib, 1);
+            auto cibdcu = tile.first.find("CIB_DCU");
+            if (cibdcu != std::string::npos) {
+                // Add the V
+                newname.insert(cibdcu, 1, 'V');
                 tiletype_xform[tile.first] = newname;
-            } else if (tile.first.back() == 'V') {
-                // BMID_0V or BMID_2V
-                if (tile.first.at(tile.first.size() - 2) == '0') {
-                    newname.at(tile.first.size() - 1) = 'H';
-                    tiletype_xform[tile.first] = newname;
-                } else if (tile.first.at(tile.first.size() - 2) == '2') {
-                    newname.pop_back();
-                    tiletype_xform[tile.first] = newname;
-                }
+            } else if (tile.first.substr(tile.first.size() - 7) == "BMID_0H") {
+                newname.back() = 'V';
+                tiletype_xform[tile.first] = newname;
+            } else if (tile.first.substr(tile.first.size() - 6) == "BMID_2") {
+                newname.push_back('V');
+                tiletype_xform[tile.first] = newname;
             }
         }
         // Apply the name changes
