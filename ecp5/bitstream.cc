@@ -91,6 +91,7 @@ static void tie_cib_signal(Context *ctx, ChipConfig &cc, WireId wire, bool value
         NPNR_ASSERT(signals.size() < 100);
         cibsig = signals.front();
         basename = ctx->getWireBasename(cibsig).str(ctx);
+        log_info("%s\n", basename.c_str());
         signals.pop();
         if (std::regex_match(basename, cib_re))
             break;
@@ -418,9 +419,8 @@ std::vector<std::string> get_pll_tiles(Context *ctx, BelId bel)
 void fix_tile_names(Context *ctx, ChipConfig &cc)
 {
     // Remove the V prefix/suffix on certain tiles if device is a SERDES variant
-    if (ctx->args.type == ArchArgs::LFE5UM_25F || ctx->args.type == ArchArgs::LFE5UM_45F ||
-        ctx->args.type == ArchArgs::LFE5UM_85F || ctx->args.type == ArchArgs::LFE5UM5G_25F ||
-        ctx->args.type == ArchArgs::LFE5UM5G_45F || ctx->args.type == ArchArgs::LFE5UM5G_85F) {
+    if (ctx->args.type == ArchArgs::LFE5U_25F || ctx->args.type == ArchArgs::LFE5U_45F ||
+        ctx->args.type == ArchArgs::LFE5U_85F) {
         std::map<std::string, std::string> tiletype_xform;
         for (const auto &tile : cc.tiles) {
             std::string newname = tile.first;
@@ -467,7 +467,7 @@ void tieoff_dcu_ports(Context *ctx, ChipConfig &cc, CellInfo *ci)
 {
     for (auto port : ci->ports) {
         if (port.second.net == nullptr && port.second.type == PORT_IN) {
-            if (port.first.str(ctx).find("CLK") != std::string::npos);
+            if (port.first.str(ctx).find("CLK") != std::string::npos || port.first.str(ctx).find("HDIN") != std::string::npos || port.first.str(ctx).find("HDOUT") != std::string::npos)
                 continue;
             bool value = bool_or_default(ci->params, ctx->id(port.first.str(ctx) + "MUX"), false);
             tie_cib_signal(ctx, cc, ctx->getBelPinWire(ci->bel, port.first), value);
@@ -482,6 +482,38 @@ static void set_pip(Context *ctx, ChipConfig &cc, PipId pip)
     std::string source = get_trellis_wirename(ctx, pip.location, ctx->getPipSrcWire(pip));
     std::string sink = get_trellis_wirename(ctx, pip.location, ctx->getPipDstWire(pip));
     cc.tiles[tile].add_arc(sink, source);
+}
+
+static std::vector<bool> parse_config_str(std::string str, int length) {
+    // For DCU config which might be bin, hex or dec using prefices accordingly
+    std::string base = str.substr(0, 2);
+    std::vector<bool> word;
+    word.resize(length, false);
+    if (base == "0b") {
+        for (int i = 0; i < int(str.length()) - 2; i++) {
+            char c = str.at((str.size() - 1) - i);
+            NPNR_ASSERT(c == '0' || c == '1');
+        }
+    } else if (base == "0x") {
+        for (int i = 0; i < int(str.length()) - 2; i++) {
+            char c = str.at((str.size() - i) - 1);
+            int nibble = chtohex(c);
+            word.at(i * 4) = nibble & 0x1;
+            if (i * 4 + 1 < length)
+                word.at(i * 4 + 1) = nibble & 0x2;
+            if (i * 4 + 2 < length)
+                word.at(i * 4 + 2) = nibble & 0x4;
+            if (i * 4 + 3 < length)
+                word.at(i * 4 + 3) = nibble & 0x8;
+        }
+    } else if (base == "0d") {
+        NPNR_ASSERT(length < 64);
+        unsigned long long value = std::stoull(str.substr(2));
+        for (int i = 0; i < length; i++)
+            if (value & (1 << i))
+                word.at(i) = true;
+    }
+    return word;
 }
 
 void write_bitstream(Context *ctx, std::string base_config_file, std::string text_config_file)
@@ -510,8 +542,10 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                 auto tiles = ctx->getTilesAtLocation(loc.y - 1, loc.x + i);
                 for (const auto &tile : tiles) {
                     auto cc_tile = cc.tiles.find(tile.first);
-                    if (cc_tile != cc.tiles.end())
+                    if (cc_tile != cc.tiles.end()) {
                         cc_tile->second.cenums.clear();
+                        cc_tile->second.cunknowns.clear();
+                    }
                 }
             }
         }

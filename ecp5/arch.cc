@@ -651,6 +651,8 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
         return TMG_IGNORE; // FIXME
     } else if (cell->type == id_EHXPLLL) {
         return TMG_IGNORE;
+    } else if (cell->type == id_DCUA) {
+        return TMG_IGNORE; // FIXME
     } else {
         NPNR_ASSERT_FALSE_STR("no timing data for cell type '" + cell->type.str(this) + "'");
     }

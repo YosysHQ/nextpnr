@@ -1033,12 +1033,34 @@ class Ecp5Packer
         }
     }
 
+    // "Pack" DCUs
+    void pack_dcus() {
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (ci->type == id_DCUA) {
+                // Empty port auto-creation to generate correct tie-downs
+                BelId exemplar_bel;
+                for (auto bel : ctx->getBels()) {
+                    if (ctx->getBelType(bel) == id_DCUA) {
+                        exemplar_bel = bel;
+                        break;
+                    }
+                }
+                NPNR_ASSERT(exemplar_bel != BelId());
+                for (auto pin : ctx->getBelPins(exemplar_bel))
+                    if (ctx->getBelPinType(exemplar_bel, pin) == PORT_IN)
+                        autocreate_empty_port(ci, pin);
+            }
+        }
+    }
+
   public:
     void pack()
     {
         pack_io();
         pack_ebr();
         pack_dsps();
+        pack_dcus();
         pack_constants();
         pack_dram();
         pack_carries();
