@@ -493,6 +493,7 @@ static std::vector<bool> parse_config_str(std::string str, int length) {
         for (int i = 0; i < int(str.length()) - 2; i++) {
             char c = str.at((str.size() - 1) - i);
             NPNR_ASSERT(c == '0' || c == '1');
+            word.at(i) = (c == '1');
         }
     } else if (base == "0x") {
         for (int i = 0; i < int(str.length()) - 2; i++) {
