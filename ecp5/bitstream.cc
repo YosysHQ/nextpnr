@@ -379,6 +379,16 @@ std::vector<std::string> get_dsp_tiles(Context *ctx, BelId bel)
     return tiles;
 }
 
+// Get the list of tiles corresponding to a DCU
+std::vector<std::string> get_dcu_tiles(Context *ctx, BelId bel)
+{
+    std::vector<std::string> tiles;
+    Loc loc = ctx->getBelLocation(bel);
+    for (int i = 0; i < 9; i++)
+        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + i, "DCU" + std::to_string(i)));
+    return tiles;
+}
+
 // Get the list of tiles corresponding to a PLL
 std::vector<std::string> get_pll_tiles(Context *ctx, BelId bel)
 {
@@ -453,6 +463,19 @@ void tieoff_dsp_ports(Context *ctx, ChipConfig &cc, CellInfo *ci)
     }
 }
 
+void tieoff_dcu_ports(Context *ctx, ChipConfig &cc, CellInfo *ci)
+{
+    for (auto port : ci->ports) {
+        if (port.second.net == nullptr && port.second.type == PORT_IN) {
+            if (port.first.str(ctx).find("CLK") != std::string::npos);
+                continue;
+            bool value = bool_or_default(ci->params, ctx->id(port.first.str(ctx) + "MUX"), false);
+            tie_cib_signal(ctx, cc, ctx->getBelPinWire(ci->bel, port.first), value);
+        }
+    }
+}
+
+
 static void set_pip(Context *ctx, ChipConfig &cc, PipId pip)
 {
     std::string tile = ctx->getPipTilename(pip);
@@ -478,6 +501,21 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
         // TODO: .bit metadata
     }
 
+    // Clear out DCU tieoffs in base config if DCU used
+    for (auto &cell : ctx->cells) {
+        CellInfo *ci = cell.second.get();
+        if (ci->type == id_DCUA) {
+            Loc loc = ctx->getBelLocation(ci->bel);
+            for (int i = 0; i < 12; i++) {
+                auto tiles = ctx->getTilesAtLocation(loc.y - 1, loc.x + i);
+                for (const auto &tile : tiles) {
+                    auto cc_tile = cc.tiles.find(tile.first);
+                    if (cc_tile != cc.tiles.end())
+                        cc_tile->second.cenums.clear();
+                }
+            }
+        }
+    }
     // Add all set, configurable pips to the config
     for (auto pip : ctx->getPips()) {
         if (ctx->getBoundPipNet(pip) != nullptr) {
@@ -997,6 +1035,13 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                                int_to_bitvector(int_or_default(ci->attrs, ctx->id("MFG_ENABLE_FILTEROPAMP"), 0), 1));
 
             cc.tilegroups.push_back(tg);
+        } else if (ci->type == id_DCUA) {
+            TileGroup tg;
+            tg.tiles = get_dcu_tiles(ctx, ci->bel);
+            tg.config.add_enum("DCU.MODE", "DCUA");
+#include "dcu_bitstream.h"
+            cc.tilegroups.push_back(tg);
+            tieoff_dcu_ports(ctx, cc, ci);
         } else {
             NPNR_ASSERT_FALSE("unsupported cell type");
         }
