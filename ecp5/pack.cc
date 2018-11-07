@@ -1039,6 +1039,8 @@ class Ecp5Packer
         for (auto cell : sorted(ctx->cells)) {
             CellInfo *ci = cell.second;
             if (ci->type == id_DCUA) {
+                if (!ci->attrs.count(ctx->id("BEL")))
+                    log_error("DCU must be constrained to a Bel!\n");
                 // Empty port auto-creation to generate correct tie-downs
                 BelId exemplar_bel;
                 for (auto bel : ctx->getBels()) {
@@ -1051,6 +1053,36 @@ class Ecp5Packer
                 for (auto pin : ctx->getBelPins(exemplar_bel))
                     if (ctx->getBelPinType(exemplar_bel, pin) == PORT_IN)
                         autocreate_empty_port(ci, pin);
+            } else if (ci->type == id_EXTREFB) {
+                const NetInfo *refo = net_or_nullptr(ci, id_REFCLKO);
+                CellInfo *dcu = nullptr;
+                if (refo == nullptr)
+                    log_error("EXTREFB REFCLKO must not be unconnected\n");
+                for (auto user : refo->users) {
+                    if (user.cell->type != id_DCUA || (dcu != nullptr && dcu != user.cell))
+                        log_error("EXTREFB REFCLKO must only drive a single DCUA\n");
+                    dcu = user.cell;
+                }
+                if (!dcu->attrs.count(ctx->id("BEL")))
+                    log_error("DCU must be constrained to a Bel!\n");
+                std::string bel =  dcu->attrs.at(ctx->id("BEL"));
+                NPNR_ASSERT(bel.substr(bel.length() - 3) == "DCU");
+                bel.replace(bel.length() - 3, 3, "EXTREF");
+                ci->attrs[ctx->id("BEL")] = bel;
+            } else if (ci->type == id_PCSCLKDIV) {
+                const NetInfo *clki = net_or_nullptr(ci, id_CLKI);
+                if (clki != nullptr && clki->driver.cell != nullptr && clki->driver.cell->type == id_DCUA) {
+                    CellInfo *dcu = clki->driver.cell;
+                    if (!dcu->attrs.count(ctx->id("BEL")))
+                        log_error("DCU must be constrained to a Bel!\n");
+                    BelId bel = ctx->getBelByName(ctx->id(dcu->attrs.at(ctx->id("BEL"))));
+                    if (bel == BelId())
+                        log_error("Invalid DCU bel '%s'\n", dcu->attrs.at(ctx->id("BEL")).c_str());
+                    Loc loc = ctx->getBelLocation(bel);
+                    // DCU0 -> CLKDIV z=0; DCU1 -> CLKDIV z=1
+                    ci->constr_abs_z = true;
+                    ci->constr_z = (loc.x >= 69) ? 1 :  0;
+                }
             }
         }
     }
