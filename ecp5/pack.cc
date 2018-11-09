@@ -236,14 +236,14 @@ class Ecp5Packer
     }
 
     // Return true if an port is a top level port that provides its own IOBUF
-    bool is_top_port(PortRef &port) {
+    bool is_top_port(PortRef &port)
+    {
         if (port.cell == nullptr)
             return false;
         if (port.cell->type == id_DCUA) {
             return port.port == id_CH0_HDINP || port.port == id_CH0_HDINN || port.port == id_CH0_HDOUTP ||
-                   port.port == id_CH0_HDOUTN ||
-                   port.port == id_CH1_HDINP || port.port == id_CH1_HDINN || port.port == id_CH1_HDOUTP ||
-                   port.port == id_CH1_HDOUTN;
+                   port.port == id_CH0_HDOUTN || port.port == id_CH1_HDINP || port.port == id_CH1_HDINN ||
+                   port.port == id_CH1_HDOUTP || port.port == id_CH1_HDOUTN;
         } else if (port.cell->type == id_EXTREFB) {
             return port.port == id_REFCLKP || port.port == id_REFCLKN;
         } else {
@@ -252,20 +252,23 @@ class Ecp5Packer
     }
 
     // Return true if a net only drives a top port
-    bool drives_top_port(NetInfo *net, PortRef &tp) {
+    bool drives_top_port(NetInfo *net, PortRef &tp)
+    {
         if (net == nullptr)
             return false;
         for (auto user : net->users) {
             if (is_top_port(user)) {
                 if (net->users.size() > 1)
-                    log_error("   port %s.%s must be connected to (and only to) a top level pin\n", user.cell->name.c_str(ctx), user.port.c_str(ctx));
+                    log_error("   port %s.%s must be connected to (and only to) a top level pin\n",
+                              user.cell->name.c_str(ctx), user.port.c_str(ctx));
                 tp = user;
                 return true;
             }
         }
         if (net->driver.cell != nullptr && is_top_port(net->driver)) {
             if (net->users.size() > 1)
-                log_error("   port %s.%s must be connected to (and only to) a top level pin\n", net->driver.cell->name.c_str(ctx), net->driver.port.c_str(ctx));
+                log_error("   port %s.%s must be connected to (and only to) a top level pin\n",
+                          net->driver.cell->name.c_str(ctx), net->driver.port.c_str(ctx));
             tp = net->driver;
             return true;
         }
@@ -308,9 +311,8 @@ class Ecp5Packer
                         }
                     }
                 } else if (drives_top_port(ionet, tp)) {
-                    log_info("%s feeds %s %s.%s, removing %s %s.\n", ci->name.c_str(ctx), tp.cell->type.c_str(ctx), tp.cell->name.c_str(ctx),
-                             tp.port.c_str(ctx),
-                             ci->type.c_str(ctx), ci->name.c_str(ctx));
+                    log_info("%s feeds %s %s.%s, removing %s %s.\n", ci->name.c_str(ctx), tp.cell->type.c_str(ctx),
+                             tp.cell->name.c_str(ctx), tp.port.c_str(ctx), ci->type.c_str(ctx), ci->name.c_str(ctx));
                     if (ionet != nullptr) {
                         ctx->nets.erase(ionet->name);
                         tp.cell->ports.at(tp.port).net = nullptr;
@@ -349,7 +351,6 @@ class Ecp5Packer
                         trio->attrs[ctx->id("BEL")] = ctx->getBelName(pinBel).str(ctx);
                     }
                 }
-
             }
         }
         flush_cells();
@@ -1123,7 +1124,7 @@ class Ecp5Packer
                 }
                 if (!dcu->attrs.count(ctx->id("BEL")))
                     log_error("DCU must be constrained to a Bel!\n");
-                std::string bel =  dcu->attrs.at(ctx->id("BEL"));
+                std::string bel = dcu->attrs.at(ctx->id("BEL"));
                 NPNR_ASSERT(bel.substr(bel.length() - 3) == "DCU");
                 bel.replace(bel.length() - 3, 3, "EXTREF");
                 ci->attrs[ctx->id("BEL")] = bel;
@@ -1139,7 +1140,7 @@ class Ecp5Packer
                     Loc loc = ctx->getBelLocation(bel);
                     // DCU0 -> CLKDIV z=0; DCU1 -> CLKDIV z=1
                     ci->constr_abs_z = true;
-                    ci->constr_z = (loc.x >= 69) ? 1 :  0;
+                    ci->constr_z = (loc.x >= 69) ? 1 : 0;
                 }
             }
         }

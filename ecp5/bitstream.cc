@@ -1087,14 +1087,18 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
         } else if (ci->type == id_EXTREFB) {
             TileGroup tg;
             tg.tiles = get_dcu_tiles(ctx, ci->bel);
-            tg.config.add_word("EXTREF.REFCK_DCBIAS_EN", parse_config_str(str_or_default(ci->params, ctx->id("REFCK_DCBIAS_EN"), "0"), 1));
-            tg.config.add_word("EXTREF.REFCK_RTERM", parse_config_str(str_or_default(ci->params, ctx->id("REFCK_RTERM"), "0"), 1));
-            tg.config.add_word("EXTREF.REFCK_PWDNB", parse_config_str(str_or_default(ci->params, ctx->id("REFCK_PWDNB"), "0"), 1));
+            tg.config.add_word("EXTREF.REFCK_DCBIAS_EN",
+                               parse_config_str(str_or_default(ci->params, ctx->id("REFCK_DCBIAS_EN"), "0"), 1));
+            tg.config.add_word("EXTREF.REFCK_RTERM",
+                               parse_config_str(str_or_default(ci->params, ctx->id("REFCK_RTERM"), "0"), 1));
+            tg.config.add_word("EXTREF.REFCK_PWDNB",
+                               parse_config_str(str_or_default(ci->params, ctx->id("REFCK_PWDNB"), "0"), 1));
             cc.tilegroups.push_back(tg);
         } else if (ci->type == id_PCSCLKDIV) {
             Loc loc = ctx->getBelLocation(ci->bel);
-            std::string tname = ctx->getTileByTypeAndLocation(loc.y+1, loc.x, "BMID_0H");
-            cc.tiles[tname].add_enum("PCSCLKDIV" + std::to_string(loc.z), str_or_default(ci->params, ctx->id("GSR"), "ENABLED"));
+            std::string tname = ctx->getTileByTypeAndLocation(loc.y + 1, loc.x, "BMID_0H");
+            cc.tiles[tname].add_enum("PCSCLKDIV" + std::to_string(loc.z),
+                                     str_or_default(ci->params, ctx->id("GSR"), "ENABLED"));
         } else {
             NPNR_ASSERT_FALSE("unsupported cell type");
         }
