@@ -544,7 +544,7 @@ bool router1(Context *ctx, const Router1Cfg &cfg)
         int last_arcs_without_ripup = 0;
 
         log_info("           |   (re-)routed arcs  |   delta    | remaining\n");
-        log_info("   IterCnt |  w/riput   wo/ripup |  w/r  wo/r |      arcs\n");
+        log_info("   IterCnt |  w/ripup   wo/ripup |  w/r  wo/r |      arcs\n");
 
         while (!router.arc_queue.empty()) {
             if (++iter_cnt % 1000 == 0) {
