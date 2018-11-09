@@ -118,6 +118,12 @@ class SAPlacer
                               loc_name.c_str(), bel_type.c_str(ctx), cell->name.c_str(ctx), cell->type.c_str(ctx));
                 }
 
+                auto bound_cell = ctx->getBoundBelCell(bel);
+                if (bound_cell) {
+                    log_error("Cell \'%s\' cannot be bound to bel \'%s\' since it is already bound to cell \'%s\'\n",
+                              cell->name.c_str(ctx), loc_name.c_str(), bound_cell->name.c_str(ctx));
+                }
+
                 ctx->bindBel(bel, cell, STRENGTH_USER);
                 locked_bels.insert(bel);
                 placed_cells++;
