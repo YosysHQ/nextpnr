@@ -35,8 +35,8 @@ struct Router1Cfg : Settings
     bool useEstimate;
     delay_t wireRipupPenalty;
     delay_t pipRipupPenalty;
-    delay_t wireReusePenalty;
-    delay_t pipReusePenalty;
+    delay_t wireReuseBonus;
+    delay_t pipReuseBonus;
     delay_t estimatePrecision;
 };
 

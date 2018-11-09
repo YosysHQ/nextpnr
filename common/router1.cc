@@ -67,7 +67,7 @@ struct QueuedWire
     WireId wire;
     PipId pip;
 
-    delay_t delay = 0, penalty = 0, togo = 0;
+    delay_t delay = 0, penalty = 0, bonus = 0, togo = 0;
     int randtag = 0;
 
     struct Greater
@@ -76,6 +76,10 @@ struct QueuedWire
         {
             delay_t l = lhs.delay + lhs.penalty + lhs.togo;
             delay_t r = rhs.delay + rhs.penalty + rhs.togo;
+            NPNR_ASSERT(l >= 0);
+            NPNR_ASSERT(r >= 0);
+            l -= lhs.bonus;
+            r -= rhs.bonus;
             return l == r ? lhs.randtag > rhs.randtag : l > r;
         }
     };
@@ -304,6 +308,7 @@ struct Router1
         int visitCnt = 0;
         int maxVisitCnt = INT_MAX;
         delay_t best_est = 0;
+        delay_t best_score = -1;
 
         {
             QueuedWire qw;
@@ -311,6 +316,7 @@ struct Router1
             qw.pip = PipId();
             qw.delay = ctx->getWireDelay(qw.wire).maxDelay();
             qw.penalty = 0;
+            qw.bonus = 0;
             if (cfg.useEstimate) {
                 qw.togo = ctx->estimateDelay(qw.wire, dst_wire);
                 best_est = qw.delay + qw.togo;
@@ -329,6 +335,7 @@ struct Router1
             for (auto pip : ctx->getPipsDownhill(qw.wire)) {
                 delay_t next_delay = qw.delay + ctx->getPipDelay(pip).maxDelay();
                 delay_t next_penalty = qw.penalty;
+                delay_t next_bonus = qw.bonus;
 
                 WireId next_wire = ctx->getPipDstWire(pip);
                 next_delay += ctx->getWireDelay(next_wire).maxDelay();
@@ -340,7 +347,7 @@ struct Router1
                         continue;
 
                     if (ripupWireNet == net_info) {
-                        next_penalty += cfg.wireReusePenalty;
+                        next_bonus += cfg.wireReuseBonus;
                     } else {
                         if (!ripup)
                             continue;
@@ -348,6 +355,8 @@ struct Router1
                         auto scores_it = wireScores.find(next_wire);
                         if (scores_it != wireScores.end())
                             next_penalty += scores_it->second * cfg.wireRipupPenalty;
+                        else
+                            next_penalty += cfg.wireRipupPenalty;
                     }
                 }
 
@@ -358,7 +367,7 @@ struct Router1
                         continue;
 
                     if (ripupPipNet == net_info) {
-                        next_penalty += cfg.pipReusePenalty;
+                        next_bonus += cfg.pipReuseBonus;
                     } else {
                         if (!ripup)
                             continue;
@@ -366,17 +375,36 @@ struct Router1
                         auto scores_it = pipScores.find(pip);
                         if (scores_it != pipScores.end())
                             next_penalty += scores_it->second * cfg.pipRipupPenalty;
+                        else
+                            next_penalty += cfg.pipRipupPenalty;
                     }
                 }
 
-                if (visited.count(next_wire)) {
-                    if (visited.at(next_wire).delay + visited.at(next_wire).penalty <= next_delay + next_penalty + ctx->getDelayEpsilon())
+                delay_t next_score = next_delay + next_penalty;
+                NPNR_ASSERT(next_score >= 0);
+
+                if ((best_score >= 0) && (next_score - next_bonus - cfg.estimatePrecision > best_score))
+                    continue;
+
+                auto old_visited_it = visited.find(next_wire);
+                if (old_visited_it != visited.end()) {
+                    delay_t old_delay = old_visited_it->second.delay;
+                    delay_t old_score = old_delay + old_visited_it->second.penalty;
+                    NPNR_ASSERT(old_score >= 0);
+
+                    if (next_score + ctx->getDelayEpsilon() >= old_score)
                         continue;
-#if 0 // FIXME
+
+                    if (next_delay + ctx->getDelayEpsilon() >= old_delay)
+                        continue;
+
+#if 0
                     if (ctx->debug)
-                        log("Found better route to %s. Old vs new delay estimate: %.3f %.3f\n",
-                            ctx->getWireName(next_wire).c_str(),
-                            ctx->getDelayNS(visited.at(next_wire).delay),
+                        log("Found better route to %s. Old vs new delay estimate: %.3f (%.3f) %.3f (%.3f)\n",
+                            ctx->getWireName(next_wire).c_str(ctx),
+                            ctx->getDelayNS(old_score),
+                            ctx->getDelayNS(old_visited_it->second.delay),
+                            ctx->getDelayNS(next_score),
                             ctx->getDelayNS(next_delay));
 #endif
                 }
@@ -386,21 +414,34 @@ struct Router1
                 next_qw.pip = pip;
                 next_qw.delay = next_delay;
                 next_qw.penalty = next_penalty;
+                next_qw.bonus = next_bonus;
                 if (cfg.useEstimate) {
                     next_qw.togo = ctx->estimateDelay(next_wire, dst_wire);
                     delay_t this_est = next_qw.delay + next_qw.togo;
-                    if (this_est > best_est + cfg.estimatePrecision)
+                    if (this_est/2 - cfg.estimatePrecision > best_est)
                         continue;
                     if (best_est > this_est)
                         best_est = this_est;
                 }
                 next_qw.randtag = ctx->rng();
 
+#if 0
+                if (ctx->debug)
+                    log("%s -> %s: %.3f (%.3f)\n",
+                        ctx->getWireName(qw.wire).c_str(ctx),
+                        ctx->getWireName(next_wire).c_str(ctx),
+                        ctx->getDelayNS(next_score),
+                        ctx->getDelayNS(next_delay));
+#endif
+
                 visited[next_qw.wire] = next_qw;
                 queue.push(next_qw);
 
-                if (maxVisitCnt == INT_MAX && next_wire == dst_wire)
-                    maxVisitCnt = 2*visitCnt;
+                if (next_wire == dst_wire) {
+                    if (maxVisitCnt == INT_MAX)
+                        maxVisitCnt = 2*visitCnt;
+                    best_score = next_score - next_bonus;
+                }
             }
         }
 
@@ -478,8 +519,8 @@ Router1Cfg::Router1Cfg(Context *ctx) : Settings(ctx)
     wireRipupPenalty = ctx->getRipupDelayPenalty();
     pipRipupPenalty = ctx->getRipupDelayPenalty();
 
-    wireReusePenalty = -wireRipupPenalty/8;
-    pipReusePenalty = -pipRipupPenalty/8;
+    wireReuseBonus = wireRipupPenalty/8;
+    pipReuseBonus = pipRipupPenalty/8;
 
     estimatePrecision = 100 * ctx->getRipupDelayPenalty();
 }
