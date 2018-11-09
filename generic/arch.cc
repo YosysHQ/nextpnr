@@ -184,20 +184,11 @@ void Arch::setGroupDecal(GroupId group, DecalXY decalxy)
     refreshUiGroup(group);
 }
 
-void Arch::setWireAttr(IdString wire, IdString key, const std::string &value)
-{
-    wires.at(wire).attrs[key] = value;
-}
+void Arch::setWireAttr(IdString wire, IdString key, const std::string &value) { wires.at(wire).attrs[key] = value; }
 
-void Arch::setPipAttr(IdString pip, IdString key, const std::string &value)
-{
-    pips.at(pip).attrs[key] = value;
-}
+void Arch::setPipAttr(IdString pip, IdString key, const std::string &value) { pips.at(pip).attrs[key] = value; }
 
-void Arch::setBelAttr(IdString bel, IdString key, const std::string &value)
-{
-    bels.at(bel).attrs[key] = value;
-}
+void Arch::setBelAttr(IdString bel, IdString key, const std::string &value) { bels.at(bel).attrs[key] = value; }
 
 // ---------------------------------------------------------------
 

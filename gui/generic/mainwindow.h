@@ -36,7 +36,7 @@ class MainWindow : public BaseMainWindow
     void createMenu();
 
   protected Q_SLOTS:
-    virtual void new_proj();
+    void new_proj() override;
     void newContext(Context *ctx);
 };
 

@@ -230,7 +230,8 @@ std::unique_ptr<CellInfo> create_ice_cell(Context *ctx, IdString type, std::stri
         new_cell->params[ctx->id("TEST_MODE")] = "0";
 
         add_port(ctx, new_cell.get(), "BYPASS", PORT_IN);
-        add_port(ctx, new_cell.get(), "DYNAMICDELAY", PORT_IN);
+        for (int i = 0; i < 8; i++)
+            add_port(ctx, new_cell.get(), "DYNAMICDELAY_" + std::to_string(i), PORT_IN);
         add_port(ctx, new_cell.get(), "EXTFEEDBACK", PORT_IN);
         add_port(ctx, new_cell.get(), "LATCHINPUTVALUE", PORT_IN);
         add_port(ctx, new_cell.get(), "REFERENCECLK", PORT_IN);
@@ -243,6 +244,8 @@ std::unique_ptr<CellInfo> create_ice_cell(Context *ctx, IdString type, std::stri
         add_port(ctx, new_cell.get(), "LOCK", PORT_OUT);
         add_port(ctx, new_cell.get(), "PLLOUT_A", PORT_OUT);
         add_port(ctx, new_cell.get(), "PLLOUT_B", PORT_OUT);
+        add_port(ctx, new_cell.get(), "PLLOUTGLOBALA", PORT_OUT);
+        add_port(ctx, new_cell.get(), "PLLOUTGLOBALB", PORT_OUT);
     } else {
         log_error("unable to create iCE40 cell of type %s", type.c_str(ctx));
     }
@@ -312,7 +315,7 @@ void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc, bool pass_thru_l
     replace_port(dff, ctx->id("Q"), lc, ctx->id("O"));
 }
 
-void nxio_to_sb(Context *ctx, CellInfo *nxio, CellInfo *sbio)
+void nxio_to_sb(Context *ctx, CellInfo *nxio, CellInfo *sbio, std::unordered_set<IdString> &todelete_cells)
 {
     if (nxio->type == ctx->id("$nextpnr_ibuf")) {
         sbio->params[ctx->id("PIN_TYPE")] = "1";
@@ -339,12 +342,16 @@ void nxio_to_sb(Context *ctx, CellInfo *nxio, CellInfo *sbio)
         sbio->params[ctx->id("PIN_TYPE")] = "41";
         replace_port(tbuf, ctx->id("A"), sbio, ctx->id("D_OUT_0"));
         replace_port(tbuf, ctx->id("E"), sbio, ctx->id("OUTPUT_ENABLE"));
-        ctx->nets.erase(donet->name);
-        if (!donet->users.empty())
+
+        if (donet->users.size() > 1) {
+            for (auto user : donet->users)
+                log_info("     remaining tristate user: %s.%s\n", user.cell->name.c_str(ctx), user.port.c_str(ctx));
             log_error("unsupported tristate IO pattern for IO buffer '%s', "
                       "instantiate SB_IO manually to ensure correct behaviour\n",
                       nxio->name.c_str(ctx));
-        ctx->cells.erase(tbuf->name);
+        }
+        ctx->nets.erase(donet->name);
+        todelete_cells.insert(tbuf->name);
     }
 }
 
@@ -376,6 +383,10 @@ bool is_clock_port(const BaseCtx *ctx, const PortRef &port)
                port.port == ctx->id("WCLKN");
     if (is_sb_mac16(ctx, port.cell) || port.cell->type == ctx->id("ICESTORM_DSP"))
         return port.port == ctx->id("CLK");
+    if (is_sb_spram(ctx, port.cell) || port.cell->type == ctx->id("ICESTORM_SPRAM"))
+        return port.port == id_CLOCK;
+    if (is_sb_io(ctx, port.cell))
+        return port.port == id_INPUT_CLK || port.port == id_OUTPUT_CLK;
     return false;
 }
 

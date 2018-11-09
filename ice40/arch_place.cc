@@ -27,14 +27,14 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-bool Arch::logicCellsCompatible(const CellInfo** it, const size_t size) const
+bool Arch::logicCellsCompatible(const CellInfo **it, const size_t size) const
 {
     bool dffs_exist = false, dffs_neg = false;
     const NetInfo *cen = nullptr, *clk = nullptr, *sr = nullptr;
     int locals_count = 0;
 
-    for (auto cell : boost::make_iterator_range(it, it+size)) {
-        NPNR_ASSERT(cell->belType == id_ICESTORM_LC);
+    for (auto cell : boost::make_iterator_range(it, it + size)) {
+        NPNR_ASSERT(cell->type == id_ICESTORM_LC);
         if (cell->lcInfo.dffEnable) {
             if (!dffs_exist) {
                 dffs_exist = true;
@@ -139,6 +139,27 @@ bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const
                 }
             }
         }
+        Loc ioLoc = getBelLocation(bel);
+        Loc compLoc = ioLoc;
+        compLoc.z = 1 - compLoc.z;
+
+        // Check LVDS pairing
+        if (cell->ioInfo.lvds) {
+            // Check correct z and complement location is free
+            if (ioLoc.z != 0)
+                return false;
+            BelId compBel = getBelByLocation(compLoc);
+            CellInfo *compCell = getBoundBelCell(compBel);
+            if (compCell)
+                return false;
+        } else {
+            // Check LVDS IO is not placed at complement location
+            BelId compBel = getBelByLocation(compLoc);
+            CellInfo *compCell = getBoundBelCell(compBel);
+            if (compCell && compCell->ioInfo.lvds)
+                return false;
+        }
+
         return getBelPackagePin(bel) != "";
     } else if (cell->type == id_SB_GB) {
         NPNR_ASSERT(cell->ports.at(id_GLOBAL_BUFFER_OUTPUT).net != nullptr);

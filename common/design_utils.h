@@ -82,6 +82,15 @@ template <typename F1> CellInfo *net_driven_by(const Context *ctx, const NetInfo
     }
 }
 
+// Connect a net to a port
+void connect_port(const Context *ctx, NetInfo *net, CellInfo *cell, IdString port_name);
+
+// Disconnect a net from a port
+void disconnect_port(const Context *ctx, CellInfo *cell, IdString port_name);
+
+// Connect two ports together
+void connect_ports(Context *ctx, CellInfo *cell1, IdString port1_name, CellInfo *cell2, IdString port2_name);
+
 void print_utilisation(const Context *ctx);
 
 NEXTPNR_NAMESPACE_END

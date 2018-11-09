@@ -39,25 +39,27 @@ bool Arch::slicesCompatible(const std::vector<const CellInfo *> &cells) const
     IdString CLKMUX, LSRMUX, SRMODE;
     bool first = true;
     for (auto cell : cells) {
-        if (first) {
-            clk_sig = cell->sliceInfo.clk_sig;
-            lsr_sig = cell->sliceInfo.lsr_sig;
-            CLKMUX = cell->sliceInfo.clkmux;
-            LSRMUX = cell->sliceInfo.lsrmux;
-            SRMODE = cell->sliceInfo.srmode;
-        } else {
-            if (cell->sliceInfo.clk_sig != clk_sig)
-                return false;
-            if (cell->sliceInfo.lsr_sig != lsr_sig)
-                return false;
-            if (cell->sliceInfo.clkmux != CLKMUX)
-                return false;
-            if (cell->sliceInfo.lsrmux != LSRMUX)
-                return false;
-            if (cell->sliceInfo.srmode != SRMODE)
-                return false;
+        if (cell->sliceInfo.using_dff) {
+            if (first) {
+                clk_sig = cell->sliceInfo.clk_sig;
+                lsr_sig = cell->sliceInfo.lsr_sig;
+                CLKMUX = cell->sliceInfo.clkmux;
+                LSRMUX = cell->sliceInfo.lsrmux;
+                SRMODE = cell->sliceInfo.srmode;
+            } else {
+                if (cell->sliceInfo.clk_sig != clk_sig)
+                    return false;
+                if (cell->sliceInfo.lsr_sig != lsr_sig)
+                    return false;
+                if (cell->sliceInfo.clkmux != CLKMUX)
+                    return false;
+                if (cell->sliceInfo.lsrmux != LSRMUX)
+                    return false;
+                if (cell->sliceInfo.srmode != SRMODE)
+                    return false;
+            }
+            first = false;
         }
-        first = false;
     }
     return true;
 }

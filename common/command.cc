@@ -91,8 +91,14 @@ po::options_description CommandHandler::getGeneralOptions()
     general.add_options()("gui", "start gui");
 #endif
 #ifndef NO_PYTHON
-    general.add_options()("run", po::value<std::vector<std::string>>(), "python file to execute");
+    general.add_options()("run", po::value<std::vector<std::string>>(),
+                          "python file to execute instead of default flow");
     pos.add("run", -1);
+    general.add_options()("pre-pack", po::value<std::vector<std::string>>(), "python file to run before packing");
+    general.add_options()("pre-place", po::value<std::vector<std::string>>(), "python file to run before placement");
+    general.add_options()("pre-route", po::value<std::vector<std::string>>(), "python file to run before routing");
+    general.add_options()("post-route", po::value<std::vector<std::string>>(), "python file to run after routing");
+
 #endif
     general.add_options()("json", po::value<std::string>(), "JSON design file to ingest");
     general.add_options()("seed", po::value<int>(), "seed value for random number generator");
@@ -200,39 +206,47 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
         customAfterLoad(ctx.get());
     }
 
-    if (vm.count("json") || vm.count("load")) {
+#ifndef NO_PYTHON
+    init_python(argv[0], true);
+    python_export_global("ctx", *ctx);
+
+    if (vm.count("run")) {
+
+        std::vector<std::string> files = vm["run"].as<std::vector<std::string>>();
+        for (auto filename : files)
+            execute_python_file(filename.c_str());
+    } else
+#endif
+            if (vm.count("json") || vm.count("load")) {
+        run_script_hook("pre-pack");
         if (!ctx->pack() && !ctx->force)
             log_error("Packing design failed.\n");
         assign_budget(ctx.get());
         ctx->check();
         print_utilisation(ctx.get());
+        run_script_hook("pre-place");
+
         if (!vm.count("pack-only")) {
             if (!ctx->place() && !ctx->force)
                 log_error("Placing design failed.\n");
             ctx->check();
+            run_script_hook("pre-route");
+
             if (!ctx->route() && !ctx->force)
                 log_error("Routing design failed.\n");
         }
+        run_script_hook("post-route");
 
         customBitstream(ctx.get());
     }
 
-#ifndef NO_PYTHON
-    if (vm.count("run")) {
-        init_python(argv[0], true);
-        python_export_global("ctx", *ctx);
-
-        std::vector<std::string> files = vm["run"].as<std::vector<std::string>>();
-        for (auto filename : files)
-            execute_python_file(filename.c_str());
-
-        deinit_python();
-    }
-#endif
-
     if (vm.count("save")) {
         project.save(ctx.get(), vm["save"].as<std::string>());
     }
+
+#ifndef NO_PYTHON
+    deinit_python();
+#endif
 
     return 0;
 }
@@ -268,6 +282,17 @@ int CommandHandler::exec()
     } catch (log_execution_error_exception) {
         return -1;
     }
+}
+
+void CommandHandler::run_script_hook(const std::string &name)
+{
+#ifndef NO_PYTHON
+    if (vm.count(name)) {
+        std::vector<std::string> files = vm[name].as<std::vector<std::string>>();
+        for (auto filename : files)
+            execute_python_file(filename.c_str());
+    }
+#endif
 }
 
 NEXTPNR_NAMESPACE_END
