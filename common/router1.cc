@@ -537,18 +537,21 @@ bool router1(Context *ctx, const Router1Cfg &cfg)
         Router1 router(ctx, cfg);
         router.setup();
 
-        log_info("Added %d arcs to routing queue.\n", int(router.arc_queue.size()));
+        log_info("Routing %d arcs.\n", int(router.arc_queue.size()));
 
         int iter_cnt = 0;
         int last_arcs_with_ripup = 0;
         int last_arcs_without_ripup = 0;
 
+        log_info("           |   (re-)routed arcs  |   delta    | remaining\n");
+        log_info("   IterCnt |  w/riput   wo/ripup |  w/r  wo/r |      arcs\n");
+
         while (!router.arc_queue.empty()) {
             if (++iter_cnt % 1000 == 0) {
-                log_info("At iteration %d:\n", iter_cnt);
-                log_info("  routed %d (%d) arcs with rip-up.\n", router.arcs_with_ripup, router.arcs_with_ripup - last_arcs_with_ripup);
-                log_info("  routed %d (%d) arcs without rip-up.\n", router.arcs_without_ripup, router.arcs_without_ripup - last_arcs_without_ripup);
-                log_info("  %d arcs remaining in routing queue.\n", int(router.arc_queue.size()));
+                log_info("%10d | %8d %10d | %4d %5d | %9d\n",
+                        iter_cnt, router.arcs_with_ripup, router.arcs_without_ripup,
+                        router.arcs_with_ripup - last_arcs_with_ripup,
+                        router.arcs_without_ripup - last_arcs_without_ripup, int(router.arc_queue.size()));
                 last_arcs_with_ripup = router.arcs_with_ripup;
                 last_arcs_without_ripup = router.arcs_without_ripup;
             }
@@ -566,12 +569,12 @@ bool router1(Context *ctx, const Router1Cfg &cfg)
             }
         }
 
-        log_info("At iteration %d:\n", iter_cnt);
-        log_info("  routed %d (%d) arcs with rip-up.\n", router.arcs_with_ripup, router.arcs_with_ripup - last_arcs_with_ripup);
-        log_info("  routed %d (%d) arcs without rip-up.\n", router.arcs_without_ripup, router.arcs_without_ripup - last_arcs_without_ripup);
-        log_info("  %d arcs remaining in routing queue.\n", int(router.arc_queue.size()));
+        log_info("%10d | %8d %10d | %4d %5d | %9d\n",
+                iter_cnt, router.arcs_with_ripup, router.arcs_without_ripup,
+                router.arcs_with_ripup - last_arcs_with_ripup,
+                router.arcs_without_ripup - last_arcs_without_ripup, int(router.arc_queue.size()));
 
-        log_info("Routing finished after %d iterations.\n", iter_cnt);
+        log_info("Routing complete.\n");
 
         log_info("Checksum: 0x%08x\n", ctx->checksum());
 #ifndef NDEBUG
