@@ -1118,7 +1118,9 @@ class Ecp5Packer
                 if (refo == nullptr)
                     log_error("EXTREFB REFCLKO must not be unconnected\n");
                 for (auto user : refo->users) {
-                    if (user.cell->type != id_DCUA || (dcu != nullptr && dcu != user.cell))
+                    if (user.cell->type != id_DCUA)
+                        continue;
+                    if (dcu != nullptr && dcu != user.cell)
                         log_error("EXTREFB REFCLKO must only drive a single DCUA\n");
                     dcu = user.cell;
                 }

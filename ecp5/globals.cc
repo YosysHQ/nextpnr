@@ -379,6 +379,8 @@ class Ecp5GlobalRouter
         for (auto user : net->users) {
             if (user.port == id_CLKFB) {
                 keep_users.push_back(user);
+            } else if (net->driver.cell->type == id_EXTREFB && user.cell->type == id_DCCA) {
+                keep_users.push_back(user);
             } else {
                 glbnet->users.push_back(user);
                 user.cell->ports.at(user.port).net = glbnet.get();
