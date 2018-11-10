@@ -767,8 +767,6 @@ bool Arch::place() { return placer1(getCtx(), Placer1Cfg(getCtx())); }
 
 bool Arch::route()
 {
-    getCtx()->debug = true;
-    getCtx()->verbose = true;
     return router1(getCtx(), Router1Cfg(getCtx()));
 }
 
