@@ -414,7 +414,6 @@ std::vector<std::pair<IdString, std::string>> Arch::getPipAttrs(PipId pip) const
     return ret;
 }
 
-
 // -----------------------------------------------------------------------
 
 BelId Arch::getPackagePinBel(const std::string &pin) const
@@ -866,16 +865,20 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, Id
             return TMG_COMB_INPUT;
         if (port == id_COUT || port == id_LO)
             return TMG_COMB_OUTPUT;
-        if (cell->lcInfo.dffEnable) {
-            clockPort = id_CLK;
-            if (port == id_O)
+        if (port == id_O) {
+            // LCs with no inputs are constant drivers
+            if (cell->lcInfo.inputCount == 0)
+                return TMG_IGNORE;
+            if (cell->lcInfo.dffEnable) {
+                clockPort = id_CLK;
                 return TMG_REGISTER_OUTPUT;
-            else
-                return TMG_REGISTER_INPUT;
-        } else {
-            if (port == id_O)
+            } else
                 return TMG_COMB_OUTPUT;
-            else
+        } else {
+            if (cell->lcInfo.dffEnable) {
+                clockPort = id_CLK;
+                return TMG_REGISTER_INPUT;
+            } else
                 return TMG_COMB_INPUT;
         }
     } else if (cell->type == id_ICESTORM_RAM) {
@@ -959,7 +962,6 @@ void Arch::assignArchInfo()
 
 void Arch::assignCellInfo(CellInfo *cell)
 {
-    cell->belType = cell->type;
     if (cell->type == id_ICESTORM_LC) {
         cell->lcInfo.dffEnable = bool_or_default(cell->params, id_DFF_ENABLE);
         cell->lcInfo.carryEnable = bool_or_default(cell->params, id_CARRY_ENABLE);
@@ -976,6 +978,8 @@ void Arch::assignCellInfo(CellInfo *cell)
             cell->lcInfo.inputCount++;
         if (get_net_or_empty(cell, id_I3))
             cell->lcInfo.inputCount++;
+    } else if (cell->type == id_SB_IO) {
+        cell->ioInfo.lvds = str_or_default(cell->params, id_IO_STANDARD, "SB_LVCMOS") == "SB_LVDS_INPUT";
     }
 }
 

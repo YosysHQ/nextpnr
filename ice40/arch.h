@@ -817,7 +817,7 @@ struct Arch : BaseCtx
     bool isBelLocationValid(BelId bel) const;
 
     // Helper function for above
-    bool logicCellsCompatible(const CellInfo** it, const size_t size) const;
+    bool logicCellsCompatible(const CellInfo **it, const size_t size) const;
 
     // -------------------------------------------------
     // Assign architecure-specific arguments to nets and cells, which must be

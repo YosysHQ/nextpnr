@@ -38,7 +38,7 @@ class Settings
             if (!pair.second) {
                 return boost::lexical_cast<T>(pair.first->second);
             }
-            
+
         } catch (boost::bad_lexical_cast &) {
             log_error("Problem reading setting %s, using default value\n", name);
         }
@@ -51,7 +51,7 @@ class Settings
         auto pair = ctx->settings.emplace(id, std::to_string(value));
         if (!pair.second) {
             ctx->settings[pair.first->first] = value;
-        }        
+        }
     }
 
   private:

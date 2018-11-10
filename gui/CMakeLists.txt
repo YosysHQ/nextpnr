@@ -12,6 +12,12 @@ if (BUILD_PYTHON)
     
     ../3rdparty/python-console/modified/pyredirector.cc 
     ../3rdparty/python-console/modified/pyinterpreter.cc 
+    ../3rdparty/imgui/imgui_widgets.cpp
+    ../3rdparty/imgui/imgui_draw.cpp
+    ../3rdparty/imgui/imgui.cpp
+    ../3rdparty/imgui/imgui_demo.cpp
+    ../3rdparty/qtimgui/ImGuiRenderer.cpp
+    ../3rdparty/qtimgui/QtImGui.cpp    
   )
 endif()
 
@@ -27,7 +33,7 @@ set(GUI_LIBRARY_FILES_${ufamily} Qt5::Widgets Qt5::OpenGL ${OPENGL_LIBRARIES} Qt
 add_library(gui_${family} STATIC ${GUI_SOURCE_FILES} ${PYTHON_CONSOLE_SRC} ${GUI_RESOURCE_FILES})
 include(${family}/family.cmake)
 
-target_include_directories(gui_${family} PRIVATE ../${family} ${family} ../3rdparty/QtPropertyBrowser/src)
+target_include_directories(gui_${family} PRIVATE ../${family} ${family} ../3rdparty/QtPropertyBrowser/src ../3rdparty/imgui ../3rdparty/qtimgui/)
 if (BUILD_PYTHON)
   target_include_directories(gui_${family} PRIVATE ../3rdparty/python-console ../3rdparty/python-console/modified)
 endif()

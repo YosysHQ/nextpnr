@@ -98,6 +98,14 @@ std::ostream &operator<<(std::ostream &out, const TileConfig &tc);
 
 std::istream &operator>>(std::istream &in, TileConfig &ce);
 
+// A group of tiles to configure at once for a particular feature that is split across tiles
+// TileGroups are currently for non-routing configuration only
+struct TileGroup
+{
+    std::vector<std::string> tiles;
+    TileConfig config;
+};
+
 // This represents the configuration of a chip at a high level
 class ChipConfig
 {
@@ -105,6 +113,8 @@ class ChipConfig
     std::string chip_name;
     std::vector<std::string> metadata;
     std::map<std::string, TileConfig> tiles;
+    std::vector<TileGroup> tilegroups;
+    std::map<uint16_t, std::vector<uint16_t>> bram_data;
 };
 
 std::ostream &operator<<(std::ostream &out, const ChipConfig &cc);

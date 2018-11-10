@@ -35,6 +35,7 @@ class ECP5CommandHandler : public CommandHandler
     virtual ~ECP5CommandHandler(){};
     std::unique_ptr<Context> createContext() override;
     void setupArchContext(Context *ctx) override{};
+    void customAfterLoad(Context *ctx) override;
     void validate() override;
     void customBitstream(Context *ctx) override;
 
@@ -50,9 +51,19 @@ po::options_description ECP5CommandHandler::getArchOptions()
     specific.add_options()("25k", "set device type to LFE5U-25F");
     specific.add_options()("45k", "set device type to LFE5U-45F");
     specific.add_options()("85k", "set device type to LFE5U-85F");
+    specific.add_options()("um-25k", "set device type to LFE5UM-25F");
+    specific.add_options()("um-45k", "set device type to LFE5UM-45F");
+    specific.add_options()("um-85k", "set device type to LFE5UM-85F");
+    specific.add_options()("um5g-25k", "set device type to LFE5UM5G-25F");
+    specific.add_options()("um5g-45k", "set device type to LFE5UM5G-45F");
+    specific.add_options()("um5g-85k", "set device type to LFE5UM5G-85F");
+
     specific.add_options()("package", po::value<std::string>(), "select device package (defaults to CABGA381)");
     specific.add_options()("basecfg", po::value<std::string>(), "base chip configuration in Trellis text format");
     specific.add_options()("textcfg", po::value<std::string>(), "textual configuration in Trellis format to write");
+
+    specific.add_options()("lpf", po::value<std::vector<std::string>>(), "LPF pin constraint file(s)");
+
     return specific;
 }
 void ECP5CommandHandler::validate()
@@ -84,6 +95,18 @@ std::unique_ptr<Context> ECP5CommandHandler::createContext()
         chipArgs.type = ArchArgs::LFE5U_45F;
     if (vm.count("85k"))
         chipArgs.type = ArchArgs::LFE5U_85F;
+    if (vm.count("um-25k"))
+        chipArgs.type = ArchArgs::LFE5UM_25F;
+    if (vm.count("um-45k"))
+        chipArgs.type = ArchArgs::LFE5UM_45F;
+    if (vm.count("um-85k"))
+        chipArgs.type = ArchArgs::LFE5UM_85F;
+    if (vm.count("um5g-25k"))
+        chipArgs.type = ArchArgs::LFE5UM5G_25F;
+    if (vm.count("um5g-45k"))
+        chipArgs.type = ArchArgs::LFE5UM5G_45F;
+    if (vm.count("um5g-85k"))
+        chipArgs.type = ArchArgs::LFE5UM5G_85F;
     if (vm.count("package"))
         chipArgs.package = vm["package"].as<std::string>();
     else
@@ -91,6 +114,17 @@ std::unique_ptr<Context> ECP5CommandHandler::createContext()
     chipArgs.speed = 6;
 
     return std::unique_ptr<Context>(new Context(chipArgs));
+}
+
+void ECP5CommandHandler::customAfterLoad(Context *ctx)
+{
+    if (vm.count("lpf")) {
+        std::vector<std::string> files = vm["lpf"].as<std::vector<std::string>>();
+        for (const auto &filename : files) {
+            std::ifstream in(filename);
+            ctx->applyLPF(filename, in);
+        }
+    }
 }
 
 int main(int argc, char *argv[])

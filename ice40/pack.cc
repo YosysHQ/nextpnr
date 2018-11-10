@@ -159,7 +159,7 @@ static void pack_carries(Context *ctx)
                             exhausted_cells.find(usr.cell->name) == exhausted_cells.end()) {
                             // This clause stops us double-packing cells
                             i0_matches.insert(usr.cell->name);
-                            if (!i1_net) {
+                            if (!i1_net && !usr.cell->ports.at(ctx->id("I2")).net) {
                                 // I1 is don't care when disconnected, duplicate I0
                                 i1_matches.insert(usr.cell->name);
                             }
@@ -174,7 +174,7 @@ static void pack_carries(Context *ctx)
                             exhausted_cells.find(usr.cell->name) == exhausted_cells.end()) {
                             // This clause stops us double-packing cells
                             i1_matches.insert(usr.cell->name);
-                            if (!i0_net) {
+                            if (!i0_net && !usr.cell->ports.at(ctx->id("I1")).net) {
                                 // I0 is don't care when disconnected, duplicate I1
                                 i0_matches.insert(usr.cell->name);
                             }
@@ -391,6 +391,8 @@ static bool is_nextpnr_iob(Context *ctx, CellInfo *cell)
 static void pack_io(Context *ctx)
 {
     std::unordered_set<IdString> packed_cells;
+    std::unordered_set<IdString> delete_nets;
+
     std::vector<std::unique_ptr<CellInfo>> new_cells;
     log_info("Packing IOs..\n");
 
@@ -410,21 +412,27 @@ static void pack_io(Context *ctx)
                 log_info("%s feeds SB_IO %s, removing %s %s.\n", ci->name.c_str(ctx), sb->name.c_str(ctx),
                          ci->type.c_str(ctx), ci->name.c_str(ctx));
                 NetInfo *net = sb->ports.at(ctx->id("PACKAGE_PIN")).net;
+                if (((ci->type == ctx->id("$nextpnr_ibuf") || ci->type == ctx->id("$nextpnr_iobuf")) &&
+                     net->users.size() > 1) ||
+                    (ci->type == ctx->id("$nextpnr_obuf") && (net->users.size() > 2 || net->driver.cell != nullptr)))
+                    log_error("PACKAGE_PIN of SB_IO '%s' connected to more than a single top level IO.\n",
+                              sb->name.c_str(ctx));
+
                 if (net != nullptr) {
-                    ctx->nets.erase(net->name);
+                    delete_nets.insert(net->name);
                     sb->ports.at(ctx->id("PACKAGE_PIN")).net = nullptr;
                 }
                 if (ci->type == ctx->id("$nextpnr_iobuf")) {
                     NetInfo *net2 = ci->ports.at(ctx->id("I")).net;
                     if (net2 != nullptr) {
-                        ctx->nets.erase(net2->name);
+                        delete_nets.insert(net2->name);
                     }
                 }
             } else {
                 // Create a SB_IO buffer
                 std::unique_ptr<CellInfo> ice_cell =
                         create_ice_cell(ctx, ctx->id("SB_IO"), ci->name.str(ctx) + "$sb_io");
-                nxio_to_sb(ctx, ci, ice_cell.get());
+                nxio_to_sb(ctx, ci, ice_cell.get(), packed_cells);
                 new_cells.push_back(std::move(ice_cell));
                 sb = new_cells.back().get();
             }
@@ -434,6 +442,9 @@ static void pack_io(Context *ctx)
     }
     for (auto pcell : packed_cells) {
         ctx->cells.erase(pcell);
+    }
+    for (auto dnet : delete_nets) {
+        ctx->nets.erase(dnet);
     }
     for (auto &ncell : new_cells) {
         ctx->cells[ncell->name] = std::move(ncell);
@@ -451,6 +462,9 @@ static bool is_logic_port(BaseCtx *ctx, const PortRef &port)
 
 static void insert_global(Context *ctx, NetInfo *net, bool is_reset, bool is_cen, bool is_logic)
 {
+    log_info("promoting %s%s%s%s\n", net->name.c_str(ctx), is_reset ? " [reset]" : "", is_cen ? " [cen]" : "",
+             is_logic ? " [logic]" : "");
+
     std::string glb_name = net->name.str(ctx) + std::string("_$glb_") + (is_reset ? "sr" : (is_cen ? "ce" : "clk"));
     std::unique_ptr<CellInfo> gb = create_ice_cell(ctx, ctx->id("SB_GB"), "$gbuf_" + glb_name);
     gb->ports[ctx->id("USER_SIGNAL_TO_GLOBAL_BUFFER")].net = net;
@@ -717,6 +731,32 @@ static void pack_special(Context *ctx)
 
             NetInfo *pad_packagepin_net = nullptr;
 
+            int pllout_a_used = 0;
+            int pllout_b_used = 0;
+            for (auto port : ci->ports) {
+                PortInfo &pi = port.second;
+                if (pi.name == ctx->id("PLLOUTCOREA"))
+                    pllout_a_used++;
+                if (pi.name == ctx->id("PLLOUTCOREB"))
+                    pllout_b_used++;
+                if (pi.name == ctx->id("PLLOUTCORE"))
+                    pllout_a_used++;
+                if (pi.name == ctx->id("PLLOUTGLOBALA"))
+                    pllout_a_used++;
+                if (pi.name == ctx->id("PLLOUTGLOBALB"))
+                    pllout_b_used++;
+                if (pi.name == ctx->id("PLLOUTGLOBAL"))
+                    pllout_a_used++;
+            }
+
+            if (pllout_a_used > 1)
+                log_error("PLL '%s' is using multiple ports mapping to PLLOUT_A output of the PLL\n",
+                          ci->name.c_str(ctx));
+
+            if (pllout_b_used > 1)
+                log_error("PLL '%s' is using multiple ports mapping to PLLOUT_B output of the PLL\n",
+                          ci->name.c_str(ctx));
+
             for (auto port : ci->ports) {
                 PortInfo &pi = port.second;
                 std::string newname = pi.name.str(ctx);
@@ -730,10 +770,22 @@ static void pack_special(Context *ctx)
                     newname = "PLLOUT_B";
                 if (pi.name == ctx->id("PLLOUTCORE"))
                     newname = "PLLOUT_A";
+                if (pi.name == ctx->id("PLLOUTGLOBALA"))
+                    newname = "PLLOUT_A";
+                if (pi.name == ctx->id("PLLOUTGLOBALB"))
+                    newname = "PLLOUT_B";
+                if (pi.name == ctx->id("PLLOUTGLOBAL"))
+                    newname = "PLLOUT_A";
+
+                if (pi.name == ctx->id("PLLOUTGLOBALA") || pi.name == ctx->id("PLLOUTGLOBALB") ||
+                    pi.name == ctx->id("PLLOUTGLOBAL"))
+                    log_warning("PLL '%s' is using port %s but implementation does not actually "
+                                "use the global clock output of the PLL\n",
+                                ci->name.c_str(ctx), pi.name.str(ctx).c_str());
 
                 if (pi.name == ctx->id("PACKAGEPIN")) {
                     if (!is_pad) {
-                        log_error("PLL '%s' has a PACKAGEPIN but is not a PAD PLL", ci->name.c_str(ctx));
+                        log_error("PLL '%s' has a PACKAGEPIN but is not a PAD PLL\n", ci->name.c_str(ctx));
                     } else {
                         // We drop this port and instead place the PLL adequately below.
                         pad_packagepin_net = port.second.net;
@@ -743,18 +795,21 @@ static void pack_special(Context *ctx)
                 }
                 if (pi.name == ctx->id("REFERENCECLK")) {
                     if (!is_core)
-                        log_error("PLL '%s' has a REFERENCECLK but is not a CORE PLL", ci->name.c_str(ctx));
+                        log_error("PLL '%s' has a REFERENCECLK but is not a CORE PLL\n", ci->name.c_str(ctx));
                 }
 
                 if (packed->ports.count(ctx->id(newname)) == 0) {
                     if (ci->ports[pi.name].net == nullptr) {
-                        log_warning("PLL '%s' has unknown unconnected port '%s' - ignoring\n", ci->name.c_str(ctx), pi.name.c_str(ctx));
+                        log_warning("PLL '%s' has unknown unconnected port '%s' - ignoring\n", ci->name.c_str(ctx),
+                                    pi.name.c_str(ctx));
                         continue;
                     } else {
                         if (ctx->force) {
-                            log_error("PLL '%s' has unknown connected port '%s'\n", ci->name.c_str(ctx), pi.name.c_str(ctx));
+                            log_error("PLL '%s' has unknown connected port '%s'\n", ci->name.c_str(ctx),
+                                      pi.name.c_str(ctx));
                         } else {
-                            log_warning("PLL '%s' has unknown connected port '%s' - ignoring\n", ci->name.c_str(ctx), pi.name.c_str(ctx));
+                            log_warning("PLL '%s' has unknown connected port '%s' - ignoring\n", ci->name.c_str(ctx),
+                                        pi.name.c_str(ctx));
                             continue;
                         }
                     }
@@ -806,13 +861,15 @@ static void pack_special(Context *ctx)
                         packagepin_cell->ports.erase(pll_packagepin_driver.port);
                     }
 
-                    log_info("  constrained PLL '%s' to %s\n", packed->name.c_str(ctx), ctx->getBelName(bel).c_str(ctx));
+                    log_info("  constrained PLL '%s' to %s\n", packed->name.c_str(ctx),
+                             ctx->getBelName(bel).c_str(ctx));
                     packed->attrs[ctx->id("BEL")] = ctx->getBelName(bel).str(ctx);
                     pll_bel = bel;
                     constrained = true;
                 }
                 if (!constrained) {
-                    log_error("Could not constrain PLL '%s' to any PLL Bel (too many PLLs?)\n", packed->name.c_str(ctx));
+                    log_error("Could not constrain PLL '%s' to any PLL Bel (too many PLLs?)\n",
+                              packed->name.c_str(ctx));
                 }
             }
 
@@ -831,8 +888,7 @@ static void pack_special(Context *ctx)
             // If we have a net connected to LOCK, make sure it only drives LUTs.
             auto port = packed->ports[ctx->id("LOCK")];
             if (port.net != nullptr) {
-                log_info("  PLL '%s' has LOCK output, need to pass all outputs via LUT\n",
-                                ci->name.c_str(ctx));
+                log_info("  PLL '%s' has LOCK output, need to pass all outputs via LUT\n", ci->name.c_str(ctx));
                 bool found_lut = false;
                 bool all_luts = true;
                 unsigned int lut_count = 0;

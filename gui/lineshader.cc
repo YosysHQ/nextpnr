@@ -162,75 +162,107 @@ bool LineShader::compile(void)
         return false;
     }
 
-    if (!vao_.create())
-        log_abort();
-    vao_.bind();
-
-    if (!buffers_.position.create())
-        log_abort();
-    if (!buffers_.normal.create())
-        log_abort();
-    if (!buffers_.miter.create())
-        log_abort();
-    if (!buffers_.index.create())
-        log_abort();
-
+    program_->bind();
     attributes_.position = program_->attributeLocation("position");
     attributes_.normal = program_->attributeLocation("normal");
     attributes_.miter = program_->attributeLocation("miter");
     uniforms_.thickness = program_->uniformLocation("thickness");
     uniforms_.projection = program_->uniformLocation("projection");
     uniforms_.color = program_->uniformLocation("color");
+    program_->release();
 
-    vao_.release();
+    for (int style = 0; style < GraphicElement::STYLE_MAX; style++) {
+        buffers_[style].position = QOpenGLBuffer(QOpenGLBuffer::VertexBuffer);
+        buffers_[style].normal = QOpenGLBuffer(QOpenGLBuffer::VertexBuffer);
+        buffers_[style].miter = QOpenGLBuffer(QOpenGLBuffer::VertexBuffer);
+        buffers_[style].index = QOpenGLBuffer(QOpenGLBuffer::IndexBuffer);
+
+        if (!buffers_[style].vao.create())
+            log_abort();
+        buffers_[style].vao.bind();
+
+        if (!buffers_[style].position.create())
+            log_abort();
+        if (!buffers_[style].normal.create())
+            log_abort();
+        if (!buffers_[style].miter.create())
+            log_abort();
+        if (!buffers_[style].index.create())
+            log_abort();
+
+        buffers_[style].position.setUsagePattern(QOpenGLBuffer::StaticDraw);
+        buffers_[style].normal.setUsagePattern(QOpenGLBuffer::StaticDraw);
+        buffers_[style].miter.setUsagePattern(QOpenGLBuffer::StaticDraw);
+        buffers_[style].index.setUsagePattern(QOpenGLBuffer::StaticDraw);
+
+        buffers_[style].position.bind();
+        buffers_[style].normal.bind();
+        buffers_[style].miter.bind();
+        buffers_[style].index.bind();
+
+        buffers_[style].vao.release();
+    }
+
     return true;
 }
 
-void LineShader::draw(const LineShaderData &line, const QColor &color, float thickness, const QMatrix4x4 &projection)
+void LineShader::update_vbos(enum GraphicElement::style_t style, const LineShaderData &line)
+{
+    if (buffers_[style].last_vbo_update == line.last_render)
+        return;
+    buffers_[style].last_vbo_update = line.last_render;
+
+    buffers_[style].indices = line.indices.size();
+    if (buffers_[style].indices == 0)
+        return;
+
+    buffers_[style].position.bind();
+    buffers_[style].position.allocate(&line.vertices[0], sizeof(Vertex2DPOD) * line.vertices.size());
+
+    buffers_[style].normal.bind();
+    buffers_[style].normal.allocate(&line.normals[0], sizeof(Vertex2DPOD) * line.normals.size());
+
+    buffers_[style].miter.bind();
+    buffers_[style].miter.allocate(&line.miters[0], sizeof(GLfloat) * line.miters.size());
+
+    buffers_[style].index.bind();
+    buffers_[style].index.allocate(&line.indices[0], sizeof(GLuint) * line.indices.size());
+}
+
+void LineShader::draw(enum GraphicElement::style_t style, const QColor &color, float thickness,
+                      const QMatrix4x4 &projection)
 {
     auto gl = QOpenGLContext::currentContext()->functions();
-    if (line.vertices.size() == 0)
+    if (buffers_[style].indices == 0)
         return;
-    vao_.bind();
     program_->bind();
-
-    buffers_.position.bind();
-    buffers_.position.allocate(&line.vertices[0], sizeof(Vertex2DPOD) * line.vertices.size());
-
-    buffers_.normal.bind();
-    buffers_.normal.allocate(&line.normals[0], sizeof(Vertex2DPOD) * line.normals.size());
-
-    buffers_.miter.bind();
-    buffers_.miter.allocate(&line.miters[0], sizeof(GLfloat) * line.miters.size());
-
-    buffers_.index.bind();
-    buffers_.index.allocate(&line.indices[0], sizeof(GLuint) * line.indices.size());
+    buffers_[style].vao.bind();
 
     program_->setUniformValue(uniforms_.projection, projection);
     program_->setUniformValue(uniforms_.thickness, thickness);
     program_->setUniformValue(uniforms_.color, color.redF(), color.greenF(), color.blueF(), color.alphaF());
 
-    buffers_.position.bind();
-    program_->enableAttributeArray("position");
-    gl->glVertexAttribPointer(attributes_.position, 2, GL_FLOAT, GL_FALSE, 0, (void *)0);
+    buffers_[style].position.bind();
+    program_->enableAttributeArray(attributes_.position);
+    program_->setAttributeBuffer(attributes_.position, GL_FLOAT, 0, 2);
 
-    buffers_.normal.bind();
-    program_->enableAttributeArray("normal");
-    gl->glVertexAttribPointer(attributes_.normal, 2, GL_FLOAT, GL_FALSE, 0, (void *)0);
+    buffers_[style].normal.bind();
+    program_->enableAttributeArray(attributes_.normal);
+    program_->setAttributeBuffer(attributes_.normal, GL_FLOAT, 0, 2);
 
-    buffers_.miter.bind();
-    program_->enableAttributeArray("miter");
-    gl->glVertexAttribPointer(attributes_.miter, 1, GL_FLOAT, GL_FALSE, 0, (void *)0);
+    buffers_[style].miter.bind();
+    program_->enableAttributeArray(attributes_.miter);
+    program_->setAttributeBuffer(attributes_.miter, GL_FLOAT, 0, 1);
 
-    buffers_.index.bind();
-    gl->glDrawElements(GL_TRIANGLES, line.indices.size(), GL_UNSIGNED_INT, (void *)0);
+    buffers_[style].index.bind();
+    gl->glDrawElements(GL_TRIANGLES, buffers_[style].indices, GL_UNSIGNED_INT, (void *)0);
 
-    program_->disableAttributeArray("miter");
-    program_->disableAttributeArray("normal");
-    program_->disableAttributeArray("position");
+    program_->disableAttributeArray(attributes_.position);
+    program_->disableAttributeArray(attributes_.normal);
+    program_->disableAttributeArray(attributes_.miter);
 
+    buffers_[style].vao.release();
     program_->release();
-    vao_.release();
 }
 
 NEXTPNR_NAMESPACE_END

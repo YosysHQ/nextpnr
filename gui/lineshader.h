@@ -25,7 +25,9 @@
 #include <QOpenGLShaderProgram>
 #include <QOpenGLVertexArrayObject>
 #include <QOpenGLWidget>
+#include <array>
 
+#include "log.h"
 #include "nextpnr.h"
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -49,7 +51,7 @@ struct LineShaderData
     std::vector<GLfloat> miters;
     std::vector<GLuint> indices;
 
-    LineShaderData(void) {}
+    int last_render = 0;
 
     void clear(void)
     {
@@ -142,13 +144,18 @@ class LineShader
     } attributes_;
 
     // GL buffers
-    struct
+    struct Buffers
     {
         QOpenGLBuffer position;
         QOpenGLBuffer normal;
         QOpenGLBuffer miter;
         QOpenGLBuffer index;
-    } buffers_;
+        QOpenGLVertexArrayObject vao;
+        int indices = 0;
+
+        int last_vbo_update = 0;
+    };
+    std::array<Buffers, GraphicElement::STYLE_MAX> buffers_;
 
     // GL uniform locations.
     struct
@@ -161,23 +168,8 @@ class LineShader
         GLuint color;
     } uniforms_;
 
-    QOpenGLVertexArrayObject vao_;
-
   public:
-    LineShader(QObject *parent) : parent_(parent), program_(nullptr)
-    {
-        buffers_.position = QOpenGLBuffer(QOpenGLBuffer::VertexBuffer);
-        buffers_.position.setUsagePattern(QOpenGLBuffer::StaticDraw);
-
-        buffers_.normal = QOpenGLBuffer(QOpenGLBuffer::VertexBuffer);
-        buffers_.normal.setUsagePattern(QOpenGLBuffer::StaticDraw);
-
-        buffers_.miter = QOpenGLBuffer(QOpenGLBuffer::VertexBuffer);
-        buffers_.miter.setUsagePattern(QOpenGLBuffer::StaticDraw);
-
-        buffers_.index = QOpenGLBuffer(QOpenGLBuffer::IndexBuffer);
-        buffers_.index.setUsagePattern(QOpenGLBuffer::StaticDraw);
-    }
+    LineShader(QObject *parent) : parent_(parent), program_(nullptr) {}
 
     static constexpr const char *vertexShaderSource_ =
             "#version 110\n"
@@ -200,8 +192,10 @@ class LineShader
     // Must be called on initialization.
     bool compile(void);
 
+    void update_vbos(enum GraphicElement::style_t style, const LineShaderData &line);
+
     // Render a LineShaderData with a given M/V/P transformation.
-    void draw(const LineShaderData &data, const QColor &color, float thickness, const QMatrix4x4 &projection);
+    void draw(enum GraphicElement::style_t style, const QColor &color, float thickness, const QMatrix4x4 &projection);
 };
 
 NEXTPNR_NAMESPACE_END
