@@ -247,6 +247,8 @@ remove_wire_arcs:
             if (skip_net(net_info))
                 continue;
 
+            // log("[check] net: %s\n", net_info->name.c_str(ctx));
+
             auto src_wire = ctx->getNetinfoSourceWire(net_info);
             log_assert(src_wire != WireId());
 
@@ -259,8 +261,10 @@ remove_wire_arcs:
                 arc.user_idx = user_idx;
 
                 valid_arcs.insert(arc);
+                // log("[check]   arc: %s %s\n", ctx->getWireName(src_wire).c_str(ctx), ctx->getWireName(dst_wire).c_str(ctx));
 
                 for (WireId wire : arc_to_wires[arc]) {
+                    // log("[check]     wire: %s\n", ctx->getWireName(wire).c_str(ctx));
                     valid_wires_for_net.insert(wire);
                     log_assert(wire_to_arcs[wire].count(arc));
                     log_assert(net_info->wires.count(wire));
@@ -567,14 +571,14 @@ remove_wire_arcs:
                 }
             }
 
-            if (ctx->checkWireAvail(cursor)) {
+            if (net_info->wires.count(cursor) == 0 || net_info->wires.at(cursor).pip != pip) {
                 if (pip == PipId()) {
                     if (ctx->debug)
-                        log("    bind %s\n", ctx->getWireName(cursor).c_str(ctx));
+                        log("    bind wire %s\n", ctx->getWireName(cursor).c_str(ctx));
                     ctx->bindWire(cursor, net_info, STRENGTH_WEAK);
-                } else if (ctx->checkPipAvail(pip)) {
+                } else {
                     if (ctx->debug)
-                        log("    bind %s\n", ctx->getPipName(pip).c_str(ctx));
+                        log("    bind pip %s\n", ctx->getPipName(pip).c_str(ctx));
                     ctx->bindPip(pip, net_info, STRENGTH_WEAK);
                 }
             }
@@ -660,6 +664,7 @@ bool router1(Context *ctx, const Router1Cfg &cfg)
                 log_warning("Failed to find a route for arc %d of net %s.\n",
                         arc.user_idx, arc.net_info->name.c_str(ctx));
 #ifndef NDEBUG
+                router.check();
                 ctx->check();
 #endif
                 ctx->unlock();
