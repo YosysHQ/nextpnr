@@ -432,7 +432,8 @@ WireId Arch::getBelPinWire(BelId bel, IdString pin) const
     WireId ret;
 
     auto pin_name = pin.str(this);
-    if (getBelType(bel) == id_SLICE_LUT6) {
+    auto bel_type = getBelType(bel);
+    if (bel_type == id_SLICE_LUT6) {
         // For all LUT based inputs and outputs (I1-I6,O,OQ,OMUX) then change the I/O into the LUT
         if (pin_name[0] == 'I' || pin_name[0] == 'O') {
             switch (torc_info->bel_to_loc[bel.index].z) {
@@ -457,6 +458,12 @@ WireId Arch::getBelPinWire(BelId bel, IdString pin) const
             }
         }
     }
+    else if (bel_type == id_PS7) {
+        // e.g. Convert DDRARB[0] -> DDRARB0
+        boost::erase_all(pin_name, "[");
+        boost::erase_all(pin_name, "]");
+    }
+
     auto site_index = torc_info->bel_to_site_index[bel.index];
     const auto &site = torc_info->sites.getSite(site_index);
     auto &tw = site.getPinTilewire(pin_name);
@@ -993,6 +1000,10 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, Id
         if (port == id_O)
             return TMG_COMB_OUTPUT;
         return TMG_COMB_INPUT;
+    }
+    else if (cell->type == id_PS7) {
+        // TODO
+        return TMG_IGNORE;
     }
     log_error("no timing info for port '%s' of cell type '%s'\n", port.c_str(this), cell->type.c_str(this));
 }

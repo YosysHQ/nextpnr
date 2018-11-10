@@ -68,7 +68,7 @@ void write_xdl(const Context *ctx, std::ostream &out)
         const char *type;
         if (cell.second->type == id_SLICE_LUT6)
             type = "SLICEL";
-        else if (cell.second->type == id_IOB33 || cell.second->type == id_BUFGCTRL)
+        else if (cell.second->type == id_IOB33 || cell.second->type == id_BUFGCTRL || cell.second->type == id_PS7)
             type = cell.second->type.c_str(ctx);
         else
             log_error("Unsupported cell type '%s'.\n", cell.second->type.c_str(ctx));
@@ -205,6 +205,7 @@ void write_xdl(const Context *ctx, std::ostream &out)
             instPtr->setConfig("CE1INV", "", "CE1");
             instPtr->setConfig("S1INV", "", "S1");
             instPtr->setConfig("IGNORE1INV", "", "IGNORE1");
+        } else if (cell.second->type == id_PS7) {
         } else
             log_error("Unsupported cell type '%s'.\n", cell.second->type.c_str(ctx));
     }
