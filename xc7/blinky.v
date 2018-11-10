@@ -5,6 +5,7 @@ module blinky (
     output led2,
     output led3
 );
+    `include "ps7.vh"
 
     BUFGCTRL clk_gb (
         .I0(clki),
