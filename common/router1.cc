@@ -132,6 +132,14 @@ struct Router1
         arc_queue_insert(arc, src_wire, dst_wire);
     }
 
+    arc_key arc_queue_pop()
+    {
+        arc_entry entry = arc_queue.top();
+        arc_queue.pop();
+        queued_arcs.erase(entry.arc);
+        return entry.arc;
+    }
+
     void ripup_net(NetInfo *net)
     {
         if (ctx->debug)
@@ -207,10 +215,10 @@ struct Router1
             // ECP5 global nets currently appear part-unrouted due to arch database limitations
             // Don't touch them in the router
             if (net_info->is_global)
-                return;
+                continue;
 #endif
             if (net_info->driver.cell == nullptr)
-                return;
+                continue;
 
             auto src_wire = ctx->getNetinfoSourceWire(net_info);
 
@@ -254,14 +262,6 @@ struct Router1
             for (auto it : unbind_wires)
                 ctx->unbindWire(it);
         }
-    }
-
-    arc_key arc_queue_pop()
-    {
-        arc_entry entry = arc_queue.top();
-        arc_queue.pop();
-        queued_arcs.erase(entry.arc);
-        return entry.arc;
     }
 
     bool route_arc(const arc_key &arc, bool ripup)
