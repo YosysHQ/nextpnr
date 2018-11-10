@@ -649,7 +649,9 @@ bool router1(Context *ctx, const Router1Cfg &cfg)
                         router.arcs_without_ripup - last_arcs_without_ripup, int(router.arc_queue.size()));
                 last_arcs_with_ripup = router.arcs_with_ripup;
                 last_arcs_without_ripup = router.arcs_without_ripup;
+#ifndef NDEBUG
                 router.check();
+#endif
             }
 
             arc_key arc = router.arc_queue_pop();
@@ -669,18 +671,17 @@ bool router1(Context *ctx, const Router1Cfg &cfg)
                 iter_cnt, router.arcs_with_ripup, router.arcs_without_ripup,
                 router.arcs_with_ripup - last_arcs_with_ripup,
                 router.arcs_without_ripup - last_arcs_without_ripup, int(router.arc_queue.size()));
+        log_info("Routing complete.\n");
+
 #ifndef NDEBUG
         router.check();
+        ctx->check();
+        log_assert(ctx->checkRoutedDesign());
 #endif
-
-        log_info("Routing complete.\n");
-        ctx->checkRoutedDesign();
 
         log_info("Checksum: 0x%08x\n", ctx->checksum());
-#ifndef NDEBUG
-        ctx->check();
-#endif
         timing_analysis(ctx, true /* slack_histogram */, true /* print_path */);
+
         ctx->unlock();
         return true;
     } catch (log_execution_error_exception) {
@@ -772,9 +773,11 @@ bool Context::checkRoutedDesign() const
                 }
                 if (db_entry.children.empty()) {
                     if (dest_wires.count(w) != 0) {
-                        log("  %*s=> sink %d\n", 2*num, "", dest_wires.at(w));
+                        if (ctx->debug)
+                            log("  %*s=> sink %d\n", 2*num, "", dest_wires.at(w));
                     } else {
-                        log("  %*s=> stub\n", 2*num, "");
+                        if (ctx->debug)
+                            log("  %*s=> stub\n", 2*num, "");
                         found_stub = true;
                     }
                 }
@@ -820,10 +823,34 @@ bool Context::checkRoutedDesign() const
                 }
             }
 
-            log_assert(!found_unrouted);
-            log_assert(!found_loop);
-            log_assert(!found_stub);
-            log_assert(dangling_wires.empty());
+            bool fail = false;
+
+            if (found_unrouted) {
+                if (ctx->debug)
+                    log("check failed: found unrouted arcs\n");
+                fail = true;
+            }
+
+            if (found_loop) {
+                if (ctx->debug)
+                    log("check failed: found loops\n");
+                fail = true;
+            }
+
+            if (found_stub) {
+                if (ctx->debug)
+                    log("check failed: found stubs\n");
+                fail = true;
+            }
+
+            if (!dangling_wires.empty()) {
+                if (ctx->debug)
+                    log("check failed: found dangling wires\n");
+                fail = true;
+            }
+
+            if (fail)
+                return false;
         }
 
         return true;
