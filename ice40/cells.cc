@@ -383,6 +383,10 @@ bool is_clock_port(const BaseCtx *ctx, const PortRef &port)
                port.port == ctx->id("WCLKN");
     if (is_sb_mac16(ctx, port.cell) || port.cell->type == ctx->id("ICESTORM_DSP"))
         return port.port == ctx->id("CLK");
+    if (is_sb_spram(ctx, port.cell) || port.cell->type == ctx->id("ICESTORM_SPRAM"))
+        return port.port == id_CLOCK;
+    if (is_sb_io(ctx, port.cell))
+        return port.port == id_INPUT_CLK || port.port == id_OUTPUT_CLK;
     return false;
 }
 

@@ -43,7 +43,7 @@ class MainWindow : public BaseMainWindow
     void onProjectLoaded() override;
 
   protected Q_SLOTS:
-    virtual void new_proj();
+    void new_proj() override;
     void newContext(Context *ctx);
     void open_lpf();
     void open_base();
