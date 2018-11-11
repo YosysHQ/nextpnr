@@ -18,6 +18,7 @@
  */
 
 #include "nextpnr.h"
+#include "log.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -25,6 +26,7 @@ assertion_failure::assertion_failure(std::string msg, std::string expr_str, std:
         : runtime_error("Assertion failure: " + msg + " (" + filename + ":" + std::to_string(line) + ")"), msg(msg),
           expr_str(expr_str), filename(filename), line(line)
 {
+    log_flush();
 }
 
 void IdString::set(const BaseCtx *ctx, const std::string &s)

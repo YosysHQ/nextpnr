@@ -404,7 +404,7 @@ struct Arch : BaseCtx
     std::vector<CellInfo *> bel_to_cell;
     std::vector<NetInfo *> wire_to_net;
     std::vector<NetInfo *> pip_to_net;
-    std::vector<NetInfo *> switches_locked;
+    std::vector<WireId> switches_locked;
 
     ArchArgs args;
     Arch(ArchArgs args);
@@ -546,7 +546,7 @@ struct Arch : BaseCtx
         auto pip = it->second.pip;
         if (pip != PipId()) {
             pip_to_net[pip.index] = nullptr;
-            switches_locked[chip_info->pip_data[pip.index].switch_index] = nullptr;
+            switches_locked[chip_info->pip_data[pip.index].switch_index] = WireId();
         }
 
         net_wires.erase(it);
@@ -564,6 +564,11 @@ struct Arch : BaseCtx
     {
         NPNR_ASSERT(wire != WireId());
         return wire_to_net[wire.index];
+    }
+
+    WireId getConflictingWireWire(WireId wire) const
+    {
+        return wire;
     }
 
     NetInfo *getConflictingWireNet(WireId wire) const
@@ -608,14 +613,15 @@ struct Arch : BaseCtx
     {
         NPNR_ASSERT(pip != PipId());
         NPNR_ASSERT(pip_to_net[pip.index] == nullptr);
-        NPNR_ASSERT(switches_locked[chip_info->pip_data[pip.index].switch_index] == nullptr);
-
-        pip_to_net[pip.index] = net;
-        switches_locked[chip_info->pip_data[pip.index].switch_index] = net;
+        NPNR_ASSERT(switches_locked[chip_info->pip_data[pip.index].switch_index] == WireId());
 
         WireId dst;
         dst.index = chip_info->pip_data[pip.index].dst;
         NPNR_ASSERT(wire_to_net[dst.index] == nullptr);
+
+        pip_to_net[pip.index] = net;
+        switches_locked[chip_info->pip_data[pip.index].switch_index] = dst;
+
         wire_to_net[dst.index] = net;
         net->wires[dst].pip = pip;
         net->wires[dst].strength = strength;
@@ -627,7 +633,7 @@ struct Arch : BaseCtx
     {
         NPNR_ASSERT(pip != PipId());
         NPNR_ASSERT(pip_to_net[pip.index] != nullptr);
-        NPNR_ASSERT(switches_locked[chip_info->pip_data[pip.index].switch_index] != nullptr);
+        NPNR_ASSERT(switches_locked[chip_info->pip_data[pip.index].switch_index] != WireId());
 
         WireId dst;
         dst.index = chip_info->pip_data[pip.index].dst;
@@ -636,33 +642,39 @@ struct Arch : BaseCtx
         pip_to_net[pip.index]->wires.erase(dst);
 
         pip_to_net[pip.index] = nullptr;
-        switches_locked[chip_info->pip_data[pip.index].switch_index] = nullptr;
+        switches_locked[chip_info->pip_data[pip.index].switch_index] = WireId();
         refreshUiPip(pip);
         refreshUiWire(dst);
     }
 
-    bool checkPipAvail(PipId pip) const
+    bool ice40_pip_hard_unavail(PipId pip) const
     {
         NPNR_ASSERT(pip != PipId());
         auto &pi = chip_info->pip_data[pip.index];
         auto &si = chip_info->bits_info->switches[pi.switch_index];
 
-        if (switches_locked[pi.switch_index] != nullptr)
-            return false;
-
         if (pi.flags & PipInfoPOD::FLAG_ROUTETHRU) {
             NPNR_ASSERT(si.bel >= 0);
             if (bel_to_cell[si.bel] != nullptr)
-                return false;
+                return true;
         }
 
         if (pi.flags & PipInfoPOD::FLAG_NOCARRY) {
             NPNR_ASSERT(si.bel >= 0);
             if (bel_carry[si.bel])
-                return false;
+                return true;
         }
 
-        return true;
+        return false;
+    }
+
+    bool checkPipAvail(PipId pip) const
+    {
+        if (ice40_pip_hard_unavail(pip))
+            return false;
+
+        auto &pi = chip_info->pip_data[pip.index];
+        return switches_locked[pi.switch_index] == WireId();
     }
 
     NetInfo *getBoundPipNet(PipId pip) const
@@ -671,10 +683,21 @@ struct Arch : BaseCtx
         return pip_to_net[pip.index];
     }
 
+    WireId getConflictingPipWire(PipId pip) const
+    {
+        if (ice40_pip_hard_unavail(pip))
+            return WireId();
+
+        return switches_locked[chip_info->pip_data[pip.index].switch_index];
+    }
+
     NetInfo *getConflictingPipNet(PipId pip) const
     {
-        NPNR_ASSERT(pip != PipId());
-        return switches_locked[chip_info->pip_data[pip.index].switch_index];
+        if (ice40_pip_hard_unavail(pip))
+            return nullptr;
+
+        WireId wire = switches_locked[chip_info->pip_data[pip.index].switch_index];
+        return wire == WireId() ? nullptr : wire_to_net[wire.index];
     }
 
     AllPipRange getPips() const
