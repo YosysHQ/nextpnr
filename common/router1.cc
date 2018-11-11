@@ -99,7 +99,6 @@ struct Router1
     std::priority_queue<QueuedWire, std::vector<QueuedWire>, QueuedWire::Greater> queue;
 
     std::unordered_map<WireId, int> wireScores;
-    std::unordered_map<PipId, int> pipScores;
     std::unordered_map<NetInfo*, int> netScores;
 
     int arcs_with_ripup = 0;
@@ -125,6 +124,9 @@ struct Router1
 
     void arc_queue_insert(const arc_key &arc)
     {
+        if (queued_arcs.count(arc))
+            return;
+
         NetInfo *net_info = arc.net_info;
         int user_idx = arc.user_idx;
 
@@ -151,10 +153,19 @@ struct Router1
 
         auto net_wires_copy = net->wires;
         for (auto &it : net_wires_copy) {
-            if (it.second.pip == PipId())
-                ripup_wire(it.first, 4);
-            else
-                ripup_pip(it.second.pip, 4);
+            WireId w = it.first;
+
+            for (auto &it : wire_to_arcs[w]) {
+                arc_to_wires[it].erase(w);
+                arc_queue_insert(it);
+            }
+            wire_to_arcs[w].clear();
+
+            if (ctx->debug)
+                log("        unbind wire %s\n", ctx->getWireName(w).c_str(ctx));
+
+            ctx->unbindWire(w);
+            wireScores[w]++;
         }
 
         ripup_flag = true;
@@ -163,64 +174,54 @@ struct Router1
     void ripup_wire(WireId wire, int extra_indent = 0)
     {
         if (ctx->debug)
-            log("    %*sripup wire %s\n", extra_indent, "", ctx->getWireName(wire).c_str(ctx));
+            log("    ripup wire %s\n", ctx->getWireName(wire).c_str(ctx));
 
-        wireScores[wire]++;
+        WireId w = ctx->getConflictingWireWire(wire);
 
-        if (ctx->getBoundWireNet(wire)) {
-            for (auto &it : wire_to_arcs[wire]) {
-                arc_to_wires[it].erase(wire);
+        if (w == WireId()) {
+            NetInfo *n = ctx->getConflictingWireNet(wire);
+            if (n != nullptr)
+                ripup_net(n);
+        } else {
+            for (auto &it : wire_to_arcs[w]) {
+                arc_to_wires[it].erase(w);
                 arc_queue_insert(it);
             }
-            wire_to_arcs[wire].clear();
-            ctx->unbindWire(wire);
-        }
+            wire_to_arcs[w].clear();
 
-        NetInfo *net = ctx->getConflictingWireNet(wire);
-        if (net != nullptr) {
-            wireScores[wire] += net->wires.size();
-            ripup_net(net);
+            if (ctx->debug)
+                log("      unbind wire %s\n", ctx->getWireName(w).c_str(ctx));
+
+            ctx->unbindWire(w);
+            wireScores[w]++;
         }
 
         ripup_flag = true;
     }
 
-    void ripup_pip(PipId pip, int extra_indent = 0)
+    void ripup_pip(PipId pip)
     {
-        WireId wire = ctx->getPipDstWire(pip);
-
         if (ctx->debug)
-            log("    %*sripup pip %s (%s)\n", extra_indent, "", ctx->getPipName(pip).c_str(ctx), ctx->getWireName(wire).c_str(ctx));
+            log("    ripup pip %s\n", ctx->getPipName(pip).c_str(ctx));
 
-        pipScores[pip]++;
+        WireId w = ctx->getConflictingPipWire(pip);
 
-        if (ctx->getBoundPipNet(pip)) {
-            ctx->unbindPip(pip);
-            goto remove_wire_arcs;
-        }
-
-        if (ctx->getBoundWireNet(wire)) {
-            ctx->unbindWire(wire);
-            goto remove_wire_arcs;
-        }
-
-        if (0) {
-remove_wire_arcs:
-            wireScores[wire]++;
-            for (auto &it : wire_to_arcs[wire]) {
-                arc_to_wires[it].erase(wire);
+        if (w == WireId()) {
+            NetInfo *n = ctx->getConflictingPipNet(pip);
+            if (n != nullptr)
+                ripup_net(n);
+        } else {
+            for (auto &it : wire_to_arcs[w]) {
+                arc_to_wires[it].erase(w);
                 arc_queue_insert(it);
             }
-            wire_to_arcs[wire].clear();
-        }
+            wire_to_arcs[w].clear();
 
-        NetInfo *net = ctx->getConflictingPipNet(pip);
-        if (net != nullptr) {
-            wire = ctx->getConflictingPipWire(pip);
-            if (wire != WireId())
-                ripup_wire(wire, 2);
-            else
-                ripup_net(net);
+            if (ctx->debug)
+                log("      unbind wire %s\n", ctx->getWireName(w).c_str(ctx));
+
+            ctx->unbindWire(w);
+            wireScores[w]++;
         }
 
         ripup_flag = true;
@@ -455,57 +456,80 @@ remove_wire_arcs:
                 WireId next_wire = ctx->getPipDstWire(pip);
                 next_delay += ctx->getWireDelay(next_wire).maxDelay();
 
-                if (!ctx->checkWireAvail(next_wire)) {
-                    NetInfo *ripupWireNet = ctx->getConflictingWireNet(next_wire);
+                WireId conflictWireWire = WireId(), conflictPipWire = WireId();
+                NetInfo *conflictWireNet = nullptr, *conflictPipNet = nullptr;
 
-                    if (ripupWireNet == nullptr)
+                bool wire_reuse = net_info->wires.count(next_wire);
+                bool pip_reuse = wire_reuse && net_info->wires.at(next_wire).pip == pip;
+
+                if (!ctx->checkWireAvail(next_wire) && !wire_reuse) {
+                    if (!ripup)
                         continue;
-
-                    if (ripupWireNet == net_info) {
-                        next_bonus += cfg.wireReuseBonus;
-                    } else {
-                        if (!ripup)
+                    conflictWireWire = ctx->getConflictingWireWire(next_wire);
+                    if (conflictWireWire == WireId()) {
+                        conflictWireNet = ctx->getConflictingWireNet(next_wire);
+                        if (conflictWireNet == nullptr)
                             continue;
-
-                        next_penalty += cfg.wireRipupPenalty;
-
-                        auto scores_it = wireScores.find(next_wire);
-                        if (scores_it != wireScores.end())
-                            next_penalty += scores_it->second * cfg.wireRipupPenalty;
                     }
                 }
 
-                if (!ctx->checkPipAvail(pip)) {
-                    NetInfo *ripupPipNet = ctx->getConflictingPipNet(pip);
-
-                    if (ripupPipNet == nullptr)
+                if (!ctx->checkPipAvail(pip) && !pip_reuse) {
+                    if (!ripup)
                         continue;
-
-                    if (ripupPipNet == net_info) {
-                        auto net_info_wire_it = net_info->wires.find(next_wire);
-                        if (net_info_wire_it == net_info->wires.end() || net_info_wire_it->second.pip != pip)
-                            goto pip_self_ripup;
-                        next_bonus += cfg.pipReuseBonus;
-                    } else {
-pip_self_ripup:
-                        if (!ripup)
+                    conflictPipWire = ctx->getConflictingPipWire(pip);
+                    if (conflictPipWire == WireId()) {
+                        conflictPipNet = ctx->getConflictingPipNet(pip);
+                        if (conflictPipNet == nullptr)
                             continue;
-
-                        next_penalty += cfg.pipRipupPenalty;
-
-                        auto pip_scores_it = pipScores.find(pip);
-                        if (pip_scores_it != pipScores.end())
-                            next_penalty += pip_scores_it->second * cfg.pipRipupPenalty;
-
-                        if (ctx->getConflictingPipWire(pip) == WireId()) {
-                            auto net_scores_it = netScores.find(ripupPipNet);
-                            if (net_scores_it != netScores.end())
-                                next_penalty += net_scores_it->second * cfg.netRipupPenalty;
-
-                            next_penalty += ripupPipNet->wires.size() * cfg.wireRipupPenalty;
-                            next_penalty += (ripupPipNet->wires.size()-1) * cfg.pipRipupPenalty;
-                        }
                     }
+                }
+
+                if (conflictWireNet != nullptr && conflictPipWire != WireId() && conflictWireNet->wires.count(conflictPipWire))
+                    conflictPipWire = WireId();
+
+                if (conflictPipNet != nullptr && conflictWireWire != WireId() && conflictPipNet->wires.count(conflictWireWire))
+                    conflictWireWire = WireId();
+
+                if (conflictWireWire == conflictPipWire)
+                    conflictWireWire = WireId();
+
+                if (conflictWireNet == conflictPipNet)
+                    conflictWireNet = nullptr;
+
+                if (wire_reuse)
+                    next_bonus += cfg.wireReuseBonus;
+
+                if (pip_reuse)
+                    next_bonus += cfg.pipReuseBonus;
+
+                if (conflictWireWire != WireId()) {
+                    auto scores_it = wireScores.find(conflictWireWire);
+                    if (scores_it != wireScores.end())
+                        next_penalty += scores_it->second * cfg.wireRipupPenalty;
+                    next_penalty += cfg.wireRipupPenalty;
+                }
+
+                if (conflictPipWire != WireId()) {
+                    auto scores_it = wireScores.find(conflictPipWire);
+                    if (scores_it != wireScores.end())
+                        next_penalty += scores_it->second * cfg.wireRipupPenalty;
+                    next_penalty += cfg.wireRipupPenalty;
+                }
+
+                if (conflictWireNet != nullptr) {
+                    auto scores_it = netScores.find(conflictWireNet);
+                    if (scores_it != netScores.end())
+                        next_penalty += scores_it->second * cfg.netRipupPenalty;
+                    next_penalty += cfg.netRipupPenalty;
+                    next_penalty += conflictWireNet->wires.size() * cfg.wireRipupPenalty;
+                }
+
+                if (conflictPipNet != nullptr) {
+                    auto scores_it = netScores.find(conflictPipNet);
+                    if (scores_it != netScores.end())
+                        next_penalty += scores_it->second * cfg.netRipupPenalty;
+                    next_penalty += cfg.netRipupPenalty;
+                    next_penalty += conflictPipNet->wires.size() * cfg.wireRipupPenalty;
                 }
 
                 delay_t next_score = next_delay + next_penalty;
@@ -596,30 +620,20 @@ pip_self_ripup:
             if (ctx->debug)
                 log("  node %s\n", ctx->getWireName(cursor).c_str(ctx));
 
-            if (!ctx->checkWireAvail(cursor)) {
-                NetInfo *ripupWireNet = ctx->getConflictingWireNet(cursor);
-                NPNR_ASSERT(ripupWireNet != nullptr);
-                NPNR_ASSERT(ripupWireNet->wires.count(cursor));
+                if (pip == PipId())
+                    NPNR_ASSERT(cursor == src_wire);
 
-                if (ripupWireNet != net_info || net_info->wires.at(cursor).pip != pip) {
+            if (!net_info->wires.count(cursor) || net_info->wires.at(cursor).pip != pip) {
+                if (!ctx->checkWireAvail(cursor)) {
                     ripup_wire(cursor);
                     NPNR_ASSERT(ctx->checkWireAvail(cursor));
                 }
-            }
 
-            if (pip == PipId()) {
-                NPNR_ASSERT(cursor == src_wire);
-            } else {
-                if (!ctx->checkPipAvail(pip)) {
-                    NetInfo *ripupPipNet = ctx->getConflictingPipNet(pip);
-                    NPNR_ASSERT(ripupPipNet != nullptr);
-
-                    if (ripupPipNet != net_info || !net_info->wires.count(cursor) || net_info->wires.at(cursor).pip != pip)
-                        ripup_pip(pip);
+                if (pip != PipId() && !ctx->checkPipAvail(pip)) {
+                    ripup_pip(pip);
+                    NPNR_ASSERT(ctx->checkPipAvail(pip));
                 }
-            }
 
-            if (net_info->wires.count(cursor) == 0 || net_info->wires.at(cursor).pip != pip) {
                 if (pip == PipId()) {
                     if (ctx->debug)
                         log("    bind wire %s\n", ctx->getWireName(cursor).c_str(ctx));
@@ -661,11 +675,10 @@ Router1Cfg::Router1Cfg(Context *ctx) : Settings(ctx)
     useEstimate = get<bool>("router1/useEstimate", true);
 
     wireRipupPenalty = ctx->getRipupDelayPenalty();
-    pipRipupPenalty = ctx->getRipupDelayPenalty();
-    netRipupPenalty = ctx->getRipupDelayPenalty();
+    netRipupPenalty = 10*ctx->getRipupDelayPenalty();
 
     wireReuseBonus = wireRipupPenalty/8;
-    pipReuseBonus = pipRipupPenalty/8;
+    pipReuseBonus = wireRipupPenalty/2;
 
     estimatePrecision = 100 * ctx->getRipupDelayPenalty();
 }
