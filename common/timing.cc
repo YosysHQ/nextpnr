@@ -166,8 +166,11 @@ struct Timing
                     log_info("   remaining fanin includes %s (no net)\n", fanin.first->name.c_str(ctx));
                 }
             }
+            if (ctx->force)
+                log_warning("timing analysis failed due to presence of combinational loops, incomplete specification of timing ports, etc.\n");
+            else
+                log_error("timing analysis failed due to presence of combinational loops, incomplete specification of timing ports, etc.\n");
         }
-        NPNR_ASSERT(port_fanin.empty());
 
         // Go forwards topographically to find the maximum arrival time and max path length for each net
         for (auto net : topographical_order) {
