@@ -127,7 +127,7 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
 
   private:
     const float zoomNear_ = 0.1f; // do not zoom closer than this
-    float zoomFar_ = 10.0f; // do not zoom further than this
+    float zoomFar_ = 10.0f;       // do not zoom further than this
     const float zoomLvl1_ = 1.0f;
     const float zoomLvl2_ = 5.0f;
 
@@ -265,6 +265,8 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
         DecalXY hoveredDecal;
         // Whether to render the above three or skip it.
         bool changed;
+        // Whether to render grid or skip it.
+        bool gridChanged;
 
         // Flags to pass back into the RendererData.
         PassthroughFlags flags;
@@ -278,6 +280,7 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
 
     struct RendererData
     {
+        LineShaderData gfxGrid;
         LineShaderData gfxByStyle[GraphicElement::STYLE_MAX];
         LineShaderData gfxSelected;
         LineShaderData gfxHovered;
