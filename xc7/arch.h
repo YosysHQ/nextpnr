@@ -677,6 +677,11 @@ struct Arch : BaseCtx
         return wire_to_net[wire.index];
     }
 
+    WireId getConflictingWireWire(WireId wire) const
+    {
+        return wire;
+    }
+
     NetInfo *getConflictingWireNet(WireId wire) const
     {
         NPNR_ASSERT(wire != WireId());
@@ -771,6 +776,11 @@ struct Arch : BaseCtx
     {
         NPNR_ASSERT(pip != PipId());
         return pip_to_net[pip.index];
+    }
+
+    WireId getConflictingPipWire(PipId pip) const
+    {
+        return WireId();
     }
 
     NetInfo *getConflictingPipNet(PipId pip) const
