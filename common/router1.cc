@@ -544,20 +544,21 @@ remove_wire_arcs:
 
         WireId cursor = dst_wire;
         while (1) {
+            auto pip = visited[cursor].pip;
+
             if (ctx->debug)
                 log("  node %s\n", ctx->getWireName(cursor).c_str(ctx));
 
             if (!ctx->checkWireAvail(cursor)) {
                 NetInfo *ripupWireNet = ctx->getConflictingWireNet(cursor);
                 NPNR_ASSERT(ripupWireNet != nullptr);
+                NPNR_ASSERT(ripupWireNet->wires.count(cursor));
 
-                if (ripupWireNet != net_info) {
+                if (ripupWireNet != net_info || net_info->wires.at(cursor).pip != pip) {
                     ripup_wire(cursor);
                     NPNR_ASSERT(ctx->checkWireAvail(cursor));
                 }
             }
-
-            auto pip = visited[cursor].pip;
 
             if (pip == PipId()) {
                 NPNR_ASSERT(cursor == src_wire);
@@ -657,6 +658,9 @@ bool router1(Context *ctx, const Router1Cfg &cfg)
                 router.check();
 #endif
             }
+
+            if (ctx->debug)
+                log("-- %d --\n", iter_cnt);
 
             arc_key arc = router.arc_queue_pop();
 
