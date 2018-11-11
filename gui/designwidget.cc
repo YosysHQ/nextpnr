@@ -20,6 +20,7 @@
 
 #include "designwidget.h"
 #include <QAction>
+#include <QApplication>
 #include <QGridLayout>
 #include <QLineEdit>
 #include <QMenu>
@@ -561,10 +562,18 @@ void DesignWidget::onSelectionChanged(int num, const QItemSelection &, const QIt
             std::move(d.begin(), d.end(), std::back_inserter(decals));
         }
     }
-    if (num_selected > 1 || (selectionModel[num]->selectedIndexes().size() == 0)) {
+    
+    // Keep other tree seleciton only if Control is pressed
+    if (num_selected > 1 && QApplication::keyboardModifiers().testFlag(Qt::ControlModifier) == true) {
         Q_EMIT selected(decals, false);
         return;
     }
+    
+    // For deselect and multiple select just send all
+    if (selectionModel[num]->selectedIndexes().size() != 1) {
+        Q_EMIT selected(decals, false);
+        return;
+    }    
 
     QModelIndex index = selectionModel[num]->selectedIndexes().at(0);
     if (!index.isValid())
@@ -574,6 +583,10 @@ void DesignWidget::onSelectionChanged(int num, const QItemSelection &, const QIt
     ElementType type = clickItem->type();
     if (type == ElementType::NONE)
         return;
+
+    // Clear other tab selections
+    for (int i = 0; i <= getIndexByElementType(ElementType::GROUP); i++)
+        if (i!=num) selectionModel[i]->clearSelection();
 
     addToHistory(num, index);
 
