@@ -331,7 +331,7 @@ struct TorcInfo
     construct_wire_to_tilewire(const Segments &segments, const Tiles &tiles,
                                std::unordered_map<Segments::SegmentReference, int> &segment_to_wire,
                                std::unordered_map<Tilewire, int> &trivial_to_wire);
-    static std::vector<DelayInfo> construct_wire_to_delay(const std::vector<Tilewire> &wire_to_tilewire,
+    static std::vector<DelayInfo> construct_wire_to_delay(const Tiles &tiles, const std::vector<Tilewire> &wire_to_tilewire,
                                                           const DDB &ddb);
     static std::vector<Arc> construct_pip_to_arc(const std::vector<Tilewire> &wire_to_tilewire, const DDB &ddb,
                                                  std::vector<std::vector<int>> &wire_to_pips_uphill,
