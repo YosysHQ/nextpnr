@@ -5,7 +5,7 @@ module blinky (
     output led2,
     output led3
 );
-    `include "ps7.vh"
+    //`include "ps7.vh"
 
     BUFGCTRL clk_gb (
         .I0(clki),
@@ -19,7 +19,7 @@ module blinky (
     );
 
     localparam BITS = 4;
-    localparam LOG2DELAY = 21;
+    localparam LOG2DELAY = 23;
 
     reg [BITS+LOG2DELAY-1:0] counter = 0;
     reg [BITS-1:0] outcnt;
@@ -29,5 +29,5 @@ module blinky (
         outcnt <= counter >> LOG2DELAY;
     end
 
-    assign {led0, led1, led2, led3} = outcnt ^ (outcnt >> 1);
+    assign {led0, led1, led2, led3} = outcnt /*^ (outcnt >> 1)*/;
 endmodule
