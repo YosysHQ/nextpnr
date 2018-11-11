@@ -325,9 +325,12 @@ remove_wire_arcs:
                     log_error("No wire found for port %s on destination cell %s.\n", net_info->users[user_idx].port.c_str(ctx),
                               net_info->users[user_idx].cell->name.c_str(ctx));
 
-                if (dst_to_arc.count(dst_wire))
+                if (dst_to_arc.count(dst_wire)) {
+                    if (dst_to_arc.at(dst_wire).net_info == net_info)
+                        continue;
                     log_error("Found two arcs with same sink wire %s: %s (%d) vs %s (%d)\n", ctx->getWireName(dst_wire).c_str(ctx),
                               ctx->nameOf(net_info), user_idx, ctx->nameOf(dst_to_arc.at(dst_wire).net_info), dst_to_arc.at(dst_wire).user_idx);
+                }
 
                 if (src_to_net.count(dst_wire))
                     log_error("Wire %s is used as source and sink in different nets: %s vs %s (%d)\n", ctx->getWireName(dst_wire).c_str(ctx),
