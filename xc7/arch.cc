@@ -963,8 +963,22 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
 bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const
 {
     if (cell->type == id_SLICE_LUT6) {
-        if (fromPort.index >= id_I1.index && fromPort.index <= id_I6.index)
-            return toPort == id_O || toPort == id_OQ;
+        if (fromPort.index >= id_I1.index && fromPort.index <= id_I6.index) {
+            if (toPort == id_O) {
+                delay.delay = 124; // Tilo
+                return true;
+            }
+            if (toPort == id_OQ) {
+                delay.delay = 95; // Tas
+                return true;
+            }
+        }
+        if (fromPort == id_CLK) {
+            if (toPort == id_OQ) {
+                delay.delay = 456; // Tcko
+                return false; // No path CLK->OQ, but this fn is used for getting clkToQ delay
+            }
+        }
     } else if (cell->type == id_BUFGCTRL) {
         return true;
     }
