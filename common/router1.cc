@@ -294,6 +294,9 @@ remove_wire_arcs:
 
     void setup()
     {
+        std::unordered_map<WireId, NetInfo*> src_to_net;
+        std::unordered_map<WireId, arc_key> dst_to_arc;
+
         for (auto &net_it : ctx->nets)
         {
             NetInfo *net_info = net_it.second.get();
@@ -307,6 +310,14 @@ remove_wire_arcs:
                 log_error("No wire found for port %s on source cell %s.\n", net_info->driver.port.c_str(ctx),
                           net_info->driver.cell->name.c_str(ctx));
 
+            if (src_to_net.count(src_wire))
+                log_error("Found two nets with same source wire %s: %s vs %s\n", ctx->getWireName(src_wire).c_str(ctx),
+                          ctx->nameOf(net_info), ctx->nameOf(src_to_net.at(src_wire)));
+
+            if (dst_to_arc.count(src_wire))
+                log_error("Wire %s is used as source and sink in different nets: %s vs %s (%d)\n", ctx->getWireName(src_wire).c_str(ctx),
+                          ctx->nameOf(net_info), ctx->nameOf(dst_to_arc.at(src_wire).net_info), dst_to_arc.at(src_wire).user_idx);
+
             for (int user_idx = 0; user_idx < int(net_info->users.size()); user_idx++) {
                 auto dst_wire = ctx->getNetinfoSinkWire(net_info, net_info->users[user_idx]);
 
@@ -314,9 +325,19 @@ remove_wire_arcs:
                     log_error("No wire found for port %s on destination cell %s.\n", net_info->users[user_idx].port.c_str(ctx),
                               net_info->users[user_idx].cell->name.c_str(ctx));
 
+                if (dst_to_arc.count(dst_wire))
+                    log_error("Found two arcs with same sink wire %s: %s (%d) vs %s (%d)\n", ctx->getWireName(dst_wire).c_str(ctx),
+                              ctx->nameOf(net_info), user_idx, ctx->nameOf(dst_to_arc.at(dst_wire).net_info), dst_to_arc.at(dst_wire).user_idx);
+
+                if (src_to_net.count(dst_wire))
+                    log_error("Wire %s is used as source and sink in different nets: %s vs %s (%d)\n", ctx->getWireName(dst_wire).c_str(ctx),
+                              ctx->nameOf(src_to_net.at(dst_wire)), ctx->nameOf(net_info), user_idx);
+
                 arc_key arc;
                 arc.net_info = net_info;
                 arc.user_idx = user_idx;
+
+                dst_to_arc[dst_wire] = arc;
 
                 if (net_info->wires.count(src_wire) == 0) {
                     arc_queue_insert(arc, src_wire, dst_wire);
@@ -340,6 +361,8 @@ remove_wire_arcs:
                     arc_to_wires[arc].insert(cursor);
                 }
             }
+
+            src_to_net[src_wire] = net_info;
 
             std::vector<WireId> unbind_wires;
 
