@@ -154,20 +154,21 @@ Model::Model(QObject *parent) : QAbstractItemModel(parent), root_(new Item("Elem
 
 Model::~Model() {}
 
-void Model::loadData(std::unique_ptr<Item> data)
+void Model::loadData(Context *ctx, std::unique_ptr<Item> data)
 {
     beginResetModel();
+    ctx_ = ctx;
     root_ = std::move(data);
     endResetModel();
 }
 
-void Model::updateElements(Context *ctx, std::vector<IdString> elements)
+void Model::updateElements(std::vector<IdString> elements)
 {
-    if (!ctx)
+    if (!ctx_)
         return;
 
     beginResetModel();
-    root_->updateElements(ctx, elements);
+    root_->updateElements(ctx_, elements);
     endResetModel();
 }
 

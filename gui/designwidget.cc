@@ -297,7 +297,7 @@ void DesignWidget::newContext(Context *ctx)
             auto belGetter = [](Context *ctx, BelId id) { return ctx->getBelName(id); };
 
             getTreeByElementType(ElementType::BEL)
-                    ->loadData(std::unique_ptr<TreeModel::ElementXYRoot<BelId>>(
+                    ->loadData(ctx, std::unique_ptr<TreeModel::ElementXYRoot<BelId>>(
                             new TreeModel::ElementXYRoot<BelId>(ctx, belMap, belGetter, ElementType::BEL)));
         }
 
@@ -312,7 +312,7 @@ void DesignWidget::newContext(Context *ctx)
             }
             auto wireGetter = [](Context *ctx, WireId id) { return ctx->getWireName(id); };
             getTreeByElementType(ElementType::WIRE)
-                    ->loadData(std::unique_ptr<TreeModel::ElementXYRoot<WireId>>(
+                    ->loadData(ctx, std::unique_ptr<TreeModel::ElementXYRoot<WireId>>(
                             new TreeModel::ElementXYRoot<WireId>(ctx, wireMap, wireGetter, ElementType::WIRE)));
         }
 
@@ -326,14 +326,14 @@ void DesignWidget::newContext(Context *ctx)
             }
             auto pipGetter = [](Context *ctx, PipId id) { return ctx->getPipName(id); };
             getTreeByElementType(ElementType::PIP)
-                    ->loadData(std::unique_ptr<TreeModel::ElementXYRoot<PipId>>(
+                    ->loadData(ctx, std::unique_ptr<TreeModel::ElementXYRoot<PipId>>(
                             new TreeModel::ElementXYRoot<PipId>(ctx, pipMap, pipGetter, ElementType::PIP)));
         }
 #endif
         getTreeByElementType(ElementType::CELL)
-                ->loadData(std::unique_ptr<TreeModel::IdStringList>(new TreeModel::IdStringList(ElementType::CELL)));
+                ->loadData(ctx, std::unique_ptr<TreeModel::IdStringList>(new TreeModel::IdStringList(ElementType::CELL)));
         getTreeByElementType(ElementType::NET)
-                ->loadData(std::unique_ptr<TreeModel::IdStringList>(new TreeModel::IdStringList(ElementType::NET)));
+                ->loadData(ctx, std::unique_ptr<TreeModel::IdStringList>(new TreeModel::IdStringList(ElementType::NET)));
     }
     updateTree();
 }
@@ -367,8 +367,8 @@ void DesignWidget::updateTree()
             nets.push_back(pair.first);
         }
 
-        getTreeByElementType(ElementType::CELL)->updateElements(ctx, cells);
-        getTreeByElementType(ElementType::NET)->updateElements(ctx, nets);
+        getTreeByElementType(ElementType::CELL)->updateElements(cells);
+        getTreeByElementType(ElementType::NET)->updateElements(nets);
     }
 }
 QtProperty *DesignWidget::addTopLevelProperty(const QString &id)

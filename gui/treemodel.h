@@ -352,8 +352,8 @@ class Model : public QAbstractItemModel
     Model(QObject *parent = nullptr);
     ~Model();
 
-    void loadData(std::unique_ptr<Item> data);
-    void updateElements(Context *ctx, std::vector<IdString> elements);
+    void loadData(Context *ctx, std::unique_ptr<Item> data);
+    void updateElements(std::vector<IdString> elements);
     Item *nodeFromIndex(const QModelIndex &idx) const;
     QModelIndex indexFromNode(Item *node)
     {
