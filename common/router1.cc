@@ -567,7 +567,7 @@ remove_wire_arcs:
                     NetInfo *ripupPipNet = ctx->getConflictingPipNet(pip);
                     NPNR_ASSERT(ripupPipNet != nullptr);
 
-                    if (ripupPipNet != net_info || net_info->wires.at(cursor).pip != pip)
+                    if (ripupPipNet != net_info || !net_info->wires.count(cursor) || net_info->wires.at(cursor).pip != pip)
                         ripup_pip(pip);
                 }
             }
