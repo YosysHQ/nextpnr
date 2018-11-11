@@ -167,9 +167,9 @@ struct Timing
                 }
             }
             if (ctx->force)
-                log_warning("timing analysis failed due to presence of combinational loops, incomplete specification of timing ports, etc.\n");
+                log_warning("timing analysis failed due to presence of combinatorial loops, incomplete specification of timing ports, etc.\n");
             else
-                log_error("timing analysis failed due to presence of combinational loops, incomplete specification of timing ports, etc.\n");
+                log_error("timing analysis failed due to presence of combinatorial loops, incomplete specification of timing ports, etc.\n");
         }
 
         // Go forwards topographically to find the maximum arrival time and max path length for each net
