@@ -600,20 +600,26 @@ IdString Arch::getPipName(PipId pip) const
 {
     NPNR_ASSERT(pip != PipId());
 
-#if 1
-    int x = chip_info->pip_data[pip.index].x;
-    int y = chip_info->pip_data[pip.index].y;
+    ExtendedWireInfo ewi_src(*torc_info->ddb, torc_info->pip_to_arc[pip.index].getSourceTilewire());
+    ExtendedWireInfo ewi_dst(*torc_info->ddb, torc_info->pip_to_arc[pip.index].getSinkTilewire());
+    std::stringstream pip_name;
+    pip_name << ewi_src.mTileName << "." << ewi_src.mWireName << ".->." << ewi_dst.mWireName;
+    return id(pip_name.str());
 
-    std::string src_name = chip_info->wire_data[chip_info->pip_data[pip.index].src].name.get();
-    std::replace(src_name.begin(), src_name.end(), '/', '.');
-
-    std::string dst_name = chip_info->wire_data[chip_info->pip_data[pip.index].dst].name.get();
-    std::replace(dst_name.begin(), dst_name.end(), '/', '.');
-
-    return id("X" + std::to_string(x) + "/Y" + std::to_string(y) + "/" + src_name + ".->." + dst_name);
-#else
-    return id(chip_info->pip_data[pip.index].name.get());
-#endif
+//#if 1
+//    int x = chip_info->pip_data[pip.index].x;
+//    int y = chip_info->pip_data[pip.index].y;
+//
+//    std::string src_name = chip_info->wire_data[chip_info->pip_data[pip.index].src].name.get();
+//    std::replace(src_name.begin(), src_name.end(), '/', '.');
+//
+//    std::string dst_name = chip_info->wire_data[chip_info->pip_data[pip.index].dst].name.get();
+//    std::replace(dst_name.begin(), dst_name.end(), '/', '.');
+//
+//    return id("X" + std::to_string(x) + "/Y" + std::to_string(y) + "/" + src_name + ".->." + dst_name);
+//#else
+//    return id(chip_info->pip_data[pip.index].name.get());
+//#endif
 }
 
 // -----------------------------------------------------------------------
@@ -774,8 +780,6 @@ bool Arch::place() { return placer1(getCtx(), Placer1Cfg(getCtx())); }
 
 bool Arch::route()
 {
-    getCtx()->debug = true;
-    getCtx()->verbose = true;
     return router1(getCtx(), Router1Cfg(getCtx()));
 }
 
