@@ -55,6 +55,9 @@ class Ecp5GlobalRouter
     {
         if (user.cell->type == id_TRELLIS_SLICE && (user.port == id_CLK || user.port == id_WCK))
             return true;
+        if (user.cell->type == id_DCUA && (user.port == id_CH0_FF_RXI_CLK || user.port == id_CH1_FF_RXI_CLK ||
+                                           user.port == id_CH0_FF_TXI_CLK || user.port == id_CH1_FF_TXI_CLK))
+            return true;
         return false;
     }
 
@@ -65,8 +68,11 @@ class Ecp5GlobalRouter
             NetInfo *ni = net.second.get();
             clockCount[ni->name] = 0;
             for (const auto &user : ni->users) {
-                if (is_clock_port(user))
+                if (is_clock_port(user)) {
                     clockCount[ni->name]++;
+                    if (user.cell->type == id_DCUA)
+                        clockCount[ni->name] += 100;
+                }
             }
             // log_info("clkcount %s: %d\n", ni->name.c_str(ctx),clockCount[ni->name]);
         }
@@ -379,7 +385,7 @@ class Ecp5GlobalRouter
         for (auto user : net->users) {
             if (user.port == id_CLKFB) {
                 keep_users.push_back(user);
-            } else if (net->driver.cell->type == id_EXTREFB && user.cell->type == id_DCCA) {
+            } else if (net->driver.cell->type == id_EXTREFB && user.cell->type == id_DCUA) {
                 keep_users.push_back(user);
             } else {
                 glbnet->users.push_back(user);
