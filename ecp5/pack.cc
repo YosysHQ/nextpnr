@@ -1098,6 +1098,26 @@ class Ecp5Packer
         for (auto cell : sorted(ctx->cells)) {
             CellInfo *ci = cell.second;
             if (ci->type == id_DCUA) {
+                if (ci->attrs.count(ctx->id("LOC"))) {
+                    std::string loc = ci->attrs.at(ctx->id("LOC"));
+                    if (loc == "DCU0" &&
+                        (ctx->args.type == ArchArgs::LFE5UM_25F || ctx->args.type == ArchArgs::LFE5UM5G_25F))
+                        ci->attrs[ctx->id("BEL")] = "X42/Y50/DCU";
+                    else if (loc == "DCU0" &&
+                             (ctx->args.type == ArchArgs::LFE5UM_45F || ctx->args.type == ArchArgs::LFE5UM5G_45F))
+                        ci->attrs[ctx->id("BEL")] = "X42/Y71/DCU";
+                    else if (loc == "DCU1" &&
+                             (ctx->args.type == ArchArgs::LFE5UM_45F || ctx->args.type == ArchArgs::LFE5UM5G_45F))
+                        ci->attrs[ctx->id("BEL")] = "X69/Y71/DCU";
+                    else if (loc == "DCU0" &&
+                             (ctx->args.type == ArchArgs::LFE5UM_85F || ctx->args.type == ArchArgs::LFE5UM5G_85F))
+                        ci->attrs[ctx->id("BEL")] = "X46/Y95/DCU";
+                    else if (loc == "DCU1" &&
+                             (ctx->args.type == ArchArgs::LFE5UM_85F || ctx->args.type == ArchArgs::LFE5UM5G_85F))
+                        ci->attrs[ctx->id("BEL")] = "X71/Y95/DCU";
+                    else
+                        log_error("no DCU location '%s' in device '%s'\n", loc.c_str(), ctx->getChipName().c_str());
+                }
                 if (!ci->attrs.count(ctx->id("BEL")))
                     log_error("DCU must be constrained to a Bel!\n");
                 // Empty port auto-creation to generate correct tie-downs
@@ -1112,7 +1132,11 @@ class Ecp5Packer
                 for (auto pin : ctx->getBelPins(exemplar_bel))
                     if (ctx->getBelPinType(exemplar_bel, pin) == PORT_IN)
                         autocreate_empty_port(ci, pin);
-            } else if (ci->type == id_EXTREFB) {
+            }
+        }
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (ci->type == id_EXTREFB) {
                 const NetInfo *refo = net_or_nullptr(ci, id_REFCLKO);
                 CellInfo *dcu = nullptr;
                 if (refo == nullptr)
