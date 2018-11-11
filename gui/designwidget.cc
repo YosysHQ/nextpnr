@@ -302,21 +302,26 @@ void DesignWidget::newContext(Context *ctx)
                             new TreeModel::ElementXYRoot<BelId>(ctx, belMap, belGetter, ElementType::BEL)));
         }
 
-#ifdef ARCH_ICE40
         {
             TreeModel::ElementXYRoot<WireId>::ElementMap wireMap;
+#ifdef ARCH_ICE40
             for (int i = 0; i < ctx->chip_info->num_wires; i++) {
                 const auto wire = &ctx->chip_info->wire_data[i];
                 WireId wireid;
                 wireid.index = i;
                 wireMap[std::pair<int, int>(wire->x, wire->y)].push_back(wireid);
             }
+#endif
+#ifdef ARCH_ECP5
+            for (const auto& wire : ctx->getWires()) {
+                wireMap[std::pair<int, int>(wire.location.x, wire.location.y)].push_back(wire);
+            }
+#endif
             auto wireGetter = [](Context *ctx, WireId id) { return ctx->getWireName(id); };
             getTreeByElementType(ElementType::WIRE)
                     ->loadData(ctx, std::unique_ptr<TreeModel::ElementXYRoot<WireId>>(
                             new TreeModel::ElementXYRoot<WireId>(ctx, wireMap, wireGetter, ElementType::WIRE)));
         }
-#endif
 
         {
             TreeModel::ElementXYRoot<PipId>::ElementMap pipMap;
