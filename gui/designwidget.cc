@@ -315,21 +315,21 @@ void DesignWidget::newContext(Context *ctx)
                     ->loadData(ctx, std::unique_ptr<TreeModel::ElementXYRoot<WireId>>(
                             new TreeModel::ElementXYRoot<WireId>(ctx, wireMap, wireGetter, ElementType::WIRE)));
         }
+#endif
 
         {
             TreeModel::ElementXYRoot<PipId>::ElementMap pipMap;
-            for (int i = 0; i < ctx->chip_info->num_pips; i++) {
-                const auto pip = &ctx->chip_info->pip_data[i];
-                PipId pipid;
-                pipid.index = i;
-                pipMap[std::pair<int, int>(pip->x, pip->y)].push_back(pipid);
+            for (const auto& pip : ctx->getPips()) {
+                auto loc = ctx->getPipLocation(pip);
+                pipMap[std::pair<int, int>(loc.x, loc.y)].push_back(pip);
             }
             auto pipGetter = [](Context *ctx, PipId id) { return ctx->getPipName(id); };
+
             getTreeByElementType(ElementType::PIP)
                     ->loadData(ctx, std::unique_ptr<TreeModel::ElementXYRoot<PipId>>(
                             new TreeModel::ElementXYRoot<PipId>(ctx, pipMap, pipGetter, ElementType::PIP)));
         }
-#endif
+
         getTreeByElementType(ElementType::CELL)
                 ->loadData(ctx, std::unique_ptr<TreeModel::IdStringList>(new TreeModel::IdStringList(ElementType::CELL)));
         getTreeByElementType(ElementType::NET)
