@@ -57,7 +57,7 @@ FPGAViewWidget::FPGAViewWidget(QWidget *parent)
 
     rendererArgs_->changed = false;
     rendererArgs_->gridChanged = false;
-    rendererArgs_->flags.zoomOutbound = true;
+    rendererArgs_->zoomOutbound = true;
 
     auto fmt = format();
     fmt.setMajorVersion(3);
@@ -97,7 +97,7 @@ void FPGAViewWidget::newContext(Context *ctx)
         onHighlightGroupChanged(std::vector<DecalXY>(), i);
     {
         QMutexLocker lock(&rendererArgsLock_);
-        rendererArgs_->flags.zoomOutbound = true;
+        rendererArgs_->zoomOutbound = true;
     }
     pokeRenderer();
 }
@@ -339,22 +339,7 @@ void FPGAViewWidget::paintGL()
     lineShader_.draw(GraphicElement::STYLE_HOVER, colors_.hovered,
                                                 thick2Px, matrix);
 
-    // Flags from pipeline.
-    PassthroughFlags flags = rendererData_->flags;
-
-    // Check flags passed through pipeline.
-    if (flags.zoomOutbound) {
-        // If we're doing init zoomOutbound, make sure we're actually drawing
-        // something already.
-        if (rendererData_->gfxByStyle[GraphicElement::STYLE_FRAME].vertices.size() != 0) {
-            zoomOutbound();
-            flags.zoomOutbound = false;
-            {
-                QMutexLocker lock(&rendererArgsLock_);
-                rendererArgs_->flags.zoomOutbound = false;
-            }
-        }
-    }
+    // Render ImGui
     QtImGui::newFrame();
     QMutexLocker lock(&rendererArgsLock_);
     if (!(rendererArgs_->hoveredDecal == DecalXY()) && rendererArgs_->hintText.size() > 0)
@@ -438,7 +423,6 @@ void FPGAViewWidget::renderLines(void)
     std::vector<DecalXY> highlightedDecals[8];
     bool highlightedOrSelectedChanged;
     bool gridChanged;
-    PassthroughFlags flags;
     {
         // Take the renderer arguments lock, copy over all we need.
         QMutexLocker lock(&rendererArgsLock_);
@@ -453,7 +437,6 @@ void FPGAViewWidget::renderLines(void)
         gridChanged = rendererArgs_->gridChanged;
         rendererArgs_->changed = false;
         rendererArgs_->gridChanged = false;
-        flags = rendererArgs_->flags;
     }
 
     // Render decals if necessary.
@@ -582,8 +565,12 @@ void FPGAViewWidget::renderLines(void)
     }
 
     {
-        QMutexLocker locker(&rendererDataLock_);
-        rendererData_->flags = flags;
+       QMutexLocker lock(&rendererArgsLock_);
+
+        if (rendererArgs_->zoomOutbound) {
+            zoomOutbound();
+            rendererArgs_->zoomOutbound = false;            
+        }
     }
 }
 
