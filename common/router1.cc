@@ -459,77 +459,72 @@ struct Router1
                 WireId conflictWireWire = WireId(), conflictPipWire = WireId();
                 NetInfo *conflictWireNet = nullptr, *conflictPipNet = nullptr;
 
-                bool wire_reuse = net_info->wires.count(next_wire);
-                bool pip_reuse = wire_reuse && net_info->wires.at(next_wire).pip == pip;
-
-                if (!ctx->checkWireAvail(next_wire) && !wire_reuse) {
-                    if (!ripup)
-                        continue;
-                    conflictWireWire = ctx->getConflictingWireWire(next_wire);
-                    if (conflictWireWire == WireId()) {
-                        conflictWireNet = ctx->getConflictingWireNet(next_wire);
-                        if (conflictWireNet == nullptr)
+                if (net_info->wires.count(next_wire) && net_info->wires.at(next_wire).pip == pip) {
+                    next_bonus += cfg.reuseBonus;
+                } else {
+                    if (!ctx->checkWireAvail(next_wire)) {
+                        if (!ripup)
                             continue;
+                        conflictWireWire = ctx->getConflictingWireWire(next_wire);
+                        if (conflictWireWire == WireId()) {
+                            conflictWireNet = ctx->getConflictingWireNet(next_wire);
+                            if (conflictWireNet == nullptr)
+                                continue;
+                        }
                     }
-                }
 
-                if (!ctx->checkPipAvail(pip) && !pip_reuse) {
-                    if (!ripup)
-                        continue;
-                    conflictPipWire = ctx->getConflictingPipWire(pip);
-                    if (conflictPipWire == WireId()) {
-                        conflictPipNet = ctx->getConflictingPipNet(pip);
-                        if (conflictPipNet == nullptr)
+                    if (!ctx->checkPipAvail(pip)) {
+                        if (!ripup)
                             continue;
+                        conflictPipWire = ctx->getConflictingPipWire(pip);
+                        if (conflictPipWire == WireId()) {
+                            conflictPipNet = ctx->getConflictingPipNet(pip);
+                            if (conflictPipNet == nullptr)
+                                continue;
+                        }
                     }
-                }
 
-                if (conflictWireNet != nullptr && conflictPipWire != WireId() && conflictWireNet->wires.count(conflictPipWire))
-                    conflictPipWire = WireId();
+                    if (conflictWireNet != nullptr && conflictPipWire != WireId() && conflictWireNet->wires.count(conflictPipWire))
+                        conflictPipWire = WireId();
 
-                if (conflictPipNet != nullptr && conflictWireWire != WireId() && conflictPipNet->wires.count(conflictWireWire))
-                    conflictWireWire = WireId();
+                    if (conflictPipNet != nullptr && conflictWireWire != WireId() && conflictPipNet->wires.count(conflictWireWire))
+                        conflictWireWire = WireId();
 
-                if (conflictWireWire == conflictPipWire)
-                    conflictWireWire = WireId();
+                    if (conflictWireWire == conflictPipWire)
+                        conflictWireWire = WireId();
 
-                if (conflictWireNet == conflictPipNet)
-                    conflictWireNet = nullptr;
+                    if (conflictWireNet == conflictPipNet)
+                        conflictWireNet = nullptr;
 
-                if (wire_reuse)
-                    next_bonus += cfg.wireReuseBonus;
+                    if (conflictWireWire != WireId()) {
+                        auto scores_it = wireScores.find(conflictWireWire);
+                        if (scores_it != wireScores.end())
+                            next_penalty += scores_it->second * cfg.wireRipupPenalty;
+                        next_penalty += cfg.wireRipupPenalty;
+                    }
 
-                if (pip_reuse)
-                    next_bonus += cfg.pipReuseBonus;
+                    if (conflictPipWire != WireId()) {
+                        auto scores_it = wireScores.find(conflictPipWire);
+                        if (scores_it != wireScores.end())
+                            next_penalty += scores_it->second * cfg.wireRipupPenalty;
+                        next_penalty += cfg.wireRipupPenalty;
+                    }
 
-                if (conflictWireWire != WireId()) {
-                    auto scores_it = wireScores.find(conflictWireWire);
-                    if (scores_it != wireScores.end())
-                        next_penalty += scores_it->second * cfg.wireRipupPenalty;
-                    next_penalty += cfg.wireRipupPenalty;
-                }
+                    if (conflictWireNet != nullptr) {
+                        auto scores_it = netScores.find(conflictWireNet);
+                        if (scores_it != netScores.end())
+                            next_penalty += scores_it->second * cfg.netRipupPenalty;
+                        next_penalty += cfg.netRipupPenalty;
+                        next_penalty += conflictWireNet->wires.size() * cfg.wireRipupPenalty;
+                    }
 
-                if (conflictPipWire != WireId()) {
-                    auto scores_it = wireScores.find(conflictPipWire);
-                    if (scores_it != wireScores.end())
-                        next_penalty += scores_it->second * cfg.wireRipupPenalty;
-                    next_penalty += cfg.wireRipupPenalty;
-                }
-
-                if (conflictWireNet != nullptr) {
-                    auto scores_it = netScores.find(conflictWireNet);
-                    if (scores_it != netScores.end())
-                        next_penalty += scores_it->second * cfg.netRipupPenalty;
-                    next_penalty += cfg.netRipupPenalty;
-                    next_penalty += conflictWireNet->wires.size() * cfg.wireRipupPenalty;
-                }
-
-                if (conflictPipNet != nullptr) {
-                    auto scores_it = netScores.find(conflictPipNet);
-                    if (scores_it != netScores.end())
-                        next_penalty += scores_it->second * cfg.netRipupPenalty;
-                    next_penalty += cfg.netRipupPenalty;
-                    next_penalty += conflictPipNet->wires.size() * cfg.wireRipupPenalty;
+                    if (conflictPipNet != nullptr) {
+                        auto scores_it = netScores.find(conflictPipNet);
+                        if (scores_it != netScores.end())
+                            next_penalty += scores_it->second * cfg.netRipupPenalty;
+                        next_penalty += cfg.netRipupPenalty;
+                        next_penalty += conflictPipNet->wires.size() * cfg.wireRipupPenalty;
+                    }
                 }
 
                 delay_t next_score = next_delay + next_penalty;
@@ -676,9 +671,7 @@ Router1Cfg::Router1Cfg(Context *ctx) : Settings(ctx)
 
     wireRipupPenalty = ctx->getRipupDelayPenalty();
     netRipupPenalty = 10*ctx->getRipupDelayPenalty();
-
-    wireReuseBonus = wireRipupPenalty/8;
-    pipReuseBonus = wireRipupPenalty/2;
+    reuseBonus = wireRipupPenalty/2;
 
     estimatePrecision = 100 * ctx->getRipupDelayPenalty();
 }
