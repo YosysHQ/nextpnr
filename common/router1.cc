@@ -100,6 +100,7 @@ struct Router1
 
     std::unordered_map<WireId, int> wireScores;
     std::unordered_map<PipId, int> pipScores;
+    std::unordered_map<NetInfo*, int> netScores;
 
     int arcs_with_ripup = 0;
     int arcs_without_ripup = 0;
@@ -146,21 +147,23 @@ struct Router1
         if (ctx->debug)
             log("      ripup net %s\n", net->name.c_str(ctx));
 
+        netScores[net]++;
+
         auto net_wires_copy = net->wires;
         for (auto &it : net_wires_copy) {
             if (it.second.pip == PipId())
-                ripup_wire(it.first, true);
+                ripup_wire(it.first, 4);
             else
-                ripup_pip(it.second.pip, true);
+                ripup_pip(it.second.pip, 4);
         }
 
         ripup_flag = true;
     }
 
-    void ripup_wire(WireId wire, bool extra_indent = false)
+    void ripup_wire(WireId wire, int extra_indent = 0)
     {
         if (ctx->debug)
-            log("    %sripup wire %s\n", extra_indent ? "    " : "", ctx->getWireName(wire).c_str(ctx));
+            log("    %*sripup wire %s\n", extra_indent, "", ctx->getWireName(wire).c_str(ctx));
 
         wireScores[wire]++;
 
@@ -182,14 +185,13 @@ struct Router1
         ripup_flag = true;
     }
 
-    void ripup_pip(PipId pip, bool extra_indent = false)
+    void ripup_pip(PipId pip, int extra_indent = 0)
     {
         WireId wire = ctx->getPipDstWire(pip);
 
         if (ctx->debug)
-            log("    %sripup pip %s (%s)\n", extra_indent ? "    " : "", ctx->getPipName(pip).c_str(ctx), ctx->getWireName(wire).c_str(ctx));
+            log("    %*sripup pip %s (%s)\n", extra_indent, "", ctx->getPipName(pip).c_str(ctx), ctx->getWireName(wire).c_str(ctx));
 
-        wireScores[wire]++;
         pipScores[pip]++;
 
         if (ctx->getBoundPipNet(pip)) {
@@ -204,6 +206,7 @@ struct Router1
 
         if (0) {
 remove_wire_arcs:
+            wireScores[wire]++;
             for (auto &it : wire_to_arcs[wire]) {
                 arc_to_wires[it].erase(wire);
                 arc_queue_insert(it);
@@ -213,9 +216,11 @@ remove_wire_arcs:
 
         NetInfo *net = ctx->getConflictingPipNet(pip);
         if (net != nullptr) {
-            wireScores[wire] += net->wires.size();
-            pipScores[pip] += net->wires.size();
-            ripup_net(net);
+            wire = ctx->getConflictingPipWire(pip);
+            if (wire != WireId())
+                ripup_wire(wire, 2);
+            else
+                ripup_net(net);
         }
 
         ripup_flag = true;
@@ -436,11 +441,11 @@ remove_wire_arcs:
                         if (!ripup)
                             continue;
 
+                        next_penalty += cfg.wireRipupPenalty;
+
                         auto scores_it = wireScores.find(next_wire);
                         if (scores_it != wireScores.end())
                             next_penalty += scores_it->second * cfg.wireRipupPenalty;
-                        else
-                            next_penalty += cfg.wireRipupPenalty;
                     }
                 }
 
@@ -451,16 +456,29 @@ remove_wire_arcs:
                         continue;
 
                     if (ripupPipNet == net_info) {
+                        auto net_info_wire_it = net_info->wires.find(next_wire);
+                        if (net_info_wire_it == net_info->wires.end() || net_info_wire_it->second.pip != pip)
+                            goto pip_self_ripup;
                         next_bonus += cfg.pipReuseBonus;
                     } else {
+pip_self_ripup:
                         if (!ripup)
                             continue;
 
-                        auto scores_it = pipScores.find(pip);
-                        if (scores_it != pipScores.end())
-                            next_penalty += scores_it->second * cfg.pipRipupPenalty;
-                        else
-                            next_penalty += cfg.pipRipupPenalty;
+                        next_penalty += cfg.pipRipupPenalty;
+
+                        auto pip_scores_it = pipScores.find(pip);
+                        if (pip_scores_it != pipScores.end())
+                            next_penalty += pip_scores_it->second * cfg.pipRipupPenalty;
+
+                        if (ctx->getConflictingPipWire(pip) == WireId()) {
+                            auto net_scores_it = netScores.find(ripupPipNet);
+                            if (net_scores_it != netScores.end())
+                                next_penalty += net_scores_it->second * cfg.netRipupPenalty;
+
+                            next_penalty += ripupPipNet->wires.size() * cfg.wireRipupPenalty;
+                            next_penalty += (ripupPipNet->wires.size()-1) * cfg.pipRipupPenalty;
+                        }
                     }
                 }
 
@@ -477,9 +495,6 @@ remove_wire_arcs:
                     NPNR_ASSERT(old_score >= 0);
 
                     if (next_score + ctx->getDelayEpsilon() >= old_score)
-                        continue;
-
-                    if (next_delay + ctx->getDelayEpsilon() >= old_delay)
                         continue;
 
 #if 0
@@ -536,6 +551,12 @@ remove_wire_arcs:
             if (ctx->debug)
                 log("  no route found for this arc\n");
             return false;
+        }
+
+        if (ctx->debug) {
+            log("  final route delay:   %8.2f\n", ctx->getDelayNS(visited[dst_wire].delay));
+            log("  final route penalty: %8.2f\n", ctx->getDelayNS(visited[dst_wire].penalty));
+            log("  final route bonus:   %8.2f\n", ctx->getDelayNS(visited[dst_wire].bonus));
         }
 
         // bind resulting route (and maybe unroute other nets)
@@ -615,6 +636,7 @@ Router1Cfg::Router1Cfg(Context *ctx) : Settings(ctx)
 
     wireRipupPenalty = ctx->getRipupDelayPenalty();
     pipRipupPenalty = ctx->getRipupDelayPenalty();
+    netRipupPenalty = ctx->getRipupDelayPenalty();
 
     wireReuseBonus = wireRipupPenalty/8;
     pipReuseBonus = pipRipupPenalty/8;

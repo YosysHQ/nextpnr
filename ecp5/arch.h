@@ -733,6 +733,11 @@ struct Arch : BaseCtx
             return pip_to_net.at(pip);
     }
 
+    WireId getConflictingPipWire(PipId pip) const
+    {
+        return WireId();
+    }
+
     AllPipRange getPips() const
     {
         AllPipRange range;

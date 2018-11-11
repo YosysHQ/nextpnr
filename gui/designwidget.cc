@@ -515,6 +515,8 @@ void DesignWidget::onSelectionChanged(const QItemSelection &, const QItemSelecti
         addProperty(topItem, QVariant::String, "Bound Net", ctx->nameOf(ctx->getBoundPipNet(pip)), ElementType::NET);
         addProperty(topItem, QVariant::String, "Conflicting Net", ctx->nameOf(ctx->getConflictingPipNet(pip)),
                     ElementType::NET);
+        addProperty(topItem, QVariant::String, "Conflicting Wire", ctx->getWireName(ctx->getConflictingPipWire(pip)).c_str(ctx),
+                    ElementType::WIRE);
         addProperty(topItem, QVariant::String, "Src Wire", ctx->getWireName(ctx->getPipSrcWire(pip)).c_str(ctx),
                     ElementType::WIRE);
         addProperty(topItem, QVariant::String, "Dest Wire", ctx->getWireName(ctx->getPipDstWire(pip)).c_str(ctx),

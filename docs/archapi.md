@@ -217,12 +217,12 @@ Return the net a wire is bound to.
 
 ### NetInfo \*getConflictingWireNet(WireId wire) const
 
-If this returns a non-nullptr, then unbinding that net
+If this returns a non-nullptr, then unbinding the wire from that net
 will make the given wire available.
 
 This returns nullptr if the wire is already available,
-or if there is no single net that can be unbound to make this
-wire available.
+or if there is no net that can be unbound from the wire to make it
+available.
 
 ### DelayInfo getWireDelay(WireId wire) const
 
@@ -289,11 +289,21 @@ Return the net this pip is bound to.
 ### NetInfo \*getConflictingPipNet(PipId pip) const
 
 Return the net that needs to be unbound in order to make this
-pip available.
+pip available. Note that it may be neccessary to unroute that
+entire net to make the pip available.
 
-This does not need to (but may) return the conflicting wire if the conflict is
-limited to the conflicting wire being bound to the destination wire for this
-pip.
+This returns nullptr if the pip is already available,
+or if there is no single net that can be unrouted to make
+the pip available.
+
+### WireId getConflictingPipWire(PipId pip) const
+
+Return the single wire that needs to be unbound in order to make this pip
+available.
+
+This returns WireId() if the pip is already available,
+or if there is no single wire that can be unbound to make
+the pip available.
 
 ### const\_range\<PipId\> getPips() const
 

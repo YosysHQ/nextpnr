@@ -187,6 +187,7 @@ struct Arch : BaseCtx
     bool checkPipAvail(PipId pip) const;
     NetInfo *getBoundPipNet(PipId pip) const;
     NetInfo *getConflictingPipNet(PipId pip) const;
+    WireId getConflictingPipWire(PipId pip) const;
     const std::vector<PipId> &getPips() const;
     Loc getPipLocation(PipId pip) const;
     WireId getPipSrcWire(PipId pip) const;
