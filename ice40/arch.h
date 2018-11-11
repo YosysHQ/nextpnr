@@ -417,8 +417,8 @@ struct Arch : BaseCtx
 
     // -------------------------------------------------
 
-    int getGridDimX() const { return 34; }
-    int getGridDimY() const { return 34; }
+    int getGridDimX() const { return chip_info->width; }
+    int getGridDimY() const { return chip_info->height; }
     int getTileBelDimZ(int, int) const { return 8; }
     int getTilePipDimZ(int, int) const { return 1; }
 

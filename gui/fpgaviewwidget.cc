@@ -56,7 +56,8 @@ FPGAViewWidget::FPGAViewWidget(QWidget *parent)
     colors_.highlight[7] = QColor("#da70d6");
 
     rendererArgs_->changed = false;
-    rendererArgs_->flags.zoomOutbound = true;
+    rendererArgs_->gridChanged = false;
+    rendererArgs_->zoomOutbound = true;
 
     auto fmt = format();
     fmt.setMajorVersion(3);
@@ -86,12 +87,17 @@ FPGAViewWidget::~FPGAViewWidget() {}
 void FPGAViewWidget::newContext(Context *ctx)
 {
     ctx_ = ctx;
+    {
+        QMutexLocker lock(&rendererArgsLock_);
+
+        rendererArgs_->gridChanged = true;
+    }
     onSelectedArchItem(std::vector<DecalXY>(), false);
     for (int i = 0; i < 8; i++)
         onHighlightGroupChanged(std::vector<DecalXY>(), i);
     {
         QMutexLocker lock(&rendererArgsLock_);
-        rendererArgs_->flags.zoomOutbound = true;
+        rendererArgs_->zoomOutbound = true;
     }
     pokeRenderer();
 }
@@ -109,19 +115,6 @@ void FPGAViewWidget::initializeGL()
     QtImGui::initialize(this);
     glClearColor(colors_.background.red() / 255, colors_.background.green() / 255,
                                             colors_.background.blue() / 255, 0.0);
-
-
-    {
-        QMutexLocker locker(&rendererDataLock_);
-        // Render grid.
-        auto grid = LineShaderData();
-        for (float i = -100.0f; i < 100.0f; i += 1.0f) {
-            PolyLine(-100.0f, i, 100.0f, i).build(grid);
-            PolyLine(i, -100.0f, i, 100.0f).build(grid);
-        }
-        grid.last_render = 1;
-        lineShader_.update_vbos(GraphicElement::STYLE_GRID, grid);
-    }
 }
 
 float FPGAViewWidget::PickedElement::distance(Context *ctx, float wx, float wy) const
@@ -346,22 +339,7 @@ void FPGAViewWidget::paintGL()
     lineShader_.draw(GraphicElement::STYLE_HOVER, colors_.hovered,
                                                 thick2Px, matrix);
 
-    // Flags from pipeline.
-    PassthroughFlags flags = rendererData_->flags;
-
-    // Check flags passed through pipeline.
-    if (flags.zoomOutbound) {
-        // If we're doing init zoomOutbound, make sure we're actually drawing
-        // something already.
-        if (rendererData_->gfxByStyle[GraphicElement::STYLE_FRAME].vertices.size() != 0) {
-            zoomOutbound();
-            flags.zoomOutbound = false;
-            {
-                QMutexLocker lock(&rendererArgsLock_);
-                rendererArgs_->flags.zoomOutbound = false;
-            }
-        }
-    }
+    // Render ImGui
     QtImGui::newFrame();
     QMutexLocker lock(&rendererArgsLock_);
     if (!(rendererArgs_->hoveredDecal == DecalXY()) && rendererArgs_->hintText.size() > 0)
@@ -444,7 +422,7 @@ void FPGAViewWidget::renderLines(void)
     DecalXY hoveredDecal;
     std::vector<DecalXY> highlightedDecals[8];
     bool highlightedOrSelectedChanged;
-    PassthroughFlags flags;
+    bool gridChanged;
     {
         // Take the renderer arguments lock, copy over all we need.
         QMutexLocker lock(&rendererArgsLock_);
@@ -456,8 +434,9 @@ void FPGAViewWidget::renderLines(void)
             highlightedDecals[i] = rendererArgs_->highlightedDecals[i];
 
         highlightedOrSelectedChanged = rendererArgs_->changed;
+        gridChanged = rendererArgs_->gridChanged;
         rendererArgs_->changed = false;
-        flags = rendererArgs_->flags;
+        rendererArgs_->gridChanged = false;
     }
 
     // Render decals if necessary.
@@ -528,6 +507,7 @@ void FPGAViewWidget::renderLines(void)
 
             // If we're not re-rendering any highlights/selections, let's
             // copy them over from teh current object.
+            data->gfxGrid = rendererData_->gfxGrid;
             if (!highlightedOrSelectedChanged) {
                 data->gfxSelected = rendererData_->gfxSelected;
                 data->gfxHovered = rendererData_->gfxHovered;
@@ -539,7 +519,19 @@ void FPGAViewWidget::renderLines(void)
             rendererData_ = std::move(data);
         }
     }
-
+    if (gridChanged)
+    {    
+        QMutexLocker locker(&rendererDataLock_);
+        rendererData_->gfxGrid.clear();
+        // Render grid.
+        for (float i = 0.0f; i < 1.0f * ctx_->getGridDimX() + 1; i += 1.0f) {
+            PolyLine(i, 0.0f, i, 1.0f * ctx_->getGridDimY()).build(rendererData_->gfxGrid);
+        }
+        for (float i = 0.0f; i < 1.0f * ctx_->getGridDimY() + 1; i += 1.0f) {
+            PolyLine(0.0f, i, 1.0f * ctx_->getGridDimX(), i).build(rendererData_->gfxGrid);
+        }                    
+        rendererData_->gfxGrid.last_render++;
+    }
     if (highlightedOrSelectedChanged) {
         QMutexLocker locker(&rendererDataLock_);
 
@@ -573,8 +565,12 @@ void FPGAViewWidget::renderLines(void)
     }
 
     {
-        QMutexLocker locker(&rendererDataLock_);
-        rendererData_->flags = flags;
+       QMutexLocker lock(&rendererArgsLock_);
+
+        if (rendererArgs_->zoomOutbound) {
+            zoomOutbound();
+            rendererArgs_->zoomOutbound = false;            
+        }
     }
 }
 
@@ -851,7 +847,8 @@ void FPGAViewWidget::zoomSelected()
 {
     {
         QMutexLocker lock(&rendererDataLock_);
-        zoomToBB(rendererData_->bbSelected, 0.5f, true);
+        if (rendererData_->bbSelected.x0() != std::numeric_limits<float>::infinity())
+            zoomToBB(rendererData_->bbSelected, 0.5f, true);
     }
     update();
 }
@@ -876,6 +873,8 @@ void FPGAViewWidget::leaveEvent(QEvent *event)
 
 void FPGAViewWidget::update_vbos()
 {
+    lineShader_.update_vbos(GraphicElement::STYLE_GRID, rendererData_->gfxGrid);
+
     for (int style = GraphicElement::STYLE_FRAME; style
                   < GraphicElement::STYLE_HIGHLIGHTED0;
                                              style++) {

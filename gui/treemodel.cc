@@ -154,80 +154,21 @@ Model::Model(QObject *parent) : QAbstractItemModel(parent), root_(new Item("Elem
 
 Model::~Model() {}
 
-void Model::loadContext(Context *ctx)
+void Model::loadData(Context *ctx, std::unique_ptr<Item> data)
 {
-    if (!ctx)
-        return;
-    ctx_ = ctx;
-
     beginResetModel();
-
-    // Currently we lack an API to get a proper hierarchy of bels/pip/wires
-    // cross-arch. So we only do this for ICE40 by querying the ChipDB
-    // directly.
-    // TODO(q3k): once AnyId and the tree API land in Arch, move this over.
-#ifdef ARCH_ICE40
-    {
-        std::map<std::pair<int, int>, std::vector<BelId>> belMap;
-        for (auto bel : ctx->getBels()) {
-            auto loc = ctx->getBelLocation(bel);
-            belMap[std::pair<int, int>(loc.x, loc.y)].push_back(bel);
-        }
-        auto belGetter = [](Context *ctx, BelId id) { return ctx->getBelName(id); };
-        bel_root_ = std::unique_ptr<BelXYRoot>(
-                new BelXYRoot(ctx, "Bels", root_.get(), belMap, belGetter, ElementType::BEL));
-
-        std::map<std::pair<int, int>, std::vector<WireId>> wireMap;
-        for (int i = 0; i < ctx->chip_info->num_wires; i++) {
-            const auto wire = &ctx->chip_info->wire_data[i];
-            WireId wireid;
-            wireid.index = i;
-            wireMap[std::pair<int, int>(wire->x, wire->y)].push_back(wireid);
-        }
-        auto wireGetter = [](Context *ctx, WireId id) { return ctx->getWireName(id); };
-        wire_root_ = std::unique_ptr<WireXYRoot>(
-                new WireXYRoot(ctx, "Wires", root_.get(), wireMap, wireGetter, ElementType::WIRE));
-
-        std::map<std::pair<int, int>, std::vector<PipId>> pipMap;
-        for (int i = 0; i < ctx->chip_info->num_pips; i++) {
-            const auto pip = &ctx->chip_info->pip_data[i];
-            PipId pipid;
-            pipid.index = i;
-            pipMap[std::pair<int, int>(pip->x, pip->y)].push_back(pipid);
-        }
-        auto pipGetter = [](Context *ctx, PipId id) { return ctx->getPipName(id); };
-        pip_root_ = std::unique_ptr<PipXYRoot>(
-                new PipXYRoot(ctx, "Pips", root_.get(), pipMap, pipGetter, ElementType::PIP));
-    }
-#endif
-
-    cell_root_ = std::unique_ptr<IdStringList>(new IdStringList(QString("Cells"), root_.get(), ElementType::CELL));
-    net_root_ = std::unique_ptr<IdStringList>(new IdStringList(QString("Nets"), root_.get(), ElementType::NET));
-
+    ctx_ = ctx;
+    root_ = std::move(data);
     endResetModel();
-
-    updateCellsNets(ctx);
 }
 
-void Model::updateCellsNets(Context *ctx)
+void Model::updateElements(std::vector<IdString> elements)
 {
-    if (!ctx)
+    if (!ctx_)
         return;
 
     beginResetModel();
-
-    std::vector<IdString> cells;
-    for (auto &pair : ctx->cells) {
-        cells.push_back(pair.first);
-    }
-    cell_root_->updateElements(ctx, cells);
-
-    std::vector<IdString> nets;
-    for (auto &pair : ctx->nets) {
-        nets.push_back(pair.first);
-    }
-    net_root_->updateElements(ctx, nets);
-
+    root_->updateElements(ctx_, elements);
     endResetModel();
 }
 
@@ -302,11 +243,7 @@ QList<QModelIndex> Model::search(QString text)
 {
     const int limit = 500;
     QList<Item *> list;
-    cell_root_->search(list, text, limit);
-    net_root_->search(list, text, limit);
-    bel_root_->search(list, text, limit);
-    wire_root_->search(list, text, limit);
-    pip_root_->search(list, text, limit);
+    root_->search(list, text, limit);
 
     QList<QModelIndex> res;
     for (auto i : list) {

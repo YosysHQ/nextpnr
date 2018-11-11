@@ -385,6 +385,7 @@ std::vector<std::string> get_pll_tiles(Context *ctx, BelId bel)
     std::string name = ctx->locInfo(bel)->bel_data[bel.index].name.get();
     std::vector<std::string> tiles;
     Loc loc = ctx->getBelLocation(bel);
+    static const std::set<std::string> pll1_lr = {"PLL1_LR", "BANKREF4"};
 
     if (name == "EHXPLL_UL") {
         tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x - 1, "PLL0_UL"));
@@ -394,7 +395,7 @@ std::vector<std::string> get_pll_tiles(Context *ctx, BelId bel)
         tiles.push_back(ctx->getTileByTypeAndLocation(loc.y + 1, loc.x + 1, "BANKREF8"));
     } else if (name == "EHXPLL_LR") {
         tiles.push_back(ctx->getTileByTypeAndLocation(loc.y + 1, loc.x, "PLL0_LR"));
-        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y + 1, loc.x - 1, "PLL1_LR"));
+        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y + 1, loc.x - 1, pll1_lr));
     } else if (name == "EHXPLL_UR") {
         tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x - 1, "PLL0_UR"));
         tiles.push_back(ctx->getTileByTypeAndLocation(loc.y + 1, loc.x - 1, "PLL1_UR"));
