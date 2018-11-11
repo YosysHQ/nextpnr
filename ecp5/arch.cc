@@ -652,7 +652,15 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
     } else if (cell->type == id_EHXPLLL) {
         return TMG_IGNORE;
     } else if (cell->type == id_DCUA || cell->type == id_EXTREFB || cell->type == id_PCSCLKDIV) {
-        return TMG_IGNORE; // FIXME
+        if (port == id_CH0_FF_TXI_CLK || port == id_CH0_FF_RXI_CLK || port == id_CH1_FF_TXI_CLK ||
+            port == id_CH1_FF_RXI_CLK)
+            return TMG_CLOCK_INPUT;
+        std::string prefix = port.str(this).substr(0, 9);
+        if (prefix == "CH0_FF_TX" || prefix == "CH0_FF_RX" || prefix == "CH1_FF_TX" || prefix == "CH1_FF_RX") {
+            clockInfoCount = 1;
+            return (cell->ports.at(port).type == PORT_OUT) ? TMG_REGISTER_OUTPUT : TMG_REGISTER_INPUT;
+        }
+        return TMG_IGNORE;
     } else {
         NPNR_ASSERT_FALSE_STR("no timing data for cell type '" + cell->type.str(this) + "'");
     }
@@ -706,6 +714,23 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
             info.clockToQ.delay = 4280;
         } else {
             info.setup.delay = 100;
+            info.hold.delay = 0;
+        }
+    } else if (cell->type == id_DCUA) {
+        std::string prefix = port.str(this).substr(0, 9);
+        info.edge = RISING_EDGE;
+        if (prefix == "CH0_FF_TX")
+            info.clock_port = id_CH0_FF_TXI_CLK;
+        else if (prefix == "CH0_FF_RX")
+            info.clock_port = id_CH0_FF_RXI_CLK;
+        else if (prefix == "CH1_FF_TX")
+            info.clock_port = id_CH1_FF_TXI_CLK;
+        else if (prefix == "CH1_FF_RX")
+            info.clock_port = id_CH1_FF_RXI_CLK;
+        if (cell->ports.at(port).type == PORT_OUT) {
+            info.clockToQ.delay = 660;
+        } else {
+            info.setup.delay = 1000;
             info.hold.delay = 0;
         }
     }
