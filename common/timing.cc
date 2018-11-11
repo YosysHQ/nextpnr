@@ -405,7 +405,26 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_path)
                 log_info("%4.1f %4.1f    Net %s budget %f ns (%d,%d) -> (%d,%d)\n", ctx->getDelayNS(net_delay),
                          ctx->getDelayNS(total), net->name.c_str(ctx), ctx->getDelayNS(sink->budget), driver_loc.x,
                          driver_loc.y, sink_loc.x, sink_loc.y);
-                log_info("                Sink %s.%s\n", sink_cell->name.c_str(ctx), sink->port.c_str(ctx));
+                log_info("               Sink %s.%s\n", sink_cell->name.c_str(ctx), sink->port.c_str(ctx));
+                if (ctx->verbose) {
+                    auto driver_wire = ctx->getNetinfoSourceWire(net);
+                    auto sink_wire = ctx->getNetinfoSinkWire(net, *sink);
+                    log_info("                 prediction: %f ns estimate: %f ns\n",
+                             ctx->getDelayNS(ctx->predictDelay(net, *sink)), ctx->getDelayNS(ctx->estimateDelay(driver_wire, sink_wire)));
+                    auto cursor = sink_wire;
+                    delay_t cursor_delay;
+                    while (driver_wire != cursor) {
+                        cursor_delay = ctx->getWireDelay(cursor).maxDelay();
+                        log_info("                 %1.3f %30s\n", ctx->getDelayNS(cursor_delay), ctx->getWireName(cursor).c_str(ctx));
+                        auto it = net->wires.find(cursor);
+                        assert(it != net->wires.end());
+                        auto pip = it->second.pip;
+                        NPNR_ASSERT(pip != PipId());
+                        cursor = ctx->getPipSrcWire(pip);
+                    }
+                    cursor_delay = ctx->getWireDelay(cursor).maxDelay();
+                    log_info("                 %1.3f %30s\n", ctx->getDelayNS(cursor_delay), ctx->getWireName(cursor).c_str(ctx));
+                }
                 last_port = sink->port;
             }
             log_break();
