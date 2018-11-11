@@ -566,10 +566,7 @@ struct Arch : BaseCtx
         return wire_to_net[wire.index];
     }
 
-    WireId getConflictingWireWire(WireId wire) const
-    {
-        return wire;
-    }
+    WireId getConflictingWireWire(WireId wire) const { return wire; }
 
     NetInfo *getConflictingWireNet(WireId wire) const
     {

@@ -33,15 +33,13 @@ struct arc_key
     NetInfo *net_info;
     int user_idx;
 
-    bool operator==(const arc_key &other) const {
-        return (net_info == other.net_info) && (user_idx == other.user_idx);
-    }
+    bool operator==(const arc_key &other) const { return (net_info == other.net_info) && (user_idx == other.user_idx); }
 
     struct Hash
     {
         std::size_t operator()(const arc_key &arg) const noexcept
         {
-            std::size_t seed = std::hash<NetInfo*>()(arg.net_info);
+            std::size_t seed = std::hash<NetInfo *>()(arg.net_info);
             seed ^= std::hash<int>()(arg.user_idx) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
             return seed;
         }
@@ -55,10 +53,7 @@ struct arc_entry
 
     struct Greater
     {
-        bool operator()(const arc_entry &lhs, const arc_entry &rhs) const noexcept
-        {
-            return lhs.pri > rhs.pri;
-        }
+        bool operator()(const arc_entry &lhs, const arc_entry &rhs) const noexcept { return lhs.pri > rhs.pri; }
     };
 };
 
@@ -99,13 +94,13 @@ struct Router1
     std::priority_queue<QueuedWire, std::vector<QueuedWire>, QueuedWire::Greater> queue;
 
     std::unordered_map<WireId, int> wireScores;
-    std::unordered_map<NetInfo*, int> netScores;
+    std::unordered_map<NetInfo *, int> netScores;
 
     int arcs_with_ripup = 0;
     int arcs_without_ripup = 0;
     bool ripup_flag;
 
-    Router1(Context *ctx, const Router1Cfg &cfg) : ctx(ctx), cfg(cfg) { }
+    Router1(Context *ctx, const Router1Cfg &cfg) : ctx(ctx), cfg(cfg) {}
 
     void arc_queue_insert(const arc_key &arc, WireId src_wire, WireId dst_wire)
     {
@@ -245,15 +240,17 @@ struct Router1
     {
         std::unordered_set<arc_key, arc_key::Hash> valid_arcs;
 
-        for (auto &net_it : ctx->nets)
-        {
+        for (auto &net_it : ctx->nets) {
             NetInfo *net_info = net_it.second.get();
             std::unordered_set<WireId> valid_wires_for_net;
 
             if (skip_net(net_info))
                 continue;
 
-            // log("[check] net: %s\n", net_info->name.c_str(ctx));
+#if 0
+            if (ctx->debug)
+                log("[check] net: %s\n", net_info->name.c_str(ctx));
+#endif
 
             auto src_wire = ctx->getNetinfoSourceWire(net_info);
             log_assert(src_wire != WireId());
@@ -267,10 +264,17 @@ struct Router1
                 arc.user_idx = user_idx;
 
                 valid_arcs.insert(arc);
-                // log("[check]   arc: %s %s\n", ctx->getWireName(src_wire).c_str(ctx), ctx->getWireName(dst_wire).c_str(ctx));
+#if 0
+                if (ctx->debug)
+                    log("[check]   arc: %s %s\n", ctx->getWireName(src_wire).c_str(ctx),
+                        ctx->getWireName(dst_wire).c_str(ctx));
+#endif
 
                 for (WireId wire : arc_to_wires[arc]) {
-                    // log("[check]     wire: %s\n", ctx->getWireName(wire).c_str(ctx));
+#if 0
+                    if (ctx->debug)
+                        log("[check]     wire: %s\n", ctx->getWireName(wire).c_str(ctx));
+#endif
                     valid_wires_for_net.insert(wire);
                     log_assert(wire_to_arcs[wire].count(arc));
                     log_assert(net_info->wires.count(wire));
@@ -295,11 +299,10 @@ struct Router1
 
     void setup()
     {
-        std::unordered_map<WireId, NetInfo*> src_to_net;
+        std::unordered_map<WireId, NetInfo *> src_to_net;
         std::unordered_map<WireId, arc_key> dst_to_arc;
 
-        for (auto &net_it : ctx->nets)
-        {
+        for (auto &net_it : ctx->nets) {
             NetInfo *net_info = net_it.second.get();
 
             if (skip_net(net_info))
@@ -316,26 +319,30 @@ struct Router1
                           ctx->nameOf(net_info), ctx->nameOf(src_to_net.at(src_wire)));
 
             if (dst_to_arc.count(src_wire))
-                log_error("Wire %s is used as source and sink in different nets: %s vs %s (%d)\n", ctx->getWireName(src_wire).c_str(ctx),
-                          ctx->nameOf(net_info), ctx->nameOf(dst_to_arc.at(src_wire).net_info), dst_to_arc.at(src_wire).user_idx);
+                log_error("Wire %s is used as source and sink in different nets: %s vs %s (%d)\n",
+                          ctx->getWireName(src_wire).c_str(ctx), ctx->nameOf(net_info),
+                          ctx->nameOf(dst_to_arc.at(src_wire).net_info), dst_to_arc.at(src_wire).user_idx);
 
             for (int user_idx = 0; user_idx < int(net_info->users.size()); user_idx++) {
                 auto dst_wire = ctx->getNetinfoSinkWire(net_info, net_info->users[user_idx]);
 
                 if (dst_wire == WireId())
-                    log_error("No wire found for port %s on destination cell %s.\n", net_info->users[user_idx].port.c_str(ctx),
+                    log_error("No wire found for port %s on destination cell %s.\n",
+                              net_info->users[user_idx].port.c_str(ctx),
                               net_info->users[user_idx].cell->name.c_str(ctx));
 
                 if (dst_to_arc.count(dst_wire)) {
                     if (dst_to_arc.at(dst_wire).net_info == net_info)
                         continue;
-                    log_error("Found two arcs with same sink wire %s: %s (%d) vs %s (%d)\n", ctx->getWireName(dst_wire).c_str(ctx),
-                              ctx->nameOf(net_info), user_idx, ctx->nameOf(dst_to_arc.at(dst_wire).net_info), dst_to_arc.at(dst_wire).user_idx);
+                    log_error("Found two arcs with same sink wire %s: %s (%d) vs %s (%d)\n",
+                              ctx->getWireName(dst_wire).c_str(ctx), ctx->nameOf(net_info), user_idx,
+                              ctx->nameOf(dst_to_arc.at(dst_wire).net_info), dst_to_arc.at(dst_wire).user_idx);
                 }
 
                 if (src_to_net.count(dst_wire))
-                    log_error("Wire %s is used as source and sink in different nets: %s vs %s (%d)\n", ctx->getWireName(dst_wire).c_str(ctx),
-                              ctx->nameOf(src_to_net.at(dst_wire)), ctx->nameOf(net_info), user_idx);
+                    log_error("Wire %s is used as source and sink in different nets: %s vs %s (%d)\n",
+                              ctx->getWireName(dst_wire).c_str(ctx), ctx->nameOf(src_to_net.at(dst_wire)),
+                              ctx->nameOf(net_info), user_idx);
 
                 arc_key arc;
                 arc.net_info = net_info;
@@ -390,7 +397,8 @@ struct Router1
         ripup_flag = false;
 
         if (ctx->debug) {
-            log("Routing arc %d on net %s (%d arcs total):\n", user_idx, net_info->name.c_str(ctx), int(net_info->users.size()));
+            log("Routing arc %d on net %s (%d arcs total):\n", user_idx, net_info->name.c_str(ctx),
+                int(net_info->users.size()));
             log("  source ... %s\n", ctx->getWireName(src_wire).c_str(ctx));
             log("  sink ..... %s\n", ctx->getWireName(dst_wire).c_str(ctx));
         }
@@ -443,8 +451,7 @@ struct Router1
             visited[qw.wire] = qw;
         }
 
-        while (visitCnt++ < maxVisitCnt && !queue.empty())
-        {
+        while (visitCnt++ < maxVisitCnt && !queue.empty()) {
             QueuedWire qw = queue.top();
             queue.pop();
 
@@ -484,10 +491,12 @@ struct Router1
                         }
                     }
 
-                    if (conflictWireNet != nullptr && conflictPipWire != WireId() && conflictWireNet->wires.count(conflictPipWire))
+                    if (conflictWireNet != nullptr && conflictPipWire != WireId() &&
+                        conflictWireNet->wires.count(conflictPipWire))
                         conflictPipWire = WireId();
 
-                    if (conflictPipNet != nullptr && conflictWireWire != WireId() && conflictPipNet->wires.count(conflictWireWire))
+                    if (conflictPipNet != nullptr && conflictWireWire != WireId() &&
+                        conflictPipNet->wires.count(conflictWireWire))
                         conflictWireWire = WireId();
 
                     if (conflictWireWire == conflictPipWire)
@@ -562,7 +571,7 @@ struct Router1
                 if (cfg.useEstimate) {
                     next_qw.togo = ctx->estimateDelay(next_wire, dst_wire);
                     delay_t this_est = next_qw.delay + next_qw.togo;
-                    if (this_est/2 - cfg.estimatePrecision > best_est)
+                    if (this_est / 2 - cfg.estimatePrecision > best_est)
                         continue;
                     if (best_est > this_est)
                         best_est = this_est;
@@ -583,7 +592,7 @@ struct Router1
 
                 if (next_wire == dst_wire) {
                     if (maxVisitCnt == INT_MAX)
-                        maxVisitCnt = 2*visitCnt;
+                        maxVisitCnt = 2 * visitCnt;
                     best_score = next_score - next_bonus;
                 }
             }
@@ -615,8 +624,8 @@ struct Router1
             if (ctx->debug)
                 log("  node %s\n", ctx->getWireName(cursor).c_str(ctx));
 
-                if (pip == PipId())
-                    NPNR_ASSERT(cursor == src_wire);
+            if (pip == PipId())
+                NPNR_ASSERT(cursor == src_wire);
 
             if (!net_info->wires.count(cursor) || net_info->wires.at(cursor).pip != pip) {
                 if (!ctx->checkWireAvail(cursor)) {
@@ -670,8 +679,8 @@ Router1Cfg::Router1Cfg(Context *ctx) : Settings(ctx)
     useEstimate = get<bool>("router1/useEstimate", true);
 
     wireRipupPenalty = ctx->getRipupDelayPenalty();
-    netRipupPenalty = 10*ctx->getRipupDelayPenalty();
-    reuseBonus = wireRipupPenalty/2;
+    netRipupPenalty = 10 * ctx->getRipupDelayPenalty();
+    reuseBonus = wireRipupPenalty / 2;
 
     estimatePrecision = 100 * ctx->getRipupDelayPenalty();
 }
@@ -702,10 +711,9 @@ bool router1(Context *ctx, const Router1Cfg &cfg)
 
         while (!router.arc_queue.empty()) {
             if (++iter_cnt % 1000 == 0) {
-                log_info("%10d | %8d %10d | %4d %5d | %9d\n",
-                        iter_cnt, router.arcs_with_ripup, router.arcs_without_ripup,
-                        router.arcs_with_ripup - last_arcs_with_ripup,
-                        router.arcs_without_ripup - last_arcs_without_ripup, int(router.arc_queue.size()));
+                log_info("%10d | %8d %10d | %4d %5d | %9d\n", iter_cnt, router.arcs_with_ripup,
+                         router.arcs_without_ripup, router.arcs_with_ripup - last_arcs_with_ripup,
+                         router.arcs_without_ripup - last_arcs_without_ripup, int(router.arc_queue.size()));
                 last_arcs_with_ripup = router.arcs_with_ripup;
                 last_arcs_without_ripup = router.arcs_without_ripup;
 #ifndef NDEBUG
@@ -719,8 +727,8 @@ bool router1(Context *ctx, const Router1Cfg &cfg)
             arc_key arc = router.arc_queue_pop();
 
             if (!router.route_arc(arc, true)) {
-                log_warning("Failed to find a route for arc %d of net %s.\n",
-                        arc.user_idx, arc.net_info->name.c_str(ctx));
+                log_warning("Failed to find a route for arc %d of net %s.\n", arc.user_idx,
+                            arc.net_info->name.c_str(ctx));
 #ifndef NDEBUG
                 router.check();
                 ctx->check();
@@ -730,10 +738,9 @@ bool router1(Context *ctx, const Router1Cfg &cfg)
             }
         }
 
-        log_info("%10d | %8d %10d | %4d %5d | %9d\n",
-                iter_cnt, router.arcs_with_ripup, router.arcs_without_ripup,
-                router.arcs_with_ripup - last_arcs_with_ripup,
-                router.arcs_without_ripup - last_arcs_without_ripup, int(router.arc_queue.size()));
+        log_info("%10d | %8d %10d | %4d %5d | %9d\n", iter_cnt, router.arcs_with_ripup, router.arcs_without_ripup,
+                 router.arcs_with_ripup - last_arcs_with_ripup, router.arcs_without_ripup - last_arcs_without_ripup,
+                 int(router.arc_queue.size()));
         log_info("Routing complete.\n");
 
 #ifndef NDEBUG
@@ -758,165 +765,166 @@ bool router1(Context *ctx, const Router1Cfg &cfg)
 
 bool Context::checkRoutedDesign() const
 {
-        const Context *ctx = getCtx();
+    const Context *ctx = getCtx();
 
-        for (auto &net_it : ctx->nets) {
-            NetInfo *net_info = net_it.second.get();
+    for (auto &net_it : ctx->nets) {
+        NetInfo *net_info = net_it.second.get();
 
+        if (ctx->debug)
+            log("checking net %s\n", net_info->name.c_str(ctx));
+
+        if (net_info->users.empty()) {
             if (ctx->debug)
-                log("checking net %s\n", net_info->name.c_str(ctx));
-
-            if (net_info->users.empty()) {
-                if (ctx->debug)
-                    log("  net without sinks\n");
-                log_assert(net_info->wires.empty());
-                continue;
-            }
-
-            bool found_unrouted = false;
-            bool found_loop = false;
-            bool found_stub = false;
-
-            struct ExtraWireInfo {
-                int order_num = 0;
-                std::unordered_set<WireId> children;
-            };
-
-            std::unordered_map<WireId, ExtraWireInfo> db;
-
-            for (auto &it : net_info->wires) {
-                WireId w = it.first;
-                PipId p = it.second.pip;
-
-                if (p != PipId()) {
-                    log_assert(ctx->getPipDstWire(p) == w);
-                    db[ctx->getPipSrcWire(p)].children.insert(w);
-                }
-            }
-
-            auto src_wire = ctx->getNetinfoSourceWire(net_info);
-            log_assert(src_wire != WireId());
-
-            if (net_info->wires.count(src_wire) == 0) {
-                if (ctx->debug)
-                    log("  source (%s) not bound to net\n", ctx->getWireName(src_wire).c_str(ctx));
-                found_unrouted = true;
-            }
-
-            std::unordered_map<WireId, int> dest_wires;
-            for (int user_idx = 0; user_idx < int(net_info->users.size()); user_idx++) {
-                auto dst_wire = ctx->getNetinfoSinkWire(net_info, net_info->users[user_idx]);
-                log_assert(dst_wire != WireId());
-                dest_wires[dst_wire] = user_idx;
-
-                if (net_info->wires.count(dst_wire) == 0) {
-                    if (ctx->debug)
-                        log("  sink %d (%s) not bound to net\n", user_idx, ctx->getWireName(dst_wire).c_str(ctx));
-                    found_unrouted = true;
-                }
-            }
-
-            std::function<void(WireId, int)> setOrderNum;
-            std::unordered_set<WireId> logged_wires;
-
-            setOrderNum = [&](WireId w, int num) {
-                auto &db_entry = db[w];
-                if (db_entry.order_num != 0) {
-                    found_loop = true;
-                    log("  %*s=> loop\n", 2*num, "");
-                    return;
-                }
-                db_entry.order_num = num;
-                for (WireId child : db_entry.children) {
-                    if (ctx->debug) {
-                        log("  %*s-> %s\n", 2*num, "", ctx->getWireName(child).c_str(ctx));
-                        logged_wires.insert(child);
-                    }
-                    setOrderNum(child, num+1);
-                }
-                if (db_entry.children.empty()) {
-                    if (dest_wires.count(w) != 0) {
-                        if (ctx->debug)
-                            log("  %*s=> sink %d\n", 2*num, "", dest_wires.at(w));
-                    } else {
-                        if (ctx->debug)
-                            log("  %*s=> stub\n", 2*num, "");
-                        found_stub = true;
-                    }
-                }
-            };
-
-            if (ctx->debug) {
-                log("  driver: %s\n", ctx->getWireName(src_wire).c_str(ctx));
-                logged_wires.insert(src_wire);
-            }
-            setOrderNum(src_wire, 1);
-
-            std::unordered_set<WireId> dangling_wires;
-
-            for (auto &it : db) {
-                auto &db_entry = it.second;
-                if (db_entry.order_num == 0)
-                    dangling_wires.insert(it.first);
-            }
-
-            if (ctx->debug) {
-                if (dangling_wires.empty()) {
-                    log("  no dangling wires.\n");
-                } else {
-                    std::unordered_set<WireId> root_wires = dangling_wires;
-
-                    for (WireId w : dangling_wires) {
-                        for (WireId c : db[w].children)
-                            root_wires.erase(c);
-                    }
-
-                    for (WireId w : root_wires) {
-                        log("  dangling wire: %s\n", ctx->getWireName(w).c_str(ctx));
-                        logged_wires.insert(w);
-                        setOrderNum(w, 1);
-                    }
-
-                    for (WireId w : dangling_wires) {
-                        if (logged_wires.count(w) == 0)
-                            log("  loop: %s -> %s\n",
-                                ctx->getWireName(ctx->getPipSrcWire(net_info->wires.at(w).pip)).c_str(ctx),
-                                ctx->getWireName(w).c_str(ctx));
-                    }
-                }
-            }
-
-            bool fail = false;
-
-            if (found_unrouted) {
-                if (ctx->debug)
-                    log("check failed: found unrouted arcs\n");
-                fail = true;
-            }
-
-            if (found_loop) {
-                if (ctx->debug)
-                    log("check failed: found loops\n");
-                fail = true;
-            }
-
-            if (found_stub) {
-                if (ctx->debug)
-                    log("check failed: found stubs\n");
-                fail = true;
-            }
-
-            if (!dangling_wires.empty()) {
-                if (ctx->debug)
-                    log("check failed: found dangling wires\n");
-                fail = true;
-            }
-
-            if (fail)
-                return false;
+                log("  net without sinks\n");
+            log_assert(net_info->wires.empty());
+            continue;
         }
 
-        return true;
+        bool found_unrouted = false;
+        bool found_loop = false;
+        bool found_stub = false;
+
+        struct ExtraWireInfo
+        {
+            int order_num = 0;
+            std::unordered_set<WireId> children;
+        };
+
+        std::unordered_map<WireId, ExtraWireInfo> db;
+
+        for (auto &it : net_info->wires) {
+            WireId w = it.first;
+            PipId p = it.second.pip;
+
+            if (p != PipId()) {
+                log_assert(ctx->getPipDstWire(p) == w);
+                db[ctx->getPipSrcWire(p)].children.insert(w);
+            }
+        }
+
+        auto src_wire = ctx->getNetinfoSourceWire(net_info);
+        log_assert(src_wire != WireId());
+
+        if (net_info->wires.count(src_wire) == 0) {
+            if (ctx->debug)
+                log("  source (%s) not bound to net\n", ctx->getWireName(src_wire).c_str(ctx));
+            found_unrouted = true;
+        }
+
+        std::unordered_map<WireId, int> dest_wires;
+        for (int user_idx = 0; user_idx < int(net_info->users.size()); user_idx++) {
+            auto dst_wire = ctx->getNetinfoSinkWire(net_info, net_info->users[user_idx]);
+            log_assert(dst_wire != WireId());
+            dest_wires[dst_wire] = user_idx;
+
+            if (net_info->wires.count(dst_wire) == 0) {
+                if (ctx->debug)
+                    log("  sink %d (%s) not bound to net\n", user_idx, ctx->getWireName(dst_wire).c_str(ctx));
+                found_unrouted = true;
+            }
+        }
+
+        std::function<void(WireId, int)> setOrderNum;
+        std::unordered_set<WireId> logged_wires;
+
+        setOrderNum = [&](WireId w, int num) {
+            auto &db_entry = db[w];
+            if (db_entry.order_num != 0) {
+                found_loop = true;
+                log("  %*s=> loop\n", 2 * num, "");
+                return;
+            }
+            db_entry.order_num = num;
+            for (WireId child : db_entry.children) {
+                if (ctx->debug) {
+                    log("  %*s-> %s\n", 2 * num, "", ctx->getWireName(child).c_str(ctx));
+                    logged_wires.insert(child);
+                }
+                setOrderNum(child, num + 1);
+            }
+            if (db_entry.children.empty()) {
+                if (dest_wires.count(w) != 0) {
+                    if (ctx->debug)
+                        log("  %*s=> sink %d\n", 2 * num, "", dest_wires.at(w));
+                } else {
+                    if (ctx->debug)
+                        log("  %*s=> stub\n", 2 * num, "");
+                    found_stub = true;
+                }
+            }
+        };
+
+        if (ctx->debug) {
+            log("  driver: %s\n", ctx->getWireName(src_wire).c_str(ctx));
+            logged_wires.insert(src_wire);
+        }
+        setOrderNum(src_wire, 1);
+
+        std::unordered_set<WireId> dangling_wires;
+
+        for (auto &it : db) {
+            auto &db_entry = it.second;
+            if (db_entry.order_num == 0)
+                dangling_wires.insert(it.first);
+        }
+
+        if (ctx->debug) {
+            if (dangling_wires.empty()) {
+                log("  no dangling wires.\n");
+            } else {
+                std::unordered_set<WireId> root_wires = dangling_wires;
+
+                for (WireId w : dangling_wires) {
+                    for (WireId c : db[w].children)
+                        root_wires.erase(c);
+                }
+
+                for (WireId w : root_wires) {
+                    log("  dangling wire: %s\n", ctx->getWireName(w).c_str(ctx));
+                    logged_wires.insert(w);
+                    setOrderNum(w, 1);
+                }
+
+                for (WireId w : dangling_wires) {
+                    if (logged_wires.count(w) == 0)
+                        log("  loop: %s -> %s\n",
+                            ctx->getWireName(ctx->getPipSrcWire(net_info->wires.at(w).pip)).c_str(ctx),
+                            ctx->getWireName(w).c_str(ctx));
+                }
+            }
+        }
+
+        bool fail = false;
+
+        if (found_unrouted) {
+            if (ctx->debug)
+                log("check failed: found unrouted arcs\n");
+            fail = true;
+        }
+
+        if (found_loop) {
+            if (ctx->debug)
+                log("check failed: found loops\n");
+            fail = true;
+        }
+
+        if (found_stub) {
+            if (ctx->debug)
+                log("check failed: found stubs\n");
+            fail = true;
+        }
+
+        if (!dangling_wires.empty()) {
+            if (ctx->debug)
+                log("check failed: found dangling wires\n");
+            fail = true;
+        }
+
+        if (fail)
+            return false;
+    }
+
+    return true;
 }
 
 bool Context::getActualRouteDelay(WireId src_wire, WireId dst_wire, delay_t *delay,
