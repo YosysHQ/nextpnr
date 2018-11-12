@@ -528,7 +528,7 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
 
     Timing timing(ctx, true /* net_delays */, false /* update */, (print_path || print_fmax) ? &crit_paths : nullptr,
                   print_histogram ? &slack_histogram : nullptr);
-    auto min_slack = timing.walk_paths();
+    timing.walk_paths();
     std::map<IdString, std::pair<ClockPair, CriticalPath>> clock_reports;
     std::map<IdString, double> clock_fmax;
     std::vector<ClockPair> xclock_paths;
