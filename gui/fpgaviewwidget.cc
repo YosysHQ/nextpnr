@@ -286,7 +286,7 @@ QMatrix4x4 FPGAViewWidget::getProjection(void)
     QMatrix4x4 matrix;
 
     const float aspect = float(width()) / float(height());
-    matrix.perspective(90, aspect, zoomNear_, zoomFar_ + 0.1f);
+    matrix.perspective(90, aspect, zoomNear_ - 0.01f, zoomFar_ + 0.01f);
     return matrix;
 }
 
