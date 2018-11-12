@@ -490,6 +490,14 @@ static void insert_global(Context *ctx, NetInfo *net, bool is_reset, bool is_cen
         }
     }
     net->users = keep_users;
+
+    if (net->clkconstr) {
+        glbnet->clkconstr = std::unique_ptr<ClockConstraint>(new ClockConstraint());
+        glbnet->clkconstr->low = net->clkconstr->low;
+        glbnet->clkconstr->high = net->clkconstr->high;
+        glbnet->clkconstr->period = net->clkconstr->period;
+    }
+
     ctx->nets[glbnet->name] = std::move(glbnet);
     ctx->cells[gb->name] = std::move(gb);
 }

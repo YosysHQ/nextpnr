@@ -315,13 +315,26 @@ struct Timing
                             const auto endpoint_arrival = net_arrival + net_delay + setup;
                             auto path_budget = clk_period - endpoint_arrival;
                             delay_t period;
-
+                            // Set default period
                             if (edge == startdomain.first.edge) {
                                 period = clk_period;
                             } else {
                                 period = clk_period / 2;
                             }
-
+                            if (clksig != async_clock) {
+                                if (ctx->nets.at(clksig)->clkconstr) {
+                                    if (edge == startdomain.first.edge) {
+                                        // same edge
+                                        period = ctx->nets.at(clksig)->clkconstr->period.minDelay();
+                                    } else if (edge == RISING_EDGE) {
+                                        // falling -> rising
+                                        period = ctx->nets.at(clksig)->clkconstr->low.minDelay();
+                                    } else if (edge == FALLING_EDGE) {
+                                        // rising -> falling
+                                        period = ctx->nets.at(clksig)->clkconstr->high.minDelay();
+                                    }
+                                }
+                            }
                             if (update) {
                                 auto budget_share = budget_override ? 0 : path_budget / net_length_plus_one;
                                 usr.budget = std::min(usr.budget, net_delay + budget_share);
@@ -637,7 +650,13 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
     if (print_fmax) {
         log_break();
         for (auto &clock : clock_reports) {
-            log_info("Max frequency for clock '%s': %.02f MHz\n", clock.first.c_str(ctx), clock_fmax[clock.first]);
+            if (ctx->nets.at(clock.first)->clkconstr) {
+                float target = 1000 / ctx->getDelayNS(ctx->nets.at(clock.first)->clkconstr->period.minDelay());
+                log_info("Max frequency for clock '%s': %.02f MHz (%s at %.02f MHz)\n", clock.first.c_str(ctx),
+                         clock_fmax[clock.first], (target < clock_fmax[clock.first]) ? "PASS" : "FAIL", target);
+            } else {
+                log_info("Max frequency for clock '%s': %.02f MHz\n", clock.first.c_str(ctx), clock_fmax[clock.first]);
+            }
         }
         log_break();
 

@@ -381,4 +381,13 @@ void Context::check() const
     }
 }
 
+void BaseCtx::addClock(IdString net, float freq)
+{
+    std::unique_ptr<ClockConstraint> cc(new ClockConstraint());
+    cc->period = getCtx()->getDelayFromNS(1000 / freq);
+    cc->high = getCtx()->getDelayFromNS(500 / freq);
+    cc->low = getCtx()->getDelayFromNS(500 / freq);
+    nets.at(net)->clkconstr = std::move(cc);
+}
+
 NEXTPNR_NAMESPACE_END

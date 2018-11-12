@@ -297,7 +297,7 @@ struct NetInfo : ArchNetInfo
     // wire -> uphill_pip
     std::unordered_map<WireId, PipMap> wires;
 
-    ClockConstraint *clkconstr = nullptr;
+    std::unique_ptr<ClockConstraint> clkconstr;
 
     TimingConstrObjectId tmg_id;
 
@@ -627,6 +627,9 @@ struct BaseCtx
 
     void addConstraint(std::unique_ptr<TimingConstraint> constr);
     void removeConstraint(IdString constrName);
+
+    // Intended to simplify Python API
+    void addClock(IdString net, float freq);
 };
 
 NEXTPNR_NAMESPACE_END
