@@ -770,6 +770,11 @@ bool Context::checkRoutedDesign() const
     for (auto &net_it : ctx->nets) {
         NetInfo *net_info = net_it.second.get();
 
+#ifdef ARCH_ECP5
+        if (net_info->is_global)
+            continue;
+#endif
+
         if (ctx->debug)
             log("checking net %s\n", net_info->name.c_str(ctx));
 
