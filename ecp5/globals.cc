@@ -350,6 +350,13 @@ class Ecp5GlobalRouter
 
         place_dcc(dcc.get());
 
+        if (net->clkconstr) {
+            glbnet->clkconstr = std::unique_ptr<ClockConstraint>(new ClockConstraint());
+            glbnet->clkconstr->low = net->clkconstr->low;
+            glbnet->clkconstr->high = net->clkconstr->high;
+            glbnet->clkconstr->period = net->clkconstr->period;
+        }
+
         ctx->cells[dcc->name] = std::move(dcc);
         NetInfo *glbptr = glbnet.get();
         ctx->nets[glbnet->name] = std::move(glbnet);
