@@ -749,6 +749,10 @@ bool parse_json_file(std::istream &f, std::string &filename, Context *ctx)
 {
     try {
         using namespace JsonParser;
+
+        if (!f)
+            log_error("failed to open JSON file.\n");
+
         int lineno = 1;
 
         JsonNode root(f, lineno);
