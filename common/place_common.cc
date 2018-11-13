@@ -37,7 +37,7 @@ wirelen_t get_net_metric(const Context *ctx, const NetInfo *net, MetricType type
     if (driver_gb)
         return 0;
     IdString clock_port;
-    bool driver_tmg_ignore = ctx->getPortTimingClass(driver_cell, net->driver.port, clock_port) == TMG_IGNORE;
+    bool timing_driven = ctx->timing_driven && type == MetricType::COST && ctx->getPortTimingClass(driver_cell, net->driver.port, clock_port) != TMG_IGNORE;
     delay_t negative_slack = 0;
     delay_t worst_slack = std::numeric_limits<delay_t>::max();
     Loc driver_loc = ctx->getBelLocation(driver_cell->bel);
@@ -48,7 +48,7 @@ wirelen_t get_net_metric(const Context *ctx, const NetInfo *net, MetricType type
         CellInfo *load_cell = load.cell;
         if (load_cell->bel == BelId())
             continue;
-        if (!driver_tmg_ignore && ctx->timing_driven && type == MetricType::COST) {
+        if (timing_driven) {
             delay_t net_delay = ctx->predictDelay(net, load);
             auto slack = load.budget - net_delay;
             if (slack < 0)
@@ -65,7 +65,7 @@ wirelen_t get_net_metric(const Context *ctx, const NetInfo *net, MetricType type
         xmax = std::max(xmax, load_loc.x);
         ymax = std::max(ymax, load_loc.y);
     }
-    if (ctx->timing_driven && type == MetricType::COST) {
+    if (timing_driven) {
         wirelength = wirelen_t(
                 (((ymax - ymin) + (xmax - xmin)) * std::min(5.0, (1.0 + std::exp(-ctx->getDelayNS(worst_slack) / 5)))));
     } else {
