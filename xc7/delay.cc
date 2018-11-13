@@ -104,7 +104,7 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
     const auto &src_info = torc_info->tiles.getTileInfo(src_tw.getTileIndex());
     const auto &dst_tw = torc_info->wire_to_tilewire[dst.index];
     const auto &dst_info = torc_info->tiles.getTileInfo(dst_tw.getTileIndex());
-    auto abs_delta_x = (abs(tile_info.getCol() - dst_info.getCol()) + 1)/ 2; // Divide by 2 because XDL coordinate space counts the INT tiles between CLBs
+    auto abs_delta_x = (abs(src_info.getCol() - dst_info.getCol()) + 1)/ 2; // Divide by 2 because XDL coordinate space counts the INT tiles between CLBs
     auto abs_delta_y = abs(src_info.getRow() - dst_info.getRow());
 #if 1
     auto div_LH = std::div(abs_delta_x, 12);
