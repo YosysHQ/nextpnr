@@ -53,6 +53,30 @@ void IdString::initialize_add(const BaseCtx *ctx, const char *s, int idx)
     ctx->idstring_idx_to_str->push_back(&insert_rc.first->first);
 }
 
+const char *BaseCtx::nameOfBel(BelId bel) const
+{
+    const Context *ctx = getCtx();
+    return ctx->getBelName(bel).c_str(ctx);
+}
+
+const char *BaseCtx::nameOfWire(WireId wire) const
+{
+    const Context *ctx = getCtx();
+    return ctx->getWireName(wire).c_str(ctx);
+}
+
+const char *BaseCtx::nameOfPip(PipId pip) const
+{
+    const Context *ctx = getCtx();
+    return ctx->getPipName(pip).c_str(ctx);
+}
+
+const char *BaseCtx::nameOfGroup(GroupId group) const
+{
+    const Context *ctx = getCtx();
+    return ctx->getGroupName(group).c_str(ctx);
+}
+
 WireId Context::getNetinfoSourceWire(const NetInfo *net_info) const
 {
     if (net_info->driver.cell == nullptr)
