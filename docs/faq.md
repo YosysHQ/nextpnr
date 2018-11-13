@@ -46,7 +46,8 @@ See [archapi.md](archapi.md) for a complete reference of the architecture API.
 ### Delay Estimates
 
 Each architecture must implement a `estimateDelay()` method that estimates the expected delay for a path from given `src` to `dst` wires.
-*It is very important that this method slightly overestimates the expected delay.* Otherwise there will be performance issues with the router.
+*It is very important that this method slightly overestimates the expected delay.* Furthermore, it should overestimate the expected delay
+by a slightly larger margin for longer paths than for shorter paths. Otherwise there will be performance issues with the router.
 
 The delays estimates returned by that method should also be as fine-grain as possible. It definitely pays off to spend some time improving the `estimateDelay()`
 for your architecture once implementing small designs work.

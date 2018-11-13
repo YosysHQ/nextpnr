@@ -666,12 +666,18 @@ struct Router1
 
         WireId cursor = dst_wire;
         delay_t accumulated_path_delay = 0;
+        delay_t last_path_delay_delta = 0;
         while (1) {
             auto pip = visited[cursor].pip;
 
             if (ctx->debug) {
-                log("  node %s (%+.1f)\n", ctx->nameOfWire(cursor),
-                    ctx->getDelayNS(ctx->estimateDelay(cursor, dst_wire)) - ctx->getDelayNS(accumulated_path_delay));
+                delay_t path_delay_delta = ctx->estimateDelay(cursor, dst_wire) - accumulated_path_delay;
+
+                log("  node %s (%+.2f %+.2f)\n", ctx->nameOfWire(cursor), ctx->getDelayNS(path_delay_delta),
+                    ctx->getDelayNS(path_delay_delta - last_path_delay_delta));
+
+                last_path_delay_delta = path_delay_delta;
+
                 if (pip != PipId())
                     accumulated_path_delay += ctx->getPipDelay(pip).maxDelay();
                 accumulated_path_delay += ctx->getWireDelay(cursor).maxDelay();
