@@ -244,9 +244,9 @@ class SAPlacer
             }
             // Once cooled below legalise threshold, run legalisation and start requiring
             // legal moves only
-            if (temp < legalise_temp && !require_legal) {
+            if (temp < legalise_temp && require_legal) {
                 legalise_relative_constraints(ctx);
-                require_legal = true;
+                require_legal = false;
                 autoplaced.clear();
                 for (auto cell : sorted(ctx->cells)) {
                     if (cell.second->belStrength < STRENGTH_STRONG)
@@ -486,7 +486,7 @@ class SAPlacer
     std::unordered_map<IdString, int> bel_types;
     std::vector<std::vector<std::vector<std::vector<BelId>>>> fast_bels;
     std::unordered_set<BelId> locked_bels;
-    bool require_legal = false;
+    bool require_legal = true;
     const float legalise_temp = 1;
     const float post_legalise_temp = 10;
     const float post_legalise_dia_scale = 1.5;
