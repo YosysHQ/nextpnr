@@ -38,7 +38,93 @@ For nextpnr we are using the following terminology.
 Adding new architectures to nextpnr
 -----------------------------------
 
-TBD
+### Implementing new architectures
+
+Each nextpnr architecture must implement the *nextpnr architecture API*.
+See [archapi.md](archapi.md) for a complete reference of the architecture API.
+
+### Delay Estimates
+
+Each architecture must implement a `estimateDelay()` method that estimates the expected delay for a path from given `src` to `dst` wires.
+*It is very important that this method slightly overestimates the expected delay.* Otherwise there will be performance issues with the router.
+
+The delays estimates returned by that method should also be as fine-grain as possible. It definitely pays off to spend some time improving the `estimateDelay()`
+for your architecture once implementing small designs work.
+
+### Ripup Information
+
+The `getConflictingWireWire()`, `getConflictingWireNet()`, `getConflictingPipWire()`, and `getConflictingPipNet()` methods are used by the router
+to determine which resources to rip up in order to make a given routing resource (wire or pip) available.
+
+The architecture must guanrantee that the following invariants hold.
+
+**Invariant 1:**
+
+```
+    if (!ctx->checkWireAvail(wire)) {
+        WireId w = getConflictingWireWire(wire);
+        if (w != WireId()) {
+            ctx->unbindWire(w);
+            assert(ctx->checkWireAvail(wire));
+        }
+    }
+```
+
+**Invariant 2:**
+
+```
+    if (!ctx->checkWireAvail(wire)) {
+        NetInfo *n = getConflictingWireNet(wire);
+        if (n != nullptr) {
+            for (auto &it : n->wires)
+                ctx->unbindWire(it.first);
+            assert(ctx->checkWireAvail(wire));
+        }
+    }
+```
+
+**Invariant 3:**
+
+```
+    if (!ctx->checkPipAvail(pip)) {
+        WireId w = getConflictingPipWire(pip);
+        if (w != WireId()) {
+            ctx->unbindWire(w);
+            assert(ctx->checkPipAvail(pip));
+        }
+    }
+```
+
+**Invariant 4:**
+
+```
+    if (!ctx->checkPipAvail(pip)) {
+        NetInfo *n = getConflictingPipNet(pip);
+        if (n != nullptr) {
+            for (auto &it : n->wires)
+                ctx->unbindWire(it.first);
+            assert(ctx->checkPipAvail(pip));
+        }
+    }
+```
+
+**Invariant 5:**
+
+```
+    if (ctx->checkWireAvail(wire)) {
+        // bind is guaranteed to succeed
+        ctx->bindWire(wire, net, strength);
+    }
+```
+
+**Invariant 6:**
+
+```
+    if (ctx->checkPipAvail(pip) && ctx->checkWireAvail(ctx->getPipDstWire(pip))) {
+        // bind is guaranteed to succeed
+        ctx->bindPip(pip, net, strength);
+    }
+```
 
 Nextpnr and other tools
 -----------------------
