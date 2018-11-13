@@ -172,6 +172,7 @@ struct Arch : BaseCtx
     void unbindWire(WireId wire);
     bool checkWireAvail(WireId wire) const;
     NetInfo *getBoundWireNet(WireId wire) const;
+    WireId getConflictingWireWire(WireId wire) const { return wire; }
     NetInfo *getConflictingWireNet(WireId wire) const;
     DelayInfo getWireDelay(WireId wire) const { return DelayInfo(); }
     const std::vector<WireId> &getWires() const;
@@ -186,6 +187,7 @@ struct Arch : BaseCtx
     void unbindPip(PipId pip);
     bool checkPipAvail(PipId pip) const;
     NetInfo *getBoundPipNet(PipId pip) const;
+    WireId getConflictingPipWire(PipId pip) const;
     NetInfo *getConflictingPipNet(PipId pip) const;
     const std::vector<PipId> &getPips() const;
     Loc getPipLocation(PipId pip) const;

@@ -66,6 +66,7 @@ struct BelId
 
     bool operator==(const BelId &other) const { return index == other.index; }
     bool operator!=(const BelId &other) const { return index != other.index; }
+    bool operator<(const BelId &other) const { return index < other.index; }
 };
 
 struct WireId
@@ -74,6 +75,7 @@ struct WireId
 
     bool operator==(const WireId &other) const { return index == other.index; }
     bool operator!=(const WireId &other) const { return index != other.index; }
+    bool operator<(const WireId &other) const { return index < other.index; }
 };
 
 struct PipId
@@ -82,6 +84,7 @@ struct PipId
 
     bool operator==(const PipId &other) const { return index == other.index; }
     bool operator!=(const PipId &other) const { return index != other.index; }
+    bool operator<(const PipId &other) const { return index < other.index; }
 };
 
 struct GroupId
