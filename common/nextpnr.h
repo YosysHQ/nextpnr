@@ -487,12 +487,22 @@ struct BaseCtx
 
     const Context *getCtx() const { return reinterpret_cast<const Context *>(this); }
 
-    template <typename T> const char *nameOf(const T *obj)
+    const char *nameOf(IdString name) const
+    {
+        return name.c_str(this);
+    }
+
+    template <typename T> const char *nameOf(const T *obj) const
     {
         if (obj == nullptr)
             return "";
-        return obj->name.c_str(getCtx());
+        return obj->name.c_str(this);
     }
+
+    const char *nameOfBel(BelId bel) const;
+    const char *nameOfWire(WireId wire) const;
+    const char *nameOfPip(PipId pip) const;
+    const char *nameOfGroup(GroupId group) const;
 
     // --------------------------------------------------------------
 

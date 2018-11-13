@@ -619,10 +619,7 @@ struct Arch : BaseCtx
             return wire_to_net.at(wire);
     }
 
-    WireId getConflictingWireWire(WireId wire) const
-    {
-        return wire;
-    }
+    WireId getConflictingWireWire(WireId wire) const { return wire; }
 
     NetInfo *getConflictingWireNet(WireId wire) const
     {
@@ -729,10 +726,7 @@ struct Arch : BaseCtx
             return pip_to_net.at(pip);
     }
 
-    WireId getConflictingPipWire(PipId pip) const
-    {
-        return WireId();
-    }
+    WireId getConflictingPipWire(PipId pip) const { return WireId(); }
 
     NetInfo *getConflictingPipNet(PipId pip) const
     {
