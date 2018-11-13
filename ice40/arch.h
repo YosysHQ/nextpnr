@@ -485,6 +485,7 @@ struct Arch : BaseCtx
 
     Loc getBelLocation(BelId bel) const
     {
+        NPNR_ASSERT(bel != BelId());
         Loc loc;
         loc.x = chip_info->bel_data[bel.index].x;
         loc.y = chip_info->bel_data[bel.index].y;
