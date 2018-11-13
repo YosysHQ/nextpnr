@@ -34,6 +34,7 @@ struct arc_key
     int user_idx;
 
     bool operator==(const arc_key &other) const { return (net_info == other.net_info) && (user_idx == other.user_idx); }
+    bool operator<(const arc_key &other) const { return net_info == other.net_info ? user_idx < other.user_idx : net_info->name < other.net_info->name; }
 
     struct Hash
     {
@@ -50,10 +51,16 @@ struct arc_entry
 {
     arc_key arc;
     delay_t pri;
+    int randtag = 0;
 
-    struct Greater
+    struct Less
     {
-        bool operator()(const arc_entry &lhs, const arc_entry &rhs) const noexcept { return lhs.pri > rhs.pri; }
+        bool operator()(const arc_entry &lhs, const arc_entry &rhs) const noexcept
+        {
+            if (lhs.pri != rhs.pri)
+                return lhs.pri < rhs.pri;
+            return lhs.randtag < rhs.randtag;
+        }
     };
 };
 
@@ -85,7 +92,7 @@ struct Router1
     Context *ctx;
     const Router1Cfg &cfg;
 
-    std::priority_queue<arc_entry, std::vector<arc_entry>, arc_entry::Greater> arc_queue;
+    std::priority_queue<arc_entry, std::vector<arc_entry>, arc_entry::Less> arc_queue;
     std::unordered_map<WireId, std::unordered_set<arc_key, arc_key::Hash>> wire_to_arcs;
     std::unordered_map<arc_key, std::unordered_set<WireId>, arc_key::Hash> arc_to_wires;
     std::unordered_set<arc_key, arc_key::Hash> queued_arcs;
@@ -112,6 +119,14 @@ struct Router1
         arc_entry entry;
         entry.arc = arc;
         entry.pri = pri;
+        entry.randtag = ctx->rng();
+
+#if 0
+        if (ctx->debug)
+            log("[arc_queue_insert] %s (%d) %s %s [%d %d]\n", ctx->nameOf(entry.arc.net_info), entry.arc.user_idx,
+                ctx->getWireName(src_wire).c_str(ctx), ctx->getWireName(dst_wire).c_str(ctx), (int)entry.pri,
+                entry.randtag);
+#endif
 
         arc_queue.push(entry);
         queued_arcs.insert(arc);
@@ -134,6 +149,13 @@ struct Router1
     arc_key arc_queue_pop()
     {
         arc_entry entry = arc_queue.top();
+
+#if 0
+        if (ctx->debug)
+            log("[arc_queue_pop] %s (%d) [%d %d]\n", ctx->nameOf(entry.arc.net_info), entry.arc.user_idx,
+                (int)entry.pri, entry.randtag);
+#endif
+
         arc_queue.pop();
         queued_arcs.erase(entry.arc);
         return entry.arc;
@@ -146,15 +168,24 @@ struct Router1
 
         netScores[net]++;
 
-        auto net_wires_copy = net->wires;
-        for (auto &it : net_wires_copy) {
-            WireId w = it.first;
+        std::vector<WireId> wires;
+        for (auto &it : net->wires)
+            wires.push_back(it.first);
 
+        ctx->sorted_shuffle(wires);
+
+        for (WireId w : wires) {
+            std::vector<arc_key> arcs;
             for (auto &it : wire_to_arcs[w]) {
                 arc_to_wires[it].erase(w);
-                arc_queue_insert(it);
+                arcs.push_back(it);
             }
             wire_to_arcs[w].clear();
+
+            ctx->sorted_shuffle(arcs);
+
+            for (auto &it : arcs)
+                arc_queue_insert(it);
 
             if (ctx->debug)
                 log("        unbind wire %s\n", ctx->getWireName(w).c_str(ctx));
@@ -178,11 +209,17 @@ struct Router1
             if (n != nullptr)
                 ripup_net(n);
         } else {
+            std::vector<arc_key> arcs;
             for (auto &it : wire_to_arcs[w]) {
                 arc_to_wires[it].erase(w);
-                arc_queue_insert(it);
+                arcs.push_back(it);
             }
             wire_to_arcs[w].clear();
+
+            ctx->sorted_shuffle(arcs);
+
+            for (auto &it : arcs)
+                arc_queue_insert(it);
 
             if (ctx->debug)
                 log("      unbind wire %s\n", ctx->getWireName(w).c_str(ctx));
@@ -206,11 +243,17 @@ struct Router1
             if (n != nullptr)
                 ripup_net(n);
         } else {
+            std::vector<arc_key> arcs;
             for (auto &it : wire_to_arcs[w]) {
                 arc_to_wires[it].erase(w);
-                arc_queue_insert(it);
+                arcs.push_back(it);
             }
             wire_to_arcs[w].clear();
+
+            ctx->sorted_shuffle(arcs);
+
+            for (auto &it : arcs)
+                arc_queue_insert(it);
 
             if (ctx->debug)
                 log("      unbind wire %s\n", ctx->getWireName(w).c_str(ctx));
@@ -302,8 +345,14 @@ struct Router1
         std::unordered_map<WireId, NetInfo *> src_to_net;
         std::unordered_map<WireId, arc_key> dst_to_arc;
 
-        for (auto &net_it : ctx->nets) {
-            NetInfo *net_info = net_it.second.get();
+        std::vector<IdString> net_names;
+        for (auto &net_it : ctx->nets)
+            net_names.push_back(net_it.first);
+
+        ctx->sorted_shuffle(net_names);
+
+        for (IdString net_name : net_names) {
+            NetInfo *net_info = ctx->nets.at(net_name).get();
 
             if (skip_net(net_info))
                 continue;
@@ -591,8 +640,7 @@ struct Router1
                 queue.push(next_qw);
 
                 if (next_wire == dst_wire) {
-                    if (maxVisitCnt == INT_MAX)
-                        maxVisitCnt = 2 * visitCnt;
+                    maxVisitCnt = std::min(maxVisitCnt, 2 * visitCnt + (next_qw.penalty > 0 ? 100 : 0));
                     best_score = next_score - next_bonus;
                 }
             }
@@ -611,6 +659,7 @@ struct Router1
             log("  final route delay:   %8.2f\n", ctx->getDelayNS(visited[dst_wire].delay));
             log("  final route penalty: %8.2f\n", ctx->getDelayNS(visited[dst_wire].penalty));
             log("  final route bonus:   %8.2f\n", ctx->getDelayNS(visited[dst_wire].bonus));
+            log("  arc budget:      %12.2f\n", ctx->getDelayNS(net_info->users[user_idx].budget));
         }
 
         // bind resulting route (and maybe unroute other nets)

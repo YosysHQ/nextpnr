@@ -30,15 +30,15 @@ delay_t maxDelay() const { return delay; }
 
 ### BelId
 
-A type representing a bel name. `BelId()` must construct a unique null-value. Must provide `==` and `!=` operators and a specialization for `std::hash<BelId>`.
+A type representing a bel name. `BelId()` must construct a unique null-value. Must provide `==`, `!=`, and `<` operators and a specialization for `std::hash<BelId>`.
 
 ### WireId
 
-A type representing a wire name. `WireId()` must construct a unique null-value. Must provide `==` and `!=` operators and a specialization for `std::hash<WireId>`.
+A type representing a wire name. `WireId()` must construct a unique null-value. Must provide `==`, `!=`, and `<` operators and a specialization for `std::hash<WireId>`.
 
 ### PipId
 
-A type representing a pip name. `PipId()` must construct a unique null-value. Must provide `==` and `!=` operators and a specialization for `std::hash<PipId>`.
+A type representing a pip name. `PipId()` must construct a unique null-value. Must provide `==`, `!=`, and `<` operators and a specialization for `std::hash<PipId>`.
 
 ### GroupId
 
