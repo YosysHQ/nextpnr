@@ -108,7 +108,7 @@ std::vector<Loc> TorcInfo::construct_bel_to_loc(const Sites &sites, const Tiles 
     for (SiteIndex i(0); i < site_index_to_type.size(); ++i) {
         const auto &site = sites.getSite(i);
         const auto &tile_info = tiles.getTileInfo(site.getTileIndex());
-        const auto x = tile_info.getCol();
+        const auto x = (tile_info.getCol() + 1) / 2; // Divide by 2 because XDL coordinate space counts the INT tiles between CLBs
         const auto y = tile_info.getRow();
 
         if (site_index_to_type[i] == id_SLICE_LUT6) {

@@ -104,7 +104,7 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
     const auto &src_info = torc_info->tiles.getTileInfo(src_tw.getTileIndex());
     const auto &dst_tw = torc_info->wire_to_tilewire[dst.index];
     const auto &dst_info = torc_info->tiles.getTileInfo(dst_tw.getTileIndex());
-    auto abs_delta_x = abs(src_info.getCol() - dst_info.getCol());
+    auto abs_delta_x = (abs(tile_info.getCol() - dst_info.getCol()) + 1)/ 2; // Divide by 2 because XDL coordinate space counts the INT tiles between CLBs
     auto abs_delta_y = abs(src_info.getRow() - dst_info.getRow());
 #if 1
     auto div_LH = std::div(abs_delta_x, 12);
@@ -118,10 +118,10 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
     auto div_V2 = std::div(div_V4.rem, 2);
     auto num_H1 = div_H2.rem;
     auto num_V1 = div_V2.rem;
-    return div_LH.quot * 360/2 + div_LVB.quot * 300 + div_LV.quot * 350
-           + (div_H6.quot + div_H4.quot) * 210/2 + (div_V6.quot + div_V4.quot) * 210
-           + div_H2.quot * 170/2 + div_V2.quot * 170
-           + num_H1 * 150/2 + num_V1 * 150;
+    return div_LH.quot * 360 + div_LVB.quot * 300 + div_LV.quot * 350
+           + (div_H6.quot + div_H4.quot + div_V6.quot + div_V4.quot) * 210
+           + (div_H2.quot + div_V2.quot) * 170
+           + (num_H1 + num_V1) * 150;
 #else
     return std::max(150, 33 * abs_delta_x + 66 * abs_delta_y);
 #endif
@@ -146,10 +146,10 @@ delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
     auto div_V2 = std::div(div_V4.rem, 2);
     auto num_H1 = div_H2.rem;
     auto num_V1 = div_V2.rem;
-    return div_LH.quot * 360/2 + div_LVB.quot * 300 + div_LV.quot * 350
-           + (div_H6.quot + div_H4.quot) * 210/2 + (div_V6.quot + div_V4.quot) * 210
-           + div_H2.quot * 170/2 + div_V2.quot * 170
-           + num_H1 * 150/2 + num_V1 * 150;
+    return div_LH.quot * 360 + div_LVB.quot * 300 + div_LV.quot * 350
+           + (div_H6.quot + div_H4.quot + div_V6.quot + div_V4.quot) * 210
+           + (div_H2.quot + div_V2.quot) * 170
+           + (num_H1 + num_V1) * 150;
 #else
     return std::max(150, 33 * abs_delta_x + 66 * abs_delta_y);
 #endif
