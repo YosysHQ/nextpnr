@@ -40,7 +40,7 @@ class ECP5CommandHandler : public CommandHandler
     void customBitstream(Context *ctx) override;
 
   protected:
-    po::options_description getArchOptions();
+    po::options_description getArchOptions() override;
 };
 
 ECP5CommandHandler::ECP5CommandHandler(int argc, char **argv) : CommandHandler(argc, argv) {}
