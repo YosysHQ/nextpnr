@@ -601,6 +601,7 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
                 }
             }
 
+            log_info("curr total\n");
             for (auto sink : crit_path) {
                 auto sink_cell = sink->cell;
                 auto &port = sink_cell->ports.at(sink->port);
@@ -631,8 +632,9 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
 
         for (auto &clock : clock_reports) {
             log_break();
-            log_info("Critical path report for clock '%s':\n", clock.first.c_str(ctx));
-            log_info("curr total\n");
+            std::string start = clock.second.first.start.edge == FALLING_EDGE ? std::string("negedge") : std::string("posedge");
+            std::string end = clock.second.first.end.edge == FALLING_EDGE ? std::string("negedge") : std::string("posedge");
+            log_info("Critical path report for clock '%s' (%s -> %s):\n", clock.first.c_str(ctx), start.c_str(), end.c_str());
             auto &crit_path = clock.second.second.ports;
             print_path_report(clock.second.first, crit_path);
         }
@@ -642,7 +644,6 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
             std::string start = format_event(xclock.start);
             std::string end = format_event(xclock.end);
             log_info("Critical path report for cross-domain path '%s' -> '%s':\n", start.c_str(), end.c_str());
-            log_info("curr total\n");
             auto &crit_path = crit_paths.at(xclock).ports;
             print_path_report(xclock, crit_path);
         }
