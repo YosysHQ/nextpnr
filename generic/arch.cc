@@ -373,6 +373,8 @@ NetInfo *Arch::getBoundPipNet(PipId pip) const { return pips.at(pip).bound_net; 
 
 NetInfo *Arch::getConflictingPipNet(PipId pip) const { return pips.at(pip).bound_net; }
 
+WireId Arch::getConflictingPipWire(PipId pip) const { return pips.at(pip).bound_net ? pips.at(pip).dstWire : WireId(); }
+
 const std::vector<PipId> &Arch::getPips() const { return pip_ids; }
 
 Loc Arch::getPipLocation(PipId pip) const { return pips.at(pip).loc; }

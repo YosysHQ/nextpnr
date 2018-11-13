@@ -75,6 +75,7 @@ struct Location
 
     bool operator==(const Location &other) const { return x == other.x && y == other.y; }
     bool operator!=(const Location &other) const { return x != other.x || y != other.y; }
+    bool operator<(const Location &other) const { return y == other.y ? x < other.x : y < other.y; }
 };
 
 inline Location operator+(const Location &a, const Location &b) { return Location(a.x + b.x, a.y + b.y); }
@@ -86,6 +87,7 @@ struct BelId
 
     bool operator==(const BelId &other) const { return index == other.index && location == other.location; }
     bool operator!=(const BelId &other) const { return index != other.index || location != other.location; }
+    bool operator<(const BelId &other) const { return location == other.location ? index < other.index : location < other.location; }
 };
 
 struct WireId
@@ -95,6 +97,7 @@ struct WireId
 
     bool operator==(const WireId &other) const { return index == other.index && location == other.location; }
     bool operator!=(const WireId &other) const { return index != other.index || location != other.location; }
+    bool operator<(const WireId &other) const { return location == other.location ? index < other.index : location < other.location; }
 };
 
 struct PipId
@@ -104,6 +107,7 @@ struct PipId
 
     bool operator==(const PipId &other) const { return index == other.index && location == other.location; }
     bool operator!=(const PipId &other) const { return index != other.index || location != other.location; }
+    bool operator<(const PipId &other) const { return location == other.location ? index < other.index : location < other.location; }
 };
 
 struct GroupId

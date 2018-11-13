@@ -30,15 +30,15 @@ delay_t maxDelay() const { return delay; }
 
 ### BelId
 
-A type representing a bel name. `BelId()` must construct a unique null-value. Must provide `==` and `!=` operators and a specialization for `std::hash<BelId>`.
+A type representing a bel name. `BelId()` must construct a unique null-value. Must provide `==`, `!=`, and `<` operators and a specialization for `std::hash<BelId>`.
 
 ### WireId
 
-A type representing a wire name. `WireId()` must construct a unique null-value. Must provide `==` and `!=` operators and a specialization for `std::hash<WireId>`.
+A type representing a wire name. `WireId()` must construct a unique null-value. Must provide `==`, `!=`, and `<` operators and a specialization for `std::hash<WireId>`.
 
 ### PipId
 
-A type representing a pip name. `PipId()` must construct a unique null-value. Must provide `==` and `!=` operators and a specialization for `std::hash<PipId>`.
+A type representing a pip name. `PipId()` must construct a unique null-value. Must provide `==`, `!=`, and `<` operators and a specialization for `std::hash<PipId>`.
 
 ### GroupId
 
@@ -215,14 +215,15 @@ Return true if the wire is available, i.e. can be bound to a net.
 
 Return the net a wire is bound to.
 
-### NetInfo \*getConflictingWireNet(WireId wire) const
+### WireId getConflictingWireWire(WireId wire) const
 
-If this returns a non-nullptr, then unbinding that net
+If this returns a non-WireId(), then unbinding that wire
 will make the given wire available.
 
-This returns nullptr if the wire is already available,
-or if there is no single net that can be unbound to make this
-wire available.
+### NetInfo \*getConflictingWireNet(WireId wire) const
+
+If this returns a non-nullptr, then unbinding that entire net
+will make the given wire available.
 
 ### DelayInfo getWireDelay(WireId wire) const
 
@@ -282,18 +283,23 @@ This method must also update `NetInfo::wires`.
 
 Returns true if the given pip is available to be bound to a net.
 
+Users must also check if the pip destination wire is available
+with `checkWireAvail(getPipDstWire(pip))` before binding the
+pip to a net.
+
 ### NetInfo \*getBoundPipNet(PipId pip) const
 
 Return the net this pip is bound to.
 
+### WireId getConflictingPipWire(PipId pip) const
+
+If this returns a non-WireId(), then unbinding that wire
+will make the given pip available.
+
 ### NetInfo \*getConflictingPipNet(PipId pip) const
 
-Return the net that needs to be unbound in order to make this
-pip available.
-
-This does not need to (but may) return the conflicting wire if the conflict is
-limited to the conflicting wire being bound to the destination wire for this
-pip.
+If this returns a non-nullptr, then unbinding that entire net
+will make the given pip available.
 
 ### const\_range\<PipId\> getPips() const
 
