@@ -456,7 +456,7 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
             el.x1 = bel.location.x + logic_cell_x1;
             el.x2 = bel.location.x + logic_cell_x2;
             el.y1 = bel.location.y + logic_cell_y1 + (2 * z) * logic_cell_pitch;
-            el.y2 = bel.location.y + logic_cell_y2 + (2 * z + 1) * logic_cell_pitch;
+            el.y2 = bel.location.y + logic_cell_y2 + (2 * z + 0.5f) * logic_cell_pitch;
             ret.push_back(el);
         }
     }

@@ -702,6 +702,8 @@ void write_asc(const Context *ctx, std::ostream &out)
                 setColBufCtrl = (y == 8 || y == 9 || y == 24 || y == 25);
             } else if (ctx->args.type == ArchArgs::UP5K) {
                 setColBufCtrl = (y == 4 || y == 5 || y == 14 || y == 15 || y == 26 || y == 27);
+            } else if (ctx->args.type == ArchArgs::LP384) {
+                setColBufCtrl = false;
             }
             if (setColBufCtrl) {
                 set_config(ti, config.at(y).at(x), "ColBufCtrl.glb_netwk_0", true);

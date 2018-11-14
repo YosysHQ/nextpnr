@@ -21,6 +21,7 @@
 #define DESIGNWIDGET_H
 
 #include <QMouseEvent>
+#include <QTabWidget>
 #include <QTreeView>
 #include <QVariant>
 #include "nextpnr.h"
@@ -65,11 +66,14 @@ class DesignWidget : public QWidget
                      const ElementType &type = ElementType::NONE);
     QString getElementTypeName(ElementType type);
     ElementType getElementTypeByName(QString type);
+    TreeModel::Model *getTreeByElementType(ElementType type);
+    int getIndexByElementType(ElementType type);
     int getElementIndex(ElementType type);
     void updateButtons();
-    void addToHistory(QModelIndex item);
+    void addToHistory(int tab, QModelIndex item);
     std::vector<DecalXY> getDecals(ElementType type, IdString value);
     void updateHighlightGroup(QList<TreeModel::Item *> item, int group);
+    void clearAllSelectionModels();
   Q_SIGNALS:
     void selected(std::vector<DecalXY> decal, bool keep);
     void highlight(std::vector<DecalXY> decal, int group);
@@ -78,12 +82,12 @@ class DesignWidget : public QWidget
 
   private Q_SLOTS:
     void prepareMenuProperty(const QPoint &pos);
-    void prepareMenuTree(const QPoint &pos);
-    void onSelectionChanged(const QItemSelection &selected, const QItemSelection &deselected);
+    void prepareMenuTree(int num, const QPoint &pos);
+    void onSelectionChanged(int num, const QItemSelection &selected, const QItemSelection &deselected);
     void onItemDoubleClicked(QTreeWidgetItem *item, int column);
     void onDoubleClicked(const QModelIndex &index);
     void onSearchInserted();
-    void onHoverIndexChanged(QModelIndex index);
+    void onHoverIndexChanged(int num, QModelIndex index);
     void onHoverPropertyChanged(QtBrowserItem *item);
   public Q_SLOTS:
     void newContext(Context *ctx);
@@ -95,9 +99,11 @@ class DesignWidget : public QWidget
   private:
     Context *ctx;
 
-    TreeView *treeView;
-    QItemSelectionModel *selectionModel;
-    TreeModel::Model *treeModel;
+    QTabWidget *tabWidget;
+
+    TreeView *treeView[6];
+    QItemSelectionModel *selectionModel[6];
+    TreeModel::Model *treeModel[6];
     QLineEdit *searchEdit;
     QtVariantPropertyManager *variantManager;
     QtVariantPropertyManager *readOnlyManager;
@@ -108,7 +114,7 @@ class DesignWidget : public QWidget
     QMap<QtProperty *, QString> propertyToId;
     QMap<QString, QtProperty *> idToProperty;
 
-    std::vector<QModelIndex> history;
+    std::vector<std::pair<int, QModelIndex>> history;
     int history_index;
     bool history_ignore;
 
@@ -124,6 +130,7 @@ class DesignWidget : public QWidget
     QString currentSearch;
     QList<QModelIndex> currentSearchIndexes;
     int currentIndex;
+    int currentIndexTab;
 };
 
 NEXTPNR_NAMESPACE_END

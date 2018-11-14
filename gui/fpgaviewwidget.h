@@ -240,21 +240,6 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
         QColor highlight[8];
     } colors_;
 
-    // Flags that are passed through from renderer arguments to renderer data.
-    // These are used by the UI code to signal events that will only fire when
-    // the next frame gets rendered.
-    struct PassthroughFlags
-    {
-        bool zoomOutbound;
-
-        PassthroughFlags() : zoomOutbound(false) {}
-        PassthroughFlags &operator=(const PassthroughFlags &other) noexcept
-        {
-            zoomOutbound = other.zoomOutbound;
-            return *this;
-        }
-    };
-
     struct RendererArgs
     {
         // Decals that he user selected.
@@ -265,9 +250,11 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
         DecalXY hoveredDecal;
         // Whether to render the above three or skip it.
         bool changed;
+        // Whether to render grid or skip it.
+        bool gridChanged;
 
-        // Flags to pass back into the RendererData.
-        PassthroughFlags flags;
+        // Flags for rendering.
+        bool zoomOutbound;
         // Hint text
         std::string hintText;
         // cursor pos
@@ -278,6 +265,7 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
 
     struct RendererData
     {
+        LineShaderData gfxGrid;
         LineShaderData gfxByStyle[GraphicElement::STYLE_MAX];
         LineShaderData gfxSelected;
         LineShaderData gfxHovered;
@@ -288,8 +276,6 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
         PickQuadTree::BoundingBox bbSelected;
         // Quadtree for picking objects.
         std::unique_ptr<PickQuadTree> qt;
-        // Flags from args.
-        PassthroughFlags flags;
     };
     std::unique_ptr<RendererData> rendererData_;
     QMutex rendererDataLock_;

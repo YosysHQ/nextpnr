@@ -575,11 +575,10 @@ bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay
 {
     const auto &driver = net_info->driver;
     if (driver.port == id_COUT && sink.port == id_CIN) {
-        auto driver_loc = getBelLocation(driver.cell->bel);
-        auto sink_loc = getBelLocation(sink.cell->bel);
-        if (driver_loc.y == sink_loc.y)
+        if (driver.cell->constr_abs_z && driver.cell->constr_z < 7)
             budget = 0;
-        else
+        else {
+            NPNR_ASSERT(driver.cell->constr_z == 7);
             switch (args.type) {
 #ifndef ICE40_HX1K_ONLY
             case ArchArgs::HX8K:
@@ -600,6 +599,7 @@ bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay
             default:
                 log_error("Unsupported iCE40 chip type.\n");
             }
+        }
         return true;
     }
     return false;

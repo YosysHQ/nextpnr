@@ -43,7 +43,7 @@ class Ice40CommandHandler : public CommandHandler
     void customBitstream(Context *ctx) override;
 
   protected:
-    po::options_description getArchOptions();
+    po::options_description getArchOptions() override;
 };
 
 Ice40CommandHandler::Ice40CommandHandler(int argc, char **argv) : CommandHandler(argc, argv) {}

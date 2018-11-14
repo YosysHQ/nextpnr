@@ -166,8 +166,11 @@ struct Timing
                     log_info("   remaining fanin includes %s (no net)\n", fanin.first->name.c_str(ctx));
                 }
             }
+            if (ctx->force)
+                log_warning("timing analysis failed due to presence of combinatorial loops, incomplete specification of timing ports, etc.\n");
+            else
+                log_error("timing analysis failed due to presence of combinatorial loops, incomplete specification of timing ports, etc.\n");
         }
-        NPNR_ASSERT(port_fanin.empty());
 
         // Go forwards topographically to find the maximum arrival time and max path length for each net
         for (auto net : topographical_order) {
@@ -412,18 +415,16 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_path)
                     log_info("                 prediction: %f ns estimate: %f ns\n",
                              ctx->getDelayNS(ctx->predictDelay(net, *sink)), ctx->getDelayNS(ctx->estimateDelay(driver_wire, sink_wire)));
                     auto cursor = sink_wire;
-                    delay_t cursor_delay;
+                    delay_t delay;
                     while (driver_wire != cursor) {
-                        cursor_delay = ctx->getWireDelay(cursor).maxDelay();
-                        log_info("                 %1.3f %30s\n", ctx->getDelayNS(cursor_delay), ctx->getWireName(cursor).c_str(ctx));
                         auto it = net->wires.find(cursor);
                         assert(it != net->wires.end());
                         auto pip = it->second.pip;
                         NPNR_ASSERT(pip != PipId());
+                        delay = ctx->getPipDelay(pip).maxDelay();
+                        log_info("                 %1.3f %s\n", ctx->getDelayNS(delay), ctx->getPipName(pip).c_str(ctx));
                         cursor = ctx->getPipSrcWire(pip);
                     }
-                    cursor_delay = ctx->getWireDelay(cursor).maxDelay();
-                    log_info("                 %1.3f %30s\n", ctx->getDelayNS(cursor_delay), ctx->getWireName(cursor).c_str(ctx));
                 }
                 last_port = sink->port;
             }
