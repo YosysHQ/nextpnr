@@ -313,7 +313,6 @@ struct Timing
                         auto process_endpoint = [&](IdString clksig, ClockEdge edge, delay_t setup) {
                             const auto net_arrival = nd.max_arrival;
                             const auto endpoint_arrival = net_arrival + net_delay + setup;
-                            auto path_budget = clk_period - endpoint_arrival;
                             delay_t period;
                             // Set default period
                             if (edge == startdomain.first.edge) {
@@ -335,6 +334,8 @@ struct Timing
                                     }
                                 }
                             }
+                            auto path_budget = period - endpoint_arrival;
+
                             if (update) {
                                 auto budget_share = budget_override ? 0 : path_budget / net_length_plus_one;
                                 usr.budget = std::min(usr.budget, net_delay + budget_share);
@@ -532,13 +533,21 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
     std::map<IdString, std::pair<ClockPair, CriticalPath>> clock_reports;
     std::map<IdString, double> clock_fmax;
     std::vector<ClockPair> xclock_paths;
+    std::set<IdString> empty_clocks; // set of clocks with no interior paths
     if (print_path || print_fmax) {
+        for (auto path : crit_paths) {
+            const ClockEvent &a = path.first.start;
+            const ClockEvent &b = path.first.end;
+            empty_clocks.insert(a.clock);
+            empty_clocks.insert(b.clock);
+        }
         for (auto path : crit_paths) {
             const ClockEvent &a = path.first.start;
             const ClockEvent &b = path.first.end;
             if (a.clock != b.clock || a.clock == ctx->id("$async$"))
                 continue;
             double Fmax;
+            empty_clocks.erase(a.clock);
             if (a.edge == b.edge)
                 Fmax = 1000 / ctx->getDelayNS(path.second.path_delay);
             else
@@ -658,6 +667,10 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
             } else {
                 log_info("Max frequency for clock '%s': %.02f MHz\n", clock.first.c_str(ctx), clock_fmax[clock.first]);
             }
+        }
+        for (auto &eclock : empty_clocks) {
+            if (eclock != ctx->id("$async$"))
+                log_info("Clock '%s' has no interior paths\n", eclock.c_str(ctx));
         }
         log_break();
 
