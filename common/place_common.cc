@@ -431,12 +431,12 @@ class ConstraintLegaliseWorker
             print_chain(child, depth + 1);
     }
 
-    void print_stats(const char *point)
+    unsigned print_stats(const char *point)
     {
         float distance_sum = 0;
         float max_distance = 0;
-        int moved_cells = 0;
-        int unplaced_cells = 0;
+        unsigned moved_cells = 0;
+        unsigned unplaced_cells = 0;
         for (auto orig : oldLocations) {
             if (ctx->cells.at(orig.first)->bel == BelId()) {
                 unplaced_cells++;
@@ -456,9 +456,10 @@ class ConstraintLegaliseWorker
             log_info("       average distance %f\n", (distance_sum / moved_cells));
             log_info("       maximum distance %f\n", max_distance);
         }
+        return moved_cells + unplaced_cells;
     }
 
-    bool legalise_constraints()
+    int legalise_constraints()
     {
         log_info("Legalising relative constraints...\n");
         for (auto cell : sorted(ctx->cells)) {
@@ -470,27 +471,28 @@ class ConstraintLegaliseWorker
                 if (ctx->verbose)
                     print_chain(cell.second);
                 log_error("failed to place chain starting at cell '%s'\n", cell.first.c_str(ctx));
-                return false;
+                return -1;
             }
         }
-        print_stats("legalising chains");
+        if (print_stats("legalising chains") == 0)
+            return 0;
         for (auto rippedCell : rippedCells) {
             bool res = place_single_cell(ctx, ctx->cells.at(rippedCell).get(), true);
             if (!res) {
                 log_error("failed to place cell '%s' after relative constraint legalisation\n", rippedCell.c_str(ctx));
-                return false;
+                return -1;
             }
         }
-        print_stats("replacing ripped up cells");
+        auto score = print_stats("replacing ripped up cells");
         for (auto cell : sorted(ctx->cells))
             if (get_constraints_distance(ctx, cell.second) != 0)
                 log_error("constraint satisfaction check failed for cell '%s' at Bel '%s'\n", cell.first.c_str(ctx),
                           ctx->getBelName(cell.second->bel).c_str(ctx));
-        return true;
+        return score;
     }
 };
 
-bool legalise_relative_constraints(Context *ctx) { return ConstraintLegaliseWorker(ctx).legalise_constraints(); }
+bool legalise_relative_constraints(Context *ctx) { return ConstraintLegaliseWorker(ctx).legalise_constraints() > 0; }
 
 // Get the total distance from satisfied constraints for a cell
 int get_constraints_distance(const Context *ctx, const CellInfo *cell)

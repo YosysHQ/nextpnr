@@ -245,16 +245,18 @@ class SAPlacer
             // Once cooled below legalise threshold, run legalisation and start requiring
             // legal moves only
             if (temp < legalise_temp && require_legal) {
-                legalise_relative_constraints(ctx);
-                require_legal = false;
-                autoplaced.clear();
-                for (auto cell : sorted(ctx->cells)) {
-                    if (cell.second->belStrength < STRENGTH_STRONG)
-                        autoplaced.push_back(cell.second);
+                if (legalise_relative_constraints(ctx)) {
+                    // Only increase temperature if something was moved
+                    autoplaced.clear();
+                    for (auto cell : sorted(ctx->cells)) {
+                        if (cell.second->belStrength < STRENGTH_STRONG)
+                            autoplaced.push_back(cell.second);
+                    }
+                    temp = post_legalise_temp;
+                    diameter *= post_legalise_dia_scale;
+                    ctx->shuffle(autoplaced);
                 }
-                temp = post_legalise_temp;
-                diameter *= post_legalise_dia_scale;
-                ctx->shuffle(autoplaced);
+                require_legal = false;
 
                 // Legalisation is a big change so force a slack redistribution here
                 if (ctx->slack_redist_iter > 0)
