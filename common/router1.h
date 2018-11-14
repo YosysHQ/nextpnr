@@ -33,6 +33,10 @@ struct Router1Cfg : Settings
     bool cleanupReroute;
     bool fullCleanupReroute;
     bool useEstimate;
+    delay_t wireRipupPenalty;
+    delay_t netRipupPenalty;
+    delay_t reuseBonus;
+    delay_t estimatePrecision;
 };
 
 extern bool router1(Context *ctx, const Router1Cfg &cfg);

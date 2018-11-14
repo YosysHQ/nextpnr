@@ -421,7 +421,7 @@ static void pack_io(Context *ctx)
                 }
             } else {
                 // Create a IOBUF buffer
-                std::unique_ptr<CellInfo> ice_cell = create_xc7_cell(ctx, ctx->id("IOBUF"), ci->name.str(ctx) + "$iob");
+                std::unique_ptr<CellInfo> ice_cell = create_xc7_cell(ctx, ctx->id("IOBUF"), ci->name.str(ctx));
                 nxio_to_sb(ctx, ci, ice_cell.get());
                 new_cells.push_back(std::move(ice_cell));
                 sb = new_cells.back().get();

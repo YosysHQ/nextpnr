@@ -4,12 +4,12 @@ module blinky_tb;
 
     wire led0, led1, led2, led3;
 
-    chip uut (
-        .\clki$iob.PAD.PAD (clk),
-        .\led0$iob.OUTBUF.OUT (led0),
-        .\led1$iob.OUTBUF.OUT (led1),
-        .\led2$iob.OUTBUF.OUT (led2),
-        .\led3$iob.OUTBUF.OUT (led3)
+    blinky uut (
+        .\clki.PAD.PAD (clk),
+        .\led0.OUTBUF.OUT (led0),
+        .\led1.OUTBUF.OUT (led1),
+        .\led2.OUTBUF.OUT (led2),
+        .\led3.OUTBUF.OUT (led3)
     );
 
     initial begin

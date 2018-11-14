@@ -269,7 +269,7 @@ struct PipMap
 struct NetInfo : ArchNetInfo
 {
     IdString name;
-    int32_t udata;
+    int32_t udata = 0;
 
     PortRef driver;
     std::vector<PortRef> users;
@@ -487,12 +487,22 @@ struct BaseCtx
 
     const Context *getCtx() const { return reinterpret_cast<const Context *>(this); }
 
-    template <typename T> const char *nameOf(const T *obj)
+    const char *nameOf(IdString name) const
+    {
+        return name.c_str(this);
+    }
+
+    template <typename T> const char *nameOf(const T *obj) const
     {
         if (obj == nullptr)
             return "";
-        return obj->name.c_str(getCtx());
+        return obj->name.c_str(this);
     }
+
+    const char *nameOfBel(BelId bel) const;
+    const char *nameOfWire(WireId wire) const;
+    const char *nameOfPip(PipId pip) const;
+    const char *nameOfGroup(GroupId group) const;
 
     // --------------------------------------------------------------
 
@@ -541,6 +551,7 @@ struct Context : Arch, DeterministicRNG
     delay_t getNetinfoRouteDelay(const NetInfo *net_info, const PortRef &sink) const;
 
     // provided by router1.cc
+    bool checkRoutedDesign() const;
     bool getActualRouteDelay(WireId src_wire, WireId dst_wire, delay_t *delay = nullptr,
                              std::unordered_map<WireId, PipId> *route = nullptr, bool useEstimate = true);
 

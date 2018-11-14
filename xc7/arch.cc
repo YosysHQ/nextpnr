@@ -41,7 +41,7 @@ TorcInfo::TorcInfo(Arch *ctx, const std::string &inDeviceName, const std::string
           site_index_to_type(construct_site_index_to_type(ctx, sites)),
           bel_to_loc(construct_bel_to_loc(sites, tiles, num_bels, site_index_to_type)),
           wire_to_tilewire(construct_wire_to_tilewire(segments, tiles, segment_to_wire, trivial_to_wire)),
-          num_wires(wire_to_tilewire.size()), wire_to_delay(construct_wire_to_delay(wire_to_tilewire, *ddb)),
+          num_wires(wire_to_tilewire.size()), wire_to_delay(construct_wire_to_delay(tiles, wire_to_tilewire, *ddb)),
           pip_to_arc(construct_pip_to_arc(wire_to_tilewire, *ddb, wire_to_pips_uphill, wire_to_pips_downhill)),
           num_pips(pip_to_arc.size())
 {
@@ -108,7 +108,7 @@ std::vector<Loc> TorcInfo::construct_bel_to_loc(const Sites &sites, const Tiles 
     for (SiteIndex i(0); i < site_index_to_type.size(); ++i) {
         const auto &site = sites.getSite(i);
         const auto &tile_info = tiles.getTileInfo(site.getTileIndex());
-        const auto x = tile_info.getCol();
+        const auto x = (tile_info.getCol() + 1) / 2; // Divide by 2 because XDL coordinate space counts the INT tiles between CLBs
         const auto y = tile_info.getRow();
 
         if (site_index_to_type[i] == id_SLICE_LUT6) {
@@ -163,7 +163,7 @@ TorcInfo::construct_wire_to_tilewire(const Segments &segments, const Tiles &tile
     wire_to_tilewire.shrink_to_fit();
     return wire_to_tilewire;
 }
-std::vector<DelayInfo> TorcInfo::construct_wire_to_delay(const std::vector<Tilewire> &wire_to_tilewire, const DDB &ddb)
+std::vector<DelayInfo> TorcInfo::construct_wire_to_delay(const Tiles &tiles, const std::vector<Tilewire> &wire_to_tilewire, const DDB &ddb)
 {
     std::vector<DelayInfo> wire_to_delay;
     wire_to_delay.reserve(wire_to_tilewire.size());
@@ -174,45 +174,62 @@ std::vector<DelayInfo> TorcInfo::construct_wire_to_delay(const std::vector<Tilew
     const boost::regex re_BYP_B = boost::regex("BYP_[BL]\\d");
     const boost::regex re_BOUNCE_NS = boost::regex("(BYP|FAN)_BOUNCE_[NS]3_\\d");
     const boost::regex re_FAN = boost::regex("FAN(_ALT)?\\d");
+    const boost::regex re_CLB_I1_6 = boost::regex("CLBL[LM]_(L|LL|M)_[A-D]([1-6])");
+
+    std::unordered_map</*TileTypeIndex*/unsigned, std::vector<delay_t>> delay_lookup;
 
     boost::cmatch what;
-    ExtendedWireInfo ewi(ddb);
     for (const auto &tw : wire_to_tilewire) {
-        ewi.set(tw);
-        DelayInfo d;
-        if (boost::regex_match(ewi.mWireName, what, re_124)) {
-            switch (what.str(2)[0]) {
-            case '1':
-                d.delay = 150;
-                break;
-            case '2':
-                d.delay = 170;
-                break;
-            case '4':
-                d.delay = 210;
-                break;
-            case '6':
-                d.delay = 210;
-                break;
-            default:
-                throw;
+        const TileInfo& tileInfo = tiles.getTileInfo(tw.getTileIndex());
+        auto tile_type_index = tileInfo.getTypeIndex();
+
+        auto it = delay_lookup.find(tile_type_index);
+        if (it == delay_lookup.end()) {
+            auto wireCount = tiles.getWireCount(tile_type_index);
+            std::vector<delay_t> tile_delays(wireCount);
+            for (WireIndex wireIndex(0); wireIndex < wireCount; wireIndex++) {
+                const WireInfo& wireInfo = tiles.getWireInfo(tile_type_index, wireIndex);
+                auto wire_name = wireInfo.getName();
+                if (boost::regex_match(wire_name, what, re_124)) {
+                    switch (what.str(2)[0]) {
+                    case '1': tile_delays[wireIndex] = 150; break;
+                    case '2': tile_delays[wireIndex] = 170; break;
+                    case '4': tile_delays[wireIndex] = 210; break;
+                    case '6': tile_delays[wireIndex] = 210; break;
+                    default: throw;
+                    }
+                } else if (boost::regex_match(wire_name, what, re_L)) {
+                    std::string l(what[2]);
+                    if (l == "H")
+                        tile_delays[wireIndex] = 360;
+                    else if (l == "VB")
+                        tile_delays[wireIndex] = 300;
+                    else if (l == "V")
+                        tile_delays[wireIndex] = 350;
+                    else
+                        throw;
+                } else if (boost::regex_match(wire_name, what, re_BYP)) {
+                    tile_delays[wireIndex] = 190;
+                } else if (boost::regex_match(wire_name, what, re_BYP_B)) {
+                } else if (boost::regex_match(wire_name, what, re_FAN)) {
+                    tile_delays[wireIndex] = 190;
+                } else if (boost::regex_match(wire_name, what, re_CLB_I1_6)) {
+                    switch (what.str(2)[0]) {
+                        case '1': tile_delays[wireIndex] = 280; break;
+                        case '2': tile_delays[wireIndex] = 280; break;
+                        case '3': tile_delays[wireIndex] = 180; break;
+                        case '4': tile_delays[wireIndex] = 180; break;
+                        case '5': tile_delays[wireIndex] =  80; break;
+                        case '6': tile_delays[wireIndex] =  40; break;
+                        default: throw;
+                    }
+                }
             }
-        } else if (boost::regex_match(ewi.mWireName, what, re_L)) {
-            std::string l(what[2]);
-            if (l == "H")
-                d.delay = 360;
-            else if (l == "VB")
-                d.delay = 300;
-            else if (l == "V")
-                d.delay = 350;
-            else
-                throw;
-        } else if (boost::regex_match(ewi.mWireName, what, re_BYP)) {
-            d.delay = 190;
-        } else if (boost::regex_match(ewi.mWireName, what, re_BYP_B)) {
-        } else if (boost::regex_match(ewi.mWireName, what, re_FAN)) {
-            d.delay = 190;
+            it = delay_lookup.emplace(tile_type_index, std::move(tile_delays)).first;
         }
+        assert(it != delay_lookup.end());
+        DelayInfo d;
+        d.delay = it->second[tw.getWireIndex()];
         wire_to_delay.emplace_back(std::move(d));
     }
 
@@ -600,20 +617,26 @@ IdString Arch::getPipName(PipId pip) const
 {
     NPNR_ASSERT(pip != PipId());
 
-#if 1
-    int x = chip_info->pip_data[pip.index].x;
-    int y = chip_info->pip_data[pip.index].y;
+    ExtendedWireInfo ewi_src(*torc_info->ddb, torc_info->pip_to_arc[pip.index].getSourceTilewire());
+    ExtendedWireInfo ewi_dst(*torc_info->ddb, torc_info->pip_to_arc[pip.index].getSinkTilewire());
+    std::stringstream pip_name;
+    pip_name << ewi_src.mTileName << "." << ewi_src.mWireName << ".->." << ewi_dst.mWireName;
+    return id(pip_name.str());
 
-    std::string src_name = chip_info->wire_data[chip_info->pip_data[pip.index].src].name.get();
-    std::replace(src_name.begin(), src_name.end(), '/', '.');
-
-    std::string dst_name = chip_info->wire_data[chip_info->pip_data[pip.index].dst].name.get();
-    std::replace(dst_name.begin(), dst_name.end(), '/', '.');
-
-    return id("X" + std::to_string(x) + "/Y" + std::to_string(y) + "/" + src_name + ".->." + dst_name);
-#else
-    return id(chip_info->pip_data[pip.index].name.get());
-#endif
+//#if 1
+//    int x = chip_info->pip_data[pip.index].x;
+//    int y = chip_info->pip_data[pip.index].y;
+//
+//    std::string src_name = chip_info->wire_data[chip_info->pip_data[pip.index].src].name.get();
+//    std::replace(src_name.begin(), src_name.end(), '/', '.');
+//
+//    std::string dst_name = chip_info->wire_data[chip_info->pip_data[pip.index].dst].name.get();
+//    std::replace(dst_name.begin(), dst_name.end(), '/', '.');
+//
+//    return id("X" + std::to_string(x) + "/Y" + std::to_string(y) + "/" + src_name + ".->." + dst_name);
+//#else
+//    return id(chip_info->pip_data[pip.index].name.get());
+//#endif
 }
 
 // -----------------------------------------------------------------------
@@ -957,8 +980,22 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
 bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const
 {
     if (cell->type == id_SLICE_LUT6) {
-        if (fromPort.index >= id_I1.index && fromPort.index <= id_I6.index)
-            return toPort == id_O || toPort == id_OQ;
+        if (fromPort.index >= id_I1.index && fromPort.index <= id_I6.index) {
+            if (toPort == id_O) {
+                delay.delay = 124; // Tilo
+                return true;
+            }
+            if (toPort == id_OQ) {
+                delay.delay = 95; // Tas
+                return true;
+            }
+        }
+        if (fromPort == id_CLK) {
+            if (toPort == id_OQ) {
+                delay.delay = 456; // Tcko
+                return false; // No path CLK->OQ, but this fn is used for getting clkToQ delay
+            }
+        }
     } else if (cell->type == id_BUFGCTRL) {
         return true;
     }

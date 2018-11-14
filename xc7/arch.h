@@ -331,7 +331,7 @@ struct TorcInfo
     construct_wire_to_tilewire(const Segments &segments, const Tiles &tiles,
                                std::unordered_map<Segments::SegmentReference, int> &segment_to_wire,
                                std::unordered_map<Tilewire, int> &trivial_to_wire);
-    static std::vector<DelayInfo> construct_wire_to_delay(const std::vector<Tilewire> &wire_to_tilewire,
+    static std::vector<DelayInfo> construct_wire_to_delay(const Tiles &tiles, const std::vector<Tilewire> &wire_to_tilewire,
                                                           const DDB &ddb);
     static std::vector<Arc> construct_pip_to_arc(const std::vector<Tilewire> &wire_to_tilewire, const DDB &ddb,
                                                  std::vector<std::vector<int>> &wire_to_pips_uphill,
@@ -677,6 +677,11 @@ struct Arch : BaseCtx
         return wire_to_net[wire.index];
     }
 
+    WireId getConflictingWireWire(WireId wire) const
+    {
+        return wire;
+    }
+
     NetInfo *getConflictingWireNet(WireId wire) const
     {
         NPNR_ASSERT(wire != WireId());
@@ -771,6 +776,11 @@ struct Arch : BaseCtx
     {
         NPNR_ASSERT(pip != PipId());
         return pip_to_net[pip.index];
+    }
+
+    WireId getConflictingPipWire(PipId pip) const
+    {
+        return WireId();
     }
 
     NetInfo *getConflictingPipNet(PipId pip) const

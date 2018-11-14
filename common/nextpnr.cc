@@ -18,6 +18,7 @@
  */
 
 #include "nextpnr.h"
+#include "log.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -25,6 +26,7 @@ assertion_failure::assertion_failure(std::string msg, std::string expr_str, std:
         : runtime_error("Assertion failure: " + msg + " (" + filename + ":" + std::to_string(line) + ")"), msg(msg),
           expr_str(expr_str), filename(filename), line(line)
 {
+    log_flush();
 }
 
 void IdString::set(const BaseCtx *ctx, const std::string &s)
@@ -49,6 +51,30 @@ void IdString::initialize_add(const BaseCtx *ctx, const char *s, int idx)
     NPNR_ASSERT(int(ctx->idstring_idx_to_str->size()) == idx);
     auto insert_rc = ctx->idstring_str_to_idx->insert({s, idx});
     ctx->idstring_idx_to_str->push_back(&insert_rc.first->first);
+}
+
+const char *BaseCtx::nameOfBel(BelId bel) const
+{
+    const Context *ctx = getCtx();
+    return ctx->getBelName(bel).c_str(ctx);
+}
+
+const char *BaseCtx::nameOfWire(WireId wire) const
+{
+    const Context *ctx = getCtx();
+    return ctx->getWireName(wire).c_str(ctx);
+}
+
+const char *BaseCtx::nameOfPip(PipId pip) const
+{
+    const Context *ctx = getCtx();
+    return ctx->getPipName(pip).c_str(ctx);
+}
+
+const char *BaseCtx::nameOfGroup(GroupId group) const
+{
+    const Context *ctx = getCtx();
+    return ctx->getGroupName(group).c_str(ctx);
 }
 
 WireId Context::getNetinfoSourceWire(const NetInfo *net_info) const
