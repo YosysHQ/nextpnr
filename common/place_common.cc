@@ -473,7 +473,7 @@ class ConstraintLegaliseWorker
                 return false;
             }
         }
-        print_stats("after legalising chains");
+        print_stats("legalising chains");
         for (auto rippedCell : rippedCells) {
             bool res = place_single_cell(ctx, ctx->cells.at(rippedCell).get(), true);
             if (!res) {
@@ -481,7 +481,7 @@ class ConstraintLegaliseWorker
                 return false;
             }
         }
-        print_stats("after replacing ripped up cells");
+        print_stats("replacing ripped up cells");
         for (auto cell : sorted(ctx->cells))
             if (get_constraints_distance(ctx, cell.second) != 0)
                 log_error("constraint satisfaction check failed for cell '%s' at Bel '%s'\n", cell.first.c_str(ctx),
