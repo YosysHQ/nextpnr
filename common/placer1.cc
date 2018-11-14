@@ -255,12 +255,12 @@ class SAPlacer
                     temp = post_legalise_temp;
                     diameter *= post_legalise_dia_scale;
                     ctx->shuffle(autoplaced);
+
+                    // Legalisation is a big change so force a slack redistribution here
+                    if (ctx->slack_redist_iter > 0)
+                        assign_budget(ctx, true /* quiet */);
                 }
                 require_legal = false;
-
-                // Legalisation is a big change so force a slack redistribution here
-                if (ctx->slack_redist_iter > 0)
-                    assign_budget(ctx, true /* quiet */);
             } else if (ctx->slack_redist_iter > 0 && iter % ctx->slack_redist_iter == 0) {
                 assign_budget(ctx, true /* quiet */);
             }
