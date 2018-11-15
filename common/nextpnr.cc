@@ -409,7 +409,7 @@ void Context::check() const
 
 void BaseCtx::addClock(IdString net, float freq)
 {
-    log_info("    constraining clock net '%s' to %.02f MHz\n", net.c_str(this), freq);
+    log_info("constraining clock net '%s' to %.02f MHz\n", net.c_str(this), freq);
     std::unique_ptr<ClockConstraint> cc(new ClockConstraint());
     cc->period = getCtx()->getDelayFromNS(1000 / freq);
     cc->high = getCtx()->getDelayFromNS(500 / freq);

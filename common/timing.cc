@@ -676,13 +676,18 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
     }
     if (print_fmax) {
         log_break();
+        unsigned max_width = 0;
+        for (auto &clock : clock_reports)
+            max_width = std::max<unsigned>(max_width, clock.first.str(ctx).size());
         for (auto &clock : clock_reports) {
+            const auto &clock_name = clock.first.str(ctx);
+            const int width = max_width - clock_name.size();
             if (ctx->nets.at(clock.first)->clkconstr) {
                 float target = 1000 / ctx->getDelayNS(ctx->nets.at(clock.first)->clkconstr->period.minDelay());
-                log_info("Max frequency for clock '%s': %.02f MHz (%s at %.02f MHz)\n", clock.first.c_str(ctx),
+                log_info("Max frequency for clock %*s'%s': %.02f MHz (%s at %.02f MHz)\n", width, "", clock_name.c_str(),
                          clock_fmax[clock.first], (target < clock_fmax[clock.first]) ? "PASS" : "FAIL", target);
             } else {
-                log_info("Max frequency for clock '%s': %.02f MHz\n", clock.first.c_str(ctx), clock_fmax[clock.first]);
+                log_info("Max frequency for clock %*s'%s': %.02f MHz\n", width, "", clock_name.c_str(), clock_fmax[clock.first]);
             }
         }
         for (auto &eclock : empty_clocks) {
