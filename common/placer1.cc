@@ -244,21 +244,23 @@ class SAPlacer
             }
             // Once cooled below legalise threshold, run legalisation and start requiring
             // legal moves only
-            if (temp < legalise_temp && !require_legal) {
-                legalise_relative_constraints(ctx);
-                require_legal = true;
-                autoplaced.clear();
-                for (auto cell : sorted(ctx->cells)) {
-                    if (cell.second->belStrength < STRENGTH_STRONG)
-                        autoplaced.push_back(cell.second);
-                }
-                temp = post_legalise_temp;
-                diameter *= post_legalise_dia_scale;
-                ctx->shuffle(autoplaced);
+            if (temp < legalise_temp && require_legal) {
+                if (legalise_relative_constraints(ctx)) {
+                    // Only increase temperature if something was moved
+                    autoplaced.clear();
+                    for (auto cell : sorted(ctx->cells)) {
+                        if (cell.second->belStrength < STRENGTH_STRONG)
+                            autoplaced.push_back(cell.second);
+                    }
+                    temp = post_legalise_temp;
+                    diameter *= post_legalise_dia_scale;
+                    ctx->shuffle(autoplaced);
 
-                // Legalisation is a big change so force a slack redistribution here
-                if (ctx->slack_redist_iter > 0)
-                    assign_budget(ctx, true /* quiet */);
+                    // Legalisation is a big change so force a slack redistribution here
+                    if (ctx->slack_redist_iter > 0)
+                        assign_budget(ctx, true /* quiet */);
+                }
+                require_legal = false;
             } else if (ctx->slack_redist_iter > 0 && iter % ctx->slack_redist_iter == 0) {
                 assign_budget(ctx, true /* quiet */);
             }
@@ -486,7 +488,7 @@ class SAPlacer
     std::unordered_map<IdString, int> bel_types;
     std::vector<std::vector<std::vector<std::vector<BelId>>>> fast_bels;
     std::unordered_set<BelId> locked_bels;
-    bool require_legal = false;
+    bool require_legal = true;
     const float legalise_temp = 1;
     const float post_legalise_temp = 10;
     const float post_legalise_dia_scale = 1.5;

@@ -191,7 +191,7 @@ struct Loc
     Loc(int x, int y, int z) : x(x), y(y), z(z) {}
 
     bool operator==(const Loc &other) const { return (x == other.x) && (y == other.y) && (z == other.z); }
-    bool operator!=(const Loc &other) const { return (x != other.x) || (y != other.y) || (z == other.z); }
+    bool operator!=(const Loc &other) const { return (x != other.x) || (y != other.y) || (z != other.z); }
 };
 
 struct TimingConstrObjectId
