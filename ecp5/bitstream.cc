@@ -426,7 +426,8 @@ void fix_tile_names(Context *ctx, ChipConfig &cc)
             auto cibdcu = tile.first.find("CIB_DCU");
             if (cibdcu != std::string::npos) {
                 // Add the V
-                newname.insert(cibdcu, 1, 'V');
+                if (newname.at(cibdcu - 1) != 'V')
+                    newname.insert(cibdcu, 1, 'V');
                 tiletype_xform[tile.first] = newname;
             } else if (tile.first.substr(tile.first.size() - 7) == "BMID_0H") {
                 newname.back() = 'V';
