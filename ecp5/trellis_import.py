@@ -222,7 +222,7 @@ def write_database(dev_name, chip, ddrg, endianness):
         loc = loc_with_type[arc_loctype]
         lt = ddrg.typeAtLocation[pytrellis.Location(loc[0] + rel.x, loc[1] + rel.y)]
         wire = ddrg.locationTypes[lt].wires[idx]
-        return "R{}C{}_{}".format(loc[0] + rel.x, loc[1] + rel.y, ddrg.to_str(wire.name))
+        return "R{}C{}_{}".format(loc[1] + rel.y, loc[0] + rel.x, ddrg.to_str(wire.name))
 
     bba = BinaryBlobAssembler()
     bba.pre('#include "nextpnr.h"')
