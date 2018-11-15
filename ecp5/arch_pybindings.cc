@@ -130,6 +130,10 @@ void arch_wrap_python()
                                                                                                              "cells");
     readonly_wrapper<Context, decltype(&Context::nets), &Context::nets, wrap_context<NetMap &>>::def_wrap(ctx_cls,
                                                                                                           "nets");
+
+    fn_wrapper_2a_v<Context, decltype(&Context::addClock), &Context::addClock, conv_from_str<IdString>,
+                    pass_through<float>>::def_wrap(ctx_cls, "addClock");
+
     WRAP_RANGE(Bel, conv_to_str<BelId>);
     WRAP_RANGE(Wire, conv_to_str<WireId>);
     WRAP_RANGE(AllPip, conv_to_str<PipId>);

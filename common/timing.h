@@ -29,7 +29,7 @@ void assign_budget(Context *ctx, bool quiet = false);
 
 // Perform timing analysis and print out the fmax, and optionally the
 //    critical path
-void timing_analysis(Context *ctx, bool slack_histogram = true, bool print_path = false);
+void timing_analysis(Context *ctx, bool slack_histogram = true, bool print_fmax = true, bool print_path = false);
 
 NEXTPNR_NAMESPACE_END
 

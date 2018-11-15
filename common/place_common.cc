@@ -36,8 +36,8 @@ wirelen_t get_net_metric(const Context *ctx, const NetInfo *net, MetricType type
     bool driver_gb = ctx->getBelGlobalBuf(driver_cell->bel);
     if (driver_gb)
         return 0;
-    IdString clock_port;
-    bool timing_driven = ctx->timing_driven && type == MetricType::COST && ctx->getPortTimingClass(driver_cell, net->driver.port, clock_port) != TMG_IGNORE;
+    int clock_count;
+    bool timing_driven = ctx->timing_driven && type == MetricType::COST && ctx->getPortTimingClass(driver_cell, net->driver.port, clock_count) != TMG_IGNORE;
     delay_t negative_slack = 0;
     delay_t worst_slack = std::numeric_limits<delay_t>::max();
     Loc driver_loc = ctx->getBelLocation(driver_cell->bel);

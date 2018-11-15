@@ -404,6 +404,10 @@ actual penalty used is a multiple of this value (i.e. a weighted version of this
 
 Convert an `delay_t` to an actual real-world delay in nanoseconds.
 
+### DelayInfo getDelayFromNS(float v) const
+
+Convert a real-world delay in nanoseconds to a DelayInfo with equal min/max rising/falling values.
+
 ### uint32\_t getDelayChecksum(delay\_t v) const
 
 Convert a `delay_t` to an integer for checksum calculations.
@@ -461,11 +465,17 @@ Cell Delay Methods
 Returns the delay for the specified path through a cell in the `&delay` argument. The method returns
 false if there is no timing relationship from `fromPort` to `toPort`.
 
-### TimingPortClass getPortTimingClass(const CellInfo *cell, IdString port, IdString &clockPort) const
+### TimingPortClass getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const
 
 Return the _timing port class_ of a port. This can be a register or combinational input or output; clock input or
-output; general startpoint or endpoint; or a port ignored for timing purposes. For register ports, clockPort is set
-to the associated clock port.
+output; general startpoint or endpoint; or a port ignored for timing purposes. For register ports, clockInfoCount is set
+to the number of associated _clock edges_ that can be queried by getPortClockingInfo.
+
+### TimingClockingInfo getPortClockingInfo(const CellInfo *cell, IdString port, int index) const
+
+Return the _clocking info_ (including port name of clock, clock polarity and setup/hold/clock-to-out times) of a
+port. Where ports have more than one clock edge associated with them (such as DDR outputs), `index` can be used to obtain
+information for all edges. `index` must be in [0, clockInfoCount), behaviour is undefined otherwise.
 
 Placer Methods
 --------------
