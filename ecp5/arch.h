@@ -71,7 +71,7 @@ NPNR_PACKED_STRUCT(struct BelPortPOD {
 NPNR_PACKED_STRUCT(struct PipInfoPOD {
     LocationPOD rel_src_loc, rel_dst_loc;
     int32_t src_idx, dst_idx;
-    int32_t delay;
+    int32_t timing_class;
     int16_t tile_type;
     int8_t pip_type;
     int8_t padding_0;
@@ -151,6 +151,46 @@ NPNR_PACKED_STRUCT(struct GlobalInfoPOD {
     int16_t spine_col;
 });
 
+NPNR_PACKED_STRUCT(struct CellPropDelayPOD {
+    int32_t from_port;
+    int32_t to_port;
+    int32_t min_delay;
+    int32_t max_delay;
+});
+
+
+NPNR_PACKED_STRUCT(struct CellSetupHoldPOD {
+   int32_t sig_port;
+   int32_t clock_port;
+   int32_t min_setup;
+   int32_t max_setup;
+   int32_t min_hold;
+   int32_t max_hold;
+});
+
+
+NPNR_PACKED_STRUCT(struct CellTimingPOD {
+   int32_t cell_type;
+   int32_t num_prop_delays;
+   int32_t num_setup_holds;
+   RelPtr<CellPropDelayPOD> prop_delays;
+   RelPtr<CellSetupHoldPOD> setup_holds;
+});
+
+NPNR_PACKED_STRUCT(struct PipDelayPOD {
+    int32_t min_base_delay;
+    int32_t max_base_delay;
+    int32_t min_fanout_adder;
+    int32_t max_fanout_adder;
+});
+
+NPNR_PACKED_STRUCT(struct SpeedGradePOD {
+    int32_t num_cell_timings;
+    int32_t num_pip_classes;
+    RelPtr<CellTimingPOD> cell_timings;
+    RelPtr<PipDelayPOD> pip_classes;
+});
+
 NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     int32_t width, height;
     int32_t num_tiles;
@@ -163,6 +203,7 @@ NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     RelPtr<PackageInfoPOD> package_info;
     RelPtr<PIOInfoPOD> pio_info;
     RelPtr<TileInfoPOD> tile_info;
+    RelPtr<SpeedGradePOD> speed_grades;
 });
 
 #if defined(_MSC_VER)
@@ -400,13 +441,20 @@ struct ArchArgs
         LFE5UM5G_85F,
     } type = NONE;
     std::string package;
-    int speed = 6;
+    enum SpeedGrade
+    {
+        SPEED_6,
+        SPEED_7,
+        SPEED_8,
+        SPEED_8_5G,
+    } speedGrade = SPEED_6;
 };
 
 struct Arch : BaseCtx
 {
     const ChipInfoPOD *chip_info;
     const PackageInfoPOD *package_info;
+    const SpeedGradePOD *speed_grade;
 
     mutable std::unordered_map<IdString, BelId> bel_by_name;
     mutable std::unordered_map<IdString, WireId> wire_by_name;
@@ -633,7 +681,8 @@ struct Arch : BaseCtx
     DelayInfo getWireDelay(WireId wire) const
     {
         DelayInfo delay;
-        delay.delay = 0;
+        delay.min_delay = 0;
+        delay.max_delay = 0;
         return delay;
     }
 
@@ -772,7 +821,8 @@ struct Arch : BaseCtx
     {
         DelayInfo delay;
         NPNR_ASSERT(pip != PipId());
-        delay.delay = locInfo(pip)->pip_data[pip.index].delay;
+        delay.min_delay = speed_grade->pip_classes[locInfo(pip)->pip_data[pip.index].timing_class].min_base_delay;
+        delay.max_delay = speed_grade->pip_classes[locInfo(pip)->pip_data[pip.index].timing_class].max_base_delay;
         return delay;
     }
 
@@ -862,7 +912,8 @@ struct Arch : BaseCtx
     DelayInfo getDelayFromNS(float ns) const
     {
         DelayInfo del;
-        del.delay = delay_t(ns * 1000);
+        del.min_delay = delay_t(ns * 1000);
+        del.max_delay = delay_t(ns * 1000);
         return del;
     }
     uint32_t getDelayChecksum(delay_t v) const { return v; }

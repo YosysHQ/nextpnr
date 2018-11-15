@@ -96,7 +96,7 @@ Arch::Arch(ArchArgs args) : args(args)
             break;
         }
     }
-
+    speed_grade = &(chip_info->speed_grades[args.speedGrade]);
     if (!package_info)
         log_error("Unsupported package '%s' for '%s'.\n", args.package.c_str(), getChipName().c_str());
 
