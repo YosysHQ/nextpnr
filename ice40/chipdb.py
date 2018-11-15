@@ -36,6 +36,7 @@ ierens = list()
 extra_cells = dict()
 extra_cell_config = dict()
 packages = list()
+glbinfo = dict([(i, {}) for i in range(8)])
 
 wire_belports = dict()
 
@@ -640,6 +641,18 @@ with open(args.filename, "r") as f:
             extra_cells[mode[1]] = []
             continue
 
+        if line[0] == ".gbufin":
+            mode = ("gbufin",)
+            continue
+
+        if line[0] == ".gbufpin":
+            mode = ("gbufpin",)
+            continue
+
+        if line[0] == ".extra_bits":
+            mode = ("extra_bits",)
+            continue
+
         if (line[0][0] == ".") or (mode is None):
             mode = None
             continue
@@ -695,6 +708,27 @@ with open(args.filename, "r") as f:
                 extra_cells[mode[1]].append((("LOCKED_" + line[1]), (0, 0, "LOCKED")))
             else:
                 extra_cells[mode[1]].append((line[0], (int(line[1]), int(line[2]), line[3])))
+            continue
+
+        if mode[0] == "gbufin":
+            idx = int(line[2])
+            glbinfo[idx]['gb_x'] = int(line[0])
+            glbinfo[idx]['gb_y'] = int(line[1])
+            continue
+
+        if mode[0] == "gbufpin":
+            idx = int(line[3])
+            glbinfo[idx]['pi_gb_x']   = int(line[0])
+            glbinfo[idx]['pi_gb_y']   = int(line[1])
+            glbinfo[idx]['pi_gb_pio'] = int(line[2])
+            continue
+
+        if mode[0] == "extra_bits":
+            if line[0].startswith('padin_glb_netwk.'):
+                idx = int(line[0].split('.')[1])
+                glbinfo[idx]['pi_eb_bank'] = int(line[1])
+                glbinfo[idx]['pi_eb_x']    = int(line[2])
+                glbinfo[idx]['pi_eb_y']    = int(line[3])
             continue
 
 def add_wire(x, y, name):
@@ -973,42 +1007,8 @@ for tile_xy, tile_type in sorted(tiles.items()):
         for i in range(2):
             add_bel_io(tile_xy[0], tile_xy[1], i)
 
-        if dev_name == "1k":
-            add_bel_gb(tile_xy,  7,  0, 0)
-            add_bel_gb(tile_xy,  7, 17, 1)
-            add_bel_gb(tile_xy, 13,  9, 2)
-            add_bel_gb(tile_xy,  0,  9, 3)
-            add_bel_gb(tile_xy,  6, 17, 4)
-            add_bel_gb(tile_xy,  6,  0, 5)
-            add_bel_gb(tile_xy,  0,  8, 6)
-            add_bel_gb(tile_xy, 13,  8, 7)
-        elif dev_name == "5k":
-            add_bel_gb(tile_xy, 13,  0, 0)
-            add_bel_gb(tile_xy, 13, 31, 1)
-            add_bel_gb(tile_xy, 19, 31, 2)
-            add_bel_gb(tile_xy,  6, 31, 3)
-            add_bel_gb(tile_xy, 12, 31, 4)
-            add_bel_gb(tile_xy, 12,  0, 5)
-            add_bel_gb(tile_xy,  6,  0, 6)
-            add_bel_gb(tile_xy, 19,  0, 7)
-        elif dev_name == "8k":
-            add_bel_gb(tile_xy, 33, 16,  7)
-            add_bel_gb(tile_xy,  0, 16,  6)
-            add_bel_gb(tile_xy, 17, 33,  1)
-            add_bel_gb(tile_xy, 17,  0,  0)
-            add_bel_gb(tile_xy,  0, 17,  3)
-            add_bel_gb(tile_xy, 33, 17,  2)
-            add_bel_gb(tile_xy, 16,  0,  5)
-            add_bel_gb(tile_xy, 16, 33,  4)
-        elif dev_name == "384":
-            add_bel_gb(tile_xy,  7,  4,  7)
-            add_bel_gb(tile_xy,  0,  4,  6)
-            add_bel_gb(tile_xy,  4,  9,  1)
-            add_bel_gb(tile_xy,  4,  0,  0)
-            add_bel_gb(tile_xy,  0,  5,  3)
-            add_bel_gb(tile_xy,  7,  5,  2)
-            add_bel_gb(tile_xy,  3,  0,  5)
-            add_bel_gb(tile_xy,  3,  9,  4)
+        for gidx, ginfo in glbinfo.items():
+            add_bel_gb(tile_xy, ginfo['gb_x'], ginfo['gb_y'], gidx)
 
     if tile_type == "ramb":
         add_bel_ram(tile_xy[0], tile_xy[1])
@@ -1423,6 +1423,14 @@ for cell, timings in sorted(cell_timings.items()):
     bba.u32(len(timings), "num_paths")
     bba.r("cell_paths_%d" % beltype, "path_delays")
 
+bba.l("global_network_info_%s" % dev_name, "GlobalNetworkInfoPOD")
+for i in range(len(glbinfo)):
+    for k in ['gb_x', 'gb_y', 'pi_gb_x', 'pi_gb_y', 'pi_gb_pio', 'pi_eb_bank']:
+        bba.u8(glbinfo[i][k], k)
+    for k in ['pi_eb_x', 'pi_eb_y']:
+        bba.u16(glbinfo[i][k], k)
+    bba.u16(0, "padding")
+
 bba.l("chip_info_%s" % dev_name)
 bba.u32(dev_width, "dev_width")
 bba.u32(dev_height, "dev_height")
@@ -1433,6 +1441,7 @@ bba.u32(len(switchinfo), "num_switches")
 bba.u32(len(extra_cell_config), "num_belcfgs")
 bba.u32(len(packageinfo), "num_packages")
 bba.u32(len(cell_timings), "num_timing_cells")
+bba.u32(len(glbinfo), "num_global_networks")
 bba.r("bel_data_%s" % dev_name, "bel_data")
 bba.r("wire_data_%s" % dev_name, "wire_data")
 bba.r("pip_data_%s" % dev_name, "pip_data")
@@ -1441,6 +1450,7 @@ bba.r("bits_info_%s" % dev_name, "bits_info")
 bba.r("bel_config_%s" % dev_name if len(extra_cell_config) > 0 else None, "bel_config")
 bba.r("package_info_%s" % dev_name, "packages_data")
 bba.r("cell_timings_%s" % dev_name, "cell_timing")
+bba.r("global_network_info_%s" % dev_name, "global_network_info")
 bba.r("tile_wire_names", "tile_wire_names")
 
 bba.pop()
