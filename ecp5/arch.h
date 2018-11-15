@@ -461,6 +461,7 @@ struct Arch : BaseCtx
     std::vector<CellInfo *> bel_to_cell;
     std::unordered_map<WireId, NetInfo *> wire_to_net;
     std::unordered_map<PipId, NetInfo *> pip_to_net;
+    std::unordered_map<WireId, int> wire_fanout;
 
     ArchArgs args;
     Arch(ArchArgs args);
@@ -643,6 +644,7 @@ struct Arch : BaseCtx
 
         auto pip = it->second.pip;
         if (pip != PipId()) {
+            wire_fanout[getPipSrcWire(pip)]--;
             pip_to_net[pip] = nullptr;
         }
 
@@ -733,6 +735,7 @@ struct Arch : BaseCtx
         NPNR_ASSERT(pip_to_net[pip] == nullptr);
 
         pip_to_net[pip] = net;
+        wire_fanout[getPipSrcWire(pip)]++;
 
         WireId dst;
         dst.index = locInfo(pip)->pip_data[pip.index].dst_idx;
@@ -747,6 +750,7 @@ struct Arch : BaseCtx
     {
         NPNR_ASSERT(pip != PipId());
         NPNR_ASSERT(pip_to_net[pip] != nullptr);
+        wire_fanout[getPipSrcWire(pip)]--;
 
         WireId dst;
         dst.index = locInfo(pip)->pip_data[pip.index].dst_idx;
@@ -819,8 +823,14 @@ struct Arch : BaseCtx
     {
         DelayInfo delay;
         NPNR_ASSERT(pip != PipId());
-        delay.min_delay = speed_grade->pip_classes[locInfo(pip)->pip_data[pip.index].timing_class].min_base_delay;
-        delay.max_delay = speed_grade->pip_classes[locInfo(pip)->pip_data[pip.index].timing_class].max_base_delay;
+        int fanout = 0;
+        auto fnd_fanout = wire_fanout.find(getPipSrcWire(pip));
+        if (fnd_fanout != wire_fanout.end())
+            fanout = fnd_fanout->second;
+        delay.min_delay = speed_grade->pip_classes[locInfo(pip)->pip_data[pip.index].timing_class].min_base_delay
+                + fanout * speed_grade->pip_classes[locInfo(pip)->pip_data[pip.index].timing_class].min_fanout_adder;
+        delay.max_delay = speed_grade->pip_classes[locInfo(pip)->pip_data[pip.index].timing_class].max_base_delay
+                + fanout * speed_grade->pip_classes[locInfo(pip)->pip_data[pip.index].timing_class].max_fanout_adder;
         return delay;
     }
 
