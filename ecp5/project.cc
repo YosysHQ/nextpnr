@@ -45,7 +45,7 @@ std::unique_ptr<Context> ProjectHandler::createContext(pt::ptree &root)
         chipArgs.type = ArchArgs::LFE5U_85F;
     }
     chipArgs.package = root.get<std::string>("project.arch.package");
-    chipArgs.speed = root.get<int>("project.arch.speed");
+    chipArgs.speed = ArchArgs::SpeedGrade(root.get<int>("project.arch.speed"));
 
     return std::unique_ptr<Context>(new Context(chipArgs));
 }

@@ -111,7 +111,11 @@ std::unique_ptr<Context> ECP5CommandHandler::createContext()
         chipArgs.package = vm["package"].as<std::string>();
     else
         chipArgs.package = "CABGA381";
-    chipArgs.speed = 6;
+    if (chipArgs.type == ArchArgs::LFE5UM5G_25F || chipArgs.type == ArchArgs::LFE5UM5G_45F ||
+        chipArgs.type == ArchArgs::LFE5UM5G_85F)
+        chipArgs.speed = ArchArgs::SPEED_8_5G;
+    else
+        chipArgs.speed = ArchArgs::SPEED_6;
 
     return std::unique_ptr<Context>(new Context(chipArgs));
 }

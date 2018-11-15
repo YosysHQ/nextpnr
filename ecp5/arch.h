@@ -158,23 +158,21 @@ NPNR_PACKED_STRUCT(struct CellPropDelayPOD {
     int32_t max_delay;
 });
 
-
 NPNR_PACKED_STRUCT(struct CellSetupHoldPOD {
-   int32_t sig_port;
-   int32_t clock_port;
-   int32_t min_setup;
-   int32_t max_setup;
-   int32_t min_hold;
-   int32_t max_hold;
+    int32_t sig_port;
+    int32_t clock_port;
+    int32_t min_setup;
+    int32_t max_setup;
+    int32_t min_hold;
+    int32_t max_hold;
 });
 
-
 NPNR_PACKED_STRUCT(struct CellTimingPOD {
-   int32_t cell_type;
-   int32_t num_prop_delays;
-   int32_t num_setup_holds;
-   RelPtr<CellPropDelayPOD> prop_delays;
-   RelPtr<CellSetupHoldPOD> setup_holds;
+    int32_t cell_type;
+    int32_t num_prop_delays;
+    int32_t num_setup_holds;
+    RelPtr<CellPropDelayPOD> prop_delays;
+    RelPtr<CellSetupHoldPOD> setup_holds;
 });
 
 NPNR_PACKED_STRUCT(struct PipDelayPOD {
@@ -443,11 +441,11 @@ struct ArchArgs
     std::string package;
     enum SpeedGrade
     {
-        SPEED_6,
+        SPEED_6 = 0,
         SPEED_7,
         SPEED_8,
         SPEED_8_5G,
-    } speedGrade = SPEED_6;
+    } speed = SPEED_6;
 };
 
 struct Arch : BaseCtx
@@ -945,6 +943,10 @@ struct Arch : BaseCtx
     TimingClockingInfo getPortClockingInfo(const CellInfo *cell, IdString port, int index) const;
     // Return true if a port is a net
     bool isGlobalNet(const NetInfo *net) const;
+
+    bool getDelayFromTimingDatabase(IdString tctype, IdString from, IdString to, DelayInfo &delay) const;
+    void getSetupHoldFromTimingDatabase(IdString tctype, IdString clock, IdString port, DelayInfo &setup,
+                                        DelayInfo &hold) const;
 
     // -------------------------------------------------
     // Placement validity checks
