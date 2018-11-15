@@ -144,6 +144,13 @@ speed_grade_pips = {}
 
 pip_class_to_idx = {"default": 0}
 
+timing_port_xform = {
+    "RAD0": "D0",
+    "RAD1": "B0",
+    "RAD2": "C0",
+    "RAD3": "A0",
+}
+
 
 def process_timing_data():
     for grade in speed_grade_names:
@@ -158,14 +165,18 @@ def process_timing_data():
                 if entry["type"] == "Width":
                     continue
                 elif entry["type"] == "IOPath":
-                    from_pin = constids[entry["from_pin"]]
-                    to_pin = constids[entry["to_pin"]]
+                    from_pin = entry["from_pin"][1] if type(entry["from_pin"]) is list else entry["from_pin"]
+                    if from_pin in timing_port_xform:
+                        from_pin = timing_port_xform[from_pin]
+                    to_pin = entry["to_pin"]
+                    if to_pin in timing_port_xform:
+                        to_pin = timing_port_xform[to_pin]
                     min_delay = min(entry["rising"][0], entry["falling"][0])
                     max_delay = min(entry["rising"][2], entry["falling"][2])
-                    delays.append((from_pin, to_pin, min_delay, max_delay))
+                    delays.append((constids[from_pin], constids[to_pin], min_delay, max_delay))
                 elif entry["type"] == "SetupHold":
                     pin = constids[entry["pin"]]
-                    clock = constids[entry["clock"]]
+                    clock = constids[entry["clock"][1]]
                     min_setup = entry["setup"][0]
                     max_setup = entry["setup"][2]
                     min_hold = entry["hold"][0]
@@ -190,7 +201,7 @@ def process_timing_data():
 
 def get_pip_class(wire_from, wire_to):
     class_name = pip_classes.get_pip_class(wire_from, wire_to)
-    if class_name is None:
+    if class_name is None or class_name not in pip_class_to_idx:
         class_name = "default"
     return pip_class_to_idx[class_name]
 
