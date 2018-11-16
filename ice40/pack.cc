@@ -790,32 +790,6 @@ static void pack_special(Context *ctx)
 
             NetInfo *pad_packagepin_net = nullptr;
 
-            int pllout_a_used = 0;
-            int pllout_b_used = 0;
-            for (auto port : ci->ports) {
-                PortInfo &pi = port.second;
-                if (pi.name == ctx->id("PLLOUTCOREA"))
-                    pllout_a_used++;
-                if (pi.name == ctx->id("PLLOUTCOREB"))
-                    pllout_b_used++;
-                if (pi.name == ctx->id("PLLOUTCORE"))
-                    pllout_a_used++;
-                if (pi.name == ctx->id("PLLOUTGLOBALA"))
-                    pllout_a_used++;
-                if (pi.name == ctx->id("PLLOUTGLOBALB"))
-                    pllout_b_used++;
-                if (pi.name == ctx->id("PLLOUTGLOBAL"))
-                    pllout_a_used++;
-            }
-
-            if (pllout_a_used > 1)
-                log_error("PLL '%s' is using multiple ports mapping to PLLOUT_A output of the PLL\n",
-                          ci->name.c_str(ctx));
-
-            if (pllout_b_used > 1)
-                log_error("PLL '%s' is using multiple ports mapping to PLLOUT_B output of the PLL\n",
-                          ci->name.c_str(ctx));
-
             for (auto port : ci->ports) {
                 PortInfo &pi = port.second;
                 std::string newname = pi.name.str(ctx);
@@ -823,24 +797,15 @@ static void pack_special(Context *ctx)
                 if (bpos != std::string::npos) {
                     newname = newname.substr(0, bpos) + "_" + newname.substr(bpos + 1, (newname.size() - bpos) - 2);
                 }
-                if (pi.name == ctx->id("PLLOUTCOREA"))
+
+                if (pi.name == ctx->id("PLLOUTCOREA") || pi.name == ctx->id("PLLOUTCORE"))
                     newname = "PLLOUT_A";
                 if (pi.name == ctx->id("PLLOUTCOREB"))
                     newname = "PLLOUT_B";
-                if (pi.name == ctx->id("PLLOUTCORE"))
-                    newname = "PLLOUT_A";
-                if (pi.name == ctx->id("PLLOUTGLOBALA"))
-                    newname = "PLLOUT_A";
+                if (pi.name == ctx->id("PLLOUTGLOBALA") || pi.name == ctx->id("PLLOUTGLOBALA"))
+                    newname = "PLLOUT_A_GLOBAL";
                 if (pi.name == ctx->id("PLLOUTGLOBALB"))
-                    newname = "PLLOUT_B";
-                if (pi.name == ctx->id("PLLOUTGLOBAL"))
-                    newname = "PLLOUT_A";
-
-                if (pi.name == ctx->id("PLLOUTGLOBALA") || pi.name == ctx->id("PLLOUTGLOBALB") ||
-                    pi.name == ctx->id("PLLOUTGLOBAL"))
-                    log_warning("PLL '%s' is using port %s but implementation does not actually "
-                                "use the global clock output of the PLL\n",
-                                ci->name.c_str(ctx), pi.name.str(ctx).c_str());
+                    newname = "PLLOUT_B_GLOBAL";
 
                 if (pi.name == ctx->id("PACKAGEPIN")) {
                     if (!is_pad) {
@@ -1009,6 +974,24 @@ static void pack_special(Context *ctx)
                     user.cell->attrs[ctx->id("BEL")] = target_bel_name;
                     log_info("  constrained '%s' to %s\n", user.cell->name.c_str(ctx), target_bel_name.c_str());
                 }
+            }
+
+            // Handle the global buffer connections
+            for (auto port : packed->ports) {
+                PortInfo &pi = port.second;
+                bool is_b_port;
+
+                if (pi.name == ctx->id("PLLOUT_A_GLOBAL"))
+                    is_b_port = false;
+                else if (pi.name == ctx->id("PLLOUT_B_GLOBAL"))
+                    is_b_port = true;
+                else
+                    continue;
+
+                std::unique_ptr<CellInfo> gb =
+                        create_padin_gbuf(ctx, packed.get(), pi.name,
+                                          "$gbuf_" + ci->name.str(ctx) + "_pllout_" + (is_b_port ? "b" : "a"));
+                new_cells.push_back(std::move(gb));
             }
 
             new_cells.push_back(std::move(packed));
