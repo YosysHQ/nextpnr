@@ -775,7 +775,6 @@ void write_asc(const Context *ctx, std::ostream &out)
                     std::vector<bool> bits(256);
                     std::string init =
                             get_param_str_or_def(cell.second.get(), ctx->id(std::string("INIT_") + get_hexdigit(w)));
-                    NPNR_ASSERT(init != "");
                     for (size_t i = 0; i < init.size(); i++) {
                         bool val = (init.at((init.size() - 1) - i) == '1');
                         bits.at(i) = val;
