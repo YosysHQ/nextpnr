@@ -554,7 +554,6 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
                 Fmax = 1000 / ctx->getDelayNS(path.second.path_delay);
             else
                 Fmax = 500 / ctx->getDelayNS(path.second.path_delay);
-            log_info("%d %f\n", a.edge == b.edge, ctx->getDelayNS(path.second.path_delay));
             if (!clock_fmax.count(a.clock) || Fmax < clock_fmax.at(a.clock)) {
                 clock_reports[a.clock] = path;
                 clock_fmax[a.clock] = Fmax;
