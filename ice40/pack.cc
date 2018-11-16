@@ -438,6 +438,11 @@ static void pack_io(Context *ctx)
             }
             packed_cells.insert(ci->name);
             std::copy(ci->attrs.begin(), ci->attrs.end(), std::inserter(sb->attrs, sb->attrs.begin()));
+        } else if (is_sb_io(ctx, ci)) {
+            NetInfo *net = ci->ports.at(ctx->id("PACKAGE_PIN")).net;
+            if ((net != nullptr) && (net->users.size() > 1))
+                log_error("PACKAGE_PIN of SB_IO '%s' connected to more than a single top level IO.\n",
+                          ci->name.c_str(ctx));
         }
     }
     for (auto pcell : packed_cells) {
