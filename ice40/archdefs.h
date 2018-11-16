@@ -152,6 +152,10 @@ struct ArchCellInfo
             bool lvds;
             // TODO: clk packing checks...
         } ioInfo;
+        struct
+        {
+            bool forIO;
+        } gbInfo;
     };
 };
 

@@ -744,32 +744,6 @@ static void pack_special(Context *ctx)
 
             NetInfo *pad_packagepin_net = nullptr;
 
-            int pllout_a_used = 0;
-            int pllout_b_used = 0;
-            for (auto port : ci->ports) {
-                PortInfo &pi = port.second;
-                if (pi.name == ctx->id("PLLOUTCOREA"))
-                    pllout_a_used++;
-                if (pi.name == ctx->id("PLLOUTCOREB"))
-                    pllout_b_used++;
-                if (pi.name == ctx->id("PLLOUTCORE"))
-                    pllout_a_used++;
-                if (pi.name == ctx->id("PLLOUTGLOBALA"))
-                    pllout_a_used++;
-                if (pi.name == ctx->id("PLLOUTGLOBALB"))
-                    pllout_b_used++;
-                if (pi.name == ctx->id("PLLOUTGLOBAL"))
-                    pllout_a_used++;
-            }
-
-            if (pllout_a_used > 1)
-                log_error("PLL '%s' is using multiple ports mapping to PLLOUT_A output of the PLL\n",
-                          ci->name.c_str(ctx));
-
-            if (pllout_b_used > 1)
-                log_error("PLL '%s' is using multiple ports mapping to PLLOUT_B output of the PLL\n",
-                          ci->name.c_str(ctx));
-
             for (auto port : ci->ports) {
                 PortInfo &pi = port.second;
                 std::string newname = pi.name.str(ctx);
@@ -783,18 +757,12 @@ static void pack_special(Context *ctx)
                     newname = "PLLOUT_B";
                 if (pi.name == ctx->id("PLLOUTCORE"))
                     newname = "PLLOUT_A";
-                if (pi.name == ctx->id("PLLOUTGLOBALA"))
-                    newname = "PLLOUT_A";
-                if (pi.name == ctx->id("PLLOUTGLOBALB"))
-                    newname = "PLLOUT_B";
-                if (pi.name == ctx->id("PLLOUTGLOBAL"))
-                    newname = "PLLOUT_A";
 
-                if (pi.name == ctx->id("PLLOUTGLOBALA") || pi.name == ctx->id("PLLOUTGLOBALB") ||
-                    pi.name == ctx->id("PLLOUTGLOBAL"))
-                    log_warning("PLL '%s' is using port %s but implementation does not actually "
-                                "use the global clock output of the PLL\n",
-                                ci->name.c_str(ctx), pi.name.str(ctx).c_str());
+                if (pi.name == ctx->id("PLLOUTGLOBAL") ||
+                    pi.name == ctx->id("PLLOUTGLOBALA") ||
+                    pi.name == ctx->id("PLLOUTGLOBALB"))
+                    /* We deal with those after PLL has been constrained */
+                    continue;
 
                 if (pi.name == ctx->id("PACKAGEPIN")) {
                     if (!is_pad) {
@@ -952,6 +920,48 @@ static void pack_special(Context *ctx)
                 }
             }
 
+            // Handle the global buffer connections
+            for (auto port : ci->ports) {
+                PortInfo &pi = port.second;
+                bool is_b_port;
+                int x=-1, y=-1;
+
+                if (pi.name == ctx->id("PLLOUTGLOBAL") || pi.name == ctx->id("PLLOUTGLOBALA"))
+                    is_b_port = false;
+                else if (pi.name == ctx->id("PLLOUTGLOBALB"))
+                    is_b_port = true;
+                else
+                    continue;
+
+                std::unique_ptr<CellInfo> gb = create_ice_cell(ctx, ctx->id("SB_GB"), "$gbuf_" + ci->name.str(ctx) + "_out_" + (is_b_port ? "b" : "a"));
+                gb->gbInfo.forIO = true;
+
+                replace_port(ci, ctx->id(pi.name.c_str(ctx)), gb.get(), ctx->id("GLOBAL_BUFFER_OUTPUT"));
+
+                BelId bel_out = ctx->getIOBSharingPLLPin(pll_bel, is_b_port ? id_PLLOUT_B : id_PLLOUT_A).bel;
+                Loc loc_out= ctx->getBelLocation(bel_out);
+
+                for (int i=0; i<ctx->chip_info->num_global_networks; i++)
+                    if ((ctx->chip_info->global_network_info[i].pi_gb_x == loc_out.x) &&
+                        (ctx->chip_info->global_network_info[i].pi_gb_y == loc_out.y) &&
+                        (ctx->chip_info->global_network_info[i].pi_gb_pio == loc_out.z)) {
+                        x = ctx->chip_info->global_network_info[i].gb_x;
+                        y = ctx->chip_info->global_network_info[i].gb_y;
+                        break;
+                    }
+
+                if (x < 0 || y < 0)
+                    log_error("Unable to find global network matching PLL output\n");
+
+                auto gb_bel = ctx->getBelByLocation(Loc(x, y, 2));
+                auto gb_bel_name = ctx->getBelName(gb_bel).str(ctx);
+
+                NPNR_ASSERT(ctx->getBelType(gb_bel) == id_SB_GB);
+
+                gb->attrs[ctx->id("BEL")] = gb_bel_name;
+                new_cells.push_back(std::move(gb));
+            }
+
             new_cells.push_back(std::move(packed));
         }
     }
@@ -971,13 +981,13 @@ bool Arch::pack()
     try {
         log_break();
         pack_constants(ctx);
-        promote_globals(ctx);
         pack_io(ctx);
         pack_lut_lutffs(ctx);
         pack_nonlut_ffs(ctx);
         pack_carries(ctx);
         pack_ram(ctx);
         pack_special(ctx);
+        promote_globals(ctx);
         ctx->assignArchInfo();
         constrain_chains(ctx);
         ctx->assignArchInfo();

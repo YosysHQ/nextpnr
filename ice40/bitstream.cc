@@ -269,6 +269,9 @@ void write_asc(const Context *ctx, std::ostream &out)
             config.at(y).at(x).resize(rows, std::vector<int8_t>(cols));
         }
     }
+
+    std::vector<std::tuple<int, int, int>> extra_bits;
+
     out << ".comment from next-pnr" << std::endl;
 
     switch (ctx->args.type) {
@@ -353,8 +356,53 @@ void write_asc(const Context *ctx, std::ostream &out)
         }
     }
 
-    std::unordered_set<Loc> sb_io_used_by_pll;
-    std::unordered_set<Loc> sb_io_used_by_io;
+    // Scan for PLL and collects the affected SB_IOs
+    std::unordered_set<Loc> sb_io_used_by_pll_out;
+    std::unordered_set<Loc> sb_io_used_by_pll_pad;
+
+    for (auto &cell : ctx->cells) {
+        if (cell.second->type != ctx->id("ICESTORM_PLL"))
+            continue;
+
+        // Collect all locations matching an PLL output port
+        //  note: It doesn't matter if the port is connected or not, or if fabric/global
+        //        is used. As long as it's a PLL type for which the port exists, the SB_IO
+        //        is not available and must be configured for PLL mode
+        for (auto &port : cell.second->ports) {
+            // If this port is not a PLLOUT port, ignore it.
+            if (port.second.name != ctx->id("PLLOUT_A") && port.second.name != ctx->id("PLLOUT_B"))
+                continue;
+
+            // If the output is not enabled in this mode, ignore it
+            if (port.second.name == ctx->id("PLLOUT_B") && (
+                    (cell.second->attrs[ctx->id("TYPE")] == "SB_PLL40_PAD") ||
+                    (cell.second->attrs[ctx->id("TYPE")] == "SB_PLL40_CORE")))
+                continue;
+
+            // Get IO Bel that this PLL port goes through by finding sibling
+            // Bel driving the same wire via PIN_D_IN_0.
+            auto wire = ctx->getBelPinWire(cell.second->bel, port.second.name);
+            BelId io_bel;
+            for (auto pin : ctx->getWireBelPins(wire)) {
+                if (pin.pin == id_D_IN_0) {
+                    io_bel = pin.bel;
+                    break;
+                }
+            }
+            NPNR_ASSERT(io_bel.index != -1);
+            auto io_bel_loc = ctx->getBelLocation(io_bel);
+
+            // Mark this SB_IO as being used by a PLL output path
+            sb_io_used_by_pll_out.insert(io_bel_loc);
+
+            // If this is a PAD PLL, and this is the 'PLLOUT_A' port, then the same SB_IO is also PAD
+            if ((port.second.name == ctx->id("PLLOUT_A")) && (
+                    (cell.second->attrs[ctx->id("TYPE")] == "SB_PLL40_PAD") ||
+                    (cell.second->attrs[ctx->id("TYPE")] == "SB_PLL40_2F_PAD") ||
+                    (cell.second->attrs[ctx->id("TYPE")] == "SB_PLL40_2_PAD")))
+                sb_io_used_by_pll_pad.insert(io_bel_loc);
+        }
+    }
 
     // Set logic cell config
     for (auto &cell : ctx->cells) {
@@ -442,14 +490,15 @@ void write_asc(const Context *ctx, std::ostream &out)
         } else if (cell.second->type == ctx->id("SB_IO")) {
             const BelInfoPOD &beli = ci.bel_data[bel.index];
             int x = beli.x, y = beli.y, z = beli.z;
-            sb_io_used_by_io.insert(Loc(x, y, z));
             const TileInfoPOD &ti = bi.tiles_nonrouting[TILE_IO];
             unsigned pin_type = get_param_or_def(cell.second.get(), ctx->id("PIN_TYPE"));
             bool neg_trigger = get_param_or_def(cell.second.get(), ctx->id("NEG_TRIGGER"));
             bool pullup = get_param_or_def(cell.second.get(), ctx->id("PULLUP"));
             bool lvds = get_param_str_or_def(cell.second.get(), ctx->id("IO_STANDARD")) == "SB_LVDS_INPUT";
+            bool used_by_pll_out = sb_io_used_by_pll_out.count(Loc(x, y, z)) > 0;
+            bool used_by_pll_pad = sb_io_used_by_pll_pad.count(Loc(x, y, z)) > 0;
 
-            for (int i = 0; i < 6; i++) {
+            for (int i = used_by_pll_out ? 2 : 0; i < 6; i++) {
                 bool val = (pin_type >> i) & 0x01;
                 set_config(ti, config.at(y).at(x), "IOB_" + std::to_string(z) + ".PINTYPE_" + std::to_string(i), val);
             }
@@ -471,6 +520,11 @@ void write_asc(const Context *ctx, std::ostream &out)
                     input_en = false;
                 }
             }
+
+            if (input_en & used_by_pll_out)
+                log_error("SB_IO '%s' conflicts with PLL. Can't be used as INPUT since it's used for PLL output path\n", ctx->getBelName(bel).c_str(ctx));
+
+            input_en |= used_by_pll_pad;
 
             if (ctx->args.type == ArchArgs::LP1K || ctx->args.type == ArchArgs::HX1K) {
                 set_config(ti, config.at(iey).at(iex), "IoCtrl.IE_" + std::to_string(iez), !input_en);
@@ -513,7 +567,19 @@ void write_asc(const Context *ctx, std::ostream &out)
                 }
             }
         } else if (cell.second->type == ctx->id("SB_GB")) {
-            // no cell config bits
+            if (cell.second->gbInfo.forIO) {
+                Loc gb_loc = ctx->getBelLocation(bel);
+                for (int i=0; i<ci.num_global_networks; i++) {
+                    if ((gb_loc.x == ci.global_network_info[i].gb_x) &&
+                        (gb_loc.y == ci.global_network_info[i].gb_y)) {
+                        extra_bits.push_back(std::make_tuple(
+                            ci.global_network_info[i].pi_eb_bank,
+                            ci.global_network_info[i].pi_eb_x,
+                            ci.global_network_info[i].pi_eb_y
+                        ));
+                    }
+                }
+            }
         } else if (cell.second->type == ctx->id("ICESTORM_RAM")) {
             const BelInfoPOD &beli = ci.bel_data[bel.index];
             int x = beli.x, y = beli.y;
@@ -601,47 +667,13 @@ void write_asc(const Context *ctx, std::ostream &out)
             configure_extra_cell(config, ctx, cell.second.get(), pll_params, false, std::string("PLL."));
 
             // Configure the SB_IOs that the clock outputs are going through.
-            for (auto &port : cell.second->ports) {
-                // If this port is not a PLLOUT port, ignore it.
-                if (port.second.name != ctx->id("PLLOUT_A") && port.second.name != ctx->id("PLLOUT_B"))
-                    continue;
-
-                // If the output is not driving any net, ignore it.
-                if (port.second.net == nullptr)
-                    continue;
-
-                // Get IO Bel that this PLL port goes through by finding sibling
-                // Bel driving the same wire via PIN_D_IN_0.
-                auto wire = ctx->getBelPinWire(cell.second->bel, port.second.name);
-                BelId io_bel;
-                for (auto pin : ctx->getWireBelPins(wire)) {
-                    if (pin.pin == id_D_IN_0) {
-                        io_bel = pin.bel;
-                        break;
-                    }
-                }
-                NPNR_ASSERT(io_bel.index != -1);
-                auto io_bel_loc = ctx->getBelLocation(io_bel);
-
-                // Check that this SB_IO is either unused or just used as an output.
-                if (sb_io_used_by_io.count(io_bel_loc)) {
-                    log_error("SB_IO '%s' already in use, cannot route PLL through\n", ctx->getBelName(bel).c_str(ctx));
-                }
-                sb_io_used_by_pll.insert(io_bel_loc);
-
-                // Get IE/REN config location (cf. http://www.clifford.at/icestorm/io_tile.html)
-                auto ieren = get_ieren(bi, io_bel_loc.x, io_bel_loc.y, io_bel_loc.z);
-                int iex, iey, iez;
-                std::tie(iex, iey, iez) = ieren;
-                NPNR_ASSERT(iez != -1);
-
+            for (auto &io_bel_loc : sb_io_used_by_pll_out) {
                 // Write config.
                 const TileInfoPOD &ti = bi.tiles_nonrouting[TILE_IO];
-                // Enable input buffer and disable pull-up resistor in block
-                // (this is used by the PLL).
-                set_ie_bit_logical(ctx, ti, config.at(iey).at(iex), "IoCtrl.IE_" + std::to_string(iez), true);
-                set_ie_bit_logical(ctx, ti, config.at(iey).at(iex), "IoCtrl.REN_" + std::to_string(iez), false);
-                // PINTYPE[0] passes the PLL through to the fabric.
+
+                // PINTYPE[1:0] == "01" passes the PLL through to the fabric.
+                set_config(ti, config.at(io_bel_loc.y).at(io_bel_loc.x),
+                           "IOB_" + std::to_string(io_bel_loc.z) + ".PINTYPE_1", false);
                 set_config(ti, config.at(io_bel_loc.y).at(io_bel_loc.x),
                            "IOB_" + std::to_string(io_bel_loc.z) + ".PINTYPE_0", true);
             }
@@ -656,7 +688,7 @@ void write_asc(const Context *ctx, std::ostream &out)
             const TileInfoPOD &ti = bi.tiles_nonrouting[TILE_IO];
             const BelInfoPOD &beli = ci.bel_data[bel.index];
             int x = beli.x, y = beli.y, z = beli.z;
-            if (sb_io_used_by_pll.count(Loc(x, y, z))) {
+            if (sb_io_used_by_pll_out.count(Loc(x, y, z))) {
                 continue;
             }
 
@@ -789,6 +821,10 @@ void write_asc(const Context *ctx, std::ostream &out)
             }
         }
     }
+
+    // Write extra-bits
+    for (auto eb : extra_bits)
+        out << ".extra_bit " << std::get<0>(eb) << " " << std::get<1>(eb) << " " << std::get<2>(eb) << std::endl;
 
     // Write symbols
     // const bool write_symbols = 1;
