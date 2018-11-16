@@ -219,7 +219,7 @@ std::unique_ptr<CellInfo> create_ice_cell(Context *ctx, IdString type, std::stri
 
         new_cell->params[ctx->id("FDA_FEEDBACK")] = "0";
         new_cell->params[ctx->id("FDA_RELATIVE")] = "0";
-        new_cell->params[ctx->id("FEEDBACK_PATH")] = "0";
+        new_cell->params[ctx->id("FEEDBACK_PATH")] = "1";
         new_cell->params[ctx->id("FILTER_RANGE")] = "0";
 
         new_cell->params[ctx->id("PLLOUT_SELECT_A")] = "0";
