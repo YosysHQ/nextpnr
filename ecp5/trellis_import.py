@@ -193,8 +193,8 @@ def process_timing_data():
             interconn_data = json.load(f)
         for pipclass, pipdata in sorted(interconn_data.items()):
 
-            min_delay = pipdata["delay"][0]
-            max_delay = pipdata["delay"][2]
+            min_delay = pipdata["delay"][0] * 1.1
+            max_delay = pipdata["delay"][2] * 1.1
             min_fanout = pipdata["fanout"][0]
             max_fanout = pipdata["fanout"][2]
             if grade == "6":
