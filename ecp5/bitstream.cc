@@ -26,7 +26,7 @@
 #include <streambuf>
 #include <boost/algorithm/string/predicate.hpp>
 #include "config.h"
-#include "io.h"
+#include "pio.h"
 #include "log.h"
 #include "util.h"
 

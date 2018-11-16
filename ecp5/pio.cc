@@ -17,7 +17,7 @@
  *
  */
 
-#include "io.h"
+#include "pio.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
