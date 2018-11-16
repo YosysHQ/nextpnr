@@ -556,7 +556,8 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
     if (cell->type == id_TRELLIS_SLICE) {
         bool has_carry = str_or_default(cell->params, id("MODE"), "LOGIC") == "CCU2";
         if (fromPort == id_A0 || fromPort == id_B0 || fromPort == id_C0 || fromPort == id_D0 || fromPort == id_A1 ||
-            fromPort == id_B1 || fromPort == id_C1 || fromPort == id_D1 || fromPort == id_M0 || fromPort == id_FCI) {
+            fromPort == id_B1 || fromPort == id_C1 || fromPort == id_D1 || fromPort == id_M0 || fromPort == id_M1 ||
+            fromPort == id_FXA || fromPort == id_FXB || fromPort == id_FCI) {
             return getDelayFromTimingDatabase(has_carry ? id_SCCU2C : id_SLOGICB, fromPort, toPort, delay);
         }
 

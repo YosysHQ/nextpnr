@@ -357,9 +357,9 @@ class Ecp5Packer
     }
 
     // Pass to pack LUT5s into a newly created slice
-    void pack_lut5s()
+    void pack_lut5xs()
     {
-        log_info("Packing LUT5s...\n");
+        log_info("Packing LUT5-7s...\n");
         for (auto cell : sorted(ctx->cells)) {
             CellInfo *ci = cell.second;
             if (is_pfumx(ctx, ci)) {
@@ -412,8 +412,50 @@ class Ecp5Packer
             }
         }
         flush_cells();
-    }
+        // Pack LUT6s
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (is_l6mux(ctx, ci)) {
+                NetInfo *ofx0_0 = ci->ports.at(ctx->id("D0")).net;
+                if (ofx0_0 == nullptr)
+                    log_error("L6MUX21 '%s' has disconnected port 'D0'\n", ci->name.c_str(ctx));
+                NetInfo *ofx0_1 = ci->ports.at(ctx->id("D1")).net;
+                if (ofx0_1 == nullptr)
+                    log_error("L6MUX21 '%s' has disconnected port 'D1'\n", ci->name.c_str(ctx));
+                CellInfo *slice0 = net_driven_by(ctx, ofx0_0, is_lc, ctx->id("OFX0"));
+                CellInfo *slice1 = net_driven_by(ctx, ofx0_1, is_lc, ctx->id("OFX0"));
+                if (slice0 == nullptr)
+                    log_error("L6MUX21 '%s' has D0 driven by cell other than a SLICE ('%s.%s')\n", ci->name.c_str(ctx),
+                              ofx0_0->driver.cell->name.c_str(ctx), ofx0_0->driver.port.c_str(ctx));
+                if (slice1 == nullptr)
+                    log_error("L6MUX21 '%s' has D1 driven by cell other than a SLICE ('%s.%s')\n", ci->name.c_str(ctx),
+                              ofx0_1->driver.cell->name.c_str(ctx), ofx0_1->driver.port.c_str(ctx));
+                replace_port(ci, ctx->id("D0"), slice1, id_FXA);
+                replace_port(ci, ctx->id("D1"), slice1, id_FXB);
+                replace_port(ci, ctx->id("SD"), slice1, id_M1);
+                replace_port(ci, ctx->id("Z"), slice1, id_OFX1);
+                slice0->constr_z = 1;
+                slice0->constr_abs_z = true;
+                slice0->constr_x = 0;
+                slice0->constr_y = 0;
+                slice0->constr_parent = slice1;
+                slice1->constr_z = 0;
+                slice1->constr_abs_z = true;
+                slice1->constr_children.push_back(slice0);
 
+                if (lutffPairs.find(ci->name) != lutffPairs.end()) {
+                    CellInfo *ff = ctx->cells.at(lutffPairs[ci->name]).get();
+                    ff_to_slice(ctx, ff, slice1, 1, true);
+                    packed_cells.insert(ff->name);
+                    sliceUsage[slice1->name].ff1_used = true;
+                    lutffPairs.erase(ci->name);
+                    fflutPairs.erase(ff->name);
+                }
+
+                packed_cells.insert(ci->name);
+            }
+        }
+    }
     // Create a feed in to the carry chain
     CellInfo *make_carry_feed_in(NetInfo *carry, PortRef chain_in)
     {
@@ -1183,7 +1225,7 @@ class Ecp5Packer
         pack_dram();
         pack_carries();
         find_lutff_pairs();
-        pack_lut5s();
+        pack_lut5xs();
         pair_luts();
         pack_lut_pairs();
         pack_remaining_luts();
