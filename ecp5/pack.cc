@@ -435,7 +435,6 @@ class Ecp5Packer
                 replace_port(ci, ctx->id("SD"), slice1, id_M1);
                 replace_port(ci, ctx->id("Z"), slice1, id_OFX1);
                 slice0->constr_z = 1;
-                slice0->constr_abs_z = true;
                 slice0->constr_x = 0;
                 slice0->constr_y = 0;
                 slice0->constr_parent = slice1;
@@ -1294,6 +1293,10 @@ void Arch::assignArchInfo()
             ci->sliceInfo.clkmux = id(str_or_default(ci->params, id_CLKMUX, "CLK"));
             ci->sliceInfo.lsrmux = id(str_or_default(ci->params, id_LSRMUX, "LSR"));
             ci->sliceInfo.srmode = id(str_or_default(ci->params, id_SRMODE, "LSR_OVER_CE"));
+            ci->sliceInfo.has_l6mux = false;
+            if (ci->ports.count(id_FXA) && ci->ports[id_FXA].net != nullptr &&
+                ci->ports[id_FXA].net->driver.port == id_OFX0)
+                ci->sliceInfo.has_l6mux = true;
         }
     }
 }
