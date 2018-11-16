@@ -886,6 +886,16 @@ static void pack_special(Context *ctx)
                     log_error("Could not constrain PLL '%s' to any PLL Bel (too many PLLs?)\n",
                               packed->name.c_str(ctx));
                 }
+            } else {
+                pll_bel = ctx->getBelByName(ctx->id(packed->attrs[ctx->id("BEL")]));
+                if (ctx->getBelType(pll_bel) != id_ICESTORM_PLL)
+                    log_error("PLL '%s' is constrained to BEL %s which isn't a ICESTORM_PLL BEL\n",
+                              packed->name.c_str(ctx), ctx->getBelName(pll_bel).c_str(ctx));
+                if (ctx->isBelLocked(pll_bel))
+                    log_error("PLL '%s' is constrained to locked BEL %s\n", packed->name.c_str(ctx),
+                              ctx->getBelName(pll_bel).c_str(ctx));
+                log_info("  constrained PLL '%s' to %s\n", packed->name.c_str(ctx),
+                         ctx->getBelName(pll_bel).c_str(ctx));
             }
 
             // Delete the original PACKAGEPIN net if needed.
