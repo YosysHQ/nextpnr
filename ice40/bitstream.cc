@@ -671,8 +671,13 @@ void write_asc(const Context *ctx, std::ostream &out)
                     if (lvds0cell != nullptr && lvds0cell->ioInfo.lvds)
                         continue;
                 }
-                set_ie_bit_logical(ctx, ti, config.at(iey).at(iex), "IoCtrl.IE_" + std::to_string(iez), true);
-                set_ie_bit_logical(ctx, ti, config.at(iey).at(iex), "IoCtrl.REN_" + std::to_string(iez), false);
+                if (ctx->args.type == ArchArgs::LP1K || ctx->args.type == ArchArgs::HX1K) {
+                    set_config(ti, config.at(iey).at(iex), "IoCtrl.IE_" + std::to_string(iez), true);
+                    set_config(ti, config.at(iey).at(iex), "IoCtrl.REN_" + std::to_string(iez), false);
+                } else {
+                    set_config(ti, config.at(iey).at(iex), "IoCtrl.IE_" + std::to_string(iez), false);
+                    set_config(ti, config.at(iey).at(iex), "IoCtrl.REN_" + std::to_string(iez), false);
+                }
             }
         } else if (ctx->bel_to_cell[bel.index] == nullptr && ctx->getBelType(bel) == id_ICESTORM_RAM) {
             const BelInfoPOD &beli = ci.bel_data[bel.index];
