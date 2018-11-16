@@ -24,7 +24,7 @@
 #include <queue>
 #include <regex>
 #include <streambuf>
-
+#include <boost/algorithm/string/predicate.hpp>
 #include "config.h"
 #include "io.h"
 #include "log.h"
@@ -429,10 +429,10 @@ void fix_tile_names(Context *ctx, ChipConfig &cc)
                 if (newname.at(cibdcu - 1) != 'V')
                     newname.insert(cibdcu, 1, 'V');
                 tiletype_xform[tile.first] = newname;
-            } else if (tile.first.substr(tile.first.size() - 7) == "BMID_0H") {
+            } else if (boost::ends_with(tile.first, "BMID_0H")) {
                 newname.back() = 'V';
                 tiletype_xform[tile.first] = newname;
-            } else if (tile.first.substr(tile.first.size() - 6) == "BMID_2") {
+            } else if (boost::ends_with(tile.first, "BMID_2")) {
                 newname.push_back('V');
                 tiletype_xform[tile.first] = newname;
             }
