@@ -113,8 +113,8 @@ void FPGAViewWidget::initializeGL()
     }
     initializeOpenGLFunctions();
     QtImGui::initialize(this);
-    glClearColor(colors_.background.red() / 255, colors_.background.green() / 255,
-                                            colors_.background.blue() / 255, 0.0);
+    glClearColor(colors_.background.red() / 255, colors_.background.green() / 255, colors_.background.blue() / 255,
+                 0.0);
 }
 
 float FPGAViewWidget::PickedElement::distance(Context *ctx, float wx, float wy) const
@@ -314,36 +314,27 @@ void FPGAViewWidget::paintGL()
     }
 
     // Render the grid.
-    lineShader_.draw(GraphicElement::STYLE_GRID, colors_.grid, thick1Px,
-                                                                matrix);
+    lineShader_.draw(GraphicElement::STYLE_GRID, colors_.grid, thick1Px, matrix);
 
     // Render Arch graphics.
-    lineShader_.draw(GraphicElement::STYLE_FRAME, colors_.frame, thick11Px,
-                                                                   matrix);
-    lineShader_.draw(GraphicElement::STYLE_HIDDEN, colors_.hidden, thick11Px,
-                                                                     matrix);
-    lineShader_.draw(GraphicElement::STYLE_INACTIVE, colors_.inactive,
-                                                   thick11Px, matrix);
-    lineShader_.draw(GraphicElement::STYLE_ACTIVE, colors_.active, thick11Px,
-                                                                     matrix);
+    lineShader_.draw(GraphicElement::STYLE_FRAME, colors_.frame, thick11Px, matrix);
+    lineShader_.draw(GraphicElement::STYLE_HIDDEN, colors_.hidden, thick11Px, matrix);
+    lineShader_.draw(GraphicElement::STYLE_INACTIVE, colors_.inactive, thick11Px, matrix);
+    lineShader_.draw(GraphicElement::STYLE_ACTIVE, colors_.active, thick11Px, matrix);
 
     // Draw highlighted items.
     for (int i = 0; i < 8; i++) {
-        GraphicElement::style_t style = (GraphicElement::style_t)(
-                          GraphicElement::STYLE_HIGHLIGHTED0 + i);
+        GraphicElement::style_t style = (GraphicElement::style_t)(GraphicElement::STYLE_HIGHLIGHTED0 + i);
         lineShader_.draw(style, colors_.highlight[i], thick11Px, matrix);
     }
 
-    lineShader_.draw(GraphicElement::STYLE_SELECTED, colors_.selected,
-                                                   thick11Px, matrix);
-    lineShader_.draw(GraphicElement::STYLE_HOVER, colors_.hovered,
-                                                thick2Px, matrix);
+    lineShader_.draw(GraphicElement::STYLE_SELECTED, colors_.selected, thick11Px, matrix);
+    lineShader_.draw(GraphicElement::STYLE_HOVER, colors_.hovered, thick2Px, matrix);
 
     // Render ImGui
     QtImGui::newFrame();
     QMutexLocker lock(&rendererArgsLock_);
-    if (!(rendererArgs_->hoveredDecal == DecalXY()) && rendererArgs_->hintText.size() > 0)
-    {
+    if (!(rendererArgs_->hoveredDecal == DecalXY()) && rendererArgs_->hintText.size() > 0) {
         ImGui::SetNextWindowPos(ImVec2(rendererArgs_->x, rendererArgs_->y));
         ImGui::BeginTooltip();
         ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f);
@@ -351,7 +342,7 @@ void FPGAViewWidget::paintGL()
         ImGui::PopTextWrapPos();
         ImGui::EndTooltip();
     }
-    ImGui::Render();    
+    ImGui::Render();
 }
 
 void FPGAViewWidget::pokeRenderer(void) { renderRunner_->poke(); }
@@ -444,10 +435,10 @@ void FPGAViewWidget::renderLines(void)
         int last_render[GraphicElement::STYLE_HIGHLIGHTED0];
         {
             QMutexLocker locker(&rendererDataLock_);
-            for(int i =0; i<GraphicElement::STYLE_HIGHLIGHTED0; i++)
+            for (int i = 0; i < GraphicElement::STYLE_HIGHLIGHTED0; i++)
                 last_render[i] = rendererData_->gfxByStyle[(enum GraphicElement::style_t)i].last_render;
         }
-        
+
         auto data = std::unique_ptr<FPGAViewWidget::RendererData>(new FPGAViewWidget::RendererData);
         // Reset bounding box.
         data->bbGlobal.clear();
@@ -514,13 +505,12 @@ void FPGAViewWidget::renderLines(void)
                 for (int i = 0; i < 8; i++)
                     data->gfxHighlighted[i] = rendererData_->gfxHighlighted[i];
             }
-            for(int i =0; i<GraphicElement::STYLE_HIGHLIGHTED0; i++)
+            for (int i = 0; i < GraphicElement::STYLE_HIGHLIGHTED0; i++)
                 data->gfxByStyle[(enum GraphicElement::style_t)i].last_render = ++last_render[i];
             rendererData_ = std::move(data);
         }
     }
-    if (gridChanged)
-    {    
+    if (gridChanged) {
         QMutexLocker locker(&rendererDataLock_);
         rendererData_->gfxGrid.clear();
         // Render grid.
@@ -529,7 +519,7 @@ void FPGAViewWidget::renderLines(void)
         }
         for (float i = 0.0f; i < 1.0f * ctx_->getGridDimY() + 1; i += 1.0f) {
             PolyLine(0.0f, i, 1.0f * ctx_->getGridDimX(), i).build(rendererData_->gfxGrid);
-        }                    
+        }
         rendererData_->gfxGrid.last_render++;
     }
     if (highlightedOrSelectedChanged) {
@@ -537,7 +527,7 @@ void FPGAViewWidget::renderLines(void)
 
         // Whether the currently being hovered decal is also selected.
         bool hoveringSelected = false;
-        // Render selected.        
+        // Render selected.
         rendererData_->bbSelected.clear();
         rendererData_->gfxSelected.clear();
         for (auto &decal : selectedDecals) {
@@ -565,11 +555,11 @@ void FPGAViewWidget::renderLines(void)
     }
 
     {
-       QMutexLocker lock(&rendererArgsLock_);
+        QMutexLocker lock(&rendererArgsLock_);
 
         if (rendererArgs_->zoomOutbound) {
             zoomOutbound();
-            rendererArgs_->zoomOutbound = false;            
+            rendererArgs_->zoomOutbound = false;
         }
     }
 }
@@ -651,7 +641,8 @@ boost::optional<FPGAViewWidget::PickedElement> FPGAViewWidget::pickElement(float
 void FPGAViewWidget::mousePressEvent(QMouseEvent *event)
 {
     ImGuiIO &io = ImGui::GetIO();
-    if (io.WantCaptureMouse) return;
+    if (io.WantCaptureMouse)
+        return;
 
     if (event->buttons() & Qt::RightButton || event->buttons() & Qt::MidButton) {
         lastDragPos_ = event->pos();
@@ -687,7 +678,8 @@ void FPGAViewWidget::mousePressEvent(QMouseEvent *event)
 void FPGAViewWidget::mouseMoveEvent(QMouseEvent *event)
 {
     ImGuiIO &io = ImGui::GetIO();
-    if (io.WantCaptureMouse) return;
+    if (io.WantCaptureMouse)
+        return;
 
     if (event->buttons() & Qt::RightButton || event->buttons() & Qt::MidButton) {
         const int dx = event->x() - lastDragPos_.x();
@@ -724,22 +716,23 @@ void FPGAViewWidget::mouseMoveEvent(QMouseEvent *event)
         if (closest.type == ElementType::BEL) {
             rendererArgs_->hintText = std::string("BEL\n") + ctx_->getBelName(closest.bel).c_str(ctx_);
             CellInfo *cell = ctx_->getBoundBelCell(closest.bel);
-            if (cell!=nullptr)
-                rendererArgs_->hintText += std::string("\nCELL\n") +ctx_->nameOf(cell);
+            if (cell != nullptr)
+                rendererArgs_->hintText += std::string("\nCELL\n") + ctx_->nameOf(cell);
         } else if (closest.type == ElementType::WIRE) {
             rendererArgs_->hintText = std::string("WIRE\n") + ctx_->getWireName(closest.wire).c_str(ctx_);
             NetInfo *net = ctx_->getBoundWireNet(closest.wire);
-            if (net!=nullptr)
-                rendererArgs_->hintText += std::string("\nNET\n") +ctx_->nameOf(net);
+            if (net != nullptr)
+                rendererArgs_->hintText += std::string("\nNET\n") + ctx_->nameOf(net);
         } else if (closest.type == ElementType::PIP) {
             rendererArgs_->hintText = std::string("PIP\n") + ctx_->getPipName(closest.pip).c_str(ctx_);
             NetInfo *net = ctx_->getBoundPipNet(closest.pip);
-            if (net!=nullptr)
-                rendererArgs_->hintText += std::string("\nNET\n") +ctx_->nameOf(net);
+            if (net != nullptr)
+                rendererArgs_->hintText += std::string("\nNET\n") + ctx_->nameOf(net);
         } else if (closest.type == ElementType::GROUP) {
             rendererArgs_->hintText = std::string("GROUP\n") + ctx_->getGroupName(closest.group).c_str(ctx_);
-        } else rendererArgs_->hintText = "";  
-        
+        } else
+            rendererArgs_->hintText = "";
+
         pokeRenderer();
     }
     update();
@@ -789,8 +782,9 @@ QVector4D FPGAViewWidget::mouseToWorldDimensions(float x, float y)
 void FPGAViewWidget::wheelEvent(QWheelEvent *event)
 {
     ImGuiIO &io = ImGui::GetIO();
-    if (io.WantCaptureMouse) return;
-    
+    if (io.WantCaptureMouse)
+        return;
+
     QPoint degree = event->angleDelta() / 8;
 
     if (!degree.isNull())
@@ -875,23 +869,17 @@ void FPGAViewWidget::update_vbos()
 {
     lineShader_.update_vbos(GraphicElement::STYLE_GRID, rendererData_->gfxGrid);
 
-    for (int style = GraphicElement::STYLE_FRAME; style
-                  < GraphicElement::STYLE_HIGHLIGHTED0;
-                                             style++) {
-        lineShader_.update_vbos((enum GraphicElement::style_t)(style),
-                                    rendererData_->gfxByStyle[style]);
+    for (int style = GraphicElement::STYLE_FRAME; style < GraphicElement::STYLE_HIGHLIGHTED0; style++) {
+        lineShader_.update_vbos((enum GraphicElement::style_t)(style), rendererData_->gfxByStyle[style]);
     }
 
     for (int i = 0; i < 8; i++) {
-        GraphicElement::style_t style = (GraphicElement::style_t)(
-                          GraphicElement::STYLE_HIGHLIGHTED0 + i);
+        GraphicElement::style_t style = (GraphicElement::style_t)(GraphicElement::STYLE_HIGHLIGHTED0 + i);
         lineShader_.update_vbos(style, rendererData_->gfxHighlighted[i]);
     }
 
-    lineShader_.update_vbos(GraphicElement::STYLE_SELECTED,
-                               rendererData_->gfxSelected);
-    lineShader_.update_vbos(GraphicElement::STYLE_HOVER,
-                             rendererData_->gfxHovered);
+    lineShader_.update_vbos(GraphicElement::STYLE_SELECTED, rendererData_->gfxSelected);
+    lineShader_.update_vbos(GraphicElement::STYLE_HOVER, rendererData_->gfxHovered);
 }
 
 NEXTPNR_NAMESPACE_END

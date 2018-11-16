@@ -237,9 +237,11 @@ struct Timing
                 }
             }
             if (ctx->force)
-                log_warning("timing analysis failed due to presence of combinatorial loops, incomplete specification of timing ports, etc.\n");
+                log_warning("timing analysis failed due to presence of combinatorial loops, incomplete specification "
+                            "of timing ports, etc.\n");
             else
-                log_error("timing analysis failed due to presence of combinatorial loops, incomplete specification of timing ports, etc.\n");
+                log_error("timing analysis failed due to presence of combinatorial loops, incomplete specification of "
+                          "timing ports, etc.\n");
         }
 
         // Go forwards topographically to find the maximum arrival time and max path length for each net
@@ -639,7 +641,8 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
                     auto driver_wire = ctx->getNetinfoSourceWire(net);
                     auto sink_wire = ctx->getNetinfoSinkWire(net, *sink);
                     log_info("                 prediction: %f ns estimate: %f ns\n",
-                             ctx->getDelayNS(ctx->predictDelay(net, *sink)), ctx->getDelayNS(ctx->estimateDelay(driver_wire, sink_wire)));
+                             ctx->getDelayNS(ctx->predictDelay(net, *sink)),
+                             ctx->getDelayNS(ctx->estimateDelay(driver_wire, sink_wire)));
                     auto cursor = sink_wire;
                     delay_t delay;
                     while (driver_wire != cursor) {
@@ -648,7 +651,8 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
                         auto pip = it->second.pip;
                         NPNR_ASSERT(pip != PipId());
                         delay = ctx->getPipDelay(pip).maxDelay();
-                        log_info("                 %1.3f %s\n", ctx->getDelayNS(delay), ctx->getPipName(pip).c_str(ctx));
+                        log_info("                 %1.3f %s\n", ctx->getDelayNS(delay),
+                                 ctx->getPipName(pip).c_str(ctx));
                         cursor = ctx->getPipSrcWire(pip);
                     }
                 }
@@ -658,9 +662,12 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
 
         for (auto &clock : clock_reports) {
             log_break();
-            std::string start = clock.second.first.start.edge == FALLING_EDGE ? std::string("negedge") : std::string("posedge");
-            std::string end = clock.second.first.end.edge == FALLING_EDGE ? std::string("negedge") : std::string("posedge");
-            log_info("Critical path report for clock '%s' (%s -> %s):\n", clock.first.c_str(ctx), start.c_str(), end.c_str());
+            std::string start =
+                    clock.second.first.start.edge == FALLING_EDGE ? std::string("negedge") : std::string("posedge");
+            std::string end =
+                    clock.second.first.end.edge == FALLING_EDGE ? std::string("negedge") : std::string("posedge");
+            log_info("Critical path report for clock '%s' (%s -> %s):\n", clock.first.c_str(ctx), start.c_str(),
+                     end.c_str());
             auto &crit_path = clock.second.second.ports;
             print_path_report(clock.second.first, crit_path);
         }
@@ -684,10 +691,12 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
             const int width = max_width - clock_name.size();
             if (ctx->nets.at(clock.first)->clkconstr) {
                 float target = 1000 / ctx->getDelayNS(ctx->nets.at(clock.first)->clkconstr->period.minDelay());
-                log_info("Max frequency for clock %*s'%s': %.02f MHz (%s at %.02f MHz)\n", width, "", clock_name.c_str(),
-                         clock_fmax[clock.first], (target < clock_fmax[clock.first]) ? "PASS" : "FAIL", target);
+                log_info("Max frequency for clock %*s'%s': %.02f MHz (%s at %.02f MHz)\n", width, "",
+                         clock_name.c_str(), clock_fmax[clock.first],
+                         (target < clock_fmax[clock.first]) ? "PASS" : "FAIL", target);
             } else {
-                log_info("Max frequency for clock %*s'%s': %.02f MHz\n", width, "", clock_name.c_str(), clock_fmax[clock.first]);
+                log_info("Max frequency for clock %*s'%s': %.02f MHz\n", width, "", clock_name.c_str(),
+                         clock_fmax[clock.first]);
             }
         }
         for (auto &eclock : empty_clocks) {

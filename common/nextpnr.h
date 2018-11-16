@@ -579,10 +579,7 @@ struct BaseCtx
 
     const Context *getCtx() const { return reinterpret_cast<const Context *>(this); }
 
-    const char *nameOf(IdString name) const
-    {
-        return name.c_str(this);
-    }
+    const char *nameOf(IdString name) const { return name.c_str(this); }
 
     template <typename T> const char *nameOf(const T *obj) const
     {

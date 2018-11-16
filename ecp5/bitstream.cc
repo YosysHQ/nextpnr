@@ -19,15 +19,15 @@
 
 #include "bitstream.h"
 
+#include <boost/algorithm/string/predicate.hpp>
 #include <fstream>
 #include <iomanip>
 #include <queue>
 #include <regex>
 #include <streambuf>
-#include <boost/algorithm/string/predicate.hpp>
 #include "config.h"
-#include "pio.h"
 #include "log.h"
+#include "pio.h"
 #include "util.h"
 
 #define fmt_str(x) (static_cast<const std::ostringstream &>(std::ostringstream() << x).str())

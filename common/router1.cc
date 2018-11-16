@@ -34,7 +34,10 @@ struct arc_key
     int user_idx;
 
     bool operator==(const arc_key &other) const { return (net_info == other.net_info) && (user_idx == other.user_idx); }
-    bool operator<(const arc_key &other) const { return net_info == other.net_info ? user_idx < other.user_idx : net_info->name < other.net_info->name; }
+    bool operator<(const arc_key &other) const
+    {
+        return net_info == other.net_info ? user_idx < other.user_idx : net_info->name < other.net_info->name;
+    }
 
     struct Hash
     {
@@ -375,21 +378,20 @@ struct Router1
 
                 if (dst_wire == WireId())
                     log_error("No wire found for port %s on destination cell %s.\n",
-                              ctx->nameOf(net_info->users[user_idx].port),
-                              ctx->nameOf(net_info->users[user_idx].cell));
+                              ctx->nameOf(net_info->users[user_idx].port), ctx->nameOf(net_info->users[user_idx].cell));
 
                 if (dst_to_arc.count(dst_wire)) {
                     if (dst_to_arc.at(dst_wire).net_info == net_info)
                         continue;
-                    log_error("Found two arcs with same sink wire %s: %s (%d) vs %s (%d)\n",
-                              ctx->nameOfWire(dst_wire), ctx->nameOf(net_info), user_idx,
-                              ctx->nameOf(dst_to_arc.at(dst_wire).net_info), dst_to_arc.at(dst_wire).user_idx);
+                    log_error("Found two arcs with same sink wire %s: %s (%d) vs %s (%d)\n", ctx->nameOfWire(dst_wire),
+                              ctx->nameOf(net_info), user_idx, ctx->nameOf(dst_to_arc.at(dst_wire).net_info),
+                              dst_to_arc.at(dst_wire).user_idx);
                 }
 
                 if (src_to_net.count(dst_wire))
                     log_error("Wire %s is used as source and sink in different nets: %s vs %s (%d)\n",
-                              ctx->nameOfWire(dst_wire), ctx->nameOf(src_to_net.at(dst_wire)),
-                              ctx->nameOf(net_info), user_idx);
+                              ctx->nameOfWire(dst_wire), ctx->nameOf(src_to_net.at(dst_wire)), ctx->nameOf(net_info),
+                              user_idx);
 
                 arc_key arc;
                 arc.net_info = net_info;
@@ -950,8 +952,7 @@ bool Context::checkRoutedDesign() const
 
                 for (WireId w : dangling_wires) {
                     if (logged_wires.count(w) == 0)
-                        log("  loop: %s -> %s\n",
-                            ctx->nameOfWire(ctx->getPipSrcWire(net_info->wires.at(w).pip)),
+                        log("  loop: %s -> %s\n", ctx->nameOfWire(ctx->getPipSrcWire(net_info->wires.at(w).pip)),
                             ctx->nameOfWire(w));
                 }
             }

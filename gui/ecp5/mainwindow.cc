@@ -18,9 +18,9 @@
  */
 
 #include "mainwindow.h"
+#include <fstream>
 #include "bitstream.h"
 #include "log.h"
-#include <fstream>
 
 #include <QFileDialog>
 #include <QInputDialog>
@@ -150,7 +150,7 @@ void MainWindow::open_lpf()
 {
     QString fileName = QFileDialog::getOpenFileName(this, QString("Open LPF"), QString(), QString("*.lpf"));
     if (!fileName.isEmpty()) {
-        std::ifstream in(fileName.toStdString());        
+        std::ifstream in(fileName.toStdString());
         if (ctx->applyLPF(fileName.toStdString(), in)) {
             log("Loading LPF successful.\n");
             actionPack->setEnabled(true);
@@ -158,7 +158,7 @@ void MainWindow::open_lpf()
         } else {
             actionLoadLPF->setEnabled(true);
             log("Loading LPF failed.\n");
-        }        
+        }
     }
 }
 

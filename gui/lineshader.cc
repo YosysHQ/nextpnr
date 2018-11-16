@@ -206,8 +206,7 @@ bool LineShader::compile(void)
     return true;
 }
 
-void LineShader::update_vbos(enum GraphicElement::style_t style,
-                                     const LineShaderData &line)
+void LineShader::update_vbos(enum GraphicElement::style_t style, const LineShaderData &line)
 {
     if (buffers_[style].last_vbo_update == line.last_render)
         return;
@@ -230,8 +229,8 @@ void LineShader::update_vbos(enum GraphicElement::style_t style,
     buffers_[style].index.allocate(&line.indices[0], sizeof(GLuint) * line.indices.size());
 }
 
-void LineShader::draw(enum GraphicElement::style_t style, const QColor &color,
-                                float thickness, const QMatrix4x4 &projection)
+void LineShader::draw(enum GraphicElement::style_t style, const QColor &color, float thickness,
+                      const QMatrix4x4 &projection)
 {
     auto gl = QOpenGLContext::currentContext()->functions();
     if (buffers_[style].indices == 0)
