@@ -881,6 +881,7 @@ static void pack_special(Context *ctx)
                     packed->attrs[ctx->id("BEL")] = ctx->getBelName(bel).str(ctx);
                     pll_bel = bel;
                     constrained = true;
+                    break;
                 }
                 if (!constrained) {
                     log_error("Could not constrain PLL '%s' to any PLL Bel (too many PLLs?)\n",
