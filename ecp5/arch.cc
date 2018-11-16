@@ -710,10 +710,10 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
         else if (prefix == "CH1_FF_RX")
             info.clock_port = id_CH1_FF_RXI_CLK;
         if (cell->ports.at(port).type == PORT_OUT) {
-            info.clockToQ.delay = 660;
+            info.clockToQ = getDelayFromNS(0.7);
         } else {
-            info.setup.delay = 1000;
-            info.hold.delay = 0;
+            info.setup = getDelayFromNS(1);
+            info.hold  = getDelayFromNS(0);
         }
     }
     return info;
