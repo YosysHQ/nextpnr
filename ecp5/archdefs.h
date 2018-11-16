@@ -87,7 +87,10 @@ struct BelId
 
     bool operator==(const BelId &other) const { return index == other.index && location == other.location; }
     bool operator!=(const BelId &other) const { return index != other.index || location != other.location; }
-    bool operator<(const BelId &other) const { return location == other.location ? index < other.index : location < other.location; }
+    bool operator<(const BelId &other) const
+    {
+        return location == other.location ? index < other.index : location < other.location;
+    }
 };
 
 struct WireId
@@ -97,7 +100,10 @@ struct WireId
 
     bool operator==(const WireId &other) const { return index == other.index && location == other.location; }
     bool operator!=(const WireId &other) const { return index != other.index || location != other.location; }
-    bool operator<(const WireId &other) const { return location == other.location ? index < other.index : location < other.location; }
+    bool operator<(const WireId &other) const
+    {
+        return location == other.location ? index < other.index : location < other.location;
+    }
 };
 
 struct PipId
@@ -107,7 +113,10 @@ struct PipId
 
     bool operator==(const PipId &other) const { return index == other.index && location == other.location; }
     bool operator!=(const PipId &other) const { return index != other.index || location != other.location; }
-    bool operator<(const PipId &other) const { return location == other.location ? index < other.index : location < other.location; }
+    bool operator<(const PipId &other) const
+    {
+        return location == other.location ? index < other.index : location < other.location;
+    }
 };
 
 struct GroupId

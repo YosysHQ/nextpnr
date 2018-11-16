@@ -200,9 +200,14 @@ def write_database(dev_name, chip, ddrg, endianness):
                 write_loc(arc.sinkWire.rel, "dst")
                 bba.u32(arc.srcWire.id, "src_idx")
                 bba.u32(arc.sinkWire.id, "dst_idx")
-                bba.u32(get_pip_delay(get_wire_name(idx, arc.srcWire.rel, arc.srcWire.id), get_wire_name(idx, arc.sinkWire.rel, arc.sinkWire.id)), "delay")  # TODO:delay
+                src_name = get_wire_name(idx, arc.srcWire.rel, arc.srcWire.id)
+                snk_name = get_wire_name(idx, arc.sinkWire.rel, arc.sinkWire.id)
+                bba.u32(get_pip_delay(src_name, snk_name), "delay")  # TODO:delay
                 bba.u16(get_tiletype_index(ddrg.to_str(arc.tiletype)), "tile_type")
-                bba.u8(int(arc.cls), "pip_type")
+                cls = arc.cls
+                if cls == 1 and "PCS" in snk_name or "DCU" in snk_name or "DCU" in src_name:
+                   cls = 2
+                bba.u8(cls, "pip_type")
                 bba.u8(0, "padding")
         if len(loctype.wires) > 0:
             for wire_idx in range(len(loctype.wires)):
@@ -340,7 +345,7 @@ def write_database(dev_name, chip, ddrg, endianness):
     bba.pop()
     return bba
 
-dev_names = {"25k": "LFE5U-25F", "45k": "LFE5U-45F", "85k": "LFE5U-85F"}
+dev_names = {"25k": "LFE5UM5G-25F", "45k": "LFE5UM5G-45F", "85k": "LFE5UM5G-85F"}
 
 def main():
     global max_row, max_col
