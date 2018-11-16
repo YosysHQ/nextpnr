@@ -122,23 +122,22 @@ std::unique_ptr<Context> ECP5CommandHandler::createContext()
         if (vm.count("speed")) {
             int speed = vm["speed"].as<int>();
             switch (speed) {
-                case 6:
-                    chipArgs.speed = ArchArgs::SPEED_6;
-                    break;
-                case 7:
-                    chipArgs.speed = ArchArgs::SPEED_7;
-                    break;
-                case 8:
-                    chipArgs.speed = ArchArgs::SPEED_8;
-                    break;
-                default:
-                    log_error("Unsupported speed grade '%d'\n", speed);
+            case 6:
+                chipArgs.speed = ArchArgs::SPEED_6;
+                break;
+            case 7:
+                chipArgs.speed = ArchArgs::SPEED_7;
+                break;
+            case 8:
+                chipArgs.speed = ArchArgs::SPEED_8;
+                break;
+            default:
+                log_error("Unsupported speed grade '%d'\n", speed);
             }
         } else {
             chipArgs.speed = ArchArgs::SPEED_6;
         }
     }
-
 
     return std::unique_ptr<Context>(new Context(chipArgs));
 }

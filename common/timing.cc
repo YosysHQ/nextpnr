@@ -659,7 +659,6 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
                     }
                 }
                 last_port = sink->port;
-
             }
             int clockCount = 0;
             auto sinkClass = ctx->getPortTimingClass(crit_path.back()->cell, crit_path.back()->port, clockCount);
@@ -670,7 +669,6 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
                 log_info("%4.1f %4.1f  Setup %s.%s\n", ctx->getDelayNS(setup), ctx->getDelayNS(total),
                          crit_path.back()->cell->name.c_str(ctx), crit_path.back()->port.c_str(ctx));
             }
-
         };
 
         for (auto &clock : clock_reports) {

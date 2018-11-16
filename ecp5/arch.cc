@@ -740,7 +740,7 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
             info.clockToQ = getDelayFromNS(0.7);
         } else {
             info.setup = getDelayFromNS(1);
-            info.hold  = getDelayFromNS(0);
+            info.hold = getDelayFromNS(0);
         }
     }
     return info;
