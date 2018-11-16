@@ -422,7 +422,34 @@ bool Arch::route()
 {
     route_ecp5_globals(getCtx());
     assign_budget(getCtx(), true);
-    return router1(getCtx(), Router1Cfg(getCtx()));
+
+    bool result = router1(getCtx(), Router1Cfg(getCtx()));
+#if 0
+    std::vector<std::pair<WireId, int>> fanout_vector;
+    std::copy(wire_fanout.begin(), wire_fanout.end(), std::back_inserter(fanout_vector));
+    std::sort(fanout_vector.begin(), fanout_vector.end(), [](const std::pair<WireId, int> &a, const std::pair<WireId, int> &b) {
+        return a.second > b.second;
+    });
+    for (size_t i = 0; i < std::min(size_t(20), fanout_vector.size()); i++)
+        log_info("    fanout %s = %d\n", getWireName(fanout_vector[i].first).c_str(this), fanout_vector[i].second);
+    log_break();
+    PipId slowest_pip;
+    delay_t slowest_pipdelay = 0;
+    for (auto pip : pip_to_net) {
+        if (pip.second) {
+            delay_t dly = getPipDelay(pip.first).maxDelay();
+            if (dly > slowest_pipdelay) {
+                slowest_pip = pip.first;
+                slowest_pipdelay = dly;
+            }
+        }
+    }
+    log_info("    slowest pip %s = %.02f ns\n", getPipName(slowest_pip).c_str(this), getDelayNS(slowest_pipdelay));
+    log_info("       fanout %d\n", wire_fanout[getPipSrcWire(slowest_pip)]);
+    log_info("       base %d adder %d\n", speed_grade->pip_classes[locInfo(slowest_pip)->pip_data[slowest_pip.index].timing_class].max_base_delay,
+             speed_grade->pip_classes[locInfo(slowest_pip)->pip_data[slowest_pip.index].timing_class].max_fanout_adder);
+#endif
+    return result;
 }
 
 // -----------------------------------------------------------------------

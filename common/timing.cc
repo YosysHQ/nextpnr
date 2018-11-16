@@ -554,6 +554,7 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
                 Fmax = 1000 / ctx->getDelayNS(path.second.path_delay);
             else
                 Fmax = 500 / ctx->getDelayNS(path.second.path_delay);
+            log_info("%d %f\n", a.edge == b.edge, ctx->getDelayNS(path.second.path_delay));
             if (!clock_fmax.count(a.clock) || Fmax < clock_fmax.at(a.clock)) {
                 clock_reports[a.clock] = path;
                 clock_fmax[a.clock] = Fmax;
@@ -608,6 +609,8 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
                     if (clknet != nullptr && clknet->name == clocks.start.clock &&
                         clockInfo.edge == clocks.start.edge) {
                         last_port = clockInfo.clock_port;
+                        total += clockInfo.clockToQ.maxDelay();
+                        break;
                     }
                 }
             }
@@ -623,7 +626,7 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
                 if (last_port == driver.port) {
                     // Case where we start with a STARTPOINT etc
                     comb_delay = ctx->getDelayFromNS(0);
-                } else {
+                } else if (total == 0) {
                     ctx->getCellDelay(sink_cell, last_port, driver.port, comb_delay);
                 }
                 total += comb_delay.maxDelay();
@@ -657,7 +660,18 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
                     }
                 }
                 last_port = sink->port;
+
             }
+            int clockCount = 0;
+            auto sinkClass = ctx->getPortTimingClass(crit_path.back()->cell, crit_path.back()->port, clockCount);
+            if (sinkClass == TMG_REGISTER_INPUT && clockCount > 0) {
+                auto sinkClockInfo = ctx->getPortClockingInfo(crit_path.back()->cell, crit_path.back()->port, 0);
+                delay_t setup = sinkClockInfo.setup.maxDelay();
+                total += setup;
+                log_info("%4.1f %4.1f  Setup %s.%s\n", ctx->getDelayNS(setup), ctx->getDelayNS(total),
+                         crit_path.back()->cell->name.c_str(ctx), crit_path.back()->port.c_str(ctx));
+            }
+
         };
 
         for (auto &clock : clock_reports) {

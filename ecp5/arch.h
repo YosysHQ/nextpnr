@@ -827,6 +827,7 @@ struct Arch : BaseCtx
         auto fnd_fanout = wire_fanout.find(getPipSrcWire(pip));
         if (fnd_fanout != wire_fanout.end())
             fanout = fnd_fanout->second;
+        NPNR_ASSERT(locInfo(pip)->pip_data[pip.index].timing_class < speed_grade->num_pip_classes);
         delay.min_delay = speed_grade->pip_classes[locInfo(pip)->pip_data[pip.index].timing_class].min_base_delay
                 + fanout * speed_grade->pip_classes[locInfo(pip)->pip_data[pip.index].timing_class].min_fanout_adder;
         delay.max_delay = speed_grade->pip_classes[locInfo(pip)->pip_data[pip.index].timing_class].max_base_delay

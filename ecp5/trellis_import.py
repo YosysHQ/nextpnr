@@ -185,16 +185,24 @@ def process_timing_data():
                 else:
                     assert False, entry["type"]
             cells.append((celltype, delays, setupholds))
-        pip_class_delays = [(50, 50, 0, 0)] # default: 50ps delay, 0ps fanout
+        pip_class_delays = []
+        for i in range(len(pip_class_to_idx)):
+            pip_class_delays.append((50, 50, 0, 0))
+
         with open(timing_dbs.interconnect_db_path("ECP5", grade)) as f:
             interconn_data = json.load(f)
         for pipclass, pipdata in sorted(interconn_data.items()):
-            pip_class_to_idx[pipclass] = len(pip_class_delays)
+
             min_delay = pipdata["delay"][0]
             max_delay = pipdata["delay"][2]
             min_fanout = pipdata["fanout"][0]
             max_fanout = pipdata["fanout"][2]
-            pip_class_delays.append((min_delay, max_delay, min_fanout, max_fanout))
+            if grade == "6":
+                pip_class_to_idx[pipclass] = len(pip_class_delays)
+                pip_class_delays.append((min_delay, max_delay, min_fanout, max_fanout))
+            else:
+                if pipclass in pip_class_to_idx:
+                    pip_class_delays[pip_class_to_idx[pipclass]] = (min_delay, max_delay, min_fanout, max_fanout)
         speed_grade_cells[grade] = cells
         speed_grade_pips[grade] = pip_class_delays
 
