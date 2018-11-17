@@ -51,15 +51,20 @@ class SAPlacer
     {
         int num_bel_types = 0;
         for (auto bel : ctx->getBels()) {
+            IdString type = ctx->getBelType(bel);
+            if (bel_types.find(type) == bel_types.end()) {
+                bel_types[type] = std::tuple<int, int>(num_bel_types++, 1);
+            } else {
+                std::get<1>(bel_types.at(type))++;
+            }
+        }
+        for (auto bel : ctx->getBels()) {
             Loc loc = ctx->getBelLocation(bel);
             IdString type = ctx->getBelType(bel);
-            int type_idx;
-            if (bel_types.find(type) == bel_types.end()) {
-                type_idx = num_bel_types++;
-                bel_types[type] = type_idx;
-            } else {
-                type_idx = bel_types.at(type);
-            }
+            int type_idx = std::get<0>(bel_types.at(type));
+            int type_cnt = std::get<1>(bel_types.at(type));
+            if (type_cnt < cfg.minBelsForGridPick)
+                loc.x = loc.y = 0;
             if (int(fast_bels.size()) < type_idx + 1)
                 fast_bels.resize(type_idx + 1);
             if (int(fast_bels.at(type_idx).size()) < (loc.x + 1))
@@ -463,7 +468,10 @@ class SAPlacer
         while (true) {
             int nx = ctx->rng(2 * diameter + 1) + std::max(curr_loc.x - diameter, 0);
             int ny = ctx->rng(2 * diameter + 1) + std::max(curr_loc.y - diameter, 0);
-            int beltype_idx = bel_types.at(targetType);
+            int beltype_idx, beltype_cnt;
+            std::tie(beltype_idx, beltype_cnt) = bel_types.at(targetType);
+            if (beltype_cnt < cfg.minBelsForGridPick)
+                nx = ny = 0;
             if (nx >= int(fast_bels.at(beltype_idx).size()))
                 continue;
             if (ny >= int(fast_bels.at(beltype_idx).at(nx).size()))
@@ -485,7 +493,7 @@ class SAPlacer
     bool improved = false;
     int n_move, n_accept;
     int diameter = 35, max_x = 1, max_y = 1;
-    std::unordered_map<IdString, int> bel_types;
+    std::unordered_map<IdString, std::tuple<int, int>> bel_types;
     std::vector<std::vector<std::vector<std::vector<BelId>>>> fast_bels;
     std::unordered_set<BelId> locked_bels;
     bool require_legal = true;
@@ -503,7 +511,11 @@ class SAPlacer
     std::vector<decltype(NetInfo::udata)> old_udata;
 };
 
-Placer1Cfg::Placer1Cfg(Context *ctx) : Settings(ctx) { constraintWeight = get<float>("placer1/constraintWeight", 10); }
+Placer1Cfg::Placer1Cfg(Context *ctx) : Settings(ctx)
+{
+    constraintWeight = get<float>("placer1/constraintWeight", 10);
+    minBelsForGridPick = get<int>("placer1/minBelsForGridPick", 64);
+}
 
 bool placer1(Context *ctx, Placer1Cfg cfg)
 {
