@@ -431,12 +431,15 @@ static void pack_io(Context *ctx)
     for (auto cell : sorted(ctx->cells)) {
         CellInfo *ci = cell.second;
         if (is_nextpnr_iob(ctx, ci)) {
-            CellInfo *sb = nullptr;
+            CellInfo *sb = nullptr, *rgb = nullptr;
             if (ci->type == ctx->id("$nextpnr_ibuf") || ci->type == ctx->id("$nextpnr_iobuf")) {
                 sb = net_only_drives(ctx, ci->ports.at(ctx->id("O")).net, is_ice_iob, ctx->id("PACKAGE_PIN"), true, ci);
 
             } else if (ci->type == ctx->id("$nextpnr_obuf")) {
-                sb = net_only_drives(ctx, ci->ports.at(ctx->id("I")).net, is_ice_iob, ctx->id("PACKAGE_PIN"), true, ci);
+                NetInfo *net = ci->ports.at(ctx->id("I")).net;
+                sb = net_only_drives(ctx, net, is_ice_iob, ctx->id("PACKAGE_PIN"), true, ci);
+                if (net && net->driver.cell && is_sb_rgba_drv(ctx, net->driver.cell))
+                    rgb = net->driver.cell;
             }
             if (sb != nullptr) {
                 // Trivial case, SB_IO used. Just destroy the net and the
@@ -460,6 +463,11 @@ static void pack_io(Context *ctx)
                         delete_nets.insert(net2->name);
                     }
                 }
+            } else if (rgb != nullptr) {
+                log_info("%s use by SB_RGBA_DRV %s, not creating SB_IO\n", ci->name.c_str(ctx), rgb->name.c_str(ctx));
+                disconnect_port(ctx, ci, ctx->id("I"));
+                packed_cells.insert(ci->name);
+                continue;
             } else {
                 // Create a SB_IO buffer
                 std::unique_ptr<CellInfo> ice_cell =
@@ -787,6 +795,29 @@ static void pack_special(Context *ctx)
                 replace_port(ci, ctx->id(pi.name.c_str(ctx)), packed.get(), ctx->id(newname));
             }
             new_cells.push_back(std::move(packed));
+        } else if (is_sb_rgba_drv(ctx, ci)) {
+            /* Force placement (no choices anyway) */
+            cell_place_unique(ctx, ci);
+
+            /* Disconnect all external ports and check there is no users (they should have been
+             * dealth with during IO packing */
+            for (auto port : ci->ports) {
+                PortInfo &pi = port.second;
+                NetInfo *net = pi.net;
+
+                if (net == nullptr)
+                    continue;
+                if ((pi.name != ctx->id("RGB0")) && (pi.name != ctx->id("RGB1")) && (pi.name != ctx->id("RGB2")))
+                    continue;
+
+                if (net->users.size() > 0)
+                    log_error("SB_RGBA_DRV port connected to more than just package pin !\n");
+
+                ctx->nets.erase(net->name);
+            }
+            ci->ports.erase(ctx->id("RGB0"));
+            ci->ports.erase(ctx->id("RGB1"));
+            ci->ports.erase(ctx->id("RGB2"));
         } else if (is_sb_pll40(ctx, ci)) {
             bool is_pad = is_sb_pll40_pad(ctx, ci);
             bool is_core = !is_pad;

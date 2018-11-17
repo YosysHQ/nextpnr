@@ -946,6 +946,10 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
         return TMG_COMB_INPUT;
     } else if (cell->type == id_SB_WARMBOOT) {
         return TMG_ENDPOINT;
+    } else if (cell->type == id_SB_RGBA_DRV) {
+        if (port == id_RGB0 || port == id_RGB1 || port == id_RGB2)
+            return TMG_IGNORE;
+        return TMG_ENDPOINT;
     }
     log_error("no timing info for port '%s' of cell type '%s'\n", port.c_str(this), cell->type.c_str(this));
 }

@@ -74,6 +74,8 @@ inline bool is_sb_spram(const BaseCtx *ctx, const CellInfo *cell) { return cell-
 
 inline bool is_sb_mac16(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("SB_MAC16"); }
 
+inline bool is_sb_rgba_drv(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("SB_RGBA_DRV"); }
+
 inline bool is_sb_pll40(const BaseCtx *ctx, const CellInfo *cell)
 {
     return cell->type == ctx->id("SB_PLL40_PAD") || cell->type == ctx->id("SB_PLL40_2_PAD") ||

@@ -246,6 +246,20 @@ std::unique_ptr<CellInfo> create_ice_cell(Context *ctx, IdString type, std::stri
         add_port(ctx, new_cell.get(), "PLLOUT_B", PORT_OUT);
         add_port(ctx, new_cell.get(), "PLLOUT_A_GLOBAL", PORT_OUT);
         add_port(ctx, new_cell.get(), "PLLOUT_B_GLOBAL", PORT_OUT);
+    } else if (type == ctx->id("SB_RGBA_DRV")) {
+        new_cell->params[ctx->id("CURRENT_MODE")] = "0b0";
+        new_cell->params[ctx->id("RGB0_CURRENT")] = "0b000000";
+        new_cell->params[ctx->id("RGB1_CURRENT")] = "0b000000";
+        new_cell->params[ctx->id("RGB2_CURRENT")] = "0b000000";
+
+        add_port(ctx, new_cell.get(), "CURREN", PORT_IN);
+        add_port(ctx, new_cell.get(), "RGBLEDEN", PORT_IN);
+        add_port(ctx, new_cell.get(), "RGB0PWM", PORT_IN);
+        add_port(ctx, new_cell.get(), "RGB1PWM", PORT_IN);
+        add_port(ctx, new_cell.get(), "RGB2PWM", PORT_IN);
+        add_port(ctx, new_cell.get(), "RGB0", PORT_OUT);
+        add_port(ctx, new_cell.get(), "RGB1", PORT_OUT);
+        add_port(ctx, new_cell.get(), "RGB2", PORT_OUT);
     } else {
         log_error("unable to create iCE40 cell of type %s", type.c_str(ctx));
     }
