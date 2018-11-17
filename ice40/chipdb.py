@@ -692,7 +692,8 @@ with open(args.filename, "r") as f:
 
         if mode[0] == "extra_cell":
             if line[0] == "LOCKED":
-                extra_cells[mode[1]].append((("LOCKED_" + line[1]), (0, 0, "LOCKED")))
+                for pkg in line[1:]:
+                    extra_cells[mode[1]].append((("LOCKED_" + pkg), (0, 0, "LOCKED")))
             else:
                 extra_cells[mode[1]].append((line[0], (int(line[1]), int(line[2]), line[3])))
             continue
