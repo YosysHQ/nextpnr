@@ -510,6 +510,8 @@ struct Arch : BaseCtx
     PortType getBelPinType(BelId bel, IdString pin) const;
     std::vector<IdString> getBelPins(BelId bel) const;
 
+    bool isBelLocked(BelId bel) const;
+
     // -------------------------------------------------
 
     WireId getWireByName(IdString name) const;

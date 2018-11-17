@@ -284,6 +284,25 @@ std::vector<IdString> Arch::getBelPins(BelId bel) const
     return ret;
 }
 
+bool Arch::isBelLocked(BelId bel) const
+{
+    const BelConfigPOD *bel_config = nullptr;
+    for (int i = 0; i < chip_info->num_belcfgs; i++) {
+        if (chip_info->bel_config[i].bel_index == bel.index) {
+            bel_config = &chip_info->bel_config[i];
+            break;
+        }
+    }
+    NPNR_ASSERT(bel_config != nullptr);
+    for (int i = 0; i < bel_config->num_entries; i++) {
+        if (strcmp("LOCKED", bel_config->entries[i].cbit_name.get()))
+            continue;
+        if ("LOCKED_" + archArgs().package == bel_config->entries[i].entry_name.get())
+            return true;
+    }
+    return false;
+}
+
 // -----------------------------------------------------------------------
 
 WireId Arch::getWireByName(IdString name) const
