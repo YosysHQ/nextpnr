@@ -838,6 +838,8 @@ static void pack_special(Context *ctx)
                 for (auto bel : ctx->getBels()) {
                     if (ctx->getBelType(bel) != id_ICESTORM_PLL)
                         continue;
+                    if (ctx->isBelLocked(bel))
+                        continue;
 
                     // A PAD PLL must have its' PACKAGEPIN on the SB_IO that's shared
                     // with PLLOUT_A.
