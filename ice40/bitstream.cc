@@ -514,6 +514,7 @@ void write_asc(const Context *ctx, std::ostream &out)
             }
 
             input_en = (input_en & !used_by_pll_out) | used_by_pll_pad;
+            input_en |= cell.second->ioInfo.global;
 
             if (ctx->args.type == ArchArgs::LP1K || ctx->args.type == ArchArgs::HX1K) {
                 set_config(ti, config.at(iey).at(iex), "IoCtrl.IE_" + std::to_string(iez), !input_en);

@@ -150,6 +150,7 @@ struct ArchCellInfo
         struct
         {
             bool lvds;
+            bool global;
             // TODO: clk packing checks...
         } ioInfo;
         struct

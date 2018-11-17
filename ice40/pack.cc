@@ -414,6 +414,11 @@ static bool is_nextpnr_iob(Context *ctx, CellInfo *cell)
            cell->type == ctx->id("$nextpnr_iobuf");
 }
 
+static bool is_ice_iob(const Context *ctx, const CellInfo *cell)
+{
+    return is_sb_io(ctx, cell) || is_sb_gb_io(ctx, cell);
+}
+
 // Pack IO buffers
 static void pack_io(Context *ctx)
 {
@@ -428,10 +433,10 @@ static void pack_io(Context *ctx)
         if (is_nextpnr_iob(ctx, ci)) {
             CellInfo *sb = nullptr;
             if (ci->type == ctx->id("$nextpnr_ibuf") || ci->type == ctx->id("$nextpnr_iobuf")) {
-                sb = net_only_drives(ctx, ci->ports.at(ctx->id("O")).net, is_sb_io, ctx->id("PACKAGE_PIN"), true, ci);
+                sb = net_only_drives(ctx, ci->ports.at(ctx->id("O")).net, is_ice_iob, ctx->id("PACKAGE_PIN"), true, ci);
 
             } else if (ci->type == ctx->id("$nextpnr_obuf")) {
-                sb = net_only_drives(ctx, ci->ports.at(ctx->id("I")).net, is_sb_io, ctx->id("PACKAGE_PIN"), true, ci);
+                sb = net_only_drives(ctx, ci->ports.at(ctx->id("I")).net, is_ice_iob, ctx->id("PACKAGE_PIN"), true, ci);
             }
             if (sb != nullptr) {
                 // Trivial case, SB_IO used. Just destroy the net and the
@@ -442,8 +447,8 @@ static void pack_io(Context *ctx)
                 if (((ci->type == ctx->id("$nextpnr_ibuf") || ci->type == ctx->id("$nextpnr_iobuf")) &&
                      net->users.size() > 1) ||
                     (ci->type == ctx->id("$nextpnr_obuf") && (net->users.size() > 2 || net->driver.cell != nullptr)))
-                    log_error("PACKAGE_PIN of SB_IO '%s' connected to more than a single top level IO.\n",
-                              sb->name.c_str(ctx));
+                    log_error("PACKAGE_PIN of %s '%s' connected to more than a single top level IO.\n",
+                              sb->type.c_str(ctx), sb->name.c_str(ctx));
 
                 if (net != nullptr) {
                     delete_nets.insert(net->name);
@@ -465,11 +470,24 @@ static void pack_io(Context *ctx)
             }
             packed_cells.insert(ci->name);
             std::copy(ci->attrs.begin(), ci->attrs.end(), std::inserter(sb->attrs, sb->attrs.begin()));
-        } else if (is_sb_io(ctx, ci)) {
+        } else if (is_sb_io(ctx, ci) || is_sb_gb_io(ctx, ci)) {
             NetInfo *net = ci->ports.at(ctx->id("PACKAGE_PIN")).net;
             if ((net != nullptr) && (net->users.size() > 1))
-                log_error("PACKAGE_PIN of SB_IO '%s' connected to more than a single top level IO.\n",
+                log_error("PACKAGE_PIN of %s '%s' connected to more than a single top level IO.\n", ci->type.c_str(ctx),
                           ci->name.c_str(ctx));
+        }
+    }
+    for (auto cell : sorted(ctx->cells)) {
+        CellInfo *ci = cell.second;
+        if (is_sb_gb_io(ctx, ci)) {
+            // If something is connecto the GLOBAL OUTPUT, create the fake 'matching' SB_GB
+            std::unique_ptr<CellInfo> gb =
+                    create_padin_gbuf(ctx, ci, id_GLOBAL_BUFFER_OUTPUT, "$gbuf_" + ci->name.str(ctx) + "_io");
+            new_cells.push_back(std::move(gb));
+
+            // Make it a normal SB_IO with global marker
+            ci->type = ctx->id("SB_IO");
+            ci->attrs[ctx->id("GLOBAL")] = "1";
         }
     }
     for (auto pcell : packed_cells) {
@@ -488,8 +506,7 @@ static bool is_logic_port(BaseCtx *ctx, const PortRef &port)
 {
     if (is_clock_port(ctx, port) || is_reset_port(ctx, port) || is_enable_port(ctx, port))
         return false;
-    return !is_sb_io(ctx, port.cell) &&
-           !is_gbuf(ctx, port.cell) &&
+    return !is_sb_io(ctx, port.cell) && !is_sb_gb_io(ctx, port.cell) && !is_gbuf(ctx, port.cell) &&
            !is_sb_pll40(ctx, port.cell);
 }
 

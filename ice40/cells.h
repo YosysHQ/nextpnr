@@ -53,6 +53,9 @@ inline bool is_lc(const BaseCtx *ctx, const CellInfo *cell) { return cell->type 
 // Return true if a cell is a SB_IO
 inline bool is_sb_io(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("SB_IO"); }
 
+// Return true if a cell is a SB_GB_IO
+inline bool is_sb_gb_io(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("SB_GB_IO"); }
+
 // Return true if a cell is a global buffer
 inline bool is_gbuf(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("SB_GB"); }
 

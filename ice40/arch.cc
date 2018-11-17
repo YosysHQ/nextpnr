@@ -1044,6 +1044,7 @@ void Arch::assignCellInfo(CellInfo *cell)
             cell->lcInfo.inputCount++;
     } else if (cell->type == id_SB_IO) {
         cell->ioInfo.lvds = str_or_default(cell->params, id_IO_STANDARD, "SB_LVCMOS") == "SB_LVDS_INPUT";
+        cell->ioInfo.global = bool_or_default(cell->attrs, this->id("GLOBAL"));
     } else if (cell->type == id_SB_GB) {
         cell->gbInfo.forPadIn = bool_or_default(cell->attrs, this->id("FOR_PAD_IN"));
     }
