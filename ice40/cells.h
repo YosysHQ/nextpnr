@@ -81,7 +81,19 @@ inline bool is_sb_pll40(const BaseCtx *ctx, const CellInfo *cell)
 inline bool is_sb_pll40_pad(const BaseCtx *ctx, const CellInfo *cell)
 {
     return cell->type == ctx->id("SB_PLL40_PAD") || cell->type == ctx->id("SB_PLL40_2_PAD") ||
-           cell->type == ctx->id("SB_PLL40_2F_PAD");
+           cell->type == ctx->id("SB_PLL40_2F_PAD") ||
+           (cell->type == ctx->id("ICESTORM_PLL") &&
+            (cell->attrs.at(ctx->id("TYPE")) == "SB_PLL40_PAD" || cell->attrs.at(ctx->id("TYPE")) == "SB_PLL40_2_PAD" ||
+             cell->attrs.at(ctx->id("TYPE")) == "SB_PLL40_2F_PAD"));
+}
+
+inline bool is_sb_pll40_dual(const BaseCtx *ctx, const CellInfo *cell)
+{
+    return cell->type == ctx->id("SB_PLL40_2_PAD") || cell->type == ctx->id("SB_PLL40_2F_PAD") ||
+           cell->type == ctx->id("SB_PLL40_2F_CORE") ||
+           (cell->type == ctx->id("ICESTORM_PLL") && (cell->attrs.at(ctx->id("TYPE")) == "SB_PLL40_2_PAD" ||
+                                                      cell->attrs.at(ctx->id("TYPE")) == "SB_PLL40_2F_PAD" ||
+                                                      cell->attrs.at(ctx->id("TYPE")) == "SB_PLL40_2F_CORE"));
 }
 
 uint8_t sb_pll40_type(const BaseCtx *ctx, const CellInfo *cell);
