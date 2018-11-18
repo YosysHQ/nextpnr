@@ -362,7 +362,7 @@ uint8_t sb_pll40_type(const BaseCtx *ctx, const CellInfo *cell)
     if (cell->type == ctx->id("SB_PLL40_2_PAD"))
         return 4;
     if (cell->type == ctx->id("SB_PLL40_2F_PAD"))
-        return 5;
+        return 6;
     if (cell->type == ctx->id("SB_PLL40_CORE"))
         return 3;
     if (cell->type == ctx->id("SB_PLL40_2F_CORE"))
