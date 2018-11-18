@@ -733,6 +733,24 @@ static void pack_special(Context *ctx)
             for (auto param : ci->params)
                 packed->params[param.first] = param.second;
 
+            const std::map<IdString, IdString> pos_map_name = {
+                    {ctx->id("PLLOUT_SELECT"), ctx->id("PLLOUT_SELECT_A")},
+                    {ctx->id("PLLOUT_SELECT_PORTA"), ctx->id("PLLOUT_SELECT_A")},
+                    {ctx->id("PLLOUT_SELECT_PORTB"), ctx->id("PLLOUT_SELECT_B")},
+            };
+            const std::map<std::string, int> pos_map_val = {
+                    {"GENCLK", 0},
+                    {"GENCLK_HALF", 1},
+                    {"SHIFTREG_90deg", 2},
+                    {"SHIFTREG_0deg", 3},
+            };
+            for (auto param : ci->params)
+                if (pos_map_name.find(param.first) != pos_map_name.end()) {
+                    if (pos_map_val.find(param.second) == pos_map_val.end())
+                        log_error("Invalid PLL output selection '%s'\n", param.second.c_str());
+                    packed->params[pos_map_name.at(param.first)] = std::to_string(pos_map_val.at(param.second));
+                }
+
             auto feedback_path = packed->params[ctx->id("FEEDBACK_PATH")];
             packed->params[ctx->id("FEEDBACK_PATH")] =
                     feedback_path == "DELAY"
