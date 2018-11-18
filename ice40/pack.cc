@@ -461,8 +461,9 @@ static bool is_logic_port(BaseCtx *ctx, const PortRef &port)
 {
     if (is_clock_port(ctx, port) || is_reset_port(ctx, port) || is_enable_port(ctx, port))
         return false;
-    return !is_sb_io(ctx, port.cell) && !is_sb_pll40(ctx, port.cell) && !is_sb_pll40_pad(ctx, port.cell) &&
-           port.cell->type != ctx->id("SB_GB");
+    return !is_sb_io(ctx, port.cell) &&
+           !is_gbuf(ctx, port.cell) &&
+           !is_sb_pll40(ctx, port.cell);
 }
 
 static void insert_global(Context *ctx, NetInfo *net, bool is_reset, bool is_cen, bool is_logic)
