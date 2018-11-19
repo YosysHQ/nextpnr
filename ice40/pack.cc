@@ -725,25 +725,33 @@ static void pack_special(Context *ctx)
             std::unique_ptr<CellInfo> packed =
                     create_ice_cell(ctx, ctx->id("ICESTORM_LFOSC"), ci->name.str(ctx) + "_OSC");
             packed_cells.insert(ci->name);
+            cell_place_unique(ctx, packed.get());
             replace_port(ci, ctx->id("CLKLFEN"), packed.get(), ctx->id("CLKLFEN"));
             replace_port(ci, ctx->id("CLKLFPU"), packed.get(), ctx->id("CLKLFPU"));
-            if (/*bool_or_default(ci->attrs, ctx->id("ROUTE_THROUGH_FABRIC"))*/ true) { // FIXME
+            if (bool_or_default(ci->attrs, ctx->id("ROUTE_THROUGH_FABRIC"))) {
                 replace_port(ci, ctx->id("CLKLF"), packed.get(), ctx->id("CLKLF_FABRIC"));
             } else {
                 replace_port(ci, ctx->id("CLKLF"), packed.get(), ctx->id("CLKLF"));
+                std::unique_ptr<CellInfo> gb =
+                        create_padin_gbuf(ctx, packed.get(), ctx->id("CLKLF"), "$gbuf_" + ci->name.str(ctx) + "_lfosc");
+                new_cells.push_back(std::move(gb));
             }
             new_cells.push_back(std::move(packed));
         } else if (is_sb_hfosc(ctx, ci)) {
             std::unique_ptr<CellInfo> packed =
                     create_ice_cell(ctx, ctx->id("ICESTORM_HFOSC"), ci->name.str(ctx) + "_OSC");
             packed_cells.insert(ci->name);
+            cell_place_unique(ctx, packed.get());
             packed->params[ctx->id("CLKHF_DIV")] = str_or_default(ci->params, ctx->id("CLKHF_DIV"), "0b00");
             replace_port(ci, ctx->id("CLKHFEN"), packed.get(), ctx->id("CLKHFEN"));
             replace_port(ci, ctx->id("CLKHFPU"), packed.get(), ctx->id("CLKHFPU"));
-            if (/*bool_or_default(ci->attrs, ctx->id("ROUTE_THROUGH_FABRIC"))*/ true) { // FIXME
+            if (bool_or_default(ci->attrs, ctx->id("ROUTE_THROUGH_FABRIC"))) {
                 replace_port(ci, ctx->id("CLKHF"), packed.get(), ctx->id("CLKHF_FABRIC"));
             } else {
                 replace_port(ci, ctx->id("CLKHF"), packed.get(), ctx->id("CLKHF"));
+                std::unique_ptr<CellInfo> gb =
+                        create_padin_gbuf(ctx, packed.get(), ctx->id("CLKHF"), "$gbuf_" + ci->name.str(ctx) + "_hfosc");
+                new_cells.push_back(std::move(gb));
             }
             new_cells.push_back(std::move(packed));
         } else if (is_sb_spram(ctx, ci)) {
