@@ -863,6 +863,10 @@ def add_bel_io(x, y, z):
     add_bel_input(bel, wire_dout_1, "D_OUT_1")
     add_bel_input(bel, wire_out_en, "OUTPUT_ENABLE")
 
+    for gidx, ginfo in glbinfo.items():
+        if (ginfo['pi_gb_x'], ginfo['pi_gb_y'], ginfo['pi_gb_pio']) == (x,y,z):
+            add_bel_output(bel, wire_names[(x, y, "glb_netwk_%d" % gidx)], "GLOBAL_BUFFER_OUTPUT")
+
 def add_bel_ram(x, y):
     bel = len(bel_name)
     bel_name.append("X%d/Y%d/ram" % (x, y))
@@ -920,6 +924,18 @@ def is_ec_output(ec_entry):
 def is_ec_pll_clock_output(ec, ec_entry):
     return ec[0] == 'PLL' and ec_entry[0] in ('PLLOUT_A', 'PLLOUT_B')
 
+def add_pll_clock_output(bel, ec, entry):
+    # Fabric output
+    io_x, io_y, io_z = entry[1]
+    io_zs = 'io_{}/D_IN_0'.format(io_z)
+    io_z  = int(io_z)
+    add_bel_output(bel, wire_names[(io_x, io_y, io_zs)], entry[0])
+
+    # Global output
+    for gidx, ginfo in glbinfo.items():
+        if (ginfo['pi_gb_x'], ginfo['pi_gb_y'], ginfo['pi_gb_pio']) == (io_x, io_y, io_z):
+            add_bel_output(bel, wire_names[(io_x, io_y, "glb_netwk_%d" % gidx)], entry[0] + '_GLOBAL')
+
 def add_bel_ec(ec):
     ectype, x, y, z = ec
     bel = len(bel_name)
@@ -929,15 +945,13 @@ def add_bel_ec(ec):
     bel_pos.append((x, y, z))
     bel_wires.append(list())
     for entry in extra_cells[ec]:
-        if is_ec_wire(entry) and "glb_netwk_" not in entry[1][2]: # TODO: osc glb output conflicts with GB
+        if is_ec_wire(entry):
             if is_ec_output(entry):
                 add_bel_output(bel, wire_names[entry[1]], entry[0])
             else:
                 add_bel_input(bel, wire_names[entry[1]], entry[0])
         elif is_ec_pll_clock_output(ec, entry):
-            x, y, z = entry[1]
-            z = 'io_{}/D_IN_0'.format(z)
-            add_bel_output(bel, wire_names[(x, y, z)], entry[0])
+            add_pll_clock_output(bel, ec, entry)
         else:
             extra_cell_config[bel].append(entry)
 
