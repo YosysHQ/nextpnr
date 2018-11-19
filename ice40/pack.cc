@@ -695,6 +695,22 @@ static std::unique_ptr<CellInfo> spliceLUT(Context *ctx, CellInfo *ci, IdString 
     return pt;
 }
 
+// Force placement for cells that are unique anyway
+static BelId cell_place_unique(Context *ctx, CellInfo *ci)
+{
+    for (auto bel : ctx->getBels()) {
+        if (ctx->getBelType(bel) != ci->type)
+            continue;
+        if (ctx->isBelLocked(bel))
+            continue;
+        IdString bel_name = ctx->getBelName(bel);
+        ci->attrs[ctx->id("BEL")] = bel_name.str(ctx);
+        log_info("  constrained %s '%s' to %s\n", ci->type.c_str(ctx), ci->name.c_str(ctx), bel_name.c_str(ctx));
+        return bel;
+    }
+    log_error("Unable to place cell '%s' of type '%s'\n", ci->name.c_str(ctx), ci->type.c_str(ctx));
+}
+
 // Pack special functions
 static void pack_special(Context *ctx)
 {
