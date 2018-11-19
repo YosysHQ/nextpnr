@@ -381,6 +381,33 @@ static void pack_constants(Context *ctx)
     }
 }
 
+static std::unique_ptr<CellInfo> create_padin_gbuf(Context *ctx, CellInfo *cell, IdString port_name,
+                                                   std::string gbuf_name)
+{
+    // Find the matching SB_GB BEL connected to the same global network
+    BelId gb_bel;
+    BelId bel = ctx->getBelByName(ctx->id(cell->attrs[ctx->id("BEL")]));
+    auto wire = ctx->getBelPinWire(bel, port_name);
+    for (auto src_bel : ctx->getWireBelPins(wire)) {
+        if (ctx->getBelType(src_bel.bel) == id_SB_GB && src_bel.pin == id_GLOBAL_BUFFER_OUTPUT) {
+            gb_bel = src_bel.bel;
+            break;
+        }
+    }
+
+    NPNR_ASSERT(gb_bel != BelId());
+
+    // Create a SB_GB Cell and lock it there
+    std::unique_ptr<CellInfo> gb = create_ice_cell(ctx, ctx->id("SB_GB"), gbuf_name);
+    gb->attrs[ctx->id("FOR_PAD_IN")] = "1";
+    gb->attrs[ctx->id("BEL")] = ctx->getBelName(gb_bel).str(ctx);
+
+    // Reconnect the net to that port for easier identification it's a global net
+    replace_port(cell, port_name, gb.get(), id_GLOBAL_BUFFER_OUTPUT);
+
+    return gb;
+}
+
 static bool is_nextpnr_iob(Context *ctx, CellInfo *cell)
 {
     return cell->type == ctx->id("$nextpnr_ibuf") || cell->type == ctx->id("$nextpnr_obuf") ||
@@ -1003,13 +1030,13 @@ bool Arch::pack()
     try {
         log_break();
         pack_constants(ctx);
-        promote_globals(ctx);
         pack_io(ctx);
         pack_lut_lutffs(ctx);
         pack_nonlut_ffs(ctx);
         pack_carries(ctx);
         pack_ram(ctx);
         pack_special(ctx);
+        promote_globals(ctx);
         ctx->assignArchInfo();
         constrain_chains(ctx);
         ctx->assignArchInfo();

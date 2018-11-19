@@ -269,6 +269,9 @@ void write_asc(const Context *ctx, std::ostream &out)
             config.at(y).at(x).resize(rows, std::vector<int8_t>(cols));
         }
     }
+
+    std::vector<std::tuple<int, int, int>> extra_bits;
+
     out << ".comment from next-pnr" << std::endl;
 
     switch (ctx->args.type) {
@@ -513,7 +516,16 @@ void write_asc(const Context *ctx, std::ostream &out)
                 }
             }
         } else if (cell.second->type == ctx->id("SB_GB")) {
-            // no cell config bits
+            if (cell.second->gbInfo.forPadIn) {
+                Loc gb_loc = ctx->getBelLocation(bel);
+                for (int i = 0; i < ci.num_global_networks; i++) {
+                    if ((gb_loc.x == ci.global_network_info[i].gb_x) && (gb_loc.y == ci.global_network_info[i].gb_y)) {
+                        extra_bits.push_back(std::make_tuple(ci.global_network_info[i].pi_eb_bank,
+                                                             ci.global_network_info[i].pi_eb_x,
+                                                             ci.global_network_info[i].pi_eb_y));
+                    }
+                }
+            }
         } else if (cell.second->type == ctx->id("ICESTORM_RAM")) {
             const BelInfoPOD &beli = ci.bel_data[bel.index];
             int x = beli.x, y = beli.y;
@@ -794,6 +806,10 @@ void write_asc(const Context *ctx, std::ostream &out)
             }
         }
     }
+
+    // Write extra-bits
+    for (auto eb : extra_bits)
+        out << ".extra_bit " << std::get<0>(eb) << " " << std::get<1>(eb) << " " << std::get<2>(eb) << std::endl;
 
     // Write symbols
     // const bool write_symbols = 1;

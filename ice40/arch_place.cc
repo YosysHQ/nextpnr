@@ -161,6 +161,8 @@ bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const
 
         return getBelPackagePin(bel) != "";
     } else if (cell->type == id_SB_GB) {
+        if (cell->gbInfo.forPadIn)
+            return true;
         NPNR_ASSERT(cell->ports.at(id_GLOBAL_BUFFER_OUTPUT).net != nullptr);
         const NetInfo *net = cell->ports.at(id_GLOBAL_BUFFER_OUTPUT).net;
         IdString glb_net = getWireName(getBelPinWire(bel, id_GLOBAL_BUFFER_OUTPUT));
