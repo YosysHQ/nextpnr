@@ -993,7 +993,7 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
         if (fromPort == id_CLK) {
             if (toPort == id_OQ) {
                 delay.delay = 456; // Tcko
-                return false; // No path CLK->OQ, but this fn is used for getting clkToQ delay
+                return true;
             }
         }
     } else if (cell->type == id_BUFGCTRL) {
@@ -1003,7 +1003,7 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
 }
 
 // Get the port class, also setting clockPort to associated clock if applicable
-TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, IdString &clockPort) const
+TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const
 {
     if (cell->type == id_SLICE_LUT6) {
         if (port == id_CLK)
@@ -1019,7 +1019,7 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, Id
             return TMG_COMB_OUTPUT;
         }
         if (cell->lcInfo.dffEnable) {
-            clockPort = id_CLK;
+            clockInfoCount = 1;
             if (port == id_OQ)
                 return TMG_REGISTER_OUTPUT;
             return TMG_REGISTER_INPUT;
@@ -1043,6 +1043,25 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, Id
         return TMG_IGNORE;
     }
     log_error("no timing info for port '%s' of cell type '%s'\n", port.c_str(this), cell->type.c_str(this));
+}
+
+TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port, int index) const
+{
+    TimingClockingInfo info;
+    if (cell->type == id_SLICE_LUT6) {
+        info.clock_port = id_CLK;
+        info.edge = cell->lcInfo.negClk ? FALLING_EDGE : RISING_EDGE;
+        if (port == id_OQ) {
+            bool has_clktoq = getCellDelay(cell, id_CLK, id_OQ, info.clockToQ);
+            NPNR_ASSERT(has_clktoq);
+        } else {
+            info.setup.delay = 124; // Tilo
+            info.hold.delay = 0;
+        }
+    } else {
+        NPNR_ASSERT_FALSE("unhandled cell type in getPortClockingInfo");
+    }
+    return info;
 }
 
 bool Arch::isGlobalNet(const NetInfo *net) const

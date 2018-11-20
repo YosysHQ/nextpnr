@@ -898,6 +898,14 @@ struct Arch : BaseCtx
     delay_t getDelayEpsilon() const { return 20; }
     delay_t getRipupDelayPenalty() const { return 200; }
     float getDelayNS(delay_t v) const { return v * 0.001; }
+
+    DelayInfo getDelayFromNS(float ns) const
+    {
+        DelayInfo del;
+        del.delay = ns;
+        return del;
+    }
+
     uint32_t getDelayChecksum(delay_t v) const { return v; }
     bool getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const;
 
@@ -922,7 +930,9 @@ struct Arch : BaseCtx
     // if no path exists
     bool getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const;
     // Get the port class, also setting clockDomain if applicable
-    TimingPortClass getPortTimingClass(const CellInfo *cell, IdString port, IdString &clockDomain) const;
+    TimingPortClass getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const;
+    // Get the TimingClockingInfo of a port
+    TimingClockingInfo getPortClockingInfo(const CellInfo *cell, IdString port, int index) const;
     // Return true if a port is a net
     bool isGlobalNet(const NetInfo *net) const;
 
