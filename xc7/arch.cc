@@ -296,6 +296,7 @@ std::vector<Arc> TorcInfo::construct_pip_to_arc(const std::vector<Tilewire> &wir
         if (tw.isUndefined())
             continue;
         arcs.clear();
+        // TODO
         // const_cast<DDB&>(ddb).expandSegmentSources(tw, arcs, DDB::eExpandDirectionNone, false /* inUseTied */, true
         // /*inUseRegular */, true /* inUseIrregular */, false /* inUseRoutethrough */);
 
