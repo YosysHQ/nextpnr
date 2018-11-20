@@ -777,6 +777,7 @@ bool router1(Context *ctx, const Router1Cfg &cfg)
                          router.arcs_without_ripup - last_arcs_without_ripup, int(router.arc_queue.size()));
                 last_arcs_with_ripup = router.arcs_with_ripup;
                 last_arcs_without_ripup = router.arcs_without_ripup;
+                ctx->yield();
 #ifndef NDEBUG
                 router.check();
 #endif
@@ -802,6 +803,7 @@ bool router1(Context *ctx, const Router1Cfg &cfg)
                  router.arcs_with_ripup - last_arcs_with_ripup, router.arcs_without_ripup - last_arcs_without_ripup,
                  int(router.arc_queue.size()));
         log_info("Routing complete.\n");
+        ctx->yield();
 
 #ifndef NDEBUG
         router.check();
