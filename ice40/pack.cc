@@ -874,7 +874,7 @@ static void pack_special(Context *ctx)
                     newname = "PLLOUT_A";
                 if (pi.name == ctx->id("PLLOUTCOREB"))
                     newname = "PLLOUT_B";
-                if (pi.name == ctx->id("PLLOUTGLOBALA") || pi.name == ctx->id("PLLOUTGLOBALA"))
+                if (pi.name == ctx->id("PLLOUTGLOBALA") || pi.name == ctx->id("PLLOUTGLOBAL"))
                     newname = "PLLOUT_A_GLOBAL";
                 if (pi.name == ctx->id("PLLOUTGLOBALB"))
                     newname = "PLLOUT_B_GLOBAL";
