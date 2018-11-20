@@ -688,7 +688,7 @@ struct Arch : BaseCtx
         return wire_to_net[wire.index];
     }
 
-    DelayInfo getWireDelay(WireId wire) const { return torc_info->wire_to_delay[wire.index]; }
+    DelayInfo getWireDelay(WireId wire) const { return {}; }
 
     BelPinRange getWireBelPins(WireId wire) const
     {
@@ -839,13 +839,9 @@ struct Arch : BaseCtx
 
     DelayInfo getPipDelay(PipId pip) const
     {
-        DelayInfo delay;
         NPNR_ASSERT(pip != PipId());
-        // if (fast_part)
-        //    delay.delay = chip_info->pip_data[pip.index].fast_delay;
-        // else
-        //    delay.delay = chip_info->pip_data[pip.index].slow_delay;
-        return delay;
+        auto wire = getPipDstWire(pip);
+        return torc_info->wire_to_delay[wire.index];
     }
 
     PipRange getPipsDownhill(WireId wire) const
