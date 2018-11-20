@@ -219,7 +219,7 @@ std::unique_ptr<CellInfo> create_ice_cell(Context *ctx, IdString type, std::stri
 
         new_cell->params[ctx->id("FDA_FEEDBACK")] = "0";
         new_cell->params[ctx->id("FDA_RELATIVE")] = "0";
-        new_cell->params[ctx->id("FEEDBACK_PATH")] = "0";
+        new_cell->params[ctx->id("FEEDBACK_PATH")] = "1";
         new_cell->params[ctx->id("FILTER_RANGE")] = "0";
 
         new_cell->params[ctx->id("PLLOUT_SELECT_A")] = "0";
@@ -244,8 +244,22 @@ std::unique_ptr<CellInfo> create_ice_cell(Context *ctx, IdString type, std::stri
         add_port(ctx, new_cell.get(), "LOCK", PORT_OUT);
         add_port(ctx, new_cell.get(), "PLLOUT_A", PORT_OUT);
         add_port(ctx, new_cell.get(), "PLLOUT_B", PORT_OUT);
-        add_port(ctx, new_cell.get(), "PLLOUTGLOBALA", PORT_OUT);
-        add_port(ctx, new_cell.get(), "PLLOUTGLOBALB", PORT_OUT);
+        add_port(ctx, new_cell.get(), "PLLOUT_A_GLOBAL", PORT_OUT);
+        add_port(ctx, new_cell.get(), "PLLOUT_B_GLOBAL", PORT_OUT);
+    } else if (type == ctx->id("SB_RGBA_DRV")) {
+        new_cell->params[ctx->id("CURRENT_MODE")] = "0b0";
+        new_cell->params[ctx->id("RGB0_CURRENT")] = "0b000000";
+        new_cell->params[ctx->id("RGB1_CURRENT")] = "0b000000";
+        new_cell->params[ctx->id("RGB2_CURRENT")] = "0b000000";
+
+        add_port(ctx, new_cell.get(), "CURREN", PORT_IN);
+        add_port(ctx, new_cell.get(), "RGBLEDEN", PORT_IN);
+        add_port(ctx, new_cell.get(), "RGB0PWM", PORT_IN);
+        add_port(ctx, new_cell.get(), "RGB1PWM", PORT_IN);
+        add_port(ctx, new_cell.get(), "RGB2PWM", PORT_IN);
+        add_port(ctx, new_cell.get(), "RGB0", PORT_OUT);
+        add_port(ctx, new_cell.get(), "RGB1", PORT_OUT);
+        add_port(ctx, new_cell.get(), "RGB2", PORT_OUT);
     } else {
         log_error("unable to create iCE40 cell of type %s", type.c_str(ctx));
     }
@@ -362,7 +376,7 @@ uint8_t sb_pll40_type(const BaseCtx *ctx, const CellInfo *cell)
     if (cell->type == ctx->id("SB_PLL40_2_PAD"))
         return 4;
     if (cell->type == ctx->id("SB_PLL40_2F_PAD"))
-        return 5;
+        return 6;
     if (cell->type == ctx->id("SB_PLL40_CORE"))
         return 3;
     if (cell->type == ctx->id("SB_PLL40_2F_CORE"))

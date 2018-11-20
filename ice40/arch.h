@@ -212,11 +212,26 @@ NPNR_PACKED_STRUCT(struct CellTimingPOD {
     RelPtr<CellPathDelayPOD> path_delays;
 });
 
+NPNR_PACKED_STRUCT(struct GlobalNetworkInfoPOD {
+    uint8_t gb_x;
+    uint8_t gb_y;
+
+    uint8_t pi_gb_x;
+    uint8_t pi_gb_y;
+    uint8_t pi_gb_pio;
+
+    uint8_t pi_eb_bank;
+    uint16_t pi_eb_x;
+    uint16_t pi_eb_y;
+
+    uint16_t pad;
+});
+
 NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     int32_t width, height;
     int32_t num_bels, num_wires, num_pips;
     int32_t num_switches, num_belcfgs, num_packages;
-    int32_t num_timing_cells;
+    int32_t num_timing_cells, num_global_networks;
     RelPtr<BelInfoPOD> bel_data;
     RelPtr<WireInfoPOD> wire_data;
     RelPtr<PipInfoPOD> pip_data;
@@ -225,6 +240,7 @@ NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     RelPtr<BelConfigPOD> bel_config;
     RelPtr<PackageInfoPOD> packages_data;
     RelPtr<CellTimingPOD> cell_timing;
+    RelPtr<GlobalNetworkInfoPOD> global_network_info;
     RelPtr<RelPtr<char>> tile_wire_names;
 });
 
@@ -509,6 +525,8 @@ struct Arch : BaseCtx
     WireId getBelPinWire(BelId bel, IdString pin) const;
     PortType getBelPinType(BelId bel, IdString pin) const;
     std::vector<IdString> getBelPins(BelId bel) const;
+
+    bool isBelLocked(BelId bel) const;
 
     // -------------------------------------------------
 

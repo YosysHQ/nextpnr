@@ -114,31 +114,30 @@ bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const
         // Find shared PLL by looking for driving bel siblings from D_IN_0
         // that are a PLL clock output.
         auto wire = getBelPinWire(bel, id_D_IN_0);
-        IdString pll_bel_pin;
-        BelId pll_bel;
         for (auto pin : getWireBelPins(wire)) {
             if (pin.pin == id_PLLOUT_A || pin.pin == id_PLLOUT_B) {
-                pll_bel = pin.bel;
-                pll_bel_pin = pin.pin;
-                break;
+                // Is there a PLL there ?
+                auto pll_cell = getBoundBelCell(pin.bel);
+                if (pll_cell == nullptr)
+                    break;
+
+                // Is that port actually used ?
+                if ((pin.pin == id_PLLOUT_B) && !is_sb_pll40_dual(this, pll_cell))
+                    break;
+
+                // Is that SB_IO used at an input ?
+                if ((cell->ports[id_D_IN_0].net == nullptr) && (cell->ports[id_D_IN_1].net == nullptr))
+                    break;
+
+                // Are we perhaps a PAD INPUT Bel that can be placed here?
+                if (pll_cell->attrs[id("BEL_PAD_INPUT")] == getBelName(bel).str(this))
+                    return true;
+
+                // Conflict
+                return false;
             }
         }
-        // Is there a PLL that shares this IO buffer?
-        if (pll_bel.index != -1) {
-            auto pll_cell = getBoundBelCell(pll_bel);
-            // Is a PLL placed in this PLL bel?
-            if (pll_cell != nullptr) {
-                // Is the shared port driving a net?
-                auto pi = pll_cell->ports[pll_bel_pin];
-                if (pi.net != nullptr) {
-                    // Are we perhaps a PAD INPUT Bel that can be placed here?
-                    if (pll_cell->attrs[id("BEL_PAD_INPUT")] == getBelName(bel).str(this)) {
-                        return true;
-                    }
-                    return false;
-                }
-            }
-        }
+
         Loc ioLoc = getBelLocation(bel);
         Loc compLoc = ioLoc;
         compLoc.z = 1 - compLoc.z;
@@ -162,6 +161,8 @@ bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const
 
         return getBelPackagePin(bel) != "";
     } else if (cell->type == id_SB_GB) {
+        if (cell->gbInfo.forPadIn)
+            return true;
         NPNR_ASSERT(cell->ports.at(id_GLOBAL_BUFFER_OUTPUT).net != nullptr);
         const NetInfo *net = cell->ports.at(id_GLOBAL_BUFFER_OUTPUT).net;
         IdString glb_net = getWireName(getBelPinWire(bel, id_GLOBAL_BUFFER_OUTPUT));

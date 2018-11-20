@@ -381,10 +381,42 @@ static void pack_constants(Context *ctx)
     }
 }
 
+static std::unique_ptr<CellInfo> create_padin_gbuf(Context *ctx, CellInfo *cell, IdString port_name,
+                                                   std::string gbuf_name)
+{
+    // Find the matching SB_GB BEL connected to the same global network
+    BelId gb_bel;
+    BelId bel = ctx->getBelByName(ctx->id(cell->attrs[ctx->id("BEL")]));
+    auto wire = ctx->getBelPinWire(bel, port_name);
+    for (auto src_bel : ctx->getWireBelPins(wire)) {
+        if (ctx->getBelType(src_bel.bel) == id_SB_GB && src_bel.pin == id_GLOBAL_BUFFER_OUTPUT) {
+            gb_bel = src_bel.bel;
+            break;
+        }
+    }
+
+    NPNR_ASSERT(gb_bel != BelId());
+
+    // Create a SB_GB Cell and lock it there
+    std::unique_ptr<CellInfo> gb = create_ice_cell(ctx, ctx->id("SB_GB"), gbuf_name);
+    gb->attrs[ctx->id("FOR_PAD_IN")] = "1";
+    gb->attrs[ctx->id("BEL")] = ctx->getBelName(gb_bel).str(ctx);
+
+    // Reconnect the net to that port for easier identification it's a global net
+    replace_port(cell, port_name, gb.get(), id_GLOBAL_BUFFER_OUTPUT);
+
+    return gb;
+}
+
 static bool is_nextpnr_iob(Context *ctx, CellInfo *cell)
 {
     return cell->type == ctx->id("$nextpnr_ibuf") || cell->type == ctx->id("$nextpnr_obuf") ||
            cell->type == ctx->id("$nextpnr_iobuf");
+}
+
+static bool is_ice_iob(const Context *ctx, const CellInfo *cell)
+{
+    return is_sb_io(ctx, cell) || is_sb_gb_io(ctx, cell);
 }
 
 // Pack IO buffers
@@ -399,12 +431,15 @@ static void pack_io(Context *ctx)
     for (auto cell : sorted(ctx->cells)) {
         CellInfo *ci = cell.second;
         if (is_nextpnr_iob(ctx, ci)) {
-            CellInfo *sb = nullptr;
+            CellInfo *sb = nullptr, *rgb = nullptr;
             if (ci->type == ctx->id("$nextpnr_ibuf") || ci->type == ctx->id("$nextpnr_iobuf")) {
-                sb = net_only_drives(ctx, ci->ports.at(ctx->id("O")).net, is_sb_io, ctx->id("PACKAGE_PIN"), true, ci);
+                sb = net_only_drives(ctx, ci->ports.at(ctx->id("O")).net, is_ice_iob, ctx->id("PACKAGE_PIN"), true, ci);
 
             } else if (ci->type == ctx->id("$nextpnr_obuf")) {
-                sb = net_only_drives(ctx, ci->ports.at(ctx->id("I")).net, is_sb_io, ctx->id("PACKAGE_PIN"), true, ci);
+                NetInfo *net = ci->ports.at(ctx->id("I")).net;
+                sb = net_only_drives(ctx, net, is_ice_iob, ctx->id("PACKAGE_PIN"), true, ci);
+                if (net && net->driver.cell && is_sb_rgba_drv(ctx, net->driver.cell))
+                    rgb = net->driver.cell;
             }
             if (sb != nullptr) {
                 // Trivial case, SB_IO used. Just destroy the net and the
@@ -415,8 +450,8 @@ static void pack_io(Context *ctx)
                 if (((ci->type == ctx->id("$nextpnr_ibuf") || ci->type == ctx->id("$nextpnr_iobuf")) &&
                      net->users.size() > 1) ||
                     (ci->type == ctx->id("$nextpnr_obuf") && (net->users.size() > 2 || net->driver.cell != nullptr)))
-                    log_error("PACKAGE_PIN of SB_IO '%s' connected to more than a single top level IO.\n",
-                              sb->name.c_str(ctx));
+                    log_error("PACKAGE_PIN of %s '%s' connected to more than a single top level IO.\n",
+                              sb->type.c_str(ctx), sb->name.c_str(ctx));
 
                 if (net != nullptr) {
                     delete_nets.insert(net->name);
@@ -428,6 +463,11 @@ static void pack_io(Context *ctx)
                         delete_nets.insert(net2->name);
                     }
                 }
+            } else if (rgb != nullptr) {
+                log_info("%s use by SB_RGBA_DRV %s, not creating SB_IO\n", ci->name.c_str(ctx), rgb->name.c_str(ctx));
+                disconnect_port(ctx, ci, ctx->id("I"));
+                packed_cells.insert(ci->name);
+                continue;
             } else {
                 // Create a SB_IO buffer
                 std::unique_ptr<CellInfo> ice_cell =
@@ -438,11 +478,24 @@ static void pack_io(Context *ctx)
             }
             packed_cells.insert(ci->name);
             std::copy(ci->attrs.begin(), ci->attrs.end(), std::inserter(sb->attrs, sb->attrs.begin()));
-        } else if (is_sb_io(ctx, ci)) {
+        } else if (is_sb_io(ctx, ci) || is_sb_gb_io(ctx, ci)) {
             NetInfo *net = ci->ports.at(ctx->id("PACKAGE_PIN")).net;
             if ((net != nullptr) && (net->users.size() > 1))
-                log_error("PACKAGE_PIN of SB_IO '%s' connected to more than a single top level IO.\n",
+                log_error("PACKAGE_PIN of %s '%s' connected to more than a single top level IO.\n", ci->type.c_str(ctx),
                           ci->name.c_str(ctx));
+        }
+    }
+    for (auto cell : sorted(ctx->cells)) {
+        CellInfo *ci = cell.second;
+        if (is_sb_gb_io(ctx, ci)) {
+            // If something is connecto the GLOBAL OUTPUT, create the fake 'matching' SB_GB
+            std::unique_ptr<CellInfo> gb =
+                    create_padin_gbuf(ctx, ci, id_GLOBAL_BUFFER_OUTPUT, "$gbuf_" + ci->name.str(ctx) + "_io");
+            new_cells.push_back(std::move(gb));
+
+            // Make it a normal SB_IO with global marker
+            ci->type = ctx->id("SB_IO");
+            ci->attrs[ctx->id("GLOBAL")] = "1";
         }
     }
     for (auto pcell : packed_cells) {
@@ -461,8 +514,8 @@ static bool is_logic_port(BaseCtx *ctx, const PortRef &port)
 {
     if (is_clock_port(ctx, port) || is_reset_port(ctx, port) || is_enable_port(ctx, port))
         return false;
-    return !is_sb_io(ctx, port.cell) && !is_sb_pll40(ctx, port.cell) && !is_sb_pll40_pad(ctx, port.cell) &&
-           port.cell->type != ctx->id("SB_GB");
+    return !is_sb_io(ctx, port.cell) && !is_sb_gb_io(ctx, port.cell) && !is_gbuf(ctx, port.cell) &&
+           !is_sb_pll40(ctx, port.cell);
 }
 
 static void insert_global(Context *ctx, NetInfo *net, bool is_reset, bool is_cen, bool is_logic)
@@ -650,6 +703,22 @@ static std::unique_ptr<CellInfo> spliceLUT(Context *ctx, CellInfo *ci, IdString 
     return pt;
 }
 
+// Force placement for cells that are unique anyway
+static BelId cell_place_unique(Context *ctx, CellInfo *ci)
+{
+    for (auto bel : ctx->getBels()) {
+        if (ctx->getBelType(bel) != ci->type)
+            continue;
+        if (ctx->isBelLocked(bel))
+            continue;
+        IdString bel_name = ctx->getBelName(bel);
+        ci->attrs[ctx->id("BEL")] = bel_name.str(ctx);
+        log_info("  constrained %s '%s' to %s\n", ci->type.c_str(ctx), ci->name.c_str(ctx), bel_name.c_str(ctx));
+        return bel;
+    }
+    log_error("Unable to place cell '%s' of type '%s'\n", ci->name.c_str(ctx), ci->type.c_str(ctx));
+}
+
 // Pack special functions
 static void pack_special(Context *ctx)
 {
@@ -664,25 +733,33 @@ static void pack_special(Context *ctx)
             std::unique_ptr<CellInfo> packed =
                     create_ice_cell(ctx, ctx->id("ICESTORM_LFOSC"), ci->name.str(ctx) + "_OSC");
             packed_cells.insert(ci->name);
+            cell_place_unique(ctx, packed.get());
             replace_port(ci, ctx->id("CLKLFEN"), packed.get(), ctx->id("CLKLFEN"));
             replace_port(ci, ctx->id("CLKLFPU"), packed.get(), ctx->id("CLKLFPU"));
-            if (/*bool_or_default(ci->attrs, ctx->id("ROUTE_THROUGH_FABRIC"))*/ true) { // FIXME
+            if (bool_or_default(ci->attrs, ctx->id("ROUTE_THROUGH_FABRIC"))) {
                 replace_port(ci, ctx->id("CLKLF"), packed.get(), ctx->id("CLKLF_FABRIC"));
             } else {
                 replace_port(ci, ctx->id("CLKLF"), packed.get(), ctx->id("CLKLF"));
+                std::unique_ptr<CellInfo> gb =
+                        create_padin_gbuf(ctx, packed.get(), ctx->id("CLKLF"), "$gbuf_" + ci->name.str(ctx) + "_lfosc");
+                new_cells.push_back(std::move(gb));
             }
             new_cells.push_back(std::move(packed));
         } else if (is_sb_hfosc(ctx, ci)) {
             std::unique_ptr<CellInfo> packed =
                     create_ice_cell(ctx, ctx->id("ICESTORM_HFOSC"), ci->name.str(ctx) + "_OSC");
             packed_cells.insert(ci->name);
+            cell_place_unique(ctx, packed.get());
             packed->params[ctx->id("CLKHF_DIV")] = str_or_default(ci->params, ctx->id("CLKHF_DIV"), "0b00");
             replace_port(ci, ctx->id("CLKHFEN"), packed.get(), ctx->id("CLKHFEN"));
             replace_port(ci, ctx->id("CLKHFPU"), packed.get(), ctx->id("CLKHFPU"));
-            if (/*bool_or_default(ci->attrs, ctx->id("ROUTE_THROUGH_FABRIC"))*/ true) { // FIXME
+            if (bool_or_default(ci->attrs, ctx->id("ROUTE_THROUGH_FABRIC"))) {
                 replace_port(ci, ctx->id("CLKHF"), packed.get(), ctx->id("CLKHF_FABRIC"));
             } else {
                 replace_port(ci, ctx->id("CLKHF"), packed.get(), ctx->id("CLKHF"));
+                std::unique_ptr<CellInfo> gb =
+                        create_padin_gbuf(ctx, packed.get(), ctx->id("CLKHF"), "$gbuf_" + ci->name.str(ctx) + "_hfosc");
+                new_cells.push_back(std::move(gb));
             }
             new_cells.push_back(std::move(packed));
         } else if (is_sb_spram(ctx, ci)) {
@@ -718,6 +795,29 @@ static void pack_special(Context *ctx)
                 replace_port(ci, ctx->id(pi.name.c_str(ctx)), packed.get(), ctx->id(newname));
             }
             new_cells.push_back(std::move(packed));
+        } else if (is_sb_rgba_drv(ctx, ci)) {
+            /* Force placement (no choices anyway) */
+            cell_place_unique(ctx, ci);
+
+            /* Disconnect all external ports and check there is no users (they should have been
+             * dealth with during IO packing */
+            for (auto port : ci->ports) {
+                PortInfo &pi = port.second;
+                NetInfo *net = pi.net;
+
+                if (net == nullptr)
+                    continue;
+                if ((pi.name != ctx->id("RGB0")) && (pi.name != ctx->id("RGB1")) && (pi.name != ctx->id("RGB2")))
+                    continue;
+
+                if (net->users.size() > 0)
+                    log_error("SB_RGBA_DRV port connected to more than just package pin !\n");
+
+                ctx->nets.erase(net->name);
+            }
+            ci->ports.erase(ctx->id("RGB0"));
+            ci->ports.erase(ctx->id("RGB1"));
+            ci->ports.erase(ctx->id("RGB2"));
         } else if (is_sb_pll40(ctx, ci)) {
             bool is_pad = is_sb_pll40_pad(ctx, ci);
             bool is_core = !is_pad;
@@ -732,6 +832,24 @@ static void pack_special(Context *ctx)
             for (auto param : ci->params)
                 packed->params[param.first] = param.second;
 
+            const std::map<IdString, IdString> pos_map_name = {
+                    {ctx->id("PLLOUT_SELECT"), ctx->id("PLLOUT_SELECT_A")},
+                    {ctx->id("PLLOUT_SELECT_PORTA"), ctx->id("PLLOUT_SELECT_A")},
+                    {ctx->id("PLLOUT_SELECT_PORTB"), ctx->id("PLLOUT_SELECT_B")},
+            };
+            const std::map<std::string, int> pos_map_val = {
+                    {"GENCLK", 0},
+                    {"GENCLK_HALF", 1},
+                    {"SHIFTREG_90deg", 2},
+                    {"SHIFTREG_0deg", 3},
+            };
+            for (auto param : ci->params)
+                if (pos_map_name.find(param.first) != pos_map_name.end()) {
+                    if (pos_map_val.find(param.second) == pos_map_val.end())
+                        log_error("Invalid PLL output selection '%s'\n", param.second.c_str());
+                    packed->params[pos_map_name.at(param.first)] = std::to_string(pos_map_val.at(param.second));
+                }
+
             auto feedback_path = packed->params[ctx->id("FEEDBACK_PATH")];
             packed->params[ctx->id("FEEDBACK_PATH")] =
                     feedback_path == "DELAY"
@@ -744,32 +862,6 @@ static void pack_special(Context *ctx)
 
             NetInfo *pad_packagepin_net = nullptr;
 
-            int pllout_a_used = 0;
-            int pllout_b_used = 0;
-            for (auto port : ci->ports) {
-                PortInfo &pi = port.second;
-                if (pi.name == ctx->id("PLLOUTCOREA"))
-                    pllout_a_used++;
-                if (pi.name == ctx->id("PLLOUTCOREB"))
-                    pllout_b_used++;
-                if (pi.name == ctx->id("PLLOUTCORE"))
-                    pllout_a_used++;
-                if (pi.name == ctx->id("PLLOUTGLOBALA"))
-                    pllout_a_used++;
-                if (pi.name == ctx->id("PLLOUTGLOBALB"))
-                    pllout_b_used++;
-                if (pi.name == ctx->id("PLLOUTGLOBAL"))
-                    pllout_a_used++;
-            }
-
-            if (pllout_a_used > 1)
-                log_error("PLL '%s' is using multiple ports mapping to PLLOUT_A output of the PLL\n",
-                          ci->name.c_str(ctx));
-
-            if (pllout_b_used > 1)
-                log_error("PLL '%s' is using multiple ports mapping to PLLOUT_B output of the PLL\n",
-                          ci->name.c_str(ctx));
-
             for (auto port : ci->ports) {
                 PortInfo &pi = port.second;
                 std::string newname = pi.name.str(ctx);
@@ -777,24 +869,15 @@ static void pack_special(Context *ctx)
                 if (bpos != std::string::npos) {
                     newname = newname.substr(0, bpos) + "_" + newname.substr(bpos + 1, (newname.size() - bpos) - 2);
                 }
-                if (pi.name == ctx->id("PLLOUTCOREA"))
+
+                if (pi.name == ctx->id("PLLOUTCOREA") || pi.name == ctx->id("PLLOUTCORE"))
                     newname = "PLLOUT_A";
                 if (pi.name == ctx->id("PLLOUTCOREB"))
                     newname = "PLLOUT_B";
-                if (pi.name == ctx->id("PLLOUTCORE"))
-                    newname = "PLLOUT_A";
-                if (pi.name == ctx->id("PLLOUTGLOBALA"))
-                    newname = "PLLOUT_A";
+                if (pi.name == ctx->id("PLLOUTGLOBALA") || pi.name == ctx->id("PLLOUTGLOBALA"))
+                    newname = "PLLOUT_A_GLOBAL";
                 if (pi.name == ctx->id("PLLOUTGLOBALB"))
-                    newname = "PLLOUT_B";
-                if (pi.name == ctx->id("PLLOUTGLOBAL"))
-                    newname = "PLLOUT_A";
-
-                if (pi.name == ctx->id("PLLOUTGLOBALA") || pi.name == ctx->id("PLLOUTGLOBALB") ||
-                    pi.name == ctx->id("PLLOUTGLOBAL"))
-                    log_warning("PLL '%s' is using port %s but implementation does not actually "
-                                "use the global clock output of the PLL\n",
-                                ci->name.c_str(ctx), pi.name.str(ctx).c_str());
+                    newname = "PLLOUT_B_GLOBAL";
 
                 if (pi.name == ctx->id("PACKAGEPIN")) {
                     if (!is_pad) {
@@ -838,6 +921,8 @@ static void pack_special(Context *ctx)
                 for (auto bel : ctx->getBels()) {
                     if (ctx->getBelType(bel) != id_ICESTORM_PLL)
                         continue;
+                    if (ctx->isBelLocked(bel))
+                        continue;
 
                     // A PAD PLL must have its' PACKAGEPIN on the SB_IO that's shared
                     // with PLLOUT_A.
@@ -879,11 +964,22 @@ static void pack_special(Context *ctx)
                     packed->attrs[ctx->id("BEL")] = ctx->getBelName(bel).str(ctx);
                     pll_bel = bel;
                     constrained = true;
+                    break;
                 }
                 if (!constrained) {
                     log_error("Could not constrain PLL '%s' to any PLL Bel (too many PLLs?)\n",
                               packed->name.c_str(ctx));
                 }
+            } else {
+                pll_bel = ctx->getBelByName(ctx->id(packed->attrs[ctx->id("BEL")]));
+                if (ctx->getBelType(pll_bel) != id_ICESTORM_PLL)
+                    log_error("PLL '%s' is constrained to BEL %s which isn't a ICESTORM_PLL BEL\n",
+                              packed->name.c_str(ctx), ctx->getBelName(pll_bel).c_str(ctx));
+                if (ctx->isBelLocked(pll_bel))
+                    log_error("PLL '%s' is constrained to locked BEL %s\n", packed->name.c_str(ctx),
+                              ctx->getBelName(pll_bel).c_str(ctx));
+                log_info("  constrained PLL '%s' to %s\n", packed->name.c_str(ctx),
+                         ctx->getBelName(pll_bel).c_str(ctx));
             }
 
             // Delete the original PACKAGEPIN net if needed.
@@ -952,6 +1048,24 @@ static void pack_special(Context *ctx)
                 }
             }
 
+            // Handle the global buffer connections
+            for (auto port : packed->ports) {
+                PortInfo &pi = port.second;
+                bool is_b_port;
+
+                if (pi.name == ctx->id("PLLOUT_A_GLOBAL"))
+                    is_b_port = false;
+                else if (pi.name == ctx->id("PLLOUT_B_GLOBAL"))
+                    is_b_port = true;
+                else
+                    continue;
+
+                std::unique_ptr<CellInfo> gb =
+                        create_padin_gbuf(ctx, packed.get(), pi.name,
+                                          "$gbuf_" + ci->name.str(ctx) + "_pllout_" + (is_b_port ? "b" : "a"));
+                new_cells.push_back(std::move(gb));
+            }
+
             new_cells.push_back(std::move(packed));
         }
     }
@@ -971,13 +1085,13 @@ bool Arch::pack()
     try {
         log_break();
         pack_constants(ctx);
-        promote_globals(ctx);
         pack_io(ctx);
         pack_lut_lutffs(ctx);
         pack_nonlut_ffs(ctx);
         pack_carries(ctx);
         pack_ram(ctx);
         pack_special(ctx);
+        promote_globals(ctx);
         ctx->assignArchInfo();
         constrain_chains(ctx);
         ctx->assignArchInfo();

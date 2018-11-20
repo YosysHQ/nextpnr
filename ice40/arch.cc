@@ -284,6 +284,25 @@ std::vector<IdString> Arch::getBelPins(BelId bel) const
     return ret;
 }
 
+bool Arch::isBelLocked(BelId bel) const
+{
+    const BelConfigPOD *bel_config = nullptr;
+    for (int i = 0; i < chip_info->num_belcfgs; i++) {
+        if (chip_info->bel_config[i].bel_index == bel.index) {
+            bel_config = &chip_info->bel_config[i];
+            break;
+        }
+    }
+    NPNR_ASSERT(bel_config != nullptr);
+    for (int i = 0; i < bel_config->num_entries; i++) {
+        if (strcmp("LOCKED", bel_config->entries[i].cbit_name.get()))
+            continue;
+        if ("LOCKED_" + archArgs().package == bel_config->entries[i].entry_name.get())
+            return true;
+    }
+    return false;
+}
+
 // -----------------------------------------------------------------------
 
 WireId Arch::getWireByName(IdString name) const
@@ -927,6 +946,10 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
         return TMG_COMB_INPUT;
     } else if (cell->type == id_SB_WARMBOOT) {
         return TMG_ENDPOINT;
+    } else if (cell->type == id_SB_RGBA_DRV) {
+        if (port == id_RGB0 || port == id_RGB1 || port == id_RGB2)
+            return TMG_IGNORE;
+        return TMG_ENDPOINT;
     }
     log_error("no timing info for port '%s' of cell type '%s'\n", port.c_str(this), cell->type.c_str(this));
 }
@@ -1025,6 +1048,9 @@ void Arch::assignCellInfo(CellInfo *cell)
             cell->lcInfo.inputCount++;
     } else if (cell->type == id_SB_IO) {
         cell->ioInfo.lvds = str_or_default(cell->params, id_IO_STANDARD, "SB_LVCMOS") == "SB_LVDS_INPUT";
+        cell->ioInfo.global = bool_or_default(cell->attrs, this->id("GLOBAL"));
+    } else if (cell->type == id_SB_GB) {
+        cell->gbInfo.forPadIn = bool_or_default(cell->attrs, this->id("FOR_PAD_IN"));
     }
 }
 
