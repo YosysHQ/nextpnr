@@ -284,6 +284,25 @@ std::vector<IdString> Arch::getBelPins(BelId bel) const
     return ret;
 }
 
+bool Arch::isBelLocked(BelId bel) const
+{
+    const BelConfigPOD *bel_config = nullptr;
+    for (int i = 0; i < chip_info->num_belcfgs; i++) {
+        if (chip_info->bel_config[i].bel_index == bel.index) {
+            bel_config = &chip_info->bel_config[i];
+            break;
+        }
+    }
+    NPNR_ASSERT(bel_config != nullptr);
+    for (int i = 0; i < bel_config->num_entries; i++) {
+        if (strcmp("LOCKED", bel_config->entries[i].cbit_name.get()))
+            continue;
+        if ("LOCKED_" + archArgs().package == bel_config->entries[i].entry_name.get())
+            return true;
+    }
+    return false;
+}
+
 // -----------------------------------------------------------------------
 
 WireId Arch::getWireByName(IdString name) const
@@ -856,8 +875,9 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
 }
 
 // Get the port class, also setting clockPort to associated clock if applicable
-TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, IdString &clockPort) const
+TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const
 {
+    clockInfoCount = 0;
     if (cell->type == id_ICESTORM_LC) {
         if (port == id_CLK)
             return TMG_CLOCK_INPUT;
@@ -870,13 +890,13 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, Id
             if (cell->lcInfo.inputCount == 0)
                 return TMG_IGNORE;
             if (cell->lcInfo.dffEnable) {
-                clockPort = id_CLK;
+                clockInfoCount = 1;
                 return TMG_REGISTER_OUTPUT;
             } else
                 return TMG_COMB_OUTPUT;
         } else {
             if (cell->lcInfo.dffEnable) {
-                clockPort = id_CLK;
+                clockInfoCount = 1;
                 return TMG_REGISTER_INPUT;
             } else
                 return TMG_COMB_INPUT;
@@ -886,23 +906,22 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, Id
         if (port == id_RCLK || port == id_WCLK)
             return TMG_CLOCK_INPUT;
 
-        if (port.str(this)[0] == 'R')
-            clockPort = id_RCLK;
-        else
-            clockPort = id_WCLK;
+        clockInfoCount = 1;
 
         if (cell->ports.at(port).type == PORT_OUT)
             return TMG_REGISTER_OUTPUT;
         else
             return TMG_REGISTER_INPUT;
     } else if (cell->type == id_ICESTORM_DSP || cell->type == id_ICESTORM_SPRAM) {
-        clockPort = id_CLK;
-        if (port == id_CLK)
+        if (port == id_CLK || port == id_CLOCK)
             return TMG_CLOCK_INPUT;
-        else if (cell->ports.at(port).type == PORT_OUT)
-            return TMG_REGISTER_OUTPUT;
-        else
-            return TMG_REGISTER_INPUT;
+        else {
+            clockInfoCount = 1;
+            if (cell->ports.at(port).type == PORT_OUT)
+                return TMG_REGISTER_OUTPUT;
+            else
+                return TMG_REGISTER_INPUT;
+        }
     } else if (cell->type == id_SB_IO) {
         if (port == id_D_IN_0 || port == id_D_IN_1)
             return TMG_STARTPOINT;
@@ -927,8 +946,57 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, Id
         return TMG_COMB_INPUT;
     } else if (cell->type == id_SB_WARMBOOT) {
         return TMG_ENDPOINT;
+    } else if (cell->type == id_SB_RGBA_DRV) {
+        if (port == id_RGB0 || port == id_RGB1 || port == id_RGB2)
+            return TMG_IGNORE;
+        return TMG_ENDPOINT;
     }
     log_error("no timing info for port '%s' of cell type '%s'\n", port.c_str(this), cell->type.c_str(this));
+}
+
+TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port, int index) const
+{
+    TimingClockingInfo info;
+    if (cell->type == id_ICESTORM_LC) {
+        info.clock_port = id_CLK;
+        info.edge = cell->lcInfo.negClk ? FALLING_EDGE : RISING_EDGE;
+        if (port == id_O) {
+            bool has_clktoq = getCellDelay(cell, id_CLK, id_O, info.clockToQ);
+            NPNR_ASSERT(has_clktoq);
+        } else {
+            info.setup.delay = 100;
+            info.hold.delay = 0;
+        }
+    } else if (cell->type == id_ICESTORM_RAM) {
+        if (port.str(this)[0] == 'R') {
+            info.clock_port = id_RCLK;
+            info.edge = bool_or_default(cell->params, id("NEG_CLK_R")) ? FALLING_EDGE : RISING_EDGE;
+        } else {
+            info.clock_port = id_WCLK;
+            info.edge = bool_or_default(cell->params, id("NEG_CLK_W")) ? FALLING_EDGE : RISING_EDGE;
+        }
+        if (cell->ports.at(port).type == PORT_OUT) {
+            bool has_clktoq = getCellDelay(cell, info.clock_port, port, info.clockToQ);
+            NPNR_ASSERT(has_clktoq);
+        } else {
+            info.setup.delay = 100;
+            info.hold.delay = 0;
+        }
+    } else if (cell->type == id_ICESTORM_DSP || cell->type == id_ICESTORM_SPRAM) {
+        info.clock_port = cell->type == id_ICESTORM_SPRAM ? id_CLOCK : id_CLK;
+        info.edge = RISING_EDGE;
+        if (cell->ports.at(port).type == PORT_OUT) {
+            bool has_clktoq = getCellDelay(cell, info.clock_port, port, info.clockToQ);
+            if (!has_clktoq)
+                info.clockToQ.delay = 100;
+        } else {
+            info.setup.delay = 100;
+            info.hold.delay = 0;
+        }
+    } else {
+        NPNR_ASSERT_FALSE("unhandled cell type in getPortClockingInfo");
+    }
+    return info;
 }
 
 bool Arch::isGlobalNet(const NetInfo *net) const
@@ -980,6 +1048,9 @@ void Arch::assignCellInfo(CellInfo *cell)
             cell->lcInfo.inputCount++;
     } else if (cell->type == id_SB_IO) {
         cell->ioInfo.lvds = str_or_default(cell->params, id_IO_STANDARD, "SB_LVCMOS") == "SB_LVDS_INPUT";
+        cell->ioInfo.global = bool_or_default(cell->attrs, this->id("GLOBAL"));
+    } else if (cell->type == id_SB_GB) {
+        cell->gbInfo.forPadIn = bool_or_default(cell->attrs, this->id("FOR_PAD_IN"));
     }
 }
 

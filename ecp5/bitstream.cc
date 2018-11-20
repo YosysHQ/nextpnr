@@ -19,15 +19,15 @@
 
 #include "bitstream.h"
 
+#include <boost/algorithm/string/predicate.hpp>
 #include <fstream>
 #include <iomanip>
 #include <queue>
 #include <regex>
 #include <streambuf>
-
 #include "config.h"
-#include "io.h"
 #include "log.h"
+#include "pio.h"
 #include "util.h"
 
 #define fmt_str(x) (static_cast<const std::ostringstream &>(std::ostringstream() << x).str())
@@ -379,6 +379,16 @@ std::vector<std::string> get_dsp_tiles(Context *ctx, BelId bel)
     return tiles;
 }
 
+// Get the list of tiles corresponding to a DCU
+std::vector<std::string> get_dcu_tiles(Context *ctx, BelId bel)
+{
+    std::vector<std::string> tiles;
+    Loc loc = ctx->getBelLocation(bel);
+    for (int i = 0; i < 9; i++)
+        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + i, "DCU" + std::to_string(i)));
+    return tiles;
+}
+
 // Get the list of tiles corresponding to a PLL
 std::vector<std::string> get_pll_tiles(Context *ctx, BelId bel)
 {
@@ -408,26 +418,23 @@ std::vector<std::string> get_pll_tiles(Context *ctx, BelId bel)
 void fix_tile_names(Context *ctx, ChipConfig &cc)
 {
     // Remove the V prefix/suffix on certain tiles if device is a SERDES variant
-    if (ctx->args.type == ArchArgs::LFE5UM_25F || ctx->args.type == ArchArgs::LFE5UM_45F ||
-        ctx->args.type == ArchArgs::LFE5UM_85F || ctx->args.type == ArchArgs::LFE5UM5G_25F ||
-        ctx->args.type == ArchArgs::LFE5UM5G_45F || ctx->args.type == ArchArgs::LFE5UM5G_85F) {
+    if (ctx->args.type == ArchArgs::LFE5U_25F || ctx->args.type == ArchArgs::LFE5U_45F ||
+        ctx->args.type == ArchArgs::LFE5U_85F) {
         std::map<std::string, std::string> tiletype_xform;
         for (const auto &tile : cc.tiles) {
             std::string newname = tile.first;
-            auto vcib = tile.first.find("VCIB");
-            if (vcib != std::string::npos) {
-                // Remove the V
-                newname.erase(vcib, 1);
+            auto cibdcu = tile.first.find("CIB_DCU");
+            if (cibdcu != std::string::npos) {
+                // Add the V
+                if (newname.at(cibdcu - 1) != 'V')
+                    newname.insert(cibdcu, 1, 'V');
                 tiletype_xform[tile.first] = newname;
-            } else if (tile.first.back() == 'V') {
-                // BMID_0V or BMID_2V
-                if (tile.first.at(tile.first.size() - 2) == '0') {
-                    newname.at(tile.first.size() - 1) = 'H';
-                    tiletype_xform[tile.first] = newname;
-                } else if (tile.first.at(tile.first.size() - 2) == '2') {
-                    newname.pop_back();
-                    tiletype_xform[tile.first] = newname;
-                }
+            } else if (boost::ends_with(tile.first, "BMID_0H")) {
+                newname.back() = 'V';
+                tiletype_xform[tile.first] = newname;
+            } else if (boost::ends_with(tile.first, "BMID_2")) {
+                newname.push_back('V');
+                tiletype_xform[tile.first] = newname;
             }
         }
         // Apply the name changes
@@ -456,12 +463,66 @@ void tieoff_dsp_ports(Context *ctx, ChipConfig &cc, CellInfo *ci)
     }
 }
 
+void tieoff_dcu_ports(Context *ctx, ChipConfig &cc, CellInfo *ci)
+{
+    for (auto port : ci->ports) {
+        if (port.second.net == nullptr && port.second.type == PORT_IN) {
+            if (port.first.str(ctx).find("CLK") != std::string::npos ||
+                port.first.str(ctx).find("HDIN") != std::string::npos ||
+                port.first.str(ctx).find("HDOUT") != std::string::npos)
+                continue;
+            bool value = bool_or_default(ci->params, ctx->id(port.first.str(ctx) + "MUX"), false);
+            tie_cib_signal(ctx, cc, ctx->getBelPinWire(ci->bel, port.first), value);
+        }
+    }
+}
+
 static void set_pip(Context *ctx, ChipConfig &cc, PipId pip)
 {
     std::string tile = ctx->getPipTilename(pip);
     std::string source = get_trellis_wirename(ctx, pip.location, ctx->getPipSrcWire(pip));
     std::string sink = get_trellis_wirename(ctx, pip.location, ctx->getPipDstWire(pip));
     cc.tiles[tile].add_arc(sink, source);
+}
+
+static std::vector<bool> parse_config_str(std::string str, int length)
+{
+    // For DCU config which might be bin, hex or dec using prefices accordingly
+    std::string base = str.substr(0, 2);
+    std::vector<bool> word;
+    word.resize(length, false);
+    if (base == "0b") {
+        for (int i = 0; i < int(str.length()) - 2; i++) {
+            char c = str.at((str.size() - 1) - i);
+            NPNR_ASSERT(c == '0' || c == '1');
+            word.at(i) = (c == '1');
+        }
+    } else if (base == "0x") {
+        for (int i = 0; i < int(str.length()) - 2; i++) {
+            char c = str.at((str.size() - i) - 1);
+            int nibble = chtohex(c);
+            word.at(i * 4) = nibble & 0x1;
+            if (i * 4 + 1 < length)
+                word.at(i * 4 + 1) = nibble & 0x2;
+            if (i * 4 + 2 < length)
+                word.at(i * 4 + 2) = nibble & 0x4;
+            if (i * 4 + 3 < length)
+                word.at(i * 4 + 3) = nibble & 0x8;
+        }
+    } else if (base == "0d") {
+        NPNR_ASSERT(length < 64);
+        unsigned long long value = std::stoull(str.substr(2));
+        for (int i = 0; i < length; i++)
+            if (value & (1 << i))
+                word.at(i) = true;
+    } else {
+        NPNR_ASSERT(length < 64);
+        unsigned long long value = std::stoull(str);
+        for (int i = 0; i < length; i++)
+            if (value & (1 << i))
+                word.at(i) = true;
+    }
+    return word;
 }
 
 void write_bitstream(Context *ctx, std::string base_config_file, std::string text_config_file)
@@ -481,6 +542,23 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
         // TODO: .bit metadata
     }
 
+    // Clear out DCU tieoffs in base config if DCU used
+    for (auto &cell : ctx->cells) {
+        CellInfo *ci = cell.second.get();
+        if (ci->type == id_DCUA) {
+            Loc loc = ctx->getBelLocation(ci->bel);
+            for (int i = 0; i < 12; i++) {
+                auto tiles = ctx->getTilesAtLocation(loc.y - 1, loc.x + i);
+                for (const auto &tile : tiles) {
+                    auto cc_tile = cc.tiles.find(tile.first);
+                    if (cc_tile != cc.tiles.end()) {
+                        cc_tile->second.cenums.clear();
+                        cc_tile->second.cunknowns.clear();
+                    }
+                }
+            }
+        }
+    }
     // Add all set, configurable pips to the config
     for (auto pip : ctx->getPips()) {
         if (ctx->getBoundPipNet(pip) != nullptr) {
@@ -1000,6 +1078,28 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                                int_to_bitvector(int_or_default(ci->attrs, ctx->id("MFG_ENABLE_FILTEROPAMP"), 0), 1));
 
             cc.tilegroups.push_back(tg);
+        } else if (ci->type == id_DCUA) {
+            TileGroup tg;
+            tg.tiles = get_dcu_tiles(ctx, ci->bel);
+            tg.config.add_enum("DCU.MODE", "DCUA");
+#include "dcu_bitstream.h"
+            cc.tilegroups.push_back(tg);
+            tieoff_dcu_ports(ctx, cc, ci);
+        } else if (ci->type == id_EXTREFB) {
+            TileGroup tg;
+            tg.tiles = get_dcu_tiles(ctx, ci->bel);
+            tg.config.add_word("EXTREF.REFCK_DCBIAS_EN",
+                               parse_config_str(str_or_default(ci->params, ctx->id("REFCK_DCBIAS_EN"), "0"), 1));
+            tg.config.add_word("EXTREF.REFCK_RTERM",
+                               parse_config_str(str_or_default(ci->params, ctx->id("REFCK_RTERM"), "0"), 1));
+            tg.config.add_word("EXTREF.REFCK_PWDNB",
+                               parse_config_str(str_or_default(ci->params, ctx->id("REFCK_PWDNB"), "0"), 1));
+            cc.tilegroups.push_back(tg);
+        } else if (ci->type == id_PCSCLKDIV) {
+            Loc loc = ctx->getBelLocation(ci->bel);
+            std::string tname = ctx->getTileByTypeAndLocation(loc.y + 1, loc.x, "BMID_0H");
+            cc.tiles[tname].add_enum("PCSCLKDIV" + std::to_string(loc.z),
+                                     str_or_default(ci->params, ctx->id("GSR"), "ENABLED"));
         } else {
             NPNR_ASSERT_FALSE("unsupported cell type");
         }

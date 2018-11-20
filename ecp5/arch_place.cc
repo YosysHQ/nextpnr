@@ -101,6 +101,8 @@ bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const
 
         bel_cells.push_back(cell);
         return slicesCompatible(bel_cells);
+    } else if (cell->type == id_DCUA || cell->type == id_EXTREFB || cell->type == id_PCSCLKDIV) {
+        return args.type != ArchArgs::LFE5U_25F && args.type != ArchArgs::LFE5U_45F && args.type != ArchArgs::LFE5U_85F;
     } else {
         // other checks
         return true;

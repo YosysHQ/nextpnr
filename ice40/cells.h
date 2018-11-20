@@ -53,6 +53,9 @@ inline bool is_lc(const BaseCtx *ctx, const CellInfo *cell) { return cell->type 
 // Return true if a cell is a SB_IO
 inline bool is_sb_io(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("SB_IO"); }
 
+// Return true if a cell is a SB_GB_IO
+inline bool is_sb_gb_io(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("SB_GB_IO"); }
+
 // Return true if a cell is a global buffer
 inline bool is_gbuf(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("SB_GB"); }
 
@@ -71,6 +74,8 @@ inline bool is_sb_spram(const BaseCtx *ctx, const CellInfo *cell) { return cell-
 
 inline bool is_sb_mac16(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("SB_MAC16"); }
 
+inline bool is_sb_rgba_drv(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("SB_RGBA_DRV"); }
+
 inline bool is_sb_pll40(const BaseCtx *ctx, const CellInfo *cell)
 {
     return cell->type == ctx->id("SB_PLL40_PAD") || cell->type == ctx->id("SB_PLL40_2_PAD") ||
@@ -81,7 +86,19 @@ inline bool is_sb_pll40(const BaseCtx *ctx, const CellInfo *cell)
 inline bool is_sb_pll40_pad(const BaseCtx *ctx, const CellInfo *cell)
 {
     return cell->type == ctx->id("SB_PLL40_PAD") || cell->type == ctx->id("SB_PLL40_2_PAD") ||
-           cell->type == ctx->id("SB_PLL40_2F_PAD");
+           cell->type == ctx->id("SB_PLL40_2F_PAD") ||
+           (cell->type == ctx->id("ICESTORM_PLL") &&
+            (cell->attrs.at(ctx->id("TYPE")) == "SB_PLL40_PAD" || cell->attrs.at(ctx->id("TYPE")) == "SB_PLL40_2_PAD" ||
+             cell->attrs.at(ctx->id("TYPE")) == "SB_PLL40_2F_PAD"));
+}
+
+inline bool is_sb_pll40_dual(const BaseCtx *ctx, const CellInfo *cell)
+{
+    return cell->type == ctx->id("SB_PLL40_2_PAD") || cell->type == ctx->id("SB_PLL40_2F_PAD") ||
+           cell->type == ctx->id("SB_PLL40_2F_CORE") ||
+           (cell->type == ctx->id("ICESTORM_PLL") && (cell->attrs.at(ctx->id("TYPE")) == "SB_PLL40_2_PAD" ||
+                                                      cell->attrs.at(ctx->id("TYPE")) == "SB_PLL40_2F_PAD" ||
+                                                      cell->attrs.at(ctx->id("TYPE")) == "SB_PLL40_2F_CORE"));
 }
 
 uint8_t sb_pll40_type(const BaseCtx *ctx, const CellInfo *cell);

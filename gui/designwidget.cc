@@ -291,15 +291,16 @@ void DesignWidget::newContext(Context *ctx)
 
         {
             TreeModel::ElementXYRoot<BelId>::ElementMap belMap;
-            for (const auto& bel : ctx->getBels()) {
+            for (const auto &bel : ctx->getBels()) {
                 auto loc = ctx->getBelLocation(bel);
                 belMap[std::pair<int, int>(loc.x, loc.y)].push_back(bel);
             }
             auto belGetter = [](Context *ctx, BelId id) { return ctx->getBelName(id); };
 
             getTreeByElementType(ElementType::BEL)
-                    ->loadData(ctx, std::unique_ptr<TreeModel::ElementXYRoot<BelId>>(
-                            new TreeModel::ElementXYRoot<BelId>(ctx, belMap, belGetter, ElementType::BEL)));
+                    ->loadData(ctx,
+                               std::unique_ptr<TreeModel::ElementXYRoot<BelId>>(
+                                       new TreeModel::ElementXYRoot<BelId>(ctx, belMap, belGetter, ElementType::BEL)));
         }
 
         {
@@ -313,33 +314,37 @@ void DesignWidget::newContext(Context *ctx)
             }
 #endif
 #ifdef ARCH_ECP5
-            for (const auto& wire : ctx->getWires()) {
+            for (const auto &wire : ctx->getWires()) {
                 wireMap[std::pair<int, int>(wire.location.x, wire.location.y)].push_back(wire);
             }
 #endif
             auto wireGetter = [](Context *ctx, WireId id) { return ctx->getWireName(id); };
             getTreeByElementType(ElementType::WIRE)
-                    ->loadData(ctx, std::unique_ptr<TreeModel::ElementXYRoot<WireId>>(
-                            new TreeModel::ElementXYRoot<WireId>(ctx, wireMap, wireGetter, ElementType::WIRE)));
+                    ->loadData(ctx,
+                               std::unique_ptr<TreeModel::ElementXYRoot<WireId>>(new TreeModel::ElementXYRoot<WireId>(
+                                       ctx, wireMap, wireGetter, ElementType::WIRE)));
         }
 
         {
             TreeModel::ElementXYRoot<PipId>::ElementMap pipMap;
-            for (const auto& pip : ctx->getPips()) {
+            for (const auto &pip : ctx->getPips()) {
                 auto loc = ctx->getPipLocation(pip);
                 pipMap[std::pair<int, int>(loc.x, loc.y)].push_back(pip);
             }
             auto pipGetter = [](Context *ctx, PipId id) { return ctx->getPipName(id); };
 
             getTreeByElementType(ElementType::PIP)
-                    ->loadData(ctx, std::unique_ptr<TreeModel::ElementXYRoot<PipId>>(
-                            new TreeModel::ElementXYRoot<PipId>(ctx, pipMap, pipGetter, ElementType::PIP)));
+                    ->loadData(ctx,
+                               std::unique_ptr<TreeModel::ElementXYRoot<PipId>>(
+                                       new TreeModel::ElementXYRoot<PipId>(ctx, pipMap, pipGetter, ElementType::PIP)));
         }
 
         getTreeByElementType(ElementType::CELL)
-                ->loadData(ctx, std::unique_ptr<TreeModel::IdStringList>(new TreeModel::IdStringList(ElementType::CELL)));
+                ->loadData(ctx,
+                           std::unique_ptr<TreeModel::IdStringList>(new TreeModel::IdStringList(ElementType::CELL)));
         getTreeByElementType(ElementType::NET)
-                ->loadData(ctx, std::unique_ptr<TreeModel::IdStringList>(new TreeModel::IdStringList(ElementType::NET)));
+                ->loadData(ctx,
+                           std::unique_ptr<TreeModel::IdStringList>(new TreeModel::IdStringList(ElementType::NET)));
     }
     updateTree();
 }
@@ -567,18 +572,18 @@ void DesignWidget::onSelectionChanged(int num, const QItemSelection &, const QIt
             std::move(d.begin(), d.end(), std::back_inserter(decals));
         }
     }
-    
+
     // Keep other tree seleciton only if Control is pressed
     if (num_selected > 1 && QApplication::keyboardModifiers().testFlag(Qt::ControlModifier) == true) {
         Q_EMIT selected(decals, false);
         return;
     }
-    
+
     // For deselect and multiple select just send all
     if (selectionModel[num]->selectedIndexes().size() != 1) {
         Q_EMIT selected(decals, false);
         return;
-    }    
+    }
 
     QModelIndex index = selectionModel[num]->selectedIndexes().at(0);
     if (!index.isValid())
@@ -591,7 +596,8 @@ void DesignWidget::onSelectionChanged(int num, const QItemSelection &, const QIt
 
     // Clear other tab selections
     for (int i = 0; i <= getIndexByElementType(ElementType::GROUP); i++)
-        if (i!=num) selectionModel[i]->clearSelection();
+        if (i != num)
+            selectionModel[i]->clearSelection();
 
     addToHistory(num, index);
 

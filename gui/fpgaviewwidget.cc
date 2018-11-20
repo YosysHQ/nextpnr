@@ -113,8 +113,8 @@ void FPGAViewWidget::initializeGL()
     }
     initializeOpenGLFunctions();
     QtImGui::initialize(this);
-    glClearColor(colors_.background.red() / 255, colors_.background.green() / 255,
-                                            colors_.background.blue() / 255, 0.0);
+    glClearColor(colors_.background.red() / 255, colors_.background.green() / 255, colors_.background.blue() / 255,
+                 0.0);
 }
 
 float FPGAViewWidget::PickedElement::distance(Context *ctx, float wx, float wy) const
@@ -510,8 +510,7 @@ void FPGAViewWidget::renderLines(void)
             rendererData_ = std::move(data);
         }
     }
-    if (gridChanged)
-    {    
+    if (gridChanged) {
         QMutexLocker locker(&rendererDataLock_);
         rendererData_->gfxGrid.clear();
         // Render grid.
@@ -520,7 +519,7 @@ void FPGAViewWidget::renderLines(void)
         }
         for (float i = 0.0f; i < 1.0f * ctx_->getGridDimY() + 1; i += 1.0f) {
             PolyLine(0.0f, i, 1.0f * ctx_->getGridDimX(), i).build(rendererData_->gfxGrid);
-        }                    
+        }
         rendererData_->gfxGrid.last_render++;
     }
     if (highlightedOrSelectedChanged) {
@@ -556,11 +555,11 @@ void FPGAViewWidget::renderLines(void)
     }
 
     {
-       QMutexLocker lock(&rendererArgsLock_);
+        QMutexLocker lock(&rendererArgsLock_);
 
         if (rendererArgs_->zoomOutbound) {
             zoomOutbound();
-            rendererArgs_->zoomOutbound = false;            
+            rendererArgs_->zoomOutbound = false;
         }
     }
 }
@@ -870,11 +869,8 @@ void FPGAViewWidget::update_vbos()
 {
     lineShader_.update_vbos(GraphicElement::STYLE_GRID, rendererData_->gfxGrid);
 
-    for (int style = GraphicElement::STYLE_FRAME; style
-                  < GraphicElement::STYLE_HIGHLIGHTED0;
-                                             style++) {
-        lineShader_.update_vbos((enum GraphicElement::style_t)(style),
-                                    rendererData_->gfxByStyle[style]);
+    for (int style = GraphicElement::STYLE_FRAME; style < GraphicElement::STYLE_HIGHLIGHTED0; style++) {
+        lineShader_.update_vbos((enum GraphicElement::style_t)(style), rendererData_->gfxByStyle[style]);
     }
 
     for (int i = 0; i < 8; i++) {

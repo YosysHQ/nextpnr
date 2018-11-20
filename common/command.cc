@@ -102,6 +102,7 @@ po::options_description CommandHandler::getGeneralOptions()
 #endif
     general.add_options()("json", po::value<std::string>(), "JSON design file to ingest");
     general.add_options()("seed", po::value<int>(), "seed value for random number generator");
+    general.add_options()("randomize-seed,r", "randomize seed value for random number generator");
     general.add_options()("slack_redist_iter", po::value<int>(), "number of iterations between slack redistribution");
     general.add_options()("cstrweight", po::value<float>(), "placer weighting for relative constraint satisfaction");
     general.add_options()("pack-only", "pack design only without placement or routing");
@@ -136,6 +137,15 @@ void CommandHandler::setupContext(Context *ctx)
 
     if (vm.count("seed")) {
         ctx->rngseed(vm["seed"].as<int>());
+    }
+
+    if (vm.count("randomize-seed")) {
+        srand(time(NULL));
+        int r;
+        do {
+            r = rand();
+        } while(r == 0);
+        ctx->rngseed(r);
     }
 
     if (vm.count("slack_redist_iter")) {

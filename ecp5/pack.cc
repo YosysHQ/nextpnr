@@ -235,6 +235,46 @@ class Ecp5Packer
         }
     }
 
+    // Return true if an port is a top level port that provides its own IOBUF
+    bool is_top_port(PortRef &port)
+    {
+        if (port.cell == nullptr)
+            return false;
+        if (port.cell->type == id_DCUA) {
+            return port.port == id_CH0_HDINP || port.port == id_CH0_HDINN || port.port == id_CH0_HDOUTP ||
+                   port.port == id_CH0_HDOUTN || port.port == id_CH1_HDINP || port.port == id_CH1_HDINN ||
+                   port.port == id_CH1_HDOUTP || port.port == id_CH1_HDOUTN;
+        } else if (port.cell->type == id_EXTREFB) {
+            return port.port == id_REFCLKP || port.port == id_REFCLKN;
+        } else {
+            return false;
+        }
+    }
+
+    // Return true if a net only drives a top port
+    bool drives_top_port(NetInfo *net, PortRef &tp)
+    {
+        if (net == nullptr)
+            return false;
+        for (auto user : net->users) {
+            if (is_top_port(user)) {
+                if (net->users.size() > 1)
+                    log_error("   port %s.%s must be connected to (and only to) a top level pin\n",
+                              user.cell->name.c_str(ctx), user.port.c_str(ctx));
+                tp = user;
+                return true;
+            }
+        }
+        if (net->driver.cell != nullptr && is_top_port(net->driver)) {
+            if (net->users.size() > 1)
+                log_error("   port %s.%s must be connected to (and only to) a top level pin\n",
+                          net->driver.cell->name.c_str(ctx), net->driver.port.c_str(ctx));
+            tp = net->driver;
+            return true;
+        }
+        return false;
+    }
+
     // Simple "packer" to remove nextpnr IOBUFs, this assumes IOBUFs are manually instantiated
     void pack_io()
     {
@@ -244,10 +284,14 @@ class Ecp5Packer
             CellInfo *ci = cell.second;
             if (is_nextpnr_iob(ctx, ci)) {
                 CellInfo *trio = nullptr;
+                NetInfo *ionet = nullptr;
+                PortRef tp;
                 if (ci->type == ctx->id("$nextpnr_ibuf") || ci->type == ctx->id("$nextpnr_iobuf")) {
-                    trio = net_only_drives(ctx, ci->ports.at(ctx->id("O")).net, is_trellis_io, ctx->id("B"), true, ci);
+                    ionet = ci->ports.at(ctx->id("O")).net;
+                    trio = net_only_drives(ctx, ionet, is_trellis_io, ctx->id("B"), true, ci);
 
                 } else if (ci->type == ctx->id("$nextpnr_obuf")) {
+                    ionet = ci->ports.at(ctx->id("I")).net;
                     trio = net_only_drives(ctx, ci->ports.at(ctx->id("I")).net, is_trellis_io, ctx->id("B"), true, ci);
                 }
                 if (trio != nullptr) {
@@ -266,6 +310,19 @@ class Ecp5Packer
                             ctx->nets.erase(net2->name);
                         }
                     }
+                } else if (drives_top_port(ionet, tp)) {
+                    log_info("%s feeds %s %s.%s, removing %s %s.\n", ci->name.c_str(ctx), tp.cell->type.c_str(ctx),
+                             tp.cell->name.c_str(ctx), tp.port.c_str(ctx), ci->type.c_str(ctx), ci->name.c_str(ctx));
+                    if (ionet != nullptr) {
+                        ctx->nets.erase(ionet->name);
+                        tp.cell->ports.at(tp.port).net = nullptr;
+                    }
+                    if (ci->type == ctx->id("$nextpnr_iobuf")) {
+                        NetInfo *net2 = ci->ports.at(ctx->id("I")).net;
+                        if (net2 != nullptr) {
+                            ctx->nets.erase(net2->name);
+                        }
+                    }
                 } else {
                     // Create a TRELLIS_IO buffer
                     std::unique_ptr<CellInfo> tr_cell =
@@ -276,21 +333,23 @@ class Ecp5Packer
                 }
 
                 packed_cells.insert(ci->name);
-                for (const auto &attr : ci->attrs)
-                    trio->attrs[attr.first] = attr.second;
+                if (trio != nullptr) {
+                    for (const auto &attr : ci->attrs)
+                        trio->attrs[attr.first] = attr.second;
 
-                auto loc_attr = trio->attrs.find(ctx->id("LOC"));
-                if (loc_attr != trio->attrs.end()) {
-                    std::string pin = loc_attr->second;
-                    BelId pinBel = ctx->getPackagePinBel(pin);
-                    if (pinBel == BelId()) {
-                        log_error("IO pin '%s' constrained to pin '%s', which does not exist for package '%s'.\n",
-                                  trio->name.c_str(ctx), pin.c_str(), ctx->args.package.c_str());
-                    } else {
-                        log_info("pin '%s' constrained to Bel '%s'.\n", trio->name.c_str(ctx),
-                                 ctx->getBelName(pinBel).c_str(ctx));
+                    auto loc_attr = trio->attrs.find(ctx->id("LOC"));
+                    if (loc_attr != trio->attrs.end()) {
+                        std::string pin = loc_attr->second;
+                        BelId pinBel = ctx->getPackagePinBel(pin);
+                        if (pinBel == BelId()) {
+                            log_error("IO pin '%s' constrained to pin '%s', which does not exist for package '%s'.\n",
+                                      trio->name.c_str(ctx), pin.c_str(), ctx->args.package.c_str());
+                        } else {
+                            log_info("pin '%s' constrained to Bel '%s'.\n", trio->name.c_str(ctx),
+                                     ctx->getBelName(pinBel).c_str(ctx));
+                        }
+                        trio->attrs[ctx->id("BEL")] = ctx->getBelName(pinBel).str(ctx);
                     }
-                    trio->attrs[ctx->id("BEL")] = ctx->getBelName(pinBel).str(ctx);
                 }
             }
         }
@@ -1033,12 +1092,93 @@ class Ecp5Packer
         }
     }
 
+    // "Pack" DCUs
+    void pack_dcus()
+    {
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (ci->type == id_DCUA) {
+                if (ci->attrs.count(ctx->id("LOC"))) {
+                    std::string loc = ci->attrs.at(ctx->id("LOC"));
+                    if (loc == "DCU0" &&
+                        (ctx->args.type == ArchArgs::LFE5UM_25F || ctx->args.type == ArchArgs::LFE5UM5G_25F))
+                        ci->attrs[ctx->id("BEL")] = "X42/Y50/DCU";
+                    else if (loc == "DCU0" &&
+                             (ctx->args.type == ArchArgs::LFE5UM_45F || ctx->args.type == ArchArgs::LFE5UM5G_45F))
+                        ci->attrs[ctx->id("BEL")] = "X42/Y71/DCU";
+                    else if (loc == "DCU1" &&
+                             (ctx->args.type == ArchArgs::LFE5UM_45F || ctx->args.type == ArchArgs::LFE5UM5G_45F))
+                        ci->attrs[ctx->id("BEL")] = "X69/Y71/DCU";
+                    else if (loc == "DCU0" &&
+                             (ctx->args.type == ArchArgs::LFE5UM_85F || ctx->args.type == ArchArgs::LFE5UM5G_85F))
+                        ci->attrs[ctx->id("BEL")] = "X46/Y95/DCU";
+                    else if (loc == "DCU1" &&
+                             (ctx->args.type == ArchArgs::LFE5UM_85F || ctx->args.type == ArchArgs::LFE5UM5G_85F))
+                        ci->attrs[ctx->id("BEL")] = "X71/Y95/DCU";
+                    else
+                        log_error("no DCU location '%s' in device '%s'\n", loc.c_str(), ctx->getChipName().c_str());
+                }
+                if (!ci->attrs.count(ctx->id("BEL")))
+                    log_error("DCU must be constrained to a Bel!\n");
+                // Empty port auto-creation to generate correct tie-downs
+                BelId exemplar_bel;
+                for (auto bel : ctx->getBels()) {
+                    if (ctx->getBelType(bel) == id_DCUA) {
+                        exemplar_bel = bel;
+                        break;
+                    }
+                }
+                NPNR_ASSERT(exemplar_bel != BelId());
+                for (auto pin : ctx->getBelPins(exemplar_bel))
+                    if (ctx->getBelPinType(exemplar_bel, pin) == PORT_IN)
+                        autocreate_empty_port(ci, pin);
+            }
+        }
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (ci->type == id_EXTREFB) {
+                const NetInfo *refo = net_or_nullptr(ci, id_REFCLKO);
+                CellInfo *dcu = nullptr;
+                if (refo == nullptr)
+                    log_error("EXTREFB REFCLKO must not be unconnected\n");
+                for (auto user : refo->users) {
+                    if (user.cell->type != id_DCUA)
+                        continue;
+                    if (dcu != nullptr && dcu != user.cell)
+                        log_error("EXTREFB REFCLKO must only drive a single DCUA\n");
+                    dcu = user.cell;
+                }
+                if (!dcu->attrs.count(ctx->id("BEL")))
+                    log_error("DCU must be constrained to a Bel!\n");
+                std::string bel = dcu->attrs.at(ctx->id("BEL"));
+                NPNR_ASSERT(bel.substr(bel.length() - 3) == "DCU");
+                bel.replace(bel.length() - 3, 3, "EXTREF");
+                ci->attrs[ctx->id("BEL")] = bel;
+            } else if (ci->type == id_PCSCLKDIV) {
+                const NetInfo *clki = net_or_nullptr(ci, id_CLKI);
+                if (clki != nullptr && clki->driver.cell != nullptr && clki->driver.cell->type == id_DCUA) {
+                    CellInfo *dcu = clki->driver.cell;
+                    if (!dcu->attrs.count(ctx->id("BEL")))
+                        log_error("DCU must be constrained to a Bel!\n");
+                    BelId bel = ctx->getBelByName(ctx->id(dcu->attrs.at(ctx->id("BEL"))));
+                    if (bel == BelId())
+                        log_error("Invalid DCU bel '%s'\n", dcu->attrs.at(ctx->id("BEL")).c_str());
+                    Loc loc = ctx->getBelLocation(bel);
+                    // DCU0 -> CLKDIV z=0; DCU1 -> CLKDIV z=1
+                    ci->constr_abs_z = true;
+                    ci->constr_z = (loc.x >= 69) ? 1 : 0;
+                }
+            }
+        }
+    }
+
   public:
     void pack()
     {
         pack_io();
         pack_ebr();
         pack_dsps();
+        pack_dcus();
         pack_constants();
         pack_dram();
         pack_carries();
