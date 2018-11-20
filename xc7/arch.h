@@ -898,7 +898,7 @@ struct Arch : BaseCtx
     DelayInfo getDelayFromNS(float ns) const
     {
         DelayInfo del;
-        del.delay = ns;
+        del.delay = delay_t(ns * 1000);
         return del;
     }
 
