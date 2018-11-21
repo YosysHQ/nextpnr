@@ -812,7 +812,8 @@ bool router1(Context *ctx, const Router1Cfg &cfg)
 #endif
 
         log_info("Checksum: 0x%08x\n", ctx->checksum());
-        timing_analysis(ctx, true /* slack_histogram */, true /* print_fmax */, true /* print_path */);
+        timing_analysis(ctx, true /* slack_histogram */, true /* print_fmax */, true /* print_path */,
+                        true /* warn_on_failure */);
 
         ctx->unlock();
         return true;
