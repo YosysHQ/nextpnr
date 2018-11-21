@@ -66,6 +66,7 @@ class CommandHandler
     int argc;
     char **argv;
     ProjectHandler project;
+    std::ofstream logfile;
 };
 
 NEXTPNR_NAMESPACE_END

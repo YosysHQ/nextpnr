@@ -40,7 +40,7 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-CommandHandler::CommandHandler(int argc, char **argv) : argc(argc), argv(argv) { log_files.push_back(stdout); }
+CommandHandler::CommandHandler(int argc, char **argv) : argc(argc), argv(argv) { log_streams.clear(); }
 
 bool CommandHandler::parseOptions()
 {
@@ -64,14 +64,14 @@ bool CommandHandler::parseOptions()
 bool CommandHandler::executeBeforeContext()
 {
     if (vm.count("help") || argc == 1) {
-        std::cout << boost::filesystem::basename(argv[0])
+        std::cerr << boost::filesystem::basename(argv[0])
                   << " -- Next Generation Place and Route (git sha1 " GIT_COMMIT_HASH_STR ")\n";
-        std::cout << options << "\n";
+        std::cerr << options << "\n";
         return argc != 1;
     }
 
     if (vm.count("version")) {
-        std::cout << boost::filesystem::basename(argv[0])
+        std::cerr << boost::filesystem::basename(argv[0])
                   << " -- Next Generation Place and Route (git sha1 " GIT_COMMIT_HASH_STR ")\n";
         return true;
     }
@@ -84,7 +84,9 @@ po::options_description CommandHandler::getGeneralOptions()
     po::options_description general("General options");
     general.add_options()("help,h", "show help");
     general.add_options()("verbose,v", "verbose output");
-    general.add_options()("quiet,q", "quiet mode, only errors displayed");
+    general.add_options()("quiet,q", "quiet mode, only errors and warnings displayed");
+    general.add_options()("log,l", po::value<std::string>(),
+                          "log file, all log messages are written to this file regardless of -q");
     general.add_options()("debug", "debug output");
     general.add_options()("force,f", "keep running after errors");
 #ifndef NO_GUI
@@ -128,7 +130,17 @@ void CommandHandler::setupContext(Context *ctx)
     }
 
     if (vm.count("quiet")) {
-        log_quiet_warnings = true;
+        log_streams.push_back(std::make_pair(&std::cerr, LogLevel::WARNING));
+    } else {
+        log_streams.push_back(std::make_pair(&std::cerr, LogLevel::LOG));
+    }
+
+    if (vm.count("log")) {
+        std::string logfilename = vm["log"].as<std::string>();
+        logfile = std::ofstream(logfilename);
+        if (!logfile)
+            log_error("Failed to open log file '%s' for writing.\n", logfilename.c_str());
+        log_streams.push_back(std::make_pair(&logfile, LogLevel::LOG));
     }
 
     if (vm.count("force")) {
@@ -144,7 +156,7 @@ void CommandHandler::setupContext(Context *ctx)
         int r;
         do {
             r = rand();
-        } while(r == 0);
+        } while (r == 0);
         ctx->rngseed(r);
     }
 
