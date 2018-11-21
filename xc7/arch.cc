@@ -264,14 +264,17 @@ std::vector<Arc> TorcInfo::construct_pip_to_arc(const std::vector<Tilewire> &wir
                                                   !clb /* inUseRoutethrough */);
 
         auto index = pip_to_arc.size();
-        pip_to_arc.insert(pip_to_arc.end(), arcs.begin(), arcs.end());
 
         const boost::regex bufg_i("(CMT|CLK)_BUFG_BUFGCTRL\\d+_I0");
         const boost::regex bufg_o("(CMT|CLK)_BUFG_BUFGCTRL\\d+_O");
+        const boost::regex int_clk("CLK(_L)?[01]");
+        const boost::regex gclk("GCLK_(L_)?B\\d+(_EAST|_WEST)?");
 
         auto &pips = wire_to_pips_downhill[i];
         pips.reserve(arcs.size());
         const bool clk_tile = boost::starts_with(tileTypeName, "CMT") || boost::starts_with(tileTypeName, "CLK");
+        const bool int_tile = boost::starts_with(tileTypeName, "INT");
+
         for (const auto &a : arcs) {
             // Disable BUFG I0 -> O routethrough
             if (clk_tile) {
@@ -282,7 +285,17 @@ std::vector<Arc> TorcInfo::construct_pip_to_arc(const std::vector<Tilewire> &wir
                         continue;
                 }
             }
+            // Disable CLK inputs from being driven from the fabric (must be from global clock network)
+            else if (int_tile) {
+                ewi.set(a.getSinkTilewire());
+                if (boost::regex_match(ewi.mWireName, int_clk)) {
+                    ewi.set(a.getSourceTilewire());
+                    if (!boost::regex_match(ewi.mWireName, gclk))
+                        continue;
+                }
+            }
             pips.push_back(index);
+            pip_to_arc.emplace_back(a);
             arc_to_pip.emplace(a, index);
             ++index;
         }
@@ -333,6 +346,12 @@ Arch::Arch(ArchArgs args) : args(args)
         torc_info = std::unique_ptr<TorcInfo>(new TorcInfo(this, "xc7z020", args.package));
     } else {
         log_error("Unsupported XC7 chip type.\n");
+    }
+
+    /*if (getCtx()->verbose)*/ {
+        log_info("Number of bels:  %d\n", torc_info->num_bels);
+        log_info("Number of wires: %d\n", torc_info->num_wires);
+        log_info("Number of pips:  %d\n", torc_info->num_pips);
     }
 
     //    package_info = nullptr;
