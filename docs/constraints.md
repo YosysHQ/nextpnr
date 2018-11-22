@@ -2,7 +2,7 @@
 
 There are three types of constraints available for end users of nextpnr.
 
-## Architecture-specific IO Cconstraints
+## Architecture-specific IO Constraints
 
 Architectures may provide support for their native (or any other) IO constraint format.
 The iCE40 architecture supports PCF constraints thus:
