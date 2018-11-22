@@ -96,7 +96,7 @@ Arch::Arch(ArchArgs args) : args(args)
             break;
         }
     }
-
+    speed_grade = &(chip_info->speed_grades[args.speed]);
     if (!package_info)
         log_error("Unsupported package '%s' for '%s'.\n", args.package.c_str(), getChipName().c_str());
 
@@ -400,7 +400,7 @@ BelId Arch::getBelByLocation(Loc loc) const
 
 delay_t Arch::estimateDelay(WireId src, WireId dst) const
 {
-    return 170 * (abs(src.location.x - dst.location.x) + abs(src.location.y - dst.location.y));
+    return (240 - 20 * args.speed) * (abs(src.location.x - dst.location.x) + abs(src.location.y - dst.location.y));
 }
 
 delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
@@ -409,7 +409,7 @@ delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
     auto driver_loc = getBelLocation(driver.cell->bel);
     auto sink_loc = getBelLocation(sink.cell->bel);
 
-    return 170 * (abs(driver_loc.x - sink_loc.x) + abs(driver_loc.y - sink_loc.y));
+    return (240 - 20 * args.speed) * (abs(driver_loc.x - sink_loc.x) + abs(driver_loc.y - sink_loc.y));
 }
 
 bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const { return false; }
@@ -422,7 +422,34 @@ bool Arch::route()
 {
     route_ecp5_globals(getCtx());
     assign_budget(getCtx(), true);
-    return router1(getCtx(), Router1Cfg(getCtx()));
+
+    bool result = router1(getCtx(), Router1Cfg(getCtx()));
+#if 0
+    std::vector<std::pair<WireId, int>> fanout_vector;
+    std::copy(wire_fanout.begin(), wire_fanout.end(), std::back_inserter(fanout_vector));
+    std::sort(fanout_vector.begin(), fanout_vector.end(), [](const std::pair<WireId, int> &a, const std::pair<WireId, int> &b) {
+        return a.second > b.second;
+    });
+    for (size_t i = 0; i < std::min(size_t(20), fanout_vector.size()); i++)
+        log_info("    fanout %s = %d\n", getWireName(fanout_vector[i].first).c_str(this), fanout_vector[i].second);
+    log_break();
+    PipId slowest_pip;
+    delay_t slowest_pipdelay = 0;
+    for (auto pip : pip_to_net) {
+        if (pip.second) {
+            delay_t dly = getPipDelay(pip.first).maxDelay();
+            if (dly > slowest_pipdelay) {
+                slowest_pip = pip.first;
+                slowest_pipdelay = dly;
+            }
+        }
+    }
+    log_info("    slowest pip %s = %.02f ns\n", getPipName(slowest_pip).c_str(this), getDelayNS(slowest_pipdelay));
+    log_info("       fanout %d\n", wire_fanout[getPipSrcWire(slowest_pip)]);
+    log_info("       base %d adder %d\n", speed_grade->pip_classes[locInfo(slowest_pip)->pip_data[slowest_pip.index].timing_class].max_base_delay,
+             speed_grade->pip_classes[locInfo(slowest_pip)->pip_data[slowest_pip.index].timing_class].max_fanout_adder);
+#endif
+    return result;
 }
 
 // -----------------------------------------------------------------------
@@ -482,94 +509,74 @@ DecalXY Arch::getGroupDecal(GroupId pip) const { return {}; };
 
 // -----------------------------------------------------------------------
 
+bool Arch::getDelayFromTimingDatabase(IdString tctype, IdString from, IdString to, DelayInfo &delay) const
+{
+    for (int i = 0; i < speed_grade->num_cell_timings; i++) {
+        const auto &tc = speed_grade->cell_timings[i];
+        if (tc.cell_type == tctype.index) {
+            for (int j = 0; j < tc.num_prop_delays; j++) {
+                const auto &dly = tc.prop_delays[j];
+                if (dly.from_port == from.index && dly.to_port == to.index) {
+                    delay.max_delay = dly.max_delay;
+                    delay.min_delay = dly.min_delay;
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
+    NPNR_ASSERT_FALSE("failed to find timing cell in db");
+}
+
+void Arch::getSetupHoldFromTimingDatabase(IdString tctype, IdString clock, IdString port, DelayInfo &setup,
+                                          DelayInfo &hold) const
+{
+    for (int i = 0; i < speed_grade->num_cell_timings; i++) {
+        const auto &tc = speed_grade->cell_timings[i];
+        if (tc.cell_type == tctype.index) {
+            for (int j = 0; j < tc.num_setup_holds; j++) {
+                const auto &sh = tc.setup_holds[j];
+                if (sh.clock_port == clock.index && sh.sig_port == port.index) {
+                    setup.max_delay = sh.max_setup;
+                    setup.min_delay = sh.min_setup;
+                    hold.max_delay = sh.max_hold;
+                    hold.min_delay = sh.min_hold;
+                    return;
+                }
+            }
+        }
+    }
+    NPNR_ASSERT_FALSE("failed to find timing cell in db");
+}
+
 bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const
 {
+
     // Data for -8 grade
     if (cell->type == id_TRELLIS_SLICE) {
         bool has_carry = str_or_default(cell->params, id("MODE"), "LOGIC") == "CCU2";
-        if (fromPort == id_A0 || fromPort == id_B0 || fromPort == id_C0 || fromPort == id_D0) {
-            if (toPort == id_F0) {
-                delay.delay = 180;
-                return true;
-            } else if (has_carry && toPort == id_F1) {
-                delay.delay = 500;
-                return true;
-            } else if (has_carry && toPort == id_FCO) {
-                delay.delay = 355;
-                return true;
-            } else if (toPort == id_OFX0) {
-                delay.delay = 306;
-                return true;
-            }
+        if (fromPort == id_A0 || fromPort == id_B0 || fromPort == id_C0 || fromPort == id_D0 || fromPort == id_A1 ||
+            fromPort == id_B1 || fromPort == id_C1 || fromPort == id_D1 || fromPort == id_M0 || fromPort == id_FCI) {
+            return getDelayFromTimingDatabase(has_carry ? id_SCCU2C : id_SLOGICB, fromPort, toPort, delay);
         }
 
-        if (fromPort == id_A1 || fromPort == id_B1 || fromPort == id_C1 || fromPort == id_D1) {
-            if (toPort == id_F1) {
-                delay.delay = 180;
-                return true;
-            } else if (has_carry && toPort == id_FCO) {
-                delay.delay = 355;
-                return true;
-            } else if (toPort == id_OFX0) {
-                delay.delay = 306;
-                return true;
-            }
-        }
-
-        if (has_carry && fromPort == id_FCI) {
-            if (toPort == id_F0) {
-                delay.delay = 328;
-                return true;
-            } else if (toPort == id_F1) {
-                delay.delay = 349;
-                return true;
-            } else if (toPort == id_FCO) {
-                delay.delay = 56;
-                return true;
-            }
-        }
-
-        if (fromPort == id_CLK && (toPort == id_Q0 || toPort == id_Q1)) {
-            delay.delay = 395;
-            return true;
-        }
-
-        if (fromPort == id_M0 && toPort == id_OFX0) {
-            delay.delay = 193;
-            return true;
-        }
-#if 0 // FIXME
-            if (fromPort == id_WCK && (toPort == id_F0 || toPort == id_F1)) {
-                delay.delay = 717;
-                return true;
-            }
-#endif
         if ((fromPort == id_A0 && toPort == id_WADO3) || (fromPort == id_A1 && toPort == id_WDO1) ||
             (fromPort == id_B0 && toPort == id_WADO1) || (fromPort == id_B1 && toPort == id_WDO3) ||
             (fromPort == id_C0 && toPort == id_WADO2) || (fromPort == id_C1 && toPort == id_WDO0) ||
             (fromPort == id_D0 && toPort == id_WADO0) || (fromPort == id_D1 && toPort == id_WDO2)) {
-            delay.delay = 0;
+            delay.min_delay = 0;
+            delay.max_delay = 0;
             return true;
         }
         return false;
     } else if (cell->type == id_DCCA) {
         if (fromPort == id_CLKI && toPort == id_CLKO) {
-            delay.delay = 0;
+            delay.min_delay = 0;
+            delay.max_delay = 0;
             return true;
         }
         return false;
     } else if (cell->type == id_DP16KD) {
-        if (fromPort == id_CLKA) {
-            if (toPort.str(this).substr(0, 3) == "DOA") {
-                delay.delay = 4260;
-                return true;
-            }
-        } else if (fromPort == id_CLKB) {
-            if (toPort.str(this).substr(0, 3) == "DOB") {
-                delay.delay = 4280;
-                return true;
-            }
-        }
         return false;
     } else {
         return false;
@@ -669,9 +676,9 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
 TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port, int index) const
 {
     TimingClockingInfo info;
-    info.setup.delay = 0;
-    info.hold.delay = 0;
-    info.clockToQ.delay = 0;
+    info.setup = getDelayFromNS(0);
+    info.hold = getDelayFromNS(0);
+    info.clockToQ = getDelayFromNS(0);
     if (cell->type == id_TRELLIS_SLICE) {
         int sd0 = int_or_default(cell->params, id("REG0_SD"), 0), sd1 = int_or_default(cell->params, id("REG1_SD"), 0);
 
@@ -679,18 +686,18 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
             port == id_WAD3 || port == id_WRE) {
             info.edge = RISING_EDGE;
             info.clock_port = id_WCK;
-            info.setup.delay = 100;
-            info.hold.delay = 0;
+            getSetupHoldFromTimingDatabase(id_SDPRAME, id_WCK, port, info.setup, info.hold);
         } else if (port == id_DI0 || port == id_DI1 || port == id_CE || port == id_LSR || (sd0 == 1 && port == id_M0) ||
                    (sd1 == 1 && port == id_M1)) {
             info.edge = cell->sliceInfo.clkmux == id("INV") ? FALLING_EDGE : RISING_EDGE;
             info.clock_port = id_CLK;
-            info.setup.delay = 100;
-            info.hold.delay = 0;
+            getSetupHoldFromTimingDatabase(id_SLOGICB, id_CLK, port, info.setup, info.hold);
+
         } else {
             info.edge = cell->sliceInfo.clkmux == id("INV") ? FALLING_EDGE : RISING_EDGE;
             info.clock_port = id_CLK;
-            info.clockToQ.delay = 395;
+            bool is_path = getDelayFromTimingDatabase(id_SLOGICB, id_CLK, port, info.clockToQ);
+            NPNR_ASSERT(is_path);
         }
     } else if (cell->type == id_DP16KD) {
         std::string port_name = port.str(this);
@@ -711,10 +718,12 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
                             ? FALLING_EDGE
                             : RISING_EDGE;
         if (cell->ports.at(port).type == PORT_OUT) {
-            info.clockToQ.delay = 4280;
+            bool is_path = getDelayFromTimingDatabase(id_DP16KD_REGMODE_A_NOREG_REGMODE_B_NOREG, info.clock_port, port,
+                                                      info.clockToQ);
+            NPNR_ASSERT(is_path);
         } else {
-            info.setup.delay = 100;
-            info.hold.delay = 0;
+            getSetupHoldFromTimingDatabase(id_DP16KD_REGMODE_A_NOREG_REGMODE_B_NOREG, info.clock_port, port, info.setup,
+                                           info.hold);
         }
     } else if (cell->type == id_DCUA) {
         std::string prefix = port.str(this).substr(0, 9);
@@ -728,10 +737,10 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
         else if (prefix == "CH1_FF_RX")
             info.clock_port = id_CH1_FF_RXI_CLK;
         if (cell->ports.at(port).type == PORT_OUT) {
-            info.clockToQ.delay = 660;
+            info.clockToQ = getDelayFromNS(0.7);
         } else {
-            info.setup.delay = 1000;
-            info.hold.delay = 0;
+            info.setup = getDelayFromNS(1);
+            info.hold = getDelayFromNS(0);
         }
     }
     return info;

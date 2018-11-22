@@ -3,6 +3,8 @@ import pytrellis
 import database
 import argparse
 import json
+import pip_classes
+import timing_dbs
 from os import path
 
 location_types = dict()
@@ -135,34 +137,81 @@ def process_loc_globals(chip):
                 spine = (-1, -1)
             global_data[x, y] = (quadrants.index(quad), int(tapdrv.dir), tapdrv.col, spine)
 
-def get_wire_type(name):
-    if "H00" in name or "V00" in name:
-        return "X0"
-    if "H01" in name or "V01" in name:
-        return "X1"
-    if "H02" in name or "V02" in name:
-        return "X2"
-    if "H06" in name or "V06" in name:
-        return "X6"
-    if "_SLICE" in name or "_EBR" in name:
-        return "SLICE"
-    return "LOCAL"
 
-def get_pip_delay(wire_from, wire_to):
-    # ECP5 timings WIP!!!
-    type_from = get_wire_type(wire_from)
-    type_to = get_wire_type(wire_to)
-    if type_from == "X2" and type_to == "X2":
-        return 170
-    if type_from == "SLICE" or type_to == "SLICE":
-        return 205
-    if type_from in ("LOCAL", "X0") and type_to in ("X1", "X2", "X6"):
-        return 90
-    if type_from == "X6" or type_to == "X6":
-        return 200
-    if type_from in ("X1", "X2", "X6") and type_to in ("LOCAL", "X0"):
-        return 90
-    return 100
+speed_grade_names = ["6", "7", "8", "8_5G"]
+speed_grade_cells = {}
+speed_grade_pips = {}
+
+pip_class_to_idx = {"default": 0}
+
+timing_port_xform = {
+    "RAD0": "D0",
+    "RAD1": "B0",
+    "RAD2": "C0",
+    "RAD3": "A0",
+}
+
+
+def process_timing_data():
+    for grade in speed_grade_names:
+        with open(timing_dbs.cells_db_path("ECP5", grade)) as f:
+            cell_data = json.load(f)
+        cells = []
+        for cell, cdata in sorted(cell_data.items()):
+            celltype = constids[cell.replace(":", "_").replace("=", "_").replace(",", "_")]
+            delays = []
+            setupholds = []
+            for entry in cdata:
+                if entry["type"] == "Width":
+                    continue
+                elif entry["type"] == "IOPath":
+                    from_pin = entry["from_pin"][1] if type(entry["from_pin"]) is list else entry["from_pin"]
+                    if from_pin in timing_port_xform:
+                        from_pin = timing_port_xform[from_pin]
+                    to_pin = entry["to_pin"]
+                    if to_pin in timing_port_xform:
+                        to_pin = timing_port_xform[to_pin]
+                    min_delay = min(entry["rising"][0], entry["falling"][0])
+                    max_delay = min(entry["rising"][2], entry["falling"][2])
+                    delays.append((constids[from_pin], constids[to_pin], min_delay, max_delay))
+                elif entry["type"] == "SetupHold":
+                    pin = constids[entry["pin"]]
+                    clock = constids[entry["clock"][1]]
+                    min_setup = entry["setup"][0]
+                    max_setup = entry["setup"][2]
+                    min_hold = entry["hold"][0]
+                    max_hold = entry["hold"][2]
+                    setupholds.append((pin, clock, min_setup, max_setup, min_hold, max_hold))
+                else:
+                    assert False, entry["type"]
+            cells.append((celltype, delays, setupholds))
+        pip_class_delays = []
+        for i in range(len(pip_class_to_idx)):
+            pip_class_delays.append((50, 50, 0, 0))
+
+        with open(timing_dbs.interconnect_db_path("ECP5", grade)) as f:
+            interconn_data = json.load(f)
+        for pipclass, pipdata in sorted(interconn_data.items()):
+
+            min_delay = pipdata["delay"][0] * 1.1
+            max_delay = pipdata["delay"][2] * 1.1
+            min_fanout = pipdata["fanout"][0]
+            max_fanout = pipdata["fanout"][2]
+            if grade == "6":
+                pip_class_to_idx[pipclass] = len(pip_class_delays)
+                pip_class_delays.append((min_delay, max_delay, min_fanout, max_fanout))
+            else:
+                if pipclass in pip_class_to_idx:
+                    pip_class_delays[pip_class_to_idx[pipclass]] = (min_delay, max_delay, min_fanout, max_fanout)
+        speed_grade_cells[grade] = cells
+        speed_grade_pips[grade] = pip_class_delays
+
+
+def get_pip_class(wire_from, wire_to):
+    class_name = pip_classes.get_pip_class(wire_from, wire_to)
+    if class_name is None or class_name not in pip_class_to_idx:
+        class_name = "default"
+    return pip_class_to_idx[class_name]
 
 
 
@@ -181,7 +230,7 @@ def write_database(dev_name, chip, ddrg, endianness):
         loc = loc_with_type[arc_loctype]
         lt = ddrg.typeAtLocation[pytrellis.Location(loc[0] + rel.x, loc[1] + rel.y)]
         wire = ddrg.locationTypes[lt].wires[idx]
-        return ddrg.to_str(wire.name)
+        return "R{}C{}_{}".format(loc[1] + rel.y, loc[0] + rel.x, ddrg.to_str(wire.name))
 
     bba = BinaryBlobAssembler()
     bba.pre('#include "nextpnr.h"')
@@ -202,7 +251,7 @@ def write_database(dev_name, chip, ddrg, endianness):
                 bba.u32(arc.sinkWire.id, "dst_idx")
                 src_name = get_wire_name(idx, arc.srcWire.rel, arc.srcWire.id)
                 snk_name = get_wire_name(idx, arc.sinkWire.rel, arc.sinkWire.id)
-                bba.u32(get_pip_delay(src_name, snk_name), "delay")  # TODO:delay
+                bba.u32(get_pip_class(src_name, snk_name), "timing_class")
                 bba.u16(get_tiletype_index(ddrg.to_str(arc.tiletype)), "tile_type")
                 cls = arc.cls
                 if cls == 1 and "PCS" in snk_name or "DCU" in snk_name or "DCU" in src_name:
@@ -321,10 +370,52 @@ def write_database(dev_name, chip, ddrg, endianness):
         bba.u16(bank, "bank")
         bba.u16(0, "padding")
 
-
     bba.l("tiletype_names", "RelPtr<char>")
     for tt, idx in sorted(tiletype_names.items(), key=lambda x: x[1]):
         bba.s(tt, "name")
+
+    for grade in speed_grade_names:
+        for cell in speed_grade_cells[grade]:
+            celltype, delays, setupholds = cell
+            if len(delays) > 0:
+                bba.l("cell_%d_delays_%s" % (celltype, grade))
+                for delay in delays:
+                    from_pin, to_pin, min_delay, max_delay = delay
+                    bba.u32(from_pin, "from_pin")
+                    bba.u32(to_pin, "to_pin")
+                    bba.u32(min_delay, "min_delay")
+                    bba.u32(max_delay, "max_delay")
+            if len(setupholds) > 0:
+                bba.l("cell_%d_setupholds_%s" % (celltype, grade))
+                for sh in setupholds:
+                    pin, clock, min_setup, max_setup, min_hold, max_hold = sh
+                    bba.u32(pin, "sig_port")
+                    bba.u32(clock, "clock_port")
+                    bba.u32(min_setup, "min_setup")
+                    bba.u32(max_setup, "max_setup")
+                    bba.u32(min_hold, "min_hold")
+                    bba.u32(max_hold, "max_hold")
+        bba.l("cell_timing_data_%s" % grade)
+        for cell in speed_grade_cells[grade]:
+            celltype, delays, setupholds = cell
+            bba.u32(celltype, "cell_type")
+            bba.u32(len(delays), "num_delays")
+            bba.u32(len(setupholds), "num_setup_hold")
+            bba.r("cell_%d_delays_%s" % (celltype, grade) if len(delays) > 0 else None, "delays")
+            bba.r("cell_%d_setupholds_%s" % (celltype, grade) if len(delays) > 0 else None, "setupholds")
+        bba.l("pip_timing_data_%s" % grade)
+        for pipclass in speed_grade_pips[grade]:
+            min_delay, max_delay, min_fanout, max_fanout = pipclass
+            bba.u32(min_delay, "min_delay")
+            bba.u32(max_delay, "max_delay")
+            bba.u32(min_fanout, "min_fanout")
+            bba.u32(max_fanout, "max_fanout")
+    bba.l("speed_grade_data")
+    for grade in speed_grade_names:
+        bba.u32(len(speed_grade_cells[grade]), "num_cell_timings")
+        bba.u32(len(speed_grade_pips[grade]), "num_pip_classes")
+        bba.r("cell_timing_data_%s" % grade, "cell_timings")
+        bba.r("pip_timing_data_%s" % grade, "pip_classes")
 
     bba.l("chip_info")
     bba.u32(max_col + 1, "width")
@@ -341,6 +432,7 @@ def write_database(dev_name, chip, ddrg, endianness):
     bba.r("package_data", "package_info")
     bba.r("pio_info", "pio_info")
     bba.r("tiles_info", "tile_info")
+    bba.r("speed_grade_data", "speed_grades")
 
     bba.pop()
     return bba
@@ -375,6 +467,7 @@ def main():
     ddrg = pytrellis.make_dedup_chipdb(chip)
     max_row = chip.get_max_row()
     max_col = chip.get_max_col()
+    process_timing_data()
     process_pio_db(ddrg, args.device)
     process_loc_globals(chip)
     # print("{} unique location types".format(len(ddrg.locationTypes)))
