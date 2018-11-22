@@ -154,12 +154,19 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
     readwrite_wrapper<PortRef &, decltype(&PortRef::budget), &PortRef::budget, pass_through<delay_t>,
                       pass_through<delay_t>>::def_wrap(pr_cls, "budget");
 
+    auto pm_cls = class_<ContextualWrapper<PipMap &>>("PipMap", no_init);
+    readwrite_wrapper<PipMap &, decltype(&PipMap::pip), &PipMap::pip, conv_to_str<PipId>,
+                      conv_from_str<PipId>>::def_wrap(pm_cls, "pip");
+    readwrite_wrapper<PipMap &, decltype(&PipMap::strength), &PipMap::strength, pass_through<PlaceStrength>,
+                      pass_through<PlaceStrength>>::def_wrap(pm_cls, "strength");
+
     def("parse_json", parse_json_shim);
     def("load_design", load_design_shim, return_value_policy<manage_new_object>());
 
     WRAP_MAP(AttrMap, pass_through<std::string>, "AttrMap");
     WRAP_MAP(PortMap, wrap_context<PortInfo &>, "PortMap");
     WRAP_MAP(PinMap, conv_to_str<IdString>, "PinMap");
+    WRAP_MAP(WireMap, wrap_context<PipMap &>, "WireMap");
 
     WRAP_VECTOR(PortRefVector, wrap_context<PortRef &>);
 
