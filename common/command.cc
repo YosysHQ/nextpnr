@@ -144,7 +144,7 @@ void CommandHandler::setupContext(Context *ctx)
         int r;
         do {
             r = rand();
-        } while(r == 0);
+        } while (r == 0);
         ctx->rngseed(r);
     }
 

@@ -68,6 +68,19 @@ void translate_assertfail(const assertion_failure &e)
     PyErr_SetString(PyExc_AssertionError, e.what());
 }
 
+namespace PythonConversion {
+template <> struct string_converter<PortRef &>
+{
+    inline PortRef from_str(Context *ctx, std::string name) { NPNR_ASSERT_FALSE("PortRef from_str not implemented"); }
+
+    inline std::string to_str(Context *ctx, const PortRef &pr)
+    {
+        return pr.cell->name.str(ctx) + "." + pr.port.str(ctx);
+    }
+};
+
+} // namespace PythonConversion
+
 BOOST_PYTHON_MODULE(MODULE_NAME)
 {
     register_exception_translator<assertion_failure>(&translate_assertfail);
@@ -120,7 +133,7 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
     readwrite_wrapper<PortInfo &, decltype(&PortInfo::type), &PortInfo::type, pass_through<PortType>,
                       pass_through<PortType>>::def_wrap(pi_cls, "type");
 
-    typedef std::vector<PortRef> PortVector;
+    typedef std::vector<PortRef> PortRefVector;
     typedef std::unordered_map<WireId, PipMap> WireMap;
 
     auto ni_cls = class_<ContextualWrapper<NetInfo &>>("NetInfo", no_init);
@@ -128,7 +141,7 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
                       conv_from_str<IdString>>::def_wrap(ni_cls, "name");
     readwrite_wrapper<NetInfo &, decltype(&NetInfo::driver), &NetInfo::driver, wrap_context<PortRef &>,
                       unwrap_context<PortRef &>>::def_wrap(ni_cls, "driver");
-    readonly_wrapper<NetInfo &, decltype(&NetInfo::users), &NetInfo::users, wrap_context<PortVector &>>::def_wrap(
+    readonly_wrapper<NetInfo &, decltype(&NetInfo::users), &NetInfo::users, wrap_context<PortRefVector &>>::def_wrap(
             ni_cls, "users");
     readonly_wrapper<NetInfo &, decltype(&NetInfo::wires), &NetInfo::wires, wrap_context<WireMap &>>::def_wrap(ni_cls,
                                                                                                                "wires");
@@ -147,6 +160,8 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
     WRAP_MAP(AttrMap, pass_through<std::string>, "AttrMap");
     WRAP_MAP(PortMap, wrap_context<PortInfo &>, "PortMap");
     WRAP_MAP(PinMap, conv_to_str<IdString>, "PinMap");
+
+    WRAP_VECTOR(PortRefVector, wrap_context<PortRef &>);
 
     arch_wrap_python();
 }
