@@ -987,6 +987,8 @@ static void pack_special(Context *ctx)
                 for (auto user : pad_packagepin_net->users) {
                     user.cell->ports.erase(user.port);
                 }
+                if (pad_packagepin_net->driver.cell != nullptr)
+                    pad_packagepin_net->driver.cell->ports.erase(pad_packagepin_net->driver.port);
                 ctx->nets.erase(pad_packagepin_net->name);
                 pad_packagepin_net = nullptr;
             }
