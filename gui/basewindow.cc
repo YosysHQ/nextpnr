@@ -44,7 +44,6 @@ BaseMainWindow::BaseMainWindow(std::unique_ptr<Context> context, ArchArgs args, 
     initBasenameResource();
     qRegisterMetaType<std::string>();
 
-    log_files.clear();
     log_streams.clear();
 
     setObjectName("BaseMainWindow");

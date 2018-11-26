@@ -42,14 +42,21 @@ struct log_execution_error_exception
 {
 };
 
-extern std::vector<FILE *> log_files;
-extern std::vector<std::ostream *> log_streams;
-extern FILE *log_errfile;
+enum class LogLevel
+{
+    LOG,
+    INFO,
+    WARNING,
+    ERROR,
+    ALWAYS
+};
+
+extern std::vector<std::pair<std::ostream *, LogLevel>> log_streams;
 extern log_write_type log_write_function;
 
-extern bool log_quiet_warnings;
 extern std::string log_last_error;
 extern void (*log_error_atexit)();
+extern bool had_nonfatal_error;
 
 std::string stringf(const char *fmt, ...);
 std::string vstringf(const char *fmt, va_list ap);
@@ -59,10 +66,8 @@ void log(const char *format, ...) NPNR_ATTRIBUTE(format(printf, 1, 2));
 void log_always(const char *format, ...) NPNR_ATTRIBUTE(format(printf, 1, 2));
 void log_info(const char *format, ...) NPNR_ATTRIBUTE(format(printf, 1, 2));
 void log_warning(const char *format, ...) NPNR_ATTRIBUTE(format(printf, 1, 2));
-void log_warning_noprefix(const char *format, ...) NPNR_ATTRIBUTE(format(printf, 1, 2));
 NPNR_NORETURN void log_error(const char *format, ...) NPNR_ATTRIBUTE(format(printf, 1, 2), noreturn);
-NPNR_NORETURN void log_cmd_error(const char *format, ...) NPNR_ATTRIBUTE(format(printf, 1, 2), noreturn);
-
+void log_nonfatal_error(const char *format, ...) NPNR_ATTRIBUTE(format(printf, 1, 2));
 void log_break();
 void log_flush();
 
@@ -75,7 +80,6 @@ static inline void log_assert_worker(bool cond, const char *expr, const char *fi
     NEXTPNR_NAMESPACE_PREFIX log_assert_worker(_assert_expr_, #_assert_expr_, __FILE__, __LINE__)
 
 #define log_abort() log_error("Abort in %s:%d.\n", __FILE__, __LINE__)
-#define log_ping() log("-- %s:%d %s --\n", __FILE__, __LINE__, __PRETTY_FUNCTION__)
 
 NEXTPNR_NAMESPACE_END
 
