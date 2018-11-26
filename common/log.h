@@ -26,8 +26,8 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string>
+#include <unordered_map>
 #include <vector>
-
 #include "nextpnr.h"
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -57,6 +57,7 @@ extern log_write_type log_write_function;
 extern std::string log_last_error;
 extern void (*log_error_atexit)();
 extern bool had_nonfatal_error;
+extern std::unordered_map<LogLevel, int> message_count_by_level;
 
 std::string stringf(const char *fmt, ...);
 std::string vstringf(const char *fmt, va_list ap);
