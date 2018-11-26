@@ -56,6 +56,7 @@ extern log_write_type log_write_function;
 
 extern std::string log_last_error;
 extern void (*log_error_atexit)();
+extern bool had_nonfatal_error;
 
 std::string stringf(const char *fmt, ...);
 std::string vstringf(const char *fmt, va_list ap);
@@ -66,7 +67,7 @@ void log_always(const char *format, ...) NPNR_ATTRIBUTE(format(printf, 1, 2));
 void log_info(const char *format, ...) NPNR_ATTRIBUTE(format(printf, 1, 2));
 void log_warning(const char *format, ...) NPNR_ATTRIBUTE(format(printf, 1, 2));
 NPNR_NORETURN void log_error(const char *format, ...) NPNR_ATTRIBUTE(format(printf, 1, 2), noreturn);
-
+void log_nonfatal_error(const char *format, ...) NPNR_ATTRIBUTE(format(printf, 1, 2));
 void log_break();
 void log_flush();
 

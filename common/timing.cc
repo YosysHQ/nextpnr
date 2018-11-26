@@ -698,7 +698,7 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
                 log_info("Max frequency for clock %*s'%s': %.02f MHz (%s at %.02f MHz)\n", width, "",
                          clock_name.c_str(), clock_fmax[clock.first], passed ? "PASS" : "FAIL", target);
             else
-                log_warning("Max frequency for clock %*s'%s': %.02f MHz (%s at %.02f MHz)\n", width, "",
+                log_nonfatal_error("Max frequency for clock %*s'%s': %.02f MHz (%s at %.02f MHz)\n", width, "",
                             clock_name.c_str(), clock_fmax[clock.first], passed ? "PASS" : "FAIL", target);
         }
         for (auto &eclock : empty_clocks) {

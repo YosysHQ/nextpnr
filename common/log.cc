@@ -39,6 +39,7 @@ std::string log_last_error;
 void (*log_error_atexit)() = NULL;
 
 static int log_newline_count = 0;
+bool had_nonfatal_error = false;
 
 std::string stringf(const char *fmt, ...)
 {
@@ -175,6 +176,15 @@ void log_break()
         log("\n");
     if (log_newline_count < 2)
         log("\n");
+}
+
+void log_nonfatal_error(const char *format, ...)
+{
+    va_list ap;
+    va_start(ap, format);
+    logv_prefixed("ERROR: ", format, ap, LogLevel::ERROR);
+    va_end(ap);
+    had_nonfatal_error = true;
 }
 
 void log_flush()

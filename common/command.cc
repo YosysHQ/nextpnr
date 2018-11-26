@@ -270,7 +270,7 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
     deinit_python();
 #endif
 
-    return 0;
+    return had_nonfatal_error ? 1 : 0;
 }
 
 void CommandHandler::conflicting_options(const boost::program_options::variables_map &vm, const char *opt1,
