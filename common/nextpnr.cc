@@ -409,12 +409,16 @@ void Context::check() const
 
 void BaseCtx::addClock(IdString net, float freq)
 {
-    log_info("constraining clock net '%s' to %.02f MHz\n", net.c_str(this), freq);
     std::unique_ptr<ClockConstraint> cc(new ClockConstraint());
     cc->period = getCtx()->getDelayFromNS(1000 / freq);
     cc->high = getCtx()->getDelayFromNS(500 / freq);
     cc->low = getCtx()->getDelayFromNS(500 / freq);
-    nets.at(net)->clkconstr = std::move(cc);
+    if (!nets.count(net)) {
+        log_warning("net '%s' does not exist in design, ignoring clock constraint\n", net.c_str(this));
+    } else {
+        nets.at(net)->clkconstr = std::move(cc);
+        log_info("constraining clock net '%s' to %.02f MHz\n", net.c_str(this), freq);
+    }
 }
 
 NEXTPNR_NAMESPACE_END
