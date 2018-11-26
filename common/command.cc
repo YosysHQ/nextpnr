@@ -36,6 +36,7 @@
 #include "jsonparse.h"
 #include "log.h"
 #include "timing.h"
+#include "util.h"
 #include "version.h"
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -282,6 +283,15 @@ void CommandHandler::conflicting_options(const boost::program_options::variables
     }
 }
 
+void CommandHandler::printFooter()
+{
+    int warning_count = get_or_default(message_count_by_level, LogLevel::WARNING, 0),
+        error_count = get_or_default(message_count_by_level, LogLevel::ERROR, 0);
+    if (warning_count > 0 || error_count > 0)
+        log_always("%d warning%s, %d error%s\n", warning_count, warning_count == 1 ? "" : "s", error_count,
+                   error_count == 1 ? "" : "s");
+}
+
 int CommandHandler::exec()
 {
     try {
@@ -300,8 +310,11 @@ int CommandHandler::exec()
         settings = std::unique_ptr<Settings>(new Settings(ctx.get()));
         setupContext(ctx.get());
         setupArchContext(ctx.get());
-        return executeMain(std::move(ctx));
+        int rc = executeMain(std::move(ctx));
+        printFooter();
+        return rc;
     } catch (log_execution_error_exception) {
+        printFooter();
         return -1;
     }
 }

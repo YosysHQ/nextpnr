@@ -38,6 +38,7 @@ log_write_type log_write_function = nullptr;
 std::string log_last_error;
 void (*log_error_atexit)() = NULL;
 
+std::unordered_map<LogLevel, int> message_count_by_level;
 static int log_newline_count = 0;
 bool had_nonfatal_error = false;
 
@@ -112,6 +113,7 @@ void logv(const char *format, va_list ap, LogLevel level = LogLevel::LOG)
 
 void log_with_level(LogLevel level, const char *format, ...)
 {
+    message_count_by_level[level]++;
     va_list ap;
     va_start(ap, format);
     logv(format, ap, level);
