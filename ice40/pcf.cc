@@ -33,7 +33,9 @@ bool apply_pcf(Context *ctx, std::string filename, std::istream &in)
         if (!in)
             log_error("failed to open PCF file\n");
         std::string line;
+        int lineno = 0;
         while (std::getline(in, line)) {
+            lineno++;
             size_t cstart = line.find("#");
             if (cstart != std::string::npos)
                 line = line.substr(0, cstart);
@@ -49,21 +51,25 @@ bool apply_pcf(Context *ctx, std::string filename, std::istream &in)
                 size_t args_end = 1;
                 while (args_end < words.size() && words.at(args_end).at(0) == '-')
                     args_end++;
+                if (args_end >= words.size() - 1)
+                    log_error("expected PCF syntax 'set_io cell pin' (on line %d)\n", lineno);
                 std::string cell = words.at(args_end);
                 std::string pin = words.at(args_end + 1);
                 auto fnd_cell = ctx->cells.find(ctx->id(cell));
                 if (fnd_cell == ctx->cells.end()) {
-                    log_warning("unmatched pcf constraint %s\n", cell.c_str());
+                    log_warning("unmatched constraint '%s' (on line %d)\n", cell.c_str(), lineno);
                 } else {
                     BelId pin_bel = ctx->getPackagePinBel(pin);
                     if (pin_bel == BelId())
-                        log_error("package does not have a pin named %s\n", pin.c_str());
+                        log_error("package does not have a pin named '%s' (on line %d)\n", pin.c_str(), lineno);
+                    if (fnd_cell->second->attrs.count(ctx->id("BEL")))
+                        log_error("duplicate pin constraint on '%s' (on line %d)\n", cell.c_str(), lineno);
                     fnd_cell->second->attrs[ctx->id("BEL")] = ctx->getBelName(pin_bel).str(ctx);
                     log_info("constrained '%s' to bel '%s'\n", cell.c_str(),
                              fnd_cell->second->attrs[ctx->id("BEL")].c_str());
                 }
             } else {
-                log_error("unsupported pcf command '%s'\n", cmd.c_str());
+                log_error("unsupported PCF command '%s' (on line %d)\n", cmd.c_str(), lineno);
             }
         }
         ctx->settings.emplace(ctx->id("input/pcf"), filename);
