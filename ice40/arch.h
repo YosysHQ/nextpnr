@@ -884,6 +884,13 @@ struct Arch : BaseCtx
         }
         NPNR_ASSERT_FALSE("Expected PLL pin to share an output with an SB_IO D_IN_{0,1}");
     }
+
+    int getDrivenGlobalNetwork(BelId bel) const
+    {
+        NPNR_ASSERT(getBelType(bel) == id_SB_GB);
+        IdString glb_net = getWireName(getBelPinWire(bel, id_GLOBAL_BUFFER_OUTPUT));
+        return std::stoi(std::string("") + glb_net.str(this).back());
+    }
 };
 
 void ice40DelayFuzzerMain(Context *ctx);

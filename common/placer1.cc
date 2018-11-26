@@ -337,9 +337,10 @@ class SAPlacer
                         }
                     } else {
                         uint64_t score = ctx->rng64();
-                        if (score <= best_ripup_score) {
+                        CellInfo *bound_cell = ctx->getBoundBelCell(bel);
+                        if (score <= best_ripup_score && bound_cell->belStrength < STRENGTH_STRONG) {
                             best_ripup_score = score;
-                            ripup_target = ctx->getBoundBelCell(bel);
+                            ripup_target = bound_cell;
                             ripup_bel = bel;
                         }
                     }
