@@ -75,6 +75,8 @@ bool Arch::isBelLocationValid(BelId bel) const
                 bel_cells.push_back(cell_other);
             }
         }
+        if (getBoundBelCell(bel) != nullptr && getBoundBelCell(bel)->sliceInfo.has_l6mux && ((bel_loc.z % 2) == 1))
+            return false;
         return slicesCompatible(bel_cells);
     } else {
         CellInfo *cell = getBoundBelCell(bel);
@@ -92,6 +94,10 @@ bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const
 
         std::vector<const CellInfo *> bel_cells;
         Loc bel_loc = getBelLocation(bel);
+
+        if (cell->sliceInfo.has_l6mux && ((bel_loc.z % 2) == 1))
+            return false;
+
         for (auto bel_other : getBelsByTile(bel_loc.x, bel_loc.y)) {
             CellInfo *cell_other = getBoundBelCell(bel_other);
             if (cell_other != nullptr && bel_other != bel) {

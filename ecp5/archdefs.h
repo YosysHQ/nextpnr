@@ -158,6 +158,7 @@ struct ArchCellInfo
     struct
     {
         bool using_dff;
+        bool has_l6mux;
         IdString clk_sig, lsr_sig, clkmux, lsrmux, srmode;
     } sliceInfo;
 };
