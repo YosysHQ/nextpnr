@@ -84,4 +84,14 @@ static inline void log_assert_worker(bool cond, const char *expr, const char *fi
 
 NEXTPNR_NAMESPACE_END
 
+namespace std {
+template <> struct hash<NEXTPNR_NAMESPACE_PREFIX LogLevel>
+{
+    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX LogLevel &loglevel) const noexcept
+    {
+        return std::hash<int>()((int)loglevel);
+    }
+};
+} // namespace std
+
 #endif
