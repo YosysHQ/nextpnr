@@ -637,7 +637,8 @@ static void promote_globals(Context *ctx)
                                              });
         if (global_clock->second == 0 && prom_logics < 4 && global_logic->second > logic_fanout_thresh &&
             (global_logic->second > global_cen->second || prom_cens >= cens_available) &&
-            (global_logic->second > global_reset->second || prom_resets >= resets_available)) {
+            (global_logic->second > global_reset->second || prom_resets >= resets_available) &&
+            bool_or_default(ctx->settings, ctx->id("promote_logic"), false)) {
             NetInfo *logicnet = ctx->nets[global_logic->first].get();
             insert_global(ctx, logicnet, false, false, true);
             ++prom_globals;
@@ -1119,7 +1120,8 @@ bool Arch::pack()
         pack_carries(ctx);
         pack_ram(ctx);
         pack_special(ctx);
-        promote_globals(ctx);
+        if (!bool_or_default(ctx->settings, ctx->id("no_promote_globals"), false))
+            promote_globals(ctx);
         ctx->assignArchInfo();
         constrain_chains(ctx);
         ctx->assignArchInfo();
