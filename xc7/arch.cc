@@ -37,6 +37,8 @@ TorcInfo::TorcInfo(Arch *ctx, const std::string &inDeviceName, const std::string
         : ddb(new DDB(inDeviceName, inPackageName)), sites(ddb->getSites()), tiles(ddb->getTiles()),
           segments(ddb->getSegments())
 {
+    static const boost::regex re_loc(".+_X(\\d+)Y(\\d+)");
+    boost::cmatch what;
     bel_to_site_index.reserve(sites.getSiteCount() * 4);
     bel_to_loc.reserve(sites.getSiteCount() * 4);
     site_index_to_bel.resize(sites.getSiteCount());
@@ -47,10 +49,12 @@ TorcInfo::TorcInfo(Arch *ctx, const std::string &inDeviceName, const std::string
         const auto &site = sites.getSite(i);
         const auto &pd = site.getPrimitiveDefPtr();
         const auto &type = pd->getName();
-        const auto &tile_info = tiles.getTileInfo(site.getTileIndex());
-        const auto x = (tile_info.getCol() + 1) /
-                       2; // Divide by 2 because XDL coordinate space counts the INT tiles between CLBs
-        const auto y = tile_info.getRow();
+        const auto &tileInfo = tiles.getTileInfo(site.getTileIndex());
+        if (!boost::regex_match(tileInfo.getName(), what, re_loc))
+            throw;
+        const auto x = boost::lexical_cast<int>(what.str(1));
+        const auto y = boost::lexical_cast<int>(what.str(2));
+
         if (type == "SLICEL" || type == "SLICEM") {
             bel_to_site_index.push_back(i);
             bel_to_site_index.push_back(i);
@@ -104,7 +108,6 @@ TorcInfo::TorcInfo(Arch *ctx, const std::string &inDeviceName, const std::string
     const boost::regex gclk("GCLK_(L_)?B\\d+(_EAST|_WEST)?");
     std::unordered_map</*TileTypeIndex*/ unsigned, std::vector<delay_t>> delay_lookup;
     Tilewire currentTilewire;
-    boost::cmatch what;
     WireId w;
     w.index = 0;
     for (TileIndex tileIndex(0); tileIndex < tiles.getTileCount(); tileIndex++) {

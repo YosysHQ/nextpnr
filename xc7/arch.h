@@ -320,24 +320,6 @@ struct TorcInfo
     std::vector<Arc> pip_to_arc;
     int num_pips;
     std::vector<int> pip_to_dst_wire;
-
-  private:
-    void _construct();
-    static std::vector<SiteIndex> construct_bel_to_site_index(Arch *ctx, const Sites &sites);
-    static std::vector<BelId> construct_site_index_to_bel(Arch *ctx, const Sites &sites,
-                                                          const std::vector<SiteIndex> &bel_to_site_index);
-    static std::vector<IdString> construct_site_index_to_type(Arch *ctx, const Sites &sites);
-    static std::vector<Loc> construct_bel_to_loc(const Sites &sites, const Tiles &tiles, const int num_bels,
-                                                 const std::vector<IdString> &site_index_to_type);
-    static std::vector<Tilewire>
-    construct_wire_to_tilewire(const Segments &segments, const Tiles &tiles,
-                               std::unordered_map<Segments::SegmentReference, int> &segment_to_wire,
-                               std::unordered_map<Tilewire, int> &trivial_to_wire);
-    static std::vector<DelayInfo>
-    construct_wire_to_delay(const Tiles &tiles, const std::vector<Tilewire> &wire_to_tilewire, const DDB &ddb);
-    static std::vector<Arc> construct_pip_to_arc(const std::vector<Tilewire> &wire_to_tilewire, const DDB &ddb,
-                                                 std::vector<std::vector<int>> &wire_to_pips_uphill,
-                                                 std::vector<std::vector<int>> &wire_to_pips_downhill);
 };
 extern std::unique_ptr<const TorcInfo> torc_info;
 
