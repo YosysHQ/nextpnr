@@ -35,110 +35,77 @@ NEXTPNR_NAMESPACE_BEGIN
 std::unique_ptr<const TorcInfo> torc_info;
 TorcInfo::TorcInfo(Arch *ctx, const std::string &inDeviceName, const std::string &inPackageName)
         : ddb(new DDB(inDeviceName, inPackageName)), sites(ddb->getSites()), tiles(ddb->getTiles()),
-          segments(ddb->getSegments()), bel_to_site_index(construct_bel_to_site_index(ctx, sites)),
-          num_bels(bel_to_site_index.size()),
-          site_index_to_bel(construct_site_index_to_bel(ctx, sites, bel_to_site_index)),
-          site_index_to_type(construct_site_index_to_type(ctx, sites)),
-          bel_to_loc(construct_bel_to_loc(sites, tiles, num_bels, site_index_to_type)),
-          wire_to_tilewire(construct_wire_to_tilewire(segments, tiles, segment_to_wire, trivial_to_wire)),
-          num_wires(wire_to_tilewire.size()), wire_to_delay(construct_wire_to_delay(tiles, wire_to_tilewire, *ddb)),
-          pip_to_arc(construct_pip_to_arc(wire_to_tilewire, *ddb, wire_to_pips_uphill, wire_to_pips_downhill)),
-          num_pips(pip_to_arc.size())
+          segments(ddb->getSegments())
 {
-    pip_to_dst_wire.reserve(num_pips);
-
-    for (const auto &arc : pip_to_arc) {
-        const auto &tw = arc.getSinkTilewire();
-        pip_to_dst_wire.push_back(tilewire_to_wire(tw));
-    }
-}
-std::vector<SiteIndex> TorcInfo::construct_bel_to_site_index(Arch *ctx, const Sites &sites)
-{
-    std::vector<SiteIndex> bel_to_site_index;
-    bel_to_site_index.reserve(sites.getSiteCount());
+    bel_to_site_index.reserve(sites.getSiteCount()*4);
+    bel_to_loc.reserve(sites.getSiteCount()*4);
+    site_index_to_bel.resize(sites.getSiteCount());
+    site_index_to_type.resize(sites.getSiteCount());
+    BelId b;
+    b.index = 0;
     for (SiteIndex i(0); i < sites.getSiteCount(); ++i) {
-        const auto &s = sites.getSite(i);
-        const auto &pd = s.getPrimitiveDefPtr();
+        const auto &site = sites.getSite(i);
+        const auto &pd = site.getPrimitiveDefPtr();
         const auto &type = pd->getName();
+        const auto &tile_info = tiles.getTileInfo(site.getTileIndex());
+        const auto x = (tile_info.getCol() + 1) / 2; // Divide by 2 because XDL coordinate space counts the INT tiles between CLBs
+        const auto y = tile_info.getRow();
         if (type == "SLICEL" || type == "SLICEM") {
             bel_to_site_index.push_back(i);
             bel_to_site_index.push_back(i);
             bel_to_site_index.push_back(i);
             bel_to_site_index.push_back(i);
-        } else
-            bel_to_site_index.push_back(i);
-    }
-    return bel_to_site_index;
-}
-std::vector<BelId> TorcInfo::construct_site_index_to_bel(Arch *ctx, const Sites &sites, const std::vector<SiteIndex> &bel_to_site_index)
-{
-    std::vector<BelId> site_index_to_bel;
-    site_index_to_bel.resize(sites.getSiteCount());
-    BelId b;
-    b.index = 0;
-    for (auto i : bel_to_site_index) {
-        site_index_to_bel[i] = b;
-        ++b.index;
-    }
-    return site_index_to_bel;
-}
-std::vector<IdString> TorcInfo::construct_site_index_to_type(Arch *ctx, const Sites &sites)
-{
-    std::vector<IdString> site_index_to_type;
-    site_index_to_type.resize(sites.getSiteCount());
-    for (SiteIndex i(0); i < sites.getSiteCount(); ++i) {
-        const auto &s = sites.getSite(i);
-        const auto &pd = s.getPrimitiveDefPtr();
-        const auto &type = pd->getName();
-        if (type == "SLICEL" || type == "SLICEM")
             site_index_to_type[i] = id_SLICE_LUT6;
-        else if (type == "IOB33S" || type == "IOB33M")
-            site_index_to_type[i] = id_IOB33;
-        else
-            site_index_to_type[i] = ctx->id(type);
-    }
-    return site_index_to_type;
-}
-std::vector<Loc> TorcInfo::construct_bel_to_loc(const Sites &sites, const Tiles &tiles, const int num_bels,
-                                                const std::vector<IdString> &site_index_to_type)
-{
-    std::vector<Loc> bel_to_loc;
-    bel_to_loc.resize(num_bels);
-    int32_t bel_index = 0;
-    for (SiteIndex i(0); i < site_index_to_type.size(); ++i) {
-        const auto &site = sites.getSite(i);
-        const auto &tile_info = tiles.getTileInfo(site.getTileIndex());
-        const auto x = (tile_info.getCol() + 1) / 2; // Divide by 2 because XDL coordinate space counts the INT tiles between CLBs
-        const auto y = tile_info.getRow();
-
-        if (site_index_to_type[i] == id_SLICE_LUT6) {
             const auto site_name = site.getName();
             const auto site_name_back = site_name.back();
             if (site_name_back == '0' || site_name_back == '2' || site_name_back == '4' || site_name_back == '6' ||
                 site_name_back == '8') {
-                bel_to_loc[bel_index++] = Loc(x, y, 0);
-                bel_to_loc[bel_index++] = Loc(x, y, 1);
-                bel_to_loc[bel_index++] = Loc(x, y, 2);
-                bel_to_loc[bel_index++] = Loc(x, y, 3);
+                bel_to_loc.emplace_back(x, y, 0);
+                bel_to_loc.emplace_back(x, y, 1);
+                bel_to_loc.emplace_back(x, y, 2);
+                bel_to_loc.emplace_back(x, y, 3);
             } else {
-                bel_to_loc[bel_index++] = Loc(x, y, 4);
-                bel_to_loc[bel_index++] = Loc(x, y, 5);
-                bel_to_loc[bel_index++] = Loc(x, y, 6);
-                bel_to_loc[bel_index++] = Loc(x, y, 7);
+                bel_to_loc.emplace_back(x, y, 4);
+                bel_to_loc.emplace_back(x, y, 5);
+                bel_to_loc.emplace_back(x, y, 6);
+                bel_to_loc.emplace_back(x, y, 7);
             }
-        } else
-            bel_to_loc[bel_index++] = Loc(x, y, 0);
+            site_index_to_bel[i] = b;
+            b.index += 4;
+        } else if (type == "IOB33S" || type == "IOB33M") {
+            bel_to_site_index.push_back(i);
+            site_index_to_type[i] = id_IOB33;
+            bel_to_loc.emplace_back(x, y, 0);
+            site_index_to_bel[i] = b;
+            ++b.index;
+        } else {
+            bel_to_site_index.push_back(i);
+            site_index_to_type[i] = ctx->id(type);
+            bel_to_loc.emplace_back(x, y, 0);
+            site_index_to_bel[i] = b;
+            ++b.index;
+        }
     }
-    return bel_to_loc;
-}
-std::vector<Tilewire>
-TorcInfo::construct_wire_to_tilewire(const Segments &segments, const Tiles &tiles,
-                                     std::unordered_map<Segments::SegmentReference, int> &segment_to_wire,
-                                     std::unordered_map<Tilewire, int> &trivial_to_wire)
-{
-    std::vector<Tilewire> wire_to_tilewire;
+    num_bels = bel_to_site_index.size();
+    bel_to_site_index.shrink_to_fit();
+    bel_to_loc.shrink_to_fit();
 
+    const boost::regex re_124("(.+_)?[NESW][NESWLR](\\d)((BEG(_[NS])?)|(END(_[NS])?)|[A-E])?\\d(_\\d)?");
+    const boost::regex re_L("(.+_)?L(H|V|VB)(_L)?\\d+(_\\d)?");
+    const boost::regex re_BYP("BYP(_ALT)?\\d");
+    const boost::regex re_BYP_B("BYP_[BL]\\d");
+    const boost::regex re_BOUNCE_NS("(BYP|FAN)_BOUNCE_[NS]3_\\d");
+    const boost::regex re_FAN("FAN(_ALT)?\\d");
+    const boost::regex re_CLB_I1_6("CLBL[LM]_(L|LL|M)_[A-D]([1-6])");
+    const boost::regex bufg_i("(CMT|CLK)_BUFG_BUFGCTRL\\d+_I0");
+    const boost::regex bufg_o("(CMT|CLK)_BUFG_BUFGCTRL\\d+_O");
+    const boost::regex int_clk("CLK(_L)?[01]");
+    const boost::regex gclk("GCLK_(L_)?B\\d+(_EAST|_WEST)?");
+    std::unordered_map</*TileTypeIndex*/unsigned, std::vector<delay_t>> delay_lookup;
     Tilewire currentTilewire;
+    boost::cmatch what;
+    WireId w;
+    w.index = 0;
     for (TileIndex tileIndex(0); tileIndex < tiles.getTileCount(); tileIndex++) {
         // iterate over every wire in the tile
         const auto &tileInfo = tiles.getTileInfo(tileIndex);
@@ -157,120 +124,85 @@ TorcInfo::construct_wire_to_tilewire(const Segments &segments, const Tiles &tile
                 trivial_to_wire.emplace(currentTilewire, wire_to_tilewire.size());
 
             wire_to_tilewire.push_back(currentTilewire);
-        }
-    }
 
-    wire_to_tilewire.shrink_to_fit();
-    return wire_to_tilewire;
-}
-std::vector<DelayInfo> TorcInfo::construct_wire_to_delay(const Tiles &tiles, const std::vector<Tilewire> &wire_to_tilewire, const DDB &ddb)
-{
-    std::vector<DelayInfo> wire_to_delay;
-    wire_to_delay.reserve(wire_to_tilewire.size());
-
-    const boost::regex re_124 = boost::regex("(.+_)?[NESW][NESWLR](\\d)((BEG(_[NS])?)|(END(_[NS])?)|[A-E])?\\d(_\\d)?");
-    const boost::regex re_L = boost::regex("(.+_)?L(H|V|VB)(_L)?\\d+(_\\d)?");
-    const boost::regex re_BYP = boost::regex("BYP(_ALT)?\\d");
-    const boost::regex re_BYP_B = boost::regex("BYP_[BL]\\d");
-    const boost::regex re_BOUNCE_NS = boost::regex("(BYP|FAN)_BOUNCE_[NS]3_\\d");
-    const boost::regex re_FAN = boost::regex("FAN(_ALT)?\\d");
-    const boost::regex re_CLB_I1_6 = boost::regex("CLBL[LM]_(L|LL|M)_[A-D]([1-6])");
-
-    std::unordered_map</*TileTypeIndex*/unsigned, std::vector<delay_t>> delay_lookup;
-
-    boost::cmatch what;
-    for (const auto &tw : wire_to_tilewire) {
-        const TileInfo& tileInfo = tiles.getTileInfo(tw.getTileIndex());
-        auto tile_type_index = tileInfo.getTypeIndex();
-
-        auto it = delay_lookup.find(tile_type_index);
-        if (it == delay_lookup.end()) {
-            auto wireCount = tiles.getWireCount(tile_type_index);
-            std::vector<delay_t> tile_delays(wireCount);
-            for (WireIndex wireIndex(0); wireIndex < wireCount; wireIndex++) {
-                const WireInfo& wireInfo = tiles.getWireInfo(tile_type_index, wireIndex);
-                auto wire_name = wireInfo.getName();
-                if (boost::regex_match(wire_name, what, re_124)) {
-                    switch (what.str(2)[0]) {
-                    case '1': tile_delays[wireIndex] = 150; break;
-                    case '2': tile_delays[wireIndex] = 170; break;
-                    case '4': tile_delays[wireIndex] = 210; break;
-                    case '6': tile_delays[wireIndex] = 210; break;
-                    default: throw;
-                    }
-                } else if (boost::regex_match(wire_name, what, re_L)) {
-                    std::string l(what[2]);
-                    if (l == "H")
-                        tile_delays[wireIndex] = 360;
-                    else if (l == "VB")
-                        tile_delays[wireIndex] = 300;
-                    else if (l == "V")
-                        tile_delays[wireIndex] = 350;
-                    else
-                        throw;
-                } else if (boost::regex_match(wire_name, what, re_BYP)) {
-                    tile_delays[wireIndex] = 190;
-                } else if (boost::regex_match(wire_name, what, re_BYP_B)) {
-                } else if (boost::regex_match(wire_name, what, re_FAN)) {
-                    tile_delays[wireIndex] = 190;
-                } else if (boost::regex_match(wire_name, what, re_CLB_I1_6)) {
-                    switch (what.str(2)[0]) {
-                        case '1': tile_delays[wireIndex] = 280; break;
-                        case '2': tile_delays[wireIndex] = 280; break;
-                        case '3': tile_delays[wireIndex] = 180; break;
-                        case '4': tile_delays[wireIndex] = 180; break;
-                        case '5': tile_delays[wireIndex] =  80; break;
-                        case '6': tile_delays[wireIndex] =  40; break;
+            auto it = delay_lookup.find(tileTypeIndex);
+            if (it == delay_lookup.end()) {
+                auto wireCount = tiles.getWireCount(tileTypeIndex);
+                std::vector<delay_t> tile_delays(wireCount);
+                for (WireIndex wireIndex(0); wireIndex < wireCount; wireIndex++) {
+                    const WireInfo& wireInfo = tiles.getWireInfo(tileTypeIndex, wireIndex);
+                    auto wire_name = wireInfo.getName();
+                    if (boost::regex_match(wire_name, what, re_124)) {
+                        switch (what.str(2)[0]) {
+                        case '1': tile_delays[wireIndex] = 150; break;
+                        case '2': tile_delays[wireIndex] = 170; break;
+                        case '4': tile_delays[wireIndex] = 210; break;
+                        case '6': tile_delays[wireIndex] = 210; break;
                         default: throw;
+                        }
+                    } else if (boost::regex_match(wire_name, what, re_L)) {
+                        std::string l(what[2]);
+                        if (l == "H")
+                            tile_delays[wireIndex] = 360;
+                        else if (l == "VB")
+                            tile_delays[wireIndex] = 300;
+                        else if (l == "V")
+                            tile_delays[wireIndex] = 350;
+                        else
+                            throw;
+                    } else if (boost::regex_match(wire_name, what, re_BYP)) {
+                        tile_delays[wireIndex] = 190;
+                    } else if (boost::regex_match(wire_name, what, re_BYP_B)) {
+                    } else if (boost::regex_match(wire_name, what, re_FAN)) {
+                        tile_delays[wireIndex] = 190;
+                    } else if (boost::regex_match(wire_name, what, re_CLB_I1_6)) {
+                        switch (what.str(2)[0]) {
+                            case '1': tile_delays[wireIndex] = 280; break;
+                            case '2': tile_delays[wireIndex] = 280; break;
+                            case '3': tile_delays[wireIndex] = 180; break;
+                            case '4': tile_delays[wireIndex] = 180; break;
+                            case '5': tile_delays[wireIndex] =  80; break;
+                            case '6': tile_delays[wireIndex] =  40; break;
+                            default: throw;
+                        }
                     }
                 }
+                it = delay_lookup.emplace(tileTypeIndex, std::move(tile_delays)).first;
             }
-            it = delay_lookup.emplace(tile_type_index, std::move(tile_delays)).first;
+            assert(it != delay_lookup.end());
+
+            DelayInfo d;
+            d.delay = it->second[currentTilewire.getWireIndex()];
+            wire_to_delay.emplace_back(std::move(d));
         }
-        assert(it != delay_lookup.end());
-        DelayInfo d;
-        d.delay = it->second[tw.getWireIndex()];
-        wire_to_delay.emplace_back(std::move(d));
     }
+    wire_to_tilewire.shrink_to_fit();
+    wire_to_delay.shrink_to_fit();
+    num_wires = wire_to_tilewire.size();
 
-    return wire_to_delay;
-}
-std::vector<Arc> TorcInfo::construct_pip_to_arc(const std::vector<Tilewire> &wire_to_tilewire, const DDB &ddb,
-                                                std::vector<std::vector<int>> &wire_to_pips_uphill,
-                                                std::vector<std::vector<int>> &wire_to_pips_downhill)
-{
-    const auto &tiles = ddb.getTiles();
-
-    std::vector<Arc> pip_to_arc;
-    wire_to_pips_downhill.resize(wire_to_tilewire.size());
-
-    std::unordered_map<Arc, int> arc_to_pip;
-
+    wire_to_pips_downhill.resize(num_wires);
+    //std::unordered_map<Arc, int> arc_to_pip;
     ArcVector arcs;
-    ExtendedWireInfo ewi(ddb);
-    for (auto i = 0u; i < wire_to_tilewire.size(); ++i) {
-        const auto &tw = wire_to_tilewire[i];
-        if (tw.isUndefined())
+    ExtendedWireInfo ewi(*ddb);
+    PipId p;
+    p.index = 0;
+    for (w.index = 0; w.index < num_wires; ++w.index) {
+        const auto &currentTilewire = wire_to_tilewire[w.index];
+        if (currentTilewire.isUndefined())
             continue;
         arcs.clear();
 
-        const auto &tileInfo = tiles.getTileInfo(tw.getTileIndex());
+        const auto &tileInfo = tiles.getTileInfo(currentTilewire.getTileIndex());
         const auto tileTypeName = tiles.getTileTypeName(tileInfo.getTypeIndex());
         const bool clb = boost::starts_with(
                 tileTypeName, "CLB"); // Disable all CLB route-throughs (i.e. LUT in->out, LUT A->AMUX, for now)
 
-        const_cast<DDB &>(ddb).expandSegmentSinks(tw, arcs, DDB::eExpandDirectionNone, false /* inUseTied */,
-                                                  true /*inUseRegular */, true /* inUseIrregular */,
-                                                  !clb /* inUseRoutethrough */);
+        arcs.clear();
+        const_cast<DDB &>(*ddb).expandSegmentSinks(currentTilewire, arcs, DDB::eExpandDirectionNone, false /* inUseTied */,
+                                                   true /*inUseRegular */, true /* inUseIrregular */,
+                                                   !clb /* inUseRoutethrough */);
 
-        auto index = pip_to_arc.size();
-
-        const boost::regex bufg_i("(CMT|CLK)_BUFG_BUFGCTRL\\d+_I0");
-        const boost::regex bufg_o("(CMT|CLK)_BUFG_BUFGCTRL\\d+_O");
-        const boost::regex int_clk("CLK(_L)?[01]");
-        const boost::regex gclk("GCLK_(L_)?B\\d+(_EAST|_WEST)?");
-
-        auto &pips = wire_to_pips_downhill[i];
+        auto &pips = wire_to_pips_downhill[w.index];
         pips.reserve(arcs.size());
         const bool clk_tile = boost::starts_with(tileTypeName, "CMT") || boost::starts_with(tileTypeName, "CLK");
         const bool int_tile = boost::starts_with(tileTypeName, "INT");
@@ -294,38 +226,23 @@ std::vector<Arc> TorcInfo::construct_pip_to_arc(const std::vector<Tilewire> &wir
                         continue;
                 }
             }
-            pips.push_back(index);
+            pips.push_back(p.index);
             pip_to_arc.emplace_back(a);
-            arc_to_pip.emplace(a, index);
-            ++index;
+            //arc_to_pip.emplace(a, p.index);
+            const auto &tw = a.getSinkTilewire();
+            pip_to_dst_wire.emplace_back(tilewire_to_wire(tw));
+            ++p.index;
         }
+        pips.shrink_to_fit();
     }
-
     pip_to_arc.shrink_to_fit();
-
-    wire_to_pips_uphill.resize(wire_to_tilewire.size());
-    for (auto i = 0u; i < wire_to_tilewire.size(); ++i) {
-        const auto &tw = wire_to_tilewire[i];
-        if (tw.isUndefined())
-            continue;
-        arcs.clear();
-        // TODO
-        // const_cast<DDB&>(ddb).expandSegmentSources(tw, arcs, DDB::eExpandDirectionNone, false /* inUseTied */, true
-        // /*inUseRegular */, true /* inUseIrregular */, false /* inUseRoutethrough */);
-
-        auto &pips = wire_to_pips_uphill[i];
-        pips.reserve(arcs.size());
-        for (const auto &a : arcs)
-            pips.push_back(arc_to_pip.at(a));
+    num_pips = pip_to_arc.size();
+    
+    pip_to_dst_wire.reserve(num_pips);
+    for (const auto &arc : pip_to_arc) {
+        const auto &tw = arc.getSinkTilewire();
+        pip_to_dst_wire.emplace_back(tilewire_to_wire(tw));
     }
-
-    return pip_to_arc;
-}
-
-std::vector<int> construct_pip_to_dst_wire(const std::vector<Arc> &pip_to_arc)
-{
-    std::vector<int> pip_to_wire;
-    return pip_to_wire;
 }
 
 // -----------------------------------------------------------------------

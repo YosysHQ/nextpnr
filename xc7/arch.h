@@ -305,23 +305,24 @@ struct TorcInfo
         return trivial_to_wire.at(tw);
     }
 
-    const std::vector<SiteIndex> bel_to_site_index;
-    const int num_bels;
-    const std::vector<BelId> site_index_to_bel;
-    const std::vector<IdString> site_index_to_type;
-    const std::vector<Loc> bel_to_loc;
+    std::vector<SiteIndex> bel_to_site_index;
+    int num_bels;
+    std::vector<BelId> site_index_to_bel;
+    std::vector<IdString> site_index_to_type;
+    std::vector<Loc> bel_to_loc;
     std::unordered_map<Segments::SegmentReference, int> segment_to_wire;
     std::unordered_map<Tilewire, int> trivial_to_wire;
-    const std::vector<Tilewire> wire_to_tilewire;
-    const int num_wires;
-    const std::vector<DelayInfo> wire_to_delay;
+    std::vector<Tilewire> wire_to_tilewire;
+    int num_wires;
+    std::vector<DelayInfo> wire_to_delay;
     std::vector<std::vector<int>> wire_to_pips_uphill;
     std::vector<std::vector<int>> wire_to_pips_downhill;
-    const std::vector<Arc> pip_to_arc;
-    const int num_pips;
+    std::vector<Arc> pip_to_arc;
+    int num_pips;
     std::vector<int> pip_to_dst_wire;
 
   private:
+    void _construct();
     static std::vector<SiteIndex> construct_bel_to_site_index(Arch *ctx, const Sites &sites);
     static std::vector<BelId> construct_site_index_to_bel(Arch *ctx, const Sites &sites, const std::vector<SiteIndex> &bel_to_site_index);
     static std::vector<IdString> construct_site_index_to_type(Arch *ctx, const Sites &sites);
@@ -858,10 +859,10 @@ struct Arch : BaseCtx
     PipRange getPipsUphill(WireId wire) const
     {
         PipRange range;
-        NPNR_ASSERT(wire != WireId());
-        const auto &pips = torc_info->wire_to_pips_uphill[wire.index];
-        range.b.cursor = pips.data();
-        range.e.cursor = range.b.cursor + pips.size();
+        //NPNR_ASSERT(wire != WireId());
+        //const auto &pips = torc_info->wire_to_pips_uphill[wire.index];
+        //range.b.cursor = pips.data();
+        //range.e.cursor = range.b.cursor + pips.size();
         return range;
     }
 
