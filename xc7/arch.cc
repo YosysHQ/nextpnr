@@ -37,8 +37,8 @@ TorcInfo::TorcInfo(Arch *ctx, const std::string &inDeviceName, const std::string
         : ddb(new DDB(inDeviceName, inPackageName)), sites(ddb->getSites()), tiles(ddb->getTiles()),
           segments(ddb->getSegments())
 {
-    bel_to_site_index.reserve(sites.getSiteCount()*4);
-    bel_to_loc.reserve(sites.getSiteCount()*4);
+    bel_to_site_index.reserve(sites.getSiteCount() * 4);
+    bel_to_loc.reserve(sites.getSiteCount() * 4);
     site_index_to_bel.resize(sites.getSiteCount());
     site_index_to_type.resize(sites.getSiteCount());
     BelId b;
@@ -48,7 +48,8 @@ TorcInfo::TorcInfo(Arch *ctx, const std::string &inDeviceName, const std::string
         const auto &pd = site.getPrimitiveDefPtr();
         const auto &type = pd->getName();
         const auto &tile_info = tiles.getTileInfo(site.getTileIndex());
-        const auto x = (tile_info.getCol() + 1) / 2; // Divide by 2 because XDL coordinate space counts the INT tiles between CLBs
+        const auto x = (tile_info.getCol() + 1) /
+                       2; // Divide by 2 because XDL coordinate space counts the INT tiles between CLBs
         const auto y = tile_info.getRow();
         if (type == "SLICEL" || type == "SLICEM") {
             bel_to_site_index.push_back(i);
@@ -101,7 +102,7 @@ TorcInfo::TorcInfo(Arch *ctx, const std::string &inDeviceName, const std::string
     const boost::regex bufg_o("(CMT|CLK)_BUFG_BUFGCTRL\\d+_O");
     const boost::regex int_clk("CLK(_L)?[01]");
     const boost::regex gclk("GCLK_(L_)?B\\d+(_EAST|_WEST)?");
-    std::unordered_map</*TileTypeIndex*/unsigned, std::vector<delay_t>> delay_lookup;
+    std::unordered_map</*TileTypeIndex*/ unsigned, std::vector<delay_t>> delay_lookup;
     Tilewire currentTilewire;
     boost::cmatch what;
     WireId w;
@@ -130,15 +131,24 @@ TorcInfo::TorcInfo(Arch *ctx, const std::string &inDeviceName, const std::string
                 auto wireCount = tiles.getWireCount(tileTypeIndex);
                 std::vector<delay_t> tile_delays(wireCount);
                 for (WireIndex wireIndex(0); wireIndex < wireCount; wireIndex++) {
-                    const WireInfo& wireInfo = tiles.getWireInfo(tileTypeIndex, wireIndex);
+                    const WireInfo &wireInfo = tiles.getWireInfo(tileTypeIndex, wireIndex);
                     auto wire_name = wireInfo.getName();
                     if (boost::regex_match(wire_name, what, re_124)) {
                         switch (what.str(2)[0]) {
-                        case '1': tile_delays[wireIndex] = 150; break;
-                        case '2': tile_delays[wireIndex] = 170; break;
-                        case '4': tile_delays[wireIndex] = 210; break;
-                        case '6': tile_delays[wireIndex] = 210; break;
-                        default: throw;
+                        case '1':
+                            tile_delays[wireIndex] = 150;
+                            break;
+                        case '2':
+                            tile_delays[wireIndex] = 170;
+                            break;
+                        case '4':
+                            tile_delays[wireIndex] = 210;
+                            break;
+                        case '6':
+                            tile_delays[wireIndex] = 210;
+                            break;
+                        default:
+                            throw;
                         }
                     } else if (boost::regex_match(wire_name, what, re_L)) {
                         std::string l(what[2]);
@@ -157,13 +167,26 @@ TorcInfo::TorcInfo(Arch *ctx, const std::string &inDeviceName, const std::string
                         tile_delays[wireIndex] = 190;
                     } else if (boost::regex_match(wire_name, what, re_CLB_I1_6)) {
                         switch (what.str(2)[0]) {
-                            case '1': tile_delays[wireIndex] = 280; break;
-                            case '2': tile_delays[wireIndex] = 280; break;
-                            case '3': tile_delays[wireIndex] = 180; break;
-                            case '4': tile_delays[wireIndex] = 180; break;
-                            case '5': tile_delays[wireIndex] =  80; break;
-                            case '6': tile_delays[wireIndex] =  40; break;
-                            default: throw;
+                        case '1':
+                            tile_delays[wireIndex] = 280;
+                            break;
+                        case '2':
+                            tile_delays[wireIndex] = 280;
+                            break;
+                        case '3':
+                            tile_delays[wireIndex] = 180;
+                            break;
+                        case '4':
+                            tile_delays[wireIndex] = 180;
+                            break;
+                        case '5':
+                            tile_delays[wireIndex] = 80;
+                            break;
+                        case '6':
+                            tile_delays[wireIndex] = 40;
+                            break;
+                        default:
+                            throw;
                         }
                     }
                 }
@@ -181,7 +204,7 @@ TorcInfo::TorcInfo(Arch *ctx, const std::string &inDeviceName, const std::string
     num_wires = wire_to_tilewire.size();
 
     wire_to_pips_downhill.resize(num_wires);
-    //std::unordered_map<Arc, int> arc_to_pip;
+    // std::unordered_map<Arc, int> arc_to_pip;
     ArcVector arcs;
     ExtendedWireInfo ewi(*ddb);
     PipId p;
@@ -198,9 +221,9 @@ TorcInfo::TorcInfo(Arch *ctx, const std::string &inDeviceName, const std::string
                 tileTypeName, "CLB"); // Disable all CLB route-throughs (i.e. LUT in->out, LUT A->AMUX, for now)
 
         arcs.clear();
-        const_cast<DDB &>(*ddb).expandSegmentSinks(currentTilewire, arcs, DDB::eExpandDirectionNone, false /* inUseTied */,
-                                                   true /*inUseRegular */, true /* inUseIrregular */,
-                                                   !clb /* inUseRoutethrough */);
+        const_cast<DDB &>(*ddb).expandSegmentSinks(currentTilewire, arcs, DDB::eExpandDirectionNone,
+                                                   false /* inUseTied */, true /*inUseRegular */,
+                                                   true /* inUseIrregular */, !clb /* inUseRoutethrough */);
 
         auto &pips = wire_to_pips_downhill[w.index];
         pips.reserve(arcs.size());
@@ -228,7 +251,7 @@ TorcInfo::TorcInfo(Arch *ctx, const std::string &inDeviceName, const std::string
             }
             pips.push_back(p.index);
             pip_to_arc.emplace_back(a);
-            //arc_to_pip.emplace(a, p.index);
+            // arc_to_pip.emplace(a, p.index);
             const auto &tw = a.getSinkTilewire();
             pip_to_dst_wire.emplace_back(tilewire_to_wire(tw));
             ++p.index;
@@ -237,7 +260,7 @@ TorcInfo::TorcInfo(Arch *ctx, const std::string &inDeviceName, const std::string
     }
     pip_to_arc.shrink_to_fit();
     num_pips = pip_to_arc.size();
-    
+
     pip_to_dst_wire.reserve(num_pips);
     for (const auto &arc : pip_to_arc) {
         const auto &tw = arc.getSinkTilewire();
@@ -411,8 +434,7 @@ WireId Arch::getBelPinWire(BelId bel, IdString pin) const
                 throw;
             }
         }
-    }
-    else if (bel_type == id_PS7) {
+    } else if (bel_type == id_PS7) {
         // e.g. Convert DDRARB[0] -> DDRARB0
         boost::erase_all(pin_name, "[");
         boost::erase_all(pin_name, "]");
@@ -560,28 +582,25 @@ IdString Arch::getPipName(PipId pip) const
     pip_name << ewi_src.mTileName << "." << ewi_src.mWireName << ".->." << ewi_dst.mWireName;
     return id(pip_name.str());
 
-//#if 1
-//    int x = chip_info->pip_data[pip.index].x;
-//    int y = chip_info->pip_data[pip.index].y;
-//
-//    std::string src_name = chip_info->wire_data[chip_info->pip_data[pip.index].src].name.get();
-//    std::replace(src_name.begin(), src_name.end(), '/', '.');
-//
-//    std::string dst_name = chip_info->wire_data[chip_info->pip_data[pip.index].dst].name.get();
-//    std::replace(dst_name.begin(), dst_name.end(), '/', '.');
-//
-//    return id("X" + std::to_string(x) + "/Y" + std::to_string(y) + "/" + src_name + ".->." + dst_name);
-//#else
-//    return id(chip_info->pip_data[pip.index].name.get());
-//#endif
+    //#if 1
+    //    int x = chip_info->pip_data[pip.index].x;
+    //    int y = chip_info->pip_data[pip.index].y;
+    //
+    //    std::string src_name = chip_info->wire_data[chip_info->pip_data[pip.index].src].name.get();
+    //    std::replace(src_name.begin(), src_name.end(), '/', '.');
+    //
+    //    std::string dst_name = chip_info->wire_data[chip_info->pip_data[pip.index].dst].name.get();
+    //    std::replace(dst_name.begin(), dst_name.end(), '/', '.');
+    //
+    //    return id("X" + std::to_string(x) + "/Y" + std::to_string(y) + "/" + src_name + ".->." + dst_name);
+    //#else
+    //    return id(chip_info->pip_data[pip.index].name.get());
+    //#endif
 }
 
 // -----------------------------------------------------------------------
 
-BelId Arch::getPackagePinBel(const std::string &pin) const
-{
-    return getBelByName(id(pin));
-}
+BelId Arch::getPackagePinBel(const std::string &pin) const { return getBelByName(id(pin)); }
 
 std::string Arch::getBelPackagePin(BelId bel) const
 {
@@ -732,10 +751,7 @@ bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay
 
 bool Arch::place() { return placer1(getCtx(), Placer1Cfg(getCtx())); }
 
-bool Arch::route()
-{
-    return router1(getCtx(), Router1Cfg(getCtx()));
-}
+bool Arch::route() { return router1(getCtx(), Router1Cfg(getCtx())); }
 
 // -----------------------------------------------------------------------
 
@@ -974,8 +990,7 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
         if (port == id_O)
             return TMG_COMB_OUTPUT;
         return TMG_COMB_INPUT;
-    }
-    else if (cell->type == id_PS7) {
+    } else if (cell->type == id_PS7) {
         // TODO
         return TMG_IGNORE;
     }

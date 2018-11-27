@@ -324,7 +324,8 @@ struct TorcInfo
   private:
     void _construct();
     static std::vector<SiteIndex> construct_bel_to_site_index(Arch *ctx, const Sites &sites);
-    static std::vector<BelId> construct_site_index_to_bel(Arch *ctx, const Sites &sites, const std::vector<SiteIndex> &bel_to_site_index);
+    static std::vector<BelId> construct_site_index_to_bel(Arch *ctx, const Sites &sites,
+                                                          const std::vector<SiteIndex> &bel_to_site_index);
     static std::vector<IdString> construct_site_index_to_type(Arch *ctx, const Sites &sites);
     static std::vector<Loc> construct_bel_to_loc(const Sites &sites, const Tiles &tiles, const int num_bels,
                                                  const std::vector<IdString> &site_index_to_type);
@@ -332,8 +333,8 @@ struct TorcInfo
     construct_wire_to_tilewire(const Segments &segments, const Tiles &tiles,
                                std::unordered_map<Segments::SegmentReference, int> &segment_to_wire,
                                std::unordered_map<Tilewire, int> &trivial_to_wire);
-    static std::vector<DelayInfo> construct_wire_to_delay(const Tiles &tiles, const std::vector<Tilewire> &wire_to_tilewire,
-                                                          const DDB &ddb);
+    static std::vector<DelayInfo>
+    construct_wire_to_delay(const Tiles &tiles, const std::vector<Tilewire> &wire_to_tilewire, const DDB &ddb);
     static std::vector<Arc> construct_pip_to_arc(const std::vector<Tilewire> &wire_to_tilewire, const DDB &ddb,
                                                  std::vector<std::vector<int>> &wire_to_pips_uphill,
                                                  std::vector<std::vector<int>> &wire_to_pips_downhill);
@@ -678,10 +679,7 @@ struct Arch : BaseCtx
         return wire_to_net[wire.index];
     }
 
-    WireId getConflictingWireWire(WireId wire) const
-    {
-        return wire;
-    }
+    WireId getConflictingWireWire(WireId wire) const { return wire; }
 
     NetInfo *getConflictingWireNet(WireId wire) const
     {
@@ -779,10 +777,7 @@ struct Arch : BaseCtx
         return pip_to_net[pip.index];
     }
 
-    WireId getConflictingPipWire(PipId pip) const
-    {
-        return WireId();
-    }
+    WireId getConflictingPipWire(PipId pip) const { return WireId(); }
 
     NetInfo *getConflictingPipNet(PipId pip) const
     {
@@ -859,10 +854,10 @@ struct Arch : BaseCtx
     PipRange getPipsUphill(WireId wire) const
     {
         PipRange range;
-        //NPNR_ASSERT(wire != WireId());
-        //const auto &pips = torc_info->wire_to_pips_uphill[wire.index];
-        //range.b.cursor = pips.data();
-        //range.e.cursor = range.b.cursor + pips.size();
+        // NPNR_ASSERT(wire != WireId());
+        // const auto &pips = torc_info->wire_to_pips_uphill[wire.index];
+        // range.b.cursor = pips.data();
+        // range.e.cursor = range.b.cursor + pips.size();
         return range;
     }
 

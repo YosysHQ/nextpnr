@@ -136,7 +136,7 @@ void write_xdl(const Context *ctx, std::ostream &out)
                 NPNR_ASSERT(init.size() == (1u << lut_inputs.size()));
                 unsigned n = 0;
                 for (unsigned i = 0; i < init.size(); ++i) {
-                    if (init[init.size()-1-i] == '0')
+                    if (init[init.size() - 1 - i] == '0')
                         continue;
                     if (n++ > 0)
                         value += "+";
