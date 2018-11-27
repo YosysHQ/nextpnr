@@ -35,7 +35,7 @@ of the selected architecture:
 - Qt5 or later (`qt5-default` for Ubuntu 16.04)
 - Python 3.5 or later, including development libraries (`python3-dev` for Ubuntu)
   - on Windows make sure to install same version as supported by [vcpkg](https://github.com/Microsoft/vcpkg/blob/master/ports/python3/CONTROL)
-- Boost libraries (`libboost-dev` or `libboost-all-dev` for Ubuntu)
+- Boost libraries (`libboost-dev libboost-filesystem-dev libboost-thread-dev libboost-program-options-dev libboost-python-dev libboost-dev` or `libboost-all-dev` for Ubuntu)
 - Latest git Yosys is required to synthesise the demo design
 - For building on Windows with MSVC, usage of vcpkg is advised for dependency installation.
   - For 32 bit builds: `vcpkg install boost-filesystem boost-program-options boost-thread boost-python qt5-base`
@@ -49,7 +49,8 @@ Getting started
 
 ### nextpnr-ice40
 
-To build the iCE40 version of nextpnr, install [icestorm](http://www.clifford.at/icestorm/) with chipdbs installed in `/usr/local/share/icebox`.
+To build the iCE40 version of nextpnr, install [icestorm](http://www.clifford.at/icestorm/) with chipdbs installed in `/usr/local/share/icebox`
+(or another location, which should be passed as -DICEBOX_ROOT=/path/to/icebox to CMake).
 Then build and install `nextpnr-ice40` using the following commands:
 
 ```
@@ -96,8 +97,6 @@ sudo make install
 
  - More examples of the ECP5 flow for a range of boards can be found in the [Project Trellis Examples](https://github.com/SymbiFlow/prjtrellis/tree/master/examples).
 
- - Currently the ECP5 flow supports LUTs, flipflops and IO. IO must be instantiated using `TRELLIS_IO` primitives and constraints specified
-   using `LOC` and `IO_TYPE` attributes on those instances, as is used in the examples.
 
 ### nextpnr-generic
 
@@ -116,7 +115,7 @@ Additional notes for building nextpnr
 
 Use cmake `-D` options to specify which version of nextpnr you want to build.
 
-Use `-DARCH=...` to set the architecture. It is semicolon separated list.
+Use `-DARCH=...` to set the architecture. It is a semicolon separated list.
 Use `cmake . -DARCH=all` to build all supported architectures.
 
 The following runs a debug build of the iCE40 architecture without GUI
@@ -133,6 +132,9 @@ To make static build relase for iCE40 architecture use the following:
 cmake -DARCH=ice40 -DBUILD_PYTHON=OFF -DBUILD_GUI=OFF -DSTATIC_BUILD=ON .
 make -j$(nproc)
 ```
+
+You can change the location where nextpnr will be installed (this will usually default to `/usr/local`) by using
+`-DCMAKE_INSTALL_PREFIX=/install/prefix`.
 
 Notes for developers
 --------------------

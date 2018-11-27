@@ -30,21 +30,22 @@ typedef int delay_t;
 
 struct DelayInfo
 {
-    delay_t delay = 0;
+    delay_t min_delay = 0, max_delay = 0;
 
-    delay_t minRaiseDelay() const { return delay; }
-    delay_t maxRaiseDelay() const { return delay; }
+    delay_t minRaiseDelay() const { return min_delay; }
+    delay_t maxRaiseDelay() const { return max_delay; }
 
-    delay_t minFallDelay() const { return delay; }
-    delay_t maxFallDelay() const { return delay; }
+    delay_t minFallDelay() const { return min_delay; }
+    delay_t maxFallDelay() const { return max_delay; }
 
-    delay_t minDelay() const { return delay; }
-    delay_t maxDelay() const { return delay; }
+    delay_t minDelay() const { return min_delay; }
+    delay_t maxDelay() const { return max_delay; }
 
     DelayInfo operator+(const DelayInfo &other) const
     {
         DelayInfo ret;
-        ret.delay = this->delay + other.delay;
+        ret.min_delay = this->min_delay + other.min_delay;
+        ret.max_delay = this->max_delay + other.max_delay;
         return ret;
     }
 };
@@ -157,6 +158,7 @@ struct ArchCellInfo
     struct
     {
         bool using_dff;
+        bool has_l6mux;
         IdString clk_sig, lsr_sig, clkmux, lsrmux, srmode;
     } sliceInfo;
 };

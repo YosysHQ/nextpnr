@@ -472,12 +472,7 @@ void json_import_ports(Context *ctx, const string &modname, const std::vector<Id
                     vcc_net(ctx, net.get());
 
                 } else if (wire_node->data_string.compare(string("x")) == 0) {
-
                     ground_net(ctx, net.get());
-                    log_info("      Floating wire node value, "
-                             "'%s' on '%s'/'%s', converted to zero driver\n",
-                             this_port.name.c_str(ctx), modname.c_str(), obj_name.c_str());
-
                 } else
                     log_error("      Unknown fixed type wire node "
                               "value, \'%s\'\n",

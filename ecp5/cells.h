@@ -36,7 +36,7 @@ inline bool is_ff(const BaseCtx *ctx, const CellInfo *cell) { return cell->type 
 
 inline bool is_carry(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("CCU2C"); }
 
-inline bool is_lc(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("TRELLIS_LC"); }
+inline bool is_lc(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("TRELLIS_SLICE"); }
 
 inline bool is_trellis_io(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("TRELLIS_IO"); }
 

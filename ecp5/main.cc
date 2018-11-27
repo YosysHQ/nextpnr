@@ -59,6 +59,8 @@ po::options_description ECP5CommandHandler::getArchOptions()
     specific.add_options()("um5g-85k", "set device type to LFE5UM5G-85F");
 
     specific.add_options()("package", po::value<std::string>(), "select device package (defaults to CABGA381)");
+    specific.add_options()("speed", po::value<int>(), "select device speedgrade (6, 7 or 8)");
+
     specific.add_options()("basecfg", po::value<std::string>(), "base chip configuration in Trellis text format");
     specific.add_options()("textcfg", po::value<std::string>(), "textual configuration in Trellis format to write");
 
@@ -111,7 +113,31 @@ std::unique_ptr<Context> ECP5CommandHandler::createContext()
         chipArgs.package = vm["package"].as<std::string>();
     else
         chipArgs.package = "CABGA381";
-    chipArgs.speed = 6;
+    if (chipArgs.type == ArchArgs::LFE5UM5G_25F || chipArgs.type == ArchArgs::LFE5UM5G_45F ||
+        chipArgs.type == ArchArgs::LFE5UM5G_85F) {
+        if (vm.count("speed") && vm["speed"].as<int>() != 8)
+            log_error("Only speed grade 8 is available for 5G parts\n");
+        chipArgs.speed = ArchArgs::SPEED_8_5G;
+    } else {
+        if (vm.count("speed")) {
+            int speed = vm["speed"].as<int>();
+            switch (speed) {
+            case 6:
+                chipArgs.speed = ArchArgs::SPEED_6;
+                break;
+            case 7:
+                chipArgs.speed = ArchArgs::SPEED_7;
+                break;
+            case 8:
+                chipArgs.speed = ArchArgs::SPEED_8;
+                break;
+            default:
+                log_error("Unsupported speed grade '%d'\n", speed);
+            }
+        } else {
+            chipArgs.speed = ArchArgs::SPEED_6;
+        }
+    }
 
     return std::unique_ptr<Context>(new Context(chipArgs));
 }

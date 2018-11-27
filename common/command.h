@@ -54,6 +54,7 @@ class CommandHandler
     int executeMain(std::unique_ptr<Context> ctx);
     po::options_description getGeneralOptions();
     void run_script_hook(const std::string &name);
+    void printFooter();
 
   protected:
     po::variables_map vm;
@@ -66,6 +67,7 @@ class CommandHandler
     int argc;
     char **argv;
     ProjectHandler project;
+    std::ofstream logfile;
 };
 
 NEXTPNR_NAMESPACE_END

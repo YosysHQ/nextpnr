@@ -407,8 +407,8 @@ std::vector<std::string> get_pll_tiles(Context *ctx, BelId bel)
         tiles.push_back(ctx->getTileByTypeAndLocation(loc.y + 1, loc.x, "PLL0_LR"));
         tiles.push_back(ctx->getTileByTypeAndLocation(loc.y + 1, loc.x - 1, pll1_lr));
     } else if (name == "EHXPLL_UR") {
-        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x - 1, "PLL0_UR"));
-        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y + 1, loc.x - 1, "PLL1_UR"));
+        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 1, "PLL0_UR"));
+        tiles.push_back(ctx->getTileByTypeAndLocation(loc.y + 1, loc.x + 1, "PLL1_UR"));
     } else {
         NPNR_ASSERT_FALSE_STR("bad PLL loc " + name);
     }

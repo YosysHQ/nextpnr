@@ -587,10 +587,36 @@ static void promote_globals(Context *ctx)
         }
     }
     int prom_globals = 0, prom_resets = 0, prom_cens = 0, prom_logics = 0;
-    int gbs_available = 8;
+    int gbs_available = 8, resets_available = 4, cens_available = 4;
     for (auto &cell : ctx->cells)
-        if (is_gbuf(ctx, cell.second.get()))
+        if (is_gbuf(ctx, cell.second.get())) {
+            /* One less buffer available */
             --gbs_available;
+
+            /* And possibly limits what we can promote */
+            if (cell.second->attrs.find(ctx->id("BEL")) != cell.second->attrs.end()) {
+                /* If the SB_GB is locked, doesn't matter what it drives */
+                BelId bel = ctx->getBelByName(ctx->id(cell.second->attrs[ctx->id("BEL")]));
+                int glb_id = ctx->getDrivenGlobalNetwork(bel);
+                if ((glb_id % 2) == 0)
+                    resets_available--;
+                else if ((glb_id % 2) == 1)
+                    cens_available--;
+            } else {
+                /* If it's free to move around, then look at what it drives */
+                NetInfo *ni = cell.second->ports[id_GLOBAL_BUFFER_OUTPUT].net;
+
+                for (auto user : ni->users) {
+                    if (is_reset_port(ctx, user)) {
+                        resets_available--;
+                        break;
+                    } else if (is_enable_port(ctx, user)) {
+                        cens_available--;
+                        break;
+                    }
+                }
+            }
+        }
     while (prom_globals < gbs_available) {
         auto global_clock = std::max_element(clock_count.begin(), clock_count.end(),
                                              [](const std::pair<IdString, int> &a, const std::pair<IdString, int> &b) {
@@ -610,8 +636,8 @@ static void promote_globals(Context *ctx)
                                                  return a.second < b.second;
                                              });
         if (global_clock->second == 0 && prom_logics < 4 && global_logic->second > logic_fanout_thresh &&
-            (global_logic->second > global_cen->second || prom_cens >= 4) &&
-            (global_logic->second > global_reset->second || prom_resets >= 4)) {
+            (global_logic->second > global_cen->second || prom_cens >= cens_available) &&
+            (global_logic->second > global_reset->second || prom_resets >= resets_available)) {
             NetInfo *logicnet = ctx->nets[global_logic->first].get();
             insert_global(ctx, logicnet, false, false, true);
             ++prom_globals;
@@ -620,7 +646,7 @@ static void promote_globals(Context *ctx)
             reset_count.erase(logicnet->name);
             cen_count.erase(logicnet->name);
             logic_count.erase(logicnet->name);
-        } else if (global_reset->second > global_clock->second && prom_resets < 4) {
+        } else if (global_reset->second > global_clock->second && prom_resets < resets_available) {
             NetInfo *rstnet = ctx->nets[global_reset->first].get();
             insert_global(ctx, rstnet, true, false, false);
             ++prom_globals;
@@ -629,7 +655,7 @@ static void promote_globals(Context *ctx)
             reset_count.erase(rstnet->name);
             cen_count.erase(rstnet->name);
             logic_count.erase(rstnet->name);
-        } else if (global_cen->second > global_clock->second && prom_cens < 4 &&
+        } else if (global_cen->second > global_clock->second && prom_cens < cens_available &&
                    global_cen->second > enable_fanout_thresh) {
             NetInfo *cennet = ctx->nets[global_cen->first].get();
             insert_global(ctx, cennet, false, true, false);
@@ -874,7 +900,7 @@ static void pack_special(Context *ctx)
                     newname = "PLLOUT_A";
                 if (pi.name == ctx->id("PLLOUTCOREB"))
                     newname = "PLLOUT_B";
-                if (pi.name == ctx->id("PLLOUTGLOBALA") || pi.name == ctx->id("PLLOUTGLOBALA"))
+                if (pi.name == ctx->id("PLLOUTGLOBALA") || pi.name == ctx->id("PLLOUTGLOBAL"))
                     newname = "PLLOUT_A_GLOBAL";
                 if (pi.name == ctx->id("PLLOUTGLOBALB"))
                     newname = "PLLOUT_B_GLOBAL";
@@ -987,6 +1013,8 @@ static void pack_special(Context *ctx)
                 for (auto user : pad_packagepin_net->users) {
                     user.cell->ports.erase(user.port);
                 }
+                if (pad_packagepin_net->driver.cell != nullptr)
+                    pad_packagepin_net->driver.cell->ports.erase(pad_packagepin_net->driver.port);
                 ctx->nets.erase(pad_packagepin_net->name);
                 pad_packagepin_net = nullptr;
             }

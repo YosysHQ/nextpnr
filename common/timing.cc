@@ -485,11 +485,11 @@ void assign_budget(Context *ctx, bool quiet)
             for (auto &user : net.second->users) {
                 // Post-update check
                 if (!ctx->auto_freq && user.budget < 0)
-                    log_warning("port %s.%s, connected to net '%s', has negative "
-                                "timing budget of %fns\n",
-                                user.cell->name.c_str(ctx), user.port.c_str(ctx), net.first.c_str(ctx),
-                                ctx->getDelayNS(user.budget));
-                else if (ctx->verbose)
+                    log_info("port %s.%s, connected to net '%s', has negative "
+                             "timing budget of %fns\n",
+                             user.cell->name.c_str(ctx), user.port.c_str(ctx), net.first.c_str(ctx),
+                             ctx->getDelayNS(user.budget));
+                else if (ctx->debug)
                     log_info("port %s.%s, connected to net '%s', has "
                              "timing budget of %fns\n",
                              user.cell->name.c_str(ctx), user.port.c_str(ctx), net.first.c_str(ctx),
@@ -513,7 +513,7 @@ void assign_budget(Context *ctx, bool quiet)
         log_info("Checksum: 0x%08x\n", ctx->checksum());
 }
 
-void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool print_path)
+void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool print_path, bool warn_on_failure)
 {
     auto format_event = [ctx](const ClockEvent &e, int field_width = 0) {
         std::string value;
@@ -593,7 +593,7 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
 
     if (print_path) {
         auto print_path_report = [ctx](ClockPair &clocks, PortRefVector &crit_path) {
-            delay_t total = 0;
+            delay_t total = 0, logic_total = 0, route_total = 0;
             auto &front = crit_path.front();
             auto &front_port = front->cell->ports.at(front->port);
             auto &front_driver = front_port.net->driver;
@@ -608,6 +608,9 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
                     if (clknet != nullptr && clknet->name == clocks.start.clock &&
                         clockInfo.edge == clocks.start.edge) {
                         last_port = clockInfo.clock_port;
+                        total += clockInfo.clockToQ.maxDelay();
+                        logic_total += clockInfo.clockToQ.maxDelay();
+                        break;
                     }
                 }
             }
@@ -627,10 +630,12 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
                     ctx->getCellDelay(sink_cell, last_port, driver.port, comb_delay);
                 }
                 total += comb_delay.maxDelay();
+                logic_total += comb_delay.maxDelay();
                 log_info("%4.1f %4.1f  Source %s.%s\n", ctx->getDelayNS(comb_delay.maxDelay()), ctx->getDelayNS(total),
                          driver_cell->name.c_str(ctx), driver.port.c_str(ctx));
                 auto net_delay = ctx->getNetinfoRouteDelay(net, *sink);
                 total += net_delay;
+                route_total += net_delay;
                 auto driver_loc = ctx->getBelLocation(driver_cell->bel);
                 auto sink_loc = ctx->getBelLocation(sink_cell->bel);
                 log_info("%4.1f %4.1f    Net %s budget %f ns (%d,%d) -> (%d,%d)\n", ctx->getDelayNS(net_delay),
@@ -658,6 +663,17 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
                 }
                 last_port = sink->port;
             }
+            int clockCount = 0;
+            auto sinkClass = ctx->getPortTimingClass(crit_path.back()->cell, crit_path.back()->port, clockCount);
+            if (sinkClass == TMG_REGISTER_INPUT && clockCount > 0) {
+                auto sinkClockInfo = ctx->getPortClockingInfo(crit_path.back()->cell, crit_path.back()->port, 0);
+                delay_t setup = sinkClockInfo.setup.maxDelay();
+                total += setup;
+                logic_total += setup;
+                log_info("%4.1f %4.1f  Setup %s.%s\n", ctx->getDelayNS(setup), ctx->getDelayNS(total),
+                         crit_path.back()->cell->name.c_str(ctx), crit_path.back()->port.c_str(ctx));
+            }
+            log_info("%.1f ns logic, %.1f ns routing\n", ctx->getDelayNS(logic_total), ctx->getDelayNS(route_total));
         };
 
         for (auto &clock : clock_reports) {
@@ -689,15 +705,17 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
         for (auto &clock : clock_reports) {
             const auto &clock_name = clock.first.str(ctx);
             const int width = max_width - clock_name.size();
-            if (ctx->nets.at(clock.first)->clkconstr) {
-                float target = 1000 / ctx->getDelayNS(ctx->nets.at(clock.first)->clkconstr->period.minDelay());
+            float target = ctx->target_freq / 1e6;
+            if (ctx->nets.at(clock.first)->clkconstr)
+                target = 1000 / ctx->getDelayNS(ctx->nets.at(clock.first)->clkconstr->period.minDelay());
+
+            bool passed = target < clock_fmax[clock.first];
+            if (!warn_on_failure || passed)
                 log_info("Max frequency for clock %*s'%s': %.02f MHz (%s at %.02f MHz)\n", width, "",
-                         clock_name.c_str(), clock_fmax[clock.first],
-                         (target < clock_fmax[clock.first]) ? "PASS" : "FAIL", target);
-            } else {
-                log_info("Max frequency for clock %*s'%s': %.02f MHz\n", width, "", clock_name.c_str(),
-                         clock_fmax[clock.first]);
-            }
+                         clock_name.c_str(), clock_fmax[clock.first], passed ? "PASS" : "FAIL", target);
+            else
+                log_nonfatal_error("Max frequency for clock %*s'%s': %.02f MHz (%s at %.02f MHz)\n", width, "",
+                                   clock_name.c_str(), clock_fmax[clock.first], passed ? "PASS" : "FAIL", target);
         }
         for (auto &eclock : empty_clocks) {
             if (eclock != ctx->id("$async$"))

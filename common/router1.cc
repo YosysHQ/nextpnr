@@ -812,7 +812,8 @@ bool router1(Context *ctx, const Router1Cfg &cfg)
 #endif
 
         log_info("Checksum: 0x%08x\n", ctx->checksum());
-        timing_analysis(ctx, true /* slack_histogram */, true /* print_fmax */, true /* print_path */);
+        timing_analysis(ctx, true /* slack_histogram */, true /* print_fmax */, true /* print_path */,
+                        true /* warn_on_failure */);
 
         ctx->unlock();
         return true;
@@ -870,7 +871,12 @@ bool Context::checkRoutedDesign() const
         }
 
         auto src_wire = ctx->getNetinfoSourceWire(net_info);
-        log_assert(src_wire != WireId());
+        if (src_wire == WireId()) {
+            log_assert(net_info->driver.cell == nullptr);
+            if (ctx->debug)
+                log("  undriven and unrouted\n");
+            continue;
+        }
 
         if (net_info->wires.count(src_wire) == 0) {
             if (ctx->debug)

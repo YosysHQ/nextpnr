@@ -119,9 +119,66 @@ struct range_wrapper
     range_wrapper<t##Range, return_value_policy<return_by_value>, conv>().wrap(#t "Range", #t "Iterator")
 
 /*
+A wrapper for a vector or similar structure. With support for conversion
+*/
+
+template <typename T, typename P = return_value_policy<return_by_value>,
+          typename value_conv = PythonConversion::pass_through<T>>
+struct vector_wrapper
+{
+    typedef decltype(std::declval<T>().begin()) iterator_t;
+    typedef decltype(*(std::declval<iterator_t>())) value_t;
+    typedef typename PythonConversion::ContextualWrapper<T &> wrapped_vector;
+    typedef typename PythonConversion::ContextualWrapper<std::pair<iterator_t, iterator_t>> wrapped_pair;
+    using return_t = typename value_conv::ret_type;
+    static wrapped_pair iter(wrapped_vector &range)
+    {
+        return wrapped_pair(range.ctx, std::make_pair(range.base.begin(), range.base.end()));
+    }
+
+    static std::string repr(wrapped_vector &range)
+    {
+        PythonConversion::string_converter<value_t> conv;
+        bool first = true;
+        std::stringstream ss;
+        ss << "[";
+        for (const auto &item : range.base) {
+            if (!first)
+                ss << ", ";
+            ss << "'" << conv.to_str(range.ctx, item) << "'";
+            first = false;
+        }
+        ss << "]";
+        return ss.str();
+    }
+
+    static int len(wrapped_vector &range) { return range.base.size(); }
+
+    static return_t getitem(wrapped_vector &range, int i)
+    {
+        return value_conv()(range.ctx, boost::ref(range.base.at(i)));
+    }
+
+    static void wrap(const char *range_name, const char *iter_name)
+    {
+        class_<wrapped_vector>(range_name, no_init)
+                .def("__iter__", iter)
+                .def("__repr__", repr)
+                .def("__len__", len)
+                .def("__getitem__", getitem);
+
+        iterator_wrapper<iterator_t, P, value_conv>().wrap(iter_name);
+    }
+
+    typedef iterator_wrapper<iterator_t, P, value_conv> iter_wrap;
+};
+
+#define WRAP_VECTOR(t, conv) vector_wrapper<t, return_value_policy<return_by_value>, conv>().wrap(#t, #t "Iterator")
+
+/*
 Wrapper for a pair, allows accessing either using C++-style members (.first and
 .second) or as a Python iterable and indexable object
- */
+*/
 template <typename T1, typename T2> struct pair_wrapper
 {
     typedef std::pair<T1, T2> T;

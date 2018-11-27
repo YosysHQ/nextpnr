@@ -165,8 +165,7 @@ bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const
             return true;
         NPNR_ASSERT(cell->ports.at(id_GLOBAL_BUFFER_OUTPUT).net != nullptr);
         const NetInfo *net = cell->ports.at(id_GLOBAL_BUFFER_OUTPUT).net;
-        IdString glb_net = getWireName(getBelPinWire(bel, id_GLOBAL_BUFFER_OUTPUT));
-        int glb_id = std::stoi(std::string("") + glb_net.str(this).back());
+        int glb_id = getDrivenGlobalNetwork(bel);
         if (net->is_reset && net->is_enable)
             return false;
         else if (net->is_reset)
