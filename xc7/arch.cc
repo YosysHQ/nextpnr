@@ -33,13 +33,15 @@
 #include <boost/serialization/unordered_map.hpp>
 #include <boost/archive/binary_iarchive.hpp>
 #include <boost/archive/binary_oarchive.hpp>
+#include <boost/iostreams/filter/zlib.hpp>
+#include <boost/iostreams/filtering_streambuf.hpp>
 struct nextpnr_binary_iarchive : public boost::archive::binary_iarchive {
-    nextpnr_binary_iarchive(std::ifstream &ifs, NEXTPNR_NAMESPACE::BaseCtx* ctx, const std::string& inDeviceName, const std::string& inPackageName) : boost::archive::binary_iarchive(ifs), ctx(ctx), inDeviceName(inDeviceName), inPackageName(inPackageName) {}
+    nextpnr_binary_iarchive(boost::iostreams::filtering_istreambuf &ifs, NEXTPNR_NAMESPACE::BaseCtx* ctx, const std::string& inDeviceName, const std::string& inPackageName) : boost::archive::binary_iarchive(ifs), ctx(ctx), inDeviceName(inDeviceName), inPackageName(inPackageName) {}
     NEXTPNR_NAMESPACE::BaseCtx *ctx;
     std::string inDeviceName, inPackageName;
 };
 struct nextpnr_binary_oarchive : public boost::archive::binary_oarchive {
-    nextpnr_binary_oarchive(std::ofstream &ofs, NEXTPNR_NAMESPACE::BaseCtx* ctx) : boost::archive::binary_oarchive(ofs), ctx(ctx) {}
+    nextpnr_binary_oarchive(boost::iostreams::filtering_ostreambuf &ofs, NEXTPNR_NAMESPACE::BaseCtx* ctx) : boost::archive::binary_oarchive(ofs), ctx(ctx) {}
     NEXTPNR_NAMESPACE::BaseCtx *ctx;
 };
 
@@ -312,9 +314,11 @@ Arch::Arch(ArchArgs args) : args(args)
 #ifdef TORC_INFO_DB
         std::ifstream ifs(TORC_INFO_DB, std::ios::binary);
         if (ifs) {
-            nextpnr_binary_iarchive ia(ifs, this, "xc7z020", args.package);
+            boost::iostreams::filtering_istreambuf fifs;
+            fifs.push(boost::iostreams::zlib_decompressor());
+            fifs.push(ifs);
+            nextpnr_binary_iarchive ia(fifs, this, "xc7z020", args.package);
             ia >> torc_info;
-            std::cout << ifs.tellg() << std::endl;
         } else
 #endif
         {
@@ -322,10 +326,11 @@ Arch::Arch(ArchArgs args) : args(args)
 #ifdef TORC_INFO_DB
             std::ofstream ofs(TORC_INFO_DB, std::ios::binary);
             if (ofs) {
-                nextpnr_binary_oarchive oa(ofs, this);
+                boost::iostreams::filtering_ostreambuf fofs;
+                fofs.push(boost::iostreams::zlib_compressor());
+                fofs.push(ofs);
+                nextpnr_binary_oarchive oa(fofs, this);
                 oa << torc_info;
-                ofs.flush();
-                std::cout << ofs.tellp() << std::endl;
             }
         }
 #endif
