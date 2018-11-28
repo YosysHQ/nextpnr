@@ -455,6 +455,12 @@ PortType Arch::getBelPinType(BelId bel, IdString pin) const
     return PORT_INOUT;
 }
 
+std::vector<std::pair<IdString, std::string>> Arch::getBelAttrs(BelId bel) const
+{
+    std::vector<std::pair<IdString, std::string>> ret;
+    return ret;
+}
+
 WireId Arch::getBelPinWire(BelId bel, IdString pin) const
 {
     auto pin_name = pin.str(this);
@@ -533,14 +539,14 @@ std::vector<IdString> Arch::getBelPins(BelId bel) const
 {
     std::vector<IdString> ret;
 
-    NPNR_ASSERT(bel != BelId());
+/*    NPNR_ASSERT(bel != BelId());
 
     int num_bel_wires = chip_info->bel_data[bel.index].num_bel_wires;
     const BelWirePOD *bel_wires = chip_info->bel_data[bel.index].bel_wires.get();
 
     for (int i = 0; i < num_bel_wires; i++)
         ret.push_back(IdString(bel_wires[i].port));
-
+*/
     return ret;
 }
 
@@ -601,12 +607,19 @@ IdString Arch::getWireType(WireId wire) const
 }
 
 // -----------------------------------------------------------------------
+std::vector<std::pair<IdString, std::string>> Arch::getWireAttrs(WireId wire) const
+{
+    std::vector<std::pair<IdString, std::string>> ret;
+    return ret;
+}
+
+// -----------------------------------------------------------------------
 
 PipId Arch::getPipByName(IdString name) const
 {
     PipId ret;
 
-    if (pip_by_name.empty()) {
+/*    if (pip_by_name.empty()) {
         for (int i = 0; i < chip_info->num_pips; i++) {
             PipId pip;
             pip.index = i;
@@ -617,7 +630,7 @@ PipId Arch::getPipByName(IdString name) const
     auto it = pip_by_name.find(name);
     if (it != pip_by_name.end())
         ret.index = it->second;
-
+*/
     return ret;
 }
 
@@ -645,6 +658,13 @@ IdString Arch::getPipName(PipId pip) const
     //#else
     //    return id(chip_info->pip_data[pip.index].name.get());
     //#endif
+}
+
+std::vector<std::pair<IdString, std::string>> Arch::getPipAttrs(PipId pip) const
+{
+    std::vector<std::pair<IdString, std::string>> ret;
+
+    return ret;
 }
 
 // -----------------------------------------------------------------------
@@ -719,7 +739,7 @@ IdString Arch::getGroupName(GroupId group) const
 std::vector<GroupId> Arch::getGroups() const
 {
     std::vector<GroupId> ret;
-
+/*
     for (int y = 0; y < chip_info->height; y++) {
         for (int x = 0; x < chip_info->width; x++) {
             TileType type = chip_info->tile_grid[y * chip_info->width + x];
@@ -764,7 +784,7 @@ std::vector<GroupId> Arch::getGroups() const
                 ret.push_back(group);
             }
         }
-    }
+    }*/
     return ret;
 }
 
@@ -843,137 +863,6 @@ DecalXY Arch::getGroupDecal(GroupId group) const
 std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
 {
     std::vector<GraphicElement> ret;
-
-    if (decal.type == DecalId::TYPE_GROUP) {
-        int type = (decal.index >> 16) & 255;
-        int x = (decal.index >> 8) & 255;
-        int y = decal.index & 255;
-
-        if (type == GroupId::TYPE_FRAME) {
-            GraphicElement el;
-            el.type = GraphicElement::TYPE_LINE;
-            el.style = GraphicElement::STYLE_FRAME;
-
-            el.x1 = x + 0.01, el.x2 = x + 0.02, el.y1 = y + 0.01, el.y2 = y + 0.01;
-            ret.push_back(el);
-            el.x1 = x + 0.01, el.x2 = x + 0.01, el.y1 = y + 0.01, el.y2 = y + 0.02;
-            ret.push_back(el);
-
-            el.x1 = x + 0.99, el.x2 = x + 0.98, el.y1 = y + 0.01, el.y2 = y + 0.01;
-            ret.push_back(el);
-            el.x1 = x + 0.99, el.x2 = x + 0.99, el.y1 = y + 0.01, el.y2 = y + 0.02;
-            ret.push_back(el);
-
-            el.x1 = x + 0.99, el.x2 = x + 0.98, el.y1 = y + 0.99, el.y2 = y + 0.99;
-            ret.push_back(el);
-            el.x1 = x + 0.99, el.x2 = x + 0.99, el.y1 = y + 0.99, el.y2 = y + 0.98;
-            ret.push_back(el);
-
-            el.x1 = x + 0.01, el.x2 = x + 0.02, el.y1 = y + 0.99, el.y2 = y + 0.99;
-            ret.push_back(el);
-            el.x1 = x + 0.01, el.x2 = x + 0.01, el.y1 = y + 0.99, el.y2 = y + 0.98;
-            ret.push_back(el);
-        }
-
-        if (type == GroupId::TYPE_MAIN_SW) {
-            GraphicElement el;
-            el.type = GraphicElement::TYPE_BOX;
-            el.style = GraphicElement::STYLE_FRAME;
-
-            el.x1 = x + main_swbox_x1;
-            el.x2 = x + main_swbox_x2;
-            el.y1 = y + main_swbox_y1;
-            el.y2 = y + main_swbox_y2;
-            ret.push_back(el);
-        }
-
-        if (type == GroupId::TYPE_LOCAL_SW) {
-            GraphicElement el;
-            el.type = GraphicElement::TYPE_BOX;
-            el.style = GraphicElement::STYLE_FRAME;
-
-            el.x1 = x + local_swbox_x1;
-            el.x2 = x + local_swbox_x2;
-            el.y1 = y + local_swbox_y1;
-            el.y2 = y + local_swbox_y2;
-            ret.push_back(el);
-        }
-
-        if (GroupId::TYPE_LC0_SW <= type && type <= GroupId::TYPE_LC7_SW) {
-            GraphicElement el;
-            el.type = GraphicElement::TYPE_BOX;
-            el.style = GraphicElement::STYLE_FRAME;
-
-            el.x1 = x + lut_swbox_x1;
-            el.x2 = x + lut_swbox_x2;
-            el.y1 = y + logic_cell_y1 + logic_cell_pitch * (type - GroupId::TYPE_LC0_SW);
-            el.y2 = y + logic_cell_y2 + logic_cell_pitch * (type - GroupId::TYPE_LC0_SW);
-            ret.push_back(el);
-        }
-    }
-
-    if (decal.type == DecalId::TYPE_WIRE) {
-        int n = chip_info->wire_data[decal.index].num_segments;
-        const WireSegmentPOD *p = chip_info->wire_data[decal.index].segments.get();
-
-        GraphicElement::style_t style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
-
-        for (int i = 0; i < n; i++)
-            gfxTileWire(ret, p[i].x, p[i].y, GfxTileWireId(p[i].index), style);
-    }
-
-    if (decal.type == DecalId::TYPE_PIP) {
-        const PipInfoPOD &p = chip_info->pip_data[decal.index];
-        GraphicElement::style_t style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_HIDDEN;
-        gfxTilePip(ret, p.x, p.y, GfxTileWireId(p.src_seg), GfxTileWireId(p.dst_seg), style);
-    }
-
-    if (decal.type == DecalId::TYPE_BEL) {
-        BelId bel;
-        bel.index = SiteIndex(decal.index);
-
-        auto bel_type = getBelType(bel);
-
-        if (bel_type == id_ICESTORM_LC) {
-            GraphicElement el;
-            el.type = GraphicElement::TYPE_BOX;
-            el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
-            el.x1 = chip_info->bel_data[bel.index].x + logic_cell_x1;
-            el.x2 = chip_info->bel_data[bel.index].x + logic_cell_x2;
-            el.y1 = chip_info->bel_data[bel.index].y + logic_cell_y1 +
-                    (chip_info->bel_data[bel.index].z) * logic_cell_pitch;
-            el.y2 = chip_info->bel_data[bel.index].y + logic_cell_y2 +
-                    (chip_info->bel_data[bel.index].z) * logic_cell_pitch;
-            ret.push_back(el);
-        }
-
-        if (bel_type == id_SB_IO) {
-            GraphicElement el;
-            el.type = GraphicElement::TYPE_BOX;
-            el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
-            el.x1 = chip_info->bel_data[bel.index].x + logic_cell_x1;
-            el.x2 = chip_info->bel_data[bel.index].x + logic_cell_x2;
-            el.y1 = chip_info->bel_data[bel.index].y + logic_cell_y1 +
-                    (4 * chip_info->bel_data[bel.index].z) * logic_cell_pitch;
-            el.y2 = chip_info->bel_data[bel.index].y + logic_cell_y2 +
-                    (4 * chip_info->bel_data[bel.index].z + 3) * logic_cell_pitch;
-            ret.push_back(el);
-        }
-
-        if (bel_type == id_ICESTORM_RAM) {
-            for (int i = 0; i < 2; i++) {
-                GraphicElement el;
-                el.type = GraphicElement::TYPE_BOX;
-                el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
-                el.x1 = chip_info->bel_data[bel.index].x + logic_cell_x1;
-                el.x2 = chip_info->bel_data[bel.index].x + logic_cell_x2;
-                el.y1 = chip_info->bel_data[bel.index].y + logic_cell_y1 + i;
-                el.y2 = chip_info->bel_data[bel.index].y + logic_cell_y2 + i + 7 * logic_cell_pitch;
-                ret.push_back(el);
-            }
-        }
-    }
-
     return ret;
 }
 

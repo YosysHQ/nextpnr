@@ -48,6 +48,13 @@ template <> struct string_converter<WireId>
     std::string to_str(Context *ctx, WireId id) { return ctx->getWireName(id).str(ctx); }
 };
 
+template <> struct string_converter<const WireId>
+{
+    WireId from_str(Context *ctx, std::string name) { return ctx->getWireByName(ctx->id(name)); }
+
+    std::string to_str(Context *ctx, WireId id) { return ctx->getWireName(id).str(ctx); }
+};
+
 template <> struct string_converter<PipId>
 {
     PipId from_str(Context *ctx, std::string name) { return ctx->getPipByName(ctx->id(name)); }

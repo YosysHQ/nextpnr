@@ -50,9 +50,9 @@ Application::Application(int &argc, char **argv) : QApplication(argc, argv)
 bool Application::notify(QObject *receiver, QEvent *event)
 {
     bool retVal = true;
-    try {
+    //try {
         retVal = QApplication::notify(receiver, event);
-    } catch (assertion_failure ex) {
+    /*} catch (assertion_failure ex) {
         QString msg;
         QTextStream out(&msg);
         out << ex.filename.c_str() << " at " << ex.line << "\n";
@@ -60,7 +60,7 @@ bool Application::notify(QObject *receiver, QEvent *event)
         QMessageBox::critical(0, "Error", msg);
     } catch (...) {
         QMessageBox::critical(0, "Error", "Fatal error !!!");
-    }
+    }*/
     return retVal;
 }
 
