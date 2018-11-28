@@ -680,6 +680,190 @@ static void promote_globals(Context *ctx)
     }
 }
 
+// Figure out where to place PLLs
+static void place_plls(Context *ctx)
+{
+    std::map<BelId, std::pair<BelPin, BelPin>> pll_all_bels;
+    std::map<BelId, CellInfo *> pll_used_bels;
+    std::vector<CellInfo *> pll_cells;
+    std::map<BelId, CellInfo *> bel2io;
+
+    log_info("Placing PLLs..\n");
+
+    // Find all the PLLs BELs and matching IO sites
+    for (auto bel : ctx->getBels()) {
+        if (ctx->getBelType(bel) != id_ICESTORM_PLL)
+            continue;
+        if (ctx->isBelLocked(bel))
+            continue;
+
+        auto io_a_pin = ctx->getIOBSharingPLLPin(bel, id_PLLOUT_A);
+        auto io_b_pin = ctx->getIOBSharingPLLPin(bel, id_PLLOUT_B);
+
+        pll_all_bels[bel] = std::make_pair(io_a_pin, io_b_pin);
+    }
+
+    // Find all the PLLs cells we need to place and do pre-checks
+    for (auto cell : sorted(ctx->cells)) {
+        CellInfo *ci = cell.second;
+        if (!is_sb_pll40(ctx, ci))
+            continue;
+
+        // If it's constrained already, add to already used list
+        if (ci->attrs.count(ctx->id("BEL"))) {
+            BelId bel_constrain = ctx->getBelByName(ctx->id(ci->attrs[ctx->id("BEL")]));
+            if (pll_all_bels.count(bel_constrain) == 0)
+                log_error("PLL '%s' is constrained to invalid BEL '%s'\n", ci->name.c_str(ctx),
+                          ci->attrs[ctx->id("BEL")].c_str());
+            pll_used_bels[bel_constrain] = ci;
+        }
+
+        // Add it to our list of PLLs to process
+        pll_cells.push_back(ci);
+    }
+
+    // Scan all the PAD PLLs
+    for (auto ci : pll_cells) {
+        if (!is_sb_pll40_pad(ctx, ci))
+            continue;
+
+        // Check PACKAGEPIN connection
+        if (!ci->ports.count(ctx->id("PACKAGEPIN")))
+            log_error("PLL '%s' is of PAD type but doesn't have a PACKAGEPIN port\n", ci->name.c_str(ctx));
+
+        NetInfo *ni = ci->ports.at(ctx->id("PACKAGEPIN")).net;
+        if (ni == nullptr || ni->driver.cell == nullptr)
+            log_error("PLL '%s' is of PAD type but doesn't have a valid PACKAGEPIN connection\n", ci->name.c_str(ctx));
+
+        CellInfo *io_cell = ni->driver.cell;
+        if (io_cell->type != id_SB_IO || ni->driver.port != id_D_IN_0)
+            log_error("PLL '%s' has a PACKAGEPIN driven by an %s, should be directly connected to an input "
+                      "SB_IO.D_IN_0 port\n",
+                      ci->name.c_str(ctx), io_cell->type.c_str(ctx));
+        if (ni->users.size() != 1)
+            log_error("PLL '%s' clock input '%s' can only drive PLL\n", ci->name.c_str(ctx), ni->name.c_str(ctx));
+        if (!io_cell->attrs.count(ctx->id("BEL")))
+            log_error("PLL '%s' PACKAGEPIN SB_IO '%s' is unconstrained\n", ci->name.c_str(ctx),
+                      io_cell->name.c_str(ctx));
+
+        BelId io_bel = ctx->getBelByName(ctx->id(io_cell->attrs.at(ctx->id("BEL"))));
+        BelId found_bel;
+
+        // Find the PLL BEL that would suit that connection
+        for (auto pll_bel : pll_all_bels) {
+            if (std::get<0>(pll_bel.second).bel == io_bel) {
+                found_bel = pll_bel.first;
+                break;
+            }
+        }
+
+        if (found_bel == BelId())
+            log_error("PLL '%s' PACKAGEPIN SB_IO '%s' is not connected to any PLL BEL\n", ci->name.c_str(ctx),
+                      io_cell->name.c_str(ctx));
+        if (pll_used_bels.count(found_bel)) {
+            CellInfo *conflict_cell = pll_used_bels.at(found_bel);
+            log_error("PLL '%s' PACKAGEPIN forces it to BEL %s but BEL is already assigned to PLL '%s'\n",
+                      ci->name.c_str(ctx), ctx->getBelName(found_bel).c_str(ctx), conflict_cell->name.c_str(ctx));
+        }
+
+        // Is it user constrained ?
+        if (ci->attrs.count(ctx->id("BEL"))) {
+            // Yes. Check it actually matches !
+            BelId bel_constrain = ctx->getBelByName(ctx->id(ci->attrs[ctx->id("BEL")]));
+            if (bel_constrain != found_bel)
+                log_error("PLL '%s' is user constrained to %s but can only be placed in %s based on its PACKAGEPIN "
+                          "connection\n",
+                          ci->name.c_str(ctx), ctx->getBelName(bel_constrain).c_str(ctx),
+                          ctx->getBelName(found_bel).c_str(ctx));
+        } else {
+            // No, we can constrain it ourselves
+            ci->attrs[ctx->id("BEL")] = ctx->getBelName(found_bel).str(ctx);
+            pll_used_bels[found_bel] = ci;
+        }
+
+        // Inform user
+        log_info("  constrained PLL '%s' to %s\n", ci->name.c_str(ctx), ctx->getBelName(found_bel).c_str(ctx));
+    }
+
+    // Scan all SB_IOs to check for conflict with PLL BELs
+    for (auto io_cell : sorted(ctx->cells)) {
+        CellInfo *io_ci = io_cell.second;
+        if (!is_sb_io(ctx, io_ci))
+            continue;
+
+        // Only consider bound IO that are used as inputs
+        if (!io_ci->attrs.count(ctx->id("BEL")))
+            continue;
+        if ((!io_ci->ports.count(id_D_IN_0) || (io_ci->ports[id_D_IN_0].net == nullptr)) &&
+            (!io_ci->ports.count(id_D_IN_1) || (io_ci->ports[id_D_IN_1].net == nullptr)))
+            continue;
+
+        // Check all placed PLL (either forced by user, or forced by PACKAGEPIN)
+        BelId io_bel = ctx->getBelByName(ctx->id(io_ci->attrs[ctx->id("BEL")]));
+
+        for (auto placed_pll : pll_used_bels) {
+            BelPin pll_io_a, pll_io_b;
+            std::tie(pll_io_a, pll_io_b) = pll_all_bels[placed_pll.first];
+            if (io_bel == pll_io_a.bel) {
+                // All the PAD type PLL stuff already checked above,so only
+                // check for conflict with a user placed CORE PLL
+                if (!is_sb_pll40_pad(ctx, placed_pll.second))
+                    log_error("PLL '%s' A output conflict with SB_IO '%s' that's used as input\n",
+                              placed_pll.second->name.c_str(ctx), io_cell.second->name.c_str(ctx));
+            } else if (io_bel == pll_io_b.bel) {
+                if (is_sb_pll40_dual(ctx, placed_pll.second))
+                    log_error("PLL '%s' B output conflicts with SB_IO '%s' that's used as input\n",
+                              placed_pll.second->name.c_str(ctx), io_cell.second->name.c_str(ctx));
+            }
+        }
+
+        // Save for later checks
+        bel2io[io_bel] = io_ci;
+    }
+
+    // Scan all the CORE PLLs and place them in remaining available PLL BELs
+    // (in two pass ... first do the dual ones, harder to place, then single port)
+    for (int i = 0; i < 2; i++) {
+        for (auto ci : pll_cells) {
+            if (is_sb_pll40_pad(ctx, ci))
+                continue;
+            if (is_sb_pll40_dual(ctx, ci) ^ i)
+                continue;
+
+            // Check REFERENCECLK connection
+            if (!ci->ports.count(id_REFERENCECLK))
+                log_error("PLL '%s' is of CORE type but doesn't have a REFERENCECLK port\n", ci->name.c_str(ctx));
+
+            NetInfo *ni = ci->ports.at(id_REFERENCECLK).net;
+            if (ni == nullptr || ni->driver.cell == nullptr)
+                log_error("PLL '%s' is of CORE type but doesn't have a valid REFERENCECLK connection\n",
+                          ci->name.c_str(ctx));
+
+            // Find a BEL for it
+            BelId found_bel;
+            for (auto bel_pll : pll_all_bels) {
+                BelPin pll_io_a, pll_io_b;
+                std::tie(pll_io_a, pll_io_b) = bel_pll.second;
+                if (bel2io.count(pll_io_a.bel))
+                    continue;
+                if (bel2io.count(pll_io_b.bel) && is_sb_pll40_dual(ctx, ci))
+                    continue;
+                found_bel = bel_pll.first;
+                break;
+            }
+
+            // Apply constrain & Inform user of result
+            if (found_bel == BelId())
+                log_error("PLL '%s' couldn't be placed anywhere, no suitable BEL found\n", ci->name.c_str(ctx));
+
+            log_info("  constrained PLL '%s' to %s\n", ci->name.c_str(ctx), ctx->getBelName(found_bel).c_str(ctx));
+
+            ci->attrs[ctx->id("BEL")] = ctx->getBelName(found_bel).str(ctx);
+            pll_used_bels[found_bel] = ci;
+        }
+    }
+}
+
 // spliceLUT adds a pass-through LUT LC between the given cell's output port
 // and either all users or only non_LUT users.
 static std::unique_ptr<CellInfo> spliceLUT(Context *ctx, CellInfo *ci, IdString portId, bool onlyNonLUTs)
@@ -940,82 +1124,25 @@ static void pack_special(Context *ctx)
                 replace_port(ci, ctx->id(pi.name.c_str(ctx)), packed.get(), ctx->id(newname));
             }
 
-            // If PLL is not constrained already, do that - we need this
-            // information to then constrain the LOCK LUT.
-            BelId pll_bel;
-            bool constrained = false;
-            if (packed->attrs.find(ctx->id("BEL")) == packed->attrs.end()) {
-                for (auto bel : ctx->getBels()) {
-                    if (ctx->getBelType(bel) != id_ICESTORM_PLL)
-                        continue;
-                    if (ctx->isBelLocked(bel))
-                        continue;
+            // PLL must have been placed already in place_plls()
+            BelId pll_bel = ctx->getBelByName(ctx->id(packed->attrs[ctx->id("BEL")]));
+            NPNR_ASSERT(pll_bel != BelId());
 
-                    // A PAD PLL must have its' PACKAGEPIN on the SB_IO that's shared
-                    // with PLLOUT_A.
-                    if (is_pad) {
-                        auto pll_sb_io_belpin = ctx->getIOBSharingPLLPin(bel, id_PLLOUT_A);
-                        NPNR_ASSERT(pad_packagepin_net != nullptr);
-                        auto pll_packagepin_driver = pad_packagepin_net->driver;
-                        NPNR_ASSERT(pll_packagepin_driver.cell != nullptr);
-                        if (pll_packagepin_driver.cell->type != ctx->id("SB_IO")) {
-                            log_error("PLL '%s' has a PACKAGEPIN driven by "
-                                      "an %s, should be directly connected to an input SB_IO\n",
-                                      ci->name.c_str(ctx), pll_packagepin_driver.cell->type.c_str(ctx));
-                        }
+            // Deal with PAD PLL peculiarities
+            if (is_pad) {
+                NPNR_ASSERT(pad_packagepin_net != nullptr);
+                auto pll_packagepin_driver = pad_packagepin_net->driver;
+                NPNR_ASSERT(pll_packagepin_driver.cell != nullptr);
+                auto packagepin_cell = pll_packagepin_driver.cell;
+                auto packagepin_bel_name = packagepin_cell->attrs.find(ctx->id("BEL"));
 
-                        auto packagepin_cell = pll_packagepin_driver.cell;
-                        auto packagepin_bel_name = packagepin_cell->attrs.find(ctx->id("BEL"));
-                        if (packagepin_bel_name == packagepin_cell->attrs.end()) {
-                            log_error("PLL '%s' PACKAGEPIN SB_IO '%s' is unconstrained\n", ci->name.c_str(ctx),
-                                      packagepin_cell->name.c_str(ctx));
-                        }
-                        auto packagepin_bel = ctx->getBelByName(ctx->id(packagepin_bel_name->second));
-                        if (pll_sb_io_belpin.bel != packagepin_bel) {
-                            log_error("PLL '%s' PACKAGEPIN is connected to pin %s, can only be pin %s\n",
-                                      ci->name.c_str(ctx), ctx->getBelPackagePin(packagepin_bel).c_str(),
-                                      ctx->getBelPackagePin(pll_sb_io_belpin.bel).c_str());
-                        }
-                        if (pad_packagepin_net->users.size() != 1) {
-                            log_error("PLL '%s' clock input '%s' can only drive PLL\n", ci->name.c_str(ctx),
-                                      pad_packagepin_net->name.c_str(ctx));
-                        }
-                        // Set an attribute about this PLL's PAD SB_IO.
-                        packed->attrs[ctx->id("BEL_PAD_INPUT")] = packagepin_bel_name->second;
-                        // Remove the connection from the SB_IO to the PLL.
-                        packagepin_cell->ports.erase(pll_packagepin_driver.port);
-                    }
+                // Set an attribute about this PLL's PAD SB_IO.
+                packed->attrs[ctx->id("BEL_PAD_INPUT")] = packagepin_bel_name->second;
 
-                    log_info("  constrained PLL '%s' to %s\n", packed->name.c_str(ctx),
-                             ctx->getBelName(bel).c_str(ctx));
-                    packed->attrs[ctx->id("BEL")] = ctx->getBelName(bel).str(ctx);
-                    pll_bel = bel;
-                    constrained = true;
-                    break;
-                }
-                if (!constrained) {
-                    log_error("Could not constrain PLL '%s' to any PLL Bel (too many PLLs?)\n",
-                              packed->name.c_str(ctx));
-                }
-            } else {
-                pll_bel = ctx->getBelByName(ctx->id(packed->attrs[ctx->id("BEL")]));
-                if (ctx->getBelType(pll_bel) != id_ICESTORM_PLL)
-                    log_error("PLL '%s' is constrained to BEL %s which isn't a ICESTORM_PLL BEL\n",
-                              packed->name.c_str(ctx), ctx->getBelName(pll_bel).c_str(ctx));
-                if (ctx->isBelLocked(pll_bel))
-                    log_error("PLL '%s' is constrained to locked BEL %s\n", packed->name.c_str(ctx),
-                              ctx->getBelName(pll_bel).c_str(ctx));
-                log_info("  constrained PLL '%s' to %s\n", packed->name.c_str(ctx),
-                         ctx->getBelName(pll_bel).c_str(ctx));
-            }
-
-            // Delete the original PACKAGEPIN net if needed.
-            if (pad_packagepin_net != nullptr) {
-                for (auto user : pad_packagepin_net->users) {
+                // Disconnect PACKAGEPIN (it's a physical HW link)
+                for (auto user : pad_packagepin_net->users)
                     user.cell->ports.erase(user.port);
-                }
-                if (pad_packagepin_net->driver.cell != nullptr)
-                    pad_packagepin_net->driver.cell->ports.erase(pad_packagepin_net->driver.port);
+                packagepin_cell->ports.erase(pll_packagepin_driver.port);
                 ctx->nets.erase(pad_packagepin_net->name);
                 pad_packagepin_net = nullptr;
             }
@@ -1119,6 +1246,7 @@ bool Arch::pack()
         pack_nonlut_ffs(ctx);
         pack_carries(ctx);
         pack_ram(ctx);
+        place_plls(ctx);
         pack_special(ctx);
         if (!bool_or_default(ctx->settings, ctx->id("no_promote_globals"), false))
             promote_globals(ctx);
