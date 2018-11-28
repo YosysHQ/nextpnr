@@ -839,13 +839,22 @@ static void place_plls(Context *ctx)
                 log_error("PLL '%s' is of CORE type but doesn't have a valid REFERENCECLK connection\n",
                           ci->name.c_str(ctx));
 
+            // Could this be a PAD PLL ?
+            bool could_be_pad = false;
+            BelId pad_bel;
+            if (ni->users.size() == 1 && is_sb_io(ctx, ni->driver.cell) && ni->driver.cell->attrs.count(ctx->id("BEL")))
+                pad_bel = ctx->getBelByName(ctx->id(ni->driver.cell->attrs[ctx->id("BEL")]));
+
             // Find a BEL for it
             BelId found_bel;
             for (auto bel_pll : pll_all_bels) {
                 BelPin pll_io_a, pll_io_b;
                 std::tie(pll_io_a, pll_io_b) = bel_pll.second;
-                if (bel2io.count(pll_io_a.bel))
+                if (bel2io.count(pll_io_a.bel)) {
+                    if (pll_io_a.bel == pad_bel)
+                        could_be_pad = !bel2io.count(pll_io_b.bel) || !is_sb_pll40_dual(ctx, ci);
                     continue;
+                }
                 if (bel2io.count(pll_io_b.bel) && is_sb_pll40_dual(ctx, ci))
                     continue;
                 found_bel = bel_pll.first;
@@ -854,9 +863,12 @@ static void place_plls(Context *ctx)
 
             // Apply constrain & Inform user of result
             if (found_bel == BelId())
-                log_error("PLL '%s' couldn't be placed anywhere, no suitable BEL found\n", ci->name.c_str(ctx));
+                log_error("PLL '%s' couldn't be placed anywhere, no suitable BEL found.%s\n", ci->name.c_str(ctx),
+                          could_be_pad ? " Did you mean to use a PAD PLL ?" : "");
 
             log_info("  constrained PLL '%s' to %s\n", ci->name.c_str(ctx), ctx->getBelName(found_bel).c_str(ctx));
+            if (could_be_pad)
+                log_info("  (given its connections, this PLL could have been a PAD PLL)\n");
 
             ci->attrs[ctx->id("BEL")] = ctx->getBelName(found_bel).str(ctx);
             pll_used_bels[found_bel] = ci;
