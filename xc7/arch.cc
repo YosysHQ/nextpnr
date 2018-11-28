@@ -332,8 +332,8 @@ Arch::Arch(ArchArgs args) : args(args)
                 nextpnr_binary_oarchive oa(fofs, this);
                 oa << torc_info;
             }
-        }
 #endif
+        }
     } else {
         log_error("Unsupported XC7 chip type.\n");
     }
