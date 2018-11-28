@@ -21,6 +21,8 @@
 #error Include "arch.h" via "nextpnr.h" only.
 #endif
 
+#include <boost/serialization/access.hpp>
+
 #include "torc/Architecture.hpp"
 #include "torc/Common.hpp"
 using namespace torc::architecture;
@@ -268,10 +270,10 @@ NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     RelPtr<CellTimingPOD> cell_timing;
 });
 
-struct Arch;
 struct TorcInfo
 {
-    TorcInfo(Arch *ctx, const std::string &inDeviceName, const std::string &inPackageName);
+    TorcInfo(BaseCtx *ctx, const std::string &inDeviceName, const std::string &inPackageName);
+    TorcInfo() = delete;
     std::unique_ptr<const DDB> ddb;
     const Sites &sites;
     const Tiles &tiles;
@@ -297,7 +299,7 @@ struct TorcInfo
         ss << "(" << tw.getWireIndex() << "@" << tw.getTileIndex() << ")";
         return ss.str();
     }
-    int32_t tilewire_to_wire(const Tilewire &tw) const
+    WireId tilewire_to_wire(const Tilewire &tw) const
     {
         const auto &segment = segments.getTilewireSegment(tw);
         if (!segment.isTrivial())
@@ -310,16 +312,40 @@ struct TorcInfo
     std::vector<BelId> site_index_to_bel;
     std::vector<IdString> site_index_to_type;
     std::vector<Loc> bel_to_loc;
-    std::unordered_map<Segments::SegmentReference, int> segment_to_wire;
-    std::unordered_map<Tilewire, int> trivial_to_wire;
+    std::unordered_map<Segments::SegmentReference, WireId> segment_to_wire;
+    std::unordered_map<Tilewire, WireId> trivial_to_wire;
     std::vector<Tilewire> wire_to_tilewire;
     int num_wires;
     std::vector<DelayInfo> wire_to_delay;
-    std::vector<std::vector<int>> wire_to_pips_uphill;
-    std::vector<std::vector<int>> wire_to_pips_downhill;
+    //std::vector<std::vector<int>> wire_to_pips_uphill;
+    std::vector<std::vector<PipId>> wire_to_pips_downhill;
     std::vector<Arc> pip_to_arc;
     int num_pips;
-    std::vector<int> pip_to_dst_wire;
+    std::vector<WireId> pip_to_dst_wire;
+
+    TorcInfo(const std::string &inDeviceName, const std::string &inPackageName);
+private:
+    friend class boost::serialization::access;
+    //TorcInfo(const std::string &inDeviceName, const std::string &inPackageName);
+    //template<class Archive, class T> friend inline void load_construct_data(Archive &ar, T *t, const unsigned int file_version);
+    template<class Archive>
+    void serialize(Archive & ar, const unsigned int /*version*/)
+    {
+        ar & bel_to_site_index;
+        ar & num_bels;
+        ar & site_index_to_bel;
+        ar & site_index_to_type;
+        ar & bel_to_loc;
+        ar & segment_to_wire;
+        ar & trivial_to_wire;
+        ar & wire_to_tilewire;
+        ar & num_wires;
+        ar & wire_to_delay;
+        ar & wire_to_pips_downhill;
+        ar & pip_to_arc;
+        ar & num_pips;
+        ar & pip_to_dst_wire;
+    }
 };
 extern std::unique_ptr<const TorcInfo> torc_info;
 
@@ -438,16 +464,14 @@ struct AllPipRange
 
 struct PipIterator
 {
-    const int *cursor = nullptr;
+    const PipId *cursor = nullptr;
 
     void operator++() { cursor++; }
     bool operator!=(const PipIterator &other) const { return cursor != other.cursor; }
 
     PipId operator*() const
     {
-        PipId ret;
-        ret.index = *cursor;
-        return ret;
+        return *cursor;
     }
 };
 
@@ -797,22 +821,17 @@ struct Arch : BaseCtx
 
     WireId getPipSrcWire(PipId pip) const
     {
-        WireId wire;
         NPNR_ASSERT(pip != PipId());
 
         const auto &arc = torc_info->pip_to_arc[pip.index];
         const auto &tw = arc.getSourceTilewire();
-        wire.index = torc_info->tilewire_to_wire(tw);
-
-        return wire;
+        return torc_info->tilewire_to_wire(tw);
     }
 
     WireId getPipDstWire(PipId pip) const
     {
-        WireId wire;
         NPNR_ASSERT(pip != PipId());
-        wire.index = torc_info->pip_to_dst_wire[pip.index];
-        return wire;
+        return torc_info->pip_to_dst_wire[pip.index];
     }
 
     DelayInfo getPipDelay(PipId pip) const
@@ -829,7 +848,6 @@ struct Arch : BaseCtx
         const auto &pips = torc_info->wire_to_pips_downhill[wire.index];
         range.b.cursor = pips.data();
         range.e.cursor = range.b.cursor + pips.size();
-
         return range;
     }
 

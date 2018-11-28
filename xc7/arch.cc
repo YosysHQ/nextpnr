@@ -28,14 +28,30 @@
 #include "router1.h"
 #include "util.h"
 
+#include <boost/serialization/unique_ptr.hpp>
+#include <boost/serialization/vector.hpp>
+#include <boost/serialization/unordered_map.hpp>
+#include <boost/archive/binary_iarchive.hpp>
+#include <boost/archive/binary_oarchive.hpp>
+struct nextpnr_binary_iarchive : public boost::archive::binary_iarchive {
+    nextpnr_binary_iarchive(std::ifstream &ifs, NEXTPNR_NAMESPACE::BaseCtx* ctx, const std::string& inDeviceName, const std::string& inPackageName) : boost::archive::binary_iarchive(ifs), ctx(ctx), inDeviceName(inDeviceName), inPackageName(inPackageName) {}
+    NEXTPNR_NAMESPACE::BaseCtx *ctx;
+    std::string inDeviceName, inPackageName;
+};
+struct nextpnr_binary_oarchive : public boost::archive::binary_oarchive {
+    nextpnr_binary_oarchive(std::ofstream &ofs, NEXTPNR_NAMESPACE::BaseCtx* ctx) : boost::archive::binary_oarchive(ofs), ctx(ctx) {}
+    NEXTPNR_NAMESPACE::BaseCtx *ctx;
+};
+
 #include "torc/common/DirectoryTree.hpp"
+
+//#define TORC_INFO_DB "torc_info.ar"
 
 NEXTPNR_NAMESPACE_BEGIN
 
 std::unique_ptr<const TorcInfo> torc_info;
-TorcInfo::TorcInfo(Arch *ctx, const std::string &inDeviceName, const std::string &inPackageName)
-        : ddb(new DDB(inDeviceName, inPackageName)), sites(ddb->getSites()), tiles(ddb->getTiles()),
-          segments(ddb->getSegments())
+TorcInfo::TorcInfo(BaseCtx *ctx, const std::string &inDeviceName, const std::string &inPackageName)
+        : TorcInfo(inDeviceName, inPackageName)
 {
     static const boost::regex re_loc(".+_X(\\d+)Y(\\d+)");
     boost::cmatch what;
@@ -123,9 +139,9 @@ TorcInfo::TorcInfo(Arch *ctx, const std::string &inDeviceName, const std::string
             if (!currentSegment.isTrivial()) {
                 if (currentSegment.getAnchorTileIndex() != tileIndex)
                     continue;
-                segment_to_wire.emplace(currentSegment, wire_to_tilewire.size());
+                segment_to_wire.emplace(currentSegment, w);
             } else
-                trivial_to_wire.emplace(currentTilewire, wire_to_tilewire.size());
+                trivial_to_wire.emplace(currentTilewire, w);
 
             wire_to_tilewire.push_back(currentTilewire);
 
@@ -200,6 +216,8 @@ TorcInfo::TorcInfo(Arch *ctx, const std::string &inDeviceName, const std::string
             DelayInfo d;
             d.delay = it->second[currentTilewire.getWireIndex()];
             wire_to_delay.emplace_back(std::move(d));
+
+            ++w.index;
         }
     }
     wire_to_tilewire.shrink_to_fit();
@@ -252,7 +270,7 @@ TorcInfo::TorcInfo(Arch *ctx, const std::string &inDeviceName, const std::string
                         continue;
                 }
             }
-            pips.push_back(p.index);
+            pips.emplace_back(p);
             pip_to_arc.emplace_back(a);
             // arc_to_pip.emplace(a, p.index);
             const auto &tw = a.getSinkTilewire();
@@ -270,6 +288,11 @@ TorcInfo::TorcInfo(Arch *ctx, const std::string &inDeviceName, const std::string
         pip_to_dst_wire.emplace_back(tilewire_to_wire(tw));
     }
 }
+TorcInfo::TorcInfo(const std::string& inDeviceName, const std::string &inPackageName)
+    : ddb(new DDB(inDeviceName, inPackageName)), sites(ddb->getSites()), tiles(ddb->getTiles()),
+          segments(ddb->getSegments())
+{
+}
 
 // -----------------------------------------------------------------------
 
@@ -286,10 +309,30 @@ Arch::Arch(ArchArgs args) : args(args)
 {
     torc::common::DirectoryTree directoryTree("/opt/torc/src/torc");
     if (args.type == ArchArgs::Z020) {
-        torc_info = std::unique_ptr<TorcInfo>(new TorcInfo(this, "xc7z020", args.package));
+#ifdef TORC_INFO_DB
+        std::ifstream ifs(TORC_INFO_DB, std::ios::binary);
+        if (ifs) {
+            nextpnr_binary_iarchive ia(ifs, this, "xc7z020", args.package);
+            ia >> torc_info;
+            std::cout << ifs.tellg() << std::endl;
+        } else
+#endif
+        {
+            torc_info = std::unique_ptr<TorcInfo>(new TorcInfo(this, "xc7z020", args.package));
+#ifdef TORC_INFO_DB
+            std::ofstream ofs(TORC_INFO_DB, std::ios::binary);
+            if (ofs) {
+                nextpnr_binary_oarchive oa(ofs, this);
+                oa << torc_info;
+                ofs.flush();
+                std::cout << ofs.tellp() << std::endl;
+            }
+        }
+#endif
     } else {
         log_error("Unsupported XC7 chip type.\n");
     }
+
 
     /*if (getCtx()->verbose)*/ {
         log_info("Number of bels:  %d\n", torc_info->num_bels);
@@ -409,8 +452,6 @@ PortType Arch::getBelPinType(BelId bel, IdString pin) const
 
 WireId Arch::getBelPinWire(BelId bel, IdString pin) const
 {
-    WireId ret;
-
     auto pin_name = pin.str(this);
     auto bel_type = getBelType(bel);
     if (bel_type == id_SLICE_LUT6) {
@@ -451,7 +492,7 @@ WireId Arch::getBelPinWire(BelId bel, IdString pin) const
         log_error("no wire found for site '%s' pin '%s' \n", torc_info->bel_to_name(bel.index).c_str(),
                   pin_name.c_str());
 
-    ret.index = torc_info->tilewire_to_wire(tw);
+    return torc_info->tilewire_to_wire(tw);
 
     //    NPNR_ASSERT(bel != BelId());
     //
@@ -479,8 +520,8 @@ WireId Arch::getBelPinWire(BelId bel, IdString pin) const
     //                b = i + 1;
     //        }
     //    }
-
-    return ret;
+    //
+    //return ret;
 }
 
 std::vector<IdString> Arch::getBelPins(BelId bel) const
@@ -1075,3 +1116,109 @@ void Arch::assignCellInfo(CellInfo *cell)
 }
 
 NEXTPNR_NAMESPACE_END
+
+// outside of any namespace
+BOOST_SERIALIZATION_SPLIT_FREE(Segments::SegmentReference)
+BOOST_SERIALIZATION_SPLIT_FREE(CompactSegmentIndex)
+BOOST_SERIALIZATION_SPLIT_FREE(TileIndex)
+BOOST_SERIALIZATION_SPLIT_FREE(Arc)
+BOOST_SERIALIZATION_SPLIT_FREE(Tilewire)
+BOOST_SERIALIZATION_SPLIT_FREE(WireIndex)
+BOOST_SERIALIZATION_SPLIT_FREE(SiteIndex)
+BOOST_SERIALIZATION_SPLIT_FREE(NEXTPNR_NAMESPACE::IdString)
+
+namespace boost { namespace serialization {
+
+template<class Archive>
+inline void load_construct_data(
+    Archive & ar, NEXTPNR_NAMESPACE::TorcInfo * t, const unsigned int file_version
+){
+    const auto& inDeviceName = static_cast<const nextpnr_binary_iarchive&>(ar).inDeviceName;
+    const auto& inPackageName = static_cast<const nextpnr_binary_iarchive&>(ar).inPackageName;
+    ::new(t)NEXTPNR_NAMESPACE::TorcInfo(inDeviceName, inPackageName);
+}
+
+template<class Archive>
+void save(Archive& ar, const Segments::SegmentReference& o, unsigned int) {
+    ar & o.getCompactSegmentIndex();
+    ar & o.getAnchorTileIndex();
+}
+template<class Archive>
+void load(Archive& ar, Segments::SegmentReference& o, unsigned int) {
+    CompactSegmentIndex i;
+    TileIndex j;
+    ar & i;
+    ar & j;
+    o = Segments::SegmentReference(i, j);
+}
+#define SERIALIZE_POD(__T__) \
+template<class Archive> \
+void save(Archive& ar, const __T__& o, unsigned int) { \
+    ar & static_cast<__T__::pod>(o); \
+} \
+template<class Archive> \
+void load(Archive& ar, __T__& o, unsigned int) { \
+    __T__::pod i; \
+    ar & i; \
+    o = __T__(i); \
+}
+SERIALIZE_POD(CompactSegmentIndex)
+SERIALIZE_POD(TileIndex)
+SERIALIZE_POD(WireIndex)
+SERIALIZE_POD(SiteIndex)
+template<class Archive>
+void save(Archive& ar, const Arc& o, unsigned int) {
+    ar & o.getSourceTilewire();
+    ar & o.getSinkTilewire();
+}
+template<class Archive>
+void load(Archive& ar, Arc& o, unsigned int) {
+    Tilewire s, t;
+    ar & s;
+    ar & t;
+    o = Arc(s, t);
+}
+template<class Archive>
+void save(Archive& ar, const Tilewire& o, unsigned int) {
+    ar & o.getTileIndex();
+    ar & o.getWireIndex();
+}
+template<class Archive>
+void load(Archive& ar, Tilewire& o, unsigned int) {
+    TileIndex i;
+    WireIndex j;
+    ar & i;
+    ar & j;
+    o.setTileIndex(TileIndex(i));
+    o.setWireIndex(WireIndex(j));
+}
+template<class Archive>
+void serialize(Archive& ar, NEXTPNR_NAMESPACE::Loc& o, unsigned int) {
+    ar & o.x;
+    ar & o.y;
+    ar & o.z;
+}
+template<class Archive>
+void serialize(Archive& ar, NEXTPNR_NAMESPACE::DelayInfo& o, unsigned int) {
+    ar & o.delay;
+}
+template<class Archive>
+void save(Archive& ar, const NEXTPNR_NAMESPACE::IdString& o, unsigned int) {
+    const std::string i = o.str(static_cast<const nextpnr_binary_oarchive&>(ar).ctx);
+    ar & i;
+}
+template<class Archive>
+void load(Archive& ar, NEXTPNR_NAMESPACE::IdString& o, unsigned int) {
+    std::string i;
+    ar & i;
+    o = static_cast<nextpnr_binary_iarchive&>(ar).ctx->id(i);
+}
+#define SERIALIZE_INDEX(__T__) \
+template<class Archive> \
+void serialize(Archive& ar, __T__& o, unsigned int) { \
+    ar & o.index; \
+}
+SERIALIZE_INDEX(NEXTPNR_NAMESPACE::BelId)
+SERIALIZE_INDEX(NEXTPNR_NAMESPACE::WireId)
+SERIALIZE_INDEX(NEXTPNR_NAMESPACE::PipId)
+}} // namespace boost::serialization
