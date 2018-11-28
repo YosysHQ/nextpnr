@@ -65,6 +65,9 @@ po::options_description Ice40CommandHandler::getArchOptions()
     specific.add_options()("pcf", po::value<std::string>(), "PCF constraints file to ingest");
     specific.add_options()("asc", po::value<std::string>(), "asc bitstream file to write");
     specific.add_options()("read", po::value<std::string>(), "asc bitstream file to read");
+    specific.add_options()("promote-logic",
+                           "enable promotion of 'logic' globals (in addition to clk/ce/sr by default)");
+    specific.add_options()("no-promote-globals", "disable all global promotion");
     specific.add_options()("tmfuzz", "run path delay estimate fuzzer");
     return specific;
 }
@@ -152,7 +155,13 @@ std::unique_ptr<Context> Ice40CommandHandler::createContext()
     if (vm.count("package"))
         chipArgs.package = vm["package"].as<std::string>();
 
-    return std::unique_ptr<Context>(new Context(chipArgs));
+    auto ctx = std::unique_ptr<Context>(new Context(chipArgs));
+
+    if (vm.count("promote-logic"))
+        ctx->settings[ctx->id("promote_logic")] = "1";
+    if (vm.count("no-promote-globals"))
+        ctx->settings[ctx->id("no_promote_globals")] = "1";
+    return ctx;
 }
 
 int main(int argc, char *argv[])
