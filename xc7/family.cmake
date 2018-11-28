@@ -1,7 +1,7 @@
 include_directories(/opt/torc/src)
 #include_directories(torc/externals/zlib)
 
-find_package(Boost REQUIRED COMPONENTS serialization iostreams ${boost_libs})
+find_package(Boost REQUIRED COMPONENTS serialization iostreams ${boost_libs} ${boost_python_lib})
 
 target_link_libraries(
     nextpnr-${family}

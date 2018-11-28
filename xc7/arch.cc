@@ -289,6 +289,9 @@ TorcInfo::TorcInfo(BaseCtx *ctx, const std::string &inDeviceName, const std::str
         const auto &tw = arc.getSinkTilewire();
         pip_to_dst_wire.emplace_back(tilewire_to_wire(tw));
     }
+
+    height = (int)tiles.getRowCount();
+    width = (int)tiles.getColCount();
 }
 TorcInfo::TorcInfo(const std::string& inDeviceName, const std::string &inPackageName)
     : ddb(new DDB(inDeviceName, inPackageName)), sites(ddb->getSites()), tiles(ddb->getTiles()),
@@ -332,13 +335,14 @@ Arch::Arch(ArchArgs args) : args(args)
                 nextpnr_binary_oarchive oa(fofs, this);
                 oa << torc_info;
             }
-        }
 #endif
+        }
     } else {
         log_error("Unsupported XC7 chip type.\n");
     }
 
-
+        width = torc_info->width;
+        height = torc_info->height;
     /*if (getCtx()->verbose)*/ {
         log_info("Number of bels:  %d\n", torc_info->num_bels);
         log_info("Number of wires: %d\n", torc_info->num_wires);
