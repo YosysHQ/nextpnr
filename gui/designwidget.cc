@@ -318,6 +318,12 @@ void DesignWidget::newContext(Context *ctx)
                 wireMap[std::pair<int, int>(wire.location.x, wire.location.y)].push_back(wire);
             }
 #endif
+#ifdef ARCH_XC7
+            for (const auto &wire : ctx->getWires()) {
+                const auto loc = torc_info->wire_to_loc(wire.index);
+                wireMap[std::pair<int, int>(loc.x, loc.y)].push_back(wire);
+            }
+#endif
             auto wireGetter = [](Context *ctx, WireId id) { return ctx->getWireName(id); };
             getTreeByElementType(ElementType::WIRE)
                     ->loadData(ctx,
@@ -706,8 +712,9 @@ void DesignWidget::onSelectionChanged(int num, const QItemSelection &, const QIt
         addProperty(topItem, QVariant::String, "Type", ctx->getPipType(pip).c_str(ctx));
         addProperty(topItem, QVariant::Bool, "Available", ctx->checkPipAvail(pip));
         addProperty(topItem, QVariant::String, "Bound Net", ctx->nameOf(ctx->getBoundPipNet(pip)), ElementType::NET);
+        WireId conflict = ctx->getConflictingPipWire(pip);
         addProperty(topItem, QVariant::String, "Conflicting Wire",
-                    ctx->getWireName(ctx->getConflictingPipWire(pip)).c_str(ctx), ElementType::WIRE);
+                    (conflict!=WireId() ? ctx->getWireName(conflict).c_str(ctx) : ""), ElementType::WIRE);
         addProperty(topItem, QVariant::String, "Conflicting Net", ctx->nameOf(ctx->getConflictingPipNet(pip)),
                     ElementType::NET);
         addProperty(topItem, QVariant::String, "Src Wire", ctx->getWireName(ctx->getPipSrcWire(pip)).c_str(ctx),

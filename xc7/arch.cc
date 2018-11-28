@@ -388,9 +388,19 @@ IdString Arch::archArgsToId(ArchArgs args) const
 
 // -----------------------------------------------------------------------
 
+static bool endsWith(const std::string& str, const std::string& suffix)
+{
+    return str.size() >= suffix.size() && 0 == str.compare(str.size()-suffix.size(), suffix.size(), suffix);
+}
+
 BelId Arch::getBelByName(IdString name) const
 {
-    auto it = torc_info->sites.findSiteIndex(name.str(this));
+    std::string n = name.str(this);
+    if (endsWith(n,"_A") || endsWith(n,"_B") || endsWith(n,"_C") || endsWith(n,"_D"))
+    {
+        n = n.substr(0,n.size()-2);
+    }
+    auto it = torc_info->sites.findSiteIndex(n);
     if (it != SiteIndex(-1))
         return torc_info->site_index_to_bel.at(it);
     return BelId();
@@ -561,13 +571,13 @@ WireId Arch::getWireByName(IdString name) const
     WireId ret;
 
     if (wire_by_name.empty()) {
-        for (int i = 0; i < chip_info->num_wires; i++)
-            wire_by_name[id(chip_info->wire_data[i].name.get())] = i;
+        for (int i = 0; i < torc_info->num_wires; i++)
+            wire_by_name[id(torc_info->wire_to_name(i))] = i;
     }
 
-    // auto it = wire_by_name.find(name);
-    // if (it != wire_by_name.end())
-    //    ret.index = it->second;
+    auto it = wire_by_name.find(name);
+    if (it != wire_by_name.end())
+        ret.index = it->second;
 
     return ret;
 }
@@ -623,8 +633,8 @@ PipId Arch::getPipByName(IdString name) const
 {
     PipId ret;
 
-/*    if (pip_by_name.empty()) {
-        for (int i = 0; i < chip_info->num_pips; i++) {
+    if (pip_by_name.empty()) {
+        for (int i = 0; i < torc_info->num_pips; i++) {
             PipId pip;
             pip.index = i;
             pip_by_name[getPipName(pip)] = i;
@@ -634,7 +644,7 @@ PipId Arch::getPipByName(IdString name) const
     auto it = pip_by_name.find(name);
     if (it != pip_by_name.end())
         ret.index = it->second;
-*/
+
     return ret;
 }
 

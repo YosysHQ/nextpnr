@@ -299,6 +299,17 @@ struct TorcInfo
         ss << "(" << tw.getWireIndex() << "@" << tw.getTileIndex() << ")";
         return ss.str();
     }
+
+    Loc wire_to_loc(int32_t index) const
+    {
+        const auto &tw = wire_to_tilewire[index];
+        ExtendedWireInfo ewi(*ddb, tw);
+        Loc l;
+        l.x = (int)ewi.mTileCol;
+        l.y = (int)ewi.mTileRow;
+        return l;
+    }
+    
     WireId tilewire_to_wire(const Tilewire &tw) const
     {
         const auto &segment = segments.getTilewireSegment(tw);
@@ -708,7 +719,7 @@ struct Arch : BaseCtx
         // NPNR_ASSERT(wire != WireId());
         // range.b.ptr = chip_info->wire_data[wire.index].bel_pins.get();
         // range.e.ptr = range.b.ptr + chip_info->wire_data[wire.index].num_bel_pins;
-        throw;
+        //throw;
         return range;
     }
 
