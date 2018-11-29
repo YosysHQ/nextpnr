@@ -478,6 +478,9 @@ static void pack_io(Context *ctx)
             }
             packed_cells.insert(ci->name);
             std::copy(ci->attrs.begin(), ci->attrs.end(), std::inserter(sb->attrs, sb->attrs.begin()));
+            if (!sb->attrs.count(ctx->id("BEL")))
+                log_warning("IO '%s' is not constrained to a pin and will be automatically placed\n",
+                            ci->name.c_str(ctx));
         } else if (is_sb_io(ctx, ci) || is_sb_gb_io(ctx, ci)) {
             NetInfo *net = ci->ports.at(ctx->id("PACKAGE_PIN")).net;
             if ((net != nullptr) && (net->users.size() > 1))
@@ -520,12 +523,8 @@ static bool is_logic_port(BaseCtx *ctx, const PortRef &port)
 
 static void insert_global(Context *ctx, NetInfo *net, bool is_reset, bool is_cen, bool is_logic, int fanout)
 {
-    log_info("promoting %s%s%s%s (fanout %d)\n",
-             net->name.c_str(ctx),
-             is_reset ? " [reset]" : "",
-             is_cen   ? " [cen]"   : "",
-             is_logic ? " [logic]" : "",
-             fanout);
+    log_info("promoting %s%s%s%s (fanout %d)\n", net->name.c_str(ctx), is_reset ? " [reset]" : "",
+             is_cen ? " [cen]" : "", is_logic ? " [logic]" : "", fanout);
 
     std::string glb_name = net->name.str(ctx) + std::string("_$glb_") + (is_reset ? "sr" : (is_cen ? "ce" : "clk"));
     std::unique_ptr<CellInfo> gb = create_ice_cell(ctx, ctx->id("SB_GB"), "$gbuf_" + glb_name);

@@ -9,7 +9,7 @@ bool check_all_nets_driven(Context *ctx)
 {
     const bool debug = false;
 
-    log_info("Rule checker, Verifying pre-placed design\n");
+    log_info("Rule checker, verifying imported design\n");
 
     for (auto &cell_entry : ctx->cells) {
         CellInfo *cell = cell_entry.second.get();
