@@ -565,7 +565,7 @@ static void promote_globals(Context *ctx)
 {
     log_info("Promoting globals..\n");
     const int logic_fanout_thresh = 15;
-    const int enable_fanout_thresh = 5;
+    const int enable_fanout_thresh = 15;
     std::map<IdString, int> clock_count, reset_count, cen_count, logic_count;
     for (auto net : sorted(ctx->nets)) {
         NetInfo *ni = net.second;
