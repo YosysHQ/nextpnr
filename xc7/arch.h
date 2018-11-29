@@ -322,6 +322,8 @@ struct TorcInfo
     std::vector<Arc> pip_to_arc;
     int num_pips;
     std::vector<WireId> pip_to_dst_wire;
+    int width;
+    int height;
 
     TorcInfo(const std::string &inDeviceName, const std::string &inPackageName);
 private:
@@ -497,6 +499,8 @@ struct Arch : BaseCtx
     bool fast_part;
     const ChipInfoPOD *chip_info;
     const PackageInfoPOD *package_info;
+    int width;
+    int height;
 
     mutable std::unordered_map<IdString, int> wire_by_name;
     mutable std::unordered_map<IdString, int> pip_by_name;
@@ -519,8 +523,8 @@ struct Arch : BaseCtx
 
     // -------------------------------------------------
 
-    int getGridDimX() const { return 34; }
-    int getGridDimY() const { return 34; }
+    int getGridDimX() const { return width; }
+    int getGridDimY() const { return height; }
     int getTileBelDimZ(int, int) const { return 8; }
     int getTilePipDimZ(int, int) const { return 1; }
 
@@ -625,6 +629,8 @@ struct Arch : BaseCtx
         return torc_info->site_index_to_type[site_index];
     }
 
+    std::vector<std::pair<IdString, std::string>> getBelAttrs(BelId bel) const;
+
     WireId getBelPinWire(BelId bel, IdString pin) const;
     PortType getBelPinType(BelId bel, IdString pin) const;
     std::vector<IdString> getBelPins(BelId bel) const;
@@ -640,6 +646,7 @@ struct Arch : BaseCtx
     }
 
     IdString getWireType(WireId wire) const;
+    std::vector<std::pair<IdString, std::string>> getWireAttrs(WireId wire) const;
 
     uint32_t getWireChecksum(WireId wire) const { return wire.index; }
 
@@ -816,6 +823,7 @@ struct Arch : BaseCtx
     IdString getPipName(PipId pip) const;
 
     IdString getPipType(PipId pip) const { return IdString(); }
+    std::vector<std::pair<IdString, std::string>> getPipAttrs(PipId pip) const;
 
     uint32_t getPipChecksum(PipId pip) const { return pip.index; }
 

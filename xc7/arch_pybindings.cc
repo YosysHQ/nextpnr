@@ -31,21 +31,11 @@ void arch_wrap_python()
     using namespace PythonConversion;
     class_<ArchArgs>("ArchArgs").def_readwrite("type", &ArchArgs::type);
 
-    enum_<decltype(std::declval<ArchArgs>().type)>("iCE40Type")
-            .value("NONE", ArchArgs::NONE)
-            .value("LP384", ArchArgs::LP384)
-            .value("LP1K", ArchArgs::LP1K)
-            .value("LP8K", ArchArgs::LP8K)
-            .value("HX1K", ArchArgs::HX1K)
-            .value("HX8K", ArchArgs::HX8K)
-            .value("UP5K", ArchArgs::UP5K)
-            .export_values();
-
     class_<BelId>("BelId").def_readwrite("index", &BelId::index);
 
     class_<WireId>("WireId").def_readwrite("index", &WireId::index);
 
-    class_<PipId>("PipId").def_readwrite("index", &PipId::index);
+    class_<PipId>("PipId").def_readwrite("index", &PipId::index);        
 
     class_<BelPin>("BelPin").def_readwrite("bel", &BelPin::bel).def_readwrite("pin", &BelPin::pin);
 
