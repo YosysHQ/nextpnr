@@ -12,13 +12,7 @@ module top (
 	input  [31:0] mem_rdata
 );
 
-    wire gclk;
-    BUFGCTRL clk_gb (
-        .I0(clk),
-        .CE0(1'b1),
-        .S0(1'b1),
-        .O(gclk)
-    );
+    clk_wiz_v3_6 pll(.CLK_IN1(clk), .CLK_OUT1(gclk));
 
     picorv32 #(
         .ENABLE_COUNTERS(0),
