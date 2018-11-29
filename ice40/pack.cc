@@ -518,10 +518,14 @@ static bool is_logic_port(BaseCtx *ctx, const PortRef &port)
            !is_sb_pll40(ctx, port.cell);
 }
 
-static void insert_global(Context *ctx, NetInfo *net, bool is_reset, bool is_cen, bool is_logic)
+static void insert_global(Context *ctx, NetInfo *net, bool is_reset, bool is_cen, bool is_logic, int fanout)
 {
-    log_info("promoting %s%s%s%s\n", net->name.c_str(ctx), is_reset ? " [reset]" : "", is_cen ? " [cen]" : "",
-             is_logic ? " [logic]" : "");
+    log_info("promoting %s%s%s%s (fanout %d)\n",
+             net->name.c_str(ctx),
+             is_reset ? " [reset]" : "",
+             is_cen   ? " [cen]"   : "",
+             is_logic ? " [logic]" : "",
+             fanout);
 
     std::string glb_name = net->name.str(ctx) + std::string("_$glb_") + (is_reset ? "sr" : (is_cen ? "ce" : "clk"));
     std::unique_ptr<CellInfo> gb = create_ice_cell(ctx, ctx->id("SB_GB"), "$gbuf_" + glb_name);
@@ -640,7 +644,7 @@ static void promote_globals(Context *ctx)
             (global_logic->second > global_reset->second || prom_resets >= resets_available) &&
             bool_or_default(ctx->settings, ctx->id("promote_logic"), false)) {
             NetInfo *logicnet = ctx->nets[global_logic->first].get();
-            insert_global(ctx, logicnet, false, false, true);
+            insert_global(ctx, logicnet, false, false, true, global_logic->second);
             ++prom_globals;
             ++prom_logics;
             clock_count.erase(logicnet->name);
@@ -649,7 +653,7 @@ static void promote_globals(Context *ctx)
             logic_count.erase(logicnet->name);
         } else if (global_reset->second > global_clock->second && prom_resets < resets_available) {
             NetInfo *rstnet = ctx->nets[global_reset->first].get();
-            insert_global(ctx, rstnet, true, false, false);
+            insert_global(ctx, rstnet, true, false, false, global_reset->second);
             ++prom_globals;
             ++prom_resets;
             clock_count.erase(rstnet->name);
@@ -659,7 +663,7 @@ static void promote_globals(Context *ctx)
         } else if (global_cen->second > global_clock->second && prom_cens < cens_available &&
                    global_cen->second > enable_fanout_thresh) {
             NetInfo *cennet = ctx->nets[global_cen->first].get();
-            insert_global(ctx, cennet, false, true, false);
+            insert_global(ctx, cennet, false, true, false, global_cen->second);
             ++prom_globals;
             ++prom_cens;
             clock_count.erase(cennet->name);
@@ -668,7 +672,7 @@ static void promote_globals(Context *ctx)
             logic_count.erase(cennet->name);
         } else if (global_clock->second != 0) {
             NetInfo *clknet = ctx->nets[global_clock->first].get();
-            insert_global(ctx, clknet, false, false, false);
+            insert_global(ctx, clknet, false, false, false, global_clock->second);
             ++prom_globals;
             clock_count.erase(clknet->name);
             reset_count.erase(clknet->name);
