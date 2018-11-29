@@ -951,7 +951,7 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
             return TMG_IGNORE;
         return TMG_ENDPOINT;
     }
-    log_error("no timing info for port '%s' of cell type '%s'\n", port.c_str(this), cell->type.c_str(this));
+    log_error("cell type '%s' is unsupported (instantiated as '%s')\n", cell->type.c_str(this), cell->name.c_str(this));
 }
 
 TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port, int index) const
