@@ -631,7 +631,33 @@ static void pack_special(Context *ctx)
 
     for (auto cell : sorted(ctx->cells)) {
         CellInfo *ci = cell.second;
-        if (is_sb_lfosc(ctx, ci)) {
+        if (ci->type == id_BUFGCTRL) {
+            ci->params.emplace(ctx->id("PRESELECT_I0"), "FALSE");
+            ci->params.emplace(ctx->id("CE0INV"), "CE0");
+            ci->params.emplace(ctx->id("S0INV"), "S0");
+            ci->params.emplace(ctx->id("IGNORE0INV"), "IGNORE0");
+            ci->params.emplace(ctx->id("CE1INV"), "CE1");
+            ci->params.emplace(ctx->id("S1INV"), "S1");
+            ci->params.emplace(ctx->id("IGNORE1INV"), "IGNORE1");
+        } else if (ci->type == id_MMCME2_ADV) {
+            ci->params.emplace(ctx->id("CLKINSELINV"), "CLKINSEL");
+            ci->params.emplace(ctx->id("PSENINV"), "PSEN");
+            ci->params.emplace(ctx->id("PSINCDECINV"), "PSINCDEC");
+            ci->params.emplace(ctx->id("PWRDWNINV"), "PWRDWN");
+            ci->params.emplace(ctx->id("RSTINV"), "RST");
+            ci->params.emplace(ctx->id("CLKIN2_PERIOD"), "0");
+            for (const auto& i : { "CLKOUT1_DIVIDE", "CLKOUT2_DIVIDE", "CLKOUT3_DIVIDE", "CLKOUT4_DIVIDE", "CLKOUT5_DIVIDE", "CLKOUT6_DIVIDE" }) {
+                ci->params.emplace(ctx->id(i), "1");
+            }
+            for (const auto& i : { "CLKOUT1_PHASE", "CLKOUT2_PHASE", "CLKOUT3_PHASE", "CLKOUT4_PHASE", "CLKOUT5_PHASE", "CLKOUT6_PHASE" }) {
+                ci->params.emplace(ctx->id(i), "0.0");
+            }
+            for (const auto& i : { "CLKOUT1_DUTY_CYCLE", "CLKOUT2_DUTY_CYCLE", "CLKOUT3_DUTY_CYCLE", "CLKOUT4_DUTY_CYCLE", "CLKOUT5_DUTY_CYCLE", "CLKOUT6_DUTY_CYCLE" }) {
+                ci->params.emplace(ctx->id(i), "0.5");
+            }
+            ci->params.emplace(ctx->id("REF_JITTER2"), "0.5");
+            ci->params.emplace(ctx->id("SS_MOD_PERIOD"), "10000");
+        } else if (is_sb_lfosc(ctx, ci)) {
             std::unique_ptr<CellInfo> packed =
                     create_xc7_cell(ctx, ctx->id("ICESTORM_LFOSC"), ci->name.str(ctx) + "_OSC");
             packed_cells.insert(ci->name);

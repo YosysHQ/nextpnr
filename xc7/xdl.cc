@@ -195,38 +195,10 @@ void write_xdl(const Context *ctx, std::ostream &out)
                 instPtr->setConfig("DRIVE", "", "12");
                 instPtr->setConfig("SLEW", "", "SLOW");
             }
-        } else if (cell.second->type == id_BUFGCTRL) {
-            auto it = cell.second->params.find(ctx->id("PRESELECT_I0"));
-            instPtr->setConfig("PRESELECT_I0", "", it != cell.second->params.end() ? it->second : "FALSE");
-            instPtr->setConfig("CE0INV", "", "CE0");
-            instPtr->setConfig("S0INV", "", "S0");
-            //instPtr->setConfig("IGNORE0INV", "", "IGNORE0");
-            //instPtr->setConfig("CE1INV", "", "CE1");
-            //instPtr->setConfig("S1INV", "", "S1");
-            //instPtr->setConfig("IGNORE1INV", "", "IGNORE1");
-        } else if (cell.second->type == id_PS7) {
-        } else if (cell.second->type == id_MMCME2_ADV) {
-            for (const auto& i : cell.second->params) {
+        } else if (cell.second->type == id_BUFGCTRL || cell.second->type == id_MMCME2_ADV) {
+            for (const auto& i : cell.second->params)
                 instPtr->setConfig(i.first.str(ctx), "", i.second);
-            }
-            if (!cell.second->params.count(ctx->id("CLKIN2_PERIOD")))
-                instPtr->setConfig("CLKIN2_PERIOD", "", "0");
-            for (const auto& i : { "CLKOUT1_DIVIDE", "CLKOUT2_DIVIDE", "CLKOUT3_DIVIDE", "CLKOUT4_DIVIDE", "CLKOUT5_DIVIDE", "CLKOUT6_DIVIDE" }) {
-                if (!cell.second->params.count(ctx->id(i)))
-                    instPtr->setConfig(i, "", "1");
-            }
-            for (const auto& i : { "CLKOUT1_PHASE", "CLKOUT2_PHASE", "CLKOUT3_PHASE", "CLKOUT4_PHASE", "CLKOUT5_PHASE", "CLKOUT6_PHASE" }) {
-                if (!cell.second->params.count(ctx->id(i)))
-                    instPtr->setConfig(i, "", "0.0");
-            }
-            for (const auto& i : { "CLKOUT1_DUTY_CYCLE", "CLKOUT2_DUTY_CYCLE", "CLKOUT3_DUTY_CYCLE", "CLKOUT4_DUTY_CYCLE", "CLKOUT5_DUTY_CYCLE", "CLKOUT6_DUTY_CYCLE" }) {
-                if (!cell.second->params.count(ctx->id(i)))
-                    instPtr->setConfig(i, "", "0.5");
-            }
-            if (!cell.second->params.count(ctx->id("REF_JITTER2")))
-                instPtr->setConfig("REF_JITTER2", "", "0.01");
-            if (!cell.second->params.count(ctx->id("SS_MOD_PERIOD")))
-                instPtr->setConfig("SS_MOD_PERIOD", "", "10000");
+        } else if (cell.second->type == id_PS7) {
         } else
             log_error("Unsupported cell type '%s'.\n", cell.second->type.c_str(ctx));
     }
