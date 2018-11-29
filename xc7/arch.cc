@@ -79,7 +79,7 @@ TorcInfo::TorcInfo(BaseCtx *ctx, const std::string &inDeviceName, const std::str
             bel_to_site_index.push_back(i);
             bel_to_site_index.push_back(i);
             site_index_to_type[i] = id_SLICE_LUT6;
-            const auto site_name = site.getName();
+            const auto site_name = site.getName();            
             const auto site_name_back = site_name.back();
             if (site_name_back == '0' || site_name_back == '2' || site_name_back == '4' || site_name_back == '6' ||
                 site_name_back == '8') {
@@ -396,13 +396,18 @@ static bool endsWith(const std::string& str, const std::string& suffix)
 BelId Arch::getBelByName(IdString name) const
 {
     std::string n = name.str(this);
+    int ndx = 0;
     if (endsWith(n,"_A") || endsWith(n,"_B") || endsWith(n,"_C") || endsWith(n,"_D"))
     {
+        ndx = (int)(n.back() - 'A');
         n = n.substr(0,n.size()-2);
     }
     auto it = torc_info->sites.findSiteIndex(n);
-    if (it != SiteIndex(-1))
-        return torc_info->site_index_to_bel.at(it);
+    if (it != SiteIndex(-1)) {
+        BelId id = torc_info->site_index_to_bel.at(it);
+        id.index += ndx;
+        return id;
+    }
     return BelId();
 }
 
@@ -877,6 +882,31 @@ DecalXY Arch::getGroupDecal(GroupId group) const
 std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
 {
     std::vector<GraphicElement> ret;
+
+    if (decal.type == DecalId::TYPE_BEL) {
+        BelId bel;
+        bel.index = decal.index;
+        auto bel_type = getBelType(bel);
+        int x = torc_info->bel_to_loc[bel.index].x;
+        int y = torc_info->bel_to_loc[bel.index].y;
+        int z = torc_info->bel_to_loc[bel.index].z;
+        if (bel_type == id_SLICE_LUT6) {
+            GraphicElement el;
+            /*if (z>3) {
+                z = z - 4;
+                x -= logic_cell_x2- logic_cell_x1;
+            }*/
+            el.type = GraphicElement::TYPE_BOX;
+            el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
+            el.x1 = x + logic_cell_x1;
+            el.x2 = x + logic_cell_x2;
+            el.y1 = y + logic_cell_y1 + (z)*logic_cell_pitch;
+            el.y2 = y + logic_cell_y2 + (z)*logic_cell_pitch;
+            ret.push_back(el);
+        }
+
+    }
+
     return ret;
 }
 
