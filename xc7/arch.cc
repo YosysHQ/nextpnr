@@ -483,10 +483,9 @@ WireId Arch::getBelPinWire(BelId bel, IdString pin) const
                 throw;
             }
         }
-    } else if (bel_type == id_PS7) {
+    } else if (bel_type == id_PS7 || bel_type == id_MMCME2_ADV) {
         // e.g. Convert DDRARB[0] -> DDRARB0
-        boost::erase_all(pin_name, "[");
-        boost::erase_all(pin_name, "]");
+        pin_name.erase(std::remove_if(pin_name.begin(), pin_name.end(), boost::is_any_of("[]")), pin_name.end());
     }
 
     auto site_index = torc_info->bel_to_site_index[bel.index];
@@ -1041,6 +1040,8 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
         return TMG_COMB_INPUT;
     } else if (cell->type == id_PS7) {
         // TODO
+        return TMG_IGNORE;
+    } else if (cell->type == id_MMCME2_ADV) {
         return TMG_IGNORE;
     }
     log_error("no timing info for port '%s' of cell type '%s'\n", port.c_str(this), cell->type.c_str(this));
