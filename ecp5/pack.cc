@@ -1323,6 +1323,60 @@ class Ecp5Packer
         }
     }
 
+    // Preplace PLL
+    void preplace_plls()
+    {
+        std::set<BelId> available_plls;
+        for (auto bel : ctx->getBels()) {
+            if (ctx->getBelType(bel) == id_EHXPLLL && ctx->checkBelAvail(bel))
+                available_plls.insert(bel);
+        }
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (ci->type == id_EHXPLLL && ci->attrs.count(ctx->id("BEL")))
+                available_plls.erase(ctx->getBelByName(ctx->id(ci->attrs.at(ctx->id("BEL")))));
+        }
+        // Place PLL connected to fixed drivers such as IO close to their source
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (ci->type == id_EHXPLLL && !ci->attrs.count(ctx->id("BEL"))) {
+                const NetInfo *drivernet = net_or_nullptr(ci, id_CLKI);
+                if (drivernet == nullptr || drivernet->driver.cell == nullptr)
+                    continue;
+                const CellInfo *drivercell = drivernet->driver.cell;
+                if (!drivercell->attrs.count(ctx->id("BEL")))
+                    continue;
+                BelId drvbel = ctx->getBelByName(ctx->id(drivercell->attrs.at(ctx->id("BEL"))));
+                Loc drvloc = ctx->getBelLocation(drvbel);
+                BelId closest_pll;
+                int closest_distance = std::numeric_limits<int>::max();
+                for (auto bel : available_plls) {
+                    Loc pllloc = ctx->getBelLocation(bel);
+                    int distance = std::abs(drvloc.x - pllloc.x) + std::abs(drvloc.y - pllloc.y);
+                    if (distance < closest_distance) {
+                        closest_pll = bel;
+                        closest_distance = distance;
+                    }
+                }
+                if (closest_pll == BelId())
+                    log_error("failed to place PLL '%s'\n", ci->name.c_str(ctx));
+                available_plls.erase(closest_pll);
+                ci->attrs[ctx->id("BEL")] = ctx->getBelName(closest_pll).str(ctx);
+            }
+        }
+        // Place PLLs driven by logic, etc, randomly
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (ci->type == id_EHXPLLL && !ci->attrs.count(ctx->id("BEL"))) {
+                if (available_plls.empty())
+                    log_error("failed to place PLL '%s'\n", ci->name.c_str(ctx));
+                BelId next_pll = *(available_plls.begin());
+                available_plls.erase(next_pll);
+                ci->attrs[ctx->id("BEL")] = ctx->getBelName(next_pll).str(ctx);
+            }
+        }
+    }
+
   public:
     void pack()
     {
@@ -1330,6 +1384,7 @@ class Ecp5Packer
         pack_ebr();
         pack_dsps();
         pack_dcus();
+        preplace_plls();
         pack_constants();
         pack_dram();
         pack_carries();
