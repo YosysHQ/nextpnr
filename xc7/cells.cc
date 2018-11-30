@@ -259,17 +259,17 @@ std::unique_ptr<CellInfo> create_xc7_cell(Context *ctx, IdString type, std::stri
 void lut_to_lc(const Context *ctx, CellInfo *lut, CellInfo *lc, bool no_dff)
 {
     lc->params[ctx->id("INIT")] = lut->params[ctx->id("INIT")];
-    replace_port(lut, ctx->id("I0"), lc, id_I6);
+    replace_port(lut, ctx->id("I0"), lc, id_I1);
     if (get_net_or_empty(lut, id_I1))
-        replace_port(lut, id_I1, lc, id_I5);
+        replace_port(lut, id_I1, lc, id_I2);
     if (get_net_or_empty(lut, id_I2))
-        replace_port(lut, id_I2, lc, id_I4);
+        replace_port(lut, id_I2, lc, id_I3);
     if (get_net_or_empty(lut, id_I3))
-        replace_port(lut, id_I3, lc, id_I3);
+        replace_port(lut, id_I3, lc, id_I4);
     if (get_net_or_empty(lut, id_I4))
-        replace_port(lut, id_I4, lc, id_I2);
+        replace_port(lut, id_I4, lc, id_I5);
     if (get_net_or_empty(lut, id_I5))
-        replace_port(lut, id_I5, lc, id_I1);
+        replace_port(lut, id_I5, lc, id_I6);
     if (no_dff) {
         replace_port(lut, id_O, lc, id_O);
         lc->params[ctx->id("DFF_ENABLE")] = "0";
