@@ -646,6 +646,7 @@ static void pack_special(Context *ctx)
             ci->params.emplace(ctx->id("PWRDWNINV"), "PWRDWN");
             ci->params.emplace(ctx->id("RSTINV"), "RST");
             ci->params.emplace(ctx->id("CLKIN2_PERIOD"), "0");
+            ci->params[ctx->id("COMPENSATION")] = "INTERNAL";
             for (const auto& i : { "CLKOUT1_DIVIDE", "CLKOUT2_DIVIDE", "CLKOUT3_DIVIDE", "CLKOUT4_DIVIDE", "CLKOUT5_DIVIDE", "CLKOUT6_DIVIDE" }) {
                 ci->params.emplace(ctx->id(i), "1");
             }
