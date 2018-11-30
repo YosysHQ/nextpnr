@@ -237,7 +237,6 @@ TorcInfo::TorcInfo(BaseCtx *ctx, const std::string &inDeviceName, const std::str
         const auto &currentTilewire = wire_to_tilewire[w.index];
         if (currentTilewire.isUndefined())
             continue;
-        arcs.clear();
 
         const auto &tileInfo = tiles.getTileInfo(currentTilewire.getTileIndex());
         const auto tileTypeName = tiles.getTileTypeName(tileInfo.getTypeIndex());
