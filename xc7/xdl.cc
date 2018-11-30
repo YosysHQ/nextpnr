@@ -195,10 +195,9 @@ void write_xdl(const Context *ctx, std::ostream &out)
                 instPtr->setConfig("DRIVE", "", "12");
                 instPtr->setConfig("SLEW", "", "SLOW");
             }
-        } else if (cell.second->type == id_BUFGCTRL || cell.second->type == id_MMCME2_ADV) {
+        } else if (cell.second->type == id_BUFGCTRL || cell.second->type == id_PS7 || cell.second->type == id_MMCME2_ADV) {
             for (const auto& i : cell.second->params)
                 instPtr->setConfig(i.first.str(ctx), "", i.second);
-        } else if (cell.second->type == id_PS7) {
         } else
             log_error("Unsupported cell type '%s'.\n", cell.second->type.c_str(ctx));
     }
