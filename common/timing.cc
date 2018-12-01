@@ -85,7 +85,16 @@ struct CriticalPath
     delay_t path_period;
 };
 
+// Data for the timing optimisation algorithm
+struct NetCriticalityInfo
+{
+    // One each per user
+    std::vector<delay_t> slack;
+    std::vector<float> criticality;
+};
+
 typedef std::unordered_map<ClockPair, CriticalPath> CriticalPathMap;
+typedef std::unordered_map<IdString, NetCriticalityInfo> NetCriticalityMap;
 
 struct Timing
 {
@@ -96,6 +105,7 @@ struct Timing
     CriticalPathMap *crit_path;
     DelayFrequency *slack_histogram;
     IdString async_clock;
+    NetCriticalityMap *net_crit;
 
     struct TimingData
     {
@@ -105,13 +115,15 @@ struct Timing
         unsigned max_path_length = 0;
         delay_t min_remaining_budget;
         bool false_startpoint = false;
+        std::vector<delay_t> min_required;
         std::unordered_map<ClockEvent, delay_t> arrival_time;
     };
 
     Timing(Context *ctx, bool net_delays, bool update, CriticalPathMap *crit_path = nullptr,
-           DelayFrequency *slack_histogram = nullptr)
+           DelayFrequency *slack_histogram = nullptr, NetCriticalityMap *net_crit = nullptr)
             : ctx(ctx), net_delays(net_delays), update(update), min_slack(1.0e12 / ctx->target_freq),
-              crit_path(crit_path), slack_histogram(slack_histogram), async_clock(ctx->id("$async$"))
+              crit_path(crit_path), slack_histogram(slack_histogram), net_crit(net_crit),
+              async_clock(ctx->id("$async$"))
     {
     }
 
@@ -452,6 +464,140 @@ struct Timing
                     crit_net = crit_ipin->net;
                 }
                 std::reverse(cp_ports.begin(), cp_ports.end());
+            }
+        }
+
+        if (net_crit) {
+            NPNR_ASSERT(crit_path);
+            // Go through in reverse topographical order to set required times
+            for (auto net : boost::adaptors::reverse(topographical_order)) {
+                if (!net_data.count(net))
+                    continue;
+                auto &nd_map = net_data.at(net);
+                for (auto &startdomain : nd_map) {
+                    auto &nd = startdomain.second;
+                    if (nd.false_startpoint)
+                        continue;
+                    const delay_t net_length_plus_one = nd.max_path_length + 1;
+                    auto &net_min_remaining_budget = nd.min_remaining_budget;
+                    if (nd.min_required.empty())
+                        nd.min_required.resize(net->users.size(), std::numeric_limits<delay_t>::max());
+                    delay_t net_min_required = std::numeric_limits<delay_t>::max();
+                    for (size_t i = 0; i < net->users.size(); i++) {
+                        auto &usr = net->users.at(i);
+                        auto net_delay = ctx->getNetinfoRouteDelay(net, usr);
+                        int port_clocks;
+                        TimingPortClass portClass = ctx->getPortTimingClass(usr.cell, usr.port, port_clocks);
+                        if (portClass == TMG_REGISTER_INPUT || portClass == TMG_ENDPOINT) {
+                            auto process_endpoint = [&](IdString clksig, ClockEdge edge, delay_t setup) {
+                                delay_t period;
+                                // Set default period
+                                if (edge == startdomain.first.edge) {
+                                    period = clk_period;
+                                } else {
+                                    period = clk_period / 2;
+                                }
+                                if (clksig != async_clock) {
+                                    if (ctx->nets.at(clksig)->clkconstr) {
+                                        if (edge == startdomain.first.edge) {
+                                            // same edge
+                                            period = ctx->nets.at(clksig)->clkconstr->period.minDelay();
+                                        } else if (edge == RISING_EDGE) {
+                                            // falling -> rising
+                                            period = ctx->nets.at(clksig)->clkconstr->low.minDelay();
+                                        } else if (edge == FALLING_EDGE) {
+                                            // rising -> falling
+                                            period = ctx->nets.at(clksig)->clkconstr->high.minDelay();
+                                        }
+                                    }
+                                }
+                                nd.min_required.at(i) = std::min(period - setup, nd.min_required.at(i));
+                            };
+                            if (portClass == TMG_REGISTER_INPUT) {
+                                for (int j = 0; j < port_clocks; j++) {
+                                    TimingClockingInfo clkInfo = ctx->getPortClockingInfo(usr.cell, usr.port, j);
+                                    const NetInfo *clknet = get_net_or_empty(usr.cell, clkInfo.clock_port);
+                                    IdString clksig = clknet ? clknet->name : async_clock;
+                                    process_endpoint(clksig, clknet ? clkInfo.edge : RISING_EDGE,
+                                                     clkInfo.setup.maxDelay());
+                                }
+                            } else {
+                                process_endpoint(async_clock, RISING_EDGE, 0);
+                            }
+                        }
+                        net_min_required = std::min(net_min_required, nd.min_required.at(i) - net_delay);
+                    }
+                    PortRef &drv = net->driver;
+                    if (drv.cell == nullptr)
+                        continue;
+                    for (const auto &port : drv.cell->ports) {
+                        if (port.second.type != PORT_IN || !port.second.net)
+                            continue;
+                        DelayInfo comb_delay;
+                        bool is_path = ctx->getCellDelay(drv.cell, port.first, drv.port, comb_delay);
+                        if (!is_path)
+                            continue;
+                        NetInfo *sink_net = port.second.net;
+                        if (net_data.count(sink_net) && net_data.at(sink_net).count(startdomain.first)) {
+                            auto &sink_nd = net_data.at(sink_net).at(startdomain.first);
+                            if (sink_nd.min_required.empty())
+                                sink_nd.min_required.resize(sink_net->users.size(),
+                                                            std::numeric_limits<delay_t>::max());
+                            for (size_t i = 0; i < sink_net->users.size(); i++) {
+                                auto &user = sink_net->users.at(i);
+                                if (user.cell == drv.cell && user.port == port.first) {
+                                    sink_nd.min_required.at(i) = net_min_required - comb_delay.maxDelay();
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            std::unordered_map<ClockEvent, delay_t> worst_slack;
+
+            // Assign slack values
+            for (auto &net_entry : net_data) {
+                const NetInfo *net = net_entry.first;
+                for (auto &startdomain : net_entry.second) {
+                    auto &nd = startdomain.second;
+                    if (nd.min_required.empty())
+                        continue;
+                    auto &nc = (*net_crit)[net->name];
+                    if (nc.slack.empty())
+                        nc.slack.resize(net->users.size(), std::numeric_limits<delay_t>::max());
+                    for (size_t i = 0; i < net->users.size(); i++) {
+                        delay_t slack = nd.min_required.at(i) -
+                                        (nd.max_arrival + ctx->getNetinfoRouteDelay(net, net->users.at(i)));
+                        if (worst_slack.count(startdomain.first))
+                            worst_slack.at(startdomain.first) = std::min(worst_slack.at(startdomain.first), slack);
+                        else
+                            worst_slack[startdomain.first] = slack;
+                        nc.slack.at(i) = std::min(nc.slack.at(i), slack);
+                    }
+                }
+            }
+            // Assign criticality values
+            for (auto &net_entry : net_data) {
+                const NetInfo *net = net_entry.first;
+                for (auto &startdomain : net_entry.second) {
+                    auto &nd = startdomain.second;
+                    if (nd.min_required.empty())
+                        continue;
+                    auto &nc = (*net_crit)[net->name];
+                    if (nc.slack.empty())
+                        continue;
+                    if (nc.criticality.empty())
+                        nc.criticality.resize(net->users.size(), 0);
+                    // Only consider intra-clock paths for criticality
+                    if (!crit_path->count(ClockPair{startdomain.first, startdomain.first}))
+                        continue;
+                    delay_t dmax = crit_path->at(ClockPair{startdomain.first, startdomain.first}).path_delay;
+                    for (size_t i = 0; i < net->users.size(); i++) {
+                        float criticality = 1.0 - ((nc.slack.at(i) - worst_slack.at(startdomain.first)) / dmax);
+                        nc.criticality.at(i) = std::max(nc.criticality.at(i), criticality);
+                    }
+                }
             }
         }
         return min_slack;
