@@ -18,15 +18,22 @@
  */
 
 /*
- * Timing-optimised detailed placement algorithm
+ * Timing-optimised detailed placement algorithm using BFS of the neighbour graph created from cells
+ * on a critical path
+ *
  * Based on "An Effective Timing-Driven Detailed Placement Algorithm for FPGAs"
  * https://www.cerc.utexas.edu/utda/publications/C205.pdf
+ *
+ * Modifications made to deal with the smaller Bels that nextpnr uses instead of swapping whole tiles,
+ * and deal with the fact that not every cell on the crit path may be swappable.
  */
 
 #include "timing.h"
 #include "timing_opt.h"
 #include "nextpnr.h"
 #include "util.h"
+#include <boost/range/adaptor/reversed.hpp>
+#include <queue>
 NEXTPNR_NAMESPACE_BEGIN
 
 class TimingOptimiser
@@ -87,40 +94,38 @@ class TimingOptimiser
         return true;
     }
 
-    bool acceptable_bel_candidate(CellInfo *cell, BelId newBel) {
-        bool result = true;
-        // At the moment we have to actually do the swap to get an accurate legality result
-        // Switching to macro swaps might help with this
+    BelId cell_swap_bel(CellInfo *cell, BelId newBel) {
         BelId oldBel = cell->bel;
         CellInfo *other_cell = ctx->getBoundBelCell(newBel);
-        if (other_cell != nullptr && other_cell->belStrength > STRENGTH_WEAK) {
-            return false;
-        }
-
-        ctx->bindBel(newBel, cell, STRENGTH_WEAK);
+        NPNR_ASSERT(other_cell == nullptr || other_cell->belStrength <= STRENGTH_WEAK);
+        ctx->unbindBel(oldBel);
         if (other_cell != nullptr) {
+            ctx->unbindBel(newBel);
             ctx->bindBel(oldBel, other_cell, STRENGTH_WEAK);
         }
-        if (!ctx->isBelLocationValid(newBel) || ((other_cell != nullptr && !ctx->isBelLocationValid(oldBel)))) {
-            result = false;
-            goto unbind;
-        }
+        ctx->bindBel(newBel, cell, STRENGTH_WEAK);
+        return oldBel;
+    }
 
-        if (!check_cell_delay_limits(cell) || (other_cell != nullptr && !check_cell_delay_limits(other_cell))) {
-            result = false;
-            goto unbind;
+    // Check that a series of moves are both legal and remain within maximum delay bounds
+    // Moves are specified as a vector of pairs <cell, oldBel>
+    bool acceptable_move(std::vector<std::pair<CellInfo *, BelId>> &move, bool check_delays = true) {
+        for (auto &entry : move) {
+            if (!ctx->isBelLocationValid(entry.first->bel))
+                return false;
+            if (!ctx->isBelLocationValid(entry.second))
+                return false;
+            if (!check_delays)
+                continue;
+            if (!check_cell_delay_limits(entry.first))
+                return false;
+            // We might have swapped another cell onto the original bel. Check this for max delay violations
+            // too
+            CellInfo *swapped = ctx->getBoundBelCell(entry.second);
+            if (swapped != nullptr && !check_cell_delay_limits(swapped))
+                return false;
         }
-
-unbind:
-        ctx->unbindBel(newBel);
-        if (other_cell != nullptr)
-            ctx->unbindBel(oldBel);
-        // Undo the swap
-        ctx->bindBel(oldBel, cell, STRENGTH_WEAK);
-        if (other_cell != nullptr) {
-            ctx->bindBel(newBel, other_cell, STRENGTH_WEAK);
-        }
-        return result;
+        return true;
     }
 
     int find_neighbours(CellInfo *cell, IdString prev_cell, int d, bool allow_swap) {
@@ -129,8 +134,6 @@ unbind:
         int found_count = 0;
         for (int dy = -d; dy <= d; dy++) {
             for (int dx = -d; dx <= d; dx++) {
-                if (dx == 0 && dy == 0)
-                    continue;
                 // Go through all the Bels at this location
                 // First, find all bels of the correct type that are either unbound or bound normally
                 // Strongly bound bels are ignored
@@ -168,10 +171,9 @@ unbind:
                         *(bel_candidate_cells.at(try_bel).begin()) != prev_cell))
                             continue;
                     }
-                    if (acceptable_bel_candidate(cell, try_bel)) {
-                        candidate = try_bel;
-                        break;
-                    }
+                    // TODO: what else to check here?
+                    candidate = try_bel;
+                    break;
                 }
 
                 if (candidate != BelId()) {
@@ -308,6 +310,120 @@ unbind:
         return crit_paths;
     }
 
+    void optimise_path(std::vector<PortRef*> &path) {
+        path_cells.clear();
+        cell_neighbour_bels.clear();
+        bel_candidate_cells.clear();
+        for (auto port : path) {
+            if (std::find(path_cells.begin(), path_cells.end(), port->cell->name) != path_cells.end())
+                continue;
+            if (port->cell->belStrength > STRENGTH_WEAK || !cfg.cellTypes.count(port->cell->type))
+                continue;
+            path_cells.push_back(port->cell->name);
+        }
+
+        if (path_cells.empty())
+            return;
+
+        IdString last_cell;
+        const int d = 3; // FIXME: how to best determine d
+        for (auto cell : path_cells) {
+            // FIXME: when should we allow swapping due to a lack of candidates
+            find_neighbours(ctx->cells[cell].get(), last_cell, d, false);
+            last_cell = cell;
+        }
+        // Map cells that we will actually modify to the arc we will use for cost
+        // calculation
+        // for delay calc purposes
+        std::unordered_map<IdString, std::pair<PortRef *, PortRef *>> cost_ports;
+        PortRef *last_port = nullptr;
+        auto pcell = path_cells.begin();
+        for (auto port : path) {
+            if (port->cell->name == *pcell) {
+                cost_ports[*pcell] = std::make_pair(last_port, port);
+                pcell++;
+            }
+            last_port = port;
+        }
+
+        // Actual BFS path optimisation algorithm
+        std::unordered_map<IdString, std::unordered_map<BelId, delay_t>> cumul_costs;
+        std::unordered_map<std::pair<IdString, BelId>, std::pair<IdString, BelId>> backtrace;
+        std::queue<std::pair<int, BelId>> visit;
+        std::unordered_set<std::pair<int, BelId>> to_visit;
+
+        for (auto startbel : cell_neighbour_bels[path_cells.front()]) {
+            auto entry = std::make_pair(0, startbel);
+            visit.push(entry);
+            cumul_costs[path_cells.front()][startbel] = 0;
+        }
+
+        while(!visit.empty()) {
+            auto entry = visit.front();
+            visit.pop();
+            auto cellname = path_cells.at(entry.first);
+            if (entry.first == path_cells.size() - 1)
+                continue;
+            std::vector<std::pair<CellInfo *, BelId>> move;
+            // Apply the entire backtrace for accurate legality and delay checks
+            // This is probably pretty expensive (but also probably pales in comparison to the number of swaps
+            // SA will make...)
+            std::vector<std::pair<IdString, BelId>> route_to_entry;
+            auto cursor = std::make_pair(cellname, entry.second);
+            route_to_entry.push_back(cursor);
+            while (backtrace.count(cursor)) {
+                cursor = backtrace.at(cursor);
+                route_to_entry.push_back(cursor);
+            }
+            for (auto rt_entry : boost::adaptors::reverse(route_to_entry)) {
+                CellInfo *cell = ctx->cells.at(rt_entry.first).get();
+                BelId origBel = cell_swap_bel(cell, rt_entry.second);
+                move.push_back(std::make_pair(cell, origBel));
+            }
+
+            delay_t cdelay = cumul_costs[cellname][entry.second];
+
+            // Have a look at where we can travel from here
+            for (auto neighbour : cell_neighbour_bels.at(path_cells.at(entry.first + 1))) {
+                // Edges between overlapping bels are deleted
+                if (neighbour == entry.second)
+                    continue;
+                // Experimentally swap the next path cell onto the neighbour bel we are trying
+                IdString ncname = path_cells.at(entry.first + 1);
+                CellInfo *next_cell = ctx->cells.at(ncname).get();
+                BelId origBel = cell_swap_bel(next_cell, neighbour);
+                move.push_back(std::make_pair(next_cell, origBel));
+
+                // Check the new cumulative delay
+                auto port_pair = cost_ports.at(ncname);
+                delay_t edge_delay = ctx->estimateDelay(ctx->getBelPinWire(port_pair.first->cell->bel, port_pair.first->port),
+                                                        ctx->getBelPinWire(port_pair.second->cell->bel, port_pair.second->port));
+                delay_t total_delay = cdelay + edge_delay;
+                // First, check if the move is actually worthwhile from a delay point of view before the expensive
+                // legality check
+                if (!cumul_costs.count(ncname) || !cumul_costs.at(ncname).count(neighbour)
+                    || cumul_costs.at(ncname).at(neighbour) > total_delay) {
+                    // Now check that the swaps we have made to get here are legal and meet max delay requirements
+                    if (acceptable_move(move)) {
+                        cumul_costs[ncname][neighbour] = total_delay;
+                        backtrace[std::make_pair(ncname, neighbour)] = std::make_pair(cellname, entry.second);
+                        if (!to_visit.count(std::make_pair(entry.first + 1, neighbour)))
+                            visit.push(std::make_pair(entry.first + 1, neighbour));
+                    }
+                }
+                // Revert the experimental swap
+                cell_swap_bel(move.back().first, move.back().second);
+                move.pop_back();
+            }
+
+            // Revert move by swapping cells back to their original order
+            // Execute swaps in reverse order to how we made them originally
+            for (auto move_entry : boost::adaptors::reverse(move)) {
+                cell_swap_bel(move_entry.first, move_entry.second);
+            }
+        }
+    }
+
     // Current candidate Bels for cells (linked in both direction>
     std::vector<IdString> path_cells;
     std::unordered_map<IdString, std::unordered_set<BelId>> cell_neighbour_bels;
@@ -316,6 +432,8 @@ unbind:
     std::unordered_map<std::pair<IdString, IdString>, delay_t> max_net_delay;
     // Criticality data from timing analysis
     NetCriticalityMap net_crit;
+
+    TimingOptCfg cfg;
 
     Context *ctx;
 };

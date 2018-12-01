@@ -18,6 +18,7 @@
  */
 
 #include "nextpnr.h"
+#include "settings.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -26,7 +27,7 @@ struct TimingOptCfg : public Settings
     // The timing optimiser will *only* optimise cells of these types
     // Normally these would only be logic cells (or tiles if applicable), the algorithm makes little sense
     // for other cell types
-    std::unordered_set<IdString> cellTypes;
+    std::unordered_set<IdString> cellTypes;
 };
 
 extern bool timing_opt(Context *ctx, TimingOptCfg cfg);
