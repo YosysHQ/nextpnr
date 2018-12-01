@@ -194,6 +194,120 @@ unbind:
         return found_count;
     }
 
+    std::vector<std::vector<PortRef*>> find_crit_paths(float crit_thresh, int max_count) {
+        std::vector<std::vector<PortRef*>> crit_paths;
+        std::vector<std::pair<NetInfo *, int>> crit_nets;
+        std::vector<IdString> netnames;
+        std::transform(ctx->nets.begin(), ctx->nets.end(), std::back_inserter(netnames),
+                [](const std::pair<IdString, std::unique_ptr<NetInfo>> &kv){
+            return kv.first;
+        });
+        ctx->sorted_shuffle(netnames);
+        for (auto net : netnames) {
+            if (crit_nets.size() >= max_count)
+                break;
+            if (!net_crit.count(net))
+                continue;
+            auto crit_user = std::max_element(net_crit[net].criticality.begin(),
+                    net_crit[net].criticality.end());
+            if (*crit_user > crit_thresh)
+                crit_nets.push_back(std::make_pair(ctx->nets[net].get(), crit_user - net_crit[net].criticality.begin()));
+        }
+
+        auto port_user_index = [](CellInfo *cell, PortInfo &port) -> size_t {
+            NPNR_ASSERT(port.net != nullptr);
+            for (size_t i = 0; i < port.net->users.size(); i++) {
+                auto &usr = port.net->users.at(i);
+                if (usr.cell == cell && usr.port == port.name)
+                    return i;
+            }
+            NPNR_ASSERT_FALSE("port user not found on net");
+        };
+
+        for (auto crit_net : crit_nets) {
+            std::deque<PortRef*> crit_path;
+
+            // FIXME: This will fail badly on combinational loops
+
+            // Iterate backwards following greatest criticality
+            NetInfo* back_cursor = crit_net.first;
+            while (back_cursor != nullptr) {
+                float max_crit = 0;
+                std::pair<NetInfo *, size_t> crit_sink{nullptr, 0};
+                CellInfo *cell = back_cursor->driver.cell;
+                if (cell == nullptr)
+                    break;
+                for (auto port : cell->ports) {
+                    if (port.second.type != PORT_IN)
+                        continue;
+                    NetInfo *pn = port.second.net;
+                    if (pn == nullptr)
+                        continue;
+                    if (!net_crit.count(pn->name) || net_crit.at(pn->name).criticality.empty())
+                        continue;
+                    int ccount;
+                    DelayInfo combDelay;
+                    TimingPortClass tpclass = ctx->getPortTimingClass(cell, port.first, ccount);
+                    if (tpclass != TMG_COMB_INPUT && tpclass != TMG_REGISTER_INPUT)
+                        continue;
+                    bool is_path = ctx->getCellDelay(cell, port.first, back_cursor->driver.port, combDelay);
+                    if (!is_path)
+                        continue;
+                    size_t user_idx = port_user_index(cell, port.second);
+                    float usr_crit = net_crit.at(pn->name).criticality.at(user_idx);
+                    if (usr_crit >= max_crit) {
+                        max_crit = usr_crit;
+                        crit_sink = std::make_pair(pn, user_idx);
+                    }
+                }
+
+                if (crit_sink.first != nullptr) {
+                    crit_path.push_front(&(crit_sink.first->users.at(crit_sink.second)));
+                }
+                back_cursor = crit_sink.first;
+            }
+            // Iterate forwards following greatest criticiality
+            PortRef *fwd_cursor = &(crit_net.first->users.at(crit_net.second));
+            while (fwd_cursor != nullptr) {
+                crit_path.push_back(fwd_cursor);
+                float max_crit = 0;
+                std::pair<NetInfo *, size_t> crit_sink{nullptr, 0};
+                CellInfo *cell = fwd_cursor->cell;
+                for (auto port : cell->ports) {
+                    if (port.second.type != PORT_OUT)
+                        continue;
+                    NetInfo *pn = port.second.net;
+                    if (pn == nullptr)
+                        continue;
+                    if (!net_crit.count(pn->name) || net_crit.at(pn->name).criticality.empty())
+                        continue;
+                    int ccount;
+                    DelayInfo combDelay;
+                    TimingPortClass tpclass = ctx->getPortTimingClass(cell, port.first, ccount);
+                    if (tpclass != TMG_COMB_OUTPUT && tpclass != TMG_REGISTER_OUTPUT)
+                        continue;
+                    auto &crits = net_crit.at(pn->name).criticality;
+                    auto most_crit_usr = std::max_element(crits.begin(), crits.end());
+                    if (*most_crit_usr >= max_crit) {
+                        max_crit = *most_crit_usr;
+                        crit_sink = std::make_pair(pn, std::distance(crits.begin(), most_crit_usr));
+                    }
+                }
+                if (crit_sink.first != nullptr) {
+                    fwd_cursor = &(crit_sink.first->users.at(crit_sink.second));
+                } else {
+                    fwd_cursor = nullptr;
+                }
+            }
+
+            std::vector<PortRef*> crit_path_vec;
+            std::copy(crit_path.begin(), crit_path.end(), std::back_inserter(crit_path_vec));
+            crit_paths.push_back(crit_path_vec);
+        }
+
+        return crit_paths;
+    }
+
     // Current candidate Bels for cells (linked in both direction>
     std::vector<IdString> path_cells;
     std::unordered_map<IdString, std::unordered_set<BelId>> cell_neighbour_bels;
