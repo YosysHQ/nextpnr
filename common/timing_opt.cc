@@ -23,8 +23,10 @@
  * https://www.cerc.utexas.edu/utda/publications/C205.pdf
  */
 
+#include "timing.h"
 #include "timing_opt.h"
 #include "nextpnr.h"
+#include "util.h"
 NEXTPNR_NAMESPACE_BEGIN
 
 class TimingOptimiser
@@ -37,8 +39,52 @@ class TimingOptimiser
     // Ratio of available to already-candidates to begin borrowing
     const float borrow_thresh = 0.2;
 
+    void setup_delay_limits() {
+        for (auto net : sorted(ctx->nets)) {
+            NetInfo *ni = net.second;
+            max_net_delay[ni].clear();
+            max_net_delay[ni].resize(ni->users.size(), std::numeric_limits<delay_t>::max());
+            if (!net_crit.count(net.first))
+                continue;
+            auto &nc = net_crit.at(net.first);
+            if (nc.slack.empty())
+                continue;
+            for (size_t i = 0; i < ni->users.size(); i++) {
+                delay_t net_delay = ctx->getNetinfoRouteDelay(ni, ni->users.at(i));
+                max_net_delay[ni].at(i) = net_delay + ((nc.slack.at(i) - nc.cd_worst_slack) / nc.max_path_length);
+            }
+        }
+    }
+
     bool check_cell_delay_limits(CellInfo *cell) {
-        
+        for (const auto &port : cell->ports) {
+            int nc;
+            if (ctx->getPortTimingClass(cell, port.first, nc) == TMG_IGNORE)
+                continue;
+            NetInfo *net = port.second.net;
+            if (net == nullptr)
+                continue;
+            if (port.second.type == PORT_IN) {
+                if (net->driver.cell == nullptr || net->driver.cell->bel == BelId())
+                    continue;
+                BelId srcBel = net->driver.cell->bel;
+                if (ctx->estimateDelay(ctx->getBelPinWire(srcBel, net->driver.port),
+                        ctx->getBelPinWire(cell->bel, port.first)) > max_net_delay.at(std::make_pair(cell->name, port.first)))
+                    return false;
+            } else if (port.second.type == PORT_OUT) {
+                for (auto user : net->users) {
+                    // This could get expensive for high-fanout nets??
+                    BelId dstBel = user.cell->bel;
+                    if (dstBel == BelId())
+                        continue;
+                    if (ctx->estimateDelay(ctx->getBelPinWire(cell->bel, port.first),
+                                           ctx->getBelPinWire(dstBel, user.port)) > max_net_delay.at(std::make_pair(user.cell->name, user.port)))
+                        return false;
+                }
+            }
+
+        }
+        return true;
     }
 
     bool acceptable_bel_candidate(CellInfo *cell, BelId newBel) {
@@ -109,8 +155,11 @@ unbind:
     std::vector<IdString> path_cells;
     std::unordered_map<IdString, std::unordered_set<BelId>> cell_neighbour_bels;
     std::unordered_map<BelId, std::unordered_set<IdString>> bel_candidate_cells;
-    // Map net users to net delay limit
-    std::unordered_map<IdString, std::vector<delay_t>> max_net_delay;
+    // Map cell ports to net delay limit
+    std::unordered_map<std::pair<IdString, IdString>, delay_t> max_net_delay;
+    // Criticality data from timing analysis
+    NetCriticalityMap net_crit;
+
     Context *ctx;
 };
 

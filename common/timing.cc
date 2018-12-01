@@ -85,14 +85,7 @@ struct CriticalPath
     delay_t path_period;
 };
 
-// Data for the timing optimisation algorithm
-struct NetCriticalityInfo
-{
-    // One each per user
-    std::vector<delay_t> slack;
-    std::vector<float> criticality;
-    unsigned max_path_length = 0;
-};
+
 
 typedef std::unordered_map<ClockPair, CriticalPath> CriticalPathMap;
 typedef std::unordered_map<IdString, NetCriticalityInfo> NetCriticalityMap;
@@ -599,6 +592,7 @@ struct Timing
                         nc.criticality.at(i) = std::max(nc.criticality.at(i), criticality);
                     }
                     nc.max_path_length = std::max(nc.max_path_length, nd.max_path_length);
+                    nc.cd_worst_slack = std::min(nc.cd_worst_slack, worst_slack.at(startdomain.first));
                 }
             }
         }
@@ -912,6 +906,13 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
                      std::string(bins[i] * bar_width / max_freq, '*').c_str(),
                      (bins[i] * bar_width) % max_freq > 0 ? '+' : ' ');
     }
+}
+
+void get_criticalities(Context *ctx, NetCriticalityMap *net_crit) {
+    CriticalPathMap crit_paths;
+    net_crit->clear();
+    Timing timing(ctx, true, true, &crit_paths, nullptr, net_crit);
+    timing.walk_paths();
 }
 
 NEXTPNR_NAMESPACE_END
