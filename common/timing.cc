@@ -91,6 +91,7 @@ struct NetCriticalityInfo
     // One each per user
     std::vector<delay_t> slack;
     std::vector<float> criticality;
+    unsigned max_path_length = 0;
 };
 
 typedef std::unordered_map<ClockPair, CriticalPath> CriticalPathMap;
@@ -597,6 +598,7 @@ struct Timing
                         float criticality = 1.0 - ((nc.slack.at(i) - worst_slack.at(startdomain.first)) / dmax);
                         nc.criticality.at(i) = std::max(nc.criticality.at(i), criticality);
                     }
+                    nc.max_path_length = std::max(nc.max_path_length, nd.max_path_length);
                 }
             }
         }
