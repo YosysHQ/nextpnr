@@ -106,7 +106,10 @@ class TimingOptimiser
             goto unbind;
         }
 
-
+        if (!check_cell_delay_limits(cell) || (other_cell != nullptr && !check_cell_delay_limits(other_cell))) {
+            result = false;
+            goto unbind;
+        }
 
 unbind:
         ctx->unbindBel(newBel);
@@ -120,9 +123,10 @@ unbind:
         return result;
     }
 
-    void find_neighbours(CellInfo *cell, int d) {
+    int find_neighbours(CellInfo *cell, IdString prev_cell, int d, bool allow_swap) {
         BelId curr = cell->bel;
         Loc curr_loc = ctx->getBelLocation(curr);
+        int found_count = 0;
         for (int dy = -d; dy <= d; dy++) {
             for (int dx = -d; dx <= d; dx++) {
                 if (dx == 0 && dy == 0)
@@ -143,12 +147,51 @@ unbind:
                         bound_bels_at_loc.push_back(bel);
                     }
                 }
-                bool found = false;
+                BelId candidate;
 
-                if (found)
-                    continue;
+                while (!free_bels_at_loc.empty() && !bound_bels_at_loc.empty()) {
+                    BelId try_bel;
+                    if (!free_bels_at_loc.empty()) {
+                        int try_idx = ctx->rng(int(free_bels_at_loc.size()));
+                        try_bel = free_bels_at_loc.at(try_idx);
+                        free_bels_at_loc.erase(free_bels_at_loc.begin() + try_idx);
+                    } else {
+                        int try_idx = ctx->rng(int(bound_bels_at_loc.size()));
+                        try_bel = bound_bels_at_loc.at(try_idx);
+                        bound_bels_at_loc.erase(bound_bels_at_loc.begin() + try_idx);
+                    }
+                    if (bel_candidate_cells.count(try_bel) && !allow_swap) {
+                        // Overlap is only allowed if it is with the previous cell (this is handled by removing those
+                        // edges in the graph), or if allow_swap is true to deal with cases where overlap means few neighbours
+                        // are identified
+                        if (bel_candidate_cells.at(try_bel).size() > 1 || (bel_candidate_cells.at(try_bel).size() == 0 ||
+                        *(bel_candidate_cells.at(try_bel).begin()) != prev_cell))
+                            continue;
+                    }
+                    if (acceptable_bel_candidate(cell, try_bel)) {
+                        candidate = try_bel;
+                        break;
+                    }
+                }
+
+                if (candidate != BelId()) {
+                    cell_neighbour_bels[cell->name].insert(candidate);
+                    bel_candidate_cells[candidate].insert(cell->name);
+                    // Work out if we need to delete any overlap
+                    std::vector<IdString> overlap;
+                    for (auto other : bel_candidate_cells[candidate])
+                        if (other != cell->name && other != prev_cell)
+                            overlap.push_back(other);
+                    if (overlap.size() > 0)
+                        NPNR_ASSERT(allow_swap);
+                    for (auto ov : overlap) {
+                        bel_candidate_cells[candidate].erase(ov);
+                        cell_neighbour_bels[ov].erase(candidate);
+                    }
+                }
             }
         }
+        return found_count;
     }
 
     // Current candidate Bels for cells (linked in both direction>
