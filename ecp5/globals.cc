@@ -298,6 +298,8 @@ class Ecp5GlobalRouter
         } else {
             // Check for dedicated routing
             if (has_short_route(ctx->getBelPinWire(drv_bel, drv.port), ctx->getBelPinWire(dcc->bel, id_CLKI))) {
+                // log_info("dedicated route %s -> %s\n", ctx->getWireName(ctx->getBelPinWire(drv_bel,
+                // drv.port)).c_str(ctx), ctx->getBelName(dcc->bel).c_str(ctx));
                 return 0;
             }
             // Driver is locked
@@ -308,7 +310,7 @@ class Ecp5GlobalRouter
     }
 
     // Return true if a short (<5) route exists between two wires
-    bool has_short_route(WireId src, WireId dst, int thresh = 5)
+    bool has_short_route(WireId src, WireId dst, int thresh = 7)
     {
         std::queue<WireId> visit;
         std::unordered_map<WireId, PipId> backtrace;
@@ -316,7 +318,7 @@ class Ecp5GlobalRouter
         WireId cursor;
         while (true) {
 
-            if (visit.empty() || visit.size() > 1000) {
+            if (visit.empty() || visit.size() > 10000) {
                 // log_info ("dist %s -> %s = inf\n", ctx->getWireName(src).c_str(ctx),
                 // ctx->getWireName(dst).c_str(ctx));
                 return false;
