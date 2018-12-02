@@ -950,6 +950,10 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
         if (port == id_RGB0 || port == id_RGB1 || port == id_RGB2)
             return TMG_IGNORE;
         return TMG_ENDPOINT;
+    } else if (cell->type == id_SB_LEDDA_IP) {
+        if (port == id_CLK || port == id_CLOCK)
+            return TMG_CLOCK_INPUT;
+        return TMG_IGNORE;
     }
     log_error("cell type '%s' is unsupported (instantiated as '%s')\n", cell->type.c_str(this), cell->name.c_str(this));
 }

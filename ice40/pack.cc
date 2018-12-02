@@ -1044,6 +1044,10 @@ static void pack_special(Context *ctx)
             ci->ports.erase(ctx->id("RGB0"));
             ci->ports.erase(ctx->id("RGB1"));
             ci->ports.erase(ctx->id("RGB2"));
+        } else if (is_sb_ledda_ip(ctx, ci)) {
+            /* Force placement (no choices anyway) */
+            cell_place_unique(ctx, ci);
+
         } else if (is_sb_pll40(ctx, ci)) {
             bool is_pad = is_sb_pll40_pad(ctx, ci);
             bool is_core = !is_pad;
