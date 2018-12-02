@@ -86,11 +86,11 @@ class TimingOptimiser
 #if 1
         timing_analysis(ctx, false, true, false, false);
 #endif
-        for (int i = 0; i < 20; i++) {
+        for (int i = 0; i < 100; i++) {
             log_info("   Iteration %d...\n", i);
             get_criticalities(ctx, &net_crit);
             setup_delay_limits();
-            auto crit_paths = find_crit_paths(0.98, 1000);
+            auto crit_paths = find_crit_paths(0.98, 50000);
             for (auto &path : crit_paths)
                 optimise_path(path);
 #if 1
@@ -122,7 +122,7 @@ class TimingOptimiser
                 delay_t net_delay = ctx->getNetinfoRouteDelay(ni, usr);
                 if (nc.max_path_length != 0) {
                     max_net_delay[std::make_pair(usr.cell->name, usr.port)] =
-                            net_delay + ((nc.slack.at(i) - nc.cd_worst_slack) / nc.max_path_length);
+                            net_delay + ((nc.slack.at(i) - nc.cd_worst_slack) / 10);
                 }
             }
         }
@@ -168,6 +168,8 @@ class TimingOptimiser
     BelId cell_swap_bel(CellInfo *cell, BelId newBel)
     {
         BelId oldBel = cell->bel;
+        if (oldBel == newBel)
+            return oldBel;
         CellInfo *other_cell = ctx->getBoundBelCell(newBel);
         NPNR_ASSERT(other_cell == nullptr || other_cell->belStrength <= STRENGTH_WEAK);
         ctx->unbindBel(oldBel);
@@ -221,14 +223,14 @@ class TimingOptimiser
                     CellInfo *bound = ctx->getBoundBelCell(bel);
                     if (bound == nullptr) {
                         free_bels_at_loc.push_back(bel);
-                    } else if (bound->belStrength <= STRENGTH_WEAK || bound->constr_parent != nullptr ||
-                               !bound->constr_children.empty()) {
+                    } else if (bound->belStrength <= STRENGTH_WEAK && bound->constr_parent == nullptr &&
+                               bound->constr_children.empty()) {
                         bound_bels_at_loc.push_back(bel);
                     }
                 }
                 BelId candidate;
 
-                while (!free_bels_at_loc.empty() && !bound_bels_at_loc.empty()) {
+                while (!free_bels_at_loc.empty() || !bound_bels_at_loc.empty()) {
                     BelId try_bel;
                     if (!free_bels_at_loc.empty()) {
                         int try_idx = ctx->rng(int(free_bels_at_loc.size()));
@@ -244,7 +246,7 @@ class TimingOptimiser
                         // edges in the graph), or if allow_swap is true to deal with cases where overlap means few
                         // neighbours are identified
                         if (bel_candidate_cells.at(try_bel).size() > 1 ||
-                            (bel_candidate_cells.at(try_bel).size() == 0 ||
+                            (bel_candidate_cells.at(try_bel).size() == 1 &&
                              *(bel_candidate_cells.at(try_bel).begin()) != prev_cell))
                             continue;
                     }
@@ -304,6 +306,10 @@ class TimingOptimiser
         std::unordered_set<PortRef *> used_ports;
 
         for (auto crit_net : crit_nets) {
+
+            if (used_ports.count(&(crit_net.first->users.at(crit_net.second))))
+                continue;
+
             std::deque<PortRef *> crit_path;
 
             // FIXME: This will fail badly on combinational loops
@@ -460,11 +466,20 @@ class TimingOptimiser
         }
 
         IdString last_cell;
-        const int d = 3; // FIXME: how to best determine d
+        const int d = 5; // FIXME: how to best determine d
         for (auto cell : path_cells) {
             // FIXME: when should we allow swapping due to a lack of candidates
             find_neighbours(ctx->cells[cell].get(), last_cell, d, false);
             last_cell = cell;
+        }
+
+        if (ctx->debug) {
+            for (auto cell : path_cells) {
+                log_info("Candidate neighbours for %s (%s):\n", cell.c_str(ctx), ctx->getBelName(ctx->cells[cell]->bel).c_str(ctx));
+                for (auto neigh : cell_neighbour_bels.at(cell)) {
+                    log_info("    %s\n", ctx->getBelName(neigh).c_str(ctx));
+                }
+            }
         }
 
         // Actual BFS path optimisation algorithm
