@@ -472,6 +472,8 @@ struct Timing
                     auto &nd = startdomain.second;
                     if (nd.false_startpoint)
                         continue;
+                    if (startdomain.first.clock == async_clock)
+                        continue;
                     const delay_t net_length_plus_one = nd.max_path_length + 1;
                     auto &net_min_remaining_budget = nd.min_remaining_budget;
                     if (nd.min_required.empty())
@@ -555,6 +557,8 @@ struct Timing
                 const NetInfo *net = net_entry.first;
                 for (auto &startdomain : net_entry.second) {
                     auto &nd = startdomain.second;
+                    if (startdomain.first.clock == async_clock)
+                        continue;
                     if (nd.min_required.empty())
                         continue;
                     auto &nc = (*net_crit)[net->name];
@@ -575,6 +579,8 @@ struct Timing
             for (auto &net_entry : net_data) {
                 const NetInfo *net = net_entry.first;
                 for (auto &startdomain : net_entry.second) {
+                    if (startdomain.first.clock == async_clock)
+                        continue;
                     auto &nd = startdomain.second;
                     if (nd.min_required.empty())
                         continue;
@@ -588,7 +594,7 @@ struct Timing
                         continue;
                     delay_t dmax = crit_path->at(ClockPair{startdomain.first, startdomain.first}).path_delay;
                     for (size_t i = 0; i < net->users.size(); i++) {
-                        float criticality = 1.0 - ((nc.slack.at(i) - worst_slack.at(startdomain.first)) / dmax);
+                        float criticality = 1.0f - (float(nc.slack.at(i) - worst_slack.at(startdomain.first)) / dmax);
                         nc.criticality.at(i) = std::max(nc.criticality.at(i), criticality);
                     }
                     nc.max_path_length = std::max(nc.max_path_length, nd.max_path_length);

@@ -80,7 +80,7 @@ class TimingOptimiser
     bool optimise() {
         log_info("Running timing-driven placement optimisation...\n");
 #if 1
-        timing_analysis(ctx, false, true, ctx->debug, false);
+        timing_analysis(ctx, false, true, false, false);
 #endif
         for (int i = 0; i < 20; i++) {
             log_info("   Iteration %d...\n", i);
@@ -90,7 +90,7 @@ class TimingOptimiser
             for (auto &path : crit_paths)
                 optimise_path(path);
 #if 1
-            timing_analysis(ctx, false, true, ctx->debug, false);
+            timing_analysis(ctx, false, true, false, false);
 #endif
         }
         return true;
@@ -146,8 +146,17 @@ class TimingOptimiser
                     if (dstBel == BelId())
                         continue;
                     if (ctx->estimateDelay(ctx->getBelPinWire(cell->bel, port.first),
-                                           ctx->getBelPinWire(dstBel, user.port)) > max_net_delay.at(std::make_pair(user.cell->name, user.port)))
+                                           ctx->getBelPinWire(dstBel, user.port)) > max_net_delay.at(std::make_pair(user.cell->name, user.port))) {
+#if 0
+                        if (ctx->debug) {
+                            log_info("  est delay %.02fns exceeded maximum %.02fns\n", ctx->getDelayNS(ctx->estimateDelay(ctx->getBelPinWire(cell->bel, port.first),
+                                                                                                                        ctx->getBelPinWire(dstBel, user.port))),
+                                                                                                                                ctx->getDelayNS(max_net_delay.at(std::make_pair(user.cell->name, user.port))));
+                        }
+#endif
                         return false;
+
+                    }
                 }
             }
 
@@ -193,6 +202,7 @@ class TimingOptimiser
         BelId curr = cell->bel;
         Loc curr_loc = ctx->getBelLocation(curr);
         int found_count = 0;
+        cell_neighbour_bels[cell->name] = std::unordered_set<BelId>{};
         for (int dy = -d; dy <= d; dy++) {
             for (int dx = -d; dx <= d; dx++) {
                 // Go through all the Bels at this location
@@ -207,7 +217,7 @@ class TimingOptimiser
                     CellInfo *bound = ctx->getBoundBelCell(bel);
                     if (bound == nullptr) {
                         free_bels_at_loc.push_back(bel);
-                    } else if (bound->belStrength <= STRENGTH_WEAK) {
+                    } else if (bound->belStrength <= STRENGTH_WEAK || bound->constr_parent != nullptr || !bound->constr_children.empty()) {
                         bound_bels_at_loc.push_back(bel);
                     }
                 }
@@ -286,6 +296,7 @@ class TimingOptimiser
             }
             NPNR_ASSERT_FALSE("port user not found on net");
         };
+        std::unordered_set<PortRef*> used_ports;
 
         for (auto crit_net : crit_nets) {
             std::deque<PortRef*> crit_path;
@@ -318,6 +329,8 @@ class TimingOptimiser
                         continue;
                     size_t user_idx = port_user_index(cell, port.second);
                     float usr_crit = net_crit.at(pn->name).criticality.at(user_idx);
+                    if (used_ports.count(&(pn->users.at(user_idx))))
+                        continue;
                     if (usr_crit >= max_crit) {
                         max_crit = usr_crit;
                         crit_sink = std::make_pair(pn, user_idx);
@@ -326,6 +339,7 @@ class TimingOptimiser
 
                 if (crit_sink.first != nullptr) {
                     crit_path.push_front(&(crit_sink.first->users.at(crit_sink.second)));
+                    used_ports.insert(&(crit_sink.first->users.at(crit_sink.second)));
                 }
                 back_cursor = crit_sink.first;
             }
@@ -350,14 +364,19 @@ class TimingOptimiser
                     if (tpclass != TMG_COMB_OUTPUT)
                         continue;
                     auto &crits = net_crit.at(pn->name).criticality;
-                    auto most_crit_usr = std::max_element(crits.begin(), crits.end());
-                    if (*most_crit_usr >= max_crit) {
-                        max_crit = *most_crit_usr;
-                        crit_sink = std::make_pair(pn, std::distance(crits.begin(), most_crit_usr));
+                    for (size_t i = 0; i < crits.size(); i++) {
+                        if (used_ports.count(&(pn->users.at(i))))
+                            continue;
+                        if (crits.at(i) >= max_crit) {
+                            max_crit = crits.at(i);
+                            crit_sink = std::make_pair(pn, i);
+                        }
                     }
+
                 }
                 if (crit_sink.first != nullptr) {
                     fwd_cursor = &(crit_sink.first->users.at(crit_sink.second));
+                    used_ports.insert(&(crit_sink.first->users.at(crit_sink.second)));
                 } else {
                     fwd_cursor = nullptr;
                 }
@@ -378,20 +397,30 @@ class TimingOptimiser
         if (ctx->debug)
             log_info("Optimising the following path: \n");
         for (auto port : path) {
-            if (ctx->debug)
-                log_info("    %s.%s at %s\n", port->cell->name.c_str(ctx), port->port.c_str(ctx), ctx->getBelName(port->cell->bel).c_str(ctx));
+            if (ctx->debug) {
+                float crit = 0;
+                NetInfo *pn = port->cell->ports.at(port->port).net;
+                if (net_crit.count(pn->name) && !net_crit.at(pn->name).criticality.empty())
+                    for (size_t i = 0; i < pn->users.size(); i++)
+                        if (pn->users.at(i).cell == port->cell && pn->users.at(i).port == port->port)
+                            crit = net_crit.at(pn->name).criticality.at(i);
+                log_info("    %s.%s at %s crit %0.02f\n", port->cell->name.c_str(ctx), port->port.c_str(ctx), ctx->getBelName(port->cell->bel).c_str(ctx), crit);
+
+            }
             if (std::find(path_cells.begin(), path_cells.end(), port->cell->name) != path_cells.end())
                 continue;
-            if (port->cell->belStrength > STRENGTH_WEAK || !cfg.cellTypes.count(port->cell->type))
+            if (port->cell->belStrength > STRENGTH_WEAK || !cfg.cellTypes.count(port->cell->type) || port->cell->constr_parent != nullptr || !port->cell->constr_children.empty())
                 continue;
             if (ctx->debug)
                 log_info("        can move\n");
             path_cells.push_back(port->cell->name);
         }
 
-        if (path_cells.empty())
+        if (path_cells.size() < 3) {
+            log_info("Too few moveable cells; skipping path\n");
+            log_break();
             return;
-
+        }
         IdString last_cell;
         const int d = 3; // FIXME: how to best determine d
         for (auto cell : path_cells) {
@@ -420,9 +449,17 @@ class TimingOptimiser
         std::unordered_set<std::pair<int, BelId>> to_visit;
 
         for (auto startbel : cell_neighbour_bels[path_cells.front()]) {
-            auto entry = std::make_pair(0, startbel);
-            visit.push(entry);
-            cumul_costs[path_cells.front()][startbel] = 0;
+            // Swap for legality check
+            CellInfo *cell = ctx->cells.at(path_cells.front()).get();
+            BelId origBel = cell_swap_bel(cell, startbel);
+            std::vector<std::pair<CellInfo*,BelId>> move{std::make_pair(cell, origBel)};
+            if (acceptable_move(move)) {
+                auto entry = std::make_pair(0, startbel);
+                visit.push(entry);
+                cumul_costs[path_cells.front()][startbel] = 0;
+            }
+            // Swap back
+            cell_swap_bel(cell, origBel);
         }
 
         while(!visit.empty()) {
