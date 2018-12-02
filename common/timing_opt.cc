@@ -466,7 +466,7 @@ class TimingOptimiser
         }
 
         IdString last_cell;
-        const int d = 5; // FIXME: how to best determine d
+        const int d = 2; // FIXME: how to best determine d
         for (auto cell : path_cells) {
             // FIXME: when should we allow swapping due to a lack of candidates
             find_neighbours(ctx->cells[cell].get(), last_cell, d, false);
