@@ -27,6 +27,7 @@
 #include "placer1.h"
 #include "router1.h"
 #include "util.h"
+#include "timing_opt.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -626,7 +627,13 @@ bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay
 
 // -----------------------------------------------------------------------
 
-bool Arch::place() { return placer1(getCtx(), Placer1Cfg(getCtx())); }
+bool Arch::place() {
+    if(!placer1(getCtx(), Placer1Cfg(getCtx())))
+        return false;
+    TimingOptCfg tocfg(getCtx());
+    tocfg.cellTypes.insert(id_ICESTORM_LC);
+    return timing_opt(getCtx(), tocfg);
+}
 
 bool Arch::route() { return router1(getCtx(), Router1Cfg(getCtx())); }
 

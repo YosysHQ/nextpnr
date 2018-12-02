@@ -34,31 +34,92 @@
 #include "util.h"
 #include <boost/range/adaptor/reversed.hpp>
 #include <queue>
+
+namespace std {
+
+    template <> struct hash<std::pair<NEXTPNR_NAMESPACE_PREFIX IdString, NEXTPNR_NAMESPACE_PREFIX IdString>>
+    {
+        std::size_t operator()(const std::pair<NEXTPNR_NAMESPACE_PREFIX IdString, NEXTPNR_NAMESPACE_PREFIX IdString> &idp) const noexcept
+        {
+            std::size_t seed = 0;
+            boost::hash_combine(seed, hash<NEXTPNR_NAMESPACE_PREFIX IdString>()(idp.first));
+            boost::hash_combine(seed, hash<NEXTPNR_NAMESPACE_PREFIX IdString>()(idp.second));
+            return seed;
+        }
+    };
+
+    template <> struct hash<std::pair<int, NEXTPNR_NAMESPACE_PREFIX BelId>>
+    {
+        std::size_t operator()(const std::pair<int, NEXTPNR_NAMESPACE_PREFIX BelId> &idp) const noexcept
+        {
+            std::size_t seed = 0;
+            boost::hash_combine(seed, hash<int>()(idp.first));
+            boost::hash_combine(seed, hash<NEXTPNR_NAMESPACE_PREFIX BelId>()(idp.second));
+            return seed;
+        }
+    };
+
+    template <> struct hash<std::pair<NEXTPNR_NAMESPACE_PREFIX IdString, NEXTPNR_NAMESPACE_PREFIX BelId>>
+    {
+        std::size_t operator()(const std::pair<NEXTPNR_NAMESPACE_PREFIX IdString, NEXTPNR_NAMESPACE_PREFIX BelId> &idp) const noexcept
+        {
+            std::size_t seed = 0;
+            boost::hash_combine(seed, hash<NEXTPNR_NAMESPACE_PREFIX IdString>()(idp.first));
+            boost::hash_combine(seed, hash<NEXTPNR_NAMESPACE_PREFIX BelId>()(idp.second));
+            return seed;
+        }
+    };
+}
+
 NEXTPNR_NAMESPACE_BEGIN
 
 class TimingOptimiser
 {
   public:
-    TimingOptimiser(Context *ctx) : ctx(ctx){};
-    bool optimise() {}
+    TimingOptimiser(Context *ctx, TimingOptCfg cfg) : ctx(ctx), cfg(cfg) {};
+    bool optimise() {
+        log_info("Running timing-driven placement optimisation...\n");
+#if 1
+        timing_analysis(ctx, false, true, ctx->debug, false);
+#endif
+        for (int i = 0; i < 20; i++) {
+            log_info("   Iteration %d...\n", i);
+            get_criticalities(ctx, &net_crit);
+            setup_delay_limits();
+            auto crit_paths = find_crit_paths(0.98, 1000);
+            for (auto &path : crit_paths)
+                optimise_path(path);
+#if 1
+            timing_analysis(ctx, false, true, ctx->debug, false);
+#endif
+        }
+        return true;
+    }
 
   private:
     // Ratio of available to already-candidates to begin borrowing
     const float borrow_thresh = 0.2;
 
     void setup_delay_limits() {
+        max_net_delay.clear();
         for (auto net : sorted(ctx->nets)) {
             NetInfo *ni = net.second;
-            max_net_delay[ni].clear();
-            max_net_delay[ni].resize(ni->users.size(), std::numeric_limits<delay_t>::max());
+            for (auto usr : ni->users) {
+                max_net_delay[std::make_pair(usr.cell->name, usr.port)]
+                        = std::numeric_limits<delay_t>::max();
+            }
             if (!net_crit.count(net.first))
                 continue;
             auto &nc = net_crit.at(net.first);
             if (nc.slack.empty())
                 continue;
             for (size_t i = 0; i < ni->users.size(); i++) {
-                delay_t net_delay = ctx->getNetinfoRouteDelay(ni, ni->users.at(i));
-                max_net_delay[ni].at(i) = net_delay + ((nc.slack.at(i) - nc.cd_worst_slack) / nc.max_path_length);
+                auto &usr = ni->users.at(i);
+                delay_t net_delay = ctx->getNetinfoRouteDelay(ni, usr);
+                if (nc.max_path_length != 0) {
+                    max_net_delay[std::make_pair(usr.cell->name, usr.port)]
+                            = net_delay + ((nc.slack.at(i) - nc.cd_worst_slack) / nc.max_path_length);
+                }
             }
         }
     }
@@ -196,12 +257,12 @@ class TimingOptimiser
         return found_count;
     }
 
-    std::vector<std::vector<PortRef*>> find_crit_paths(float crit_thresh, int max_count) {
+    std::vector<std::vector<PortRef*>> find_crit_paths(float crit_thresh, size_t max_count) {
         std::vector<std::vector<PortRef*>> crit_paths;
         std::vector<std::pair<NetInfo *, int>> crit_nets;
         std::vector<IdString> netnames;
         std::transform(ctx->nets.begin(), ctx->nets.end(), std::back_inserter(netnames),
-                [](const std::pair<IdString, std::unique_ptr<NetInfo>> &kv){
+                [](const std::pair<const IdString, std::unique_ptr<NetInfo>> &kv){
             return kv.first;
         });
         ctx->sorted_shuffle(netnames);
@@ -250,7 +311,7 @@ class TimingOptimiser
                     int ccount;
                     DelayInfo combDelay;
                     TimingPortClass tpclass = ctx->getPortTimingClass(cell, port.first, ccount);
-                    if (tpclass != TMG_COMB_INPUT && tpclass != TMG_REGISTER_INPUT)
+                    if (tpclass != TMG_COMB_INPUT)
                         continue;
                     bool is_path = ctx->getCellDelay(cell, port.first, back_cursor->driver.port, combDelay);
                     if (!is_path)
@@ -286,7 +347,7 @@ class TimingOptimiser
                     int ccount;
                     DelayInfo combDelay;
                     TimingPortClass tpclass = ctx->getPortTimingClass(cell, port.first, ccount);
-                    if (tpclass != TMG_COMB_OUTPUT && tpclass != TMG_REGISTER_OUTPUT)
+                    if (tpclass != TMG_COMB_OUTPUT)
                         continue;
                     auto &crits = net_crit.at(pn->name).criticality;
                     auto most_crit_usr = std::max_element(crits.begin(), crits.end());
@@ -314,11 +375,17 @@ class TimingOptimiser
         path_cells.clear();
         cell_neighbour_bels.clear();
         bel_candidate_cells.clear();
+        if (ctx->debug)
+            log_info("Optimising the following path: \n");
         for (auto port : path) {
+            if (ctx->debug)
+                log_info("    %s.%s at %s\n", port->cell->name.c_str(ctx), port->port.c_str(ctx), ctx->getBelName(port->cell->bel).c_str(ctx));
             if (std::find(path_cells.begin(), path_cells.end(), port->cell->name) != path_cells.end())
                 continue;
             if (port->cell->belStrength > STRENGTH_WEAK || !cfg.cellTypes.count(port->cell->type))
                 continue;
+            if (ctx->debug)
+                log_info("        can move\n");
             path_cells.push_back(port->cell->name);
         }
 
@@ -362,7 +429,7 @@ class TimingOptimiser
             auto entry = visit.front();
             visit.pop();
             auto cellname = path_cells.at(entry.first);
-            if (entry.first == path_cells.size() - 1)
+            if (entry.first == int(path_cells.size()) - 1)
                 continue;
             std::vector<std::pair<CellInfo *, BelId>> move;
             // Apply the entire backtrace for accurate legality and delay checks
@@ -422,6 +489,39 @@ class TimingOptimiser
                 cell_swap_bel(move_entry.first, move_entry.second);
             }
         }
+
+        // Did we find a solution??
+        if (cumul_costs.count(path_cells.back())) {
+            // Find the end position with the lowest total delay
+            auto &end_options = cumul_costs.at(path_cells.back());
+            auto lowest = std::min_element(end_options.begin(), end_options.end(), [](const std::pair<BelId, delay_t> &a,
+                                                                                      const std::pair<BelId, delay_t> &b) {
+               return a.second < b.second;
+            });
+            NPNR_ASSERT(lowest != end_options.end());
+
+            std::vector<std::pair<IdString, BelId>> route_to_solution;
+            auto cursor = std::make_pair(path_cells.back(), lowest->first);
+            route_to_solution.push_back(cursor);
+            while (backtrace.count(cursor)) {
+                cursor = backtrace.at(cursor);
+                route_to_solution.push_back(cursor);
+            }
+            if (ctx->debug)
+                log_info("Found a solution with cost %.02f ns\n", ctx->getDelayNS(lowest->second));
+            for (auto rt_entry : boost::adaptors::reverse(route_to_solution)) {
+                CellInfo *cell = ctx->cells.at(rt_entry.first).get();
+                cell_swap_bel(cell, rt_entry.second);
+                if(ctx->debug)
+                    log_info("    %s at %s\n", rt_entry.first.c_str(ctx), ctx->getBelName(rt_entry.second).c_str(ctx));
+            }
+
+        } else {
+            if (ctx->debug)
+                log_info("Solution was not found\n");
+        }
+        if (ctx->debug)
+            log_break();
     }
 
     // Current candidate Bels for cells (linked in both direction>
@@ -432,12 +532,11 @@ class TimingOptimiser
     std::unordered_map<std::pair<IdString, IdString>, delay_t> max_net_delay;
     // Criticality data from timing analysis
     NetCriticalityMap net_crit;
-
+    Context *ctx;
     TimingOptCfg cfg;
 
-    Context *ctx;
 };
 
-bool timing_opt(Context *ctx, TimingOptCfg cfg) { return TimingOptimiser(ctx).optimise(); }
+bool timing_opt(Context *ctx, TimingOptCfg cfg) { return TimingOptimiser(ctx, cfg).optimise(); }
 
 NEXTPNR_NAMESPACE_END
