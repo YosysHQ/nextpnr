@@ -18,7 +18,7 @@ begin
 
 process
 begin
-report std_logic'image(led(3)) & std_logic'image(led(2)) & std_logic'image(led(1)) & std_logic'image(led(0));
+report "led = " & std_logic'image(led(3)) & std_logic'image(led(2)) & std_logic'image(led(1)) & std_logic'image(led(0));
 wait on led;
 end process;
 
