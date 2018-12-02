@@ -28,56 +28,60 @@
  * and deal with the fact that not every cell on the crit path may be swappable.
  */
 
-#include "timing.h"
 #include "timing_opt.h"
-#include "nextpnr.h"
-#include "util.h"
 #include <boost/range/adaptor/reversed.hpp>
 #include <queue>
+#include "nextpnr.h"
+#include "timing.h"
+#include "util.h"
 
 namespace std {
 
-    template <> struct hash<std::pair<NEXTPNR_NAMESPACE_PREFIX IdString, NEXTPNR_NAMESPACE_PREFIX IdString>>
+template <> struct hash<std::pair<NEXTPNR_NAMESPACE_PREFIX IdString, NEXTPNR_NAMESPACE_PREFIX IdString>>
+{
+    std::size_t
+    operator()(const std::pair<NEXTPNR_NAMESPACE_PREFIX IdString, NEXTPNR_NAMESPACE_PREFIX IdString> &idp) const
+            noexcept
     {
-        std::size_t operator()(const std::pair<NEXTPNR_NAMESPACE_PREFIX IdString, NEXTPNR_NAMESPACE_PREFIX IdString> &idp) const noexcept
-        {
-            std::size_t seed = 0;
-            boost::hash_combine(seed, hash<NEXTPNR_NAMESPACE_PREFIX IdString>()(idp.first));
-            boost::hash_combine(seed, hash<NEXTPNR_NAMESPACE_PREFIX IdString>()(idp.second));
-            return seed;
-        }
-    };
+        std::size_t seed = 0;
+        boost::hash_combine(seed, hash<NEXTPNR_NAMESPACE_PREFIX IdString>()(idp.first));
+        boost::hash_combine(seed, hash<NEXTPNR_NAMESPACE_PREFIX IdString>()(idp.second));
+        return seed;
+    }
+};
 
-    template <> struct hash<std::pair<int, NEXTPNR_NAMESPACE_PREFIX BelId>>
+template <> struct hash<std::pair<int, NEXTPNR_NAMESPACE_PREFIX BelId>>
+{
+    std::size_t operator()(const std::pair<int, NEXTPNR_NAMESPACE_PREFIX BelId> &idp) const noexcept
     {
-        std::size_t operator()(const std::pair<int, NEXTPNR_NAMESPACE_PREFIX BelId> &idp) const noexcept
-        {
-            std::size_t seed = 0;
-            boost::hash_combine(seed, hash<int>()(idp.first));
-            boost::hash_combine(seed, hash<NEXTPNR_NAMESPACE_PREFIX BelId>()(idp.second));
-            return seed;
-        }
-    };
+        std::size_t seed = 0;
+        boost::hash_combine(seed, hash<int>()(idp.first));
+        boost::hash_combine(seed, hash<NEXTPNR_NAMESPACE_PREFIX BelId>()(idp.second));
+        return seed;
+    }
+};
 
-    template <> struct hash<std::pair<NEXTPNR_NAMESPACE_PREFIX IdString, NEXTPNR_NAMESPACE_PREFIX BelId>>
+template <> struct hash<std::pair<NEXTPNR_NAMESPACE_PREFIX IdString, NEXTPNR_NAMESPACE_PREFIX BelId>>
+{
+    std::size_t
+    operator()(const std::pair<NEXTPNR_NAMESPACE_PREFIX IdString, NEXTPNR_NAMESPACE_PREFIX BelId> &idp) const noexcept
     {
-        std::size_t operator()(const std::pair<NEXTPNR_NAMESPACE_PREFIX IdString, NEXTPNR_NAMESPACE_PREFIX BelId> &idp) const noexcept
-        {
-            std::size_t seed = 0;
-            boost::hash_combine(seed, hash<NEXTPNR_NAMESPACE_PREFIX IdString>()(idp.first));
-            boost::hash_combine(seed, hash<NEXTPNR_NAMESPACE_PREFIX BelId>()(idp.second));
-            return seed;
-        }
-    };
-}
+        std::size_t seed = 0;
+        boost::hash_combine(seed, hash<NEXTPNR_NAMESPACE_PREFIX IdString>()(idp.first));
+        boost::hash_combine(seed, hash<NEXTPNR_NAMESPACE_PREFIX BelId>()(idp.second));
+        return seed;
+    }
+};
+} // namespace std
 
 NEXTPNR_NAMESPACE_BEGIN
 
 class TimingOptimiser
 {
   public:
-    TimingOptimiser(Context *ctx, TimingOptCfg cfg) : ctx(ctx), cfg(cfg) {};
-    bool optimise() {
+    TimingOptimiser(Context *ctx, TimingOptCfg cfg) : ctx(ctx), cfg(cfg){};
+    bool optimise()
+    {
         log_info("Running timing-driven placement optimisation...\n");
 #if 1
         timing_analysis(ctx, false, true, false, false);
@@ -100,13 +104,13 @@ class TimingOptimiser
     // Ratio of available to already-candidates to begin borrowing
     const float borrow_thresh = 0.2;
 
-    void setup_delay_limits() {
+    void setup_delay_limits()
+    {
         max_net_delay.clear();
         for (auto net : sorted(ctx->nets)) {
             NetInfo *ni = net.second;
             for (auto usr : ni->users) {
-                max_net_delay[std::make_pair(usr.cell->name, usr.port)]
-                        = std::numeric_limits<delay_t>::max();
+                max_net_delay[std::make_pair(usr.cell->name, usr.port)] = std::numeric_limits<delay_t>::max();
             }
             if (!net_crit.count(net.first))
                 continue;
@@ -117,14 +121,15 @@ class TimingOptimiser
                 auto &usr = ni->users.at(i);
                 delay_t net_delay = ctx->getNetinfoRouteDelay(ni, usr);
                 if (nc.max_path_length != 0) {
-                    max_net_delay[std::make_pair(usr.cell->name, usr.port)]
-                            = net_delay + ((nc.slack.at(i) - nc.cd_worst_slack) / nc.max_path_length);
+                    max_net_delay[std::make_pair(usr.cell->name, usr.port)] =
+                            net_delay + ((nc.slack.at(i) - nc.cd_worst_slack) / nc.max_path_length);
                 }
             }
         }
     }
 
-    bool check_cell_delay_limits(CellInfo *cell) {
+    bool check_cell_delay_limits(CellInfo *cell)
+    {
         for (const auto &port : cell->ports) {
             int nc;
             if (ctx->getPortTimingClass(cell, port.first, nc) == TMG_IGNORE)
@@ -137,7 +142,8 @@ class TimingOptimiser
                     continue;
                 BelId srcBel = net->driver.cell->bel;
                 if (ctx->estimateDelay(ctx->getBelPinWire(srcBel, net->driver.port),
-                        ctx->getBelPinWire(cell->bel, port.first)) > max_net_delay.at(std::make_pair(cell->name, port.first)))
+                                       ctx->getBelPinWire(cell->bel, port.first)) >
+                    max_net_delay.at(std::make_pair(cell->name, port.first)))
                     return false;
             } else if (port.second.type == PORT_OUT) {
                 for (auto user : net->users) {
@@ -146,7 +152,8 @@ class TimingOptimiser
                     if (dstBel == BelId())
                         continue;
                     if (ctx->estimateDelay(ctx->getBelPinWire(cell->bel, port.first),
-                                           ctx->getBelPinWire(dstBel, user.port)) > max_net_delay.at(std::make_pair(user.cell->name, user.port))) {
+                                           ctx->getBelPinWire(dstBel, user.port)) >
+                        max_net_delay.at(std::make_pair(user.cell->name, user.port))) {
 #if 0
                         if (ctx->debug) {
                             log_info("  est delay %.02fns exceeded maximum %.02fns\n", ctx->getDelayNS(ctx->estimateDelay(ctx->getBelPinWire(cell->bel, port.first),
@@ -155,16 +162,15 @@ class TimingOptimiser
                         }
 #endif
                         return false;
-
                     }
                 }
             }
-
         }
         return true;
     }
 
-    BelId cell_swap_bel(CellInfo *cell, BelId newBel) {
+    BelId cell_swap_bel(CellInfo *cell, BelId newBel)
+    {
         BelId oldBel = cell->bel;
         CellInfo *other_cell = ctx->getBoundBelCell(newBel);
         NPNR_ASSERT(other_cell == nullptr || other_cell->belStrength <= STRENGTH_WEAK);
@@ -179,7 +185,8 @@ class TimingOptimiser
 
     // Check that a series of moves are both legal and remain within maximum delay bounds
     // Moves are specified as a vector of pairs <cell, oldBel>
-    bool acceptable_move(std::vector<std::pair<CellInfo *, BelId>> &move, bool check_delays = true) {
+    bool acceptable_move(std::vector<std::pair<CellInfo *, BelId>> &move, bool check_delays = true)
+    {
         for (auto &entry : move) {
             if (!ctx->isBelLocationValid(entry.first->bel))
                 return false;
@@ -198,7 +205,8 @@ class TimingOptimiser
         return true;
     }
 
-    int find_neighbours(CellInfo *cell, IdString prev_cell, int d, bool allow_swap) {
+    int find_neighbours(CellInfo *cell, IdString prev_cell, int d, bool allow_swap)
+    {
         BelId curr = cell->bel;
         Loc curr_loc = ctx->getBelLocation(curr);
         int found_count = 0;
@@ -217,7 +225,8 @@ class TimingOptimiser
                     CellInfo *bound = ctx->getBoundBelCell(bel);
                     if (bound == nullptr) {
                         free_bels_at_loc.push_back(bel);
-                    } else if (bound->belStrength <= STRENGTH_WEAK || bound->constr_parent != nullptr || !bound->constr_children.empty()) {
+                    } else if (bound->belStrength <= STRENGTH_WEAK || bound->constr_parent != nullptr ||
+                               !bound->constr_children.empty()) {
                         bound_bels_at_loc.push_back(bel);
                     }
                 }
@@ -236,10 +245,11 @@ class TimingOptimiser
                     }
                     if (bel_candidate_cells.count(try_bel) && !allow_swap) {
                         // Overlap is only allowed if it is with the previous cell (this is handled by removing those
-                        // edges in the graph), or if allow_swap is true to deal with cases where overlap means few neighbours
-                        // are identified
-                        if (bel_candidate_cells.at(try_bel).size() > 1 || (bel_candidate_cells.at(try_bel).size() == 0 ||
-                        *(bel_candidate_cells.at(try_bel).begin()) != prev_cell))
+                        // edges in the graph), or if allow_swap is true to deal with cases where overlap means few
+                        // neighbours are identified
+                        if (bel_candidate_cells.at(try_bel).size() > 1 ||
+                            (bel_candidate_cells.at(try_bel).size() == 0 ||
+                             *(bel_candidate_cells.at(try_bel).begin()) != prev_cell))
                             continue;
                     }
                     // TODO: what else to check here?
@@ -267,24 +277,23 @@ class TimingOptimiser
         return found_count;
     }
 
-    std::vector<std::vector<PortRef*>> find_crit_paths(float crit_thresh, size_t max_count) {
-        std::vector<std::vector<PortRef*>> crit_paths;
+    std::vector<std::vector<PortRef *>> find_crit_paths(float crit_thresh, size_t max_count)
+    {
+        std::vector<std::vector<PortRef *>> crit_paths;
         std::vector<std::pair<NetInfo *, int>> crit_nets;
         std::vector<IdString> netnames;
         std::transform(ctx->nets.begin(), ctx->nets.end(), std::back_inserter(netnames),
-                [](const std::pair<const IdString, std::unique_ptr<NetInfo>> &kv){
-            return kv.first;
-        });
+                       [](const std::pair<const IdString, std::unique_ptr<NetInfo>> &kv) { return kv.first; });
         ctx->sorted_shuffle(netnames);
         for (auto net : netnames) {
             if (crit_nets.size() >= max_count)
                 break;
             if (!net_crit.count(net))
                 continue;
-            auto crit_user = std::max_element(net_crit[net].criticality.begin(),
-                    net_crit[net].criticality.end());
+            auto crit_user = std::max_element(net_crit[net].criticality.begin(), net_crit[net].criticality.end());
             if (*crit_user > crit_thresh)
-                crit_nets.push_back(std::make_pair(ctx->nets[net].get(), crit_user - net_crit[net].criticality.begin()));
+                crit_nets.push_back(
+                        std::make_pair(ctx->nets[net].get(), crit_user - net_crit[net].criticality.begin()));
         }
 
         auto port_user_index = [](CellInfo *cell, PortInfo &port) -> size_t {
@@ -296,15 +305,15 @@ class TimingOptimiser
             }
             NPNR_ASSERT_FALSE("port user not found on net");
         };
-        std::unordered_set<PortRef*> used_ports;
+        std::unordered_set<PortRef *> used_ports;
 
         for (auto crit_net : crit_nets) {
-            std::deque<PortRef*> crit_path;
+            std::deque<PortRef *> crit_path;
 
             // FIXME: This will fail badly on combinational loops
 
             // Iterate backwards following greatest criticality
-            NetInfo* back_cursor = crit_net.first;
+            NetInfo *back_cursor = crit_net.first;
             while (back_cursor != nullptr) {
                 float max_crit = 0;
                 std::pair<NetInfo *, size_t> crit_sink{nullptr, 0};
@@ -372,7 +381,6 @@ class TimingOptimiser
                             crit_sink = std::make_pair(pn, i);
                         }
                     }
-
                 }
                 if (crit_sink.first != nullptr) {
                     fwd_cursor = &(crit_sink.first->users.at(crit_sink.second));
@@ -382,7 +390,7 @@ class TimingOptimiser
                 }
             }
 
-            std::vector<PortRef*> crit_path_vec;
+            std::vector<PortRef *> crit_path_vec;
             std::copy(crit_path.begin(), crit_path.end(), std::back_inserter(crit_path_vec));
             crit_paths.push_back(crit_path_vec);
         }
@@ -390,7 +398,8 @@ class TimingOptimiser
         return crit_paths;
     }
 
-    void optimise_path(std::vector<PortRef*> &path) {
+    void optimise_path(std::vector<PortRef *> &path)
+    {
         path_cells.clear();
         cell_neighbour_bels.clear();
         bel_candidate_cells.clear();
@@ -404,12 +413,13 @@ class TimingOptimiser
                     for (size_t i = 0; i < pn->users.size(); i++)
                         if (pn->users.at(i).cell == port->cell && pn->users.at(i).port == port->port)
                             crit = net_crit.at(pn->name).criticality.at(i);
-                log_info("    %s.%s at %s crit %0.02f\n", port->cell->name.c_str(ctx), port->port.c_str(ctx), ctx->getBelName(port->cell->bel).c_str(ctx), crit);
-
+                log_info("    %s.%s at %s crit %0.02f\n", port->cell->name.c_str(ctx), port->port.c_str(ctx),
+                         ctx->getBelName(port->cell->bel).c_str(ctx), crit);
             }
             if (std::find(path_cells.begin(), path_cells.end(), port->cell->name) != path_cells.end())
                 continue;
-            if (port->cell->belStrength > STRENGTH_WEAK || !cfg.cellTypes.count(port->cell->type) || port->cell->constr_parent != nullptr || !port->cell->constr_children.empty())
+            if (port->cell->belStrength > STRENGTH_WEAK || !cfg.cellTypes.count(port->cell->type) ||
+                port->cell->constr_parent != nullptr || !port->cell->constr_children.empty())
                 continue;
             if (ctx->debug)
                 log_info("        can move\n");
@@ -452,7 +462,7 @@ class TimingOptimiser
             // Swap for legality check
             CellInfo *cell = ctx->cells.at(path_cells.front()).get();
             BelId origBel = cell_swap_bel(cell, startbel);
-            std::vector<std::pair<CellInfo*,BelId>> move{std::make_pair(cell, origBel)};
+            std::vector<std::pair<CellInfo *, BelId>> move{std::make_pair(cell, origBel)};
             if (acceptable_move(move)) {
                 auto entry = std::make_pair(0, startbel);
                 visit.push(entry);
@@ -462,7 +472,7 @@ class TimingOptimiser
             cell_swap_bel(cell, origBel);
         }
 
-        while(!visit.empty()) {
+        while (!visit.empty()) {
             auto entry = visit.front();
             visit.pop();
             auto cellname = path_cells.at(entry.first);
@@ -500,13 +510,14 @@ class TimingOptimiser
 
                 // Check the new cumulative delay
                 auto port_pair = cost_ports.at(ncname);
-                delay_t edge_delay = ctx->estimateDelay(ctx->getBelPinWire(port_pair.first->cell->bel, port_pair.first->port),
-                                                        ctx->getBelPinWire(port_pair.second->cell->bel, port_pair.second->port));
+                delay_t edge_delay =
+                        ctx->estimateDelay(ctx->getBelPinWire(port_pair.first->cell->bel, port_pair.first->port),
+                                           ctx->getBelPinWire(port_pair.second->cell->bel, port_pair.second->port));
                 delay_t total_delay = cdelay + edge_delay;
                 // First, check if the move is actually worthwhile from a delay point of view before the expensive
                 // legality check
-                if (!cumul_costs.count(ncname) || !cumul_costs.at(ncname).count(neighbour)
-                    || cumul_costs.at(ncname).at(neighbour) > total_delay) {
+                if (!cumul_costs.count(ncname) || !cumul_costs.at(ncname).count(neighbour) ||
+                    cumul_costs.at(ncname).at(neighbour) > total_delay) {
                     // Now check that the swaps we have made to get here are legal and meet max delay requirements
                     if (acceptable_move(move)) {
                         cumul_costs[ncname][neighbour] = total_delay;
@@ -531,10 +542,10 @@ class TimingOptimiser
         if (cumul_costs.count(path_cells.back())) {
             // Find the end position with the lowest total delay
             auto &end_options = cumul_costs.at(path_cells.back());
-            auto lowest = std::min_element(end_options.begin(), end_options.end(), [](const std::pair<BelId, delay_t> &a,
-                                                                                      const std::pair<BelId, delay_t> &b) {
-               return a.second < b.second;
-            });
+            auto lowest = std::min_element(end_options.begin(), end_options.end(),
+                                           [](const std::pair<BelId, delay_t> &a, const std::pair<BelId, delay_t> &b) {
+                                               return a.second < b.second;
+                                           });
             NPNR_ASSERT(lowest != end_options.end());
 
             std::vector<std::pair<IdString, BelId>> route_to_solution;
@@ -549,7 +560,7 @@ class TimingOptimiser
             for (auto rt_entry : boost::adaptors::reverse(route_to_solution)) {
                 CellInfo *cell = ctx->cells.at(rt_entry.first).get();
                 cell_swap_bel(cell, rt_entry.second);
-                if(ctx->debug)
+                if (ctx->debug)
                     log_info("    %s at %s\n", rt_entry.first.c_str(ctx), ctx->getBelName(rt_entry.second).c_str(ctx));
             }
 
@@ -571,7 +582,6 @@ class TimingOptimiser
     NetCriticalityMap net_crit;
     Context *ctx;
     TimingOptCfg cfg;
-
 };
 
 bool timing_opt(Context *ctx, TimingOptCfg cfg) { return TimingOptimiser(ctx, cfg).optimise(); }

@@ -85,8 +85,6 @@ struct CriticalPath
     delay_t path_period;
 };
 
-
-
 typedef std::unordered_map<ClockPair, CriticalPath> CriticalPathMap;
 typedef std::unordered_map<IdString, NetCriticalityInfo> NetCriticalityMap;
 
@@ -914,7 +912,8 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
     }
 }
 
-void get_criticalities(Context *ctx, NetCriticalityMap *net_crit) {
+void get_criticalities(Context *ctx, NetCriticalityMap *net_crit)
+{
     CriticalPathMap crit_paths;
     net_crit->clear();
     Timing timing(ctx, true, true, &crit_paths, nullptr, net_crit);
