@@ -319,7 +319,7 @@ void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc, bool pass_thru_l
     NPNR_ASSERT(citer == config.end());
 
     if (pass_thru_lut) {
-        lc->params[ctx->id("INIT")] = "1";
+        lc->params[ctx->id("INIT")] = "2";
         replace_port(dff, ctx->id("D"), lc, id_I1);
     }
 
