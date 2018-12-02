@@ -90,7 +90,7 @@ class TimingOptimiser
             log_info("   Iteration %d...\n", i);
             get_criticalities(ctx, &net_crit);
             setup_delay_limits();
-            auto crit_paths = find_crit_paths(0.95, 1000);
+            auto crit_paths = find_crit_paths(0.98, 1000);
             for (auto &path : crit_paths)
                 optimise_path(path);
 #if 1
@@ -140,27 +140,23 @@ class TimingOptimiser
             if (port.second.type == PORT_IN) {
                 if (net->driver.cell == nullptr || net->driver.cell->bel == BelId())
                     continue;
-                BelId srcBel = net->driver.cell->bel;
-                if (ctx->estimateDelay(ctx->getBelPinWire(srcBel, net->driver.port),
-                                       ctx->getBelPinWire(cell->bel, port.first)) >
-                    max_net_delay.at(std::make_pair(cell->name, port.first)))
-                    return false;
+                for (auto user : net->users) {
+                    if (user.cell == cell && user.port == port.first) {
+                        if (ctx->predictDelay(net, user) >
+                            1.1 * max_net_delay.at(std::make_pair(cell->name, port.first)))
+                            return false;
+                    }
+                }
+
             } else if (port.second.type == PORT_OUT) {
                 for (auto user : net->users) {
                     // This could get expensive for high-fanout nets??
                     BelId dstBel = user.cell->bel;
                     if (dstBel == BelId())
                         continue;
-                    if (ctx->estimateDelay(ctx->getBelPinWire(cell->bel, port.first),
-                                           ctx->getBelPinWire(dstBel, user.port)) >
-                        max_net_delay.at(std::make_pair(user.cell->name, user.port))) {
-#if 0
-                        if (ctx->debug) {
-                            log_info("  est delay %.02fns exceeded maximum %.02fns\n", ctx->getDelayNS(ctx->estimateDelay(ctx->getBelPinWire(cell->bel, port.first),
-                                                                                                                        ctx->getBelPinWire(dstBel, user.port))),
-                                                                                                                                ctx->getDelayNS(max_net_delay.at(std::make_pair(user.cell->name, user.port))));
-                        }
-#endif
+                    if (ctx->predictDelay(net, user) >
+                        1.1 * max_net_delay.at(std::make_pair(user.cell->name, user.port))) {
+
                         return false;
                     }
                 }
@@ -370,7 +366,7 @@ class TimingOptimiser
                     int ccount;
                     DelayInfo combDelay;
                     TimingPortClass tpclass = ctx->getPortTimingClass(cell, port.first, ccount);
-                    if (tpclass != TMG_COMB_OUTPUT)
+                    if (tpclass != TMG_COMB_OUTPUT && tpclass != TMG_REGISTER_OUTPUT)
                         continue;
                     bool is_path = ctx->getCellDelay(cell, fwd_cursor->port, port.first, combDelay);
                     if (!is_path)
@@ -408,6 +404,17 @@ class TimingOptimiser
         bel_candidate_cells.clear();
         if (ctx->debug)
             log_info("Optimising the following path: \n");
+
+        auto front_port = path.front();
+        NetInfo *front_net = front_port->cell->ports.at(front_port->port).net;
+        if (front_net != nullptr && front_net->driver.cell != nullptr) {
+            auto front_cell = front_net->driver.cell;
+            if (front_cell->belStrength <= STRENGTH_WEAK && cfg.cellTypes.count(front_cell->type) &&
+                        front_cell->constr_parent == nullptr && front_cell->constr_children.empty()) {
+                path_cells.push_back(front_cell->name);
+            }
+        }
+
         for (auto port : path) {
             if (ctx->debug) {
                 float crit = 0;
@@ -429,7 +436,7 @@ class TimingOptimiser
             path_cells.push_back(port->cell->name);
         }
 
-        if (path_cells.size() < 3) {
+        if (path_cells.size() < 2) {
             if (ctx->debug) {
                 log_info("Too few moveable cells; skipping path\n");
                 log_break();
@@ -437,8 +444,23 @@ class TimingOptimiser
 
             return;
         }
+
+        // Calculate original delay before touching anything
+        delay_t original_delay = 0;
+
+        for (size_t i = 0; i < path.size(); i++) {
+            NetInfo *pn = path.at(i)->cell->ports.at(path.at(i)->port).net;
+            for (size_t j = 0; j < pn->users.size(); j++) {
+                auto & usr = pn->users.at(j);
+                if (usr.cell == path.at(i)->cell && usr.port == path.at(i)->port) {
+                    original_delay += ctx->predictDelay(pn, usr);
+                    break;
+                }
+            }
+        }
+
         IdString last_cell;
-        const int d = 4; // FIXME: how to best determine d
+        const int d = 3; // FIXME: how to best determine d
         for (auto cell : path_cells) {
             // FIXME: when should we allow swapping due to a lack of candidates
             find_neighbours(ctx->cells[cell].get(), last_cell, d, false);
@@ -556,7 +578,8 @@ class TimingOptimiser
                 route_to_solution.push_back(cursor);
             }
             if (ctx->debug)
-                log_info("Found a solution with cost %.02f ns\n", ctx->getDelayNS(lowest->second));
+                log_info("Found a solution with cost %.02f ns (existing path %.02f ns)\n", ctx->getDelayNS(lowest->second),
+                         ctx->getDelayNS(original_delay));
             for (auto rt_entry : boost::adaptors::reverse(route_to_solution)) {
                 CellInfo *cell = ctx->cells.at(rt_entry.first).get();
                 cell_swap_bel(cell, rt_entry.second);
