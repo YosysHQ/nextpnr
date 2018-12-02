@@ -531,6 +531,10 @@ struct Timing
                         bool is_path = ctx->getCellDelay(drv.cell, port.first, drv.port, comb_delay);
                         if (!is_path)
                             continue;
+                        int cc;
+                        auto pclass = ctx->getPortTimingClass(drv.cell, port.first, cc);
+                        if (pclass != TMG_COMB_INPUT)
+                            continue;
                         NetInfo *sink_net = port.second.net;
                         if (net_data.count(sink_net) && net_data.at(sink_net).count(startdomain.first)) {
                             auto &sink_nd = net_data.at(sink_net).at(startdomain.first);
@@ -562,15 +566,24 @@ struct Timing
                     auto &nc = (*net_crit)[net->name];
                     if (nc.slack.empty())
                         nc.slack.resize(net->users.size(), std::numeric_limits<delay_t>::max());
+                    if (ctx->debug)
+                        log_info("Net %s cd %s\n", net->name.c_str(ctx), startdomain.first.clock.c_str(ctx));
                     for (size_t i = 0; i < net->users.size(); i++) {
                         delay_t slack = nd.min_required.at(i) -
                                         (nd.max_arrival + ctx->getNetinfoRouteDelay(net, net->users.at(i)));
+                        if (ctx->debug)
+                            log_info("    user %s.%s required %.02fns arrival %.02f route %.02f slack %.02f\n",
+                                    net->users.at(i).cell->name.c_str(ctx), net->users.at(i).port.c_str(ctx),
+                                    ctx->getDelayNS(nd.min_required.at(i)), ctx->getDelayNS(nd.max_arrival),
+                                    ctx->getDelayNS(ctx->getNetinfoRouteDelay(net, net->users.at(i))), ctx->getDelayNS(slack));
                         if (worst_slack.count(startdomain.first))
                             worst_slack.at(startdomain.first) = std::min(worst_slack.at(startdomain.first), slack);
                         else
                             worst_slack[startdomain.first] = slack;
                         nc.slack.at(i) = std::min(nc.slack.at(i), slack);
                     }
+                    if (ctx->debug)
+                        log_break();
                 }
             }
             // Assign criticality values

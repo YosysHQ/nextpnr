@@ -90,7 +90,7 @@ class TimingOptimiser
             log_info("   Iteration %d...\n", i);
             get_criticalities(ctx, &net_crit);
             setup_delay_limits();
-            auto crit_paths = find_crit_paths(0.92, 1000);
+            auto crit_paths = find_crit_paths(0.95, 1000);
             for (auto &path : crit_paths)
                 optimise_path(path);
 #if 1
@@ -438,24 +438,11 @@ class TimingOptimiser
             return;
         }
         IdString last_cell;
-        const int d = 3; // FIXME: how to best determine d
+        const int d = 4; // FIXME: how to best determine d
         for (auto cell : path_cells) {
             // FIXME: when should we allow swapping due to a lack of candidates
             find_neighbours(ctx->cells[cell].get(), last_cell, d, false);
             last_cell = cell;
-        }
-        // Map cells that we will actually modify to the arc we will use for cost
-        // calculation
-        // for delay calc purposes
-        std::unordered_map<IdString, std::pair<PortRef *, PortRef *>> cost_ports;
-        PortRef *last_port = nullptr;
-        auto pcell = path_cells.begin();
-        for (auto port : path) {
-            if (port->cell->name == *pcell) {
-                cost_ports[*pcell] = std::make_pair(last_port, port);
-                pcell++;
-            }
-            last_port = port;
         }
 
         // Actual BFS path optimisation algorithm
@@ -501,8 +488,6 @@ class TimingOptimiser
                 move.push_back(std::make_pair(cell, origBel));
             }
 
-            delay_t cdelay = cumul_costs[cellname][entry.second];
-
             // Have a look at where we can travel from here
             for (auto neighbour : cell_neighbour_bels.at(path_cells.at(entry.first + 1))) {
                 // Edges between overlapping bels are deleted
@@ -514,12 +499,21 @@ class TimingOptimiser
                 BelId origBel = cell_swap_bel(next_cell, neighbour);
                 move.push_back(std::make_pair(next_cell, origBel));
 
-                // Check the new cumulative delay
-                auto port_pair = cost_ports.at(ncname);
-                delay_t edge_delay =
-                        ctx->estimateDelay(ctx->getBelPinWire(port_pair.first->cell->bel, port_pair.first->port),
-                                           ctx->getBelPinWire(port_pair.second->cell->bel, port_pair.second->port));
-                delay_t total_delay = cdelay + edge_delay;
+                delay_t total_delay = 0;
+
+                for (size_t i = 0; i < path.size(); i++) {
+                    NetInfo *pn = path.at(i)->cell->ports.at(path.at(i)->port).net;
+                    for (size_t j = 0; j < pn->users.size(); j++) {
+                        auto & usr = pn->users.at(j);
+                        if (usr.cell == path.at(i)->cell && usr.port == path.at(i)->port) {
+                            total_delay += ctx->predictDelay(pn, usr);
+                            break;
+                        }
+                    }
+                    if (path.at(i)->cell == next_cell)
+                        break;
+                }
+
                 // First, check if the move is actually worthwhile from a delay point of view before the expensive
                 // legality check
                 if (!cumul_costs.count(ncname) || !cumul_costs.at(ncname).count(neighbour) ||
