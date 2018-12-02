@@ -90,7 +90,7 @@ class TimingOptimiser
             log_info("   Iteration %d...\n", i);
             get_criticalities(ctx, &net_crit);
             setup_delay_limits();
-            auto crit_paths = find_crit_paths(0.98, 1000);
+            auto crit_paths = find_crit_paths(0.92, 1000);
             for (auto &path : crit_paths)
                 optimise_path(path);
 #if 1
@@ -372,6 +372,9 @@ class TimingOptimiser
                     TimingPortClass tpclass = ctx->getPortTimingClass(cell, port.first, ccount);
                     if (tpclass != TMG_COMB_OUTPUT)
                         continue;
+                    bool is_path = ctx->getCellDelay(cell, fwd_cursor->port, port.first, combDelay);
+                    if (!is_path)
+                        continue;
                     auto &crits = net_crit.at(pn->name).criticality;
                     for (size_t i = 0; i < crits.size(); i++) {
                         if (used_ports.count(&(pn->users.at(i))))
@@ -427,8 +430,11 @@ class TimingOptimiser
         }
 
         if (path_cells.size() < 3) {
-            log_info("Too few moveable cells; skipping path\n");
-            log_break();
+            if (ctx->debug) {
+                log_info("Too few moveable cells; skipping path\n");
+                log_break();
+            }
+
             return;
         }
         IdString last_cell;

@@ -599,6 +599,22 @@ struct Timing
                     nc.cd_worst_slack = std::min(nc.cd_worst_slack, worst_slack.at(startdomain.first));
                 }
             }
+
+            if (ctx->debug) {
+                for (auto &nc : *net_crit) {
+                    NetInfo *net = ctx->nets.at(nc.first).get();
+                    log_info("Net %s maxlen %d worst_slack %.02fns: \n", nc.first.c_str(ctx), nc.second.max_path_length,
+                             ctx->getDelayNS(nc.second.cd_worst_slack));
+                    if (!nc.second.criticality.empty() && !nc.second.slack.empty()) {
+                        for (size_t i = 0; i < net->users.size(); i++) {
+                            log_info("   user %s.%s slack %.02fns crit %.03f\n", net->users.at(i).cell->name.c_str(ctx),
+                                     net->users.at(i).port.c_str(ctx), ctx->getDelayNS(nc.second.slack.at(i)),
+                                     nc.second.criticality.at(i));
+                        }
+                    }
+                    log_break();
+                }
+            }
         }
         return min_slack;
     }
