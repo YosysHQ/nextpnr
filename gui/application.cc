@@ -41,6 +41,7 @@ Application::Application(int &argc, char **argv) : QApplication(argc, argv)
 {
     QSurfaceFormat fmt;
     fmt.setSamples(10);
+    fmt.setProfile(QSurfaceFormat::CoreProfile);
     QSurfaceFormat::setDefaultFormat(fmt);
 #ifdef _WIN32
     SetConsoleCtrlHandler((PHANDLER_ROUTINE)WinHandler, TRUE);
