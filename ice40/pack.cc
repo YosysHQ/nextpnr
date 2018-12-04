@@ -569,6 +569,7 @@ static void promote_globals(Context *ctx)
     log_info("Promoting globals..\n");
     const int logic_fanout_thresh = 15;
     const int enable_fanout_thresh = 15;
+    const int reset_fanout_thresh = 15;
     std::map<IdString, int> clock_count, reset_count, cen_count, logic_count;
     for (auto net : sorted(ctx->nets)) {
         NetInfo *ni = net.second;
@@ -650,7 +651,8 @@ static void promote_globals(Context *ctx)
             reset_count.erase(logicnet->name);
             cen_count.erase(logicnet->name);
             logic_count.erase(logicnet->name);
-        } else if (global_reset->second > global_clock->second && prom_resets < resets_available) {
+        } else if (global_reset->second > global_clock->second && prom_resets < resets_available &&
+                   global_reset->second > reset_fanout_thresh) {
             NetInfo *rstnet = ctx->nets[global_reset->first].get();
             insert_global(ctx, rstnet, true, false, false, global_reset->second);
             ++prom_globals;
