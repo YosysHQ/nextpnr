@@ -163,29 +163,31 @@ class ChainConstrainer
 
     void process_carries()
     {
-        std::vector<CellChain> carry_chains =
-                find_chains(ctx, [](const Context *ctx, const CellInfo *cell) { return is_lc(ctx, cell); },
-                            [](const Context *ctx, const
+        std::vector<CellChain> carry_chains = find_chains(
+                ctx, [](const Context *ctx, const CellInfo *cell) { return is_lc(ctx, cell); },
+                [](const Context *ctx, const
 
-                               CellInfo *cell) {
-                                CellInfo *carry_prev =
-                                        net_driven_by(ctx, cell->ports.at(ctx->id("CIN")).net, is_lc, ctx->id("COUT"));
-                                if (carry_prev != nullptr)
-                                    return carry_prev;
-                                /*CellInfo *i3_prev = net_driven_by(ctx, cell->ports.at(ctx->id("I3")).net, is_lc,
-                                ctx->id("COUT")); if (i3_prev != nullptr) return i3_prev;*/
-                                return (CellInfo *)nullptr;
-                            },
-                            [](const Context *ctx, const CellInfo *cell) {
-                                CellInfo *carry_next = net_only_drives(ctx, cell->ports.at(ctx->id("COUT")).net, is_lc,
-                                                                       ctx->id("CIN"), false);
-                                if (carry_next != nullptr)
-                                    return carry_next;
-                                /*CellInfo *i3_next =
-                                        net_only_drives(ctx, cell->ports.at(ctx->id("COUT")).net, is_lc, ctx->id("I3"),
-                                false); if (i3_next != nullptr) return i3_next;*/
-                                return (CellInfo *)nullptr;
-                            });
+                   CellInfo *cell) {
+                    CellInfo *carry_prev =
+                            net_driven_by(ctx, cell->ports.at(ctx->id("CIN")).net, is_lc, ctx->id("COUT"));
+                    if (carry_prev != nullptr)
+                        return carry_prev;
+                    CellInfo *i3_prev = net_driven_by(ctx, cell->ports.at(ctx->id("I3")).net, is_lc, ctx->id("COUT"));
+                    if (i3_prev != nullptr)
+                        return i3_prev;
+                    return (CellInfo *)nullptr;
+                },
+                [](const Context *ctx, const CellInfo *cell) {
+                    CellInfo *carry_next =
+                            net_only_drives(ctx, cell->ports.at(ctx->id("COUT")).net, is_lc, ctx->id("CIN"), false);
+                    if (carry_next != nullptr)
+                        return carry_next;
+                    CellInfo *i3_next =
+                            net_only_drives(ctx, cell->ports.at(ctx->id("COUT")).net, is_lc, ctx->id("I3"), false);
+                    if (i3_next != nullptr)
+                        return i3_next;
+                    return (CellInfo *)nullptr;
+                });
         std::unordered_set<IdString> chained;
         for (auto &base_chain : carry_chains) {
             for (auto c : base_chain.cells)
