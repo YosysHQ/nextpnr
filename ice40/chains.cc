@@ -62,7 +62,7 @@ class ChainConstrainer
             bool split_chain = (!ctx->logicCellsCompatible(tile.data(), tile.size())) ||
                                (int(chains.back().cells.size()) > max_length);
             if (split_chain) {
-                CellInfo *passout = make_carry_pass_out(cell->ports.at(ctx->id("COUT")));
+                CellInfo *passout = make_carry_pass_out((*(curr_cell - 1))->ports.at(ctx->id("COUT")));
                 tile.pop_back();
                 chains.back().cells.back() = passout;
                 start_of_chain = true;
