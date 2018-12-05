@@ -96,8 +96,8 @@ struct Timing
     delay_t min_slack;
     CriticalPathMap *crit_path;
     DelayFrequency *slack_histogram;
-    IdString async_clock;
     NetCriticalityMap *net_crit;
+    IdString async_clock;
 
     struct TimingData
     {
@@ -472,8 +472,6 @@ struct Timing
                         continue;
                     if (startdomain.first.clock == async_clock)
                         continue;
-                    const delay_t net_length_plus_one = nd.max_path_length + 1;
-                    auto &net_min_remaining_budget = nd.min_remaining_budget;
                     if (nd.min_required.empty())
                         nd.min_required.resize(net->users.size(), std::numeric_limits<delay_t>::max());
                     delay_t net_min_required = std::numeric_limits<delay_t>::max();
@@ -584,7 +582,7 @@ struct Timing
                             worst_slack.at(startdomain.first) = std::min(worst_slack.at(startdomain.first), slack);
                         else
                             worst_slack[startdomain.first] = slack;
-                        nc.slack.at(i) = std::min(nc.slack.at(i), slack);
+                        nc.slack.at(i) = slack;
                     }
                     if (ctx->debug)
                         log_break();
@@ -610,10 +608,10 @@ struct Timing
                     delay_t dmax = crit_path->at(ClockPair{startdomain.first, startdomain.first}).path_delay;
                     for (size_t i = 0; i < net->users.size(); i++) {
                         float criticality = 1.0f - (float(nc.slack.at(i) - worst_slack.at(startdomain.first)) / dmax);
-                        nc.criticality.at(i) = std::max(nc.criticality.at(i), criticality);
+                        nc.criticality.at(i) = criticality;
                     }
-                    nc.max_path_length = std::max(nc.max_path_length, nd.max_path_length);
-                    nc.cd_worst_slack = std::min(nc.cd_worst_slack, worst_slack.at(startdomain.first));
+                    nc.max_path_length = nd.max_path_length;
+                    nc.cd_worst_slack = worst_slack.at(startdomain.first);
                 }
             }
 #if 0
