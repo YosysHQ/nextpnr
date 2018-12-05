@@ -42,6 +42,10 @@ Application::Application(int &argc, char **argv) : QApplication(argc, argv)
     QSurfaceFormat fmt;
     fmt.setSamples(10);
     fmt.setProfile(QSurfaceFormat::CoreProfile);
+    // macOS is very picky about this version matching
+    // the version of openGL  used in ImGuiRenderer
+    fmt.setMajorVersion(3);
+    fmt.setMinorVersion(2);
     QSurfaceFormat::setDefaultFormat(fmt);
 #ifdef _WIN32
     SetConsoleCtrlHandler((PHANDLER_ROUTINE)WinHandler, TRUE);
