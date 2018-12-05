@@ -1,8 +1,11 @@
 task:
-  name: build-ubuntu1604
+  name: build-test-ubuntu1604
   container:
     cpu: 4
     memory: 12
     dockerfile: .cirrus/Dockerfile.ubuntu16.04
 
-  build_script: mkdir build && cd build && cmake .. -DARCH=all -DTRELLIS_ROOT=/usr/local/src/prjtrellis && make -j $(nproc)
+  build_script: mkdir build && cd build && cmake .. -DARCH=all -DTRELLIS_ROOT=/usr/local/src/prjtrellis -DBUILD_TESTS=on && make -j $(nproc)
+  test_generic_script: ./nextpnr-generic-test
+  test_ice40_script: ./nextpnr-ice40-test
+  test_ecp5_script: ./nextpnr-ecp5-test
