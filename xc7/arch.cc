@@ -102,6 +102,12 @@ TorcInfo::TorcInfo(BaseCtx *ctx, const std::string &inDeviceName, const std::str
             bel_to_loc.emplace_back(x, y, 0);
             site_index_to_bel[i] = b;
             ++b.index;
+        } else if (type == "IOB18S" || type == "IOB18M") {
+            bel_to_site_index.push_back(i);
+            site_index_to_type[i] = id_IOB18;
+            bel_to_loc.emplace_back(x, y, 0);
+            site_index_to_bel[i] = b;
+            ++b.index;
         } else {
             bel_to_site_index.push_back(i);
             site_index_to_type[i] = ctx->id(type);
@@ -337,6 +343,8 @@ Arch::Arch(ArchArgs args) : args(args)
             }
 #endif
         }
+    } else if (args.type == ArchArgs::VX980) {
+        torc_info = std::unique_ptr<TorcInfo>(new TorcInfo(this, "xc7vx980t", args.package));
     } else {
         log_error("Unsupported XC7 chip type.\n");
     }
@@ -922,7 +930,7 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
         }
         // TODO
         // if (port == id_OMUX)
-    } else if (cell->type == id_IOB33) {
+    } else if (cell->type == id_IOB33 || cell->type == id_IOB18) {
         if (port == id_I)
             return TMG_STARTPOINT;
         else if (port == id_O)

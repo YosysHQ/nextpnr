@@ -68,7 +68,7 @@ void write_xdl(const Context *ctx, std::ostream &out)
         const char *type;
         if (cell.second->type == id_SLICE_LUT6)
             type = "SLICEL";
-        else if (cell.second->type == id_IOB33 || cell.second->type == id_BUFGCTRL || cell.second->type == id_PS7 || cell.second->type == id_MMCME2_ADV)
+        else if (cell.second->type == id_IOB33 || cell.second->type == id_IOB18 || cell.second->type == id_BUFGCTRL || cell.second->type == id_PS7 || cell.second->type == id_MMCME2_ADV)
             type = cell.second->type.c_str(ctx);
         else
             log_error("Unsupported cell type '%s'.\n", cell.second->type.c_str(ctx));
@@ -111,7 +111,7 @@ void write_xdl(const Context *ctx, std::ostream &out)
             // Assume from Yosys that INIT masks of less than 32 bits are output as uint32_t
             if (lut_inputs.size() < 6) {
                 auto init_as_uint = boost::lexical_cast<uint32_t>(init);
-                NPNR_ASSERT(init_as_uint < (1ull << (1u << lut_inputs.size())));
+                NPNR_ASSERT(init_as_uint <= (1ull << (1u << lut_inputs.size())));
                 if (lut_inputs.empty())
                     value += init;
                 else {
@@ -198,6 +198,17 @@ void write_xdl(const Context *ctx, std::ostream &out)
         } else if (cell.second->type == id_BUFGCTRL || cell.second->type == id_PS7 || cell.second->type == id_MMCME2_ADV) {
             for (const auto& i : cell.second->params)
                 instPtr->setConfig(i.first.str(ctx), "", i.second);
+        } else if (cell.second->type == id_IOB18) {
+            if (get_net_or_empty(cell.second.get(), id_I)) {
+                instPtr->setConfig("IUSED", "", "0");
+                instPtr->setConfig("IBUF_LOW_PWR", "", "TRUE");
+                instPtr->setConfig("ISTANDARD", "", "LVCMOS18");
+            } else {
+                instPtr->setConfig("OUSED", "", "0");
+                instPtr->setConfig("OSTANDARD", "", "LVCMOS18");
+                instPtr->setConfig("DRIVE", "", "12");
+                instPtr->setConfig("SLEW", "", "SLOW");
+            }
         } else
             log_error("Unsupported cell type '%s'.\n", cell.second->type.c_str(ctx));
     }

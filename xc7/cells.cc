@@ -70,11 +70,15 @@ std::unique_ptr<CellInfo> create_xc7_cell(Context *ctx, IdString type, std::stri
         add_port(ctx, new_cell.get(), "OMUX", PORT_OUT);
         add_port(ctx, new_cell.get(), "COUT", PORT_OUT);
     } else if (type == ctx->id("IOBUF")) {
-        new_cell->type = id_IOB33;
-        new_cell->params[ctx->id("PIN_TYPE")] = "0";
-        new_cell->params[ctx->id("PULLUP")] = "0";
-        new_cell->params[ctx->id("NEG_TRIGGER")] = "0";
-        new_cell->params[ctx->id("IOSTANDARD")] = "SB_LVCMOS";
+	if (ctx->args.type == ArchArgs::Z020) {
+		new_cell->type = id_IOB33;
+	} else {
+		new_cell->type = id_IOB18;
+	}
+        //new_cell->params[ctx->id("PIN_TYPE")] = "0";
+        //new_cell->params[ctx->id("PULLUP")] = "0";
+        //new_cell->params[ctx->id("NEG_TRIGGER")] = "0";
+        //new_cell->params[ctx->id("IOSTANDARD")] = "SB_LVCMOS";
 
         //        add_port(ctx, new_cell.get(), "PACKAGE_PIN", PORT_INOUT);
         //
