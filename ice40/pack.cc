@@ -1083,13 +1083,17 @@ static void pack_special(Context *ctx)
                 }
 
             auto feedback_path = packed->params[ctx->id("FEEDBACK_PATH")];
-            packed->params[ctx->id("FEEDBACK_PATH")] =
-                    feedback_path == "DELAY"
-                            ? "0"
-                            : feedback_path == "SIMPLE" ? "1"
-                                                        : feedback_path == "PHASE_AND_DELAY"
-                                                                  ? "2"
-                                                                  : feedback_path == "EXTERNAL" ? "6" : feedback_path;
+            std::string fbp_value = feedback_path == "DELAY"
+                                            ? "0"
+                                            : feedback_path == "SIMPLE"
+                                                      ? "1"
+                                                      : feedback_path == "PHASE_AND_DELAY"
+                                                                ? "2"
+                                                                : feedback_path == "EXTERNAL" ? "6" : feedback_path;
+            if (!std::all_of(fbp_value.begin(), fbp_value.end(), isdigit))
+                log_error("PLL '%s' has unsupported FEEDBACK_PATH value '%s'\n", ci->name.c_str(ctx),
+                          feedback_path.c_str());
+            packed->params[ctx->id("FEEDBACK_PATH")] = fbp_value;
             packed->params[ctx->id("PLLTYPE")] = std::to_string(sb_pll40_type(ctx, ci));
 
             NetInfo *pad_packagepin_net = nullptr;
