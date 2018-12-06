@@ -631,14 +631,13 @@ bool Arch::place()
 {
     if (!placer1(getCtx(), Placer1Cfg(getCtx())))
         return false;
-    if(bool_or_default(settings, id("opt_timing"), false)) {
+    if (bool_or_default(settings, id("opt_timing"), false)) {
         TimingOptCfg tocfg(getCtx());
         tocfg.cellTypes.insert(id_ICESTORM_LC);
         return timing_opt(getCtx(), tocfg);
     } else {
         return true;
     }
-
 }
 
 bool Arch::route() { return router1(getCtx(), Router1Cfg(getCtx())); }

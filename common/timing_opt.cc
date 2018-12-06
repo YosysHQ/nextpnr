@@ -83,27 +83,22 @@ class TimingOptimiser
     bool optimise()
     {
         log_info("Running timing-driven placement optimisation...\n");
-#if 1
-        timing_analysis(ctx, false, true, false, false);
-#endif
-        for (int i = 0; i < 100; i++) {
+        if (ctx->verbose)
+            timing_analysis(ctx, false, true, false, false);
+        for (int i = 0; i < 30; i++) {
             log_info("   Iteration %d...\n", i);
             get_criticalities(ctx, &net_crit);
             setup_delay_limits();
             auto crit_paths = find_crit_paths(0.98, 50000);
             for (auto &path : crit_paths)
                 optimise_path(path);
-#if 1
-            timing_analysis(ctx, false, true, false, false);
-#endif
+            if (ctx->verbose)
+                timing_analysis(ctx, false, true, false, false);
         }
         return true;
     }
 
   private:
-    // Ratio of available to already-candidates to begin borrowing
-    const float borrow_thresh = 0.2;
-
     void setup_delay_limits()
     {
         max_net_delay.clear();
@@ -416,7 +411,7 @@ class TimingOptimiser
         if (front_net != nullptr && front_net->driver.cell != nullptr) {
             auto front_cell = front_net->driver.cell;
             if (front_cell->belStrength <= STRENGTH_WEAK && cfg.cellTypes.count(front_cell->type) &&
-                        front_cell->constr_parent == nullptr && front_cell->constr_children.empty()) {
+                front_cell->constr_parent == nullptr && front_cell->constr_children.empty()) {
                 path_cells.push_back(front_cell->name);
             }
         }
@@ -457,7 +452,7 @@ class TimingOptimiser
         for (size_t i = 0; i < path.size(); i++) {
             NetInfo *pn = path.at(i)->cell->ports.at(path.at(i)->port).net;
             for (size_t j = 0; j < pn->users.size(); j++) {
-                auto & usr = pn->users.at(j);
+                auto &usr = pn->users.at(j);
                 if (usr.cell == path.at(i)->cell && usr.port == path.at(i)->port) {
                     original_delay += ctx->predictDelay(pn, usr);
                     break;
@@ -475,7 +470,8 @@ class TimingOptimiser
 
         if (ctx->debug) {
             for (auto cell : path_cells) {
-                log_info("Candidate neighbours for %s (%s):\n", cell.c_str(ctx), ctx->getBelName(ctx->cells[cell]->bel).c_str(ctx));
+                log_info("Candidate neighbours for %s (%s):\n", cell.c_str(ctx),
+                         ctx->getBelName(ctx->cells[cell]->bel).c_str(ctx));
                 for (auto neigh : cell_neighbour_bels.at(cell)) {
                     log_info("    %s\n", ctx->getBelName(neigh).c_str(ctx));
                 }
@@ -541,7 +537,7 @@ class TimingOptimiser
                 for (size_t i = 0; i < path.size(); i++) {
                     NetInfo *pn = path.at(i)->cell->ports.at(path.at(i)->port).net;
                     for (size_t j = 0; j < pn->users.size(); j++) {
-                        auto & usr = pn->users.at(j);
+                        auto &usr = pn->users.at(j);
                         if (usr.cell == path.at(i)->cell && usr.port == path.at(i)->port) {
                             total_delay += ctx->predictDelay(pn, usr);
                             break;
@@ -593,8 +589,8 @@ class TimingOptimiser
                 route_to_solution.push_back(cursor);
             }
             if (ctx->debug)
-                log_info("Found a solution with cost %.02f ns (existing path %.02f ns)\n", ctx->getDelayNS(lowest->second),
-                         ctx->getDelayNS(original_delay));
+                log_info("Found a solution with cost %.02f ns (existing path %.02f ns)\n",
+                         ctx->getDelayNS(lowest->second), ctx->getDelayNS(original_delay));
             for (auto rt_entry : boost::adaptors::reverse(route_to_solution)) {
                 CellInfo *cell = ctx->cells.at(rt_entry.first).get();
                 cell_swap_bel(cell, rt_entry.second);
