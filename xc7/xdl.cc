@@ -25,6 +25,7 @@
 #include "log.h"
 #include "nextpnr.h"
 #include "util.h"
+#include <boost/range/adaptor/reversed.hpp>
 
 #include "torc/Physical.hpp"
 using namespace torc::architecture::xilinx;
@@ -32,9 +33,8 @@ using namespace torc::physical;
 
 NEXTPNR_NAMESPACE_BEGIN
 
-void write_xdl(const Context *ctx, std::ostream &out)
+DesignSharedPtr create_torc_design(const Context *ctx)
 {
-    XdlExporter exporter(out);
     auto designPtr = Factory::newDesignPtr("name", torc_info->ddb->getDeviceName(), ctx->args.package, "-1", "");
 
     std::unordered_map<int32_t, InstanceSharedPtr> site_to_instance;
@@ -232,40 +232,124 @@ void write_xdl(const Context *ctx, std::ostream &out)
         auto pinPtr = Factory::newInstancePinPtr(instPtr, pin_name);
         netPtr->addSource(pinPtr);
 
-        for (const auto &user : net.second->users) {
-            site_index = torc_info->bel_to_site_index[user.cell->bel.index];
-            instPtr = site_to_instance.at(site_index);
+        if (!net.second->users.empty()) {
+            for (const auto &user : net.second->users) {
+                site_index = torc_info->bel_to_site_index[user.cell->bel.index];
+                instPtr = site_to_instance.at(site_index);
 
-            pin_name = user.port.str(ctx);
-            // For all LUT based inputs and outputs (I1-I6,O,OQ,OMUX) then change the I/O into the LUT
-            if (user.cell->type == id_SLICE_LUT6 && (pin_name[0] == 'I' || pin_name[0] == 'O')) {
-                const auto lut = bel_to_lut(user.cell->bel);
-                pin_name[0] = lut[0];
+                pin_name = user.port.str(ctx);
+                // For all LUT based inputs and outputs (I1-I6,O,OQ,OMUX) then change the I/O into the LUT
+                if (user.cell->type == id_SLICE_LUT6 && (pin_name[0] == 'I' || pin_name[0] == 'O')) {
+                    const auto lut = bel_to_lut(user.cell->bel);
+                    pin_name[0] = lut[0];
+                }
+                else {
+                    // e.g. Convert DDRARB[0] -> DDRARB0
+                    pin_name.erase(std::remove_if(pin_name.begin(), pin_name.end(), boost::is_any_of("[]")), pin_name.end());
+                }
+                pinPtr = Factory::newInstancePinPtr(instPtr, pin_name);
+                netPtr->addSink(pinPtr);
             }
-            else {
-                // e.g. Convert DDRARB[0] -> DDRARB0
-                pin_name.erase(std::remove_if(pin_name.begin(), pin_name.end(), boost::is_any_of("[]")), pin_name.end());
+
+            auto b = designPtr->addNet(netPtr);
+            assert(b);
+
+            for (const auto &i : net.second->wires) {
+                const auto &pip_map = i.second;
+                if (pip_map.pip == PipId())
+                    continue;
+                ExtendedWireInfo ewi_src(*torc_info->ddb, torc_info->pip_to_arc[pip_map.pip.index].getSourceTilewire());
+                ExtendedWireInfo ewi_dst(*torc_info->ddb, torc_info->pip_to_arc[pip_map.pip.index].getSinkTilewire());
+                auto p = Factory::newPip(ewi_src.mTileName, ewi_src.mWireName, ewi_dst.mWireName,
+                                         ePipUnidirectionalBuffered);
+                netPtr->addPip(p);
             }
-            pinPtr = Factory::newInstancePinPtr(instPtr, pin_name);
-            netPtr->addSink(pinPtr);
-        }
-
-        auto b = designPtr->addNet(netPtr);
-        assert(b);
-
-        for (const auto &i : net.second->wires) {
-            const auto &pip_map = i.second;
-            if (pip_map.pip == PipId())
-                continue;
-            ExtendedWireInfo ewi_src(*torc_info->ddb, torc_info->pip_to_arc[pip_map.pip.index].getSourceTilewire());
-            ExtendedWireInfo ewi_dst(*torc_info->ddb, torc_info->pip_to_arc[pip_map.pip.index].getSinkTilewire());
-            auto p = Factory::newPip(ewi_src.mTileName, ewi_src.mWireName, ewi_dst.mWireName,
-                                     ePipUnidirectionalBuffered);
-            netPtr->addPip(p);
         }
     }
 
+    return designPtr;
+}
+
+void write_xdl(const Context *ctx, std::ostream &out)
+{
+    XdlExporter exporter(out);
+    auto designPtr = create_torc_design(ctx);
     exporter(designPtr);
+}
+
+void write_fasm(const Context *ctx, std::ostream &out)
+{
+    auto designPtr = create_torc_design(ctx);
+
+    static const boost::regex re_loc(".+_X(\\d+)Y(\\d+)");
+    boost::smatch what;
+
+    // export the instances
+    Circuit::InstanceSharedPtrConstIterator pi = designPtr->instancesBegin();
+    Circuit::InstanceSharedPtrConstIterator ei = designPtr->instancesEnd();
+    for (; pi < ei; ++pi) {
+        std::stringstream ss;
+        ss << (*pi)->getTile() << '.';
+        const auto& type = (*pi)->getType();
+        if (type == "SLICEL") {
+            const auto& site_name = (*pi)->getSite();
+            if (!boost::regex_match(site_name, what, re_loc))
+                throw;
+
+            const auto x = boost::lexical_cast<int>(what.str(1));
+            ss << type << "_X" << static_cast<int>(x & 1) << '.';
+
+            out << "# " << (*pi)->getName() << std::endl;
+
+            auto pc = (*pi)->configBegin();
+            auto ec = (*pi)->configEnd();
+            for (; pc != ec; ++pc)
+                if (pc->first == "A6LUT" || pc->first == "B6LUT" || pc->first == "C6LUT" || pc->first == "D6LUT") {
+                    auto name = pc->second.getName();
+                    boost::replace_all(name, "\\:", ":");
+                    auto it = ctx->cells.find(ctx->id(name));
+                    if (it == ctx->cells.end()) it = ctx->cells.find(ctx->id(name + "_LC"));
+                    assert(it != ctx->cells.end());
+                    auto cell = it->second.get();
+                    const auto &init = cell->params[ctx->id("INIT")];
+                    if (cell->lcInfo.inputCount <= 5) {
+                        auto num_bits = (1 << cell->lcInfo.inputCount);
+                        auto init_as_uint = boost::lexical_cast<uint32_t>(init);
+                        out << ss.str() << pc->first[0] << pc->first.substr(2,std::string::npos) << ".INIT";
+                        out << "[" << num_bits-1 << ":0]" << "=";
+                        out << num_bits << "'b";
+                        for (auto i = 0; i < num_bits; ++i)
+                            out << ((init_as_uint >> i) & 1 ? '1' : '0');
+                        out << std::endl;
+                    }
+                    else {
+                        out << ss.str() << pc->first[0] << pc->first.substr(2,std::string::npos) << ".INIT[31:0]=";
+                        out << "32'b" << boost::adaptors::reverse(init.substr(0,32)) << std::endl;
+                        out << ss.str() << pc->first[0] << pc->first.substr(2,std::string::npos) << ".INIT[63:32]=";
+                        out << "32'b" << boost::adaptors::reverse(init.substr(32,32)) << std::endl;
+                    }
+                }
+                else
+                    out << ss.str() << pc->first << '.' << pc->second.getValue() << std::endl;
+            
+            out << std::endl;
+        }
+    }
+
+    // export the nets
+    Circuit::NetSharedPtrConstIterator pn = designPtr->netsBegin();
+    Circuit::NetSharedPtrConstIterator en = designPtr->netsEnd();
+    for (; pn < en; ++pn) {
+
+        out << "# " << (*pn)->getName() << std::endl;
+
+        auto pp = (*pn)->pipsBegin();
+        auto ep = (*pn)->pipsEnd();
+        for (; pp != ep; ++pp)
+            out << pp->getTileName() << "." << pp->getSourceWireName() << "." << pp->getSinkWireName() << std::endl;
+
+        out << std::endl;
+    }
 }
 
 NEXTPNR_NAMESPACE_END
