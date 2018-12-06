@@ -134,11 +134,13 @@ class ChainConstrainer
 
             // Find the user corresponding to the next CIN
             int replaced_ports = 0;
-            log_info("cell: %s\n", cin_cell->name.c_str(ctx));
+            if (ctx->debug)
+                log_info("cell: %s\n", cin_cell->name.c_str(ctx));
             for (auto port : {id_CIN, id_I3}) {
                 auto &usr = lc->ports.at(id_O).net->users;
-                for (auto user : usr)
-                    log_info("%s.%s\n", user.cell->name.c_str(ctx), user.port.c_str(ctx));
+                if (ctx->debug)
+                    for (auto user : usr)
+                        log_info("%s.%s\n", user.cell->name.c_str(ctx), user.port.c_str(ctx));
                 auto fnd_user = std::find_if(usr.begin(), usr.end(),
                                              [&](const PortRef &pr) { return pr.cell == cin_cell && pr.port == port; });
                 if (fnd_user != usr.end()) {
