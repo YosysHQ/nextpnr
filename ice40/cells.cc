@@ -269,7 +269,8 @@ std::unique_ptr<CellInfo> create_ice_cell(Context *ctx, IdString type, std::stri
             add_port(ctx, new_cell.get(), "LEDDADDR" + std::to_string(i), PORT_IN);
         add_port(ctx, new_cell.get(), "LEDDDEN", PORT_IN);
         add_port(ctx, new_cell.get(), "LEDDEXE", PORT_IN);
-        add_port(ctx, new_cell.get(), "LEDDRST", PORT_IN); //doesn't actually exist, for icecube code compatibility only
+        add_port(ctx, new_cell.get(), "LEDDRST", PORT_IN); // doesn't actually exist, for icecube code compatibility
+                                                           // only
         add_port(ctx, new_cell.get(), "PWMOUT0", PORT_OUT);
         add_port(ctx, new_cell.get(), "PWMOUT1", PORT_OUT);
         add_port(ctx, new_cell.get(), "PWMOUT2", PORT_OUT);

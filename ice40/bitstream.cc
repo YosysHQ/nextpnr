@@ -592,7 +592,7 @@ void write_asc(const Context *ctx, std::ostream &out)
             configure_extra_cell(config, ctx, cell.second.get(), rgba_params, true, std::string("IpConfig."));
             set_ec_cbit(config, ctx, get_ec_config(ctx->chip_info, cell.second->bel), "RGBA_DRV_EN", true, "IpConfig.");
         } else if (cell.second->type == ctx->id("SB_WARMBOOT") || cell.second->type == ctx->id("ICESTORM_LFOSC") ||
-                   cell.second->type == ctx->id("SB_LEDDA_IP") ) {
+                   cell.second->type == ctx->id("SB_LEDDA_IP")) {
             // No config needed
         } else if (cell.second->type == ctx->id("ICESTORM_SPRAM")) {
             const BelInfoPOD &beli = ci.bel_data[bel.index];
