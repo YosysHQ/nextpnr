@@ -156,7 +156,9 @@ void configure_extra_cell(chipconfig_t &config, const Context *ctx, CellInfo *ce
             // Lattice's weird string style params, not sure if
             // prefixes other than 0b should be supported, only 0b features in docs
             std::string raw = get_param_str_or_def(cell, ctx->id(p.first), "0b0");
-            assert(raw.substr(0, 2) == "0b");
+            if (raw.substr(0, 2) != "0b")
+                log_error("expected configuration string starting with '0b' for parameter '%s' on cell '%s'\n",
+                          p.first.c_str(), cell->name.c_str(ctx));
             raw = raw.substr(2);
             value.resize(raw.length());
             for (int i = 0; i < (int)raw.length(); i++) {
@@ -168,7 +170,13 @@ void configure_extra_cell(chipconfig_t &config, const Context *ctx, CellInfo *ce
                 }
             }
         } else {
-            int ival = get_param_or_def(cell, ctx->id(p.first), 0);
+            int ival;
+            try {
+                ival = get_param_or_def(cell, ctx->id(p.first), 0);
+            } catch (std::invalid_argument &e) {
+                log_error("expected numeric value for parameter '%s' on cell '%s'\n", p.first.c_str(),
+                          cell->name.c_str(ctx));
+            }
 
             for (int i = 0; i < p.second; i++)
                 value.push_back((ival >> i) & 0x1);
