@@ -126,6 +126,7 @@ TaskManager::TaskManager() : toTerminate(false), toPause(false)
 
 TaskManager::~TaskManager()
 {
+    log_write_function = nullptr;
     if (workerThread.isRunning())
         terminate_thread();
     workerThread.quit();

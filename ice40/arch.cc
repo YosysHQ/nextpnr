@@ -26,6 +26,7 @@
 #include "nextpnr.h"
 #include "placer1.h"
 #include "router1.h"
+#include "timing_opt.h"
 #include "util.h"
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -626,7 +627,18 @@ bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay
 
 // -----------------------------------------------------------------------
 
-bool Arch::place() { return placer1(getCtx(), Placer1Cfg(getCtx())); }
+bool Arch::place()
+{
+    if (!placer1(getCtx(), Placer1Cfg(getCtx())))
+        return false;
+    if (bool_or_default(settings, id("opt_timing"), false)) {
+        TimingOptCfg tocfg(getCtx());
+        tocfg.cellTypes.insert(id_ICESTORM_LC);
+        return timing_opt(getCtx(), tocfg);
+    } else {
+        return true;
+    }
+}
 
 bool Arch::route() { return router1(getCtx(), Router1Cfg(getCtx())); }
 
@@ -950,8 +962,12 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
         if (port == id_RGB0 || port == id_RGB1 || port == id_RGB2)
             return TMG_IGNORE;
         return TMG_ENDPOINT;
+    } else if (cell->type == id_SB_LEDDA_IP) {
+        if (port == id_CLK || port == id_CLOCK)
+            return TMG_CLOCK_INPUT;
+        return TMG_IGNORE;
     }
-    log_error("no timing info for port '%s' of cell type '%s'\n", port.c_str(this), cell->type.c_str(this));
+    log_error("cell type '%s' is unsupported (instantiated as '%s')\n", cell->type.c_str(this), cell->name.c_str(this));
 }
 
 TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port, int index) const

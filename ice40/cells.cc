@@ -260,6 +260,21 @@ std::unique_ptr<CellInfo> create_ice_cell(Context *ctx, IdString type, std::stri
         add_port(ctx, new_cell.get(), "RGB0", PORT_OUT);
         add_port(ctx, new_cell.get(), "RGB1", PORT_OUT);
         add_port(ctx, new_cell.get(), "RGB2", PORT_OUT);
+    } else if (type == ctx->id("SB_LEDDA_IP")) {
+        add_port(ctx, new_cell.get(), "LEDDCS", PORT_IN);
+        add_port(ctx, new_cell.get(), "LEDDCLK", PORT_IN);
+        for (int i = 0; i < 8; i++)
+            add_port(ctx, new_cell.get(), "LEDDDAT" + std::to_string(i), PORT_IN);
+        for (int i = 0; i < 3; i++)
+            add_port(ctx, new_cell.get(), "LEDDADDR" + std::to_string(i), PORT_IN);
+        add_port(ctx, new_cell.get(), "LEDDDEN", PORT_IN);
+        add_port(ctx, new_cell.get(), "LEDDEXE", PORT_IN);
+        add_port(ctx, new_cell.get(), "LEDDRST", PORT_IN); // doesn't actually exist, for icecube code compatibility
+                                                           // only
+        add_port(ctx, new_cell.get(), "PWMOUT0", PORT_OUT);
+        add_port(ctx, new_cell.get(), "PWMOUT1", PORT_OUT);
+        add_port(ctx, new_cell.get(), "PWMOUT2", PORT_OUT);
+        add_port(ctx, new_cell.get(), "LEDDON", PORT_OUT);
     } else {
         log_error("unable to create iCE40 cell of type %s", type.c_str(ctx));
     }

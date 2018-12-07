@@ -44,11 +44,11 @@ struct log_execution_error_exception
 
 enum class LogLevel
 {
-    LOG,
-    INFO,
-    WARNING,
-    ERROR,
-    ALWAYS
+    LOG_MSG,
+    INFO_MSG,
+    WARNING_MSG,
+    ERROR_MSG,
+    ALWAYS_MSG
 };
 
 extern std::vector<std::pair<std::ostream *, LogLevel>> log_streams;

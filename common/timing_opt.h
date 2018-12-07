@@ -17,34 +17,21 @@
  *
  */
 
-#ifndef TIMING_H
-#define TIMING_H
-
 #include "nextpnr.h"
+#include "settings.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
-// Evenly redistribute the total path slack amongst all sinks on each path
-void assign_budget(Context *ctx, bool quiet = false);
-
-// Perform timing analysis and print out the fmax, and optionally the
-//    critical path
-void timing_analysis(Context *ctx, bool slack_histogram = true, bool print_fmax = true, bool print_path = false,
-                     bool warn_on_failure = false);
-
-// Data for the timing optimisation algorithm
-struct NetCriticalityInfo
+struct TimingOptCfg : public Settings
 {
-    // One each per user
-    std::vector<delay_t> slack;
-    std::vector<float> criticality;
-    unsigned max_path_length = 0;
-    delay_t cd_worst_slack = std::numeric_limits<delay_t>::max();
+    TimingOptCfg(Context *ctx) : Settings(ctx) {}
+
+    // The timing optimiser will *only* optimise cells of these types
+    // Normally these would only be logic cells (or tiles if applicable), the algorithm makes little sense
+    // for other cell types
+    std::unordered_set<IdString> cellTypes;
 };
 
-typedef std::unordered_map<IdString, NetCriticalityInfo> NetCriticalityMap;
-void get_criticalities(Context *ctx, NetCriticalityMap *net_crit);
+extern bool timing_opt(Context *ctx, TimingOptCfg cfg);
 
 NEXTPNR_NAMESPACE_END
-
-#endif

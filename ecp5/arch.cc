@@ -670,7 +670,8 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
         }
         return TMG_IGNORE;
     } else {
-        NPNR_ASSERT_FALSE_STR("no timing data for cell type '" + cell->type.str(this) + "'");
+        log_error("cell type '%s' is unsupported (instantiated as '%s')\n", cell->type.c_str(this),
+                  cell->name.c_str(this));
     }
 }
 

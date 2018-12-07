@@ -594,7 +594,11 @@ void json_import_cell(Context *ctx, string modname, const std::vector<IdString> 
                                   if (type == PORT_IN || type == PORT_INOUT) {
                                       net->users.push_back(pr);
                                   } else if (type == PORT_OUT) {
-                                      assert(net->driver.cell == nullptr);
+                                      if (net->driver.cell != nullptr)
+                                          log_error("multiple drivers on net '%s' (%s.%s and %s.%s)\n",
+                                                    net->name.c_str(ctx), net->driver.cell->name.c_str(ctx),
+                                                    net->driver.port.c_str(ctx), pr.cell->name.c_str(ctx),
+                                                    pr.port.c_str(ctx));
                                       net->driver = pr;
                                   }
                               }

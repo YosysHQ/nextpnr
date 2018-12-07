@@ -131,9 +131,9 @@ void CommandHandler::setupContext(Context *ctx)
     }
 
     if (vm.count("quiet")) {
-        log_streams.push_back(std::make_pair(&std::cerr, LogLevel::WARNING));
+        log_streams.push_back(std::make_pair(&std::cerr, LogLevel::WARNING_MSG));
     } else {
-        log_streams.push_back(std::make_pair(&std::cerr, LogLevel::LOG));
+        log_streams.push_back(std::make_pair(&std::cerr, LogLevel::LOG_MSG));
     }
 
     if (vm.count("log")) {
@@ -141,7 +141,7 @@ void CommandHandler::setupContext(Context *ctx)
         logfile = std::ofstream(logfilename);
         if (!logfile)
             log_error("Failed to open log file '%s' for writing.\n", logfilename.c_str());
-        log_streams.push_back(std::make_pair(&logfile, LogLevel::LOG));
+        log_streams.push_back(std::make_pair(&logfile, LogLevel::LOG_MSG));
     }
 
     if (vm.count("force")) {
@@ -285,8 +285,8 @@ void CommandHandler::conflicting_options(const boost::program_options::variables
 
 void CommandHandler::printFooter()
 {
-    int warning_count = get_or_default(message_count_by_level, LogLevel::WARNING, 0),
-        error_count = get_or_default(message_count_by_level, LogLevel::ERROR, 0);
+    int warning_count = get_or_default(message_count_by_level, LogLevel::WARNING_MSG, 0),
+        error_count = get_or_default(message_count_by_level, LogLevel::ERROR_MSG, 0);
     if (warning_count > 0 || error_count > 0)
         log_always("%d warning%s, %d error%s\n", warning_count, warning_count == 1 ? "" : "s", error_count,
                    error_count == 1 ? "" : "s");
