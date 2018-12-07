@@ -41,6 +41,19 @@
 #include "place_common.h"
 #include "timing.h"
 #include "util.h"
+namespace std {
+    template <> struct hash<std::pair<NEXTPNR_NAMESPACE_PREFIX IdString, std::size_t>>
+    {
+        std::size_t
+        operator()(const std::pair<NEXTPNR_NAMESPACE_PREFIX IdString, std::size_t> &idp) const noexcept
+        {
+            std::size_t seed = 0;
+            boost::hash_combine(seed, hash<NEXTPNR_NAMESPACE_PREFIX IdString>()(idp.first));
+            boost::hash_combine(seed, hash<std::size_t>()(idp.second));
+            return seed;
+        }
+    };
+}
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -50,7 +63,8 @@ class SAPlacer
     struct BoundingBox
     {
         int x0 = 0, x1 = 0, y0 = 0, y1 = 0;
-        bool includes(int x, int y) const { return x >= x0 && x <= x1 && y >= y0 && y <= y1; }
+        bool is_inside_inc(int x, int y) const { return x >= x0 && x <= x1 && y >= y0 && y <= y1; }
+        bool touches_bounds(int x, int y) const { return x == x0 || x == x1 || y == y0 || y == y1; }
         wirelen_t hpwl() const { return wirelen_t((x1 - x0) + (y1 - y0)); }
     };
 
@@ -85,20 +99,10 @@ class SAPlacer
         }
         diameter = std::max(max_x, max_y) + 1;
 
-        costs.resize(ctx->nets.size());
-        old_udata.reserve(ctx->nets.size());
-        decltype(NetInfo::udata) n = 0;
-        for (auto &net : ctx->nets) {
-            old_udata.emplace_back(net.second->udata);
-            net.second->udata = n++;
-        }
+        build_port_index();
     }
 
-    ~SAPlacer()
-    {
-        for (auto &net : ctx->nets)
-            net.second->udata = old_udata[net.second->udata];
-    }
+    ~SAPlacer() {}
 
     bool place()
     {
@@ -176,18 +180,19 @@ class SAPlacer
 
         log_info("Running simulated annealing placer.\n");
 
-        // Calculate metric after initial placement
-        curr_metric = 0;
-        curr_tns = 0;
-        for (auto &net : ctx->nets) {
-            wirelen_t wl = get_net_metric(ctx, net.second.get(), MetricType::COST, curr_tns);
-            costs[net.second->udata] = CostChange{wl, -1};
-            curr_metric += wl;
-        }
+        // Invoke timing analysis to obtain criticalities
+        get_criticalities(ctx, &net_crit);
+
+        // Calculate costs after initial placement
+        setup_costs();
+        curr_wirelen_cost = total_wirelen_cost();
+        curr_timing_cost = total_timing_cost();
+        last_wirelen_cost = curr_wirelen_cost;
+        last_timing_cost = curr_timing_cost;
+
+        double avg_metric = curr_metric(), min_metric = curr_metric();
 
         int n_no_progress = 0;
-        wirelen_t min_metric = curr_metric;
-        double avg_metric = curr_metric;
         temp = 10000;
 
         // Main simulated annealing loop
@@ -196,9 +201,9 @@ class SAPlacer
             improved = false;
 
             if (iter % 5 == 0 || iter == 1)
-                log_info("  at iteration #%d: temp = %f, cost = "
-                         "%.0f, est tns = %.02fns\n",
-                         iter, temp, double(curr_metric), curr_tns);
+                log_info("  at iteration #%d: temp = %f, timing cost = "
+                         "%.0f, wirelen = %.0f est tns = %.02fns\n",
+                         iter, temp, double(curr_timing_cost), double(curr_wirelen_cost), curr_tns);
 
             for (int m = 0; m < 15; ++m) {
                 // Loop through all automatically placed cells
@@ -212,8 +217,8 @@ class SAPlacer
                 }
             }
 
-            if (curr_metric < min_metric) {
-                min_metric = curr_metric;
+            if (curr_metric() < min_metric) {
+                min_metric = curr_metric();
                 improved = true;
             }
 
@@ -224,8 +229,9 @@ class SAPlacer
                 n_no_progress++;
 
             if (temp <= 1e-3 && n_no_progress >= 5) {
-                if (iter % 5 != 0)
-                    log_info("  at iteration #%d: temp = %f, cost = %f\n", iter, temp, double(curr_metric));
+                log_info("  at iteration #%d: temp = %f, timing cost = "
+                         "%.0f, wirelen = %.0f est tns = %.02fns\n",
+                         iter, temp, double(curr_timing_cost), double(curr_wirelen_cost), curr_tns);
                 break;
             }
 
@@ -235,8 +241,8 @@ class SAPlacer
 
             double upper = 0.6, lower = 0.4;
 
-            if (curr_metric < 0.95 * avg_metric) {
-                avg_metric = 0.8 * avg_metric + 0.2 * curr_metric;
+            if (curr_metric() < 0.95 * avg_metric) {
+                avg_metric = 0.8 * avg_metric + 0.2 * curr_metric();
             } else {
                 if (Raccept >= 0.8) {
                     temp *= 0.7;
@@ -278,16 +284,14 @@ class SAPlacer
                 assign_budget(ctx, true /* quiet */);
             }
 
+            // Invoke timing analysis to obtain criticalities
+            get_criticalities(ctx, &net_crit);
+            // Need to rebuild costs after criticalities change
+            setup_costs();
             // Recalculate total metric entirely to avoid rounding errors
             // accumulating over time
-            curr_metric = 0;
-            curr_tns = 0;
-            for (auto &net : ctx->nets) {
-                wirelen_t wl = get_net_metric(ctx, net.second.get(), MetricType::COST, curr_tns);
-                costs[net.second->udata] = CostChange{wl, -1};
-                curr_metric += wl;
-            }
-
+            curr_wirelen_cost = total_wirelen_cost();
+            curr_timing_cost = total_timing_cost();
             // Let the UI show visualization updates.
             ctx->yield();
         }
@@ -374,8 +378,7 @@ class SAPlacer
     // Attempt a SA position swap, return true on success or false on failure
     bool try_swap_position(CellInfo *cell, BelId newBel)
     {
-        static std::vector<NetInfo *> updates;
-        updates.clear();
+        moveChange.reset();
         BelId oldBel = cell->bel;
         CellInfo *other_cell = ctx->getBoundBelCell(newBel);
         if (other_cell != nullptr && other_cell->belStrength > STRENGTH_WEAK) {
@@ -385,31 +388,16 @@ class SAPlacer
         int new_dist;
         if (other_cell != nullptr)
             old_dist += get_constraints_distance(ctx, other_cell);
-        wirelen_t new_metric = 0, delta;
+        double delta = 0;
         ctx->unbindBel(oldBel);
         if (other_cell != nullptr) {
             ctx->unbindBel(newBel);
         }
 
-        for (const auto &port : cell->ports) {
-            if (port.second.net != nullptr) {
-                auto &cost = costs[port.second.net->udata];
-                if (cost.new_cost == 0)
-                    continue;
-                cost.new_cost = 0;
-                updates.emplace_back(port.second.net);
-            }
-        }
+        add_move_cell(moveChange, cell, oldBel);
 
         if (other_cell != nullptr) {
-            for (const auto &port : other_cell->ports)
-                if (port.second.net != nullptr) {
-                    auto &cost = costs[port.second.net->udata];
-                    if (cost.new_cost == 0)
-                        continue;
-                    cost.new_cost = 0;
-                    updates.emplace_back(port.second.net);
-                }
+            add_move_cell(moveChange, other_cell, newBel);
         }
 
         ctx->bindBel(newBel, cell, STRENGTH_WEAK);
@@ -424,22 +412,14 @@ class SAPlacer
             goto swap_fail;
         }
 
-        new_metric = curr_metric;
-
         // Recalculate metrics for all nets touched by the peturbation
-        for (const auto &net : updates) {
-            auto &c = costs[net->udata];
-            new_metric -= c.curr_cost;
-            float temp_tns = 0;
-            wirelen_t net_new_wl = get_net_metric(ctx, net, MetricType::COST, temp_tns);
-            new_metric += net_new_wl;
-            c.new_cost = net_new_wl;
-        }
+        compute_cost_changes(moveChange);
 
         new_dist = get_constraints_distance(ctx, cell);
         if (other_cell != nullptr)
             new_dist += get_constraints_distance(ctx, other_cell);
-        delta = new_metric - curr_metric;
+        delta = lambda * (moveChange.timing_delta / last_timing_cost) +
+                (1 - lambda) * (double(moveChange.wirelen_delta) / last_wirelen_cost);
         delta += (cfg.constraintWeight / temp) * (new_dist - old_dist);
         n_move++;
         // SA acceptance criterea
@@ -451,20 +431,13 @@ class SAPlacer
             ctx->unbindBel(newBel);
             goto swap_fail;
         }
-        curr_metric = new_metric;
-        for (const auto &net : updates) {
-            auto &c = costs[net->udata];
-            c = CostChange{c.new_cost, -1};
-        }
-
+        commit_cost_changes(moveChange);
         return true;
     swap_fail:
         ctx->bindBel(oldBel, cell, STRENGTH_WEAK);
         if (other_cell != nullptr) {
             ctx->bindBel(newBel, other_cell, STRENGTH_WEAK);
         }
-        for (const auto &net : updates)
-            costs[net->udata].new_cost = -1;
         return false;
     }
 
@@ -565,7 +538,7 @@ class SAPlacer
     }
 
     // Get the total timing cost for the design
-    double total_delay_cost()
+    double total_timing_cost()
     {
         double cost = 0;
         for (const auto &net : net_arc_tcost) {
@@ -576,10 +549,105 @@ class SAPlacer
         return cost;
     }
 
+    // Cost-change-related data for a move
+    struct MoveChangeData
+    {
+        std::unordered_set<IdString> bounds_changed_nets;
+        std::unordered_set<std::pair<IdString, size_t>> changed_arcs;
+
+        std::unordered_map<IdString, BoundingBox> new_net_bounds;
+        std::unordered_map<std::pair<IdString, size_t>, double> new_arc_costs;
+
+        wirelen_t wirelen_delta = 0;
+        double timing_delta = 0;
+
+        void reset()
+        {
+            bounds_changed_nets.clear();
+            changed_arcs.clear();
+            new_net_bounds.clear();
+            new_arc_costs.clear();
+        }
+
+    } moveChange;
+
+    void add_move_cell(MoveChangeData &mc, CellInfo *cell, BelId old_bel)
+    {
+        Loc curr_loc = ctx->getBelLocation(cell->bel);
+        Loc old_loc = ctx->getBelLocation(old_bel);
+        // Check net bounds
+        for (const auto &port : cell->ports) {
+            NetInfo *pn = port.second.net;
+            if (pn == nullptr)
+                continue;
+            if (ignore_net(pn))
+                continue;
+            const BoundingBox &curr_bounds = net_bounds[pn->name];
+            // If the old location was at the edge of the bounds, or the new location exceeds the bounds,
+            // an update is needed
+            if (curr_bounds.touches_bounds(old_loc.x, old_loc.y) || !curr_bounds.is_inside_inc(curr_loc.x, curr_loc.y))
+                mc.bounds_changed_nets.insert(pn->name);
+            // Output ports - all arcs change timing
+            if (port.second.type == PORT_OUT) {
+                int cc;
+                TimingPortClass cls = ctx->getPortTimingClass(cell, port.first, cc);
+                if (cls != TMG_IGNORE)
+                    for (size_t i = 0; i < pn->users.size(); i++)
+                        mc.changed_arcs.insert(std::make_pair(pn->name, i));
+            } else if (port.second.type == PORT_IN) {
+                mc.changed_arcs.insert(std::make_pair(pn->name, fast_port_to_user.at(&port.second)));
+            }
+        }
+    }
+
+    void compute_cost_changes(MoveChangeData &md)
+    {
+        for (const auto &bc : md.bounds_changed_nets) {
+            wirelen_t old_hpwl = net_bounds.at(bc).hpwl();
+            auto bounds = get_net_bounds(ctx->nets.at(bc).get());
+            md.new_net_bounds[bc] = bounds;
+            md.wirelen_delta += (bounds.hpwl() - old_hpwl);
+        }
+
+        for (const auto &tc : md.changed_arcs) {
+            double old_cost = net_arc_tcost.at(tc.first).at(tc.second);
+            double new_cost = get_timing_cost(ctx->nets.at(tc.first).get(), tc.second);
+            md.new_arc_costs[tc] = new_cost;
+            md.timing_delta += (new_cost - old_cost);
+        }
+    }
+
+    void commit_cost_changes(MoveChangeData &md)
+    {
+        for (const auto &bc : md.new_net_bounds)
+            net_bounds[bc.first] = bc.second;
+        for (const auto &tc : md.new_arc_costs)
+            net_arc_tcost[tc.first.first].at(tc.first.second) = tc.second;
+        curr_wirelen_cost += md.wirelen_delta;
+        curr_timing_cost += md.timing_delta;
+    }
+    // Build the cell port -> user index
+    void build_port_index()
+    {
+        for (auto net : sorted(ctx->nets)) {
+            NetInfo *ni = net.second;
+            for (size_t i = 0; i < ni->users.size(); i++) {
+                auto &usr = ni->users.at(i);
+                fast_port_to_user[&(usr.cell->ports.at(usr.port))] = i;
+            }
+        }
+    }
+
+    // Get the combined wirelen/timing metric
+    inline double curr_metric() { return lambda * curr_timing_cost + (1 - lambda) * curr_wirelen_cost; }
+
     // Map nets to their bounding box (so we can skip recompute for moves that do not exceed the bounds
     std::unordered_map<IdString, BoundingBox> net_bounds;
     // Map net arcs to their timing cost (criticality * delay ns)
     std::unordered_map<IdString, std::vector<double>> net_arc_tcost;
+
+    // Fast lookup for cell port to net user index
+    std::unordered_map<const PortInfo *, size_t> fast_port_to_user;
 
     // Wirelength and timing cost at last and current iteration
     wirelen_t last_wirelen_cost, curr_wirelen_cost;
@@ -604,14 +672,6 @@ class SAPlacer
     const float post_legalise_temp = 10;
     const float post_legalise_dia_scale = 1.5;
     Placer1Cfg cfg;
-
-    struct CostChange
-    {
-        wirelen_t curr_cost;
-        wirelen_t new_cost;
-    };
-    std::vector<CostChange> costs;
-    std::vector<decltype(NetInfo::udata)> old_udata;
 };
 
 Placer1Cfg::Placer1Cfg(Context *ctx) : Settings(ctx)
