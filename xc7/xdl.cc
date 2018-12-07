@@ -111,7 +111,7 @@ DesignSharedPtr create_torc_design(const Context *ctx)
             // Assume from Yosys that INIT masks of less than 32 bits are output as uint32_t
             if (lut_inputs.size() < 6) {
                 auto init_as_uint = boost::lexical_cast<uint32_t>(init);
-                NPNR_ASSERT(init_as_uint <= (1ull << (1u << lut_inputs.size())));
+                NPNR_ASSERT(init_as_uint <= ((1ull << (1u << lut_inputs.size())) - 1));
                 if (lut_inputs.empty())
                     value += init;
                 else {
@@ -173,16 +173,19 @@ DesignSharedPtr create_torc_design(const Context *ctx)
                 boost::replace_all(name, ":", "\\:");
                 instPtr->setConfig(setting, name, "#FF");
                 instPtr->setConfig(setting + "MUX", "", "O6");
-                instPtr->setConfig(setting + "INIT", "", "INIT" + cell.second->params.at(ctx->id("DFF_INIT")));
-                assert(cell.second->params.at(ctx->id("SET_NORESET")) == "0"); // TODO
-                instPtr->setConfig(setting + "SR", "", "SRLOW");
+                instPtr->setConfig(setting + "INIT", "", cell.second->params.at(ctx->id("FFINIT")));
 
-                NPNR_ASSERT(!cell.second->lcInfo.negClk); // TODO
-                instPtr->setConfig("CLKINV", "", "CLK");
+                if (cell.second->lcInfo.negClk)
+		    instPtr->setConfig("CLKINV", "", "CLK_B");
 
-                instPtr->setConfig("SRUSEDMUX", "", "IN");
-                instPtr->setConfig("CEUSEDMUX", "", "IN");
-                instPtr->setConfig("SYNC_ATTR", "", "ASYNC");
+                if (get_net_or_empty(cell.second.get(), ctx->id("SR"))) {
+		    instPtr->setConfig(setting + "SR", "", cell.second->params.at(ctx->id("SR")));
+		    instPtr->setConfig("SYNC_ATTR", "", cell.second->params.at(ctx->id("SYNC_ATTR")));
+                    instPtr->setConfig("SRUSEDMUX", "", "IN");
+		}
+                if (get_net_or_empty(cell.second.get(), ctx->id("CE")))
+                    instPtr->setConfig("CEUSEDMUX", "", "IN");
+
             }
         } else if (cell.second->type == id_IOB33) {
             if (get_net_or_empty(cell.second.get(), id_I)) {
@@ -195,9 +198,6 @@ DesignSharedPtr create_torc_design(const Context *ctx)
                 instPtr->setConfig("DRIVE", "", "12");
                 instPtr->setConfig("SLEW", "", "SLOW");
             }
-        } else if (cell.second->type == id_BUFGCTRL || cell.second->type == id_PS7 || cell.second->type == id_MMCME2_ADV) {
-            for (const auto& i : cell.second->params)
-                instPtr->setConfig(i.first.str(ctx), "", i.second);
         } else if (cell.second->type == id_IOB18) {
             if (get_net_or_empty(cell.second.get(), id_I)) {
                 instPtr->setConfig("IUSED", "", "0");
@@ -209,6 +209,9 @@ DesignSharedPtr create_torc_design(const Context *ctx)
                 instPtr->setConfig("DRIVE", "", "12");
                 instPtr->setConfig("SLEW", "", "SLOW");
             }
+        } else if (cell.second->type == id_BUFGCTRL || cell.second->type == id_PS7 || cell.second->type == id_MMCME2_ADV) {
+            for (const auto& i : cell.second->params)
+                instPtr->setConfig(i.first.str(ctx), "", i.second);
         } else
             log_error("Unsupported cell type '%s'.\n", cell.second->type.c_str(ctx));
     }
