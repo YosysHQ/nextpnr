@@ -57,6 +57,16 @@ TorcInfo::TorcInfo(BaseCtx *ctx, const std::string &inDeviceName, const std::str
 {
     static const boost::regex re_loc(".+_X(\\d+)Y(\\d+)");
     boost::cmatch what;
+    tile_to_xy.resize(tiles.getTileCount());
+    for (TileIndex tileIndex(0); tileIndex < tiles.getTileCount(); tileIndex++) {
+         const auto &tileInfo = tiles.getTileInfo(tileIndex);
+        if (!boost::regex_match(tileInfo.getName(), what, re_loc))
+            throw;
+        const auto x = boost::lexical_cast<int>(what.str(1));
+        const auto y = boost::lexical_cast<int>(what.str(2));
+        tile_to_xy[tileIndex] = std::make_pair(x,y);
+    }
+
     bel_to_site_index.reserve(sites.getSiteCount() * 4);
     bel_to_loc.reserve(sites.getSiteCount() * 4);
     site_index_to_bel.resize(sites.getSiteCount());
@@ -67,11 +77,8 @@ TorcInfo::TorcInfo(BaseCtx *ctx, const std::string &inDeviceName, const std::str
         const auto &site = sites.getSite(i);
         const auto &pd = site.getPrimitiveDefPtr();
         const auto &type = pd->getName();
-        const auto &tileInfo = tiles.getTileInfo(site.getTileIndex());
-        if (!boost::regex_match(tileInfo.getName(), what, re_loc))
-            throw;
-        const auto x = boost::lexical_cast<int>(what.str(1));
-        const auto y = boost::lexical_cast<int>(what.str(2));
+        int x, y;
+        std::tie(x,y) = tile_to_xy[site.getTileIndex()];
 
         if (type == "SLICEL" || type == "SLICEM") {
             bel_to_site_index.push_back(i);
@@ -129,8 +136,8 @@ TorcInfo::TorcInfo(BaseCtx *ctx, const std::string &inDeviceName, const std::str
     const boost::regex re_BOUNCE_NS("(BYP|FAN)_BOUNCE_[NS]3_\\d");
     const boost::regex re_FAN("FAN(_ALT)?\\d");
     const boost::regex re_CLB_I1_6("CLBL[LM]_(L|LL|M)_[A-D]([1-6])");
-    const boost::regex bufg_i("(CMT|CLK)_BUFG_BUFGCTRL\\d+_I0");
-    const boost::regex bufg_o("(CMT|CLK)_BUFG_BUFGCTRL\\d+_O");
+    const boost::regex bufg_i("CLK_BUFG_BUFGCTRL\\d+_I0");
+    const boost::regex bufg_o("CLK_BUFG_BUFGCTRL\\d+_O");
     const boost::regex int_clk("CLK(_L)?[01]");
     const boost::regex gclk("GCLK_(L_)?B\\d+(_EAST|_WEST)?");
     std::unordered_map</*TileTypeIndex*/ unsigned, std::vector<delay_t>> delay_lookup;
@@ -234,7 +241,7 @@ TorcInfo::TorcInfo(BaseCtx *ctx, const std::string &inDeviceName, const std::str
     wire_to_tilewire.shrink_to_fit();
     wire_to_delay.shrink_to_fit();
     num_wires = wire_to_tilewire.size();
-    wire_is_clk.resize(num_wires);
+    wire_is_global.resize(num_wires);
 
     wire_to_pips_downhill.resize(num_wires);
     // std::unordered_map<Arc, int> arc_to_pip;
@@ -262,8 +269,9 @@ TorcInfo::TorcInfo(BaseCtx *ctx, const std::string &inDeviceName, const std::str
         const bool clk_tile = boost::starts_with(tileTypeName, "CLK");
         const bool int_tile = boost::starts_with(tileTypeName, "INT");
 
-        if (clk_tile)
-            wire_is_clk[w.index] = clk_tile;
+        const bool global_tile = boost::starts_with(tileTypeName, "CLK") || boost::starts_with(tileTypeName, "HCLK") || boost::starts_with(tileTypeName, "CFG");
+        if (global_tile)
+            wire_is_global[w.index] = true;
 
         for (const auto &a : arcs) {
             // Disable BUFG I0 -> O routethrough
