@@ -105,6 +105,7 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
     const auto &dst_tw = torc_info->wire_to_tilewire[dst.index];
     const auto &dst_loc = torc_info->tile_to_xy[dst_tw.getTileIndex()];
 
+    auto abs_delta_x = abs(dst_loc.first - src_loc.first);
     if (!torc_info->wire_is_global[src.index] || torc_info->wire_is_global[dst.index]) {
         auto abs_delta_x = abs(dst_loc.first - src_loc.first);
         auto abs_delta_y = abs(dst_loc.second - src_loc.second);
@@ -129,7 +130,7 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
         src_y -= src_y % 50;
         dst_y -= dst_y % 50;
         auto abs_delta_y = abs(src_y - dst_y);
-        return abs_delta_y * 64; // arbitrary factor
+        return abs_delta_x + abs_delta_y;
     }
 }
 
