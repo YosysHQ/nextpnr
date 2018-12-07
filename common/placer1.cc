@@ -47,6 +47,14 @@ NEXTPNR_NAMESPACE_BEGIN
 
 class SAPlacer
 {
+  private:
+    struct BoundingBox
+    {
+        int x0 = 0, x1 = 0, y0 = 0, y1 = 0;
+        bool includes(int x, int y) const { return x >= x0 && x <= x1 && y >= y0 && y <= y1; }
+        wirelen_t hpwl() const { return wirelen_t((x1 - x0) + (y1 - y0)); }
+    };
+
   public:
     SAPlacer(Context *ctx, Placer1Cfg cfg) : ctx(ctx), cfg(cfg)
     {
@@ -494,10 +502,104 @@ class SAPlacer
         }
     }
 
+    // Return true if a net is to be entirely ignored
+    inline bool ignore_net(NetInfo *net)
+    {
+        return net->driver.cell == nullptr || net->driver.cell->bel == BelId() ||
+               ctx->getBelGlobalBuf(net->driver.cell->bel);
+    }
+
+    // Get the bounding box for a net
+    inline BoundingBox get_net_bounds(NetInfo *net)
+    {
+        BoundingBox bb;
+        NPNR_ASSERT(net->driver.cell != nullptr);
+        Loc dloc = ctx->getBelLocation(net->driver.cell->bel);
+        bb.x0 = dloc.x;
+        bb.x1 = dloc.x;
+        bb.y0 = dloc.y;
+        bb.y1 = dloc.y;
+
+        for (auto user : net->users) {
+            if (user.cell->bel == BelId())
+                continue;
+            Loc uloc = ctx->getBelLocation(user.cell->bel);
+            bb.x0 = std::min(bb.x0, uloc.x);
+            bb.x1 = std::max(bb.x1, uloc.x);
+            bb.y0 = std::min(bb.y0, uloc.y);
+            bb.y1 = std::max(bb.y1, uloc.y);
+        }
+
+        return bb;
+    }
+
+    // Get the timing cost for an arc of a net
+    inline double get_timing_cost(NetInfo *net, size_t user)
+    {
+        int cc;
+        if (net->driver.cell == nullptr)
+            return 0;
+        if (ctx->getPortTimingClass(net->driver.cell, net->driver.port, cc) == TMG_IGNORE)
+            return 0;
+        auto crit = net_crit.find(net->name);
+        if (crit == net_crit.end() || crit->second.criticality.empty())
+            return 0;
+        double delay = ctx->getDelayNS(ctx->predictDelay(net, net->users.at(user)));
+        return delay * std::pow(crit->second.criticality.at(user), crit_exp);
+    }
+
+    // Set up the cost maps
+    void setup_costs()
+    {
+        for (auto net : sorted(ctx->nets)) {
+            NetInfo *ni = net.second;
+            if (ignore_net(ni))
+                continue;
+            net_bounds[ni->name] = get_net_bounds(ni);
+            net_arc_tcost[ni->name].resize(ni->users.size());
+            for (size_t i = 0; i < ni->users.size(); i++)
+                net_arc_tcost[ni->name][i] = get_timing_cost(ni, i);
+        }
+    }
+
+    // Get the total wiring cost for the design
+    wirelen_t total_wirelen_cost()
+    {
+        wirelen_t cost = 0;
+        for (const auto &net : net_bounds)
+            cost += net.second.hpwl();
+        return cost;
+    }
+
+    // Get the total timing cost for the design
+    double total_delay_cost()
+    {
+        double cost = 0;
+        for (const auto &net : net_arc_tcost) {
+            for (auto arc_cost : net.second) {
+                cost += arc_cost;
+            }
+        }
+        return cost;
+    }
+
+    // Map nets to their bounding box (so we can skip recompute for moves that do not exceed the bounds
+    std::unordered_map<IdString, BoundingBox> net_bounds;
+    // Map net arcs to their timing cost (criticality * delay ns)
+    std::unordered_map<IdString, std::vector<double>> net_arc_tcost;
+
+    // Wirelength and timing cost at last and current iteration
+    wirelen_t last_wirelen_cost, curr_wirelen_cost;
+    double last_timing_cost, curr_timing_cost;
+
+    // Criticality data from timing analysis
+    NetCriticalityMap net_crit;
+
     Context *ctx;
-    wirelen_t curr_metric = std::numeric_limits<wirelen_t>::max();
     float curr_tns = 0;
     float temp = 1000;
+    float crit_exp = 8;
+    float lambda = 0.5;
     bool improved = false;
     int n_move, n_accept;
     int diameter = 35, max_x = 1, max_y = 1;
