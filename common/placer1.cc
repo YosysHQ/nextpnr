@@ -190,7 +190,8 @@ class SAPlacer
         last_wirelen_cost = curr_wirelen_cost;
         last_timing_cost = curr_timing_cost;
 
-        double avg_metric = curr_metric(), min_metric = curr_metric();
+        wirelen_t avg_wirelen = curr_wirelen_cost;
+        wirelen_t min_wirelen = curr_wirelen_cost;
 
         int n_no_progress = 0;
         temp = 10000;
@@ -217,8 +218,8 @@ class SAPlacer
                 }
             }
 
-            if (curr_metric() < min_metric) {
-                min_metric = curr_metric();
+            if (curr_wirelen_cost < min_wirelen) {
+                min_wirelen = curr_wirelen_cost;
                 improved = true;
             }
 
@@ -241,8 +242,8 @@ class SAPlacer
 
             double upper = 0.6, lower = 0.4;
 
-            if (curr_metric() < 0.95 * avg_metric) {
-                avg_metric = 0.8 * avg_metric + 0.2 * curr_metric();
+            if (curr_wirelen_cost < 0.95 * avg_wirelen) {
+                avg_wirelen = 0.8 * avg_wirelen + 0.2 * curr_wirelen_cost;
             } else {
                 if (Raccept >= 0.8) {
                     temp *= 0.7;
@@ -292,6 +293,8 @@ class SAPlacer
             // accumulating over time
             curr_wirelen_cost = total_wirelen_cost();
             curr_timing_cost = total_timing_cost();
+            last_wirelen_cost = curr_wirelen_cost;
+            last_timing_cost = curr_timing_cost;
             // Let the UI show visualization updates.
             ctx->yield();
         }
@@ -394,17 +397,18 @@ class SAPlacer
             ctx->unbindBel(newBel);
         }
 
+        ctx->bindBel(newBel, cell, STRENGTH_WEAK);
+
+        if (other_cell != nullptr) {
+            ctx->bindBel(oldBel, other_cell, STRENGTH_WEAK);
+        }
+
         add_move_cell(moveChange, cell, oldBel);
 
         if (other_cell != nullptr) {
             add_move_cell(moveChange, other_cell, newBel);
         }
 
-        ctx->bindBel(newBel, cell, STRENGTH_WEAK);
-
-        if (other_cell != nullptr) {
-            ctx->bindBel(oldBel, other_cell, STRENGTH_WEAK);
-        }
         if (!ctx->isBelLocationValid(newBel) || ((other_cell != nullptr && !ctx->isBelLocationValid(oldBel)))) {
             ctx->unbindBel(newBel);
             if (other_cell != nullptr)
@@ -423,7 +427,7 @@ class SAPlacer
         delta += (cfg.constraintWeight / temp) * (new_dist - old_dist);
         n_move++;
         // SA acceptance criterea
-        if (delta < 0 || (temp > 1e-6 && (ctx->rng() / float(0x3fffffff)) <= std::exp(-delta / temp))) {
+        if (delta < 0 || (temp > 1e-6 && (ctx->rng() / float(0x0fffffff)) <= std::exp(-delta / temp))) {
             n_accept++;
         } else {
             if (other_cell != nullptr)
