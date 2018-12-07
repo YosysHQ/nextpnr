@@ -99,12 +99,14 @@ TorcInfo::TorcInfo(BaseCtx *ctx, const std::string &inDeviceName, const std::str
         } else if (type == "IOB33S" || type == "IOB33M") {
             bel_to_site_index.push_back(i);
             site_index_to_type[i] = id_IOB33;
+            // TODO: Fix z when two IOBs on same tile
             bel_to_loc.emplace_back(x, y, 0);
             site_index_to_bel[i] = b;
             ++b.index;
         } else if (type == "IOB18S" || type == "IOB18M") {
             bel_to_site_index.push_back(i);
             site_index_to_type[i] = id_IOB18;
+            // TODO: Fix z when two IOBs on same tile
             bel_to_loc.emplace_back(x, y, 0);
             site_index_to_bel[i] = b;
             ++b.index;
