@@ -206,8 +206,8 @@ class SAPlacer
 
             if (iter % 5 == 0 || iter == 1)
                 log_info("  at iteration #%d: temp = %f, timing cost = "
-                         "%.0f, wirelen = %.0f est tns = %.02fns\n",
-                         iter, temp, double(curr_timing_cost), double(curr_wirelen_cost), curr_tns);
+                         "%.0f, wirelen = %.0f\n",
+                         iter, temp, double(curr_timing_cost), double(curr_wirelen_cost));
 
             for (int m = 0; m < 15; ++m) {
                 // Loop through all automatically placed cells
@@ -234,8 +234,8 @@ class SAPlacer
 
             if (temp <= 1e-3 && n_no_progress >= 5) {
                 log_info("  at iteration #%d: temp = %f, timing cost = "
-                         "%.0f, wirelen = %.0f est tns = %.02fns\n",
-                         iter, temp, double(curr_timing_cost), double(curr_wirelen_cost), curr_tns);
+                         "%.0f, wirelen = %.0f \n",
+                         iter, temp, double(curr_timing_cost), double(curr_wirelen_cost));
                 break;
             }
 
@@ -434,7 +434,7 @@ class SAPlacer
         delta += (cfg.constraintWeight / temp) * (new_dist - old_dist) / last_wirelen_cost;
         n_move++;
         // SA acceptance criterea
-        if (delta < 0 || (temp > 1e-6 && (ctx->rng() / float(0x0fffffff)) <= std::exp(-delta / temp))) {
+        if (delta < 0 || (temp > 1e-6 && (ctx->rng() / float(0x0fffffff)) <= std::exp(-100*delta / temp))) {
             n_accept++;
         } else {
             if (other_cell != nullptr)
@@ -670,7 +670,6 @@ class SAPlacer
     NetCriticalityMap net_crit;
 
     Context *ctx;
-    float curr_tns = 0;
     float temp = 1000;
     float crit_exp = 8;
     float lambda = 0.5;
