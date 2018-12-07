@@ -324,6 +324,7 @@ struct TorcInfo
     std::vector<WireId> pip_to_dst_wire;
     int width;
     int height;
+    std::vector<bool> wire_is_clk;
 
     TorcInfo(const std::string &inDeviceName, const std::string &inPackageName);
 private:
@@ -347,6 +348,7 @@ private:
         ar & pip_to_arc;
         ar & num_pips;
         ar & pip_to_dst_wire;
+        ar & wire_is_clk;
     }
 };
 extern std::unique_ptr<const TorcInfo> torc_info;

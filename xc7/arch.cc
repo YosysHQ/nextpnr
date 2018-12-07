@@ -232,6 +232,7 @@ TorcInfo::TorcInfo(BaseCtx *ctx, const std::string &inDeviceName, const std::str
     wire_to_tilewire.shrink_to_fit();
     wire_to_delay.shrink_to_fit();
     num_wires = wire_to_tilewire.size();
+    wire_is_clk.resize(num_wires);
 
     wire_to_pips_downhill.resize(num_wires);
     // std::unordered_map<Arc, int> arc_to_pip;
@@ -256,8 +257,11 @@ TorcInfo::TorcInfo(BaseCtx *ctx, const std::string &inDeviceName, const std::str
 
         auto &pips = wire_to_pips_downhill[w.index];
         pips.reserve(arcs.size());
-        const bool clk_tile = boost::starts_with(tileTypeName, "CMT") || boost::starts_with(tileTypeName, "CLK");
+        const bool clk_tile = boost::starts_with(tileTypeName, "CLK");
         const bool int_tile = boost::starts_with(tileTypeName, "INT");
+
+        if (clk_tile)
+            wire_is_clk[w.index] = clk_tile;
 
         for (const auto &a : arcs) {
             // Disable BUFG I0 -> O routethrough
