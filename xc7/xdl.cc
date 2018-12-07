@@ -176,13 +176,15 @@ DesignSharedPtr create_torc_design(const Context *ctx)
                 instPtr->setConfig(setting + "INIT", "", cell.second->params.at(ctx->id("FFINIT")));
 
                 if (cell.second->lcInfo.negClk)
-		    instPtr->setConfig("CLKINV", "", "CLK_B");
+                    instPtr->setConfig("CLKINV", "", "CLK_B");
+                else
+                    instPtr->setConfig("CLKINV", "", "CLK");
 
                 if (get_net_or_empty(cell.second.get(), id_SR)) {
-		    instPtr->setConfig(setting + "SR", "", cell.second->params.at(id_SR));
-		    instPtr->setConfig("SYNC_ATTR", "", cell.second->params.at(ctx->id("SYNC_ATTR")));
+                    instPtr->setConfig(setting + "SR", "", cell.second->params.at(id_SR));
+                    instPtr->setConfig("SYNC_ATTR", "", cell.second->params.at(ctx->id("SYNC_ATTR")));
                     instPtr->setConfig("SRUSEDMUX", "", "IN");
-		}
+                }
                 if (get_net_or_empty(cell.second.get(), ctx->id("CE")))
                     instPtr->setConfig("CEUSEDMUX", "", "IN");
 

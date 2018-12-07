@@ -285,7 +285,7 @@ void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc, bool pass_thru_l
     lc->params[ctx->id("DFF_ENABLE")] = "1";
     std::string config = dff->type.str(ctx).substr(2);
     auto citer = config.begin();
-    replace_port(dff, id_C, lc, id_CLK);
+    replace_port(dff, ctx->id("C"), lc, id_CLK);
 
     if (citer != config.end()) {
         auto gnd_net = ctx->nets.at(ctx->id("$PACKER_GND_NET")).get();
@@ -410,7 +410,7 @@ bool is_clock_port(const BaseCtx *ctx, const PortRef &port)
     if (port.cell == nullptr)
         return false;
     if (is_ff(ctx, port.cell))
-        return port.port == id_C;
+        return port.port == ctx->id("C");
     if (port.cell->type == ctx->id("ICESTORM_LC"))
         return port.port == id_CLK;
     if (is_ram(ctx, port.cell) || port.cell->type == ctx->id("ICESTORM_RAM"))
