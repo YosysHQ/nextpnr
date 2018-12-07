@@ -309,7 +309,7 @@ static void set_net_constant(const Context *ctx, NetInfo *orig, NetInfo *constne
                 !constval) {
                 uc->ports[user.port].net = nullptr;
             } else if ((is_sb_mac16(ctx, uc) || uc->type == ctx->id("ICESTORM_DSP")) &&
-                       (user.port != ctx->id("CLK") &&
+                       (user.port != id_CLK &&
                         ((constval && user.port == ctx->id("CE")) || (!constval && user.port != ctx->id("CE"))))) {
                 uc->ports[user.port].net = nullptr;
             } else if (is_ram(ctx, uc) && !constval && user.port != ctx->id("RCLK") && user.port != ctx->id("RCLKN") &&

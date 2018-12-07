@@ -285,48 +285,48 @@ void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc, bool pass_thru_l
     lc->params[ctx->id("DFF_ENABLE")] = "1";
     std::string config = dff->type.str(ctx).substr(2);
     auto citer = config.begin();
-    replace_port(dff, ctx->id("C"), lc, ctx->id("CLK"));
+    replace_port(dff, id_C, lc, id_CLK);
 
     if (citer != config.end()) {
         auto gnd_net = ctx->nets.at(ctx->id("$PACKER_GND_NET")).get();
 
         if (*citer == 'S') {
             citer++;
-            if (get_net_or_empty(dff, ctx->id("S")) != gnd_net) {
-		lc->params[ctx->id("SR")] = "SRHIGH";
+            if (get_net_or_empty(dff, id_S) != gnd_net) {
+		lc->params[id_SR] = "SRHIGH";
 		lc->params[ctx->id("SYNC_ATTR")] = "SYNC";
-                replace_port(dff, ctx->id("S"), lc, ctx->id("SR"));
+                replace_port(dff, id_S, lc, id_SR);
 	    }
             else
-                disconnect_port(ctx, dff, ctx->id("S"));
+                disconnect_port(ctx, dff, id_S);
         } else if (*citer == 'R') {
             citer++;
-            if (get_net_or_empty(dff, ctx->id("R")) != gnd_net) {
-		lc->params[ctx->id("SR")] = "SRLOW";
+            if (get_net_or_empty(dff, id_R) != gnd_net) {
+		lc->params[id_SR] = "SRLOW";
 		lc->params[ctx->id("SYNC_ATTR")] = "SYNC";
-                replace_port(dff, ctx->id("R"), lc, ctx->id("SR"));
+                replace_port(dff, id_R, lc, id_SR);
 	    }
             else
-                disconnect_port(ctx, dff, ctx->id("R"));
+                disconnect_port(ctx, dff, id_R);
         } else if (*citer == 'C') {
             citer++;
-            if (get_net_or_empty(dff, ctx->id("CLR")) != gnd_net) {
-		lc->params[ctx->id("SR")] = "SRLOW";
+            if (get_net_or_empty(dff, id_CLR) != gnd_net) {
+		lc->params[id_SR] = "SRLOW";
 		lc->params[ctx->id("SYNC_ATTR")] = "ASYNC";
-                replace_port(dff, ctx->id("CLR"), lc, ctx->id("SR"));
+                replace_port(dff, id_CLR, lc, id_SR);
 	    }
             else
-                disconnect_port(ctx, dff, ctx->id("CLR"));
+                disconnect_port(ctx, dff, id_CLR);
         } else {
             NPNR_ASSERT(*citer == 'P');
             citer++;
-            if (get_net_or_empty(dff, ctx->id("PRE")) != gnd_net) {
-		lc->params[ctx->id("SR")] = "SRHIGH";
+            if (get_net_or_empty(dff, id_PRE) != gnd_net) {
+		lc->params[id_SR] = "SRHIGH";
 		lc->params[ctx->id("SYNC_ATTR")] = "ASYNC";
-                replace_port(dff, ctx->id("PRE"), lc, ctx->id("SR"));
+                replace_port(dff, id_PRE, lc, id_SR);
 	    }
             else
-                disconnect_port(ctx, dff, ctx->id("PRE"));
+                disconnect_port(ctx, dff, id_PRE);
         }
     }
 
@@ -410,14 +410,14 @@ bool is_clock_port(const BaseCtx *ctx, const PortRef &port)
     if (port.cell == nullptr)
         return false;
     if (is_ff(ctx, port.cell))
-        return port.port == ctx->id("C");
+        return port.port == id_C;
     if (port.cell->type == ctx->id("ICESTORM_LC"))
-        return port.port == ctx->id("CLK");
+        return port.port == id_CLK;
     if (is_ram(ctx, port.cell) || port.cell->type == ctx->id("ICESTORM_RAM"))
         return port.port == ctx->id("RCLK") || port.port == ctx->id("WCLK") || port.port == ctx->id("RCLKN") ||
                port.port == ctx->id("WCLKN");
     if (is_sb_mac16(ctx, port.cell) || port.cell->type == ctx->id("ICESTORM_DSP"))
-        return port.port == ctx->id("CLK");
+        return port.port == id_CLK;
     return false;
 }
 
@@ -426,9 +426,9 @@ bool is_reset_port(const BaseCtx *ctx, const PortRef &port)
     if (port.cell == nullptr)
         return false;
     if (is_ff(ctx, port.cell))
-        return port.port == ctx->id("R") || port.port == ctx->id("S");
+        return port.port == id_R || port.port == id_S;
     if (port.cell->type == ctx->id("ICESTORM_LC"))
-        return port.port == ctx->id("SR");
+        return port.port == id_SR;
     if (is_sb_mac16(ctx, port.cell) || port.cell->type == ctx->id("ICESTORM_DSP"))
         return port.port == ctx->id("IRSTTOP") || port.port == ctx->id("IRSTBOT") || port.port == ctx->id("ORSTTOP") ||
                port.port == ctx->id("ORSTBOT");
@@ -442,7 +442,7 @@ bool is_enable_port(const BaseCtx *ctx, const PortRef &port)
     if (is_ff(ctx, port.cell))
         return port.port == ctx->id("E");
     if (port.cell->type == ctx->id("ICESTORM_LC"))
-        return port.port == ctx->id("CEN");
+        return port.port == id_CEN;
     // FIXME
     // if (is_sb_mac16(ctx, port.cell) || port.cell->type == ctx->id("ICESTORM_DSP"))
     //    return port.port == ctx->id("CE");
