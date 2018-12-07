@@ -431,7 +431,7 @@ class SAPlacer
             new_dist += get_constraints_distance(ctx, other_cell);
         delta = lambda * (moveChange.timing_delta / last_timing_cost) +
                 (1 - lambda) * (double(moveChange.wirelen_delta) / last_wirelen_cost);
-        delta += (cfg.constraintWeight / temp) * (new_dist - old_dist);
+        delta += (cfg.constraintWeight / temp) * (new_dist - old_dist) / last_wirelen_cost;
         n_move++;
         // SA acceptance criterea
         if (delta < 0 || (temp > 1e-6 && (ctx->rng() / float(0x0fffffff)) <= std::exp(-delta / temp))) {
@@ -578,6 +578,8 @@ class SAPlacer
             changed_arcs.clear();
             new_net_bounds.clear();
             new_arc_costs.clear();
+            wirelen_delta = 0;
+            timing_delta = 0;
         }
 
     } moveChange;
