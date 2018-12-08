@@ -43,18 +43,17 @@
 #include "timing.h"
 #include "util.h"
 namespace std {
-    template <> struct hash<std::pair<NEXTPNR_NAMESPACE_PREFIX IdString, std::size_t>>
+template <> struct hash<std::pair<NEXTPNR_NAMESPACE_PREFIX IdString, std::size_t>>
+{
+    std::size_t operator()(const std::pair<NEXTPNR_NAMESPACE_PREFIX IdString, std::size_t> &idp) const noexcept
     {
-        std::size_t
-        operator()(const std::pair<NEXTPNR_NAMESPACE_PREFIX IdString, std::size_t> &idp) const noexcept
-        {
-            std::size_t seed = 0;
-            boost::hash_combine(seed, hash<NEXTPNR_NAMESPACE_PREFIX IdString>()(idp.first));
-            boost::hash_combine(seed, hash<std::size_t>()(idp.second));
-            return seed;
-        }
-    };
-}
+        std::size_t seed = 0;
+        boost::hash_combine(seed, hash<NEXTPNR_NAMESPACE_PREFIX IdString>()(idp.first));
+        boost::hash_combine(seed, hash<std::size_t>()(idp.second));
+        return seed;
+    }
+};
+} // namespace std
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -175,7 +174,7 @@ class SAPlacer
         if ((placed_cells - constr_placed_cells) % 500 != 0)
             log_info("  initial placement placed %d/%d cells\n", int(placed_cells - constr_placed_cells),
                      int(autoplaced.size()));
-        if (ctx->slack_redist_iter > 0)
+        if (cfg.budgetBased && ctx->slack_redist_iter > 0)
             assign_budget(ctx);
         ctx->yield();
         auto iplace_end = std::chrono::high_resolution_clock::now();
@@ -184,7 +183,8 @@ class SAPlacer
         log_info("Running simulated annealing placer.\n");
 
         // Invoke timing analysis to obtain criticalities
-        get_criticalities(ctx, &net_crit);
+        if (!cfg.budgetBased)
+            get_criticalities(ctx, &net_crit);
 
         // Calculate costs after initial placement
         setup_costs();
@@ -280,16 +280,17 @@ class SAPlacer
                     ctx->shuffle(autoplaced);
 
                     // Legalisation is a big change so force a slack redistribution here
-                    if (ctx->slack_redist_iter > 0)
+                    if (ctx->slack_redist_iter > 0 && cfg.budgetBased)
                         assign_budget(ctx, true /* quiet */);
                 }
                 require_legal = false;
-            } else if (ctx->slack_redist_iter > 0 && iter % ctx->slack_redist_iter == 0) {
+            } else if (cfg.budgetBased && ctx->slack_redist_iter > 0 && iter % ctx->slack_redist_iter == 0) {
                 assign_budget(ctx, true /* quiet */);
             }
 
             // Invoke timing analysis to obtain criticalities
-            get_criticalities(ctx, &net_crit);
+            if (!cfg.budgetBased)
+                get_criticalities(ctx, &net_crit);
             // Need to rebuild costs after criticalities change
             setup_costs();
             // Recalculate total metric entirely to avoid rounding errors
@@ -434,7 +435,7 @@ class SAPlacer
         delta += (cfg.constraintWeight / temp) * (new_dist - old_dist) / last_wirelen_cost;
         n_move++;
         // SA acceptance criterea
-        if (delta < 0 || (temp > 1e-6 && (ctx->rng() / float(0x0fffffff)) <= std::exp(-100*delta / temp))) {
+        if (delta < 0 || (temp > 1e-6 && (ctx->rng() / float(0x0fffffff)) <= std::exp(-100 * delta / temp))) {
             n_accept++;
         } else {
             if (other_cell != nullptr)
@@ -518,11 +519,16 @@ class SAPlacer
             return 0;
         if (ctx->getPortTimingClass(net->driver.cell, net->driver.port, cc) == TMG_IGNORE)
             return 0;
-        auto crit = net_crit.find(net->name);
-        if (crit == net_crit.end() || crit->second.criticality.empty())
-            return 0;
-        double delay = ctx->getDelayNS(ctx->predictDelay(net, net->users.at(user)));
-        return delay * std::pow(crit->second.criticality.at(user), crit_exp);
+        if (cfg.budgetBased) {
+            double delay = ctx->getDelayNS(ctx->predictDelay(net, net->users.at(user)));
+            return std::min(10.0, std::exp(delay - ctx->getDelayNS(net->users.at(user).budget)));
+        } else {
+            auto crit = net_crit.find(net->name);
+            if (crit == net_crit.end() || crit->second.criticality.empty())
+                return 0;
+            double delay = ctx->getDelayNS(ctx->predictDelay(net, net->users.at(user)));
+            return delay * std::pow(crit->second.criticality.at(user), crit_exp);
+        }
     }
 
     // Set up the cost maps
@@ -690,6 +696,7 @@ Placer1Cfg::Placer1Cfg(Context *ctx) : Settings(ctx)
 {
     constraintWeight = get<float>("placer1/constraintWeight", 10);
     minBelsForGridPick = get<int>("placer1/minBelsForGridPick", 64);
+    budgetBased = get<bool>("placer1/budgetBased", false);
 }
 
 bool placer1(Context *ctx, Placer1Cfg cfg)
