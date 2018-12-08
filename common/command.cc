@@ -122,6 +122,8 @@ po::options_description CommandHandler::getGeneralOptions()
     general.add_options()("randomize-seed,r", "randomize seed value for random number generator");
     general.add_options()("slack_redist_iter", po::value<int>(), "number of iterations between slack redistribution");
     general.add_options()("cstrweight", po::value<float>(), "placer weighting for relative constraint satisfaction");
+    general.add_options()("placer-budgets", "use budget rather than criticality in placer timing weights");
+
     general.add_options()("pack-only", "pack design only without placement or routing");
 
     general.add_options()("version,V", "show version");
@@ -176,6 +178,9 @@ void CommandHandler::setupContext(Context *ctx)
         settings->set("placer1/constraintWeight", vm["cstrweight"].as<float>());
     }
 
+    if (vm.count("placer-budgets")) {
+        settings->set("placer1/budgetBased", true);
+    }
     if (vm.count("freq")) {
         auto freq = vm["freq"].as<double>();
         if (freq > 0)
