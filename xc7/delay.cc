@@ -127,8 +127,7 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
     else {
         auto src_y = src_loc.second;
         auto dst_y = dst_loc.second;
-        src_y -= src_y % 50;
-        dst_y -= dst_y % 50;
+        dst_y -= (dst_y % 52) - 26;
         auto abs_delta_y = abs(src_y - dst_y);
         return abs_delta_x + abs_delta_y;
     }
