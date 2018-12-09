@@ -138,8 +138,6 @@ TorcInfo::TorcInfo(BaseCtx *ctx, const std::string &inDeviceName, const std::str
     const boost::regex re_CLB_I1_6("CLBL[LM]_(L|LL|M)_[A-D]([1-6])");
     const boost::regex bufg_i("CLK_BUFG_BUFGCTRL\\d+_I0");
     const boost::regex bufg_o("CLK_BUFG_BUFGCTRL\\d+_O");
-    const boost::regex int_clk("CLK(_L)?[01]");
-    const boost::regex gclk("GCLK_(L_)?B\\d+(_EAST|_WEST)?");
     std::unordered_map</*TileTypeIndex*/ unsigned, std::vector<delay_t>> delay_lookup;
     Tilewire currentTilewire;
     WireId w;
@@ -259,56 +257,63 @@ TorcInfo::TorcInfo(BaseCtx *ctx, const std::string &inDeviceName, const std::str
         const bool clb = boost::starts_with(
                 tileTypeName, "CLB"); // Disable all CLB route-throughs (i.e. LUT in->out, LUT A->AMUX, for now)
 
-        arcs.clear();
-        const_cast<DDB &>(*ddb).expandSegmentSinks(currentTilewire, arcs, DDB::eExpandDirectionNone,
-                                                   false /* inUseTied */, true /*inUseRegular */,
-                                                   true /* inUseIrregular */, !clb /* inUseRoutethrough */);
-
         auto &pips = wire_to_pips_downhill[w.index];
-        pips.reserve(arcs.size());
         const bool clk_tile = boost::starts_with(tileTypeName, "CLK");
-        const bool int_tile = boost::starts_with(tileTypeName, "INT");
 
-        const bool global_tile = boost::starts_with(tileTypeName, "CLK") || boost::starts_with(tileTypeName, "HCLK") || boost::starts_with(tileTypeName, "CFG");
-        if (global_tile)
-            wire_is_global[w.index] = true;
+        bool global_tile = false;
 
-        for (const auto &a : arcs) {
-            // Disable BUFG I0 -> O routethrough
-            if (clk_tile) {
-                ewi.set(a.getSourceTilewire());
-                if (boost::regex_match(ewi.mWireName, bufg_i)) {
-                    ewi.set(a.getSinkTilewire());
-                    if (boost::regex_match(ewi.mWireName, bufg_o))
-                        continue;
+        arcs.clear();
+        //const_cast<DDB &>(*ddb).expandSegmentSinks(currentTilewire, arcs, DDB::eExpandDirectionNone,
+        //                                           false /* inUseTied */, true /*inUseRegular */,
+        //                                           true /* inUseIrregular */, !clb /* inUseRoutethrough */);
+        {
+            // expand the segment
+            TilewireVector segment;
+            const_cast<DDB &>(*ddb).expandSegment(currentTilewire, segment, DDB::eExpandDirectionNone);
+            // expand all of the arcs
+            TilewireVector::const_iterator sep = segment.begin();
+            TilewireVector::const_iterator see = segment.end();
+            while(sep < see) {
+                // expand the tilewire sinks
+                const Tilewire& tilewire = *sep++;
+
+                const auto &tileInfo = tiles.getTileInfo(tilewire.getTileIndex());
+                const auto &tileTypeName = tiles.getTileTypeName(tileInfo.getTypeIndex());
+                global_tile = global_tile || boost::starts_with(tileTypeName, "CLK") || boost::starts_with(tileTypeName, "HCLK") || boost::starts_with(tileTypeName, "CFG");
+
+                TilewireVector sinks;
+                const_cast<DDB &>(*ddb).expandTilewireSinks(tilewire, sinks, false /*inUseTied*/, true /*inUseRegular*/, true /*inUseIrregular*/,
+                        !clb /* inUseRoutethrough */);
+                // rewrite the sinks as arcs
+                TilewireVector::const_iterator sip = sinks.begin();
+                TilewireVector::const_iterator sie = sinks.end();
+                while(sip < sie) {
+                    Arc a(tilewire, *sip++);
+
+                    // Disable BUFG I0 -> O routethrough
+                    if (clk_tile) {
+                        ewi.set(a.getSourceTilewire());
+                        if (boost::regex_match(ewi.mWireName, bufg_i)) {
+                            ewi.set(a.getSinkTilewire());
+                            if (boost::regex_match(ewi.mWireName, bufg_o))
+                                continue;
+                        }
+                    }
+
+                    pips.emplace_back(p);
+                    pip_to_arc.emplace_back(a);
+                    // arc_to_pip.emplace(a, p.index);
+                    ++p.index;
                 }
             }
-            // Disable CLK inputs from being driven from the fabric (must be from global clock network)
-            else if (int_tile) {
-                ewi.set(a.getSinkTilewire());
-                if (boost::regex_match(ewi.mWireName, int_clk)) {
-                    ewi.set(a.getSourceTilewire());
-                    if (!boost::regex_match(ewi.mWireName, gclk))
-                        continue;
-                }
-            }
-            pips.emplace_back(p);
-            pip_to_arc.emplace_back(a);
-            // arc_to_pip.emplace(a, p.index);
-            const auto &tw = a.getSinkTilewire();
-            pip_to_dst_wire.emplace_back(tilewire_to_wire(tw));
-            ++p.index;
         }
         pips.shrink_to_fit();
+
+        if (global_tile)
+            wire_is_global[w.index] = true;
     }
     pip_to_arc.shrink_to_fit();
     num_pips = pip_to_arc.size();
-
-    pip_to_dst_wire.reserve(num_pips);
-    for (const auto &arc : pip_to_arc) {
-        const auto &tw = arc.getSinkTilewire();
-        pip_to_dst_wire.emplace_back(tilewire_to_wire(tw));
-    }
 
     height = (int)tiles.getRowCount();
     width = (int)tiles.getColCount();
@@ -684,6 +689,12 @@ IdString Arch::getPipName(PipId pip) const
     //    return id(chip_info->pip_data[pip.index].name.get());
     //#endif
 }
+
+//IdString Arch::getPipType(PipId pip) const
+//{
+//    NPNR_ASSERT(pip != PipId());
+//    return IdString();
+//}
 
 std::vector<std::pair<IdString, std::string>> Arch::getPipAttrs(PipId pip) const
 {

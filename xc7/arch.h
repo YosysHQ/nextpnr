@@ -321,7 +321,6 @@ struct TorcInfo
     std::vector<std::vector<PipId>> wire_to_pips_downhill;
     std::vector<Arc> pip_to_arc;
     int num_pips;
-    std::vector<WireId> pip_to_dst_wire;
     int width;
     int height;
     std::vector<bool> wire_is_global;
@@ -348,7 +347,6 @@ private:
         ar & wire_to_pips_downhill;
         ar & pip_to_arc;
         ar & num_pips;
-        ar & pip_to_dst_wire;
         ar & wire_is_global;
         ar & tile_to_xy;
     }
@@ -814,15 +812,16 @@ struct Arch : BaseCtx
 
     Loc getPipLocation(PipId pip) const
     {
-        const auto &arc = torc_info->pip_to_arc[pip.index];
-        const auto &tw = arc.getSourceTilewire();
-        const auto &tile_info = torc_info->tiles.getTileInfo(tw.getTileIndex());
+        //const auto &arc = torc_info->pip_to_arc[pip.index];
+        //const auto &tw = arc.getSourceTilewire();
+        //const auto &tile_info = torc_info->tiles.getTileInfo(tw.getTileIndex());
 
-        Loc loc;
-        loc.x = tile_info.getCol();
-        loc.y = tile_info.getRow();
-        loc.z = 0;
-        return loc;
+        //Loc loc;
+        //loc.x = tile_info.getCol();
+        //loc.y = tile_info.getRow();
+        //loc.z = 0;
+        //return loc;
+        throw;
     }
 
     IdString getPipName(PipId pip) const;
@@ -844,7 +843,9 @@ struct Arch : BaseCtx
     WireId getPipDstWire(PipId pip) const
     {
         NPNR_ASSERT(pip != PipId());
-        return torc_info->pip_to_dst_wire[pip.index];
+        const auto &arc = torc_info->pip_to_arc[pip.index];
+        const auto &tw = arc.getSinkTilewire();
+        return torc_info->tilewire_to_wire(tw);
     }
 
     DelayInfo getPipDelay(PipId pip) const
