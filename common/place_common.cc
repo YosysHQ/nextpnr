@@ -304,7 +304,7 @@ class ConstraintLegaliseWorker
     // Set the strength to locked on all cells in chain
     void lockdown_chain(CellInfo *root)
     {
-        root->belStrength = STRENGTH_LOCKED;
+        root->belStrength = STRENGTH_STRONG;
         for (auto child : root->constr_children)
             lockdown_chain(child);
     }
@@ -380,7 +380,7 @@ class ConstraintLegaliseWorker
                                 rippedCells.insert(confl_cell->name);
                             }
                         }
-                        ctx->bindBel(target, ctx->cells.at(cp.first).get(), STRENGTH_LOCKED);
+                        ctx->bindBel(target, ctx->cells.at(cp.first).get(), STRENGTH_STRONG);
                         rippedCells.erase(cp.first);
                     }
                     for (auto cp : solution) {

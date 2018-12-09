@@ -24,6 +24,7 @@
 #include "placer1.h"
 #include <algorithm>
 #include <boost/lexical_cast.hpp>
+#include <boost/range/adaptor/reversed.hpp>
 #include <chrono>
 #include <cmath>
 #include <iostream>
@@ -42,6 +43,8 @@
 #include "place_common.h"
 #include "timing.h"
 #include "util.h"
+
+
 namespace std {
 template <> struct hash<std::pair<NEXTPNR_NAMESPACE_PREFIX IdString, std::size_t>>
 {
@@ -152,6 +155,8 @@ class SAPlacer
 
         // Sort to-place cells for deterministic initial placement
         std::vector<CellInfo *> autoplaced;
+        std::vector<CellInfo *> chain_basis;
+
         for (auto &cell : ctx->cells) {
             CellInfo *ci = cell.second.get();
             if (ci->bel == BelId()) {
@@ -219,6 +224,13 @@ class SAPlacer
                     if (try_bel != BelId() && try_bel != cell->bel)
                         try_swap_position(cell, try_bel);
                 }
+                // Also try swapping chains, if applicable
+                for (auto cb : chain_basis) {
+                    Loc chain_base_loc = ctx->getBelLocation(cb->bel);
+                    BelId try_base = random_bel_for_cell(cb, chain_base_loc.z);
+                    if (try_base != BelId() && try_base != cb->bel)
+                        try_swap_chain(cb, try_base);
+                }
             }
 
             if (curr_wirelen_cost < min_wirelen) {
@@ -276,8 +288,11 @@ class SAPlacer
                 if (legalise_relative_constraints(ctx)) {
                     // Only increase temperature if something was moved
                     autoplaced.clear();
+                    chain_basis.clear();
                     for (auto cell : sorted(ctx->cells)) {
-                        if (cell.second->belStrength < STRENGTH_STRONG)
+                        if (cell.second->belStrength <= STRENGTH_STRONG && cell.second->constr_parent == nullptr && !cell.second->constr_children.empty())
+                            chain_basis.push_back(cell.second);
+                        else if (cell.second->belStrength < STRENGTH_STRONG)
                             autoplaced.push_back(cell.second);
                     }
                     temp = post_legalise_temp;
@@ -458,9 +473,101 @@ class SAPlacer
         return false;
     }
 
+    inline bool is_constrained(CellInfo *cell) {
+        return cell->constr_parent != nullptr || !cell->constr_children.empty();
+    }
+
+    // Swap the Bel of a cell with another, return the original location
+    BelId swap_cell_bels(CellInfo *cell, BelId newBel) {
+        BelId oldBel = cell->bel;
+        CellInfo *bound = ctx->getBoundBelCell(newBel);
+        if (bound != nullptr)
+            ctx->unbindBel(newBel);
+        ctx->unbindBel(oldBel);
+        ctx->bindBel(newBel, cell, is_constrained(cell) ? STRENGTH_STRONG : STRENGTH_WEAK);
+        if (bound != nullptr)
+            ctx->bindBel(oldBel, bound, is_constrained(bound) ? STRENGTH_STRONG : STRENGTH_WEAK);
+        return oldBel;
+    }
+
+    // Discover the relative positions of all cells in a chain
+    void discover_chain(Loc baseLoc, CellInfo *cell, std::vector<std::pair<CellInfo*, Loc>> &cell_rel) {
+        Loc cellLoc = ctx->getBelLocation(cell->bel);
+        Loc rel{cellLoc.x - baseLoc.x, cellLoc.y - baseLoc.y, cellLoc.z};
+        cell_rel.emplace_back(std::make_pair(cell, rel));
+        for (auto child : cell->constr_children)
+            discover_chain(baseLoc, child, cell_rel);
+    }
+
+    // Attempt to swap a chain with a non-chain
+    bool try_swap_chain(CellInfo *cell, BelId newBase) {
+        std::vector<std::pair<CellInfo *, Loc>> cell_rel;
+        std::unordered_set<IdString> cells;
+        std::vector<std::pair<CellInfo*, BelId>> moves_made;
+        std::vector<std::pair<CellInfo *, BelId>> dest_bels;
+        double delta = 0;
+        moveChange.reset();
+        log_info("finding cells for chain swap %s\n", cell->name.c_str(ctx));
+
+        Loc baseLoc = ctx->getBelLocation(cell->bel);
+        discover_chain(baseLoc, cell, cell_rel);
+        Loc newBaseLoc = ctx->getBelLocation(newBase);
+        NPNR_ASSERT(newBaseLoc.z == baseLoc.z);
+        for (const auto &cr : cell_rel)
+            cells.insert(cr.first->name);
+
+        for (const auto &cr : cell_rel) {
+            Loc targetLoc = {newBaseLoc.x + cr.second.x, newBaseLoc.y + cr.second.y, cr.second.z};
+            BelId targetBel = ctx->getBelByLocation(targetLoc);
+            if (targetBel == BelId())
+                return false;
+            if (ctx->getBelType(targetBel) != cell->type)
+                return false;
+            CellInfo *bound = ctx->getBoundBelCell(targetBel);
+            // We don't consider swapping chains with other chains, at least for the time being - unless it is
+            // part of this chain
+            if (bound != nullptr && !cells.count(bound->name) && (bound->belStrength >= STRENGTH_STRONG || is_constrained(bound)))
+                return false;
+            dest_bels.emplace_back(std::make_pair(cr.first, targetBel));
+        }
+        log_info("trying chain swap %s\n", cell->name.c_str(ctx));
+        // <cell, oldBel>
+        for (const auto &db : dest_bels) {
+            BelId oldBel = swap_cell_bels(db.first, db.second);
+            moves_made.emplace_back(std::make_pair(db.first, oldBel));
+        }
+        for (const auto &mm : moves_made) {
+            if (!ctx->isBelLocationValid(mm.first->bel))
+                goto swap_fail;
+            if (!ctx->isBelLocationValid(mm.second))
+                goto swap_fail;
+            add_move_cell(moveChange, mm.first, mm.second);
+            CellInfo *bound = ctx->getBoundBelCell(mm.second);
+            if (bound != nullptr)
+                add_move_cell(moveChange, bound, mm.first->bel);
+        }
+        compute_cost_changes(moveChange);
+        delta = lambda * (moveChange.timing_delta / last_timing_cost) +
+                (1 - lambda) * (double(moveChange.wirelen_delta) / last_wirelen_cost);
+        n_move++;
+        // SA acceptance criterea
+        if (delta < 0 || (temp > 1e-8 && (ctx->rng() / float(0x3fffffff)) <= std::exp(-delta / temp))) {
+            n_accept++;
+            log_info("accepted chain swap %s\n", cell->name.c_str(ctx));
+        } else {
+            goto swap_fail;
+        }
+        commit_cost_changes(moveChange);
+        return true;
+swap_fail:
+        for (const auto &entry : boost::adaptors::reverse(moves_made))
+            swap_cell_bels(entry.first, entry.second);
+        return false;
+    }
+
     // Find a random Bel of the correct type for a cell, within the specified
     // diameter
-    BelId random_bel_for_cell(CellInfo *cell)
+    BelId random_bel_for_cell(CellInfo *cell, int force_z = -1)
     {
         IdString targetType = cell->type;
         Loc curr_loc = ctx->getBelLocation(cell->bel);
@@ -479,6 +586,11 @@ class SAPlacer
             if (fb.size() == 0)
                 continue;
             BelId bel = fb.at(ctx->rng(int(fb.size())));
+            if (force_z != -1) {
+                Loc loc = ctx->getBelLocation(bel);
+                if (loc.z != force_z)
+                    continue;
+            }
             if (locked_bels.find(bel) != locked_bels.end())
                 continue;
             return bel;
