@@ -197,7 +197,7 @@ class SAPlacer
         wirelen_t min_wirelen = curr_wirelen_cost;
 
         int n_no_progress = 0;
-        temp = 10000;
+        temp = 1;
 
         // Main simulated annealing loop
         for (int iter = 1;; iter++) {
@@ -232,7 +232,7 @@ class SAPlacer
             else
                 n_no_progress++;
 
-            if (temp <= 1e-3 && n_no_progress >= 5) {
+            if (temp <= 1e-7 && n_no_progress >= 5) {
                 log_info("  at iteration #%d: temp = %f, timing cost = "
                          "%.0f, wirelen = %.0f \n",
                          iter, temp, double(curr_timing_cost), double(curr_wirelen_cost));
@@ -244,8 +244,13 @@ class SAPlacer
             int M = std::max(max_x, max_y) + 1;
 
             double upper = 0.6, lower = 0.4;
-            
-            if (curr_wirelen_cost < 0.95 * avg_wirelen && curr_wirelen_cost > 0) {
+
+            if (ctx->verbose)
+                log("iter #%d: temp = %f, timing cost = "
+                         "%.0f, wirelen = %.0f, dia = %d, Ra = %.02f \n",
+                         iter, temp, double(curr_timing_cost), double(curr_wirelen_cost), diameter, Raccept);
+
+            if (curr_wirelen_cost < 0.95 * avg_wirelen  && curr_wirelen_cost > 0) {
                 avg_wirelen = 0.8 * avg_wirelen + 0.2 * curr_wirelen_cost;
             } else {
                 if (Raccept >= 0.8) {
@@ -276,7 +281,7 @@ class SAPlacer
                             autoplaced.push_back(cell.second);
                     }
                     temp = post_legalise_temp;
-                    diameter *= post_legalise_dia_scale;
+                    diameter = std::min<int>(M, diameter * post_legalise_dia_scale);
                     ctx->shuffle(autoplaced);
 
                     // Legalisation is a big change so force a slack redistribution here
@@ -435,7 +440,7 @@ class SAPlacer
         delta += (cfg.constraintWeight / temp) * (new_dist - old_dist) / last_wirelen_cost;
         n_move++;
         // SA acceptance criterea
-        if (delta < 0 || (temp > 1e-6 && (ctx->rng() / float(0x0fffffff)) <= std::exp(-100 * delta / temp))) {
+        if (delta < 0 || (temp > 1e-8 && (ctx->rng() / float(0x3fffffff)) <= std::exp(-delta / temp))) {
             n_accept++;
         } else {
             if (other_cell != nullptr)
@@ -676,7 +681,7 @@ class SAPlacer
     NetCriticalityMap net_crit;
 
     Context *ctx;
-    float temp = 1000;
+    float temp = 10;
     float crit_exp = 8;
     float lambda = 0.5;
     bool improved = false;
@@ -686,8 +691,8 @@ class SAPlacer
     std::vector<std::vector<std::vector<std::vector<BelId>>>> fast_bels;
     std::unordered_set<BelId> locked_bels;
     bool require_legal = true;
-    const float legalise_temp = 1;
-    const float post_legalise_temp = 10;
+    const float legalise_temp = 0.00015;
+    const float post_legalise_temp = 0.0003;
     const float post_legalise_dia_scale = 1.5;
     Placer1Cfg cfg;
 };
