@@ -553,7 +553,7 @@ class SAPlacer
                 (1 - lambda) * (double(moveChange.wirelen_delta) / last_wirelen_cost);
         n_move++;
         // SA acceptance criterea
-        if (delta < 0 || (temp > 1e-8 && (ctx->rng() / float(0x3fffffff)) <= std::exp(-delta / temp))) {
+        if (delta < 0 || (temp > 1e-9 && (ctx->rng() / float(0x3fffffff)) <= std::exp(-delta / (5 * temp)))) {
             n_accept++;
             if (ctx->debug)
                 log_info("accepted chain swap %s\n", cell->name.c_str(ctx));
