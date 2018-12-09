@@ -507,7 +507,8 @@ class SAPlacer
         std::vector<std::pair<CellInfo *, BelId>> dest_bels;
         double delta = 0;
         moveChange.reset();
-        log_info("finding cells for chain swap %s\n", cell->name.c_str(ctx));
+        if (ctx->debug)
+            log_info("finding cells for chain swap %s\n", cell->name.c_str(ctx));
 
         Loc baseLoc = ctx->getBelLocation(cell->bel);
         discover_chain(baseLoc, cell, cell_rel);
@@ -530,7 +531,8 @@ class SAPlacer
                 return false;
             dest_bels.emplace_back(std::make_pair(cr.first, targetBel));
         }
-        log_info("trying chain swap %s\n", cell->name.c_str(ctx));
+        if (ctx->debug)
+            log_info("trying chain swap %s\n", cell->name.c_str(ctx));
         // <cell, oldBel>
         for (const auto &db : dest_bels) {
             BelId oldBel = swap_cell_bels(db.first, db.second);
@@ -553,7 +555,8 @@ class SAPlacer
         // SA acceptance criterea
         if (delta < 0 || (temp > 1e-8 && (ctx->rng() / float(0x3fffffff)) <= std::exp(-delta / temp))) {
             n_accept++;
-            log_info("accepted chain swap %s\n", cell->name.c_str(ctx));
+            if (ctx->debug)
+                log_info("accepted chain swap %s\n", cell->name.c_str(ctx));
         } else {
             goto swap_fail;
         }
