@@ -613,7 +613,7 @@ struct Timing
                     delay_t dmax = crit_path->at(ClockPair{startdomain.first, startdomain.first}).path_delay;
                     for (size_t i = 0; i < net->users.size(); i++) {
                         float criticality = 1.0f - (float(nc.slack.at(i) - worst_slack.at(startdomain.first)) / dmax);
-                        nc.criticality.at(i) = criticality;
+                        nc.criticality.at(i) = std::min<double>(1.0, std::max<double>(0.0, criticality));
                     }
                     nc.max_path_length = nd.max_path_length;
                     nc.cd_worst_slack = worst_slack.at(startdomain.first);
