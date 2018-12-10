@@ -199,7 +199,7 @@ class SAPlacer
         wirelen_t min_wirelen = curr_wirelen_cost;
 
         int n_no_progress = 0;
-        temp = 1;
+        temp = cfg.startTemp;
 
         // Main simulated annealing loop
         for (int iter = 1;; iter++) {
@@ -252,8 +252,6 @@ class SAPlacer
 
             int M = std::max(max_x, max_y) + 1;
 
-            double upper = 0.6, lower = 0.4;
-
             if (ctx->verbose)
                 log("iter #%d: temp = %f, timing cost = "
                          "%.0f, wirelen = %.0f, dia = %d, Ra = %.02f \n",
@@ -262,21 +260,16 @@ class SAPlacer
             if (curr_wirelen_cost < 0.95 * avg_wirelen) {
                 avg_wirelen = 0.8 * avg_wirelen + 0.2 * curr_wirelen_cost;
             } else {
-                if (Raccept >= 0.8) {
-                    temp *= 0.7;
-                } else if (Raccept > upper) {
-                    if (diameter < M)
-                        diameter++;
-                    else
-                        temp *= 0.9;
-                } else if (Raccept > lower) {
+                double diam_next = diameter * (1.0 - 0.44 + Raccept);
+                diameter = std::max<int>(1, std::min<int>(M, int(diam_next + 0.5)));
+                if (Raccept > 0.96) {
+                    temp *= 0.5;
+                } else if (Raccept > 0.8) {
+                    temp *= 0.9;
+                } else if (Raccept > 0.15 && diameter > 1) {
                     temp *= 0.95;
                 } else {
-                    // Raccept < 0.3
-                    if (diameter > 1)
-                        diameter--;
-                    else
-                        temp *= 0.8;
+                    temp *= 0.8;
                 }
             }
             // Once cooled below legalise threshold, run legalisation and start requiring
@@ -546,7 +539,7 @@ class SAPlacer
                 (1 - lambda) * (double(moveChange.wirelen_delta) / last_wirelen_cost);
         n_move++;
         // SA acceptance criterea
-        if (delta < 0 || (temp > 1e-9 && (ctx->rng() / float(0x3fffffff)) <= std::exp(-delta / (5 * temp)))) {
+        if (delta < 0 || (temp > 1e-9 && (ctx->rng() / float(0x3fffffff)) <= std::exp(-delta / temp))) {
             n_accept++;
             if (ctx->debug)
                 log_info("accepted chain swap %s\n", cell->name.c_str(ctx));
@@ -799,8 +792,8 @@ swap_fail:
     std::vector<std::vector<std::vector<std::vector<BelId>>>> fast_bels;
     std::unordered_set<BelId> locked_bels;
     bool require_legal = true;
-    const float legalise_temp = 0.00015;
-    const float post_legalise_temp = 0.0003;
+    const float legalise_temp = 0.001;
+    const float post_legalise_temp = 0.002;
     const float post_legalise_dia_scale = 1.5;
     Placer1Cfg cfg;
 };
@@ -810,6 +803,7 @@ Placer1Cfg::Placer1Cfg(Context *ctx) : Settings(ctx)
     constraintWeight = get<float>("placer1/constraintWeight", 10);
     minBelsForGridPick = get<int>("placer1/minBelsForGridPick", 64);
     budgetBased = get<bool>("placer1/budgetBased", false);
+    startTemp = get<float> ("placer1/startTemp", 1);
 }
 
 bool placer1(Context *ctx, Placer1Cfg cfg)
