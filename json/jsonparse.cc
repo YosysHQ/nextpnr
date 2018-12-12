@@ -627,7 +627,9 @@ static void insert_iobuf(Context *ctx, NetInfo *net, PortType type, const string
         iobuf->ports[ctx->id("O")] = PortInfo{ctx->id("O"), net, PORT_OUT};
         // Special case: input, etc, directly drives inout
         if (net->driver.cell != nullptr) {
-            assert(net->driver.cell->type == ctx->id("$nextpnr_iobuf"));
+            if (net->driver.cell->type != ctx->id("$nextpnr_iobuf"))
+                log_error("Top-level input '%s' also driven by %s.%s.\n", name.c_str(),
+                          net->driver.cell->name.c_str(ctx), net->driver.port.c_str(ctx));
             net = net->driver.cell->ports.at(ctx->id("I")).net;
         }
         assert(net->driver.cell == nullptr);
