@@ -529,4 +529,12 @@ int get_constraints_distance(const Context *ctx, const CellInfo *cell)
     return dist;
 }
 
+bool check_cell_bel_region(const CellInfo *cell, BelId bel)
+{
+    if (cell->region != nullptr && cell->region->constr_bels && !cell->region->bels.count(bel))
+        return false;
+    else
+        return true;
+}
+
 NEXTPNR_NAMESPACE_END

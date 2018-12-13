@@ -44,7 +44,6 @@
 #include "timing.h"
 #include "util.h"
 
-
 namespace std {
 template <> struct hash<std::pair<NEXTPNR_NAMESPACE_PREFIX IdString, std::size_t>>
 {
@@ -120,7 +119,8 @@ class SAPlacer
         build_port_index();
     }
 
-    ~SAPlacer() {
+    ~SAPlacer()
+    {
         for (auto &net : ctx->nets)
             net.second->udata = old_udata[net.second->udata];
     }
@@ -275,8 +275,8 @@ class SAPlacer
 
             if (ctx->verbose)
                 log("iter #%d: temp = %f, timing cost = "
-                         "%.0f, wirelen = %.0f, dia = %d, Ra = %.02f \n",
-                         iter, temp, double(curr_timing_cost), double(curr_wirelen_cost), diameter, Raccept);
+                    "%.0f, wirelen = %.0f, dia = %d, Ra = %.02f \n",
+                    iter, temp, double(curr_timing_cost), double(curr_wirelen_cost), diameter, Raccept);
 
             if (curr_wirelen_cost < 0.95 * avg_wirelen  && curr_wirelen_cost > 0) {
                 avg_wirelen = 0.8 * avg_wirelen + 0.2 * curr_wirelen_cost;
@@ -301,7 +301,8 @@ class SAPlacer
                     autoplaced.clear();
                     chain_basis.clear();
                     for (auto cell : sorted(ctx->cells)) {
-                        if (cell.second->belStrength <= STRENGTH_STRONG && cell.second->constr_parent == nullptr && !cell.second->constr_children.empty())
+                        if (cell.second->belStrength <= STRENGTH_STRONG && cell.second->constr_parent == nullptr &&
+                            !cell.second->constr_children.empty())
                             chain_basis.push_back(cell.second);
                         else if (cell.second->belStrength < STRENGTH_STRONG)
                             autoplaced.push_back(cell.second);
@@ -484,12 +485,14 @@ class SAPlacer
         return false;
     }
 
-    inline bool is_constrained(CellInfo *cell) {
+    inline bool is_constrained(CellInfo *cell)
+    {
         return cell->constr_parent != nullptr || !cell->constr_children.empty();
     }
 
     // Swap the Bel of a cell with another, return the original location
-    BelId swap_cell_bels(CellInfo *cell, BelId newBel) {
+    BelId swap_cell_bels(CellInfo *cell, BelId newBel)
+    {
         BelId oldBel = cell->bel;
         CellInfo *bound = ctx->getBoundBelCell(newBel);
         if (bound != nullptr)
@@ -502,7 +505,8 @@ class SAPlacer
     }
 
     // Discover the relative positions of all cells in a chain
-    void discover_chain(Loc baseLoc, CellInfo *cell, std::vector<std::pair<CellInfo*, Loc>> &cell_rel) {
+    void discover_chain(Loc baseLoc, CellInfo *cell, std::vector<std::pair<CellInfo *, Loc>> &cell_rel)
+    {
         Loc cellLoc = ctx->getBelLocation(cell->bel);
         Loc rel{cellLoc.x - baseLoc.x, cellLoc.y - baseLoc.y, cellLoc.z};
         cell_rel.emplace_back(std::make_pair(cell, rel));
@@ -511,10 +515,11 @@ class SAPlacer
     }
 
     // Attempt to swap a chain with a non-chain
-    bool try_swap_chain(CellInfo *cell, BelId newBase) {
+    bool try_swap_chain(CellInfo *cell, BelId newBase)
+    {
         std::vector<std::pair<CellInfo *, Loc>> cell_rel;
         std::unordered_set<IdString> cells;
-        std::vector<std::pair<CellInfo*, BelId>> moves_made;
+        std::vector<std::pair<CellInfo *, BelId>> moves_made;
         std::vector<std::pair<CellInfo *, BelId>> dest_bels;
         double delta = 0;
         moveChange.reset();
@@ -538,7 +543,8 @@ class SAPlacer
             CellInfo *bound = ctx->getBoundBelCell(targetBel);
             // We don't consider swapping chains with other chains, at least for the time being - unless it is
             // part of this chain
-            if (bound != nullptr && !cells.count(bound->name) && (bound->belStrength >= STRENGTH_STRONG || is_constrained(bound)))
+            if (bound != nullptr && !cells.count(bound->name) &&
+                (bound->belStrength >= STRENGTH_STRONG || is_constrained(bound)))
                 return false;
             dest_bels.emplace_back(std::make_pair(cr.first, targetBel));
         }
@@ -550,12 +556,14 @@ class SAPlacer
             moves_made.emplace_back(std::make_pair(db.first, oldBel));
         }
         for (const auto &mm : moves_made) {
-            if (!ctx->isBelLocationValid(mm.first->bel))
+            if (!ctx->isBelLocationValid(mm.first->bel) || !check_cell_bel_region(mm.first, mm.first->bel))
                 goto swap_fail;
             if (!ctx->isBelLocationValid(mm.second))
                 goto swap_fail;
-            add_move_cell(moveChange, mm.first, mm.second);
             CellInfo *bound = ctx->getBoundBelCell(mm.second);
+            if (bound && !check_cell_bel_region(bound, bound->bel))
+                goto swap_fail;
+            add_move_cell(moveChange, mm.first, mm.second);
             if (bound != nullptr)
                 add_move_cell(moveChange, bound, mm.first->bel);
         }
@@ -573,7 +581,7 @@ class SAPlacer
         }
         commit_cost_changes(moveChange);
         return true;
-swap_fail:
+    swap_fail:
         for (const auto &entry : boost::adaptors::reverse(moves_made))
             swap_cell_bels(entry.first, entry.second);
         return false;
@@ -605,6 +613,8 @@ swap_fail:
                 if (loc.z != force_z)
                     continue;
             }
+            if (!check_cell_bel_region(cell, bel))
+                continue;
             if (locked_bels.find(bel) != locked_bels.end())
                 continue;
             return bel;
@@ -834,7 +844,7 @@ swap_fail:
     std::unordered_map<IdString, std::tuple<int, int>> bel_types;
     std::vector<std::vector<std::vector<std::vector<BelId>>>> fast_bels;
     std::unordered_set<BelId> locked_bels;
-    std::vector<NetInfo*> net_by_udata;
+    std::vector<NetInfo *> net_by_udata;
     std::vector<decltype(NetInfo::udata)> old_udata;
     bool require_legal = true;
     const float legalise_temp = 0.001;
@@ -848,7 +858,7 @@ Placer1Cfg::Placer1Cfg(Context *ctx) : Settings(ctx)
     constraintWeight = get<float>("placer1/constraintWeight", 10);
     minBelsForGridPick = get<int>("placer1/minBelsForGridPick", 64);
     budgetBased = get<bool>("placer1/budgetBased", false);
-    startTemp = get<float> ("placer1/startTemp", 1);
+    startTemp = get<float>("placer1/startTemp", 1);
 }
 
 bool placer1(Context *ctx, Placer1Cfg cfg)
