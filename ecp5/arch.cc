@@ -602,7 +602,7 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
 
     // Data for -8 grade
     if (cell->type == id_TRELLIS_SLICE) {
-        bool has_carry = str_or_default(cell->params, id("MODE"), "LOGIC") == "CCU2";
+        bool has_carry = cell->sliceInfo.is_carry;
         if (fromPort == id_A0 || fromPort == id_B0 || fromPort == id_C0 || fromPort == id_D0 || fromPort == id_A1 ||
             fromPort == id_B1 || fromPort == id_C1 || fromPort == id_D1 || fromPort == id_M0 || fromPort == id_M1 ||
             fromPort == id_FXA || fromPort == id_FXB || fromPort == id_FCI) {
@@ -639,7 +639,7 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
     auto disconnected = [cell](IdString p) { return !cell->ports.count(p) || cell->ports.at(p).net == nullptr; };
     clockInfoCount = 0;
     if (cell->type == id_TRELLIS_SLICE) {
-        int sd0 = int_or_default(cell->params, id("REG0_SD"), 0), sd1 = int_or_default(cell->params, id("REG1_SD"), 0);
+        int sd0 = cell->sliceInfo.sd0, sd1 = cell->sliceInfo.sd1;
         if (port == id_CLK || port == id_WCK)
             return TMG_CLOCK_INPUT;
         if (port == id_A0 || port == id_A1 || port == id_B0 || port == id_B1 || port == id_C0 || port == id_C1 ||
@@ -782,8 +782,7 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
     info.hold = getDelayFromNS(0);
     info.clockToQ = getDelayFromNS(0);
     if (cell->type == id_TRELLIS_SLICE) {
-        int sd0 = int_or_default(cell->params, id("REG0_SD"), 0), sd1 = int_or_default(cell->params, id("REG1_SD"), 0);
-
+        int sd0 = cell->sliceInfo.sd0, sd1 = cell->sliceInfo.sd1;
         if (port == id_WD0 || port == id_WD1 || port == id_WAD0 || port == id_WAD1 || port == id_WAD2 ||
             port == id_WAD3 || port == id_WRE) {
             info.edge = RISING_EDGE;
