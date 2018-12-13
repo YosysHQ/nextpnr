@@ -102,10 +102,28 @@ class SAPlacer
         }
         diameter = std::max(max_x, max_y) + 1;
 
+        net_bounds.resize(ctx->nets.size());
+        net_arc_tcost.resize(ctx->nets.size());
+        moveChange.already_bounds_changed.resize(ctx->nets.size());
+        moveChange.already_changed_arcs.resize(ctx->nets.size());
+        old_udata.reserve(ctx->nets.size());
+        net_by_udata.reserve(ctx->nets.size());
+        decltype(NetInfo::udata) n = 0;
+        for (auto &net : ctx->nets) {
+            old_udata.emplace_back(net.second->udata);
+            net_arc_tcost.at(n).resize(net.second->users.size());
+            moveChange.already_changed_arcs.at(n).resize(net.second->users.size());
+            net.second->udata = n++;
+            net_by_udata.push_back(net.second.get());
+        }
+
         build_port_index();
     }
 
-    ~SAPlacer() {}
+    ~SAPlacer() {
+        for (auto &net : ctx->nets)
+            net.second->udata = old_udata[net.second->udata];
+    }
 
     bool place()
     {
@@ -651,10 +669,9 @@ swap_fail:
             NetInfo *ni = net.second;
             if (ignore_net(ni))
                 continue;
-            net_bounds[ni->name] = get_net_bounds(ni);
-            net_arc_tcost[ni->name].resize(ni->users.size());
+            net_bounds[ni->udata] = get_net_bounds(ni);
             for (size_t i = 0; i < ni->users.size(); i++)
-                net_arc_tcost[ni->name][i] = get_timing_cost(ni, i);
+                net_arc_tcost[ni->udata][i] = get_timing_cost(ni, i);
         }
     }
 
@@ -663,7 +680,7 @@ swap_fail:
     {
         wirelen_t cost = 0;
         for (const auto &net : net_bounds)
-            cost += net.second.hpwl();
+            cost += net.hpwl();
         return cost;
     }
 
@@ -672,7 +689,7 @@ swap_fail:
     {
         double cost = 0;
         for (const auto &net : net_arc_tcost) {
-            for (auto arc_cost : net.second) {
+            for (auto arc_cost : net) {
                 cost += arc_cost;
             }
         }
@@ -682,17 +699,24 @@ swap_fail:
     // Cost-change-related data for a move
     struct MoveChangeData
     {
-        std::unordered_set<IdString> bounds_changed_nets;
-        std::unordered_set<std::pair<IdString, size_t>> changed_arcs;
+        std::vector<decltype(NetInfo::udata)> bounds_changed_nets;
+        std::vector<std::pair<decltype(NetInfo::udata), size_t>> changed_arcs;
 
-        std::unordered_map<IdString, BoundingBox> new_net_bounds;
-        std::unordered_map<std::pair<IdString, size_t>, double> new_arc_costs;
+        std::vector<bool> already_bounds_changed;
+        std::vector<std::vector<bool>> already_changed_arcs;
+
+        std::vector<std::pair<decltype(NetInfo::udata), BoundingBox>> new_net_bounds;
+        std::vector<std::pair<std::pair<decltype(NetInfo::udata), size_t>, double>> new_arc_costs;
 
         wirelen_t wirelen_delta = 0;
         double timing_delta = 0;
 
         void reset()
         {
+            for (auto bc : bounds_changed_nets)
+                already_bounds_changed[bc] = false;
+            for (const auto &tc : changed_arcs)
+                already_changed_arcs[tc.first][tc.second] = false;
             bounds_changed_nets.clear();
             changed_arcs.clear();
             new_net_bounds.clear();
@@ -714,20 +738,30 @@ swap_fail:
                 continue;
             if (ignore_net(pn))
                 continue;
-            const BoundingBox &curr_bounds = net_bounds[pn->name];
+            const BoundingBox &curr_bounds = net_bounds[pn->udata];
             // If the old location was at the edge of the bounds, or the new location exceeds the bounds,
             // an update is needed
             if (curr_bounds.touches_bounds(old_loc.x, old_loc.y) || !curr_bounds.is_inside_inc(curr_loc.x, curr_loc.y))
-                mc.bounds_changed_nets.insert(pn->name);
+                if (!mc.already_bounds_changed[pn->udata]) {
+                    mc.bounds_changed_nets.push_back(pn->udata);
+                    mc.already_bounds_changed[pn->udata] = true;
+                }
             // Output ports - all arcs change timing
             if (port.second.type == PORT_OUT) {
                 int cc;
                 TimingPortClass cls = ctx->getPortTimingClass(cell, port.first, cc);
                 if (cls != TMG_IGNORE)
                     for (size_t i = 0; i < pn->users.size(); i++)
-                        mc.changed_arcs.insert(std::make_pair(pn->name, i));
+                        if (!mc.already_changed_arcs[pn->udata][i]) {
+                            mc.changed_arcs.emplace_back(std::make_pair(pn->udata, i));
+                            mc.already_changed_arcs[pn->udata][i] = true;
+                        }
             } else if (port.second.type == PORT_IN) {
-                mc.changed_arcs.insert(std::make_pair(pn->name, fast_port_to_user.at(&port.second)));
+                auto usr = fast_port_to_user.at(&port.second);
+                if (!mc.already_changed_arcs[pn->udata][usr]) {
+                    mc.changed_arcs.emplace_back(std::make_pair(pn->udata, usr));
+                    mc.already_changed_arcs[pn->udata][usr] = true;
+                }
             }
         }
     }
@@ -736,16 +770,18 @@ swap_fail:
     {
         for (const auto &bc : md.bounds_changed_nets) {
             wirelen_t old_hpwl = net_bounds.at(bc).hpwl();
-            auto bounds = get_net_bounds(ctx->nets.at(bc).get());
-            md.new_net_bounds[bc] = bounds;
+            auto bounds = get_net_bounds(net_by_udata.at(bc));
+            md.new_net_bounds.emplace_back(std::make_pair(bc, bounds));
             md.wirelen_delta += (bounds.hpwl() - old_hpwl);
+            md.already_bounds_changed[bc] = false;
         }
 
         for (const auto &tc : md.changed_arcs) {
             double old_cost = net_arc_tcost.at(tc.first).at(tc.second);
-            double new_cost = get_timing_cost(ctx->nets.at(tc.first).get(), tc.second);
-            md.new_arc_costs[tc] = new_cost;
+            double new_cost = get_timing_cost(net_by_udata.at(tc.first), tc.second);
+            md.new_arc_costs.emplace_back(std::make_pair(tc, new_cost));
             md.timing_delta += (new_cost - old_cost);
+            md.already_changed_arcs[tc.first][tc.second] = false;
         }
     }
 
@@ -774,9 +810,9 @@ swap_fail:
     inline double curr_metric() { return lambda * curr_timing_cost + (1 - lambda) * curr_wirelen_cost; }
 
     // Map nets to their bounding box (so we can skip recompute for moves that do not exceed the bounds
-    std::unordered_map<IdString, BoundingBox> net_bounds;
+    std::vector<BoundingBox> net_bounds;
     // Map net arcs to their timing cost (criticality * delay ns)
-    std::unordered_map<IdString, std::vector<double>> net_arc_tcost;
+    std::vector<std::vector<double>> net_arc_tcost;
 
     // Fast lookup for cell port to net user index
     std::unordered_map<const PortInfo *, size_t> fast_port_to_user;
@@ -798,6 +834,8 @@ swap_fail:
     std::unordered_map<IdString, std::tuple<int, int>> bel_types;
     std::vector<std::vector<std::vector<std::vector<BelId>>>> fast_bels;
     std::unordered_set<BelId> locked_bels;
+    std::vector<NetInfo*> net_by_udata;
+    std::vector<decltype(NetInfo::udata)> old_udata;
     bool require_legal = true;
     const float legalise_temp = 0.001;
     const float post_legalise_temp = 0.002;
