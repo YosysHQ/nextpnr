@@ -1605,6 +1605,9 @@ void Arch::assignArchInfo()
             ci->sliceInfo.clkmux = id(str_or_default(ci->params, id_CLKMUX, "CLK"));
             ci->sliceInfo.lsrmux = id(str_or_default(ci->params, id_LSRMUX, "LSR"));
             ci->sliceInfo.srmode = id(str_or_default(ci->params, id_SRMODE, "LSR_OVER_CE"));
+            ci->sliceInfo.is_carry = str_or_default(ci->params, id("MODE"), "LOGIC") == "CCU2";
+            ci->sliceInfo.sd0 = int_or_default(ci->params, id("REG0_SD"), 0);
+            ci->sliceInfo.sd1 = int_or_default(ci->params, id("REG1_SD"), 0);
             ci->sliceInfo.has_l6mux = false;
             if (ci->ports.count(id_FXA) && ci->ports[id_FXA].net != nullptr &&
                 ci->ports[id_FXA].net->driver.port == id_OFX0)
