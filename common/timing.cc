@@ -414,7 +414,6 @@ struct Timing
                 while (crit_net) {
                     const PortInfo *crit_ipin = nullptr;
                     delay_t max_arrival = std::numeric_limits<delay_t>::min();
-
                     // Look at all input ports on its driving cell
                     for (const auto &port : crit_net->driver.cell->ports) {
                         if (port.second.type != PORT_IN || !port.second.net)
@@ -428,14 +427,21 @@ struct Timing
                         int port_clocks;
                         TimingPortClass portClass =
                                 ctx->getPortTimingClass(crit_net->driver.cell, port.first, port_clocks);
-                        if (portClass == TMG_REGISTER_INPUT || portClass == TMG_CLOCK_INPUT ||
-                            portClass == TMG_ENDPOINT || portClass == TMG_IGNORE)
+                        if (portClass == TMG_CLOCK_INPUT || portClass == TMG_ENDPOINT || portClass == TMG_IGNORE ||
+                            portClass == TMG_REGISTER_INPUT)
                             continue;
-
                         // And find the fanin net with the latest arrival time
                         if (net_data.count(port.second.net) &&
                             net_data.at(port.second.net).count(crit_pair.first.start)) {
-                            const auto net_arrival = net_data.at(port.second.net).at(crit_pair.first.start).max_arrival;
+                            auto net_arrival = net_data.at(port.second.net).at(crit_pair.first.start).max_arrival;
+                            if (net_delays) {
+                                for (auto &user : port.second.net->users)
+                                    if (user.port == port.first && user.cell == crit_net->driver.cell) {
+                                        net_arrival += ctx->getNetinfoRouteDelay(port.second.net, user);
+                                        break;
+                                    }
+                            }
+                            net_arrival += comb_delay.maxDelay();
                             if (net_arrival > max_arrival) {
                                 max_arrival = net_arrival;
                                 crit_ipin = &port.second;
@@ -445,7 +451,6 @@ struct Timing
 
                     if (!crit_ipin)
                         break;
-
                     // Now convert PortInfo* into a PortRef*
                     for (auto &usr : crit_ipin->net->users) {
                         if (usr.cell->name == crit_net->driver.cell->name && usr.port == crit_ipin->name) {
@@ -779,6 +784,7 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
             int port_clocks;
             auto portClass = ctx->getPortTimingClass(front_driver.cell, front_driver.port, port_clocks);
             IdString last_port = front_driver.port;
+            int clock_start = -1;
             if (portClass == TMG_REGISTER_OUTPUT) {
                 for (int i = 0; i < port_clocks; i++) {
                     TimingClockingInfo clockInfo = ctx->getPortClockingInfo(front_driver.cell, front_driver.port, i);
@@ -786,8 +792,7 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
                     if (clknet != nullptr && clknet->name == clocks.start.clock &&
                         clockInfo.edge == clocks.start.edge) {
                         last_port = clockInfo.clock_port;
-                        total += clockInfo.clockToQ.maxDelay();
-                        logic_total += clockInfo.clockToQ.maxDelay();
+                        clock_start = i;
                         break;
                     }
                 }
@@ -801,11 +806,15 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
                 auto &driver = net->driver;
                 auto driver_cell = driver.cell;
                 DelayInfo comb_delay;
-                if (last_port == driver.port) {
+                if (clock_start != -1) {
+                    auto clockInfo = ctx->getPortClockingInfo(driver_cell, driver.port, clock_start);
+                    comb_delay = clockInfo.clockToQ;
+                    clock_start = -1;
+                } else if (last_port == driver.port) {
                     // Case where we start with a STARTPOINT etc
                     comb_delay = ctx->getDelayFromNS(0);
                 } else {
-                    ctx->getCellDelay(sink_cell, last_port, driver.port, comb_delay);
+                    ctx->getCellDelay(driver_cell, last_port, driver.port, comb_delay);
                 }
                 total += comb_delay.maxDelay();
                 logic_total += comb_delay.maxDelay();
