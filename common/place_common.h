@@ -49,6 +49,10 @@ bool legalise_relative_constraints(Context *ctx);
 
 // Get the total distance from satisfied constraints for a cell
 int get_constraints_distance(const Context *ctx, const CellInfo *cell);
+
+// Check that a Bel is within the region for a cell
+bool check_cell_bel_region(const CellInfo *cell, BelId bel);
+
 NEXTPNR_NAMESPACE_END
 
 #endif
