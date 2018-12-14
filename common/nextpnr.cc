@@ -421,4 +421,25 @@ void BaseCtx::addClock(IdString net, float freq)
     }
 }
 
+void BaseCtx::createRectangularRegion(IdString name, int x0, int y0, int x1, int y1)
+{
+    std::unique_ptr<Region> new_region(new Region());
+    new_region->name = name;
+    new_region->constr_bels = true;
+    new_region->constr_pips = false;
+    new_region->constr_wires = false;
+    for (int x = x0; x <= x1; x++) {
+        for (int y = y0; y <= y1; y++) {
+            for (auto bel : getCtx()->getBelsByTile(x, y))
+                new_region->bels.insert(bel);
+        }
+    }
+    region[name] = std::move(new_region);
+}
+void BaseCtx::addBelToRegion(IdString name, BelId bel) { region[name]->bels.insert(bel); }
+void BaseCtx::constrainCellToRegion(IdString cell, IdString region_name)
+{
+    cells[cell]->region = region[region_name].get();
+}
+
 NEXTPNR_NAMESPACE_END

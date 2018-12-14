@@ -133,6 +133,13 @@ void arch_wrap_python()
 
     fn_wrapper_2a_v<Context, decltype(&Context::addClock), &Context::addClock, conv_from_str<IdString>,
                     pass_through<float>>::def_wrap(ctx_cls, "addClock");
+    fn_wrapper_5a_v<Context, decltype(&Context::createRectangularRegion), &Context::createRectangularRegion,
+                    conv_from_str<IdString>, pass_through<int>, pass_through<int>, pass_through<int>,
+                    pass_through<int>>::def_wrap(ctx_cls, "createRectangularRegion");
+    fn_wrapper_2a_v<Context, decltype(&Context::addBelToRegion), &Context::addBelToRegion, conv_from_str<IdString>,
+                    conv_from_str<BelId>>::def_wrap(ctx_cls, "addBelToRegion");
+    fn_wrapper_2a_v<Context, decltype(&Context::constrainCellToRegion), &Context::constrainCellToRegion,
+                    conv_from_str<IdString>, conv_from_str<IdString>>::def_wrap(ctx_cls, "constrainCellToRegion");
 
     WRAP_RANGE(Bel, conv_to_str<BelId>);
     WRAP_RANGE(Wire, conv_to_str<WireId>);

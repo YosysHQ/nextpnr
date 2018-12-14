@@ -104,6 +104,7 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
     typedef std::unordered_map<IdString, std::string> AttrMap;
     typedef std::unordered_map<IdString, PortInfo> PortMap;
     typedef std::unordered_map<IdString, IdString> PinMap;
+    typedef std::unordered_map<IdString, std::unique_ptr<Region>> RegionMap;
 
     class_<BaseCtx, BaseCtx *, boost::noncopyable>("BaseCtx", no_init);
 
@@ -135,6 +136,8 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
 
     typedef std::vector<PortRef> PortRefVector;
     typedef std::unordered_map<WireId, PipMap> WireMap;
+    typedef std::unordered_set<BelId> BelSet;
+    typedef std::unordered_set<WireId> WireSet;
 
     auto ni_cls = class_<ContextualWrapper<NetInfo &>>("NetInfo", no_init);
     readwrite_wrapper<NetInfo &, decltype(&NetInfo::name), &NetInfo::name, conv_to_str<IdString>,
@@ -163,10 +166,25 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
     def("parse_json", parse_json_shim);
     def("load_design", load_design_shim, return_value_policy<manage_new_object>());
 
+    auto region_cls = class_<ContextualWrapper<Region &>>("Region", no_init);
+    readwrite_wrapper<Region &, decltype(&Region::name), &Region::name, conv_to_str<IdString>,
+                      conv_from_str<IdString>>::def_wrap(region_cls, "name");
+    readwrite_wrapper<Region &, decltype(&Region::constr_bels), &Region::constr_bels, pass_through<bool>,
+                      pass_through<bool>>::def_wrap(region_cls, "constr_bels");
+    readwrite_wrapper<Region &, decltype(&Region::constr_wires), &Region::constr_wires, pass_through<bool>,
+                      pass_through<bool>>::def_wrap(region_cls, "constr_bels");
+    readwrite_wrapper<Region &, decltype(&Region::constr_pips), &Region::constr_pips, pass_through<bool>,
+                      pass_through<bool>>::def_wrap(region_cls, "constr_pips");
+    readonly_wrapper<Region &, decltype(&Region::bels), &Region::bels, wrap_context<BelSet &>>::def_wrap(region_cls,
+                                                                                                         "bels");
+    readonly_wrapper<Region &, decltype(&Region::wires), &Region::wires, wrap_context<WireSet &>>::def_wrap(region_cls,
+                                                                                                            "wires");
+
     WRAP_MAP(AttrMap, pass_through<std::string>, "AttrMap");
     WRAP_MAP(PortMap, wrap_context<PortInfo &>, "PortMap");
     WRAP_MAP(PinMap, conv_to_str<IdString>, "PinMap");
     WRAP_MAP(WireMap, wrap_context<PipMap &>, "WireMap");
+    WRAP_MAP_UPTR(RegionMap, "RegionMap");
 
     WRAP_VECTOR(PortRefVector, wrap_context<PortRef &>);
 
