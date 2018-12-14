@@ -345,6 +345,12 @@ template <typename T, typename value_conv> struct map_wrapper
         std::terminate();
     }
 
+    static bool contains(wrapped_map &x, std::string const &i)
+    {
+        K k = PythonConversion::string_converter<K>().from_str(x.ctx, i);
+        return x.base.count(k);
+    }
+
     static void wrap(const char *map_name, const char *kv_name, const char *kv_iter_name, const char *iter_name)
     {
         map_pair_wrapper<typename KV::first_type, typename KV::second_type, value_conv>::wrap(kv_name, kv_iter_name);
@@ -353,6 +359,7 @@ template <typename T, typename value_conv> struct map_wrapper
         class_<wrapped_map>(map_name, no_init)
                 .def("__iter__", rw::iter)
                 .def("__len__", len)
+                .def("__contains__", contains)
                 .def("__getitem__", get)
                 .def("__setitem__", set, with_custodian_and_ward<1, 2>());
     }
@@ -465,6 +472,12 @@ template <typename T> struct map_wrapper_uptr
         std::terminate();
     }
 
+    static bool contains(wrapped_map &x, std::string const &i)
+    {
+        K k = PythonConversion::string_converter<K>().from_str(x.ctx, i);
+        return x.base.count(k);
+    }
+
     static void wrap(const char *map_name, const char *kv_name, const char *kv_iter_name, const char *iter_name)
     {
         map_pair_wrapper_uptr<typename KV::first_type, typename KV::second_type>::wrap(kv_name, kv_iter_name);
@@ -473,6 +486,7 @@ template <typename T> struct map_wrapper_uptr
         class_<wrapped_map>(map_name, no_init)
                 .def("__iter__", rw::iter)
                 .def("__len__", len)
+                .def("__contains__", contains)
                 .def("__getitem__", get)
                 .def("__setitem__", set, with_custodian_and_ward<1, 2>());
     }
