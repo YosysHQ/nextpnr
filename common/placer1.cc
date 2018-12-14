@@ -115,7 +115,29 @@ class SAPlacer
             net.second->udata = n++;
             net_by_udata.push_back(net.second.get());
         }
-
+        for (auto &region : sorted(ctx->region)) {
+            Region *r = region.second;
+            BoundingBox bb;
+            if (r->constr_bels) {
+                bb.x0 = std::numeric_limits<int>::max();
+                bb.x1 = std::numeric_limits<int>::min();
+                bb.y0 = std::numeric_limits<int>::max();
+                bb.y1 = std::numeric_limits<int>::min();
+                for (auto bel : r->bels) {
+                    Loc loc = ctx->getBelLocation(bel);
+                    bb.x0 = std::min(bb.x0, loc.x);
+                    bb.x1 = std::max(bb.x1, loc.x);
+                    bb.y0 = std::min(bb.y0, loc.y);
+                    bb.y1 = std::max(bb.y1, loc.y);
+                }
+            } else {
+                bb.x0 = 0;
+                bb.y0 = 0;
+                bb.x1 = max_x;
+                bb.y1 = max_y;
+            }
+            region_bounds[r->name] = bb;
+        }
         build_port_index();
     }
 
@@ -382,7 +404,8 @@ class SAPlacer
                 ctx->unbindBel(cell->bel);
             }
             IdString targetType = cell->type;
-            for (auto bel : ctx->getBels()) {
+
+            auto proc_bel = [&](BelId bel) {
                 if (ctx->getBelType(bel) == targetType && ctx->isValidBelForCell(cell, bel)) {
                     if (ctx->checkBelAvail(bel)) {
                         uint64_t score = ctx->rng64();
@@ -400,7 +423,18 @@ class SAPlacer
                         }
                     }
                 }
+            };
+
+            if (cell->region != nullptr && cell->region->constr_bels) {
+                for (auto bel : cell->region->bels) {
+                    proc_bel(bel);
+                }
+            } else {
+                for (auto bel : ctx->getBels()) {
+                    proc_bel(bel);
+                }
             }
+
             if (best_bel == BelId()) {
                 if (iters == 0 || ripup_bel == BelId())
                     log_error("failed to place cell '%s' of type '%s'\n", cell->name.c_str(ctx), cell->type.c_str(ctx));
@@ -593,9 +627,22 @@ class SAPlacer
     {
         IdString targetType = cell->type;
         Loc curr_loc = ctx->getBelLocation(cell->bel);
+        int count = 0;
+
+        int dx = diameter, dy = diameter;
+        if (cell->region != nullptr && cell->region->constr_bels) {
+            dx = std::min(diameter, (region_bounds[cell->region->name].x1 - region_bounds[cell->region->name].x0) + 1);
+            dy = std::min(diameter, (region_bounds[cell->region->name].y1 - region_bounds[cell->region->name].y0) + 1);
+            // Clamp location to within bounds
+            curr_loc.x = std::max(region_bounds[cell->region->name].x0, curr_loc.x);
+            curr_loc.x = std::min(region_bounds[cell->region->name].x1, curr_loc.x);
+            curr_loc.y = std::max(region_bounds[cell->region->name].y0, curr_loc.y);
+            curr_loc.y = std::min(region_bounds[cell->region->name].y1, curr_loc.y);
+        }
+
         while (true) {
-            int nx = ctx->rng(2 * diameter + 1) + std::max(curr_loc.x - diameter, 0);
-            int ny = ctx->rng(2 * diameter + 1) + std::max(curr_loc.y - diameter, 0);
+            int nx = ctx->rng(2 * dx + 1) + std::max(curr_loc.x - dx, 0);
+            int ny = ctx->rng(2 * dy + 1) + std::max(curr_loc.y - dy, 0);
             int beltype_idx, beltype_cnt;
             std::tie(beltype_idx, beltype_cnt) = bel_types.at(targetType);
             if (beltype_cnt < cfg.minBelsForGridPick)
@@ -617,6 +664,7 @@ class SAPlacer
                 continue;
             if (locked_bels.find(bel) != locked_bels.end())
                 continue;
+            count++;
             return bel;
         }
     }
@@ -842,6 +890,7 @@ class SAPlacer
     int n_move, n_accept;
     int diameter = 35, max_x = 1, max_y = 1;
     std::unordered_map<IdString, std::tuple<int, int>> bel_types;
+    std::unordered_map<IdString, BoundingBox> region_bounds;
     std::vector<std::vector<std::vector<std::vector<BelId>>>> fast_bels;
     std::unordered_set<BelId> locked_bels;
     std::vector<NetInfo *> net_by_udata;
