@@ -175,24 +175,24 @@ std::unique_ptr<CellInfo> create_ecp5_cell(Context *ctx, IdString type, std::str
         new_cell->params[ctx->id("LSROMUX")] = "0";
         new_cell->params[ctx->id("LSRMUX")] = "LSR";
 
-        new_cell->params[ctx->id("OUTDEL")] = "DISABLED";
-        new_cell->params[ctx->id("DEL_VALUE")] = "0";
-        new_cell->params[ctx->id("WAIT_FOR_EDGE")] = "DISABLED";
+        new_cell->params[ctx->id("DELAY.OUTDEL")] = "DISABLED";
+        new_cell->params[ctx->id("DELAY.DEL_VALUE")] = "0";
+        new_cell->params[ctx->id("DELAY.WAIT_FOR_EDGE")] = "DISABLED";
 
         new_cell->params[ctx->id("DATAMUX_ODDR")] = "PADDO";
         if (type == id_IOLOGIC) {
-            new_cell->params[ctx->id("IDDRXN_MODE")] = "NONE";
-            new_cell->params[ctx->id("ODDRXN_MODE")] = "NONE";
+            new_cell->params[ctx->id("IDDRXN.MODE")] = "NONE";
+            new_cell->params[ctx->id("ODDRXN.MODE")] = "NONE";
 
-            new_cell->params[ctx->id("MIDDRX_MODE")] = "NONE";
-            new_cell->params[ctx->id("MODDRX_MODE")] = "NONE";
-            new_cell->params[ctx->id("MTDDRX_MODE")] = "NONE";
+            new_cell->params[ctx->id("MIDDRX.MODE")] = "NONE";
+            new_cell->params[ctx->id("MODDRX.MODE")] = "NONE";
+            new_cell->params[ctx->id("MTDDRX.MODE")] = "NONE";
 
             new_cell->params[ctx->id("IOLTOMUX")] = "NONE";
-            new_cell->params[ctx->id("MTDDRX_DQSW_INVERT")] = "DISABLED";
-            new_cell->params[ctx->id("MTDDRX_REGSET")] = "RESET";
+            new_cell->params[ctx->id("MTDDRX.DQSW_INVERT")] = "DISABLED";
+            new_cell->params[ctx->id("MTDDRX.REGSET")] = "RESET";
 
-            new_cell->params[ctx->id("MIDDRX_MODDRX_WRCLKMUX")] = "NONE";
+            new_cell->params[ctx->id("MIDDRX_MODDRX.WRCLKMUX")] = "NONE";
         }
         // Just copy ports from the Bel
         copy_bel_ports();
