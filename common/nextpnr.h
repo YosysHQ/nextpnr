@@ -637,6 +637,9 @@ struct BaseCtx
 
     // Intended to simplify Python API
     void addClock(IdString net, float freq);
+    void createRectangularRegion(IdString name, int x0, int y0, int x1, int y1);
+    void addBelToRegion(IdString name, BelId bel);
+    void constrainCellToRegion(IdString cell, IdString region_name);
 };
 
 NEXTPNR_NAMESPACE_END
