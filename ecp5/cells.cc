@@ -127,11 +127,17 @@ std::unique_ptr<CellInfo> create_ecp5_cell(Context *ctx, IdString type, std::str
     } else if (type == ctx->id("TRELLIS_IO")) {
         new_cell->params[ctx->id("DIR")] = "INPUT";
         new_cell->attrs[ctx->id("IO_TYPE")] = "LVCMOS33";
+        new_cell->params[ctx->id("DATAMUX_ODDR")] = "PADDO";
+        new_cell->params[ctx->id("DATAMUX_MDDR")] = "PADDO";
 
         add_port(ctx, new_cell.get(), "B", PORT_INOUT);
         add_port(ctx, new_cell.get(), "I", PORT_IN);
         add_port(ctx, new_cell.get(), "T", PORT_IN);
         add_port(ctx, new_cell.get(), "O", PORT_OUT);
+
+        add_port(ctx, new_cell.get(), "IOLDO", PORT_IN);
+        add_port(ctx, new_cell.get(), "IOLTO", PORT_IN);
+
     } else if (type == ctx->id("LUT4")) {
         new_cell->params[ctx->id("INIT")] = "0";
 
@@ -179,7 +185,6 @@ std::unique_ptr<CellInfo> create_ecp5_cell(Context *ctx, IdString type, std::str
         new_cell->params[ctx->id("DELAY.DEL_VALUE")] = "0";
         new_cell->params[ctx->id("DELAY.WAIT_FOR_EDGE")] = "DISABLED";
 
-        new_cell->params[ctx->id("DATAMUX_ODDR")] = "PADDO";
         if (type == id_IOLOGIC) {
             new_cell->params[ctx->id("IDDRXN.MODE")] = "NONE";
             new_cell->params[ctx->id("ODDRXN.MODE")] = "NONE";

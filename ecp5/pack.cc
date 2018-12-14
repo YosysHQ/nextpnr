@@ -1469,6 +1469,25 @@ class Ecp5Packer
                 replace_port(ci, ctx->id("Q1"), iol, id_RXDATA1);
                 iol->params[ctx->id("GSR")] = str_or_default(ci->params, ctx->id("GSR"), "DISABLED");
                 packed_cells.insert(cell.first);
+            } else if (ci->type == ctx->id("ODDRX1F")) {
+                CellInfo *pio = net_only_drives(ctx, ci->ports.at(ctx->id("Q")).net, is_trellis_io, id_I, true);
+                if (pio == nullptr)
+                    log_error("ODDRX1F '%s' Q output must be connected only to a top level output\n", ci->name.c_str(ctx));
+                CellInfo *iol;
+                if (pio_iologic.count(pio->name))
+                    iol = pio_iologic.at(pio->name);
+                else
+                    iol = create_pio_iologic(pio, ci);
+                set_iologic_mode(iol, "IDDRX1_ODDRX1");
+                replace_port(ci, ctx->id("Q"), iol, id_IOLDO);
+                replace_port(pio, id_PADDO, pio, id_IOLDO);
+                pio->params[ctx->id("DATAMUX_ODDR")] = "IOLDO";
+                set_iologic_sclk(iol, ci, ctx->id("SCLK"), true);
+                set_iologic_lsr(iol, ci, ctx->id("RST"), true);
+                replace_port(ci, ctx->id("D0"), iol, id_TXDATA0);
+                replace_port(ci, ctx->id("D1"), iol, id_TXDATA1);
+                iol->params[ctx->id("GSR")] = str_or_default(ci->params, ctx->id("GSR"), "DISABLED");
+                packed_cells.insert(cell.first);
             }
         }
         flush_cells();
