@@ -189,6 +189,12 @@ void BaseMainWindow::createMenusAndBars()
     actionRoute->setEnabled(false);
     connect(actionRoute, &QAction::triggered, task, &TaskManager::route);
 
+    actionExecutePy = new QAction("Execute Python", this);
+    actionExecutePy->setIcon(QIcon(":/icons/resources/py.png"));
+    actionExecutePy->setStatusTip("Execute Python script");
+    actionExecutePy->setEnabled(true);
+    connect(actionExecutePy, &QAction::triggered, this, &BaseMainWindow::execute_python);
+
     // Worker control toolbar actions
     actionPlay = new QAction("Play", this);
     actionPlay->setIcon(QIcon(":/icons/resources/control_play.png"));
@@ -249,6 +255,8 @@ void BaseMainWindow::createMenusAndBars()
     menuDesign->addAction(actionAssignBudget);
     menuDesign->addAction(actionPlace);
     menuDesign->addAction(actionRoute);
+    menuDesign->addSeparator();
+    menuDesign->addAction(actionExecutePy);
 
     // Add Help menu actions
     menuHelp->addAction(actionAbout);
@@ -268,6 +276,7 @@ void BaseMainWindow::createMenusAndBars()
     mainActionBar->addAction(actionAssignBudget);
     mainActionBar->addAction(actionPlace);
     mainActionBar->addAction(actionRoute);
+    mainActionBar->addAction(actionExecutePy);
 
     // Add worker control toolbar
     QToolBar *workerControlToolBar = new QToolBar("Worker");
@@ -412,6 +421,7 @@ void BaseMainWindow::disableActions()
     actionAssignBudget->setEnabled(false);
     actionPlace->setEnabled(false);
     actionRoute->setEnabled(false);
+    actionExecutePy->setEnabled(true);
 
     actionPlay->setEnabled(false);
     actionPause->setEnabled(false);
@@ -451,6 +461,14 @@ void BaseMainWindow::open_proj()
     QString fileName = QFileDialog::getOpenFileName(this, QString("Open Project"), QString(), QString("*.proj"));
     if (!fileName.isEmpty()) {
         projectLoad(fileName.toStdString());
+    }
+}
+
+void BaseMainWindow::execute_python()
+{
+    QString fileName = QFileDialog::getOpenFileName(this, QString("Execute Python"), QString(), QString("*.py"));
+    if (!fileName.isEmpty()) {
+        console->execute_python(fileName.toStdString());
     }
 }
 

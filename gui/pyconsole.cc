@@ -76,4 +76,21 @@ void PythonConsole::moveCursorToEnd()
     setTextCursor(cursor);
 }
 
+void PythonConsole::execute_python(std::string filename)
+{
+    int errorCode = 0;
+    std::string res;
+    res = pyinterpreter_execute_file(filename.c_str(), &errorCode);
+    if (res.size()) {
+        if (errorCode) {
+            setTextColor(ERROR_COLOR);
+        } else {
+            setTextColor(OUTPUT_COLOR);
+        }
+        append(res.c_str());
+        setTextColor(NORMAL_COLOR);
+        moveCursorToEnd();
+    }
+}
+
 NEXTPNR_NAMESPACE_END

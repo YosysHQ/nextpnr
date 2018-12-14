@@ -43,6 +43,7 @@ class PythonConsole : public QTextEdit, public ParseListener
     void displayString(QString text);
     void moveCursorToEnd();
     virtual void parseEvent(const ParseMessage &message);
+    void execute_python(std::string filename);
 
   protected:
     static const QColor NORMAL_COLOR;

@@ -45,6 +45,7 @@ class PythonTab : public QWidget
     void newContext(Context *ctx);
     void info(std::string str);
     void clearBuffer();
+    void execute_python(std::string filename);
 
   private:
     PythonConsole *console;
