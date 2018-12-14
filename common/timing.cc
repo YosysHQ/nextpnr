@@ -225,7 +225,7 @@ struct Timing
         }
 
         // Sanity check to ensure that all ports where fanins were recorded were indeed visited
-        if (!port_fanin.empty()) {
+        if (!port_fanin.empty() && !bool_or_default(ctx->settings, ctx->id("timing/ignoreLoops"), false)) {
             for (auto fanin : port_fanin) {
                 NetInfo *net = fanin.first->net;
                 if (net != nullptr) {

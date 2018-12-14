@@ -127,6 +127,8 @@ po::options_description CommandHandler::getGeneralOptions()
 
     general.add_options()("pack-only", "pack design only without placement or routing");
 
+    general.add_options()("ignore-loops", "ignore combinational loops in timing analysis");
+
     general.add_options()("version,V", "show version");
     general.add_options()("test", "check architecture database integrity");
     general.add_options()("freq", po::value<double>(), "set target frequency for design in MHz");
@@ -173,6 +175,10 @@ void CommandHandler::setupContext(Context *ctx)
 #endif
                 log_warning("Target frequency not specified. Will optimise for max frequency.\n");
         }
+    }
+
+    if (vm.count("ignore-loops")) {
+        settings->set("timing/ignoreLoops", true);
     }
 
     if (vm.count("cstrweight")) {
