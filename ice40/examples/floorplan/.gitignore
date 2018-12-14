@@ -1,0 +1,4 @@
+*.json
+*.asc
+*.bin
+__pycache__
