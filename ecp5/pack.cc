@@ -1377,6 +1377,16 @@ class Ecp5Packer
         }
     }
 
+    // Check if two nets have identical constant drivers
+    bool equal_constant(NetInfo *a, NetInfo *b)
+    {
+        if (a->driver.cell == nullptr || b->driver.cell == nullptr)
+            return (a->driver.cell == nullptr && b->driver.cell == nullptr);
+        if (a->driver.cell->type != ctx->id("GND") && a->driver.cell->type != ctx->id("VCC"))
+            return false;
+        return a->driver.cell->type == b->driver.cell->type;
+    }
+
     // Pack IOLOGIC
     void pack_iologic()
     {
@@ -1391,7 +1401,7 @@ class Ecp5Packer
             } else {
                 iol->params[input ? ctx->id("CLKIMUX") : ctx->id("CLKOMUX")] = "CLK";
                 if (iol->ports[id_CLK].net != nullptr) {
-                    if (iol->ports[id_CLK].net != sclk)
+                    if (iol->ports[id_CLK].net != sclk && !equal_constant(iol->ports[id_CLK].net, sclk))
                         log_error("IOLOGIC '%s' has conflicting clocks '%s' and '%s'\n", iol->name.c_str(ctx),
                                   iol->ports[id_CLK].net->name.c_str(ctx), sclk->name.c_str(ctx));
                 } else {
@@ -1410,7 +1420,7 @@ class Ecp5Packer
                 iol->params[input ? ctx->id("LSRIMUX") : ctx->id("LSROMUX")] = "0";
             } else {
                 iol->params[input ? ctx->id("LSRIMUX") : ctx->id("LSROMUX")] = "LSRMUX";
-                if (iol->ports[id_LSR].net != nullptr) {
+                if (iol->ports[id_LSR].net != nullptr && !equal_constant(iol->ports[id_LSR].net, lsr)) {
                     if (iol->ports[id_LSR].net != lsr)
                         log_error("IOLOGIC '%s' has conflicting LSR signals '%s' and '%s'\n", iol->name.c_str(ctx),
                                   iol->ports[id_LSR].net->name.c_str(ctx), lsr->name.c_str(ctx));
