@@ -745,6 +745,12 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             }
             if (ci->attrs.count(ctx->id("SLEWRATE")))
                 cc.tiles[pio_tile].add_enum(pio + ".SLEWRATE", str_or_default(ci->attrs, ctx->id("SLEWRATE"), "SLOW"));
+            std::string datamux_oddr = str_or_default(ci->params, ctx->id("DATAMUX_ODDR"), "PADDO");
+            if (datamux_oddr != "PADDO")
+                cc.tiles[pic_tile].add_enum(pio + ".DATAMUX_ODDR", datamux_oddr);
+            std::string datamux_mddr = str_or_default(ci->params, ctx->id("DATAMUX_MDDR"), "PADDO");
+            if (datamux_mddr != "PADDO")
+                cc.tiles[pic_tile].add_enum(pio + ".DATAMUX_MDDR", datamux_mddr);
         } else if (ci->type == ctx->id("DCCA")) {
             // Nothing to do
         } else if (ci->type == ctx->id("DP16KD")) {
@@ -1078,6 +1084,18 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                                int_to_bitvector(int_or_default(ci->attrs, ctx->id("MFG_ENABLE_FILTEROPAMP"), 0), 1));
 
             cc.tilegroups.push_back(tg);
+        } else if (ci->type == id_IOLOGIC || ci->type == id_SIOLOGIC) {
+            Loc pio_loc = ctx->getBelLocation(ci->bel);
+            pio_loc.z -= ci->type == id_SIOLOGIC ? 2 : 4;
+            std::string pic_tile = get_pic_tile(ctx, ctx->getBelByLocation(pio_loc));
+            std::string prim = std::string("IOLOGIC") + "ABCD"[pio_loc.z];
+            for (auto &param : ci->params) {
+                if (param.first == ctx->id("DELAY.DEL_VALUE"))
+                    cc.tiles[pic_tile].add_word(prim + "." + param.first.str(ctx),
+                                                int_to_bitvector(std::stoi(param.second), 7));
+                else
+                    cc.tiles[pic_tile].add_enum(prim + "." + param.first.str(ctx), param.second);
+            }
         } else if (ci->type == id_DCUA) {
             TileGroup tg;
             tg.tiles = get_dcu_tiles(ctx, ci->bel);

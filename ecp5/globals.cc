@@ -58,6 +58,8 @@ class Ecp5GlobalRouter
         if (user.cell->type == id_DCUA && (user.port == id_CH0_FF_RXI_CLK || user.port == id_CH1_FF_RXI_CLK ||
                                            user.port == id_CH0_FF_TXI_CLK || user.port == id_CH1_FF_TXI_CLK))
             return true;
+        if ((user.cell->type == id_IOLOGIC || user.cell->type == id_SIOLOGIC) && user.port == id_CLK)
+            return true;
         return false;
     }
 
