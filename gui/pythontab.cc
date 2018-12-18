@@ -114,4 +114,6 @@ void PythonTab::clearBuffer() { console->clear(); }
 
 void PythonTab::info(std::string str) { console->displayString(str.c_str()); }
 
+void PythonTab::execute_python(std::string filename) { console->execute_python(filename); }
+
 NEXTPNR_NAMESPACE_END

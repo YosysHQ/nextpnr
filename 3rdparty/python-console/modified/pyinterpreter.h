@@ -33,4 +33,5 @@ void pyinterpreter_initialize();
 void pyinterpreter_finalize();
 void pyinterpreter_aquire();
 void pyinterpreter_release();
+std::string pyinterpreter_execute_file(const char *python_file, int *errorCode);
 #endif // PYINTERPRETER_H

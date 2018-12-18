@@ -1,0 +1,6 @@
+attosoc_pnr.v
+attosoc.asc
+attosoc.json
+attosoc_pnr_tb
+testbench.vcd
+output.txt

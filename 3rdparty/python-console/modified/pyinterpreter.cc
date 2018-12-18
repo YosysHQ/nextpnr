@@ -153,3 +153,25 @@ void pyinterpreter_release()
 {
     PyEval_ReleaseThread(m_threadState);
 }
+
+std::string pyinterpreter_execute_file(const char *python_file, int *errorCode)
+{
+    PyEval_AcquireThread(m_threadState);
+    *errorCode = 0;
+    std::string res;
+    FILE *fp = fopen(python_file, "r");
+    if (fp == NULL) {
+        *errorCode = 1;
+        res = "Fatal error: file not found " + std::string(python_file) + "\n";
+        return res;
+    }
+
+    if (PyRun_SimpleFile(fp, python_file)==-1) {
+        *errorCode = 1;
+        PyErr_Print();
+    }
+    res = redirector_take_output(m_threadState);
+
+    PyEval_ReleaseThread(m_threadState);
+    return res;
+}

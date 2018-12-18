@@ -627,7 +627,9 @@ static void insert_iobuf(Context *ctx, NetInfo *net, PortType type, const string
         iobuf->ports[ctx->id("O")] = PortInfo{ctx->id("O"), net, PORT_OUT};
         // Special case: input, etc, directly drives inout
         if (net->driver.cell != nullptr) {
-            assert(net->driver.cell->type == ctx->id("$nextpnr_iobuf"));
+            if (net->driver.cell->type != ctx->id("$nextpnr_iobuf"))
+                log_error("Top-level input '%s' also driven by %s.%s.\n", name.c_str(),
+                          net->driver.cell->name.c_str(ctx), net->driver.port.c_str(ctx));
             net = net->driver.cell->ports.at(ctx->id("I")).net;
         }
         assert(net->driver.cell == nullptr);
@@ -690,8 +692,28 @@ void json_import(Context *ctx, string modname, JsonNode *node)
 
     log_info("Importing module %s\n", modname.c_str());
 
+    // Multiple labels might refer to the same net. For now we resolve conflicts thus:
+    //  - names with fewer $ are always prefered
+    //  - between equal $ counts, fewer .s are prefered
+    //  - ties are resolved alphabetically
+    auto prefer_netlabel = [](const std::string &a, const std::string &b) {
+        if (b.empty())
+            return true;
+        long a_dollars = std::count(a.begin(), a.end(), '$'), b_dollars = std::count(b.begin(), b.end(), '$');
+        if (a_dollars < b_dollars)
+            return true;
+        else if (a_dollars > b_dollars)
+            return false;
+        long a_dots = std::count(a.begin(), a.end(), '.'), b_dots = std::count(b.begin(), b.end(), '.');
+        if (a_dots < b_dots)
+            return true;
+        else if (a_dots > b_dots)
+            return false;
+        return a < b;
+    };
+
     // Import netnames
-    std::vector<IdString> netnames;
+    std::vector<std::string> netlabels;
     if (node->data_dict.count("netnames")) {
         JsonNode *cell_parent = node->data_dict.at("netnames");
         for (int nnid = 0; nnid < GetSize(cell_parent->data_dict_keys); nnid++) {
@@ -705,15 +727,19 @@ void json_import(Context *ctx, string modname, JsonNode *node)
                 size_t num_bits = bits->data_array.size();
                 for (size_t i = 0; i < num_bits; i++) {
                     int netid = bits->data_array.at(i)->data_number;
-                    if (netid >= int(netnames.size()))
-                        netnames.resize(netid + 1);
-                    netnames.at(netid) = ctx->id(
-                            basename + (num_bits == 1 ? "" : std::string("[") + std::to_string(i) + std::string("]")));
+                    if (netid >= int(netlabels.size()))
+                        netlabels.resize(netid + 1);
+                    std::string name =
+                            basename + (num_bits == 1 ? "" : std::string("[") + std::to_string(i) + std::string("]"));
+                    if (prefer_netlabel(name, netlabels.at(netid)))
+                        netlabels.at(netid) = name;
                 }
             }
         }
     }
-
+    std::vector<IdString> netids;
+    std::transform(netlabels.begin(), netlabels.end(), std::back_inserter(netids),
+                   [ctx](const std::string &s) { return ctx->id(s); });
     if (node->data_dict.count("cells")) {
         JsonNode *cell_parent = node->data_dict.at("cells");
         //
@@ -723,7 +749,7 @@ void json_import(Context *ctx, string modname, JsonNode *node)
         //
         for (int cellid = 0; cellid < GetSize(cell_parent->data_dict_keys); cellid++) {
             JsonNode *here = cell_parent->data_dict.at(cell_parent->data_dict_keys[cellid]);
-            json_import_cell(ctx, modname, netnames, here, cell_parent->data_dict_keys[cellid]);
+            json_import_cell(ctx, modname, netids, here, cell_parent->data_dict_keys[cellid]);
         }
     }
 
@@ -737,7 +763,7 @@ void json_import(Context *ctx, string modname, JsonNode *node)
             JsonNode *here;
 
             here = ports_parent->data_dict.at(ports_parent->data_dict_keys[portid]);
-            json_import_toplevel_port(ctx, modname, netnames, ports_parent->data_dict_keys[portid], here);
+            json_import_toplevel_port(ctx, modname, netids, ports_parent->data_dict_keys[portid], here);
         }
     }
     check_all_nets_driven(ctx);
