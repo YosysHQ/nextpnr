@@ -1497,6 +1497,10 @@ class Ecp5Packer
                     iol = create_pio_iologic(pio, ci);
                 set_iologic_mode(iol, "IDDRX1_ODDRX1");
                 replace_port(ci, ctx->id("Q"), iol, id_IOLDO);
+                if (!pio->ports.count(id_IOLDO)) {
+                    pio->ports[id_IOLDO].name = id_IOLDO;
+                    pio->ports[id_IOLDO].type = PORT_IN;
+                }
                 replace_port(pio, id_I, pio, id_IOLDO);
                 pio->params[ctx->id("DATAMUX_ODDR")] = "IOLDO";
                 set_iologic_sclk(iol, ci, ctx->id("SCLK"), false);
