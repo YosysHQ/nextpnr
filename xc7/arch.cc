@@ -138,6 +138,7 @@ TorcInfo::TorcInfo(BaseCtx *ctx, const std::string &inDeviceName, const std::str
     const boost::regex re_CLB_I1_6("CLBL[LM]_(L|LL|M)_[A-D]([1-6])");
     const boost::regex bufg_i("CLK_BUFG_BUFGCTRL\\d+_I0");
     const boost::regex bufg_o("CLK_BUFG_BUFGCTRL\\d+_O");
+    const boost::regex hrow("CLK_HROW_CLK[01]_[34]");
     std::unordered_map</*TileTypeIndex*/ unsigned, std::vector<delay_t>> delay_lookup;
     std::unordered_map<Segments::SegmentReference, TileIndex> segment_to_anchor;
     Tilewire currentTilewire;
@@ -320,6 +321,13 @@ TorcInfo::TorcInfo(BaseCtx *ctx, const std::string &inDeviceName, const std::str
                             if (boost::regex_match(ewi.mWireName, bufg_o))
                                 continue;
                         }
+                    }
+
+                    // Disable entering HROW from INT_[LR].CLK[01]
+                    if (boost::starts_with(tileTypeName, "CLK_HROW")) {
+                        ewi.set(a.getSourceTilewire());
+                        if (boost::regex_match(ewi.mWireName, hrow))
+                            continue;
                     }
 
                     pips.emplace_back(p);
