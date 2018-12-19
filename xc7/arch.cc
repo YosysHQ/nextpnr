@@ -139,6 +139,7 @@ TorcInfo::TorcInfo(BaseCtx *ctx, const std::string &inDeviceName, const std::str
     const boost::regex bufg_i("CLK_BUFG_BUFGCTRL\\d+_I0");
     const boost::regex bufg_o("CLK_BUFG_BUFGCTRL\\d+_O");
     std::unordered_map</*TileTypeIndex*/ unsigned, std::vector<delay_t>> delay_lookup;
+    std::unordered_map<Segments::SegmentReference, TileIndex> segment_to_anchor;
     Tilewire currentTilewire;
     WireId w;
     w.index = 0;
@@ -153,8 +154,28 @@ TorcInfo::TorcInfo(BaseCtx *ctx, const std::string &inDeviceName, const std::str
             const auto &currentSegment = segments.getTilewireSegment(currentTilewire);
 
             if (!currentSegment.isTrivial()) {
-                if (currentSegment.getAnchorTileIndex() != tileIndex)
+                auto r = segment_to_anchor.emplace(currentSegment, currentSegment.getAnchorTileIndex());
+                if (r.second) {
+                    TilewireVector segment;
+                    const_cast<DDB &>(*ddb).expandSegment(currentTilewire, segment, DDB::eExpandDirectionNone);
+                    // expand all of the arcs
+                    TilewireVector::const_iterator sep = segment.begin();
+                    TilewireVector::const_iterator see = segment.end();
+                    while(sep < see) {
+                        // expand the tilewire sinks
+                        const Tilewire& tilewire = *sep++;
+
+                        const auto &tileInfo = tiles.getTileInfo(tilewire.getTileIndex());
+                        const auto &tileTypeName = tiles.getTileTypeName(tileInfo.getTypeIndex());
+                        if (boost::starts_with(tileTypeName, "INT") || boost::starts_with(tileTypeName, "CLB")) {
+                            r.first->second = tilewire.getTileIndex();
+                            break;
+                        }
+                    }
+                }
+                if (r.first->second != tileIndex)
                     continue;
+
                 segment_to_wire.emplace(currentSegment, w);
             } else
                 trivial_to_wire.emplace(currentTilewire, w);
@@ -236,6 +257,7 @@ TorcInfo::TorcInfo(BaseCtx *ctx, const std::string &inDeviceName, const std::str
             ++w.index;
         }
     }
+    segment_to_anchor.clear();
     wire_to_tilewire.shrink_to_fit();
     wire_to_delay.shrink_to_fit();
     num_wires = wire_to_tilewire.size();
