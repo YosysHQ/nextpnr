@@ -445,6 +445,26 @@ struct Router1
         auto dst_wire = ctx->getNetinfoSinkWire(net_info, net_info->users[user_idx]);
         ripup_flag = false;
 
+#ifdef ARCH_XC7
+        // Work around the fact that BUFG inputs have a logical location far away from its IMUX by introducing an "imux_wire" to guide A* routing
+        auto imux_wire = dst_wire;
+        const auto &dst_tw = torc_info->wire_to_tilewire[dst_wire.index];
+
+        const auto &tileInfo = torc_info->tiles.getTileInfo(dst_tw.getTileIndex());
+        const auto tileTypeName = torc_info->tiles.getTileTypeName(tileInfo.getTypeIndex());
+        if (boost::starts_with(tileTypeName, "CLK")) {
+            TilewireVector sources;
+            const_cast<DDB &>(*torc_info->ddb).expandTilewireSources(dst_tw, sources, false /*inUseTied*/, true /*inUseRegular*/, false /*inUseIrregular*/, false /*inUseRoutethrough*/);
+            std::cout << ctx->getWireName(torc_info->tilewire_to_wire(dst_tw)).str(ctx);
+            if (sources.size() == 1) {
+                imux_wire = torc_info->tilewire_to_wire(sources.front());
+                std::cout << " -> " << ctx->getWireName(imux_wire).str(ctx) << std::endl;
+            }
+            else
+                std::cout << " has " << sources.size() << " sources" << std::endl;
+        }
+#endif
+
         if (ctx->debug) {
             log("Routing arc %d on net %s (%d arcs total):\n", user_idx, ctx->nameOf(net_info),
                 int(net_info->users.size()));
@@ -513,6 +533,7 @@ struct Router1
                 next_delay += ctx->getWireDelay(next_wire).maxDelay();
 
 #ifdef ARCH_XC7
+                // For BUFG routing, do not exit the global network until the destination tile is reached
                 if (ctx->isGlobalNet(net_info)) {
                     if (torc_info->wire_is_global[src_wire.index] && !torc_info->wire_is_global[next_wire.index]) {
                         const auto &arc = torc_info->pip_to_arc[pip.index];
@@ -632,7 +653,11 @@ struct Router1
                 next_qw.penalty = next_penalty;
                 next_qw.bonus = next_bonus;
                 if (cfg.useEstimate) {
+#ifdef ARCH_XC7
+                    next_qw.togo = ctx->estimateDelay(next_wire, imux_wire);
+#else
                     next_qw.togo = ctx->estimateDelay(next_wire, dst_wire);
+#endif
                     delay_t this_est = next_qw.delay + next_qw.togo;
                     if (this_est / 2 - cfg.estimatePrecision > best_est)
                         continue;
