@@ -527,10 +527,23 @@ void write_asc(const Context *ctx, std::ostream &out)
                 }
 
                 if (ctx->args.type == ArchArgs::UP5K) {
+                    std::string pullup_resistor = "100K";
+                    if (cell.second->attrs.count(ctx->id("PULLUP_RESISTOR")))
+                        pullup_resistor = cell.second->attrs.at(ctx->id("PULLUP_RESISTOR"));
+                    NPNR_ASSERT(pullup_resistor == "100K" || pullup_resistor == "10K" || pullup_resistor == "6P8K" ||
+                                pullup_resistor == "3P3K");
                     if (iez == 0) {
-                        set_config(ti, config.at(iey).at(iex), "IoCtrl.cf_bit_39", !pullup);
+                        set_config(ti, config.at(iey).at(iex), "IoCtrl.cf_bit_39",
+                                   (!pullup) || (pullup_resistor != "100K"));
+                        set_config(ti, config.at(iey).at(iex), "IoCtrl.cf_bit_36", pullup && pullup_resistor == "3P3K");
+                        set_config(ti, config.at(iey).at(iex), "IoCtrl.cf_bit_37", pullup && pullup_resistor == "6P8K");
+                        set_config(ti, config.at(iey).at(iex), "IoCtrl.cf_bit_38", pullup && pullup_resistor == "10K");
                     } else if (iez == 1) {
-                        set_config(ti, config.at(iey).at(iex), "IoCtrl.cf_bit_35", !pullup);
+                        set_config(ti, config.at(iey).at(iex), "IoCtrl.cf_bit_35",
+                                   (!pullup) || (pullup_resistor != "100K"));
+                        set_config(ti, config.at(iey).at(iex), "IoCtrl.cf_bit_32", pullup && pullup_resistor == "3P3K");
+                        set_config(ti, config.at(iey).at(iex), "IoCtrl.cf_bit_33", pullup && pullup_resistor == "6P8K");
+                        set_config(ti, config.at(iey).at(iex), "IoCtrl.cf_bit_34", pullup && pullup_resistor == "10K");
                     }
                 }
             } else {
