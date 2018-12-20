@@ -1181,20 +1181,26 @@ static void pack_special(Context *ctx)
                 log_info("  PLL '%s' has LOCK output, need to pass all outputs via LUT\n", ci->name.c_str(ctx));
                 bool found_lut = false;
                 bool all_luts = true;
+                bool found_carry = false;
                 unsigned int lut_count = 0;
                 for (const auto &user : port.net->users) {
                     NPNR_ASSERT(user.cell != nullptr);
                     if (user.cell->type == ctx->id("ICESTORM_LC")) {
-                        found_lut = true;
-                        lut_count++;
+                        if (bool_or_default(user.cell->params, ctx->id("CARRY_ENABLE"), false)) {
+                            found_carry = true;
+                            all_luts = false;
+                        } else {
+                            found_lut = true;
+                            lut_count++;
+                        }
                     } else {
                         all_luts = false;
                     }
                 }
 
-                if (found_lut && all_luts) {
+                if (found_lut && all_luts && lut_count < 8) {
                     // Every user is a LUT, carry on now.
-                } else if (found_lut && !all_luts && lut_count < 8) {
+                } else if (found_lut && !all_luts && !found_carry && lut_count < 8) {
                     // Strategy: create a pass-through LUT, move all non-LUT users behind it.
                     log_info("  LUT strategy for %s: move non-LUT users to new LUT\n", port.name.c_str(ctx));
                     auto pt = spliceLUT(ctx, packed.get(), port.name, true);
