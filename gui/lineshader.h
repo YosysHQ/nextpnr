@@ -172,7 +172,7 @@ class LineShader
     LineShader(QObject *parent) : parent_(parent), program_(nullptr) {}
 
     static constexpr const char *vertexShaderSource_ =
-            "#version 330\n"
+            "#version 150\n"
             "in highp vec2  position;\n"
             "in highp vec2  normal;\n"
             "in highp float miter;\n"
@@ -183,7 +183,7 @@ class LineShader
             "   gl_Position = projection * vec4(p, 0.0, 1.0);\n"
             "}\n";
 
-    static constexpr const char *fragmentShaderSource_ = "#version 330\n"
+    static constexpr const char *fragmentShaderSource_ = "#version 150\n"
                                                          "uniform   lowp  vec4  color;\n"
                                                          "out vec4 Out_Color;\n"
                                                          "void main() {\n"
