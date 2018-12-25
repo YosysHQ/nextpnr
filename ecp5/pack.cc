@@ -299,7 +299,16 @@ class Ecp5Packer
                     // iobuf
                     log_info("%s feeds TRELLIS_IO %s, removing %s %s.\n", ci->name.c_str(ctx), trio->name.c_str(ctx),
                              ci->type.c_str(ctx), ci->name.c_str(ctx));
+
                     NetInfo *net = trio->ports.at(ctx->id("B")).net;
+                    if (((ci->type == ctx->id("$nextpnr_ibuf") || ci->type == ctx->id("$nextpnr_iobuf")) &&
+                         net->users.size() > 1) ||
+                        (ci->type == ctx->id("$nextpnr_obuf") &&
+                         (net->users.size() > 2 || net->driver.cell != nullptr)) ||
+                        (ci->type == ctx->id("$nextpnr_iobuf") && ci->ports.at(ctx->id("I")).net != nullptr &&
+                         ci->ports.at(ctx->id("I")).net->driver.cell != nullptr))
+                        log_error("Pin B of %s '%s' connected to more than a single top level IO.\n",
+                                  trio->type.c_str(ctx), trio->name.c_str(ctx));
                     if (net != nullptr) {
                         ctx->nets.erase(net->name);
                         trio->ports.at(ctx->id("B")).net = nullptr;
