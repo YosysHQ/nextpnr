@@ -478,9 +478,6 @@ static void pack_io(Context *ctx)
             }
             packed_cells.insert(ci->name);
             std::copy(ci->attrs.begin(), ci->attrs.end(), std::inserter(sb->attrs, sb->attrs.begin()));
-            if (!sb->attrs.count(ctx->id("BEL")))
-                log_warning("IO '%s' is not constrained to a pin and will be automatically placed\n",
-                            ci->name.c_str(ctx));
         } else if (is_sb_io(ctx, ci) || is_sb_gb_io(ctx, ci)) {
             NetInfo *net = ci->ports.at(ctx->id("PACKAGE_PIN")).net;
             if ((net != nullptr) && (net->users.size() > 1))

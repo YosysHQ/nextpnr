@@ -21,6 +21,7 @@
 #include "pcf.h"
 #include <sstream>
 #include "log.h"
+#include "util.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -98,6 +99,21 @@ bool apply_pcf(Context *ctx, std::string filename, std::istream &in)
                 }
             } else {
                 log_error("unsupported PCF command '%s' (on line %d)\n", cmd.c_str(), lineno);
+            }
+        }
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (ci->type == ctx->id("$nextpnr_ibuf") || ci->type == ctx->id("$nextpnr_obuf") ||
+                ci->type == ctx->id("$nextpnr_iobuf")) {
+                if (!ci->attrs.count(ctx->id("BEL"))) {
+                    if (bool_or_default(ctx->settings, ctx->id("pcf_allow_unconstrained")))
+                        log_warning("IO '%s' is unconstrained in PCF and will be automatically placed\n",
+                                    cell.first.c_str(ctx));
+                    else
+                        log_error("IO '%s' is unconstrained in PCF (override this error with "
+                                  "--pcf-allow-unconstrained)\n",
+                                  cell.first.c_str(ctx));
+                }
             }
         }
         ctx->settings.emplace(ctx->id("input/pcf"), filename);
