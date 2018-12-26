@@ -77,6 +77,20 @@ bool CommandHandler::executeBeforeContext()
         return true;
     }
     validate();
+
+    if (vm.count("quiet")) {
+        log_streams.push_back(std::make_pair(&std::cerr, LogLevel::WARNING_MSG));
+    } else {
+        log_streams.push_back(std::make_pair(&std::cerr, LogLevel::LOG_MSG));
+    }
+
+    if (vm.count("log")) {
+        std::string logfilename = vm["log"].as<std::string>();
+        logfile = std::ofstream(logfilename);
+        if (!logfile)
+            log_error("Failed to open log file '%s' for writing.\n", logfilename.c_str());
+        log_streams.push_back(std::make_pair(&logfile, LogLevel::LOG_MSG));
+    }
     return false;
 }
 
@@ -128,20 +142,6 @@ void CommandHandler::setupContext(Context *ctx)
     if (vm.count("debug")) {
         ctx->verbose = true;
         ctx->debug = true;
-    }
-
-    if (vm.count("quiet")) {
-        log_streams.push_back(std::make_pair(&std::cerr, LogLevel::WARNING_MSG));
-    } else {
-        log_streams.push_back(std::make_pair(&std::cerr, LogLevel::LOG_MSG));
-    }
-
-    if (vm.count("log")) {
-        std::string logfilename = vm["log"].as<std::string>();
-        logfile = std::ofstream(logfilename);
-        if (!logfile)
-            log_error("Failed to open log file '%s' for writing.\n", logfilename.c_str());
-        log_streams.push_back(std::make_pair(&logfile, LogLevel::LOG_MSG));
     }
 
     if (vm.count("force")) {
