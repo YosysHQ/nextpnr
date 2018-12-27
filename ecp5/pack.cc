@@ -299,7 +299,16 @@ class Ecp5Packer
                     // iobuf
                     log_info("%s feeds TRELLIS_IO %s, removing %s %s.\n", ci->name.c_str(ctx), trio->name.c_str(ctx),
                              ci->type.c_str(ctx), ci->name.c_str(ctx));
+
                     NetInfo *net = trio->ports.at(ctx->id("B")).net;
+                    if (((ci->type == ctx->id("$nextpnr_ibuf") || ci->type == ctx->id("$nextpnr_iobuf")) &&
+                         net->users.size() > 1) ||
+                        (ci->type == ctx->id("$nextpnr_obuf") &&
+                         (net->users.size() > 2 || net->driver.cell != nullptr)) ||
+                        (ci->type == ctx->id("$nextpnr_iobuf") && ci->ports.at(ctx->id("I")).net != nullptr &&
+                         ci->ports.at(ctx->id("I")).net->driver.cell != nullptr))
+                        log_error("Pin B of %s '%s' connected to more than a single top level IO.\n",
+                                  trio->type.c_str(ctx), trio->name.c_str(ctx));
                     if (net != nullptr) {
                         ctx->nets.erase(net->name);
                         trio->ports.at(ctx->id("B")).net = nullptr;
@@ -1497,6 +1506,10 @@ class Ecp5Packer
                     iol = create_pio_iologic(pio, ci);
                 set_iologic_mode(iol, "IDDRX1_ODDRX1");
                 replace_port(ci, ctx->id("Q"), iol, id_IOLDO);
+                if (!pio->ports.count(id_IOLDO)) {
+                    pio->ports[id_IOLDO].name = id_IOLDO;
+                    pio->ports[id_IOLDO].type = PORT_IN;
+                }
                 replace_port(pio, id_I, pio, id_IOLDO);
                 pio->params[ctx->id("DATAMUX_ODDR")] = "IOLDO";
                 set_iologic_sclk(iol, ci, ctx->id("SCLK"), false);

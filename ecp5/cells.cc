@@ -416,7 +416,7 @@ void nxio_to_tr(Context *ctx, CellInfo *nxio, CellInfo *trio, std::vector<std::u
             ctx, donet, [](const Context *ctx, const CellInfo *cell) { return cell->type == ctx->id("$_TBUF_"); },
             ctx->id("Y"));
     if (tbuf) {
-        replace_port(tbuf, ctx->id("I"), trio, ctx->id("I"));
+        replace_port(tbuf, ctx->id("A"), trio, ctx->id("I"));
         // Need to invert E to form T
         std::unique_ptr<CellInfo> inv_lut = create_ecp5_cell(ctx, ctx->id("LUT4"), trio->name.str(ctx) + "$invert_T");
         replace_port(tbuf, ctx->id("E"), inv_lut.get(), ctx->id("A"));

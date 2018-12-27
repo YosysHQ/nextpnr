@@ -21,6 +21,7 @@
 #include "pcf.h"
 #include <sstream>
 #include "log.h"
+#include "util.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -47,17 +48,43 @@ bool apply_pcf(Context *ctx, std::string filename, std::istream &in)
             if (words.size() == 0)
                 continue;
             std::string cmd = words.at(0);
+            bool nowarn = false;
             if (cmd == "set_io") {
                 size_t args_end = 1;
-                while (args_end < words.size() && words.at(args_end).at(0) == '-')
+                std::vector<std::pair<IdString, std::string>> extra_attrs;
+                while (args_end < words.size() && words.at(args_end).at(0) == '-') {
+                    const auto &setting = words.at(args_end);
+                    if (setting == "-pullup") {
+                        const auto &value = words.at(++args_end);
+                        if (value == "yes" || value == "1")
+                            extra_attrs.emplace_back(std::make_pair(ctx->id("PULLUP"), "1"));
+                        else if (value == "no" || value == "0")
+                            extra_attrs.emplace_back(std::make_pair(ctx->id("PULLUP"), "0"));
+                        else
+                            log_error("Invalid value '%s' for -pullup (on line %d)\n", value.c_str(), lineno);
+                    } else if (setting == "-pullup_resistor") {
+                        const auto &value = words.at(++args_end);
+                        if (ctx->args.type != ArchArgs::UP5K)
+                            log_error("Pullup resistance can only be set on UP5K (on line %d)\n", lineno);
+                        if (value != "3P3K" && value != "6P8K" && value != "10K" && value != "100K")
+                            log_error("Invalid value '%s' for -pullup_resistor (on line %d)\n", value.c_str(), lineno);
+                        extra_attrs.emplace_back(std::make_pair(ctx->id("PULLUP_RESISTOR"), value));
+                    } else if (setting == "-nowarn") {
+                        nowarn = true;
+                    } else if (setting == "--warn-no-port") {
+                    } else {
+                        log_warning("Ignoring PCF setting '%s' (on line %d)\n", setting.c_str(), lineno);
+                    }
                     args_end++;
+                }
                 if (args_end >= words.size() - 1)
                     log_error("expected PCF syntax 'set_io cell pin' (on line %d)\n", lineno);
                 std::string cell = words.at(args_end);
                 std::string pin = words.at(args_end + 1);
                 auto fnd_cell = ctx->cells.find(ctx->id(cell));
                 if (fnd_cell == ctx->cells.end()) {
-                    log_warning("unmatched constraint '%s' (on line %d)\n", cell.c_str(), lineno);
+                    if (!nowarn)
+                        log_warning("unmatched constraint '%s' (on line %d)\n", cell.c_str(), lineno);
                 } else {
                     BelId pin_bel = ctx->getPackagePinBel(pin);
                     if (pin_bel == BelId())
@@ -67,9 +94,26 @@ bool apply_pcf(Context *ctx, std::string filename, std::istream &in)
                     fnd_cell->second->attrs[ctx->id("BEL")] = ctx->getBelName(pin_bel).str(ctx);
                     log_info("constrained '%s' to bel '%s'\n", cell.c_str(),
                              fnd_cell->second->attrs[ctx->id("BEL")].c_str());
+                    for (const auto &attr : extra_attrs)
+                        fnd_cell->second->attrs[attr.first] = attr.second;
                 }
             } else {
                 log_error("unsupported PCF command '%s' (on line %d)\n", cmd.c_str(), lineno);
+            }
+        }
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (ci->type == ctx->id("$nextpnr_ibuf") || ci->type == ctx->id("$nextpnr_obuf") ||
+                ci->type == ctx->id("$nextpnr_iobuf")) {
+                if (!ci->attrs.count(ctx->id("BEL"))) {
+                    if (bool_or_default(ctx->settings, ctx->id("pcf_allow_unconstrained")))
+                        log_warning("IO '%s' is unconstrained in PCF and will be automatically placed\n",
+                                    cell.first.c_str(ctx));
+                    else
+                        log_error("IO '%s' is unconstrained in PCF (override this error with "
+                                  "--pcf-allow-unconstrained)\n",
+                                  cell.first.c_str(ctx));
+                }
             }
         }
         ctx->settings.emplace(ctx->id("input/pcf"), filename);

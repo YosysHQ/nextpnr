@@ -49,8 +49,9 @@ Getting started
 
 ### nextpnr-ice40
 
-To build the iCE40 version of nextpnr, install [icestorm](http://www.clifford.at/icestorm/) with chipdbs installed in `/usr/local/share/icebox`
-(or another location, which should be passed as -DICEBOX_ROOT=/path/to/icebox to CMake).
+To build the iCE40 version of nextpnr, install [icestorm](http://www.clifford.at/icestorm/) with chipdbs installed in `/usr/local/share/icebox`,
+or another location, which should be passed as `-DICEBOX_ROOT=/path/to/share/icebox` (ensure to point it to `share/icebox` and not where the
+icebox binaries are installed) to CMake.
 Then build and install `nextpnr-ice40` using the following commands:
 
 ```
