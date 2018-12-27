@@ -128,172 +128,15 @@ static bool net_is_constant(const Context *ctx, NetInfo *net, bool &value)
 // Pack carry logic
 static void pack_carries(Context *ctx)
 {
-    log_info("Packing carries..\n");
-    std::unordered_set<IdString> exhausted_cells;
-    std::unordered_set<IdString> packed_cells;
-    std::vector<std::unique_ptr<CellInfo>> new_cells;
-
-    for (auto cell : sorted(ctx->cells)) {
-        CellInfo *ci = cell.second;
-        if (is_carry(ctx, ci)) {
-            packed_cells.insert(cell.first);
-
-            CellInfo *carry_ci_lc;
-            bool ci_value;
-            bool ci_const = net_is_constant(ctx, ci->ports.at(ctx->id("CI")).net, ci_value);
-            if (ci_const) {
-                carry_ci_lc = nullptr;
-            } else {
-                carry_ci_lc = net_only_drives(ctx, ci->ports.at(ctx->id("CI")).net, is_lc, ctx->id("I3"), false);
-            }
-
-            std::set<IdString> i0_matches, i1_matches;
-            NetInfo *i0_net = ci->ports.at(ctx->id("I0")).net;
-            NetInfo *i1_net = ci->ports.at(ctx->id("I1")).net;
-            // Find logic cells connected to both I0 and I1
-            if (i0_net) {
-                for (auto usr : i0_net->users) {
-                    if (is_lc(ctx, usr.cell) && usr.port == ctx->id("I1")) {
-                        if (ctx->cells.find(usr.cell->name) != ctx->cells.end() &&
-                            exhausted_cells.find(usr.cell->name) == exhausted_cells.end()) {
-                            // This clause stops us double-packing cells
-                            i0_matches.insert(usr.cell->name);
-                            if (!i1_net) {
-                                // I1 is don't care when disconnected, duplicate I0
-                                i1_matches.insert(usr.cell->name);
-                            }
-                        }
-                    }
-                }
-            }
-            if (i1_net) {
-                for (auto usr : i1_net->users) {
-                    if (is_lc(ctx, usr.cell) && usr.port == ctx->id("I2")) {
-                        if (ctx->cells.find(usr.cell->name) != ctx->cells.end() &&
-                            exhausted_cells.find(usr.cell->name) == exhausted_cells.end()) {
-                            // This clause stops us double-packing cells
-                            i1_matches.insert(usr.cell->name);
-                            if (!i0_net) {
-                                // I0 is don't care when disconnected, duplicate I1
-                                i0_matches.insert(usr.cell->name);
-                            }
-                        }
-                    }
-                }
-            }
-
-            std::set<IdString> carry_lcs;
-            std::set_intersection(i0_matches.begin(), i0_matches.end(), i1_matches.begin(), i1_matches.end(),
-                                  std::inserter(carry_lcs, carry_lcs.end()));
-            CellInfo *carry_lc = nullptr;
-            if (carry_ci_lc && carry_lcs.find(carry_ci_lc->name) != carry_lcs.end()) {
-                carry_lc = carry_ci_lc;
-            } else {
-                // No LC to pack into matching I0/I1, insert a new one
-                std::unique_ptr<CellInfo> created_lc =
-                        create_xc7_cell(ctx, ctx->id("XC7_LC"), cell.first.str(ctx) + "$CARRY");
-                carry_lc = created_lc.get();
-                created_lc->ports.at(ctx->id("I1")).net = i0_net;
-                if (i0_net) {
-                    PortRef pr;
-                    pr.cell = created_lc.get();
-                    pr.port = ctx->id("I1");
-                    i0_net->users.push_back(pr);
-                }
-                created_lc->ports.at(ctx->id("I2")).net = i1_net;
-                if (i1_net) {
-                    PortRef pr;
-                    pr.cell = created_lc.get();
-                    pr.port = ctx->id("I2");
-                    i1_net->users.push_back(pr);
-                }
-                new_cells.push_back(std::move(created_lc));
-            }
-            carry_lc->params[ctx->id("CARRY_ENABLE")] = "1";
-            replace_port(ci, ctx->id("CI"), carry_lc, ctx->id("CIN"));
-            replace_port(ci, ctx->id("CO"), carry_lc, ctx->id("COUT"));
-            if (i0_net) {
-                auto &i0_usrs = i0_net->users;
-                i0_usrs.erase(std::remove_if(i0_usrs.begin(), i0_usrs.end(), [ci, ctx](const PortRef &pr) {
-                    return pr.cell == ci && pr.port == ctx->id("I0");
-                }));
-            }
-            if (i1_net) {
-                auto &i1_usrs = i1_net->users;
-                i1_usrs.erase(std::remove_if(i1_usrs.begin(), i1_usrs.end(), [ci, ctx](const PortRef &pr) {
-                    return pr.cell == ci && pr.port == ctx->id("I1");
-                }));
-            }
-
-            // Check for constant driver on CIN
-            if (carry_lc->ports.at(ctx->id("CIN")).net != nullptr) {
-                IdString cin_net = carry_lc->ports.at(ctx->id("CIN")).net->name;
-                if (cin_net == ctx->id("$PACKER_GND_NET") || cin_net == ctx->id("$PACKER_VCC_NET")) {
-                    carry_lc->params[ctx->id("CIN_CONST")] = "1";
-                    carry_lc->params[ctx->id("CIN_SET")] = cin_net == ctx->id("$PACKER_VCC_NET") ? "1" : "0";
-                    carry_lc->ports.at(ctx->id("CIN")).net = nullptr;
-                    auto &cin_users = ctx->nets.at(cin_net)->users;
-                    cin_users.erase(
-                            std::remove_if(cin_users.begin(), cin_users.end(), [carry_lc, ctx](const PortRef &pr) {
-                                return pr.cell == carry_lc && pr.port == ctx->id("CIN");
-                            }));
-                }
-            }
-            exhausted_cells.insert(carry_lc->name);
-        }
-    }
-    for (auto pcell : packed_cells) {
-        ctx->cells.erase(pcell);
-    }
-    for (auto &ncell : new_cells) {
-        ctx->cells[ncell->name] = std::move(ncell);
-    }
+    //log_info("Packing carries..\n");
+    // TODO
 }
 
 // "Pack" RAMs
 static void pack_ram(Context *ctx)
 {
-    log_info("Packing RAMs..\n");
-
-    std::unordered_set<IdString> packed_cells;
-    std::vector<std::unique_ptr<CellInfo>> new_cells;
-
-    for (auto cell : sorted(ctx->cells)) {
-        CellInfo *ci = cell.second;
-        if (is_ram(ctx, ci)) {
-            std::unique_ptr<CellInfo> packed =
-                    create_xc7_cell(ctx, ctx->id("ICESTORM_RAM"), ci->name.str(ctx) + "_RAM");
-            packed_cells.insert(ci->name);
-            for (auto param : ci->params)
-                packed->params[param.first] = param.second;
-            packed->params[ctx->id("NEG_CLK_W")] =
-                    std::to_string(ci->type == ctx->id("SB_RAM40_4KNW") || ci->type == ctx->id("SB_RAM40_4KNRNW"));
-            packed->params[ctx->id("NEG_CLK_R")] =
-                    std::to_string(ci->type == ctx->id("SB_RAM40_4KNR") || ci->type == ctx->id("SB_RAM40_4KNRNW"));
-            packed->type = ctx->id("ICESTORM_RAM");
-            for (auto port : ci->ports) {
-                PortInfo &pi = port.second;
-                std::string newname = pi.name.str(ctx);
-                size_t bpos = newname.find('[');
-                if (bpos != std::string::npos) {
-                    newname = newname.substr(0, bpos) + "_" + newname.substr(bpos + 1, (newname.size() - bpos) - 2);
-                }
-                if (pi.name == ctx->id("RCLKN"))
-                    newname = "RCLK";
-                else if (pi.name == ctx->id("WCLKN"))
-                    newname = "WCLK";
-                replace_port(ci, ctx->id(pi.name.c_str(ctx)), packed.get(), ctx->id(newname));
-            }
-            new_cells.push_back(std::move(packed));
-        }
-    }
-
-    for (auto pcell : packed_cells) {
-        ctx->cells.erase(pcell);
-    }
-    for (auto &ncell : new_cells) {
-        ctx->cells[ncell->name] = std::move(ncell);
-    }
+    //log_info("Packing RAMs..\n");
+    // TODO
 }
 
 // Merge a net into a constant net
@@ -307,14 +150,6 @@ static void set_net_constant(const Context *ctx, NetInfo *orig, NetInfo *constne
                 log_info("%s user %s\n", orig->name.c_str(ctx), uc->name.c_str(ctx));
             if ((is_lut(ctx, uc) || is_lc(ctx, uc) || is_carry(ctx, uc)) && (user.port.str(ctx).at(0) == 'I') &&
                 !constval) {
-                uc->ports[user.port].net = nullptr;
-            } else if ((is_sb_mac16(ctx, uc) || uc->type == ctx->id("ICESTORM_DSP")) &&
-                       (user.port != id_CLK &&
-                        ((constval && user.port == ctx->id("CE")) || (!constval && user.port != ctx->id("CE"))))) {
-                uc->ports[user.port].net = nullptr;
-            } else if (is_ram(ctx, uc) && !constval && user.port != ctx->id("RCLK") && user.port != ctx->id("RCLKN") &&
-                       user.port != ctx->id("WCLK") && user.port != ctx->id("WCLKN") && user.port != ctx->id("RCLKE") &&
-                       user.port != ctx->id("WCLKE")) {
                 uc->ports[user.port].net = nullptr;
             } else {
                 uc->ports[user.port].net = constnet;
@@ -421,9 +256,9 @@ static void pack_io(Context *ctx)
                 }
             } else {
                 // Create a IOBUF buffer
-                std::unique_ptr<CellInfo> ice_cell = create_xc7_cell(ctx, ctx->id("IOBUF"), ci->name.str(ctx));
-                nxio_to_sb(ctx, ci, ice_cell.get());
-                new_cells.push_back(std::move(ice_cell));
+                std::unique_ptr<CellInfo> xc7_cell = create_xc7_cell(ctx, ctx->id("IOBUF"), ci->name.str(ctx));
+                nxio_to_sb(ctx, ci, xc7_cell.get());
+                new_cells.push_back(std::move(xc7_cell));
                 sb = new_cells.back().get();
             }
             packed_cells.insert(ci->name);
@@ -443,8 +278,7 @@ static bool is_logic_port(BaseCtx *ctx, const PortRef &port)
 {
     if (is_clock_port(ctx, port) || is_reset_port(ctx, port) || is_enable_port(ctx, port))
         return false;
-    return !is_sb_io(ctx, port.cell) && !is_sb_pll40(ctx, port.cell) && !is_sb_pll40_pad(ctx, port.cell) &&
-           port.cell->type != ctx->id("SB_GB");
+    return !is_sb_io(ctx, port.cell) && port.cell->type != id_BUFGCTRL;
 }
 
 static void insert_global(Context *ctx, NetInfo *net, bool is_reset, bool is_cen, bool is_logic)
@@ -855,242 +689,6 @@ static void pack_special(Context *ctx)
             ci->params.emplace(ctx->id("VREF_START"), "01");
 
             ci->params[ctx->id("COMPENSATION")] = "INTERNAL";
-        } else if (is_sb_lfosc(ctx, ci)) {
-            std::unique_ptr<CellInfo> packed =
-                    create_xc7_cell(ctx, ctx->id("ICESTORM_LFOSC"), ci->name.str(ctx) + "_OSC");
-            packed_cells.insert(ci->name);
-            replace_port(ci, ctx->id("CLKLFEN"), packed.get(), ctx->id("CLKLFEN"));
-            replace_port(ci, ctx->id("CLKLFPU"), packed.get(), ctx->id("CLKLFPU"));
-            if (/*bool_or_default(ci->attrs, ctx->id("ROUTE_THROUGH_FABRIC"))*/ true) { // FIXME
-                replace_port(ci, ctx->id("CLKLF"), packed.get(), ctx->id("CLKLF_FABRIC"));
-            } else {
-                replace_port(ci, ctx->id("CLKLF"), packed.get(), ctx->id("CLKLF"));
-            }
-            new_cells.push_back(std::move(packed));
-        } else if (is_sb_hfosc(ctx, ci)) {
-            std::unique_ptr<CellInfo> packed =
-                    create_xc7_cell(ctx, ctx->id("ICESTORM_HFOSC"), ci->name.str(ctx) + "_OSC");
-            packed_cells.insert(ci->name);
-            packed->params[ctx->id("CLKHF_DIV")] = str_or_default(ci->params, ctx->id("CLKHF_DIV"), "0b00");
-            replace_port(ci, ctx->id("CLKHFEN"), packed.get(), ctx->id("CLKHFEN"));
-            replace_port(ci, ctx->id("CLKHFPU"), packed.get(), ctx->id("CLKHFPU"));
-            if (/*bool_or_default(ci->attrs, ctx->id("ROUTE_THROUGH_FABRIC"))*/ true) { // FIXME
-                replace_port(ci, ctx->id("CLKHF"), packed.get(), ctx->id("CLKHF_FABRIC"));
-            } else {
-                replace_port(ci, ctx->id("CLKHF"), packed.get(), ctx->id("CLKHF"));
-            }
-            new_cells.push_back(std::move(packed));
-        } else if (is_sb_spram(ctx, ci)) {
-            std::unique_ptr<CellInfo> packed =
-                    create_xc7_cell(ctx, ctx->id("ICESTORM_SPRAM"), ci->name.str(ctx) + "_RAM");
-            packed_cells.insert(ci->name);
-            for (auto port : ci->ports) {
-                PortInfo &pi = port.second;
-                std::string newname = pi.name.str(ctx);
-                size_t bpos = newname.find('[');
-                if (bpos != std::string::npos) {
-                    newname = newname.substr(0, bpos) + "_" + newname.substr(bpos + 1, (newname.size() - bpos) - 2);
-                }
-                replace_port(ci, ctx->id(pi.name.c_str(ctx)), packed.get(), ctx->id(newname));
-            }
-            new_cells.push_back(std::move(packed));
-        } else if (is_sb_mac16(ctx, ci)) {
-            std::unique_ptr<CellInfo> packed =
-                    create_xc7_cell(ctx, ctx->id("ICESTORM_DSP"), ci->name.str(ctx) + "_DSP");
-            packed_cells.insert(ci->name);
-            for (auto attr : ci->attrs)
-                packed->attrs[attr.first] = attr.second;
-            for (auto param : ci->params)
-                packed->params[param.first] = param.second;
-
-            for (auto port : ci->ports) {
-                PortInfo &pi = port.second;
-                std::string newname = pi.name.str(ctx);
-                size_t bpos = newname.find('[');
-                if (bpos != std::string::npos) {
-                    newname = newname.substr(0, bpos) + "_" + newname.substr(bpos + 1, (newname.size() - bpos) - 2);
-                }
-                replace_port(ci, ctx->id(pi.name.c_str(ctx)), packed.get(), ctx->id(newname));
-            }
-            new_cells.push_back(std::move(packed));
-        } else if (is_sb_pll40(ctx, ci)) {
-            bool is_pad = is_sb_pll40_pad(ctx, ci);
-            bool is_core = !is_pad;
-
-            std::unique_ptr<CellInfo> packed =
-                    create_xc7_cell(ctx, ctx->id("ICESTORM_PLL"), ci->name.str(ctx) + "_PLL");
-            packed->attrs[ctx->id("TYPE")] = ci->type.str(ctx);
-            packed_cells.insert(ci->name);
-
-            for (auto attr : ci->attrs)
-                packed->attrs[attr.first] = attr.second;
-            for (auto param : ci->params)
-                packed->params[param.first] = param.second;
-
-            auto feedback_path = packed->params[ctx->id("FEEDBACK_PATH")];
-            packed->params[ctx->id("FEEDBACK_PATH")] =
-                    feedback_path == "DELAY"
-                            ? "0"
-                            : feedback_path == "SIMPLE" ? "1"
-                                                        : feedback_path == "PHASE_AND_DELAY"
-                                                                  ? "2"
-                                                                  : feedback_path == "EXTERNAL" ? "6" : feedback_path;
-            packed->params[ctx->id("PLLTYPE")] = std::to_string(sb_pll40_type(ctx, ci));
-
-            NetInfo *pad_packagepin_net = nullptr;
-
-            for (auto port : ci->ports) {
-                PortInfo &pi = port.second;
-                std::string newname = pi.name.str(ctx);
-                size_t bpos = newname.find('[');
-                if (bpos != std::string::npos) {
-                    newname = newname.substr(0, bpos) + "_" + newname.substr(bpos + 1, (newname.size() - bpos) - 2);
-                }
-                if (pi.name == ctx->id("PLLOUTCOREA"))
-                    newname = "PLLOUT_A";
-                if (pi.name == ctx->id("PLLOUTCOREB"))
-                    newname = "PLLOUT_B";
-                if (pi.name == ctx->id("PLLOUTCORE"))
-                    newname = "PLLOUT_A";
-
-                if (pi.name == ctx->id("PACKAGEPIN")) {
-                    if (!is_pad) {
-                        log_error("  PLL '%s' has a PACKAGEPIN but is not a PAD PLL", ci->name.c_str(ctx));
-                    } else {
-                        // We drop this port and instead place the PLL adequately below.
-                        pad_packagepin_net = port.second.net;
-                        NPNR_ASSERT(pad_packagepin_net != nullptr);
-                        continue;
-                    }
-                }
-                if (pi.name == ctx->id("REFERENCECLK")) {
-                    if (!is_core)
-                        log_error("  PLL '%s' has a REFERENCECLK but is not a CORE PLL", ci->name.c_str(ctx));
-                }
-
-                replace_port(ci, ctx->id(pi.name.c_str(ctx)), packed.get(), ctx->id(newname));
-            }
-
-            // If PLL is not constrained already, do that - we need this
-            // information to then constrain the LOCK LUT.
-            BelId pll_bel;
-            bool constrained = false;
-            if (packed->attrs.find(ctx->id("BEL")) == packed->attrs.end()) {
-                for (auto bel : ctx->getBels()) {
-                    if (ctx->getBelType(bel) != id_ICESTORM_PLL)
-                        continue;
-
-                    // A PAD PLL must have its' PACKAGEPIN on the SB_IO that's shared
-                    // with PLLOUT_A.
-                    if (is_pad) {
-                        auto pll_sb_io_belpin = ctx->getIOBSharingPLLPin(bel, id_PLLOUT_A);
-                        NPNR_ASSERT(pad_packagepin_net != nullptr);
-                        auto pll_packagepin_driver = pad_packagepin_net->driver;
-                        NPNR_ASSERT(pll_packagepin_driver.cell != nullptr);
-                        if (pll_packagepin_driver.cell->type != ctx->id("SB_IO")) {
-                            log_error("  PLL '%s' has a PACKAGEPIN driven by "
-                                      "an %s, should be directly connected to an input SB_IO\n",
-                                      ci->name.c_str(ctx), pll_packagepin_driver.cell->type.c_str(ctx));
-                        }
-
-                        auto packagepin_cell = pll_packagepin_driver.cell;
-                        auto packagepin_bel_name = packagepin_cell->attrs.find(ctx->id("BEL"));
-                        if (packagepin_bel_name == packagepin_cell->attrs.end()) {
-                            log_error("  PLL '%s' PACKAGEPIN SB_IO '%s' is unconstrained\n", ci->name.c_str(ctx),
-                                      packagepin_cell->name.c_str(ctx));
-                        }
-                        auto packagepin_bel = ctx->getBelByName(ctx->id(packagepin_bel_name->second));
-                        if (pll_sb_io_belpin.bel != packagepin_bel) {
-                            log_error("  PLL '%s' PACKAGEPIN is connected to pin %s, can only be pin %s\n",
-                                      ci->name.c_str(ctx), ctx->getBelPackagePin(packagepin_bel).c_str(),
-                                      ctx->getBelPackagePin(pll_sb_io_belpin.bel).c_str());
-                        }
-                        if (pad_packagepin_net->users.size() != 1) {
-                            log_error("  PLL '%s' clock input '%s' can only drive PLL\n", ci->name.c_str(ctx),
-                                      pad_packagepin_net->name.c_str(ctx));
-                        }
-                        // Set an attribute about this PLL's PAD SB_IO.
-                        packed->attrs[ctx->id("BEL_PAD_INPUT")] = packagepin_bel_name->second;
-                        // Remove the connection from the SB_IO to the PLL.
-                        packagepin_cell->ports.erase(pll_packagepin_driver.port);
-                    }
-
-                    log_info("  constrained '%s' to %s\n", packed->name.c_str(ctx), ctx->getBelName(bel).c_str(ctx));
-                    packed->attrs[ctx->id("BEL")] = ctx->getBelName(bel).str(ctx);
-                    pll_bel = bel;
-                    constrained = true;
-                }
-                if (!constrained) {
-                    log_error("  could not constrain '%s' to any PLL Bel\n", packed->name.c_str(ctx));
-                }
-            }
-
-            // Delete the original PACKAGEPIN net if needed.
-            if (pad_packagepin_net != nullptr) {
-                for (auto user : pad_packagepin_net->users) {
-                    user.cell->ports.erase(user.port);
-                }
-                ctx->nets.erase(pad_packagepin_net->name);
-                pad_packagepin_net = nullptr;
-            }
-
-            // The LOCK signal on iCE40 PLLs goes through the neigh_op_bnl_1 wire.
-            // In practice, this means the LOCK signal can only directly reach LUT
-            // inputs.
-            // If we have a net connected to LOCK, make sure it only drives LUTs.
-            auto port = packed->ports[ctx->id("LOCK")];
-            if (port.net != nullptr) {
-                bool found_lut = false;
-                bool all_luts = true;
-                unsigned int lut_count = 0;
-                for (const auto &user : port.net->users) {
-                    NPNR_ASSERT(user.cell != nullptr);
-                    if (user.cell->type == ctx->id("XC7_LC")) {
-                        found_lut = true;
-                        lut_count++;
-                    } else {
-                        all_luts = false;
-                    }
-                }
-
-                if (found_lut && all_luts) {
-                    // Every user is a LUT, carry on now.
-                } else if (found_lut && !all_luts && lut_count < 8) {
-                    // Strategy: create a pass-through LUT, move all non-LUT users behind it.
-                    log_info("    LUT strategy for %s: move non-LUT users to new LUT\n", port.name.c_str(ctx));
-                    auto pt = spliceLUT(ctx, packed.get(), port.name, true);
-                    new_cells.push_back(std::move(pt));
-                } else {
-                    // Strategy: create a pass-through LUT, move every user behind it.
-                    log_info("    LUT strategy for %s: move all users to new LUT\n", port.name.c_str(ctx));
-                    auto pt = spliceLUT(ctx, packed.get(), port.name, false);
-                    new_cells.push_back(std::move(pt));
-                }
-
-                // Find wire that will be driven by this port.
-                const auto pll_out_wire = ctx->getBelPinWire(pll_bel, port.name);
-                NPNR_ASSERT(pll_out_wire != WireId());
-
-                // Now, constrain all LUTs on the output of the signal to be at
-                // the correct Bel relative to the PLL Bel.
-                // int x = ctx->chip_info->wire_data[pll_out_wire.index].x;
-                // int y = ctx->chip_info->wire_data[pll_out_wire.index].y;
-                // int z = 0;
-                // for (const auto &user : port.net->users) {
-                //    NPNR_ASSERT(user.cell != nullptr);
-                //    NPNR_ASSERT(user.cell->type == ctx->id("XC7_LC"));
-
-                //    // TODO(q3k): handle when the Bel might be already the
-                //    // target of another constraint.
-                //    NPNR_ASSERT(z < 8);
-                //    auto target_bel = ctx->getBelByLocation(Loc(x, y, z++));
-                //    auto target_bel_name = ctx->getBelName(target_bel).str(ctx);
-                //    user.cell->attrs[ctx->id("BEL")] = target_bel_name;
-                //    log_info("    constrained '%s' to %s\n", user.cell->name.c_str(ctx), target_bel_name.c_str());
-                //}
-            }
-
-            new_cells.push_back(std::move(packed));
         }
     }
 

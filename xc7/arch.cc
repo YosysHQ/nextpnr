@@ -28,26 +28,7 @@
 #include "router1.h"
 #include "util.h"
 
-#include <boost/serialization/unique_ptr.hpp>
-#include <boost/serialization/vector.hpp>
-#include <boost/serialization/unordered_map.hpp>
-#include <boost/archive/binary_iarchive.hpp>
-#include <boost/archive/binary_oarchive.hpp>
-#include <boost/iostreams/filter/zlib.hpp>
-#include <boost/iostreams/filtering_streambuf.hpp>
-struct nextpnr_binary_iarchive : public boost::archive::binary_iarchive {
-    nextpnr_binary_iarchive(boost::iostreams::filtering_istreambuf &ifs, NEXTPNR_NAMESPACE::BaseCtx* ctx, const std::string& inDeviceName, const std::string& inPackageName) : boost::archive::binary_iarchive(ifs), ctx(ctx), inDeviceName(inDeviceName), inPackageName(inPackageName) {}
-    NEXTPNR_NAMESPACE::BaseCtx *ctx;
-    std::string inDeviceName, inPackageName;
-};
-struct nextpnr_binary_oarchive : public boost::archive::binary_oarchive {
-    nextpnr_binary_oarchive(boost::iostreams::filtering_ostreambuf &ofs, NEXTPNR_NAMESPACE::BaseCtx* ctx) : boost::archive::binary_oarchive(ofs), ctx(ctx) {}
-    NEXTPNR_NAMESPACE::BaseCtx *ctx;
-};
-
 #include "torc/common/DirectoryTree.hpp"
-
-//#define TORC_INFO_DB "torc_info.ar"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -369,29 +350,7 @@ Arch::Arch(ArchArgs args) : args(args)
 {
     torc::common::DirectoryTree directoryTree("/opt/torc/src/torc");
     if (args.type == ArchArgs::Z020) {
-#ifdef TORC_INFO_DB
-        std::ifstream ifs(TORC_INFO_DB, std::ios::binary);
-        if (ifs) {
-            boost::iostreams::filtering_istreambuf fifs;
-            fifs.push(boost::iostreams::zlib_decompressor());
-            fifs.push(ifs);
-            nextpnr_binary_iarchive ia(fifs, this, "xc7z020", args.package);
-            ia >> torc_info;
-        } else
-#endif
-        {
-            torc_info = std::unique_ptr<TorcInfo>(new TorcInfo(this, "xc7z020", args.package));
-#ifdef TORC_INFO_DB
-            std::ofstream ofs(TORC_INFO_DB, std::ios::binary);
-            if (ofs) {
-                boost::iostreams::filtering_ostreambuf fofs;
-                fofs.push(boost::iostreams::zlib_compressor());
-                fofs.push(ofs);
-                nextpnr_binary_oarchive oa(fofs, this);
-                oa << torc_info;
-            }
-#endif
-        }
+        torc_info = std::unique_ptr<TorcInfo>(new TorcInfo(this, "xc7z020", args.package));
     } else if (args.type == ArchArgs::VX980) {
         torc_info = std::unique_ptr<TorcInfo>(new TorcInfo(this, "xc7vx980t", args.package));
     } else {
@@ -406,21 +365,9 @@ Arch::Arch(ArchArgs args) : args(args)
         log_info("Number of pips:  %d\n", torc_info->num_pips);
     }
 
-    //    package_info = nullptr;
-    //    for (int i = 0; i < chip_info->num_packages; i++) {
-    //        if (chip_info->packages_data[i].name.get() == args.package) {
-    //            package_info = &(chip_info->packages_data[i]);
-    //            break;
-    //        }
-    //    }
-    //    if (package_info == nullptr)
-    //        log_error("Unsupported package '%s'.\n", args.package.c_str());
-
-    // bel_carry.resize(chip_info->num_bels);
     bel_to_cell.resize(torc_info->num_bels);
     wire_to_net.resize(torc_info->num_wires);
     pip_to_net.resize(torc_info->num_pips);
-    // switches_locked.resize(chip_info->num_switches);
 }
 
 // -----------------------------------------------------------------------
@@ -429,6 +376,8 @@ std::string Arch::getChipName() const
 {
     if (args.type == ArchArgs::Z020) {
         return "z020";
+    } else if (args.type == ArchArgs::VX980) {
+        return "vx980";
     } else {
         log_error("Unsupported XC7 chip type.\n");
     }
@@ -440,6 +389,8 @@ IdString Arch::archArgsToId(ArchArgs args) const
 {
     if (args.type == ArchArgs::Z020)
         return id("z020");
+    if (args.type == ArchArgs::VX980)
+        return id("vx980");
     return IdString();
 }
 
@@ -564,49 +515,12 @@ WireId Arch::getBelPinWire(BelId bel, IdString pin) const
                   pin_name.c_str());
 
     return torc_info->tilewire_to_wire(tw);
-
-    //    NPNR_ASSERT(bel != BelId());
-    //
-    //    int num_bel_wires = chip_info->bel_data[bel.index].num_bel_wires;
-    //    const BelWirePOD *bel_wires = chip_info->bel_data[bel.index].bel_wires.get();
-    //
-    //    if (num_bel_wires < 7) {
-    //        for (int i = 0; i < num_bel_wires; i++) {
-    //            if (bel_wires[i].port == pin.index) {
-    //                ret.index = bel_wires[i].wire_index;
-    //                break;
-    //            }
-    //        }
-    //    } else {
-    //        int b = 0, e = num_bel_wires - 1;
-    //        while (b <= e) {
-    //            int i = (b + e) / 2;
-    //            if (bel_wires[i].port == pin.index) {
-    //                ret.index = bel_wires[i].wire_index;
-    //                break;
-    //            }
-    //            if (bel_wires[i].port > pin.index)
-    //                e = i - 1;
-    //            else
-    //                b = i + 1;
-    //        }
-    //    }
-    //
-    //return ret;
 }
 
 std::vector<IdString> Arch::getBelPins(BelId bel) const
 {
     std::vector<IdString> ret;
-
-/*    NPNR_ASSERT(bel != BelId());
-
-    int num_bel_wires = chip_info->bel_data[bel.index].num_bel_wires;
-    const BelWirePOD *bel_wires = chip_info->bel_data[bel.index].bel_wires.get();
-
-    for (int i = 0; i < num_bel_wires; i++)
-        ret.push_back(IdString(bel_wires[i].port));
-*/
+    NPNR_ASSERT("TODO");
     return ret;
 }
 
@@ -615,54 +529,17 @@ std::vector<IdString> Arch::getBelPins(BelId bel) const
 WireId Arch::getWireByName(IdString name) const
 {
     WireId ret;
-
     if (wire_by_name.empty()) {
         for (int i = 0; i < chip_info->num_wires; i++)
             wire_by_name[id(chip_info->wire_data[i].name.get())] = i;
     }
-
-    // auto it = wire_by_name.find(name);
-    // if (it != wire_by_name.end())
-    //    ret.index = it->second;
-
     return ret;
 }
 
 IdString Arch::getWireType(WireId wire) const
 {
     NPNR_ASSERT(wire != WireId());
-    //    switch (chip_info->wire_data[wire.index].type) {
-    //    case WireInfoPOD::WIRE_TYPE_NONE:
-    //        return IdString();
-    //    case WireInfoPOD::WIRE_TYPE_GLB2LOCAL:
-    //        return id("GLB2LOCAL");
-    //    case WireInfoPOD::WIRE_TYPE_GLB_NETWK:
-    //        return id("GLB_NETWK");
-    //    case WireInfoPOD::WIRE_TYPE_LOCAL:
-    //        return id("LOCAL");
-    //    case WireInfoPOD::WIRE_TYPE_LUTFF_IN:
-    //        return id("LUTFF_IN");
-    //    case WireInfoPOD::WIRE_TYPE_LUTFF_IN_LUT:
-    //        return id("LUTFF_IN_LUT");
-    //    case WireInfoPOD::WIRE_TYPE_LUTFF_LOUT:
-    //        return id("LUTFF_LOUT");
-    //    case WireInfoPOD::WIRE_TYPE_LUTFF_OUT:
-    //        return id("LUTFF_OUT");
-    //    case WireInfoPOD::WIRE_TYPE_LUTFF_COUT:
-    //        return id("LUTFF_COUT");
-    //    case WireInfoPOD::WIRE_TYPE_LUTFF_GLOBAL:
-    //        return id("LUTFF_GLOBAL");
-    //    case WireInfoPOD::WIRE_TYPE_CARRY_IN_MUX:
-    //        return id("CARRY_IN_MUX");
-    //    case WireInfoPOD::WIRE_TYPE_SP4_V:
-    //        return id("SP4_V");
-    //    case WireInfoPOD::WIRE_TYPE_SP4_H:
-    //        return id("SP4_H");
-    //    case WireInfoPOD::WIRE_TYPE_SP12_V:
-    //        return id("SP12_V");
-    //    case WireInfoPOD::WIRE_TYPE_SP12_H:
-    //        return id("SP12_H");
-    //    }
+    NPNR_ASSERT("TODO");
     return IdString();
 }
 
@@ -670,6 +547,7 @@ IdString Arch::getWireType(WireId wire) const
 std::vector<std::pair<IdString, std::string>> Arch::getWireAttrs(WireId wire) const
 {
     std::vector<std::pair<IdString, std::string>> ret;
+    NPNR_ASSERT("TODO");
     return ret;
 }
 
@@ -678,19 +556,7 @@ std::vector<std::pair<IdString, std::string>> Arch::getWireAttrs(WireId wire) co
 PipId Arch::getPipByName(IdString name) const
 {
     PipId ret;
-
-/*    if (pip_by_name.empty()) {
-        for (int i = 0; i < chip_info->num_pips; i++) {
-            PipId pip;
-            pip.index = i;
-            pip_by_name[getPipName(pip)] = i;
-        }
-    }
-
-    auto it = pip_by_name.find(name);
-    if (it != pip_by_name.end())
-        ret.index = it->second;
-*/
+    NPNR_ASSERT("TODO");
     return ret;
 }
 
@@ -703,33 +569,12 @@ IdString Arch::getPipName(PipId pip) const
     std::stringstream pip_name;
     pip_name << ewi_src.mTileName << "." << ewi_src.mWireName << ".->." << ewi_dst.mWireName;
     return id(pip_name.str());
-
-    //#if 1
-    //    int x = chip_info->pip_data[pip.index].x;
-    //    int y = chip_info->pip_data[pip.index].y;
-    //
-    //    std::string src_name = chip_info->wire_data[chip_info->pip_data[pip.index].src].name.get();
-    //    std::replace(src_name.begin(), src_name.end(), '/', '.');
-    //
-    //    std::string dst_name = chip_info->wire_data[chip_info->pip_data[pip.index].dst].name.get();
-    //    std::replace(dst_name.begin(), dst_name.end(), '/', '.');
-    //
-    //    return id("X" + std::to_string(x) + "/Y" + std::to_string(y) + "/" + src_name + ".->." + dst_name);
-    //#else
-    //    return id(chip_info->pip_data[pip.index].name.get());
-    //#endif
 }
-
-//IdString Arch::getPipType(PipId pip) const
-//{
-//    NPNR_ASSERT(pip != PipId());
-//    return IdString();
-//}
 
 std::vector<std::pair<IdString, std::string>> Arch::getPipAttrs(PipId pip) const
 {
     std::vector<std::pair<IdString, std::string>> ret;
-
+    NPNR_ASSERT("TODO");
     return ret;
 }
 
@@ -739,11 +584,7 @@ BelId Arch::getPackagePinBel(const std::string &pin) const { return getBelByName
 
 std::string Arch::getBelPackagePin(BelId bel) const
 {
-    //    for (int i = 0; i < package_info->num_pins; i++) {
-    //        if (package_info->pins[i].bel_index == bel.index) {
-    //            return std::string(package_info->pins[i].name.get());
-    //        }
-    //    }
+    NPNR_ASSERT("TODO");
     return "";
 }
 
@@ -762,39 +603,7 @@ IdString Arch::getGroupName(GroupId group) const
     std::string suffix;
 
     switch (group.type) {
-    case GroupId::TYPE_FRAME:
-        suffix = "tile";
-        break;
-    case GroupId::TYPE_MAIN_SW:
-        suffix = "main_sw";
-        break;
-    case GroupId::TYPE_LOCAL_SW:
-        suffix = "local_sw";
-        break;
-    case GroupId::TYPE_LC0_SW:
-        suffix = "lc0_sw";
-        break;
-    case GroupId::TYPE_LC1_SW:
-        suffix = "lc1_sw";
-        break;
-    case GroupId::TYPE_LC2_SW:
-        suffix = "lc2_sw";
-        break;
-    case GroupId::TYPE_LC3_SW:
-        suffix = "lc3_sw";
-        break;
-    case GroupId::TYPE_LC4_SW:
-        suffix = "lc4_sw";
-        break;
-    case GroupId::TYPE_LC5_SW:
-        suffix = "lc5_sw";
-        break;
-    case GroupId::TYPE_LC6_SW:
-        suffix = "lc6_sw";
-        break;
-    case GroupId::TYPE_LC7_SW:
-        suffix = "lc7_sw";
-        break;
+    NPNR_ASSERT("TODO");
     default:
         return IdString();
     }
@@ -805,52 +614,7 @@ IdString Arch::getGroupName(GroupId group) const
 std::vector<GroupId> Arch::getGroups() const
 {
     std::vector<GroupId> ret;
-/*
-    for (int y = 0; y < chip_info->height; y++) {
-        for (int x = 0; x < chip_info->width; x++) {
-            TileType type = chip_info->tile_grid[y * chip_info->width + x];
-            if (type == TILE_NONE)
-                continue;
-
-            GroupId group;
-            group.type = GroupId::TYPE_FRAME;
-            group.x = x;
-            group.y = y;
-            // ret.push_back(group);
-
-            group.type = GroupId::TYPE_MAIN_SW;
-            ret.push_back(group);
-
-            group.type = GroupId::TYPE_LOCAL_SW;
-            ret.push_back(group);
-
-            if (type == TILE_LOGIC) {
-                group.type = GroupId::TYPE_LC0_SW;
-                ret.push_back(group);
-
-                group.type = GroupId::TYPE_LC1_SW;
-                ret.push_back(group);
-
-                group.type = GroupId::TYPE_LC2_SW;
-                ret.push_back(group);
-
-                group.type = GroupId::TYPE_LC3_SW;
-                ret.push_back(group);
-
-                group.type = GroupId::TYPE_LC4_SW;
-                ret.push_back(group);
-
-                group.type = GroupId::TYPE_LC5_SW;
-                ret.push_back(group);
-
-                group.type = GroupId::TYPE_LC6_SW;
-                ret.push_back(group);
-
-                group.type = GroupId::TYPE_LC7_SW;
-                ret.push_back(group);
-            }
-        }
-    }*/
+    NPNR_ASSERT("TODO");
     return ret;
 }
 
@@ -869,12 +633,14 @@ std::vector<WireId> Arch::getGroupWires(GroupId group) const
 std::vector<PipId> Arch::getGroupPips(GroupId group) const
 {
     std::vector<PipId> ret;
+    NPNR_ASSERT("TODO");
     return ret;
 }
 
 std::vector<GroupId> Arch::getGroupGroups(GroupId group) const
 {
     std::vector<GroupId> ret;
+    NPNR_ASSERT("TODO");
     return ret;
 }
 
@@ -929,6 +695,7 @@ DecalXY Arch::getGroupDecal(GroupId group) const
 std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
 {
     std::vector<GraphicElement> ret;
+    NPNR_ASSERT("TODO");
     return ret;
 }
 
@@ -1078,109 +845,3 @@ void Arch::assignCellInfo(CellInfo *cell)
 }
 
 NEXTPNR_NAMESPACE_END
-
-// outside of any namespace
-BOOST_SERIALIZATION_SPLIT_FREE(Segments::SegmentReference)
-BOOST_SERIALIZATION_SPLIT_FREE(CompactSegmentIndex)
-BOOST_SERIALIZATION_SPLIT_FREE(TileIndex)
-BOOST_SERIALIZATION_SPLIT_FREE(Arc)
-BOOST_SERIALIZATION_SPLIT_FREE(Tilewire)
-BOOST_SERIALIZATION_SPLIT_FREE(WireIndex)
-BOOST_SERIALIZATION_SPLIT_FREE(SiteIndex)
-BOOST_SERIALIZATION_SPLIT_FREE(NEXTPNR_NAMESPACE::IdString)
-
-namespace boost { namespace serialization {
-
-template<class Archive>
-inline void load_construct_data(
-    Archive & ar, NEXTPNR_NAMESPACE::TorcInfo * t, const unsigned int file_version
-){
-    const auto& inDeviceName = static_cast<const nextpnr_binary_iarchive&>(ar).inDeviceName;
-    const auto& inPackageName = static_cast<const nextpnr_binary_iarchive&>(ar).inPackageName;
-    ::new(t)NEXTPNR_NAMESPACE::TorcInfo(inDeviceName, inPackageName);
-}
-
-template<class Archive>
-void save(Archive& ar, const Segments::SegmentReference& o, unsigned int) {
-    ar & o.getCompactSegmentIndex();
-    ar & o.getAnchorTileIndex();
-}
-template<class Archive>
-void load(Archive& ar, Segments::SegmentReference& o, unsigned int) {
-    CompactSegmentIndex i;
-    TileIndex j;
-    ar & i;
-    ar & j;
-    o = Segments::SegmentReference(i, j);
-}
-#define SERIALIZE_POD(__T__) \
-template<class Archive> \
-void save(Archive& ar, const __T__& o, unsigned int) { \
-    ar & static_cast<__T__::pod>(o); \
-} \
-template<class Archive> \
-void load(Archive& ar, __T__& o, unsigned int) { \
-    __T__::pod i; \
-    ar & i; \
-    o = __T__(i); \
-}
-SERIALIZE_POD(CompactSegmentIndex)
-SERIALIZE_POD(TileIndex)
-SERIALIZE_POD(WireIndex)
-SERIALIZE_POD(SiteIndex)
-template<class Archive>
-void save(Archive& ar, const Arc& o, unsigned int) {
-    ar & o.getSourceTilewire();
-    ar & o.getSinkTilewire();
-}
-template<class Archive>
-void load(Archive& ar, Arc& o, unsigned int) {
-    Tilewire s, t;
-    ar & s;
-    ar & t;
-    o = Arc(s, t);
-}
-template<class Archive>
-void save(Archive& ar, const Tilewire& o, unsigned int) {
-    ar & o.getTileIndex();
-    ar & o.getWireIndex();
-}
-template<class Archive>
-void load(Archive& ar, Tilewire& o, unsigned int) {
-    TileIndex i;
-    WireIndex j;
-    ar & i;
-    ar & j;
-    o.setTileIndex(TileIndex(i));
-    o.setWireIndex(WireIndex(j));
-}
-template<class Archive>
-void serialize(Archive& ar, NEXTPNR_NAMESPACE::Loc& o, unsigned int) {
-    ar & o.x;
-    ar & o.y;
-    ar & o.z;
-}
-template<class Archive>
-void serialize(Archive& ar, NEXTPNR_NAMESPACE::DelayInfo& o, unsigned int) {
-    ar & o.delay;
-}
-template<class Archive>
-void save(Archive& ar, const NEXTPNR_NAMESPACE::IdString& o, unsigned int) {
-    const std::string i = o.str(static_cast<const nextpnr_binary_oarchive&>(ar).ctx);
-    ar & i;
-}
-template<class Archive>
-void load(Archive& ar, NEXTPNR_NAMESPACE::IdString& o, unsigned int) {
-    std::string i;
-    ar & i;
-    o = static_cast<nextpnr_binary_iarchive&>(ar).ctx->id(i);
-}
-#define SERIALIZE_INDEX(__T__) \
-template<class Archive> \
-void serialize(Archive& ar, __T__& o, unsigned int) { \
-    ar & o.index; \
-}
-SERIALIZE_INDEX(NEXTPNR_NAMESPACE::BelId)
-SERIALIZE_INDEX(NEXTPNR_NAMESPACE::WireId)
-SERIALIZE_INDEX(NEXTPNR_NAMESPACE::PipId)
-}} // namespace boost::serialization
