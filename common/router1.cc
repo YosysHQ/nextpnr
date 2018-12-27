@@ -445,26 +445,6 @@ struct Router1
         auto dst_wire = ctx->getNetinfoSinkWire(net_info, net_info->users[user_idx]);
         ripup_flag = false;
 
-#ifdef ARCH_XC7
-        // Work around the fact that BUFG inputs have a logical location far away from its IMUX by introducing an "imux_wire" to guide A* routing
-        auto imux_wire = dst_wire;
-        const auto &dst_tw = torc_info->wire_to_tilewire[dst_wire.index];
-
-        const auto &tileInfo = torc_info->tiles.getTileInfo(dst_tw.getTileIndex());
-        const auto tileTypeName = torc_info->tiles.getTileTypeName(tileInfo.getTypeIndex());
-        if (boost::starts_with(tileTypeName, "CLK")) {
-            TilewireVector sources;
-            const_cast<DDB &>(*torc_info->ddb).expandTilewireSources(dst_tw, sources, false /*inUseTied*/, true /*inUseRegular*/, false /*inUseIrregular*/, false /*inUseRoutethrough*/);
-            std::cout << ctx->getWireName(torc_info->tilewire_to_wire(dst_tw)).str(ctx);
-            if (sources.size() == 1) {
-                imux_wire = torc_info->tilewire_to_wire(sources.front());
-                std::cout << " -> " << ctx->getWireName(imux_wire).str(ctx) << std::endl;
-            }
-            else
-                std::cout << " has " << sources.size() << " sources" << std::endl;
-        }
-#endif
-
         if (ctx->debug) {
             log("Routing arc %d on net %s (%d arcs total):\n", user_idx, ctx->nameOf(net_info),
                 int(net_info->users.size()));
