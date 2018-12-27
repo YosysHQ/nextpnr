@@ -27,7 +27,6 @@
 NEXTPNR_NAMESPACE_BEGIN
 
 void write_xdl(const Context *ctx, std::ostream &out);
-void write_fasm(const Context *ctx, std::ostream &out);
 
 NEXTPNR_NAMESPACE_END
 
