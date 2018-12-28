@@ -77,7 +77,7 @@ class ChainConstrainer
         bool start_of_chain = true;
         std::vector<CellChain> chains;
         std::vector<const CellInfo *> tile;
-        const int max_length = (ctx->chip_info->height - 2) * 8 - 2;
+        const int max_length = (torc_info->height - 2) * 8 - 2;
         auto curr_cell = carryc.cells.begin();
         while (curr_cell != carryc.cells.end()) {
             CellInfo *cell = *curr_cell;
