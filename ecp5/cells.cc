@@ -41,6 +41,22 @@ std::unique_ptr<CellInfo> create_ecp5_cell(Context *ctx, IdString type, std::str
         new_cell->name = ctx->id(name);
     }
     new_cell->type = type;
+
+    auto copy_bel_ports = [&]() {
+        // First find a Bel of the target type
+        BelId tgt;
+        for (auto bel : ctx->getBels()) {
+            if (ctx->getBelType(bel) == type) {
+                tgt = bel;
+                break;
+            }
+        }
+        NPNR_ASSERT(tgt != BelId());
+        for (auto port : ctx->getBelPins(tgt)) {
+            add_port(ctx, new_cell.get(), port.str(ctx), ctx->getBelPinType(tgt, port));
+        }
+    };
+
     if (type == ctx->id("TRELLIS_SLICE")) {
         new_cell->params[ctx->id("MODE")] = "LOGIC";
         new_cell->params[ctx->id("GSR")] = "DISABLED";
@@ -111,11 +127,17 @@ std::unique_ptr<CellInfo> create_ecp5_cell(Context *ctx, IdString type, std::str
     } else if (type == ctx->id("TRELLIS_IO")) {
         new_cell->params[ctx->id("DIR")] = "INPUT";
         new_cell->attrs[ctx->id("IO_TYPE")] = "LVCMOS33";
+        new_cell->params[ctx->id("DATAMUX_ODDR")] = "PADDO";
+        new_cell->params[ctx->id("DATAMUX_MDDR")] = "PADDO";
 
         add_port(ctx, new_cell.get(), "B", PORT_INOUT);
         add_port(ctx, new_cell.get(), "I", PORT_IN);
         add_port(ctx, new_cell.get(), "T", PORT_IN);
         add_port(ctx, new_cell.get(), "O", PORT_OUT);
+
+        add_port(ctx, new_cell.get(), "IOLDO", PORT_IN);
+        add_port(ctx, new_cell.get(), "IOLTO", PORT_IN);
+
     } else if (type == ctx->id("LUT4")) {
         new_cell->params[ctx->id("INIT")] = "0";
 
@@ -150,6 +172,35 @@ std::unique_ptr<CellInfo> create_ecp5_cell(Context *ctx, IdString type, std::str
         add_port(ctx, new_cell.get(), "CLKI", PORT_IN);
         add_port(ctx, new_cell.get(), "CLKO", PORT_OUT);
         add_port(ctx, new_cell.get(), "CE", PORT_IN);
+    } else if (type == id_IOLOGIC || type == id_SIOLOGIC) {
+        new_cell->params[ctx->id("MODE")] = "NONE";
+        new_cell->params[ctx->id("GSR")] = "DISABLED";
+        new_cell->params[ctx->id("CLKIMUX")] = "CLK";
+        new_cell->params[ctx->id("CLKOMUX")] = "CLK";
+        new_cell->params[ctx->id("LSRIMUX")] = "0";
+        new_cell->params[ctx->id("LSROMUX")] = "0";
+        new_cell->params[ctx->id("LSRMUX")] = "LSR";
+
+        new_cell->params[ctx->id("DELAY.OUTDEL")] = "DISABLED";
+        new_cell->params[ctx->id("DELAY.DEL_VALUE")] = "0";
+        new_cell->params[ctx->id("DELAY.WAIT_FOR_EDGE")] = "DISABLED";
+
+        if (type == id_IOLOGIC) {
+            new_cell->params[ctx->id("IDDRXN.MODE")] = "NONE";
+            new_cell->params[ctx->id("ODDRXN.MODE")] = "NONE";
+
+            new_cell->params[ctx->id("MIDDRX.MODE")] = "NONE";
+            new_cell->params[ctx->id("MODDRX.MODE")] = "NONE";
+            new_cell->params[ctx->id("MTDDRX.MODE")] = "NONE";
+
+            new_cell->params[ctx->id("IOLTOMUX")] = "NONE";
+            new_cell->params[ctx->id("MTDDRX.DQSW_INVERT")] = "DISABLED";
+            new_cell->params[ctx->id("MTDDRX.REGSET")] = "RESET";
+
+            new_cell->params[ctx->id("MIDDRX_MODDRX.WRCLKMUX")] = "NONE";
+        }
+        // Just copy ports from the Bel
+        copy_bel_ports();
     } else {
         log_error("unable to create ECP5 cell of type %s", type.c_str(ctx));
     }
@@ -365,7 +416,7 @@ void nxio_to_tr(Context *ctx, CellInfo *nxio, CellInfo *trio, std::vector<std::u
             ctx, donet, [](const Context *ctx, const CellInfo *cell) { return cell->type == ctx->id("$_TBUF_"); },
             ctx->id("Y"));
     if (tbuf) {
-        replace_port(tbuf, ctx->id("I"), trio, ctx->id("I"));
+        replace_port(tbuf, ctx->id("A"), trio, ctx->id("I"));
         // Need to invert E to form T
         std::unique_ptr<CellInfo> inv_lut = create_ecp5_cell(ctx, ctx->id("LUT4"), trio->name.str(ctx) + "$invert_T");
         replace_port(tbuf, ctx->id("E"), inv_lut.get(), ctx->id("A"));

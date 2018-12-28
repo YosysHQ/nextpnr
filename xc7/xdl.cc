@@ -25,6 +25,7 @@
 #include "log.h"
 #include "nextpnr.h"
 #include "util.h"
+#include <boost/range/adaptor/reversed.hpp>
 
 #include "torc/Physical.hpp"
 using namespace torc::architecture::xilinx;
@@ -32,9 +33,8 @@ using namespace torc::physical;
 
 NEXTPNR_NAMESPACE_BEGIN
 
-void write_xdl(const Context *ctx, std::ostream &out)
+DesignSharedPtr create_torc_design(const Context *ctx)
 {
-    XdlExporter exporter(out);
     auto designPtr = Factory::newDesignPtr("name", torc_info->ddb->getDeviceName(), ctx->args.package, "-1", "");
 
     std::unordered_map<int32_t, InstanceSharedPtr> site_to_instance;
@@ -68,7 +68,7 @@ void write_xdl(const Context *ctx, std::ostream &out)
         const char *type;
         if (cell.second->type == id_SLICE_LUT6)
             type = "SLICEL";
-        else if (cell.second->type == id_IOB33 || cell.second->type == id_BUFGCTRL || cell.second->type == id_PS7)
+        else if (cell.second->type == id_IOB33 || cell.second->type == id_IOB18 || cell.second->type == id_BUFGCTRL || cell.second->type == id_PS7 || cell.second->type == id_MMCME2_ADV)
             type = cell.second->type.c_str(ctx);
         else
             log_error("Unsupported cell type '%s'.\n", cell.second->type.c_str(ctx));
@@ -111,7 +111,7 @@ void write_xdl(const Context *ctx, std::ostream &out)
             // Assume from Yosys that INIT masks of less than 32 bits are output as uint32_t
             if (lut_inputs.size() < 6) {
                 auto init_as_uint = boost::lexical_cast<uint32_t>(init);
-                NPNR_ASSERT(init_as_uint < (1ull << (1u << lut_inputs.size())));
+                NPNR_ASSERT(init_as_uint <= ((1ull << (1u << lut_inputs.size())) - 1));
                 if (lut_inputs.empty())
                     value += init;
                 else {
@@ -173,16 +173,21 @@ void write_xdl(const Context *ctx, std::ostream &out)
                 boost::replace_all(name, ":", "\\:");
                 instPtr->setConfig(setting, name, "#FF");
                 instPtr->setConfig(setting + "MUX", "", "O6");
-                instPtr->setConfig(setting + "INIT", "", "INIT" + cell.second->params.at(ctx->id("DFF_INIT")));
-                assert(cell.second->params.at(ctx->id("SET_NORESET")) == "0"); // TODO
-                instPtr->setConfig(setting + "SR", "", "SRLOW");
+                instPtr->setConfig(setting + "INIT", "", cell.second->params.at(ctx->id("FFINIT")));
 
-                NPNR_ASSERT(!cell.second->lcInfo.negClk); // TODO
-                instPtr->setConfig("CLKINV", "", "CLK");
+                if (cell.second->lcInfo.negClk)
+                    instPtr->setConfig("CLKINV", "", "CLK_B");
+                else
+                    instPtr->setConfig("CLKINV", "", "CLK");
 
-                instPtr->setConfig("SRUSEDMUX", "", "IN");
-                instPtr->setConfig("CEUSEDMUX", "", "IN");
-                instPtr->setConfig("SYNC_ATTR", "", "ASYNC");
+                if (get_net_or_empty(cell.second.get(), id_SR)) {
+                    instPtr->setConfig(setting + "SR", "", cell.second->params.at(id_SR));
+                    instPtr->setConfig("SYNC_ATTR", "", cell.second->params.at(ctx->id("SYNC_ATTR")));
+                    instPtr->setConfig("SRUSEDMUX", "", "IN");
+                }
+                if (get_net_or_empty(cell.second.get(), ctx->id("CE")))
+                    instPtr->setConfig("CEUSEDMUX", "", "IN");
+
             }
         } else if (cell.second->type == id_IOB33) {
             if (get_net_or_empty(cell.second.get(), id_I)) {
@@ -195,17 +200,20 @@ void write_xdl(const Context *ctx, std::ostream &out)
                 instPtr->setConfig("DRIVE", "", "12");
                 instPtr->setConfig("SLEW", "", "SLOW");
             }
-        } else if (cell.second->type == id_BUFGCTRL) {
-            auto it = cell.second->params.find(ctx->id("PRESELECT_I0"));
-            instPtr->setConfig("PRESELECT_I0", "", it != cell.second->params.end() ? it->second : "FALSE");
-
-            instPtr->setConfig("CE0INV", "", "CE0");
-            instPtr->setConfig("S0INV", "", "S0");
-            instPtr->setConfig("IGNORE0INV", "", "IGNORE0");
-            instPtr->setConfig("CE1INV", "", "CE1");
-            instPtr->setConfig("S1INV", "", "S1");
-            instPtr->setConfig("IGNORE1INV", "", "IGNORE1");
-        } else if (cell.second->type == id_PS7) {
+        } else if (cell.second->type == id_IOB18) {
+            if (get_net_or_empty(cell.second.get(), id_I)) {
+                instPtr->setConfig("IUSED", "", "0");
+                instPtr->setConfig("IBUF_LOW_PWR", "", "TRUE");
+                instPtr->setConfig("ISTANDARD", "", "LVCMOS18");
+            } else {
+                instPtr->setConfig("OUSED", "", "0");
+                instPtr->setConfig("OSTANDARD", "", "LVCMOS18");
+                instPtr->setConfig("DRIVE", "", "12");
+                instPtr->setConfig("SLEW", "", "SLOW");
+            }
+        } else if (cell.second->type == id_BUFGCTRL || cell.second->type == id_PS7 || cell.second->type == id_MMCME2_ADV) {
+            for (const auto& i : cell.second->params)
+                instPtr->setConfig(i.first.str(ctx), "", i.second);
         } else
             log_error("Unsupported cell type '%s'.\n", cell.second->type.c_str(ctx));
     }
@@ -224,38 +232,53 @@ void write_xdl(const Context *ctx, std::ostream &out)
             const auto lut = bel_to_lut(driver.cell->bel);
             pin_name[0] = lut[0];
         }
+        // e.g. Convert DDRARB[0] -> DDRARB0
+        pin_name.erase(std::remove_if(pin_name.begin(), pin_name.end(), boost::is_any_of("[]")), pin_name.end());
         auto pinPtr = Factory::newInstancePinPtr(instPtr, pin_name);
         netPtr->addSource(pinPtr);
 
-        for (const auto &user : net.second->users) {
-            site_index = torc_info->bel_to_site_index[user.cell->bel.index];
-            instPtr = site_to_instance.at(site_index);
+        if (!net.second->users.empty()) {
+            for (const auto &user : net.second->users) {
+                site_index = torc_info->bel_to_site_index[user.cell->bel.index];
+                instPtr = site_to_instance.at(site_index);
 
-            pin_name = user.port.str(ctx);
-            // For all LUT based inputs and outputs (I1-I6,O,OQ,OMUX) then change the I/O into the LUT
-            if (user.cell->type == id_SLICE_LUT6 && (pin_name[0] == 'I' || pin_name[0] == 'O')) {
-                const auto lut = bel_to_lut(user.cell->bel);
-                pin_name[0] = lut[0];
+                pin_name = user.port.str(ctx);
+                // For all LUT based inputs and outputs (I1-I6,O,OQ,OMUX) then change the I/O into the LUT
+                if (user.cell->type == id_SLICE_LUT6 && (pin_name[0] == 'I' || pin_name[0] == 'O')) {
+                    const auto lut = bel_to_lut(user.cell->bel);
+                    pin_name[0] = lut[0];
+                }
+                else {
+                    // e.g. Convert DDRARB[0] -> DDRARB0
+                    pin_name.erase(std::remove_if(pin_name.begin(), pin_name.end(), boost::is_any_of("[]")), pin_name.end());
+                }
+                pinPtr = Factory::newInstancePinPtr(instPtr, pin_name);
+                netPtr->addSink(pinPtr);
             }
-            pinPtr = Factory::newInstancePinPtr(instPtr, pin_name);
-            netPtr->addSink(pinPtr);
-        }
 
-        auto b = designPtr->addNet(netPtr);
-        assert(b);
+            auto b = designPtr->addNet(netPtr);
+            assert(b);
 
-        for (const auto &i : net.second->wires) {
-            const auto &pip_map = i.second;
-            if (pip_map.pip == PipId())
-                continue;
-            ExtendedWireInfo ewi_src(*torc_info->ddb, torc_info->pip_to_arc[pip_map.pip.index].getSourceTilewire());
-            ExtendedWireInfo ewi_dst(*torc_info->ddb, torc_info->pip_to_arc[pip_map.pip.index].getSinkTilewire());
-            auto p = Factory::newPip(ewi_src.mTileName, ewi_src.mWireName, ewi_dst.mWireName,
-                                     ePipUnidirectionalBuffered);
-            netPtr->addPip(p);
+            for (const auto &i : net.second->wires) {
+                const auto &pip_map = i.second;
+                if (pip_map.pip == PipId())
+                    continue;
+                ExtendedWireInfo ewi_src(*torc_info->ddb, torc_info->pip_to_arc[pip_map.pip.index].getSourceTilewire());
+                ExtendedWireInfo ewi_dst(*torc_info->ddb, torc_info->pip_to_arc[pip_map.pip.index].getSinkTilewire());
+                auto p = Factory::newPip(ewi_src.mTileName, ewi_src.mWireName, ewi_dst.mWireName,
+                                         ePipUnidirectionalBuffered);
+                netPtr->addPip(p);
+            }
         }
     }
 
+    return designPtr;
+}
+
+void write_xdl(const Context *ctx, std::ostream &out)
+{
+    XdlExporter exporter(out);
+    auto designPtr = create_torc_design(ctx);
     exporter(designPtr);
 }
 

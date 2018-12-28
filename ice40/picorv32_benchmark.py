@@ -22,7 +22,7 @@ for i in range(num_runs):
         ascfile = "picorv32_work/picorv32_s{}.asc".format(run)
         if path.exists(ascfile):
             os.remove(ascfile)
-        result = subprocess.run(["../nextpnr-ice40", "--hx8k", "--seed", str(run), "--json", "picorv32.json", "--asc", ascfile, "--freq", "70"], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+        result = subprocess.run(["../nextpnr-ice40", "--hx8k", "--seed", str(run), "--json", "picorv32.json", "--asc", ascfile, "--freq", "40", "--opt-timing"], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
         if result.returncode != 0:
             print("Run {} failed!".format(run))
         else:

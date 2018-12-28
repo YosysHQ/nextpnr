@@ -65,7 +65,13 @@ po::options_description Ice40CommandHandler::getArchOptions()
     specific.add_options()("pcf", po::value<std::string>(), "PCF constraints file to ingest");
     specific.add_options()("asc", po::value<std::string>(), "asc bitstream file to write");
     specific.add_options()("read", po::value<std::string>(), "asc bitstream file to read");
+    specific.add_options()("promote-logic",
+                           "enable promotion of 'logic' globals (in addition to clk/ce/sr by default)");
+    specific.add_options()("no-promote-globals", "disable all global promotion");
+    specific.add_options()("opt-timing", "run post-placement timing optimisation pass (experimental)");
     specific.add_options()("tmfuzz", "run path delay estimate fuzzer");
+    specific.add_options()("pcf-allow-unconstrained", "don't require PCF to constrain all IO");
+
     return specific;
 }
 void Ice40CommandHandler::validate()
@@ -83,6 +89,8 @@ void Ice40CommandHandler::customAfterLoad(Context *ctx)
         std::ifstream pcf(filename);
         if (!apply_pcf(ctx, filename, pcf))
             log_error("Loading PCF failed.\n");
+    } else {
+        log_warning("No PCF file specified; IO pins will be placed automatically\n");
     }
 }
 void Ice40CommandHandler::customBitstream(Context *ctx)
@@ -152,7 +160,18 @@ std::unique_ptr<Context> Ice40CommandHandler::createContext()
     if (vm.count("package"))
         chipArgs.package = vm["package"].as<std::string>();
 
-    return std::unique_ptr<Context>(new Context(chipArgs));
+    auto ctx = std::unique_ptr<Context>(new Context(chipArgs));
+
+    if (vm.count("promote-logic"))
+        ctx->settings[ctx->id("promote_logic")] = "1";
+    if (vm.count("no-promote-globals"))
+        ctx->settings[ctx->id("no_promote_globals")] = "1";
+    if (vm.count("opt-timing"))
+        ctx->settings[ctx->id("opt_timing")] = "1";
+    if (vm.count("pcf-allow-unconstrained"))
+        ctx->settings[ctx->id("pcf_allow_unconstrained")] = "1";
+
+    return ctx;
 }
 
 int main(int argc, char *argv[])

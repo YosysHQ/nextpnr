@@ -156,7 +156,9 @@ void configure_extra_cell(chipconfig_t &config, const Context *ctx, CellInfo *ce
             // Lattice's weird string style params, not sure if
             // prefixes other than 0b should be supported, only 0b features in docs
             std::string raw = get_param_str_or_def(cell, ctx->id(p.first), "0b0");
-            assert(raw.substr(0, 2) == "0b");
+            if (raw.substr(0, 2) != "0b")
+                log_error("expected configuration string starting with '0b' for parameter '%s' on cell '%s'\n",
+                          p.first.c_str(), cell->name.c_str(ctx));
             raw = raw.substr(2);
             value.resize(raw.length());
             for (int i = 0; i < (int)raw.length(); i++) {
@@ -168,7 +170,13 @@ void configure_extra_cell(chipconfig_t &config, const Context *ctx, CellInfo *ce
                 }
             }
         } else {
-            int ival = get_param_or_def(cell, ctx->id(p.first), 0);
+            int ival;
+            try {
+                ival = get_param_or_def(cell, ctx->id(p.first), 0);
+            } catch (std::invalid_argument &e) {
+                log_error("expected numeric value for parameter '%s' on cell '%s'\n", p.first.c_str(),
+                          cell->name.c_str(ctx));
+            }
 
             for (int i = 0; i < p.second; i++)
                 value.push_back((ival >> i) & 0x1);
@@ -486,7 +494,7 @@ void write_asc(const Context *ctx, std::ostream &out)
             unsigned pin_type = get_param_or_def(cell.second.get(), ctx->id("PIN_TYPE"));
             bool neg_trigger = get_param_or_def(cell.second.get(), ctx->id("NEG_TRIGGER"));
             bool pullup = get_param_or_def(cell.second.get(), ctx->id("PULLUP"));
-            bool lvds = get_param_str_or_def(cell.second.get(), ctx->id("IO_STANDARD")) == "SB_LVDS_INPUT";
+            bool lvds = cell.second->ioInfo.lvds;
             bool used_by_pll_out = sb_io_used_by_pll_out.count(Loc(x, y, z)) > 0;
             bool used_by_pll_pad = sb_io_used_by_pll_pad.count(Loc(x, y, z)) > 0;
 
@@ -495,64 +503,77 @@ void write_asc(const Context *ctx, std::ostream &out)
                 set_config(ti, config.at(y).at(x), "IOB_" + std::to_string(z) + ".PINTYPE_" + std::to_string(i), val);
             }
             set_config(ti, config.at(y).at(x), "NegClk", neg_trigger);
-            auto ieren = get_ieren(bi, x, y, z);
-            int iex, iey, iez;
-            std::tie(iex, iey, iez) = ieren;
-            NPNR_ASSERT(iez != -1);
 
-            bool input_en;
-            if (lvds) {
-                input_en = false;
-                pullup = false;
-            } else {
-                if ((ctx->wire_to_net[ctx->getBelPinWire(bel, id_D_IN_0).index] != nullptr) ||
-                    (ctx->wire_to_net[ctx->getBelPinWire(bel, id_D_IN_1).index] != nullptr)) {
-                    input_en = true;
-                } else {
-                    input_en = false;
-                }
+            bool input_en = false;
+            if ((ctx->wire_to_net[ctx->getBelPinWire(bel, id_D_IN_0).index] != nullptr) ||
+                (ctx->wire_to_net[ctx->getBelPinWire(bel, id_D_IN_1).index] != nullptr)) {
+                input_en = true;
             }
-
             input_en = (input_en & !used_by_pll_out) | used_by_pll_pad;
             input_en |= cell.second->ioInfo.global;
 
-            if (ctx->args.type == ArchArgs::LP1K || ctx->args.type == ArchArgs::HX1K) {
-                set_config(ti, config.at(iey).at(iex), "IoCtrl.IE_" + std::to_string(iez), !input_en);
-                set_config(ti, config.at(iey).at(iex), "IoCtrl.REN_" + std::to_string(iez), !pullup);
-            } else {
-                set_config(ti, config.at(iey).at(iex), "IoCtrl.IE_" + std::to_string(iez), input_en);
-                set_config(ti, config.at(iey).at(iex), "IoCtrl.REN_" + std::to_string(iez), !pullup);
-            }
-
-            if (ctx->args.type == ArchArgs::UP5K) {
-                if (iez == 0) {
-                    set_config(ti, config.at(iey).at(iex), "IoCtrl.cf_bit_39", !pullup);
-                } else if (iez == 1) {
-                    set_config(ti, config.at(iey).at(iex), "IoCtrl.cf_bit_35", !pullup);
-                }
-            }
-
-            if (lvds) {
-                NPNR_ASSERT(z == 0);
-                set_config(ti, config.at(y).at(x), "IoCtrl.LVDS", true);
-                // Set comp IO config
-                auto comp_ieren = get_ieren(bi, x, y, 1);
-                int ciex, ciey, ciez;
-                std::tie(ciex, ciey, ciez) = comp_ieren;
+            if (!lvds) {
+                auto ieren = get_ieren(bi, x, y, z);
+                int iex, iey, iez;
+                std::tie(iex, iey, iez) = ieren;
+                NPNR_ASSERT(iez != -1);
 
                 if (ctx->args.type == ArchArgs::LP1K || ctx->args.type == ArchArgs::HX1K) {
-                    set_config(ti, config.at(ciey).at(ciex), "IoCtrl.IE_" + std::to_string(ciez), !input_en);
-                    set_config(ti, config.at(ciey).at(ciex), "IoCtrl.REN_" + std::to_string(ciez), !pullup);
+                    set_config(ti, config.at(iey).at(iex), "IoCtrl.IE_" + std::to_string(iez), !input_en);
+                    set_config(ti, config.at(iey).at(iex), "IoCtrl.REN_" + std::to_string(iez), !pullup);
                 } else {
-                    set_config(ti, config.at(ciey).at(ciex), "IoCtrl.IE_" + std::to_string(ciez), input_en);
-                    set_config(ti, config.at(ciey).at(ciex), "IoCtrl.REN_" + std::to_string(ciez), !pullup);
+                    set_config(ti, config.at(iey).at(iex), "IoCtrl.IE_" + std::to_string(iez), input_en);
+                    set_config(ti, config.at(iey).at(iex), "IoCtrl.REN_" + std::to_string(iez), !pullup);
                 }
 
                 if (ctx->args.type == ArchArgs::UP5K) {
-                    if (ciez == 0) {
-                        set_config(ti, config.at(ciey).at(ciex), "IoCtrl.cf_bit_39", !pullup);
+                    std::string pullup_resistor = "100K";
+                    if (cell.second->attrs.count(ctx->id("PULLUP_RESISTOR")))
+                        pullup_resistor = cell.second->attrs.at(ctx->id("PULLUP_RESISTOR"));
+                    NPNR_ASSERT(pullup_resistor == "100K" || pullup_resistor == "10K" || pullup_resistor == "6P8K" ||
+                                pullup_resistor == "3P3K");
+                    if (iez == 0) {
+                        set_config(ti, config.at(iey).at(iex), "IoCtrl.cf_bit_39",
+                                   (!pullup) || (pullup_resistor != "100K"));
+                        set_config(ti, config.at(iey).at(iex), "IoCtrl.cf_bit_36", pullup && pullup_resistor == "3P3K");
+                        set_config(ti, config.at(iey).at(iex), "IoCtrl.cf_bit_37", pullup && pullup_resistor == "6P8K");
+                        set_config(ti, config.at(iey).at(iex), "IoCtrl.cf_bit_38", pullup && pullup_resistor == "10K");
                     } else if (iez == 1) {
-                        set_config(ti, config.at(ciey).at(ciex), "IoCtrl.cf_bit_35", !pullup);
+                        set_config(ti, config.at(iey).at(iex), "IoCtrl.cf_bit_35",
+                                   (!pullup) || (pullup_resistor != "100K"));
+                        set_config(ti, config.at(iey).at(iex), "IoCtrl.cf_bit_32", pullup && pullup_resistor == "3P3K");
+                        set_config(ti, config.at(iey).at(iex), "IoCtrl.cf_bit_33", pullup && pullup_resistor == "6P8K");
+                        set_config(ti, config.at(iey).at(iex), "IoCtrl.cf_bit_34", pullup && pullup_resistor == "10K");
+                    }
+                }
+            } else {
+                NPNR_ASSERT(z == 0);
+                // Only enable the actual LVDS buffer if input is used for something
+                set_config(ti, config.at(y).at(x), "IoCtrl.LVDS", input_en);
+
+                // Set both IO config
+                for (int cz = 0; cz < 2; cz++) {
+                    auto ieren = get_ieren(bi, x, y, cz);
+                    int iex, iey, iez;
+                    std::tie(iex, iey, iez) = ieren;
+                    NPNR_ASSERT(iez != -1);
+
+                    pullup &= !input_en; /* If input is used, force disable pullups */
+
+                    if (ctx->args.type == ArchArgs::LP1K || ctx->args.type == ArchArgs::HX1K) {
+                        set_config(ti, config.at(iey).at(iex), "IoCtrl.IE_" + std::to_string(iez), true);
+                        set_config(ti, config.at(iey).at(iex), "IoCtrl.REN_" + std::to_string(iez), !pullup);
+                    } else {
+                        set_config(ti, config.at(iey).at(iex), "IoCtrl.IE_" + std::to_string(iez), false);
+                        set_config(ti, config.at(iey).at(iex), "IoCtrl.REN_" + std::to_string(iez), !pullup);
+                    }
+
+                    if (ctx->args.type == ArchArgs::UP5K) {
+                        if (iez == 0) {
+                            set_config(ti, config.at(iey).at(iex), "IoCtrl.cf_bit_39", !pullup);
+                        } else if (iez == 1) {
+                            set_config(ti, config.at(iey).at(iex), "IoCtrl.cf_bit_35", !pullup);
+                        }
                     }
                 }
             }
@@ -591,7 +612,8 @@ void write_asc(const Context *ctx, std::ostream &out)
                     {"CURRENT_MODE", 1}, {"RGB0_CURRENT", 6}, {"RGB1_CURRENT", 6}, {"RGB2_CURRENT", 6}};
             configure_extra_cell(config, ctx, cell.second.get(), rgba_params, true, std::string("IpConfig."));
             set_ec_cbit(config, ctx, get_ec_config(ctx->chip_info, cell.second->bel), "RGBA_DRV_EN", true, "IpConfig.");
-        } else if (cell.second->type == ctx->id("SB_WARMBOOT") || cell.second->type == ctx->id("ICESTORM_LFOSC")) {
+        } else if (cell.second->type == ctx->id("SB_WARMBOOT") || cell.second->type == ctx->id("ICESTORM_LFOSC") ||
+                   cell.second->type == ctx->id("SB_LEDDA_IP")) {
             // No config needed
         } else if (cell.second->type == ctx->id("ICESTORM_SPRAM")) {
             const BelInfoPOD &beli = ci.bel_data[bel.index];
@@ -688,7 +710,7 @@ void write_asc(const Context *ctx, std::ostream &out)
             int iex, iey, iez;
             std::tie(iex, iey, iez) = ieren;
             if (iez != -1) {
-                // IO is not actually unused if part of an LVDS pair
+                // If IO is in LVDS pair, it will be configured by the other pair
                 if (z == 1) {
                     BelId lvds0 = ctx->getBelByLocation(Loc{x, y, 0});
                     const CellInfo *lvds0cell = ctx->getBoundBelCell(lvds0);

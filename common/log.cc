@@ -84,7 +84,7 @@ std::string vstringf(const char *fmt, va_list ap)
     return string;
 }
 
-void logv(const char *format, va_list ap, LogLevel level = LogLevel::LOG)
+void logv(const char *format, va_list ap, LogLevel level = LogLevel::LOG_MSG)
 {
     //
     // Trim newlines from the beginning
@@ -132,7 +132,7 @@ void log_always(const char *format, ...)
 {
     va_list ap;
     va_start(ap, format);
-    logv(format, ap, LogLevel::ALWAYS);
+    logv(format, ap, LogLevel::ALWAYS_MSG);
     va_end(ap);
 }
 
@@ -140,7 +140,7 @@ void log(const char *format, ...)
 {
     va_list ap;
     va_start(ap, format);
-    logv(format, ap, LogLevel::LOG);
+    logv(format, ap, LogLevel::LOG_MSG);
     va_end(ap);
 }
 
@@ -148,7 +148,7 @@ void log_info(const char *format, ...)
 {
     va_list ap;
     va_start(ap, format);
-    logv_prefixed("Info: ", format, ap, LogLevel::INFO);
+    logv_prefixed("Info: ", format, ap, LogLevel::INFO_MSG);
     va_end(ap);
 }
 
@@ -156,7 +156,7 @@ void log_warning(const char *format, ...)
 {
     va_list ap;
     va_start(ap, format);
-    logv_prefixed("Warning: ", format, ap, LogLevel::WARNING);
+    logv_prefixed("Warning: ", format, ap, LogLevel::WARNING_MSG);
     va_end(ap);
 }
 
@@ -164,7 +164,7 @@ void log_error(const char *format, ...)
 {
     va_list ap;
     va_start(ap, format);
-    logv_prefixed("ERROR: ", format, ap, LogLevel::ERROR);
+    logv_prefixed("ERROR: ", format, ap, LogLevel::ERROR_MSG);
 
     if (log_error_atexit)
         log_error_atexit();
@@ -184,7 +184,7 @@ void log_nonfatal_error(const char *format, ...)
 {
     va_list ap;
     va_start(ap, format);
-    logv_prefixed("ERROR: ", format, ap, LogLevel::ERROR);
+    logv_prefixed("ERROR: ", format, ap, LogLevel::ERROR_MSG);
     va_end(ap);
     had_nonfatal_error = true;
 }

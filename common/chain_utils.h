@@ -51,7 +51,8 @@ std::vector<CellChain> find_chains(const Context *ctx, F1 cell_type_predicate, F
             CellChain chain;
             CellInfo *end = start;
             while (end != nullptr) {
-                chain.cells.push_back(end);
+                if (chained.insert(end->name).second)
+                    chain.cells.push_back(end);
                 end = get_next(ctx, end);
             }
             if (chain.cells.size() >= min_length) {

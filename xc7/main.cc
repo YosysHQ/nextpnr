@@ -51,8 +51,9 @@ Xc7CommandHandler::Xc7CommandHandler(int argc, char **argv) : CommandHandler(arg
 po::options_description Xc7CommandHandler::getArchOptions()
 {
     po::options_description specific("Architecture specific options");
-    specific.add_options()("xc7z020", "set device type to xc7z020");
-    //    specific.add_options()("package", po::value<std::string>(), "set device package");
+    specific.add_options()("z020", "set device type to xc7z020");
+    specific.add_options()("vx980", "set device type to xc7v980");
+    specific.add_options()("package", po::value<std::string>(), "set device package");
     specific.add_options()("pcf", po::value<std::string>(), "PCF constraints file to ingest");
     specific.add_options()("xdl", po::value<std::string>(), "XDL file to write");
     //    specific.add_options()("tmfuzz", "run path delay estimate fuzzer");
@@ -96,6 +97,12 @@ std::unique_ptr<Context> Xc7CommandHandler::createContext()
         chipArgs.type = ArchArgs::Z020;
         chipArgs.package = "clg400";
     }
+
+    if (vm.count("vx980")) {
+        chipArgs.type = ArchArgs::VX980;
+        chipArgs.package = "ffg1926";
+    }
+
 
     if (chipArgs.type == ArchArgs::NONE) {
         chipArgs.type = ArchArgs::Z020;

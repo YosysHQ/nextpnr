@@ -579,6 +579,8 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
         return false;
     } else if (cell->type == id_DP16KD) {
         return false;
+    } else if (cell->type == id_IOLOGIC || cell->type == id_SIOLOGIC) {
+        return false;
     } else {
         return false;
     }
@@ -669,8 +671,19 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
             return (cell->ports.at(port).type == PORT_OUT) ? TMG_REGISTER_OUTPUT : TMG_REGISTER_INPUT;
         }
         return TMG_IGNORE;
+    } else if (cell->type == id_IOLOGIC || cell->type == id_SIOLOGIC) {
+        if (port == id_CLK || port == id_ECLK) {
+            return TMG_CLOCK_INPUT;
+        } else if (port == id_IOLDO || port == id_IOLDOI || port == id_IOLDOD || port == id_IOLTO || port == id_PADDI ||
+                   port == id_DQSR90 || port == id_DQSW || port == id_DQSW270) {
+            return TMG_IGNORE;
+        } else {
+            clockInfoCount = 1;
+            return (cell->ports.at(port).type == PORT_OUT) ? TMG_REGISTER_OUTPUT : TMG_REGISTER_INPUT;
+        }
     } else {
-        NPNR_ASSERT_FALSE_STR("no timing data for cell type '" + cell->type.str(this) + "'");
+        log_error("cell type '%s' is unsupported (instantiated as '%s')\n", cell->type.c_str(this),
+                  cell->name.c_str(this));
     }
 }
 
@@ -741,6 +754,14 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
             info.clockToQ = getDelayFromNS(0.7);
         } else {
             info.setup = getDelayFromNS(1);
+            info.hold = getDelayFromNS(0);
+        }
+    } else if (cell->type == id_IOLOGIC || cell->type == id_SIOLOGIC) {
+        info.clock_port = id_CLK;
+        if (cell->ports.at(port).type == PORT_OUT) {
+            info.clockToQ = getDelayFromNS(0.5);
+        } else {
+            info.setup = getDelayFromNS(0.1);
             info.hold = getDelayFromNS(0);
         }
     }

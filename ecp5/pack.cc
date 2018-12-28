@@ -299,7 +299,16 @@ class Ecp5Packer
                     // iobuf
                     log_info("%s feeds TRELLIS_IO %s, removing %s %s.\n", ci->name.c_str(ctx), trio->name.c_str(ctx),
                              ci->type.c_str(ctx), ci->name.c_str(ctx));
+
                     NetInfo *net = trio->ports.at(ctx->id("B")).net;
+                    if (((ci->type == ctx->id("$nextpnr_ibuf") || ci->type == ctx->id("$nextpnr_iobuf")) &&
+                         net->users.size() > 1) ||
+                        (ci->type == ctx->id("$nextpnr_obuf") &&
+                         (net->users.size() > 2 || net->driver.cell != nullptr)) ||
+                        (ci->type == ctx->id("$nextpnr_iobuf") && ci->ports.at(ctx->id("I")).net != nullptr &&
+                         ci->ports.at(ctx->id("I")).net->driver.cell != nullptr))
+                        log_error("Pin B of %s '%s' connected to more than a single top level IO.\n",
+                                  trio->type.c_str(ctx), trio->name.c_str(ctx));
                     if (net != nullptr) {
                         ctx->nets.erase(net->name);
                         trio->ports.at(ctx->id("B")).net = nullptr;
@@ -1323,13 +1332,206 @@ class Ecp5Packer
         }
     }
 
+    // Preplace PLL
+    void preplace_plls()
+    {
+        std::set<BelId> available_plls;
+        for (auto bel : ctx->getBels()) {
+            if (ctx->getBelType(bel) == id_EHXPLLL && ctx->checkBelAvail(bel))
+                available_plls.insert(bel);
+        }
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (ci->type == id_EHXPLLL && ci->attrs.count(ctx->id("BEL")))
+                available_plls.erase(ctx->getBelByName(ctx->id(ci->attrs.at(ctx->id("BEL")))));
+        }
+        // Place PLL connected to fixed drivers such as IO close to their source
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (ci->type == id_EHXPLLL && !ci->attrs.count(ctx->id("BEL"))) {
+                const NetInfo *drivernet = net_or_nullptr(ci, id_CLKI);
+                if (drivernet == nullptr || drivernet->driver.cell == nullptr)
+                    continue;
+                const CellInfo *drivercell = drivernet->driver.cell;
+                if (!drivercell->attrs.count(ctx->id("BEL")))
+                    continue;
+                BelId drvbel = ctx->getBelByName(ctx->id(drivercell->attrs.at(ctx->id("BEL"))));
+                Loc drvloc = ctx->getBelLocation(drvbel);
+                BelId closest_pll;
+                int closest_distance = std::numeric_limits<int>::max();
+                for (auto bel : available_plls) {
+                    Loc pllloc = ctx->getBelLocation(bel);
+                    int distance = std::abs(drvloc.x - pllloc.x) + std::abs(drvloc.y - pllloc.y);
+                    if (distance < closest_distance) {
+                        closest_pll = bel;
+                        closest_distance = distance;
+                    }
+                }
+                if (closest_pll == BelId())
+                    log_error("failed to place PLL '%s'\n", ci->name.c_str(ctx));
+                available_plls.erase(closest_pll);
+                ci->attrs[ctx->id("BEL")] = ctx->getBelName(closest_pll).str(ctx);
+            }
+        }
+        // Place PLLs driven by logic, etc, randomly
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (ci->type == id_EHXPLLL && !ci->attrs.count(ctx->id("BEL"))) {
+                if (available_plls.empty())
+                    log_error("failed to place PLL '%s'\n", ci->name.c_str(ctx));
+                BelId next_pll = *(available_plls.begin());
+                available_plls.erase(next_pll);
+                ci->attrs[ctx->id("BEL")] = ctx->getBelName(next_pll).str(ctx);
+            }
+        }
+    }
+
+    // Check if two nets have identical constant drivers
+    bool equal_constant(NetInfo *a, NetInfo *b)
+    {
+        if (a->driver.cell == nullptr || b->driver.cell == nullptr)
+            return (a->driver.cell == nullptr && b->driver.cell == nullptr);
+        if (a->driver.cell->type != ctx->id("GND") && a->driver.cell->type != ctx->id("VCC"))
+            return false;
+        return a->driver.cell->type == b->driver.cell->type;
+    }
+
+    // Pack IOLOGIC
+    void pack_iologic()
+    {
+        std::unordered_map<IdString, CellInfo *> pio_iologic;
+
+        auto set_iologic_sclk = [&](CellInfo *iol, CellInfo *prim, IdString port, bool input) {
+            NetInfo *sclk = nullptr;
+            if (prim->ports.count(port))
+                sclk = prim->ports[port].net;
+            if (sclk == nullptr) {
+                iol->params[input ? ctx->id("CLKIMUX") : ctx->id("CLKOMUX")] = "0";
+            } else {
+                iol->params[input ? ctx->id("CLKIMUX") : ctx->id("CLKOMUX")] = "CLK";
+                if (iol->ports[id_CLK].net != nullptr) {
+                    if (iol->ports[id_CLK].net != sclk && !equal_constant(iol->ports[id_CLK].net, sclk))
+                        log_error("IOLOGIC '%s' has conflicting clocks '%s' and '%s'\n", iol->name.c_str(ctx),
+                                  iol->ports[id_CLK].net->name.c_str(ctx), sclk->name.c_str(ctx));
+                } else {
+                    connect_port(ctx, sclk, iol, id_CLK);
+                }
+            }
+            if (prim->ports.count(port))
+                disconnect_port(ctx, prim, port);
+        };
+
+        auto set_iologic_lsr = [&](CellInfo *iol, CellInfo *prim, IdString port, bool input) {
+            NetInfo *lsr = nullptr;
+            if (prim->ports.count(port))
+                lsr = prim->ports[port].net;
+            if (lsr == nullptr) {
+                iol->params[input ? ctx->id("LSRIMUX") : ctx->id("LSROMUX")] = "0";
+            } else {
+                iol->params[input ? ctx->id("LSRIMUX") : ctx->id("LSROMUX")] = "LSRMUX";
+                if (iol->ports[id_LSR].net != nullptr && !equal_constant(iol->ports[id_LSR].net, lsr)) {
+                    if (iol->ports[id_LSR].net != lsr)
+                        log_error("IOLOGIC '%s' has conflicting LSR signals '%s' and '%s'\n", iol->name.c_str(ctx),
+                                  iol->ports[id_LSR].net->name.c_str(ctx), lsr->name.c_str(ctx));
+                } else {
+                    connect_port(ctx, lsr, iol, id_LSR);
+                }
+            }
+            if (prim->ports.count(port))
+                disconnect_port(ctx, prim, port);
+        };
+
+        auto set_iologic_mode = [&](CellInfo *iol, std::string mode) {
+            auto &curr_mode = iol->params[ctx->id("MODE")];
+            if (curr_mode != "NONE" && curr_mode != mode)
+                log_error("IOLOGIC '%s' has conflicting modes '%s' and '%s'\n", iol->name.c_str(ctx), curr_mode.c_str(),
+                          mode.c_str());
+            curr_mode = mode;
+        };
+
+        auto create_pio_iologic = [&](CellInfo *pio, CellInfo *curr) {
+            if (!pio->attrs.count(ctx->id("BEL")))
+                log_error("IOLOGIC functionality (DDR, DELAY, DQS, etc) can only be used with pin-constrained PIO "
+                          "(while processing '%s').\n",
+                          curr->name.c_str(ctx));
+            BelId bel = ctx->getBelByName(ctx->id(pio->attrs.at(ctx->id("BEL"))));
+            NPNR_ASSERT(bel != BelId());
+            log_info("IOLOGIC component %s connected to PIO Bel %s\n", curr->name.c_str(ctx),
+                     ctx->getBelName(bel).c_str(ctx));
+            Loc loc = ctx->getBelLocation(bel);
+            bool s = false;
+            if (loc.y == 0 || loc.y == (ctx->chip_info->height - 1))
+                s = true;
+            std::unique_ptr<CellInfo> iol =
+                    create_ecp5_cell(ctx, s ? id_SIOLOGIC : id_IOLOGIC, pio->name.str(ctx) + "$IOL");
+
+            loc.z += s ? 2 : 4;
+            iol->attrs[ctx->id("BEL")] = ctx->getBelName(ctx->getBelByLocation(loc)).str(ctx);
+
+            CellInfo *iol_ptr = iol.get();
+            pio_iologic[pio->name] = iol_ptr;
+            new_cells.push_back(std::move(iol));
+            return iol_ptr;
+        };
+
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (ci->type == ctx->id("IDDRX1F")) {
+                CellInfo *pio = net_driven_by(ctx, ci->ports.at(ctx->id("D")).net, is_trellis_io, id_O);
+                if (pio == nullptr || ci->ports.at(ctx->id("D")).net->users.size() > 1)
+                    log_error("IDDRX1F '%s' D input must be connected only to a top level input\n",
+                              ci->name.c_str(ctx));
+                CellInfo *iol;
+                if (pio_iologic.count(pio->name))
+                    iol = pio_iologic.at(pio->name);
+                else
+                    iol = create_pio_iologic(pio, ci);
+                set_iologic_mode(iol, "IDDRX1_ODDRX1");
+                replace_port(ci, ctx->id("D"), iol, id_PADDI);
+                set_iologic_sclk(iol, ci, ctx->id("SCLK"), true);
+                set_iologic_lsr(iol, ci, ctx->id("RST"), true);
+                replace_port(ci, ctx->id("Q0"), iol, id_RXDATA0);
+                replace_port(ci, ctx->id("Q1"), iol, id_RXDATA1);
+                iol->params[ctx->id("GSR")] = str_or_default(ci->params, ctx->id("GSR"), "DISABLED");
+                packed_cells.insert(cell.first);
+            } else if (ci->type == ctx->id("ODDRX1F")) {
+                CellInfo *pio = net_only_drives(ctx, ci->ports.at(ctx->id("Q")).net, is_trellis_io, id_I, true);
+                if (pio == nullptr)
+                    log_error("ODDRX1F '%s' Q output must be connected only to a top level output\n",
+                              ci->name.c_str(ctx));
+                CellInfo *iol;
+                if (pio_iologic.count(pio->name))
+                    iol = pio_iologic.at(pio->name);
+                else
+                    iol = create_pio_iologic(pio, ci);
+                set_iologic_mode(iol, "IDDRX1_ODDRX1");
+                replace_port(ci, ctx->id("Q"), iol, id_IOLDO);
+                if (!pio->ports.count(id_IOLDO)) {
+                    pio->ports[id_IOLDO].name = id_IOLDO;
+                    pio->ports[id_IOLDO].type = PORT_IN;
+                }
+                replace_port(pio, id_I, pio, id_IOLDO);
+                pio->params[ctx->id("DATAMUX_ODDR")] = "IOLDO";
+                set_iologic_sclk(iol, ci, ctx->id("SCLK"), false);
+                set_iologic_lsr(iol, ci, ctx->id("RST"), false);
+                replace_port(ci, ctx->id("D0"), iol, id_TXDATA0);
+                replace_port(ci, ctx->id("D1"), iol, id_TXDATA1);
+                iol->params[ctx->id("GSR")] = str_or_default(ci->params, ctx->id("GSR"), "DISABLED");
+                packed_cells.insert(cell.first);
+            }
+        }
+        flush_cells();
+    };
+
   public:
     void pack()
     {
         pack_io();
+        pack_iologic();
         pack_ebr();
         pack_dsps();
         pack_dcus();
+        preplace_plls();
         pack_constants();
         pack_dram();
         pack_carries();

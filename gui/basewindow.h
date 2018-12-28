@@ -78,6 +78,8 @@ class BaseMainWindow : public QMainWindow
     void budget();
     void place();
 
+    void execute_python();
+
     void pack_finished(bool status);
     void budget_finish(bool status);
     void place_finished(bool status);
@@ -122,6 +124,9 @@ class BaseMainWindow : public QMainWindow
     QAction *actionAssignBudget;
     QAction *actionPlace;
     QAction *actionRoute;
+
+    QAction *actionExecutePy;
+
     QAction *actionPlay;
     QAction *actionPause;
     QAction *actionStop;

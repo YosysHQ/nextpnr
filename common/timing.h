@@ -32,6 +32,19 @@ void assign_budget(Context *ctx, bool quiet = false);
 void timing_analysis(Context *ctx, bool slack_histogram = true, bool print_fmax = true, bool print_path = false,
                      bool warn_on_failure = false);
 
+// Data for the timing optimisation algorithm
+struct NetCriticalityInfo
+{
+    // One each per user
+    std::vector<delay_t> slack;
+    std::vector<float> criticality;
+    unsigned max_path_length = 0;
+    delay_t cd_worst_slack = std::numeric_limits<delay_t>::max();
+};
+
+typedef std::unordered_map<IdString, NetCriticalityInfo> NetCriticalityMap;
+void get_criticalities(Context *ctx, NetCriticalityMap *net_crit);
+
 NEXTPNR_NAMESPACE_END
 
 #endif
