@@ -118,40 +118,40 @@ void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc, bool pass_thru_l
         if (*citer == 'S') {
             citer++;
             if (get_net_or_empty(dff, id_S) != gnd_net) {
-		lc->params[id_SR] = "SRHIGH";
-		lc->params[ctx->id("SYNC_ATTR")] = "SYNC";
+                lc->params[id_SR] = "SRHIGH";
                 replace_port(dff, id_S, lc, id_SR);
-	    }
+            }
             else
                 disconnect_port(ctx, dff, id_S);
+            lc->params[ctx->id("SYNC_ATTR")] = "SYNC";
         } else if (*citer == 'R') {
             citer++;
             if (get_net_or_empty(dff, id_R) != gnd_net) {
-		lc->params[id_SR] = "SRLOW";
-		lc->params[ctx->id("SYNC_ATTR")] = "SYNC";
+                lc->params[id_SR] = "SRLOW";
                 replace_port(dff, id_R, lc, id_SR);
-	    }
+            }
             else
                 disconnect_port(ctx, dff, id_R);
+            lc->params[ctx->id("SYNC_ATTR")] = "SYNC";
         } else if (*citer == 'C') {
             citer++;
             if (get_net_or_empty(dff, id_CLR) != gnd_net) {
-		lc->params[id_SR] = "SRLOW";
-		lc->params[ctx->id("SYNC_ATTR")] = "ASYNC";
+                lc->params[id_SR] = "SRLOW";
                 replace_port(dff, id_CLR, lc, id_SR);
-	    }
+            }
             else
                 disconnect_port(ctx, dff, id_CLR);
+            lc->params[ctx->id("SYNC_ATTR")] = "ASYNC";
         } else {
             NPNR_ASSERT(*citer == 'P');
             citer++;
             if (get_net_or_empty(dff, id_PRE) != gnd_net) {
-		lc->params[id_SR] = "SRHIGH";
-		lc->params[ctx->id("SYNC_ATTR")] = "ASYNC";
+                lc->params[id_SR] = "SRHIGH";
                 replace_port(dff, id_PRE, lc, id_SR);
-	    }
+            }
             else
                 disconnect_port(ctx, dff, id_PRE);
+            lc->params[ctx->id("SYNC_ATTR")] = "ASYNC";
         }
     }
 
