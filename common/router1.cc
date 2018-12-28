@@ -633,11 +633,7 @@ struct Router1
                 next_qw.penalty = next_penalty;
                 next_qw.bonus = next_bonus;
                 if (cfg.useEstimate) {
-#ifdef ARCH_XC7
-                    next_qw.togo = ctx->estimateDelay(next_wire, imux_wire);
-#else
                     next_qw.togo = ctx->estimateDelay(next_wire, dst_wire);
-#endif
                     delay_t this_est = next_qw.delay + next_qw.togo;
                     if (this_est / 2 - cfg.estimatePrecision > best_est)
                         continue;
