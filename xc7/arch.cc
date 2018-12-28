@@ -20,6 +20,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <regex>
 #include "cells.h"
 #include "gfx.h"
 #include "log.h"
@@ -36,12 +37,12 @@ std::unique_ptr<const TorcInfo> torc_info;
 TorcInfo::TorcInfo(BaseCtx *ctx, const std::string &inDeviceName, const std::string &inPackageName)
         : TorcInfo(inDeviceName, inPackageName)
 {
-    static const boost::regex re_loc(".+_X(\\d+)Y(\\d+)");
-    boost::cmatch what;
+    static const std::regex re_loc(".+_X(\\d+)Y(\\d+)");
+    std::cmatch what;
     tile_to_xy.resize(tiles.getTileCount());
     for (TileIndex tileIndex(0); tileIndex < tiles.getTileCount(); tileIndex++) {
          const auto &tileInfo = tiles.getTileInfo(tileIndex);
-        if (!boost::regex_match(tileInfo.getName(), what, re_loc))
+        if (!std::regex_match(tileInfo.getName(), what, re_loc))
             throw;
         const auto x = boost::lexical_cast<int>(what.str(1));
         const auto y = boost::lexical_cast<int>(what.str(2));
@@ -68,7 +69,7 @@ TorcInfo::TorcInfo(BaseCtx *ctx, const std::string &inDeviceName, const std::str
             bel_to_site_index.push_back(i);
             site_index_to_type[i] = id_SLICE_LUT6;
             const auto site_name = site.getName();
-            if (!boost::regex_match(site_name.c_str(), what, re_loc))
+            if (!std::regex_match(site_name.c_str(), what, re_loc))
                 throw;
             const auto sx = boost::lexical_cast<int>(what.str(1));
             if ((sx & 1) == 0) {
@@ -110,16 +111,16 @@ TorcInfo::TorcInfo(BaseCtx *ctx, const std::string &inDeviceName, const std::str
     bel_to_site_index.shrink_to_fit();
     bel_to_loc.shrink_to_fit();
 
-    const boost::regex re_124("(.+_)?[NESW][NESWLR](\\d)((BEG(_[NS])?)|(END(_[NS])?)|[A-E])?\\d(_\\d)?");
-    const boost::regex re_L("(.+_)?L(H|V|VB)(_L)?\\d+(_\\d)?");
-    const boost::regex re_BYP("BYP(_ALT)?\\d");
-    const boost::regex re_BYP_B("BYP_[BL]\\d");
-    const boost::regex re_BOUNCE_NS("(BYP|FAN)_BOUNCE_[NS]3_\\d");
-    const boost::regex re_FAN("FAN(_ALT)?\\d");
-    const boost::regex re_CLB_I1_6("CLBL[LM]_(L|LL|M)_[A-D]([1-6])");
-    const boost::regex bufg_i("CLK_BUFG_BUFGCTRL\\d+_I0");
-    const boost::regex bufg_o("CLK_BUFG_BUFGCTRL\\d+_O");
-    const boost::regex hrow("CLK_HROW_CLK[01]_[34]");
+    const std::regex re_124("(.+_)?[NESW][NESWLR](\\d)((BEG(_[NS])?)|(END(_[NS])?)|[A-E])?\\d(_\\d)?");
+    const std::regex re_L("(.+_)?L(H|V|VB)(_L)?\\d+(_\\d)?");
+    const std::regex re_BYP("BYP(_ALT)?\\d");
+    const std::regex re_BYP_B("BYP_[BL]\\d");
+    const std::regex re_BOUNCE_NS("(BYP|FAN)_BOUNCE_[NS]3_\\d");
+    const std::regex re_FAN("FAN(_ALT)?\\d");
+    const std::regex re_CLB_I1_6("CLBL[LM]_(L|LL|M)_[A-D]([1-6])");
+    const std::regex bufg_i("CLK_BUFG_BUFGCTRL\\d+_I0");
+    const std::regex bufg_o("CLK_BUFG_BUFGCTRL\\d+_O");
+    const std::regex hrow("CLK_HROW_CLK[01]_[34]");
     std::unordered_map</*TileTypeIndex*/ unsigned, std::vector<delay_t>> delay_lookup;
     std::unordered_map<Segments::SegmentReference, TileIndex> segment_to_anchor;
     Tilewire currentTilewire;
@@ -171,7 +172,7 @@ TorcInfo::TorcInfo(BaseCtx *ctx, const std::string &inDeviceName, const std::str
                 for (WireIndex wireIndex(0); wireIndex < wireCount; wireIndex++) {
                     const WireInfo &wireInfo = tiles.getWireInfo(tileTypeIndex, wireIndex);
                     auto wire_name = wireInfo.getName();
-                    if (boost::regex_match(wire_name, what, re_124)) {
+                    if (std::regex_match(wire_name, what, re_124)) {
                         switch (what.str(2)[0]) {
                         case '1':
                             tile_delays[wireIndex] = 150;
@@ -188,7 +189,7 @@ TorcInfo::TorcInfo(BaseCtx *ctx, const std::string &inDeviceName, const std::str
                         default:
                             throw;
                         }
-                    } else if (boost::regex_match(wire_name, what, re_L)) {
+                    } else if (std::regex_match(wire_name, what, re_L)) {
                         std::string l(what[2]);
                         if (l == "H")
                             tile_delays[wireIndex] = 360;
@@ -198,12 +199,12 @@ TorcInfo::TorcInfo(BaseCtx *ctx, const std::string &inDeviceName, const std::str
                             tile_delays[wireIndex] = 350;
                         else
                             throw;
-                    } else if (boost::regex_match(wire_name, what, re_BYP)) {
+                    } else if (std::regex_match(wire_name, what, re_BYP)) {
                         tile_delays[wireIndex] = 190;
-                    } else if (boost::regex_match(wire_name, what, re_BYP_B)) {
-                    } else if (boost::regex_match(wire_name, what, re_FAN)) {
+                    } else if (std::regex_match(wire_name, what, re_BYP_B)) {
+                    } else if (std::regex_match(wire_name, what, re_FAN)) {
                         tile_delays[wireIndex] = 190;
-                    } else if (boost::regex_match(wire_name, what, re_CLB_I1_6)) {
+                    } else if (std::regex_match(wire_name, what, re_CLB_I1_6)) {
                         switch (what.str(2)[0]) {
                         case '1':
                             tile_delays[wireIndex] = 280;
@@ -297,9 +298,9 @@ TorcInfo::TorcInfo(BaseCtx *ctx, const std::string &inDeviceName, const std::str
                     // Disable BUFG I0 -> O routethrough
                     if (clk_tile) {
                         ewi.set(a.getSourceTilewire());
-                        if (boost::regex_match(ewi.mWireName, bufg_i)) {
+                        if (std::regex_match(ewi.mWireName, bufg_i)) {
                             ewi.set(a.getSinkTilewire());
-                            if (boost::regex_match(ewi.mWireName, bufg_o))
+                            if (std::regex_match(ewi.mWireName, bufg_o))
                                 continue;
                         }
                     }
@@ -307,7 +308,7 @@ TorcInfo::TorcInfo(BaseCtx *ctx, const std::string &inDeviceName, const std::str
                     // Disable entering HROW from INT_[LR].CLK[01]
                     if (boost::starts_with(tileTypeName, "CLK_HROW")) {
                         ewi.set(a.getSourceTilewire());
-                        if (boost::regex_match(ewi.mWireName, hrow))
+                        if (std::regex_match(ewi.mWireName, hrow))
                             continue;
                     }
 

@@ -182,9 +182,9 @@ DesignSharedPtr create_torc_design(const Context *ctx)
 
                 if (get_net_or_empty(cell.second.get(), id_SR)) {
                     instPtr->setConfig(setting + "SR", "", cell.second->params.at(id_SR));
-                    instPtr->setConfig("SYNC_ATTR", "", cell.second->params.at(ctx->id("SYNC_ATTR")));
                     instPtr->setConfig("SRUSEDMUX", "", "IN");
                 }
+                instPtr->setConfig("SYNC_ATTR", "", cell.second->params.at(ctx->id("SYNC_ATTR")));
                 if (get_net_or_empty(cell.second.get(), ctx->id("CE")))
                     instPtr->setConfig("CEUSEDMUX", "", "IN");
 

@@ -1,15 +1,14 @@
-read_verilog attosoc_top.v
-read_verilog attosoc.v
-read_verilog picorv32.v
+read_verilog blinky.v
+chparam -set LOG2DELAY 0
 
-#synth_xilinx -top picorv32
+#synth_xilinx -top blinky
 
 #begin:
     read_verilog -lib +/xilinx/cells_sim.v
     read_verilog -lib +/xilinx/cells_xtra.v
 #    read_verilog -lib +/xilinx/brams_bb.v
 #    read_verilog -lib +/xilinx/drams_bb.v
-    hierarchy -check -top top
+    hierarchy -check -top blinky
 
 #flatten:     (only if -flatten)
     proc
@@ -52,4 +51,4 @@ check:
 #edif:     (only if -edif)
 #    write_edif <file-name>
 
-write_json attosoc.json
+write_json blinky.json

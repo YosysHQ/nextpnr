@@ -47,3 +47,5 @@ xilinx_device_details.xml
 *_fpga_editor.*
 *.twr
 *.twx
+*.nlf
+*.sdf
