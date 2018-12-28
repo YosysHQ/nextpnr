@@ -1,0 +1,15 @@
+{
+    "project": {
+        "version": "1",
+        "name": "blinky",
+        "arch": {
+            "name": "ice40",
+            "type": "hx1k",
+            "package": "tq144"
+        },
+        "input": {
+            "json": "blinky.json",
+            "pcf": "blinky.pcf"
+        }
+    }
+}

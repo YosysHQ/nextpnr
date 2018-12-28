@@ -1,0 +1,15 @@
+{
+    "project": {
+        "version": "1",
+        "name": "picorv32",
+        "arch": {
+            "name": "ice40",
+            "type": "hx8k",
+            "package": "ct256"
+        },
+        "input": {
+            "json": "picorv32.json",
+            "pcf": "icebreaker.pcf"
+        }
+    }
+}

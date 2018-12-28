@@ -512,6 +512,21 @@ struct Router1
                 WireId next_wire = ctx->getPipDstWire(pip);
                 next_delay += ctx->getWireDelay(next_wire).maxDelay();
 
+#ifdef ARCH_XC7
+                // For BUFG routing, do not exit the global network until the destination tile is reached
+                if (ctx->isGlobalNet(net_info)) {
+                    if (torc_info->wire_is_global[src_wire.index] && !torc_info->wire_is_global[next_wire.index]) {
+                        const auto &arc = torc_info->pip_to_arc[pip.index];
+                        const auto &next_tw = arc.getSinkTilewire();
+                        const auto &next_loc = torc_info->tile_to_xy[next_tw.getTileIndex()];
+                        const auto &dst_tw = torc_info->wire_to_tilewire[dst_wire.index];
+                        const auto &dst_loc = torc_info->tile_to_xy[dst_tw.getTileIndex()];
+                        if (next_loc.second != dst_loc.second || next_loc.first != dst_loc.first)
+                            continue;
+                    }
+                }
+#endif
+
                 WireId conflictWireWire = WireId(), conflictPipWire = WireId();
                 NetInfo *conflictWireNet = nullptr, *conflictPipNet = nullptr;
 

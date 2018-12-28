@@ -3,6 +3,7 @@
 /nextpnr-generic*
 /nextpnr-ice40*
 /nextpnr-ecp5*
+/nextpnr-xc7*
 cmake-build-*/
 Makefile
 cmake_install.cmake
@@ -29,3 +30,22 @@ install_manifest.txt
 /ImportExecutables.cmake
 *-coverage/
 *-coverage.info
+
+# nextpnr-xc7
+*.xdl
+*.bit
+
+# ise
+_xmsgs/
+*.bgn
+*.drc
+*.ncd
+*.xwbt
+usage_statistics_webtalk.html
+webtalk.log
+xilinx_device_details.xml
+*_fpga_editor.*
+*.twr
+*.twx
+*.nlf
+*.sdf

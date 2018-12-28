@@ -1,0 +1,3 @@
+NET "clki" PERIOD = 8 nS ;
+PIN "clki_pin" = BEL "clki.PAD" PINNAME PAD;
+PIN "clki_pin" CLOCK_DEDICATED_ROUTE = FALSE;

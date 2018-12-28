@@ -1,6 +1,19 @@
 nextpnr -- a portable FPGA place and route tool
 ===============================================
 
+***
+### NB: This nextpnr-xc7 branch is *unofficial*, *very* proof-of-concept, *very* experimental, *very* unoptimised, and is provided with *no support whatsoever*. Use at your own risk!
+#### It leverages a [torc](https://github.com/torc-isi/torc) fork with minimal changes (those necessary to support building on later versions of gcc) to target XDL-compatible devices.
+### Note that torc is licensed under GPLv3 which differs from nextpnr's ISC license, thus please respect the limitations imposed by both licenses.
+Currently, only LUT1-6, IOB, BUFGCTRL, MMCME2_ADV are supported for xc7z020 and xc7vx680t (but trivial to add others).
+The following example shell scripts are available:
+* blinky.sh -- generates blinky.bit that flashes (with a delay) the 4 LEDs on a ZYBO Z7
+* blinky_sim.sh -- post place-and-route simulation, without any delays (requires [GHDL](https://github.com/ghdl/ghdl))
+* picorv32.sh -- just places-and-routes picorv32.ncd (no testbench)
+* attosoc.sh -- generates attosoc.bit of a self-stimulating picorv32 device that displays (with a delay) prime numbers to the LEDs -- when testing on hardware, consider using a PLL (MMCM) to meet timing
+* attosoc_sim.sh -- post place-and-route simulation of a self-stimulating picorv32 device, without any delays (requires [GHDL](https://github.com/ghdl/ghdl))
+***
+
 nextpnr aims to be a vendor neutral, timing driven, FOSS FPGA place and route
 tool.
 
