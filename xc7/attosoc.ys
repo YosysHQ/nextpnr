@@ -1,7 +1,6 @@
 read_verilog attosoc_top.v
 read_verilog attosoc.v
 read_verilog picorv32.v
-read_verilog 125MHz_to_60MHz.v
 
 #synth_xilinx -top picorv32
 

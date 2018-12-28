@@ -14,7 +14,7 @@ begin
         wait for 4 ns;
     end process;
 
-    uut: entity work.name port map(clk_PAD_PAD => clk, led_0_OUTBUF_OUT => led(0), led_1_OUTBUF_OUT => led(1), led_2_OUTBUF_OUT => led(2), led_3_OUTBUF_OUT => led(3));
+    uut: entity work.name port map(clki_PAD_PAD => clk, led_0_OUTBUF_OUT => led(0), led_1_OUTBUF_OUT => led(1), led_2_OUTBUF_OUT => led(2), led_3_OUTBUF_OUT => led(3));
 
 process
 begin
