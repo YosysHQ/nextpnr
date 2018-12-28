@@ -5,6 +5,7 @@ module blinky (
     output led2,
     output led3
 );
+    wire clk;
     BUFGCTRL clk_gb (
         .I0(clki),
         .CE0(1'b1),
