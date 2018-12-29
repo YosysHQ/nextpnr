@@ -442,44 +442,14 @@ BelId Arch::getBelByLocation(Loc loc) const
 BelRange Arch::getBelsByTile(int x, int y) const
 {
     BelRange br;
-
-    br.b.cursor = Arch::getBelByLocation(Loc(x, y, 0)).index;
-    br.e.cursor = br.b.cursor;
-
-    if (br.e.cursor != -1) {
-        while (br.e.cursor < chip_info->num_bels && chip_info->bel_data[br.e.cursor].x == x &&
-               chip_info->bel_data[br.e.cursor].y == y)
-            br.e.cursor++;
-    }
-
+    NPNR_ASSERT("TODO");
     return br;
 }
 
 PortType Arch::getBelPinType(BelId bel, IdString pin) const
 {
     NPNR_ASSERT(bel != BelId());
-
-    int num_bel_wires = chip_info->bel_data[bel.index].num_bel_wires;
-    const BelWirePOD *bel_wires = chip_info->bel_data[bel.index].bel_wires.get();
-
-    if (num_bel_wires < 7) {
-        for (int i = 0; i < num_bel_wires; i++) {
-            if (bel_wires[i].port == pin.index)
-                return PortType(bel_wires[i].type);
-        }
-    } else {
-        int b = 0, e = num_bel_wires - 1;
-        while (b <= e) {
-            int i = (b + e) / 2;
-            if (bel_wires[i].port == pin.index)
-                return PortType(bel_wires[i].type);
-            if (bel_wires[i].port > pin.index)
-                e = i - 1;
-            else
-                b = i + 1;
-        }
-    }
-
+    NPNR_ASSERT("TODO");
     return PORT_INOUT;
 }
 

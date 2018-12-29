@@ -87,8 +87,6 @@ void Xc7CommandHandler::customBitstream(Context *ctx)
 
 void Xc7CommandHandler::setupArchContext(Context *ctx)
 {
-    //    if (vm.count("tmfuzz"))
-    //        ice40DelayFuzzerMain(ctx);
 }
 
 std::unique_ptr<Context> Xc7CommandHandler::createContext()
