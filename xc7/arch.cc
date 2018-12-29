@@ -442,6 +442,8 @@ BelId Arch::getBelByLocation(Loc loc) const
 BelRange Arch::getBelsByTile(int x, int y) const
 {
     BelRange br;
+    br.b.cursor = 0;
+    br.e.cursor = 0;
     NPNR_ASSERT("TODO");
     return br;
 }
