@@ -15,6 +15,7 @@ if(GIT_FOUND AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/.gitmodules")
 endif()
 
 add_dependencies(nextpnr-${family} torc)
+add_dependencies(nextpnr-${family}-test torc)
 add_custom_target(torc ALL
                   COMMAND $(MAKE) > /dev/null 2> /dev/null
                   COMMENT "Building torc (may take some time...)"
@@ -22,9 +23,8 @@ add_custom_target(torc ALL
 find_package(Boost REQUIRED COMPONENTS serialization iostreams ${boost_libs} ${boost_python_lib})
 
 include_directories(torc/src)
-target_link_libraries(
-    nextpnr-${family} PRIVATE
 
+set(TORC_OBJS
     ${CMAKE_CURRENT_SOURCE_DIR}/torc/src/torc/architecture/Arc.o
     ${CMAKE_CURRENT_SOURCE_DIR}/torc/src/torc/architecture/ArcUsage.o
     ${CMAKE_CURRENT_SOURCE_DIR}/torc/src/torc/architecture/Array.o
@@ -87,3 +87,6 @@ target_link_libraries(
     ${CMAKE_CURRENT_SOURCE_DIR}/torc/src/torc/physical/TilewirePlaceholder.o
     ${CMAKE_CURRENT_SOURCE_DIR}/torc/src/torc/physical/XdlExporter.o
 )
+
+target_link_libraries(nextpnr-${family} PRIVATE ${TORC_OBJS})
+target_link_libraries(nextpnr-${family}-test PRIVATE ${TORC_OBJS})
