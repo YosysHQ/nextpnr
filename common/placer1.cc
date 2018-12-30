@@ -455,6 +455,7 @@ class SAPlacer
     // Attempt a SA position swap, return true on success or false on failure
     bool try_swap_position(CellInfo *cell, BelId newBel)
     {
+        static const double epsilon = 1e-20;
         moveChange.reset();
         BelId oldBel = cell->bel;
         CellInfo *other_cell = ctx->getBoundBelCell(newBel);
@@ -496,8 +497,8 @@ class SAPlacer
         new_dist = get_constraints_distance(ctx, cell);
         if (other_cell != nullptr)
             new_dist += get_constraints_distance(ctx, other_cell);
-        delta = lambda * (moveChange.timing_delta / last_timing_cost) +
-                (1 - lambda) * (double(moveChange.wirelen_delta) / last_wirelen_cost);
+        delta = lambda * (moveChange.timing_delta / std::max<double>(last_timing_cost, epsilon)) +
+                (1 - lambda) * (double(moveChange.wirelen_delta) /  std::max<double>(last_wirelen_cost, epsilon));
         delta += (cfg.constraintWeight / temp) * (new_dist - old_dist) / last_wirelen_cost;
         n_move++;
         // SA acceptance criterea
@@ -728,8 +729,9 @@ class SAPlacer
             if (ignore_net(ni))
                 continue;
             net_bounds[ni->udata] = get_net_bounds(ni);
-            for (size_t i = 0; i < ni->users.size(); i++)
-                net_arc_tcost[ni->udata][i] = get_timing_cost(ni, i);
+            if (ctx->timing_driven)
+                for (size_t i = 0; i < ni->users.size(); i++)
+                    net_arc_tcost[ni->udata][i] = get_timing_cost(ni, i);
         }
     }
 
@@ -804,21 +806,23 @@ class SAPlacer
                     mc.bounds_changed_nets.push_back(pn->udata);
                     mc.already_bounds_changed[pn->udata] = true;
                 }
-            // Output ports - all arcs change timing
-            if (port.second.type == PORT_OUT) {
-                int cc;
-                TimingPortClass cls = ctx->getPortTimingClass(cell, port.first, cc);
-                if (cls != TMG_IGNORE)
-                    for (size_t i = 0; i < pn->users.size(); i++)
-                        if (!mc.already_changed_arcs[pn->udata][i]) {
-                            mc.changed_arcs.emplace_back(std::make_pair(pn->udata, i));
-                            mc.already_changed_arcs[pn->udata][i] = true;
-                        }
-            } else if (port.second.type == PORT_IN) {
-                auto usr = fast_port_to_user.at(&port.second);
-                if (!mc.already_changed_arcs[pn->udata][usr]) {
-                    mc.changed_arcs.emplace_back(std::make_pair(pn->udata, usr));
-                    mc.already_changed_arcs[pn->udata][usr] = true;
+            if (ctx->timing_driven) {
+                // Output ports - all arcs change timing
+                if (port.second.type == PORT_OUT) {
+                    int cc;
+                    TimingPortClass cls = ctx->getPortTimingClass(cell, port.first, cc);
+                    if (cls != TMG_IGNORE)
+                        for (size_t i = 0; i < pn->users.size(); i++)
+                            if (!mc.already_changed_arcs[pn->udata][i]) {
+                                mc.changed_arcs.emplace_back(std::make_pair(pn->udata, i));
+                                mc.already_changed_arcs[pn->udata][i] = true;
+                            }
+                } else if (port.second.type == PORT_IN) {
+                    auto usr = fast_port_to_user.at(&port.second);
+                    if (!mc.already_changed_arcs[pn->udata][usr]) {
+                        mc.changed_arcs.emplace_back(std::make_pair(pn->udata, usr));
+                        mc.already_changed_arcs[pn->udata][usr] = true;
+                    }
                 }
             }
         }
@@ -833,13 +837,14 @@ class SAPlacer
             md.wirelen_delta += (bounds.hpwl() - old_hpwl);
             md.already_bounds_changed[bc] = false;
         }
-
-        for (const auto &tc : md.changed_arcs) {
-            double old_cost = net_arc_tcost.at(tc.first).at(tc.second);
-            double new_cost = get_timing_cost(net_by_udata.at(tc.first), tc.second);
-            md.new_arc_costs.emplace_back(std::make_pair(tc, new_cost));
-            md.timing_delta += (new_cost - old_cost);
-            md.already_changed_arcs[tc.first][tc.second] = false;
+        if (ctx->timing_driven) {
+            for (const auto &tc : md.changed_arcs) {
+                double old_cost = net_arc_tcost.at(tc.first).at(tc.second);
+                double new_cost = get_timing_cost(net_by_udata.at(tc.first), tc.second);
+                md.new_arc_costs.emplace_back(std::make_pair(tc, new_cost));
+                md.timing_delta += (new_cost - old_cost);
+                md.already_changed_arcs[tc.first][tc.second] = false;
+            }
         }
     }
 
