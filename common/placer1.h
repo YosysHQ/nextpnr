@@ -31,6 +31,7 @@ struct Placer1Cfg : public Settings
     int minBelsForGridPick;
     bool budgetBased;
     float startTemp;
+    int timingFanoutThresh;
 };
 
 extern bool placer1(Context *ctx, Placer1Cfg cfg);

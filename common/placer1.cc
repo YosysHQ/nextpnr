@@ -498,7 +498,7 @@ class SAPlacer
         if (other_cell != nullptr)
             new_dist += get_constraints_distance(ctx, other_cell);
         delta = lambda * (moveChange.timing_delta / std::max<double>(last_timing_cost, epsilon)) +
-                (1 - lambda) * (double(moveChange.wirelen_delta) /  std::max<double>(last_wirelen_cost, epsilon));
+                (1 - lambda) * (double(moveChange.wirelen_delta) / std::max<double>(last_wirelen_cost, epsilon));
         delta += (cfg.constraintWeight / temp) * (new_dist - old_dist) / last_wirelen_cost;
         n_move++;
         // SA acceptance criterea
@@ -729,7 +729,7 @@ class SAPlacer
             if (ignore_net(ni))
                 continue;
             net_bounds[ni->udata] = get_net_bounds(ni);
-            if (ctx->timing_driven)
+            if (ctx->timing_driven && int(ni->users.size()) < cfg.timingFanoutThresh)
                 for (size_t i = 0; i < ni->users.size(); i++)
                     net_arc_tcost[ni->udata][i] = get_timing_cost(ni, i);
         }
@@ -806,7 +806,7 @@ class SAPlacer
                     mc.bounds_changed_nets.push_back(pn->udata);
                     mc.already_bounds_changed[pn->udata] = true;
                 }
-            if (ctx->timing_driven) {
+            if (ctx->timing_driven && int(pn->users.size()) < cfg.timingFanoutThresh) {
                 // Output ports - all arcs change timing
                 if (port.second.type == PORT_OUT) {
                     int cc;
@@ -913,6 +913,7 @@ Placer1Cfg::Placer1Cfg(Context *ctx) : Settings(ctx)
     minBelsForGridPick = get<int>("placer1/minBelsForGridPick", 64);
     budgetBased = get<bool>("placer1/budgetBased", false);
     startTemp = get<float>("placer1/startTemp", 1);
+    timingFanoutThresh = std::numeric_limits<int>::max();
 }
 
 bool placer1(Context *ctx, Placer1Cfg cfg)
