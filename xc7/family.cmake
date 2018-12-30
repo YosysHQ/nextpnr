@@ -22,7 +22,7 @@ add_custom_target(torc ALL
                   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/torc/src)
 find_package(Boost REQUIRED COMPONENTS serialization iostreams ${boost_libs} ${boost_python_lib})
 
-include_directories(torc/src)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/torc/src)
 
 set(TORC_OBJS
     ${CMAKE_CURRENT_SOURCE_DIR}/torc/src/torc/architecture/Arc.o
