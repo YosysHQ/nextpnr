@@ -15,7 +15,9 @@ if(GIT_FOUND AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/.gitmodules")
 endif()
 
 add_dependencies(nextpnr-${family} torc)
-add_dependencies(nextpnr-${family}-test torc)
+if (BUILD_TESTS)
+    add_dependencies(nextpnr-${family}-test torc)
+endif()
 add_custom_target(torc ALL
                   COMMAND $(MAKE) > /dev/null 2> /dev/null
                   COMMENT "Building torc (may take some time...)"
@@ -89,4 +91,6 @@ set(TORC_OBJS
 )
 
 target_link_libraries(nextpnr-${family} PRIVATE ${TORC_OBJS})
-target_link_libraries(nextpnr-${family}-test PRIVATE ${TORC_OBJS})
+if (BUILD_TESTS)
+    target_link_libraries(nextpnr-${family}-test PRIVATE ${TORC_OBJS})
+endif()
