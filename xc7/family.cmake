@@ -28,6 +28,9 @@ target_include_directories(nextpnr-${family} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/
 if (BUILD_TESTS)
     target_include_directories(nextpnr-${family}-test PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/torc/src)
 endif()
+if (BUILD_GUI)
+    target_include_directories(gui_${family} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/torc/src)
+endif()
 
 set(TORC_OBJS
     ${CMAKE_CURRENT_SOURCE_DIR}/torc/src/torc/architecture/Arc.o
