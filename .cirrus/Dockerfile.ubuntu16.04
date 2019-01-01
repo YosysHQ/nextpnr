@@ -52,4 +52,11 @@ RUN set -e -x ;\
     make -j $(nproc) ;\
     make install
 
-
+RUN set -e -x ;\
+    mkdir -p /usr/local/src ;\
+    cd /usr/local/src ;\
+    git clone --recursive https://github.com/eddiehung/torc.git ;\
+    cd torc ;\
+    git reset --hard 90874d1293fbeba77bae41b5c38168cd91e1bf00 ;\
+    make -j $(nproc) -C src/torc ;\
+    make install
