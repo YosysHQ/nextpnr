@@ -58,5 +58,4 @@ RUN set -e -x ;\
     git clone --recursive https://github.com/eddiehung/torc.git ;\
     cd torc ;\
     git reset --hard 90874d1293fbeba77bae41b5c38168cd91e1bf00 ;\
-    make -j $(nproc) -C src/torc ;\
-    make install
+    make -j $(nproc) -C src/torc
