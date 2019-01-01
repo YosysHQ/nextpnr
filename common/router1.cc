@@ -19,6 +19,7 @@
 
 #include <cmath>
 #include <queue>
+#include <chrono>
 
 #include "log.h"
 #include "router1.h"
@@ -752,6 +753,7 @@ bool router1(Context *ctx, const Router1Cfg &cfg)
         log_break();
         log_info("Routing..\n");
         ctx->lock();
+        auto rstart = std::chrono::high_resolution_clock::now();
 
         log_info("Setting up routing queue.\n");
 
@@ -803,7 +805,9 @@ bool router1(Context *ctx, const Router1Cfg &cfg)
                  router.arcs_with_ripup - last_arcs_with_ripup, router.arcs_without_ripup - last_arcs_without_ripup,
                  int(router.arc_queue.size()));
         log_info("Routing complete.\n");
+        auto rend = std::chrono::high_resolution_clock::now();
         ctx->yield();
+        log_info("Route time %.02fs\n", std::chrono::duration<float>(rend - rstart).count());
 
 #ifndef NDEBUG
         router.check();
