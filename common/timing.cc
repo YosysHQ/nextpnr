@@ -359,11 +359,14 @@ struct Timing
                     if (portClass == TMG_REGISTER_INPUT || portClass == TMG_ENDPOINT) {
                         auto process_endpoint = [&](IdString clksig, ClockEdge edge, DelayInfo clkroute, delay_t setup,
                                                     delay_t hold) {
-                            const auto net_max_arrival = nd.max_arrival, net_min_arrival = nd.min_arrival;
-                            const auto endpoint_max_arrival =
-                                    (net_max_arrival + max_net_delay + setup) - clkroute.maxDelay();
-                            const auto endpoint_min_arrival =
-                                    (net_min_arrival + net_delay.minDelay() - hold) - clkroute.minDelay();
+                            auto net_max_arrival = nd.max_arrival, net_min_arrival = nd.min_arrival;
+                            auto endpoint_max_arrival = net_max_arrival + max_net_delay + setup;
+                            if (startdomain.first.clock != async_clock)
+                                endpoint_max_arrival -= clkroute.maxDelay();
+
+                            auto endpoint_min_arrival = net_min_arrival + net_delay.minDelay() - hold;
+                            if (startdomain.first.clock != async_clock)
+                                endpoint_min_arrival -= clkroute.minDelay();
                             delay_t period;
                             // Set default period
                             if (edge == startdomain.first.edge) {
