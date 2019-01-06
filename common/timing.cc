@@ -995,9 +995,12 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
         for (auto &xclock : xclock_paths) {
             const ClockEvent &a = xclock.start;
             const ClockEvent &b = xclock.end;
-            auto &path = setup_crit_paths.at(xclock);
+            auto &spath = setup_crit_paths.at(xclock);
             auto ev_a = format_event(a, start_field_width), ev_b = format_event(b, end_field_width);
-            log_info("Max delay %s -> %s: %0.02f ns\n", ev_a.c_str(), ev_b.c_str(), ctx->getDelayNS(path.path_delay));
+            log_info("Max delay %s -> %s: %0.02f ns\n", ev_a.c_str(), ev_b.c_str(), ctx->getDelayNS(spath.path_delay));
+            if (hold_crit_paths.count(xclock))
+                log_info("Min delay %s -> %s: %0.02f ns\n", ev_a.c_str(), ev_b.c_str(), ctx->getDelayNS(hold_crit_paths.at(xclock).path_delay));
+
         }
         log_break();
     }
