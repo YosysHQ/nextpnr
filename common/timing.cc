@@ -87,6 +87,7 @@ struct CriticalPath
     PortRefVector ports;
     delay_t path_delay;
     delay_t path_period;
+    delay_t path_clock_skew;
 };
 
 typedef std::unordered_map<ClockPair, CriticalPath> CriticalPathMap;
@@ -106,14 +107,16 @@ struct Timing
     struct TimingData
     {
         TimingData()
-                : max_arrival(), min_arrival(std::numeric_limits<delay_t>::max()), max_path_length(),
-                  min_remaining_budget()
+                : max_clock_arrival(0), min_clock_arrival(0), max_arrival(),
+                  min_arrival(std::numeric_limits<delay_t>::max()), max_path_length(), min_remaining_budget()
         {
         }
         TimingData(delay_t max_arrival, delay_t min_arrival)
-                : max_arrival(max_arrival), min_arrival(min_arrival), max_path_length(), min_remaining_budget()
+                : max_clock_arrival(0), min_clock_arrival(0), max_arrival(max_arrival), min_arrival(min_arrival),
+                  max_path_length(), min_remaining_budget()
         {
         }
+        delay_t max_clock_arrival, min_clock_arrival;
         delay_t max_arrival, min_arrival;
         unsigned max_path_length = 0;
         delay_t min_remaining_budget;
@@ -167,8 +170,21 @@ struct Timing
                         TimingClockingInfo clkInfo = ctx->getPortClockingInfo(cell.second.get(), o->name, i);
                         const NetInfo *clknet = get_net_or_empty(cell.second.get(), clkInfo.clock_port);
                         IdString clksig = clknet ? clknet->name : async_clock;
-                        net_data[o->net][ClockEvent{clksig, clknet ? clkInfo.edge : RISING_EDGE}] =
-                                TimingData{clkInfo.clockToQ.maxDelay(), clkInfo.clockToQ.minDelay()};
+                        auto &td = net_data[o->net][ClockEvent{clksig, clknet ? clkInfo.edge : RISING_EDGE}];
+                        td = TimingData{clkInfo.clockToQ.maxDelay(), clkInfo.clockToQ.minDelay()};
+                        if (clknet) {
+                            PortRef pr;
+                            pr.cell = cell.second.get();
+                            pr.port = clkInfo.clock_port;
+                            const auto clk_rt = ctx->getNetinfoRouteDelay(clknet, pr);
+                            td.max_arrival += clk_rt.maxDelay();
+                            td.min_arrival += clk_rt.minDelay();
+                            td.max_clock_arrival = clk_rt.maxDelay();
+                            td.min_clock_arrival = clk_rt.minDelay();
+                        } else {
+                            td.max_clock_arrival = 0;
+                            td.min_clock_arrival = 0;
+                        }
                     }
 
                 } else {
@@ -178,6 +194,8 @@ struct Timing
                         td.false_startpoint = (portClass == TMG_GEN_CLOCK || portClass == TMG_IGNORE);
                         td.max_arrival = 0;
                         td.min_arrival = 0;
+                        td.max_clock_arrival = 0;
+                        td.min_clock_arrival = 0;
                         net_data[o->net][ClockEvent{async_clock, RISING_EDGE}] = td;
                     }
 
@@ -298,8 +316,14 @@ struct Timing
                                 continue;
                             auto &data = net_data[port.second.net][start_clk];
                             auto &max_arrival = data.max_arrival, &min_arrival = data.min_arrival;
-                            max_arrival = std::max(max_arrival, usr_max_arrival + comb_delay.maxDelay());
-                            min_arrival = std::min(min_arrival, usr_min_arrival + comb_delay.minDelay());
+                            if (max_arrival < usr_max_arrival + comb_delay.maxDelay()) {
+                                max_arrival = usr_max_arrival + comb_delay.maxDelay();
+                                data.max_clock_arrival = nd.max_clock_arrival;
+                            }
+                            if (min_arrival > usr_min_arrival + comb_delay.minDelay()) {
+                                min_arrival = usr_min_arrival + comb_delay.minDelay();
+                                data.min_clock_arrival = nd.min_clock_arrival;
+                            }
                             if (!budget_override) { // Do not increment path length if budget overriden since it doesn't
                                 // require a share of the slack
                                 auto &path_length = data.max_path_length;
@@ -333,10 +357,13 @@ struct Timing
                     int port_clocks;
                     TimingPortClass portClass = ctx->getPortTimingClass(usr.cell, usr.port, port_clocks);
                     if (portClass == TMG_REGISTER_INPUT || portClass == TMG_ENDPOINT) {
-                        auto process_endpoint = [&](IdString clksig, ClockEdge edge, delay_t setup, delay_t hold) {
+                        auto process_endpoint = [&](IdString clksig, ClockEdge edge, DelayInfo clkroute, delay_t setup,
+                                                    delay_t hold) {
                             const auto net_max_arrival = nd.max_arrival, net_min_arrival = nd.min_arrival;
-                            const auto endpoint_max_arrival = net_max_arrival + max_net_delay + setup;
-                            const auto endpoint_min_arrival = net_min_arrival + net_delay.minDelay() - hold;
+                            const auto endpoint_max_arrival =
+                                    (net_max_arrival + max_net_delay + setup) - clkroute.maxDelay();
+                            const auto endpoint_min_arrival =
+                                    (net_min_arrival + net_delay.minDelay() - hold) - clkroute.minDelay();
                             delay_t period;
                             // Set default period
                             if (edge == startdomain.first.edge) {
@@ -386,6 +413,8 @@ struct Timing
                                     setup_crit_nets[clockPair] = std::make_pair(endpoint_max_arrival, net);
                                     (*setup_crit_path)[clockPair].path_delay = endpoint_max_arrival;
                                     (*setup_crit_path)[clockPair].path_period = period;
+                                    (*setup_crit_path)[clockPair].path_clock_skew =
+                                            clkroute.maxDelay() - nd.max_clock_arrival;
                                     (*setup_crit_path)[clockPair].ports.clear();
                                     (*setup_crit_path)[clockPair].ports.push_back(&usr);
                                 }
@@ -396,6 +425,8 @@ struct Timing
                                     hold_crit_nets[clockPair] = std::make_pair(endpoint_min_arrival, net);
                                     (*hold_crit_path)[clockPair].path_delay = endpoint_min_arrival;
                                     (*hold_crit_path)[clockPair].path_period = period;
+                                    (*hold_crit_path)[clockPair].path_clock_skew =
+                                            clkroute.minDelay() - nd.min_clock_arrival;
                                     (*hold_crit_path)[clockPair].ports.clear();
                                     (*hold_crit_path)[clockPair].ports.push_back(&usr);
                                 }
@@ -406,11 +437,18 @@ struct Timing
                                 TimingClockingInfo clkInfo = ctx->getPortClockingInfo(usr.cell, usr.port, i);
                                 const NetInfo *clknet = get_net_or_empty(usr.cell, clkInfo.clock_port);
                                 IdString clksig = clknet ? clknet->name : async_clock;
-                                process_endpoint(clksig, clknet ? clkInfo.edge : RISING_EDGE, clkInfo.setup.maxDelay(),
-                                                 clkInfo.hold.maxDelay());
+                                DelayInfo clkroute;
+                                if (clknet) {
+                                    PortRef pr;
+                                    pr.cell = usr.cell;
+                                    pr.port = clkInfo.clock_port;
+                                    clkroute = ctx->getNetinfoRouteDelay(clknet, pr);
+                                }
+                                process_endpoint(clksig, clknet ? clkInfo.edge : RISING_EDGE, clkroute,
+                                                 clkInfo.setup.maxDelay(), clkInfo.hold.maxDelay());
                             }
                         } else {
-                            process_endpoint(async_clock, RISING_EDGE, 0, 0);
+                            process_endpoint(async_clock, RISING_EDGE, DelayInfo(), 0, 0);
                         }
 
                     } else if (update) {
@@ -935,6 +973,7 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
                      end.c_str());
             auto &crit_path = clock.second.second.ports;
             print_path_report(clock.second.first, crit_path, false);
+            log_info("%.1f ns clock skew", ctx->getDelayNS(clock.second.second.path_clock_skew));
         }
 
         for (auto &clock : clock_hold_slack) {
@@ -944,6 +983,7 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
             auto clocks = ClockPair{clock.first, clock.first};
             auto &crit_path = hold_crit_paths[clocks].ports;
             print_path_report(clocks, crit_path, true);
+            log_info("%.1f ns clock skew", ctx->getDelayNS(hold_crit_paths[clocks].path_clock_skew));
         }
 
         for (auto &xclock : xclock_paths) {
@@ -953,6 +993,7 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
             log_info("Critical path report for cross-domain path '%s' -> '%s':\n", start.c_str(), end.c_str());
             auto &crit_path = setup_crit_paths.at(xclock).ports;
             print_path_report(xclock, crit_path, false);
+            log_info("%.1f ns clock skew", ctx->getDelayNS(setup_crit_paths.at(xclock).path_clock_skew));
         }
     }
     if (print_fmax) {
