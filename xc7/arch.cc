@@ -349,7 +349,9 @@ void IdString::initialize_arch(const BaseCtx *ctx)
 
 Arch::Arch(ArchArgs args) : args(args)
 {
-    torc::common::DirectoryTree directoryTree("/opt/torc/src/torc");
+    std::stringstream ss;
+    ss << TORC_ROOT << "/torc/src/torc";
+    torc::common::DirectoryTree directoryTree(ss.str().c_str());
     if (args.type == ArchArgs::Z020) {
         torc_info = std::unique_ptr<TorcInfo>(new TorcInfo(this, "xc7z020", args.package));
     } else if (args.type == ArchArgs::VX980) {
@@ -358,8 +360,10 @@ Arch::Arch(ArchArgs args) : args(args)
         log_error("Unsupported XC7 chip type.\n");
     }
 
-        width = torc_info->width;
-        height = torc_info->height;
+    // TODO: FIXME
+    width = torc_info->width;
+    height = torc_info->height;
+
     /*if (getCtx()->verbose)*/ {
         log_info("Number of bels:  %d\n", torc_info->num_bels);
         log_info("Number of wires: %d\n", torc_info->num_wires);
