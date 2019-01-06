@@ -30,6 +30,11 @@ typedef int delay_t;
 
 struct DelayInfo
 {
+
+    DelayInfo() : min_delay(0), max_delay(0) {}
+    DelayInfo(delay_t delay) : min_delay(delay), max_delay(delay) {}
+    DelayInfo(delay_t min_delay, delay_t max_delay) : min_delay(min_delay), max_delay(max_delay) {}
+
     delay_t min_delay = 0, max_delay = 0;
 
     delay_t minRaiseDelay() const { return min_delay; }

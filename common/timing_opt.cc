@@ -115,7 +115,7 @@ class TimingOptimiser
                 continue;
             for (size_t i = 0; i < ni->users.size(); i++) {
                 auto &usr = ni->users.at(i);
-                delay_t net_delay = ctx->getNetinfoRouteDelay(ni, usr);
+                delay_t net_delay = ctx->getNetinfoRouteDelay(ni, usr).maxDelay();
                 if (nc.max_path_length != 0) {
                     max_net_delay[std::make_pair(usr.cell->name, usr.port)] =
                             net_delay + ((nc.slack.at(i) - nc.cd_worst_slack) / 10);

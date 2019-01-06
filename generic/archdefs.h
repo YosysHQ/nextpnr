@@ -27,6 +27,9 @@ typedef float delay_t;
 
 struct DelayInfo
 {
+    DelayInfo() : delay(0) {}
+    DelayInfo(delay_t delay) : delay(delay) {}
+
     delay_t delay = 0;
 
     delay_t minRaiseDelay() const { return delay; }

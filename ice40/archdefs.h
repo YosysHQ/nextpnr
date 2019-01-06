@@ -29,6 +29,9 @@ struct DelayInfo
 {
     delay_t delay = 0;
 
+    DelayInfo() : delay(0) {}
+    DelayInfo(delay_t delay) : delay(delay) {}
+
     delay_t minRaiseDelay() const { return delay; }
     delay_t maxRaiseDelay() const { return delay; }
 

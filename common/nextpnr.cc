@@ -214,20 +214,20 @@ WireId Context::getNetinfoSinkWire(const NetInfo *net_info, const PortRef &user_
     return getBelPinWire(dst_bel, user_port);
 }
 
-delay_t Context::getNetinfoRouteDelay(const NetInfo *net_info, const PortRef &user_info) const
+DelayInfo Context::getNetinfoRouteDelay(const NetInfo *net_info, const PortRef &user_info) const
 {
 #ifdef ARCH_ECP5
     if (net_info->is_global)
-        return 0;
+        return getDelayFromNS(0);
 #endif
 
     WireId src_wire = getNetinfoSourceWire(net_info);
     if (src_wire == WireId())
-        return 0;
+        return getDelayFromNS(0);
 
     WireId dst_wire = getNetinfoSinkWire(net_info, user_info);
     WireId cursor = dst_wire;
-    delay_t delay = 0;
+    DelayInfo delay{};
 
     while (cursor != WireId() && cursor != src_wire) {
         auto it = net_info->wires.find(cursor);
@@ -236,15 +236,15 @@ delay_t Context::getNetinfoRouteDelay(const NetInfo *net_info, const PortRef &us
             break;
 
         PipId pip = it->second.pip;
-        delay += getPipDelay(pip).maxDelay();
-        delay += getWireDelay(cursor).maxDelay();
+        delay = delay + getPipDelay(pip);
+        delay = delay + getWireDelay(cursor);
         cursor = getPipSrcWire(pip);
     }
 
     if (cursor == src_wire)
-        return delay + getWireDelay(src_wire).maxDelay();
+        return delay + getWireDelay(src_wire);
 
-    return predictDelay(net_info, user_info);
+    return DelayInfo(predictDelay(net_info, user_info));
 }
 
 static uint32_t xorshift32(uint32_t x)

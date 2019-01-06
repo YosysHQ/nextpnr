@@ -28,6 +28,8 @@ delay_t minDelay() const { return delay; }
 delay_t maxDelay() const { return delay; }
 ```
 
+A default constructor must be provided that sets all delays to zero; and a constructor taking a single `delay_t` that sets all delays to that value.
+
 ### BelId
 
 A type representing a bel name. `BelId()` must construct a unique null-value. Must provide `==`, `!=`, and `<` operators and a specialization for `std::hash<BelId>`.

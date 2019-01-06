@@ -277,14 +277,16 @@ struct Timing
                 for (auto &usr : net->users) {
                     int port_clocks;
                     TimingPortClass portClass = ctx->getPortTimingClass(usr.cell, usr.port, port_clocks);
-                    auto net_delay = net_delays ? ctx->getNetinfoRouteDelay(net, usr) : delay_t();
-                    auto usr_max_arrival = net_max_arrival + net_delay, usr_min_arrival = net_min_arrival + net_delay;
+                    auto net_delay = net_delays ? ctx->getNetinfoRouteDelay(net, usr) : DelayInfo();
+                    auto usr_max_arrival = net_max_arrival + net_delay.maxDelay(),
+                         usr_min_arrival = net_min_arrival + net_delay.minDelay();
 
                     if (portClass == TMG_REGISTER_INPUT || portClass == TMG_ENDPOINT || portClass == TMG_IGNORE ||
                         portClass == TMG_CLOCK_INPUT) {
                         // Skip
                     } else {
-                        auto budget_override = ctx->getBudgetOverride(net, usr, net_delay);
+                        auto max_net_delay = net_delay.maxDelay();
+                        auto budget_override = ctx->getBudgetOverride(net, usr, max_net_delay);
                         // Iterate over all output ports on the same cell as the sink
                         for (auto port : usr.cell->ports) {
                             if (port.second.type != PORT_OUT || !port.second.net)
@@ -325,15 +327,16 @@ struct Timing
                 const delay_t net_length_plus_one = nd.max_path_length + 1;
                 auto &net_min_remaining_budget = nd.min_remaining_budget;
                 for (auto &usr : net->users) {
-                    auto net_delay = net_delays ? ctx->getNetinfoRouteDelay(net, usr) : delay_t();
-                    auto budget_override = ctx->getBudgetOverride(net, usr, net_delay);
+                    auto net_delay = net_delays ? ctx->getNetinfoRouteDelay(net, usr) : DelayInfo();
+                    auto max_net_delay = net_delay.maxDelay();
+                    auto budget_override = ctx->getBudgetOverride(net, usr, max_net_delay);
                     int port_clocks;
                     TimingPortClass portClass = ctx->getPortTimingClass(usr.cell, usr.port, port_clocks);
                     if (portClass == TMG_REGISTER_INPUT || portClass == TMG_ENDPOINT) {
                         auto process_endpoint = [&](IdString clksig, ClockEdge edge, delay_t setup, delay_t hold) {
                             const auto net_max_arrival = nd.max_arrival, net_min_arrival = nd.min_arrival;
-                            const auto endpoint_max_arrival = net_max_arrival + net_delay + setup;
-                            const auto endpoint_min_arrival = net_min_arrival + net_delay - hold;
+                            const auto endpoint_max_arrival = net_max_arrival + max_net_delay + setup;
+                            const auto endpoint_min_arrival = net_min_arrival + net_delay.minDelay() - hold;
                             delay_t period;
                             // Set default period
                             if (edge == startdomain.first.edge) {
@@ -359,7 +362,7 @@ struct Timing
 
                             if (update) {
                                 auto budget_share = budget_override ? 0 : path_budget / net_length_plus_one;
-                                usr.budget = std::min(usr.budget, net_delay + budget_share);
+                                usr.budget = std::min(usr.budget, max_net_delay + budget_share);
                                 net_min_remaining_budget =
                                         std::min(net_min_remaining_budget, path_budget - budget_share);
                             }
@@ -425,7 +428,7 @@ struct Timing
                                 auto path_budget =
                                         net_data.at(port.second.net).at(startdomain.first).min_remaining_budget;
                                 auto budget_share = budget_override ? 0 : path_budget / net_length_plus_one;
-                                usr.budget = std::min(usr.budget, net_delay + budget_share);
+                                usr.budget = std::min(usr.budget, max_net_delay + budget_share);
                                 net_min_remaining_budget =
                                         std::min(net_min_remaining_budget, path_budget - budget_share);
                             }
@@ -473,7 +476,9 @@ struct Timing
                             if (net_delays) {
                                 for (auto &user : port.second.net->users)
                                     if (user.port == port.first && user.cell == crit_net->driver.cell) {
-                                        net_arrival += ctx->getNetinfoRouteDelay(port.second.net, user);
+                                        net_arrival +=
+                                                is_hold ? ctx->getNetinfoRouteDelay(port.second.net, user).minDelay()
+                                                        : ctx->getNetinfoRouteDelay(port.second.net, user).maxDelay();
                                         break;
                                     }
                             }
@@ -561,7 +566,7 @@ struct Timing
                                 process_endpoint(async_clock, RISING_EDGE, 0);
                             }
                         }
-                        net_min_required = std::min(net_min_required, nd.min_required.at(i) - net_delay);
+                        net_min_required = std::min(net_min_required, nd.min_required.at(i) - net_delay.maxDelay());
                     }
                     PortRef &drv = net->driver;
                     if (drv.cell == nullptr)
@@ -614,7 +619,7 @@ struct Timing
 #endif
                     for (size_t i = 0; i < net->users.size(); i++) {
                         delay_t slack = nd.min_required.at(i) -
-                                        (nd.max_arrival + ctx->getNetinfoRouteDelay(net, net->users.at(i)));
+                                        (nd.max_arrival + ctx->getNetinfoRouteDelay(net, net->users.at(i)).maxDelay());
 #if 0
                         if (ctx->debug)
                             log_info("    user %s.%s required %.02fns arrival %.02f route %.02f slack %.02f\n",
@@ -868,13 +873,14 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
                 log_info("%4.1f %4.1f  Source %s.%s\n", ctx->getDelayNS(comb_delay.maxDelay()), ctx->getDelayNS(total),
                          driver_cell->name.c_str(ctx), driver.port.c_str(ctx));
                 auto net_delay = ctx->getNetinfoRouteDelay(net, *sink);
-                total += net_delay;
-                route_total += net_delay;
+                total += is_hold ? net_delay.minDelay() : net_delay.maxDelay();
+                route_total += is_hold ? net_delay.minDelay() : net_delay.maxDelay();
                 auto driver_loc = ctx->getBelLocation(driver_cell->bel);
                 auto sink_loc = ctx->getBelLocation(sink_cell->bel);
-                log_info("%4.1f %4.1f    Net %s budget %f ns (%d,%d) -> (%d,%d)\n", ctx->getDelayNS(net_delay),
-                         ctx->getDelayNS(total), net->name.c_str(ctx), ctx->getDelayNS(sink->budget), driver_loc.x,
-                         driver_loc.y, sink_loc.x, sink_loc.y);
+                log_info("%4.1f %4.1f    Net %s budget %f ns (%d,%d) -> (%d,%d)\n",
+                         ctx->getDelayNS(is_hold ? net_delay.minDelay() : net_delay.maxDelay()), ctx->getDelayNS(total),
+                         net->name.c_str(ctx), ctx->getDelayNS(sink->budget), driver_loc.x, driver_loc.y, sink_loc.x,
+                         sink_loc.y);
                 log_info("               Sink %s.%s\n", sink_cell->name.c_str(ctx), sink->port.c_str(ctx));
                 if (ctx->verbose) {
                     auto driver_wire = ctx->getNetinfoSourceWire(net);
@@ -999,8 +1005,8 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
             auto ev_a = format_event(a, start_field_width), ev_b = format_event(b, end_field_width);
             log_info("Max delay %s -> %s: %0.02f ns\n", ev_a.c_str(), ev_b.c_str(), ctx->getDelayNS(spath.path_delay));
             if (hold_crit_paths.count(xclock))
-                log_info("Min delay %s -> %s: %0.02f ns\n", ev_a.c_str(), ev_b.c_str(), ctx->getDelayNS(hold_crit_paths.at(xclock).path_delay));
-
+                log_info("Min delay %s -> %s: %0.02f ns\n", ev_a.c_str(), ev_b.c_str(),
+                         ctx->getDelayNS(hold_crit_paths.at(xclock).path_delay));
         }
         log_break();
     }
