@@ -37,6 +37,10 @@ struct ClockEvent
     ClockEdge edge;
 
     bool operator==(const ClockEvent &other) const { return clock == other.clock && edge == other.edge; }
+    bool operator<(const ClockEvent &other) const
+    {
+        return clock < other.clock || (clock == other.clock && edge < other.edge);
+    }
 };
 
 struct ClockPair
@@ -94,28 +98,36 @@ struct Timing
     bool net_delays;
     bool update;
     delay_t min_slack;
-    CriticalPathMap *crit_path;
+    CriticalPathMap *setup_crit_path, *hold_crit_path;
     DelayFrequency *slack_histogram;
     NetCriticalityMap *net_crit;
     IdString async_clock;
 
     struct TimingData
     {
-        TimingData() : max_arrival(), max_path_length(), min_remaining_budget() {}
-        TimingData(delay_t max_arrival) : max_arrival(max_arrival), max_path_length(), min_remaining_budget() {}
-        delay_t max_arrival;
+        TimingData()
+                : max_arrival(), min_arrival(std::numeric_limits<delay_t>::max()), max_path_length(),
+                  min_remaining_budget()
+        {
+        }
+        TimingData(delay_t max_arrival, delay_t min_arrival)
+                : max_arrival(max_arrival), min_arrival(min_arrival), max_path_length(), min_remaining_budget()
+        {
+        }
+        delay_t max_arrival, min_arrival;
         unsigned max_path_length = 0;
         delay_t min_remaining_budget;
         bool false_startpoint = false;
         std::vector<delay_t> min_required;
-        std::unordered_map<ClockEvent, delay_t> arrival_time;
+        std::unordered_map<ClockEvent, std::pair<delay_t, delay_t>> arrival_time; //  end edge -> (max, min)
     };
 
-    Timing(Context *ctx, bool net_delays, bool update, CriticalPathMap *crit_path = nullptr,
-           DelayFrequency *slack_histogram = nullptr, NetCriticalityMap *net_crit = nullptr)
+    Timing(Context *ctx, bool net_delays, bool update, CriticalPathMap *setup_crit_path = nullptr,
+           CriticalPathMap *hold_crit_path = nullptr, DelayFrequency *slack_histogram = nullptr,
+           NetCriticalityMap *net_crit = nullptr)
             : ctx(ctx), net_delays(net_delays), update(update), min_slack(1.0e12 / ctx->target_freq),
-              crit_path(crit_path), slack_histogram(slack_histogram), net_crit(net_crit),
-              async_clock(ctx->id("$async$"))
+              setup_crit_path(setup_crit_path), hold_crit_path(hold_crit_path), slack_histogram(slack_histogram),
+              net_crit(net_crit), async_clock(ctx->id("$async$"))
     {
     }
 
@@ -156,7 +168,7 @@ struct Timing
                         const NetInfo *clknet = get_net_or_empty(cell.second.get(), clkInfo.clock_port);
                         IdString clksig = clknet ? clknet->name : async_clock;
                         net_data[o->net][ClockEvent{clksig, clknet ? clkInfo.edge : RISING_EDGE}] =
-                                TimingData{clkInfo.clockToQ.maxDelay()};
+                                TimingData{clkInfo.clockToQ.maxDelay(), clkInfo.clockToQ.minDelay()};
                     }
 
                 } else {
@@ -165,6 +177,7 @@ struct Timing
                         TimingData td;
                         td.false_startpoint = (portClass == TMG_GEN_CLOCK || portClass == TMG_IGNORE);
                         td.max_arrival = 0;
+                        td.min_arrival = 0;
                         net_data[o->net][ClockEvent{async_clock, RISING_EDGE}] = td;
                     }
 
@@ -258,14 +271,14 @@ struct Timing
                 auto &nd = startdomain.second;
                 if (nd.false_startpoint)
                     continue;
-                const auto net_arrival = nd.max_arrival;
+                const auto net_max_arrival = nd.max_arrival, net_min_arrival = nd.min_arrival;
                 const auto net_length_plus_one = nd.max_path_length + 1;
                 nd.min_remaining_budget = clk_period;
                 for (auto &usr : net->users) {
                     int port_clocks;
                     TimingPortClass portClass = ctx->getPortTimingClass(usr.cell, usr.port, port_clocks);
                     auto net_delay = net_delays ? ctx->getNetinfoRouteDelay(net, usr) : delay_t();
-                    auto usr_arrival = net_arrival + net_delay;
+                    auto usr_max_arrival = net_max_arrival + net_delay, usr_min_arrival = net_min_arrival + net_delay;
 
                     if (portClass == TMG_REGISTER_INPUT || portClass == TMG_ENDPOINT || portClass == TMG_IGNORE ||
                         portClass == TMG_CLOCK_INPUT) {
@@ -282,8 +295,9 @@ struct Timing
                             if (!is_path)
                                 continue;
                             auto &data = net_data[port.second.net][start_clk];
-                            auto &arrival = data.max_arrival;
-                            arrival = std::max(arrival, usr_arrival + comb_delay.maxDelay());
+                            auto &max_arrival = data.max_arrival, &min_arrival = data.min_arrival;
+                            max_arrival = std::max(max_arrival, usr_max_arrival + comb_delay.maxDelay());
+                            min_arrival = std::min(min_arrival, usr_min_arrival + comb_delay.minDelay());
                             if (!budget_override) { // Do not increment path length if budget overriden since it doesn't
                                 // require a share of the slack
                                 auto &path_length = data.max_path_length;
@@ -295,7 +309,7 @@ struct Timing
             }
         }
 
-        std::unordered_map<ClockPair, std::pair<delay_t, NetInfo *>> crit_nets;
+        std::unordered_map<ClockPair, std::pair<delay_t, NetInfo *>> setup_crit_nets, hold_crit_nets;
 
         // Now go backwards topographically to determine the minimum path slack, and to distribute all path slack evenly
         // between all nets on the path
@@ -316,9 +330,10 @@ struct Timing
                     int port_clocks;
                     TimingPortClass portClass = ctx->getPortTimingClass(usr.cell, usr.port, port_clocks);
                     if (portClass == TMG_REGISTER_INPUT || portClass == TMG_ENDPOINT) {
-                        auto process_endpoint = [&](IdString clksig, ClockEdge edge, delay_t setup) {
-                            const auto net_arrival = nd.max_arrival;
-                            const auto endpoint_arrival = net_arrival + net_delay + setup;
+                        auto process_endpoint = [&](IdString clksig, ClockEdge edge, delay_t setup, delay_t hold) {
+                            const auto net_max_arrival = nd.max_arrival, net_min_arrival = nd.min_arrival;
+                            const auto endpoint_max_arrival = net_max_arrival + net_delay + setup;
+                            const auto endpoint_min_arrival = net_min_arrival + net_delay - hold;
                             delay_t period;
                             // Set default period
                             if (edge == startdomain.first.edge) {
@@ -340,7 +355,7 @@ struct Timing
                                     }
                                 }
                             }
-                            auto path_budget = period - endpoint_arrival;
+                            auto path_budget = period - endpoint_max_arrival;
 
                             if (update) {
                                 auto budget_share = budget_override ? 0 : path_budget / net_length_plus_one;
@@ -358,15 +373,28 @@ struct Timing
                             }
                             ClockEvent dest_ev{clksig, edge};
                             ClockPair clockPair{startdomain.first, dest_ev};
-                            nd.arrival_time[dest_ev] = std::max(nd.arrival_time[dest_ev], endpoint_arrival);
+                            nd.arrival_time[dest_ev] =
+                                    std::make_pair(std::max(nd.arrival_time[dest_ev].first, endpoint_max_arrival),
+                                                   std::min(nd.arrival_time[dest_ev].second, endpoint_min_arrival));
 
-                            if (crit_path) {
-                                if (!crit_nets.count(clockPair) || crit_nets.at(clockPair).first < endpoint_arrival) {
-                                    crit_nets[clockPair] = std::make_pair(endpoint_arrival, net);
-                                    (*crit_path)[clockPair].path_delay = endpoint_arrival;
-                                    (*crit_path)[clockPair].path_period = period;
-                                    (*crit_path)[clockPair].ports.clear();
-                                    (*crit_path)[clockPair].ports.push_back(&usr);
+                            if (setup_crit_path) {
+                                if (!setup_crit_nets.count(clockPair) ||
+                                    setup_crit_nets.at(clockPair).first < endpoint_max_arrival) {
+                                    setup_crit_nets[clockPair] = std::make_pair(endpoint_max_arrival, net);
+                                    (*setup_crit_path)[clockPair].path_delay = endpoint_max_arrival;
+                                    (*setup_crit_path)[clockPair].path_period = period;
+                                    (*setup_crit_path)[clockPair].ports.clear();
+                                    (*setup_crit_path)[clockPair].ports.push_back(&usr);
+                                }
+                            }
+                            if (hold_crit_path) {
+                                if (!hold_crit_nets.count(clockPair) ||
+                                    hold_crit_nets.at(clockPair).first > endpoint_min_arrival) {
+                                    hold_crit_nets[clockPair] = std::make_pair(endpoint_min_arrival, net);
+                                    (*hold_crit_path)[clockPair].path_delay = endpoint_min_arrival;
+                                    (*hold_crit_path)[clockPair].path_period = period;
+                                    (*hold_crit_path)[clockPair].ports.clear();
+                                    (*hold_crit_path)[clockPair].ports.push_back(&usr);
                                 }
                             }
                         };
@@ -375,10 +403,11 @@ struct Timing
                                 TimingClockingInfo clkInfo = ctx->getPortClockingInfo(usr.cell, usr.port, i);
                                 const NetInfo *clknet = get_net_or_empty(usr.cell, clkInfo.clock_port);
                                 IdString clksig = clknet ? clknet->name : async_clock;
-                                process_endpoint(clksig, clknet ? clkInfo.edge : RISING_EDGE, clkInfo.setup.maxDelay());
+                                process_endpoint(clksig, clknet ? clkInfo.edge : RISING_EDGE, clkInfo.setup.maxDelay(),
+                                                 clkInfo.hold.maxDelay());
                             }
                         } else {
-                            process_endpoint(async_clock, RISING_EDGE, 0);
+                            process_endpoint(async_clock, RISING_EDGE, 0, 0);
                         }
 
                     } else if (update) {
@@ -406,14 +435,19 @@ struct Timing
             }
         }
 
-        if (crit_path) {
+        auto process_crit_path = [&](CriticalPathMap *crit_path,
+                                     std::unordered_map<ClockPair, std::pair<delay_t, NetInfo *>> &crit_nets,
+                                     bool is_hold) {
+            if (!crit_path)
+                return;
             // Walk backwards from the most critical net
             for (auto crit_pair : crit_nets) {
                 NetInfo *crit_net = crit_pair.second.second;
                 auto &cp_ports = (*crit_path)[crit_pair.first].ports;
                 while (crit_net) {
                     const PortInfo *crit_ipin = nullptr;
-                    delay_t max_arrival = std::numeric_limits<delay_t>::min();
+                    delay_t worst_arrival =
+                            is_hold ? std::numeric_limits<delay_t>::max() : std::numeric_limits<delay_t>::min();
                     // Look at all input ports on its driving cell
                     for (const auto &port : crit_net->driver.cell->ports) {
                         if (port.second.type != PORT_IN || !port.second.net)
@@ -433,7 +467,9 @@ struct Timing
                         // And find the fanin net with the latest arrival time
                         if (net_data.count(port.second.net) &&
                             net_data.at(port.second.net).count(crit_pair.first.start)) {
-                            auto net_arrival = net_data.at(port.second.net).at(crit_pair.first.start).max_arrival;
+                            auto net_arrival =
+                                    is_hold ? net_data.at(port.second.net).at(crit_pair.first.start).min_arrival
+                                            : net_data.at(port.second.net).at(crit_pair.first.start).max_arrival;
                             if (net_delays) {
                                 for (auto &user : port.second.net->users)
                                     if (user.port == port.first && user.cell == crit_net->driver.cell) {
@@ -441,9 +477,9 @@ struct Timing
                                         break;
                                     }
                             }
-                            net_arrival += comb_delay.maxDelay();
-                            if (net_arrival > max_arrival) {
-                                max_arrival = net_arrival;
+                            net_arrival += is_hold ? comb_delay.minDelay() : comb_delay.maxDelay();
+                            if (is_hold ? (net_arrival < worst_arrival) : (net_arrival > worst_arrival)) {
+                                worst_arrival = net_arrival;
                                 crit_ipin = &port.second;
                             }
                         }
@@ -462,10 +498,13 @@ struct Timing
                 }
                 std::reverse(cp_ports.begin(), cp_ports.end());
             }
-        }
+        };
+
+        process_crit_path(setup_crit_path, setup_crit_nets, false);
+        process_crit_path(hold_crit_path, hold_crit_nets, true);
 
         if (net_crit) {
-            NPNR_ASSERT(crit_path);
+            NPNR_ASSERT(setup_crit_path);
             // Go through in reverse topographical order to set required times
             for (auto net : boost::adaptors::reverse(topographical_order)) {
                 if (!net_data.count(net))
@@ -608,9 +647,9 @@ struct Timing
                     if (nc.criticality.empty())
                         nc.criticality.resize(net->users.size(), 0);
                     // Only consider intra-clock paths for criticality
-                    if (!crit_path->count(ClockPair{startdomain.first, startdomain.first}))
+                    if (!setup_crit_path->count(ClockPair{startdomain.first, startdomain.first}))
                         continue;
-                    delay_t dmax = crit_path->at(ClockPair{startdomain.first, startdomain.first}).path_delay;
+                    delay_t dmax = setup_crit_path->at(ClockPair{startdomain.first, startdomain.first}).path_delay;
                     for (size_t i = 0; i < net->users.size(); i++) {
                         float criticality = 1.0f - (float(nc.slack.at(i) - worst_slack.at(startdomain.first)) / dmax);
                         nc.criticality.at(i) = criticality;
@@ -709,24 +748,26 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
         return value;
     };
 
-    CriticalPathMap crit_paths;
+    CriticalPathMap setup_crit_paths, hold_crit_paths;
     DelayFrequency slack_histogram;
 
-    Timing timing(ctx, true /* net_delays */, false /* update */, (print_path || print_fmax) ? &crit_paths : nullptr,
-                  print_histogram ? &slack_histogram : nullptr);
+    Timing timing(
+            ctx, true /* net_delays */, false /* update */, (print_path || print_fmax) ? &setup_crit_paths : nullptr,
+            (print_path || print_fmax) ? &hold_crit_paths : nullptr, print_histogram ? &slack_histogram : nullptr);
     timing.walk_paths();
     std::map<IdString, std::pair<ClockPair, CriticalPath>> clock_reports;
     std::map<IdString, double> clock_fmax;
+    std::map<ClockEvent, double> clock_hold_slack;
     std::vector<ClockPair> xclock_paths;
     std::set<IdString> empty_clocks; // set of clocks with no interior paths
     if (print_path || print_fmax) {
-        for (auto path : crit_paths) {
+        for (auto path : setup_crit_paths) {
             const ClockEvent &a = path.first.start;
             const ClockEvent &b = path.first.end;
             empty_clocks.insert(a.clock);
             empty_clocks.insert(b.clock);
         }
-        for (auto path : crit_paths) {
+        for (auto path : setup_crit_paths) {
             const ClockEvent &a = path.first.start;
             const ClockEvent &b = path.first.end;
             if (a.clock != b.clock || a.clock == ctx->id("$async$"))
@@ -743,12 +784,18 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
             }
         }
 
-        for (auto &path : crit_paths) {
+        for (auto &path : setup_crit_paths) {
             const ClockEvent &a = path.first.start;
             const ClockEvent &b = path.first.end;
             if (a.clock == b.clock && a.clock != ctx->id("$async$"))
                 continue;
             xclock_paths.push_back(path.first);
+        }
+
+        for (auto &path : hold_crit_paths) {
+            if (path.first.start == path.first.end) {
+                clock_hold_slack[path.first.start] = ctx->getDelayNS(path.second.path_delay);
+            }
         }
 
         if (clock_reports.empty()) {
@@ -775,7 +822,7 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
     }
 
     if (print_path) {
-        auto print_path_report = [ctx](ClockPair &clocks, PortRefVector &crit_path) {
+        auto print_path_report = [ctx](ClockPair &clocks, PortRefVector &crit_path, bool is_hold) {
             delay_t total = 0, logic_total = 0, route_total = 0;
             auto &front = crit_path.front();
             auto &front_port = front->cell->ports.at(front->port);
@@ -816,8 +863,8 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
                 } else {
                     ctx->getCellDelay(driver_cell, last_port, driver.port, comb_delay);
                 }
-                total += comb_delay.maxDelay();
-                logic_total += comb_delay.maxDelay();
+                total += is_hold ? comb_delay.minDelay() : comb_delay.maxDelay();
+                logic_total += is_hold ? comb_delay.minDelay() : comb_delay.maxDelay();
                 log_info("%4.1f %4.1f  Source %s.%s\n", ctx->getDelayNS(comb_delay.maxDelay()), ctx->getDelayNS(total),
                          driver_cell->name.c_str(ctx), driver.port.c_str(ctx));
                 auto net_delay = ctx->getNetinfoRouteDelay(net, *sink);
@@ -842,7 +889,7 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
                         assert(it != net->wires.end());
                         auto pip = it->second.pip;
                         NPNR_ASSERT(pip != PipId());
-                        delay = ctx->getPipDelay(pip).maxDelay();
+                        delay = is_hold ? ctx->getPipDelay(pip).minDelay() : ctx->getPipDelay(pip).maxDelay();
                         log_info("                 %1.3f %s\n", ctx->getDelayNS(delay),
                                  ctx->getPipName(pip).c_str(ctx));
                         cursor = ctx->getPipSrcWire(pip);
@@ -854,11 +901,20 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
             auto sinkClass = ctx->getPortTimingClass(crit_path.back()->cell, crit_path.back()->port, clockCount);
             if (sinkClass == TMG_REGISTER_INPUT && clockCount > 0) {
                 auto sinkClockInfo = ctx->getPortClockingInfo(crit_path.back()->cell, crit_path.back()->port, 0);
-                delay_t setup = sinkClockInfo.setup.maxDelay();
-                total += setup;
-                logic_total += setup;
-                log_info("%4.1f %4.1f  Setup %s.%s\n", ctx->getDelayNS(setup), ctx->getDelayNS(total),
-                         crit_path.back()->cell->name.c_str(ctx), crit_path.back()->port.c_str(ctx));
+                if (is_hold) {
+                    delay_t hold = sinkClockInfo.hold.maxDelay();
+                    total -= hold;
+                    logic_total -= hold;
+                    log_info("%4.1f %4.1f  Hold %s.%s\n", ctx->getDelayNS(hold), ctx->getDelayNS(total),
+                             crit_path.back()->cell->name.c_str(ctx), crit_path.back()->port.c_str(ctx));
+                } else {
+
+                    delay_t setup = sinkClockInfo.setup.maxDelay();
+                    total += setup;
+                    logic_total += setup;
+                    log_info("%4.1f %4.1f  Setup %s.%s\n", ctx->getDelayNS(setup), ctx->getDelayNS(total),
+                             crit_path.back()->cell->name.c_str(ctx), crit_path.back()->port.c_str(ctx));
+                }
             }
             log_info("%.1f ns logic, %.1f ns routing\n", ctx->getDelayNS(logic_total), ctx->getDelayNS(route_total));
         };
@@ -872,7 +928,16 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
             log_info("Critical path report for clock '%s' (%s -> %s):\n", clock.first.c_str(ctx), start.c_str(),
                      end.c_str());
             auto &crit_path = clock.second.second.ports;
-            print_path_report(clock.second.first, crit_path);
+            print_path_report(clock.second.first, crit_path, false);
+        }
+
+        for (auto &clock : clock_hold_slack) {
+            log_break();
+            auto cev = format_event(clock.first, 0);
+            log_info("Hold critical path report for %s:\n", cev.c_str());
+            auto clocks = ClockPair{clock.first, clock.first};
+            auto &crit_path = hold_crit_paths[clocks].ports;
+            print_path_report(clocks, crit_path, true);
         }
 
         for (auto &xclock : xclock_paths) {
@@ -880,8 +945,8 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
             std::string start = format_event(xclock.start);
             std::string end = format_event(xclock.end);
             log_info("Critical path report for cross-domain path '%s' -> '%s':\n", start.c_str(), end.c_str());
-            auto &crit_path = crit_paths.at(xclock).ports;
-            print_path_report(xclock, crit_path);
+            auto &crit_path = setup_crit_paths.at(xclock).ports;
+            print_path_report(xclock, crit_path, false);
         }
     }
     if (print_fmax) {
@@ -904,6 +969,17 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
                 log_nonfatal_error("Max frequency for clock %*s'%s': %.02f MHz (%s at %.02f MHz)\n", width, "",
                                    clock_name.c_str(), clock_fmax[clock.first], passed ? "PASS" : "FAIL", target);
         }
+        unsigned max_hev_width = 0;
+        for (auto &clock : clock_hold_slack)
+            max_hev_width = std::max<unsigned>(format_event(clock.first).length(), max_hev_width);
+        for (auto &clock : clock_hold_slack) {
+            bool passed = clock.second > 0;
+            auto clock_ev = format_event(clock.first, max_hev_width);
+            if (!warn_on_failure || passed)
+                log_info("Hold slack for %s: %.02f ns\n", clock_ev.c_str(), clock.second);
+            else
+                log_nonfatal_error("Hold slack for %s: %.02f ns\n", clock_ev.c_str(), clock.second);
+        }
         for (auto &eclock : empty_clocks) {
             if (eclock != ctx->id("$async$"))
                 log_info("Clock '%s' has no interior paths\n", eclock.c_str(ctx));
@@ -919,7 +995,7 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
         for (auto &xclock : xclock_paths) {
             const ClockEvent &a = xclock.start;
             const ClockEvent &b = xclock.end;
-            auto &path = crit_paths.at(xclock);
+            auto &path = setup_crit_paths.at(xclock);
             auto ev_a = format_event(a, start_field_width), ev_b = format_event(b, end_field_width);
             log_info("Max delay %s -> %s: %0.02f ns\n", ev_a.c_str(), ev_b.c_str(), ctx->getDelayNS(path.path_delay));
         }
@@ -957,7 +1033,7 @@ void get_criticalities(Context *ctx, NetCriticalityMap *net_crit)
 {
     CriticalPathMap crit_paths;
     net_crit->clear();
-    Timing timing(ctx, true, true, &crit_paths, nullptr, net_crit);
+    Timing timing(ctx, true, true, &crit_paths, nullptr, nullptr, net_crit);
     timing.walk_paths();
 }
 
