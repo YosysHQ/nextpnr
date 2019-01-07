@@ -350,7 +350,7 @@ void IdString::initialize_arch(const BaseCtx *ctx)
 Arch::Arch(ArchArgs args) : args(args)
 {
     std::stringstream ss;
-    ss << TORC_ROOT << "/torc/src/torc";
+    ss << TORC_ROOT << "/src/torc";
     torc::common::DirectoryTree directoryTree(ss.str().c_str());
     if (args.type == ArchArgs::Z020) {
         torc_info = std::unique_ptr<TorcInfo>(new TorcInfo(this, "xc7z020", args.package));
