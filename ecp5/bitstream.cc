@@ -745,6 +745,8 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             }
             if (ci->attrs.count(ctx->id("SLEWRATE")))
                 cc.tiles[pio_tile].add_enum(pio + ".SLEWRATE", str_or_default(ci->attrs, ctx->id("SLEWRATE"), "SLOW"));
+            if (ci->attrs.count(ctx->id("PULLMODE")))
+                cc.tiles[pio_tile].add_enum(pio + ".PULLMODE", str_or_default(ci->attrs, ctx->id("PULLMODE"), "NONE"));
             std::string datamux_oddr = str_or_default(ci->params, ctx->id("DATAMUX_ODDR"), "PADDO");
             if (datamux_oddr != "PADDO")
                 cc.tiles[pic_tile].add_enum(pio + ".DATAMUX_ODDR", datamux_oddr);
