@@ -935,10 +935,34 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
                 return TMG_REGISTER_INPUT;
         }
     } else if (cell->type == id_SB_IO) {
-        if (port == id_D_IN_0 || port == id_D_IN_1)
+        if (port == id_INPUT_CLK || port == id_OUTPUT_CLK)
+            return TMG_CLOCK_INPUT;
+        if (port == id_CLOCK_ENABLE) {
+            clockInfoCount = 2;
+            return TMG_REGISTER_INPUT;
+        }
+        if ((port == id_D_IN_0 && !(cell->ioInfo.pintype & 0x1)) || port == id_D_IN_1) {
+            clockInfoCount = 1;
+            return TMG_REGISTER_OUTPUT;
+        } else if (port == id_D_IN_0) {
             return TMG_STARTPOINT;
-        if (port == id_D_OUT_0 || port == id_D_OUT_1 || port == id_OUTPUT_ENABLE)
-            return TMG_ENDPOINT;
+        }
+        if (port == id_D_OUT_0 || port == id_D_OUT_1) {
+            if ((cell->ioInfo.pintype & 0xC) == 0x8) {
+                return TMG_ENDPOINT;
+            } else {
+                clockInfoCount = 1;
+                return TMG_REGISTER_INPUT;
+            }
+        }
+        if (port == id_OUTPUT_ENABLE) {
+            if ((cell->ioInfo.pintype & 0x18) == 0x18) {
+                return TMG_REGISTER_INPUT;
+            } else {
+                return TMG_ENDPOINT;
+            }
+        }
+
         return TMG_IGNORE;
     } else if (cell->type == id_ICESTORM_PLL) {
         if (port == id_PLLOUT_A || port == id_PLLOUT_B)
@@ -997,6 +1021,41 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
         } else {
             info.setup.delay = 100;
             info.hold.delay = 0;
+        }
+    } else if (cell->type == id_SB_IO) {
+        delay_t io_setup = 80, io_clktoq = 140;
+        if (args.type == ArchArgs::LP1K || args.type == ArchArgs::LP8K || args.type == ArchArgs::LP384) {
+            io_setup = 115;
+            io_clktoq = 210;
+        } else if (args.type == ArchArgs::UP5K) {
+            io_setup = 205;
+            io_clktoq = 1005;
+        }
+        if (port == id_CLOCK_ENABLE) {
+            info.clock_port = (index == 1) ? id_OUTPUT_CLK : id_INPUT_CLK;
+            info.edge = cell->ioInfo.negtrig ? FALLING_EDGE : RISING_EDGE;
+            info.setup.delay = io_setup;
+            info.hold.delay = 0;
+        } else if (port == id_D_OUT_0 || port == id_OUTPUT_ENABLE) {
+            info.clock_port = id_OUTPUT_CLK;
+            info.edge = cell->ioInfo.negtrig ? FALLING_EDGE : RISING_EDGE;
+            info.setup.delay = io_setup;
+            info.hold.delay = 0;
+        } else if (port == id_D_OUT_1) {
+            info.clock_port = id_OUTPUT_CLK;
+            info.edge = cell->ioInfo.negtrig ? RISING_EDGE : FALLING_EDGE;
+            info.setup.delay = io_setup;
+            info.hold.delay = 0;
+        } else if (port == id_D_IN_0) {
+            info.clock_port = id_INPUT_CLK;
+            info.edge = cell->ioInfo.negtrig ? FALLING_EDGE : RISING_EDGE;
+            info.clockToQ.delay = io_clktoq;
+        } else if (port == id_D_IN_1) {
+            info.clock_port = id_INPUT_CLK;
+            info.edge = cell->ioInfo.negtrig ? RISING_EDGE : FALLING_EDGE;
+            info.clockToQ.delay = io_clktoq;
+        } else {
+            NPNR_ASSERT_FALSE("no clock data for IO cell port");
         }
     } else if (cell->type == id_ICESTORM_DSP || cell->type == id_ICESTORM_SPRAM) {
         info.clock_port = cell->type == id_ICESTORM_SPRAM ? id_CLOCK : id_CLK;
@@ -1065,6 +1124,9 @@ void Arch::assignCellInfo(CellInfo *cell)
     } else if (cell->type == id_SB_IO) {
         cell->ioInfo.lvds = str_or_default(cell->params, id_IO_STANDARD, "SB_LVCMOS") == "SB_LVDS_INPUT";
         cell->ioInfo.global = bool_or_default(cell->attrs, this->id("GLOBAL"));
+        cell->ioInfo.pintype = int_or_default(cell->attrs, this->id("PIN_TYPE"));
+        cell->ioInfo.negtrig = bool_or_default(cell->attrs, this->id("NEG_TRIGGER"));
+
     } else if (cell->type == id_SB_GB) {
         cell->gbInfo.forPadIn = bool_or_default(cell->attrs, this->id("FOR_PAD_IN"));
     }
