@@ -454,14 +454,24 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
 delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
 {
     const auto &driver = net_info->driver;
-    if (driver.port == id_FCO && sink.port == id_FCI)
+    if ((driver.port == id_FCO && sink.port == id_FCI) || sink.port == id_FXA || sink.port == id_FXB)
         return 0;
     auto driver_loc = getBelLocation(driver.cell->bel);
     auto sink_loc = getBelLocation(sink.cell->bel);
     return (110 - 10 * args.speed) + (200 - 20 * args.speed) * (abs(driver_loc.x - sink_loc.x) + abs(driver_loc.y - sink_loc.y));
 }
 
-bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const { return false; }
+bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const {
+    if (net_info->driver.port == id_FCO && sink.port == id_FCI) {
+        return true;
+        budget = 0;
+    } else if (sink.port == id_FXA || sink.port == id_FXB) {
+        return true;
+        budget = 0;
+    } else {
+        return false;
+    }
+}
 
 // -----------------------------------------------------------------------
 
