@@ -151,6 +151,8 @@ struct ArchCellInfo
         {
             bool lvds;
             bool global;
+            bool negtrig;
+            int pintype;
             // TODO: clk packing checks...
         } ioInfo;
         struct
