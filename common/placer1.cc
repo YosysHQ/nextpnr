@@ -317,7 +317,7 @@ class SAPlacer
             }
             // Once cooled below legalise threshold, run legalisation and start requiring
             // legal moves only
-            if (temp < legalise_temp && require_legal) {
+            if (diameter < legalise_dia && require_legal) {
                 if (legalise_relative_constraints(ctx)) {
                     // Only increase temperature if something was moved
                     autoplaced.clear();
@@ -329,8 +329,8 @@ class SAPlacer
                         else if (cell.second->belStrength < STRENGTH_STRONG)
                             autoplaced.push_back(cell.second);
                     }
-                    temp = post_legalise_temp;
-                    diameter = std::min<int>(M, diameter * post_legalise_dia_scale);
+                    // temp = post_legalise_temp;
+                    // diameter = std::min<int>(M, diameter * post_legalise_dia_scale);
                     ctx->shuffle(autoplaced);
 
                     // Legalisation is a big change so force a slack redistribution here
@@ -901,9 +901,7 @@ class SAPlacer
     std::vector<NetInfo *> net_by_udata;
     std::vector<decltype(NetInfo::udata)> old_udata;
     bool require_legal = true;
-    const float legalise_temp = 0.001;
-    const float post_legalise_temp = 0.002;
-    const float post_legalise_dia_scale = 1.5;
+    const int legalise_dia = 4;
     Placer1Cfg cfg;
 };
 
