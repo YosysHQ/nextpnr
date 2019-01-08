@@ -400,16 +400,17 @@ BelId Arch::getBelByLocation(Loc loc) const
 
 delay_t Arch::estimateDelay(WireId src, WireId dst) const
 {
-    return (240 - 20 * args.speed) * (abs(src.location.x - dst.location.x) + abs(src.location.y - dst.location.y));
+    return (110 - 10 * args.speed) + (200 - 20 * args.speed) * (abs(src.location.x - dst.location.x) + abs(src.location.y - dst.location.y));
 }
 
 delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
 {
     const auto &driver = net_info->driver;
+    if (driver.port == id_FCO && sink.port == id_FCI)
+        return 0;
     auto driver_loc = getBelLocation(driver.cell->bel);
     auto sink_loc = getBelLocation(sink.cell->bel);
-
-    return (240 - 20 * args.speed) * (abs(driver_loc.x - sink_loc.x) + abs(driver_loc.y - sink_loc.y));
+    return (110 - 10 * args.speed) + (200 - 20 * args.speed) * (abs(driver_loc.x - sink_loc.x) + abs(driver_loc.y - sink_loc.y));
 }
 
 bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const { return false; }
