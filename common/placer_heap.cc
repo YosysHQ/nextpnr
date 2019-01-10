@@ -59,16 +59,16 @@ template <typename T> struct EquationSystem
 
     void add_coeff(int row, int col, T val)
     {
-        auto &Ac = A[col];
+        auto &Ac = A.at(col);
         // Binary search
         int b = 0, e = int(Ac.size()) - 1;
         while (b <= e) {
             int i = (b + e) / 2;
-            if (Ac[i].first == row) {
-                Ac[i].second += val;
+            if (Ac.at(i).first == row) {
+                Ac.at(i).second += val;
                 return;
             }
-            if (Ac[i].first > row)
+            if (Ac.at(i).first > row)
                 e = i - 1;
             else
                 b = i + 1;
@@ -80,19 +80,29 @@ template <typename T> struct EquationSystem
 
     void solve(std::vector<double> &x)
     {
+        NPNR_ASSERT(x.size() == A.size());
+
         int nnz = std::accumulate(A.begin(), A.end(), 0,
                                   [](int a, const std::vector<std::pair<int, T>> &vec) { return a + int(vec.size()); });
         taucif_system *sys = taucif_create_system(int(rhs.size()), int(A.size()), nnz);
         for (int col = 0; col < int(A.size()); col++) {
             auto &Ac = A[col];
             for (auto &el : Ac) {
-                if (col <= el.first)
-                    taucif_set_matrix_value(sys, el.first, col, el.second);
+                if (col <= el.first) {
+                    // log_info("%d %d %f\n", el.first, col, el.second);
+                    taucif_add_matrix_value(sys, el.first, col, el.second);
+                }
+
                 // FIXME: in debug mode, assert really is symmetric
             }
         }
-        taucif_solve_system(sys, x.data(), rhs.data());
+        taucif_finalise_matrix(sys);
+        int result = taucif_solve_system(sys, x.data(), rhs.data());
+        NPNR_ASSERT(result == 0);
         taucif_free_system(sys);
+
+        // for (int i = 0; i < int(x.size()); i++)
+        //    log_info("x[%d] = %f\n", i, x.at(i));
     }
 };
 
@@ -104,22 +114,38 @@ class HeAPPlacer
     HeAPPlacer(Context *ctx) : ctx(ctx) {}
     bool place()
     {
+        ctx->lock();
         taucif_init_solver();
         place_constraints();
         build_fast_bels();
         seed_placement();
         update_all_chains();
 
-        EquationSystem<double> es(place_cells.size(), place_cells.size());
-        build_equations(es, false);
-        solve_equations(es, false);
+        for (int i = 0; i < 20; i++) {
+            EquationSystem<double> esx(place_cells.size(), place_cells.size());
+            build_equations(esx, false);
+            // log_info("x-axis\n");
+            solve_equations(esx, false);
+
+            EquationSystem<double> esy(place_cells.size(), place_cells.size());
+            build_equations(esy, true);
+            // log_info("y-axis\n");
+            solve_equations(esy, true);
+
+            update_all_chains();
+
+            wirelen_t hpwl = total_hpwl();
+            log_info("Initial placer iter %d, hpwl = %d\n", i, int(hpwl));
+        }
+
+        ctx->unlock();
         return true;
     }
 
   private:
     Context *ctx;
 
-    int diameter, max_x, max_y;
+    int max_x = 0, max_y = 0;
     std::vector<std::vector<std::vector<std::vector<BelId>>>> fast_bels;
     std::unordered_map<IdString, std::tuple<int, int>> bel_types;
 
@@ -215,7 +241,7 @@ class HeAPPlacer
             max_y = std::max(max_y, loc.y);
             fast_bels.at(type_idx).at(loc.x).at(loc.y).push_back(bel);
         }
-        diameter = std::max(max_x, max_y) + 1;
+
         nearest_row_with_bel.resize(num_bel_types, std::vector<int>(max_y + 1, -1));
         nearest_col_with_bel.resize(num_bel_types, std::vector<int>(max_x + 1, -1));
         for (auto bel : ctx->getBels()) {
@@ -237,16 +263,27 @@ class HeAPPlacer
                 nc.at(x) = loc.x;
             }
             for (int y = loc.y; y <= max_y; y++) {
-                if (nr.at(y) == -1 || std::abs(loc.y - nc.at(y)) <= (y - loc.y))
+                if (nr.at(y) == -1 || std::abs(loc.y - nr.at(y)) <= (y - loc.y))
                     break;
                 nr.at(y) = loc.y;
             }
             for (int y = loc.y - 1; y >= 0; y--) {
-                if (nc.at(y) == -1 || std::abs(loc.y - nc.at(y)) <= (loc.y - y))
+                if (nr.at(y) == -1 || std::abs(loc.y - nr.at(y)) <= (loc.y - y))
                     break;
-                nc.at(y) = loc.y;
+                nr.at(y) = loc.y;
             }
         }
+    }
+
+    // Check if a cell has any meaningful connectivity
+    bool has_connectivity(CellInfo *cell)
+    {
+        for (auto port : cell->ports) {
+            if (port.second.net != nullptr && port.second.net->driver.cell != nullptr &&
+                !port.second.net->users.empty())
+                return true;
+        }
+        return false;
     }
 
     // Build up a random initial placement, without regard to legality
@@ -264,13 +301,13 @@ class HeAPPlacer
         int placed_cell_count = 0;
         for (auto cell : sorted(ctx->cells)) {
             CellInfo *ci = cell.second;
+            ci->udata = -1;
             if (ci->bel != BelId()) {
                 Loc loc = ctx->getBelLocation(ci->bel);
                 cell_locs[cell.first].x = loc.x;
                 cell_locs[cell.first].y = loc.y;
                 cell_locs[cell.first].locked = true;
                 cell_locs[cell.first].global = ctx->getBelGlobalBuf(ci->bel);
-
             } else if (ci->constr_parent == nullptr) {
                 if (!available_bels.count(ci->type) || available_bels.at(ci->type).empty())
                     log_error("Unable to place cell '%s', no Bels remaining of type '%s'\n", ci->name.c_str(ctx),
@@ -282,8 +319,14 @@ class HeAPPlacer
                 cell_locs[cell.first].y = loc.y;
                 cell_locs[cell.first].locked = false;
                 cell_locs[cell.first].global = ctx->getBelGlobalBuf(bel);
-                ci->udata = placed_cell_count++;
-                place_cells.push_back(ci);
+                // FIXME
+                if (has_connectivity(cell.second) && cell.second->type != ctx->id("SB_IO")) {
+                    ci->udata = placed_cell_count++;
+                    place_cells.push_back(ci);
+                } else {
+                    ctx->bindBel(bel, ci, STRENGTH_STRONG);
+                    cell_locs[cell.first].locked = true;
+                }
             }
         }
     }
@@ -354,6 +397,8 @@ class HeAPPlacer
                     ubport = &port;
                 }
             });
+            NPNR_ASSERT(lbport != nullptr);
+            NPNR_ASSERT(ubport != nullptr);
             // Add all relevant connections to the matrix
             foreach_port(ni, [&](PortRef &port) {
                 int this_pos = cell_pos(port.cell);
@@ -361,9 +406,9 @@ class HeAPPlacer
                     if (other == &port)
                         return;
                     int o_pos = cell_pos(other->cell);
-                    if (o_pos == this_pos)
-                        return; // FIXME: or clamp to 1?
-                    double weight = 1. / (ni->users.size() * std::abs(o_pos - this_pos));
+                    // if (o_pos == this_pos)
+                    //    return; // FIXME: or clamp to 1?
+                    double weight = 1. / (ni->users.size() * std::max(1, std::abs(o_pos - this_pos)));
                     // FIXME: add criticality to weighting
 
                     // If cell 0 is not fixed, it will stamp +w on its equation and -w on the other end's equation,
@@ -403,6 +448,35 @@ class HeAPPlacer
         std::vector<double> vals;
         std::transform(place_cells.begin(), place_cells.end(), std::back_inserter(vals), cell_pos);
         es.solve(vals);
+        for (size_t i = 0; i < vals.size(); i++)
+            if (yaxis)
+                cell_locs.at(place_cells.at(i)->name).y = int(vals.at(i) + 0.5);
+            else
+                cell_locs.at(place_cells.at(i)->name).x = int(vals.at(i) + 0.5);
+    }
+
+    // Compute HPWL
+    wirelen_t total_hpwl()
+    {
+        wirelen_t hpwl = 0;
+        for (auto net : sorted(ctx->nets)) {
+            NetInfo *ni = net.second;
+            if (ni->driver.cell == nullptr)
+                continue;
+            CellLocation &drvloc = cell_locs.at(ni->driver.cell->name);
+            if (drvloc.global)
+                continue;
+            int xmin = drvloc.x, xmax = drvloc.x, ymin = drvloc.y, ymax = drvloc.y;
+            for (auto &user : ni->users) {
+                CellLocation &usrloc = cell_locs.at(user.cell->name);
+                xmin = std::min(xmin, usrloc.x);
+                xmax = std::max(xmax, usrloc.x);
+                ymin = std::min(ymin, usrloc.y);
+                ymax = std::max(ymax, usrloc.y);
+            }
+            hpwl += (xmax - xmin) + (ymax - ymin);
+        }
+        return hpwl;
     }
 };
 

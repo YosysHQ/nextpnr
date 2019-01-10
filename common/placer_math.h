@@ -30,9 +30,11 @@ struct taucif_system;
 
 extern struct taucif_system *taucif_create_system(int rows, int cols, int n_nonzero);
 
-extern void taucif_set_matrix_value(struct taucif_system *sys, int row, int col, double value);
+extern void taucif_add_matrix_value(struct taucif_system *sys, int row, int col, double value);
 
-extern void taucif_solve_system(struct taucif_system *sys, double *x, double *rhs);
+extern void taucif_finalise_matrix(struct taucif_system *sys);
+
+extern int taucif_solve_system(struct taucif_system *sys, double *x, double *rhs);
 
 extern void taucif_free_system(struct taucif_system *sys);
 
