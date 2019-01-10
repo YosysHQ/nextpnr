@@ -458,6 +458,7 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
     int dx = abs(src_loc.first - dst_loc.first), dy = abs(src_loc.second - dst_loc.second);
     return (130 - 25 * args.speed) *
            (6 + std::max(dx - 5, 0) + std::max(dy - 5, 0) + 2 * (std::min(dx, 5) + std::min(dy, 5)));
+
 }
 
 delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
@@ -467,7 +468,6 @@ delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
         return 0;
     auto driver_loc = getBelLocation(driver.cell->bel);
     auto sink_loc = getBelLocation(sink.cell->bel);
-
     // Encourage use of direct interconnect
     if (driver_loc.x == sink_loc.x && driver_loc.y == sink_loc.y) {
         if ((sink.port == id_A0 || sink.port == id_A1) && (driver.port == id_F1) &&

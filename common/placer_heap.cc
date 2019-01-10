@@ -25,12 +25,13 @@
  */
 
 #include <deque>
+#include <numeric>
 #include <unordered_map>
 #include "log.h"
 #include "nextpnr.h"
 #include "place_common.h"
+#include "placer_math.h"
 #include "util.h"
-
 NEXTPNR_NAMESPACE_BEGIN
 
 namespace {
@@ -76,13 +77,44 @@ template <typename T> struct EquationSystem
     }
 
     void add_rhs(int row, T val) { rhs[row] += val; }
+
+    void solve(std::vector<double> &x)
+    {
+        int nnz = std::accumulate(A.begin(), A.end(), 0,
+                                  [](int a, const std::vector<std::pair<int, T>> &vec) { return a + int(vec.size()); });
+        taucif_system *sys = taucif_create_system(int(rhs.size()), int(A.size()), nnz);
+        for (int col = 0; col < int(A.size()); col++) {
+            auto &Ac = A[col];
+            for (auto &el : Ac) {
+                if (col <= el.first)
+                    taucif_set_matrix_value(sys, el.first, col, el.second);
+                // FIXME: in debug mode, assert really is symmetric
+            }
+        }
+        taucif_solve_system(sys, x.data(), rhs.data());
+        taucif_free_system(sys);
+    }
 };
+
 } // namespace
 
 class HeAPPlacer
 {
   public:
     HeAPPlacer(Context *ctx) : ctx(ctx) {}
+    bool place()
+    {
+        taucif_init_solver();
+        place_constraints();
+        build_fast_bels();
+        seed_placement();
+        update_all_chains();
+
+        EquationSystem<double> es(place_cells.size(), place_cells.size());
+        build_equations(es, false);
+        solve_equations(es, false);
+        return true;
+    }
 
   private:
     Context *ctx;
@@ -361,6 +393,19 @@ class HeAPPlacer
             });
         }
     }
+
+    // Build the system of equations for either X or Y
+    void solve_equations(EquationSystem<double> &es, bool yaxis)
+    {
+        // Return the x or y position of a cell, depending on ydir
+        auto cell_pos = [&](CellInfo *cell) { return yaxis ? cell_locs.at(cell->name).y : cell_locs.at(cell->name).x; };
+        build_equations(es, yaxis);
+        std::vector<double> vals;
+        std::transform(place_cells.begin(), place_cells.end(), std::back_inserter(vals), cell_pos);
+        es.solve(vals);
+    }
 };
+
+bool placer_heap(Context *ctx) { return HeAPPlacer(ctx).place(); }
 
 NEXTPNR_NAMESPACE_END
