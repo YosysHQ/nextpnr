@@ -23,10 +23,10 @@ if (NOT DEFINED TORC_ROOT)
                       COMMAND $(MAKE) > /dev/null 2> /dev/null
                       COMMENT "Building torc (may take some time...)"
                       WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/torc/src)
-    find_package(Boost REQUIRED COMPONENTS serialization iostreams ${boost_libs} ${boost_python_lib})
-
     set(TORC_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/torc)
 endif()
+
+find_package(Boost REQUIRED COMPONENTS regex ${boost_libs} ${boost_python_lib})
 
 target_compile_definitions(nextpnr-${family} PRIVATE -DTORC_ROOT="${TORC_ROOT}")
 target_include_directories(nextpnr-${family} PUBLIC ${TORC_ROOT}/src)
