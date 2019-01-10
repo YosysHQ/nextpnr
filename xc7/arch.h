@@ -103,7 +103,7 @@ struct TorcInfo
         l.y = (int)ewi.mTileRow;
         return l;
     }
-    
+
     WireId tilewire_to_wire(const Tilewire &tw) const
     {
         const auto &segment = segments.getTilewireSegment(tw);
@@ -122,14 +122,14 @@ struct TorcInfo
     std::vector<Tilewire> wire_to_tilewire;
     int num_wires;
     std::vector<DelayInfo> wire_to_delay;
-    //std::vector<std::vector<int>> wire_to_pips_uphill;
+    // std::vector<std::vector<int>> wire_to_pips_uphill;
     std::vector<std::vector<PipId>> wire_to_pips_downhill;
     std::vector<Arc> pip_to_arc;
     int num_pips;
     int width;
     int height;
     std::vector<bool> wire_is_global;
-    std::vector<std::pair<int,int>> tile_to_xy;
+    std::vector<std::pair<int, int>> tile_to_xy;
 
     TorcInfo(const std::string &inDeviceName, const std::string &inPackageName);
 };
@@ -253,10 +253,7 @@ struct PipIterator
     void operator++() { cursor++; }
     bool operator!=(const PipIterator &other) const { return cursor != other.cursor; }
 
-    PipId operator*() const
-    {
-        return *cursor;
-    }
+    PipId operator*() const { return *cursor; }
 };
 
 struct PipRange

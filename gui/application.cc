@@ -51,8 +51,8 @@ Application::Application(int &argc, char **argv) : QApplication(argc, argv)
 bool Application::notify(QObject *receiver, QEvent *event)
 {
     bool retVal = true;
-    //try {
-        retVal = QApplication::notify(receiver, event);
+    // try {
+    retVal = QApplication::notify(receiver, event);
     /*} catch (assertion_failure ex) {
         QString msg;
         QTextStream out(&msg);

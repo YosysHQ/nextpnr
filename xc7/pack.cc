@@ -128,14 +128,14 @@ static bool net_is_constant(const Context *ctx, NetInfo *net, bool &value)
 // Pack carry logic
 static void pack_carries(Context *ctx)
 {
-    //log_info("Packing carries..\n");
+    // log_info("Packing carries..\n");
     // TODO
 }
 
 // "Pack" RAMs
 static void pack_ram(Context *ctx)
 {
-    //log_info("Packing RAMs..\n");
+    // log_info("Packing RAMs..\n");
     // TODO
 }
 
@@ -550,7 +550,7 @@ static void pack_special(Context *ctx)
             ci->params.emplace(ctx->id("TMUX_MUX_SEL"), "00");
             ci->params.emplace(ctx->id("VLF_HIGH_DIS_B"), "TRUE");
             ci->params.emplace(ctx->id("VLF_HIGH_PWDN_B"), "TRUE");
-            //ci->params.emplace(ctx->id("MMCME2_ADV:mmcm_adv_inst:");
+            // ci->params.emplace(ctx->id("MMCME2_ADV:mmcm_adv_inst:");
             ci->params.emplace(ctx->id("ANALOG_MISC"), "0000");
             ci->params.emplace(ctx->id("AVDD_COMP_SET"), "011");
             ci->params.emplace(ctx->id("AVDD_VBG_PD"), "110");

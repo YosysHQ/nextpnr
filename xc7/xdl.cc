@@ -19,13 +19,13 @@
  *
  */
 #include "xdl.h"
+#include <boost/range/adaptor/reversed.hpp>
 #include <cctype>
 #include <vector>
 #include "cells.h"
 #include "log.h"
 #include "nextpnr.h"
 #include "util.h"
-#include <boost/range/adaptor/reversed.hpp>
 
 #include "torc/Physical.hpp"
 using namespace torc::architecture::xilinx;
@@ -68,7 +68,8 @@ DesignSharedPtr create_torc_design(const Context *ctx)
         const char *type;
         if (cell.second->type == id_SLICE_LUT6)
             type = "SLICEL";
-        else if (cell.second->type == id_IOB33 || cell.second->type == id_IOB18 || cell.second->type == id_BUFGCTRL || cell.second->type == id_PS7 || cell.second->type == id_MMCME2_ADV)
+        else if (cell.second->type == id_IOB33 || cell.second->type == id_IOB18 || cell.second->type == id_BUFGCTRL ||
+                 cell.second->type == id_PS7 || cell.second->type == id_MMCME2_ADV)
             type = cell.second->type.c_str(ctx);
         else
             log_error("Unsupported cell type '%s'.\n", cell.second->type.c_str(ctx));
@@ -187,7 +188,6 @@ DesignSharedPtr create_torc_design(const Context *ctx)
                 instPtr->setConfig("SYNC_ATTR", "", cell.second->params.at(ctx->id("SYNC_ATTR")));
                 if (get_net_or_empty(cell.second.get(), ctx->id("CE")))
                     instPtr->setConfig("CEUSEDMUX", "", "IN");
-
             }
         } else if (cell.second->type == id_IOB33) {
             if (get_net_or_empty(cell.second.get(), id_I)) {
@@ -211,8 +211,9 @@ DesignSharedPtr create_torc_design(const Context *ctx)
                 instPtr->setConfig("DRIVE", "", "12");
                 instPtr->setConfig("SLEW", "", "SLOW");
             }
-        } else if (cell.second->type == id_BUFGCTRL || cell.second->type == id_PS7 || cell.second->type == id_MMCME2_ADV) {
-            for (const auto& i : cell.second->params)
+        } else if (cell.second->type == id_BUFGCTRL || cell.second->type == id_PS7 ||
+                   cell.second->type == id_MMCME2_ADV) {
+            for (const auto &i : cell.second->params)
                 instPtr->setConfig(i.first.str(ctx), "", i.second);
         } else
             log_error("Unsupported cell type '%s'.\n", cell.second->type.c_str(ctx));
@@ -247,10 +248,10 @@ DesignSharedPtr create_torc_design(const Context *ctx)
                 if (user.cell->type == id_SLICE_LUT6 && (pin_name[0] == 'I' || pin_name[0] == 'O')) {
                     const auto lut = bel_to_lut(user.cell->bel);
                     pin_name[0] = lut[0];
-                }
-                else {
+                } else {
                     // e.g. Convert DDRARB[0] -> DDRARB0
-                    pin_name.erase(std::remove_if(pin_name.begin(), pin_name.end(), boost::is_any_of("[]")), pin_name.end());
+                    pin_name.erase(std::remove_if(pin_name.begin(), pin_name.end(), boost::is_any_of("[]")),
+                                   pin_name.end());
                 }
                 pinPtr = Factory::newInstancePinPtr(instPtr, pin_name);
                 netPtr->addSink(pinPtr);

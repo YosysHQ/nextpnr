@@ -68,10 +68,10 @@ std::unique_ptr<CellInfo> create_xc7_cell(Context *ctx, IdString type, std::stri
         add_port(ctx, new_cell.get(), "OMUX", PORT_OUT);
         add_port(ctx, new_cell.get(), "COUT", PORT_OUT);
     } else if (type == ctx->id("IOBUF")) {
-	    if (ctx->args.type == ArchArgs::Z020)
-		    new_cell->type = id_IOB33;
-	    else
-		    new_cell->type = id_IOB18;
+        if (ctx->args.type == ArchArgs::Z020)
+            new_cell->type = id_IOB33;
+        else
+            new_cell->type = id_IOB18;
         add_port(ctx, new_cell.get(), "I", PORT_OUT);
         add_port(ctx, new_cell.get(), "O", PORT_IN);
     } else if (type == id_BUFGCTRL) {
@@ -120,8 +120,7 @@ void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc, bool pass_thru_l
             if (get_net_or_empty(dff, id_S) != gnd_net) {
                 lc->params[id_SR] = "SRHIGH";
                 replace_port(dff, id_S, lc, id_SR);
-            }
-            else
+            } else
                 disconnect_port(ctx, dff, id_S);
             lc->params[ctx->id("SYNC_ATTR")] = "SYNC";
         } else if (*citer == 'R') {
@@ -129,8 +128,7 @@ void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc, bool pass_thru_l
             if (get_net_or_empty(dff, id_R) != gnd_net) {
                 lc->params[id_SR] = "SRLOW";
                 replace_port(dff, id_R, lc, id_SR);
-            }
-            else
+            } else
                 disconnect_port(ctx, dff, id_R);
             lc->params[ctx->id("SYNC_ATTR")] = "SYNC";
         } else if (*citer == 'C') {
@@ -138,8 +136,7 @@ void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc, bool pass_thru_l
             if (get_net_or_empty(dff, id_CLR) != gnd_net) {
                 lc->params[id_SR] = "SRLOW";
                 replace_port(dff, id_CLR, lc, id_SR);
-            }
-            else
+            } else
                 disconnect_port(ctx, dff, id_CLR);
             lc->params[ctx->id("SYNC_ATTR")] = "ASYNC";
         } else {
@@ -148,8 +145,7 @@ void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc, bool pass_thru_l
             if (get_net_or_empty(dff, id_PRE) != gnd_net) {
                 lc->params[id_SR] = "SRHIGH";
                 replace_port(dff, id_PRE, lc, id_SR);
-            }
-            else
+            } else
                 disconnect_port(ctx, dff, id_PRE);
             lc->params[ctx->id("SYNC_ATTR")] = "ASYNC";
         }

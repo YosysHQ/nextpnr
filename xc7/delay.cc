@@ -49,8 +49,7 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
         return div_LH.quot * 360 + div_LVB.quot * 300 + div_LV.quot * 350 +
                (div_H6.quot + div_H4.quot + div_V6.quot + div_V4.quot) * 210 + (div_H2.quot + div_V2.quot) * 170 +
                (num_H1 + num_V1) * 150;
-    }
-    else {
+    } else {
         auto src_y = src_loc.second;
         auto dst_y = dst_loc.second;
         auto div_src_y = std::div(src_y, 52);

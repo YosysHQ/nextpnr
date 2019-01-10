@@ -41,12 +41,12 @@ TorcInfo::TorcInfo(BaseCtx *ctx, const std::string &inDeviceName, const std::str
     std::cmatch what;
     tile_to_xy.resize(tiles.getTileCount());
     for (TileIndex tileIndex(0); tileIndex < tiles.getTileCount(); tileIndex++) {
-         const auto &tileInfo = tiles.getTileInfo(tileIndex);
+        const auto &tileInfo = tiles.getTileInfo(tileIndex);
         if (!std::regex_match(tileInfo.getName(), what, re_loc))
             throw;
         const auto x = boost::lexical_cast<int>(what.str(1));
         const auto y = boost::lexical_cast<int>(what.str(2));
-        tile_to_xy[tileIndex] = std::make_pair(x,y);
+        tile_to_xy[tileIndex] = std::make_pair(x, y);
     }
 
     bel_to_site_index.reserve(sites.getSiteCount() * 4);
@@ -60,7 +60,7 @@ TorcInfo::TorcInfo(BaseCtx *ctx, const std::string &inDeviceName, const std::str
         const auto &pd = site.getPrimitiveDefPtr();
         const auto &type = pd->getName();
         int x, y;
-        std::tie(x,y) = tile_to_xy[site.getTileIndex()];
+        std::tie(x, y) = tile_to_xy[site.getTileIndex()];
 
         if (type == "SLICEL" || type == "SLICEM") {
             bel_to_site_index.push_back(i);
@@ -144,9 +144,9 @@ TorcInfo::TorcInfo(BaseCtx *ctx, const std::string &inDeviceName, const std::str
                     // expand all of the arcs
                     TilewireVector::const_iterator sep = segment.begin();
                     TilewireVector::const_iterator see = segment.end();
-                    while(sep < see) {
+                    while (sep < see) {
                         // expand the tilewire sinks
-                        const Tilewire& tilewire = *sep++;
+                        const Tilewire &tilewire = *sep++;
 
                         const auto &tileInfo = tiles.getTileInfo(tilewire.getTileIndex());
                         const auto &tileTypeName = tiles.getTileTypeName(tileInfo.getTypeIndex());
@@ -268,7 +268,7 @@ TorcInfo::TorcInfo(BaseCtx *ctx, const std::string &inDeviceName, const std::str
         bool global_tile = false;
 
         arcs.clear();
-        //const_cast<DDB &>(*ddb).expandSegmentSinks(currentTilewire, arcs, DDB::eExpandDirectionNone,
+        // const_cast<DDB &>(*ddb).expandSegmentSinks(currentTilewire, arcs, DDB::eExpandDirectionNone,
         //                                           false /* inUseTied */, true /*inUseRegular */,
         //                                           true /* inUseIrregular */, !clb /* inUseRoutethrough */);
         {
@@ -278,21 +278,22 @@ TorcInfo::TorcInfo(BaseCtx *ctx, const std::string &inDeviceName, const std::str
             // expand all of the arcs
             TilewireVector::const_iterator sep = segment.begin();
             TilewireVector::const_iterator see = segment.end();
-            while(sep < see) {
+            while (sep < see) {
                 // expand the tilewire sinks
-                const Tilewire& tilewire = *sep++;
+                const Tilewire &tilewire = *sep++;
 
                 const auto &tileInfo = tiles.getTileInfo(tilewire.getTileIndex());
                 const auto &tileTypeName = tiles.getTileTypeName(tileInfo.getTypeIndex());
-                global_tile = global_tile || boost::starts_with(tileTypeName, "CLK") || boost::starts_with(tileTypeName, "HCLK") || boost::starts_with(tileTypeName, "CFG");
+                global_tile = global_tile || boost::starts_with(tileTypeName, "CLK") ||
+                              boost::starts_with(tileTypeName, "HCLK") || boost::starts_with(tileTypeName, "CFG");
 
                 TilewireVector sinks;
-                const_cast<DDB &>(*ddb).expandTilewireSinks(tilewire, sinks, false /*inUseTied*/, true /*inUseRegular*/, true /*inUseIrregular*/,
-                        !clb /* inUseRoutethrough */);
+                const_cast<DDB &>(*ddb).expandTilewireSinks(tilewire, sinks, false /*inUseTied*/, true /*inUseRegular*/,
+                                                            true /*inUseIrregular*/, !clb /* inUseRoutethrough */);
                 // rewrite the sinks as arcs
                 TilewireVector::const_iterator sip = sinks.begin();
                 TilewireVector::const_iterator sie = sinks.end();
-                while(sip < sie) {
+                while (sip < sie) {
                     Arc a(tilewire, *sip++);
 
                     // Disable BUFG I0 -> O routethrough
@@ -330,8 +331,8 @@ TorcInfo::TorcInfo(BaseCtx *ctx, const std::string &inDeviceName, const std::str
     height = (int)tiles.getRowCount();
     width = (int)tiles.getColCount();
 }
-TorcInfo::TorcInfo(const std::string& inDeviceName, const std::string &inPackageName)
-    : ddb(new DDB(inDeviceName, inPackageName)), sites(ddb->getSites()), tiles(ddb->getTiles()),
+TorcInfo::TorcInfo(const std::string &inDeviceName, const std::string &inPackageName)
+        : ddb(new DDB(inDeviceName, inPackageName)), sites(ddb->getSites()), tiles(ddb->getTiles()),
           segments(ddb->getSegments())
 {
 }
@@ -401,19 +402,18 @@ IdString Arch::archArgsToId(ArchArgs args) const
 
 // -----------------------------------------------------------------------
 
-static bool endsWith(const std::string& str, const std::string& suffix)
+static bool endsWith(const std::string &str, const std::string &suffix)
 {
-    return str.size() >= suffix.size() && 0 == str.compare(str.size()-suffix.size(), suffix.size(), suffix);
+    return str.size() >= suffix.size() && 0 == str.compare(str.size() - suffix.size(), suffix.size(), suffix);
 }
 
 BelId Arch::getBelByName(IdString name) const
 {
     std::string n = name.str(this);
     int ndx = 0;
-    if (endsWith(n,"_A") || endsWith(n,"_B") || endsWith(n,"_C") || endsWith(n,"_D"))
-    {
+    if (endsWith(n, "_A") || endsWith(n, "_B") || endsWith(n, "_C") || endsWith(n, "_D")) {
         ndx = (int)(n.back() - 'A');
-        n = n.substr(0,n.size()-2);
+        n = n.substr(0, n.size() - 2);
     }
     auto it = torc_info->sites.findSiteIndex(n);
     if (it != SiteIndex(-1)) {
@@ -612,7 +612,7 @@ IdString Arch::getGroupName(GroupId group) const
     std::string suffix;
 
     switch (group.type) {
-    NPNR_ASSERT("TODO");
+        NPNR_ASSERT("TODO");
     default:
         return IdString();
     }
@@ -726,7 +726,6 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
             el.y2 = y + logic_cell_y2 + (z)*logic_cell_pitch;
             ret.push_back(el);
         }
-
     }
 
     return ret;
