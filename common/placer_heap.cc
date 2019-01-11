@@ -26,6 +26,7 @@
 
 #include <deque>
 #include <numeric>
+#include <queue>
 #include <unordered_map>
 #include "log.h"
 #include "nextpnr.h"
@@ -125,12 +126,12 @@ class HeAPPlacer
         for (int i = 0; i < 20; i++) {
             setup_solve_cells();
 
-            EquationSystem<double> esx(place_cells.size(), place_cells.size());
+            EquationSystem<double> esx(solve_cells.size(), solve_cells.size());
             build_equations(esx, false);
             // log_info("x-axis\n");
             solve_equations(esx, false);
 
-            EquationSystem<double> esy(place_cells.size(), place_cells.size());
+            EquationSystem<double> esy(solve_cells.size(), solve_cells.size());
             build_equations(esy, true);
             // log_info("y-axis\n");
             solve_equations(esy, true);
@@ -141,6 +142,48 @@ class HeAPPlacer
             log_info("Initial placer iter %d, hpwl = %d\n", i, int(hpwl));
         }
 
+        // legalise_with_cuts(true);
+        CutLegaliser(this, ctx->id("ICESTORM_LC")).run();
+        NPNR_ASSERT(false);
+
+        bool valid = false;
+        wirelen_t solved_hpwl = 0, legal_hpwl = 1, best_hpwl = std::numeric_limits<wirelen_t>::max();
+        int iter = 0, stalled = 0;
+        while (!valid || (stalled < 5 && (solved_hpwl < legal_hpwl * 0.8))) {
+            if ((solved_hpwl < legal_hpwl * 0.8) || (stalled > 5)) {
+                stalled = 0;
+                best_hpwl = std::numeric_limits<wirelen_t>::max();
+                valid = true;
+            }
+            setup_solve_cells();
+
+            EquationSystem<double> esx(solve_cells.size(), solve_cells.size());
+            build_equations(esx, false, iter);
+            // log_info("x-axis\n");
+            solve_equations(esx, false);
+
+            EquationSystem<double> esy(solve_cells.size(), solve_cells.size());
+            build_equations(esy, true, iter);
+            // log_info("y-axis\n");
+            solve_equations(esy, true);
+            solved_hpwl = total_hpwl();
+            log_info("Solved HPWL = %d\n", int(solved_hpwl));
+
+            update_all_chains();
+            legalise_placement_simple(valid);
+            update_all_chains();
+
+            legal_hpwl = total_hpwl();
+            log_info("Legalised HPWL = %d\n", int(legal_hpwl));
+            if (legal_hpwl < best_hpwl) {
+                best_hpwl = legal_hpwl;
+                stalled = 0;
+            } else {
+                ++stalled;
+            }
+            ctx->yield();
+            ++iter;
+        }
         ctx->unlock();
         return true;
     }
@@ -177,7 +220,8 @@ class HeAPPlacer
 
     // For cells in a chain, this is the ultimate root cell of the chain (sometimes this is not constr_parent
     // where chains are within chains
-    std::unordered_map<IdString, CellInfo*> chain_root;
+    std::unordered_map<IdString, CellInfo *> chain_root;
+    std::unordered_map<IdString, int> chain_size;
 
     // The offset from chain_root to a cell in the chain
     std::unordered_map<IdString, std::pair<int, int>> cell_offsets;
@@ -267,22 +311,22 @@ class HeAPPlacer
             // Traverse outwards through nearest_row_with_bel and nearest_col_with_bel, stopping once
             // another row/col is already recorded as being nearer
             for (int x = loc.x; x <= max_x; x++) {
-                if (nc.at(x) == -1 || std::abs(loc.x - nc.at(x)) <= (x - loc.x))
+                if (nc.at(x) != -1 && std::abs(loc.x - nc.at(x)) <= (x - loc.x))
                     break;
                 nc.at(x) = loc.x;
             }
             for (int x = loc.x - 1; x >= 0; x--) {
-                if (nc.at(x) == -1 || std::abs(loc.x - nc.at(x)) <= (loc.x - x))
+                if (nc.at(x) != -1 && std::abs(loc.x - nc.at(x)) <= (loc.x - x))
                     break;
                 nc.at(x) = loc.x;
             }
             for (int y = loc.y; y <= max_y; y++) {
-                if (nr.at(y) == -1 || std::abs(loc.y - nr.at(y)) <= (y - loc.y))
+                if (nr.at(y) != -1 && std::abs(loc.y - nr.at(y)) <= (y - loc.y))
                     break;
                 nr.at(y) = loc.y;
             }
             for (int y = loc.y - 1; y >= 0; y--) {
-                if (nr.at(y) == -1 || std::abs(loc.y - nr.at(y)) <= (loc.y - y))
+                if (nr.at(y) != -1 && std::abs(loc.y - nr.at(y)) <= (loc.y - y))
                     break;
                 nr.at(y) = loc.y;
             }
@@ -343,7 +387,8 @@ class HeAPPlacer
     }
 
     // Setup the cells to be solved, returns the number of rows
-    int setup_solve_cells(std::unordered_set<IdString> *celltypes = nullptr) {
+    int setup_solve_cells(std::unordered_set<IdString> *celltypes = nullptr)
+    {
         int row = 0;
         solve_cells.clear();
         // First clear the udata of all cells
@@ -367,6 +412,7 @@ class HeAPPlacer
     {
         const auto &base = cell_locs[cell->name];
         for (auto child : cell->constr_children) {
+            chain_size[root->name]++;
             if (child->constr_x != child->UNCONSTR)
                 cell_locs[child->name].x = base.x + child->constr_x;
             else
@@ -385,6 +431,7 @@ class HeAPPlacer
     void update_all_chains()
     {
         for (auto cell : place_cells) {
+            chain_size[cell->name] = 1;
             if (!cell->constr_children.empty())
                 update_chain(cell, cell);
         }
@@ -400,7 +447,7 @@ class HeAPPlacer
     }
 
     // Build the system of equations for either X or Y
-    void build_equations(EquationSystem<double> &es, bool yaxis)
+    void build_equations(EquationSystem<double> &es, bool yaxis, int iter = -1)
     {
         // Return the x or y position of a cell, depending on ydir
         auto cell_pos = [&](CellInfo *cell) { return yaxis ? cell_locs.at(cell->name).y : cell_locs.at(cell->name).x; };
@@ -443,7 +490,9 @@ class HeAPPlacer
                     es.add_rhs(row, -v_pos * weight);
                 }
                 if (cell_offsets.count(var.cell->name)) {
-                    es.add_rhs(row, -(yaxis ? cell_offsets.at(var.cell->name).second : cell_offsets.at(var.cell->name).first) * weight);
+                    es.add_rhs(row, -(yaxis ? cell_offsets.at(var.cell->name).second
+                                            : cell_offsets.at(var.cell->name).first) *
+                                            weight);
                 }
             };
 
@@ -465,32 +514,19 @@ class HeAPPlacer
                     stamp_equation(port, *other, -weight);
                     stamp_equation(*other, *other, weight);
                     stamp_equation(*other, port, -weight);
-
-/*
-                    if (port.cell->udata != -1) {
-                        es.add_coeff(port.cell->udata, port.cell->udata, weight);
-                        if (!cell_locs.at(other->cell->name).locked)
-                            es.add_coeff(other->cell->udata, port.cell->udata, -weight);
-                    } else {
-                        // Add our fixed position to the other end's RHS
-                        if (!cell_locs.at(other->cell->name).locked)
-                            es.add_rhs(other->cell->udata, this_pos * weight);
-                    }
-                    // Opposite for the other end of the connection
-                    if (!cell_locs.at(other->cell->name).locked) {
-                        es.add_coeff(other->cell->udata, other->cell->udata, weight);
-                        if (!cell_locs.at(port.cell->name).locked)
-                            es.add_coeff(port.cell->udata, other->cell->udata, -weight);
-                    } else {
-                        // Add our fixed position to the other end's RHS
-                        if (!cell_locs.at(port.cell->name).locked)
-                            es.add_rhs(port.cell->udata, this_pos * weight);
-                    }
-*/
                 };
                 process_arc(lbport);
                 process_arc(ubport);
             });
+        }
+        if (iter != -1) {
+            const float alpha = 0.3;
+            float weight = alpha * iter;
+            for (size_t row = 0; row < solve_cells.size(); row++) {
+                // Add an arc from legalised to current position
+                es.add_coeff(row, row, weight);
+                es.add_rhs(row, weight * cell_pos(solve_cells.at(row)));
+            }
         }
     }
 
@@ -499,15 +535,14 @@ class HeAPPlacer
     {
         // Return the x or y position of a cell, depending on ydir
         auto cell_pos = [&](CellInfo *cell) { return yaxis ? cell_locs.at(cell->name).y : cell_locs.at(cell->name).x; };
-        build_equations(es, yaxis);
         std::vector<double> vals;
-        std::transform(place_cells.begin(), place_cells.end(), std::back_inserter(vals), cell_pos);
+        std::transform(solve_cells.begin(), solve_cells.end(), std::back_inserter(vals), cell_pos);
         es.solve(vals);
         for (size_t i = 0; i < vals.size(); i++)
             if (yaxis)
-                cell_locs.at(place_cells.at(i)->name).y = int(vals.at(i) + 0.5);
+                cell_locs.at(solve_cells.at(i)->name).y = std::min(max_y, std::max(0, int(vals.at(i) + 0.5)));
             else
-                cell_locs.at(place_cells.at(i)->name).x = int(vals.at(i) + 0.5);
+                cell_locs.at(solve_cells.at(i)->name).x = std::min(max_x, std::max(0, int(vals.at(i) + 0.5)));
     }
 
     // Compute HPWL
@@ -533,6 +568,389 @@ class HeAPPlacer
         }
         return hpwl;
     }
+
+    // Swap the Bel of a cell with another, return the original location
+    BelId swap_cell_bels(CellInfo *cell, BelId newBel)
+    {
+        BelId oldBel = cell->bel;
+        CellInfo *bound = ctx->getBoundBelCell(newBel);
+        if (bound != nullptr)
+            ctx->unbindBel(newBel);
+        ctx->unbindBel(oldBel);
+        ctx->bindBel(newBel, cell, STRENGTH_WEAK);
+        if (bound != nullptr)
+            ctx->bindBel(oldBel, bound, STRENGTH_WEAK);
+        return oldBel;
+    }
+
+    // Placement legalisation
+    // Note that there are *two meanings* of legalisation in nextpnr placement
+    // The first kind, as in HeAP, simply ensures that there is no overlap (each Bel maps only to one cell)
+    // The second kind also ensures that validity rules (isValidBelForCell) are met, because there is no guarantee
+    // in nextpnr that Bels are freely swappable (indeed many a architectures Bel is a logic cell with complex
+    // validity rules for control sets, etc, rather than a CLB/tile as in a more conventional pack&place flow)
+    void legalise_placement_simple(bool require_validity = false)
+    {
+        // Unbind all cells placed in this solution
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (ci->udata != dont_solve && ci->bel != BelId())
+                ctx->unbindBel(ci->bel);
+        }
+
+        // At the moment we don't follow the full HeAP algorithm using cuts for legalisation, instead using
+        // the simple greedy largest-macro-first approach.
+        std::priority_queue<std::pair<int, IdString>> remaining;
+        for (auto cell : solve_cells) {
+            remaining.emplace(chain_size[cell->name], cell->name);
+        }
+
+        while (!remaining.empty()) {
+            auto top = remaining.top();
+            remaining.pop();
+
+            CellInfo *ci = ctx->cells.at(top.second).get();
+            // Was now placed, ignore
+            if (ci->bel != BelId())
+                continue;
+            // log_info("   Legalising %s\n", top.second.c_str(ctx));
+            int bt = std::get<0>(bel_types.at(ci->type));
+            auto &fb = fast_bels.at(bt);
+            int radius = 0;
+            int iter = 0;
+            bool placed = false;
+            while (!placed) {
+
+                int nx = ctx->rng(2 * radius + 1) + std::max(cell_locs.at(ci->name).x - radius, 0);
+                int ny = ctx->rng(2 * radius + 1) + std::max(cell_locs.at(ci->name).x - radius, 0);
+
+                iter++;
+                if ((iter % (20 * (radius + 1))) == 0)
+                    radius = std::min(std::max(max_x, max_y), radius + 1);
+
+                if (nx < 0 || nx > max_x)
+                    continue;
+                if (ny < 0 || ny > max_x)
+                    continue;
+
+                // ny = nearest_row_with_bel.at(bt).at(ny);
+                // nx = nearest_col_with_bel.at(bt).at(nx);
+
+                if (nx >= int(fb.size()))
+                    continue;
+                if (ny >= int(fb.at(nx).size()))
+                    continue;
+                if (fb.at(nx).at(ny).empty())
+                    continue;
+
+                if (ci->constr_children.empty()) {
+                    for (auto sz : fb.at(nx).at(ny)) {
+                        if (ctx->checkBelAvail(sz) || radius > (max_x / 4)) {
+                            CellInfo *bound = ctx->getBoundBelCell(sz);
+                            if (bound != nullptr) {
+                                if (bound->constr_parent != nullptr || !bound->constr_children.empty())
+                                    continue;
+                                ctx->unbindBel(bound->bel);
+                                remaining.emplace(chain_size[bound->name], bound->name);
+                            }
+                            ctx->bindBel(sz, ci, STRENGTH_WEAK);
+                            if (require_validity && !ctx->isBelLocationValid(sz)) {
+                                ctx->unbindBel(sz);
+                                if (bound != nullptr)
+                                    ctx->bindBel(sz, bound, STRENGTH_WEAK);
+                            } else {
+                                Loc loc = ctx->getBelLocation(sz);
+                                cell_locs[ci->name].x = loc.x;
+                                cell_locs[ci->name].y = loc.y;
+                                placed = true;
+                                break;
+                            }
+                        }
+                    }
+                } else {
+                    // FIXME
+                    NPNR_ASSERT(false);
+                }
+            }
+        }
+    }
+
+    static constexpr float beta = 0.9;
+
+    struct ChainExtent
+    {
+        int x0, y0, x1, y1;
+    };
+
+    struct LegaliserRegion
+    {
+        int id;
+        int x0, y0, x1, y1;
+        int cells, bels;
+        std::unordered_set<IdString> included_chains;
+        bool overused() const
+        {
+            if (bels < 4)
+                return cells > bels;
+            else
+                return cells > beta * bels;
+        }
+    };
+
+    class CutLegaliser
+    {
+      public:
+        CutLegaliser(HeAPPlacer *p, IdString beltype)
+                : p(p), ctx(p->ctx), beltype(beltype), fb(p->fast_bels.at(std::get<0>(p->bel_types.at(beltype))))
+        {
+        }
+
+        void run()
+        {
+            init();
+            find_overused_regions();
+            expand_regions();
+            for (auto &r : regions) {
+                if (!merged_regions.count(r.id))
+                    log_info("%s (%d, %d) |_> (%d, %d) %d/%d\n", beltype.c_str(ctx), r.x0, r.y0, r.x1, r.y1, r.cells,
+                             r.bels);
+            }
+        }
+
+      private:
+        HeAPPlacer *p;
+        Context *ctx;
+        IdString beltype;
+        std::vector<std::vector<int>> occupancy;
+        std::vector<std::vector<int>> groups;
+        std::vector<std::vector<ChainExtent>> chaines;
+        std::vector<std::vector<std::vector<BelId>>> &fb;
+
+        std::vector<LegaliserRegion> regions;
+        std::unordered_set<int> merged_regions;
+
+        int occ_at(int x, int y) { return occupancy.at(x).at(y); }
+
+        int bels_at(int x, int y)
+        {
+            if (x >= int(fb.size()) || y >= int(fb.at(x).size()))
+                return 0;
+            return int(fb.at(x).at(y).size());
+        }
+
+        void init()
+        {
+            occupancy.resize(p->max_x + 1, std::vector<int>(p->max_y + 1, 0));
+            groups.resize(p->max_x + 1, std::vector<int>(p->max_y + 1, -1));
+            chaines.resize(p->max_x + 1, std::vector<ChainExtent>(p->max_y + 1));
+
+            for (int x = 0; x <= p->max_x; x++)
+                for (int y = 0; y <= p->max_y; y++) {
+                    occupancy.at(x).at(y) = 0;
+                    groups.at(x).at(y) = -1;
+                    chaines.at(x).at(y) = {x, y, x, y};
+                }
+
+            std::map<IdString, ChainExtent> cr_extents;
+
+            auto set_chain_ext = [&](IdString cell, int x, int y) {
+                if (!cr_extents.count(cell))
+                    cr_extents[cell] = {x, y, x, y};
+                else {
+                    cr_extents[cell].x0 = std::min(cr_extents[cell].x0, x);
+                    cr_extents[cell].y0 = std::min(cr_extents[cell].y0, y);
+                    cr_extents[cell].x1 = std::max(cr_extents[cell].x1, x);
+                    cr_extents[cell].y1 = std::max(cr_extents[cell].y1, y);
+                }
+            };
+
+            for (auto &cell : p->cell_locs) {
+                if (ctx->cells.at(cell.first)->type == beltype)
+                    occupancy.at(cell.second.x).at(cell.second.y)++;
+                // Compute ultimate extent of each chain root
+                if (p->chain_root.count(cell.first)) {
+                    set_chain_ext(p->chain_root.at(cell.first)->name, cell.second.x, cell.second.y);
+                } else if (!ctx->cells.at(cell.first)->constr_children.empty()) {
+                    set_chain_ext(cell.first, cell.second.x, cell.second.y);
+                }
+            }
+            for (auto &cell : p->cell_locs) {
+                // Transfer chain extents to the actual chaines structure
+                ChainExtent *ce = nullptr;
+                if (p->chain_root.count(cell.first))
+                    ce = &(cr_extents.at(p->chain_root.at(cell.first)->name));
+                else if (!ctx->cells.at(cell.first)->constr_children.empty())
+                    ce = &(cr_extents.at(cell.first));
+                if (ce) {
+                    auto &lce = chaines.at(cell.second.x).at(cell.second.y);
+                    lce.x0 = std::min(lce.x0, ce->x0);
+                    lce.y0 = std::min(lce.y0, ce->y0);
+                    lce.x1 = std::max(lce.x1, ce->x1);
+                    lce.y1 = std::max(lce.y1, ce->y1);
+                }
+            }
+        }
+        void merge_regions(LegaliserRegion &merged, LegaliserRegion &mergee)
+        {
+            // Prevent grow_region from recursing while doing this
+            for (int x = mergee.x0; x <= mergee.x1; x++)
+                for (int y = mergee.y0; y <= mergee.y1; y++) {
+                    // log_info("%d %d\n", groups.at(x).at(y), mergee.id);
+                    NPNR_ASSERT(groups.at(x).at(y) == mergee.id);
+                    groups.at(x).at(y) = merged.id;
+                    merged.cells += occ_at(x, y);
+                    merged.bels += bels_at(x, y);
+                }
+            merged_regions.insert(mergee.id);
+            grow_region(merged, mergee.x0, mergee.y0, mergee.x1, mergee.y1);
+        }
+
+        void grow_region(LegaliserRegion &r, int x0, int y0, int x1, int y1, bool init = false)
+        {
+            // log_info("growing to (%d, %d) |_> (%d, %d)\n", x0, y0, x1, y1);
+            if ((x0 >= r.x0 && y0 >= r.y0 && x1 <= r.x1 && y1 <= r.y1) || init)
+                return;
+            int old_x0 = r.x0 + (init ? 1 : 0), old_y0 = r.y0, old_x1 = r.x1, old_y1 = r.y1;
+            r.x0 = std::min(r.x0, x0);
+            r.y0 = std::min(r.y0, y0);
+            r.x1 = std::max(r.x1, x1);
+            r.y1 = std::max(r.y1, y1);
+
+            auto process_location = [&](int x, int y) {
+                // Merge with any overlapping regions
+                if (groups.at(x).at(y) != r.id) {
+                    r.bels += bels_at(x, y);
+                    r.cells += occ_at(x, y);
+                }
+                if (groups.at(x).at(y) != -1 && groups.at(x).at(y) != r.id)
+                    merge_regions(r, regions.at(groups.at(x).at(y)));
+                groups.at(x).at(y) = r.id;
+                // Grow to cover any chains
+                auto &chaine = chaines.at(x).at(y);
+                grow_region(r, chaine.x0, chaine.y0, chaine.x1, chaine.y1);
+            };
+            for (int x = r.x0; x < old_x0; x++)
+                for (int y = r.y0; y <= r.y1; y++)
+                    process_location(x, y);
+            for (int x = old_x1 + 1; x <= x1; x++)
+                for (int y = r.y0; y <= r.y1; y++)
+                    process_location(x, y);
+            for (int y = r.y0; y < old_y0; y++)
+                for (int x = r.x0; x <= r.x1; x++)
+                    process_location(x, y);
+            for (int y = old_y1 + 1; y <= r.y1; y++)
+                for (int x = r.x0; x <= r.x1; x++)
+                    process_location(x, y);
+        }
+
+        void find_overused_regions()
+        {
+            for (int x = 0; x <= p->max_x; x++)
+                for (int y = 0; y <= p->max_y; y++) {
+                    // Either already in a group, or not overutilised. Ignore
+                    if (groups.at(x).at(y) != -1 || (occ_at(x, y) <= bels_at(x, y)))
+                        continue;
+                    // log_info("%d %d %d\n", x, y, occ_at(x, y));
+                    int id = int(regions.size());
+                    groups.at(x).at(y) = id;
+                    LegaliserRegion reg;
+                    reg.id = id;
+                    reg.x0 = reg.x1 = x;
+                    reg.y0 = reg.y1 = y;
+                    reg.bels = bels_at(x, y);
+                    reg.cells = occ_at(x, y);
+                    // Make sure we cover carries, etc
+                    grow_region(reg, reg.x0, reg.y0, reg.x1, reg.y1, true);
+
+                    bool expanded = true;
+                    while (expanded) {
+                        expanded = false;
+                        // Keep trying expansion in x and y, until we find no over-occupancy cells
+                        // or hit grouped cells
+
+                        // First try expanding in x
+                        if (reg.x1 < p->max_x) {
+                            bool over_occ_x = false;
+                            for (int y1 = reg.y0; y1 <= reg.y1; y1++) {
+                                if (occ_at(reg.x1 + 1, y1) > bels_at(reg.x1 + 1, y1)) {
+                                    // log_info("(%d, %d) occ %d bels %d\n", reg.x1+ 1, y1, occ_at(reg.x1 + 1, y1),
+                                    // bels_at(reg.x1 + 1, y1));
+                                    over_occ_x = true;
+                                    break;
+                                }
+                            }
+                            if (over_occ_x) {
+                                expanded = true;
+                                grow_region(reg, reg.x0, reg.y0, reg.x1 + 1, reg.y1);
+                            }
+                        }
+
+                        if (reg.y1 < p->max_y) {
+                            bool over_occ_y = false;
+                            for (int x1 = reg.x0; x1 <= reg.x1; x1++) {
+                                if (occ_at(x1, reg.y1 + 1) > bels_at(x1, reg.y1 + 1)) {
+                                    // log_info("(%d, %d) occ %d bels %d\n", x1, reg.y1 + 1, occ_at(x1, reg.y1 + 1),
+                                    // bels_at(x1, reg.y1 + 1));
+                                    over_occ_y = true;
+                                    break;
+                                }
+                            }
+                            if (over_occ_y) {
+                                expanded = true;
+                                grow_region(reg, reg.x0, reg.y0, reg.x1, reg.y1 + 1);
+                            }
+                        }
+                    }
+                    regions.push_back(reg);
+                }
+        }
+
+        void expand_regions()
+        {
+            std::queue<int> overu_regions;
+            for (auto &r : regions) {
+                if (!merged_regions.count(r.id) && r.overused())
+                    overu_regions.push(r.id);
+            }
+            while (!overu_regions.empty()) {
+                int rid = overu_regions.front();
+                overu_regions.pop();
+                if (merged_regions.count(rid))
+                    continue;
+                auto &reg = regions.at(rid);
+                while (reg.overused()) {
+                    bool changed = false;
+                    if (reg.x0 > 0) {
+                        grow_region(reg, reg.x0 - 1, reg.y0, reg.x1, reg.y1);
+                        changed = true;
+                        if (!reg.overused())
+                            break;
+                    }
+                    if (reg.x1 < p->max_x) {
+                        grow_region(reg, reg.x0, reg.y0, reg.x1 + 1, reg.y1);
+                        changed = true;
+                        if (!reg.overused())
+                            break;
+                    }
+                    if (reg.y0 > 0) {
+                        grow_region(reg, reg.x0, reg.y0 - 1, reg.x1, reg.y1);
+                        changed = true;
+                        if (!reg.overused())
+                            break;
+                    }
+                    if (reg.y1 < p->max_y) {
+                        grow_region(reg, reg.x0, reg.y0, reg.x1, reg.y1 + 1);
+                        changed = true;
+                        if (!reg.overused())
+                            break;
+                    }
+                    if (!changed)
+                        log_error("Failed to expand region (%d, %d) |_> (%d, %d) of %d %ss\n", reg.x0, reg.y0, reg.x1,
+                                  reg.y1, reg.cells, beltype.c_str(ctx));
+                }
+            }
+        }
+    };
 
     typedef decltype(CellInfo::udata) cell_udata_t;
     cell_udata_t dont_solve = std::numeric_limits<cell_udata_t>::max();
