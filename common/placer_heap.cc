@@ -120,8 +120,11 @@ class HeAPPlacer
         build_fast_bels();
         seed_placement();
         update_all_chains();
-
+        wirelen_t hpwl = total_hpwl();
+        log_info("Initial placer starting hpwl = %d\n", int(hpwl));
         for (int i = 0; i < 20; i++) {
+            setup_solve_cells();
+
             EquationSystem<double> esx(place_cells.size(), place_cells.size());
             build_equations(esx, false);
             // log_info("x-axis\n");
@@ -134,7 +137,7 @@ class HeAPPlacer
 
             update_all_chains();
 
-            wirelen_t hpwl = total_hpwl();
+            hpwl = total_hpwl();
             log_info("Initial placer iter %d, hpwl = %d\n", i, int(hpwl));
         }
 
@@ -167,6 +170,17 @@ class HeAPPlacer
     // The set of cells that we will actually place. This excludes locked cells and children cells of macros/chains
     // (only the root of each macro is placed.)
     std::vector<CellInfo *> place_cells;
+
+    // The cells in the current equation being solved (a subset of place_cells in some cases, where we only place
+    // cells of a certain type)
+    std::vector<CellInfo *> solve_cells;
+
+    // For cells in a chain, this is the ultimate root cell of the chain (sometimes this is not constr_parent
+    // where chains are within chains
+    std::unordered_map<IdString, CellInfo*> chain_root;
+
+    // The offset from chain_root to a cell in the chain
+    std::unordered_map<IdString, std::pair<int, int>> cell_offsets;
 
     // Place cells with the BEL attribute set to constrain them
     void place_constraints()
@@ -298,10 +312,8 @@ class HeAPPlacer
         }
         for (auto &ab : available_bels)
             ctx->shuffle(ab.second);
-        int placed_cell_count = 0;
         for (auto cell : sorted(ctx->cells)) {
             CellInfo *ci = cell.second;
-            ci->udata = -1;
             if (ci->bel != BelId()) {
                 Loc loc = ctx->getBelLocation(ci->bel);
                 cell_locs[cell.first].x = loc.x;
@@ -321,7 +333,6 @@ class HeAPPlacer
                 cell_locs[cell.first].global = ctx->getBelGlobalBuf(bel);
                 // FIXME
                 if (has_connectivity(cell.second) && cell.second->type != ctx->id("SB_IO")) {
-                    ci->udata = placed_cell_count++;
                     place_cells.push_back(ci);
                 } else {
                     ctx->bindBel(bel, ci, STRENGTH_STRONG);
@@ -331,8 +342,28 @@ class HeAPPlacer
         }
     }
 
+    // Setup the cells to be solved, returns the number of rows
+    int setup_solve_cells(std::unordered_set<IdString> *celltypes = nullptr) {
+        int row = 0;
+        solve_cells.clear();
+        // First clear the udata of all cells
+        for (auto cell : sorted(ctx->cells))
+            cell.second->udata = dont_solve;
+        // Then update cells to be placed, which excludes cell children
+        for (auto cell : place_cells) {
+            if (celltypes && !celltypes->count(cell->type))
+                continue;
+            cell->udata = row++;
+            solve_cells.push_back(cell);
+        }
+        // Finally, update the udata of children
+        for (auto chained : chain_root)
+            ctx->cells.at(chained.first)->udata = chained.second->udata;
+        return row;
+    }
+
     // Update the location of all children of a chain
-    void update_chain(CellInfo *cell)
+    void update_chain(CellInfo *cell, CellInfo *root)
     {
         const auto &base = cell_locs[cell->name];
         for (auto child : cell->constr_children) {
@@ -344,8 +375,9 @@ class HeAPPlacer
                 cell_locs[child->name].y = base.y + child->constr_y;
             else
                 cell_locs[child->name].y = base.y; // better handling of UNCONSTR?
+            chain_root[cell->name] = root;
             if (!child->constr_children.empty())
-                update_chain(child);
+                update_chain(child, root);
         }
     }
 
@@ -354,7 +386,7 @@ class HeAPPlacer
     {
         for (auto cell : place_cells) {
             if (!cell->constr_children.empty())
-                update_chain(cell);
+                update_chain(cell, cell);
         }
     }
 
@@ -399,6 +431,22 @@ class HeAPPlacer
             });
             NPNR_ASSERT(lbport != nullptr);
             NPNR_ASSERT(ubport != nullptr);
+
+            auto stamp_equation = [&](PortRef &var, PortRef &eqn, double weight) {
+                if (eqn.cell->udata == dont_solve)
+                    return;
+                int row = eqn.cell->udata;
+                int v_pos = cell_pos(var.cell);
+                if (var.cell->udata != dont_solve) {
+                    es.add_coeff(row, var.cell->udata, weight);
+                } else {
+                    es.add_rhs(row, -v_pos * weight);
+                }
+                if (cell_offsets.count(var.cell->name)) {
+                    es.add_rhs(row, -(yaxis ? cell_offsets.at(var.cell->name).second : cell_offsets.at(var.cell->name).first) * weight);
+                }
+            };
+
             // Add all relevant connections to the matrix
             foreach_port(ni, [&](PortRef &port) {
                 int this_pos = cell_pos(port.cell);
@@ -413,7 +461,13 @@ class HeAPPlacer
 
                     // If cell 0 is not fixed, it will stamp +w on its equation and -w on the other end's equation,
                     // if the other end isn't fixed
-                    if (!cell_locs.at(port.cell->name).locked) {
+                    stamp_equation(port, port, weight);
+                    stamp_equation(port, *other, -weight);
+                    stamp_equation(*other, *other, weight);
+                    stamp_equation(*other, port, -weight);
+
+/*
+                    if (port.cell->udata != -1) {
                         es.add_coeff(port.cell->udata, port.cell->udata, weight);
                         if (!cell_locs.at(other->cell->name).locked)
                             es.add_coeff(other->cell->udata, port.cell->udata, -weight);
@@ -432,6 +486,7 @@ class HeAPPlacer
                         if (!cell_locs.at(port.cell->name).locked)
                             es.add_rhs(port.cell->udata, this_pos * weight);
                     }
+*/
                 };
                 process_arc(lbport);
                 process_arc(ubport);
@@ -478,6 +533,9 @@ class HeAPPlacer
         }
         return hpwl;
     }
+
+    typedef decltype(CellInfo::udata) cell_udata_t;
+    cell_udata_t dont_solve = std::numeric_limits<cell_udata_t>::max();
 };
 
 bool placer_heap(Context *ctx) { return HeAPPlacer(ctx).place(); }
