@@ -207,6 +207,7 @@ class HeAPPlacer
     struct CellLocation
     {
         int x, y;
+        double rawx, rawy;
         bool locked, global;
     };
     std::unordered_map<IdString, CellLocation> cell_locs;
@@ -414,11 +415,11 @@ class HeAPPlacer
         for (auto child : cell->constr_children) {
             chain_size[root->name]++;
             if (child->constr_x != child->UNCONSTR)
-                cell_locs[child->name].x = base.x + child->constr_x;
+                cell_locs[child->name].x = std::min(max_x, base.x + child->constr_x);
             else
                 cell_locs[child->name].x = base.x; // better handling of UNCONSTR?
             if (child->constr_y != child->UNCONSTR)
-                cell_locs[child->name].y = base.y + child->constr_y;
+                cell_locs[child->name].y = std::min(max_y, base.y + child->constr_y);
             else
                 cell_locs[child->name].y = base.y; // better handling of UNCONSTR?
             chain_root[cell->name] = root;
@@ -531,18 +532,20 @@ class HeAPPlacer
     }
 
     // Build the system of equations for either X or Y
-    void solve_equations(EquationSystem<double> &es, bool yaxis)
-    {
+    void solve_equations(EquationSystem<double> &es, bool yaxis) {
         // Return the x or y position of a cell, depending on ydir
         auto cell_pos = [&](CellInfo *cell) { return yaxis ? cell_locs.at(cell->name).y : cell_locs.at(cell->name).x; };
         std::vector<double> vals;
         std::transform(solve_cells.begin(), solve_cells.end(), std::back_inserter(vals), cell_pos);
         es.solve(vals);
         for (size_t i = 0; i < vals.size(); i++)
-            if (yaxis)
+            if (yaxis) {
+                cell_locs.at(solve_cells.at(i)->name).rawy = vals.at(i);
                 cell_locs.at(solve_cells.at(i)->name).y = std::min(max_y, std::max(0, int(vals.at(i) + 0.5)));
-            else
+            } else {
+                cell_locs.at(solve_cells.at(i)->name).rawx = vals.at(i);
                 cell_locs.at(solve_cells.at(i)->name).x = std::min(max_x, std::max(0, int(vals.at(i) + 0.5)));
+            }
     }
 
     // Compute HPWL
@@ -724,10 +727,15 @@ class HeAPPlacer
         std::vector<std::vector<int>> occupancy;
         std::vector<std::vector<int>> groups;
         std::vector<std::vector<ChainExtent>> chaines;
+        std::map<IdString, ChainExtent> cell_extents;
+
         std::vector<std::vector<std::vector<BelId>>> &fb;
 
         std::vector<LegaliserRegion> regions;
         std::unordered_set<int> merged_regions;
+        // Cells at a location, sorted by real (not integer) x and y
+        std::vector<std::vector<std::vector<CellInfo*>>> cells_at_location_sx;
+        std::vector<std::vector<std::vector<CellInfo*>>> cells_at_location_sy;
 
         int occ_at(int x, int y) { return occupancy.at(x).at(y); }
 
@@ -738,12 +746,12 @@ class HeAPPlacer
             return int(fb.at(x).at(y).size());
         }
 
-        void init()
-        {
+        void init() {
             occupancy.resize(p->max_x + 1, std::vector<int>(p->max_y + 1, 0));
             groups.resize(p->max_x + 1, std::vector<int>(p->max_y + 1, -1));
             chaines.resize(p->max_x + 1, std::vector<ChainExtent>(p->max_y + 1));
-
+            cells_at_location_sx.resize(p->max_x + 1, std::vector<std::vector<CellInfo *>>(p->max_y + 1));
+            cells_at_location_sy.resize(p->max_x + 1, std::vector<std::vector<CellInfo *>>(p->max_y + 1));
             for (int x = 0; x <= p->max_x; x++)
                 for (int y = 0; y <= p->max_y; y++) {
                     occupancy.at(x).at(y) = 0;
@@ -751,16 +759,15 @@ class HeAPPlacer
                     chaines.at(x).at(y) = {x, y, x, y};
                 }
 
-            std::map<IdString, ChainExtent> cr_extents;
 
             auto set_chain_ext = [&](IdString cell, int x, int y) {
-                if (!cr_extents.count(cell))
-                    cr_extents[cell] = {x, y, x, y};
+                if (!cell_extents.count(cell))
+                    cell_extents[cell] = {x, y, x, y};
                 else {
-                    cr_extents[cell].x0 = std::min(cr_extents[cell].x0, x);
-                    cr_extents[cell].y0 = std::min(cr_extents[cell].y0, y);
-                    cr_extents[cell].x1 = std::max(cr_extents[cell].x1, x);
-                    cr_extents[cell].y1 = std::max(cr_extents[cell].y1, y);
+                    cell_extents[cell].x0 = std::min(cell_extents[cell].x0, x);
+                    cell_extents[cell].y0 = std::min(cell_extents[cell].y0, y);
+                    cell_extents[cell].x1 = std::max(cell_extents[cell].x1, x);
+                    cell_extents[cell].y1 = std::max(cell_extents[cell].y1, y);
                 }
             };
 
@@ -778,9 +785,9 @@ class HeAPPlacer
                 // Transfer chain extents to the actual chaines structure
                 ChainExtent *ce = nullptr;
                 if (p->chain_root.count(cell.first))
-                    ce = &(cr_extents.at(p->chain_root.at(cell.first)->name));
+                    ce = &(cell_extents.at(p->chain_root.at(cell.first)->name));
                 else if (!ctx->cells.at(cell.first)->constr_children.empty())
-                    ce = &(cr_extents.at(cell.first));
+                    ce = &(cell_extents.at(cell.first));
                 if (ce) {
                     auto &lce = chaines.at(cell.second.x).at(cell.second.y);
                     lce.x0 = std::min(lce.x0, ce->x0);
@@ -789,6 +796,20 @@ class HeAPPlacer
                     lce.y1 = std::max(lce.y1, ce->y1);
                 }
             }
+            for (auto cell : p->solve_cells) {
+                cells_at_location_sx.at(p->cell_locs.at(cell->name).x).at(p->cell_locs.at(cell->name).y).push_back(cell);
+                cells_at_location_sy.at(p->cell_locs.at(cell->name).x).at(p->cell_locs.at(cell->name).y).push_back(cell);
+            }
+            for (auto &col : cells_at_location_sx)
+                for (auto &loc : col)
+                    std::sort(loc.begin(), loc.end(), [&](const CellInfo *a, const CellInfo *b){
+                        return p->cell_locs.at(a->name).rawx < p->cell_locs.at(b->name).rawx;
+                    });
+            for (auto &col : cells_at_location_sy)
+                for (auto &loc : col)
+                    std::sort(loc.begin(), loc.end(), [&](const CellInfo *a, const CellInfo *b){
+                        return p->cell_locs.at(a->name).rawy < p->cell_locs.at(b->name).rawy;
+                    });
         }
         void merge_regions(LegaliserRegion &merged, LegaliserRegion &mergee)
         {
@@ -947,6 +968,97 @@ class HeAPPlacer
                     if (!changed)
                         log_error("Failed to expand region (%d, %d) |_> (%d, %d) of %d %ss\n", reg.x0, reg.y0, reg.x1,
                                   reg.y1, reg.cells, beltype.c_str(ctx));
+                }
+            }
+        }
+
+        // Implementation of the recursive cut-based spreading as described in the HeAP paper
+        // Note we use "left" to mean "-x/-y" depending on dir and "right" to mean "+x/+y" depending on dir
+
+        std::vector<CellInfo *> cut_cells;
+
+        void cut_region(LegaliserRegion &r, bool dir) {
+            cut_cells.clear();
+            auto &cal = dir ? cells_at_location_sy : cells_at_location_sx;
+            for (int x = r.x0; x <= r.x1; x++) {
+                for (int y = r.y0; y <= r.y1; y++) {
+                    std::copy(cal.at(x).at(y).begin(), cal.at(x).at(y).end(), std::back_inserter(cut_cells));
+                }
+            }
+            // Find the cells midpoint, counting chains in terms of their total size - making the initial source cut
+            int pivot_cells = 0;
+            int pivot = 0;
+            for (auto &cell : cut_cells) {
+                pivot_cells += p->chain_size.count(cell->name) ? p->chain_size.at(cell->name) : 1;
+                if (pivot_cells >= r.cells / 2)
+                    break;
+                pivot++;
+            }
+            // Find the clearance required either side of the pivot
+            int clearance_l = 0, clearance_r = 0;
+            for (size_t i = 0; i < cut_cells.size(); i++) {
+                int size;
+                if (cell_extents.count(cut_cells.at(i)->name)) {
+                    auto &ce = cell_extents.at(cut_cells.at(i)->name);
+                    size = dir ? (ce.y1 - ce.y0 + 1) : (ce.x1 - ce.x0 + 1);
+                } else {
+                    size = 1;
+                }
+                if (i < pivot)
+                    clearance_l = std::max(clearance_l, size);
+                else
+                    clearance_r = std::max(clearance_r, size);
+            }
+            // Find the target cut that minimises difference in utilisation, whilst trying to ensure that all chains
+            // still fit
+
+            // First trim the boundaries of the region in the axis-of-interest, skipping any rows/cols without any
+            // bels of the appropriate type
+            int trimmed_l = dir ? r.y0 : r.x0, trimmed_r = dir ? r.y1 : r.x1;
+            while (trimmed_l < (dir ? r.y1 : r.x1)) {
+                bool have_bels = false;
+                for (int i = dir ? r.x0 : r.y0; i <= (dir ? r.x1 : r.y1); i++)
+                    if (bels_at(dir ? i : trimmed_l, dir ? trimmed_l : i) > 0) {
+                        have_bels = true;
+                        break;
+                    }
+                if (have_bels)
+                    break;
+                trimmed_l++;
+            }
+            while (trimmed_r > (dir ? r.y0 : r.x0)) {
+                bool have_bels = false;
+                for (int i = dir ? r.x0 : r.y0; i <= (dir ? r.x1 : r.y1); i++)
+                    if (bels_at(dir ? i : trimmed_l, dir ? trimmed_l : i) > 0) {
+                        have_bels = true;
+                        break;
+                    }
+                if (have_bels)
+                    break;
+                trimmed_r--;
+            }
+
+            // Now find the initial target cut that minimises utilisation imbalance, whilst
+            // meeting the clearance requirements for any large macros
+            int left_cells = pivot_cells, right_cells = r.cells - pivot_cells;
+            int left_bels = 0, right_bels = r.bels;
+            int best_tgt_cut = -1;
+            double best_deltaU = std::numeric_limits<double>::max();
+
+            for (int i = trimmed_l; i <= trimmed_r; i++) {
+                int slither_bels = 0;
+                for (int j = dir ? r.x0 : r.y0; j <= (dir ? r.x1 : r.y1); j++) {
+                    slither_bels += dir ? bels_at(j, i) : bels_at(i, j);
+                }
+                left_bels += slither_bels;
+                right_bels -= slither_bels;
+                if (((i - trimmed_l) + 1) >= clearance_l && ((trimmed_r - i) + 1) >= clearance_r) {
+                    // Solution is potentially valid
+                    double aU = std::abs(double(left_cells) / double(left_bels) - double(right_bels) / double(right_cells));
+                    if (aU < best_deltaU) {
+                        best_deltaU = aU;
+                        best_tgt_cut = i;
+                    }
                 }
             }
         }
