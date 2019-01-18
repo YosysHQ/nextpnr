@@ -265,6 +265,8 @@ static void pack_ram(Context *ctx)
             std::unique_ptr<CellInfo> packed =
                     create_ice_cell(ctx, ctx->id("ICESTORM_RAM"), ci->name.str(ctx) + "_RAM");
             packed_cells.insert(ci->name);
+            for (auto attr : ci->attrs)
+                packed->attrs[attr.first] = attr.second;
             for (auto param : ci->params)
                 packed->params[param.first] = param.second;
             packed->params[ctx->id("NEG_CLK_W")] =
@@ -991,6 +993,8 @@ static void pack_special(Context *ctx)
             std::unique_ptr<CellInfo> packed =
                     create_ice_cell(ctx, ctx->id("ICESTORM_SPRAM"), ci->name.str(ctx) + "_RAM");
             packed_cells.insert(ci->name);
+            for (auto attr : ci->attrs)
+                packed->attrs[attr.first] = attr.second;
             for (auto port : ci->ports) {
                 PortInfo &pi = port.second;
                 std::string newname = pi.name.str(ctx);
