@@ -85,9 +85,7 @@ void Xc7CommandHandler::customBitstream(Context *ctx)
     }
 }
 
-void Xc7CommandHandler::setupArchContext(Context *ctx)
-{
-}
+void Xc7CommandHandler::setupArchContext(Context *ctx) {}
 
 std::unique_ptr<Context> Xc7CommandHandler::createContext()
 {
@@ -100,7 +98,6 @@ std::unique_ptr<Context> Xc7CommandHandler::createContext()
         chipArgs.type = ArchArgs::VX980;
         chipArgs.package = "ffg1926";
     }
-
 
     if (chipArgs.type == ArchArgs::NONE) {
         chipArgs.type = ArchArgs::Z020;

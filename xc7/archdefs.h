@@ -96,17 +96,6 @@ struct GroupId
     enum : int8_t
     {
         TYPE_NONE,
-        TYPE_FRAME,
-        TYPE_MAIN_SW,
-        TYPE_LOCAL_SW,
-        TYPE_LC0_SW,
-        TYPE_LC1_SW,
-        TYPE_LC2_SW,
-        TYPE_LC3_SW,
-        TYPE_LC4_SW,
-        TYPE_LC5_SW,
-        TYPE_LC6_SW,
-        TYPE_LC7_SW
     } type = TYPE_NONE;
     int8_t x = 0, y = 0;
 

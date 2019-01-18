@@ -35,7 +35,7 @@ void arch_wrap_python()
 
     class_<WireId>("WireId").def_readwrite("index", &WireId::index);
 
-    class_<PipId>("PipId").def_readwrite("index", &PipId::index);        
+    class_<PipId>("PipId").def_readwrite("index", &PipId::index);
 
     class_<BelPin>("BelPin").def_readwrite("bel", &BelPin::bel).def_readwrite("pin", &BelPin::pin);
 

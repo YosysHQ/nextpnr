@@ -59,18 +59,17 @@ bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const
     if (cell->type == id("XC7_LC")) {
         std::array<const CellInfo *, 4> bel_cells;
         size_t num_cells = 0;
-    
+
         Loc bel_loc = getBelLocation(bel);
         for (auto bel_other : getBelsByTile(bel_loc.x, bel_loc.y)) {
             CellInfo *ci_other = getBoundBelCell(bel_other);
             if (ci_other != nullptr && bel_other != bel)
                 bel_cells[num_cells++] = ci_other;
         }
-    
+
         bel_cells[num_cells++] = cell;
         return logicCellsCompatible(bel_cells.data(), num_cells);
-    }
-    else {
+    } else {
         return true;
     }
 }

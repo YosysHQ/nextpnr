@@ -714,7 +714,7 @@ void DesignWidget::onSelectionChanged(int num, const QItemSelection &, const QIt
         addProperty(topItem, QVariant::String, "Bound Net", ctx->nameOf(ctx->getBoundPipNet(pip)), ElementType::NET);
         WireId conflict = ctx->getConflictingPipWire(pip);
         addProperty(topItem, QVariant::String, "Conflicting Wire",
-                    (conflict!=WireId() ? ctx->getWireName(conflict).c_str(ctx) : ""), ElementType::WIRE);
+                    (conflict != WireId() ? ctx->getWireName(conflict).c_str(ctx) : ""), ElementType::WIRE);
         addProperty(topItem, QVariant::String, "Conflicting Net", ctx->nameOf(ctx->getConflictingPipNet(pip)),
                     ElementType::NET);
         addProperty(topItem, QVariant::String, "Src Wire", ctx->getWireName(ctx->getPipSrcWire(pip)).c_str(ctx),
