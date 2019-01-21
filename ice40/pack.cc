@@ -388,6 +388,10 @@ static std::unique_ptr<CellInfo> create_padin_gbuf(Context *ctx, CellInfo *cell,
     BelId gb_bel;
     BelId bel = ctx->getBelByName(ctx->id(cell->attrs[ctx->id("BEL")]));
     auto wire = ctx->getBelPinWire(bel, port_name);
+
+    if (wire == WireId())
+        log_error("BEL '%s' has no global buffer connection available\n", ctx->getBelName(bel).c_str(ctx));
+
     for (auto src_bel : ctx->getWireBelPins(wire)) {
         if (ctx->getBelType(src_bel.bel) == id_SB_GB && src_bel.pin == id_GLOBAL_BUFFER_OUTPUT) {
             gb_bel = src_bel.bel;
