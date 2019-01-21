@@ -387,6 +387,12 @@ struct Timing
                         for (const auto &port : usr.cell->ports) {
                             if (port.second.type != PORT_OUT || !port.second.net)
                                 continue;
+                            // Ignore all output ports that start a different path
+                            int port_clocks;
+                            TimingPortClass portClass = ctx->getPortTimingClass(usr.cell, port.first, port_clocks);
+                            if (portClass == TMG_REGISTER_OUTPUT || portClass == TMG_STARTPOINT || portClass == TMG_IGNORE ||
+                                    portClass == TMG_GEN_CLOCK)
+                                continue;
                             DelayInfo comb_delay;
                             bool is_path = ctx->getCellDelay(usr.cell, usr.port, port.first, comb_delay);
                             if (!is_path)
