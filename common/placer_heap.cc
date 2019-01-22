@@ -28,6 +28,7 @@
 #include <numeric>
 #include <queue>
 #include <unordered_map>
+#include <boost/optional.hpp>
 #include "log.h"
 #include "nextpnr.h"
 #include "place_common.h"
@@ -532,7 +533,8 @@ class HeAPPlacer
     }
 
     // Build the system of equations for either X or Y
-    void solve_equations(EquationSystem<double> &es, bool yaxis) {
+    void solve_equations(EquationSystem<double> &es, bool yaxis)
+    {
         // Return the x or y position of a cell, depending on ydir
         auto cell_pos = [&](CellInfo *cell) { return yaxis ? cell_locs.at(cell->name).y : cell_locs.at(cell->name).x; };
         std::vector<double> vals;
@@ -714,9 +716,11 @@ class HeAPPlacer
             find_overused_regions();
             expand_regions();
             for (auto &r : regions) {
-                if (!merged_regions.count(r.id))
-                    log_info("%s (%d, %d) |_> (%d, %d) %d/%d\n", beltype.c_str(ctx), r.x0, r.y0, r.x1, r.y1, r.cells,
-                             r.bels);
+                if (merged_regions.count(r.id))
+                    continue;
+                log_info("%s (%d, %d) |_> (%d, %d) %d/%d\n", beltype.c_str(ctx), r.x0, r.y0, r.x1, r.y1, r.cells,
+                         r.bels);
+                cut_region(r, false);
             }
         }
 
@@ -734,8 +738,8 @@ class HeAPPlacer
         std::vector<LegaliserRegion> regions;
         std::unordered_set<int> merged_regions;
         // Cells at a location, sorted by real (not integer) x and y
-        std::vector<std::vector<std::vector<CellInfo*>>> cells_at_location_sx;
-        std::vector<std::vector<std::vector<CellInfo*>>> cells_at_location_sy;
+        std::vector<std::vector<std::vector<CellInfo *>>> cells_at_location_sx;
+        std::vector<std::vector<std::vector<CellInfo *>>> cells_at_location_sy;
 
         int occ_at(int x, int y) { return occupancy.at(x).at(y); }
 
@@ -746,7 +750,8 @@ class HeAPPlacer
             return int(fb.at(x).at(y).size());
         }
 
-        void init() {
+        void init()
+        {
             occupancy.resize(p->max_x + 1, std::vector<int>(p->max_y + 1, 0));
             groups.resize(p->max_x + 1, std::vector<int>(p->max_y + 1, -1));
             chaines.resize(p->max_x + 1, std::vector<ChainExtent>(p->max_y + 1));
@@ -758,7 +763,6 @@ class HeAPPlacer
                     groups.at(x).at(y) = -1;
                     chaines.at(x).at(y) = {x, y, x, y};
                 }
-
 
             auto set_chain_ext = [&](IdString cell, int x, int y) {
                 if (!cell_extents.count(cell))
@@ -797,17 +801,21 @@ class HeAPPlacer
                 }
             }
             for (auto cell : p->solve_cells) {
-                cells_at_location_sx.at(p->cell_locs.at(cell->name).x).at(p->cell_locs.at(cell->name).y).push_back(cell);
-                cells_at_location_sy.at(p->cell_locs.at(cell->name).x).at(p->cell_locs.at(cell->name).y).push_back(cell);
+                cells_at_location_sx.at(p->cell_locs.at(cell->name).x)
+                        .at(p->cell_locs.at(cell->name).y)
+                        .push_back(cell);
+                cells_at_location_sy.at(p->cell_locs.at(cell->name).x)
+                        .at(p->cell_locs.at(cell->name).y)
+                        .push_back(cell);
             }
             for (auto &col : cells_at_location_sx)
                 for (auto &loc : col)
-                    std::sort(loc.begin(), loc.end(), [&](const CellInfo *a, const CellInfo *b){
+                    std::sort(loc.begin(), loc.end(), [&](const CellInfo *a, const CellInfo *b) {
                         return p->cell_locs.at(a->name).rawx < p->cell_locs.at(b->name).rawx;
                     });
             for (auto &col : cells_at_location_sy)
                 for (auto &loc : col)
-                    std::sort(loc.begin(), loc.end(), [&](const CellInfo *a, const CellInfo *b){
+                    std::sort(loc.begin(), loc.end(), [&](const CellInfo *a, const CellInfo *b) {
                         return p->cell_locs.at(a->name).rawy < p->cell_locs.at(b->name).rawy;
                     });
         }
@@ -977,7 +985,8 @@ class HeAPPlacer
 
         std::vector<CellInfo *> cut_cells;
 
-        void cut_region(LegaliserRegion &r, bool dir) {
+        boost::optional<std::pair<int, int>> cut_region(LegaliserRegion &r, bool dir)
+        {
             cut_cells.clear();
             auto &cal = dir ? cells_at_location_sy : cells_at_location_sx;
             for (int x = r.x0; x <= r.x1; x++) {
@@ -994,6 +1003,8 @@ class HeAPPlacer
                     break;
                 pivot++;
             }
+            log_info("orig pivot %d lc %d rc %d\n", pivot, pivot_cells, r.cells - pivot_cells);
+
             // Find the clearance required either side of the pivot
             int clearance_l = 0, clearance_r = 0;
             for (size_t i = 0; i < cut_cells.size(); i++) {
@@ -1004,7 +1015,7 @@ class HeAPPlacer
                 } else {
                     size = 1;
                 }
-                if (i < pivot)
+                if (int(i) < pivot)
                     clearance_l = std::max(clearance_l, size);
                 else
                     clearance_r = std::max(clearance_r, size);
@@ -1029,7 +1040,7 @@ class HeAPPlacer
             while (trimmed_r > (dir ? r.y0 : r.x0)) {
                 bool have_bels = false;
                 for (int i = dir ? r.x0 : r.y0; i <= (dir ? r.x1 : r.y1); i++)
-                    if (bels_at(dir ? i : trimmed_l, dir ? trimmed_l : i) > 0) {
+                    if (bels_at(dir ? i : trimmed_r, dir ? trimmed_r : i) > 0) {
                         have_bels = true;
                         break;
                     }
@@ -1037,14 +1048,16 @@ class HeAPPlacer
                     break;
                 trimmed_r--;
             }
-
+            log_info("tl %d tr %d cl %d cr %d\n", trimmed_l, trimmed_r, clearance_l, clearance_r);
+            if ((trimmed_r - trimmed_l + 1) <= std::max(clearance_l, clearance_r))
+                return {};
             // Now find the initial target cut that minimises utilisation imbalance, whilst
             // meeting the clearance requirements for any large macros
             int left_cells = pivot_cells, right_cells = r.cells - pivot_cells;
             int left_bels = 0, right_bels = r.bels;
             int best_tgt_cut = -1;
             double best_deltaU = std::numeric_limits<double>::max();
-
+            std::pair<int, int> target_cut_bels;
             for (int i = trimmed_l; i <= trimmed_r; i++) {
                 int slither_bels = 0;
                 for (int j = dir ? r.x0 : r.y0; j <= (dir ? r.x1 : r.y1); j++) {
@@ -1054,14 +1067,114 @@ class HeAPPlacer
                 right_bels -= slither_bels;
                 if (((i - trimmed_l) + 1) >= clearance_l && ((trimmed_r - i) + 1) >= clearance_r) {
                     // Solution is potentially valid
-                    double aU = std::abs(double(left_cells) / double(left_bels) - double(right_bels) / double(right_cells));
+                    double aU =
+                            std::abs(double(left_cells) / double(left_bels) - double(right_cells) / double(right_bels));
                     if (aU < best_deltaU) {
                         best_deltaU = aU;
                         best_tgt_cut = i;
+                        target_cut_bels = std::make_pair(left_bels, right_bels);
                     }
                 }
             }
-        }
+            NPNR_ASSERT(best_tgt_cut != -1);
+            left_bels = target_cut_bels.first;
+            right_bels = target_cut_bels.second;
+            log_info("pivot %d target cut %d lc %d lb %d rc %d rb %d\n", pivot, best_tgt_cut, left_cells, left_bels, right_cells, right_bels);
+
+            // Peturb the source cut to eliminate overutilisation
+            while (pivot > 0 && (left_cells > left_bels)) {
+                auto &move_cell = cut_cells.at(pivot);
+                int size = p->chain_size.count(move_cell->name) ? p->chain_size.at(move_cell->name) : 1;
+                left_cells -= size;
+                right_cells += size;
+                pivot--;
+            }
+            while (pivot < (int(cut_cells.size()) - 1) && (right_cells > right_bels)) {
+                auto &move_cell = cut_cells.at(pivot + 1);
+                int size = p->chain_size.count(move_cell->name) ? p->chain_size.at(move_cell->name) : 1;
+                left_cells += size;
+                right_cells -= size;
+                pivot++;
+            }
+            log_info("peturbed pivot %d lc %d lb %d rc %d rb %d\n", pivot, left_cells, left_bels, right_cells, right_bels);
+            // Split regions into bins, and then spread cells by linear interpolation within those bins
+            auto spread_binlerp = [&](int cells_start, int cells_end, double area_l, double area_r) {
+                int N = 1 + cells_end - cells_start;
+                // Split region into up to 10 (K) bins
+                int K = std::min<int>(N, 10);
+                std::vector<std::pair<int, double>> bin_bounds; // [start, end]
+                bin_bounds.emplace_back(cells_start, area_l);
+                for (int i = 1; i < K; i++)
+                    bin_bounds.emplace_back(cells_start + (N * i) / K,
+                                            area_l + ((area_r - area_l + 0.4) * i) / K);
+                bin_bounds.emplace_back(cells_end, area_r + 0.4);
+
+                for (int i = 0; i < K; i++) {
+                    auto &bl = bin_bounds.at(i), br = bin_bounds.at(i + 1);
+                    double orig_left = dir ? p->cell_locs.at(cut_cells.at(bl.first)->name).rawy
+                                           : p->cell_locs.at(cut_cells.at(bl.first)->name).rawx;
+                    double orig_right = dir ? p->cell_locs.at(cut_cells.at(br.first - 1)->name).rawy
+                                            : p->cell_locs.at(cut_cells.at(br.first - 1)->name).rawx;
+                    double m = (br.second - bl.second) / (orig_right - orig_left);
+                    for (int j = bl.first; j < br.first; j++) {
+                        auto &pos = dir ? p->cell_locs.at(cut_cells.at(j)->name).rawy
+                                        : p->cell_locs.at(cut_cells.at(j)->name).rawx;
+                        pos = bl.second + m * (pos - orig_left);
+                        log_info("spread pos %f\n", pos);
+                    }
+                }
+            };
+            spread_binlerp(0, pivot + 1, trimmed_l, best_tgt_cut);
+            spread_binlerp(pivot + 1, int(cut_cells.size()), best_tgt_cut + 1, trimmed_r);
+            // Update various data structures
+            for (int x = r.x0; x <= r.x1; x++)
+                for (int y = r.y0; y <= r.y1; y++) {
+                    cells_at_location_sx.at(x).at(y).clear();
+                    cells_at_location_sy.at(x).at(y).clear();
+                }
+            for (auto cell : cut_cells) {
+                auto &cl = p->cell_locs.at(cell->name);
+                cl.x = std::min(r.x1, std::max(r.x0, int(cl.rawx + 0.5)));
+                cl.y = std::min(r.y1, std::max(r.y1, int(cl.rawy + 0.5)));
+                cells_at_location_sx.at(cl.x).at(cl.y).push_back(cell);
+                cells_at_location_sy.at(cl.x).at(cl.y).push_back(cell);
+            }
+            for (int x = r.x0; x <= r.x1; x++)
+                for (int y = r.y0; y <= r.y1; y++) {
+                    auto &sx = cells_at_location_sx.at(x).at(y);
+                    std::sort(sx.begin(), sx.end(), [&](const CellInfo *a, const CellInfo *b) {
+                        return p->cell_locs.at(a->name).rawx < p->cell_locs.at(b->name).rawx;
+                    });
+                    auto &sy = cells_at_location_sy.at(x).at(y);
+                    std::sort(sy.begin(), sy.end(), [&](const CellInfo *a, const CellInfo *b) {
+                        return p->cell_locs.at(a->name).rawy < p->cell_locs.at(b->name).rawy;
+                    });
+                }
+            LegaliserRegion rl, rr;
+            rl.id = int(regions.size());
+            rl.x0 = r.x0;
+            rl.y0 = r.y0;
+            rl.x1 = dir ? r.x1 : best_tgt_cut;
+            rl.y1 = dir ? best_tgt_cut : r.y1;
+            rl.cells = left_cells;
+            rl.bels = left_bels;
+            rr.id = int(regions.size()) + 1;
+            rr.x0 = dir ? r.x0 : (best_tgt_cut + 1);
+            rr.y0 = dir ? (best_tgt_cut + 1) : r.y0;
+            rr.x1 = r.x1;
+            rr.y1 = r.y1;
+            rr.cells = right_cells;
+            rr.bels = right_bels;
+            regions.push_back(rl);
+            regions.push_back(rr);
+            for (int x = rl.x0; x <= rl.x1; x++)
+                for (int y = rl.y0; y <= rl.y1; y++)
+                    groups.at(x).at(y) = rl.id;
+            for (int x = rr.x0; x <= rr.x1; x++)
+                for (int y = rr.y0; y <= rr.y1; y++)
+                    groups.at(x).at(y) = rr.id;
+            return std::make_pair(rl.id, rr.id);
+        };
     };
 
     typedef decltype(CellInfo::udata) cell_udata_t;
