@@ -29,6 +29,7 @@
 #include <queue>
 #include <unordered_map>
 #include <boost/optional.hpp>
+#include <fstream>
 #include "log.h"
 #include "nextpnr.h"
 #include "place_common.h"
@@ -147,10 +148,10 @@ class HeAPPlacer
         // CutLegaliser(this, ctx->id("ICESTORM_LC")).run();
         //NPNR_ASSERT(false);
 
-        bool valid = false;
+        bool valid = true;
         wirelen_t solved_hpwl = 0, legal_hpwl = 0, best_hpwl = std::numeric_limits<wirelen_t>::max();
         int iter = 0, stalled = 0;
-        while (!valid || (stalled < 5 && (solved_hpwl < legal_hpwl * 0.8))) {
+        while (!valid || (stalled < 5 && (solved_hpwl <= legal_hpwl * 0.8))) {
             if (!valid && ((solved_hpwl > legal_hpwl * 0.8) || (stalled > 5))) {
                 stalled = 0;
                 best_hpwl = std::numeric_limits<wirelen_t>::max();
@@ -511,7 +512,7 @@ class HeAPPlacer
                     int o_pos = cell_pos(other->cell);
                     // if (o_pos == this_pos)
                     //    return; // FIXME: or clamp to 1?
-                    double weight = 1. / (ni->users.size() * std::max(1, std::abs(o_pos - this_pos)));
+                    double weight = 1.0 / (ni->users.size() * std::max(1, std::abs(o_pos - this_pos)));
                     // FIXME: add criticality to weighting
 
                     // If cell 0 is not fixed, it will stamp +w on its equation and -w on the other end's equation,
@@ -526,7 +527,7 @@ class HeAPPlacer
             });
         }
         if (iter != -1) {
-            const float alpha = 0.3;
+            const float alpha = 0.1;
             float weight = alpha * iter;
             for (size_t row = 0; row < solve_cells.size(); row++) {
                 // Add an arc from legalised to current position
@@ -547,10 +548,10 @@ class HeAPPlacer
         for (size_t i = 0; i < vals.size(); i++)
             if (yaxis) {
                 cell_locs.at(solve_cells.at(i)->name).rawy = vals.at(i);
-                cell_locs.at(solve_cells.at(i)->name).y = std::min(max_y, std::max(0, int(vals.at(i) + 0.5)));
+                cell_locs.at(solve_cells.at(i)->name).y = std::min(max_y, std::max(0, int(vals.at(i))));
             } else {
                 cell_locs.at(solve_cells.at(i)->name).rawx = vals.at(i);
-                cell_locs.at(solve_cells.at(i)->name).x = std::min(max_x, std::max(0, int(vals.at(i) + 0.5)));
+                cell_locs.at(solve_cells.at(i)->name).x = std::min(max_x, std::max(0, int(vals.at(i))));
             }
     }
 
@@ -631,7 +632,7 @@ class HeAPPlacer
             while (!placed) {
 
                 int nx = ctx->rng(2 * radius + 1) + std::max(cell_locs.at(ci->name).x - radius, 0);
-                int ny = ctx->rng(2 * radius + 1) + std::max(cell_locs.at(ci->name).x - radius, 0);
+                int ny = ctx->rng(2 * radius + 1) + std::max(cell_locs.at(ci->name).y - radius, 0);
 
                 iter++;
                 if ((iter % (20 * (radius + 1))) == 0)
@@ -713,13 +714,17 @@ class HeAPPlacer
                 : p(p), ctx(p->ctx), beltype(beltype), fb(p->fast_bels.at(std::get<0>(p->bel_types.at(beltype))))
         {
         }
-
+        static int seq;
         void run()
         {
             init();
             find_overused_regions();
             expand_regions();
             std::queue<std::pair<int, bool>> workqueue;
+            std::vector<std::pair<double, double>> orig;
+            if (ctx->debug)
+                for (auto c : p->solve_cells)
+                    orig.emplace_back(p->cell_locs[c->name].rawx, p->cell_locs[c->name].rawy);
             for (auto &r : regions) {
                 if (merged_regions.count(r.id))
                     continue;
@@ -732,13 +737,22 @@ class HeAPPlacer
                 auto front = workqueue.front();
                 workqueue.pop();
                 auto &r = regions.at(front.first);
-                /*log_info("%s (%d, %d) |_> (%d, %d) %d/%d\n", beltype.c_str(ctx), r.x0, r.y0, r.x1, r.y1, r.cells,
-                         r.bels);*/
+                //log_info("%s (%d, %d) |_> (%d, %d) %d/%d\n", beltype.c_str(ctx), r.x0, r.y0, r.x1, r.y1, r.cells,
+                //r.bels);
                 auto res = cut_region(r, front.second);
                 if (res) {
                     workqueue.emplace(res->first, !front.second);
                     workqueue.emplace(res->second, !front.second);
                 }
+            }
+            if (ctx->debug) {
+                std::ofstream sp("spread" + std::to_string(seq) + ".csv");
+                for (size_t i = 0; i < p->solve_cells.size(); i++) {
+                    auto &c = p->solve_cells.at(i);
+                    sp << orig.at(i).first << "," << orig.at(i).second << "," << p->cell_locs[c->name].rawx << "," << p->cell_locs[c->name].rawy << std::endl;
+                }
+
+                ++seq;
             }
         }
 
@@ -756,8 +770,7 @@ class HeAPPlacer
         std::vector<LegaliserRegion> regions;
         std::unordered_set<int> merged_regions;
         // Cells at a location, sorted by real (not integer) x and y
-        std::vector<std::vector<std::vector<CellInfo *>>> cells_at_location_sx;
-        std::vector<std::vector<std::vector<CellInfo *>>> cells_at_location_sy;
+        std::vector<std::vector<std::vector<CellInfo *>>> cells_at_location;
 
         int occ_at(int x, int y) { return occupancy.at(x).at(y); }
 
@@ -773,8 +786,7 @@ class HeAPPlacer
             occupancy.resize(p->max_x + 1, std::vector<int>(p->max_y + 1, 0));
             groups.resize(p->max_x + 1, std::vector<int>(p->max_y + 1, -1));
             chaines.resize(p->max_x + 1, std::vector<ChainExtent>(p->max_y + 1));
-            cells_at_location_sx.resize(p->max_x + 1, std::vector<std::vector<CellInfo *>>(p->max_y + 1));
-            cells_at_location_sy.resize(p->max_x + 1, std::vector<std::vector<CellInfo *>>(p->max_y + 1));
+            cells_at_location.resize(p->max_x + 1, std::vector<std::vector<CellInfo *>>(p->max_y + 1));
             for (int x = 0; x <= p->max_x; x++)
                 for (int y = 0; y <= p->max_y; y++) {
                     occupancy.at(x).at(y) = 0;
@@ -819,23 +831,11 @@ class HeAPPlacer
                 }
             }
             for (auto cell : p->solve_cells) {
-                cells_at_location_sx.at(p->cell_locs.at(cell->name).x)
-                        .at(p->cell_locs.at(cell->name).y)
-                        .push_back(cell);
-                cells_at_location_sy.at(p->cell_locs.at(cell->name).x)
+                cells_at_location.at(p->cell_locs.at(cell->name).x)
                         .at(p->cell_locs.at(cell->name).y)
                         .push_back(cell);
             }
-            for (auto &col : cells_at_location_sx)
-                for (auto &loc : col)
-                    std::sort(loc.begin(), loc.end(), [&](const CellInfo *a, const CellInfo *b) {
-                        return p->cell_locs.at(a->name).rawx < p->cell_locs.at(b->name).rawx;
-                    });
-            for (auto &col : cells_at_location_sy)
-                for (auto &loc : col)
-                    std::sort(loc.begin(), loc.end(), [&](const CellInfo *a, const CellInfo *b) {
-                        return p->cell_locs.at(a->name).rawy < p->cell_locs.at(b->name).rawy;
-                    });
+
         }
         void merge_regions(LegaliserRegion &merged, LegaliserRegion &mergee)
         {
@@ -1006,21 +1006,18 @@ class HeAPPlacer
         boost::optional<std::pair<int, int>> cut_region(LegaliserRegion &r, bool dir)
         {
             cut_cells.clear();
-            auto &cal = dir ? cells_at_location_sy : cells_at_location_sx;
-            if (dir) {
+            auto &cal = cells_at_location;
+
+            for (int x = r.x0; x <= r.x1; x++) {
                 for (int y = r.y0; y <= r.y1; y++) {
-                    for (int x = r.x0; x <= r.x1; x++) {
-                        //log_info("%d\n", int(cal.at(x).at(y).size()));
-                        std::copy(cal.at(x).at(y).begin(), cal.at(x).at(y).end(), std::back_inserter(cut_cells));
-                    }
-                }
-            } else {
-                for (int x = r.x0; x <= r.x1; x++) {
-                    for (int y = r.y0; y <= r.y1; y++) {
-                        std::copy(cal.at(x).at(y).begin(), cal.at(x).at(y).end(), std::back_inserter(cut_cells));
-                    }
+                    std::copy(cal.at(x).at(y).begin(), cal.at(x).at(y).end(), std::back_inserter(cut_cells));
                 }
             }
+
+            std::sort(cut_cells.begin(), cut_cells.end(), [&](const CellInfo *a, const CellInfo *b) {
+                return dir ? (p->cell_locs.at(a->name).rawy < p->cell_locs.at(b->name).rawy) : (p->cell_locs.at(a->name).rawx < p->cell_locs.at(b->name).rawx);
+            });
+
             if (cut_cells.empty())
                 return {};
             // Find the cells midpoint, counting chains in terms of their total size - making the initial source cut
@@ -1113,14 +1110,14 @@ class HeAPPlacer
             //log_info("pivot %d target cut %d lc %d lb %d rc %d rb %d\n", pivot, best_tgt_cut, left_cells, left_bels, right_cells, right_bels);
 
             // Peturb the source cut to eliminate overutilisation
-            while (pivot > 0 && (left_cells > left_bels)) {
+            while (pivot > 0 && (double(left_cells) / double(left_bels) > double(right_cells) / double(right_bels))) {
                 auto &move_cell = cut_cells.at(pivot);
                 int size = p->chain_size.count(move_cell->name) ? p->chain_size.at(move_cell->name) : 1;
                 left_cells -= size;
                 right_cells += size;
                 pivot--;
             }
-            while (pivot < (int(cut_cells.size()) - 1) && (right_cells > right_bels)) {
+            while (pivot < int(cut_cells.size()) - 1 && (double(left_cells) / double(left_bels) < double(right_cells) / double(right_bels))) {
                 auto &move_cell = cut_cells.at(pivot + 1);
                 int size = p->chain_size.count(move_cell->name) ? p->chain_size.at(move_cell->name) : 1;
                 left_cells += size;
@@ -1145,19 +1142,22 @@ class HeAPPlacer
                 bin_bounds.emplace_back(cells_start, area_l);
                 for (int i = 1; i < K; i++)
                     bin_bounds.emplace_back(cells_start + (N * i) / K,
-                                            area_l + ((area_r - area_l + 0.4) * i) / K);
-                bin_bounds.emplace_back(cells_end, area_r + 0.4);
-
+                                            area_l + ((area_r - area_l + 0.9) * i) / K);
+                bin_bounds.emplace_back(cells_end, area_r + 0.9);
+                //log("bins ");
+                //for (auto b : bin_bounds) log("%d, %.01f; ", b.first, b.second);
+                //log("\n");
                 for (int i = 0; i < K; i++) {
                     auto &bl = bin_bounds.at(i), br = bin_bounds.at(i + 1);
                     double orig_left = dir ? p->cell_locs.at(cut_cells.at(bl.first)->name).rawy
                                            : p->cell_locs.at(cut_cells.at(bl.first)->name).rawx;
                     double orig_right = dir ? p->cell_locs.at(cut_cells.at(br.first - 1)->name).rawy
                                             : p->cell_locs.at(cut_cells.at(br.first - 1)->name).rawx;
-                    double m = (br.second - bl.second) / (orig_right - orig_left);
+                    double m = (br.second - bl.second) / (1 + orig_right - orig_left);
                     for (int j = bl.first; j < br.first; j++) {
                         auto &pos = dir ? p->cell_locs.at(cut_cells.at(j)->name).rawy
                                         : p->cell_locs.at(cut_cells.at(j)->name).rawx;
+                        NPNR_ASSERT(pos >= orig_left && pos <= orig_right);
                         pos = bl.second + m * (pos - orig_left);
                     }
                 }
@@ -1167,28 +1167,15 @@ class HeAPPlacer
             // Update various data structures
             for (int x = r.x0; x <= r.x1; x++)
                 for (int y = r.y0; y <= r.y1; y++) {
-                    cells_at_location_sx.at(x).at(y).clear();
-                    cells_at_location_sy.at(x).at(y).clear();
+                    cells_at_location.at(x).at(y).clear();
                 }
             for (auto cell : cut_cells) {
                 auto &cl = p->cell_locs.at(cell->name);
-                cl.x = std::min(r.x1, std::max(r.x0, int(cl.rawx + 0.5)));
-                cl.y = std::min(r.y1, std::max(r.y0, int(cl.rawy + 0.5)));
-                cells_at_location_sx.at(cl.x).at(cl.y).push_back(cell);
-                cells_at_location_sy.at(cl.x).at(cl.y).push_back(cell);
+                cl.x = std::min(r.x1, std::max(r.x0, int(cl.rawx)));
+                cl.y = std::min(r.y1, std::max(r.y0, int(cl.rawy)));
+                cells_at_location.at(cl.x).at(cl.y).push_back(cell);
                 //log_info("spread pos %d %d\n", cl.x, cl.y);
             }
-            for (int x = r.x0; x <= r.x1; x++)
-                for (int y = r.y0; y <= r.y1; y++) {
-                    auto &sx = cells_at_location_sx.at(x).at(y);
-                    std::sort(sx.begin(), sx.end(), [&](const CellInfo *a, const CellInfo *b) {
-                        return p->cell_locs.at(a->name).rawx < p->cell_locs.at(b->name).rawx;
-                    });
-                    auto &sy = cells_at_location_sy.at(x).at(y);
-                    std::sort(sy.begin(), sy.end(), [&](const CellInfo *a, const CellInfo *b) {
-                        return p->cell_locs.at(a->name).rawy < p->cell_locs.at(b->name).rawy;
-                    });
-                }
             LegaliserRegion rl, rr;
             rl.id = int(regions.size());
             rl.x0 = r.x0;
@@ -1215,10 +1202,10 @@ class HeAPPlacer
             return std::make_pair(rl.id, rr.id);
         };
     };
-
     typedef decltype(CellInfo::udata) cell_udata_t;
     cell_udata_t dont_solve = std::numeric_limits<cell_udata_t>::max();
 };
+int HeAPPlacer::CutLegaliser::seq = 0;
 
 bool placer_heap(Context *ctx) { return HeAPPlacer(ctx).place(); }
 
