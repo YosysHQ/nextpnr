@@ -144,14 +144,14 @@ class HeAPPlacer
         }
 
         // legalise_with_cuts(true);
-        CutLegaliser(this, ctx->id("ICESTORM_LC")).run();
-        NPNR_ASSERT(false);
+        // CutLegaliser(this, ctx->id("ICESTORM_LC")).run();
+        //NPNR_ASSERT(false);
 
         bool valid = false;
-        wirelen_t solved_hpwl = 0, legal_hpwl = 1, best_hpwl = std::numeric_limits<wirelen_t>::max();
+        wirelen_t solved_hpwl = 0, legal_hpwl = 0, best_hpwl = std::numeric_limits<wirelen_t>::max();
         int iter = 0, stalled = 0;
         while (!valid || (stalled < 5 && (solved_hpwl < legal_hpwl * 0.8))) {
-            if ((solved_hpwl < legal_hpwl * 0.8) || (stalled > 5)) {
+            if (!valid && ((solved_hpwl > legal_hpwl * 0.8) || (stalled > 5))) {
                 stalled = 0;
                 best_hpwl = std::numeric_limits<wirelen_t>::max();
                 valid = true;
@@ -171,11 +171,15 @@ class HeAPPlacer
             log_info("Solved HPWL = %d\n", int(solved_hpwl));
 
             update_all_chains();
+            CutLegaliser(this, ctx->id("ICESTORM_LC")).run();
+            update_all_chains();
+            legal_hpwl = total_hpwl();
+            log_info("Spread HPWL = %d\n", int(legal_hpwl));
             legalise_placement_simple(valid);
             update_all_chains();
 
             legal_hpwl = total_hpwl();
-            log_info("Legalised HPWL = %d\n", int(legal_hpwl));
+            log_info("Legalised HPWL = %d (%s)\n", int(legal_hpwl), valid ? "valid" : "invalid");
             if (legal_hpwl < best_hpwl) {
                 best_hpwl = legal_hpwl;
                 stalled = 0;
@@ -715,12 +719,26 @@ class HeAPPlacer
             init();
             find_overused_regions();
             expand_regions();
+            std::queue<std::pair<int, bool>> workqueue;
             for (auto &r : regions) {
                 if (merged_regions.count(r.id))
                     continue;
-                log_info("%s (%d, %d) |_> (%d, %d) %d/%d\n", beltype.c_str(ctx), r.x0, r.y0, r.x1, r.y1, r.cells,
-                         r.bels);
-                cut_region(r, false);
+                /*log_info("%s (%d, %d) |_> (%d, %d) %d/%d\n", beltype.c_str(ctx), r.x0, r.y0, r.x1, r.y1, r.cells,
+                         r.bels);*/
+                workqueue.emplace(r.id, false);
+                //cut_region(r, false);
+            }
+            while (!workqueue.empty()) {
+                auto front = workqueue.front();
+                workqueue.pop();
+                auto &r = regions.at(front.first);
+                /*log_info("%s (%d, %d) |_> (%d, %d) %d/%d\n", beltype.c_str(ctx), r.x0, r.y0, r.x1, r.y1, r.cells,
+                         r.bels);*/
+                auto res = cut_region(r, front.second);
+                if (res) {
+                    workqueue.emplace(res->first, !front.second);
+                    workqueue.emplace(res->second, !front.second);
+                }
             }
         }
 
@@ -989,11 +1007,22 @@ class HeAPPlacer
         {
             cut_cells.clear();
             auto &cal = dir ? cells_at_location_sy : cells_at_location_sx;
-            for (int x = r.x0; x <= r.x1; x++) {
+            if (dir) {
                 for (int y = r.y0; y <= r.y1; y++) {
-                    std::copy(cal.at(x).at(y).begin(), cal.at(x).at(y).end(), std::back_inserter(cut_cells));
+                    for (int x = r.x0; x <= r.x1; x++) {
+                        //log_info("%d\n", int(cal.at(x).at(y).size()));
+                        std::copy(cal.at(x).at(y).begin(), cal.at(x).at(y).end(), std::back_inserter(cut_cells));
+                    }
+                }
+            } else {
+                for (int x = r.x0; x <= r.x1; x++) {
+                    for (int y = r.y0; y <= r.y1; y++) {
+                        std::copy(cal.at(x).at(y).begin(), cal.at(x).at(y).end(), std::back_inserter(cut_cells));
+                    }
                 }
             }
+            if (cut_cells.empty())
+                return {};
             // Find the cells midpoint, counting chains in terms of their total size - making the initial source cut
             int pivot_cells = 0;
             int pivot = 0;
@@ -1003,7 +1032,9 @@ class HeAPPlacer
                     break;
                 pivot++;
             }
-            log_info("orig pivot %d lc %d rc %d\n", pivot, pivot_cells, r.cells - pivot_cells);
+            if (pivot == int(cut_cells.size()))
+                pivot = int(cut_cells.size()) - 1;
+            //log_info("orig pivot %d lc %d rc %d\n", pivot, pivot_cells, r.cells - pivot_cells);
 
             // Find the clearance required either side of the pivot
             int clearance_l = 0, clearance_r = 0;
@@ -1048,7 +1079,7 @@ class HeAPPlacer
                     break;
                 trimmed_r--;
             }
-            log_info("tl %d tr %d cl %d cr %d\n", trimmed_l, trimmed_r, clearance_l, clearance_r);
+            //log_info("tl %d tr %d cl %d cr %d\n", trimmed_l, trimmed_r, clearance_l, clearance_r);
             if ((trimmed_r - trimmed_l + 1) <= std::max(clearance_l, clearance_r))
                 return {};
             // Now find the initial target cut that minimises utilisation imbalance, whilst
@@ -1079,7 +1110,7 @@ class HeAPPlacer
             NPNR_ASSERT(best_tgt_cut != -1);
             left_bels = target_cut_bels.first;
             right_bels = target_cut_bels.second;
-            log_info("pivot %d target cut %d lc %d lb %d rc %d rb %d\n", pivot, best_tgt_cut, left_cells, left_bels, right_cells, right_bels);
+            //log_info("pivot %d target cut %d lc %d lb %d rc %d rb %d\n", pivot, best_tgt_cut, left_cells, left_bels, right_cells, right_bels);
 
             // Peturb the source cut to eliminate overutilisation
             while (pivot > 0 && (left_cells > left_bels)) {
@@ -1096,10 +1127,18 @@ class HeAPPlacer
                 right_cells -= size;
                 pivot++;
             }
-            log_info("peturbed pivot %d lc %d lb %d rc %d rb %d\n", pivot, left_cells, left_bels, right_cells, right_bels);
+            //log_info("peturbed pivot %d lc %d lb %d rc %d rb %d\n", pivot, left_cells, left_bels, right_cells, right_bels);
             // Split regions into bins, and then spread cells by linear interpolation within those bins
             auto spread_binlerp = [&](int cells_start, int cells_end, double area_l, double area_r) {
-                int N = 1 + cells_end - cells_start;
+                int N = cells_end - cells_start;
+                if (N <= 2) {
+                    for (int i = cells_start; i < cells_end; i++) {
+                        auto &pos = dir ? p->cell_locs.at(cut_cells.at(i)->name).rawy
+                                        : p->cell_locs.at(cut_cells.at(i)->name).rawx;
+                        pos = area_l + i * ((area_r - area_l) / N);
+                    }
+                    return;
+                }
                 // Split region into up to 10 (K) bins
                 int K = std::min<int>(N, 10);
                 std::vector<std::pair<int, double>> bin_bounds; // [start, end]
@@ -1120,7 +1159,6 @@ class HeAPPlacer
                         auto &pos = dir ? p->cell_locs.at(cut_cells.at(j)->name).rawy
                                         : p->cell_locs.at(cut_cells.at(j)->name).rawx;
                         pos = bl.second + m * (pos - orig_left);
-                        log_info("spread pos %f\n", pos);
                     }
                 }
             };
@@ -1135,9 +1173,10 @@ class HeAPPlacer
             for (auto cell : cut_cells) {
                 auto &cl = p->cell_locs.at(cell->name);
                 cl.x = std::min(r.x1, std::max(r.x0, int(cl.rawx + 0.5)));
-                cl.y = std::min(r.y1, std::max(r.y1, int(cl.rawy + 0.5)));
+                cl.y = std::min(r.y1, std::max(r.y0, int(cl.rawy + 0.5)));
                 cells_at_location_sx.at(cl.x).at(cl.y).push_back(cell);
                 cells_at_location_sy.at(cl.x).at(cl.y).push_back(cell);
+                //log_info("spread pos %d %d\n", cl.x, cl.y);
             }
             for (int x = r.x0; x <= r.x1; x++)
                 for (int y = r.y0; y <= r.y1; y++) {
