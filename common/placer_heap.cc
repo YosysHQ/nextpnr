@@ -34,6 +34,7 @@
 #include "nextpnr.h"
 #include "place_common.h"
 #include "placer_math.h"
+#include "placer1.h"
 #include "util.h"
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -191,6 +192,9 @@ class HeAPPlacer
             ++iter;
         }
         ctx->unlock();
+
+        placer1_refine(ctx, Placer1Cfg(ctx));
+
         return true;
     }
 
@@ -355,14 +359,17 @@ class HeAPPlacer
     // FIXME: Are there better approaches to the initial placement (e.g. greedy?)
     void seed_placement()
     {
-        std::unordered_map<IdString, std::vector<BelId>> available_bels;
+        std::unordered_map<IdString, std::deque<BelId>> available_bels;
         for (auto bel : ctx->getBels()) {
             if (!ctx->checkBelAvail(bel))
                 continue;
             available_bels[ctx->getBelType(bel)].push_back(bel);
         }
-        for (auto &ab : available_bels)
-            ctx->shuffle(ab.second);
+        for (auto &t : available_bels) {
+            std::random_shuffle(t.second.begin(), t.second.end(), [&](size_t n){
+                return ctx->rng(int(n));
+            });
+        }
         for (auto cell : sorted(ctx->cells)) {
             CellInfo *ci = cell.second;
             if (ci->bel != BelId()) {
@@ -372,23 +379,34 @@ class HeAPPlacer
                 cell_locs[cell.first].locked = true;
                 cell_locs[cell.first].global = ctx->getBelGlobalBuf(ci->bel);
             } else if (ci->constr_parent == nullptr) {
-                if (!available_bels.count(ci->type) || available_bels.at(ci->type).empty())
-                    log_error("Unable to place cell '%s', no Bels remaining of type '%s'\n", ci->name.c_str(ctx),
-                              ci->type.c_str(ctx));
-                BelId bel = available_bels.at(ci->type).back();
-                available_bels.at(ci->type).pop_back();
-                Loc loc = ctx->getBelLocation(bel);
-                cell_locs[cell.first].x = loc.x;
-                cell_locs[cell.first].y = loc.y;
-                cell_locs[cell.first].locked = false;
-                cell_locs[cell.first].global = ctx->getBelGlobalBuf(bel);
-                // FIXME
-                if (has_connectivity(cell.second) && cell.second->type != ctx->id("SB_IO")) {
-                    place_cells.push_back(ci);
-                } else {
-                    ctx->bindBel(bel, ci, STRENGTH_STRONG);
-                    cell_locs[cell.first].locked = true;
+                bool placed = false;
+                while (!placed) {
+                    if (!available_bels.count(ci->type) || available_bels.at(ci->type).empty())
+                        log_error("Unable to place cell '%s', no Bels remaining of type '%s'\n", ci->name.c_str(ctx),
+                                  ci->type.c_str(ctx));
+                    BelId bel = available_bels.at(ci->type).back();
+                    available_bels.at(ci->type).pop_back();
+                    Loc loc = ctx->getBelLocation(bel);
+                    cell_locs[cell.first].x = loc.x;
+                    cell_locs[cell.first].y = loc.y;
+                    cell_locs[cell.first].locked = false;
+                    cell_locs[cell.first].global = ctx->getBelGlobalBuf(bel);
+                    // FIXME
+                    if (has_connectivity(cell.second) && cell.second->type != ctx->id("SB_IO")) {
+                        place_cells.push_back(ci);
+                        placed = true;
+                    } else {
+                        if (ctx->isValidBelForCell(ci, bel)) {
+                            ctx->bindBel(bel, ci, STRENGTH_STRONG);
+                            cell_locs[cell.first].locked = true;
+                            placed = true;
+                        } else {
+                            available_bels.at(ci->type).push_front(bel);
+                        }
+
+                    }
                 }
+
             }
         }
     }
@@ -728,8 +746,8 @@ class HeAPPlacer
             for (auto &r : regions) {
                 if (merged_regions.count(r.id))
                     continue;
-                /*log_info("%s (%d, %d) |_> (%d, %d) %d/%d\n", beltype.c_str(ctx), r.x0, r.y0, r.x1, r.y1, r.cells,
-                         r.bels);*/
+                log_info("%s (%d, %d) |_> (%d, %d) %d/%d\n", beltype.c_str(ctx), r.x0, r.y0, r.x1, r.y1, r.cells,
+                         r.bels);
                 workqueue.emplace(r.id, false);
                 //cut_region(r, false);
             }
@@ -865,7 +883,7 @@ class HeAPPlacer
 
             auto process_location = [&](int x, int y) {
                 // Merge with any overlapping regions
-                if (groups.at(x).at(y) != r.id) {
+                if (groups.at(x).at(y) == -1) {
                     r.bels += bels_at(x, y);
                     r.cells += occ_at(x, y);
                 }

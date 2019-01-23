@@ -35,6 +35,7 @@ struct Placer1Cfg : public Settings
 };
 
 extern bool placer1(Context *ctx, Placer1Cfg cfg);
+extern bool placer1_refine(Context *ctx, Placer1Cfg cfg);
 
 NEXTPNR_NAMESPACE_END
 
