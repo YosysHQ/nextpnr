@@ -31,6 +31,7 @@
 #include <boost/optional.hpp>
 #include <fstream>
 #include <chrono>
+#include <tuple>
 #include "log.h"
 #include "nextpnr.h"
 #include "place_common.h"
@@ -155,6 +156,9 @@ class HeAPPlacer
         bool valid = true;
         wirelen_t solved_hpwl = 0, legal_hpwl = 0, best_hpwl = std::numeric_limits<wirelen_t>::max();
         int iter = 0, stalled = 0;
+
+        std::vector<std::tuple<CellInfo*, BelId, PlaceStrength>> solution;
+
         while (!valid || (stalled < 5 && (solved_hpwl <= legal_hpwl * 0.8))) {
             if (!valid && ((solved_hpwl > legal_hpwl * 0.8) || (stalled > 5))) {
                 stalled = 0;
@@ -162,18 +166,24 @@ class HeAPPlacer
                 valid = true;
             }
 
-            setup_solve_cells();
+            for (int i = 0; i < 5; i++) {
+                setup_solve_cells();
 
-            EquationSystem<double> esx(solve_cells.size(), solve_cells.size());
-            build_equations(esx, false, iter);
-            // log_info("x-axis\n");
-            solve_equations(esx, false);
+                EquationSystem<double> esx(solve_cells.size(), solve_cells.size());
+                build_equations(esx, false, (iter == 0) ? -1 : iter);
+                // log_info("x-axis\n");
+                solve_equations(esx, false);
 
-            EquationSystem<double> esy(solve_cells.size(), solve_cells.size());
-            build_equations(esy, true, iter);
-            // log_info("y-axis\n");
-            solve_equations(esy, true);
-            solved_hpwl = total_hpwl();
+                EquationSystem<double> esy(solve_cells.size(), solve_cells.size());
+                build_equations(esy, true, (iter == 0) ? -1 : iter);
+                // log_info("y-axis\n");
+                solve_equations(esy, true);
+
+                update_all_chains();
+
+                solved_hpwl = total_hpwl();
+                log_info("Initial placer iter %d, hpwl = %d\n", i, int(solved_hpwl));
+            }
 
             log_info("Solved HPWL = %d\n", int(solved_hpwl));
 
@@ -192,12 +202,40 @@ class HeAPPlacer
             if (legal_hpwl < best_hpwl) {
                 best_hpwl = legal_hpwl;
                 stalled = 0;
+
+                if (valid) {
+                    // Save solution
+                    solution.clear();
+                    for (auto cell : sorted(ctx->cells)) {
+                        solution.emplace_back(cell.second, cell.second->bel, cell.second->belStrength);
+                    }
+                }
+
             } else {
                 ++stalled;
+            }
+            for (auto &cl : cell_locs) {
+                cl.second.legal_x = cl.second.x;
+                cl.second.legal_y = cl.second.y;
             }
             ctx->yield();
             ++iter;
         }
+
+        // Apply saved solution
+        for (auto &sc : solution) {
+            CellInfo *cell = std::get<0>(sc);
+            if (cell->bel != BelId())
+                ctx->unbindBel(cell->bel);
+        }
+        for (auto &sc : solution) {
+            CellInfo *cell;
+            BelId bel;
+            PlaceStrength strength;
+            std::tie(cell, bel, strength) = sc;
+            ctx->bindBel(bel, cell, strength);
+        }
+
         ctx->unlock();
         auto endtt = std::chrono::high_resolution_clock::now();
         log_info("HeAP Placer Time: %.02fs\n", std::chrono::duration<double>(endtt - startt).count());
@@ -228,6 +266,7 @@ class HeAPPlacer
     struct CellLocation
     {
         int x, y;
+        int legal_x, legal_y;
         double rawx, rawy;
         bool locked, global;
     };
@@ -490,6 +529,7 @@ class HeAPPlacer
     {
         // Return the x or y position of a cell, depending on ydir
         auto cell_pos = [&](CellInfo *cell) { return yaxis ? cell_locs.at(cell->name).y : cell_locs.at(cell->name).x; };
+        auto legal_pos = [&](CellInfo *cell) { return yaxis ? cell_locs.at(cell->name).legal_y : cell_locs.at(cell->name).legal_x; };
 
         es.reset();
 
@@ -559,12 +599,15 @@ class HeAPPlacer
             });
         }
         if (iter != -1) {
-            const float alpha = 0.05;
-            float weight = alpha * iter;
+            const float alpha = 0.3;
             for (size_t row = 0; row < solve_cells.size(); row++) {
+                int l_pos = legal_pos(solve_cells.at(row));
+                int c_pos = cell_pos(solve_cells.at(row));
+
+                double weight = alpha * iter / std::max<double>(1, std::abs(l_pos - c_pos));
                 // Add an arc from legalised to current position
                 es.add_coeff(row, row, weight);
-                es.add_rhs(row, weight * cell_pos(solve_cells.at(row)));
+                es.add_rhs(row, weight * l_pos);
             }
         }
     }
@@ -677,7 +720,7 @@ class HeAPPlacer
 
                 if (nx < 0 || nx > max_x)
                     continue;
-                if (ny < 0 || ny > max_x)
+                if (ny < 0 || ny > max_y)
                     continue;
 
                 // ny = nearest_row_with_bel.at(bt).at(ny);
@@ -692,7 +735,7 @@ class HeAPPlacer
 
                 if (ci->constr_children.empty()) {
                     for (auto sz : fb.at(nx).at(ny)) {
-                        if (ctx->checkBelAvail(sz) || radius > (max_x / 4)) {
+                        if (ctx->checkBelAvail(sz) || radius > 1) {
                             CellInfo *bound = ctx->getBoundBelCell(sz);
                             if (bound != nullptr) {
                                 if (bound->constr_parent != nullptr || !bound->constr_children.empty())
@@ -777,21 +820,41 @@ class HeAPPlacer
                 auto front = workqueue.front();
                 workqueue.pop();
                 auto &r = regions.at(front.first);
-                //log_info("%s (%d, %d) |_> (%d, %d) %d/%d\n", beltype.c_str(ctx), r.x0, r.y0, r.x1, r.y1, r.cells,
-                //r.bels);
+                if (r.cells == 0)
+                    continue;
+                //log_info("%s (%d, %d) |_> (%d, %d) %d/%d %c\n", beltype.c_str(ctx), r.x0, r.y0, r.x1, r.y1, r.cells, r.bels, front.second ? 'y' : 'x');
                 auto res = cut_region(r, front.second);
                 if (res) {
                     workqueue.emplace(res->first, !front.second);
                     workqueue.emplace(res->second, !front.second);
+                } else {
+                    // Try the other dir, in case stuck in one direction only
+                    //log_info("RETRY %s (%d, %d) |_> (%d, %d) %d/%d %c\n", beltype.c_str(ctx), r.x0, r.y0, r.x1, r.y1, r.cells, r.bels, front.second ? 'x' : 'y');
+
+                    auto res2 = cut_region(r, !front.second);
+                    if (res2) {
+                        //log_info("RETRY SUCCESS\n");
+                        workqueue.emplace(res2->first, front.second);
+                        workqueue.emplace(res2->second, front.second);
+                    }
                 }
+
             }
             if (ctx->debug) {
                 std::ofstream sp("spread" + std::to_string(seq) + ".csv");
                 for (size_t i = 0; i < p->solve_cells.size(); i++) {
                     auto &c = p->solve_cells.at(i);
+                    if (c->type != beltype)
+                        continue;
                     sp << orig.at(i).first << "," << orig.at(i).second << "," << p->cell_locs[c->name].rawx << "," << p->cell_locs[c->name].rawy << std::endl;
                 }
-
+                std::ofstream oc("cells" + std::to_string(seq) + ".csv");
+                for (size_t y = 0; y <= p->max_y; y++) {
+                    for (size_t x = 0; x <= p->max_x; x++) {
+                        oc << cells_at_location.at(x).at(y).size() << ", ";
+                    }
+                    oc << std::endl;
+                }
                 ++seq;
             }
             auto endt = std::chrono::high_resolution_clock::now();
@@ -848,8 +911,10 @@ class HeAPPlacer
             };
 
             for (auto &cell : p->cell_locs) {
-                if (ctx->cells.at(cell.first)->type == beltype)
-                    occupancy.at(cell.second.x).at(cell.second.y)++;
+                if (ctx->cells.at(cell.first)->type != beltype)
+                    continue;
+
+                occupancy.at(cell.second.x).at(cell.second.y)++;
                 // Compute ultimate extent of each chain root
                 if (p->chain_root.count(cell.first)) {
                     set_chain_ext(p->chain_root.at(cell.first)->name, cell.second.x, cell.second.y);
@@ -858,6 +923,8 @@ class HeAPPlacer
                 }
             }
             for (auto &cell : p->cell_locs) {
+                if (ctx->cells.at(cell.first)->type != beltype)
+                    continue;
                 // Transfer chain extents to the actual chaines structure
                 ChainExtent *ce = nullptr;
                 if (p->chain_root.count(cell.first))
@@ -873,6 +940,8 @@ class HeAPPlacer
                 }
             }
             for (auto cell : p->solve_cells) {
+                if (cell->type != beltype)
+                    continue;
                 cells_at_location.at(p->cell_locs.at(cell->name).x)
                         .at(p->cell_locs.at(cell->name).y)
                         .push_back(cell);
@@ -1049,25 +1118,28 @@ class HeAPPlacer
         {
             cut_cells.clear();
             auto &cal = cells_at_location;
-
+            int total_cells = 0, total_bels = 0;
             for (int x = r.x0; x <= r.x1; x++) {
                 for (int y = r.y0; y <= r.y1; y++) {
                     std::copy(cal.at(x).at(y).begin(), cal.at(x).at(y).end(), std::back_inserter(cut_cells));
+                    total_bels += bels_at(x, y);
                 }
             }
-
+            for (auto &cell : cut_cells) {
+                total_cells += p->chain_size.count(cell->name) ? p->chain_size.at(cell->name) : 1;
+            }
             std::sort(cut_cells.begin(), cut_cells.end(), [&](const CellInfo *a, const CellInfo *b) {
                 return dir ? (p->cell_locs.at(a->name).rawy < p->cell_locs.at(b->name).rawy) : (p->cell_locs.at(a->name).rawx < p->cell_locs.at(b->name).rawx);
             });
 
-            if (cut_cells.empty())
+            if (cut_cells.size() < 2)
                 return {};
             // Find the cells midpoint, counting chains in terms of their total size - making the initial source cut
             int pivot_cells = 0;
             int pivot = 0;
             for (auto &cell : cut_cells) {
                 pivot_cells += p->chain_size.count(cell->name) ? p->chain_size.at(cell->name) : 1;
-                if (pivot_cells >= r.cells / 2)
+                if (pivot_cells >= total_cells / 2)
                     break;
                 pivot++;
             }
@@ -1123,8 +1195,8 @@ class HeAPPlacer
                 return {};
             // Now find the initial target cut that minimises utilisation imbalance, whilst
             // meeting the clearance requirements for any large macros
-            int left_cells = pivot_cells, right_cells = r.cells - pivot_cells;
-            int left_bels = 0, right_bels = r.bels;
+            int left_cells = pivot_cells, right_cells = total_cells - pivot_cells;
+            int left_bels = 0, right_bels = total_bels;
             int best_tgt_cut = -1;
             double best_deltaU = std::numeric_limits<double>::max();
             std::pair<int, int> target_cut_bels;
@@ -1184,8 +1256,8 @@ class HeAPPlacer
                 bin_bounds.emplace_back(cells_start, area_l);
                 for (int i = 1; i < K; i++)
                     bin_bounds.emplace_back(cells_start + (N * i) / K,
-                                            area_l + ((area_r - area_l + 0.9) * i) / K);
-                bin_bounds.emplace_back(cells_end, area_r + 0.9);
+                                            area_l + ((area_r - area_l + 0.99) * i) / K);
+                bin_bounds.emplace_back(cells_end, area_r + 0.99);
                 //log("bins ");
                 //for (auto b : bin_bounds) log("%d, %.01f; ", b.first, b.second);
                 //log("\n");
