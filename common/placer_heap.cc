@@ -30,6 +30,7 @@
 #include <unordered_map>
 #include <boost/optional.hpp>
 #include <fstream>
+#include <chrono>
 #include "log.h"
 #include "nextpnr.h"
 #include "place_common.h"
@@ -118,6 +119,8 @@ class HeAPPlacer
     HeAPPlacer(Context *ctx) : ctx(ctx) {}
     bool place()
     {
+        auto startt = std::chrono::high_resolution_clock::now();
+
         ctx->lock();
         taucif_init_solver();
         place_constraints();
@@ -158,6 +161,7 @@ class HeAPPlacer
                 best_hpwl = std::numeric_limits<wirelen_t>::max();
                 valid = true;
             }
+
             setup_solve_cells();
 
             EquationSystem<double> esx(solve_cells.size(), solve_cells.size());
@@ -170,10 +174,13 @@ class HeAPPlacer
             // log_info("y-axis\n");
             solve_equations(esy, true);
             solved_hpwl = total_hpwl();
+
             log_info("Solved HPWL = %d\n", int(solved_hpwl));
 
             update_all_chains();
             CutLegaliser(this, ctx->id("ICESTORM_LC")).run();
+            CutLegaliser(this, ctx->id("ICESTORM_RAM")).run();
+
             update_all_chains();
             legal_hpwl = total_hpwl();
             log_info("Spread HPWL = %d\n", int(legal_hpwl));
@@ -192,7 +199,11 @@ class HeAPPlacer
             ++iter;
         }
         ctx->unlock();
-
+        auto endtt = std::chrono::high_resolution_clock::now();
+        log_info("HeAP Placer Time: %.02fs\n", std::chrono::duration<double>(endtt - startt).count());
+        log_info("  of which solving equations: %.02fs\n", solve_time);
+        log_info("  of which coarse legalisation: %.02fs\n", cl_time);
+        log_info("  of which strict legalisation: %.02fs\n", sl_time);
         placer1_refine(ctx, Placer1Cfg(ctx));
 
         return true;
@@ -236,6 +247,9 @@ class HeAPPlacer
 
     // The offset from chain_root to a cell in the chain
     std::unordered_map<IdString, std::pair<int, int>> cell_offsets;
+
+    // Performance counting
+    double solve_time = 0, cl_time = 0, sl_time = 0;
 
     // Place cells with the BEL attribute set to constrain them
     void place_constraints()
@@ -530,7 +544,7 @@ class HeAPPlacer
                     int o_pos = cell_pos(other->cell);
                     // if (o_pos == this_pos)
                     //    return; // FIXME: or clamp to 1?
-                    double weight = 1.0 / (ni->users.size() * std::max(1, std::abs(o_pos - this_pos)));
+                    double weight = 1.0 / (ni->users.size() * std::max<double>(1, std::abs(o_pos - this_pos)));
                     // FIXME: add criticality to weighting
 
                     // If cell 0 is not fixed, it will stamp +w on its equation and -w on the other end's equation,
@@ -545,7 +559,7 @@ class HeAPPlacer
             });
         }
         if (iter != -1) {
-            const float alpha = 0.1;
+            const float alpha = 0.05;
             float weight = alpha * iter;
             for (size_t row = 0; row < solve_cells.size(); row++) {
                 // Add an arc from legalised to current position
@@ -558,6 +572,7 @@ class HeAPPlacer
     // Build the system of equations for either X or Y
     void solve_equations(EquationSystem<double> &es, bool yaxis)
     {
+        auto startt = std::chrono::high_resolution_clock::now();
         // Return the x or y position of a cell, depending on ydir
         auto cell_pos = [&](CellInfo *cell) { return yaxis ? cell_locs.at(cell->name).y : cell_locs.at(cell->name).x; };
         std::vector<double> vals;
@@ -571,6 +586,8 @@ class HeAPPlacer
                 cell_locs.at(solve_cells.at(i)->name).rawx = vals.at(i);
                 cell_locs.at(solve_cells.at(i)->name).x = std::min(max_x, std::max(0, int(vals.at(i))));
             }
+        auto endt = std::chrono::high_resolution_clock::now();
+        solve_time += std::chrono::duration<double>(endt - startt).count();
     }
 
     // Compute HPWL
@@ -619,6 +636,8 @@ class HeAPPlacer
     // validity rules for control sets, etc, rather than a CLB/tile as in a more conventional pack&place flow)
     void legalise_placement_simple(bool require_validity = false)
     {
+        auto startt = std::chrono::high_resolution_clock::now();
+
         // Unbind all cells placed in this solution
         for (auto cell : sorted(ctx->cells)) {
             CellInfo *ci = cell.second;
@@ -701,6 +720,8 @@ class HeAPPlacer
                 }
             }
         }
+        auto endt = std::chrono::high_resolution_clock::now();
+        sl_time += std::chrono::duration<float>(endt - startt).count();
     }
 
     static constexpr float beta = 0.9;
@@ -735,6 +756,7 @@ class HeAPPlacer
         static int seq;
         void run()
         {
+            auto startt = std::chrono::high_resolution_clock::now();
             init();
             find_overused_regions();
             expand_regions();
@@ -772,6 +794,8 @@ class HeAPPlacer
 
                 ++seq;
             }
+            auto endt = std::chrono::high_resolution_clock::now();
+            p->cl_time += std::chrono::duration<float>(endt - startt).count();
         }
 
       private:
