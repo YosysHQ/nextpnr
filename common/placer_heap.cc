@@ -136,12 +136,10 @@ class HeAPPlacer
             setup_solve_cells();
             auto solve_startt = std::chrono::high_resolution_clock::now();
             std::thread xaxis([&](){build_solve_direction(false, -1);});
-            std::thread yaxis([&](){build_solve_direction(true, -1);});
+            build_solve_direction(true, -1);
+            xaxis.join();
             auto solve_endt = std::chrono::high_resolution_clock::now();
             solve_time += std::chrono::duration<double>(solve_endt - solve_startt).count();
-            xaxis.join();
-            yaxis.join();
-
 
             update_all_chains();
 
@@ -161,13 +159,23 @@ class HeAPPlacer
 
         std::vector<std::unordered_set<IdString>> heap_runs;
         std::unordered_set<IdString> all_celltypes;
+        std::unordered_map<IdString, int> ct_count;
 
         for (auto cell : place_cells) {
             if (!all_celltypes.count(cell->type)) {
                 heap_runs.push_back(std::unordered_set<IdString>{cell->type});
                 all_celltypes.insert(cell->type);
             }
+            ct_count[cell->type]++;
         }
+        // If more than 98% of cells are one cell type, always solve all at once
+        // Otherwise, follow full HeAP strategy of rotate&all
+        for (auto &c : ct_count)
+            if (c.second >= 0.98 * int(place_cells.size())) {
+                heap_runs.clear();
+                break;
+            }
+
         heap_runs.push_back(all_celltypes);
 
         while (!valid || (stalled < 5 && (solved_hpwl <= legal_hpwl * 0.8))) {
@@ -177,6 +185,8 @@ class HeAPPlacer
                 valid = true;
             }
             for (auto &run : heap_runs) {
+                auto run_startt = std::chrono::high_resolution_clock::now();
+
                 setup_solve_cells(&run);
                 if (solve_cells.empty())
                     continue;
@@ -188,9 +198,8 @@ class HeAPPlacer
                     build_solve_direction(true, (iter == 0) ? -1 : iter);
                 } else {
                     std::thread xaxis([&](){build_solve_direction(false, (iter == 0) ? -1 : iter);});
-                    std::thread yaxis([&](){build_solve_direction(true, (iter == 0) ? -1 : iter);});
+                    build_solve_direction(true, (iter == 0) ? -1 : iter);
                     xaxis.join();
-                    yaxis.join();
                 }
                 auto solve_endt = std::chrono::high_resolution_clock::now();
                 solve_time += std::chrono::duration<double>(solve_endt - solve_startt).count();
@@ -210,6 +219,8 @@ class HeAPPlacer
 
                 legal_hpwl = total_hpwl();
                 log_info("Legalised HPWL = %d (%s)\n", int(legal_hpwl), valid ? "valid" : "invalid");
+                auto run_stopt = std::chrono::high_resolution_clock::now();
+                log_info("    %s runtime: %.02fs\n",(run.size() > 1 ? "ALL" : run.begin()->c_str(ctx)), std::chrono::duration<double>(run_stopt - run_startt).count());
 
             }
 
@@ -473,7 +484,7 @@ class HeAPPlacer
                     cell_locs[cell.first].locked = false;
                     cell_locs[cell.first].global = ctx->getBelGlobalBuf(bel);
                     // FIXME
-                    if (has_connectivity(cell.second) && cell.second->type != ctx->id("SB_IO")) {
+                    if (has_connectivity(cell.second) && cell.second->type != ctx->id("SB_IO")&& cell.second->type != ctx->id("TRELLIS_IO")) {
                         place_cells.push_back(ci);
                         placed = true;
                     } else {
@@ -617,7 +628,7 @@ class HeAPPlacer
                     if (user_idx != -1 && net_crit.count(ni->name)) {
                         auto &nc = net_crit.at(ni->name);
                         if (user_idx < int(nc.criticality.size()))
-                            weight *= (1.0 + 20 * std::pow(nc.criticality.at(user_idx), 2));
+                            weight *= (1.0 + 10 * std::pow(nc.criticality.at(user_idx), 2));
                     }
 
                     // If cell 0 is not fixed, it will stamp +w on its equation and -w on the other end's equation,
@@ -632,7 +643,7 @@ class HeAPPlacer
             });
         }
         if (iter != -1) {
-            const float alpha = 0.2;
+            const float alpha = 0.1;
             for (size_t row = 0; row < solve_cells.size(); row++) {
                 int l_pos = legal_pos(solve_cells.at(row));
                 int c_pos = cell_pos(solve_cells.at(row));
