@@ -39,6 +39,7 @@
 #include "placer_math.h"
 #include "placer1.h"
 #include "util.h"
+#include "timing.h"
 NEXTPNR_NAMESPACE_BEGIN
 
 namespace {
@@ -187,6 +188,10 @@ class HeAPPlacer
 
             legal_hpwl = total_hpwl();
             log_info("Legalised HPWL = %d (%s)\n", int(legal_hpwl), valid ? "valid" : "invalid");
+
+            if (ctx->timing_driven)
+                get_criticalities(ctx, &net_crit);
+
             if (legal_hpwl < best_hpwl) {
                 best_hpwl = legal_hpwl;
                 stalled = 0;
@@ -277,6 +282,8 @@ class HeAPPlacer
 
     // Performance counting
     double solve_time = 0, cl_time = 0, sl_time = 0;
+
+    NetCriticalityMap net_crit;
 
     // Place cells with the BEL attribute set to constrain them
     void place_constraints()
@@ -516,9 +523,9 @@ class HeAPPlacer
     template <typename Tf> void foreach_port(NetInfo *net, Tf func)
     {
         if (net->driver.cell != nullptr)
-            func(net->driver);
-        for (auto &user : net->users)
-            func(user);
+            func(net->driver, -1);
+        for (size_t i = 0; i < net->users.size(); i++)
+            func(net->users.at(i), i);
     }
 
     // Build the system of equations for either X or Y
@@ -541,7 +548,7 @@ class HeAPPlacer
             // Find the bounds of the net in this axis, and the ports that correspond to these bounds
             PortRef *lbport = nullptr, *ubport = nullptr;
             int lbpos = std::numeric_limits<int>::max(), ubpos = std::numeric_limits<int>::min();
-            foreach_port(ni, [&](PortRef &port) {
+            foreach_port(ni, [&](PortRef &port, int user_idx) {
                 int pos = cell_pos(port.cell);
                 if (pos < lbpos) {
                     lbpos = pos;
@@ -573,7 +580,7 @@ class HeAPPlacer
             };
 
             // Add all relevant connections to the matrix
-            foreach_port(ni, [&](PortRef &port) {
+            foreach_port(ni, [&](PortRef &port, int user_idx) {
                 int this_pos = cell_pos(port.cell);
                 auto process_arc = [&](PortRef *other) {
                     if (other == &port)
@@ -582,7 +589,12 @@ class HeAPPlacer
                     // if (o_pos == this_pos)
                     //    return; // FIXME: or clamp to 1?
                     double weight = 1.0 / (ni->users.size() * std::max<double>(1, std::abs(o_pos - this_pos)));
-                    // FIXME: add criticality to weighting
+
+                    if (user_idx != -1 && net_crit.count(ni->name)) {
+                        auto &nc = net_crit.at(ni->name);
+                        if (user_idx < int(nc.criticality.size()))
+                            weight *= (1.0 + 20 * std::pow(nc.criticality.at(user_idx), 2));
+                    }
 
                     // If cell 0 is not fixed, it will stamp +w on its equation and -w on the other end's equation,
                     // if the other end isn't fixed
