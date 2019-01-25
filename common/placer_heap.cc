@@ -134,10 +134,11 @@ class HeAPPlacer
         log_info("Initial placer starting hpwl = %d\n", int(hpwl));
         for (int i = 0; i < 4; i++) {
             setup_solve_cells();
-
+            auto solve_startt = std::chrono::high_resolution_clock::now();
             std::thread xaxis([&](){build_solve_direction(false, -1);});
             std::thread yaxis([&](){build_solve_direction(true, -1);});
-
+            auto solve_endt = std::chrono::high_resolution_clock::now();
+            solve_time += std::chrono::duration<double>(solve_endt - solve_startt).count();
             xaxis.join();
             yaxis.join();
 
@@ -158,36 +159,59 @@ class HeAPPlacer
 
         std::vector<std::tuple<CellInfo*, BelId, PlaceStrength>> solution;
 
+        std::vector<std::unordered_set<IdString>> heap_runs;
+        std::unordered_set<IdString> all_celltypes;
+
+        for (auto cell : place_cells) {
+            if (!all_celltypes.count(cell->type)) {
+                heap_runs.push_back(std::unordered_set<IdString>{cell->type});
+                all_celltypes.insert(cell->type);
+            }
+        }
+        heap_runs.push_back(all_celltypes);
+
         while (!valid || (stalled < 5 && (solved_hpwl <= legal_hpwl * 0.8))) {
             if (!valid && ((solved_hpwl > legal_hpwl * 0.8) || (stalled > 5))) {
                 stalled = 0;
                 best_hpwl = std::numeric_limits<wirelen_t>::max();
                 valid = true;
             }
-            setup_solve_cells();
+            for (auto &run : heap_runs) {
+                setup_solve_cells(&run);
+                if (solve_cells.empty())
+                    continue;
+                // Heuristic: don't bother with threading below a certain size
+                auto solve_startt = std::chrono::high_resolution_clock::now();
 
-            std::thread xaxis([&](){build_solve_direction(false, (iter == 0) ? -1 : iter);});
-            std::thread yaxis([&](){build_solve_direction(true, (iter == 0) ? -1 : iter);});
+                if (solve_cells.size() < 500) {
+                    build_solve_direction(false, (iter == 0) ? -1 : iter);
+                    build_solve_direction(true, (iter == 0) ? -1 : iter);
+                } else {
+                    std::thread xaxis([&](){build_solve_direction(false, (iter == 0) ? -1 : iter);});
+                    std::thread yaxis([&](){build_solve_direction(true, (iter == 0) ? -1 : iter);});
+                    xaxis.join();
+                    yaxis.join();
+                }
+                auto solve_endt = std::chrono::high_resolution_clock::now();
+                solve_time += std::chrono::duration<double>(solve_endt - solve_startt).count();
+                update_all_chains();
+                solved_hpwl = total_hpwl();
+                log_info("Solved HPWL = %d\n", int(solved_hpwl));
 
-            xaxis.join();
-            yaxis.join();
+                update_all_chains();
+                for (auto type : sorted(run))
+                    CutLegaliser(this, type).run();
 
-            update_all_chains();
-            solved_hpwl = total_hpwl();
-            log_info("Solved HPWL = %d\n", int(solved_hpwl));
+                update_all_chains();
+                legal_hpwl = total_hpwl();
+                log_info("Spread HPWL = %d\n", int(legal_hpwl));
+                legalise_placement_simple(valid);
+                update_all_chains();
 
-            update_all_chains();
-            CutLegaliser(this, ctx->id("ICESTORM_LC")).run();
-            CutLegaliser(this, ctx->id("ICESTORM_RAM")).run();
+                legal_hpwl = total_hpwl();
+                log_info("Legalised HPWL = %d (%s)\n", int(legal_hpwl), valid ? "valid" : "invalid");
 
-            update_all_chains();
-            legal_hpwl = total_hpwl();
-            log_info("Spread HPWL = %d\n", int(legal_hpwl));
-            legalise_placement_simple(valid);
-            update_all_chains();
-
-            legal_hpwl = total_hpwl();
-            log_info("Legalised HPWL = %d (%s)\n", int(legal_hpwl), valid ? "valid" : "invalid");
+            }
 
             if (ctx->timing_driven)
                 get_criticalities(ctx, &net_crit);
@@ -624,7 +648,6 @@ class HeAPPlacer
     // Build the system of equations for either X or Y
     void solve_equations(EquationSystem<double> &es, bool yaxis)
     {
-        auto startt = std::chrono::high_resolution_clock::now();
         // Return the x or y position of a cell, depending on ydir
         auto cell_pos = [&](CellInfo *cell) { return yaxis ? cell_locs.at(cell->name).y : cell_locs.at(cell->name).x; };
         std::vector<double> vals;
@@ -638,8 +661,6 @@ class HeAPPlacer
                 cell_locs.at(solve_cells.at(i)->name).rawx = vals.at(i);
                 cell_locs.at(solve_cells.at(i)->name).x = std::min(max_x, std::max(0, int(vals.at(i))));
             }
-        auto endt = std::chrono::high_resolution_clock::now();
-        solve_time += std::chrono::duration<double>(endt - startt).count();
     }
 
     // Compute HPWL
@@ -1111,9 +1132,14 @@ class HeAPPlacer
                         if (!reg.overused())
                             break;
                     }
-                    if (!changed)
-                        log_error("Failed to expand region (%d, %d) |_> (%d, %d) of %d %ss\n", reg.x0, reg.y0, reg.x1,
-                                  reg.y1, reg.cells, beltype.c_str(ctx));
+                    if (!changed) {
+                        if (reg.cells > reg.bels)
+                            log_error("Failed to expand region (%d, %d) |_> (%d, %d) of %d %ss\n", reg.x0, reg.y0, reg.x1,
+                                      reg.y1, reg.cells, beltype.c_str(ctx));
+                        else
+                            break;
+                    }
+
                 }
             }
         }

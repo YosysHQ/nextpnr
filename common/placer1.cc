@@ -259,7 +259,7 @@ class SAPlacer
         wirelen_t min_wirelen = curr_wirelen_cost;
 
         int n_no_progress = 0;
-        temp = refine ? 1e-8 : cfg.startTemp;
+        temp = refine ? 1e-7 : cfg.startTemp;
 
         // Main simulated annealing loop
         for (int iter = 1;; iter++) {

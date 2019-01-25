@@ -4,7 +4,7 @@
 #include <assert.h>
 
 void taucif_init_solver() {
-    taucs_logfile("stdout");
+    //taucs_logfile("stdout");
 }
 
 struct taucif_system {
@@ -39,7 +39,7 @@ void taucif_finalise_matrix(struct taucif_system *sys) {
 
 int taucif_solve_system(struct taucif_system *sys, double *x, double *rhs) {
     // FIXME: preconditioner, droptol??
-    taucs_ccs_matrix* precond_mat = taucs_ccs_factor_llt(sys->mat, 1e-3, 0);
+    taucs_ccs_matrix* precond_mat = taucs_ccs_factor_llt(sys->mat, 1e-2, 0);
     if (precond_mat == NULL)
         return -1;
     // FIXME: itermax, convergetol
