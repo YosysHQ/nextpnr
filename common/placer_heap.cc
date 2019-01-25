@@ -32,6 +32,7 @@
 #include <fstream>
 #include <chrono>
 #include <tuple>
+#include <thread>
 #include "log.h"
 #include "nextpnr.h"
 #include "place_common.h"
@@ -130,18 +131,15 @@ class HeAPPlacer
         update_all_chains();
         wirelen_t hpwl = total_hpwl();
         log_info("Initial placer starting hpwl = %d\n", int(hpwl));
-        for (int i = 0; i < 20; i++) {
+        for (int i = 0; i < 4; i++) {
             setup_solve_cells();
 
-            EquationSystem<double> esx(solve_cells.size(), solve_cells.size());
-            build_equations(esx, false);
-            // log_info("x-axis\n");
-            solve_equations(esx, false);
+            std::thread xaxis([&](){build_solve_direction(false, -1);});
+            std::thread yaxis([&](){build_solve_direction(true, -1);});
 
-            EquationSystem<double> esy(solve_cells.size(), solve_cells.size());
-            build_equations(esy, true);
-            // log_info("y-axis\n");
-            solve_equations(esy, true);
+            xaxis.join();
+            yaxis.join();
+
 
             update_all_chains();
 
@@ -165,26 +163,16 @@ class HeAPPlacer
                 best_hpwl = std::numeric_limits<wirelen_t>::max();
                 valid = true;
             }
+            setup_solve_cells();
 
-            for (int i = 0; i < 5; i++) {
-                setup_solve_cells();
+            std::thread xaxis([&](){build_solve_direction(false, (iter == 0) ? -1 : iter);});
+            std::thread yaxis([&](){build_solve_direction(true, (iter == 0) ? -1 : iter);});
 
-                EquationSystem<double> esx(solve_cells.size(), solve_cells.size());
-                build_equations(esx, false, (iter == 0) ? -1 : iter);
-                // log_info("x-axis\n");
-                solve_equations(esx, false);
+            xaxis.join();
+            yaxis.join();
 
-                EquationSystem<double> esy(solve_cells.size(), solve_cells.size());
-                build_equations(esy, true, (iter == 0) ? -1 : iter);
-                // log_info("y-axis\n");
-                solve_equations(esy, true);
-
-                update_all_chains();
-
-                solved_hpwl = total_hpwl();
-                log_info("Initial placer iter %d, hpwl = %d\n", i, int(solved_hpwl));
-            }
-
+            update_all_chains();
+            solved_hpwl = total_hpwl();
             log_info("Solved HPWL = %d\n", int(solved_hpwl));
 
             update_all_chains();
@@ -397,6 +385,15 @@ class HeAPPlacer
         }
     }
 
+    // Build and solve in one direction
+    void build_solve_direction(bool yaxis, int iter) {
+        for (int i = 0; i < 5; i++) {
+            EquationSystem<double> esx(solve_cells.size(), solve_cells.size());
+            build_equations(esx, yaxis, iter);
+            solve_equations(esx, yaxis);
+        }
+    }
+
     // Check if a cell has any meaningful connectivity
     bool has_connectivity(CellInfo *cell)
     {
@@ -599,7 +596,7 @@ class HeAPPlacer
             });
         }
         if (iter != -1) {
-            const float alpha = 0.3;
+            const float alpha = 0.2;
             for (size_t row = 0; row < solve_cells.size(); row++) {
                 int l_pos = legal_pos(solve_cells.at(row));
                 int c_pos = cell_pos(solve_cells.at(row));
