@@ -749,16 +749,23 @@ class HeAPPlacer
             auto &fb = fast_bels.at(bt);
             int radius = 0;
             int iter = 0;
+            int iter_at_radius = 0;
             bool placed = false;
+            BelId bestBel;
+            int best_inp_len = std::numeric_limits<int>::max();
+
             while (!placed) {
 
                 int nx = ctx->rng(2 * radius + 1) + std::max(cell_locs.at(ci->name).x - radius, 0);
                 int ny = ctx->rng(2 * radius + 1) + std::max(cell_locs.at(ci->name).y - radius, 0);
 
                 iter++;
-                if ((iter % (20 * (radius + 1))) == 0)
+                iter_at_radius++;
+                if (iter >= (10 * (radius + 1))) {
                     radius = std::min(std::max(max_x, max_y), radius + 1);
-
+                    iter_at_radius = 0;
+                    iter = 0;
+                }
                 if (nx < 0 || nx > max_x)
                     continue;
                 if (ny < 0 || ny > max_y)
@@ -774,22 +781,61 @@ class HeAPPlacer
                 if (fb.at(nx).at(ny).empty())
                     continue;
 
+                int need_to_explore = 2 * radius;
+
+                if (iter_at_radius >= need_to_explore && bestBel != BelId()) {
+                    CellInfo *bound = ctx->getBoundBelCell(bestBel);
+                    if (bound != nullptr) {
+                        ctx->unbindBel(bound->bel);
+                        remaining.emplace(chain_size[bound->name], bound->name);
+                    }
+                    ctx->bindBel(bestBel, ci, STRENGTH_WEAK);
+                    placed = true;
+                    Loc loc = ctx->getBelLocation(bestBel);
+                    cell_locs[ci->name].x = loc.x;
+                    cell_locs[ci->name].y = loc.y;
+                    break;
+                }
+
                 if (ci->constr_children.empty()) {
                     for (auto sz : fb.at(nx).at(ny)) {
-                        if (ctx->checkBelAvail(sz) || radius > 1) {
+                        if (ctx->checkBelAvail(sz) || radius > 2) {
                             CellInfo *bound = ctx->getBoundBelCell(sz);
                             if (bound != nullptr) {
                                 if (bound->constr_parent != nullptr || !bound->constr_children.empty())
                                     continue;
                                 ctx->unbindBel(bound->bel);
-                                remaining.emplace(chain_size[bound->name], bound->name);
                             }
                             ctx->bindBel(sz, ci, STRENGTH_WEAK);
                             if (require_validity && !ctx->isBelLocationValid(sz)) {
                                 ctx->unbindBel(sz);
                                 if (bound != nullptr)
                                     ctx->bindBel(sz, bound, STRENGTH_WEAK);
+                            } else if (iter_at_radius < need_to_explore) {
+                                ctx->unbindBel(sz);
+                                if (bound != nullptr)
+                                    ctx->bindBel(sz, bound, STRENGTH_WEAK);
+                                int input_len = 0;
+                                for (auto &port : ci->ports) {
+                                    auto &p = port.second;
+                                    if (p.type != PORT_IN || p.net == nullptr || p.net->driver.cell == nullptr)
+                                        continue;
+                                    CellInfo *drv = p.net->driver.cell;
+                                    auto drv_loc = cell_locs.find(drv->name);
+                                    if (drv_loc == cell_locs.end())
+                                        continue;
+                                    if (drv_loc->second.global)
+                                        continue;
+                                    input_len += std::abs(drv_loc->second.x - nx) + std::abs(drv_loc->second.y - ny);
+                                }
+                                if (input_len < best_inp_len) {
+                                    best_inp_len = input_len;
+                                    bestBel = sz;
+                                }
+                                break;
                             } else {
+                                if (bound != nullptr)
+                                    remaining.emplace(chain_size[bound->name], bound->name);
                                 Loc loc = ctx->getBelLocation(sz);
                                 cell_locs[ci->name].x = loc.x;
                                 cell_locs[ci->name].y = loc.y;
@@ -802,6 +848,7 @@ class HeAPPlacer
                     // FIXME
                     NPNR_ASSERT(false);
                 }
+
             }
         }
         auto endt = std::chrono::high_resolution_clock::now();
@@ -843,6 +890,13 @@ class HeAPPlacer
             auto startt = std::chrono::high_resolution_clock::now();
             init();
             find_overused_regions();
+            for (auto &r : regions) {
+                if (merged_regions.count(r.id))
+                    continue;
+                log_info("%s (%d, %d) |_> (%d, %d) %d/%d\n", beltype.c_str(ctx), r.x0, r.y0, r.x1, r.y1, r.cells,
+                         r.bels);
+            }
+            log_break();
             expand_regions();
             std::queue<std::pair<int, bool>> workqueue;
             std::vector<std::pair<double, double>> orig;
@@ -1298,7 +1352,7 @@ class HeAPPlacer
                 }
                 // Split region into up to 10 (K) bins
                 int K = std::min<int>(N, 10);
-                std::vector<std::pair<int, double>> bin_bounds; // [start, end]
+                std::vector<std::pair<int, double>> bin_bounds; // [(cell start, area start)]
                 bin_bounds.emplace_back(cells_start, area_l);
                 for (int i = 1; i < K; i++)
                     bin_bounds.emplace_back(cells_start + (N * i) / K,
@@ -1313,12 +1367,14 @@ class HeAPPlacer
                                            : p->cell_locs.at(cut_cells.at(bl.first)->name).rawx;
                     double orig_right = dir ? p->cell_locs.at(cut_cells.at(br.first - 1)->name).rawy
                                             : p->cell_locs.at(cut_cells.at(br.first - 1)->name).rawx;
-                    double m = (br.second - bl.second) / (1 + orig_right - orig_left);
+                    double m = (br.second - bl.second) / std::max(0.00001, orig_right - orig_left);
                     for (int j = bl.first; j < br.first; j++) {
                         auto &pos = dir ? p->cell_locs.at(cut_cells.at(j)->name).rawy
                                         : p->cell_locs.at(cut_cells.at(j)->name).rawx;
+                        double orig_pos = pos;
                         NPNR_ASSERT(pos >= orig_left && pos <= orig_right);
                         pos = bl.second + m * (pos - orig_left);
+                        //log("[%f, %f] -> [%f, %f]: %f -> %f\n", orig_left, orig_right, bl.second, br.second, orig_pos, pos);
                     }
                 }
             };
