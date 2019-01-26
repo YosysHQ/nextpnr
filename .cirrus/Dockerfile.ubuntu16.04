@@ -8,7 +8,7 @@ RUN set -e -x ;\
     apt-get -y install \
         build-essential autoconf cmake clang bison wget flex gperf \
         libreadline-dev gawk tcl-dev libffi-dev graphviz xdot python3-dev \
-        libboost-all-dev qt5-default git libftdi-dev pkg-config
+        libboost-all-dev qt5-default git libftdi-dev pkg-config libopenblas-dev
 
 RUN set -e -x ;\
     mkdir -p /usr/local/src ;\
