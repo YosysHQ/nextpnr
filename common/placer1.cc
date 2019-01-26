@@ -183,8 +183,9 @@ class SAPlacer
 
                     auto bound_cell = ctx->getBoundBelCell(bel);
                     if (bound_cell) {
-                        log_error("Cell \'%s\' cannot be bound to bel \'%s\' since it is already bound to cell \'%s\'\n",
-                                  cell->name.c_str(ctx), loc_name.c_str(), bound_cell->name.c_str(ctx));
+                        log_error(
+                                "Cell \'%s\' cannot be bound to bel \'%s\' since it is already bound to cell \'%s\'\n",
+                                cell->name.c_str(ctx), loc_name.c_str(), bound_cell->name.c_str(ctx));
                     }
 
                     ctx->bindBel(bel, cell, STRENGTH_USER);
@@ -197,7 +198,6 @@ class SAPlacer
             ctx->yield();
 
             // Sort to-place cells for deterministic initial placement
-
 
             for (auto &cell : ctx->cells) {
                 CellInfo *ci = cell.second.get();
@@ -225,7 +225,8 @@ class SAPlacer
                 assign_budget(ctx);
             ctx->yield();
             auto iplace_end = std::chrono::high_resolution_clock::now();
-            log_info("Initial placement time %.02fs\n", std::chrono::duration<float>(iplace_end - iplace_start).count());
+            log_info("Initial placement time %.02fs\n",
+                     std::chrono::duration<float>(iplace_end - iplace_start).count());
             log_info("Running simulated annealing placer.\n");
         } else {
             for (auto &cell : ctx->cells) {
@@ -951,7 +952,8 @@ bool placer1(Context *ctx, Placer1Cfg cfg)
     }
 }
 
-bool placer1_refine(Context *ctx, Placer1Cfg cfg) {
+bool placer1_refine(Context *ctx, Placer1Cfg cfg)
+{
     try {
         SAPlacer placer(ctx, cfg);
         placer.place(true);
@@ -969,6 +971,5 @@ bool placer1_refine(Context *ctx, Placer1Cfg cfg) {
         return false;
     }
 }
-
 
 NEXTPNR_NAMESPACE_END

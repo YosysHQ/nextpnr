@@ -23,12 +23,12 @@
 #include <boost/range/adaptor/reversed.hpp>
 #include <cmath>
 #include <cstring>
-#include "placer_heap.h"
 #include "gfx.h"
 #include "globals.h"
 #include "log.h"
 #include "nextpnr.h"
 #include "placer1.h"
+#include "placer_heap.h"
 #include "router1.h"
 #include "timing.h"
 #include "util.h"
