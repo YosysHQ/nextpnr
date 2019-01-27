@@ -867,6 +867,17 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
 
 bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const
 {
+    if (cell->type == id_ICESTORM_LC && cell->lcInfo.dffEnable) {
+        if (toPort == id_O)
+            return false;
+    } else if (cell->type == id_ICESTORM_RAM || cell->type == id_ICESTORM_SPRAM) {
+        return false;
+    }
+    return getCellDelayInternal(cell, fromPort, toPort, delay);
+}
+
+bool Arch::getCellDelayInternal(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const
+{
     for (int i = 0; i < chip_info->num_timing_cells; i++) {
         const auto &tc = chip_info->cell_timing[i];
         if (tc.type == cell->type.index) {
@@ -965,7 +976,7 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
 
         return TMG_IGNORE;
     } else if (cell->type == id_ICESTORM_PLL) {
-        if (port == id_PLLOUT_A || port == id_PLLOUT_B)
+        if (port == id_PLLOUT_A || port == id_PLLOUT_B || port == id_PLLOUT_A_GLOBAL || port == id_PLLOUT_B_GLOBAL)
             return TMG_GEN_CLOCK;
         return TMG_IGNORE;
     } else if (cell->type == id_ICESTORM_LFOSC) {
@@ -1001,10 +1012,23 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
         info.clock_port = id_CLK;
         info.edge = cell->lcInfo.negClk ? FALLING_EDGE : RISING_EDGE;
         if (port == id_O) {
-            bool has_clktoq = getCellDelay(cell, id_CLK, id_O, info.clockToQ);
+            bool has_clktoq = getCellDelayInternal(cell, id_CLK, id_O, info.clockToQ);
             NPNR_ASSERT(has_clktoq);
         } else {
-            info.setup.delay = 100;
+            if (port == id_I0 || port == id_I1 || port == id_I2 || port == id_I3) {
+                DelayInfo dlut;
+                bool has_ld = getCellDelayInternal(cell, port, id_O, dlut);
+                NPNR_ASSERT(has_ld);
+                if (args.type == ArchArgs::LP1K || args.type == ArchArgs::LP8K || args.type == ArchArgs::LP384) {
+                    info.setup.delay = 30 + dlut.delay;
+                } else if (args.type == ArchArgs::UP5K) {
+                    info.setup.delay = dlut.delay - 50;
+                } else {
+                    info.setup.delay = 20 + dlut.delay;
+                }
+            } else {
+                info.setup.delay = 100;
+            }
             info.hold.delay = 0;
         }
     } else if (cell->type == id_ICESTORM_RAM) {
@@ -1016,7 +1040,7 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
             info.edge = bool_or_default(cell->params, id("NEG_CLK_W")) ? FALLING_EDGE : RISING_EDGE;
         }
         if (cell->ports.at(port).type == PORT_OUT) {
-            bool has_clktoq = getCellDelay(cell, info.clock_port, port, info.clockToQ);
+            bool has_clktoq = getCellDelayInternal(cell, info.clock_port, port, info.clockToQ);
             NPNR_ASSERT(has_clktoq);
         } else {
             info.setup.delay = 100;
@@ -1061,7 +1085,7 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
         info.clock_port = cell->type == id_ICESTORM_SPRAM ? id_CLOCK : id_CLK;
         info.edge = RISING_EDGE;
         if (cell->ports.at(port).type == PORT_OUT) {
-            bool has_clktoq = getCellDelay(cell, info.clock_port, port, info.clockToQ);
+            bool has_clktoq = getCellDelayInternal(cell, info.clock_port, port, info.clockToQ);
             if (!has_clktoq)
                 info.clockToQ.delay = 100;
         } else {

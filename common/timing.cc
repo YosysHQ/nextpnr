@@ -267,8 +267,7 @@ struct Timing
                     auto net_delay = net_delays ? ctx->getNetinfoRouteDelay(net, usr) : delay_t();
                     auto usr_arrival = net_arrival + net_delay;
 
-                    if (portClass == TMG_REGISTER_INPUT || portClass == TMG_ENDPOINT || portClass == TMG_IGNORE ||
-                        portClass == TMG_CLOCK_INPUT) {
+                    if (portClass == TMG_ENDPOINT || portClass == TMG_IGNORE || portClass == TMG_CLOCK_INPUT) {
                         // Skip
                     } else {
                         auto budget_override = ctx->getBudgetOverride(net, usr, net_delay);
