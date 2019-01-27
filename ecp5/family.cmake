@@ -2,11 +2,11 @@
 set(devices 25k 45k 85k)
 
 if (NOT DEFINED TRELLIS_ROOT)
-    message(FATAL_ERROR "you must define TRELLIS_ROOT using -DTRELLIS_ROOT=/path/to/prjtrellis for ECP5 support")
+    message(STATUS "TRELLIS_ROOT not defined using -DTRELLIS_ROOT=/path/to/prjtrellis. Default to /usr/local/share/trellis")
+    set(TRELLIS_ROOT "/usr/local/share/trellis")
 endif()
 
-
-file( GLOB found_pytrellis ${TRELLIS_ROOT}/libtrellis/pytrellis.*)
+file(GLOB found_pytrellis ${TRELLIS_ROOT}/libtrellis/pytrellis.*)
 
 if ("${found_pytrellis}" STREQUAL "")
     message(FATAL_ERROR "failed to find pytrellis library in ${TRELLIS_ROOT}/libtrellis/")
@@ -19,7 +19,7 @@ add_library(ecp5_chipdb OBJECT ecp5/chipdbs/)
 target_compile_definitions(ecp5_chipdb PRIVATE NEXTPNR_NAMESPACE=nextpnr_${family})
 target_include_directories(ecp5_chipdb PRIVATE ${family}/)
 
-if (WIN32)
+if (CMAKE_HOST_WIN32)
 set(ENV_CMD ${CMAKE_COMMAND} -E env "PYTHONPATH=\"${TRELLIS_ROOT}/libtrellis\;${TRELLIS_ROOT}/util/common\;${TRELLIS_ROOT}/timing/util\"")
 else()
 set(ENV_CMD ${CMAKE_COMMAND} -E env "PYTHONPATH=${TRELLIS_ROOT}/libtrellis:${TRELLIS_ROOT}/util/common:${TRELLIS_ROOT}/timing/util")
