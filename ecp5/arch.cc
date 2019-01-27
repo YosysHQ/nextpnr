@@ -768,6 +768,13 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
     return info;
 }
 
+bool Arch::isGlobalNet(const NetInfo *net) const
+{
+    if (net == nullptr)
+        return false;
+    return net->driver.cell != nullptr && net->driver.port == id_CLKO;
+}
+
 std::vector<std::pair<std::string, std::string>> Arch::getTilesAtLocation(int row, int col)
 {
     std::vector<std::pair<std::string, std::string>> ret;

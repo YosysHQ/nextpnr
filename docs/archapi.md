@@ -433,7 +433,7 @@ Run the placer.
 
 ### bool route()
 
-run the router.
+Run the router.
 
 Graphics Methods
 ----------------
@@ -481,6 +481,13 @@ Return the _clocking info_ (including port name of clock, clock polarity and set
 port. Where ports have more than one clock edge associated with them (such as DDR outputs), `index` can be used to obtain
 information for all edges. `index` must be in [0, clockInfoCount), behaviour is undefined otherwise.
 
+Net Methods
+------------------
+
+### bool isGlobalNet(const NetInfo *net) const
+
+Returns true if the given net is driven by a global buffer.
+
 Placer Methods
 --------------
 
@@ -492,5 +499,5 @@ a certain number of different clock signals allowed for a group of bels.
 
 ### bool isBelLocationValid(BelId bel) const
 
-Returns true if a bell in the current configuration is valid, i.e. if
+Returns true if a bel in the current configuration is valid, i.e. if
 `isValidBelForCell()` would return true for the current mapping.

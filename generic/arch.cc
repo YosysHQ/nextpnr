@@ -474,6 +474,11 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
     NPNR_ASSERT_FALSE("no clocking info for generic");
 }
 
+bool Arch::isGlobalNet(const NetInfo *net) const
+{
+    return false;
+}
+
 bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const { return true; }
 bool Arch::isBelLocationValid(BelId bel) const { return true; }
 

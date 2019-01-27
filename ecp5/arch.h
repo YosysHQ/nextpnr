@@ -955,7 +955,7 @@ struct Arch : BaseCtx
     TimingPortClass getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const;
     // Get the TimingClockingInfo of a port
     TimingClockingInfo getPortClockingInfo(const CellInfo *cell, IdString port, int index) const;
-    // Return true if a port is a net
+    // Return true if net is driven from global buffer
     bool isGlobalNet(const NetInfo *net) const;
 
     bool getDelayFromTimingDatabase(IdString tctype, IdString from, IdString to, DelayInfo &delay) const;

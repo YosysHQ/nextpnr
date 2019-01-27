@@ -238,6 +238,8 @@ struct Arch : BaseCtx
     TimingPortClass getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const;
     // Get the TimingClockingInfo of a port
     TimingClockingInfo getPortClockingInfo(const CellInfo *cell, IdString port, int index) const;
+    // Return true if net is driven from global buffer
+    bool isGlobalNet(const NetInfo *net) const;
 
     bool isValidBelForCell(CellInfo *cell, BelId bel) const;
     bool isBelLocationValid(BelId bel) const;
