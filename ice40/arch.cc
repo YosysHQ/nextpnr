@@ -621,6 +621,29 @@ bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay
             }
         }
         return true;
+    } else if (driver.port == id_COUT && sink.port == id_I3) {
+        bool same_y = driver.cell->constr_abs_z && driver.cell->constr_z < 7;
+        switch (args.type) {
+#ifndef ICE40_HX1K_ONLY
+        case ArchArgs::HX8K:
+#endif
+        case ArchArgs::HX1K:
+            budget = same_y ? 260 : 560;
+            break;
+#ifndef ICE40_HX1K_ONLY
+        case ArchArgs::LP384:
+        case ArchArgs::LP1K:
+        case ArchArgs::LP8K:
+            budget = same_y ? 380 : 670;
+            break;
+        case ArchArgs::UP5K:
+            budget = same_y ? 660 : 1220;
+            break;
+#endif
+        default:
+            log_error("Unsupported iCE40 chip type.\n");
+        }
+        return true;
     }
     return false;
 }
