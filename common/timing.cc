@@ -642,7 +642,14 @@ struct Timing
             log_info("Writing timing.dot\n");
             std::ofstream f("timing.dot");
             f << "digraph T {" << std::endl;
-            f << "\tlabel=\"clk_period=" << clk_period << "\";" << std::endl;
+            f << "\tlabel=<<font point-size=\"32\">clk_period=" << clk_period << "</font>"
+              << "<font point-size=\"24\"><i>"
+              << "<br/><b>Nodes</b>  represent ports, clustered by their cells, and annotated with max arrival times."
+              << "<br/><b>Filled nodes</b>  represent timing start points (i.e. flip-flops)."
+              << "<br/><b>Solid edges</b>  represent inter-cell delays (i.e. nets) and are annotated with net name at its center, as well as net delay/budget at its head."
+              << "<br/><b>Dotted edges</b>  represent intra-cell delays and are annotated with this value."
+              << "</i></font>>;"
+              << std::endl;
             f << "\tlabelloc=t;" << std::endl;
             // Use the new ranking algorithm in dot to allow ranking of nodes across clusters
             f << "\tnewrank=true;" << std::endl;
@@ -699,9 +706,9 @@ struct Timing
                         output_ports.push_back(port.first);
                         // Label port
                         f << "\t\t" << "\"" << cell.second->name.str(ctx) << "." << port.first.str(ctx) << "\" [label = \"" << port.first.str(ctx);
-                        for (const auto &i : net_data.at(port.second.net)) {
+                        // A:d for each clock event, label node with event as well as max arrival time
+                        for (const auto &i : net_data.at(port.second.net))
                             f << "\\n" << (i.first.edge == RISING_EDGE ? "posedge" : "negedge") << " " << i.first.clock.str(ctx) << " @ " << i.second.max_arrival;
-                        }
                         f << "\"";
                         // IOB outputs are startpoints
                         if (ctx->getBelIOB(cell.second->bel))
