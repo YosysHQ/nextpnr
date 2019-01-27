@@ -639,18 +639,20 @@ struct Timing
         }
 
         if (ctx->debug) {
+            log_info("Writing timing.dot\n");
             std::ofstream f("timing.dot");
             f << "digraph T {" << std::endl;
             f << "\tlabel=\"clk_period=" << clk_period << "\";" << std::endl;
             f << "\tlabelloc=t;" << std::endl;
+            f << "\tnewrank=true;" << std::endl;
             for (auto &net : ctx->nets) {
-                if (ctx->getBelGlobalBuf(net.second->driver.cell->bel))
+                if (ctx->isGlobalNet(net.second.get()))
                     continue;
                 for (auto &usr : net.second->users) {
-                    f << "\t\"" << net.second->driver.cell->name.str(ctx) << "." << net.second->driver.port.str(ctx) << "\" -> \"" << usr.cell->name.str(ctx) << "." << usr.port.str(ctx) << "\" [label=\"" << net.second->name.c_str(ctx) << "\"; headlabel=" << usr.budget << "];" << std::endl;
+                    f << "\t\"" << net.second->driver.cell->name.str(ctx) << "." << net.second->driver.port.str(ctx) << "\" -> \"" << usr.cell->name.str(ctx) << "." << usr.port.str(ctx) << "\" [label=\"" << net.second->name.c_str(ctx) << "\"; headlabel=\"" << ctx->getNetinfoRouteDelay(net.second.get(), usr) << "/" << usr.budget << "\"];" << std::endl;
+
                 }
             }
-
 
             std::vector<std::string> startpoints, endpoints;
             std::vector<IdString> input_ports, output_ports;
@@ -668,16 +670,31 @@ struct Timing
                     if (portClass == TMG_CLOCK_INPUT) continue;
                     if (port.second.type == PORT_IN) {
                         input_ports.push_back(port.first);
-                        if (portClass == TMG_REGISTER_INPUT || portClass == TMG_ENDPOINT)
+                        if (ctx->getBelIOB(cell.second->bel))
                             endpoints.emplace_back(cell.second->name.str(ctx) + "." + port.first.str(ctx));
-                        f << "\t\t" << "\"" << cell.second->name.str(ctx) << "." << port.first.str(ctx) << "\" [label = \"" << port.first.str(ctx) << "\"];" << std::endl;
+                        f << "\t\t" << "\"" << cell.second->name.str(ctx) << "." << port.first.str(ctx) << "\" [label = \"" << port.first.str(ctx);
+                        for (const auto &usr : port.second.net->users) {
+                            if (usr.cell != cell.second.get() || usr.port != port.first)
+                                continue;
+                            for (const auto &i : net_data.at(port.second.net))
+                                f << "\\n" << (i.first.edge == RISING_EDGE ? "posedge" : "negedge") << " " << i.first.clock.str(ctx) << " @ " << i.second.max_arrival + ctx->getNetinfoRouteDelay(port.second.net, usr);
+                            break;
+                        }
+                        f << "\"]" << std::endl;
                     }
                     else {
                         output_ports.push_back(port.first);
-                        f << "\t\t" << "\"" << cell.second->name.str(ctx) << "." << port.first.str(ctx) << "\" [label = \"" << port.first.str(ctx) << "\"";
-                        if (portClass == TMG_REGISTER_OUTPUT || portClass == TMG_STARTPOINT) {
+                        f << "\t\t" << "\"" << cell.second->name.str(ctx) << "." << port.first.str(ctx) << "\" [label = \"" << port.first.str(ctx);
+                        for (const auto &i : net_data.at(port.second.net)) {
+                            f << "\\n" << (i.first.edge == RISING_EDGE ? "posedge" : "negedge") << " " << i.first.clock.str(ctx) << " @ " << i.second.max_arrival;
+                        }
+                        f << "\"";
+                        if (ctx->getBelIOB(cell.second->bel))
                             startpoints.emplace_back(cell.second->name.str(ctx) + "." + port.first.str(ctx));
+                        else if (portClass == TMG_REGISTER_OUTPUT || portClass == TMG_STARTPOINT) {
                             f << "; shape=parallelogram; style=filled";
+                            if (portClass == TMG_STARTPOINT)
+                                startpoints.emplace_back(cell.second->name.str(ctx) + "." + port.first.str(ctx));
                         }
                         f << "];" << std::endl;
                     }
@@ -697,21 +714,33 @@ struct Timing
                     for (auto o : output_ports) {
                         DelayInfo comb_delay;
                         bool is_path = ctx->getCellDelay(cell.second.get(), i, o, comb_delay);
-                        if (!is_path) continue;
-                        f << "\t\t" << "\"" << cell.second->name.str(ctx) << "." << i.str(ctx) << "\" -> \"" << cell.second->name.str(ctx) << "." << o.str(ctx) << "\" [style=dotted; label=" << comb_delay.maxDelay() << "];" << std::endl; 
+                        if (!is_path) {
+                            int port_clocks;
+                            auto portClass = ctx->getPortTimingClass(cell.second.get(), i, port_clocks);
+                            if (portClass == TMG_REGISTER_INPUT) {
+                                for (int j = 0; j < port_clocks; j++) {
+                                    TimingClockingInfo clkInfo = ctx->getPortClockingInfo(cell.second.get(), i, j);
+                                    f << "\t\t" << "\"" << cell.second->name.str(ctx) << "." << i.str(ctx) << "\" -> \"" << cell.second->name.str(ctx) << "." << o.str(ctx) << "\" [style=dotted; label=" << clkInfo.setup.maxDelay() << "];" << std::endl; 
+                                }
+                            }
+
+                        }
+                        else {
+                            f << "\t\t" << "\"" << cell.second->name.str(ctx) << "." << i.str(ctx) << "\" -> \"" << cell.second->name.str(ctx) << "." << o.str(ctx) << "\" [style=dotted; label=" << comb_delay.maxDelay() << "];" << std::endl; 
+                        }
                     }
                 }
                 f << "\t}" << std::endl;
             }
 
-            //f << "\t{rank=min";
-            //for (auto i : startpoints)
-            //    f << "; \"" << i << "\"";
-            //f << ";}" << std::endl;
-            //f << "\t{rank=max";
-            //for (auto o : endpoints)
-            //    f << "; \"" << o << "\"";
-            //f << ";}" << std::endl;
+            f << "\t{rank=min";
+            for (auto i : startpoints)
+                f << "; \"" << i << "\"";
+            f << ";}" << std::endl;
+            f << "\t{rank=max";
+            for (auto o : endpoints)
+                f << "; \"" << o << "\"";
+            f << ";}" << std::endl;
 
             f << "}" << std::endl;
         }
