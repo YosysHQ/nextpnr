@@ -644,8 +644,12 @@ struct Timing
             f << "digraph T {" << std::endl;
             f << "\tlabel=\"clk_period=" << clk_period << "\";" << std::endl;
             f << "\tlabelloc=t;" << std::endl;
+            // Use the new ranking algorithm in dot to allow ranking of nodes across clusters
             f << "\tnewrank=true;" << std::endl;
+
+            // For each net, draw an edge from driver -> user and label middle of edge with net name, and head of edge with delay/budget
             for (auto &net : ctx->nets) {
+                // For rendering speed, ignore global nets (e.g. clocks)
                 if (ctx->isGlobalNet(net.second.get()))
                     continue;
                 for (auto &usr : net.second->users) {
@@ -654,28 +658,37 @@ struct Timing
                 }
             }
 
+            // Keep track of IOBs, so they can be placed at top/bottom of graph
             std::vector<std::string> startpoints, endpoints;
+            // Temporary vector for each cell
             std::vector<IdString> input_ports, output_ports;
 
+            // Place all ports of cell in a subgraph/cluster with label
             for (auto &cell : ctx->cells) {
                 f << "\tsubgraph \"cluster_" << cell.second->name.str(ctx) << "\" {" << std::endl;
                 f << "\t\tlabel = \"" << cell.second->name.str(ctx) << "\";" << std::endl;
 
+                // Collect all input/output ports
                 input_ports.clear();
                 output_ports.clear();
                 for (auto &port : cell.second->ports) {
                     if (!port.second.net) continue;
                     int port_clocks;
                     auto portClass = ctx->getPortTimingClass(cell.second.get(), port.first, port_clocks);
+                    // For rendering speed, ignore clock inputs (since global nets are not drawn)
                     if (portClass == TMG_CLOCK_INPUT) continue;
                     if (port.second.type == PORT_IN) {
                         input_ports.push_back(port.first);
+                        // IOB inputs are endpoints
                         if (ctx->getBelIOB(cell.second->bel))
                             endpoints.emplace_back(cell.second->name.str(ctx) + "." + port.first.str(ctx));
+                        // Label port
                         f << "\t\t" << "\"" << cell.second->name.str(ctx) << "." << port.first.str(ctx) << "\" [label = \"" << port.first.str(ctx);
+                        // Recover the PortRef from its net
                         for (const auto &usr : port.second.net->users) {
                             if (usr.cell != cell.second.get() || usr.port != port.first)
                                 continue;
+                            // And for each clock event, label node with event as well as max arrival time
                             for (const auto &i : net_data.at(port.second.net))
                                 f << "\\n" << (i.first.edge == RISING_EDGE ? "posedge" : "negedge") << " " << i.first.clock.str(ctx) << " @ " << i.second.max_arrival + ctx->getNetinfoRouteDelay(port.second.net, usr);
                             break;
@@ -684,23 +697,26 @@ struct Timing
                     }
                     else {
                         output_ports.push_back(port.first);
+                        // Label port
                         f << "\t\t" << "\"" << cell.second->name.str(ctx) << "." << port.first.str(ctx) << "\" [label = \"" << port.first.str(ctx);
                         for (const auto &i : net_data.at(port.second.net)) {
                             f << "\\n" << (i.first.edge == RISING_EDGE ? "posedge" : "negedge") << " " << i.first.clock.str(ctx) << " @ " << i.second.max_arrival;
                         }
                         f << "\"";
+                        // IOB outputs are startpoints
                         if (ctx->getBelIOB(cell.second->bel))
                             startpoints.emplace_back(cell.second->name.str(ctx) + "." + port.first.str(ctx));
                         else if (portClass == TMG_REGISTER_OUTPUT || portClass == TMG_STARTPOINT) {
+                            // Otherwise, draw other timing points differently
                             f << "; shape=parallelogram; style=filled";
-                            if (portClass == TMG_STARTPOINT)
-                                startpoints.emplace_back(cell.second->name.str(ctx) + "." + port.first.str(ctx));
                         }
                         f << "];" << std::endl;
                     }
+                    // Place port inside subgraph
                     f << "\t\t" << "\"" << cell.second->name.str(ctx) << "." << port.first.str(ctx) << "\";" << std::endl;
                 }
 
+                // Mark all input ports of cells with minimum rank, to appear above all output ports
                 f << "\t\t{rank=min";
                 for (auto i : input_ports)
                     f << "; \"" << cell.second->name.str(ctx) << "." << i.str(ctx) << "\"";
@@ -710,11 +726,18 @@ struct Timing
                     f << "; \"" << cell.second->name.str(ctx) << "." << o.str(ctx) << "\"";
                 f << ";}" << std::endl;
 
+                // Now enumerate all input -> output ports
                 for (auto i : input_ports) {
                     for (auto o : output_ports) {
+                        // Look for combinatorial delay paths
                         DelayInfo comb_delay;
                         bool is_path = ctx->getCellDelay(cell.second.get(), i, o, comb_delay);
-                        if (!is_path) {
+                        if (is_path) {
+                            // And add an edge to reflect that, annotated with its delay
+                            f << "\t\t" << "\"" << cell.second->name.str(ctx) << "." << i.str(ctx) << "\" -> \"" << cell.second->name.str(ctx) << "." << o.str(ctx) << "\" [style=dotted; label=" << comb_delay.maxDelay() << "];" << std::endl; 
+                        }
+                        else {
+                            // Otherwise, look for setup time
                             int port_clocks;
                             auto portClass = ctx->getPortTimingClass(cell.second.get(), i, port_clocks);
                             if (portClass == TMG_REGISTER_INPUT) {
@@ -725,14 +748,12 @@ struct Timing
                             }
 
                         }
-                        else {
-                            f << "\t\t" << "\"" << cell.second->name.str(ctx) << "." << i.str(ctx) << "\" -> \"" << cell.second->name.str(ctx) << "." << o.str(ctx) << "\" [style=dotted; label=" << comb_delay.maxDelay() << "];" << std::endl; 
-                        }
                     }
                 }
                 f << "\t}" << std::endl;
             }
 
+            // Now force all start points to have minimum rank (i.e. appear at top of graph), and end points to have maximum rank
             f << "\t{rank=min";
             for (auto i : startpoints)
                 f << "; \"" << i << "\"";
