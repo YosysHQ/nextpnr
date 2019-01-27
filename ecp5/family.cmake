@@ -19,7 +19,7 @@ add_library(ecp5_chipdb OBJECT ecp5/chipdbs/)
 target_compile_definitions(ecp5_chipdb PRIVATE NEXTPNR_NAMESPACE=nextpnr_${family})
 target_include_directories(ecp5_chipdb PRIVATE ${family}/)
 
-if (WIN32)
+if (CMAKE_HOST_WIN32)
 set(ENV_CMD ${CMAKE_COMMAND} -E env "PYTHONPATH=\"${TRELLIS_ROOT}/libtrellis\;${TRELLIS_ROOT}/util/common\;${TRELLIS_ROOT}/timing/util\"")
 else()
 set(ENV_CMD ${CMAKE_COMMAND} -E env "PYTHONPATH=${TRELLIS_ROOT}/libtrellis:${TRELLIS_ROOT}/util/common:${TRELLIS_ROOT}/timing/util")
