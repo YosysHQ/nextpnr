@@ -115,6 +115,10 @@ Return a list of all bels at the give X/Y location.
 
 Returns true if the given bel is a global buffer. A global buffer does not "pull in" other cells it drives to be close to the location of the global buffer.
 
+### bool getBelIOB(BelId bel) const
+
+Returns true if the given bel is a IO block.
+
 ### uint32\_t getBelChecksum(BelId bel) const
 
 Return a (preferably unique) number that represents this bel. This is used in design state checksum calculations.

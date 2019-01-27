@@ -150,6 +150,7 @@ struct Arch : BaseCtx
     BelId getBelByLocation(Loc loc) const;
     const std::vector<BelId> &getBelsByTile(int x, int y) const;
     bool getBelGlobalBuf(BelId bel) const;
+    bool getBelIOB(BelId bel) const;
     uint32_t getBelChecksum(BelId bel) const;
     void bindBel(BelId bel, CellInfo *cell, PlaceStrength strength);
     void unbindBel(BelId bel);

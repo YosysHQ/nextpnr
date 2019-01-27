@@ -539,6 +539,7 @@ struct Arch : BaseCtx
     BelRange getBelsByTile(int x, int y) const;
 
     bool getBelGlobalBuf(BelId bel) const { return getBelType(bel) == id_DCCA; }
+    bool getBelIOB(BelId bel) const { return chip_info->bel_data[bel.index].type == ID_TRELLIS_IO; }
 
     bool checkBelAvail(BelId bel) const
     {
