@@ -27,6 +27,7 @@
 #include <utility>
 #include "log.h"
 #include "util.h"
+#include <fstream>
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -636,6 +637,84 @@ struct Timing
                 }
             }
 #endif
+        }
+
+        if (ctx->debug) {
+            std::ofstream f("timing.dot");
+            f << "digraph T {" << std::endl;
+            f << "\tlabel=\"clk_period=" << clk_period << "\";" << std::endl;
+            f << "\tlabelloc=t;" << std::endl;
+            for (auto &net : ctx->nets) {
+                if (ctx->getBelGlobalBuf(net.second->driver.cell->bel))
+                    continue;
+                for (auto &usr : net.second->users) {
+                    f << "\t\"" << net.second->driver.cell->name.str(ctx) << "." << net.second->driver.port.str(ctx) << "\" -> \"" << usr.cell->name.str(ctx) << "." << usr.port.str(ctx) << "\" [label=\"" << net.second->name.c_str(ctx) << "\"; headlabel=" << usr.budget << "];" << std::endl;
+                }
+            }
+
+
+            std::vector<std::string> startpoints, endpoints;
+            std::vector<IdString> input_ports, output_ports;
+
+            for (auto &cell : ctx->cells) {
+                f << "\tsubgraph \"cluster_" << cell.second->name.str(ctx) << "\" {" << std::endl;
+                f << "\t\tlabel = \"" << cell.second->name.str(ctx) << "\";" << std::endl;
+
+                input_ports.clear();
+                output_ports.clear();
+                for (auto &port : cell.second->ports) {
+                    if (!port.second.net) continue;
+                    int port_clocks;
+                    auto portClass = ctx->getPortTimingClass(cell.second.get(), port.first, port_clocks);
+                    if (portClass == TMG_CLOCK_INPUT) continue;
+                    if (port.second.type == PORT_IN) {
+                        input_ports.push_back(port.first);
+                        if (portClass == TMG_REGISTER_INPUT || portClass == TMG_ENDPOINT)
+                            endpoints.emplace_back(cell.second->name.str(ctx) + "." + port.first.str(ctx));
+                        f << "\t\t" << "\"" << cell.second->name.str(ctx) << "." << port.first.str(ctx) << "\" [label = \"" << port.first.str(ctx) << "\"];" << std::endl;
+                    }
+                    else {
+                        output_ports.push_back(port.first);
+                        f << "\t\t" << "\"" << cell.second->name.str(ctx) << "." << port.first.str(ctx) << "\" [label = \"" << port.first.str(ctx) << "\"";
+                        if (portClass == TMG_REGISTER_OUTPUT || portClass == TMG_STARTPOINT) {
+                            startpoints.emplace_back(cell.second->name.str(ctx) + "." + port.first.str(ctx));
+                            f << "; shape=parallelogram; style=filled";
+                        }
+                        f << "];" << std::endl;
+                    }
+                    f << "\t\t" << "\"" << cell.second->name.str(ctx) << "." << port.first.str(ctx) << "\";" << std::endl;
+                }
+
+                f << "\t\t{rank=min";
+                for (auto i : input_ports)
+                    f << "; \"" << cell.second->name.str(ctx) << "." << i.str(ctx) << "\"";
+                f << ";}" << std::endl;
+                f << "\t\t{rank=max";
+                for (auto o : output_ports)
+                    f << "; \"" << cell.second->name.str(ctx) << "." << o.str(ctx) << "\"";
+                f << ";}" << std::endl;
+
+                for (auto i : input_ports) {
+                    for (auto o : output_ports) {
+                        DelayInfo comb_delay;
+                        bool is_path = ctx->getCellDelay(cell.second.get(), i, o, comb_delay);
+                        if (!is_path) continue;
+                        f << "\t\t" << "\"" << cell.second->name.str(ctx) << "." << i.str(ctx) << "\" -> \"" << cell.second->name.str(ctx) << "." << o.str(ctx) << "\" [style=dotted; label=" << comb_delay.maxDelay() << "];" << std::endl; 
+                    }
+                }
+                f << "\t}" << std::endl;
+            }
+
+            //f << "\t{rank=min";
+            //for (auto i : startpoints)
+            //    f << "; \"" << i << "\"";
+            //f << ";}" << std::endl;
+            //f << "\t{rank=max";
+            //for (auto o : endpoints)
+            //    f << "; \"" << o << "\"";
+            //f << ";}" << std::endl;
+
+            f << "}" << std::endl;
         }
         return min_slack;
     }
