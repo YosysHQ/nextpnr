@@ -696,8 +696,11 @@ struct Timing
                             if (usr.cell != cell.second.get() || usr.port != port.first)
                                 continue;
                             // And for each clock event, label node with event as well as max arrival time
-                            for (const auto &i : net_data.at(port.second.net))
-                                f << "\\n" << (i.first.edge == RISING_EDGE ? "posedge" : "negedge") << " " << i.first.clock.str(ctx) << " @ " << i.second.max_arrival + ctx->getNetinfoRouteDelay(port.second.net, usr);
+                            auto it = net_data.find(port.second.net);
+                            if (it != net_data.end()) {
+                                for (const auto &i : it->second)
+                                    f << "\\n" << (i.first.edge == RISING_EDGE ? "posedge" : "negedge") << " " << i.first.clock.str(ctx) << " @ " << i.second.max_arrival + ctx->getNetinfoRouteDelay(port.second.net, usr);
+                            }
                             break;
                         }
                         f << "\"]" << std::endl;
@@ -706,9 +709,12 @@ struct Timing
                         output_ports.push_back(port.first);
                         // Label port
                         f << "\t\t" << "\"" << cell.second->name.str(ctx) << "." << port.first.str(ctx) << "\" [label = \"" << port.first.str(ctx);
-                        // A:d for each clock event, label node with event as well as max arrival time
-                        for (const auto &i : net_data.at(port.second.net))
-                            f << "\\n" << (i.first.edge == RISING_EDGE ? "posedge" : "negedge") << " " << i.first.clock.str(ctx) << " @ " << i.second.max_arrival;
+                        // And for each clock event, label node with event as well as max arrival time
+                        auto it = net_data.find(port.second.net);
+                        if (it != net_data.end()) {
+                            for (const auto &i : it->second)
+                                f << "\\n" << (i.first.edge == RISING_EDGE ? "posedge" : "negedge") << " " << i.first.clock.str(ctx) << " @ " << i.second.max_arrival;
+                        }
                         f << "\"";
                         // IOB outputs are startpoints
                         if (ctx->getBelIOB(cell.second->bel))
