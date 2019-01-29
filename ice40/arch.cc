@@ -594,54 +594,34 @@ std::vector<GroupId> Arch::getGroupGroups(GroupId group) const
 bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const
 {
     const auto &driver = net_info->driver;
-    if (driver.port == id_COUT && sink.port == id_CIN) {
-        if (driver.cell->constr_abs_z && driver.cell->constr_z < 7)
+    if (driver.port == id_COUT) {
+        NPNR_ASSERT(sink.port == id_CIN || sink.port == id_I3);
+        NPNR_ASSERT(driver.cell->constr_abs_z);
+        bool cin = sink.port == id_CIN;
+        bool same_y = driver.cell->constr_z < 7;
+        if (cin && same_y)
             budget = 0;
         else {
-            NPNR_ASSERT(driver.cell->constr_z == 7);
             switch (args.type) {
 #ifndef ICE40_HX1K_ONLY
             case ArchArgs::HX8K:
 #endif
             case ArchArgs::HX1K:
-                budget = 190;
+                budget = cin ? 190 : (same_y ? 260 : 560);
                 break;
 #ifndef ICE40_HX1K_ONLY
             case ArchArgs::LP384:
             case ArchArgs::LP1K:
             case ArchArgs::LP8K:
-                budget = 290;
+                budget = cin ? 290 : (same_y ? 380 : 670);
                 break;
             case ArchArgs::UP5K:
-                budget = 560;
+                budget = cin ? 560 : (same_y ? 660 : 1220);
                 break;
 #endif
             default:
                 log_error("Unsupported iCE40 chip type.\n");
             }
-        }
-        return true;
-    } else if (driver.port == id_COUT && sink.port == id_I3) {
-        bool same_y = driver.cell->constr_abs_z && driver.cell->constr_z < 7;
-        switch (args.type) {
-#ifndef ICE40_HX1K_ONLY
-        case ArchArgs::HX8K:
-#endif
-        case ArchArgs::HX1K:
-            budget = same_y ? 260 : 560;
-            break;
-#ifndef ICE40_HX1K_ONLY
-        case ArchArgs::LP384:
-        case ArchArgs::LP1K:
-        case ArchArgs::LP8K:
-            budget = same_y ? 380 : 670;
-            break;
-        case ArchArgs::UP5K:
-            budget = same_y ? 660 : 1220;
-            break;
-#endif
-        default:
-            log_error("Unsupported iCE40 chip type.\n");
         }
         return true;
     }
