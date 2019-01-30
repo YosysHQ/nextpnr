@@ -258,12 +258,24 @@ class HeAPPlacer
             ctx->bindBel(bel, cell, strength);
         }
 
+        for (auto cell : sorted(ctx->cells)) {
+            if (cell.second->bel == BelId())
+                log_error("Found unbound cell %s\n", cell.first.c_str(ctx));
+            if (ctx->getBoundBelCell(cell.second->bel) != cell.second)
+                log_error("Found cell %s with mismatched binding\n", cell.first.c_str(ctx));
+            if (ctx->debug)
+                log_info("AP soln: %s -> %s\n", cell.first.c_str(ctx), ctx->getBelName(cell.second->bel).c_str(ctx));
+        }
+
         ctx->unlock();
         auto endtt = std::chrono::high_resolution_clock::now();
         log_info("HeAP Placer Time: %.02fs\n", std::chrono::duration<double>(endtt - startt).count());
         log_info("  of which solving equations: %.02fs\n", solve_time);
         log_info("  of which spreading cells: %.02fs\n", cl_time);
         log_info("  of which strict legalisation: %.02fs\n", sl_time);
+
+        ctx->check();
+
         placer1_refine(ctx, Placer1Cfg(ctx));
 
         return true;
@@ -529,7 +541,7 @@ class HeAPPlacer
                 cell_locs[child->name].y = std::min(max_y, base.y + child->constr_y);
             else
                 cell_locs[child->name].y = base.y; // better handling of UNCONSTR?
-            chain_root[cell->name] = root;
+            chain_root[child->name] = root;
             if (!child->constr_children.empty())
                 update_chain(child, root);
         }
@@ -697,7 +709,8 @@ class HeAPPlacer
         // Unbind all cells placed in this solution
         for (auto cell : sorted(ctx->cells)) {
             CellInfo *ci = cell.second;
-            if (ci->udata != dont_solve && ci->bel != BelId())
+            if (ci->bel != BelId() && (ci->udata != dont_solve ||
+                                       (chain_root.count(ci->name) && chain_root.at(ci->name)->udata != dont_solve)))
                 ctx->unbindBel(ci->bel);
         }
 
@@ -769,12 +782,13 @@ class HeAPPlacer
                     break;
                 }
 
-                if (ci->constr_children.empty()) {
+                if (ci->constr_children.empty() && !ci->constr_abs_z) {
                     for (auto sz : fb.at(nx).at(ny)) {
                         if (ctx->checkBelAvail(sz) || radius > 2) {
                             CellInfo *bound = ctx->getBoundBelCell(sz);
                             if (bound != nullptr) {
-                                if (bound->constr_parent != nullptr || !bound->constr_children.empty())
+                                if (bound->constr_parent != nullptr || !bound->constr_children.empty() ||
+                                    bound->constr_abs_z)
                                     continue;
                                 ctx->unbindBel(bound->bel);
                             }
@@ -817,8 +831,78 @@ class HeAPPlacer
                         }
                     }
                 } else {
-                    // FIXME
-                    NPNR_ASSERT(false);
+                    for (auto sz : fb.at(nx).at(ny)) {
+                        Loc loc = ctx->getBelLocation(sz);
+                        if (ci->constr_abs_z && loc.z != ci->constr_z)
+                            continue;
+                        std::vector<std::pair<CellInfo *, BelId>> targets;
+                        std::vector<std::pair<BelId, CellInfo *>> swaps_made;
+                        std::queue<std::pair<CellInfo *, Loc>> visit;
+                        visit.emplace(ci, loc);
+                        while (!visit.empty()) {
+                            CellInfo *vc = visit.front().first;
+                            NPNR_ASSERT(vc->bel == BelId());
+                            Loc ploc = visit.front().second;
+                            visit.pop();
+                            BelId target = ctx->getBelByLocation(ploc);
+                            CellInfo *bound;
+                            if (target == BelId())
+                                goto fail;
+                            bound = ctx->getBoundBelCell(target);
+                            // Chains cannot overlap
+                            if (bound != nullptr)
+                                if (bound->constr_z != bound->UNCONSTR || bound->constr_parent != nullptr ||
+                                    !bound->constr_children.empty() || bound->belStrength > STRENGTH_WEAK)
+                                    goto fail;
+                            targets.emplace_back(vc, target);
+                            for (auto child : vc->constr_children) {
+                                Loc cloc = ploc;
+                                if (child->constr_x != child->UNCONSTR)
+                                    cloc.x += child->constr_x;
+                                if (child->constr_y != child->UNCONSTR)
+                                    cloc.y += child->constr_y;
+                                if (child->constr_z != child->UNCONSTR)
+                                    cloc.z = child->constr_abs_z ? child->constr_z : (ploc.z + child->constr_z);
+                                visit.emplace(child, cloc);
+                            }
+                        }
+
+                        for (auto &target : targets) {
+                            CellInfo *bound = ctx->getBoundBelCell(target.second);
+                            if (bound != nullptr)
+                                ctx->unbindBel(target.second);
+                            ctx->bindBel(target.second, target.first, STRENGTH_STRONG);
+                            swaps_made.emplace_back(target.second, bound);
+                        }
+
+                        for (auto &sm : swaps_made) {
+                            if (!ctx->isBelLocationValid(sm.first))
+                                goto fail;
+                        }
+
+                        if (false) {
+                        fail:
+                            for (auto &swap : swaps_made) {
+                                ctx->unbindBel(swap.first);
+                                if (swap.second != nullptr)
+                                    ctx->bindBel(swap.first, swap.second, STRENGTH_WEAK);
+                            }
+                            continue;
+                        }
+                        for (auto &target : targets) {
+                            Loc loc = ctx->getBelLocation(target.second);
+                            cell_locs[target.first->name].x = loc.x;
+                            cell_locs[target.first->name].y = loc.y;
+                            // log_info("%s %d %d %d\n", target.first->name.c_str(ctx), loc.x, loc.y, loc.z);
+                        }
+                        for (auto &swap : swaps_made) {
+                            if (swap.second != nullptr)
+                                remaining.emplace(chain_size[swap.second->name], swap.second->name);
+                        }
+
+                        placed = true;
+                        break;
+                    }
                 }
             }
         }
@@ -1288,7 +1372,8 @@ class HeAPPlacer
                     }
                 }
             }
-            NPNR_ASSERT(best_tgt_cut != -1);
+            if (best_tgt_cut == -1)
+                return {};
             left_bels = target_cut_bels.first;
             right_bels = target_cut_bels.second;
             // log_info("pivot %d target cut %d lc %d lb %d rc %d rb %d\n", pivot, best_tgt_cut, left_cells, left_bels,

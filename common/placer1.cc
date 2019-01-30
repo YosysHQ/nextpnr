@@ -475,9 +475,11 @@ class SAPlacer
     {
         static const double epsilon = 1e-20;
         moveChange.reset();
+        if (is_constrained(cell))
+            return false;
         BelId oldBel = cell->bel;
         CellInfo *other_cell = ctx->getBoundBelCell(newBel);
-        if (other_cell != nullptr && other_cell->belStrength > STRENGTH_WEAK) {
+        if (other_cell != nullptr && (is_constrained(other_cell) || other_cell->belStrength > STRENGTH_WEAK)) {
             return false;
         }
         int old_dist = get_constraints_distance(ctx, cell);
@@ -529,6 +531,11 @@ class SAPlacer
             goto swap_fail;
         }
         commit_cost_changes(moveChange);
+#if 0
+        log_info("swap %s -> %s\n", cell->name.c_str(ctx), ctx->getBelName(newBel).c_str(ctx));
+        if (other_cell != nullptr)
+            log_info("swap %s -> %s\n", other_cell->name.c_str(ctx), ctx->getBelName(oldBel).c_str(ctx));
+#endif
         return true;
     swap_fail:
         ctx->bindBel(oldBel, cell, STRENGTH_WEAK);
@@ -547,6 +554,9 @@ class SAPlacer
     BelId swap_cell_bels(CellInfo *cell, BelId newBel)
     {
         BelId oldBel = cell->bel;
+#if 0
+        log_info("%s old: %s new: %s\n", cell->name.c_str(ctx), ctx->getBelName(cell->bel).c_str(ctx), ctx->getBelName(newBel).c_str(ctx));
+#endif
         CellInfo *bound = ctx->getBoundBelCell(newBel);
         if (bound != nullptr)
             ctx->unbindBel(newBel);
