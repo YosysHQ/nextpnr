@@ -807,7 +807,7 @@ class HeAPPlacer
 
                 if (ci->constr_children.empty() && !ci->constr_abs_z) {
                     for (auto sz : fb.at(nx).at(ny)) {
-                        if (ctx->checkBelAvail(sz) || radius > ripup_radius) {
+                        if (ctx->checkBelAvail(sz) || (radius > ripup_radius || ctx->rng(20000) < 10)) {
                             CellInfo *bound = ctx->getBoundBelCell(sz);
                             if (bound != nullptr) {
                                 if (bound->constr_parent != nullptr || !bound->constr_children.empty() ||
@@ -869,7 +869,7 @@ class HeAPPlacer
                             visit.pop();
                             BelId target = ctx->getBelByLocation(ploc);
                             CellInfo *bound;
-                            if (target == BelId())
+                            if (target == BelId() || ctx->getBelType(target) != vc->type)
                                 goto fail;
                             bound = ctx->getBoundBelCell(target);
                             // Chains cannot overlap
