@@ -1088,7 +1088,8 @@ class HeAPPlacer
             for (auto &cell : p->cell_locs) {
                 if (ctx->cells.at(cell.first)->type != beltype)
                     continue;
-
+                if (ctx->cells.at(cell.first)->belStrength > STRENGTH_STRONG)
+                    continue;
                 occupancy.at(cell.second.x).at(cell.second.y)++;
                 // Compute ultimate extent of each chain root
                 if (p->chain_root.count(cell.first)) {
