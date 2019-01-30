@@ -720,7 +720,8 @@ class HeAPPlacer
         for (auto cell : solve_cells) {
             remaining.emplace(chain_size[cell->name], cell->name);
         }
-
+        int ripup_radius = 2;
+        int total_iters = 0;
         while (!remaining.empty()) {
             auto top = remaining.top();
             remaining.pop();
@@ -729,7 +730,7 @@ class HeAPPlacer
             // Was now placed, ignore
             if (ci->bel != BelId())
                 continue;
-            // log_info("   Legalising %s\n", top.second.c_str(ctx));
+            // log_info("   Legalising %s (%s)\n", top.second.c_str(ctx), ci->type.c_str(ctx));
             int bt = std::get<0>(bel_types.at(ci->type));
             auto &fb = fast_bels.at(bt);
             int radius = 0;
@@ -738,6 +739,12 @@ class HeAPPlacer
             bool placed = false;
             BelId bestBel;
             int best_inp_len = std::numeric_limits<int>::max();
+
+            total_iters++;
+            if (total_iters > int(solve_cells.size())) {
+                total_iters = 0;
+                ripup_radius = std::max(std::max(max_x, max_y), ripup_radius * 2);
+            }
 
             while (!placed) {
 
@@ -748,6 +755,22 @@ class HeAPPlacer
                 iter_at_radius++;
                 if (iter >= (10 * (radius + 1))) {
                     radius = std::min(std::max(max_x, max_y), radius + 1);
+                    while (radius < std::max(max_x, max_y)) {
+                        for (int x = std::max(0, cell_locs.at(ci->name).x - radius);
+                             x <= std::min(max_x, cell_locs.at(ci->name).x + radius); x++) {
+                            if (x >= int(fb.size()))
+                                break;
+                            for (int y = std::max(0, cell_locs.at(ci->name).y - radius);
+                                 y <= std::min(max_y, cell_locs.at(ci->name).y + radius); y++) {
+                                if (y >= int(fb.at(x).size()))
+                                    break;
+                                if (fb.at(x).at(y).size() > 0)
+                                    goto notempty;
+                            }
+                        }
+                        radius = std::min(std::max(max_x, max_y), radius + 1);
+                    }
+                notempty:
                     iter_at_radius = 0;
                     iter = 0;
                 }
@@ -784,7 +807,7 @@ class HeAPPlacer
 
                 if (ci->constr_children.empty() && !ci->constr_abs_z) {
                     for (auto sz : fb.at(nx).at(ny)) {
-                        if (ctx->checkBelAvail(sz) || radius > 2) {
+                        if (ctx->checkBelAvail(sz) || radius > ripup_radius) {
                             CellInfo *bound = ctx->getBoundBelCell(sz);
                             if (bound != nullptr) {
                                 if (bound->constr_parent != nullptr || !bound->constr_children.empty() ||
