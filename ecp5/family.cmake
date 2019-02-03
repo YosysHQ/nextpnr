@@ -6,11 +6,18 @@ if (NOT DEFINED TRELLIS_ROOT)
     set(TRELLIS_ROOT "/usr/local/share/trellis")
 endif()
 
-file(GLOB found_pytrellis ${TRELLIS_ROOT}/libtrellis/pytrellis.*)
+file(GLOB found_pytrellis ${TRELLIS_ROOT}/libtrellis/pytrellis.*
+                          /usr/lib/pytrellis.*
+                          /usr/lib64/pytrellis.*
+                          /usr/lib/trellis/pytrellis.*
+                          /usr/lib64/trellis/pytrellis.*)
 
 if ("${found_pytrellis}" STREQUAL "")
-    message(FATAL_ERROR "failed to find pytrellis library in ${TRELLIS_ROOT}/libtrellis/")
+    message(FATAL_ERROR "failed to locate pytrellis library!")
 endif()
+
+list(GET found_pytrellis 0 PYTRELLIS_LIB)
+get_filename_component(PYTRELLIS_LIBDIR ${PYTRELLIS_LIB} DIRECTORY)
 
 set(DB_PY ${CMAKE_CURRENT_SOURCE_DIR}/ecp5/trellis_import.py)
 
@@ -20,9 +27,9 @@ target_compile_definitions(ecp5_chipdb PRIVATE NEXTPNR_NAMESPACE=nextpnr_${famil
 target_include_directories(ecp5_chipdb PRIVATE ${family}/)
 
 if (CMAKE_HOST_WIN32)
-set(ENV_CMD ${CMAKE_COMMAND} -E env "PYTHONPATH=\"${TRELLIS_ROOT}/libtrellis\;${TRELLIS_ROOT}/util/common\;${TRELLIS_ROOT}/timing/util\"")
+set(ENV_CMD ${CMAKE_COMMAND} -E env "PYTHONPATH=\"${PYTRELLIS_LIBDIR}\;${TRELLIS_ROOT}/util/common\;${TRELLIS_ROOT}/timing/util\"")
 else()
-set(ENV_CMD ${CMAKE_COMMAND} -E env "PYTHONPATH=${TRELLIS_ROOT}/libtrellis:${TRELLIS_ROOT}/util/common:${TRELLIS_ROOT}/timing/util")
+set(ENV_CMD ${CMAKE_COMMAND} -E env "PYTHONPATH=${PYTRELLIS_LIBDIR}\:${TRELLIS_ROOT}/util/common:${TRELLIS_ROOT}/timing/util")
 endif()
 
 if (MSVC)
