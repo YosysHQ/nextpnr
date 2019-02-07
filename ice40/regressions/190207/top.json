@@ -1,0 +1,5521 @@
+{
+  "creator": "Yosys 0.8+147 (git sha1 266511b, clang 3.8.0-2ubuntu4 -fPIC -Os)",
+  "modules": {
+    "ICESTORM_LC": {
+      "attributes": {
+        "blackbox": 1,
+        "cells_not_processed": 1,
+        "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:667"
+      },
+      "ports": {
+        "I0": {
+          "direction": "input",
+          "bits": [ 2 ]
+        },
+        "I1": {
+          "direction": "input",
+          "bits": [ 3 ]
+        },
+        "I2": {
+          "direction": "input",
+          "bits": [ 4 ]
+        },
+        "I3": {
+          "direction": "input",
+          "bits": [ 5 ]
+        },
+        "CIN": {
+          "direction": "input",
+          "bits": [ 6 ]
+        },
+        "CLK": {
+          "direction": "input",
+          "bits": [ 7 ]
+        },
+        "CEN": {
+          "direction": "input",
+          "bits": [ 8 ]
+        },
+        "SR": {
+          "direction": "input",
+          "bits": [ 9 ]
+        },
+        "LO": {
+          "direction": "output",
+          "bits": [ 10 ]
+        },
+        "O": {
+          "direction": "output",
+          "bits": [ 11 ]
+        },
+        "COUT": {
+          "direction": "output",
+          "bits": [ 12 ]
+        }
+      },
+      "cells": {
+      },
+      "netnames": {
+        "CEN": {
+          "hide_name": 0,
+          "bits": [ 8 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:668"
+          }
+        },
+        "CIN": {
+          "hide_name": 0,
+          "bits": [ 6 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:668"
+          }
+        },
+        "CLK": {
+          "hide_name": 0,
+          "bits": [ 7 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:668"
+          }
+        },
+        "COUT": {
+          "hide_name": 0,
+          "bits": [ 12 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:669"
+          }
+        },
+        "I0": {
+          "hide_name": 0,
+          "bits": [ 2 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:668"
+          }
+        },
+        "I1": {
+          "hide_name": 0,
+          "bits": [ 3 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:668"
+          }
+        },
+        "I2": {
+          "hide_name": 0,
+          "bits": [ 4 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:668"
+          }
+        },
+        "I3": {
+          "hide_name": 0,
+          "bits": [ 5 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:668"
+          }
+        },
+        "LO": {
+          "hide_name": 0,
+          "bits": [ 10 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:669"
+          }
+        },
+        "O": {
+          "hide_name": 0,
+          "bits": [ 11 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:669"
+          }
+        },
+        "SR": {
+          "hide_name": 0,
+          "bits": [ 9 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:668"
+          }
+        }
+      }
+    },
+    "SB_CARRY": {
+      "attributes": {
+        "blackbox": 1,
+        "cells_not_processed": 1,
+        "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:129"
+      },
+      "ports": {
+        "CO": {
+          "direction": "output",
+          "bits": [ 2 ]
+        },
+        "I0": {
+          "direction": "input",
+          "bits": [ 3 ]
+        },
+        "I1": {
+          "direction": "input",
+          "bits": [ 4 ]
+        },
+        "CI": {
+          "direction": "input",
+          "bits": [ 5 ]
+        }
+      },
+      "cells": {
+      },
+      "netnames": {
+        "CI": {
+          "hide_name": 0,
+          "bits": [ 5 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:129"
+          }
+        },
+        "CO": {
+          "hide_name": 0,
+          "bits": [ 2 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:129"
+          }
+        },
+        "I0": {
+          "hide_name": 0,
+          "bits": [ 3 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:129"
+          }
+        },
+        "I1": {
+          "hide_name": 0,
+          "bits": [ 4 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:129"
+          }
+        }
+      }
+    },
+    "SB_DFF": {
+      "attributes": {
+        "blackbox": 1,
+        "cells_not_processed": 1,
+        "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:135"
+      },
+      "ports": {
+        "Q": {
+          "direction": "output",
+          "bits": [ 2 ]
+        },
+        "C": {
+          "direction": "input",
+          "bits": [ 3 ]
+        },
+        "D": {
+          "direction": "input",
+          "bits": [ 4 ]
+        }
+      },
+      "cells": {
+      },
+      "netnames": {
+        "C": {
+          "hide_name": 0,
+          "bits": [ 3 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:135"
+          }
+        },
+        "D": {
+          "hide_name": 0,
+          "bits": [ 4 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:135"
+          }
+        },
+        "Q": {
+          "hide_name": 0,
+          "bits": [ 2 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:135"
+          }
+        }
+      }
+    },
+    "SB_DFFE": {
+      "attributes": {
+        "blackbox": 1,
+        "cells_not_processed": 1,
+        "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:140"
+      },
+      "ports": {
+        "Q": {
+          "direction": "output",
+          "bits": [ 2 ]
+        },
+        "C": {
+          "direction": "input",
+          "bits": [ 3 ]
+        },
+        "E": {
+          "direction": "input",
+          "bits": [ 4 ]
+        },
+        "D": {
+          "direction": "input",
+          "bits": [ 5 ]
+        }
+      },
+      "cells": {
+      },
+      "netnames": {
+        "C": {
+          "hide_name": 0,
+          "bits": [ 3 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:140"
+          }
+        },
+        "D": {
+          "hide_name": 0,
+          "bits": [ 5 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:140"
+          }
+        },
+        "E": {
+          "hide_name": 0,
+          "bits": [ 4 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:140"
+          }
+        },
+        "Q": {
+          "hide_name": 0,
+          "bits": [ 2 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:140"
+          }
+        }
+      }
+    },
+    "SB_DFFER": {
+      "attributes": {
+        "blackbox": 1,
+        "cells_not_processed": 1,
+        "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:188"
+      },
+      "ports": {
+        "Q": {
+          "direction": "output",
+          "bits": [ 2 ]
+        },
+        "C": {
+          "direction": "input",
+          "bits": [ 3 ]
+        },
+        "E": {
+          "direction": "input",
+          "bits": [ 4 ]
+        },
+        "R": {
+          "direction": "input",
+          "bits": [ 5 ]
+        },
+        "D": {
+          "direction": "input",
+          "bits": [ 6 ]
+        }
+      },
+      "cells": {
+      },
+      "netnames": {
+        "C": {
+          "hide_name": 0,
+          "bits": [ 3 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:188"
+          }
+        },
+        "D": {
+          "hide_name": 0,
+          "bits": [ 6 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:188"
+          }
+        },
+        "E": {
+          "hide_name": 0,
+          "bits": [ 4 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:188"
+          }
+        },
+        "Q": {
+          "hide_name": 0,
+          "bits": [ 2 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:188"
+          }
+        },
+        "R": {
+          "hide_name": 0,
+          "bits": [ 5 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:188"
+          }
+        }
+      }
+    },
+    "SB_DFFES": {
+      "attributes": {
+        "blackbox": 1,
+        "cells_not_processed": 1,
+        "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:206"
+      },
+      "ports": {
+        "Q": {
+          "direction": "output",
+          "bits": [ 2 ]
+        },
+        "C": {
+          "direction": "input",
+          "bits": [ 3 ]
+        },
+        "E": {
+          "direction": "input",
+          "bits": [ 4 ]
+        },
+        "S": {
+          "direction": "input",
+          "bits": [ 5 ]
+        },
+        "D": {
+          "direction": "input",
+          "bits": [ 6 ]
+        }
+      },
+      "cells": {
+      },
+      "netnames": {
+        "C": {
+          "hide_name": 0,
+          "bits": [ 3 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:206"
+          }
+        },
+        "D": {
+          "hide_name": 0,
+          "bits": [ 6 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:206"
+          }
+        },
+        "E": {
+          "hide_name": 0,
+          "bits": [ 4 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:206"
+          }
+        },
+        "Q": {
+          "hide_name": 0,
+          "bits": [ 2 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:206"
+          }
+        },
+        "S": {
+          "hide_name": 0,
+          "bits": [ 5 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:206"
+          }
+        }
+      }
+    },
+    "SB_DFFESR": {
+      "attributes": {
+        "blackbox": 1,
+        "cells_not_processed": 1,
+        "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:178"
+      },
+      "ports": {
+        "Q": {
+          "direction": "output",
+          "bits": [ 2 ]
+        },
+        "C": {
+          "direction": "input",
+          "bits": [ 3 ]
+        },
+        "E": {
+          "direction": "input",
+          "bits": [ 4 ]
+        },
+        "R": {
+          "direction": "input",
+          "bits": [ 5 ]
+        },
+        "D": {
+          "direction": "input",
+          "bits": [ 6 ]
+        }
+      },
+      "cells": {
+      },
+      "netnames": {
+        "C": {
+          "hide_name": 0,
+          "bits": [ 3 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:178"
+          }
+        },
+        "D": {
+          "hide_name": 0,
+          "bits": [ 6 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:178"
+          }
+        },
+        "E": {
+          "hide_name": 0,
+          "bits": [ 4 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:178"
+          }
+        },
+        "Q": {
+          "hide_name": 0,
+          "bits": [ 2 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:178"
+          }
+        },
+        "R": {
+          "hide_name": 0,
+          "bits": [ 5 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:178"
+          }
+        }
+      }
+    },
+    "SB_DFFESS": {
+      "attributes": {
+        "blackbox": 1,
+        "cells_not_processed": 1,
+        "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:196"
+      },
+      "ports": {
+        "Q": {
+          "direction": "output",
+          "bits": [ 2 ]
+        },
+        "C": {
+          "direction": "input",
+          "bits": [ 3 ]
+        },
+        "E": {
+          "direction": "input",
+          "bits": [ 4 ]
+        },
+        "S": {
+          "direction": "input",
+          "bits": [ 5 ]
+        },
+        "D": {
+          "direction": "input",
+          "bits": [ 6 ]
+        }
+      },
+      "cells": {
+      },
+      "netnames": {
+        "C": {
+          "hide_name": 0,
+          "bits": [ 3 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:196"
+          }
+        },
+        "D": {
+          "hide_name": 0,
+          "bits": [ 6 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:196"
+          }
+        },
+        "E": {
+          "hide_name": 0,
+          "bits": [ 4 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:196"
+          }
+        },
+        "Q": {
+          "hide_name": 0,
+          "bits": [ 2 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:196"
+          }
+        },
+        "S": {
+          "hide_name": 0,
+          "bits": [ 5 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:196"
+          }
+        }
+      }
+    },
+    "SB_DFFN": {
+      "attributes": {
+        "blackbox": 1,
+        "cells_not_processed": 1,
+        "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:216"
+      },
+      "ports": {
+        "Q": {
+          "direction": "output",
+          "bits": [ 2 ]
+        },
+        "C": {
+          "direction": "input",
+          "bits": [ 3 ]
+        },
+        "D": {
+          "direction": "input",
+          "bits": [ 4 ]
+        }
+      },
+      "cells": {
+      },
+      "netnames": {
+        "C": {
+          "hide_name": 0,
+          "bits": [ 3 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:216"
+          }
+        },
+        "D": {
+          "hide_name": 0,
+          "bits": [ 4 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:216"
+          }
+        },
+        "Q": {
+          "hide_name": 0,
+          "bits": [ 2 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:216"
+          }
+        }
+      }
+    },
+    "SB_DFFNE": {
+      "attributes": {
+        "blackbox": 1,
+        "cells_not_processed": 1,
+        "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:221"
+      },
+      "ports": {
+        "Q": {
+          "direction": "output",
+          "bits": [ 2 ]
+        },
+        "C": {
+          "direction": "input",
+          "bits": [ 3 ]
+        },
+        "E": {
+          "direction": "input",
+          "bits": [ 4 ]
+        },
+        "D": {
+          "direction": "input",
+          "bits": [ 5 ]
+        }
+      },
+      "cells": {
+      },
+      "netnames": {
+        "C": {
+          "hide_name": 0,
+          "bits": [ 3 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:221"
+          }
+        },
+        "D": {
+          "hide_name": 0,
+          "bits": [ 5 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:221"
+          }
+        },
+        "E": {
+          "hide_name": 0,
+          "bits": [ 4 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:221"
+          }
+        },
+        "Q": {
+          "hide_name": 0,
+          "bits": [ 2 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:221"
+          }
+        }
+      }
+    },
+    "SB_DFFNER": {
+      "attributes": {
+        "blackbox": 1,
+        "cells_not_processed": 1,
+        "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:269"
+      },
+      "ports": {
+        "Q": {
+          "direction": "output",
+          "bits": [ 2 ]
+        },
+        "C": {
+          "direction": "input",
+          "bits": [ 3 ]
+        },
+        "E": {
+          "direction": "input",
+          "bits": [ 4 ]
+        },
+        "R": {
+          "direction": "input",
+          "bits": [ 5 ]
+        },
+        "D": {
+          "direction": "input",
+          "bits": [ 6 ]
+        }
+      },
+      "cells": {
+      },
+      "netnames": {
+        "C": {
+          "hide_name": 0,
+          "bits": [ 3 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:269"
+          }
+        },
+        "D": {
+          "hide_name": 0,
+          "bits": [ 6 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:269"
+          }
+        },
+        "E": {
+          "hide_name": 0,
+          "bits": [ 4 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:269"
+          }
+        },
+        "Q": {
+          "hide_name": 0,
+          "bits": [ 2 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:269"
+          }
+        },
+        "R": {
+          "hide_name": 0,
+          "bits": [ 5 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:269"
+          }
+        }
+      }
+    },
+    "SB_DFFNES": {
+      "attributes": {
+        "blackbox": 1,
+        "cells_not_processed": 1,
+        "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:287"
+      },
+      "ports": {
+        "Q": {
+          "direction": "output",
+          "bits": [ 2 ]
+        },
+        "C": {
+          "direction": "input",
+          "bits": [ 3 ]
+        },
+        "E": {
+          "direction": "input",
+          "bits": [ 4 ]
+        },
+        "S": {
+          "direction": "input",
+          "bits": [ 5 ]
+        },
+        "D": {
+          "direction": "input",
+          "bits": [ 6 ]
+        }
+      },
+      "cells": {
+      },
+      "netnames": {
+        "C": {
+          "hide_name": 0,
+          "bits": [ 3 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:287"
+          }
+        },
+        "D": {
+          "hide_name": 0,
+          "bits": [ 6 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:287"
+          }
+        },
+        "E": {
+          "hide_name": 0,
+          "bits": [ 4 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:287"
+          }
+        },
+        "Q": {
+          "hide_name": 0,
+          "bits": [ 2 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:287"
+          }
+        },
+        "S": {
+          "hide_name": 0,
+          "bits": [ 5 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:287"
+          }
+        }
+      }
+    },
+    "SB_DFFNESR": {
+      "attributes": {
+        "blackbox": 1,
+        "cells_not_processed": 1,
+        "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:259"
+      },
+      "ports": {
+        "Q": {
+          "direction": "output",
+          "bits": [ 2 ]
+        },
+        "C": {
+          "direction": "input",
+          "bits": [ 3 ]
+        },
+        "E": {
+          "direction": "input",
+          "bits": [ 4 ]
+        },
+        "R": {
+          "direction": "input",
+          "bits": [ 5 ]
+        },
+        "D": {
+          "direction": "input",
+          "bits": [ 6 ]
+        }
+      },
+      "cells": {
+      },
+      "netnames": {
+        "C": {
+          "hide_name": 0,
+          "bits": [ 3 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:259"
+          }
+        },
+        "D": {
+          "hide_name": 0,
+          "bits": [ 6 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:259"
+          }
+        },
+        "E": {
+          "hide_name": 0,
+          "bits": [ 4 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:259"
+          }
+        },
+        "Q": {
+          "hide_name": 0,
+          "bits": [ 2 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:259"
+          }
+        },
+        "R": {
+          "hide_name": 0,
+          "bits": [ 5 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:259"
+          }
+        }
+      }
+    },
+    "SB_DFFNESS": {
+      "attributes": {
+        "blackbox": 1,
+        "cells_not_processed": 1,
+        "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:277"
+      },
+      "ports": {
+        "Q": {
+          "direction": "output",
+          "bits": [ 2 ]
+        },
+        "C": {
+          "direction": "input",
+          "bits": [ 3 ]
+        },
+        "E": {
+          "direction": "input",
+          "bits": [ 4 ]
+        },
+        "S": {
+          "direction": "input",
+          "bits": [ 5 ]
+        },
+        "D": {
+          "direction": "input",
+          "bits": [ 6 ]
+        }
+      },
+      "cells": {
+      },
+      "netnames": {
+        "C": {
+          "hide_name": 0,
+          "bits": [ 3 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:277"
+          }
+        },
+        "D": {
+          "hide_name": 0,
+          "bits": [ 6 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:277"
+          }
+        },
+        "E": {
+          "hide_name": 0,
+          "bits": [ 4 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:277"
+          }
+        },
+        "Q": {
+          "hide_name": 0,
+          "bits": [ 2 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:277"
+          }
+        },
+        "S": {
+          "hide_name": 0,
+          "bits": [ 5 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:277"
+          }
+        }
+      }
+    },
+    "SB_DFFNR": {
+      "attributes": {
+        "blackbox": 1,
+        "cells_not_processed": 1,
+        "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:235"
+      },
+      "ports": {
+        "Q": {
+          "direction": "output",
+          "bits": [ 2 ]
+        },
+        "C": {
+          "direction": "input",
+          "bits": [ 3 ]
+        },
+        "R": {
+          "direction": "input",
+          "bits": [ 4 ]
+        },
+        "D": {
+          "direction": "input",
+          "bits": [ 5 ]
+        }
+      },
+      "cells": {
+      },
+      "netnames": {
+        "C": {
+          "hide_name": 0,
+          "bits": [ 3 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:235"
+          }
+        },
+        "D": {
+          "hide_name": 0,
+          "bits": [ 5 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:235"
+          }
+        },
+        "Q": {
+          "hide_name": 0,
+          "bits": [ 2 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:235"
+          }
+        },
+        "R": {
+          "hide_name": 0,
+          "bits": [ 4 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:235"
+          }
+        }
+      }
+    },
+    "SB_DFFNS": {
+      "attributes": {
+        "blackbox": 1,
+        "cells_not_processed": 1,
+        "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:251"
+      },
+      "ports": {
+        "Q": {
+          "direction": "output",
+          "bits": [ 2 ]
+        },
+        "C": {
+          "direction": "input",
+          "bits": [ 3 ]
+        },
+        "S": {
+          "direction": "input",
+          "bits": [ 4 ]
+        },
+        "D": {
+          "direction": "input",
+          "bits": [ 5 ]
+        }
+      },
+      "cells": {
+      },
+      "netnames": {
+        "C": {
+          "hide_name": 0,
+          "bits": [ 3 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:251"
+          }
+        },
+        "D": {
+          "hide_name": 0,
+          "bits": [ 5 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:251"
+          }
+        },
+        "Q": {
+          "hide_name": 0,
+          "bits": [ 2 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:251"
+          }
+        },
+        "S": {
+          "hide_name": 0,
+          "bits": [ 4 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:251"
+          }
+        }
+      }
+    },
+    "SB_DFFNSR": {
+      "attributes": {
+        "blackbox": 1,
+        "cells_not_processed": 1,
+        "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:227"
+      },
+      "ports": {
+        "Q": {
+          "direction": "output",
+          "bits": [ 2 ]
+        },
+        "C": {
+          "direction": "input",
+          "bits": [ 3 ]
+        },
+        "R": {
+          "direction": "input",
+          "bits": [ 4 ]
+        },
+        "D": {
+          "direction": "input",
+          "bits": [ 5 ]
+        }
+      },
+      "cells": {
+      },
+      "netnames": {
+        "C": {
+          "hide_name": 0,
+          "bits": [ 3 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:227"
+          }
+        },
+        "D": {
+          "hide_name": 0,
+          "bits": [ 5 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:227"
+          }
+        },
+        "Q": {
+          "hide_name": 0,
+          "bits": [ 2 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:227"
+          }
+        },
+        "R": {
+          "hide_name": 0,
+          "bits": [ 4 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:227"
+          }
+        }
+      }
+    },
+    "SB_DFFNSS": {
+      "attributes": {
+        "blackbox": 1,
+        "cells_not_processed": 1,
+        "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:243"
+      },
+      "ports": {
+        "Q": {
+          "direction": "output",
+          "bits": [ 2 ]
+        },
+        "C": {
+          "direction": "input",
+          "bits": [ 3 ]
+        },
+        "S": {
+          "direction": "input",
+          "bits": [ 4 ]
+        },
+        "D": {
+          "direction": "input",
+          "bits": [ 5 ]
+        }
+      },
+      "cells": {
+      },
+      "netnames": {
+        "C": {
+          "hide_name": 0,
+          "bits": [ 3 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:243"
+          }
+        },
+        "D": {
+          "hide_name": 0,
+          "bits": [ 5 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:243"
+          }
+        },
+        "Q": {
+          "hide_name": 0,
+          "bits": [ 2 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:243"
+          }
+        },
+        "S": {
+          "hide_name": 0,
+          "bits": [ 4 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:243"
+          }
+        }
+      }
+    },
+    "SB_DFFR": {
+      "attributes": {
+        "blackbox": 1,
+        "cells_not_processed": 1,
+        "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:154"
+      },
+      "ports": {
+        "Q": {
+          "direction": "output",
+          "bits": [ 2 ]
+        },
+        "C": {
+          "direction": "input",
+          "bits": [ 3 ]
+        },
+        "R": {
+          "direction": "input",
+          "bits": [ 4 ]
+        },
+        "D": {
+          "direction": "input",
+          "bits": [ 5 ]
+        }
+      },
+      "cells": {
+      },
+      "netnames": {
+        "C": {
+          "hide_name": 0,
+          "bits": [ 3 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:154"
+          }
+        },
+        "D": {
+          "hide_name": 0,
+          "bits": [ 5 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:154"
+          }
+        },
+        "Q": {
+          "hide_name": 0,
+          "bits": [ 2 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:154"
+          }
+        },
+        "R": {
+          "hide_name": 0,
+          "bits": [ 4 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:154"
+          }
+        }
+      }
+    },
+    "SB_DFFS": {
+      "attributes": {
+        "blackbox": 1,
+        "cells_not_processed": 1,
+        "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:170"
+      },
+      "ports": {
+        "Q": {
+          "direction": "output",
+          "bits": [ 2 ]
+        },
+        "C": {
+          "direction": "input",
+          "bits": [ 3 ]
+        },
+        "S": {
+          "direction": "input",
+          "bits": [ 4 ]
+        },
+        "D": {
+          "direction": "input",
+          "bits": [ 5 ]
+        }
+      },
+      "cells": {
+      },
+      "netnames": {
+        "C": {
+          "hide_name": 0,
+          "bits": [ 3 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:170"
+          }
+        },
+        "D": {
+          "hide_name": 0,
+          "bits": [ 5 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:170"
+          }
+        },
+        "Q": {
+          "hide_name": 0,
+          "bits": [ 2 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:170"
+          }
+        },
+        "S": {
+          "hide_name": 0,
+          "bits": [ 4 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:170"
+          }
+        }
+      }
+    },
+    "SB_DFFSR": {
+      "attributes": {
+        "blackbox": 1,
+        "cells_not_processed": 1,
+        "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:146"
+      },
+      "ports": {
+        "Q": {
+          "direction": "output",
+          "bits": [ 2 ]
+        },
+        "C": {
+          "direction": "input",
+          "bits": [ 3 ]
+        },
+        "R": {
+          "direction": "input",
+          "bits": [ 4 ]
+        },
+        "D": {
+          "direction": "input",
+          "bits": [ 5 ]
+        }
+      },
+      "cells": {
+      },
+      "netnames": {
+        "C": {
+          "hide_name": 0,
+          "bits": [ 3 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:146"
+          }
+        },
+        "D": {
+          "hide_name": 0,
+          "bits": [ 5 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:146"
+          }
+        },
+        "Q": {
+          "hide_name": 0,
+          "bits": [ 2 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:146"
+          }
+        },
+        "R": {
+          "hide_name": 0,
+          "bits": [ 4 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:146"
+          }
+        }
+      }
+    },
+    "SB_DFFSS": {
+      "attributes": {
+        "blackbox": 1,
+        "cells_not_processed": 1,
+        "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:162"
+      },
+      "ports": {
+        "Q": {
+          "direction": "output",
+          "bits": [ 2 ]
+        },
+        "C": {
+          "direction": "input",
+          "bits": [ 3 ]
+        },
+        "S": {
+          "direction": "input",
+          "bits": [ 4 ]
+        },
+        "D": {
+          "direction": "input",
+          "bits": [ 5 ]
+        }
+      },
+      "cells": {
+      },
+      "netnames": {
+        "C": {
+          "hide_name": 0,
+          "bits": [ 3 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:162"
+          }
+        },
+        "D": {
+          "hide_name": 0,
+          "bits": [ 5 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:162"
+          }
+        },
+        "Q": {
+          "hide_name": 0,
+          "bits": [ 2 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:162"
+          }
+        },
+        "S": {
+          "hide_name": 0,
+          "bits": [ 4 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:162"
+          }
+        }
+      }
+    },
+    "SB_FILTER_50NS": {
+      "attributes": {
+        "blackbox": 1,
+        "cells_not_processed": 1,
+        "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1138"
+      },
+      "ports": {
+        "FILTERIN": {
+          "direction": "input",
+          "bits": [ 2 ]
+        },
+        "FILTEROUT": {
+          "direction": "output",
+          "bits": [ 3 ]
+        }
+      },
+      "cells": {
+      },
+      "netnames": {
+        "FILTERIN": {
+          "hide_name": 0,
+          "bits": [ 2 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1139"
+          }
+        },
+        "FILTEROUT": {
+          "hide_name": 0,
+          "bits": [ 3 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1140"
+          }
+        }
+      }
+    },
+    "SB_GB": {
+      "attributes": {
+        "blackbox": 1,
+        "cells_not_processed": 1,
+        "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:112"
+      },
+      "ports": {
+        "USER_SIGNAL_TO_GLOBAL_BUFFER": {
+          "direction": "input",
+          "bits": [ 2 ]
+        },
+        "GLOBAL_BUFFER_OUTPUT": {
+          "direction": "output",
+          "bits": [ 3 ]
+        }
+      },
+      "cells": {
+      },
+      "netnames": {
+        "GLOBAL_BUFFER_OUTPUT": {
+          "hide_name": 0,
+          "bits": [ 3 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:114"
+          }
+        },
+        "USER_SIGNAL_TO_GLOBAL_BUFFER": {
+          "hide_name": 0,
+          "bits": [ 2 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:113"
+          }
+        }
+      }
+    },
+    "SB_GB_IO": {
+      "attributes": {
+        "blackbox": 1,
+        "cells_not_processed": 1,
+        "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:73"
+      },
+      "ports": {
+        "PACKAGE_PIN": {
+          "direction": "inout",
+          "bits": [ 2 ]
+        },
+        "GLOBAL_BUFFER_OUTPUT": {
+          "direction": "output",
+          "bits": [ 3 ]
+        },
+        "LATCH_INPUT_VALUE": {
+          "direction": "input",
+          "bits": [ 4 ]
+        },
+        "CLOCK_ENABLE": {
+          "direction": "input",
+          "bits": [ 5 ]
+        },
+        "INPUT_CLK": {
+          "direction": "input",
+          "bits": [ 6 ]
+        },
+        "OUTPUT_CLK": {
+          "direction": "input",
+          "bits": [ 7 ]
+        },
+        "OUTPUT_ENABLE": {
+          "direction": "input",
+          "bits": [ 8 ]
+        },
+        "D_OUT_0": {
+          "direction": "input",
+          "bits": [ 9 ]
+        },
+        "D_OUT_1": {
+          "direction": "input",
+          "bits": [ 10 ]
+        },
+        "D_IN_0": {
+          "direction": "output",
+          "bits": [ 11 ]
+        },
+        "D_IN_1": {
+          "direction": "output",
+          "bits": [ 12 ]
+        }
+      },
+      "cells": {
+      },
+      "netnames": {
+        "CLOCK_ENABLE": {
+          "hide_name": 0,
+          "bits": [ 5 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:77"
+          }
+        },
+        "D_IN_0": {
+          "hide_name": 0,
+          "bits": [ 11 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:83"
+          }
+        },
+        "D_IN_1": {
+          "hide_name": 0,
+          "bits": [ 12 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:84"
+          }
+        },
+        "D_OUT_0": {
+          "hide_name": 0,
+          "bits": [ 9 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:81"
+          }
+        },
+        "D_OUT_1": {
+          "hide_name": 0,
+          "bits": [ 10 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:82"
+          }
+        },
+        "GLOBAL_BUFFER_OUTPUT": {
+          "hide_name": 0,
+          "bits": [ 3 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:75"
+          }
+        },
+        "INPUT_CLK": {
+          "hide_name": 0,
+          "bits": [ 6 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:78"
+          }
+        },
+        "LATCH_INPUT_VALUE": {
+          "hide_name": 0,
+          "bits": [ 4 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:76"
+          }
+        },
+        "OUTPUT_CLK": {
+          "hide_name": 0,
+          "bits": [ 7 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:79"
+          }
+        },
+        "OUTPUT_ENABLE": {
+          "hide_name": 0,
+          "bits": [ 8 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:80"
+          }
+        },
+        "PACKAGE_PIN": {
+          "hide_name": 0,
+          "bits": [ 2 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:74"
+          }
+        }
+      }
+    },
+    "SB_HFOSC": {
+      "attributes": {
+        "blackbox": 1,
+        "cells_not_processed": 1,
+        "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:981"
+      },
+      "ports": {
+        "CLKHFPU": {
+          "direction": "input",
+          "bits": [ 2 ]
+        },
+        "CLKHFEN": {
+          "direction": "input",
+          "bits": [ 3 ]
+        },
+        "CLKHF": {
+          "direction": "output",
+          "bits": [ 4 ]
+        }
+      },
+      "cells": {
+      },
+      "netnames": {
+        "CLKHF": {
+          "hide_name": 0,
+          "bits": [ 4 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:984"
+          }
+        },
+        "CLKHFEN": {
+          "hide_name": 0,
+          "bits": [ 3 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:983"
+          }
+        },
+        "CLKHFPU": {
+          "hide_name": 0,
+          "bits": [ 2 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:982"
+          }
+        }
+      }
+    },
+    "SB_I2C": {
+      "attributes": {
+        "blackbox": 1,
+        "cells_not_processed": 1,
+        "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1015"
+      },
+      "ports": {
+        "SBCLKI": {
+          "direction": "input",
+          "bits": [ 2 ]
+        },
+        "SBRWI": {
+          "direction": "input",
+          "bits": [ 3 ]
+        },
+        "SBSTBI": {
+          "direction": "input",
+          "bits": [ 4 ]
+        },
+        "SBADRI7": {
+          "direction": "input",
+          "bits": [ 5 ]
+        },
+        "SBADRI6": {
+          "direction": "input",
+          "bits": [ 6 ]
+        },
+        "SBADRI5": {
+          "direction": "input",
+          "bits": [ 7 ]
+        },
+        "SBADRI4": {
+          "direction": "input",
+          "bits": [ 8 ]
+        },
+        "SBADRI3": {
+          "direction": "input",
+          "bits": [ 9 ]
+        },
+        "SBADRI2": {
+          "direction": "input",
+          "bits": [ 10 ]
+        },
+        "SBADRI1": {
+          "direction": "input",
+          "bits": [ 11 ]
+        },
+        "SBADRI0": {
+          "direction": "input",
+          "bits": [ 12 ]
+        },
+        "SBDATI7": {
+          "direction": "input",
+          "bits": [ 13 ]
+        },
+        "SBDATI6": {
+          "direction": "input",
+          "bits": [ 14 ]
+        },
+        "SBDATI5": {
+          "direction": "input",
+          "bits": [ 15 ]
+        },
+        "SBDATI4": {
+          "direction": "input",
+          "bits": [ 16 ]
+        },
+        "SBDATI3": {
+          "direction": "input",
+          "bits": [ 17 ]
+        },
+        "SBDATI2": {
+          "direction": "input",
+          "bits": [ 18 ]
+        },
+        "SBDATI1": {
+          "direction": "input",
+          "bits": [ 19 ]
+        },
+        "SBDATI0": {
+          "direction": "input",
+          "bits": [ 20 ]
+        },
+        "SCLI": {
+          "direction": "input",
+          "bits": [ 21 ]
+        },
+        "SDAI": {
+          "direction": "input",
+          "bits": [ 22 ]
+        },
+        "SBDATO7": {
+          "direction": "output",
+          "bits": [ 23 ]
+        },
+        "SBDATO6": {
+          "direction": "output",
+          "bits": [ 24 ]
+        },
+        "SBDATO5": {
+          "direction": "output",
+          "bits": [ 25 ]
+        },
+        "SBDATO4": {
+          "direction": "output",
+          "bits": [ 26 ]
+        },
+        "SBDATO3": {
+          "direction": "output",
+          "bits": [ 27 ]
+        },
+        "SBDATO2": {
+          "direction": "output",
+          "bits": [ 28 ]
+        },
+        "SBDATO1": {
+          "direction": "output",
+          "bits": [ 29 ]
+        },
+        "SBDATO0": {
+          "direction": "output",
+          "bits": [ 30 ]
+        },
+        "SBACKO": {
+          "direction": "output",
+          "bits": [ 31 ]
+        },
+        "I2CIRQ": {
+          "direction": "output",
+          "bits": [ 32 ]
+        },
+        "I2CWKUP": {
+          "direction": "output",
+          "bits": [ 33 ]
+        },
+        "SCLO": {
+          "direction": "output",
+          "bits": [ 34 ]
+        },
+        "SCLOE": {
+          "direction": "output",
+          "bits": [ 35 ]
+        },
+        "SDAO": {
+          "direction": "output",
+          "bits": [ 36 ]
+        },
+        "SDAOE": {
+          "direction": "output",
+          "bits": [ 37 ]
+        }
+      },
+      "cells": {
+      },
+      "netnames": {
+        "I2CIRQ": {
+          "hide_name": 0,
+          "bits": [ 32 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1046"
+          }
+        },
+        "I2CWKUP": {
+          "hide_name": 0,
+          "bits": [ 33 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1047"
+          }
+        },
+        "SBACKO": {
+          "hide_name": 0,
+          "bits": [ 31 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1045"
+          }
+        },
+        "SBADRI0": {
+          "hide_name": 0,
+          "bits": [ 12 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1026"
+          }
+        },
+        "SBADRI1": {
+          "hide_name": 0,
+          "bits": [ 11 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1025"
+          }
+        },
+        "SBADRI2": {
+          "hide_name": 0,
+          "bits": [ 10 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1024"
+          }
+        },
+        "SBADRI3": {
+          "hide_name": 0,
+          "bits": [ 9 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1023"
+          }
+        },
+        "SBADRI4": {
+          "hide_name": 0,
+          "bits": [ 8 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1022"
+          }
+        },
+        "SBADRI5": {
+          "hide_name": 0,
+          "bits": [ 7 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1021"
+          }
+        },
+        "SBADRI6": {
+          "hide_name": 0,
+          "bits": [ 6 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1020"
+          }
+        },
+        "SBADRI7": {
+          "hide_name": 0,
+          "bits": [ 5 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1019"
+          }
+        },
+        "SBCLKI": {
+          "hide_name": 0,
+          "bits": [ 2 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1016"
+          }
+        },
+        "SBDATI0": {
+          "hide_name": 0,
+          "bits": [ 20 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1034"
+          }
+        },
+        "SBDATI1": {
+          "hide_name": 0,
+          "bits": [ 19 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1033"
+          }
+        },
+        "SBDATI2": {
+          "hide_name": 0,
+          "bits": [ 18 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1032"
+          }
+        },
+        "SBDATI3": {
+          "hide_name": 0,
+          "bits": [ 17 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1031"
+          }
+        },
+        "SBDATI4": {
+          "hide_name": 0,
+          "bits": [ 16 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1030"
+          }
+        },
+        "SBDATI5": {
+          "hide_name": 0,
+          "bits": [ 15 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1029"
+          }
+        },
+        "SBDATI6": {
+          "hide_name": 0,
+          "bits": [ 14 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1028"
+          }
+        },
+        "SBDATI7": {
+          "hide_name": 0,
+          "bits": [ 13 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1027"
+          }
+        },
+        "SBDATO0": {
+          "hide_name": 0,
+          "bits": [ 30 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1044"
+          }
+        },
+        "SBDATO1": {
+          "hide_name": 0,
+          "bits": [ 29 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1043"
+          }
+        },
+        "SBDATO2": {
+          "hide_name": 0,
+          "bits": [ 28 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1042"
+          }
+        },
+        "SBDATO3": {
+          "hide_name": 0,
+          "bits": [ 27 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1041"
+          }
+        },
+        "SBDATO4": {
+          "hide_name": 0,
+          "bits": [ 26 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1040"
+          }
+        },
+        "SBDATO5": {
+          "hide_name": 0,
+          "bits": [ 25 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1039"
+          }
+        },
+        "SBDATO6": {
+          "hide_name": 0,
+          "bits": [ 24 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1038"
+          }
+        },
+        "SBDATO7": {
+          "hide_name": 0,
+          "bits": [ 23 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1037"
+          }
+        },
+        "SBRWI": {
+          "hide_name": 0,
+          "bits": [ 3 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1017"
+          }
+        },
+        "SBSTBI": {
+          "hide_name": 0,
+          "bits": [ 4 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1018"
+          }
+        },
+        "SCLI": {
+          "hide_name": 0,
+          "bits": [ 21 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1035"
+          }
+        },
+        "SCLO": {
+          "hide_name": 0,
+          "bits": [ 34 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1048"
+          }
+        },
+        "SCLOE": {
+          "hide_name": 0,
+          "bits": [ 35 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1049"
+          }
+        },
+        "SDAI": {
+          "hide_name": 0,
+          "bits": [ 22 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1036"
+          }
+        },
+        "SDAO": {
+          "hide_name": 0,
+          "bits": [ 36 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1050"
+          }
+        },
+        "SDAOE": {
+          "hide_name": 0,
+          "bits": [ 37 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1051"
+          }
+        }
+      }
+    },
+    "SB_IO": {
+      "attributes": {
+        "blackbox": 1,
+        "cells_not_processed": 1,
+        "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:7"
+      },
+      "ports": {
+        "PACKAGE_PIN": {
+          "direction": "inout",
+          "bits": [ 2 ]
+        },
+        "LATCH_INPUT_VALUE": {
+          "direction": "input",
+          "bits": [ 3 ]
+        },
+        "CLOCK_ENABLE": {
+          "direction": "input",
+          "bits": [ 4 ]
+        },
+        "INPUT_CLK": {
+          "direction": "input",
+          "bits": [ 5 ]
+        },
+        "OUTPUT_CLK": {
+          "direction": "input",
+          "bits": [ 6 ]
+        },
+        "OUTPUT_ENABLE": {
+          "direction": "input",
+          "bits": [ 7 ]
+        },
+        "D_OUT_0": {
+          "direction": "input",
+          "bits": [ 8 ]
+        },
+        "D_OUT_1": {
+          "direction": "input",
+          "bits": [ 9 ]
+        },
+        "D_IN_0": {
+          "direction": "output",
+          "bits": [ 10 ]
+        },
+        "D_IN_1": {
+          "direction": "output",
+          "bits": [ 11 ]
+        }
+      },
+      "cells": {
+      },
+      "netnames": {
+        "CLOCK_ENABLE": {
+          "hide_name": 0,
+          "bits": [ 4 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:10"
+          }
+        },
+        "D_IN_0": {
+          "hide_name": 0,
+          "bits": [ 10 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:16"
+          }
+        },
+        "D_IN_1": {
+          "hide_name": 0,
+          "bits": [ 11 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:17"
+          }
+        },
+        "D_OUT_0": {
+          "hide_name": 0,
+          "bits": [ 8 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:14"
+          }
+        },
+        "D_OUT_1": {
+          "hide_name": 0,
+          "bits": [ 9 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:15"
+          }
+        },
+        "INPUT_CLK": {
+          "hide_name": 0,
+          "bits": [ 5 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:11"
+          }
+        },
+        "LATCH_INPUT_VALUE": {
+          "hide_name": 0,
+          "bits": [ 3 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:9"
+          }
+        },
+        "OUTPUT_CLK": {
+          "hide_name": 0,
+          "bits": [ 6 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:12"
+          }
+        },
+        "OUTPUT_ENABLE": {
+          "hide_name": 0,
+          "bits": [ 7 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:13"
+          }
+        },
+        "PACKAGE_PIN": {
+          "hide_name": 0,
+          "bits": [ 2 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:8"
+          }
+        }
+      }
+    },
+    "SB_IO_I3C": {
+      "attributes": {
+        "blackbox": 1,
+        "cells_not_processed": 1,
+        "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1144"
+      },
+      "ports": {
+        "PACKAGE_PIN": {
+          "direction": "inout",
+          "bits": [ 2 ]
+        },
+        "LATCH_INPUT_VALUE": {
+          "direction": "input",
+          "bits": [ 3 ]
+        },
+        "CLOCK_ENABLE": {
+          "direction": "input",
+          "bits": [ 4 ]
+        },
+        "INPUT_CLK": {
+          "direction": "input",
+          "bits": [ 5 ]
+        },
+        "OUTPUT_CLK": {
+          "direction": "input",
+          "bits": [ 6 ]
+        },
+        "OUTPUT_ENABLE": {
+          "direction": "input",
+          "bits": [ 7 ]
+        },
+        "D_OUT_0": {
+          "direction": "input",
+          "bits": [ 8 ]
+        },
+        "D_OUT_1": {
+          "direction": "input",
+          "bits": [ 9 ]
+        },
+        "D_IN_0": {
+          "direction": "output",
+          "bits": [ 10 ]
+        },
+        "D_IN_1": {
+          "direction": "output",
+          "bits": [ 11 ]
+        },
+        "PU_ENB": {
+          "direction": "input",
+          "bits": [ 12 ]
+        },
+        "WEAK_PU_ENB": {
+          "direction": "input",
+          "bits": [ 13 ]
+        }
+      },
+      "cells": {
+      },
+      "netnames": {
+        "CLOCK_ENABLE": {
+          "hide_name": 0,
+          "bits": [ 4 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1147"
+          }
+        },
+        "D_IN_0": {
+          "hide_name": 0,
+          "bits": [ 10 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1153"
+          }
+        },
+        "D_IN_1": {
+          "hide_name": 0,
+          "bits": [ 11 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1154"
+          }
+        },
+        "D_OUT_0": {
+          "hide_name": 0,
+          "bits": [ 8 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1151"
+          }
+        },
+        "D_OUT_1": {
+          "hide_name": 0,
+          "bits": [ 9 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1152"
+          }
+        },
+        "INPUT_CLK": {
+          "hide_name": 0,
+          "bits": [ 5 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1148"
+          }
+        },
+        "LATCH_INPUT_VALUE": {
+          "hide_name": 0,
+          "bits": [ 3 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1146"
+          }
+        },
+        "OUTPUT_CLK": {
+          "hide_name": 0,
+          "bits": [ 6 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1149"
+          }
+        },
+        "OUTPUT_ENABLE": {
+          "hide_name": 0,
+          "bits": [ 7 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1150"
+          }
+        },
+        "PACKAGE_PIN": {
+          "hide_name": 0,
+          "bits": [ 2 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1145"
+          }
+        },
+        "PU_ENB": {
+          "hide_name": 0,
+          "bits": [ 12 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1155"
+          }
+        },
+        "WEAK_PU_ENB": {
+          "hide_name": 0,
+          "bits": [ 13 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1156"
+          }
+        }
+      }
+    },
+    "SB_IO_OD": {
+      "attributes": {
+        "blackbox": 1,
+        "cells_not_processed": 1,
+        "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1213"
+      },
+      "ports": {
+        "PACKAGEPIN": {
+          "direction": "inout",
+          "bits": [ 2 ]
+        },
+        "LATCHINPUTVALUE": {
+          "direction": "input",
+          "bits": [ 3 ]
+        },
+        "CLOCKENABLE": {
+          "direction": "input",
+          "bits": [ 4 ]
+        },
+        "INPUTCLK": {
+          "direction": "input",
+          "bits": [ 5 ]
+        },
+        "OUTPUTCLK": {
+          "direction": "input",
+          "bits": [ 6 ]
+        },
+        "OUTPUTENABLE": {
+          "direction": "input",
+          "bits": [ 7 ]
+        },
+        "DOUT1": {
+          "direction": "input",
+          "bits": [ 8 ]
+        },
+        "DOUT0": {
+          "direction": "input",
+          "bits": [ 9 ]
+        },
+        "DIN1": {
+          "direction": "output",
+          "bits": [ 10 ]
+        },
+        "DIN0": {
+          "direction": "output",
+          "bits": [ 11 ]
+        }
+      },
+      "cells": {
+      },
+      "netnames": {
+        "CLOCKENABLE": {
+          "hide_name": 0,
+          "bits": [ 4 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1216"
+          }
+        },
+        "DIN0": {
+          "hide_name": 0,
+          "bits": [ 11 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1223"
+          }
+        },
+        "DIN1": {
+          "hide_name": 0,
+          "bits": [ 10 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1222"
+          }
+        },
+        "DOUT0": {
+          "hide_name": 0,
+          "bits": [ 9 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1221"
+          }
+        },
+        "DOUT1": {
+          "hide_name": 0,
+          "bits": [ 8 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1220"
+          }
+        },
+        "INPUTCLK": {
+          "hide_name": 0,
+          "bits": [ 5 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1217"
+          }
+        },
+        "LATCHINPUTVALUE": {
+          "hide_name": 0,
+          "bits": [ 3 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1215"
+          }
+        },
+        "OUTPUTCLK": {
+          "hide_name": 0,
+          "bits": [ 6 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1218"
+          }
+        },
+        "OUTPUTENABLE": {
+          "hide_name": 0,
+          "bits": [ 7 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1219"
+          }
+        },
+        "PACKAGEPIN": {
+          "hide_name": 0,
+          "bits": [ 2 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1214"
+          }
+        }
+      }
+    },
+    "SB_LEDDA_IP": {
+      "attributes": {
+        "blackbox": 1,
+        "cells_not_processed": 1,
+        "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1112"
+      },
+      "ports": {
+        "LEDDCS": {
+          "direction": "input",
+          "bits": [ 2 ]
+        },
+        "LEDDCLK": {
+          "direction": "input",
+          "bits": [ 3 ]
+        },
+        "LEDDDAT7": {
+          "direction": "input",
+          "bits": [ 4 ]
+        },
+        "LEDDDAT6": {
+          "direction": "input",
+          "bits": [ 5 ]
+        },
+        "LEDDDAT5": {
+          "direction": "input",
+          "bits": [ 6 ]
+        },
+        "LEDDDAT4": {
+          "direction": "input",
+          "bits": [ 7 ]
+        },
+        "LEDDDAT3": {
+          "direction": "input",
+          "bits": [ 8 ]
+        },
+        "LEDDDAT2": {
+          "direction": "input",
+          "bits": [ 9 ]
+        },
+        "LEDDDAT1": {
+          "direction": "input",
+          "bits": [ 10 ]
+        },
+        "LEDDDAT0": {
+          "direction": "input",
+          "bits": [ 11 ]
+        },
+        "LEDDADDR3": {
+          "direction": "input",
+          "bits": [ 12 ]
+        },
+        "LEDDADDR2": {
+          "direction": "input",
+          "bits": [ 13 ]
+        },
+        "LEDDADDR1": {
+          "direction": "input",
+          "bits": [ 14 ]
+        },
+        "LEDDADDR0": {
+          "direction": "input",
+          "bits": [ 15 ]
+        },
+        "LEDDDEN": {
+          "direction": "input",
+          "bits": [ 16 ]
+        },
+        "LEDDEXE": {
+          "direction": "input",
+          "bits": [ 17 ]
+        },
+        "LEDDRST": {
+          "direction": "input",
+          "bits": [ 18 ]
+        },
+        "PWMOUT0": {
+          "direction": "output",
+          "bits": [ 19 ]
+        },
+        "PWMOUT1": {
+          "direction": "output",
+          "bits": [ 20 ]
+        },
+        "PWMOUT2": {
+          "direction": "output",
+          "bits": [ 21 ]
+        },
+        "LEDDON": {
+          "direction": "output",
+          "bits": [ 22 ]
+        }
+      },
+      "cells": {
+      },
+      "netnames": {
+        "LEDDADDR0": {
+          "hide_name": 0,
+          "bits": [ 15 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1126"
+          }
+        },
+        "LEDDADDR1": {
+          "hide_name": 0,
+          "bits": [ 14 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1125"
+          }
+        },
+        "LEDDADDR2": {
+          "hide_name": 0,
+          "bits": [ 13 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1124"
+          }
+        },
+        "LEDDADDR3": {
+          "hide_name": 0,
+          "bits": [ 12 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1123"
+          }
+        },
+        "LEDDCLK": {
+          "hide_name": 0,
+          "bits": [ 3 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1114"
+          }
+        },
+        "LEDDCS": {
+          "hide_name": 0,
+          "bits": [ 2 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1113"
+          }
+        },
+        "LEDDDAT0": {
+          "hide_name": 0,
+          "bits": [ 11 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1122"
+          }
+        },
+        "LEDDDAT1": {
+          "hide_name": 0,
+          "bits": [ 10 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1121"
+          }
+        },
+        "LEDDDAT2": {
+          "hide_name": 0,
+          "bits": [ 9 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1120"
+          }
+        },
+        "LEDDDAT3": {
+          "hide_name": 0,
+          "bits": [ 8 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1119"
+          }
+        },
+        "LEDDDAT4": {
+          "hide_name": 0,
+          "bits": [ 7 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1118"
+          }
+        },
+        "LEDDDAT5": {
+          "hide_name": 0,
+          "bits": [ 6 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1117"
+          }
+        },
+        "LEDDDAT6": {
+          "hide_name": 0,
+          "bits": [ 5 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1116"
+          }
+        },
+        "LEDDDAT7": {
+          "hide_name": 0,
+          "bits": [ 4 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1115"
+          }
+        },
+        "LEDDDEN": {
+          "hide_name": 0,
+          "bits": [ 16 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1127"
+          }
+        },
+        "LEDDEXE": {
+          "hide_name": 0,
+          "bits": [ 17 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1128"
+          }
+        },
+        "LEDDON": {
+          "hide_name": 0,
+          "bits": [ 22 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1133"
+          }
+        },
+        "LEDDRST": {
+          "hide_name": 0,
+          "bits": [ 18 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1129"
+          }
+        },
+        "PWMOUT0": {
+          "hide_name": 0,
+          "bits": [ 19 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1130"
+          }
+        },
+        "PWMOUT1": {
+          "hide_name": 0,
+          "bits": [ 20 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1131"
+          }
+        },
+        "PWMOUT2": {
+          "hide_name": 0,
+          "bits": [ 21 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1132"
+          }
+        }
+      }
+    },
+    "SB_LFOSC": {
+      "attributes": {
+        "blackbox": 1,
+        "cells_not_processed": 1,
+        "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:990"
+      },
+      "ports": {
+        "CLKLFPU": {
+          "direction": "input",
+          "bits": [ 2 ]
+        },
+        "CLKLFEN": {
+          "direction": "input",
+          "bits": [ 3 ]
+        },
+        "CLKLF": {
+          "direction": "output",
+          "bits": [ 4 ]
+        }
+      },
+      "cells": {
+      },
+      "netnames": {
+        "CLKLF": {
+          "hide_name": 0,
+          "bits": [ 4 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:993"
+          }
+        },
+        "CLKLFEN": {
+          "hide_name": 0,
+          "bits": [ 3 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:992"
+          }
+        },
+        "CLKLFPU": {
+          "hide_name": 0,
+          "bits": [ 2 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:991"
+          }
+        }
+      }
+    },
+    "SB_LUT4": {
+      "attributes": {
+        "blackbox": 1,
+        "cells_not_processed": 1,
+        "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:121"
+      },
+      "ports": {
+        "O": {
+          "direction": "output",
+          "bits": [ 2 ]
+        },
+        "I0": {
+          "direction": "input",
+          "bits": [ 3 ]
+        },
+        "I1": {
+          "direction": "input",
+          "bits": [ 4 ]
+        },
+        "I2": {
+          "direction": "input",
+          "bits": [ 5 ]
+        },
+        "I3": {
+          "direction": "input",
+          "bits": [ 6 ]
+        }
+      },
+      "cells": {
+      },
+      "netnames": {
+        "I0": {
+          "hide_name": 0,
+          "bits": [ 3 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:121"
+          }
+        },
+        "I1": {
+          "hide_name": 0,
+          "bits": [ 4 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:121"
+          }
+        },
+        "I2": {
+          "hide_name": 0,
+          "bits": [ 5 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:121"
+          }
+        },
+        "I3": {
+          "hide_name": 0,
+          "bits": [ 6 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:121"
+          }
+        },
+        "O": {
+          "hide_name": 0,
+          "bits": [ 2 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:121"
+          }
+        }
+      }
+    },
+    "SB_MAC16": {
+      "attributes": {
+        "blackbox": 1,
+        "cells_not_processed": 1,
+        "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:891"
+      },
+      "ports": {
+        "CLK": {
+          "direction": "input",
+          "bits": [ 2 ]
+        },
+        "CE": {
+          "direction": "input",
+          "bits": [ 3 ]
+        },
+        "C": {
+          "direction": "input",
+          "bits": [ 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19 ]
+        },
+        "A": {
+          "direction": "input",
+          "bits": [ 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35 ]
+        },
+        "B": {
+          "direction": "input",
+          "bits": [ 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51 ]
+        },
+        "D": {
+          "direction": "input",
+          "bits": [ 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67 ]
+        },
+        "AHOLD": {
+          "direction": "input",
+          "bits": [ 68 ]
+        },
+        "BHOLD": {
+          "direction": "input",
+          "bits": [ 69 ]
+        },
+        "CHOLD": {
+          "direction": "input",
+          "bits": [ 70 ]
+        },
+        "DHOLD": {
+          "direction": "input",
+          "bits": [ 71 ]
+        },
+        "IRSTTOP": {
+          "direction": "input",
+          "bits": [ 72 ]
+        },
+        "IRSTBOT": {
+          "direction": "input",
+          "bits": [ 73 ]
+        },
+        "ORSTTOP": {
+          "direction": "input",
+          "bits": [ 74 ]
+        },
+        "ORSTBOT": {
+          "direction": "input",
+          "bits": [ 75 ]
+        },
+        "OLOADTOP": {
+          "direction": "input",
+          "bits": [ 76 ]
+        },
+        "OLOADBOT": {
+          "direction": "input",
+          "bits": [ 77 ]
+        },
+        "ADDSUBTOP": {
+          "direction": "input",
+          "bits": [ 78 ]
+        },
+        "ADDSUBBOT": {
+          "direction": "input",
+          "bits": [ 79 ]
+        },
+        "OHOLDTOP": {
+          "direction": "input",
+          "bits": [ 80 ]
+        },
+        "OHOLDBOT": {
+          "direction": "input",
+          "bits": [ 81 ]
+        },
+        "CI": {
+          "direction": "input",
+          "bits": [ 82 ]
+        },
+        "ACCUMCI": {
+          "direction": "input",
+          "bits": [ 83 ]
+        },
+        "SIGNEXTIN": {
+          "direction": "input",
+          "bits": [ 84 ]
+        },
+        "O": {
+          "direction": "output",
+          "bits": [ 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116 ]
+        },
+        "CO": {
+          "direction": "output",
+          "bits": [ 117 ]
+        },
+        "ACCUMCO": {
+          "direction": "output",
+          "bits": [ 118 ]
+        },
+        "SIGNEXTOUT": {
+          "direction": "output",
+          "bits": [ 119 ]
+        }
+      },
+      "cells": {
+      },
+      "netnames": {
+        "A": {
+          "hide_name": 0,
+          "bits": [ 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:895"
+          }
+        },
+        "ACCUMCI": {
+          "hide_name": 0,
+          "bits": [ 83 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:913"
+          }
+        },
+        "ACCUMCO": {
+          "hide_name": 0,
+          "bits": [ 118 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:917"
+          }
+        },
+        "ADDSUBBOT": {
+          "hide_name": 0,
+          "bits": [ 79 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:909"
+          }
+        },
+        "ADDSUBTOP": {
+          "hide_name": 0,
+          "bits": [ 78 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:908"
+          }
+        },
+        "AHOLD": {
+          "hide_name": 0,
+          "bits": [ 68 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:898"
+          }
+        },
+        "B": {
+          "hide_name": 0,
+          "bits": [ 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:896"
+          }
+        },
+        "BHOLD": {
+          "hide_name": 0,
+          "bits": [ 69 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:899"
+          }
+        },
+        "C": {
+          "hide_name": 0,
+          "bits": [ 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:894"
+          }
+        },
+        "CE": {
+          "hide_name": 0,
+          "bits": [ 3 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:893"
+          }
+        },
+        "CHOLD": {
+          "hide_name": 0,
+          "bits": [ 70 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:900"
+          }
+        },
+        "CI": {
+          "hide_name": 0,
+          "bits": [ 82 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:912"
+          }
+        },
+        "CLK": {
+          "hide_name": 0,
+          "bits": [ 2 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:892"
+          }
+        },
+        "CO": {
+          "hide_name": 0,
+          "bits": [ 117 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:916"
+          }
+        },
+        "D": {
+          "hide_name": 0,
+          "bits": [ 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:897"
+          }
+        },
+        "DHOLD": {
+          "hide_name": 0,
+          "bits": [ 71 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:901"
+          }
+        },
+        "IRSTBOT": {
+          "hide_name": 0,
+          "bits": [ 73 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:903"
+          }
+        },
+        "IRSTTOP": {
+          "hide_name": 0,
+          "bits": [ 72 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:902"
+          }
+        },
+        "O": {
+          "hide_name": 0,
+          "bits": [ 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:915"
+          }
+        },
+        "OHOLDBOT": {
+          "hide_name": 0,
+          "bits": [ 81 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:911"
+          }
+        },
+        "OHOLDTOP": {
+          "hide_name": 0,
+          "bits": [ 80 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:910"
+          }
+        },
+        "OLOADBOT": {
+          "hide_name": 0,
+          "bits": [ 77 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:907"
+          }
+        },
+        "OLOADTOP": {
+          "hide_name": 0,
+          "bits": [ 76 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:906"
+          }
+        },
+        "ORSTBOT": {
+          "hide_name": 0,
+          "bits": [ 75 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:905"
+          }
+        },
+        "ORSTTOP": {
+          "hide_name": 0,
+          "bits": [ 74 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:904"
+          }
+        },
+        "SIGNEXTIN": {
+          "hide_name": 0,
+          "bits": [ 84 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:914"
+          }
+        },
+        "SIGNEXTOUT": {
+          "hide_name": 0,
+          "bits": [ 119 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:918"
+          }
+        }
+      }
+    },
+    "SB_PLL40_2F_CORE": {
+      "attributes": {
+        "blackbox": 1,
+        "cells_not_processed": 1,
+        "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:810"
+      },
+      "ports": {
+        "REFERENCECLK": {
+          "direction": "input",
+          "bits": [ 2 ]
+        },
+        "PLLOUTCOREA": {
+          "direction": "output",
+          "bits": [ 3 ]
+        },
+        "PLLOUTGLOBALA": {
+          "direction": "output",
+          "bits": [ 4 ]
+        },
+        "PLLOUTCOREB": {
+          "direction": "output",
+          "bits": [ 5 ]
+        },
+        "PLLOUTGLOBALB": {
+          "direction": "output",
+          "bits": [ 6 ]
+        },
+        "EXTFEEDBACK": {
+          "direction": "input",
+          "bits": [ 7 ]
+        },
+        "DYNAMICDELAY": {
+          "direction": "input",
+          "bits": [ 8, 9, 10, 11, 12, 13, 14, 15 ]
+        },
+        "LOCK": {
+          "direction": "output",
+          "bits": [ 16 ]
+        },
+        "BYPASS": {
+          "direction": "input",
+          "bits": [ 17 ]
+        },
+        "RESETB": {
+          "direction": "input",
+          "bits": [ 18 ]
+        },
+        "LATCHINPUTVALUE": {
+          "direction": "input",
+          "bits": [ 19 ]
+        },
+        "SDO": {
+          "direction": "output",
+          "bits": [ 20 ]
+        },
+        "SDI": {
+          "direction": "input",
+          "bits": [ 21 ]
+        },
+        "SCLK": {
+          "direction": "input",
+          "bits": [ 22 ]
+        }
+      },
+      "cells": {
+      },
+      "netnames": {
+        "BYPASS": {
+          "hide_name": 0,
+          "bits": [ 17 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:819"
+          }
+        },
+        "DYNAMICDELAY": {
+          "hide_name": 0,
+          "bits": [ 8, 9, 10, 11, 12, 13, 14, 15 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:817"
+          }
+        },
+        "EXTFEEDBACK": {
+          "hide_name": 0,
+          "bits": [ 7 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:816"
+          }
+        },
+        "LATCHINPUTVALUE": {
+          "hide_name": 0,
+          "bits": [ 19 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:821"
+          }
+        },
+        "LOCK": {
+          "hide_name": 0,
+          "bits": [ 16 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:818"
+          }
+        },
+        "PLLOUTCOREA": {
+          "hide_name": 0,
+          "bits": [ 3 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:812"
+          }
+        },
+        "PLLOUTCOREB": {
+          "hide_name": 0,
+          "bits": [ 5 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:814"
+          }
+        },
+        "PLLOUTGLOBALA": {
+          "hide_name": 0,
+          "bits": [ 4 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:813"
+          }
+        },
+        "PLLOUTGLOBALB": {
+          "hide_name": 0,
+          "bits": [ 6 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:815"
+          }
+        },
+        "REFERENCECLK": {
+          "hide_name": 0,
+          "bits": [ 2 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:811"
+          }
+        },
+        "RESETB": {
+          "hide_name": 0,
+          "bits": [ 18 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:820"
+          }
+        },
+        "SCLK": {
+          "hide_name": 0,
+          "bits": [ 22 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:824"
+          }
+        },
+        "SDI": {
+          "hide_name": 0,
+          "bits": [ 21 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:823"
+          }
+        },
+        "SDO": {
+          "hide_name": 0,
+          "bits": [ 20 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:822"
+          }
+        }
+      }
+    },
+    "SB_PLL40_2F_PAD": {
+      "attributes": {
+        "blackbox": 1,
+        "cells_not_processed": 1,
+        "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:845"
+      },
+      "ports": {
+        "PACKAGEPIN": {
+          "direction": "input",
+          "bits": [ 2 ]
+        },
+        "PLLOUTCOREA": {
+          "direction": "output",
+          "bits": [ 3 ]
+        },
+        "PLLOUTGLOBALA": {
+          "direction": "output",
+          "bits": [ 4 ]
+        },
+        "PLLOUTCOREB": {
+          "direction": "output",
+          "bits": [ 5 ]
+        },
+        "PLLOUTGLOBALB": {
+          "direction": "output",
+          "bits": [ 6 ]
+        },
+        "EXTFEEDBACK": {
+          "direction": "input",
+          "bits": [ 7 ]
+        },
+        "DYNAMICDELAY": {
+          "direction": "input",
+          "bits": [ 8, 9, 10, 11, 12, 13, 14, 15 ]
+        },
+        "LOCK": {
+          "direction": "output",
+          "bits": [ 16 ]
+        },
+        "BYPASS": {
+          "direction": "input",
+          "bits": [ 17 ]
+        },
+        "RESETB": {
+          "direction": "input",
+          "bits": [ 18 ]
+        },
+        "LATCHINPUTVALUE": {
+          "direction": "input",
+          "bits": [ 19 ]
+        },
+        "SDO": {
+          "direction": "output",
+          "bits": [ 20 ]
+        },
+        "SDI": {
+          "direction": "input",
+          "bits": [ 21 ]
+        },
+        "SCLK": {
+          "direction": "input",
+          "bits": [ 22 ]
+        }
+      },
+      "cells": {
+      },
+      "netnames": {
+        "BYPASS": {
+          "hide_name": 0,
+          "bits": [ 17 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:854"
+          }
+        },
+        "DYNAMICDELAY": {
+          "hide_name": 0,
+          "bits": [ 8, 9, 10, 11, 12, 13, 14, 15 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:852"
+          }
+        },
+        "EXTFEEDBACK": {
+          "hide_name": 0,
+          "bits": [ 7 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:851"
+          }
+        },
+        "LATCHINPUTVALUE": {
+          "hide_name": 0,
+          "bits": [ 19 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:856"
+          }
+        },
+        "LOCK": {
+          "hide_name": 0,
+          "bits": [ 16 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:853"
+          }
+        },
+        "PACKAGEPIN": {
+          "hide_name": 0,
+          "bits": [ 2 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:846"
+          }
+        },
+        "PLLOUTCOREA": {
+          "hide_name": 0,
+          "bits": [ 3 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:847"
+          }
+        },
+        "PLLOUTCOREB": {
+          "hide_name": 0,
+          "bits": [ 5 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:849"
+          }
+        },
+        "PLLOUTGLOBALA": {
+          "hide_name": 0,
+          "bits": [ 4 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:848"
+          }
+        },
+        "PLLOUTGLOBALB": {
+          "hide_name": 0,
+          "bits": [ 6 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:850"
+          }
+        },
+        "RESETB": {
+          "hide_name": 0,
+          "bits": [ 18 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:855"
+          }
+        },
+        "SCLK": {
+          "hide_name": 0,
+          "bits": [ 22 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:859"
+          }
+        },
+        "SDI": {
+          "hide_name": 0,
+          "bits": [ 21 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:858"
+          }
+        },
+        "SDO": {
+          "hide_name": 0,
+          "bits": [ 20 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:857"
+          }
+        }
+      }
+    },
+    "SB_PLL40_2_PAD": {
+      "attributes": {
+        "blackbox": 1,
+        "cells_not_processed": 1,
+        "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:776"
+      },
+      "ports": {
+        "PACKAGEPIN": {
+          "direction": "input",
+          "bits": [ 2 ]
+        },
+        "PLLOUTCOREA": {
+          "direction": "output",
+          "bits": [ 3 ]
+        },
+        "PLLOUTGLOBALA": {
+          "direction": "output",
+          "bits": [ 4 ]
+        },
+        "PLLOUTCOREB": {
+          "direction": "output",
+          "bits": [ 5 ]
+        },
+        "PLLOUTGLOBALB": {
+          "direction": "output",
+          "bits": [ 6 ]
+        },
+        "EXTFEEDBACK": {
+          "direction": "input",
+          "bits": [ 7 ]
+        },
+        "DYNAMICDELAY": {
+          "direction": "input",
+          "bits": [ 8, 9, 10, 11, 12, 13, 14, 15 ]
+        },
+        "LOCK": {
+          "direction": "output",
+          "bits": [ 16 ]
+        },
+        "BYPASS": {
+          "direction": "input",
+          "bits": [ 17 ]
+        },
+        "RESETB": {
+          "direction": "input",
+          "bits": [ 18 ]
+        },
+        "LATCHINPUTVALUE": {
+          "direction": "input",
+          "bits": [ 19 ]
+        },
+        "SDO": {
+          "direction": "output",
+          "bits": [ 20 ]
+        },
+        "SDI": {
+          "direction": "input",
+          "bits": [ 21 ]
+        },
+        "SCLK": {
+          "direction": "input",
+          "bits": [ 22 ]
+        }
+      },
+      "cells": {
+      },
+      "netnames": {
+        "BYPASS": {
+          "hide_name": 0,
+          "bits": [ 17 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:785"
+          }
+        },
+        "DYNAMICDELAY": {
+          "hide_name": 0,
+          "bits": [ 8, 9, 10, 11, 12, 13, 14, 15 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:783"
+          }
+        },
+        "EXTFEEDBACK": {
+          "hide_name": 0,
+          "bits": [ 7 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:782"
+          }
+        },
+        "LATCHINPUTVALUE": {
+          "hide_name": 0,
+          "bits": [ 19 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:787"
+          }
+        },
+        "LOCK": {
+          "hide_name": 0,
+          "bits": [ 16 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:784"
+          }
+        },
+        "PACKAGEPIN": {
+          "hide_name": 0,
+          "bits": [ 2 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:777"
+          }
+        },
+        "PLLOUTCOREA": {
+          "hide_name": 0,
+          "bits": [ 3 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:778"
+          }
+        },
+        "PLLOUTCOREB": {
+          "hide_name": 0,
+          "bits": [ 5 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:780"
+          }
+        },
+        "PLLOUTGLOBALA": {
+          "hide_name": 0,
+          "bits": [ 4 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:779"
+          }
+        },
+        "PLLOUTGLOBALB": {
+          "hide_name": 0,
+          "bits": [ 6 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:781"
+          }
+        },
+        "RESETB": {
+          "hide_name": 0,
+          "bits": [ 18 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:786"
+          }
+        },
+        "SCLK": {
+          "hide_name": 0,
+          "bits": [ 22 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:790"
+          }
+        },
+        "SDI": {
+          "hide_name": 0,
+          "bits": [ 21 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:789"
+          }
+        },
+        "SDO": {
+          "hide_name": 0,
+          "bits": [ 20 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:788"
+          }
+        }
+      }
+    },
+    "SB_PLL40_CORE": {
+      "attributes": {
+        "blackbox": 1,
+        "cells_not_processed": 1,
+        "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:714"
+      },
+      "ports": {
+        "REFERENCECLK": {
+          "direction": "input",
+          "bits": [ 2 ]
+        },
+        "PLLOUTCORE": {
+          "direction": "output",
+          "bits": [ 3 ]
+        },
+        "PLLOUTGLOBAL": {
+          "direction": "output",
+          "bits": [ 4 ]
+        },
+        "EXTFEEDBACK": {
+          "direction": "input",
+          "bits": [ 5 ]
+        },
+        "DYNAMICDELAY": {
+          "direction": "input",
+          "bits": [ 6, 7, 8, 9, 10, 11, 12, 13 ]
+        },
+        "LOCK": {
+          "direction": "output",
+          "bits": [ 14 ]
+        },
+        "BYPASS": {
+          "direction": "input",
+          "bits": [ 15 ]
+        },
+        "RESETB": {
+          "direction": "input",
+          "bits": [ 16 ]
+        },
+        "LATCHINPUTVALUE": {
+          "direction": "input",
+          "bits": [ 17 ]
+        },
+        "SDO": {
+          "direction": "output",
+          "bits": [ 18 ]
+        },
+        "SDI": {
+          "direction": "input",
+          "bits": [ 19 ]
+        },
+        "SCLK": {
+          "direction": "input",
+          "bits": [ 20 ]
+        }
+      },
+      "cells": {
+      },
+      "netnames": {
+        "BYPASS": {
+          "hide_name": 0,
+          "bits": [ 15 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:721"
+          }
+        },
+        "DYNAMICDELAY": {
+          "hide_name": 0,
+          "bits": [ 6, 7, 8, 9, 10, 11, 12, 13 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:719"
+          }
+        },
+        "EXTFEEDBACK": {
+          "hide_name": 0,
+          "bits": [ 5 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:718"
+          }
+        },
+        "LATCHINPUTVALUE": {
+          "hide_name": 0,
+          "bits": [ 17 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:723"
+          }
+        },
+        "LOCK": {
+          "hide_name": 0,
+          "bits": [ 14 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:720"
+          }
+        },
+        "PLLOUTCORE": {
+          "hide_name": 0,
+          "bits": [ 3 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:716"
+          }
+        },
+        "PLLOUTGLOBAL": {
+          "hide_name": 0,
+          "bits": [ 4 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:717"
+          }
+        },
+        "REFERENCECLK": {
+          "hide_name": 0,
+          "bits": [ 2 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:715"
+          }
+        },
+        "RESETB": {
+          "hide_name": 0,
+          "bits": [ 16 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:722"
+          }
+        },
+        "SCLK": {
+          "hide_name": 0,
+          "bits": [ 20 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:726"
+          }
+        },
+        "SDI": {
+          "hide_name": 0,
+          "bits": [ 19 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:725"
+          }
+        },
+        "SDO": {
+          "hide_name": 0,
+          "bits": [ 18 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:724"
+          }
+        }
+      }
+    },
+    "SB_PLL40_PAD": {
+      "attributes": {
+        "blackbox": 1,
+        "cells_not_processed": 1,
+        "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:745"
+      },
+      "ports": {
+        "PACKAGEPIN": {
+          "direction": "input",
+          "bits": [ 2 ]
+        },
+        "PLLOUTCORE": {
+          "direction": "output",
+          "bits": [ 3 ]
+        },
+        "PLLOUTGLOBAL": {
+          "direction": "output",
+          "bits": [ 4 ]
+        },
+        "EXTFEEDBACK": {
+          "direction": "input",
+          "bits": [ 5 ]
+        },
+        "DYNAMICDELAY": {
+          "direction": "input",
+          "bits": [ 6, 7, 8, 9, 10, 11, 12, 13 ]
+        },
+        "LOCK": {
+          "direction": "output",
+          "bits": [ 14 ]
+        },
+        "BYPASS": {
+          "direction": "input",
+          "bits": [ 15 ]
+        },
+        "RESETB": {
+          "direction": "input",
+          "bits": [ 16 ]
+        },
+        "LATCHINPUTVALUE": {
+          "direction": "input",
+          "bits": [ 17 ]
+        },
+        "SDO": {
+          "direction": "output",
+          "bits": [ 18 ]
+        },
+        "SDI": {
+          "direction": "input",
+          "bits": [ 19 ]
+        },
+        "SCLK": {
+          "direction": "input",
+          "bits": [ 20 ]
+        }
+      },
+      "cells": {
+      },
+      "netnames": {
+        "BYPASS": {
+          "hide_name": 0,
+          "bits": [ 15 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:752"
+          }
+        },
+        "DYNAMICDELAY": {
+          "hide_name": 0,
+          "bits": [ 6, 7, 8, 9, 10, 11, 12, 13 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:750"
+          }
+        },
+        "EXTFEEDBACK": {
+          "hide_name": 0,
+          "bits": [ 5 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:749"
+          }
+        },
+        "LATCHINPUTVALUE": {
+          "hide_name": 0,
+          "bits": [ 17 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:754"
+          }
+        },
+        "LOCK": {
+          "hide_name": 0,
+          "bits": [ 14 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:751"
+          }
+        },
+        "PACKAGEPIN": {
+          "hide_name": 0,
+          "bits": [ 2 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:746"
+          }
+        },
+        "PLLOUTCORE": {
+          "hide_name": 0,
+          "bits": [ 3 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:747"
+          }
+        },
+        "PLLOUTGLOBAL": {
+          "hide_name": 0,
+          "bits": [ 4 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:748"
+          }
+        },
+        "RESETB": {
+          "hide_name": 0,
+          "bits": [ 16 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:753"
+          }
+        },
+        "SCLK": {
+          "hide_name": 0,
+          "bits": [ 20 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:757"
+          }
+        },
+        "SDI": {
+          "hide_name": 0,
+          "bits": [ 19 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:756"
+          }
+        },
+        "SDO": {
+          "hide_name": 0,
+          "bits": [ 18 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:755"
+          }
+        }
+      }
+    },
+    "SB_RAM40_4K": {
+      "attributes": {
+        "blackbox": 1,
+        "cells_not_processed": 1,
+        "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:297"
+      },
+      "ports": {
+        "RDATA": {
+          "direction": "output",
+          "bits": [ 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17 ]
+        },
+        "RCLK": {
+          "direction": "input",
+          "bits": [ 18 ]
+        },
+        "RCLKE": {
+          "direction": "input",
+          "bits": [ 19 ]
+        },
+        "RE": {
+          "direction": "input",
+          "bits": [ 20 ]
+        },
+        "RADDR": {
+          "direction": "input",
+          "bits": [ 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31 ]
+        },
+        "WCLK": {
+          "direction": "input",
+          "bits": [ 32 ]
+        },
+        "WCLKE": {
+          "direction": "input",
+          "bits": [ 33 ]
+        },
+        "WE": {
+          "direction": "input",
+          "bits": [ 34 ]
+        },
+        "WADDR": {
+          "direction": "input",
+          "bits": [ 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45 ]
+        },
+        "MASK": {
+          "direction": "input",
+          "bits": [ 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61 ]
+        },
+        "WDATA": {
+          "direction": "input",
+          "bits": [ 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77 ]
+        }
+      },
+      "cells": {
+      },
+      "netnames": {
+        "MASK": {
+          "hide_name": 0,
+          "bits": [ 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:303"
+          }
+        },
+        "RADDR": {
+          "hide_name": 0,
+          "bits": [ 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:300"
+          }
+        },
+        "RCLK": {
+          "hide_name": 0,
+          "bits": [ 18 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:299"
+          }
+        },
+        "RCLKE": {
+          "hide_name": 0,
+          "bits": [ 19 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:299"
+          }
+        },
+        "RDATA": {
+          "hide_name": 0,
+          "bits": [ 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:298"
+          }
+        },
+        "RE": {
+          "hide_name": 0,
+          "bits": [ 20 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:299"
+          }
+        },
+        "WADDR": {
+          "hide_name": 0,
+          "bits": [ 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:302"
+          }
+        },
+        "WCLK": {
+          "hide_name": 0,
+          "bits": [ 32 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:301"
+          }
+        },
+        "WCLKE": {
+          "hide_name": 0,
+          "bits": [ 33 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:301"
+          }
+        },
+        "WDATA": {
+          "hide_name": 0,
+          "bits": [ 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:303"
+          }
+        },
+        "WE": {
+          "hide_name": 0,
+          "bits": [ 34 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:301"
+          }
+        }
+      }
+    },
+    "SB_RAM40_4KNR": {
+      "attributes": {
+        "blackbox": 1,
+        "cells_not_processed": 1,
+        "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:479"
+      },
+      "ports": {
+        "RDATA": {
+          "direction": "output",
+          "bits": [ 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17 ]
+        },
+        "RCLKN": {
+          "direction": "input",
+          "bits": [ 18 ]
+        },
+        "RCLKE": {
+          "direction": "input",
+          "bits": [ 19 ]
+        },
+        "RE": {
+          "direction": "input",
+          "bits": [ 20 ]
+        },
+        "RADDR": {
+          "direction": "input",
+          "bits": [ 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31 ]
+        },
+        "WCLK": {
+          "direction": "input",
+          "bits": [ 32 ]
+        },
+        "WCLKE": {
+          "direction": "input",
+          "bits": [ 33 ]
+        },
+        "WE": {
+          "direction": "input",
+          "bits": [ 34 ]
+        },
+        "WADDR": {
+          "direction": "input",
+          "bits": [ 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45 ]
+        },
+        "MASK": {
+          "direction": "input",
+          "bits": [ 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61 ]
+        },
+        "WDATA": {
+          "direction": "input",
+          "bits": [ 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77 ]
+        }
+      },
+      "cells": {
+      },
+      "netnames": {
+        "MASK": {
+          "hide_name": 0,
+          "bits": [ 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:485"
+          }
+        },
+        "RADDR": {
+          "hide_name": 0,
+          "bits": [ 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:482"
+          }
+        },
+        "RCLKE": {
+          "hide_name": 0,
+          "bits": [ 19 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:481"
+          }
+        },
+        "RCLKN": {
+          "hide_name": 0,
+          "bits": [ 18 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:481"
+          }
+        },
+        "RDATA": {
+          "hide_name": 0,
+          "bits": [ 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:480"
+          }
+        },
+        "RE": {
+          "hide_name": 0,
+          "bits": [ 20 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:481"
+          }
+        },
+        "WADDR": {
+          "hide_name": 0,
+          "bits": [ 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:484"
+          }
+        },
+        "WCLK": {
+          "hide_name": 0,
+          "bits": [ 32 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:483"
+          }
+        },
+        "WCLKE": {
+          "hide_name": 0,
+          "bits": [ 33 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:483"
+          }
+        },
+        "WDATA": {
+          "hide_name": 0,
+          "bits": [ 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:485"
+          }
+        },
+        "WE": {
+          "hide_name": 0,
+          "bits": [ 34 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:483"
+          }
+        }
+      }
+    },
+    "SB_RAM40_4KNRNW": {
+      "attributes": {
+        "blackbox": 1,
+        "cells_not_processed": 1,
+        "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:603"
+      },
+      "ports": {
+        "RDATA": {
+          "direction": "output",
+          "bits": [ 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17 ]
+        },
+        "RCLKN": {
+          "direction": "input",
+          "bits": [ 18 ]
+        },
+        "RCLKE": {
+          "direction": "input",
+          "bits": [ 19 ]
+        },
+        "RE": {
+          "direction": "input",
+          "bits": [ 20 ]
+        },
+        "RADDR": {
+          "direction": "input",
+          "bits": [ 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31 ]
+        },
+        "WCLKN": {
+          "direction": "input",
+          "bits": [ 32 ]
+        },
+        "WCLKE": {
+          "direction": "input",
+          "bits": [ 33 ]
+        },
+        "WE": {
+          "direction": "input",
+          "bits": [ 34 ]
+        },
+        "WADDR": {
+          "direction": "input",
+          "bits": [ 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45 ]
+        },
+        "MASK": {
+          "direction": "input",
+          "bits": [ 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61 ]
+        },
+        "WDATA": {
+          "direction": "input",
+          "bits": [ 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77 ]
+        }
+      },
+      "cells": {
+      },
+      "netnames": {
+        "MASK": {
+          "hide_name": 0,
+          "bits": [ 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:609"
+          }
+        },
+        "RADDR": {
+          "hide_name": 0,
+          "bits": [ 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:606"
+          }
+        },
+        "RCLKE": {
+          "hide_name": 0,
+          "bits": [ 19 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:605"
+          }
+        },
+        "RCLKN": {
+          "hide_name": 0,
+          "bits": [ 18 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:605"
+          }
+        },
+        "RDATA": {
+          "hide_name": 0,
+          "bits": [ 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:604"
+          }
+        },
+        "RE": {
+          "hide_name": 0,
+          "bits": [ 20 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:605"
+          }
+        },
+        "WADDR": {
+          "hide_name": 0,
+          "bits": [ 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:608"
+          }
+        },
+        "WCLKE": {
+          "hide_name": 0,
+          "bits": [ 33 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:607"
+          }
+        },
+        "WCLKN": {
+          "hide_name": 0,
+          "bits": [ 32 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:607"
+          }
+        },
+        "WDATA": {
+          "hide_name": 0,
+          "bits": [ 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:609"
+          }
+        },
+        "WE": {
+          "hide_name": 0,
+          "bits": [ 34 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:607"
+          }
+        }
+      }
+    },
+    "SB_RAM40_4KNW": {
+      "attributes": {
+        "blackbox": 1,
+        "cells_not_processed": 1,
+        "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:541"
+      },
+      "ports": {
+        "RDATA": {
+          "direction": "output",
+          "bits": [ 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17 ]
+        },
+        "RCLK": {
+          "direction": "input",
+          "bits": [ 18 ]
+        },
+        "RCLKE": {
+          "direction": "input",
+          "bits": [ 19 ]
+        },
+        "RE": {
+          "direction": "input",
+          "bits": [ 20 ]
+        },
+        "RADDR": {
+          "direction": "input",
+          "bits": [ 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31 ]
+        },
+        "WCLKN": {
+          "direction": "input",
+          "bits": [ 32 ]
+        },
+        "WCLKE": {
+          "direction": "input",
+          "bits": [ 33 ]
+        },
+        "WE": {
+          "direction": "input",
+          "bits": [ 34 ]
+        },
+        "WADDR": {
+          "direction": "input",
+          "bits": [ 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45 ]
+        },
+        "MASK": {
+          "direction": "input",
+          "bits": [ 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61 ]
+        },
+        "WDATA": {
+          "direction": "input",
+          "bits": [ 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77 ]
+        }
+      },
+      "cells": {
+      },
+      "netnames": {
+        "MASK": {
+          "hide_name": 0,
+          "bits": [ 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:547"
+          }
+        },
+        "RADDR": {
+          "hide_name": 0,
+          "bits": [ 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:544"
+          }
+        },
+        "RCLK": {
+          "hide_name": 0,
+          "bits": [ 18 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:543"
+          }
+        },
+        "RCLKE": {
+          "hide_name": 0,
+          "bits": [ 19 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:543"
+          }
+        },
+        "RDATA": {
+          "hide_name": 0,
+          "bits": [ 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:542"
+          }
+        },
+        "RE": {
+          "hide_name": 0,
+          "bits": [ 20 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:543"
+          }
+        },
+        "WADDR": {
+          "hide_name": 0,
+          "bits": [ 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:546"
+          }
+        },
+        "WCLKE": {
+          "hide_name": 0,
+          "bits": [ 33 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:545"
+          }
+        },
+        "WCLKN": {
+          "hide_name": 0,
+          "bits": [ 32 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:545"
+          }
+        },
+        "WDATA": {
+          "hide_name": 0,
+          "bits": [ 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:547"
+          }
+        },
+        "WE": {
+          "hide_name": 0,
+          "bits": [ 34 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:545"
+          }
+        }
+      }
+    },
+    "SB_RGBA_DRV": {
+      "attributes": {
+        "blackbox": 1,
+        "cells_not_processed": 1,
+        "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:998"
+      },
+      "ports": {
+        "CURREN": {
+          "direction": "input",
+          "bits": [ 2 ]
+        },
+        "RGBLEDEN": {
+          "direction": "input",
+          "bits": [ 3 ]
+        },
+        "RGB0PWM": {
+          "direction": "input",
+          "bits": [ 4 ]
+        },
+        "RGB1PWM": {
+          "direction": "input",
+          "bits": [ 5 ]
+        },
+        "RGB2PWM": {
+          "direction": "input",
+          "bits": [ 6 ]
+        },
+        "RGB0": {
+          "direction": "output",
+          "bits": [ 7 ]
+        },
+        "RGB1": {
+          "direction": "output",
+          "bits": [ 8 ]
+        },
+        "RGB2": {
+          "direction": "output",
+          "bits": [ 9 ]
+        }
+      },
+      "cells": {
+      },
+      "netnames": {
+        "CURREN": {
+          "hide_name": 0,
+          "bits": [ 2 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:999"
+          }
+        },
+        "RGB0": {
+          "hide_name": 0,
+          "bits": [ 7 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1004"
+          }
+        },
+        "RGB0PWM": {
+          "hide_name": 0,
+          "bits": [ 4 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1001"
+          }
+        },
+        "RGB1": {
+          "hide_name": 0,
+          "bits": [ 8 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1005"
+          }
+        },
+        "RGB1PWM": {
+          "hide_name": 0,
+          "bits": [ 5 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1002"
+          }
+        },
+        "RGB2": {
+          "hide_name": 0,
+          "bits": [ 9 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1006"
+          }
+        },
+        "RGB2PWM": {
+          "hide_name": 0,
+          "bits": [ 6 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1003"
+          }
+        },
+        "RGBLEDEN": {
+          "hide_name": 0,
+          "bits": [ 3 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1000"
+          }
+        }
+      }
+    },
+    "SB_SPI": {
+      "attributes": {
+        "blackbox": 1,
+        "cells_not_processed": 1,
+        "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1058"
+      },
+      "ports": {
+        "SBCLKI": {
+          "direction": "input",
+          "bits": [ 2 ]
+        },
+        "SBRWI": {
+          "direction": "input",
+          "bits": [ 3 ]
+        },
+        "SBSTBI": {
+          "direction": "input",
+          "bits": [ 4 ]
+        },
+        "SBADRI7": {
+          "direction": "input",
+          "bits": [ 5 ]
+        },
+        "SBADRI6": {
+          "direction": "input",
+          "bits": [ 6 ]
+        },
+        "SBADRI5": {
+          "direction": "input",
+          "bits": [ 7 ]
+        },
+        "SBADRI4": {
+          "direction": "input",
+          "bits": [ 8 ]
+        },
+        "SBADRI3": {
+          "direction": "input",
+          "bits": [ 9 ]
+        },
+        "SBADRI2": {
+          "direction": "input",
+          "bits": [ 10 ]
+        },
+        "SBADRI1": {
+          "direction": "input",
+          "bits": [ 11 ]
+        },
+        "SBADRI0": {
+          "direction": "input",
+          "bits": [ 12 ]
+        },
+        "SBDATI7": {
+          "direction": "input",
+          "bits": [ 13 ]
+        },
+        "SBDATI6": {
+          "direction": "input",
+          "bits": [ 14 ]
+        },
+        "SBDATI5": {
+          "direction": "input",
+          "bits": [ 15 ]
+        },
+        "SBDATI4": {
+          "direction": "input",
+          "bits": [ 16 ]
+        },
+        "SBDATI3": {
+          "direction": "input",
+          "bits": [ 17 ]
+        },
+        "SBDATI2": {
+          "direction": "input",
+          "bits": [ 18 ]
+        },
+        "SBDATI1": {
+          "direction": "input",
+          "bits": [ 19 ]
+        },
+        "SBDATI0": {
+          "direction": "input",
+          "bits": [ 20 ]
+        },
+        "MI": {
+          "direction": "input",
+          "bits": [ 21 ]
+        },
+        "SI": {
+          "direction": "input",
+          "bits": [ 22 ]
+        },
+        "SCKI": {
+          "direction": "input",
+          "bits": [ 23 ]
+        },
+        "SCSNI": {
+          "direction": "input",
+          "bits": [ 24 ]
+        },
+        "SBDATO7": {
+          "direction": "output",
+          "bits": [ 25 ]
+        },
+        "SBDATO6": {
+          "direction": "output",
+          "bits": [ 26 ]
+        },
+        "SBDATO5": {
+          "direction": "output",
+          "bits": [ 27 ]
+        },
+        "SBDATO4": {
+          "direction": "output",
+          "bits": [ 28 ]
+        },
+        "SBDATO3": {
+          "direction": "output",
+          "bits": [ 29 ]
+        },
+        "SBDATO2": {
+          "direction": "output",
+          "bits": [ 30 ]
+        },
+        "SBDATO1": {
+          "direction": "output",
+          "bits": [ 31 ]
+        },
+        "SBDATO0": {
+          "direction": "output",
+          "bits": [ 32 ]
+        },
+        "SBACKO": {
+          "direction": "output",
+          "bits": [ 33 ]
+        },
+        "SPIIRQ": {
+          "direction": "output",
+          "bits": [ 34 ]
+        },
+        "SPIWKUP": {
+          "direction": "output",
+          "bits": [ 35 ]
+        },
+        "SO": {
+          "direction": "output",
+          "bits": [ 36 ]
+        },
+        "SOE": {
+          "direction": "output",
+          "bits": [ 37 ]
+        },
+        "MO": {
+          "direction": "output",
+          "bits": [ 38 ]
+        },
+        "MOE": {
+          "direction": "output",
+          "bits": [ 39 ]
+        },
+        "SCKO": {
+          "direction": "output",
+          "bits": [ 40 ]
+        },
+        "SCKOE": {
+          "direction": "output",
+          "bits": [ 41 ]
+        },
+        "MCSNO3": {
+          "direction": "output",
+          "bits": [ 42 ]
+        },
+        "MCSNO2": {
+          "direction": "output",
+          "bits": [ 43 ]
+        },
+        "MCSNO1": {
+          "direction": "output",
+          "bits": [ 44 ]
+        },
+        "MCSNO0": {
+          "direction": "output",
+          "bits": [ 45 ]
+        },
+        "MCSNOE3": {
+          "direction": "output",
+          "bits": [ 46 ]
+        },
+        "MCSNOE2": {
+          "direction": "output",
+          "bits": [ 47 ]
+        },
+        "MCSNOE1": {
+          "direction": "output",
+          "bits": [ 48 ]
+        },
+        "MCSNOE0": {
+          "direction": "output",
+          "bits": [ 49 ]
+        }
+      },
+      "cells": {
+      },
+      "netnames": {
+        "MCSNO0": {
+          "hide_name": 0,
+          "bits": [ 45 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1102"
+          }
+        },
+        "MCSNO1": {
+          "hide_name": 0,
+          "bits": [ 44 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1101"
+          }
+        },
+        "MCSNO2": {
+          "hide_name": 0,
+          "bits": [ 43 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1100"
+          }
+        },
+        "MCSNO3": {
+          "hide_name": 0,
+          "bits": [ 42 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1099"
+          }
+        },
+        "MCSNOE0": {
+          "hide_name": 0,
+          "bits": [ 49 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1106"
+          }
+        },
+        "MCSNOE1": {
+          "hide_name": 0,
+          "bits": [ 48 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1105"
+          }
+        },
+        "MCSNOE2": {
+          "hide_name": 0,
+          "bits": [ 47 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1104"
+          }
+        },
+        "MCSNOE3": {
+          "hide_name": 0,
+          "bits": [ 46 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1103"
+          }
+        },
+        "MI": {
+          "hide_name": 0,
+          "bits": [ 21 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1078"
+          }
+        },
+        "MO": {
+          "hide_name": 0,
+          "bits": [ 38 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1095"
+          }
+        },
+        "MOE": {
+          "hide_name": 0,
+          "bits": [ 39 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1096"
+          }
+        },
+        "SBACKO": {
+          "hide_name": 0,
+          "bits": [ 33 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1090"
+          }
+        },
+        "SBADRI0": {
+          "hide_name": 0,
+          "bits": [ 12 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1069"
+          }
+        },
+        "SBADRI1": {
+          "hide_name": 0,
+          "bits": [ 11 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1068"
+          }
+        },
+        "SBADRI2": {
+          "hide_name": 0,
+          "bits": [ 10 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1067"
+          }
+        },
+        "SBADRI3": {
+          "hide_name": 0,
+          "bits": [ 9 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1066"
+          }
+        },
+        "SBADRI4": {
+          "hide_name": 0,
+          "bits": [ 8 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1065"
+          }
+        },
+        "SBADRI5": {
+          "hide_name": 0,
+          "bits": [ 7 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1064"
+          }
+        },
+        "SBADRI6": {
+          "hide_name": 0,
+          "bits": [ 6 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1063"
+          }
+        },
+        "SBADRI7": {
+          "hide_name": 0,
+          "bits": [ 5 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1062"
+          }
+        },
+        "SBCLKI": {
+          "hide_name": 0,
+          "bits": [ 2 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1059"
+          }
+        },
+        "SBDATI0": {
+          "hide_name": 0,
+          "bits": [ 20 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1077"
+          }
+        },
+        "SBDATI1": {
+          "hide_name": 0,
+          "bits": [ 19 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1076"
+          }
+        },
+        "SBDATI2": {
+          "hide_name": 0,
+          "bits": [ 18 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1075"
+          }
+        },
+        "SBDATI3": {
+          "hide_name": 0,
+          "bits": [ 17 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1074"
+          }
+        },
+        "SBDATI4": {
+          "hide_name": 0,
+          "bits": [ 16 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1073"
+          }
+        },
+        "SBDATI5": {
+          "hide_name": 0,
+          "bits": [ 15 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1072"
+          }
+        },
+        "SBDATI6": {
+          "hide_name": 0,
+          "bits": [ 14 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1071"
+          }
+        },
+        "SBDATI7": {
+          "hide_name": 0,
+          "bits": [ 13 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1070"
+          }
+        },
+        "SBDATO0": {
+          "hide_name": 0,
+          "bits": [ 32 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1089"
+          }
+        },
+        "SBDATO1": {
+          "hide_name": 0,
+          "bits": [ 31 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1088"
+          }
+        },
+        "SBDATO2": {
+          "hide_name": 0,
+          "bits": [ 30 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1087"
+          }
+        },
+        "SBDATO3": {
+          "hide_name": 0,
+          "bits": [ 29 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1086"
+          }
+        },
+        "SBDATO4": {
+          "hide_name": 0,
+          "bits": [ 28 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1085"
+          }
+        },
+        "SBDATO5": {
+          "hide_name": 0,
+          "bits": [ 27 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1084"
+          }
+        },
+        "SBDATO6": {
+          "hide_name": 0,
+          "bits": [ 26 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1083"
+          }
+        },
+        "SBDATO7": {
+          "hide_name": 0,
+          "bits": [ 25 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1082"
+          }
+        },
+        "SBRWI": {
+          "hide_name": 0,
+          "bits": [ 3 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1060"
+          }
+        },
+        "SBSTBI": {
+          "hide_name": 0,
+          "bits": [ 4 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1061"
+          }
+        },
+        "SCKI": {
+          "hide_name": 0,
+          "bits": [ 23 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1080"
+          }
+        },
+        "SCKO": {
+          "hide_name": 0,
+          "bits": [ 40 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1097"
+          }
+        },
+        "SCKOE": {
+          "hide_name": 0,
+          "bits": [ 41 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1098"
+          }
+        },
+        "SCSNI": {
+          "hide_name": 0,
+          "bits": [ 24 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1081"
+          }
+        },
+        "SI": {
+          "hide_name": 0,
+          "bits": [ 22 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1079"
+          }
+        },
+        "SO": {
+          "hide_name": 0,
+          "bits": [ 36 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1093"
+          }
+        },
+        "SOE": {
+          "hide_name": 0,
+          "bits": [ 37 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1094"
+          }
+        },
+        "SPIIRQ": {
+          "hide_name": 0,
+          "bits": [ 34 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1091"
+          }
+        },
+        "SPIWKUP": {
+          "hide_name": 0,
+          "bits": [ 35 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:1092"
+          }
+        }
+      }
+    },
+    "SB_SPRAM256KA": {
+      "attributes": {
+        "blackbox": 1,
+        "cells_not_processed": 1,
+        "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:942"
+      },
+      "ports": {
+        "ADDRESS": {
+          "direction": "input",
+          "bits": [ 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 ]
+        },
+        "DATAIN": {
+          "direction": "input",
+          "bits": [ 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31 ]
+        },
+        "MASKWREN": {
+          "direction": "input",
+          "bits": [ 32, 33, 34, 35 ]
+        },
+        "WREN": {
+          "direction": "input",
+          "bits": [ 36 ]
+        },
+        "CHIPSELECT": {
+          "direction": "input",
+          "bits": [ 37 ]
+        },
+        "CLOCK": {
+          "direction": "input",
+          "bits": [ 38 ]
+        },
+        "STANDBY": {
+          "direction": "input",
+          "bits": [ 39 ]
+        },
+        "SLEEP": {
+          "direction": "input",
+          "bits": [ 40 ]
+        },
+        "POWEROFF": {
+          "direction": "input",
+          "bits": [ 41 ]
+        },
+        "DATAOUT": {
+          "direction": "output",
+          "bits": [ 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57 ]
+        }
+      },
+      "cells": {
+      },
+      "netnames": {
+        "ADDRESS": {
+          "hide_name": 0,
+          "bits": [ 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:943"
+          }
+        },
+        "CHIPSELECT": {
+          "hide_name": 0,
+          "bits": [ 37 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:946"
+          }
+        },
+        "CLOCK": {
+          "hide_name": 0,
+          "bits": [ 38 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:946"
+          }
+        },
+        "DATAIN": {
+          "hide_name": 0,
+          "bits": [ 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:944"
+          }
+        },
+        "DATAOUT": {
+          "hide_name": 0,
+          "bits": [ 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:947"
+          }
+        },
+        "MASKWREN": {
+          "hide_name": 0,
+          "bits": [ 32, 33, 34, 35 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:945"
+          }
+        },
+        "POWEROFF": {
+          "hide_name": 0,
+          "bits": [ 41 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:946"
+          }
+        },
+        "SLEEP": {
+          "hide_name": 0,
+          "bits": [ 40 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:946"
+          }
+        },
+        "STANDBY": {
+          "hide_name": 0,
+          "bits": [ 39 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:946"
+          }
+        },
+        "WREN": {
+          "hide_name": 0,
+          "bits": [ 36 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:946"
+          }
+        }
+      }
+    },
+    "SB_WARMBOOT": {
+      "attributes": {
+        "blackbox": 1,
+        "keep": 1,
+        "cells_not_processed": 1,
+        "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:882"
+      },
+      "ports": {
+        "BOOT": {
+          "direction": "input",
+          "bits": [ 2 ]
+        },
+        "S1": {
+          "direction": "input",
+          "bits": [ 3 ]
+        },
+        "S0": {
+          "direction": "input",
+          "bits": [ 4 ]
+        }
+      },
+      "cells": {
+      },
+      "netnames": {
+        "BOOT": {
+          "hide_name": 0,
+          "bits": [ 2 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:883"
+          }
+        },
+        "S0": {
+          "hide_name": 0,
+          "bits": [ 4 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:885"
+          }
+        },
+        "S1": {
+          "hide_name": 0,
+          "bits": [ 3 ],
+          "attributes": {
+            "src": "/opt/symbiotic-20190204A/lib/../share/yosys/ice40/cells_sim.v:884"
+          }
+        }
+      }
+    },
+    "top": {
+      "attributes": {
+        "top": 1,
+        "src": "top.v:2"
+      },
+      "ports": {
+        "serial_rx": {
+          "direction": "input",
+          "bits": [ 2 ]
+        },
+        "serial_tx": {
+          "direction": "output",
+          "bits": [ "x" ]
+        },
+        "serial_rts": {
+          "direction": "input",
+          "bits": [ 3 ]
+        },
+        "serial_cts": {
+          "direction": "input",
+          "bits": [ 4 ]
+        },
+        "serial_dtr": {
+          "direction": "input",
+          "bits": [ 5 ]
+        },
+        "serial_dsr": {
+          "direction": "input",
+          "bits": [ 6 ]
+        },
+        "serial_dcd": {
+          "direction": "input",
+          "bits": [ 7 ]
+        },
+        "user_led": {
+          "direction": "output",
+          "bits": [ "x" ]
+        },
+        "sio_rst": {
+          "direction": "output",
+          "bits": [ "x" ]
+        },
+        "sio_txd": {
+          "direction": "input",
+          "bits": [ 8 ]
+        },
+        "sio_rxd": {
+          "direction": "output",
+          "bits": [ "x" ]
+        },
+        "sio_sclk": {
+          "direction": "output",
+          "bits": [ "x" ]
+        },
+        "sio_busy": {
+          "direction": "input",
+          "bits": [ 9 ]
+        },
+        "sio_tclk": {
+          "direction": "output",
+          "bits": [ "x" ]
+        },
+        "user_led_1": {
+          "direction": "output",
+          "bits": [ "x" ]
+        },
+        "user_led_2": {
+          "direction": "output",
+          "bits": [ 8 ]
+        },
+        "user_led_3": {
+          "direction": "output",
+          "bits": [ 9 ]
+        },
+        "debug": {
+          "direction": "output",
+          "bits": [ "x" ]
+        },
+        "debug_1": {
+          "direction": "output",
+          "bits": [ 2 ]
+        },
+        "clk12": {
+          "direction": "input",
+          "bits": [ 10 ]
+        }
+      },
+      "cells": {
+      },
+      "netnames": {
+        "clk12": {
+          "hide_name": 0,
+          "bits": [ 10 ],
+          "attributes": {
+            "src": "top.v:22"
+          }
+        },
+        "debug": {
+          "hide_name": 0,
+          "bits": [ "x" ],
+          "attributes": {
+            "src": "top.v:20"
+          }
+        },
+        "debug_1": {
+          "hide_name": 0,
+          "bits": [ 2 ],
+          "attributes": {
+            "src": "top.v:21"
+          }
+        },
+        "por_clk": {
+          "hide_name": 0,
+          "bits": [ 10 ],
+          "attributes": {
+            "src": "top.v:195",
+            "unused_bits": "0"
+          }
+        },
+        "rx": {
+          "hide_name": 0,
+          "bits": [ 2 ],
+          "attributes": {
+            "src": "top.v:53"
+          }
+        },
+        "serial_cts": {
+          "hide_name": 0,
+          "bits": [ 4 ],
+          "attributes": {
+            "src": "top.v:6"
+          }
+        },
+        "serial_dcd": {
+          "hide_name": 0,
+          "bits": [ 7 ],
+          "attributes": {
+            "src": "top.v:9"
+          }
+        },
+        "serial_dsr": {
+          "hide_name": 0,
+          "bits": [ 6 ],
+          "attributes": {
+            "src": "top.v:8"
+          }
+        },
+        "serial_dtr": {
+          "hide_name": 0,
+          "bits": [ 5 ],
+          "attributes": {
+            "src": "top.v:7"
+          }
+        },
+        "serial_rts": {
+          "hide_name": 0,
+          "bits": [ 3 ],
+          "attributes": {
+            "src": "top.v:5"
+          }
+        },
+        "serial_rx": {
+          "hide_name": 0,
+          "bits": [ 2 ],
+          "attributes": {
+            "src": "top.v:3"
+          }
+        },
+        "serial_tx": {
+          "hide_name": 0,
+          "bits": [ "x" ],
+          "attributes": {
+            "src": "top.v:4"
+          }
+        },
+        "sio_busy": {
+          "hide_name": 0,
+          "bits": [ 9 ],
+          "attributes": {
+            "src": "top.v:15"
+          }
+        },
+        "sio_rst": {
+          "hide_name": 0,
+          "bits": [ "x" ],
+          "attributes": {
+            "src": "top.v:11"
+          }
+        },
+        "sio_rxd": {
+          "hide_name": 0,
+          "bits": [ "x" ],
+          "attributes": {
+            "src": "top.v:13"
+          }
+        },
+        "sio_sclk": {
+          "hide_name": 0,
+          "bits": [ "x" ],
+          "attributes": {
+            "src": "top.v:14"
+          }
+        },
+        "sio_tclk": {
+          "hide_name": 0,
+          "bits": [ "x" ],
+          "attributes": {
+            "src": "top.v:16"
+          }
+        },
+        "sio_txd": {
+          "hide_name": 0,
+          "bits": [ 8 ],
+          "attributes": {
+            "src": "top.v:12"
+          }
+        },
+        "sys_clk": {
+          "hide_name": 0,
+          "bits": [ 10 ],
+          "attributes": {
+            "src": "top.v:193",
+            "unused_bits": "0"
+          }
+        },
+        "uart_rx_rx0": {
+          "hide_name": 0,
+          "bits": [ 2 ],
+          "attributes": {
+            "src": "top.v:29"
+          }
+        },
+        "user_led": {
+          "hide_name": 0,
+          "bits": [ "x" ],
+          "attributes": {
+            "src": "top.v:10"
+          }
+        },
+        "user_led_1": {
+          "hide_name": 0,
+          "bits": [ "x" ],
+          "attributes": {
+            "src": "top.v:17"
+          }
+        },
+        "user_led_2": {
+          "hide_name": 0,
+          "bits": [ 8 ],
+          "attributes": {
+            "src": "top.v:18"
+          }
+        },
+        "user_led_3": {
+          "hide_name": 0,
+          "bits": [ 9 ],
+          "attributes": {
+            "src": "top.v:19"
+          }
+        }
+      }
+    }
+  }
+}
