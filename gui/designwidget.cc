@@ -706,8 +706,12 @@ void DesignWidget::onSelectionChanged(int num, const QItemSelection &, const QIt
         addProperty(topItem, QVariant::String, "Type", ctx->getPipType(pip).c_str(ctx));
         addProperty(topItem, QVariant::Bool, "Available", ctx->checkPipAvail(pip));
         addProperty(topItem, QVariant::String, "Bound Net", ctx->nameOf(ctx->getBoundPipNet(pip)), ElementType::NET);
-        addProperty(topItem, QVariant::String, "Conflicting Wire",
-                    ctx->getWireName(ctx->getConflictingPipWire(pip)).c_str(ctx), ElementType::WIRE);
+        if (ctx->getConflictingPipWire(pip) != WireId()) {
+            addProperty(topItem, QVariant::String, "Conflicting Wire",
+                        ctx->getWireName(ctx->getConflictingPipWire(pip)).c_str(ctx), ElementType::WIRE);
+        } else {
+            addProperty(topItem, QVariant::String, "Conflicting Wire", "", ElementType::NONE);
+        }
         addProperty(topItem, QVariant::String, "Conflicting Net", ctx->nameOf(ctx->getConflictingPipNet(pip)),
                     ElementType::NET);
         addProperty(topItem, QVariant::String, "Src Wire", ctx->getWireName(ctx->getPipSrcWire(pip)).c_str(ctx),

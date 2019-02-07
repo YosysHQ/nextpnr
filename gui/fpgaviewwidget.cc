@@ -102,7 +102,7 @@ void FPGAViewWidget::newContext(Context *ctx)
     pokeRenderer();
 }
 
-QSize FPGAViewWidget::minimumSizeHint() const { return QSize(640, 480); }
+QSize FPGAViewWidget::minimumSizeHint() const { return QSize(320, 200); }
 
 QSize FPGAViewWidget::sizeHint() const { return QSize(640, 480); }
 
