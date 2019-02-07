@@ -427,6 +427,16 @@ BelId Arch::getBelByLocation(Loc loc) const
 
 delay_t Arch::estimateDelay(WireId src, WireId dst) const
 {
+    WireId cursor = dst;
+
+    int num_uh = locInfo(dst)->wire_data[dst.index].num_uphill;
+    if (num_uh < 6) {
+        for (auto uh : getPipsUphill(dst)) {
+            if (getPipSrcWire(uh) == src)
+                return getPipDelay(uh).maxDelay();
+        }
+    }
+
     auto est_location = [&](WireId w) -> std::pair<int16_t, int16_t> {
         if (w.location.x == 0 && w.location.y == 0) {
             // Global wires
@@ -448,7 +458,8 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
 
     auto src_loc = est_location(src), dst_loc = est_location(dst);
 
-    return (110 - 10 * args.speed) + (200 - 20 * args.speed) *  (abs(src_loc.first - dst_loc.first) + abs(src_loc.second - dst_loc.second));
+    int dx = abs(src_loc.first - dst_loc.first), dy = abs(src_loc.second - dst_loc.second);
+    return (130 - 13 * args.speed) * (4 + std::max(dx - 5, 0) + std::max(dy - 5, 0) + 2 * (std::min(dx, 5) + std::min(dy, 5)));
 }
 
 delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
@@ -458,16 +469,18 @@ delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
         return 0;
     auto driver_loc = getBelLocation(driver.cell->bel);
     auto sink_loc = getBelLocation(sink.cell->bel);
-    return (110 - 10 * args.speed) + (200 - 20 * args.speed) * (abs(driver_loc.x - sink_loc.x) + abs(driver_loc.y - sink_loc.y));
+
+    int dx = abs(driver_loc.x - sink_loc.x), dy = abs(driver_loc.y - sink_loc.y);
+    return (130 - 13 * args.speed) * (4 + std::max(dx - 5, 0) + std::max(dy - 5, 0) + 2 * (std::min(dx, 5) + std::min(dy, 5)));
 }
 
 bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const {
     if (net_info->driver.port == id_FCO && sink.port == id_FCI) {
-        return true;
         budget = 0;
+        return true;
     } else if (sink.port == id_FXA || sink.port == id_FXB) {
-        return true;
         budget = 0;
+        return true;
     } else {
         return false;
     }

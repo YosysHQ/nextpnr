@@ -153,7 +153,7 @@ speed_grade_names = ["6", "7", "8", "8_5G"]
 speed_grade_cells = {}
 speed_grade_pips = {}
 
-pip_class_to_idx = {"default": 0}
+pip_class_to_idx = {"default": 0, "zero": 1}
 
 timing_port_xform = {
     "RAD0": "D0",
@@ -199,7 +199,7 @@ def process_timing_data():
         pip_class_delays = []
         for i in range(len(pip_class_to_idx)):
             pip_class_delays.append((50, 50, 0, 0))
-
+        pip_class_delays[pip_class_to_idx["zero"]] = (0, 0, 0, 0)
         with open(timing_dbs.interconnect_db_path("ECP5", grade)) as f:
             interconn_data = json.load(f)
         for pipclass, pipdata in sorted(interconn_data.items()):
@@ -219,6 +219,12 @@ def process_timing_data():
 
 
 def get_pip_class(wire_from, wire_to):
+
+    if "FCO" in wire_from or "FCI" in wire_to:
+        return pip_class_to_idx["zero"]
+    if "F5" in wire_from or "FX" in wire_from or "FXA" in wire_to or "FXB" in wire_to:
+        return pip_class_to_idx["zero"]
+
     class_name = pip_classes.get_pip_class(wire_from, wire_to)
     if class_name is None or class_name not in pip_class_to_idx:
         class_name = "default"

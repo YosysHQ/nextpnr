@@ -837,6 +837,10 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
                     auto cursor = sink_wire;
                     delay_t delay;
                     while (driver_wire != cursor) {
+#ifdef ARCH_ECP5
+                        if (net->is_global)
+                            break;
+#endif
                         auto it = net->wires.find(cursor);
                         assert(it != net->wires.end());
                         auto pip = it->second.pip;
