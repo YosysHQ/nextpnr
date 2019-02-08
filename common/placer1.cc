@@ -24,6 +24,7 @@
 #include "placer1.h"
 #include <algorithm>
 #include <boost/lexical_cast.hpp>
+#include <chrono>
 #include <cmath>
 #include <iostream>
 #include <limits>
@@ -37,7 +38,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <vector>
-#include <chrono>
 #include "log.h"
 #include "place_common.h"
 #include "timing.h"
