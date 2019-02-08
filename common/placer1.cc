@@ -37,6 +37,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <vector>
+#include <chrono>
 #include "log.h"
 #include "place_common.h"
 #include "timing.h"
@@ -148,7 +149,7 @@ class SAPlacer
         }
         std::sort(autoplaced.begin(), autoplaced.end(), [](CellInfo *a, CellInfo *b) { return a->name < b->name; });
         ctx->shuffle(autoplaced);
-
+        auto iplace_start = std::chrono::high_resolution_clock::now();
         // Place cells randomly initially
         log_info("Creating initial placement for remaining %d cells.\n", int(autoplaced.size()));
 
@@ -165,7 +166,9 @@ class SAPlacer
         if (ctx->slack_redist_iter > 0)
             assign_budget(ctx);
         ctx->yield();
-
+        auto iplace_end = std::chrono::high_resolution_clock::now();
+        log_info("Initial placement time %.02fs\n", std::chrono::duration<float>(iplace_end - iplace_start).count());
+        auto saplace_start = std::chrono::high_resolution_clock::now();
         log_info("Running simulated annealing placer.\n");
 
         // Calculate metric after initial placement
@@ -283,6 +286,10 @@ class SAPlacer
             // Let the UI show visualization updates.
             ctx->yield();
         }
+
+        auto saplace_end = std::chrono::high_resolution_clock::now();
+        log_info("SA placement time %.02fs\n", std::chrono::duration<float>(saplace_end - saplace_start).count());
+
         // Final post-pacement validitiy check
         ctx->yield();
         for (auto bel : ctx->getBels()) {
