@@ -1120,6 +1120,35 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             std::string tname = ctx->getTileByTypeAndLocation(loc.y + 1, loc.x, "BMID_0H");
             cc.tiles[tname].add_enum("PCSCLKDIV" + std::to_string(loc.z),
                                      str_or_default(ci->params, ctx->id("GSR"), "ENABLED"));
+        } else if (ci->type == id_DTR) {
+            cc.tiles[ctx->getTileByType("DTR")].add_enum("DTR.MODE", "DTR");
+        } else if (ci->type == id_OSCG) {
+            int div = int_or_default(ci->params, ctx->id("DIV"), 128);
+            if (div == 128)
+                div = 127;
+            cc.tiles[ctx->getTileByType("EFB0_PICB0")].add_enum("OSC.DIV", std::to_string(div));
+            cc.tiles[ctx->getTileByType("EFB1_PICB1")].add_enum("OSC.DIV", std::to_string(div));
+            cc.tiles[ctx->getTileByType("EFB1_PICB1")].add_enum("OSC.MODE", "OSCG");
+            cc.tiles[ctx->getTileByType("EFB1_PICB1")].add_enum("CCLK.MODE", "_NONE_");
+        } else if (ci->type == id_USRMCLK) {
+            cc.tiles[ctx->getTileByType("EFB3_PICB1")].add_enum("CCLK.MODE", "USRMCLK");
+        } else if (ci->type == id_GSR) {
+            cc.tiles[ctx->getTileByType("EFB0_PICB0")].add_enum(
+                    "GSR.GSRMODE", str_or_default(ci->params, ctx->id("MODE"), "ACTIVE_HIGH"));
+            cc.tiles[ctx->getTileByType("VIQ_BUF")].add_enum("GSR.SYNCMODE",
+                                                             str_or_default(ci->params, ctx->id("SYNCMODE"), "ASYNC"));
+        } else if (ci->type == id_JTAGG) {
+            cc.tiles[ctx->getTileByType("EFB0_PICB0")].add_enum("JTAG.ER1",
+                                                                str_or_default(ci->params, ctx->id("ER1"), "ENABLED"));
+            cc.tiles[ctx->getTileByType("EFB0_PICB0")].add_enum("JTAG.ER2",
+                                                                str_or_default(ci->params, ctx->id("ER2"), "ENABLED"));
+        } else if (ci->type == id_CLKDIVF) {
+            Loc loc = ctx->getBelLocation(ci->bel);
+            bool r = loc.x > 5;
+            std::string clkdiv = std::string("CLKDIV_") + (r ? "R" : "L") + std::to_string(loc.z);
+            std::string tile = ctx->getTileByType(std::string("ECLK_") + (r ? "R" : "L"));
+            cc.tiles[tile].add_enum(clkdiv + ".DIV", str_or_default(ci->params, ctx->id("DIV"), "2.0"));
+            cc.tiles[tile].add_enum(clkdiv + ".GSR", str_or_default(ci->params, ctx->id("GSR"), "DISABLED"));
         } else {
             NPNR_ASSERT_FALSE("unsupported cell type");
         }

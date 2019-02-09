@@ -681,6 +681,23 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
             clockInfoCount = 1;
             return (cell->ports.at(port).type == PORT_OUT) ? TMG_REGISTER_OUTPUT : TMG_REGISTER_INPUT;
         }
+    } else if (cell->type == id_DTR || cell->type == id_USRMCLK || cell->type == id_SEDGA || cell->type == id_GSR ||
+               cell->type == id_JTAGG) {
+        return (cell->ports.at(port).type == PORT_OUT) ? TMG_STARTPOINT : TMG_ENDPOINT;
+    } else if (cell->type == id_OSCG) {
+        if (port == id_OSC)
+            return TMG_GEN_CLOCK;
+        else
+            return TMG_IGNORE;
+    } else if (cell->type == id_CLKDIVF) {
+        if (port == id_CLKI)
+            return TMG_CLOCK_INPUT;
+        else if (port == id_RST || port == id_ALIGNWD)
+            return TMG_ENDPOINT;
+        else if (port == id_CDIVX)
+            return TMG_GEN_CLOCK;
+        else
+            NPNR_ASSERT_FALSE("bad clkdiv port");
     } else {
         log_error("cell type '%s' is unsupported (instantiated as '%s')\n", cell->type.c_str(this),
                   cell->name.c_str(this));

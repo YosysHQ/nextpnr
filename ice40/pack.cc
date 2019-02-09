@@ -1063,7 +1063,12 @@ static void pack_special(Context *ctx)
                     create_ice_cell(ctx, ctx->id("ICESTORM_PLL"), ci->name.str(ctx) + "_PLL");
             packed->attrs[ctx->id("TYPE")] = ci->type.str(ctx);
             packed_cells.insert(ci->name);
-
+            if (!is_sb_pll40_dual(ctx, ci)) {
+                // Remove second output, so a buffer isn't created for it, for these
+                // cell types with only one output
+                packed->ports.erase(ctx->id("PLLOUT_B"));
+                packed->ports.erase(ctx->id("PLLOUT_B_GLOBAL"));
+            }
             for (auto attr : ci->attrs)
                 packed->attrs[attr.first] = attr.second;
             for (auto param : ci->params)

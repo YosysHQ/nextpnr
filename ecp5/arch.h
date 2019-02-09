@@ -993,6 +993,17 @@ struct Arch : BaseCtx
         NPNR_ASSERT_FALSE_STR("no tile at (" + std::to_string(col) + ", " + std::to_string(row) + ") with type in set");
     }
 
+    std::string getTileByType(std::string type) const
+    {
+        for (int i = 0; i < chip_info->height * chip_info->width; i++) {
+            auto &tileloc = chip_info->tile_info[i];
+            for (int j = 0; j < tileloc.num_tiles; j++)
+                if (chip_info->tiletype_names[tileloc.tile_names[j].type_idx].get() == type)
+                    return tileloc.tile_names[j].name.get();
+        }
+        NPNR_ASSERT_FALSE_STR("no with type " + type);
+    }
+
     GlobalInfoPOD globalInfoAtLoc(Location loc);
 
     // Apply LPF constraints to the context
