@@ -19,6 +19,7 @@
  */
 
 #include <algorithm>
+#include <boost/iostreams/device/mapped_file.hpp>
 #include <boost/range/adaptor/reversed.hpp>
 #include <cmath>
 #include <cstring>
@@ -63,11 +64,37 @@ static const ChipInfoPOD *get_chip_info(const RelPtr<ChipInfoPOD> *ptr) { return
 void load_chipdb();
 #endif
 
+#if defined(EXTERNAL_CHIPDB_ROOT)
+const char *chipdb_blob_25k = nullptr;
+const char *chipdb_blob_45k = nullptr;
+const char *chipdb_blob_85k = nullptr;
+
+boost::iostreams::mapped_file_source blob_files[3];
+
+const char *mmap_file(int index, const char *filename)
+{
+    try {
+        blob_files[index].open(filename);
+        if (!blob_files[index].is_open())
+            log_error("Unable to read chipdb %s\n", filename);
+        return (const char *)blob_files[index].data();
+    } catch (...) {
+        log_error("Unable to read chipdb %s\n", filename);
+    }
+}
+
+void load_chipdb()
+{
+    chipdb_blob_25k = mmap_file(0, EXTERNAL_CHIPDB_ROOT "/ecp5/chipdb-25k.bin");
+    chipdb_blob_45k = mmap_file(1, EXTERNAL_CHIPDB_ROOT "/ecp5/chipdb-45k.bin");
+    chipdb_blob_85k = mmap_file(2, EXTERNAL_CHIPDB_ROOT "/ecp5/chipdb-85k.bin");
+}
+#endif
 //#define LFE5U_45F_ONLY
 
 Arch::Arch(ArchArgs args) : args(args)
 {
-#if defined(_MSC_VER)
+#if defined(_MSC_VER) || defined(EXTERNAL_CHIPDB_ROOT)
     load_chipdb();
 #endif
 #ifdef LFE5U_45F_ONLY

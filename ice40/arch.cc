@@ -19,6 +19,7 @@
  */
 
 #include <algorithm>
+#include <boost/iostreams/device/mapped_file.hpp>
 #include <cmath>
 #include "cells.h"
 #include "gfx.h"
@@ -48,9 +49,37 @@ static const ChipInfoPOD *get_chip_info(const RelPtr<ChipInfoPOD> *ptr) { return
 void load_chipdb();
 #endif
 
+#if defined(EXTERNAL_CHIPDB_ROOT)
+const char *chipdb_blob_384 = nullptr;
+const char *chipdb_blob_1k = nullptr;
+const char *chipdb_blob_5k = nullptr;
+const char *chipdb_blob_8k = nullptr;
+
+boost::iostreams::mapped_file_source blob_files[4];
+
+const char *mmap_file(int index, const char *filename)
+{
+    try {
+        blob_files[index].open(filename);
+        if (!blob_files[index].is_open())
+            log_error("Unable to read chipdb %s\n", filename);
+        return (const char *)blob_files[index].data();
+    } catch (...) {
+        log_error("Unable to read chipdb %s\n", filename);
+    }
+}
+
+void load_chipdb()
+{
+    chipdb_blob_384 = mmap_file(0, EXTERNAL_CHIPDB_ROOT "/ice40/chipdb-384.bin");
+    chipdb_blob_1k = mmap_file(1, EXTERNAL_CHIPDB_ROOT "/ice40/chipdb-1k.bin");
+    chipdb_blob_5k = mmap_file(2, EXTERNAL_CHIPDB_ROOT "/ice40/chipdb-5k.bin");
+    chipdb_blob_8k = mmap_file(3, EXTERNAL_CHIPDB_ROOT "/ice40/chipdb-8k.bin");
+}
+#endif
 Arch::Arch(ArchArgs args) : args(args)
 {
-#if defined(_MSC_VER)
+#if defined(_MSC_VER) || defined(EXTERNAL_CHIPDB_ROOT)
     load_chipdb();
 #endif
 
