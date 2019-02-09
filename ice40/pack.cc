@@ -770,6 +770,8 @@ static void place_plls(Context *ctx)
                       io_cell->name.c_str(ctx));
         if (pll_used_bels.count(found_bel)) {
             CellInfo *conflict_cell = pll_used_bels.at(found_bel);
+            if (conflict_cell == ci)
+                continue;
             log_error("PLL '%s' PACKAGEPIN forces it to BEL %s but BEL is already assigned to PLL '%s'\n",
                       ci->name.c_str(ctx), ctx->getBelName(found_bel).c_str(ctx), conflict_cell->name.c_str(ctx));
         }
