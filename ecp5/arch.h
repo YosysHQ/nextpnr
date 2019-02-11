@@ -103,7 +103,7 @@ NPNR_PACKED_STRUCT(struct PIOInfoPOD {
     int32_t bel_index;
     RelPtr<char> function_name;
     int16_t bank;
-    int16_t padding;
+    int16_t dqsgroup;
 });
 
 NPNR_PACKED_STRUCT(struct PackagePinPOD {

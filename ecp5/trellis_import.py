@@ -119,9 +119,20 @@ def process_pio_db(ddrg, device):
                 pinfunc = metaitem["function"]
             else:
                 pinfunc = None
+            dqs = -1
+            if "dqs" in metaitem:
+                tdqs = metaitem["dqs"]
+                if tdqs[0] == "L":
+                    dqs = 0
+                elif tdqs[0] == "R":
+                    dqs = 2048
+                suffix_size = 0
+                while tdqs[-(suffix_size+1)].isdigit():
+                    suffix_size += 1
+                dqs |= int(tdqs[-suffix_size:])
             bel_idx = get_bel_index(ddrg, loc, pio)
             if bel_idx is not None:
-                pindata.append((loc, bel_idx, bank, pinfunc))
+                pindata.append((loc, bel_idx, bank, pinfunc, dqs))
 
 global_data = {}
 quadrants = ["UL", "UR", "LL", "LR"]
@@ -360,7 +371,7 @@ def write_database(dev_name, chip, ddrg, endianness):
 
     bba.l("pio_info", "PIOInfoPOD")
     for pin in pindata:
-        loc, bel_idx, bank, func = pin
+        loc, bel_idx, bank, func, dqs = pin
         write_loc(loc, "abs_loc")
         bba.u32(bel_idx, "bel_index")
         if func is not None:
@@ -368,7 +379,7 @@ def write_database(dev_name, chip, ddrg, endianness):
         else:
             bba.r(None, "function_name")
         bba.u16(bank, "bank")
-        bba.u16(0, "padding")
+        bba.u16(dqs, "dqsgroup")
 
     bba.l("tiletype_names", "RelPtr<char>")
     for tt, idx in sorted(tiletype_names.items(), key=lambda x: x[1]):
