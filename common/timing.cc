@@ -930,7 +930,7 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
         unsigned bar_width = 60;
         auto min_slack = slack_histogram.begin()->first;
         auto max_slack = slack_histogram.rbegin()->first;
-        auto bin_size = std::max<unsigned>(1, ceil((max_slack - min_slack) / float(num_bins)));
+        auto bin_size = std::max<unsigned>(1, ceil((max_slack - min_slack + 1) / float(num_bins)));
         std::vector<unsigned> bins(num_bins);
         unsigned max_freq = 0;
         for (const auto &i : slack_histogram) {
