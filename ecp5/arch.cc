@@ -746,6 +746,23 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
             return TMG_GEN_CLOCK;
         else
             NPNR_ASSERT_FALSE("bad clkdiv port");
+    } else if (cell->type == id_DQSBUFM) {
+        if (port == id_READ0 || port == id_READ1) {
+            clockInfoCount = 1;
+            return TMG_REGISTER_INPUT;
+        } else if (port == id_DATAVALID) {
+            clockInfoCount = 1;
+            return TMG_REGISTER_OUTPUT;
+        } else if (port == id_SCLK || port == id_ECLK || port == id_DQSI) {
+            return TMG_CLOCK_INPUT;
+        } else if (port == id_DQSR90 || port == id_DQSW || port == id_DQSW270) {
+            return TMG_GEN_CLOCK;
+        }
+        return (cell->ports.at(port).type == PORT_OUT) ? TMG_STARTPOINT : TMG_ENDPOINT;
+    } else if (cell->type == id_DDRDLL) {
+        if (port == id_CLK)
+            return TMG_CLOCK_INPUT;
+        return (cell->ports.at(port).type == PORT_OUT) ? TMG_STARTPOINT : TMG_ENDPOINT;
     } else {
         log_error("cell type '%s' is unsupported (instantiated as '%s')\n", cell->type.c_str(this),
                   cell->name.c_str(this));
@@ -828,6 +845,16 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
         } else {
             info.setup = getDelayFromNS(0.1);
             info.hold = getDelayFromNS(0);
+        }
+    } else if (cell->type == id_DQSBUFM) {
+        info.clock_port = id_SCLK;
+        if (port == id_DATAVALID) {
+            info.clockToQ = getDelayFromNS(0.2);
+        } else if (port == id_READ0 || port == id_READ1) {
+            info.setup = getDelayFromNS(0.5);
+            info.hold = getDelayFromNS(-0.4);
+        } else {
+            NPNR_ASSERT_FALSE("unknown DQSBUFM register port");
         }
     }
     return info;
