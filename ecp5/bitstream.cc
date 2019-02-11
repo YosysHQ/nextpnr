@@ -1190,6 +1190,7 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             std::string tile = ctx->getTileByType(std::string("ECLK_") + (r ? "R" : "L"));
             cc.tiles[tile].add_enum(clkdiv + ".DIV", str_or_default(ci->params, ctx->id("DIV"), "2.0"));
             cc.tiles[tile].add_enum(clkdiv + ".GSR", str_or_default(ci->params, ctx->id("GSR"), "DISABLED"));
+        } else if (ci->type == id_TRELLIS_ECLKBUF) {
         } else {
             NPNR_ASSERT_FALSE("unsupported cell type");
         }

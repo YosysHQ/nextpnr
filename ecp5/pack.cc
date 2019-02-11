@@ -1445,7 +1445,22 @@ class Ecp5Packer
 
                 // Insert TRELLIS_ECLKBUF to isolate edge clock from general routing
                 std::unique_ptr<CellInfo> eclkbuf =
-                        create_ecp5_cell(ctx, ctx->id("TRELLIS_ECLKBUF"), eckname.str(ctx) + "$buffer");
+                        create_ecp5_cell(ctx, id_TRELLIS_ECLKBUF, eckname.str(ctx) + "$buffer");
+                BelId target_bel;
+                // Find the correct Bel for the ECLKBUF
+                IdString eclkname = ctx->id("G_BANK" + std::to_string(bank) + "ECLK" + std::to_string(free_eclk));
+                for (auto bel : ctx->getBels()) {
+                    if (ctx->getBelType(bel) != id_TRELLIS_ECLKBUF)
+                        continue;
+                    if (ctx->getWireBasename(ctx->getBelPinWire(bel, id_ECLKO)) != eclkname)
+                        continue;
+                    target_bel = bel;
+                    break;
+                }
+                NPNR_ASSERT(target_bel != BelId());
+
+                eclkbuf->attrs[ctx->id("BEL")] = ctx->getBelName(target_bel).str(ctx);
+
                 connect_port(ctx, ecknet, eclkbuf.get(), id_ECLKI);
                 connect_port(ctx, eclk.buf, eclkbuf.get(), id_ECLKO);
                 found_eclk = free_eclk;
@@ -1456,6 +1471,7 @@ class Ecp5Packer
 
         auto &eclk = eclks[std::make_pair(bank, found_eclk)];
         disconnect_port(ctx, usr_cell, usr_port.name);
+        usr_port.net = nullptr;
         connect_port(ctx, eclk.buf, usr_cell, usr_port.name);
 
         // Simple ECLK router
@@ -1468,8 +1484,13 @@ class Ecp5Packer
         upstream.push(userWire);
         WireId next;
         while (true) {
+            if (upstream.empty() || upstream.size() > 30000)
+                log_error("failed to route bank %d ECLK%d to %s.%s\n", bank, found_eclk,
+                          ctx->getBelName(usr_bel).c_str(ctx), usr_port.name.c_str(ctx));
             next = upstream.front();
             upstream.pop();
+            if (ctx->debug)
+                log_info("    visited %s\n", ctx->getWireName(next).c_str(ctx));
             IdString basename = ctx->getWireBasename(next);
             if (basename == bnke_name || basename == global_name) {
                 break;
@@ -1480,10 +1501,6 @@ class Ecp5Packer
                     backtrace[src] = pip;
                     upstream.push(src);
                 }
-            }
-            if (upstream.size() > 30000) {
-                log_error("failed to route bank %d ECLK%d to %s.%s\n", bank, found_eclk,
-                          ctx->getBelName(usr_bel).c_str(ctx), usr_port.name.c_str(ctx));
             }
         }
         // Set all the pips we found along the way
@@ -1522,6 +1539,24 @@ class Ecp5Packer
                 disconnect_port(ctx, prim, port);
         };
 
+        auto set_iologic_eclk = [&](CellInfo *iol, CellInfo *prim, IdString port) {
+            NetInfo *eclk = nullptr;
+            if (prim->ports.count(port))
+                eclk = prim->ports[port].net;
+            if (eclk == nullptr)
+                log_error("%s '%s' cannot have disconnected ECLK", prim->type.c_str(ctx), prim->name.c_str(ctx));
+
+            if (iol->ports[id_ECLK].net != nullptr) {
+                if (iol->ports[id_ECLK].net != eclk)
+                    log_error("IOLOGIC '%s' has conflicting ECLKs '%s' and '%s'\n", iol->name.c_str(ctx),
+                              iol->ports[id_ECLK].net->name.c_str(ctx), eclk->name.c_str(ctx));
+            } else {
+                connect_port(ctx, eclk, iol, id_ECLK);
+            }
+            if (prim->ports.count(port))
+                disconnect_port(ctx, prim, port);
+        };
+
         auto set_iologic_lsr = [&](CellInfo *iol, CellInfo *prim, IdString port, bool input) {
             NetInfo *lsr = nullptr;
             if (prim->ports.count(port))
@@ -1547,6 +1582,9 @@ class Ecp5Packer
             if (curr_mode != "NONE" && curr_mode != mode)
                 log_error("IOLOGIC '%s' has conflicting modes '%s' and '%s'\n", iol->name.c_str(ctx), curr_mode.c_str(),
                           mode.c_str());
+            if (iol->type == id_SIOLOGIC && mode != "IREG_OREG" && mode != "IDDRX1_ODDRX1" && mode != "NONE")
+                log_error("IOLOGIC '%s' is set to mode '%s', but this is only supported for left and right IO\n",
+                          iol->name.c_str(ctx), mode.c_str());
             curr_mode = mode;
         };
 
@@ -1624,8 +1662,81 @@ class Ecp5Packer
                 replace_port(ci, ctx->id("D1"), iol, id_TXDATA1);
                 iol->params[ctx->id("GSR")] = str_or_default(ci->params, ctx->id("GSR"), "DISABLED");
                 packed_cells.insert(cell.first);
+            } else if (ci->type == ctx->id("ODDRX2F")) {
+                CellInfo *pio = net_only_drives(ctx, ci->ports.at(ctx->id("Q")).net, is_trellis_io, id_I, true);
+                if (pio == nullptr)
+                    log_error("ODDRX2F '%s' Q output must be connected only to a top level output\n",
+                              ci->name.c_str(ctx));
+                CellInfo *iol;
+                if (pio_iologic.count(pio->name))
+                    iol = pio_iologic.at(pio->name);
+                else
+                    iol = create_pio_iologic(pio, ci);
+                set_iologic_mode(iol, "ODDRXN");
+                replace_port(ci, ctx->id("Q"), iol, id_IOLDO);
+                if (!pio->ports.count(id_IOLDO)) {
+                    pio->ports[id_IOLDO].name = id_IOLDO;
+                    pio->ports[id_IOLDO].type = PORT_IN;
+                }
+                replace_port(pio, id_I, pio, id_IOLDO);
+                set_iologic_sclk(iol, ci, ctx->id("SCLK"), false);
+                set_iologic_eclk(iol, ci, id_ECLK);
+                set_iologic_lsr(iol, ci, ctx->id("RST"), false);
+                replace_port(ci, ctx->id("D0"), iol, id_TXDATA0);
+                replace_port(ci, ctx->id("D1"), iol, id_TXDATA1);
+                replace_port(ci, ctx->id("D2"), iol, id_TXDATA2);
+                replace_port(ci, ctx->id("D3"), iol, id_TXDATA3);
+                iol->params[ctx->id("GSR")] = str_or_default(ci->params, ctx->id("GSR"), "DISABLED");
+                iol->params[ctx->id("ODDRXN.MODE")] = "ODDRX2";
+                pio->params[ctx->id("DATAMUX_ODDR")] = "IOLDO";
+                packed_cells.insert(cell.first);
             }
         }
+        flush_cells();
+        // Promote/route edge clocks
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (ci->type == id_IOLOGIC) {
+                if (!ci->ports.count(id_ECLK) || ci->ports.at(id_ECLK).net == nullptr)
+                    continue;
+                BelId bel = ctx->getBelByName(ctx->id(str_or_default(ci->attrs, ctx->id("BEL"))));
+                NPNR_ASSERT(bel != BelId());
+                Loc pioLoc = ctx->getBelLocation(bel);
+                pioLoc.z -= 4;
+                BelId pioBel = ctx->getBelByLocation(pioLoc);
+                NPNR_ASSERT(pioBel != BelId());
+                int bank = ctx->getPioBelBank(pioBel);
+                make_eclk(ci->ports.at(id_ECLK), ci, bel, bank);
+            }
+        }
+        flush_cells();
+        // Constrain ECLK-related cells
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (ci->type == id_CLKDIVF) {
+                const NetInfo *clki = net_or_nullptr(ci, id_CLKI);
+                for (auto &eclk : eclks) {
+                    if (eclk.second.unbuf == clki) {
+                        for (auto bel : ctx->getBels()) {
+                            if (ctx->getBelType(bel) != id_CLKDIVF)
+                                continue;
+                            Loc loc = ctx->getBelLocation(bel);
+                            // CLKDIVF for bank 6/7 on the left; for bank 2/3 on the right
+                            if (loc.x < 10 && eclk.first.first != 6 && eclk.first.first != 7)
+                                continue;
+                            // z-index of CLKDIVF must match index of ECLK
+                            if (loc.z != eclk.first.second)
+                                continue;
+                            ci->attrs[ctx->id("BEL")] = ctx->getBelName(bel).str(ctx);
+                            make_eclk(ci->ports.at(id_CLKI), ci, bel, eclk.first.first);
+                            break;
+                        }
+                        continue;
+                    }
+                }
+            }
+        }
+
         flush_cells();
     };
 
