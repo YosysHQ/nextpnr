@@ -877,4 +877,41 @@ GlobalInfoPOD Arch::globalInfoAtLoc(Location loc)
     return chip_info->location_glbinfo[locidx];
 }
 
+bool Arch::getPIODQSGroup(BelId pio, bool &dqsright, int &dqsrow)
+{
+    for (int i = 0; i < chip_info->num_pios; i++) {
+        if (Location(chip_info->pio_info[i].abs_loc) == pio.location && chip_info->pio_info[i].bel_index == pio.index) {
+            int dqs = chip_info->pio_info[i].dqsgroup;
+            if (dqs == -1)
+                return false;
+            else {
+                dqsright = (dqs & 2048) != 0;
+                dqsrow = dqs & 0x1FF;
+                return true;
+            }
+        }
+    }
+    NPNR_ASSERT_FALSE("failed to find PIO");
+}
+
+BelId Arch::getDQSBUF(bool dqsright, int dqsrow)
+{
+    BelId bel;
+    bel.location.y = dqsrow;
+    bel.location.x = (dqsright ? (chip_info->width - 1) : 0);
+    for (int i = 0; i < locInfo(bel)->num_bels; i++) {
+        auto &bd = locInfo(bel)->bel_data[i];
+        if (bd.type == id_DQSBUFM.index) {
+            bel.index = i;
+            return bel;
+        }
+    }
+    NPNR_ASSERT_FALSE("failed to find DQSBUF");
+}
+
+WireId Arch::getBankECLK(int bank, int eclk)
+{
+    return getWireByLocAndBasename(Location(0, 0), "G_BANK" + std::to_string(bank) + "ECLK" + std::to_string(eclk));
+}
+
 NEXTPNR_NAMESPACE_END

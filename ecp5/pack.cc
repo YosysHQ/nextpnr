@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <boost/optional.hpp>
 #include <iterator>
+#include <queue>
 #include <unordered_set>
 #include "cells.h"
 #include "chain_utils.h"
@@ -1396,6 +1397,106 @@ class Ecp5Packer
         return a->driver.cell->type == b->driver.cell->type;
     }
 
+    struct EdgeClockInfo
+    {
+        CellInfo *buffer = nullptr;
+        NetInfo *unbuf = nullptr;
+        NetInfo *buf = nullptr;
+    };
+
+    std::map<std::pair<int, int>, EdgeClockInfo> eclks;
+
+    void make_eclk(PortInfo &usr_port, CellInfo *usr_cell, BelId usr_bel, int bank)
+    {
+        NetInfo *ecknet = usr_port.net;
+        if (ecknet == nullptr)
+            log_error("Input '%s' of cell '%s' cannot be disconnected\n", usr_port.name.c_str(ctx),
+                      usr_cell->name.c_str(ctx));
+        int found_eclk = -1, free_eclk = -1;
+        for (int i = 0; i < 2; i++) {
+            if (eclks.count(std::make_pair(bank, i))) {
+                if (eclks.at(std::make_pair(bank, i)).unbuf == ecknet) {
+                    found_eclk = i;
+                    break;
+                }
+            } else if (free_eclk == -1) {
+                free_eclk = i;
+            }
+        }
+        if (found_eclk == -1) {
+            if (free_eclk == -1) {
+                log_error("Unable to promote edge clock '%s' for bank %d. 2/2 edge clocks already used by '%s' and "
+                          "'%s'.\n",
+                          ecknet->name.c_str(ctx), bank, eclks.at(std::make_pair(bank, 0)).unbuf->name.c_str(ctx),
+                          eclks.at(std::make_pair(bank, 1)).unbuf->name.c_str(ctx));
+            } else {
+                log_info("Promoted '%s' to bank %d ECLK%d.\n", ecknet->name.c_str(ctx), bank, free_eclk);
+                auto &eclk = eclks[std::make_pair(bank, free_eclk)];
+                eclk.unbuf = ecknet;
+                IdString eckname = ctx->id(ecknet->name.str(ctx) + "$eclk" + std::to_string(bank) + "_" +
+                                           std::to_string(free_eclk));
+
+                std::unique_ptr<NetInfo> promoted_ecknet(new NetInfo);
+                promoted_ecknet->name = eckname;
+                promoted_ecknet->is_global = true; // Prevents router etc touching this special net
+                eclk.buf = promoted_ecknet.get();
+                NPNR_ASSERT(!ctx->nets.count(eckname));
+                ctx->nets[eckname] = std::move(promoted_ecknet);
+
+                // Insert TRELLIS_ECLKBUF to isolate edge clock from general routing
+                std::unique_ptr<CellInfo> eclkbuf =
+                        create_ecp5_cell(ctx, ctx->id("TRELLIS_ECLKBUF"), eckname.str(ctx) + "$buffer");
+                connect_port(ctx, ecknet, eclkbuf.get(), id_ECLKI);
+                connect_port(ctx, eclk.buf, eclkbuf.get(), id_ECLKO);
+                found_eclk = free_eclk;
+                eclk.buffer = eclkbuf.get();
+                new_cells.push_back(std::move(eclkbuf));
+            }
+        }
+
+        auto &eclk = eclks[std::make_pair(bank, found_eclk)];
+        disconnect_port(ctx, usr_cell, usr_port.name);
+        connect_port(ctx, eclk.buf, usr_cell, usr_port.name);
+
+        // Simple ECLK router
+        WireId userWire = ctx->getBelPinWire(usr_bel, usr_port.name);
+        IdString bnke_name = ctx->id("BNK_ECLK" + std::to_string(found_eclk));
+        IdString global_name = ctx->id("G_BANK" + std::to_string(bank) + "ECLK" + std::to_string(found_eclk));
+
+        std::queue<WireId> upstream;
+        std::unordered_map<WireId, PipId> backtrace;
+        upstream.push(userWire);
+        WireId next;
+        while (true) {
+            next = upstream.front();
+            upstream.pop();
+            IdString basename = ctx->getWireBasename(next);
+            if (basename == bnke_name || basename == global_name) {
+                break;
+            }
+            if (ctx->checkWireAvail(next)) {
+                for (auto pip : ctx->getPipsUphill(next)) {
+                    WireId src = ctx->getPipSrcWire(pip);
+                    backtrace[src] = pip;
+                    upstream.push(src);
+                }
+            }
+            if (upstream.size() > 30000) {
+                log_error("failed to route bank %d ECLK%d to %s.%s\n", bank, found_eclk,
+                          ctx->getBelName(usr_bel).c_str(ctx), usr_port.name.c_str(ctx));
+            }
+        }
+        // Set all the pips we found along the way
+        WireId cursor = next;
+        while (true) {
+            auto fnd = backtrace.find(cursor);
+            if (fnd == backtrace.end())
+                break;
+            ctx->bindPip(fnd->second, eclk.buf, STRENGTH_LOCKED);
+            cursor = ctx->getPipDstWire(fnd->second);
+        }
+    }
+
     // Pack IOLOGIC
     void pack_iologic()
     {
@@ -1449,13 +1550,18 @@ class Ecp5Packer
             curr_mode = mode;
         };
 
-        auto create_pio_iologic = [&](CellInfo *pio, CellInfo *curr) {
+        auto get_pio_bel = [&](CellInfo *pio, CellInfo *curr) {
             if (!pio->attrs.count(ctx->id("BEL")))
                 log_error("IOLOGIC functionality (DDR, DELAY, DQS, etc) can only be used with pin-constrained PIO "
                           "(while processing '%s').\n",
                           curr->name.c_str(ctx));
             BelId bel = ctx->getBelByName(ctx->id(pio->attrs.at(ctx->id("BEL"))));
             NPNR_ASSERT(bel != BelId());
+            return bel;
+        };
+
+        auto create_pio_iologic = [&](CellInfo *pio, CellInfo *curr) {
+            BelId bel = get_pio_bel(pio, curr);
             log_info("IOLOGIC component %s connected to PIO Bel %s\n", curr->name.c_str(ctx),
                      ctx->getBelName(bel).c_str(ctx));
             Loc loc = ctx->getBelLocation(bel);
