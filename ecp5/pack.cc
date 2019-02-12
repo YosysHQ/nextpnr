@@ -1521,8 +1521,8 @@ class Ecp5Packer
         for (auto cell : sorted(ctx->cells)) {
             CellInfo *ci = cell.second;
             if (ci->type == id_DQSBUFM) {
-                CellInfo *pio = net_driven_by(ctx, ci->ports.at(ctx->id("D")).net, is_trellis_io, id_O);
-                if (pio == nullptr || ci->ports.at(ctx->id("D")).net->users.size() > 1)
+                CellInfo *pio = net_driven_by(ctx, ci->ports.at(ctx->id("DQSI")).net, is_trellis_io, id_O);
+                if (pio == nullptr || ci->ports.at(ctx->id("DQSI")).net->users.size() > 1)
                     log_error("DQSBUFM '%s' DQSI input must be connected only to a top level input\n",
                               ci->name.c_str(ctx));
                 if (!pio->attrs.count(ctx->id("BEL")))
@@ -1826,6 +1826,36 @@ class Ecp5Packer
                 iol->params[ctx->id("MODDRX.MODE")] = "MOSHX2";
                 pio->params[ctx->id("DATAMUX_MDDR")] = "IOLDO";
                 packed_cells.insert(cell.first);
+            } else if (ci->type == ctx->id("ODDRX2DQA")) {
+                CellInfo *pio = net_only_drives(ctx, ci->ports.at(ctx->id("Q")).net, is_trellis_io, id_I, true);
+                if (pio == nullptr)
+                    log_error("ODDRX2DQA '%s' Q output must be connected only to a top level output\n",
+                              ci->name.c_str(ctx));
+                CellInfo *iol;
+                if (pio_iologic.count(pio->name))
+                    iol = pio_iologic.at(pio->name);
+                else
+                    iol = create_pio_iologic(pio, ci);
+                set_iologic_mode(iol, "MIDDRX_MODDRX");
+                replace_port(ci, ctx->id("Q"), iol, id_IOLDO);
+                if (!pio->ports.count(id_IOLDO)) {
+                    pio->ports[id_IOLDO].name = id_IOLDO;
+                    pio->ports[id_IOLDO].type = PORT_IN;
+                }
+                replace_port(pio, id_I, pio, id_IOLDO);
+                set_iologic_sclk(iol, ci, ctx->id("SCLK"), false);
+                set_iologic_eclk(iol, ci, id_ECLK);
+                set_iologic_lsr(iol, ci, ctx->id("RST"), false);
+                replace_port(ci, ctx->id("D0"), iol, id_TXDATA0);
+                replace_port(ci, ctx->id("D1"), iol, id_TXDATA1);
+                replace_port(ci, ctx->id("D2"), iol, id_TXDATA2);
+                replace_port(ci, ctx->id("D3"), iol, id_TXDATA3);
+                iol->params[ctx->id("GSR")] = str_or_default(ci->params, ctx->id("GSR"), "DISABLED");
+                iol->params[ctx->id("MODDRX.MODE")] = "MODDRX2";
+                iol->params[ctx->id("MIDDRX_MODDRX.WRCLKMUX")] = "DQSW270";
+                process_dqs_port(ci, pio, iol, id_DQSW270);
+                pio->params[ctx->id("DATAMUX_MDDR")] = "IOLDO";
+                packed_cells.insert(cell.first);
             }
         }
         flush_cells();
@@ -1838,7 +1868,10 @@ class Ecp5Packer
                 BelId bel = ctx->getBelByName(ctx->id(str_or_default(ci->attrs, ctx->id("BEL"))));
                 NPNR_ASSERT(bel != BelId());
                 Loc pioLoc = ctx->getBelLocation(bel);
-                pioLoc.z -= 4;
+                if (ci->type == id_DQSBUFM)
+                    pioLoc.z -= 8;
+                else
+                    pioLoc.z -= 4;
                 BelId pioBel = ctx->getBelByLocation(pioLoc);
                 NPNR_ASSERT(pioBel != BelId());
                 int bank = ctx->getPioBelBank(pioBel);
