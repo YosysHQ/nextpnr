@@ -1513,6 +1513,61 @@ class Ecp5Packer
             cursor = ctx->getPipDstWire(fnd->second);
         }
     }
+    std::unordered_map<IdString, std::pair<bool, int>> dqsbuf_dqsg;
+
+    // Pack DQSBUFs
+    void pack_dqsbuf()
+    {
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (ci->type == id_DQSBUFM) {
+                CellInfo *pio = net_driven_by(ctx, ci->ports.at(ctx->id("D")).net, is_trellis_io, id_O);
+                if (pio == nullptr || ci->ports.at(ctx->id("D")).net->users.size() > 1)
+                    log_error("DQSBUFM '%s' DQSI input must be connected only to a top level input\n",
+                              ci->name.c_str(ctx));
+                if (!pio->attrs.count(ctx->id("BEL")))
+                    log_error("DQSBUFM can only be used with a pin-constrained PIO connected to its DQSI input"
+                              "(while processing '%s').\n",
+                              ci->name.c_str(ctx));
+                BelId pio_bel = ctx->getBelByName(ctx->id(pio->attrs.at(ctx->id("BEL"))));
+                NPNR_ASSERT(pio_bel != BelId());
+                Loc pio_loc = ctx->getBelLocation(pio_bel);
+                if (pio_loc.z != 0)
+                    log_error("PIO '%s' does not appear to be a DQS site (expecting an 'A' pin).\n",
+                              ctx->getBelName(pio_bel).c_str(ctx));
+                pio_loc.z = 8;
+                BelId dqsbuf = ctx->getBelByLocation(pio_loc);
+                if (dqsbuf == BelId() || ctx->getBelType(dqsbuf) != id_DQSBUFM)
+                    log_error("PIO '%s' does not appear to be a DQS site (didn't find a DQSBUFM).\n",
+                              ctx->getBelName(pio_bel).c_str(ctx));
+                ci->attrs[ctx->id("BEL")] = ctx->getBelName(dqsbuf).str(ctx);
+                bool got_dqsg = ctx->getPIODQSGroup(pio_bel, dqsbuf_dqsg[ci->name].first, dqsbuf_dqsg[ci->name].second);
+                NPNR_ASSERT(got_dqsg);
+                log_info("Constrained DQSBUFM '%s' to %cDQS%d\n", ci->name.c_str(ctx),
+                         dqsbuf_dqsg[ci->name].first ? 'R' : 'L', dqsbuf_dqsg[ci->name].second);
+
+                // Set all special ports, if used as 'globals' that the router won't touch
+                for (auto port : {id_DQSR90, id_RDPNTR0, id_RDPNTR1, id_RDPNTR2, id_WRPNTR0, id_WRPNTR1, id_WRPNTR2,
+                                  id_DQSW270, id_DQSW}) {
+                    if (!ci->ports.count(port))
+                        continue;
+                    NetInfo *pn = ci->ports.at(port).net;
+                    if (pn == nullptr)
+                        continue;
+                    for (auto &usr : pn->users) {
+                        if (usr.port != port ||
+                            (usr.cell->type != ctx->id("ODDRX2DQA") && usr.cell->type != ctx->id("ODDRX2DQSB") &&
+                             usr.cell->type != ctx->id("TSHX2DQSA") && usr.cell->type != ctx->id("IDDRX2DQA") &&
+                             usr.cell->type != ctx->id("TSHX2DQA") && usr.cell->type != id_IOLOGIC))
+                            log_error("Port '%s' of DQSBUFM '%s' cannot drive port '%s' of cell '%s'.\n",
+                                      port.c_str(ctx), ci->name.c_str(ctx), usr.port.c_str(ctx),
+                                      usr.cell->name.c_str(ctx));
+                    }
+                    pn->is_global = true;
+                }
+            }
+        }
+    }
 
     // Pack IOLOGIC
     void pack_iologic()
@@ -1744,7 +1799,7 @@ class Ecp5Packer
         // Promote/route edge clocks
         for (auto cell : sorted(ctx->cells)) {
             CellInfo *ci = cell.second;
-            if (ci->type == id_IOLOGIC) {
+            if (ci->type == id_IOLOGIC || ci->type == id_DQSBUFM) {
                 if (!ci->ports.count(id_ECLK) || ci->ports.at(id_ECLK).net == nullptr)
                     continue;
                 BelId bel = ctx->getBelByName(ctx->id(str_or_default(ci->attrs, ctx->id("BEL"))));
@@ -1793,6 +1848,7 @@ class Ecp5Packer
     void pack()
     {
         pack_io();
+        pack_dqsbuf();
         pack_iologic();
         pack_ebr();
         pack_dsps();
