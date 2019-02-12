@@ -770,6 +770,8 @@ static void place_plls(Context *ctx)
                       io_cell->name.c_str(ctx));
         if (pll_used_bels.count(found_bel)) {
             CellInfo *conflict_cell = pll_used_bels.at(found_bel);
+            if (conflict_cell == ci)
+                continue;
             log_error("PLL '%s' PACKAGEPIN forces it to BEL %s but BEL is already assigned to PLL '%s'\n",
                       ci->name.c_str(ctx), ctx->getBelName(found_bel).c_str(ctx), conflict_cell->name.c_str(ctx));
         }
@@ -1063,7 +1065,12 @@ static void pack_special(Context *ctx)
                     create_ice_cell(ctx, ctx->id("ICESTORM_PLL"), ci->name.str(ctx) + "_PLL");
             packed->attrs[ctx->id("TYPE")] = ci->type.str(ctx);
             packed_cells.insert(ci->name);
-
+            if (!is_sb_pll40_dual(ctx, ci)) {
+                // Remove second output, so a buffer isn't created for it, for these
+                // cell types with only one output
+                packed->ports.erase(ctx->id("PLLOUT_B"));
+                packed->ports.erase(ctx->id("PLLOUT_B_GLOBAL"));
+            }
             for (auto attr : ci->attrs)
                 packed->attrs[attr.first] = attr.second;
             for (auto param : ci->params)
