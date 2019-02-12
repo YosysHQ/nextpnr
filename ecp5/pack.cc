@@ -1624,7 +1624,7 @@ class Ecp5Packer
                     if (iol->ports[id_LSR].net != lsr)
                         log_error("IOLOGIC '%s' has conflicting LSR signals '%s' and '%s'\n", iol->name.c_str(ctx),
                                   iol->ports[id_LSR].net->name.c_str(ctx), lsr->name.c_str(ctx));
-                } else {
+                } else if (iol->ports[id_LSR].net == nullptr) {
                     connect_port(ctx, lsr, iol, id_LSR);
                 }
             }
@@ -1685,6 +1685,7 @@ class Ecp5Packer
                     log_error("IOLOGIC '%s' has conflicting %s signals '%s' and '%s'\n", iol->name.c_str(ctx),
                               port.c_str(ctx), iol->ports[port].net->name.c_str(ctx), sig->name.c_str(ctx));
                 }
+                disconnect_port(ctx, prim, port);
             } else {
                 bool dqsr;
                 int dqsgroup;
@@ -1885,6 +1886,34 @@ class Ecp5Packer
                 process_dqs_port(ci, pio, iol, id_WRPNTR2);
                 process_dqs_port(ci, pio, iol, id_WRPNTR1);
                 process_dqs_port(ci, pio, iol, id_WRPNTR0);
+                packed_cells.insert(cell.first);
+            } else if (ci->type == ctx->id("TSHX2DQA")) {
+                CellInfo *pio = net_only_drives(ctx, ci->ports.at(ctx->id("Q")).net, is_trellis_io, id_T, true);
+                if (pio == nullptr)
+                    log_error("TSHX2DQA '%s' Q output must be connected only to a top level tristate\n",
+                              ci->name.c_str(ctx));
+                CellInfo *iol;
+                if (pio_iologic.count(pio->name))
+                    iol = pio_iologic.at(pio->name);
+                else
+                    iol = create_pio_iologic(pio, ci);
+                set_iologic_mode(iol, "MIDDRX_MODDRX");
+                replace_port(ci, ctx->id("Q"), iol, id_IOLTO);
+                if (!pio->ports.count(id_IOLTO)) {
+                    pio->ports[id_IOLTO].name = id_IOLTO;
+                    pio->ports[id_IOLTO].type = PORT_IN;
+                }
+                replace_port(pio, id_T, pio, id_IOLTO);
+                set_iologic_sclk(iol, ci, ctx->id("SCLK"), false);
+                set_iologic_eclk(iol, ci, id_ECLK);
+                set_iologic_lsr(iol, ci, ctx->id("RST"), false);
+                replace_port(ci, ctx->id("T0"), iol, id_TSDATA0);
+                replace_port(ci, ctx->id("T1"), iol, id_TSDATA1);
+                process_dqs_port(ci, pio, iol, id_DQSW270);
+                iol->params[ctx->id("GSR")] = str_or_default(ci->params, ctx->id("GSR"), "DISABLED");
+                iol->params[ctx->id("MTDDRX.MODE")] = "MTSHX2";
+                iol->params[ctx->id("MIDDRX_MODDRX.WRCLKMUX")] = "DQSW270";
+                iol->params[ctx->id("IOLTOMUX")] = "TDDR";
                 packed_cells.insert(cell.first);
             }
         }
