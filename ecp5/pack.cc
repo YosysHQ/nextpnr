@@ -1673,6 +1673,39 @@ class Ecp5Packer
             return iol_ptr;
         };
 
+        auto process_dqs_port = [&](CellInfo *prim, CellInfo *pio, CellInfo *iol, IdString port) {
+            NetInfo *sig = nullptr;
+            if (prim->ports.count(port))
+                sig = prim->ports[port].net;
+            if (sig == nullptr || sig->driver.cell == nullptr)
+                log_error("Port %s of cell '%s' cannot be disconnected, it must be driven by a DQSBUFM\n",
+                          port.c_str(ctx), prim->name.c_str(ctx));
+            if (iol->ports.at(port).net != nullptr) {
+                if (iol->ports.at(port).net != sig) {
+                    log_error("IOLOGIC '%s' has conflicting %s signals '%s' and '%s'\n", iol->name.c_str(ctx),
+                              port.c_str(ctx), iol->ports[port].net->name.c_str(ctx), sig->name.c_str(ctx));
+                }
+            } else {
+                bool dqsr;
+                int dqsgroup;
+                bool has_dqs = ctx->getPIODQSGroup(get_pio_bel(pio, prim), dqsr, dqsgroup);
+                if (!has_dqs)
+                    log_error("Primitive '%s' cannot be connected to top level port '%s' as the associated pin is not "
+                              "in any DQS group",
+                              prim->name.c_str(ctx), pio->name.c_str(ctx));
+                if (sig->driver.cell->type != id_DQSBUFM || sig->driver.port != port)
+                    log_error("Port %s of cell '%s' must be driven by port %s of a DQSBUFM", port.c_str(ctx),
+                              prim->name.c_str(ctx), port.c_str(ctx));
+                auto &driver_group = dqsbuf_dqsg.at(sig->driver.cell->name);
+                if (driver_group.first != dqsr || driver_group.second != dqsgroup)
+                    log_error("DQS group mismatch, port %s of '%s' in group %cDQ%d is driven by DQSBUFM '%s' in group "
+                              "%cDQ%d\n",
+                              port.c_str(ctx), prim->name.c_str(ctx), dqsr ? 'R' : 'L', dqsgroup,
+                              sig->driver.cell->name.c_str(ctx), driver_group.first ? 'R' : 'L', driver_group.second);
+                replace_port(prim, port, iol, port);
+            }
+        };
+
         for (auto cell : sorted(ctx->cells)) {
             CellInfo *ci = cell.second;
             if (ci->type == ctx->id("IDDRX1F")) {

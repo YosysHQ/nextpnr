@@ -1191,6 +1191,36 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             cc.tiles[tile].add_enum(clkdiv + ".DIV", str_or_default(ci->params, ctx->id("DIV"), "2.0"));
             cc.tiles[tile].add_enum(clkdiv + ".GSR", str_or_default(ci->params, ctx->id("GSR"), "DISABLED"));
         } else if (ci->type == id_TRELLIS_ECLKBUF) {
+        } else if (ci->type == id_DQSBUFM) {
+            Loc loc = ctx->getBelLocation(ci->bel);
+            bool l = loc.y < 10;
+            std::string pic = l ? "PICL" : "PICR";
+            TileGroup tg;
+            tg.tiles.push_back(ctx->getTileByTypeAndLocation(loc.y - 2, loc.x, pic + "1_DQS0"));
+            tg.tiles.push_back(ctx->getTileByTypeAndLocation(loc.y - 1, loc.x, pic + "2_DQS1"));
+            tg.tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x, pic + "0_DQS2"));
+            tg.tiles.push_back(ctx->getTileByTypeAndLocation(loc.y + 1, loc.x, pic + "1_DQS3"));
+            tg.config.add_enum("DQS.MODE", "DQSBUFM");
+            tg.config.add_enum("DQS.DQS_LI_DEL_ADJ", str_or_default(ci->params, ctx->id("DQS_LI_DEL_ADJ"), "PLUS"));
+            tg.config.add_enum("DQS.DQS_LO_DEL_ADJ", str_or_default(ci->params, ctx->id("DQS_LO_DEL_ADJ"), "PLUS"));
+            int li_del_value = int_or_default(ci->params, ctx->id("DQS_LI_DEL_VAL"), 0);
+            if (str_or_default(ci->params, ctx->id("DQS_LI_DEL_ADJ"), "PLUS") == "MINUS")
+                li_del_value = (256 - li_del_value) & 0xFF;
+            int lo_del_value = int_or_default(ci->params, ctx->id("DQS_LO_DEL_VAL"), 0);
+            if (str_or_default(ci->params, ctx->id("DQS_LO_DEL_ADJ"), "PLUS") == "MINUS")
+                lo_del_value = (256 - lo_del_value) & 0xFF;
+            tg.config.add_word("DQS.DQS_LI_DEL_VAL", int_to_bitvector(li_del_value, 8));
+            tg.config.add_word("DQS.DQS_LO_DEL_VAL", int_to_bitvector(lo_del_value, 8));
+            tg.config.add_enum("DQS.WRLOADN_USED", get_net_or_empty(ci, id_WRLOADN) != nullptr ? "YES" : "NO");
+            tg.config.add_enum("DQS.RDLOADN_USED", get_net_or_empty(ci, id_RDLOADN) != nullptr ? "YES" : "NO");
+            tg.config.add_enum("DQS.PAUSE_USED", get_net_or_empty(ci, id_PAUSE) != nullptr ? "YES" : "NO");
+            tg.config.add_enum("DQS.READ_USED",
+                               (get_net_or_empty(ci, id_READ0) != nullptr || get_net_or_empty(ci, id_READ1) != nullptr)
+                                       ? "YES"
+                                       : "NO");
+            tg.config.add_enum("DQS.DDRDEL", get_net_or_empty(ci, id_DDRDEL) != nullptr ? "DDRDEL" : "0");
+            tg.config.add_enum("DQS.GSR", str_or_default(ci->params, ctx->id("GSR"), "DISABLED"));
+            cc.tilegroups.push_back(tg);
         } else {
             NPNR_ASSERT_FALSE("unsupported cell type");
         }
