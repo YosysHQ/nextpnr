@@ -204,7 +204,7 @@ NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     RelPtr<SpeedGradePOD> speed_grades;
 });
 
-#if defined(_MSC_VER)
+#if defined(_MSC_VER) || defined(EXTERNAL_CHIPDB_ROOT)
 extern const char *chipdb_blob_25k;
 extern const char *chipdb_blob_45k;
 extern const char *chipdb_blob_85k;

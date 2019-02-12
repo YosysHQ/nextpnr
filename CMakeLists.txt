@@ -7,6 +7,7 @@ option(BUILD_PYTHON "Build Python Integration" ON)
 option(BUILD_TESTS "Build GUI" OFF)
 option(COVERAGE "Add code coverage info" OFF)
 option(STATIC_BUILD "Create static build" OFF)
+option(EXTERNAL_CHIPDB "Create build with pre-built chipdb binaries" OFF)
 
 set(link_param "")
 if (STATIC_BUILD)
@@ -14,6 +15,14 @@ if (STATIC_BUILD)
     if(NOT ${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
         set(link_param "-static")
     endif()
+endif()
+
+if (EXTERNAL_CHIPDB)
+    if (NOT DEFINED EXTERNAL_CHIPDB_ROOT)
+        message(STATUS "EXTERNAL_CHIPDB_ROOT not defined using -DEXTERNAL_CHIPDB_ROOT=/path/to/nextpnr. Default to /usr/share/nextpnr")
+        set(EXTERNAL_CHIPDB_ROOT "/usr/share/nextpnr")
+    endif()
+    add_definitions("-DEXTERNAL_CHIPDB_ROOT=\"${EXTERNAL_CHIPDB_ROOT}\"")
 endif()
 
 # List of families to build
@@ -66,7 +75,7 @@ endif()
 find_package(Sanitizers)
 
 # List of Boost libraries to include
-set(boost_libs filesystem thread program_options)
+set(boost_libs filesystem thread program_options iostreams)
 
 if (BUILD_GUI AND NOT BUILD_PYTHON)
     message(FATAL_ERROR "GUI requires Python to build")
