@@ -1690,6 +1690,28 @@ class Ecp5Packer
                 iol->params[ctx->id("ODDRXN.MODE")] = "ODDRX2";
                 pio->params[ctx->id("DATAMUX_ODDR")] = "IOLDO";
                 packed_cells.insert(cell.first);
+            } else if (ci->type == ctx->id("IDDRX2F")) {
+                CellInfo *pio = net_driven_by(ctx, ci->ports.at(ctx->id("D")).net, is_trellis_io, id_O);
+                if (pio == nullptr || ci->ports.at(ctx->id("D")).net->users.size() > 1)
+                    log_error("IDDRX2F '%s' D input must be connected only to a top level input\n",
+                              ci->name.c_str(ctx));
+                CellInfo *iol;
+                if (pio_iologic.count(pio->name))
+                    iol = pio_iologic.at(pio->name);
+                else
+                    iol = create_pio_iologic(pio, ci);
+                set_iologic_mode(iol, "IDDRXN");
+                replace_port(ci, ctx->id("D"), iol, id_PADDI);
+                set_iologic_sclk(iol, ci, ctx->id("SCLK"), true);
+                set_iologic_eclk(iol, ci, id_ECLK);
+                set_iologic_lsr(iol, ci, ctx->id("RST"), true);
+                replace_port(ci, ctx->id("Q0"), iol, id_RXDATA0);
+                replace_port(ci, ctx->id("Q1"), iol, id_RXDATA1);
+                replace_port(ci, ctx->id("Q2"), iol, id_RXDATA2);
+                replace_port(ci, ctx->id("Q3"), iol, id_RXDATA3);
+                iol->params[ctx->id("GSR")] = str_or_default(ci->params, ctx->id("GSR"), "DISABLED");
+                iol->params[ctx->id("IDDRXN.MODE")] = "IDDRX2";
+                packed_cells.insert(cell.first);
             }
         }
         flush_cells();
@@ -1729,11 +1751,12 @@ class Ecp5Packer
                                 continue;
                             ci->attrs[ctx->id("BEL")] = ctx->getBelName(bel).str(ctx);
                             make_eclk(ci->ports.at(id_CLKI), ci, bel, eclk.first.first);
-                            break;
+                            goto done;
                         }
-                        continue;
                     }
                 }
+            done:
+                continue;
             }
         }
 
