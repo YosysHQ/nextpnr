@@ -1826,10 +1826,10 @@ class Ecp5Packer
                 iol->params[ctx->id("MODDRX.MODE")] = "MOSHX2";
                 pio->params[ctx->id("DATAMUX_MDDR")] = "IOLDO";
                 packed_cells.insert(cell.first);
-            } else if (ci->type == ctx->id("ODDRX2DQA")) {
+            } else if (ci->type == ctx->id("ODDRX2DQA") || ci->type == ctx->id("ODDRX2DQSB")) {
                 CellInfo *pio = net_only_drives(ctx, ci->ports.at(ctx->id("Q")).net, is_trellis_io, id_I, true);
                 if (pio == nullptr)
-                    log_error("ODDRX2DQA '%s' Q output must be connected only to a top level output\n",
+                    log_error("%s '%s' Q output must be connected only to a top level output\n", ci->type.c_str(ctx),
                               ci->name.c_str(ctx));
                 CellInfo *iol;
                 if (pio_iologic.count(pio->name))
@@ -1852,8 +1852,8 @@ class Ecp5Packer
                 replace_port(ci, ctx->id("D3"), iol, id_TXDATA3);
                 iol->params[ctx->id("GSR")] = str_or_default(ci->params, ctx->id("GSR"), "DISABLED");
                 iol->params[ctx->id("MODDRX.MODE")] = "MODDRX2";
-                iol->params[ctx->id("MIDDRX_MODDRX.WRCLKMUX")] = "DQSW270";
-                process_dqs_port(ci, pio, iol, id_DQSW270);
+                iol->params[ctx->id("MIDDRX_MODDRX.WRCLKMUX")] = ci->type == ctx->id("ODDRX2DQSB") ? "DQSW" : "DQSW270";
+                process_dqs_port(ci, pio, iol, ci->type == ctx->id("ODDRX2DQSB") ? id_DQSW : id_DQSW270);
                 pio->params[ctx->id("DATAMUX_MDDR")] = "IOLDO";
                 packed_cells.insert(cell.first);
             }
