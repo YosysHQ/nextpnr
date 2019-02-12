@@ -1856,6 +1856,36 @@ class Ecp5Packer
                 process_dqs_port(ci, pio, iol, ci->type == ctx->id("ODDRX2DQSB") ? id_DQSW : id_DQSW270);
                 pio->params[ctx->id("DATAMUX_MDDR")] = "IOLDO";
                 packed_cells.insert(cell.first);
+            } else if (ci->type == ctx->id("IDDRX2DQA")) {
+                CellInfo *pio = net_driven_by(ctx, ci->ports.at(ctx->id("D")).net, is_trellis_io, id_O);
+                if (pio == nullptr || ci->ports.at(ctx->id("D")).net->users.size() > 1)
+                    log_error("IDDRX2DQA '%s' D input must be connected only to a top level input\n",
+                              ci->name.c_str(ctx));
+                CellInfo *iol;
+                if (pio_iologic.count(pio->name))
+                    iol = pio_iologic.at(pio->name);
+                else
+                    iol = create_pio_iologic(pio, ci);
+                set_iologic_mode(iol, "MIDDRX_MODDRX");
+                replace_port(ci, ctx->id("D"), iol, id_PADDI);
+                set_iologic_sclk(iol, ci, ctx->id("SCLK"), true);
+                set_iologic_eclk(iol, ci, id_ECLK);
+                set_iologic_lsr(iol, ci, ctx->id("RST"), true);
+                replace_port(ci, ctx->id("Q0"), iol, id_RXDATA0);
+                replace_port(ci, ctx->id("Q1"), iol, id_RXDATA1);
+                replace_port(ci, ctx->id("Q2"), iol, id_RXDATA2);
+                replace_port(ci, ctx->id("Q3"), iol, id_RXDATA3);
+                replace_port(ci, ctx->id("QWL"), iol, id_INFF);
+                iol->params[ctx->id("GSR")] = str_or_default(ci->params, ctx->id("GSR"), "DISABLED");
+                iol->params[ctx->id("MIDDRX.MODE")] = "MIDDRX2";
+                process_dqs_port(ci, pio, iol, id_DQSR90);
+                process_dqs_port(ci, pio, iol, id_RDPNTR2);
+                process_dqs_port(ci, pio, iol, id_RDPNTR1);
+                process_dqs_port(ci, pio, iol, id_RDPNTR0);
+                process_dqs_port(ci, pio, iol, id_WRPNTR2);
+                process_dqs_port(ci, pio, iol, id_WRPNTR1);
+                process_dqs_port(ci, pio, iol, id_WRPNTR0);
+                packed_cells.insert(cell.first);
             }
         }
         flush_cells();
