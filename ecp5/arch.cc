@@ -400,7 +400,28 @@ BelId Arch::getBelByLocation(Loc loc) const
 
 delay_t Arch::estimateDelay(WireId src, WireId dst) const
 {
-    return (240 - 20 * args.speed) * (abs(src.location.x - dst.location.x) + abs(src.location.y - dst.location.y));
+    auto est_location = [&](WireId w) -> std::pair<int16_t, int16_t> {
+        if (w.location.x == 0 && w.location.y == 0) {
+            // Global wires
+            const auto &wire = locInfo(w)->wire_data[w.index];
+            // Use location of first downhill bel or pip, if available
+            if (wire.num_bel_pins > 0) {
+                return std::make_pair(wire.bel_pins[0].rel_bel_loc.x, wire.bel_pins[0].rel_bel_loc.y);
+            } else if (wire.num_downhill > 0) {
+                return std::make_pair(wire.pips_downhill[0].rel_loc.x, wire.pips_downhill[0].rel_loc.y);
+            } else if (wire.num_uphill > 0) {
+                return std::make_pair(wire.pips_uphill[0].rel_loc.x, wire.pips_uphill[0].rel_loc.y);
+            } else {
+                return std::make_pair<int16_t, int16_t>(0, 0);
+            }
+        } else {
+            return std::make_pair(w.location.x, w.location.y);
+        }
+    };
+
+    auto src_loc = est_location(src), dst_loc = est_location(dst);
+
+    return (240 - 20 * args.speed) * (abs(src_loc.first - dst_loc.first) + abs(src_loc.second - dst_loc.second));
 }
 
 delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
