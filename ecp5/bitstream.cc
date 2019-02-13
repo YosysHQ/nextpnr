@@ -1221,6 +1221,13 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             tg.config.add_enum("DQS.DDRDEL", get_net_or_empty(ci, id_DDRDEL) != nullptr ? "DDRDEL" : "0");
             tg.config.add_enum("DQS.GSR", str_or_default(ci->params, ctx->id("GSR"), "DISABLED"));
             cc.tilegroups.push_back(tg);
+        } else if (ci->type == id_ECLKSYNCB) {
+            Loc loc = ctx->getBelLocation(ci->bel);
+            bool r = loc.x > 5;
+            std::string eclksync = ctx->locInfo(bel)->bel_data[bel.index].name.get();
+            std::string tile = ctx->getTileByType(std::string("ECLK_") + (r ? "R" : "L"));
+            if (get_net_or_empty(ci, id_STOP) != nullptr)
+                cc.tiles[tile].add_enum(eclksync + ".MODE", "ECLKSYNCB");
         } else {
             NPNR_ASSERT_FALSE("unsupported cell type");
         }

@@ -1958,11 +1958,32 @@ class Ecp5Packer
                                 continue;
                             ci->attrs[ctx->id("BEL")] = ctx->getBelName(bel).str(ctx);
                             make_eclk(ci->ports.at(id_CLKI), ci, bel, eclk.first.first);
-                            goto done;
+                            goto clkdiv_done;
                         }
                     }
                 }
-            done:
+            clkdiv_done:
+                continue;
+            } else if (ci->type == id_ECLKSYNCB) {
+                const NetInfo *eclko = net_or_nullptr(ci, id_ECLKO);
+                if (eclko == nullptr)
+                    log_error("ECLKSYNCB '%s' has disconnected port ECLKO\n", ci->name.c_str(ctx));
+                for (auto user : eclko->users) {
+                    if (user.cell->type == id_TRELLIS_ECLKBUF) {
+                        Loc eckbuf_loc =
+                                ctx->getBelLocation(ctx->getBelByName(ctx->id(user.cell->attrs.at(ctx->id("BEL")))));
+                        for (auto bel : ctx->getBels()) {
+                            if (ctx->getBelType(bel) != id_ECLKSYNCB)
+                                continue;
+                            Loc loc = ctx->getBelLocation(bel);
+                            if (loc.x == eckbuf_loc.x && loc.y == eckbuf_loc.y && loc.z == eckbuf_loc.z - 2) {
+                                ci->attrs[ctx->id("BEL")] = ctx->getBelName(bel).str(ctx);
+                                goto eclksync_done;
+                            }
+                        }
+                    }
+                }
+            eclksync_done:
                 continue;
             }
         }
