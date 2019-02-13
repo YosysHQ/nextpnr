@@ -1985,6 +1985,36 @@ class Ecp5Packer
                 }
             eclksync_done:
                 continue;
+            } else if (ci->type == ctx->id("DDRDLLA")) {
+                ci->type = id_DDRDLL; // transform from Verilog to Bel name
+                const NetInfo *clk = net_or_nullptr(ci, id_CLK);
+                if (clk == nullptr)
+                    log_error("DDRDLLA '%s' has disconnected port CLK\n", ci->name.c_str(ctx));
+                for (auto &eclk : eclks) {
+                    if (eclk.second.unbuf == clk) {
+                        for (auto bel : ctx->getBels()) {
+                            if (ctx->getBelType(bel) != id_DDRDLL)
+                                continue;
+                            Loc loc = ctx->getBelLocation(bel);
+                            int ddrdll_bank = -1;
+                            if (loc.x < 15 && loc.y < 15)
+                                ddrdll_bank = 7;
+                            else if (loc.x < 15 && loc.y > 15)
+                                ddrdll_bank = 6;
+                            else if (loc.x > 15 && loc.y < 15)
+                                ddrdll_bank = 2;
+                            else if (loc.x > 15 && loc.y > 15)
+                                ddrdll_bank = 3;
+                            if (eclk.first.first != ddrdll_bank)
+                                continue;
+                            ci->attrs[ctx->id("BEL")] = ctx->getBelName(bel).str(ctx);
+                            make_eclk(ci->ports.at(id_CLK), ci, bel, eclk.first.first);
+                            goto ddrdll_done;
+                        }
+                    }
+                }
+            ddrdll_done:
+                continue;
             }
         }
 
