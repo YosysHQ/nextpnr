@@ -577,6 +577,7 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             break;
         case ArchArgs::LFE5UM5G_85F:
             BaseConfigs::config_empty_lfe5um5g_85f(cc);
+            break;
         default:
             NPNR_ASSERT_FALSE("Unsupported device type");
         }
