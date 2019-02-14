@@ -34,6 +34,18 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+namespace BaseConfigs {
+void config_empty_lfe5u_25f(ChipConfig &cc);
+void config_empty_lfe5u_45f(ChipConfig &cc);
+void config_empty_lfe5u_85f(ChipConfig &cc);
+void config_empty_lfe5um_25f(ChipConfig &cc);
+void config_empty_lfe5um_45f(ChipConfig &cc);
+void config_empty_lfe5um_85f(ChipConfig &cc);
+void config_empty_lfe5um5g_25f(ChipConfig &cc);
+void config_empty_lfe5um5g_45f(ChipConfig &cc);
+void config_empty_lfe5um5g_85f(ChipConfig &cc);
+} // namespace BaseConfigs
+
 // Convert an absolute wire name to a relative Trellis one
 static std::string get_trellis_wirename(Context *ctx, Location loc, WireId wire)
 {
@@ -538,8 +550,36 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
         }
         config_file >> cc;
     } else {
-        cc.chip_name = ctx->getChipName();
-        // TODO: .bit metadata
+        switch (ctx->args.type) {
+        case ArchArgs::LFE5U_25F:
+            BaseConfigs::config_empty_lfe5u_25f(cc);
+            break;
+        case ArchArgs::LFE5U_45F:
+            BaseConfigs::config_empty_lfe5u_45f(cc);
+            break;
+        case ArchArgs::LFE5U_85F:
+            BaseConfigs::config_empty_lfe5u_85f(cc);
+            break;
+        case ArchArgs::LFE5UM_25F:
+            BaseConfigs::config_empty_lfe5um_25f(cc);
+            break;
+        case ArchArgs::LFE5UM_45F:
+            BaseConfigs::config_empty_lfe5um_45f(cc);
+            break;
+        case ArchArgs::LFE5UM_85F:
+            BaseConfigs::config_empty_lfe5um_85f(cc);
+            break;
+        case ArchArgs::LFE5UM5G_25F:
+            BaseConfigs::config_empty_lfe5um5g_25f(cc);
+            break;
+        case ArchArgs::LFE5UM5G_45F:
+            BaseConfigs::config_empty_lfe5um5g_45f(cc);
+            break;
+        case ArchArgs::LFE5UM5G_85F:
+            BaseConfigs::config_empty_lfe5um5g_85f(cc);
+        default:
+            NPNR_ASSERT_FALSE("Unsupported device type");
+        }
     }
 
     // Clear out DCU tieoffs in base config if DCU used
