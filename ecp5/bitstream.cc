@@ -788,6 +788,22 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                 cc.tiles[pio_tile].add_enum(pio + ".SLEWRATE", str_or_default(ci->attrs, ctx->id("SLEWRATE"), "SLOW"));
             if (ci->attrs.count(ctx->id("PULLMODE")))
                 cc.tiles[pio_tile].add_enum(pio + ".PULLMODE", str_or_default(ci->attrs, ctx->id("PULLMODE"), "NONE"));
+            if (ci->attrs.count(ctx->id("TERMINATION"))) {
+                auto vccio = get_vccio(ioType_from_str(iotype));
+                switch(vccio) {
+                    case IOVoltage::VCC_1V8:
+                        cc.tiles[pio_tile].add_enum(pio + ".TERMINATION_1V8", str_or_default(ci->attrs, ctx->id("TERMINATION"), "OFF"));
+                        break;
+                    case IOVoltage::VCC_1V5:
+                        cc.tiles[pio_tile].add_enum(pio + ".TERMINATION_1V5", str_or_default(ci->attrs, ctx->id("TERMINATION"), "OFF"));
+                        break;
+                    case IOVoltage::VCC_1V35:
+                        cc.tiles[pio_tile].add_enum(pio + ".TERMINATION_1V35", str_or_default(ci->attrs, ctx->id("TERMINATION"), "OFF"));
+                        break;
+                    default:
+                        log_error("TERMINATION is not supported with Vcc = %s (on PIO %s)\n", iovoltage_to_str(vccio).c_str(), ci->name.c_str(ctx));
+                }
+            }
             std::string datamux_oddr = str_or_default(ci->params, ctx->id("DATAMUX_ODDR"), "PADDO");
             if (datamux_oddr != "PADDO")
                 cc.tiles[pic_tile].add_enum(pio + ".DATAMUX_ODDR", datamux_oddr);
