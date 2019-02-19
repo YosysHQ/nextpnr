@@ -619,7 +619,7 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
     }
     // Find bank voltages
     std::unordered_map<int, IOVoltage> bankVcc;
-    std::unordered_map<int, bool> bankLvds;
+    std::unordered_map<int, bool> bankLvds, bankVref;
 
     for (auto &cell : ctx->cells) {
         CellInfo *ci = cell.second.get();
@@ -628,7 +628,7 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             std::string dir = str_or_default(ci->params, ctx->id("DIR"), "INPUT");
             std::string iotype = str_or_default(ci->attrs, ctx->id("IO_TYPE"), "LVCMOS33");
 
-            if (dir != "INPUT") {
+            if (dir != "INPUT" || is_referenced(ioType_from_str(iotype))) {
                 IOVoltage vcc = get_vccio(ioType_from_str(iotype));
                 if (bankVcc.find(bank) != bankVcc.end()) {
                     // TODO: strong and weak constraints
@@ -644,6 +644,8 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
 
             if (iotype == "LVDS")
                 bankLvds[bank] = true;
+            if ((dir == "INPUT" || dir == "BIDIR") && is_referenced(ioType_from_str(iotype)))
+                bankVref[bank] = true;
         }
     }
 
@@ -655,15 +657,65 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                 std::string type = tile.second;
                 if (type.find("BANKREF") != std::string::npos && type != "BANKREF8") {
                     int bank = std::stoi(type.substr(7));
-                    if (bankVcc.find(bank) != bankVcc.end())
-                        cc.tiles[tile.first].add_enum("BANK.VCCIO", iovoltage_to_str(bankVcc[bank]));
+                    if (bankVcc.find(bank) != bankVcc.end()) {
+                        if (bankVcc[bank] == IOVoltage::VCC_1V35)
+                            cc.tiles[tile.first].add_enum("BANK.VCCIO", "1V2");
+                        else
+                            cc.tiles[tile.first].add_enum("BANK.VCCIO", iovoltage_to_str(bankVcc[bank]));
+                    }
                     if (bankLvds[bank]) {
                         cc.tiles[tile.first].add_enum("BANK.DIFF_REF", "ON");
                         cc.tiles[tile.first].add_enum("BANK.LVDSO", "ON");
                     }
+                    if (bankVref[bank]) {
+                        cc.tiles[tile.first].add_enum("BANK.DIFF_REF", "ON");
+                        cc.tiles[tile.first].add_enum("BANK.VREF", "ON");
+                    }
                 }
             }
         }
+    }
+
+    // Create dummy outputs used as Vref input buffer for banks where Vref is used
+    for (auto bv : bankVref) {
+        if (!bv.second)
+            continue;
+        BelId vrefIO = ctx->getPioByFunctionName(fmt_str("VREF1_" << bv.first));
+        if (vrefIO == BelId())
+            log_error("unable to find VREF input for bank %d\n", bv.first);
+        if (!ctx->checkBelAvail(vrefIO)) {
+            CellInfo *bound = ctx->getBoundBelCell(vrefIO);
+            if (bound != nullptr)
+                log_error("VREF pin %s of bank %d is occupied by IO '%s'\n", ctx->getBelPackagePin(vrefIO).c_str(),
+                          bv.first, bound->name.c_str(ctx));
+            else
+                log_error("VREF pin %s of bank %d is unavailable\n", ctx->getBelPackagePin(vrefIO).c_str(), bv.first);
+        }
+        log_info("Using pin %s as VREF for bank %d\n", ctx->getBelPackagePin(vrefIO).c_str(), bv.first);
+        std::string pio_tile = get_pio_tile(ctx, vrefIO);
+
+        std::string iotype;
+        switch (bankVcc[bv.first]) {
+        case IOVoltage::VCC_1V2:
+            iotype = "HSUL12";
+            break;
+        case IOVoltage::VCC_1V35:
+            iotype = "SSTL135_I";
+            break;
+        case IOVoltage::VCC_1V5:
+            iotype = "SSTL15_I";
+            break;
+        case IOVoltage::VCC_1V8:
+            iotype = "SSTL18_I";
+            break;
+        default:
+            log_error("Referenced inputs are not supported with bank VccIO of %s.\n",
+                      iovoltage_to_str(bankVcc[bv.first]).c_str());
+        }
+
+        std::string pio = ctx->locInfo(vrefIO)->bel_data[vrefIO.index].name.get();
+        cc.tiles[pio_tile].add_enum(pio + ".BASE_TYPE", "OUTPUT_" + iotype);
+        cc.tiles[pio_tile].add_enum(pio + ".PULLMODE", "NONE");
     }
 
     // Configure slices
@@ -781,7 +833,8 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                 std::string cib_wirename = ctx->locInfo(cib_wire)->wire_data[cib_wire.index].name.get();
                 cc.tiles[cib_tile].add_enum("CIB." + cib_wirename + "MUX", "0");
             }
-            if (dir == "INPUT" && !is_differential(ioType_from_str(iotype))) {
+            if (dir == "INPUT" && !is_differential(ioType_from_str(iotype)) &&
+                !is_referenced(ioType_from_str(iotype))) {
                 cc.tiles[pio_tile].add_enum(pio + ".HYSTERESIS", "ON");
             }
             if (ci->attrs.count(ctx->id("SLEWRATE")))
