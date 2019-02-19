@@ -1569,6 +1569,32 @@ class Ecp5Packer
         }
     }
 
+    int lookup_delay(const std::string &del_mode)
+    {
+        if (del_mode == "USER_DEFINED")
+            return 0;
+        else if (del_mode == "DQS_ALIGNED_X2")
+            return 6;
+        else if (del_mode == "DQS_CMD_CLK")
+            return 9;
+        else if (del_mode == "ECLK_ALIGNED")
+            return 21;
+        else if (del_mode == "ECLK_CENTERED")
+            return 11;
+        else if (del_mode == "ECLKBRIDGE_ALIGNED")
+            return 39;
+        else if (del_mode == "ECLKBRIDGE_CENTERED")
+            return 29;
+        else if (del_mode == "SCLK_ALIGNED")
+            return 50;
+        else if (del_mode == "SCLK_CENTERED")
+            return 39;
+        else if (del_mode == "SCLK_ZEROHOLD")
+            return 59;
+        else
+            log_error("Unsupported DEL_MODE '%s'\n", del_mode.c_str());
+    }
+
     // Pack IOLOGIC
     void pack_iologic()
     {
@@ -1634,7 +1660,7 @@ class Ecp5Packer
 
         auto set_iologic_mode = [&](CellInfo *iol, std::string mode) {
             auto &curr_mode = iol->params[ctx->id("MODE")];
-            if (curr_mode != "NONE" && curr_mode != mode)
+            if (curr_mode != "NONE" && curr_mode != "IREG_OREG" && curr_mode != mode)
                 log_error("IOLOGIC '%s' has conflicting modes '%s' and '%s'\n", iol->name.c_str(ctx), curr_mode.c_str(),
                           mode.c_str());
             if (iol->type == id_SIOLOGIC && mode != "IREG_OREG" && mode != "IDDRX1_ODDRX1" && mode != "NONE")
@@ -1706,6 +1732,101 @@ class Ecp5Packer
                 replace_port(prim, port, iol, port);
             }
         };
+
+        auto tie_zero = [&](CellInfo *ci, IdString port) {
+            std::unique_ptr<CellInfo> zero_cell{new CellInfo};
+            std::unique_ptr<NetInfo> zero_net{new NetInfo};
+            IdString name = ctx->id(ci->name.str(ctx) + "$zero$" + port.str(ctx));
+            zero_cell->type = ctx->id("GND");
+            zero_cell->name = name;
+            zero_net->name = name;
+            zero_cell->ports[ctx->id("GND")].type = PORT_OUT;
+            connect_port(ctx, zero_net.get(), zero_cell.get(), ctx->id("GND"));
+            ctx->nets[name] = std::move(zero_net);
+            new_cells.push_back(std::move(zero_cell));
+        };
+
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (ci->type == ctx->id("DELAYF") || ci->type == ctx->id("DELAYG")) {
+                CellInfo *i_pio = net_driven_by(ctx, ci->ports.at(ctx->id("A")).net, is_trellis_io, id_O);
+                CellInfo *o_pio = net_only_drives(ctx, ci->ports.at(ctx->id("Z")).net, is_trellis_io, id_I, true);
+                CellInfo *iol = nullptr;
+                if (i_pio != nullptr && ci->ports.at(ctx->id("A")).net->users.size() == 1) {
+                    iol = create_pio_iologic(i_pio, ci);
+                    set_iologic_mode(iol, "IREG_OREG");
+                    bool drives_iologic = false;
+                    for (auto user : ci->ports.at(ctx->id("Z")).net->users)
+                        if (is_iologic_input_cell(ctx, user.cell) && user.port == ctx->id("D"))
+                            drives_iologic = true;
+                    if (drives_iologic) {
+                        // Reconnect to PIO which the packer expects later on
+                        NetInfo *input_net = ci->ports.at(ctx->id("A")).net, *dly_net = ci->ports.at(ctx->id("Z")).net;
+                        disconnect_port(ctx, i_pio, id_O);
+                        i_pio->ports.at(id_O).net = nullptr;
+                        disconnect_port(ctx, ci, id_A);
+                        ci->ports.at(id_A).net = nullptr;
+                        disconnect_port(ctx, ci, id_Z);
+                        ci->ports.at(id_Z).net = nullptr;
+                        connect_port(ctx, dly_net, i_pio, id_O);
+                        connect_port(ctx, input_net, iol, id_INDD);
+                        connect_port(ctx, input_net, iol, id_DI);
+                    } else {
+                        replace_port(ci, id_A, iol, id_PADDI);
+                        replace_port(ci, id_Z, iol, id_INDD);
+                    }
+                    packed_cells.insert(cell.first);
+                } else if (o_pio != nullptr) {
+                    iol = create_pio_iologic(o_pio, ci);
+                    iol->params[ctx->id("DELAY.OUTDEL")] = "ENABLED";
+                    bool driven_by_iol = false;
+                    NetInfo *input_net = ci->ports.at(ctx->id("A")).net, *dly_net = ci->ports.at(ctx->id("Z")).net;
+                    if (input_net->driver.cell != nullptr && is_iologic_output_cell(ctx, input_net->driver.cell) &&
+                        input_net->driver.port == ctx->id("Q"))
+                        driven_by_iol = true;
+                    if (driven_by_iol) {
+                        disconnect_port(ctx, o_pio, id_I);
+                        i_pio->ports.at(id_I).net = nullptr;
+                        disconnect_port(ctx, ci, id_A);
+                        ci->ports.at(id_A).net = nullptr;
+                        disconnect_port(ctx, ci, id_Z);
+                        ci->ports.at(id_Z).net = nullptr;
+                        connect_port(ctx, input_net, o_pio, id_I);
+                        ctx->nets.erase(dly_net->name);
+                    } else {
+                        replace_port(ci, ctx->id("A"), iol, id_TXDATA0);
+                        replace_port(ci, ctx->id("Z"), iol, id_IOLDO);
+                        if (!o_pio->ports.count(id_IOLDO)) {
+                            o_pio->ports[id_IOLDO].name = id_IOLDO;
+                            o_pio->ports[id_IOLDO].type = PORT_IN;
+                        }
+                        replace_port(o_pio, id_I, o_pio, id_IOLDO);
+                    }
+                    packed_cells.insert(cell.first);
+                } else {
+                    log_error("%s '%s' must be connected directly to top level input or output\n", ci->type.c_str(ctx),
+                              ci->name.c_str(ctx));
+                }
+                iol->params[ctx->id("DELAY.DEL_VALUE")] =
+                        std::to_string(lookup_delay(str_or_default(ci->params, ctx->id("DEL_MODE"), "USER_DEFINED")));
+                if (ci->params.count(ctx->id("DEL_VALUE")))
+                    iol->params[ctx->id("DELAY.DEL_VALUE")] = ci->params.at(ctx->id("DEL_VALUE"));
+                if (ci->ports.count(id_LOADN))
+                    replace_port(ci, id_LOADN, iol, id_LOADN);
+                else
+                    tie_zero(ci, id_LOADN);
+                if (ci->ports.count(id_MOVE))
+                    replace_port(ci, id_MOVE, iol, id_MOVE);
+                else
+                    tie_zero(ci, id_MOVE);
+                if (ci->ports.count(id_DIRECTION))
+                    replace_port(ci, id_DIRECTION, iol, id_DIRECTION);
+                else
+                    tie_zero(ci, id_DIRECTION);
+                if (ci->ports.count(id_CFLAG))
+                    replace_port(ci, id_CFLAG, iol, id_CFLAG);
+            }
+        }
 
         for (auto cell : sorted(ctx->cells)) {
             CellInfo *ci = cell.second;

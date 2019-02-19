@@ -107,6 +107,8 @@ void disconnect_port(const Context *ctx, CellInfo *cell, IdString port_name)
                                                  return user.cell == cell && user.port == port_name;
                                              }),
                               port.net->users.end());
+        if (port.net->driver.cell == cell && port.net->driver.port == port_name)
+            port.net->driver.cell = nullptr;
     }
 }
 
