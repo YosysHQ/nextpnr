@@ -841,6 +841,8 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                 cc.tiles[pio_tile].add_enum(pio + ".SLEWRATE", str_or_default(ci->attrs, ctx->id("SLEWRATE"), "SLOW"));
             if (ci->attrs.count(ctx->id("PULLMODE")))
                 cc.tiles[pio_tile].add_enum(pio + ".PULLMODE", str_or_default(ci->attrs, ctx->id("PULLMODE"), "NONE"));
+            if (ci->attrs.count(ctx->id("DIFFRESISTOR")))
+                cc.tiles[pio_tile].add_enum(pio + ".DIFFRESISTOR", str_or_default(ci->attrs, ctx->id("DIFFRESISTOR"), "OFF"));
             if (ci->attrs.count(ctx->id("TERMINATION"))) {
                 auto vccio = get_vccio(ioType_from_str(iotype));
                 switch (vccio) {
