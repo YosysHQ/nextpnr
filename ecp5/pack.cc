@@ -1890,8 +1890,10 @@ class Ecp5Packer
                 }
                 replace_port(pio, id_I, pio, id_IOLDO);
                 set_iologic_sclk(iol, ci, ctx->id("SCLK"), false);
+                set_iologic_sclk(iol, ci, ctx->id("SCLK"), true);
                 set_iologic_eclk(iol, ci, id_ECLK);
                 set_iologic_lsr(iol, ci, ctx->id("RST"), false);
+                set_iologic_lsr(iol, ci, ctx->id("RST"), true);
                 replace_port(ci, ctx->id("D0"), iol, id_TXDATA0);
                 replace_port(ci, ctx->id("D1"), iol, id_TXDATA1);
                 replace_port(ci, ctx->id("D2"), iol, id_TXDATA2);
@@ -1942,6 +1944,7 @@ class Ecp5Packer
                 set_iologic_sclk(iol, ci, ctx->id("SCLK"), false);
                 set_iologic_eclk(iol, ci, id_ECLK);
                 set_iologic_lsr(iol, ci, ctx->id("RST"), false);
+                set_iologic_lsr(iol, ci, ctx->id("RST"), true);
                 replace_port(ci, ctx->id("D0"), iol, id_TXDATA0);
                 replace_port(ci, ctx->id("D1"), iol, id_TXDATA2);
                 iol->params[ctx->id("GSR")] = str_or_default(ci->params, ctx->id("GSR"), "DISABLED");
@@ -1968,6 +1971,7 @@ class Ecp5Packer
                 set_iologic_sclk(iol, ci, ctx->id("SCLK"), false);
                 set_iologic_eclk(iol, ci, id_ECLK);
                 set_iologic_lsr(iol, ci, ctx->id("RST"), false);
+                set_iologic_lsr(iol, ci, ctx->id("RST"), true);
                 replace_port(ci, ctx->id("D0"), iol, id_TXDATA0);
                 replace_port(ci, ctx->id("D1"), iol, id_TXDATA1);
                 replace_port(ci, ctx->id("D2"), iol, id_TXDATA2);
@@ -2033,6 +2037,7 @@ class Ecp5Packer
                 process_dqs_port(ci, pio, iol, ci->type == ctx->id("TSHX2DQSA") ? id_DQSW : id_DQSW270);
                 iol->params[ctx->id("GSR")] = str_or_default(ci->params, ctx->id("GSR"), "DISABLED");
                 iol->params[ctx->id("MTDDRX.MODE")] = "MTSHX2";
+                iol->params[ctx->id("MTDDRX.REGSET")] = "SET";
                 iol->params[ctx->id("MTDDRX.DQSW_INVERT")] = ci->type == ctx->id("TSHX2DQSA") ? "ENABLED" : "DISABLED";
                 iol->params[ctx->id("MIDDRX_MODDRX.WRCLKMUX")] = ci->type == ctx->id("TSHX2DQSA") ? "DQSW" : "DQSW270";
                 iol->params[ctx->id("IOLTOMUX")] = "TDDR";

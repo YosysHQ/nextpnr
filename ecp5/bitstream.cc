@@ -700,10 +700,10 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             iotype = "HSUL12";
             break;
         case IOVoltage::VCC_1V35:
-            iotype = "SSTL135_I";
+            iotype = "SSTL18_I";
             break;
         case IOVoltage::VCC_1V5:
-            iotype = "SSTL15_I";
+            iotype = "SSTL18_I";
             break;
         case IOVoltage::VCC_1V8:
             iotype = "SSTL18_I";
@@ -816,13 +816,16 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                     other = "PIOD";
                 else
                     log_error("cannot place differential IO at location %s\n", pio.c_str());
-                // cc.tiles[pio_tile].add_enum(other + ".BASE_TYPE", "_NONE_");
-                // cc.tiles[pic_tile].add_enum(other + ".BASE_TYPE", "_NONE_");
+                //cc.tiles[pio_tile].add_enum(other + ".BASE_TYPE", "_NONE_");
+                //cc.tiles[pic_tile].add_enum(other + ".BASE_TYPE", "_NONE_");
                 cc.tiles[pio_tile].add_enum(other + ".PULLMODE", "NONE");
+                cc.tiles[pio_tile].add_enum(pio + ".PULLMODE", "NONE");
+            } else if (is_referenced(ioType_from_str(iotype))) {
                 cc.tiles[pio_tile].add_enum(pio + ".PULLMODE", "NONE");
             }
             if (dir != "INPUT" &&
-                (ci->ports.find(ctx->id("T")) == ci->ports.end() || ci->ports.at(ctx->id("T")).net == nullptr)) {
+                (ci->ports.find(ctx->id("T")) == ci->ports.end() || ci->ports.at(ctx->id("T")).net == nullptr) &&
+                (ci->ports.find(ctx->id("IOLTO")) == ci->ports.end() || ci->ports.at(ctx->id("IOLTO")).net == nullptr)) {
                 // Tie tristate low if unconnected for outputs or bidir
                 std::string jpt = fmt_str("X" << bel.location.x << "/Y" << bel.location.y << "/JPADDT" << pio.back());
                 WireId jpt_wire = ctx->getWireByName(ctx->id(jpt));
@@ -837,12 +840,13 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                 !is_referenced(ioType_from_str(iotype))) {
                 cc.tiles[pio_tile].add_enum(pio + ".HYSTERESIS", "ON");
             }
-            if (ci->attrs.count(ctx->id("SLEWRATE")))
+            if (ci->attrs.count(ctx->id("SLEWRATE")) && !is_referenced(ioType_from_str(iotype)))
                 cc.tiles[pio_tile].add_enum(pio + ".SLEWRATE", str_or_default(ci->attrs, ctx->id("SLEWRATE"), "SLOW"));
             if (ci->attrs.count(ctx->id("PULLMODE")))
                 cc.tiles[pio_tile].add_enum(pio + ".PULLMODE", str_or_default(ci->attrs, ctx->id("PULLMODE"), "NONE"));
             if (ci->attrs.count(ctx->id("DIFFRESISTOR")))
-                cc.tiles[pio_tile].add_enum(pio + ".DIFFRESISTOR", str_or_default(ci->attrs, ctx->id("DIFFRESISTOR"), "OFF"));
+                cc.tiles[pio_tile].add_enum(pio + ".DIFFRESISTOR",
+                                            str_or_default(ci->attrs, ctx->id("DIFFRESISTOR"), "OFF"));
             if (ci->attrs.count(ctx->id("TERMINATION"))) {
                 auto vccio = get_vccio(ioType_from_str(iotype));
                 switch (vccio) {
@@ -1268,7 +1272,7 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
         } else if (ci->type == id_TRELLIS_ECLKBUF) {
         } else if (ci->type == id_DQSBUFM) {
             Loc loc = ctx->getBelLocation(ci->bel);
-            bool l = loc.y < 10;
+            bool l = loc.x < 10;
             std::string pic = l ? "PICL" : "PICR";
             TileGroup tg;
             tg.tiles.push_back(ctx->getTileByTypeAndLocation(loc.y - 2, loc.x, pic + "1_DQS0"));

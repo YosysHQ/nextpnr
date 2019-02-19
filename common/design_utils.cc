@@ -27,6 +27,8 @@ NEXTPNR_NAMESPACE_BEGIN
 
 void replace_port(CellInfo *old_cell, IdString old_name, CellInfo *rep_cell, IdString rep_name)
 {
+    if (!old_cell->ports.count(old_name))
+        return;
     PortInfo &old = old_cell->ports.at(old_name);
     PortInfo &rep = rep_cell->ports.at(rep_name);
     NPNR_ASSERT(old.type == rep.type);
