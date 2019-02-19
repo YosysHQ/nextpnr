@@ -44,7 +44,7 @@ if (EXTERNAL_CHIPDB)
 endif()
 
 # List of families to build
-set(FAMILIES generic ice40 ecp5)
+set(FAMILIES generic ice40 ecp5 leuctra)
 
 set(ARCH "" CACHE STRING "Architecture family for nextpnr build")
 set_property(CACHE ARCH PROPERTY STRINGS ${FAMILIES})
@@ -66,6 +66,11 @@ endif()
 foreach(item ${ARCH})
     if (NOT item IN_LIST FAMILIES)
         message(FATAL_ERROR "Architecture '${item}' not in list of supported architectures")
+    endif()
+    if (item STREQUAL "leuctra")
+        if (NOT EXTERNAL_CHIPDB)
+		message(FATAL_ERROR "The leuctra backend requires setting -DEXTERNAL_CHIPDB=ON")
+        endif()
     endif()
 endforeach()
 

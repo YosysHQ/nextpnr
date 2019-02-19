@@ -313,7 +313,7 @@ void DesignWidget::newContext(Context *ctx)
                 wireMap[std::pair<int, int>(wire->x, wire->y)].push_back(wireid);
             }
 #endif
-#ifdef ARCH_ECP5
+#if defined(ARCH_ECP5) || defined(ARCH_LEUCTRA)
             for (const auto &wire : ctx->getWires()) {
                 wireMap[std::pair<int, int>(wire.location.x, wire.location.y)].push_back(wire);
             }
