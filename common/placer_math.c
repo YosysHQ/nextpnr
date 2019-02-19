@@ -38,6 +38,8 @@ void taucif_finalise_matrix(struct taucif_system *sys) {
 }
 
 int taucif_solve_system(struct taucif_system *sys, double *x, double *rhs) {
+    if (sys->mat->n <= 2)
+        return 0;
     // FIXME: preconditioner, droptol??
     taucs_ccs_matrix* precond_mat = taucs_ccs_factor_llt(sys->mat, 1e-2, 0);
     if (precond_mat == NULL)
