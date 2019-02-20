@@ -1021,7 +1021,7 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
         return TMG_IGNORE;
     } else if (cell->type == id_SB_GB) {
         if (port == id_GLOBAL_BUFFER_OUTPUT)
-            return TMG_COMB_OUTPUT;
+            return cell->gbInfo.forPadIn ? TMG_GEN_CLOCK : TMG_COMB_OUTPUT;
         return TMG_COMB_INPUT;
     } else if (cell->type == id_SB_WARMBOOT) {
         return TMG_ENDPOINT;
