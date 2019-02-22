@@ -1513,8 +1513,29 @@ class Ecp5Packer
             cursor = ctx->getPipDstWire(fnd->second);
         }
     }
-    std::unordered_map<IdString, std::pair<bool, int>> dqsbuf_dqsg;
 
+    void tie_zero(CellInfo *ci, IdString port)
+    {
+
+        if (!ci->ports.count(port)) {
+            ci->ports[port].name = port;
+            ci->ports[port].type = PORT_IN;
+        }
+
+        std::unique_ptr<CellInfo> zero_cell{new CellInfo};
+        std::unique_ptr<NetInfo> zero_net{new NetInfo};
+        IdString name = ctx->id(ci->name.str(ctx) + "$zero$" + port.str(ctx));
+        zero_cell->type = ctx->id("GND");
+        zero_cell->name = name;
+        zero_net->name = name;
+        zero_cell->ports[ctx->id("GND")].type = PORT_OUT;
+        connect_port(ctx, zero_net.get(), zero_cell.get(), ctx->id("GND"));
+        connect_port(ctx, zero_net.get(), ci, port);
+        ctx->nets[name] = std::move(zero_net);
+        new_cells.push_back(std::move(zero_cell));
+    }
+
+    std::unordered_map<IdString, std::pair<bool, int>> dqsbuf_dqsg;
     // Pack DQSBUFs
     void pack_dqsbuf()
     {
@@ -1564,6 +1585,14 @@ class Ecp5Packer
                                       usr.cell->name.c_str(ctx));
                     }
                     pn->is_global = true;
+                }
+
+                for (auto zport :
+                     {id_RDMOVE, id_RDDIRECTION, id_WRMOVE, id_WRDIRECTION, id_READ0, id_READ1, id_READCLKSEL0,
+                      id_READCLKSEL1, id_READCLKSEL2, id_DYNDELAY0, id_DYNDELAY1, id_DYNDELAY2, id_DYNDELAY3,
+                      id_DYNDELAY4, id_DYNDELAY5, id_DYNDELAY6, id_DYNDELAY7}) {
+                    if (net_or_nullptr(ci, zport) == nullptr)
+                        tie_zero(ci, zport);
                 }
             }
         }
@@ -1731,19 +1760,6 @@ class Ecp5Packer
                               sig->driver.cell->name.c_str(ctx), driver_group.first ? 'R' : 'L', driver_group.second);
                 replace_port(prim, port, iol, port);
             }
-        };
-
-        auto tie_zero = [&](CellInfo *ci, IdString port) {
-            std::unique_ptr<CellInfo> zero_cell{new CellInfo};
-            std::unique_ptr<NetInfo> zero_net{new NetInfo};
-            IdString name = ctx->id(ci->name.str(ctx) + "$zero$" + port.str(ctx));
-            zero_cell->type = ctx->id("GND");
-            zero_cell->name = name;
-            zero_net->name = name;
-            zero_cell->ports[ctx->id("GND")].type = PORT_OUT;
-            connect_port(ctx, zero_net.get(), zero_cell.get(), ctx->id("GND"));
-            ctx->nets[name] = std::move(zero_net);
-            new_cells.push_back(std::move(zero_cell));
         };
 
         for (auto cell : sorted(ctx->cells)) {
