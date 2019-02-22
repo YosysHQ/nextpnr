@@ -816,8 +816,8 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                     other = "PIOD";
                 else
                     log_error("cannot place differential IO at location %s\n", pio.c_str());
-                //cc.tiles[pio_tile].add_enum(other + ".BASE_TYPE", "_NONE_");
-                //cc.tiles[pic_tile].add_enum(other + ".BASE_TYPE", "_NONE_");
+                // cc.tiles[pio_tile].add_enum(other + ".BASE_TYPE", "_NONE_");
+                // cc.tiles[pic_tile].add_enum(other + ".BASE_TYPE", "_NONE_");
                 cc.tiles[pio_tile].add_enum(other + ".PULLMODE", "NONE");
                 cc.tiles[pio_tile].add_enum(pio + ".PULLMODE", "NONE");
             } else if (is_referenced(ioType_from_str(iotype))) {
@@ -825,7 +825,8 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             }
             if (dir != "INPUT" &&
                 (ci->ports.find(ctx->id("T")) == ci->ports.end() || ci->ports.at(ctx->id("T")).net == nullptr) &&
-                (ci->ports.find(ctx->id("IOLTO")) == ci->ports.end() || ci->ports.at(ctx->id("IOLTO")).net == nullptr)) {
+                (ci->ports.find(ctx->id("IOLTO")) == ci->ports.end() ||
+                 ci->ports.at(ctx->id("IOLTO")).net == nullptr)) {
                 // Tie tristate low if unconnected for outputs or bidir
                 std::string jpt = fmt_str("X" << bel.location.x << "/Y" << bel.location.y << "/JPADDT" << pio.back());
                 WireId jpt_wire = ctx->getWireByName(ctx->id(jpt));
