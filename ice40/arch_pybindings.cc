@@ -39,6 +39,7 @@ void arch_wrap_python()
             .value("HX1K", ArchArgs::HX1K)
             .value("HX8K", ArchArgs::HX8K)
             .value("UP5K", ArchArgs::UP5K)
+            .value("U4K", ArchArgs::U4K)
             .export_values();
 
     class_<BelId>("BelId").def_readwrite("index", &BelId::index);

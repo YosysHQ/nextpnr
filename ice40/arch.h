@@ -248,11 +248,13 @@ NPNR_PACKED_STRUCT(struct ChipInfoPOD {
 extern const char *chipdb_blob_384;
 extern const char *chipdb_blob_1k;
 extern const char *chipdb_blob_5k;
+extern const char *chipdb_blob_u4k;
 extern const char *chipdb_blob_8k;
 #else
 extern const char chipdb_blob_384[];
 extern const char chipdb_blob_1k[];
 extern const char chipdb_blob_5k[];
+extern const char chipdb_blob_u4k[];
 extern const char chipdb_blob_8k[];
 #endif
 
@@ -400,7 +402,8 @@ struct ArchArgs
         LP8K,
         HX1K,
         HX8K,
-        UP5K
+        UP5K,
+        U4K
     } type = NONE;
     std::string package;
 };

@@ -60,6 +60,7 @@ po::options_description Ice40CommandHandler::getArchOptions()
     specific.add_options()("hx1k", "set device type to iCE40HX1K");
     specific.add_options()("hx8k", "set device type to iCE40HX8K");
     specific.add_options()("up5k", "set device type to iCE40UP5K");
+    specific.add_options()("u4k", "set device type to iCE5LP4K");
 #endif
     specific.add_options()("package", po::value<std::string>(), "set device package");
     specific.add_options()("pcf", po::value<std::string>(), "PCF constraints file to ingest");
@@ -78,7 +79,7 @@ void Ice40CommandHandler::validate()
 {
     conflicting_options(vm, "read", "json");
     if ((vm.count("lp384") + vm.count("lp1k") + vm.count("lp8k") + vm.count("hx1k") + vm.count("hx8k") +
-         vm.count("up5k")) > 1)
+         vm.count("up5k") + vm.count("u4k")) > 1)
         log_error("Only one device type can be set\n");
 }
 
@@ -144,6 +145,11 @@ std::unique_ptr<Context> Ice40CommandHandler::createContext()
 
     if (vm.count("up5k")) {
         chipArgs.type = ArchArgs::UP5K;
+        chipArgs.package = "sg48";
+    }
+
+    if (vm.count("u4k")) {
+        chipArgs.type = ArchArgs::U4K;
         chipArgs.package = "sg48";
     }
 

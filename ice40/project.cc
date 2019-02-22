@@ -56,6 +56,9 @@ std::unique_ptr<Context> ProjectHandler::createContext(pt::ptree &root)
     if (arch_type == "up5k") {
         chipArgs.type = ArchArgs::UP5K;
     }
+    if (arch_type == "u4k") {
+        chipArgs.type = ArchArgs::U4K;
+    }
     chipArgs.package = root.get<std::string>("project.arch.package");
 
     return std::unique_ptr<Context>(new Context(chipArgs));
