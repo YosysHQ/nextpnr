@@ -2154,6 +2154,12 @@ class Ecp5Packer
 
         auto equals_epsilon = [](delay_t a, delay_t b) { return (std::abs(a - b) / std::max(double(b), 1.0)) < 1e-3; };
 
+        std::unordered_set<IdString> user_constrained, changed_nets;
+        for (auto &net : ctx->nets) {
+            if (net.second->clkconstr != nullptr)
+                user_constrained.insert(net.first);
+            changed_nets.insert(net.first);
+        }
         auto get_period = [&](CellInfo *ci, IdString port, delay_t &period) {
             if (!ci->ports.count(port))
                 return false;
@@ -2170,8 +2176,10 @@ class Ecp5Packer
             NetInfo *to = ci->ports.at(port).net;
             if (to == nullptr)
                 return;
-            if (to->clkconstr != nullptr && !equals_epsilon(to->clkconstr->period.min_delay, period)) {
-                log_warning("    Overriding derived constraint of %.1f on net %s with user-specified constraint of "
+            if (to->clkconstr != nullptr) {
+                if (!equals_epsilon(to->clkconstr->period.min_delay, period) && user_constrained.count(to->name))
+                    log_warning(
+                            "    Overriding derived constraint of %.1f MHz on net %s with user-specified constraint of "
                             "%.1f MHz.\n",
                             MHz(to->clkconstr->period.min_delay), to->name.c_str(ctx), MHz(period));
                 return;
@@ -2185,6 +2193,7 @@ class Ecp5Packer
             to->clkconstr->period.max_delay = period;
             log_info("    Derived frequency constraint of %.1f MHz for net %s\n", MHz(to->clkconstr->period.min_delay),
                      to->name.c_str(ctx));
+            changed_nets.insert(to->name);
         };
 
         auto copy_constraint = [&](CellInfo *ci, IdString fromPort, IdString toPort, double ratio = 1.0) {
@@ -2193,9 +2202,12 @@ class Ecp5Packer
             NetInfo *from = ci->ports.at(fromPort).net, *to = ci->ports.at(toPort).net;
             if (from == nullptr || from->clkconstr == nullptr || to == nullptr)
                 return;
-            if (to->clkconstr != nullptr &&
-                !equals_epsilon(to->clkconstr->period.min_delay, delay_t(from->clkconstr->period.min_delay / ratio))) {
-                log_warning("    Overriding derived constraint of %.1f MHz on net %s with user-specified constraint of "
+            if (to->clkconstr != nullptr) {
+                if (!equals_epsilon(to->clkconstr->period.min_delay,
+                                    delay_t(from->clkconstr->period.min_delay / ratio)) &&
+                    user_constrained.count(to->name))
+                    log_warning(
+                            "    Overriding derived constraint of %.1f MHz on net %s with user-specified constraint of "
                             "%.1f MHz.\n",
                             MHz(to->clkconstr->period.min_delay), to->name.c_str(ctx),
                             MHz(delay_t(from->clkconstr->period.min_delay / ratio)));
@@ -2207,56 +2219,71 @@ class Ecp5Packer
             to->clkconstr->period = ctx->getDelayFromNS(ctx->getDelayNS(from->clkconstr->period.min_delay) / ratio);
             log_info("    Derived frequency constraint of %.1f MHz for net %s\n", MHz(to->clkconstr->period.min_delay),
                      to->name.c_str(ctx));
+            changed_nets.insert(to->name);
         };
 
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
-            if (ci->type == id_CLKDIVF) {
-                std::string div = str_or_default(ci->params, ctx->id("DIV"), "2.0");
-                double ratio;
-                if (div == "2.0")
-                    ratio = 1 / 2.0;
-                else if (div == "3.5")
-                    ratio = 1 / 3.5;
-                else
-                    log_error("Unsupported divider ratio '%s' on CLKDIVF '%s'\n", div.c_str(), ci->name.c_str(ctx));
-                copy_constraint(ci, id_CLKI, id_CDIVX, ratio);
-            } else if (ci->type == id_ECLKSYNCB || ci->type == id_TRELLIS_ECLKBUF) {
-                copy_constraint(ci, id_ECLKI, id_ECLKO, 1);
-            } else if (ci->type == id_EHXPLLL) {
-                delay_t period_in;
-                if (!get_period(ci, id_CLKI, period_in))
-                    continue;
-                log_info("    Input frequency of PLL '%s' is constrained to %.1f MHz\n", ci->name.c_str(ctx),
-                         MHz(period_in));
-                double period_in_div = period_in * int_or_default(ci->params, ctx->id("CLKI_DIV"), 1);
-                std::string path = str_or_default(ci->params, ctx->id("FEEDBK_PATH"), "CLKOP");
-                int feedback_div = int_or_default(ci->params, ctx->id("CLKFB_DIV"), 1);
-                if (path == "CLKOP" || path == "INT_OP")
-                    feedback_div *= int_or_default(ci->params, ctx->id("CLKOP_DIV"), 1);
-                else if (path == "CLKOS" || path == "INT_OS")
-                    feedback_div *= int_or_default(ci->params, ctx->id("CLKOS_DIV"), 1);
-                else if (path == "CLKOS2" || path == "INT_OS2")
-                    feedback_div *= int_or_default(ci->params, ctx->id("CLKOS2_DIV"), 1);
-                else if (path == "CLKOS3" || path == "INT_OS3")
-                    feedback_div *= int_or_default(ci->params, ctx->id("CLKOS3_DIV"), 1);
-                else {
-                    log_info("     Unable to determine output frequencies for PLL '%s' with FEEDBK_PATH=%s\n",
-                             ci->name.c_str(ctx), path.c_str());
-                    continue;
+        // Run in a loop while constraints are changing to deal with dependencies
+        // Iteration limit avoids hanging in crazy loopback situation (self-fed PLLs or dividers, etc)
+        int iter = 0;
+        const int itermax = 5000;
+        while (!changed_nets.empty() && iter < itermax) {
+            ++iter;
+            std::unordered_set<IdString> changed_cells;
+            for (auto net : changed_nets)
+                for (auto &user : ctx->nets.at(net)->users)
+                    if (user.port == id_CLKI || user.port == id_ECLKI)
+                        changed_cells.insert(user.cell->name);
+            changed_nets.clear();
+            for (auto cell : sorted(changed_cells)) {
+                CellInfo *ci = ctx->cells.at(cell).get();
+                if (ci->type == id_CLKDIVF) {
+                    std::string div = str_or_default(ci->params, ctx->id("DIV"), "2.0");
+                    double ratio;
+                    if (div == "2.0")
+                        ratio = 1 / 2.0;
+                    else if (div == "3.5")
+                        ratio = 1 / 3.5;
+                    else
+                        log_error("Unsupported divider ratio '%s' on CLKDIVF '%s'\n", div.c_str(), ci->name.c_str(ctx));
+                    copy_constraint(ci, id_CLKI, id_CDIVX, ratio);
+                } else if (ci->type == id_ECLKSYNCB || ci->type == id_TRELLIS_ECLKBUF) {
+                    copy_constraint(ci, id_ECLKI, id_ECLKO, 1);
+                } else if (ci->type == id_EHXPLLL) {
+                    delay_t period_in;
+                    if (!get_period(ci, id_CLKI, period_in))
+                        continue;
+                    log_info("    Input frequency of PLL '%s' is constrained to %.1f MHz\n", ci->name.c_str(ctx),
+                             MHz(period_in));
+                    double period_in_div = period_in * int_or_default(ci->params, ctx->id("CLKI_DIV"), 1);
+                    std::string path = str_or_default(ci->params, ctx->id("FEEDBK_PATH"), "CLKOP");
+                    int feedback_div = int_or_default(ci->params, ctx->id("CLKFB_DIV"), 1);
+                    if (path == "CLKOP" || path == "INT_OP")
+                        feedback_div *= int_or_default(ci->params, ctx->id("CLKOP_DIV"), 1);
+                    else if (path == "CLKOS" || path == "INT_OS")
+                        feedback_div *= int_or_default(ci->params, ctx->id("CLKOS_DIV"), 1);
+                    else if (path == "CLKOS2" || path == "INT_OS2")
+                        feedback_div *= int_or_default(ci->params, ctx->id("CLKOS2_DIV"), 1);
+                    else if (path == "CLKOS3" || path == "INT_OS3")
+                        feedback_div *= int_or_default(ci->params, ctx->id("CLKOS3_DIV"), 1);
+                    else {
+                        log_info("     Unable to determine output frequencies for PLL '%s' with FEEDBK_PATH=%s\n",
+                                 ci->name.c_str(ctx), path.c_str());
+                        continue;
+                    }
+                    double vco_period = period_in_div / feedback_div;
+                    double vco_freq = MHz(vco_period);
+                    if (vco_freq < 400 || vco_freq > 800)
+                        log_info("    Derived VCO frequency %.1f MHz of PLL '%s' is out of legal range [400MHz, "
+                                 "800MHz]\n",
+                                 vco_freq, ci->name.c_str(ctx));
+                    set_period(ci, id_CLKOP, vco_period * int_or_default(ci->params, ctx->id("CLKOP_DIV"), 1));
+                    set_period(ci, id_CLKOS, vco_period * int_or_default(ci->params, ctx->id("CLKOS_DIV"), 1));
+                    set_period(ci, id_CLKOS2, vco_period * int_or_default(ci->params, ctx->id("CLKOS2_DIV"), 1));
+                    set_period(ci, id_CLKOS3, vco_period * int_or_default(ci->params, ctx->id("CLKOS3_DIV"), 1));
+                } else if (ci->type == id_OSCG) {
+                    int div = int_or_default(ci->params, ctx->id("DIV"), 128);
+                    set_period(ci, id_OSC, delay_t((1.0e6 / (2.0 * 155)) * div));
                 }
-                double vco_period = period_in_div / feedback_div;
-                double vco_freq = MHz(vco_period);
-                if (vco_freq < 400 || vco_freq > 800)
-                    log_info("    Derived VCO frequency %.1f MHz of PLL '%s' is out of legal range [400MHz, 800MHz]\n",
-                             vco_freq, ci->name.c_str(ctx));
-                set_period(ci, id_CLKOP, vco_period * int_or_default(ci->params, ctx->id("CLKOP_DIV"), 1));
-                set_period(ci, id_CLKOS, vco_period * int_or_default(ci->params, ctx->id("CLKOS_DIV"), 1));
-                set_period(ci, id_CLKOS2, vco_period * int_or_default(ci->params, ctx->id("CLKOS2_DIV"), 1));
-                set_period(ci, id_CLKOS3, vco_period * int_or_default(ci->params, ctx->id("CLKOS3_DIV"), 1));
-            } else if (ci->type == id_OSCG) {
-                int div = int_or_default(ci->params, ctx->id("DIV"), 128);
-                set_period(ci, id_OSC, delay_t((1.0e6 / (2.0 * 155)) * div));
             }
         }
     }
