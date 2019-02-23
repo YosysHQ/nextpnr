@@ -492,7 +492,7 @@ def wiredelay(wire_idx, db):
 
 def init_tiletypes(device):
     global num_tile_types, tile_sizes, tile_bits
-    if device == "5k":
+    if device in ["5k", "u4k"]:
         num_tile_types = 10
     else:
         num_tile_types = 5

@@ -297,6 +297,9 @@ void write_asc(const Context *ctx, std::ostream &out)
     case ArchArgs::UP5K:
         out << ".device 5k" << std::endl;
         break;
+    case ArchArgs::U4K:
+        out << ".device u4k" << std::endl;
+        break;
     default:
         NPNR_ASSERT_FALSE("unsupported device type\n");
     }
@@ -660,7 +663,9 @@ void write_asc(const Context *ctx, std::ostream &out)
                                                                            {"B_SIGNED", 1}};
             configure_extra_cell(config, ctx, cell.second.get(), mac16_params, false, std::string("IpConfig."));
         } else if (cell.second->type == ctx->id("ICESTORM_HFOSC")) {
-            const std::vector<std::pair<std::string, int>> hfosc_params = {{"CLKHF_DIV", 2}, {"TRIM_EN", 1}};
+            std::vector<std::pair<std::string, int>> hfosc_params = {{"CLKHF_DIV", 2}};
+            if (ctx->args.type != ArchArgs::U4K)
+                hfosc_params.push_back(std::pair<std::string, int>("TRIM_EN", 1));
             configure_extra_cell(config, ctx, cell.second.get(), hfosc_params, true, std::string("IpConfig."));
 
         } else if (cell.second->type == ctx->id("ICESTORM_PLL")) {
@@ -753,6 +758,8 @@ void write_asc(const Context *ctx, std::ostream &out)
                 setColBufCtrl = (y == 8 || y == 9 || y == 24 || y == 25);
             } else if (ctx->args.type == ArchArgs::UP5K) {
                 setColBufCtrl = (y == 4 || y == 5 || y == 14 || y == 15 || y == 26 || y == 27);
+            } else if (ctx->args.type == ArchArgs::U4K) {
+                setColBufCtrl = (y == 4 || y == 5 || y == 16 || y == 17);
             } else if (ctx->args.type == ArchArgs::LP384) {
                 setColBufCtrl = false;
             }
@@ -883,6 +890,9 @@ void read_config(Context *ctx, std::istream &in, chipconfig_t &config)
                     break;
                 case ArchArgs::UP5K:
                     expected = "5k";
+                    break;
+                case ArchArgs::U4K:
+                    expected = "u4k";
                     break;
                 default:
                     log_error("unsupported device type\n");

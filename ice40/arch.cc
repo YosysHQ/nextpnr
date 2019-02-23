@@ -53,6 +53,7 @@ void load_chipdb();
 const char *chipdb_blob_384 = nullptr;
 const char *chipdb_blob_1k = nullptr;
 const char *chipdb_blob_5k = nullptr;
+const char *chipdb_blob_u4k = nullptr;
 const char *chipdb_blob_8k = nullptr;
 
 boost::iostreams::mapped_file_source blob_files[4];
@@ -74,6 +75,7 @@ void load_chipdb()
     chipdb_blob_384 = mmap_file(0, EXTERNAL_CHIPDB_ROOT "/ice40/chipdb-384.bin");
     chipdb_blob_1k = mmap_file(1, EXTERNAL_CHIPDB_ROOT "/ice40/chipdb-1k.bin");
     chipdb_blob_5k = mmap_file(2, EXTERNAL_CHIPDB_ROOT "/ice40/chipdb-5k.bin");
+    chipdb_blob_u4k = mmap_file(2, EXTERNAL_CHIPDB_ROOT "/ice40/chipdb-u4k.bin");
     chipdb_blob_8k = mmap_file(3, EXTERNAL_CHIPDB_ROOT "/ice40/chipdb-8k.bin");
 }
 #endif
@@ -100,6 +102,9 @@ Arch::Arch(ArchArgs args) : args(args)
     } else if (args.type == ArchArgs::UP5K) {
         fast_part = false;
         chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_5k));
+    } else if (args.type == ArchArgs::U4K) {
+        fast_part = false;
+        chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_u4k));
     } else if (args.type == ArchArgs::LP8K || args.type == ArchArgs::HX8K) {
         fast_part = args.type == ArchArgs::HX8K;
         chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_8k));
@@ -144,6 +149,8 @@ std::string Arch::getChipName() const
         return "Lattice HX1K";
     } else if (args.type == ArchArgs::UP5K) {
         return "Lattice UP5K";
+    } else if (args.type == ArchArgs::U4K) {
+        return "Lattice U4K";
     } else if (args.type == ArchArgs::LP8K) {
         return "Lattice LP8K";
     } else if (args.type == ArchArgs::HX8K) {
@@ -166,6 +173,8 @@ IdString Arch::archArgsToId(ArchArgs args) const
         return id("hx1k");
     if (args.type == ArchArgs::UP5K)
         return id("up5k");
+    if (args.type == ArchArgs::U4K)
+        return id("u4k");
     if (args.type == ArchArgs::LP8K)
         return id("lp8k");
     if (args.type == ArchArgs::HX8K)
@@ -645,6 +654,7 @@ bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay
                 budget = cin ? 290 : (same_y ? 380 : 670);
                 break;
             case ArchArgs::UP5K:
+            case ArchArgs::U4K:
                 budget = cin ? 560 : (same_y ? 660 : 1220);
                 break;
 #endif
@@ -1053,7 +1063,7 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
                 NPNR_ASSERT(has_ld);
                 if (args.type == ArchArgs::LP1K || args.type == ArchArgs::LP8K || args.type == ArchArgs::LP384) {
                     info.setup.delay = 30 + dlut.delay;
-                } else if (args.type == ArchArgs::UP5K) {
+                } else if (args.type == ArchArgs::UP5K || args.type == ArchArgs::U4K) { // XXX verify u4k
                     info.setup.delay = dlut.delay - 50;
                 } else {
                     info.setup.delay = 20 + dlut.delay;
@@ -1083,7 +1093,7 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
         if (args.type == ArchArgs::LP1K || args.type == ArchArgs::LP8K || args.type == ArchArgs::LP384) {
             io_setup = 115;
             io_clktoq = 210;
-        } else if (args.type == ArchArgs::UP5K) {
+        } else if (args.type == ArchArgs::UP5K || args.type == ArchArgs::U4K) {
             io_setup = 205;
             io_clktoq = 1005;
         }

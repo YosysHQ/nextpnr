@@ -8,6 +8,7 @@ NEXTPNR_NAMESPACE_BEGIN
 const char *chipdb_blob_384;
 const char *chipdb_blob_1k;
 const char *chipdb_blob_5k;
+const char *chipdb_blob_u4k;
 const char *chipdb_blob_8k;
 
 const char *LoadFileInResource(int name, int type, DWORD &size)
@@ -24,6 +25,7 @@ void load_chipdb()
     chipdb_blob_384 = LoadFileInResource(IDR_CHIPDB_384, BINARYFILE, size);
     chipdb_blob_1k = LoadFileInResource(IDR_CHIPDB_1K, BINARYFILE, size);
     chipdb_blob_5k = LoadFileInResource(IDR_CHIPDB_5K, BINARYFILE, size);
+    chipdb_blob_u4k = LoadFileInResource(IDR_CHIPDB_U4K, BINARYFILE, size);
     chipdb_blob_8k = LoadFileInResource(IDR_CHIPDB_8K, BINARYFILE, size);
 }
 
