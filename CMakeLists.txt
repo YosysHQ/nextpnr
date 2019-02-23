@@ -58,7 +58,7 @@ set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /D_DEBUG /W4 /wd4100 /wd4244
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /W4 /wd4100 /wd4244 /wd4125 /wd4800 /wd4456 /wd4458 /wd4305 /wd4459 /wd4121 /wd4996 /wd4127")
 else()
 set(CMAKE_CXX_FLAGS_DEBUG "-Wall -fPIC -ggdb -pipe")
-set(CMAKE_CXX_FLAGS_RELEASE "-Wall -fPIC -O3 -g -pipe")
+set(CMAKE_CXX_FLAGS_RELEASE "-Wall -fPIC -O3 -g -pipe -fopenmp")
 endif()
 set(CMAKE_DEFIN)
 
@@ -122,8 +122,6 @@ configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/common/version.h.in ${CMAKE_CURRENT_BINARY_DIR}/generated/version.h
 )
 
-add_subdirectory(3rdparty/taucs ${CMAKE_CURRENT_BINARY_DIR}/generated/taucs EXCLUDE_FROM_ALL)
-
 if (BUILD_PYTHON)
     # Find Boost::Python of a suitable version in a cross-platform way
     # Some distributions (Arch) call it libboost_python3, others such as Ubuntu
@@ -182,7 +180,10 @@ if (BUILD_PYTHON)
     endif ()
 endif()
 
-include_directories(common/ json/ ${Boost_INCLUDE_DIRS} ${PYTHON_INCLUDE_DIRS} 3rdparty/taucs/src ${CMAKE_CURRENT_BINARY_DIR}/generated/taucs/build/linux)
+find_package (Eigen3 REQUIRED NO_MODULE)
+
+include_directories(common/ json/ ${Boost_INCLUDE_DIRS} ${PYTHON_INCLUDE_DIRS} ${EIGEN3_INCLUDE_DIRS})
+add_definitions(${EIGEN3_DEFINITIONS})
 aux_source_directory(common/ COMMON_SRC_FILES)
 aux_source_directory(json/ JSON_PARSER_FILES)
 set(COMMON_FILES ${COMMON_SRC_FILES} ${JSON_PARSER_FILES})
@@ -246,7 +247,7 @@ foreach (family ${ARCH})
         # Include family-specific source files to all family targets and set defines appropriately
         target_include_directories(${target} PRIVATE ${family}/ ${CMAKE_CURRENT_BINARY_DIR}/generated/)
         target_compile_definitions(${target} PRIVATE NEXTPNR_NAMESPACE=nextpnr_${family} ARCH_${ufamily} ARCHNAME=${family})
-        target_link_libraries(${target} LINK_PUBLIC ${Boost_LIBRARIES} taucs ${link_param})
+        target_link_libraries(${target} LINK_PUBLIC ${Boost_LIBRARIES} ${link_param})
         if (NOT MSVC)
             target_link_libraries(${target} LINK_PUBLIC pthread)
         endif()

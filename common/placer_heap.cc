@@ -31,6 +31,8 @@
  *   - To make the placer timing-driven, the bound2bound weights are multiplied by (1 + 10 * crit^2)
  */
 
+#include <Eigen/Core>
+#include <Eigen/IterativeLinearSolvers>
 #include <boost/optional.hpp>
 #include <chrono>
 #include <deque>
@@ -44,7 +46,6 @@
 #include "nextpnr.h"
 #include "place_common.h"
 #include "placer1.h"
-#include "placer_math.h"
 #include "timing.h"
 #include "util.h"
 NEXTPNR_NAMESPACE_BEGIN
@@ -55,6 +56,7 @@ namespace {
 // solves it, and the representation that requires
 template <typename T> struct EquationSystem
 {
+
     EquationSystem(size_t rows, size_t cols)
     {
         A.resize(cols);
@@ -64,7 +66,6 @@ template <typename T> struct EquationSystem
     // Simple sparse format, easy to convert to CCS for solver
     std::vector<std::vector<std::pair<int, T>>> A; // col -> (row, x[row, col]) sorted by row
     std::vector<T> rhs;                            // RHS vector
-
     void reset()
     {
         for (auto &col : A)
@@ -93,29 +94,35 @@ template <typename T> struct EquationSystem
 
     void add_rhs(int row, T val) { rhs[row] += val; }
 
-    void solve(std::vector<double> &x)
+    void solve(std::vector<T> &x)
     {
+        using namespace Eigen;
+
         NPNR_ASSERT(x.size() == A.size());
 
-        int nnz = std::accumulate(A.begin(), A.end(), 0,
-                                  [](int a, const std::vector<std::pair<int, T>> &vec) { return a + int(vec.size()); });
-        taucif_system *sys = taucif_create_system(int(rhs.size()), int(A.size()), nnz);
+        VectorXd vx(x.size()), vb(rhs.size());
+        SparseMatrix<T> mat(A.size(), A.size());
+
+        std::vector<int> colnnz;
+        for (auto &Ac : A)
+            colnnz.push_back(int(Ac.size()));
+        mat.reserve(colnnz);
         for (int col = 0; col < int(A.size()); col++) {
-            auto &Ac = A[col];
-            for (auto &el : Ac) {
-                if (col <= el.first) {
-                    // log_info("%d %d %f\n", el.first, col, el.second);
-                    taucif_add_matrix_value(sys, el.first, col, el.second);
-                }
-
-                // FIXME: in debug mode, assert really is symmetric
-            }
+            auto &Ac = A.at(col);
+            for (auto &el : Ac)
+                mat.insert(el.first, col) = el.second;
         }
-        taucif_finalise_matrix(sys);
-        int result = taucif_solve_system(sys, x.data(), rhs.data());
-        NPNR_ASSERT(result == 0);
-        taucif_free_system(sys);
 
+        for (int i = 0; i < int(x.size()); i++)
+            vx[i] = x.at(i);
+        for (int i = 0; i < int(rhs.size()); i++)
+            vb[i] = rhs.at(i);
+
+        ConjugateGradient<SparseMatrix<T>, Lower | Upper> solver;
+        solver.setTolerance(1e-5);
+        VectorXd xr = solver.compute(mat).solveWithGuess(vb, vx);
+        for (int i = 0; i < int(x.size()); i++)
+            x.at(i) = xr[i];
         // for (int i = 0; i < int(x.size()); i++)
         //    log_info("x[%d] = %f\n", i, x.at(i));
     }
@@ -126,13 +133,13 @@ template <typename T> struct EquationSystem
 class HeAPPlacer
 {
   public:
-    HeAPPlacer(Context *ctx) : ctx(ctx) {}
+    HeAPPlacer(Context *ctx) : ctx(ctx) { Eigen::initParallel(); }
+
     bool place()
     {
         auto startt = std::chrono::high_resolution_clock::now();
 
         ctx->lock();
-        taucif_init_solver();
         place_constraints();
         build_fast_bels();
         seed_placement();
