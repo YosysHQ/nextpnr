@@ -1802,7 +1802,7 @@ class Ecp5Packer
                         driven_by_iol = true;
                     if (driven_by_iol) {
                         disconnect_port(ctx, o_pio, id_I);
-                        i_pio->ports.at(id_I).net = nullptr;
+                        o_pio->ports.at(id_I).net = nullptr;
                         disconnect_port(ctx, ci, id_A);
                         ci->ports.at(id_A).net = nullptr;
                         disconnect_port(ctx, ci, id_Z);
@@ -1825,7 +1825,7 @@ class Ecp5Packer
                 }
                 iol->params[ctx->id("DELAY.DEL_VALUE")] =
                         std::to_string(lookup_delay(str_or_default(ci->params, ctx->id("DEL_MODE"), "USER_DEFINED")));
-                if (ci->params.count(ctx->id("DEL_VALUE")))
+                if (ci->params.count(ctx->id("DEL_VALUE")) && ci->params.at(ctx->id("DEL_VALUE")) != "DELAY0")
                     iol->params[ctx->id("DELAY.DEL_VALUE")] = ci->params.at(ctx->id("DEL_VALUE"));
                 if (ci->ports.count(id_LOADN))
                     replace_port(ci, id_LOADN, iol, id_LOADN);
