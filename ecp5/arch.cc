@@ -746,6 +746,29 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
             return TMG_GEN_CLOCK;
         else
             NPNR_ASSERT_FALSE("bad clkdiv port");
+    } else if (cell->type == id_DQSBUFM) {
+        if (port == id_READ0 || port == id_READ1) {
+            clockInfoCount = 1;
+            return TMG_REGISTER_INPUT;
+        } else if (port == id_DATAVALID) {
+            clockInfoCount = 1;
+            return TMG_REGISTER_OUTPUT;
+        } else if (port == id_SCLK || port == id_ECLK || port == id_DQSI) {
+            return TMG_CLOCK_INPUT;
+        } else if (port == id_DQSR90 || port == id_DQSW || port == id_DQSW270) {
+            return TMG_GEN_CLOCK;
+        }
+        return (cell->ports.at(port).type == PORT_OUT) ? TMG_STARTPOINT : TMG_ENDPOINT;
+    } else if (cell->type == id_DDRDLL) {
+        if (port == id_CLK)
+            return TMG_CLOCK_INPUT;
+        return (cell->ports.at(port).type == PORT_OUT) ? TMG_STARTPOINT : TMG_ENDPOINT;
+    } else if (cell->type == id_TRELLIS_ECLKBUF) {
+        return (cell->ports.at(port).type == PORT_OUT) ? TMG_COMB_OUTPUT : TMG_COMB_INPUT;
+    } else if (cell->type == id_ECLKSYNCB) {
+        if (cell->ports.at(port).name == id_STOP)
+            return TMG_ENDPOINT;
+        return (cell->ports.at(port).type == PORT_OUT) ? TMG_COMB_OUTPUT : TMG_COMB_INPUT;
     } else {
         log_error("cell type '%s' is unsupported (instantiated as '%s')\n", cell->type.c_str(this),
                   cell->name.c_str(this));
@@ -829,6 +852,16 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
             info.setup = getDelayFromNS(0.1);
             info.hold = getDelayFromNS(0);
         }
+    } else if (cell->type == id_DQSBUFM) {
+        info.clock_port = id_SCLK;
+        if (port == id_DATAVALID) {
+            info.clockToQ = getDelayFromNS(0.2);
+        } else if (port == id_READ0 || port == id_READ1) {
+            info.setup = getDelayFromNS(0.5);
+            info.hold = getDelayFromNS(-0.4);
+        } else {
+            NPNR_ASSERT_FALSE("unknown DQSBUFM register port");
+        }
     }
     return info;
 }
@@ -848,6 +881,43 @@ GlobalInfoPOD Arch::globalInfoAtLoc(Location loc)
 {
     int locidx = loc.y * chip_info->width + loc.x;
     return chip_info->location_glbinfo[locidx];
+}
+
+bool Arch::getPIODQSGroup(BelId pio, bool &dqsright, int &dqsrow)
+{
+    for (int i = 0; i < chip_info->num_pios; i++) {
+        if (Location(chip_info->pio_info[i].abs_loc) == pio.location && chip_info->pio_info[i].bel_index == pio.index) {
+            int dqs = chip_info->pio_info[i].dqsgroup;
+            if (dqs == -1)
+                return false;
+            else {
+                dqsright = (dqs & 2048) != 0;
+                dqsrow = dqs & 0x1FF;
+                return true;
+            }
+        }
+    }
+    NPNR_ASSERT_FALSE("failed to find PIO");
+}
+
+BelId Arch::getDQSBUF(bool dqsright, int dqsrow)
+{
+    BelId bel;
+    bel.location.y = dqsrow;
+    bel.location.x = (dqsright ? (chip_info->width - 1) : 0);
+    for (int i = 0; i < locInfo(bel)->num_bels; i++) {
+        auto &bd = locInfo(bel)->bel_data[i];
+        if (bd.type == id_DQSBUFM.index) {
+            bel.index = i;
+            return bel;
+        }
+    }
+    NPNR_ASSERT_FALSE("failed to find DQSBUF");
+}
+
+WireId Arch::getBankECLK(int bank, int eclk)
+{
+    return getWireByLocAndBasename(Location(0, 0), "G_BANK" + std::to_string(bank) + "ECLK" + std::to_string(eclk));
 }
 
 NEXTPNR_NAMESPACE_END

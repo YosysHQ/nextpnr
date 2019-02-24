@@ -103,7 +103,7 @@ NPNR_PACKED_STRUCT(struct PIOInfoPOD {
     int32_t bel_index;
     RelPtr<char> function_name;
     int16_t bank;
-    int16_t padding;
+    int16_t dqsgroup;
 });
 
 NPNR_PACKED_STRUCT(struct PackagePinPOD {
@@ -1005,6 +1005,10 @@ struct Arch : BaseCtx
     }
 
     GlobalInfoPOD globalInfoAtLoc(Location loc);
+
+    bool getPIODQSGroup(BelId pio, bool &dqsright, int &dqsrow);
+    BelId getDQSBUF(bool dqsright, int dqsrow);
+    WireId getBankECLK(int bank, int eclk);
 
     // Apply LPF constraints to the context
     bool applyLPF(std::string filename, std::istream &in);

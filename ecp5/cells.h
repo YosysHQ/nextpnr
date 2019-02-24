@@ -46,6 +46,17 @@ inline bool is_pfumx(const BaseCtx *ctx, const CellInfo *cell) { return cell->ty
 
 inline bool is_l6mux(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("L6MUX21"); }
 
+inline bool is_iologic_input_cell(const BaseCtx *ctx, const CellInfo *cell)
+{
+    return cell->type == ctx->id("IDDRX1F") || cell->type == ctx->id("IDDRX2F") || cell->type == ctx->id("IDDR71B") ||
+           cell->type == ctx->id("IDDRX2DQA");
+}
+inline bool is_iologic_output_cell(const BaseCtx *ctx, const CellInfo *cell)
+{
+    return cell->type == ctx->id("ODDRX1F") || cell->type == ctx->id("ODDRX2F") || cell->type == ctx->id("ODDR71B") ||
+           cell->type == ctx->id("ODDRX2DQA") || cell->type == ctx->id("ODDRX2DQSB") || cell->type == ctx->id("OSHX2A");
+}
+
 void ff_to_slice(Context *ctx, CellInfo *ff, CellInfo *lc, int index, bool driven_by_lut);
 void lut_to_slice(Context *ctx, CellInfo *lut, CellInfo *lc, int index);
 void ccu2c_to_slice(Context *ctx, CellInfo *ccu, CellInfo *lc);

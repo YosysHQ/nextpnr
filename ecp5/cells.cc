@@ -201,6 +201,9 @@ std::unique_ptr<CellInfo> create_ecp5_cell(Context *ctx, IdString type, std::str
         }
         // Just copy ports from the Bel
         copy_bel_ports();
+    } else if (type == id_TRELLIS_ECLKBUF) {
+        add_port(ctx, new_cell.get(), "ECLKI", PORT_IN);
+        add_port(ctx, new_cell.get(), "ECLKO", PORT_OUT);
     } else {
         log_error("unable to create ECP5 cell of type %s", type.c_str(ctx));
     }

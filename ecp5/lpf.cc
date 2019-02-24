@@ -60,8 +60,31 @@ bool Arch::applyLPF(std::string filename, std::istream &in)
                     words.push_back(tmp);
                 if (words.size() >= 0) {
                     std::string verb = words.at(0);
-                    if (verb == "BLOCK" || verb == "SYSCONFIG" || verb == "FREQUENCY") {
+                    if (verb == "BLOCK" || verb == "SYSCONFIG") {
                         log_warning("    ignoring unsupported LPF command '%s'\n", command.c_str());
+                    } else if (verb == "FREQUENCY") {
+                        std::string etype = words.at(1);
+                        if (etype == "PORT" || etype == "NET") {
+                            std::string target = words.at(2);
+                            if (target.at(0) == '\"') {
+                                NPNR_ASSERT(target.back() == '\"');
+                                target = target.substr(1, target.length() - 2);
+                            }
+                            float freq = std::stof(words.at(3));
+                            std::string unit = words.at(4);
+                            if (unit == "MHz")
+                                ;
+                            else if (unit == "kHz")
+                                freq /= 1.0e3;
+                            else if (unit == "Hz")
+                                freq /= 1.0e6;
+                            else
+                                log_error("unsupported frequency unit '%s'\n", unit.c_str());
+                            addClock(id(target), freq);
+                        } else {
+                            log_warning("    ignoring unsupported LPF command '%s %s'\n", command.c_str(),
+                                        etype.c_str());
+                        }
                     } else if (verb == "LOCATE") {
                         NPNR_ASSERT(words.at(1) == "COMP");
                         std::string cell = strip_quotes(words.at(2));
