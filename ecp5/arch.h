@@ -918,7 +918,7 @@ struct Arch : BaseCtx
     delay_t estimateDelay(WireId src, WireId dst) const;
     delay_t predictDelay(const NetInfo *net_info, const PortRef &sink) const;
     delay_t getDelayEpsilon() const { return 20; }
-    delay_t getRipupDelayPenalty() const { return 200; }
+    delay_t getRipupDelayPenalty() const { return 250; }
     float getDelayNS(delay_t v) const { return v * 0.001; }
     DelayInfo getDelayFromNS(float ns) const
     {
@@ -970,6 +970,8 @@ struct Arch : BaseCtx
     bool slicesCompatible(const std::vector<const CellInfo *> &cells) const;
 
     void assignArchInfo();
+
+    void permute_luts();
 
     std::vector<std::pair<std::string, std::string>> getTilesAtLocation(int row, int col);
     std::string getTileByTypeAndLocation(int row, int col, std::string type) const

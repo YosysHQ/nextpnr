@@ -448,6 +448,8 @@ class Ecp5GlobalRouter
             if (i < 8)
                 fab_globals.insert(i);
         }
+        std::vector<std::pair<PortRef *, int>> toroute;
+        std::unordered_map<int, NetInfo *> clocks;
         for (auto cell : sorted(ctx->cells)) {
             CellInfo *ci = cell.second;
             if (ci->type == id_DCCA) {
@@ -472,14 +474,17 @@ class Ecp5GlobalRouter
                 NPNR_ASSERT(routed);
 
                 // WCK must have routing priority
-                auto sorted_users = clock->users;
-                std::sort(sorted_users.begin(), sorted_users.end(), [this](const PortRef &a, const PortRef &b) {
-                    return global_route_priority(a) < global_route_priority(b);
-                });
-                for (const auto &user : sorted_users) {
-                    route_logic_tile_global(clock, glbid, user);
-                }
+                for (auto &user : clock->users)
+                    toroute.emplace_back(&user, glbid);
+                clocks[glbid] = clock;
             }
+        }
+        std::sort(toroute.begin(), toroute.end(),
+                  [this](const std::pair<PortRef *, int> &a, const std::pair<PortRef *, int> &b) {
+                      return global_route_priority(*a.first) < global_route_priority(*b.first);
+                  });
+        for (const auto &user : toroute) {
+            route_logic_tile_global(clocks.at(user.second), user.second, *user.first);
         }
     }
 };

@@ -427,44 +427,90 @@ BelId Arch::getBelByLocation(Loc loc) const
 
 delay_t Arch::estimateDelay(WireId src, WireId dst) const
 {
-    auto est_location = [&](WireId w) -> std::pair<int16_t, int16_t> {
-        if (w.location.x == 0 && w.location.y == 0) {
-            // Global wires
-            const auto &wire = locInfo(w)->wire_data[w.index];
-            // Use location of first downhill bel or pip, if available
-            if (wire.num_bel_pins > 0) {
-                return std::make_pair(wire.bel_pins[0].rel_bel_loc.x, wire.bel_pins[0].rel_bel_loc.y);
-            } else if (wire.num_downhill > 0) {
-                return std::make_pair(wire.pips_downhill[0].rel_loc.x, wire.pips_downhill[0].rel_loc.y);
-            } else if (wire.num_uphill > 0) {
-                return std::make_pair(wire.pips_uphill[0].rel_loc.x, wire.pips_uphill[0].rel_loc.y);
-            } else {
-                return std::make_pair<int16_t, int16_t>(0, 0);
-            }
+    WireId cursor = dst;
+
+    int num_uh = locInfo(dst)->wire_data[dst.index].num_uphill;
+    if (num_uh < 6) {
+        for (auto uh : getPipsUphill(dst)) {
+            if (getPipSrcWire(uh) == src)
+                return getPipDelay(uh).maxDelay();
+        }
+    }
+
+    auto est_location = [&](WireId w) -> std::pair<int, int> {
+        const auto &wire = locInfo(w)->wire_data[w.index];
+        if (wire.num_bel_pins > 0) {
+            return std::make_pair(w.location.x + wire.bel_pins[0].rel_bel_loc.x,
+                                  w.location.y + wire.bel_pins[0].rel_bel_loc.y);
+        } else if (wire.num_downhill > 0) {
+            return std::make_pair(w.location.x + wire.pips_downhill[0].rel_loc.x,
+                                  w.location.y + wire.pips_downhill[0].rel_loc.y);
+        } else if (wire.num_uphill > 0) {
+            return std::make_pair(w.location.x + wire.pips_uphill[0].rel_loc.x,
+                                  w.location.y + wire.pips_uphill[0].rel_loc.y);
         } else {
-            return std::make_pair(w.location.x, w.location.y);
+            return std::make_pair(int(w.location.x), int(w.location.y));
         }
     };
 
     auto src_loc = est_location(src), dst_loc = est_location(dst);
 
-    return (240 - 20 * args.speed) * (abs(src_loc.first - dst_loc.first) + abs(src_loc.second - dst_loc.second));
+    int dx = abs(src_loc.first - dst_loc.first), dy = abs(src_loc.second - dst_loc.second);
+    return (130 - 25 * args.speed) *
+           (6 + std::max(dx - 5, 0) + std::max(dy - 5, 0) + 2 * (std::min(dx, 5) + std::min(dy, 5)));
 }
 
 delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
 {
     const auto &driver = net_info->driver;
+    if ((driver.port == id_FCO && sink.port == id_FCI) || sink.port == id_FXA || sink.port == id_FXB)
+        return 0;
     auto driver_loc = getBelLocation(driver.cell->bel);
     auto sink_loc = getBelLocation(sink.cell->bel);
 
-    return (240 - 20 * args.speed) * (abs(driver_loc.x - sink_loc.x) + abs(driver_loc.y - sink_loc.y));
+    // Encourage use of direct interconnect
+    if (driver_loc.x == sink_loc.x && driver_loc.y == sink_loc.y) {
+        if ((sink.port == id_A0 || sink.port == id_A1) && (driver.port == id_F1) &&
+            (driver_loc.z == 2 || driver_loc.z == 3))
+            return 0;
+        if ((sink.port == id_B0 || sink.port == id_B1) && (driver.port == id_F1) &&
+            (driver_loc.z == 0 || driver_loc.z == 1))
+            return 0;
+        if ((sink.port == id_C0 || sink.port == id_C1) && (driver.port == id_F0) &&
+            (driver_loc.z == 2 || driver_loc.z == 3))
+            return 0;
+        if ((sink.port == id_D0 || sink.port == id_D1) && (driver.port == id_F0) &&
+            (driver_loc.z == 0 || driver_loc.z == 1))
+            return 0;
+    }
+
+    int dx = abs(driver_loc.x - sink_loc.x), dy = abs(driver_loc.y - sink_loc.y);
+    return (130 - 25 * args.speed) *
+           (6 + std::max(dx - 5, 0) + std::max(dy - 5, 0) + 2 * (std::min(dx, 5) + std::min(dy, 5)));
 }
 
-bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const { return false; }
+bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const
+{
+    if (net_info->driver.port == id_FCO && sink.port == id_FCI) {
+        budget = 0;
+        return true;
+    } else if (sink.port == id_FXA || sink.port == id_FXB) {
+        budget = 0;
+        return true;
+    } else {
+        return false;
+    }
+}
 
 // -----------------------------------------------------------------------
 
-bool Arch::place() { return placer1(getCtx(), Placer1Cfg(getCtx())); }
+bool Arch::place()
+{
+    bool result = placer1(getCtx(), Placer1Cfg(getCtx()));
+    if (result)
+        permute_luts();
+    return result;
+}
 
 bool Arch::route()
 {
@@ -602,7 +648,7 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
 
     // Data for -8 grade
     if (cell->type == id_TRELLIS_SLICE) {
-        bool has_carry = str_or_default(cell->params, id("MODE"), "LOGIC") == "CCU2";
+        bool has_carry = cell->sliceInfo.is_carry;
         if (fromPort == id_A0 || fromPort == id_B0 || fromPort == id_C0 || fromPort == id_D0 || fromPort == id_A1 ||
             fromPort == id_B1 || fromPort == id_C1 || fromPort == id_D1 || fromPort == id_M0 || fromPort == id_M1 ||
             fromPort == id_FXA || fromPort == id_FXB || fromPort == id_FCI) {
@@ -639,7 +685,7 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
     auto disconnected = [cell](IdString p) { return !cell->ports.count(p) || cell->ports.at(p).net == nullptr; };
     clockInfoCount = 0;
     if (cell->type == id_TRELLIS_SLICE) {
-        int sd0 = int_or_default(cell->params, id("REG0_SD"), 0), sd1 = int_or_default(cell->params, id("REG1_SD"), 0);
+        int sd0 = cell->sliceInfo.sd0, sd1 = cell->sliceInfo.sd1;
         if (port == id_CLK || port == id_WCK)
             return TMG_CLOCK_INPUT;
         if (port == id_A0 || port == id_A1 || port == id_B0 || port == id_B1 || port == id_C0 || port == id_C1 ||
@@ -782,8 +828,7 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
     info.hold = getDelayFromNS(0);
     info.clockToQ = getDelayFromNS(0);
     if (cell->type == id_TRELLIS_SLICE) {
-        int sd0 = int_or_default(cell->params, id("REG0_SD"), 0), sd1 = int_or_default(cell->params, id("REG1_SD"), 0);
-
+        int sd0 = cell->sliceInfo.sd0, sd1 = cell->sliceInfo.sd1;
         if (port == id_WD0 || port == id_WD1 || port == id_WAD0 || port == id_WAD1 || port == id_WAD2 ||
             port == id_WAD3 || port == id_WRE) {
             info.edge = RISING_EDGE;

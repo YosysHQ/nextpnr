@@ -611,8 +611,9 @@ struct Timing
                         continue;
                     delay_t dmax = crit_path->at(ClockPair{startdomain.first, startdomain.first}).path_delay;
                     for (size_t i = 0; i < net->users.size(); i++) {
-                        float criticality = 1.0f - (float(nc.slack.at(i) - worst_slack.at(startdomain.first)) / dmax);
-                        nc.criticality.at(i) = criticality;
+                        float criticality =
+                                1.0f - ((float(nc.slack.at(i)) - float(worst_slack.at(startdomain.first))) / dmax);
+                        nc.criticality.at(i) = std::min<double>(1.0, std::max<double>(0.0, criticality));
                     }
                     nc.max_path_length = nd.max_path_length;
                     nc.cd_worst_slack = worst_slack.at(startdomain.first);
@@ -837,6 +838,10 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
                     auto cursor = sink_wire;
                     delay_t delay;
                     while (driver_wire != cursor) {
+#ifdef ARCH_ECP5
+                        if (net->is_global)
+                            break;
+#endif
                         auto it = net->wires.find(cursor);
                         assert(it != net->wires.end());
                         auto pip = it->second.pip;
