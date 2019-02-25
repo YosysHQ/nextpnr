@@ -672,7 +672,9 @@ bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay
 bool Arch::place()
 {
     if (bool_or_default(settings, id("heap_placer"), false)) {
-        if (!placer_heap(getCtx()))
+        PlacerHeapCfg cfg(getCtx());
+        cfg.ioBufTypes.insert(id_SB_IO);
+        if (!placer_heap(getCtx(), cfg))
             return false;
     } else {
         if (!placer1(getCtx(), Placer1Cfg(getCtx())))

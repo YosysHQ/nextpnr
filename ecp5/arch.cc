@@ -460,7 +460,6 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
 
     return (130 - 25 * args.speed) *
            (6 + std::max(dx - 5, 0) + std::max(dy - 5, 0) + 2 * (std::min(dx, 5) + std::min(dy, 5)));
-
 }
 
 delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
@@ -517,10 +516,14 @@ bool Arch::place()
             return false;
 #ifdef WITH_HEAP
     } else {
-        if (!placer_heap(getCtx()))
+        PlacerHeapCfg cfg(getCtx());
+        cfg.criticalityExponent = 7;
+        cfg.ioBufTypes.insert(id_TRELLIS_IO);
+        if (!placer_heap(getCtx(), cfg))
             return false;
     }
 #endif
+    permute_luts();
     return true;
 }
 

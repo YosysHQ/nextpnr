@@ -27,8 +27,21 @@
 #ifndef PLACER_HEAP_H
 #define PLACER_HEAP
 #include "nextpnr.h"
+#include "settings.h"
 
 NEXTPNR_NAMESPACE_BEGIN
-extern bool placer_heap(Context *ctx);
+
+struct PlacerHeapCfg : public Settings
+{
+    PlacerHeapCfg(Context *ctx);
+
+    float alpha;
+    float criticalityExponent;
+    float timingWeight;
+
+    std::unordered_set<IdString> ioBufTypes;
+};
+
+extern bool placer_heap(Context *ctx, PlacerHeapCfg cfg);
 NEXTPNR_NAMESPACE_END
 #endif

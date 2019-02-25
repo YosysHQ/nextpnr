@@ -33,6 +33,7 @@
 
 #ifdef WITH_HEAP
 
+#include "placer_heap.h"
 #include <Eigen/Core>
 #include <Eigen/IterativeLinearSolvers>
 #include <boost/optional.hpp>
@@ -135,7 +136,7 @@ template <typename T> struct EquationSystem
 class HeAPPlacer
 {
   public:
-    HeAPPlacer(Context *ctx) : ctx(ctx) { Eigen::initParallel(); }
+    HeAPPlacer(Context *ctx, PlacerHeapCfg cfg) : ctx(ctx), cfg(cfg) { Eigen::initParallel(); }
 
     bool place()
     {
@@ -292,6 +293,7 @@ class HeAPPlacer
 
   private:
     Context *ctx;
+    PlacerHeapCfg cfg;
 
     int max_x = 0, max_y = 0;
     std::vector<std::vector<std::vector<std::vector<BelId>>>> fast_bels;
@@ -497,8 +499,7 @@ class HeAPPlacer
                     cell_locs[cell.first].locked = false;
                     cell_locs[cell.first].global = ctx->getBelGlobalBuf(bel);
                     // FIXME
-                    if (has_connectivity(cell.second) && cell.second->type != ctx->id("SB_IO") &&
-                        cell.second->type != ctx->id("TRELLIS_IO")) {
+                    if (has_connectivity(cell.second) && !cfg.ioBufTypes.count(ci->type)) {
                         place_cells.push_back(ci);
                         placed = true;
                     } else {
@@ -640,7 +641,8 @@ class HeAPPlacer
                     if (user_idx != -1 && net_crit.count(ni->name)) {
                         auto &nc = net_crit.at(ni->name);
                         if (user_idx < int(nc.criticality.size()))
-                            weight *= (1.0 + 10 * std::pow(nc.criticality.at(user_idx), 2));
+                            weight *= (1.0 + cfg.timingWeight *
+                                                     std::pow(nc.criticality.at(user_idx), cfg.criticalityExponent));
                     }
 
                     // If cell 0 is not fixed, it will stamp +w on its equation and -w on the other end's equation,
@@ -655,7 +657,7 @@ class HeAPPlacer
             });
         }
         if (iter != -1) {
-            const float alpha = 0.1;
+            float alpha = cfg.alpha;
             for (size_t row = 0; row < solve_cells.size(); row++) {
                 int l_pos = legal_pos(solve_cells.at(row));
                 int c_pos = cell_pos(solve_cells.at(row));
@@ -1510,20 +1512,32 @@ class HeAPPlacer
 };
 int HeAPPlacer::CutSpreader::seq = 0;
 
-bool placer_heap(Context *ctx) { return HeAPPlacer(ctx).place(); }
+bool placer_heap(Context *ctx, PlacerHeapCfg cfg) { return HeAPPlacer(ctx, cfg).place(); }
+
+PlacerHeapCfg::PlacerHeapCfg(Context *ctx) : Settings(ctx)
+{
+    alpha = get<float>("placerHeap/alpha", 0.1);
+    criticalityExponent = get<int>("placerHeap/criticalityExponent", 2);
+    timingWeight = get<int>("placerHeap/timingWeight", 10);
+}
+
 NEXTPNR_NAMESPACE_END
 
 #else
 
 #include "log.h"
 #include "nextpnr.h"
+#include "placer_heap.h"
 
 NEXTPNR_NAMESPACE_BEGIN
-bool placer_heap(Context *ctx)
+bool placer_heap(Context *ctx, PlacerHeapCfg cfg)
 {
     log_error("nextpnr was built without the HeAP placer\n");
     return false;
 }
+
+PlacerHeapCfg::PlacerHeapCfg(Context *ctx) : Settings(ctx) {}
+
 NEXTPNR_NAMESPACE_END
 
 #endif
