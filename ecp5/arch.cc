@@ -504,17 +504,13 @@ bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay
 
 // -----------------------------------------------------------------------
 
-<<<<<<< HEAD
-bool Arch::place() { return placer1(getCtx(), Placer1Cfg(getCtx())); }
-=======
 bool Arch::place()
 {
-    bool result = placer_heap(getCtx());
+    bool result = placer1(getCtx(), Placer1Cfg(getCtx()));
     if (result)
         permute_luts();
     return result;
 }
->>>>>>> 136e030... lut permutation
 
 bool Arch::route()
 {
