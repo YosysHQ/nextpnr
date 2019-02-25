@@ -971,6 +971,8 @@ struct Arch : BaseCtx
 
     void assignArchInfo();
 
+    void permute_luts();
+
     std::vector<std::pair<std::string, std::string>> getTilesAtLocation(int row, int col);
     std::string getTileByTypeAndLocation(int row, int col, std::string type) const
     {

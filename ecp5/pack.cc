@@ -27,6 +27,7 @@
 #include "design_utils.h"
 #include "globals.h"
 #include "log.h"
+#include "timing.h"
 #include "util.h"
 NEXTPNR_NAMESPACE_BEGIN
 
