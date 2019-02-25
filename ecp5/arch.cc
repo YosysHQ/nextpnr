@@ -437,30 +437,27 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
         }
     }
 
-    auto est_location = [&](WireId w) -> std::pair<int16_t, int16_t> {
-        if (w.location.x == 0 && w.location.y == 0) {
-            // Global wires
-            const auto &wire = locInfo(w)->wire_data[w.index];
-            // Use location of first downhill bel or pip, if available
-            if (wire.num_bel_pins > 0) {
-                return std::make_pair(wire.bel_pins[0].rel_bel_loc.x, wire.bel_pins[0].rel_bel_loc.y);
-            } else if (wire.num_downhill > 0) {
-                return std::make_pair(wire.pips_downhill[0].rel_loc.x, wire.pips_downhill[0].rel_loc.y);
-            } else if (wire.num_uphill > 0) {
-                return std::make_pair(wire.pips_uphill[0].rel_loc.x, wire.pips_uphill[0].rel_loc.y);
-            } else {
-                return std::make_pair<int16_t, int16_t>(0, 0);
-            }
+    auto est_location = [&](WireId w) -> std::pair<int, int> {
+        const auto &wire = locInfo(w)->wire_data[w.index];
+        if (wire.num_bel_pins > 0) {
+            return std::make_pair(w.location.x + wire.bel_pins[0].rel_bel_loc.x,
+                                  w.location.y + wire.bel_pins[0].rel_bel_loc.y);
+        } else if (wire.num_downhill > 0) {
+            return std::make_pair(w.location.x + wire.pips_downhill[0].rel_loc.x,
+                                  w.location.y + wire.pips_downhill[0].rel_loc.y);
+        } else if (wire.num_uphill > 0) {
+            return std::make_pair(w.location.x + wire.pips_uphill[0].rel_loc.x,
+                                  w.location.y + wire.pips_uphill[0].rel_loc.y);
         } else {
-            return std::make_pair(w.location.x, w.location.y);
+            return std::make_pair(int(w.location.x), int(w.location.y));
         }
     };
 
     auto src_loc = est_location(src), dst_loc = est_location(dst);
 
     int dx = abs(src_loc.first - dst_loc.first), dy = abs(src_loc.second - dst_loc.second);
-    return (130 - 13 * args.speed) *
-           (4 + std::max(dx - 5, 0) + std::max(dy - 5, 0) + 2 * (std::min(dx, 5) + std::min(dy, 5)));
+    return (130 - 25 * args.speed) *
+           (8 + std::max(dx - 5, 0) + std::max(dy - 5, 0) + 2 * (std::min(dx, 5) + std::min(dy, 5)));
 }
 
 delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
@@ -471,8 +468,24 @@ delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
     auto driver_loc = getBelLocation(driver.cell->bel);
     auto sink_loc = getBelLocation(sink.cell->bel);
 
+    // Encourage use of direct interconnect
+    if (driver_loc.x == sink_loc.x && driver_loc.y == sink_loc.y) {
+        if ((sink.port == id_A0 || sink.port == id_A1) && (driver.port == id_F1) &&
+            (driver_loc.z == 2 || driver_loc.z == 3))
+            return 0;
+        if ((sink.port == id_B0 || sink.port == id_B1) && (driver.port == id_F1) &&
+            (driver_loc.z == 0 || driver_loc.z == 1))
+            return 0;
+        if ((sink.port == id_C0 || sink.port == id_C1) && (driver.port == id_F0) &&
+            (driver_loc.z == 2 || driver_loc.z == 3))
+            return 0;
+        if ((sink.port == id_D0 || sink.port == id_D1) && (driver.port == id_F0) &&
+            (driver_loc.z == 0 || driver_loc.z == 1))
+            return 0;
+    }
+
     int dx = abs(driver_loc.x - sink_loc.x), dy = abs(driver_loc.y - sink_loc.y);
-    return (130 - 13 * args.speed) *
+    return (130 - 25 * args.speed) *
            (4 + std::max(dx - 5, 0) + std::max(dy - 5, 0) + 2 * (std::min(dx, 5) + std::min(dy, 5)));
 }
 
