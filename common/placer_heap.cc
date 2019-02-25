@@ -31,6 +31,8 @@
  *   - To make the placer timing-driven, the bound2bound weights are multiplied by (1 + 10 * crit^2)
  */
 
+#ifdef WITH_HEAP
+
 #include <Eigen/Core>
 #include <Eigen/IterativeLinearSolvers>
 #include <boost/optional.hpp>
@@ -1509,5 +1511,19 @@ class HeAPPlacer
 int HeAPPlacer::CutSpreader::seq = 0;
 
 bool placer_heap(Context *ctx) { return HeAPPlacer(ctx).place(); }
-
 NEXTPNR_NAMESPACE_END
+
+#else
+
+#include "log.h"
+#include "nextpnr.h"
+
+NEXTPNR_NAMESPACE_BEGIN
+bool placer_heap(Context *ctx)
+{
+    log_error("nextpnr was built without the HeAP placer\n");
+    return false;
+}
+NEXTPNR_NAMESPACE_END
+
+#endif

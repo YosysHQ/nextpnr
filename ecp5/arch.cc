@@ -457,6 +457,7 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
     auto src_loc = est_location(src), dst_loc = est_location(dst);
 
     int dx = abs(src_loc.first - dst_loc.first), dy = abs(src_loc.second - dst_loc.second);
+
     return (130 - 25 * args.speed) *
            (6 + std::max(dx - 5, 0) + std::max(dy - 5, 0) + 2 * (std::min(dx, 5) + std::min(dy, 5)));
 
@@ -486,6 +487,7 @@ delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
     }
 
     int dx = abs(driver_loc.x - sink_loc.x), dy = abs(driver_loc.y - sink_loc.y);
+
     return (130 - 25 * args.speed) *
            (6 + std::max(dx - 5, 0) + std::max(dy - 5, 0) + 2 * (std::min(dx, 5) + std::min(dy, 5)));
 }
@@ -505,7 +507,22 @@ bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay
 
 // -----------------------------------------------------------------------
 
-bool Arch::place() { return placer_heap(getCtx()); }
+bool Arch::place()
+{
+    // HeAP is the default unless overriden or not built
+#ifdef WITH_HEAP
+    if (bool_or_default(settings, id("sa_placer"), false)) {
+#endif
+        if (!placer1(getCtx(), Placer1Cfg(getCtx())))
+            return false;
+#ifdef WITH_HEAP
+    } else {
+        if (!placer_heap(getCtx()))
+            return false;
+    }
+#endif
+    return true;
+}
 
 bool Arch::route()
 {

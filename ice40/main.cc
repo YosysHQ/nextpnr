@@ -69,6 +69,8 @@ po::options_description Ice40CommandHandler::getArchOptions()
     specific.add_options()("promote-logic",
                            "enable promotion of 'logic' globals (in addition to clk/ce/sr by default)");
     specific.add_options()("no-promote-globals", "disable all global promotion");
+    specific.add_options()("heap-placer",
+                           "use HeAP analytic placer instead of simulated annealing (faster, experimental)");
     specific.add_options()("opt-timing", "run post-placement timing optimisation pass (experimental)");
     specific.add_options()("tmfuzz", "run path delay estimate fuzzer");
     specific.add_options()("pcf-allow-unconstrained", "don't require PCF to constrain all IO");
@@ -176,7 +178,8 @@ std::unique_ptr<Context> Ice40CommandHandler::createContext()
         ctx->settings[ctx->id("opt_timing")] = "1";
     if (vm.count("pcf-allow-unconstrained"))
         ctx->settings[ctx->id("pcf_allow_unconstrained")] = "1";
-
+    if (vm.count("heap-placer"))
+        ctx->settings[ctx->id("heap_placer")] = "1";
     return ctx;
 }
 

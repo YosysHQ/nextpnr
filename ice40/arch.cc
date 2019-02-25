@@ -671,10 +671,13 @@ bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay
 
 bool Arch::place()
 {
-    // if (!placer1(getCtx(), Placer1Cfg(getCtx())))
-    //    return false;
-    if (!placer_heap(getCtx()))
-        return false;
+    if (bool_or_default(settings, id("heap_placer"), false)) {
+        if (!placer_heap(getCtx()))
+            return false;
+    } else {
+        if (!placer1(getCtx(), Placer1Cfg(getCtx())))
+            return false;
+    }
     if (bool_or_default(settings, id("opt_timing"), false)) {
         TimingOptCfg tocfg(getCtx());
         tocfg.cellTypes.insert(id_ICESTORM_LC);
