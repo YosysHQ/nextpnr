@@ -954,6 +954,25 @@ def add_bel_ec(ec):
             add_pll_clock_output(bel, ec, entry)
         else:
             extra_cell_config[bel].append(entry)
+    if ectype == "MAC16":
+        if y == 5:
+            last_dsp_y = 0 # dummy, but the wire is needed
+        elif y == 10:
+            last_dsp_y = 5
+        elif y == 15:
+            last_dsp_y = 10
+        elif y == 23:
+            last_dsp_y = 23
+        else:
+            assert False, "unknown DSP y " + str(y)
+        wire_signextin = add_wire(x, last_dsp_y, "dsp/signextout")
+        wire_signextout = add_wire(x, y, "dsp/signextout")
+        wire_accumci = add_wire(x, last_dsp_y, "dsp/accumco")
+        wire_accumco = add_wire(x, y, "dsp/accumco")
+        add_bel_input(bel, wire_signextin, "SIGNEXTIN")
+        add_bel_output(bel, wire_signextout, "SIGNEXTOUT")
+        add_bel_input(bel, wire_accumci, "ACCUMCI")
+        add_bel_output(bel, wire_accumco, "ACCUMCO")
 
 cell_timings = {}
 tmport_to_constids = {
