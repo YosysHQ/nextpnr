@@ -165,6 +165,7 @@ class Ecp5Packer
             CellInfo *ci = cell.second;
             if (is_lut(ctx, ci) && procdLuts.find(cell.first) == procdLuts.end()) {
                 NetInfo *znet = ci->ports.at(ctx->id("Z")).net;
+                std::vector<NetInfo *> inpnets;
                 if (znet != nullptr) {
                     for (auto user : znet->users) {
                         if (is_lut(ctx, user.cell) && user.cell != ci &&
@@ -229,13 +230,70 @@ class Ecp5Packer
                         }
                     }
                 }
+
+                // Pack LUTs feeding the same CCU2, RAM or DFF into a SLICE
+                if (znet != nullptr && znet->users.size() < 10) {
+                    for (auto user : znet->users) {
+                        if (is_lc(ctx, user.cell) || user.cell->type == ctx->id("DP16KD") || is_ff(ctx, user.cell)) {
+                            for (auto port : user.cell->ports) {
+                                if (port.second.type != PORT_IN || port.second.net == nullptr || port.second.net == znet)
+                                    continue;
+                                if (port.second.net->users.size() > 10)
+                                    continue;
+                                CellInfo *drv = port.second.net->driver.cell;
+                                if (drv == nullptr)
+                                    continue;
+                                if (is_lut(ctx, drv) && !procdLuts.count(drv->name) && can_pack_lutff(ci->name, drv->name)) {
+                                    procdLuts.insert(ci->name);
+                                    procdLuts.insert(drv->name);
+                                    lutPairs[ci->name] = drv->name;
+                                    goto paired_inlut;
+                                }
+
+                            }
+                        }
+                    }
+                }
+
+                // Pack LUTs sharing an input with a simple fanout-based heuristic
+                for (const char *inp : {"A", "B", "C", "D"}) {
+                    NetInfo *innet = ci->ports.at(ctx->id(inp)).net;
+                    if (innet != nullptr && innet->users.size() < 5 && innet->users.size() > 1)
+                        inpnets.push_back(innet);
+                }
+                std::sort(inpnets.begin(), inpnets.end(), [&](const NetInfo *a, const NetInfo *b) {
+                    return a->users.size() < b->users.size();
+                });
+                for (auto inet : inpnets) {
+                    for (auto &user : inet->users) {
+                        if (user.cell == nullptr || user.cell == ci || !is_lut(ctx, user.cell))
+                            continue;
+                        if (procdLuts.count(user.cell->name))
+                            continue;
+                        if (can_pack_lutff(ci->name, user.cell->name)) {
+                            procdLuts.insert(ci->name);
+                            procdLuts.insert(user.cell->name);
+                            lutPairs[ci->name] = user.cell->name;
+                            goto paired_inlut;
+                        }
+
+                    }
+                }
+
                 if (false) {
                 paired_inlut:
                     continue;
                 }
             }
         }
+        if (ctx->debug) {
+            log_info("Singleton LUTs (packer QoR debug): \n");
+            for (auto cell : sorted(ctx->cells))
+                if (is_lut(ctx, cell.second) && !procdLuts.count(cell.first))
+                    log_info("     %s\n", cell.first.c_str(ctx));
+        }
     }
+
 
     // Return true if an port is a top level port that provides its own IOBUF
     bool is_top_port(PortRef &port)

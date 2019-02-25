@@ -457,7 +457,7 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
 
     int dx = abs(src_loc.first - dst_loc.first), dy = abs(src_loc.second - dst_loc.second);
     return (130 - 25 * args.speed) *
-           (8 + std::max(dx - 5, 0) + std::max(dy - 5, 0) + 2 * (std::min(dx, 5) + std::min(dy, 5)));
+           (6 + std::max(dx - 5, 0) + std::max(dy - 5, 0) + 2 * (std::min(dx, 5) + std::min(dy, 5)));
 }
 
 delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
