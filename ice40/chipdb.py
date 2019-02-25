@@ -959,6 +959,8 @@ def add_bel_ec(ec):
             last_dsp_y = 0 # dummy, but the wire is needed
         elif y == 10:
             last_dsp_y = 5
+        elif y == 13:
+            last_dsp_y = 5
         elif y == 15:
             last_dsp_y = 10
         elif y == 23:
