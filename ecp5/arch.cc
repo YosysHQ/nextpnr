@@ -620,6 +620,11 @@ DecalXY Arch::getGroupDecal(GroupId pip) const { return {}; };
 
 bool Arch::getDelayFromTimingDatabase(IdString tctype, IdString from, IdString to, DelayInfo &delay) const
 {
+    auto fnd_dk = celldelay_cache.find({tctype, from, to});
+    if (fnd_dk != celldelay_cache.end()) {
+        delay = fnd_dk->second.second;
+        return fnd_dk->second.first;
+    }
     for (int i = 0; i < speed_grade->num_cell_timings; i++) {
         const auto &tc = speed_grade->cell_timings[i];
         if (tc.cell_type == tctype.index) {
@@ -628,9 +633,11 @@ bool Arch::getDelayFromTimingDatabase(IdString tctype, IdString from, IdString t
                 if (dly.from_port == from.index && dly.to_port == to.index) {
                     delay.max_delay = dly.max_delay;
                     delay.min_delay = dly.min_delay;
+                    celldelay_cache[{tctype, from, to}] = std::make_pair(true, delay);
                     return true;
                 }
             }
+            celldelay_cache[{tctype, from, to}] = std::make_pair(false, DelayInfo());
             return false;
         }
     }
@@ -660,7 +667,6 @@ void Arch::getSetupHoldFromTimingDatabase(IdString tctype, IdString clock, IdStr
 
 bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const
 {
-
     // Data for -8 grade
     if (cell->type == id_TRELLIS_SLICE) {
         bool has_carry = cell->sliceInfo.is_carry;

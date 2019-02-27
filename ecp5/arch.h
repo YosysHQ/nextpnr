@@ -448,6 +448,27 @@ struct ArchArgs
     } speed = SPEED_6;
 };
 
+struct DelayKey {
+    IdString celltype, from, to;
+    inline bool operator==(const DelayKey &other) const {
+        return celltype == other.celltype && from == other.from && to == other.to;
+    }
+};
+
+NEXTPNR_NAMESPACE_END
+namespace std {
+    template<>
+    struct hash<NEXTPNR_NAMESPACE_PREFIX DelayKey> {
+        std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX DelayKey &dk) const noexcept {
+            std::size_t seed = std::hash<NEXTPNR_NAMESPACE_PREFIX IdString>()(dk.celltype);
+            seed ^= std::hash<NEXTPNR_NAMESPACE_PREFIX IdString>()(dk.from) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+            seed ^= std::hash<NEXTPNR_NAMESPACE_PREFIX IdString>()(dk.to) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+            return seed;
+        }
+    };
+}
+NEXTPNR_NAMESPACE_BEGIN
+
 struct Arch : BaseCtx
 {
     const ChipInfoPOD *chip_info;
@@ -1019,6 +1040,8 @@ struct Arch : BaseCtx
     IdString id_clk, id_lsr;
     IdString id_clkmux, id_lsrmux;
     IdString id_srmode, id_mode;
+
+    mutable std::unordered_map<DelayKey, std::pair<bool, DelayInfo>> celldelay_cache;
 };
 
 NEXTPNR_NAMESPACE_END
