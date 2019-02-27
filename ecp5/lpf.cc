@@ -17,6 +17,7 @@
  *
  */
 
+#include <boost/algorithm/string.hpp>
 #include <sstream>
 #include "log.h"
 
@@ -25,7 +26,7 @@ NEXTPNR_NAMESPACE_BEGIN
 bool Arch::applyLPF(std::string filename, std::istream &in)
 {
     auto isempty = [](const std::string &str) {
-        return std::all_of(str.begin(), str.end(), [](char c) { return isblank(c); });
+        return std::all_of(str.begin(), str.end(), [](char c) { return isblank(c) || c == '\r' || c == '\n'; });
     };
     auto strip_quotes = [](const std::string &str) {
         if (str.at(0) == '"') {
@@ -77,11 +78,12 @@ bool Arch::applyLPF(std::string filename, std::istream &in)
                             std::string target = strip_quotes(words.at(2));
                             float freq = std::stof(words.at(3));
                             std::string unit = words.at(4);
-                            if (unit == "MHz")
+                            boost::algorithm::to_upper(unit);
+                            if (unit == "MHZ")
                                 ;
-                            else if (unit == "kHz")
+                            else if (unit == "KHZ")
                                 freq /= 1.0e3;
-                            else if (unit == "Hz")
+                            else if (unit == "HZ")
                                 freq /= 1.0e6;
                             else
                                 log_error("unsupported frequency unit '%s' (on line %d)\n", unit.c_str(), lineno);
