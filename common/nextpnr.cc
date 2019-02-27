@@ -221,6 +221,9 @@ delay_t Context::getNetinfoRouteDelay(const NetInfo *net_info, const PortRef &us
         return 0;
 #endif
 
+    if (net_info->wires.empty())
+        return predictDelay(net_info, user_info);
+
     WireId src_wire = getNetinfoSourceWire(net_info);
     if (src_wire == WireId())
         return 0;
