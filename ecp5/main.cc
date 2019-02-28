@@ -25,6 +25,7 @@
 #include "design_utils.h"
 #include "log.h"
 #include "timing.h"
+#include "util.h"
 
 USING_NEXTPNR_NAMESPACE
 
@@ -68,6 +69,7 @@ po::options_description ECP5CommandHandler::getArchOptions()
     specific.add_options()("textcfg", po::value<std::string>(), "textual configuration in Trellis format to write");
 
     specific.add_options()("lpf", po::value<std::vector<std::string>>(), "LPF pin constraint file(s)");
+    specific.add_options()("lpf-allow-unconstrained", "don't require LPF file(s) to constrain all IO");
 
     return specific;
 }
@@ -157,7 +159,26 @@ void ECP5CommandHandler::customAfterLoad(Context *ctx)
         std::vector<std::string> files = vm["lpf"].as<std::vector<std::string>>();
         for (const auto &filename : files) {
             std::ifstream in(filename);
-            ctx->applyLPF(filename, in);
+            if (!in)
+                log_error("failed to open LPF file '%s'\n", filename.c_str());
+            if (!ctx->applyLPF(filename, in))
+                log_error("failed to parse LPF file '%s'\n", filename.c_str());
+        }
+
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (ci->type == ctx->id("$nextpnr_ibuf") || ci->type == ctx->id("$nextpnr_obuf") ||
+                ci->type == ctx->id("$nextpnr_iobuf")) {
+                if (!ci->attrs.count(ctx->id("LOC"))) {
+                    if (vm.count("lpf-allow-unconstrained"))
+                        log_warning("IO '%s' is unconstrained in LPF and will be automatically placed\n",
+                                    cell.first.c_str(ctx));
+                    else
+                        log_error("IO '%s' is unconstrained in LPF (override this error with "
+                                  "--lpf-allow-unconstrained)\n",
+                                  cell.first.c_str(ctx));
+                }
+            }
         }
     }
 }

@@ -17,6 +17,7 @@
  *
  */
 
+#include <boost/algorithm/string.hpp>
 #include <sstream>
 #include "log.h"
 
@@ -25,7 +26,7 @@ NEXTPNR_NAMESPACE_BEGIN
 bool Arch::applyLPF(std::string filename, std::istream &in)
 {
     auto isempty = [](const std::string &str) {
-        return std::all_of(str.begin(), str.end(), [](char c) { return isblank(c); });
+        return std::all_of(str.begin(), str.end(), [](char c) { return isblank(c) || c == '\r' || c == '\n'; });
     };
     auto strip_quotes = [](const std::string &str) {
         if (str.at(0) == '"') {
@@ -41,7 +42,9 @@ bool Arch::applyLPF(std::string filename, std::istream &in)
             log_error("failed to open LPF file\n");
         std::string line;
         std::string linebuf;
+        int lineno = 0;
         while (std::getline(in, line)) {
+            ++lineno;
             size_t cstart = line.find('#');
             if (cstart != std::string::npos)
                 line = line.substr(0, cstart);
@@ -61,51 +64,62 @@ bool Arch::applyLPF(std::string filename, std::istream &in)
                 if (words.size() >= 0) {
                     std::string verb = words.at(0);
                     if (verb == "BLOCK" || verb == "SYSCONFIG") {
-                        log_warning("    ignoring unsupported LPF command '%s'\n", command.c_str());
+                        if (words.size() != 2 || (words.at(1) != "ASYNCPATHS" && words.at(1) != "RESETPATHS"))
+                            log_warning("    ignoring unsupported LPF command '%s' (on line %d)\n", command.c_str(),
+                                        lineno);
                     } else if (verb == "FREQUENCY") {
+                        if (words.size() < 2)
+                            log_error("expected object type after FREQUENCY (on line %d)\n", lineno);
                         std::string etype = words.at(1);
                         if (etype == "PORT" || etype == "NET") {
-                            std::string target = words.at(2);
-                            if (target.at(0) == '\"') {
-                                NPNR_ASSERT(target.back() == '\"');
-                                target = target.substr(1, target.length() - 2);
-                            }
+                            if (words.size() < 4)
+                                log_error("expected frequency value and unit after 'FREQUENCY %s' (on line %d)\n",
+                                          etype.c_str(), lineno);
+                            std::string target = strip_quotes(words.at(2));
                             float freq = std::stof(words.at(3));
                             std::string unit = words.at(4);
-                            if (unit == "MHz")
+                            boost::algorithm::to_upper(unit);
+                            if (unit == "MHZ")
                                 ;
-                            else if (unit == "kHz")
+                            else if (unit == "KHZ")
                                 freq /= 1.0e3;
-                            else if (unit == "Hz")
+                            else if (unit == "HZ")
                                 freq /= 1.0e6;
                             else
-                                log_error("unsupported frequency unit '%s'\n", unit.c_str());
+                                log_error("unsupported frequency unit '%s' (on line %d)\n", unit.c_str(), lineno);
                             addClock(id(target), freq);
                         } else {
-                            log_warning("    ignoring unsupported LPF command '%s %s'\n", command.c_str(),
-                                        etype.c_str());
+                            log_warning("    ignoring unsupported LPF command '%s %s' (on line %d)\n", command.c_str(),
+                                        etype.c_str(), lineno);
                         }
                     } else if (verb == "LOCATE") {
-                        NPNR_ASSERT(words.at(1) == "COMP");
+                        if (words.size() < 5)
+                            log_error("expected syntax 'LOCATE COMP <port name> SITE <pin>' (on line %d)\n", lineno);
+                        if (words.at(1) != "COMP")
+                            log_error("expected 'COMP' after 'LOCATE' (on line %d)\n", lineno);
                         std::string cell = strip_quotes(words.at(2));
-                        NPNR_ASSERT(words.at(3) == "SITE");
+                        if (words.at(3) != "SITE")
+                            log_error("expected 'SITE' after 'LOCATE COMP %s' (on line %d)\n", cell.c_str(), lineno);
                         auto fnd_cell = cells.find(id(cell));
-                        if (fnd_cell == cells.end()) {
-                            log_warning("unmatched LPF 'LOCATE COMP' '%s'\n", cell.c_str());
-                        } else {
+                        if (fnd_cell != cells.end()) {
                             fnd_cell->second->attrs[id("LOC")] = strip_quotes(words.at(4));
                         }
                     } else if (verb == "IOBUF") {
-                        NPNR_ASSERT(words.at(1) == "PORT");
+                        if (words.size() < 3)
+                            log_error("expected syntax 'IOBUF PORT <port name> <attr>=<value>...' (on line %d)\n",
+                                      lineno);
+                        if (words.at(1) != "PORT")
+                            log_error("expected 'PORT' after 'IOBUF' (on line %d)\n", lineno);
                         std::string cell = strip_quotes(words.at(2));
                         auto fnd_cell = cells.find(id(cell));
-                        if (fnd_cell == cells.end()) {
-                            log_warning("unmatched LPF 'IOBUF PORT' '%s'\n", cell.c_str());
-                        } else {
+                        if (fnd_cell != cells.end()) {
                             for (size_t i = 3; i < words.size(); i++) {
                                 std::string setting = words.at(i);
                                 size_t eqpos = setting.find('=');
-                                NPNR_ASSERT(eqpos != std::string::npos);
+                                if (eqpos == std::string::npos)
+                                    log_error(
+                                            "expected syntax 'IOBUF PORT <port name> <attr>=<value>...' (on line %d)\n",
+                                            lineno);
                                 std::string key = setting.substr(0, eqpos), value = setting.substr(eqpos + 1);
                                 fnd_cell->second->attrs[id(key)] = value;
                             }
