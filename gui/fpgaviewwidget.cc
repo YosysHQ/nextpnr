@@ -644,12 +644,16 @@ void FPGAViewWidget::mousePressEvent(QMouseEvent *event)
     if (io.WantCaptureMouse)
         return;
 
-    if (event->buttons() & Qt::RightButton || event->buttons() & Qt::MidButton) {
+    bool shift = QApplication::keyboardModifiers().testFlag(Qt::ShiftModifier);
+    bool ctrl  = QApplication::keyboardModifiers().testFlag(Qt::ControlModifier);
+    bool btn_right = event->buttons() & Qt::RightButton;
+    bool btn_mid   = event->buttons() & Qt::MidButton;
+    bool btn_left  = event->buttons() & Qt::LeftButton;
+
+    if (btn_right || btn_mid || (btn_left && shift)) {
         lastDragPos_ = event->pos();
     }
-    if (event->buttons() & Qt::LeftButton) {
-        bool ctrl = QApplication::keyboardModifiers().testFlag(Qt::ControlModifier);
-
+    if (btn_left && !shift) {
         auto world = mouseToWorldCoordinates(event->x(), event->y());
         auto closestOr = pickElement(world.x(), world.y());
         if (!closestOr) {
@@ -681,7 +685,12 @@ void FPGAViewWidget::mouseMoveEvent(QMouseEvent *event)
     if (io.WantCaptureMouse)
         return;
 
-    if (event->buttons() & Qt::RightButton || event->buttons() & Qt::MidButton) {
+    bool shift = QApplication::keyboardModifiers().testFlag(Qt::ShiftModifier);
+    bool btn_right = event->buttons() & Qt::RightButton;
+    bool btn_mid   = event->buttons() & Qt::MidButton;
+    bool btn_left  = event->buttons() & Qt::LeftButton;
+
+    if (btn_right || btn_mid || (btn_left && shift)) {
         const int dx = event->x() - lastDragPos_.x();
         const int dy = event->y() - lastDragPos_.y();
         lastDragPos_ = event->pos();
