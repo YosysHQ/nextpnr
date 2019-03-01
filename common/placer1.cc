@@ -361,7 +361,7 @@ class SAPlacer
             }
 
             // Invoke timing analysis to obtain criticalities
-            if (!cfg.budgetBased)
+            if (!cfg.budgetBased && ctx->timing_driven)
                 get_criticalities(ctx, &net_crit);
             // Need to rebuild costs after criticalities change
             setup_costs();
