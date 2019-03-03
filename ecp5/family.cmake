@@ -1,19 +1,16 @@
 if (NOT EXTERNAL_CHIPDB)
     set(devices 25k 45k 85k)
 
-    if (NOT DEFINED TRELLIS_ROOT)
-        message(STATUS "TRELLIS_ROOT not defined using -DTRELLIS_ROOT=/path/to/prjtrellis. Default to /usr/local/share/trellis")
-        set(TRELLIS_ROOT "/usr/local/share/trellis")
-    endif()
-
     file(GLOB found_pytrellis ${TRELLIS_ROOT}/libtrellis/pytrellis.*
+                              ${TRELLIS_INSTALL_ROOT}/lib/trellis/pytrellis.*
+                              ${TRELLIS_INSTALL_ROOT}/lib64/trellis/pytrellis.*
                               /usr/lib/pytrellis.*
                               /usr/lib64/pytrellis.*
                               /usr/lib/trellis/pytrellis.*
                               /usr/lib64/trellis/pytrellis.*)
 
     if ("${found_pytrellis}" STREQUAL "")
-        message(FATAL_ERROR "failed to locate pytrellis library!")
+        message(FATAL_ERROR "failed to locate pytrellis library (set TRELLIS_ROOT to Trellis repo path for in-tree builds, or TRELLIS_INSTALL_ROOT to install prefix for out-of-tree builds)!")
     endif()
 
     list(GET found_pytrellis 0 PYTRELLIS_LIB)
@@ -27,9 +24,9 @@ if (NOT EXTERNAL_CHIPDB)
     target_include_directories(ecp5_chipdb PRIVATE ${family}/)
 
     if (CMAKE_HOST_WIN32)
-    set(ENV_CMD ${CMAKE_COMMAND} -E env "PYTHONPATH=\"${PYTRELLIS_LIBDIR}\;${TRELLIS_ROOT}/util/common\;${TRELLIS_ROOT}/timing/util\"")
+    set(ENV_CMD ${CMAKE_COMMAND} -E env "PYTHONPATH=\"${PYTRELLIS_LIBDIR}\;${TRELLIS_ROOT}/util/common\;${TRELLIS_ROOT}/timing/util\;${TRELLIS_INSTALL_ROOT}/share/trellis/util/common\;${TRELLIS_INSTALL_ROOT}/share/trellis/timing/util\"")
     else()
-    set(ENV_CMD ${CMAKE_COMMAND} -E env "PYTHONPATH=${PYTRELLIS_LIBDIR}\:${TRELLIS_ROOT}/util/common:${TRELLIS_ROOT}/timing/util")
+    set(ENV_CMD ${CMAKE_COMMAND} -E env "PYTHONPATH=${PYTRELLIS_LIBDIR}\:${TRELLIS_ROOT}/util/common:${TRELLIS_ROOT}/timing/util:${TRELLIS_INSTALL_ROOT}/share/trellis/util/common:${TRELLIS_INSTALL_ROOT}/share/trellis/timing/util")
     endif()
 
     if (MSVC)
