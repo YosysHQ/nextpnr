@@ -129,6 +129,7 @@ po::options_description CommandHandler::getGeneralOptions()
     general.add_options()("version,V", "show version");
     general.add_options()("test", "check architecture database integrity");
     general.add_options()("freq", po::value<double>(), "set target frequency for design in MHz");
+    general.add_options()("timing-allow-fail", "allow timing to fail in design");
     general.add_options()("no-tmdriv", "disable timing-driven placement");
     general.add_options()("save", po::value<std::string>(), "project file to write");
     general.add_options()("load", po::value<std::string>(), "project file to read");
@@ -176,6 +177,10 @@ void CommandHandler::setupContext(Context *ctx)
 
     if (vm.count("ignore-loops")) {
         settings->set("timing/ignoreLoops", true);
+    }
+
+    if (vm.count("timing-allow-fail")) {
+        settings->set("timing/allowFail", true);
     }
 
     if (vm.count("cstrweight")) {
