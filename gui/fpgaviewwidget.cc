@@ -114,7 +114,7 @@ void FPGAViewWidget::initializeGL()
     initializeOpenGLFunctions();
     QtImGui::initialize(this);
     glClearColor(colors_.background.red() / 255, colors_.background.green() / 255, colors_.background.blue() / 255,
-                 0.0);
+                 1.0);
 }
 
 float FPGAViewWidget::PickedElement::distance(Context *ctx, float wx, float wy) const
