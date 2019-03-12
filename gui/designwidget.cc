@@ -444,9 +444,9 @@ TreeModel::Model *DesignWidget::getTreeByElementType(ElementType type)
         return treeModel[1];
     if (type == ElementType::PIP)
         return treeModel[2];
-    if (type == ElementType::NET)
-        return treeModel[3];
     if (type == ElementType::CELL)
+        return treeModel[3];
+    if (type == ElementType::NET)
         return treeModel[4];
     return nullptr;
 }
@@ -460,9 +460,9 @@ int DesignWidget::getIndexByElementType(ElementType type)
         return 1;
     if (type == ElementType::PIP)
         return 2;
-    if (type == ElementType::NET)
-        return 3;
     if (type == ElementType::CELL)
+        return 3;
+    if (type == ElementType::NET)
         return 4;
     if (type == ElementType::GROUP)
         return 5;
