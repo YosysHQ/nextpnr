@@ -56,7 +56,7 @@ const char *chipdb_blob_5k = nullptr;
 const char *chipdb_blob_u4k = nullptr;
 const char *chipdb_blob_8k = nullptr;
 
-boost::iostreams::mapped_file_source blob_files[4];
+boost::iostreams::mapped_file_source blob_files[5];
 
 const char *mmap_file(int index, const char *filename)
 {
@@ -75,8 +75,8 @@ void load_chipdb()
     chipdb_blob_384 = mmap_file(0, EXTERNAL_CHIPDB_ROOT "/ice40/chipdb-384.bin");
     chipdb_blob_1k = mmap_file(1, EXTERNAL_CHIPDB_ROOT "/ice40/chipdb-1k.bin");
     chipdb_blob_5k = mmap_file(2, EXTERNAL_CHIPDB_ROOT "/ice40/chipdb-5k.bin");
-    chipdb_blob_u4k = mmap_file(2, EXTERNAL_CHIPDB_ROOT "/ice40/chipdb-u4k.bin");
-    chipdb_blob_8k = mmap_file(3, EXTERNAL_CHIPDB_ROOT "/ice40/chipdb-8k.bin");
+    chipdb_blob_u4k = mmap_file(3, EXTERNAL_CHIPDB_ROOT "/ice40/chipdb-u4k.bin");
+    chipdb_blob_8k = mmap_file(4, EXTERNAL_CHIPDB_ROOT "/ice40/chipdb-8k.bin");
 }
 #endif
 Arch::Arch(ArchArgs args) : args(args)
