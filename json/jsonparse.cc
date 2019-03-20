@@ -758,11 +758,26 @@ void json_import(Context *ctx, string modname, JsonNode *node)
 
         // N.B. ports must be imported after cells for tristate behaviour
         // to be correct
-        // Loop through all ports
+        // Loop through all ports, first non-tristate then tristate to handle
+        // interconnected ports correctly
         for (int portid = 0; portid < GetSize(ports_parent->data_dict_keys); portid++) {
             JsonNode *here;
 
             here = ports_parent->data_dict.at(ports_parent->data_dict_keys[portid]);
+            JsonNode *dir_node = here->data_dict.at("direction");
+            NPNR_ASSERT(dir_node->type == 'S');
+            if (dir_node->data_string == "inout")
+                continue;
+            json_import_toplevel_port(ctx, modname, netids, ports_parent->data_dict_keys[portid], here);
+        }
+        for (int portid = 0; portid < GetSize(ports_parent->data_dict_keys); portid++) {
+            JsonNode *here;
+
+            here = ports_parent->data_dict.at(ports_parent->data_dict_keys[portid]);
+            JsonNode *dir_node = here->data_dict.at("direction");
+            NPNR_ASSERT(dir_node->type == 'S');
+            if (dir_node->data_string != "inout")
+                continue;
             json_import_toplevel_port(ctx, modname, netids, ports_parent->data_dict_keys[portid], here);
         }
     }
