@@ -230,7 +230,7 @@ class SAPlacer
 
             double upper = 0.6, lower = 0.4;
 
-            if (curr_metric < 0.95 * avg_metric) {
+            if (curr_metric < 0.95 * avg_metric && curr_metric > 0) {
                 avg_metric = 0.8 * avg_metric + 0.2 * curr_metric;
             } else {
                 if (Raccept >= 0.8) {
