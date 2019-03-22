@@ -318,7 +318,7 @@ class SAPlacer
                     "%.0f, wirelen = %.0f, dia = %d, Ra = %.02f \n",
                     iter, temp, double(curr_timing_cost), double(curr_wirelen_cost), diameter, Raccept);
 
-            if (curr_wirelen_cost < 0.95 * avg_wirelen  && curr_wirelen_cost > 0) {
+            if (curr_wirelen_cost < 0.95 * avg_wirelen && curr_wirelen_cost > 0) {
                 avg_wirelen = 0.8 * avg_wirelen + 0.2 * curr_wirelen_cost;
             } else {
                 double diam_next = diameter * (1.0 - 0.44 + Raccept);

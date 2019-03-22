@@ -904,10 +904,9 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
             if (!warn_on_failure || passed)
                 log_info("Max frequency for clock %*s'%s': %.02f MHz (%s at %.02f MHz)\n", width, "",
                          clock_name.c_str(), clock_fmax[clock.first], passed ? "PASS" : "FAIL", target);
-            else
-            if (bool_or_default(ctx->settings, ctx->id("timing/allowFail"), false))
+            else if (bool_or_default(ctx->settings, ctx->id("timing/allowFail"), false))
                 log_warning("Max frequency for clock %*s'%s': %.02f MHz (%s at %.02f MHz)\n", width, "",
-                         clock_name.c_str(), clock_fmax[clock.first], passed ? "PASS" : "FAIL", target);
+                            clock_name.c_str(), clock_fmax[clock.first], passed ? "PASS" : "FAIL", target);
             else
                 log_nonfatal_error("Max frequency for clock %*s'%s': %.02f MHz (%s at %.02f MHz)\n", width, "",
                                    clock_name.c_str(), clock_fmax[clock.first], passed ? "PASS" : "FAIL", target);
