@@ -1056,7 +1056,24 @@ static void pack_special(Context *ctx)
         } else if (is_sb_ledda_ip(ctx, ci)) {
             /* Force placement (no choices anyway) */
             cell_place_unique(ctx, ci);
-
+        } else if (is_sb_i2c(ctx, ci) || is_sb_spi(ctx, ci)) {
+            const std::map<std::tuple<IdString, std::string>, Loc> map_ba74 = {
+                    {std::make_tuple(id_SB_SPI, "0b0000"), Loc(0, 0, 0)},
+                    {std::make_tuple(id_SB_I2C, "0b0001"), Loc(0, 31, 0)},
+                    {std::make_tuple(id_SB_SPI, "0b0010"), Loc(25, 0, 1)},
+                    {std::make_tuple(id_SB_I2C, "0b0011"), Loc(25, 31, 0)},
+            };
+            if (map_ba74.find(std::make_tuple(ci->type, ci->params[ctx->id("BUS_ADDR74")])) == map_ba74.end())
+                log_error("Invalid value for BUS_ADDR74 for cell '%s' of type '%s'\n", ci->name.c_str(ctx),
+                          ci->type.c_str(ctx));
+            Loc bel_loc = map_ba74.at(std::make_tuple(ci->type, ci->params[ctx->id("BUS_ADDR74")]));
+            BelId bel = ctx->getBelByLocation(bel_loc);
+            if (bel == BelId() || ctx->getBelType(bel) != ci->type)
+                log_error("Unable to find placement for cell '%s' of type '%s'\n", ci->name.c_str(ctx),
+                          ci->type.c_str(ctx));
+            IdString bel_name = ctx->getBelName(bel);
+            ci->attrs[ctx->id("BEL")] = bel_name.str(ctx);
+            log_info("  constrained %s '%s' to %s\n", ci->type.c_str(ctx), ci->name.c_str(ctx), bel_name.c_str(ctx));
         } else if (is_sb_pll40(ctx, ci)) {
             bool is_pad = is_sb_pll40_pad(ctx, ci);
             bool is_core = !is_pad;

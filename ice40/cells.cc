@@ -275,6 +275,53 @@ std::unique_ptr<CellInfo> create_ice_cell(Context *ctx, IdString type, std::stri
         add_port(ctx, new_cell.get(), "PWMOUT1", PORT_OUT);
         add_port(ctx, new_cell.get(), "PWMOUT2", PORT_OUT);
         add_port(ctx, new_cell.get(), "LEDDON", PORT_OUT);
+    } else if (type == ctx->id("SB_I2C")) {
+        new_cell->params[ctx->id("I2C_SLAVE_INIT_ADDR")] = "0b1111100001";
+        new_cell->params[ctx->id("BUS_ADDR74")] = "0b0001";
+        for (int i = 0; i < 8; i++) {
+            add_port(ctx, new_cell.get(), "SBADRI" + std::to_string(i), PORT_IN);
+            add_port(ctx, new_cell.get(), "SBDATI" + std::to_string(i), PORT_IN);
+            add_port(ctx, new_cell.get(), "SBDATO" + std::to_string(i), PORT_OUT);
+        }
+        add_port(ctx, new_cell.get(), "SBCLKI", PORT_IN);
+        add_port(ctx, new_cell.get(), "SBRWI", PORT_IN);
+        add_port(ctx, new_cell.get(), "SBSTBI", PORT_IN);
+        add_port(ctx, new_cell.get(), "SCLI", PORT_IN);
+        add_port(ctx, new_cell.get(), "SDAI", PORT_IN);
+        add_port(ctx, new_cell.get(), "SBACKO", PORT_OUT);
+        add_port(ctx, new_cell.get(), "I2CIRQ", PORT_OUT);
+        add_port(ctx, new_cell.get(), "I2CWKUP", PORT_OUT);
+        add_port(ctx, new_cell.get(), "SCLO", PORT_OUT);
+        add_port(ctx, new_cell.get(), "SCLOE", PORT_OUT);
+        add_port(ctx, new_cell.get(), "SDAO", PORT_OUT);
+        add_port(ctx, new_cell.get(), "SDAOE", PORT_OUT);
+    } else if (type == ctx->id("SB_SPI")) {
+        new_cell->params[ctx->id("BUS_ADDR74")] = "0b0000";
+        for (int i = 0; i < 8; i++) {
+            add_port(ctx, new_cell.get(), "SBADRI" + std::to_string(i), PORT_IN);
+            add_port(ctx, new_cell.get(), "SBDATI" + std::to_string(i), PORT_IN);
+            add_port(ctx, new_cell.get(), "SBDATO" + std::to_string(i), PORT_OUT);
+        }
+        add_port(ctx, new_cell.get(), "SBCLKI", PORT_IN);
+        add_port(ctx, new_cell.get(), "SBRWI", PORT_IN);
+        add_port(ctx, new_cell.get(), "SBSTBI", PORT_IN);
+        add_port(ctx, new_cell.get(), "MI", PORT_IN);
+        add_port(ctx, new_cell.get(), "SI", PORT_IN);
+        add_port(ctx, new_cell.get(), "SCKI", PORT_IN);
+        add_port(ctx, new_cell.get(), "SCSNI", PORT_IN);
+        add_port(ctx, new_cell.get(), "SBACKO", PORT_OUT);
+        add_port(ctx, new_cell.get(), "SPIIRQ", PORT_OUT);
+        add_port(ctx, new_cell.get(), "SPIWKUP", PORT_OUT);
+        add_port(ctx, new_cell.get(), "SO", PORT_OUT);
+        add_port(ctx, new_cell.get(), "SOE", PORT_OUT);
+        add_port(ctx, new_cell.get(), "MO", PORT_OUT);
+        add_port(ctx, new_cell.get(), "MOE", PORT_OUT);
+        add_port(ctx, new_cell.get(), "SCKO", PORT_OUT);
+        add_port(ctx, new_cell.get(), "SCKOE", PORT_OUT);
+        for (int i = 0; i < 4; i++) {
+            add_port(ctx, new_cell.get(), "MCSNO" + std::to_string(i), PORT_OUT);
+            add_port(ctx, new_cell.get(), "MCSNOE" + std::to_string(i), PORT_OUT);
+        }
     } else {
         log_error("unable to create iCE40 cell of type %s", type.c_str(ctx));
     }

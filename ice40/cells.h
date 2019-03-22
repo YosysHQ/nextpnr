@@ -78,6 +78,10 @@ inline bool is_sb_rgba_drv(const BaseCtx *ctx, const CellInfo *cell) { return ce
 
 inline bool is_sb_ledda_ip(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("SB_LEDDA_IP"); }
 
+inline bool is_sb_i2c(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("SB_I2C"); }
+
+inline bool is_sb_spi(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("SB_SPI"); }
+
 inline bool is_sb_pll40(const BaseCtx *ctx, const CellInfo *cell)
 {
     return cell->type == ctx->id("SB_PLL40_PAD") || cell->type == ctx->id("SB_PLL40_2_PAD") ||

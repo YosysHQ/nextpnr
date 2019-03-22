@@ -1053,6 +1053,16 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
         if (port == id_CLK || port == id_CLOCK)
             return TMG_CLOCK_INPUT;
         return TMG_IGNORE;
+    } else if (cell->type == id_SB_I2C || cell->type == id_SB_SPI) {
+        if (port == this->id("SBCLKI"))
+            return TMG_CLOCK_INPUT;
+
+        clockInfoCount = 1;
+
+        if (cell->ports.at(port).type == PORT_OUT)
+            return TMG_REGISTER_OUTPUT;
+        else
+            return TMG_REGISTER_INPUT;
     }
     log_error("cell type '%s' is unsupported (instantiated as '%s')\n", cell->type.c_str(this), cell->name.c_str(this));
 }
@@ -1142,6 +1152,17 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
                 info.clockToQ.delay = 100;
         } else {
             info.setup.delay = 100;
+            info.hold.delay = 0;
+        }
+    } else if (cell->type == id_SB_I2C || cell->type == id_SB_SPI) {
+        info.clock_port = this->id("SBCLKI");
+        info.edge = RISING_EDGE;
+        if (cell->ports.at(port).type == PORT_OUT) {
+            /* Dummy number */
+            info.clockToQ.delay = 1500;
+        } else {
+            /* Dummy number */
+            info.setup.delay = 1500;
             info.hold.delay = 0;
         }
     } else {

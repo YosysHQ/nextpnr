@@ -618,6 +618,28 @@ void write_asc(const Context *ctx, std::ostream &out)
         } else if (cell.second->type == ctx->id("SB_WARMBOOT") || cell.second->type == ctx->id("ICESTORM_LFOSC") ||
                    cell.second->type == ctx->id("SB_LEDDA_IP")) {
             // No config needed
+        } else if (cell.second->type == ctx->id("SB_I2C")) {
+            bool sda_in_dly = !cell.second->attrs.count(ctx->id("SDA_INPUT_DELAYED")) ||
+                              std::stoi(cell.second->attrs[ctx->id("SDA_INPUT_DELAYED")]);
+            bool sda_out_dly = !cell.second->attrs.count(ctx->id("SDA_OUTPUT_DELAYED")) ||
+                               std::stoi(cell.second->attrs[ctx->id("SDA_OUTPUT_DELAYED")]);
+            set_ec_cbit(config, ctx, get_ec_config(ctx->chip_info, cell.second->bel), "SDA_INPUT_DELAYED", sda_in_dly,
+                        "IpConfig.");
+            set_ec_cbit(config, ctx, get_ec_config(ctx->chip_info, cell.second->bel), "SDA_OUTPUT_DELAYED", sda_out_dly,
+                        "IpConfig.");
+            set_ec_cbit(config, ctx, get_ec_config(ctx->chip_info, cell.second->bel), "I2C_ENABLE_0", true,
+                        "IpConfig.");
+            set_ec_cbit(config, ctx, get_ec_config(ctx->chip_info, cell.second->bel), "I2C_ENABLE_1", true,
+                        "IpConfig.");
+        } else if (cell.second->type == ctx->id("SB_SPI")) {
+            set_ec_cbit(config, ctx, get_ec_config(ctx->chip_info, cell.second->bel), "SPI_ENABLE_0", true,
+                        "IpConfig.");
+            set_ec_cbit(config, ctx, get_ec_config(ctx->chip_info, cell.second->bel), "SPI_ENABLE_1", true,
+                        "IpConfig.");
+            set_ec_cbit(config, ctx, get_ec_config(ctx->chip_info, cell.second->bel), "SPI_ENABLE_2", true,
+                        "IpConfig.");
+            set_ec_cbit(config, ctx, get_ec_config(ctx->chip_info, cell.second->bel), "SPI_ENABLE_3", true,
+                        "IpConfig.");
         } else if (cell.second->type == ctx->id("ICESTORM_SPRAM")) {
             const BelInfoPOD &beli = ci.bel_data[bel.index];
             int x = beli.x, y = beli.y, z = beli.z;
