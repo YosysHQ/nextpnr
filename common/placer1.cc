@@ -475,11 +475,12 @@ class SAPlacer
     {
         static const double epsilon = 1e-20;
         moveChange.reset();
-        if (is_constrained(cell))
+        if (!require_legal && is_constrained(cell))
             return false;
         BelId oldBel = cell->bel;
         CellInfo *other_cell = ctx->getBoundBelCell(newBel);
-        if (other_cell != nullptr && (is_constrained(other_cell) || other_cell->belStrength > STRENGTH_WEAK)) {
+        if (!require_legal && other_cell != nullptr &&
+            (is_constrained(other_cell) || other_cell->belStrength > STRENGTH_WEAK)) {
             return false;
         }
         int old_dist = get_constraints_distance(ctx, cell);
