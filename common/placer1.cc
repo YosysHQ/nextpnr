@@ -740,7 +740,7 @@ class SAPlacer
             return 0;
         if (cfg.budgetBased) {
             double delay = ctx->getDelayNS(ctx->predictDelay(net, net->users.at(user)));
-            return std::min(10.0, std::exp(delay - ctx->getDelayNS(net->users.at(user).budget)));
+            return std::min(10.0, std::exp(delay - ctx->getDelayNS(net->users.at(user).budget) / 10));
         } else {
             auto crit = net_crit.find(net->name);
             if (crit == net_crit.end() || crit->second.criticality.empty())
