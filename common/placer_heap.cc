@@ -164,7 +164,7 @@ class HeAPPlacer
             log_info("Initial placer iter %d, hpwl = %d\n", i, int(hpwl));
         }
 
-        wirelen_t solved_hpwl = 0, legal_hpwl = 0, best_hpwl = std::numeric_limits<wirelen_t>::max();
+        wirelen_t solved_hpwl = 0, spread_hpwl = 0, legal_hpwl = 0, best_hpwl = std::numeric_limits<wirelen_t>::max();
         int iter = 0, stalled = 0;
 
         std::vector<std::tuple<CellInfo *, BelId, PlaceStrength>> solution;
@@ -213,23 +213,21 @@ class HeAPPlacer
                 solve_time += std::chrono::duration<double>(solve_endt - solve_startt).count();
                 update_all_chains();
                 solved_hpwl = total_hpwl();
-                log_info("Solved HPWL = %d\n", int(solved_hpwl));
 
                 update_all_chains();
                 for (auto type : sorted(run))
                     CutSpreader(this, type).run();
 
                 update_all_chains();
-                legal_hpwl = total_hpwl();
-                log_info("Spread HPWL = %d\n", int(legal_hpwl));
+                spread_hpwl = total_hpwl();
                 legalise_placement_strict(true);
                 update_all_chains();
 
                 legal_hpwl = total_hpwl();
-                log_info("Legalised HPWL = %d\n", int(legal_hpwl));
                 auto run_stopt = std::chrono::high_resolution_clock::now();
-                log_info("    %s runtime: %.02fs\n", (run.size() > 1 ? "ALL" : run.begin()->c_str(ctx)),
-                         std::chrono::duration<double>(run_stopt - run_startt).count());
+                log_info("Iter %d type %s: HPWL solved = %d, spread = %d, legal = %d; time = %.02fs\n", iter,
+                         (run.size() > 1 ? "ALL" : run.begin()->c_str(ctx)), int(solved_hpwl), int(spread_hpwl),
+                         int(legal_hpwl), std::chrono::duration<double>(run_stopt - run_startt).count());
             }
 
             if (ctx->timing_driven)
