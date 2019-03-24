@@ -671,14 +671,17 @@ bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay
 
 bool Arch::place()
 {
-    if (bool_or_default(settings, id("heap_placer"), false)) {
+    std::string placer = str_or_default(settings, id("placer"), defaultPlacer);
+    if (placer == "heap") {
         PlacerHeapCfg cfg(getCtx());
         cfg.ioBufTypes.insert(id_SB_IO);
         if (!placer_heap(getCtx(), cfg))
             return false;
-    } else {
+    } else if (placer == "sa") {
         if (!placer1(getCtx(), Placer1Cfg(getCtx())))
             return false;
+    } else {
+        log_error("iCE40 architecture does not support placer '%s'\n", placer.c_str());
     }
     if (bool_or_default(settings, id("opt_timing"), false)) {
         TimingOptCfg tocfg(getCtx());
@@ -1204,5 +1207,13 @@ void Arch::assignCellInfo(CellInfo *cell)
         cell->gbInfo.forPadIn = bool_or_default(cell->attrs, this->id("FOR_PAD_IN"));
     }
 }
+
+const std::string Arch::defaultPlacer = "sa";
+
+const std::vector<std::string> Arch::availablePlacers = {"sa",
+#ifdef WITH_HEAP
+                                                         "heap"
+#endif
+};
 
 NEXTPNR_NAMESPACE_END

@@ -59,8 +59,6 @@ po::options_description ECP5CommandHandler::getArchOptions()
     specific.add_options()("um5g-45k", "set device type to LFE5UM5G-45F");
     specific.add_options()("um5g-85k", "set device type to LFE5UM5G-85F");
 
-    specific.add_options()("sa-placer", "use pure simulated annealing placer instead of HeAP analytic placer");
-
     specific.add_options()("package", po::value<std::string>(), "select device package (defaults to CABGA381)");
     specific.add_options()("speed", po::value<int>(), "select device speedgrade (6, 7 or 8)");
 
@@ -152,10 +150,6 @@ std::unique_ptr<Context> ECP5CommandHandler::createContext()
         }
     }
     auto ctx = std::unique_ptr<Context>(new Context(chipArgs));
-
-    if (vm.count("sa-placer"))
-        ctx->settings[ctx->id("sa_placer")] = "1";
-
     return ctx;
 }
 

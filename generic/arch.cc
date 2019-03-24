@@ -21,6 +21,7 @@
 #include "nextpnr.h"
 #include "placer1.h"
 #include "router1.h"
+#include "util.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -439,7 +440,16 @@ bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay
 
 // ---------------------------------------------------------------
 
-bool Arch::place() { return placer1(getCtx(), Placer1Cfg(getCtx())); }
+bool Arch::place()
+{
+    std::string placer = str_or_default(settings, id("placer"), defaultPlacer);
+    // FIXME: No HeAP because it needs a list of IO buffers
+    if (placer == "sa") {
+        return placer1(getCtx(), Placer1Cfg(getCtx()));
+    } else {
+        log_error("Generic architecture does not support placer '%s'\n", placer.c_str());
+    }
+}
 
 bool Arch::route() { return router1(getCtx(), Router1Cfg(getCtx())); }
 
@@ -475,5 +485,8 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
 
 bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const { return true; }
 bool Arch::isBelLocationValid(BelId bel) const { return true; }
+
+const std::string Arch::defaultPlacer = "sa";
+const std::vector<std::string> Arch::availablePlacers = {"sa"};
 
 NEXTPNR_NAMESPACE_END

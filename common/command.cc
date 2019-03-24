@@ -27,6 +27,7 @@
 #include "pybindings.h"
 #endif
 
+#include <boost/algorithm/string/join.hpp>
 #include <boost/filesystem/convenience.hpp>
 #include <boost/program_options.hpp>
 #include <fstream>
@@ -120,6 +121,13 @@ po::options_description CommandHandler::getGeneralOptions()
     general.add_options()("json", po::value<std::string>(), "JSON design file to ingest");
     general.add_options()("seed", po::value<int>(), "seed value for random number generator");
     general.add_options()("randomize-seed,r", "randomize seed value for random number generator");
+
+    general.add_options()(
+            "placer", po::value<std::string>(),
+            std::string("placer algorithm to use; available: " + boost::algorithm::join(Arch::availablePlacers, ", ") +
+                        "; default: " + Arch::defaultPlacer)
+                    .c_str());
+
     general.add_options()("slack_redist_iter", po::value<int>(), "number of iterations between slack redistribution");
     general.add_options()("cstrweight", po::value<float>(), "placer weighting for relative constraint satisfaction");
     general.add_options()("starttemp", po::value<float>(), "placer SA start temperature");
@@ -184,6 +192,17 @@ void CommandHandler::setupContext(Context *ctx)
 
     if (vm.count("timing-allow-fail")) {
         settings->set("timing/allowFail", true);
+    }
+
+    if (vm.count("placer")) {
+        std::string placer = vm["placer"].as<std::string>();
+        if (std::find(Arch::availablePlacers.begin(), Arch::availablePlacers.end(), placer) ==
+            Arch::availablePlacers.end())
+            log_error("Placer algorithm '%s' is not supported (available options: %s)\n", placer.c_str(),
+                      boost::algorithm::join(Arch::availablePlacers, ", ").c_str());
+        settings->set("placer", placer);
+    } else {
+        settings->set("placer", Arch::defaultPlacer);
     }
 
     if (vm.count("cstrweight")) {

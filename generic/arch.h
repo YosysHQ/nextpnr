@@ -240,6 +240,9 @@ struct Arch : BaseCtx
 
     bool isValidBelForCell(CellInfo *cell, BelId bel) const;
     bool isBelLocationValid(BelId bel) const;
+
+    static const std::string defaultPlacer;
+    static const std::vector<std::string> availablePlacers;
 };
 
 NEXTPNR_NAMESPACE_END

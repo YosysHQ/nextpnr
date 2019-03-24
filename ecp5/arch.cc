@@ -508,21 +508,21 @@ bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay
 
 bool Arch::place()
 {
-    // HeAP is the default unless overriden or not built
-#ifdef WITH_HEAP
-    if (bool_or_default(settings, id("sa_placer"), false)) {
-#endif
-        if (!placer1(getCtx(), Placer1Cfg(getCtx())))
-            return false;
-#ifdef WITH_HEAP
-    } else {
+    std::string placer = str_or_default(settings, id("placer"), defaultPlacer);
+
+    if (placer == "heap") {
         PlacerHeapCfg cfg(getCtx());
         cfg.criticalityExponent = 7;
         cfg.ioBufTypes.insert(id_TRELLIS_IO);
         if (!placer_heap(getCtx(), cfg))
             return false;
+    } else if (placer == "sa") {
+        if (!placer1(getCtx(), Placer1Cfg(getCtx())))
+            return false;
+    } else {
+        log_error("ECP5 architecture does not support placer '%s'\n", placer.c_str());
     }
-#endif
+
     permute_luts();
     return true;
 }
@@ -985,5 +985,17 @@ WireId Arch::getBankECLK(int bank, int eclk)
 {
     return getWireByLocAndBasename(Location(0, 0), "G_BANK" + std::to_string(bank) + "ECLK" + std::to_string(eclk));
 }
+
+#ifdef WITH_HEAP
+const std::string Arch::defaultPlacer = "heap";
+#else
+const std::string Arch::defaultPlacer = "sa";
+#endif
+
+const std::vector<std::string> Arch::availablePlacers = {"sa",
+#ifdef WITH_HEAP
+                                                         "heap"
+#endif
+};
 
 NEXTPNR_NAMESPACE_END

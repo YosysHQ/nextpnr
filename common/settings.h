@@ -45,18 +45,29 @@ class Settings
         return defaultValue;
     }
 
-    template <typename T> void set(const char *name, T value)
-    {
-        IdString id = ctx->id(name);
-        auto pair = ctx->settings.emplace(id, std::to_string(value));
-        if (!pair.second) {
-            ctx->settings[pair.first->first] = value;
-        }
-    }
+    template <typename T> void set(const char *name, T value);
 
   private:
     Context *ctx;
 };
+
+template <typename T> inline void Settings::set(const char *name, T value)
+{
+    IdString id = ctx->id(name);
+    auto pair = ctx->settings.emplace(id, std::to_string(value));
+    if (!pair.second) {
+        ctx->settings[pair.first->first] = value;
+    }
+}
+
+template <> inline void Settings::set<std::string>(const char *name, std::string value)
+{
+    IdString id = ctx->id(name);
+    auto pair = ctx->settings.emplace(id, value);
+    if (!pair.second) {
+        ctx->settings[pair.first->first] = value;
+    }
+}
 
 NEXTPNR_NAMESPACE_END
 

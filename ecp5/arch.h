@@ -1045,6 +1045,9 @@ struct Arch : BaseCtx
     IdString id_srmode, id_mode;
 
     mutable std::unordered_map<DelayKey, std::pair<bool, DelayInfo>> celldelay_cache;
+
+    static const std::string defaultPlacer;
+    static const std::vector<std::string> availablePlacers;
 };
 
 NEXTPNR_NAMESPACE_END
