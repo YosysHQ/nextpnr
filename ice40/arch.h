@@ -897,6 +897,9 @@ struct Arch : BaseCtx
         IdString glb_net = getWireName(getBelPinWire(bel, id_GLOBAL_BUFFER_OUTPUT));
         return std::stoi(std::string("") + glb_net.str(this).back());
     }
+
+    static const std::string defaultPlacer;
+    static const std::vector<std::string> availablePlacers;
 };
 
 void ice40DelayFuzzerMain(Context *ctx);

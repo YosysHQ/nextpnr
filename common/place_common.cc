@@ -304,7 +304,7 @@ class ConstraintLegaliseWorker
     // Set the strength to locked on all cells in chain
     void lockdown_chain(CellInfo *root)
     {
-        root->belStrength = STRENGTH_LOCKED;
+        root->belStrength = STRENGTH_STRONG;
         for (auto child : root->constr_children)
             lockdown_chain(child);
     }
@@ -380,7 +380,7 @@ class ConstraintLegaliseWorker
                                 rippedCells.insert(confl_cell->name);
                             }
                         }
-                        ctx->bindBel(target, ctx->cells.at(cp.first).get(), STRENGTH_LOCKED);
+                        ctx->bindBel(target, ctx->cells.at(cp.first).get(), STRENGTH_STRONG);
                         rippedCells.erase(cp.first);
                     }
                     for (auto cp : solution) {
@@ -527,6 +527,14 @@ int get_constraints_distance(const Context *ctx, const CellInfo *cell)
     for (auto child : cell->constr_children)
         dist += get_constraints_distance(ctx, child);
     return dist;
+}
+
+bool check_cell_bel_region(const CellInfo *cell, BelId bel)
+{
+    if (cell->region != nullptr && cell->region->constr_bels && !cell->region->bels.count(bel))
+        return false;
+    else
+        return true;
 }
 
 NEXTPNR_NAMESPACE_END

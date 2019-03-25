@@ -221,6 +221,9 @@ delay_t Context::getNetinfoRouteDelay(const NetInfo *net_info, const PortRef &us
         return 0;
 #endif
 
+    if (net_info->wires.empty())
+        return predictDelay(net_info, user_info);
+
     WireId src_wire = getNetinfoSourceWire(net_info);
     if (src_wire == WireId())
         return 0;
@@ -419,6 +422,27 @@ void BaseCtx::addClock(IdString net, float freq)
         nets.at(net)->clkconstr = std::move(cc);
         log_info("constraining clock net '%s' to %.02f MHz\n", net.c_str(this), freq);
     }
+}
+
+void BaseCtx::createRectangularRegion(IdString name, int x0, int y0, int x1, int y1)
+{
+    std::unique_ptr<Region> new_region(new Region());
+    new_region->name = name;
+    new_region->constr_bels = true;
+    new_region->constr_pips = false;
+    new_region->constr_wires = false;
+    for (int x = x0; x <= x1; x++) {
+        for (int y = y0; y <= y1; y++) {
+            for (auto bel : getCtx()->getBelsByTile(x, y))
+                new_region->bels.insert(bel);
+        }
+    }
+    region[name] = std::move(new_region);
+}
+void BaseCtx::addBelToRegion(IdString name, BelId bel) { region[name]->bels.insert(bel); }
+void BaseCtx::constrainCellToRegion(IdString cell, IdString region_name)
+{
+    cells[cell]->region = region[region_name].get();
 }
 
 NEXTPNR_NAMESPACE_END

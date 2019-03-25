@@ -176,7 +176,6 @@ std::unique_ptr<Context> Ice40CommandHandler::createContext()
         ctx->settings[ctx->id("opt_timing")] = "1";
     if (vm.count("pcf-allow-unconstrained"))
         ctx->settings[ctx->id("pcf_allow_unconstrained")] = "1";
-
     return ctx;
 }
 

@@ -490,3 +490,14 @@ a certain number of different clock signals allowed for a group of bels.
 
 Returns true if a bell in the current configuration is valid, i.e. if
 `isValidBelForCell()` would return true for the current mapping.
+
+
+### static const std::string defaultPlacer
+
+Name of the default placement algorithm for the architecture, if
+`--placer` isn't specified on the command line.
+
+### static const std::vector\<std::string\> availablePlacers
+
+Name of available placer algorithms for the architecture, used
+to provide help for and validate `--placer`.

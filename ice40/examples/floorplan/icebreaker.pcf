@@ -1,0 +1,5 @@
+set_io -nowarn LED1       26
+set_io -nowarn LED2       27
+set_io -nowarn LED3       25
+set_io -nowarn LED4       23
+set_io -nowarn LED5       21

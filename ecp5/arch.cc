@@ -28,6 +28,7 @@
 #include "log.h"
 #include "nextpnr.h"
 #include "placer1.h"
+#include "placer_heap.h"
 #include "router1.h"
 #include "timing.h"
 #include "util.h"
@@ -456,6 +457,7 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
     auto src_loc = est_location(src), dst_loc = est_location(dst);
 
     int dx = abs(src_loc.first - dst_loc.first), dy = abs(src_loc.second - dst_loc.second);
+
     return (130 - 25 * args.speed) *
            (6 + std::max(dx - 5, 0) + std::max(dy - 5, 0) + 2 * (std::min(dx, 5) + std::min(dy, 5)));
 }
@@ -467,7 +469,6 @@ delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
         return 0;
     auto driver_loc = getBelLocation(driver.cell->bel);
     auto sink_loc = getBelLocation(sink.cell->bel);
-
     // Encourage use of direct interconnect
     if (driver_loc.x == sink_loc.x && driver_loc.y == sink_loc.y) {
         if ((sink.port == id_A0 || sink.port == id_A1) && (driver.port == id_F1) &&
@@ -485,6 +486,7 @@ delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
     }
 
     int dx = abs(driver_loc.x - sink_loc.x), dy = abs(driver_loc.y - sink_loc.y);
+
     return (130 - 25 * args.speed) *
            (6 + std::max(dx - 5, 0) + std::max(dy - 5, 0) + 2 * (std::min(dx, 5) + std::min(dy, 5)));
 }
@@ -506,10 +508,23 @@ bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay
 
 bool Arch::place()
 {
-    bool result = placer1(getCtx(), Placer1Cfg(getCtx()));
-    if (result)
-        permute_luts();
-    return result;
+    std::string placer = str_or_default(settings, id("placer"), defaultPlacer);
+
+    if (placer == "heap") {
+        PlacerHeapCfg cfg(getCtx());
+        cfg.criticalityExponent = 7;
+        cfg.ioBufTypes.insert(id_TRELLIS_IO);
+        if (!placer_heap(getCtx(), cfg))
+            return false;
+    } else if (placer == "sa") {
+        if (!placer1(getCtx(), Placer1Cfg(getCtx())))
+            return false;
+    } else {
+        log_error("ECP5 architecture does not support placer '%s'\n", placer.c_str());
+    }
+
+    permute_luts();
+    return true;
 }
 
 bool Arch::route()
@@ -605,6 +620,11 @@ DecalXY Arch::getGroupDecal(GroupId pip) const { return {}; };
 
 bool Arch::getDelayFromTimingDatabase(IdString tctype, IdString from, IdString to, DelayInfo &delay) const
 {
+    auto fnd_dk = celldelay_cache.find({tctype, from, to});
+    if (fnd_dk != celldelay_cache.end()) {
+        delay = fnd_dk->second.second;
+        return fnd_dk->second.first;
+    }
     for (int i = 0; i < speed_grade->num_cell_timings; i++) {
         const auto &tc = speed_grade->cell_timings[i];
         if (tc.cell_type == tctype.index) {
@@ -613,9 +633,11 @@ bool Arch::getDelayFromTimingDatabase(IdString tctype, IdString from, IdString t
                 if (dly.from_port == from.index && dly.to_port == to.index) {
                     delay.max_delay = dly.max_delay;
                     delay.min_delay = dly.min_delay;
+                    celldelay_cache[{tctype, from, to}] = std::make_pair(true, delay);
                     return true;
                 }
             }
+            celldelay_cache[{tctype, from, to}] = std::make_pair(false, DelayInfo());
             return false;
         }
     }
@@ -645,7 +667,6 @@ void Arch::getSetupHoldFromTimingDatabase(IdString tctype, IdString clock, IdStr
 
 bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const
 {
-
     // Data for -8 grade
     if (cell->type == id_TRELLIS_SLICE) {
         bool has_carry = cell->sliceInfo.is_carry;
@@ -964,5 +985,17 @@ WireId Arch::getBankECLK(int bank, int eclk)
 {
     return getWireByLocAndBasename(Location(0, 0), "G_BANK" + std::to_string(bank) + "ECLK" + std::to_string(eclk));
 }
+
+#ifdef WITH_HEAP
+const std::string Arch::defaultPlacer = "heap";
+#else
+const std::string Arch::defaultPlacer = "sa";
+#endif
+
+const std::vector<std::string> Arch::availablePlacers = {"sa",
+#ifdef WITH_HEAP
+                                                         "heap"
+#endif
+};
 
 NEXTPNR_NAMESPACE_END

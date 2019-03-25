@@ -149,8 +149,8 @@ std::unique_ptr<Context> ECP5CommandHandler::createContext()
             chipArgs.speed = ArchArgs::SPEED_6;
         }
     }
-
-    return std::unique_ptr<Context>(new Context(chipArgs));
+    auto ctx = std::unique_ptr<Context>(new Context(chipArgs));
+    return ctx;
 }
 
 void ECP5CommandHandler::customAfterLoad(Context *ctx)
