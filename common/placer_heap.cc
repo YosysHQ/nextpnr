@@ -148,7 +148,8 @@ class HeAPPlacer
         seed_placement();
         update_all_chains();
         wirelen_t hpwl = total_hpwl();
-        log_info("Initial placer starting hpwl = %d\n", int(hpwl));
+        log_info("Creating initial analytic placement for %d cells, random placement wirelen = %d.\n",
+                 int(place_cells.size()), int(hpwl));
         for (int i = 0; i < 4; i++) {
             setup_solve_cells();
             auto solve_startt = std::chrono::high_resolution_clock::now();
@@ -161,7 +162,7 @@ class HeAPPlacer
             update_all_chains();
 
             hpwl = total_hpwl();
-            log_info("Initial placer iter %d, hpwl = %d\n", i, int(hpwl));
+            log_info("    at initial placer iter %d, wirelen = %d\n", i, int(hpwl));
         }
 
         wirelen_t solved_hpwl = 0, spread_hpwl = 0, legal_hpwl = 0, best_hpwl = std::numeric_limits<wirelen_t>::max();
@@ -190,6 +191,7 @@ class HeAPPlacer
 
         heap_runs.push_back(all_celltypes);
         // The main HeAP placer loop
+        log_info("Running main analytical placer.\n");
         while (stalled < 5 && (solved_hpwl <= legal_hpwl * 0.8)) {
             // Alternate between particular Bel types and all bels
             for (auto &run : heap_runs) {
@@ -225,9 +227,10 @@ class HeAPPlacer
 
                 legal_hpwl = total_hpwl();
                 auto run_stopt = std::chrono::high_resolution_clock::now();
-                log_info("Iter %d type %s: HPWL solved = %d, spread = %d, legal = %d; time = %.02fs\n", iter,
-                         (run.size() > 1 ? "ALL" : run.begin()->c_str(ctx)), int(solved_hpwl), int(spread_hpwl),
-                         int(legal_hpwl), std::chrono::duration<double>(run_stopt - run_startt).count());
+                log_info("    at iteration #%d, type %s: wirelen solved = %d, spread = %d, legal = %d; time = %.02fs\n",
+                         iter + 1, (run.size() > 1 ? "ALL" : run.begin()->c_str(ctx)), int(solved_hpwl),
+                         int(spread_hpwl), int(legal_hpwl),
+                         std::chrono::duration<double>(run_stopt - run_startt).count());
             }
 
             if (ctx->timing_driven)

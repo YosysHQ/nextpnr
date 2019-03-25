@@ -242,6 +242,7 @@ class SAPlacer
             }
             require_legal = false;
             diameter = 3;
+            log_info("Running simulated annealing placer for refinement.\n");
         }
         auto saplace_start = std::chrono::high_resolution_clock::now();
 
