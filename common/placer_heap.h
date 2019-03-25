@@ -25,7 +25,7 @@
  */
 
 #ifndef PLACER_HEAP_H
-#define PLACER_HEAP
+#define PLACER_HEAP_H
 #include "nextpnr.h"
 #include "settings.h"
 
