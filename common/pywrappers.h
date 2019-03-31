@@ -288,6 +288,29 @@ struct fn_wrapper_3a_v
     template <typename WrapCls> static void def_wrap(WrapCls cls_, const char *name) { cls_.def(name, wrapped_fn); }
 };
 
+// Four parameters, no return
+template <typename Class, typename FuncT, FuncT fn, typename arg1_conv, typename arg2_conv, typename arg3_conv,
+          typename arg4_conv>
+struct fn_wrapper_4a_v
+{
+    using class_type = typename WrapIfNotContext<Class>::maybe_wrapped_t;
+    using conv_arg1_type = typename arg1_conv::arg_type;
+    using conv_arg2_type = typename arg2_conv::arg_type;
+    using conv_arg3_type = typename arg3_conv::arg_type;
+    using conv_arg4_type = typename arg4_conv::arg_type;
+
+    static void wrapped_fn(class_type &cls, conv_arg1_type arg1, conv_arg2_type arg2, conv_arg3_type arg3,
+                           conv_arg4_type arg4)
+    {
+        Context *ctx = get_ctx<Class>(cls);
+        Class &base = get_base<Class>(cls);
+        return (base.*fn)(arg1_conv()(ctx, arg1), arg2_conv()(ctx, arg2), arg3_conv()(ctx, arg3),
+                          arg4_conv()(ctx, arg4));
+    }
+
+    template <typename WrapCls> static void def_wrap(WrapCls cls_, const char *name) { cls_.def(name, wrapped_fn); }
+};
+
 // Five parameters, no return
 template <typename Class, typename FuncT, FuncT fn, typename arg1_conv, typename arg2_conv, typename arg3_conv,
           typename arg4_conv, typename arg5_conv>
@@ -307,6 +330,31 @@ struct fn_wrapper_5a_v
         Class &base = get_base<Class>(cls);
         return (base.*fn)(arg1_conv()(ctx, arg1), arg2_conv()(ctx, arg2), arg3_conv()(ctx, arg3),
                           arg4_conv()(ctx, arg4), arg5_conv()(ctx, arg5));
+    }
+
+    template <typename WrapCls> static void def_wrap(WrapCls cls_, const char *name) { cls_.def(name, wrapped_fn); }
+};
+
+// Six parameters, no return
+template <typename Class, typename FuncT, FuncT fn, typename arg1_conv, typename arg2_conv, typename arg3_conv,
+          typename arg4_conv, typename arg5_conv, typename arg6_conv>
+struct fn_wrapper_6a_v
+{
+    using class_type = typename WrapIfNotContext<Class>::maybe_wrapped_t;
+    using conv_arg1_type = typename arg1_conv::arg_type;
+    using conv_arg2_type = typename arg2_conv::arg_type;
+    using conv_arg3_type = typename arg3_conv::arg_type;
+    using conv_arg4_type = typename arg4_conv::arg_type;
+    using conv_arg5_type = typename arg5_conv::arg_type;
+    using conv_arg6_type = typename arg6_conv::arg_type;
+
+    static void wrapped_fn(class_type &cls, conv_arg1_type arg1, conv_arg2_type arg2, conv_arg3_type arg3,
+                           conv_arg4_type arg4, conv_arg5_type arg5, conv_arg6_type arg6)
+    {
+        Context *ctx = get_ctx<Class>(cls);
+        Class &base = get_base<Class>(cls);
+        return (base.*fn)(arg1_conv()(ctx, arg1), arg2_conv()(ctx, arg2), arg3_conv()(ctx, arg3),
+                          arg4_conv()(ctx, arg4), arg5_conv()(ctx, arg5), arg6_conv()(ctx, arg6));
     }
 
     template <typename WrapCls> static void def_wrap(WrapCls cls_, const char *name) { cls_.def(name, wrapped_fn); }
