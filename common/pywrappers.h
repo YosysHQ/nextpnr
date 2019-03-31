@@ -250,6 +250,11 @@ template <typename Class, typename FuncT, FuncT fn, typename arg1_conv> struct f
     }
 
     template <typename WrapCls> static void def_wrap(WrapCls cls_, const char *name) { cls_.def(name, wrapped_fn); }
+
+    template <typename WrapCls, typename Ta> static void def_wrap(WrapCls cls_, const char *name, Ta a = arg("arg1"))
+    {
+        cls_.def(name, wrapped_fn, a);
+    }
 };
 
 // Two parameters, one return
@@ -267,6 +272,11 @@ template <typename Class, typename FuncT, FuncT fn, typename arg1_conv, typename
     }
 
     template <typename WrapCls> static void def_wrap(WrapCls cls_, const char *name) { cls_.def(name, wrapped_fn); }
+
+    template <typename WrapCls, typename Ta> static void def_wrap(WrapCls cls_, const char *name, const Ta &a)
+    {
+        cls_.def(name, wrapped_fn, a);
+    }
 };
 
 // Three parameters, no return
@@ -286,6 +296,11 @@ struct fn_wrapper_3a_v
     }
 
     template <typename WrapCls> static void def_wrap(WrapCls cls_, const char *name) { cls_.def(name, wrapped_fn); }
+
+    template <typename WrapCls, typename Ta> static void def_wrap(WrapCls cls_, const char *name, const Ta &a)
+    {
+        cls_.def(name, wrapped_fn, a);
+    }
 };
 
 // Four parameters, no return
@@ -309,6 +324,11 @@ struct fn_wrapper_4a_v
     }
 
     template <typename WrapCls> static void def_wrap(WrapCls cls_, const char *name) { cls_.def(name, wrapped_fn); }
+
+    template <typename WrapCls, typename Ta> static void def_wrap(WrapCls cls_, const char *name, const Ta &a)
+    {
+        cls_.def(name, wrapped_fn, a);
+    }
 };
 
 // Five parameters, no return
@@ -333,6 +353,11 @@ struct fn_wrapper_5a_v
     }
 
     template <typename WrapCls> static void def_wrap(WrapCls cls_, const char *name) { cls_.def(name, wrapped_fn); }
+
+    template <typename WrapCls, typename Ta> static void def_wrap(WrapCls cls_, const char *name, const Ta &a)
+    {
+        cls_.def(name, wrapped_fn, a);
+    }
 };
 
 // Six parameters, no return
@@ -358,6 +383,11 @@ struct fn_wrapper_6a_v
     }
 
     template <typename WrapCls> static void def_wrap(WrapCls cls_, const char *name) { cls_.def(name, wrapped_fn); }
+
+    template <typename WrapCls, typename Ta> static void def_wrap(WrapCls cls_, const char *name, const Ta &a)
+    {
+        cls_.def(name, wrapped_fn, a);
+    }
 };
 
 // Wrapped getter

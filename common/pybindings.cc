@@ -241,6 +241,7 @@ void init_python(const char *executable, bool first)
         Py_Initialize();
         if (first)
             PyImport_ImportModule(TOSTRING(MODULE_NAME));
+        PyRun_SimpleString("from " TOSTRING(MODULE_NAME) " import *");
     } catch (boost::python::error_already_set const &) {
         // Parse and output the exception
         std::string perror_str = parse_python_exception();

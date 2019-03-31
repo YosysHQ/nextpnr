@@ -30,6 +30,7 @@ NEXTPNR_NAMESPACE_BEGIN
 void arch_wrap_python()
 {
     using namespace PythonConversion;
+
     auto arch_cls = class_<Arch, Arch *, bases<BaseCtx>, boost::noncopyable>("Arch", init<ArchArgs>());
     auto ctx_cls = class_<Context, Context *, bases<Arch>, boost::noncopyable>("Context", no_init)
                            .def("checksum", &Context::checksum)
