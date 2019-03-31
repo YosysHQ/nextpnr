@@ -81,34 +81,6 @@ template <> struct string_converter<PortRef &>
 
 } // namespace PythonConversion
 
-struct loc_from_tuple
-{
-    loc_from_tuple() { converter::registry::push_back(&convertible, &construct, boost::python::type_id<Loc>()); }
-
-    static void *convertible(PyObject *obj_ptr)
-    {
-        if (!PyTuple_Check(obj_ptr))
-            return 0;
-        return obj_ptr;
-    }
-
-    static void construct(PyObject *obj_ptr, converter::rvalue_from_python_stage1_data *data)
-    {
-        int val[3];
-        for (int i = 0; i < 3; i++) {
-            PyObject *pyo = PyTuple_GetItem(obj_ptr, i);
-            if (!pyo)
-                throw_error_already_set();
-            NPNR_ASSERT(PyLong_Check(pyo));
-            val[i] = int(PyLong_AsLong(pyo));
-        }
-
-        void *storage = ((converter::rvalue_from_python_storage<Loc> *)data)->storage.bytes;
-        new (storage) Loc(val[0], val[1], val[2]);
-        data->convertible = storage;
-    }
-};
-
 BOOST_PYTHON_MODULE(MODULE_NAME)
 {
     register_exception_translator<assertion_failure>(&translate_assertfail);
@@ -136,8 +108,11 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
 
     class_<BaseCtx, BaseCtx *, boost::noncopyable>("BaseCtx", no_init);
 
-    auto loc_cls =
-            class_<Loc>("Loc").def_readwrite("x", &Loc::x).def_readwrite("y", &Loc::y).def_readwrite("z", &Loc::z);
+    auto loc_cls = class_<Loc>("Loc")
+                           .def(init<int, int, int>())
+                           .def_readwrite("x", &Loc::x)
+                           .def_readwrite("y", &Loc::y)
+                           .def_readwrite("z", &Loc::z);
 
     auto ci_cls = class_<ContextualWrapper<CellInfo &>>("CellInfo", no_init);
     readwrite_wrapper<CellInfo &, decltype(&CellInfo::name), &CellInfo::name, conv_to_str<IdString>,

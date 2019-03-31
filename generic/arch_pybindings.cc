@@ -174,12 +174,14 @@ void arch_wrap_python()
                     pass_through<DecalXY>>::def_wrap(ctx_cls, "setGroupDecal", (arg("group"), "decalxy"));
 
     fn_wrapper_3a_v<Context, decltype(&Context::setWireAttr), &Context::setWireAttr, conv_from_str<DecalId>,
-                    conv_from_str<IdString>, pass_through<std::string>>::def_wrap(ctx_cls, "setWireAttr", (arg("wire"), "key", "value"));
+                    conv_from_str<IdString>, pass_through<std::string>>::def_wrap(ctx_cls, "setWireAttr",
+                                                                                  (arg("wire"), "key", "value"));
     fn_wrapper_3a_v<Context, decltype(&Context::setBelAttr), &Context::setBelAttr, conv_from_str<DecalId>,
-                    conv_from_str<IdString>, pass_through<std::string>>::def_wrap(ctx_cls, "setBelAttr", (arg("bel"), "key", "value"));
+                    conv_from_str<IdString>, pass_through<std::string>>::def_wrap(ctx_cls, "setBelAttr",
+                                                                                  (arg("bel"), "key", "value"));
     fn_wrapper_3a_v<Context, decltype(&Context::setPipAttr), &Context::setPipAttr, conv_from_str<DecalId>,
-                    conv_from_str<IdString>, pass_through<std::string>>::def_wrap(ctx_cls, "setPipAttr", (arg("pip"), "key", "value"));
-
+                    conv_from_str<IdString>, pass_through<std::string>>::def_wrap(ctx_cls, "setPipAttr",
+                                                                                  (arg("pip"), "key", "value"));
 
     WRAP_MAP_UPTR(CellMap, "IdCellMap");
     WRAP_MAP_UPTR(NetMap, "IdNetMap");
