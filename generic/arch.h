@@ -106,8 +106,6 @@ struct Arch : BaseCtx
     std::vector<std::vector<int>> tileBelDimZ;
     std::vector<std::vector<int>> tilePipDimZ;
 
-    float grid_distance_to_delay;
-
     void addWire(IdString name, IdString type, int x, int y);
     void addPip(IdString name, IdString type, IdString srcWire, IdString dstWire, DelayInfo delay, Loc loc);
     void addAlias(IdString name, IdString type, IdString srcWire, IdString dstWire, DelayInfo delay);

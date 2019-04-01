@@ -268,7 +268,13 @@ IdString Arch::getBelType(BelId bel) const { return bels.at(bel).type; }
 
 const std::map<IdString, std::string> &Arch::getBelAttrs(BelId bel) const { return bels.at(bel).attrs; }
 
-WireId Arch::getBelPinWire(BelId bel, IdString pin) const { return bels.at(bel).pins.at(pin).wire; }
+WireId Arch::getBelPinWire(BelId bel, IdString pin) const
+{
+    const auto &bdata = bels.at(bel);
+    if (!bdata.pins.count(pin))
+        log_error("bel '%s' has no pin '%s'\n", bel.c_str(this), pin.c_str(this));
+    return bdata.pins.at(pin).wire;
+}
 
 PortType Arch::getBelPinType(BelId bel, IdString pin) const { return bels.at(bel).pins.at(pin).type; }
 
@@ -430,7 +436,7 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
     const WireInfo &d = wires.at(dst);
     int dx = abs(s.x - d.x);
     int dy = abs(s.y - d.y);
-    return (dx + dy) * grid_distance_to_delay;
+    return (dx + dy) * args.delayScale + args.delayOffset;
 }
 
 delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
@@ -441,7 +447,7 @@ delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
 
     int dx = abs(driver_loc.x - driver_loc.x);
     int dy = abs(sink_loc.y - sink_loc.y);
-    return (dx + dy) * grid_distance_to_delay;
+    return (dx + dy) * args.delayScale + args.delayOffset;
 }
 
 bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const { return false; }
