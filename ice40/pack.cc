@@ -858,6 +858,8 @@ static void place_plls(Context *ctx)
             // Find a BEL for it
             BelId found_bel;
             for (auto bel_pll : pll_all_bels) {
+                if (pll_used_bels.count(bel_pll.first))
+                    continue;
                 BelPin pll_io_a, pll_io_b;
                 std::tie(pll_io_a, pll_io_b) = bel_pll.second;
                 if (bel2io.count(pll_io_a.bel)) {
