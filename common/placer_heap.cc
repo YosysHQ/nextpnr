@@ -100,7 +100,8 @@ template <typename T> struct EquationSystem
     void solve(std::vector<T> &x)
     {
         using namespace Eigen;
-
+        if (x.empty())
+            return;
         NPNR_ASSERT(x.size() == A.size());
 
         VectorXd vx(x.size()), vb(rhs.size());
