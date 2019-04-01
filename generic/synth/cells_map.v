@@ -7,6 +7,4 @@ module \$lut (A, Y);
 	LUT #(.K(`LUT_K), .INIT(LUT)) _TECHMAP_REPLACE_ (.I(A), .Q(Y));
 endmodule
 
-
-module  \$_DFF_N_ (input D, C, output Q); DFF _TECHMAP_REPLACE_ (.D(D), .Q(Q), .CLK(C)); endmodule
-module  \$_DFF_P_ (input D, C, output Q); DFF  _TECHMAP_REPLACE_ (.D(D), .Q(Q), .CLK(!C)); endmodule
+module  \$_DFF_P_ (input D, C, output Q); DFF  _TECHMAP_REPLACE_ (.D(D), .Q(Q), .CLK(C)); endmodule
