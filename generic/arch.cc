@@ -191,6 +191,14 @@ void Arch::setPipAttr(IdString pip, IdString key, const std::string &value) { pi
 
 void Arch::setBelAttr(IdString bel, IdString key, const std::string &value) { bels.at(bel).attrs[key] = value; }
 
+void Arch::setLutK(int K) { args.K = K; }
+
+void Arch::setDelayScaling(double scale, double offset)
+{
+    args.delayScale = scale;
+    args.delayOffset = offset;
+}
+
 // ---------------------------------------------------------------
 
 Arch::Arch(ArchArgs args) : chipName("generic"), args(args) {}
@@ -483,10 +491,70 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
     NPNR_ASSERT_FALSE("no clocking info for generic");
 }
 
-bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const { return true; }
-bool Arch::isBelLocationValid(BelId bel) const { return true; }
+bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const
+{
+    std::vector<const CellInfo *> cells;
+    cells.push_back(cell);
+    Loc loc = getBelLocation(bel);
+    for (auto tbel : getBelsByTile(loc.x, loc.y)) {
+        if (tbel == bel)
+            continue;
+        CellInfo *bound = getBoundBelCell(tbel);
+        if (bound != nullptr)
+            cells.push_back(bound);
+    }
+    return cellsCompatible(cells.data(), int(cells.size()));
+}
+
+bool Arch::isBelLocationValid(BelId bel) const
+{
+    std::vector<const CellInfo *> cells;
+    Loc loc = getBelLocation(bel);
+    for (auto tbel : getBelsByTile(loc.x, loc.y)) {
+        CellInfo *bound = getBoundBelCell(tbel);
+        if (bound != nullptr)
+            cells.push_back(bound);
+    }
+    return cellsCompatible(cells.data(), int(cells.size()));
+}
 
 const std::string Arch::defaultPlacer = "sa";
 const std::vector<std::string> Arch::availablePlacers = {"sa"};
+
+void Arch::assignArchInfo()
+{
+    for (auto &cell : getCtx()->cells) {
+        CellInfo *ci = cell.second.get();
+        if (ci->type == id("GENERIC_SLICE")) {
+            ci->is_slice = true;
+            ci->slice_clk = get_net_or_empty(ci, id("CLK"));
+        } else {
+            ci->is_slice = false;
+        }
+        ci->user_group = int_or_default(ci->attrs, id("PACK_GROUP"), -1);
+    }
+}
+
+bool Arch::cellsCompatible(const CellInfo **cells, int count) const
+{
+    const NetInfo *clk = nullptr;
+    int group = -1;
+    for (int i = 0; i < count; i++) {
+        const CellInfo *ci = cells[i];
+        if (ci->is_slice && ci->slice_clk != nullptr) {
+            if (clk == nullptr)
+                clk = ci->slice_clk;
+            else if (clk != ci->slice_clk)
+                return false;
+        }
+        if (ci->user_group != -1) {
+            if (group == -1)
+                group = ci->user_group;
+            else if (group != ci->user_group)
+                return false;
+        }
+    }
+    return true;
+}
 
 NEXTPNR_NAMESPACE_END

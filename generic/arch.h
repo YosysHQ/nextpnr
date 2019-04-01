@@ -25,6 +25,11 @@ NEXTPNR_NAMESPACE_BEGIN
 
 struct ArchArgs
 {
+    // Number of LUT inputs
+    int K = 4;
+    // y = mx + c relationship between distance and delay for interconnect
+    // delay estimates
+    double delayScale = 0.1, delayOffset = 0;
 };
 
 struct WireInfo;
@@ -127,6 +132,9 @@ struct Arch : BaseCtx
     void setPipAttr(IdString pip, IdString key, const std::string &value);
     void setBelAttr(IdString bel, IdString key, const std::string &value);
 
+    void setLutK(int K);
+    void setDelayScaling(double scale, double offset);
+
     // ---------------------------------------------------------------
     // Common Arch API. Every arch must provide the following methods.
 
@@ -222,7 +230,7 @@ struct Arch : BaseCtx
     uint32_t getDelayChecksum(delay_t v) const { return 0; }
     bool getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const;
 
-    bool pack() { return true; }
+    bool pack();
     bool place();
     bool route();
 
@@ -243,6 +251,11 @@ struct Arch : BaseCtx
 
     static const std::string defaultPlacer;
     static const std::vector<std::string> availablePlacers;
+
+    // ---------------------------------------------------------------
+    // Internal usage
+    void assignArchInfo();
+    bool cellsCompatible(const CellInfo **cells, int count) const;
 };
 
 NEXTPNR_NAMESPACE_END
