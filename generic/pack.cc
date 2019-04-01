@@ -252,7 +252,7 @@ static void pack_io(Context *ctx)
             } else {
                 // Create a GENERIC_IOB buffer
                 std::unique_ptr<CellInfo> ice_cell =
-                        create_generic_cell(ctx, ctx->id("GENERIC_IOB"), ci->name.str(ctx) + "$sb_io");
+                        create_generic_cell(ctx, ctx->id("GENERIC_IOB"), ci->name.str(ctx) + "$iob");
                 nxio_to_iob(ctx, ci, ice_cell.get(), packed_cells);
                 new_cells.push_back(std::move(ice_cell));
                 iob = new_cells.back().get();

@@ -26,6 +26,14 @@
 #include "pywrappers.h"
 
 NEXTPNR_NAMESPACE_BEGIN
+namespace PythonConversion {
+template <> struct string_converter<const IdString &>
+{
+    const IdString &from_str(Context *ctx, std::string name) { NPNR_ASSERT_FALSE("unsupported"); }
+
+    std::string to_str(Context *ctx, const IdString &id) { return id.str(ctx); }
+};
+} // namespace PythonConversion
 
 void arch_wrap_python()
 {
@@ -190,6 +198,7 @@ void arch_wrap_python()
 
     WRAP_MAP_UPTR(CellMap, "IdCellMap");
     WRAP_MAP_UPTR(NetMap, "IdNetMap");
+    WRAP_VECTOR(const std::vector<IdString>, conv_to_str<IdString>);
 }
 
 NEXTPNR_NAMESPACE_END
