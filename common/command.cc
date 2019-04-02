@@ -87,8 +87,8 @@ bool CommandHandler::executeBeforeContext()
 
     if (vm.count("log")) {
         std::string logfilename = vm["log"].as<std::string>();
-        logfile = std::ofstream(logfilename);
-        if (!logfile)
+        logfile.open(logfilename);
+        if (!logfile.is_open())
             log_error("Failed to open log file '%s' for writing.\n", logfilename.c_str());
         log_streams.push_back(std::make_pair(&logfile, LogLevel::LOG_MSG));
     }
