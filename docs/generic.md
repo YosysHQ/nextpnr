@@ -1,0 +1,99 @@
+# nextpnr Generic Architecture
+
+Instead of implementing the [C++ API](archapi.md), you can programmatically 
+build up a description of an FPGA using the generic architecture and the 
+Python API.
+
+A basic packer is provided that supports LUTs, flipflops and IO buffer insertion.
+Packing could also be implemented using the Python API.
+
+At present there is no support for cell timing in the generic architecture. This
+will be worked on in the future.
+
+## Python API
+
+All identifiers (`IdString`) are automatically converted to
+and from a Python string, so no manual conversion is required.
+
+Argument names are included in the Python bindings,
+so named arguments may be used.
+
+### void addWire(IdString name, IdString type, int x, int y);
+
+Adds a wire with a name, type (for user purposes only, ignored by all nextpnr code other than the UI) to the FPGA description. x and y give a nominal location of the wire for delay estimation purposes. Delay estimates are important for router performance (as the router uses an A* type algorithm), even if timing is not of importance.
+
+### addPip(IdString name, IdString type, IdString srcWire, IdString dstWire, DelayInfo delay, Loc loc);
+
+Adds a pip (programmable connection between two named wires). Pip delays that correspond to delay estimates are important for router performance (as the router uses an A* type algorithm), even if timing is otherwise not of importance.
+
+Loc is constructed using `Loc(x, y, z)`. 'z' for pips is only important if region constraints (e.g. for partial reconfiguration regions) are used.
+
+### void addAlias(IdString name, IdString type, IdString srcWire, IdString dstWire, DelayInfo delay);
+
+Adds a wire alias (fixed connection between two named wires). Alias delays that correspond to delay estimates are important for router performance (as the router uses an A* type algorithm), even if timing is otherwise not of importance.
+
+### void addBel(IdString name, IdString type, Loc loc, bool gb);
+
+Adds a bel to the FPGA description. Bel type should match the type of cells in the netlist that are placed at this bel (see below for information on special bel types supported by the packer). Loc is constructed using `Loc(x, y, z)` and must be unique.
+
+### void addBelInput(IdString bel, IdString name, IdString wire);
+### void addBelOutput(IdString bel, IdString name, IdString wire);
+### void addBelInout(IdString bel, IdString name, IdString wire);
+
+Adds an input, output or inout pin to a bel, with an associated wire. Note that both `bel` and `wire` must have been created before calling this function.
+
+### void addGroupBel(IdString group, IdString bel);
+### void addGroupWire(IdString group, IdString wire);
+### void addGroupPip(IdString group, IdString pip);
+### void addGroupGroup(IdString group, IdString grp);
+
+Add a bel, wire, pip or subgroup to a group, which will be created if it doesn't already exist. Groups are purely for visual presentation purposes in the user interface and are not used by any place-and-route algorithms.
+
+### void addDecalGraphic(DecalId decal, const GraphicElement &graphic);
+
+Add a graphic element to a _decal_, a reusable drawing that may be used to represent multiple wires, pips, bels or groups in the UI (with different offsets). The decal will be created if it doesn't already exist
+
+### void setWireDecal(WireId wire, DecalXY decalxy);
+### void setPipDecal(PipId pip, DecalXY decalxy);
+### void setBelDecal(BelId bel, DecalXY decalxy);
+### void setGroupDecal(GroupId group, DecalXY decalxy);
+
+Sets the decal ID and offset for a wire, bel, pip or group in the UI.
+
+### void setWireAttr(IdString wire, IdString key, const std::string &value);
+### void setPipAttr(IdString pip, IdString key, const std::string &value);
+### void setBelAttr(IdString bel, IdString key, const std::string &value);
+
+Sets an attribute on a wire, pip or bel. Attributes are displayed in the tree view in the UI, but have no bearing on place-and-route itself.
+
+### void setLutK(int K);
+
+Sets the number of input pins a LUT in the architecture has. Only affects the generic packer, if a custom packer or no packer is used this value has no effect - there is no need for the architecture to have LUTs at all in this case.
+
+### void setDelayScaling(double scale, double offset);
+
+Set the linear scaling vs distance and fixed offset (both values in nanoseconds) for routing delay estimates.
+
+## Generic Packer
+
+The generic packer combines K-input LUTs (`LUT` cells) and simple D-type flip flops (`DFF` cells) (posedge clock only, no set/reset or enable) into a `GENERIC_SLICE` cell. It also inserts `GENERIC_IOB`s onto any top level IO pins without an IO buffer.
+
+Thus, the architecture should provide bels with the following ports in order to use the generic packer:
+
+ - `GENERIC_SLICE` bels with `CLK` input, `I[0]` .. `I[K-1]` LUT inputs and `Q` LUT/FF output (N.B. both LUT and FF outputs are not available at the same time)
+ - `GENERIC_IOB` bels with `I` output buffer input, `EN` output enable input, and `O` input buffer output.
+
+See [prims.v](../generic/synth/prims.v) for Verilog simulation models for all these cells.
+
+[synth_generic.tcl](../generic/synth/synth_generic.tcl) can be used with Yosys to perform synthesis to the generic `LUT` and `DFF` cells which the generic packer supports. Invoke it using `tcl synth_generic.tcl K out.json` where _K_ is the number of LUT inputs and _out.json_ the name of the JSON file to write.
+
+## Validity Checks
+
+The following constraints are enforced by the generic architecture during placement.
+
+ - `GENERIC_SLICE` bels may only have one clock signal per tile (xy location)
+ - If the `PACK_GROUP` attribute is set to a non-zero value on cells, then only cells with the same `PACK_GROUP` attribute (or `PACK_GROUP` negative or unset) may share a tile. This could be set by the Python API or during synthesis.
+
+## Implementation Example
+
+An artificial, procedural architecture is included in the [generic/examples](../generic/examples) folder. [simple.py](../generic/examples/simple.py) sets up the architecture, and [report.py](../generic/examples/report.py) saves post-place-and-route design to a text file (in place of bitstream generation). [simple.sh](../generic/examples/simple.sh) can be used to synthesise and place-and-route a simple blinky for this architecture.
