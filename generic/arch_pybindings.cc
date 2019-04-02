@@ -196,6 +196,11 @@ void arch_wrap_python()
                     conv_from_str<IdString>, pass_through<std::string>>::def_wrap(ctx_cls, "setPipAttr",
                                                                                   (arg("pip"), "key", "value"));
 
+    fn_wrapper_1a_v<Context, decltype(&Context::setLutK), &Context::setLutK, pass_through<int>>::def_wrap(
+            ctx_cls, "setLutK", arg("K"));
+    fn_wrapper_2a_v<Context, decltype(&Context::setDelayScaling), &Context::setDelayScaling, pass_through<double>,
+                    pass_through<double>>::def_wrap(ctx_cls, "setDelayScaling", (arg("scale"), "offset"));
+
     WRAP_MAP_UPTR(CellMap, "IdCellMap");
     WRAP_MAP_UPTR(NetMap, "IdNetMap");
     WRAP_VECTOR(const std::vector<IdString>, conv_to_str<IdString>);
