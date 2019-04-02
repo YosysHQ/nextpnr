@@ -440,6 +440,16 @@ PipId PipIterator::operator*() const {
     return ret;
 }
 
+
+BelPin BelPinIterator::operator*() const {
+    BelPin ret;
+    ret.bel.index = ptr->bel_idx;
+    ret.bel.location = bel_loc;
+    auto &bt = arch->getBelTypeInfo(ret.bel);
+    ret.pin.index = bt.pins[ptr->pin_idx].name_id;
+    return ret;
+}
+
 // -----------------------------------------------------------------------
 //
 // XXX package pins

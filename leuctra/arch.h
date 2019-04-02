@@ -160,6 +160,11 @@ NPNR_PACKED_STRUCT(struct BelTypePOD {
     int32_t num_conflicts;
 });
 
+NPNR_PACKED_STRUCT(struct TileTypeWireBelXrefPOD {
+    int32_t bel_idx;
+    int32_t pin_idx;
+});
+
 NPNR_PACKED_STRUCT(struct TileTypeWirePortXrefPOD {
     int32_t port_idx;
     int32_t wire_idx;
@@ -169,9 +174,9 @@ NPNR_PACKED_STRUCT(struct TileTypeWirePortXrefPOD {
 NPNR_PACKED_STRUCT(struct TileTypeWirePOD {
     int32_t name_id;
     int32_t type_name_id;
-    // The BEL and pin this wire is attached to, if any.
-    int32_t bel_idx;
-    int32_t bel_pin_idx;
+    // A list of bel pins referencing this wire.
+    int32_t num_bel_xrefs;
+    RelPtr<TileTypeWireBelXrefPOD> bel_xrefs;
     // A list of pips referencing this wire as dst.
     int32_t num_pip_dst_xrefs;
     RelPtr<int32_t> pip_dst_xrefs;
@@ -270,7 +275,7 @@ NPNR_PACKED_STRUCT(struct FamilyPOD {
     RelPtr<TileTypePOD> tile_types;
 });
 
-#define DB_FORMAT_TAG_CURRENT 0x2
+#define DB_FORMAT_TAG_CURRENT 0x3
 
 /************************ End of chipdb section. ************************/
 
@@ -327,21 +332,17 @@ struct BelRange
 
 // -----------------------------------------------------------------------
 
+struct Arch;
+
 struct BelPinIterator
 {
-    BelId bel;
-    IdString pin;
+    const Arch *arch;
+    const TileTypeWireBelXrefPOD *ptr = nullptr;
+    Location bel_loc;
+    void operator++() { ptr++; }
+    bool operator!=(const BelPinIterator &other) const { return ptr != other.ptr; }
 
-    void operator++() { bel = BelId(); }
-    bool operator!=(const BelPinIterator &other) const { return bel != other.bel; }
-
-    BelPin operator*() const
-    {
-        BelPin ret;
-	ret.bel = bel;
-	ret.pin = pin;
-        return ret;
-    }
+    BelPin operator*() const;
 };
 
 struct BelPinRange
@@ -504,8 +505,6 @@ struct AllPipRange
 };
 
 // -----------------------------------------------------------------------
-
-struct Arch;
 
 struct PipIterator
 {
@@ -781,12 +780,10 @@ struct Arch : BaseCtx
     {
 	BelPinRange res;
 	auto &ttw = getTileTypeWire(wire);
-	if (ttw.bel_idx != -1) {
-	    res.b.bel.location = wire.location;
-	    res.b.bel.index = ttw.bel_idx;
-	    auto &bt = getBelTypeInfo(res.b.bel);
-	    res.b.pin.index = bt.pins[ttw.bel_pin_idx].name_id;
-	}
+	res.b.ptr = ttw.bel_xrefs.get();
+	res.e.ptr = ttw.bel_xrefs.get() + ttw.num_bel_xrefs;
+	res.b.bel_loc = res.e.bel_loc = wire.location;
+	res.b.arch = res.e.arch = this;
 	return res;
     }
 
