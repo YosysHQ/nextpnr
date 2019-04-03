@@ -181,6 +181,9 @@ struct GraphicElement
 
     float x1 = 0, y1 = 0, x2 = 0, y2 = 0, z = 0;
     std::string text;
+    GraphicElement() {};
+    GraphicElement(type_t type, style_t style, float x1, float y1, float x2, float y2, float z) : type(type),
+        style(style), x1(x1), y1(y1), x2(x2), y2(y2), z(z) {};
 };
 
 struct Loc
@@ -640,6 +643,9 @@ struct BaseCtx
     void createRectangularRegion(IdString name, int x0, int y0, int x1, int y1);
     void addBelToRegion(IdString name, BelId bel);
     void constrainCellToRegion(IdString cell, IdString region_name);
+
+    // Workaround for lack of wrappable constructors
+    DecalXY constructDecalXY(DecalId decal, float x, float y);
 };
 
 NEXTPNR_NAMESPACE_END

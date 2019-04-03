@@ -18,6 +18,7 @@
  */
 
 #include <math.h>
+#include <iostream>
 #include "nextpnr.h"
 #include "placer1.h"
 #include "router1.h"
@@ -201,7 +202,10 @@ void Arch::setDelayScaling(double scale, double offset)
 
 // ---------------------------------------------------------------
 
-Arch::Arch(ArchArgs args) : chipName("generic"), args(args) {}
+Arch::Arch(ArchArgs args) : chipName("generic"), args(args) {
+    // Dummy for empty decals
+    decal_graphics[IdString()];
+}
 
 void IdString::initialize_arch(const BaseCtx *ctx) {}
 
@@ -469,7 +473,13 @@ bool Arch::route() { return router1(getCtx(), Router1Cfg(getCtx())); }
 
 // ---------------------------------------------------------------
 
-const std::vector<GraphicElement> &Arch::getDecalGraphics(DecalId decal) const { return decal_graphics.at(decal); }
+const std::vector<GraphicElement> &Arch::getDecalGraphics(DecalId decal) const {
+    if (!decal_graphics.count(decal)) {
+        std::cerr << "No decal named " << decal.str(this) << std::endl;
+        log_error("No decal named %s!\n", decal.c_str(this));
+    }
+    return decal_graphics.at(decal);
+}
 
 DecalXY Arch::getBelDecal(BelId bel) const { return bels.at(bel).decalxy; }
 

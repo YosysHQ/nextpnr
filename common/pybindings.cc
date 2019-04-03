@@ -87,7 +87,26 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
 
     using namespace PythonConversion;
 
+    enum_<GraphicElement::type_t>("GraphicElementType")
+            .value("TYPE_NONE", GraphicElement::TYPE_NONE)
+            .value("TYPE_LINE", GraphicElement::TYPE_LINE)
+            .value("TYPE_ARROW", GraphicElement::TYPE_ARROW)
+            .value("TYPE_BOX", GraphicElement::TYPE_BOX)
+            .value("TYPE_CIRCLE", GraphicElement::TYPE_CIRCLE)
+            .value("TYPE_LABEL", GraphicElement::TYPE_LABEL)
+            .export_values();
+
+    enum_<GraphicElement::style_t>("GraphicElementStyle")
+            .value("STYLE_GRID", GraphicElement::STYLE_GRID)
+            .value("STYLE_FRAME", GraphicElement::STYLE_FRAME)
+            .value("STYLE_HIDDEN", GraphicElement::STYLE_HIDDEN)
+            .value("STYLE_INACTIVE", GraphicElement::STYLE_INACTIVE)
+            .value("STYLE_ACTIVE", GraphicElement::STYLE_ACTIVE)
+            .export_values();
+
     class_<GraphicElement>("GraphicElement")
+            .def(init<GraphicElement::type_t, GraphicElement::style_t, float, float, float, float, float>(
+                    (args("type"), "style", "x1", "y1", "x2", "y2", "z")))
             .def_readwrite("type", &GraphicElement::type)
             .def_readwrite("x1", &GraphicElement::x1)
             .def_readwrite("y1", &GraphicElement::y1)
@@ -214,8 +233,7 @@ void init_python(const char *executable, bool first)
             PyImport_AppendInittab(TOSTRING(MODULE_NAME), PYINIT_MODULE_NAME);
         Py_SetProgramName(program);
         Py_Initialize();
-        if (first)
-            PyImport_ImportModule(TOSTRING(MODULE_NAME));
+        PyImport_ImportModule(TOSTRING(MODULE_NAME));
         PyRun_SimpleString("from " TOSTRING(MODULE_NAME) " import *");
     } catch (boost::python::error_already_set const &) {
         // Parse and output the exception

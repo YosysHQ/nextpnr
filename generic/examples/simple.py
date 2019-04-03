@@ -14,6 +14,10 @@ Sq = 4
 # "Sparsity" of local to neighbour local wire pips
 Sl = 8
 
+# Create graphic elements
+# Bels
+ctx.addDecalGraphic("bel", GraphicElement(type=TYPE_BOX, style=STYLE_INACTIVE, x1=0, y1=0, x2=0.2, y2=(1/(Z+1))-0.02, z=0))
+
 def is_io(x, y):
 	return x == 0 or x == X-1 or y == 0 or y == Y-1
 
@@ -37,7 +41,7 @@ for x in range(X):
 				ctx.addBelInput(bel="X%dY%d_IO%d" % (x, y, z), name="I", wire="X%dY%dZ%d_I0" % (x, y, z))
 				ctx.addBelInput(bel="X%dY%d_IO%d" % (x, y, z), name="EN", wire="X%dY%dZ%d_I1" % (x, y, z))
 				ctx.addBelOutput(bel="X%dY%d_IO%d" % (x, y, z), name="O", wire="X%dY%dZ%d_Q" % (x, y, z))
-
+				ctx.setBelDecal(bel="X%dY%d_IO%d" % (x, y, z), decalxy=ctx.DecalXY("bel", 0.6, z * (1/(Z+1))))
 		else:
 			for z in range(Z):
 				ctx.addBel(name="X%dY%d_SLICE%d" % (x, y, z), type="GENERIC_SLICE", loc=Loc(x, y, z), gb=False)
@@ -45,6 +49,7 @@ for x in range(X):
 				for k in range(K):
 					ctx.addBelInput(bel="X%dY%d_SLICE%d" % (x, y, z), name="I[%d]" % k, wire="X%dY%dZ%d_I%d" % (x, y, z, k))
 				ctx.addBelOutput(bel="X%dY%d_SLICE%d" % (x, y, z), name="Q", wire="X%dY%dZ%d_Q" % (x, y, z))
+				ctx.setBelDecal(bel="X%dY%d_SLICE%d" % (x, y, z), decalxy=ctx.DecalXY("bel", 0.6, z * (1/(Z+1))))
 
 for x in range(X):
 	for y in range(Y):

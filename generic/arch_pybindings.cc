@@ -40,6 +40,15 @@ void arch_wrap_python()
     using namespace PythonConversion;
 
     auto arch_cls = class_<Arch, Arch *, bases<BaseCtx>, boost::noncopyable>("Arch", init<ArchArgs>());
+
+    auto dxy_cls = class_<ContextualWrapper<DecalXY>>("DecalXY_", no_init);
+            readwrite_wrapper<DecalXY, decltype(&DecalXY::decal), &DecalXY::decal, conv_to_str<DecalId>,
+                              conv_from_str<DecalId>>::def_wrap(dxy_cls, "decal");
+    readwrite_wrapper<DecalXY, decltype(&DecalXY::x), &DecalXY::x, pass_through<float>, pass_through<float>>::def_wrap(
+            dxy_cls, "x");
+    readwrite_wrapper<DecalXY, decltype(&DecalXY::y), &DecalXY::y, pass_through<float>, pass_through<float>>::def_wrap(
+            dxy_cls, "y");
+
     auto ctx_cls = class_<Context, Context *, bases<Arch>, boost::noncopyable>("Context", no_init)
                            .def("checksum", &Context::checksum)
                            .def("pack", &Context::pack)
@@ -127,6 +136,9 @@ void arch_wrap_python()
     fn_wrapper_0a<Context, decltype(&Context::archId), &Context::archId, conv_to_str<IdString>>::def_wrap(ctx_cls,
                                                                                                           "archId");
 
+    fn_wrapper_3a<Context, decltype(&Context::constructDecalXY), &Context::constructDecalXY, wrap_context<DecalXY>,
+                  conv_from_str<DecalId>, pass_through<float>, pass_through<float>>::def_wrap(ctx_cls, "DecalXY");
+
     typedef std::unordered_map<IdString, std::unique_ptr<CellInfo>> CellMap;
     typedef std::unordered_map<IdString, std::unique_ptr<NetInfo>> NetMap;
 
@@ -178,13 +190,13 @@ void arch_wrap_python()
     fn_wrapper_2a_v<Context, decltype(&Context::addDecalGraphic), &Context::addDecalGraphic, conv_from_str<DecalId>,
                     pass_through<GraphicElement>>::def_wrap(ctx_cls, "addDecalGraphic", (arg("decal"), "graphic"));
     fn_wrapper_2a_v<Context, decltype(&Context::setWireDecal), &Context::setWireDecal, conv_from_str<DecalId>,
-                    pass_through<DecalXY>>::def_wrap(ctx_cls, "setWireDecal", (arg("wire"), "decalxy"));
+                    unwrap_context<DecalXY>>::def_wrap(ctx_cls, "setWireDecal", (arg("wire"), "decalxy"));
     fn_wrapper_2a_v<Context, decltype(&Context::setPipDecal), &Context::setPipDecal, conv_from_str<DecalId>,
-                    pass_through<DecalXY>>::def_wrap(ctx_cls, "setPipDecal", (arg("pip"), "decalxy"));
+                    unwrap_context<DecalXY>>::def_wrap(ctx_cls, "setPipDecal", (arg("pip"), "decalxy"));
     fn_wrapper_2a_v<Context, decltype(&Context::setBelDecal), &Context::setBelDecal, conv_from_str<DecalId>,
-                    pass_through<DecalXY>>::def_wrap(ctx_cls, "setBelDecal", (arg("bel"), "decalxy"));
+                    unwrap_context<DecalXY>>::def_wrap(ctx_cls, "setBelDecal", (arg("bel"), "decalxy"));
     fn_wrapper_2a_v<Context, decltype(&Context::setGroupDecal), &Context::setGroupDecal, conv_from_str<DecalId>,
-                    pass_through<DecalXY>>::def_wrap(ctx_cls, "setGroupDecal", (arg("group"), "decalxy"));
+                    unwrap_context<DecalXY>>::def_wrap(ctx_cls, "setGroupDecal", (arg("group"), "decalxy"));
 
     fn_wrapper_3a_v<Context, decltype(&Context::setWireAttr), &Context::setWireAttr, conv_from_str<DecalId>,
                     conv_from_str<IdString>, pass_through<std::string>>::def_wrap(ctx_cls, "setWireAttr",
