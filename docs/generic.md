@@ -74,6 +74,26 @@ Sets the number of input pins a LUT in the architecture has. Only affects the ge
 
 Set the linear scaling vs distance and fixed offset (both values in nanoseconds) for routing delay estimates.
 
+### void addCellTimingClock(IdString cell, IdString port);
+
+Set the timing class of a port on a particular cell to a clock input.
+
+_NOTE: All cell timing functions apply to an individual named cell and not a cell type. This is because
+cell-specific configuration might affect timing, e.g. whether or not the register is used for a slice._
+
+### void addCellTimingDelay(IdString cell, IdString fromPort, IdString toPort, DelayInfo delay);
+
+Specify the combinational delay between two ports of a cell, and set the timing class of
+ those ports as combinational input/output.
+
+### void addCellTimingSetupHold(IdString cell, IdString port, IdString clock, DelayInfo setup, DelayInfo hold);
+
+Specify setup and hold timings for a port of a cell, and set the timing class of that port as register input.
+
+### void addCellTimingClockToOut(IdString cell, IdString port, IdString clock, DelayInfo clktoq);
+
+Specify clock-to-out time for a port of a cell, and set the timing class of that port as register output.
+
 ## Generic Packer
 
 The generic packer combines K-input LUTs (`LUT` cells) and simple D-type flip flops (`DFF` cells) (posedge clock only, no set/reset or enable) into a `GENERIC_SLICE` cell. It also inserts `GENERIC_IOB`s onto any top level IO pins without an IO buffer.

@@ -17,8 +17,8 @@
  *
  */
 
-#include <math.h>
 #include <iostream>
+#include <math.h>
 #include "nextpnr.h"
 #include "placer1.h"
 #include "router1.h"
@@ -200,9 +200,42 @@ void Arch::setDelayScaling(double scale, double offset)
     args.delayOffset = offset;
 }
 
+void Arch::addCellTimingClock(IdString cell, IdString port) { cellTiming[cell].portClasses[port] = TMG_CLOCK_INPUT; }
+
+void Arch::addCellTimingDelay(IdString cell, IdString fromPort, IdString toPort, DelayInfo delay)
+{
+    if (get_or_default(cellTiming[cell].portClasses, fromPort, TMG_IGNORE) == TMG_IGNORE)
+        cellTiming[cell].portClasses[fromPort] = TMG_COMB_INPUT;
+    if (get_or_default(cellTiming[cell].portClasses, toPort, TMG_IGNORE) == TMG_IGNORE)
+        cellTiming[cell].portClasses[toPort] = TMG_COMB_OUTPUT;
+    cellTiming[cell].combDelays[CellDelayKey{fromPort, toPort}] = delay;
+}
+
+void Arch::addCellTimingSetupHold(IdString cell, IdString port, IdString clock, DelayInfo setup, DelayInfo hold)
+{
+    TimingClockingInfo ci;
+    ci.clock_port = clock;
+    ci.edge = RISING_EDGE;
+    ci.setup = setup;
+    ci.hold = hold;
+    cellTiming[cell].clockingInfo[port].push_back(ci);
+    cellTiming[cell].portClasses[port] = TMG_REGISTER_INPUT;
+}
+
+void Arch::addCellTimingClockToOut(IdString cell, IdString port, IdString clock, DelayInfo clktoq)
+{
+    TimingClockingInfo ci;
+    ci.clock_port = clock;
+    ci.edge = RISING_EDGE;
+    ci.clockToQ = clktoq;
+    cellTiming[cell].clockingInfo[port].push_back(ci);
+    cellTiming[cell].portClasses[port] = TMG_REGISTER_OUTPUT;
+}
+
 // ---------------------------------------------------------------
 
-Arch::Arch(ArchArgs args) : chipName("generic"), args(args) {
+Arch::Arch(ArchArgs args) : chipName("generic"), args(args)
+{
     // Dummy for empty decals
     decal_graphics[IdString()];
 }
@@ -473,7 +506,8 @@ bool Arch::route() { return router1(getCtx(), Router1Cfg(getCtx())); }
 
 // ---------------------------------------------------------------
 
-const std::vector<GraphicElement> &Arch::getDecalGraphics(DecalId decal) const {
+const std::vector<GraphicElement> &Arch::getDecalGraphics(DecalId decal) const
+{
     if (!decal_graphics.count(decal)) {
         std::cerr << "No decal named " << decal.str(this) << std::endl;
         log_error("No decal named %s!\n", decal.c_str(this));
@@ -493,18 +527,37 @@ DecalXY Arch::getGroupDecal(GroupId group) const { return groups.at(group).decal
 
 bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const
 {
-    return false;
+    if (!cellTiming.count(cell->name))
+        return false;
+    const auto &tmg = cellTiming.at(cell->name);
+    auto fnd = tmg.combDelays.find(CellDelayKey{fromPort, toPort});
+    if (fnd != tmg.combDelays.end()) {
+        delay = fnd->second;
+        return true;
+    } else {
+        return false;
+    }
 }
 
 // Get the port class, also setting clockPort if applicable
 TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const
 {
-    return TMG_IGNORE;
+    if (!cellTiming.count(cell->name))
+        return TMG_IGNORE;
+    const auto &tmg = cellTiming.at(cell->name);
+    if (tmg.clockingInfo.count(port))
+        clockInfoCount = int(tmg.clockingInfo.at(port).size());
+    else
+        clockInfoCount = 0;
+    return get_or_default(tmg.portClasses, port, TMG_IGNORE);
 }
 
 TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port, int index) const
 {
-    NPNR_ASSERT_FALSE("no clocking info for generic");
+    NPNR_ASSERT(cellTiming.count(cell->name));
+    const auto &tmg = cellTiming.at(cell->name);
+    NPNR_ASSERT(tmg.clockingInfo.count(port));
+    return tmg.clockingInfo.at(port).at(index);
 }
 
 bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const

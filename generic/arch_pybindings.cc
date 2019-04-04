@@ -42,8 +42,8 @@ void arch_wrap_python()
     auto arch_cls = class_<Arch, Arch *, bases<BaseCtx>, boost::noncopyable>("Arch", init<ArchArgs>());
 
     auto dxy_cls = class_<ContextualWrapper<DecalXY>>("DecalXY_", no_init);
-            readwrite_wrapper<DecalXY, decltype(&DecalXY::decal), &DecalXY::decal, conv_to_str<DecalId>,
-                              conv_from_str<DecalId>>::def_wrap(dxy_cls, "decal");
+    readwrite_wrapper<DecalXY, decltype(&DecalXY::decal), &DecalXY::decal, conv_to_str<DecalId>,
+                      conv_from_str<DecalId>>::def_wrap(dxy_cls, "decal");
     readwrite_wrapper<DecalXY, decltype(&DecalXY::x), &DecalXY::x, pass_through<float>, pass_through<float>>::def_wrap(
             dxy_cls, "x");
     readwrite_wrapper<DecalXY, decltype(&DecalXY::y), &DecalXY::y, pass_through<float>, pass_through<float>>::def_wrap(
@@ -212,6 +212,22 @@ void arch_wrap_python()
             ctx_cls, "setLutK", arg("K"));
     fn_wrapper_2a_v<Context, decltype(&Context::setDelayScaling), &Context::setDelayScaling, pass_through<double>,
                     pass_through<double>>::def_wrap(ctx_cls, "setDelayScaling", (arg("scale"), "offset"));
+
+    fn_wrapper_2a_v<Context, decltype(&Context::addCellTimingClock), &Context::addCellTimingClock,
+                    conv_from_str<IdString>, conv_from_str<IdString>>::def_wrap(ctx_cls, "addCellTimingClock",
+                                                                                (arg("cell"), "port"));
+    fn_wrapper_4a_v<Context, decltype(&Context::addCellTimingDelay), &Context::addCellTimingDelay,
+                    conv_from_str<IdString>, conv_from_str<IdString>, conv_from_str<IdString>,
+                    pass_through<DelayInfo>>::def_wrap(ctx_cls, "addCellTimingDelay",
+                                                       (arg("cell"), "fromPort", "toPort", "delay"));
+    fn_wrapper_5a_v<Context, decltype(&Context::addCellTimingSetupHold), &Context::addCellTimingSetupHold,
+                    conv_from_str<IdString>, conv_from_str<IdString>, conv_from_str<IdString>, pass_through<DelayInfo>,
+                    pass_through<DelayInfo>>::def_wrap(ctx_cls, "addCellTimingSetupHold",
+                                                       (arg("cell"), "port", "clock", "setup", "hold"));
+    fn_wrapper_4a_v<Context, decltype(&Context::addCellTimingClockToOut), &Context::addCellTimingClockToOut,
+                    conv_from_str<IdString>, conv_from_str<IdString>, conv_from_str<IdString>,
+                    pass_through<DelayInfo>>::def_wrap(ctx_cls, "addCellTimingClockToOut",
+                                                       (arg("cell"), "port", "clock", "clktoq"));
 
     WRAP_MAP_UPTR(CellMap, "IdCellMap");
     WRAP_MAP_UPTR(NetMap, "IdNetMap");
