@@ -482,8 +482,8 @@ delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
     auto driver_loc = getBelLocation(driver.cell->bel);
     auto sink_loc = getBelLocation(sink.cell->bel);
 
-    int dx = abs(driver_loc.x - driver_loc.x);
-    int dy = abs(sink_loc.y - sink_loc.y);
+    int dx = abs(sink_loc.x - driver_loc.x);
+    int dy = abs(sink_loc.y - driver_loc.y);
     return (dx + dy) * args.delayScale + args.delayOffset;
 }
 
