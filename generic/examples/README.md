@@ -8,4 +8,4 @@ This contains a simple, artificial, example of the nextpnr generic API.
  - report.py stores design information after place-and-route to blinky.txt in place
    of real bitstream generation
 
- - Run blinky.sh to build an example design on the FPGA above
+ - Run simple.sh to build an example design on the FPGA above

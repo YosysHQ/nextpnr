@@ -2,21 +2,21 @@
 X = 12
 Y = 12
 # SLICEs per tile
-Z = 8
+N = 8
 # LUT input count
 K = 4
 # Number of local wires
-L = Z*(K+1) + 8 
-# "Sparsity" of bel input wire pips
+Wl = N*(K+1) + 8 
+# 1/Fc for bel input wire pips
 Si = 4
-# "Sparsity" of Q to local wire pips
+# 1/Fc for Q to local wire pips
 Sq = 4
-# "Sparsity" of local to neighbour local wire pips
+# ~1/Fc local to neighbour local wire pips
 Sl = 8
 
 # Create graphic elements
 # Bels
-ctx.addDecalGraphic("bel", GraphicElement(type=TYPE_BOX, style=STYLE_INACTIVE, x1=0, y1=0, x2=0.2, y2=(1/(Z+1))-0.02, z=0))
+ctx.addDecalGraphic("bel", GraphicElement(type=TYPE_BOX, style=STYLE_INACTIVE, x1=0, y1=0, x2=0.2, y2=(1/(N+1))-0.02, z=0))
 
 def is_io(x, y):
 	return x == 0 or x == X-1 or y == 0 or y == Y-1
@@ -24,13 +24,13 @@ def is_io(x, y):
 for x in range(X):
 	for y in range(Y):
 		# Bel port wires
-		for z in range(Z):
+		for z in range(N):
 			ctx.addWire(name="X%dY%dZ%d_CLK" % (x, y, z), type="BEL_CLK", x=x, y=y)
 			ctx.addWire(name="X%dY%dZ%d_Q" % (x, y, z), type="BEL_Q", x=x, y=y)
 			for i in range(K):
 				ctx.addWire(name="X%dY%dZ%d_I%d" % (x, y, z, i), type="BEL_I", x=x, y=y)
 		# Local wires
-		for l in range(L):
+		for l in range(Wl):
 			ctx.addWire(name="X%dY%d_LOCAL%d" % (x, y, l), type="LOCAL", x=x, y=y)
 		# Create bels
 		if is_io(x, y):
@@ -41,33 +41,33 @@ for x in range(X):
 				ctx.addBelInput(bel="X%dY%d_IO%d" % (x, y, z), name="I", wire="X%dY%dZ%d_I0" % (x, y, z))
 				ctx.addBelInput(bel="X%dY%d_IO%d" % (x, y, z), name="EN", wire="X%dY%dZ%d_I1" % (x, y, z))
 				ctx.addBelOutput(bel="X%dY%d_IO%d" % (x, y, z), name="O", wire="X%dY%dZ%d_Q" % (x, y, z))
-				ctx.setBelDecal(bel="X%dY%d_IO%d" % (x, y, z), decalxy=ctx.DecalXY("bel", 0.6, z * (1/(Z+1))))
+				ctx.setBelDecal(bel="X%dY%d_IO%d" % (x, y, z), decalxy=ctx.DecalXY("bel", 0.6, z * (1/(N+1))))
 		else:
-			for z in range(Z):
+			for z in range(N):
 				ctx.addBel(name="X%dY%d_SLICE%d" % (x, y, z), type="GENERIC_SLICE", loc=Loc(x, y, z), gb=False)
 				ctx.addBelInput(bel="X%dY%d_SLICE%d" % (x, y, z), name="CLK", wire="X%dY%dZ%d_CLK" % (x, y, z))
 				for k in range(K):
 					ctx.addBelInput(bel="X%dY%d_SLICE%d" % (x, y, z), name="I[%d]" % k, wire="X%dY%dZ%d_I%d" % (x, y, z, k))
 				ctx.addBelOutput(bel="X%dY%d_SLICE%d" % (x, y, z), name="Q", wire="X%dY%dZ%d_Q" % (x, y, z))
-				ctx.setBelDecal(bel="X%dY%d_SLICE%d" % (x, y, z), decalxy=ctx.DecalXY("bel", 0.6, z * (1/(Z+1))))
+				ctx.setBelDecal(bel="X%dY%d_SLICE%d" % (x, y, z), decalxy=ctx.DecalXY("bel", 0.6, z * (1/(N+1))))
 
 for x in range(X):
 	for y in range(Y):
 		# Pips driving bel input wires
 		# Bel input wires are driven by every Si'th local with an offset
 		def create_input_pips(dst, offset, skip):
-			for i in range(offset % skip, L, skip):
+			for i in range(offset % skip, Wl, skip):
 				src = "X%dY%d_LOCAL%d" % (x, y, i)
 				ctx.addPip(name="X%dY%d.%s.%s" % (x, y, src, dst), type="BEL_INPUT",
 					srcWire=src, dstWire=dst, delay=ctx.getDelayFromNS(0.05), loc=Loc(x, y, 0))
-		for z in range(Z):
+		for z in range(N):
 			create_input_pips("X%dY%dZ%d_CLK" % (x, y, z), 0, Si)
 			for k in range(K):
 				create_input_pips("X%dY%dZ%d_I%d" % (x, y, z, k), k % Si, Si)
 
 		# Pips from bel outputs to locals
 		def create_output_pips(dst, offset, skip):
-			for i in range(offset % skip, Z, skip):
+			for i in range(offset % skip, N, skip):
 				src = "X%dY%dZ%d_Q" % (x, y, i)
 				ctx.addPip(name="X%dY%d.%s.%s" % (x, y, src, dst), type="BEL_OUTPUT",
 					srcWire=src, dstWire=dst, delay=ctx.getDelayFromNS(0.05), loc=Loc(x, y, 0))
@@ -75,11 +75,11 @@ for x in range(X):
 		def create_neighbour_pips(dst, nx, ny, offset, skip):
 			if nx < 0 or nx >= X or ny < 0 or ny >= Y:
 				return
-			for i in range(offset % skip, L, skip):
+			for i in range(offset % skip, Wl, skip):
 				src = "X%dY%d_LOCAL%d" % (nx, ny, i)
 				ctx.addPip(name="X%dY%d.%s.%s" % (x, y, src, dst), type="NEIGHBOUR",
 					srcWire=src, dstWire=dst, delay=ctx.getDelayFromNS(0.05), loc=Loc(x, y, 0))
-		for l in range(L):
+		for l in range(Wl):
 			dst = "X%dY%d_LOCAL%d" % (x, y, l)
 			create_output_pips(dst, l % Sq, Sq)
 			create_neighbour_pips(dst, x-1, y-1, (l + 1) % Sl, Sl)
