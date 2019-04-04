@@ -248,8 +248,8 @@ struct Arch : BaseCtx
 
     delay_t estimateDelay(WireId src, WireId dst) const;
     delay_t predictDelay(const NetInfo *net_info, const PortRef &sink) const;
-    delay_t getDelayEpsilon() const { return 0.01; }
-    delay_t getRipupDelayPenalty() const { return 1.0; }
+    delay_t getDelayEpsilon() const { return 0.001; }
+    delay_t getRipupDelayPenalty() const { return 0.015; }
     float getDelayNS(delay_t v) const { return v; }
 
     DelayInfo getDelayFromNS(float ns) const
