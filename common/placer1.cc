@@ -64,9 +64,10 @@ class SAPlacer
   private:
     struct BoundingBox
     {
+        // Actual bounding box
         int x0 = 0, x1 = 0, y0 = 0, y1 = 0;
-        bool is_inside_inc(int x, int y) const { return x >= x0 && x <= x1 && y >= y0 && y <= y1; }
-        bool touches_bounds(int x, int y) const { return x == x0 || x == x1 || y == y0 || y == y1; }
+        // Number of cells at each extremity
+        int nx0 = 0, nx1 = 0, ny0 = 0, ny1 = 0;
         wirelen_t hpwl() const { return wirelen_t((x1 - x0) + (y1 - y0)); }
     };
 
@@ -103,15 +104,12 @@ class SAPlacer
 
         net_bounds.resize(ctx->nets.size());
         net_arc_tcost.resize(ctx->nets.size());
-        moveChange.already_bounds_changed.resize(ctx->nets.size());
-        moveChange.already_changed_arcs.resize(ctx->nets.size());
         old_udata.reserve(ctx->nets.size());
         net_by_udata.reserve(ctx->nets.size());
         decltype(NetInfo::udata) n = 0;
         for (auto &net : ctx->nets) {
             old_udata.emplace_back(net.second->udata);
             net_arc_tcost.at(n).resize(net.second->users.size());
-            moveChange.already_changed_arcs.at(n).resize(net.second->users.size());
             net.second->udata = n++;
             net_by_udata.push_back(net.second.get());
         }
@@ -252,6 +250,7 @@ class SAPlacer
 
         // Calculate costs after initial placement
         setup_costs();
+        moveChange.init(this);
         curr_wirelen_cost = total_wirelen_cost();
         curr_timing_cost = total_timing_cost();
         last_wirelen_cost = curr_wirelen_cost;
@@ -366,6 +365,10 @@ class SAPlacer
                 get_criticalities(ctx, &net_crit);
             // Need to rebuild costs after criticalities change
             setup_costs();
+            // Reset incremental bounds
+            moveChange.reset(this);
+            moveChange.new_net_bounds = net_bounds;
+
             // Recalculate total metric entirely to avoid rounding errors
             // accumulating over time
             curr_wirelen_cost = total_wirelen_cost();
@@ -475,7 +478,7 @@ class SAPlacer
     bool try_swap_position(CellInfo *cell, BelId newBel)
     {
         static const double epsilon = 1e-20;
-        moveChange.reset();
+        moveChange.reset(this);
         if (!require_legal && is_constrained(cell))
             return false;
         BelId oldBel = cell->bel;
@@ -587,7 +590,7 @@ class SAPlacer
         std::vector<std::pair<CellInfo *, BelId>> moves_made;
         std::vector<std::pair<CellInfo *, BelId>> dest_bels;
         double delta = 0;
-        moveChange.reset();
+        moveChange.reset(this);
         if (ctx->debug)
             log_info("finding cells for chain swap %s\n", cell->name.c_str(ctx));
 
@@ -619,6 +622,10 @@ class SAPlacer
         for (const auto &db : dest_bels) {
             BelId oldBel = swap_cell_bels(db.first, db.second);
             moves_made.emplace_back(std::make_pair(db.first, oldBel));
+            CellInfo *bound = ctx->getBoundBelCell(oldBel);
+            add_move_cell(moveChange, db.first, oldBel);
+            if (bound != nullptr)
+                add_move_cell(moveChange, bound, db.second);
         }
         for (const auto &mm : moves_made) {
             if (!ctx->isBelLocationValid(mm.first->bel) || !check_cell_bel_region(mm.first, mm.first->bel))
@@ -628,9 +635,6 @@ class SAPlacer
             CellInfo *bound = ctx->getBoundBelCell(mm.second);
             if (bound && !check_cell_bel_region(bound, bound->bel))
                 goto swap_fail;
-            add_move_cell(moveChange, mm.first, mm.second);
-            if (bound != nullptr)
-                add_move_cell(moveChange, bound, mm.first->bel);
         }
         compute_cost_changes(moveChange);
         delta = lambda * (moveChange.timing_delta / last_timing_cost) +
@@ -717,15 +721,38 @@ class SAPlacer
         bb.x1 = dloc.x;
         bb.y0 = dloc.y;
         bb.y1 = dloc.y;
-
+        bb.nx0 = 1;
+        bb.nx1 = 1;
+        bb.ny0 = 1;
+        bb.ny1 = 1;
         for (auto user : net->users) {
             if (user.cell->bel == BelId())
                 continue;
             Loc uloc = ctx->getBelLocation(user.cell->bel);
-            bb.x0 = std::min(bb.x0, uloc.x);
-            bb.x1 = std::max(bb.x1, uloc.x);
-            bb.y0 = std::min(bb.y0, uloc.y);
-            bb.y1 = std::max(bb.y1, uloc.y);
+            if (bb.x0 == uloc.x)
+                ++bb.nx0;
+            else if (uloc.x < bb.x0) {
+                bb.x0 = uloc.x;
+                bb.nx0 = 1;
+            }
+            if (bb.x1 == uloc.x)
+                ++bb.nx1;
+            else if (uloc.x > bb.x1) {
+                bb.x1 = uloc.x;
+                bb.nx1 = 1;
+            }
+            if (bb.y0 == uloc.y)
+                ++bb.ny0;
+            else if (uloc.y < bb.y0) {
+                bb.y0 = uloc.y;
+                bb.ny0 = 1;
+            }
+            if (bb.y1 == uloc.y)
+                ++bb.ny1;
+            else if (uloc.y > bb.y1) {
+                bb.y1 = uloc.y;
+                bb.ny1 = 1;
+            }
         }
 
         return bb;
@@ -789,27 +816,51 @@ class SAPlacer
     // Cost-change-related data for a move
     struct MoveChangeData
     {
-        std::vector<decltype(NetInfo::udata)> bounds_changed_nets;
+
+        enum BoundChangeType {
+            NO_CHANGE,
+            CELL_MOVED_INWARDS,
+            CELL_MOVED_OUTWARDS,
+            FULL_RECOMPUTE
+        };
+
+        std::vector<decltype(NetInfo::udata)> bounds_changed_nets_x, bounds_changed_nets_y;
         std::vector<std::pair<decltype(NetInfo::udata), size_t>> changed_arcs;
 
-        std::vector<bool> already_bounds_changed;
+        std::vector<BoundChangeType> already_bounds_changed_x, already_bounds_changed_y;
         std::vector<std::vector<bool>> already_changed_arcs;
 
-        std::vector<std::pair<decltype(NetInfo::udata), BoundingBox>> new_net_bounds;
+        std::vector<BoundingBox> new_net_bounds;
         std::vector<std::pair<std::pair<decltype(NetInfo::udata), size_t>, double>> new_arc_costs;
 
         wirelen_t wirelen_delta = 0;
         double timing_delta = 0;
 
-        void reset()
+        void init(SAPlacer *p) {
+            already_bounds_changed_x.resize(p->ctx->nets.size());
+            already_bounds_changed_y.resize(p->ctx->nets.size());
+            already_changed_arcs.resize(p->ctx->nets.size());
+            for (auto &net : p->ctx->nets) {
+                already_changed_arcs.at(net.second->udata).resize(net.second->users.size());
+            }
+            new_net_bounds = p->net_bounds;
+        }
+
+        void reset(SAPlacer *p)
         {
-            for (auto bc : bounds_changed_nets)
-                already_bounds_changed[bc] = false;
+            for (auto bc : bounds_changed_nets_x) {
+                new_net_bounds[bc] = p->net_bounds[bc];
+                already_bounds_changed_x[bc] = NO_CHANGE;
+            }
+            for (auto bc : bounds_changed_nets_y) {
+                new_net_bounds[bc] = p->net_bounds[bc];
+                already_bounds_changed_y[bc] = NO_CHANGE;
+            }
             for (const auto &tc : changed_arcs)
                 already_changed_arcs[tc.first][tc.second] = false;
-            bounds_changed_nets.clear();
+            bounds_changed_nets_x.clear();
+            bounds_changed_nets_y.clear();
             changed_arcs.clear();
-            new_net_bounds.clear();
             new_arc_costs.clear();
             wirelen_delta = 0;
             timing_delta = 0;
@@ -828,14 +879,128 @@ class SAPlacer
                 continue;
             if (ignore_net(pn))
                 continue;
-            const BoundingBox &curr_bounds = net_bounds[pn->udata];
-            // If the old location was at the edge of the bounds, or the new location exceeds the bounds,
-            // an update is needed
-            if (curr_bounds.touches_bounds(old_loc.x, old_loc.y) || !curr_bounds.is_inside_inc(curr_loc.x, curr_loc.y))
-                if (!mc.already_bounds_changed[pn->udata]) {
-                    mc.bounds_changed_nets.push_back(pn->udata);
-                    mc.already_bounds_changed[pn->udata] = true;
+            BoundingBox &curr_bounds = mc.new_net_bounds[pn->udata];
+            // Incremental bounding box updates
+            // Note that everything other than full updates are applied immediately rather than being queued,
+            // so further updates to the same net in the same move are dealt with correctly.
+            // If a full update is already queued, this can be considered a no-op
+            if (mc.already_bounds_changed_x[pn->udata] != MoveChangeData::FULL_RECOMPUTE) {
+                // Bounds x0
+                if (curr_loc.x < curr_bounds.x0) {
+                    // Further out than current bounds x0
+                    curr_bounds.x0 = curr_loc.x;
+                    curr_bounds.nx0 = 1;
+                    if (mc.already_bounds_changed_x[pn->udata] == MoveChangeData::NO_CHANGE) {
+                        // Checking already_bounds_changed_x ensures that each net is only added once
+                        // to bounds_changed_nets, lest we add its HPWL change multiple times skewing the
+                        // overall cost change
+                        mc.already_bounds_changed_x[pn->udata] = MoveChangeData::CELL_MOVED_OUTWARDS;
+                        mc.bounds_changed_nets_x.push_back(pn->udata);
+                    }
+                } else if (curr_loc.x == curr_bounds.x0 && old_loc.x > curr_bounds.x0) {
+                    curr_bounds.nx0++;
+                    if (mc.already_bounds_changed_x[pn->udata] == MoveChangeData::NO_CHANGE) {
+                        mc.already_bounds_changed_x[pn->udata] = MoveChangeData::CELL_MOVED_OUTWARDS;
+                        mc.bounds_changed_nets_x.push_back(pn->udata);
+                    }
+                } else if (old_loc.x == curr_bounds.x0  && curr_loc.x > curr_bounds.x0) {
+                    if (mc.already_bounds_changed_x[pn->udata] == MoveChangeData::NO_CHANGE)
+                        mc.bounds_changed_nets_x.push_back(pn->udata);
+                    if (curr_bounds.nx0 == 1) {
+                        mc.already_bounds_changed_x[pn->udata] = MoveChangeData::FULL_RECOMPUTE;
+                    } else {
+                        curr_bounds.nx0--;
+                        if (mc.already_bounds_changed_x[pn->udata] == MoveChangeData::NO_CHANGE)
+                            mc.already_bounds_changed_x[pn->udata] = MoveChangeData::CELL_MOVED_INWARDS;
+                    }
                 }
+
+                // Bounds x1
+                if (curr_loc.x > curr_bounds.x1) {
+                    // Further out than current bounds x1
+                    curr_bounds.x1 = curr_loc.x;
+                    curr_bounds.nx1 = 1;
+                    if (mc.already_bounds_changed_x[pn->udata] == MoveChangeData::NO_CHANGE) {
+                        // Checking already_bounds_changed_x ensures that each net is only added once
+                        // to bounds_changed_nets, lest we add its HPWL change multiple times skewing the
+                        // overall cost change
+                        mc.already_bounds_changed_x[pn->udata] = MoveChangeData::CELL_MOVED_OUTWARDS;
+                        mc.bounds_changed_nets_x.push_back(pn->udata);
+                    }
+                } else if (curr_loc.x == curr_bounds.x1 && old_loc.x < curr_bounds.x1) {
+                    curr_bounds.nx1++;
+                    if (mc.already_bounds_changed_x[pn->udata] == MoveChangeData::NO_CHANGE) {
+                        mc.already_bounds_changed_x[pn->udata] = MoveChangeData::CELL_MOVED_OUTWARDS;
+                        mc.bounds_changed_nets_x.push_back(pn->udata);
+                    }
+                } else if (old_loc.x == curr_bounds.x1  && curr_loc.x < curr_bounds.x1) {
+                    if (mc.already_bounds_changed_x[pn->udata] == MoveChangeData::NO_CHANGE)
+                        mc.bounds_changed_nets_x.push_back(pn->udata);
+                    if (curr_bounds.nx1 == 1) {
+                        mc.already_bounds_changed_x[pn->udata] = MoveChangeData::FULL_RECOMPUTE;
+                    } else {
+                        curr_bounds.nx1--;
+                        if (mc.already_bounds_changed_x[pn->udata] == MoveChangeData::NO_CHANGE)
+                            mc.already_bounds_changed_x[pn->udata] = MoveChangeData::CELL_MOVED_INWARDS;
+                    }
+                }
+            }
+            if (mc.already_bounds_changed_y[pn->udata] != MoveChangeData::FULL_RECOMPUTE) {
+                // Bounds y0
+                if (curr_loc.y < curr_bounds.y0) {
+                    // Further out than current bounds y0
+                    curr_bounds.y0 = curr_loc.y;
+                    curr_bounds.ny0 = 1;
+                    if (mc.already_bounds_changed_y[pn->udata] == MoveChangeData::NO_CHANGE) {
+                        mc.already_bounds_changed_y[pn->udata] = MoveChangeData::CELL_MOVED_OUTWARDS;
+                        mc.bounds_changed_nets_y.push_back(pn->udata);
+                    }
+                } else if (curr_loc.y == curr_bounds.y0 && old_loc.y > curr_bounds.y0) {
+                    curr_bounds.ny0++;
+                    if (mc.already_bounds_changed_y[pn->udata] == MoveChangeData::NO_CHANGE) {
+                        mc.already_bounds_changed_y[pn->udata] = MoveChangeData::CELL_MOVED_OUTWARDS;
+                        mc.bounds_changed_nets_y.push_back(pn->udata);
+                    }
+                } else if (old_loc.y == curr_bounds.y0 && curr_loc.y > curr_bounds.y0) {
+                    if (mc.already_bounds_changed_y[pn->udata] == MoveChangeData::NO_CHANGE)
+                        mc.bounds_changed_nets_y.push_back(pn->udata);
+                    if (curr_bounds.ny0 == 1) {
+                        mc.already_bounds_changed_y[pn->udata] = MoveChangeData::FULL_RECOMPUTE;
+                    } else {
+                        curr_bounds.ny0--;
+                        if (mc.already_bounds_changed_y[pn->udata] == MoveChangeData::NO_CHANGE)
+                            mc.already_bounds_changed_y[pn->udata] = MoveChangeData::CELL_MOVED_INWARDS;
+                    }
+                }
+
+                // Bounds y1
+                if (curr_loc.y > curr_bounds.y1) {
+                    // Further out than current bounds y1
+                    curr_bounds.y1 = curr_loc.y;
+                    curr_bounds.ny1 = 1;
+                    if (mc.already_bounds_changed_y[pn->udata] == MoveChangeData::NO_CHANGE) {
+                        mc.already_bounds_changed_y[pn->udata] = MoveChangeData::CELL_MOVED_OUTWARDS;
+                        mc.bounds_changed_nets_y.push_back(pn->udata);
+                    }
+                } else if (curr_loc.y == curr_bounds.y1 && old_loc.y < curr_bounds.y1) {
+                    curr_bounds.ny1++;
+                    if (mc.already_bounds_changed_y[pn->udata] == MoveChangeData::NO_CHANGE) {
+                        mc.already_bounds_changed_y[pn->udata] = MoveChangeData::CELL_MOVED_OUTWARDS;
+                        mc.bounds_changed_nets_y.push_back(pn->udata);
+                    }
+                } else if (old_loc.y == curr_bounds.y1  && curr_loc.y < curr_bounds.y1) {
+                    if (mc.already_bounds_changed_y[pn->udata] == MoveChangeData::NO_CHANGE)
+                        mc.bounds_changed_nets_y.push_back(pn->udata);
+                    if (curr_bounds.ny1 == 1) {
+                        mc.already_bounds_changed_y[pn->udata] = MoveChangeData::FULL_RECOMPUTE;
+                    } else {
+                        curr_bounds.ny1--;
+                        if (mc.already_bounds_changed_y[pn->udata] == MoveChangeData::NO_CHANGE)
+                            mc.already_bounds_changed_y[pn->udata] = MoveChangeData::CELL_MOVED_INWARDS;
+                    }
+                }
+            }
+
             if (ctx->timing_driven && int(pn->users.size()) < cfg.timingFanoutThresh) {
                 // Output ports - all arcs change timing
                 if (port.second.type == PORT_OUT) {
@@ -860,13 +1025,21 @@ class SAPlacer
 
     void compute_cost_changes(MoveChangeData &md)
     {
-        for (const auto &bc : md.bounds_changed_nets) {
-            wirelen_t old_hpwl = net_bounds.at(bc).hpwl();
-            auto bounds = get_net_bounds(net_by_udata.at(bc));
-            md.new_net_bounds.emplace_back(std::make_pair(bc, bounds));
-            md.wirelen_delta += (bounds.hpwl() - old_hpwl);
-            md.already_bounds_changed[bc] = false;
+        for (const auto &bc : md.bounds_changed_nets_x) {
+            if (md.already_bounds_changed_x[bc] == MoveChangeData::FULL_RECOMPUTE)
+                md.new_net_bounds[bc] = get_net_bounds(net_by_udata[bc]);
         }
+        for (const auto &bc : md.bounds_changed_nets_y) {
+            if (md.already_bounds_changed_x[bc] != MoveChangeData::FULL_RECOMPUTE && md.already_bounds_changed_y[bc] == MoveChangeData::FULL_RECOMPUTE)
+                md.new_net_bounds[bc] = get_net_bounds(net_by_udata[bc]);
+        }
+
+        for (const auto &bc : md.bounds_changed_nets_x)
+            md.wirelen_delta += md.new_net_bounds[bc].hpwl() - net_bounds[bc].hpwl();
+        for (const auto &bc : md.bounds_changed_nets_y)
+            if (md.already_bounds_changed_x[bc] == MoveChangeData::NO_CHANGE)
+                md.wirelen_delta += md.new_net_bounds[bc].hpwl() - net_bounds[bc].hpwl();
+
         if (ctx->timing_driven) {
             for (const auto &tc : md.changed_arcs) {
                 double old_cost = net_arc_tcost.at(tc.first).at(tc.second);
@@ -880,8 +1053,10 @@ class SAPlacer
 
     void commit_cost_changes(MoveChangeData &md)
     {
-        for (const auto &bc : md.new_net_bounds)
-            net_bounds[bc.first] = bc.second;
+        for (const auto &bc : md.bounds_changed_nets_x)
+            net_bounds[bc] = md.new_net_bounds[bc];
+        for (const auto &bc : md.bounds_changed_nets_y)
+            net_bounds[bc] = md.new_net_bounds[bc];
         for (const auto &tc : md.new_arc_costs)
             net_arc_tcost[tc.first.first].at(tc.first.second) = tc.second;
         curr_wirelen_cost += md.wirelen_delta;
