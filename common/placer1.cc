@@ -291,6 +291,24 @@ class SAPlacer
                 }
             }
 
+            if (ctx->debug) {
+                // Verify correctness of incremental wirelen updates
+                for (size_t i = 0; i < net_bounds.size(); i++) {
+                    auto net = net_by_udata[i];
+                    if (ignore_net(net))
+                        continue;
+                    auto &incr = net_bounds.at(i), gold = get_net_bounds(net);
+                    NPNR_ASSERT(incr.x0 == gold.x0);
+                    NPNR_ASSERT(incr.x1 == gold.x1);
+                    NPNR_ASSERT(incr.y0 == gold.y0);
+                    NPNR_ASSERT(incr.y1 == gold.y1);
+                    NPNR_ASSERT(incr.nx0 == gold.nx0);
+                    NPNR_ASSERT(incr.nx1 == gold.nx1);
+                    NPNR_ASSERT(incr.ny0 == gold.ny0);
+                    NPNR_ASSERT(incr.ny1 == gold.ny1);
+                }
+            }
+
             if (curr_wirelen_cost < min_wirelen) {
                 min_wirelen = curr_wirelen_cost;
                 improved = true;
