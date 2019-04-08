@@ -835,7 +835,8 @@ class SAPlacer
     struct MoveChangeData
     {
 
-        enum BoundChangeType {
+        enum BoundChangeType
+        {
             NO_CHANGE,
             CELL_MOVED_INWARDS,
             CELL_MOVED_OUTWARDS,
@@ -854,7 +855,8 @@ class SAPlacer
         wirelen_t wirelen_delta = 0;
         double timing_delta = 0;
 
-        void init(SAPlacer *p) {
+        void init(SAPlacer *p)
+        {
             already_bounds_changed_x.resize(p->ctx->nets.size());
             already_bounds_changed_y.resize(p->ctx->nets.size());
             already_changed_arcs.resize(p->ctx->nets.size());
@@ -921,7 +923,7 @@ class SAPlacer
                         mc.already_bounds_changed_x[pn->udata] = MoveChangeData::CELL_MOVED_OUTWARDS;
                         mc.bounds_changed_nets_x.push_back(pn->udata);
                     }
-                } else if (old_loc.x == curr_bounds.x0  && curr_loc.x > curr_bounds.x0) {
+                } else if (old_loc.x == curr_bounds.x0 && curr_loc.x > curr_bounds.x0) {
                     if (mc.already_bounds_changed_x[pn->udata] == MoveChangeData::NO_CHANGE)
                         mc.bounds_changed_nets_x.push_back(pn->udata);
                     if (curr_bounds.nx0 == 1) {
@@ -951,7 +953,7 @@ class SAPlacer
                         mc.already_bounds_changed_x[pn->udata] = MoveChangeData::CELL_MOVED_OUTWARDS;
                         mc.bounds_changed_nets_x.push_back(pn->udata);
                     }
-                } else if (old_loc.x == curr_bounds.x1  && curr_loc.x < curr_bounds.x1) {
+                } else if (old_loc.x == curr_bounds.x1 && curr_loc.x < curr_bounds.x1) {
                     if (mc.already_bounds_changed_x[pn->udata] == MoveChangeData::NO_CHANGE)
                         mc.bounds_changed_nets_x.push_back(pn->udata);
                     if (curr_bounds.nx1 == 1) {
@@ -1006,7 +1008,7 @@ class SAPlacer
                         mc.already_bounds_changed_y[pn->udata] = MoveChangeData::CELL_MOVED_OUTWARDS;
                         mc.bounds_changed_nets_y.push_back(pn->udata);
                     }
-                } else if (old_loc.y == curr_bounds.y1  && curr_loc.y < curr_bounds.y1) {
+                } else if (old_loc.y == curr_bounds.y1 && curr_loc.y < curr_bounds.y1) {
                     if (mc.already_bounds_changed_y[pn->udata] == MoveChangeData::NO_CHANGE)
                         mc.bounds_changed_nets_y.push_back(pn->udata);
                     if (curr_bounds.ny1 == 1) {
@@ -1048,7 +1050,8 @@ class SAPlacer
                 md.new_net_bounds[bc] = get_net_bounds(net_by_udata[bc]);
         }
         for (const auto &bc : md.bounds_changed_nets_y) {
-            if (md.already_bounds_changed_x[bc] != MoveChangeData::FULL_RECOMPUTE && md.already_bounds_changed_y[bc] == MoveChangeData::FULL_RECOMPUTE)
+            if (md.already_bounds_changed_x[bc] != MoveChangeData::FULL_RECOMPUTE &&
+                md.already_bounds_changed_y[bc] == MoveChangeData::FULL_RECOMPUTE)
                 md.new_net_bounds[bc] = get_net_bounds(net_by_udata[bc]);
         }
 
