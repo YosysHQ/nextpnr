@@ -67,6 +67,8 @@
 #define NPNR_PACKED_STRUCT(...) __VA_ARGS__
 #endif
 
+typedef struct _object PyObject;
+
 NEXTPNR_NAMESPACE_BEGIN
 
 class assertion_failure : public std::runtime_error
@@ -803,6 +805,7 @@ struct BaseCtx
     TimingConstrObjectId timingNetObject(NetInfo *net);
     TimingConstrObjectId timingCellObject(CellInfo *cell);
     TimingConstrObjectId timingPortObject(CellInfo *cell, IdString port);
+    std::unordered_set<TimingConstrObjectId> parsePythonTimingObject(PyObject *obj);
 
     NetInfo *getNetByAlias(IdString alias) const
     {
@@ -833,6 +836,16 @@ struct BaseCtx
 
     void archInfoToAttributes();
     void attributesToArchInfo();
+
+
+    void addFalsePath(const std::unordered_set<TimingConstrObjectId> &from,
+                      const std::unordered_set<TimingConstrObjectId> &to);
+    void setMinDelay(const std::unordered_set<TimingConstrObjectId> &from,
+                     const std::unordered_set<TimingConstrObjectId> &to, delay_t delay);
+    void setMaxDelay(const std::unordered_set<TimingConstrObjectId> &from,
+                     const std::unordered_set<TimingConstrObjectId> &to, delay_t delay);
+    void addMulticyclePath(const std::unordered_set<TimingConstrObjectId> &from,
+                           const std::unordered_set<TimingConstrObjectId> &to);
 };
 
 NEXTPNR_NAMESPACE_END

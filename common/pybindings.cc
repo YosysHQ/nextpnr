@@ -27,6 +27,7 @@
 #include "nextpnr.h"
 
 #include <boost/filesystem.hpp>
+#include <Python.h>
 #include <fstream>
 #include <memory>
 #include <signal.h>
@@ -70,7 +71,72 @@ void translate_assertfail(const assertion_failure &e)
     PyErr_SetString(PyExc_AssertionError, e.what());
 }
 
+std::unordered_set<TimingConstrObjectId> BaseCtx::parsePythonTimingObject(PyObject *obj) {
+    using namespace PythonConversion;
+    std::unordered_set<TimingConstrObjectId> result;
+    auto convert_item = [&](PyObject *obj_ptr) -> TimingConstrObjectId {
+        boost::python::extract<ContextualWrapper<CellInfo &>> cie(obj_ptr);
+        if (cie.check()) {
+            auto wrcell = cie();
+            return timingCellObject(&wrcell.base);
+        }
+        boost::python::extract<ContextualWrapper<PortInfo &>> pie(obj_ptr);
+        if (pie.check()) {
+            NPNR_ASSERT_FALSE("FIXME: PortInfo -> CellInfo");
+        }
+        boost::python::extract<ContextualWrapper<NetInfo &>> nie(obj_ptr);
+        if (nie.check()) {
+            auto wrnet = nie();
+            return timingNetObject(&wrnet.base);
+        }
+        boost::python::extract<TimingConstrObjectId> ide(obj_ptr);
+        if (ide.check()) {
+            return ide();
+        }
+        if (PyUnicode_Check(obj_ptr)) {
+            std::string obj_str(PyUnicode_AsUTF8(obj_ptr));
+            if (obj_str == "*") {
+                return timingWildcardObject();
+            } else if (cells.count(id(obj_str))) {
+                return timingCellObject(cells.at(id(obj_str)).get());
+            } else if (nets.count(id(obj_str))) {
+                return timingNetObject(nets.at(id(obj_str)).get());
+            } else {
+                // Might be a port reference
+                auto last_dot = obj_str.find_last_of('.');
+                if (last_dot != std::string::npos) {
+                    std::string cell = obj_str.substr(0, last_dot), port = obj_str.substr(last_dot + 1);
+                    if (!cells.count(id(cell)) || !cells.at(id(cell))->ports.count(id(port)))
+                        NPNR_ASSERT_FALSE_STR("unable to find any port represented by string '" + obj_str + "'");
+                    return timingPortObject(cells.at(id(cell)).get(), id(port));
+                } else {
+                    NPNR_ASSERT_FALSE_STR("unable to find any object represented by string '" + obj_str + "'");
+                }
+            }
+        }
+        NPNR_ASSERT_FALSE("unknown timing object type");
+    };
+    if (PyIter_Check(obj)) {
+        while (true) {
+            PyObject *next = PyIter_Next(obj);
+            if (next == nullptr)
+                break;
+            result.insert(convert_item(obj));
+        }
+    } else {
+        result.insert(convert_item(obj));
+    }
+    return result;
+}
+
 namespace PythonConversion {
+template <> struct string_converter<Property>
+{
+    inline Property from_str(Context *ctx, std::string s) { return Property::from_string(s); }
+
+    inline std::string to_str(Context *ctx, Property p) { return p.to_string(); }
+};
+
 template <> struct string_converter<PortRef &>
 {
     inline PortRef from_str(Context *ctx, std::string name) { NPNR_ASSERT_FALSE("PortRef from_str not implemented"); }
@@ -79,13 +145,6 @@ template <> struct string_converter<PortRef &>
     {
         return pr.cell->name.str(ctx) + "." + pr.port.str(ctx);
     }
-};
-
-template <> struct string_converter<Property>
-{
-    inline Property from_str(Context *ctx, std::string s) { return Property::from_string(s); }
-
-    inline std::string to_str(Context *ctx, Property p) { return p.to_string(); }
 };
 
 } // namespace PythonConversion
