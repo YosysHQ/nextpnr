@@ -502,6 +502,19 @@ static void pack_io(Context *ctx)
             // Make it a normal SB_IO with global marker
             ci->type = ctx->id("SB_IO");
             ci->attrs[ctx->id("GLOBAL")] = "1";
+        } else if (is_sb_io(ctx, ci)) {
+            // Disconnect unused inputs
+            NetInfo *net_in0 = ci->ports.count(id_D_IN_0) ? ci->ports[id_D_IN_0].net : nullptr;
+            NetInfo *net_in1 = ci->ports.count(id_D_IN_1) ? ci->ports[id_D_IN_1].net : nullptr;
+
+            if (net_in0 != nullptr && net_in0->users.size() == 0) {
+                delete_nets.insert(net_in0->name);
+                ci->ports[id_D_IN_0].net = nullptr;
+            }
+            if (net_in1 != nullptr && net_in1->users.size() == 0) {
+                delete_nets.insert(net_in1->name);
+                ci->ports[id_D_IN_1].net = nullptr;
+            }
         }
     }
     for (auto pcell : packed_cells) {
