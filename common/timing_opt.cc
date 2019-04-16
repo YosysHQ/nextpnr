@@ -84,6 +84,7 @@ class TimingOptimiser
     bool optimise()
     {
         log_info("Running timing-driven placement optimisation...\n");
+        ctx->lock();
         if (ctx->verbose)
             timing_analysis(ctx, false, true, false, false);
         for (int i = 0; i < 30; i++) {
@@ -96,6 +97,7 @@ class TimingOptimiser
             if (ctx->verbose)
                 timing_analysis(ctx, false, true, false, false);
         }
+        ctx->unlock();
         return true;
     }
 
