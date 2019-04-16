@@ -38,6 +38,10 @@ class MainWindow : public BaseMainWindow
   protected Q_SLOTS:
     void new_proj() override;
     void newContext(Context *ctx);
+    void open_ucf();
+
+  private:
+    QAction *actionLoadUCF;
 };
 
 NEXTPNR_NAMESPACE_END

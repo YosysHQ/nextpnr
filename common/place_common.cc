@@ -234,7 +234,7 @@ class ConstraintLegaliseWorker
         }
         if (!ctx->checkBelAvail(locBel)) {
             CellInfo *confCell = ctx->getConflictingBelCell(locBel);
-            if (confCell->belStrength >= STRENGTH_STRONG) {
+            if (confCell != cell && confCell->belStrength >= STRENGTH_STRONG) {
                 return false;
             }
         }
@@ -247,49 +247,59 @@ class ConstraintLegaliseWorker
         usedLocations.insert(loc);
         for (auto child : cell->constr_children) {
             IncreasingDiameterSearch xSearch, ySearch, zSearch;
-            if (child->constr_x == child->UNCONSTR) {
-                xSearch = IncreasingDiameterSearch(loc.x, 0, ctx->getGridDimX() - 1);
-            } else {
-                xSearch = IncreasingDiameterSearch(loc.x + child->constr_x);
-            }
-            if (child->constr_y == child->UNCONSTR) {
-                ySearch = IncreasingDiameterSearch(loc.y, 0, ctx->getGridDimY() - 1);
-            } else {
-                ySearch = IncreasingDiameterSearch(loc.y + child->constr_y);
-            }
-            if (child->constr_z == child->UNCONSTR) {
-                zSearch = IncreasingDiameterSearch(loc.z, 0, ctx->getTileBelDimZ(loc.x, loc.y));
-            } else {
-                if (child->constr_abs_z) {
-                    zSearch = IncreasingDiameterSearch(child->constr_z);
-                } else {
-                    zSearch = IncreasingDiameterSearch(loc.z + child->constr_z);
-                }
-            }
             bool success = false;
-            while (!xSearch.done()) {
-                Loc cloc;
-                cloc.x = xSearch.get();
-                cloc.y = ySearch.get();
-                cloc.z = zSearch.get();
-
-                zSearch.next();
-                if (zSearch.done()) {
-                    zSearch.reset();
-                    ySearch.next();
-                    if (ySearch.done()) {
-                        ySearch.reset();
-                        xSearch.next();
+	    if (child->constr_spec != -1) {
+		BelId child_bel = ctx->getRelatedBel(locBel, child->constr_spec);
+		if (child_bel != BelId()) {
+		    Loc cloc = ctx->getBelLocation(child_bel);
+                    if (!usedLocations.count(cloc) && valid_loc_for(child, cloc, solution, usedLocations)) {
+                        success = true;
+                    }
+		}
+	    } else {
+                if (child->constr_x == child->UNCONSTR) {
+                    xSearch = IncreasingDiameterSearch(loc.x, 0, ctx->getGridDimX() - 1);
+                } else {
+                    xSearch = IncreasingDiameterSearch(loc.x + child->constr_x);
+                }
+                if (child->constr_y == child->UNCONSTR) {
+                    ySearch = IncreasingDiameterSearch(loc.y, 0, ctx->getGridDimY() - 1);
+                } else {
+                    ySearch = IncreasingDiameterSearch(loc.y + child->constr_y);
+                }
+                if (child->constr_z == child->UNCONSTR) {
+                    zSearch = IncreasingDiameterSearch(loc.z, 0, ctx->getTileBelDimZ(loc.x, loc.y));
+                } else {
+                    if (child->constr_abs_z) {
+                        zSearch = IncreasingDiameterSearch(child->constr_z);
+                    } else {
+                        zSearch = IncreasingDiameterSearch(loc.z + child->constr_z);
                     }
                 }
-
-                if (usedLocations.count(cloc))
-                    continue;
-                if (valid_loc_for(child, cloc, solution, usedLocations)) {
-                    success = true;
-                    break;
+                while (!xSearch.done()) {
+                    Loc cloc;
+                    cloc.x = xSearch.get();
+                    cloc.y = ySearch.get();
+                    cloc.z = zSearch.get();
+    
+                    zSearch.next();
+                    if (zSearch.done()) {
+                        zSearch.reset();
+                        ySearch.next();
+                        if (ySearch.done()) {
+                            ySearch.reset();
+                            xSearch.next();
+                        }
+                    }
+    
+                    if (usedLocations.count(cloc))
+                        continue;
+                    if (valid_loc_for(child, cloc, solution, usedLocations)) {
+                        success = true;
+                        break;
+                    }
                 }
-            }
+	    }
             if (!success) {
                 usedLocations.erase(loc);
                 return false;
@@ -316,7 +326,7 @@ class ConstraintLegaliseWorker
             return true; // Only process chain roots
         if (constraints_satisfied(cell)) {
             if (cell->constr_children.size() > 0 || cell->constr_x != cell->UNCONSTR ||
-                cell->constr_y != cell->UNCONSTR || cell->constr_z != cell->UNCONSTR)
+                cell->constr_y != cell->UNCONSTR || cell->constr_z != cell->UNCONSTR || cell->constr_spec != -1)
                 lockdown_chain(cell);
         } else {
             IncreasingDiameterSearch xRootSearch, yRootSearch, zRootSearch;
@@ -513,16 +523,26 @@ int get_constraints_distance(const Context *ctx, const CellInfo *cell)
         if (cell->constr_parent->bel == BelId())
             return 100000;
         Loc parent_loc = ctx->getBelLocation(cell->constr_parent->bel);
-        if (cell->constr_x != cell->UNCONSTR)
-            dist += std::abs(cell->constr_x - (loc.x - parent_loc.x));
-        if (cell->constr_y != cell->UNCONSTR)
-            dist += std::abs(cell->constr_y - (loc.y - parent_loc.y));
-        if (cell->constr_z != cell->UNCONSTR) {
-            if (cell->constr_abs_z)
-                dist += std::abs(cell->constr_z - loc.z);
-            else
-                dist += std::abs(cell->constr_z - (loc.z - parent_loc.z));
-        }
+        if (cell->constr_spec != -1) {
+	    BelId child_bel = ctx->getRelatedBel(cell->constr_parent->bel, cell->constr_spec);
+	    if (child_bel == BelId())
+                return 100000;
+	    Loc child_loc = ctx->getBelLocation(child_bel);
+	    dist += std::abs(child_loc.x - loc.x);
+	    dist += std::abs(child_loc.y - loc.y);
+	    dist += std::abs(child_loc.z - loc.z);
+	} else {
+            if (cell->constr_x != cell->UNCONSTR)
+                dist += std::abs(cell->constr_x - (loc.x - parent_loc.x));
+            if (cell->constr_y != cell->UNCONSTR)
+                dist += std::abs(cell->constr_y - (loc.y - parent_loc.y));
+            if (cell->constr_z != cell->UNCONSTR) {
+                if (cell->constr_abs_z)
+                    dist += std::abs(cell->constr_z - loc.z);
+                else
+                    dist += std::abs(cell->constr_z - (loc.z - parent_loc.z));
+            }
+	}
     }
     for (auto child : cell->constr_children)
         dist += get_constraints_distance(ctx, child);

@@ -523,6 +523,8 @@ struct Arch : BaseCtx
         return IdString(chip_info->bel_data[bel.index].type);
     }
 
+    BelId getRelatedBel(BelId bel, int relation) const { return BelId(); }
+
     std::vector<std::pair<IdString, std::string>> getBelAttrs(BelId bel) const;
 
     WireId getBelPinWire(BelId bel, IdString pin) const;

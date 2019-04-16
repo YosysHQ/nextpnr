@@ -203,6 +203,7 @@ struct Arch : BaseCtx
     CellInfo *getConflictingBelCell(BelId bel) const;
     const std::vector<BelId> &getBels() const;
     IdString getBelType(BelId bel) const;
+    BelId getRelatedBel(BelId bel, int relation) const { return BelId(); }
     const std::map<IdString, std::string> &getBelAttrs(BelId bel) const;
     WireId getBelPinWire(BelId bel, IdString pin) const;
     PortType getBelPinType(BelId bel, IdString pin) const;

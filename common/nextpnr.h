@@ -443,6 +443,7 @@ struct CellInfo : ArchCellInfo
     int constr_y = UNCONSTR;   // this.y - parent.y
     int constr_z = UNCONSTR;   // this.z - parent.z
     bool constr_abs_z = false; // parent.z := 0
+    int constr_spec = -1;
     // parent.[xyz] := 0 when (constr_parent == nullptr)
 
     Region *region = nullptr;

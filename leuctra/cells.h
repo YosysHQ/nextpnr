@@ -24,6 +24,10 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+// Create a standard cell and return it
+// Name will be automatically assigned if not specified
+std::unique_ptr<CellInfo> create_leuctra_cell(Context *ctx, IdString type, std::string name = "");
+
 inline bool is_xilinx_iobuf(const BaseCtx *ctx, const CellInfo *cell) {
    return cell->type == ctx->id("IBUF")
 	   || cell->type == ctx->id("IBUFDS")
@@ -35,6 +39,30 @@ inline bool is_xilinx_iobuf(const BaseCtx *ctx, const CellInfo *cell) {
 	   || cell->type == ctx->id("IOBUF")
 	   || cell->type == ctx->id("IOBUFDS");
 }
+
+inline bool is_xilinx_ff(const BaseCtx *ctx, const CellInfo *cell) {
+   return cell->type == ctx->id("FDRE");
+}
+
+inline bool is_xilinx_lut(const BaseCtx *ctx, const CellInfo *cell) {
+   return cell->type == ctx->id("LUT1")
+	   || cell->type == ctx->id("LUT2")
+	   || cell->type == ctx->id("LUT3")
+	   || cell->type == ctx->id("LUT4")
+	   || cell->type == ctx->id("LUT5")
+	   || cell->type == ctx->id("LUT6");
+}
+
+// Convert a nextpnr IO buffer to an IOB
+void nxio_to_iob(Context *ctx, CellInfo *nxio, CellInfo *iob, std::vector<std::unique_ptr<CellInfo>> &created_cells,
+                std::unordered_set<IdString> &todelete_cells);
+void convert_ff(Context *ctx, CellInfo *orig, CellInfo *ff, std::vector<std::unique_ptr<CellInfo>> &created_cells,
+                std::unordered_set<IdString> &todelete_cells);
+void convert_lut(Context *ctx, CellInfo *orig, CellInfo *lc, std::vector<std::unique_ptr<CellInfo>> &created_cells,
+                std::unordered_set<IdString> &todelete_cells);
+
+void insert_ilogic_pass(Context *ctx, CellInfo *iob, CellInfo *ilogic);
+void insert_ologic_pass(Context *ctx, CellInfo *iob, CellInfo *ologic);
 
 NEXTPNR_NAMESPACE_END
 

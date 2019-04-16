@@ -18,6 +18,10 @@
  */
 
 #include "mainwindow.h"
+#include <fstream>
+#include "log.h"
+
+#include <QFileDialog>
 
 static void initMainResource() { Q_INIT_RESOURCE(nextpnr); }
 
@@ -44,8 +48,38 @@ void MainWindow::newContext(Context *ctx)
     setWindowTitle(title.c_str());
 }
 
-void MainWindow::createMenu() {}
+void MainWindow::createMenu() {
+    // Add arch specific actions
+    actionLoadUCF = new QAction("Open UCF", this);
+    actionLoadUCF->setIcon(QIcon(":/icons/resources/open_ucf.png"));
+    actionLoadUCF->setStatusTip("Open UCF file");
+    actionLoadUCF->setEnabled(false);
+    connect(actionLoadUCF, &QAction::triggered, this, &MainWindow::open_ucf);
+
+    // Add actions in menus
+    mainActionBar->addSeparator();
+    mainActionBar->addAction(actionLoadUCF);
+
+    menuDesign->addSeparator();
+    menuDesign->addAction(actionLoadUCF);
+}
 
 void MainWindow::new_proj() {}
+
+void MainWindow::open_ucf()
+{
+    QString fileName = QFileDialog::getOpenFileName(this, QString("Open UCF"), QString(), QString("*.ucf"));
+    if (!fileName.isEmpty()) {
+        std::ifstream in(fileName.toStdString());
+        if (ctx->applyUCF(fileName.toStdString(), in)) {
+            log("Loading UCF successful.\n");
+            actionPack->setEnabled(true);
+            actionLoadUCF->setEnabled(false);
+        } else {
+            actionLoadUCF->setEnabled(true);
+            log("Loading UCF failed.\n");
+        }
+    }
+}
 
 NEXTPNR_NAMESPACE_END

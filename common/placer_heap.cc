@@ -960,12 +960,18 @@ class HeAPPlacer
                             targets.emplace_back(vc, target);
                             for (auto child : vc->constr_children) {
                                 Loc cloc = ploc;
+	    if (child->constr_spec != -1) {
+		BelId base_bel = ctx->getBelByLocation(ploc);
+		BelId child_bel = ctx->getRelatedBel(base_bel, child->constr_spec);
+		cloc = ctx->getBelLocation(child_bel);
+	    } else {
                                 if (child->constr_x != child->UNCONSTR)
                                     cloc.x += child->constr_x;
                                 if (child->constr_y != child->UNCONSTR)
                                     cloc.y += child->constr_y;
                                 if (child->constr_z != child->UNCONSTR)
                                     cloc.z = child->constr_abs_z ? child->constr_z : (ploc.z + child->constr_z);
+	    }
                                 visit.emplace(child, cloc);
                             }
                         }

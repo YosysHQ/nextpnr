@@ -789,6 +789,16 @@ struct Arch : BaseCtx
 
     std::vector<IdString> getBelPins(BelId bel) const;
 
+    BelId getRelatedBel(BelId bel, int relation) const {
+	auto &tile = getTile(bel.location);
+	auto &related = tile.bels[bel.index].related[relation];
+	BelId res;
+	res.location.x = related.tile_x;
+	res.location.y = related.tile_y;
+	res.index = related.bel_idx;
+	return res;
+    }
+
     // -------------------------------------------------
 
     WireId getWireByName(IdString name) const;
@@ -1107,11 +1117,6 @@ struct Arch : BaseCtx
     }
 
     BelId getPackagePinBel(const std::string &pin) const;
-    std::string getBelPackagePin(BelId bel) const;
-    int getPioBelBank(BelId bel) const;
-    // For getting GCLK, PLL, Vref, etc, pins
-    std::string getPioFunctionName(BelId bel) const;
-    BelId getPioByFunctionName(const std::string &name) const;
 
     PortType getBelPinType(BelId bel, IdString pin) const;
 
@@ -1170,10 +1175,25 @@ struct Arch : BaseCtx
     // -------------------------------------------------
     // Placement validity checks
     // TODO: validate bel subtype (SLICEM vs SLICEL, IOBM vs IOBS, ...).
-    bool isValidBelForCell(CellInfo *cell, BelId bel) const { return true; }
-    bool isBelLocationValid(BelId bel) const { return true; }
+    bool isValidBelForCell(CellInfo *cell, BelId bel) const {
+	if (cell->type == id("LEUCTRA_FF") && (0x924924ull & 1ull << bel.index))
+	    return false;
+	return true;
+    }
+    bool isBelLocationValid(BelId bel) const {
+        CellInfo *cell = getBoundBelCell(bel);
+        if (cell == nullptr)
+            return true;
+        else
+            return isValidBelForCell(cell, bel);
+    }
+
+    // Apply UCF constraints to the context
+    bool applyUCF(std::string filename, std::istream &in);
 
     //void assignArchInfo();
+    static const std::string defaultPlacer;
+    static const std::vector<std::string> availablePlacers;
 };
 
 NEXTPNR_NAMESPACE_END

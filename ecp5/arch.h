@@ -607,6 +607,8 @@ struct Arch : BaseCtx
         return id;
     }
 
+    BelId getRelatedBel(BelId bel, int relation) const { return BelId(); }
+
     std::vector<std::pair<IdString, std::string>> getBelAttrs(BelId) const
     {
         std::vector<std::pair<IdString, std::string>> ret;

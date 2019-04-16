@@ -20,7 +20,9 @@
 
 #include "nextpnr.h"
 #include "placer1.h"
+#include "placer_heap.h"
 #include "router1.h"
+#include "util.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -451,8 +453,21 @@ BelPin BelPinIterator::operator*() const {
 }
 
 // -----------------------------------------------------------------------
-//
-// XXX package pins
+
+BelId Arch::getPackagePinBel(const std::string &pin) const
+{
+    IdString pin_id = id(pin);
+    for (int i = 0; i < package_info->num_pins; i++) {
+        if (package_info->pin_data[i].name_id == pin_id.index) {
+            BelId bel;
+            bel.location.x = package_info->pin_data[i].bel.tile_x;
+            bel.location.y = package_info->pin_data[i].bel.tile_y;
+            bel.index = package_info->pin_data[i].bel.bel_idx;
+            return bel;
+        }
+    }
+    return BelId();
+}
 
 std::vector<IdString> Arch::getBelPins(BelId bel) const
 {
@@ -490,7 +505,24 @@ bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay
 
 // -----------------------------------------------------------------------
 
-bool Arch::place() { return placer1(getCtx(), Placer1Cfg(getCtx())); }
+bool Arch::place()
+{
+    std::string placer = str_or_default(settings, id("placer"), defaultPlacer);
+
+    if (placer == "heap") {
+        PlacerHeapCfg cfg(getCtx());
+        cfg.criticalityExponent = 7;
+        cfg.ioBufTypes.insert(id("IOB"));
+        if (!placer_heap(getCtx(), cfg))
+            return false;
+    } else if (placer == "sa") {
+        if (!placer1(getCtx(), Placer1Cfg(getCtx())))
+            return false;
+    } else {
+        log_error("Leuctra architecture does not support placer '%s'\n", placer.c_str());
+    }
+    return true;
+}
 
 bool Arch::route() { return router1(getCtx(), Router1Cfg(getCtx())); }
 
@@ -562,5 +594,17 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
     // XXX
     return info;
 }
+
+#ifdef WITH_HEAP
+const std::string Arch::defaultPlacer = "heap";
+#else
+const std::string Arch::defaultPlacer = "sa";
+#endif
+
+const std::vector<std::string> Arch::availablePlacers = {"sa",
+#ifdef WITH_HEAP
+                                                         "heap"
+#endif
+};
 
 NEXTPNR_NAMESPACE_END

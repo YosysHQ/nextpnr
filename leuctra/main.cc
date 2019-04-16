@@ -24,6 +24,8 @@
 #include "design_utils.h"
 #include "log.h"
 #include "timing.h"
+#include "util.h"
+#include "textcfg.h"
 
 USING_NEXTPNR_NAMESPACE
 
@@ -34,6 +36,7 @@ class LeuctraCommandHandler : public CommandHandler
     virtual ~LeuctraCommandHandler(){};
     std::unique_ptr<Context> createContext() override;
     void setupArchContext(Context *ctx) override{};
+    void customAfterLoad(Context *ctx) override;
     void customBitstream(Context *ctx) override;
 
   protected:
@@ -48,10 +51,19 @@ po::options_description LeuctraCommandHandler::getArchOptions()
     specific.add_options()("device", po::value<std::string>(), "select device");
     specific.add_options()("package", po::value<std::string>(), "select device package");
     specific.add_options()("speed", po::value<std::string>(), "select device speedgrade");
+    specific.add_options()("ucf", po::value<std::vector<std::string>>(), "UCF pin constraint file(s)");
+    specific.add_options()("ucf-allow-unconstrained", "don't require UCF file(s) to constrain all IO");
+    specific.add_options()("textcfg", po::value<std::string>(), "textual configuration in Leuctra format to write");
     return specific;
 }
 
-void LeuctraCommandHandler::customBitstream(Context *ctx) { log_error("Here is when bitstream gets created"); }
+void LeuctraCommandHandler::customBitstream(Context *ctx) {
+    if (vm.count("textcfg")) {
+        std::string filename = vm["textcfg"].as<std::string>();
+        std::ofstream f(filename);
+        write_textcfg(ctx, f);
+    }
+}
 
 std::unique_ptr<Context> LeuctraCommandHandler::createContext()
 {
@@ -64,6 +76,36 @@ std::unique_ptr<Context> LeuctraCommandHandler::createContext()
     if (vm.count("speed"))
         chipArgs.speed = vm["speed"].as<std::string>();
     return std::unique_ptr<Context>(new Context(chipArgs));
+}
+
+void LeuctraCommandHandler::customAfterLoad(Context *ctx)
+{
+    if (vm.count("ucf")) {
+        std::vector<std::string> files = vm["ucf"].as<std::vector<std::string>>();
+        for (const auto &filename : files) {
+            std::ifstream in(filename);
+            if (!in)
+                log_error("failed to open UCF file '%s'\n", filename.c_str());
+            if (!ctx->applyUCF(filename, in))
+                log_error("failed to parse UCF file '%s'\n", filename.c_str());
+        }
+
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (ci->type == ctx->id("$nextpnr_ibuf") || ci->type == ctx->id("$nextpnr_obuf") ||
+                ci->type == ctx->id("$nextpnr_iobuf")) {
+                if (!ci->attrs.count(ctx->id("LOC"))) {
+                    if (vm.count("ucf-allow-unconstrained"))
+                        log_warning("IO '%s' is unconstrained in UCF and will be automatically placed\n",
+                                    cell.first.c_str(ctx));
+                    else
+                        log_error("IO '%s' is unconstrained in UCF (override this error with "
+                                  "--ucf-allow-unconstrained)\n",
+                                  cell.first.c_str(ctx));
+                }
+            }
+        }
+    }
 }
 
 int main(int argc, char *argv[])
