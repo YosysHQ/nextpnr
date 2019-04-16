@@ -69,11 +69,11 @@ cmake -DARCH=ice40 -DICEBOX_ROOT=C:/ProgramData/icestorm/share/icebox -DCMAKE_TO
 cmake --build . --config Release
 ```
 
-A simple example that runs on the iCEstick dev board can be found in `ice40/blinky.*`.
+A simple example that runs on the iCEstick dev board can be found in `ice40/examples/blinky/blinky.*`.
 Usage example:
 
 ```
-cd ice40
+cd ice40/examples/blinky
 yosys -p 'synth_ice40 -top blinky -json blinky.json' blinky.v               # synthesize into blinky.json
 nextpnr-ice40 --hx1k --json blinky.json --pcf blinky.pcf --asc blinky.asc   # run place and route
 icepack blinky.asc blinky.bin                                               # generate binary bitstream file
