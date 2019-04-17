@@ -383,12 +383,9 @@ static void pack_constants(Context *ctx)
     }
 }
 
-static std::unique_ptr<CellInfo> create_padin_gbuf(Context *ctx, CellInfo *cell, IdString port_name,
-                                                   std::string gbuf_name)
+static BelId find_padin_gbuf(Context *ctx, BelId bel, IdString port_name)
 {
-    // Find the matching SB_GB BEL connected to the same global network
     BelId gb_bel;
-    BelId bel = ctx->getBelByName(ctx->id(cell->attrs[ctx->id("BEL")]));
     auto wire = ctx->getBelPinWire(bel, port_name);
 
     if (wire == WireId())
@@ -401,6 +398,15 @@ static std::unique_ptr<CellInfo> create_padin_gbuf(Context *ctx, CellInfo *cell,
         }
     }
 
+    return gb_bel;
+}
+
+static std::unique_ptr<CellInfo> create_padin_gbuf(Context *ctx, CellInfo *cell, IdString port_name,
+                                                   std::string gbuf_name)
+{
+    // Find the matching SB_GB BEL connected to the same global network
+    BelId bel = ctx->getBelByName(ctx->id(cell->attrs[ctx->id("BEL")]));
+    BelId gb_bel = find_padin_gbuf(ctx, bel, port_name);
     NPNR_ASSERT(gb_bel != BelId());
 
     // Create a SB_GB Cell and lock it there
@@ -704,14 +710,15 @@ static void promote_globals(Context *ctx)
 // Figure out where to place PLLs
 static void place_plls(Context *ctx)
 {
-    std::map<BelId, std::pair<BelPin, BelPin>> pll_all_bels;
+    std::map<BelId, std::tuple<BelPin, BelId, BelPin, BelId>> pll_all_bels;
     std::map<BelId, CellInfo *> pll_used_bels;
     std::vector<CellInfo *> pll_cells;
     std::map<BelId, CellInfo *> bel2io;
+    std::map<BelId, CellInfo *> bel2gb;
 
     log_info("Placing PLLs..\n");
 
-    // Find all the PLLs BELs and matching IO sites
+    // Find all the PLLs BELs and matching IO sites and global networks
     for (auto bel : ctx->getBels()) {
         if (ctx->getBelType(bel) != id_ICESTORM_PLL)
             continue;
@@ -720,8 +727,10 @@ static void place_plls(Context *ctx)
 
         auto io_a_pin = ctx->getIOBSharingPLLPin(bel, id_PLLOUT_A);
         auto io_b_pin = ctx->getIOBSharingPLLPin(bel, id_PLLOUT_B);
+        auto gb_a = find_padin_gbuf(ctx, bel, id_PLLOUT_A_GLOBAL);
+        auto gb_b = find_padin_gbuf(ctx, bel, id_PLLOUT_B_GLOBAL);
 
-        pll_all_bels[bel] = std::make_pair(io_a_pin, io_b_pin);
+        pll_all_bels[bel] = std::make_tuple(io_a_pin, gb_a, io_b_pin, gb_b);
     }
 
     // Find all the PLLs cells we need to place and do pre-checks
@@ -826,7 +835,8 @@ static void place_plls(Context *ctx)
 
         for (auto placed_pll : pll_used_bels) {
             BelPin pll_io_a, pll_io_b;
-            std::tie(pll_io_a, pll_io_b) = pll_all_bels[placed_pll.first];
+            BelId gb_a, gb_b;
+            std::tie(pll_io_a, gb_a, pll_io_b, gb_b) = pll_all_bels[placed_pll.first];
             if (io_bel == pll_io_a.bel) {
                 // All the PAD type PLL stuff already checked above,so only
                 // check for conflict with a user placed CORE PLL
@@ -842,6 +852,47 @@ static void place_plls(Context *ctx)
 
         // Save for later checks
         bel2io[io_bel] = io_ci;
+    }
+
+    // Scan all SB_GBs to check for conflicts with PLL BELs
+    for (auto gb_cell : sorted(ctx->cells)) {
+        CellInfo *gb_ci = gb_cell.second;
+        if (!is_gbuf(ctx, gb_ci))
+            continue;
+
+        // Only consider the bound ones
+        if (!gb_ci->attrs.count(ctx->id("BEL")))
+            continue;
+
+        // Check all placed PLL (either forced by user, or forced by PACKAGEPIN)
+        BelId gb_bel = ctx->getBelByName(ctx->id(gb_ci->attrs[ctx->id("BEL")]));
+
+        for (auto placed_pll : pll_used_bels) {
+            CellInfo *ci = placed_pll.second;
+
+            // Used global connections
+            bool gb_a_used = ci->ports.count(id_PLLOUT_A_GLOBAL) && (ci->ports[id_PLLOUT_A_GLOBAL].net != nullptr) &&
+                             (ci->ports[id_PLLOUT_A_GLOBAL].net->users.size() > 0);
+            bool gb_b_used = is_sb_pll40_dual(ctx, ci) && ci->ports.count(id_PLLOUT_B_GLOBAL) &&
+                             (ci->ports[id_PLLOUT_B_GLOBAL].net != nullptr) &&
+                             (ci->ports[id_PLLOUT_B_GLOBAL].net->users.size() > 0);
+
+            // Check for conflict
+            BelPin pll_io_a, pll_io_b;
+            BelId gb_a, gb_b;
+            std::tie(pll_io_a, gb_a, pll_io_b, gb_b) = pll_all_bels[placed_pll.first];
+            if (gb_a_used && (gb_bel == gb_a)) {
+                log_error("PLL '%s' A output conflict with SB_GB '%s'\n", placed_pll.second->name.c_str(ctx),
+                          gb_cell.second->name.c_str(ctx));
+            }
+            if (gb_b_used && (gb_bel == gb_b)) {
+                log_error("PLL '%s' B output conflicts with SB_GB '%s'\n", placed_pll.second->name.c_str(ctx),
+                          gb_cell.second->name.c_str(ctx));
+            }
+        }
+
+        // Save for later checks
+        bel2gb[gb_bel] = gb_ci;
     }
 
     // Scan all the CORE PLLs and place them in remaining available PLL BELs
@@ -862,6 +913,13 @@ static void place_plls(Context *ctx)
                 log_error("PLL '%s' is of CORE type but doesn't have a valid REFERENCECLK connection\n",
                           ci->name.c_str(ctx));
 
+            // Used global connections
+            bool gb_a_used = ci->ports.count(id_PLLOUT_A_GLOBAL) && (ci->ports[id_PLLOUT_A_GLOBAL].net != nullptr) &&
+                             (ci->ports[id_PLLOUT_A_GLOBAL].net->users.size() > 0);
+            bool gb_b_used = is_sb_pll40_dual(ctx, ci) && ci->ports.count(id_PLLOUT_B_GLOBAL) &&
+                             (ci->ports[id_PLLOUT_B_GLOBAL].net != nullptr) &&
+                             (ci->ports[id_PLLOUT_B_GLOBAL].net->users.size() > 0);
+
             // Could this be a PAD PLL ?
             bool could_be_pad = false;
             BelId pad_bel;
@@ -874,13 +932,18 @@ static void place_plls(Context *ctx)
                 if (pll_used_bels.count(bel_pll.first))
                     continue;
                 BelPin pll_io_a, pll_io_b;
-                std::tie(pll_io_a, pll_io_b) = bel_pll.second;
+                BelId gb_a, gb_b;
+                std::tie(pll_io_a, gb_a, pll_io_b, gb_b) = bel_pll.second;
                 if (bel2io.count(pll_io_a.bel)) {
                     if (pll_io_a.bel == pad_bel)
                         could_be_pad = !bel2io.count(pll_io_b.bel) || !is_sb_pll40_dual(ctx, ci);
                     continue;
                 }
                 if (bel2io.count(pll_io_b.bel) && is_sb_pll40_dual(ctx, ci))
+                    continue;
+                if (gb_a_used && bel2gb.count(gb_a))
+                    continue;
+                if (gb_b_used && bel2gb.count(gb_b))
                     continue;
                 found_bel = bel_pll.first;
                 break;
@@ -1291,10 +1354,20 @@ static void pack_special(Context *ctx)
                 else
                     continue;
 
-                std::unique_ptr<CellInfo> gb =
-                        create_padin_gbuf(ctx, packed.get(), pi.name,
-                                          "$gbuf_" + ci->name.str(ctx) + "_pllout_" + (is_b_port ? "b" : "a"));
-                new_cells.push_back(std::move(gb));
+                // Only if there is actually a net ...
+                if (pi.net != nullptr) {
+                    // ... and it's used
+                    if (pi.net->users.size() > 0) {
+                        std::unique_ptr<CellInfo> gb =
+                                create_padin_gbuf(ctx, packed.get(), pi.name,
+                                                  "$gbuf_" + ci->name.str(ctx) + "_pllout_" + (is_b_port ? "b" : "a"));
+                        new_cells.push_back(std::move(gb));
+                    } else {
+                        // If not, remove it to avoid routing issues
+                        ctx->nets.erase(pi.net->name);
+                        packed->ports[pi.name].net = nullptr;
+                    }
+                }
             }
 
             new_cells.push_back(std::move(packed));
