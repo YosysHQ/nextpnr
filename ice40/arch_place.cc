@@ -91,6 +91,18 @@ bool Arch::isBelLocationValid(BelId bel) const
     }
 }
 
+static inline bool _io_pintype_need_clk_in(unsigned pin_type) { return (pin_type & 0x01) == 0x00; }
+
+static inline bool _io_pintype_need_clk_out(unsigned pin_type)
+{
+    return ((pin_type & 0x30) == 0x30) || ((pin_type & 0x3c) && ((pin_type & 0x0c) != 0x08));
+}
+
+static inline bool _io_pintype_need_clk_en(unsigned pin_type)
+{
+    return _io_pintype_need_clk_in(pin_type) || _io_pintype_need_clk_out(pin_type);
+}
+
 bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const
 {
     if (cell->type == id_ICESTORM_LC) {
@@ -157,6 +169,30 @@ bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const
             CellInfo *compCell = getBoundBelCell(compBel);
             if (compCell && compCell->ioInfo.lvds)
                 return false;
+
+            // Check for conflicts on shared nets
+            // - CLOCK_ENABLE
+            // - OUTPUT_CLK
+            // - INPUT_CLK
+            if (compCell) {
+                bool use[6] = {
+                        _io_pintype_need_clk_in(cell->ioInfo.pintype),
+                        _io_pintype_need_clk_in(compCell->ioInfo.pintype),
+                        _io_pintype_need_clk_out(cell->ioInfo.pintype),
+                        _io_pintype_need_clk_out(compCell->ioInfo.pintype),
+                        _io_pintype_need_clk_en(cell->ioInfo.pintype),
+                        _io_pintype_need_clk_en(compCell->ioInfo.pintype),
+                };
+                NetInfo *nets[] = {
+                        cell->ports[id_INPUT_CLK].net,    compCell->ports[id_INPUT_CLK].net,
+                        cell->ports[id_OUTPUT_CLK].net,   compCell->ports[id_OUTPUT_CLK].net,
+                        cell->ports[id_CLOCK_ENABLE].net, compCell->ports[id_CLOCK_ENABLE].net,
+                };
+
+                for (int i = 0; i < 6; i++)
+                    if (use[i] && (nets[i] != nets[i ^ 1]) && (use[i ^ 1] || (nets[i ^ 1] != nullptr)))
+                        return false;
+            }
         }
 
         return getBelPackagePin(bel) != "";
