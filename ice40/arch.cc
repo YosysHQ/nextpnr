@@ -1221,8 +1221,8 @@ void Arch::assignCellInfo(CellInfo *cell)
     } else if (cell->type == id_SB_IO) {
         cell->ioInfo.lvds = str_or_default(cell->params, id_IO_STANDARD, "SB_LVCMOS") == "SB_LVDS_INPUT";
         cell->ioInfo.global = bool_or_default(cell->attrs, this->id("GLOBAL"));
-        cell->ioInfo.pintype = int_or_default(cell->attrs, this->id("PIN_TYPE"));
-        cell->ioInfo.negtrig = bool_or_default(cell->attrs, this->id("NEG_TRIGGER"));
+        cell->ioInfo.pintype = int_or_default(cell->params, this->id("PIN_TYPE"));
+        cell->ioInfo.negtrig = bool_or_default(cell->params, this->id("NEG_TRIGGER"));
 
     } else if (cell->type == id_SB_GB) {
         cell->gbInfo.forPadIn = bool_or_default(cell->attrs, this->id("FOR_PAD_IN"));
