@@ -23,6 +23,7 @@
 #include "pybindings.h"
 #include "arch_pybindings.h"
 #include "jsonparse.h"
+#include "log.h"
 #include "nextpnr.h"
 
 #include <boost/filesystem.hpp>
@@ -267,12 +268,15 @@ void execute_python_file(const char *python_file)
             fprintf(stderr, "Fatal error: file not found %s\n", python_file);
             exit(1);
         }
-        PyRun_SimpleFile(fp, python_file);
+        int result = PyRun_SimpleFile(fp, python_file);
         fclose(fp);
+        if (result == -1) {
+            log_error("Error occurred while executing Python script %s\n", python_file);
+        }
     } catch (boost::python::error_already_set const &) {
         // Parse and output the exception
         std::string perror_str = parse_python_exception();
-        std::cout << "Error in Python: " << perror_str << std::endl;
+        log_error("Error in Python: %s\n", perror_str.c_str());
     }
 }
 

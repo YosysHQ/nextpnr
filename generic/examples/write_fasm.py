@@ -22,7 +22,7 @@ ParameterConfig.__new__.__defaults__ = (False, True, 1, None)
 Write a design as FASM
 
     ctx:      nextpnr context
-    paramCfg: ParameterConfig describing how to write parameters
+    paramCfg: map from (celltype, parametername) -> ParameterConfig describing how to write parameters
     f:        output file
 """
 def write_fasm(ctx, paramCfg, f):
