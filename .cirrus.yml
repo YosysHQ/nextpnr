@@ -2,7 +2,7 @@ task:
   name: build-test-ubuntu1604
   container:
     cpu: 4
-    memory: 16
+    memory: 20
     dockerfile: .cirrus/Dockerfile.ubuntu16.04
 
   build_script: mkdir build && cd build && cmake .. -DARCH=all -DTRELLIS_ROOT=/usr/local/src/prjtrellis -DBUILD_TESTS=on && make -j $(nproc)
@@ -11,5 +11,6 @@ task:
   test_ice40_script: cd build && ./nextpnr-ice40-test
   smoketest_ice40_script: export NEXTPNR=$(pwd)/build/nextpnr-ice40 && cd ice40/smoketest/attosoc && ./smoketest.sh
   test_ecp5_script: cd build && ./nextpnr-ecp5-test
+  smoketest_generic_script: export NEXTPNR=$(pwd)/build/nextpnr-generic && cd generic/examples && ./simple.sh
   regressiontest_ice40_script: make -j $(nproc) -C tests/ice40/regressions NPNR=$(pwd)/build/nextpnr-ice40
   regressiontest_ecp5_script: make -j $(nproc) -C tests/ecp5/regressions NPNR=$(pwd)/build/nextpnr-ecp5
