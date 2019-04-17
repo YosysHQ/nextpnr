@@ -868,16 +868,26 @@ static void place_plls(Context *ctx)
         BelId gb_bel = ctx->getBelByName(ctx->id(gb_ci->attrs[ctx->id("BEL")]));
 
         for (auto placed_pll : pll_used_bels) {
+            CellInfo *ci = placed_pll.second;
+
+            // Used global connections
+            bool gb_a_used = ci->ports.count(id_PLLOUT_A_GLOBAL) && (ci->ports[id_PLLOUT_A_GLOBAL].net != nullptr) &&
+                             (ci->ports[id_PLLOUT_A_GLOBAL].net->users.size() > 0);
+            bool gb_b_used = is_sb_pll40_dual(ctx, ci) && ci->ports.count(id_PLLOUT_B_GLOBAL) &&
+                             (ci->ports[id_PLLOUT_B_GLOBAL].net != nullptr) &&
+                             (ci->ports[id_PLLOUT_B_GLOBAL].net->users.size() > 0);
+
+            // Check for conflict
             BelPin pll_io_a, pll_io_b;
             BelId gb_a, gb_b;
             std::tie(pll_io_a, gb_a, pll_io_b, gb_b) = pll_all_bels[placed_pll.first];
-            if (gb_bel == gb_a) {
+            if (gb_a_used && (gb_bel == gb_a)) {
                 log_error("PLL '%s' A output conflict with SB_GB '%s'\n", placed_pll.second->name.c_str(ctx),
                           gb_cell.second->name.c_str(ctx));
-            } else if (gb_bel == gb_b) {
-                if (is_sb_pll40_dual(ctx, placed_pll.second))
-                    log_error("PLL '%s' B output conflicts with SB_GB '%s'\n", placed_pll.second->name.c_str(ctx),
-                              gb_cell.second->name.c_str(ctx));
+            }
+            if (gb_b_used && (gb_bel == gb_b)) {
+                log_error("PLL '%s' B output conflicts with SB_GB '%s'\n", placed_pll.second->name.c_str(ctx),
+                          gb_cell.second->name.c_str(ctx));
             }
         }
 
@@ -903,6 +913,13 @@ static void place_plls(Context *ctx)
                 log_error("PLL '%s' is of CORE type but doesn't have a valid REFERENCECLK connection\n",
                           ci->name.c_str(ctx));
 
+            // Used global connections
+            bool gb_a_used = ci->ports.count(id_PLLOUT_A_GLOBAL) && (ci->ports[id_PLLOUT_A_GLOBAL].net != nullptr) &&
+                             (ci->ports[id_PLLOUT_A_GLOBAL].net->users.size() > 0);
+            bool gb_b_used = is_sb_pll40_dual(ctx, ci) && ci->ports.count(id_PLLOUT_B_GLOBAL) &&
+                             (ci->ports[id_PLLOUT_B_GLOBAL].net != nullptr) &&
+                             (ci->ports[id_PLLOUT_B_GLOBAL].net->users.size() > 0);
+
             // Could this be a PAD PLL ?
             bool could_be_pad = false;
             BelId pad_bel;
@@ -924,9 +941,9 @@ static void place_plls(Context *ctx)
                 }
                 if (bel2io.count(pll_io_b.bel) && is_sb_pll40_dual(ctx, ci))
                     continue;
-                if (bel2gb.count(gb_a))
+                if (gb_a_used && bel2gb.count(gb_a))
                     continue;
-                if (bel2gb.count(gb_b) && is_sb_pll40_dual(ctx, ci))
+                if (gb_b_used && bel2gb.count(gb_b))
                     continue;
                 found_bel = bel_pll.first;
                 break;
@@ -1337,10 +1354,20 @@ static void pack_special(Context *ctx)
                 else
                     continue;
 
-                std::unique_ptr<CellInfo> gb =
-                        create_padin_gbuf(ctx, packed.get(), pi.name,
-                                          "$gbuf_" + ci->name.str(ctx) + "_pllout_" + (is_b_port ? "b" : "a"));
-                new_cells.push_back(std::move(gb));
+                // Only if there is actually a net ...
+                if (pi.net != nullptr) {
+                    // ... and it's used
+                    if (pi.net->users.size() > 0) {
+                        std::unique_ptr<CellInfo> gb =
+                                create_padin_gbuf(ctx, packed.get(), pi.name,
+                                                  "$gbuf_" + ci->name.str(ctx) + "_pllout_" + (is_b_port ? "b" : "a"));
+                        new_cells.push_back(std::move(gb));
+                    } else {
+                        // If not, remove it to avoid routing issues
+                        ctx->nets.erase(pi.net->name);
+                        packed->ports[pi.name].net = nullptr;
+                    }
+                }
             }
 
             new_cells.push_back(std::move(packed));
