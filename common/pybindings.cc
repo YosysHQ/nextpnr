@@ -25,6 +25,7 @@
 #include "jsonparse.h"
 #include "nextpnr.h"
 
+#include <boost/filesystem.hpp>
 #include <fstream>
 #include <memory>
 #include <signal.h>
@@ -233,6 +234,12 @@ void init_python(const char *executable, bool first)
             PyImport_AppendInittab(TOSTRING(MODULE_NAME), PYINIT_MODULE_NAME);
         Py_SetProgramName(program);
         Py_Initialize();
+
+        // Add cwd to Python's search path so `import` can be used in user scripts
+        boost::filesystem::path cwd = boost::filesystem::absolute("./").normalize();
+        PyObject *sys_path = PySys_GetObject("path");
+        PyList_Insert(sys_path, 0, PyUnicode_FromString(cwd.string().c_str()));
+
         PyImport_ImportModule(TOSTRING(MODULE_NAME));
         PyRun_SimpleString("from " TOSTRING(MODULE_NAME) " import *");
     } catch (boost::python::error_already_set const &) {
