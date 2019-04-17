@@ -7,7 +7,8 @@ This contains a simple, artificial, example of the nextpnr generic API.
  
  - simple_timing.py annotates cells with timing data (this is a separate script that must be run after packing)
 
- - report.py stores design information after place-and-route to blinky.txt in place
-   of real bitstream generation
+ - write_fasm.py uses the nextpnr Python API to write a FASM file for a design
+
+ - bitstream.py uses write_fasm.py to create a FASM ("FPGA assembly") file for the place-and-routed design
 
  - Run simple.sh to build an example design on the FPGA above

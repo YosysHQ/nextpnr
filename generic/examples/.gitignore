@@ -1,1 +1,3 @@
-blinky.txt
+blinky.fasm
+__pycache__
+*.pyc

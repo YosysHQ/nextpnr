@@ -1,22 +1,4 @@
-# Grid size including IOBs at edges
-X = 12
-Y = 12
-# SLICEs per tile
-N = 8
-# LUT input count
-K = 4
-# Number of local wires
-Wl = N*(K+1) + 8 
-# 1/Fc for bel input wire pips
-Si = 4
-# 1/Fc for Q to local wire pips
-Sq = 4
-# ~1/Fc local to neighbour local wire pips
-Sl = 8
-
-# Create graphic elements
-# Bels
-ctx.addDecalGraphic("bel", GraphicElement(type=TYPE_BOX, style=STYLE_INACTIVE, x1=0, y1=0, x2=0.2, y2=(1/(N+1))-0.02, z=0))
+from simple_config import *
 
 def is_io(x, y):
 	return x == 0 or x == X-1 or y == 0 or y == Y-1
@@ -41,7 +23,6 @@ for x in range(X):
 				ctx.addBelInput(bel="X%dY%d_IO%d" % (x, y, z), name="I", wire="X%dY%dZ%d_I0" % (x, y, z))
 				ctx.addBelInput(bel="X%dY%d_IO%d" % (x, y, z), name="EN", wire="X%dY%dZ%d_I1" % (x, y, z))
 				ctx.addBelOutput(bel="X%dY%d_IO%d" % (x, y, z), name="O", wire="X%dY%dZ%d_Q" % (x, y, z))
-				ctx.setBelDecal(bel="X%dY%d_IO%d" % (x, y, z), decalxy=ctx.DecalXY("bel", 0.6, z * (1/(N+1))))
 		else:
 			for z in range(N):
 				ctx.addBel(name="X%dY%d_SLICE%d" % (x, y, z), type="GENERIC_SLICE", loc=Loc(x, y, z), gb=False)
@@ -49,7 +30,6 @@ for x in range(X):
 				for k in range(K):
 					ctx.addBelInput(bel="X%dY%d_SLICE%d" % (x, y, z), name="I[%d]" % k, wire="X%dY%dZ%d_I%d" % (x, y, z, k))
 				ctx.addBelOutput(bel="X%dY%d_SLICE%d" % (x, y, z), name="Q", wire="X%dY%dZ%d_Q" % (x, y, z))
-				ctx.setBelDecal(bel="X%dY%d_SLICE%d" % (x, y, z), decalxy=ctx.DecalXY("bel", 0.6, z * (1/(N+1))))
 
 for x in range(X):
 	for y in range(Y):
