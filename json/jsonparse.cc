@@ -285,7 +285,7 @@ void vcc_net(Context *ctx, NetInfo *net)
 // true, false otherwise
 bool is_blackbox(JsonNode *node)
 {
-    JsonNode *attr_node, *bbox_node;
+    JsonNode *attr_node, *bbox_node = nullptr, *wbox_node = nullptr;
 
     if (node->data_dict.count("attributes") == 0)
         return false;
@@ -296,14 +296,19 @@ bool is_blackbox(JsonNode *node)
         return false;
     if (GetSize(attr_node->data_dict) == 0)
         return false;
-    if (attr_node->data_dict.count("blackbox") == 0)
+    if (attr_node->data_dict.count("blackbox"))
+        bbox_node = attr_node->data_dict.at("blackbox");
+    if (attr_node->data_dict.count("whitebox"))
+        wbox_node = attr_node->data_dict.at("whitebox");
+    if (bbox_node == NULL && wbox_node == NULL)
         return false;
-    bbox_node = attr_node->data_dict.at("blackbox");
-    if (bbox_node == NULL)
+    if (bbox_node && bbox_node->type != 'N')
+        log_error("JSON module blackbox attribute value is not a number\n");
+    if (bbox_node && bbox_node->data_number == 0)
         return false;
-    if (bbox_node->type != 'N')
-        log_error("JSON module blackbox is not a number\n");
-    if (bbox_node->data_number == 0)
+    if (wbox_node && wbox_node->type != 'N')
+        log_error("JSON module whitebox attribute value is not a number\n");
+    if (wbox_node && wbox_node->data_number == 0)
         return false;
     return true;
 }
