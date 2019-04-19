@@ -23,8 +23,10 @@
 #include "pybindings.h"
 #include "arch_pybindings.h"
 #include "jsonparse.h"
+#include "log.h"
 #include "nextpnr.h"
 
+#include <boost/filesystem.hpp>
 #include <fstream>
 #include <memory>
 #include <signal.h>
@@ -87,7 +89,26 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
 
     using namespace PythonConversion;
 
+    enum_<GraphicElement::type_t>("GraphicElementType")
+            .value("TYPE_NONE", GraphicElement::TYPE_NONE)
+            .value("TYPE_LINE", GraphicElement::TYPE_LINE)
+            .value("TYPE_ARROW", GraphicElement::TYPE_ARROW)
+            .value("TYPE_BOX", GraphicElement::TYPE_BOX)
+            .value("TYPE_CIRCLE", GraphicElement::TYPE_CIRCLE)
+            .value("TYPE_LABEL", GraphicElement::TYPE_LABEL)
+            .export_values();
+
+    enum_<GraphicElement::style_t>("GraphicElementStyle")
+            .value("STYLE_GRID", GraphicElement::STYLE_GRID)
+            .value("STYLE_FRAME", GraphicElement::STYLE_FRAME)
+            .value("STYLE_HIDDEN", GraphicElement::STYLE_HIDDEN)
+            .value("STYLE_INACTIVE", GraphicElement::STYLE_INACTIVE)
+            .value("STYLE_ACTIVE", GraphicElement::STYLE_ACTIVE)
+            .export_values();
+
     class_<GraphicElement>("GraphicElement")
+            .def(init<GraphicElement::type_t, GraphicElement::style_t, float, float, float, float, float>(
+                    (args("type"), "style", "x1", "y1", "x2", "y2", "z")))
             .def_readwrite("type", &GraphicElement::type)
             .def_readwrite("x1", &GraphicElement::x1)
             .def_readwrite("y1", &GraphicElement::y1)
@@ -107,6 +128,12 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
     typedef std::unordered_map<IdString, std::unique_ptr<Region>> RegionMap;
 
     class_<BaseCtx, BaseCtx *, boost::noncopyable>("BaseCtx", no_init);
+
+    auto loc_cls = class_<Loc>("Loc")
+                           .def(init<int, int, int>())
+                           .def_readwrite("x", &Loc::x)
+                           .def_readwrite("y", &Loc::y)
+                           .def_readwrite("z", &Loc::z);
 
     auto ci_cls = class_<ContextualWrapper<CellInfo &>>("CellInfo", no_init);
     readwrite_wrapper<CellInfo &, decltype(&CellInfo::name), &CellInfo::name, conv_to_str<IdString>,
@@ -208,8 +235,14 @@ void init_python(const char *executable, bool first)
             PyImport_AppendInittab(TOSTRING(MODULE_NAME), PYINIT_MODULE_NAME);
         Py_SetProgramName(program);
         Py_Initialize();
-        if (first)
-            PyImport_ImportModule(TOSTRING(MODULE_NAME));
+
+        // Add cwd to Python's search path so `import` can be used in user scripts
+        boost::filesystem::path cwd = boost::filesystem::absolute("./").normalize();
+        PyObject *sys_path = PySys_GetObject("path");
+        PyList_Insert(sys_path, 0, PyUnicode_FromString(cwd.string().c_str()));
+
+        PyImport_ImportModule(TOSTRING(MODULE_NAME));
+        PyRun_SimpleString("from " TOSTRING(MODULE_NAME) " import *");
     } catch (boost::python::error_already_set const &) {
         // Parse and output the exception
         std::string perror_str = parse_python_exception();
@@ -235,12 +268,15 @@ void execute_python_file(const char *python_file)
             fprintf(stderr, "Fatal error: file not found %s\n", python_file);
             exit(1);
         }
-        PyRun_SimpleFile(fp, python_file);
+        int result = PyRun_SimpleFile(fp, python_file);
         fclose(fp);
+        if (result == -1) {
+            log_error("Error occurred while executing Python script %s\n", python_file);
+        }
     } catch (boost::python::error_already_set const &) {
         // Parse and output the exception
         std::string perror_str = parse_python_exception();
-        std::cout << "Error in Python: " << perror_str << std::endl;
+        log_error("Error in Python: %s\n", perror_str.c_str());
     }
 }
 

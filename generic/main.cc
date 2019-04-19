@@ -49,7 +49,7 @@ po::options_description GenericCommandHandler::getArchOptions()
     return specific;
 }
 
-void GenericCommandHandler::customBitstream(Context *ctx) { log_error("Here is when bitstream gets created"); }
+void GenericCommandHandler::customBitstream(Context *ctx) {}
 
 std::unique_ptr<Context> GenericCommandHandler::createContext()
 {

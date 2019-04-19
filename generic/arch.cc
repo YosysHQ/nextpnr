@@ -17,6 +17,7 @@
  *
  */
 
+#include <iostream>
 #include <math.h>
 #include "nextpnr.h"
 #include "placer1.h"
@@ -191,9 +192,53 @@ void Arch::setPipAttr(IdString pip, IdString key, const std::string &value) { pi
 
 void Arch::setBelAttr(IdString bel, IdString key, const std::string &value) { bels.at(bel).attrs[key] = value; }
 
+void Arch::setLutK(int K) { args.K = K; }
+
+void Arch::setDelayScaling(double scale, double offset)
+{
+    args.delayScale = scale;
+    args.delayOffset = offset;
+}
+
+void Arch::addCellTimingClock(IdString cell, IdString port) { cellTiming[cell].portClasses[port] = TMG_CLOCK_INPUT; }
+
+void Arch::addCellTimingDelay(IdString cell, IdString fromPort, IdString toPort, DelayInfo delay)
+{
+    if (get_or_default(cellTiming[cell].portClasses, fromPort, TMG_IGNORE) == TMG_IGNORE)
+        cellTiming[cell].portClasses[fromPort] = TMG_COMB_INPUT;
+    if (get_or_default(cellTiming[cell].portClasses, toPort, TMG_IGNORE) == TMG_IGNORE)
+        cellTiming[cell].portClasses[toPort] = TMG_COMB_OUTPUT;
+    cellTiming[cell].combDelays[CellDelayKey{fromPort, toPort}] = delay;
+}
+
+void Arch::addCellTimingSetupHold(IdString cell, IdString port, IdString clock, DelayInfo setup, DelayInfo hold)
+{
+    TimingClockingInfo ci;
+    ci.clock_port = clock;
+    ci.edge = RISING_EDGE;
+    ci.setup = setup;
+    ci.hold = hold;
+    cellTiming[cell].clockingInfo[port].push_back(ci);
+    cellTiming[cell].portClasses[port] = TMG_REGISTER_INPUT;
+}
+
+void Arch::addCellTimingClockToOut(IdString cell, IdString port, IdString clock, DelayInfo clktoq)
+{
+    TimingClockingInfo ci;
+    ci.clock_port = clock;
+    ci.edge = RISING_EDGE;
+    ci.clockToQ = clktoq;
+    cellTiming[cell].clockingInfo[port].push_back(ci);
+    cellTiming[cell].portClasses[port] = TMG_REGISTER_OUTPUT;
+}
+
 // ---------------------------------------------------------------
 
-Arch::Arch(ArchArgs args) : chipName("generic"), args(args) {}
+Arch::Arch(ArchArgs args) : chipName("generic"), args(args)
+{
+    // Dummy for empty decals
+    decal_graphics[IdString()];
+}
 
 void IdString::initialize_arch(const BaseCtx *ctx) {}
 
@@ -260,7 +305,13 @@ IdString Arch::getBelType(BelId bel) const { return bels.at(bel).type; }
 
 const std::map<IdString, std::string> &Arch::getBelAttrs(BelId bel) const { return bels.at(bel).attrs; }
 
-WireId Arch::getBelPinWire(BelId bel, IdString pin) const { return bels.at(bel).pins.at(pin).wire; }
+WireId Arch::getBelPinWire(BelId bel, IdString pin) const
+{
+    const auto &bdata = bels.at(bel);
+    if (!bdata.pins.count(pin))
+        log_error("bel '%s' has no pin '%s'\n", bel.c_str(this), pin.c_str(this));
+    return bdata.pins.at(pin).wire;
+}
 
 PortType Arch::getBelPinType(BelId bel, IdString pin) const { return bels.at(bel).pins.at(pin).type; }
 
@@ -422,7 +473,7 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
     const WireInfo &d = wires.at(dst);
     int dx = abs(s.x - d.x);
     int dy = abs(s.y - d.y);
-    return (dx + dy) * grid_distance_to_delay;
+    return (dx + dy) * args.delayScale + args.delayOffset;
 }
 
 delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
@@ -431,9 +482,9 @@ delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
     auto driver_loc = getBelLocation(driver.cell->bel);
     auto sink_loc = getBelLocation(sink.cell->bel);
 
-    int dx = abs(driver_loc.x - driver_loc.x);
-    int dy = abs(sink_loc.y - sink_loc.y);
-    return (dx + dy) * grid_distance_to_delay;
+    int dx = abs(sink_loc.x - driver_loc.x);
+    int dy = abs(sink_loc.y - driver_loc.y);
+    return (dx + dy) * args.delayScale + args.delayOffset;
 }
 
 bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const { return false; }
@@ -455,7 +506,14 @@ bool Arch::route() { return router1(getCtx(), Router1Cfg(getCtx())); }
 
 // ---------------------------------------------------------------
 
-const std::vector<GraphicElement> &Arch::getDecalGraphics(DecalId decal) const { return decal_graphics.at(decal); }
+const std::vector<GraphicElement> &Arch::getDecalGraphics(DecalId decal) const
+{
+    if (!decal_graphics.count(decal)) {
+        std::cerr << "No decal named " << decal.str(this) << std::endl;
+        log_error("No decal named %s!\n", decal.c_str(this));
+    }
+    return decal_graphics.at(decal);
+}
 
 DecalXY Arch::getBelDecal(BelId bel) const { return bels.at(bel).decalxy; }
 
@@ -469,24 +527,103 @@ DecalXY Arch::getGroupDecal(GroupId group) const { return groups.at(group).decal
 
 bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const
 {
-    return false;
+    if (!cellTiming.count(cell->name))
+        return false;
+    const auto &tmg = cellTiming.at(cell->name);
+    auto fnd = tmg.combDelays.find(CellDelayKey{fromPort, toPort});
+    if (fnd != tmg.combDelays.end()) {
+        delay = fnd->second;
+        return true;
+    } else {
+        return false;
+    }
 }
 
 // Get the port class, also setting clockPort if applicable
 TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const
 {
-    return TMG_IGNORE;
+    if (!cellTiming.count(cell->name))
+        return TMG_IGNORE;
+    const auto &tmg = cellTiming.at(cell->name);
+    if (tmg.clockingInfo.count(port))
+        clockInfoCount = int(tmg.clockingInfo.at(port).size());
+    else
+        clockInfoCount = 0;
+    return get_or_default(tmg.portClasses, port, TMG_IGNORE);
 }
 
 TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port, int index) const
 {
-    NPNR_ASSERT_FALSE("no clocking info for generic");
+    NPNR_ASSERT(cellTiming.count(cell->name));
+    const auto &tmg = cellTiming.at(cell->name);
+    NPNR_ASSERT(tmg.clockingInfo.count(port));
+    return tmg.clockingInfo.at(port).at(index);
 }
 
-bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const { return true; }
-bool Arch::isBelLocationValid(BelId bel) const { return true; }
+bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const
+{
+    std::vector<const CellInfo *> cells;
+    cells.push_back(cell);
+    Loc loc = getBelLocation(bel);
+    for (auto tbel : getBelsByTile(loc.x, loc.y)) {
+        if (tbel == bel)
+            continue;
+        CellInfo *bound = getBoundBelCell(tbel);
+        if (bound != nullptr)
+            cells.push_back(bound);
+    }
+    return cellsCompatible(cells.data(), int(cells.size()));
+}
+
+bool Arch::isBelLocationValid(BelId bel) const
+{
+    std::vector<const CellInfo *> cells;
+    Loc loc = getBelLocation(bel);
+    for (auto tbel : getBelsByTile(loc.x, loc.y)) {
+        CellInfo *bound = getBoundBelCell(tbel);
+        if (bound != nullptr)
+            cells.push_back(bound);
+    }
+    return cellsCompatible(cells.data(), int(cells.size()));
+}
 
 const std::string Arch::defaultPlacer = "sa";
 const std::vector<std::string> Arch::availablePlacers = {"sa"};
+
+void Arch::assignArchInfo()
+{
+    for (auto &cell : getCtx()->cells) {
+        CellInfo *ci = cell.second.get();
+        if (ci->type == id("GENERIC_SLICE")) {
+            ci->is_slice = true;
+            ci->slice_clk = get_net_or_empty(ci, id("CLK"));
+        } else {
+            ci->is_slice = false;
+        }
+        ci->user_group = int_or_default(ci->attrs, id("PACK_GROUP"), -1);
+    }
+}
+
+bool Arch::cellsCompatible(const CellInfo **cells, int count) const
+{
+    const NetInfo *clk = nullptr;
+    int group = -1;
+    for (int i = 0; i < count; i++) {
+        const CellInfo *ci = cells[i];
+        if (ci->is_slice && ci->slice_clk != nullptr) {
+            if (clk == nullptr)
+                clk = ci->slice_clk;
+            else if (clk != ci->slice_clk)
+                return false;
+        }
+        if (ci->user_group != -1) {
+            if (group == -1)
+                group = ci->user_group;
+            else if (group != ci->user_group)
+                return false;
+        }
+    }
+    return true;
+}
 
 NEXTPNR_NAMESPACE_END

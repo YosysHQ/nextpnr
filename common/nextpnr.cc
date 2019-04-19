@@ -444,5 +444,13 @@ void BaseCtx::constrainCellToRegion(IdString cell, IdString region_name)
 {
     cells[cell]->region = region[region_name].get();
 }
+DecalXY BaseCtx::constructDecalXY(DecalId decal, float x, float y)
+{
+    DecalXY dxy;
+    dxy.decal = decal;
+    dxy.x = x;
+    dxy.y = y;
+    return dxy;
+}
 
 NEXTPNR_NAMESPACE_END

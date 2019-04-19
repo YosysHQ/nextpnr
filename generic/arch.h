@@ -25,6 +25,11 @@ NEXTPNR_NAMESPACE_BEGIN
 
 struct ArchArgs
 {
+    // Number of LUT inputs
+    int K = 4;
+    // y = mx + c relationship between distance and delay for interconnect
+    // delay estimates
+    double delayScale = 0.1, delayOffset = 0;
 };
 
 struct WireInfo;
@@ -81,6 +86,33 @@ struct GroupInfo
     DecalXY decalxy;
 };
 
+struct CellDelayKey
+{
+    IdString from, to;
+    inline bool operator==(const CellDelayKey &other) const { return from == other.from && to == other.to; }
+};
+
+NEXTPNR_NAMESPACE_END
+namespace std {
+template <> struct hash<NEXTPNR_NAMESPACE_PREFIX CellDelayKey>
+{
+    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX CellDelayKey &dk) const noexcept
+    {
+        std::size_t seed = std::hash<NEXTPNR_NAMESPACE_PREFIX IdString>()(dk.from);
+        seed ^= std::hash<NEXTPNR_NAMESPACE_PREFIX IdString>()(dk.to) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        return seed;
+    }
+};
+} // namespace std
+NEXTPNR_NAMESPACE_BEGIN
+
+struct CellTiming
+{
+    std::unordered_map<IdString, TimingPortClass> portClasses;
+    std::unordered_map<CellDelayKey, DelayInfo> combDelays;
+    std::unordered_map<IdString, std::vector<TimingClockingInfo>> clockingInfo;
+};
+
 struct Arch : BaseCtx
 {
     std::string chipName;
@@ -101,7 +133,7 @@ struct Arch : BaseCtx
     std::vector<std::vector<int>> tileBelDimZ;
     std::vector<std::vector<int>> tilePipDimZ;
 
-    float grid_distance_to_delay;
+    std::unordered_map<IdString, CellTiming> cellTiming;
 
     void addWire(IdString name, IdString type, int x, int y);
     void addPip(IdString name, IdString type, IdString srcWire, IdString dstWire, DelayInfo delay, Loc loc);
@@ -126,6 +158,14 @@ struct Arch : BaseCtx
     void setWireAttr(IdString wire, IdString key, const std::string &value);
     void setPipAttr(IdString pip, IdString key, const std::string &value);
     void setBelAttr(IdString bel, IdString key, const std::string &value);
+
+    void setLutK(int K);
+    void setDelayScaling(double scale, double offset);
+
+    void addCellTimingClock(IdString cell, IdString port);
+    void addCellTimingDelay(IdString cell, IdString fromPort, IdString toPort, DelayInfo delay);
+    void addCellTimingSetupHold(IdString cell, IdString port, IdString clock, DelayInfo setup, DelayInfo hold);
+    void addCellTimingClockToOut(IdString cell, IdString port, IdString clock, DelayInfo clktoq);
 
     // ---------------------------------------------------------------
     // Common Arch API. Every arch must provide the following methods.
@@ -208,8 +248,8 @@ struct Arch : BaseCtx
 
     delay_t estimateDelay(WireId src, WireId dst) const;
     delay_t predictDelay(const NetInfo *net_info, const PortRef &sink) const;
-    delay_t getDelayEpsilon() const { return 0.01; }
-    delay_t getRipupDelayPenalty() const { return 1.0; }
+    delay_t getDelayEpsilon() const { return 0.001; }
+    delay_t getRipupDelayPenalty() const { return 0.015; }
     float getDelayNS(delay_t v) const { return v; }
 
     DelayInfo getDelayFromNS(float ns) const
@@ -222,7 +262,7 @@ struct Arch : BaseCtx
     uint32_t getDelayChecksum(delay_t v) const { return 0; }
     bool getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const;
 
-    bool pack() { return true; }
+    bool pack();
     bool place();
     bool route();
 
@@ -243,6 +283,11 @@ struct Arch : BaseCtx
 
     static const std::string defaultPlacer;
     static const std::vector<std::string> availablePlacers;
+
+    // ---------------------------------------------------------------
+    // Internal usage
+    void assignArchInfo();
+    bool cellsCompatible(const CellInfo **cells, int count) const;
 };
 
 NEXTPNR_NAMESPACE_END

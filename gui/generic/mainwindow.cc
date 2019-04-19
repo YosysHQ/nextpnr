@@ -19,6 +19,9 @@
 
 #include "mainwindow.h"
 
+#include <QMessageBox>
+#include <cstdlib>
+
 static void initMainResource() { Q_INIT_RESOURCE(nextpnr); }
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -26,14 +29,8 @@ NEXTPNR_NAMESPACE_BEGIN
 MainWindow::MainWindow(std::unique_ptr<Context> context, ArchArgs args, QWidget *parent)
         : BaseMainWindow(std::move(context), args, parent)
 {
-    initMainResource();
-
-    std::string title = "nextpnr-generic - [EMPTY]";
-    setWindowTitle(title.c_str());
-
-    connect(this, &BaseMainWindow::contextChanged, this, &MainWindow::newContext);
-
-    createMenu();
+    QMessageBox::critical(0, "Error - FIXME", "No GUI support for nextpnr-generic");
+    std::exit(1);
 }
 
 MainWindow::~MainWindow() {}
