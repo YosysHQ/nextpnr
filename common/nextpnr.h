@@ -537,7 +537,8 @@ struct TimingConstraintObject
     IdString port;   // Name of port on a cell
 };
 
-struct MinMaxDelay {
+struct MinMaxDelay
+{
     delay_t min, max;
 };
 
@@ -871,7 +872,7 @@ struct TimingDomainTag
     std::unordered_set<IdString> activeConstraints;
 };
 
-struct TimingPortData
+struct TimingPortTimes
 {
     MinMaxDelay required;
     MinMaxDelay arrival;
@@ -881,15 +882,50 @@ struct TimingPortData
     float criticality;
 };
 
+struct TimingCellArc
+{
+    enum ArcType
+    {
+        COMBINATIONAL,
+        SETUP,
+        HOLD,
+        CLK_TO_Q
+    } type;
+    IdString other_port;
+    DelayInfo value;
+    // Clock polarity, not used for combinational arcs
+    ClockEdge edge;
+};
+
+struct TimingPortData
+{
+    // Arrival, required, etc times
+    // Stored once per clock domain
+    // domainTag index -> TimingPortTimes
+    std::unordered_map<int, TimingPortTimes> times;
+
+    // Max criticality, minimum slack and minimum budget over all domains
+    // this port is involved in
+    float max_crit = 0;
+    delay_t min_slack = std::numeric_limits<delay_t>::max(), min_budget = std::numeric_limits<delay_t>::max();
+
+    // Arcs in/out of this port (in for output ports,
+    // out for input ports)
+    // This reduces the number of calls into the Arch API
+    // when connectivity hasn't changed (e.g. inbetween placement
+    // steps)
+    std::vector<TimingCellArc> cell_arcs;
+};
+
 struct TimingData
 {
     std::vector<TimingDomainTag> domainTags;
-    std::vector<PortRef*> portsByUid;
-    std::vector<PortInfo*> portInfosByUid;
-    // port uid -> (domain -> TimingPortData)
-    std::vector<std::unordered_map<int, TimingPortData>> portData;
+    std::vector<PortRef *> ports_by_uid;
+    std::vector<PortInfo *> portInfos_by_uid;
+    // port uid -> data
+    std::vector<TimingPortData> ports;
     // Topological ordering of ports
-    std::vector<port_uid_t> topologicalOrder;
+    std::vector<port_uid_t> topological_order;
 };
 
 struct Context : Arch, DeterministicRNG

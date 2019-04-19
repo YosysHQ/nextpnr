@@ -32,16 +32,18 @@ NEXTPNR_NAMESPACE_BEGIN
 
 namespace {
 
-struct TimingAnalyser {
+struct TimingAnalyser
+{
     Context *ctx;
     TimingData *td;
 
-    void label_ports() {
+    void label_ports()
+    {
         // Clear out all existing data, and re-label all parts
         td->domainTags.clear();
-        td->portData.clear();
-        td->portInfosByUid.clear();
-        td->portsByUid.clear();
+        td->ports.clear();
+        td->portInfos_by_uid.clear();
+        td->ports_by_uid.clear();
 
         // First, clear UID of all ports to -1
         for (auto cell : sorted(ctx->cells)) {
@@ -56,15 +58,15 @@ struct TimingAnalyser {
             if (ni->driver.cell != nullptr) {
                 ni->driver.uid = max_uid;
                 ni->driver.cell->ports.at(ni->driver.port).uid = max_uid;
-                td->portsByUid.push_back(&ni->driver);
-                td->portInfosByUid.push_back(&ni->driver.cell->ports.at(ni->driver.port));
+                td->ports_by_uid.push_back(&ni->driver);
+                td->portInfos_by_uid.push_back(&ni->driver.cell->ports.at(ni->driver.port));
                 ++max_uid;
             }
             for (auto &usr : ni->users) {
                 usr.uid = max_uid;
                 usr.cell->ports.at(usr.port).uid = max_uid;
-                td->portsByUid.push_back(&usr);
-                td->portInfosByUid.push_back(&usr.cell->ports.at(usr.port));
+                td->ports_by_uid.push_back(&usr);
+                td->portInfos_by_uid.push_back(&usr.cell->ports.at(usr.port));
                 ++max_uid;
             }
         }
@@ -75,14 +77,77 @@ struct TimingAnalyser {
                     continue;
                 NPNR_ASSERT(port.second.net == nullptr);
                 port.second.uid = max_uid;
-                td->portInfosByUid.push_back(&port.second);
-                td->portsByUid.push_back(nullptr);
+                td->portInfos_by_uid.push_back(&port.second);
+                td->ports_by_uid.push_back(nullptr);
                 ++max_uid;
             }
         }
+        td->ports.resize(max_uid);
     }
 
+    void get_arcs()
+    {
+        for (auto cell : sorted(ctx->cells)) {
+            for (auto &port : cell.second->ports) {
+                auto &p = port.second;
+                auto &pd = td->ports.at(p.uid);
+                pd.cell_arcs.clear();
 
+                int clkInfoCount = 0;
+                TimingPortClass cls = ctx->getPortTimingClass(cell.second, port.first, clkInfoCount);
+                if (cls == TMG_STARTPOINT || cls == TMG_ENDPOINT || cls == TMG_CLOCK_INPUT || cls == TMG_GEN_CLOCK ||
+                    cls == TMG_IGNORE)
+                    continue;
+                if (p.type == PORT_IN) {
+                    // Input ports might have setup/hold relationships
+                    if (cls == TMG_REGISTER_INPUT) {
+                        for (int i = 0; i < clkInfoCount; i++) {
+                            auto info = ctx->getPortClockingInfo(cell.second, port.first, i);
+                            pd.cell_arcs.push_back(
+                                    TimingCellArc{TimingCellArc::SETUP, info.clock_port, info.setup, info.edge});
+                            pd.cell_arcs.push_back(
+                                    TimingCellArc{TimingCellArc::HOLD, info.clock_port, info.hold, info.edge});
+                        }
+                    }
+                    // Obtain arcs out of an input port through the cell
+                    for (auto &other_port : cell.second->ports) {
+                        auto &op = other_port.second;
+                        if (other_port.first == port.first)
+                            continue;
+                        if (op.type != PORT_OUT)
+                            continue;
+                        DelayInfo delay;
+                        bool is_path = ctx->getCellDelay(cell.second, port.first, other_port.first, delay);
+                        if (is_path)
+                            pd.cell_arcs.push_back(
+                                    TimingCellArc{TimingCellArc::COMBINATIONAL, other_port.first, delay});
+                    }
+                } else if (p.type == PORT_OUT) {
+                    // Output ports might have clk-to-q relationships
+                    if (cls == TMG_REGISTER_OUTPUT) {
+                        for (int i = 0; i < clkInfoCount; i++) {
+                            auto info = ctx->getPortClockingInfo(cell.second, port.first, i);
+                            pd.cell_arcs.push_back(
+                                    TimingCellArc{TimingCellArc::CLK_TO_Q, info.clock_port, info.clockToQ, info.edge});
+                        }
+                    }
+                    // Obtain arcs from an input port into this output port through the cell
+                    for (auto &other_port : cell.second->ports) {
+                        auto &op = other_port.second;
+                        if (other_port.first == port.first)
+                            continue;
+                        if (op.type != PORT_IN)
+                            continue;
+                        DelayInfo delay;
+                        bool is_path = ctx->getCellDelay(cell.second, other_port.first, port.first, delay);
+                        if (is_path)
+                            pd.cell_arcs.push_back(
+                                    TimingCellArc{TimingCellArc::COMBINATIONAL, other_port.first, delay});
+                    }
+                }
+            }
+        }
+    }
 };
 
 struct ClockEvent
