@@ -299,11 +299,14 @@ enum PlaceStrength
     STRENGTH_USER = 5
 };
 
+typedef int32_t port_uid_t;
+
 struct PortRef
 {
     CellInfo *cell = nullptr;
     IdString port;
     delay_t budget = 0;
+    port_uid_t uid = -1;
 };
 
 struct PipMap
@@ -442,7 +445,8 @@ struct PortInfo
     IdString name;
     NetInfo *net;
     PortType type;
-    TimingConstrObjectId tmg_id;
+    TimingConstrObjectId tmg_constr_id;
+    port_uid_t uid;
 };
 
 struct CellInfo : ArchCellInfo
@@ -531,6 +535,10 @@ struct TimingConstraintObject
     } type;
     IdString entity; // Name of clock net; net or cell
     IdString port;   // Name of port on a cell
+};
+
+struct MinMaxDelay {
+    delay_t min, max;
 };
 
 struct TimingConstraint
@@ -853,6 +861,36 @@ NEXTPNR_NAMESPACE_END
 #include "arch.h"
 
 NEXTPNR_NAMESPACE_BEGIN
+
+struct TimingDomainTag
+{
+    // Clock domain
+    IdString clock;
+    ClockEdge edge;
+    // Set of "active" constraints
+    std::unordered_set<IdString> activeConstraints;
+};
+
+struct TimingPortData
+{
+    MinMaxDelay required;
+    MinMaxDelay arrival;
+    MinMaxDelay slack;
+    delay_t budget;
+    int max_path_length;
+    float criticality;
+};
+
+struct TimingData
+{
+    std::vector<TimingDomainTag> domainTags;
+    std::vector<PortRef*> portsByUid;
+    std::vector<PortInfo*> portInfosByUid;
+    // port uid -> (domain -> TimingPortData)
+    std::vector<std::unordered_map<int, TimingPortData>> portData;
+    // Topological ordering of ports
+    std::vector<port_uid_t> topologicalOrder;
+};
 
 struct Context : Arch, DeterministicRNG
 {

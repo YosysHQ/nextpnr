@@ -117,8 +117,8 @@ TimingConstrObjectId BaseCtx::timingCellObject(CellInfo *cell)
 
 TimingConstrObjectId BaseCtx::timingPortObject(CellInfo *cell, IdString port)
 {
-    if (cell->ports.at(port).tmg_id != TimingConstrObjectId()) {
-        return cell->ports.at(port).tmg_id;
+    if (cell->ports.at(port).tmg_constr_id != TimingConstrObjectId()) {
+        return cell->ports.at(port).tmg_constr_id;
     } else {
         TimingConstraintObject obj;
         TimingConstrObjectId id;
@@ -128,7 +128,7 @@ TimingConstrObjectId BaseCtx::timingPortObject(CellInfo *cell, IdString port)
         obj.entity = cell->name;
         obj.port = port;
         constraintObjects.push_back(obj);
-        cell->ports.at(port).tmg_id = id;
+        cell->ports.at(port).tmg_constr_id = id;
         return id;
     }
 }

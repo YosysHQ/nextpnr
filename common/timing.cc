@@ -31,6 +31,60 @@
 NEXTPNR_NAMESPACE_BEGIN
 
 namespace {
+
+struct TimingAnalyser {
+    Context *ctx;
+    TimingData *td;
+
+    void label_ports() {
+        // Clear out all existing data, and re-label all parts
+        td->domainTags.clear();
+        td->portData.clear();
+        td->portInfosByUid.clear();
+        td->portsByUid.clear();
+
+        // First, clear UID of all ports to -1
+        for (auto cell : sorted(ctx->cells)) {
+            for (auto &port : cell.second->ports)
+                port.second.uid = -1;
+        }
+
+        int max_uid = 0;
+        // Handle ports connected to nets
+        for (auto net : sorted(ctx->nets)) {
+            NetInfo *ni = net.second;
+            if (ni->driver.cell != nullptr) {
+                ni->driver.uid = max_uid;
+                ni->driver.cell->ports.at(ni->driver.port).uid = max_uid;
+                td->portsByUid.push_back(&ni->driver);
+                td->portInfosByUid.push_back(&ni->driver.cell->ports.at(ni->driver.port));
+                ++max_uid;
+            }
+            for (auto &usr : ni->users) {
+                usr.uid = max_uid;
+                usr.cell->ports.at(usr.port).uid = max_uid;
+                td->portsByUid.push_back(&usr);
+                td->portInfosByUid.push_back(&usr.cell->ports.at(usr.port));
+                ++max_uid;
+            }
+        }
+        // Handle any ports not connected to nets
+        for (auto cell : sorted(ctx->cells)) {
+            for (auto &port : cell.second->ports) {
+                if (port.second.uid != -1)
+                    continue;
+                NPNR_ASSERT(port.second.net == nullptr);
+                port.second.uid = max_uid;
+                td->portInfosByUid.push_back(&port.second);
+                td->portsByUid.push_back(nullptr);
+                ++max_uid;
+            }
+        }
+    }
+
+
+};
+
 struct ClockEvent
 {
     IdString clock;
