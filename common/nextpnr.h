@@ -231,6 +231,32 @@ struct TimingConstrObjectId
     bool operator!=(const TimingConstrObjectId &other) const { return index != other.index; }
 };
 
+enum ClockEdge
+{
+    RISING_EDGE,
+    FALLING_EDGE
+};
+
+struct TimingDomainTag
+{
+    // Clock domain
+    IdString clock;
+    ClockEdge edge;
+    // Set of "active" constraints
+    std::unordered_set<IdString> activeConstraints;
+
+    bool operator==(const TimingDomainTag &other) const
+    {
+        if (clock != other.clock)
+            return false;
+        if (edge != other.edge)
+            return false;
+        if (activeConstraints != other.activeConstraints)
+            return false;
+        return true;
+    }
+};
+
 NEXTPNR_NAMESPACE_END
 
 namespace std {
@@ -251,6 +277,24 @@ template <> struct hash<NEXTPNR_NAMESPACE_PREFIX TimingConstrObjectId>
     std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX TimingConstrObjectId &obj) const noexcept
     {
         return hash<int>()(obj.index);
+    }
+};
+
+template <> struct hash<NEXTPNR_NAMESPACE_PREFIX ClockEdge>
+{
+    std::size_t operator()(NEXTPNR_NAMESPACE_PREFIX ClockEdge obj) const noexcept { return hash<int>()(obj); }
+};
+
+template <> struct hash<NEXTPNR_NAMESPACE_PREFIX TimingDomainTag>
+{
+    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX TimingDomainTag &obj) const noexcept
+    {
+        std::size_t seed = 0;
+        boost::hash_combine(seed, hash<NEXTPNR_NAMESPACE_PREFIX IdString>()(obj.clock));
+        boost::hash_combine(seed, hash<NEXTPNR_NAMESPACE_PREFIX ClockEdge>()(obj.edge));
+        for (const auto &cstr : obj.activeConstraints)
+            boost::hash_combine(seed, hash<NEXTPNR_NAMESPACE_PREFIX IdString>()(cstr));
+        return seed;
     }
 };
 
@@ -499,12 +543,6 @@ enum TimingPortClass
     TMG_IGNORE,          // Asynchronous to all clocks, "don't care", and should be ignored (false path) for analysis
 };
 
-enum ClockEdge
-{
-    RISING_EDGE,
-    FALLING_EDGE
-};
-
 struct TimingClockingInfo
 {
     IdString clock_port; // Port name of clock domain
@@ -518,6 +556,7 @@ struct ClockConstraint
     DelayInfo high;
     DelayInfo low;
     DelayInfo period;
+    std::vector<IdString> input_ports;
 
     TimingConstrObjectId domain_tmg_id;
 };
@@ -863,15 +902,6 @@ NEXTPNR_NAMESPACE_END
 
 NEXTPNR_NAMESPACE_BEGIN
 
-struct TimingDomainTag
-{
-    // Clock domain
-    IdString clock;
-    ClockEdge edge;
-    // Set of "active" constraints
-    std::unordered_set<IdString> activeConstraints;
-};
-
 struct TimingPortTimes
 {
     MinMaxDelay required;
@@ -880,6 +910,13 @@ struct TimingPortTimes
     delay_t budget;
     int max_path_length;
     float criticality;
+
+    enum
+    {
+        FLAGS_NONE = 0,
+        FLAGS_FALSE_STARTPOINT = 1,
+        FLAGS_FALSE_ENDPOINT = 2,
+    } flags;
 };
 
 struct TimingCellArc
@@ -920,6 +957,7 @@ struct TimingPortData
 struct TimingData
 {
     std::vector<TimingDomainTag> domainTags;
+    std::unordered_map<TimingDomainTag, int> domainTagIds;
     std::vector<PortRef *> ports_by_uid;
     std::vector<PortInfo *> portInfos_by_uid;
     // port uid -> data

@@ -148,6 +148,131 @@ struct TimingAnalyser
             }
         }
     }
+
+    int domain_tag_id(const TimingDomainTag &dt)
+    {
+        auto fnd = td->domainTagIds.find(dt);
+        if (fnd == td->domainTagIds.end()) {
+            int id = int(td->domainTags.size());
+            td->domainTags.push_back(dt);
+            td->domainTagIds[dt] = id;
+            return id;
+        } else {
+            return fnd->second;
+        }
+    }
+
+    void topo_sort()
+    {
+        // Build up a topological ordering of ports
+        std::vector<int> port_fanin(td->ports.size());
+        std::unordered_set<port_uid_t> nonzero_fanin;
+
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            for (auto &port : ci->ports) {
+                auto &p = port.second;
+                if (p.type != PORT_OUT)
+                    continue;
+                int clkCount;
+                auto cls = ctx->getPortTimingClass(ci, port.first, clkCount);
+                auto &pd = td->ports.at(p.uid);
+                for (auto &arcin : pd.cell_arcs) {
+                    // Look at all input ports that fan into this port
+                    if (arcin.type != TimingCellArc::COMBINATIONAL)
+                        continue;
+                    // Ignore floating inputs, as these will not be visited
+                    if (ci->ports.at(arcin.other_port).net == nullptr)
+                        continue;
+                    if (port_fanin[p.uid] == 0)
+                        nonzero_fanin.insert(p.uid);
+                    port_fanin[p.uid]++;
+                }
+
+                if ((cls == TMG_REGISTER_OUTPUT || cls == TMG_STARTPOINT || cls == TMG_GEN_CLOCK ||
+                     cls == TMG_IGNORE) &&
+                    port_fanin[p.uid] == 0) {
+                    // Startpoints - note only clocked outputs/startpoints without combinational paths into them are
+                    // added (it is possible that a cell containing e.g. a register followed by a mux would have a port
+                    // of class TMG_REGISTER_OUTPUT that also had a combinational arc onto it)
+                    td->topological_order.push_back(p.uid);
+                }
+            }
+        }
+
+        std::deque<port_uid_t> queue(td->topological_order.begin(), td->topological_order.end());
+        // Ports that were left with a non-zero fanin at the end of topological ordering
+        std::vector<port_uid_t> bad_ports;
+
+        while (!queue.empty()) {
+            int next_uid = queue.front();
+            queue.pop_front();
+            auto &p = td->portInfos_by_uid.at(next_uid);
+            if (p->type == PORT_OUT) {
+                // Sanity check that we are visiting things in the correct order
+                NPNR_ASSERT(port_fanin[p->uid] == 0);
+                // Output ports - immediately add all driven inputs to topological order
+                if (p->net != nullptr)
+                    for (auto &usr : p->net->users) {
+                        td->topological_order.push_back(usr.uid);
+                        queue.push_back(usr.uid);
+                    }
+            } else {
+                // Input port
+                auto &pd = td->ports.at(next_uid);
+                // Look for all outputs with combinational arcs from this input
+                for (auto &arcout : pd.cell_arcs) {
+                    if (arcout.type != TimingCellArc::COMBINATIONAL)
+                        continue;
+                    port_uid_t other_port_id = td->ports_by_uid.at(next_uid)->cell->ports.at(arcout.other_port).uid;
+                    // If the output already has a zero fanout, then we must have visited it too early or
+                    // forgotten to add some fanin to port_fanin
+                    NPNR_ASSERT(port_fanin.at(other_port_id) > 0);
+                    // Decrement the output's fanin now we have visited one fanin, and add it to the topological order
+                    // if and only if it's fanin is now zero
+                    if (--port_fanin.at(other_port_id) == 0) {
+                        td->topological_order.push_back(other_port_id);
+                        queue.push_back(other_port_id);
+                        nonzero_fanin.erase(other_port_id);
+                    }
+                }
+            }
+
+            // If the queue is now empty, check we haven't missed any ports due to combinational loops, etc
+            // If we find any, add them to the order and queue for "best-effort" handling of loops, and allow a
+            // error/warning to be shown to the user
+            if (queue.empty() && !nonzero_fanin.empty()) {
+                port_uid_t nz_port = *(nonzero_fanin.begin());
+                nonzero_fanin.erase(nz_port);
+                // FIXME: trace source of non-zero fanin to find and report loops
+                bad_ports.push_back(nz_port);
+                td->topological_order.push_back(nz_port);
+                queue.push_back(nz_port);
+            }
+        }
+        if (!bad_ports.empty() && !bool_or_default(ctx->settings, ctx->id("timing/ignoreLoops"), false)) {
+            for (auto bp : bad_ports) {
+                PortInfo *pi = td->portInfos_by_uid.at(bp);
+                NetInfo *net = pi->net;
+                if (net != nullptr) {
+                    log_info("   remaining fanin includes %s (net %s)\n", pi->name.c_str(ctx), net->name.c_str(ctx));
+                    if (net->driver.cell != nullptr)
+                        log_info("        driver = %s.%s\n", net->driver.cell->name.c_str(ctx),
+                                 net->driver.port.c_str(ctx));
+                    for (auto net_user : net->users)
+                        log_info("        user: %s.%s\n", net_user.cell->name.c_str(ctx), net_user.port.c_str(ctx));
+                } else {
+                    log_info("   remaining fanin includes %s (no net)\n", pi->name.c_str(ctx));
+                }
+            }
+            if (ctx->force)
+                log_warning("timing analysis failed due to presence of combinatorial loops, incomplete specification "
+                            "of timing ports, etc.\n");
+            else
+                log_error("timing analysis failed due to presence of combinatorial loops, incomplete specification of "
+                          "timing ports, etc.\n");
+        }
+    }
 };
 
 struct ClockEvent
