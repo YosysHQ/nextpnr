@@ -5,7 +5,7 @@ task:
     memory: 20
     dockerfile: .cirrus/Dockerfile.ubuntu16.04
 
-  build_script: mkdir build && cd build && cmake .. -DARCH=all -DTRELLIS_ROOT=/usr/local/src/prjtrellis -DBUILD_TESTS=on && make -j $(nproc)
+  build_script: mkdir build && cd build && cmake .. -DARCH=all -DBUILD_TESTS=on && make -j $(nproc)
   submodule_script: git submodule sync --recursive && git submodule update --init --recursive
   test_generic_script: cd build && ./nextpnr-generic-test
   test_ice40_script: cd build && ./nextpnr-ice40-test
