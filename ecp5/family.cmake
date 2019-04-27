@@ -6,7 +6,7 @@ if (NOT EXTERNAL_CHIPDB)
         set(TRELLIS_ROOT "/usr/local/share/trellis")
     endif()
 
-    file(GLOB found_pytrellis ${TRELLIS_ROOT}/libtrellis/pytrellis.*
+    file(GLOB found_pytrellis ${TRELLIS_ROOT}/trellis/pytrellis.*
                               /usr/lib/pytrellis.*
                               /usr/lib64/pytrellis.*
                               /usr/lib/trellis/pytrellis.*
