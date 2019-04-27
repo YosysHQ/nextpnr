@@ -27,9 +27,9 @@ if (NOT EXTERNAL_CHIPDB)
     target_include_directories(ecp5_chipdb PRIVATE ${family}/)
 
     if (CMAKE_HOST_WIN32)
-    set(ENV_CMD ${CMAKE_COMMAND} -E env "PYTHONPATH=\"${PYTRELLIS_LIBDIR}\;${TRELLIS_ROOT}/share/util/common\;${TRELLIS_ROOT}/share/timing/util\"")
+    set(ENV_CMD ${CMAKE_COMMAND} -E env "PYTHONPATH=\"${PYTRELLIS_LIBDIR}\;${TRELLIS_ROOT}/share/trellis/util/common\;${TRELLIS_ROOT}/share/trellis/timing/util\"")
     else()
-    set(ENV_CMD ${CMAKE_COMMAND} -E env "PYTHONPATH=${PYTRELLIS_LIBDIR}\:${TRELLIS_ROOT}/share/util/common:${TRELLIS_ROOT}/share/timing/util")
+    set(ENV_CMD ${CMAKE_COMMAND} -E env "PYTHONPATH=${PYTRELLIS_LIBDIR}\:${TRELLIS_ROOT}/share/trellis/util/common:${TRELLIS_ROOT}/share/trellis/timing/util")
     endif()
 
     if (MSVC)
