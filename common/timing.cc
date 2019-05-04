@@ -85,7 +85,7 @@ struct TimingAnalyser
         td->ports.resize(max_uid);
     }
 
-    void get_arcs()
+    void get_cell_arcs()
     {
         for (auto cell : sorted(ctx->cells)) {
             for (auto &port : cell.second->ports) {
@@ -271,6 +271,54 @@ struct TimingAnalyser
             else
                 log_error("timing analysis failed due to presence of combinatorial loops, incomplete specification of "
                           "timing ports, etc.\n");
+        }
+    }
+
+    void get_net_delays()
+    {
+        for (auto &n : sorted(ctx->nets)) {
+            NetInfo *ni = n.second;
+            for (auto &usr : ni->users) {
+                td->ports.at(usr.uid).net_delay = ctx->getNetinfoRouteDelay(ni, usr);
+            }
+        }
+    }
+
+    void setup_domains()
+    {
+        // Go forward through the topological order,
+        for (auto p_uid : td->topological_order) {
+            auto &p = td->ports_by_uid.at(p_uid);
+            auto &pi = td->portInfos_by_uid.at(p_uid);
+            auto &pd = td->ports.at(p_uid);
+            if (pi->type == PORT_OUT) {
+                for (auto &fanin : pd.cell_arcs) {
+                    if (fanin.type == TimingCellArc::COMBINATIONAL) {
+                        // Copy domains for combinational fanins
+                        for (auto &dt : td->ports.at(p->cell->ports.at(fanin.other_port).uid).times) {
+                            pd.times[dt.first];
+                        }
+                    } else if (fanin.type == TimingCellArc::CLK_TO_Q) {
+                        // Create domain for clocked port
+                        NetInfo *clknet = p->cell->ports.at(fanin.other_port).net;
+                        if (clknet == nullptr)
+                            continue;
+                        TimingDomainTag td;
+                        td.clock = clknet->name;
+                        td.edge = fanin.edge;
+                        pd.times[domain_tag_id(td)];
+                    }
+                }
+            } else {
+                // Copy domains - TODO: duplicating domains when seeing constraints
+                NetInfo *n = pi->net;
+                if (n == nullptr || n->driver.cell == nullptr)
+                    continue;
+                auto &driver_pd = td->ports.at(n->driver.uid);
+                for (auto &dt : driver_pd.times) {
+                    pd.times[dt.first];
+                }
+            }
         }
     }
 };

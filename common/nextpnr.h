@@ -578,7 +578,7 @@ struct TimingConstraintObject
 
 struct MinMaxDelay
 {
-    delay_t min, max;
+    delay_t min = std::numeric_limits<delay_t>::max(), max = std::numeric_limits<delay_t>::min();
 };
 
 struct TimingConstraint
@@ -952,6 +952,9 @@ struct TimingPortData
     // when connectivity hasn't changed (e.g. inbetween placement
     // steps)
     std::vector<TimingCellArc> cell_arcs;
+
+    // Input ports only - net delay from driver to this port
+    delay_t net_delay = 0;
 };
 
 struct TimingData
