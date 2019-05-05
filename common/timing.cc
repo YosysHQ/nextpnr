@@ -40,7 +40,7 @@ struct TimingAnalyser
     void label_ports()
     {
         // Clear out all existing data, and re-label all parts
-        td->domainTags.clear();
+        td->domains.clear();
         td->ports.clear();
         td->portInfos_by_uid.clear();
         td->ports_by_uid.clear();
@@ -153,8 +153,10 @@ struct TimingAnalyser
     {
         auto fnd = td->domainTagIds.find(dt);
         if (fnd == td->domainTagIds.end()) {
-            int id = int(td->domainTags.size());
-            td->domainTags.push_back(dt);
+            int id = int(td->domains.size());
+            TimingDomainData dd;
+            dd.tag = dt;
+            td->domains.push_back(dd);
             td->domainTagIds[dt] = id;
             return id;
         } else {
@@ -286,37 +288,161 @@ struct TimingAnalyser
 
     void setup_domains()
     {
-        // Go forward through the topological order,
+        // Clear the list of startpoints and endpoints
+        for (auto &d : td->domains) {
+            d.startpoints.clear();
+            d.endpoints.clear();
+        }
+
+        // Go forward through the topological order (domains from the PoV of arrival time)
         for (auto p_uid : td->topological_order) {
             auto &p = td->ports_by_uid.at(p_uid);
             auto &pi = td->portInfos_by_uid.at(p_uid);
             auto &pd = td->ports.at(p_uid);
             if (pi->type == PORT_OUT) {
                 for (auto &fanin : pd.cell_arcs) {
-                    if (fanin.type == TimingCellArc::COMBINATIONAL) {
-                        // Copy domains for combinational fanins
-                        for (auto &dt : td->ports.at(p->cell->ports.at(fanin.other_port).uid).times) {
-                            pd.times[dt.first];
-                        }
-                    } else if (fanin.type == TimingCellArc::CLK_TO_Q) {
+                    if (fanin.type == TimingCellArc::CLK_TO_Q) {
                         // Create domain for clocked port
                         NetInfo *clknet = p->cell->ports.at(fanin.other_port).net;
                         if (clknet == nullptr)
                             continue;
-                        TimingDomainTag td;
-                        td.clock = clknet->name;
-                        td.edge = fanin.edge;
-                        pd.times[domain_tag_id(td)];
+                        TimingDomainTag tdt;
+                        tdt.clock = clknet->name;
+                        tdt.edge = fanin.edge;
+                        auto tdid = domain_tag_id(tdt);
+                        pd.times[tdid];
+                        td->domains[tdid].startpoints.emplace_back(p_uid, p->cell->ports.at(fanin.other_port).uid);
                     }
                 }
+
+                // Copy domains onto directly connected input ports
+                NetInfo *n = pi->net;
+                if (n == nullptr)
+                    continue;
+                for (auto &usr : n->users) {
+                    auto &usr_pd = td->ports.at(usr.uid);
+                    for (auto &domain : pd.times)
+                        usr_pd.times[domain.first];
+                }
             } else {
-                // Copy domains - TODO: duplicating domains when seeing constraints
+                // Input pin - copy domains - TODO: duplicating domains when seeing constraints
+                for (auto &fanout : pd.cell_arcs) {
+                    if (fanout.type == TimingCellArc::COMBINATIONAL) {
+                        // Copy domains for combinational fanout
+                        for (auto &dt : td->ports.at(p->cell->ports.at(fanout.other_port).uid).times) {
+                            pd.times[dt.first];
+                        }
+                    }
+                }
+            }
+        }
+
+        // Go backward through the topological order (domains from the PoV of required time)
+        for (auto p_uid : boost::adaptors::reverse(td->topological_order)) {
+            auto &p = td->ports_by_uid.at(p_uid);
+            auto &pi = td->portInfos_by_uid.at(p_uid);
+            auto &pd = td->ports.at(p_uid);
+            if (pi->type == PORT_OUT) {
+                // Output pin - copy domains - TODO: duplicating domains when seeing constraints
+                for (auto &fanin : pd.cell_arcs) {
+                    if (fanin.type == TimingCellArc::COMBINATIONAL) {
+                        // Copy domains for combinational fanout
+                        for (auto &dt : td->ports.at(p->cell->ports.at(fanin.other_port).uid).times) {
+                            pd.times[dt.first];
+                        }
+                    }
+                }
+            } else if (pi->type == PORT_IN) {
+                for (auto &fanout : pd.cell_arcs) {
+                    if (fanout.type == TimingCellArc::SETUP) {
+                        // Create domain for clocked port
+                        NetInfo *clknet = p->cell->ports.at(fanout.other_port).net;
+                        if (clknet == nullptr)
+                            continue;
+                        TimingDomainTag tdt;
+                        tdt.clock = clknet->name;
+                        tdt.edge = fanout.edge;
+                        auto tdid = domain_tag_id(tdt);
+                        pd.times[tdid];
+                        td->domains[tdid].endpoints.emplace_back(p_uid, p->cell->ports.at(fanout.other_port).uid);
+                    }
+                }
+                // Copy domains to connected net driver
                 NetInfo *n = pi->net;
                 if (n == nullptr || n->driver.cell == nullptr)
                     continue;
-                auto &driver_pd = td->ports.at(n->driver.uid);
-                for (auto &dt : driver_pd.times) {
-                    pd.times[dt.first];
+                for (auto &dt : pd.times)
+                    td->ports[n->driver.uid].times[dt.first];
+            }
+        }
+    }
+    enum
+    {
+        SETUP_ONLY = 1,
+        IGNORE_CLOCK_ROUTING = 2,
+    } sta_flags;
+
+    void add_arrival_time(port_uid_t target, int domain, delay_t max_arr, delay_t min_arr, port_uid_t prev = -1)
+    {
+        auto &t = td->ports[target].times[domain];
+        if (max_arr > t.arrival.max) {
+            t.arrival.max = max_arr;
+            t.bwd_setup = prev;
+        }
+        if (!(sta_flags & SETUP_ONLY) && min_arr < t.arrival.min) {
+            t.arrival.min = min_arr;
+            t.bwd_hold = prev;
+        }
+    }
+
+    void walk_forward(int domain)
+    {
+        auto &dm = td->domains.at(domain);
+        // Assign initial arrival time to domain startpoints
+        for (auto &sp : dm.startpoints) {
+            auto &pd = td->ports.at(sp.first);
+            delay_t min_dly = 0, max_dly = 0;
+            // Add clock routing delay, if we need to consider it
+            if (!(sta_flags & IGNORE_CLOCK_ROUTING) && sp.second != -1) {
+                min_dly = td->ports.at(sp.second).net_delay;
+                max_dly = td->ports.at(sp.second).net_delay;
+            }
+            // Add clock to out time, if this startpoint is clocked
+            if (sp.second != -1) {
+                for (auto &fanin : pd.cell_arcs) {
+                    if (fanin.type == TimingCellArc::CLK_TO_Q &&
+                        fanin.other_port == td->portInfos_by_uid.at(sp.second)->name) {
+                        min_dly += fanin.value.minDelay();
+                        max_dly += fanin.value.maxDelay();
+                        break;
+                    }
+                }
+            }
+            add_arrival_time(sp.first, domain, max_dly, min_dly, sp.second);
+        }
+        // Walk forward in topological order
+        for (auto p_uid : td->topological_order) {
+            auto &pd = td->ports.at(p_uid);
+            auto &pi = td->portInfos_by_uid.at(p_uid);
+            auto &p = td->ports_by_uid.at(p_uid);
+            if (!pd.times.count(domain))
+                continue;
+            auto &pt = pd.times.at(domain);
+            if (pi->type == PORT_OUT) {
+                // Output port: propagate delay through net, adding route delay
+                if (pi->net == nullptr)
+                    continue;
+                for (auto &usr : pi->net->users)
+                    add_arrival_time(usr.uid, domain, pt.arrival.max + td->ports.at(usr.uid).net_delay,
+                                     pt.arrival.min + td->ports.at(usr.uid).net_delay, p_uid);
+            } else if (pi->type == PORT_IN) {
+                // Input port : propagate delay through cell, adding combinational delay
+                for (auto &fanout : pd.cell_arcs) {
+                    if (fanout.type != TimingCellArc::COMBINATIONAL)
+                        continue;
+                    add_arrival_time(p->cell->ports.at(fanout.other_port).uid, domain,
+                                     pt.arrival.max + fanout.value.maxDelay(), pt.arrival.min + fanout.value.minDelay(),
+                                     p_uid);
                 }
             }
         }

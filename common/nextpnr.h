@@ -907,16 +907,19 @@ struct TimingPortTimes
     MinMaxDelay required;
     MinMaxDelay arrival;
     MinMaxDelay slack;
-    delay_t budget;
-    int max_path_length;
-    float criticality;
+    delay_t budget = std::numeric_limits<delay_t>::max();
+    int max_path_length = 0;
+    float criticality = 0;
+
+    // Critical path predecessor for setup and hold
+    port_uid_t bwd_setup = -1, bwd_hold = -1;
 
     enum
     {
         FLAGS_NONE = 0,
         FLAGS_FALSE_STARTPOINT = 1,
         FLAGS_FALSE_ENDPOINT = 2,
-    } flags;
+    } flags = FLAGS_NONE;
 };
 
 struct TimingCellArc
@@ -957,10 +960,19 @@ struct TimingPortData
     delay_t net_delay = 0;
 };
 
+struct TimingDomainData
+{
+    TimingDomainTag tag;
+    // <start/end port, clock port>
+    std::vector<std::pair<port_uid_t, port_uid_t>> startpoints, endpoints;
+    port_uid_t crit_setup_ep = -1, crit_hold_ep = -1;
+};
+
 struct TimingData
 {
-    std::vector<TimingDomainTag> domainTags;
+    std::vector<TimingDomainData> domains;
     std::unordered_map<TimingDomainTag, int> domainTagIds;
+
     std::vector<PortRef *> ports_by_uid;
     std::vector<PortInfo *> portInfos_by_uid;
     // port uid -> data
