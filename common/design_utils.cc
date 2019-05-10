@@ -129,4 +129,21 @@ void connect_ports(Context *ctx, CellInfo *cell1, IdString port1_name, CellInfo 
     connect_port(ctx, port1.net, cell2, port2_name);
 }
 
+void rename_port(Context *ctx, CellInfo *cell, IdString old_name, IdString new_name)
+{
+    if (!cell->ports.count(old_name))
+        return;
+    PortInfo pi = cell->ports.at(old_name);
+    if (pi.net != nullptr) {
+        if (pi.net->driver.cell == cell && pi.net->driver.port == old_name)
+            pi.net->driver.port = new_name;
+        for (auto &usr : pi.net->users)
+            if (usr.cell == cell && usr.port == old_name)
+                usr.port = new_name;
+    }
+    cell->ports.erase(old_name);
+    pi.name = new_name;
+    cell->ports[new_name] = pi;
+}
+
 NEXTPNR_NAMESPACE_END

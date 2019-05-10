@@ -1390,6 +1390,19 @@ class Ecp5Packer
         }
     }
 
+    // Miscellaneous packer tasks
+    void pack_misc()
+    {
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (ci->type == id_USRMCLK) {
+                rename_port(ctx, ci, ctx->id("USRMCLKI"), id_PADDO);
+                rename_port(ctx, ci, ctx->id("USRMCLKTS"), id_PADDT);
+                rename_port(ctx, ci, ctx->id("USRMCLKO"), id_PADDI);
+            }
+        }
+    }
+
     // Preplace PLL
     void preplace_plls()
     {
@@ -2371,6 +2384,7 @@ class Ecp5Packer
         pack_ebr();
         pack_dsps();
         pack_dcus();
+        pack_misc();
         preplace_plls();
         pack_constants();
         pack_dram();
