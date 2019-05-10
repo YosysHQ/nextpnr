@@ -91,6 +91,9 @@ void disconnect_port(const Context *ctx, CellInfo *cell, IdString port_name);
 // Connect two ports together
 void connect_ports(Context *ctx, CellInfo *cell1, IdString port1_name, CellInfo *cell2, IdString port2_name);
 
+// Rename a port if it exists on a cell
+void rename_port(Context *ctx, CellInfo *cell, IdString old_name, IdString new_name);
+
 void print_utilisation(const Context *ctx);
 
 NEXTPNR_NAMESPACE_END
