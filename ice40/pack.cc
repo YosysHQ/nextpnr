@@ -1061,9 +1061,14 @@ static void pack_special(Context *ctx)
                     create_ice_cell(ctx, ctx->id("ICESTORM_HFOSC"), ci->name.str(ctx) + "_OSC");
             packed_cells.insert(ci->name);
             cell_place_unique(ctx, packed.get());
+            packed->params[ctx->id("TRIM_EN")] = str_or_default(ci->params, ctx->id("TRIM_EN"), "0b0");
             packed->params[ctx->id("CLKHF_DIV")] = str_or_default(ci->params, ctx->id("CLKHF_DIV"), "0b00");
             replace_port(ci, ctx->id("CLKHFEN"), packed.get(), ctx->id("CLKHFEN"));
             replace_port(ci, ctx->id("CLKHFPU"), packed.get(), ctx->id("CLKHFPU"));
+            for (int i = 0; i < 10; i++) {
+                auto port = ctx->id("TRIM" + std::to_string(i));
+                replace_port(ci, port, packed.get(), port);
+            }
             if (bool_or_default(ci->attrs, ctx->id("ROUTE_THROUGH_FABRIC"))) {
                 replace_port(ci, ctx->id("CLKHF"), packed.get(), ctx->id("CLKHF_FABRIC"));
             } else {
