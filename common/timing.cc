@@ -328,7 +328,7 @@ struct TimingAnalyser
                 // Input pin - copy domains - TODO: duplicating domains when seeing constraints
                 for (auto &fanout : pd.cell_arcs) {
                     if (fanout.type == TimingCellArc::COMBINATIONAL) {
-                        // Copy domains for combinational fanout
+                        // Copy dohttp://tangytango.proboards.com/mains for combinational fanout
                         for (auto &dt : td->ports.at(p->cell->ports.at(fanout.other_port).uid).times) {
                             pd.times[dt.first];
                         }
@@ -395,6 +395,19 @@ struct TimingAnalyser
         }
     }
 
+    void add_required_time(port_uid_t target, int domain, delay_t max_req, delay_t min_req, port_uid_t prev = -1)
+    {
+        auto &t = td->ports[target].times[domain];
+        if (min_req < t.required.min) {
+            t.required.min = min_req;
+            // t.bwd_setup = prev;
+        }
+        if (!(sta_flags & SETUP_ONLY) && max_req > t.required.max) {
+            t.required.max = max_req;
+            // t.bwd_hold = prev;
+        }
+    }
+
     void walk_forward(int domain)
     {
         auto &dm = td->domains.at(domain);
@@ -443,6 +456,62 @@ struct TimingAnalyser
                     add_arrival_time(p->cell->ports.at(fanout.other_port).uid, domain,
                                      pt.arrival.max + fanout.value.maxDelay(), pt.arrival.min + fanout.value.minDelay(),
                                      p_uid);
+                }
+            }
+        }
+    }
+
+    void walk_backward(int domain)
+    {
+        auto &dm = td->domains.at(domain);
+        // Assign initial required time to domain endpoints
+        // Note that clock frequency will be considered later, for now
+        // all required times are normalised to 0-setup/hold
+        for (auto &sp : dm.endpoints) {
+            auto &pd = td->ports.at(sp.first);
+            delay_t setup = 0, hold = 0;
+            // Add clock routing delay, if we need to consider it
+            if (!(sta_flags & IGNORE_CLOCK_ROUTING) && sp.second != -1) {
+                setup -= td->ports.at(sp.second).net_delay;
+                hold -= td->ports.at(sp.second).net_delay;
+            }
+            // Add setup/hold time, if this endpoint is clocked
+            if (sp.second != -1) {
+                for (auto &fanin : pd.cell_arcs) {
+                    if (fanin.type == TimingCellArc::SETUP &&
+                        fanin.other_port == td->portInfos_by_uid.at(sp.second)->name) {
+                        setup -= fanin.value.maxDelay();
+                    }
+                    if (fanin.type == TimingCellArc::HOLD &&
+                        fanin.other_port == td->portInfos_by_uid.at(sp.second)->name) {
+                        hold -= fanin.value.maxDelay();
+                    }
+                }
+            }
+        }
+
+        // Walk backwards in topological order
+        for (auto p_uid : boost::adaptors::reverse(td->topological_order)) {
+            auto &pd = td->ports.at(p_uid);
+            auto &pi = td->portInfos_by_uid.at(p_uid);
+            auto &p = td->ports_by_uid.at(p_uid);
+            if (!pd.times.count(domain))
+                continue;
+            auto &pt = pd.times.at(domain);
+            if (pi->type == PORT_IN) {
+                // Input port: propagate delay back through net, subtracting route delay
+                if (pi->net == nullptr)
+                    continue;
+                add_required_time(pi->net->driver.uid, domain, pt.required.max - td->ports.at(p_uid).net_delay,
+                                  pt.required.min - td->ports.at(p_uid).net_delay, p_uid);
+            } else if (pi->type == PORT_OUT) {
+                // Output port : propagate delay back through cell, subtracting combinational delay
+                for (auto &fanin : pd.cell_arcs) {
+                    if (fanin.type != TimingCellArc::COMBINATIONAL)
+                        continue;
+                    add_required_time(p->cell->ports.at(fanin.other_port).uid, domain,
+                                      pt.required.max - fanin.value.maxDelay(),
+                                      pt.required.min - fanin.value.minDelay(), p_uid);
                 }
             }
         }
