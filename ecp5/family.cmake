@@ -6,18 +6,18 @@ if (NOT EXTERNAL_CHIPDB)
         set(TRELLIS_ROOT "/usr/local/share/trellis")
     endif()
 
-    file(GLOB found_pytrellis ${TRELLIS_ROOT}/libtrellis/pytrellis.*
-                              /usr/lib/pytrellis.*
-                              /usr/lib64/pytrellis.*
-                              /usr/lib/trellis/pytrellis.*
-                              /usr/lib64/trellis/pytrellis.*)
+    if (NOT DEFINED PYTRELLIS_LIBDIR)
+        find_library(PYTRELLIS pytrellis.so
+            PATHS ${TRELLIS_ROOT}/libtrellis
+            PATH_SUFFIXES trellis
+            DOC "Location of pytrellis library")
 
-    if ("${found_pytrellis}" STREQUAL "")
-        message(FATAL_ERROR "failed to locate pytrellis library!")
+        if ("${PYTRELLIS}" STREQUAL "PYTRELLIS-NOTFOUND")
+            message(FATAL_ERROR "Failed to locate pytrellis library!")
+        endif()
+
+        get_filename_component(PYTRELLIS_LIBDIR ${PYTRELLIS} DIRECTORY)
     endif()
-
-    list(GET found_pytrellis 0 PYTRELLIS_LIB)
-    get_filename_component(PYTRELLIS_LIBDIR ${PYTRELLIS_LIB} DIRECTORY)
 
     set(DB_PY ${CMAKE_CURRENT_SOURCE_DIR}/ecp5/trellis_import.py)
 
@@ -27,9 +27,9 @@ if (NOT EXTERNAL_CHIPDB)
     target_include_directories(ecp5_chipdb PRIVATE ${family}/)
 
     if (CMAKE_HOST_WIN32)
-    set(ENV_CMD ${CMAKE_COMMAND} -E env "PYTHONPATH=\"${PYTRELLIS_LIBDIR}\;${TRELLIS_ROOT}/util/common\;${TRELLIS_ROOT}/timing/util\"")
+        set(ENV_CMD ${CMAKE_COMMAND} -E env "PYTHONPATH=\"${PYTRELLIS_LIBDIR}\;${TRELLIS_ROOT}/util/common\;${TRELLIS_ROOT}/timing/util\"")
     else()
-    set(ENV_CMD ${CMAKE_COMMAND} -E env "PYTHONPATH=${PYTRELLIS_LIBDIR}\:${TRELLIS_ROOT}/util/common:${TRELLIS_ROOT}/timing/util")
+        set(ENV_CMD ${CMAKE_COMMAND} -E env "PYTHONPATH=${PYTRELLIS_LIBDIR}\:${TRELLIS_ROOT}/util/common:${TRELLIS_ROOT}/timing/util")
     endif()
 
     if (MSVC)
@@ -38,15 +38,15 @@ if (NOT EXTERNAL_CHIPDB)
         foreach (dev ${devices})
             set(DEV_CC_DB ${CMAKE_CURRENT_SOURCE_DIR}/ecp5/chipdbs/chipdb-${dev}.bin)
             set(DEV_CC_BBA_DB ${CMAKE_CURRENT_SOURCE_DIR}/ecp5/chipdbs/chipdb-${dev}.bba)
-        set(DEV_CONSTIDS_INC ${CMAKE_CURRENT_SOURCE_DIR}/ecp5/constids.inc)
+            set(DEV_CONSTIDS_INC ${CMAKE_CURRENT_SOURCE_DIR}/ecp5/constids.inc)
             add_custom_command(OUTPUT ${DEV_CC_BBA_DB}
-            COMMAND ${ENV_CMD} python3 ${DB_PY} -p ${DEV_CONSTIDS_INC} ${dev} > ${DEV_CC_BBA_DB}
-                    DEPENDS ${DB_PY}
-                    )
+                COMMAND ${ENV_CMD} python3 ${DB_PY} -p ${DEV_CONSTIDS_INC} ${dev} > ${DEV_CC_BBA_DB}
+                DEPENDS ${DB_PY}
+                )
             add_custom_command(OUTPUT ${DEV_CC_DB}
-                    COMMAND bbasm ${DEV_CC_BBA_DB} ${DEV_CC_DB}
-                    DEPENDS bbasm ${DEV_CC_BBA_DB}
-                    )
+                COMMAND bbasm ${DEV_CC_BBA_DB} ${DEV_CC_DB}
+                DEPENDS bbasm ${DEV_CC_BBA_DB}
+                )
             target_sources(ecp5_chipdb PRIVATE ${DEV_CC_DB})
             set_source_files_properties(${DEV_CC_DB} PROPERTIES HEADER_FILE_ONLY TRUE)
             foreach (target ${family_targets})
@@ -58,17 +58,17 @@ if (NOT EXTERNAL_CHIPDB)
         foreach (dev ${devices})
             set(DEV_CC_DB ${CMAKE_CURRENT_SOURCE_DIR}/ecp5/chipdbs/chipdb-${dev}.cc)
             set(DEV_CC_BBA_DB ${CMAKE_CURRENT_SOURCE_DIR}/ecp5/chipdbs/chipdb-${dev}.bba)
-        set(DEV_CONSTIDS_INC ${CMAKE_CURRENT_SOURCE_DIR}/ecp5/constids.inc)
+            set(DEV_CONSTIDS_INC ${CMAKE_CURRENT_SOURCE_DIR}/ecp5/constids.inc)
             add_custom_command(OUTPUT ${DEV_CC_BBA_DB}
-            COMMAND ${ENV_CMD} python3 ${DB_PY} -p ${DEV_CONSTIDS_INC} ${dev} > ${DEV_CC_BBA_DB}.new
-                    COMMAND mv ${DEV_CC_BBA_DB}.new ${DEV_CC_BBA_DB}
-                    DEPENDS ${DB_PY}
-                    )
+                COMMAND ${ENV_CMD} python3 ${DB_PY} -p ${DEV_CONSTIDS_INC} ${dev} > ${DEV_CC_BBA_DB}.new
+                COMMAND mv ${DEV_CC_BBA_DB}.new ${DEV_CC_BBA_DB}
+                DEPENDS ${DB_PY}
+                )
             add_custom_command(OUTPUT ${DEV_CC_DB}
-                    COMMAND bbasm --c ${DEV_CC_BBA_DB} ${DEV_CC_DB}.new
-                    COMMAND mv ${DEV_CC_DB}.new ${DEV_CC_DB}
-                    DEPENDS bbasm ${DEV_CC_BBA_DB}
-                    )
+                COMMAND bbasm --c ${DEV_CC_BBA_DB} ${DEV_CC_DB}.new
+                COMMAND mv ${DEV_CC_DB}.new ${DEV_CC_DB}
+                DEPENDS bbasm ${DEV_CC_BBA_DB}
+                )
             target_sources(ecp5_chipdb PRIVATE ${DEV_CC_DB})
             foreach (target ${family_targets})
                 target_sources(${target} PRIVATE $<TARGET_OBJECTS:ecp5_chipdb>)
