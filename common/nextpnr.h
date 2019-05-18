@@ -578,7 +578,7 @@ struct TimingConstraintObject
 
 struct MinMaxDelay
 {
-    delay_t min = std::numeric_limits<delay_t>::max(), max = std::numeric_limits<delay_t>::min();
+    delay_t min = std::numeric_limits<delay_t>::max(), max = std::numeric_limits<delay_t>::lowest();
 };
 
 struct TimingConstraint
@@ -939,6 +939,8 @@ struct TimingCellArc
 
 struct TimingPortData
 {
+    CellInfo *cell;
+
     // Arrival, required, etc times
     // Stored once per clock domain
     // domainTag index -> TimingPortTimes
@@ -965,6 +967,16 @@ struct TimingDomainData
     TimingDomainTag tag;
     // <start/end port, clock port>
     std::vector<std::pair<port_uid_t, port_uid_t>> startpoints, endpoints;
+};
+
+struct TimingDomainPair
+{
+    TimingDomainTag start, end;
+
+    MinMaxDelay period;
+    MinMaxDelay crit_delay;
+    delay_t worst_slack;
+
     port_uid_t crit_setup_ep = -1, crit_hold_ep = -1;
 };
 

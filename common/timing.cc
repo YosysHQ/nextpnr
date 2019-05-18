@@ -41,6 +41,7 @@ struct TimingAnalyser
     {
         // Clear out all existing data, and re-label all parts
         td->domains.clear();
+        td->domainTagIds.clear();
         td->ports.clear();
         td->portInfos_by_uid.clear();
         td->ports_by_uid.clear();
@@ -60,6 +61,8 @@ struct TimingAnalyser
                 ni->driver.cell->ports.at(ni->driver.port).uid = max_uid;
                 td->ports_by_uid.push_back(&ni->driver);
                 td->portInfos_by_uid.push_back(&ni->driver.cell->ports.at(ni->driver.port));
+                td->ports.emplace_back();
+                td->ports.back().cell = ni->driver.cell;
                 ++max_uid;
             }
             for (auto &usr : ni->users) {
@@ -67,6 +70,8 @@ struct TimingAnalyser
                 usr.cell->ports.at(usr.port).uid = max_uid;
                 td->ports_by_uid.push_back(&usr);
                 td->portInfos_by_uid.push_back(&usr.cell->ports.at(usr.port));
+                td->ports.emplace_back();
+                td->ports.back().cell = usr.cell;
                 ++max_uid;
             }
         }
@@ -79,10 +84,11 @@ struct TimingAnalyser
                 port.second.uid = max_uid;
                 td->portInfos_by_uid.push_back(&port.second);
                 td->ports_by_uid.push_back(nullptr);
+                td->ports.emplace_back();
+                td->ports.back().cell = cell.second;
                 ++max_uid;
             }
         }
-        td->ports.resize(max_uid);
     }
 
     void get_cell_arcs()
@@ -303,7 +309,7 @@ struct TimingAnalyser
                 for (auto &fanin : pd.cell_arcs) {
                     if (fanin.type == TimingCellArc::CLK_TO_Q) {
                         // Create domain for clocked port
-                        NetInfo *clknet = p->cell->ports.at(fanin.other_port).net;
+                        NetInfo *clknet = pd.cell->ports.at(fanin.other_port).net;
                         if (clknet == nullptr)
                             continue;
                         TimingDomainTag tdt;
@@ -311,7 +317,7 @@ struct TimingAnalyser
                         tdt.edge = fanin.edge;
                         auto tdid = domain_tag_id(tdt);
                         pd.times[tdid];
-                        td->domains[tdid].startpoints.emplace_back(p_uid, p->cell->ports.at(fanin.other_port).uid);
+                        td->domains[tdid].startpoints.emplace_back(p_uid, pd.cell->ports.at(fanin.other_port).uid);
                     }
                 }
 
@@ -328,8 +334,8 @@ struct TimingAnalyser
                 // Input pin - copy domains - TODO: duplicating domains when seeing constraints
                 for (auto &fanout : pd.cell_arcs) {
                     if (fanout.type == TimingCellArc::COMBINATIONAL) {
-                        // Copy dohttp://tangytango.proboards.com/mains for combinational fanout
-                        for (auto &dt : td->ports.at(p->cell->ports.at(fanout.other_port).uid).times) {
+                        // Copy domains for combinational fanout
+                        for (auto &dt : td->ports.at(pd.cell->ports.at(fanout.other_port).uid).times) {
                             pd.times[dt.first];
                         }
                     }
@@ -347,7 +353,7 @@ struct TimingAnalyser
                 for (auto &fanin : pd.cell_arcs) {
                     if (fanin.type == TimingCellArc::COMBINATIONAL) {
                         // Copy domains for combinational fanout
-                        for (auto &dt : td->ports.at(p->cell->ports.at(fanin.other_port).uid).times) {
+                        for (auto &dt : td->ports.at(pd.cell->ports.at(fanin.other_port).uid).times) {
                             pd.times[dt.first];
                         }
                     }
@@ -356,7 +362,9 @@ struct TimingAnalyser
                 for (auto &fanout : pd.cell_arcs) {
                     if (fanout.type == TimingCellArc::SETUP) {
                         // Create domain for clocked port
-                        NetInfo *clknet = p->cell->ports.at(fanout.other_port).net;
+                        if (p == nullptr)
+                            continue;
+                        NetInfo *clknet = pd.cell->ports.at(fanout.other_port).net;
                         if (clknet == nullptr)
                             continue;
                         TimingDomainTag tdt;
@@ -364,7 +372,7 @@ struct TimingAnalyser
                         tdt.edge = fanout.edge;
                         auto tdid = domain_tag_id(tdt);
                         pd.times[tdid];
-                        td->domains[tdid].endpoints.emplace_back(p_uid, p->cell->ports.at(fanout.other_port).uid);
+                        td->domains[tdid].endpoints.emplace_back(p_uid, pd.cell->ports.at(fanout.other_port).uid);
                     }
                 }
                 // Copy domains to connected net driver
@@ -408,6 +416,26 @@ struct TimingAnalyser
         }
     }
 
+    void reset_times()
+    {
+        for (auto &p : td->ports) {
+            for (auto &t : p.times) {
+                t.second.required = MinMaxDelay();
+                t.second.arrival = MinMaxDelay();
+                t.second.criticality = 0;
+                t.second.flags = decltype(t.second.flags)();
+                t.second.max_path_length = 0;
+                t.second.bwd_setup = -1;
+                t.second.bwd_hold = -1;
+                t.second.slack = MinMaxDelay();
+            }
+        }
+    }
+
+    delay_t add_safe(delay_t a, delay_t b) {
+        return ((b < 0 || a < std::numeric_limits<delay_t>::max()) && (b > 0 || a > std::numeric_limits<delay_t>::lowest())) ? a + b : a;
+    }
+
     void walk_forward(int domain)
     {
         auto &dm = td->domains.at(domain);
@@ -446,15 +474,15 @@ struct TimingAnalyser
                 if (pi->net == nullptr)
                     continue;
                 for (auto &usr : pi->net->users)
-                    add_arrival_time(usr.uid, domain, pt.arrival.max + td->ports.at(usr.uid).net_delay,
-                                     pt.arrival.min + td->ports.at(usr.uid).net_delay, p_uid);
+                    add_arrival_time(usr.uid, domain, add_safe(pt.arrival.max, td->ports.at(usr.uid).net_delay),
+                                     add_safe(pt.arrival.min, td->ports.at(usr.uid).net_delay), p_uid);
             } else if (pi->type == PORT_IN) {
                 // Input port : propagate delay through cell, adding combinational delay
                 for (auto &fanout : pd.cell_arcs) {
                     if (fanout.type != TimingCellArc::COMBINATIONAL)
                         continue;
-                    add_arrival_time(p->cell->ports.at(fanout.other_port).uid, domain,
-                                     pt.arrival.max + fanout.value.maxDelay(), pt.arrival.min + fanout.value.minDelay(),
+                    add_arrival_time(pd.cell->ports.at(fanout.other_port).uid, domain,
+                                     add_safe(pt.arrival.max, fanout.value.maxDelay()), add_safe(pt.arrival.min, fanout.value.minDelay()),
                                      p_uid);
                 }
             }
@@ -472,8 +500,8 @@ struct TimingAnalyser
             delay_t setup = 0, hold = 0;
             // Add clock routing delay, if we need to consider it
             if (!(sta_flags & IGNORE_CLOCK_ROUTING) && sp.second != -1) {
-                setup -= td->ports.at(sp.second).net_delay;
-                hold -= td->ports.at(sp.second).net_delay;
+                setup += td->ports.at(sp.second).net_delay;
+                hold += td->ports.at(sp.second).net_delay;
             }
             // Add setup/hold time, if this endpoint is clocked
             if (sp.second != -1) {
@@ -488,6 +516,8 @@ struct TimingAnalyser
                     }
                 }
             }
+
+            add_required_time(sp.first, domain, hold, setup, sp.second);
         }
 
         // Walk backwards in topological order
@@ -502,17 +532,55 @@ struct TimingAnalyser
                 // Input port: propagate delay back through net, subtracting route delay
                 if (pi->net == nullptr)
                     continue;
-                add_required_time(pi->net->driver.uid, domain, pt.required.max - td->ports.at(p_uid).net_delay,
-                                  pt.required.min - td->ports.at(p_uid).net_delay, p_uid);
+                add_required_time(pi->net->driver.uid, domain, add_safe(pt.required.max, -td->ports.at(p_uid).net_delay),
+                                  add_safe(pt.required.min, -td->ports.at(p_uid).net_delay), p_uid);
             } else if (pi->type == PORT_OUT) {
                 // Output port : propagate delay back through cell, subtracting combinational delay
                 for (auto &fanin : pd.cell_arcs) {
                     if (fanin.type != TimingCellArc::COMBINATIONAL)
                         continue;
-                    add_required_time(p->cell->ports.at(fanin.other_port).uid, domain,
-                                      pt.required.max - fanin.value.maxDelay(),
-                                      pt.required.min - fanin.value.minDelay(), p_uid);
+                    add_required_time(pd.cell->ports.at(fanin.other_port).uid, domain,
+                                      add_safe(pt.required.max, -fanin.value.maxDelay()),
+                                      add_safe(pt.required.min, -fanin.value.minDelay()), p_uid);
                 }
+            }
+        }
+    }
+
+    TimingAnalyser(Context *ctx, TimingData *td) : ctx(ctx), td(td){};
+
+    void reset_all()
+    {
+        label_ports();
+        get_cell_arcs();
+        get_net_delays();
+        topo_sort();
+        setup_domains();
+    }
+
+    void calculate_times()
+    {
+        reset_times();
+        for (size_t i = 0; i < td->domains.size(); i++) {
+            walk_forward(i);
+            walk_backward(i);
+        }
+    }
+
+    void print_times()
+    {
+        for (size_t i = 0; i < td->ports.size(); i++) {
+            auto pi = td->portInfos_by_uid.at(i);
+            auto pr = td->ports_by_uid.at(i);
+            auto &pd = td->ports.at(i);
+            if (pr == nullptr)
+                continue;
+            log_info("Port %s.%s: \n", pr->cell->name.c_str(ctx), pr->port.c_str(ctx));
+            for (auto &t : pd.times) {
+                log_info("    Domain %s arrival [%.02f, %.02f] required [%.02f, %.02f] Fmax %.02f\n",
+                         td->domains.at(t.first).tag.clock.c_str(ctx), ctx->getDelayNS(t.second.arrival.min),
+                         ctx->getDelayNS(t.second.arrival.max), ctx->getDelayNS(t.second.required.min),
+                         ctx->getDelayNS(t.second.required.max), 1000.0 / ctx->getDelayNS(t.second.arrival.max - t.second.required.min));
             }
         }
     }
@@ -719,7 +787,10 @@ struct Timing
             }
         }
 
-        // Sanity check to ensure that all ports where fanins were recorded were indeed visited
+        // Sanity check to ensure that all ports whereThat isn't to say that bounded model checks are bad. Although they
+        // cannot prove that a design has no bugs, they can still find bugs. A classic example here would be the
+        // riscv-formal project to formally verify RISC-V CPUs. In order to be generic to all RISC-V CPUs independent of
+        // their architecture, the project does bounded model checks only. fanins were recorded were indeed visited
         if (!port_fanin.empty() && !bool_or_default(ctx->settings, ctx->id("timing/ignoreLoops"), false)) {
             for (auto fanin : port_fanin) {
                 NetInfo *net = fanin.first->net;
@@ -1454,6 +1525,15 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
                      std::string(bins[i] * bar_width / max_freq, '*').c_str(),
                      (bins[i] * bar_width) % max_freq > 0 ? '+' : ' ');
     }
+
+    // Test new timing analysis - WIP
+    TimingData td;
+    TimingAnalyser ta(ctx, &td);
+    ta.reset_all();
+    ta.get_net_delays();
+    ta.reset_times();
+    ta.calculate_times();
+    ta.print_times();
 }
 
 void get_criticalities(Context *ctx, NetCriticalityMap *net_crit)
