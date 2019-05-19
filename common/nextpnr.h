@@ -944,7 +944,8 @@ struct TimingPortData
     // Arrival, required, etc times
     // Stored once per clock domain
     // domainTag index -> TimingPortTimes
-    std::unordered_map<int, TimingPortTimes> times;
+    std::unordered_map<int, MinMaxDelay> arrival;
+    std::unordered_map<int, MinMaxDelay> required;
 
     // Max criticality, minimum slack and minimum budget over all domains
     // this port is involved in

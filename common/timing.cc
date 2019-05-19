@@ -316,7 +316,7 @@ struct TimingAnalyser
                         tdt.clock = clknet->name;
                         tdt.edge = fanin.edge;
                         auto tdid = domain_tag_id(tdt);
-                        pd.times[tdid];
+                        pd.arrival[tdid];
                         td->domains[tdid].startpoints.emplace_back(p_uid, pd.cell->ports.at(fanin.other_port).uid);
                     }
                 }
@@ -327,16 +327,16 @@ struct TimingAnalyser
                     continue;
                 for (auto &usr : n->users) {
                     auto &usr_pd = td->ports.at(usr.uid);
-                    for (auto &domain : pd.times)
-                        usr_pd.times[domain.first];
+                    for (auto &domain : pd.arrival)
+                        usr_pd.arrival[domain.first];
                 }
             } else {
                 // Input pin - copy domains - TODO: duplicating domains when seeing constraints
                 for (auto &fanout : pd.cell_arcs) {
                     if (fanout.type == TimingCellArc::COMBINATIONAL) {
                         // Copy domains for combinational fanout
-                        for (auto &dt : td->ports.at(pd.cell->ports.at(fanout.other_port).uid).times) {
-                            pd.times[dt.first];
+                        for (auto &dt : td->ports.at(pd.cell->ports.at(fanout.other_port).uid).arrival) {
+                            pd.arrival[dt.first];
                         }
                     }
                 }
@@ -353,8 +353,8 @@ struct TimingAnalyser
                 for (auto &fanin : pd.cell_arcs) {
                     if (fanin.type == TimingCellArc::COMBINATIONAL) {
                         // Copy domains for combinational fanout
-                        for (auto &dt : td->ports.at(pd.cell->ports.at(fanin.other_port).uid).times) {
-                            pd.times[dt.first];
+                        for (auto &dt : td->ports.at(pd.cell->ports.at(fanin.other_port).uid).required) {
+                            pd.required[dt.first];
                         }
                     }
                 }
@@ -371,7 +371,7 @@ struct TimingAnalyser
                         tdt.clock = clknet->name;
                         tdt.edge = fanout.edge;
                         auto tdid = domain_tag_id(tdt);
-                        pd.times[tdid];
+                        pd.required[tdid];
                         td->domains[tdid].endpoints.emplace_back(p_uid, pd.cell->ports.at(fanout.other_port).uid);
                     }
                 }
@@ -379,8 +379,8 @@ struct TimingAnalyser
                 NetInfo *n = pi->net;
                 if (n == nullptr || n->driver.cell == nullptr)
                     continue;
-                for (auto &dt : pd.times)
-                    td->ports[n->driver.uid].times[dt.first];
+                for (auto &dt : pd.required)
+                    td->ports[n->driver.uid].required[dt.first];
             }
         }
     }
@@ -392,26 +392,26 @@ struct TimingAnalyser
 
     void add_arrival_time(port_uid_t target, int domain, delay_t max_arr, delay_t min_arr, port_uid_t prev = -1)
     {
-        auto &t = td->ports[target].times[domain];
-        if (max_arr > t.arrival.max) {
-            t.arrival.max = max_arr;
-            t.bwd_setup = prev;
+        auto &t = td->ports[target].arrival[domain];
+        if (max_arr > t.max) {
+            t.max = max_arr;
+            // t.bwd_setup = prev;
         }
-        if (!(sta_flags & SETUP_ONLY) && min_arr < t.arrival.min) {
-            t.arrival.min = min_arr;
-            t.bwd_hold = prev;
+        if (!(sta_flags & SETUP_ONLY) && min_arr < t.min) {
+            t.min = min_arr;
+            // t.bwd_hold = prev;
         }
     }
 
     void add_required_time(port_uid_t target, int domain, delay_t max_req, delay_t min_req, port_uid_t prev = -1)
     {
-        auto &t = td->ports[target].times[domain];
-        if (min_req < t.required.min) {
-            t.required.min = min_req;
+        auto &t = td->ports[target].required[domain];
+        if (min_req < t.min) {
+            t.min = min_req;
             // t.bwd_setup = prev;
         }
-        if (!(sta_flags & SETUP_ONLY) && max_req > t.required.max) {
-            t.required.max = max_req;
+        if (!(sta_flags & SETUP_ONLY) && max_req > t.max) {
+            t.max = max_req;
             // t.bwd_hold = prev;
         }
     }
@@ -419,21 +419,19 @@ struct TimingAnalyser
     void reset_times()
     {
         for (auto &p : td->ports) {
-            for (auto &t : p.times) {
-                t.second.required = MinMaxDelay();
-                t.second.arrival = MinMaxDelay();
-                t.second.criticality = 0;
-                t.second.flags = decltype(t.second.flags)();
-                t.second.max_path_length = 0;
-                t.second.bwd_setup = -1;
-                t.second.bwd_hold = -1;
-                t.second.slack = MinMaxDelay();
-            }
+            for (auto &t : p.arrival)
+                t.second = MinMaxDelay();
+            for (auto &t : p.required)
+                t.second = MinMaxDelay();
         }
     }
 
-    delay_t add_safe(delay_t a, delay_t b) {
-        return ((b < 0 || a < std::numeric_limits<delay_t>::max()) && (b > 0 || a > std::numeric_limits<delay_t>::lowest())) ? a + b : a;
+    delay_t add_safe(delay_t a, delay_t b)
+    {
+        return ((b < 0 || a < std::numeric_limits<delay_t>::max()) &&
+                (b > 0 || a > std::numeric_limits<delay_t>::lowest()))
+                       ? a + b
+                       : a;
     }
 
     void walk_forward(int domain)
@@ -466,24 +464,24 @@ struct TimingAnalyser
             auto &pd = td->ports.at(p_uid);
             auto &pi = td->portInfos_by_uid.at(p_uid);
             auto &p = td->ports_by_uid.at(p_uid);
-            if (!pd.times.count(domain))
+            if (!pd.arrival.count(domain))
                 continue;
-            auto &pt = pd.times.at(domain);
+            auto &pt = pd.arrival.at(domain);
             if (pi->type == PORT_OUT) {
                 // Output port: propagate delay through net, adding route delay
                 if (pi->net == nullptr)
                     continue;
                 for (auto &usr : pi->net->users)
-                    add_arrival_time(usr.uid, domain, add_safe(pt.arrival.max, td->ports.at(usr.uid).net_delay),
-                                     add_safe(pt.arrival.min, td->ports.at(usr.uid).net_delay), p_uid);
+                    add_arrival_time(usr.uid, domain, add_safe(pt.max, td->ports.at(usr.uid).net_delay),
+                                     add_safe(pt.min, td->ports.at(usr.uid).net_delay), p_uid);
             } else if (pi->type == PORT_IN) {
                 // Input port : propagate delay through cell, adding combinational delay
                 for (auto &fanout : pd.cell_arcs) {
                     if (fanout.type != TimingCellArc::COMBINATIONAL)
                         continue;
                     add_arrival_time(pd.cell->ports.at(fanout.other_port).uid, domain,
-                                     add_safe(pt.arrival.max, fanout.value.maxDelay()), add_safe(pt.arrival.min, fanout.value.minDelay()),
-                                     p_uid);
+                                     add_safe(pt.max, fanout.value.maxDelay()),
+                                     add_safe(pt.min, fanout.value.minDelay()), p_uid);
                 }
             }
         }
@@ -525,23 +523,23 @@ struct TimingAnalyser
             auto &pd = td->ports.at(p_uid);
             auto &pi = td->portInfos_by_uid.at(p_uid);
             auto &p = td->ports_by_uid.at(p_uid);
-            if (!pd.times.count(domain))
+            if (!pd.required.count(domain))
                 continue;
-            auto &pt = pd.times.at(domain);
+            auto &pt = pd.required.at(domain);
             if (pi->type == PORT_IN) {
                 // Input port: propagate delay back through net, subtracting route delay
                 if (pi->net == nullptr)
                     continue;
-                add_required_time(pi->net->driver.uid, domain, add_safe(pt.required.max, -td->ports.at(p_uid).net_delay),
-                                  add_safe(pt.required.min, -td->ports.at(p_uid).net_delay), p_uid);
+                add_required_time(pi->net->driver.uid, domain, add_safe(pt.max, -td->ports.at(p_uid).net_delay),
+                                  add_safe(pt.min, -td->ports.at(p_uid).net_delay), p_uid);
             } else if (pi->type == PORT_OUT) {
                 // Output port : propagate delay back through cell, subtracting combinational delay
                 for (auto &fanin : pd.cell_arcs) {
                     if (fanin.type != TimingCellArc::COMBINATIONAL)
                         continue;
                     add_required_time(pd.cell->ports.at(fanin.other_port).uid, domain,
-                                      add_safe(pt.required.max, -fanin.value.maxDelay()),
-                                      add_safe(pt.required.min, -fanin.value.minDelay()), p_uid);
+                                      add_safe(pt.max, -fanin.value.maxDelay()),
+                                      add_safe(pt.min, -fanin.value.minDelay()), p_uid);
                 }
             }
         }
@@ -569,6 +567,8 @@ struct TimingAnalyser
 
     void print_times()
     {
+        std::unordered_map<int, double> domain_fmax;
+
         for (size_t i = 0; i < td->ports.size(); i++) {
             auto pi = td->portInfos_by_uid.at(i);
             auto pr = td->ports_by_uid.at(i);
@@ -576,12 +576,24 @@ struct TimingAnalyser
             if (pr == nullptr)
                 continue;
             log_info("Port %s.%s: \n", pr->cell->name.c_str(ctx), pr->port.c_str(ctx));
-            for (auto &t : pd.times) {
-                log_info("    Domain %s arrival [%.02f, %.02f] required [%.02f, %.02f] Fmax %.02f\n",
-                         td->domains.at(t.first).tag.clock.c_str(ctx), ctx->getDelayNS(t.second.arrival.min),
-                         ctx->getDelayNS(t.second.arrival.max), ctx->getDelayNS(t.second.required.min),
-                         ctx->getDelayNS(t.second.required.max), 1000.0 / ctx->getDelayNS(t.second.arrival.max - t.second.required.min));
+            for (auto &t : pd.arrival) {
+                log_info("    Domain %s arrival [%.02f, %.02f]\n", td->domains.at(t.first).tag.clock.c_str(ctx),
+                         ctx->getDelayNS(t.second.min), ctx->getDelayNS(t.second.max));
             }
+            for (auto &t : pd.required) {
+                log_info("    Domain %s required [%.02f, %.02f]\n", td->domains.at(t.first).tag.clock.c_str(ctx),
+                         ctx->getDelayNS(t.second.min), ctx->getDelayNS(t.second.max));
+                auto at = pd.arrival.find(t.first);
+                if (at != pd.arrival.end()) {
+                    double fmax = 1000.0 / ctx->getDelayNS(at->second.max - t.second.min);
+                    log_info("    Domain %s Fmax %.02f\n", td->domains.at(t.first).tag.clock.c_str(ctx), fmax);
+                    if (!domain_fmax.count(t.first) || domain_fmax.at(t.first) > fmax)
+                        domain_fmax[t.first] = fmax;
+                }
+            }
+        }
+        for (auto &fm : domain_fmax) {
+            log_info("Domain %s Worst Fmax %.02f\n", td->domains.at(fm.first).tag.clock.c_str(ctx), fm.second);
         }
     }
 };
