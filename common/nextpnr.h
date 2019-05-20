@@ -911,22 +911,10 @@ struct ArrivReqTime
 
 struct TimingPortTimes
 {
-    MinMaxDelay required;
-    MinMaxDelay arrival;
-    MinMaxDelay slack;
+    delay_t setup_slack = std::numeric_limits<delay_t>::max(), hold_slack = std::numeric_limits<delay_t>::max();
     delay_t budget = std::numeric_limits<delay_t>::max();
     int max_path_length = 0;
     float criticality = 0;
-
-    // Critical path predecessor for setup and hold
-    port_uid_t bwd_setup = -1, bwd_hold = -1;
-
-    enum
-    {
-        FLAGS_NONE = 0,
-        FLAGS_FALSE_STARTPOINT = 1,
-        FLAGS_FALSE_ENDPOINT = 2,
-    } flags = FLAGS_NONE;
 };
 
 struct TimingCellArc
@@ -950,9 +938,12 @@ struct TimingPortData
 
     // Arrival, required, etc times
     // Stored once per clock domain
-    // domainTag index -> TimingPortTimes
+    // domainTag index -> ArrivReqTime
     std::unordered_map<int, ArrivReqTime> arrival;
     std::unordered_map<int, ArrivReqTime> required;
+    // Times per *pair* of domains
+    // domainPair -> PortTimes
+    std::unordered_map<int, TimingPortTimes> times;
 
     // Max criticality, minimum slack and minimum budget over all domains
     // this port is involved in
@@ -983,7 +974,7 @@ struct TimingDomainPair
 
     MinMaxDelay period;
     MinMaxDelay crit_delay;
-    delay_t worst_slack;
+    delay_t worst_setup_slack, worst_hold_slack;
 
     port_uid_t crit_setup_ep = -1, crit_hold_ep = -1;
 };
@@ -992,6 +983,10 @@ struct TimingData
 {
     std::vector<TimingDomainData> domains;
     std::unordered_map<TimingDomainTag, int> domainTagIds;
+
+    std::vector<TimingDomainPair> domainPairs;
+    // start domain -> end domain -> domainPair index
+    std::unordered_map<int, std::unordered_map<int, int>> domainPairIds;
 
     std::vector<PortRef *> ports_by_uid;
     std::vector<PortInfo *> portInfos_by_uid;

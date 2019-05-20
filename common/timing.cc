@@ -42,6 +42,8 @@ struct TimingAnalyser
         // Clear out all existing data, and re-label all parts
         td->domains.clear();
         td->domainTagIds.clear();
+        td->domainPairs.clear();
+        td->domainPairIds.clear();
         td->ports.clear();
         td->portInfos_by_uid.clear();
         td->ports_by_uid.clear();
@@ -382,6 +384,39 @@ struct TimingAnalyser
                 for (auto &dt : pd.required)
                     td->ports[n->driver.uid].required[dt.first];
             }
+
+            // Iterate through all ports finding domain pairs
+            for (size_t p_uid = 0; p_uid < td->ports.size(); p_uid++) {
+                auto &pd = td->ports.at(p_uid);
+                pd.times.clear();
+                for (auto &at : pd.arrival) {
+                    for (auto &rt : pd.required) {
+                        auto &ad = td->domains.at(at.first), &rd = td->domains.at(rt.first);
+                        if (ad.tag.clock == rd.tag.clock) {
+                            // FIXME: cross clock path analysis
+                            if (td->domainPairIds.count(at.first) && td->domainPairIds.at(at.first).count(rt.first)) {
+                                // Domain pair already created
+                                pd.times[td->domainPairIds[at.first][rt.first]];
+                            } else {
+                                // Need to discover period and create domain pair
+                                DelayInfo period = ctx->getDelayFromNS(1000.0 / ctx->target_freq);
+                                NetInfo *clknet = ctx->nets.at(ad.tag.clock).get();
+                                if (clknet->clkconstr)
+                                    period = clknet->clkconstr->period;
+                                // FIXME: duty cycle
+                                if (ad.tag.edge != rd.tag.edge)
+                                    period = clknet->clkconstr->high;
+                                td->domainPairIds[at.first][rt.first] = int(td->domainPairs.size());
+                                td->domainPairs.emplace_back();
+                                td->domainPairs.back().start = ad.tag;
+                                td->domainPairs.back().end = rd.tag;
+                                td->domainPairs.back().period.min = period.minDelay();
+                                td->domainPairs.back().period.max = period.minDelay();
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
     enum
@@ -437,6 +472,21 @@ struct TimingAnalyser
                 t.second.bwd_max = -1;
                 t.second.bwd_min = -1;
             }
+            for (auto &t : p.times) {
+                t.second.setup_slack = std::numeric_limits<delay_t>::max();
+                t.second.hold_slack = std::numeric_limits<delay_t>::max();
+
+                t.second.max_path_length = 0;
+                t.second.criticality = 0;
+                t.second.budget = 0;
+            }
+        }
+        for (auto &dp : td->domainPairs) {
+            dp.crit_delay = MinMaxDelay();
+            dp.crit_hold_ep = -1;
+            dp.crit_setup_ep = -1;
+            dp.worst_setup_slack = std::numeric_limits<delay_t>::max();
+            dp.worst_hold_slack = std::numeric_limits<delay_t>::max();
         }
     }
 
