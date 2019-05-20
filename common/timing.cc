@@ -396,7 +396,9 @@ struct TimingAnalyser
                             // FIXME: cross clock path analysis
                             if (td->domainPairIds.count(at.first) && td->domainPairIds.at(at.first).count(rt.first)) {
                                 // Domain pair already created
-                                pd.times[td->domainPairIds[at.first][rt.first]];
+                                int dp_uid = td->domainPairIds[at.first][rt.first];
+                                pd.times[dp_uid];
+                                td->domainPairs.at(dp_uid).ports.push_back(p_uid);
                             } else {
                                 // Need to discover period and create domain pair
                                 DelayInfo period = ctx->getDelayFromNS(1000.0 / ctx->target_freq);
@@ -408,10 +410,11 @@ struct TimingAnalyser
                                     period = clknet->clkconstr->high;
                                 td->domainPairIds[at.first][rt.first] = int(td->domainPairs.size());
                                 td->domainPairs.emplace_back();
-                                td->domainPairs.back().start = ad.tag;
-                                td->domainPairs.back().end = rd.tag;
+                                td->domainPairs.back().start_domain = at.first;
+                                td->domainPairs.back().end_domain = rt.first;
                                 td->domainPairs.back().period.min = period.minDelay();
                                 td->domainPairs.back().period.max = period.minDelay();
+                                td->domainPairs.back().ports.push_back(p_uid);
                             }
                         }
                     }
@@ -605,6 +608,47 @@ struct TimingAnalyser
                                       add_safe(pt.value.max, -fanin.value.maxDelay()),
                                       add_safe(pt.value.min, -fanin.value.minDelay()), pt.path_length + 1, p_uid);
                 }
+            }
+        }
+    }
+
+    void compute_slack()
+    {
+        for (auto &p : td->ports) {
+            for (auto &t : p.times) {
+                auto &dp = td->domainPairs.at(t.first);
+                t.second.setup_slack = dp.period.min + p.arrival.at(dp.start_domain).value.max -
+                                       p.required.at(dp.end_domain).value.min;
+                t.second.hold_slack = p.arrival.at(dp.start_domain).value.min - p.required.at(dp.end_domain).value.max;
+                t.second.max_path_length =
+                        p.arrival.at(dp.start_domain).path_length + p.required.at(dp.end_domain).path_length;
+                t.second.budget = t.second.setup_slack / t.second.max_path_length;
+                p.min_slack = std::min(p.min_slack, t.second.setup_slack);
+                p.min_budget = std::min(p.min_budget, t.second.budget);
+            }
+        }
+        for (size_t dp_uid = 0; dp_uid < td->domainPairs.size(); dp_uid++) {
+            auto &dp = td->domainPairs.at(dp_uid);
+            dp.worst_setup_slack = std::numeric_limits<delay_t>::max();
+            dp.worst_hold_slack = std::numeric_limits<delay_t>::max();
+            for (auto p_uid : dp.ports) {
+                auto &pd = td->ports.at(p_uid);
+                dp.worst_setup_slack = std::min(dp.worst_setup_slack, pd.times.at(dp_uid).setup_slack);
+                dp.worst_hold_slack = std::min(dp.worst_hold_slack, pd.times.at(dp_uid).hold_slack);
+            }
+        }
+    }
+
+    void assign_criticality()
+    {
+        for (auto &p : td->ports) {
+            for (auto &t : p.times) {
+                delay_t path_delay =
+                        td->domainPairs.at(t.first).period.min + td->domainPairs.at(t.first).worst_setup_slack;
+                t.second.criticality =
+                        1.0f - ((float(t.second.setup_slack) - float(td->domainPairs.at(t.first).worst_setup_slack)) /
+                                path_delay);
+                p.max_crit = std::max(p.max_crit, t.second.criticality);
             }
         }
     }

@@ -970,7 +970,8 @@ struct TimingDomainData
 
 struct TimingDomainPair
 {
-    TimingDomainTag start, end;
+    int start_domain, end_domain;
+    std::vector<port_uid_t> ports;
 
     MinMaxDelay period;
     MinMaxDelay crit_delay;
