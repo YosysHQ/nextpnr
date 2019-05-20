@@ -902,6 +902,13 @@ NEXTPNR_NAMESPACE_END
 
 NEXTPNR_NAMESPACE_BEGIN
 
+struct ArrivReqTime
+{
+    MinMaxDelay value;
+    port_uid_t bwd_min = -1, bwd_max = -1;
+    int path_length = 0;
+};
+
 struct TimingPortTimes
 {
     MinMaxDelay required;
@@ -944,8 +951,8 @@ struct TimingPortData
     // Arrival, required, etc times
     // Stored once per clock domain
     // domainTag index -> TimingPortTimes
-    std::unordered_map<int, MinMaxDelay> arrival;
-    std::unordered_map<int, MinMaxDelay> required;
+    std::unordered_map<int, ArrivReqTime> arrival;
+    std::unordered_map<int, ArrivReqTime> required;
 
     // Max criticality, minimum slack and minimum budget over all domains
     // this port is involved in
