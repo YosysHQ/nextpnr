@@ -247,11 +247,12 @@ class HeAPPlacer
                          std::chrono::duration<double>(run_stopt - run_startt).count());
             }
 
-
             if (cfg.timing_driven) {
+                boost::asio::thread_pool pool(4);
                 if (iter == 0)
-                    init_timing(ctx, &td, TimingAnalyserFlags(TMG_IGNORE_CLOCK_ROUTING | TMG_SETUP_ONLY));
-                update_timing(ctx, &td, TimingAnalyserFlags(TMG_IGNORE_CLOCK_ROUTING | TMG_SETUP_ONLY));
+                    init_timing(ctx, &td, TimingAnalyserFlags(TMG_IGNORE_CLOCK_ROUTING | TMG_SETUP_ONLY), &pool);
+                else
+                    update_timing(ctx, &td, TimingAnalyserFlags(TMG_IGNORE_CLOCK_ROUTING | TMG_SETUP_ONLY), &pool);
             }
 
             if (legal_hpwl < best_hpwl) {

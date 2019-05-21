@@ -249,7 +249,7 @@ class SAPlacer
 
         // Invoke timing analysis to obtain criticalities
         if (!cfg.budgetBased)
-            get_criticalities(ctx, &net_crit);
+            init_timing(ctx, &td, TimingAnalyserFlags(TMG_IGNORE_CLOCK_ROUTING | TMG_SETUP_ONLY));
 
         // Calculate costs after initial placement
         setup_costs();
@@ -386,7 +386,7 @@ class SAPlacer
 
             // Invoke timing analysis to obtain criticalities
             if (!cfg.budgetBased && cfg.timing_driven)
-                get_criticalities(ctx, &net_crit);
+                update_timing(ctx, &td, TimingAnalyserFlags(TMG_IGNORE_CLOCK_ROUTING | TMG_SETUP_ONLY));
             // Need to rebuild costs after criticalities change
             setup_costs();
             // Reset incremental bounds
@@ -825,11 +825,10 @@ class SAPlacer
             double delay = ctx->getDelayNS(ctx->predictDelay(net, net->users.at(user)));
             return std::min(10.0, std::exp(delay - ctx->getDelayNS(net->users.at(user).budget) / 10));
         } else {
-            auto crit = net_crit.find(net->name);
-            if (crit == net_crit.end() || crit->second.criticality.empty())
+            if (td.ports.empty() || net->users.at(user).uid == -1)
                 return 0;
             double delay = ctx->getDelayNS(ctx->predictDelay(net, net->users.at(user)));
-            return delay * std::pow(crit->second.criticality.at(user), crit_exp);
+            return delay * std::pow(td.ports.at(net->users.at(user).uid).max_crit, crit_exp);
         }
     }
 
@@ -1206,7 +1205,7 @@ class SAPlacer
     double last_timing_cost, curr_timing_cost;
 
     // Criticality data from timing analysis
-    NetCriticalityMap net_crit;
+    TimingData td;
 
     Context *ctx;
     float temp = 10;
