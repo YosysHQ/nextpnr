@@ -917,6 +917,73 @@ struct TimingPortTimes
     float criticality = 0;
 };
 
+template <typename Tk, typename Tv> struct FastSingleItemMap
+{
+    int item_count = 0;
+    struct
+    {
+        Tk key;
+        Tv val;
+    } one_item;
+    std::map<Tk, Tv> *multi_items;
+
+    void clear()
+    {
+        if (item_count > 1)
+            delete multi_items;
+        item_count = 0;
+    }
+    size_t count(const Tk &key)
+    {
+        if (item_count == 0)
+            return 0;
+        else if (item_count == 1)
+            return one_item.key == key;
+        else
+            return multi_items->count(key);
+    }
+    Tv &at(const Tk &key)
+    {
+        NPNR_ASSERT(item_count > 0);
+        if (item_count == 1) {
+            NPNR_ASSERT(one_item.key == key);
+            return one_item.val;
+        } else {
+            return multi_items->at(key);
+        }
+    }
+    Tv &operator[](const Tk &key)
+    {
+        if (item_count == 0) {
+            item_count = 1;
+            one_item.key = key;
+            one_item.val = Tv{};
+            return one_item.val;
+        } else if (item_count == 1) {
+            if (one_item.key == key)
+                return one_item.val;
+            else {
+                item_count = 2;
+                multi_items = new std::map<Tk, Tv>;
+                (*multi_items)[one_item.key] = one_item.val;
+                return (*multi_items)[key];
+            }
+        } else {
+            return (*multi_items)[key];
+        }
+    }
+
+    template <typename Tf> void for_each(Tf func)
+    {
+        if (item_count == 1) {
+            func(one_item.key, one_item.val);
+        } else if (item_count > 1) {
+            for (auto &item : *multi_items)
+                func(item.first, item.second);
+        }
+    }
+};
+
 struct TimingCellArc
 {
     enum ArcType
@@ -939,11 +1006,11 @@ struct TimingPortData
     // Arrival, required, etc times
     // Stored once per clock domain
     // domainTag index -> ArrivReqTime
-    std::unordered_map<int, ArrivReqTime> arrival;
-    std::unordered_map<int, ArrivReqTime> required;
+    FastSingleItemMap<int, ArrivReqTime> arrival;
+    FastSingleItemMap<int, ArrivReqTime> required;
     // Times per *pair* of domains
     // domainPair -> PortTimes
-    std::unordered_map<int, TimingPortTimes> times;
+    FastSingleItemMap<int, TimingPortTimes> times;
 
     // Max criticality, minimum slack and minimum budget over all domains
     // this port is involved in

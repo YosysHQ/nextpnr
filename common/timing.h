@@ -22,6 +22,8 @@
 
 #include "nextpnr.h"
 
+#include <boost/asio.hpp>
+
 NEXTPNR_NAMESPACE_BEGIN
 
 // Evenly redistribute the total path slack amongst all sinks on each path
@@ -44,6 +46,10 @@ struct NetCriticalityInfo
 
 typedef std::unordered_map<IdString, NetCriticalityInfo> NetCriticalityMap;
 void get_criticalities(Context *ctx, NetCriticalityMap *net_crit);
+
+// New STA
+void init_timing(Context *ctx, TimingData *td, boost::asio::thread_pool *pool = nullptr);
+void update_timing(Context *ctx, TimingData *td, boost::asio::thread_pool *pool = nullptr);
 
 NEXTPNR_NAMESPACE_END
 

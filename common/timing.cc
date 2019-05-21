@@ -20,6 +20,7 @@
 
 #include "timing.h"
 #include <algorithm>
+#include <boost/asio.hpp>
 #include <boost/range/adaptor/reversed.hpp>
 #include <deque>
 #include <map>
@@ -36,6 +37,7 @@ struct TimingAnalyser
 {
     Context *ctx;
     TimingData *td;
+    boost::asio::thread_pool *pool;
 
     void label_ports()
     {
@@ -329,17 +331,15 @@ struct TimingAnalyser
                     continue;
                 for (auto &usr : n->users) {
                     auto &usr_pd = td->ports.at(usr.uid);
-                    for (auto &domain : pd.arrival)
-                        usr_pd.arrival[domain.first];
+                    pd.arrival.for_each([&](int key, ArrivReqTime &) { usr_pd.arrival[key]; });
                 }
             } else {
                 // Input pin - copy domains - TODO: duplicating domains when seeing constraints
                 for (auto &fanout : pd.cell_arcs) {
                     if (fanout.type == TimingCellArc::COMBINATIONAL) {
                         // Copy domains for combinational fanout
-                        for (auto &dt : td->ports.at(pd.cell->ports.at(fanout.other_port).uid).arrival) {
-                            pd.arrival[dt.first];
-                        }
+                        td->ports.at(pd.cell->ports.at(fanout.other_port).uid)
+                                .arrival.for_each([&](int key, ArrivReqTime &) { pd.arrival[key]; });
                     }
                 }
             }
@@ -355,9 +355,8 @@ struct TimingAnalyser
                 for (auto &fanin : pd.cell_arcs) {
                     if (fanin.type == TimingCellArc::COMBINATIONAL) {
                         // Copy domains for combinational fanout
-                        for (auto &dt : td->ports.at(pd.cell->ports.at(fanin.other_port).uid).required) {
-                            pd.required[dt.first];
-                        }
+                        td->ports.at(pd.cell->ports.at(fanin.other_port).uid)
+                                .required.for_each([&](int key, ArrivReqTime &) { pd.required[key]; });
                     }
                 }
             } else if (pi->type == PORT_IN) {
@@ -381,22 +380,21 @@ struct TimingAnalyser
                 NetInfo *n = pi->net;
                 if (n == nullptr || n->driver.cell == nullptr)
                     continue;
-                for (auto &dt : pd.required)
-                    td->ports[n->driver.uid].required[dt.first];
+                pd.required.for_each([&](int key, ArrivReqTime &) { td->ports[n->driver.uid].required[key]; });
             }
 
             // Iterate through all ports finding domain pairs
             for (size_t p_uid = 0; p_uid < td->ports.size(); p_uid++) {
                 auto &pd = td->ports.at(p_uid);
                 pd.times.clear();
-                for (auto &at : pd.arrival) {
-                    for (auto &rt : pd.required) {
-                        auto &ad = td->domains.at(at.first), &rd = td->domains.at(rt.first);
+                pd.arrival.for_each([&](int at_key, ArrivReqTime &) {
+                    pd.required.for_each([&](int rt_key, ArrivReqTime &) {
+                        auto &ad = td->domains.at(at_key), &rd = td->domains.at(rt_key);
                         if (ad.tag.clock == rd.tag.clock) {
                             // FIXME: cross clock path analysis
-                            if (td->domainPairIds.count(at.first) && td->domainPairIds.at(at.first).count(rt.first)) {
+                            if (td->domainPairIds.count(at_key) && td->domainPairIds.at(at_key).count(rt_key)) {
                                 // Domain pair already created
-                                int dp_uid = td->domainPairIds[at.first][rt.first];
+                                int dp_uid = td->domainPairIds[at_key][rt_key];
                                 pd.times[dp_uid];
                                 td->domainPairs.at(dp_uid).ports.push_back(p_uid);
                             } else {
@@ -408,17 +406,17 @@ struct TimingAnalyser
                                 // FIXME: duty cycle
                                 if (ad.tag.edge != rd.tag.edge)
                                     period = clknet->clkconstr->high;
-                                td->domainPairIds[at.first][rt.first] = int(td->domainPairs.size());
+                                td->domainPairIds[at_key][rt_key] = int(td->domainPairs.size());
                                 td->domainPairs.emplace_back();
-                                td->domainPairs.back().start_domain = at.first;
-                                td->domainPairs.back().end_domain = rt.first;
+                                td->domainPairs.back().start_domain = at_key;
+                                td->domainPairs.back().end_domain = rt_key;
                                 td->domainPairs.back().period.min = period.minDelay();
                                 td->domainPairs.back().period.max = period.minDelay();
                                 td->domainPairs.back().ports.push_back(p_uid);
                             }
                         }
-                    }
-                }
+                    });
+                });
             }
         }
     }
@@ -463,26 +461,28 @@ struct TimingAnalyser
     void reset_times()
     {
         for (auto &p : td->ports) {
-            for (auto &t : p.arrival) {
-                t.second.value = MinMaxDelay();
-                t.second.path_length = 0;
-                t.second.bwd_max = -1;
-                t.second.bwd_min = -1;
-            }
-            for (auto &t : p.required) {
-                t.second.value = MinMaxDelay();
-                t.second.path_length = 0;
-                t.second.bwd_max = -1;
-                t.second.bwd_min = -1;
-            }
-            for (auto &t : p.times) {
-                t.second.setup_slack = std::numeric_limits<delay_t>::max();
-                t.second.hold_slack = std::numeric_limits<delay_t>::max();
+            p.arrival.for_each([](int, ArrivReqTime &t) {
+                t.value = MinMaxDelay();
+                t.path_length = 0;
+                t.bwd_max = -1;
+                t.bwd_min = -1;
+            });
 
-                t.second.max_path_length = 0;
-                t.second.criticality = 0;
-                t.second.budget = 0;
-            }
+            p.required.for_each([](int, ArrivReqTime &t) {
+                t.value = MinMaxDelay();
+                t.path_length = 0;
+                t.bwd_max = -1;
+                t.bwd_min = -1;
+            });
+
+            p.times.for_each([](int, TimingPortTimes &t) {
+                t.setup_slack = std::numeric_limits<delay_t>::max();
+                t.hold_slack = std::numeric_limits<delay_t>::max();
+
+                t.max_path_length = 0;
+                t.criticality = 0;
+                t.budget = 0;
+            });
         }
         for (auto &dp : td->domainPairs) {
             dp.crit_delay = MinMaxDelay();
@@ -615,17 +615,17 @@ struct TimingAnalyser
     void compute_slack()
     {
         for (auto &p : td->ports) {
-            for (auto &t : p.times) {
-                auto &dp = td->domainPairs.at(t.first);
-                t.second.setup_slack = dp.period.min + p.arrival.at(dp.start_domain).value.max -
-                                       p.required.at(dp.end_domain).value.min;
-                t.second.hold_slack = p.arrival.at(dp.start_domain).value.min - p.required.at(dp.end_domain).value.max;
-                t.second.max_path_length =
+            p.times.for_each([&](int dp_uid, TimingPortTimes &t) {
+                auto &dp = td->domainPairs.at(dp_uid);
+                t.setup_slack = dp.period.min + p.arrival.at(dp.start_domain).value.max -
+                                p.required.at(dp.end_domain).value.min;
+                t.hold_slack = p.arrival.at(dp.start_domain).value.min - p.required.at(dp.end_domain).value.max;
+                t.max_path_length =
                         p.arrival.at(dp.start_domain).path_length + p.required.at(dp.end_domain).path_length;
-                t.second.budget = t.second.setup_slack / t.second.max_path_length;
-                p.min_slack = std::min(p.min_slack, t.second.setup_slack);
-                p.min_budget = std::min(p.min_budget, t.second.budget);
-            }
+                t.budget = t.setup_slack / t.max_path_length;
+                p.min_slack = std::min(p.min_slack, t.setup_slack);
+                p.min_budget = std::min(p.min_budget, t.budget);
+            });
         }
         for (size_t dp_uid = 0; dp_uid < td->domainPairs.size(); dp_uid++) {
             auto &dp = td->domainPairs.at(dp_uid);
@@ -642,18 +642,18 @@ struct TimingAnalyser
     void assign_criticality()
     {
         for (auto &p : td->ports) {
-            for (auto &t : p.times) {
+            p.times.for_each([&](int dp_uid, TimingPortTimes &t) {
                 delay_t path_delay =
-                        td->domainPairs.at(t.first).period.min + td->domainPairs.at(t.first).worst_setup_slack;
-                t.second.criticality =
-                        1.0f - ((float(t.second.setup_slack) - float(td->domainPairs.at(t.first).worst_setup_slack)) /
-                                path_delay);
-                p.max_crit = std::max(p.max_crit, t.second.criticality);
-            }
+                        td->domainPairs.at(dp_uid).period.min + td->domainPairs.at(dp_uid).worst_setup_slack;
+                t.criticality = 1.0f - ((float(t.setup_slack) - float(td->domainPairs.at(dp_uid).worst_setup_slack)) /
+                                        path_delay);
+                p.max_crit = std::max(p.max_crit, t.criticality);
+            });
         }
     }
 
-    TimingAnalyser(Context *ctx, TimingData *td) : ctx(ctx), td(td){};
+    TimingAnalyser(Context *ctx, TimingData *td, boost::asio::thread_pool *pool = nullptr)
+            : ctx(ctx), td(td), pool(pool){};
 
     void reset_all()
     {
@@ -667,9 +667,17 @@ struct TimingAnalyser
     void calculate_times()
     {
         reset_times();
-        for (size_t i = 0; i < td->domains.size(); i++) {
-            walk_forward(i);
-            walk_backward(i);
+        if (pool) {
+            for (size_t i = 0; i < td->domains.size(); i++) {
+                boost::asio::post(*pool, [this, i]() { walk_forward(int(i)); });
+                boost::asio::post(*pool, [this, i]() { walk_backward(int(i)); });
+            }
+            pool->join();
+        } else {
+            for (size_t i = 0; i < td->domains.size(); i++) {
+                walk_forward(int(i));
+                walk_backward(int(i));
+            }
         }
     }
 
@@ -683,22 +691,27 @@ struct TimingAnalyser
             auto &pd = td->ports.at(i);
             if (pr == nullptr)
                 continue;
-            log_info("Port %s.%s: \n", pr->cell->name.c_str(ctx), pr->port.c_str(ctx));
-            for (auto &t : pd.arrival) {
-                log_info("    Domain %s arrival [%.02f, %.02f]\n", td->domains.at(t.first).tag.clock.c_str(ctx),
-                         ctx->getDelayNS(t.second.value.min), ctx->getDelayNS(t.second.value.max));
-            }
-            for (auto &t : pd.required) {
-                log_info("    Domain %s required [%.02f, %.02f]\n", td->domains.at(t.first).tag.clock.c_str(ctx),
-                         ctx->getDelayNS(t.second.value.min), ctx->getDelayNS(t.second.value.max));
-                auto at = pd.arrival.find(t.first);
-                if (at != pd.arrival.end()) {
-                    double fmax = 1000.0 / ctx->getDelayNS(at->second.value.max - t.second.value.min);
-                    log_info("    Domain %s Fmax %.02f\n", td->domains.at(t.first).tag.clock.c_str(ctx), fmax);
-                    if (!domain_fmax.count(t.first) || domain_fmax.at(t.first) > fmax)
-                        domain_fmax[t.first] = fmax;
+            if (ctx->debug)
+                log_info("Port %s.%s: \n", pr->cell->name.c_str(ctx), pr->port.c_str(ctx));
+            pd.arrival.for_each([&](int domain, ArrivReqTime &t) {
+                if (ctx->debug)
+                    log_info("    Domain %s arrival [%.02f, %.02f]\n", td->domains.at(domain).tag.clock.c_str(ctx),
+                             ctx->getDelayNS(t.value.min), ctx->getDelayNS(t.value.max));
+            });
+            pd.required.for_each([&](int domain, ArrivReqTime &t) {
+                if (ctx->debug)
+                    log_info("    Domain %s required [%.02f, %.02f]\n", td->domains.at(domain).tag.clock.c_str(ctx),
+                             ctx->getDelayNS(t.value.min), ctx->getDelayNS(t.value.max));
+
+                if (pd.arrival.count(domain)) {
+                    auto &at = pd.arrival.at(domain);
+                    double fmax = 1000.0 / ctx->getDelayNS(at.value.max - t.value.min);
+                    if (ctx->debug)
+                        log_info("    Domain %s Fmax %.02f\n", td->domains.at(domain).tag.clock.c_str(ctx), fmax);
+                    if (!domain_fmax.count(domain) || domain_fmax.at(domain) > fmax)
+                        domain_fmax[domain] = fmax;
                 }
-            }
+            });
         }
         for (auto &fm : domain_fmax) {
             log_info("Domain %s Worst Fmax %.02f\n", td->domains.at(fm.first).tag.clock.c_str(ctx), fm.second);
@@ -721,6 +734,24 @@ struct ClockPair
     bool operator==(const ClockPair &other) const { return start == other.start && end == other.end; }
 };
 } // namespace
+
+void init_timing(Context *ctx, TimingData *td, boost::asio::thread_pool *pool)
+{
+    TimingAnalyser ta(ctx, td, pool);
+    ta.reset_all();
+    ta.get_net_delays();
+    ta.calculate_times();
+    ta.compute_slack();
+    ta.assign_criticality();
+}
+
+void update_timing(Context *ctx, TimingData *td, boost::asio::thread_pool *pool)
+{
+    TimingAnalyser ta(ctx, td, pool);
+    ta.calculate_times();
+    ta.compute_slack();
+    ta.assign_criticality();
+}
 
 NEXTPNR_NAMESPACE_END
 namespace std {
