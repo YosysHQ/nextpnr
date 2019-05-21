@@ -200,6 +200,8 @@ class HeAPPlacer
         heap_runs.push_back(all_celltypes);
         // The main HeAP placer loop
         log_info("Running main analytical placer.\n");
+        boost::asio::thread_pool pool(4);
+
         while (stalled < 5 && (solved_hpwl <= legal_hpwl * 0.8)) {
             // Alternate between particular Bel types and all bels
             for (auto &run : heap_runs) {

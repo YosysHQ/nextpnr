@@ -22,6 +22,7 @@
 #include <algorithm>
 #include <boost/asio.hpp>
 #include <boost/range/adaptor/reversed.hpp>
+#include <boost/thread.hpp>
 #include <deque>
 #include <map>
 #include <unordered_map>
@@ -691,15 +692,36 @@ struct TimingAnalyser
         setup_domains();
     }
 
+    struct WorkDispatcher
+    {
+        std::vector<boost::unique_future<void>> pending_work;
+        typedef boost::packaged_task<void> task_t;
+
+        template <typename Tf> void dispatch(Tf func, boost::asio::thread_pool *pool)
+        {
+            std::shared_ptr<boost::packaged_task<void>> pt(new boost::packaged_task<void>(func));
+            boost::unique_future<void> result = pt->get_future();
+            pending_work.push_back(boost::move(result));
+            boost::asio::post(boost::bind(&task_t::operator(), pt));
+        }
+
+        void join()
+        {
+            boost::wait_for_all(pending_work.begin(), pending_work.end());
+            pending_work.clear();
+        }
+    };
+
     void calculate_times()
     {
         reset_times();
         if (pool) {
+            WorkDispatcher wd;
             for (size_t i = 0; i < td->domains.size(); i++) {
-                boost::asio::post(*pool, [this, i]() { walk_forward(int(i)); });
-                boost::asio::post(*pool, [this, i]() { walk_backward(int(i)); });
+                wd.dispatch([this, i]() { walk_forward(int(i)); }, pool);
+                wd.dispatch([this, i]() { walk_backward(int(i)); }, pool);
             }
-            pool->join();
+            wd.join();
         } else {
             for (size_t i = 0; i < td->domains.size(); i++) {
                 walk_forward(int(i));
@@ -776,6 +798,7 @@ void update_timing(Context *ctx, TimingData *td, TimingAnalyserFlags flags, boos
 {
     TimingAnalyser ta(ctx, td, pool);
     ta.sta_flags = flags;
+    ta.get_net_delays();
     ta.calculate_times();
     ta.compute_slack();
     ta.assign_criticality();
