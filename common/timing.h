@@ -48,8 +48,17 @@ typedef std::unordered_map<IdString, NetCriticalityInfo> NetCriticalityMap;
 void get_criticalities(Context *ctx, NetCriticalityMap *net_crit);
 
 // New STA
-void init_timing(Context *ctx, TimingData *td, boost::asio::thread_pool *pool = nullptr);
-void update_timing(Context *ctx, TimingData *td, boost::asio::thread_pool *pool = nullptr);
+enum TimingAnalyserFlags
+{
+    TMG_FLAGS_NONE = 0,
+    TMG_SETUP_ONLY = 1,
+    TMG_IGNORE_CLOCK_ROUTING = 2,
+};
+
+void init_timing(Context *ctx, TimingData *td, TimingAnalyserFlags flags = TMG_FLAGS_NONE,
+                 boost::asio::thread_pool *pool = nullptr);
+void update_timing(Context *ctx, TimingData *td, TimingAnalyserFlags flags = TMG_FLAGS_NONE,
+                   boost::asio::thread_pool *pool = nullptr);
 
 NEXTPNR_NAMESPACE_END
 

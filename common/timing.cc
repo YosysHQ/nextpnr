@@ -184,11 +184,12 @@ struct TimingAnalyser
             CellInfo *ci = cell.second;
             for (auto &port : ci->ports) {
                 auto &p = port.second;
-                if (p.type != PORT_OUT)
+                if (p.type != PORT_OUT || p.net == nullptr)
                     continue;
                 int clkCount;
                 auto cls = ctx->getPortTimingClass(ci, port.first, clkCount);
                 auto &pd = td->ports.at(p.uid);
+
                 for (auto &arcin : pd.cell_arcs) {
                     // Look at all input ports that fan into this port
                     if (arcin.type != TimingCellArc::COMBINATIONAL)
@@ -221,6 +222,8 @@ struct TimingAnalyser
             queue.pop_front();
             auto &p = td->portInfos_by_uid.at(next_uid);
             if (p->type == PORT_OUT) {
+                if (p->net == nullptr)
+                    continue;
                 // Sanity check that we are visiting things in the correct order
                 NPNR_ASSERT(port_fanin[p->uid] == 0);
                 // Output ports - immediately add all driven inputs to topological order
@@ -239,7 +242,14 @@ struct TimingAnalyser
                     port_uid_t other_port_id = td->ports_by_uid.at(next_uid)->cell->ports.at(arcout.other_port).uid;
                     // If the output already has a zero fanout, then we must have visited it too early or
                     // forgotten to add some fanin to port_fanin
-                    NPNR_ASSERT(port_fanin.at(other_port_id) > 0);
+
+                    if (td->portInfos_by_uid.at(other_port_id)->net == nullptr)
+                        continue;
+
+                    if (port_fanin.at(other_port_id) == 0) {
+                        log_error("Timing error around arc %s.(%s -> %s)\n", pd.cell->name.c_str(ctx),
+                                  td->portInfos_by_uid.at(next_uid)->name.c_str(ctx), arcout.other_port.c_str(ctx));
+                    }
                     // Decrement the output's fanin now we have visited one fanin, and add it to the topological order
                     // if and only if it's fanin is now zero
                     if (--port_fanin.at(other_port_id) == 0) {
@@ -422,11 +432,8 @@ struct TimingAnalyser
             });
         }
     }
-    enum
-    {
-        SETUP_ONLY = 1,
-        IGNORE_CLOCK_ROUTING = 2,
-    } sta_flags;
+
+    TimingAnalyserFlags sta_flags = TMG_FLAGS_NONE;
 
     void add_arrival_time(port_uid_t target, int domain, delay_t max_arr, delay_t min_arr, int path_length,
                           port_uid_t prev = -1)
@@ -438,7 +445,7 @@ struct TimingAnalyser
         }
         if (path_length > t.path_length)
             t.path_length = path_length;
-        if (!(sta_flags & SETUP_ONLY) && min_arr < t.value.min) {
+        if (!(sta_flags & TMG_SETUP_ONLY) && min_arr < t.value.min) {
             t.value.min = min_arr;
             t.bwd_min = prev;
         }
@@ -454,7 +461,7 @@ struct TimingAnalyser
         }
         if (path_length > t.path_length)
             t.path_length = path_length;
-        if (!(sta_flags & SETUP_ONLY) && max_req > t.value.max) {
+        if (!(sta_flags & TMG_SETUP_ONLY) && max_req > t.value.max) {
             t.value.max = max_req;
             t.bwd_max = prev;
         }
@@ -511,7 +518,7 @@ struct TimingAnalyser
             auto &pd = td->ports.at(sp.first);
             delay_t min_dly = 0, max_dly = 0;
             // Add clock routing delay, if we need to consider it
-            if (!(sta_flags & IGNORE_CLOCK_ROUTING) && sp.second != -1) {
+            if (!(sta_flags & TMG_IGNORE_CLOCK_ROUTING) && sp.second != -1) {
                 min_dly = td->ports.at(sp.second).net_delay;
                 max_dly = td->ports.at(sp.second).net_delay;
             }
@@ -566,7 +573,7 @@ struct TimingAnalyser
             auto &pd = td->ports.at(sp.first);
             delay_t setup = 0, hold = 0;
             // Add clock routing delay, if we need to consider it
-            if (!(sta_flags & IGNORE_CLOCK_ROUTING) && sp.second != -1) {
+            if (!(sta_flags & TMG_IGNORE_CLOCK_ROUTING) && sp.second != -1) {
                 setup += td->ports.at(sp.second).net_delay;
                 hold += td->ports.at(sp.second).net_delay;
             }
@@ -737,9 +744,10 @@ struct ClockPair
 };
 } // namespace
 
-void init_timing(Context *ctx, TimingData *td, boost::asio::thread_pool *pool)
+void init_timing(Context *ctx, TimingData *td, TimingAnalyserFlags flags, boost::asio::thread_pool *pool)
 {
     TimingAnalyser ta(ctx, td, pool);
+    ta.sta_flags = flags;
     ta.reset_all();
     ta.get_net_delays();
     ta.calculate_times();
@@ -747,9 +755,10 @@ void init_timing(Context *ctx, TimingData *td, boost::asio::thread_pool *pool)
     ta.assign_criticality();
 }
 
-void update_timing(Context *ctx, TimingData *td, boost::asio::thread_pool *pool)
+void update_timing(Context *ctx, TimingData *td, TimingAnalyserFlags flags, boost::asio::thread_pool *pool)
 {
     TimingAnalyser ta(ctx, td, pool);
+    ta.sta_flags = flags;
     ta.calculate_times();
     ta.compute_slack();
     ta.assign_criticality();

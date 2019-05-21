@@ -250,8 +250,8 @@ class HeAPPlacer
 
             if (cfg.timing_driven) {
                 if (iter == 0)
-                    init_timing(ctx, &td);
-                update_timing(ctx, &td);
+                    init_timing(ctx, &td, TimingAnalyserFlags(TMG_IGNORE_CLOCK_ROUTING | TMG_SETUP_ONLY));
+                update_timing(ctx, &td, TimingAnalyserFlags(TMG_IGNORE_CLOCK_ROUTING | TMG_SETUP_ONLY));
             }
 
             if (legal_hpwl < best_hpwl) {
