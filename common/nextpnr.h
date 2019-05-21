@@ -982,6 +982,12 @@ template <typename Tk, typename Tv> struct FastSingleItemMap
                 func(item.first, item.second);
         }
     }
+
+    ~FastSingleItemMap()
+    {
+        if (item_count > 1)
+            delete multi_items;
+    }
 };
 
 struct TimingCellArc

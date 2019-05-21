@@ -382,42 +382,44 @@ struct TimingAnalyser
                     continue;
                 pd.required.for_each([&](int key, ArrivReqTime &) { td->ports[n->driver.uid].required[key]; });
             }
+        }
+        // Iterate through all ports finding domain pairs
+        for (size_t p_uid = 0; p_uid < td->ports.size(); p_uid++) {
+            auto &pd = td->ports[p_uid];
+            pd.times.clear();
+            pd.arrival.for_each([&](int at_key, ArrivReqTime &) {
+                pd.required.for_each([&](int rt_key, ArrivReqTime &) {
+                    auto &ad = td->domains[at_key], &rd = td->domains[rt_key];
+                    if (ad.tag.clock == rd.tag.clock) {
+                        // FIXME: cross clock path analysis
+                        if (td->domainPairIds.count(at_key) && td->domainPairIds.at(at_key).count(rt_key)) {
+                            // Domain pair already created
+                            int dp_uid = td->domainPairIds[at_key][rt_key];
+                            pd.times[dp_uid];
+                            td->domainPairs.at(dp_uid).ports.push_back(p_uid);
+                        } else {
+                            // Need to discover period and create domain pair
+                            DelayInfo period = ctx->getDelayFromNS(1000.0 / ctx->target_freq);
+                            NetInfo *clknet = ctx->nets.at(ad.tag.clock).get();
+                            if (clknet->clkconstr)
+                                period = clknet->clkconstr->period;
+                            // FIXME: duty cycle
+                            if (ad.tag.edge != rd.tag.edge)
+                                period = clknet->clkconstr->high;
+                            td->domainPairIds[at_key][rt_key] = int(td->domainPairs.size());
 
-            // Iterate through all ports finding domain pairs
-            for (size_t p_uid = 0; p_uid < td->ports.size(); p_uid++) {
-                auto &pd = td->ports.at(p_uid);
-                pd.times.clear();
-                pd.arrival.for_each([&](int at_key, ArrivReqTime &) {
-                    pd.required.for_each([&](int rt_key, ArrivReqTime &) {
-                        auto &ad = td->domains.at(at_key), &rd = td->domains.at(rt_key);
-                        if (ad.tag.clock == rd.tag.clock) {
-                            // FIXME: cross clock path analysis
-                            if (td->domainPairIds.count(at_key) && td->domainPairIds.at(at_key).count(rt_key)) {
-                                // Domain pair already created
-                                int dp_uid = td->domainPairIds[at_key][rt_key];
-                                pd.times[dp_uid];
-                                td->domainPairs.at(dp_uid).ports.push_back(p_uid);
-                            } else {
-                                // Need to discover period and create domain pair
-                                DelayInfo period = ctx->getDelayFromNS(1000.0 / ctx->target_freq);
-                                NetInfo *clknet = ctx->nets.at(ad.tag.clock).get();
-                                if (clknet->clkconstr)
-                                    period = clknet->clkconstr->period;
-                                // FIXME: duty cycle
-                                if (ad.tag.edge != rd.tag.edge)
-                                    period = clknet->clkconstr->high;
-                                td->domainPairIds[at_key][rt_key] = int(td->domainPairs.size());
-                                td->domainPairs.emplace_back();
-                                td->domainPairs.back().start_domain = at_key;
-                                td->domainPairs.back().end_domain = rt_key;
-                                td->domainPairs.back().period.min = period.minDelay();
-                                td->domainPairs.back().period.max = period.minDelay();
-                                td->domainPairs.back().ports.push_back(p_uid);
-                            }
+                            pd.times[int(td->domainPairs.size())];
+
+                            td->domainPairs.emplace_back();
+                            td->domainPairs.back().start_domain = at_key;
+                            td->domainPairs.back().end_domain = rt_key;
+                            td->domainPairs.back().period.min = period.minDelay();
+                            td->domainPairs.back().period.max = period.minDelay();
+                            td->domainPairs.back().ports.push_back(p_uid);
                         }
-                    });
+                    }
                 });
-            }
+            });
         }
     }
     enum
