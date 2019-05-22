@@ -42,7 +42,6 @@ BOOL WINAPI WinHandler(DWORD dwCtrlType)
 Application::Application(int &argc, char **argv) : QApplication(argc, argv)
 {
     QSurfaceFormat fmt;
-    fmt.setSamples(10);
     fmt.setProfile(QSurfaceFormat::CoreProfile);
     // macOS is very picky about this version matching
     // the version of openGL  used in ImGuiRenderer
