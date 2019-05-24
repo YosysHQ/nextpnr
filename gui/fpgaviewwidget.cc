@@ -59,20 +59,6 @@ FPGAViewWidget::FPGAViewWidget(QWidget *parent)
     rendererArgs_->gridChanged = false;
     rendererArgs_->zoomOutbound = true;
 
-    auto fmt = format();
-    fmt.setMajorVersion(3);
-    fmt.setMinorVersion(2);
-    setFormat(fmt);
-
-    fmt = format();
-    if (fmt.majorVersion() < 3) {
-        printf("Could not get OpenGL 3.0 context. Aborting.\n");
-        log_abort();
-    }
-    if (fmt.minorVersion() < 2) {
-        printf("Could not get OpenGL 3.2 context - trying anyway...\n ");
-    }
-
     connect(&paintTimer_, SIGNAL(timeout()), this, SLOT(update()));
     paintTimer_.start(1000 / 20); // paint GL 20 times per second
 

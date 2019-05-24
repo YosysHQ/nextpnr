@@ -20,6 +20,8 @@
  */
 
 #include "application.h"
+#include "log.h"
+#include <QOpenGLContext>
 #include <QMessageBox>
 #include <QSurfaceFormat>
 #include <QTextStream>
@@ -42,7 +44,22 @@ Application::Application(int &argc, char **argv) : QApplication(argc, argv)
     QSurfaceFormat fmt;
     fmt.setSamples(10);
     fmt.setProfile(QSurfaceFormat::CoreProfile);
+    // macOS is very picky about this version matching
+    // the version of openGL  used in ImGuiRenderer
+    fmt.setMajorVersion(3);
+    fmt.setMinorVersion(2);
     QSurfaceFormat::setDefaultFormat(fmt);
+
+    QOpenGLContext glContext;
+    fmt = glContext.format();
+    if (fmt.majorVersion() < 3) {
+        printf("Could not get OpenGL 3.0 context. Aborting.\n");
+        log_abort();
+    }
+    if (fmt.minorVersion() < 2) {
+        printf("Could not get OpenGL 3.2 context - trying anyway...\n ");
+    }
+
 #ifdef _WIN32
     SetConsoleCtrlHandler((PHANDLER_ROUTINE)WinHandler, TRUE);
 #endif

@@ -172,10 +172,10 @@ class LineShader
     LineShader(QObject *parent) : parent_(parent), program_(nullptr) {}
 
     static constexpr const char *vertexShaderSource_ =
-            "#version 110\n"
-            "attribute highp vec2  position;\n"
-            "attribute highp vec2  normal;\n"
-            "attribute highp float miter;\n"
+            "#version 150\n"
+            "in highp vec2  position;\n"
+            "in highp vec2  normal;\n"
+            "in highp float miter;\n"
             "uniform   highp float thickness;\n"
             "uniform   highp mat4  projection;\n"
             "void main() {\n"
@@ -183,10 +183,11 @@ class LineShader
             "   gl_Position = projection * vec4(p, 0.0, 1.0);\n"
             "}\n";
 
-    static constexpr const char *fragmentShaderSource_ = "#version 110\n"
+    static constexpr const char *fragmentShaderSource_ = "#version 150\n"
                                                          "uniform   lowp  vec4  color;\n"
+                                                         "out vec4 Out_Color;\n"
                                                          "void main() {\n"
-                                                         "   gl_FragColor = color;\n"
+                                                         "   Out_Color = color;\n"
                                                          "}\n";
 
     // Must be called on initialization.
