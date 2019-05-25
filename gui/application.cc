@@ -39,10 +39,11 @@ BOOL WINAPI WinHandler(DWORD dwCtrlType)
 }
 #endif
 
-Application::Application(int &argc, char **argv) : QApplication(argc, argv)
+Application::Application(int &argc, char **argv, bool noantialiasing) : QApplication(argc, argv)
 {
     QSurfaceFormat fmt;
-    fmt.setSamples(10);
+    if (!noantialiasing)
+        fmt.setSamples(10);
     fmt.setProfile(QSurfaceFormat::CoreProfile);
     // macOS is very picky about this version matching
     // the version of openGL  used in ImGuiRenderer

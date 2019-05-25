@@ -107,6 +107,7 @@ po::options_description CommandHandler::getGeneralOptions()
     general.add_options()("force,f", "keep running after errors");
 #ifndef NO_GUI
     general.add_options()("gui", "start gui");
+    general.add_options()("gui-no-aa", "disable anti aliasing");
 #endif
 #ifndef NO_PYTHON
     general.add_options()("run", po::value<std::vector<std::string>>(),
@@ -235,7 +236,7 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
 
 #ifndef NO_GUI
     if (vm.count("gui")) {
-        Application a(argc, argv);
+        Application a(argc, argv, (vm.count("gui-no-aa") > 0));
         MainWindow w(std::move(ctx), chipArgs);
         try {
             if (vm.count("json")) {

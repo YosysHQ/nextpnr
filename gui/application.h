@@ -29,7 +29,7 @@ NEXTPNR_NAMESPACE_BEGIN
 class Application : public QApplication
 {
   public:
-    Application(int &argc, char **argv);
+    Application(int &argc, char **argv, bool noantialiasing);
     bool notify(QObject *receiver, QEvent *event);
 };
 
