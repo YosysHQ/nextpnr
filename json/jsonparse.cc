@@ -692,11 +692,22 @@ void json_import(Context *ctx, string modname, JsonNode *node)
 
     log_info("Importing module %s\n", modname.c_str());
 
+    JsonNode *ports_parent = nullptr;
+    if (node->data_dict.count("ports") > 0)
+        ports_parent = node->data_dict.at("ports");
+
     // Multiple labels might refer to the same net. For now we resolve conflicts thus:
+    //  - (toplevel) ports are always preferred
     //  - names with fewer $ are always prefered
     //  - between equal $ counts, fewer .s are prefered
     //  - ties are resolved alphabetically
-    auto prefer_netlabel = [](const std::string &a, const std::string &b) {
+    auto prefer_netlabel = [ports_parent](const std::string &a, const std::string &b) {
+        if (ports_parent != nullptr) {
+            if (ports_parent->data_dict.count(a))
+                return true;
+            if (ports_parent->data_dict.count(b))
+                return false;
+        }
         if (b.empty())
             return true;
         long a_dollars = std::count(a.begin(), a.end(), '$'), b_dollars = std::count(b.begin(), b.end(), '$');
@@ -753,9 +764,7 @@ void json_import(Context *ctx, string modname, JsonNode *node)
         }
     }
 
-    if (node->data_dict.count("ports")) {
-        JsonNode *ports_parent = node->data_dict.at("ports");
-
+    if (ports_parent != nullptr) {
         // N.B. ports must be imported after cells for tristate behaviour
         // to be correct
         // Loop through all ports, first non-tristate then tristate to handle
