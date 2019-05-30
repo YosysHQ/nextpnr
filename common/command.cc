@@ -161,6 +161,7 @@ po::options_description CommandHandler::getGeneralOptions()
     general.add_options()("placed-svg", po::value<std::string>(), "write render of placement to SVG file");
     general.add_options()("routed-svg", po::value<std::string>(), "write render of routing to SVG file");
 
+    general.add_options()("threads", po::value<int>(), "max thread count");
     return general;
 }
 
@@ -246,6 +247,10 @@ void CommandHandler::setupContext(Context *ctx)
         auto freq = vm["freq"].as<double>();
         if (freq > 0)
             ctx->settings[ctx->id("target_freq")] = std::to_string(freq * 1e6);
+    }
+
+    if (vm.count("threads")) {
+        ctx->settings[ctx->id("threads")] = vm["threads"].as<int>();
     }
 
     if (vm.count("no-tmdriv"))

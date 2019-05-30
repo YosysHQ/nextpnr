@@ -94,6 +94,11 @@ struct TimingAnalyser
                 ++max_uid;
             }
         }
+
+        td->all_nets.clear();
+        for (auto &n : sorted(ctx->nets)) {
+            td->all_nets.push_back(n.second);
+        }
     }
 
     void get_cell_arcs()
@@ -302,14 +307,53 @@ struct TimingAnalyser
         }
     }
 
-    void get_net_delays()
+    void net_delay_worker(int start, int end)
     {
-        for (auto &n : sorted(ctx->nets)) {
-            NetInfo *ni = n.second;
+        for (int i = start; i < end; i++) {
+            NetInfo *ni = td->all_nets.at(i);
             for (auto &usr : ni->users) {
                 td->ports.at(usr.uid).net_delay = ctx->getNetinfoRouteDelay(ni, usr);
             }
         }
+    }
+
+    struct WorkDispatcher
+    {
+        std::vector<boost::unique_future<void>> pending_work;
+        typedef boost::packaged_task<void> task_t;
+
+        template <typename Tf> void dispatch(Tf func, boost::asio::thread_pool *pool)
+        {
+            std::shared_ptr<boost::packaged_task<void>> pt(new boost::packaged_task<void>(func));
+            boost::unique_future<void> result = pt->get_future();
+            pending_work.push_back(boost::move(result));
+            boost::asio::post(boost::bind(&task_t::operator(), pt));
+        }
+
+        void join()
+        {
+            boost::wait_for_all(pending_work.begin(), pending_work.end());
+            pending_work.clear();
+        }
+    };
+
+    template <typename Tf>
+    void parallel_split(int N, Tf func)
+    {
+        if (pool) {
+            WorkDispatcher wd;
+            for (int i = 0; i < ctx->threads; i++) {
+                wd.dispatch([this, i, N, func]() { func( (N*i) / ctx->threads, (N*(i + 1)) / ctx->threads ); }, pool);
+            }
+            wd.join();
+        } else {
+            func(0, N);
+        }
+    }
+
+    void get_net_delays()
+    {
+        parallel_split(int(td->all_nets.size()), [this](int s, int e) { net_delay_worker(s, e); });
     }
 
     void setup_domains()
@@ -633,10 +677,9 @@ struct TimingAnalyser
         }
     }
 
-    void compute_slack()
-    {
-        // for (size_t p_uid = 0; p_uid < td->ports.size(); p_uid++) {
-        for (auto p_uid : td->topological_order) {
+    void slack_worker(int start, int end) {
+        for (int i = start; i < end; i++) {
+            port_uid_t p_uid = td->topological_order.at(i);
             auto &p = td->ports.at(p_uid);
             p.times.for_each([&](int dp_uid, TimingPortTimes &t) {
                 auto &dp = td->domainPairs.at(dp_uid);
@@ -655,6 +698,12 @@ struct TimingAnalyser
                 p.min_budget = std::min(p.min_budget, t.budget);
             });
         }
+    }
+
+    void compute_slack()
+    {
+        parallel_split(int(td->topological_order.size()), [this](int s, int e) { slack_worker(s, e); });
+
         for (size_t dp_uid = 0; dp_uid < td->domainPairs.size(); dp_uid++) {
             auto &dp = td->domainPairs.at(dp_uid);
             dp.worst_setup_slack = std::numeric_limits<delay_t>::max();
@@ -691,26 +740,6 @@ struct TimingAnalyser
         topo_sort();
         setup_domains();
     }
-
-    struct WorkDispatcher
-    {
-        std::vector<boost::unique_future<void>> pending_work;
-        typedef boost::packaged_task<void> task_t;
-
-        template <typename Tf> void dispatch(Tf func, boost::asio::thread_pool *pool)
-        {
-            std::shared_ptr<boost::packaged_task<void>> pt(new boost::packaged_task<void>(func));
-            boost::unique_future<void> result = pt->get_future();
-            pending_work.push_back(boost::move(result));
-            boost::asio::post(boost::bind(&task_t::operator(), pt));
-        }
-
-        void join()
-        {
-            boost::wait_for_all(pending_work.begin(), pending_work.end());
-            pending_work.clear();
-        }
-    };
 
     void calculate_times()
     {
@@ -786,22 +815,29 @@ struct ClockPair
 
 void init_timing(Context *ctx, TimingData *td, TimingAnalyserFlags flags, boost::asio::thread_pool *pool)
 {
+    auto startt = std::chrono::high_resolution_clock::now();
     TimingAnalyser ta(ctx, td, pool);
     ta.sta_flags = flags;
     ta.reset_all();
     ta.calculate_times();
     ta.compute_slack();
     ta.assign_criticality();
+    auto endtt = std::chrono::high_resolution_clock::now();
+    log_info("** init_timing time: %.04fs\n", std::chrono::duration<double>(endtt - startt).count());
+
 }
 
 void update_timing(Context *ctx, TimingData *td, TimingAnalyserFlags flags, boost::asio::thread_pool *pool)
 {
+    auto startt = std::chrono::high_resolution_clock::now();
     TimingAnalyser ta(ctx, td, pool);
     ta.sta_flags = flags;
     ta.get_net_delays();
     ta.calculate_times();
     ta.compute_slack();
     ta.assign_criticality();
+    auto endtt = std::chrono::high_resolution_clock::now();
+    log_info("** update_timing time: %.04fs\n", std::chrono::duration<double>(endtt - startt).count());
 }
 
 NEXTPNR_NAMESPACE_END

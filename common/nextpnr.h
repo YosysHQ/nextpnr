@@ -1068,6 +1068,8 @@ struct TimingData
     std::vector<TimingPortData> ports;
     // Topological ordering of ports
     std::vector<port_uid_t> topological_order;
+
+    std::vector<NetInfo*> all_nets; 
 };
 
 struct Context : Arch, DeterministicRNG
