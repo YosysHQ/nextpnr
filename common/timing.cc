@@ -519,9 +519,9 @@ struct TimingAnalyser
         }
     }
 
-    void reset_times()
-    {
-        for (auto &p : td->ports) {
+    void reset_times_worker(int start, int end) {
+        for (int i = start; i < end; i++) {
+            auto &p = td->ports[i];
             p.arrival.for_each([](int, ArrivReqTime &t) {
                 t.value = MinMaxDelay();
                 t.path_length = 0;
@@ -549,6 +549,12 @@ struct TimingAnalyser
             p.min_budget = std::numeric_limits<delay_t>::max();
             p.min_slack = std::numeric_limits<delay_t>::max();
         }
+    }
+
+    void reset_times()
+    {
+        parallel_split(int(td->ports.size()), [this](int s, int e) { reset_times_worker(s, e); });
+
         for (auto &dp : td->domainPairs) {
             dp.crit_delay = MinMaxDelay();
             dp.crit_hold_ep = -1;
