@@ -35,6 +35,7 @@
 #include "command.h"
 #include "design_utils.h"
 #include "jsonparse.h"
+#include "jsonwrite.h"
 #include "log.h"
 #include "timing.h"
 #include "util.h"
@@ -120,6 +121,7 @@ po::options_description CommandHandler::getGeneralOptions()
 
 #endif
     general.add_options()("json", po::value<std::string>(), "JSON design file to ingest");
+    general.add_options()("write", po::value<std::string>(), "JSON design file to write");
     general.add_options()("seed", po::value<int>(), "seed value for random number generator");
     general.add_options()("randomize-seed,r", "randomize seed value for random number generator");
 
@@ -303,6 +305,12 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
         customBitstream(ctx.get());
     }
 
+    if (vm.count("write")) {        
+        std::string filename = vm["write"].as<std::string>();
+        std::ofstream f(filename);
+        if (!write_json_file(f, filename, ctx.get()))
+            log_error("Loading design failed.\n");
+    }
     if (vm.count("save")) {
         project.save(ctx.get(), vm["save"].as<std::string>());
     }
