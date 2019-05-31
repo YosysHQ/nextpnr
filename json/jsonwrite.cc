@@ -92,12 +92,10 @@ void write_module(std::ostream &f, Context *ctx)
         bool first2 = true;
         for (auto &conn : c->ports) {
             auto &p = conn.second;
-            if (p.net) {
-                std::string direction = (p.type == PORT_IN) ? "input" : (p.type == PORT_OUT) ? "output" : "inout";
-                f << stringf("%s\n", first2 ? "" : ",");
-                f << stringf("            %s: \"%s\"", get_name(conn.first, ctx).c_str(), direction.c_str());
-                first2 = false;
-            }
+            std::string direction = (p.type == PORT_IN) ? "input" : (p.type == PORT_OUT) ? "output" : "inout";
+            f << stringf("%s\n", first2 ? "" : ",");
+            f << stringf("            %s: \"%s\"", get_name(conn.first, ctx).c_str(), direction.c_str());
+            first2 = false;
         }
         f << stringf("\n          },\n");
         f << stringf("          \"connections\": {");
@@ -105,11 +103,13 @@ void write_module(std::ostream &f, Context *ctx)
         
         for (auto &conn : c->ports) {
             auto &p = conn.second;
-            if (p.net) {
-                f << stringf("%s\n", first2 ? "" : ",");
-                f << stringf("            %s: %d", get_name(conn.first,ctx).c_str(), fn(p.net->name));
-                first2 = false;
-            }
+            f << stringf("%s\n", first2 ? "" : ",");
+            if (p.net)
+                f << stringf("            %s: [ %d ]", get_name(conn.first,ctx).c_str(), fn(p.net->name));
+            else 
+                f << stringf("            %s: [ ]", get_name(conn.first,ctx).c_str());
+
+            first2 = false;
         }
         f << stringf("\n          }\n");
 
