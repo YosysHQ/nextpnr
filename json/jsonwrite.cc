@@ -48,7 +48,7 @@ std::string get_name(IdString name, Context *ctx)
     return get_string(name.c_str(ctx));
 }
 
-void write_parameters(std::ostream &f, Context *ctx, const std::unordered_map<IdString, std::string> &parameters, bool for_module=false)
+bool write_parameters(std::ostream &f, Context *ctx, const std::unordered_map<IdString, std::string> &parameters, bool for_module=false)
 {
     bool first = true;
     for (auto &param : parameters) {
@@ -57,7 +57,27 @@ void write_parameters(std::ostream &f, Context *ctx, const std::unordered_map<Id
         f << get_string(param.second);
         first = false;
     }
+    return first;
 }
+
+void write_routing(std::ostream &f, Context *ctx, NetInfo *net, bool first)
+{
+    std::string routing;
+    bool first2 = true;
+    for (auto &item : net->wires) {
+        routing += first2 ? "" : ";";
+        routing += ctx->getWireName(item.first).c_str(ctx);
+        routing += ",";
+        if (item.second.pip != PipId())
+            routing += ctx->getPipName(item.second.pip).c_str(ctx);
+        first2 = false;
+    }
+
+    f << stringf("%s\n", first ? "" : ",");
+    f << stringf("            \"NEXTPNR_ROUTING\": ");
+    f << get_string(routing);
+}
+
 void write_module(std::ostream &f, Context *ctx)
 {
     f << stringf("    %s: {\n", get_string("top").c_str());
@@ -128,7 +148,8 @@ void write_module(std::ostream &f, Context *ctx)
         f << stringf("          \"hide_name\": %s,\n", w->name.c_str(ctx)[0] == '$' ? "1" : "0");
         f << stringf("          \"bits\": [ %d ] ,\n", fn(pair.first));
         f << stringf("          \"attributes\": {");
-        write_parameters(f, ctx, w->attrs);
+        bool first2 = write_parameters(f, ctx, w->attrs);
+        write_routing(f, ctx, w.get(), first2);
         f << stringf("\n          }\n");
         f << stringf("        }");
         first = false;
