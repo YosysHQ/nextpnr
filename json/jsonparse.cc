@@ -332,6 +332,30 @@ void json_import_cell_params(Context *ctx, string &modname, CellInfo *cell, Json
                  pId.c_str(ctx), cell->params[pId].c_str(), cell->name.c_str(ctx), modname.c_str());
 }
 
+void json_import_net_attrib(Context *ctx, string &modname, NetInfo *net, JsonNode *param_node,
+                             std::unordered_map<IdString, std::string> *dest, int param_id)
+{
+    //
+    JsonNode *param;
+    IdString pId;
+    //
+    param = param_node->data_dict.at(param_node->data_dict_keys[param_id]);
+
+    pId = ctx->id(param_node->data_dict_keys[param_id]);
+    if (param->type == 'N') {
+        (*dest)[pId] = std::to_string(param->data_number);
+    } else if (param->type == 'S')
+        (*dest)[pId] = param->data_string;
+    else
+        log_error("JSON parameter type of \"%s\' of net \'%s\' not supported\n", pId.c_str(ctx),
+                  net->name.c_str(ctx));
+
+    if (json_debug)
+        log_info("    Added parameter \'%s\'=%s to net \'%s\' "
+                 "of module \'%s\'\n",
+                 pId.c_str(ctx), net->attrs[pId].c_str(), net->name.c_str(ctx), modname.c_str());
+}
+
 static int const_net_idx = 0;
 
 template <typename F>
@@ -790,6 +814,41 @@ void json_import(Context *ctx, string modname, JsonNode *node)
             json_import_toplevel_port(ctx, modname, netids, ports_parent->data_dict_keys[portid], here);
         }
     }
+    if (node->data_dict.count("netnames")) {
+        JsonNode *net_parent = node->data_dict.at("netnames");
+        for (int nnid = 0; nnid < GetSize(net_parent->data_dict_keys); nnid++) {
+            JsonNode *here;
+
+            here = net_parent->data_dict.at(net_parent->data_dict_keys[nnid]);
+            std::string basename = net_parent->data_dict_keys[nnid];
+            if (here->data_dict.count("bits")) {
+                JsonNode *bits = here->data_dict.at("bits");
+                assert(bits->type == 'A');
+                size_t num_bits = bits->data_array.size();
+                for (size_t i = 0; i < num_bits; i++) {
+                    std::string name =
+                            basename + (num_bits == 1 ? "" : std::string("[") + std::to_string(i) + std::string("]"));
+                    IdString net_id = ctx->id(name);
+                    if (here->data_dict.count("attributes") && ctx->nets.find(net_id)!=ctx->nets.end()) {
+                        NetInfo *this_net = ctx->nets[net_id].get();                            
+                        
+                        JsonNode *attr_node = here->data_dict.at("attributes");
+                        if (attr_node->type != 'D')
+                            log_error("JSON attribute list of \'%s\' is not a data dictionary\n", this_net->name.c_str(ctx));
+
+                        //
+                        // Loop through all attributes, adding them into the
+                        // design to annotate the cell
+                        //
+                        for (int attrid = 0; attrid < GetSize(attr_node->data_dict_keys); attrid++) {
+                            json_import_net_attrib(ctx, modname, this_net, attr_node, &this_net->attrs, attrid);
+                        }
+
+                    }
+                }
+            } 
+        }
+    }    
     check_all_nets_driven(ctx);
 }
 }; // End Namespace JsonParser
