@@ -309,7 +309,7 @@ bool is_blackbox(JsonNode *node)
 }
 
 void json_import_cell_params(Context *ctx, string &modname, CellInfo *cell, JsonNode *param_node,
-                             std::unordered_map<IdString, std::string> *dest, int param_id)
+                             std::unordered_map<IdString, Property> *dest, int param_id)
 {
     //
     JsonNode *param;
@@ -319,9 +319,9 @@ void json_import_cell_params(Context *ctx, string &modname, CellInfo *cell, Json
 
     pId = ctx->id(param_node->data_dict_keys[param_id]);
     if (param->type == 'N') {
-        (*dest)[pId] = std::to_string(param->data_number);
+        (*dest)[pId].setNumber(param->data_number);
     } else if (param->type == 'S')
-        (*dest)[pId] = param->data_string;
+        (*dest)[pId].setString(param->data_string);
     else
         log_error("JSON parameter type of \"%s\' of cell \'%s\' not supported\n", pId.c_str(ctx),
                   cell->name.c_str(ctx));
@@ -333,7 +333,7 @@ void json_import_cell_params(Context *ctx, string &modname, CellInfo *cell, Json
 }
 
 void json_import_net_attrib(Context *ctx, string &modname, NetInfo *net, JsonNode *param_node,
-                             std::unordered_map<IdString, std::string> *dest, int param_id)
+                             std::unordered_map<IdString, Property> *dest, int param_id)
 {
     //
     JsonNode *param;
@@ -343,9 +343,9 @@ void json_import_net_attrib(Context *ctx, string &modname, NetInfo *net, JsonNod
 
     pId = ctx->id(param_node->data_dict_keys[param_id]);
     if (param->type == 'N') {
-        (*dest)[pId] = std::to_string(param->data_number);
+        (*dest)[pId].setNumber(param->data_number);
     } else if (param->type == 'S')
-        (*dest)[pId] = param->data_string;
+        (*dest)[pId].setString(param->data_string);
     else
         log_error("JSON parameter type of \"%s\' of net \'%s\' not supported\n", pId.c_str(ctx),
                   net->name.c_str(ctx));

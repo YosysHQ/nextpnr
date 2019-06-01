@@ -48,13 +48,16 @@ std::string get_name(IdString name, Context *ctx)
     return get_string(name.c_str(ctx));
 }
 
-bool write_parameters(std::ostream &f, Context *ctx, const std::unordered_map<IdString, std::string> &parameters, bool for_module=false)
+bool write_parameters(std::ostream &f, Context *ctx, const std::unordered_map<IdString, Property> &parameters, bool for_module=false)
 {
     bool first = true;
     for (auto &param : parameters) {
         f << stringf("%s\n", first ? "" : ",");
         f << stringf("        %s%s: ", for_module ? "" : "    ", get_name(param.first,ctx).c_str());
-        f << get_string(param.second);
+        if (param.second.isString())
+            f << get_string(param.second);
+        else
+            f << param.second.num;
         first = false;
     }
     return first;

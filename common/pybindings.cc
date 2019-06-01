@@ -122,7 +122,7 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
             .value("PORT_INOUT", PORT_INOUT)
             .export_values();
 
-    typedef std::unordered_map<IdString, std::string> AttrMap;
+    typedef std::unordered_map<IdString, Property> AttrMap;
     typedef std::unordered_map<IdString, PortInfo> PortMap;
     typedef std::unordered_map<IdString, IdString> PinMap;
     typedef std::unordered_map<IdString, std::unique_ptr<Region>> RegionMap;
