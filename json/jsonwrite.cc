@@ -81,6 +81,30 @@ void write_routing(std::ostream &f, Context *ctx, NetInfo *net, bool first)
     f << get_string(routing);
 }
 
+void write_constraints(std::ostream &f, Context *ctx, CellInfo *cell, bool first)
+{
+    std::string constr;
+    constr += std::to_string(cell->constr_x) + ";";
+    constr += std::to_string(cell->constr_y) + ";";
+    constr += std::to_string(cell->constr_z) + ";";
+    constr += std::to_string(cell->constr_abs_z ? 1:0) + ";";
+    constr += cell->constr_parent!=nullptr ? cell->constr_parent->name.c_str(ctx) : "";
+    f << stringf("%s\n", first ? "" : ",");
+    f << stringf("            \"NEXTPNR_CONSTRAINT\": ");
+    f << get_string(constr);
+
+    constr = "";
+    for(auto &item : cell->constr_children)
+    {
+        if (!constr.empty()) constr += std::string(";");
+        constr += item->name.c_str(ctx);
+    }
+    f << stringf(",\n");
+    f << stringf("            \"NEXTPNR_CONSTR_CHILDREN\": ");
+    f << get_string(constr);
+
+}
+
 void write_module(std::ostream &f, Context *ctx)
 {
     f << stringf("    %s: {\n", get_string("top").c_str());
@@ -109,7 +133,8 @@ void write_module(std::ostream &f, Context *ctx)
         write_parameters(f, ctx, c->params);
         f << stringf("\n          },\n");
         f << stringf("          \"attributes\": {");
-        write_parameters(f, ctx, c->attrs);
+        bool first3 = write_parameters(f, ctx, c->attrs);
+        write_constraints(f, ctx, c.get(), first3);
         f << stringf("\n          },\n");
         f << stringf("          \"port_directions\": {");
         bool first2 = true;
@@ -123,7 +148,6 @@ void write_module(std::ostream &f, Context *ctx)
         f << stringf("\n          },\n");
         f << stringf("          \"connections\": {");
         first2 = true;
-        
         for (auto &conn : c->ports) {
             auto &p = conn.second;
             f << stringf("%s\n", first2 ? "" : ",");
