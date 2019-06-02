@@ -309,7 +309,7 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
         std::string filename = vm["write"].as<std::string>();
         std::ofstream f(filename);
         if (!write_json_file(f, filename, ctx.get()))
-            log_error("Loading design failed.\n");
+            log_error("Saving design failed.\n");
     }
     if (vm.count("save")) {
         project.save(ctx.get(), vm["save"].as<std::string>());
