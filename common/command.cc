@@ -232,6 +232,22 @@ void CommandHandler::setupContext(Context *ctx)
         ctx->timing_driven = false;
 }
 
+std::vector<std::string> split(const std::string& str, const std::string& delim)
+{
+    std::vector<std::string> tokens;
+    size_t prev = 0, pos = 0;
+    do
+    {
+        pos = str.find(delim, prev);
+        if (pos == std::string::npos) pos = str.length();
+        std::string token = str.substr(prev, pos-prev);
+        if (!token.empty()) tokens.push_back(token);
+        prev = pos + delim.length();
+    }
+    while (pos < str.length() && prev < str.length());
+    return tokens;
+}
+
 int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
 {
     if (vm.count("test")) {
@@ -295,6 +311,30 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
             if (!ctx->pack() && !ctx->force)
                 log_error("Packing design failed.\n");
         } else {
+            for (auto &pair : ctx->cells) {       
+                auto &c = pair.second;
+                auto constr_main = c->attrs.find(ctx->id("NEXTPNR_CONSTRAINT"));
+                auto constr_child = c->attrs.find(ctx->id("NEXTPNR_CONSTR_CHILDREN"));
+                if (constr_main!=c->attrs.end())
+                {
+                    std::vector<std::string> val = split(constr_main->second.str.c_str(),";");
+                    c->constr_x = std::stoi(val[0]);
+                    c->constr_y = std::stoi(val[1]);
+                    c->constr_z = std::stoi(val[2]);
+                    c->constr_abs_z = val[3]=="1" ? true : false;
+                    c->constr_parent = nullptr;
+                    if (val.size()==5)
+                        c->constr_parent = ctx->cells.find(ctx->id(val[4].c_str()))->second.get();
+                    
+                }
+                if (constr_child!=c->attrs.end())
+                {
+                    for(auto val : split(constr_child->second.str.c_str(),";"))
+                    {
+                        c->constr_children.push_back(ctx->cells.find(ctx->id(val.c_str()))->second.get());
+                    }
+                }
+            }
             ctx->assignArchInfo();
         }
 
@@ -307,6 +347,16 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
             if (!ctx->place() && !ctx->force)
                 log_error("Placing design failed.\n");
             ctx->check();
+        } else {
+            for (auto &pair : ctx->cells) {       
+                auto &c = pair.second;
+                auto bel = c->attrs.find(ctx->id("BEL"));
+                if (bel!=c->attrs.end())
+                {
+                    BelId b = ctx->getBelByName(ctx->id(bel->second.c_str()));
+                    ctx->bindBel(b, c.get(), STRENGTH_USER);
+                }
+            }
         }
 
         if (do_route) {
