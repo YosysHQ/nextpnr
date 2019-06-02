@@ -137,6 +137,8 @@ po::options_description CommandHandler::getGeneralOptions()
     general.add_options()("placer-budgets", "use budget rather than criticality in placer timing weights");
 
     general.add_options()("pack-only", "pack design only without placement or routing");
+    general.add_options()("no-route", "process design without routing");
+    general.add_options()("no-place", "process design without placement");
 
     general.add_options()("ignore-loops", "ignore combinational loops in timing analysis");
 
@@ -282,25 +284,33 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
             execute_python_file(filename.c_str());
     } else
 #endif
-            if (vm.count("json") || vm.count("load")) {
-        run_script_hook("pre-pack");
-        if (!ctx->pack() && !ctx->force)
-            log_error("Packing design failed.\n");
-        assign_budget(ctx.get());
-        ctx->check();
-        print_utilisation(ctx.get());
-        run_script_hook("pre-place");
+    if (vm.count("json") || vm.count("load")) {
+        bool do_pack  = true;
+        bool do_place = vm.count("pack-only")==0 && vm.count("no-place")==0;
+        bool do_route = vm.count("pack-only")==0 && vm.count("no-route")==0;
 
-        if (!vm.count("pack-only")) {
+        if (do_pack) {
+            run_script_hook("pre-pack");
+            if (!ctx->pack() && !ctx->force)
+                log_error("Packing design failed.\n");
+            assign_budget(ctx.get());
+            ctx->check();
+            print_utilisation(ctx.get());
+        }
+
+        if (do_place) {
+            run_script_hook("pre-place");
             if (!ctx->place() && !ctx->force)
                 log_error("Placing design failed.\n");
             ctx->check();
-            run_script_hook("pre-route");
+        }
 
+        if (do_route) {
+            run_script_hook("pre-route");
             if (!ctx->route() && !ctx->force)
                 log_error("Routing design failed.\n");
+            run_script_hook("post-route");
         }
-        run_script_hook("post-route");
 
         customBitstream(ctx.get());
     }
