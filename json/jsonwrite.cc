@@ -102,6 +102,11 @@ void write_constraints(std::ostream &f, Context *ctx, CellInfo *cell, bool first
     f << stringf(",\n");
     f << stringf("            \"NEXTPNR_CONSTR_CHILDREN\": ");
     f << get_string(constr);
+    if (cell->bel != BelId()) {
+        f << stringf(",\n");
+        f << stringf("            \"NEXTPNR_BEL\": ");
+        f << get_string(ctx->getBelName(cell->bel).c_str(ctx));
+    }
 
 }
 

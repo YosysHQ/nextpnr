@@ -350,7 +350,7 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
         } else {
             for (auto &pair : ctx->cells) {       
                 auto &c = pair.second;
-                auto bel = c->attrs.find(ctx->id("BEL"));
+                auto bel = c->attrs.find(ctx->id("NEXTPNR_BEL"));
                 if (bel!=c->attrs.end())
                 {
                     BelId b = ctx->getBelByName(ctx->id(bel->second.c_str()));
