@@ -139,6 +139,7 @@ po::options_description CommandHandler::getGeneralOptions()
     general.add_options()("pack-only", "pack design only without placement or routing");
     general.add_options()("no-route", "process design without routing");
     general.add_options()("no-place", "process design without placement");
+    general.add_options()("no-pack", "process design without packing");
 
     general.add_options()("ignore-loops", "ignore combinational loops in timing analysis");
 
@@ -285,7 +286,7 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
     } else
 #endif
     if (vm.count("json") || vm.count("load")) {
-        bool do_pack  = true;
+        bool do_pack  = vm.count("pack-only")!=0 || vm.count("no-pack")==0;
         bool do_place = vm.count("pack-only")==0 && vm.count("no-place")==0;
         bool do_route = vm.count("pack-only")==0 && vm.count("no-route")==0;
 
@@ -293,10 +294,13 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
             run_script_hook("pre-pack");
             if (!ctx->pack() && !ctx->force)
                 log_error("Packing design failed.\n");
-            assign_budget(ctx.get());
-            ctx->check();
-            print_utilisation(ctx.get());
+        } else {
+            ctx->assignArchInfo();
         }
+
+        assign_budget(ctx.get());
+        ctx->check();
+        print_utilisation(ctx.get());
 
         if (do_place) {
             run_script_hook("pre-place");
