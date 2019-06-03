@@ -79,6 +79,11 @@ void write_routing(std::ostream &f, Context *ctx, NetInfo *net, bool first)
     f << stringf("%s\n", first ? "" : ",");
     f << stringf("            \"NEXTPNR_ROUTING\": ");
     f << get_string(routing);
+#ifdef ARCH_ECP5
+    f << stringf(",\n");
+    f << stringf("            \"NEXTPNR_IS_GLOBAL\": ");
+    f << std::to_string(net->is_global ? 1:0);
+#endif
 }
 
 void write_constraints(std::ostream &f, Context *ctx, CellInfo *cell, bool first)
