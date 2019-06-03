@@ -89,6 +89,19 @@ void write_constraints(std::ostream &f, Context *ctx, CellInfo *cell, bool first
     constr += std::to_string(cell->constr_z) + ";";
     constr += std::to_string(cell->constr_abs_z ? 1:0) + ";";
     constr += cell->constr_parent!=nullptr ? cell->constr_parent->name.c_str(ctx) : "";
+#ifdef ARCH_ECP5
+    constr += ";";
+    constr += std::to_string(cell->sliceInfo.using_dff ? 1:0) + ";";
+    constr += std::to_string(cell->sliceInfo.has_l6mux ? 1:0) + ";";
+    constr += std::to_string(cell->sliceInfo.is_carry ? 1:0) + ";";
+    constr += std::string(cell->sliceInfo.clk_sig.c_str(ctx)) + ";";
+    constr += std::string(cell->sliceInfo.lsr_sig.c_str(ctx)) + ";";
+    constr += std::string(cell->sliceInfo.clkmux.c_str(ctx)) + ";";
+    constr += std::string(cell->sliceInfo.lsrmux.c_str(ctx)) + ";";
+    constr += std::string(cell->sliceInfo.srmode.c_str(ctx)) + ";";
+    constr += std::to_string(cell->sliceInfo.sd0) + ";";
+    constr += std::to_string(cell->sliceInfo.sd1) + ";";
+#endif
     f << stringf("%s\n", first ? "" : ",");
     f << stringf("            \"NEXTPNR_CONSTRAINT\": ");
     f << get_string(constr);
