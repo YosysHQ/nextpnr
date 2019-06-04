@@ -142,8 +142,6 @@ void write_module(std::ostream &f, Context *ctx)
     // TODO: Top level ports
     f << stringf("\n      },\n");
 
-    auto fn = ctx->nets.hash_function();
-
     f << stringf("      \"cells\": {");
     bool first = true;
     for (auto &pair : ctx->cells) {        
@@ -175,7 +173,7 @@ void write_module(std::ostream &f, Context *ctx)
             auto &p = conn.second;
             f << stringf("%s\n", first2 ? "" : ",");
             if (p.net)
-                f << stringf("            %s: [ %d ]", get_name(conn.first,ctx).c_str(), fn(p.net->name));
+                f << stringf("            %s: [ %d ]", get_name(conn.first,ctx).c_str(), p.net->name.index);
             else 
                 f << stringf("            %s: [ ]", get_name(conn.first,ctx).c_str());
 
@@ -196,7 +194,7 @@ void write_module(std::ostream &f, Context *ctx)
         f << stringf("%s\n", first ? "" : ",");
         f << stringf("        %s: {\n", get_name(w->name, ctx).c_str());
         f << stringf("          \"hide_name\": %s,\n", w->name.c_str(ctx)[0] == '$' ? "1" : "0");
-        f << stringf("          \"bits\": [ %d ] ,\n", fn(pair.first));
+        f << stringf("          \"bits\": [ %d ] ,\n", pair.first.index);
         f << stringf("          \"attributes\": {");
         bool first2 = write_parameters(f, ctx, w->attrs);
         write_routing(f, ctx, w.get(), first2);
