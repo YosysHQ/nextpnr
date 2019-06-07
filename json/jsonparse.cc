@@ -349,11 +349,6 @@ void json_import_net_attrib(Context *ctx, string &modname, NetInfo *net, JsonNod
     else
         log_error("JSON parameter type of \"%s\' of net \'%s\' not supported\n", pId.c_str(ctx),
                   net->name.c_str(ctx));
-#ifdef ARCH_ECP5
-    if (param_node->data_dict_keys[param_id]== "NEXTPNR_IS_GLOBAL") {
-        net->is_global = (*dest)[pId].num;
-    }
-#endif
     if (json_debug)
         log_info("    Added parameter \'%s\'=%s to net \'%s\' "
                  "of module \'%s\'\n",
@@ -885,6 +880,7 @@ bool parse_json_file(std::istream &f, std::string &filename, Context *ctx)
         log_info("Checksum: 0x%08x\n", ctx->checksum());
         log_break();
         ctx->settings.emplace(ctx->id("input/json"), filename);
+        ctx->attributesToCommonInfo();
         return true;
     } catch (log_execution_error_exception) {
         return false;

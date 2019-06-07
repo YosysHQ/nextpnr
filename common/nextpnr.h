@@ -681,6 +681,9 @@ struct BaseCtx
 
     // Workaround for lack of wrappable constructors
     DecalXY constructDecalXY(DecalId decal, float x, float y);
+
+    void commonInfoToAttributes();
+    void attributesToCommonInfo();
 };
 
 NEXTPNR_NAMESPACE_END

@@ -524,6 +524,7 @@ bool Arch::place()
     }
 
     permute_luts();
+    archInfoToAttributes();
     return true;
 }
 
@@ -558,6 +559,7 @@ bool Arch::route()
     log_info("       base %d adder %d\n", speed_grade->pip_classes[locInfo(slowest_pip)->pip_data[slowest_pip.index].timing_class].max_base_delay,
              speed_grade->pip_classes[locInfo(slowest_pip)->pip_data[slowest_pip.index].timing_class].max_fanout_adder);
 #endif
+    archInfoToAttributes();
     return result;
 }
 
@@ -984,6 +986,21 @@ BelId Arch::getDQSBUF(bool dqsright, int dqsrow)
 WireId Arch::getBankECLK(int bank, int eclk)
 {
     return getWireByLocAndBasename(Location(0, 0), "G_BANK" + std::to_string(bank) + "ECLK" + std::to_string(eclk));
+}
+
+void Arch::archInfoToAttributes()
+{
+    commonInfoToAttributes();
+    for (auto &net : getCtx()->nets) {
+        auto ni = net.second.get();
+        ni->attrs[id("IS_GLOBAL")] = ni->is_global ? "1" : "0";
+    }    
+}
+
+void Arch::attributesToArchInfo()
+{
+    attributesToCommonInfo();
+    assignArchInfo();
 }
 
 #ifdef WITH_HEAP

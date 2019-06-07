@@ -994,6 +994,8 @@ struct Arch : BaseCtx
     bool slicesCompatible(const std::vector<const CellInfo *> &cells) const;
 
     void assignArchInfo();
+    void archInfoToAttributes();
+    void attributesToArchInfo();
 
     void permute_luts();
 

@@ -878,6 +878,8 @@ struct Arch : BaseCtx
     // netlist modifications, and validity checks
     void assignArchInfo();
     void assignCellInfo(CellInfo *cell);
+    void archInfoToAttributes();
+    void attributesToArchInfo();
 
     // -------------------------------------------------
     BelPin getIOBSharingPLLPin(BelId pll, IdString pll_pin) const

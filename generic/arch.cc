@@ -604,6 +604,17 @@ void Arch::assignArchInfo()
     }
 }
 
+void Arch::archInfoToAttributes()
+{
+    commonInfoToAttributes();
+}
+
+void Arch::attributesToArchInfo()
+{
+    attributesToCommonInfo();
+    assignArchInfo();
+}
+
 bool Arch::cellsCompatible(const CellInfo **cells, int count) const
 {
     const NetInfo *clk = nullptr;

@@ -48,7 +48,7 @@ std::string get_name(IdString name, Context *ctx)
     return get_string(name.c_str(ctx));
 }
 
-bool write_parameters(std::ostream &f, Context *ctx, const std::unordered_map<IdString, Property> &parameters, bool for_module=false)
+void write_parameters(std::ostream &f, Context *ctx, const std::unordered_map<IdString, Property> &parameters, bool for_module=false)
 {
     bool first = true;
     for (auto &param : parameters) {
@@ -60,72 +60,6 @@ bool write_parameters(std::ostream &f, Context *ctx, const std::unordered_map<Id
             f << param.second.num;
         first = false;
     }
-    return first;
-}
-
-void write_routing(std::ostream &f, Context *ctx, NetInfo *net, bool first)
-{
-    std::string routing;
-    bool first2 = true;
-    for (auto &item : net->wires) {
-        routing += first2 ? "" : ";";
-        routing += ctx->getWireName(item.first).c_str(ctx);
-        routing += ",";
-        if (item.second.pip != PipId())
-            routing += ctx->getPipName(item.second.pip).c_str(ctx);
-        first2 = false;
-    }
-
-    f << stringf("%s\n", first ? "" : ",");
-    f << stringf("            \"NEXTPNR_ROUTING\": ");
-    f << get_string(routing);
-#ifdef ARCH_ECP5
-    f << stringf(",\n");
-    f << stringf("            \"NEXTPNR_IS_GLOBAL\": ");
-    f << std::to_string(net->is_global ? 1:0);
-#endif
-}
-
-void write_constraints(std::ostream &f, Context *ctx, CellInfo *cell, bool first)
-{
-    std::string constr;
-    constr += std::to_string(cell->constr_x) + ";";
-    constr += std::to_string(cell->constr_y) + ";";
-    constr += std::to_string(cell->constr_z) + ";";
-    constr += std::to_string(cell->constr_abs_z ? 1:0) + ";";
-    constr += cell->constr_parent!=nullptr ? cell->constr_parent->name.c_str(ctx) : "";
-#ifdef ARCH_ECP5
-    constr += ";";
-    constr += std::to_string(cell->sliceInfo.using_dff ? 1:0) + ";";
-    constr += std::to_string(cell->sliceInfo.has_l6mux ? 1:0) + ";";
-    constr += std::to_string(cell->sliceInfo.is_carry ? 1:0) + ";";
-    constr += std::string(cell->sliceInfo.clk_sig.c_str(ctx)) + ";";
-    constr += std::string(cell->sliceInfo.lsr_sig.c_str(ctx)) + ";";
-    constr += std::string(cell->sliceInfo.clkmux.c_str(ctx)) + ";";
-    constr += std::string(cell->sliceInfo.lsrmux.c_str(ctx)) + ";";
-    constr += std::string(cell->sliceInfo.srmode.c_str(ctx)) + ";";
-    constr += std::to_string(cell->sliceInfo.sd0) + ";";
-    constr += std::to_string(cell->sliceInfo.sd1) + ";";
-#endif
-    f << stringf("%s\n", first ? "" : ",");
-    f << stringf("            \"NEXTPNR_CONSTRAINT\": ");
-    f << get_string(constr);
-
-    constr = "";
-    for(auto &item : cell->constr_children)
-    {
-        if (!constr.empty()) constr += std::string(";");
-        constr += item->name.c_str(ctx);
-    }
-    f << stringf(",\n");
-    f << stringf("            \"NEXTPNR_CONSTR_CHILDREN\": ");
-    f << get_string(constr);
-    if (cell->bel != BelId()) {
-        f << stringf(",\n");
-        f << stringf("            \"NEXTPNR_BEL\": ");
-        f << get_string(ctx->getBelName(cell->bel).c_str(ctx));
-    }
-
 }
 
 void write_module(std::ostream &f, Context *ctx)
@@ -154,8 +88,7 @@ void write_module(std::ostream &f, Context *ctx)
         write_parameters(f, ctx, c->params);
         f << stringf("\n          },\n");
         f << stringf("          \"attributes\": {");
-        bool first3 = write_parameters(f, ctx, c->attrs);
-        write_constraints(f, ctx, c.get(), first3);
+        write_parameters(f, ctx, c->attrs);
         f << stringf("\n          },\n");
         f << stringf("          \"port_directions\": {");
         bool first2 = true;
@@ -196,8 +129,7 @@ void write_module(std::ostream &f, Context *ctx)
         f << stringf("          \"hide_name\": %s,\n", w->name.c_str(ctx)[0] == '$' ? "1" : "0");
         f << stringf("          \"bits\": [ %d ] ,\n", pair.first.index);
         f << stringf("          \"attributes\": {");
-        bool first2 = write_parameters(f, ctx, w->attrs);
-        write_routing(f, ctx, w.get(), first2);
+        write_parameters(f, ctx, w->attrs);
         f << stringf("\n          }\n");
         f << stringf("        }");
         first = false;

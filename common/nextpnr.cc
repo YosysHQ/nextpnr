@@ -453,4 +453,70 @@ DecalXY BaseCtx::constructDecalXY(DecalId decal, float x, float y)
     return dxy;
 }
 
+void BaseCtx::commonInfoToAttributes()
+{
+    for (auto &cell : cells) {
+        auto ci = cell.second.get();
+        if (ci->bel != BelId()) {
+            ci->attrs[id("NEXTPNR_BEL")] = getCtx()->getBelName(ci->bel).c_str(this);
+            ci->attrs[id("BEL_STRENGTH")] = std::to_string((int)ci->belStrength);
+        }
+        if (ci->constr_x!= ci->UNCONSTR)
+            ci->attrs[id("CONSTR_X")] = std::to_string(ci->constr_x);
+        if (ci->constr_y!= ci->UNCONSTR)
+            ci->attrs[id("CONSTR_Y")] = std::to_string(ci->constr_y);
+        if (ci->constr_z!= ci->UNCONSTR)            
+            ci->attrs[id("CONSTR_Z")] = std::to_string(ci->constr_z);
+        if (ci->constr_parent!= nullptr)
+            ci->attrs[id("CONSTR_PARENT")] = ci->constr_parent->name.c_str(this);
+    }
+    for (auto &net : getCtx()->nets) {
+        auto ni = net.second.get();
+        std::string routing;
+        for (auto &item : ni->wires) {
+            routing += getCtx()->getWireName(item.first).c_str(this);
+            routing += ",";
+            if (item.second.pip != PipId())
+                routing += getCtx()->getPipName(item.second.pip).c_str(this);
+        }
+        ni->attrs[id("ROUTING")] = routing;
+    }
+}
+    
+void BaseCtx::attributesToCommonInfo()
+{
+    for (auto &cell : cells) {
+        auto ci = cell.second.get();
+        auto val = ci->attrs.find(id("NEXTPNR_BEL"));
+        if (val != ci->attrs.end()) {
+            auto str = ci->attrs.find(id("BEL_STRENGTH"));
+            PlaceStrength strength = PlaceStrength::STRENGTH_USER;
+            if (str != ci->attrs.end())
+                strength = (PlaceStrength)std::stoi(str->second.str);
+            
+            BelId b = getCtx()->getBelByName(id(val->second.str));
+            getCtx()->bindBel(b, ci, strength);
+        }
+        val = ci->attrs.find(id("CONSTR_X"));
+        if (val != ci->attrs.end())
+            ci->constr_x = std::stoi(val->second.str);
+
+        val = ci->attrs.find(id("CONSTR_Y"));
+        if (val != ci->attrs.end())
+            ci->constr_y = std::stoi(val->second.str);
+
+        val = ci->attrs.find(id("CONSTR_Z"));
+        if (val != ci->attrs.end()) {
+            ci->constr_z = std::stoi(val->second.str);
+            ci->constr_abs_z = (ci->constr_z == 0);
+        }
+        val = ci->attrs.find(id("CONSTR_PARENT"));
+        if (val != ci->attrs.end()) {
+            auto parent = cells.find(id(val->second.str));
+            if (parent != cells.end())
+                ci->constr_parent = parent->second.get();
+        }
+    }
+}
+
 NEXTPNR_NAMESPACE_END

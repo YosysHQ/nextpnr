@@ -311,46 +311,7 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
             run_script_hook("pre-pack");
             if (!ctx->pack() && !ctx->force)
                 log_error("Packing design failed.\n");
-        } else {
-            for (auto &pair : ctx->cells) {       
-                auto &c = pair.second;
-                auto constr_main = c->attrs.find(ctx->id("NEXTPNR_CONSTRAINT"));
-                auto constr_child = c->attrs.find(ctx->id("NEXTPNR_CONSTR_CHILDREN"));
-                if (constr_main!=c->attrs.end())
-                {
-                    std::vector<std::string> val;
-                    boost::split(val,constr_main->second.str,boost::is_any_of(";"));
-                    c->constr_x = std::stoi(val[0]);
-                    c->constr_y = std::stoi(val[1]);
-                    c->constr_z = std::stoi(val[2]);
-                    c->constr_abs_z = val[3]=="1";
-                    c->constr_parent = nullptr;
-                    if (!val[4].empty())
-                        c->constr_parent = ctx->cells.find(ctx->id(val[4].c_str()))->second.get();
-                    #ifdef ARCH_ECP5
-                    c->sliceInfo.using_dff = val[5]=="1";
-                    c->sliceInfo.has_l6mux = val[6]=="1";
-                    c->sliceInfo.is_carry = val[7]=="1";
-                    c->sliceInfo.clk_sig = ctx->id(val[8]);
-                    c->sliceInfo.lsr_sig = ctx->id(val[9]);
-                    c->sliceInfo.clkmux = ctx->id(val[10]);
-                    c->sliceInfo.lsrmux = ctx->id(val[11]);
-                    c->sliceInfo.srmode = ctx->id(val[12]);
-                    c->sliceInfo.sd0 = std::stoi(val[13]);
-                    c->sliceInfo.sd1 = std::stoi(val[14]);
-                    #endif                    
-                }
-                if (constr_child!=c->attrs.end())
-                {
-                    for(auto val : split(constr_child->second.str.c_str(),";"))
-                    {
-                        c->constr_children.push_back(ctx->cells.find(ctx->id(val.c_str()))->second.get());
-                    }
-                }
-            }
-            ctx->assignArchInfo();
-        }
-
+        } 
         assign_budget(ctx.get());
         ctx->check();
         print_utilisation(ctx.get());
@@ -360,16 +321,6 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
             if (!ctx->place() && !ctx->force)
                 log_error("Placing design failed.\n");
             ctx->check();
-        } else {
-            for (auto &pair : ctx->cells) {       
-                auto &c = pair.second;
-                auto bel = c->attrs.find(ctx->id("NEXTPNR_BEL"));
-                if (bel!=c->attrs.end())
-                {
-                    BelId b = ctx->getBelByName(ctx->id(bel->second.c_str()));
-                    ctx->bindBel(b, c.get(), STRENGTH_USER);
-                }
-            }
         }
 
         if (do_route) {
