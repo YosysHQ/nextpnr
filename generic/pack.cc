@@ -282,6 +282,7 @@ bool Arch::pack()
         pack_io(ctx);
         pack_lut_lutffs(ctx);
         pack_nonlut_ffs(ctx);
+        ctx->attrs[ctx->id("step")] = "pack";
         ctx->assignArchInfo();
         log_info("Checksum: 0x%08x\n", ctx->checksum());
         return true;

@@ -1421,6 +1421,7 @@ bool Arch::pack()
         ctx->assignArchInfo();
         constrain_chains(ctx);
         ctx->assignArchInfo();
+        ctx->attrs[ctx->id("step")] = "pack";
         archInfoToAttributes();
         log_info("Checksum: 0x%08x\n", ctx->checksum());
         return true;

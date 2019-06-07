@@ -2429,6 +2429,7 @@ bool Arch::pack()
         Ecp5Packer(ctx).pack();
         log_info("Checksum: 0x%08x\n", ctx->checksum());
         assignArchInfo();
+        ctx->attrs[ctx->id("step")] = "pack";
         archInfoToAttributes();
         return true;
     } catch (log_execution_error_exception) {

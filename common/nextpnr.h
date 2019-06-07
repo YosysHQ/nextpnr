@@ -550,6 +550,9 @@ struct BaseCtx
     // Floorplanning regions
     std::unordered_map<IdString, std::unique_ptr<Region>> region;
 
+    // Context meta data
+    std::unordered_map<IdString, Property> attrs;
+
     BaseCtx()
     {
         idstring_str_to_idx = new std::unordered_map<std::string, int>;

@@ -496,13 +496,21 @@ bool Arch::place()
     std::string placer = str_or_default(settings, id("placer"), defaultPlacer);
     // FIXME: No HeAP because it needs a list of IO buffers
     if (placer == "sa") {
-        return placer1(getCtx(), Placer1Cfg(getCtx()));
+        bool retVal = placer1(getCtx(), Placer1Cfg(getCtx()));
+        getCtx()->attrs[getCtx()->id("step")] = "place";
+        archInfoToAttributes();
+        return retVal;
     } else {
         log_error("Generic architecture does not support placer '%s'\n", placer.c_str());
     }
 }
 
-bool Arch::route() { return router1(getCtx(), Router1Cfg(getCtx())); }
+bool Arch::route() { 
+    bool retVal = router1(getCtx(), Router1Cfg(getCtx()));
+    getCtx()->attrs[getCtx()->id("step")] = "route";
+    archInfoToAttributes();
+    return retVal;
+}
 
 // ---------------------------------------------------------------
 

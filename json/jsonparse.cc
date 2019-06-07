@@ -355,6 +355,27 @@ void json_import_net_attrib(Context *ctx, string &modname, NetInfo *net, JsonNod
                  pId.c_str(ctx), net->attrs[pId].c_str(), net->name.c_str(ctx), modname.c_str());
 }
 
+void json_import_top_attrib(Context *ctx, string &modname, JsonNode *param_node,
+                             std::unordered_map<IdString, Property> *dest, int param_id)
+{
+    //
+    JsonNode *param;
+    IdString pId;
+    //
+    param = param_node->data_dict.at(param_node->data_dict_keys[param_id]);
+
+    pId = ctx->id(param_node->data_dict_keys[param_id]);
+    if (param->type == 'N') {
+        (*dest)[pId].setNumber(param->data_number);
+    } else if (param->type == 'S')
+        (*dest)[pId].setString(param->data_string);
+    else
+        log_error("JSON parameter type of \"%s\' of module not supported\n", pId.c_str(ctx));
+    if (json_debug)
+        log_info("    Added parameter \'%s\'=%s module \'%s\'\n",
+                 pId.c_str(ctx), (*dest)[pId].c_str(), modname.c_str());
+}
+
 static int const_net_idx = 0;
 
 template <typename F>
@@ -714,7 +735,14 @@ void json_import(Context *ctx, string modname, JsonNode *node)
         return;
 
     log_info("Importing module %s\n", modname.c_str());
-
+    ctx->attrs[ctx->id("module")] = modname;
+    JsonNode *attr_node = node->data_dict.at("attributes");
+    for (int attrid = 0; attrid < GetSize(attr_node->data_dict_keys); attrid++) {
+        json_import_top_attrib(ctx, modname, attr_node, &ctx->attrs, attrid);
+    }
+    if (ctx->attrs.find(ctx->id("step")) == ctx->attrs.end())   
+        ctx->attrs[ctx->id("step")] = "synth";
+    
     JsonNode *ports_parent = nullptr;
     if (node->data_dict.count("ports") > 0)
         ports_parent = node->data_dict.at("ports");
