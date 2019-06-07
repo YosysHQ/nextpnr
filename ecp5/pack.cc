@@ -1508,7 +1508,8 @@ class Ecp5Packer
 
                 std::unique_ptr<NetInfo> promoted_ecknet(new NetInfo);
                 promoted_ecknet->name = eckname;
-                promoted_ecknet->is_global = true; // Prevents router etc touching this special net
+                promoted_ecknet->attrs[ctx->id("ECP5_IS_GLOBAL")] =
+                        "1"; // Prevents router etc touching this special net
                 eclk.buf = promoted_ecknet.get();
                 NPNR_ASSERT(!ctx->nets.count(eckname));
                 ctx->nets[eckname] = std::move(promoted_ecknet);
@@ -1654,7 +1655,7 @@ class Ecp5Packer
                                       port.c_str(ctx), ci->name.c_str(ctx), usr.port.c_str(ctx),
                                       usr.cell->name.c_str(ctx));
                     }
-                    pn->is_global = true;
+                    pn->attrs[ctx->id("ECP5_IS_GLOBAL")] = "1";
                 }
 
                 for (auto zport :
@@ -2469,6 +2470,9 @@ void Arch::assignArchInfo()
                 ci->ports[id_FXA].net->driver.port == id_OFX0)
                 ci->sliceInfo.has_l6mux = true;
         }
+    }
+    for (auto net : sorted(nets)) {
+        net.second->is_global = bool_or_default(net.second->attrs, id("ECP5_IS_GLOBAL"));
     }
 }
 

@@ -531,6 +531,7 @@ bool Arch::place()
 bool Arch::route()
 {
     route_ecp5_globals(getCtx());
+    assignArchInfo();
     assign_budget(getCtx(), true);
 
     bool result = router1(getCtx(), Router1Cfg(getCtx()));
@@ -994,7 +995,7 @@ void Arch::archInfoToAttributes()
     for (auto &net : getCtx()->nets) {
         auto ni = net.second.get();
         ni->attrs[id("IS_GLOBAL")] = ni->is_global ? "1" : "0";
-    }    
+    }
 }
 
 void Arch::attributesToArchInfo()
