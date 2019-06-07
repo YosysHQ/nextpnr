@@ -454,7 +454,7 @@ DecalXY BaseCtx::constructDecalXY(DecalId decal, float x, float y)
     return dxy;
 }
 
-void BaseCtx::commonInfoToAttributes()
+void BaseCtx::archInfoToAttributes()
 {
     for (auto &cell : cells) {
         auto ci = cell.second.get();
@@ -498,7 +498,7 @@ void BaseCtx::commonInfoToAttributes()
     }
 }
     
-void BaseCtx::attributesToCommonInfo()
+void BaseCtx::attributesToArchInfo()
 {
     for (auto &cell : cells) {
         auto ci = cell.second.get();
@@ -544,6 +544,7 @@ void BaseCtx::attributesToCommonInfo()
             }            
         }
     }
+    getCtx()->assignArchInfo();
 }
 
 NEXTPNR_NAMESPACE_END

@@ -989,17 +989,6 @@ WireId Arch::getBankECLK(int bank, int eclk)
     return getWireByLocAndBasename(Location(0, 0), "G_BANK" + std::to_string(bank) + "ECLK" + std::to_string(eclk));
 }
 
-void Arch::archInfoToAttributes()
-{
-    commonInfoToAttributes();
-}
-
-void Arch::attributesToArchInfo()
-{
-    attributesToCommonInfo();
-    assignArchInfo();
-}
-
 #ifdef WITH_HEAP
 const std::string Arch::defaultPlacer = "heap";
 #else

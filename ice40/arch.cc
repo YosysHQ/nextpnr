@@ -1234,17 +1234,6 @@ void Arch::assignCellInfo(CellInfo *cell)
     }
 }
 
-void Arch::archInfoToAttributes()
-{
-    commonInfoToAttributes();
-}
-
-void Arch::attributesToArchInfo()
-{
-    attributesToCommonInfo();
-    assignArchInfo();
-}
-
 const std::string Arch::defaultPlacer = "sa";
 
 const std::vector<std::string> Arch::availablePlacers = {"sa",

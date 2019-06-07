@@ -288,8 +288,6 @@ struct Arch : BaseCtx
     // Internal usage
     void assignArchInfo();
     bool cellsCompatible(const CellInfo **cells, int count) const;
-    void archInfoToAttributes();
-    void attributesToArchInfo();
 };
 
 NEXTPNR_NAMESPACE_END
