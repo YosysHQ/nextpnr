@@ -488,11 +488,14 @@ void BaseCtx::archInfoToAttributes()
     for (auto &net : getCtx()->nets) {
         auto ni = net.second.get();
         std::string routing;
+        bool first = true;
         for (auto &item : ni->wires) {
+            if (!first) routing += ";";
             routing += getCtx()->getWireName(item.first).c_str(this);
-            routing += ",";
+            routing += ";";
             if (item.second.pip != PipId())
                 routing += getCtx()->getPipName(item.second.pip).c_str(this);
+            first = false;
         }
         ni->attrs[id("ROUTING")] = routing;
     }
@@ -542,6 +545,23 @@ void BaseCtx::attributesToArchInfo()
             {
                 ci->constr_children.push_back(cells.find(id(val.c_str()))->second.get());
             }            
+        }
+    }
+    for (auto &net : getCtx()->nets) {
+        auto ni = net.second.get();
+        auto val = ni->attrs.find(id("ROUTING"));
+        if (val != ni->attrs.end()) {
+            std::vector<std::string> strs;
+            boost::split(strs,val->second.str,boost::is_any_of(";"));
+            for(size_t i=0;i<strs.size()/2;i++)
+            {
+                std::string wire = strs[i*2];
+                std::string pip = strs[i*2 + 1];
+                if (pip.empty())
+                    getCtx()->bindWire(getCtx()->getWireByName(id(wire)), ni, STRENGTH_WEAK);
+                else
+                    getCtx()->bindPip(getCtx()->getPipByName(id(pip)), ni, STRENGTH_WEAK);
+            }
         }
     }
     getCtx()->assignArchInfo();
