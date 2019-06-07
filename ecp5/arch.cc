@@ -992,10 +992,6 @@ WireId Arch::getBankECLK(int bank, int eclk)
 void Arch::archInfoToAttributes()
 {
     commonInfoToAttributes();
-    for (auto &net : getCtx()->nets) {
-        auto ni = net.second.get();
-        ni->attrs[id("IS_GLOBAL")] = ni->is_global ? "1" : "0";
-    }
 }
 
 void Arch::attributesToArchInfo()
