@@ -134,7 +134,7 @@ inline int chtohex(char c)
     return hex.find(c);
 }
 
-std::vector<bool> parse_init_str(const std::string &str, int length)
+std::vector<bool> parse_init_str(const std::string &str, int length, const char *cellname)
 {
     // Parse a string that may be binary or hex
     std::vector<bool> result;
@@ -161,7 +161,8 @@ std::vector<bool> parse_init_str(const std::string &str, int length)
             log_error("hex string value too long, expected up to %d bits and found %d.\n", length, int(str.length()));
         for (int i = 0; i < int(str.length()); i++) {
             char c = str.at((str.size() - i) - 1);
-            NPNR_ASSERT(c == '0' || c == '1' || c == 'X' || c == 'x');
+            if (c != '0' && c != '1' && c != 'X' && c != 'x')
+                log_error("Found illegal character '%c' while processing parameters for cell '%s'\n", c, cellname);
             result.at(i) = (c == '1');
         }
     }
@@ -970,7 +971,7 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             for (int i = 0; i <= 0x3F; i++) {
                 IdString param = ctx->id("INITVAL_" +
                                          fmt_str(std::hex << std::uppercase << std::setw(2) << std::setfill('0') << i));
-                auto value = parse_init_str(str_or_default(ci->params, param, "0"), 320);
+                auto value = parse_init_str(str_or_default(ci->params, param, "0"), 320, ci->name.c_str(ctx));
                 for (int j = 0; j < 16; j++) {
                     // INIT parameter consists of 16 18-bit words with 2-bit padding
                     int ofs = 20 * j;
@@ -1078,17 +1079,21 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             tg.config.add_enum(dsp + ".MASKPAT_SOURCE",
                                str_or_default(ci->params, ctx->id("MASKPAT_SOURCE"), "STATIC"));
             tg.config.add_word(dsp + ".MASK01",
-                               parse_init_str(str_or_default(ci->params, ctx->id("MASK01"), "0x00000000000000"), 56));
+                               parse_init_str(str_or_default(ci->params, ctx->id("MASK01"), "0x00000000000000"), 56,
+                                              ci->name.c_str(ctx)));
             tg.config.add_enum(dsp + ".CLK0_DIV", str_or_default(ci->params, ctx->id("CLK0_DIV"), "ENABLED"));
             tg.config.add_enum(dsp + ".CLK1_DIV", str_or_default(ci->params, ctx->id("CLK1_DIV"), "ENABLED"));
             tg.config.add_enum(dsp + ".CLK2_DIV", str_or_default(ci->params, ctx->id("CLK2_DIV"), "ENABLED"));
             tg.config.add_enum(dsp + ".CLK3_DIV", str_or_default(ci->params, ctx->id("CLK3_DIV"), "ENABLED"));
             tg.config.add_word(dsp + ".MCPAT",
-                               parse_init_str(str_or_default(ci->params, ctx->id("MCPAT"), "0x00000000000000"), 56));
+                               parse_init_str(str_or_default(ci->params, ctx->id("MCPAT"), "0x00000000000000"), 56,
+                                              ci->name.c_str(ctx)));
             tg.config.add_word(dsp + ".MASKPAT",
-                               parse_init_str(str_or_default(ci->params, ctx->id("MASKPAT"), "0x00000000000000"), 56));
+                               parse_init_str(str_or_default(ci->params, ctx->id("MASKPAT"), "0x00000000000000"), 56,
+                                              ci->name.c_str(ctx)));
             tg.config.add_word(dsp + ".RNDPAT",
-                               parse_init_str(str_or_default(ci->params, ctx->id("RNDPAT"), "0x00000000000000"), 56));
+                               parse_init_str(str_or_default(ci->params, ctx->id("RNDPAT"), "0x00000000000000"), 56,
+                                              ci->name.c_str(ctx)));
             tg.config.add_enum(dsp + ".GSR", str_or_default(ci->params, ctx->id("GSR"), "ENABLED"));
             tg.config.add_enum(dsp + ".RESETMODE", str_or_default(ci->params, ctx->id("RESETMODE"), "SYNC"));
             tg.config.add_enum(dsp + ".FORCE_ZERO_BARREL_SHIFT",
