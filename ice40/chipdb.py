@@ -81,6 +81,8 @@ constids["SPI"] = constids["SB_SPI"]
 constids["LEDDA_IP"] = constids["SB_LEDDA_IP"]
 constids["RGBA_DRV"] = constids["SB_RGBA_DRV"]
 constids["SPRAM"] = constids["ICESTORM_SPRAM"]
+constids["LED_DRV_CUR"] = constids["SB_LED_DRV_CUR"]
+constids["RGB_DRV"] = constids["SB_RGB_DRV"]
 
 with open(args.gfxh) as f:
     state = 0
