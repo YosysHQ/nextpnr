@@ -159,6 +159,10 @@ struct ArchCellInfo
         {
             bool forPadIn;
         } gbInfo;
+        struct
+        {
+            bool ledCurConnected;
+        } ledInfo;
     };
 };
 

@@ -450,7 +450,7 @@ static void pack_io(Context *ctx)
             } else if (ci->type == ctx->id("$nextpnr_obuf")) {
                 NetInfo *net = ci->ports.at(ctx->id("I")).net;
                 sb = net_only_drives(ctx, net, is_ice_iob, ctx->id("PACKAGE_PIN"), true, ci);
-                if (net && net->driver.cell && is_sb_rgba_drv(ctx, net->driver.cell))
+                if (net && net->driver.cell && (is_sb_rgba_drv(ctx, net->driver.cell) || is_sb_rgb_drv(ctx, net->driver.cell)))
                     rgb = net->driver.cell;
             }
             if (sb != nullptr) {
@@ -476,7 +476,7 @@ static void pack_io(Context *ctx)
                     }
                 }
             } else if (rgb != nullptr) {
-                log_info("%s use by SB_RGBA_DRV %s, not creating SB_IO\n", ci->name.c_str(ctx), rgb->name.c_str(ctx));
+                log_info("%s use by SB_RGBA_DRV/SB_RGB_DRV %s, not creating SB_IO\n", ci->name.c_str(ctx), rgb->name.c_str(ctx));
                 disconnect_port(ctx, ci, ctx->id("I"));
                 packed_cells.insert(ci->name);
                 continue;
@@ -1038,6 +1038,27 @@ static void pack_special(Context *ctx)
     std::unordered_set<IdString> packed_cells;
     std::vector<std::unique_ptr<CellInfo>> new_cells;
 
+    // Handle LED_DRV_CUR first to set the ledCurConnected flag before RGB_DRV is handled below.
+    for (auto cell : sorted(ctx->cells)) {
+        CellInfo *ci = cell.second;
+        if (is_sb_led_drv_cur(ctx, ci)) {
+            /* Force placement (no choices anyway) */
+            cell_place_unique(ctx, ci);
+
+            NetInfo *ledpu_net = ci->ports.at(ctx->id("LEDPU")).net;
+            for (auto &user : ledpu_net->users) {
+                if (!is_sb_rgb_drv(ctx, user.cell)) {
+                    log_error("SB_LED_DRV_CUR LEDPU port can only be connected to SB_RGB_DRV!\n");
+                } else {
+                    user.cell->ledInfo.ledCurConnected = true;
+                    user.cell->ports.at(user.port).net = nullptr;
+                }
+            }
+            ci->ports.erase(ctx->id("LEDPU"));
+            ctx->nets.erase(ledpu_net->name);
+        }
+    }
+
     for (auto cell : sorted(ctx->cells)) {
         CellInfo *ci = cell.second;
         if (is_sb_lfosc(ctx, ci)) {
@@ -1113,7 +1134,7 @@ static void pack_special(Context *ctx)
                 replace_port(ci, ctx->id(pi.name.c_str(ctx)), packed.get(), ctx->id(newname));
             }
             new_cells.push_back(std::move(packed));
-        } else if (is_sb_rgba_drv(ctx, ci)) {
+        } else if (is_sb_rgba_drv(ctx, ci) || is_sb_rgb_drv(ctx, ci)) {
             /* Force placement (no choices anyway) */
             cell_place_unique(ctx, ci);
 
@@ -1125,14 +1146,20 @@ static void pack_special(Context *ctx)
 
                 if (net == nullptr)
                     continue;
+
                 if ((pi.name != ctx->id("RGB0")) && (pi.name != ctx->id("RGB1")) && (pi.name != ctx->id("RGB2")))
                     continue;
 
                 if (net->users.size() > 0)
-                    log_error("SB_RGBA_DRV port connected to more than just package pin !\n");
+                    log_error("SB_RGB_DRV/SB_RGBA_DRV port connected to more than just package pin !\n");
 
                 ctx->nets.erase(net->name);
             }
+
+            if (is_sb_rgb_drv(ctx, ci) && !ci->ledInfo.ledCurConnected)
+                    log_error("Port RGBPU of SB_RGB_DRV should be driven by port LEDPU of SB_LED_DRV_CUR!\n");
+
+            ci->ports.erase(ctx->id("RGBPU"));
             ci->ports.erase(ctx->id("RGB0"));
             ci->ports.erase(ctx->id("RGB1"));
             ci->ports.erase(ctx->id("RGB2"));
