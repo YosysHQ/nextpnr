@@ -74,7 +74,7 @@ void ProjectHandler::save(Context *ctx, std::string filename)
             std::string path = "project.settings.";
             path += item.first.c_str(ctx);
             std::replace(path.begin(), path.end(), '/', '.');
-            root.put(path, item.second);
+            root.put(path, item.second.str);
         }
         pt::write_json(f, root);
     } catch (...) {
@@ -88,7 +88,9 @@ void addSettings(Context *ctx, std::string path, pt::ptree sub)
         const std::string &key = v.first;
         const boost::property_tree::ptree &subtree = v.second;
         if (subtree.empty()) {
-            ctx->settings.emplace(ctx->id(path + key), subtree.get_value<std::string>().c_str());
+            Property p;
+            p.setString(subtree.get_value<std::string>().c_str());
+            ctx->settings.emplace(ctx->id(path + key), p);
         } else {
             addSettings(ctx, path + key + "/", subtree);
         }

@@ -34,10 +34,10 @@ class Settings
     {
         try {
             IdString id = ctx->id(name);
-            auto pair = ctx->settings.emplace(id, std::to_string(defaultValue));
-            if (!pair.second) {
-                return boost::lexical_cast<T>(pair.first->second);
-            }
+            if (ctx->settings.find(id) != ctx->settings.end())
+                return boost::lexical_cast<T>(ctx->settings.find(id)->second.str);
+            else
+                ctx->settings[ctx->id(name)] = std::to_string(defaultValue);
 
         } catch (boost::bad_lexical_cast &) {
             log_error("Problem reading setting %s, using default value\n", name);
@@ -53,20 +53,12 @@ class Settings
 
 template <typename T> inline void Settings::set(const char *name, T value)
 {
-    IdString id = ctx->id(name);
-    auto pair = ctx->settings.emplace(id, std::to_string(value));
-    if (!pair.second) {
-        ctx->settings[pair.first->first] = value;
-    }
+    ctx->settings[ctx->id(name)] = std::to_string(value);
 }
 
 template <> inline void Settings::set<std::string>(const char *name, std::string value)
 {
-    IdString id = ctx->id(name);
-    auto pair = ctx->settings.emplace(id, value);
-    if (!pair.second) {
-        ctx->settings[pair.first->first] = value;
-    }
+    ctx->settings[ctx->id(name)] = value;
 }
 
 NEXTPNR_NAMESPACE_END

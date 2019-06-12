@@ -116,7 +116,7 @@ bool apply_pcf(Context *ctx, std::string filename, std::istream &in)
                 }
             }
         }
-        ctx->settings.emplace(ctx->id("input/pcf"), filename);
+        ctx->settings[ctx->id("input/pcf")] = filename;
         return true;
     } catch (log_execution_error_exception) {
         return false;

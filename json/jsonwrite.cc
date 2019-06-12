@@ -69,10 +69,9 @@ void write_module(std::ostream &f, Context *ctx)
         f << stringf("    %s: {\n", get_string(val->second.str).c_str());
     else
         f << stringf("    %s: {\n", get_string("top").c_str());
-    // TODO: check if this is better to be separate
-    /*f << stringf("      \"settings\": {");
+    f << stringf("      \"settings\": {");
     write_parameters(f, ctx, ctx->settings, true);
-    f << stringf("\n      },\n");*/
+    f << stringf("\n      },\n");
     f << stringf("      \"attributes\": {");
     write_parameters(f, ctx, ctx->attrs, true);
     f << stringf("\n      },\n");
