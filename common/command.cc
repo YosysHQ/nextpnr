@@ -149,8 +149,6 @@ po::options_description CommandHandler::getGeneralOptions()
     general.add_options()("freq", po::value<double>(), "set target frequency for design in MHz");
     general.add_options()("timing-allow-fail", "allow timing to fail in design");
     general.add_options()("no-tmdriv", "disable timing-driven placement");
-    general.add_options()("save", po::value<std::string>(), "project file to write");
-    general.add_options()("load", po::value<std::string>(), "project file to read");
     return general;
 }
 
@@ -254,8 +252,6 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
                 customAfterLoad(w.getContext());
                 w.notifyChangeContext();
                 w.updateLoaded();
-            } else if (vm.count("load")) {
-                w.projectLoad(vm["load"].as<std::string>());
             } else
                 w.notifyChangeContext();
         } catch (log_execution_error_exception) {
@@ -286,7 +282,7 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
             execute_python_file(filename.c_str());
     } else
 #endif
-    if (vm.count("json") || vm.count("load")) {
+    if (vm.count("json")) {
         bool do_pack  = vm.count("pack-only")!=0 || vm.count("no-pack")==0;
         bool do_place = vm.count("pack-only")==0 && vm.count("no-place")==0;
         bool do_route = vm.count("pack-only")==0 && vm.count("no-route")==0;
@@ -323,9 +319,6 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
         if (!write_json_file(f, filename, ctx.get()))
             log_error("Saving design failed.\n");
     }
-    if (vm.count("save")) {
-        project.save(ctx.get(), vm["save"].as<std::string>());
-    }
 
 #ifndef NO_PYTHON
     deinit_python();
@@ -361,12 +354,7 @@ int CommandHandler::exec()
         if (executeBeforeContext())
             return 0;
 
-        std::unique_ptr<Context> ctx;
-        if (vm.count("load") && vm.count("gui") == 0) {
-            ctx = project.load(vm["load"].as<std::string>());
-        } else {
-            ctx = createContext();
-        }
+        std::unique_ptr<Context> ctx = createContext();
         settings = std::unique_ptr<Settings>(new Settings(ctx.get()));
         setupContext(ctx.get());
         setupArchContext(ctx.get());

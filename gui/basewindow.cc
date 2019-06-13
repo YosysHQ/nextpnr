@@ -31,7 +31,6 @@
 #include "jsonparse.h"
 #include "log.h"
 #include "mainwindow.h"
-#include "project.h"
 #include "pythontab.h"
 
 static void initBasenameResource() { Q_INIT_RESOURCE(base); }
@@ -130,25 +129,6 @@ void BaseMainWindow::writeInfo(std::string text) { console->info(text); }
 void BaseMainWindow::createMenusAndBars()
 {
     // File menu / project toolbar actions
-    actionNew = new QAction("New", this);
-    actionNew->setIcon(QIcon(":/icons/resources/new.png"));
-    actionNew->setShortcuts(QKeySequence::New);
-    actionNew->setStatusTip("New project file");
-    connect(actionNew, &QAction::triggered, this, &BaseMainWindow::new_proj);
-
-    actionOpen = new QAction("Open", this);
-    actionOpen->setIcon(QIcon(":/icons/resources/open.png"));
-    actionOpen->setShortcuts(QKeySequence::Open);
-    actionOpen->setStatusTip("Open an existing project file");
-    connect(actionOpen, &QAction::triggered, this, &BaseMainWindow::open_proj);
-
-    actionSave = new QAction("Save", this);
-    actionSave->setIcon(QIcon(":/icons/resources/save.png"));
-    actionSave->setShortcuts(QKeySequence::Save);
-    actionSave->setStatusTip("Save existing project to disk");
-    actionSave->setEnabled(false);
-    connect(actionSave, &QAction::triggered, this, &BaseMainWindow::save_proj);
-
     QAction *actionExit = new QAction("Exit", this);
     actionExit->setIcon(QIcon(":/icons/resources/exit.png"));
     actionExit->setShortcuts(QKeySequence::Quit);
@@ -243,10 +223,6 @@ void BaseMainWindow::createMenusAndBars()
     menuBar->addAction(menuHelp->menuAction());
 
     // Add File menu actions
-    menuFile->addAction(actionNew);
-    menuFile->addAction(actionOpen);
-    menuFile->addAction(actionSave);
-    menuFile->addSeparator();
     menuFile->addAction(actionExit);
 
     // Add Design menu actions
@@ -260,13 +236,6 @@ void BaseMainWindow::createMenusAndBars()
 
     // Add Help menu actions
     menuHelp->addAction(actionAbout);
-
-    // Project toolbar
-    QToolBar *projectToolBar = new QToolBar("Project");
-    addToolBar(Qt::TopToolBarArea, projectToolBar);
-    projectToolBar->addAction(actionNew);
-    projectToolBar->addAction(actionOpen);
-    projectToolBar->addAction(actionSave);
 
     // Main action bar
     mainActionBar = new QToolBar("Main");
@@ -386,9 +355,6 @@ void BaseMainWindow::taskStarted()
     disableActions();
     actionPause->setEnabled(true);
     actionStop->setEnabled(true);
-
-    actionNew->setEnabled(false);
-    actionOpen->setEnabled(false);
 }
 
 void BaseMainWindow::taskPaused()
@@ -396,9 +362,6 @@ void BaseMainWindow::taskPaused()
     disableActions();
     actionPlay->setEnabled(true);
     actionStop->setEnabled(true);
-
-    actionNew->setEnabled(false);
-    actionOpen->setEnabled(false);
 }
 
 void BaseMainWindow::budget()
@@ -427,14 +390,6 @@ void BaseMainWindow::disableActions()
     actionPause->setEnabled(false);
     actionStop->setEnabled(false);
 
-    actionNew->setEnabled(true);
-    actionOpen->setEnabled(true);
-
-    if (ctx->settings.find(ctx->id("input/json")) != ctx->settings.end())
-        actionSave->setEnabled(true);
-    else
-        actionSave->setEnabled(false);
-
     onDisableActions();
 }
 
@@ -446,24 +401,6 @@ void BaseMainWindow::updateLoaded()
     onProjectLoaded();
 }
 
-void BaseMainWindow::projectLoad(std::string filename)
-{
-    ProjectHandler proj;
-    disableActions();
-    ctx = proj.load(filename);
-    Q_EMIT contextChanged(ctx.get());
-    log_info("Loaded project %s...\n", filename.c_str());
-    updateLoaded();
-}
-
-void BaseMainWindow::open_proj()
-{
-    QString fileName = QFileDialog::getOpenFileName(this, QString("Open Project"), QString(), QString("*.proj"));
-    if (!fileName.isEmpty()) {
-        projectLoad(fileName.toStdString());
-    }
-}
-
 void BaseMainWindow::execute_python()
 {
     QString fileName = QFileDialog::getOpenFileName(this, QString("Execute Python"), QString(), QString("*.py"));
@@ -473,18 +410,5 @@ void BaseMainWindow::execute_python()
 }
 
 void BaseMainWindow::notifyChangeContext() { Q_EMIT contextChanged(ctx.get()); }
-void BaseMainWindow::save_proj()
-{
-    if (currentProj.empty()) {
-        QString fileName = QFileDialog::getSaveFileName(this, QString("Save Project"), QString(), QString("*.proj"));
-        if (fileName.isEmpty())
-            return;
-        currentProj = fileName.toStdString();
-    }
-    if (!currentProj.empty()) {
-        ProjectHandler proj;
-        proj.save(ctx.get(), currentProj);
-    }
-}
 
 NEXTPNR_NAMESPACE_END

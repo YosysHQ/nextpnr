@@ -49,7 +49,6 @@ class BaseMainWindow : public QMainWindow
     virtual ~BaseMainWindow();
     Context *getContext() { return ctx.get(); }
     void updateLoaded();
-    void projectLoad(std::string filename);
     void notifyChangeContext();
 
   protected:
@@ -70,9 +69,6 @@ class BaseMainWindow : public QMainWindow
     void closeTab(int index);
 
     virtual void new_proj() = 0;
-
-    void open_proj();
-    void save_proj();
 
     void open_json();
     void budget();
@@ -114,10 +110,6 @@ class BaseMainWindow : public QMainWindow
     QStatusBar *statusBar;
     QToolBar *mainActionBar;
     QProgressBar *progressBar;
-
-    QAction *actionNew;
-    QAction *actionOpen;
-    QAction *actionSave;
 
     QAction *actionLoadJSON;
     QAction *actionPack;
