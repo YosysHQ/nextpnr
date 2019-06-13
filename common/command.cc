@@ -358,7 +358,14 @@ int CommandHandler::exec()
         if (executeBeforeContext())
             return 0;
 
-        std::unique_ptr<Context> ctx = createContext();
+        std::unordered_map<std::string,Property> values;
+        if (vm.count("json")) {
+            std::string filename = vm["json"].as<std::string>();
+            std::ifstream f(filename);
+            if (!load_json_settings(f, filename, values))
+                log_error("Loading design failed.\n");
+        }
+        std::unique_ptr<Context> ctx = createContext(values);
         settings = std::unique_ptr<Settings>(new Settings(ctx.get()));
         setupContext(ctx.get());
         setupArchContext(ctx.get());

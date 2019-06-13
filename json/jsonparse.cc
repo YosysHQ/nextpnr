@@ -914,4 +914,53 @@ bool parse_json_file(std::istream &f, std::string &filename, Context *ctx)
     }
 }
 
+bool load_json_settings(std::istream &f, std::string &filename, std::unordered_map<std::string,Property> &values)
+{
+    try {
+        using namespace JsonParser;
+
+        if (!f)
+            log_error("failed to open JSON file.\n");
+
+        int lineno = 1;
+
+        JsonNode root(f, lineno);
+
+        if (root.type != 'D')
+            log_error("JSON root node is not a dictionary.\n");
+
+        if (root.data_dict.count("modules") != 0) {
+            JsonNode *modules = root.data_dict.at("modules");
+
+            if (modules->type != 'D')
+                log_error("JSON modules node is not a dictionary.\n");
+
+            for (auto &it : modules->data_dict) {
+                JsonNode *node = it.second;
+                if (is_blackbox(node))
+                    continue;
+
+                if (node->data_dict.count("settings")) {
+                    JsonNode *attr_node = node->data_dict.at("settings");
+                    for (int attrid = 0; attrid < GetSize(attr_node->data_dict_keys); attrid++) {
+                        JsonNode *param = attr_node->data_dict.at(attr_node->data_dict_keys[attrid]);
+                        std::string pId = attr_node->data_dict_keys[attrid];
+                        if (param->type == 'N') {
+                            values[pId].setNumber(param->data_number);
+                        } else if (param->type == 'S')
+                            values[pId].setString(param->data_string);
+                        else
+                            log_error("JSON parameter type of \"%s\' of module not supported\n", pId.c_str());
+                
+                    }
+                }
+            }
+        }
+
+        return true;
+    } catch (log_execution_error_exception) {
+        return false;
+    }
+}
+
 NEXTPNR_NAMESPACE_END

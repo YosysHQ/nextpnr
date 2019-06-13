@@ -34,7 +34,7 @@ class ECP5CommandHandler : public CommandHandler
   public:
     ECP5CommandHandler(int argc, char **argv);
     virtual ~ECP5CommandHandler(){};
-    std::unique_ptr<Context> createContext() override;
+    std::unique_ptr<Context> createContext(std::unordered_map<std::string,Property> &values) override;
     void setupArchContext(Context *ctx) override{};
     void customAfterLoad(Context *ctx) override;
     void validate() override;
@@ -98,7 +98,7 @@ void ECP5CommandHandler::customBitstream(Context *ctx)
     write_bitstream(ctx, basecfg, textcfg);
 }
 
-std::unique_ptr<Context> ECP5CommandHandler::createContext()
+std::unique_ptr<Context> ECP5CommandHandler::createContext(std::unordered_map<std::string,Property> &values)
 {
     chipArgs.type = ArchArgs::LFE5U_45F;
 

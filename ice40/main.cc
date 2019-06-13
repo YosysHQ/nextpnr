@@ -36,7 +36,7 @@ class Ice40CommandHandler : public CommandHandler
   public:
     Ice40CommandHandler(int argc, char **argv);
     virtual ~Ice40CommandHandler(){};
-    std::unique_ptr<Context> createContext() override;
+    std::unique_ptr<Context> createContext(std::unordered_map<std::string,Property> &values) override;
     void setupArchContext(Context *ctx) override;
     void validate() override;
     void customAfterLoad(Context *ctx) override;
@@ -116,7 +116,7 @@ void Ice40CommandHandler::setupArchContext(Context *ctx)
     }
 }
 
-std::unique_ptr<Context> Ice40CommandHandler::createContext()
+std::unique_ptr<Context> Ice40CommandHandler::createContext(std::unordered_map<std::string,Property> &values)
 {
     if (vm.count("lp384")) {
         chipArgs.type = ArchArgs::LP384;

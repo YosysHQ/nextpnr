@@ -39,7 +39,7 @@ class CommandHandler
 
   protected:
     virtual void setupArchContext(Context *ctx) = 0;
-    virtual std::unique_ptr<Context> createContext() = 0;
+    virtual std::unique_ptr<Context> createContext(std::unordered_map<std::string,Property> &values) = 0;
     virtual po::options_description getArchOptions() = 0;
     virtual void validate(){};
     virtual void customAfterLoad(Context *ctx){};
