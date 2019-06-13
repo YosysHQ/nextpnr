@@ -23,7 +23,6 @@
 
 #include <boost/program_options.hpp>
 #include "nextpnr.h"
-//#include "project.h"
 #include "settings.h"
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -66,7 +65,6 @@ class CommandHandler
     po::positional_options_description pos;
     int argc;
     char **argv;
-    //ProjectHandler project;
     std::ofstream logfile;
 };
 
