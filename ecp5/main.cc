@@ -150,6 +150,8 @@ std::unique_ptr<Context> ECP5CommandHandler::createContext()
         }
     }
     auto ctx = std::unique_ptr<Context>(new Context(chipArgs));
+    ctx->settings[ctx->id("arch.package")] = ctx->archArgs().package;
+    ctx->settings[ctx->id("arch.speed")] = std::to_string(ctx->archArgs().speed);
     return ctx;
 }
 

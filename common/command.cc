@@ -229,6 +229,10 @@ void CommandHandler::setupContext(Context *ctx)
     ctx->timing_driven = true;
     if (vm.count("no-tmdriv"))
         ctx->timing_driven = false;
+
+    settings->set("arch.name", std::string(ctx->archId().c_str(ctx)));
+    settings->set("arch.type", std::string(ctx->archArgsToId(ctx->archArgs()).c_str(ctx)));
+    settings->set("seed", ctx->rngstate);
 }
 
 int CommandHandler::executeMain(std::unique_ptr<Context> ctx)

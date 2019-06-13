@@ -167,7 +167,7 @@ std::unique_ptr<Context> Ice40CommandHandler::createContext()
         chipArgs.package = vm["package"].as<std::string>();
 
     auto ctx = std::unique_ptr<Context>(new Context(chipArgs));
-
+    ctx->settings[ctx->id("arch.package")] = ctx->archArgs().package;
     if (vm.count("promote-logic"))
         ctx->settings[ctx->id("promote_logic")] = "1";
     if (vm.count("no-promote-globals"))

@@ -907,7 +907,6 @@ bool parse_json_file(std::istream &f, std::string &filename, Context *ctx)
 
         log_info("Checksum: 0x%08x\n", ctx->checksum());
         log_break();
-        ctx->settings[ctx->id("input/json")] = filename;
         ctx->attributesToArchInfo();
         return true;
     } catch (log_execution_error_exception) {
