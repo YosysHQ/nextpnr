@@ -740,8 +740,6 @@ void json_import(Context *ctx, string modname, JsonNode *node)
     for (int attrid = 0; attrid < GetSize(attr_node->data_dict_keys); attrid++) {
         json_import_top_attrib(ctx, modname, attr_node, &ctx->attrs, attrid);
     }
-    if (ctx->attrs.find(ctx->id("step")) == ctx->attrs.end())   
-        ctx->attrs[ctx->id("step")] = "synth";
     
     JsonNode *ports_parent = nullptr;
     if (node->data_dict.count("ports") > 0)

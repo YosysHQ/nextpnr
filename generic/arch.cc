@@ -497,7 +497,7 @@ bool Arch::place()
     // FIXME: No HeAP because it needs a list of IO buffers
     if (placer == "sa") {
         bool retVal = placer1(getCtx(), Placer1Cfg(getCtx()));
-        getCtx()->attrs[getCtx()->id("step")] = "place";
+        getCtx()->settings[getCtx()->id("place")] = "1";
         archInfoToAttributes();
         return retVal;
     } else {
@@ -507,7 +507,7 @@ bool Arch::place()
 
 bool Arch::route() { 
     bool retVal = router1(getCtx(), Router1Cfg(getCtx()));
-    getCtx()->attrs[getCtx()->id("step")] = "route";
+    getCtx()->settings[getCtx()->id("route")] = "1";
     archInfoToAttributes();
     return retVal;
 }
