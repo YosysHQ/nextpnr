@@ -34,7 +34,6 @@ class MainWindow : public BaseMainWindow
 
   public:
     void createMenu();
-    void load_base_config(std::string filename);
 
   protected:
     void onDisableActions() override;
@@ -44,17 +43,13 @@ class MainWindow : public BaseMainWindow
     void new_proj() override;
     void newContext(Context *ctx);
     void open_lpf();
-    void open_base();
     void save_config();
 
   private:
     QAction *actionLoadLPF;
-    QAction *actionLoadBase;
     QAction *actionSaveConfig;
 
     ArchArgs chipArgs;
-
-    std::string currentBaseConfig;
 };
 
 NEXTPNR_NAMESPACE_END

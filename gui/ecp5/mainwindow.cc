@@ -60,12 +60,6 @@ void MainWindow::createMenu()
     actionLoadLPF->setEnabled(false);
     connect(actionLoadLPF, &QAction::triggered, this, &MainWindow::open_lpf);
 
-    actionLoadBase = new QAction("Open Base Config", this);
-    actionLoadBase->setIcon(QIcon(":/icons/resources/open_base.png"));
-    actionLoadBase->setStatusTip("Open Base Config file");
-    actionLoadBase->setEnabled(false);
-    connect(actionLoadBase, &QAction::triggered, this, &MainWindow::open_base);
-
     actionSaveConfig = new QAction("Save Bitstream", this);
     actionSaveConfig->setIcon(QIcon(":/icons/resources/save_config.png"));
     actionSaveConfig->setStatusTip("Save Bitstream config file");
@@ -75,12 +69,10 @@ void MainWindow::createMenu()
     // Add actions in menus
     mainActionBar->addSeparator();
     mainActionBar->addAction(actionLoadLPF);
-    mainActionBar->addAction(actionLoadBase);
     mainActionBar->addAction(actionSaveConfig);
 
     menuDesign->addSeparator();
     menuDesign->addAction(actionLoadLPF);
-    menuDesign->addAction(actionLoadBase);
     menuDesign->addAction(actionSaveConfig);
 }
 
@@ -139,13 +131,6 @@ void MainWindow::new_proj()
     }
 }
 
-void MainWindow::load_base_config(std::string filename)
-{
-    disableActions();
-    currentBaseConfig = filename;
-    actionSaveConfig->setEnabled(true);
-}
-
 void MainWindow::open_lpf()
 {
     QString fileName = QFileDialog::getOpenFileName(this, QString("Open LPF"), QString(), QString("*.lpf"));
@@ -162,21 +147,13 @@ void MainWindow::open_lpf()
     }
 }
 
-void MainWindow::open_base()
-{
-    QString fileName = QFileDialog::getOpenFileName(this, QString("Open Base Config"), QString(), QString("*.config"));
-    if (!fileName.isEmpty()) {
-        load_base_config(fileName.toStdString());
-    }
-}
-
 void MainWindow::save_config()
 {
     QString fileName = QFileDialog::getSaveFileName(this, QString("Save Bitstream"), QString(), QString("*.config"));
     if (!fileName.isEmpty()) {
         std::string fn = fileName.toStdString();
         disableActions();
-        write_bitstream(ctx.get(), currentBaseConfig, fileName.toStdString());
+        write_bitstream(ctx.get(), "", fileName.toStdString());
         log("Saving Bitstream successful.\n");
     }
 }
@@ -184,15 +161,12 @@ void MainWindow::save_config()
 void MainWindow::onDisableActions()
 {
     actionLoadLPF->setEnabled(false);
-    actionLoadBase->setEnabled(false);
     actionSaveConfig->setEnabled(false);
 }
 
 void MainWindow::onUpdateActions() { 
     if (ctx->settings.find(ctx->id("pack"))==ctx->settings.end())    
         actionLoadLPF->setEnabled(true); 
-    if (ctx->settings.find(ctx->id("pack"))==ctx->settings.end())            
-        actionLoadBase->setEnabled(true); 
     if (ctx->settings.find(ctx->id("route"))!=ctx->settings.end())    
         actionSaveConfig->setEnabled(true);
 }
