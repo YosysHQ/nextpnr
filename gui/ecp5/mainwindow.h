@@ -48,8 +48,6 @@ class MainWindow : public BaseMainWindow
   private:
     QAction *actionLoadLPF;
     QAction *actionSaveConfig;
-
-    ArchArgs chipArgs;
 };
 
 NEXTPNR_NAMESPACE_END
