@@ -207,6 +207,9 @@ std::unique_ptr<Context> Ice40CommandHandler::createContext(std::unordered_map<s
 #endif
 
     auto ctx = std::unique_ptr<Context>(new Context(chipArgs));
+    for(auto &val : values)
+        ctx->settings[ctx->id(val.first)] = val.second;
+
     ctx->settings[ctx->id("arch.package")] = ctx->archArgs().package;
     if (vm.count("promote-logic"))
         ctx->settings[ctx->id("promote_logic")] = "1";
