@@ -153,6 +153,49 @@ std::unique_ptr<Context> Ice40CommandHandler::createContext(std::unordered_map<s
         chipArgs.package = "sg48";
     }
 
+    if (vm.count("package"))
+        chipArgs.package = vm["package"].as<std::string>();
+
+    if (values.find("arch.name")!=values.end()) {
+        std::string arch_name = values["arch.name"].str;
+        if (arch_name != "ice40")
+            log_error("Unsuported architecture '%s'.\n", arch_name.c_str());
+    }
+    if (values.find("arch.type")!=values.end()) {
+        std::string arch_type = values["arch.type"].str;
+        if (chipArgs.type != ArchArgs::NONE)
+            log_error("Overriding architecture is unsuported.\n");
+
+        if (arch_type == "lp384") {
+            chipArgs.type = ArchArgs::LP384;
+        }
+        if (arch_type == "lp1k") {
+            chipArgs.type = ArchArgs::LP1K;
+        }
+        if (arch_type == "lp8k") {
+            chipArgs.type = ArchArgs::LP8K;
+        }
+        if (arch_type == "hx1k") {
+            chipArgs.type = ArchArgs::HX1K;
+        }
+        if (arch_type == "hx8k") {
+            chipArgs.type = ArchArgs::HX8K;
+        }
+        if (arch_type == "up5k") {
+            chipArgs.type = ArchArgs::UP5K;
+        }
+        if (arch_type == "u4k") {
+            chipArgs.type = ArchArgs::U4K;
+        }
+        if (chipArgs.type == ArchArgs::NONE)
+            log_error("Unsuported FPGA type '%s'.\n",arch_type.c_str());
+    }
+    if (values.find("arch.package")!=values.end()) {
+        if (vm.count("package"))
+            log_error("Overriding architecture is unsuported.\n");
+        chipArgs.package = values["arch.package"].str;
+    }
+    
     if (chipArgs.type == ArchArgs::NONE) {
         chipArgs.type = ArchArgs::HX1K;
         chipArgs.package = "tq144";
@@ -162,9 +205,6 @@ std::unique_ptr<Context> Ice40CommandHandler::createContext(std::unordered_map<s
         log_error("This version of nextpnr-ice40 is built with HX1K-support only.\n");
     }
 #endif
-
-    if (vm.count("package"))
-        chipArgs.package = vm["package"].as<std::string>();
 
     auto ctx = std::unique_ptr<Context>(new Context(chipArgs));
     ctx->settings[ctx->id("arch.package")] = ctx->archArgs().package;
