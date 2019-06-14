@@ -118,6 +118,8 @@ void Ice40CommandHandler::setupArchContext(Context *ctx)
 
 std::unique_ptr<Context> Ice40CommandHandler::createContext(std::unordered_map<std::string,Property> &values)
 {
+    ArchArgs chipArgs;
+    chipArgs.type = ArchArgs::NONE;
     if (vm.count("lp384")) {
         chipArgs.type = ArchArgs::LP384;
         chipArgs.package = "qn32";

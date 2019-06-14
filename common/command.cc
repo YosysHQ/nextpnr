@@ -245,7 +245,7 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
 #ifndef NO_GUI
     if (vm.count("gui")) {
         Application a(argc, argv, (vm.count("gui-no-aa") > 0));
-        MainWindow w(std::move(ctx), chipArgs);
+        MainWindow w(std::move(ctx), this);
         try {
             if (vm.count("json")) {
                 std::string filename = vm["json"].as<std::string>();
@@ -376,6 +376,28 @@ int CommandHandler::exec()
         printFooter();
         return -1;
     }
+}
+
+std::unique_ptr<Context> CommandHandler::load_json(std::string filename)
+{
+    vm.clear();
+    std::unordered_map<std::string,Property> values;
+    {
+        std::ifstream f(filename);
+        if (!load_json_settings(f, filename, values))
+            log_error("Loading design failed.\n");
+    }
+    std::unique_ptr<Context> ctx = createContext(values);
+    settings = std::unique_ptr<Settings>(new Settings(ctx.get()));
+    setupContext(ctx.get());
+    setupArchContext(ctx.get());
+    {
+        std::ifstream f(filename);
+        if (!parse_json_file(f, filename, ctx.get()))
+            log_error("Loading design failed.\n");
+    }
+    customAfterLoad(ctx.get());
+    return ctx;
 }
 
 void CommandHandler::run_script_hook(const std::string &name)

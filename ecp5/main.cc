@@ -111,6 +111,7 @@ static std::string speedString(ArchArgs::SpeedGrade speed)
 
 std::unique_ptr<Context> ECP5CommandHandler::createContext(std::unordered_map<std::string,Property> &values)
 {
+    ArchArgs chipArgs;
     chipArgs.type = ArchArgs::NONE;
 
     if (vm.count("25k"))

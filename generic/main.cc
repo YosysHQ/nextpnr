@@ -53,6 +53,7 @@ void GenericCommandHandler::customBitstream(Context *ctx) {}
 
 std::unique_ptr<Context> GenericCommandHandler::createContext(std::unordered_map<std::string,Property> &values)
 {
+    ArchArgs chipArgs;
     if (values.find("arch.name")!=values.end()) {
         std::string arch_name = values["arch.name"].str;
         if (arch_name != "generic")

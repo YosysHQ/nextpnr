@@ -22,6 +22,7 @@
 
 #include "nextpnr.h"
 #include "worker.h"
+#include "command.h"
 
 #include <QMainWindow>
 #include <QMenu>
@@ -45,7 +46,7 @@ class BaseMainWindow : public QMainWindow
     Q_OBJECT
 
   public:
-    explicit BaseMainWindow(std::unique_ptr<Context> context, ArchArgs args, QWidget *parent = 0);
+    explicit BaseMainWindow(std::unique_ptr<Context> context, CommandHandler *handler, QWidget *parent = 0);
     virtual ~BaseMainWindow();
     Context *getContext() { return ctx.get(); }
     void updateActions();
@@ -55,7 +56,6 @@ class BaseMainWindow : public QMainWindow
   protected:
     void createMenusAndBars();
     void disableActions();
-    void load_json(std::string filename);
 
     virtual void onDisableActions(){};
     virtual void onUpdateActions(){};
@@ -88,7 +88,7 @@ class BaseMainWindow : public QMainWindow
 
   protected:
     // state variables
-    ArchArgs chipArgs;
+    CommandHandler *handler;
     std::unique_ptr<Context> ctx;
     TaskManager *task;
     bool timing_driven;

@@ -22,6 +22,7 @@
 #define COMMAND_H
 
 #include <boost/program_options.hpp>
+#include <fstream>
 #include "nextpnr.h"
 #include "settings.h"
 
@@ -36,6 +37,7 @@ class CommandHandler
     virtual ~CommandHandler(){};
 
     int exec();
+    std::unique_ptr<Context> load_json(std::string filename);
 
   protected:
     virtual void setupArchContext(Context *ctx) = 0;
@@ -57,7 +59,6 @@ class CommandHandler
 
   protected:
     po::variables_map vm;
-    ArchArgs chipArgs;
     std::unique_ptr<Settings> settings;
 
   private:

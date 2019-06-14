@@ -38,8 +38,8 @@ static void initBasenameResource() { Q_INIT_RESOURCE(base); }
 
 NEXTPNR_NAMESPACE_BEGIN
 
-BaseMainWindow::BaseMainWindow(std::unique_ptr<Context> context, ArchArgs args, QWidget *parent)
-        : QMainWindow(parent), chipArgs(args), ctx(std::move(context)), timing_driven(false)
+BaseMainWindow::BaseMainWindow(std::unique_ptr<Context> context, CommandHandler *handler, QWidget *parent)
+        : QMainWindow(parent), handler(handler), ctx(std::move(context)), timing_driven(false)
 {
     initBasenameResource();
     qRegisterMetaType<std::string>();
@@ -293,25 +293,16 @@ void BaseMainWindow::createMenusAndBars()
     setStatusBar(statusBar);
 }
 
-void BaseMainWindow::load_json(std::string filename)
-{
-    disableActions();
-    std::ifstream f(filename);
-    if (parse_json_file(f, filename, ctx.get())) {
-        log("Loading design successful.\n");
-        Q_EMIT updateTreeView();
-        updateActions();
-    } else {
-        actionLoadJSON->setEnabled(true);
-        log("Loading design failed.\n");
-    }
-}
-
 void BaseMainWindow::open_json()
 {
     QString fileName = QFileDialog::getOpenFileName(this, QString("Open JSON"), QString(), QString("*.json"));
     if (!fileName.isEmpty()) {
-        load_json(fileName.toStdString());
+        disableActions();
+        ctx = handler->load_json(fileName.toStdString());
+        Q_EMIT contextChanged(ctx.get());
+        Q_EMIT updateTreeView();
+        log("Loading design successful.\n");
+        updateActions();
     }
 }
 

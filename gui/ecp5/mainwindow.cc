@@ -30,8 +30,8 @@ static void initMainResource() { Q_INIT_RESOURCE(nextpnr); }
 
 NEXTPNR_NAMESPACE_BEGIN
 
-MainWindow::MainWindow(std::unique_ptr<Context> context, ArchArgs args, QWidget *parent)
-        : BaseMainWindow(std::move(context), args, parent)
+MainWindow::MainWindow(std::unique_ptr<Context> context, CommandHandler *handler, QWidget *parent)
+        : BaseMainWindow(std::move(context), handler, parent)
 {
     initMainResource();
 
@@ -47,7 +47,7 @@ MainWindow::~MainWindow() {}
 
 void MainWindow::newContext(Context *ctx)
 {
-    std::string title = "nextpnr-ecp5 - " + ctx->getChipName() + " ( " + chipArgs.package + " )";
+    std::string title = "nextpnr-ecp5 - " + ctx->getChipName() + " ( " + ctx->archArgs().package + " )";
     setWindowTitle(title.c_str());
 }
 
@@ -113,7 +113,7 @@ void MainWindow::new_proj()
     bool ok;
     QString item = QInputDialog::getItem(this, "Select new context", "Chip:", arch.keys(), 0, false, &ok);
     if (ok && !item.isEmpty()) {
-
+        ArchArgs chipArgs;
         chipArgs.type = (ArchArgs::ArchArgsTypes)arch.value(item);
 
         QString package = QInputDialog::getItem(this, "Select package", "Package:", getSupportedPackages(chipArgs.type),
