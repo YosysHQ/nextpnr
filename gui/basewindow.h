@@ -48,7 +48,8 @@ class BaseMainWindow : public QMainWindow
     explicit BaseMainWindow(std::unique_ptr<Context> context, ArchArgs args, QWidget *parent = 0);
     virtual ~BaseMainWindow();
     Context *getContext() { return ctx.get(); }
-    void updateLoaded();
+    void updateActions();
+
     void notifyChangeContext();
 
   protected:
@@ -57,11 +58,7 @@ class BaseMainWindow : public QMainWindow
     void load_json(std::string filename);
 
     virtual void onDisableActions(){};
-    virtual void onJsonLoaded(){};
-    virtual void onPackFinished(){};
-    virtual void onBudgetFinished(){};
-    virtual void onPlaceFinished(){};
-    virtual void onRouteFinished(){};
+    virtual void onUpdateActions(){};
 
   protected Q_SLOTS:
     void writeInfo(std::string text);
@@ -70,6 +67,7 @@ class BaseMainWindow : public QMainWindow
     virtual void new_proj() = 0;
 
     void open_json();
+    void save_json();
     void budget();
     void place();
 
@@ -110,7 +108,10 @@ class BaseMainWindow : public QMainWindow
     QToolBar *mainActionBar;
     QProgressBar *progressBar;
 
+    QAction *actionNew;
     QAction *actionLoadJSON;
+    QAction *actionSaveJSON;
+
     QAction *actionPack;
     QAction *actionAssignBudget;
     QAction *actionPlace;

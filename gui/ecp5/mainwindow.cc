@@ -188,8 +188,13 @@ void MainWindow::onDisableActions()
     actionSaveConfig->setEnabled(false);
 }
 
-void MainWindow::onJsonLoaded() { actionLoadLPF->setEnabled(true); }
-
-void MainWindow::onRouteFinished() { actionLoadBase->setEnabled(true); }
+void MainWindow::onUpdateActions() { 
+    if (ctx->settings.find(ctx->id("pack"))==ctx->settings.end())    
+        actionLoadLPF->setEnabled(true); 
+    if (ctx->settings.find(ctx->id("pack"))==ctx->settings.end())            
+        actionLoadBase->setEnabled(true); 
+    if (ctx->settings.find(ctx->id("route"))!=ctx->settings.end())    
+        actionSaveConfig->setEnabled(true);
+}
 
 NEXTPNR_NAMESPACE_END

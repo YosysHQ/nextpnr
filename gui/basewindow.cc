@@ -29,6 +29,7 @@
 #include "designwidget.h"
 #include "fpgaviewwidget.h"
 #include "jsonparse.h"
+#include "jsonwrite.h"
 #include "log.h"
 #include "mainwindow.h"
 #include "pythontab.h"
@@ -138,13 +139,26 @@ void BaseMainWindow::createMenusAndBars()
     // Help menu actions
     QAction *actionAbout = new QAction("About", this);
 
-    // Design menu options
+    // Gile menu options
+    actionNew = new QAction("New", this);
+    actionNew->setIcon(QIcon(":/icons/resources/new.png"));
+    actionNew->setShortcuts(QKeySequence::New);
+    actionNew->setStatusTip("New project");
+    connect(actionNew, &QAction::triggered, this, &BaseMainWindow::new_proj);
+
     actionLoadJSON = new QAction("Open JSON", this);
     actionLoadJSON->setIcon(QIcon(":/icons/resources/open_json.png"));
     actionLoadJSON->setStatusTip("Open an existing JSON file");
     actionLoadJSON->setEnabled(true);
     connect(actionLoadJSON, &QAction::triggered, this, &BaseMainWindow::open_json);
 
+    actionSaveJSON = new QAction("Save JSON", this);
+    actionSaveJSON->setIcon(QIcon(":/icons/resources/save_json.png"));
+    actionSaveJSON->setStatusTip("Write to JSON file");
+    actionSaveJSON->setEnabled(true);
+    connect(actionSaveJSON, &QAction::triggered, this, &BaseMainWindow::save_json);
+
+    // Design menu options
     actionPack = new QAction("Pack", this);
     actionPack->setIcon(QIcon(":/icons/resources/pack.png"));
     actionPack->setStatusTip("Pack current design");
@@ -223,10 +237,13 @@ void BaseMainWindow::createMenusAndBars()
     menuBar->addAction(menuHelp->menuAction());
 
     // Add File menu actions
+    menuFile->addAction(actionNew);
+    menuFile->addAction(actionLoadJSON);
+    menuFile->addAction(actionSaveJSON);
+    menuFile->addSeparator();
     menuFile->addAction(actionExit);
 
     // Add Design menu actions
-    menuDesign->addAction(actionLoadJSON);
     menuDesign->addAction(actionPack);
     menuDesign->addAction(actionAssignBudget);
     menuDesign->addAction(actionPlace);
@@ -240,7 +257,10 @@ void BaseMainWindow::createMenusAndBars()
     // Main action bar
     mainActionBar = new QToolBar("Main");
     addToolBar(Qt::TopToolBarArea, mainActionBar);
+    mainActionBar->addAction(actionNew);
     mainActionBar->addAction(actionLoadJSON);
+    mainActionBar->addAction(actionSaveJSON);
+    mainActionBar->addSeparator();
     mainActionBar->addAction(actionPack);
     mainActionBar->addAction(actionAssignBudget);
     mainActionBar->addAction(actionPlace);
@@ -280,7 +300,7 @@ void BaseMainWindow::load_json(std::string filename)
     if (parse_json_file(f, filename, ctx.get())) {
         log("Loading design successful.\n");
         Q_EMIT updateTreeView();
-        updateLoaded();
+        updateActions();
     } else {
         actionLoadJSON->setEnabled(true);
         log("Loading design failed.\n");
@@ -295,15 +315,26 @@ void BaseMainWindow::open_json()
     }
 }
 
+void BaseMainWindow::save_json()
+{
+    QString fileName = QFileDialog::getSaveFileName(this, QString("Save JSON"), QString(), QString("*.json"));
+    if (!fileName.isEmpty()) {
+        std::string fn = fileName.toStdString();        
+        std::ofstream f(fn);
+        if (write_json_file(f, fn, ctx.get()))
+            log("Saving JSON successful.\n");
+        else 
+            log("Saving JSON failed.\n");
+    }
+}
+
 void BaseMainWindow::pack_finished(bool status)
 {
     disableActions();
     if (status) {
         log("Packing design successful.\n");
         Q_EMIT updateTreeView();
-        actionPlace->setEnabled(true);
-        actionAssignBudget->setEnabled(true);
-        onPackFinished();
+        updateActions();
     } else {
         log("Packing design failed.\n");
     }
@@ -313,9 +344,8 @@ void BaseMainWindow::budget_finish(bool status)
 {
     disableActions();
     if (status) {
-        log("Assigning timing budget successful.\n");
-        actionPlace->setEnabled(true);
-        onBudgetFinished();
+        log("Assigning timing budget successful.\n");        
+        updateActions();
     } else {
         log("Assigning timing budget failed.\n");
     }
@@ -327,8 +357,7 @@ void BaseMainWindow::place_finished(bool status)
     if (status) {
         log("Placing design successful.\n");
         Q_EMIT updateTreeView();
-        actionRoute->setEnabled(true);
-        onPlaceFinished();
+        updateActions();
     } else {
         log("Placing design failed.\n");
     }
@@ -339,7 +368,7 @@ void BaseMainWindow::route_finished(bool status)
     if (status) {
         log("Routing design successful.\n");
         Q_EMIT updateTreeView();
-        onRouteFinished();
+        updateActions();
     } else
         log("Routing design failed.\n");
 }
@@ -379,11 +408,12 @@ void BaseMainWindow::place() { Q_EMIT task->place(timing_driven); }
 
 void BaseMainWindow::disableActions()
 {
-    actionLoadJSON->setEnabled(false);
+    actionLoadJSON->setEnabled(true);    
     actionPack->setEnabled(false);
     actionAssignBudget->setEnabled(false);
     actionPlace->setEnabled(false);
     actionRoute->setEnabled(false);
+
     actionExecutePy->setEnabled(true);
 
     actionPlay->setEnabled(false);
@@ -393,11 +423,18 @@ void BaseMainWindow::disableActions()
     onDisableActions();
 }
 
-void BaseMainWindow::updateLoaded()
+void BaseMainWindow::updateActions()
 {
-    disableActions();
-    actionPack->setEnabled(true);
-    onJsonLoaded();
+    if (ctx->settings.find(ctx->id("pack"))==ctx->settings.end())
+        actionPack->setEnabled(true);
+    else if (ctx->settings.find(ctx->id("place"))==ctx->settings.end()) {
+        actionAssignBudget->setEnabled(true);
+        actionPlace->setEnabled(true);        
+    }
+    else if (ctx->settings.find(ctx->id("route"))==ctx->settings.end())
+        actionRoute->setEnabled(true);
+
+    onUpdateActions();
 }
 
 void BaseMainWindow::execute_python()

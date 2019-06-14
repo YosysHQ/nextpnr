@@ -186,7 +186,11 @@ void MainWindow::onDisableActions()
     actionSaveAsc->setEnabled(false);
 }
 
-void MainWindow::onJsonLoaded() { actionLoadPCF->setEnabled(true); }
-void MainWindow::onRouteFinished() { actionSaveAsc->setEnabled(true); }
+void MainWindow::onUpdateActions() { 
+    if (ctx->settings.find(ctx->id("pack"))==ctx->settings.end())    
+        actionLoadPCF->setEnabled(true);
+    if (ctx->settings.find(ctx->id("route"))!=ctx->settings.end())    
+        actionSaveAsc->setEnabled(true);
+}
 
 NEXTPNR_NAMESPACE_END

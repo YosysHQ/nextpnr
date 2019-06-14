@@ -38,8 +38,7 @@ class MainWindow : public BaseMainWindow
 
   protected:
     void onDisableActions() override;
-    void onJsonLoaded() override;
-    void onRouteFinished() override;
+    void onUpdateActions() override;
 
   protected Q_SLOTS:
     void new_proj() override;
