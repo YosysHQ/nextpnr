@@ -58,7 +58,6 @@ class BaseMainWindow : public QMainWindow
 
     virtual void onDisableActions(){};
     virtual void onJsonLoaded(){};
-    virtual void onProjectLoaded(){};
     virtual void onPackFinished(){};
     virtual void onBudgetFinished(){};
     virtual void onPlaceFinished(){};

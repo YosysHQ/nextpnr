@@ -29,6 +29,7 @@ NEXTPNR_NAMESPACE_BEGIN
 MainWindow::MainWindow(std::unique_ptr<Context> context, ArchArgs args, QWidget *parent)
         : BaseMainWindow(std::move(context), args, parent)
 {
+    initMainResource();
     QMessageBox::critical(0, "Error - FIXME", "No GUI support for nextpnr-generic");
     std::exit(1);
 }

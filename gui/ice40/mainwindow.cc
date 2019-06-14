@@ -189,10 +189,4 @@ void MainWindow::onDisableActions()
 void MainWindow::onJsonLoaded() { actionLoadPCF->setEnabled(true); }
 void MainWindow::onRouteFinished() { actionSaveAsc->setEnabled(true); }
 
-void MainWindow::onProjectLoaded()
-{
-    if (ctx->settings.find(ctx->id("input/pcf")) != ctx->settings.end())
-        actionLoadPCF->setEnabled(false);
-}
-
 NEXTPNR_NAMESPACE_END

@@ -192,10 +192,4 @@ void MainWindow::onJsonLoaded() { actionLoadLPF->setEnabled(true); }
 
 void MainWindow::onRouteFinished() { actionLoadBase->setEnabled(true); }
 
-void MainWindow::onProjectLoaded()
-{
-    if (ctx->settings.find(ctx->id("input/lpf")) != ctx->settings.end())
-        actionLoadLPF->setEnabled(false);
-}
-
 NEXTPNR_NAMESPACE_END

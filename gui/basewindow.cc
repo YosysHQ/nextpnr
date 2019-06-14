@@ -398,7 +398,6 @@ void BaseMainWindow::updateLoaded()
     disableActions();
     actionPack->setEnabled(true);
     onJsonLoaded();
-    onProjectLoaded();
 }
 
 void BaseMainWindow::execute_python()
