@@ -1131,12 +1131,12 @@ class SAPlacer
     Placer1Cfg cfg;
 };
 
-Placer1Cfg::Placer1Cfg(Context *ctx) : Settings(ctx)
+Placer1Cfg::Placer1Cfg(Context *ctx)
 {
-    constraintWeight = get<float>("placer1/constraintWeight", 10);
-    minBelsForGridPick = get<int>("placer1/minBelsForGridPick", 64);
-    budgetBased = get<bool>("placer1/budgetBased", false);
-    startTemp = get<float>("placer1/startTemp", 1);
+    constraintWeight = ctx->setting<float>("placer1/constraintWeight", 10);
+    minBelsForGridPick = ctx->setting<int>("placer1/minBelsForGridPick", 64);
+    budgetBased = ctx->setting<bool>("placer1/budgetBased", false);
+    startTemp = ctx->setting<float>("placer1/startTemp", 1);
     timingFanoutThresh = std::numeric_limits<int>::max();
 }
 

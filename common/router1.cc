@@ -733,12 +733,12 @@ struct Router1
 
 NEXTPNR_NAMESPACE_BEGIN
 
-Router1Cfg::Router1Cfg(Context *ctx) : Settings(ctx)
+Router1Cfg::Router1Cfg(Context *ctx)
 {
-    maxIterCnt = get<int>("router1/maxIterCnt", 200);
-    cleanupReroute = get<bool>("router1/cleanupReroute", true);
-    fullCleanupReroute = get<bool>("router1/fullCleanupReroute", true);
-    useEstimate = get<bool>("router1/useEstimate", true);
+    maxIterCnt = ctx->setting<int>("router1/maxIterCnt", 200);
+    cleanupReroute = ctx->setting<bool>("router1/cleanupReroute", true);
+    fullCleanupReroute = ctx->setting<bool>("router1/fullCleanupReroute", true);
+    useEstimate = ctx->setting<bool>("router1/useEstimate", true);
 
     wireRipupPenalty = ctx->getRipupDelayPenalty();
     netRipupPenalty = 10 * ctx->getRipupDelayPenalty();

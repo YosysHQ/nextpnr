@@ -20,11 +20,11 @@
 #define PLACE_H
 
 #include "nextpnr.h"
-#include "settings.h"
+#include "log.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
-struct Placer1Cfg : public Settings
+struct Placer1Cfg
 {
     Placer1Cfg(Context *ctx);
     float constraintWeight;

@@ -27,11 +27,11 @@
 #ifndef PLACER_HEAP_H
 #define PLACER_HEAP_H
 #include "nextpnr.h"
-#include "settings.h"
+#include "log.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
-struct PlacerHeapCfg : public Settings
+struct PlacerHeapCfg
 {
     PlacerHeapCfg(Context *ctx);
 

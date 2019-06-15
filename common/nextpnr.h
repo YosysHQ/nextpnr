@@ -32,6 +32,7 @@
 #include <vector>
 
 #include <boost/functional/hash.hpp>
+#include <boost/lexical_cast.hpp>
 
 #ifndef NEXTPNR_H
 #define NEXTPNR_H
@@ -724,6 +725,18 @@ struct Context : Arch, DeterministicRNG
 
     void check() const;
     void archcheck() const;
+
+    template <typename T> T setting(const char *name, T defaultValue)
+    {
+        IdString new_id = id(name);
+        if (settings.find(new_id) != settings.end())
+            return boost::lexical_cast<T>(settings.find(new_id)->second.str);
+        else
+            settings[id(name)] = std::to_string(defaultValue);
+
+        return defaultValue;
+    }
+
 };
 
 NEXTPNR_NAMESPACE_END

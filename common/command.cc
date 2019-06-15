@@ -192,11 +192,11 @@ void CommandHandler::setupContext(Context *ctx)
     }
 
     if (vm.count("ignore-loops")) {
-        settings->set("timing/ignoreLoops", true);
+        ctx->settings[ctx->id("timing/ignoreLoops")] = std::to_string(true);
     }
 
     if (vm.count("timing-allow-fail")) {
-        settings->set("timing/allowFail", true);
+        ctx->settings[ctx->id("timing/allowFail")] = std::to_string(true);
     }
 
     if (vm.count("placer")) {
@@ -205,20 +205,20 @@ void CommandHandler::setupContext(Context *ctx)
             Arch::availablePlacers.end())
             log_error("Placer algorithm '%s' is not supported (available options: %s)\n", placer.c_str(),
                       boost::algorithm::join(Arch::availablePlacers, ", ").c_str());
-        settings->set("placer", placer);
+        ctx->settings[ctx->id("placer")] = placer;
     } else {
-        settings->set("placer", Arch::defaultPlacer);
+        ctx->settings[ctx->id("placer")] = Arch::defaultPlacer;
     }
 
     if (vm.count("cstrweight")) {
-        settings->set("placer1/constraintWeight", vm["cstrweight"].as<float>());
+        ctx->settings[ctx->id("placer1/constraintWeight")] = std::to_string(vm["cstrweight"].as<float>());
     }
     if (vm.count("starttemp")) {
-        settings->set("placer1/startTemp", vm["starttemp"].as<float>());
+        ctx->settings[ctx->id("placer1/startTemp")] = std::to_string(vm["starttemp"].as<float>());
     }
 
     if (vm.count("placer-budgets")) {
-        settings->set("placer1/budgetBased", true);
+        ctx->settings[ctx->id("placer1/budgetBased")] = std::to_string(true);
     }
     if (vm.count("freq")) {
         auto freq = vm["freq"].as<double>();
@@ -230,9 +230,9 @@ void CommandHandler::setupContext(Context *ctx)
     if (vm.count("no-tmdriv"))
         ctx->timing_driven = false;
 
-    settings->set("arch.name", std::string(ctx->archId().c_str(ctx)));
-    settings->set("arch.type", std::string(ctx->archArgsToId(ctx->archArgs()).c_str(ctx)));
-    settings->set("seed", ctx->rngstate);
+    ctx->settings[ctx->id("arch.name")] = std::string(ctx->archId().c_str(ctx));
+    ctx->settings[ctx->id("arch.type")] = std::string(ctx->archArgsToId(ctx->archArgs()).c_str(ctx));
+    ctx->settings[ctx->id("seed")] = std::to_string(ctx->rngstate);
 }
 
 int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
@@ -366,7 +366,6 @@ int CommandHandler::exec()
                 log_error("Loading design failed.\n");
         }
         std::unique_ptr<Context> ctx = createContext(values);
-        settings = std::unique_ptr<Settings>(new Settings(ctx.get()));
         setupContext(ctx.get());
         setupArchContext(ctx.get());
         int rc = executeMain(std::move(ctx));
@@ -388,7 +387,6 @@ std::unique_ptr<Context> CommandHandler::load_json(std::string filename)
             log_error("Loading design failed.\n");
     }
     std::unique_ptr<Context> ctx = createContext(values);
-    settings = std::unique_ptr<Settings>(new Settings(ctx.get()));
     setupContext(ctx.get());
     setupArchContext(ctx.get());
     {

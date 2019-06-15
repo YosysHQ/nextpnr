@@ -24,7 +24,7 @@
 #include <boost/program_options.hpp>
 #include <fstream>
 #include "nextpnr.h"
-#include "settings.h"
+#include "log.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -59,7 +59,6 @@ class CommandHandler
 
   protected:
     po::variables_map vm;
-    std::unique_ptr<Settings> settings;
 
   private:
     po::options_description options;
