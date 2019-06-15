@@ -181,9 +181,9 @@ void CommandHandler::setupContext(Context *ctx)
     }
 
     if (vm.count("slack_redist_iter")) {
-        ctx->slack_redist_iter = vm["slack_redist_iter"].as<int>();
+        ctx->settings[ctx->id("slack_redist_iter")] = vm["slack_redist_iter"].as<std::string>();
         if (vm.count("freq") && vm["freq"].as<double>() == 0) {
-            ctx->auto_freq = true;
+            ctx->settings[ctx->id("auto_freq")] = std::to_string(true);
 #ifndef NO_GUI
             if (!vm.count("gui"))
 #endif
@@ -223,13 +223,22 @@ void CommandHandler::setupContext(Context *ctx)
     if (vm.count("freq")) {
         auto freq = vm["freq"].as<double>();
         if (freq > 0)
-            ctx->target_freq = freq * 1e6;
+            ctx->settings[ctx->id("target_freq")] = std::to_string(freq * 1e6);
     }
 
-    ctx->timing_driven = true;
     if (vm.count("no-tmdriv"))
-        ctx->timing_driven = false;
+        ctx->settings[ctx->id("timing_driven")] = std::to_string(false);
 
+    // Setting default values
+    if (ctx->settings.find(ctx->id("target_freq")) == ctx->settings.end())
+        ctx->settings[ctx->id("target_freq")] = std::to_string(12e6);
+    if (ctx->settings.find(ctx->id("timing_driven")) == ctx->settings.end())
+        ctx->settings[ctx->id("timing_driven")] = std::to_string(true);
+    if (ctx->settings.find(ctx->id("slack_redist_iter")) == ctx->settings.end())
+        ctx->settings[ctx->id("slack_redist_iter")] = "0";
+    if (ctx->settings.find(ctx->id("auto_freq")) == ctx->settings.end())
+        ctx->settings[ctx->id("auto_freq")] = std::to_string(false);
+    
     ctx->settings[ctx->id("arch.name")] = std::string(ctx->archId().c_str(ctx));
     ctx->settings[ctx->id("arch.type")] = std::string(ctx->archArgsToId(ctx->archArgs()).c_str(ctx));
     ctx->settings[ctx->id("seed")] = std::to_string(ctx->rngstate);

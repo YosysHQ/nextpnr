@@ -113,7 +113,7 @@ struct Timing
 
     Timing(Context *ctx, bool net_delays, bool update, CriticalPathMap *crit_path = nullptr,
            DelayFrequency *slack_histogram = nullptr, NetCriticalityMap *net_crit = nullptr)
-            : ctx(ctx), net_delays(net_delays), update(update), min_slack(1.0e12 / ctx->target_freq),
+            : ctx(ctx), net_delays(net_delays), update(update), min_slack(1.0e12 / ctx->setting<float>("target_freq")),
               crit_path(crit_path), slack_histogram(slack_histogram), net_crit(net_crit),
               async_clock(ctx->id("$async$"))
     {
@@ -121,7 +121,7 @@ struct Timing
 
     delay_t walk_paths()
     {
-        const auto clk_period = ctx->getDelayFromNS(1.0e9 / ctx->target_freq).maxDelay();
+        const auto clk_period = ctx->getDelayFromNS(1.0e9 / ctx->setting<float>("target_freq")).maxDelay();
 
         // First, compute the topographical order of nets to walk through the circuit, assuming it is a _acyclic_ graph
         // TODO(eddieh): Handle the case where it is cyclic, e.g. combinatorial loops
@@ -657,17 +657,17 @@ void assign_budget(Context *ctx, bool quiet)
 {
     if (!quiet) {
         log_break();
-        log_info("Annotating ports with timing budgets for target frequency %.2f MHz\n", ctx->target_freq / 1e6);
+        log_info("Annotating ports with timing budgets for target frequency %.2f MHz\n", ctx->setting<float>("target_freq") / 1e6);
     }
 
-    Timing timing(ctx, ctx->slack_redist_iter > 0 /* net_delays */, true /* update */);
+    Timing timing(ctx, ctx->setting<int>("slack_redist_iter")> 0 /* net_delays */, true /* update */);
     timing.assign_budget();
 
     if (!quiet || ctx->verbose) {
         for (auto &net : ctx->nets) {
             for (auto &user : net.second->users) {
                 // Post-update check
-                if (!ctx->auto_freq && user.budget < 0)
+                if (!ctx->setting<bool>("auto_freq") && user.budget < 0)
                     log_info("port %s.%s, connected to net '%s', has negative "
                              "timing budget of %fns\n",
                              user.cell->name.c_str(ctx), user.port.c_str(ctx), net.first.c_str(ctx),
@@ -683,13 +683,13 @@ void assign_budget(Context *ctx, bool quiet)
 
     // For slack redistribution, if user has not specified a frequency dynamically adjust the target frequency to be the
     // currently achieved maximum
-    if (ctx->auto_freq && ctx->slack_redist_iter > 0) {
-        delay_t default_slack = delay_t((1.0e9 / ctx->getDelayNS(1)) / ctx->target_freq);
-        ctx->target_freq = 1.0e9 / ctx->getDelayNS(default_slack - timing.min_slack);
+    if (ctx->setting<bool>("auto_freq") && ctx->setting<int>("slack_redist_iter") > 0) {
+        delay_t default_slack = delay_t((1.0e9 / ctx->getDelayNS(1)) / ctx->setting<float>("target_freq"));
+        ctx->settings[ctx->id("target_freq")] = std::to_string(1.0e9 / ctx->getDelayNS(default_slack - timing.min_slack));
         if (ctx->verbose)
             log_info("minimum slack for this assign = %.2f ns, target Fmax for next "
                      "update = %.2f MHz\n",
-                     ctx->getDelayNS(timing.min_slack), ctx->target_freq / 1e6);
+                     ctx->getDelayNS(timing.min_slack),ctx->setting<float>("target_freq") / 1e6);
     }
 
     if (!quiet)
@@ -896,7 +896,7 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
         for (auto &clock : clock_reports) {
             const auto &clock_name = clock.first.str(ctx);
             const int width = max_width - clock_name.size();
-            float target = ctx->target_freq / 1e6;
+            float target = ctx->setting<float>("target_freq") / 1e6;
             if (ctx->nets.at(clock.first)->clkconstr)
                 target = 1000 / ctx->getDelayNS(ctx->nets.at(clock.first)->clkconstr->period.minDelay());
 

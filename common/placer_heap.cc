@@ -234,7 +234,7 @@ class HeAPPlacer
                          std::chrono::duration<double>(run_stopt - run_startt).count());
             }
 
-            if (ctx->timing_driven)
+            if (ctx->setting<bool>("timing_driven"))
                 get_criticalities(ctx, &net_crit);
 
             if (legal_hpwl < best_hpwl) {

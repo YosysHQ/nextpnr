@@ -701,10 +701,6 @@ struct Context : Arch, DeterministicRNG
     bool verbose = false;
     bool debug = false;
     bool force = false;
-    bool timing_driven = true;
-    float target_freq = 12e6;
-    bool auto_freq = false;
-    int slack_redist_iter = 0;
 
     Context(ArchArgs args) : Arch(args) {}
 
@@ -733,10 +729,18 @@ struct Context : Arch, DeterministicRNG
             return boost::lexical_cast<T>(settings.find(new_id)->second.str);
         else
             settings[id(name)] = std::to_string(defaultValue);
-
-        return defaultValue;
+ 
+        return defaultValue;        
     }
-
+    
+    template <typename T> T setting(const char *name) const
+    {
+        IdString new_id = id(name);
+        if (settings.find(new_id) != settings.end())
+            return boost::lexical_cast<T>(settings.find(new_id)->second.str);
+        else
+            throw std::runtime_error("settings does not exists");
+    }
 };
 
 NEXTPNR_NAMESPACE_END
