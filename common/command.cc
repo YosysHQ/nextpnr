@@ -209,8 +209,6 @@ void CommandHandler::setupContext(Context *ctx)
             log_error("Placer algorithm '%s' is not supported (available options: %s)\n", placer.c_str(),
                       boost::algorithm::join(Arch::availablePlacers, ", ").c_str());
         ctx->settings[ctx->id("placer")] = placer;
-    } else {
-        ctx->settings[ctx->id("placer")] = Arch::defaultPlacer;
     }
 
     if (vm.count("cstrweight")) {
@@ -241,7 +239,9 @@ void CommandHandler::setupContext(Context *ctx)
         ctx->settings[ctx->id("slack_redist_iter")] = "0";
     if (ctx->settings.find(ctx->id("auto_freq")) == ctx->settings.end())
         ctx->settings[ctx->id("auto_freq")] = std::to_string(false);
-    
+    if (ctx->settings.find(ctx->id("placer")) == ctx->settings.end())    
+        ctx->settings[ctx->id("placer")] = Arch::defaultPlacer;
+
     ctx->settings[ctx->id("arch.name")] = std::string(ctx->archId().c_str(ctx));
     ctx->settings[ctx->id("arch.type")] = std::string(ctx->archArgsToId(ctx->archArgs()).c_str(ctx));
     ctx->settings[ctx->id("seed")] = std::to_string(ctx->rngstate);
