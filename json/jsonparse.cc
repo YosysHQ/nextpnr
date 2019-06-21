@@ -661,62 +661,64 @@ static void insert_iobuf(Context *ctx, NetInfo *net, PortType type, const string
     // During packing, this generic IO buffer will be converted to an
     // architecure primitive.
     //
-    std::unique_ptr<CellInfo> iobuf = std::unique_ptr<CellInfo>(new CellInfo());
-    iobuf->name = ctx->id(name);
-    std::copy(net->attrs.begin(), net->attrs.end(), std::inserter(iobuf->attrs, iobuf->attrs.begin()));
-    if (type == PORT_IN) {
-        if (ctx->verbose)
-            log_info("processing input port %s\n", name.c_str());
-        iobuf->type = ctx->id("$nextpnr_ibuf");
-        iobuf->ports[ctx->id("O")] = PortInfo{ctx->id("O"), net, PORT_OUT};
-        // Special case: input, etc, directly drives inout
-        if (net->driver.cell != nullptr) {
-            if (net->driver.cell->type != ctx->id("$nextpnr_iobuf"))
-                log_error("Top-level input '%s' also driven by %s.%s.\n", name.c_str(),
-                          net->driver.cell->name.c_str(ctx), net->driver.port.c_str(ctx));
-            net = net->driver.cell->ports.at(ctx->id("I")).net;
-        }
-        assert(net->driver.cell == nullptr);
-        net->driver.port = ctx->id("O");
-        net->driver.cell = iobuf.get();
-    } else if (type == PORT_OUT) {
-        if (ctx->verbose)
-            log_info("processing output port %s\n", name.c_str());
-        iobuf->type = ctx->id("$nextpnr_obuf");
-        iobuf->ports[ctx->id("I")] = PortInfo{ctx->id("I"), net, PORT_IN};
-        PortRef ref;
-        ref.cell = iobuf.get();
-        ref.port = ctx->id("I");
-        net->users.push_back(ref);
-    } else if (type == PORT_INOUT) {
-        if (ctx->verbose)
-            log_info("processing inout port %s\n", name.c_str());
-        iobuf->type = ctx->id("$nextpnr_iobuf");
-        iobuf->ports[ctx->id("I")] = PortInfo{ctx->id("I"), nullptr, PORT_IN};
+    if (ctx->settings.find(ctx->id("synth"))==ctx->settings.end()) {
+        std::unique_ptr<CellInfo> iobuf = std::unique_ptr<CellInfo>(new CellInfo());
+        iobuf->name = ctx->id(name);
+        std::copy(net->attrs.begin(), net->attrs.end(), std::inserter(iobuf->attrs, iobuf->attrs.begin()));
+        if (type == PORT_IN) {
+            if (ctx->verbose)
+                log_info("processing input port %s\n", name.c_str());
+            iobuf->type = ctx->id("$nextpnr_ibuf");
+            iobuf->ports[ctx->id("O")] = PortInfo{ctx->id("O"), net, PORT_OUT};
+            // Special case: input, etc, directly drives inout
+            if (net->driver.cell != nullptr) {
+                if (net->driver.cell->type != ctx->id("$nextpnr_iobuf"))
+                    log_error("Top-level input '%s' also driven by %s.%s.\n", name.c_str(),
+                            net->driver.cell->name.c_str(ctx), net->driver.port.c_str(ctx));
+                net = net->driver.cell->ports.at(ctx->id("I")).net;
+            }
+            assert(net->driver.cell == nullptr);
+            net->driver.port = ctx->id("O");
+            net->driver.cell = iobuf.get();
+        } else if (type == PORT_OUT) {
+            if (ctx->verbose)
+                log_info("processing output port %s\n", name.c_str());
+            iobuf->type = ctx->id("$nextpnr_obuf");
+            iobuf->ports[ctx->id("I")] = PortInfo{ctx->id("I"), net, PORT_IN};
+            PortRef ref;
+            ref.cell = iobuf.get();
+            ref.port = ctx->id("I");
+            net->users.push_back(ref);
+        } else if (type == PORT_INOUT) {
+            if (ctx->verbose)
+                log_info("processing inout port %s\n", name.c_str());
+            iobuf->type = ctx->id("$nextpnr_iobuf");
+            iobuf->ports[ctx->id("I")] = PortInfo{ctx->id("I"), nullptr, PORT_IN};
 
-        // Split the input and output nets for bidir ports
-        std::unique_ptr<NetInfo> net2 = std::unique_ptr<NetInfo>(new NetInfo());
-        net2->name = ctx->id("$" + net->name.str(ctx) + "$iobuf_i");
-        net2->driver = net->driver;
-        if (net->driver.cell != nullptr) {
-            net2->driver.cell->ports[net2->driver.port].net = net2.get();
-            net->driver.cell = nullptr;
-        }
-        iobuf->ports[ctx->id("I")].net = net2.get();
-        PortRef ref;
-        ref.cell = iobuf.get();
-        ref.port = ctx->id("I");
-        net2->users.push_back(ref);
-        ctx->nets[net2->name] = std::move(net2);
+            // Split the input and output nets for bidir ports
+            std::unique_ptr<NetInfo> net2 = std::unique_ptr<NetInfo>(new NetInfo());
+            net2->name = ctx->id("$" + net->name.str(ctx) + "$iobuf_i");
+            net2->driver = net->driver;
+            if (net->driver.cell != nullptr) {
+                net2->driver.cell->ports[net2->driver.port].net = net2.get();
+                net->driver.cell = nullptr;
+            }
+            iobuf->ports[ctx->id("I")].net = net2.get();
+            PortRef ref;
+            ref.cell = iobuf.get();
+            ref.port = ctx->id("I");
+            net2->users.push_back(ref);
+            ctx->nets[net2->name] = std::move(net2);
 
-        iobuf->ports[ctx->id("O")] = PortInfo{ctx->id("O"), net, PORT_OUT};
-        assert(net->driver.cell == nullptr);
-        net->driver.port = ctx->id("O");
-        net->driver.cell = iobuf.get();
-    } else {
-        assert(false);
+            iobuf->ports[ctx->id("O")] = PortInfo{ctx->id("O"), net, PORT_OUT};
+            assert(net->driver.cell == nullptr);
+            net->driver.port = ctx->id("O");
+            net->driver.cell = iobuf.get();
+        } else {
+            assert(false);
+        }
+        ctx->cells[iobuf->name] = std::move(iobuf);
     }
-    ctx->cells[iobuf->name] = std::move(iobuf);
 
     PortInfo pinfo;
     pinfo.name = net->name;
