@@ -151,7 +151,11 @@ std::unique_ptr<Context> ECP5CommandHandler::createContext(std::unordered_map<st
             log_error("Unsupported speed grade '%d'\n", speed);
         }
     } else {
-        chipArgs.speed = ArchArgs::SPEED_6;
+        if (chipArgs.type == ArchArgs::LFE5UM5G_25F || chipArgs.type == ArchArgs::LFE5UM5G_45F ||
+            chipArgs.type == ArchArgs::LFE5UM5G_85F) {
+            chipArgs.speed = ArchArgs::SPEED_8;
+        } else 
+            chipArgs.speed = ArchArgs::SPEED_6;
     }
     if (values.find("arch.name")!=values.end()) {
         std::string arch_name = values["arch.name"].str;
