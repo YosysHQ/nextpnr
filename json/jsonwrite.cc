@@ -76,11 +76,20 @@ void write_module(std::ostream &f, Context *ctx)
     write_parameters(f, ctx, ctx->attrs, true);
     f << stringf("\n      },\n");
     f << stringf("      \"ports\": {");
-    // TODO: Top level ports
+    bool first = true;
+    for (auto &pair : ctx->ports) {
+        auto &c = pair.second;
+        f << stringf("%s\n", first ? "" : ",");
+        f << stringf("        %s: {\n", get_name(c.name, ctx).c_str());
+        f << stringf("          \"direction\": \"%s\",\n", c.type == PORT_IN ? "input" : c.type == PORT_INOUT ? "inout" : "output");
+        f << stringf("          \"bits\": [ %d ]\n", pair.first.index);
+        f << stringf("        }");
+        first = false;
+    }    
     f << stringf("\n      },\n");
 
     f << stringf("      \"cells\": {");
-    bool first = true;
+    first = true;
     for (auto &pair : ctx->cells) {        
         auto &c = pair.second;
         f << stringf("%s\n", first ? "" : ",");

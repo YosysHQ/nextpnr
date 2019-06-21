@@ -717,6 +717,12 @@ static void insert_iobuf(Context *ctx, NetInfo *net, PortType type, const string
         assert(false);
     }
     ctx->cells[iobuf->name] = std::move(iobuf);
+
+    PortInfo pinfo;
+    pinfo.name = net->name;
+    pinfo.net = net;
+    pinfo.type = type;
+    ctx->ports[net->name] = pinfo;
 }
 
 void json_import_toplevel_port(Context *ctx, const string &modname, const std::vector<IdString> &netnames,
@@ -726,7 +732,7 @@ void json_import_toplevel_port(Context *ctx, const string &modname, const std::v
     JsonNode *nets_node = node->data_dict.at("bits");
     json_import_ports(
             ctx, modname, netnames, "Top Level IO", portname, dir_node, nets_node,
-            [ctx](PortType type, const std::string &name, NetInfo *net) { insert_iobuf(ctx, net, type, name); });
+            [ctx](PortType type, const std::string &name, NetInfo *net) { insert_iobuf(ctx, net, type, name); });    
 }
 
 void json_import(Context *ctx, string modname, JsonNode *node)
