@@ -512,7 +512,7 @@ bool Arch::place()
 
     if (placer == "heap") {
         PlacerHeapCfg cfg(getCtx());
-        cfg.criticalityExponent = 7;
+        cfg.criticalityExponent = 4;
         cfg.ioBufTypes.insert(id_TRELLIS_IO);
         if (!placer_heap(getCtx(), cfg))
             return false;
