@@ -337,7 +337,7 @@ static int const_net_idx = 0;
 template <typename F>
 void json_import_ports(Context *ctx, const string &modname, const std::vector<IdString> &netnames,
                        const string &obj_name, const string &port_name, JsonNode *dir_node, JsonNode *wire_group_node,
-                       F visitor)
+                       bool upto, int start_offset, F visitor)
 {
     // Examine a port of a cell or the design. For every bit of the port,
     // the connected net will be processed and `visitor` will be called
@@ -406,8 +406,11 @@ void json_import_ports(Context *ctx, const string &modname, const std::vector<Id
             wire_node = wire_group_node->data_array[index];
             //
             // Pick a name for this port
+            int ndx = index + start_offset;
+            if (!upto)
+                ndx = start_offset + wire_group_node->data_array.size() - index - 1;
             if (is_bus)
-                this_port.name = ctx->id(port_info.name.str(ctx) + "[" + std::to_string(index) + "]");
+                this_port.name = ctx->id(port_info.name.str(ctx) + "[" + std::to_string(ndx) + "]");
             else
                 this_port.name = port_info.name;
             this_port.type = port_info.type;
@@ -584,7 +587,7 @@ void json_import_cell(Context *ctx, string modname, const std::vector<IdString> 
         dir_node = pdir_node->data_dict.at(port_name);
         wire_group_node = connections->data_dict.at(port_name);
 
-        json_import_ports(ctx, modname, netnames, cell->name.str(ctx), port_name, dir_node, wire_group_node,
+        json_import_ports(ctx, modname, netnames, cell->name.str(ctx), port_name, dir_node, wire_group_node, false, 0,
                           [&cell, ctx](PortType type, const std::string &name, NetInfo *net) {
                               cell->ports[ctx->id(name)] = PortInfo{ctx->id(name), net, type};
                               PortRef pr;
@@ -680,8 +683,20 @@ void json_import_toplevel_port(Context *ctx, const string &modname, const std::v
 {
     JsonNode *dir_node = node->data_dict.at("direction");
     JsonNode *nets_node = node->data_dict.at("bits");
+    bool upto = false;
+    int start_offset = 0;
+    if (node->data_dict.count("upto") != 0) {
+        JsonNode *val = node->data_dict.at("upto");
+        if (val->type == 'N')
+            upto = val->data_number != 0;
+    }
+    if (node->data_dict.count("offset") != 0) {
+        JsonNode *val = node->data_dict.at("offset");
+        if (val->type == 'N')
+            start_offset = val->data_number;
+    }
     json_import_ports(
-            ctx, modname, netnames, "Top Level IO", portname, dir_node, nets_node,
+            ctx, modname, netnames, "Top Level IO", portname, dir_node, nets_node, upto, start_offset,
             [ctx](PortType type, const std::string &name, NetInfo *net) { insert_iobuf(ctx, net, type, name); });
 }
 
@@ -732,6 +747,18 @@ void json_import(Context *ctx, string modname, JsonNode *node)
 
             here = cell_parent->data_dict.at(cell_parent->data_dict_keys[nnid]);
             std::string basename = cell_parent->data_dict_keys[nnid];
+            bool upto = false;
+            int start_offset = 0;
+            if (here->data_dict.count("upto") != 0) {
+				JsonNode *val = here->data_dict.at("upto");
+				if (val->type == 'N')
+					upto = val->data_number != 0;
+			}
+			if (here->data_dict.count("offset") != 0) {
+				JsonNode *val = here->data_dict.at("offset");
+				if (val->type == 'N')
+					start_offset = val->data_number;
+			}
             if (here->data_dict.count("bits")) {
                 JsonNode *bits = here->data_dict.at("bits");
                 assert(bits->type == 'A');
@@ -740,8 +767,11 @@ void json_import(Context *ctx, string modname, JsonNode *node)
                     int netid = bits->data_array.at(i)->data_number;
                     if (netid >= int(netlabels.size()))
                         netlabels.resize(netid + 1);
+                    int ndx = i + start_offset;
+                    if (!upto)
+                        ndx = start_offset + num_bits - i - 1;
                     std::string name =
-                            basename + (num_bits == 1 ? "" : std::string("[") + std::to_string(i) + std::string("]"));
+                            basename + (num_bits == 1 ? "" : std::string("[") + std::to_string(ndx) + std::string("]"));
                     if (prefer_netlabel(name, netlabels.at(netid)))
                         netlabels.at(netid) = name;
                 }
