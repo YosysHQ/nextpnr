@@ -407,7 +407,7 @@ void json_import_ports(Context *ctx, const string &modname, const std::vector<Id
             //
             // Pick a name for this port
             int ndx = index + start_offset;
-            if (!upto)
+            if (upto)
                 ndx = start_offset + wire_group_node->data_array.size() - index - 1;
             if (is_bus)
                 this_port.name = ctx->id(port_info.name.str(ctx) + "[" + std::to_string(ndx) + "]");
@@ -768,7 +768,7 @@ void json_import(Context *ctx, string modname, JsonNode *node)
                     if (netid >= int(netlabels.size()))
                         netlabels.resize(netid + 1);
                     int ndx = i + start_offset;
-                    if (!upto)
+                    if (upto)
                         ndx = start_offset + num_bits - i - 1;
                     std::string name =
                             basename + (num_bits == 1 ? "" : std::string("[") + std::to_string(ndx) + std::string("]"));
