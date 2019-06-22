@@ -71,6 +71,8 @@ po::options_description ECP5CommandHandler::getArchOptions()
     specific.add_options()("lpf", po::value<std::vector<std::string>>(), "LPF pin constraint file(s)");
     specific.add_options()("lpf-allow-unconstrained", "don't require LPF file(s) to constrain all IO");
 
+    specific.add_options()("out-of-context", "disable IO buffer insertion and global promotion/routing, for building pre-routed blocks (experimental)");
+
     return specific;
 }
 void ECP5CommandHandler::validate()
@@ -90,6 +92,9 @@ void ECP5CommandHandler::customBitstream(Context *ctx)
     } else if (vm.count("override-basecfg")) {
         basecfg = vm["basecfg"].as<std::string>();
     }
+
+    if (bool_or_default(ctx->settings, ctx->id("arch.ooc")) && vm.count("textcfg"))
+        log_error("bitstream generation is not available in out-of-context mode (use --write to create a post-PnR JSON design)\n");
 
     std::string textcfg;
     if (vm.count("textcfg"))
@@ -228,6 +233,8 @@ std::unique_ptr<Context> ECP5CommandHandler::createContext(std::unordered_map<st
         ctx->settings[ctx->id(val.first)] = val.second;
     ctx->settings[ctx->id("arch.package")] = ctx->archArgs().package;
     ctx->settings[ctx->id("arch.speed")] = speedString(ctx->archArgs().speed);
+    if (vm.count("out-of-context"))
+        ctx->settings[ctx->id("arch.ooc")] = 1;
     return ctx;
 }
 

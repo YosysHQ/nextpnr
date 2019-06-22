@@ -294,6 +294,9 @@ delay_t Context::getNetinfoRouteDelay(const NetInfo *net_info, const PortRef &us
             break;
 
         PipId pip = it->second.pip;
+        if (pip == PipId())
+            break;
+
         delay += getPipDelay(pip).maxDelay();
         delay += getWireDelay(cursor).maxDelay();
         cursor = getPipSrcWire(pip);
@@ -571,6 +574,16 @@ void BaseCtx::attributesToArchInfo()
             BelId b = getCtx()->getBelByName(id(val->second.as_string()));
             getCtx()->bindBel(b, ci, strength);
         }
+
+        val = ci->attrs.find(id("CONSTR_PARENT"));
+        if (val != ci->attrs.end()) {
+            auto parent = cells.find(id(val->second.str));
+            if (parent != cells.end())
+                ci->constr_parent = parent->second.get();
+            else
+                continue;
+        }
+
         val = ci->attrs.find(id("CONSTR_X"));
         if (val != ci->attrs.end())
             ci->constr_x = val->second.as_int64();
@@ -599,7 +612,8 @@ void BaseCtx::attributesToArchInfo()
             auto children = val->second.as_string();
             boost::split(strs, children, boost::is_any_of(";"));
             for (auto val : strs) {
-                ci->constr_children.push_back(cells.find(id(val.c_str()))->second.get());
+                if (cells.count(id(val.c_str())))
+                    ci->constr_children.push_back(cells.find(id(val.c_str()))->second.get());
             }
         }
     }

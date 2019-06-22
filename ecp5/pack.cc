@@ -356,7 +356,12 @@ class Ecp5Packer
                     ionet = ci->ports.at(ctx->id("I")).net;
                     trio = net_only_drives(ctx, ci->ports.at(ctx->id("I")).net, is_trellis_io, ctx->id("B"), true, ci);
                 }
-                if (trio != nullptr) {
+                if (bool_or_default(ctx->settings, ctx->id("arch.ooc"))) {
+                    // No IO buffer insertion in out-of-context mode, just remove the nextpnr buffer
+                    // and leave the top level port
+                    for (auto &port : ci->ports)
+                        disconnect_port(ctx, ci, port.first);
+                } else if (trio != nullptr) {
                     // Trivial case, TRELLIS_IO used. Just destroy the net and the
                     // iobuf
                     log_info("%s feeds TRELLIS_IO %s, removing %s %s.\n", ci->name.c_str(ctx), trio->name.c_str(ctx),
@@ -673,6 +678,7 @@ class Ecp5Packer
     CellInfo *make_carry_feed_out(NetInfo *carry, boost::optional<PortRef> chain_next = boost::optional<PortRef>())
     {
         std::unique_ptr<CellInfo> feedout = create_ecp5_cell(ctx, ctx->id("CCU2C"));
+
         feedout->params[ctx->id("INIT0")] = Property(0, 16);
         feedout->params[ctx->id("INIT1")] = Property(10, 16); // LUT4 = 0; LUT2 = A
         feedout->params[ctx->id("INJECT1_0")] = std::string("NO");
