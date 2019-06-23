@@ -546,7 +546,7 @@ struct Timing
                             for (size_t i = 0; i < sink_net->users.size(); i++) {
                                 auto &user = sink_net->users.at(i);
                                 if (user.cell == drv.cell && user.port == port.first) {
-                                    sink_nd.min_required.at(i) = net_min_required - comb_delay.maxDelay();
+                                    sink_nd.min_required.at(i) = std::min(sink_nd.min_required.at(i), net_min_required - comb_delay.maxDelay());
                                     break;
                                 }
                             }
