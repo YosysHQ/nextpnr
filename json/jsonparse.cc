@@ -750,15 +750,15 @@ void json_import(Context *ctx, string modname, JsonNode *node)
             bool upto = false;
             int start_offset = 0;
             if (here->data_dict.count("upto") != 0) {
-				JsonNode *val = here->data_dict.at("upto");
-				if (val->type == 'N')
-					upto = val->data_number != 0;
-			}
-			if (here->data_dict.count("offset") != 0) {
-				JsonNode *val = here->data_dict.at("offset");
-				if (val->type == 'N')
-					start_offset = val->data_number;
-			}
+                JsonNode *val = here->data_dict.at("upto");
+                if (val->type == 'N')
+                    upto = val->data_number != 0;
+            }
+            if (here->data_dict.count("offset") != 0) {
+                JsonNode *val = here->data_dict.at("offset");
+                if (val->type == 'N')
+                    start_offset = val->data_number;
+            }
             if (here->data_dict.count("bits")) {
                 JsonNode *bits = here->data_dict.at("bits");
                 assert(bits->type == 'A');
