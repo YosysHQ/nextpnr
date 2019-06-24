@@ -14,6 +14,9 @@ We hope to see Xilinx 7 Series thanks to
 supported in the future. We would love your help in developing this
 awesome new project!
 
+A brief (academic) paper describing the Yosys+nextpnr flow can be found
+on [arXiv](https://arxiv.org/abs/1903.10407).
+
 Here is a screenshot of nextpnr for iCE40. Build instructions and
 [getting started notes](#getting-started) can be found below.
 
