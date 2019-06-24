@@ -611,10 +611,11 @@ void write_asc(const Context *ctx, std::ostream &out)
             set_config(ti_ramt, config.at(y + 1).at(x), "RamConfig.CBIT_2", read_mode & 0x1);
             set_config(ti_ramt, config.at(y + 1).at(x), "RamConfig.CBIT_3", read_mode & 0x2);
         } else if (cell.second->type == ctx->id("SB_LED_DRV_CUR")) {
-            set_ec_cbit(config, ctx, get_ec_config(ctx->chip_info, cell.second->bel), "LED_DRV_CUR_EN", true, "IpConfig.");
+            set_ec_cbit(config, ctx, get_ec_config(ctx->chip_info, cell.second->bel), "LED_DRV_CUR_EN", true,
+                        "IpConfig.");
         } else if (cell.second->type == ctx->id("SB_RGB_DRV")) {
             const std::vector<std::pair<std::string, int>> rgb_params = {
-                {"RGB0_CURRENT", 6}, {"RGB1_CURRENT", 6}, {"RGB2_CURRENT", 6}};
+                    {"RGB0_CURRENT", 6}, {"RGB1_CURRENT", 6}, {"RGB2_CURRENT", 6}};
             configure_extra_cell(config, ctx, cell.second.get(), rgb_params, true, std::string("IpConfig."));
             set_ec_cbit(config, ctx, get_ec_config(ctx->chip_info, cell.second->bel), "RGB_DRV_EN", true, "IpConfig.");
         } else if (cell.second->type == ctx->id("SB_RGBA_DRV")) {

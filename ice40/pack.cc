@@ -450,7 +450,8 @@ static void pack_io(Context *ctx)
             } else if (ci->type == ctx->id("$nextpnr_obuf")) {
                 NetInfo *net = ci->ports.at(ctx->id("I")).net;
                 sb = net_only_drives(ctx, net, is_ice_iob, ctx->id("PACKAGE_PIN"), true, ci);
-                if (net && net->driver.cell && (is_sb_rgba_drv(ctx, net->driver.cell) || is_sb_rgb_drv(ctx, net->driver.cell)))
+                if (net && net->driver.cell &&
+                    (is_sb_rgba_drv(ctx, net->driver.cell) || is_sb_rgb_drv(ctx, net->driver.cell)))
                     rgb = net->driver.cell;
             }
             if (sb != nullptr) {
@@ -476,7 +477,8 @@ static void pack_io(Context *ctx)
                     }
                 }
             } else if (rgb != nullptr) {
-                log_info("%s use by SB_RGBA_DRV/SB_RGB_DRV %s, not creating SB_IO\n", ci->name.c_str(ctx), rgb->name.c_str(ctx));
+                log_info("%s use by SB_RGBA_DRV/SB_RGB_DRV %s, not creating SB_IO\n", ci->name.c_str(ctx),
+                         rgb->name.c_str(ctx));
                 disconnect_port(ctx, ci, ctx->id("I"));
                 packed_cells.insert(ci->name);
                 continue;
@@ -1157,7 +1159,7 @@ static void pack_special(Context *ctx)
             }
 
             if (is_sb_rgb_drv(ctx, ci) && !ci->ledInfo.ledCurConnected)
-                    log_error("Port RGBPU of SB_RGB_DRV should be driven by port LEDPU of SB_LED_DRV_CUR!\n");
+                log_error("Port RGBPU of SB_RGB_DRV should be driven by port LEDPU of SB_LED_DRV_CUR!\n");
 
             ci->ports.erase(ctx->id("RGBPU"));
             ci->ports.erase(ctx->id("RGB0"));
