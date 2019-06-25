@@ -20,12 +20,12 @@
  */
 
 #include "application.h"
-#include "log.h"
-#include <QOpenGLContext>
 #include <QMessageBox>
+#include <QOpenGLContext>
 #include <QSurfaceFormat>
 #include <QTextStream>
 #include <exception>
+#include "log.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 

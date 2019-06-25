@@ -260,6 +260,22 @@ std::unique_ptr<CellInfo> create_ice_cell(Context *ctx, IdString type, std::stri
         add_port(ctx, new_cell.get(), "RGB0", PORT_OUT);
         add_port(ctx, new_cell.get(), "RGB1", PORT_OUT);
         add_port(ctx, new_cell.get(), "RGB2", PORT_OUT);
+    } else if (type == ctx->id("SB_LED_DRV_CUR")) {
+        add_port(ctx, new_cell.get(), "EN", PORT_IN);
+        add_port(ctx, new_cell.get(), "LEDPU", PORT_OUT);
+    } else if (type == ctx->id("SB_RGB_DRV")) {
+        new_cell->params[ctx->id("RGB0_CURRENT")] = "0b000000";
+        new_cell->params[ctx->id("RGB1_CURRENT")] = "0b000000";
+        new_cell->params[ctx->id("RGB2_CURRENT")] = "0b000000";
+
+        add_port(ctx, new_cell.get(), "RGBPU", PORT_IN);
+        add_port(ctx, new_cell.get(), "RGBLEDEN", PORT_IN);
+        add_port(ctx, new_cell.get(), "RGB0PWM", PORT_IN);
+        add_port(ctx, new_cell.get(), "RGB1PWM", PORT_IN);
+        add_port(ctx, new_cell.get(), "RGB2PWM", PORT_IN);
+        add_port(ctx, new_cell.get(), "RGB0", PORT_OUT);
+        add_port(ctx, new_cell.get(), "RGB1", PORT_OUT);
+        add_port(ctx, new_cell.get(), "RGB2", PORT_OUT);
     } else if (type == ctx->id("SB_LEDDA_IP")) {
         add_port(ctx, new_cell.get(), "LEDDCS", PORT_IN);
         add_port(ctx, new_cell.get(), "LEDDCLK", PORT_IN);

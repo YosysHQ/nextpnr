@@ -546,7 +546,8 @@ struct Timing
                             for (size_t i = 0; i < sink_net->users.size(); i++) {
                                 auto &user = sink_net->users.at(i);
                                 if (user.cell == drv.cell && user.port == port.first) {
-                                    sink_nd.min_required.at(i) = net_min_required - comb_delay.maxDelay();
+                                    sink_nd.min_required.at(i) = std::min(sink_nd.min_required.at(i),
+                                                                          net_min_required - comb_delay.maxDelay());
                                     break;
                                 }
                             }
@@ -752,7 +753,7 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
         }
 
         if (clock_reports.empty()) {
-            log_warning("No clocks found in design");
+            log_warning("No clocks found in design\n");
         }
 
         std::sort(xclock_paths.begin(), xclock_paths.end(), [ctx](const ClockPair &a, const ClockPair &b) {

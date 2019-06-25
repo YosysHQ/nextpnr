@@ -1052,6 +1052,14 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
         return TMG_COMB_INPUT;
     } else if (cell->type == id_SB_WARMBOOT) {
         return TMG_ENDPOINT;
+    } else if (cell->type == id_SB_LED_DRV_CUR) {
+        if (port == id_LEDPU)
+            return TMG_IGNORE;
+        return TMG_ENDPOINT;
+    } else if (cell->type == id_SB_RGB_DRV) {
+        if (port == id_RGB0 || port == id_RGB1 || port == id_RGB2 || port == id_RGBPU)
+            return TMG_IGNORE;
+        return TMG_ENDPOINT;
     } else if (cell->type == id_SB_RGBA_DRV) {
         if (port == id_RGB0 || port == id_RGB1 || port == id_RGB2)
             return TMG_IGNORE;

@@ -76,6 +76,13 @@ inline bool is_sb_mac16(const BaseCtx *ctx, const CellInfo *cell) { return cell-
 
 inline bool is_sb_rgba_drv(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("SB_RGBA_DRV"); }
 
+inline bool is_sb_rgb_drv(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("SB_RGB_DRV"); }
+
+inline bool is_sb_led_drv_cur(const BaseCtx *ctx, const CellInfo *cell)
+{
+    return cell->type == ctx->id("SB_LED_DRV_CUR");
+}
+
 inline bool is_sb_ledda_ip(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("SB_LEDDA_IP"); }
 
 inline bool is_sb_i2c(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("SB_I2C"); }
