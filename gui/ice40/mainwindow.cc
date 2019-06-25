@@ -186,10 +186,11 @@ void MainWindow::onDisableActions()
     actionSaveAsc->setEnabled(false);
 }
 
-void MainWindow::onUpdateActions() { 
-    if (ctx->settings.find(ctx->id("pack"))==ctx->settings.end())    
+void MainWindow::onUpdateActions()
+{
+    if (ctx->settings.find(ctx->id("pack")) == ctx->settings.end())
         actionLoadPCF->setEnabled(true);
-    if (ctx->settings.find(ctx->id("route"))!=ctx->settings.end())    
+    if (ctx->settings.find(ctx->id("route")) != ctx->settings.end())
         actionSaveAsc->setEnabled(true);
 }
 

@@ -26,8 +26,8 @@
 
 #ifndef PLACER_HEAP_H
 #define PLACER_HEAP_H
-#include "nextpnr.h"
 #include "log.h"
+#include "nextpnr.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 

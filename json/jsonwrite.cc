@@ -43,17 +43,15 @@ std::string get_string(std::string str)
     return newstr + "\"";
 }
 
-std::string get_name(IdString name, Context *ctx)
-{
-    return get_string(name.c_str(ctx));
-}
+std::string get_name(IdString name, Context *ctx) { return get_string(name.c_str(ctx)); }
 
-void write_parameters(std::ostream &f, Context *ctx, const std::unordered_map<IdString, Property> &parameters, bool for_module=false)
+void write_parameters(std::ostream &f, Context *ctx, const std::unordered_map<IdString, Property> &parameters,
+                      bool for_module = false)
 {
     bool first = true;
     for (auto &param : parameters) {
         f << stringf("%s\n", first ? "" : ",");
-        f << stringf("        %s%s: ", for_module ? "" : "    ", get_name(param.first,ctx).c_str());
+        f << stringf("        %s%s: ", for_module ? "" : "    ", get_name(param.first, ctx).c_str());
         if (param.second.isString())
             f << get_string(param.second);
         else
@@ -65,7 +63,7 @@ void write_parameters(std::ostream &f, Context *ctx, const std::unordered_map<Id
 void write_module(std::ostream &f, Context *ctx)
 {
     auto val = ctx->attrs.find(ctx->id("module"));
-    if (val != ctx->attrs.end())    
+    if (val != ctx->attrs.end())
         f << stringf("    %s: {\n", get_string(val->second.str).c_str());
     else
         f << stringf("    %s: {\n", get_string("top").c_str());
@@ -81,16 +79,17 @@ void write_module(std::ostream &f, Context *ctx)
         auto &c = pair.second;
         f << stringf("%s\n", first ? "" : ",");
         f << stringf("        %s: {\n", get_name(c.name, ctx).c_str());
-        f << stringf("          \"direction\": \"%s\",\n", c.type == PORT_IN ? "input" : c.type == PORT_INOUT ? "inout" : "output");
+        f << stringf("          \"direction\": \"%s\",\n",
+                     c.type == PORT_IN ? "input" : c.type == PORT_INOUT ? "inout" : "output");
         f << stringf("          \"bits\": [ %d ]\n", pair.first.index);
         f << stringf("        }");
         first = false;
-    }    
+    }
     f << stringf("\n      },\n");
 
     f << stringf("      \"cells\": {");
     first = true;
-    for (auto &pair : ctx->cells) {        
+    for (auto &pair : ctx->cells) {
         auto &c = pair.second;
         f << stringf("%s\n", first ? "" : ",");
         f << stringf("        %s: {\n", get_name(c->name, ctx).c_str());
@@ -118,9 +117,9 @@ void write_module(std::ostream &f, Context *ctx)
             auto &p = conn.second;
             f << stringf("%s\n", first2 ? "" : ",");
             if (p.net)
-                f << stringf("            %s: [ %d ]", get_name(conn.first,ctx).c_str(), p.net->name.index);
-            else 
-                f << stringf("            %s: [ ]", get_name(conn.first,ctx).c_str());
+                f << stringf("            %s: [ %d ]", get_name(conn.first, ctx).c_str(), p.net->name.index);
+            else
+                f << stringf("            %s: [ ]", get_name(conn.first, ctx).c_str());
 
             first2 = false;
         }
@@ -146,7 +145,7 @@ void write_module(std::ostream &f, Context *ctx)
         f << stringf("        }");
         first = false;
     }
-    
+
     f << stringf("\n      }\n");
     f << stringf("    }");
 }
@@ -154,7 +153,8 @@ void write_module(std::ostream &f, Context *ctx)
 void write_context(std::ostream &f, Context *ctx)
 {
     f << stringf("{\n");
-    f << stringf("  \"creator\": %s,\n", get_string( "Next Generation Place and Route (git sha1 " GIT_COMMIT_HASH_STR ")").c_str());
+    f << stringf("  \"creator\": %s,\n",
+                 get_string("Next Generation Place and Route (git sha1 " GIT_COMMIT_HASH_STR ")").c_str());
     f << stringf("  \"modules\": {\n");
     write_module(f, ctx);
     f << stringf("\n  }");
@@ -166,7 +166,7 @@ void write_context(std::ostream &f, Context *ctx)
 bool write_json_file(std::ostream &f, std::string &filename, Context *ctx)
 {
     try {
-        using namespace JsonWriter;        
+        using namespace JsonWriter;
         if (!f)
             log_error("failed to open JSON file.\n");
         write_context(f, ctx);

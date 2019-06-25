@@ -23,8 +23,8 @@
 
 #include <boost/program_options.hpp>
 #include <fstream>
-#include "nextpnr.h"
 #include "log.h"
+#include "nextpnr.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -41,7 +41,7 @@ class CommandHandler
 
   protected:
     virtual void setupArchContext(Context *ctx) = 0;
-    virtual std::unique_ptr<Context> createContext(std::unordered_map<std::string,Property> &values) = 0;
+    virtual std::unique_ptr<Context> createContext(std::unordered_map<std::string, Property> &values) = 0;
     virtual po::options_description getArchOptions() = 0;
     virtual void validate(){};
     virtual void customAfterLoad(Context *ctx){};

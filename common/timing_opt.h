@@ -17,8 +17,8 @@
  *
  */
 
-#include "nextpnr.h"
 #include "log.h"
+#include "nextpnr.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 

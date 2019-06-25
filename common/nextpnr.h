@@ -290,7 +290,7 @@ struct PipMap
 struct Property
 {
     bool is_string;
-    
+
     std::string str;
     int num;
 
@@ -299,22 +299,25 @@ struct Property
 
     bool isString() const { return is_string; }
 
-    void setNumber(int val) { is_string = false; num = val; str =  std::to_string(val); }
-    void setString(std::string val) { is_string = true; str = val; }
-
-    const char * c_str() const { return str.c_str(); }
-    operator std::string () const { return str; }
-
-    bool operator==(const std::string other) const
+    void setNumber(int val)
     {
-        return str == other;
-    }    
-    bool operator!=(const std::string other) const
+        is_string = false;
+        num = val;
+        str = std::to_string(val);
+    }
+    void setString(std::string val)
     {
-        return str != other;
-    }    
+        is_string = true;
+        str = val;
+    }
 
-    Property& operator=(std::string other)
+    const char *c_str() const { return str.c_str(); }
+    operator std::string() const { return str; }
+
+    bool operator==(const std::string other) const { return str == other; }
+    bool operator!=(const std::string other) const { return str != other; }
+
+    Property &operator=(std::string other)
     {
         is_string = true;
         str = other;
@@ -732,10 +735,10 @@ struct Context : Arch, DeterministicRNG
             return boost::lexical_cast<T>(settings.find(new_id)->second.str);
         else
             settings[id(name)] = std::to_string(defaultValue);
- 
-        return defaultValue;        
+
+        return defaultValue;
     }
-    
+
     template <typename T> T setting(const char *name) const
     {
         IdString new_id = id(name);

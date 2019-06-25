@@ -34,7 +34,7 @@ class ECP5CommandHandler : public CommandHandler
   public:
     ECP5CommandHandler(int argc, char **argv);
     virtual ~ECP5CommandHandler(){};
-    std::unique_ptr<Context> createContext(std::unordered_map<std::string,Property> &values) override;
+    std::unique_ptr<Context> createContext(std::unordered_map<std::string, Property> &values) override;
     void setupArchContext(Context *ctx) override{};
     void customAfterLoad(Context *ctx) override;
     void validate() override;
@@ -100,16 +100,20 @@ void ECP5CommandHandler::customBitstream(Context *ctx)
 
 static std::string speedString(ArchArgs::SpeedGrade speed)
 {
-    switch(speed){
-        case ArchArgs::SPEED_6: return "6";
-        case ArchArgs::SPEED_7: return "7";
-        case ArchArgs::SPEED_8: return "8";
-        case ArchArgs::SPEED_8_5G: return "8";
+    switch (speed) {
+    case ArchArgs::SPEED_6:
+        return "6";
+    case ArchArgs::SPEED_7:
+        return "7";
+    case ArchArgs::SPEED_8:
+        return "8";
+    case ArchArgs::SPEED_8_5G:
+        return "8";
     }
     return "";
 }
 
-std::unique_ptr<Context> ECP5CommandHandler::createContext(std::unordered_map<std::string,Property> &values)
+std::unique_ptr<Context> ECP5CommandHandler::createContext(std::unordered_map<std::string, Property> &values)
 {
     ArchArgs chipArgs;
     chipArgs.type = ArchArgs::NONE;
@@ -154,15 +158,15 @@ std::unique_ptr<Context> ECP5CommandHandler::createContext(std::unordered_map<st
         if (chipArgs.type == ArchArgs::LFE5UM5G_25F || chipArgs.type == ArchArgs::LFE5UM5G_45F ||
             chipArgs.type == ArchArgs::LFE5UM5G_85F) {
             chipArgs.speed = ArchArgs::SPEED_8;
-        } else 
+        } else
             chipArgs.speed = ArchArgs::SPEED_6;
     }
-    if (values.find("arch.name")!=values.end()) {
+    if (values.find("arch.name") != values.end()) {
         std::string arch_name = values["arch.name"].str;
         if (arch_name != "ecp5")
             log_error("Unsuported architecture '%s'.\n", arch_name.c_str());
     }
-    if (values.find("arch.type")!=values.end()) {
+    if (values.find("arch.type") != values.end()) {
         std::string arch_type = values["arch.type"].str;
         if (chipArgs.type != ArchArgs::NONE)
             log_error("Overriding architecture is unsuported.\n");
@@ -187,14 +191,14 @@ std::unique_ptr<Context> ECP5CommandHandler::createContext(std::unordered_map<st
             chipArgs.type = ArchArgs::LFE5UM5G_85F;
 
         if (chipArgs.type == ArchArgs::NONE)
-            log_error("Unsuported FPGA type '%s'.\n",arch_type.c_str());
+            log_error("Unsuported FPGA type '%s'.\n", arch_type.c_str());
     }
-    if (values.find("arch.package")!=values.end()) {
+    if (values.find("arch.package") != values.end()) {
         if (vm.count("package"))
             log_error("Overriding architecture is unsuported.\n");
         chipArgs.package = values["arch.package"].str;
     }
-    if (values.find("arch.speed")!=values.end()) {
+    if (values.find("arch.speed") != values.end()) {
         std::string arch_speed = values["arch.speed"].str;
         if (arch_speed == "6")
             chipArgs.speed = ArchArgs::SPEED_6;
@@ -202,8 +206,8 @@ std::unique_ptr<Context> ECP5CommandHandler::createContext(std::unordered_map<st
             chipArgs.speed = ArchArgs::SPEED_7;
         else if (arch_speed == "8")
             chipArgs.speed = ArchArgs::SPEED_8;
-        else 
-            log_error("Unsuported speed '%s'.\n",arch_speed.c_str());
+        else
+            log_error("Unsuported speed '%s'.\n", arch_speed.c_str());
     }
     if (chipArgs.type == ArchArgs::NONE)
         chipArgs.type = ArchArgs::LFE5U_45F;
@@ -220,7 +224,7 @@ std::unique_ptr<Context> ECP5CommandHandler::createContext(std::unordered_map<st
     }
 
     auto ctx = std::unique_ptr<Context>(new Context(chipArgs));
-    for(auto &val : values)
+    for (auto &val : values)
         ctx->settings[ctx->id(val.first)] = val.second;
     ctx->settings[ctx->id("arch.package")] = ctx->archArgs().package;
     ctx->settings[ctx->id("arch.speed")] = speedString(ctx->archArgs().speed);

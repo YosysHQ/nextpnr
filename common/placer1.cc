@@ -374,7 +374,8 @@ class SAPlacer
                         assign_budget(ctx, true /* quiet */);
                 }
                 require_legal = false;
-            } else if (cfg.budgetBased && ctx->setting<int>("slack_redist_iter") > 0 && iter % ctx->setting<int>("slack_redist_iter") == 0) {
+            } else if (cfg.budgetBased && ctx->setting<int>("slack_redist_iter") > 0 &&
+                       iter % ctx->setting<int>("slack_redist_iter") == 0) {
                 assign_budget(ctx, true /* quiet */);
             }
 

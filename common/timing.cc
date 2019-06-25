@@ -658,10 +658,11 @@ void assign_budget(Context *ctx, bool quiet)
 {
     if (!quiet) {
         log_break();
-        log_info("Annotating ports with timing budgets for target frequency %.2f MHz\n", ctx->setting<float>("target_freq") / 1e6);
+        log_info("Annotating ports with timing budgets for target frequency %.2f MHz\n",
+                 ctx->setting<float>("target_freq") / 1e6);
     }
 
-    Timing timing(ctx, ctx->setting<int>("slack_redist_iter")> 0 /* net_delays */, true /* update */);
+    Timing timing(ctx, ctx->setting<int>("slack_redist_iter") > 0 /* net_delays */, true /* update */);
     timing.assign_budget();
 
     if (!quiet || ctx->verbose) {
@@ -686,11 +687,12 @@ void assign_budget(Context *ctx, bool quiet)
     // currently achieved maximum
     if (ctx->setting<bool>("auto_freq") && ctx->setting<int>("slack_redist_iter") > 0) {
         delay_t default_slack = delay_t((1.0e9 / ctx->getDelayNS(1)) / ctx->setting<float>("target_freq"));
-        ctx->settings[ctx->id("target_freq")] = std::to_string(1.0e9 / ctx->getDelayNS(default_slack - timing.min_slack));
+        ctx->settings[ctx->id("target_freq")] =
+                std::to_string(1.0e9 / ctx->getDelayNS(default_slack - timing.min_slack));
         if (ctx->verbose)
             log_info("minimum slack for this assign = %.2f ns, target Fmax for next "
                      "update = %.2f MHz\n",
-                     ctx->getDelayNS(timing.min_slack),ctx->setting<float>("target_freq") / 1e6);
+                     ctx->getDelayNS(timing.min_slack), ctx->setting<float>("target_freq") / 1e6);
     }
 
     if (!quiet)

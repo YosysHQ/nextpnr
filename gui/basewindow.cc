@@ -310,11 +310,11 @@ void BaseMainWindow::save_json()
 {
     QString fileName = QFileDialog::getSaveFileName(this, QString("Save JSON"), QString(), QString("*.json"));
     if (!fileName.isEmpty()) {
-        std::string fn = fileName.toStdString();        
+        std::string fn = fileName.toStdString();
         std::ofstream f(fn);
         if (write_json_file(f, fn, ctx.get()))
             log("Saving JSON successful.\n");
-        else 
+        else
             log("Saving JSON failed.\n");
     }
 }
@@ -335,7 +335,7 @@ void BaseMainWindow::budget_finish(bool status)
 {
     disableActions();
     if (status) {
-        log("Assigning timing budget successful.\n");        
+        log("Assigning timing budget successful.\n");
         updateActions();
     } else {
         log("Assigning timing budget failed.\n");
@@ -399,7 +399,7 @@ void BaseMainWindow::place() { Q_EMIT task->place(timing_driven); }
 
 void BaseMainWindow::disableActions()
 {
-    actionLoadJSON->setEnabled(true);    
+    actionLoadJSON->setEnabled(true);
     actionPack->setEnabled(false);
     actionAssignBudget->setEnabled(false);
     actionPlace->setEnabled(false);
@@ -416,13 +416,12 @@ void BaseMainWindow::disableActions()
 
 void BaseMainWindow::updateActions()
 {
-    if (ctx->settings.find(ctx->id("pack"))==ctx->settings.end())
+    if (ctx->settings.find(ctx->id("pack")) == ctx->settings.end())
         actionPack->setEnabled(true);
-    else if (ctx->settings.find(ctx->id("place"))==ctx->settings.end()) {
+    else if (ctx->settings.find(ctx->id("place")) == ctx->settings.end()) {
         actionAssignBudget->setEnabled(true);
-        actionPlace->setEnabled(true);        
-    }
-    else if (ctx->settings.find(ctx->id("route"))==ctx->settings.end())
+        actionPlace->setEnabled(true);
+    } else if (ctx->settings.find(ctx->id("route")) == ctx->settings.end())
         actionRoute->setEnabled(true);
 
     onUpdateActions();

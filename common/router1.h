@@ -20,8 +20,8 @@
 #ifndef ROUTER1_H
 #define ROUTER1_H
 
-#include "nextpnr.h"
 #include "log.h"
+#include "nextpnr.h"
 NEXTPNR_NAMESPACE_BEGIN
 
 struct Router1Cfg

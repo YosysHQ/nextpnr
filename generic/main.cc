@@ -32,7 +32,7 @@ class GenericCommandHandler : public CommandHandler
   public:
     GenericCommandHandler(int argc, char **argv);
     virtual ~GenericCommandHandler(){};
-    std::unique_ptr<Context> createContext(std::unordered_map<std::string,Property> &values) override;
+    std::unique_ptr<Context> createContext(std::unordered_map<std::string, Property> &values) override;
     void setupArchContext(Context *ctx) override{};
     void customBitstream(Context *ctx) override;
 
@@ -51,14 +51,14 @@ po::options_description GenericCommandHandler::getArchOptions()
 
 void GenericCommandHandler::customBitstream(Context *ctx) {}
 
-std::unique_ptr<Context> GenericCommandHandler::createContext(std::unordered_map<std::string,Property> &values)
+std::unique_ptr<Context> GenericCommandHandler::createContext(std::unordered_map<std::string, Property> &values)
 {
     ArchArgs chipArgs;
-    if (values.find("arch.name")!=values.end()) {
+    if (values.find("arch.name") != values.end()) {
         std::string arch_name = values["arch.name"].str;
         if (arch_name != "generic")
             log_error("Unsuported architecture '%s'.\n", arch_name.c_str());
-    }  
+    }
     return std::unique_ptr<Context>(new Context(chipArgs));
 }
 

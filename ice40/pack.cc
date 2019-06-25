@@ -340,10 +340,9 @@ static void pack_constants(Context *ctx)
     gnd_net->driver.cell = gnd_cell.get();
     gnd_net->driver.port = ctx->id("O");
     gnd_cell->ports.at(ctx->id("O")).net = gnd_net.get();
-    
-    NetInfo* gnd_net_info = gnd_net.get();
-    if (ctx->nets.find(ctx->id("$PACKER_GND_NET"))!=ctx->nets.end())
-    {
+
+    NetInfo *gnd_net_info = gnd_net.get();
+    if (ctx->nets.find(ctx->id("$PACKER_GND_NET")) != ctx->nets.end()) {
         gnd_net_info = ctx->nets.find(ctx->id("$PACKER_GND_NET"))->second.get();
     }
 
@@ -354,10 +353,9 @@ static void pack_constants(Context *ctx)
     vcc_net->driver.cell = vcc_cell.get();
     vcc_net->driver.port = ctx->id("O");
     vcc_cell->ports.at(ctx->id("O")).net = vcc_net.get();
-    
-    NetInfo* vcc_net_info = vcc_net.get();
-    if (ctx->nets.find(ctx->id("$PACKER_VCC_NET"))!=ctx->nets.end())
-    {
+
+    NetInfo *vcc_net_info = vcc_net.get();
+    if (ctx->nets.find(ctx->id("$PACKER_VCC_NET")) != ctx->nets.end()) {
         vcc_net_info = ctx->nets.find(ctx->id("$PACKER_VCC_NET"))->second.get();
     }
 
@@ -387,8 +385,7 @@ static void pack_constants(Context *ctx)
     }
     // Vcc cell always inserted for now, as it may be needed during carry legalisation (TODO: trim later if actually
     // never used?)
-    if (vcc_net_info == vcc_net.get())
-    {
+    if (vcc_net_info == vcc_net.get()) {
         ctx->cells[vcc_cell->name] = std::move(vcc_cell);
         ctx->nets[vcc_net->name] = std::move(vcc_net);
     }
@@ -1239,13 +1236,14 @@ static void pack_special(Context *ctx)
                 }
 
             auto feedback_path = packed->params[ctx->id("FEEDBACK_PATH")];
-            std::string fbp_value = feedback_path == "DELAY"
-                                            ? "0"
-                                            : feedback_path == "SIMPLE"
-                                                      ? "1"
-                                                      : feedback_path == "PHASE_AND_DELAY"
-                                                                ? "2"
-                                                                : feedback_path == "EXTERNAL" ? "6" : std::string(feedback_path);
+            std::string fbp_value =
+                    feedback_path == "DELAY"
+                            ? "0"
+                            : feedback_path == "SIMPLE"
+                                      ? "1"
+                                      : feedback_path == "PHASE_AND_DELAY"
+                                                ? "2"
+                                                : feedback_path == "EXTERNAL" ? "6" : std::string(feedback_path);
             if (!std::all_of(fbp_value.begin(), fbp_value.end(), isdigit))
                 log_error("PLL '%s' has unsupported FEEDBACK_PATH value '%s'\n", ci->name.c_str(ctx),
                           feedback_path.c_str());

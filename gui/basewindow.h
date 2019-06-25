@@ -20,9 +20,9 @@
 #ifndef BASEMAINWINDOW_H
 #define BASEMAINWINDOW_H
 
+#include "command.h"
 #include "nextpnr.h"
 #include "worker.h"
-#include "command.h"
 
 #include <QMainWindow>
 #include <QMenu>

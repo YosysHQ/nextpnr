@@ -164,10 +164,11 @@ void MainWindow::onDisableActions()
     actionSaveConfig->setEnabled(false);
 }
 
-void MainWindow::onUpdateActions() { 
-    if (ctx->settings.find(ctx->id("pack"))==ctx->settings.end())    
-        actionLoadLPF->setEnabled(true); 
-    if (ctx->settings.find(ctx->id("route"))!=ctx->settings.end())    
+void MainWindow::onUpdateActions()
+{
+    if (ctx->settings.find(ctx->id("pack")) == ctx->settings.end())
+        actionLoadLPF->setEnabled(true);
+    if (ctx->settings.find(ctx->id("route")) != ctx->settings.end())
         actionSaveConfig->setEnabled(true);
 }
 

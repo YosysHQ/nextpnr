@@ -338,7 +338,7 @@ void json_import_cell_params(Context *ctx, string &modname, CellInfo *cell, Json
 }
 
 void json_import_net_attrib(Context *ctx, string &modname, NetInfo *net, JsonNode *param_node,
-                             std::unordered_map<IdString, Property> *dest, int param_id)
+                            std::unordered_map<IdString, Property> *dest, int param_id)
 {
     //
     JsonNode *param;
@@ -352,8 +352,7 @@ void json_import_net_attrib(Context *ctx, string &modname, NetInfo *net, JsonNod
     } else if (param->type == 'S')
         (*dest)[pId].setString(param->data_string);
     else
-        log_error("JSON parameter type of \"%s\' of net \'%s\' not supported\n", pId.c_str(ctx),
-                  net->name.c_str(ctx));
+        log_error("JSON parameter type of \"%s\' of net \'%s\' not supported\n", pId.c_str(ctx), net->name.c_str(ctx));
     if (json_debug)
         log_info("    Added parameter \'%s\'=%s to net \'%s\' "
                  "of module \'%s\'\n",
@@ -361,7 +360,7 @@ void json_import_net_attrib(Context *ctx, string &modname, NetInfo *net, JsonNod
 }
 
 void json_import_top_attrib(Context *ctx, string &modname, JsonNode *param_node,
-                             std::unordered_map<IdString, Property> *dest, int param_id)
+                            std::unordered_map<IdString, Property> *dest, int param_id)
 {
     //
     JsonNode *param;
@@ -377,8 +376,8 @@ void json_import_top_attrib(Context *ctx, string &modname, JsonNode *param_node,
     else
         log_error("JSON parameter type of \"%s\' of module not supported\n", pId.c_str(ctx));
     if (json_debug)
-        log_info("    Added parameter \'%s\'=%s module \'%s\'\n",
-                 pId.c_str(ctx), (*dest)[pId].c_str(), modname.c_str());
+        log_info("    Added parameter \'%s\'=%s module \'%s\'\n", pId.c_str(ctx), (*dest)[pId].c_str(),
+                 modname.c_str());
 }
 
 static int const_net_idx = 0;
@@ -669,7 +668,7 @@ static void insert_iobuf(Context *ctx, NetInfo *net, PortType type, const string
     // During packing, this generic IO buffer will be converted to an
     // architecure primitive.
     //
-    if (ctx->settings.find(ctx->id("synth"))==ctx->settings.end()) {
+    if (ctx->settings.find(ctx->id("synth")) == ctx->settings.end()) {
         std::unique_ptr<CellInfo> iobuf = std::unique_ptr<CellInfo>(new CellInfo());
         iobuf->name = ctx->id(name);
         std::copy(net->attrs.begin(), net->attrs.end(), std::inserter(iobuf->attrs, iobuf->attrs.begin()));
@@ -682,7 +681,7 @@ static void insert_iobuf(Context *ctx, NetInfo *net, PortType type, const string
             if (net->driver.cell != nullptr) {
                 if (net->driver.cell->type != ctx->id("$nextpnr_iobuf"))
                     log_error("Top-level input '%s' also driven by %s.%s.\n", name.c_str(),
-                            net->driver.cell->name.c_str(ctx), net->driver.port.c_str(ctx));
+                              net->driver.cell->name.c_str(ctx), net->driver.port.c_str(ctx));
                 net = net->driver.cell->ports.at(ctx->id("I")).net;
             }
             assert(net->driver.cell == nullptr);
@@ -897,12 +896,13 @@ void json_import(Context *ctx, string modname, JsonNode *node)
                     std::string name =
                             basename + (num_bits == 1 ? "" : std::string("[") + std::to_string(i) + std::string("]"));
                     IdString net_id = ctx->id(name);
-                    if (here->data_dict.count("attributes") && ctx->nets.find(net_id)!=ctx->nets.end()) {
-                        NetInfo *this_net = ctx->nets[net_id].get();                            
-                        
+                    if (here->data_dict.count("attributes") && ctx->nets.find(net_id) != ctx->nets.end()) {
+                        NetInfo *this_net = ctx->nets[net_id].get();
+
                         JsonNode *attr_node = here->data_dict.at("attributes");
                         if (attr_node->type != 'D')
-                            log_error("JSON attribute list of \'%s\' is not a data dictionary\n", this_net->name.c_str(ctx));
+                            log_error("JSON attribute list of \'%s\' is not a data dictionary\n",
+                                      this_net->name.c_str(ctx));
 
                         //
                         // Loop through all attributes, adding them into the
@@ -911,12 +911,11 @@ void json_import(Context *ctx, string modname, JsonNode *node)
                         for (int attrid = 0; attrid < GetSize(attr_node->data_dict_keys); attrid++) {
                             json_import_net_attrib(ctx, modname, this_net, attr_node, &this_net->attrs, attrid);
                         }
-
                     }
                 }
-            } 
+            }
         }
-    }    
+    }
     check_all_nets_driven(ctx);
     ctx->settings[ctx->id("synth")] = "1";
 }
@@ -956,7 +955,7 @@ bool parse_json_file(std::istream &f, std::string &filename, Context *ctx)
     }
 }
 
-bool load_json_settings(std::istream &f, std::string &filename, std::unordered_map<std::string,Property> &values)
+bool load_json_settings(std::istream &f, std::string &filename, std::unordered_map<std::string, Property> &values)
 {
     try {
         using namespace JsonParser;
@@ -993,7 +992,6 @@ bool load_json_settings(std::istream &f, std::string &filename, std::unordered_m
                             values[pId].setString(param->data_string);
                         else
                             log_error("JSON parameter type of \"%s\' of module not supported\n", pId.c_str());
-                
                     }
                 }
             }

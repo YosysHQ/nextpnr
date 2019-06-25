@@ -27,8 +27,8 @@
 #include "pybindings.h"
 #endif
 
-#include <boost/algorithm/string/join.hpp>
 #include <boost/algorithm/string.hpp>
+#include <boost/algorithm/string/join.hpp>
 #include <boost/filesystem/convenience.hpp>
 #include <boost/program_options.hpp>
 #include <fstream>
@@ -156,7 +156,7 @@ void CommandHandler::setupContext(Context *ctx)
 {
     if (ctx->settings.find(ctx->id("seed")) != ctx->settings.end())
         ctx->rngstate = ctx->setting<uint64_t>("seed");
-    
+
     if (vm.count("verbose")) {
         ctx->verbose = true;
     }
@@ -239,7 +239,7 @@ void CommandHandler::setupContext(Context *ctx)
         ctx->settings[ctx->id("slack_redist_iter")] = "0";
     if (ctx->settings.find(ctx->id("auto_freq")) == ctx->settings.end())
         ctx->settings[ctx->id("auto_freq")] = std::to_string(false);
-    if (ctx->settings.find(ctx->id("placer")) == ctx->settings.end())    
+    if (ctx->settings.find(ctx->id("placer")) == ctx->settings.end())
         ctx->settings[ctx->id("placer")] = Arch::defaultPlacer;
 
     ctx->settings[ctx->id("arch.name")] = std::string(ctx->archId().c_str(ctx));
@@ -298,16 +298,16 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
             execute_python_file(filename.c_str());
     } else
 #endif
-    if (vm.count("json")) {
-        bool do_pack  = vm.count("pack-only")!=0 || vm.count("no-pack")==0;
-        bool do_place = vm.count("pack-only")==0 && vm.count("no-place")==0;
-        bool do_route = vm.count("pack-only")==0 && vm.count("no-route")==0;
+            if (vm.count("json")) {
+        bool do_pack = vm.count("pack-only") != 0 || vm.count("no-pack") == 0;
+        bool do_place = vm.count("pack-only") == 0 && vm.count("no-place") == 0;
+        bool do_route = vm.count("pack-only") == 0 && vm.count("no-route") == 0;
 
         if (do_pack) {
             run_script_hook("pre-pack");
             if (!ctx->pack() && !ctx->force)
                 log_error("Packing design failed.\n");
-        } 
+        }
         assign_budget(ctx.get());
         ctx->check();
         print_utilisation(ctx.get());
@@ -329,7 +329,7 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
         customBitstream(ctx.get());
     }
 
-    if (vm.count("write")) {        
+    if (vm.count("write")) {
         std::string filename = vm["write"].as<std::string>();
         std::ofstream f(filename);
         if (!write_json_file(f, filename, ctx.get()))
@@ -370,7 +370,7 @@ int CommandHandler::exec()
         if (executeBeforeContext())
             return 0;
 
-        std::unordered_map<std::string,Property> values;
+        std::unordered_map<std::string, Property> values;
         if (vm.count("json")) {
             std::string filename = vm["json"].as<std::string>();
             std::ifstream f(filename);
@@ -392,7 +392,7 @@ int CommandHandler::exec()
 std::unique_ptr<Context> CommandHandler::load_json(std::string filename)
 {
     vm.clear();
-    std::unordered_map<std::string,Property> values;
+    std::unordered_map<std::string, Property> values;
     {
         std::ifstream f(filename);
         if (!load_json_settings(f, filename, values))
