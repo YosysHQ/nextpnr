@@ -77,8 +77,11 @@ bool apply_pcf(Context *ctx, std::string filename, std::istream &in)
                     }
                     args_end++;
                 }
-                if (args_end >= words.size() - 1)
+                if (args_end > words.size() - 2)
                     log_error("expected PCF syntax 'set_io cell pin' (on line %d)\n", lineno);
+                else if (args_end < words.size() - 2 && !nowarn)
+                    log_warning("Ignoring trailing PCF settings (on line %d)\n", lineno);
+
                 std::string cell = words.at(args_end);
                 std::string pin = words.at(args_end + 1);
                 auto fnd_cell = ctx->cells.find(ctx->id(cell));
