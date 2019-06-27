@@ -77,10 +77,11 @@ int main(int argc, char **argv)
     namespace po = boost::program_options;
     po::positional_options_description pos;
     po::options_description options("Allowed options");
-    options.add_options()("v", "verbose output");
-    options.add_options()("d", "debug output");
-    options.add_options()("b", "big endian");
-    options.add_options()("c", "write c strings");
+    options.add_options()("help,h", "verbose output");
+    options.add_options()("verbose,v", "verbose output");
+    options.add_options()("debug,d", "debug output");
+    options.add_options()("be,b", "big endian");
+    options.add_options()("c,c", "write c strings");
     options.add_options()("files", po::value<std::vector<std::string>>(), "file parameters");
     pos.add("files", -1);
 
@@ -95,11 +96,15 @@ int main(int argc, char **argv)
         std::cout << e.what() << "\n";
         return 1;
     }
-    if (vm.count("v"))
+    if (vm.count("help")) {
+        std::cout << options;
+        return 0;
+    }
+    if (vm.count("verbose"))
         verbose = true;
-    if (vm.count("d"))
+    if (vm.count("debug"))
         debug = true;
-    if (vm.count("b"))
+    if (vm.count("be"))
         bigEndian = true;
     if (vm.count("c"))
         writeC = true;
@@ -183,6 +188,7 @@ int main(int argc, char **argv)
             const char *value = skipWhitespace(strtok(nullptr, "\r\n"));
             assert(*value != 0);
             char *end = strchr((char *)value + 1, *value);
+            assert(end != nullptr);
             *end = 0;
             value += 1;
             const char *comment = skipWhitespace(strtok(end+1, "\r\n"));
