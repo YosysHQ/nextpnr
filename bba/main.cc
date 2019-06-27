@@ -181,10 +181,11 @@ int main(int argc, char **argv)
 
         if (cmd == "str") {
             const char *value = skipWhitespace(strtok(nullptr, "\r\n"));
-            char terminator[2] = {*value, 0};
-            assert(terminator[0] != 0);
-            value = strtok((char *)value + 1, terminator);
-            const char *comment = skipWhitespace(strtok(nullptr, "\r\n"));
+            assert(*value != 0);
+            char *end = strchr((char *)value + 1, *value);
+            *end = 0;
+            value += 1;
+            const char *comment = skipWhitespace(strtok(end+1, "\r\n"));
             std::string label = std::string("str:") + value;
             Stream &s = streams.at(streamStack.back());
             if (labelIndex.count(label) == 0) {
