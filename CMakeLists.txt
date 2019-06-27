@@ -10,6 +10,7 @@ option(USE_OPENMP "Use OpenMP to accelerate analytic placer" OFF)
 option(COVERAGE "Add code coverage info" OFF)
 option(STATIC_BUILD "Create static build" OFF)
 option(EXTERNAL_CHIPDB "Create build with pre-built chipdb binaries" OFF)
+option(SERIALIZE_CHIPDB "Never build chipdb in parallel to reduce peak memory use" ON)
 
 set(link_param "")
 if (STATIC_BUILD)
@@ -209,7 +210,7 @@ include(bba/bba.cmake)
 foreach (family ${ARCH})
     message(STATUS "Configuring architecture : ${family}")
     string(TOUPPER ${family} ufamily)
-    aux_source_directory(${family}/ ${ufamily}_FILES)    
+    aux_source_directory(${family}/ ${ufamily}_FILES)
 
     if (BUILD_GUI)
        add_subdirectory(gui ${CMAKE_CURRENT_BINARY_DIR}/generated/gui/${family} EXCLUDE_FROM_ALL)
@@ -219,14 +220,14 @@ foreach (family ${ARCH})
     add_executable(nextpnr-${family} ${COMMON_FILES} ${${ufamily}_FILES})
     install(TARGETS nextpnr-${family} RUNTIME DESTINATION bin)
     target_compile_definitions(nextpnr-${family} PRIVATE MAIN_EXECUTABLE)
-        
+
     # Add any new per-architecture targets here
     if (BUILD_TESTS)
         if (COVERAGE)
             APPEND_COVERAGE_COMPILER_FLAGS()
             set(COVERAGE_LCOV_EXCLUDES '/usr/include/*' '3rdparty/*' 'generated/*' 'bba/*' 'tests/*')
             SETUP_TARGET_FOR_COVERAGE_LCOV(
-                NAME ${family}-coverage 
+                NAME ${family}-coverage
                 EXECUTABLE nextpnr-${family}-test
                 DEPENDENCIES nextpnr-${family}-test
             )
@@ -247,7 +248,7 @@ foreach (family ${ARCH})
 
     # Set ${family_targets} to the list of targets being build for this family
     set(family_targets nextpnr-${family})
-    
+
     if (BUILD_TESTS)
         set(family_targets ${family_targets} nextpnr-${family}-test)
     endif()

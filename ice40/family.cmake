@@ -1,5 +1,5 @@
 if (NOT EXTERNAL_CHIPDB)
-    if(ICE40_HX1K_ONLY)
+    if (ICE40_HX1K_ONLY)
         set(devices 1k)
         foreach (target ${family_targets})
             target_compile_definitions(${target} PRIVATE ICE40_HX1K_ONLY=1)
@@ -19,6 +19,7 @@ if (NOT EXTERNAL_CHIPDB)
     if (MSVC)
         target_sources(ice40_chipdb PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/ice40/resource/embed.cc)
         set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/ice40/resources/chipdb.rc PROPERTIES LANGUAGE RC)
+        set(PREV_DEV_CC_BBA_DB)
         foreach (dev ${devices})
             if (dev STREQUAL "5k")
                 set(OPT_FAST "")
@@ -26,7 +27,7 @@ if (NOT EXTERNAL_CHIPDB)
             elseif (dev STREQUAL "u4k")
                 set(OPT_FAST "")
                 set(OPT_SLOW --slow ${ICEBOX_ROOT}/timings_u4k.txt)
-            elseif(dev STREQUAL "384")
+            elseif (dev STREQUAL "384")
                 set(OPT_FAST "")
                 set(OPT_SLOW --slow ${ICEBOX_ROOT}/timings_lp384.txt)
             else()
@@ -39,21 +40,25 @@ if (NOT EXTERNAL_CHIPDB)
             set(DEV_CONSTIDS_INC ${CMAKE_CURRENT_SOURCE_DIR}/ice40/constids.inc)
             set(DEV_GFXH ${CMAKE_CURRENT_SOURCE_DIR}/ice40/gfx.h)
             add_custom_command(OUTPUT ${DEV_CC_BBA_DB}
-                    COMMAND ${PYTHON_EXECUTABLE} ${DB_PY} -p ${DEV_CONSTIDS_INC} -g ${DEV_GFXH} ${OPT_FAST} ${OPT_SLOW} ${DEV_TXT_DB} > ${DEV_CC_BBA_DB}
-                    DEPENDS ${DEV_CONSTIDS_INC} ${DEV_GFXH} ${DEV_TXT_DB} ${DB_PY}
-                    )
+                COMMAND ${PYTHON_EXECUTABLE} ${DB_PY} -p ${DEV_CONSTIDS_INC} -g ${DEV_GFXH} ${OPT_FAST} ${OPT_SLOW} ${DEV_TXT_DB} > ${DEV_CC_BBA_DB}
+                DEPENDS ${DEV_CONSTIDS_INC} ${DEV_GFXH} ${DEV_TXT_DB} ${DB_PY} ${PREV_DEV_CC_BBA_DB}
+                )
             add_custom_command(OUTPUT ${DEV_CC_DB}
-                    COMMAND bbasm ${DEV_CC_BBA_DB} ${DEV_CC_DB}
-                    DEPENDS bbasm ${DEV_CC_BBA_DB}
-            )
+                COMMAND bbasm ${DEV_CC_BBA_DB} ${DEV_CC_DB}
+                DEPENDS bbasm ${DEV_CC_BBA_DB}
+                )
+            if (SERIALIZE_CHIPDB)
+                set(PREV_DEV_CC_BBA_DB ${DEV_CC_BBA_DB})
+            endif()
             target_sources(ice40_chipdb PRIVATE ${DEV_CC_DB})
             set_source_files_properties(${DEV_CC_DB} PROPERTIES HEADER_FILE_ONLY TRUE)
             foreach (target ${family_targets})
                 target_sources(${target} PRIVATE $<TARGET_OBJECTS:ice40_chipdb> ${CMAKE_CURRENT_SOURCE_DIR}/ice40/resource/chipdb.rc)
-            endforeach (target)
-        endforeach (dev)
+            endforeach()
+        endforeach()
     else()
         target_compile_options(ice40_chipdb PRIVATE -g0 -O0 -w)
+        set(PREV_DEV_CC_BBA_DB)
         foreach (dev ${devices})
             if (dev STREQUAL "5k")
                 set(OPT_FAST "")
@@ -61,7 +66,7 @@ if (NOT EXTERNAL_CHIPDB)
             elseif (dev STREQUAL "u4k")
                 set(OPT_FAST "")
                 set(OPT_SLOW --slow ${ICEBOX_ROOT}/timings_u4k.txt)
-            elseif(dev STREQUAL "384")
+            elseif (dev STREQUAL "384")
                 set(OPT_FAST "")
                 set(OPT_SLOW --slow ${ICEBOX_ROOT}/timings_lp384.txt)
             else()
@@ -74,19 +79,22 @@ if (NOT EXTERNAL_CHIPDB)
             set(DEV_CONSTIDS_INC ${CMAKE_CURRENT_SOURCE_DIR}/ice40/constids.inc)
             set(DEV_GFXH ${CMAKE_CURRENT_SOURCE_DIR}/ice40/gfx.h)
             add_custom_command(OUTPUT ${DEV_CC_BBA_DB}
-                    COMMAND ${PYTHON_EXECUTABLE} ${DB_PY} -p ${DEV_CONSTIDS_INC} -g ${DEV_GFXH} ${OPT_FAST} ${OPT_SLOW} ${DEV_TXT_DB} > ${DEV_CC_BBA_DB}.new
-                    COMMAND mv ${DEV_CC_BBA_DB}.new ${DEV_CC_BBA_DB}
-                    DEPENDS ${DEV_CONSTIDS_INC} ${DEV_GFXH} ${DEV_TXT_DB} ${DB_PY}
-            )
+                COMMAND ${PYTHON_EXECUTABLE} ${DB_PY} -p ${DEV_CONSTIDS_INC} -g ${DEV_GFXH} ${OPT_FAST} ${OPT_SLOW} ${DEV_TXT_DB} > ${DEV_CC_BBA_DB}.new
+                COMMAND mv ${DEV_CC_BBA_DB}.new ${DEV_CC_BBA_DB}
+                DEPENDS ${DEV_CONSTIDS_INC} ${DEV_GFXH} ${DEV_TXT_DB} ${DB_PY} ${PREV_DEV_CC_BBA_DB}
+                )
             add_custom_command(OUTPUT ${DEV_CC_DB}
-                    COMMAND bbasm --c ${DEV_CC_BBA_DB} ${DEV_CC_DB}.new
-                    COMMAND mv ${DEV_CC_DB}.new ${DEV_CC_DB}
-                    DEPENDS bbasm ${DEV_CC_BBA_DB}
-            )
+                COMMAND bbasm --c ${DEV_CC_BBA_DB} ${DEV_CC_DB}.new
+                COMMAND mv ${DEV_CC_DB}.new ${DEV_CC_DB}
+                DEPENDS bbasm ${DEV_CC_BBA_DB}
+                )
+            if (SERIALIZE_CHIPDB)
+                set(PREV_DEV_CC_BBA_DB ${DEV_CC_BBA_DB})
+            endif()
             target_sources(ice40_chipdb PRIVATE ${DEV_CC_DB})
             foreach (target ${family_targets})
                 target_sources(${target} PRIVATE $<TARGET_OBJECTS:ice40_chipdb>)
-            endforeach (target)
-        endforeach (dev)
+            endforeach()
+        endforeach()
     endif()
 endif()
