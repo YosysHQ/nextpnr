@@ -38,6 +38,7 @@ struct PlacerHeapCfg
     float alpha;
     float criticalityExponent;
     float timingWeight;
+    bool timing_driven;
 
     std::unordered_set<IdString> ioBufTypes;
 };

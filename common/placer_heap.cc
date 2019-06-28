@@ -234,7 +234,7 @@ class HeAPPlacer
                          std::chrono::duration<double>(run_stopt - run_startt).count());
             }
 
-            if (ctx->setting<bool>("timing_driven"))
+            if (cfg.timing_driven)
                 get_criticalities(ctx, &net_crit);
 
             if (legal_hpwl < best_hpwl) {
@@ -1521,6 +1521,7 @@ PlacerHeapCfg::PlacerHeapCfg(Context *ctx)
     alpha = ctx->setting<float>("placerHeap/alpha", 0.1);
     criticalityExponent = ctx->setting<int>("placerHeap/criticalityExponent", 2);
     timingWeight = ctx->setting<int>("placerHeap/timingWeight", 10);
+    timing_driven = ctx->setting<bool>("timing_driven");
 }
 
 NEXTPNR_NAMESPACE_END

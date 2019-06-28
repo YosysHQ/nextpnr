@@ -32,6 +32,8 @@ struct Placer1Cfg
     bool budgetBased;
     float startTemp;
     int timingFanoutThresh;
+    bool timing_driven;
+    int slack_redist_iter;
 };
 
 extern bool placer1(Context *ctx, Placer1Cfg cfg);
