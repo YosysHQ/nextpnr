@@ -34,7 +34,7 @@ class ECP5CommandHandler : public CommandHandler
   public:
     ECP5CommandHandler(int argc, char **argv);
     virtual ~ECP5CommandHandler(){};
-    std::unique_ptr<Context> createContext() override;
+    std::unique_ptr<Context> createContext(std::unordered_map<std::string, Property> &values) override;
     void setupArchContext(Context *ctx) override{};
     void customAfterLoad(Context *ctx) override;
     void validate() override;
@@ -98,9 +98,25 @@ void ECP5CommandHandler::customBitstream(Context *ctx)
     write_bitstream(ctx, basecfg, textcfg);
 }
 
-std::unique_ptr<Context> ECP5CommandHandler::createContext()
+static std::string speedString(ArchArgs::SpeedGrade speed)
 {
-    chipArgs.type = ArchArgs::LFE5U_45F;
+    switch (speed) {
+    case ArchArgs::SPEED_6:
+        return "6";
+    case ArchArgs::SPEED_7:
+        return "7";
+    case ArchArgs::SPEED_8:
+        return "8";
+    case ArchArgs::SPEED_8_5G:
+        return "8";
+    }
+    return "";
+}
+
+std::unique_ptr<Context> ECP5CommandHandler::createContext(std::unordered_map<std::string, Property> &values)
+{
+    ArchArgs chipArgs;
+    chipArgs.type = ArchArgs::NONE;
 
     if (vm.count("25k"))
         chipArgs.type = ArchArgs::LFE5U_25F;
@@ -122,34 +138,96 @@ std::unique_ptr<Context> ECP5CommandHandler::createContext()
         chipArgs.type = ArchArgs::LFE5UM5G_85F;
     if (vm.count("package"))
         chipArgs.package = vm["package"].as<std::string>();
-    else
+
+    if (vm.count("speed")) {
+        int speed = vm["speed"].as<int>();
+        switch (speed) {
+        case 6:
+            chipArgs.speed = ArchArgs::SPEED_6;
+            break;
+        case 7:
+            chipArgs.speed = ArchArgs::SPEED_7;
+            break;
+        case 8:
+            chipArgs.speed = ArchArgs::SPEED_8;
+            break;
+        default:
+            log_error("Unsupported speed grade '%d'\n", speed);
+        }
+    } else {
+        if (chipArgs.type == ArchArgs::LFE5UM5G_25F || chipArgs.type == ArchArgs::LFE5UM5G_45F ||
+            chipArgs.type == ArchArgs::LFE5UM5G_85F) {
+            chipArgs.speed = ArchArgs::SPEED_8;
+        } else
+            chipArgs.speed = ArchArgs::SPEED_6;
+    }
+    if (values.find("arch.name") != values.end()) {
+        std::string arch_name = values["arch.name"].str;
+        if (arch_name != "ecp5")
+            log_error("Unsuported architecture '%s'.\n", arch_name.c_str());
+    }
+    if (values.find("arch.type") != values.end()) {
+        std::string arch_type = values["arch.type"].str;
+        if (chipArgs.type != ArchArgs::NONE)
+            log_error("Overriding architecture is unsuported.\n");
+
+        if (arch_type == "lfe5u_25f")
+            chipArgs.type = ArchArgs::LFE5U_25F;
+        if (arch_type == "lfe5u_45f")
+            chipArgs.type = ArchArgs::LFE5U_45F;
+        if (arch_type == "lfe5u_85f")
+            chipArgs.type = ArchArgs::LFE5U_85F;
+        if (arch_type == "lfe5um_25f")
+            chipArgs.type = ArchArgs::LFE5UM_25F;
+        if (arch_type == "lfe5um_45f")
+            chipArgs.type = ArchArgs::LFE5UM_45F;
+        if (arch_type == "lfe5um_85f")
+            chipArgs.type = ArchArgs::LFE5UM_85F;
+        if (arch_type == "lfe5um5g_25f")
+            chipArgs.type = ArchArgs::LFE5UM5G_25F;
+        if (arch_type == "lfe5um5g_45f")
+            chipArgs.type = ArchArgs::LFE5UM5G_45F;
+        if (arch_type == "lfe5um5g_85f")
+            chipArgs.type = ArchArgs::LFE5UM5G_85F;
+
+        if (chipArgs.type == ArchArgs::NONE)
+            log_error("Unsuported FPGA type '%s'.\n", arch_type.c_str());
+    }
+    if (values.find("arch.package") != values.end()) {
+        if (vm.count("package"))
+            log_error("Overriding architecture is unsuported.\n");
+        chipArgs.package = values["arch.package"].str;
+    }
+    if (values.find("arch.speed") != values.end()) {
+        std::string arch_speed = values["arch.speed"].str;
+        if (arch_speed == "6")
+            chipArgs.speed = ArchArgs::SPEED_6;
+        else if (arch_speed == "7")
+            chipArgs.speed = ArchArgs::SPEED_7;
+        else if (arch_speed == "8")
+            chipArgs.speed = ArchArgs::SPEED_8;
+        else
+            log_error("Unsuported speed '%s'.\n", arch_speed.c_str());
+    }
+    if (chipArgs.type == ArchArgs::NONE)
+        chipArgs.type = ArchArgs::LFE5U_45F;
+
+    if (chipArgs.package.empty())
         chipArgs.package = "CABGA381";
+
     if (chipArgs.type == ArchArgs::LFE5UM5G_25F || chipArgs.type == ArchArgs::LFE5UM5G_45F ||
         chipArgs.type == ArchArgs::LFE5UM5G_85F) {
-        if (vm.count("speed") && vm["speed"].as<int>() != 8)
+        if (chipArgs.speed != ArchArgs::SPEED_8)
             log_error("Only speed grade 8 is available for 5G parts\n");
-        chipArgs.speed = ArchArgs::SPEED_8_5G;
-    } else {
-        if (vm.count("speed")) {
-            int speed = vm["speed"].as<int>();
-            switch (speed) {
-            case 6:
-                chipArgs.speed = ArchArgs::SPEED_6;
-                break;
-            case 7:
-                chipArgs.speed = ArchArgs::SPEED_7;
-                break;
-            case 8:
-                chipArgs.speed = ArchArgs::SPEED_8;
-                break;
-            default:
-                log_error("Unsupported speed grade '%d'\n", speed);
-            }
-        } else {
-            chipArgs.speed = ArchArgs::SPEED_6;
-        }
+        else
+            chipArgs.speed = ArchArgs::SPEED_8_5G;
     }
+
     auto ctx = std::unique_ptr<Context>(new Context(chipArgs));
+    for (auto &val : values)
+        ctx->settings[ctx->id(val.first)] = val.second;
+    ctx->settings[ctx->id("arch.package")] = ctx->archArgs().package;
+    ctx->settings[ctx->id("arch.speed")] = speedString(ctx->archArgs().speed);
     return ctx;
 }
 

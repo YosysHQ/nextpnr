@@ -27,7 +27,8 @@
 NEXTPNR_NAMESPACE_BEGIN
 
 extern bool parse_json_file(std::istream &, std::string &, Context *);
-
+extern bool load_json_settings(std::istream &f, std::string &filename,
+                               std::unordered_map<std::string, Property> &values);
 NEXTPNR_NAMESPACE_END
 
 #endif

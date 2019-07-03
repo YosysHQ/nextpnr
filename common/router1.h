@@ -20,12 +20,11 @@
 #ifndef ROUTER1_H
 #define ROUTER1_H
 
+#include "log.h"
 #include "nextpnr.h"
-#include "settings.h"
-
 NEXTPNR_NAMESPACE_BEGIN
 
-struct Router1Cfg : Settings
+struct Router1Cfg
 {
     Router1Cfg(Context *ctx);
 

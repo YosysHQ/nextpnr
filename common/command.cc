@@ -27,6 +27,7 @@
 #include "pybindings.h"
 #endif
 
+#include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/join.hpp>
 #include <boost/filesystem/convenience.hpp>
 #include <boost/program_options.hpp>
@@ -35,6 +36,7 @@
 #include "command.h"
 #include "design_utils.h"
 #include "jsonparse.h"
+#include "jsonwrite.h"
 #include "log.h"
 #include "timing.h"
 #include "util.h"
@@ -120,6 +122,7 @@ po::options_description CommandHandler::getGeneralOptions()
 
 #endif
     general.add_options()("json", po::value<std::string>(), "JSON design file to ingest");
+    general.add_options()("write", po::value<std::string>(), "JSON design file to write");
     general.add_options()("seed", po::value<int>(), "seed value for random number generator");
     general.add_options()("randomize-seed,r", "randomize seed value for random number generator");
 
@@ -135,6 +138,9 @@ po::options_description CommandHandler::getGeneralOptions()
     general.add_options()("placer-budgets", "use budget rather than criticality in placer timing weights");
 
     general.add_options()("pack-only", "pack design only without placement or routing");
+    general.add_options()("no-route", "process design without routing");
+    general.add_options()("no-place", "process design without placement");
+    general.add_options()("no-pack", "process design without packing");
 
     general.add_options()("ignore-loops", "ignore combinational loops in timing analysis");
 
@@ -143,13 +149,14 @@ po::options_description CommandHandler::getGeneralOptions()
     general.add_options()("freq", po::value<double>(), "set target frequency for design in MHz");
     general.add_options()("timing-allow-fail", "allow timing to fail in design");
     general.add_options()("no-tmdriv", "disable timing-driven placement");
-    general.add_options()("save", po::value<std::string>(), "project file to write");
-    general.add_options()("load", po::value<std::string>(), "project file to read");
     return general;
 }
 
 void CommandHandler::setupContext(Context *ctx)
 {
+    if (ctx->settings.find(ctx->id("seed")) != ctx->settings.end())
+        ctx->rngstate = ctx->setting<uint64_t>("seed");
+
     if (vm.count("verbose")) {
         ctx->verbose = true;
     }
@@ -177,9 +184,9 @@ void CommandHandler::setupContext(Context *ctx)
     }
 
     if (vm.count("slack_redist_iter")) {
-        ctx->slack_redist_iter = vm["slack_redist_iter"].as<int>();
+        ctx->settings[ctx->id("slack_redist_iter")] = vm["slack_redist_iter"].as<std::string>();
         if (vm.count("freq") && vm["freq"].as<double>() == 0) {
-            ctx->auto_freq = true;
+            ctx->settings[ctx->id("auto_freq")] = std::to_string(true);
 #ifndef NO_GUI
             if (!vm.count("gui"))
 #endif
@@ -188,11 +195,11 @@ void CommandHandler::setupContext(Context *ctx)
     }
 
     if (vm.count("ignore-loops")) {
-        settings->set("timing/ignoreLoops", true);
+        ctx->settings[ctx->id("timing/ignoreLoops")] = std::to_string(true);
     }
 
     if (vm.count("timing-allow-fail")) {
-        settings->set("timing/allowFail", true);
+        ctx->settings[ctx->id("timing/allowFail")] = std::to_string(true);
     }
 
     if (vm.count("placer")) {
@@ -201,30 +208,43 @@ void CommandHandler::setupContext(Context *ctx)
             Arch::availablePlacers.end())
             log_error("Placer algorithm '%s' is not supported (available options: %s)\n", placer.c_str(),
                       boost::algorithm::join(Arch::availablePlacers, ", ").c_str());
-        settings->set("placer", placer);
-    } else {
-        settings->set("placer", Arch::defaultPlacer);
+        ctx->settings[ctx->id("placer")] = placer;
     }
 
     if (vm.count("cstrweight")) {
-        settings->set("placer1/constraintWeight", vm["cstrweight"].as<float>());
+        ctx->settings[ctx->id("placer1/constraintWeight")] = std::to_string(vm["cstrweight"].as<float>());
     }
     if (vm.count("starttemp")) {
-        settings->set("placer1/startTemp", vm["starttemp"].as<float>());
+        ctx->settings[ctx->id("placer1/startTemp")] = std::to_string(vm["starttemp"].as<float>());
     }
 
     if (vm.count("placer-budgets")) {
-        settings->set("placer1/budgetBased", true);
+        ctx->settings[ctx->id("placer1/budgetBased")] = std::to_string(true);
     }
     if (vm.count("freq")) {
         auto freq = vm["freq"].as<double>();
         if (freq > 0)
-            ctx->target_freq = freq * 1e6;
+            ctx->settings[ctx->id("target_freq")] = std::to_string(freq * 1e6);
     }
 
-    ctx->timing_driven = true;
     if (vm.count("no-tmdriv"))
-        ctx->timing_driven = false;
+        ctx->settings[ctx->id("timing_driven")] = std::to_string(false);
+
+    // Setting default values
+    if (ctx->settings.find(ctx->id("target_freq")) == ctx->settings.end())
+        ctx->settings[ctx->id("target_freq")] = std::to_string(12e6);
+    if (ctx->settings.find(ctx->id("timing_driven")) == ctx->settings.end())
+        ctx->settings[ctx->id("timing_driven")] = std::to_string(true);
+    if (ctx->settings.find(ctx->id("slack_redist_iter")) == ctx->settings.end())
+        ctx->settings[ctx->id("slack_redist_iter")] = "0";
+    if (ctx->settings.find(ctx->id("auto_freq")) == ctx->settings.end())
+        ctx->settings[ctx->id("auto_freq")] = std::to_string(false);
+    if (ctx->settings.find(ctx->id("placer")) == ctx->settings.end())
+        ctx->settings[ctx->id("placer")] = Arch::defaultPlacer;
+
+    ctx->settings[ctx->id("arch.name")] = std::string(ctx->archId().c_str(ctx));
+    ctx->settings[ctx->id("arch.type")] = std::string(ctx->archArgsToId(ctx->archArgs()).c_str(ctx));
+    ctx->settings[ctx->id("seed")] = std::to_string(ctx->rngstate);
 }
 
 int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
@@ -237,19 +257,17 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
 #ifndef NO_GUI
     if (vm.count("gui")) {
         Application a(argc, argv, (vm.count("gui-no-aa") > 0));
-        MainWindow w(std::move(ctx), chipArgs);
+        MainWindow w(std::move(ctx), this);
         try {
             if (vm.count("json")) {
                 std::string filename = vm["json"].as<std::string>();
                 std::ifstream f(filename);
-                w.notifyChangeContext();
                 if (!parse_json_file(f, filename, w.getContext()))
                     log_error("Loading design failed.\n");
 
                 customAfterLoad(w.getContext());
-                w.updateLoaded();
-            } else if (vm.count("load")) {
-                w.projectLoad(vm["load"].as<std::string>());
+                w.notifyChangeContext();
+                w.updateActions();
             } else
                 w.notifyChangeContext();
         } catch (log_execution_error_exception) {
@@ -280,31 +298,42 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
             execute_python_file(filename.c_str());
     } else
 #endif
-            if (vm.count("json") || vm.count("load")) {
-        run_script_hook("pre-pack");
-        if (!ctx->pack() && !ctx->force)
-            log_error("Packing design failed.\n");
+            if (vm.count("json")) {
+        bool do_pack = vm.count("pack-only") != 0 || vm.count("no-pack") == 0;
+        bool do_place = vm.count("pack-only") == 0 && vm.count("no-place") == 0;
+        bool do_route = vm.count("pack-only") == 0 && vm.count("no-route") == 0;
+
+        if (do_pack) {
+            run_script_hook("pre-pack");
+            if (!ctx->pack() && !ctx->force)
+                log_error("Packing design failed.\n");
+        }
         assign_budget(ctx.get());
         ctx->check();
         print_utilisation(ctx.get());
-        run_script_hook("pre-place");
 
-        if (!vm.count("pack-only")) {
+        if (do_place) {
+            run_script_hook("pre-place");
             if (!ctx->place() && !ctx->force)
                 log_error("Placing design failed.\n");
             ctx->check();
-            run_script_hook("pre-route");
+        }
 
+        if (do_route) {
+            run_script_hook("pre-route");
             if (!ctx->route() && !ctx->force)
                 log_error("Routing design failed.\n");
+            run_script_hook("post-route");
         }
-        run_script_hook("post-route");
 
         customBitstream(ctx.get());
     }
 
-    if (vm.count("save")) {
-        project.save(ctx.get(), vm["save"].as<std::string>());
+    if (vm.count("write")) {
+        std::string filename = vm["write"].as<std::string>();
+        std::ofstream f(filename);
+        if (!write_json_file(f, filename, ctx.get()))
+            log_error("Saving design failed.\n");
     }
 
 #ifndef NO_PYTHON
@@ -341,13 +370,14 @@ int CommandHandler::exec()
         if (executeBeforeContext())
             return 0;
 
-        std::unique_ptr<Context> ctx;
-        if (vm.count("load") && vm.count("gui") == 0) {
-            ctx = project.load(vm["load"].as<std::string>());
-        } else {
-            ctx = createContext();
+        std::unordered_map<std::string, Property> values;
+        if (vm.count("json")) {
+            std::string filename = vm["json"].as<std::string>();
+            std::ifstream f(filename);
+            if (!load_json_settings(f, filename, values))
+                log_error("Loading design failed.\n");
         }
-        settings = std::unique_ptr<Settings>(new Settings(ctx.get()));
+        std::unique_ptr<Context> ctx = createContext(values);
         setupContext(ctx.get());
         setupArchContext(ctx.get());
         int rc = executeMain(std::move(ctx));
@@ -357,6 +387,27 @@ int CommandHandler::exec()
         printFooter();
         return -1;
     }
+}
+
+std::unique_ptr<Context> CommandHandler::load_json(std::string filename)
+{
+    vm.clear();
+    std::unordered_map<std::string, Property> values;
+    {
+        std::ifstream f(filename);
+        if (!load_json_settings(f, filename, values))
+            log_error("Loading design failed.\n");
+    }
+    std::unique_ptr<Context> ctx = createContext(values);
+    setupContext(ctx.get());
+    setupArchContext(ctx.get());
+    {
+        std::ifstream f(filename);
+        if (!parse_json_file(f, filename, ctx.get()))
+            log_error("Loading design failed.\n");
+    }
+    customAfterLoad(ctx.get());
+    return ctx;
 }
 
 void CommandHandler::run_script_hook(const std::string &name)

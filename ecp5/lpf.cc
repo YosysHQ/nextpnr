@@ -133,7 +133,7 @@ bool Arch::applyLPF(std::string filename, std::istream &in)
         }
         if (!isempty(linebuf))
             log_error("unexpected end of LPF file\n");
-        settings.emplace(id("input/lpf"), filename);
+        settings[id("input/lpf")] = filename;
         return true;
     } catch (log_execution_error_exception) {
         return false;

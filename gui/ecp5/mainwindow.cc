@@ -30,8 +30,8 @@ static void initMainResource() { Q_INIT_RESOURCE(nextpnr); }
 
 NEXTPNR_NAMESPACE_BEGIN
 
-MainWindow::MainWindow(std::unique_ptr<Context> context, ArchArgs args, QWidget *parent)
-        : BaseMainWindow(std::move(context), args, parent)
+MainWindow::MainWindow(std::unique_ptr<Context> context, CommandHandler *handler, QWidget *parent)
+        : BaseMainWindow(std::move(context), handler, parent)
 {
     initMainResource();
 
@@ -47,7 +47,7 @@ MainWindow::~MainWindow() {}
 
 void MainWindow::newContext(Context *ctx)
 {
-    std::string title = "nextpnr-generic - " + ctx->getChipName() + " ( " + chipArgs.package + " )";
+    std::string title = "nextpnr-ecp5 - " + ctx->getChipName() + " ( " + ctx->archArgs().package + " )";
     setWindowTitle(title.c_str());
 }
 
@@ -60,12 +60,6 @@ void MainWindow::createMenu()
     actionLoadLPF->setEnabled(false);
     connect(actionLoadLPF, &QAction::triggered, this, &MainWindow::open_lpf);
 
-    actionLoadBase = new QAction("Open Base Config", this);
-    actionLoadBase->setIcon(QIcon(":/icons/resources/open_base.png"));
-    actionLoadBase->setStatusTip("Open Base Config file");
-    actionLoadBase->setEnabled(false);
-    connect(actionLoadBase, &QAction::triggered, this, &MainWindow::open_base);
-
     actionSaveConfig = new QAction("Save Bitstream", this);
     actionSaveConfig->setIcon(QIcon(":/icons/resources/save_config.png"));
     actionSaveConfig->setStatusTip("Save Bitstream config file");
@@ -75,12 +69,10 @@ void MainWindow::createMenu()
     // Add actions in menus
     mainActionBar->addSeparator();
     mainActionBar->addAction(actionLoadLPF);
-    mainActionBar->addAction(actionLoadBase);
     mainActionBar->addAction(actionSaveConfig);
 
     menuDesign->addSeparator();
     menuDesign->addAction(actionLoadLPF);
-    menuDesign->addAction(actionLoadBase);
     menuDesign->addAction(actionSaveConfig);
 }
 
@@ -121,7 +113,7 @@ void MainWindow::new_proj()
     bool ok;
     QString item = QInputDialog::getItem(this, "Select new context", "Chip:", arch.keys(), 0, false, &ok);
     if (ok && !item.isEmpty()) {
-
+        ArchArgs chipArgs;
         chipArgs.type = (ArchArgs::ArchArgsTypes)arch.value(item);
 
         QString package = QInputDialog::getItem(this, "Select package", "Package:", getSupportedPackages(chipArgs.type),
@@ -137,13 +129,6 @@ void MainWindow::new_proj()
             Q_EMIT contextChanged(ctx.get());
         }
     }
-}
-
-void MainWindow::load_base_config(std::string filename)
-{
-    disableActions();
-    currentBaseConfig = filename;
-    actionSaveConfig->setEnabled(true);
 }
 
 void MainWindow::open_lpf()
@@ -162,21 +147,13 @@ void MainWindow::open_lpf()
     }
 }
 
-void MainWindow::open_base()
-{
-    QString fileName = QFileDialog::getOpenFileName(this, QString("Open Base Config"), QString(), QString("*.config"));
-    if (!fileName.isEmpty()) {
-        load_base_config(fileName.toStdString());
-    }
-}
-
 void MainWindow::save_config()
 {
     QString fileName = QFileDialog::getSaveFileName(this, QString("Save Bitstream"), QString(), QString("*.config"));
     if (!fileName.isEmpty()) {
         std::string fn = fileName.toStdString();
         disableActions();
-        write_bitstream(ctx.get(), currentBaseConfig, fileName.toStdString());
+        write_bitstream(ctx.get(), "", fileName.toStdString());
         log("Saving Bitstream successful.\n");
     }
 }
@@ -184,18 +161,15 @@ void MainWindow::save_config()
 void MainWindow::onDisableActions()
 {
     actionLoadLPF->setEnabled(false);
-    actionLoadBase->setEnabled(false);
     actionSaveConfig->setEnabled(false);
 }
 
-void MainWindow::onJsonLoaded() { actionLoadLPF->setEnabled(true); }
-
-void MainWindow::onRouteFinished() { actionLoadBase->setEnabled(true); }
-
-void MainWindow::onProjectLoaded()
+void MainWindow::onUpdateActions()
 {
-    if (ctx->settings.find(ctx->id("input/lpf")) != ctx->settings.end())
-        actionLoadLPF->setEnabled(false);
+    if (ctx->settings.find(ctx->id("pack")) == ctx->settings.end())
+        actionLoadLPF->setEnabled(true);
+    if (ctx->settings.find(ctx->id("route")) != ctx->settings.end())
+        actionSaveConfig->setEnabled(true);
 }
 
 NEXTPNR_NAMESPACE_END

@@ -219,7 +219,7 @@ class SAPlacer
             if ((placed_cells - constr_placed_cells) % 500 != 0)
                 log_info("  initial placement placed %d/%d cells\n", int(placed_cells - constr_placed_cells),
                          int(autoplaced.size()));
-            if (cfg.budgetBased && ctx->slack_redist_iter > 0)
+            if (cfg.budgetBased && cfg.slack_redist_iter > 0)
                 assign_budget(ctx);
             ctx->yield();
             auto iplace_end = std::chrono::high_resolution_clock::now();
@@ -370,16 +370,16 @@ class SAPlacer
                     ctx->shuffle(autoplaced);
 
                     // Legalisation is a big change so force a slack redistribution here
-                    if (ctx->slack_redist_iter > 0 && cfg.budgetBased)
+                    if (cfg.slack_redist_iter > 0 && cfg.budgetBased)
                         assign_budget(ctx, true /* quiet */);
                 }
                 require_legal = false;
-            } else if (cfg.budgetBased && ctx->slack_redist_iter > 0 && iter % ctx->slack_redist_iter == 0) {
+            } else if (cfg.budgetBased && cfg.slack_redist_iter > 0 && iter % cfg.slack_redist_iter == 0) {
                 assign_budget(ctx, true /* quiet */);
             }
 
             // Invoke timing analysis to obtain criticalities
-            if (!cfg.budgetBased && ctx->timing_driven)
+            if (!cfg.budgetBased && cfg.timing_driven)
                 get_criticalities(ctx, &net_crit);
             // Need to rebuild costs after criticalities change
             setup_costs();
@@ -804,7 +804,7 @@ class SAPlacer
             if (ignore_net(ni))
                 continue;
             net_bounds[ni->udata] = get_net_bounds(ni);
-            if (ctx->timing_driven && int(ni->users.size()) < cfg.timingFanoutThresh)
+            if (cfg.timing_driven && int(ni->users.size()) < cfg.timingFanoutThresh)
                 for (size_t i = 0; i < ni->users.size(); i++)
                     net_arc_tcost[ni->udata][i] = get_timing_cost(ni, i);
         }
@@ -1021,7 +1021,7 @@ class SAPlacer
                 }
             }
 
-            if (ctx->timing_driven && int(pn->users.size()) < cfg.timingFanoutThresh) {
+            if (cfg.timing_driven && int(pn->users.size()) < cfg.timingFanoutThresh) {
                 // Output ports - all arcs change timing
                 if (port.second.type == PORT_OUT) {
                     int cc;
@@ -1061,7 +1061,7 @@ class SAPlacer
             if (md.already_bounds_changed_x[bc] == MoveChangeData::NO_CHANGE)
                 md.wirelen_delta += md.new_net_bounds[bc].hpwl() - net_bounds[bc].hpwl();
 
-        if (ctx->timing_driven) {
+        if (cfg.timing_driven) {
             for (const auto &tc : md.changed_arcs) {
                 double old_cost = net_arc_tcost.at(tc.first).at(tc.second);
                 double new_cost = get_timing_cost(net_by_udata.at(tc.first), tc.second);
@@ -1131,13 +1131,15 @@ class SAPlacer
     Placer1Cfg cfg;
 };
 
-Placer1Cfg::Placer1Cfg(Context *ctx) : Settings(ctx)
+Placer1Cfg::Placer1Cfg(Context *ctx)
 {
-    constraintWeight = get<float>("placer1/constraintWeight", 10);
-    minBelsForGridPick = get<int>("placer1/minBelsForGridPick", 64);
-    budgetBased = get<bool>("placer1/budgetBased", false);
-    startTemp = get<float>("placer1/startTemp", 1);
+    constraintWeight = ctx->setting<float>("placer1/constraintWeight", 10);
+    minBelsForGridPick = ctx->setting<int>("placer1/minBelsForGridPick", 64);
+    budgetBased = ctx->setting<bool>("placer1/budgetBased", false);
+    startTemp = ctx->setting<float>("placer1/startTemp", 1);
     timingFanoutThresh = std::numeric_limits<int>::max();
+    timing_driven = ctx->setting<bool>("timing_driven");
+    slack_redist_iter = ctx->setting<int>("slack_redist_iter");
 }
 
 bool placer1(Context *ctx, Placer1Cfg cfg)

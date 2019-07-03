@@ -68,7 +68,7 @@ void Worker::budget(double freq)
 {
     Q_EMIT taskStarted();
     try {
-        ctx->target_freq = freq;
+        ctx->settings[ctx->id("target_freq")] = std::to_string(freq);
         assign_budget(ctx);
         Q_EMIT budget_finish(true);
     } catch (WorkerInterruptionRequested) {
@@ -80,7 +80,7 @@ void Worker::place(bool timing_driven)
 {
     Q_EMIT taskStarted();
     try {
-        ctx->timing_driven = timing_driven;
+        ctx->settings[ctx->id("timing_driven")] = std::to_string(timing_driven);
         Q_EMIT place_finished(ctx->place());
     } catch (WorkerInterruptionRequested) {
         Q_EMIT taskCanceled();

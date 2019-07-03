@@ -341,6 +341,11 @@ static void pack_constants(Context *ctx)
     gnd_net->driver.port = ctx->id("O");
     gnd_cell->ports.at(ctx->id("O")).net = gnd_net.get();
 
+    NetInfo *gnd_net_info = gnd_net.get();
+    if (ctx->nets.find(ctx->id("$PACKER_GND_NET")) != ctx->nets.end()) {
+        gnd_net_info = ctx->nets.find(ctx->id("$PACKER_GND_NET"))->second.get();
+    }
+
     std::unique_ptr<CellInfo> vcc_cell = create_ice_cell(ctx, ctx->id("ICESTORM_LC"), "$PACKER_VCC");
     vcc_cell->params[ctx->id("LUT_INIT")] = "1";
     std::unique_ptr<NetInfo> vcc_net = std::unique_ptr<NetInfo>(new NetInfo);
@@ -348,6 +353,11 @@ static void pack_constants(Context *ctx)
     vcc_net->driver.cell = vcc_cell.get();
     vcc_net->driver.port = ctx->id("O");
     vcc_cell->ports.at(ctx->id("O")).net = vcc_net.get();
+
+    NetInfo *vcc_net_info = vcc_net.get();
+    if (ctx->nets.find(ctx->id("$PACKER_VCC_NET")) != ctx->nets.end()) {
+        vcc_net_info = ctx->nets.find(ctx->id("$PACKER_VCC_NET"))->second.get();
+    }
 
     std::vector<IdString> dead_nets;
 
@@ -357,26 +367,28 @@ static void pack_constants(Context *ctx)
         NetInfo *ni = net.second;
         if (ni->driver.cell != nullptr && ni->driver.cell->type == ctx->id("GND")) {
             IdString drv_cell = ni->driver.cell->name;
-            set_net_constant(ctx, ni, gnd_net.get(), false);
+            set_net_constant(ctx, ni, gnd_net_info, false);
             gnd_used = true;
             dead_nets.push_back(net.first);
             ctx->cells.erase(drv_cell);
         } else if (ni->driver.cell != nullptr && ni->driver.cell->type == ctx->id("VCC")) {
             IdString drv_cell = ni->driver.cell->name;
-            set_net_constant(ctx, ni, vcc_net.get(), true);
+            set_net_constant(ctx, ni, vcc_net_info, true);
             dead_nets.push_back(net.first);
             ctx->cells.erase(drv_cell);
         }
     }
 
-    if (gnd_used) {
+    if (gnd_used && (gnd_net_info == gnd_net.get())) {
         ctx->cells[gnd_cell->name] = std::move(gnd_cell);
         ctx->nets[gnd_net->name] = std::move(gnd_net);
     }
     // Vcc cell always inserted for now, as it may be needed during carry legalisation (TODO: trim later if actually
     // never used?)
-    ctx->cells[vcc_cell->name] = std::move(vcc_cell);
-    ctx->nets[vcc_net->name] = std::move(vcc_net);
+    if (vcc_net_info == vcc_net.get()) {
+        ctx->cells[vcc_cell->name] = std::move(vcc_cell);
+        ctx->nets[vcc_net->name] = std::move(vcc_net);
+    }
 
     for (auto dn : dead_nets) {
         ctx->nets.erase(dn);
@@ -1224,13 +1236,14 @@ static void pack_special(Context *ctx)
                 }
 
             auto feedback_path = packed->params[ctx->id("FEEDBACK_PATH")];
-            std::string fbp_value = feedback_path == "DELAY"
-                                            ? "0"
-                                            : feedback_path == "SIMPLE"
-                                                      ? "1"
-                                                      : feedback_path == "PHASE_AND_DELAY"
-                                                                ? "2"
-                                                                : feedback_path == "EXTERNAL" ? "6" : feedback_path;
+            std::string fbp_value =
+                    feedback_path == "DELAY"
+                            ? "0"
+                            : feedback_path == "SIMPLE"
+                                      ? "1"
+                                      : feedback_path == "PHASE_AND_DELAY"
+                                                ? "2"
+                                                : feedback_path == "EXTERNAL" ? "6" : std::string(feedback_path);
             if (!std::all_of(fbp_value.begin(), fbp_value.end(), isdigit))
                 log_error("PLL '%s' has unsupported FEEDBACK_PATH value '%s'\n", ci->name.c_str(ctx),
                           feedback_path.c_str());
@@ -1435,6 +1448,8 @@ bool Arch::pack()
         ctx->assignArchInfo();
         constrain_chains(ctx);
         ctx->assignArchInfo();
+        ctx->settings[ctx->id("pack")] = "1";
+        archInfoToAttributes();
         log_info("Checksum: 0x%08x\n", ctx->checksum());
         return true;
     } catch (log_execution_error_exception) {

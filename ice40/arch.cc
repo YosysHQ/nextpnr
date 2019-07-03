@@ -683,16 +683,24 @@ bool Arch::place()
     } else {
         log_error("iCE40 architecture does not support placer '%s'\n", placer.c_str());
     }
+    bool retVal = true;
     if (bool_or_default(settings, id("opt_timing"), false)) {
         TimingOptCfg tocfg(getCtx());
         tocfg.cellTypes.insert(id_ICESTORM_LC);
-        return timing_opt(getCtx(), tocfg);
-    } else {
-        return true;
+        retVal = timing_opt(getCtx(), tocfg);
     }
+    getCtx()->settings[getCtx()->id("place")] = "1";
+    archInfoToAttributes();
+    return retVal;
 }
 
-bool Arch::route() { return router1(getCtx(), Router1Cfg(getCtx())); }
+bool Arch::route()
+{
+    bool retVal = router1(getCtx(), Router1Cfg(getCtx()));
+    getCtx()->settings[getCtx()->id("route")] = "1";
+    archInfoToAttributes();
+    return retVal;
+}
 
 // -----------------------------------------------------------------------
 

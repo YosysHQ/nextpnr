@@ -1508,7 +1508,8 @@ class Ecp5Packer
 
                 std::unique_ptr<NetInfo> promoted_ecknet(new NetInfo);
                 promoted_ecknet->name = eckname;
-                promoted_ecknet->is_global = true; // Prevents router etc touching this special net
+                promoted_ecknet->attrs[ctx->id("ECP5_IS_GLOBAL")] =
+                        "1"; // Prevents router etc touching this special net
                 eclk.buf = promoted_ecknet.get();
                 NPNR_ASSERT(!ctx->nets.count(eckname));
                 ctx->nets[eckname] = std::move(promoted_ecknet);
@@ -1654,7 +1655,7 @@ class Ecp5Packer
                                       port.c_str(ctx), ci->name.c_str(ctx), usr.port.c_str(ctx),
                                       usr.cell->name.c_str(ctx));
                     }
-                    pn->is_global = true;
+                    pn->attrs[ctx->id("ECP5_IS_GLOBAL")] = "1";
                 }
 
                 for (auto zport :
@@ -1896,7 +1897,7 @@ class Ecp5Packer
                 iol->params[ctx->id("DELAY.DEL_VALUE")] =
                         std::to_string(lookup_delay(str_or_default(ci->params, ctx->id("DEL_MODE"), "USER_DEFINED")));
                 if (ci->params.count(ctx->id("DEL_VALUE")) &&
-                    ci->params.at(ctx->id("DEL_VALUE")).substr(0, 5) != "DELAY")
+                    std::string(ci->params.at(ctx->id("DEL_VALUE"))).substr(0, 5) != "DELAY")
                     iol->params[ctx->id("DELAY.DEL_VALUE")] = ci->params.at(ctx->id("DEL_VALUE"));
                 if (ci->ports.count(id_LOADN))
                     replace_port(ci, id_LOADN, iol, id_LOADN);
@@ -2428,6 +2429,8 @@ bool Arch::pack()
         Ecp5Packer(ctx).pack();
         log_info("Checksum: 0x%08x\n", ctx->checksum());
         assignArchInfo();
+        ctx->settings[ctx->id("pack")] = "1";
+        archInfoToAttributes();
         return true;
     } catch (log_execution_error_exception) {
         assignArchInfo();
@@ -2468,6 +2471,9 @@ void Arch::assignArchInfo()
                 ci->ports[id_FXA].net->driver.port == id_OFX0)
                 ci->sliceInfo.has_l6mux = true;
         }
+    }
+    for (auto net : sorted(nets)) {
+        net.second->is_global = bool_or_default(net.second->attrs, id("ECP5_IS_GLOBAL"));
     }
 }
 

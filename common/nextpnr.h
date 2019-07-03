@@ -32,6 +32,7 @@
 #include <vector>
 
 #include <boost/functional/hash.hpp>
+#include <boost/lexical_cast.hpp>
 
 #ifndef NEXTPNR_H
 #define NEXTPNR_H
@@ -286,6 +287,44 @@ struct PipMap
     PlaceStrength strength = STRENGTH_NONE;
 };
 
+struct Property
+{
+    bool is_string;
+
+    std::string str;
+    int num;
+
+    std::string::iterator begin() { return str.begin(); }
+    std::string::iterator end() { return str.end(); }
+
+    bool isString() const { return is_string; }
+
+    void setNumber(int val)
+    {
+        is_string = false;
+        num = val;
+        str = std::to_string(val);
+    }
+    void setString(std::string val)
+    {
+        is_string = true;
+        str = val;
+    }
+
+    const char *c_str() const { return str.c_str(); }
+    operator std::string() const { return str; }
+
+    bool operator==(const std::string other) const { return str == other; }
+    bool operator!=(const std::string other) const { return str != other; }
+
+    Property &operator=(std::string other)
+    {
+        is_string = true;
+        str = other;
+        return *this;
+    }
+};
+
 struct ClockConstraint;
 
 struct NetInfo : ArchNetInfo
@@ -295,7 +334,7 @@ struct NetInfo : ArchNetInfo
 
     PortRef driver;
     std::vector<PortRef> users;
-    std::unordered_map<IdString, std::string> attrs;
+    std::unordered_map<IdString, Property> attrs;
 
     // wire -> uphill_pip
     std::unordered_map<WireId, PipMap> wires;
@@ -328,7 +367,7 @@ struct CellInfo : ArchCellInfo
     int32_t udata;
 
     std::unordered_map<IdString, PortInfo> ports;
-    std::unordered_map<IdString, std::string> attrs, params;
+    std::unordered_map<IdString, Property> attrs, params;
 
     BelId bel;
     PlaceStrength belStrength = STRENGTH_NONE;
@@ -506,14 +545,20 @@ struct BaseCtx
     mutable std::vector<const std::string *> *idstring_idx_to_str;
 
     // Project settings and config switches
-    std::unordered_map<IdString, std::string> settings;
+    std::unordered_map<IdString, Property> settings;
 
     // Placed nets and cells.
     std::unordered_map<IdString, std::unique_ptr<NetInfo>> nets;
     std::unordered_map<IdString, std::unique_ptr<CellInfo>> cells;
 
+    // Top-level ports
+    std::unordered_map<IdString, PortInfo> ports;
+
     // Floorplanning regions
     std::unordered_map<IdString, std::unique_ptr<Region>> region;
+
+    // Context meta data
+    std::unordered_map<IdString, Property> attrs;
 
     BaseCtx()
     {
@@ -646,6 +691,9 @@ struct BaseCtx
 
     // Workaround for lack of wrappable constructors
     DecalXY constructDecalXY(DecalId decal, float x, float y);
+
+    void archInfoToAttributes();
+    void attributesToArchInfo();
 };
 
 NEXTPNR_NAMESPACE_END
@@ -659,10 +707,6 @@ struct Context : Arch, DeterministicRNG
     bool verbose = false;
     bool debug = false;
     bool force = false;
-    bool timing_driven = true;
-    float target_freq = 12e6;
-    bool auto_freq = false;
-    int slack_redist_iter = 0;
 
     Context(ArchArgs args) : Arch(args) {}
 
@@ -683,6 +727,26 @@ struct Context : Arch, DeterministicRNG
 
     void check() const;
     void archcheck() const;
+
+    template <typename T> T setting(const char *name, T defaultValue)
+    {
+        IdString new_id = id(name);
+        if (settings.find(new_id) != settings.end())
+            return boost::lexical_cast<T>(settings.find(new_id)->second.str);
+        else
+            settings[id(name)] = std::to_string(defaultValue);
+
+        return defaultValue;
+    }
+
+    template <typename T> T setting(const char *name) const
+    {
+        IdString new_id = id(name);
+        if (settings.find(new_id) != settings.end())
+            return boost::lexical_cast<T>(settings.find(new_id)->second.str);
+        else
+            throw std::runtime_error("settings does not exists");
+    }
 };
 
 NEXTPNR_NAMESPACE_END

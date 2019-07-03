@@ -17,29 +17,17 @@
  *
  */
 
-#ifndef PROJECT_H
-#define PROJECT_H
+#ifndef JSON_WRITER
+#define JSON_WRITER
 
-#include <boost/filesystem/convenience.hpp>
-#include <boost/property_tree/ptree.hpp>
+#include <ostream>
+#include <string>
 #include "nextpnr.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
-namespace pt = boost::property_tree;
-
-struct ProjectHandler
-{
-    void save(Context *ctx, std::string filename);
-    std::unique_ptr<Context> load(std::string filename);
-    // implemented per arch
-    void saveArch(Context *ctx, pt::ptree &root, std::string path);
-    std::unique_ptr<Context> createContext(pt::ptree &root);
-    void loadArch(Context *ctx, pt::ptree &root, std::string path);
-};
-
-boost::filesystem::path make_relative(boost::filesystem::path child, boost::filesystem::path parent);
+extern bool write_json_file(std::ostream &, std::string &, Context *);
 
 NEXTPNR_NAMESPACE_END
 
-#endif // PROJECT_H
+#endif

@@ -22,9 +22,9 @@
 #define COMMAND_H
 
 #include <boost/program_options.hpp>
+#include <fstream>
+#include "log.h"
 #include "nextpnr.h"
-#include "project.h"
-#include "settings.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -37,10 +37,11 @@ class CommandHandler
     virtual ~CommandHandler(){};
 
     int exec();
+    std::unique_ptr<Context> load_json(std::string filename);
 
   protected:
     virtual void setupArchContext(Context *ctx) = 0;
-    virtual std::unique_ptr<Context> createContext() = 0;
+    virtual std::unique_ptr<Context> createContext(std::unordered_map<std::string, Property> &values) = 0;
     virtual po::options_description getArchOptions() = 0;
     virtual void validate(){};
     virtual void customAfterLoad(Context *ctx){};
@@ -58,15 +59,12 @@ class CommandHandler
 
   protected:
     po::variables_map vm;
-    ArchArgs chipArgs;
-    std::unique_ptr<Settings> settings;
 
   private:
     po::options_description options;
     po::positional_options_description pos;
     int argc;
     char **argv;
-    ProjectHandler project;
     std::ofstream logfile;
 };
 

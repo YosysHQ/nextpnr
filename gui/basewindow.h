@@ -20,6 +20,7 @@
 #ifndef BASEMAINWINDOW_H
 #define BASEMAINWINDOW_H
 
+#include "command.h"
 #include "nextpnr.h"
 #include "worker.h"
 
@@ -45,25 +46,19 @@ class BaseMainWindow : public QMainWindow
     Q_OBJECT
 
   public:
-    explicit BaseMainWindow(std::unique_ptr<Context> context, ArchArgs args, QWidget *parent = 0);
+    explicit BaseMainWindow(std::unique_ptr<Context> context, CommandHandler *handler, QWidget *parent = 0);
     virtual ~BaseMainWindow();
     Context *getContext() { return ctx.get(); }
-    void updateLoaded();
-    void projectLoad(std::string filename);
+    void updateActions();
+
     void notifyChangeContext();
 
   protected:
     void createMenusAndBars();
     void disableActions();
-    void load_json(std::string filename);
 
     virtual void onDisableActions(){};
-    virtual void onJsonLoaded(){};
-    virtual void onProjectLoaded(){};
-    virtual void onPackFinished(){};
-    virtual void onBudgetFinished(){};
-    virtual void onPlaceFinished(){};
-    virtual void onRouteFinished(){};
+    virtual void onUpdateActions(){};
 
   protected Q_SLOTS:
     void writeInfo(std::string text);
@@ -71,10 +66,8 @@ class BaseMainWindow : public QMainWindow
 
     virtual void new_proj() = 0;
 
-    void open_proj();
-    void save_proj();
-
     void open_json();
+    void save_json();
     void budget();
     void place();
 
@@ -95,7 +88,7 @@ class BaseMainWindow : public QMainWindow
 
   protected:
     // state variables
-    ArchArgs chipArgs;
+    CommandHandler *handler;
     std::unique_ptr<Context> ctx;
     TaskManager *task;
     bool timing_driven;
@@ -116,10 +109,9 @@ class BaseMainWindow : public QMainWindow
     QProgressBar *progressBar;
 
     QAction *actionNew;
-    QAction *actionOpen;
-    QAction *actionSave;
-
     QAction *actionLoadJSON;
+    QAction *actionSaveJSON;
+
     QAction *actionPack;
     QAction *actionAssignBudget;
     QAction *actionPlace;

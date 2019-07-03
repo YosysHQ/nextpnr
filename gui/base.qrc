@@ -22,6 +22,7 @@
         <file>resources/route.png</file>
         <file>resources/time_add.png</file>
         <file>resources/open_json.png</file>
+        <file>resources/save_json.png</file>
 		<file>resources/py.png</file>
     </qresource>
 </RCC>

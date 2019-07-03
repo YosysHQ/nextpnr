@@ -18,6 +18,7 @@
  */
 
 #include "nextpnr.h"
+#include <boost/algorithm/string.hpp>
 #include "log.h"
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -451,6 +452,120 @@ DecalXY BaseCtx::constructDecalXY(DecalId decal, float x, float y)
     dxy.x = x;
     dxy.y = y;
     return dxy;
+}
+
+void BaseCtx::archInfoToAttributes()
+{
+    for (auto &cell : cells) {
+        auto ci = cell.second.get();
+        if (ci->bel != BelId()) {
+            if (ci->attrs.find(id("BEL")) != ci->attrs.end()) {
+                ci->attrs.erase(ci->attrs.find(id("BEL")));
+            }
+            ci->attrs[id("NEXTPNR_BEL")] = getCtx()->getBelName(ci->bel).c_str(this);
+            ci->attrs[id("BEL_STRENGTH")] = std::to_string((int)ci->belStrength);
+        }
+        if (ci->constr_x != ci->UNCONSTR)
+            ci->attrs[id("CONSTR_X")] = std::to_string(ci->constr_x);
+        if (ci->constr_y != ci->UNCONSTR)
+            ci->attrs[id("CONSTR_Y")] = std::to_string(ci->constr_y);
+        if (ci->constr_z != ci->UNCONSTR) {
+            ci->attrs[id("CONSTR_Z")] = std::to_string(ci->constr_z);
+            ci->attrs[id("CONSTR_ABS_Z")] = std::to_string(ci->constr_abs_z ? 1 : 0);
+        }
+        if (ci->constr_parent != nullptr)
+            ci->attrs[id("CONSTR_PARENT")] = ci->constr_parent->name.c_str(this);
+        if (!ci->constr_children.empty()) {
+            std::string constr = "";
+            for (auto &item : ci->constr_children) {
+                if (!constr.empty())
+                    constr += std::string(";");
+                constr += item->name.c_str(this);
+            }
+            ci->attrs[id("CONSTR_CHILDREN")] = constr;
+        }
+    }
+    for (auto &net : getCtx()->nets) {
+        auto ni = net.second.get();
+        std::string routing;
+        bool first = true;
+        for (auto &item : ni->wires) {
+            if (!first)
+                routing += ";";
+            routing += getCtx()->getWireName(item.first).c_str(this);
+            routing += ";";
+            if (item.second.pip != PipId())
+                routing += getCtx()->getPipName(item.second.pip).c_str(this);
+            routing += ";" + std::to_string(item.second.strength);
+            first = false;
+        }
+        ni->attrs[id("ROUTING")] = routing;
+    }
+}
+
+void BaseCtx::attributesToArchInfo()
+{
+    for (auto &cell : cells) {
+        auto ci = cell.second.get();
+        auto val = ci->attrs.find(id("NEXTPNR_BEL"));
+        if (val != ci->attrs.end()) {
+            auto str = ci->attrs.find(id("BEL_STRENGTH"));
+            PlaceStrength strength = PlaceStrength::STRENGTH_USER;
+            if (str != ci->attrs.end())
+                strength = (PlaceStrength)std::stoi(str->second.str);
+
+            BelId b = getCtx()->getBelByName(id(val->second.str));
+            getCtx()->bindBel(b, ci, strength);
+        }
+        val = ci->attrs.find(id("CONSTR_X"));
+        if (val != ci->attrs.end())
+            ci->constr_x = std::stoi(val->second.str);
+
+        val = ci->attrs.find(id("CONSTR_Y"));
+        if (val != ci->attrs.end())
+            ci->constr_y = std::stoi(val->second.str);
+
+        val = ci->attrs.find(id("CONSTR_Z"));
+        if (val != ci->attrs.end())
+            ci->constr_z = std::stoi(val->second.str);
+
+        val = ci->attrs.find(id("CONSTR_ABS_Z"));
+        if (val != ci->attrs.end())
+            ci->constr_abs_z = std::stoi(val->second.str) == 1;
+
+        val = ci->attrs.find(id("CONSTR_PARENT"));
+        if (val != ci->attrs.end()) {
+            auto parent = cells.find(id(val->second.str));
+            if (parent != cells.end())
+                ci->constr_parent = parent->second.get();
+        }
+        val = ci->attrs.find(id("CONSTR_CHILDREN"));
+        if (val != ci->attrs.end()) {
+            std::vector<std::string> strs;
+            boost::split(strs, val->second.str, boost::is_any_of(";"));
+            for (auto val : strs) {
+                ci->constr_children.push_back(cells.find(id(val.c_str()))->second.get());
+            }
+        }
+    }
+    for (auto &net : getCtx()->nets) {
+        auto ni = net.second.get();
+        auto val = ni->attrs.find(id("ROUTING"));
+        if (val != ni->attrs.end()) {
+            std::vector<std::string> strs;
+            boost::split(strs, val->second.str, boost::is_any_of(";"));
+            for (size_t i = 0; i < strs.size() / 3; i++) {
+                std::string wire = strs[i * 3];
+                std::string pip = strs[i * 3 + 1];
+                PlaceStrength strength = (PlaceStrength)std::stoi(strs[i * 3 + 2]);
+                if (pip.empty())
+                    getCtx()->bindWire(getCtx()->getWireByName(id(wire)), ni, strength);
+                else
+                    getCtx()->bindPip(getCtx()->getPipByName(id(pip)), ni, strength);
+            }
+        }
+    }
+    getCtx()->assignArchInfo();
 }
 
 NEXTPNR_NAMESPACE_END

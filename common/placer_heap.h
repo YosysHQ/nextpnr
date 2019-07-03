@@ -26,18 +26,19 @@
 
 #ifndef PLACER_HEAP_H
 #define PLACER_HEAP_H
+#include "log.h"
 #include "nextpnr.h"
-#include "settings.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
-struct PlacerHeapCfg : public Settings
+struct PlacerHeapCfg
 {
     PlacerHeapCfg(Context *ctx);
 
     float alpha;
     float criticalityExponent;
     float timingWeight;
+    bool timing_driven;
 
     std::unordered_set<IdString> ioBufTypes;
 };

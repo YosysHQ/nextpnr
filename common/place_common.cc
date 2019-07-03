@@ -37,7 +37,7 @@ wirelen_t get_net_metric(const Context *ctx, const NetInfo *net, MetricType type
     if (driver_gb)
         return 0;
     int clock_count;
-    bool timing_driven = ctx->timing_driven && type == MetricType::COST &&
+    bool timing_driven = ctx->setting<bool>("timing_driven") && type == MetricType::COST &&
                          ctx->getPortTimingClass(driver_cell, net->driver.port, clock_count) != TMG_IGNORE;
     delay_t negative_slack = 0;
     delay_t worst_slack = std::numeric_limits<delay_t>::max();

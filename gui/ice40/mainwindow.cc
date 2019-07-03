@@ -35,8 +35,8 @@ static void initMainResource() { Q_INIT_RESOURCE(nextpnr); }
 
 NEXTPNR_NAMESPACE_BEGIN
 
-MainWindow::MainWindow(std::unique_ptr<Context> context, ArchArgs args, QWidget *parent)
-        : BaseMainWindow(std::move(context), args, parent)
+MainWindow::MainWindow(std::unique_ptr<Context> context, CommandHandler *handler, QWidget *parent)
+        : BaseMainWindow(std::move(context), handler, parent)
 {
     initMainResource();
 
@@ -123,7 +123,7 @@ void MainWindow::new_proj()
     bool ok;
     QString item = QInputDialog::getItem(this, "Select new context", "Chip:", arch.keys(), 0, false, &ok);
     if (ok && !item.isEmpty()) {
-
+        ArchArgs chipArgs;
         chipArgs.type = (ArchArgs::ArchArgsTypes)arch.value(item);
 
         QString package = QInputDialog::getItem(this, "Select package", "Package:", getSupportedPackages(chipArgs.type),
@@ -156,7 +156,7 @@ void MainWindow::load_pcf(std::string filename)
 
 void MainWindow::newContext(Context *ctx)
 {
-    std::string title = "nextpnr-ice40 - " + ctx->getChipName() + " ( " + chipArgs.package + " )";
+    std::string title = "nextpnr-ice40 - " + ctx->getChipName() + " ( " + ctx->archArgs().package + " )";
     setWindowTitle(title.c_str());
 }
 
@@ -186,13 +186,12 @@ void MainWindow::onDisableActions()
     actionSaveAsc->setEnabled(false);
 }
 
-void MainWindow::onJsonLoaded() { actionLoadPCF->setEnabled(true); }
-void MainWindow::onRouteFinished() { actionSaveAsc->setEnabled(true); }
-
-void MainWindow::onProjectLoaded()
+void MainWindow::onUpdateActions()
 {
-    if (ctx->settings.find(ctx->id("input/pcf")) != ctx->settings.end())
-        actionLoadPCF->setEnabled(false);
+    if (ctx->settings.find(ctx->id("pack")) == ctx->settings.end())
+        actionLoadPCF->setEnabled(true);
+    if (ctx->settings.find(ctx->id("route")) != ctx->settings.end())
+        actionSaveAsc->setEnabled(true);
 }
 
 NEXTPNR_NAMESPACE_END

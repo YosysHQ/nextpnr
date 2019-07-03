@@ -382,7 +382,7 @@ class Ecp5GlobalRouter
         glbnet->name = ctx->id("$glbnet$" + net->name.str(ctx));
         glbnet->driver.cell = dcc.get();
         glbnet->driver.port = id_CLKO;
-        glbnet->is_global = true;
+        glbnet->attrs[ctx->id("ECP5_IS_GLOBAL")] = "1";
         dcc->ports[id_CLKO].net = glbnet.get();
 
         std::vector<PortRef> keep_users;

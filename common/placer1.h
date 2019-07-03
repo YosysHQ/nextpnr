@@ -19,12 +19,12 @@
 #ifndef PLACE_H
 #define PLACE_H
 
+#include "log.h"
 #include "nextpnr.h"
-#include "settings.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
-struct Placer1Cfg : public Settings
+struct Placer1Cfg
 {
     Placer1Cfg(Context *ctx);
     float constraintWeight;
@@ -32,6 +32,8 @@ struct Placer1Cfg : public Settings
     bool budgetBased;
     float startTemp;
     int timingFanoutThresh;
+    bool timing_driven;
+    int slack_redist_iter;
 };
 
 extern bool placer1(Context *ctx, Placer1Cfg cfg);

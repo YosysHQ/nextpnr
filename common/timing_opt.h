@@ -17,14 +17,14 @@
  *
  */
 
+#include "log.h"
 #include "nextpnr.h"
-#include "settings.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
-struct TimingOptCfg : public Settings
+struct TimingOptCfg
 {
-    TimingOptCfg(Context *ctx) : Settings(ctx) {}
+    TimingOptCfg(Context *ctx) {}
 
     // The timing optimiser will *only* optimise cells of these types
     // Normally these would only be logic cells (or tiles if applicable), the algorithm makes little sense

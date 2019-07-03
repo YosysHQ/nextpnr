@@ -29,7 +29,7 @@ class MainWindow : public BaseMainWindow
     Q_OBJECT
 
   public:
-    explicit MainWindow(std::unique_ptr<Context> context, ArchArgs args, QWidget *parent = 0);
+    explicit MainWindow(std::unique_ptr<Context> context, CommandHandler *handler, QWidget *parent = 0);
     virtual ~MainWindow();
 
   public:
@@ -39,9 +39,7 @@ class MainWindow : public BaseMainWindow
     void load_pcf(std::string filename);
 
     void onDisableActions() override;
-    void onJsonLoaded() override;
-    void onRouteFinished() override;
-    void onProjectLoaded() override;
+    void onUpdateActions() override;
 
   protected Q_SLOTS:
     void new_proj() override;
