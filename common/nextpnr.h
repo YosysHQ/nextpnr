@@ -26,13 +26,13 @@
 #include <stdexcept>
 #include <stdint.h>
 #include <string>
-#include <thread>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
 #include <boost/functional/hash.hpp>
 #include <boost/lexical_cast.hpp>
+#include <boost/thread.hpp>
 
 #ifndef NEXTPNR_H
 #define NEXTPNR_H
@@ -533,7 +533,7 @@ struct BaseCtx
 {
     // Lock to perform mutating actions on the Context.
     std::mutex mutex;
-    std::thread::id mutex_owner;
+    boost::thread::id mutex_owner;
 
     // Lock to be taken by UI when wanting to access context - the yield()
     // method will lock/unlock it when its' released the main mutex to make
@@ -583,12 +583,12 @@ struct BaseCtx
     void lock(void)
     {
         mutex.lock();
-        mutex_owner = std::this_thread::get_id();
+        mutex_owner = boost::this_thread::get_id();
     }
 
     void unlock(void)
     {
-        NPNR_ASSERT(std::this_thread::get_id() == mutex_owner);
+        NPNR_ASSERT(boost::this_thread::get_id() == mutex_owner);
         mutex.unlock();
     }
 

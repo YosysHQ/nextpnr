@@ -37,12 +37,12 @@
 #include <Eigen/Core>
 #include <Eigen/IterativeLinearSolvers>
 #include <boost/optional.hpp>
+#include <boost/thread.hpp>
 #include <chrono>
 #include <deque>
 #include <fstream>
 #include <numeric>
 #include <queue>
-#include <thread>
 #include <tuple>
 #include <unordered_map>
 #include "log.h"
@@ -154,7 +154,7 @@ class HeAPPlacer
         for (int i = 0; i < 4; i++) {
             setup_solve_cells();
             auto solve_startt = std::chrono::high_resolution_clock::now();
-            std::thread xaxis([&]() { build_solve_direction(false, -1); });
+            boost::thread xaxis([&]() { build_solve_direction(false, -1); });
             build_solve_direction(true, -1);
             xaxis.join();
             auto solve_endt = std::chrono::high_resolution_clock::now();
@@ -208,7 +208,7 @@ class HeAPPlacer
                     build_solve_direction(false, (iter == 0) ? -1 : iter);
                     build_solve_direction(true, (iter == 0) ? -1 : iter);
                 } else {
-                    std::thread xaxis([&]() { build_solve_direction(false, (iter == 0) ? -1 : iter); });
+                    boost::thread xaxis([&]() { build_solve_direction(false, (iter == 0) ? -1 : iter); });
                     build_solve_direction(true, (iter == 0) ? -1 : iter);
                     xaxis.join();
                 }
