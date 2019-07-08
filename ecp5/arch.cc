@@ -701,6 +701,13 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
         return false;
     } else if (cell->type == id_DP16KD) {
         return false;
+    } else if (cell->type == id_MULT18X18D) {
+        std::string fn = fromPort.str(this), tn = toPort.str(this);
+        if (fn.size() > 1 && (fn.front() == 'A' || fn.front() == 'B') && std::isdigit(fn.at(1))) {
+            if (tn.size() > 1 && tn.front() == 'P' && std::isdigit(tn.at(1)))
+                return getDelayFromTimingDatabase(id_MULT18X18D_REGS_NONE, id(std::string("") + fn.front()), id_P, delay);
+        }
+        return false;
     } else if (cell->type == id_IOLOGIC || cell->type == id_SIOLOGIC) {
         return false;
     } else {
@@ -778,7 +785,16 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
         }
         NPNR_ASSERT_FALSE_STR("no timing type for RAM port '" + port.str(this) + "'");
     } else if (cell->type == id_MULT18X18D) {
-        return TMG_IGNORE; // FIXME
+        if (port == id_CLK0 || port == id_CLK1 || port == id_CLK2 || port == id_CLK3)
+            return TMG_CLOCK_INPUT;
+        std::string pname = port.str(this);
+        if (pname.size() > 1) {
+            if ((pname.front() == 'A' || pname.front() == 'B') && std::isdigit(pname.at(1)))
+                return TMG_COMB_INPUT;
+            if (pname.front() == 'P' && std::isdigit(pname.at(1)))
+                return TMG_COMB_OUTPUT;
+        }
+        return TMG_IGNORE;
     } else if (cell->type == id_ALU54B) {
         return TMG_IGNORE; // FIXME
     } else if (cell->type == id_EHXPLLL) {
