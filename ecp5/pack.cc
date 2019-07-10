@@ -204,6 +204,8 @@ class Ecp5Packer
                     }
                 }
                 for (const char *inp : {"A", "B", "C", "D"}) {
+                    if (!ci->ports.count(ctx->id(inp)))
+                        continue;
                     NetInfo *innet = ci->ports.at(ctx->id(inp)).net;
                     if (innet != nullptr && innet->driver.cell != nullptr) {
                         CellInfo *drv = innet->driver.cell;
@@ -258,6 +260,8 @@ class Ecp5Packer
 
                 // Pack LUTs sharing an input with a simple fanout-based heuristic
                 for (const char *inp : {"A", "B", "C", "D"}) {
+                    if (!ci->ports.count(ctx->id(inp)))
+                        continue;
                     NetInfo *innet = ci->ports.at(ctx->id(inp)).net;
                     if (innet != nullptr && innet->users.size() < 5 && innet->users.size() > 1)
                         inpnets.push_back(innet);
