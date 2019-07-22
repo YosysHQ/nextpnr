@@ -24,7 +24,7 @@ the Bel you wish it to be placed at. For example:
 
 ## Clock Constraints
 
-There are two ways to apply clock constraints in nextpnr. The `--clock {freq}` command line argument is used to
+There are two ways to apply clock constraints in nextpnr. The `--freq {freq}` command line argument is used to
 apply a default frequency (in MHz) to all clocks without a more specific constraint.
 
 The Python API can apply clock constraints to specific named clocks. This is done by passing a Python file
