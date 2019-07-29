@@ -46,7 +46,7 @@ of the selected architecture:
   - For 64 bit builds: `vcpkg install boost-filesystem:x64-windows boost-program-options:x64-windows boost-thread:x64-windows boost-python:x64-windows qt5-base:x64-windows eigen3:x64-windows`
   - A copy of Python that matches the version in vcpkg (currently Python 3.6.4).  You can download the [Embeddable Zip File](https://www.python.org/downloads/release/python-364/) and extract it.  You may need to extract `python36.zip` within the embeddable zip file to a new directory called "Lib".
 - For building on macOS, brew utility is needed.
-  - Install all needed packages `brew install cmake python boost boost-python3 qt5`
+  - Install all needed packages `brew install cmake python boost boost-python3 qt5 eigen`
   - Do not forget to add qt5 in path as well `echo 'export PATH="/usr/local/opt/qt/bin:$PATH"' >> ~/.bash_profile`
 
 Getting started
