@@ -230,6 +230,25 @@ struct JsonNode
     }
 };
 
+inline Property json_parse_attr_param_value(JsonNode *node)
+{
+    Property value;
+
+    if (node->type == 'S') {
+        value = Property::from_string(node->data_string);
+    } else if (node->type == 'N') {
+        value = Property(node->data_number, 32);
+    } else if (node->type == 'A') {
+        log_error("JSON attribute or parameter value is an array.\n");
+    } else if (node->type == 'D') {
+        log_error("JSON attribute or parameter value is a dict.\n");
+    } else {
+        log_abort();
+    }
+
+    return value;
+}
+
 void ground_net(Context *ctx, NetInfo *net)
 {
     std::unique_ptr<CellInfo> cell = std::unique_ptr<CellInfo>(new CellInfo);
@@ -323,18 +342,12 @@ void json_import_cell_params(Context *ctx, string &modname, CellInfo *cell, Json
     param = param_node->data_dict.at(param_node->data_dict_keys[param_id]);
 
     pId = ctx->id(param_node->data_dict_keys[param_id]);
-    if (param->type == 'N') {
-        (*dest)[pId].setNumber(param->data_number);
-    } else if (param->type == 'S')
-        (*dest)[pId].setString(param->data_string);
-    else
-        log_error("JSON parameter type of \"%s\' of cell \'%s\' not supported\n", pId.c_str(ctx),
-                  cell->name.c_str(ctx));
+    (*dest)[pId] = json_parse_attr_param_value(param);
 
     if (json_debug)
         log_info("    Added parameter \'%s\'=%s to cell \'%s\' "
                  "of module \'%s\'\n",
-                 pId.c_str(ctx), cell->params[pId].c_str(), cell->name.c_str(ctx), modname.c_str());
+                 pId.c_str(ctx), cell->params[pId].as_string().c_str(), cell->name.c_str(ctx), modname.c_str());
 }
 
 void json_import_net_attrib(Context *ctx, string &modname, NetInfo *net, JsonNode *param_node,
@@ -347,16 +360,12 @@ void json_import_net_attrib(Context *ctx, string &modname, NetInfo *net, JsonNod
     param = param_node->data_dict.at(param_node->data_dict_keys[param_id]);
 
     pId = ctx->id(param_node->data_dict_keys[param_id]);
-    if (param->type == 'N') {
-        (*dest)[pId].setNumber(param->data_number);
-    } else if (param->type == 'S')
-        (*dest)[pId].setString(param->data_string);
-    else
-        log_error("JSON parameter type of \"%s\' of net \'%s\' not supported\n", pId.c_str(ctx), net->name.c_str(ctx));
+    (*dest)[pId] = json_parse_attr_param_value(param);
+
     if (json_debug)
         log_info("    Added parameter \'%s\'=%s to net \'%s\' "
                  "of module \'%s\'\n",
-                 pId.c_str(ctx), net->attrs[pId].c_str(), net->name.c_str(ctx), modname.c_str());
+                 pId.c_str(ctx), net->attrs[pId].as_string().c_str(), net->name.c_str(ctx), modname.c_str());
 }
 
 void json_import_top_attrib(Context *ctx, string &modname, JsonNode *param_node,
@@ -369,14 +378,10 @@ void json_import_top_attrib(Context *ctx, string &modname, JsonNode *param_node,
     param = param_node->data_dict.at(param_node->data_dict_keys[param_id]);
 
     pId = ctx->id(param_node->data_dict_keys[param_id]);
-    if (param->type == 'N') {
-        (*dest)[pId].setNumber(param->data_number);
-    } else if (param->type == 'S')
-        (*dest)[pId].setString(param->data_string);
-    else
-        log_error("JSON parameter type of \"%s\' of module not supported\n", pId.c_str(ctx));
+    (*dest)[pId] = json_parse_attr_param_value(param);
+
     if (json_debug)
-        log_info("    Added parameter \'%s\'=%s module \'%s\'\n", pId.c_str(ctx), (*dest)[pId].c_str(),
+        log_info("    Added parameter \'%s\'=%s module \'%s\'\n", pId.c_str(ctx), (*dest)[pId].as_string().c_str(),
                  modname.c_str());
 }
 
@@ -917,7 +922,7 @@ void json_import(Context *ctx, string modname, JsonNode *node)
         }
     }
     check_all_nets_driven(ctx);
-    ctx->settings[ctx->id("synth")] = "1";
+    ctx->settings[ctx->id("synth")] = 1;
 }
 }; // End Namespace JsonParser
 
@@ -986,12 +991,7 @@ bool load_json_settings(std::istream &f, std::string &filename, std::unordered_m
                     for (int attrid = 0; attrid < GetSize(attr_node->data_dict_keys); attrid++) {
                         JsonNode *param = attr_node->data_dict.at(attr_node->data_dict_keys[attrid]);
                         std::string pId = attr_node->data_dict_keys[attrid];
-                        if (param->type == 'N') {
-                            values[pId].setNumber(param->data_number);
-                        } else if (param->type == 'S')
-                            values[pId].setString(param->data_string);
-                        else
-                            log_error("JSON parameter type of \"%s\' of module not supported\n", pId.c_str());
+                        values[pId] = json_parse_attr_param_value(param);
                     }
                 }
             }

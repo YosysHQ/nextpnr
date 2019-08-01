@@ -45,6 +45,15 @@ std::string get_string(std::string str)
 
 std::string get_name(IdString name, Context *ctx) { return get_string(name.c_str(ctx)); }
 
+void write_parameter_value(std::ostream &f, const Property &value)
+{
+    if (value.size() == 32 && value.is_fully_def()) {
+        f << stringf("%d", value.as_int64());
+    } else {
+        f << get_string(value.as_string());
+    }
+}
+
 void write_parameters(std::ostream &f, Context *ctx, const std::unordered_map<IdString, Property> &parameters,
                       bool for_module = false)
 {
@@ -52,10 +61,7 @@ void write_parameters(std::ostream &f, Context *ctx, const std::unordered_map<Id
     for (auto &param : parameters) {
         f << stringf("%s\n", first ? "" : ",");
         f << stringf("        %s%s: ", for_module ? "" : "    ", get_name(param.first, ctx).c_str());
-        if (param.second.isString())
-            f << get_string(param.second);
-        else
-            f << param.second.num;
+        write_parameter_value(f, param.second);
         first = false;
     }
 }
@@ -64,7 +70,7 @@ void write_module(std::ostream &f, Context *ctx)
 {
     auto val = ctx->attrs.find(ctx->id("module"));
     if (val != ctx->attrs.end())
-        f << stringf("    %s: {\n", get_string(val->second.str).c_str());
+        f << stringf("    %s: {\n", get_string(val->second.as_string()).c_str());
     else
         f << stringf("    %s: {\n", get_string("top").c_str());
     f << stringf("      \"settings\": {");

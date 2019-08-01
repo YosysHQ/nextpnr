@@ -81,6 +81,13 @@ template <> struct string_converter<PortRef &>
     }
 };
 
+template <> struct string_converter<Property>
+{
+    inline Property from_str(Context *ctx, std::string s) { return Property::from_string(s); }
+
+    inline std::string to_str(Context *ctx, Property p) { return p.to_string(); }
+};
+
 } // namespace PythonConversion
 
 BOOST_PYTHON_MODULE(MODULE_NAME)
@@ -207,7 +214,7 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
     readonly_wrapper<Region &, decltype(&Region::wires), &Region::wires, wrap_context<WireSet &>>::def_wrap(region_cls,
                                                                                                             "wires");
 
-    WRAP_MAP(AttrMap, pass_through<std::string>, "AttrMap");
+    WRAP_MAP(AttrMap, conv_to_str<Property>, "AttrMap");
     WRAP_MAP(PortMap, wrap_context<PortInfo &>, "PortMap");
     WRAP_MAP(PinMap, conv_to_str<IdString>, "PinMap");
     WRAP_MAP(WireMap, wrap_context<PipMap &>, "WireMap");

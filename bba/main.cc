@@ -191,7 +191,7 @@ int main(int argc, char **argv)
             assert(end != nullptr);
             *end = 0;
             value += 1;
-            const char *comment = skipWhitespace(strtok(end+1, "\r\n"));
+            const char *comment = skipWhitespace(strtok(end + 1, "\r\n"));
             std::string label = std::string("str:") + value;
             Stream &s = streams.at(streamStack.back());
             if (labelIndex.count(label) == 0) {

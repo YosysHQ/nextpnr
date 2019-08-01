@@ -91,8 +91,8 @@ class ChainConstrainer
     {
         NPNR_ASSERT(cout_port.net != nullptr);
         std::unique_ptr<CellInfo> lc = create_ice_cell(ctx, ctx->id("ICESTORM_LC"));
-        lc->params[ctx->id("LUT_INIT")] = "65280"; // 0xff00: O = I3
-        lc->params[ctx->id("CARRY_ENABLE")] = "1";
+        lc->params[ctx->id("LUT_INIT")] = Property(65280, 16); // 0xff00: O = I3
+        lc->params[ctx->id("CARRY_ENABLE")] = Property::State::S1;
         lc->ports.at(id_O).net = cout_port.net;
         std::unique_ptr<NetInfo> co_i3_net(new NetInfo());
         co_i3_net->name = ctx->id(lc->name.str(ctx) + "$I3");
@@ -167,9 +167,9 @@ class ChainConstrainer
     {
         NPNR_ASSERT(cin_port.net != nullptr);
         std::unique_ptr<CellInfo> lc = create_ice_cell(ctx, ctx->id("ICESTORM_LC"));
-        lc->params[ctx->id("CARRY_ENABLE")] = "1";
-        lc->params[ctx->id("CIN_CONST")] = "1";
-        lc->params[ctx->id("CIN_SET")] = "1";
+        lc->params[ctx->id("CARRY_ENABLE")] = Property::State::S1;
+        lc->params[ctx->id("CIN_CONST")] = Property::State::S1;
+        lc->params[ctx->id("CIN_SET")] = Property::State::S1;
         lc->ports.at(ctx->id("I1")).net = cin_port.net;
         cin_port.net->users.erase(std::remove_if(cin_port.net->users.begin(), cin_port.net->users.end(),
                                                  [cin_cell, cin_port](const PortRef &usr) {

@@ -159,7 +159,7 @@ class SAPlacer
                 CellInfo *cell = cell_entry.second.get();
                 auto loc = cell->attrs.find(ctx->id("BEL"));
                 if (loc != cell->attrs.end()) {
-                    std::string loc_name = loc->second;
+                    std::string loc_name = loc->second.as_string();
                     BelId bel = ctx->getBelByName(ctx->id(loc_name));
                     if (bel == BelId()) {
                         log_error("No Bel named \'%s\' located for "

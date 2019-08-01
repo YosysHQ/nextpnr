@@ -159,12 +159,12 @@ std::unique_ptr<Context> Ice40CommandHandler::createContext(std::unordered_map<s
         chipArgs.package = vm["package"].as<std::string>();
 
     if (values.find("arch.name") != values.end()) {
-        std::string arch_name = values["arch.name"].str;
+        std::string arch_name = values["arch.name"].as_string();
         if (arch_name != "ice40")
             log_error("Unsuported architecture '%s'.\n", arch_name.c_str());
     }
     if (values.find("arch.type") != values.end()) {
-        std::string arch_type = values["arch.type"].str;
+        std::string arch_type = values["arch.type"].as_string();
         if (chipArgs.type != ArchArgs::NONE)
             log_error("Overriding architecture is unsuported.\n");
 
@@ -195,7 +195,7 @@ std::unique_ptr<Context> Ice40CommandHandler::createContext(std::unordered_map<s
     if (values.find("arch.package") != values.end()) {
         if (vm.count("package"))
             log_error("Overriding architecture is unsuported.\n");
-        chipArgs.package = values["arch.package"].str;
+        chipArgs.package = values["arch.package"].as_string();
     }
 
     if (chipArgs.type == ArchArgs::NONE) {
@@ -214,13 +214,13 @@ std::unique_ptr<Context> Ice40CommandHandler::createContext(std::unordered_map<s
 
     ctx->settings[ctx->id("arch.package")] = ctx->archArgs().package;
     if (vm.count("promote-logic"))
-        ctx->settings[ctx->id("promote_logic")] = "1";
+        ctx->settings[ctx->id("promote_logic")] = Property::State::S1;
     if (vm.count("no-promote-globals"))
-        ctx->settings[ctx->id("no_promote_globals")] = "1";
+        ctx->settings[ctx->id("no_promote_globals")] = Property::State::S1;
     if (vm.count("opt-timing"))
-        ctx->settings[ctx->id("opt_timing")] = "1";
+        ctx->settings[ctx->id("opt_timing")] = Property::State::S1;
     if (vm.count("pcf-allow-unconstrained"))
-        ctx->settings[ctx->id("pcf_allow_unconstrained")] = "1";
+        ctx->settings[ctx->id("pcf_allow_unconstrained")] = Property::State::S1;
     return ctx;
 }
 

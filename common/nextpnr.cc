@@ -131,6 +131,60 @@ TimingConstrObjectId BaseCtx::timingPortObject(CellInfo *cell, IdString port)
     }
 }
 
+Property::Property() : is_string(false), str(""), intval(0) {}
+
+Property::Property(int64_t intval, int width) : is_string(false), intval(intval)
+{
+    str.resize(width);
+    for (int i = 0; i < width; i++)
+        str.push_back((intval & (1ULL << i)) ? S1 : S0);
+}
+
+Property::Property(const std::string &strval) : is_string(true), str(strval), intval(0xDEADBEEF) {}
+
+Property::Property(State bit) : is_string(false), str(std::string("") + char(bit)), intval(bit == S1) {}
+
+std::string Property::to_string() const
+{
+    if (is_string) {
+        std::string result = str;
+        int state = 0;
+        for (char c : str) {
+            if (state == 0) {
+                if (c == '0' || c == '1' || c == 'x' || c == 'z')
+                    state = 0;
+                else if (c == ' ')
+                    state = 1;
+                else
+                    state = 2;
+            } else if (state == 1 && c != ' ')
+                state = 2;
+        }
+        if (state < 2)
+            result += " ";
+        return result;
+    } else {
+        return std::string(str.rbegin(), str.rend());
+    }
+}
+
+Property Property::from_string(const std::string &s)
+{
+    Property p;
+
+    size_t cursor = s.find_first_not_of("01xz");
+    if (cursor == std::string::npos) {
+        p.str = std::string(s.rbegin(), s.rend());
+        p.is_string = false;
+        p.update_intval();
+    } else if (s.find_first_not_of(' ', cursor) == std::string::npos) {
+        p = Property(s.substr(0, s.size() - 1));
+    } else {
+        p = Property(s);
+    }
+    return p;
+}
+
 void BaseCtx::addConstraint(std::unique_ptr<TimingConstraint> constr)
 {
     for (auto fromObj : constr->from)
@@ -285,8 +339,8 @@ uint32_t Context::checksum() const
         for (auto &a : ni.attrs) {
             uint32_t attr_x = 123456789;
             attr_x = xorshift32(attr_x + xorshift32(a.first.index));
-            for (uint8_t ch : a.second)
-                attr_x = xorshift32(attr_x + xorshift32(ch));
+            for (char ch : a.second.str)
+                attr_x = xorshift32(attr_x + xorshift32((int)ch));
             attr_x_sum += attr_x;
         }
         x = xorshift32(x + xorshift32(attr_x_sum));
@@ -329,8 +383,8 @@ uint32_t Context::checksum() const
         for (auto &a : ci.attrs) {
             uint32_t attr_x = 123456789;
             attr_x = xorshift32(attr_x + xorshift32(a.first.index));
-            for (uint8_t ch : a.second)
-                attr_x = xorshift32(attr_x + xorshift32(ch));
+            for (char ch : a.second.str)
+                attr_x = xorshift32(attr_x + xorshift32((int)ch));
             attr_x_sum += attr_x;
         }
         x = xorshift32(x + xorshift32(attr_x_sum));
@@ -339,8 +393,8 @@ uint32_t Context::checksum() const
         for (auto &p : ci.params) {
             uint32_t param_x = 123456789;
             param_x = xorshift32(param_x + xorshift32(p.first.index));
-            for (uint8_t ch : p.second)
-                param_x = xorshift32(param_x + xorshift32(ch));
+            for (char ch : p.second.str)
+                param_x = xorshift32(param_x + xorshift32((int)ch));
             param_x_sum += param_x;
         }
         x = xorshift32(x + xorshift32(param_x_sum));
@@ -462,19 +516,19 @@ void BaseCtx::archInfoToAttributes()
             if (ci->attrs.find(id("BEL")) != ci->attrs.end()) {
                 ci->attrs.erase(ci->attrs.find(id("BEL")));
             }
-            ci->attrs[id("NEXTPNR_BEL")] = getCtx()->getBelName(ci->bel).c_str(this);
-            ci->attrs[id("BEL_STRENGTH")] = std::to_string((int)ci->belStrength);
+            ci->attrs[id("NEXTPNR_BEL")] = getCtx()->getBelName(ci->bel).str(this);
+            ci->attrs[id("BEL_STRENGTH")] = (int)ci->belStrength;
         }
         if (ci->constr_x != ci->UNCONSTR)
-            ci->attrs[id("CONSTR_X")] = std::to_string(ci->constr_x);
+            ci->attrs[id("CONSTR_X")] = ci->constr_x;
         if (ci->constr_y != ci->UNCONSTR)
-            ci->attrs[id("CONSTR_Y")] = std::to_string(ci->constr_y);
+            ci->attrs[id("CONSTR_Y")] = ci->constr_y;
         if (ci->constr_z != ci->UNCONSTR) {
-            ci->attrs[id("CONSTR_Z")] = std::to_string(ci->constr_z);
-            ci->attrs[id("CONSTR_ABS_Z")] = std::to_string(ci->constr_abs_z ? 1 : 0);
+            ci->attrs[id("CONSTR_Z")] = ci->constr_z;
+            ci->attrs[id("CONSTR_ABS_Z")] = ci->constr_abs_z ? 1 : 0;
         }
         if (ci->constr_parent != nullptr)
-            ci->attrs[id("CONSTR_PARENT")] = ci->constr_parent->name.c_str(this);
+            ci->attrs[id("CONSTR_PARENT")] = ci->constr_parent->name.str(this);
         if (!ci->constr_children.empty()) {
             std::string constr = "";
             for (auto &item : ci->constr_children) {
@@ -512,37 +566,38 @@ void BaseCtx::attributesToArchInfo()
             auto str = ci->attrs.find(id("BEL_STRENGTH"));
             PlaceStrength strength = PlaceStrength::STRENGTH_USER;
             if (str != ci->attrs.end())
-                strength = (PlaceStrength)std::stoi(str->second.str);
+                strength = (PlaceStrength)str->second.as_int64();
 
-            BelId b = getCtx()->getBelByName(id(val->second.str));
+            BelId b = getCtx()->getBelByName(id(val->second.as_string()));
             getCtx()->bindBel(b, ci, strength);
         }
         val = ci->attrs.find(id("CONSTR_X"));
         if (val != ci->attrs.end())
-            ci->constr_x = std::stoi(val->second.str);
+            ci->constr_x = val->second.as_int64();
 
         val = ci->attrs.find(id("CONSTR_Y"));
         if (val != ci->attrs.end())
-            ci->constr_y = std::stoi(val->second.str);
+            ci->constr_y = val->second.as_int64();
 
         val = ci->attrs.find(id("CONSTR_Z"));
         if (val != ci->attrs.end())
-            ci->constr_z = std::stoi(val->second.str);
+            ci->constr_z = val->second.as_int64();
 
         val = ci->attrs.find(id("CONSTR_ABS_Z"));
         if (val != ci->attrs.end())
-            ci->constr_abs_z = std::stoi(val->second.str) == 1;
+            ci->constr_abs_z = val->second.as_int64() == 1;
 
         val = ci->attrs.find(id("CONSTR_PARENT"));
         if (val != ci->attrs.end()) {
-            auto parent = cells.find(id(val->second.str));
+            auto parent = cells.find(id(val->second.as_string()));
             if (parent != cells.end())
                 ci->constr_parent = parent->second.get();
         }
         val = ci->attrs.find(id("CONSTR_CHILDREN"));
         if (val != ci->attrs.end()) {
             std::vector<std::string> strs;
-            boost::split(strs, val->second.str, boost::is_any_of(";"));
+            auto children = val->second.as_string();
+            boost::split(strs, children, boost::is_any_of(";"));
             for (auto val : strs) {
                 ci->constr_children.push_back(cells.find(id(val.c_str()))->second.get());
             }
@@ -553,7 +608,8 @@ void BaseCtx::attributesToArchInfo()
         auto val = ni->attrs.find(id("ROUTING"));
         if (val != ni->attrs.end()) {
             std::vector<std::string> strs;
-            boost::split(strs, val->second.str, boost::is_any_of(";"));
+            auto routing = val->second.as_string();
+            boost::split(strs, routing, boost::is_any_of(";"));
             for (size_t i = 0; i < strs.size() / 3; i++) {
                 std::string wire = strs[i * 3];
                 std::string pip = strs[i * 3 + 1];

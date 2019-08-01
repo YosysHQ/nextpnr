@@ -763,7 +763,8 @@ void DesignWidget::onSelectionChanged(int num, const QItemSelection &, const QIt
 
         QtProperty *attrsItem = addSubGroup(topItem, "Attributes");
         for (auto &item : net->attrs) {
-            addProperty(attrsItem, QVariant::String, item.first.c_str(ctx), item.second.c_str());
+            addProperty(attrsItem, QVariant::String, item.first.c_str(ctx),
+                        item.second.is_string ? item.second.to_string().c_str() : item.second.as_string().c_str());
         }
 
         QtProperty *wiresItem = addSubGroup(topItem, "Wires");
@@ -813,12 +814,14 @@ void DesignWidget::onSelectionChanged(int num, const QItemSelection &, const QIt
 
         QtProperty *cellAttrItem = addSubGroup(topItem, "Attributes");
         for (auto &item : cell->attrs) {
-            addProperty(cellAttrItem, QVariant::String, item.first.c_str(ctx), item.second.c_str());
+            addProperty(cellAttrItem, QVariant::String, item.first.c_str(ctx),
+                        item.second.is_string ? item.second.as_string().c_str() : item.second.to_string().c_str());
         }
 
         QtProperty *cellParamsItem = addSubGroup(topItem, "Parameters");
         for (auto &item : cell->params) {
-            addProperty(cellParamsItem, QVariant::String, item.first.c_str(ctx), item.second.c_str());
+            addProperty(cellParamsItem, QVariant::String, item.first.c_str(ctx),
+                        item.second.is_string ? item.second.as_string().c_str() : item.second.to_string().c_str());
         }
 
         QtProperty *cellPinsItem = groupManager->addProperty("Pins");
