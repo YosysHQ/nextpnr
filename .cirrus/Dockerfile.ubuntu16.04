@@ -8,7 +8,8 @@ RUN set -e -x ;\
     apt-get -y install \
         build-essential autoconf cmake clang bison wget flex gperf \
         libreadline-dev gawk tcl-dev libffi-dev graphviz xdot python3-dev \
-        libboost-all-dev qt5-default git libftdi-dev pkg-config libeigen3-dev
+        libboost-all-dev qt5-default git libftdi-dev pkg-config libeigen3-dev \
+        zlib1g-dev
 
 RUN set -e -x ;\
     mkdir -p /usr/local/src ;\
@@ -36,7 +37,7 @@ RUN set -e -x ;\
     cd /usr/local/src ;\
     git clone --recursive https://github.com/YosysHQ/yosys.git ;\
     cd yosys ;\
-    git reset --hard ea8ac0aaad3a1f89ead8eb44b2fef5927f29a099 ;\
+    git reset --hard 292f03355a425ede48051c79d5bf619591531080 ;\
     make -j $(nproc) ;\
     make install ;\
     rm -rf /usr/local/src/yosys
