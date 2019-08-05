@@ -333,6 +333,7 @@ struct Property
         NPNR_ASSERT(!is_string);
         for (auto c : str)
             result.push_back(c == S1);
+        return result;
     }
     std::string as_string() const
     {

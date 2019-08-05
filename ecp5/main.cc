@@ -34,7 +34,7 @@ class ECP5CommandHandler : public CommandHandler
   public:
     ECP5CommandHandler(int argc, char **argv);
     virtual ~ECP5CommandHandler(){};
-    std::unique_ptr<Context> createContext(std::unordered_map<std::string, RTLIL::Const> &values) override;
+    std::unique_ptr<Context> createContext(std::unordered_map<std::string, Property> &values) override;
     void setupArchContext(Context *ctx) override{};
     void customAfterLoad(Context *ctx) override;
     void validate() override;
@@ -113,7 +113,7 @@ static std::string speedString(ArchArgs::SpeedGrade speed)
     return "";
 }
 
-std::unique_ptr<Context> ECP5CommandHandler::createContext(std::unordered_map<std::string, RTLIL::Const> &values)
+std::unique_ptr<Context> ECP5CommandHandler::createContext(std::unordered_map<std::string, Property> &values)
 {
     ArchArgs chipArgs;
     chipArgs.type = ArchArgs::NONE;
@@ -162,12 +162,12 @@ std::unique_ptr<Context> ECP5CommandHandler::createContext(std::unordered_map<st
             chipArgs.speed = ArchArgs::SPEED_6;
     }
     if (values.find("arch.name") != values.end()) {
-        std::string arch_name = values["arch.name"].decode_string();
+        std::string arch_name = values["arch.name"].as_string();
         if (arch_name != "ecp5")
             log_error("Unsuported architecture '%s'.\n", arch_name.c_str());
     }
     if (values.find("arch.type") != values.end()) {
-        std::string arch_type = values["arch.type"].decode_string();
+        std::string arch_type = values["arch.type"].as_string();
         if (chipArgs.type != ArchArgs::NONE)
             log_error("Overriding architecture is unsuported.\n");
 
@@ -196,10 +196,10 @@ std::unique_ptr<Context> ECP5CommandHandler::createContext(std::unordered_map<st
     if (values.find("arch.package") != values.end()) {
         if (vm.count("package"))
             log_error("Overriding architecture is unsuported.\n");
-        chipArgs.package = values["arch.package"].decode_string();
+        chipArgs.package = values["arch.package"].as_string();
     }
     if (values.find("arch.speed") != values.end()) {
-        std::string arch_speed = values["arch.speed"].decode_string();
+        std::string arch_speed = values["arch.speed"].as_string();
         if (arch_speed == "6")
             chipArgs.speed = ArchArgs::SPEED_6;
         else if (arch_speed == "7")

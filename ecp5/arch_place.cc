@@ -162,7 +162,7 @@ void Arch::permute_luts()
                 connect_port(getCtx(), orig_nets.at(inputs.at(i).second), ci, p);
                 ci->params[id(p.str(this) + "MUX")] = p.str(this);
             } else {
-                ci->params[id(p.str(this) + "MUX")] = "1";
+                ci->params[id(p.str(this) + "MUX")] = std::string("1");
             }
         }
         // Rewrite function
@@ -177,7 +177,7 @@ void Arch::permute_luts()
             if (old_init & (1 << old_index))
                 new_init |= (1 << i);
         }
-        ci->params[id("LUT" + std::to_string(lut) + "_INITVAL")] = std::to_string(new_init);
+        ci->params[id("LUT" + std::to_string(lut) + "_INITVAL")] = Property(new_init, 16);
     };
 
     for (auto cell : sorted(cells)) {

@@ -135,7 +135,7 @@ Property::Property() : is_string(false), str(""), intval(0) {}
 
 Property::Property(int64_t intval, int width) : is_string(false), intval(intval)
 {
-    str.resize(width);
+    str.reserve(width);
     for (int i = 0; i < width; i++)
         str.push_back((intval & (1ULL << i)) ? S1 : S0);
 }
