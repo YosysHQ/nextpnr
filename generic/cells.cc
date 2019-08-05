@@ -43,8 +43,8 @@ std::unique_ptr<CellInfo> create_generic_cell(Context *ctx, IdString type, std::
     new_cell->type = type;
     if (type == ctx->id("GENERIC_SLICE")) {
         new_cell->params[ctx->id("K")] = std::to_string(ctx->args.K);
-        new_cell->params[ctx->id("INIT")] = "0";
-        new_cell->params[ctx->id("FF_USED")] = "0";
+        new_cell->params[ctx->id("INIT")] = 0;
+        new_cell->params[ctx->id("FF_USED")] = 0;
 
         for (int i = 0; i < ctx->args.K; i++)
             add_port(ctx, new_cell.get(), "I[" + std::to_string(i) + "]", PORT_IN);
@@ -53,9 +53,9 @@ std::unique_ptr<CellInfo> create_generic_cell(Context *ctx, IdString type, std::
 
         add_port(ctx, new_cell.get(), "Q", PORT_OUT);
     } else if (type == ctx->id("GENERIC_IOB")) {
-        new_cell->params[ctx->id("INPUT_USED")] = "0";
-        new_cell->params[ctx->id("OUTPUT_USED")] = "0";
-        new_cell->params[ctx->id("ENABLE_USED")] = "0";
+        new_cell->params[ctx->id("INPUT_USED")] = 0;
+        new_cell->params[ctx->id("OUTPUT_USED")] = 0;
+        new_cell->params[ctx->id("ENABLE_USED")] = 0;
 
         add_port(ctx, new_cell.get(), "PAD", PORT_INOUT);
         add_port(ctx, new_cell.get(), "I", PORT_IN);
@@ -81,17 +81,17 @@ void lut_to_lc(const Context *ctx, CellInfo *lut, CellInfo *lc, bool no_dff)
 
     if (no_dff) {
         replace_port(lut, ctx->id("Q"), lc, ctx->id("Q"));
-        lc->params[ctx->id("FF_USED")] = "0";
+        lc->params[ctx->id("FF_USED")] = 0;
     }
 }
 
 void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc, bool pass_thru_lut)
 {
-    lc->params[ctx->id("FF_USED")] = "1";
+    lc->params[ctx->id("FF_USED")] = 1;
     replace_port(dff, ctx->id("CLK"), lc, ctx->id("CLK"));
 
     if (pass_thru_lut) {
-        lc->params[ctx->id("INIT")] = "2";
+        lc->params[ctx->id("INIT")] = 2;
         replace_port(dff, ctx->id("D"), lc, ctx->id("I[0]"));
     }
 
@@ -101,15 +101,15 @@ void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc, bool pass_thru_l
 void nxio_to_iob(Context *ctx, CellInfo *nxio, CellInfo *iob, std::unordered_set<IdString> &todelete_cells)
 {
     if (nxio->type == ctx->id("$nextpnr_ibuf")) {
-        iob->params[ctx->id("INPUT_USED")] = "1";
+        iob->params[ctx->id("INPUT_USED")] = 1;
         replace_port(nxio, ctx->id("O"), iob, ctx->id("O"));
     } else if (nxio->type == ctx->id("$nextpnr_obuf")) {
-        iob->params[ctx->id("OUTPUT_USED")] = "1";
+        iob->params[ctx->id("OUTPUT_USED")] = 1;
         replace_port(nxio, ctx->id("I"), iob, ctx->id("I"));
     } else if (nxio->type == ctx->id("$nextpnr_iobuf")) {
         // N.B. tristate will be dealt with below
-        iob->params[ctx->id("INPUT_USED")] = "1";
-        iob->params[ctx->id("OUTPUT_USED")] = "1";
+        iob->params[ctx->id("INPUT_USED")] = 1;
+        iob->params[ctx->id("OUTPUT_USED")] = 1;
         replace_port(nxio, ctx->id("I"), iob, ctx->id("I"));
         replace_port(nxio, ctx->id("O"), iob, ctx->id("O"));
     } else {
@@ -120,7 +120,7 @@ void nxio_to_iob(Context *ctx, CellInfo *nxio, CellInfo *iob, std::unordered_set
             ctx, donet, [](const Context *ctx, const CellInfo *cell) { return cell->type == ctx->id("$_TBUF_"); },
             ctx->id("Y"));
     if (tbuf) {
-        iob->params[ctx->id("ENABLE_USED")] = "1";
+        iob->params[ctx->id("ENABLE_USED")] = 1;
         replace_port(tbuf, ctx->id("A"), iob, ctx->id("I"));
         replace_port(tbuf, ctx->id("E"), iob, ctx->id("EN"));
 

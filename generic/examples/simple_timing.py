@@ -4,7 +4,7 @@ for cname, cell in ctx.cells:
 	if cname in ("$PACKER_GND", "$PACKER_VCC"):
 		continue
 	K = int(cell.params["K"])
-	if cell.params["FF_USED"] == "1":
+	if int(cell.params["FF_USED"], 2) == 1:
 		ctx.addCellTimingClock(cell=cname, port="CLK")
 		for i in range(K):
 			ctx.addCellTimingSetupHold(cell=cname, port="I[%d]" % i, clock="CLK",
