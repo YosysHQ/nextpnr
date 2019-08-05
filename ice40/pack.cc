@@ -1237,7 +1237,9 @@ static void pack_special(Context *ctx)
                     packed->params[pos_map_name.at(param.first)] = pos_map_val.at(param.second.as_string());
                 }
 
-            auto feedback_path = packed->params[ctx->id("FEEDBACK_PATH")].as_string();
+            auto feedback_path = packed->params[ctx->id("FEEDBACK_PATH")].is_string
+                                         ? packed->params[ctx->id("FEEDBACK_PATH")].as_string()
+                                         : std::to_string(packed->params[ctx->id("FEEDBACK_PATH")].as_int64());
             std::string fbp_value =
                     feedback_path == "DELAY"
                             ? "0"
