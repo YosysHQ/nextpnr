@@ -2384,9 +2384,21 @@ class Ecp5Packer
         }
     }
 
+    void prepack_checks()
+    {
+        // Check for legacy-style JSON (use CEMUX as a clue) and error out, avoiding a confusing assertion failure
+        // later
+        for (auto cell : sorted(ctx->cells)) {
+            if (is_ff(ctx, cell.second) && cell.second->params.count(ctx->id("CEMUX")) &&
+                !cell.second->params[ctx->id("CEMUX")].is_string)
+                log_error("Found netlist using legacy-style JSON parameter values, please update your Yosys.\n");
+        }
+    }
+
   public:
     void pack()
     {
+        prepack_checks();
         pack_io();
         pack_dqsbuf();
         pack_iologic();
