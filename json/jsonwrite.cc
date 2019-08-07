@@ -50,7 +50,7 @@ void write_parameter_value(std::ostream &f, const Property &value)
     if (value.size() == 32 && value.is_fully_def()) {
         f << stringf("%d", value.as_int64());
     } else {
-        f << get_string(value.as_string());
+        f << get_string(value.to_string());
     }
 }
 
