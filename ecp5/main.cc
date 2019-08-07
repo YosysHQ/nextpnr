@@ -71,7 +71,9 @@ po::options_description ECP5CommandHandler::getArchOptions()
     specific.add_options()("lpf", po::value<std::vector<std::string>>(), "LPF pin constraint file(s)");
     specific.add_options()("lpf-allow-unconstrained", "don't require LPF file(s) to constrain all IO");
 
-    specific.add_options()("out-of-context", "disable IO buffer insertion and global promotion/routing, for building pre-routed blocks (experimental)");
+    specific.add_options()(
+            "out-of-context",
+            "disable IO buffer insertion and global promotion/routing, for building pre-routed blocks (experimental)");
 
     return specific;
 }
@@ -94,7 +96,8 @@ void ECP5CommandHandler::customBitstream(Context *ctx)
     }
 
     if (bool_or_default(ctx->settings, ctx->id("arch.ooc")) && vm.count("textcfg"))
-        log_error("bitstream generation is not available in out-of-context mode (use --write to create a post-PnR JSON design)\n");
+        log_error("bitstream generation is not available in out-of-context mode (use --write to create a post-PnR JSON "
+                  "design)\n");
 
     std::string textcfg;
     if (vm.count("textcfg"))
