@@ -51,6 +51,16 @@ std::string str_or_default(const Container &ct, const KeyType &key, std::string 
         return found->second;
 };
 
+template <typename KeyType>
+std::string str_or_default(const std::unordered_map<KeyType, Property> &ct, const KeyType &key, std::string def = "")
+{
+    auto found = ct.find(key);
+    if (found == ct.end())
+        return def;
+    else
+        return found->second.as_string();
+};
+
 // Get a value from a map-style container, converting to int, and returning
 // default if value is not found
 template <typename Container, typename KeyType> int int_or_default(const Container &ct, const KeyType &key, int def = 0)
@@ -60,6 +70,20 @@ template <typename Container, typename KeyType> int int_or_default(const Contain
         return def;
     else
         return std::stoi(found->second);
+};
+
+template <typename KeyType>
+int int_or_default(const std::unordered_map<KeyType, Property> &ct, const KeyType &key, int def = 0)
+{
+    auto found = ct.find(key);
+    if (found == ct.end())
+        return def;
+    else {
+        if (found->second.is_string)
+            return std::stoi(found->second.as_string());
+        else
+            return found->second.as_int64();
+    }
 };
 
 // As above, but convert to bool

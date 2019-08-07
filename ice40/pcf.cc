@@ -51,15 +51,15 @@ bool apply_pcf(Context *ctx, std::string filename, std::istream &in)
             bool nowarn = false;
             if (cmd == "set_io") {
                 size_t args_end = 1;
-                std::vector<std::pair<IdString, std::string>> extra_attrs;
+                std::vector<std::pair<IdString, Property>> extra_attrs;
                 while (args_end < words.size() && words.at(args_end).at(0) == '-') {
                     const auto &setting = words.at(args_end);
                     if (setting == "-pullup") {
                         const auto &value = words.at(++args_end);
                         if (value == "yes" || value == "1")
-                            extra_attrs.emplace_back(std::make_pair(ctx->id("PULLUP"), "1"));
+                            extra_attrs.emplace_back(std::make_pair(ctx->id("PULLUP"), Property::State::S1));
                         else if (value == "no" || value == "0")
-                            extra_attrs.emplace_back(std::make_pair(ctx->id("PULLUP"), "0"));
+                            extra_attrs.emplace_back(std::make_pair(ctx->id("PULLUP"), Property::State::S0));
                         else
                             log_error("Invalid value '%s' for -pullup (on line %d)\n", value.c_str(), lineno);
                     } else if (setting == "-pullup_resistor") {
@@ -96,7 +96,7 @@ bool apply_pcf(Context *ctx, std::string filename, std::istream &in)
                         log_error("duplicate pin constraint on '%s' (on line %d)\n", cell.c_str(), lineno);
                     fnd_cell->second->attrs[ctx->id("BEL")] = ctx->getBelName(pin_bel).str(ctx);
                     log_info("constrained '%s' to bel '%s'\n", cell.c_str(),
-                             fnd_cell->second->attrs[ctx->id("BEL")].c_str());
+                             fnd_cell->second->attrs[ctx->id("BEL")].as_string().c_str());
                     for (const auto &attr : extra_attrs)
                         fnd_cell->second->attrs[attr.first] = attr.second;
                 }

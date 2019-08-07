@@ -58,21 +58,21 @@ std::unique_ptr<CellInfo> create_ecp5_cell(Context *ctx, IdString type, std::str
     };
 
     if (type == ctx->id("TRELLIS_SLICE")) {
-        new_cell->params[ctx->id("MODE")] = "LOGIC";
-        new_cell->params[ctx->id("GSR")] = "DISABLED";
-        new_cell->params[ctx->id("SRMODE")] = "LSR_OVER_CE";
-        new_cell->params[ctx->id("CEMUX")] = "1";
-        new_cell->params[ctx->id("CLKMUX")] = "CLK";
-        new_cell->params[ctx->id("LSRMUX")] = "LSR";
-        new_cell->params[ctx->id("LUT0_INITVAL")] = "0";
-        new_cell->params[ctx->id("LUT1_INITVAL")] = "0";
-        new_cell->params[ctx->id("REG0_SD")] = "0";
-        new_cell->params[ctx->id("REG1_SD")] = "0";
-        new_cell->params[ctx->id("REG0_REGSET")] = "RESET";
-        new_cell->params[ctx->id("REG1_REGSET")] = "RESET";
-        new_cell->params[ctx->id("CCU2_INJECT1_0")] = "NO";
-        new_cell->params[ctx->id("CCU2_INJECT1_1")] = "NO";
-        new_cell->params[ctx->id("WREMUX")] = "WRE";
+        new_cell->params[ctx->id("MODE")] = std::string("LOGIC");
+        new_cell->params[ctx->id("GSR")] = std::string("DISABLED");
+        new_cell->params[ctx->id("SRMODE")] = std::string("LSR_OVER_CE");
+        new_cell->params[ctx->id("CEMUX")] = std::string("1");
+        new_cell->params[ctx->id("CLKMUX")] = std::string("CLK");
+        new_cell->params[ctx->id("LSRMUX")] = std::string("LSR");
+        new_cell->params[ctx->id("LUT0_INITVAL")] = Property(0, 16);
+        new_cell->params[ctx->id("LUT1_INITVAL")] = Property(0, 16);
+        new_cell->params[ctx->id("REG0_SD")] = std::string("0");
+        new_cell->params[ctx->id("REG1_SD")] = std::string("0");
+        new_cell->params[ctx->id("REG0_REGSET")] = std::string("RESET");
+        new_cell->params[ctx->id("REG1_REGSET")] = std::string("RESET");
+        new_cell->params[ctx->id("CCU2_INJECT1_0")] = std::string("NO");
+        new_cell->params[ctx->id("CCU2_INJECT1_1")] = std::string("NO");
+        new_cell->params[ctx->id("WREMUX")] = std::string("WRE");
 
         add_port(ctx, new_cell.get(), "A0", PORT_IN);
         add_port(ctx, new_cell.get(), "B0", PORT_IN);
@@ -125,10 +125,10 @@ std::unique_ptr<CellInfo> create_ecp5_cell(Context *ctx, IdString type, std::str
         add_port(ctx, new_cell.get(), "WADO2", PORT_OUT);
         add_port(ctx, new_cell.get(), "WADO3", PORT_OUT);
     } else if (type == ctx->id("TRELLIS_IO")) {
-        new_cell->params[ctx->id("DIR")] = "INPUT";
-        new_cell->attrs[ctx->id("IO_TYPE")] = "LVCMOS33";
-        new_cell->params[ctx->id("DATAMUX_ODDR")] = "PADDO";
-        new_cell->params[ctx->id("DATAMUX_MDDR")] = "PADDO";
+        new_cell->params[ctx->id("DIR")] = std::string("INPUT");
+        new_cell->attrs[ctx->id("IO_TYPE")] = std::string("LVCMOS33");
+        new_cell->params[ctx->id("DATAMUX_ODDR")] = std::string("PADDO");
+        new_cell->params[ctx->id("DATAMUX_MDDR")] = std::string("PADDO");
 
         add_port(ctx, new_cell.get(), "B", PORT_INOUT);
         add_port(ctx, new_cell.get(), "I", PORT_IN);
@@ -139,7 +139,7 @@ std::unique_ptr<CellInfo> create_ecp5_cell(Context *ctx, IdString type, std::str
         add_port(ctx, new_cell.get(), "IOLTO", PORT_IN);
 
     } else if (type == ctx->id("LUT4")) {
-        new_cell->params[ctx->id("INIT")] = "0";
+        new_cell->params[ctx->id("INIT")] = Property(0, 16);
 
         add_port(ctx, new_cell.get(), "A", PORT_IN);
         add_port(ctx, new_cell.get(), "B", PORT_IN);
@@ -147,10 +147,10 @@ std::unique_ptr<CellInfo> create_ecp5_cell(Context *ctx, IdString type, std::str
         add_port(ctx, new_cell.get(), "D", PORT_IN);
         add_port(ctx, new_cell.get(), "Z", PORT_OUT);
     } else if (type == ctx->id("CCU2C")) {
-        new_cell->params[ctx->id("INIT0")] = "0";
-        new_cell->params[ctx->id("INIT1")] = "0";
-        new_cell->params[ctx->id("INJECT1_0")] = "YES";
-        new_cell->params[ctx->id("INJECT1_1")] = "YES";
+        new_cell->params[ctx->id("INIT0")] = Property(0, 16);
+        new_cell->params[ctx->id("INIT1")] = Property(0, 16);
+        new_cell->params[ctx->id("INJECT1_0")] = std::string("YES");
+        new_cell->params[ctx->id("INJECT1_1")] = std::string("YES");
 
         add_port(ctx, new_cell.get(), "CIN", PORT_IN);
 
@@ -173,31 +173,31 @@ std::unique_ptr<CellInfo> create_ecp5_cell(Context *ctx, IdString type, std::str
         add_port(ctx, new_cell.get(), "CLKO", PORT_OUT);
         add_port(ctx, new_cell.get(), "CE", PORT_IN);
     } else if (type == id_IOLOGIC || type == id_SIOLOGIC) {
-        new_cell->params[ctx->id("MODE")] = "NONE";
-        new_cell->params[ctx->id("GSR")] = "DISABLED";
-        new_cell->params[ctx->id("CLKIMUX")] = "CLK";
-        new_cell->params[ctx->id("CLKOMUX")] = "CLK";
-        new_cell->params[ctx->id("LSRIMUX")] = "0";
-        new_cell->params[ctx->id("LSROMUX")] = "0";
-        new_cell->params[ctx->id("LSRMUX")] = "LSR";
+        new_cell->params[ctx->id("MODE")] = std::string("NONE");
+        new_cell->params[ctx->id("GSR")] = std::string("DISABLED");
+        new_cell->params[ctx->id("CLKIMUX")] = std::string("CLK");
+        new_cell->params[ctx->id("CLKOMUX")] = std::string("CLK");
+        new_cell->params[ctx->id("LSRIMUX")] = std::string("0");
+        new_cell->params[ctx->id("LSROMUX")] = std::string("0");
+        new_cell->params[ctx->id("LSRMUX")] = std::string("LSR");
 
-        new_cell->params[ctx->id("DELAY.OUTDEL")] = "DISABLED";
-        new_cell->params[ctx->id("DELAY.DEL_VALUE")] = "0";
-        new_cell->params[ctx->id("DELAY.WAIT_FOR_EDGE")] = "DISABLED";
+        new_cell->params[ctx->id("DELAY.OUTDEL")] = std::string("DISABLED");
+        new_cell->params[ctx->id("DELAY.DEL_VALUE")] = Property(0, 7);
+        new_cell->params[ctx->id("DELAY.WAIT_FOR_EDGE")] = std::string("DISABLED");
 
         if (type == id_IOLOGIC) {
-            new_cell->params[ctx->id("IDDRXN.MODE")] = "NONE";
-            new_cell->params[ctx->id("ODDRXN.MODE")] = "NONE";
+            new_cell->params[ctx->id("IDDRXN.MODE")] = std::string("NONE");
+            new_cell->params[ctx->id("ODDRXN.MODE")] = std::string("NONE");
 
-            new_cell->params[ctx->id("MIDDRX.MODE")] = "NONE";
-            new_cell->params[ctx->id("MODDRX.MODE")] = "NONE";
-            new_cell->params[ctx->id("MTDDRX.MODE")] = "NONE";
+            new_cell->params[ctx->id("MIDDRX.MODE")] = std::string("NONE");
+            new_cell->params[ctx->id("MODDRX.MODE")] = std::string("NONE");
+            new_cell->params[ctx->id("MTDDRX.MODE")] = std::string("NONE");
 
-            new_cell->params[ctx->id("IOLTOMUX")] = "NONE";
-            new_cell->params[ctx->id("MTDDRX.DQSW_INVERT")] = "DISABLED";
-            new_cell->params[ctx->id("MTDDRX.REGSET")] = "RESET";
+            new_cell->params[ctx->id("IOLTOMUX")] = std::string("NONE");
+            new_cell->params[ctx->id("MTDDRX.DQSW_INVERT")] = std::string("DISABLED");
+            new_cell->params[ctx->id("MTDDRX.REGSET")] = std::string("RESET");
 
-            new_cell->params[ctx->id("MIDDRX_MODDRX.WRCLKMUX")] = "NONE";
+            new_cell->params[ctx->id("MIDDRX_MODDRX.WRCLKMUX")] = std::string("NONE");
         }
         // Just copy ports from the Bel
         copy_bel_ports();
@@ -241,7 +241,7 @@ void ff_to_slice(Context *ctx, CellInfo *ff, CellInfo *lc, int index, bool drive
     set_param_safe(has_ff, lc, ctx->id("LSRMUX"), str_or_default(ff->params, ctx->id("LSRMUX"), "LSR"));
     set_param_safe(has_ff, lc, ctx->id("CLKMUX"), str_or_default(ff->params, ctx->id("CLKMUX"), "CLK"));
 
-    lc->params[ctx->id(reg + "_SD")] = driven_by_lut ? "1" : "0";
+    lc->params[ctx->id(reg + "_SD")] = std::string(driven_by_lut ? "1" : "0");
     lc->params[ctx->id(reg + "_REGSET")] = str_or_default(ff->params, ctx->id("REGSET"), "RESET");
     replace_port_safe(has_ff, ff, ctx->id("CLK"), lc, ctx->id("CLK"));
     if (ff->ports.find(ctx->id("LSR")) != ff->ports.end())
@@ -259,7 +259,8 @@ void ff_to_slice(Context *ctx, CellInfo *ff, CellInfo *lc, int index, bool drive
 
 void lut_to_slice(Context *ctx, CellInfo *lut, CellInfo *lc, int index)
 {
-    lc->params[ctx->id("LUT" + std::to_string(index) + "_INITVAL")] = str_or_default(lut->params, ctx->id("INIT"), "0");
+    lc->params[ctx->id("LUT" + std::to_string(index) + "_INITVAL")] =
+            get_or_default(lut->params, ctx->id("INIT"), Property(0, 16));
     replace_port(lut, ctx->id("A"), lc, ctx->id("A" + std::to_string(index)));
     replace_port(lut, ctx->id("B"), lc, ctx->id("B" + std::to_string(index)));
     replace_port(lut, ctx->id("C"), lc, ctx->id("C" + std::to_string(index)));
@@ -269,9 +270,9 @@ void lut_to_slice(Context *ctx, CellInfo *lut, CellInfo *lc, int index)
 
 void ccu2c_to_slice(Context *ctx, CellInfo *ccu, CellInfo *lc)
 {
-    lc->params[ctx->id("MODE")] = "CCU2";
-    lc->params[ctx->id("LUT0_INITVAL")] = str_or_default(ccu->params, ctx->id("INIT0"), "0");
-    lc->params[ctx->id("LUT1_INITVAL")] = str_or_default(ccu->params, ctx->id("INIT1"), "0");
+    lc->params[ctx->id("MODE")] = std::string("CCU2");
+    lc->params[ctx->id("LUT0_INITVAL")] = get_or_default(ccu->params, ctx->id("INIT0"), Property(0, 16));
+    lc->params[ctx->id("LUT1_INITVAL")] = get_or_default(ccu->params, ctx->id("INIT1"), Property(0, 16));
 
     lc->params[ctx->id("INJECT1_0")] = str_or_default(ccu->params, ctx->id("INJECT1_0"), "YES");
     lc->params[ctx->id("INJECT1_1")] = str_or_default(ccu->params, ctx->id("INJECT1_1"), "YES");
@@ -296,7 +297,7 @@ void ccu2c_to_slice(Context *ctx, CellInfo *ccu, CellInfo *lc)
 
 void dram_to_ramw(Context *ctx, CellInfo *ram, CellInfo *lc)
 {
-    lc->params[ctx->id("MODE")] = "RAMW";
+    lc->params[ctx->id("MODE")] = std::string("RAMW");
     replace_port(ram, ctx->id("WAD[0]"), lc, ctx->id("D0"));
     replace_port(ram, ctx->id("WAD[1]"), lc, ctx->id("B0"));
     replace_port(ram, ctx->id("WAD[2]"), lc, ctx->id("C0"));
@@ -310,12 +311,13 @@ void dram_to_ramw(Context *ctx, CellInfo *ram, CellInfo *lc)
 
 static unsigned get_dram_init(const Context *ctx, const CellInfo *ram, int bit)
 {
-    const std::string &idata = str_or_default(ram->params, ctx->id("INITVAL"),
-                                              "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
+    auto init_prop = get_or_default(ram->params, ctx->id("INITVAL"), Property(0, 64));
+    NPNR_ASSERT(!init_prop.is_string);
+    const std::string &idata = init_prop.str;
     NPNR_ASSERT(idata.length() == 64);
     unsigned value = 0;
     for (int i = 0; i < 16; i++) {
-        char c = idata.at(63 - (4 * i + bit));
+        char c = idata.at(4 * i + bit);
         if (c == '1')
             value |= (1 << i);
         else
@@ -326,7 +328,7 @@ static unsigned get_dram_init(const Context *ctx, const CellInfo *ram, int bit)
 
 void dram_to_ram_slice(Context *ctx, CellInfo *ram, CellInfo *lc, CellInfo *ramw, int index)
 {
-    lc->params[ctx->id("MODE")] = "DPRAM";
+    lc->params[ctx->id("MODE")] = std::string("DPRAM");
     lc->params[ctx->id("WREMUX")] = str_or_default(ram->params, ctx->id("WREMUX"), "WRE");
     lc->params[ctx->id("WCKMUX")] = str_or_default(ram->params, ctx->id("WCKMUX"), "WCK");
 
@@ -349,8 +351,8 @@ void dram_to_ram_slice(Context *ctx, CellInfo *ram, CellInfo *lc, CellInfo *ramw
             permuted_init1 |= (1 << i);
     }
 
-    lc->params[ctx->id("LUT0_INITVAL")] = std::to_string(permuted_init0);
-    lc->params[ctx->id("LUT1_INITVAL")] = std::to_string(permuted_init1);
+    lc->params[ctx->id("LUT0_INITVAL")] = Property(permuted_init0, 16);
+    lc->params[ctx->id("LUT1_INITVAL")] = Property(permuted_init1, 16);
 
     if (ram->ports.count(ctx->id("RAD[0]"))) {
         connect_port(ctx, ram->ports.at(ctx->id("RAD[0]")).net, lc, ctx->id("D0"));
@@ -401,14 +403,14 @@ void nxio_to_tr(Context *ctx, CellInfo *nxio, CellInfo *trio, std::vector<std::u
                 std::unordered_set<IdString> &todelete_cells)
 {
     if (nxio->type == ctx->id("$nextpnr_ibuf")) {
-        trio->params[ctx->id("DIR")] = "INPUT";
+        trio->params[ctx->id("DIR")] = std::string("INPUT");
         replace_port(nxio, ctx->id("O"), trio, ctx->id("O"));
     } else if (nxio->type == ctx->id("$nextpnr_obuf")) {
-        trio->params[ctx->id("DIR")] = "OUTPUT";
+        trio->params[ctx->id("DIR")] = std::string("OUTPUT");
         replace_port(nxio, ctx->id("I"), trio, ctx->id("I"));
     } else if (nxio->type == ctx->id("$nextpnr_iobuf")) {
         // N.B. tristate will be dealt with below
-        trio->params[ctx->id("DIR")] = "BIDIR";
+        trio->params[ctx->id("DIR")] = std::string("BIDIR");
         replace_port(nxio, ctx->id("I"), trio, ctx->id("I"));
         replace_port(nxio, ctx->id("O"), trio, ctx->id("O"));
     } else {
@@ -423,7 +425,7 @@ void nxio_to_tr(Context *ctx, CellInfo *nxio, CellInfo *trio, std::vector<std::u
         // Need to invert E to form T
         std::unique_ptr<CellInfo> inv_lut = create_ecp5_cell(ctx, ctx->id("LUT4"), trio->name.str(ctx) + "$invert_T");
         replace_port(tbuf, ctx->id("E"), inv_lut.get(), ctx->id("A"));
-        inv_lut->params[ctx->id("INIT")] = "21845";
+        inv_lut->params[ctx->id("INIT")] = Property(21845, 16);
         connect_ports(ctx, inv_lut.get(), ctx->id("Z"), trio, ctx->id("T"));
         created_cells.push_back(std::move(inv_lut));
 

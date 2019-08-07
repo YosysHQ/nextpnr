@@ -43,14 +43,14 @@ std::unique_ptr<CellInfo> create_ice_cell(Context *ctx, IdString type, std::stri
     }
     new_cell->type = type;
     if (type == ctx->id("ICESTORM_LC")) {
-        new_cell->params[ctx->id("LUT_INIT")] = "0";
-        new_cell->params[ctx->id("NEG_CLK")] = "0";
-        new_cell->params[ctx->id("CARRY_ENABLE")] = "0";
-        new_cell->params[ctx->id("DFF_ENABLE")] = "0";
-        new_cell->params[ctx->id("SET_NORESET")] = "0";
-        new_cell->params[ctx->id("ASYNC_SR")] = "0";
-        new_cell->params[ctx->id("CIN_CONST")] = "0";
-        new_cell->params[ctx->id("CIN_SET")] = "0";
+        new_cell->params[ctx->id("LUT_INIT")] = Property(0, 16);
+        new_cell->params[ctx->id("NEG_CLK")] = Property::State::S0;
+        new_cell->params[ctx->id("CARRY_ENABLE")] = Property::State::S0;
+        new_cell->params[ctx->id("DFF_ENABLE")] = Property::State::S0;
+        new_cell->params[ctx->id("SET_NORESET")] = Property::State::S0;
+        new_cell->params[ctx->id("ASYNC_SR")] = Property::State::S0;
+        new_cell->params[ctx->id("CIN_CONST")] = Property::State::S0;
+        new_cell->params[ctx->id("CIN_SET")] = Property::State::S0;
 
         add_port(ctx, new_cell.get(), "I0", PORT_IN);
         add_port(ctx, new_cell.get(), "I1", PORT_IN);
@@ -66,10 +66,10 @@ std::unique_ptr<CellInfo> create_ice_cell(Context *ctx, IdString type, std::stri
         add_port(ctx, new_cell.get(), "O", PORT_OUT);
         add_port(ctx, new_cell.get(), "COUT", PORT_OUT);
     } else if (type == ctx->id("SB_IO")) {
-        new_cell->params[ctx->id("PIN_TYPE")] = "0";
-        new_cell->params[ctx->id("PULLUP")] = "0";
-        new_cell->params[ctx->id("NEG_TRIGGER")] = "0";
-        new_cell->params[ctx->id("IOSTANDARD")] = "SB_LVCMOS";
+        new_cell->params[ctx->id("PIN_TYPE")] = Property(0, 6);
+        new_cell->params[ctx->id("PULLUP")] = Property::State::S0;
+        new_cell->params[ctx->id("NEG_TRIGGER")] = Property::State::S0;
+        new_cell->params[ctx->id("IOSTANDARD")] = Property("SB_LVCMOS");
 
         add_port(ctx, new_cell.get(), "PACKAGE_PIN", PORT_INOUT);
 
@@ -85,10 +85,10 @@ std::unique_ptr<CellInfo> create_ice_cell(Context *ctx, IdString type, std::stri
         add_port(ctx, new_cell.get(), "D_IN_0", PORT_OUT);
         add_port(ctx, new_cell.get(), "D_IN_1", PORT_OUT);
     } else if (type == ctx->id("ICESTORM_RAM")) {
-        new_cell->params[ctx->id("NEG_CLK_W")] = "0";
-        new_cell->params[ctx->id("NEG_CLK_R")] = "0";
-        new_cell->params[ctx->id("WRITE_MODE")] = "0";
-        new_cell->params[ctx->id("READ_MODE")] = "0";
+        new_cell->params[ctx->id("NEG_CLK_W")] = Property::State::S0;
+        new_cell->params[ctx->id("NEG_CLK_R")] = Property::State::S0;
+        new_cell->params[ctx->id("WRITE_MODE")] = Property::State::S0;
+        new_cell->params[ctx->id("READ_MODE")] = Property::State::S0;
 
         add_port(ctx, new_cell.get(), "RCLK", PORT_IN);
         add_port(ctx, new_cell.get(), "RCLKE", PORT_IN);
@@ -114,8 +114,8 @@ std::unique_ptr<CellInfo> create_ice_cell(Context *ctx, IdString type, std::stri
         add_port(ctx, new_cell.get(), "CLKLF", PORT_OUT);
         add_port(ctx, new_cell.get(), "CLKLF_FABRIC", PORT_OUT);
     } else if (type == ctx->id("ICESTORM_HFOSC")) {
-        new_cell->params[ctx->id("CLKHF_DIV")] = "0b00";
-        new_cell->params[ctx->id("TRIM_EN")] = "0b0";
+        new_cell->params[ctx->id("CLKHF_DIV")] = Property("0b00");
+        new_cell->params[ctx->id("TRIM_EN")] = Property("0b0");
 
         add_port(ctx, new_cell.get(), "CLKHFEN", PORT_IN);
         add_port(ctx, new_cell.get(), "CLKHFPU", PORT_IN);
@@ -145,30 +145,30 @@ std::unique_ptr<CellInfo> create_ice_cell(Context *ctx, IdString type, std::stri
             add_port(ctx, new_cell.get(), "MASKWREN_" + std::to_string(i), PORT_IN);
         }
     } else if (type == ctx->id("ICESTORM_DSP")) {
-        new_cell->params[ctx->id("NEG_TRIGGER")] = "0";
+        new_cell->params[ctx->id("NEG_TRIGGER")] = Property::State::S0;
 
-        new_cell->params[ctx->id("C_REG")] = "0";
-        new_cell->params[ctx->id("A_REG")] = "0";
-        new_cell->params[ctx->id("B_REG")] = "0";
-        new_cell->params[ctx->id("D_REG")] = "0";
-        new_cell->params[ctx->id("TOP_8x8_MULT_REG")] = "0";
-        new_cell->params[ctx->id("BOT_8x8_MULT_REG")] = "0";
-        new_cell->params[ctx->id("PIPELINE_16x16_MULT_REG1")] = "0";
-        new_cell->params[ctx->id("PIPELINE_16x16_MULT_REG2")] = "0";
+        new_cell->params[ctx->id("C_REG")] = Property::State::S0;
+        new_cell->params[ctx->id("A_REG")] = Property::State::S0;
+        new_cell->params[ctx->id("B_REG")] = Property::State::S0;
+        new_cell->params[ctx->id("D_REG")] = Property::State::S0;
+        new_cell->params[ctx->id("TOP_8x8_MULT_REG")] = Property::State::S0;
+        new_cell->params[ctx->id("BOT_8x8_MULT_REG")] = Property::State::S0;
+        new_cell->params[ctx->id("PIPELINE_16x16_MULT_REG1")] = Property::State::S0;
+        new_cell->params[ctx->id("PIPELINE_16x16_MULT_REG2")] = Property::State::S0;
 
-        new_cell->params[ctx->id("TOPOUTPUT_SELECT")] = "0";
-        new_cell->params[ctx->id("TOPADDSUB_LOWERINPUT")] = "0";
-        new_cell->params[ctx->id("TOPADDSUB_UPPERINPUT")] = "0";
-        new_cell->params[ctx->id("TOPADDSUB_CARRYSELECT")] = "0";
+        new_cell->params[ctx->id("TOPOUTPUT_SELECT")] = Property(0, 2);
+        new_cell->params[ctx->id("TOPADDSUB_LOWERINPUT")] = Property(0, 2);
+        new_cell->params[ctx->id("TOPADDSUB_UPPERINPUT")] = Property::State::S0;
+        new_cell->params[ctx->id("TOPADDSUB_CARRYSELECT")] = Property(0, 2);
 
-        new_cell->params[ctx->id("BOTOUTPUT_SELECT")] = "0";
-        new_cell->params[ctx->id("BOTADDSUB_LOWERINPUT")] = "0";
-        new_cell->params[ctx->id("BOTADDSUB_UPPERINPUT")] = "0";
-        new_cell->params[ctx->id("BOTADDSUB_CARRYSELECT")] = "0";
+        new_cell->params[ctx->id("BOTOUTPUT_SELECT")] = Property(0, 2);
+        new_cell->params[ctx->id("BOTADDSUB_LOWERINPUT")] = Property(0, 2);
+        new_cell->params[ctx->id("BOTADDSUB_UPPERINPUT")] = Property::State::S0;
+        new_cell->params[ctx->id("BOTADDSUB_CARRYSELECT")] = Property(0, 2);
 
-        new_cell->params[ctx->id("MODE_8x8")] = "0";
-        new_cell->params[ctx->id("A_SIGNED")] = "0";
-        new_cell->params[ctx->id("B_SIGNED")] = "0";
+        new_cell->params[ctx->id("MODE_8x8")] = Property::State::S0;
+        new_cell->params[ctx->id("A_SIGNED")] = Property::State::S0;
+        new_cell->params[ctx->id("B_SIGNED")] = Property::State::S0;
 
         add_port(ctx, new_cell.get(), "CLK", PORT_IN);
         add_port(ctx, new_cell.get(), "CE", PORT_IN);
@@ -210,24 +210,24 @@ std::unique_ptr<CellInfo> create_ice_cell(Context *ctx, IdString type, std::stri
         add_port(ctx, new_cell.get(), "SIGNEXTOUT", PORT_OUT);
 
     } else if (type == ctx->id("ICESTORM_PLL")) {
-        new_cell->params[ctx->id("DELAY_ADJMODE_FB")] = "0";
-        new_cell->params[ctx->id("DELAY_ADJMODE_REL")] = "0";
+        new_cell->params[ctx->id("DELAY_ADJMODE_FB")] = Property::State::S0;
+        new_cell->params[ctx->id("DELAY_ADJMODE_REL")] = Property::State::S0;
 
-        new_cell->params[ctx->id("DIVF")] = "0";
-        new_cell->params[ctx->id("DIVQ")] = "0";
-        new_cell->params[ctx->id("DIVR")] = "0";
+        new_cell->params[ctx->id("DIVF")] = Property(0, 7);
+        new_cell->params[ctx->id("DIVQ")] = Property(0, 3);
+        new_cell->params[ctx->id("DIVR")] = Property(0, 4);
 
-        new_cell->params[ctx->id("FDA_FEEDBACK")] = "0";
-        new_cell->params[ctx->id("FDA_RELATIVE")] = "0";
-        new_cell->params[ctx->id("FEEDBACK_PATH")] = "1";
-        new_cell->params[ctx->id("FILTER_RANGE")] = "0";
+        new_cell->params[ctx->id("FDA_FEEDBACK")] = Property(0, 4);
+        new_cell->params[ctx->id("FDA_RELATIVE")] = Property(0, 4);
+        new_cell->params[ctx->id("FEEDBACK_PATH")] = Property(1, 3);
+        new_cell->params[ctx->id("FILTER_RANGE")] = Property(0, 3);
 
-        new_cell->params[ctx->id("PLLOUT_SELECT_A")] = "0";
-        new_cell->params[ctx->id("PLLOUT_SELECT_B")] = "0";
+        new_cell->params[ctx->id("PLLOUT_SELECT_A")] = Property(0, 2);
+        new_cell->params[ctx->id("PLLOUT_SELECT_B")] = Property(0, 2);
 
-        new_cell->params[ctx->id("PLLTYPE")] = "0";
-        new_cell->params[ctx->id("SHIFTREG_DIVMODE")] = "0";
-        new_cell->params[ctx->id("TEST_MODE")] = "0";
+        new_cell->params[ctx->id("PLLTYPE")] = Property(0, 3);
+        new_cell->params[ctx->id("SHIFTREG_DIVMODE")] = Property::State::S0;
+        new_cell->params[ctx->id("TEST_MODE")] = Property::State::S0;
 
         add_port(ctx, new_cell.get(), "BYPASS", PORT_IN);
         for (int i = 0; i < 8; i++)
@@ -247,10 +247,10 @@ std::unique_ptr<CellInfo> create_ice_cell(Context *ctx, IdString type, std::stri
         add_port(ctx, new_cell.get(), "PLLOUT_A_GLOBAL", PORT_OUT);
         add_port(ctx, new_cell.get(), "PLLOUT_B_GLOBAL", PORT_OUT);
     } else if (type == ctx->id("SB_RGBA_DRV")) {
-        new_cell->params[ctx->id("CURRENT_MODE")] = "0b0";
-        new_cell->params[ctx->id("RGB0_CURRENT")] = "0b000000";
-        new_cell->params[ctx->id("RGB1_CURRENT")] = "0b000000";
-        new_cell->params[ctx->id("RGB2_CURRENT")] = "0b000000";
+        new_cell->params[ctx->id("CURRENT_MODE")] = std::string("0b0");
+        new_cell->params[ctx->id("RGB0_CURRENT")] = std::string("0b000000");
+        new_cell->params[ctx->id("RGB1_CURRENT")] = std::string("0b000000");
+        new_cell->params[ctx->id("RGB2_CURRENT")] = std::string("0b000000");
 
         add_port(ctx, new_cell.get(), "CURREN", PORT_IN);
         add_port(ctx, new_cell.get(), "RGBLEDEN", PORT_IN);
@@ -264,9 +264,9 @@ std::unique_ptr<CellInfo> create_ice_cell(Context *ctx, IdString type, std::stri
         add_port(ctx, new_cell.get(), "EN", PORT_IN);
         add_port(ctx, new_cell.get(), "LEDPU", PORT_OUT);
     } else if (type == ctx->id("SB_RGB_DRV")) {
-        new_cell->params[ctx->id("RGB0_CURRENT")] = "0b000000";
-        new_cell->params[ctx->id("RGB1_CURRENT")] = "0b000000";
-        new_cell->params[ctx->id("RGB2_CURRENT")] = "0b000000";
+        new_cell->params[ctx->id("RGB0_CURRENT")] = std::string("0b000000");
+        new_cell->params[ctx->id("RGB1_CURRENT")] = std::string("0b000000");
+        new_cell->params[ctx->id("RGB2_CURRENT")] = std::string("0b000000");
 
         add_port(ctx, new_cell.get(), "RGBPU", PORT_IN);
         add_port(ctx, new_cell.get(), "RGBLEDEN", PORT_IN);
@@ -292,8 +292,8 @@ std::unique_ptr<CellInfo> create_ice_cell(Context *ctx, IdString type, std::stri
         add_port(ctx, new_cell.get(), "PWMOUT2", PORT_OUT);
         add_port(ctx, new_cell.get(), "LEDDON", PORT_OUT);
     } else if (type == ctx->id("SB_I2C")) {
-        new_cell->params[ctx->id("I2C_SLAVE_INIT_ADDR")] = "0b1111100001";
-        new_cell->params[ctx->id("BUS_ADDR74")] = "0b0001";
+        new_cell->params[ctx->id("I2C_SLAVE_INIT_ADDR")] = std::string("0b1111100001");
+        new_cell->params[ctx->id("BUS_ADDR74")] = std::string("0b0001");
         for (int i = 0; i < 8; i++) {
             add_port(ctx, new_cell.get(), "SBADRI" + std::to_string(i), PORT_IN);
             add_port(ctx, new_cell.get(), "SBDATI" + std::to_string(i), PORT_IN);
@@ -312,7 +312,7 @@ std::unique_ptr<CellInfo> create_ice_cell(Context *ctx, IdString type, std::stri
         add_port(ctx, new_cell.get(), "SDAO", PORT_OUT);
         add_port(ctx, new_cell.get(), "SDAOE", PORT_OUT);
     } else if (type == ctx->id("SB_SPI")) {
-        new_cell->params[ctx->id("BUS_ADDR74")] = "0b0000";
+        new_cell->params[ctx->id("BUS_ADDR74")] = std::string("0b0000");
         for (int i = 0; i < 8; i++) {
             add_port(ctx, new_cell.get(), "SBADRI" + std::to_string(i), PORT_IN);
             add_port(ctx, new_cell.get(), "SBDATI" + std::to_string(i), PORT_IN);
@@ -346,29 +346,29 @@ std::unique_ptr<CellInfo> create_ice_cell(Context *ctx, IdString type, std::stri
 
 void lut_to_lc(const Context *ctx, CellInfo *lut, CellInfo *lc, bool no_dff)
 {
-    lc->params[ctx->id("LUT_INIT")] = lut->params[ctx->id("LUT_INIT")];
+    lc->params[ctx->id("LUT_INIT")] = lut->params[ctx->id("LUT_INIT")].extract(0, 16, Property::State::S0);
     replace_port(lut, ctx->id("I0"), lc, ctx->id("I0"));
     replace_port(lut, ctx->id("I1"), lc, ctx->id("I1"));
     replace_port(lut, ctx->id("I2"), lc, ctx->id("I2"));
     replace_port(lut, ctx->id("I3"), lc, ctx->id("I3"));
     if (no_dff) {
         replace_port(lut, ctx->id("O"), lc, ctx->id("O"));
-        lc->params[ctx->id("DFF_ENABLE")] = "0";
+        lc->params[ctx->id("DFF_ENABLE")] = Property::State::S0;
     }
 }
 
 void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc, bool pass_thru_lut)
 {
-    lc->params[ctx->id("DFF_ENABLE")] = "1";
+    lc->params[ctx->id("DFF_ENABLE")] = Property::State::S1;
     std::string config = dff->type.str(ctx).substr(6);
     auto citer = config.begin();
     replace_port(dff, ctx->id("C"), lc, ctx->id("CLK"));
 
     if (citer != config.end() && *citer == 'N') {
-        lc->params[ctx->id("NEG_CLK")] = "1";
+        lc->params[ctx->id("NEG_CLK")] = Property::State::S1;
         ++citer;
     } else {
-        lc->params[ctx->id("NEG_CLK")] = "0";
+        lc->params[ctx->id("NEG_CLK")] = Property::State::S0;
     }
 
     if (citer != config.end() && *citer == 'E') {
@@ -380,27 +380,27 @@ void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc, bool pass_thru_l
         if ((config.end() - citer) >= 2) {
             char c = *(citer++);
             NPNR_ASSERT(c == 'S');
-            lc->params[ctx->id("ASYNC_SR")] = "0";
+            lc->params[ctx->id("ASYNC_SR")] = Property::State::S0;
         } else {
-            lc->params[ctx->id("ASYNC_SR")] = "1";
+            lc->params[ctx->id("ASYNC_SR")] = Property::State::S1;
         }
 
         if (*citer == 'S') {
             citer++;
             replace_port(dff, ctx->id("S"), lc, ctx->id("SR"));
-            lc->params[ctx->id("SET_NORESET")] = "1";
+            lc->params[ctx->id("SET_NORESET")] = Property::State::S1;
         } else {
             NPNR_ASSERT(*citer == 'R');
             citer++;
             replace_port(dff, ctx->id("R"), lc, ctx->id("SR"));
-            lc->params[ctx->id("SET_NORESET")] = "0";
+            lc->params[ctx->id("SET_NORESET")] = Property::State::S0;
         }
     }
 
     NPNR_ASSERT(citer == config.end());
 
     if (pass_thru_lut) {
-        lc->params[ctx->id("LUT_INIT")] = "2";
+        lc->params[ctx->id("LUT_INIT")] = Property(2, 16);
         replace_port(dff, ctx->id("D"), lc, ctx->id("I0"));
     }
 
@@ -410,17 +410,17 @@ void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc, bool pass_thru_l
 void nxio_to_sb(Context *ctx, CellInfo *nxio, CellInfo *sbio, std::unordered_set<IdString> &todelete_cells)
 {
     if (nxio->type == ctx->id("$nextpnr_ibuf")) {
-        sbio->params[ctx->id("PIN_TYPE")] = "1";
+        sbio->params[ctx->id("PIN_TYPE")] = 1;
         auto pu_attr = nxio->attrs.find(ctx->id("PULLUP"));
         if (pu_attr != nxio->attrs.end())
             sbio->params[ctx->id("PULLUP")] = pu_attr->second;
         replace_port(nxio, ctx->id("O"), sbio, ctx->id("D_IN_0"));
     } else if (nxio->type == ctx->id("$nextpnr_obuf")) {
-        sbio->params[ctx->id("PIN_TYPE")] = "25";
+        sbio->params[ctx->id("PIN_TYPE")] = 25;
         replace_port(nxio, ctx->id("I"), sbio, ctx->id("D_OUT_0"));
     } else if (nxio->type == ctx->id("$nextpnr_iobuf")) {
         // N.B. tristate will be dealt with below
-        sbio->params[ctx->id("PIN_TYPE")] = "25";
+        sbio->params[ctx->id("PIN_TYPE")] = 25;
         replace_port(nxio, ctx->id("I"), sbio, ctx->id("D_OUT_0"));
         replace_port(nxio, ctx->id("O"), sbio, ctx->id("D_IN_0"));
     } else {
@@ -431,7 +431,7 @@ void nxio_to_sb(Context *ctx, CellInfo *nxio, CellInfo *sbio, std::unordered_set
             ctx, donet, [](const Context *ctx, const CellInfo *cell) { return cell->type == ctx->id("$_TBUF_"); },
             ctx->id("Y"));
     if (tbuf) {
-        sbio->params[ctx->id("PIN_TYPE")] = "41";
+        sbio->params[ctx->id("PIN_TYPE")] = 41;
         replace_port(tbuf, ctx->id("A"), sbio, ctx->id("D_OUT_0"));
         replace_port(tbuf, ctx->id("E"), sbio, ctx->id("OUTPUT_ENABLE"));
 

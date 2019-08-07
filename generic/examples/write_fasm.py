@@ -45,8 +45,7 @@ def write_fasm(ctx, paramCfg, f):
 						print("%s.%s" % (cell.bel, fasm_name), file=f)
 				else:
 					# Parameters with width >32 are direct binary, otherwise denary
-					binval = val if cfg.width > 32 else "{:0{}b}".format(int(val), cfg.width)
-					print("%s.%s[%d:0] = %d'b%s" % (cell.bel, fasm_name, cfg.width-1, cfg.width, binval), file=f)
+					print("%s.%s[%d:0] = %d'b%s" % (cell.bel, fasm_name, cfg.width-1, cfg.width, val), file=f)
 			else:
 				print("%s.%s.%s" % (cell.bel, fasm_name, val), file=f)
 		print("", file=f)

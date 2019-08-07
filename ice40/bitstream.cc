@@ -23,6 +23,7 @@
 #include <vector>
 #include "cells.h"
 #include "log.h"
+#include "util.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -98,12 +99,15 @@ void set_ie_bit_logical(const Context *ctx, const TileInfoPOD &ti, std::vector<s
     }
 }
 
-int get_param_or_def(const CellInfo *cell, const IdString param, int defval = 0)
+int get_param_or_def(const Context *ctx, const CellInfo *cell, const IdString param, int defval = 0)
 {
     auto found = cell->params.find(param);
-    if (found != cell->params.end())
-        return std::stoi(found->second);
-    else
+    if (found != cell->params.end()) {
+        if (found->second.is_string)
+            log_error("expected numeric value for parameter '%s' on cell '%s'\n", param.c_str(ctx),
+                      cell->name.c_str(ctx));
+        return found->second.as_int64();
+    } else
         return defval;
 }
 
@@ -111,7 +115,7 @@ std::string get_param_str_or_def(const CellInfo *cell, const IdString param, std
 {
     auto found = cell->params.find(param);
     if (found != cell->params.end())
-        return found->second;
+        return found->second.as_string();
     else
         return defval;
 }
@@ -172,8 +176,8 @@ void configure_extra_cell(chipconfig_t &config, const Context *ctx, CellInfo *ce
         } else {
             int ival;
             try {
-                ival = get_param_or_def(cell, ctx->id(p.first), 0);
-            } catch (std::invalid_argument &e) {
+                ival = get_param_or_def(ctx, cell, ctx->id(p.first), 0);
+            } catch (std::exception &e) {
                 log_error("expected numeric value for parameter '%s' on cell '%s'\n", p.first.c_str(),
                           cell->name.c_str(ctx));
             }
@@ -419,12 +423,12 @@ void write_asc(const Context *ctx, std::ostream &out)
             const BelInfoPOD &beli = ci.bel_data[bel.index];
             int x = beli.x, y = beli.y, z = beli.z;
             const TileInfoPOD &ti = bi.tiles_nonrouting[TILE_LOGIC];
-            unsigned lut_init = get_param_or_def(cell.second.get(), ctx->id("LUT_INIT"));
-            bool neg_clk = get_param_or_def(cell.second.get(), ctx->id("NEG_CLK"));
-            bool dff_enable = get_param_or_def(cell.second.get(), ctx->id("DFF_ENABLE"));
-            bool async_sr = get_param_or_def(cell.second.get(), ctx->id("ASYNC_SR"));
-            bool set_noreset = get_param_or_def(cell.second.get(), ctx->id("SET_NORESET"));
-            bool carry_enable = get_param_or_def(cell.second.get(), ctx->id("CARRY_ENABLE"));
+            unsigned lut_init = get_param_or_def(ctx, cell.second.get(), ctx->id("LUT_INIT"));
+            bool neg_clk = get_param_or_def(ctx, cell.second.get(), ctx->id("NEG_CLK"));
+            bool dff_enable = get_param_or_def(ctx, cell.second.get(), ctx->id("DFF_ENABLE"));
+            bool async_sr = get_param_or_def(ctx, cell.second.get(), ctx->id("ASYNC_SR"));
+            bool set_noreset = get_param_or_def(ctx, cell.second.get(), ctx->id("SET_NORESET"));
+            bool carry_enable = get_param_or_def(ctx, cell.second.get(), ctx->id("CARRY_ENABLE"));
             std::vector<bool> lc(20, false);
 
             // Discover permutation
@@ -483,8 +487,8 @@ void write_asc(const Context *ctx, std::ostream &out)
             if (dff_enable)
                 set_config(ti, config.at(y).at(x), "NegClk", neg_clk);
 
-            bool carry_const = get_param_or_def(cell.second.get(), ctx->id("CIN_CONST"));
-            bool carry_set = get_param_or_def(cell.second.get(), ctx->id("CIN_SET"));
+            bool carry_const = get_param_or_def(ctx, cell.second.get(), ctx->id("CIN_CONST"));
+            bool carry_set = get_param_or_def(ctx, cell.second.get(), ctx->id("CIN_SET"));
             if (carry_const) {
                 if (!ctx->force)
                     NPNR_ASSERT(z == 0);
@@ -494,9 +498,9 @@ void write_asc(const Context *ctx, std::ostream &out)
             const BelInfoPOD &beli = ci.bel_data[bel.index];
             int x = beli.x, y = beli.y, z = beli.z;
             const TileInfoPOD &ti = bi.tiles_nonrouting[TILE_IO];
-            unsigned pin_type = get_param_or_def(cell.second.get(), ctx->id("PIN_TYPE"));
-            bool neg_trigger = get_param_or_def(cell.second.get(), ctx->id("NEG_TRIGGER"));
-            bool pullup = get_param_or_def(cell.second.get(), ctx->id("PULLUP"));
+            unsigned pin_type = get_param_or_def(ctx, cell.second.get(), ctx->id("PIN_TYPE"));
+            bool neg_trigger = get_param_or_def(ctx, cell.second.get(), ctx->id("NEG_TRIGGER"));
+            bool pullup = get_param_or_def(ctx, cell.second.get(), ctx->id("PULLUP"));
             bool lvds = cell.second->ioInfo.lvds;
             bool used_by_pll_out = sb_io_used_by_pll_out.count(Loc(x, y, z)) > 0;
             bool used_by_pll_pad = sb_io_used_by_pll_pad.count(Loc(x, y, z)) > 0;
@@ -532,7 +536,7 @@ void write_asc(const Context *ctx, std::ostream &out)
                 if (ctx->args.type == ArchArgs::UP5K) {
                     std::string pullup_resistor = "100K";
                     if (cell.second->attrs.count(ctx->id("PULLUP_RESISTOR")))
-                        pullup_resistor = cell.second->attrs.at(ctx->id("PULLUP_RESISTOR"));
+                        pullup_resistor = cell.second->attrs.at(ctx->id("PULLUP_RESISTOR")).as_string();
                     NPNR_ASSERT(pullup_resistor == "100K" || pullup_resistor == "10K" || pullup_resistor == "6P8K" ||
                                 pullup_resistor == "3P3K");
                     if (iez == 0) {
@@ -599,10 +603,10 @@ void write_asc(const Context *ctx, std::ostream &out)
             if (!(ctx->args.type == ArchArgs::LP1K || ctx->args.type == ArchArgs::HX1K)) {
                 set_config(ti_ramb, config.at(y).at(x), "RamConfig.PowerUp", true);
             }
-            bool negclk_r = get_param_or_def(cell.second.get(), ctx->id("NEG_CLK_R"));
-            bool negclk_w = get_param_or_def(cell.second.get(), ctx->id("NEG_CLK_W"));
-            int write_mode = get_param_or_def(cell.second.get(), ctx->id("WRITE_MODE"));
-            int read_mode = get_param_or_def(cell.second.get(), ctx->id("READ_MODE"));
+            bool negclk_r = get_param_or_def(ctx, cell.second.get(), ctx->id("NEG_CLK_R"));
+            bool negclk_w = get_param_or_def(ctx, cell.second.get(), ctx->id("NEG_CLK_W"));
+            int write_mode = get_param_or_def(ctx, cell.second.get(), ctx->id("WRITE_MODE"));
+            int read_mode = get_param_or_def(ctx, cell.second.get(), ctx->id("READ_MODE"));
             set_config(ti_ramb, config.at(y).at(x), "NegClk", negclk_w);
             set_config(ti_ramt, config.at(y + 1).at(x), "NegClk", negclk_r);
 
@@ -628,9 +632,9 @@ void write_asc(const Context *ctx, std::ostream &out)
             // No config needed
         } else if (cell.second->type == ctx->id("SB_I2C")) {
             bool sda_in_dly = !cell.second->attrs.count(ctx->id("SDA_INPUT_DELAYED")) ||
-                              std::stoi(cell.second->attrs[ctx->id("SDA_INPUT_DELAYED")]);
+                              cell.second->attrs[ctx->id("SDA_INPUT_DELAYED")].as_bool();
             bool sda_out_dly = !cell.second->attrs.count(ctx->id("SDA_OUTPUT_DELAYED")) ||
-                               std::stoi(cell.second->attrs[ctx->id("SDA_OUTPUT_DELAYED")]);
+                               cell.second->attrs[ctx->id("SDA_OUTPUT_DELAYED")].as_bool();
             set_ec_cbit(config, ctx, get_ec_config(ctx->chip_info, cell.second->bel), "SDA_INPUT_DELAYED", sda_in_dly,
                         "IpConfig.");
             set_ec_cbit(config, ctx, get_ec_config(ctx->chip_info, cell.second->bel), "SDA_OUTPUT_DELAYED", sda_out_dly,
@@ -861,10 +865,10 @@ void write_asc(const Context *ctx, std::ostream &out)
                 out << ".ram_data " << x << " " << y << std::endl;
                 for (int w = 0; w < 16; w++) {
                     std::vector<bool> bits(256);
-                    std::string init =
-                            get_param_str_or_def(cell.second.get(), ctx->id(std::string("INIT_") + get_hexdigit(w)));
-                    for (size_t i = 0; i < init.size(); i++) {
-                        bool val = (init.at((init.size() - 1) - i) == '1');
+                    Property init = get_or_default(cell.second->params, ctx->id(std::string("INIT_") + get_hexdigit(w)),
+                                                   Property(0, 256));
+                    for (size_t i = 0; i < init.str.size(); i++) {
+                        bool val = (init.str.at(i) == Property::State::S1);
                         bits.at(i) = val;
                     }
                     for (int i = bits.size() - 4; i >= 0; i -= 4) {

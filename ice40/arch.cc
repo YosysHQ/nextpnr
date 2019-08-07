@@ -689,7 +689,7 @@ bool Arch::place()
         tocfg.cellTypes.insert(id_ICESTORM_LC);
         retVal = timing_opt(getCtx(), tocfg);
     }
-    getCtx()->settings[getCtx()->id("place")] = "1";
+    getCtx()->settings[getCtx()->id("place")] = 1;
     archInfoToAttributes();
     return retVal;
 }
@@ -697,7 +697,7 @@ bool Arch::place()
 bool Arch::route()
 {
     bool retVal = router1(getCtx(), Router1Cfg(getCtx()));
-    getCtx()->settings[getCtx()->id("route")] = "1";
+    getCtx()->settings[getCtx()->id("route")] = 1;
     archInfoToAttributes();
     return retVal;
 }

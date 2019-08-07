@@ -55,7 +55,7 @@ std::unique_ptr<Context> GenericCommandHandler::createContext(std::unordered_map
 {
     ArchArgs chipArgs;
     if (values.find("arch.name") != values.end()) {
-        std::string arch_name = values["arch.name"].str;
+        std::string arch_name = values["arch.name"].as_string();
         if (arch_name != "generic")
             log_error("Unsuported architecture '%s'.\n", arch_name.c_str());
     }
