@@ -95,7 +95,7 @@ std::vector<PortGroup> group_ports(Context *ctx)
             if (int(grp.bits.size()) <= index)
                 grp.bits.resize(index + 1, -1);
             NPNR_ASSERT(grp.bits.at(index) == -1);
-            grp.bits.at(index) = pair.first.index;
+            grp.bits.at(index) = pair.second.net ? pair.second.net->name.index : pair.first.index;
         }
     }
     return groups;
