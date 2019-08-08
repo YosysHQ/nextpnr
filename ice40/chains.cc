@@ -32,6 +32,7 @@ NEXTPNR_NAMESPACE_BEGIN
 class ChainConstrainer
 {
   private:
+    int feedio_lcs = 0;
     Context *ctx;
     // Split a carry chain into multiple legal chains
     std::vector<CellChain> split_carry_chain(CellChain &carryc)
@@ -55,6 +56,7 @@ class ChainConstrainer
                     CellInfo *feedin = make_carry_feed_in(cell, cell->ports.at(ctx->id("CIN")));
                     chains.back().cells.push_back(feedin);
                     tile.push_back(feedin);
+                    ++feedio_lcs;
                 }
             }
             tile.push_back(cell);
@@ -78,6 +80,7 @@ class ChainConstrainer
                                                                 at_end ? nullptr : *(curr_cell + 1));
                         chains.back().cells.push_back(passout);
                         tile.push_back(passout);
+                        ++feedio_lcs;
                     }
                 }
                 ++curr_cell;
@@ -281,6 +284,7 @@ class ChainConstrainer
                 chain.cells.at(0)->constr_children.push_back(chain.cells.at(i));
             }
         }
+        log_info("    %4d LCs used to legalise carry chains.\n", feedio_lcs);
     }
 
   public:

@@ -34,7 +34,7 @@ NEXTPNR_NAMESPACE_BEGIN
 static void pack_lut_lutffs(Context *ctx)
 {
     log_info("Packing LUT-FFs..\n");
-
+    int lut_only = 0, lut_and_ff = 0;
     std::unordered_set<IdString> packed_cells;
     std::vector<std::unique_ptr<CellInfo>> new_cells;
     for (auto cell : sorted(ctx->cells)) {
@@ -62,6 +62,7 @@ static void pack_lut_lutffs(Context *ctx)
                 } else {
                     lut_to_lc(ctx, ci, packed.get(), false);
                     dff_to_lc(ctx, dff, packed.get(), false);
+                    ++lut_and_ff;
                     ctx->nets.erase(o->name);
                     if (dff_bel != dff->attrs.end())
                         packed->attrs[ctx->id("BEL")] = dff_bel->second;
@@ -73,6 +74,7 @@ static void pack_lut_lutffs(Context *ctx)
             }
             if (!packed_dff) {
                 lut_to_lc(ctx, ci, packed.get(), true);
+                ++lut_only;
             }
             new_cells.push_back(std::move(packed));
         }
@@ -83,6 +85,8 @@ static void pack_lut_lutffs(Context *ctx)
     for (auto &ncell : new_cells) {
         ctx->cells[ncell->name] = std::move(ncell);
     }
+    log_info("    %4d LCs used as LUT4 only\n", lut_only);
+    log_info("    %4d LCs used as LUT4 and DFF\n", lut_and_ff);
 }
 
 // Pack FFs not packed as LUTFFs
@@ -92,6 +96,7 @@ static void pack_nonlut_ffs(Context *ctx)
 
     std::unordered_set<IdString> packed_cells;
     std::vector<std::unique_ptr<CellInfo>> new_cells;
+    int ff_only = 0;
 
     for (auto cell : sorted(ctx->cells)) {
         CellInfo *ci = cell.second;
@@ -104,6 +109,7 @@ static void pack_nonlut_ffs(Context *ctx)
             packed_cells.insert(ci->name);
             dff_to_lc(ctx, ci, packed.get(), true);
             new_cells.push_back(std::move(packed));
+            ++ff_only;
         }
     }
     for (auto pcell : packed_cells) {
@@ -112,6 +118,7 @@ static void pack_nonlut_ffs(Context *ctx)
     for (auto &ncell : new_cells) {
         ctx->cells[ncell->name] = std::move(ncell);
     }
+    log_info("    %4d LCs used as DFF only\n", ff_only);
 }
 
 static bool net_is_constant(const Context *ctx, NetInfo *net, bool &value)
@@ -133,6 +140,7 @@ static void pack_carries(Context *ctx)
     std::unordered_set<IdString> exhausted_cells;
     std::unordered_set<IdString> packed_cells;
     std::vector<std::unique_ptr<CellInfo>> new_cells;
+    int carry_only = 0;
 
     for (auto cell : sorted(ctx->cells)) {
         CellInfo *ci = cell.second;
@@ -209,6 +217,7 @@ static void pack_carries(Context *ctx)
                     i1_net->users.push_back(pr);
                 }
                 new_cells.push_back(std::move(created_lc));
+                ++carry_only;
             }
             carry_lc->params[ctx->id("CARRY_ENABLE")] = Property::State::S1;
             replace_port(ci, ctx->id("CI"), carry_lc, ctx->id("CIN"));
@@ -250,6 +259,7 @@ static void pack_carries(Context *ctx)
     for (auto &ncell : new_cells) {
         ctx->cells[ncell->name] = std::move(ncell);
     }
+    log_info("    %4d LCs used as CARRY only\n", carry_only);
 }
 
 // "Pack" RAMs
