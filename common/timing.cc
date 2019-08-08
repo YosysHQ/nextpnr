@@ -185,8 +185,16 @@ struct Timing
             }
         }
 
-        std::deque<NetInfo *> queue(topographical_order.begin(), topographical_order.end());
+        // In out-of-context mode, handle top-level ports correctly
+        if (bool_or_default(ctx->settings, ctx->id("arch.ooc"))) {
+            for (auto &p : ctx->ports) {
+                if (p.second.type != PORT_IN || p.second.net == nullptr)
+                    continue;
+                topographical_order.emplace_back(p.second.net);
+            }
+        }
 
+        std::deque<NetInfo *> queue(topographical_order.begin(), topographical_order.end());
         // Now walk the design, from the start points identified previously, building up a topographical order
         while (!queue.empty()) {
             const auto net = queue.front();

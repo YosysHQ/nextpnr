@@ -274,8 +274,8 @@ void ccu2c_to_slice(Context *ctx, CellInfo *ccu, CellInfo *lc)
     lc->params[ctx->id("LUT0_INITVAL")] = get_or_default(ccu->params, ctx->id("INIT0"), Property(0, 16));
     lc->params[ctx->id("LUT1_INITVAL")] = get_or_default(ccu->params, ctx->id("INIT1"), Property(0, 16));
 
-    lc->params[ctx->id("INJECT1_0")] = str_or_default(ccu->params, ctx->id("INJECT1_0"), "YES");
-    lc->params[ctx->id("INJECT1_1")] = str_or_default(ccu->params, ctx->id("INJECT1_1"), "YES");
+    lc->params[ctx->id("CCU2_INJECT1_0")] = str_or_default(ccu->params, ctx->id("INJECT1_0"), "YES");
+    lc->params[ctx->id("CCU2_INJECT1_1")] = str_or_default(ccu->params, ctx->id("INJECT1_1"), "YES");
 
     replace_port(ccu, ctx->id("CIN"), lc, ctx->id("FCI"));
 

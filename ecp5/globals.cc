@@ -431,11 +431,15 @@ class Ecp5GlobalRouter
   public:
     void promote_globals()
     {
+        bool is_ooc = bool_or_default(ctx->settings, ctx->id("arch.ooc"));
         log_info("Promoting globals...\n");
         auto clocks = get_clocks();
         for (auto clock : clocks) {
             log_info("    promoting clock net %s to global network\n", clock->name.c_str(ctx));
-            insert_dcc(clock);
+            if (is_ooc) // Don't actually do anything in OOC mode, global routing will be done in the full design
+                clock->is_global = true;
+            else
+                insert_dcc(clock);
         }
     }
 

@@ -789,15 +789,13 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
 
             if (str_or_default(ci->params, ctx->id("MODE"), "LOGIC") == "CCU2") {
                 cc.tiles[tname].add_enum(slice + ".CCU2.INJECT1_0",
-                                         str_or_default(ci->params, ctx->id("INJECT1_0"), "YES"));
+                                         str_or_default(ci->params, ctx->id("CCU2_INJECT1_0"), "YES"));
                 cc.tiles[tname].add_enum(slice + ".CCU2.INJECT1_1",
-                                         str_or_default(ci->params, ctx->id("INJECT1_1"), "YES"));
+                                         str_or_default(ci->params, ctx->id("CCU2_INJECT1_1"), "YES"));
             } else {
                 // Don't interfere with cascade mux wiring
-                cc.tiles[tname].add_enum(slice + ".CCU2.INJECT1_0",
-                                         str_or_default(ci->params, ctx->id("INJECT1_0"), "_NONE_"));
-                cc.tiles[tname].add_enum(slice + ".CCU2.INJECT1_1",
-                                         str_or_default(ci->params, ctx->id("INJECT1_1"), "_NONE_"));
+                cc.tiles[tname].add_enum(slice + ".CCU2.INJECT1_0", "_NONE_");
+                cc.tiles[tname].add_enum(slice + ".CCU2.INJECT1_1", "_NONE_");
             }
 
             if (str_or_default(ci->params, ctx->id("MODE"), "LOGIC") == "DPRAM" && slice == "SLICEA") {

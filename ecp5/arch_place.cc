@@ -152,7 +152,10 @@ void Arch::permute_luts()
             inputs.emplace_back(crit, i);
         }
         // Least critical first (A input is slowest)
-        std::sort(inputs.begin(), inputs.end());
+
+        // Avoid permuting locked LUTs (e.g. from an OOC submodule)
+        if (ci->belStrength <= STRENGTH_STRONG)
+            std::sort(inputs.begin(), inputs.end());
         for (int i = 0; i < 4; i++) {
             IdString p = port_names.at(i);
             // log_info("%s %s %f\n", p.c_str(ctx), port_names.at(inputs.at(i).second).c_str(ctx), inputs.at(i).first);

@@ -524,9 +524,15 @@ bool Arch::place()
     } else {
         log_error("ECP5 architecture does not support placer '%s'\n", placer.c_str());
     }
-
     permute_luts();
+
+    // In out-of-context mode, create a locked macro
+    if (bool_or_default(settings, id("arch.ooc")))
+        for (auto &cell : cells)
+            cell.second->belStrength = STRENGTH_LOCKED;
+
     getCtx()->settings[getCtx()->id("place")] = 1;
+
     archInfoToAttributes();
     return true;
 }

@@ -733,10 +733,10 @@ static void insert_iobuf(Context *ctx, NetInfo *net, PortType type, const string
     }
 
     PortInfo pinfo;
-    pinfo.name = net->name;
+    pinfo.name = ctx->id(name);
     pinfo.net = net;
     pinfo.type = type;
-    ctx->ports[net->name] = pinfo;
+    ctx->ports[pinfo.name] = pinfo;
 }
 
 void json_import_toplevel_port(Context *ctx, const string &modname, const std::vector<IdString> &netnames,

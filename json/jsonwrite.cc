@@ -66,6 +66,59 @@ void write_parameters(std::ostream &f, Context *ctx, const std::unordered_map<Id
     }
 }
 
+struct PortGroup
+{
+    std::string name;
+    std::vector<int> bits;
+    PortType dir;
+};
+
+std::vector<PortGroup> group_ports(Context *ctx)
+{
+    std::vector<PortGroup> groups;
+    std::unordered_map<std::string, size_t> base_to_group;
+    for (auto &pair : ctx->ports) {
+        std::string name = pair.second.name.str(ctx);
+        if ((name.back() != ']') || (name.find('[') == std::string::npos)) {
+            groups.push_back({name, {pair.first.index}, pair.second.type});
+        } else {
+            int off1 = int(name.find_last_of('['));
+            std::string basename = name.substr(0, off1);
+            int index = std::stoi(name.substr(off1 + 1, name.size() - (off1 + 2)));
+
+            if (!base_to_group.count(basename)) {
+                base_to_group[basename] = groups.size();
+                groups.push_back({basename, std::vector<int>(index + 1, -1), pair.second.type});
+            }
+
+            auto &grp = groups.at(base_to_group[basename]);
+            if (int(grp.bits.size()) <= index)
+                grp.bits.resize(index + 1, -1);
+            NPNR_ASSERT(grp.bits.at(index) == -1);
+            grp.bits.at(index) = pair.second.net ? pair.second.net->name.index : pair.first.index;
+        }
+    }
+    return groups;
+};
+
+std::string format_port_bits(const PortGroup &port)
+{
+    std::stringstream s;
+    s << "[ ";
+    bool first = true;
+    for (auto bit : port.bits) {
+        if (!first)
+            s << ", ";
+        if (bit == -1)
+            s << "\"x\"";
+        else
+            s << bit;
+        first = false;
+    }
+    s << " ]";
+    return s.str();
+}
+
 void write_module(std::ostream &f, Context *ctx)
 {
     auto val = ctx->attrs.find(ctx->id("module"));
@@ -80,14 +133,15 @@ void write_module(std::ostream &f, Context *ctx)
     write_parameters(f, ctx, ctx->attrs, true);
     f << stringf("\n      },\n");
     f << stringf("      \"ports\": {");
+
+    auto ports = group_ports(ctx);
     bool first = true;
-    for (auto &pair : ctx->ports) {
-        auto &c = pair.second;
+    for (auto &port : ports) {
         f << stringf("%s\n", first ? "" : ",");
-        f << stringf("        %s: {\n", get_name(c.name, ctx).c_str());
+        f << stringf("        %s: {\n", get_string(port.name).c_str());
         f << stringf("          \"direction\": \"%s\",\n",
-                     c.type == PORT_IN ? "input" : c.type == PORT_INOUT ? "inout" : "output");
-        f << stringf("          \"bits\": [ %d ]\n", pair.first.index);
+                     port.dir == PORT_IN ? "input" : port.dir == PORT_INOUT ? "inout" : "output");
+        f << stringf("          \"bits\": %s\n", format_port_bits(port).c_str());
         f << stringf("        }");
         first = false;
     }
