@@ -140,6 +140,10 @@ void Arch::permute_luts()
         std::vector<NetInfo *> orig_nets;
 
         for (int i = 0; i < 4; i++) {
+            if (!ci->ports.count(port_names.at(i))) {
+                ci->ports[port_names.at(i)].name = port_names.at(i);
+                ci->ports[port_names.at(i)].type = PORT_IN;
+            }
             auto &port = ci->ports.at(port_names.at(i));
             float crit = 0;
             if (port.net != nullptr && nc.count(port.net->name)) {
