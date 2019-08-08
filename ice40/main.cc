@@ -157,7 +157,6 @@ std::unique_ptr<Context> Ice40CommandHandler::createContext(std::unordered_map<s
 
     if (vm.count("package"))
         chipArgs.package = vm["package"].as<std::string>();
-
     if (values.find("arch.name") != values.end()) {
         std::string arch_name = values["arch.name"].as_string();
         if (arch_name != "ice40")
@@ -207,6 +206,9 @@ std::unique_ptr<Context> Ice40CommandHandler::createContext(std::unordered_map<s
         log_error("This version of nextpnr-ice40 is built with HX1K-support only.\n");
     }
 #endif
+
+    log_warning("Use of default value for --package is deprecated. Please add '--package %s' to arguments.\n",
+                chipArgs.package.c_str());
 
     auto ctx = std::unique_ptr<Context>(new Context(chipArgs));
     for (auto &val : values)
