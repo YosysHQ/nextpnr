@@ -220,8 +220,11 @@ std::unique_ptr<Context> ECP5CommandHandler::createContext(std::unordered_map<st
     if (chipArgs.type == ArchArgs::NONE)
         chipArgs.type = ArchArgs::LFE5U_45F;
 
-    if (chipArgs.package.empty())
+    if (chipArgs.package.empty()) {
         chipArgs.package = "CABGA381";
+        log_warning("Use of default value for --package is deprecated. Please add '--package %s' to arguments.\n",
+                    chipArgs.package.c_str());
+    }
 
     if (chipArgs.type == ArchArgs::LFE5UM5G_25F || chipArgs.type == ArchArgs::LFE5UM5G_45F ||
         chipArgs.type == ArchArgs::LFE5UM5G_85F) {
