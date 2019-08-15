@@ -44,6 +44,7 @@ of the selected architecture:
 - For building on Windows with MSVC, usage of vcpkg is advised for dependency installation.
   - For 32 bit builds: `vcpkg install boost-filesystem boost-program-options boost-thread boost-python qt5-base eigen3`
   - For 64 bit builds: `vcpkg install boost-filesystem:x64-windows boost-program-options:x64-windows boost-thread:x64-windows boost-python:x64-windows qt5-base:x64-windows eigen3:x64-windows`
+  - For static builds, add `-static` to each of the package names.  For example, change `eigen3:x64-windows` to `eigen3:x64-windows-static`
   - A copy of Python that matches the version in vcpkg (currently Python 3.6.4).  You can download the [Embeddable Zip File](https://www.python.org/downloads/release/python-364/) and extract it.  You may need to extract `python36.zip` within the embeddable zip file to a new directory called "Lib".
 - For building on macOS, brew utility is needed.
   - Install all needed packages `brew install cmake python boost boost-python3 qt5 eigen`
@@ -71,6 +72,8 @@ On Windows, you may specify paths explicitly:
 cmake -DARCH=ice40 -DICEBOX_ROOT=C:/ProgramData/icestorm/share/icebox -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows -G "Visual Studio 15 2017 Win64" -DPYTHON_EXECUTABLE=C:/Python364/python.exe -DPYTHON_LIBRARY=C:/vcpkg/packages/python3_x64-windows/lib/python36.lib -DPYTHON_INCLUDE_DIR=C:/vcpkg/packages/python3_x64-windows/include/python3.6
 cmake --build . --config Release
 ```
+
+To build a static release, change the target triplet from `x64-windows` to `x64-windows-static` and add `-DBUILD_STATIC=ON`.
 
 A simple example that runs on the iCEstick dev board can be found in `ice40/examples/blinky/blinky.*`.
 Usage example:
