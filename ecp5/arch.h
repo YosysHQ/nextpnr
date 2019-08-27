@@ -1044,6 +1044,10 @@ struct Arch : BaseCtx
     IdString id_clkmux, id_lsrmux;
     IdString id_srmode, id_mode;
 
+    // Special case for delay estimates due to its physical location
+    // being far from the logical location of its primitive
+    WireId gsrclk_wire;
+
     mutable std::unordered_map<DelayKey, std::pair<bool, DelayInfo>> celldelay_cache;
 
     static const std::string defaultPlacer;

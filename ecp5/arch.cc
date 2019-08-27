@@ -440,7 +440,10 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
 
     auto est_location = [&](WireId w) -> std::pair<int, int> {
         const auto &wire = locInfo(w)->wire_data[w.index];
-        if (wire.num_bel_pins > 0) {
+        if (w == gsrclk_wire) {
+            auto phys_wire = getPipSrcWire(*(getPipsUphill(w).begin()));
+            return std::make_pair(int(phys_wire.location.x), int(phys_wire.location.y));
+        } else if (wire.num_bel_pins > 0) {
             return std::make_pair(w.location.x + wire.bel_pins[0].rel_bel_loc.x,
                                   w.location.y + wire.bel_pins[0].rel_bel_loc.y);
         } else if (wire.num_downhill > 0) {
@@ -711,7 +714,8 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
         std::string fn = fromPort.str(this), tn = toPort.str(this);
         if (fn.size() > 1 && (fn.front() == 'A' || fn.front() == 'B') && std::isdigit(fn.at(1))) {
             if (tn.size() > 1 && tn.front() == 'P' && std::isdigit(tn.at(1)))
-                return getDelayFromTimingDatabase(id_MULT18X18D_REGS_NONE, id(std::string("") + fn.front()), id_P, delay);
+                return getDelayFromTimingDatabase(id_MULT18X18D_REGS_NONE, id(std::string("") + fn.front()), id_P,
+                                                  delay);
         }
         return false;
     } else if (cell->type == id_IOLOGIC || cell->type == id_SIOLOGIC) {
