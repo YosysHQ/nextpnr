@@ -600,6 +600,8 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
         }
     }
 
+    cc.metadata.push_back("Part: " + ctx->getFullChipName());
+
     // Clear out DCU tieoffs in base config if DCU used
     for (auto &cell : ctx->cells) {
         CellInfo *ci = cell.second.get();
