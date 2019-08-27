@@ -1411,6 +1411,17 @@ class Ecp5Packer
                 rename_port(ctx, ci, ctx->id("USRMCLKI"), id_PADDO);
                 rename_port(ctx, ci, ctx->id("USRMCLKTS"), id_PADDT);
                 rename_port(ctx, ci, ctx->id("USRMCLKO"), id_PADDI);
+            } else if (ci->type == id_GSR || ci->type == ctx->id("SGSR")) {
+                ci->params[ctx->id("MODE")] = std::string("ACTIVE_LOW");
+                ci->params[ctx->id("SYNCMODE")] =
+                        ci->type == ctx->id("SGSR") ? std::string("SYNC") : std::string("ASYNC");
+                ci->type = id_GSR;
+                for (BelId bel : ctx->getBels()) {
+                    if (ctx->getBelType(bel) != id_GSR)
+                        continue;
+                    ci->attrs[ctx->id("BEL")] = ctx->getBelName(bel).str(ctx);
+                    ctx->gsrclk_wire = ctx->getBelPinWire(bel, id_CLK);
+                }
             }
         }
     }

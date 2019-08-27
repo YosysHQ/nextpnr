@@ -1277,7 +1277,7 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             cc.tiles[ctx->getTileByType("EFB3_PICB1")].add_enum("CCLK.MODE", "USRMCLK");
         } else if (ci->type == id_GSR) {
             cc.tiles[ctx->getTileByType("EFB0_PICB0")].add_enum(
-                    "GSR.GSRMODE", str_or_default(ci->params, ctx->id("MODE"), "ACTIVE_HIGH"));
+                    "GSR.GSRMODE", str_or_default(ci->params, ctx->id("MODE"), "ACTIVE_LOW"));
             cc.tiles[ctx->getTileByType("VIQ_BUF")].add_enum("GSR.SYNCMODE",
                                                              str_or_default(ci->params, ctx->id("SYNCMODE"), "ASYNC"));
         } else if (ci->type == id_JTAGG) {
