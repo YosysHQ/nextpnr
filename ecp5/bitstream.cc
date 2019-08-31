@@ -892,7 +892,35 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             if (datamux_mddr != "PADDO")
                 cc.tiles[pic_tile].add_enum(pio + ".DATAMUX_MDDR", datamux_mddr);
         } else if (ci->type == ctx->id("DCCA")) {
-            // Nothing to do
+            const NetInfo *cen = get_net_or_empty(ci, ctx->id("CE"));
+            if (cen != nullptr) {
+                std::string belname = ctx->locInfo(bel)->bel_data[bel.index].name.get();
+                Loc loc = ctx->getBelLocation(bel);
+                TileGroup tg;
+                switch (belname[0]) {
+                case 'B':
+                    tg.tiles.push_back(
+                            ctx->getTileByTypeAndLocation(loc.y, loc.x, std::set<std::string>{"BMID_0H", "BMID_0V"}));
+                    tg.tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 1,
+                                                                     std::set<std::string>{"BMID_2", "BMID_2V"}));
+                    break;
+                case 'T':
+                    tg.tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x, "TMID_0"));
+                    tg.tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x + 1, "TMID_1"));
+                    break;
+                case 'L':
+                    tg.tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x, "LMID_0"));
+                    break;
+                case 'R':
+                    tg.tiles.push_back(ctx->getTileByTypeAndLocation(loc.y, loc.x, "RMID_0"));
+                    break;
+                default:
+                    NPNR_ASSERT_FALSE("bad DCC for gating");
+                    break;
+                }
+                tg.config.add_enum(std::string("DCC_") + belname[0] + belname.substr(4) + ".MODE", "DCCA");
+                cc.tilegroups.push_back(tg);
+            }
         } else if (ci->type == ctx->id("DP16KD")) {
             TileGroup tg;
             Loc loc = ctx->getBelLocation(ci->bel);
