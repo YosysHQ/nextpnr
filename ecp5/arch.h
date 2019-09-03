@@ -491,6 +491,7 @@ struct Arch : BaseCtx
     Arch(ArchArgs args);
 
     std::string getChipName() const;
+    std::string getFullChipName() const;
 
     IdString archId() const { return id("ecp5"); }
     ArchArgs archArgs() const { return args; }

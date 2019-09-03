@@ -158,6 +158,26 @@ std::string Arch::getChipName() const
     }
 }
 
+std::string Arch::getFullChipName() const
+{
+    std::string name = getChipName();
+    name += "-";
+    switch (args.speed) {
+    case ArchArgs::SPEED_6:
+        name += "6";
+        break;
+    case ArchArgs::SPEED_7:
+        name += "7";
+        break;
+    case ArchArgs::SPEED_8:
+    case ArchArgs::SPEED_8_5G:
+        name += "8";
+        break;
+    }
+    name += args.package;
+    return name;
+}
+
 // -----------------------------------------------------------------------
 
 IdString Arch::archArgsToId(ArchArgs args) const

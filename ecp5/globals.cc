@@ -78,7 +78,18 @@ class Ecp5GlobalRouter
             }
             // log_info("clkcount %s: %d\n", ni->name.c_str(ctx),clockCount[ni->name]);
         }
+        // DCCAs must always drive globals
         std::vector<NetInfo *> clocks;
+        for (auto &cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (ci->type == id_DCCA) {
+                NetInfo *glb = ci->ports.at(id_CLKO).net;
+                if (glb != nullptr) {
+                    clocks.push_back(glb);
+                    clockCount.erase(glb->name);
+                }
+            }
+        }
         while (clocks.size() < 16) {
             auto max = std::max_element(clockCount.begin(), clockCount.end(),
                                         [](const decltype(clockCount)::value_type &a,
@@ -355,10 +366,14 @@ class Ecp5GlobalRouter
     void place_dcc(CellInfo *dcc)
     {
         BelId best_bel;
+        bool using_ce = get_net_or_empty(dcc, ctx->id("CE")) != nullptr;
         wirelen_t best_wirelen = 9999999;
         for (auto bel : ctx->getBels()) {
             if (ctx->getBelType(bel) == id_DCCA && ctx->checkBelAvail(bel)) {
                 if (ctx->isValidBelForCell(dcc, bel)) {
+                    std::string belname = ctx->locInfo(bel)->bel_data[bel.index].name.get();
+                    if (belname.at(0) == 'D' && using_ce)
+                        continue; // don't allow DCCs with CE at center
                     ctx->bindBel(bel, dcc, STRENGTH_LOCKED);
                     wirelen_t wirelen = get_dcc_wirelen(dcc);
                     if (wirelen < best_wirelen) {
@@ -376,46 +391,51 @@ class Ecp5GlobalRouter
     // Insert a DCC into a net to promote it to a global
     NetInfo *insert_dcc(NetInfo *net)
     {
-        auto dcc = create_ecp5_cell(ctx, id_DCCA, "$gbuf$" + net->name.str(ctx));
-
-        std::unique_ptr<NetInfo> glbnet = std::unique_ptr<NetInfo>(new NetInfo);
-        glbnet->name = ctx->id("$glbnet$" + net->name.str(ctx));
-        glbnet->driver.cell = dcc.get();
-        glbnet->driver.port = id_CLKO;
-        glbnet->attrs[ctx->id("ECP5_IS_GLOBAL")] = 1;
-        dcc->ports[id_CLKO].net = glbnet.get();
-
-        std::vector<PortRef> keep_users;
-        for (auto user : net->users) {
-            if (user.port == id_CLKFB) {
-                keep_users.push_back(user);
-            } else if (net->driver.cell->type == id_EXTREFB && user.cell->type == id_DCUA) {
-                keep_users.push_back(user);
-            } else {
-                glbnet->users.push_back(user);
-                user.cell->ports.at(user.port).net = glbnet.get();
+        NetInfo *glbptr = nullptr;
+        CellInfo *dccptr = nullptr;
+        if (net->driver.cell != nullptr && net->driver.cell->type == id_DCCA) {
+            // Already have a DCC (such as clock gating)
+            glbptr = net;
+            dccptr = net->driver.cell;
+        } else {
+            auto dcc = create_ecp5_cell(ctx, id_DCCA, "$gbuf$" + net->name.str(ctx));
+            std::unique_ptr<NetInfo> glbnet = std::unique_ptr<NetInfo>(new NetInfo);
+            glbnet->name = ctx->id("$glbnet$" + net->name.str(ctx));
+            glbnet->driver.cell = dcc.get();
+            glbnet->driver.port = id_CLKO;
+            dcc->ports[id_CLKO].net = glbnet.get();
+            std::vector<PortRef> keep_users;
+            for (auto user : net->users) {
+                if (user.port == id_CLKFB) {
+                    keep_users.push_back(user);
+                } else if (net->driver.cell->type == id_EXTREFB && user.cell->type == id_DCUA) {
+                    keep_users.push_back(user);
+                } else {
+                    glbnet->users.push_back(user);
+                    user.cell->ports.at(user.port).net = glbnet.get();
+                }
             }
+            net->users = keep_users;
+
+            dcc->ports[id_CLKI].net = net;
+            PortRef clki_pr;
+            clki_pr.port = id_CLKI;
+            clki_pr.cell = dcc.get();
+            net->users.push_back(clki_pr);
+            if (net->clkconstr) {
+                glbnet->clkconstr = std::unique_ptr<ClockConstraint>(new ClockConstraint());
+                glbnet->clkconstr->low = net->clkconstr->low;
+                glbnet->clkconstr->high = net->clkconstr->high;
+                glbnet->clkconstr->period = net->clkconstr->period;
+            }
+            glbptr = glbnet.get();
+            ctx->nets[glbnet->name] = std::move(glbnet);
+            dccptr = dcc.get();
+            ctx->cells[dcc->name] = std::move(dcc);
         }
-        net->users = keep_users;
-
-        dcc->ports[id_CLKI].net = net;
-        PortRef clki_pr;
-        clki_pr.port = id_CLKI;
-        clki_pr.cell = dcc.get();
-        net->users.push_back(clki_pr);
-
-        place_dcc(dcc.get());
-
-        if (net->clkconstr) {
-            glbnet->clkconstr = std::unique_ptr<ClockConstraint>(new ClockConstraint());
-            glbnet->clkconstr->low = net->clkconstr->low;
-            glbnet->clkconstr->high = net->clkconstr->high;
-            glbnet->clkconstr->period = net->clkconstr->period;
-        }
-
-        ctx->cells[dcc->name] = std::move(dcc);
-        NetInfo *glbptr = glbnet.get();
-        ctx->nets[glbnet->name] = std::move(glbnet);
+        glbptr->attrs[ctx->id("ECP5_IS_GLOBAL")] = 1;
+        if (str_or_default(dccptr->attrs, ctx->id("BEL"), "") == "")
+            place_dcc(dccptr);
         return glbptr;
     }
 
