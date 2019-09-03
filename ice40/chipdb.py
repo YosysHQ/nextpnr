@@ -969,10 +969,15 @@ def add_bel_ec(ec):
             last_dsp_y = 23
         else:
             assert False, "unknown DSP y " + str(y)
-        wire_signextin = add_wire(x, last_dsp_y, "dsp/signextout")
-        wire_signextout = add_wire(x, y, "dsp/signextout")
-        wire_accumci = add_wire(x, last_dsp_y, "dsp/accumco")
-        wire_accumco = add_wire(x, y, "dsp/accumco")
+        def add_if_new(x, y, name):
+            if (x, y, name) in wire_names:
+                return wire_names[(x, y, name)]
+            else:
+                return add_wire(x, y, name)
+        wire_signextin = add_if_new(x, last_dsp_y, "dsp/signextout")
+        wire_signextout = add_if_new(x, y, "dsp/signextout")
+        wire_accumci = add_if_new(x, last_dsp_y, "dsp/accumco")
+        wire_accumco = add_if_new(x, y, "dsp/accumco")
         add_bel_input(bel, wire_signextin, "SIGNEXTIN")
         add_bel_output(bel, wire_signextout, "SIGNEXTOUT")
         add_bel_input(bel, wire_accumci, "ACCUMCI")
