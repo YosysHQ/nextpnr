@@ -41,7 +41,7 @@ if (NOT EXTERNAL_CHIPDB)
             set(DEV_CC_BBA_DB ${CMAKE_CURRENT_SOURCE_DIR}/ecp5/chipdbs/chipdb-${dev}.bba)
             set(DEV_CONSTIDS_INC ${CMAKE_CURRENT_SOURCE_DIR}/ecp5/constids.inc)
             add_custom_command(OUTPUT ${DEV_CC_BBA_DB}
-                COMMAND ${ENV_CMD} python3 ${DB_PY} -p ${DEV_CONSTIDS_INC} ${dev} > ${DEV_CC_BBA_DB}
+                COMMAND ${ENV_CMD} ${PYTHON_EXECUTABLE} ${DB_PY} -p ${DEV_CONSTIDS_INC} ${dev} > ${DEV_CC_BBA_DB}
                 DEPENDS ${DB_PY} ${PREV_DEV_CC_BBA_DB}
                 )
             add_custom_command(OUTPUT ${DEV_CC_DB}
@@ -65,7 +65,7 @@ if (NOT EXTERNAL_CHIPDB)
             set(DEV_CC_BBA_DB ${CMAKE_CURRENT_SOURCE_DIR}/ecp5/chipdbs/chipdb-${dev}.bba)
             set(DEV_CONSTIDS_INC ${CMAKE_CURRENT_SOURCE_DIR}/ecp5/constids.inc)
             add_custom_command(OUTPUT ${DEV_CC_BBA_DB}
-                COMMAND ${ENV_CMD} python3 ${DB_PY} -p ${DEV_CONSTIDS_INC} ${dev} > ${DEV_CC_BBA_DB}.new
+                COMMAND ${ENV_CMD} ${PYTHON_EXECUTABLE} ${DB_PY} -p ${DEV_CONSTIDS_INC} ${dev} > ${DEV_CC_BBA_DB}.new
                 COMMAND mv ${DEV_CC_BBA_DB}.new ${DEV_CC_BBA_DB}
                 DEPENDS ${DB_PY} ${PREV_DEV_CC_BBA_DB}
                 )
