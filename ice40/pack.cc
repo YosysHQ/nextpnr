@@ -490,6 +490,26 @@ static void pack_io(Context *ctx)
                               sb->type.c_str(ctx), sb->name.c_str(ctx));
 
                 if (net != nullptr) {
+
+                    if (net->clkconstr != nullptr) {
+                        if (sb->ports.count(id_D_IN_0)) {
+                            NetInfo *din0_net = sb->ports.at(id_D_IN_0).net;
+                            if (din0_net != nullptr && !din0_net->clkconstr) {
+                                // Copy clock constraint from IO pad to input buffer output
+                                din0_net->clkconstr =
+                                        std::unique_ptr<ClockConstraint>(new ClockConstraint(*net->clkconstr));
+                            }
+                        }
+                        if (is_sb_gb_io(ctx, sb) && sb->ports.count(id_GLOBAL_BUFFER_OUTPUT)) {
+                            NetInfo *gb_net = sb->ports.at(id_GLOBAL_BUFFER_OUTPUT).net;
+                            if (gb_net != nullptr && !gb_net->clkconstr) {
+                                // Copy clock constraint from IO pad to global buffer output
+                                gb_net->clkconstr =
+                                        std::unique_ptr<ClockConstraint>(new ClockConstraint(*net->clkconstr));
+                            }
+                        }
+                    }
+
                     delete_nets.insert(net->name);
                     sb->ports.at(ctx->id("PACKAGE_PIN")).net = nullptr;
                 }
