@@ -805,7 +805,7 @@ void json_import(Context *ctx, string modname, JsonNode *node)
     };
 
     // Import netnames
-    std::vector<std::string> netlabels;
+    std::vector<std::vector<std::string>> netlabels;
     if (node->data_dict.count("netnames")) {
         JsonNode *cell_parent = node->data_dict.at("netnames");
         for (int nnid = 0; nnid < GetSize(cell_parent->data_dict_keys); nnid++) {
@@ -838,15 +838,26 @@ void json_import(Context *ctx, string modname, JsonNode *node)
                         ndx = start_offset + num_bits - i - 1;
                     std::string name =
                             basename + (num_bits == 1 ? "" : std::string("[") + std::to_string(ndx) + std::string("]"));
-                    if (prefer_netlabel(name, netlabels.at(netid)))
-                        netlabels.at(netid) = name;
+                    netlabels.at(netid).push_back(name);
                 }
             }
         }
     }
     std::vector<IdString> netids;
-    std::transform(netlabels.begin(), netlabels.end(), std::back_inserter(netids),
-                   [ctx](const std::string &s) { return ctx->id(s); });
+    for (size_t i = 0; i < netlabels.size(); i++) {
+        auto &labels = netlabels.at(i);
+        if (labels.empty()) {
+            // Backup for unnamed nets (not sure if these should actually happen)
+            netids.push_back(ctx->id("$nextpnr$unknown_netname$" + std::to_string(i)));
+        } else {
+            // Pick a primary name for the net according to a simple heuristic
+            std::string pref = labels.at(0);
+            for (size_t j = 1; j < labels.size(); j++)
+                if (prefer_netlabel(labels.at(j), pref))
+                    pref = labels.at(j);
+            netids.push_back(ctx->id(pref));
+        }
+    }
     if (node->data_dict.count("cells")) {
         JsonNode *cell_parent = node->data_dict.at("cells");
         //
@@ -919,6 +930,17 @@ void json_import(Context *ctx, string modname, JsonNode *node)
                     }
                 }
             }
+        }
+    }
+    // Import net aliases
+    for (size_t i = 0; i < netids.size(); i++) {
+        IdString netname = netids.at(i);
+        if (!ctx->nets.count(netname))
+            continue;
+        for (auto &label : netlabels.at(i)) {
+            IdString labelid = ctx->id(label);
+            NPNR_ASSERT(!ctx->net_aliases.count(labelid));
+            ctx->net_aliases[labelid] = netname;
         }
     }
     check_all_nets_driven(ctx);

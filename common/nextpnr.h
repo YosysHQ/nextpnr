@@ -609,6 +609,9 @@ struct BaseCtx
     std::unordered_map<IdString, std::unique_ptr<NetInfo>> nets;
     std::unordered_map<IdString, std::unique_ptr<CellInfo>> cells;
 
+    // Aliases for nets, which may have more than one name due to assignments and hierarchy
+    std::unordered_map<IdString, IdString> net_aliases;
+
     // Top-level ports
     std::unordered_map<IdString, PortInfo> ports;
 
@@ -737,6 +740,8 @@ struct BaseCtx
     TimingConstrObjectId timingNetObject(NetInfo *net);
     TimingConstrObjectId timingCellObject(CellInfo *cell);
     TimingConstrObjectId timingPortObject(CellInfo *cell, IdString port);
+
+    NetInfo *getNetByAlias(IdString alias) const { return nets.at(net_aliases.at(alias)).get(); }
 
     void addConstraint(std::unique_ptr<TimingConstraint> constr);
     void removeConstraint(IdString constrName);
