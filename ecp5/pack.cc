@@ -377,6 +377,13 @@ class Ecp5Packer
                         log_error("Pin B of %s '%s' connected to more than a single top level IO.\n",
                                   trio->type.c_str(ctx), trio->name.c_str(ctx));
                     if (net != nullptr) {
+                        if (net->clkconstr != nullptr && trio->ports.count(ctx->id("O"))) {
+                            NetInfo *onet = trio->ports.at(ctx->id("O")).net;
+                            if (onet != nullptr && !onet->clkconstr) {
+                                // Move clock constraint from IO pad to input buffer output
+                                std::swap(net->clkconstr, onet->clkconstr);
+                            }
+                        }
                         ctx->nets.erase(net->name);
                         trio->ports.at(ctx->id("B")).net = nullptr;
                     }
@@ -2361,6 +2368,8 @@ class Ecp5Packer
                     copy_constraint(ci, id_CLKI, id_CDIVX, ratio);
                 } else if (ci->type == id_ECLKSYNCB || ci->type == id_TRELLIS_ECLKBUF) {
                     copy_constraint(ci, id_ECLKI, id_ECLKO, 1);
+                } else if (ci->type == id_DCCA) {
+                    copy_constraint(ci, id_CLKI, id_CLKO, 1);
                 } else if (ci->type == id_EHXPLLL) {
                     delay_t period_in;
                     if (!get_period(ci, id_CLKI, period_in))
