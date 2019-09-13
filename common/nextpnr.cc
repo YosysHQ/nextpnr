@@ -474,10 +474,10 @@ void BaseCtx::addClock(IdString net, float freq)
     cc->period = getCtx()->getDelayFromNS(1000 / freq);
     cc->high = getCtx()->getDelayFromNS(500 / freq);
     cc->low = getCtx()->getDelayFromNS(500 / freq);
-    if (!nets.count(net)) {
+    if (!net_aliases.count(net)) {
         log_warning("net '%s' does not exist in design, ignoring clock constraint\n", net.c_str(this));
     } else {
-        nets.at(net)->clkconstr = std::move(cc);
+        getNetByAlias(net)->clkconstr = std::move(cc);
         log_info("constraining clock net '%s' to %.02f MHz\n", net.c_str(this), freq);
     }
 }

@@ -136,12 +136,17 @@ void arch_wrap_python()
 
     typedef std::unordered_map<IdString, std::unique_ptr<CellInfo>> CellMap;
     typedef std::unordered_map<IdString, std::unique_ptr<NetInfo>> NetMap;
+    typedef std::unordered_map<IdString, IdString> AliasMap;
 
     readonly_wrapper<Context, decltype(&Context::cells), &Context::cells, wrap_context<CellMap &>>::def_wrap(ctx_cls,
                                                                                                              "cells");
     readonly_wrapper<Context, decltype(&Context::nets), &Context::nets, wrap_context<NetMap &>>::def_wrap(ctx_cls,
                                                                                                           "nets");
+    readonly_wrapper<Context, decltype(&Context::net_aliases), &Context::net_aliases,
+                     wrap_context<AliasMap &>>::def_wrap(ctx_cls, "net_aliases");
 
+    fn_wrapper_1a<Context, decltype(&Context::getNetByAlias), &Context::getNetByAlias, deref_and_wrap<NetInfo>,
+                  conv_from_str<IdString>>::def_wrap(ctx_cls, "getNetByAlias");
     fn_wrapper_2a_v<Context, decltype(&Context::addClock), &Context::addClock, conv_from_str<IdString>,
                     pass_through<float>>::def_wrap(ctx_cls, "addClock");
     fn_wrapper_5a_v<Context, decltype(&Context::createRectangularRegion), &Context::createRectangularRegion,
