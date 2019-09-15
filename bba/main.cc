@@ -66,12 +66,6 @@ const char *skipWhitespace(const char *p)
     return p;
 }
 
-bool testBigEndian()
-{
-    int n = 1;
-    return !*(const char *)&n;
-}
-
 int main(int argc, char **argv)
 {
     bool debug = false;
@@ -115,8 +109,10 @@ int main(int argc, char **argv)
         bigEndian = true;
     else if (vm.count("le"))
         bigEndian = false;
-    else
-        bigEndian = testBigEndian();
+    else {
+        printf("Endian parameter is mandatory\n");
+        exit(-1);
+    }
     if (vm.count("c"))
         writeC = true;
 

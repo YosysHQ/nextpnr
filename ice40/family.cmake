@@ -44,7 +44,7 @@ if (NOT EXTERNAL_CHIPDB)
                 DEPENDS ${DEV_CONSTIDS_INC} ${DEV_GFXH} ${DEV_TXT_DB} ${DB_PY} ${PREV_DEV_CC_BBA_DB}
                 )
             add_custom_command(OUTPUT ${DEV_CC_DB}
-                COMMAND bbasm ${DEV_CC_BBA_DB} ${DEV_CC_DB}
+                COMMAND bbasm ${BBASM_ENDIAN_FLAG} ${DEV_CC_BBA_DB} ${DEV_CC_DB}
                 DEPENDS bbasm ${DEV_CC_BBA_DB}
                 )
             if (SERIALIZE_CHIPDB)
@@ -84,7 +84,7 @@ if (NOT EXTERNAL_CHIPDB)
                 DEPENDS ${DEV_CONSTIDS_INC} ${DEV_GFXH} ${DEV_TXT_DB} ${DB_PY} ${PREV_DEV_CC_BBA_DB}
                 )
             add_custom_command(OUTPUT ${DEV_CC_DB}
-                COMMAND bbasm --c ${DEV_CC_BBA_DB} ${DEV_CC_DB}.new
+                COMMAND bbasm --c ${BBASM_ENDIAN_FLAG} ${DEV_CC_BBA_DB} ${DEV_CC_DB}.new
                 COMMAND mv ${DEV_CC_DB}.new ${DEV_CC_DB}
                 DEPENDS bbasm ${DEV_CC_BBA_DB}
                 )
