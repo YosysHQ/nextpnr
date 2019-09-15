@@ -66,11 +66,17 @@ const char *skipWhitespace(const char *p)
     return p;
 }
 
+bool testBigEndian()
+{
+    int n = 1;
+    return !*(const char *)&n;
+}
+
 int main(int argc, char **argv)
 {
     bool debug = false;
     bool verbose = false;
-    bool bigEndian = false;
+    bool bigEndian;
     bool writeC = false;
     char buffer[512];
 
@@ -81,6 +87,7 @@ int main(int argc, char **argv)
     options.add_options()("verbose,v", "verbose output");
     options.add_options()("debug,d", "debug output");
     options.add_options()("be,b", "big endian");
+    options.add_options()("le,l", "little endian");
     options.add_options()("c,c", "write c strings");
     options.add_options()("files", po::value<std::vector<std::string>>(), "file parameters");
     pos.add("files", -1);
@@ -106,6 +113,10 @@ int main(int argc, char **argv)
         debug = true;
     if (vm.count("be"))
         bigEndian = true;
+    else if (vm.count("le"))
+        bigEndian = false;
+    else
+        bigEndian = testBigEndian();
     if (vm.count("c"))
         writeC = true;
 
