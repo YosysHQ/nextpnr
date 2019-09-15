@@ -445,6 +445,15 @@ struct CellInfo : ArchCellInfo
 
     Region *region = nullptr;
     TimingConstrObjectId tmg_id;
+
+    void addInput(IdString name);
+    void addOutput(IdString name);
+    void addInout(IdString name);
+
+    void setParam(IdString name, Property value);
+    void unsetParam(IdString name);
+    void setAttr(IdString name, Property value);
+    void unsetAttr(IdString name);
 };
 
 enum TimingPortClass
@@ -741,7 +750,10 @@ struct BaseCtx
     TimingConstrObjectId timingCellObject(CellInfo *cell);
     TimingConstrObjectId timingPortObject(CellInfo *cell, IdString port);
 
-    NetInfo *getNetByAlias(IdString alias) const { return nets.at(net_aliases.at(alias)).get(); }
+    NetInfo *getNetByAlias(IdString alias) const
+    {
+        return nets.count(alias) ? nets.at(alias).get() : nets.at(net_aliases.at(alias)).get();
+    }
 
     void addConstraint(std::unique_ptr<TimingConstraint> constr);
     void removeConstraint(IdString constrName);
@@ -751,6 +763,16 @@ struct BaseCtx
     void createRectangularRegion(IdString name, int x0, int y0, int x1, int y1);
     void addBelToRegion(IdString name, BelId bel);
     void constrainCellToRegion(IdString cell, IdString region_name);
+
+    // Helper functions for Python bindings
+    NetInfo *createNet(IdString name);
+    void connectPort(IdString net, IdString cell, IdString port);
+    void disconnectPort(IdString cell, IdString port);
+    void ripupNet(IdString name);
+    void lockNetRouting(IdString name);
+
+    CellInfo *createCell(IdString name, IdString type);
+    void copyBelPorts(IdString cell, BelId bel);
 
     // Workaround for lack of wrappable constructors
     DecalXY constructDecalXY(DecalId decal, float x, float y);

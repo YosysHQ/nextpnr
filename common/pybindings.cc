@@ -160,6 +160,22 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
     readonly_wrapper<CellInfo &, decltype(&CellInfo::pins), &CellInfo::pins, wrap_context<PinMap &>>::def_wrap(ci_cls,
                                                                                                                "pins");
 
+    fn_wrapper_1a_v<CellInfo &, decltype(&CellInfo::addInput), &CellInfo::addInput, conv_from_str<IdString>>::def_wrap(
+            ci_cls, "addInput");
+    fn_wrapper_1a_v<CellInfo &, decltype(&CellInfo::addOutput), &CellInfo::addOutput,
+                    conv_from_str<IdString>>::def_wrap(ci_cls, "addOutput");
+    fn_wrapper_1a_v<CellInfo &, decltype(&CellInfo::addInout), &CellInfo::addInout, conv_from_str<IdString>>::def_wrap(
+            ci_cls, "addInout");
+
+    fn_wrapper_2a_v<CellInfo &, decltype(&CellInfo::setParam), &CellInfo::setParam, conv_from_str<IdString>,
+                    conv_from_str<Property>>::def_wrap(ci_cls, "setParam");
+    fn_wrapper_1a_v<CellInfo &, decltype(&CellInfo::unsetParam), &CellInfo::unsetParam,
+                    conv_from_str<IdString>>::def_wrap(ci_cls, "unsetParam");
+    fn_wrapper_2a_v<CellInfo &, decltype(&CellInfo::setAttr), &CellInfo::setAttr, conv_from_str<IdString>,
+                    conv_from_str<Property>>::def_wrap(ci_cls, "setAttr");
+    fn_wrapper_1a_v<CellInfo &, decltype(&CellInfo::unsetAttr), &CellInfo::unsetAttr,
+                    conv_from_str<IdString>>::def_wrap(ci_cls, "unsetAttr");
+
     auto pi_cls = class_<ContextualWrapper<PortInfo &>>("PortInfo", no_init);
     readwrite_wrapper<PortInfo &, decltype(&PortInfo::name), &PortInfo::name, conv_to_str<IdString>,
                       conv_from_str<IdString>>::def_wrap(pi_cls, "name");

@@ -20,6 +20,22 @@ fn_wrapper_2a_v<Context, decltype(&Context::constrainCellToRegion), &Context::co
         conv_from_str<IdString>, conv_from_str<IdString>>::def_wrap(ctx_cls, "constrainCellToRegion");
 
 
+fn_wrapper_1a<Context, decltype(&Context::createNet), &Context::createNet, deref_and_wrap<NetInfo>,
+conv_from_str<IdString>>::def_wrap(ctx_cls, "createNet");
+fn_wrapper_3a_v<Context, decltype(&Context::connectPort), &Context::connectPort, conv_from_str<IdString>, conv_from_str<IdString>,
+conv_from_str<IdString>>::def_wrap(ctx_cls, "connectPort");
+fn_wrapper_2a_v<Context, decltype(&Context::disconnectPort), &Context::disconnectPort, conv_from_str<IdString>,
+conv_from_str<IdString>>::def_wrap(ctx_cls, "disconnectPort");
+fn_wrapper_1a_v<Context, decltype(&Context::ripupNet), &Context::ripupNet, conv_from_str<IdString>>::def_wrap(
+        ctx_cls, "ripupNet");
+fn_wrapper_1a_v<Context, decltype(&Context::lockNetRouting), &Context::lockNetRouting, conv_from_str<IdString>>::def_wrap(
+        ctx_cls, "lockNetRouting");
+
+fn_wrapper_2a<Context, decltype(&Context::createCell), &Context::createCell, deref_and_wrap<CellInfo>,
+conv_from_str<IdString>, conv_from_str<IdString>>::def_wrap(ctx_cls, "createCell");
+fn_wrapper_2a_v<Context, decltype(&Context::copyBelPorts), &Context::copyBelPorts,
+conv_from_str<IdString>, conv_from_str<BelId>>::def_wrap(ctx_cls, "copyBelPorts");
+
 fn_wrapper_1a<Context, decltype(&Context::getBelType), &Context::getBelType, conv_to_str<IdString>,
 conv_from_str<BelId>>::def_wrap(ctx_cls, "getBelType");
 fn_wrapper_1a<Context, decltype(&Context::checkBelAvail), &Context::checkBelAvail, pass_through<bool>,
