@@ -76,6 +76,21 @@ template <> struct string_converter<PipId>
     }
 };
 
+template <> struct string_converter<BelPin>
+{
+    BelPin from_str(Context *ctx, std::string name)
+    {
+        NPNR_ASSERT_FALSE("string_converter<BelPin>::from_str not implemented");
+    }
+
+    std::string to_str(Context *ctx, BelPin pin)
+    {
+        if (pin.bel == BelId())
+            throw bad_wrap();
+        return ctx->getBelName(pin.bel).str(ctx) + "/" + pin.pin.str(ctx);
+    }
+};
+
 } // namespace PythonConversion
 
 NEXTPNR_NAMESPACE_END

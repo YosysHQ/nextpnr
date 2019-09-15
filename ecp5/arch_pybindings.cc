@@ -146,10 +146,15 @@ void arch_wrap_python()
     fn_wrapper_2a_v<Context, decltype(&Context::constrainCellToRegion), &Context::constrainCellToRegion,
                     conv_from_str<IdString>, conv_from_str<IdString>>::def_wrap(ctx_cls, "constrainCellToRegion");
 
+    auto belpin_cls = class_<ContextualWrapper<BelPin>>("BelPin", no_init);
+    readonly_wrapper<BelPin, decltype(&BelPin::bel), &BelPin::bel, conv_to_str<BelId>>::def_wrap(belpin_cls, "bel");
+    readonly_wrapper<BelPin, decltype(&BelPin::pin), &BelPin::pin, conv_to_str<IdString>>::def_wrap(belpin_cls, "pin");
+
     WRAP_RANGE(Bel, conv_to_str<BelId>);
     WRAP_RANGE(Wire, conv_to_str<WireId>);
     WRAP_RANGE(AllPip, conv_to_str<PipId>);
     WRAP_RANGE(Pip, conv_to_str<PipId>);
+    WRAP_RANGE(BelPin, wrap_context<BelPin>);
 
     WRAP_MAP_UPTR(CellMap, "IdCellMap");
     WRAP_MAP_UPTR(NetMap, "IdNetMap");
