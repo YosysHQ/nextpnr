@@ -155,6 +155,10 @@ The HeAP placer's solver can optionally use OpenMP for a speedup on very large d
 You can change the location where nextpnr will be installed (this will usually default to `/usr/local`) by using
 `-DCMAKE_INSTALL_PREFIX=/install/prefix`.
 
+It is possible to pre-generate `.bba` files.  This can come in handy when building on time-constrained cloud
+instances, or in situations where python is unable to use modules.  To do this, specify the path to pre-
+generated `.bba` files by passing `-DPREGENERATED_BBA_PATH=` to cmake.
+
 Notes for developers
 --------------------
 
