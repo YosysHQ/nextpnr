@@ -19,6 +19,7 @@
 
 #include "nextpnr.h"
 #include <boost/algorithm/string.hpp>
+#include "design_utils.h"
 #include "log.h"
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -143,6 +144,27 @@ Property::Property(int64_t intval, int width) : is_string(false), intval(intval)
 Property::Property(const std::string &strval) : is_string(true), str(strval), intval(0xDEADBEEF) {}
 
 Property::Property(State bit) : is_string(false), str(std::string("") + char(bit)), intval(bit == S1) {}
+
+void CellInfo::addInput(IdString name)
+{
+    ports[name].name = name;
+    ports[name].type = PORT_IN;
+}
+void CellInfo::addOutput(IdString name)
+{
+    ports[name].name = name;
+    ports[name].type = PORT_OUT;
+}
+void CellInfo::addInout(IdString name)
+{
+    ports[name].name = name;
+    ports[name].type = PORT_INOUT;
+}
+
+void CellInfo::setParam(IdString name, Property value) { params[name] = value; }
+void CellInfo::unsetParam(IdString name) { params.erase(name); }
+void CellInfo::setAttr(IdString name, Property value) { attrs[name] = value; }
+void CellInfo::unsetAttr(IdString name) { attrs.erase(name); }
 
 std::string Property::to_string() const
 {
@@ -636,6 +658,69 @@ void BaseCtx::attributesToArchInfo()
         }
     }
     getCtx()->assignArchInfo();
+}
+
+NetInfo *BaseCtx::createNet(IdString name)
+{
+    NPNR_ASSERT(!nets.count(name));
+    NPNR_ASSERT(!net_aliases.count(name));
+    std::unique_ptr<NetInfo> net{new NetInfo};
+    net->name = name;
+    net_aliases[name] = name;
+    NetInfo *ptr = net.get();
+    nets[name] = std::move(net);
+    refreshUi();
+    return ptr;
+}
+
+void BaseCtx::connectPort(IdString net, IdString cell, IdString port)
+{
+    NetInfo *net_info = getNetByAlias(net);
+    CellInfo *cell_info = cells.at(cell).get();
+    connect_port(getCtx(), net_info, cell_info, port);
+}
+
+void BaseCtx::disconnectPort(IdString cell, IdString port)
+{
+    CellInfo *cell_info = cells.at(cell).get();
+    disconnect_port(getCtx(), cell_info, port);
+}
+
+void BaseCtx::ripupNet(IdString name)
+{
+    NetInfo *net_info = getNetByAlias(name);
+    std::vector<WireId> to_unbind;
+    for (auto &wire : net_info->wires)
+        to_unbind.push_back(wire.first);
+    for (auto &unbind : to_unbind)
+        getCtx()->unbindWire(unbind);
+}
+void BaseCtx::lockNetRouting(IdString name)
+{
+    NetInfo *net_info = getNetByAlias(name);
+    for (auto &wire : net_info->wires)
+        wire.second.strength = STRENGTH_USER;
+}
+
+CellInfo *BaseCtx::createCell(IdString name, IdString type)
+{
+    NPNR_ASSERT(!cells.count(name));
+    std::unique_ptr<CellInfo> cell{new CellInfo};
+    cell->name = name;
+    cell->type = type;
+    CellInfo *ptr = cell.get();
+    cells[name] = std::move(cell);
+    refreshUi();
+    return ptr;
+}
+
+void BaseCtx::copyBelPorts(IdString cell, BelId bel)
+{
+    CellInfo *cell_info = cells.at(cell).get();
+    for (auto pin : getCtx()->getBelPins(bel)) {
+        cell_info->ports[pin].name = pin;
+        cell_info->ports[pin].type = getCtx()->getBelPinType(bel, pin);
+    }
 }
 
 NEXTPNR_NAMESPACE_END
