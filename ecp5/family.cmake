@@ -41,14 +41,20 @@ if (NOT EXTERNAL_CHIPDB)
             set(DEV_CC_DB ${CMAKE_CURRENT_BINARY_DIR}/ecp5/chipdbs/chipdb-${dev}.bin)
             set(DEV_CC_BBA_DB ${CMAKE_CURRENT_SOURCE_DIR}/ecp5/chipdbs/chipdb-${dev}.bba)
             set(DEV_CONSTIDS_INC ${CMAKE_CURRENT_SOURCE_DIR}/ecp5/constids.inc)
-            add_custom_command(OUTPUT ${DEV_CC_BBA_DB}
-                COMMAND ${ENV_CMD} ${PYTHON_EXECUTABLE} ${DB_PY} -p ${DEV_CONSTIDS_INC} ${dev} > ${DEV_CC_BBA_DB}
-                DEPENDS ${DB_PY} ${PREV_DEV_CC_BBA_DB}
-                )
-            add_custom_command(OUTPUT ${DEV_CC_DB}
-                COMMAND bbasm ${BBASM_ENDIAN_FLAG} ${DEV_CC_BBA_DB} ${DEV_CC_DB}
-                DEPENDS bbasm ${DEV_CC_BBA_DB}
-                )
+            if (PREGENERATED_BBA_PATH)
+                add_custom_command(OUTPUT ${DEV_CC_DB}
+                    COMMAND bbasm ${BBASM_ENDIAN_FLAG} ${PREGENERATED_BBA_PATH}/chipdb-${dev}.bba ${DEV_CC_DB}
+                    )
+            else()
+                add_custom_command(OUTPUT ${DEV_CC_BBA_DB}
+                    COMMAND ${ENV_CMD} ${PYTHON_EXECUTABLE} ${DB_PY} -p ${DEV_CONSTIDS_INC} ${dev} > ${DEV_CC_BBA_DB}
+                    DEPENDS ${DB_PY} ${PREV_DEV_CC_BBA_DB}
+                    )
+                add_custom_command(OUTPUT ${DEV_CC_DB}
+                    COMMAND bbasm ${BBASM_ENDIAN_FLAG} ${DEV_CC_BBA_DB} ${DEV_CC_DB}
+                    DEPENDS bbasm ${DEV_CC_BBA_DB}
+                    )
+            endif()
             if (SERIALIZE_CHIPDB)
                 set(PREV_DEV_CC_BBA_DB ${DEV_CC_BBA_DB})
             endif()
@@ -65,16 +71,23 @@ if (NOT EXTERNAL_CHIPDB)
             set(DEV_CC_DB ${CMAKE_CURRENT_BINARY_DIR}/ecp5/chipdbs/chipdb-${dev}.cc)
             set(DEV_CC_BBA_DB ${CMAKE_CURRENT_SOURCE_DIR}/ecp5/chipdbs/chipdb-${dev}.bba)
             set(DEV_CONSTIDS_INC ${CMAKE_CURRENT_SOURCE_DIR}/ecp5/constids.inc)
-            add_custom_command(OUTPUT ${DEV_CC_BBA_DB}
-                COMMAND ${ENV_CMD} ${PYTHON_EXECUTABLE} ${DB_PY} -p ${DEV_CONSTIDS_INC} ${dev} > ${DEV_CC_BBA_DB}.new
-                COMMAND mv ${DEV_CC_BBA_DB}.new ${DEV_CC_BBA_DB}
-                DEPENDS ${DB_PY} ${PREV_DEV_CC_BBA_DB}
-                )
-            add_custom_command(OUTPUT ${DEV_CC_DB}
-                COMMAND bbasm --c ${BBASM_ENDIAN_FLAG} ${DEV_CC_BBA_DB} ${DEV_CC_DB}.new
-                COMMAND mv ${DEV_CC_DB}.new ${DEV_CC_DB}
-                DEPENDS bbasm ${DEV_CC_BBA_DB}
-                )
+            if (PREGENERATED_BBA_PATH)
+                add_custom_command(OUTPUT ${DEV_CC_DB}
+                    COMMAND bbasm --c ${BBASM_ENDIAN_FLAG} ${PREGENERATED_BBA_PATH}/chipdb-${dev}.bba ${DEV_CC_DB}.new
+                    COMMAND mv ${DEV_CC_DB}.new ${DEV_CC_DB}
+                    )
+            else()
+                add_custom_command(OUTPUT ${DEV_CC_BBA_DB}
+                    COMMAND ${ENV_CMD} ${PYTHON_EXECUTABLE} ${DB_PY} -p ${DEV_CONSTIDS_INC} ${dev} > ${DEV_CC_BBA_DB}.new
+                    COMMAND mv ${DEV_CC_BBA_DB}.new ${DEV_CC_BBA_DB}
+                    DEPENDS ${DB_PY} ${PREV_DEV_CC_BBA_DB}
+                    )
+                add_custom_command(OUTPUT ${DEV_CC_DB}
+                    COMMAND bbasm --c ${BBASM_ENDIAN_FLAG} ${DEV_CC_BBA_DB} ${DEV_CC_DB}.new
+                    COMMAND mv ${DEV_CC_DB}.new ${DEV_CC_DB}
+                    DEPENDS bbasm ${DEV_CC_BBA_DB}
+                    )
+            endif()
             if (SERIALIZE_CHIPDB)
                 set(PREV_DEV_CC_BBA_DB ${DEV_CC_BBA_DB})
             endif()
