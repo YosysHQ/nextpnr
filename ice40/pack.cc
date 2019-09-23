@@ -1266,7 +1266,21 @@ static void pack_special(Context *ctx)
                         log_error("Invalid PLL output selection '%s'\n", param.second.as_string().c_str());
                     packed->params[pos_map_name.at(param.first)] = pos_map_val.at(param.second.as_string());
                 }
-
+            const std::map<IdString, IdString> delmodes = {
+                    {ctx->id("DELAY_ADJUSTMENT_MODE_FEEDBACK"), ctx->id("DELAY_ADJMODE_FB")},
+                    {ctx->id("DELAY_ADJUSTMENT_MODE_RELATIVE"), ctx->id("DELAY_ADJMODE_REL")},
+            };
+            for (auto delmode : delmodes) {
+                if (ci->params.count(delmode.first)) {
+                    std::string value = str_or_default(ci->params, delmode.first, "");
+                    if (value == "DYNAMIC")
+                        packed->params[delmode.second] = 1;
+                    else if (value == "FIXED")
+                        packed->params[delmode.second] = 0;
+                    else
+                        log_error("Invalid PLL %s selection '%s'\n", delmode.first.c_str(ctx), value.c_str());
+                }
+            }
             auto feedback_path = packed->params[ctx->id("FEEDBACK_PATH")].is_string
                                          ? packed->params[ctx->id("FEEDBACK_PATH")].as_string()
                                          : std::to_string(packed->params[ctx->id("FEEDBACK_PATH")].as_int64());
