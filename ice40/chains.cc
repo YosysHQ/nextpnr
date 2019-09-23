@@ -44,6 +44,8 @@ class ChainConstrainer
         auto curr_cell = carryc.cells.begin();
         while (curr_cell != carryc.cells.end()) {
             CellInfo *cell = *curr_cell;
+            if (ctx->debug)
+                log_info("  processing cell %s\n", ctx->nameOf(cell));
             if (tile.size() >= 8) {
                 tile.clear();
             }
@@ -76,8 +78,23 @@ class ChainConstrainer
                         (net_only_drives(ctx, carry_net, is_lc, ctx->id("I3"), false) !=
                          net_only_drives(ctx, carry_net, is_lc, ctx->id("CIN"), false)) ||
                         (at_end && !net_only_drives(ctx, carry_net, is_lc, ctx->id("I3"), true))) {
-                        CellInfo *passout = make_carry_pass_out(cell->ports.at(ctx->id("COUT")),
-                                                                at_end ? nullptr : *(curr_cell + 1));
+                        if (ctx->debug)
+                            log_info("      inserting feed-%s\n", at_end ? "out" : "out-in");
+                        CellInfo *passout;
+                        if (!at_end) {
+                            // See if we need to split chain anyway
+                            tile.push_back(*(curr_cell + 1));
+                            bool split_chain_next = (!ctx->logicCellsCompatible(tile.data(), tile.size())) ||
+                                                    (int(chains.back().cells.size()) > max_length);
+                            tile.pop_back();
+                            if (split_chain_next)
+                                start_of_chain = true;
+                            passout = make_carry_pass_out(cell->ports.at(ctx->id("COUT")),
+                                                          split_chain_next ? nullptr : *(curr_cell + 1));
+                        } else {
+                            passout = make_carry_pass_out(cell->ports.at(ctx->id("COUT")), nullptr);
+                        }
+
                         chains.back().cells.push_back(passout);
                         tile.push_back(passout);
                         ++feedio_lcs;
