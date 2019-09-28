@@ -12,6 +12,10 @@ option(STATIC_BUILD "Create static build" OFF)
 option(EXTERNAL_CHIPDB "Create build with pre-built chipdb binaries" OFF)
 option(SERIALIZE_CHIPDB "Never build chipdb in parallel to reduce peak memory use" ON)
 
+if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+    set(Boost_NO_BOOST_CMAKE ON)
+endif()
+
 set(link_param "")
 if (STATIC_BUILD)
     set(Boost_USE_STATIC_LIBS   ON)
