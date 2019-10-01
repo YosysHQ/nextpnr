@@ -163,6 +163,10 @@ struct ArchCellInfo
         IdString clk_sig, lsr_sig, clkmux, lsrmux, srmode;
         int sd0, sd1;
     } sliceInfo;
+    struct
+    {
+        bool is_pdp;
+    } ramInfo;
 };
 
 NEXTPNR_NAMESPACE_END

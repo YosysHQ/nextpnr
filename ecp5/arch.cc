@@ -922,28 +922,41 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
         }
     } else if (cell->type == id_DP16KD) {
         std::string port_name = port.str(this);
+        IdString half_clock;
         for (auto c : boost::adaptors::reverse(port_name)) {
             if (std::isdigit(c))
                 continue;
             if (c == 'A') {
-                info.clock_port = id_CLKA;
+                half_clock = id_CLKA;
                 break;
             } else if (c == 'B') {
-                info.clock_port = id_CLKB;
+                half_clock = id_CLKB;
                 break;
             } else
                 NPNR_ASSERT_FALSE_STR("bad ram port " + port.str(this));
+        }
+        if (cell->ramInfo.is_pdp) {
+            bool is_output = cell->ports.at(port).type == PORT_OUT;
+            // In PDP mode, all read signals are in CLKB domain and write signals in CLKA domain
+            if (is_output || port == id_OCEB || port == id_CEB || port == id_ADB5 || port == id_ADB6 ||
+                port == id_ADB7 || port == id_ADB8 || port == id_ADB9 || port == id_ADB10 || port == id_ADB11 ||
+                port == id_ADB12 || port == id_ADB13)
+                info.clock_port = id_CLKB;
+            else
+                info.clock_port = id_CLKA;
+        } else {
+            info.clock_port = half_clock;
         }
         info.edge = (str_or_default(cell->params, info.clock_port == id_CLKB ? id("CLKBMUX") : id("CLKAMUX"), "CLK") ==
                      "INV")
                             ? FALLING_EDGE
                             : RISING_EDGE;
         if (cell->ports.at(port).type == PORT_OUT) {
-            bool is_path = getDelayFromTimingDatabase(id_DP16KD_REGMODE_A_NOREG_REGMODE_B_NOREG, info.clock_port, port,
+            bool is_path = getDelayFromTimingDatabase(id_DP16KD_REGMODE_A_NOREG_REGMODE_B_NOREG, half_clock, port,
                                                       info.clockToQ);
             NPNR_ASSERT(is_path);
         } else {
-            getSetupHoldFromTimingDatabase(id_DP16KD_REGMODE_A_NOREG_REGMODE_B_NOREG, info.clock_port, port, info.setup,
+            getSetupHoldFromTimingDatabase(id_DP16KD_REGMODE_A_NOREG_REGMODE_B_NOREG, half_clock, port, info.setup,
                                            info.hold);
         }
     } else if (cell->type == id_DCUA) {
