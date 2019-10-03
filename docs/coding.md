@@ -35,3 +35,33 @@ To avoid the high cost of using strings as identifiers directly; almost all "str
 `IdString`s can be created in two ways. Architectures can add `IdString`s with constant indicies - allowing `IdString` constants to be provided too - using `initialize_add` at startup. See how `constids.inc` is used in iCE40 for an example of this. The main way to create `IdString`s, however, is at runtime using the `id` member function of `BaseCtx` given the string to create from (if an `IdString` of that string already exists, the existing `IdString` will be returned).
 
 Note that `IdString`s need a `Context` (or `BaseCtx`) pointer to convert them back to regular strings, due to the pool being per-context as described above.
+
+## Developing CAD algorithms - packing
+
+Packing in nextpnr could be done in two ways (if significant packing is done at all):
+ - replacing multiple cells with a single larger cell that corresponds to a bel
+ - combining smaller cells using relative placement constraints
+
+In flows with minimal packing the main task of the packer is to transform cells into common types that correspond to a bel (e.g. convert multiple flipflop primitives to a single common type with some extra parameters). The packer will also have to add relative constraints for fixed structures such as carry chains or LUT-MUX cascades.
+
+There are several helper functions that are useful for developing packers and other passes that perform significant netlist modifications in `util.h`. It is often preferable to use these compared to direct modification of the netlist structures due to the "double linking" nextpnr does - e.g. when connecting a port you must update both the `net` field of the ports and the `driver`/`users` of the net.
+
+## Developing CAD algorithms - placement
+
+The job of the placer in nextpnr is to find a suitable bel for each cell in the design; while respecting legality and relative constraints.
+
+Placers might want to create their own indices of bels (for example, bels by type and location) to speed up the search. 
+
+As nextpnr allows arbitrary constraints on bels for more advanced packer-free flows and complex real-world architectures; placements must be checked for legality using `isValidBelForCell` (before placement) or `isBelLocationValid` (after placement) and the placement rejected if invalid. For analytical placement algorithms; after creating a spread-out AP solution the legality of placing each cell needs to be checked. In practice, the cost of this is fairly low as the architecture should ensure these functions are as fast as possible.
+
+There are several routes for timing information in the placer:
+    - sink `PortRef`s have a `budget` value annotated by calling `assign_budget` which is an estimate of the maximum delay that an arc may have
+    - sink ports can have a criticality (value between 0 and 1 where 1 is the critical path) associated with them by using `get_criticalities` and a `NetCriticalityMap`
+    - `predictDelay` returns an estimated delay for a sink port based on placement information
+
+## Routing
+
+The job of the router is to ensure that the `wires` map for each net contains a complete routing tree; populated using the Arch functions to bind wires and pips. The ripup invariants in the [FAQ](faq.md) are important to bear in mind; as there may be complex constraints on the usage of wires and pips in some architectures.
+
+`estimateDelay` is intended for use as an A* metric to guide routing.
+
