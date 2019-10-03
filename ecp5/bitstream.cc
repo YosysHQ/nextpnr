@@ -927,20 +927,24 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             tg.tiles = get_bram_tiles(ctx, ci->bel);
             std::string ebr = "EBR" + std::to_string(loc.z);
 
-            tg.config.add_enum(ebr + ".MODE", "DP16KD");
+            if (ci->ramInfo.is_pdp) {
+                tg.config.add_enum(ebr + ".MODE", "PDPW16KD");
+                tg.config.add_enum(ebr + ".PDPW16KD.DATA_WIDTH_R",
+                                   intstr_or_default(ci->params, ctx->id("DATA_WIDTH_B"), "36"));
+            } else {
+                tg.config.add_enum(ebr + ".MODE", "DP16KD");
+                tg.config.add_enum(ebr + ".DP16KD.DATA_WIDTH_A",
+                                   intstr_or_default(ci->params, ctx->id("DATA_WIDTH_A"), "18"));
+                tg.config.add_enum(ebr + ".DP16KD.DATA_WIDTH_B",
+                                   intstr_or_default(ci->params, ctx->id("DATA_WIDTH_B"), "18"));
+                tg.config.add_enum(ebr + ".DP16KD.WRITEMODE_A",
+                                   str_or_default(ci->params, ctx->id("WRITEMODE_A"), "NORMAL"));
+                tg.config.add_enum(ebr + ".DP16KD.WRITEMODE_B",
+                                   str_or_default(ci->params, ctx->id("WRITEMODE_B"), "NORMAL"));
+            }
 
             auto csd_a = str_to_bitvector(str_or_default(ci->params, ctx->id("CSDECODE_A"), "0b000"), 3),
                  csd_b = str_to_bitvector(str_or_default(ci->params, ctx->id("CSDECODE_B"), "0b000"), 3);
-
-            tg.config.add_enum(ebr + ".DP16KD.DATA_WIDTH_A",
-                               intstr_or_default(ci->params, ctx->id("DATA_WIDTH_A"), "18"));
-            tg.config.add_enum(ebr + ".DP16KD.DATA_WIDTH_B",
-                               intstr_or_default(ci->params, ctx->id("DATA_WIDTH_B"), "18"));
-
-            tg.config.add_enum(ebr + ".DP16KD.WRITEMODE_A",
-                               str_or_default(ci->params, ctx->id("WRITEMODE_A"), "NORMAL"));
-            tg.config.add_enum(ebr + ".DP16KD.WRITEMODE_B",
-                               str_or_default(ci->params, ctx->id("WRITEMODE_B"), "NORMAL"));
 
             tg.config.add_enum(ebr + ".REGMODE_A", str_or_default(ci->params, ctx->id("REGMODE_A"), "NOREG"));
             tg.config.add_enum(ebr + ".REGMODE_B", str_or_default(ci->params, ctx->id("REGMODE_B"), "NOREG"));
@@ -955,6 +959,8 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
 
             // Tie signals as appropriate
             for (auto port : ci->ports) {
+                if (ci->ramInfo.is_pdp && (port.first == id_WEA || port.first == id_WEB || port.first == id_ADA4))
+                    continue;
                 if (port.second.net == nullptr && port.second.type == PORT_IN) {
                     if (port.first == id_CLKA || port.first == id_CLKB || port.first == id_WEA ||
                         port.first == id_WEB || port.first == id_RSTA || port.first == id_RSTB) {
@@ -987,7 +993,7 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             }
 
             // Invert CSDECODE bits to emulate inversion muxes on CSA/CSB signals
-            for (auto port : {std::make_pair("CSA", std::ref(csd_a)), std::make_pair("CSB", std::ref(csd_b))}) {
+            for (auto &port : {std::make_pair("CSA", std::ref(csd_a)), std::make_pair("CSB", std::ref(csd_b))}) {
                 for (int bit = 0; bit < 3; bit++) {
                     std::string sig = port.first + std::to_string(bit);
                     if (str_or_default(ci->params, ctx->id(sig + "MUX"), sig) == "INV")
@@ -1000,9 +1006,10 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
 
             tg.config.add_enum(ebr + ".RSTAMUX", str_or_default(ci->params, ctx->id("RSTAMUX"), "RSTA"));
             tg.config.add_enum(ebr + ".RSTBMUX", str_or_default(ci->params, ctx->id("RSTBMUX"), "RSTB"));
-            tg.config.add_enum(ebr + ".WEAMUX", str_or_default(ci->params, ctx->id("WEAMUX"), "WEA"));
-            tg.config.add_enum(ebr + ".WEBMUX", str_or_default(ci->params, ctx->id("WEBMUX"), "WEB"));
-
+            if (!ci->ramInfo.is_pdp) {
+                tg.config.add_enum(ebr + ".WEAMUX", str_or_default(ci->params, ctx->id("WEAMUX"), "WEA"));
+                tg.config.add_enum(ebr + ".WEBMUX", str_or_default(ci->params, ctx->id("WEBMUX"), "WEB"));
+            }
             tg.config.add_enum(ebr + ".CEAMUX", str_or_default(ci->params, ctx->id("CEAMUX"), "CEA"));
             tg.config.add_enum(ebr + ".CEBMUX", str_or_default(ci->params, ctx->id("CEBMUX"), "CEB"));
             tg.config.add_enum(ebr + ".OCEAMUX", str_or_default(ci->params, ctx->id("OCEAMUX"), "OCEA"));

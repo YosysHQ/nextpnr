@@ -1253,6 +1253,57 @@ class Ecp5Packer
     {
         // Autoincrement WID (starting from 3 seems to match vendor behaviour?)
         int wid = 3;
+        auto rename_bus = [&](CellInfo *c, const std::string &oldname, const std::string &newname, int width,
+                              int oldoffset, int newoffset) {
+            for (int i = 0; i < width; i++)
+                rename_port(ctx, c, ctx->id(oldname + std::to_string(i + oldoffset)),
+                            ctx->id(newname + std::to_string(i + newoffset)));
+        };
+        auto rename_param = [&](CellInfo *c, const std::string &oldname, const std::string &newname) {
+            IdString o = ctx->id(oldname), n = ctx->id(newname);
+            if (!c->params.count(o))
+                return;
+            c->params[n] = c->params[o];
+            c->params.erase(o);
+        };
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            // Convert 36-bit PDP RAMs to regular 18-bit DP ones that match the Bel
+            if (ci->type == ctx->id("PDPW16KD")) {
+                ci->params[ctx->id("DATA_WIDTH_A")] = 36; // force PDP mode
+                ci->params.erase(ctx->id("DATA_WIDTH_W"));
+                rename_bus(ci, "BE", "ADA", 4, 0, 0);
+                rename_bus(ci, "ADW", "ADA", 9, 0, 5);
+                rename_bus(ci, "ADR", "ADB", 14, 0, 0);
+                rename_bus(ci, "CSW", "CSA", 3, 0, 0);
+                rename_bus(ci, "CSR", "CSB", 3, 0, 0);
+                rename_bus(ci, "DI", "DIA", 18, 0, 0);
+                rename_bus(ci, "DI", "DIB", 18, 18, 0);
+                rename_bus(ci, "DO", "DOA", 18, 18, 0);
+                rename_bus(ci, "DO", "DOB", 18, 0, 0);
+                rename_port(ctx, ci, ctx->id("CLKW"), ctx->id("CLKA"));
+                rename_port(ctx, ci, ctx->id("CLKR"), ctx->id("CLKB"));
+                rename_port(ctx, ci, ctx->id("CEW"), ctx->id("CEA"));
+                rename_port(ctx, ci, ctx->id("CER"), ctx->id("CEB"));
+                rename_port(ctx, ci, ctx->id("OCER"), ctx->id("OCEB"));
+                rename_param(ci, "CLKWMUX", "CLKAMUX");
+                rename_param(ci, "CLKRMUX", "CLKRMUX");
+                rename_param(ci, "CSDECODE_W", "CSDECODE_A");
+                rename_param(ci, "CSDECODE_R", "CSDECODE_B");
+                rename_param(ci, "REGMODE", "REGMODE_B");
+                rename_param(ci, "DATA_WIDTH_R", "DATA_WIDTH_B");
+                if (ci->ports.count(id_RST)) {
+                    autocreate_empty_port(ci, id_RSTA);
+                    autocreate_empty_port(ci, id_RSTB);
+                    NetInfo *rst = ci->ports.at(id_RST).net;
+                    connect_port(ctx, rst, ci, id_RSTA);
+                    connect_port(ctx, rst, ci, id_RSTB);
+                    disconnect_port(ctx, ci, id_RST);
+                    ci->ports.erase(id_RST);
+                }
+                ci->type = id_DP16KD;
+            }
+        }
         for (auto cell : sorted(ctx->cells)) {
             CellInfo *ci = cell.second;
             if (ci->type == id_DP16KD) {
@@ -2516,6 +2567,8 @@ void Arch::assignArchInfo()
             if (ci->ports.count(id_FXA) && ci->ports[id_FXA].net != nullptr &&
                 ci->ports[id_FXA].net->driver.port == id_OFX0)
                 ci->sliceInfo.has_l6mux = true;
+        } else if (ci->type == id_DP16KD) {
+            ci->ramInfo.is_pdp = (int_or_default(ci->params, id("DATA_WIDTH_A"), 0) == 36);
         }
     }
     for (auto net : sorted(nets)) {
