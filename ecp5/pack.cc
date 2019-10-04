@@ -1287,6 +1287,10 @@ class Ecp5Packer
                 rename_port(ctx, ci, ctx->id("CER"), ctx->id("CEB"));
                 rename_port(ctx, ci, ctx->id("OCER"), ctx->id("OCEB"));
                 rename_param(ci, "CLKWMUX", "CLKAMUX");
+                if (str_or_default(ci->params, ctx->id("CLKAMUX")) == "CLKW")
+                    ci->params[ctx->id("CLKAMUX")] = std::string("CLKA");
+                if (str_or_default(ci->params, ctx->id("CLKBMUX")) == "CLKR")
+                    ci->params[ctx->id("CLKBMUX")] = std::string("CLKB");
                 rename_param(ci, "CLKRMUX", "CLKRMUX");
                 rename_param(ci, "CSDECODE_W", "CSDECODE_A");
                 rename_param(ci, "CSDECODE_R", "CSDECODE_B");
