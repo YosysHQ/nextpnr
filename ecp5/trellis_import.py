@@ -10,11 +10,35 @@ from os import path
 location_types = dict()
 type_at_location = dict()
 tiletype_names = dict()
+gfx_wire_ids = dict()
+gfx_wire_names = list()
 
 parser = argparse.ArgumentParser(description="import ECP5 routing and bels from Project Trellis")
 parser.add_argument("device", type=str, help="target device")
 parser.add_argument("-p", "--constids", type=str, help="path to constids.inc")
+parser.add_argument("-g", "--gfxh", type=str, help="path to gfx.h")
 args = parser.parse_args()
+
+with open(args.gfxh) as f:
+    state = 0
+    for line in f:
+        if state == 0 and line.startswith("enum GfxTileWireId"):
+            state = 1
+        elif state == 1 and line.startswith("};"):
+            state = 0
+        elif state == 1 and (line.startswith("{") or line.strip() == ""):
+            pass
+        elif state == 1:
+            idx = len(gfx_wire_ids)
+            name = line.strip().rstrip(",")
+            gfx_wire_ids[name] = idx
+            gfx_wire_names.append(name)
+
+def gfx_wire_alias(old, new):
+    assert old in gfx_wire_ids
+    assert new not in gfx_wire_ids
+    gfx_wire_ids[new] = gfx_wire_ids[old]
+
 
 def wire_type(name):
     longname = name
@@ -358,6 +382,10 @@ def write_database(dev_name, chip, ddrg, endianness):
                 wire = loctype.wires[wire_idx]
                 bba.s(ddrg.to_str(wire.name), "name")
                 bba.u32(constids[wire_type(ddrg.to_str(wire.name))], "type")
+                if ("TILE_WIRE_" + ddrg.to_str(wire.name)) in gfx_wire_ids:
+                    bba.u32(gfx_wire_ids["TILE_WIRE_" + ddrg.to_str(wire.name)], "tile_wire")
+                else:                    
+                    bba.u32(0, "tile_wire")
                 bba.u32(len(wire.arcsUphill), "num_uphill")
                 bba.u32(len(wire.arcsDownhill), "num_downhill")
                 bba.r("loc%d_wire%d_uppips" % (idx, wire_idx) if len(wire.arcsUphill) > 0 else None, "pips_uphill")

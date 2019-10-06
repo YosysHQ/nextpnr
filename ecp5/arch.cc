@@ -620,7 +620,26 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
             ret.push_back(el);
         }
     }
+    if (decal.type == DecalId::TYPE_WIRE) {
+        WireId wire;
+        wire.index = decal.z;
+        wire.location = decal.location;
+        auto wire_type = getWireType(wire);
+        int x = decal.location.x;
+        int y = chip_info->height - 1 - decal.location.y;
 
+        GfxTileWireId tilewire = GfxTileWireId(locInfo(wire)->wire_data[wire.index].tile_wire);
+        if (wire_type == id_WIRE_TYPE_SLICE && tilewire != GfxTileWireId::TILE_WIRE_NONE) {
+            GraphicElement el;
+            el.type = GraphicElement::TYPE_LINE;
+            el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
+            el.x1 = x + slice_x1 - 0.005f;
+            el.x2 = x + slice_x1;
+            el.y1 = y + slice_y2 - 0.0017f * tilewire;
+            el.y2 = y + slice_y2 - 0.0017f * tilewire;
+            ret.push_back(el);
+        }        
+    }
     if (decal.type == DecalId::TYPE_BEL) {
         BelId bel;
         bel.index = decal.z;
@@ -674,7 +693,15 @@ DecalXY Arch::getBelDecal(BelId bel) const
     return decalxy;
 }
 
-DecalXY Arch::getWireDecal(WireId wire) const { return {}; }
+DecalXY Arch::getWireDecal(WireId wire) const
+{
+    DecalXY decalxy;
+    decalxy.decal.type = DecalId::TYPE_WIRE;
+    decalxy.decal.location = wire.location;
+    decalxy.decal.z = wire.index;
+    decalxy.decal.active = false;
+    return decalxy;    
+}
 
 DecalXY Arch::getPipDecal(PipId pip) const { return {}; };
 
@@ -1171,4 +1198,14 @@ std::vector<GroupId> Arch::getGroupGroups(GroupId group) const
 
 // -----------------------------------------------------------------------
 
+
+std::vector<std::pair<IdString, std::string>> Arch::getWireAttrs(WireId wire) const
+{
+    std::vector<std::pair<IdString, std::string>> ret;
+    auto &wi = locInfo(wire)->wire_data[wire.index];
+
+    ret.push_back(std::make_pair(id("TILE_WIRE_ID"), stringf("%d", wi.tile_wire)));
+
+    return ret;
+}
 NEXTPNR_NAMESPACE_END
