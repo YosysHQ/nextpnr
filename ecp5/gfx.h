@@ -24,11 +24,28 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-const float logic_cell_x1 = 0.76;
-const float logic_cell_x2 = 0.95;
-const float logic_cell_y1 = 0.05;
-const float logic_cell_y2 = 0.15;
-const float logic_cell_pitch = 0.125;
+const float switchbox_x1 = 0.51;
+const float switchbox_x2 = 0.90;
+const float switchbox_y1 = 0.51;
+const float switchbox_y2 = 0.90;
+
+const float slice_x1 = 0.92;
+const float slice_x2 = 0.94;
+const float slice_y1 = 0.71;
+const float slice_y2 = 0.745;
+const float slice_pitch = 0.04;
+
+const float io_cell_v_x1 = 0.76;
+const float io_cell_v_x2 = 0.95;
+const float io_cell_v_y1 = 0.05;
+const float io_cell_v_y2 = 0.15;
+const float io_cell_v_pitch = 0.125;
+
+const float io_cell_h_x1 = 0.05;
+const float io_cell_h_x2 = 0.14;
+const float io_cell_h_y1 = 0.05;
+const float io_cell_h_y2 = 0.24;
+const float io_cell_h_pitch = 0.125;
 
 NEXTPNR_NAMESPACE_END
 

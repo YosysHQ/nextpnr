@@ -603,32 +603,60 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
 {
     std::vector<GraphicElement> ret;
 
+    if (decal.type == DecalId::TYPE_GROUP) {
+        int type = decal.z;
+        int x = decal.location.x;
+        int y = chip_info->height - 1 - decal.location.y;
+
+        if (type == GroupId::TYPE_SWITCHBOX) {
+            GraphicElement el;
+            el.type = GraphicElement::TYPE_BOX;
+            el.style = GraphicElement::STYLE_FRAME;
+
+            el.x1 = x + switchbox_x1;
+            el.x2 = x + switchbox_x2;
+            el.y1 = y + switchbox_y1;
+            el.y2 = y + switchbox_y2;
+            ret.push_back(el);
+        }
+    }
+
     if (decal.type == DecalId::TYPE_BEL) {
         BelId bel;
         bel.index = decal.z;
         bel.location = decal.location;
-        int z = locInfo(bel)->bel_data[bel.index].z;
         auto bel_type = getBelType(bel);
+        int x = decal.location.x;
+        int y = chip_info->height - 1 - decal.location.y;
+        int z = locInfo(bel)->bel_data[bel.index].z;
 
         if (bel_type == id_TRELLIS_SLICE) {
             GraphicElement el;
             el.type = GraphicElement::TYPE_BOX;
             el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
-            el.x1 = bel.location.x + logic_cell_x1;
-            el.x2 = bel.location.x + logic_cell_x2;
-            el.y1 = bel.location.y + logic_cell_y1 + (z)*logic_cell_pitch;
-            el.y2 = bel.location.y + logic_cell_y2 + (z)*logic_cell_pitch;
+            el.x1 = x + slice_x1;
+            el.x2 = x + slice_x2;
+            el.y1 = y + slice_y1 + (z)*slice_pitch;
+            el.y2 = y + slice_y2 + (z)*slice_pitch;
             ret.push_back(el);
         }
 
         if (bel_type == id_TRELLIS_IO) {
+            bool top_bottom = (y==0 || y==(chip_info->height-1));
             GraphicElement el;
             el.type = GraphicElement::TYPE_BOX;
             el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
-            el.x1 = bel.location.x + logic_cell_x1;
-            el.x2 = bel.location.x + logic_cell_x2;
-            el.y1 = bel.location.y + logic_cell_y1 + (2 * z) * logic_cell_pitch;
-            el.y2 = bel.location.y + logic_cell_y2 + (2 * z + 0.5f) * logic_cell_pitch;
+            if (top_bottom) {
+                el.x1 = x + io_cell_h_x1 + (2 * (z+1)) * io_cell_h_pitch;
+                el.x2 = x + io_cell_h_x2 + (2 * (z+1) + 0.5f) * io_cell_h_pitch;
+                el.y1 = y + io_cell_h_y1;
+                el.y2 = y + io_cell_h_y2;
+            } else {
+                el.x1 = x + io_cell_v_x1;
+                el.x2 = x + io_cell_v_x2;
+                el.y1 = y + io_cell_v_y1 + (2 * z) * io_cell_v_pitch;
+                el.y2 = y + io_cell_v_y2 + (2 * z + 0.5f) * io_cell_v_pitch;
+            }
             ret.push_back(el);
         }
     }
@@ -650,7 +678,15 @@ DecalXY Arch::getWireDecal(WireId wire) const { return {}; }
 
 DecalXY Arch::getPipDecal(PipId pip) const { return {}; };
 
-DecalXY Arch::getGroupDecal(GroupId pip) const { return {}; };
+DecalXY Arch::getGroupDecal(GroupId group) const
+{
+    DecalXY decalxy;
+    decalxy.decal.type = DecalId::TYPE_GROUP;
+    decalxy.decal.location = group.location;
+    decalxy.decal.z = group.type;
+    decalxy.decal.active = true;
+    return decalxy;
+}
 
 // -----------------------------------------------------------------------
 
@@ -1067,5 +1103,72 @@ const std::vector<std::string> Arch::availablePlacers = {"sa",
                                                          "heap"
 #endif
 };
+
+// -----------------------------------------------------------------------
+
+GroupId Arch::getGroupByName(IdString name) const
+{
+    for (auto g : getGroups())
+        if (getGroupName(g) == name)
+            return g;
+    return GroupId();
+}
+
+IdString Arch::getGroupName(GroupId group) const
+{
+    std::string suffix;
+
+    switch (group.type) {
+    case GroupId::TYPE_SWITCHBOX:
+        suffix = "switchbox";
+        break;
+    default:
+        return IdString();
+    }
+
+    return id("X" + std::to_string(group.location.x) + "/Y" + std::to_string(group.location.y) + "/" + suffix);
+}
+
+std::vector<GroupId> Arch::getGroups() const
+{
+    std::vector<GroupId> ret;
+
+    for (int y = 1; y < chip_info->height-1; y++) {
+        for (int x = 1; x < chip_info->width-1; x++) {
+            GroupId group;
+            group.type = GroupId::TYPE_SWITCHBOX;
+            group.location.x = x;
+            group.location. y = y;
+            ret.push_back(group);
+        }
+    }
+    return ret;
+}
+
+std::vector<BelId> Arch::getGroupBels(GroupId group) const
+{
+    std::vector<BelId> ret;
+    return ret;
+}
+
+std::vector<WireId> Arch::getGroupWires(GroupId group) const
+{
+    std::vector<WireId> ret;
+    return ret;
+}
+
+std::vector<PipId> Arch::getGroupPips(GroupId group) const
+{
+    std::vector<PipId> ret;
+    return ret;
+}
+
+std::vector<GroupId> Arch::getGroupGroups(GroupId group) const
+{
+    std::vector<GroupId> ret;
+    return ret;
+}
+
+// -----------------------------------------------------------------------
 
 NEXTPNR_NAMESPACE_END

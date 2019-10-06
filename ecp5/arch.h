@@ -930,13 +930,13 @@ struct Arch : BaseCtx
 
     // -------------------------------------------------
 
-    GroupId getGroupByName(IdString name) const { return GroupId(); }
-    IdString getGroupName(GroupId group) const { return IdString(); }
-    std::vector<GroupId> getGroups() const { return std::vector<GroupId>(); }
-    std::vector<BelId> getGroupBels(GroupId group) const { return std::vector<BelId>(); }
-    std::vector<WireId> getGroupWires(GroupId group) const { return std::vector<WireId>(); }
-    std::vector<PipId> getGroupPips(GroupId group) const { return std::vector<PipId>(); }
-    std::vector<GroupId> getGroupGroups(GroupId group) const { return std::vector<GroupId>(); }
+    GroupId getGroupByName(IdString name) const;
+    IdString getGroupName(GroupId group) const;
+    std::vector<GroupId> getGroups() const;
+    std::vector<BelId> getGroupBels(GroupId group) const;
+    std::vector<WireId> getGroupWires(GroupId group) const;
+    std::vector<PipId> getGroupPips(GroupId group) const;
+    std::vector<GroupId> getGroupGroups(GroupId group) const;
 
     // -------------------------------------------------
 
