@@ -16,6 +16,65 @@ parser.add_argument("device", type=str, help="target device")
 parser.add_argument("-p", "--constids", type=str, help="path to constids.inc")
 args = parser.parse_args()
 
+def wire_type(name):
+    longname = name
+    name = name.split('/')
+
+    if name[0].startswith("X") and name[1].startswith("Y"):
+        name = name[2:]
+
+    if name[0].endswith("_SLICE"):
+        return "WIRE_TYPE_SLICE"
+
+    if name[0].startswith("H00R"):
+        return "WIRE_TYPE_H00R"
+
+    if name[0].startswith("H00L"):
+        return "WIRE_TYPE_H00L"
+
+    if name[0].startswith("H01E"):
+        return "WIRE_TYPE_H01E"
+
+    if name[0].startswith("H01W"):
+        return "WIRE_TYPE_H01W"
+
+    if name[0].startswith("H02E"):
+        return "WIRE_TYPE_H02E"
+
+    if name[0].startswith("H02W"):
+        return "WIRE_TYPE_H02W"
+
+    if name[0].startswith("H06E"):
+        return "WIRE_TYPE_H06E"
+
+    if name[0].startswith("H06W"):
+        return "WIRE_TYPE_H06W"
+
+    if name[0].startswith("V00T"):
+        return "WIRE_TYPE_V00T"
+
+    if name[0].startswith("V00B"):
+        return "WIRE_TYPE_V00B"
+
+    if name[0].startswith("V01N"):
+        return "WIRE_TYPE_V01N"
+
+    if name[0].startswith("V01S"):
+        return "WIRE_TYPE_V01S"
+
+    if name[0].startswith("V02N"):
+        return "WIRE_TYPE_V02N"
+
+    if name[0].startswith("V02S"):
+        return "WIRE_TYPE_V02S"
+
+    if name[0].startswith("V06N"):
+        return "WIRE_TYPE_V06N"
+
+    if name[0].startswith("V06S"):
+        return "WIRE_TYPE_V06S"
+
+    return "WIRE_TYPE_NONE"
 
 def is_global(loc):
     return loc.x == -2 and loc.y == -2
@@ -298,6 +357,7 @@ def write_database(dev_name, chip, ddrg, endianness):
             for wire_idx in range(len(loctype.wires)):
                 wire = loctype.wires[wire_idx]
                 bba.s(ddrg.to_str(wire.name), "name")
+                bba.u32(constids[wire_type(ddrg.to_str(wire.name))], "type")
                 bba.u32(len(wire.arcsUphill), "num_uphill")
                 bba.u32(len(wire.arcsDownhill), "num_downhill")
                 bba.r("loc%d_wire%d_uppips" % (idx, wire_idx) if len(wire.arcsUphill) > 0 else None, "pips_uphill")

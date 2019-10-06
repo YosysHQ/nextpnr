@@ -84,6 +84,7 @@ NPNR_PACKED_STRUCT(struct PipLocatorPOD {
 
 NPNR_PACKED_STRUCT(struct WireInfoPOD {
     RelPtr<char> name;
+    int32_t type;
     int32_t num_uphill, num_downhill;
     RelPtr<PipLocatorPOD> pips_uphill, pips_downhill;
 
@@ -639,7 +640,13 @@ struct Arch : BaseCtx
         return id(name.str());
     }
 
-    IdString getWireType(WireId wire) const { return IdString(); }
+    IdString getWireType(WireId wire) const
+    {
+        NPNR_ASSERT(wire != WireId());
+        IdString id;
+        id.index = locInfo(wire)->wire_data[wire.index].type;
+        return id;
+    }
 
     std::vector<std::pair<IdString, std::string>> getWireAttrs(WireId) const
     {
