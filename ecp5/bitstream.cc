@@ -1367,6 +1367,13 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             std::string tile = ctx->getTileByType(std::string("ECLK_") + (r ? "R" : "L"));
             if (get_net_or_empty(ci, id_STOP) != nullptr)
                 cc.tiles[tile].add_enum(eclksync + ".MODE", "ECLKSYNCB");
+        } else if (ci->type == id_ECLKBRIDGECS) {
+            Loc loc = ctx->getBelLocation(ci->bel);
+            bool r = loc.x > 5;
+            std::string eclkb = ctx->locInfo(bel)->bel_data[bel.index].name.get();
+            std::string tile = ctx->getTileByType(std::string("ECLK_") + (r ? "R" : "L"));
+            if (get_net_or_empty(ci, id_STOP) != nullptr)
+                cc.tiles[tile].add_enum(eclkb + ".MODE", "ECLKBRIDGECS");
         } else if (ci->type == id_DDRDLL) {
             Loc loc = ctx->getBelLocation(ci->bel);
             bool u = loc.y<15, r = loc.x> 15;

@@ -889,6 +889,10 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
         if (cell->ports.at(port).name == id_STOP)
             return TMG_ENDPOINT;
         return (cell->ports.at(port).type == PORT_OUT) ? TMG_COMB_OUTPUT : TMG_COMB_INPUT;
+    } else if (cell->type == id_ECLKBRIDGECS) {
+        if (cell->ports.at(port).name == id_SEL)
+            return TMG_ENDPOINT;
+        return (cell->ports.at(port).type == PORT_OUT) ? TMG_COMB_OUTPUT : TMG_COMB_INPUT;
     } else {
         log_error("cell type '%s' is unsupported (instantiated as '%s')\n", cell->type.c_str(this),
                   cell->name.c_str(this));
