@@ -2044,10 +2044,10 @@ class Ecp5Packer
                 replace_port(ci, ctx->id("D1"), iol, id_TXDATA1);
                 iol->params[ctx->id("GSR")] = str_or_default(ci->params, ctx->id("GSR"), "DISABLED");
                 packed_cells.insert(cell.first);
-            } else if (ci->type == ctx->id("ODDRX2F")) {
+            } else if (ci->type == ctx->id("ODDRX2F") || ci->type == ctx->id("ODDR71B")) {
                 CellInfo *pio = net_only_drives(ctx, ci->ports.at(ctx->id("Q")).net, is_trellis_io, id_I, true);
                 if (pio == nullptr)
-                    log_error("ODDRX2F '%s' Q output must be connected only to a top level output\n",
+                    log_error("%s '%s' Q output must be connected only to a top level output\n", ci->type.c_str(ctx),
                               ci->name.c_str(ctx));
                 CellInfo *iol;
                 if (pio_iologic.count(pio->name))
@@ -2070,8 +2070,19 @@ class Ecp5Packer
                 replace_port(ci, ctx->id("D1"), iol, id_TXDATA1);
                 replace_port(ci, ctx->id("D2"), iol, id_TXDATA2);
                 replace_port(ci, ctx->id("D3"), iol, id_TXDATA3);
+                if (ci->type == ctx->id("ODDR71B")) {
+                    Loc loc =
+                            ctx->getBelLocation(ctx->getBelByName(ctx->id(pio->attrs.at(ctx->id("BEL")).as_string())));
+                    if (loc.z % 2 == 1)
+                        log_error("ODDR71B '%s' can only be used at 'A' or 'C' locations\n", ci->name.c_str(ctx));
+                    replace_port(ci, ctx->id("D4"), iol, id_TXDATA4);
+                    replace_port(ci, ctx->id("D5"), iol, id_TXDATA5);
+                    replace_port(ci, ctx->id("D6"), iol, id_TXDATA6);
+                    iol->params[ctx->id("ODDRXN.MODE")] = std::string("ODDR71");
+                } else {
+                    iol->params[ctx->id("ODDRXN.MODE")] = std::string("ODDRX2");
+                }
                 iol->params[ctx->id("GSR")] = str_or_default(ci->params, ctx->id("GSR"), "DISABLED");
-                iol->params[ctx->id("ODDRXN.MODE")] = std::string("ODDRX2");
                 pio->params[ctx->id("DATAMUX_ODDR")] = std::string("IOLDO");
                 packed_cells.insert(cell.first);
             } else if (ci->type == ctx->id("IDDRX2F")) {
