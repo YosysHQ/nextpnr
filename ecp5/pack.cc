@@ -2085,10 +2085,10 @@ class Ecp5Packer
                 iol->params[ctx->id("GSR")] = str_or_default(ci->params, ctx->id("GSR"), "DISABLED");
                 pio->params[ctx->id("DATAMUX_ODDR")] = std::string("IOLDO");
                 packed_cells.insert(cell.first);
-            } else if (ci->type == ctx->id("IDDRX2F")) {
+            } else if (ci->type == ctx->id("IDDRX2F") || ci->type == ctx->id("IDDR71B")) {
                 CellInfo *pio = net_driven_by(ctx, ci->ports.at(ctx->id("D")).net, is_trellis_io, id_O);
                 if (pio == nullptr || ci->ports.at(ctx->id("D")).net->users.size() > 1)
-                    log_error("IDDRX2F '%s' D input must be connected only to a top level input\n",
+                    log_error("%s '%s' D input must be connected only to a top level input\n", ci->type.c_str(ctx),
                               ci->name.c_str(ctx));
                 CellInfo *iol;
                 if (pio_iologic.count(pio->name))
@@ -2104,8 +2104,20 @@ class Ecp5Packer
                 replace_port(ci, ctx->id("Q1"), iol, id_RXDATA1);
                 replace_port(ci, ctx->id("Q2"), iol, id_RXDATA2);
                 replace_port(ci, ctx->id("Q3"), iol, id_RXDATA3);
+                if (ci->type == ctx->id("IDDR71B")) {
+                    Loc loc =
+                            ctx->getBelLocation(ctx->getBelByName(ctx->id(pio->attrs.at(ctx->id("BEL")).as_string())));
+                    if (loc.z % 2 == 1)
+                        log_error("IDDR71B '%s' can only be used at 'A' or 'C' locations\n", ci->name.c_str(ctx));
+                    replace_port(ci, ctx->id("Q4"), iol, id_RXDATA4);
+                    replace_port(ci, ctx->id("Q5"), iol, id_RXDATA5);
+                    replace_port(ci, ctx->id("Q6"), iol, id_RXDATA6);
+                    replace_port(ci, ctx->id("ALIGNWD"), iol, id_SLIP);
+                    iol->params[ctx->id("IDDRXN.MODE")] = std::string("IDDR71");
+                } else {
+                    iol->params[ctx->id("IDDRXN.MODE")] = std::string("IDDRX2");
+                }
                 iol->params[ctx->id("GSR")] = str_or_default(ci->params, ctx->id("GSR"), "DISABLED");
-                iol->params[ctx->id("IDDRXN.MODE")] = std::string("IDDRX2");
                 packed_cells.insert(cell.first);
             } else if (ci->type == ctx->id("OSHX2A")) {
                 CellInfo *pio = net_only_drives(ctx, ci->ports.at(ctx->id("Q")).net, is_trellis_io, id_I, true);
