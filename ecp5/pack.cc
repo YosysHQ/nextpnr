@@ -1844,6 +1844,8 @@ class Ecp5Packer
 
         auto set_iologic_mode = [&](CellInfo *iol, std::string mode) {
             auto &curr_mode = iol->params[ctx->id("MODE")].str;
+            if (curr_mode != "NONE" && mode == "IREG_OREG")
+                return;
             if (curr_mode != "NONE" && curr_mode != "IREG_OREG" && curr_mode != mode)
                 log_error("IOLOGIC '%s' has conflicting modes '%s' and '%s'\n", iol->name.c_str(ctx), curr_mode.c_str(),
                           mode.c_str());
@@ -2240,6 +2242,101 @@ class Ecp5Packer
                         std::string(ci->type == ctx->id("TSHX2DQSA") ? "DQSW" : "DQSW270");
                 iol->params[ctx->id("IOLTOMUX")] = std::string("TDDR");
                 packed_cells.insert(cell.first);
+            } else if (ci->type == ctx->id("TRELLIS_FF") && bool_or_default(ci->attrs, ctx->id("syn_useioff"))) {
+                // Pack IO flipflop into IOLOGIC
+                std::string mode = str_or_default(ci->attrs, ctx->id("ioff_dir"), "");
+                if (mode != "output") {
+                    // See if it can be packed as an input ff
+                    NetInfo *d = get_net_or_empty(ci, ctx->id("DI"));
+                    CellInfo *pio = net_driven_by(ctx, d, is_trellis_io, id_O);
+                    if (pio != nullptr && d->users.size() == 1) {
+                        // Input FF
+                        CellInfo *iol;
+                        if (pio_iologic.count(pio->name))
+                            iol = pio_iologic.at(pio->name);
+                        else
+                            iol = create_pio_iologic(pio, ci);
+                        set_iologic_mode(iol, "IREG_OREG");
+                        set_iologic_sclk(iol, ci, ctx->id("CLK"), true);
+                        set_iologic_lsr(iol, ci, ctx->id("LSR"), true);
+                        // Handle CLK and CE muxes
+                        if (str_or_default(ci->params, ctx->id("CLKMUX")) == "INV")
+                            iol->params[ctx->id("CLKIMUX")] = std::string("INV");
+                        if (str_or_default(ci->params, ctx->id("CEMUX"), "CE") == "CE") {
+                            iol->params[ctx->id("CEIMUX")] = std::string("CEMUX");
+                            iol->params[ctx->id("CEMUX")] = std::string("CE");
+                            replace_port(ci, ctx->id("CE"), iol, ctx->id("CE"));
+                        } else {
+                            iol->params[ctx->id("CEIMUX")] = std::string("1");
+                        }
+                        // Set IOLOGIC params from FF params
+                        iol->params[ctx->id("FF.INREGMODE")] = std::string("FF");
+                        iol->params[ctx->id("FF.REGSET")] = str_or_default(ci->params, ctx->id("REGSET"), "RESET");
+                        iol->params[ctx->id("SRMODE")] = str_or_default(ci->params, ctx->id("SRMODE"), "ASYNC");
+                        iol->params[ctx->id("GSR")] = str_or_default(ci->params, ctx->id("GSR"), "DISABLED");
+                        replace_port(ci, ctx->id("DI"), iol, id_PADDI);
+                        replace_port(ci, ctx->id("Q"), iol, id_INFF);
+                        packed_cells.insert(cell.first);
+                        continue;
+                    }
+                }
+                if (mode != "input") {
+                    CellInfo *pio_t = net_only_drives(ctx, ci->ports.at(ctx->id("Q")).net, is_trellis_io, id_T, true);
+                    CellInfo *pio_i = net_only_drives(ctx, ci->ports.at(ctx->id("Q")).net, is_trellis_io, id_I, true);
+                    if (pio_t != nullptr || pio_i != nullptr) {
+                        // Output or tristate FF
+                        bool tri = (pio_t != nullptr);
+                        CellInfo *pio = tri ? pio_t : pio_i;
+                        CellInfo *iol;
+                        if (pio_iologic.count(pio->name))
+                            iol = pio_iologic.at(pio->name);
+                        else
+                            iol = create_pio_iologic(pio, ci);
+                        set_iologic_mode(iol, "IREG_OREG");
+                        // Connection between FF and PIO
+                        replace_port(ci, ctx->id("Q"), iol, tri ? id_IOLTO : id_IOLDO);
+                        if (tri) {
+                            if (!pio->ports.count(id_IOLTO)) {
+                                pio->ports[id_IOLTO].name = id_IOLTO;
+                                pio->ports[id_IOLTO].type = PORT_IN;
+                            }
+                            pio->params[ctx->id("TRIMUX_TSREG")] = std::string("IOLTO");
+                            replace_port(pio, id_I, pio, id_IOLTO);
+                        } else {
+                            if (!pio->ports.count(id_IOLDO)) {
+                                pio->ports[id_IOLDO].name = id_IOLDO;
+                                pio->ports[id_IOLDO].type = PORT_IN;
+                            }
+                            pio->params[ctx->id("DATAMUX_OREG")] = std::string("IOLDO");
+                            replace_port(pio, id_I, pio, id_IOLDO);
+                        }
+
+                        set_iologic_sclk(iol, ci, ctx->id("CLK"), false);
+                        set_iologic_lsr(iol, ci, ctx->id("LSR"), false);
+
+                        // Handle CLK and CE muxes
+                        if (str_or_default(ci->params, ctx->id("CLKMUX")) == "INV")
+                            iol->params[ctx->id("CLKOMUX")] = std::string("INV");
+                        if (str_or_default(ci->params, ctx->id("CEMUX"), "CE") == "CE") {
+                            iol->params[ctx->id("CEOMUX")] = std::string("CEMUX");
+                            iol->params[ctx->id("CEMUX")] = std::string("CE");
+                            replace_port(ci, ctx->id("CE"), iol, ctx->id("CE"));
+                        } else {
+                            iol->params[ctx->id("CEOMUX")] = std::string("1");
+                        }
+                        // FF params
+                        iol->params[ctx->id(tri ? "TSREG.OUTREGMODE" : "OUTREG.OUTREGMODE")] = std::string("FF");
+                        iol->params[ctx->id(tri ? "TSREG.REGSET" : "OUTREG.REGSET")] =
+                                str_or_default(ci->params, ctx->id("REGSET"), "RESET");
+                        iol->params[ctx->id("SRMODE")] = str_or_default(ci->params, ctx->id("SRMODE"), "ASYNC");
+                        // Data input
+                        replace_port(ci, ctx->id("DI"), iol, tri ? id_TSDATA0 : id_TXDATA0);
+                        iol->params[ctx->id("GSR")] = str_or_default(ci->params, ctx->id("GSR"), "DISABLED");
+                        packed_cells.insert(cell.first);
+                        continue;
+                    }
+                }
+                log_error("Failed to pack flipflop '%s' with 'syn_useioff' set into IOLOGIC.\n", ci->name.c_str(ctx));
             }
         }
         flush_cells();
