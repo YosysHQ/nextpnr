@@ -2265,7 +2265,10 @@ class Ecp5Packer
                         if (str_or_default(ci->params, ctx->id("CEMUX"), "CE") == "CE") {
                             iol->params[ctx->id("CEIMUX")] = std::string("CEMUX");
                             iol->params[ctx->id("CEMUX")] = std::string("CE");
-                            replace_port(ci, ctx->id("CE"), iol, ctx->id("CE"));
+                            if (get_net_or_empty(ci, ctx->id("CE")) == nullptr)
+                                replace_port(ci, ctx->id("CE"), iol, ctx->id("CE"));
+                            else
+                                disconnect_port(ctx, ci, ctx->id("CE"));
                         } else {
                             iol->params[ctx->id("CEIMUX")] = std::string("1");
                         }
@@ -2301,7 +2304,7 @@ class Ecp5Packer
                                 pio->ports[id_IOLTO].type = PORT_IN;
                             }
                             pio->params[ctx->id("TRIMUX_TSREG")] = std::string("IOLTO");
-                            replace_port(pio, id_I, pio, id_IOLTO);
+                            replace_port(pio, id_T, pio, id_IOLTO);
                         } else {
                             if (!pio->ports.count(id_IOLDO)) {
                                 pio->ports[id_IOLDO].name = id_IOLDO;
@@ -2320,7 +2323,10 @@ class Ecp5Packer
                         if (str_or_default(ci->params, ctx->id("CEMUX"), "CE") == "CE") {
                             iol->params[ctx->id("CEOMUX")] = std::string("CEMUX");
                             iol->params[ctx->id("CEMUX")] = std::string("CE");
-                            replace_port(ci, ctx->id("CE"), iol, ctx->id("CE"));
+                            if (get_net_or_empty(ci, ctx->id("CE")) == nullptr)
+                                replace_port(ci, ctx->id("CE"), iol, ctx->id("CE"));
+                            else
+                                disconnect_port(ctx, ci, ctx->id("CE"));
                         } else {
                             iol->params[ctx->id("CEOMUX")] = std::string("1");
                         }
