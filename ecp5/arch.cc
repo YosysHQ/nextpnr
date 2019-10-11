@@ -633,10 +633,16 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
             GraphicElement el;
             el.type = GraphicElement::TYPE_LINE;
             el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
+            int offset = 0;
+            int wire_offset = 0; 
+            if (tilewire >= TILE_WIRE_D7_SLICE && tilewire <=TILE_WIRE_CLK3_SLICE) { offset = 3; wire_offset = tilewire - TILE_WIRE_D7_SLICE + 1; }
+            if (tilewire >= TILE_WIRE_D5_SLICE && tilewire <=TILE_WIRE_CLK2_SLICE) { offset = 2; wire_offset = tilewire - TILE_WIRE_D5_SLICE + 1; }
+            if (tilewire >= TILE_WIRE_D3_SLICE && tilewire <=TILE_WIRE_CLK1_SLICE) { offset = 1; wire_offset = tilewire - TILE_WIRE_D3_SLICE + 1; }
+            if (tilewire >= TILE_WIRE_D1_SLICE && tilewire <=TILE_WIRE_CLK0_SLICE) { offset = 0; wire_offset = tilewire - TILE_WIRE_D1_SLICE + 1; }
             el.x1 = x + slice_x1 - 0.005f;
             el.x2 = x + slice_x1;
-            el.y1 = y + slice_y2 - 0.0017f * tilewire;
-            el.y2 = y + slice_y2 - 0.0017f * tilewire;
+            el.y1 = y + slice_y2 - 0.0017f * wire_offset + offset*slice_pitch;
+            el.y2 = y + slice_y2 - 0.0017f * wire_offset + offset*slice_pitch;
             ret.push_back(el);
         }        
     }
