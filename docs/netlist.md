@@ -1,0 +1,73 @@
+# nextpnr netlist structures documentation
+
+The current in-memory design in nextpnr uses several basic structures. See the
+[FAQ](faq.md) for more info on terminology.
+
+See also the [Arch API reference](archapi.md) for information on developing new architectures and accessing the architecture database.
+
+ - `CellInfo`: instantiation of a physical block in the netlist (currently, all cells in nextpnr are blackboxes.)
+ - `NetInfo`: a connection between cell ports. Has at most one driver; and zero or more users
+ - `BaseCtx`: contains all cells and nets, subclassed by `Arch` and then becomes `Context`
+
+Other structures used by these basic structures include:
+ - `Property`: stores a numeric or string value - isomorphic to `RTLIL::Const` in Yosys
+ - `PortInfo`: stores the name, direction and connected net (if applicable) of cell ports
+ - `PortRef`: used to reference the source/sink ports of a net; refers back to a cell and a port name
+
+## CellInfo
+
+`CellInfo` instances have the following fields:
+
+ - `name` and `type` are `IdString`s containing the instance name, and type
+ - `ports` is a map from port name `IdString` to `PortInfo` structures for each cell port
+ - `bel` and `belStrength` contain the ID of the Bel the cell is placed onto; and placement strength of the cell; if placed. Placement/ripup should always be done by `Arch::bindBel` and `Arch::unbindBel` rather than by manipulating these fields.
+ - `params` and `attrs` store parameters and attributes - from the input JSON or assigned in flows to add metadata - by mapping from parameter name `IdString` to `Property`.
+ - The `constr_` fields are for relative constraints:
+    - `constr_parent` is a reference to the cell this cell is constrained with respect to; or `nullptr` if not relatively constrained. If not `nullptr`, this cell should be in the parent's `constr_children`.
+    - `constr_children` is a list of cells relatively constrained to this one. All children should have `constr_parent == this`. 
+    - `constr_x` and `constr_y` are absolute (`constr_parent == nullptr`) or relative (`constr_parent != nullptr`) tile coordinate constraints. If set to `UNCONSTR` then the cell is not constrained in this axis (defaults to `UNCONSTR`)
+    - `constr_z` is an absolute (`constr_abs_z`) or relative (`!constr_abs_z`) 'Z-axis' (index inside tile, e.g. logic cell) constraint
+ - `region` is a reference to a `Region` if the cell is constrained to a placement region (e.g. for partial reconfiguration or out-of-context flows) or `nullptr` otherwise.
+
+## NetInfo
+
+`NetInfo` instances have the following fields:
+
+ - `name` is the IdString name of the net - for nets with multiple names, one name is chosen according to a set of rules by the JSON frontend
+ - `driver` refers to the source of the net using `PortRef`; `driver.cell == nullptr` means that the net is undriven. Nets must have zero or one driver only. The corresponding cell port must be an output and its `PortInfo::net` must refer back to this net.
+ - `users` contains a list of `PortRef` references to sink ports on the net. Nets can have zero or more sinks. Each corresponding cell port must be an input or inout; and its `PortInfo::net` must refer back to this net.
+ - `wires` is a map that stores the routing tree of a net, if the net is routed.
+    - Each entry in `wires` maps from *sink* wire in the routing tree to its driving pip, and the binding strength of that pip (e.g. how freely the router may rip up the pip)
+    - Manipulation of this structure is done automatically by `Arch::bindWire`, `Arch::unbindWire`, `Arch::bindPip` and `Arch::unbindPip`; which should almost always be used in lieu of manual manipulation
+ - `attrs` stores metadata about the wire (which may come from the JSON or be added by passes)
+ - `clkconstr` contains the period constraint if the wire is a constrained clock; or is empty otherwise
+ - `region` is a reference to a `Region` if the net is constrained to a device region or `nullptr` otherwise (_N.B. not supported by the current router_).
+
+## BaseCtx/Context
+
+Relevant fields from a netlist point of view are:
+ - `cells` is a map from cell name to a `unique_ptr<CellInfo>` containing cell data
+ - `nets` is a map from net name to a `unique_ptr<NetInfo>` containing net data
+ - `net_aliases` maps every alias for a net to its canonical name (i.e. index into `nets`) - net aliases often occur when a net has a name both inside a submodule and higher level module
+ - `ports` is a list of top level ports, primarily used during JSON export (e.g. to produce a useful post-PnR simulation model)
+
+Context also has a method `check()` that ensures all of the contracts met above are satisfied. It is strongly suggested to run this after any pass that may modify the netlist.
+
+## Performance Improvements
+
+Two features are provided to enable performance improvements in some algorithms, generally by reducing the number of `unordered_map` accesses.
+
+The first is `udata`. This is a field of both nets and cells that can be used to give an index into algorithm-specific structures, such as a flat `vector` of cells. Placers and routers may use this for any purpose, but it should not be used to exchange data between passes.
+
+The second is `ArchCellInfo` and `ArchNetInfo`. These are provided by architectures and used as base classes for `CellInfo` and `NetInfo` respectively. They allow architectures to tag information that is needed frequently - for example the clock polarity and clock net for a flipflop are needed for placement validity checking. They should only be used inside arch-specific code, and are lost when netlists are saved/loaded thus must not be used as primary storage - usually these should mirror attributes/parameters. `assignArchInfo` should set these up accordingly.
+
+## Helper Functions - Context
+
+`Context` and its subclass `BaseCtx` provides several helper functions that are often needed inside CAD algorithms.
+
+ - `nameOfBel`, `nameOfWire`, and `nameOfPip` gets the name of an identified object as a C string, often used in conjunction with the logging functions
+ - `nameOf` is similar to above but for netlist objects that have a `name` field (e.g. cells, nets, etc)
+ - `getNetinfoSourceWire` gets the physical wire `WireId` associated with the source of a net
+ - `getNetinfoSinkWire` gets the physical wire `WireId` associated with a given sink (specified by `PortRef`)
+ - `getNetinfoRouteDelay` gets the routing delay - actual if the net is fully routed, estimated otherwise - between the source and a given sink of a net
+ - `getNetByAlias` returns the pointer to a net given any of its aliases - this should be used in preference to a direct lookup in `nets` whenever a net name is provided by the user
