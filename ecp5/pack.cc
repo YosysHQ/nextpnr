@@ -1560,6 +1560,7 @@ class Ecp5Packer
     };
 
     std::map<std::pair<int, int>, EdgeClockInfo> eclks;
+    std::map<NetInfo *, int> bridge_side_hint;
 
     void make_eclk(PortInfo &usr_port, CellInfo *usr_cell, BelId usr_bel, int bank)
     {
@@ -1575,6 +1576,8 @@ class Ecp5Packer
                     break;
                 }
             } else if (free_eclk == -1) {
+                if (bridge_side_hint.count(ecknet) && bridge_side_hint.at(ecknet) != i)
+                    continue;
                 free_eclk = i;
             }
         }
@@ -2346,6 +2349,44 @@ class Ecp5Packer
             }
         }
         flush_cells();
+        // Constrain ECLK-related cells
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (ci->type == id_ECLKBRIDGECS) {
+                NetInfo *i0 = get_net_or_empty(ci, id_CLK0), *i1 = get_net_or_empty(ci, id_CLK1),
+                        *o = get_net_or_empty(ci, id_ECSOUT);
+                for (NetInfo *input : {i0, i1}) {
+                    if (input == nullptr)
+                        continue;
+                    for (auto user : input->users) {
+                        if (!user.cell->attrs.count(ctx->id("BEL")))
+                            continue;
+                        Loc user_loc = ctx->getBelLocation(
+                                ctx->getBelByName(ctx->id(user.cell->attrs.at(ctx->id("BEL")).as_string())));
+                        for (auto bel : ctx->getBels()) {
+                            if (ctx->getBelType(bel) != id_ECLKBRIDGECS)
+                                continue;
+                            Loc loc = ctx->getBelLocation(bel);
+                            if (loc.x == user_loc.x) {
+                                ci->attrs[ctx->id("BEL")] = ctx->getBelName(bel).str(ctx);
+                                if (o != nullptr)
+                                    for (auto user2 : o->users) {
+                                        // Set side hint to ensure edge clock choice is routeable
+                                        if (user2.cell->type == id_ECLKSYNCB && user2.port == id_ECLKI) {
+                                            NetInfo *synco = get_net_or_empty(user2.cell, id_ECLKO);
+                                            if (synco != nullptr)
+                                                bridge_side_hint[synco] = (loc.x > 1) ? 0 : 1;
+                                        }
+                                    }
+                                goto eclkbridge_done;
+                            }
+                        }
+                    }
+                }
+            eclkbridge_done:
+                continue;
+            }
+        }
         // Promote/route edge clocks
         for (auto cell : sorted(ctx->cells)) {
             CellInfo *ci = cell.second;
@@ -2366,7 +2407,6 @@ class Ecp5Packer
             }
         }
         flush_cells();
-        // Constrain ECLK-related cells
         for (auto cell : sorted(ctx->cells)) {
             CellInfo *ci = cell.second;
             if (ci->type == id_CLKDIVF) {
@@ -2392,7 +2432,18 @@ class Ecp5Packer
             clkdiv_done:
                 continue;
             } else if (ci->type == id_ECLKSYNCB) {
+                const NetInfo *eclki = net_or_nullptr(ci, id_ECLKI);
                 const NetInfo *eclko = net_or_nullptr(ci, id_ECLKO);
+                if (eclki != nullptr && eclki->driver.cell != nullptr) {
+                    if (eclki->driver.cell->type == id_ECLKBRIDGECS) {
+                        BelId bel =
+                                ctx->getBelByName(ctx->id(eclki->driver.cell->attrs.at(ctx->id("BEL")).as_string()));
+                        Loc loc = ctx->getBelLocation(bel);
+                        ci->attrs[ctx->id("BEL")] =
+                                ctx->getBelName(ctx->getBelByLocation(Loc(loc.x, loc.y, 15))).str(ctx);
+                        goto eclksync_done;
+                    }
+                }
                 if (eclko == nullptr)
                     log_error("ECLKSYNCB '%s' has disconnected port ECLKO\n", ci->name.c_str(ctx));
                 for (auto user : eclko->users) {
