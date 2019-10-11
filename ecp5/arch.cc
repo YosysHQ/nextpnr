@@ -633,8 +633,6 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
             GraphicElement el;
             el.type = GraphicElement::TYPE_LINE;
             el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
-            int offset = 0;
-            int wire_offset = 0; 
             if (tilewire >= TILE_WIRE_D7_SLICE && tilewire <=TILE_WIRE_CLK0_SLICE)
             {
                 el.x1 = x + slice_x1 - 0.005f;
@@ -651,7 +649,58 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
                 el.y2 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_DUMMY_100 + 1) + 3*slice_pitch;
                 ret.push_back(el);
             }
-        }        
+        }  
+        if (tilewire >= TILE_WIRE_FCO && tilewire <=TILE_WIRE_FCI)
+        {
+            GraphicElement el;
+            el.type = GraphicElement::TYPE_LINE;
+            el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
+            el.x1 = x + switchbox_x2;
+            el.x2 = x + slice_x1 - 0.005f;
+            el.y1 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_LSR1 - 5) + 3*slice_pitch;
+            el.y2 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_LSR1 - 5) + 3*slice_pitch;
+            ret.push_back(el);
+        }       
+        if (tilewire >= TILE_WIRE_FCO_SLICE && tilewire <=TILE_WIRE_FCOA_SLICE)
+        {
+            GraphicElement el;
+            el.type = GraphicElement::TYPE_LINE;
+            el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
+            el.x1 = x + slice_x1 + 0.005f;
+            el.x2 = x + slice_x1 + 0.005f;
+            if (tilewire==TILE_WIRE_FCO_SLICE)
+                el.y1 = y + slice_y2 + 0.0017f + (3-(tilewire - TILE_WIRE_FCO_SLICE))*slice_pitch;
+            else
+                el.y1 = y + slice_y2 + 0.00125f + (3-(tilewire - TILE_WIRE_FCO_SLICE))*slice_pitch;
+            el.y2 = y + slice_y2 + (3-(tilewire - TILE_WIRE_FCO_SLICE))*slice_pitch;
+            ret.push_back(el);
+            if (tilewire==TILE_WIRE_FCO_SLICE) {
+                el.x1 = x + slice_x1 - 0.005f;
+                el.x2 = x + slice_x1 + 0.005f;
+                el.y2 = el.y1;
+                ret.push_back(el);
+            }
+        }
+        if (tilewire >= TILE_WIRE_FCID_SLICE && tilewire <=TILE_WIRE_FCI_SLICE)
+        {
+            GraphicElement el;
+            el.type = GraphicElement::TYPE_LINE;
+            el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
+            el.x1 = x + slice_x1 + 0.005f;
+            el.x2 = x + slice_x1 + 0.005f;
+            if (tilewire==TILE_WIRE_FCI_SLICE)
+                el.y1 = y + slice_y1 - 0.0007f + (3-(tilewire - TILE_WIRE_FCID_SLICE))*slice_pitch;
+            else
+                el.y1 = y + slice_y1 - 0.00125f + (3-(tilewire - TILE_WIRE_FCID_SLICE))*slice_pitch;
+            el.y2 = y + slice_y1 + (3-(tilewire - TILE_WIRE_FCID_SLICE))*slice_pitch;
+            ret.push_back(el);
+            if (tilewire==TILE_WIRE_FCI_SLICE) {
+                el.x1 = x + slice_x1 - 0.005f;
+                el.x2 = x + slice_x1 + 0.005f;
+                el.y2 = el.y1;
+                ret.push_back(el);
+            }
+        }   
     }
     if (decal.type == DecalId::TYPE_BEL) {
         BelId bel;
