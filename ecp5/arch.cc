@@ -768,12 +768,15 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
         {
             int group = (tilewire - TILE_WIRE_F7) / 4;
             int part =  (tilewire - TILE_WIRE_F7) % 4;
+            float offset = 0;
+            if (part == 0) offset = -0.0017f/2;
+            if (part == 3) offset = +0.0017f/2;
             GraphicElement el;
             el.type = GraphicElement::TYPE_LINE;
             el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
             el.x1 = x + slice_x2 + 0.005f;
             el.x2 = x + slice_x2 + 0.005f + (0.0017f * (7 *(4-group)-part));
-            el.y1 = y + slice_y2 - 0.0017f * (TILE_WIRE_F7_SLICE - TILE_WIRE_DUMMY_100 + 1 + part) + (3 - group )*slice_pitch;
+            el.y1 = y + slice_y2 - 0.0017f * (TILE_WIRE_F7_SLICE - TILE_WIRE_DUMMY_100 + 1 + part) + (3 - group )*slice_pitch - offset;
             el.y2 = el.y1;
             ret.push_back(el);
 
@@ -781,15 +784,15 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
                 GraphicElement el2;
                 el2.type = GraphicElement::TYPE_LINE;
                 el2.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
-                el2.x1 = el.x1;
-                el2.x2 = el.x1;
-                el2.y1 = el.y1; 
-                el2.y2 = el.y1 + 0.0017f * (part==3 ? -1 : 1); 
+                el2.x1 = x + slice_x2 + 0.005f;
+                el2.x2 = el2.x1;
+                el2.y1 = y + slice_y2 - 0.0017f * (TILE_WIRE_F7_SLICE - TILE_WIRE_DUMMY_100 + 1 + part) + (3 - group )*slice_pitch;
+                el2.y2 = el2.y1 + 0.0017f * (part==3 ? -1 : 1); 
                 ret.push_back(el2);
             }
 
             el.x1 = el.x2;
-            el.y2 = el.y1 - (0.0017f * (30 *(3-group) + (3-part)*2 + 10)); 
+            el.y2 = el.y1 - (0.0017f * (30 *(3-group) + (3-part)*2 + 10)) + offset; 
             ret.push_back(el);
 
             el.x1 = x + switchbox_x2;
