@@ -747,7 +747,7 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
             el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
             el.x1 = x + switchbox_x2 + 0.0017f * 3;
             el.x2 = x + slice_x1 - 0.005f;
-            el.y1 = y + slice_y2 - 0.0017f * (TILE_WIRE_CE0 - TILE_WIRE_LSR1 - 5 + 2) + (3 + tilewire - TILE_WIRE_MUXCLK3)*slice_pitch;
+            el.y1 = y + slice_y2 - 0.0017f * (TILE_WIRE_CE0 - TILE_WIRE_LSR1 - 5 + 2) + (3 + 3 - (tilewire - TILE_WIRE_MUXCLK3))*slice_pitch;
             el.y2 = el.y1;
             ret.push_back(el);
         }
@@ -758,7 +758,7 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
             el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
             el.x1 = x + switchbox_x2 + 0.0017f * 5;
             el.x2 = x + slice_x1 - 0.005f;
-            el.y1 = y + slice_y2 - 0.0017f * (TILE_WIRE_CE0 - TILE_WIRE_LSR1 - 5 + 1) + (3 + tilewire - TILE_WIRE_MUXLSR3)*slice_pitch;
+            el.y1 = y + slice_y2 - 0.0017f * (TILE_WIRE_CE0 - TILE_WIRE_LSR1 - 5 + 1) + (3 + 3 - (tilewire - TILE_WIRE_MUXLSR3))*slice_pitch;
             el.y2 = el.y1;
             ret.push_back(el);
         }        
