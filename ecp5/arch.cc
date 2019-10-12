@@ -820,6 +820,33 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
             el.y1 = el.y2;
             ret.push_back(el);
         }
+        if (tilewire >= TILE_WIRE_WAD3 && tilewire <=TILE_WIRE_WAD0)
+        {
+            GraphicElement el;
+            int part =  (tilewire - TILE_WIRE_WAD3) % 4;
+            el.type = GraphicElement::TYPE_LINE;
+            el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
+            el.x1 = x + slice_x2 + 0.005f;
+            el.x2 = x + slice_x2 + 0.005f + 0.0017f *(8 - part);
+            el.y1 = y + slice_y2 - 0.0017f * (TILE_WIRE_WADO3C_SLICE - TILE_WIRE_DUMMY_100 + 1 + part) + 3*slice_pitch;
+            el.y2 = el.y1;
+            ret.push_back(el);
+
+            el.x1 = el.x2;
+            el.y2 = y + slice_y2 - 0.0017f * (TILE_WIRE_WAD3B_SLICE - TILE_WIRE_DUMMY_100 + 1 + part) + 2*slice_pitch;
+            ret.push_back(el);
+
+            el.x1 = x + slice_x2 + 0.005f;
+            el.y1 = el.y2;
+            ret.push_back(el);
+
+            // middle line
+            el.x1 = x + slice_x2 + 0.005f;
+            el.x2 = x + slice_x2 + 0.005f + 0.0017f *(8 - part);
+            el.y2 = y + slice_y2 - 0.0017f * (TILE_WIRE_WAD3B_SLICE - TILE_WIRE_DUMMY_100 + 1 + part) + 3*slice_pitch;
+            el.y1 = el.y2;
+            ret.push_back(el);
+        }        
     }    
     if (decal.type == DecalId::TYPE_BEL) {
         BelId bel;
