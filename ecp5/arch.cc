@@ -822,7 +822,7 @@ DecalXY Arch::getWireDecal(WireId wire) const
     decalxy.decal.type = DecalId::TYPE_WIRE;
     decalxy.decal.location = wire.location;
     decalxy.decal.z = wire.index;
-    decalxy.decal.active = false;
+    decalxy.decal.active = getBoundWireNet(wire) != nullptr;
     return decalxy;    
 }
 

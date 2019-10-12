@@ -660,6 +660,7 @@ struct Arch : BaseCtx
         wire_to_net[wire] = net;
         net->wires[wire].pip = PipId();
         net->wires[wire].strength = strength;
+        refreshUiWire(wire);
     }
 
     void unbindWire(WireId wire)
@@ -679,6 +680,7 @@ struct Arch : BaseCtx
 
         net_wires.erase(it);
         wire_to_net[wire] = nullptr;
+        refreshUiWire(wire);
     }
 
     bool checkWireAvail(WireId wire) const
