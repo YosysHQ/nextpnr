@@ -677,12 +677,48 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
                 GraphicElement el;
                 el.type = GraphicElement::TYPE_LINE;
                 el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
-                el.x1 = x + switchbox_x1 + 0.005f + 0.0017f * (tilewire - TILE_WIRE_V01N0001);
+                el.x1 = x + switchbox_x1 + 0.0017f*4 + 0.0017f * (tilewire - TILE_WIRE_V01N0001);
                 el.x2 = el.x1;
                 el.y1 = y + switchbox_y1;
                 el.y2 = y + switchbox_y2 - 1;
                 ret.push_back(el);
             } 
+        }  
+        if (wire_type == id_WIRE_TYPE_H01) {
+            if (tilewire >= TILE_WIRE_H01E0001 && tilewire <=TILE_WIRE_H01W0100)
+            //if (tilewire >= TILE_WIRE_H01E0000 && tilewire <=TILE_WIRE_H01W0101) // not existing in trellis
+            {
+                GraphicElement el;
+                el.type = GraphicElement::TYPE_LINE;
+                el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
+                el.x1 = x + switchbox_x1;
+                el.x2 = x + switchbox_x2 - 1;
+                el.y1 = y + switchbox_y1 + 0.0017f*12 - 0.0017f * (tilewire - TILE_WIRE_H01E0001);
+                el.y2 = el.y1;
+                ret.push_back(el);
+            } 
+        }  
+        if (wire_type == id_WIRE_TYPE_HFI) {
+            // only  TILE_WIRE_HFIE0000
+            GraphicElement el;
+            el.type = GraphicElement::TYPE_LINE;
+            el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
+            el.x1 = x + switchbox_x1;
+            el.x2 = x + switchbox_x2 - 1;
+            el.y1 = y + switchbox_y1 + 0.0017f*1;
+            el.y2 = el.y1;
+            ret.push_back(el);
+        }  
+        if (wire_type == id_WIRE_TYPE_HL7) {
+            // only TILE_WIRE_HL7W0001
+            GraphicElement el;
+            el.type = GraphicElement::TYPE_LINE;
+            el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
+            el.x1 = x + switchbox_x2 - 1;
+            el.x2 = x + switchbox_x1;
+            el.y1 = y + switchbox_y1 + 0.0017f*20;
+            el.y2 = el.y1;
+            ret.push_back(el);
         }  
         if (wire_type == id_WIRE_TYPE_NONE) {
             if (tilewire >= TILE_WIRE_FCO && tilewire <=TILE_WIRE_FCI)
