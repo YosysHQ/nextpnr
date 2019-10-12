@@ -50,53 +50,29 @@ def wire_type(name):
     if name[0].endswith("_SLICE"):
         return "WIRE_TYPE_SLICE"
 
-    if name[0].startswith("H00R"):
-        return "WIRE_TYPE_H00R"
+    if name[0].startswith("H00"):
+        return "WIRE_TYPE_H00"
 
-    if name[0].startswith("H00L"):
-        return "WIRE_TYPE_H00L"
+    if name[0].startswith("H01"):
+        return "WIRE_TYPE_H01"
 
-    if name[0].startswith("H01E"):
-        return "WIRE_TYPE_H01E"
+    if name[0].startswith("H02"):
+        return "WIRE_TYPE_H02"
 
-    if name[0].startswith("H01W"):
-        return "WIRE_TYPE_H01W"
+    if name[0].startswith("H06"):
+        return "WIRE_TYPE_H06"
 
-    if name[0].startswith("H02E"):
-        return "WIRE_TYPE_H02E"
+    if name[0].startswith("V00"):
+        return "WIRE_TYPE_V00"
 
-    if name[0].startswith("H02W"):
-        return "WIRE_TYPE_H02W"
+    if name[0].startswith("V01"):
+        return "WIRE_TYPE_V01"
 
-    if name[0].startswith("H06E"):
-        return "WIRE_TYPE_H06E"
+    if name[0].startswith("V02"):
+        return "WIRE_TYPE_V02"
 
-    if name[0].startswith("H06W"):
-        return "WIRE_TYPE_H06W"
-
-    if name[0].startswith("V00T"):
-        return "WIRE_TYPE_V00T"
-
-    if name[0].startswith("V00B"):
-        return "WIRE_TYPE_V00B"
-
-    if name[0].startswith("V01N"):
-        return "WIRE_TYPE_V01N"
-
-    if name[0].startswith("V01S"):
-        return "WIRE_TYPE_V01S"
-
-    if name[0].startswith("V02N"):
-        return "WIRE_TYPE_V02N"
-
-    if name[0].startswith("V02S"):
-        return "WIRE_TYPE_V02S"
-
-    if name[0].startswith("V06N"):
-        return "WIRE_TYPE_V06N"
-
-    if name[0].startswith("V06S"):
-        return "WIRE_TYPE_V06S"
+    if name[0].startswith("V06"):
+        return "WIRE_TYPE_V06"
 
     return "WIRE_TYPE_NONE"
 
