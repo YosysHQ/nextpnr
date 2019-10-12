@@ -798,8 +798,28 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
             el.x1 = x + switchbox_x2;
             el.y1 = el.y2;
             ret.push_back(el);
-
         }        
+        if (tilewire >= TILE_WIRE_WD3 && tilewire <=TILE_WIRE_WD0)
+        {
+            GraphicElement el;
+            int part =  (tilewire - TILE_WIRE_WD3) % 4;
+            int group =  (tilewire - TILE_WIRE_WD3) / 2;
+            el.type = GraphicElement::TYPE_LINE;
+            el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
+            el.x1 = x + slice_x2 + 0.005f;
+            el.x2 = x + slice_x2 + 0.005f + 0.0017f *(4 - part);
+            el.y1 = y + slice_y2 - 0.0017f * (TILE_WIRE_WDO3C_SLICE - TILE_WIRE_DUMMY_100 + 1 + part) + 3*slice_pitch;
+            el.y2 = el.y1;
+            ret.push_back(el);
+
+            el.x1 = el.x2;
+            el.y2 = y + slice_y2 - 0.0017f * (TILE_WIRE_WD1B_SLICE - TILE_WIRE_DUMMY_100 + 1 + (part & 1)) + (3-group)*slice_pitch;
+            ret.push_back(el);
+
+            el.x1 = x + slice_x2 + 0.005f;
+            el.y1 = el.y2;
+            ret.push_back(el);
+        }
     }    
     if (decal.type == DecalId::TYPE_BEL) {
         BelId bel;
