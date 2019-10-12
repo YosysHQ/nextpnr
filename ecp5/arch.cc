@@ -720,7 +720,72 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
             el.y2 = el.y1;
             ret.push_back(el);
         }  
+        if (wire_type == id_WIRE_TYPE_V00) {
+            int group = (tilewire - TILE_WIRE_V00T0000) / 2;
+            GraphicElement el;
+            el.type = GraphicElement::TYPE_LINE;
+            el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
+            el.x1 = x + switchbox_x2 - 0.0017f*(20 - ((tilewire - TILE_WIRE_V00T0000) % 2));
+            el.x2 = el.x1;
+            if (group) {
+                el.y1 = y + switchbox_y1;
+                el.y2 = y + switchbox_y1 - 0.0017f*4;
+            } else {
+                el.y1 = y + switchbox_y2;
+                el.y2 = y + switchbox_y2 + 0.0017f*4;
+            }
+            ret.push_back(el);
+        }
+        if (wire_type == id_WIRE_TYPE_H00) {
+            int group = (tilewire - TILE_WIRE_H00L0000) / 2;
+            GraphicElement el;
+            el.type = GraphicElement::TYPE_LINE;
+            el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
+            el.y1 = y + switchbox_y1 + 0.0017f*(4 - ((tilewire - TILE_WIRE_H00L0000) % 2));
+            el.y2 = el.y1;
+
+            if (group) {
+                el.x1 = x + switchbox_x2 + 0.0017f*4;
+                el.x2 = x + switchbox_x2;
+            } else {
+                el.x1 = x + switchbox_x1 - 0.0017f*4;
+                el.x2 = x + switchbox_x1;
+            }
+            ret.push_back(el);
+        }         
         if (wire_type == id_WIRE_TYPE_NONE) {
+            if (tilewire >= TILE_WIRE_NBOUNCE && tilewire <=TILE_WIRE_SBOUNCE)
+            {
+                GraphicElement el;
+                el.type = GraphicElement::TYPE_LINE;
+                el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
+                el.x1 = x + switchbox_x2 - 0.0017f*19;
+                el.x2 = x + switchbox_x2 - 0.0017f*20;
+                if (tilewire == TILE_WIRE_NBOUNCE) {
+                    el.y1 = y + switchbox_y2 + 0.0017f*4;
+                    el.y2 = el.y1;
+                } else {
+                    el.y1 = y + switchbox_y1 - 0.0017f*4;
+                    el.y2 = el.y1;
+                }
+                ret.push_back(el);
+            }
+            if (tilewire >= TILE_WIRE_WBOUNCE && tilewire <=TILE_WIRE_EBOUNCE)
+            {
+                GraphicElement el;
+                el.type = GraphicElement::TYPE_LINE;
+                el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
+                el.y1 = y + switchbox_y1 + 0.0017f*3;
+                el.y2 = y + switchbox_y1 + 0.0017f*4;
+                if (tilewire == TILE_WIRE_WBOUNCE) {
+                    el.x1 = x + switchbox_x1 - 0.0017f*4;
+                    el.x2 = el.x1;
+                } else {
+                    el.x1 = x + switchbox_x2 + 0.0017f*4;
+                    el.x2 = el.x1;
+                }
+                ret.push_back(el);
+            }            
             if (tilewire >= TILE_WIRE_FCO && tilewire <=TILE_WIRE_FCI)
             {
                 GraphicElement el;
