@@ -100,6 +100,10 @@ bool apply_pcf(Context *ctx, std::string filename, std::istream &in)
                     for (const auto &attr : extra_attrs)
                         fnd_cell->second->attrs[attr.first] = attr.second;
                 }
+            } else if (cmd == "set_frequency") {
+                if (words.size() < 3)
+                    log_error("expected PCF syntax 'set_frequency net frequency' (on line %d)\n", lineno);
+                ctx->addClock(ctx->id(words.at(1)), std::stof(words.at(2)));
             } else {
                 log_error("unsupported PCF command '%s' (on line %d)\n", cmd.c_str(), lineno);
             }
