@@ -888,9 +888,15 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             std::string datamux_oddr = str_or_default(ci->params, ctx->id("DATAMUX_ODDR"), "PADDO");
             if (datamux_oddr != "PADDO")
                 cc.tiles[pic_tile].add_enum(pio + ".DATAMUX_ODDR", datamux_oddr);
+            std::string datamux_oreg = str_or_default(ci->params, ctx->id("DATAMUX_OREG"), "PADDO");
+            if (datamux_oreg != "PADDO")
+                cc.tiles[pic_tile].add_enum(pio + ".DATAMUX_OREG", datamux_oreg);
             std::string datamux_mddr = str_or_default(ci->params, ctx->id("DATAMUX_MDDR"), "PADDO");
             if (datamux_mddr != "PADDO")
                 cc.tiles[pic_tile].add_enum(pio + ".DATAMUX_MDDR", datamux_mddr);
+            std::string trimux_tsreg = str_or_default(ci->params, ctx->id("TRIMUX_TSREG"), "PADDT");
+            if (trimux_tsreg != "PADDT")
+                cc.tiles[pic_tile].add_enum(pio + ".TRIMUX_TSREG", trimux_tsreg);
         } else if (ci->type == ctx->id("DCCA")) {
             const NetInfo *cen = get_net_or_empty(ci, ctx->id("CE"));
             if (cen != nullptr) {
@@ -1367,6 +1373,13 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             std::string tile = ctx->getTileByType(std::string("ECLK_") + (r ? "R" : "L"));
             if (get_net_or_empty(ci, id_STOP) != nullptr)
                 cc.tiles[tile].add_enum(eclksync + ".MODE", "ECLKSYNCB");
+        } else if (ci->type == id_ECLKBRIDGECS) {
+            Loc loc = ctx->getBelLocation(ci->bel);
+            bool r = loc.x > 5;
+            std::string eclkb = ctx->locInfo(bel)->bel_data[bel.index].name.get();
+            std::string tile = ctx->getTileByType(std::string("ECLK_") + (r ? "R" : "L"));
+            if (get_net_or_empty(ci, id_STOP) != nullptr)
+                cc.tiles[tile].add_enum(eclkb + ".MODE", "ECLKBRIDGECS");
         } else if (ci->type == id_DDRDLL) {
             Loc loc = ctx->getBelLocation(ci->bel);
             bool u = loc.y<15, r = loc.x> 15;
