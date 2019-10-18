@@ -416,7 +416,25 @@ void nxio_to_tr(Context *ctx, CellInfo *nxio, CellInfo *trio, std::vector<std::u
     } else {
         NPNR_ASSERT(false);
     }
-    NetInfo *donet = trio->ports.at(ctx->id("I")).net;
+    NetInfo *donet = trio->ports.at(ctx->id("I")).net, *dinet = trio->ports.at(ctx->id("O")).net;
+
+    // Rename I/O nets to avoid conflicts
+    if (donet != nullptr)
+        rename_net(ctx, donet, ctx->id(donet->name.str(ctx) + "$TRELLIS_IO_OUT"));
+    if (dinet != nullptr)
+        rename_net(ctx, dinet, ctx->id(dinet->name.str(ctx) + "$TRELLIS_IO_IN"));
+
+    // Create a new top port net for accurate IO timing analysis and simulation netlists
+    if (ctx->ports.count(nxio->name)) {
+        IdString tn_netname = nxio->name;
+        NPNR_ASSERT(!ctx->nets.count(tn_netname));
+        std::unique_ptr<NetInfo> toplevel_net{new NetInfo};
+        toplevel_net->name = tn_netname;
+        connect_port(ctx, toplevel_net.get(), trio, ctx->id("B"));
+        ctx->ports[nxio->name].net = toplevel_net.get();
+        ctx->nets[tn_netname] = std::move(toplevel_net);
+    }
+
     CellInfo *tbuf = net_driven_by(
             ctx, donet, [](const Context *ctx, const CellInfo *cell) { return cell->type == ctx->id("$_TBUF_"); },
             ctx->id("Y"));
