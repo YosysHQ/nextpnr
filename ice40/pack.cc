@@ -459,7 +459,6 @@ static void pack_io(Context *ctx)
 {
     std::unordered_set<IdString> packed_cells;
     std::unordered_set<IdString> delete_nets;
-
     std::vector<std::unique_ptr<CellInfo>> new_cells;
     log_info("Packing IOs..\n");
 
@@ -478,8 +477,7 @@ static void pack_io(Context *ctx)
                     rgb = net->driver.cell;
             }
             if (sb != nullptr) {
-                // Trivial case, SB_IO used. Just destroy the net and the
-                // iobuf
+                // Trivial case, SB_IO used. Just destroy the iobuf
                 log_info("%s feeds SB_IO %s, removing %s %s.\n", ci->name.c_str(ctx), sb->name.c_str(ctx),
                          ci->type.c_str(ctx), ci->name.c_str(ctx));
                 NetInfo *net = sb->ports.at(ctx->id("PACKAGE_PIN")).net;
@@ -490,7 +488,6 @@ static void pack_io(Context *ctx)
                               sb->type.c_str(ctx), sb->name.c_str(ctx));
 
                 if (net != nullptr) {
-
                     if (net->clkconstr != nullptr) {
                         if (sb->ports.count(id_D_IN_0)) {
                             NetInfo *din0_net = sb->ports.at(id_D_IN_0).net;
@@ -509,15 +506,6 @@ static void pack_io(Context *ctx)
                             }
                         }
                     }
-
-                    delete_nets.insert(net->name);
-                    sb->ports.at(ctx->id("PACKAGE_PIN")).net = nullptr;
-                }
-                if (ci->type == ctx->id("$nextpnr_iobuf")) {
-                    NetInfo *net2 = ci->ports.at(ctx->id("I")).net;
-                    if (net2 != nullptr) {
-                        delete_nets.insert(net2->name);
-                    }
                 }
             } else if (rgb != nullptr) {
                 log_info("%s use by SB_RGBA_DRV/SB_RGB_DRV %s, not creating SB_IO\n", ci->name.c_str(ctx),
@@ -533,6 +521,8 @@ static void pack_io(Context *ctx)
                 new_cells.push_back(std::move(ice_cell));
                 sb = new_cells.back().get();
             }
+            for (auto port : ci->ports)
+                disconnect_port(ctx, ci, port.first);
             packed_cells.insert(ci->name);
             std::copy(ci->attrs.begin(), ci->attrs.end(), std::inserter(sb->attrs, sb->attrs.begin()));
         } else if (is_sb_io(ctx, ci) || is_sb_gb_io(ctx, ci)) {

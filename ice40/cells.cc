@@ -426,7 +426,25 @@ void nxio_to_sb(Context *ctx, CellInfo *nxio, CellInfo *sbio, std::unordered_set
     } else {
         NPNR_ASSERT(false);
     }
-    NetInfo *donet = sbio->ports.at(ctx->id("D_OUT_0")).net;
+    NetInfo *donet = sbio->ports.at(ctx->id("D_OUT_0")).net, *dinet = sbio->ports.at(ctx->id("D_IN_0")).net;
+
+    // Rename I/O nets to avoid conflicts
+    if (donet != nullptr && donet->name == nxio->name)
+        rename_net(ctx, donet, ctx->id(donet->name.str(ctx) + "$SB_IO_OUT"));
+    if (dinet != nullptr && dinet->name == nxio->name)
+        rename_net(ctx, dinet, ctx->id(dinet->name.str(ctx) + "$SB_IO_IN"));
+
+    // Create a new top port net for accurate IO timing analysis and simulation netlists
+    if (ctx->ports.count(nxio->name)) {
+        IdString tn_netname = nxio->name;
+        NPNR_ASSERT(!ctx->nets.count(tn_netname));
+        std::unique_ptr<NetInfo> toplevel_net{new NetInfo};
+        toplevel_net->name = tn_netname;
+        connect_port(ctx, toplevel_net.get(), sbio, ctx->id("PACKAGE_PIN"));
+        ctx->ports[nxio->name].net = toplevel_net.get();
+        ctx->nets[tn_netname] = std::move(toplevel_net);
+    }
+
     CellInfo *tbuf = net_driven_by(
             ctx, donet, [](const Context *ctx, const CellInfo *cell) { return cell->type == ctx->id("$_TBUF_"); },
             ctx->id("Y"));

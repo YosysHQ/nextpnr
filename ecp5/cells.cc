@@ -419,9 +419,9 @@ void nxio_to_tr(Context *ctx, CellInfo *nxio, CellInfo *trio, std::vector<std::u
     NetInfo *donet = trio->ports.at(ctx->id("I")).net, *dinet = trio->ports.at(ctx->id("O")).net;
 
     // Rename I/O nets to avoid conflicts
-    if (donet != nullptr)
+    if (donet != nullptr && donet->name == nxio->name)
         rename_net(ctx, donet, ctx->id(donet->name.str(ctx) + "$TRELLIS_IO_OUT"));
-    if (dinet != nullptr)
+    if (dinet != nullptr && dinet->name == nxio->name)
         rename_net(ctx, dinet, ctx->id(dinet->name.str(ctx) + "$TRELLIS_IO_IN"));
 
     // Create a new top port net for accurate IO timing analysis and simulation netlists
