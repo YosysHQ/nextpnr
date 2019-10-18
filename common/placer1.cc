@@ -246,7 +246,7 @@ class SAPlacer
             log_info("Running simulated annealing placer for refinement.\n");
         }
         auto saplace_start = std::chrono::high_resolution_clock::now();
-        boost::asio::thread_pool pool(ctx->threads);
+        boost::asio::thread_pool pool(int_or_default(ctx->settings, ctx->id("threads"), 4));
 
         // Invoke timing analysis to obtain criticalities
         if (!cfg.budgetBased)

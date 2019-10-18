@@ -37,6 +37,7 @@ namespace {
 struct TimingAnalyser
 {
     Context *ctx;
+    int thread_count;
     TimingData *td;
     boost::asio::thread_pool *pool;
 
@@ -341,8 +342,8 @@ struct TimingAnalyser
     {
         if (pool) {
             WorkDispatcher wd;
-            for (int i = 0; i < ctx->threads; i++) {
-                wd.dispatch([this, i, N, func]() { func((N * i) / ctx->threads, (N * (i + 1)) / ctx->threads); }, pool);
+            for (int i = 0; i < thread_count; i++) {
+                wd.dispatch([this, i, N, func]() { func((N * i) / thread_count, (N * (i + 1)) / thread_count); }, pool);
             }
             wd.join();
         } else {
@@ -445,6 +446,7 @@ struct TimingAnalyser
             }
         }
         // Iterate through all ports finding domain pairs
+        float target = ctx->setting<float>("target_freq");
         for (size_t p_uid = 0; p_uid < td->ports.size(); p_uid++) {
             auto &pd = td->ports[p_uid];
             pd.times.clear();
@@ -460,7 +462,7 @@ struct TimingAnalyser
                             td->domainPairs.at(dp_uid).ports.push_back(p_uid);
                         } else {
                             // Need to discover period and create domain pair
-                            DelayInfo period = ctx->getDelayFromNS(1e9 / ctx->target_freq);
+                            DelayInfo period = ctx->getDelayFromNS(target);
                             NetInfo *clknet = ctx->nets.at(ad.tag.clock).get();
                             if (clknet->clkconstr)
                                 period = clknet->clkconstr->period;
@@ -737,7 +739,10 @@ struct TimingAnalyser
     }
 
     TimingAnalyser(Context *ctx, TimingData *td, boost::asio::thread_pool *pool = nullptr)
-            : ctx(ctx), td(td), pool(pool){};
+            : ctx(ctx), td(td), pool(pool)
+    {
+        thread_count = int_or_default(ctx->settings, ctx->id("threads"), 4);
+    };
 
     void reset_all()
     {
