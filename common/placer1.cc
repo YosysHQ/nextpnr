@@ -385,7 +385,6 @@ class SAPlacer
                 assign_budget(ctx, true /* quiet */);
             }
 
- 
             // Invoke timing analysis to obtain criticalities
             if (!cfg.budgetBased && cfg.timing_driven)
                 update_timing(ctx, &td, TimingAnalyserFlags(TMG_IGNORE_CLOCK_ROUTING | TMG_SETUP_ONLY), &pool);

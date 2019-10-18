@@ -885,7 +885,6 @@ struct BaseCtx
     void archInfoToAttributes();
     void attributesToArchInfo();
 
-
     void addFalsePath(const std::unordered_set<TimingConstrObjectId> &from,
                       const std::unordered_set<TimingConstrObjectId> &to);
     void setMinDelay(const std::unordered_set<TimingConstrObjectId> &from,
@@ -1069,7 +1068,7 @@ struct TimingData
     // Topological ordering of ports
     std::vector<port_uid_t> topological_order;
 
-    std::vector<NetInfo*> all_nets; 
+    std::vector<NetInfo *> all_nets;
 };
 
 struct Context : Arch, DeterministicRNG

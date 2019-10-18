@@ -26,8 +26,8 @@
 #include "log.h"
 #include "nextpnr.h"
 
-#include <boost/filesystem.hpp>
 #include <Python.h>
+#include <boost/filesystem.hpp>
 #include <fstream>
 #include <memory>
 #include <signal.h>
@@ -71,7 +71,8 @@ void translate_assertfail(const assertion_failure &e)
     PyErr_SetString(PyExc_AssertionError, e.what());
 }
 
-std::unordered_set<TimingConstrObjectId> BaseCtx::parsePythonTimingObject(PyObject *obj) {
+std::unordered_set<TimingConstrObjectId> BaseCtx::parsePythonTimingObject(PyObject *obj)
+{
     using namespace PythonConversion;
     std::unordered_set<TimingConstrObjectId> result;
     auto convert_item = [&](PyObject *obj_ptr) -> TimingConstrObjectId {

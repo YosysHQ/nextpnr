@@ -337,13 +337,12 @@ struct TimingAnalyser
         }
     };
 
-    template <typename Tf>
-    void parallel_split(int N, Tf func)
+    template <typename Tf> void parallel_split(int N, Tf func)
     {
         if (pool) {
             WorkDispatcher wd;
             for (int i = 0; i < ctx->threads; i++) {
-                wd.dispatch([this, i, N, func]() { func( (N*i) / ctx->threads, (N*(i + 1)) / ctx->threads ); }, pool);
+                wd.dispatch([this, i, N, func]() { func((N * i) / ctx->threads, (N * (i + 1)) / ctx->threads); }, pool);
             }
             wd.join();
         } else {
@@ -519,7 +518,8 @@ struct TimingAnalyser
         }
     }
 
-    void reset_times_worker(int start, int end) {
+    void reset_times_worker(int start, int end)
+    {
         for (int i = start; i < end; i++) {
             auto &p = td->ports[i];
             p.arrival.for_each([](int, ArrivReqTime &t) {
@@ -683,7 +683,8 @@ struct TimingAnalyser
         }
     }
 
-    void slack_worker(int start, int end) {
+    void slack_worker(int start, int end)
+    {
         for (int i = start; i < end; i++) {
             port_uid_t p_uid = td->topological_order.at(i);
             auto &p = td->ports.at(p_uid);
@@ -830,7 +831,6 @@ void init_timing(Context *ctx, TimingData *td, TimingAnalyserFlags flags, boost:
     ta.assign_criticality();
     auto endtt = std::chrono::high_resolution_clock::now();
     log_info("** init_timing time: %.04fs\n", std::chrono::duration<double>(endtt - startt).count());
-
 }
 
 void update_timing(Context *ctx, TimingData *td, TimingAnalyserFlags flags, boost::asio::thread_pool *pool)
