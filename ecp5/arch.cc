@@ -669,6 +669,26 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
                     ret.push_back(el);
                 }
             }
+            if (tilewire >= TILE_WIRE_FCO_SLICE && tilewire <=TILE_WIRE_FCOA_SLICE)
+            {
+                GraphicElement el;
+                el.type = GraphicElement::TYPE_LINE;
+                el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
+                el.x1 = x + slice_x1 + 0.005f;
+                el.x2 = x + slice_x1 + 0.005f;
+                if (tilewire==TILE_WIRE_FCO_SLICE)
+                    el.y1 = y + slice_y2 + 0.0017f + (3-(tilewire - TILE_WIRE_FCO_SLICE))*slice_pitch;
+                else
+                    el.y1 = y + slice_y2 + 0.00125f + (3-(tilewire - TILE_WIRE_FCO_SLICE))*slice_pitch;
+                el.y2 = y + slice_y2 + (3-(tilewire - TILE_WIRE_FCO_SLICE))*slice_pitch;
+                ret.push_back(el);
+                if (tilewire==TILE_WIRE_FCO_SLICE) {
+                    el.x1 = x + slice_x1 - 0.005f;
+                    el.x2 = x + slice_x1 + 0.005f;
+                    el.y2 = el.y1;
+                    ret.push_back(el);
+                }
+            }
         }
         if (wire_type == id_WIRE_TYPE_V01) {
             if (tilewire >= TILE_WIRE_V01N0001 && tilewire <=TILE_WIRE_V01S0100)
@@ -797,26 +817,6 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
                 el.y2 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_LSR1 - 5) + 3*slice_pitch;
                 ret.push_back(el);
             }       
-            if (tilewire >= TILE_WIRE_FCO_SLICE && tilewire <=TILE_WIRE_FCOA_SLICE)
-            {
-                GraphicElement el;
-                el.type = GraphicElement::TYPE_LINE;
-                el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
-                el.x1 = x + slice_x1 + 0.005f;
-                el.x2 = x + slice_x1 + 0.005f;
-                if (tilewire==TILE_WIRE_FCO_SLICE)
-                    el.y1 = y + slice_y2 + 0.0017f + (3-(tilewire - TILE_WIRE_FCO_SLICE))*slice_pitch;
-                else
-                    el.y1 = y + slice_y2 + 0.00125f + (3-(tilewire - TILE_WIRE_FCO_SLICE))*slice_pitch;
-                el.y2 = y + slice_y2 + (3-(tilewire - TILE_WIRE_FCO_SLICE))*slice_pitch;
-                ret.push_back(el);
-                if (tilewire==TILE_WIRE_FCO_SLICE) {
-                    el.x1 = x + slice_x1 - 0.005f;
-                    el.x2 = x + slice_x1 + 0.005f;
-                    el.y2 = el.y1;
-                    ret.push_back(el);
-                }
-            }
             if (tilewire >= TILE_WIRE_LSR1 && tilewire <=TILE_WIRE_CLK0)
             {
                 GraphicElement el;
