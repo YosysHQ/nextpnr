@@ -224,7 +224,9 @@ template <> struct hash<NEXTPNR_NAMESPACE_PREFIX GroupId>
 {
     std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX GroupId &group) const noexcept
     {
-        std::size_t seed = std::hash<NEXTPNR_NAMESPACE_PREFIX Location>()(group.location);
+        std::size_t seed = 0;
+        boost::hash_combine(seed, hash<int>()(group.type));
+        boost::hash_combine(seed, hash<NEXTPNR_NAMESPACE_PREFIX Location>()(group.location));
         return seed;
     }
 };
