@@ -448,8 +448,6 @@ BelId Arch::getBelByLocation(Loc loc) const
 
 delay_t Arch::estimateDelay(WireId src, WireId dst) const
 {
-    WireId cursor = dst;
-
     int num_uh = locInfo(dst)->wire_data[dst.index].num_uphill;
     if (num_uh < 6) {
         for (auto uh : getPipsUphill(dst)) {
