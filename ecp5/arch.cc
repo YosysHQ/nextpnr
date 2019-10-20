@@ -599,6 +599,29 @@ bool Arch::route()
 
 // -----------------------------------------------------------------------
 
+const float switchbox_x1 = 0.51;
+const float switchbox_x2 = 0.90;
+const float switchbox_y1 = 0.51;
+const float switchbox_y2 = 0.90;
+
+const float slice_x1 = 0.92;
+const float slice_x2 = 0.94;
+const float slice_y1 = 0.71;
+const float slice_y2 = 0.745 + 0.0068;
+const float slice_pitch = 0.0374 +0.0068;
+
+const float io_cell_v_x1 = 0.76;
+const float io_cell_v_x2 = 0.95;
+const float io_cell_v_y1 = 0.05;
+const float io_cell_v_y2 = 0.15;
+const float io_cell_v_pitch = 0.125;
+
+const float io_cell_h_x1 = 0.05;
+const float io_cell_h_x2 = 0.14;
+const float io_cell_h_y1 = 0.05;
+const float io_cell_h_y2 = 0.24;
+const float io_cell_h_pitch = 0.125;
+
 std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
 {
     std::vector<GraphicElement> ret;
@@ -618,6 +641,15 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
             el.y1 = y + switchbox_y1;
             el.y2 = y + switchbox_y2;
             ret.push_back(el);
+
+            for(int i=0;i<4;i++)
+            {
+                el.x1 = x + slice_x2 + 0.0255f;
+                el.x2 = el.x1 + 0.0017f;
+                el.y1 = y + slice_y2 - 0.0017f * (TILE_WIRE_CLK3_SLICE - TILE_WIRE_DUMMY_D2 + 5 + i*26) + 3*slice_pitch - 0.0007f;
+                el.y2 = el.y1 + 0.0017f * 5;
+                ret.push_back(el);
+            }
         }
     }
     if (decal.type == DecalId::TYPE_WIRE) {
@@ -633,71 +665,54 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
             GraphicElement el;
             el.type = GraphicElement::TYPE_LINE;
             el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
-            if (tilewire >= TILE_WIRE_D7_SLICE && tilewire <=TILE_WIRE_CLK0_SLICE)
+            if (tilewire >= TILE_WIRE_FCO_SLICE && tilewire <=TILE_WIRE_FCI_SLICE)
             {
+                int gap = (tilewire - TILE_WIRE_FCO_SLICE) / 24;
+                int item = (tilewire - TILE_WIRE_FCO_SLICE) % 24;
                 el.x1 = x + slice_x1 - 0.005f;
                 el.x2 = x + slice_x1;
-                el.y1 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_D7_SLICE + 1) + 3*slice_pitch;
-                el.y2 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_D7_SLICE + 1) + 3*slice_pitch;
+                el.y1 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_FCO_SLICE + 1 + gap*2) + 3*slice_pitch;
+                el.y2 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_FCO_SLICE + 1 + gap*2) + 3*slice_pitch;
                 ret.push_back(el);
-            }
-            if (tilewire >= TILE_WIRE_DUMMY_100 && tilewire <=TILE_WIRE_F5A_SLICE)
-            {
-                el.x1 = x + slice_x2;
-                el.x2 = x + slice_x2 + 0.005f;
-                el.y1 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_DUMMY_100 + 1) + 3*slice_pitch;
-                el.y2 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_DUMMY_100 + 1) + 3*slice_pitch;
-                ret.push_back(el);
-            }
-            if (tilewire >= TILE_WIRE_FCID_SLICE && tilewire <=TILE_WIRE_FCI_SLICE)
-            {
-                GraphicElement el;
-                el.type = GraphicElement::TYPE_LINE;
-                el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
-                el.x1 = x + slice_x1 + 0.005f;
-                el.x2 = x + slice_x1 + 0.005f;
-                if (tilewire==TILE_WIRE_FCI_SLICE)
-                    el.y1 = y + slice_y1 - 0.0007f + (3-(tilewire - TILE_WIRE_FCID_SLICE))*slice_pitch;
-                else
-                    el.y1 = y + slice_y1 - 0.00125f + (3-(tilewire - TILE_WIRE_FCID_SLICE))*slice_pitch;
-                el.y2 = y + slice_y1 + (3-(tilewire - TILE_WIRE_FCID_SLICE))*slice_pitch;
-                ret.push_back(el);
-                if (tilewire==TILE_WIRE_FCI_SLICE) {
-                    el.x1 = x + slice_x1 - 0.005f;
-                    el.x2 = x + slice_x1 + 0.005f;
-                    el.y2 = el.y1;
+                // FX to F connection - top
+                if (item == (TILE_WIRE_FXD_SLICE-TILE_WIRE_FCO_SLICE))
+                {
+                    el.x2 = el.x1;
+                    el.y2 = el.y1 - 0.0017f;
+                    ret.push_back(el);
+                }
+                // F5 to F connection - bottom
+                if (item == (TILE_WIRE_F5D_SLICE-TILE_WIRE_FCO_SLICE))
+                {
+                    el.x2 = el.x1;
+                    el.y2 = el.y1 + 0.0017f;
+                    ret.push_back(el);
+                }
+                // connection between slices
+                if (item == (TILE_WIRE_FCID_SLICE-TILE_WIRE_FCO_SLICE) && tilewire!=TILE_WIRE_FCI_SLICE)
+                {
+                    el.x2 = el.x1;
+                    el.y2 = el.y1 - 0.0017f * 3;
                     ret.push_back(el);
                 }
             }
-            if (tilewire >= TILE_WIRE_FCO_SLICE && tilewire <=TILE_WIRE_FCOA_SLICE)
+            if (tilewire >= TILE_WIRE_DUMMY_D2 && tilewire <=TILE_WIRE_WAD0A_SLICE)
             {
-                GraphicElement el;
-                el.type = GraphicElement::TYPE_LINE;
-                el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
-                el.x1 = x + slice_x1 + 0.005f;
-                el.x2 = x + slice_x1 + 0.005f;
-                if (tilewire==TILE_WIRE_FCO_SLICE)
-                    el.y1 = y + slice_y2 + 0.0017f + (3-(tilewire - TILE_WIRE_FCO_SLICE))*slice_pitch;
-                else
-                    el.y1 = y + slice_y2 + 0.00125f + (3-(tilewire - TILE_WIRE_FCO_SLICE))*slice_pitch;
-                el.y2 = y + slice_y2 + (3-(tilewire - TILE_WIRE_FCO_SLICE))*slice_pitch;
+                int gap = (tilewire - TILE_WIRE_DUMMY_D2) / 12;
+                el.x1 = x + slice_x2 + 0.005f;
+                el.x2 = x + slice_x2;
+                el.y1 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_DUMMY_D2 + 1 + gap*14) + 3*slice_pitch;
+                el.y2 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_DUMMY_D2 + 1 + gap*14) + 3*slice_pitch;
                 ret.push_back(el);
-                if (tilewire==TILE_WIRE_FCO_SLICE) {
-                    el.x1 = x + slice_x1 - 0.005f;
-                    el.x2 = x + slice_x1 + 0.005f;
-                    el.y2 = el.y1;
-                    ret.push_back(el);
-                }
             }
         }
         if (wire_type == id_WIRE_TYPE_V01) {
             if (tilewire >= TILE_WIRE_V01N0001 && tilewire <=TILE_WIRE_V01S0100)
-            //if (tilewire >= TILE_WIRE_V01N0000 && tilewire <=TILE_WIRE_V01S0101) // not existing in trellis
             {
                 GraphicElement el;
                 el.type = GraphicElement::TYPE_LINE;
                 el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
-                el.x1 = x + switchbox_x1 + 0.0017f*4 + 0.0017f * (tilewire - TILE_WIRE_V01N0001);
+                el.x1 = x + switchbox_x2 - 0.0017f*16 + 0.0017f * (tilewire - TILE_WIRE_V01N0001);
                 el.x2 = el.x1;
                 el.y1 = y + switchbox_y1;
                 el.y2 = y + switchbox_y2 - 1;
@@ -705,47 +720,24 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
             } 
         }  
         if (wire_type == id_WIRE_TYPE_H01) {
-            if (tilewire >= TILE_WIRE_H01E0001 && tilewire <=TILE_WIRE_H01W0100)
-            //if (tilewire >= TILE_WIRE_H01E0000 && tilewire <=TILE_WIRE_H01W0101) // not existing in trellis
+            if (tilewire >= TILE_WIRE_H01E0001 && tilewire <=TILE_WIRE_HL7W0001)
             {
                 GraphicElement el;
                 el.type = GraphicElement::TYPE_LINE;
                 el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
                 el.x1 = x + switchbox_x1;
                 el.x2 = x + switchbox_x2 - 1;
-                el.y1 = y + switchbox_y1 + 0.0017f*12 - 0.0017f * (tilewire - TILE_WIRE_H01E0001);
+                el.y1 = y + switchbox_y1 + 0.0017f*16 - 0.0017f * (tilewire - TILE_WIRE_H01E0001);
                 el.y2 = el.y1;
                 ret.push_back(el);
             } 
-        }  
-        if (wire_type == id_WIRE_TYPE_HFI) {
-            // only  TILE_WIRE_HFIE0000
-            GraphicElement el;
-            el.type = GraphicElement::TYPE_LINE;
-            el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
-            el.x1 = x + switchbox_x1;
-            el.x2 = x + switchbox_x2 - 1;
-            el.y1 = y + switchbox_y1 + 0.0017f*1;
-            el.y2 = el.y1;
-            ret.push_back(el);
-        }  
-        if (wire_type == id_WIRE_TYPE_HL7) {
-            // only TILE_WIRE_HL7W0001
-            GraphicElement el;
-            el.type = GraphicElement::TYPE_LINE;
-            el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
-            el.x1 = x + switchbox_x2 - 1;
-            el.x2 = x + switchbox_x1;
-            el.y1 = y + switchbox_y1 + 0.0017f*20;
-            el.y2 = el.y1;
-            ret.push_back(el);
         }  
         if (wire_type == id_WIRE_TYPE_V00) {
             int group = (tilewire - TILE_WIRE_V00T0000) / 2;
             GraphicElement el;
             el.type = GraphicElement::TYPE_LINE;
             el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
-            el.x1 = x + switchbox_x2 - 0.0017f*(20 - ((tilewire - TILE_WIRE_V00T0000) % 2));
+            el.x1 = x + switchbox_x2 - 0.0017f*(8 - ((tilewire - TILE_WIRE_V00T0000) % 2)*4);
             el.x2 = el.x1;
             if (group) {
                 el.y1 = y + switchbox_y1;
@@ -761,7 +753,7 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
             GraphicElement el;
             el.type = GraphicElement::TYPE_LINE;
             el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
-            el.y1 = y + switchbox_y1 + 0.0017f*(4 - ((tilewire - TILE_WIRE_H00L0000) % 2));
+            el.y1 = y + switchbox_y1 + 0.0017f*(8 - ((tilewire - TILE_WIRE_H00L0000) % 2)*4);
             el.y2 = el.y1;
 
             if (group) {
@@ -779,8 +771,8 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
                 GraphicElement el;
                 el.type = GraphicElement::TYPE_LINE;
                 el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
-                el.x1 = x + switchbox_x2 - 0.0017f*19;
-                el.x2 = x + switchbox_x2 - 0.0017f*20;
+                el.x1 = x + switchbox_x2 - 0.0017f*4;
+                el.x2 = x + switchbox_x2 - 0.0017f*8;
                 if (tilewire == TILE_WIRE_NBOUNCE) {
                     el.y1 = y + switchbox_y2 + 0.0017f*4;
                     el.y2 = el.y1;
@@ -795,8 +787,8 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
                 GraphicElement el;
                 el.type = GraphicElement::TYPE_LINE;
                 el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
-                el.y1 = y + switchbox_y1 + 0.0017f*3;
-                el.y2 = y + switchbox_y1 + 0.0017f*4;
+                el.y1 = y + switchbox_y1 + 0.0017f*4;
+                el.y2 = y + switchbox_y1 + 0.0017f*8;
                 if (tilewire == TILE_WIRE_WBOUNCE) {
                     el.x1 = x + switchbox_x1 - 0.0017f*4;
                     el.x2 = el.x1;
@@ -806,114 +798,66 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
                 }
                 ret.push_back(el);
             }            
+            if (tilewire >= TILE_WIRE_CLK0 && tilewire <=TILE_WIRE_LSR1)
+            {
+                GraphicElement el;                
+                el.type = GraphicElement::TYPE_LINE;
+                el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
+                el.x1 = x + switchbox_x2;
+                el.x2 = x + slice_x2 + 0.0255f +  (8 - (tilewire - TILE_WIRE_CLK0)) * 0.0017f;
+                el.y1 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_CLK0 - 5) + 3*slice_pitch;
+                el.y2 = el.y1;
+                ret.push_back(el);
+                el.x1 = el.x2;
+                el.y2 = y + slice_y2 - 0.0017f * (3 + (tilewire - TILE_WIRE_CLK0));
+                ret.push_back(el);
+                for (int i=0;i<4;i++)
+                {
+                    el.x1 = x + slice_x2 + 0.0255f + 0.0017f;
+                    el.x2 = x + slice_x2 + 0.0255f +  (8 - (tilewire - TILE_WIRE_CLK0)) * 0.0017f;
+                    el.y1 = y + slice_y2 - 0.0017f * (TILE_WIRE_CLK3_SLICE - TILE_WIRE_DUMMY_D2 + 1 + tilewire - TILE_WIRE_CLK0)+ i*slice_pitch;
+                    el.y2 = el.y1;
+                    ret.push_back(el);
+                }
+                if (tilewire==TILE_WIRE_CLK1 || tilewire==TILE_WIRE_LSR1) {
+                    for (int i=0;i<2;i++)
+                    {
+                        el.x1 = x + slice_x2 + 0.0051f;
+                        el.x2 = x + slice_x2 + 0.0255f +  (8 - (tilewire - TILE_WIRE_CLK0)) * 0.0017f;
+                        el.y1 = y + slice_y2 - 0.0017f * (TILE_WIRE_CLK3_SLICE - TILE_WIRE_DUMMY_D2 - 1 + (tilewire - TILE_WIRE_CLK0)/2)+ i*slice_pitch;
+                        el.y2 = el.y1;
+                        ret.push_back(el);
+                    }
+                }
+            }       
+
             if (tilewire >= TILE_WIRE_FCO && tilewire <=TILE_WIRE_FCI)
             {
-                GraphicElement el;
+                int gap = (tilewire - TILE_WIRE_FCO) / 24;
+                GraphicElement el;                
                 el.type = GraphicElement::TYPE_LINE;
                 el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
                 el.x1 = x + switchbox_x2;
                 el.x2 = x + slice_x1 - 0.005f;
-                el.y1 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_LSR1 - 5) + 3*slice_pitch;
-                el.y2 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_LSR1 - 5) + 3*slice_pitch;
+                el.y1 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_FCO + 1 + gap*2) + 3*slice_pitch;
+                el.y2 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_FCO + 1 + gap*2) + 3*slice_pitch;
                 ret.push_back(el);
             }       
-            if (tilewire >= TILE_WIRE_LSR1 && tilewire <=TILE_WIRE_CLK0)
+
+            if (tilewire >= TILE_WIRE_MUXCLK3 && tilewire <=TILE_WIRE_MUXLSR0)
             {
+                int gap = (tilewire - TILE_WIRE_MUXCLK3) / 2;
+                int part = (tilewire - TILE_WIRE_MUXCLK3) % 2;
                 GraphicElement el;
                 el.type = GraphicElement::TYPE_LINE;
                 el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
-                el.x1 = x + switchbox_x2;
-                el.x2 = x + switchbox_x2 + 0.0017f * (6-(tilewire-TILE_WIRE_LSR1));
-                el.y1 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_LSR1 - 5) + 3*slice_pitch;
-                el.y2 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_LSR1 - 5) + 3*slice_pitch;
-                ret.push_back(el);
-
-                if (tilewire == TILE_WIRE_LSR1 || tilewire==TILE_WIRE_LSR0) {
-                    el.x1 = el.x2;
-                    el.y2 = y + slice_y2 - 0.0017f * (TILE_WIRE_CE0 - TILE_WIRE_LSR1 - 5 + 1) + 3*slice_pitch;
-                    ret.push_back(el);
-                    if (tilewire == TILE_WIRE_LSR1) {
-                        for (int i=0;i<2;i++){
-                            el.x2 = x + slice_x1 - 0.005f;
-                            el.y1 = y + slice_y2 - 0.0017f * (TILE_WIRE_CE0 - TILE_WIRE_LSR1 - 5 - 2) + (3+i)*slice_pitch;
-                            el.y2 = el.y1;
-                            ret.push_back(el);
-                        }
-                    }
-                } else {
-                    el.x1 = el.x2;
-                    el.y2 = y + slice_y2 - 0.0017f * (TILE_WIRE_CE0 - TILE_WIRE_LSR1 -5  + 2) + 3*slice_pitch;
-                    ret.push_back(el);
-                    if (tilewire == TILE_WIRE_CLK1) {
-                        for (int i=0;i<2;i++){
-                            el.x2 = x + slice_x1 - 0.005f;
-                            el.y1 = y + slice_y2 - 0.0017f * (TILE_WIRE_CE0 - TILE_WIRE_LSR1 - 5 - 1) + (3+i)*slice_pitch;
-                            el.y2 = el.y1;
-                            ret.push_back(el);
-                        }
-                    }
-
-                }
-            }   
-            if (tilewire >= TILE_WIRE_MUXCLK3 && tilewire <=TILE_WIRE_MUXCLK0)
-            {
-                GraphicElement el;
-                el.type = GraphicElement::TYPE_LINE;
-                el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
-                el.x1 = x + switchbox_x2 + 0.0017f * 3;
-                el.x2 = x + slice_x1 - 0.005f;
-                el.y1 = y + slice_y2 - 0.0017f * (TILE_WIRE_CE0 - TILE_WIRE_LSR1 - 5 + 2) + (3 + 3 - (tilewire - TILE_WIRE_MUXCLK3))*slice_pitch;
+                el.x1 = x + slice_x2 + 0.0051f;
+                el.x2 = x + slice_x2 + 0.0255f;
+                el.y1 = y + slice_y2 - 0.0017f * (TILE_WIRE_CLK3_SLICE - TILE_WIRE_DUMMY_D2 + 1 + part + gap*26) + 3*slice_pitch;
                 el.y2 = el.y1;
                 ret.push_back(el);
             }
-            if (tilewire >= TILE_WIRE_MUXLSR3 && tilewire <=TILE_WIRE_MUXLSR0)
-            {
-                GraphicElement el;
-                el.type = GraphicElement::TYPE_LINE;
-                el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
-                el.x1 = x + switchbox_x2 + 0.0017f * 5;
-                el.x2 = x + slice_x1 - 0.005f;
-                el.y1 = y + slice_y2 - 0.0017f * (TILE_WIRE_CE0 - TILE_WIRE_LSR1 - 5 + 1) + (3 + 3 - (tilewire - TILE_WIRE_MUXLSR3))*slice_pitch;
-                el.y2 = el.y1;
-                ret.push_back(el);
-            }        
 
-
-            if (tilewire >= TILE_WIRE_F7 && tilewire <=TILE_WIRE_F0)
-            {
-                int group = (tilewire - TILE_WIRE_F7) / 4;
-                int part =  (tilewire - TILE_WIRE_F7) % 4;
-                float offset = 0;
-                if (part == 0) offset = -0.0017f/2;
-                if (part == 3) offset = +0.0017f/2;
-                GraphicElement el;
-                el.type = GraphicElement::TYPE_LINE;
-                el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
-                el.x1 = x + slice_x2 + 0.005f;
-                el.x2 = x + slice_x2 + 0.005f + (0.0017f * (7 *(4-group)-part));
-                el.y1 = y + slice_y2 - 0.0017f * (TILE_WIRE_F7_SLICE - TILE_WIRE_DUMMY_100 + 1 + part) + (3 - group )*slice_pitch - offset;
-                el.y2 = el.y1;
-                ret.push_back(el);
-
-                if (part == 0 || part == 3) {
-                    GraphicElement el2;
-                    el2.type = GraphicElement::TYPE_LINE;
-                    el2.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
-                    el2.x1 = x + slice_x2 + 0.005f;
-                    el2.x2 = el2.x1;
-                    el2.y1 = y + slice_y2 - 0.0017f * (TILE_WIRE_F7_SLICE - TILE_WIRE_DUMMY_100 + 1 + part) + (3 - group )*slice_pitch;
-                    el2.y2 = el2.y1 + 0.0017f * (part==3 ? -1 : 1); 
-                    ret.push_back(el2);
-                }
-
-                el.x1 = el.x2;
-                el.y2 = el.y1 - (0.0017f * (30 *(3-group) + (3-part)*2 + 10)) + offset; 
-                ret.push_back(el);
-
-                el.x1 = x + switchbox_x2;
-                el.y1 = el.y2;
-                ret.push_back(el);
-            }        
             if (tilewire >= TILE_WIRE_WD3 && tilewire <=TILE_WIRE_WD0)
             {
                 GraphicElement el;
@@ -923,12 +867,12 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
                 el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
                 el.x1 = x + slice_x2 + 0.005f;
                 el.x2 = x + slice_x2 + 0.005f + 0.0017f *(4 - part);
-                el.y1 = y + slice_y2 - 0.0017f * (TILE_WIRE_WDO3C_SLICE - TILE_WIRE_DUMMY_100 + 1 + part) + 3*slice_pitch;
+                el.y1 = y + slice_y2 - 0.0017f * (TILE_WIRE_WDO3C_SLICE - TILE_WIRE_DUMMY_D2 + 1 + part + 14) + 3*slice_pitch;
                 el.y2 = el.y1;
                 ret.push_back(el);
 
                 el.x1 = el.x2;
-                el.y2 = y + slice_y2 - 0.0017f * (TILE_WIRE_WD1B_SLICE - TILE_WIRE_DUMMY_100 + 1 + (part & 1)) + (3-group)*slice_pitch;
+                el.y2 = y + slice_y2 - 0.0017f * (TILE_WIRE_WD1B_SLICE - TILE_WIRE_DUMMY_D2 + 1 + (part & 1) + 14*2) + (3-group)*slice_pitch;
                 ret.push_back(el);
 
                 el.x1 = x + slice_x2 + 0.005f;
@@ -943,12 +887,12 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
                 el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
                 el.x1 = x + slice_x2 + 0.005f;
                 el.x2 = x + slice_x2 + 0.005f + 0.0017f *(8 - part);
-                el.y1 = y + slice_y2 - 0.0017f * (TILE_WIRE_WADO3C_SLICE - TILE_WIRE_DUMMY_100 + 1 + part) + 3*slice_pitch;
+                el.y1 = y + slice_y2 - 0.0017f * (TILE_WIRE_WADO3C_SLICE - TILE_WIRE_DUMMY_D2 + 1 + part+ 14) + 3*slice_pitch;
                 el.y2 = el.y1;
                 ret.push_back(el);
 
                 el.x1 = el.x2;
-                el.y2 = y + slice_y2 - 0.0017f * (TILE_WIRE_WAD3B_SLICE - TILE_WIRE_DUMMY_100 + 1 + part) + 2*slice_pitch;
+                el.y2 = y + slice_y2 - 0.0017f * (TILE_WIRE_WAD3B_SLICE - TILE_WIRE_DUMMY_D2 + 1 + part+ 14*2) + 2*slice_pitch;
                 ret.push_back(el);
 
                 el.x1 = x + slice_x2 + 0.005f;
@@ -958,7 +902,7 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
                 // middle line
                 el.x1 = x + slice_x2 + 0.005f;
                 el.x2 = x + slice_x2 + 0.005f + 0.0017f *(8 - part);
-                el.y2 = y + slice_y2 - 0.0017f * (TILE_WIRE_WAD3B_SLICE - TILE_WIRE_DUMMY_100 + 1 + part) + 3*slice_pitch;
+                el.y2 = y + slice_y2 - 0.0017f * (TILE_WIRE_WAD3B_SLICE - TILE_WIRE_DUMMY_D2 + 1 + part+ 14*2) + 3*slice_pitch;
                 el.y1 = el.y2;
                 ret.push_back(el);
             }

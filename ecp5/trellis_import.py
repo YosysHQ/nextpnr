@@ -56,6 +56,12 @@ def wire_type(name):
     if name[0].startswith("H01"):
         return "WIRE_TYPE_H01"
 
+    if name[0].startswith("HFI"):
+        return "WIRE_TYPE_H01"
+
+    if name[0].startswith("HL7"):
+        return "WIRE_TYPE_H01"
+
     if name[0].startswith("H02"):
         return "WIRE_TYPE_H02"
 
@@ -73,12 +79,6 @@ def wire_type(name):
 
     if name[0].startswith("V06"):
         return "WIRE_TYPE_V06"
-
-    if name[0].startswith("HFI"):
-        return "WIRE_TYPE_HFI"
-
-    if name[0].startswith("HL7"):
-        return "WIRE_TYPE_HL7"
 
     return "WIRE_TYPE_NONE"
 
