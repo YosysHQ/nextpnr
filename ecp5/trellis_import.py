@@ -80,6 +80,9 @@ def wire_type(name):
     if name[0].startswith("V06"):
         return "WIRE_TYPE_V06"
 
+    if name[0].startswith("G_HPBX"):
+        return "WIRE_TYPE_G_HPBX"
+
     return "WIRE_TYPE_NONE"
 
 def is_global(loc):
