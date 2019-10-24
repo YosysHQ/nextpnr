@@ -253,9 +253,13 @@ void Context::writeSDF(std::ostream &out) const
             TimingPortClass cls = getPortTimingClass(ci, port.first, clockCount);
             if (cls == TMG_IGNORE)
                 continue;
+            if (port.second.net == nullptr)
+                continue; // Ignore disconnected ports
             if (port.second.type != PORT_IN) {
                 // Add combinational paths to this output (or inout)
                 for (auto other : ci->ports) {
+                    if (other.second.net == nullptr)
+                        continue;
                     if (other.second.type == PORT_OUT)
                         continue;
                     DelayInfo dly;
