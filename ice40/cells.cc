@@ -69,7 +69,7 @@ std::unique_ptr<CellInfo> create_ice_cell(Context *ctx, IdString type, std::stri
         new_cell->params[ctx->id("PIN_TYPE")] = Property(0, 6);
         new_cell->params[ctx->id("PULLUP")] = Property::State::S0;
         new_cell->params[ctx->id("NEG_TRIGGER")] = Property::State::S0;
-        new_cell->params[ctx->id("IOSTANDARD")] = Property("SB_LVCMOS");
+        new_cell->params[ctx->id("IO_STANDARD")] = Property("SB_LVCMOS");
 
         add_port(ctx, new_cell.get(), "PACKAGE_PIN", PORT_INOUT);
 

@@ -150,6 +150,7 @@ po::options_description CommandHandler::getGeneralOptions()
     general.add_options()("timing-allow-fail", "allow timing to fail in design");
     general.add_options()("no-tmdriv", "disable timing-driven placement");
     general.add_options()("sdf", po::value<std::string>(), "SDF delay back-annotation file to write");
+    general.add_options()("sdf-cvc", "enable tweaks for SDF file compatibility with the CVC simulator");
 
     return general;
 }
@@ -343,7 +344,7 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
         std::ofstream f(filename);
         if (!f)
             log_error("Failed to open SDF file '%s' for writing.\n", filename.c_str());
-        ctx->writeSDF(f);
+        ctx->writeSDF(f, vm.count("sdf-cvc"));
     }
 
 #ifndef NO_PYTHON

@@ -78,6 +78,7 @@ struct Interconnect
 
 struct SDFWriter
 {
+    bool cvc_mode = false;
     std::vector<Cell> cells;
     std::vector<Interconnect> conn;
     std::string sdfversion, design, vendor, program;
@@ -98,7 +99,7 @@ struct SDFWriter
     {
         std::string esc;
         for (char c : name) {
-            if (c == '$' || c == '\\' || c == '[' || c == ']' || c == ':')
+            if (c == '$' || c == '\\' || c == '[' || c == ']' || c == ':' || (cvc_mode && c == '.'))
                 esc += '\\';
             esc += c;
         }
@@ -128,10 +129,19 @@ struct SDFWriter
 
     void write_delay(std::ostream &out, const MinMaxTyp &delay)
     {
-        out << "(" << delay.min << ":" << delay.typ << ":" << delay.max << ")";
+        if (cvc_mode)
+            out << "(" << int(delay.min) << ":" << int(delay.typ) << ":" << int(delay.max) << ")";
+        else
+            out << "(" << delay.min << ":" << delay.typ << ":" << delay.max << ")";
     }
 
-    void write_port(std::ostream &out, const CellPort &port) { out << escape_name(port.cell + "/" + port.port); }
+    void write_port(std::ostream &out, const CellPort &port)
+    {
+        if (cvc_mode)
+            out << escape_name(port.cell) + "." + escape_name(port.port);
+        else
+            out << escape_name(port.cell + "/" + port.port);
+    }
 
     void write_portedge(std::ostream &out, const PortAndEdge &pe)
     {
@@ -146,7 +156,7 @@ struct SDFWriter
         out << "  (DESIGN " << format_name(design) << ")" << std::endl;
         out << "  (VENDOR " << format_name(vendor) << ")" << std::endl;
         out << "  (PROGRAM " << format_name(program) << ")" << std::endl;
-        out << "  (DIVIDER /)" << std::endl;
+        out << "  (DIVIDER " << (cvc_mode ? "." : "/") << ")" << std::endl;
         out << "  (TIMESCALE 1ps)" << std::endl;
         // Write interconnect delays, with the main design begin a "cell"
         out << "  (CELL" << std::endl;
@@ -210,10 +220,11 @@ struct SDFWriter
 
 } // namespace SDF
 
-void Context::writeSDF(std::ostream &out) const
+void Context::writeSDF(std::ostream &out, bool cvc_mode) const
 {
     using namespace SDF;
     SDFWriter wr;
+    wr.cvc_mode = cvc_mode;
     wr.design = str_or_default(attrs, id("module"), "top");
     wr.sdfversion = "3.0";
     wr.vendor = "nextpnr";

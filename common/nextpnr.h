@@ -809,7 +809,7 @@ struct Context : Arch, DeterministicRNG
     // --------------------------------------------------------------
 
     // provided by sdf.cc
-    void writeSDF(std::ostream &out) const;
+    void writeSDF(std::ostream &out, bool cvc_mode = false) const;
 
     // --------------------------------------------------------------
 
