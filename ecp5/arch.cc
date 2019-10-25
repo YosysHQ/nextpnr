@@ -630,7 +630,7 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
 
         GfxTileWireId tilewire = GfxTileWireId(locInfo(wire)->wire_data[wire.index].tile_wire);
         
-        gfxTileWire(ret, x, y, wire_type, tilewire, style);
+        gfxTileWire(ret, x, y, chip_info->width, chip_info->height, wire_type, tilewire, style);
     }    
     if (decal.type == DecalId::TYPE_BEL) {
         BelId bel;

@@ -435,7 +435,7 @@ enum GfxTileWireId
     TILE_WIRE_G_HPBX1500,
 };
 
-void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, IdString wire_type, GfxTileWireId tilewire, GraphicElement::style_t style);
+void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdString wire_type, GfxTileWireId tilewire, GraphicElement::style_t style);
 
 NEXTPNR_NAMESPACE_END
 
