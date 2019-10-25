@@ -477,7 +477,13 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
         }
     };
 
-    auto src_loc = est_location(src), dst_loc = est_location(dst);
+    auto src_loc = est_location(src);
+    std::pair<int, int> dst_loc;
+    if (wire_loc_overrides.count(dst)) {
+        dst_loc = wire_loc_overrides.at(dst);
+    } else {
+        dst_loc = est_location(dst);
+    }
 
     int dx = abs(src_loc.first - dst_loc.first), dy = abs(src_loc.second - dst_loc.second);
 
@@ -562,6 +568,7 @@ bool Arch::place()
 
 bool Arch::route()
 {
+    setupWireLocations();
     route_ecp5_globals(getCtx());
     assignArchInfo();
     assign_budget(getCtx(), true);

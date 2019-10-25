@@ -1048,6 +1048,11 @@ struct Arch : BaseCtx
     // Special case for delay estimates due to its physical location
     // being far from the logical location of its primitive
     WireId gsrclk_wire;
+    // Improves directivity of routing to DSP inputs, avoids issues
+    // with different routes to the same physical reset wire causing
+    // conflicts and slow routing
+    std::unordered_map<WireId, std::pair<int, int>> wire_loc_overrides;
+    void setupWireLocations();
 
     mutable std::unordered_map<DelayKey, std::pair<bool, DelayInfo>> celldelay_cache;
 
