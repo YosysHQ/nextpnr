@@ -865,6 +865,16 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             if (ci->attrs.count(ctx->id("DIFFRESISTOR")))
                 cc.tiles[pio_tile].add_enum(pio + ".DIFFRESISTOR",
                                             str_or_default(ci->attrs, ctx->id("DIFFRESISTOR"), "OFF"));
+            if (ci->attrs.count(ctx->id("DRIVE"))) {
+                static bool drive_3v3_warning_done = false;
+                if (iotype == "LVCMOS33") {
+                    cc.tiles[pio_tile].add_enum(pio + ".DRIVE", str_or_default(ci->attrs, ctx->id("DRIVE"), "8"));
+                } else {
+                    if (!drive_3v3_warning_done)
+                        log_warning("Trellis limitation: DRIVE can only be set on 3V3 IO pins.\n");
+                    drive_3v3_warning_done = true;
+                }
+            }
             if (ci->attrs.count(ctx->id("TERMINATION"))) {
                 auto vccio = get_vccio(ioType_from_str(iotype));
                 switch (vccio) {
