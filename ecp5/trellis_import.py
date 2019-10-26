@@ -186,6 +186,8 @@ def process_timing_data():
                     max_delay = min(entry["rising"][2], entry["falling"][2])
                     delays.append((constids[from_pin], constids[to_pin], min_delay, max_delay))
                 elif entry["type"] == "SetupHold":
+                    if type(entry["pin"]) is list:
+                        continue
                     pin = constids[entry["pin"]]
                     clock = constids[entry["clock"][1]]
                     min_setup = entry["setup"][0]
