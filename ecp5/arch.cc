@@ -117,6 +117,9 @@ Arch::Arch(ArchArgs args) : args(args)
         log_error("Unsupported ECP5 chip type.\n");
     }
 #endif
+    if (chip_info->const_id_count != DB_CONST_ID_COUNT)
+        log_error("Chip database 'bba' and nextpnr code are out of sync; please rebuild (or contact distribution "
+                  "maintainer)!\n");
     package_info = nullptr;
     for (int i = 0; i < chip_info->num_packages; i++) {
         if (args.package == chip_info->package_info[i].name.get()) {

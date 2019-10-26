@@ -194,6 +194,7 @@ NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     int32_t num_tiles;
     int32_t num_location_types;
     int32_t num_packages, num_pios;
+    int32_t const_id_count;
     RelPtr<LocationTypePOD> locations;
     RelPtr<int32_t> location_type;
     RelPtr<GlobalInfoPOD> location_glbinfo;
