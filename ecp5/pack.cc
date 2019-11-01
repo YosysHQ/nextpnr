@@ -2613,7 +2613,7 @@ class Ecp5Packer
             std::unordered_set<IdString> changed_cells;
             for (auto net : changed_nets)
                 for (auto &user : ctx->nets.at(net)->users)
-                    if (user.port == id_CLKI || user.port == id_ECLKI)
+                    if (user.port == id_CLKI || user.port == id_ECLKI || user.port == id_CLK0 || user.port == id_CLK1)
                         changed_cells.insert(user.cell->name);
             changed_nets.clear();
             for (auto cell : sorted(changed_cells)) {
@@ -2630,6 +2630,9 @@ class Ecp5Packer
                     copy_constraint(ci, id_CLKI, id_CDIVX, ratio);
                 } else if (ci->type == id_ECLKSYNCB || ci->type == id_TRELLIS_ECLKBUF) {
                     copy_constraint(ci, id_ECLKI, id_ECLKO, 1);
+                } else if (ci->type == id_ECLKBRIDGECS) {
+                    copy_constraint(ci, id_CLK0, id_ECSOUT, 1);
+                    copy_constraint(ci, id_CLK1, id_ECSOUT, 1);
                 } else if (ci->type == id_DCCA) {
                     copy_constraint(ci, id_CLKI, id_CLKO, 1);
                 } else if (ci->type == id_EHXPLLL) {
