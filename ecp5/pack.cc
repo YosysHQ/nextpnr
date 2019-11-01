@@ -2353,6 +2353,7 @@ class Ecp5Packer
         for (auto cell : sorted(ctx->cells)) {
             CellInfo *ci = cell.second;
             if (ci->type == id_ECLKBRIDGECS) {
+                Loc loc;
                 NetInfo *i0 = get_net_or_empty(ci, id_CLK0), *i1 = get_net_or_empty(ci, id_CLK1),
                         *o = get_net_or_empty(ci, id_ECSOUT);
                 for (NetInfo *input : {i0, i1}) {
@@ -2366,24 +2367,53 @@ class Ecp5Packer
                         for (auto bel : ctx->getBels()) {
                             if (ctx->getBelType(bel) != id_ECLKBRIDGECS)
                                 continue;
-                            Loc loc = ctx->getBelLocation(bel);
+                            loc = ctx->getBelLocation(bel);
                             if (loc.x == user_loc.x) {
                                 ci->attrs[ctx->id("BEL")] = ctx->getBelName(bel).str(ctx);
-                                if (o != nullptr)
-                                    for (auto user2 : o->users) {
-                                        // Set side hint to ensure edge clock choice is routeable
-                                        if (user2.cell->type == id_ECLKSYNCB && user2.port == id_ECLKI) {
-                                            NetInfo *synco = get_net_or_empty(user2.cell, id_ECLKO);
-                                            if (synco != nullptr)
-                                                bridge_side_hint[synco] = (loc.x > 1) ? 0 : 1;
-                                        }
-                                    }
                                 goto eclkbridge_done;
                             }
                         }
                     }
+                    if (input->driver.cell != nullptr) {
+                        CellInfo *drv = input->driver.cell;
+                        if (!drv->attrs.count(ctx->id("BEL")))
+                            continue;
+                        Loc drv_loc = ctx->getBelLocation(
+                                ctx->getBelByName(ctx->id(drv->attrs.at(ctx->id("BEL")).as_string())));
+                        BelId closest;
+                        int closest_x = -1; // aim for same side of chip
+                        for (auto bel : ctx->getBels()) {
+                            if (ctx->getBelType(bel) != id_ECLKBRIDGECS)
+                                continue;
+                            loc = ctx->getBelLocation(bel);
+                            if (closest_x == -1 || std::abs(loc.x - drv_loc.x) < std::abs(closest_x - drv_loc.x)) {
+                                closest_x = loc.x;
+                                closest = bel;
+                            }
+                        }
+                        NPNR_ASSERT(closest != BelId());
+                        loc = ctx->getBelLocation(closest);
+                        ci->attrs[ctx->id("BEL")] = ctx->getBelName(closest).str(ctx);
+                        goto eclkbridge_done;
+                    }
+                }
+                // If all else fails, place randomly
+                for (auto bel : ctx->getBels()) {
+                    if (ctx->getBelType(bel) != id_ECLKBRIDGECS)
+                        continue;
+                    loc = ctx->getBelLocation(bel);
+                    ci->attrs[ctx->id("BEL")] = ctx->getBelName(bel).str(ctx);
                 }
             eclkbridge_done:
+                if (o != nullptr)
+                    for (auto user2 : o->users) {
+                        // Set side hint to ensure edge clock choice is routeable
+                        if (user2.cell->type == id_ECLKSYNCB && user2.port == id_ECLKI) {
+                            NetInfo *synco = get_net_or_empty(user2.cell, id_ECLKO);
+                            if (synco != nullptr)
+                                bridge_side_hint[synco] = (loc.x > 1) ? 0 : 1;
+                        }
+                    }
                 continue;
             }
         }
@@ -2659,12 +2689,12 @@ class Ecp5Packer
         prepack_checks();
         pack_io();
         pack_dqsbuf();
+        preplace_plls();
         pack_iologic();
         pack_ebr();
         pack_dsps();
         pack_dcus();
         pack_misc();
-        preplace_plls();
         pack_constants();
         pack_dram();
         pack_carries();
