@@ -54,32 +54,10 @@ struct Router2
         };
     };
 
-    struct arc_entry
-    {
-        arc_key arc;
-        delay_t pri;
-        int randtag = 0;
-
-        struct Less
-        {
-            bool operator()(const arc_entry &lhs, const arc_entry &rhs) const noexcept
-            {
-                if (lhs.pri != rhs.pri)
-                    return lhs.pri < rhs.pri;
-                return lhs.randtag < rhs.randtag;
-            }
-        };
-    };
-
-    struct BoundingBox
-    {
-        int x0, x1, y0, y1;
-    };
-
     struct PerArcData
     {
         std::vector<std::pair<WireId, PipId>> wires;
-        BoundingBox bb;
+        ArcBounds bb;
     };
 
     // As we allow overlap at first; the nextpnr bind functions can't be used
@@ -87,7 +65,7 @@ struct Router2
     struct PerNetData
     {
         std::vector<PerArcData> arcs;
-        BoundingBox bb;
+        ArcBounds bb;
     };
 
     struct PerWireData
@@ -112,16 +90,56 @@ struct Router2
 
     // Use 'udata' for fast net lookups and indexing
     std::vector<NetInfo *> nets_by_udata;
+    std::vector<PerNetData> nets;
+    void setup_nets()
+    {
+        // Populate per-net and per-arc structures at start of routing
+        nets.resize(ctx->nets.size());
+        nets_by_udata.resize(ctx->nets.size());
+        size_t i = 0;
+        for (auto net : sorted(ctx->nets)) {
+            NetInfo *ni = net.second;
+            ni->udata = i;
+            nets_by_udata.at(i) = ni;
+            nets.at(i).arcs.resize(ni->users.size());
+
+            // Start net bounding box at overall min/max
+            nets.at(i).bb.x0 = std::numeric_limits<int>::max();
+            nets.at(i).bb.x1 = std::numeric_limits<int>::min();
+            nets.at(i).bb.y0 = std::numeric_limits<int>::max();
+            nets.at(i).bb.y1 = std::numeric_limits<int>::min();
+
+            for (size_t j = 0; j < ni->users.size(); j++) {
+                auto &usr = ni->users.at(j);
+                WireId src_wire = ctx->getNetinfoSourceWire(ni), dst_wire = ctx->getNetinfoSinkWire(ni, usr);
+                if (src_wire == WireId())
+                    log_error("No wire found for port %s on source cell %s.\n", ctx->nameOf(ni->driver.port),
+                              ctx->nameOf(ni->driver.cell));
+                if (dst_wire == WireId())
+                    log_error("No wire found for port %s on destination cell %s.\n", ctx->nameOf(usr.port),
+                              ctx->nameOf(usr.cell));
+                // Set bounding box for this arc
+                nets.at(i).arcs.at(j).bb = ctx->getRouteBoundingBox(src_wire, dst_wire);
+                // Expand net bounding box to include this arc
+                nets.at(i).bb.x0 = std::min(nets.at(i).bb.x0, nets.at(i).arcs.at(j).bb.x0);
+                nets.at(i).bb.x1 = std::max(nets.at(i).bb.x1, nets.at(i).arcs.at(j).bb.x1);
+                nets.at(i).bb.y0 = std::min(nets.at(i).bb.y0, nets.at(i).arcs.at(j).bb.y0);
+                nets.at(i).bb.y1 = std::max(nets.at(i).bb.y1, nets.at(i).arcs.at(j).bb.y1);
+            }
+            i++;
+        }
+    }
 
     struct QueuedWire
     {
 
-        explicit QueuedWire(WireId wire = WireId(), PipId pip = PipId(), WireScore score = WireScore{}, int randtag = 0)
-                : wire(wire), pip(pip), score(score), randtag(randtag){};
+        explicit QueuedWire(WireId wire = WireId(), PipId pip = PipId(), Loc loc = Loc(), WireScore score = WireScore{},
+                            int randtag = 0)
+                : wire(wire), pip(pip), loc(loc), score(score), randtag(randtag){};
 
         WireId wire;
         PipId pip;
-
+        Loc loc;
         WireScore score;
         int randtag = 0;
 
@@ -135,6 +153,13 @@ struct Router2
             }
         };
     };
+
+    int bb_margin_x = 3, bb_margin_y = 3; // number of units outside the bounding box we may go
+    bool hit_test_pip(ArcBounds &bb, Loc l)
+    {
+        return l.x >= (bb.x0 - bb_margin_x) && l.x <= (bb.x1 + bb_margin_x) && l.y >= (bb.y0 - bb_margin_y) &&
+               l.y <= (bb.y1 - bb_margin_y);
+    }
 
     double curr_cong_weight, hist_cong_weight, estimate_weight;
     // Soft-route a net (don't touch Arch data structures which might not be thread safe)
@@ -152,15 +177,15 @@ struct Router2
         ARC_FATAL,
     };
 
-// Avoid log_error in MT
-#define ARC_ERR(...)                                                                                                   \
+// Define to make sure we don't print in a multithreaded context
+#define ARC_LOG_ERR(...)                                                                                               \
     do {                                                                                                               \
         if (is_mt)                                                                                                     \
             return ARC_FATAL;                                                                                          \
         else                                                                                                           \
             log_error(__VA_ARGS__);                                                                                    \
     } while (0)
-#define ARC_DBG(...)                                                                                                   \
+#define ROUTE_LOG_DBG(...)                                                                                             \
     do {                                                                                                               \
         if (!is_mt && ctx->debug)                                                                                      \
             log(__VA_ARGS__);                                                                                          \
@@ -169,31 +194,50 @@ struct Router2
     ArcRouteResult route_arc(ThreadContext &t, NetInfo *net, size_t i, bool is_mt, bool is_bb = true)
     {
         auto &usr = net->users.at(i);
-        ARC_DBG("Routing arc %d of net '%s'", int(i), ctx->nameOf(net));
+        ROUTE_LOG_DBG("Routing arc %d of net '%s'", int(i), ctx->nameOf(net));
         WireId src_wire = ctx->getNetinfoSourceWire(net), dst_wire = ctx->getNetinfoSinkWire(net, usr);
 
         if (src_wire == WireId())
-            log_error("No wire found for port %s on source cell %s.\n", ctx->nameOf(net->driver.port),
-                      ctx->nameOf(net->driver.cell));
+            ARC_LOG_ERR("No wire found for port %s on source cell %s.\n", ctx->nameOf(net->driver.port),
+                        ctx->nameOf(net->driver.cell));
         if (dst_wire == WireId())
-            log_error("No wire found for port %s on destination cell %s.\n", ctx->nameOf(usr.port),
-                      ctx->nameOf(usr.cell));
+            ARC_LOG_ERR("No wire found for port %s on destination cell %s.\n", ctx->nameOf(usr.port),
+                        ctx->nameOf(usr.cell));
+
+        return ARC_SUCCESS;
     }
 #undef ARC_ERR
-#undef ARC_DBG
     bool route_net(ThreadContext &t, NetInfo *net, bool is_mt)
     {
-
-        // Define to make sure we don't print in a multithreaded context
-
+        ROUTE_LOG_DBG("Routing net '%s'...\n", ctx->nameOf(net));
         if (!t.queue.empty()) {
             std::priority_queue<QueuedWire, std::vector<QueuedWire>, QueuedWire::Greater> new_queue;
             t.queue.swap(new_queue);
         }
         t.visited.clear();
+        bool have_failures = false;
         for (size_t i = 0; i < net->users.size(); i++) {
+            auto res1 = route_arc(t, net, i, is_mt, true);
+            if (res1 == ARC_FATAL)
+                return false; // Arc failed irrecoverably
+            else if (res1 == ARC_RETRY_WITHOUT_BB) {
+                if (is_mt) {
+                    // Can't break out of bounding box in multi-threaded mode, so mark this arc as a failure
+                    have_failures = true;
+                } else {
+                    // Attempt a re-route without the bounding box constraint
+                    ROUTE_LOG_DBG("Rerouting arc %d of net '%s' without bounding box, possible tricky routing...\n",
+                                  int(i), ctx->nameOf(net));
+                    auto res2 = route_arc(t, net, i, is_mt, false);
+                    // If this also fails, no choice but to give up
+                    if (res2 != ARC_SUCCESS)
+                        log_error("Failed to route arc %d of net '%s'.\n", int(i), ctx->nameOf(net));
+                }
+            }
         }
+        return !have_failures;
     }
+#undef ARC_LOG_DBG
 
     void bind_and_check_legality(NetInfo *net) {}
 };
