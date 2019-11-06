@@ -15,6 +15,15 @@
  *  ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  *  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
+ *  Core routing algorithm based on CRoute:
+ *
+ *     CRoute: A Fast High-quality Timing-driven Connection-based FPGA Router
+ *     Dries Vercruyce, Elias Vansteenkiste and Dirk Stroobandt
+ *     DOI 10.1109/FCCM.2019.00017 [PDF on SciHub]
+ *
+ *  Modified for the nextpnr Arch API and data structures; optimised for
+ *  real-world FPGA architectures in particular ECP5 and Xilinx UltraScale+
+ *
  */
 
 #include <algorithm>
@@ -56,7 +65,7 @@ struct Router2
 
     struct PerArcData
     {
-        std::vector<std::pair<WireId, PipId>> wires;
+        std::unordered_map<WireId, PipId> wires;
         ArcBounds bb;
     };
 
@@ -66,17 +75,29 @@ struct Router2
     {
         std::vector<PerArcData> arcs;
         ArcBounds bb;
+        // Coordinates of the center of the net, used for the weight-to-average
+        int cx, cy, hpwl;
     };
 
     struct PerWireData
     {
-        // net --> driving pip
-        std::unordered_map<int, PipId> bound_nets;
+        // net --> number of arcs; driving pip
+        std::unordered_map<int, std::pair<int, PipId>> bound_nets;
         // Which net is bound in the Arch API
         int arch_bound_net = -1;
         // Historical congestion cost
         float hist_cong_cost = 0;
+        // Wire is unavailable as locked to another arc
+        bool unavailable = false;
     };
+
+    float present_wire_cost(const PerWireData &w)
+    {
+        if (w.bound_nets.size() <= 1)
+            return 1.0f;
+        else
+            return 1 + (int(w.bound_nets.size()) - 1) * curr_cong_weight;
+    }
 
     struct WireScore
     {
@@ -127,6 +148,23 @@ struct Router2
                 nets.at(i).bb.y1 = std::max(nets.at(i).bb.y1, nets.at(i).arcs.at(j).bb.y1);
             }
             i++;
+        }
+    }
+
+    std::unordered_map<WireId, PerWireData> wires;
+    void setup_wires()
+    {
+        // Set up per-wire structures, so that MT parts don't have to do any memory allocation
+        // This is possibly quite wasteful and not cache-optimal; further consideration necessary
+        for (auto wire : ctx->getWires()) {
+            wires[wire];
+            NetInfo *bound = ctx->getBoundWireNet(wire);
+            if (bound != nullptr) {
+                wires[wire].bound_nets[bound->udata] = std::make_pair(1, bound->wires.at(wire).pip);
+                wires[wire].arch_bound_net = bound->udata;
+                if (bound->wires.at(wire).strength > STRENGTH_STRONG)
+                    wires[wire].unavailable = true;
+            }
         }
     }
 
@@ -191,6 +229,57 @@ struct Router2
             log(__VA_ARGS__);                                                                                          \
     } while (0)
 
+    void bind_pip_internal(NetInfo *net, size_t user, WireId wire, PipId pip)
+    {
+        auto &b = wires.at(wire).bound_nets[net->udata];
+        ++b.first;
+        if (b.first == 1) {
+            b.second = pip;
+        } else {
+            NPNR_ASSERT(b.second == pip);
+        }
+        nets.at(net->udata).arcs.at(user).wires[wire] = pip;
+    }
+
+    void unbind_pip_internal(NetInfo *net, size_t user, WireId wire, bool dont_touch_arc = false)
+    {
+        auto &b = wires.at(wire).bound_nets[net->udata];
+        --b.first;
+        if (b.first == 0) {
+            wires.at(wire).bound_nets.erase(net->udata);
+        }
+        if (!dont_touch_arc)
+            nets.at(net->udata).arcs.at(user).wires.erase(wire);
+    }
+
+    void ripup_arc(NetInfo *net, size_t user)
+    {
+        auto &ad = nets.at(net->udata).arcs.at(user);
+        for (auto &wire : ad.wires)
+            unbind_pip_internal(net, user, wire.first, true);
+        ad.wires.clear();
+    }
+
+    float score_wire_for_arc(NetInfo *net, size_t user, WireId wire, PipId pip)
+    {
+        auto &wd = wires.at(wire);
+        auto &nd = nets.at(net->udata);
+        float base_cost = ctx->getDelayNS(ctx->getPipDelay(pip).maxDelay() + ctx->getWireDelay(wire).maxDelay() +
+                                          ctx->getDelayEpsilon());
+        float present_cost = present_wire_cost(wd);
+        float hist_cost = wd.hist_cong_cost;
+        float bias_cost = 0;
+        int source_uses = 0;
+        if (wd.bound_nets.count(net->udata))
+            source_uses = wd.bound_nets.at(net->udata).first;
+        if (pip != PipId()) {
+            Loc pl = ctx->getPipLocation(pip);
+            bias_cost = 0.5f * (base_cost / int(net->users.size())) *
+                        ((std::abs(pl.x - nd.cx) + std::abs(pl.y - nd.cy)) / float(nd.hpwl));
+        }
+        return base_cost * hist_cost * present_cost / (1 + source_uses) + bias_cost;
+    }
+
     ArcRouteResult route_arc(ThreadContext &t, NetInfo *net, size_t i, bool is_mt, bool is_bb = true)
     {
         auto &usr = net->users.at(i);
@@ -203,6 +292,8 @@ struct Router2
         if (dst_wire == WireId())
             ARC_LOG_ERR("No wire found for port %s on destination cell %s.\n", ctx->nameOf(usr.port),
                         ctx->nameOf(usr.cell));
+
+        bind_pip_internal(net, i, src_wire, PipId());
 
         return ARC_SUCCESS;
     }
