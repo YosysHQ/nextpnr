@@ -21,11 +21,11 @@ endmodule
 module GENERIC_SLICE #(
 	parameter K = 4,
 	parameter [2**K-1:0] INIT = 0,
-  parameter FF_USED = 1'b0
+	parameter FF_USED = 1'b0
 ) (
 	input CLK,
 	input [K-1:0] I,
-  output F,
+	output F,
 	output Q
 );
 	wire f_wire;
