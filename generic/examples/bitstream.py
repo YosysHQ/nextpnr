@@ -6,7 +6,6 @@ from simple_config import K
 param_map = {
 	("GENERIC_SLICE", "K"): ParameterConfig(write=False),
 	("GENERIC_SLICE", "INIT"): ParameterConfig(write=True, numeric=True, width=2**K),
-	("GENERIC_SLICE", "FF_USED"): ParameterConfig(write=True, numeric=True, width=1),
 
 	("GENERIC_IOB", "INPUT_USED"): ParameterConfig(write=True, numeric=True, width=1),
 	("GENERIC_IOB", "OUTPUT_USED"): ParameterConfig(write=True, numeric=True, width=1),
