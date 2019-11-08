@@ -21,19 +21,20 @@ endmodule
 module GENERIC_SLICE #(
 	parameter K = 4,
 	parameter [2**K-1:0] INIT = 0,
+  parameter FF_USED = 1'b0
 ) (
 	input CLK,
 	input [K-1:0] I,
   output F,
 	output Q
 );
-  wire f_wire;
+	wire f_wire;
 	
 	LUT #(.K(K), .INIT(INIT)) lut_i(.I(I), .Q(f_wire));
 
-  DFF dff_i(.CLK(CLK), .D(f_wire), .Q(Q));
+	DFF dff_i(.CLK(CLK), .D(f_wire), .Q(Q));
 
-  assign F = f_wire;
+	assign F = f_wire;
 endmodule
 
 module GENERIC_IOB #(

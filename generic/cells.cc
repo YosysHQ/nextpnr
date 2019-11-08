@@ -42,8 +42,9 @@ std::unique_ptr<CellInfo> create_generic_cell(Context *ctx, IdString type, std::
     }
     new_cell->type = type;
     if (type == ctx->id("GENERIC_SLICE")) {
-        new_cell->params[ctx->id("K")] = std::to_string(ctx->args.K);
+        new_cell->params[ctx->id("K")] = ctx->args.K;
         new_cell->params[ctx->id("INIT")] = 0;
+        new_cell->params[ctx->id("FF_USED")] = 0;
 
         for (int i = 0; i < ctx->args.K; i++)
             add_port(ctx, new_cell.get(), "I[" + std::to_string(i) + "]", PORT_IN);
@@ -80,16 +81,25 @@ void lut_to_lc(const Context *ctx, CellInfo *lut, CellInfo *lc, bool no_dff)
     }
 
     if (no_dff) {
+        lc->params[ctx->id("FF_USED")] = 0;
         replace_port(lut, ctx->id("Q"), lc, ctx->id("F"));
     }
 }
 
 void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc, bool pass_thru_lut)
 {
+    lc->params[ctx->id("FF_USED")] = 1;
     replace_port(dff, ctx->id("CLK"), lc, ctx->id("CLK"));
 
     if (pass_thru_lut) {
-        lc->params[ctx->id("INIT")] = 0xAAAA;
+        // Fill LUT with alternating 10
+        const int init_size = 1 << lc->params[ctx->id("K")].as_int64();
+        std::string init;
+        init.reserve(init_size);
+        for(int i = 0; i < init_size; i+=2)
+            init.append("10");
+        lc->params[ctx->id("INIT")] = Property::from_string(init);
+
         replace_port(dff, ctx->id("D"), lc, ctx->id("I[0]"));
     }
 
