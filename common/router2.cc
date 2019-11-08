@@ -202,10 +202,15 @@ struct Router2
     double curr_cong_weight, hist_cong_weight, estimate_weight;
     // Soft-route a net (don't touch Arch data structures which might not be thread safe)
     // If is_mt is true, then strict bounding box rules are applied and log_* won't be called
+    struct VisitInfo
+    {
+        WireScore score;
+        PipId pip;
+    };
     struct ThreadContext
     {
         std::priority_queue<QueuedWire, std::vector<QueuedWire>, QueuedWire::Greater> queue;
-        std::unordered_map<WireId, QueuedWire> visited;
+        std::unordered_map<WireId, VisitInfo> visited;
     };
 
     enum ArcRouteResult
@@ -280,8 +285,21 @@ struct Router2
         return base_cost * hist_cost * present_cost / (1 + source_uses) + bias_cost;
     }
 
+    float get_togo_cost(NetInfo *net, size_t user, WireId wire, WireId sink)
+    {
+        auto &wd = wires.at(wire);
+        int source_uses = 0;
+        if (wd.bound_nets.count(net->udata))
+            source_uses = wd.bound_nets.at(net->udata).first;
+        // FIXME: timing/wirelength balance?
+        return ctx->getDelayNS(ctx->estimateDelay(wire, sink)) / (1 + source_uses);
+    }
+
     ArcRouteResult route_arc(ThreadContext &t, NetInfo *net, size_t i, bool is_mt, bool is_bb = true)
     {
+
+        auto &nd = nets[net->udata];
+        auto &ad = nd.arcs[i];
         auto &usr = net->users.at(i);
         ROUTE_LOG_DBG("Routing arc %d of net '%s'", int(i), ctx->nameOf(net));
         WireId src_wire = ctx->getNetinfoSourceWire(net), dst_wire = ctx->getNetinfoSinkWire(net, usr);
@@ -292,20 +310,74 @@ struct Router2
         if (dst_wire == WireId())
             ARC_LOG_ERR("No wire found for port %s on destination cell %s.\n", ctx->nameOf(usr.port),
                         ctx->nameOf(usr.cell));
+        // Ripup arc to start with
+        ripup_arc(net, i);
 
-        bind_pip_internal(net, i, src_wire, PipId());
-
-        return ARC_SUCCESS;
-    }
-#undef ARC_ERR
-    bool route_net(ThreadContext &t, NetInfo *net, bool is_mt)
-    {
-        ROUTE_LOG_DBG("Routing net '%s'...\n", ctx->nameOf(net));
         if (!t.queue.empty()) {
             std::priority_queue<QueuedWire, std::vector<QueuedWire>, QueuedWire::Greater> new_queue;
             t.queue.swap(new_queue);
         }
         t.visited.clear();
+
+        // Add source wire to queue
+        WireScore base_score;
+        base_score.cost = 0;
+        base_score.delay = ctx->getWireDelay(src_wire).maxDelay();
+        base_score.togo_cost = get_togo_cost(net, i, src_wire, dst_wire);
+        t.queue.push(QueuedWire(src_wire, PipId(), Loc(), base_score));
+        t.visited[src_wire].score = base_score;
+        t.visited[src_wire].pip = PipId();
+
+        while (!t.queue.empty()) {
+            auto curr = t.queue.top();
+            t.queue.pop();
+            // Explore all pips downhill of cursor
+            for (auto dh : ctx->getPipsDownhill(curr.wire)) {
+                // Skip pips outside of box in bounding-box mode
+                if (is_bb && !hit_test_pip(ad.bb, ctx->getPipLocation(dh)))
+                    continue;
+                // Evaluate score of next wire
+                WireId next = ctx->getPipSrcWire(dh);
+                WireScore next_score;
+                next_score.cost = curr.score.cost + score_wire_for_arc(net, i, next, dh);
+                next_score.delay =
+                        curr.score.delay + ctx->getPipDelay(dh).maxDelay() + ctx->getWireDelay(next).maxDelay();
+                next_score.togo_cost = get_togo_cost(net, i, next, dst_wire);
+                if (!t.visited.count(next) || (t.visited.at(next).score.total() > next_score.total())) {
+                    // Add wire to queue if it meets criteria
+                    t.queue.push(QueuedWire(next, dh, ctx->getPipLocation(dh), next_score, ctx->rng()));
+                    t.visited[next].score = next_score;
+                    t.visited[next].pip = dh;
+                    if (next == dst_wire)
+                        goto loop_done;
+                }
+            }
+            if (0) {
+            loop_done:
+                break;
+            }
+        }
+        if (t.visited.count(dst_wire)) {
+            WireId cursor_bwd = dst_wire;
+            while (t.visited.count(cursor_bwd)) {
+                auto &v = t.visited.at(cursor_bwd);
+                bind_pip_internal(net, i, cursor_bwd, v.pip);
+                if (v.pip == PipId()) {
+                    NPNR_ASSERT(cursor_bwd == src_wire);
+                    break;
+                }
+                cursor_bwd = ctx->getPipSrcWire(v.pip);
+            }
+            return ARC_SUCCESS;
+        } else {
+            return ARC_RETRY_WITHOUT_BB;
+        }
+    }
+#undef ARC_ERR
+    bool route_net(ThreadContext &t, NetInfo *net, bool is_mt)
+    {
+        ROUTE_LOG_DBG("Routing net '%s'...\n", ctx->nameOf(net));
+
         bool have_failures = false;
         for (size_t i = 0; i < net->users.size(); i++) {
             auto res1 = route_arc(t, net, i, is_mt, true);
