@@ -68,12 +68,15 @@ struct Router2
         bool unavailable = false;
     };
 
-    float present_wire_cost(const PerWireData &w)
+    float present_wire_cost(const PerWireData &w, int net_uid)
     {
-        if (w.bound_nets.size() <= 1)
+        int other_sources = int(w.bound_nets.size());
+        if (w.bound_nets.count(net_uid))
+            other_sources -= 1;
+        if (other_sources == 0)
             return 1.0f;
         else
-            return 1 + (int(w.bound_nets.size()) - 1) * curr_cong_weight;
+            return 1 + other_sources * curr_cong_weight;
     }
 
     struct WireScore
@@ -138,7 +141,7 @@ struct Router2
                 nets.at(i).cx += usr_loc.x;
                 nets.at(i).cy += usr_loc.y;
             }
-            nets.at(i).hpwl = std::min(
+            nets.at(i).hpwl = std::max(
                     std::abs(nets.at(i).bb.y1 - nets.at(i).bb.y0) + std::abs(nets.at(i).bb.x1 - nets.at(i).bb.x0), 1);
             nets.at(i).cx /= int(ni->users.size() + 1);
             nets.at(i).cy /= int(ni->users.size() + 1);
@@ -206,6 +209,8 @@ struct Router2
     {
         std::priority_queue<QueuedWire, std::vector<QueuedWire>, QueuedWire::Greater> queue;
         std::unordered_map<WireId, VisitInfo> visited;
+        // Special case where one net has multiple logical arcs to the same physical sink
+        std::unordered_set<WireId> processed_sinks;
     };
 
     enum ArcRouteResult
@@ -266,7 +271,7 @@ struct Router2
         auto &nd = nets.at(net->udata);
         float base_cost = ctx->getDelayNS(ctx->getPipDelay(pip).maxDelay() + ctx->getWireDelay(wire).maxDelay() +
                                           ctx->getDelayEpsilon());
-        float present_cost = present_wire_cost(wd);
+        float present_cost = present_wire_cost(wd, net->udata);
         float hist_cost = wd.hist_cong_cost;
         float bias_cost = 0;
         int source_uses = 0;
@@ -329,6 +334,10 @@ struct Router2
         // Check if arc is already legally routed
         if (check_arc_routing(net, i))
             return ARC_SUCCESS;
+        // Check if arc was already done _in this iteration_
+        if (t.processed_sinks.count(dst_wire))
+            return ARC_SUCCESS;
+        t.processed_sinks.insert(dst_wire);
         // Ripup arc to start with
         ripup_arc(net, i);
 
@@ -375,7 +384,7 @@ struct Router2
                 next_score.cost = curr.score.cost + score_wire_for_arc(net, i, next, dh);
                 next_score.delay =
                         curr.score.delay + ctx->getPipDelay(dh).maxDelay() + ctx->getWireDelay(next).maxDelay();
-                next_score.togo_cost = get_togo_cost(net, i, next, dst_wire);
+                next_score.togo_cost = 1.5 * get_togo_cost(net, i, next, dst_wire);
                 if (!t.visited.count(next) || (t.visited.at(next).score.total() > next_score.total())) {
 #if 0
                     ROUTE_LOG_DBG("exploring wire %s cost %f togo %f\n", ctx->nameOfWire(next), next_score.cost,
@@ -398,9 +407,12 @@ struct Router2
             ROUTE_LOG_DBG("   Routed: ");
             WireId cursor_bwd = dst_wire;
             while (t.visited.count(cursor_bwd)) {
-                ROUTE_LOG_DBG("      wire: %s\n", ctx->nameOfWire(cursor_bwd));
                 auto &v = t.visited.at(cursor_bwd);
                 bind_pip_internal(net, i, cursor_bwd, v.pip);
+                if (ctx->debug) {
+                    auto &wd = wires.at(cursor_bwd);
+                    ROUTE_LOG_DBG("      wire: %s (curr %d hist %f)\n", ctx->nameOfWire(cursor_bwd), int(wd.bound_nets.size()) - 1, wd.hist_cong_cost);
+                }
                 if (v.pip == PipId()) {
                     NPNR_ASSERT(cursor_bwd == src_wire);
                     break;
@@ -424,6 +436,7 @@ struct Router2
             return true;
 
         bool have_failures = false;
+        t.processed_sinks.clear();
         for (size_t i = 0; i < net->users.size(); i++) {
             auto res1 = route_arc(t, net, i, is_mt, true);
             if (res1 == ARC_FATAL)
@@ -479,7 +492,7 @@ struct Router2
             for (auto net : nets_by_udata)
                 route_net(st, net, false);
             update_congestion();
-            log_info("iter=%d wires=%d overused=%d overuse=%d\n", iter, total_overuse, overused_wires, total_overuse);
+            log_info("iter=%d wires=%d overused=%d overuse=%d\n", iter, total_wire_use, overused_wires, total_overuse);
             ++iter;
             curr_cong_weight *= 2;
         } while (total_overuse > 0);
