@@ -38,30 +38,6 @@ NEXTPNR_NAMESPACE_BEGIN
 namespace {
 struct Router2
 {
-    struct arc_key
-    {
-        NetInfo *net_info;
-        int user_idx;
-
-        bool operator==(const arc_key &other) const
-        {
-            return (net_info == other.net_info) && (user_idx == other.user_idx);
-        }
-        bool operator<(const arc_key &other) const
-        {
-            return net_info == other.net_info ? user_idx < other.user_idx : net_info->name < other.net_info->name;
-        }
-
-        struct Hash
-        {
-            std::size_t operator()(const arc_key &arg) const noexcept
-            {
-                std::size_t seed = std::hash<NetInfo *>()(arg.net_info);
-                seed ^= std::hash<int>()(arg.user_idx) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-                return seed;
-            }
-        };
-    };
 
     struct PerArcData
     {
@@ -295,6 +271,24 @@ struct Router2
         return ctx->getDelayNS(ctx->estimateDelay(wire, sink)) / (1 + source_uses);
     }
 
+    bool check_arc_routing(NetInfo *net, size_t usr)
+    {
+        auto &ad = nets.at(net->udata).arcs.at(usr);
+        WireId src_wire = ctx->getNetinfoSourceWire(net);
+        WireId dst_wire = ctx->getNetinfoSinkWire(net, net->users.at(usr));
+        WireId cursor = dst_wire;
+        while (ad.wires.count(cursor)) {
+            auto &wd = wires.at(cursor);
+            if (wd.bound_nets.size() != 1)
+                return false;
+            auto &uh = ad.wires.at(cursor);
+            if (uh == PipId())
+                break;
+            cursor = ctx->getPipSrcWire(uh);
+        }
+        return (cursor == src_wire);
+    }
+
     ArcRouteResult route_arc(ThreadContext &t, NetInfo *net, size_t i, bool is_mt, bool is_bb = true)
     {
 
@@ -310,6 +304,9 @@ struct Router2
         if (dst_wire == WireId())
             ARC_LOG_ERR("No wire found for port %s on destination cell %s.\n", ctx->nameOf(usr.port),
                         ctx->nameOf(usr.cell));
+        // Check if arc is already legally routed
+        if (check_arc_routing(net, i))
+            return ARC_SUCCESS;
         // Ripup arc to start with
         ripup_arc(net, i);
 
@@ -338,6 +335,9 @@ struct Router2
                     continue;
                 // Evaluate score of next wire
                 WireId next = ctx->getPipSrcWire(dh);
+                auto &nwd = wires.at(next);
+                if (nwd.unavailable)
+                    continue;
                 WireScore next_score;
                 next_score.cost = curr.score.cost + score_wire_for_arc(net, i, next, dh);
                 next_score.delay =
@@ -352,7 +352,7 @@ struct Router2
                         goto loop_done;
                 }
             }
-            if (0) {
+            if (false) {
             loop_done:
                 break;
             }
@@ -374,6 +374,7 @@ struct Router2
         }
     }
 #undef ARC_ERR
+
     bool route_net(ThreadContext &t, NetInfo *net, bool is_mt)
     {
         ROUTE_LOG_DBG("Routing net '%s'...\n", ctx->nameOf(net));
@@ -400,10 +401,52 @@ struct Router2
         }
         return !have_failures;
     }
-#undef ARC_LOG_DBG
+#undef ROUTE_LOG_DBG
 
-    void bind_and_check_legality(NetInfo *net) {}
+    int total_wire_use = 0;
+    int overused_wires = 0;
+    int total_overuse = 0;
+
+    void update_congestion()
+    {
+        total_overuse = 0;
+        overused_wires = 0;
+        total_wire_use = 0;
+        for (auto &wire : wires) {
+            total_wire_use += int(wire.second.bound_nets.size());
+            int overuse = int(wire.second.bound_nets.size()) - 1;
+            if (overuse > 0) {
+                wire.second.hist_cong_cost += overuse * hist_cong_weight;
+                total_overuse += overuse;
+                overused_wires += 1;
+            }
+        }
+    }
+
+    void router_test()
+    {
+        setup_nets();
+        setup_wires();
+        curr_cong_weight = 0.5;
+        hist_cong_weight = 1.0;
+        ThreadContext st;
+        int iter = 1;
+        while (total_overuse > 0) {
+            for (auto net : nets_by_udata)
+                route_net(st, net, false);
+            update_congestion();
+            log_info("iter=%d wires=%d overused=%d overuse=%d\n", iter, total_overuse, overused_wires, total_overuse);
+            ++iter;
+        }
+    }
 };
 } // namespace
+
+void router2_test(Context *ctx)
+{
+    Router2 rt;
+    rt.ctx = ctx;
+    rt.router_test();
+}
 
 NEXTPNR_NAMESPACE_END
