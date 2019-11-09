@@ -27,6 +27,7 @@
  */
 
 #include <algorithm>
+#include <boost/container/flat_map.hpp>
 #include <deque>
 #include <queue>
 #include "log.h"
@@ -109,6 +110,8 @@ struct Router2
             for (size_t j = 0; j < ni->users.size(); j++) {
                 auto &usr = ni->users.at(j);
                 WireId src_wire = ctx->getNetinfoSourceWire(ni), dst_wire = ctx->getNetinfoSinkWire(ni, usr);
+                if (ni->driver.cell == nullptr)
+                    src_wire = dst_wire;
                 if (src_wire == WireId())
                     log_error("No wire found for port %s on source cell %s.\n", ctx->nameOf(ni->driver.port),
                               ctx->nameOf(ni->driver.cell));
@@ -127,7 +130,7 @@ struct Router2
         }
     }
 
-    std::unordered_map<WireId, PerWireData> wires;
+    boost::container::flat_map<WireId, PerWireData> wires;
     void setup_wires()
     {
         // Set up per-wire structures, so that MT parts don't have to do any memory allocation
@@ -295,7 +298,7 @@ struct Router2
         auto &nd = nets[net->udata];
         auto &ad = nd.arcs[i];
         auto &usr = net->users.at(i);
-        ROUTE_LOG_DBG("Routing arc %d of net '%s'", int(i), ctx->nameOf(net));
+        ROUTE_LOG_DBG("Routing arc %d of net '%s'\n", int(i), ctx->nameOf(net));
         WireId src_wire = ctx->getNetinfoSourceWire(net), dst_wire = ctx->getNetinfoSinkWire(net, usr);
 
         if (src_wire == WireId())
@@ -328,13 +331,22 @@ struct Router2
         while (!t.queue.empty()) {
             auto curr = t.queue.top();
             t.queue.pop();
+#if 1
+            ROUTE_LOG_DBG("current wire %s\n", ctx->nameOfWire(curr.wire));
+#endif
             // Explore all pips downhill of cursor
             for (auto dh : ctx->getPipsDownhill(curr.wire)) {
                 // Skip pips outside of box in bounding-box mode
+#if 1
+                ROUTE_LOG_DBG("trying pip %s\n", ctx->nameOfPip(dh));
+#endif
                 if (is_bb && !hit_test_pip(ad.bb, ctx->getPipLocation(dh)))
                     continue;
                 // Evaluate score of next wire
-                WireId next = ctx->getPipSrcWire(dh);
+                WireId next = ctx->getPipDstWire(dh);
+#if 1
+                ROUTE_LOG_DBG("   src wire %s\n", ctx->nameOfWire(next));
+#endif
                 auto &nwd = wires.at(next);
                 if (nwd.unavailable)
                     continue;
@@ -344,6 +356,10 @@ struct Router2
                         curr.score.delay + ctx->getPipDelay(dh).maxDelay() + ctx->getWireDelay(next).maxDelay();
                 next_score.togo_cost = get_togo_cost(net, i, next, dst_wire);
                 if (!t.visited.count(next) || (t.visited.at(next).score.total() > next_score.total())) {
+#if 1
+                    ROUTE_LOG_DBG("exploring wire %s cost %f togo %f\n", ctx->nameOfWire(next), next_score.cost,
+                                  next_score.togo_cost);
+#endif
                     // Add wire to queue if it meets criteria
                     t.queue.push(QueuedWire(next, dh, ctx->getPipLocation(dh), next_score, ctx->rng()));
                     t.visited[next].score = next_score;
@@ -358,9 +374,12 @@ struct Router2
             }
         }
         if (t.visited.count(dst_wire)) {
+            ROUTE_LOG_DBG("   Routed: ");
             WireId cursor_bwd = dst_wire;
             while (t.visited.count(cursor_bwd)) {
+                ROUTE_LOG_DBG("      wire: %s\n", ctx->nameOfWire(cursor_bwd));
                 auto &v = t.visited.at(cursor_bwd);
+                ROUTE_LOG_DBG("         pip: %s\n", ctx->nameOfPip(v.pip));
                 bind_pip_internal(net, i, cursor_bwd, v.pip);
                 if (v.pip == PipId()) {
                     NPNR_ASSERT(cursor_bwd == src_wire);
@@ -378,6 +397,10 @@ struct Router2
     bool route_net(ThreadContext &t, NetInfo *net, bool is_mt)
     {
         ROUTE_LOG_DBG("Routing net '%s'...\n", ctx->nameOf(net));
+
+        // Nothing to do if net is undriven
+        if (net->driver.cell == nullptr)
+            return true;
 
         bool have_failures = false;
         for (size_t i = 0; i < net->users.size(); i++) {
@@ -431,13 +454,13 @@ struct Router2
         hist_cong_weight = 1.0;
         ThreadContext st;
         int iter = 1;
-        while (total_overuse > 0) {
+        do {
             for (auto net : nets_by_udata)
                 route_net(st, net, false);
             update_congestion();
             log_info("iter=%d wires=%d overused=%d overuse=%d\n", iter, total_overuse, overused_wires, total_overuse);
             ++iter;
-        }
+        } while (total_overuse > 0);
     }
 };
 } // namespace
