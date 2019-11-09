@@ -63,7 +63,7 @@ struct Router2
         // Which net is bound in the Arch API
         int arch_bound_net = -1;
         // Historical congestion cost
-        float hist_cong_cost = 0;
+        float hist_cong_cost = 1.0;
         // Wire is unavailable as locked to another arc
         bool unavailable = false;
     };
@@ -106,6 +106,14 @@ struct Router2
             nets.at(i).bb.x1 = std::numeric_limits<int>::min();
             nets.at(i).bb.y0 = std::numeric_limits<int>::max();
             nets.at(i).bb.y1 = std::numeric_limits<int>::min();
+            nets.at(i).cx = 0;
+            nets.at(i).cy = 0;
+
+            if (ni->driver.cell != nullptr) {
+                Loc drv_loc = ctx->getBelLocation(ni->driver.cell->bel);
+                nets.at(i).cx += drv_loc.x;
+                nets.at(i).cy += drv_loc.y;
+            }
 
             for (size_t j = 0; j < ni->users.size(); j++) {
                 auto &usr = ni->users.at(j);
@@ -125,7 +133,15 @@ struct Router2
                 nets.at(i).bb.x1 = std::max(nets.at(i).bb.x1, nets.at(i).arcs.at(j).bb.x1);
                 nets.at(i).bb.y0 = std::min(nets.at(i).bb.y0, nets.at(i).arcs.at(j).bb.y0);
                 nets.at(i).bb.y1 = std::max(nets.at(i).bb.y1, nets.at(i).arcs.at(j).bb.y1);
+                // Add location to centroid sum
+                Loc usr_loc = ctx->getBelLocation(usr.cell->bel);
+                nets.at(i).cx += usr_loc.x;
+                nets.at(i).cy += usr_loc.y;
             }
+            nets.at(i).hpwl = std::min(
+                    std::abs(nets.at(i).bb.y1 - nets.at(i).bb.y0) + std::abs(nets.at(i).bb.x1 - nets.at(i).bb.x0), 1);
+            nets.at(i).cx /= int(ni->users.size() + 1);
+            nets.at(i).cy /= int(ni->users.size() + 1);
             i++;
         }
     }
@@ -175,7 +191,7 @@ struct Router2
     bool hit_test_pip(ArcBounds &bb, Loc l)
     {
         return l.x >= (bb.x0 - bb_margin_x) && l.x <= (bb.x1 + bb_margin_x) && l.y >= (bb.y0 - bb_margin_y) &&
-               l.y <= (bb.y1 - bb_margin_y);
+               l.y <= (bb.y1 + bb_margin_y);
     }
 
     double curr_cong_weight, hist_cong_weight, estimate_weight;
@@ -307,6 +323,9 @@ struct Router2
         if (dst_wire == WireId())
             ARC_LOG_ERR("No wire found for port %s on destination cell %s.\n", ctx->nameOf(usr.port),
                         ctx->nameOf(usr.cell));
+        // Case of arcs that were pre-routed strongly (e.g. clocks)
+        if (net->wires.count(dst_wire) && net->wires.at(dst_wire).strength > STRENGTH_STRONG)
+            return ARC_SUCCESS;
         // Check if arc is already legally routed
         if (check_arc_routing(net, i))
             return ARC_SUCCESS;
@@ -331,24 +350,26 @@ struct Router2
         while (!t.queue.empty()) {
             auto curr = t.queue.top();
             t.queue.pop();
-#if 1
+#if 0
             ROUTE_LOG_DBG("current wire %s\n", ctx->nameOfWire(curr.wire));
 #endif
             // Explore all pips downhill of cursor
             for (auto dh : ctx->getPipsDownhill(curr.wire)) {
                 // Skip pips outside of box in bounding-box mode
-#if 1
+#if 0
                 ROUTE_LOG_DBG("trying pip %s\n", ctx->nameOfPip(dh));
 #endif
                 if (is_bb && !hit_test_pip(ad.bb, ctx->getPipLocation(dh)))
                     continue;
                 // Evaluate score of next wire
                 WireId next = ctx->getPipDstWire(dh);
-#if 1
+#if 0
                 ROUTE_LOG_DBG("   src wire %s\n", ctx->nameOfWire(next));
 #endif
                 auto &nwd = wires.at(next);
                 if (nwd.unavailable)
+                    continue;
+                if (nwd.bound_nets.count(net->udata) && nwd.bound_nets.at(net->udata).second != dh)
                     continue;
                 WireScore next_score;
                 next_score.cost = curr.score.cost + score_wire_for_arc(net, i, next, dh);
@@ -356,7 +377,7 @@ struct Router2
                         curr.score.delay + ctx->getPipDelay(dh).maxDelay() + ctx->getWireDelay(next).maxDelay();
                 next_score.togo_cost = get_togo_cost(net, i, next, dst_wire);
                 if (!t.visited.count(next) || (t.visited.at(next).score.total() > next_score.total())) {
-#if 1
+#if 0
                     ROUTE_LOG_DBG("exploring wire %s cost %f togo %f\n", ctx->nameOfWire(next), next_score.cost,
                                   next_score.togo_cost);
 #endif
@@ -379,12 +400,12 @@ struct Router2
             while (t.visited.count(cursor_bwd)) {
                 ROUTE_LOG_DBG("      wire: %s\n", ctx->nameOfWire(cursor_bwd));
                 auto &v = t.visited.at(cursor_bwd);
-                ROUTE_LOG_DBG("         pip: %s\n", ctx->nameOfPip(v.pip));
                 bind_pip_internal(net, i, cursor_bwd, v.pip);
                 if (v.pip == PipId()) {
                     NPNR_ASSERT(cursor_bwd == src_wire);
                     break;
                 }
+                ROUTE_LOG_DBG("         pip: %s\n", ctx->nameOfPip(v.pip));
                 cursor_bwd = ctx->getPipSrcWire(v.pip);
             }
             return ARC_SUCCESS;
@@ -460,6 +481,7 @@ struct Router2
             update_congestion();
             log_info("iter=%d wires=%d overused=%d overuse=%d\n", iter, total_overuse, overused_wires, total_overuse);
             ++iter;
+            curr_cong_weight *= 2;
         } while (total_overuse > 0);
     }
 };
