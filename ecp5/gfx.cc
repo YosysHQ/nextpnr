@@ -455,8 +455,7 @@ void gfxTilePip(std::vector<GraphicElement> &g, int x, int y, int w, int h, Wire
         el.y2 = y + switchbox_y1 + 0.0017f*(96 + (dst_id - TILE_WIRE_V06N0303)+ 20 *(y%3));
         el.x2 = x + switchbox_x1;
         g.push_back(el);
-    }        
-    
+    }            
     if (src_type == id_WIRE_TYPE_H02 && dst_type == id_WIRE_TYPE_V02) {
         el.x1 = x + switchbox_x1 + 0.0017f*(16 + (src_id - TILE_WIRE_H02W0701)+ 20 *(src.location.x%3));
         el.y1 = y + switchbox_y1;
@@ -466,6 +465,15 @@ void gfxTilePip(std::vector<GraphicElement> &g, int x, int y, int w, int h, Wire
 
         g.push_back(el);
     }        
+    if (src_type == id_WIRE_TYPE_V02 && dst_type == id_WIRE_TYPE_H02) {
+        el.x1 = x + switchbox_x1 + 0.0017f*(16 + (dst_id - TILE_WIRE_H02W0701)+ 20 *(dst.location.x%3));
+        el.y1 = y + switchbox_y1;
+        
+        el.x2 = x + switchbox_x1;        
+        el.y2 = y + switchbox_y1 + 0.0017f*(20 + (src_id - TILE_WIRE_V02N0701)+ 20 *(src.location.y%3));
+
+        g.push_back(el);
+    }    
     if (src_type == id_WIRE_TYPE_V02 && dst_type == id_WIRE_TYPE_V02) {
        
         el.x1 = x + switchbox_x1;        
@@ -485,10 +493,15 @@ void gfxTilePip(std::vector<GraphicElement> &g, int x, int y, int w, int h, Wire
         el.x1 =  x + switchbox_x1;
         
         g.push_back(el);
-
-    }        
-    
-
+    }            
+    if (src_type == id_WIRE_TYPE_V06 && dst_type == id_WIRE_TYPE_H02) {
+        el.x1 = x + switchbox_x1 + 0.0017f*(16 + (dst_id - TILE_WIRE_H02W0701)+ 20 *(dst.location.x%3));
+        el.y1 = y + switchbox_y1;
+        
+        el.x2 = x + switchbox_x1;        
+        el.y2 = y + switchbox_y1 + 0.0017f*(96 + (src_id - TILE_WIRE_V06N0303)+ 20 *(y%3));
+        g.push_back(el);
+    }    
 }
 
 NEXTPNR_NAMESPACE_END

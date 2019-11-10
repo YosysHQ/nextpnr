@@ -605,7 +605,7 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
     if (decal.type == DecalId::TYPE_GROUP) {
         int type = decal.z;
         int x = decal.location.x;
-        int y = chip_info->height - 1 - decal.location.y;
+        int y = decal.location.y;
 
         if (type == GroupId::TYPE_SWITCHBOX) {
             GraphicElement el;
@@ -625,7 +625,7 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
         wire.location = decal.location;
         auto wire_type = getWireType(wire);
         int x = decal.location.x;
-        int y = chip_info->height - 1 - decal.location.y;
+        int y = decal.location.y;
         GraphicElement::style_t style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
 
         GfxTileWireId tilewire = GfxTileWireId(locInfo(wire)->wire_data[wire.index].tile_wire);
@@ -639,7 +639,7 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
         WireId src_wire = getPipSrcWire(pip);
         WireId dst_wire = getPipDstWire(pip);
         int x = decal.location.x;
-        int y = chip_info->height - 1 - decal.location.y;
+        int y = decal.location.y;
         GfxTileWireId src_id = GfxTileWireId(locInfo(src_wire)->wire_data[src_wire.index].tile_wire);
         GfxTileWireId dst_id = GfxTileWireId(locInfo(dst_wire)->wire_data[dst_wire.index].tile_wire);
         GraphicElement::style_t style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_HIDDEN;
@@ -651,7 +651,7 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
         bel.location = decal.location;
         auto bel_type = getBelType(bel);
         int x = decal.location.x;
-        int y = chip_info->height - 1 - decal.location.y;
+        int y = decal.location.y;
         int z = locInfo(bel)->bel_data[bel.index].z;
 
         if (bel_type == id_TRELLIS_SLICE) {
