@@ -163,31 +163,41 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
         el.y1 = y + switchbox_y1;
         g.push_back(el);
     }    
-    
+
     if (wire_type == id_WIRE_TYPE_V02) {        
         GraphicElement el;
         el.type = GraphicElement::TYPE_LINE;
         el.style = style;
-
-        el.y1 = y + switchbox_y1 + 0.0017f*(16 + (tilewire - TILE_WIRE_V02N0701)+ 20 *(y%3));
+        el.y1 = y + switchbox_y1 + 0.0017f*(20 + (tilewire - TILE_WIRE_V02N0701)+ 20 *(y%3));
         el.y2 = el.y1;
         el.x1 = x + switchbox_x1;
         el.x2 = x + switchbox_x1 - 0.0017f*(20 + (tilewire - TILE_WIRE_V02N0701)+ 20 *(y%3));
         g.push_back(el);
 
-        int y2 = y - 3;        
-        if (y2<0) y2 = 0;
+        int y1 = y + 1;
+        if (y1> h - 1) y1 = h - 1;
 
-        el.y1 = y2 + switchbox_y1 + 0.0017f*(16 + (tilewire - TILE_WIRE_V02N0701)+ 20 *(y%3));
-        el.y2 = el.y1;
+        el.y2 = y1 + switchbox_y1 + 0.0017f*(20 + (tilewire - TILE_WIRE_V02N0701)+ 20 *(y%3));
+        el.x1 = el.x2;
         g.push_back(el);
 
-        el.y1 = y + switchbox_y1 + 0.0017f*(16 + (tilewire - TILE_WIRE_V02N0701)+ 20 *(y%3));
-        el.y2 = y2 + switchbox_y1 + 0.0017f*(16 + (tilewire - TILE_WIRE_V02N0701)+ 20 *(y%3));
+        el.y1 = el.y2;
+        el.x1 = x + switchbox_x1;
+        g.push_back(el);
+
+        int y2 = y - 1;        
+        if (y2<0) y2 = 0;
+
+        el.y1 = y + switchbox_y1 + 0.0017f*(20 + (tilewire - TILE_WIRE_V02N0701)+ 20 *(y%3));
+        el.y2 = y2 + switchbox_y1 + 0.0017f*(20 + (tilewire - TILE_WIRE_V02N0701)+ 20 *(y%3));
         el.x2 = x + switchbox_x1 - 0.0017f*(20 + (tilewire - TILE_WIRE_V02N0701)+ 20 *(y%3));
         el.x1 = el.x2;
         g.push_back(el);
-    } 
+    
+        el.y1 = el.y2;
+        el.x1 = x + switchbox_x1;
+        g.push_back(el);
+    }        
     
     if (wire_type == id_WIRE_TYPE_H06) {        
         GraphicElement el;
@@ -434,7 +444,7 @@ void gfxTilePip(std::vector<GraphicElement> &g, int x, int y, int w, int h, Wire
     }        
     if (src_type == id_WIRE_TYPE_V02 && dst_type == id_WIRE_TYPE_V06) {
         el.x1 = x + switchbox_x1;        
-        el.y1 = y + switchbox_y1 + 0.0017f*(16 + (src_id - TILE_WIRE_V02N0701)+ 20 *(y%3));
+        el.y1 = y + switchbox_y1 + 0.0017f*(20 + (src_id - TILE_WIRE_V02N0701)+ 20 *(src.location.y%3));
 
         el.x2 = x + switchbox_x1 + (switchbox_x2-switchbox_x1)/2;
         el.y2 = y + switchbox_y1 + 0.0017f*(96 + (dst_id - TILE_WIRE_V06N0303)+ 20 *(y%3));
@@ -452,9 +462,30 @@ void gfxTilePip(std::vector<GraphicElement> &g, int x, int y, int w, int h, Wire
         el.y1 = y + switchbox_y1;
         
         el.x2 = x + switchbox_x1;        
-        el.y2 = y + switchbox_y1 + 0.0017f*(16 + (dst_id - TILE_WIRE_V02N0701)+ 20 *(y%3));
+        el.y2 = y + switchbox_y1 + 0.0017f*(20 + (dst_id - TILE_WIRE_V02N0701)+ 20 *(dst.location.y%3));
 
         g.push_back(el);
+    }        
+    if (src_type == id_WIRE_TYPE_V02 && dst_type == id_WIRE_TYPE_V02) {
+       
+        el.x1 = x + switchbox_x1;        
+        el.y1 = y + switchbox_y1 + 0.0017f*(20 + (src_id - TILE_WIRE_V02N0701)+ 20 *(src.location.y%3));
+
+        el.x2 = x + switchbox_x1 + (switchbox_x2-switchbox_x1)/2 - 0.0017f*(src_id - TILE_WIRE_V02N0701);
+        el.y2 = el.y1;
+
+        g.push_back(el);
+
+        el.y2 = y + switchbox_y1 + 0.0017f*(20 + (dst_id - TILE_WIRE_V02N0701)+ 20 *(dst.location.y%3));
+        el.x1 = el.x2;
+
+        g.push_back(el);
+
+        el.y1 = el.y2;
+        el.x1 =  x + switchbox_x1;
+        
+        g.push_back(el);
+
     }        
     
 
