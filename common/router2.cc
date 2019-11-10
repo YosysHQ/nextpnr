@@ -190,7 +190,7 @@ struct Router2
         };
     };
 
-    int bb_margin_x = 3, bb_margin_y = 3; // number of units outside the bounding box we may go
+    int bb_margin_x = 4, bb_margin_y = 4; // number of units outside the bounding box we may go
     bool hit_test_pip(ArcBounds &bb, Loc l)
     {
         return l.x >= (bb.x0 - bb_margin_x) && l.x <= (bb.x1 + bb_margin_x) && l.y >= (bb.y0 - bb_margin_y) &&
@@ -319,7 +319,8 @@ struct Router2
         auto &nd = nets[net->udata];
         auto &ad = nd.arcs[i];
         auto &usr = net->users.at(i);
-        ROUTE_LOG_DBG("Routing arc %d of net '%s'\n", int(i), ctx->nameOf(net));
+        ROUTE_LOG_DBG("Routing arc %d of net '%s' (%d, %d) -> (%d, %d)\n", int(i), ctx->nameOf(net), ad.bb.x0, ad.bb.y0,
+                      ad.bb.x1, ad.bb.y1);
         WireId src_wire = ctx->getNetinfoSourceWire(net), dst_wire = ctx->getNetinfoSinkWire(net, usr);
 
         if (src_wire == WireId())
@@ -337,7 +338,6 @@ struct Router2
         // Check if arc was already done _in this iteration_
         if (t.processed_sinks.count(dst_wire))
             return ARC_SUCCESS;
-        t.processed_sinks.insert(dst_wire);
         // Ripup arc to start with
         ripup_arc(net, i);
 
@@ -356,9 +356,12 @@ struct Router2
         t.visited[src_wire].score = base_score;
         t.visited[src_wire].pip = PipId();
 
-        while (!t.queue.empty()) {
+        int toexplore = 5000 * std::max(1, (ad.bb.x1 - ad.bb.x0) + (ad.bb.y1 - ad.bb.y0));
+        int iter = 0;
+        while (!t.queue.empty() && (!is_bb || iter < toexplore)) {
             auto curr = t.queue.top();
             t.queue.pop();
+            ++iter;
 #if 0
             ROUTE_LOG_DBG("current wire %s\n", ctx->nameOfWire(curr.wire));
 #endif
@@ -368,8 +371,14 @@ struct Router2
 #if 0
                 ROUTE_LOG_DBG("trying pip %s\n", ctx->nameOfPip(dh));
 #endif
+#if 0
+                int wire_intent = ctx->wireIntent(curr.wire);
+                if (is_bb && !hit_test_pip(ad.bb, ctx->getPipLocation(dh)) && wire_intent != ID_PSEUDO_GND && wire_intent != ID_PSEUDO_VCC)
+                    continue;
+#else
                 if (is_bb && !hit_test_pip(ad.bb, ctx->getPipLocation(dh)))
                     continue;
+#endif
                 // Evaluate score of next wire
                 WireId next = ctx->getPipDstWire(dh);
 #if 0
@@ -411,15 +420,18 @@ struct Router2
                 bind_pip_internal(net, i, cursor_bwd, v.pip);
                 if (ctx->debug) {
                     auto &wd = wires.at(cursor_bwd);
-                    ROUTE_LOG_DBG("      wire: %s (curr %d hist %f)\n", ctx->nameOfWire(cursor_bwd), int(wd.bound_nets.size()) - 1, wd.hist_cong_cost);
+                    ROUTE_LOG_DBG("      wire: %s (curr %d hist %f)\n", ctx->nameOfWire(cursor_bwd),
+                                  int(wd.bound_nets.size()) - 1, wd.hist_cong_cost);
                 }
                 if (v.pip == PipId()) {
                     NPNR_ASSERT(cursor_bwd == src_wire);
                     break;
                 }
-                ROUTE_LOG_DBG("         pip: %s\n", ctx->nameOfPip(v.pip));
+                ROUTE_LOG_DBG("         pip: %s (%d, %d)\n", ctx->nameOfPip(v.pip), ctx->getPipLocation(v.pip).x,
+                              ctx->getPipLocation(v.pip).y);
                 cursor_bwd = ctx->getPipSrcWire(v.pip);
             }
+            t.processed_sinks.insert(dst_wire);
             return ARC_SUCCESS;
         } else {
             return ARC_RETRY_WITHOUT_BB;
@@ -463,12 +475,15 @@ struct Router2
     int total_wire_use = 0;
     int overused_wires = 0;
     int total_overuse = 0;
+    std::vector<int> route_queue;
+    std::set<int> congested_nets;
 
     void update_congestion()
     {
         total_overuse = 0;
         overused_wires = 0;
         total_wire_use = 0;
+        congested_nets.clear();
         for (auto &wire : wires) {
             total_wire_use += int(wire.second.bound_nets.size());
             int overuse = int(wire.second.bound_nets.size()) - 1;
@@ -476,6 +491,8 @@ struct Router2
                 wire.second.hist_cong_cost += overuse * hist_cong_weight;
                 total_overuse += overuse;
                 overused_wires += 1;
+                for (auto &bound : wire.second.bound_nets)
+                    congested_nets.insert(bound.first);
             }
         }
     }
@@ -488,10 +505,21 @@ struct Router2
         hist_cong_weight = 1.0;
         ThreadContext st;
         int iter = 1;
+
+        for (size_t i = 0; i < nets_by_udata.size(); i++)
+            route_queue.push_back(i);
+
         do {
-            for (auto net : nets_by_udata)
-                route_net(st, net, false);
+            ctx->sorted_shuffle(route_queue);
+            for (size_t j = 0; j < route_queue.size(); j++) {
+                route_net(st, nets_by_udata[route_queue[j]], false);
+                if ((j % 1000) == 0 || j == (route_queue.size() - 1))
+                    log("    routed %d/%d\n", int(j), int(route_queue.size()));
+            }
+            route_queue.clear();
             update_congestion();
+            for (auto cn : congested_nets)
+                route_queue.push_back(cn);
             log_info("iter=%d wires=%d overused=%d overuse=%d\n", iter, total_wire_use, overused_wires, total_overuse);
             ++iter;
             curr_cong_weight *= 2;
