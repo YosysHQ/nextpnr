@@ -447,6 +447,16 @@ void setSource(GraphicElement &el, int x, int y, WireId src, IdString src_type, 
 
 void setDestination(GraphicElement &el, int x, int y, WireId dst, IdString dst_type, GfxTileWireId dst_id)
 {
+    if (dst_type == id_WIRE_TYPE_H00) {
+        int group = (dst_id - TILE_WIRE_H00L0000) / 2;
+        el.y2 = y + switchbox_y1 + 0.0017f*(8 - ((dst_id - TILE_WIRE_H00L0000) % 2)*4);
+
+        if (group) {
+            el.x2 = x + switchbox_x2;
+        } else {
+            el.x2 = x + switchbox_x1;
+        }
+    }
     if (dst_type == id_WIRE_TYPE_H01) {
         if (x == dst.location.x) 
             el.x2 = x + switchbox_x1;
@@ -461,6 +471,15 @@ void setDestination(GraphicElement &el, int x, int y, WireId dst, IdString dst_t
     if (dst_type == id_WIRE_TYPE_H06) {
         el.x2 = x + switchbox_x1 + 0.0017f*(96 + (dst_id - TILE_WIRE_H06W0303)+ 10 *(dst.location.x%9));
         el.y2 = y + switchbox_y1;
+    }
+    if (dst_type == id_WIRE_TYPE_V00) {
+        int group = (dst_id - TILE_WIRE_V00T0000) / 2;
+        el.x2 = x + switchbox_x2 - 0.0017f*(8 - ((dst_id - TILE_WIRE_V00T0000) % 2)*4);
+        if (group) {
+            el.y2 = y + switchbox_y1;
+        } else {
+            el.y2 = y + switchbox_y2;
+        }
     }
     if (dst_type == id_WIRE_TYPE_V01) {
         el.x2 = x + switchbox_x2 - 0.0017f*16 + 0.0017f * (dst_id - TILE_WIRE_V01N0001);
@@ -563,7 +582,7 @@ void toSameSideH1Hor(std::vector<GraphicElement> &g, GraphicElement &el,int x, i
     el2.style = style;
 
     setDestination(el2,x,y,dst,dst_type,dst_id);
-    if (dst_type == id_WIRE_TYPE_H01 || src_type == id_WIRE_TYPE_V01) {
+    if (dst_type == id_WIRE_TYPE_H01 || src_type == id_WIRE_TYPE_V01 || dst_type == id_WIRE_TYPE_H00) {
         el.x2 = el.x1;
         el.y2 = el2.y2;
         g.push_back(el);
@@ -605,14 +624,21 @@ void gfxTilePip(std::vector<GraphicElement> &g, int x, int y, int w, int h, Wire
     el.type = GraphicElement::TYPE_ARROW;
     el.style = style;
 
+    // To H00
+    if (src_type == id_WIRE_TYPE_V02 && dst_type == id_WIRE_TYPE_H00) {
+        toSameSideH1Ver(g,el,x,y,src,src_type,src_id,dst,dst_type,dst_id,style, dst_id - TILE_WIRE_H00L0000 + 30);
+    }
+    if (src_type == id_WIRE_TYPE_H02 && dst_type == id_WIRE_TYPE_H00) {
+        //toSameSideH1Hor(g,el,x,y,src,src_type,src_id,dst,dst_type,dst_id,style, dst_id - TILE_WIRE_H00L0000);
+        straightLine(g,el,x,y,src,src_type,src_id,dst,dst_type,dst_id);
+    }
+    
+    // To H01
     if (src_type == id_WIRE_TYPE_H06 && dst_type == id_WIRE_TYPE_H01) {
         toSameSideH1Hor(g,el,x,y,src,src_type,src_id,dst,dst_type,dst_id,style, dst_id - TILE_WIRE_H01E0001);
     }
-    if (src_type == id_WIRE_TYPE_V06 && dst_type == id_WIRE_TYPE_V01) {
-        toSameSideH1Hor(g,el,x,y,src,src_type,src_id,dst,dst_type,dst_id,style, dst_id - TILE_WIRE_V01N0001);
-    }
-
-
+    
+    // To H02
     if (src_type == id_WIRE_TYPE_H01 && dst_type == id_WIRE_TYPE_H02) {
         toSameSideH1Hor(g,el,x,y,src,src_type,src_id,dst,dst_type,dst_id,style, dst_id - TILE_WIRE_H02W0701);
     }
@@ -636,6 +662,7 @@ void gfxTilePip(std::vector<GraphicElement> &g, int x, int y, int w, int h, Wire
         straightLine(g,el,x,y,src,src_type,src_id,dst,dst_type,dst_id);
     }
         
+    // To H06
     if (src_type == id_WIRE_TYPE_H01 && dst_type == id_WIRE_TYPE_H06) {
         toSameSideH1Hor(g,el,x,y,src,src_type,src_id,dst,dst_type,dst_id,style, dst_id - TILE_WIRE_H06W0303);
     }
@@ -656,6 +683,21 @@ void gfxTilePip(std::vector<GraphicElement> &g, int x, int y, int w, int h, Wire
         straightLine(g,el,x,y,src,src_type,src_id,dst,dst_type,dst_id);
     }
 
+    // To V00
+    if (src_type == id_WIRE_TYPE_V02 && dst_type == id_WIRE_TYPE_V00) {
+        //toSameSideH1Hor(g,el,x,y,src,src_type,src_id,dst,dst_type,dst_id,style, dst_id - TILE_WIRE_V00T0000);
+        straightLine(g,el,x,y,src,src_type,src_id,dst,dst_type,dst_id);
+    }
+    if (src_type == id_WIRE_TYPE_H02 && dst_type == id_WIRE_TYPE_V00) {
+        toSameSideV1Ver(g,el,x,y,src,src_type,src_id,dst,dst_type,dst_id,style, src_id - TILE_WIRE_H02W0701 + 20);
+    }
+
+    // To V01
+    if (src_type == id_WIRE_TYPE_V06 && dst_type == id_WIRE_TYPE_V01) {
+        toSameSideH1Hor(g,el,x,y,src,src_type,src_id,dst,dst_type,dst_id,style, dst_id - TILE_WIRE_V01N0001);
+    }
+
+    // To V02
     if (src_type == id_WIRE_TYPE_H01 && dst_type == id_WIRE_TYPE_V02) {
         if (x == src.location.x) {
             toSameSideH1Ver(g,el,x,y,src,src_type,src_id,dst,dst_type,dst_id,style, dst_id - TILE_WIRE_V02N0701);                        
@@ -679,6 +721,7 @@ void gfxTilePip(std::vector<GraphicElement> &g, int x, int y, int w, int h, Wire
         toSameSideVer(g,el,x,y,src,src_type,src_id,dst,dst_type,dst_id,style,src_id - TILE_WIRE_V06N0303);
     }
 
+    // To V06
     if (src_type == id_WIRE_TYPE_H01 && dst_type == id_WIRE_TYPE_V06) {
         if (x == src.location.x) {
             toSameSideH1Ver(g,el,x,y,src,src_type,src_id,dst,dst_type,dst_id,style, dst_id - TILE_WIRE_V06N0303);                        
