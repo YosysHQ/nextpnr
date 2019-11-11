@@ -77,8 +77,8 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
             el.style = style;
             el.x1 = x + switchbox_x2 - 0.0017f*16 + 0.0017f * (tilewire - TILE_WIRE_V01N0001);
             el.x2 = el.x1;
-            el.y1 = y + switchbox_y1;
-            el.y2 = y + switchbox_y2 - 1;
+            el.y1 = y + switchbox_y1 + 1;
+            el.y2 = y + switchbox_y2;
             g.push_back(el);
         } 
     }  
@@ -413,6 +413,13 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
 
 void setSource(GraphicElement &el, int x, int y, WireId src, IdString src_type, GfxTileWireId src_id)
 {
+    if (src_type == id_WIRE_TYPE_H01) {
+        if (x == src.location.x) 
+            el.x1 = x + switchbox_x1;
+        else
+            el.x1 = x + switchbox_x2;
+        el.y1 = y + switchbox_y1 + 0.0017f*16 - 0.0017f * (src_id - TILE_WIRE_H01E0001);
+    }
     if (src_type == id_WIRE_TYPE_H02) {
         el.x1 = x + switchbox_x1 + 0.0017f*(16 + (src_id - TILE_WIRE_H02W0701)+ 20 *(src.location.x%3));
         el.y1 = y + switchbox_y1;
@@ -420,6 +427,13 @@ void setSource(GraphicElement &el, int x, int y, WireId src, IdString src_type, 
     if (src_type == id_WIRE_TYPE_H06) {
         el.x1 = x + switchbox_x1 + 0.0017f*(96 + (src_id - TILE_WIRE_H06W0303)+ 10 *(src.location.x%9));
         el.y1 = y + switchbox_y1;
+    }
+    if (src_type == id_WIRE_TYPE_V01) {
+        el.x1 = x + switchbox_x2 - 0.0017f*16 + 0.0017f * (src_id - TILE_WIRE_V01N0001);
+        if (y == src.location.y) 
+            el.y1 = y + switchbox_y2;
+        else
+            el.y1 = y + switchbox_y1;
     }
     if (src_type == id_WIRE_TYPE_V02) {
         el.x1 = x + switchbox_x1;        
@@ -433,6 +447,13 @@ void setSource(GraphicElement &el, int x, int y, WireId src, IdString src_type, 
 
 void setDestination(GraphicElement &el, int x, int y, WireId dst, IdString dst_type, GfxTileWireId dst_id)
 {
+    if (dst_type == id_WIRE_TYPE_H01) {
+        if (x == dst.location.x) 
+            el.x2 = x + switchbox_x1;
+        else
+            el.x2 = x + switchbox_x2;
+        el.y2 = y + switchbox_y1 + 0.0017f*16 - 0.0017f * (dst_id - TILE_WIRE_H01E0001);
+    }
     if (dst_type == id_WIRE_TYPE_H02) {
         el.x2 = x + switchbox_x1 + 0.0017f*(16 + (dst_id - TILE_WIRE_H02W0701)+ 20 *(dst.location.x%3));
         el.y2 = y + switchbox_y1;
@@ -440,6 +461,13 @@ void setDestination(GraphicElement &el, int x, int y, WireId dst, IdString dst_t
     if (dst_type == id_WIRE_TYPE_H06) {
         el.x2 = x + switchbox_x1 + 0.0017f*(96 + (dst_id - TILE_WIRE_H06W0303)+ 10 *(dst.location.x%9));
         el.y2 = y + switchbox_y1;
+    }
+    if (dst_type == id_WIRE_TYPE_V01) {
+        el.x2 = x + switchbox_x2 - 0.0017f*16 + 0.0017f * (dst_id - TILE_WIRE_V01N0001);
+        if (y == dst.location.y) 
+            el.y2 = y + switchbox_y2;
+        else
+            el.y2 = y + switchbox_y1;
     }
     if (dst_type == id_WIRE_TYPE_V02) {
         el.x2 = x + switchbox_x1;        
@@ -504,53 +532,102 @@ void toSameSideVer(std::vector<GraphicElement> &g, GraphicElement &el,int x, int
     g.push_back(el2);
 }
 
+void toSameSideH1Ver(std::vector<GraphicElement> &g, GraphicElement &el,int x, int y, WireId src, IdString src_type, GfxTileWireId src_id,WireId dst, IdString dst_type, GfxTileWireId dst_id, GraphicElement::style_t style, int idx)
+{
+    setSource(el,x,y,src,src_type,src_id);
+    el.x2 = x + switchbox_x1 + (switchbox_x2-switchbox_x1)/2 - 0.0017f*idx;
+    el.y2 = el.y1;
+    g.push_back(el);
+    
+    GraphicElement el2;    
+    el2.type = GraphicElement::TYPE_ARROW;
+    el2.style = style;
+
+    setDestination(el2,x,y,dst,dst_type,dst_id);
+    
+    el.x1 = el.x2;
+    el.y1 = el2.y2;
+    g.push_back(el);
+
+    el2.x1 = el.x1;
+    el2.y1 = el.y1;
+    g.push_back(el2);
+}
+
+void toSameSideH1Hor(std::vector<GraphicElement> &g, GraphicElement &el,int x, int y, WireId src, IdString src_type, GfxTileWireId src_id,WireId dst, IdString dst_type, GfxTileWireId dst_id, GraphicElement::style_t style, int idx)
+{
+    setSource(el,x,y,src,src_type,src_id);
+   
+    GraphicElement el2;    
+    el2.type = GraphicElement::TYPE_ARROW;
+    el2.style = style;
+
+    setDestination(el2,x,y,dst,dst_type,dst_id);
+    if (dst_type == id_WIRE_TYPE_H01 || src_type == id_WIRE_TYPE_V01) {
+        el.x2 = el.x1;
+        el.y2 = el2.y2;
+        g.push_back(el);
+    } else {
+        el.x2 = el2.x2;
+        el.y2 = el.y1;
+        g.push_back(el);
+    }
+
+    el2.x1 = el.x2;
+    el2.y1 = el.y2;
+    g.push_back(el2);
+}
+
+void toSameSideV1Ver(std::vector<GraphicElement> &g, GraphicElement &el,int x, int y, WireId src, IdString src_type, GfxTileWireId src_id,WireId dst, IdString dst_type, GfxTileWireId dst_id, GraphicElement::style_t style, int idx)
+{
+    setSource(el,x,y,src,src_type,src_id);
+    el.x2 = el.x1;
+    el.y2 = y + switchbox_y1 + (switchbox_y2-switchbox_y1)/2 - 0.0017f*idx;
+    g.push_back(el);
+    
+    GraphicElement el2;    
+    el2.type = GraphicElement::TYPE_ARROW;
+    el2.style = style;
+
+    setDestination(el2,x,y,dst,dst_type,dst_id);
+    
+    el.x1 = el2.x2;
+    el.y1 = el.y2;
+    g.push_back(el);
+
+    el2.x1 = el.x1;
+    el2.y1 = el.y1;
+    g.push_back(el2);
+}
 void gfxTilePip(std::vector<GraphicElement> &g, int x, int y, int w, int h, WireId src, IdString src_type, GfxTileWireId src_id, WireId dst, IdString dst_type, GfxTileWireId dst_id, GraphicElement::style_t style)
 {    
     GraphicElement el;
     el.type = GraphicElement::TYPE_ARROW;
     el.style = style;
 
-    if (src_type == id_WIRE_TYPE_H06 && dst_type == id_WIRE_TYPE_V06) {
-        straightLine(g,el,x,y,src,src_type,src_id,dst,dst_type,dst_id);
+    if (src_type == id_WIRE_TYPE_H06 && dst_type == id_WIRE_TYPE_H01) {
+        toSameSideH1Hor(g,el,x,y,src,src_type,src_id,dst,dst_type,dst_id,style, dst_id - TILE_WIRE_H01E0001);
     }
-    if (src_type == id_WIRE_TYPE_H01 && dst_type == id_WIRE_TYPE_V06) {
-        if (src_id <= TILE_WIRE_H01E0101) {
+    if (src_type == id_WIRE_TYPE_V06 && dst_type == id_WIRE_TYPE_V01) {
+        toSameSideH1Hor(g,el,x,y,src,src_type,src_id,dst,dst_type,dst_id,style, dst_id - TILE_WIRE_V01N0001);
+    }
 
-            el.x1 = x + switchbox_x1;
-            el.y1 = y + switchbox_y1 + 0.0017f*16 - 0.0017f * (src_id - TILE_WIRE_H01E0001);
 
-            el.x2 = x + switchbox_x1 + (switchbox_x2-switchbox_x1)/2;
-            el.y2 = y + switchbox_y1 + 0.0017f*(96 + (dst_id - TILE_WIRE_V06N0303)+ 10 *(dst.location.y%9));
-            g.push_back(el);
-
-            el.x1 = x + switchbox_x1 + (switchbox_x2-switchbox_x1)/2;
-            el.y1 = y + switchbox_y1 + 0.0017f*(96 + (dst_id - TILE_WIRE_V06N0303)+ 10 *(dst.location.y%9));
-            el.y2 = y + switchbox_y1 + 0.0017f*(96 + (dst_id - TILE_WIRE_V06N0303)+ 10 *(dst.location.y%9));
-            el.x2 = x + switchbox_x1;
-            g.push_back(el);
+    if (src_type == id_WIRE_TYPE_H01 && dst_type == id_WIRE_TYPE_H02) {
+        toSameSideH1Hor(g,el,x,y,src,src_type,src_id,dst,dst_type,dst_id,style, dst_id - TILE_WIRE_H02W0701);
+    }
+    if (src_type == id_WIRE_TYPE_H02 && dst_type == id_WIRE_TYPE_H02) {
+        toSameSideHor(g,el,x,y,src,src_type,src_id,dst,dst_type,dst_id,style,src_id - TILE_WIRE_H02W0701);
+    }
+    if (src_type == id_WIRE_TYPE_H06 && dst_type == id_WIRE_TYPE_H02) {
+        toSameSideHor(g,el,x,y,src,src_type,src_id,dst,dst_type,dst_id,style,src_id - TILE_WIRE_H06W0303);
+    }    
+    if (src_type == id_WIRE_TYPE_V01 && dst_type == id_WIRE_TYPE_H02) {
+        if (y == src.location.y) {
+            straightLine(g,el,x,y,src,src_type,src_id,dst,dst_type,dst_id);                        
         } else {
-            el.x1 = x + switchbox_x2;
-            el.y1 = y + switchbox_y1 + 0.0017f*16 - 0.0017f * (src_id - TILE_WIRE_H01E0001);
-
-            el.y2 = y + switchbox_y1 + 0.0017f*(96 + (dst_id - TILE_WIRE_V06N0303)+ 10 *(dst.location.y%9));
-            el.x2 = x + switchbox_x1;
-            g.push_back(el);
+            toSameSideV1Ver(g,el,x,y,src,src_type,src_id,dst,dst_type,dst_id,style, dst_id - TILE_WIRE_H02W0701);
         }
-    }      
-    if (src_type == id_WIRE_TYPE_V02 && dst_type == id_WIRE_TYPE_V06) {
-        toSameSideVer(g,el,x,y,src,src_type,src_id,dst,dst_type,dst_id,style,src_id - TILE_WIRE_V02N0701);
-    }
-    if (src_type == id_WIRE_TYPE_V06 && dst_type == id_WIRE_TYPE_V02) {
-        toSameSideVer(g,el,x,y,src,src_type,src_id,dst,dst_type,dst_id,style,src_id - TILE_WIRE_V06N0303);
-    }
-    if (src_type == id_WIRE_TYPE_V02 && dst_type == id_WIRE_TYPE_V02) {
-        toSameSideVer(g,el,x,y,src,src_type,src_id,dst,dst_type,dst_id,style,src_id - TILE_WIRE_V02N0701);
-    }
-    if (src_type == id_WIRE_TYPE_V06 && dst_type == id_WIRE_TYPE_V06) {
-        toSameSideVer(g,el,x,y,src,src_type,src_id,dst,dst_type,dst_id,style,src_id - TILE_WIRE_V06N0303);
-    }
-    if (src_type == id_WIRE_TYPE_H02 && dst_type == id_WIRE_TYPE_V02) {
-        straightLine(g,el,x,y,src,src_type,src_id,dst,dst_type,dst_id);
     }
     if (src_type == id_WIRE_TYPE_V02 && dst_type == id_WIRE_TYPE_H02) {
         straightLine(g,el,x,y,src,src_type,src_id,dst,dst_type,dst_id);
@@ -558,8 +635,9 @@ void gfxTilePip(std::vector<GraphicElement> &g, int x, int y, int w, int h, Wire
     if (src_type == id_WIRE_TYPE_V06 && dst_type == id_WIRE_TYPE_H02) {
         straightLine(g,el,x,y,src,src_type,src_id,dst,dst_type,dst_id);
     }
-    if (src_type == id_WIRE_TYPE_H02 && dst_type == id_WIRE_TYPE_H02) {
-        toSameSideHor(g,el,x,y,src,src_type,src_id,dst,dst_type,dst_id,style,src_id - TILE_WIRE_H02W0701);
+        
+    if (src_type == id_WIRE_TYPE_H01 && dst_type == id_WIRE_TYPE_H06) {
+        toSameSideH1Hor(g,el,x,y,src,src_type,src_id,dst,dst_type,dst_id,style, dst_id - TILE_WIRE_H06W0303);
     }
     if (src_type == id_WIRE_TYPE_H02 && dst_type == id_WIRE_TYPE_H06) {
         toSameSideHor(g,el,x,y,src,src_type,src_id,dst,dst_type,dst_id,style,src_id - TILE_WIRE_H02W0701);
@@ -567,8 +645,58 @@ void gfxTilePip(std::vector<GraphicElement> &g, int x, int y, int w, int h, Wire
     if (src_type == id_WIRE_TYPE_H06 && dst_type == id_WIRE_TYPE_H06) {
         toSameSideHor(g,el,x,y,src,src_type,src_id,dst,dst_type,dst_id,style,src_id - TILE_WIRE_H06W0303);
     }
-    if (src_type == id_WIRE_TYPE_H06 && dst_type == id_WIRE_TYPE_H02) {
-        toSameSideHor(g,el,x,y,src,src_type,src_id,dst,dst_type,dst_id,style,src_id - TILE_WIRE_H06W0303);
+    if (src_type == id_WIRE_TYPE_V01 && dst_type == id_WIRE_TYPE_H06) {
+        if (y == src.location.y) {
+            straightLine(g,el,x,y,src,src_type,src_id,dst,dst_type,dst_id);                        
+        } else {
+            toSameSideV1Ver(g,el,x,y,src,src_type,src_id,dst,dst_type,dst_id,style, dst_id - TILE_WIRE_H06W0303);
+        }
+    }
+    if (src_type == id_WIRE_TYPE_V06 && dst_type == id_WIRE_TYPE_H06) {
+        straightLine(g,el,x,y,src,src_type,src_id,dst,dst_type,dst_id);
+    }
+
+    if (src_type == id_WIRE_TYPE_H01 && dst_type == id_WIRE_TYPE_V02) {
+        if (x == src.location.x) {
+            toSameSideH1Ver(g,el,x,y,src,src_type,src_id,dst,dst_type,dst_id,style, dst_id - TILE_WIRE_V02N0701);                        
+        } else {
+            straightLine(g,el,x,y,src,src_type,src_id,dst,dst_type,dst_id);            
+        }
+    }
+    if (src_type == id_WIRE_TYPE_H02 && dst_type == id_WIRE_TYPE_V02) {
+        straightLine(g,el,x,y,src,src_type,src_id,dst,dst_type,dst_id);
+    }
+    if (src_type == id_WIRE_TYPE_H06 && dst_type == id_WIRE_TYPE_V02) {
+        straightLine(g,el,x,y,src,src_type,src_id,dst,dst_type,dst_id);
+    }
+    if (src_type == id_WIRE_TYPE_V01 && dst_type == id_WIRE_TYPE_V02) {
+        toSameSideH1Hor(g,el,x,y,src,src_type,src_id,dst,dst_type,dst_id,style, dst_id - TILE_WIRE_V02N0701);
+    }
+    if (src_type == id_WIRE_TYPE_V02 && dst_type == id_WIRE_TYPE_V02) {
+        toSameSideVer(g,el,x,y,src,src_type,src_id,dst,dst_type,dst_id,style,src_id - TILE_WIRE_V02N0701);
+    }
+    if (src_type == id_WIRE_TYPE_V06 && dst_type == id_WIRE_TYPE_V02) {
+        toSameSideVer(g,el,x,y,src,src_type,src_id,dst,dst_type,dst_id,style,src_id - TILE_WIRE_V06N0303);
+    }
+
+    if (src_type == id_WIRE_TYPE_H01 && dst_type == id_WIRE_TYPE_V06) {
+        if (x == src.location.x) {
+            toSameSideH1Ver(g,el,x,y,src,src_type,src_id,dst,dst_type,dst_id,style, dst_id - TILE_WIRE_V06N0303);                        
+        } else {
+            straightLine(g,el,x,y,src,src_type,src_id,dst,dst_type,dst_id);            
+        }
+    }
+    if (src_type == id_WIRE_TYPE_H06 && dst_type == id_WIRE_TYPE_V06) {
+        straightLine(g,el,x,y,src,src_type,src_id,dst,dst_type,dst_id);
+    }
+    if (src_type == id_WIRE_TYPE_V01 && dst_type == id_WIRE_TYPE_V06) {
+        toSameSideH1Hor(g,el,x,y,src,src_type,src_id,dst,dst_type,dst_id,style, dst_id - TILE_WIRE_V06N0303);
+    }
+    if (src_type == id_WIRE_TYPE_V02 && dst_type == id_WIRE_TYPE_V06) {
+        toSameSideVer(g,el,x,y,src,src_type,src_id,dst,dst_type,dst_id,style,src_id - TILE_WIRE_V02N0701);
+    }
+    if (src_type == id_WIRE_TYPE_V06 && dst_type == id_WIRE_TYPE_V06) {
+        toSameSideVer(g,el,x,y,src,src_type,src_id,dst,dst_type,dst_id,style,src_id - TILE_WIRE_V06N0303);
     }
 }
 
