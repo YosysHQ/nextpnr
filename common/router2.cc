@@ -211,6 +211,10 @@ struct Router2
         std::unordered_map<WireId, VisitInfo> visited;
         // Special case where one net has multiple logical arcs to the same physical sink
         std::unordered_set<WireId> processed_sinks;
+
+        // Backwards routing
+        std::queue<WireId> backwards_queue;
+        std::unordered_map<WireId, PipId> backwards_pip;
     };
 
     enum ArcRouteResult
@@ -345,18 +349,78 @@ struct Router2
             std::priority_queue<QueuedWire, std::vector<QueuedWire>, QueuedWire::Greater> new_queue;
             t.queue.swap(new_queue);
         }
-        t.visited.clear();
+        if (!t.backwards_queue.empty()) {
+            std::queue<WireId> new_queue;
+            t.backwards_queue.swap(new_queue);
+        }
+        // First try strongly iteration-limited routing backwards BFS
+        // this will deal with certain nets faster than forward A*
+        // and comes at a minimal performance cost for the others
+        // This could also be used to speed up forwards routing by a hybrid
+        // bidirectional approach
+        int backwards_iter = 0;
+        int backwards_limit = 125;
+        t.backwards_pip.clear();
+        t.backwards_queue.push(dst_wire);
+        while (!t.backwards_queue.empty() && backwards_iter < backwards_limit) {
+            WireId cursor = t.backwards_queue.front();
+            t.backwards_queue.pop();
+            auto &cwd = wires.at(cursor);
+            PipId cpip;
+            if (cwd.bound_nets.count(net->udata))
+                cpip = cwd.bound_nets.at(net->udata).second;
+            bool did_something = false;
+            for (auto uh : ctx->getPipsUphill(cursor)) {
+                did_something = true;
+                if (cpip != PipId() && cpip != uh)
+                    continue; // don't allow multiple pips driving a wire with a net
+                WireId next = ctx->getPipSrcWire(uh);
+                if (t.backwards_pip.count(next))
+                    continue; // skip wires that have already been visited
+                auto &wd = wires.at(next);
+                if (wd.unavailable)
+                    continue;
+                if (wd.bound_nets.size() > 1 || (wd.bound_nets.size() == 1 && !wd.bound_nets.count(net->udata)))
+                    continue; // never allow congestion in backwards routing
+                t.backwards_queue.push(next);
+                t.backwards_pip[next] = uh;
+            }
+            if (did_something)
+                ++backwards_iter;
+        }
+        // Check if backwards routing succeeded in reaching source
+        if (t.backwards_pip.count(src_wire)) {
+            ROUTE_LOG_DBG("   Routed (backwards): ");
+            WireId cursor_fwd = src_wire;
+            bind_pip_internal(net, i, src_wire, PipId());
+            while (t.backwards_pip.count(cursor_fwd)) {
+                auto &v = t.backwards_pip.at(cursor_fwd);
+                cursor_fwd = ctx->getPipDstWire(v);
+                bind_pip_internal(net, i, cursor_fwd, v);
+                if (ctx->debug) {
+                    auto &wd = wires.at(cursor_fwd);
+                    ROUTE_LOG_DBG("      wire: %s (curr %d hist %f)\n", ctx->nameOfWire(cursor_fwd),
+                                  int(wd.bound_nets.size()) - 1, wd.hist_cong_cost);
+                }
+            }
+            NPNR_ASSERT(cursor_fwd == dst_wire);
+            t.processed_sinks.insert(dst_wire);
+            return ARC_SUCCESS;
+        }
 
-        // Add source wire to queue
+        // Normal forwards A* routing
+        t.visited.clear();
         WireScore base_score;
         base_score.cost = 0;
         base_score.delay = ctx->getWireDelay(src_wire).maxDelay();
         base_score.togo_cost = get_togo_cost(net, i, src_wire, dst_wire);
+
+        // Add source wire to queue
         t.queue.push(QueuedWire(src_wire, PipId(), Loc(), base_score));
         t.visited[src_wire].score = base_score;
         t.visited[src_wire].pip = PipId();
 
-        int toexplore = 5000 * std::max(1, (ad.bb.x1 - ad.bb.x0) + (ad.bb.y1 - ad.bb.y0));
+        int toexplore = 25000 * std::max(1, (ad.bb.x1 - ad.bb.x0) + (ad.bb.y1 - ad.bb.y0));
         int iter = 0;
         while (!t.queue.empty() && (!is_bb || iter < toexplore)) {
             auto curr = t.queue.top();
