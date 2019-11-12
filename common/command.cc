@@ -35,6 +35,7 @@
 #include <iostream>
 #include "command.h"
 #include "design_utils.h"
+#include "frontend_base.h"
 #include "jsonparse.h"
 #include "jsonwrite.h"
 #include "log.h"

@@ -100,3 +100,93 @@
  *       returns the signal number of vector bit <i>
  *
  */
+
+#include "log.h"
+#include "nextpnr.h"
+NEXTPNR_NAMESPACE_BEGIN
+
+namespace {
+
+template <typename FrontendType> struct GenericFrontend
+{
+    GenericFrontend(Context *ctx, const FrontendType &impl) : ctx(ctx), impl(impl) {}
+    Context *ctx;
+    const FrontendType &impl;
+    using mod_dat_t = typename FrontendType::ModuleDataType;
+    using mod_port_dat_t = typename FrontendType::ModulePortDataType;
+    using cell_dat_t = typename FrontendType::CellDataType;
+    using netname_dat_t = typename FrontendType::NetnameDataType;
+    using bitvector_t = typename FrontendType::BitVectorDataType;
+
+    // Used for hierarchy resolution
+    struct ModuleInfo
+    {
+        mod_dat_t *mod_data;
+        bool is_top = false, is_blackbox = false, is_whitebox = false;
+        inline bool is_box() const { return is_blackbox || is_whitebox; }
+        std::unordered_set<IdString> instantiated_celltypes;
+    };
+    std::unordered_map<IdString, ModuleInfo> mods;
+    IdString top;
+
+    // Process the list of modules and determine
+    // the top module
+    void find_top_module()
+    {
+        impl.foreach_module([&](const std::string &name, const mod_dat_t &mod) {
+            IdString mod_id = ctx->id(name);
+            auto &mi = mods[mod_id];
+            mi.mod_data = &mod;
+            impl.foreach_attr(mod, [&](const std::string &name, const Property &value) {
+                if (name == "top")
+                    mi.is_top = (value.intval != 0);
+                else if (name == "blackbox")
+                    mi.is_blackbox = (value.intval != 0);
+                else if (name == "whitebox")
+                    mi.is_whitebox = (value.intval != 0);
+            });
+            impl.foreach_cell(mod, [&](const std::string &name, const cell_dat_t &cell) {
+                mi.instantiated_cells.insert(ctx->id(impl.get_cell_type(cell)));
+            });
+        });
+        // First of all, see if a top module has been manually specified
+        if (ctx->settings.count(ctx->id("frontend/top"))) {
+            IdString user_top = ctx->id(ctx->settings.at(ctx->id("frontend/top")).as_string());
+            if (!mods.count(user_top))
+                log_error("Top module '%s' not found!\n", ctx->nameOf(user_top));
+            top = user_top;
+            return;
+        }
+        // If not, look for a module with the top attribute set
+        IdString top_by_attr;
+        for (auto &mod : mods) {
+            if (mod.second.is_top && !mod.second.is_box()) {
+                if (top_by_attr != IdString())
+                    log_error("Found multiple modules with (* top *) set (including %s and %s).\n",
+                              ctx->nameOf(top_by_attr), ctx->nameOf(mod.first));
+                top_by_attr = mod.first;
+            }
+        }
+        if (top_by_attr != IdString()) {
+            top = top_by_attr;
+            return;
+        }
+        // Finally, attempt to autodetect the top module using hierarchy
+        // (a module that is not a box and is not used as a cell by any other module)
+        std::unordered_set<IdString> candidate_top;
+        for (auto &mod : mods)
+            if (!mod.second.is_box())
+                candidate_top.insert(mod.first);
+        for (auto &mod : mods)
+            for (auto &c : mod.second.instantiated_celltypes)
+                candidate_top.erase(c);
+        if (candidate_top.size() != 1)
+            log_error("Failed to autodetect top module, please specify using --top.\n");
+        top = *(candidate_top.begin());
+    }
+};
+} // namespace
+
+template <typename FrontendType> void run_frontend(Context *ctx, const FrontendType &impl) {}
+
+NEXTPNR_NAMESPACE_END
