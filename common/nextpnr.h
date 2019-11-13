@@ -397,6 +397,8 @@ struct NetInfo : ArchNetInfo
     // wire -> uphill_pip
     std::unordered_map<WireId, PipMap> wires;
 
+    std::vector<IdString> aliases; // entries in net_aliases that point to this net
+
     std::unique_ptr<ClockConstraint> clkconstr;
 
     TimingConstrObjectId tmg_id;
