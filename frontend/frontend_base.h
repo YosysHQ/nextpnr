@@ -205,9 +205,10 @@ template <typename FrontendType> struct GenericFrontend
         return name;
     }
 
-    // A flat index of map; designed to cope with renaming
+    // A flat index of map; designed to cope with merging nets where pointers to nets would go stale
     // A net's udata points into this index
     std::vector<NetInfo *> net_flatindex;
+    std::vector<std::vector<int>> net_old_indices; // the other indices of a net in net_flatindex for merging
 
     // This structure contains some structures specific to the import of a module at
     // a certain point in the hierarchy
@@ -216,17 +217,17 @@ template <typename FrontendType> struct GenericFrontend
         bool is_toplevel;
         std::string prefix;
         // Map from index in module to "flat" index of nets
-        std::vector<NetInfo *> index_to_net_flatindex;
+        std::vector<int> index_to_net_flatindex;
         // Get a reference to index_to_net; resizing if
         // appropriate
-        NetInfo *&net_by_idx(int idx)
+        int &net_by_idx(int idx)
         {
             NPNR_ASSERT(idx >= 0);
             if (idx >= int(index_to_net_flatindex.size()))
-                index_to_net_flatindex.resize(idx + 1, nullptr);
+                index_to_net_flatindex.resize(idx + 1, -1);
             return index_to_net_flatindex.at(idx);
         }
-        std::unordered_map<IdString, std::vector<NetInfo *>> port_to_bus;
+        std::unordered_map<IdString, std::vector<int>> port_to_bus;
     };
 
     void import_module(HierModuleState &m, mod_dat_t *data)
@@ -287,7 +288,13 @@ template <typename FrontendType> struct GenericFrontend
         // Create a new alias from mergee's name to new base name
         ctx->net_aliases[mergee->name] = base->name;
         // Update flat index of nets
+        for (auto old_idx : net_old_indices.at(mergee->udata)) {
+            net_old_indices.at(base).push_back(old_idx);
+            net_flatindex.at(old_idx) = base;
+        }
+        net_old_indices.at(base).push_back(mergee->udata);
         net_flatindex.at(mergee->udata) = base;
+        net_old_indices.at(mergee->udata).clear();
         // Remove merged net from context
         ctx->nets.erase(mergee->name);
     }
@@ -307,9 +314,11 @@ template <typename FrontendType> struct GenericFrontend
             int bv_size = impl.get_vector_length(bv);
             // Iterate over bits of port; making connections
             for (int i = 0; i < std::min<int>(bv_size, p2b.size()); i++) {
-                NetInfo *conn_net = p2b.at(i);
-                if (conn_net == nullptr)
+                int conn_net = p2b.at(i);
+                if (conn_net == -1)
                     continue;
+                NetInfo *conn_ni = net_flatindex.at(conn_net);
+                NPNR_ASSERT(conn_ni != nullptr);
                 if (impl.is_vector_bit_constant(bv, i)) {
                     // It is a constant, we might need to insert a constant driver here to drive the corresponding
                     // net in the parent
@@ -319,10 +328,20 @@ template <typename FrontendType> struct GenericFrontend
                         log_error("Input port %s%s[%d] cannot be driving a constant '%c'.\n", m.prefix.c_str(),
                                   port.c_str(), i, constval);
                     // Insert the constant driver
-                    add_constant_driver(m, conn_net, constval);
+                    add_constant_driver(m, conn_ni, constval);
                 } else {
                     // If not driving a constant; simply make the port bit net index in the submodule correspond
                     // to connected net in the parent module
+                    int &submod_net = m.net_by_idx(impl.get_vector_bit_signal(bv, i));
+                    if (submod_net == -1) {
+                        // A net at this index doesn't yet exist
+                        // We can simply set this index to point to the net in the parent
+                        submod_net = conn_net;
+                    } else {
+                        // A net at this index already exists (this would usually be a submodule net
+                        // connected to more than one I/O port)
+                        merge_nets(net_flatindex.at(submod_net), net_flatindex.at(conn_net));
+                    }
                 }
             }
         });
