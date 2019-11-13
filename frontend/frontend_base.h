@@ -56,11 +56,11 @@
  *   PortType get_port_dir(const ModulePortDataType &port);
  *       gets the PortType direction of a module port
  *
- *   int get_port_offset(const ModulePortDataType &port);
- *       gets the start bit number of a port
+ *   int get_array_offset(const ModulePortDataType &port);
+ *       gets the start bit number of a port or netname entry
  *
- *   bool is_port_upto(const ModulePortDataType &port);
- *       returns true if a port is an "upto" type port
+ *   bool is_array_upto(const ModulePortDataType &port);
+ *       returns true if a port/net is an "upto" type port or netname entry
  *
  *   const BitVectorDataType &get_port_bits(const ModulePortDataType &port);
  *       gets the bit vector of a module port
@@ -108,6 +108,14 @@ NEXTPNR_NAMESPACE_BEGIN
 
 namespace {
 
+// Used for hierarchy resolution
+struct ModuleInfo
+{
+    bool is_top = false, is_blackbox = false, is_whitebox = false;
+    inline bool is_box() const { return is_blackbox || is_whitebox; }
+    std::unordered_set<IdString> instantiated_celltypes;
+};
+
 template <typename FrontendType> struct GenericFrontend
 {
     GenericFrontend(Context *ctx, const FrontendType &impl) : ctx(ctx), impl(impl) {}
@@ -119,14 +127,6 @@ template <typename FrontendType> struct GenericFrontend
     using netname_dat_t = typename FrontendType::NetnameDataType;
     using bitvector_t = typename FrontendType::BitVectorDataType;
 
-    // Used for hierarchy resolution
-    struct ModuleInfo
-    {
-        const mod_dat_t *mod_data;
-        bool is_top = false, is_blackbox = false, is_whitebox = false;
-        inline bool is_box() const { return is_blackbox || is_whitebox; }
-        std::unordered_set<IdString> instantiated_celltypes;
-    };
     std::unordered_map<IdString, ModuleInfo> mods;
     IdString top;
 
@@ -137,7 +137,6 @@ template <typename FrontendType> struct GenericFrontend
         impl.foreach_module([&](const std::string &name, const mod_dat_t &mod) {
             IdString mod_id = ctx->id(name);
             auto &mi = mods[mod_id];
-            mi.mod_data = &mod;
             impl.foreach_attr(mod, [&](const std::string &name, const Property &value) {
                 if (name == "top")
                     mi.is_top = (value.intval != 0);
@@ -147,7 +146,7 @@ template <typename FrontendType> struct GenericFrontend
                     mi.is_whitebox = (value.intval != 0);
             });
             impl.foreach_cell(mod, [&](const std::string &name, const cell_dat_t &cell) {
-                mi.instantiated_cells.insert(ctx->id(impl.get_cell_type(cell)));
+                mi.instantiated_celltypes.insert(ctx->id(impl.get_cell_type(cell)));
             });
         });
         // First of all, see if a top module has been manually specified
@@ -230,7 +229,7 @@ template <typename FrontendType> struct GenericFrontend
         std::unordered_map<IdString, std::vector<int>> port_to_bus;
     };
 
-    void import_module(HierModuleState &m, mod_dat_t *data)
+    void import_module(HierModuleState &m, const mod_dat_t &data)
     {
         std::vector<NetInfo *> index_to_net;
         // Import port connections; for submodules only
@@ -289,10 +288,10 @@ template <typename FrontendType> struct GenericFrontend
         ctx->net_aliases[mergee->name] = base->name;
         // Update flat index of nets
         for (auto old_idx : net_old_indices.at(mergee->udata)) {
-            net_old_indices.at(base).push_back(old_idx);
+            net_old_indices.at(base->udata).push_back(old_idx);
             net_flatindex.at(old_idx) = base;
         }
-        net_old_indices.at(base).push_back(mergee->udata);
+        net_old_indices.at(base->udata).push_back(mergee->udata);
         net_flatindex.at(mergee->udata) = base;
         net_old_indices.at(mergee->udata).clear();
         // Remove merged net from context
@@ -349,6 +348,9 @@ template <typename FrontendType> struct GenericFrontend
 };
 } // namespace
 
-template <typename FrontendType> void run_frontend(Context *ctx, const FrontendType &impl) {}
+template <typename FrontendType> void run_frontend(Context *ctx, const FrontendType &impl)
+{
+    GenericFrontend<FrontendType>(ctx, impl);
+}
 
 NEXTPNR_NAMESPACE_END
