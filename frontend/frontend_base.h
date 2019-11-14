@@ -227,6 +227,8 @@ template <typename FrontendType> struct GenericFrontend
             return index_to_net_flatindex.at(idx);
         }
         std::unordered_map<IdString, std::vector<int>> port_to_bus;
+        // All of the names given to a net
+        std::vector<std::vector<std::string>> net_names;
     };
 
     void import_module(HierModuleState &m, const mod_dat_t &data)
@@ -236,6 +238,120 @@ template <typename FrontendType> struct GenericFrontend
         if (!m.is_toplevel) {
             import_port_connections(m, data);
         }
+    }
+
+    // Multiple labels might refer to the same net. Resolve conflicts for the primary name thus:
+    //  - (toplevel) ports are always preferred
+    //  - names with fewer $ are always prefered
+    //  - between equal $ counts, fewer .s are prefered
+    //  - ties are resolved alphabetically
+    bool prefer_netlabel(HierModuleState &m, const std::string &a, const std::string &b)
+    {
+        if (m.port_to_bus.count(ctx->id(a)))
+            return true;
+        if (m.port_to_bus.count(ctx->id(b)))
+            return false;
+
+        if (b.empty())
+            return true;
+        long a_dollars = std::count(a.begin(), a.end(), '$'), b_dollars = std::count(b.begin(), b.end(), '$');
+        if (a_dollars < b_dollars)
+            return true;
+        else if (a_dollars > b_dollars)
+            return false;
+        long a_dots = std::count(a.begin(), a.end(), '.'), b_dots = std::count(b.begin(), b.end(), '.');
+        if (a_dots < b_dots)
+            return true;
+        else if (a_dots > b_dots)
+            return false;
+        return a < b;
+    };
+
+    // Get a net by index in modulestate (not flatindex); creating it if it doesn't already exist
+    NetInfo *create_or_get_net(HierModuleState &m, int idx)
+    {
+        std::string name;
+        if (idx < int(m.net_names.size()) && !m.net_names.at(idx).empty()) {
+            // Use the rule above to find the preferred name for a net
+            name = m.net_names.at(idx).at(0);
+            for (size_t j = 1; j < m.net_names.at(idx).size(); j++)
+                if (prefer_netlabel(m.net_names.at(idx).at(j), name))
+                    name = m.net_names.at(idx).at(j);
+        } else {
+            name = "$frontend$" + std::to_string(idx);
+        }
+        NetInfo *net = ctx->createNet(unique_name(m.prefix, name, true));
+        // Add to the flat index of nets
+        net->udata = int(net_flatindex.size());
+        net_flatindex.push_back(net);
+        // Add to the module-level index of nets
+        auto &midx = m.net_by_idx(idx);
+        // Check we don't try and create more than one net with the same index
+        NPNR_ASSERT(midx == -1);
+        midx = net->udata;
+        // Create aliases for all possible names
+        if (idx < int(m.net_names.size()) && !m.net_names.at(idx).empty()) {
+            for (const auto &name : m.net_names.at(idx)) {
+                IdString name_id = ctx->id(name);
+                net->aliases.push_back(name_id);
+                ctx->net_aliases[name_id] = net->name;
+            }
+        } else {
+            net->aliases.push_back(net->name);
+            ctx->net_aliases[net->name] = net->name;
+        }
+    }
+
+    // Get the name of a vector bit given basename; settings and index
+    std::string get_bit_name(const std::string &base, int index, int length, int offset = 0, bool upto = false)
+    {
+        std::string port = base;
+        if (length == 1 && offset == 0)
+            return port;
+        int real_index;
+        if (upto)
+            real_index = offset + length - index - 1; // reversed ports like [0:7]
+        else
+            real_index = offset + index; // normal 'downto' ports like [7:0]
+        port += '[';
+        port += std::to_string(real_index);
+        port += ']';
+        return port;
+    }
+
+    // Import the netnames section of a module
+    void import_module_netnames(HierModuleState &m, const mod_dat_t &data)
+    {
+        impl.foreach_netname(data, [&](const std::string &basename, const netname_dat_t &nn) {
+            bool upto = impl.is_array_upto(nn);
+            int offset = impl.get_array_offset(nn);
+            const auto &bits = impl.get_net_bits(nn);
+            int width = impl.get_vector_length(bits);
+            for (int i = 0; i < width; i++) {
+                if (impl.is_vector_bit_constant(bits, i))
+                    continue;
+
+                std::string bit_name = get_bit_name(basename, i, width, offset, upto);
+
+                int net_bit = impl.get_vecotr_bit_signal(bits, i);
+                int mapped_bit = m.net_by_idx(net_bit);
+                if (mapped_bit == -1) {
+                    // Net doesn't exist yet. Add the name here to the list of candidate names so we have that for when
+                    // we create it later
+                    if (net_bit >= int(m.net_names.size()))
+                        m.net_names.resize(net_bit + 1);
+                    m.net_names.at(net_bit).push_back(bit_name);
+                } else {
+                    // Net already exists; add this name as an alias
+                    NetInfo *ni = net_flatindex.at(mapped_bit);
+                    IdString alias_name = ctx->id(m.prefix + bit_name);
+                    if (ctx->net_aliases.count(alias_name))
+                        continue; // don't add duplicate aliases
+                    ctx->net_aliases[alias_name] = ni->name;
+                    ni->aliases.push_back(alias_name);
+                }
+            }
+        });
     }
 
     // Add a constant-driving VCC or GND cell to make a net constant
