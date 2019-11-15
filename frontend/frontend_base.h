@@ -119,6 +119,14 @@ struct ModuleInfo
 template <typename FrontendType> struct GenericFrontend
 {
     GenericFrontend(Context *ctx, const FrontendType &impl) : ctx(ctx), impl(impl) {}
+    void operator()()
+    {
+        find_top_module();
+        HierModuleState m;
+        m.is_toplevel = true;
+        m.prefix = "";
+        import_module(m, mod_refs.at(top));
+    }
     Context *ctx;
     const FrontendType &impl;
     using mod_dat_t = typename FrontendType::ModuleDataType;
@@ -128,7 +136,7 @@ template <typename FrontendType> struct GenericFrontend
     using bitvector_t = typename FrontendType::BitVectorDataType;
 
     std::unordered_map<IdString, ModuleInfo> mods;
-    std::unordered_map<IdString, const mod_dat_t&> mod_refs;
+    std::unordered_map<IdString, const mod_dat_t &> mod_refs;
     IdString top;
 
     // Process the list of modules and determine
@@ -236,10 +244,18 @@ template <typename FrontendType> struct GenericFrontend
     void import_module(HierModuleState &m, const mod_dat_t &data)
     {
         std::vector<NetInfo *> index_to_net;
-        // Import port connections; for submodules only
         if (!m.is_toplevel) {
+            // Import port connections; for submodules only
             import_port_connections(m, data);
+        } else {
+            // Just create a list of ports for netname resolution
+            impl.foreach_port(m,
+                              [&](const std::string &name, const mod_port_dat_t &) { m.port_to_bus[ctx->id(name)]; });
         }
+        import_module_netnames(m, data);
+        import_module_cells(m, data);
+        if (m.is_toplevel)
+            import_toplevel_ports(m, data);
     }
 
     // Multiple labels might refer to the same net. Resolve conflicts for the primary name thus:
@@ -356,62 +372,63 @@ template <typename FrontendType> struct GenericFrontend
         });
     }
 
-    void create_constant_net(HierModuleState &m, const std::string name_hint, char constval) {
+    void create_constant_net(HierModuleState &m, const std::string name_hint, char constval)
+    {
         IdString name = unique_name(m.base, name_hint);
         NetInfo *ni = ctx->createNet(name);
         add_constant_driver(m, ni, constval);
     }
 
     // Import a leaf cell - (white|black)box
-    void import_leaf_cell(HierModuleState &m, const std::string &name, const cell_dat_t &cd) {
+    void import_leaf_cell(HierModuleState &m, const std::string &name, const cell_dat_t &cd)
+    {
         IdString inst_name = unique_name(m.base, name, false);
         CellInfo *ci = ctx->createCell(inst_name, ctx->id(get_cell_type(cd)));
         // Import port directions
         std::unordered_map<IdString, PortType> port_dirs;
-        impl.foreach_port_dir(cd, [&](const std::string &port, PortType dir) {
-           port_dirs[ctx->id(port)] = dir;
-        });
+        impl.foreach_port_dir(cd, [&](const std::string &port, PortType dir) { port_dirs[ctx->id(port)] = dir; });
         // Import port connectivity
         impl.foreach_port_conn(cd, [&](const std::string &name, const bitvector_t &bits) {
-           if (!port_dirs.count(ctx->id(name)))
-               log_error("Failed to get direction for port '%s' of cell '%s'\n", name.c_str(), inst_name.c_str(ctx));
-           PortType dir = port_dirs.at(ctx->id(name));
-           int width = impl.get_vector_length(bits);
-           for (int i = 0; i < width; i++) {
-               std::string port_bit_name = get_bit_name(name, i, width);
-               IdString port_bit_ids = ctx->id(port_bit_name);
-               // Create cell port
-               ci->ports[port_bit_ids].name = port_bit_ids;
-               ci->ports[port_bit_ids].type = dir;
-               // Resolve connectivity
-               NetInfo *net;
-               if (impl.is_vector_bit_constant(bits, i)) {
-                   // Create a constant driver if one is needed
-                   net = create_constant_net(m, name + "." + port_bit_name + "$const", impl.get_vector_bit_constval(bits, i));
-               } else {
-                   // Otherwise, lookup (creating if needed) the net with this index
-                   net = create_or_get_net(m, impl.get_vector_bit_signal(bits, i));
-               }
-               NPNR_ASSERT(net != nullptr);
+            if (!port_dirs.count(ctx->id(name)))
+                log_error("Failed to get direction for port '%s' of cell '%s'\n", name.c_str(), inst_name.c_str(ctx));
+            PortType dir = port_dirs.at(ctx->id(name));
+            int width = impl.get_vector_length(bits);
+            for (int i = 0; i < width; i++) {
+                std::string port_bit_name = get_bit_name(name, i, width);
+                IdString port_bit_ids = ctx->id(port_bit_name);
+                // Create cell port
+                ci->ports[port_bit_ids].name = port_bit_ids;
+                ci->ports[port_bit_ids].type = dir;
+                // Resolve connectivity
+                NetInfo *net;
+                if (impl.is_vector_bit_constant(bits, i)) {
+                    // Create a constant driver if one is needed
+                    net = create_constant_net(m, name + "." + port_bit_name + "$const",
+                                              impl.get_vector_bit_constval(bits, i));
+                } else {
+                    // Otherwise, lookup (creating if needed) the net with this index
+                    net = create_or_get_net(m, impl.get_vector_bit_signal(bits, i));
+                }
+                NPNR_ASSERT(net != nullptr);
 
-               // Check for multiple drivers
-               if (dir == PORT_OUT && net->driver.cell != nullptr)
-                   log_error("Net '%s' is multiply driven by cell ports %s.%s and %s.%s\n", ctx->nameOf(net),
-                             ctx->nameOf(net->driver.cell), ctx->nameOf(net->driver.port), ctx->nameOf(inst_name), port_bit_name.c_str());
-               connect_port(ctx, net, ci, port_bit_ids);
-           }
+                // Check for multiple drivers
+                if (dir == PORT_OUT && net->driver.cell != nullptr)
+                    log_error("Net '%s' is multiply driven by cell ports %s.%s and %s.%s\n", ctx->nameOf(net),
+                              ctx->nameOf(net->driver.cell), ctx->nameOf(net->driver.port), ctx->nameOf(inst_name),
+                              port_bit_name.c_str());
+                connect_port(ctx, net, ci, port_bit_ids);
+            }
         });
         // Import attributes and parameters
-        impl.foreach_attr(cd, [&](const std::string &name, const Property &value) {
-           ci->attrs[ctx->id(name)] = value;
-        });
-        impl.foreach_param(cd, [&](const std::string &name, const Property &value) {
-            ci->params[ctx->id(name)] = value;
-        });
+        impl.foreach_attr(cd,
+                          [&](const std::string &name, const Property &value) { ci->attrs[ctx->id(name)] = value; });
+        impl.foreach_param(cd,
+                           [&](const std::string &name, const Property &value) { ci->params[ctx->id(name)] = value; });
     }
 
     // Import a submodule cell
-    void import_submodule_cell(HierModuleState &m, const std::string &name, const cell_dat_t &cd) {
+    void import_submodule_cell(HierModuleState &m, const std::string &name, const cell_dat_t &cd)
+    {
         HierModuleState submod;
         submod.is_toplevel = false;
         // Create mapping from submodule port to nets (referenced by index in flatindex)
@@ -423,7 +440,8 @@ template <typename FrontendType> struct GenericFrontend
                 if (impl.is_vector_bit_constant(bits, i)) {
                     // Create a constant driver if one is needed
                     std::string port_bit_name = get_bit_name(name, i, width);
-                    NetInfo *cnet = create_constant_net(m, name + "." + port_bit_name + "$const", impl.get_vector_bit_constval(bits, i));
+                    NetInfo *cnet = create_constant_net(m, name + "." + port_bit_name + "$const",
+                                                        impl.get_vector_bit_constval(bits, i));
                     cnet->udata = int(net_flatindex.size());
                     net_flatindex.push_back(cnet);
                     net_ref = cnet->udata;
@@ -444,16 +462,104 @@ template <typename FrontendType> struct GenericFrontend
     }
 
     // Import the cells section of a module
-    void import_module_cells(HierModuleState &m, const mod_dat_t &data) {
+    void import_module_cells(HierModuleState &m, const mod_dat_t &data)
+    {
         m.foreach_cell(data, [&](const std::string &cellname, const cell_dat_t &cd) {
-           IdString type = ctx->id(get_cell_type(cd));
-           if (mods.count(type) && !mods.at(type).is_box()) {
-               // Module type is known; and not boxed. Import as a submodule by flattening hierarchy
-               import_submodule_cell(m, cellname, cd);
-           } else {
-               // Module type is unknown or boxes. Import as a leaf cell (nextpnr CellInfo)
-               import_leaf_cell(m, cellname, cd);
-           }
+            IdString type = ctx->id(get_cell_type(cd));
+            if (mods.count(type) && !mods.at(type).is_box()) {
+                // Module type is known; and not boxed. Import as a submodule by flattening hierarchy
+                import_submodule_cell(m, cellname, cd);
+            } else {
+                // Module type is unknown or boxes. Import as a leaf cell (nextpnr CellInfo)
+                import_leaf_cell(m, cellname, cd);
+            }
+        });
+    }
+
+    // Create a top level input/output buffer
+    CellInfo *create_iobuf(NetInfo *net, PortType dir, const std::string &name)
+    {
+        // Skip IOBUF insertion if this is a design checkpoint (where they will already exist)
+        if (ctx->settings.count(ctx->id("synth")))
+            return nullptr;
+        IdString name_id = ctx->id(name);
+        if (ctx->cells.count(name_id))
+            log_error("Cell '%s' of type '%s' with the same name as a top-level IO is not allowed.\n", name.c_str(),
+                      ctx->cells.at(name_id)->type.c_str(ctx));
+        CellInfo *iobuf = ctx->createCell(name_id, ctx->id("unknown_iob"));
+        // Copy attributes from net to IOB
+        for (auto &attr : net->attrs)
+            iobuf->attrs[attr.first] = attr.second;
+        // What we do now depends on port type
+        if (dir == PORT_IN) {
+            iobuf->type = ctx->id("$nextpnr_ibuf");
+            iobuf->addOutput(ctx->id("O"));
+            if (net->driver.cell != nullptr) {
+                CellInfo *drv = net->driver.cell;
+                if (drv->type != ctx->id("$nextpnr_iobuf"))
+                    log_error("Net '%s' is multiply driven by cell port %s.%s and top level input '%s'.\n",
+                              ctx->nameOf(net), ctx->nameOf(drv), ctx->nameOf(net->driver.port), name.c_str());
+                // Special case: input, etc, directly drives inout
+                // Use the input net of the inout instead
+                net = drv->ports.at(ctx->id("I")).net;
+            }
+            NPNR_ASSERT(net->driver.cell == nullptr);
+            // Connect IBUF output and net
+            connect_port(ctx, net, iobuf, ctx->id("O"));
+        } else if (dir == PORT_OUT) {
+            iobuf->type = ctx->id("$nextpnr_obuf");
+            iobuf->addInput(ctx->id("I"));
+            // Connect IBUF input and net
+            connect_port(ctx, net, iobuf, ctx->id("I"));
+        } else if (dir == PORT_INOUT) {
+            iobuf->type = ctx->id("$nextpnr_iobuf");
+            iobuf->addInput(ctx->id("I"));
+            iobuf->addOutput(ctx->id("O"));
+            // Need to bifurcate the net to avoid multiple drivers and split
+            // the input/output parts of an inout
+            // Create a new net connecting only the current net's driver and the IOBUF input
+            // Then use the IOBUF output to drive all of the current net's users
+            NetInfo *split_iobuf_i = ctx->createNet(unique_name("", "$" + name + "$iobuf_i", true));
+            auto drv = net->driver;
+            if (drv.cell != nullptr) {
+                disconnect_port(ctx, drv.cell, drv.port);
+                connect_port(ctx, split_iobuf_i, drv.cell, drv.port);
+            }
+            connect_port(ctx, split_iobuf_i, iobuf, ctx->id("I"));
+            NPNR_ASSERT(net->driver.cell == nullptr);
+            connect_port(ctx, net, iobuf, ctx->id("O"));
+        }
+
+        PortInfo pinfo;
+        pinfo.name = name_id;
+        pinfo.net = net;
+        pinfo.type = dir;
+        ctx->ports[pinfo.name] = pinfo;
+
+        return iobuf;
+    }
+
+    // Import ports of the top level module
+    void import_toplevel_ports(HierModuleState &m, const mod_dat_t &data)
+    {
+        m.foreach_port(data, [&](const std::string &portname, const mod_port_dat_t &pd) {
+            const auto &port_bv = impl.get_port_bits(pd);
+            int offset = impl.get_array_offset(pd);
+            bool is_upto = impl.is_array_upto(pd);
+            int width = impl.get_vector_length(port_bv);
+            PortType dir = impl.get_port_dir(pd);
+            for (int i = 0; i < width; i++) {
+                std::string pbit_name = get_bit_name(portname, i, width, offset, is_upto);
+                NetInfo *port_net = nullptr;
+                if (impl.is_vector_bit_constant(port_bv, i)) {
+                    // Port bit is constant. Need to create a new constant net.
+                    port_net = create_constant_net(m, pbit_name + "$const", impl.get_vector_bit_constval(port_bv, i));
+                } else {
+                    // Port bit is a signal. Need to create/get the associated net
+                    port_net = create_or_get_net(m, impl.get_vector_bit_signal(port_bv, i));
+                }
+                create_iobuf(port_net, dir, pbit_name);
+            }
         });
     }
 
@@ -569,7 +675,7 @@ template <typename FrontendType> struct GenericFrontend
 
 template <typename FrontendType> void run_frontend(Context *ctx, const FrontendType &impl)
 {
-    GenericFrontend<FrontendType>(ctx, impl);
+    GenericFrontend<FrontendType>(ctx, impl)();
 }
 
 NEXTPNR_NAMESPACE_END
