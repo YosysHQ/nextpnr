@@ -35,7 +35,7 @@
 #include <iostream>
 #include "command.h"
 #include "design_utils.h"
-#include "frontend_base.h"
+#include "json_frontend.h"
 #include "jsonparse.h"
 #include "jsonwrite.h"
 #include "log.h"
@@ -266,9 +266,13 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
             if (vm.count("json")) {
                 std::string filename = vm["json"].as<std::string>();
                 std::ifstream f(filename);
+#ifdef LEGACY_FRONTEND
                 if (!parse_json_file(f, filename, w.getContext()))
                     log_error("Loading design failed.\n");
-
+#else
+                if (!parse_json(f, filename, w.getContext()))
+                    log_error("Loading design failed.\n");
+#endif
                 customAfterLoad(w.getContext());
                 w.notifyChangeContext();
                 w.updateActions();
@@ -285,8 +289,13 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
     if (vm.count("json")) {
         std::string filename = vm["json"].as<std::string>();
         std::ifstream f(filename);
+#ifdef LEGACY_FRONTEND
         if (!parse_json_file(f, filename, ctx.get()))
             log_error("Loading design failed.\n");
+#else
+        if (!parse_json(f, filename, ctx.get()))
+            log_error("Loading design failed.\n");
+#endif
 
         customAfterLoad(ctx.get());
     }
