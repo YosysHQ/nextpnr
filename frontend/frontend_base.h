@@ -298,37 +298,39 @@ template <typename FrontendType> struct GenericFrontend
     // Get a net by index in modulestate (not flatindex); creating it if it doesn't already exist
     NetInfo *create_or_get_net(HierModuleState &m, int idx)
     {
-        std::string name;
-        if (idx < int(m.net_names.size()) && !m.net_names.at(idx).empty()) {
-            // Use the rule above to find the preferred name for a net
-            name = m.net_names.at(idx).at(0);
-            for (size_t j = 1; j < m.net_names.at(idx).size(); j++)
-                if (prefer_netlabel(m, m.net_names.at(idx).at(j), name))
-                    name = m.net_names.at(idx).at(j);
-        } else {
-            name = "$frontend$" + std::to_string(idx);
-        }
-        NetInfo *net = ctx->createNet(unique_name(m.prefix, name, true));
-        // Add to the flat index of nets
-        net->udata = int(net_flatindex.size());
-        net_flatindex.push_back(net);
-        // Add to the module-level index of nets
         auto &midx = m.net_by_idx(idx);
-        // Check we don't try and create more than one net with the same index
-        NPNR_ASSERT(midx == -1);
-        midx = net->udata;
-        // Create aliases for all possible names
-        if (idx < int(m.net_names.size()) && !m.net_names.at(idx).empty()) {
-            for (const auto &name : m.net_names.at(idx)) {
-                IdString name_id = ctx->id(name);
-                net->aliases.push_back(name_id);
-                ctx->net_aliases[name_id] = net->name;
-            }
+        if (midx != -1) {
+            return net_flatindex.at(midx);
         } else {
-            net->aliases.push_back(net->name);
-            ctx->net_aliases[net->name] = net->name;
+            std::string name;
+            if (idx < int(m.net_names.size()) && !m.net_names.at(idx).empty()) {
+                // Use the rule above to find the preferred name for a net
+                name = m.net_names.at(idx).at(0);
+                for (size_t j = 1; j < m.net_names.at(idx).size(); j++)
+                    if (prefer_netlabel(m, m.net_names.at(idx).at(j), name))
+                        name = m.net_names.at(idx).at(j);
+            } else {
+                name = "$frontend$" + std::to_string(idx);
+            }
+            NetInfo *net = ctx->createNet(unique_name(m.prefix, name, true));
+            // Add to the flat index of nets
+            net->udata = int(net_flatindex.size());
+            net_flatindex.push_back(net);
+            // Add to the module-level index of netsd
+            midx = net->udata;
+            // Create aliases for all possible names
+            if (idx < int(m.net_names.size()) && !m.net_names.at(idx).empty()) {
+                for (const auto &name : m.net_names.at(idx)) {
+                    IdString name_id = ctx->id(name);
+                    net->aliases.push_back(name_id);
+                    ctx->net_aliases[name_id] = net->name;
+                }
+            } else {
+                net->aliases.push_back(net->name);
+                ctx->net_aliases[net->name] = net->name;
+            }
+            return net;
         }
-        return net;
     }
 
     // Get the name of a vector bit given basename; settings and index
