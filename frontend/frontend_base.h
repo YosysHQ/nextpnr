@@ -104,6 +104,7 @@
 #include "design_utils.h"
 #include "log.h"
 #include "nextpnr.h"
+#include "util.h"
 NEXTPNR_NAMESPACE_BEGIN
 
 namespace {
@@ -193,8 +194,14 @@ template <typename FrontendType> struct GenericFrontend
         for (auto &mod : mods)
             for (auto &c : mod.second.instantiated_celltypes)
                 candidate_top.erase(c);
-        if (candidate_top.size() != 1)
+        if (candidate_top.size() != 1) {
+            if (candidate_top.size() == 0)
+                log_info("No candidate top level modules.\n");
+            else
+                for (auto ctp : sorted(candidate_top))
+                    log_info("Candidate top module: '%s'\n", ctx->nameOf(ctp));
             log_error("Failed to autodetect top module, please specify using --top.\n");
+        }
         top = *(candidate_top.begin());
     }
 

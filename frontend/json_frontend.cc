@@ -181,6 +181,10 @@ bool parse_json(std::istream &in, const std::string &filename, Context *ctx)
         root = Json::parse(json_str, error, JsonParse::COMMENTS);
         if (root.is_null())
             log_error("Failed to parse JSON file '%s': %s.\n", filename.c_str(), error.c_str());
+        root = root["modules"];
+        if (root.is_null())
+            log_error("JSON file '%s' doesn't look like a netlist (doesn't contain \"modules\" key)\n",
+                      filename.c_str());
     }
     GenericFrontend<JsonFrontendImpl>(ctx, JsonFrontendImpl(root))();
     return true;
