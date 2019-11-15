@@ -572,7 +572,17 @@ struct Router2
         auto &ad = nd.arcs.at(usr_idx);
         auto &usr = net->users.at(usr_idx);
         WireId src = ctx->getNetinfoSourceWire(net);
+        // Skip routes with no source
+        if (src == WireId())
+            return true;
         WireId dst = ctx->getNetinfoSinkWire(net, usr);
+        // Skip routes where the destination is already bound
+        if (dst == WireId() || ctx->getBoundWireNet(dst) == net)
+            return true;
+        // Skip routes where there is no routing (special cases)
+        if (ad.wires.empty())
+            return true;
+
         WireId cursor = dst;
 
         std::vector<PipId> to_bind;
