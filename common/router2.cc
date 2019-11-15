@@ -372,6 +372,8 @@ struct Router2
             bool did_something = false;
             for (auto uh : ctx->getPipsUphill(cursor)) {
                 did_something = true;
+                if (!ctx->checkPipAvail(uh) && ctx->getBoundPipNet(uh) != net)
+                    continue;
                 if (cpip != PipId() && cpip != uh)
                     continue; // don't allow multiple pips driving a wire with a net
                 WireId next = ctx->getPipSrcWire(uh);
@@ -441,6 +443,8 @@ struct Router2
                     continue;
 #else
                 if (is_bb && !hit_test_pip(ad.bb, ctx->getPipLocation(dh)))
+                    continue;
+                if (!ctx->checkPipAvail(dh) && ctx->getBoundPipNet(dh) != net)
                     continue;
 #endif
                 // Evaluate score of next wire
@@ -540,14 +544,14 @@ struct Router2
     int overused_wires = 0;
     int total_overuse = 0;
     std::vector<int> route_queue;
-    std::set<int> congested_nets;
+    std::set<int> failed_nets;
 
     void update_congestion()
     {
         total_overuse = 0;
         overused_wires = 0;
         total_wire_use = 0;
-        congested_nets.clear();
+        failed_nets.clear();
         for (auto &wire : wires) {
             total_wire_use += int(wire.second.bound_nets.size());
             int overuse = int(wire.second.bound_nets.size()) - 1;
@@ -556,9 +560,84 @@ struct Router2
                 total_overuse += overuse;
                 overused_wires += 1;
                 for (auto &bound : wire.second.bound_nets)
-                    congested_nets.insert(bound.first);
+                    failed_nets.insert(bound.first);
             }
         }
+    }
+
+    bool bind_and_check(NetInfo *net, int usr_idx)
+    {
+        bool success = true;
+        auto &nd = nets.at(net->udata);
+        auto &ad = nd.arcs.at(usr_idx);
+        auto &usr = net->users.at(usr_idx);
+        WireId src = ctx->getNetinfoSourceWire(net);
+        WireId dst = ctx->getNetinfoSinkWire(net, usr);
+        WireId cursor = dst;
+
+        std::vector<PipId> to_bind;
+
+        while (cursor != src) {
+            if (!ctx->checkWireAvail(cursor)) {
+                if (ctx->getBoundWireNet(cursor) == net)
+                    break; // hit the part of the net that is already bound
+                else {
+                    success = false;
+                    break;
+                }
+            }
+            if (!ad.wires.count(cursor)) {
+                log("Failure details:\n");
+                log("    Cursor: %s\n", ctx->nameOfWire(cursor));
+                log("    route backtrace: \n");
+                for (auto w : ad.wires)
+                    log("        %s: %s (src: %s)\n", ctx->nameOfWire(w.first), ctx->nameOfPip(w.second),
+                        ctx->nameOfWire(ctx->getPipSrcWire(w.second)));
+                log_error("Internal error; incomplete route tree for arc %d of net %s.\n", usr_idx, ctx->nameOf(net));
+            }
+            auto &p = ad.wires.at(cursor);
+            if (!ctx->checkPipAvail(p)) {
+                success = false;
+                break;
+            } else {
+                to_bind.push_back(p);
+            }
+            cursor = ctx->getPipSrcWire(p);
+        }
+
+        if (success) {
+            if (ctx->getBoundWireNet(src) == nullptr)
+                ctx->bindWire(src, net, STRENGTH_WEAK);
+            for (auto tb : to_bind)
+                ctx->bindPip(tb, net, STRENGTH_WEAK);
+        } else {
+            ripup_arc(net, usr_idx);
+            failed_nets.insert(net->udata);
+        }
+        return success;
+    }
+
+    int arch_fail = 0;
+    bool bind_and_check_all()
+    {
+        bool success = true;
+        std::vector<WireId> net_wires;
+        for (auto net : nets_by_udata) {
+            // Ripup wires and pips used by the net in nextpnr's structures
+            net_wires.clear();
+            for (auto &w : net->wires)
+                net_wires.push_back(w.first);
+            for (auto w : net_wires)
+                ctx->unbindWire(w);
+            // Bind the arcs using the routes we have discovered
+            for (size_t i = 0; i < net->users.size(); i++) {
+                if (!bind_and_check(net, i)) {
+                    ++arch_fail;
+                    success = false;
+                }
+            }
+        }
+        return success;
     }
 
     void router_test()
@@ -582,12 +661,17 @@ struct Router2
             }
             route_queue.clear();
             update_congestion();
-            for (auto cn : congested_nets)
+            if (overused_wires == 0) {
+                // Try and actually bind nextpnr Arch API wires
+                bind_and_check_all();
+            }
+            for (auto cn : failed_nets)
                 route_queue.push_back(cn);
-            log_info("iter=%d wires=%d overused=%d overuse=%d\n", iter, total_wire_use, overused_wires, total_overuse);
+            log_info("iter=%d wires=%d overused=%d overuse=%d archfail=%s\n", iter, total_wire_use, overused_wires,
+                     total_overuse, overused_wires > 0 ? "NA" : std::to_string(arch_fail).c_str());
             ++iter;
             curr_cong_weight *= 2;
-        } while (total_overuse > 0);
+        } while (!failed_nets.empty());
     }
 };
 } // namespace
