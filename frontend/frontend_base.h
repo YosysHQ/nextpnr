@@ -37,66 +37,66 @@
  *
  * Functions:
  *
- *   void foreach_module(Func);
+ *   void foreach_module(Func) const;
  *       calls Func(const std::string &name, const ModuleDataType &mod);
  *       for each module in the netlist
  *
- *   void foreach_port(const ModuleDataType &mod, Func);
+ *   void foreach_port(const ModuleDataType &mod, Func) const;
  *       calls Func(const std::string &name, const ModulePortDataType &port);
  *       for each port of mod
  *
- *   void foreach_cell(const ModuleDataType &mod, Func);
- *       calls Func(const std::string &name, const CellDataType &cell);
+ *   void foreach_cell(const ModuleDataType &mod, Func) const;
+ *       calls Func(const std::string &name, const CellDataType &cell)
  *       for each cell of mod
  *
- *   void foreach_netname(const ModuleDataType &mod, Func);
+ *   void foreach_netname(const ModuleDataType &mod, Func) const;
  *       calls Func(const std::string &name, const NetnameDataType &cell);
  *       for each netname entry of mod
  *
- *   PortType get_port_dir(const ModulePortDataType &port);
+ *   PortType get_port_dir(const ModulePortDataType &port) const;
  *       gets the PortType direction of a module port
  *
- *   int get_array_offset(const ModulePortDataType &port);
+ *   int get_array_offset(const ModulePortDataType &port) const;
  *       gets the start bit number of a port or netname entry
  *
- *   bool is_array_upto(const ModulePortDataType &port);
+ *   bool is_array_upto(const ModulePortDataType &port) const;
  *       returns true if a port/net is an "upto" type port or netname entry
  *
- *   const BitVectorDataType &get_port_bits(const ModulePortDataType &port);
+ *   const BitVectorDataType &get_port_bits(const ModulePortDataType &port) const;
  *       gets the bit vector of a module port
  *
- *   const std::string& get_cell_type(const CellDataType &cell);
+ *   const std::string& get_cell_type(const CellDataType &cell) const;
  *       gets the type of a cell
  *
- *   void foreach_attr(const {ModuleDataType|CellDataType|ModulePortDataType|NetnameDataType} &obj, Func);
+ *   void foreach_attr(const {ModuleDataType|CellDataType|ModulePortDataType|NetnameDataType} &obj, Func) const;
  *       calls Func(const std::string &name, const Property &value);
  *       for each attribute on a module, cell, module port or net
  *
- *   void foreach_param(const CellDataType &obj, Func);
+ *   void foreach_param(const CellDataType &obj, Func) const;
  *       calls Func(const std::string &name, const Property &value);
  *       for each parameter of a cell
  *
- *   void foreach_port_dir(const CellDataType &cell, Func);
+ *   void foreach_port_dir(const CellDataType &cell, Func) const;
  *       calls Func(const std::string &name, PortType dir);
  *       for each port direction of a cell
  *
- *   void foreach_port_conn(const CellDataType &cell, Func);
+ *   void foreach_port_conn(const CellDataType &cell, Func) const;
  *       calls Func(const std::string &name, const BitVectorDataType &conn);
  *       for each port connection of a cell
  *
- *   const BitVectorDataType &get_net_bits(const NetnameDataType &net);
+ *   const BitVectorDataType &get_net_bits(const NetnameDataType &net) const;
  *       gets the BitVector corresponding to the bits entry of a netname field
  *
- *   int get_vector_length(const BitVectorDataType &bits);
+ *   int get_vector_length(const BitVectorDataType &bits) const;
  *       gets the length of a BitVector
  *
- *   bool is_vector_bit_constant(const BitVectorDataType &bits, int i);
+ *   bool is_vector_bit_constant(const BitVectorDataType &bits, int i) const;
  *       returns true if bit <i> of bits is constant
  *
- *   char get_vector_bit_constval(const BitVectorDataType &bits, int i);
+ *   char get_vector_bit_constval(const BitVectorDataType &bits, int i) const;
  *       returns a char [01xz] corresponding to the constant value of bit <i>
  *
- *   int get_vector_bit_signal(const BitVectorDataType &bits, int i);
+ *   int get_vector_bit_signal(const BitVectorDataType &bits, int i) const;
  *       returns the signal number of vector bit <i>
  *
  */
@@ -121,12 +121,15 @@ template <typename FrontendType> struct GenericFrontend
     GenericFrontend(Context *ctx, const FrontendType &impl) : ctx(ctx), impl(impl) {}
     void operator()()
     {
+        // Find which module is top
         find_top_module();
         HierModuleState m;
         m.is_toplevel = true;
         m.prefix = "";
+        // Do the actual import, starting from the top level module
         import_module(m, mod_refs.at(top));
     }
+
     Context *ctx;
     const FrontendType &impl;
     using mod_dat_t = typename FrontendType::ModuleDataType;
@@ -146,7 +149,7 @@ template <typename FrontendType> struct GenericFrontend
         impl.foreach_module([&](const std::string &name, const mod_dat_t &mod) {
             IdString mod_id = ctx->id(name);
             auto &mi = mods[mod_id];
-            mod_refs[mod_id] = mod;
+            mod_refs.emplace(mod_id, mod);
             impl.foreach_attr(mod, [&](const std::string &name, const Property &value) {
                 if (name == "top")
                     mi.is_top = (value.intval != 0);
@@ -249,7 +252,7 @@ template <typename FrontendType> struct GenericFrontend
             import_port_connections(m, data);
         } else {
             // Just create a list of ports for netname resolution
-            impl.foreach_port(m,
+            impl.foreach_port(data,
                               [&](const std::string &name, const mod_port_dat_t &) { m.port_to_bus[ctx->id(name)]; });
         }
         import_module_netnames(m, data);
@@ -293,7 +296,7 @@ template <typename FrontendType> struct GenericFrontend
             // Use the rule above to find the preferred name for a net
             name = m.net_names.at(idx).at(0);
             for (size_t j = 1; j < m.net_names.at(idx).size(); j++)
-                if (prefer_netlabel(m.net_names.at(idx).at(j), name))
+                if (prefer_netlabel(m, m.net_names.at(idx).at(j), name))
                     name = m.net_names.at(idx).at(j);
         } else {
             name = "$frontend$" + std::to_string(idx);
@@ -318,6 +321,7 @@ template <typename FrontendType> struct GenericFrontend
             net->aliases.push_back(net->name);
             ctx->net_aliases[net->name] = net->name;
         }
+        return net;
     }
 
     // Get the name of a vector bit given basename; settings and index
@@ -351,7 +355,7 @@ template <typename FrontendType> struct GenericFrontend
 
                 std::string bit_name = get_bit_name(basename, i, width, offset, upto);
 
-                int net_bit = impl.get_vecotr_bit_signal(bits, i);
+                int net_bit = impl.get_vector_bit_signal(bits, i);
                 int mapped_bit = m.net_by_idx(net_bit);
                 if (mapped_bit == -1) {
                     // Net doesn't exist yet. Add the name here to the list of candidate names so we have that for when
@@ -372,18 +376,20 @@ template <typename FrontendType> struct GenericFrontend
         });
     }
 
-    void create_constant_net(HierModuleState &m, const std::string name_hint, char constval)
+    // Create a new constant net; given a hint for what the name should be and its value
+    NetInfo *create_constant_net(HierModuleState &m, const std::string &name_hint, char constval)
     {
-        IdString name = unique_name(m.base, name_hint);
+        IdString name = unique_name(m.prefix, name_hint, true);
         NetInfo *ni = ctx->createNet(name);
         add_constant_driver(m, ni, constval);
+        return ni;
     }
 
     // Import a leaf cell - (white|black)box
     void import_leaf_cell(HierModuleState &m, const std::string &name, const cell_dat_t &cd)
     {
-        IdString inst_name = unique_name(m.base, name, false);
-        CellInfo *ci = ctx->createCell(inst_name, ctx->id(get_cell_type(cd)));
+        IdString inst_name = unique_name(m.prefix, name, false);
+        CellInfo *ci = ctx->createCell(inst_name, ctx->id(impl.get_cell_type(cd)));
         // Import port directions
         std::unordered_map<IdString, PortType> port_dirs;
         impl.foreach_port_dir(cd, [&](const std::string &port, PortType dir) { port_dirs[ctx->id(port)] = dir; });
@@ -464,8 +470,8 @@ template <typename FrontendType> struct GenericFrontend
     // Import the cells section of a module
     void import_module_cells(HierModuleState &m, const mod_dat_t &data)
     {
-        m.foreach_cell(data, [&](const std::string &cellname, const cell_dat_t &cd) {
-            IdString type = ctx->id(get_cell_type(cd));
+        impl.foreach_cell(data, [&](const std::string &cellname, const cell_dat_t &cd) {
+            IdString type = ctx->id(impl.get_cell_type(cd));
             if (mods.count(type) && !mods.at(type).is_box()) {
                 // Module type is known; and not boxed. Import as a submodule by flattening hierarchy
                 import_submodule_cell(m, cellname, cd);
@@ -542,7 +548,7 @@ template <typename FrontendType> struct GenericFrontend
     // Import ports of the top level module
     void import_toplevel_ports(HierModuleState &m, const mod_dat_t &data)
     {
-        m.foreach_port(data, [&](const std::string &portname, const mod_port_dat_t &pd) {
+        impl.foreach_port(data, [&](const std::string &portname, const mod_port_dat_t &pd) {
             const auto &port_bv = impl.get_port_bits(pd);
             int offset = impl.get_array_offset(pd);
             bool is_upto = impl.is_array_upto(pd);
@@ -650,7 +656,7 @@ template <typename FrontendType> struct GenericFrontend
                     // Inputs cannot be driving a constant back to the parent
                     if (dir == PORT_IN)
                         log_error("Input port %s%s[%d] cannot be driving a constant '%c'.\n", m.prefix.c_str(),
-                                  port.c_str(), i, constval);
+                                  name.c_str(), i, constval);
                     // Insert the constant driver
                     add_constant_driver(m, conn_ni, constval);
                 } else {
@@ -672,10 +678,5 @@ template <typename FrontendType> struct GenericFrontend
     }
 };
 } // namespace
-
-template <typename FrontendType> void run_frontend(Context *ctx, const FrontendType &impl)
-{
-    GenericFrontend<FrontendType>(ctx, impl)();
-}
 
 NEXTPNR_NAMESPACE_END
