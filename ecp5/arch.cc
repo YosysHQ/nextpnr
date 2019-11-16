@@ -30,6 +30,7 @@
 #include "placer1.h"
 #include "placer_heap.h"
 #include "router1.h"
+#include "router2.h"
 #include "timing.h"
 #include "util.h"
 
@@ -492,6 +493,42 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
            (6 + std::max(dx - 5, 0) + std::max(dy - 5, 0) + 2 * (std::min(dx, 5) + std::min(dy, 5)));
 }
 
+ArcBounds Arch::getRouteBoundingBox(WireId src, WireId dst) const
+{
+    ArcBounds bb;
+    auto est_location = [&](WireId w) -> std::pair<int, int> {
+        const auto &wire = locInfo(w)->wire_data[w.index];
+        if (w == gsrclk_wire) {
+            auto phys_wire = getPipSrcWire(*(getPipsUphill(w).begin()));
+            return std::make_pair(int(phys_wire.location.x), int(phys_wire.location.y));
+        } else if (wire.num_bel_pins > 0) {
+            return std::make_pair(w.location.x + wire.bel_pins[0].rel_bel_loc.x,
+                                  w.location.y + wire.bel_pins[0].rel_bel_loc.y);
+        } else if (wire.num_downhill > 0) {
+            return std::make_pair(w.location.x + wire.pips_downhill[0].rel_loc.x,
+                                  w.location.y + wire.pips_downhill[0].rel_loc.y);
+        } else if (wire.num_uphill > 0) {
+            return std::make_pair(w.location.x + wire.pips_uphill[0].rel_loc.x,
+                                  w.location.y + wire.pips_uphill[0].rel_loc.y);
+        } else {
+            return std::make_pair(int(w.location.x), int(w.location.y));
+        }
+    };
+
+    auto src_loc = est_location(src);
+    std::pair<int, int> dst_loc;
+    if (wire_loc_overrides.count(dst)) {
+        dst_loc = wire_loc_overrides.at(dst);
+    } else {
+        dst_loc = est_location(dst);
+    }
+    bb.x0 = std::min(src_loc.first, dst_loc.first);
+    bb.y0 = std::min(src_loc.second, dst_loc.second);
+    bb.x1 = std::max(src_loc.first, dst_loc.first);
+    bb.y1 = std::max(src_loc.second, dst_loc.second);
+    return bb;
+}
+
 delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
 {
     const auto &driver = net_info->driver;
@@ -573,7 +610,7 @@ bool Arch::route()
     route_ecp5_globals(getCtx());
     assignArchInfo();
     assign_budget(getCtx(), true);
-
+    router2_test(getCtx());
     bool result = router1(getCtx(), Router1Cfg(getCtx()));
 #if 0
     std::vector<std::pair<WireId, int>> fanout_vector;
