@@ -145,6 +145,10 @@ struct Router2
                     std::abs(nets.at(i).bb.y1 - nets.at(i).bb.y0) + std::abs(nets.at(i).bb.x1 - nets.at(i).bb.x0), 1);
             nets.at(i).cx /= int(ni->users.size() + 1);
             nets.at(i).cy /= int(ni->users.size() + 1);
+            if (ctx->debug)
+                log_info("%s: bb=(%d, %d)->(%d, %d) c=(%d, %d) hpwl=%d\n", ctx->nameOf(ni), nets.at(i).bb.x0,
+                         nets.at(i).bb.y0, nets.at(i).bb.x1, nets.at(i).bb.y1, nets.at(i).cx, nets.at(i).cy,
+                         nets.at(i).hpwl);
             i++;
         }
     }
@@ -359,7 +363,7 @@ struct Router2
         // This could also be used to speed up forwards routing by a hybrid
         // bidirectional approach
         int backwards_iter = 0;
-        int backwards_limit = 125;
+        int backwards_limit = 10;
         t.backwards_pip.clear();
         t.backwards_queue.push(dst_wire);
         while (!t.backwards_queue.empty() && backwards_iter < backwards_limit) {
@@ -509,6 +513,12 @@ struct Router2
 
     bool route_net(ThreadContext &t, NetInfo *net, bool is_mt)
     {
+
+#ifdef ARCH_ECP5
+        if (net->is_global)
+            return true;
+#endif
+
         ROUTE_LOG_DBG("Routing net '%s'...\n", ctx->nameOf(net));
 
         // Nothing to do if net is undriven
@@ -567,6 +577,10 @@ struct Router2
 
     bool bind_and_check(NetInfo *net, int usr_idx)
     {
+#ifdef ARCH_ECP5
+        if (net->is_global)
+            return true;
+#endif
         bool success = true;
         auto &nd = nets.at(net->udata);
         auto &ad = nd.arcs.at(usr_idx);
@@ -633,6 +647,10 @@ struct Router2
         bool success = true;
         std::vector<WireId> net_wires;
         for (auto net : nets_by_udata) {
+#ifdef ARCH_ECP5
+            if (net->is_global)
+                continue;
+#endif
             // Ripup wires and pips used by the net in nextpnr's structures
             net_wires.clear();
             for (auto &w : net->wires)
