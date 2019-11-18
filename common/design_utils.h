@@ -94,6 +94,9 @@ void connect_ports(Context *ctx, CellInfo *cell1, IdString port1_name, CellInfo 
 // Rename a port if it exists on a cell
 void rename_port(Context *ctx, CellInfo *cell, IdString old_name, IdString new_name);
 
+// Rename a net without invalidating pointers to it
+void rename_net(Context *ctx, NetInfo *net, IdString new_name);
+
 void print_utilisation(const Context *ctx);
 
 NEXTPNR_NAMESPACE_END

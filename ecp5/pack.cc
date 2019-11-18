@@ -362,8 +362,7 @@ class Ecp5Packer
                     for (auto &port : ci->ports)
                         disconnect_port(ctx, ci, port.first);
                 } else if (trio != nullptr) {
-                    // Trivial case, TRELLIS_IO used. Just destroy the net and the
-                    // iobuf
+                    // Trivial case, TRELLIS_IO used. Just remove the IOBUF
                     log_info("%s feeds TRELLIS_IO %s, removing %s %s.\n", ci->name.c_str(ctx), trio->name.c_str(ctx),
                              ci->type.c_str(ctx), ci->name.c_str(ctx));
 
@@ -383,14 +382,6 @@ class Ecp5Packer
                                 // Move clock constraint from IO pad to input buffer output
                                 std::swap(net->clkconstr, onet->clkconstr);
                             }
-                        }
-                        ctx->nets.erase(net->name);
-                        trio->ports.at(ctx->id("B")).net = nullptr;
-                    }
-                    if (ci->type == ctx->id("$nextpnr_iobuf")) {
-                        NetInfo *net2 = ci->ports.at(ctx->id("I")).net;
-                        if (net2 != nullptr) {
-                            ctx->nets.erase(net2->name);
                         }
                     }
                 } else if (drives_top_port(ionet, tp)) {
@@ -414,7 +405,8 @@ class Ecp5Packer
                     new_cells.push_back(std::move(tr_cell));
                     trio = new_cells.back().get();
                 }
-
+                for (auto port : ci->ports)
+                    disconnect_port(ctx, ci, port.first);
                 packed_cells.insert(ci->name);
                 if (trio != nullptr) {
                     for (const auto &attr : ci->attrs)
