@@ -1293,6 +1293,9 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                 else
                     cc.tiles[pic_tile].add_enum(prim + "." + param.first.str(ctx), param.second.as_string());
             }
+            if (get_net_or_empty(ci, id_LOADN) != nullptr) {
+                cc.tiles[pic_tile].add_enum(prim + ".LOADNMUX", "LOADN");
+            }
         } else if (ci->type == id_DCUA) {
             TileGroup tg;
             tg.tiles = get_dcu_tiles(ctx, ci->bel);
