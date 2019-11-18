@@ -29,6 +29,7 @@
 #include <algorithm>
 #include <boost/container/flat_map.hpp>
 #include <deque>
+#include <fstream>
 #include <queue>
 #include "log.h"
 #include "nextpnr.h"
@@ -670,6 +671,45 @@ struct Router2
         return success;
     }
 
+    void write_heatmap(std::ostream &out, bool congestion = false)
+    {
+        std::vector<std::vector<int>> hm_xy;
+        int max_x = 0, max_y = 0;
+        for (auto &w : wires) {
+            auto &wd = w.second;
+            int val = int(wd.bound_nets.size()) - (congestion ? 1 : 0);
+            if (wd.bound_nets.empty())
+                continue;
+            // Estimate wire location by driving pip location
+            PipId drv;
+            for (auto &bn : wd.bound_nets)
+                if (bn.second.second != PipId()) {
+                    drv = bn.second.second;
+                    break;
+                }
+            if (drv == PipId())
+                continue;
+            Loc l = ctx->getPipLocation(drv);
+            max_x = std::max(max_x, l.x);
+            max_y = std::max(max_y, l.y);
+            if (l.y >= int(hm_xy.size()))
+                hm_xy.resize(l.y + 1);
+            if (l.x >= int(hm_xy.at(l.y).size()))
+                hm_xy.at(l.y).resize(l.x + 1);
+            if (val > 0)
+                hm_xy.at(l.y).at(l.x) += val;
+        }
+        for (int y = 0; y <= max_y; y++) {
+            for (int x = 0; x <= max_x; x++) {
+                if (y >= int(hm_xy.size()) || x >= int(hm_xy.at(y).size()))
+                    out << "0,";
+                else
+                    out << hm_xy.at(y).at(x) << ",";
+            }
+            out << std::endl;
+        }
+    }
+
     void router_test()
     {
         setup_nets();
@@ -691,6 +731,12 @@ struct Router2
             }
             route_queue.clear();
             update_congestion();
+#if 1
+            if (iter == 1 && ctx->debug) {
+                std::ofstream cong_map("cong_map_0.csv");
+                write_heatmap(cong_map, true);
+            }
+#endif
             if (overused_wires == 0) {
                 // Try and actually bind nextpnr Arch API wires
                 bind_and_check_all();
