@@ -96,7 +96,7 @@ void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc, bool pass_thru_l
         const int init_size = 1 << lc->params[ctx->id("K")].as_int64();
         std::string init;
         init.reserve(init_size);
-        for(int i = 0; i < init_size; i+=2)
+        for (int i = 0; i < init_size; i += 2)
             init.append("10");
         lc->params[ctx->id("INIT")] = Property::from_string(init);
 
