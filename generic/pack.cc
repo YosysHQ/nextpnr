@@ -154,16 +154,16 @@ static void pack_constants(Context *ctx)
     std::unique_ptr<NetInfo> gnd_net = std::unique_ptr<NetInfo>(new NetInfo);
     gnd_net->name = ctx->id("$PACKER_GND_NET");
     gnd_net->driver.cell = gnd_cell.get();
-    gnd_net->driver.port = ctx->id("Q");
-    gnd_cell->ports.at(ctx->id("Q")).net = gnd_net.get();
+    gnd_net->driver.port = ctx->id("F");
+    gnd_cell->ports.at(ctx->id("F")).net = gnd_net.get();
 
     std::unique_ptr<CellInfo> vcc_cell = create_generic_cell(ctx, ctx->id("GENERIC_SLICE"), "$PACKER_VCC");
     vcc_cell->params[ctx->id("INIT")] = 1;
     std::unique_ptr<NetInfo> vcc_net = std::unique_ptr<NetInfo>(new NetInfo);
     vcc_net->name = ctx->id("$PACKER_VCC_NET");
     vcc_net->driver.cell = vcc_cell.get();
-    vcc_net->driver.port = ctx->id("Q");
-    vcc_cell->ports.at(ctx->id("Q")).net = vcc_net.get();
+    vcc_net->driver.port = ctx->id("F");
+    vcc_cell->ports.at(ctx->id("F")).net = vcc_net.get();
 
     std::vector<IdString> dead_nets;
 
