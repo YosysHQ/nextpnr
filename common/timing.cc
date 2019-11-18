@@ -434,8 +434,7 @@ struct Timing
                         int port_clocks;
                         TimingPortClass portClass =
                                 ctx->getPortTimingClass(crit_net->driver.cell, port.first, port_clocks);
-                        if (portClass == TMG_CLOCK_INPUT || portClass == TMG_ENDPOINT || portClass == TMG_IGNORE ||
-                            portClass == TMG_REGISTER_INPUT)
+                        if (portClass == TMG_CLOCK_INPUT || portClass == TMG_ENDPOINT || portClass == TMG_IGNORE)
                             continue;
                         // And find the fanin net with the latest arrival time
                         if (net_data.count(port.second.net) &&
