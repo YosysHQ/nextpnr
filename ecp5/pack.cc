@@ -56,6 +56,50 @@ class Ecp5Packer
         new_cells.clear();
     }
 
+    // Print logic usgage
+    void print_logic_usage()
+    {
+        int total_luts = 0, total_ffs = 0;
+        int total_ramluts = 0, total_ramwluts = 0;
+        for (auto bel : ctx->getBels()) {
+            if (ctx->getBelType(bel) == id_TRELLIS_SLICE) {
+                total_luts += 2;
+                total_ffs += 2;
+                Loc l = ctx->getBelLocation(bel);
+                if (l.z == 0 || l.z == 1)
+                    total_ramluts += 2;
+                if (l.z == 2)
+                    total_ramwluts += 2;
+            }
+        }
+        int used_lgluts = 0, used_cyluts = 0, used_ramluts = 0, used_ramwluts = 0, used_ffs = 0;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
+            if (is_lut(ctx, ci))
+                ++used_lgluts;
+            if (is_carry(ctx, ci))
+                used_cyluts += 2;
+            if (is_dpram(ctx, ci)) {
+                used_ramluts += 4;
+                used_ramwluts += 2;
+            }
+            if (is_ff(ctx, ci))
+                used_ffs += 2;
+        }
+        log_info("Logic utilisation before packing:\n");
+        auto pc = [](int used, int total) { return 100 * used / total; };
+        int used_luts = used_lgluts + used_cyluts + used_ramluts + used_ramwluts;
+        log_info("    Total LUT4s:     %5d/%5d %5d%%\n", used_luts, total_luts, pc(used_luts, total_luts));
+        log_info("        logic LUTs:  %5d/%5d %5d%%\n", used_lgluts, total_luts, pc(used_lgluts, total_luts));
+        log_info("        carry LUTs:  %5d/%5d %5d%%\n", used_cyluts, total_luts, pc(used_cyluts, total_luts));
+        log_info("          RAM LUTs:  %5d/%5d %5d%%\n", used_ramluts, total_ramluts, pc(used_ramluts, total_ramluts));
+        log_info("         RAMW LUTs:  %5d/%5d %5d%%\n", used_ramwluts, total_ramwluts,
+                 pc(used_ramwluts, total_ramwluts));
+        log_break();
+        log_info("     Total DFFs:     %5d/%5d %5d%%\n", used_ffs, total_ffs, pc(used_ffs, total_ffs));
+        log_break();
+    }
+
     // Find FFs associated with LUTs, or LUT expansion muxes
     void find_lutff_pairs()
     {
@@ -2682,6 +2726,7 @@ class Ecp5Packer
     void pack()
     {
         prepack_checks();
+        print_logic_usage();
         pack_io();
         pack_dqsbuf();
         preplace_plls();
