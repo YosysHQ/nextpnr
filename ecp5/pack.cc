@@ -2022,7 +2022,8 @@ class Ecp5Packer
                 iol->params[ctx->id("DELAY.DEL_VALUE")] =
                         lookup_delay(str_or_default(ci->params, ctx->id("DEL_MODE"), "USER_DEFINED"));
                 if (ci->params.count(ctx->id("DEL_VALUE")) &&
-                    std::string(ci->params.at(ctx->id("DEL_VALUE")).as_string()).substr(0, 5) != "DELAY")
+                    (!ci->params.at(ctx->id("DEL_VALUE")).is_string ||
+                     std::string(ci->params.at(ctx->id("DEL_VALUE")).as_string()).substr(0, 5) != "DELAY"))
                     iol->params[ctx->id("DELAY.DEL_VALUE")] = ci->params.at(ctx->id("DEL_VALUE"));
                 if (ci->ports.count(id_LOADN))
                     replace_port(ci, id_LOADN, iol, id_LOADN);
