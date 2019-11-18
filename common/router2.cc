@@ -300,7 +300,9 @@ struct Router2
         if (wd.bound_nets.count(net->udata))
             source_uses = wd.bound_nets.at(net->udata).first;
         // FIXME: timing/wirelength balance?
-        return ctx->getDelayNS(ctx->estimateDelay(wire, sink)) / (1 + source_uses);
+        float ipin_cost = ctx->getDelayNS(ctx->getWireDelay(sink).maxDelay() + ctx->getDelayEpsilon());
+        return std::max(0.0f, ctx->getDelayNS(ctx->estimateDelay(wire, sink)) - ipin_cost) / (1 + source_uses) +
+               ipin_cost;
     }
 
     bool check_arc_routing(NetInfo *net, size_t usr)
