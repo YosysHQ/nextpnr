@@ -538,6 +538,7 @@ template <typename FrontendType> struct GenericFrontend
             auto drv = net->driver;
             if (drv.cell != nullptr) {
                 disconnect_port(ctx, drv.cell, drv.port);
+                drv.cell->ports[drv.port].net = nullptr;
                 connect_port(ctx, split_iobuf_i, drv.cell, drv.port);
             }
             connect_port(ctx, split_iobuf_i, iobuf, ctx->id("I"));
@@ -557,25 +558,32 @@ template <typename FrontendType> struct GenericFrontend
     // Import ports of the top level module
     void import_toplevel_ports(HierModuleState &m, const mod_dat_t &data)
     {
-        impl.foreach_port(data, [&](const std::string &portname, const mod_port_dat_t &pd) {
-            const auto &port_bv = impl.get_port_bits(pd);
-            int offset = impl.get_array_offset(pd);
-            bool is_upto = impl.is_array_upto(pd);
-            int width = impl.get_vector_length(port_bv);
-            PortType dir = impl.get_port_dir(pd);
-            for (int i = 0; i < width; i++) {
-                std::string pbit_name = get_bit_name(portname, i, width, offset, is_upto);
-                NetInfo *port_net = nullptr;
-                if (impl.is_vector_bit_constant(port_bv, i)) {
-                    // Port bit is constant. Need to create a new constant net.
-                    port_net = create_constant_net(m, pbit_name + "$const", impl.get_vector_bit_constval(port_bv, i));
-                } else {
-                    // Port bit is a signal. Need to create/get the associated net
-                    port_net = create_or_get_net(m, impl.get_vector_bit_signal(port_bv, i));
+        // For correct handling of inout ports driving other ports
+        // first import non-inouts then import inouts so that they bifurcate correctly
+        for (bool inout : {false, true}) {
+            impl.foreach_port(data, [&](const std::string &portname, const mod_port_dat_t &pd) {
+                const auto &port_bv = impl.get_port_bits(pd);
+                int offset = impl.get_array_offset(pd);
+                bool is_upto = impl.is_array_upto(pd);
+                int width = impl.get_vector_length(port_bv);
+                PortType dir = impl.get_port_dir(pd);
+                if ((dir == PORT_INOUT) != inout)
+                    return;
+                for (int i = 0; i < width; i++) {
+                    std::string pbit_name = get_bit_name(portname, i, width, offset, is_upto);
+                    NetInfo *port_net = nullptr;
+                    if (impl.is_vector_bit_constant(port_bv, i)) {
+                        // Port bit is constant. Need to create a new constant net.
+                        port_net =
+                                create_constant_net(m, pbit_name + "$const", impl.get_vector_bit_constval(port_bv, i));
+                    } else {
+                        // Port bit is a signal. Need to create/get the associated net
+                        port_net = create_or_get_net(m, impl.get_vector_bit_signal(port_bv, i));
+                    }
+                    create_iobuf(port_net, dir, pbit_name);
                 }
-                create_iobuf(port_net, dir, pbit_name);
-            }
-        });
+            });
+        }
     }
 
     // Add a constant-driving VCC or GND cell to make a net constant
