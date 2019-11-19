@@ -710,10 +710,54 @@ struct Router2
         }
     }
 
+    void partition_nets()
+    {
+        // Create a histogram of positions in X and Y positions
+        std::map<int, int> cxs, cys;
+        for (auto &n : nets) {
+            if (n.cx != -1)
+                ++cxs[n.cx];
+            if (n.cy != -1)
+                ++cys[n.cy];
+        }
+        // 4-way split for now
+        int accum_x = 0, accum_y = 0;
+        int mid_x = 0, mid_y = 0;
+        int halfway = int(nets.size()) / 2;
+        for (auto &p : cxs) {
+            if (accum_x < halfway && (accum_x + p.second) >= halfway)
+                mid_x = p.first;
+            accum_x += p.second;
+        }
+        for (auto &p : cys) {
+            if (accum_y < halfway && (accum_y + p.second) >= halfway)
+                mid_y = p.first;
+            accum_y += p.second;
+        }
+        log_info("x splitpoint: %d\n", mid_x);
+        log_info("y splitpoint: %d\n", mid_y);
+        std::vector<int> bins(5, 0);
+        for (auto &n : nets) {
+            if (n.bb.x0 < mid_x && n.bb.x1 < mid_x && n.bb.y0 < mid_y && n.bb.y1 < mid_y)
+                ++bins[0]; // TL
+            else if (n.bb.x0 >= mid_x && n.bb.x1 >= mid_x && n.bb.y0 < mid_y && n.bb.y1 < mid_y)
+                ++bins[1]; // TR
+            else if (n.bb.x0 < mid_x && n.bb.x1 < mid_x && n.bb.y0 >= mid_y && n.bb.y1 >= mid_y)
+                ++bins[2]; // BL
+            else if (n.bb.x0 >= mid_x && n.bb.x1 >= mid_x && n.bb.y0 >= mid_y && n.bb.y1 >= mid_y)
+                ++bins[3]; // BR
+            else
+                ++bins[4]; // cross-boundary
+        }
+        for (int i = 0; i < 5; i++)
+            log_info("bin %d N=%d\n", i, bins[i]);
+    }
+
     void router_test()
     {
         setup_nets();
         setup_wires();
+        partition_nets();
         curr_cong_weight = 0.5;
         hist_cong_weight = 1.0;
         ThreadContext st;
