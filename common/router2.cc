@@ -31,6 +31,7 @@
 #include <deque>
 #include <fstream>
 #include <queue>
+#include <thread>
 #include "log.h"
 #include "nextpnr.h"
 #include "util.h"
@@ -212,6 +213,11 @@ struct Router2
     };
     struct ThreadContext
     {
+        // Nets to route
+        std::vector<NetInfo *> route_nets;
+        // Nets that failed routing
+        std::vector<NetInfo *> failed_nets;
+
         std::priority_queue<QueuedWire, std::vector<QueuedWire>, QueuedWire::Greater> queue;
         std::unordered_map<WireId, VisitInfo> visited;
         // Special case where one net has multiple logical arcs to the same physical sink
@@ -709,6 +715,7 @@ struct Router2
             out << std::endl;
         }
     }
+    int mid_x = 0, mid_y = 0;
 
     void partition_nets()
     {
@@ -722,7 +729,6 @@ struct Router2
         }
         // 4-way split for now
         int accum_x = 0, accum_y = 0;
-        int mid_x = 0, mid_y = 0;
         int halfway = int(nets.size()) / 2;
         for (auto &p : cxs) {
             if (accum_x < halfway && (accum_x + p.second) >= halfway)
@@ -753,6 +759,55 @@ struct Router2
             log_info("bin %d N=%d\n", i, bins[i]);
     }
 
+    void router_thread(ThreadContext &t)
+    {
+        for (auto n : t.route_nets) {
+            bool result = route_net(t, n, true);
+            if (!result)
+                t.failed_nets.push_back(n);
+        }
+    }
+
+    void do_route()
+    {
+        const int N = 4;
+        std::vector<ThreadContext> tcs(N + 1);
+        for (auto n : route_queue) {
+            auto &nd = nets.at(n);
+            auto ni = nets_by_udata.at(n);
+            int bin = N;
+            int le_x = mid_x - bb_margin_x;
+            int rs_x = mid_x + bb_margin_x;
+            int le_y = mid_y - bb_margin_y;
+            int rs_y = mid_y + bb_margin_y;
+
+            if (nd.bb.x0 < le_x && nd.bb.x1 < le_x && nd.bb.y0 < le_y && nd.bb.y1 < le_y)
+                bin = 0;
+            else if (nd.bb.x0 >= rs_x && nd.bb.x1 >= rs_x && nd.bb.y0 < le_y && nd.bb.y1 < le_y)
+                bin = 1;
+            else if (nd.bb.x0 < le_x && nd.bb.x1 < le_x && nd.bb.y0 >= rs_y && nd.bb.y1 >= rs_y)
+                bin = 2;
+            else if (nd.bb.x0 >= rs_x && nd.bb.x1 >= rs_x && nd.bb.y0 >= rs_y && nd.bb.y1 >= rs_y)
+                bin = 3;
+            tcs.at(bin).route_nets.push_back(ni);
+        }
+        // Multithreaded part of routing
+        std::vector<std::thread> threads;
+        for (int i = 0; i < N; i++) {
+            threads.emplace_back([&]() { router_thread(tcs.at(i)); });
+        }
+        for (int i = 0; i < N; i++)
+            threads.at(i).join();
+        // Singlethreaded part of routing - nets that cross partitions
+        // or don't fit within bounding box
+        for (auto st_net : tcs.at(N).route_nets)
+            route_net(tcs.at(N), st_net, false);
+        // Failed nets
+        for (int i = 0; i < N; i++)
+            for (auto fail : tcs.at(i).failed_nets)
+                route_net(tcs.at(N), fail, false);
+    }
+
     void router_test()
     {
         setup_nets();
@@ -768,11 +823,14 @@ struct Router2
 
         do {
             ctx->sorted_shuffle(route_queue);
+#if 0
             for (size_t j = 0; j < route_queue.size(); j++) {
                 route_net(st, nets_by_udata[route_queue[j]], false);
                 if ((j % 1000) == 0 || j == (route_queue.size() - 1))
                     log("    routed %d/%d\n", int(j), int(route_queue.size()));
             }
+#endif
+            do_route();
             route_queue.clear();
             update_congestion();
 #if 1
