@@ -791,10 +791,11 @@ struct Router2
                 bin = 3;
             tcs.at(bin).route_nets.push_back(ni);
         }
+        log_info("%d/%d nets not multi-threadable\n", int(tcs.at(N).route_nets.size()), int(route_queue.size()));
         // Multithreaded part of routing
         std::vector<std::thread> threads;
         for (int i = 0; i < N; i++) {
-            threads.emplace_back([&]() { router_thread(tcs.at(i)); });
+            threads.emplace_back([this, &tcs, i]() { router_thread(tcs.at(i)); });
         }
         for (int i = 0; i < N; i++)
             threads.at(i).join();
