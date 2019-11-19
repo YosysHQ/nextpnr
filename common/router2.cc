@@ -196,7 +196,7 @@ struct Router2
         };
     };
 
-    int bb_margin_x = 4, bb_margin_y = 4; // number of units outside the bounding box we may go
+    int bb_margin_x = 2, bb_margin_y = 2; // number of units outside the bounding box we may go
     bool hit_test_pip(ArcBounds &bb, Loc l)
     {
         return l.x >= (bb.x0 - bb_margin_x) && l.x <= (bb.x1 + bb_margin_x) && l.y >= (bb.y0 - bb_margin_y) &&
@@ -217,6 +217,8 @@ struct Router2
         std::vector<NetInfo *> route_nets;
         // Nets that failed routing
         std::vector<NetInfo *> failed_nets;
+
+        std::vector<int> route_arcs;
 
         std::priority_queue<QueuedWire, std::vector<QueuedWire>, QueuedWire::Greater> queue;
         std::unordered_map<WireId, VisitInfo> visited;
@@ -346,17 +348,9 @@ struct Router2
         if (dst_wire == WireId())
             ARC_LOG_ERR("No wire found for port %s on destination cell %s.\n", ctx->nameOf(usr.port),
                         ctx->nameOf(usr.cell));
-        // Case of arcs that were pre-routed strongly (e.g. clocks)
-        if (net->wires.count(dst_wire) && net->wires.at(dst_wire).strength > STRENGTH_STRONG)
-            return ARC_SUCCESS;
-        // Check if arc is already legally routed
-        if (check_arc_routing(net, i))
-            return ARC_SUCCESS;
         // Check if arc was already done _in this iteration_
         if (t.processed_sinks.count(dst_wire))
             return ARC_SUCCESS;
-        // Ripup arc to start with
-        ripup_arc(net, i);
 
         if (!t.queue.empty()) {
             std::priority_queue<QueuedWire, std::vector<QueuedWire>, QueuedWire::Greater> new_queue;
@@ -536,7 +530,22 @@ struct Router2
 
         bool have_failures = false;
         t.processed_sinks.clear();
+        t.route_arcs.clear();
         for (size_t i = 0; i < net->users.size(); i++) {
+            // Ripup failed arcs to start with
+            // Check if arc is already legally routed
+            if (check_arc_routing(net, i))
+                continue;
+            auto &usr = net->users.at(i);
+            WireId dst_wire = ctx->getNetinfoSinkWire(net, usr);
+            // Case of arcs that were pre-routed strongly (e.g. clocks)
+            if (net->wires.count(dst_wire) && net->wires.at(dst_wire).strength > STRENGTH_STRONG)
+                return ARC_SUCCESS;
+            // Ripup arc to start with
+            ripup_arc(net, i);
+            t.route_arcs.push_back(i);
+        }
+        for (auto i : t.route_arcs) {
             auto res1 = route_arc(t, net, i, is_mt, true);
             if (res1 == ARC_FATAL)
                 return false; // Arc failed irrecoverably
@@ -770,6 +779,14 @@ struct Router2
 
     void do_route()
     {
+        // Don't multithread if fewer than 200 nets (heuristic)
+        if (route_queue.size() < 200) {
+            ThreadContext st;
+            for (size_t j = 0; j < route_queue.size(); j++) {
+                route_net(st, nets_by_udata[route_queue[j]], false);
+            }
+            return;
+        }
         const int N = 4;
         std::vector<ThreadContext> tcs(N + 1);
         for (auto n : route_queue) {
