@@ -62,12 +62,7 @@ class Ecp5GlobalRouter
             return true;
         return false;
     }
-    bool is_lsr_port(const PortRef &user)
-    {
-        if (user.cell->type == id_TRELLIS_SLICE && (user.port == id_LSR))
-            return true;
-        return false;
-    }
+
     std::vector<NetInfo *> get_clocks()
     {
         std::unordered_map<IdString, int> clockCount;
@@ -105,32 +100,6 @@ class Ecp5GlobalRouter
             clockCount.erase(max->first);
         }
         return clocks;
-    }
-
-    std::vector<NetInfo *> get_globalworthy_lsrs()
-    {
-        // Fanout threshold for LSRs is high (300), and we only promote up to two of them, in the nature of being
-        // conservative given the cost of a global
-        std::unordered_map<IdString, int> lsrCount;
-        for (auto &net : ctx->nets) {
-            NetInfo *ni = net.second.get();
-            lsrCount[ni->name] = 0;
-            for (const auto &user : ni->users)
-                if (is_lsr_port(user))
-                    lsrCount[ni->name]++;
-        }
-        // DCCAs must always drive globals
-        std::vector<NetInfo *> lsrs;
-        while (lsrs.size() < 2) {
-            auto max = std::max_element(lsrCount.begin(), lsrCount.end(),
-                                        [](const decltype(lsrCount)::value_type &a,
-                                           const decltype(lsrCount)::value_type &b) { return a.second < b.second; });
-            if (max == lsrCount.end() || max->second < 300)
-                break;
-            lsrs.push_back(ctx->nets.at(max->first).get());
-            lsrCount.erase(max->first);
-        }
-        return lsrs;
     }
 
     PipId find_tap_pip(WireId tile_glb)
@@ -171,9 +140,6 @@ class Ecp5GlobalRouter
         upstream.push(userWire);
         bool already_routed = false;
         WireId next;
-
-        IdString id_lsr1 = ctx->id("LSR1");
-
         // Search back from the pin until we reach the global network
         while (true) {
             next = upstream.front();
@@ -189,11 +155,6 @@ class Ecp5GlobalRouter
                 globalWire = next;
                 break;
             }
-
-            // Forbid to use LSR1 for non-WRE LSRs; as this is reserved for WRE
-            if (ctx->getWireBasename(next) == id_lsr1 && user.port != id_WRE)
-                continue;
-
             if (ctx->checkWireAvail(next)) {
                 for (auto pip : ctx->getPipsUphill(next)) {
                     WireId src = ctx->getPipSrcWire(pip);
@@ -503,33 +464,16 @@ class Ecp5GlobalRouter
             else
                 insert_dcc(clock);
         }
-        if (clocks.size() < 12 && !bool_or_default(ctx->settings, ctx->id("arch.nolsrglobal"), false)) {
-            // Promote up to two set/resets to global
-            auto lsrs = get_globalworthy_lsrs();
-            for (auto lsr : lsrs) {
-                bool is_noglobal = bool_or_default(lsr->attrs, ctx->id("noglobal"), false);
-                if (is_noglobal)
-                    continue;
-                log_info("    promoting LSR net %s to global network\n", lsr->name.c_str(ctx));
-                if (is_ooc) // Don't actually do anything in OOC mode, global routing will be done in the full design
-                    lsr->is_global = true;
-                else
-                    insert_dcc(lsr);
-            }
-        }
     }
 
     void route_globals()
     {
         log_info("Routing globals...\n");
-        std::set<int> all_globals, fab_globals, lsr_globals;
+        std::set<int> all_globals, fab_globals;
         for (int i = 0; i < 16; i++) {
             all_globals.insert(i);
-            if (i < 8) {
-                if (i >= 4)
-                    lsr_globals.insert(i);
+            if (i < 8)
                 fab_globals.insert(i);
-            }
         }
         std::vector<std::pair<PortRef *, int>> toroute;
         std::unordered_map<int, NetInfo *> clocks;
@@ -540,18 +484,9 @@ class Ecp5GlobalRouter
                 NPNR_ASSERT(clock != nullptr);
                 bool drives_fabric = std::any_of(clock->users.begin(), clock->users.end(),
                                                  [this](const PortRef &port) { return !is_clock_port(port); });
-                bool drives_lsr = std::any_of(clock->users.begin(), clock->users.end(),
-                                              [this](const PortRef &port) { return is_lsr_port(port); });
+
                 int glbid;
-                if (drives_lsr) {
-                    if (lsr_globals.empty()) {
-                        // Route LSR through fabric (suboptimal)
-                        NPNR_ASSERT(!fab_globals.empty());
-                        glbid = *(fab_globals.begin());
-                    } else {
-                        glbid = *(lsr_globals.begin());
-                    }
-                } else if (drives_fabric) {
+                if (drives_fabric) {
                     if (fab_globals.empty())
                         continue;
                     glbid = *(fab_globals.begin());
@@ -560,7 +495,6 @@ class Ecp5GlobalRouter
                 }
                 all_globals.erase(glbid);
                 fab_globals.erase(glbid);
-                lsr_globals.erase(glbid);
 
                 log_info("    routing clock net %s using global %d\n", clock->name.c_str(ctx), glbid);
                 bool routed = route_onto_global(clock, glbid);
