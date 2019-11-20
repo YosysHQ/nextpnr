@@ -374,8 +374,34 @@ struct Router2
             t.backwards_queue.pop();
             auto &cwd = wires.at(cursor);
             PipId cpip;
-            if (cwd.bound_nets.count(net->udata))
+            if (cwd.bound_nets.count(net->udata)) {
+                // If we can tack onto existing routing; try that
+                // Only do this if the existing routing is uncontented; however
+                WireId cursor2 = cursor;
+                bool bwd_merge_fail = false;
+                while (wires.at(cursor2).bound_nets.count(net->udata)) {
+                    if (wires.at(cursor2).bound_nets.size() > 1) {
+                        bwd_merge_fail = true;
+                        break;
+                    }
+                    PipId p = wires.at(cursor2).bound_nets.at(net->udata).second;
+                    if (p == PipId())
+                        break;
+                    cursor2 = ctx->getPipSrcWire(p);
+                }
+                if (!bwd_merge_fail && cursor2 == src_wire) {
+                    // Found a path to merge to existing routing; backwards
+                    cursor2 = cursor;
+                    while (wires.at(cursor2).bound_nets.count(net->udata)) {
+                        PipId p = wires.at(cursor2).bound_nets.at(net->udata).second;
+                        if (p == PipId())
+                            break;
+                        cursor2 = ctx->getPipSrcWire(p);
+                        t.backwards_pip[cursor2] = p;
+                    }
+                }
                 cpip = cwd.bound_nets.at(net->udata).second;
+            }
             bool did_something = false;
             for (auto uh : ctx->getPipsUphill(cursor)) {
                 did_something = true;
