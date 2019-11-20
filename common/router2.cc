@@ -399,6 +399,7 @@ struct Router2
                         cursor2 = ctx->getPipSrcWire(p);
                         t.backwards_pip[cursor2] = p;
                     }
+                    break;
                 }
                 cpip = cwd.bound_nets.at(net->udata).second;
             }
@@ -494,7 +495,7 @@ struct Router2
                 next_score.cost = curr.score.cost + score_wire_for_arc(net, i, next, dh);
                 next_score.delay =
                         curr.score.delay + ctx->getPipDelay(dh).maxDelay() + ctx->getWireDelay(next).maxDelay();
-                next_score.togo_cost = 1.5 * get_togo_cost(net, i, next, dst_wire);
+                next_score.togo_cost = 1.75 * get_togo_cost(net, i, next, dst_wire);
                 if (!t.visited.count(next) || (t.visited.at(next).score.total() > next_score.total())) {
 #if 0
                     ROUTE_LOG_DBG("exploring wire %s cost %f togo %f\n", ctx->nameOfWire(next), next_score.cost,
