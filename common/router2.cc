@@ -196,7 +196,7 @@ struct Router2
         };
     };
 
-    int bb_margin_x = 2, bb_margin_y = 2; // number of units outside the bounding box we may go
+    int bb_margin_x = 4, bb_margin_y = 4; // number of units outside the bounding box we may go
     bool hit_test_pip(ArcBounds &bb, Loc l)
     {
         return l.x >= (bb.x0 - bb_margin_x) && l.x <= (bb.x1 + bb_margin_x) && l.y >= (bb.y0 - bb_margin_y) &&
@@ -671,8 +671,10 @@ struct Router2
 #endif
             // Ripup wires and pips used by the net in nextpnr's structures
             net_wires.clear();
-            for (auto &w : net->wires)
-                net_wires.push_back(w.first);
+            for (auto &w : net->wires) {
+                if (w.second.strength <= STRENGTH_STRONG)
+                    net_wires.push_back(w.first);
+            }
             for (auto w : net_wires)
                 ctx->unbindWire(w);
             // Bind the arcs using the routes we have discovered
