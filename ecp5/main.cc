@@ -74,6 +74,7 @@ po::options_description ECP5CommandHandler::getArchOptions()
     specific.add_options()(
             "out-of-context",
             "disable IO buffer insertion and global promotion/routing, for building pre-routed blocks (experimental)");
+    specific.add_options()("no-lsr-globals", "don't promote local set/reset (LSR) signals to global networks");
 
     return specific;
 }
@@ -239,6 +240,8 @@ std::unique_ptr<Context> ECP5CommandHandler::createContext(std::unordered_map<st
         ctx->settings[ctx->id(val.first)] = val.second;
     ctx->settings[ctx->id("arch.package")] = ctx->archArgs().package;
     ctx->settings[ctx->id("arch.speed")] = speedString(ctx->archArgs().speed);
+    if (vm.count("no-lsr-globals"))
+        ctx->settings[ctx->id("arch.nolsrglobal")] = 1;
     if (vm.count("out-of-context"))
         ctx->settings[ctx->id("arch.ooc")] = 1;
     return ctx;
