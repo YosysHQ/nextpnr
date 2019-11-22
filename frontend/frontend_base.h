@@ -76,6 +76,10 @@
  *       calls Func(const std::string &name, const Property &value);
  *       for each parameter of a cell
  *
+ *   void foreach_setting(const ModuleDataType &obj, Func) const;
+ *       calls Func(const std::string &name, const Property &value);
+ *       for each module-level setting
+ *
  *   void foreach_port_dir(const CellDataType &cell, Func) const;
  *       calls Func(const std::string &name, PortType dir);
  *       for each port direction of a cell
@@ -261,11 +265,23 @@ template <typename FrontendType> struct GenericFrontend
             // Just create a list of ports for netname resolution
             impl.foreach_port(data,
                               [&](const std::string &name, const mod_port_dat_t &) { m.port_to_bus[ctx->id(name)]; });
+            // Import module-level attributes
+            impl.foreach_attr(
+                    data, [&](const std::string &name, const Property &value) { ctx->attrs[ctx->id(name)] = value; });
+            // Import settings
+            impl.foreach_setting(data, [&](const std::string &name, const Property &value) {
+                ctx->settings[ctx->id(name)] = value;
+            });
         }
         import_module_netnames(m, data);
         import_module_cells(m, data);
-        if (m.is_toplevel)
+        if (m.is_toplevel) {
             import_toplevel_ports(m, data);
+            // Mark design as loaded through nextpnr
+            ctx->settings[ctx->id("synth")] = 1;
+            // Process nextpnr-specific attributes
+            ctx->attributesToArchInfo();
+        }
     }
 
     // Multiple labels might refer to the same net. Resolve conflicts for the primary name thus:

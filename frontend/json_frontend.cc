@@ -134,6 +134,16 @@ struct JsonFrontendImpl
         }
     }
 
+    template <typename TFunc> void foreach_setting(const Json &obj, TFunc Func) const
+    {
+        const auto &settings = obj["settings"];
+        if (settings.is_null())
+            return;
+        for (const auto &setting : settings.object_items()) {
+            Func(setting.first, parse_property(setting.second));
+        }
+    }
+
     template <typename TFunc> void foreach_port_dir(const CellDataType &cell, TFunc Func) const
     {
         for (const auto &pdir : cell["port_directions"].object_items())
