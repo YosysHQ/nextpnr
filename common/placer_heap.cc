@@ -800,7 +800,7 @@ class HeAPPlacer
                 ripup_radius = std::max(std::max(max_x, max_y), ripup_radius * 2);
             }
 
-            if (total_iters_noreset > std::max(50000, 1000 * int(ctx->cells.size()))) {
+            if (total_iters_noreset > std::max(5000, 8 * int(ctx->cells.size()))) {
                 log_error("Unable to find legal placement for all cells, design is probably at utilisation limit.\n");
             }
 
