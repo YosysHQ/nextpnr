@@ -9,10 +9,7 @@ Currently nextpnr supports:
  * Lattice ECP5 devices supported by [Project Trellis](https://github.com/SymbiFlow/prjtrellis)
  * *(experimental)* a "generic" back-end for user-defined architectures
 
-We hope to see Xilinx 7 Series thanks to
-[Project X-Ray](https://github.com/SymbiFlow/prjxray) and even more FPGA families
-supported in the future. We would love your help in developing this
-awesome new project!
+There is some work in progress towards [support for Xilinx devices](https://github.com/daveshah1/nextpnr-xilinx/) but it is not upstream and not intended for end users at the present time. We hope to see more FPGA families supported in the future. We would love your help in developing this awesome new project!
 
 A brief (academic) paper describing the Yosys+nextpnr flow can be found
 on [arXiv](https://arxiv.org/abs/1903.10407).
@@ -119,7 +116,7 @@ make -j$(nproc)
 sudo make install
 ```
 
-TBD: Getting started example for generic target.
+An example of how to use the generic flow is in [generic/examples](generic/examples). See also the [Generic Architecture docs](docs/generic.md).
 
 Additional notes for building nextpnr
 -------------------------------------
