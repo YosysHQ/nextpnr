@@ -144,8 +144,7 @@ Nextpnr and other tools
    migrating to nextpnr.
 
  * If you are developing Verilog FPGA code targeted at the Lattice ECP5 and
-   need an open source toolchain, you may consider the **extremely
-   experimental** ECP5 support in Yosys and nextpnr.
+   need an open source toolchain, there is also stable ECP5 support in Yosys and nextpnr.
 
  * If you are developing FPGA code in **VHDL** you will need to use either a
    version of [Yosys with Verific support](https://github.com/YosysHQ/yosys/tree/master/frontends/verific) or the vendor provided tools due

@@ -6,7 +6,7 @@ tool.
 
 Currently nextpnr supports:
  * Lattice iCE40 devices supported by [Project IceStorm](http://www.clifford.at/icestorm/)
- * *(experimental)* Lattice ECP5 devices supported by [Project Trellis](https://github.com/SymbiFlow/prjtrellis)
+ * Lattice ECP5 devices supported by [Project Trellis](https://github.com/SymbiFlow/prjtrellis)
  * *(experimental)* a "generic" back-end for user-defined architectures
 
 We hope to see Xilinx 7 Series thanks to
@@ -106,12 +106,7 @@ make -j$(nproc)
 sudo make install
 ```
 
- - For an ECP5 blinky on the 45k ULX3S board, first synthesise using `yosys blinky.ys` in `ecp5/synth`.
-  - Then run ECP5 place-and route using `./nextpnr-ecp5 --json ecp5/synth/blinky.json --basecfg ecp5/synth/ulx3s_empty.config --textcfg ecp5/synth/ulx3s_out.config`
-  - Create a bitstream using `ecppack ulx3s_out.config ulx3s.bit`
-  - Note that `ulx3s_empty.config` contains fixed/unknown bits to be copied to the output bitstream
-
- - More examples of the ECP5 flow for a range of boards can be found in the [Project Trellis Examples](https://github.com/SymbiFlow/prjtrellis/tree/master/examples).
+ - Examples of the ECP5 flow for a range of boards can be found in the [Project Trellis Examples](https://github.com/SymbiFlow/prjtrellis/tree/master/examples).
 
 
 ### nextpnr-generic
