@@ -1245,7 +1245,11 @@ void Arch::assignCellInfo(CellInfo *cell)
     }
 }
 
+#ifdef WITH_HEAP
+const std::string Arch::defaultPlacer = "heap";
+#else
 const std::string Arch::defaultPlacer = "sa";
+#endif
 
 const std::vector<std::string> Arch::availablePlacers = {"sa",
 #ifdef WITH_HEAP
