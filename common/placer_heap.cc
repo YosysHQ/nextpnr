@@ -774,6 +774,7 @@ class HeAPPlacer
         }
         int ripup_radius = 2;
         int total_iters = 0;
+        int total_iters_noreset = 0;
         while (!remaining.empty()) {
             auto top = remaining.top();
             remaining.pop();
@@ -793,12 +794,22 @@ class HeAPPlacer
             int best_inp_len = std::numeric_limits<int>::max();
 
             total_iters++;
+            total_iters_noreset++;
             if (total_iters > int(solve_cells.size())) {
                 total_iters = 0;
                 ripup_radius = std::max(std::max(max_x, max_y), ripup_radius * 2);
             }
 
+            if (total_iters_noreset > std::max(50000, 1000 * int(ctx->cells.size()))) {
+                log_error("Unable to find legal placement for all cells, design is probably at utilisation limit.\n");
+            }
+
             while (!placed) {
+
+                // Set a conservative timeout
+                if (iter > std::max(1000, 3 * int(ctx->cells.size())))
+                    log_error("Unable to find legal placement for cell '%s', check constraints and utilisation.\n",
+                              ctx->nameOf(ci));
 
                 int rx = radius, ry = radius;
 
