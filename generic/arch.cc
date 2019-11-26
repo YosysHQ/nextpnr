@@ -21,6 +21,7 @@
 #include <math.h>
 #include "nextpnr.h"
 #include "placer1.h"
+#include "placer_heap.h"
 #include "router1.h"
 #include "util.h"
 
@@ -494,8 +495,29 @@ bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay
 bool Arch::place()
 {
     std::string placer = str_or_default(settings, id("placer"), defaultPlacer);
-    // FIXME: No HeAP because it needs a list of IO buffers
-    if (placer == "sa") {
+    if (placer == "heap") {
+        bool have_iobuf_or_constr = false;
+        for (auto cell : sorted(cells)) {
+            CellInfo *ci = cell.second;
+            if (ci->type == id("GENERIC_IOB") || ci->bel != BelId() || ci->attrs.count(id("BEL"))) {
+                have_iobuf_or_constr = true;
+                break;
+            }
+        }
+        bool retVal;
+        if (!have_iobuf_or_constr) {
+            log_warning("Unable to use HeAP due to a lack of IO buffers or constrained cells as anchors; reverting to "
+                        "SA.\n");
+            retVal = placer1(getCtx(), Placer1Cfg(getCtx()));
+        } else {
+            PlacerHeapCfg cfg(getCtx());
+            cfg.ioBufTypes.insert(id("GENERIC_IOB"));
+            retVal = placer_heap(getCtx(), cfg);
+        }
+        getCtx()->settings[getCtx()->id("place")] = 1;
+        archInfoToAttributes();
+        return retVal;
+    } else if (placer == "sa") {
         bool retVal = placer1(getCtx(), Placer1Cfg(getCtx()));
         getCtx()->settings[getCtx()->id("place")] = 1;
         archInfoToAttributes();
@@ -596,9 +618,17 @@ bool Arch::isBelLocationValid(BelId bel) const
     return cellsCompatible(cells.data(), int(cells.size()));
 }
 
+#ifdef WITH_HEAP
+const std::string Arch::defaultPlacer = "heap";
+#else
 const std::string Arch::defaultPlacer = "sa";
-const std::vector<std::string> Arch::availablePlacers = {"sa"};
+#endif
 
+const std::vector<std::string> Arch::availablePlacers = {"sa",
+#ifdef WITH_HEAP
+                                                         "heap"
+#endif
+};
 void Arch::assignArchInfo()
 {
     for (auto &cell : getCtx()->cells) {
