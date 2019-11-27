@@ -27,6 +27,30 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+WireInfo &Arch::wire_info(IdString wire)
+{
+    auto w = wires.find(wire);
+    if (w == wires.end())
+        NPNR_ASSERT_FALSE_STR("no wire named " + wire.str(this));
+    return w->second;
+}
+
+PipInfo &Arch::pip_info(IdString pip)
+{
+    auto p = pips.find(pip);
+    if (p == pips.end())
+        NPNR_ASSERT_FALSE_STR("no pip named " + pip.str(this));
+    return p->second;
+}
+
+BelInfo &Arch::bel_info(IdString bel)
+{
+    auto b = bels.find(bel);
+    if (b == bels.end())
+        NPNR_ASSERT_FALSE_STR("no bel named " + bel.str(this));
+    return b->second;
+}
+
 void Arch::addWire(IdString name, IdString type, int x, int y)
 {
     NPNR_ASSERT(wires.count(name) == 0);
@@ -50,8 +74,8 @@ void Arch::addPip(IdString name, IdString type, IdString srcWire, IdString dstWi
     pi.delay = delay;
     pi.loc = loc;
 
-    wires.at(srcWire).downhill.push_back(name);
-    wires.at(dstWire).uphill.push_back(name);
+    wire_info(srcWire).downhill.push_back(name);
+    wire_info(dstWire).uphill.push_back(name);
     pip_ids.push_back(name);
 
     if (int(tilePipDimZ.size()) <= loc.x)
@@ -75,7 +99,7 @@ void Arch::addAlias(IdString name, IdString type, IdString srcWire, IdString dst
     pi.dstWire = dstWire;
     pi.delay = delay;
 
-    wires.at(srcWire).aliases.push_back(name);
+    wire_info(srcWire).aliases.push_back(name);
     pip_ids.push_back(name);
 }
 
@@ -115,38 +139,38 @@ void Arch::addBel(IdString name, IdString type, Loc loc, bool gb)
 
 void Arch::addBelInput(IdString bel, IdString name, IdString wire)
 {
-    NPNR_ASSERT(bels.at(bel).pins.count(name) == 0);
-    PinInfo &pi = bels.at(bel).pins[name];
+    NPNR_ASSERT(bel_info(bel).pins.count(name) == 0);
+    PinInfo &pi = bel_info(bel).pins[name];
     pi.name = name;
     pi.wire = wire;
     pi.type = PORT_IN;
 
-    wires.at(wire).downhill_bel_pins.push_back(BelPin{bel, name});
-    wires.at(wire).bel_pins.push_back(BelPin{bel, name});
+    wire_info(wire).downhill_bel_pins.push_back(BelPin{bel, name});
+    wire_info(wire).bel_pins.push_back(BelPin{bel, name});
 }
 
 void Arch::addBelOutput(IdString bel, IdString name, IdString wire)
 {
-    NPNR_ASSERT(bels.at(bel).pins.count(name) == 0);
-    PinInfo &pi = bels.at(bel).pins[name];
+    NPNR_ASSERT(bel_info(bel).pins.count(name) == 0);
+    PinInfo &pi = bel_info(bel).pins[name];
     pi.name = name;
     pi.wire = wire;
     pi.type = PORT_OUT;
 
-    wires.at(wire).uphill_bel_pin = BelPin{bel, name};
-    wires.at(wire).bel_pins.push_back(BelPin{bel, name});
+    wire_info(wire).uphill_bel_pin = BelPin{bel, name};
+    wire_info(wire).bel_pins.push_back(BelPin{bel, name});
 }
 
 void Arch::addBelInout(IdString bel, IdString name, IdString wire)
 {
-    NPNR_ASSERT(bels.at(bel).pins.count(name) == 0);
-    PinInfo &pi = bels.at(bel).pins[name];
+    NPNR_ASSERT(bel_info(bel).pins.count(name) == 0);
+    PinInfo &pi = bel_info(bel).pins[name];
     pi.name = name;
     pi.wire = wire;
     pi.type = PORT_INOUT;
 
-    wires.at(wire).downhill_bel_pins.push_back(BelPin{bel, name});
-    wires.at(wire).bel_pins.push_back(BelPin{bel, name});
+    wire_info(wire).downhill_bel_pins.push_back(BelPin{bel, name});
+    wire_info(wire).bel_pins.push_back(BelPin{bel, name});
 }
 
 void Arch::addGroupBel(IdString group, IdString bel) { groups[group].bels.push_back(bel); }
@@ -165,19 +189,19 @@ void Arch::addDecalGraphic(DecalId decal, const GraphicElement &graphic)
 
 void Arch::setWireDecal(WireId wire, DecalXY decalxy)
 {
-    wires.at(wire).decalxy = decalxy;
+    wire_info(wire).decalxy = decalxy;
     refreshUiWire(wire);
 }
 
 void Arch::setPipDecal(PipId pip, DecalXY decalxy)
 {
-    pips.at(pip).decalxy = decalxy;
+    pip_info(pip).decalxy = decalxy;
     refreshUiPip(pip);
 }
 
 void Arch::setBelDecal(BelId bel, DecalXY decalxy)
 {
-    bels.at(bel).decalxy = decalxy;
+    bel_info(bel).decalxy = decalxy;
     refreshUiBel(bel);
 }
 
@@ -187,11 +211,11 @@ void Arch::setGroupDecal(GroupId group, DecalXY decalxy)
     refreshUiGroup(group);
 }
 
-void Arch::setWireAttr(IdString wire, IdString key, const std::string &value) { wires.at(wire).attrs[key] = value; }
+void Arch::setWireAttr(IdString wire, IdString key, const std::string &value) { wire_info(wire).attrs[key] = value; }
 
-void Arch::setPipAttr(IdString pip, IdString key, const std::string &value) { pips.at(pip).attrs[key] = value; }
+void Arch::setPipAttr(IdString pip, IdString key, const std::string &value) { pip_info(pip).attrs[key] = value; }
 
-void Arch::setBelAttr(IdString bel, IdString key, const std::string &value) { bels.at(bel).attrs[key] = value; }
+void Arch::setBelAttr(IdString bel, IdString key, const std::string &value) { bel_info(bel).attrs[key] = value; }
 
 void Arch::setLutK(int K) { args.K = K; }
 
