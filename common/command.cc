@@ -36,7 +36,6 @@
 #include "command.h"
 #include "design_utils.h"
 #include "json_frontend.h"
-#include "jsonparse.h"
 #include "jsonwrite.h"
 #include "log.h"
 #include "timing.h"
@@ -266,13 +265,8 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
             if (vm.count("json")) {
                 std::string filename = vm["json"].as<std::string>();
                 std::ifstream f(filename);
-#ifdef LEGACY_FRONTEND
-                if (!parse_json_file(f, filename, w.getContext()))
-                    log_error("Loading design failed.\n");
-#else
                 if (!parse_json(f, filename, w.getContext()))
                     log_error("Loading design failed.\n");
-#endif
                 customAfterLoad(w.getContext());
                 w.notifyChangeContext();
                 w.updateActions();
@@ -289,13 +283,8 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
     if (vm.count("json")) {
         std::string filename = vm["json"].as<std::string>();
         std::ifstream f(filename);
-#ifdef LEGACY_FRONTEND
-        if (!parse_json_file(f, filename, ctx.get()))
-            log_error("Loading design failed.\n");
-#else
         if (!parse_json(f, filename, ctx.get()))
             log_error("Loading design failed.\n");
-#endif
 
         customAfterLoad(ctx.get());
     }
@@ -392,12 +381,6 @@ int CommandHandler::exec()
             return 0;
 
         std::unordered_map<std::string, Property> values;
-        if (vm.count("json")) {
-            std::string filename = vm["json"].as<std::string>();
-            std::ifstream f(filename);
-            if (!load_json_settings(f, filename, values))
-                log_error("Loading design failed.\n");
-        }
         std::unique_ptr<Context> ctx = createContext(values);
         setupContext(ctx.get());
         setupArchContext(ctx.get());
@@ -414,17 +397,12 @@ std::unique_ptr<Context> CommandHandler::load_json(std::string filename)
 {
     vm.clear();
     std::unordered_map<std::string, Property> values;
-    {
-        std::ifstream f(filename);
-        if (!load_json_settings(f, filename, values))
-            log_error("Loading design failed.\n");
-    }
     std::unique_ptr<Context> ctx = createContext(values);
     setupContext(ctx.get());
     setupArchContext(ctx.get());
     {
         std::ifstream f(filename);
-        if (!parse_json_file(f, filename, ctx.get()))
+        if (!parse_json(f, filename, ctx.get()))
             log_error("Loading design failed.\n");
     }
     customAfterLoad(ctx.get());

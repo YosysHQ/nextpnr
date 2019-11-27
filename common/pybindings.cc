@@ -22,7 +22,7 @@
 
 #include "pybindings.h"
 #include "arch_pybindings.h"
-#include "jsonparse.h"
+#include "json_frontend.h"
 #include "log.h"
 #include "nextpnr.h"
 
@@ -53,7 +53,7 @@ void parse_json_shim(std::string filename, Context &d)
     std::ifstream inf(filename);
     if (!inf)
         throw std::runtime_error("failed to open file " + filename);
-    parse_json_file(inf, filename, &d);
+    parse_json(inf, filename, &d);
 }
 
 // Create a new Chip and load design from json file
