@@ -57,12 +57,14 @@ class Ecp5Packer
     }
 
     // Print logic usgage
+    int available_slices = 0;
     void print_logic_usage()
     {
         int total_luts = 0, total_ffs = 0;
         int total_ramluts = 0, total_ramwluts = 0;
         for (auto bel : ctx->getBels()) {
             if (ctx->getBelType(bel) == id_TRELLIS_SLICE) {
+                available_slices += 1;
                 total_luts += 2;
                 total_ffs += 2;
                 Loc l = ctx->getBelLocation(bel);
@@ -117,6 +119,58 @@ class Ecp5Packer
                 }
             }
         }
+    }
+
+    // Check if a flipflop is available in a slice
+    bool is_ff_available(CellInfo *slice, int ff)
+    {
+        if (get_net_or_empty(slice, (ff == 1) ? id_Q1 : id_Q0) != nullptr)
+            return false;
+        if (get_net_or_empty(slice, (ff == 1) ? id_M1 : id_M0) != nullptr)
+            return false;
+        return true;
+    }
+
+    // Check if a flipflop can be added to a slice
+    bool can_add_ff_to_slice(CellInfo *slice, CellInfo *ff)
+    {
+        std::string clkmux = str_or_default(ff->params, ctx->id("CLKMUX"), "CLK");
+        std::string lsrmux = str_or_default(ff->params, ctx->id("LSRMUX"), "LSR");
+
+        bool has_dpram = str_or_default(slice->params, ctx->id("MODE"), "LOGIC") == "DPRAM";
+        if (has_dpram) {
+            std::string wckmux = str_or_default(slice->params, ctx->id("WCKMUX"), "WCK");
+            std::string wremux = str_or_default(slice->params, ctx->id("WREMUX"), "WRE");
+            if (wckmux != clkmux && !(wckmux == "WCK" && clkmux == "CLK"))
+                return false;
+            if (wremux != lsrmux && !(wremux == "WRE" && lsrmux == "LSR"))
+                return false;
+        }
+        bool has_ff0 = get_net_or_empty(slice, id_Q0) != nullptr;
+        bool has_ff1 = get_net_or_empty(slice, id_Q1) != nullptr;
+        if (!has_ff0 && !has_ff1)
+            return true;
+        if (str_or_default(ff->params, ctx->id("GSR"), "DISABLED") !=
+            str_or_default(slice->params, ctx->id("GSR"), "DISABLED"))
+            return false;
+        if (str_or_default(ff->params, ctx->id("SRMODE"), "LSR_OVER_CE") !=
+            str_or_default(slice->params, ctx->id("SRMODE"), "LSR_OVER_CE"))
+            return false;
+        if (str_or_default(ff->params, ctx->id("CEMUX"), "1") != str_or_default(slice->params, ctx->id("CEMUX"), "1"))
+            return false;
+        if (str_or_default(ff->params, ctx->id("LSRMUX"), "LSR") !=
+            str_or_default(slice->params, ctx->id("LSRMUX"), "LSR"))
+            return false;
+        if (str_or_default(ff->params, ctx->id("CLKMUX"), "CLK") !=
+            str_or_default(slice->params, ctx->id("CLKMUX"), "CLK"))
+            return false;
+        if (net_or_nullptr(ff, ctx->id("CLK")) != net_or_nullptr(slice, ctx->id("CLK")))
+            return false;
+        if (net_or_nullptr(ff, ctx->id("CE")) != net_or_nullptr(slice, ctx->id("CE")))
+            return false;
+        if (net_or_nullptr(ff, ctx->id("LSR")) != net_or_nullptr(slice, ctx->id("LSR")))
+            return false;
+        return true;
     }
 
     const NetInfo *net_or_nullptr(CellInfo *cell, IdString port)
@@ -1069,17 +1123,116 @@ class Ecp5Packer
         flush_cells();
     }
 
+    // Find a cell that meets some criterea near an origin cell
+    // Used for packing an FF into a nearby SLICE
+    template <typename TFunc> CellInfo *find_nearby_cell(CellInfo *origin, TFunc Func)
+    {
+        std::unordered_set<CellInfo *> visited_cells;
+        std::queue<CellInfo *> to_visit;
+        visited_cells.insert(origin);
+        to_visit.push(origin);
+        int iter = 0;
+        while (!to_visit.empty() && iter < 10000) {
+            CellInfo *cursor = to_visit.front();
+            to_visit.pop();
+            if (Func(cursor))
+                return cursor;
+            for (const auto &port : cursor->ports) {
+                NetInfo *pn = port.second.net;
+                if (pn == nullptr)
+                    continue;
+                // Skip high-fanout nets that are unlikely to be relevant
+                if (pn->users.size() > 25)
+                    continue;
+                // Add other ports on this net if not already visited
+                auto visit_port = [&](const PortRef &port) {
+                    if (port.cell == nullptr)
+                        return;
+                    if (visited_cells.count(port.cell))
+                        return;
+                    // If not already visited; add the cell of this port to the queue
+                    to_visit.push(port.cell);
+                    visited_cells.insert(port.cell);
+                };
+                visit_port(pn->driver);
+                for (const auto &usr : pn->users)
+                    visit_port(usr);
+            }
+            ++iter;
+        }
+        return nullptr;
+    }
+
     // Pack flipflops that weren't paired with a LUT
+    float dense_pack_mode_thresh = 0.95f;
     void pack_remaining_ffs()
     {
+        // Enter dense flipflop packing mode once utilisation exceeds a threshold (default: 95%)
+        int used_slices = 0;
+        for (auto &cell : ctx->cells)
+            if (cell.second->type == id_TRELLIS_SLICE)
+                ++used_slices;
+
         log_info("Packing unpaired FFs into a SLICE...\n");
         for (auto cell : sorted(ctx->cells)) {
             CellInfo *ci = cell.second;
             if (is_ff(ctx, ci)) {
+                bool pack_dense = used_slices > (dense_pack_mode_thresh * available_slices);
+                if (pack_dense) {
+                    // If dense packing threshold exceeded; always try and pack the FF into an existing slice
+                    // Find a SLICE with space "near" the flipflop in the netlist
+                    std::vector<CellInfo *> ltile;
+                    CellInfo *target = find_nearby_cell(ci, [&](CellInfo *cursor) {
+                        if (cursor->type != id_TRELLIS_SLICE)
+                            return false;
+                        if (!cursor->constr_children.empty() || cursor->constr_parent != nullptr) {
+                            auto &constr_children = (cursor->constr_parent != nullptr)
+                                                            ? cursor->constr_parent->constr_children
+                                                            : cursor->constr_children;
+                            // Skip big chains for performance
+                            if (constr_children.size() > 8)
+                                return false;
+                            // Have to check the whole of the tile for legality when dealing with chains, not just slice
+                            ltile.clear();
+                            if (cursor->constr_parent != nullptr)
+                                ltile.push_back(cursor->constr_parent);
+                            else
+                                ltile.push_back(cursor);
+                            for (auto c : constr_children)
+                                ltile.push_back(c);
+                            if (!can_add_ff_to_tile(ltile, cursor))
+                                return false;
+                        }
+                        if (!can_add_ff_to_slice(cursor, ci))
+                            return false;
+                        for (int i = 0; i < 2; i++)
+                            if (is_ff_available(cursor, i))
+                                return true;
+                        return false;
+                    });
+
+                    // If found, add the FF to this slice instead of creating a new one
+                    if (target != nullptr) {
+                        for (int i = 0; i < 2; i++) {
+                            if (is_ff_available(target, i)) {
+                                ff_to_slice(ctx, ci, target, i, false);
+                                goto ff_packed;
+                            }
+                        }
+                    }
+
+                    if (false) {
+                    ff_packed:
+                        packed_cells.insert(ci->name);
+                        continue;
+                    }
+                }
+
                 std::unique_ptr<CellInfo> slice =
                         create_ecp5_cell(ctx, ctx->id("TRELLIS_SLICE"), ci->name.str(ctx) + "_SLICE");
                 ff_to_slice(ctx, ci, slice.get(), 0, false);
                 new_cells.push_back(std::move(slice));
+                ++used_slices;
                 packed_cells.insert(ci->name);
             }
         }
