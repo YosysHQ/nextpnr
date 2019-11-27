@@ -249,6 +249,10 @@ static void pack_io(Context *ctx)
                         delete_nets.insert(net2->name);
                     }
                 }
+            } else if (bool_or_default(ctx->settings, ctx->id("disable_iobs"))) {
+                // No IO buffer insertion; just remove nextpnr_[io]buf
+                for (auto &p : ci->ports)
+                    disconnect_port(ctx, ci, p.first);
             } else {
                 // Create a GENERIC_IOB buffer
                 std::unique_ptr<CellInfo> ice_cell =
