@@ -1,9 +1,12 @@
-module top(input clk, output reg [7:0] leds);
+module top(input clk, rst, output reg [7:0] leds);
 
-reg [25:0] ctr;
+reg [7:0] ctr;
 always @(posedge clk)
-	ctr <= ctr + 1'b1;
+	if (rst)
+		ctr <= 8'h00;
+	else
+		ctr <= ctr + 1'b1;
 
-assign leds = ctr[25:18];
+assign leds = ctr;
 
 endmodule
