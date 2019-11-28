@@ -387,7 +387,7 @@ struct ClockConstraint;
 
 struct NetInfo : ArchNetInfo
 {
-    IdString name;
+    IdString name, hierpath;
     int32_t udata = 0;
 
     PortRef driver;
@@ -423,7 +423,7 @@ struct PortInfo
 
 struct CellInfo : ArchCellInfo
 {
-    IdString name, type;
+    IdString name, type, hierpath;
     int32_t udata;
 
     std::unordered_map<IdString, PortInfo> ports;
@@ -527,6 +527,28 @@ struct TimingConstraint
     std::unordered_set<TimingConstrObjectId> to;
 };
 
+// Represents the contents of a non-leaf cell in a design
+// with hierarchy
+
+struct HierachicalPort
+{
+    IdString name;
+    PortType dir;
+    std::vector<IdString> nets;
+    int offset;
+    bool upto;
+};
+
+struct HierachicalCell
+{
+    IdString name, type, parent, fullpath;
+    // Name inside cell instance -> global name
+    std::unordered_map<IdString, IdString> leaf_cells, nets;
+    std::unordered_map<IdString, HierachicalPort> ports;
+    // Name inside cell instance -> global name
+    std::unordered_map<IdString, IdString> hier_cells;
+};
+
 inline bool operator==(const std::pair<const TimingConstrObjectId, TimingConstraint *> &a,
                        const std::pair<TimingConstrObjectId, TimingConstraint *> &b)
 {
@@ -619,6 +641,11 @@ struct BaseCtx
     // Placed nets and cells.
     std::unordered_map<IdString, std::unique_ptr<NetInfo>> nets;
     std::unordered_map<IdString, std::unique_ptr<CellInfo>> cells;
+
+    // Hierarchical (non-leaf) cells by full path
+    std::unordered_map<IdString, HierachicalCell> hierarchy;
+    // This is the root of the above structure
+    IdString top_module;
 
     // Aliases for nets, which may have more than one name due to assignments and hierarchy
     std::unordered_map<IdString, IdString> net_aliases;

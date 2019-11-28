@@ -19,6 +19,7 @@ Other structures used by these basic structures include:
 `CellInfo` instances have the following fields:
 
  - `name` and `type` are `IdString`s containing the instance name, and type
+ - `hierpath` is name of the hierarchical cell containing the instance, for designs with hierarchy
  - `ports` is a map from port name `IdString` to `PortInfo` structures for each cell port
  - `bel` and `belStrength` contain the ID of the Bel the cell is placed onto; and placement strength of the cell; if placed. Placement/ripup should always be done by `Arch::bindBel` and `Arch::unbindBel` rather than by manipulating these fields.
  - `params` and `attrs` store parameters and attributes - from the input JSON or assigned in flows to add metadata - by mapping from parameter name `IdString` to `Property`.
@@ -34,6 +35,7 @@ Other structures used by these basic structures include:
 `NetInfo` instances have the following fields:
 
  - `name` is the IdString name of the net - for nets with multiple names, one name is chosen according to a set of rules by the JSON frontend
+ - `hierpath` is name of the hierarchical cell containing the instance, for designs with hierarchy
  - `driver` refers to the source of the net using `PortRef`; `driver.cell == nullptr` means that the net is undriven. Nets must have zero or one driver only. The corresponding cell port must be an output and its `PortInfo::net` must refer back to this net.
  - `users` contains a list of `PortRef` references to sink ports on the net. Nets can have zero or more sinks. Each corresponding cell port must be an input or inout; and its `PortInfo::net` must refer back to this net.
  - `wires` is a map that stores the routing tree of a net, if the net is routed.
