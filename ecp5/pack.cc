@@ -2688,12 +2688,37 @@ class Ecp5Packer
                 const NetInfo *clk = net_or_nullptr(ci, id_CLK);
                 if (clk == nullptr)
                     log_error("DDRDLLA '%s' has disconnected port CLK\n", ci->name.c_str(ctx));
+
+                bool left_bank_users = false, right_bank_users = false;
+                // Check which side the delay codes (DDRDEL) are used on
+                const NetInfo *ddrdel = net_or_nullptr(ci, id_DDRDEL);
+                if (ddrdel != nullptr) {
+                    for (auto &usr : ddrdel->users) {
+                        const CellInfo *uc = usr.cell;
+                        if (uc->type != id_DQSBUFM || !uc->attrs.count(ctx->id("BEL")))
+                            continue;
+                        BelId dqsb_bel = ctx->getBelByName(ctx->id(uc->attrs.at(ctx->id("BEL")).as_string()));
+                        Loc dqsb_loc = ctx->getBelLocation(dqsb_bel);
+                        if (dqsb_loc.x > 15)
+                            right_bank_users = true;
+                        if (dqsb_loc.x < 15)
+                            left_bank_users = true;
+                    }
+                }
+
+                if (left_bank_users && right_bank_users)
+                    log_error("DDRDLLA '%s' has DDRDEL uses on both sides of the chip.\n", ctx->nameOf(ci));
+
                 for (auto &eclk : eclks) {
                     if (eclk.second.unbuf == clk) {
                         for (auto bel : ctx->getBels()) {
                             if (ctx->getBelType(bel) != id_DDRDLL)
                                 continue;
                             Loc loc = ctx->getBelLocation(bel);
+                            if (loc.x > 15 && left_bank_users)
+                                continue;
+                            if (loc.x < 15 && right_bank_users)
+                                continue;
                             int ddrdll_bank = -1;
                             if (loc.x < 15 && loc.y < 15)
                                 ddrdll_bank = 7;
@@ -2705,6 +2730,7 @@ class Ecp5Packer
                                 ddrdll_bank = 3;
                             if (eclk.first.first != ddrdll_bank)
                                 continue;
+                            log_info("Constraining DDRDLLA '%s' to bel '%s'\n", ctx->nameOf(ci), ctx->nameOfBel(bel));
                             ci->attrs[ctx->id("BEL")] = ctx->getBelName(bel).str(ctx);
                             make_eclk(ci->ports.at(id_CLK), ci, bel, eclk.first.first);
                             goto ddrdll_done;
