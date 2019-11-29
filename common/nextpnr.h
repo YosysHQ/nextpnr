@@ -530,7 +530,7 @@ struct TimingConstraint
 // Represents the contents of a non-leaf cell in a design
 // with hierarchy
 
-struct HierachicalPort
+struct HierarchicalPort
 {
     IdString name;
     PortType dir;
@@ -539,12 +539,12 @@ struct HierachicalPort
     bool upto;
 };
 
-struct HierachicalCell
+struct HierarchicalCell
 {
     IdString name, type, parent, fullpath;
     // Name inside cell instance -> global name
     std::unordered_map<IdString, IdString> leaf_cells, nets;
-    std::unordered_map<IdString, HierachicalPort> ports;
+    std::unordered_map<IdString, HierarchicalPort> ports;
     // Name inside cell instance -> global name
     std::unordered_map<IdString, IdString> hier_cells;
 };
@@ -643,7 +643,7 @@ struct BaseCtx
     std::unordered_map<IdString, std::unique_ptr<CellInfo>> cells;
 
     // Hierarchical (non-leaf) cells by full path
-    std::unordered_map<IdString, HierachicalCell> hierarchy;
+    std::unordered_map<IdString, HierarchicalCell> hierarchy;
     // This is the root of the above structure
     IdString top_module;
 

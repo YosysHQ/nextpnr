@@ -500,6 +500,7 @@ template <typename FrontendType> struct GenericFrontend
         submod.prefix += '.';
         submod.parent_path = m.path;
         submod.path = ctx->id(m.path.str(ctx) + "/" + name);
+        ctx->hierarchy[m.path].hier_cells[ctx->id(name)] = submod.path;
         // Do the submodule import
         auto type = impl.get_cell_type(cd);
         import_module(submod, name, type, mod_refs.at(ctx->id(type)));

@@ -5,6 +5,10 @@ readonly_wrapper<Context, decltype(&Context::cells), &Context::cells, wrap_conte
 readonly_wrapper<Context, decltype(&Context::nets), &Context::nets, wrap_context<NetMap &>>::def_wrap(ctx_cls, "nets");
 readonly_wrapper<Context, decltype(&Context::net_aliases), &Context::net_aliases, wrap_context<AliasMap &>>::def_wrap(
         ctx_cls, "net_aliases");
+readonly_wrapper<Context, decltype(&Context::hierarchy), &Context::hierarchy, wrap_context<HierarchyMap &>>::def_wrap(
+        ctx_cls, "hierarchy");
+readwrite_wrapper<Context, decltype(&Context::top_module), &Context::top_module, conv_to_str<IdString>,
+                  conv_from_str<IdString>>::def_wrap(ctx_cls, "top_module");
 
 fn_wrapper_1a<Context, decltype(&Context::getNetByAlias), &Context::getNetByAlias, deref_and_wrap<NetInfo>,
               conv_from_str<IdString>>::def_wrap(ctx_cls, "getNetByAlias");
