@@ -1397,8 +1397,9 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             Loc loc = ctx->getBelLocation(ci->bel);
             bool u = loc.y<15, r = loc.x> 15;
             std::string tiletype = fmt_str("DDRDLL_" << (u ? 'U' : 'L') << (r ? 'R' : 'L'));
-            if (ctx->args.type == ArchArgs::LFE5U_25F || ctx->args.type == ArchArgs::LFE5UM_25F ||
-                ctx->args.type == ArchArgs::LFE5UM5G_25F)
+            if ((ctx->args.type == ArchArgs::LFE5U_25F || ctx->args.type == ArchArgs::LFE5UM_25F ||
+                 ctx->args.type == ArchArgs::LFE5UM5G_25F) &&
+                u)
                 tiletype += "A";
             std::string tile = ctx->getTileByType(tiletype);
             cc.tiles[tile].add_enum("DDRDLL.MODE", "DDRDLLA");

@@ -1029,7 +1029,7 @@ struct Arch : BaseCtx
                 if (chip_info->tiletype_names[tileloc.tile_names[j].type_idx].get() == type)
                     return tileloc.tile_names[j].name.get();
         }
-        NPNR_ASSERT_FALSE_STR("no with type " + type);
+        NPNR_ASSERT_FALSE_STR("no tile with type " + type);
     }
 
     GlobalInfoPOD globalInfoAtLoc(Location loc);
