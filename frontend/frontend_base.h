@@ -131,8 +131,10 @@ template <typename FrontendType> struct GenericFrontend
         HierModuleState m;
         m.is_toplevel = true;
         m.prefix = "";
+        m.path = top;
+        ctx->top_module = top;
         // Do the actual import, starting from the top level module
-        import_module(m, mod_refs.at(top));
+        import_module(m, top.str(ctx), top.str(ctx), mod_refs.at(top));
     }
 
     Context *ctx;
@@ -239,6 +241,7 @@ template <typename FrontendType> struct GenericFrontend
     {
         bool is_toplevel;
         std::string prefix;
+        IdString parent_path, path;
         // Map from index in module to "flat" index of nets
         std::vector<int> index_to_net_flatindex;
         // Get a reference to index_to_net; resizing if
@@ -255,8 +258,14 @@ template <typename FrontendType> struct GenericFrontend
         std::vector<std::vector<std::string>> net_names;
     };
 
-    void import_module(HierModuleState &m, const mod_dat_t &data)
+    void import_module(HierModuleState &m, const std::string &name, const std::string &type, const mod_dat_t &data)
     {
+        NPNR_ASSERT(!ctx->hierarchy.count(m.path));
+        ctx->hierarchy[m.path].name = ctx->id(name);
+        ctx->hierarchy[m.path].type = ctx->id(type);
+        ctx->hierarchy[m.path].parent = m.parent_path;
+        ctx->hierarchy[m.path].fullpath = m.path;
+
         std::vector<NetInfo *> index_to_net;
         if (!m.is_toplevel) {
             // Import port connections; for submodules only
@@ -414,6 +423,7 @@ template <typename FrontendType> struct GenericFrontend
     void import_leaf_cell(HierModuleState &m, const std::string &name, const cell_dat_t &cd)
     {
         IdString inst_name = unique_name(m.prefix, name, false);
+        ctx->hierarchy[m.path].leaf_cells[ctx->id(name)] = inst_name;
         CellInfo *ci = ctx->createCell(inst_name, ctx->id(impl.get_cell_type(cd)));
         // Import port directions
         std::unordered_map<IdString, PortType> port_dirs;
@@ -488,8 +498,11 @@ template <typename FrontendType> struct GenericFrontend
         submod.prefix = m.prefix;
         submod.prefix += name;
         submod.prefix += '.';
+        submod.parent_path = m.path;
+        submod.path = ctx->id(m.path.str(ctx) + "/" + name);
         // Do the submodule import
-        import_module(submod, mod_refs.at(ctx->id(impl.get_cell_type(cd))));
+        auto type = impl.get_cell_type(cd);
+        import_module(submod, name, type, mod_refs.at(ctx->id(type)));
     }
 
     // Import the cells section of a module
