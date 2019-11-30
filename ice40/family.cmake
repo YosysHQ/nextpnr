@@ -84,6 +84,7 @@ if (NOT EXTERNAL_CHIPDB)
             set(DEV_TXT_DB ${ICEBOX_ROOT}/chipdb-${dev}.txt)
             set(DEV_CC_BBA_DB ${CMAKE_CURRENT_SOURCE_DIR}/ice40/chipdbs/chipdb-${dev}.bba)
             set(DEV_CC_DB ${CMAKE_CURRENT_BINARY_DIR}/ice40/chipdbs/chipdb-${dev}.cc)
+            set(DEV_BIN_DB ${CMAKE_CURRENT_BINARY_DIR}/ice40/chipdbs/chipdb-${dev}.bin)
             set(DEV_CONSTIDS_INC ${CMAKE_CURRENT_SOURCE_DIR}/ice40/constids.inc)
             set(DEV_GFXH ${CMAKE_CURRENT_SOURCE_DIR}/ice40/gfx.h)
             if(PREGENERATED_BBA_PATH)
@@ -97,11 +98,19 @@ if (NOT EXTERNAL_CHIPDB)
                     COMMAND mv ${DEV_CC_BBA_DB}.new ${DEV_CC_BBA_DB}
                     DEPENDS ${DEV_CONSTIDS_INC} ${DEV_GFXH} ${DEV_TXT_DB} ${DB_PY} ${PREV_DEV_CC_BBA_DB}
                     )
-                add_custom_command(OUTPUT ${DEV_CC_DB}
-                    COMMAND bbasm --c ${BBASM_ENDIAN_FLAG} ${DEV_CC_BBA_DB} ${DEV_CC_DB}.new
-                    COMMAND mv ${DEV_CC_DB}.new ${DEV_CC_DB}
-                    DEPENDS bbasm ${DEV_CC_BBA_DB}
-                    )
+                if(USE_C_EMBED)
+                    add_custom_command(OUTPUT ${DEV_CC_DB}
+                        COMMAND bbasm --e ${BBASM_ENDIAN_FLAG} ${DEV_CC_BBA_DB} ${DEV_CC_DB}.new ${DEV_BIN_DB}
+                        COMMAND mv ${DEV_CC_DB}.new ${DEV_CC_DB}
+                        DEPENDS bbasm ${DEV_CC_BBA_DB}
+                        )
+                else()
+                    add_custom_command(OUTPUT ${DEV_CC_DB}
+                        COMMAND bbasm --c ${BBASM_ENDIAN_FLAG} ${DEV_CC_BBA_DB} ${DEV_CC_DB}.new
+                        COMMAND mv ${DEV_CC_DB}.new ${DEV_CC_DB}
+                        DEPENDS bbasm ${DEV_CC_BBA_DB}
+                        )
+                endif()
             endif()
             if (SERIALIZE_CHIPDB)
                 set(PREV_DEV_CC_BBA_DB ${DEV_CC_BBA_DB})
