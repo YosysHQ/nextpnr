@@ -150,7 +150,7 @@ static void pack_constants(Context *ctx)
     log_info("Packing constants..\n");
 
     std::unique_ptr<CellInfo> gnd_cell = create_generic_cell(ctx, ctx->id("GENERIC_SLICE"), "$PACKER_GND");
-    gnd_cell->params[ctx->id("INIT")] = 0;
+    gnd_cell->params[ctx->id("INIT")] = Property(0, 1 << ctx->args.K);
     std::unique_ptr<NetInfo> gnd_net = std::unique_ptr<NetInfo>(new NetInfo);
     gnd_net->name = ctx->id("$PACKER_GND_NET");
     gnd_net->driver.cell = gnd_cell.get();
