@@ -158,7 +158,8 @@ static void pack_constants(Context *ctx)
     gnd_cell->ports.at(ctx->id("F")).net = gnd_net.get();
 
     std::unique_ptr<CellInfo> vcc_cell = create_generic_cell(ctx, ctx->id("GENERIC_SLICE"), "$PACKER_VCC");
-    vcc_cell->params[ctx->id("INIT")] = 1;
+    // Fill with 1s
+    vcc_cell->params[ctx->id("INIT")] = Property(Property::S1).extract(0, (1 << ctx->args.K), Property::S1);
     std::unique_ptr<NetInfo> vcc_net = std::unique_ptr<NetInfo>(new NetInfo);
     vcc_net->name = ctx->id("$PACKER_VCC_NET");
     vcc_net->driver.cell = vcc_cell.get();
