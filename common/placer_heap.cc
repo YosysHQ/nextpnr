@@ -947,7 +947,7 @@ class HeAPPlacer
                             visit.pop();
                             BelId target = ctx->getBelByLocation(ploc);
                             if (vc->region != nullptr && vc->region->constr_bels && !vc->region->bels.count(target))
-                                continue;
+                                goto fail;
                             CellInfo *bound;
                             if (target == BelId() || ctx->getBelType(target) != vc->type)
                                 goto fail;
