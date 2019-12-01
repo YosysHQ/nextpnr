@@ -21,6 +21,7 @@
 #include <boost/algorithm/string.hpp>
 #include "design_utils.h"
 #include "log.h"
+#include "util.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -722,5 +723,77 @@ void BaseCtx::copyBelPorts(IdString cell, BelId bel)
         cell_info->ports[pin].type = getCtx()->getBelPinType(bel, pin);
     }
 }
+
+namespace {
+struct FixupHierarchyWorker
+{
+    FixupHierarchyWorker(Context *ctx) : ctx(ctx){};
+    Context *ctx;
+    void run()
+    {
+        trim_hierarchy(ctx->top_module);
+        rebuild_hierarchy();
+    };
+    // Remove cells and nets that no longer exist in the netlist
+    std::vector<IdString> todelete_cells, todelete_nets;
+    void trim_hierarchy(IdString path)
+    {
+        auto &h = ctx->hierarchy.at(path);
+        todelete_cells.clear();
+        todelete_nets.clear();
+        for (auto &lc : h.leaf_cells) {
+            if (!ctx->cells.count(lc.second))
+                todelete_cells.push_back(lc.first);
+        }
+        for (auto &n : h.nets)
+            if (!ctx->nets.count(n.second))
+                todelete_nets.push_back(n.first);
+        for (auto tdc : todelete_cells) {
+            h.leaf_cells_by_gname.erase(h.leaf_cells.at(tdc));
+            h.leaf_cells.erase(tdc);
+        }
+        for (auto tdn : todelete_nets) {
+            h.nets_by_gname.erase(h.nets.at(tdn));
+            h.nets.erase(tdn);
+        }
+        for (auto &sc : h.hier_cells)
+            trim_hierarchy(sc.second);
+    }
+
+    IdString construct_local_name(HierarchicalCell &hc, IdString global_name, bool is_cell)
+    {
+        std::string gn = global_name.str(ctx);
+        auto dp = gn.find_last_of('.');
+        if (dp != std::string::npos)
+            gn = gn.substr(dp + 1);
+        IdString name = ctx->id(gn);
+        // Make sure name is unique
+        int adder = 0;
+        while (is_cell ? hc.leaf_cells.count(name) : hc.nets.count(name)) {
+            ++adder;
+            name = ctx->id(gn + "$" + std::to_string(adder));
+        }
+        return name;
+    }
+
+    // Update hierarchy structure for nets and cells that have hiercell set
+    void rebuild_hierarchy()
+    {
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (ci->hierpath == IdString())
+                ci->hierpath = ctx->top_module;
+            auto &hc = ctx->hierarchy.at(ci->hierpath);
+            if (hc.leaf_cells_by_gname.count(ci->name))
+                continue; // already known
+            IdString local_name = construct_local_name(hc, ci->name, true);
+            hc.leaf_cells_by_gname[ci->name] = local_name;
+            hc.leaf_cells[local_name] = ci->name;
+        }
+    }
+};
+} // namespace
+
+void Context::fixupHierarchy() { FixupHierarchyWorker(this).run(); }
 
 NEXTPNR_NAMESPACE_END

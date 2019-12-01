@@ -544,6 +544,9 @@ struct HierarchicalCell
     IdString name, type, parent, fullpath;
     // Name inside cell instance -> global name
     std::unordered_map<IdString, IdString> leaf_cells, nets;
+    // Global name -> name inside cell instance
+    std::unordered_map<IdString, IdString> leaf_cells_by_gname, nets_by_gname;
+    // Cell port to net
     std::unordered_map<IdString, HierarchicalPort> ports;
     // Name inside cell instance -> global name
     std::unordered_map<IdString, IdString> hier_cells;
@@ -834,6 +837,10 @@ struct Context : Arch, DeterministicRNG
     bool checkRoutedDesign() const;
     bool getActualRouteDelay(WireId src_wire, WireId dst_wire, delay_t *delay = nullptr,
                              std::unordered_map<WireId, PipId> *route = nullptr, bool useEstimate = true);
+
+    // --------------------------------------------------------------
+    // call after changing hierpath or adding/removing nets and cells
+    void fixupHierarchy();
 
     // --------------------------------------------------------------
 

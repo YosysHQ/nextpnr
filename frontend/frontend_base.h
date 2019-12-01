@@ -423,8 +423,10 @@ template <typename FrontendType> struct GenericFrontend
     void import_leaf_cell(HierModuleState &m, const std::string &name, const cell_dat_t &cd)
     {
         IdString inst_name = unique_name(m.prefix, name, false);
+        ctx->hierarchy[m.path].leaf_cells_by_gname[inst_name] = ctx->id(name);
         ctx->hierarchy[m.path].leaf_cells[ctx->id(name)] = inst_name;
         CellInfo *ci = ctx->createCell(inst_name, ctx->id(impl.get_cell_type(cd)));
+        ci->hierpath = m.path;
         // Import port directions
         std::unordered_map<IdString, PortType> port_dirs;
         impl.foreach_port_dir(cd, [&](const std::string &port, PortType dir) { port_dirs[ctx->id(port)] = dir; });

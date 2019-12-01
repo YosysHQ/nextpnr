@@ -1487,6 +1487,7 @@ bool Arch::pack()
             promote_globals(ctx);
         ctx->assignArchInfo();
         constrain_chains(ctx);
+        ctx->fixupHierarchy();
         ctx->assignArchInfo();
         ctx->settings[ctx->id("pack")] = 1;
         archInfoToAttributes();
