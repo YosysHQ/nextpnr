@@ -523,7 +523,16 @@ void BaseCtx::createRectangularRegion(IdString name, int x0, int y0, int x1, int
 void BaseCtx::addBelToRegion(IdString name, BelId bel) { region[name]->bels.insert(bel); }
 void BaseCtx::constrainCellToRegion(IdString cell, IdString region_name)
 {
-    cells[cell]->region = region[region_name].get();
+    // Support hierarchical cells as well as leaf ones
+    if (hierarchy.count(cell)) {
+        auto &hc = hierarchy.at(cell);
+        for (auto &lc : hc.leaf_cells)
+            constrainCellToRegion(lc.second, region_name);
+        for (auto &hsc : hc.hier_cells)
+            constrainCellToRegion(hsc.second, region_name);
+    }
+    if (cells.count(cell))
+        cells.at(cell)->region = region[region_name].get();
 }
 DecalXY BaseCtx::constructDecalXY(DecalId decal, float x, float y)
 {
