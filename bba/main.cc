@@ -445,9 +445,9 @@ int main(int argc, char **argv)
         for (auto &s : preText)
             fprintf(fileOut, "%s\n", s.c_str());
 
-        fprintf(fileOut, "const char %s[%d] =\n", streams[0].name.c_str(), int(data.size()));
+        fprintf(fileOut, "const char %s[%d] =\n", streams[0].name.c_str(), int(data.size()) + 1);
         char *bin_basename_buf = strdup(files.at(2).c_str());
-        fprintf(fileOut, "#embed \"%s\"\n", basename(bin_basename_buf));
+        fprintf(fileOut, "#embed_str \"%s\"\n", basename(bin_basename_buf));
         fprintf(fileOut, ";\n");
 
         for (auto &s : postText)
