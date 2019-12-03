@@ -62,12 +62,12 @@ struct Router2
     {
         // net --> number of arcs; driving pip
         std::unordered_map<int, std::pair<int, PipId>> bound_nets;
-        // Which net is bound in the Arch API
-        int arch_bound_net = -1;
         // Historical congestion cost
         float hist_cong_cost = 1.0;
         // Wire is unavailable as locked to another arc
         bool unavailable = false;
+        // This wire has to be used for this net
+        int reserved_net = -1;
     };
 
     float present_wire_cost(const PerWireData &w, int net_uid)
@@ -165,7 +165,6 @@ struct Router2
             NetInfo *bound = ctx->getBoundWireNet(wire);
             if (bound != nullptr) {
                 wires[wire].bound_nets[bound->udata] = std::make_pair(1, bound->wires.at(wire).pip);
-                wires[wire].arch_bound_net = bound->udata;
                 if (bound->wires.at(wire).strength > STRENGTH_STRONG)
                     wires[wire].unavailable = true;
             }
@@ -332,6 +331,64 @@ struct Router2
         return (cursor == src_wire);
     }
 
+    // Returns true if a wire contains no source ports or driving pips
+    bool is_wire_undriveable(WireId wire)
+    {
+        for (auto bp : ctx->getWireBelPins(wire))
+            if (ctx->getBelPinType(bp.bel, bp.pin) != PORT_IN)
+                return false;
+        for (auto p : ctx->getPipsUphill(wire))
+            return false;
+        return true;
+    }
+
+    // Find all the wires that must be used to route a given arc
+    void reserve_wires_for_arc(NetInfo *net, size_t i)
+    {
+        // This is slightly tricky, because of the possibility of "diamonds"
+        // eg       /--C--\\
+        //    sink ----B----D--...
+        // we need to discover that D is a reserved wire; despite the branch and choice of B/C
+        WireId src = ctx->getNetinfoSourceWire(net);
+        WireId sink = ctx->getNetinfoSinkWire(net, net->users.at(i));
+        if (sink == WireId())
+            return;
+        std::unordered_set<WireId> rsv;
+        WireId cursor = sink;
+        bool done = false;
+        while (!done) {
+            auto &wd = wires.at(cursor);
+            wd.reserved_net = net->udata;
+            if (cursor == src)
+                break;
+            WireId next_cursor;
+            for (auto uh : ctx->getPipsUphill(cursor)) {
+                WireId w = ctx->getPipSrcWire(uh);
+                if (is_wire_undriveable(w))
+                    continue;
+                if (next_cursor != WireId()) {
+                    done = true;
+                    break;
+                }
+                next_cursor = w;
+            }
+            if (next_cursor == WireId())
+                break;
+            cursor = next_cursor;
+        }
+    }
+
+    void find_all_reserved_wires()
+    {
+        for (auto net : nets_by_udata) {
+            WireId src = ctx->getNetinfoSourceWire(net);
+            if (src == WireId())
+                continue;
+            for (size_t i = 0; i < net->users.size(); i++)
+                reserve_wires_for_arc(net, i);
+        }
+    }
+
     ArcRouteResult route_arc(ThreadContext &t, NetInfo *net, size_t i, bool is_mt, bool is_bb = true)
     {
 
@@ -416,6 +473,8 @@ struct Router2
                 auto &wd = wires.at(next);
                 if (wd.unavailable)
                     continue;
+                if (wd.reserved_net != -1 && wd.reserved_net != net->udata)
+                    continue;
                 if (wd.bound_nets.size() > 1 || (wd.bound_nets.size() == 1 && !wd.bound_nets.count(net->udata)))
                     continue; // never allow congestion in backwards routing
                 t.backwards_queue.push(next);
@@ -489,6 +548,8 @@ struct Router2
 #endif
                 auto &nwd = wires.at(next);
                 if (nwd.unavailable)
+                    continue;
+                if (nwd.reserved_net != -1 && nwd.reserved_net != net->udata)
                     continue;
                 if (nwd.bound_nets.count(net->udata) && nwd.bound_nets.at(net->udata).second != dh)
                     continue;
@@ -859,6 +920,7 @@ struct Router2
     {
         setup_nets();
         setup_wires();
+        find_all_reserved_wires();
         partition_nets();
         curr_cong_weight = 0.5;
         hist_cong_weight = 1.0;
