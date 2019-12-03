@@ -356,8 +356,11 @@ struct Router2
         std::unordered_set<WireId> rsv;
         WireId cursor = sink;
         bool done = false;
+        log("resevering wires for arc %d of net %s\n", int(i), ctx->nameOf(net));
         while (!done) {
             auto &wd = wires.at(cursor);
+            if (ctx->debug)
+                log("      %s\n", ctx->nameOfWire(cursor));
             wd.reserved_net = net->udata;
             if (cursor == src)
                 break;
@@ -648,7 +651,9 @@ struct Router2
                     auto res2 = route_arc(t, net, i, is_mt, false);
                     // If this also fails, no choice but to give up
                     if (res2 != ARC_SUCCESS)
-                        log_error("Failed to route arc %d of net '%s'.\n", int(i), ctx->nameOf(net));
+                        log_error("Failed to route arc %d of net '%s', from %s to %s.\n", int(i), ctx->nameOf(net),
+                                  ctx->nameOfWire(ctx->getNetinfoSourceWire(net)),
+                                  ctx->nameOfWire(ctx->getNetinfoSinkWire(net, net->users.at(i))));
                 }
             }
         }
