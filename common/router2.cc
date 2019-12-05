@@ -521,6 +521,9 @@ struct Router2
         int toexplore = 25000 * std::max(1, (ad.bb.x1 - ad.bb.x0) + (ad.bb.y1 - ad.bb.y0));
         int iter = 0;
         int explored = 1;
+        bool debug_arc = /*usr.cell->type.str(ctx).find("RAMB") != std::string::npos && (usr.port ==
+                            ctx->id("ADDRATIEHIGH0") || usr.port == ctx->id("ADDRARDADDRL0"))*/
+                false;
         while (!t.queue.empty() && (!is_bb || iter < toexplore)) {
             auto curr = t.queue.top();
             t.queue.pop();
@@ -546,8 +549,9 @@ struct Router2
 #endif
                 // Evaluate score of next wire
                 WireId next = ctx->getPipDstWire(dh);
-#if 0
-                ROUTE_LOG_DBG("   src wire %s\n", ctx->nameOfWire(next));
+#if 1
+                if (debug_arc)
+                    ROUTE_LOG_DBG("   src wire %s\n", ctx->nameOfWire(next));
 #endif
                 auto &nwd = wires.at(next);
                 if (nwd.unavailable)
