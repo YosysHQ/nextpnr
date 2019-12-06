@@ -19,6 +19,7 @@
  */
 
 #include <assert.h>
+#include <boost/filesystem/convenience.hpp>
 #include <boost/program_options.hpp>
 #include <iostream>
 #include <map>
@@ -446,8 +447,7 @@ int main(int argc, char **argv)
             fprintf(fileOut, "%s\n", s.c_str());
 
         fprintf(fileOut, "const char %s[%d] =\n", streams[0].name.c_str(), int(data.size()) + 1);
-        char *bin_basename_buf = strdup(files.at(2).c_str());
-        fprintf(fileOut, "#embed_str \"%s\"\n", basename(bin_basename_buf));
+        fprintf(fileOut, "#embed_str \"%s\"\n",boost::filesystem::basename(files.at(2)).c_str());
         fprintf(fileOut, ";\n");
 
         for (auto &s : postText)
