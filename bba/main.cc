@@ -28,6 +28,7 @@
 #include <string.h>
 #include <string>
 #include <vector>
+#include <libgen.h>
 
 enum TokenType : int8_t
 {
