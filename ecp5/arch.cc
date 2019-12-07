@@ -667,15 +667,14 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
             el.y1 = y + slice_y2 - 0.0017f * (TILE_WIRE_CLK3_SLICE - TILE_WIRE_DUMMY_D2 + 5 + z*26) + 3*slice_pitch - 0.0007f;
             el.y2 = el.y1 + 0.0017f * 5;
             ret.push_back(el);
-        } else if (bel_type == id_TRELLIS_IO) {
-            //printf("%d,%d,%d id_TRELLIS_IO\n",x,y,z);
+        } else if (bel_type == id_TRELLIS_IO || bel_type == id_IOLOGIC || bel_type == id_SIOLOGIC || bel_type == id_DQSBUFM) {
             bool top_bottom = (y==0 || y==(chip_info->height-1));
             GraphicElement el;
             el.type = GraphicElement::TYPE_BOX;
             el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
             if (top_bottom) {
-                el.x1 = x + io_cell_h_x1 + (2 * (z+1)) * io_cell_h_pitch;
-                el.x2 = x + io_cell_h_x2 + (2 * (z+1) + 0.5f) * io_cell_h_pitch;
+                el.x1 = x + io_cell_h_x1 + (z+2) * 0.10;
+                el.x2 = x + io_cell_h_x1 + (z+2) * 0.10 + 0.08f;
                 if (y==chip_info->height-1) {
                     el.y1 = y + 1- io_cell_h_y1;
                     el.y2 = y + 1- io_cell_h_y2;
@@ -691,25 +690,10 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
                     el.x1 = x + io_cell_v_x1;
                     el.x2 = x + io_cell_v_x2;
                 }
-                el.y1 = y + io_cell_v_y1 + (2 * z) * io_cell_v_pitch;
-                el.y2 = y + io_cell_v_y2 + (2 * z + 0.5f) * io_cell_v_pitch;
+                el.y1 = y + io_cell_v_y1 + z * 0.10;
+                el.y2 = y + io_cell_v_y1 + z  * 0.10 + 0.08f;
             }
             ret.push_back(el);
-        } else if (bel_type == id_IOLOGIC) {
-            //printf("%d,%d,%d id_IOLOGIC\n",x,y,z);
-        } else if (bel_type == id_SIOLOGIC) {
-            //printf("%d,%d,%d id_SIOLOGIC\n",x,y,z);
-        } else if (bel_type == id_DQSBUFM) {
-            //printf("%d,%d,%d id_DQSBUFM\n",x,y,z);
-            GraphicElement el;
-            el.type = GraphicElement::TYPE_BOX;
-            el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
-            el.x1 = x + 0.4;
-            el.x2 = x + 0.6;
-            el.y1 = y + 0.4;
-            el.y2 = y + 0.6;
-            ret.push_back(el);
-
         } else if (bel_type == id_DCCA) {
             GraphicElement el;
             el.type = GraphicElement::TYPE_BOX;
