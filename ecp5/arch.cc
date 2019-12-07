@@ -668,6 +668,7 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
             el.y2 = el.y1 + 0.0017f * 5;
             ret.push_back(el);
         } else if (bel_type == id_TRELLIS_IO) {
+            //printf("%d,%d,%d id_TRELLIS_IO\n",x,y,z);
             bool top_bottom = (y==0 || y==(chip_info->height-1));
             GraphicElement el;
             el.type = GraphicElement::TYPE_BOX;
@@ -675,17 +676,41 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
             if (top_bottom) {
                 el.x1 = x + io_cell_h_x1 + (2 * (z+1)) * io_cell_h_pitch;
                 el.x2 = x + io_cell_h_x2 + (2 * (z+1) + 0.5f) * io_cell_h_pitch;
-                el.y1 = y + io_cell_h_y1;
-                el.y2 = y + io_cell_h_y2;
+                if (y==chip_info->height-1) {
+                    el.y1 = y + 1- io_cell_h_y1;
+                    el.y2 = y + 1- io_cell_h_y2;
+                } else {
+                    el.y1 = y + io_cell_h_y1;
+                    el.y2 = y + io_cell_h_y2;
+                }
             } else {
-                el.x1 = x + io_cell_v_x1;
-                el.x2 = x + io_cell_v_x2;
+                if (x==0) {
+                    el.x1 = x + 1-io_cell_v_x1;
+                    el.x2 = x + 1-io_cell_v_x2;
+                } else {
+                    el.x1 = x + io_cell_v_x1;
+                    el.x2 = x + io_cell_v_x2;
+                }
                 el.y1 = y + io_cell_v_y1 + (2 * z) * io_cell_v_pitch;
                 el.y2 = y + io_cell_v_y2 + (2 * z + 0.5f) * io_cell_v_pitch;
             }
             ret.push_back(el);
+        } else if (bel_type == id_IOLOGIC) {
+            //printf("%d,%d,%d id_IOLOGIC\n",x,y,z);
+        } else if (bel_type == id_SIOLOGIC) {
+            //printf("%d,%d,%d id_SIOLOGIC\n",x,y,z);
+        } else if (bel_type == id_DQSBUFM) {
+            //printf("%d,%d,%d id_DQSBUFM\n",x,y,z);
+            GraphicElement el;
+            el.type = GraphicElement::TYPE_BOX;
+            el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
+            el.x1 = x + 0.4;
+            el.x2 = x + 0.6;
+            el.y1 = y + 0.4;
+            el.y2 = y + 0.6;
+            ret.push_back(el);
+
         } else if (bel_type == id_DCCA) {
-            //printf("%d,%d id_DCCA\n",x,y);
             GraphicElement el;
             el.type = GraphicElement::TYPE_BOX;
             el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
@@ -694,46 +719,60 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
             el.x2 = x + switchbox_x1 + (z)*0.025 + 0.020;
             el.y2 = y + 0.18;
             ret.push_back(el);            
-        } else if (bel_type == id_DP16KD) {
-            //printf("%d,%d id_DP16KD\n",x,y);
-        } else if (bel_type == id_MULT18X18D) {
-            //printf("%d,%d id_MULT18X18D\n",x,y);
-        } else if (bel_type == id_ALU54B) {
-            //printf("%d,%d id_ALU54B\n",x,y);
+        } else if (bel_type == id_DP16KD || bel_type == id_MULT18X18D || bel_type == id_ALU54B) {
+            GraphicElement el;
+            el.type = GraphicElement::TYPE_BOX;
+            el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
+            el.x1 = x + slice_x1;
+            el.x2 = x + 0.97;
+            el.y1 = y + slice_y1;
+            el.y2 = y + slice_y2 + 3*slice_pitch;
+            ret.push_back(el);            
         } else if (bel_type == id_EHXPLLL) {
-            //printf("%d,%d id_EHXPLLL\n",x,y);
-        } else if (bel_type == id_DCUA) {
-            //printf("%d,%d id_DCUA\n",x,y);
-        } else if (bel_type == id_EXTREFB) {
-            //printf("%d,%d id_EXTREFB\n",x,y);
-        } else if (bel_type == id_PCSCLKDIV) {
-            //printf("%d,%d id_PCSCLKDIV\n",x,y);
-        } else if (bel_type == id_IOLOGIC) {
-            //printf("%d,%d id_IOLOGIC\n",x,y);
-        } else if (bel_type == id_SIOLOGIC) {
-            //printf("%d,%d id_SIOLOGIC\n",x,y);
-        } else if (bel_type == id_DTR) {
-            //printf("%d,%d id_DTR\n",x,y);
-        } else if (bel_type == id_USRMCLK) {
-            //printf("%d,%d id_USRMCLK\n",x,y);
-        } else if (bel_type == id_SEDGA) {
-            //printf("%d,%d id_SEDGA\n",x,y);
-        } else if (bel_type == id_GSR) {
-            //printf("%d,%d id_GSR\n",x,y);
-        } else if (bel_type == id_JTAGG) {
-            //printf("%d,%d id_JTAGG\n",x,y);
-        } else if (bel_type == id_OSCG) {
-            //printf("%d,%d id_OSCG\n",x,y);
-        } else if (bel_type == id_CLKDIVF) {
-            //printf("%d,%d id_CLKDIVF\n",x,y);
-        } else if (bel_type == id_DQSBUFM) {
-            //printf("%d,%d id_DQSBUFM\n",x,y);
+            GraphicElement el;
+            el.type = GraphicElement::TYPE_BOX;
+            el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
+            el.x1 = x + slice_x1;
+            el.x2 = x + 0.97;
+            el.y1 = y + slice_y1;
+            el.y2 = y + slice_y2;
+            ret.push_back(el);
+        } else if (bel_type == id_DCUA || bel_type == id_EXTREFB || bel_type == id_PCSCLKDIV || bel_type == id_DTR || bel_type == id_USRMCLK) {
+            GraphicElement el;
+            el.type = GraphicElement::TYPE_BOX;
+            el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
+            el.x1 = x + slice_x1;
+            el.x2 = x + 0.97;
+            el.y1 = y + slice_y1 + (z)*slice_pitch;
+            el.y2 = y + slice_y2 + (z)*slice_pitch;
+            ret.push_back(el);            
+        } else if (bel_type == id_SEDGA || bel_type == id_GSR || bel_type == id_JTAGG || bel_type == id_OSCG) {
+            GraphicElement el;
+            el.type = GraphicElement::TYPE_BOX;
+            el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
+            el.x1 = x + slice_x1;
+            el.x2 = x + 0.97;
+            el.y1 = y + slice_y1 + (z)*slice_pitch;
+            el.y2 = y + slice_y2 + (z)*slice_pitch;
+            ret.push_back(el);
         } else if (bel_type == id_DDRDLL) {
-            //printf("%d,%d id_DDRDLL\n",x,y);
-        } else if (bel_type == id_ECLKSYNCB) {
-            //printf("%d,%d id_ECLKSYNCB\n",x,y);
-        } else if (bel_type == id_ECLKBRIDGECS) {
-            //printf("%d,%d id_ECLKBRIDGECS\n",x,y);
+            GraphicElement el;
+            el.type = GraphicElement::TYPE_BOX;
+            el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
+            el.x1 = x + 0.2;
+            el.x2 = x + 0.8;
+            el.y1 = y + 0.2;
+            el.y2 = y + 0.8;
+            ret.push_back(el);
+        } else if (bel_type == id_DLLDELD || bel_type == id_CLKDIVF || bel_type == id_ECLKSYNCB || bel_type == id_TRELLIS_ECLKBUF || bel_type == id_ECLKBRIDGECS) {
+            GraphicElement el;
+            el.type = GraphicElement::TYPE_BOX;
+            el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
+            el.x1 = x + 0.1 + z * 0.05;
+            el.x2 = x + 0.14 + z * 0.05;
+            el.y1 = y + 0.475;
+            el.y2 = y + 0.525;
+            ret.push_back(el);
         }
     }
 
