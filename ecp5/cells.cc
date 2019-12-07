@@ -243,6 +243,7 @@ void ff_to_slice(Context *ctx, CellInfo *ff, CellInfo *lc, int index, bool drive
 
     lc->params[ctx->id(reg + "_SD")] = std::string(driven_by_lut ? "1" : "0");
     lc->params[ctx->id(reg + "_REGSET")] = str_or_default(ff->params, ctx->id("REGSET"), "RESET");
+    lc->params[ctx->id(reg + "_LSRMODE")] = str_or_default(ff->params, ctx->id("LSRMODE"), "LSR");
     replace_port_safe(has_ff, ff, ctx->id("CLK"), lc, ctx->id("CLK"));
     if (ff->ports.find(ctx->id("LSR")) != ff->ports.end())
         replace_port_safe(has_ff, ff, ctx->id("LSR"), lc, ctx->id("LSR"));
@@ -250,10 +251,21 @@ void ff_to_slice(Context *ctx, CellInfo *ff, CellInfo *lc, int index, bool drive
         replace_port_safe(has_ff, ff, ctx->id("CE"), lc, ctx->id("CE"));
 
     replace_port(ff, ctx->id("Q"), lc, ctx->id("Q" + std::to_string(index)));
-    if (driven_by_lut) {
-        replace_port(ff, ctx->id("DI"), lc, ctx->id("DI" + std::to_string(index)));
+    if (get_net_or_empty(ff, ctx->id("M")) != nullptr) {
+        // PRLD FFs that use both M and DI
+        NPNR_ASSERT(!driven_by_lut);
+        // As M is used; must route DI through a new LUT
+        lc->params[ctx->id(reg + "_SD")] = std::string("1");
+        lc->params[ctx->id("LUT" + std::to_string(index) + "_INITVAL")] = Property(0xFF00, 16);
+        replace_port(ff, ctx->id("DI"), lc, ctx->id("D" + std::to_string(index)));
+        replace_port(ff, ctx->id("M"), lc, ctx->id("M" + std::to_string(index)));
+        connect_ports(ctx, lc, ctx->id("F" + std::to_string(index)), lc, ctx->id("DI" + std::to_string(index)));
     } else {
-        replace_port(ff, ctx->id("DI"), lc, ctx->id("M" + std::to_string(index)));
+        if (driven_by_lut) {
+            replace_port(ff, ctx->id("DI"), lc, ctx->id("DI" + std::to_string(index)));
+        } else {
+            replace_port(ff, ctx->id("DI"), lc, ctx->id("M" + std::to_string(index)));
+        }
     }
 }
 
