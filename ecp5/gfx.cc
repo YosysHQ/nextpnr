@@ -77,8 +77,16 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
             el.style = style;
             el.x1 = x + switchbox_x2 - 0.0017f*16 + 0.0017f * (tilewire - TILE_WIRE_V01N0001);
             el.x2 = el.x1;
-            el.y1 = y + switchbox_y1 + 1;
-            el.y2 = y + switchbox_y2;
+            if (y==h-2)
+                el.y1 = y + 1.1;
+            else
+                el.y1 = y + switchbox_y1 + 1;
+
+            if (y==0)
+                el.y2 = y + 0.9;
+            else
+                el.y2 = y + switchbox_y2;
+
             g.push_back(el);
         } 
     }  
@@ -88,8 +96,14 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
             GraphicElement el;
             el.type = GraphicElement::TYPE_LINE;
             el.style = style;
-            el.x1 = x + switchbox_x1;
-            el.x2 = x + switchbox_x2 - 1;
+            if (x==w-1) 
+                el.x1 = x + 0.1;
+            else
+                el.x1 = x + switchbox_x1;
+            if (x==1) 
+                el.x2 = x - 0.1;
+            else
+                el.x2 = x + switchbox_x2 - 1;
             el.y1 = y + switchbox_y1 + 0.0017f*16 - 0.0017f * (tilewire - TILE_WIRE_H01E0001);
             el.y2 = el.y1;
             g.push_back(el);
@@ -129,143 +143,168 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
         g.push_back(el);
     }
 
-    if (wire_type == id_WIRE_TYPE_H02) {        
+    if (wire_type == id_WIRE_TYPE_H02) {
         GraphicElement el;
         el.type = GraphicElement::TYPE_LINE;
         el.style = style;
-        el.x1 = x + switchbox_x1 + 0.0017f*(16 + (tilewire - TILE_WIRE_H02W0701)+ 20 *(x%3));
+        if (x==0)
+            el.x1 = 0.9;
+        else
+            el.x1 = x + switchbox_x1 + 0.0017f*(16 + (tilewire - TILE_WIRE_H02W0701)+ 20 *(x%3));
         el.x2 = el.x1;
         el.y1 = y + switchbox_y1;
         el.y2 = y + switchbox_y1 - 0.0017f*(20 + (tilewire - TILE_WIRE_H02W0701)+ 20 *(x%3));
-        g.push_back(el);
+        if (x!=0 && x!=w-1) g.push_back(el);
 
-        int x1 = x + 1;
-        if (x1> w - 1) x1 = w - 1;
-
-        el.x2 = x1 + switchbox_x1 + 0.0017f*(16 + (tilewire - TILE_WIRE_H02W0701)+ 20 *(x%3));
+        if (x==w-2)
+            el.x2 = x + 1 + 0.1;
+        else
+            el.x2 = x + 1 + switchbox_x1 + 0.0017f*(16 + (tilewire - TILE_WIRE_H02W0701)+ 20 *(x%3));
         el.y1 = el.y2;
-        g.push_back(el);
+        if (x!=w-1) g.push_back(el);
 
         el.x1 = el.x2;
         el.y1 = y + switchbox_y1;
-        g.push_back(el);
+        if (x!=w-1 && x!=w-2) g.push_back(el);
 
-        int x2 = x - 1;        
-        if (x2<0) x2 = 0;
-
-        el.x1 = x + switchbox_x1 + 0.0017f*(16 + (tilewire - TILE_WIRE_H02W0701)+ 20 *(x%3));
-        el.x2 = x2 + switchbox_x1 + 0.0017f*(16 + (tilewire - TILE_WIRE_H02W0701)+ 20 *(x%3));
+        if (x==w-1) 
+            el.x1 = x + 0.1;
+        else
+            el.x1 = x + switchbox_x1 + 0.0017f*(16 + (tilewire - TILE_WIRE_H02W0701)+ 20 *(x%3));
+        if (x==1)
+            el.x2 = x - 1 + 0.9;
+        else
+            el.x2 = x - 1 + switchbox_x1 + 0.0017f*(16 + (tilewire - TILE_WIRE_H02W0701)+ 20 *(x%3));
         el.y2 = y + switchbox_y1 - 0.0017f*(20 + (tilewire - TILE_WIRE_H02W0701)+ 20 *(x%3));
         el.y1 = el.y2;
-        g.push_back(el);
+        if (x!=0) g.push_back(el);
     
         el.x1 = el.x2;
         el.y1 = y + switchbox_y1;
-        g.push_back(el);
+        if (x!=0 && x!=1) g.push_back(el);
     }    
 
-    if (wire_type == id_WIRE_TYPE_V02) {        
+    if (wire_type == id_WIRE_TYPE_V02) {
         GraphicElement el;
         el.type = GraphicElement::TYPE_LINE;
         el.style = style;
-        el.y1 = y + switchbox_y1 + 0.0017f*(20 + (tilewire - TILE_WIRE_V02N0701)+ 20 *(y%3));
+        if (y==0)
+            el.y1 = 0.9;
+        else
+            el.y1 = y + switchbox_y1 + 0.0017f*(20 + (tilewire - TILE_WIRE_V02N0701)+ 20 *(y%3));
         el.y2 = el.y1;
         el.x1 = x + switchbox_x1;
         el.x2 = x + switchbox_x1 - 0.0017f*(20 + (tilewire - TILE_WIRE_V02N0701)+ 20 *(y%3));
-        g.push_back(el);
+        if (y!=0 && y!=h-1) g.push_back(el);
 
-        int y1 = y + 1;
-        if (y1> h - 1) y1 = h - 1;
-
-        el.y2 = y1 + switchbox_y1 + 0.0017f*(20 + (tilewire - TILE_WIRE_V02N0701)+ 20 *(y%3));
+        if (y==h-2)
+            el.y2 = y + 1 + 0.1;
+        else
+            el.y2 = y + 1 + switchbox_y1 + 0.0017f*(20 + (tilewire - TILE_WIRE_V02N0701)+ 20 *(y%3));
         el.x1 = el.x2;
-        g.push_back(el);
+        if (y!=h-1) g.push_back(el);
 
         el.y1 = el.y2;
         el.x1 = x + switchbox_x1;
-        g.push_back(el);
+        if (y!=h-1 && y!=h-2) g.push_back(el);
 
-        int y2 = y - 1;        
-        if (y2<0) y2 = 0;
-
-        el.y1 = y + switchbox_y1 + 0.0017f*(20 + (tilewire - TILE_WIRE_V02N0701)+ 20 *(y%3));
-        el.y2 = y2 + switchbox_y1 + 0.0017f*(20 + (tilewire - TILE_WIRE_V02N0701)+ 20 *(y%3));
+        if (y==h-1) 
+            el.y1 = y + 0.1;
+        else
+            el.y1 = y + switchbox_y1 + 0.0017f*(20 + (tilewire - TILE_WIRE_V02N0701)+ 20 *(y%3));
+        if (y==1)
+            el.y2 = y - 1 + 0.9;
+        else
+            el.y2 = y - 1 + switchbox_y1 + 0.0017f*(20 + (tilewire - TILE_WIRE_V02N0701)+ 20 *(y%3));
         el.x2 = x + switchbox_x1 - 0.0017f*(20 + (tilewire - TILE_WIRE_V02N0701)+ 20 *(y%3));
         el.x1 = el.x2;
-        g.push_back(el);
+        if (y!=0) g.push_back(el);
     
         el.y1 = el.y2;
         el.x1 = x + switchbox_x1;
-        g.push_back(el);
-    }            
+        if (y!=0 && y!=1) g.push_back(el);
+    }    
+
     if (wire_type == id_WIRE_TYPE_H06) {        
         GraphicElement el;
         el.type = GraphicElement::TYPE_LINE;
         el.style = style;
-        el.x1 = x + switchbox_x1 + 0.0017f*(96 + (tilewire - TILE_WIRE_H06W0303)+ 10 *(x%9));
+        if (x==0)
+            el.x1 = 0.9;
+        else
+            el.x1 = x + switchbox_x1 + 0.0017f*(96 + (tilewire - TILE_WIRE_H06W0303)+ 10 *(x%9));
         el.x2 = el.x1;
         el.y1 = y + switchbox_y1;
         el.y2 = y + switchbox_y1 - 0.0017f*(96 + (tilewire - TILE_WIRE_H06W0303)+ 10 *(x%9));
-        g.push_back(el);
+        if (x!=0 && x!=w-1) g.push_back(el);
 
-        int x1 = x + 3;
-        if (x1> w - 1) x1 = w - 1;
-
-        el.x2 = x1 + switchbox_x1 + 0.0017f*(96 + (tilewire - TILE_WIRE_H06W0303)+ 10 *(x%9));
+        if (x==w-2 || x==w-3 || x==w-4)
+            el.x2 = w - 1 + 0.1;
+        else
+            el.x2 = x + 3 + switchbox_x1 + 0.0017f*(96 + (tilewire - TILE_WIRE_H06W0303)+ 10 *(x%9));
         el.y1 = el.y2;
-        g.push_back(el);
+        if (x!=w-1) g.push_back(el);
 
         el.x1 = el.x2;
         el.y1 = y + switchbox_y1;
-        g.push_back(el);
+        if (x!=w-1 && x!=w-2 && x!=w-3 && x!=w-4) g.push_back(el);
 
-        int x2 = x - 3;        
-        if (x2<0) x2 = 0;
-
-        el.x1 = x + switchbox_x1 + 0.0017f*(96 + (tilewire - TILE_WIRE_H06W0303)+ 10 *(x%9));
-        el.x2 = x2 + switchbox_x1 + 0.0017f*(96 + (tilewire - TILE_WIRE_H06W0303)+ 10 *(x%9));
+        if (x==w-1) 
+            el.x1 = x + 0.1;
+        else
+            el.x1 = x + switchbox_x1 + 0.0017f*(96 + (tilewire - TILE_WIRE_H06W0303)+ 10 *(x%9));
+        if (x==1 || x==2 || x==3)
+            el.x2 = 0.9;
+        else
+            el.x2 = x - 3 + switchbox_x1 + 0.0017f*(96 + (tilewire - TILE_WIRE_H06W0303)+ 10 *(x%9));
         el.y2 = y + switchbox_y1 - 0.0017f*(96 + (tilewire - TILE_WIRE_H06W0303)+ 10 *(x%9));
         el.y1 = el.y2;
-        g.push_back(el);
+        if (x!=0) g.push_back(el);
     
         el.x1 = el.x2;
         el.y1 = y + switchbox_y1;
-        g.push_back(el);
-    } 
+        if (x!=0 && x!=1 && x!=2 && x!=3) g.push_back(el);
+    }
     if (wire_type == id_WIRE_TYPE_V06) {        
         GraphicElement el;
         el.type = GraphicElement::TYPE_LINE;
         el.style = style;
-        el.y1 = y + switchbox_y1 + 0.0017f*(96 + (tilewire - TILE_WIRE_V06N0303)+ 10 *(y%9));
+        if (y==0)
+            el.y1 = 0.9;
+        else
+            el.y1 = y + switchbox_y1 + 0.0017f*(96 + (tilewire - TILE_WIRE_V06N0303)+ 10 *(y%9));
         el.y2 = el.y1;
         el.x1 = x + switchbox_x1;
         el.x2 = x + switchbox_x1 - 0.0017f*(96 + (tilewire - TILE_WIRE_V06N0303)+ 10 *(y%9));
-        g.push_back(el);
+        if (y!=0 && y!=h-1) g.push_back(el);
 
-        int y1 = y + 3;
-        if (y1> h - 1) y1 = h - 1;
-
-        el.y2 = y1 + switchbox_y1 + 0.0017f*(96 + (tilewire - TILE_WIRE_V06N0303)+ 10 *(y%9));
+        if (y==h-2 || y==h-3 || y==h-4)
+            el.y2 = h - 1 + 0.1;
+        else
+            el.y2 = y + 3 + switchbox_y1 + 0.0017f*(96 + (tilewire - TILE_WIRE_V06N0303)+ 10 *(y%9));
         el.x1 = el.x2;
-        g.push_back(el);
+        if (y!=h-1) g.push_back(el);
 
         el.y1 = el.y2;
         el.x1 = x + switchbox_x1;
-        g.push_back(el);
+        if (y!=h-1 && y!=h-2 && y!=h-3 && y!=h-4) g.push_back(el);
 
-        int y2 = y - 3;        
-        if (y2<0) y2 = 0;
-
-        el.y1 = y + switchbox_y1 + 0.0017f*(96 + (tilewire - TILE_WIRE_V06N0303)+ 10 *(y%9));
-        el.y2 = y2 + switchbox_y1 + 0.0017f*(96 + (tilewire - TILE_WIRE_V06N0303)+ 10 *(y%9));
+        if (y==h-1) 
+            el.y1 = y + 0.1;
+        else
+            el.y1 = y + switchbox_y1 + 0.0017f*(96 + (tilewire - TILE_WIRE_V06N0303)+ 10 *(y%9));
+        if (y==1 || y==2 || y==3)
+            el.y2 = 0.9;
+        else
+            el.y2 = y - 3 + switchbox_y1 + 0.0017f*(96 + (tilewire - TILE_WIRE_V06N0303)+ 10 *(y%9));
         el.x2 = x + switchbox_x1 - 0.0017f*(96 + (tilewire - TILE_WIRE_V06N0303)+ 10 *(y%9));
         el.x1 = el.x2;
-        g.push_back(el);
+        if (y!=0) g.push_back(el);
     
         el.y1 = el.y2;
         el.x1 = x + switchbox_x1;
-        g.push_back(el);
-    }        
+        if (y!=0 && y!=1 && y!=2 && y!=3) g.push_back(el);
+    }   
     if (wire_type == id_WIRE_TYPE_NONE) {
         if (tilewire >= TILE_WIRE_NBOUNCE && tilewire <=TILE_WIRE_SBOUNCE)
         {
