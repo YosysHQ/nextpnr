@@ -597,7 +597,6 @@ bool Arch::route()
 
 // -----------------------------------------------------------------------
 
-
 std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
 {
     std::vector<GraphicElement> ret;
@@ -628,7 +627,7 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
         GraphicElement::style_t style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
 
         GfxTileWireId tilewire = GfxTileWireId(locInfo(wire)->wire_data[wire.index].tile_wire);
-        
+
         gfxTileWire(ret, x, y, chip_info->width, chip_info->height, wire_type, tilewire, style);
     } else if (decal.type == DecalId::TYPE_PIP) {
         PipId pip;
@@ -641,7 +640,8 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
         GfxTileWireId src_id = GfxTileWireId(locInfo(src_wire)->wire_data[src_wire.index].tile_wire);
         GfxTileWireId dst_id = GfxTileWireId(locInfo(dst_wire)->wire_data[dst_wire.index].tile_wire);
         GraphicElement::style_t style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_HIDDEN;
-        gfxTilePip(ret, x, y, chip_info->width, chip_info->height, src_wire, getWireType(src_wire), src_id, dst_wire, getWireType(dst_wire), dst_id, style);
+        gfxTilePip(ret, x, y, chip_info->width, chip_info->height, src_wire, getWireType(src_wire), src_id, dst_wire,
+                   getWireType(dst_wire), dst_id, style);
     } else if (decal.type == DecalId::TYPE_BEL) {
         BelId bel;
         bel.index = decal.z;
@@ -664,34 +664,36 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
             el.style = GraphicElement::STYLE_FRAME;
             el.x1 = x + slice_x2 + 0.0255f;
             el.x2 = el.x1 + 0.0017f;
-            el.y1 = y + slice_y2 - 0.0017f * (TILE_WIRE_CLK3_SLICE - TILE_WIRE_DUMMY_D2 + 5 + z*26) + 3*slice_pitch - 0.0007f;
+            el.y1 = y + slice_y2 - 0.0017f * (TILE_WIRE_CLK3_SLICE - TILE_WIRE_DUMMY_D2 + 5 + z * 26) +
+                    3 * slice_pitch - 0.0007f;
             el.y2 = el.y1 + 0.0017f * 5;
             ret.push_back(el);
-        } else if (bel_type == id_TRELLIS_IO || bel_type == id_IOLOGIC || bel_type == id_SIOLOGIC || bel_type == id_DQSBUFM) {
-            bool top_bottom = (y==0 || y==(chip_info->height-1));
+        } else if (bel_type == id_TRELLIS_IO || bel_type == id_IOLOGIC || bel_type == id_SIOLOGIC ||
+                   bel_type == id_DQSBUFM) {
+            bool top_bottom = (y == 0 || y == (chip_info->height - 1));
             GraphicElement el;
             el.type = GraphicElement::TYPE_BOX;
             el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
             if (top_bottom) {
-                el.x1 = x + io_cell_h_x1 + (z+2) * 0.10;
-                el.x2 = x + io_cell_h_x1 + (z+2) * 0.10 + 0.08f;
-                if (y==chip_info->height-1) {
-                    el.y1 = y + 1- io_cell_h_y1;
-                    el.y2 = y + 1- io_cell_h_y2;
+                el.x1 = x + io_cell_h_x1 + (z + 2) * 0.10;
+                el.x2 = x + io_cell_h_x1 + (z + 2) * 0.10 + 0.08f;
+                if (y == chip_info->height - 1) {
+                    el.y1 = y + 1 - io_cell_h_y1;
+                    el.y2 = y + 1 - io_cell_h_y2;
                 } else {
                     el.y1 = y + io_cell_h_y1;
                     el.y2 = y + io_cell_h_y2;
                 }
             } else {
-                if (x==0) {
-                    el.x1 = x + 1-io_cell_v_x1;
-                    el.x2 = x + 1-io_cell_v_x2;
+                if (x == 0) {
+                    el.x1 = x + 1 - io_cell_v_x1;
+                    el.x2 = x + 1 - io_cell_v_x2;
                 } else {
                     el.x1 = x + io_cell_v_x1;
                     el.x2 = x + io_cell_v_x2;
                 }
                 el.y1 = y + io_cell_v_y1 + z * 0.10;
-                el.y2 = y + io_cell_v_y1 + z  * 0.10 + 0.08f;
+                el.y2 = y + io_cell_v_y1 + z * 0.10 + 0.08f;
             }
             ret.push_back(el);
         } else if (bel_type == id_DCCA) {
@@ -702,7 +704,7 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
             el.y1 = y + 0.14;
             el.x2 = x + switchbox_x1 + (z)*0.025 + 0.020;
             el.y2 = y + 0.18;
-            ret.push_back(el);            
+            ret.push_back(el);
         } else if (bel_type == id_DP16KD || bel_type == id_MULT18X18D || bel_type == id_ALU54B) {
             GraphicElement el;
             el.type = GraphicElement::TYPE_BOX;
@@ -710,8 +712,8 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
             el.x1 = x + slice_x1;
             el.x2 = x + 0.97;
             el.y1 = y + slice_y1;
-            el.y2 = y + slice_y2 + 3*slice_pitch;
-            ret.push_back(el);            
+            el.y2 = y + slice_y2 + 3 * slice_pitch;
+            ret.push_back(el);
         } else if (bel_type == id_EHXPLLL) {
             GraphicElement el;
             el.type = GraphicElement::TYPE_BOX;
@@ -721,7 +723,8 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
             el.y1 = y + slice_y1;
             el.y2 = y + slice_y2;
             ret.push_back(el);
-        } else if (bel_type == id_DCUA || bel_type == id_EXTREFB || bel_type == id_PCSCLKDIV || bel_type == id_DTR || bel_type == id_USRMCLK) {
+        } else if (bel_type == id_DCUA || bel_type == id_EXTREFB || bel_type == id_PCSCLKDIV || bel_type == id_DTR ||
+                   bel_type == id_USRMCLK) {
             GraphicElement el;
             el.type = GraphicElement::TYPE_BOX;
             el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
@@ -729,7 +732,7 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
             el.x2 = x + 0.97;
             el.y1 = y + slice_y1 + (z)*slice_pitch;
             el.y2 = y + slice_y2 + (z)*slice_pitch;
-            ret.push_back(el);            
+            ret.push_back(el);
         } else if (bel_type == id_SEDGA || bel_type == id_GSR || bel_type == id_JTAGG || bel_type == id_OSCG) {
             GraphicElement el;
             el.type = GraphicElement::TYPE_BOX;
@@ -748,7 +751,8 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
             el.y1 = y + 0.2;
             el.y2 = y + 0.8;
             ret.push_back(el);
-        } else if (bel_type == id_DLLDELD || bel_type == id_CLKDIVF || bel_type == id_ECLKSYNCB || bel_type == id_TRELLIS_ECLKBUF || bel_type == id_ECLKBRIDGECS) {
+        } else if (bel_type == id_DLLDELD || bel_type == id_CLKDIVF || bel_type == id_ECLKSYNCB ||
+                   bel_type == id_TRELLIS_ECLKBUF || bel_type == id_ECLKBRIDGECS) {
             GraphicElement el;
             el.type = GraphicElement::TYPE_BOX;
             el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
@@ -780,7 +784,7 @@ DecalXY Arch::getWireDecal(WireId wire) const
     decalxy.decal.location = wire.location;
     decalxy.decal.z = wire.index;
     decalxy.decal.active = getBoundWireNet(wire) != nullptr;
-    return decalxy;    
+    return decalxy;
 }
 
 DecalXY Arch::getPipDecal(PipId pip) const
@@ -790,7 +794,7 @@ DecalXY Arch::getPipDecal(PipId pip) const
     decalxy.decal.location = pip.location;
     decalxy.decal.z = pip.index;
     decalxy.decal.active = getBoundPipNet(pip) != nullptr;
-    return decalxy;    
+    return decalxy;
 };
 
 DecalXY Arch::getGroupDecal(GroupId group) const
@@ -1248,12 +1252,12 @@ std::vector<GroupId> Arch::getGroups() const
 {
     std::vector<GroupId> ret;
 
-    for (int y = 1; y < chip_info->height-1; y++) {
-        for (int x = 1; x < chip_info->width-1; x++) {
+    for (int y = 1; y < chip_info->height - 1; y++) {
+        for (int x = 1; x < chip_info->width - 1; x++) {
             GroupId group;
             group.type = GroupId::TYPE_SWITCHBOX;
             group.location.x = x;
-            group.location. y = y;
+            group.location.y = y;
             ret.push_back(group);
         }
     }
@@ -1285,7 +1289,6 @@ std::vector<GroupId> Arch::getGroupGroups(GroupId group) const
 }
 
 // -----------------------------------------------------------------------
-
 
 std::vector<std::pair<IdString, std::string>> Arch::getWireAttrs(WireId wire) const
 {

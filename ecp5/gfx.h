@@ -33,7 +33,7 @@ const float slice_x1 = 0.92;
 const float slice_x2 = 0.94;
 const float slice_y1 = 0.71;
 const float slice_y2 = 0.745 + 0.0068;
-const float slice_pitch = 0.0374 +0.0068;
+const float slice_pitch = 0.0374 + 0.0068;
 
 const float io_cell_v_x1 = 0.76;
 const float io_cell_v_x2 = 0.95;
@@ -50,7 +50,7 @@ const float io_cell_h_pitch = 0.125;
 enum GfxTileWireId
 {
     TILE_WIRE_NONE,
-    
+
     TILE_WIRE_FCO_SLICE,
     TILE_WIRE_D7_SLICE,
     TILE_WIRE_C7_SLICE,
@@ -76,7 +76,6 @@ enum GfxTileWireId
     TILE_WIRE_CE3_SLICE,
     TILE_WIRE_FCID_SLICE,
 
-
     TILE_WIRE_FCOC_SLICE,
     TILE_WIRE_D5_SLICE,
     TILE_WIRE_C5_SLICE,
@@ -93,7 +92,7 @@ enum GfxTileWireId
     TILE_WIRE_FXBC_SLICE,
     TILE_WIRE_FXAC_SLICE,
     TILE_WIRE_DUMMY_C1,
-    TILE_WIRE_FXC_SLICE,    
+    TILE_WIRE_FXC_SLICE,
     TILE_WIRE_F5_SLICE,
     TILE_WIRE_Q5_SLICE,
     TILE_WIRE_Q4_SLICE,
@@ -126,7 +125,7 @@ enum GfxTileWireId
     TILE_WIRE_F5B_SLICE,
     TILE_WIRE_CE1_SLICE,
     TILE_WIRE_FCIB_SLICE,
-    
+
     TILE_WIRE_FCOA_SLICE,
     TILE_WIRE_D1_SLICE,
     TILE_WIRE_C1_SLICE,
@@ -152,10 +151,9 @@ enum GfxTileWireId
     TILE_WIRE_CE0_SLICE,
     TILE_WIRE_FCI_SLICE,
 
-
     TILE_WIRE_CLK0,
     TILE_WIRE_CLK1,
-    TILE_WIRE_LSR0,    
+    TILE_WIRE_LSR0,
     TILE_WIRE_LSR1,
 
     TILE_WIRE_FCO,
@@ -191,7 +189,7 @@ enum GfxTileWireId
     TILE_WIRE_D4,
     TILE_WIRE_C4,
     TILE_WIRE_B4,
-    TILE_WIRE_A4,    
+    TILE_WIRE_A4,
     TILE_WIRE_DI5,
     TILE_WIRE_DI4,
     TILE_WIRE_M5,
@@ -208,7 +206,6 @@ enum GfxTileWireId
     TILE_WIRE_CE2,
     TILE_WIRE_DUMMY_SWB9,
 
-
     TILE_WIRE_DUMMY_SWB10,
     TILE_WIRE_D3,
     TILE_WIRE_C3,
@@ -217,7 +214,7 @@ enum GfxTileWireId
     TILE_WIRE_D2,
     TILE_WIRE_C2,
     TILE_WIRE_B2,
-    TILE_WIRE_A2,    
+    TILE_WIRE_A2,
     TILE_WIRE_DI3,
     TILE_WIRE_DI2,
     TILE_WIRE_M3,
@@ -234,7 +231,6 @@ enum GfxTileWireId
     TILE_WIRE_CE1,
     TILE_WIRE_DUMMY_SWB14,
 
-
     TILE_WIRE_DUMMY_SWB15,
     TILE_WIRE_D1,
     TILE_WIRE_C1,
@@ -243,7 +239,7 @@ enum GfxTileWireId
     TILE_WIRE_D0,
     TILE_WIRE_C0,
     TILE_WIRE_B0,
-    TILE_WIRE_A0,    
+    TILE_WIRE_A0,
     TILE_WIRE_DI1,
     TILE_WIRE_DI0,
     TILE_WIRE_M1,
@@ -259,7 +255,6 @@ enum GfxTileWireId
     TILE_WIRE_DUMMY_SWB18,
     TILE_WIRE_CE0,
     TILE_WIRE_FCI,
-     
 
     TILE_WIRE_MUXCLK3,
     TILE_WIRE_MUXLSR3,
@@ -279,10 +274,10 @@ enum GfxTileWireId
     TILE_WIRE_WAD2,
     TILE_WIRE_WAD1,
     TILE_WIRE_WAD0,
-            
+
     TILE_WIRE_DUMMY_D2,
     TILE_WIRE_DUMMY_D3,
-    TILE_WIRE_CLK3_SLICE,    
+    TILE_WIRE_CLK3_SLICE,
     TILE_WIRE_LSR3_SLICE,
     TILE_WIRE_DUMMY_D4,
     TILE_WIRE_DUMMY_D5,
@@ -292,7 +287,6 @@ enum GfxTileWireId
     TILE_WIRE_DUMMY_D9,
     TILE_WIRE_DUMMY_D10,
     TILE_WIRE_DUMMY_D11,
-
 
     TILE_WIRE_DUMMY_C2,
     TILE_WIRE_DUMMY_C3,
@@ -307,9 +301,8 @@ enum GfxTileWireId
     TILE_WIRE_WADO1C_SLICE,
     TILE_WIRE_WADO0C_SLICE,
 
-
     TILE_WIRE_WCK1_SLICE,
-    TILE_WIRE_WRE1_SLICE,    
+    TILE_WIRE_WRE1_SLICE,
     TILE_WIRE_CLK1_SLICE,
     TILE_WIRE_LSR1_SLICE,
     TILE_WIRE_DUMMY_B2,
@@ -320,7 +313,6 @@ enum GfxTileWireId
     TILE_WIRE_WAD2B_SLICE,
     TILE_WIRE_WAD1B_SLICE,
     TILE_WIRE_WAD0B_SLICE,
-
 
     TILE_WIRE_WCK0_SLICE,
     TILE_WIRE_WRE0_SLICE,
@@ -334,7 +326,6 @@ enum GfxTileWireId
     TILE_WIRE_WAD2A_SLICE,
     TILE_WIRE_WAD1A_SLICE,
     TILE_WIRE_WAD0A_SLICE,
-
 
     TILE_WIRE_V01N0001,
     TILE_WIRE_V01N0101,
@@ -415,7 +406,7 @@ enum GfxTileWireId
     TILE_WIRE_H06W0103,
     TILE_WIRE_H06E0103,
     TILE_WIRE_H06W0003,
-    TILE_WIRE_H06E0003,    
+    TILE_WIRE_H06E0003,
 
     TILE_WIRE_G_HPBX0000,
     TILE_WIRE_G_HPBX0100,
@@ -435,8 +426,11 @@ enum GfxTileWireId
     TILE_WIRE_G_HPBX1500,
 };
 
-void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdString wire_type, GfxTileWireId tilewire, GraphicElement::style_t style);
-void gfxTilePip(std::vector<GraphicElement> &g, int x, int y, int w, int h, WireId src, IdString src_type, GfxTileWireId src_id, WireId dst, IdString dst_type, GfxTileWireId dst_id, GraphicElement::style_t style);
+void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdString wire_type, GfxTileWireId tilewire,
+                 GraphicElement::style_t style);
+void gfxTilePip(std::vector<GraphicElement> &g, int x, int y, int w, int h, WireId src, IdString src_type,
+                GfxTileWireId src_id, WireId dst, IdString dst_type, GfxTileWireId dst_id,
+                GraphicElement::style_t style);
 
 NEXTPNR_NAMESPACE_END
 

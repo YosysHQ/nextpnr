@@ -127,7 +127,7 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
 
   private:
     const float zoomNear_ = 0.05f; // do not zoom closer than this
-    float zoomFar_ = 10.0f;       // do not zoom further than this
+    float zoomFar_ = 10.0f;        // do not zoom further than this
     const float zoomLvl1_ = 1.0f;
     const float zoomLvl2_ = 5.0f;
 
