@@ -759,6 +759,10 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                                      str_or_default(ci->params, ctx->id("REG0_REGSET"), "RESET"));
             cc.tiles[tname].add_enum(slice + ".REG1.REGSET",
                                      str_or_default(ci->params, ctx->id("REG1_REGSET"), "RESET"));
+            cc.tiles[tname].add_enum(slice + ".REG0.LSRMODE",
+                                     str_or_default(ci->params, ctx->id("REG0_LSRMODE"), "LSR"));
+            cc.tiles[tname].add_enum(slice + ".REG1.LSRMODE",
+                                     str_or_default(ci->params, ctx->id("REG1_LSRMODE"), "LSR"));
             cc.tiles[tname].add_enum(slice + ".CEMUX", str_or_default(ci->params, ctx->id("CEMUX"), "1"));
 
             if (ci->sliceInfo.using_dff) {

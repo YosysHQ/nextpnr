@@ -112,7 +112,8 @@ class Ecp5Packer
                 NetInfo *znet = ci->ports.at(ctx->id("Z")).net;
                 if (znet != nullptr) {
                     CellInfo *ff = net_only_drives(ctx, znet, is_ff, ctx->id("DI"), false);
-                    if (ff != nullptr) {
+                    // Can't combine preload FF with LUT due to conflict on M
+                    if (ff != nullptr && get_net_or_empty(ff, ctx->id("M")) == nullptr) {
                         lutffPairs[ci->name] = ff->name;
                         fflutPairs[ff->name] = ci->name;
                     }
@@ -232,6 +233,8 @@ class Ecp5Packer
     // Return true if a FF can be added to a DPRAM slice
     bool can_pack_ff_dram(CellInfo *dpram, CellInfo *ff)
     {
+        if (get_net_or_empty(ff, ctx->id("M")) != nullptr)
+            return false; // skip PRLD FFs due to M/DI conflict
         std::string wckmux = str_or_default(dpram->params, ctx->id("WCKMUX"), "WCK");
         std::string clkmux = str_or_default(ff->params, ctx->id("CLKMUX"), "CLK");
         if (wckmux != clkmux && !(wckmux == "WCK" && clkmux == "CLK"))
@@ -1178,7 +1181,8 @@ class Ecp5Packer
             CellInfo *ci = cell.second;
             if (is_ff(ctx, ci)) {
                 bool pack_dense = used_slices > (dense_pack_mode_thresh * available_slices);
-                if (pack_dense) {
+                bool requires_m = get_net_or_empty(ci, ctx->id("M")) != nullptr;
+                if (pack_dense && !requires_m) {
                     // If dense packing threshold exceeded; always try and pack the FF into an existing slice
                     // Find a SLICE with space "near" the flipflop in the netlist
                     std::vector<CellInfo *> ltile;
