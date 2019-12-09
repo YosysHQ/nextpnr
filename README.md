@@ -46,6 +46,8 @@ of the selected architecture:
 - For building on macOS, brew utility is needed.
   - Install all needed packages `brew install cmake python boost boost-python3 qt5 eigen`
   - Do not forget to add qt5 in path as well `echo 'export PATH="/usr/local/opt/qt/bin:$PATH"' >> ~/.bash_profile`
+  
+    NOTE: this change is effective in next terminal session, so please re-open terminal window before next step
 
 Getting started
 ---------------
