@@ -44,14 +44,16 @@ struct Router2
 
     struct PerArcData
     {
-        std::unordered_map<WireId, PipId> wires;
+        WireId sink_wire;
         ArcBounds bb;
+        bool routed = false;
     };
 
     // As we allow overlap at first; the nextpnr bind functions can't be used
     // as the primary relation between arcs and wires/pips
     struct PerNetData
     {
+        WireId src_wire;
         std::vector<PerArcData> arcs;
         ArcBounds bb;
         // Coordinates of the center of the net, used for the weight-to-average
@@ -123,6 +125,7 @@ struct Router2
             for (size_t j = 0; j < ni->users.size(); j++) {
                 auto &usr = ni->users.at(j);
                 WireId src_wire = ctx->getNetinfoSourceWire(ni), dst_wire = ctx->getNetinfoSinkWire(ni, usr);
+                nets.at(i).src_wire = src_wire;
                 if (ni->driver.cell == nullptr)
                     src_wire = dst_wire;
                 if (src_wire == WireId())
@@ -131,6 +134,7 @@ struct Router2
                 if (dst_wire == WireId())
                     log_error("No wire found for port %s on destination cell %s.\n", ctx->nameOf(usr.port),
                               ctx->nameOf(usr.cell));
+                nets.at(i).arcs.at(j).sink_wire = dst_wire;
                 // Set bounding box for this arc
                 nets.at(i).arcs.at(j).bb = ctx->getRouteBoundingBox(src_wire, dst_wire);
                 // Expand net bounding box to include this arc
@@ -259,26 +263,31 @@ struct Router2
         } else {
             NPNR_ASSERT(b.second == pip);
         }
-        nets.at(net->udata).arcs.at(user).wires[wire] = pip;
     }
 
-    void unbind_pip_internal(NetInfo *net, size_t user, WireId wire, bool dont_touch_arc = false)
+    void unbind_pip_internal(NetInfo *net, size_t user, WireId wire)
     {
-        auto &b = wires.at(wire).bound_nets[net->udata];
+        auto &b = wires.at(wire).bound_nets.at(net->udata);
         --b.first;
         if (b.first == 0) {
             wires.at(wire).bound_nets.erase(net->udata);
         }
-        if (!dont_touch_arc)
-            nets.at(net->udata).arcs.at(user).wires.erase(wire);
     }
 
     void ripup_arc(NetInfo *net, size_t user)
     {
         auto &ad = nets.at(net->udata).arcs.at(user);
-        for (auto &wire : ad.wires)
-            unbind_pip_internal(net, user, wire.first, true);
-        ad.wires.clear();
+        if (!ad.routed)
+            return;
+        WireId src = nets.at(net->udata).src_wire;
+        WireId cursor = ad.sink_wire;
+        while (cursor != src) {
+            auto &wd = wires.at(cursor);
+            PipId pip = wd.bound_nets.at(net->udata).second;
+            unbind_pip_internal(net, user, cursor);
+            cursor = ctx->getPipSrcWire(pip);
+        }
+        ad.routed = false;
     }
 
     float score_wire_for_arc(NetInfo *net, size_t user, WireId wire, PipId pip)
@@ -316,14 +325,13 @@ struct Router2
     bool check_arc_routing(NetInfo *net, size_t usr)
     {
         auto &ad = nets.at(net->udata).arcs.at(usr);
-        WireId src_wire = ctx->getNetinfoSourceWire(net);
-        WireId dst_wire = ctx->getNetinfoSinkWire(net, net->users.at(usr));
-        WireId cursor = dst_wire;
-        while (ad.wires.count(cursor)) {
+        WireId src_wire = nets.at(net->udata).src_wire;
+        WireId cursor = ad.sink_wire;
+        while (wires.at(cursor).bound_nets.count(net->udata)) {
             auto &wd = wires.at(cursor);
             if (wd.bound_nets.size() != 1)
                 return false;
-            auto &uh = ad.wires.at(cursor);
+            auto &uh = wd.bound_nets.at(net->udata).second;
             if (uh == PipId())
                 break;
             cursor = ctx->getPipSrcWire(uh);
@@ -502,6 +510,7 @@ struct Router2
                 }
             }
             NPNR_ASSERT(cursor_fwd == dst_wire);
+            ad.routed = true;
             t.processed_sinks.insert(dst_wire);
             return ARC_SUCCESS;
         }
@@ -602,6 +611,7 @@ struct Router2
                 cursor_bwd = ctx->getPipSrcWire(v.pip);
             }
             t.processed_sinks.insert(dst_wire);
+            ad.routed = true;
             return ARC_SUCCESS;
         } else {
             return ARC_RETRY_WITHOUT_BB;
@@ -709,7 +719,7 @@ struct Router2
         if (dst == WireId() || ctx->getBoundWireNet(dst) == net)
             return true;
         // Skip routes where there is no routing (special cases)
-        if (ad.wires.empty())
+        if (!ad.routed)
             return true;
 
         WireId cursor = dst;
@@ -725,16 +735,13 @@ struct Router2
                     break;
                 }
             }
-            if (!ad.wires.count(cursor)) {
+            auto &wd = wires.at(cursor);
+            if (!wd.bound_nets.count(net->udata)) {
                 log("Failure details:\n");
                 log("    Cursor: %s\n", ctx->nameOfWire(cursor));
-                log("    route backtrace: \n");
-                for (auto w : ad.wires)
-                    log("        %s: %s (src: %s)\n", ctx->nameOfWire(w.first), ctx->nameOfPip(w.second),
-                        ctx->nameOfWire(ctx->getPipSrcWire(w.second)));
                 log_error("Internal error; incomplete route tree for arc %d of net %s.\n", usr_idx, ctx->nameOf(net));
             }
-            auto &p = ad.wires.at(cursor);
+            auto &p = wd.bound_nets.at(net->udata).second;
             if (!ctx->checkPipAvail(p)) {
                 success = false;
                 break;
