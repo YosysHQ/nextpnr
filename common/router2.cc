@@ -434,7 +434,7 @@ struct Router2
         // This could also be used to speed up forwards routing by a hybrid
         // bidirectional approach
         int backwards_iter = 0;
-        int backwards_limit = 10;
+        int backwards_limit = ctx->getBelGlobalBuf(net->driver.cell->bel) ? 20000 : 15;
         t.backwards_pip.clear();
         t.backwards_queue.push(dst_wire);
         while (!t.backwards_queue.empty() && backwards_iter < backwards_limit) {
