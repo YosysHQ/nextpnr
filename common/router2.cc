@@ -304,7 +304,7 @@ struct Router2
             source_uses = wd.bound_nets.at(net->udata).first;
         if (pip != PipId()) {
             Loc pl = ctx->getPipLocation(pip);
-            bias_cost = 0.5f * (base_cost / int(net->users.size())) *
+            bias_cost = 0.25f * (base_cost / int(net->users.size())) *
                         ((std::abs(pl.x - nd.cx) + std::abs(pl.y - nd.cy)) / float(nd.hpwl));
         }
         return base_cost * hist_cost * present_cost / (1 + source_uses) + bias_cost;
