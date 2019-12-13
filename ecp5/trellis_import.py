@@ -65,6 +65,15 @@ def wire_type(name):
     if name[0].endswith("_DDRDLL"):
         return "WIRE_TYPE_DDRDLL"
 
+    if name[0].endswith("_CCLK"):
+        return "WIRE_TYPE_CCLK"
+
+    if name[0].endswith("_EXTREF"):
+        return "WIRE_TYPE_EXTREF"
+
+    if name[0].endswith("_DCU"):
+        return "WIRE_TYPE_DCU"
+
     if name[0].endswith("_EBR"):
         return "WIRE_TYPE_EBR"
 
