@@ -56,6 +56,9 @@ def wire_type(name):
     if name[0].endswith("_IOLOGIC"):
         return "WIRE_TYPE_IOLOGIC"
 
+    if name[0].endswith("_SIOLOGIC"):
+        return "WIRE_TYPE_SIOLOGIC"
+
     if name[0].endswith("_PIO"):
         return "WIRE_TYPE_PIO"
 

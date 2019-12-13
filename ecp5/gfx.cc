@@ -112,8 +112,24 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
         el.y1 = y + io_cell_v_y1 + gap * 0.10 + 0.0017f * (num + 1);
         el.y2 = el.y1;
         g.push_back(el);
-    }    
-
+    }
+    if (wire_type == id_WIRE_TYPE_SIOLOGIC) {
+        GraphicElement el;
+        el.type = GraphicElement::TYPE_LINE;
+        el.style = style;
+        int gap = (tilewire - TILE_WIRE_JLOADNB_SIOLOGIC)/20;
+        int num = (tilewire - TILE_WIRE_JLOADNB_SIOLOGIC)%20;
+        el.x1 = x + io_cell_h_x1 + (5-gap) * 0.10 + 0.0017f * (num + 1);
+        el.x2 = el.x1;
+        if (y == h - 1) {
+            el.y1 = y + 1 - io_cell_h_y2;
+            el.y2 = el.y1 - 0.015f;
+        } else {
+            el.y1 = y + io_cell_h_y2;
+            el.y2 = el.y1 + 0.015f;
+        }
+        g.push_back(el);
+    }
     if (wire_type == id_WIRE_TYPE_DQS) {
         GraphicElement el;
         el.type = GraphicElement::TYPE_LINE;
