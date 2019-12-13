@@ -70,8 +70,8 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
         el.type = GraphicElement::TYPE_LINE;
         el.style = style;
         bool top_bottom = (y == 0 || y == (h - 1));
-        int gap = 3-(tilewire - TILE_WIRE_PADDOD_PIO)/5;
-        int num = (tilewire - TILE_WIRE_PADDOD_PIO)%5;
+        int gap = 3-(tilewire - TILE_WIRE_PADDOD_PIO)/6;
+        int num = (tilewire - TILE_WIRE_PADDOD_PIO)%6;
         if (top_bottom) {
             el.x1 = x + io_cell_h_x1 + (gap + 2) * 0.10 + 0.0017f * (num + 1);
             el.x2 = el.x1;
