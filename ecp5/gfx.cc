@@ -65,6 +65,102 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
             g.push_back(el);
         }
     }
+    if (wire_type == id_WIRE_TYPE_PIO) {
+        GraphicElement el;
+        el.type = GraphicElement::TYPE_LINE;
+        el.style = style;
+        bool top_bottom = (y == 0 || y == (h - 1));
+        int gap = 3-(tilewire - TILE_WIRE_PADDOD_PIO)/5;
+        int num = (tilewire - TILE_WIRE_PADDOD_PIO)%5;
+        if (top_bottom) {
+            el.x1 = x + io_cell_h_x1 + (gap + 2) * 0.10 + 0.0017f * (num + 1);
+            el.x2 = el.x1;
+            if (y == h - 1) {
+                el.y1 = y + 1 - io_cell_h_y2;
+                el.y2 = el.y1 - 0.015f;
+            } else {
+                el.y1 = y + io_cell_h_y2;
+                el.y2 = el.y1 + 0.015f;
+            }
+        } else {
+            if (x == 0) {
+                el.x1 = x + 1 - io_cell_v_x1;
+                el.x2 = el.x1 + 0.015f;
+            } else {
+                el.x1 = x + io_cell_v_x1;  
+                el.x2 = el.x1 - 0.015f;          
+            }        
+            el.y1 = y + io_cell_v_y1 + gap * 0.10 + 0.0017f * (num + 1);
+            el.y2 = el.y1;
+        }
+        g.push_back(el);
+    }
+
+    if (wire_type == id_WIRE_TYPE_IOLOGIC) {
+        GraphicElement el;
+        el.type = GraphicElement::TYPE_LINE;
+        el.style = style;
+        int gap = 7-(tilewire - TILE_WIRE_JLOADND_IOLOGIC)/42;
+        int num = (tilewire - TILE_WIRE_JLOADND_IOLOGIC)%42;
+        if (x == 0) {
+            el.x1 = x + 1 - io_cell_v_x1;
+            el.x2 = el.x1 + 0.015f;
+        } else {
+            el.x1 = x + io_cell_v_x1;  
+            el.x2 = el.x1 - 0.015f;          
+        }        
+        el.y1 = y + io_cell_v_y1 + gap * 0.10 + 0.0017f * (num + 1);
+        el.y2 = el.y1;
+        g.push_back(el);
+    }    
+
+    if (wire_type == id_WIRE_TYPE_DQS) {
+        GraphicElement el;
+        el.type = GraphicElement::TYPE_LINE;
+        el.style = style;
+        int num = (tilewire - TILE_WIRE_DDRDEL_DQS);
+        if (x == 0) {
+            el.x1 = x + 1 - io_cell_v_x1;
+            el.x2 = el.x1 + 0.015f;
+        } else {
+            el.x1 = x + io_cell_v_x1;  
+            el.x2 = el.x1 - 0.015f;          
+        }        
+        el.y1 = y + io_cell_v_y1 + 8 * 0.10 + 0.0017f * (num + 1);
+        el.y2 = el.y1;
+        g.push_back(el);
+    }    
+
+    if (wire_type == id_WIRE_TYPE_EBR) {
+        GraphicElement el;
+        el.type = GraphicElement::TYPE_LINE;
+        el.style = style;
+        el.x1 = x + slice_x1 - 0.005f;
+        el.x2 = x + slice_x1;
+        el.y1 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_JADA0_EBR + 1) + 3 * slice_pitch;
+        el.y2 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_JADA0_EBR + 1) + 3 * slice_pitch;
+        g.push_back(el);
+    }
+    if (wire_type == id_WIRE_TYPE_MULT18) {
+        GraphicElement el;
+        el.type = GraphicElement::TYPE_LINE;
+        el.style = style;
+        el.x1 = x + slice_x1 - 0.005f;
+        el.x2 = x + slice_x1;
+        el.y1 = y + slice_y2 - 0.00085f * (tilewire - TILE_WIRE_JCLK0_MULT18 + 1) + 3 * slice_pitch;
+        el.y2 = y + slice_y2 - 0.00085f * (tilewire - TILE_WIRE_JCLK0_MULT18 + 1) + 3 * slice_pitch;
+        g.push_back(el);
+    }
+    if (wire_type == id_WIRE_TYPE_ALU54) {
+        GraphicElement el;
+        el.type = GraphicElement::TYPE_LINE;
+        el.style = style;
+        el.x1 = x + slice_x1 - 0.005f;
+        el.x2 = x + slice_x1;
+        el.y1 = y + slice_y2 - 0.00085f * (tilewire - TILE_WIRE_JCLK0_ALU54 + 1) + 3 * slice_pitch;
+        el.y2 = y + slice_y2 - 0.00085f * (tilewire - TILE_WIRE_JCLK0_ALU54 + 1) + 3 * slice_pitch;
+        g.push_back(el);
+    }
     if (wire_type == id_WIRE_TYPE_V01) {
         if (tilewire >= TILE_WIRE_V01N0001 && tilewire <= TILE_WIRE_V01S0100) {
             GraphicElement el;
@@ -383,6 +479,16 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
                     g.push_back(el);
                 }
             }
+        }
+        if (tilewire >= TILE_WIRE_JCE0 && tilewire <= TILE_WIRE_JQ7) {
+            GraphicElement el;
+            el.type = GraphicElement::TYPE_LINE;
+            el.style = style;
+            el.x1 = x + switchbox_x2;
+            el.x2 = x + slice_x1 - 0.0025f;
+            el.y1 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_JCE0 + 1) + 3 * slice_pitch;
+            el.y2 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_JCE0 + 1) + 3 * slice_pitch;
+            g.push_back(el);
         }
 
         if (tilewire >= TILE_WIRE_FCO && tilewire <= TILE_WIRE_FCI) {

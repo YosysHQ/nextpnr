@@ -50,6 +50,27 @@ def wire_type(name):
     if name[0].endswith("_SLICE"):
         return "WIRE_TYPE_SLICE"
 
+    if name[0].endswith("_DQS"):
+        return "WIRE_TYPE_DQS"
+
+    if name[0].endswith("_IOLOGIC"):
+        return "WIRE_TYPE_IOLOGIC"
+
+    if name[0].endswith("_PIO"):
+        return "WIRE_TYPE_PIO"
+
+    if name[0].endswith("_DDRDLL"):
+        return "WIRE_TYPE_DDRDLL"
+
+    if name[0].endswith("_EBR"):
+        return "WIRE_TYPE_EBR"
+
+    if name[0].endswith("_MULT18"):
+        return "WIRE_TYPE_MULT18"
+
+    if name[0].endswith("_ALU54"):
+        return "WIRE_TYPE_ALU54"
+
     if name[0].startswith("H00"):
         return "WIRE_TYPE_H00"
 
