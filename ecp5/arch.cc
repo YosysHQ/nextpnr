@@ -732,8 +732,7 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
             el.y1 = y + slice_y2;
             el.y2 = y + 0.25;
             ret.push_back(el);
-        } else if (bel_type == id_EXTREFB || bel_type == id_PCSCLKDIV || bel_type == id_DTR ||
-                   bel_type == id_USRMCLK) {
+        } else if (bel_type == id_EXTREFB || bel_type == id_PCSCLKDIV || bel_type == id_DTR || bel_type == id_USRMCLK) {
             GraphicElement el;
             el.type = GraphicElement::TYPE_BOX;
             el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
