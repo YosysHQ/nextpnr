@@ -181,7 +181,7 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
         el.x1 = x + slice_x1 - 0.005f;
         el.x2 = x + slice_x1;
         el.y1 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_JADA0_EBR + 1) + 3 * slice_pitch;
-        el.y2 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_JADA0_EBR + 1) + 3 * slice_pitch;
+        el.y2 = el.y1;
         g.push_back(el);
     }
     if (wire_type == id_WIRE_TYPE_MULT18) {
@@ -191,17 +191,24 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
         el.x1 = x + slice_x1 - 0.005f;
         el.x2 = x + slice_x1;
         el.y1 = y + slice_y2 - 0.00085f * (tilewire - TILE_WIRE_JCLK0_MULT18 + 1) + 3 * slice_pitch;
-        el.y2 = y + slice_y2 - 0.00085f * (tilewire - TILE_WIRE_JCLK0_MULT18 + 1) + 3 * slice_pitch;
+        el.y2 = el.y1;
         g.push_back(el);
     }
     if (wire_type == id_WIRE_TYPE_ALU54) {
         GraphicElement el;
         el.type = GraphicElement::TYPE_LINE;
         el.style = style;
-        el.x1 = x + slice_x1 - 0.005f;
-        el.x2 = x + slice_x1;
-        el.y1 = y + slice_y2 - 0.00085f * (tilewire - TILE_WIRE_JCLK0_ALU54 + 1) + 3 * slice_pitch;
-        el.y2 = y + slice_y2 - 0.00085f * (tilewire - TILE_WIRE_JCLK0_ALU54 + 1) + 3 * slice_pitch;
+        int num = (tilewire - TILE_WIRE_JCLK0_ALU54) % 225;
+        int group = (tilewire - TILE_WIRE_JCLK0_ALU54) / 225;
+        if (group==0) {
+            el.x1 = x + slice_x1 - 0.005f;
+            el.x2 = x + slice_x1;
+        } else {
+            el.x1 = x + 0.97 + 0.005f;
+            el.x2 = x + 0.97;
+        }
+        el.y1 = y + slice_y2 - 0.00085f * (num + 1) + 3 * slice_pitch;
+        el.y2 = el.y1;
         g.push_back(el);
     }
     if (wire_type == id_WIRE_TYPE_V01) {
@@ -528,7 +535,7 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
             el.type = GraphicElement::TYPE_LINE;
             el.style = style;
             el.x1 = x + switchbox_x2;
-            el.x2 = x + slice_x1 - 0.0025f;
+            el.x2 = x + switchbox_x2 + 0.005f;
             el.y1 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_JCE0 + 1) + 3 * slice_pitch;
             el.y2 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_JCE0 + 1) + 3 * slice_pitch;
             g.push_back(el);

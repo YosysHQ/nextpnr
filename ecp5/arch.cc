@@ -711,7 +711,7 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
             el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
             el.x1 = x + slice_x1;
             el.x2 = x + 0.97;
-            el.y1 = y + slice_y1;
+            el.y1 = y + slice_y1 - 1 * slice_pitch;
             el.y2 = y + slice_y2 + 3 * slice_pitch;
             ret.push_back(el);
         } else if (bel_type == id_EHXPLLL) {
