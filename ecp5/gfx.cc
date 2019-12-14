@@ -836,7 +836,26 @@ void setSource(GraphicElement &el, int x, int y, int w, int h, WireId src, IdStr
             }        
             el.y1 = src.location.y + io_cell_v_y1 + gap * 0.10 + 0.0017f * (num + 1);
         }
-    }    
+    }
+    if (src_type == id_WIRE_TYPE_EBR) {
+        el.x1 = src.location.x + slice_x1 - 0.005f;
+        el.y1 = src.location.y + slice_y2 - 0.0017f * (src_id - TILE_WIRE_JADA0_EBR + 1) + 3 * slice_pitch;
+    }
+    if (src_type == id_WIRE_TYPE_MULT18) {
+        el.x1 = src.location.x + slice_x1 - 0.005f;
+        el.y1 = src.location.y + slice_y2 - 0.00085f * (src_id - TILE_WIRE_JCLK0_MULT18 + 1) + 3 * slice_pitch;
+    }
+    if (src_type == id_WIRE_TYPE_ALU54) {
+        int num = (src_id - TILE_WIRE_JCLK0_ALU54) % 225;
+        int group = (src_id - TILE_WIRE_JCLK0_ALU54) / 225;
+        if (group==0) {
+            el.x1 = src.location.x + slice_x1 - 0.005f;
+        } else {
+            el.x1 = src.location.x + 0.97 + 0.005f;
+        }
+        el.y1 = src.location.y + slice_y2 - 0.00085f * (num + 1) + 3 * slice_pitch;
+    }
+
 }
 
 void setDestination(GraphicElement &el, int x, int y, int w, int h, WireId dst, IdString dst_type, GfxTileWireId dst_id)
@@ -951,7 +970,24 @@ void setDestination(GraphicElement &el, int x, int y, int w, int h, WireId dst, 
             el.y2 = dst.location.y + io_cell_v_y1 + gap * 0.10 + 0.0017f * (num + 1);
         }
     }
-
+    if (dst_type == id_WIRE_TYPE_EBR) {
+        el.x2 = dst.location.x + slice_x1 - 0.005f;
+        el.y2 = dst.location.y + slice_y2 - 0.0017f * (dst_id - TILE_WIRE_JADA0_EBR + 1) + 3 * slice_pitch;
+    }
+    if (dst_type == id_WIRE_TYPE_MULT18) {
+        el.x2 = dst.location.x + slice_x1 - 0.005f;
+        el.y2 = dst.location.y + slice_y2 - 0.00085f * (dst_id - TILE_WIRE_JCLK0_MULT18 + 1) + 3 * slice_pitch;
+    }
+    if (dst_type == id_WIRE_TYPE_ALU54) {
+        int num = (dst_id - TILE_WIRE_JCLK0_ALU54) % 225;
+        int group = (dst_id - TILE_WIRE_JCLK0_ALU54) / 225;
+        if (group==0) {
+            el.x2 = dst.location.x + slice_x1 - 0.005f;
+        } else {
+            el.x2 = dst.location.x + 0.97 + 0.005f;
+        }
+        el.y2 = dst.location.y + slice_y2 - 0.00085f * (num + 1) + 3 * slice_pitch;
+    }
 }
 
 void straightLine(std::vector<GraphicElement> &g, GraphicElement &el, int x, int y, int w, int h, WireId src, IdString src_type,
@@ -1250,8 +1286,12 @@ void gfxTilePip(std::vector<GraphicElement> &g, int x, int y, int w, int h, Wire
         ((dst_id >= TILE_WIRE_FCO && dst_id <= TILE_WIRE_FCI) || (dst_id >= TILE_WIRE_JCE0 && dst_id <= TILE_WIRE_JQ7))) {
         straightLine(g, el, x, y, w, h, src, src_type, src_id, dst, dst_type, dst_id);
     }
-    if (src_type == id_WIRE_TYPE_NONE && (dst_type == id_WIRE_TYPE_IOLOGIC || dst_type == id_WIRE_TYPE_SIOLOGIC) && 
+    if (src_type == id_WIRE_TYPE_NONE && (dst_type == id_WIRE_TYPE_IOLOGIC || dst_type == id_WIRE_TYPE_SIOLOGIC || dst_type == id_WIRE_TYPE_EBR || dst_type == id_WIRE_TYPE_MULT18 || dst_type == id_WIRE_TYPE_ALU54) && 
         (src_id >= TILE_WIRE_JCE0 && src_id <= TILE_WIRE_JQ7)) {
+        straightLine(g, el, x, y, w, h, src, src_type, src_id, dst, dst_type, dst_id);
+    }
+    if (dst_type == id_WIRE_TYPE_NONE && (src_type == id_WIRE_TYPE_IOLOGIC || src_type == id_WIRE_TYPE_SIOLOGIC || src_type == id_WIRE_TYPE_EBR || src_type == id_WIRE_TYPE_MULT18 || src_type == id_WIRE_TYPE_ALU54) && 
+        (dst_id >= TILE_WIRE_JCE0 && dst_id <= TILE_WIRE_JQ7)) {
         straightLine(g, el, x, y, w, h, src, src_type, src_id, dst, dst_type, dst_id);
     }
     if (src_type == id_WIRE_TYPE_NONE && (dst_type == id_WIRE_TYPE_IOLOGIC || dst_type == id_WIRE_TYPE_SIOLOGIC || dst_type == id_WIRE_TYPE_PIO) && 
