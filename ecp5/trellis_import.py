@@ -83,6 +83,30 @@ def wire_type(name):
     if name[0].endswith("_ALU54"):
         return "WIRE_TYPE_ALU54"
 
+    if name[0].endswith("_PLL"):
+        return "WIRE_TYPE_PLL"
+
+    if name[0].endswith("_SED"):
+        return "WIRE_TYPE_SED"
+
+    if name[0].endswith("_OSC"):
+        return "WIRE_TYPE_OSC"
+
+    if name[0].endswith("_JTAG"):
+        return "WIRE_TYPE_JTAG"
+
+    if name[0].endswith("_GSR"):
+        return "WIRE_TYPE_GSR"
+
+    if name[0].endswith("_DTR"):
+        return "WIRE_TYPE_DTR"
+
+    if name[0].endswith("_PCSCLKDIV0"):
+        return "WIRE_TYPE_PCSCLKDIV"
+
+    if name[0].endswith("_PCSCLKDIV1"):
+        return "WIRE_TYPE_PCSCLKDIV"
+
     if name[0].startswith("H00"):
         return "WIRE_TYPE_H00"
 

@@ -211,6 +211,101 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
         el.y2 = el.y1;
         g.push_back(el);
     }
+    if (wire_type == id_WIRE_TYPE_PLL) {
+        GraphicElement el;
+        el.type = GraphicElement::TYPE_LINE;
+        el.style = style;
+        el.x1 = x + slice_x1 - 0.005f;
+        el.x2 = x + slice_x1;
+        el.y1 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_CLKI_PLL + 1);
+        el.y2 = el.y1;
+        g.push_back(el);
+    }
+    if (wire_type == id_WIRE_TYPE_GSR) {
+        GraphicElement el;
+        el.type = GraphicElement::TYPE_LINE;
+        el.style = style;
+        el.x1 = x + slice_x1 - 0.005f;
+        el.x2 = x + slice_x1;
+        el.y1 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_JCLK_GSR + 1);
+        el.y2 = el.y1;
+        g.push_back(el);
+    }
+    if (wire_type == id_WIRE_TYPE_JTAG) {
+        GraphicElement el;
+        el.type = GraphicElement::TYPE_LINE;
+        el.style = style;
+        el.x1 = x + slice_x1 - 0.005f;
+        el.x2 = x + slice_x1;
+        el.y1 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_JJCE1_JTAG + 1) + 1 * slice_pitch;
+        el.y2 = el.y1;
+        g.push_back(el);
+    }
+    if (wire_type == id_WIRE_TYPE_OSC) {
+        GraphicElement el;
+        el.type = GraphicElement::TYPE_LINE;
+        el.style = style;
+        el.x1 = x + slice_x1 - 0.005f;
+        el.x2 = x + slice_x1;
+        el.y1 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_SEDSTDBY_OSC + 1) + 2 * slice_pitch;
+        el.y2 = el.y1;
+        g.push_back(el);
+    }
+    if (wire_type == id_WIRE_TYPE_SED) {
+        GraphicElement el;
+        el.type = GraphicElement::TYPE_LINE;
+        el.style = style;
+        el.x1 = x + slice_x1 - 0.005f;
+        el.x2 = x + slice_x1;
+        el.y1 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_SEDSTDBY_SED + 1) + 3 * slice_pitch;
+        el.y2 = el.y1;
+        g.push_back(el);
+    }
+    if (wire_type == id_WIRE_TYPE_DTR) {
+        GraphicElement el;
+        el.type = GraphicElement::TYPE_LINE;
+        el.style = style;
+        el.x1 = x + slice_x1 - 0.005f;
+        el.x2 = x + slice_x1;
+        el.y1 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_JSTARTPULSE_DTR + 1);
+        el.y2 = el.y1;
+        g.push_back(el);
+    }
+    if (wire_type == id_WIRE_TYPE_EXTREF) {
+        GraphicElement el;
+        el.type = GraphicElement::TYPE_LINE;
+        el.style = style;
+        el.x1 = x + slice_x1 - 0.005f;
+        el.x2 = x + slice_x1;
+        el.y1 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_REFCLKP_EXTREF + 1) + 1 * slice_pitch;
+        el.y2 = el.y1;
+        g.push_back(el);
+    }    
+
+    if (wire_type == id_WIRE_TYPE_DCU) {
+        GraphicElement el;
+        el.type = GraphicElement::TYPE_LINE;
+        el.style = style;
+        el.x1 = x + slice_x1 - 0.005f;
+        el.x2 = x + slice_x1;
+        el.y1 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_CH0_RX_REFCLK_DCU + 1) + 0 * slice_pitch;
+        el.y2 = el.y1;
+        g.push_back(el);
+    }    
+
+    if (wire_type == id_WIRE_TYPE_PCSCLKDIV) {
+        int num = (tilewire - TILE_WIRE_CLKI_PCSCLKDIV1) % 7;
+        int group = 1-(tilewire - TILE_WIRE_CLKI_PCSCLKDIV1) / 7;
+        GraphicElement el;
+        el.type = GraphicElement::TYPE_LINE;
+        el.style = style;
+        el.x1 = x + slice_x1 - 0.005f;
+        el.x2 = x + slice_x1;
+        el.y1 = y + slice_y2 - 0.0017f * (num + 1) + group * slice_pitch;
+        el.y2 = el.y1;
+        g.push_back(el);
+    }
+
     if (wire_type == id_WIRE_TYPE_V01) {
         if (tilewire >= TILE_WIRE_V01N0001 && tilewire <= TILE_WIRE_V01S0100) {
             GraphicElement el;
