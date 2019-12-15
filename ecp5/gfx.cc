@@ -122,10 +122,10 @@ void gfxTileBel(std::vector<GraphicElement> &g, int x, int y, int z, int w, int 
 void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdString wire_type, GfxTileWireId tilewire,
                  GraphicElement::style_t style)
 {
+    GraphicElement el;
+    el.type = GraphicElement::TYPE_LINE;
+    el.style = style;
     if (wire_type == id_WIRE_TYPE_SLICE && tilewire != GfxTileWireId::TILE_WIRE_NONE) {
-        GraphicElement el;
-        el.type = GraphicElement::TYPE_LINE;
-        el.style = style;
         if (tilewire >= TILE_WIRE_FCO_SLICE && tilewire <= TILE_WIRE_FCI_SLICE) {
             int gap = (tilewire - TILE_WIRE_FCO_SLICE) / 24;
             int item = (tilewire - TILE_WIRE_FCO_SLICE) % 24;
@@ -163,9 +163,6 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
         }
     }
     if (wire_type == id_WIRE_TYPE_PIO) {
-        GraphicElement el;
-        el.type = GraphicElement::TYPE_LINE;
-        el.style = style;
         bool top_bottom = (y == 0 || y == (h - 1));
         int gap = 3 - (tilewire - TILE_WIRE_PADDOD_PIO) / 7;
         int num = (tilewire - TILE_WIRE_PADDOD_PIO) % 7;
@@ -193,9 +190,6 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
         g.push_back(el);
     }
     if (wire_type == id_WIRE_TYPE_DDRDLL) {
-        GraphicElement el;
-        el.type = GraphicElement::TYPE_LINE;
-        el.style = style;
         int num = (tilewire - TILE_WIRE_DDRDEL_DDRDLL);
         el.x1 = x + io_cell_h_x1 + 0.2 + 0.0017f * (num + 1);
         el.x2 = el.x1;
@@ -209,9 +203,6 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
         g.push_back(el);
     }
     if (wire_type == id_WIRE_TYPE_CCLK) {
-        GraphicElement el;
-        el.type = GraphicElement::TYPE_LINE;
-        el.style = style;
         int num = (tilewire - TILE_WIRE_JPADDI_CCLK);
         el.x1 = x + slice_x1 + 0.0017f * (num + 1);
         el.x2 = el.x1;
@@ -221,9 +212,6 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
     }
 
     if (wire_type == id_WIRE_TYPE_IOLOGIC) {
-        GraphicElement el;
-        el.type = GraphicElement::TYPE_LINE;
-        el.style = style;
         int gap = 7 - (tilewire - TILE_WIRE_JLOADND_IOLOGIC) / 42;
         int num = (tilewire - TILE_WIRE_JLOADND_IOLOGIC) % 42;
         if (x == 0) {
@@ -238,9 +226,6 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
         g.push_back(el);
     }
     if (wire_type == id_WIRE_TYPE_SIOLOGIC) {
-        GraphicElement el;
-        el.type = GraphicElement::TYPE_LINE;
-        el.style = style;
         int gap = (tilewire - TILE_WIRE_JLOADNB_SIOLOGIC) / 20;
         int num = (tilewire - TILE_WIRE_JLOADNB_SIOLOGIC) % 20;
         el.x1 = x + io_cell_h_x1 + (5 - gap) * 0.10 + 0.0017f * (num + 1);
@@ -255,9 +240,6 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
         g.push_back(el);
     }
     if (wire_type == id_WIRE_TYPE_DQS) {
-        GraphicElement el;
-        el.type = GraphicElement::TYPE_LINE;
-        el.style = style;
         int num = (tilewire - TILE_WIRE_DDRDEL_DQS);
         if (x == 0) {
             el.x1 = x + 1 - io_cell_v_x1;
@@ -272,9 +254,6 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
     }
 
     if (wire_type == id_WIRE_TYPE_EBR) {
-        GraphicElement el;
-        el.type = GraphicElement::TYPE_LINE;
-        el.style = style;
         el.x1 = x + slice_x1 - 0.005f;
         el.x2 = x + slice_x1;
         el.y1 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_JADA0_EBR + 1) + 3 * slice_pitch;
@@ -282,9 +261,6 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
         g.push_back(el);
     }
     if (wire_type == id_WIRE_TYPE_MULT18) {
-        GraphicElement el;
-        el.type = GraphicElement::TYPE_LINE;
-        el.style = style;
         el.x1 = x + slice_x1 - 0.005f;
         el.x2 = x + slice_x1;
         el.y1 = y + slice_y2 - 0.00085f * (tilewire - TILE_WIRE_JCLK0_MULT18 + 1) + 3 * slice_pitch;
@@ -292,9 +268,6 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
         g.push_back(el);
     }
     if (wire_type == id_WIRE_TYPE_ALU54) {
-        GraphicElement el;
-        el.type = GraphicElement::TYPE_LINE;
-        el.style = style;
         int num = (tilewire - TILE_WIRE_JCLK0_ALU54) % 225;
         int group = (tilewire - TILE_WIRE_JCLK0_ALU54) / 225;
         if (group == 0) {
@@ -309,9 +282,6 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
         g.push_back(el);
     }
     if (wire_type == id_WIRE_TYPE_PLL) {
-        GraphicElement el;
-        el.type = GraphicElement::TYPE_LINE;
-        el.style = style;
         el.x1 = x + slice_x1 - 0.005f;
         el.x2 = x + slice_x1;
         el.y1 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_CLKI_PLL + 1);
@@ -319,9 +289,6 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
         g.push_back(el);
     }
     if (wire_type == id_WIRE_TYPE_GSR) {
-        GraphicElement el;
-        el.type = GraphicElement::TYPE_LINE;
-        el.style = style;
         el.x1 = x + slice_x1 - 0.005f;
         el.x2 = x + slice_x1;
         el.y1 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_JCLK_GSR + 1);
@@ -329,9 +296,6 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
         g.push_back(el);
     }
     if (wire_type == id_WIRE_TYPE_JTAG) {
-        GraphicElement el;
-        el.type = GraphicElement::TYPE_LINE;
-        el.style = style;
         el.x1 = x + slice_x1 - 0.005f;
         el.x2 = x + slice_x1;
         el.y1 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_JJCE1_JTAG + 1) + 1 * slice_pitch;
@@ -339,9 +303,6 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
         g.push_back(el);
     }
     if (wire_type == id_WIRE_TYPE_OSC) {
-        GraphicElement el;
-        el.type = GraphicElement::TYPE_LINE;
-        el.style = style;
         el.x1 = x + slice_x1 - 0.005f;
         el.x2 = x + slice_x1;
         el.y1 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_SEDSTDBY_OSC + 1) + 2 * slice_pitch;
@@ -349,9 +310,6 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
         g.push_back(el);
     }
     if (wire_type == id_WIRE_TYPE_SED) {
-        GraphicElement el;
-        el.type = GraphicElement::TYPE_LINE;
-        el.style = style;
         el.x1 = x + slice_x1 - 0.005f;
         el.x2 = x + slice_x1;
         el.y1 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_SEDSTDBY_SED + 1) + 3 * slice_pitch;
@@ -359,9 +317,6 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
         g.push_back(el);
     }
     if (wire_type == id_WIRE_TYPE_DTR) {
-        GraphicElement el;
-        el.type = GraphicElement::TYPE_LINE;
-        el.style = style;
         el.x1 = x + slice_x1 - 0.005f;
         el.x2 = x + slice_x1;
         el.y1 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_JSTARTPULSE_DTR + 1);
@@ -369,33 +324,22 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
         g.push_back(el);
     }
     if (wire_type == id_WIRE_TYPE_EXTREF) {
-        GraphicElement el;
-        el.type = GraphicElement::TYPE_LINE;
-        el.style = style;
         el.x1 = x + slice_x1 - 0.005f;
         el.x2 = x + slice_x1;
         el.y1 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_REFCLKP_EXTREF + 1) + 1 * slice_pitch;
         el.y2 = el.y1;
         g.push_back(el);
     }
-
     if (wire_type == id_WIRE_TYPE_DCU) {
-        GraphicElement el;
-        el.type = GraphicElement::TYPE_LINE;
-        el.style = style;
         el.x1 = x + slice_x1 - 0.005f;
         el.x2 = x + slice_x1;
         el.y1 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_CH0_RX_REFCLK_DCU + 1) + 0 * slice_pitch;
         el.y2 = el.y1;
         g.push_back(el);
     }
-
     if (wire_type == id_WIRE_TYPE_PCSCLKDIV) {
         int num = (tilewire - TILE_WIRE_CLKI_PCSCLKDIV1) % 7;
         int group = 1 - (tilewire - TILE_WIRE_CLKI_PCSCLKDIV1) / 7;
-        GraphicElement el;
-        el.type = GraphicElement::TYPE_LINE;
-        el.style = style;
         el.x1 = x + slice_x1 - 0.005f;
         el.x2 = x + slice_x1;
         el.y1 = y + slice_y2 - 0.0017f * (num + 1) + group * slice_pitch;
@@ -405,9 +349,6 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
 
     if (wire_type == id_WIRE_TYPE_V01) {
         if (tilewire >= TILE_WIRE_V01N0001 && tilewire <= TILE_WIRE_V01S0100) {
-            GraphicElement el;
-            el.type = GraphicElement::TYPE_LINE;
-            el.style = style;
             el.x1 = x + switchbox_x2 - 0.0017f * 16 + 0.0017f * (tilewire - TILE_WIRE_V01N0001);
             el.x2 = el.x1;
             if (y == h - 2)
@@ -425,9 +366,6 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
     }
     if (wire_type == id_WIRE_TYPE_H01) {
         if (tilewire >= TILE_WIRE_H01E0001 && tilewire <= TILE_WIRE_HL7W0001) {
-            GraphicElement el;
-            el.type = GraphicElement::TYPE_LINE;
-            el.style = style;
             if (x == w - 1)
                 el.x1 = x + 0.1;
             else
@@ -443,9 +381,6 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
     }
     if (wire_type == id_WIRE_TYPE_V00) {
         int group = (tilewire - TILE_WIRE_V00T0000) / 2;
-        GraphicElement el;
-        el.type = GraphicElement::TYPE_LINE;
-        el.style = style;
         el.x1 = x + switchbox_x2 - 0.0017f * (8 - ((tilewire - TILE_WIRE_V00T0000) % 2) * 4);
         el.x2 = el.x1;
         if (group) {
@@ -459,9 +394,6 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
     }
     if (wire_type == id_WIRE_TYPE_H00) {
         int group = (tilewire - TILE_WIRE_H00L0000) / 2;
-        GraphicElement el;
-        el.type = GraphicElement::TYPE_LINE;
-        el.style = style;
         el.y1 = y + switchbox_y1 + 0.0017f * (8 - ((tilewire - TILE_WIRE_H00L0000) % 2) * 4);
         el.y2 = el.y1;
 
@@ -476,9 +408,6 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
     }
 
     if (wire_type == id_WIRE_TYPE_H02) {
-        GraphicElement el;
-        el.type = GraphicElement::TYPE_LINE;
-        el.style = style;
         if (x == 0)
             el.x1 = 0.9;
         else
@@ -522,9 +451,6 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
     }
 
     if (wire_type == id_WIRE_TYPE_V02) {
-        GraphicElement el;
-        el.type = GraphicElement::TYPE_LINE;
-        el.style = style;
         if (y == 0)
             el.y1 = 0.9;
         else
@@ -568,9 +494,6 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
     }
 
     if (wire_type == id_WIRE_TYPE_H06) {
-        GraphicElement el;
-        el.type = GraphicElement::TYPE_LINE;
-        el.style = style;
         if (x == 0)
             el.x1 = 0.9;
         else
@@ -613,9 +536,6 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
             g.push_back(el);
     }
     if (wire_type == id_WIRE_TYPE_V06) {
-        GraphicElement el;
-        el.type = GraphicElement::TYPE_LINE;
-        el.style = style;
         if (y == 0)
             el.y1 = 0.9;
         else
@@ -659,9 +579,6 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
     }
     if (wire_type == id_WIRE_TYPE_NONE) {
         if (tilewire >= TILE_WIRE_NBOUNCE && tilewire <= TILE_WIRE_SBOUNCE) {
-            GraphicElement el;
-            el.type = GraphicElement::TYPE_LINE;
-            el.style = style;
             el.x1 = x + switchbox_x2 - 0.0017f * 4;
             el.x2 = x + switchbox_x2 - 0.0017f * 8;
             if (tilewire == TILE_WIRE_NBOUNCE) {
@@ -674,9 +591,6 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
             g.push_back(el);
         }
         if (tilewire >= TILE_WIRE_WBOUNCE && tilewire <= TILE_WIRE_EBOUNCE) {
-            GraphicElement el;
-            el.type = GraphicElement::TYPE_LINE;
-            el.style = style;
             el.y1 = y + switchbox_y1 + 0.0017f * 4;
             el.y2 = y + switchbox_y1 + 0.0017f * 8;
             if (tilewire == TILE_WIRE_WBOUNCE) {
@@ -689,9 +603,6 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
             g.push_back(el);
         }
         if (tilewire >= TILE_WIRE_CLK0 && tilewire <= TILE_WIRE_LSR1) {
-            GraphicElement el;
-            el.type = GraphicElement::TYPE_LINE;
-            el.style = style;
             el.x1 = x + switchbox_x2;
             el.x2 = x + slice_x2 + 0.0255f + (8 - (tilewire - TILE_WIRE_CLK0)) * 0.0017f;
             el.y1 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_CLK0 - 5) + 3 * slice_pitch;
@@ -724,9 +635,6 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
         }
 
         if (tilewire >= TILE_WIRE_JDIA && tilewire <= TILE_WIRE_ECLKD) {
-            GraphicElement el;
-            el.type = GraphicElement::TYPE_LINE;
-            el.style = style;
             el.x1 = x + 0.5f;
             el.x2 = x + 0.5f + 0.005f;
             bool top = (y == (h - 1));
@@ -739,9 +647,6 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
         }
 
         if (tilewire >= TILE_WIRE_JCE0 && tilewire <= TILE_WIRE_JQ7) {
-            GraphicElement el;
-            el.type = GraphicElement::TYPE_LINE;
-            el.style = style;
             el.x1 = x + switchbox_x2;
             el.x2 = x + switchbox_x2 + 0.005f;
             el.y1 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_JCE0 + 1) + 3 * slice_pitch;
@@ -751,9 +656,6 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
 
         if (tilewire >= TILE_WIRE_FCO && tilewire <= TILE_WIRE_FCI) {
             int gap = (tilewire - TILE_WIRE_FCO) / 24;
-            GraphicElement el;
-            el.type = GraphicElement::TYPE_LINE;
-            el.style = style;
             el.x1 = x + switchbox_x2;
             el.x2 = x + slice_x1 - 0.005f;
             el.y1 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_FCO + 1 + gap * 2) + 3 * slice_pitch;
@@ -764,9 +666,6 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
         if (tilewire >= TILE_WIRE_MUXCLK3 && tilewire <= TILE_WIRE_MUXLSR0) {
             int gap = (tilewire - TILE_WIRE_MUXCLK3) / 2;
             int part = (tilewire - TILE_WIRE_MUXCLK3) % 2;
-            GraphicElement el;
-            el.type = GraphicElement::TYPE_LINE;
-            el.style = style;
             el.x1 = x + slice_x2 + 0.0051f;
             el.x2 = x + slice_x2 + 0.0255f;
             el.y1 = y + slice_y2 - 0.0017f * (TILE_WIRE_CLK3_SLICE - TILE_WIRE_DUMMY_D2 + 1 + part + gap * 26) +
@@ -776,11 +675,8 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
         }
 
         if (tilewire >= TILE_WIRE_WD3 && tilewire <= TILE_WIRE_WD0) {
-            GraphicElement el;
             int part = (tilewire - TILE_WIRE_WD3) % 4;
             int group = (tilewire - TILE_WIRE_WD3) / 2;
-            el.type = GraphicElement::TYPE_LINE;
-            el.style = style;
             el.x1 = x + slice_x2 + 0.005f;
             el.x2 = x + slice_x2 + 0.005f + 0.0017f * (4 - part);
             el.y1 = y + slice_y2 - 0.0017f * (TILE_WIRE_WDO3C_SLICE - TILE_WIRE_DUMMY_D2 + 1 + part + 14) +
@@ -798,10 +694,7 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
             g.push_back(el);
         }
         if (tilewire >= TILE_WIRE_WAD3 && tilewire <= TILE_WIRE_WAD0) {
-            GraphicElement el;
             int part = (tilewire - TILE_WIRE_WAD3) % 4;
-            el.type = GraphicElement::TYPE_LINE;
-            el.style = style;
             el.x1 = x + slice_x2 + 0.005f;
             el.x2 = x + slice_x2 + 0.005f + 0.0017f * (8 - part);
             el.y1 = y + slice_y2 - 0.0017f * (TILE_WIRE_WADO3C_SLICE - TILE_WIRE_DUMMY_D2 + 1 + part + 14) +
