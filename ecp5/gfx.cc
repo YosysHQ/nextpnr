@@ -1411,6 +1411,15 @@ void gfxTilePip(std::vector<GraphicElement> &g, int x, int y, int w, int h, Wire
         straightLine(g, el, x, y, w, h, src, src_type, src_id, dst, dst_type, dst_id);
     }
 
+    if (dst_type == id_WIRE_TYPE_NONE && (dst_id >= TILE_WIRE_FCO && dst_id <= TILE_WIRE_FCI) &&
+        src_type == id_WIRE_TYPE_NONE && (src_id >= TILE_WIRE_FCO && src_id <= TILE_WIRE_FCI)) {
+        toSameSideVer(g, el, x, y, w, h, src, src_type, src_id, dst, dst_type, dst_id, style, src_id - TILE_WIRE_FCO);
+    }
+    if (dst_type == id_WIRE_TYPE_NONE && (dst_id >= TILE_WIRE_JCE0 && dst_id <= TILE_WIRE_JCE0) &&
+        src_type == id_WIRE_TYPE_NONE && (src_id >= TILE_WIRE_JCE0 && src_id <= TILE_WIRE_JCE0)) {
+        toSameSideVer(g, el, x, y, w, h, src, src_type, src_id, dst, dst_type, dst_id, style, src_id - TILE_WIRE_JCE0);
+    }
+
     if (src_type == id_WIRE_TYPE_NONE &&
         (dst_type == id_WIRE_TYPE_PLL || dst_type == id_WIRE_TYPE_GSR || dst_type == id_WIRE_TYPE_JTAG ||
          dst_type == id_WIRE_TYPE_OSC || dst_type == id_WIRE_TYPE_SED || dst_type == id_WIRE_TYPE_DTR ||
