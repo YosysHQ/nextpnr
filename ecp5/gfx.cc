@@ -38,7 +38,7 @@ void gfxTileBel(std::vector<GraphicElement> &g, int x, int y, int z, int w, int 
         el.style = GraphicElement::STYLE_FRAME;
         el.x1 = x + slice_x2 + 0.0255f;
         el.x2 = el.x1 + 0.0017f;
-        el.y1 = y + slice_y2 - 0.0017f * (TILE_WIRE_CLK3_SLICE - TILE_WIRE_DUMMY_D2 + 5 + z * 26) +
+        el.y1 = y + slice_y2 - 0.0017f * (TILE_WIRE_CLK3_SLICE - TILE_WIRE_DUMMY_D2 + 5 + (3-z) * 26) +
                 3 * slice_pitch - 0.0007f;
         el.y2 = el.y1 + 0.0017f * 5;
         g.push_back(el);
@@ -91,13 +91,8 @@ void gfxTileBel(std::vector<GraphicElement> &g, int x, int y, int z, int w, int 
         el.y1 = y + slice_y2;
         el.y2 = y + 0.25;
         g.push_back(el);
-    } else if (bel_type == id_EXTREFB || bel_type == id_PCSCLKDIV || bel_type == id_DTR || bel_type == id_USRMCLK) {
-        el.x1 = x + slice_x1;
-        el.x2 = x + 0.97;
-        el.y1 = y + slice_y1 + (z)*slice_pitch;
-        el.y2 = y + slice_y2 + (z)*slice_pitch;
-        g.push_back(el);
-    } else if (bel_type == id_SEDGA || bel_type == id_GSR || bel_type == id_JTAGG || bel_type == id_OSCG) {
+    } else if (bel_type == id_EXTREFB || bel_type == id_PCSCLKDIV || bel_type == id_DTR || bel_type == id_USRMCLK ||
+               bel_type == id_SEDGA || bel_type == id_GSR || bel_type == id_JTAGG || bel_type == id_OSCG) {
         el.x1 = x + slice_x1;
         el.x2 = x + 0.97;
         el.y1 = y + slice_y1 + (z)*slice_pitch;
@@ -132,7 +127,7 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
             el.x1 = x + slice_x1 - 0.005f;
             el.x2 = x + slice_x1;
             el.y1 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_FCO_SLICE + 1 + gap * 2) + 3 * slice_pitch;
-            el.y2 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_FCO_SLICE + 1 + gap * 2) + 3 * slice_pitch;
+            el.y2 = el.y1;
             g.push_back(el);
             // FX to F connection - top
             if (item == (TILE_WIRE_FXD_SLICE - TILE_WIRE_FCO_SLICE)) {
@@ -158,7 +153,7 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
             el.x1 = x + slice_x2 + 0.005f;
             el.x2 = x + slice_x2;
             el.y1 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_DUMMY_D2 + 1 + gap * 14) + 3 * slice_pitch;
-            el.y2 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_DUMMY_D2 + 1 + gap * 14) + 3 * slice_pitch;
+            el.y2 = el.y1;
             g.push_back(el);
         }
     }
@@ -650,7 +645,7 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
             el.x1 = x + switchbox_x2;
             el.x2 = x + switchbox_x2 + 0.005f;
             el.y1 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_JCE0 + 1) + 3 * slice_pitch;
-            el.y2 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_JCE0 + 1) + 3 * slice_pitch;
+            el.y2 = el.y1;
             g.push_back(el);
         }
 
@@ -659,7 +654,7 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
             el.x1 = x + switchbox_x2;
             el.x2 = x + slice_x1 - 0.005f;
             el.y1 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_FCO + 1 + gap * 2) + 3 * slice_pitch;
-            el.y2 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_FCO + 1 + gap * 2) + 3 * slice_pitch;
+            el.y2 = el.y1;
             g.push_back(el);
         }
 
