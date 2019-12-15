@@ -23,7 +23,7 @@
 NEXTPNR_NAMESPACE_BEGIN
 
 void gfxTileBel(std::vector<GraphicElement> &g, int x, int y, int z, int w, int h, IdString bel_type,
-                 GraphicElement::style_t style)
+                GraphicElement::style_t style)
 {
     GraphicElement el;
     el.type = GraphicElement::TYPE_BOX;
@@ -34,16 +34,16 @@ void gfxTileBel(std::vector<GraphicElement> &g, int x, int y, int z, int w, int 
         el.y1 = y + slice_y1 + (z)*slice_pitch;
         el.y2 = y + slice_y2 + (z)*slice_pitch;
         g.push_back(el);
-        
+
         el.style = GraphicElement::STYLE_FRAME;
         el.x1 = x + slice_x2 + 0.0255f;
         el.x2 = el.x1 + 0.0017f;
-        el.y1 = y + slice_y2 - 0.0017f * (TILE_WIRE_CLK3_SLICE - TILE_WIRE_DUMMY_D2 + 5 + (3-z) * 26) +
+        el.y1 = y + slice_y2 - 0.0017f * (TILE_WIRE_CLK3_SLICE - TILE_WIRE_DUMMY_D2 + 5 + (3 - z) * 26) +
                 3 * slice_pitch - 0.0007f;
         el.y2 = el.y1 + 0.0017f * 5;
         g.push_back(el);
     } else if (bel_type == id_TRELLIS_IO || bel_type == id_IOLOGIC || bel_type == id_SIOLOGIC ||
-                bel_type == id_DQSBUFM) {
+               bel_type == id_DQSBUFM) {
         bool top_bottom = (y == 0 || y == (h - 1));
         if (top_bottom) {
             el.x1 = x + io_cell_h_x1 + (z + 2) * 0.10;
@@ -105,7 +105,7 @@ void gfxTileBel(std::vector<GraphicElement> &g, int x, int y, int z, int w, int 
         el.y2 = y + 0.8;
         g.push_back(el);
     } else if (bel_type == id_DLLDELD || bel_type == id_CLKDIVF || bel_type == id_ECLKSYNCB ||
-                bel_type == id_TRELLIS_ECLKBUF || bel_type == id_ECLKBRIDGECS) {
+               bel_type == id_TRELLIS_ECLKBUF || bel_type == id_ECLKBRIDGECS) {
         el.x1 = x + 0.1 + z * 0.05;
         el.x2 = x + 0.14 + z * 0.05;
         el.y1 = y + 0.475;
@@ -628,7 +628,7 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
                 }
             }
         }
-        
+
         // TRELLIS_IO wires
         if (tilewire >= TILE_WIRE_JDIA && tilewire <= TILE_WIRE_ECLKD) {
             el.x1 = x + 0.5f;
@@ -1247,7 +1247,6 @@ void gfxTilePip(std::vector<GraphicElement> &g, int x, int y, int w, int h, Wire
                         dst_id - TILE_WIRE_H00L0000 + 30);
     }
     if (src_type == id_WIRE_TYPE_H02 && dst_type == id_WIRE_TYPE_H00) {
-        // toSameSideH1Hor(g,el,x,y,src,src_type,src_id,dst,dst_type,dst_id,style, dst_id - TILE_WIRE_H00L0000);
         straightLine(g, el, x, y, w, h, src, src_type, src_id, dst, dst_type, dst_id);
     }
 
@@ -1312,7 +1311,6 @@ void gfxTilePip(std::vector<GraphicElement> &g, int x, int y, int w, int h, Wire
 
     // To V00
     if (src_type == id_WIRE_TYPE_V02 && dst_type == id_WIRE_TYPE_V00) {
-        // toSameSideH1Hor(g,el,x,y,src,src_type,src_id,dst,dst_type,dst_id,style, dst_id - TILE_WIRE_V00T0000);
         straightLine(g, el, x, y, w, h, src, src_type, src_id, dst, dst_type, dst_id);
     }
     if (src_type == id_WIRE_TYPE_H02 && dst_type == id_WIRE_TYPE_V00) {
@@ -1398,14 +1396,16 @@ void gfxTilePip(std::vector<GraphicElement> &g, int x, int y, int w, int h, Wire
                         dst_id - TILE_WIRE_JCE0);
     }
 
-    if ((src_type == id_WIRE_TYPE_H02 || src_type == id_WIRE_TYPE_V00 || src_type == id_WIRE_TYPE_V01 || src_type == id_WIRE_TYPE_V02)
-        && dst_type == id_WIRE_TYPE_NONE &&
+    if ((src_type == id_WIRE_TYPE_H02 || src_type == id_WIRE_TYPE_V00 || src_type == id_WIRE_TYPE_V01 ||
+         src_type == id_WIRE_TYPE_V02) &&
+        dst_type == id_WIRE_TYPE_NONE &&
         ((dst_id >= TILE_WIRE_FCO && dst_id <= TILE_WIRE_FCI) ||
          (dst_id >= TILE_WIRE_JCE0 && dst_id <= TILE_WIRE_JQ7))) {
         straightLine(g, el, x, y, w, h, src, src_type, src_id, dst, dst_type, dst_id);
     }
-    if ((dst_type == id_WIRE_TYPE_H02 || dst_type == id_WIRE_TYPE_V00 || dst_type == id_WIRE_TYPE_V01 || dst_type == id_WIRE_TYPE_V02)
-        && src_type == id_WIRE_TYPE_NONE &&
+    if ((dst_type == id_WIRE_TYPE_H02 || dst_type == id_WIRE_TYPE_V00 || dst_type == id_WIRE_TYPE_V01 ||
+         dst_type == id_WIRE_TYPE_V02) &&
+        src_type == id_WIRE_TYPE_NONE &&
         ((src_id >= TILE_WIRE_FCO && src_id <= TILE_WIRE_FCI) ||
          (src_id >= TILE_WIRE_JCE0 && src_id <= TILE_WIRE_JQ7))) {
         straightLine(g, el, x, y, w, h, src, src_type, src_id, dst, dst_type, dst_id);
