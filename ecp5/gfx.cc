@@ -344,7 +344,7 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
 
     if (wire_type == id_WIRE_TYPE_V01) {
         if (tilewire >= TILE_WIRE_V01N0001 && tilewire <= TILE_WIRE_V01S0100) {
-            el.x1 = x + switchbox_x2 - 0.0017f * 16 + 0.0017f * (tilewire - TILE_WIRE_V01N0001);
+            el.x1 = x + switchbox_x1 + 0.0017f * (10 + tilewire - TILE_WIRE_V01N0001);
             el.x2 = el.x1;
             if (y == h - 2)
                 el.y1 = y + 1.1;
@@ -369,7 +369,7 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
                 el.x2 = x - 0.1;
             else
                 el.x2 = x + switchbox_x2 - 1;
-            el.y1 = y + switchbox_y1 + 0.0017f * 16 - 0.0017f * (tilewire - TILE_WIRE_H01E0001);
+            el.y1 = y + switchbox_y1 + 0.0017f * (10 + tilewire - TILE_WIRE_H01E0001);
             el.y2 = el.y1;
             g.push_back(el);
         }
@@ -406,7 +406,7 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
         if (x == 0)
             el.x1 = 0.9;
         else
-            el.x1 = x + switchbox_x1 + 0.0017f * (16 + (tilewire - TILE_WIRE_H02W0701) + 20 * (x % 3));
+            el.x1 = x + switchbox_x1 + 0.0017f * (20 + (tilewire - TILE_WIRE_H02W0701) + 20 * (x % 3));
         el.x2 = el.x1;
         el.y1 = y + switchbox_y1;
         el.y2 = y + switchbox_y1 - 0.0017f * (20 + (tilewire - TILE_WIRE_H02W0701) + 20 * (x % 3));
@@ -416,7 +416,7 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
         if (x == w - 2)
             el.x2 = x + 1 + 0.1;
         else
-            el.x2 = x + 1 + switchbox_x1 + 0.0017f * (16 + (tilewire - TILE_WIRE_H02W0701) + 20 * (x % 3));
+            el.x2 = x + 1 + switchbox_x1 + 0.0017f * (20 + (tilewire - TILE_WIRE_H02W0701) + 20 * (x % 3));
         el.y1 = el.y2;
         if (x != w - 1)
             g.push_back(el);
@@ -429,11 +429,11 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
         if (x == w - 1)
             el.x1 = x + 0.1;
         else
-            el.x1 = x + switchbox_x1 + 0.0017f * (16 + (tilewire - TILE_WIRE_H02W0701) + 20 * (x % 3));
+            el.x1 = x + switchbox_x1 + 0.0017f * (20 + (tilewire - TILE_WIRE_H02W0701) + 20 * (x % 3));
         if (x == 1)
             el.x2 = x - 1 + 0.9;
         else
-            el.x2 = x - 1 + switchbox_x1 + 0.0017f * (16 + (tilewire - TILE_WIRE_H02W0701) + 20 * (x % 3));
+            el.x2 = x - 1 + switchbox_x1 + 0.0017f * (20 + (tilewire - TILE_WIRE_H02W0701) + 20 * (x % 3));
         el.y2 = y + switchbox_y1 - 0.0017f * (20 + (tilewire - TILE_WIRE_H02W0701) + 20 * (x % 3));
         el.y1 = el.y2;
         if (x != 0)
@@ -628,7 +628,8 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
                 }
             }
         }
-
+        
+        // TRELLIS_IO wires
         if (tilewire >= TILE_WIRE_JDIA && tilewire <= TILE_WIRE_ECLKD) {
             el.x1 = x + 0.5f;
             el.x2 = x + 0.5f + 0.005f;
@@ -734,10 +735,10 @@ void setSource(GraphicElement &el, int x, int y, int w, int h, WireId src, IdStr
             el.x1 = x + switchbox_x1;
         else
             el.x1 = x + switchbox_x2;
-        el.y1 = y + switchbox_y1 + 0.0017f * 16 - 0.0017f * (src_id - TILE_WIRE_H01E0001);
+        el.y1 = y + switchbox_y1 + 0.0017f * (10 + src_id - TILE_WIRE_H01E0001);
     }
     if (src_type == id_WIRE_TYPE_H02) {
-        el.x1 = x + switchbox_x1 + 0.0017f * (16 + (src_id - TILE_WIRE_H02W0701) + 20 * (src.location.x % 3));
+        el.x1 = x + switchbox_x1 + 0.0017f * (20 + (src_id - TILE_WIRE_H02W0701) + 20 * (src.location.x % 3));
         el.y1 = y + switchbox_y1;
     }
     if (src_type == id_WIRE_TYPE_H06) {
@@ -754,7 +755,7 @@ void setSource(GraphicElement &el, int x, int y, int w, int h, WireId src, IdStr
         }
     }
     if (src_type == id_WIRE_TYPE_V01) {
-        el.x1 = x + switchbox_x2 - 0.0017f * 16 + 0.0017f * (src_id - TILE_WIRE_V01N0001);
+        el.x1 = x + switchbox_x1 + 0.0017f * (10 + src_id - TILE_WIRE_V01N0001);
         if (y == src.location.y)
             el.y1 = y + switchbox_y2;
         else
@@ -925,10 +926,10 @@ void setDestination(GraphicElement &el, int x, int y, int w, int h, WireId dst, 
             el.x2 = x + switchbox_x1;
         else
             el.x2 = x + switchbox_x2;
-        el.y2 = y + switchbox_y1 + 0.0017f * 16 - 0.0017f * (dst_id - TILE_WIRE_H01E0001);
+        el.y2 = y + switchbox_y1 + 0.0017f * (10 + dst_id - TILE_WIRE_H01E0001);
     }
     if (dst_type == id_WIRE_TYPE_H02) {
-        el.x2 = x + switchbox_x1 + 0.0017f * (16 + (dst_id - TILE_WIRE_H02W0701) + 20 * (dst.location.x % 3));
+        el.x2 = x + switchbox_x1 + 0.0017f * (20 + (dst_id - TILE_WIRE_H02W0701) + 20 * (dst.location.x % 3));
         el.y2 = y + switchbox_y1;
     }
     if (dst_type == id_WIRE_TYPE_H06) {
@@ -945,7 +946,7 @@ void setDestination(GraphicElement &el, int x, int y, int w, int h, WireId dst, 
         }
     }
     if (dst_type == id_WIRE_TYPE_V01) {
-        el.x2 = x + switchbox_x2 - 0.0017f * 16 + 0.0017f * (dst_id - TILE_WIRE_V01N0001);
+        el.x2 = x + switchbox_x1 + 0.0017f * (10 + dst_id - TILE_WIRE_V01N0001);
         if (y == dst.location.y)
             el.y2 = y + switchbox_y2;
         else
