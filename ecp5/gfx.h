@@ -2161,6 +2161,8 @@ enum GfxTileWireId
 
 };
 
+void gfxTileBel(std::vector<GraphicElement> &g, int x, int y, int z, int w, int h, IdString bel_type,
+                 GraphicElement::style_t style);
 void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdString wire_type, GfxTileWireId tilewire,
                  GraphicElement::style_t style);
 void gfxTilePip(std::vector<GraphicElement> &g, int x, int y, int w, int h, WireId src, IdString src_type,
