@@ -164,7 +164,7 @@ Notes for developers
 Testing
 -------
 
-- To build test binaries as well, use `-DBUILD_TESTS=ON` and after `make` run `make tests` to run them, or you can run separate binaries.
+- To build test binaries as well, use `-DBUILD_TESTS=ON` and after `make` run `make test` to run them, or you can run separate binaries.
 - To use code sanitizers use the `cmake` options:
   - `-DSANITIZE_ADDRESS=ON`
   - `-DSANITIZE_MEMORY=ON -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++`
