@@ -119,6 +119,7 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     void zoomOut();
     void zoomSelected();
     void zoomOutbound();
+    void enableDisableDecals(bool bels, bool wires, bool pips, bool groups);
 
   Q_SIGNALS:
     void clickedBel(BelId bel, bool add);
@@ -226,6 +227,11 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     LineShader lineShader_;
     QMatrix4x4 viewMove_;
     float zoom_;
+
+    bool displayBel_;
+    bool displayWire_;
+    bool displayPip_;
+    bool displayGroup_;
 
     struct
     {

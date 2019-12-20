@@ -56,6 +56,7 @@ class BaseMainWindow : public QMainWindow
   protected:
     void createMenusAndBars();
     void disableActions();
+    void enableDisableDecals();
 
     virtual void onDisableActions(){};
     virtual void onUpdateActions(){};
@@ -122,6 +123,11 @@ class BaseMainWindow : public QMainWindow
     QAction *actionPlay;
     QAction *actionPause;
     QAction *actionStop;
+
+    QAction *actionDisplayBel;
+    QAction *actionDisplayWire;
+    QAction *actionDisplayPip;
+    QAction *actionDisplayGroups;
 };
 
 NEXTPNR_NAMESPACE_END
