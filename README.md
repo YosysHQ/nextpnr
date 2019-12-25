@@ -35,7 +35,7 @@ of the selected architecture:
 - Qt5 or later (`qt5-default` for Ubuntu 16.04)
 - Python 3.5 or later, including development libraries (`python3-dev` for Ubuntu)
   - on Windows make sure to install same version as supported by [vcpkg](https://github.com/Microsoft/vcpkg/blob/master/ports/python3/CONTROL)
-- Boost libraries (`libboost-dev libboost-filesystem-dev libboost-thread-dev libboost-program-options-dev libboost-python-dev libboost-dev` or `libboost-all-dev` for Ubuntu)
+- Boost libraries (`libboost-dev libboost-filesystem-dev libboost-thread-dev libboost-program-options-dev libboost-python-dev libboost-iostreams-dev libboost-dev` or `libboost-all-dev` for Ubuntu)
 - Eigen3 (`libeigen3-dev` for Ubuntu) is required to build the analytic placer
 - Latest git Yosys is required to synthesise the demo design
 - For building on Windows with MSVC, usage of vcpkg is advised for dependency installation.
