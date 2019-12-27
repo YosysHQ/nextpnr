@@ -233,6 +233,8 @@ static void replace_port_safe(bool has_ff, CellInfo *ff, IdString ff_port, CellI
 
 void ff_to_slice(Context *ctx, CellInfo *ff, CellInfo *lc, int index, bool driven_by_lut)
 {
+    if (lc->hierpath == IdString())
+        lc->hierpath = ff->hierpath;
     bool has_ff = lc->ports.at(ctx->id("Q0")).net != nullptr || lc->ports.at(ctx->id("Q1")).net != nullptr;
     std::string reg = "REG" + std::to_string(index);
     set_param_safe(has_ff, lc, ctx->id("SRMODE"), str_or_default(ff->params, ctx->id("SRMODE"), "LSR_OVER_CE"));
@@ -271,6 +273,8 @@ void ff_to_slice(Context *ctx, CellInfo *ff, CellInfo *lc, int index, bool drive
 
 void lut_to_slice(Context *ctx, CellInfo *lut, CellInfo *lc, int index)
 {
+    if (lc->hierpath == IdString())
+        lc->hierpath = lut->hierpath;
     lc->params[ctx->id("LUT" + std::to_string(index) + "_INITVAL")] =
             get_or_default(lut->params, ctx->id("INIT"), Property(0, 16));
     replace_port(lut, ctx->id("A"), lc, ctx->id("A" + std::to_string(index)));
@@ -282,6 +286,8 @@ void lut_to_slice(Context *ctx, CellInfo *lut, CellInfo *lc, int index)
 
 void ccu2c_to_slice(Context *ctx, CellInfo *ccu, CellInfo *lc)
 {
+    if (lc->hierpath == IdString())
+        lc->hierpath = ccu->hierpath;
     lc->params[ctx->id("MODE")] = std::string("CCU2");
     lc->params[ctx->id("LUT0_INITVAL")] = get_or_default(ccu->params, ctx->id("INIT0"), Property(0, 16));
     lc->params[ctx->id("LUT1_INITVAL")] = get_or_default(ccu->params, ctx->id("INIT1"), Property(0, 16));
@@ -309,6 +315,8 @@ void ccu2c_to_slice(Context *ctx, CellInfo *ccu, CellInfo *lc)
 
 void dram_to_ramw(Context *ctx, CellInfo *ram, CellInfo *lc)
 {
+    if (lc->hierpath == IdString())
+        lc->hierpath = ram->hierpath;
     lc->params[ctx->id("MODE")] = std::string("RAMW");
     replace_port(ram, ctx->id("WAD[0]"), lc, ctx->id("D0"));
     replace_port(ram, ctx->id("WAD[1]"), lc, ctx->id("B0"));
@@ -340,6 +348,8 @@ static unsigned get_dram_init(const Context *ctx, const CellInfo *ram, int bit)
 
 void dram_to_ram_slice(Context *ctx, CellInfo *ram, CellInfo *lc, CellInfo *ramw, int index)
 {
+    if (lc->hierpath == IdString())
+        lc->hierpath = ram->hierpath;
     lc->params[ctx->id("MODE")] = std::string("DPRAM");
     lc->params[ctx->id("WREMUX")] = str_or_default(ram->params, ctx->id("WREMUX"), "WRE");
     lc->params[ctx->id("WCKMUX")] = str_or_default(ram->params, ctx->id("WCKMUX"), "WCK");

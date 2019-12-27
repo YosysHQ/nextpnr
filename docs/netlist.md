@@ -19,6 +19,7 @@ Other structures used by these basic structures include:
 `CellInfo` instances have the following fields:
 
  - `name` and `type` are `IdString`s containing the instance name, and type
+ - `hierpath` is name of the hierarchical cell containing the instance, for designs with hierarchy
  - `ports` is a map from port name `IdString` to `PortInfo` structures for each cell port
  - `bel` and `belStrength` contain the ID of the Bel the cell is placed onto; and placement strength of the cell; if placed. Placement/ripup should always be done by `Arch::bindBel` and `Arch::unbindBel` rather than by manipulating these fields.
  - `params` and `attrs` store parameters and attributes - from the input JSON or assigned in flows to add metadata - by mapping from parameter name `IdString` to `Property`.
@@ -34,6 +35,7 @@ Other structures used by these basic structures include:
 `NetInfo` instances have the following fields:
 
  - `name` is the IdString name of the net - for nets with multiple names, one name is chosen according to a set of rules by the JSON frontend
+ - `hierpath` is name of the hierarchical cell containing the instance, for designs with hierarchy
  - `driver` refers to the source of the net using `PortRef`; `driver.cell == nullptr` means that the net is undriven. Nets must have zero or one driver only. The corresponding cell port must be an output and its `PortInfo::net` must refer back to this net.
  - `users` contains a list of `PortRef` references to sink ports on the net. Nets can have zero or more sinks. Each corresponding cell port must be an input or inout; and its `PortInfo::net` must refer back to this net.
  - `wires` is a map that stores the routing tree of a net, if the net is routed.
@@ -71,3 +73,17 @@ The second is `ArchCellInfo` and `ArchNetInfo`. These are provided by architectu
  - `getNetinfoSinkWire` gets the physical wire `WireId` associated with a given sink (specified by `PortRef`)
  - `getNetinfoRouteDelay` gets the routing delay - actual if the net is fully routed, estimated otherwise - between the source and a given sink of a net
  - `getNetByAlias` returns the pointer to a net given any of its aliases - this should be used in preference to a direct lookup in `nets` whenever a net name is provided by the user
+
+## Hierarchy
+
+As most place and route algorithms require a flattened netlist to work with (consider - each leaf cell instance must have its own bel), the primary netlist structures are flattened. However, some tasks such as floorplanning require an understanding of hierarchy. 
+
+`HierarchicalCell` is the main data structure for storing hierarchy. This represents an instance of a hierarchical, rather than leaf cell (leaf cells are represented by a `CellInfo`).
+
+ - `name` and `type` are the instance name and cell type
+ - `parent` is the hierarchical path of the parent cell, and `fullpath` is the hierarchical path of this cell
+ - `leaf_cells`, `nets` map from a name inside the hierarchical cell to a 'global' name in the flattened netlist (i.e. one that indexes into `ctx->{cells,nets}`)
+ - `leaf_cells_by_gname`, `nets_by_gname` are the inverse of the above maps; going from `{CellInfo,NetInfo}::name` to an instance name inside the cell
+ - `hier_cells` maps instance names of sub-hierarchical (non-leaf) cells to global names (indexing into `ctx->hierarchy`)
+
+To preserve hierarchy during passes such as packing, ensure that `hierpath` is set on new cells derived from existing ones, and call `fixupHierarchy()` at the end to rebuild `HierarchicalCell` structures.

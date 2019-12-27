@@ -24,7 +24,6 @@
 #include "bitstream.h"
 #include "command.h"
 #include "design_utils.h"
-#include "jsonparse.h"
 #include "log.h"
 #include "pcf.h"
 #include "timing.h"

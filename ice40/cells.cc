@@ -346,6 +346,8 @@ std::unique_ptr<CellInfo> create_ice_cell(Context *ctx, IdString type, std::stri
 
 void lut_to_lc(const Context *ctx, CellInfo *lut, CellInfo *lc, bool no_dff)
 {
+    if (lc->hierpath == IdString())
+        lc->hierpath = lut->hierpath;
     lc->params[ctx->id("LUT_INIT")] = lut->params[ctx->id("LUT_INIT")].extract(0, 16, Property::State::S0);
     replace_port(lut, ctx->id("I0"), lc, ctx->id("I0"));
     replace_port(lut, ctx->id("I1"), lc, ctx->id("I1"));
@@ -359,6 +361,8 @@ void lut_to_lc(const Context *ctx, CellInfo *lut, CellInfo *lc, bool no_dff)
 
 void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc, bool pass_thru_lut)
 {
+    if (lc->hierpath == IdString())
+        lc->hierpath = dff->hierpath;
     lc->params[ctx->id("DFF_ENABLE")] = Property::State::S1;
     std::string config = dff->type.str(ctx).substr(6);
     auto citer = config.begin();

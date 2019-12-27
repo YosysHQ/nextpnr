@@ -49,6 +49,7 @@ void arch_wrap_python()
     typedef std::unordered_map<IdString, std::unique_ptr<CellInfo>> CellMap;
     typedef std::unordered_map<IdString, std::unique_ptr<NetInfo>> NetMap;
     typedef std::unordered_map<IdString, IdString> AliasMap;
+    typedef std::unordered_map<IdString, HierarchicalCell> HierarchyMap;
 
     auto belpin_cls = class_<ContextualWrapper<BelPin>>("BelPin", no_init);
     readonly_wrapper<BelPin, decltype(&BelPin::bel), &BelPin::bel, conv_to_str<BelId>>::def_wrap(belpin_cls, "bel");
@@ -64,6 +65,7 @@ void arch_wrap_python()
 
     WRAP_MAP_UPTR(CellMap, "IdCellMap");
     WRAP_MAP_UPTR(NetMap, "IdNetMap");
+    WRAP_MAP(HierarchyMap, wrap_context<HierarchicalCell &>, "HierarchyMap");
 }
 
 NEXTPNR_NAMESPACE_END

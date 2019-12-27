@@ -527,7 +527,9 @@ static void pack_io(Context *ctx)
             std::copy(ci->attrs.begin(), ci->attrs.end(), std::inserter(sb->attrs, sb->attrs.begin()));
         } else if (is_sb_io(ctx, ci) || is_sb_gb_io(ctx, ci)) {
             NetInfo *net = ci->ports.at(ctx->id("PACKAGE_PIN")).net;
-            if ((net != nullptr) && (net->users.size() > 1))
+            if ((net != nullptr) && ((net->users.size() > 2) ||
+                                     (net->driver.cell != nullptr &&
+                                      net->driver.cell->type == ctx->id("$nextpnr_obuf") && net->users.size() > 1)))
                 log_error("PACKAGE_PIN of %s '%s' connected to more than a single top level IO.\n", ci->type.c_str(ctx),
                           ci->name.c_str(ctx));
         }
@@ -1485,6 +1487,7 @@ bool Arch::pack()
             promote_globals(ctx);
         ctx->assignArchInfo();
         constrain_chains(ctx);
+        ctx->fixupHierarchy();
         ctx->assignArchInfo();
         ctx->settings[ctx->id("pack")] = 1;
         archInfoToAttributes();
