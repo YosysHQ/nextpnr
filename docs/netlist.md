@@ -73,3 +73,17 @@ The second is `ArchCellInfo` and `ArchNetInfo`. These are provided by architectu
  - `getNetinfoSinkWire` gets the physical wire `WireId` associated with a given sink (specified by `PortRef`)
  - `getNetinfoRouteDelay` gets the routing delay - actual if the net is fully routed, estimated otherwise - between the source and a given sink of a net
  - `getNetByAlias` returns the pointer to a net given any of its aliases - this should be used in preference to a direct lookup in `nets` whenever a net name is provided by the user
+
+## Hierarchy
+
+As most place and route algorithms require a flattened netlist to work with (consider - each leaf cell instance must have its own bel), the primary netlist structures are flattened. However, some tasks such as floorplanning require an understanding of hierarchy. 
+
+`HierarchicalCell` is the main data structure for storing hierarchy. This represents an instance of a hierarchical, rather than leaf cell (leaf cells are represented by a `CellInfo`).
+
+ - `name` and `type` are the instance name and cell type
+ - `parent` is the hierarchical path of the parent cell, and `fullpath` is the hierarchical path of this cell
+ - `leaf_cells`, `nets` map from a name inside the hierarchical cell to a 'global' name in the flattened netlist (i.e. one that indexes into `ctx->{cells,nets}`)
+ - `leaf_cells_by_gname`, `nets_by_gname` are the inverse of the above maps; going from `{CellInfo,NetInfo}::name` to an instance name inside the cell
+ - `hier_cells` maps instance names of sub-hierarchical (non-leaf) cells to global names (indexing into `ctx->hierarchy`)
+
+To preserve hierarchy during passes such as packing, ensure that `hierpath` is set on new cells derived from existing ones, and call `fixupHierarchy()` at the end to rebuild `HierarchicalCell` structures.
