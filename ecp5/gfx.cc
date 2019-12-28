@@ -66,7 +66,7 @@ void gfxTileBel(std::vector<GraphicElement> &g, int x, int y, int z, int w, int 
         g.push_back(el);
 
         el.style = GraphicElement::STYLE_FRAME;
-        el.x1 = x + slice_x2 + 15*wire_distance;
+        el.x1 = x + slice_x2 + 15 * wire_distance;
         el.x2 = el.x1 + wire_distance;
         el.y1 = y + slice_y2 - wire_distance * (TILE_WIRE_CLK3_SLICE - TILE_WIRE_DUMMY_D2 + 5 + (3 - z) * 26) +
                 3 * slice_pitch - 0.0007f;
@@ -430,7 +430,7 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
             g.push_back(el);
         } else if (tilewire >= TILE_WIRE_CLK0 && tilewire <= TILE_WIRE_LSR1) {
             el.x1 = x + switchbox_x2;
-            el.x2 = x + slice_x2 + 15*wire_distance + (8 - (tilewire - TILE_WIRE_CLK0)) * wire_distance;
+            el.x2 = x + slice_x2 + 15 * wire_distance + (8 - (tilewire - TILE_WIRE_CLK0)) * wire_distance;
             el.y1 = y + slice_y2 - wire_distance * (tilewire - TILE_WIRE_CLK0 - 5) + 3 * slice_pitch;
             el.y2 = el.y1;
             g.push_back(el);
@@ -438,8 +438,8 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
             el.y2 = y + slice_y2 - wire_distance * (3 + (tilewire - TILE_WIRE_CLK0));
             g.push_back(el);
             for (int i = 0; i < 4; i++) {
-                el.x1 = x + slice_x2 + 15*wire_distance + wire_distance;
-                el.x2 = x + slice_x2 + 15*wire_distance + (8 - (tilewire - TILE_WIRE_CLK0)) * wire_distance;
+                el.x1 = x + slice_x2 + 15 * wire_distance + wire_distance;
+                el.x2 = x + slice_x2 + 15 * wire_distance + (8 - (tilewire - TILE_WIRE_CLK0)) * wire_distance;
                 el.y1 = y + slice_y2 -
                         wire_distance * (TILE_WIRE_CLK3_SLICE - TILE_WIRE_DUMMY_D2 + 1 + tilewire - TILE_WIRE_CLK0) +
                         i * slice_pitch;
@@ -448,8 +448,8 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
             }
             if (tilewire == TILE_WIRE_CLK1 || tilewire == TILE_WIRE_LSR1) {
                 for (int i = 0; i < 2; i++) {
-                    el.x1 = x + slice_x2 + 3*wire_distance;
-                    el.x2 = x + slice_x2 + 15*wire_distance + (8 - (tilewire - TILE_WIRE_CLK0)) * wire_distance;
+                    el.x1 = x + slice_x2 + 3 * wire_distance;
+                    el.x2 = x + slice_x2 + 15 * wire_distance + (8 - (tilewire - TILE_WIRE_CLK0)) * wire_distance;
                     el.y1 = y + slice_y2 -
                             wire_distance *
                                     (TILE_WIRE_CLK3_SLICE - TILE_WIRE_DUMMY_D2 - 1 + (tilewire - TILE_WIRE_CLK0) / 2) +
@@ -493,8 +493,8 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
         else if (tilewire >= TILE_WIRE_MUXCLK3 && tilewire <= TILE_WIRE_MUXLSR0) {
             int gap = (tilewire - TILE_WIRE_MUXCLK3) / 2;
             int part = (tilewire - TILE_WIRE_MUXCLK3) % 2;
-            el.x1 = x + slice_x2 + 3*wire_distance;
-            el.x2 = x + slice_x2 + 15*wire_distance;
+            el.x1 = x + slice_x2 + 3 * wire_distance;
+            el.x2 = x + slice_x2 + 15 * wire_distance;
             el.y1 = y + slice_y2 - wire_distance * (TILE_WIRE_CLK3_SLICE - TILE_WIRE_DUMMY_D2 + 1 + part + gap * 26) +
                     3 * slice_pitch;
             el.y2 = el.y1;
@@ -512,7 +512,8 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
             g.push_back(el);
 
             el.x1 = el.x2;
-            el.y2 = y + slice_y2 - wire_distance * (TILE_WIRE_WD1B_SLICE - TILE_WIRE_DUMMY_D2 + 1 + (part & 1) + 14 * 2) +
+            el.y2 = y + slice_y2 -
+                    wire_distance * (TILE_WIRE_WD1B_SLICE - TILE_WIRE_DUMMY_D2 + 1 + (part & 1) + 14 * 2) +
                     (3 - group) * slice_pitch;
             g.push_back(el);
 
@@ -800,7 +801,8 @@ void setSource(GraphicElement &el, int x, int y, int w, int h, WireId src, IdStr
         if (src_id >= TILE_WIRE_FCO && src_id <= TILE_WIRE_FCI) {
             int gap = (src_id - TILE_WIRE_FCO) / 24;
             el.x1 = src.location.x + switchbox_x2;
-            el.y1 = src.location.y + slice_y2 - wire_distance * (src_id - TILE_WIRE_FCO + 1 + gap * 2) + 3 * slice_pitch;
+            el.y1 = src.location.y + slice_y2 - wire_distance * (src_id - TILE_WIRE_FCO + 1 + gap * 2) +
+                    3 * slice_pitch;
         }
         if (src_id >= TILE_WIRE_JCE0 && src_id <= TILE_WIRE_JQ7) {
             el.x1 = src.location.x + switchbox_x2 + wire_length;
@@ -810,7 +812,8 @@ void setSource(GraphicElement &el, int x, int y, int w, int h, WireId src, IdStr
             bool top = (src.location.y == (h - 1));
             el.x1 = src.location.x + 0.5f + wire_length;
             if (top)
-                el.y1 = src.location.y + 1 - (slice_y2 - wire_distance * (src_id - TILE_WIRE_JDIA + 1) + 3 * slice_pitch);
+                el.y1 = src.location.y + 1 -
+                        (slice_y2 - wire_distance * (src_id - TILE_WIRE_JDIA + 1) + 3 * slice_pitch);
             else
                 el.y1 = src.location.y + slice_y2 - wire_distance * (src_id - TILE_WIRE_JDIA + 1) + 3 * slice_pitch;
         }
@@ -861,7 +864,8 @@ void setSource(GraphicElement &el, int x, int y, int w, int h, WireId src, IdStr
     }
     if (src_type == id_WIRE_TYPE_MULT18) {
         el.x1 = src.location.x + slice_x1 - wire_length;
-        el.y1 = src.location.y + slice_y2 - wire_distance_small * (src_id - TILE_WIRE_JCLK0_MULT18 + 1) + 3 * slice_pitch;
+        el.y1 = src.location.y + slice_y2 - wire_distance_small * (src_id - TILE_WIRE_JCLK0_MULT18 + 1) +
+                3 * slice_pitch;
     }
     if (src_type == id_WIRE_TYPE_ALU54) {
         int num = (src_id - TILE_WIRE_JCLK0_ALU54) % 225;
@@ -903,7 +907,8 @@ void setSource(GraphicElement &el, int x, int y, int w, int h, WireId src, IdStr
     }
     if (src_type == id_WIRE_TYPE_DCU) {
         el.x1 = src.location.x + slice_x1 - wire_length;
-        el.y1 = src.location.y + slice_y2 - wire_distance * (src_id - TILE_WIRE_CH0_RX_REFCLK_DCU + 1) + 0 * slice_pitch;
+        el.y1 = src.location.y + slice_y2 - wire_distance * (src_id - TILE_WIRE_CH0_RX_REFCLK_DCU + 1) +
+                0 * slice_pitch;
     }
     if (src_type == id_WIRE_TYPE_PCSCLKDIV) {
         int num = (src_id - TILE_WIRE_CLKI_PCSCLKDIV1) % 7;
@@ -1010,7 +1015,8 @@ void setDestination(GraphicElement &el, int x, int y, int w, int h, WireId dst, 
             bool top = (dst.location.y == (h - 1));
             el.x2 = dst.location.x + 0.5f;
             if (top)
-                el.y2 = dst.location.y + 1 - (slice_y2 - wire_distance * (dst_id - TILE_WIRE_JDIA + 1) + 3 * slice_pitch);
+                el.y2 = dst.location.y + 1 -
+                        (slice_y2 - wire_distance * (dst_id - TILE_WIRE_JDIA + 1) + 3 * slice_pitch);
             else
                 el.y2 = dst.location.y + slice_y2 - wire_distance * (dst_id - TILE_WIRE_JDIA + 1) + 3 * slice_pitch;
         }
@@ -1062,7 +1068,8 @@ void setDestination(GraphicElement &el, int x, int y, int w, int h, WireId dst, 
     }
     if (dst_type == id_WIRE_TYPE_MULT18) {
         el.x2 = dst.location.x + slice_x1 - wire_length;
-        el.y2 = dst.location.y + slice_y2 - wire_distance_small * (dst_id - TILE_WIRE_JCLK0_MULT18 + 1) + 3 * slice_pitch;
+        el.y2 = dst.location.y + slice_y2 - wire_distance_small * (dst_id - TILE_WIRE_JCLK0_MULT18 + 1) +
+                3 * slice_pitch;
     }
     if (dst_type == id_WIRE_TYPE_ALU54) {
         int num = (dst_id - TILE_WIRE_JCLK0_ALU54) % 225;
@@ -1104,7 +1111,8 @@ void setDestination(GraphicElement &el, int x, int y, int w, int h, WireId dst, 
     }
     if (dst_type == id_WIRE_TYPE_DCU) {
         el.x2 = dst.location.x + slice_x1 - wire_length;
-        el.y2 = dst.location.y + slice_y2 - wire_distance * (dst_id - TILE_WIRE_CH0_RX_REFCLK_DCU + 1) + 0 * slice_pitch;
+        el.y2 = dst.location.y + slice_y2 - wire_distance * (dst_id - TILE_WIRE_CH0_RX_REFCLK_DCU + 1) +
+                0 * slice_pitch;
     }
     if (dst_type == id_WIRE_TYPE_PCSCLKDIV) {
         int num = (dst_id - TILE_WIRE_CLKI_PCSCLKDIV1) % 7;
