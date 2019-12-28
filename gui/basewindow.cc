@@ -28,7 +28,6 @@
 #include <fstream>
 #include "designwidget.h"
 #include "fpgaviewwidget.h"
-#include "jsonparse.h"
 #include "jsonwrite.h"
 #include "log.h"
 #include "mainwindow.h"

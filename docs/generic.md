@@ -72,7 +72,7 @@ Sets the number of input pins a LUT in the architecture has. Only affects the ge
 
 ### void setDelayScaling(double scale, double offset);
 
-Set the linear scaling vs distance and fixed offset (both values in nanoseconds) for routing delay estimates.
+Set the linear scaling vs distance and fixed offset (both values in nanoseconds) for routing delay estimates. Delay estimates that correlate to pip delays, even if they have no bearing to reality, are important for reasonable routing runtime.
 
 ### void addCellTimingClock(IdString cell, IdString port);
 
@@ -96,16 +96,18 @@ Specify clock-to-out time for a port of a cell, and set the timing class of that
 
 ## Generic Packer
 
-The generic packer combines K-input LUTs (`LUT` cells) and simple D-type flip flops (`DFF` cells) (posedge clock only, no set/reset or enable) into a `GENERIC_SLICE` cell. It also inserts `GENERIC_IOB`s onto any top level IO pins without an IO buffer.
+The generic packer combines K-input LUTs (`LUT` cells) and simple D-type flip flops (`DFF` cells) (posedge clock only, no set/reset or enable) into a `GENERIC_SLICE` cell. It also inserts `GENERIC_IOB`s onto any top level IO pins without an IO buffer. Constrained IOBs can be implemented by instantiating `GENERIC_IOB` and setting the `BEL` attribute to an IO location.
 
 Thus, the architecture should provide bels with the following ports in order to use the generic packer:
 
- - `GENERIC_SLICE` bels with `CLK` input, `I[0]` .. `I[K-1]` LUT inputs and `Q` LUT/FF output (N.B. both LUT and FF outputs are not available at the same time)
+ - `GENERIC_SLICE` bels with `CLK` input, `I[0]` .. `I[K-1]` LUT inputs, `F` LUT output and `Q` FF output (N.B. both LUT and FF outputs are not available at the same time, to represent the constraints of some FPGAs).
  - `GENERIC_IOB` bels with `I` output buffer input, `EN` output enable input, and `O` input buffer output.
 
 See [prims.v](../generic/synth/prims.v) for Verilog simulation models for all these cells.
 
 [synth_generic.tcl](../generic/synth/synth_generic.tcl) can be used with Yosys to perform synthesis to the generic `LUT` and `DFF` cells which the generic packer supports. Invoke it using `tcl synth_generic.tcl K out.json` where _K_ is the number of LUT inputs and _out.json_ the name of the JSON file to write.
+
+The generic packer in its current state is intended for experimentation and proof-of-concept tests. It is _not_ intended to make use of all FPGA features or support complex designs. In these cases a proper [Arch API](archapi.md) implementation is strongly recommended.
 
 ## Validity Checks
 

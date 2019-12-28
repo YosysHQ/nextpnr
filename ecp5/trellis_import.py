@@ -320,6 +320,8 @@ def process_timing_data():
                     max_delay = min(entry["rising"][2], entry["falling"][2])
                     delays.append((constids[from_pin], constids[to_pin], min_delay, max_delay))
                 elif entry["type"] == "SetupHold":
+                    if type(entry["pin"]) is list:
+                        continue
                     pin = constids[entry["pin"]]
                     clock = constids[entry["clock"][1]]
                     min_setup = entry["setup"][0]
@@ -580,6 +582,7 @@ def write_database(dev_name, chip, ddrg, endianness):
     bba.u32(len(location_types), "num_location_types")
     bba.u32(len(packages), "num_packages")
     bba.u32(len(pindata), "num_pios")
+    bba.u32(const_id_count, "const_id_count")
 
     bba.r("locations", "locations")
     bba.r("location_types", "location_type")
@@ -596,11 +599,12 @@ def write_database(dev_name, chip, ddrg, endianness):
 dev_names = {"25k": "LFE5UM5G-25F", "45k": "LFE5UM5G-45F", "85k": "LFE5UM5G-85F"}
 
 def main():
-    global max_row, max_col
+    global max_row, max_col, const_id_count
     pytrellis.load_database(database.get_db_root())
     args = parser.parse_args()
 
     # Read port pin file
+    const_id_count = 1 # count ID_NONE
     with open(args.constids) as f:
         for line in f:
             line = line.replace("(", " ")
@@ -612,7 +616,7 @@ def main():
             assert line[0] == "X"
             idx = len(constids) + 1
             constids[line[1]] = idx
-    
+            const_id_count += 1
 
     constids["SLICE"] = constids["TRELLIS_SLICE"]
     constids["PIO"] = constids["TRELLIS_IO"]

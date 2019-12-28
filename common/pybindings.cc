@@ -22,7 +22,7 @@
 
 #include "pybindings.h"
 #include "arch_pybindings.h"
-#include "jsonparse.h"
+#include "json_frontend.h"
 #include "log.h"
 #include "nextpnr.h"
 
@@ -53,7 +53,7 @@ void parse_json_shim(std::string filename, Context &d)
     std::ifstream inf(filename);
     if (!inf)
         throw std::runtime_error("failed to open file " + filename);
-    parse_json_file(inf, filename, &d);
+    parse_json(inf, filename, &d);
 }
 
 // Create a new Chip and load design from json file
@@ -131,7 +131,7 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
 
     typedef std::unordered_map<IdString, Property> AttrMap;
     typedef std::unordered_map<IdString, PortInfo> PortMap;
-    typedef std::unordered_map<IdString, IdString> PinMap;
+    typedef std::unordered_map<IdString, IdString> IdIdMap;
     typedef std::unordered_map<IdString, std::unique_ptr<Region>> RegionMap;
 
     class_<BaseCtx, BaseCtx *, boost::noncopyable>("BaseCtx", no_init);
@@ -157,8 +157,8 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
                       conv_from_str<BelId>>::def_wrap(ci_cls, "bel");
     readwrite_wrapper<CellInfo &, decltype(&CellInfo::belStrength), &CellInfo::belStrength, pass_through<PlaceStrength>,
                       pass_through<PlaceStrength>>::def_wrap(ci_cls, "belStrength");
-    readonly_wrapper<CellInfo &, decltype(&CellInfo::pins), &CellInfo::pins, wrap_context<PinMap &>>::def_wrap(ci_cls,
-                                                                                                               "pins");
+    readonly_wrapper<CellInfo &, decltype(&CellInfo::pins), &CellInfo::pins, wrap_context<IdIdMap &>>::def_wrap(ci_cls,
+                                                                                                                "pins");
 
     fn_wrapper_1a_v<CellInfo &, decltype(&CellInfo::addInput), &CellInfo::addInput, conv_from_str<IdString>>::def_wrap(
             ci_cls, "addInput");
@@ -230,9 +230,25 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
     readonly_wrapper<Region &, decltype(&Region::wires), &Region::wires, wrap_context<WireSet &>>::def_wrap(region_cls,
                                                                                                             "wires");
 
+    auto hierarchy_cls = class_<ContextualWrapper<HierarchicalCell &>>("HierarchicalCell", no_init);
+    readwrite_wrapper<HierarchicalCell &, decltype(&HierarchicalCell::name), &HierarchicalCell::name,
+                      conv_to_str<IdString>, conv_from_str<IdString>>::def_wrap(hierarchy_cls, "name");
+    readwrite_wrapper<HierarchicalCell &, decltype(&HierarchicalCell::type), &HierarchicalCell::type,
+                      conv_to_str<IdString>, conv_from_str<IdString>>::def_wrap(hierarchy_cls, "type");
+    readwrite_wrapper<HierarchicalCell &, decltype(&HierarchicalCell::parent), &HierarchicalCell::parent,
+                      conv_to_str<IdString>, conv_from_str<IdString>>::def_wrap(hierarchy_cls, "parent");
+    readwrite_wrapper<HierarchicalCell &, decltype(&HierarchicalCell::fullpath), &HierarchicalCell::fullpath,
+                      conv_to_str<IdString>, conv_from_str<IdString>>::def_wrap(hierarchy_cls, "fullpath");
+
+    readonly_wrapper<HierarchicalCell &, decltype(&HierarchicalCell::leaf_cells), &HierarchicalCell::leaf_cells,
+                     wrap_context<IdIdMap &>>::def_wrap(hierarchy_cls, "leaf_cells");
+    readonly_wrapper<HierarchicalCell &, decltype(&HierarchicalCell::nets), &HierarchicalCell::nets,
+                     wrap_context<IdIdMap &>>::def_wrap(hierarchy_cls, "nets");
+    readonly_wrapper<HierarchicalCell &, decltype(&HierarchicalCell::hier_cells), &HierarchicalCell::hier_cells,
+                     wrap_context<IdIdMap &>>::def_wrap(hierarchy_cls, "hier_cells");
     WRAP_MAP(AttrMap, conv_to_str<Property>, "AttrMap");
     WRAP_MAP(PortMap, wrap_context<PortInfo &>, "PortMap");
-    WRAP_MAP(PinMap, conv_to_str<IdString>, "PinMap");
+    WRAP_MAP(IdIdMap, conv_to_str<IdString>, "IdIdMap");
     WRAP_MAP(WireMap, wrap_context<PipMap &>, "WireMap");
     WRAP_MAP_UPTR(RegionMap, "RegionMap");
 

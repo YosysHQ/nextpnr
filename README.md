@@ -6,13 +6,10 @@ tool.
 
 Currently nextpnr supports:
  * Lattice iCE40 devices supported by [Project IceStorm](http://www.clifford.at/icestorm/)
- * *(experimental)* Lattice ECP5 devices supported by [Project Trellis](https://github.com/SymbiFlow/prjtrellis)
+ * Lattice ECP5 devices supported by [Project Trellis](https://github.com/SymbiFlow/prjtrellis)
  * *(experimental)* a "generic" back-end for user-defined architectures
 
-We hope to see Xilinx 7 Series thanks to
-[Project X-Ray](https://github.com/SymbiFlow/prjxray) and even more FPGA families
-supported in the future. We would love your help in developing this
-awesome new project!
+There is some work in progress towards [support for Xilinx devices](https://github.com/daveshah1/nextpnr-xilinx/) but it is not upstream and not intended for end users at the present time. We hope to see more FPGA families supported in the future. We would love your help in developing this awesome new project!
 
 A brief (academic) paper describing the Yosys+nextpnr flow can be found
 on [arXiv](https://arxiv.org/abs/1903.10407).
@@ -38,7 +35,7 @@ of the selected architecture:
 - Qt5 or later (`qt5-default` for Ubuntu 16.04)
 - Python 3.5 or later, including development libraries (`python3-dev` for Ubuntu)
   - on Windows make sure to install same version as supported by [vcpkg](https://github.com/Microsoft/vcpkg/blob/master/ports/python3/CONTROL)
-- Boost libraries (`libboost-dev libboost-filesystem-dev libboost-thread-dev libboost-program-options-dev libboost-python-dev libboost-dev` or `libboost-all-dev` for Ubuntu)
+- Boost libraries (`libboost-dev libboost-filesystem-dev libboost-thread-dev libboost-program-options-dev libboost-python-dev libboost-iostreams-dev libboost-dev` or `libboost-all-dev` for Ubuntu)
 - Eigen3 (`libeigen3-dev` for Ubuntu) is required to build the analytic placer
 - Latest git Yosys is required to synthesise the demo design
 - For building on Windows with MSVC, usage of vcpkg is advised for dependency installation.
@@ -49,6 +46,8 @@ of the selected architecture:
 - For building on macOS, brew utility is needed.
   - Install all needed packages `brew install cmake python boost boost-python3 qt5 eigen`
   - Do not forget to add qt5 in path as well `echo 'export PATH="/usr/local/opt/qt/bin:$PATH"' >> ~/.bash_profile`
+  
+    NOTE: this change is effective in next terminal session, so please re-open terminal window before next step
 
 Getting started
 ---------------
@@ -106,12 +105,7 @@ make -j$(nproc)
 sudo make install
 ```
 
- - For an ECP5 blinky on the 45k ULX3S board, first synthesise using `yosys blinky.ys` in `ecp5/synth`.
-  - Then run ECP5 place-and route using `./nextpnr-ecp5 --json ecp5/synth/blinky.json --basecfg ecp5/synth/ulx3s_empty.config --textcfg ecp5/synth/ulx3s_out.config`
-  - Create a bitstream using `ecppack ulx3s_out.config ulx3s.bit`
-  - Note that `ulx3s_empty.config` contains fixed/unknown bits to be copied to the output bitstream
-
- - More examples of the ECP5 flow for a range of boards can be found in the [Project Trellis Examples](https://github.com/SymbiFlow/prjtrellis/tree/master/examples).
+ - Examples of the ECP5 flow for a range of boards can be found in the [Project Trellis Examples](https://github.com/SymbiFlow/prjtrellis/tree/master/examples).
 
 
 ### nextpnr-generic
@@ -124,7 +118,7 @@ make -j$(nproc)
 sudo make install
 ```
 
-TBD: Getting started example for generic target.
+An example of how to use the generic flow is in [generic/examples](generic/examples). See also the [Generic Architecture docs](docs/generic.md).
 
 Additional notes for building nextpnr
 -------------------------------------
@@ -170,7 +164,7 @@ Notes for developers
 Testing
 -------
 
-- To build test binaries as well, use `-DBUILD_TESTS=ON` and after `make` run `make tests` to run them, or you can run separate binaries.
+- To build test binaries as well, use `-DBUILD_TESTS=ON` and after `make` run `make test` to run them, or you can run separate binaries.
 - To use code sanitizers use the `cmake` options:
   - `-DSANITIZE_ADDRESS=ON`
   - `-DSANITIZE_MEMORY=ON -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++`

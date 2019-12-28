@@ -308,6 +308,14 @@ class HeAPPlacer
     std::vector<std::vector<int>> nearest_row_with_bel;
     std::vector<std::vector<int>> nearest_col_with_bel;
 
+    struct BoundingBox
+    {
+        // Actual bounding box
+        int x0 = 0, x1 = 0, y0 = 0, y1 = 0;
+    };
+
+    std::unordered_map<IdString, BoundingBox> constraint_region_bounds;
+
     // In some cases, we can't use bindBel because we allow overlap in the earlier stages. So we use this custom
     // structure instead
     struct CellLocation
@@ -442,6 +450,31 @@ class HeAPPlacer
                     break;
                 nr.at(y) = loc.y;
             }
+        }
+
+        // Determine bounding boxes of region constraints
+        for (auto &region : sorted(ctx->region)) {
+            Region *r = region.second;
+            BoundingBox bb;
+            if (r->constr_bels) {
+                bb.x0 = std::numeric_limits<int>::max();
+                bb.x1 = std::numeric_limits<int>::min();
+                bb.y0 = std::numeric_limits<int>::max();
+                bb.y1 = std::numeric_limits<int>::min();
+                for (auto bel : r->bels) {
+                    Loc loc = ctx->getBelLocation(bel);
+                    bb.x0 = std::min(bb.x0, loc.x);
+                    bb.x1 = std::max(bb.x1, loc.x);
+                    bb.y0 = std::min(bb.y0, loc.y);
+                    bb.y1 = std::max(bb.y1, loc.y);
+                }
+            } else {
+                bb.x0 = 0;
+                bb.y0 = 0;
+                bb.x1 = max_x;
+                bb.y1 = max_y;
+            }
+            constraint_region_bounds[r->name] = bb;
         }
     }
 
@@ -684,9 +717,15 @@ class HeAPPlacer
             if (yaxis) {
                 cell_locs.at(solve_cells.at(i)->name).rawy = vals.at(i);
                 cell_locs.at(solve_cells.at(i)->name).y = std::min(max_y, std::max(0, int(vals.at(i))));
+                if (solve_cells.at(i)->region != nullptr)
+                    cell_locs.at(solve_cells.at(i)->name).y =
+                            limit_to_reg(solve_cells.at(i)->region, cell_locs.at(solve_cells.at(i)->name).y, true);
             } else {
                 cell_locs.at(solve_cells.at(i)->name).rawx = vals.at(i);
                 cell_locs.at(solve_cells.at(i)->name).x = std::min(max_x, std::max(0, int(vals.at(i))));
+                if (solve_cells.at(i)->region != nullptr)
+                    cell_locs.at(solve_cells.at(i)->name).x =
+                            limit_to_reg(solve_cells.at(i)->region, cell_locs.at(solve_cells.at(i)->name).x, false);
             }
     }
 
@@ -735,6 +774,7 @@ class HeAPPlacer
         }
         int ripup_radius = 2;
         int total_iters = 0;
+        int total_iters_noreset = 0;
         while (!remaining.empty()) {
             auto top = remaining.top();
             remaining.pop();
@@ -754,15 +794,38 @@ class HeAPPlacer
             int best_inp_len = std::numeric_limits<int>::max();
 
             total_iters++;
+            total_iters_noreset++;
             if (total_iters > int(solve_cells.size())) {
                 total_iters = 0;
                 ripup_radius = std::max(std::max(max_x, max_y), ripup_radius * 2);
             }
 
+            if (total_iters_noreset > std::max(5000, 8 * int(ctx->cells.size()))) {
+                log_error("Unable to find legal placement for all cells, design is probably at utilisation limit.\n");
+            }
+
             while (!placed) {
 
-                int nx = ctx->rng(2 * radius + 1) + std::max(cell_locs.at(ci->name).x - radius, 0);
-                int ny = ctx->rng(2 * radius + 1) + std::max(cell_locs.at(ci->name).y - radius, 0);
+                // Set a conservative timeout
+                if (iter > std::max(1000, 3 * int(ctx->cells.size())))
+                    log_error("Unable to find legal placement for cell '%s', check constraints and utilisation.\n",
+                              ctx->nameOf(ci));
+
+                int rx = radius, ry = radius;
+
+                if (ci->region != nullptr) {
+                    rx = std::min(radius, (constraint_region_bounds[ci->region->name].x1 -
+                                           constraint_region_bounds[ci->region->name].x0) /
+                                                          2 +
+                                                  1);
+                    ry = std::min(radius, (constraint_region_bounds[ci->region->name].y1 -
+                                           constraint_region_bounds[ci->region->name].y0) /
+                                                          2 +
+                                                  1);
+                }
+
+                int nx = ctx->rng(2 * rx + 1) + std::max(cell_locs.at(ci->name).x - rx, 0);
+                int ny = ctx->rng(2 * ry + 1) + std::max(cell_locs.at(ci->name).y - ry, 0);
 
                 iter++;
                 iter_at_radius++;
@@ -820,6 +883,8 @@ class HeAPPlacer
 
                 if (ci->constr_children.empty() && !ci->constr_abs_z) {
                     for (auto sz : fb.at(nx).at(ny)) {
+                        if (ci->region != nullptr && ci->region->constr_bels && !ci->region->bels.count(sz))
+                            continue;
                         if (ctx->checkBelAvail(sz) || (radius > ripup_radius || ctx->rng(20000) < 10)) {
                             CellInfo *bound = ctx->getBoundBelCell(sz);
                             if (bound != nullptr) {
@@ -881,6 +946,8 @@ class HeAPPlacer
                             Loc ploc = visit.front().second;
                             visit.pop();
                             BelId target = ctx->getBelByLocation(ploc);
+                            if (vc->region != nullptr && vc->region->constr_bels && !vc->region->bels.count(target))
+                                goto fail;
                             CellInfo *bound;
                             if (target == BelId() || ctx->getBelType(target) != vc->type)
                                 goto fail;
@@ -947,6 +1014,15 @@ class HeAPPlacer
     }
     // Implementation of the cut-based spreading as described in the HeAP/SimPL papers
     static constexpr float beta = 0.9;
+
+    template <typename T> T limit_to_reg(Region *reg, T val, bool dir)
+    {
+        if (reg == nullptr)
+            return val;
+        int limit_low = dir ? constraint_region_bounds[reg->name].y0 : constraint_region_bounds[reg->name].x0;
+        int limit_high = dir ? constraint_region_bounds[reg->name].y1 : constraint_region_bounds[reg->name].x1;
+        return std::max<T>(std::min<T>(val, limit_high), limit_low);
+    }
 
     struct ChainExtent
     {
@@ -1460,10 +1536,22 @@ class HeAPPlacer
                                             : p->cell_locs.at(cut_cells.at(br.first - 1)->name).rawx;
                     double m = (br.second - bl.second) / std::max(0.00001, orig_right - orig_left);
                     for (int j = bl.first; j < br.first; j++) {
-                        auto &pos = dir ? p->cell_locs.at(cut_cells.at(j)->name).rawy
-                                        : p->cell_locs.at(cut_cells.at(j)->name).rawx;
-                        NPNR_ASSERT(pos >= orig_left && pos <= orig_right);
-                        pos = bl.second + m * (pos - orig_left);
+                        Region *cr = cut_cells.at(j)->region;
+                        if (cr != nullptr) {
+                            // Limit spreading bounds to constraint region; if applicable
+                            double brsc = p->limit_to_reg(cr, br.second, dir);
+                            double blsc = p->limit_to_reg(cr, bl.second, dir);
+                            double mr = (brsc - blsc) / std::max(0.00001, orig_right - orig_left);
+                            auto &pos = dir ? p->cell_locs.at(cut_cells.at(j)->name).rawy
+                                            : p->cell_locs.at(cut_cells.at(j)->name).rawx;
+                            NPNR_ASSERT(pos >= orig_left && pos <= orig_right);
+                            pos = blsc + mr * (pos - orig_left);
+                        } else {
+                            auto &pos = dir ? p->cell_locs.at(cut_cells.at(j)->name).rawy
+                                            : p->cell_locs.at(cut_cells.at(j)->name).rawx;
+                            NPNR_ASSERT(pos >= orig_left && pos <= orig_right);
+                            pos = bl.second + m * (pos - orig_left);
+                        }
                         // log("[%f, %f] -> [%f, %f]: %f -> %f\n", orig_left, orig_right, bl.second, br.second,
                         // orig_pos, pos);
                     }

@@ -141,6 +141,7 @@ void arch_wrap_python()
 
     typedef std::unordered_map<IdString, std::unique_ptr<CellInfo>> CellMap;
     typedef std::unordered_map<IdString, std::unique_ptr<NetInfo>> NetMap;
+    typedef std::unordered_map<IdString, HierarchicalCell> HierarchyMap;
 
     readonly_wrapper<Context, decltype(&Context::cells), &Context::cells, wrap_context<CellMap &>>::def_wrap(ctx_cls,
                                                                                                              "cells");
@@ -231,6 +232,7 @@ void arch_wrap_python()
 
     WRAP_MAP_UPTR(CellMap, "IdCellMap");
     WRAP_MAP_UPTR(NetMap, "IdNetMap");
+    WRAP_MAP(HierarchyMap, wrap_context<HierarchicalCell &>, "HierarchyMap");
     WRAP_VECTOR(const std::vector<IdString>, conv_to_str<IdString>);
 }
 

@@ -19,6 +19,7 @@
  */
 
 #include <assert.h>
+#include <boost/filesystem/convenience.hpp>
 #include <boost/program_options.hpp>
 #include <iostream>
 #include <map>
@@ -72,6 +73,7 @@ int main(int argc, char **argv)
     bool verbose = false;
     bool bigEndian;
     bool writeC = false;
+    bool writeE = false;
     char buffer[512];
 
     namespace po = boost::program_options;
@@ -82,7 +84,8 @@ int main(int argc, char **argv)
     options.add_options()("debug,d", "debug output");
     options.add_options()("be,b", "big endian");
     options.add_options()("le,l", "little endian");
-    options.add_options()("c,c", "write c strings");
+    options.add_options()("c,c", "write C strings");
+    options.add_options()("e,e", "write #embed C");
     options.add_options()("files", po::value<std::vector<std::string>>(), "file parameters");
     pos.add("files", -1);
 
@@ -115,13 +118,19 @@ int main(int argc, char **argv)
     }
     if (vm.count("c"))
         writeC = true;
+    if (vm.count("e"))
+        writeE = true;
 
+    if (writeC && writeE) {
+        printf("Incompatible modes\n");
+        exit(-1);
+    }
     if (vm.count("files") == 0) {
         printf("File parameters are mandatory\n");
         exit(-1);
     }
     std::vector<std::string> files = vm["files"].as<std::vector<std::string>>();
-    if (files.size() != 2) {
+    if (files.size() != (writeE ? 3 : 2)) {
         printf("Input and output parameters must be set\n");
         exit(-1);
     }
@@ -433,6 +442,21 @@ int main(int argc, char **argv)
 
         for (auto &s : postText)
             fprintf(fileOut, "%s\n", s.c_str());
+    } else if (writeE) {
+        for (auto &s : preText)
+            fprintf(fileOut, "%s\n", s.c_str());
+
+        fprintf(fileOut, "const char %s[%d] =\n", streams[0].name.c_str(), int(data.size()) + 1);
+        fprintf(fileOut, "#embed_str \"%s\"\n", boost::filesystem::basename(files.at(2)).c_str());
+        fprintf(fileOut, ";\n");
+
+        for (auto &s : postText)
+            fprintf(fileOut, "%s\n", s.c_str());
+
+        FILE *fileBin = fopen(files.at(2).c_str(), "wb");
+        assert(fileBin != nullptr);
+        fwrite(data.data(), int(data.size()), 1, fileBin);
+        fclose(fileBin);
     } else {
         fwrite(data.data(), int(data.size()), 1, fileOut);
     }

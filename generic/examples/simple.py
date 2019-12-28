@@ -9,6 +9,7 @@ for x in range(X):
 		for z in range(N):
 			ctx.addWire(name="X%dY%dZ%d_CLK" % (x, y, z), type="BEL_CLK", x=x, y=y)
 			ctx.addWire(name="X%dY%dZ%d_Q" % (x, y, z), type="BEL_Q", x=x, y=y)
+			ctx.addWire(name="X%dY%dZ%d_F" % (x, y, z), type="BEL_F", x=x, y=y)
 			for i in range(K):
 				ctx.addWire(name="X%dY%dZ%d_I%d" % (x, y, z, i), type="BEL_I", x=x, y=y)
 		# Local wires
@@ -29,6 +30,7 @@ for x in range(X):
 				ctx.addBelInput(bel="X%dY%d_SLICE%d" % (x, y, z), name="CLK", wire="X%dY%dZ%d_CLK" % (x, y, z))
 				for k in range(K):
 					ctx.addBelInput(bel="X%dY%d_SLICE%d" % (x, y, z), name="I[%d]" % k, wire="X%dY%dZ%d_I%d" % (x, y, z, k))
+				ctx.addBelOutput(bel="X%dY%d_SLICE%d" % (x, y, z), name="F", wire="X%dY%dZ%d_F" % (x, y, z))
 				ctx.addBelOutput(bel="X%dY%d_SLICE%d" % (x, y, z), name="Q", wire="X%dY%dZ%d_Q" % (x, y, z))
 
 for x in range(X):
@@ -48,6 +50,9 @@ for x in range(X):
 		# Pips from bel outputs to locals
 		def create_output_pips(dst, offset, skip):
 			for i in range(offset % skip, N, skip):
+				src = "X%dY%dZ%d_F" % (x, y, i)
+				ctx.addPip(name="X%dY%d.%s.%s" % (x, y, src, dst), type="BEL_OUTPUT",
+					srcWire=src, dstWire=dst, delay=ctx.getDelayFromNS(0.05), loc=Loc(x, y, 0))
 				src = "X%dY%dZ%d_Q" % (x, y, i)
 				ctx.addPip(name="X%dY%d.%s.%s" % (x, y, src, dst), type="BEL_OUTPUT",
 					srcWire=src, dstWire=dst, delay=ctx.getDelayFromNS(0.05), loc=Loc(x, y, 0))

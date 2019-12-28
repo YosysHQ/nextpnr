@@ -196,4 +196,28 @@ void Arch::permute_luts()
     }
 }
 
+void Arch::setupWireLocations()
+{
+    wire_loc_overrides.clear();
+    for (auto cell : sorted(cells)) {
+        CellInfo *ci = cell.second;
+        if (ci->bel == BelId())
+            continue;
+        if (ci->type == id_MULT18X18D || ci->type == id_DCUA) {
+            for (auto &port : ci->ports) {
+                if (port.second.type != PORT_IN || port.second.net == nullptr)
+                    continue;
+                WireId pw = getBelPinWire(ci->bel, port.first);
+                if (pw == WireId())
+                    continue;
+                for (auto uh : getPipsUphill(pw)) {
+                    WireId pip_src = getPipSrcWire(uh);
+                    wire_loc_overrides[pw] = std::make_pair(pip_src.location.x, pip_src.location.y);
+                    break;
+                }
+            }
+        }
+    }
+}
+
 NEXTPNR_NAMESPACE_END

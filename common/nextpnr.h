@@ -387,7 +387,7 @@ struct ClockConstraint;
 
 struct NetInfo : ArchNetInfo
 {
-    IdString name;
+    IdString name, hierpath;
     int32_t udata = 0;
 
     PortRef driver;
@@ -396,6 +396,8 @@ struct NetInfo : ArchNetInfo
 
     // wire -> uphill_pip
     std::unordered_map<WireId, PipMap> wires;
+
+    std::vector<IdString> aliases; // entries in net_aliases that point to this net
 
     std::unique_ptr<ClockConstraint> clkconstr;
 
@@ -421,7 +423,7 @@ struct PortInfo
 
 struct CellInfo : ArchCellInfo
 {
-    IdString name, type;
+    IdString name, type, hierpath;
     int32_t udata;
 
     std::unordered_map<IdString, PortInfo> ports;
@@ -525,6 +527,31 @@ struct TimingConstraint
     std::unordered_set<TimingConstrObjectId> to;
 };
 
+// Represents the contents of a non-leaf cell in a design
+// with hierarchy
+
+struct HierarchicalPort
+{
+    IdString name;
+    PortType dir;
+    std::vector<IdString> nets;
+    int offset;
+    bool upto;
+};
+
+struct HierarchicalCell
+{
+    IdString name, type, parent, fullpath;
+    // Name inside cell instance -> global name
+    std::unordered_map<IdString, IdString> leaf_cells, nets;
+    // Global name -> name inside cell instance
+    std::unordered_map<IdString, IdString> leaf_cells_by_gname, nets_by_gname;
+    // Cell port to net
+    std::unordered_map<IdString, HierarchicalPort> ports;
+    // Name inside cell instance -> global name
+    std::unordered_map<IdString, IdString> hier_cells;
+};
+
 inline bool operator==(const std::pair<const TimingConstrObjectId, TimingConstraint *> &a,
                        const std::pair<TimingConstrObjectId, TimingConstraint *> &b)
 {
@@ -617,6 +644,11 @@ struct BaseCtx
     // Placed nets and cells.
     std::unordered_map<IdString, std::unique_ptr<NetInfo>> nets;
     std::unordered_map<IdString, std::unique_ptr<CellInfo>> cells;
+
+    // Hierarchical (non-leaf) cells by full path
+    std::unordered_map<IdString, HierarchicalCell> hierarchy;
+    // This is the root of the above structure
+    IdString top_module;
 
     // Aliases for nets, which may have more than one name due to assignments and hierarchy
     std::unordered_map<IdString, IdString> net_aliases;
@@ -805,6 +837,15 @@ struct Context : Arch, DeterministicRNG
     bool checkRoutedDesign() const;
     bool getActualRouteDelay(WireId src_wire, WireId dst_wire, delay_t *delay = nullptr,
                              std::unordered_map<WireId, PipId> *route = nullptr, bool useEstimate = true);
+
+    // --------------------------------------------------------------
+    // call after changing hierpath or adding/removing nets and cells
+    void fixupHierarchy();
+
+    // --------------------------------------------------------------
+
+    // provided by sdf.cc
+    void writeSDF(std::ostream &out, bool cvc_mode = false) const;
 
     // --------------------------------------------------------------
 

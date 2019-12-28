@@ -46,6 +46,7 @@ po::options_description GenericCommandHandler::getArchOptions()
 {
     po::options_description specific("Architecture specific options");
     specific.add_options()("generic", "set device type to generic");
+    specific.add_options()("no-iobs", "disable automatic IO buffer insertion");
     return specific;
 }
 
@@ -59,7 +60,10 @@ std::unique_ptr<Context> GenericCommandHandler::createContext(std::unordered_map
         if (arch_name != "generic")
             log_error("Unsuported architecture '%s'.\n", arch_name.c_str());
     }
-    return std::unique_ptr<Context>(new Context(chipArgs));
+    auto ctx = std::unique_ptr<Context>(new Context(chipArgs));
+    if (vm.count("no-iobs"))
+        ctx->settings[ctx->id("disable_iobs")] = Property::State::S1;
+    return ctx;
 }
 
 int main(int argc, char *argv[])

@@ -759,6 +759,10 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                                      str_or_default(ci->params, ctx->id("REG0_REGSET"), "RESET"));
             cc.tiles[tname].add_enum(slice + ".REG1.REGSET",
                                      str_or_default(ci->params, ctx->id("REG1_REGSET"), "RESET"));
+            cc.tiles[tname].add_enum(slice + ".REG0.LSRMODE",
+                                     str_or_default(ci->params, ctx->id("REG0_LSRMODE"), "LSR"));
+            cc.tiles[tname].add_enum(slice + ".REG1.LSRMODE",
+                                     str_or_default(ci->params, ctx->id("REG1_LSRMODE"), "LSR"));
             cc.tiles[tname].add_enum(slice + ".CEMUX", str_or_default(ci->params, ctx->id("CEMUX"), "1"));
 
             if (ci->sliceInfo.using_dff) {
@@ -865,6 +869,16 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             if (ci->attrs.count(ctx->id("DIFFRESISTOR")))
                 cc.tiles[pio_tile].add_enum(pio + ".DIFFRESISTOR",
                                             str_or_default(ci->attrs, ctx->id("DIFFRESISTOR"), "OFF"));
+            if (ci->attrs.count(ctx->id("DRIVE"))) {
+                static bool drive_3v3_warning_done = false;
+                if (iotype == "LVCMOS33") {
+                    cc.tiles[pio_tile].add_enum(pio + ".DRIVE", str_or_default(ci->attrs, ctx->id("DRIVE"), "8"));
+                } else {
+                    if (!drive_3v3_warning_done)
+                        log_warning("Trellis limitation: DRIVE can only be set on 3V3 IO pins.\n");
+                    drive_3v3_warning_done = true;
+                }
+            }
             if (ci->attrs.count(ctx->id("TERMINATION"))) {
                 auto vccio = get_vccio(ioType_from_str(iotype));
                 switch (vccio) {
@@ -1283,6 +1297,9 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                 else
                     cc.tiles[pic_tile].add_enum(prim + "." + param.first.str(ctx), param.second.as_string());
             }
+            if (get_net_or_empty(ci, id_LOADN) != nullptr) {
+                cc.tiles[pic_tile].add_enum(prim + ".LOADNMUX", "LOADN");
+            }
         } else if (ci->type == id_DCUA) {
             TileGroup tg;
             tg.tiles = get_dcu_tiles(ctx, ci->bel);
@@ -1384,8 +1401,9 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             Loc loc = ctx->getBelLocation(ci->bel);
             bool u = loc.y<15, r = loc.x> 15;
             std::string tiletype = fmt_str("DDRDLL_" << (u ? 'U' : 'L') << (r ? 'R' : 'L'));
-            if (ctx->args.type == ArchArgs::LFE5U_25F || ctx->args.type == ArchArgs::LFE5UM_25F ||
-                ctx->args.type == ArchArgs::LFE5UM5G_25F)
+            if ((ctx->args.type == ArchArgs::LFE5U_25F || ctx->args.type == ArchArgs::LFE5UM_25F ||
+                 ctx->args.type == ArchArgs::LFE5UM5G_25F) &&
+                u)
                 tiletype += "A";
             std::string tile = ctx->getTileByType(tiletype);
             cc.tiles[tile].add_enum("DDRDLL.MODE", "DDRDLLA");

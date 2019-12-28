@@ -233,6 +233,8 @@ static void replace_port_safe(bool has_ff, CellInfo *ff, IdString ff_port, CellI
 
 void ff_to_slice(Context *ctx, CellInfo *ff, CellInfo *lc, int index, bool driven_by_lut)
 {
+    if (lc->hierpath == IdString())
+        lc->hierpath = ff->hierpath;
     bool has_ff = lc->ports.at(ctx->id("Q0")).net != nullptr || lc->ports.at(ctx->id("Q1")).net != nullptr;
     std::string reg = "REG" + std::to_string(index);
     set_param_safe(has_ff, lc, ctx->id("SRMODE"), str_or_default(ff->params, ctx->id("SRMODE"), "LSR_OVER_CE"));
@@ -243,6 +245,7 @@ void ff_to_slice(Context *ctx, CellInfo *ff, CellInfo *lc, int index, bool drive
 
     lc->params[ctx->id(reg + "_SD")] = std::string(driven_by_lut ? "1" : "0");
     lc->params[ctx->id(reg + "_REGSET")] = str_or_default(ff->params, ctx->id("REGSET"), "RESET");
+    lc->params[ctx->id(reg + "_LSRMODE")] = str_or_default(ff->params, ctx->id("LSRMODE"), "LSR");
     replace_port_safe(has_ff, ff, ctx->id("CLK"), lc, ctx->id("CLK"));
     if (ff->ports.find(ctx->id("LSR")) != ff->ports.end())
         replace_port_safe(has_ff, ff, ctx->id("LSR"), lc, ctx->id("LSR"));
@@ -250,15 +253,28 @@ void ff_to_slice(Context *ctx, CellInfo *ff, CellInfo *lc, int index, bool drive
         replace_port_safe(has_ff, ff, ctx->id("CE"), lc, ctx->id("CE"));
 
     replace_port(ff, ctx->id("Q"), lc, ctx->id("Q" + std::to_string(index)));
-    if (driven_by_lut) {
-        replace_port(ff, ctx->id("DI"), lc, ctx->id("DI" + std::to_string(index)));
+    if (get_net_or_empty(ff, ctx->id("M")) != nullptr) {
+        // PRLD FFs that use both M and DI
+        NPNR_ASSERT(!driven_by_lut);
+        // As M is used; must route DI through a new LUT
+        lc->params[ctx->id(reg + "_SD")] = std::string("1");
+        lc->params[ctx->id("LUT" + std::to_string(index) + "_INITVAL")] = Property(0xFF00, 16);
+        replace_port(ff, ctx->id("DI"), lc, ctx->id("D" + std::to_string(index)));
+        replace_port(ff, ctx->id("M"), lc, ctx->id("M" + std::to_string(index)));
+        connect_ports(ctx, lc, ctx->id("F" + std::to_string(index)), lc, ctx->id("DI" + std::to_string(index)));
     } else {
-        replace_port(ff, ctx->id("DI"), lc, ctx->id("M" + std::to_string(index)));
+        if (driven_by_lut) {
+            replace_port(ff, ctx->id("DI"), lc, ctx->id("DI" + std::to_string(index)));
+        } else {
+            replace_port(ff, ctx->id("DI"), lc, ctx->id("M" + std::to_string(index)));
+        }
     }
 }
 
 void lut_to_slice(Context *ctx, CellInfo *lut, CellInfo *lc, int index)
 {
+    if (lc->hierpath == IdString())
+        lc->hierpath = lut->hierpath;
     lc->params[ctx->id("LUT" + std::to_string(index) + "_INITVAL")] =
             get_or_default(lut->params, ctx->id("INIT"), Property(0, 16));
     replace_port(lut, ctx->id("A"), lc, ctx->id("A" + std::to_string(index)));
@@ -270,6 +286,8 @@ void lut_to_slice(Context *ctx, CellInfo *lut, CellInfo *lc, int index)
 
 void ccu2c_to_slice(Context *ctx, CellInfo *ccu, CellInfo *lc)
 {
+    if (lc->hierpath == IdString())
+        lc->hierpath = ccu->hierpath;
     lc->params[ctx->id("MODE")] = std::string("CCU2");
     lc->params[ctx->id("LUT0_INITVAL")] = get_or_default(ccu->params, ctx->id("INIT0"), Property(0, 16));
     lc->params[ctx->id("LUT1_INITVAL")] = get_or_default(ccu->params, ctx->id("INIT1"), Property(0, 16));
@@ -297,6 +315,8 @@ void ccu2c_to_slice(Context *ctx, CellInfo *ccu, CellInfo *lc)
 
 void dram_to_ramw(Context *ctx, CellInfo *ram, CellInfo *lc)
 {
+    if (lc->hierpath == IdString())
+        lc->hierpath = ram->hierpath;
     lc->params[ctx->id("MODE")] = std::string("RAMW");
     replace_port(ram, ctx->id("WAD[0]"), lc, ctx->id("D0"));
     replace_port(ram, ctx->id("WAD[1]"), lc, ctx->id("B0"));
@@ -328,6 +348,8 @@ static unsigned get_dram_init(const Context *ctx, const CellInfo *ram, int bit)
 
 void dram_to_ram_slice(Context *ctx, CellInfo *ram, CellInfo *lc, CellInfo *ramw, int index)
 {
+    if (lc->hierpath == IdString())
+        lc->hierpath = ram->hierpath;
     lc->params[ctx->id("MODE")] = std::string("DPRAM");
     lc->params[ctx->id("WREMUX")] = str_or_default(ram->params, ctx->id("WREMUX"), "WRE");
     lc->params[ctx->id("WCKMUX")] = str_or_default(ram->params, ctx->id("WCKMUX"), "WCK");
@@ -416,7 +438,25 @@ void nxio_to_tr(Context *ctx, CellInfo *nxio, CellInfo *trio, std::vector<std::u
     } else {
         NPNR_ASSERT(false);
     }
-    NetInfo *donet = trio->ports.at(ctx->id("I")).net;
+    NetInfo *donet = trio->ports.at(ctx->id("I")).net, *dinet = trio->ports.at(ctx->id("O")).net;
+
+    // Rename I/O nets to avoid conflicts
+    if (donet != nullptr && donet->name == nxio->name)
+        rename_net(ctx, donet, ctx->id(donet->name.str(ctx) + "$TRELLIS_IO_OUT"));
+    if (dinet != nullptr && dinet->name == nxio->name)
+        rename_net(ctx, dinet, ctx->id(dinet->name.str(ctx) + "$TRELLIS_IO_IN"));
+
+    // Create a new top port net for accurate IO timing analysis and simulation netlists
+    if (ctx->ports.count(nxio->name)) {
+        IdString tn_netname = nxio->name;
+        NPNR_ASSERT(!ctx->nets.count(tn_netname));
+        std::unique_ptr<NetInfo> toplevel_net{new NetInfo};
+        toplevel_net->name = tn_netname;
+        connect_port(ctx, toplevel_net.get(), trio, ctx->id("B"));
+        ctx->ports[nxio->name].net = toplevel_net.get();
+        ctx->nets[tn_netname] = std::move(toplevel_net);
+    }
+
     CellInfo *tbuf = net_driven_by(
             ctx, donet, [](const Context *ctx, const CellInfo *cell) { return cell->type == ctx->id("$_TBUF_"); },
             ctx->id("Y"));

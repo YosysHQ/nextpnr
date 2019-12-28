@@ -1,7 +1,7 @@
 /*
  *  nextpnr -- Next Generation Place and Route
  *
- *  Copyright (C) 2018  SymbioticEDA
+ *  Copyright (C) 2019  David Shah <dave@ds0.me>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -17,18 +17,10 @@
  *
  */
 
-#ifndef JSON_PARSER
-#define JSON_PARSER
-
-#include <istream>
-#include <string>
 #include "nextpnr.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
-extern bool parse_json_file(std::istream &, std::string &, Context *);
-extern bool load_json_settings(std::istream &f, std::string &filename,
-                               std::unordered_map<std::string, Property> &values);
-NEXTPNR_NAMESPACE_END
+bool parse_json(std::istream &in, const std::string &filename, Context *ctx);
 
-#endif
+NEXTPNR_NAMESPACE_END

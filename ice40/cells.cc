@@ -69,7 +69,7 @@ std::unique_ptr<CellInfo> create_ice_cell(Context *ctx, IdString type, std::stri
         new_cell->params[ctx->id("PIN_TYPE")] = Property(0, 6);
         new_cell->params[ctx->id("PULLUP")] = Property::State::S0;
         new_cell->params[ctx->id("NEG_TRIGGER")] = Property::State::S0;
-        new_cell->params[ctx->id("IOSTANDARD")] = Property("SB_LVCMOS");
+        new_cell->params[ctx->id("IO_STANDARD")] = Property("SB_LVCMOS");
 
         add_port(ctx, new_cell.get(), "PACKAGE_PIN", PORT_INOUT);
 
@@ -346,6 +346,8 @@ std::unique_ptr<CellInfo> create_ice_cell(Context *ctx, IdString type, std::stri
 
 void lut_to_lc(const Context *ctx, CellInfo *lut, CellInfo *lc, bool no_dff)
 {
+    if (lc->hierpath == IdString())
+        lc->hierpath = lut->hierpath;
     lc->params[ctx->id("LUT_INIT")] = lut->params[ctx->id("LUT_INIT")].extract(0, 16, Property::State::S0);
     replace_port(lut, ctx->id("I0"), lc, ctx->id("I0"));
     replace_port(lut, ctx->id("I1"), lc, ctx->id("I1"));
@@ -359,6 +361,8 @@ void lut_to_lc(const Context *ctx, CellInfo *lut, CellInfo *lc, bool no_dff)
 
 void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc, bool pass_thru_lut)
 {
+    if (lc->hierpath == IdString())
+        lc->hierpath = dff->hierpath;
     lc->params[ctx->id("DFF_ENABLE")] = Property::State::S1;
     std::string config = dff->type.str(ctx).substr(6);
     auto citer = config.begin();
@@ -426,7 +430,25 @@ void nxio_to_sb(Context *ctx, CellInfo *nxio, CellInfo *sbio, std::unordered_set
     } else {
         NPNR_ASSERT(false);
     }
-    NetInfo *donet = sbio->ports.at(ctx->id("D_OUT_0")).net;
+    NetInfo *donet = sbio->ports.at(ctx->id("D_OUT_0")).net, *dinet = sbio->ports.at(ctx->id("D_IN_0")).net;
+
+    // Rename I/O nets to avoid conflicts
+    if (donet != nullptr && donet->name == nxio->name)
+        rename_net(ctx, donet, ctx->id(donet->name.str(ctx) + "$SB_IO_OUT"));
+    if (dinet != nullptr && dinet->name == nxio->name)
+        rename_net(ctx, dinet, ctx->id(dinet->name.str(ctx) + "$SB_IO_IN"));
+
+    // Create a new top port net for accurate IO timing analysis and simulation netlists
+    if (ctx->ports.count(nxio->name)) {
+        IdString tn_netname = nxio->name;
+        NPNR_ASSERT(!ctx->nets.count(tn_netname));
+        std::unique_ptr<NetInfo> toplevel_net{new NetInfo};
+        toplevel_net->name = tn_netname;
+        connect_port(ctx, toplevel_net.get(), sbio, ctx->id("PACKAGE_PIN"));
+        ctx->ports[nxio->name].net = toplevel_net.get();
+        ctx->nets[tn_netname] = std::move(toplevel_net);
+    }
+
     CellInfo *tbuf = net_driven_by(
             ctx, donet, [](const Context *ctx, const CellInfo *cell) { return cell->type == ctx->id("$_TBUF_"); },
             ctx->id("Y"));

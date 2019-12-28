@@ -19,6 +19,9 @@ CMakeCache.txt
 .*.swp
 a.out
 *.json
+*.dot
+*.il
+/generic/examples/blinky.png
 build/
 *.asc
 *.bin

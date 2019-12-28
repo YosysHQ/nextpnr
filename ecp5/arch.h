@@ -196,6 +196,7 @@ NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     int32_t num_tiles;
     int32_t num_location_types;
     int32_t num_packages, num_pios;
+    int32_t const_id_count;
     RelPtr<LocationTypePOD> locations;
     RelPtr<int32_t> location_type;
     RelPtr<GlobalInfoPOD> location_glbinfo;
@@ -1034,7 +1035,7 @@ struct Arch : BaseCtx
                 if (chip_info->tiletype_names[tileloc.tile_names[j].type_idx].get() == type)
                     return tileloc.tile_names[j].name.get();
         }
-        NPNR_ASSERT_FALSE_STR("no with type " + type);
+        NPNR_ASSERT_FALSE_STR("no tile with type " + type);
     }
 
     GlobalInfoPOD globalInfoAtLoc(Location loc);
@@ -1054,6 +1055,11 @@ struct Arch : BaseCtx
     // Special case for delay estimates due to its physical location
     // being far from the logical location of its primitive
     WireId gsrclk_wire;
+    // Improves directivity of routing to DSP inputs, avoids issues
+    // with different routes to the same physical reset wire causing
+    // conflicts and slow routing
+    std::unordered_map<WireId, std::pair<int, int>> wire_loc_overrides;
+    void setupWireLocations();
 
     mutable std::unordered_map<DelayKey, std::pair<bool, DelayInfo>> celldelay_cache;
 

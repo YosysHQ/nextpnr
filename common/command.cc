@@ -35,7 +35,7 @@
 #include <iostream>
 #include "command.h"
 #include "design_utils.h"
-#include "jsonparse.h"
+#include "json_frontend.h"
 #include "jsonwrite.h"
 #include "log.h"
 #include "timing.h"
@@ -149,6 +149,9 @@ po::options_description CommandHandler::getGeneralOptions()
     general.add_options()("freq", po::value<double>(), "set target frequency for design in MHz");
     general.add_options()("timing-allow-fail", "allow timing to fail in design");
     general.add_options()("no-tmdriv", "disable timing-driven placement");
+    general.add_options()("sdf", po::value<std::string>(), "SDF delay back-annotation file to write");
+    general.add_options()("sdf-cvc", "enable tweaks for SDF file compatibility with the CVC simulator");
+
     return general;
 }
 
@@ -262,9 +265,8 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
             if (vm.count("json")) {
                 std::string filename = vm["json"].as<std::string>();
                 std::ifstream f(filename);
-                if (!parse_json_file(f, filename, w.getContext()))
+                if (!parse_json(f, filename, w.getContext()))
                     log_error("Loading design failed.\n");
-
                 customAfterLoad(w.getContext());
                 w.notifyChangeContext();
                 w.updateActions();
@@ -281,7 +283,7 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
     if (vm.count("json")) {
         std::string filename = vm["json"].as<std::string>();
         std::ifstream f(filename);
-        if (!parse_json_file(f, filename, ctx.get()))
+        if (!parse_json(f, filename, ctx.get()))
             log_error("Loading design failed.\n");
 
         customAfterLoad(ctx.get());
@@ -336,6 +338,14 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
             log_error("Saving design failed.\n");
     }
 
+    if (vm.count("sdf")) {
+        std::string filename = vm["sdf"].as<std::string>();
+        std::ofstream f(filename);
+        if (!f)
+            log_error("Failed to open SDF file '%s' for writing.\n", filename.c_str());
+        ctx->writeSDF(f, vm.count("sdf-cvc"));
+    }
+
 #ifndef NO_PYTHON
     deinit_python();
 #endif
@@ -371,12 +381,6 @@ int CommandHandler::exec()
             return 0;
 
         std::unordered_map<std::string, Property> values;
-        if (vm.count("json")) {
-            std::string filename = vm["json"].as<std::string>();
-            std::ifstream f(filename);
-            if (!load_json_settings(f, filename, values))
-                log_error("Loading design failed.\n");
-        }
         std::unique_ptr<Context> ctx = createContext(values);
         setupContext(ctx.get());
         setupArchContext(ctx.get());
@@ -393,17 +397,12 @@ std::unique_ptr<Context> CommandHandler::load_json(std::string filename)
 {
     vm.clear();
     std::unordered_map<std::string, Property> values;
-    {
-        std::ifstream f(filename);
-        if (!load_json_settings(f, filename, values))
-            log_error("Loading design failed.\n");
-    }
     std::unique_ptr<Context> ctx = createContext(values);
     setupContext(ctx.get());
     setupArchContext(ctx.get());
     {
         std::ifstream f(filename);
-        if (!parse_json_file(f, filename, ctx.get()))
+        if (!parse_json(f, filename, ctx.get()))
             log_error("Loading design failed.\n");
     }
     customAfterLoad(ctx.get());

@@ -58,7 +58,7 @@ class Ecp5GlobalRouter
         if (user.cell->type == id_DCUA && (user.port == id_CH0_FF_RXI_CLK || user.port == id_CH1_FF_RXI_CLK ||
                                            user.port == id_CH0_FF_TXI_CLK || user.port == id_CH1_FF_TXI_CLK))
             return true;
-        if ((user.cell->type == id_IOLOGIC || user.cell->type == id_SIOLOGIC) && user.port == id_CLK)
+        if ((user.cell->type == id_IOLOGIC || user.cell->type == id_SIOLOGIC) && (user.port == id_CLK))
             return true;
         return false;
     }
@@ -74,6 +74,8 @@ class Ecp5GlobalRouter
                     clockCount[ni->name]++;
                     if (user.cell->type == id_DCUA)
                         clockCount[ni->name] += 100;
+                    if (user.cell->type == id_IOLOGIC || user.cell->type == id_SIOLOGIC)
+                        clockCount[ni->name] += 10;
                 }
             }
             // log_info("clkcount %s: %d\n", ni->name.c_str(ctx),clockCount[ni->name]);

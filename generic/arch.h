@@ -122,6 +122,11 @@ struct Arch : BaseCtx
     std::unordered_map<IdString, BelInfo> bels;
     std::unordered_map<GroupId, GroupInfo> groups;
 
+    // These functions include useful errors if not found
+    WireInfo &wire_info(IdString wire);
+    PipInfo &pip_info(IdString wire);
+    BelInfo &bel_info(IdString wire);
+
     std::vector<IdString> bel_ids, wire_ids, pip_ids;
 
     std::unordered_map<Loc, BelId> bel_by_loc;

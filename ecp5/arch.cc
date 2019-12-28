@@ -117,6 +117,9 @@ Arch::Arch(ArchArgs args) : args(args)
         log_error("Unsupported ECP5 chip type.\n");
     }
 #endif
+    if (chip_info->const_id_count != DB_CONST_ID_COUNT)
+        log_error("Chip database 'bba' and nextpnr code are out of sync; please rebuild (or contact distribution "
+                  "maintainer)!\n");
     package_info = nullptr;
     for (int i = 0; i < chip_info->num_packages; i++) {
         if (args.package == chip_info->package_info[i].name.get()) {
@@ -475,7 +478,13 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
         }
     };
 
-    auto src_loc = est_location(src), dst_loc = est_location(dst);
+    auto src_loc = est_location(src);
+    std::pair<int, int> dst_loc;
+    if (wire_loc_overrides.count(dst)) {
+        dst_loc = wire_loc_overrides.at(dst);
+    } else {
+        dst_loc = est_location(dst);
+    }
 
     int dx = abs(src_loc.first - dst_loc.first), dy = abs(src_loc.second - dst_loc.second);
 
@@ -560,6 +569,7 @@ bool Arch::place()
 
 bool Arch::route()
 {
+    setupWireLocations();
     route_ecp5_globals(getCtx());
     assignArchInfo();
     assign_budget(getCtx(), true);

@@ -21,10 +21,35 @@
 #include <math.h>
 #include "nextpnr.h"
 #include "placer1.h"
+#include "placer_heap.h"
 #include "router1.h"
 #include "util.h"
 
 NEXTPNR_NAMESPACE_BEGIN
+
+WireInfo &Arch::wire_info(IdString wire)
+{
+    auto w = wires.find(wire);
+    if (w == wires.end())
+        NPNR_ASSERT_FALSE_STR("no wire named " + wire.str(this));
+    return w->second;
+}
+
+PipInfo &Arch::pip_info(IdString pip)
+{
+    auto p = pips.find(pip);
+    if (p == pips.end())
+        NPNR_ASSERT_FALSE_STR("no pip named " + pip.str(this));
+    return p->second;
+}
+
+BelInfo &Arch::bel_info(IdString bel)
+{
+    auto b = bels.find(bel);
+    if (b == bels.end())
+        NPNR_ASSERT_FALSE_STR("no bel named " + bel.str(this));
+    return b->second;
+}
 
 void Arch::addWire(IdString name, IdString type, int x, int y)
 {
@@ -49,8 +74,8 @@ void Arch::addPip(IdString name, IdString type, IdString srcWire, IdString dstWi
     pi.delay = delay;
     pi.loc = loc;
 
-    wires.at(srcWire).downhill.push_back(name);
-    wires.at(dstWire).uphill.push_back(name);
+    wire_info(srcWire).downhill.push_back(name);
+    wire_info(dstWire).uphill.push_back(name);
     pip_ids.push_back(name);
 
     if (int(tilePipDimZ.size()) <= loc.x)
@@ -74,7 +99,7 @@ void Arch::addAlias(IdString name, IdString type, IdString srcWire, IdString dst
     pi.dstWire = dstWire;
     pi.delay = delay;
 
-    wires.at(srcWire).aliases.push_back(name);
+    wire_info(srcWire).aliases.push_back(name);
     pip_ids.push_back(name);
 }
 
@@ -114,38 +139,38 @@ void Arch::addBel(IdString name, IdString type, Loc loc, bool gb)
 
 void Arch::addBelInput(IdString bel, IdString name, IdString wire)
 {
-    NPNR_ASSERT(bels.at(bel).pins.count(name) == 0);
-    PinInfo &pi = bels.at(bel).pins[name];
+    NPNR_ASSERT(bel_info(bel).pins.count(name) == 0);
+    PinInfo &pi = bel_info(bel).pins[name];
     pi.name = name;
     pi.wire = wire;
     pi.type = PORT_IN;
 
-    wires.at(wire).downhill_bel_pins.push_back(BelPin{bel, name});
-    wires.at(wire).bel_pins.push_back(BelPin{bel, name});
+    wire_info(wire).downhill_bel_pins.push_back(BelPin{bel, name});
+    wire_info(wire).bel_pins.push_back(BelPin{bel, name});
 }
 
 void Arch::addBelOutput(IdString bel, IdString name, IdString wire)
 {
-    NPNR_ASSERT(bels.at(bel).pins.count(name) == 0);
-    PinInfo &pi = bels.at(bel).pins[name];
+    NPNR_ASSERT(bel_info(bel).pins.count(name) == 0);
+    PinInfo &pi = bel_info(bel).pins[name];
     pi.name = name;
     pi.wire = wire;
     pi.type = PORT_OUT;
 
-    wires.at(wire).uphill_bel_pin = BelPin{bel, name};
-    wires.at(wire).bel_pins.push_back(BelPin{bel, name});
+    wire_info(wire).uphill_bel_pin = BelPin{bel, name};
+    wire_info(wire).bel_pins.push_back(BelPin{bel, name});
 }
 
 void Arch::addBelInout(IdString bel, IdString name, IdString wire)
 {
-    NPNR_ASSERT(bels.at(bel).pins.count(name) == 0);
-    PinInfo &pi = bels.at(bel).pins[name];
+    NPNR_ASSERT(bel_info(bel).pins.count(name) == 0);
+    PinInfo &pi = bel_info(bel).pins[name];
     pi.name = name;
     pi.wire = wire;
     pi.type = PORT_INOUT;
 
-    wires.at(wire).downhill_bel_pins.push_back(BelPin{bel, name});
-    wires.at(wire).bel_pins.push_back(BelPin{bel, name});
+    wire_info(wire).downhill_bel_pins.push_back(BelPin{bel, name});
+    wire_info(wire).bel_pins.push_back(BelPin{bel, name});
 }
 
 void Arch::addGroupBel(IdString group, IdString bel) { groups[group].bels.push_back(bel); }
@@ -164,19 +189,19 @@ void Arch::addDecalGraphic(DecalId decal, const GraphicElement &graphic)
 
 void Arch::setWireDecal(WireId wire, DecalXY decalxy)
 {
-    wires.at(wire).decalxy = decalxy;
+    wire_info(wire).decalxy = decalxy;
     refreshUiWire(wire);
 }
 
 void Arch::setPipDecal(PipId pip, DecalXY decalxy)
 {
-    pips.at(pip).decalxy = decalxy;
+    pip_info(pip).decalxy = decalxy;
     refreshUiPip(pip);
 }
 
 void Arch::setBelDecal(BelId bel, DecalXY decalxy)
 {
-    bels.at(bel).decalxy = decalxy;
+    bel_info(bel).decalxy = decalxy;
     refreshUiBel(bel);
 }
 
@@ -186,11 +211,11 @@ void Arch::setGroupDecal(GroupId group, DecalXY decalxy)
     refreshUiGroup(group);
 }
 
-void Arch::setWireAttr(IdString wire, IdString key, const std::string &value) { wires.at(wire).attrs[key] = value; }
+void Arch::setWireAttr(IdString wire, IdString key, const std::string &value) { wire_info(wire).attrs[key] = value; }
 
-void Arch::setPipAttr(IdString pip, IdString key, const std::string &value) { pips.at(pip).attrs[key] = value; }
+void Arch::setPipAttr(IdString pip, IdString key, const std::string &value) { pip_info(pip).attrs[key] = value; }
 
-void Arch::setBelAttr(IdString bel, IdString key, const std::string &value) { bels.at(bel).attrs[key] = value; }
+void Arch::setBelAttr(IdString bel, IdString key, const std::string &value) { bel_info(bel).attrs[key] = value; }
 
 void Arch::setLutK(int K) { args.K = K; }
 
@@ -494,8 +519,29 @@ bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay
 bool Arch::place()
 {
     std::string placer = str_or_default(settings, id("placer"), defaultPlacer);
-    // FIXME: No HeAP because it needs a list of IO buffers
-    if (placer == "sa") {
+    if (placer == "heap") {
+        bool have_iobuf_or_constr = false;
+        for (auto cell : sorted(cells)) {
+            CellInfo *ci = cell.second;
+            if (ci->type == id("GENERIC_IOB") || ci->bel != BelId() || ci->attrs.count(id("BEL"))) {
+                have_iobuf_or_constr = true;
+                break;
+            }
+        }
+        bool retVal;
+        if (!have_iobuf_or_constr) {
+            log_warning("Unable to use HeAP due to a lack of IO buffers or constrained cells as anchors; reverting to "
+                        "SA.\n");
+            retVal = placer1(getCtx(), Placer1Cfg(getCtx()));
+        } else {
+            PlacerHeapCfg cfg(getCtx());
+            cfg.ioBufTypes.insert(id("GENERIC_IOB"));
+            retVal = placer_heap(getCtx(), cfg);
+        }
+        getCtx()->settings[getCtx()->id("place")] = 1;
+        archInfoToAttributes();
+        return retVal;
+    } else if (placer == "sa") {
         bool retVal = placer1(getCtx(), Placer1Cfg(getCtx()));
         getCtx()->settings[getCtx()->id("place")] = 1;
         archInfoToAttributes();
@@ -596,9 +642,17 @@ bool Arch::isBelLocationValid(BelId bel) const
     return cellsCompatible(cells.data(), int(cells.size()));
 }
 
+#ifdef WITH_HEAP
+const std::string Arch::defaultPlacer = "heap";
+#else
 const std::string Arch::defaultPlacer = "sa";
-const std::vector<std::string> Arch::availablePlacers = {"sa"};
+#endif
 
+const std::vector<std::string> Arch::availablePlacers = {"sa",
+#ifdef WITH_HEAP
+                                                         "heap"
+#endif
+};
 void Arch::assignArchInfo()
 {
     for (auto &cell : getCtx()->cells) {

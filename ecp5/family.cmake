@@ -49,7 +49,7 @@ if (NOT EXTERNAL_CHIPDB)
             else()
                 add_custom_command(OUTPUT ${DEV_CC_BBA_DB}
                     COMMAND ${ENV_CMD} ${PYTHON_EXECUTABLE} ${DB_PY} -p ${DEV_CONSTIDS_INC} -g ${DEV_GFXH} ${dev} > ${DEV_CC_BBA_DB}
-                    DEPENDS ${DEV_CONSTIDS_INC} ${DEV_GFXH} ${DB_PY} ${PREV_DEV_CC_BBA_DB}
+                    DEPENDS ${DB_PY} ${DEV_CONSTIDS_INC} ${DEV_GFXH} ${PREV_DEV_CC_BBA_DB}
                     )
                 add_custom_command(OUTPUT ${DEV_CC_DB}
                     COMMAND bbasm ${BBASM_ENDIAN_FLAG} ${DEV_CC_BBA_DB} ${DEV_CC_DB}
@@ -82,7 +82,7 @@ if (NOT EXTERNAL_CHIPDB)
                 add_custom_command(OUTPUT ${DEV_CC_BBA_DB}
                     COMMAND ${ENV_CMD} ${PYTHON_EXECUTABLE} ${DB_PY} -p ${DEV_CONSTIDS_INC} -g ${DEV_GFXH} ${dev} > ${DEV_CC_BBA_DB}.new
                     COMMAND mv ${DEV_CC_BBA_DB}.new ${DEV_CC_BBA_DB}
-                    DEPENDS ${DEV_CONSTIDS_INC} ${DEV_GFXH} ${DB_PY} ${PREV_DEV_CC_BBA_DB}
+                    DEPENDS ${DB_PY} ${DEV_CONSTIDS_INC} ${DEV_GFXH} ${PREV_DEV_CC_BBA_DB}
                     )
                 add_custom_command(OUTPUT ${DEV_CC_DB}
                     COMMAND bbasm --c ${BBASM_ENDIAN_FLAG} ${DEV_CC_BBA_DB} ${DEV_CC_DB}.new

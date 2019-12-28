@@ -52,17 +52,23 @@ struct DelayInfo
 
 // -----------------------------------------------------------------------
 
+// https://bugreports.qt.io/browse/QTBUG-80789
+
+#ifndef Q_MOC_RUN
 enum ConstIds
 {
     ID_NONE
 #define X(t) , ID_##t
 #include "constids.inc"
 #undef X
+    ,
+    DB_CONST_ID_COUNT
 };
 
 #define X(t) static constexpr auto id_##t = IdString(ID_##t);
 #include "constids.inc"
 #undef X
+#endif
 
 NPNR_PACKED_STRUCT(struct LocationPOD { int16_t x, y; });
 
