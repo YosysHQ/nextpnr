@@ -10,12 +10,146 @@ from os import path
 location_types = dict()
 type_at_location = dict()
 tiletype_names = dict()
+gfx_wire_ids = dict()
+gfx_wire_names = list()
 
 parser = argparse.ArgumentParser(description="import ECP5 routing and bels from Project Trellis")
 parser.add_argument("device", type=str, help="target device")
 parser.add_argument("-p", "--constids", type=str, help="path to constids.inc")
+parser.add_argument("-g", "--gfxh", type=str, help="path to gfx.h")
 args = parser.parse_args()
 
+with open(args.gfxh) as f:
+    state = 0
+    for line in f:
+        if state == 0 and line.startswith("enum GfxTileWireId"):
+            state = 1
+        elif state == 1 and line.startswith("};"):
+            state = 0
+        elif state == 1 and (line.startswith("{") or line.strip() == ""):
+            pass
+        elif state == 1:
+            idx = len(gfx_wire_ids)
+            name = line.strip().rstrip(",")
+            gfx_wire_ids[name] = idx
+            gfx_wire_names.append(name)
+
+def gfx_wire_alias(old, new):
+    assert old in gfx_wire_ids
+    assert new not in gfx_wire_ids
+    gfx_wire_ids[new] = gfx_wire_ids[old]
+
+
+def wire_type(name):
+    longname = name
+    name = name.split('/')
+
+    if name[0].startswith("X") and name[1].startswith("Y"):
+        name = name[2:]
+
+    if name[0].endswith("_SLICE"):
+        return "WIRE_TYPE_SLICE"
+
+    if name[0].endswith("_DQS"):
+        return "WIRE_TYPE_DQS"
+
+    if name[0].endswith("_IOLOGIC"):
+        return "WIRE_TYPE_IOLOGIC"
+
+    if name[0].endswith("_SIOLOGIC"):
+        return "WIRE_TYPE_SIOLOGIC"
+
+    if name[0].endswith("_PIO"):
+        return "WIRE_TYPE_PIO"
+
+    if name[0].endswith("_DDRDLL"):
+        return "WIRE_TYPE_DDRDLL"
+
+    if name[0].endswith("_CCLK"):
+        return "WIRE_TYPE_CCLK"
+
+    if name[0].endswith("_EXTREF"):
+        return "WIRE_TYPE_EXTREF"
+
+    if name[0].endswith("_DCU"):
+        return "WIRE_TYPE_DCU"
+
+    if name[0].endswith("_EBR"):
+        return "WIRE_TYPE_EBR"
+
+    if name[0].endswith("_MULT18"):
+        return "WIRE_TYPE_MULT18"
+
+    if name[0].endswith("_ALU54"):
+        return "WIRE_TYPE_ALU54"
+
+    if name[0].endswith("_PLL"):
+        return "WIRE_TYPE_PLL"
+
+    if name[0].endswith("_SED"):
+        return "WIRE_TYPE_SED"
+
+    if name[0].endswith("_OSC"):
+        return "WIRE_TYPE_OSC"
+
+    if name[0].endswith("_JTAG"):
+        return "WIRE_TYPE_JTAG"
+
+    if name[0].endswith("_GSR"):
+        return "WIRE_TYPE_GSR"
+
+    if name[0].endswith("_DTR"):
+        return "WIRE_TYPE_DTR"
+
+    if name[0].endswith("_PCSCLKDIV0"):
+        return "WIRE_TYPE_PCSCLKDIV"
+
+    if name[0].endswith("_PCSCLKDIV1"):
+        return "WIRE_TYPE_PCSCLKDIV"
+
+    if name[0].startswith("H00"):
+        return "WIRE_TYPE_H00"
+
+    if name[0].startswith("H01"):
+        return "WIRE_TYPE_H01"
+
+    if name[0].startswith("HFI"):
+        return "WIRE_TYPE_H01"
+
+    if name[0].startswith("HL7"):
+        return "WIRE_TYPE_H01"
+
+    if name[0].startswith("H02"):
+        return "WIRE_TYPE_H02"
+
+    if name[0].startswith("H06"):
+        return "WIRE_TYPE_H06"
+
+    if name[0].startswith("V00"):
+        return "WIRE_TYPE_V00"
+
+    if name[0].startswith("V01"):
+        return "WIRE_TYPE_V01"
+
+    if name[0].startswith("V02"):
+        return "WIRE_TYPE_V02"
+
+    if name[0].startswith("V06"):
+        return "WIRE_TYPE_V06"
+
+    if name[0].startswith("G_HPBX"):
+        return "WIRE_TYPE_G_HPBX"
+
+    if name[0].startswith("G_VPTX"):
+        return "WIRE_TYPE_G_VPTX"
+
+    if name[0].startswith("L_HPBX"):
+        return "WIRE_TYPE_L_HPBX"
+
+    if name[0].startswith("R_HPBX"):
+        return "WIRE_TYPE_R_HPBX"
+
+    return "WIRE_TYPE_NONE"
 
 def is_global(loc):
     return loc.x == -2 and loc.y == -2
@@ -300,6 +434,11 @@ def write_database(dev_name, chip, ddrg, endianness):
             for wire_idx in range(len(loctype.wires)):
                 wire = loctype.wires[wire_idx]
                 bba.s(ddrg.to_str(wire.name), "name")
+                bba.u32(constids[wire_type(ddrg.to_str(wire.name))], "type")
+                if ("TILE_WIRE_" + ddrg.to_str(wire.name)) in gfx_wire_ids:
+                    bba.u32(gfx_wire_ids["TILE_WIRE_" + ddrg.to_str(wire.name)], "tile_wire")
+                else:                    
+                    bba.u32(0, "tile_wire")
                 bba.u32(len(wire.arcsUphill), "num_uphill")
                 bba.u32(len(wire.arcsDownhill), "num_downhill")
                 bba.r("loc%d_wire%d_uppips" % (idx, wire_idx) if len(wire.arcsUphill) > 0 else None, "pips_uphill")

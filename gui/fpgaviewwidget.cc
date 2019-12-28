@@ -66,6 +66,11 @@ FPGAViewWidget::FPGAViewWidget(QWidget *parent)
     renderRunner_->start();
     renderRunner_->startTimer(1000 / 2); // render lines 2 times per second
     setMouseTracking(true);
+
+    displayBel_ = false;
+    displayWire_ = false;
+    displayPip_ = false;
+    displayGroup_ = false;
 }
 
 FPGAViewWidget::~FPGAViewWidget() {}
@@ -333,6 +338,14 @@ void FPGAViewWidget::paintGL()
 
 void FPGAViewWidget::pokeRenderer(void) { renderRunner_->poke(); }
 
+void FPGAViewWidget::enableDisableDecals(bool bels, bool wires, bool pips, bool groups)
+{
+    displayBel_ = bels;
+    displayWire_ = wires;
+    displayPip_ = pips;
+    displayGroup_ = groups;
+}
+
 void FPGAViewWidget::renderLines(void)
 {
     if (ctx_ == nullptr)
@@ -379,17 +392,25 @@ void FPGAViewWidget::renderLines(void)
 
         // Local copy of decals, taken as fast as possible to not block the P&R.
         if (decalsChanged) {
-            for (auto bel : ctx_->getBels()) {
-                belDecals.push_back({ctx_->getBelDecal(bel), bel});
+            if (displayBel_) {
+                for (auto bel : ctx_->getBels()) {
+                    belDecals.push_back({ctx_->getBelDecal(bel), bel});
+                }
             }
-            for (auto wire : ctx_->getWires()) {
-                wireDecals.push_back({ctx_->getWireDecal(wire), wire});
+            if (displayWire_) {
+                for (auto wire : ctx_->getWires()) {
+                    wireDecals.push_back({ctx_->getWireDecal(wire), wire});
+                }
             }
-            for (auto pip : ctx_->getPips()) {
-                pipDecals.push_back({ctx_->getPipDecal(pip), pip});
+            if (displayPip_) {
+                for (auto pip : ctx_->getPips()) {
+                    pipDecals.push_back({ctx_->getPipDecal(pip), pip});
+                }
             }
-            for (auto group : ctx_->getGroups()) {
-                groupDecals.push_back({ctx_->getGroupDecal(group), group});
+            if (displayGroup_) {
+                for (auto group : ctx_->getGroups()) {
+                    groupDecals.push_back({ctx_->getGroupDecal(group), group});
+                }
             }
         }
     }
@@ -430,20 +451,28 @@ void FPGAViewWidget::renderLines(void)
         data->bbGlobal.clear();
 
         // Draw Bels.
-        for (auto const &decal : belDecals) {
-            renderArchDecal(data->gfxByStyle, data->bbGlobal, decal.first);
+        if (displayBel_) {
+            for (auto const &decal : belDecals) {
+                renderArchDecal(data->gfxByStyle, data->bbGlobal, decal.first);
+            }
         }
         // Draw Wires.
-        for (auto const &decal : wireDecals) {
-            renderArchDecal(data->gfxByStyle, data->bbGlobal, decal.first);
+        if (displayWire_) {
+            for (auto const &decal : wireDecals) {
+                renderArchDecal(data->gfxByStyle, data->bbGlobal, decal.first);
+            }
         }
         // Draw Pips.
-        for (auto const &decal : pipDecals) {
-            renderArchDecal(data->gfxByStyle, data->bbGlobal, decal.first);
+        if (displayPip_) {
+            for (auto const &decal : pipDecals) {
+                renderArchDecal(data->gfxByStyle, data->bbGlobal, decal.first);
+            }
         }
         // Draw Groups.
-        for (auto const &decal : groupDecals) {
-            renderArchDecal(data->gfxByStyle, data->bbGlobal, decal.first);
+        if (displayGroup_) {
+            for (auto const &decal : groupDecals) {
+                renderArchDecal(data->gfxByStyle, data->bbGlobal, decal.first);
+            }
         }
 
         // Bounding box should be calculated by now.

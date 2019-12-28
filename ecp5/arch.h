@@ -84,6 +84,8 @@ NPNR_PACKED_STRUCT(struct PipLocatorPOD {
 
 NPNR_PACKED_STRUCT(struct WireInfoPOD {
     RelPtr<char> name;
+    int32_t type;
+    int32_t tile_wire;
     int32_t num_uphill, num_downhill;
     RelPtr<PipLocatorPOD> pips_uphill, pips_downhill;
 
@@ -640,13 +642,15 @@ struct Arch : BaseCtx
         return id(name.str());
     }
 
-    IdString getWireType(WireId wire) const { return IdString(); }
-
-    std::vector<std::pair<IdString, std::string>> getWireAttrs(WireId) const
+    IdString getWireType(WireId wire) const
     {
-        std::vector<std::pair<IdString, std::string>> ret;
-        return ret;
+        NPNR_ASSERT(wire != WireId());
+        IdString id;
+        id.index = locInfo(wire)->wire_data[wire.index].type;
+        return id;
     }
+
+    std::vector<std::pair<IdString, std::string>> getWireAttrs(WireId) const;
 
     uint32_t getWireChecksum(WireId wire) const { return wire.index; }
 
@@ -657,6 +661,7 @@ struct Arch : BaseCtx
         wire_to_net[wire] = net;
         net->wires[wire].pip = PipId();
         net->wires[wire].strength = strength;
+        refreshUiWire(wire);
     }
 
     void unbindWire(WireId wire)
@@ -676,6 +681,7 @@ struct Arch : BaseCtx
 
         net_wires.erase(it);
         wire_to_net[wire] = nullptr;
+        refreshUiWire(wire);
     }
 
     bool checkWireAvail(WireId wire) const
@@ -931,13 +937,13 @@ struct Arch : BaseCtx
 
     // -------------------------------------------------
 
-    GroupId getGroupByName(IdString name) const { return GroupId(); }
-    IdString getGroupName(GroupId group) const { return IdString(); }
-    std::vector<GroupId> getGroups() const { return std::vector<GroupId>(); }
-    std::vector<BelId> getGroupBels(GroupId group) const { return std::vector<BelId>(); }
-    std::vector<WireId> getGroupWires(GroupId group) const { return std::vector<WireId>(); }
-    std::vector<PipId> getGroupPips(GroupId group) const { return std::vector<PipId>(); }
-    std::vector<GroupId> getGroupGroups(GroupId group) const { return std::vector<GroupId>(); }
+    GroupId getGroupByName(IdString name) const;
+    IdString getGroupName(GroupId group) const;
+    std::vector<GroupId> getGroups() const;
+    std::vector<BelId> getGroupBels(GroupId group) const;
+    std::vector<WireId> getGroupWires(GroupId group) const;
+    std::vector<PipId> getGroupPips(GroupId group) const;
+    std::vector<GroupId> getGroupGroups(GroupId group) const;
 
     // -------------------------------------------------
 

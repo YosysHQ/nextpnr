@@ -451,8 +451,6 @@ BelId Arch::getBelByLocation(Loc loc) const
 
 delay_t Arch::estimateDelay(WireId src, WireId dst) const
 {
-    WireId cursor = dst;
-
     int num_uh = locInfo(dst)->wire_data[dst.index].num_uphill;
     if (num_uh < 6) {
         for (auto uh : getPipsUphill(dst)) {
@@ -613,34 +611,55 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
 {
     std::vector<GraphicElement> ret;
 
-    if (decal.type == DecalId::TYPE_BEL) {
+    if (decal.type == DecalId::TYPE_GROUP) {
+        int type = decal.z;
+        int x = decal.location.x;
+        int y = decal.location.y;
+
+        if (type == GroupId::TYPE_SWITCHBOX) {
+            GraphicElement el;
+            el.type = GraphicElement::TYPE_BOX;
+            el.style = GraphicElement::STYLE_FRAME;
+
+            el.x1 = x + switchbox_x1;
+            el.x2 = x + switchbox_x2;
+            el.y1 = y + switchbox_y1;
+            el.y2 = y + switchbox_y2;
+            ret.push_back(el);
+        }
+    } else if (decal.type == DecalId::TYPE_WIRE) {
+        WireId wire;
+        wire.index = decal.z;
+        wire.location = decal.location;
+        auto wire_type = getWireType(wire);
+        int x = decal.location.x;
+        int y = decal.location.y;
+        GraphicElement::style_t style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
+        GfxTileWireId tilewire = GfxTileWireId(locInfo(wire)->wire_data[wire.index].tile_wire);
+        gfxTileWire(ret, x, y, chip_info->width, chip_info->height, wire_type, tilewire, style);
+    } else if (decal.type == DecalId::TYPE_PIP) {
+        PipId pip;
+        pip.index = decal.z;
+        pip.location = decal.location;
+        WireId src_wire = getPipSrcWire(pip);
+        WireId dst_wire = getPipDstWire(pip);
+        int x = decal.location.x;
+        int y = decal.location.y;
+        GfxTileWireId src_id = GfxTileWireId(locInfo(src_wire)->wire_data[src_wire.index].tile_wire);
+        GfxTileWireId dst_id = GfxTileWireId(locInfo(dst_wire)->wire_data[dst_wire.index].tile_wire);
+        GraphicElement::style_t style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_HIDDEN;
+        gfxTilePip(ret, x, y, chip_info->width, chip_info->height, src_wire, getWireType(src_wire), src_id, dst_wire,
+                   getWireType(dst_wire), dst_id, style);
+    } else if (decal.type == DecalId::TYPE_BEL) {
         BelId bel;
         bel.index = decal.z;
         bel.location = decal.location;
-        int z = locInfo(bel)->bel_data[bel.index].z;
         auto bel_type = getBelType(bel);
-
-        if (bel_type == id_TRELLIS_SLICE) {
-            GraphicElement el;
-            el.type = GraphicElement::TYPE_BOX;
-            el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
-            el.x1 = bel.location.x + logic_cell_x1;
-            el.x2 = bel.location.x + logic_cell_x2;
-            el.y1 = bel.location.y + logic_cell_y1 + (z)*logic_cell_pitch;
-            el.y2 = bel.location.y + logic_cell_y2 + (z)*logic_cell_pitch;
-            ret.push_back(el);
-        }
-
-        if (bel_type == id_TRELLIS_IO) {
-            GraphicElement el;
-            el.type = GraphicElement::TYPE_BOX;
-            el.style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
-            el.x1 = bel.location.x + logic_cell_x1;
-            el.x2 = bel.location.x + logic_cell_x2;
-            el.y1 = bel.location.y + logic_cell_y1 + (2 * z) * logic_cell_pitch;
-            el.y2 = bel.location.y + logic_cell_y2 + (2 * z + 0.5f) * logic_cell_pitch;
-            ret.push_back(el);
-        }
+        int x = decal.location.x;
+        int y = decal.location.y;
+        int z = locInfo(bel)->bel_data[bel.index].z;
+        GraphicElement::style_t style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
+        gfxTileBel(ret, x, y, z, chip_info->width, chip_info->height, bel_type, style);
     }
 
     return ret;
@@ -656,11 +675,35 @@ DecalXY Arch::getBelDecal(BelId bel) const
     return decalxy;
 }
 
-DecalXY Arch::getWireDecal(WireId wire) const { return {}; }
+DecalXY Arch::getWireDecal(WireId wire) const
+{
+    DecalXY decalxy;
+    decalxy.decal.type = DecalId::TYPE_WIRE;
+    decalxy.decal.location = wire.location;
+    decalxy.decal.z = wire.index;
+    decalxy.decal.active = getBoundWireNet(wire) != nullptr;
+    return decalxy;
+}
 
-DecalXY Arch::getPipDecal(PipId pip) const { return {}; };
+DecalXY Arch::getPipDecal(PipId pip) const
+{
+    DecalXY decalxy;
+    decalxy.decal.type = DecalId::TYPE_PIP;
+    decalxy.decal.location = pip.location;
+    decalxy.decal.z = pip.index;
+    decalxy.decal.active = getBoundPipNet(pip) != nullptr;
+    return decalxy;
+};
 
-DecalXY Arch::getGroupDecal(GroupId pip) const { return {}; };
+DecalXY Arch::getGroupDecal(GroupId group) const
+{
+    DecalXY decalxy;
+    decalxy.decal.type = DecalId::TYPE_GROUP;
+    decalxy.decal.location = group.location;
+    decalxy.decal.z = group.type;
+    decalxy.decal.active = true;
+    return decalxy;
+}
 
 // -----------------------------------------------------------------------
 
@@ -1078,4 +1121,80 @@ const std::vector<std::string> Arch::availablePlacers = {"sa",
 #endif
 };
 
+// -----------------------------------------------------------------------
+
+GroupId Arch::getGroupByName(IdString name) const
+{
+    for (auto g : getGroups())
+        if (getGroupName(g) == name)
+            return g;
+    return GroupId();
+}
+
+IdString Arch::getGroupName(GroupId group) const
+{
+    std::string suffix;
+
+    switch (group.type) {
+    case GroupId::TYPE_SWITCHBOX:
+        suffix = "switchbox";
+        break;
+    default:
+        return IdString();
+    }
+
+    return id("X" + std::to_string(group.location.x) + "/Y" + std::to_string(group.location.y) + "/" + suffix);
+}
+
+std::vector<GroupId> Arch::getGroups() const
+{
+    std::vector<GroupId> ret;
+
+    for (int y = 1; y < chip_info->height - 1; y++) {
+        for (int x = 1; x < chip_info->width - 1; x++) {
+            GroupId group;
+            group.type = GroupId::TYPE_SWITCHBOX;
+            group.location.x = x;
+            group.location.y = y;
+            ret.push_back(group);
+        }
+    }
+    return ret;
+}
+
+std::vector<BelId> Arch::getGroupBels(GroupId group) const
+{
+    std::vector<BelId> ret;
+    return ret;
+}
+
+std::vector<WireId> Arch::getGroupWires(GroupId group) const
+{
+    std::vector<WireId> ret;
+    return ret;
+}
+
+std::vector<PipId> Arch::getGroupPips(GroupId group) const
+{
+    std::vector<PipId> ret;
+    return ret;
+}
+
+std::vector<GroupId> Arch::getGroupGroups(GroupId group) const
+{
+    std::vector<GroupId> ret;
+    return ret;
+}
+
+// -----------------------------------------------------------------------
+
+std::vector<std::pair<IdString, std::string>> Arch::getWireAttrs(WireId wire) const
+{
+    std::vector<std::pair<IdString, std::string>> ret;
+    auto &wi = locInfo(wire)->wire_data[wire.index];
+
+    ret.push_back(std::make_pair(id("TILE_WIRE_ID"), stringf("%d", wi.tile_wire)));
+
+    return ret;
+}
 NEXTPNR_NAMESPACE_END

@@ -24,5 +24,9 @@
         <file>resources/open_json.png</file>
         <file>resources/save_json.png</file>
 		<file>resources/py.png</file>
+        <file>resources/bel.png</file>
+        <file>resources/wire.png</file>
+        <file>resources/pip.png</file>
+        <file>resources/group.png</file>
     </qresource>
 </RCC>
