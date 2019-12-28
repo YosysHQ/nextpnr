@@ -24,6 +24,7 @@ NEXTPNR_NAMESPACE_BEGIN
 
 const float slice_x1 = 0.92;
 const float slice_x2 = 0.94;
+const float slice_x2_wide = 0.97;
 const float slice_y1 = 0.71;
 const float slice_y2 = 0.745 + 0.0068;
 const float slice_pitch = 0.0374 + 0.0068;
@@ -33,12 +34,23 @@ const float io_cell_v_x2 = 0.95;
 const float io_cell_v_y1 = 0.05;
 const float io_cell_v_y2 = 0.15;
 const float io_cell_v_pitch = 0.125;
-
+const float io_cell_gap = 0.10;
 const float io_cell_h_x1 = 0.05;
 const float io_cell_h_x2 = 0.14;
 const float io_cell_h_y1 = 0.05;
 const float io_cell_h_y2 = 0.24;
 const float io_cell_h_pitch = 0.125;
+
+const float wire_distance = 0.0017f;
+const float wire_distance_small = 0.00085f;
+
+const float wire_length = 0.005f;
+const float wire_length_long = 0.015f;
+
+const float dll_cell_x1 = 0.2;
+const float dll_cell_x2 = 0.8;
+const float dll_cell_y1 = 0.2;
+const float dll_cell_y2 = 0.8;
 
 void gfxTileBel(std::vector<GraphicElement> &g, int x, int y, int z, int w, int h, IdString bel_type,
                 GraphicElement::style_t style)
@@ -54,18 +66,18 @@ void gfxTileBel(std::vector<GraphicElement> &g, int x, int y, int z, int w, int 
         g.push_back(el);
 
         el.style = GraphicElement::STYLE_FRAME;
-        el.x1 = x + slice_x2 + 0.0255f;
-        el.x2 = el.x1 + 0.0017f;
-        el.y1 = y + slice_y2 - 0.0017f * (TILE_WIRE_CLK3_SLICE - TILE_WIRE_DUMMY_D2 + 5 + (3 - z) * 26) +
+        el.x1 = x + slice_x2 + 15*wire_distance;
+        el.x2 = el.x1 + wire_distance;
+        el.y1 = y + slice_y2 - wire_distance * (TILE_WIRE_CLK3_SLICE - TILE_WIRE_DUMMY_D2 + 5 + (3 - z) * 26) +
                 3 * slice_pitch - 0.0007f;
-        el.y2 = el.y1 + 0.0017f * 5;
+        el.y2 = el.y1 + wire_distance * 5;
         g.push_back(el);
     } else if (bel_type == id_TRELLIS_IO || bel_type == id_IOLOGIC || bel_type == id_SIOLOGIC ||
                bel_type == id_DQSBUFM) {
         bool top_bottom = (y == 0 || y == (h - 1));
         if (top_bottom) {
-            el.x1 = x + io_cell_h_x1 + (z + 2) * 0.10;
-            el.x2 = x + io_cell_h_x1 + (z + 2) * 0.10 + 0.08f;
+            el.x1 = x + io_cell_h_x1 + (z + 2) * io_cell_gap;
+            el.x2 = x + io_cell_h_x1 + (z + 2) * io_cell_gap + 0.08f;
             if (y == h - 1) {
                 el.y1 = y + 1 - io_cell_h_y1;
                 el.y2 = y + 1 - io_cell_h_y2;
@@ -81,8 +93,8 @@ void gfxTileBel(std::vector<GraphicElement> &g, int x, int y, int z, int w, int 
                 el.x1 = x + io_cell_v_x1;
                 el.x2 = x + io_cell_v_x2;
             }
-            el.y1 = y + io_cell_v_y1 + z * 0.10;
-            el.y2 = y + io_cell_v_y1 + z * 0.10 + 0.08f;
+            el.y1 = y + io_cell_v_y1 + z * io_cell_gap;
+            el.y2 = y + io_cell_v_y1 + z * io_cell_gap + 0.08f;
         }
         g.push_back(el);
     } else if (bel_type == id_DCCA) {
@@ -93,34 +105,34 @@ void gfxTileBel(std::vector<GraphicElement> &g, int x, int y, int z, int w, int 
         g.push_back(el);
     } else if (bel_type == id_DP16KD || bel_type == id_MULT18X18D || bel_type == id_ALU54B) {
         el.x1 = x + slice_x1;
-        el.x2 = x + 0.97;
+        el.x2 = x + slice_x2_wide;
         el.y1 = y + slice_y1 - 1 * slice_pitch;
         el.y2 = y + slice_y2 + 3 * slice_pitch;
         g.push_back(el);
     } else if (bel_type == id_EHXPLLL) {
         el.x1 = x + slice_x1;
-        el.x2 = x + 0.97;
+        el.x2 = x + slice_x2_wide;
         el.y1 = y + slice_y1;
         el.y2 = y + slice_y2;
         g.push_back(el);
     } else if (bel_type == id_DCUA) {
         el.x1 = x + slice_x1;
-        el.x2 = x + 0.97;
+        el.x2 = x + slice_x2_wide;
         el.y1 = y + slice_y2;
         el.y2 = y + 0.25;
         g.push_back(el);
     } else if (bel_type == id_EXTREFB || bel_type == id_PCSCLKDIV || bel_type == id_DTR || bel_type == id_USRMCLK ||
                bel_type == id_SEDGA || bel_type == id_GSR || bel_type == id_JTAGG || bel_type == id_OSCG) {
         el.x1 = x + slice_x1;
-        el.x2 = x + 0.97;
+        el.x2 = x + slice_x2_wide;
         el.y1 = y + slice_y1 + (z)*slice_pitch;
         el.y2 = y + slice_y2 + (z)*slice_pitch;
         g.push_back(el);
     } else if (bel_type == id_DDRDLL) {
-        el.x1 = x + 0.2;
-        el.x2 = x + 0.8;
-        el.y1 = y + 0.2;
-        el.y2 = y + 0.8;
+        el.x1 = x + dll_cell_x1;
+        el.x2 = x + dll_cell_x2;
+        el.y1 = y + dll_cell_y1;
+        el.y2 = y + dll_cell_y2;
         g.push_back(el);
     } else if (bel_type == id_DLLDELD || bel_type == id_CLKDIVF || bel_type == id_ECLKSYNCB ||
                bel_type == id_TRELLIS_ECLKBUF || bel_type == id_ECLKBRIDGECS) {
@@ -142,35 +154,35 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
         if (tilewire >= TILE_WIRE_FCO_SLICE && tilewire <= TILE_WIRE_FCI_SLICE) {
             int gap = (tilewire - TILE_WIRE_FCO_SLICE) / 24;
             int item = (tilewire - TILE_WIRE_FCO_SLICE) % 24;
-            el.x1 = x + slice_x1 - 0.005f;
+            el.x1 = x + slice_x1 - wire_length;
             el.x2 = x + slice_x1;
-            el.y1 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_FCO_SLICE + 1 + gap * 2) + 3 * slice_pitch;
+            el.y1 = y + slice_y2 - wire_distance * (tilewire - TILE_WIRE_FCO_SLICE + 1 + gap * 2) + 3 * slice_pitch;
             el.y2 = el.y1;
             g.push_back(el);
             // FX to F connection - top
             if (item == (TILE_WIRE_FXD_SLICE - TILE_WIRE_FCO_SLICE)) {
                 el.x2 = el.x1;
-                el.y2 = el.y1 - 0.0017f;
+                el.y2 = el.y1 - wire_distance;
                 g.push_back(el);
             }
             // F5 to F connection - bottom
             if (item == (TILE_WIRE_F5D_SLICE - TILE_WIRE_FCO_SLICE)) {
                 el.x2 = el.x1;
-                el.y2 = el.y1 + 0.0017f;
+                el.y2 = el.y1 + wire_distance;
                 g.push_back(el);
             }
             // connection between slices
             if (item == (TILE_WIRE_FCID_SLICE - TILE_WIRE_FCO_SLICE) && tilewire != TILE_WIRE_FCI_SLICE) {
                 el.x2 = el.x1;
-                el.y2 = el.y1 - 0.0017f * 3;
+                el.y2 = el.y1 - wire_distance * 3;
                 g.push_back(el);
             }
         }
         if (tilewire >= TILE_WIRE_DUMMY_D2 && tilewire <= TILE_WIRE_WAD0A_SLICE) {
             int gap = (tilewire - TILE_WIRE_DUMMY_D2) / 12;
-            el.x1 = x + slice_x2 + 0.005f;
+            el.x1 = x + slice_x2 + wire_length;
             el.x2 = x + slice_x2;
-            el.y1 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_DUMMY_D2 + 1 + gap * 14) + 3 * slice_pitch;
+            el.y1 = y + slice_y2 - wire_distance * (tilewire - TILE_WIRE_DUMMY_D2 + 1 + gap * 14) + 3 * slice_pitch;
             el.y2 = el.y1;
             g.push_back(el);
         }
@@ -178,17 +190,17 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
         if (x == 0)
             el.x1 = 0.9;
         else
-            el.x1 = x + switchbox_x1 + 0.0017f * (20 + (tilewire - TILE_WIRE_H02W0701) + 20 * (x % 3));
+            el.x1 = x + switchbox_x1 + wire_distance * (20 + (tilewire - TILE_WIRE_H02W0701) + 20 * (x % 3));
         el.x2 = el.x1;
         el.y1 = y + switchbox_y1;
-        el.y2 = y + switchbox_y1 - 0.0017f * (20 + (tilewire - TILE_WIRE_H02W0701) + 20 * (x % 3));
+        el.y2 = y + switchbox_y1 - wire_distance * (20 + (tilewire - TILE_WIRE_H02W0701) + 20 * (x % 3));
         if (x != 0 && x != w - 1)
             g.push_back(el);
 
         if (x == w - 2)
             el.x2 = x + 1 + 0.1;
         else
-            el.x2 = x + 1 + switchbox_x1 + 0.0017f * (20 + (tilewire - TILE_WIRE_H02W0701) + 20 * (x % 3));
+            el.x2 = x + 1 + switchbox_x1 + wire_distance * (20 + (tilewire - TILE_WIRE_H02W0701) + 20 * (x % 3));
         el.y1 = el.y2;
         if (x != w - 1)
             g.push_back(el);
@@ -201,12 +213,12 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
         if (x == w - 1)
             el.x1 = x + 0.1;
         else
-            el.x1 = x + switchbox_x1 + 0.0017f * (20 + (tilewire - TILE_WIRE_H02W0701) + 20 * (x % 3));
+            el.x1 = x + switchbox_x1 + wire_distance * (20 + (tilewire - TILE_WIRE_H02W0701) + 20 * (x % 3));
         if (x == 1)
             el.x2 = x - 1 + 0.9;
         else
-            el.x2 = x - 1 + switchbox_x1 + 0.0017f * (20 + (tilewire - TILE_WIRE_H02W0701) + 20 * (x % 3));
-        el.y2 = y + switchbox_y1 - 0.0017f * (20 + (tilewire - TILE_WIRE_H02W0701) + 20 * (x % 3));
+            el.x2 = x - 1 + switchbox_x1 + wire_distance * (20 + (tilewire - TILE_WIRE_H02W0701) + 20 * (x % 3));
+        el.y2 = y + switchbox_y1 - wire_distance * (20 + (tilewire - TILE_WIRE_H02W0701) + 20 * (x % 3));
         el.y1 = el.y2;
         if (x != 0)
             g.push_back(el);
@@ -219,17 +231,17 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
         if (y == 0)
             el.y1 = 0.9;
         else
-            el.y1 = y + switchbox_y1 + 0.0017f * (20 + (tilewire - TILE_WIRE_V02N0701) + 20 * (y % 3));
+            el.y1 = y + switchbox_y1 + wire_distance * (20 + (tilewire - TILE_WIRE_V02N0701) + 20 * (y % 3));
         el.y2 = el.y1;
         el.x1 = x + switchbox_x1;
-        el.x2 = x + switchbox_x1 - 0.0017f * (20 + (tilewire - TILE_WIRE_V02N0701) + 20 * (y % 3));
+        el.x2 = x + switchbox_x1 - wire_distance * (20 + (tilewire - TILE_WIRE_V02N0701) + 20 * (y % 3));
         if (y != 0 && y != h - 1)
             g.push_back(el);
 
         if (y == h - 2)
             el.y2 = y + 1 + 0.1;
         else
-            el.y2 = y + 1 + switchbox_y1 + 0.0017f * (20 + (tilewire - TILE_WIRE_V02N0701) + 20 * (y % 3));
+            el.y2 = y + 1 + switchbox_y1 + wire_distance * (20 + (tilewire - TILE_WIRE_V02N0701) + 20 * (y % 3));
         el.x1 = el.x2;
         if (y != h - 1)
             g.push_back(el);
@@ -242,12 +254,12 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
         if (y == h - 1)
             el.y1 = y + 0.1;
         else
-            el.y1 = y + switchbox_y1 + 0.0017f * (20 + (tilewire - TILE_WIRE_V02N0701) + 20 * (y % 3));
+            el.y1 = y + switchbox_y1 + wire_distance * (20 + (tilewire - TILE_WIRE_V02N0701) + 20 * (y % 3));
         if (y == 1)
             el.y2 = y - 1 + 0.9;
         else
-            el.y2 = y - 1 + switchbox_y1 + 0.0017f * (20 + (tilewire - TILE_WIRE_V02N0701) + 20 * (y % 3));
-        el.x2 = x + switchbox_x1 - 0.0017f * (20 + (tilewire - TILE_WIRE_V02N0701) + 20 * (y % 3));
+            el.y2 = y - 1 + switchbox_y1 + wire_distance * (20 + (tilewire - TILE_WIRE_V02N0701) + 20 * (y % 3));
+        el.x2 = x + switchbox_x1 - wire_distance * (20 + (tilewire - TILE_WIRE_V02N0701) + 20 * (y % 3));
         el.x1 = el.x2;
         if (y != 0)
             g.push_back(el);
@@ -260,17 +272,17 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
         if (x == 0)
             el.x1 = 0.9;
         else
-            el.x1 = x + switchbox_x1 + 0.0017f * (96 + (tilewire - TILE_WIRE_H06W0303) + 10 * (x % 9));
+            el.x1 = x + switchbox_x1 + wire_distance * (96 + (tilewire - TILE_WIRE_H06W0303) + 10 * (x % 9));
         el.x2 = el.x1;
         el.y1 = y + switchbox_y1;
-        el.y2 = y + switchbox_y1 - 0.0017f * (96 + (tilewire - TILE_WIRE_H06W0303) + 10 * (x % 9));
+        el.y2 = y + switchbox_y1 - wire_distance * (96 + (tilewire - TILE_WIRE_H06W0303) + 10 * (x % 9));
         if (x != 0 && x != w - 1)
             g.push_back(el);
 
         if (x == w - 2 || x == w - 3 || x == w - 4)
             el.x2 = w - 1 + 0.1;
         else
-            el.x2 = x + 3 + switchbox_x1 + 0.0017f * (96 + (tilewire - TILE_WIRE_H06W0303) + 10 * (x % 9));
+            el.x2 = x + 3 + switchbox_x1 + wire_distance * (96 + (tilewire - TILE_WIRE_H06W0303) + 10 * (x % 9));
         el.y1 = el.y2;
         if (x != w - 1)
             g.push_back(el);
@@ -283,12 +295,12 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
         if (x == w - 1)
             el.x1 = x + 0.1;
         else
-            el.x1 = x + switchbox_x1 + 0.0017f * (96 + (tilewire - TILE_WIRE_H06W0303) + 10 * (x % 9));
+            el.x1 = x + switchbox_x1 + wire_distance * (96 + (tilewire - TILE_WIRE_H06W0303) + 10 * (x % 9));
         if (x == 1 || x == 2 || x == 3)
             el.x2 = 0.9;
         else
-            el.x2 = x - 3 + switchbox_x1 + 0.0017f * (96 + (tilewire - TILE_WIRE_H06W0303) + 10 * (x % 9));
-        el.y2 = y + switchbox_y1 - 0.0017f * (96 + (tilewire - TILE_WIRE_H06W0303) + 10 * (x % 9));
+            el.x2 = x - 3 + switchbox_x1 + wire_distance * (96 + (tilewire - TILE_WIRE_H06W0303) + 10 * (x % 9));
+        el.y2 = y + switchbox_y1 - wire_distance * (96 + (tilewire - TILE_WIRE_H06W0303) + 10 * (x % 9));
         el.y1 = el.y2;
         if (x != 0)
             g.push_back(el);
@@ -301,17 +313,17 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
         if (y == 0)
             el.y1 = 0.9;
         else
-            el.y1 = y + switchbox_y1 + 0.0017f * (96 + (tilewire - TILE_WIRE_V06N0303) + 10 * (y % 9));
+            el.y1 = y + switchbox_y1 + wire_distance * (96 + (tilewire - TILE_WIRE_V06N0303) + 10 * (y % 9));
         el.y2 = el.y1;
         el.x1 = x + switchbox_x1;
-        el.x2 = x + switchbox_x1 - 0.0017f * (96 + (tilewire - TILE_WIRE_V06N0303) + 10 * (y % 9));
+        el.x2 = x + switchbox_x1 - wire_distance * (96 + (tilewire - TILE_WIRE_V06N0303) + 10 * (y % 9));
         if (y != 0 && y != h - 1)
             g.push_back(el);
 
         if (y == h - 2 || y == h - 3 || y == h - 4)
             el.y2 = h - 1 + 0.1;
         else
-            el.y2 = y + 3 + switchbox_y1 + 0.0017f * (96 + (tilewire - TILE_WIRE_V06N0303) + 10 * (y % 9));
+            el.y2 = y + 3 + switchbox_y1 + wire_distance * (96 + (tilewire - TILE_WIRE_V06N0303) + 10 * (y % 9));
         el.x1 = el.x2;
         if (y != h - 1)
             g.push_back(el);
@@ -324,12 +336,12 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
         if (y == h - 1)
             el.y1 = y + 0.1;
         else
-            el.y1 = y + switchbox_y1 + 0.0017f * (96 + (tilewire - TILE_WIRE_V06N0303) + 10 * (y % 9));
+            el.y1 = y + switchbox_y1 + wire_distance * (96 + (tilewire - TILE_WIRE_V06N0303) + 10 * (y % 9));
         if (y == 1 || y == 2 || y == 3)
             el.y2 = 0.9;
         else
-            el.y2 = y - 3 + switchbox_y1 + 0.0017f * (96 + (tilewire - TILE_WIRE_V06N0303) + 10 * (y % 9));
-        el.x2 = x + switchbox_x1 - 0.0017f * (96 + (tilewire - TILE_WIRE_V06N0303) + 10 * (y % 9));
+            el.y2 = y - 3 + switchbox_y1 + wire_distance * (96 + (tilewire - TILE_WIRE_V06N0303) + 10 * (y % 9));
+        el.x2 = x + switchbox_x1 - wire_distance * (96 + (tilewire - TILE_WIRE_V06N0303) + 10 * (y % 9));
         el.x1 = el.x2;
         if (y != 0)
             g.push_back(el);
@@ -340,7 +352,7 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
             g.push_back(el);
     } else if (wire_type == id_WIRE_TYPE_V01) {
         if (tilewire >= TILE_WIRE_V01N0001 && tilewire <= TILE_WIRE_V01S0100) {
-            el.x1 = x + switchbox_x1 + 0.0017f * (10 + tilewire - TILE_WIRE_V01N0001);
+            el.x1 = x + switchbox_x1 + wire_distance * (10 + tilewire - TILE_WIRE_V01N0001);
             el.x2 = el.x1;
             if (y == h - 2)
                 el.y1 = y + 1.1;
@@ -364,82 +376,82 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
                 el.x2 = x - 0.1;
             else
                 el.x2 = x + switchbox_x2 - 1;
-            el.y1 = y + switchbox_y1 + 0.0017f * (10 + tilewire - TILE_WIRE_H01E0001);
+            el.y1 = y + switchbox_y1 + wire_distance * (10 + tilewire - TILE_WIRE_H01E0001);
             el.y2 = el.y1;
             g.push_back(el);
         }
     } else if (wire_type == id_WIRE_TYPE_V00) {
         int group = (tilewire - TILE_WIRE_V00T0000) / 2;
-        el.x1 = x + switchbox_x2 - 0.0017f * (8 - ((tilewire - TILE_WIRE_V00T0000) % 2) * 4);
+        el.x1 = x + switchbox_x2 - wire_distance * (8 - ((tilewire - TILE_WIRE_V00T0000) % 2) * 4);
         el.x2 = el.x1;
         if (group) {
             el.y1 = y + switchbox_y1;
-            el.y2 = y + switchbox_y1 - 0.0017f * 4;
+            el.y2 = y + switchbox_y1 - wire_distance * 4;
         } else {
             el.y1 = y + switchbox_y2;
-            el.y2 = y + switchbox_y2 + 0.0017f * 4;
+            el.y2 = y + switchbox_y2 + wire_distance * 4;
         }
         g.push_back(el);
     } else if (wire_type == id_WIRE_TYPE_H00) {
         int group = (tilewire - TILE_WIRE_H00L0000) / 2;
-        el.y1 = y + switchbox_y1 + 0.0017f * (8 - ((tilewire - TILE_WIRE_H00L0000) % 2) * 4);
+        el.y1 = y + switchbox_y1 + wire_distance * (8 - ((tilewire - TILE_WIRE_H00L0000) % 2) * 4);
         el.y2 = el.y1;
 
         if (group) {
-            el.x1 = x + switchbox_x2 + 0.0017f * 4;
+            el.x1 = x + switchbox_x2 + wire_distance * 4;
             el.x2 = x + switchbox_x2;
         } else {
-            el.x1 = x + switchbox_x1 - 0.0017f * 4;
+            el.x1 = x + switchbox_x1 - wire_distance * 4;
             el.x2 = x + switchbox_x1;
         }
         g.push_back(el);
     } else if (wire_type == id_WIRE_TYPE_NONE) {
         if (tilewire >= TILE_WIRE_NBOUNCE && tilewire <= TILE_WIRE_SBOUNCE) {
-            el.x1 = x + switchbox_x2 - 0.0017f * 4;
-            el.x2 = x + switchbox_x2 - 0.0017f * 8;
+            el.x1 = x + switchbox_x2 - wire_distance * 4;
+            el.x2 = x + switchbox_x2 - wire_distance * 8;
             if (tilewire == TILE_WIRE_NBOUNCE) {
-                el.y1 = y + switchbox_y2 + 0.0017f * 4;
+                el.y1 = y + switchbox_y2 + wire_distance * 4;
                 el.y2 = el.y1;
             } else {
-                el.y1 = y + switchbox_y1 - 0.0017f * 4;
+                el.y1 = y + switchbox_y1 - wire_distance * 4;
                 el.y2 = el.y1;
             }
             g.push_back(el);
         } else if (tilewire >= TILE_WIRE_WBOUNCE && tilewire <= TILE_WIRE_EBOUNCE) {
-            el.y1 = y + switchbox_y1 + 0.0017f * 4;
-            el.y2 = y + switchbox_y1 + 0.0017f * 8;
+            el.y1 = y + switchbox_y1 + wire_distance * 4;
+            el.y2 = y + switchbox_y1 + wire_distance * 8;
             if (tilewire == TILE_WIRE_WBOUNCE) {
-                el.x1 = x + switchbox_x1 - 0.0017f * 4;
+                el.x1 = x + switchbox_x1 - wire_distance * 4;
                 el.x2 = el.x1;
             } else {
-                el.x1 = x + switchbox_x2 + 0.0017f * 4;
+                el.x1 = x + switchbox_x2 + wire_distance * 4;
                 el.x2 = el.x1;
             }
             g.push_back(el);
         } else if (tilewire >= TILE_WIRE_CLK0 && tilewire <= TILE_WIRE_LSR1) {
             el.x1 = x + switchbox_x2;
-            el.x2 = x + slice_x2 + 0.0255f + (8 - (tilewire - TILE_WIRE_CLK0)) * 0.0017f;
-            el.y1 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_CLK0 - 5) + 3 * slice_pitch;
+            el.x2 = x + slice_x2 + 15*wire_distance + (8 - (tilewire - TILE_WIRE_CLK0)) * wire_distance;
+            el.y1 = y + slice_y2 - wire_distance * (tilewire - TILE_WIRE_CLK0 - 5) + 3 * slice_pitch;
             el.y2 = el.y1;
             g.push_back(el);
             el.x1 = el.x2;
-            el.y2 = y + slice_y2 - 0.0017f * (3 + (tilewire - TILE_WIRE_CLK0));
+            el.y2 = y + slice_y2 - wire_distance * (3 + (tilewire - TILE_WIRE_CLK0));
             g.push_back(el);
             for (int i = 0; i < 4; i++) {
-                el.x1 = x + slice_x2 + 0.0255f + 0.0017f;
-                el.x2 = x + slice_x2 + 0.0255f + (8 - (tilewire - TILE_WIRE_CLK0)) * 0.0017f;
+                el.x1 = x + slice_x2 + 15*wire_distance + wire_distance;
+                el.x2 = x + slice_x2 + 15*wire_distance + (8 - (tilewire - TILE_WIRE_CLK0)) * wire_distance;
                 el.y1 = y + slice_y2 -
-                        0.0017f * (TILE_WIRE_CLK3_SLICE - TILE_WIRE_DUMMY_D2 + 1 + tilewire - TILE_WIRE_CLK0) +
+                        wire_distance * (TILE_WIRE_CLK3_SLICE - TILE_WIRE_DUMMY_D2 + 1 + tilewire - TILE_WIRE_CLK0) +
                         i * slice_pitch;
                 el.y2 = el.y1;
                 g.push_back(el);
             }
             if (tilewire == TILE_WIRE_CLK1 || tilewire == TILE_WIRE_LSR1) {
                 for (int i = 0; i < 2; i++) {
-                    el.x1 = x + slice_x2 + 0.0051f;
-                    el.x2 = x + slice_x2 + 0.0255f + (8 - (tilewire - TILE_WIRE_CLK0)) * 0.0017f;
+                    el.x1 = x + slice_x2 + 3*wire_distance;
+                    el.x2 = x + slice_x2 + 15*wire_distance + (8 - (tilewire - TILE_WIRE_CLK0)) * wire_distance;
                     el.y1 = y + slice_y2 -
-                            0.0017f *
+                            wire_distance *
                                     (TILE_WIRE_CLK3_SLICE - TILE_WIRE_DUMMY_D2 - 1 + (tilewire - TILE_WIRE_CLK0) / 2) +
                             i * slice_pitch;
                     el.y2 = el.y1;
@@ -451,20 +463,20 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
         // TRELLIS_IO wires
         else if (tilewire >= TILE_WIRE_JDIA && tilewire <= TILE_WIRE_ECLKD) {
             el.x1 = x + 0.5f;
-            el.x2 = x + 0.5f + 0.005f;
+            el.x2 = x + 0.5f + wire_length;
             bool top = (y == (h - 1));
             if (top)
-                el.y1 = y + 1 - (slice_y2 - 0.0017f * (tilewire - TILE_WIRE_JDIA + 1) + 3 * slice_pitch);
+                el.y1 = y + 1 - (slice_y2 - wire_distance * (tilewire - TILE_WIRE_JDIA + 1) + 3 * slice_pitch);
             else
-                el.y1 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_JDIA + 1) + 3 * slice_pitch;
+                el.y1 = y + slice_y2 - wire_distance * (tilewire - TILE_WIRE_JDIA + 1) + 3 * slice_pitch;
             el.y2 = el.y1;
             g.push_back(el);
         }
 
         else if (tilewire >= TILE_WIRE_JCE0 && tilewire <= TILE_WIRE_JQ7) {
             el.x1 = x + switchbox_x2;
-            el.x2 = x + switchbox_x2 + 0.005f;
-            el.y1 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_JCE0 + 1) + 3 * slice_pitch;
+            el.x2 = x + switchbox_x2 + wire_length;
+            el.y1 = y + slice_y2 - wire_distance * (tilewire - TILE_WIRE_JCE0 + 1) + 3 * slice_pitch;
             el.y2 = el.y1;
             g.push_back(el);
         }
@@ -472,8 +484,8 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
         else if (tilewire >= TILE_WIRE_FCO && tilewire <= TILE_WIRE_FCI) {
             int gap = (tilewire - TILE_WIRE_FCO) / 24;
             el.x1 = x + switchbox_x2;
-            el.x2 = x + slice_x1 - 0.005f;
-            el.y1 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_FCO + 1 + gap * 2) + 3 * slice_pitch;
+            el.x2 = x + slice_x1 - wire_length;
+            el.y1 = y + slice_y2 - wire_distance * (tilewire - TILE_WIRE_FCO + 1 + gap * 2) + 3 * slice_pitch;
             el.y2 = el.y1;
             g.push_back(el);
         }
@@ -481,9 +493,9 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
         else if (tilewire >= TILE_WIRE_MUXCLK3 && tilewire <= TILE_WIRE_MUXLSR0) {
             int gap = (tilewire - TILE_WIRE_MUXCLK3) / 2;
             int part = (tilewire - TILE_WIRE_MUXCLK3) % 2;
-            el.x1 = x + slice_x2 + 0.0051f;
-            el.x2 = x + slice_x2 + 0.0255f;
-            el.y1 = y + slice_y2 - 0.0017f * (TILE_WIRE_CLK3_SLICE - TILE_WIRE_DUMMY_D2 + 1 + part + gap * 26) +
+            el.x1 = x + slice_x2 + 3*wire_distance;
+            el.x2 = x + slice_x2 + 15*wire_distance;
+            el.y1 = y + slice_y2 - wire_distance * (TILE_WIRE_CLK3_SLICE - TILE_WIRE_DUMMY_D2 + 1 + part + gap * 26) +
                     3 * slice_pitch;
             el.y2 = el.y1;
             g.push_back(el);
@@ -492,43 +504,43 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
         else if (tilewire >= TILE_WIRE_WD3 && tilewire <= TILE_WIRE_WD0) {
             int part = (tilewire - TILE_WIRE_WD3) % 4;
             int group = (tilewire - TILE_WIRE_WD3) / 2;
-            el.x1 = x + slice_x2 + 0.005f;
-            el.x2 = x + slice_x2 + 0.005f + 0.0017f * (4 - part);
-            el.y1 = y + slice_y2 - 0.0017f * (TILE_WIRE_WDO3C_SLICE - TILE_WIRE_DUMMY_D2 + 1 + part + 14) +
+            el.x1 = x + slice_x2 + wire_length;
+            el.x2 = x + slice_x2 + wire_length + wire_distance * (4 - part);
+            el.y1 = y + slice_y2 - wire_distance * (TILE_WIRE_WDO3C_SLICE - TILE_WIRE_DUMMY_D2 + 1 + part + 14) +
                     3 * slice_pitch;
             el.y2 = el.y1;
             g.push_back(el);
 
             el.x1 = el.x2;
-            el.y2 = y + slice_y2 - 0.0017f * (TILE_WIRE_WD1B_SLICE - TILE_WIRE_DUMMY_D2 + 1 + (part & 1) + 14 * 2) +
+            el.y2 = y + slice_y2 - wire_distance * (TILE_WIRE_WD1B_SLICE - TILE_WIRE_DUMMY_D2 + 1 + (part & 1) + 14 * 2) +
                     (3 - group) * slice_pitch;
             g.push_back(el);
 
-            el.x1 = x + slice_x2 + 0.005f;
+            el.x1 = x + slice_x2 + wire_length;
             el.y1 = el.y2;
             g.push_back(el);
         } else if (tilewire >= TILE_WIRE_WAD3 && tilewire <= TILE_WIRE_WAD0) {
             int part = (tilewire - TILE_WIRE_WAD3) % 4;
-            el.x1 = x + slice_x2 + 0.005f;
-            el.x2 = x + slice_x2 + 0.005f + 0.0017f * (8 - part);
-            el.y1 = y + slice_y2 - 0.0017f * (TILE_WIRE_WADO3C_SLICE - TILE_WIRE_DUMMY_D2 + 1 + part + 14) +
+            el.x1 = x + slice_x2 + wire_length;
+            el.x2 = x + slice_x2 + wire_length + wire_distance * (8 - part);
+            el.y1 = y + slice_y2 - wire_distance * (TILE_WIRE_WADO3C_SLICE - TILE_WIRE_DUMMY_D2 + 1 + part + 14) +
                     3 * slice_pitch;
             el.y2 = el.y1;
             g.push_back(el);
 
             el.x1 = el.x2;
-            el.y2 = y + slice_y2 - 0.0017f * (TILE_WIRE_WAD3B_SLICE - TILE_WIRE_DUMMY_D2 + 1 + part + 14 * 2) +
+            el.y2 = y + slice_y2 - wire_distance * (TILE_WIRE_WAD3B_SLICE - TILE_WIRE_DUMMY_D2 + 1 + part + 14 * 2) +
                     2 * slice_pitch;
             g.push_back(el);
 
-            el.x1 = x + slice_x2 + 0.005f;
+            el.x1 = x + slice_x2 + wire_length;
             el.y1 = el.y2;
             g.push_back(el);
 
             // middle line
-            el.x1 = x + slice_x2 + 0.005f;
-            el.x2 = x + slice_x2 + 0.005f + 0.0017f * (8 - part);
-            el.y2 = y + slice_y2 - 0.0017f * (TILE_WIRE_WAD3B_SLICE - TILE_WIRE_DUMMY_D2 + 1 + part + 14 * 2) +
+            el.x1 = x + slice_x2 + wire_length;
+            el.x2 = x + slice_x2 + wire_length + wire_distance * (8 - part);
+            el.y2 = y + slice_y2 - wire_distance * (TILE_WIRE_WAD3B_SLICE - TILE_WIRE_DUMMY_D2 + 1 + part + 14 * 2) +
                     3 * slice_pitch;
             el.y1 = el.y2;
             g.push_back(el);
@@ -536,16 +548,16 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
     } else if (wire_type == id_WIRE_TYPE_G_HPBX) {
         el.x1 = x;
         el.x2 = x + 1;
-        el.y1 = y + 0.1f + 0.0017f * (tilewire - TILE_WIRE_G_HPBX0000 + 1);
+        el.y1 = y + 0.1f + wire_distance * (tilewire - TILE_WIRE_G_HPBX0000 + 1);
         el.y2 = el.y1;
         g.push_back(el);
 
-        el.x1 = x + switchbox_x1 + 0.0017f * (200 + (tilewire - TILE_WIRE_G_HPBX0000));
+        el.x1 = x + switchbox_x1 + wire_distance * (200 + (tilewire - TILE_WIRE_G_HPBX0000));
         el.x2 = el.x1;
         el.y2 = y + switchbox_y1;
         g.push_back(el);
     } else if (wire_type == id_WIRE_TYPE_G_VPTX) {
-        el.x1 = x + 0.1f + 0.0017f * (tilewire - TILE_WIRE_G_VPTX0000 + 1);
+        el.x1 = x + 0.1f + wire_distance * (tilewire - TILE_WIRE_G_VPTX0000 + 1);
         el.x2 = el.x1;
         el.y1 = y;
         el.y2 = y + 1;
@@ -553,13 +565,13 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
     } else if (wire_type == id_WIRE_TYPE_L_HPBX) {
         el.x1 = x - 3;
         el.x2 = x + 0.08f;
-        el.y1 = y + 0.0017f + 0.0017f * (tilewire - TILE_WIRE_L_HPBX0000 + 1);
+        el.y1 = y + wire_distance + wire_distance * (tilewire - TILE_WIRE_L_HPBX0000 + 1);
         el.y2 = el.y1;
         g.push_back(el);
     } else if (wire_type == id_WIRE_TYPE_R_HPBX) {
         el.x1 = x + 0.2;
         el.x2 = x + 3;
-        el.y1 = y + 0.0017f + 0.0017f * (tilewire - TILE_WIRE_R_HPBX0000 + 1);
+        el.y1 = y + wire_distance + wire_distance * (tilewire - TILE_WIRE_R_HPBX0000 + 1);
         el.y2 = el.y1;
         g.push_back(el);
     } else if (wire_type == id_WIRE_TYPE_PIO) {
@@ -567,163 +579,163 @@ void gfxTileWire(std::vector<GraphicElement> &g, int x, int y, int w, int h, IdS
         int gap = 3 - (tilewire - TILE_WIRE_PADDOD_PIO) / 7;
         int num = (tilewire - TILE_WIRE_PADDOD_PIO) % 7;
         if (top_bottom) {
-            el.x1 = x + io_cell_h_x1 + (gap + 2) * 0.10 + 0.0017f * (num + 1);
+            el.x1 = x + io_cell_h_x1 + (gap + 2) * io_cell_gap + wire_distance * (num + 1);
             el.x2 = el.x1;
             if (y == h - 1) {
                 el.y1 = y + 1 - io_cell_h_y2;
-                el.y2 = el.y1 - 0.015f;
+                el.y2 = el.y1 - wire_length_long;
             } else {
                 el.y1 = y + io_cell_h_y2;
-                el.y2 = el.y1 + 0.015f;
+                el.y2 = el.y1 + wire_length_long;
             }
         } else {
             if (x == 0) {
                 el.x1 = x + 1 - io_cell_v_x1;
-                el.x2 = el.x1 + 0.015f;
+                el.x2 = el.x1 + wire_length_long;
             } else {
                 el.x1 = x + io_cell_v_x1;
-                el.x2 = el.x1 - 0.015f;
+                el.x2 = el.x1 - wire_length_long;
             }
-            el.y1 = y + io_cell_v_y1 + gap * 0.10 + 0.0017f * (num + 1);
+            el.y1 = y + io_cell_v_y1 + gap * io_cell_gap + wire_distance * (num + 1);
             el.y2 = el.y1;
         }
         g.push_back(el);
     } else if (wire_type == id_WIRE_TYPE_DDRDLL) {
         int num = (tilewire - TILE_WIRE_DDRDEL_DDRDLL);
-        el.x1 = x + io_cell_h_x1 + 0.2 + 0.0017f * (num + 1);
+        el.x1 = x + io_cell_h_x1 + 0.2 + wire_distance * (num + 1);
         el.x2 = el.x1;
         if (y == h - 1) {
-            el.y1 = y + 0.2;
-            el.y2 = el.y1 - 0.015f;
+            el.y1 = y + dll_cell_y1;
+            el.y2 = el.y1 - wire_length_long;
         } else {
-            el.y1 = y + 0.8;
-            el.y2 = el.y1 + 0.015f;
+            el.y1 = y + dll_cell_y2;
+            el.y2 = el.y1 + wire_length_long;
         }
         g.push_back(el);
     } else if (wire_type == id_WIRE_TYPE_CCLK) {
         int num = (tilewire - TILE_WIRE_JPADDI_CCLK);
-        el.x1 = x + slice_x1 + 0.0017f * (num + 1);
+        el.x1 = x + slice_x1 + wire_distance * (num + 1);
         el.x2 = el.x1;
         el.y1 = y + slice_y2 - 1 * slice_pitch;
-        el.y2 = el.y1 - 0.015f;
+        el.y2 = el.y1 - wire_length_long;
         g.push_back(el);
     } else if (wire_type == id_WIRE_TYPE_IOLOGIC) {
         int gap = 7 - (tilewire - TILE_WIRE_JLOADND_IOLOGIC) / 42;
         int num = (tilewire - TILE_WIRE_JLOADND_IOLOGIC) % 42;
         if (x == 0) {
             el.x1 = x + 1 - io_cell_v_x1;
-            el.x2 = el.x1 + 0.015f;
+            el.x2 = el.x1 + wire_length_long;
         } else {
             el.x1 = x + io_cell_v_x1;
-            el.x2 = el.x1 - 0.015f;
+            el.x2 = el.x1 - wire_length_long;
         }
-        el.y1 = y + io_cell_v_y1 + gap * 0.10 + 0.0017f * (num + 1);
+        el.y1 = y + io_cell_v_y1 + gap * io_cell_gap + wire_distance * (num + 1);
         el.y2 = el.y1;
         g.push_back(el);
     } else if (wire_type == id_WIRE_TYPE_SIOLOGIC) {
         int gap = (tilewire - TILE_WIRE_JLOADNB_SIOLOGIC) / 20;
         int num = (tilewire - TILE_WIRE_JLOADNB_SIOLOGIC) % 20;
-        el.x1 = x + io_cell_h_x1 + (5 - gap) * 0.10 + 0.0017f * (num + 1);
+        el.x1 = x + io_cell_h_x1 + (5 - gap) * io_cell_gap + wire_distance * (num + 1);
         el.x2 = el.x1;
         if (y == h - 1) {
             el.y1 = y + 1 - io_cell_h_y2;
-            el.y2 = el.y1 - 0.015f;
+            el.y2 = el.y1 - wire_length_long;
         } else {
             el.y1 = y + io_cell_h_y2;
-            el.y2 = el.y1 + 0.015f;
+            el.y2 = el.y1 + wire_length_long;
         }
         g.push_back(el);
     } else if (wire_type == id_WIRE_TYPE_DQS) {
         int num = (tilewire - TILE_WIRE_DDRDEL_DQS);
         if (x == 0) {
             el.x1 = x + 1 - io_cell_v_x1;
-            el.x2 = el.x1 + 0.015f;
+            el.x2 = el.x1 + wire_length_long;
         } else {
             el.x1 = x + io_cell_v_x1;
-            el.x2 = el.x1 - 0.015f;
+            el.x2 = el.x1 - wire_length_long;
         }
-        el.y1 = y + io_cell_v_y1 + 8 * 0.10 + 0.0017f * (num + 1);
+        el.y1 = y + io_cell_v_y1 + 8 * io_cell_gap + wire_distance * (num + 1);
         el.y2 = el.y1;
         g.push_back(el);
     } else if (wire_type == id_WIRE_TYPE_EBR) {
-        el.x1 = x + slice_x1 - 0.005f;
+        el.x1 = x + slice_x1 - wire_length;
         el.x2 = x + slice_x1;
-        el.y1 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_JADA0_EBR + 1) + 3 * slice_pitch;
+        el.y1 = y + slice_y2 - wire_distance * (tilewire - TILE_WIRE_JADA0_EBR + 1) + 3 * slice_pitch;
         el.y2 = el.y1;
         g.push_back(el);
     } else if (wire_type == id_WIRE_TYPE_MULT18) {
-        el.x1 = x + slice_x1 - 0.005f;
+        el.x1 = x + slice_x1 - wire_length;
         el.x2 = x + slice_x1;
-        el.y1 = y + slice_y2 - 0.00085f * (tilewire - TILE_WIRE_JCLK0_MULT18 + 1) + 3 * slice_pitch;
+        el.y1 = y + slice_y2 - wire_distance_small * (tilewire - TILE_WIRE_JCLK0_MULT18 + 1) + 3 * slice_pitch;
         el.y2 = el.y1;
         g.push_back(el);
     } else if (wire_type == id_WIRE_TYPE_ALU54) {
         int num = (tilewire - TILE_WIRE_JCLK0_ALU54) % 225;
         int group = (tilewire - TILE_WIRE_JCLK0_ALU54) / 225;
         if (group == 0) {
-            el.x1 = x + slice_x1 - 0.005f;
+            el.x1 = x + slice_x1 - wire_length;
             el.x2 = x + slice_x1;
         } else {
-            el.x1 = x + 0.97 + 0.005f;
-            el.x2 = x + 0.97;
+            el.x1 = x + slice_x2_wide + wire_length;
+            el.x2 = x + slice_x2_wide;
         }
-        el.y1 = y + slice_y2 - 0.00085f * (num + 1) + 3 * slice_pitch;
+        el.y1 = y + slice_y2 - wire_distance_small * (num + 1) + 3 * slice_pitch;
         el.y2 = el.y1;
         g.push_back(el);
     } else if (wire_type == id_WIRE_TYPE_PLL) {
-        el.x1 = x + slice_x1 - 0.005f;
+        el.x1 = x + slice_x1 - wire_length;
         el.x2 = x + slice_x1;
-        el.y1 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_CLKI_PLL + 1);
+        el.y1 = y + slice_y2 - wire_distance * (tilewire - TILE_WIRE_CLKI_PLL + 1);
         el.y2 = el.y1;
         g.push_back(el);
     } else if (wire_type == id_WIRE_TYPE_GSR) {
-        el.x1 = x + slice_x1 - 0.005f;
+        el.x1 = x + slice_x1 - wire_length;
         el.x2 = x + slice_x1;
-        el.y1 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_JCLK_GSR + 1);
+        el.y1 = y + slice_y2 - wire_distance * (tilewire - TILE_WIRE_JCLK_GSR + 1);
         el.y2 = el.y1;
         g.push_back(el);
     } else if (wire_type == id_WIRE_TYPE_JTAG) {
-        el.x1 = x + slice_x1 - 0.005f;
+        el.x1 = x + slice_x1 - wire_length;
         el.x2 = x + slice_x1;
-        el.y1 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_JJCE1_JTAG + 1) + 1 * slice_pitch;
+        el.y1 = y + slice_y2 - wire_distance * (tilewire - TILE_WIRE_JJCE1_JTAG + 1) + 1 * slice_pitch;
         el.y2 = el.y1;
         g.push_back(el);
     } else if (wire_type == id_WIRE_TYPE_OSC) {
-        el.x1 = x + slice_x1 - 0.005f;
+        el.x1 = x + slice_x1 - wire_length;
         el.x2 = x + slice_x1;
-        el.y1 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_SEDSTDBY_OSC + 1) + 2 * slice_pitch;
+        el.y1 = y + slice_y2 - wire_distance * (tilewire - TILE_WIRE_SEDSTDBY_OSC + 1) + 2 * slice_pitch;
         el.y2 = el.y1;
         g.push_back(el);
     } else if (wire_type == id_WIRE_TYPE_SED) {
-        el.x1 = x + slice_x1 - 0.005f;
+        el.x1 = x + slice_x1 - wire_length;
         el.x2 = x + slice_x1;
-        el.y1 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_SEDSTDBY_SED + 1) + 3 * slice_pitch;
+        el.y1 = y + slice_y2 - wire_distance * (tilewire - TILE_WIRE_SEDSTDBY_SED + 1) + 3 * slice_pitch;
         el.y2 = el.y1;
         g.push_back(el);
     } else if (wire_type == id_WIRE_TYPE_DTR) {
-        el.x1 = x + slice_x1 - 0.005f;
+        el.x1 = x + slice_x1 - wire_length;
         el.x2 = x + slice_x1;
-        el.y1 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_JSTARTPULSE_DTR + 1);
+        el.y1 = y + slice_y2 - wire_distance * (tilewire - TILE_WIRE_JSTARTPULSE_DTR + 1);
         el.y2 = el.y1;
         g.push_back(el);
     } else if (wire_type == id_WIRE_TYPE_EXTREF) {
-        el.x1 = x + slice_x1 - 0.005f;
+        el.x1 = x + slice_x1 - wire_length;
         el.x2 = x + slice_x1;
-        el.y1 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_REFCLKP_EXTREF + 1) + 1 * slice_pitch;
+        el.y1 = y + slice_y2 - wire_distance * (tilewire - TILE_WIRE_REFCLKP_EXTREF + 1) + 1 * slice_pitch;
         el.y2 = el.y1;
         g.push_back(el);
     } else if (wire_type == id_WIRE_TYPE_DCU) {
-        el.x1 = x + slice_x1 - 0.005f;
+        el.x1 = x + slice_x1 - wire_length;
         el.x2 = x + slice_x1;
-        el.y1 = y + slice_y2 - 0.0017f * (tilewire - TILE_WIRE_CH0_RX_REFCLK_DCU + 1) + 0 * slice_pitch;
+        el.y1 = y + slice_y2 - wire_distance * (tilewire - TILE_WIRE_CH0_RX_REFCLK_DCU + 1) + 0 * slice_pitch;
         el.y2 = el.y1;
         g.push_back(el);
     } else if (wire_type == id_WIRE_TYPE_PCSCLKDIV) {
         int num = (tilewire - TILE_WIRE_CLKI_PCSCLKDIV1) % 7;
         int group = 1 - (tilewire - TILE_WIRE_CLKI_PCSCLKDIV1) / 7;
-        el.x1 = x + slice_x1 - 0.005f;
+        el.x1 = x + slice_x1 - wire_length;
         el.x2 = x + slice_x1;
-        el.y1 = y + slice_y2 - 0.0017f * (num + 1) + group * slice_pitch;
+        el.y1 = y + slice_y2 - wire_distance * (num + 1) + group * slice_pitch;
         el.y2 = el.y1;
         g.push_back(el);
     }
@@ -733,7 +745,7 @@ void setSource(GraphicElement &el, int x, int y, int w, int h, WireId src, IdStr
 {
     if (src_type == id_WIRE_TYPE_H00) {
         int group = (src_id - TILE_WIRE_H00L0000) / 2;
-        el.y1 = y + switchbox_y1 + 0.0017f * (8 - ((src_id - TILE_WIRE_H00L0000) % 2) * 4);
+        el.y1 = y + switchbox_y1 + wire_distance * (8 - ((src_id - TILE_WIRE_H00L0000) % 2) * 4);
 
         if (group) {
             el.x1 = x + switchbox_x2;
@@ -746,19 +758,19 @@ void setSource(GraphicElement &el, int x, int y, int w, int h, WireId src, IdStr
             el.x1 = x + switchbox_x1;
         else
             el.x1 = x + switchbox_x2;
-        el.y1 = y + switchbox_y1 + 0.0017f * (10 + src_id - TILE_WIRE_H01E0001);
+        el.y1 = y + switchbox_y1 + wire_distance * (10 + src_id - TILE_WIRE_H01E0001);
     }
     if (src_type == id_WIRE_TYPE_H02) {
-        el.x1 = x + switchbox_x1 + 0.0017f * (20 + (src_id - TILE_WIRE_H02W0701) + 20 * (src.location.x % 3));
+        el.x1 = x + switchbox_x1 + wire_distance * (20 + (src_id - TILE_WIRE_H02W0701) + 20 * (src.location.x % 3));
         el.y1 = y + switchbox_y1;
     }
     if (src_type == id_WIRE_TYPE_H06) {
-        el.x1 = x + switchbox_x1 + 0.0017f * (96 + (src_id - TILE_WIRE_H06W0303) + 10 * (src.location.x % 9));
+        el.x1 = x + switchbox_x1 + wire_distance * (96 + (src_id - TILE_WIRE_H06W0303) + 10 * (src.location.x % 9));
         el.y1 = y + switchbox_y1;
     }
     if (src_type == id_WIRE_TYPE_V00) {
         int group = (src_id - TILE_WIRE_V00T0000) / 2;
-        el.x1 = x + switchbox_x2 - 0.0017f * (8 - ((src_id - TILE_WIRE_V00T0000) % 2) * 4);
+        el.x1 = x + switchbox_x2 - wire_distance * (8 - ((src_id - TILE_WIRE_V00T0000) % 2) * 4);
         if (group) {
             el.y1 = y + switchbox_y1;
         } else {
@@ -766,7 +778,7 @@ void setSource(GraphicElement &el, int x, int y, int w, int h, WireId src, IdStr
         }
     }
     if (src_type == id_WIRE_TYPE_V01) {
-        el.x1 = x + switchbox_x1 + 0.0017f * (10 + src_id - TILE_WIRE_V01N0001);
+        el.x1 = x + switchbox_x1 + wire_distance * (10 + src_id - TILE_WIRE_V01N0001);
         if (y == src.location.y)
             el.y1 = y + switchbox_y2;
         else
@@ -774,53 +786,53 @@ void setSource(GraphicElement &el, int x, int y, int w, int h, WireId src, IdStr
     }
     if (src_type == id_WIRE_TYPE_V02) {
         el.x1 = x + switchbox_x1;
-        el.y1 = y + switchbox_y1 + 0.0017f * (20 + (src_id - TILE_WIRE_V02N0701) + 20 * (src.location.y % 3));
+        el.y1 = y + switchbox_y1 + wire_distance * (20 + (src_id - TILE_WIRE_V02N0701) + 20 * (src.location.y % 3));
     }
     if (src_type == id_WIRE_TYPE_V06) {
         el.x1 = x + switchbox_x1;
-        el.y1 = y + switchbox_y1 + 0.0017f * (96 + (src_id - TILE_WIRE_V06N0303) + 10 * (src.location.y % 9));
+        el.y1 = y + switchbox_y1 + wire_distance * (96 + (src_id - TILE_WIRE_V06N0303) + 10 * (src.location.y % 9));
     }
     if (src_type == id_WIRE_TYPE_NONE) {
         if (src_id >= TILE_WIRE_CLK0 && src_id <= TILE_WIRE_LSR1) {
             el.x1 = x + switchbox_x2;
-            el.y1 = y + slice_y2 - 0.0017f * (src_id - TILE_WIRE_CLK0 - 5) + 3 * slice_pitch;
+            el.y1 = y + slice_y2 - wire_distance * (src_id - TILE_WIRE_CLK0 - 5) + 3 * slice_pitch;
         }
         if (src_id >= TILE_WIRE_FCO && src_id <= TILE_WIRE_FCI) {
             int gap = (src_id - TILE_WIRE_FCO) / 24;
             el.x1 = src.location.x + switchbox_x2;
-            el.y1 = src.location.y + slice_y2 - 0.0017f * (src_id - TILE_WIRE_FCO + 1 + gap * 2) + 3 * slice_pitch;
+            el.y1 = src.location.y + slice_y2 - wire_distance * (src_id - TILE_WIRE_FCO + 1 + gap * 2) + 3 * slice_pitch;
         }
         if (src_id >= TILE_WIRE_JCE0 && src_id <= TILE_WIRE_JQ7) {
-            el.x1 = src.location.x + switchbox_x2 + 0.005f;
-            el.y1 = src.location.y + slice_y2 - 0.0017f * (src_id - TILE_WIRE_JCE0 + 1) + 3 * slice_pitch;
+            el.x1 = src.location.x + switchbox_x2 + wire_length;
+            el.y1 = src.location.y + slice_y2 - wire_distance * (src_id - TILE_WIRE_JCE0 + 1) + 3 * slice_pitch;
         }
         if (src_id >= TILE_WIRE_JDIA && src_id <= TILE_WIRE_ECLKD) {
             bool top = (src.location.y == (h - 1));
-            el.x1 = src.location.x + 0.5f + 0.005f;
+            el.x1 = src.location.x + 0.5f + wire_length;
             if (top)
-                el.y1 = src.location.y + 1 - (slice_y2 - 0.0017f * (src_id - TILE_WIRE_JDIA + 1) + 3 * slice_pitch);
+                el.y1 = src.location.y + 1 - (slice_y2 - wire_distance * (src_id - TILE_WIRE_JDIA + 1) + 3 * slice_pitch);
             else
-                el.y1 = src.location.y + slice_y2 - 0.0017f * (src_id - TILE_WIRE_JDIA + 1) + 3 * slice_pitch;
+                el.y1 = src.location.y + slice_y2 - wire_distance * (src_id - TILE_WIRE_JDIA + 1) + 3 * slice_pitch;
         }
     }
     if (src_type == id_WIRE_TYPE_IOLOGIC) {
         int gap = 7 - (src_id - TILE_WIRE_JLOADND_IOLOGIC) / 42;
         int num = (src_id - TILE_WIRE_JLOADND_IOLOGIC) % 42;
         if (src.location.x == 0) {
-            el.x1 = src.location.x + 1 - io_cell_v_x1 + 0.015f;
+            el.x1 = src.location.x + 1 - io_cell_v_x1 + wire_length_long;
         } else {
-            el.x1 = src.location.x + io_cell_v_x1 - 0.015f;
+            el.x1 = src.location.x + io_cell_v_x1 - wire_length_long;
         }
-        el.y1 = src.location.y + io_cell_v_y1 + gap * 0.10 + 0.0017f * (num + 1);
+        el.y1 = src.location.y + io_cell_v_y1 + gap * io_cell_gap + wire_distance * (num + 1);
     }
     if (src_type == id_WIRE_TYPE_SIOLOGIC) {
         int gap = (src_id - TILE_WIRE_JLOADNB_SIOLOGIC) / 20;
         int num = (src_id - TILE_WIRE_JLOADNB_SIOLOGIC) % 20;
-        el.x1 = src.location.x + io_cell_h_x1 + (5 - gap) * 0.10 + 0.0017f * (num + 1);
+        el.x1 = src.location.x + io_cell_h_x1 + (5 - gap) * io_cell_gap + wire_distance * (num + 1);
         if (src.location.y == h - 1) {
-            el.y1 = src.location.y + 1 - io_cell_h_y2 - 0.015f;
+            el.y1 = src.location.y + 1 - io_cell_h_y2 - wire_length_long;
         } else {
-            el.y1 = src.location.y + io_cell_h_y2 + 0.015f;
+            el.y1 = src.location.y + io_cell_h_y2 + wire_length_long;
         }
     }
     if (src_type == id_WIRE_TYPE_PIO) {
@@ -828,102 +840,102 @@ void setSource(GraphicElement &el, int x, int y, int w, int h, WireId src, IdStr
         int gap = 3 - (src_id - TILE_WIRE_PADDOD_PIO) / 7;
         int num = (src_id - TILE_WIRE_PADDOD_PIO) % 7;
         if (top_bottom) {
-            el.x1 = src.location.x + io_cell_h_x1 + (gap + 2) * 0.10 + 0.0017f * (num + 1);
+            el.x1 = src.location.x + io_cell_h_x1 + (gap + 2) * io_cell_gap + wire_distance * (num + 1);
             if (src.location.y == h - 1) {
-                el.y1 = src.location.y + 1 - io_cell_h_y2 - 0.015f;
+                el.y1 = src.location.y + 1 - io_cell_h_y2 - wire_length_long;
             } else {
-                el.y1 = src.location.y + 1 - io_cell_h_y2 + 0.015f;
+                el.y1 = src.location.y + 1 - io_cell_h_y2 + wire_length_long;
             }
         } else {
             if (x == 0) {
-                el.x1 = src.location.x + 1 - io_cell_v_x1 + 0.015f;
+                el.x1 = src.location.x + 1 - io_cell_v_x1 + wire_length_long;
             } else {
-                el.x1 = src.location.x + io_cell_v_x1 - 0.015f;
+                el.x1 = src.location.x + io_cell_v_x1 - wire_length_long;
             }
-            el.y1 = src.location.y + io_cell_v_y1 + gap * 0.10 + 0.0017f * (num + 1);
+            el.y1 = src.location.y + io_cell_v_y1 + gap * io_cell_gap + wire_distance * (num + 1);
         }
     }
     if (src_type == id_WIRE_TYPE_EBR) {
-        el.x1 = src.location.x + slice_x1 - 0.005f;
-        el.y1 = src.location.y + slice_y2 - 0.0017f * (src_id - TILE_WIRE_JADA0_EBR + 1) + 3 * slice_pitch;
+        el.x1 = src.location.x + slice_x1 - wire_length;
+        el.y1 = src.location.y + slice_y2 - wire_distance * (src_id - TILE_WIRE_JADA0_EBR + 1) + 3 * slice_pitch;
     }
     if (src_type == id_WIRE_TYPE_MULT18) {
-        el.x1 = src.location.x + slice_x1 - 0.005f;
-        el.y1 = src.location.y + slice_y2 - 0.00085f * (src_id - TILE_WIRE_JCLK0_MULT18 + 1) + 3 * slice_pitch;
+        el.x1 = src.location.x + slice_x1 - wire_length;
+        el.y1 = src.location.y + slice_y2 - wire_distance_small * (src_id - TILE_WIRE_JCLK0_MULT18 + 1) + 3 * slice_pitch;
     }
     if (src_type == id_WIRE_TYPE_ALU54) {
         int num = (src_id - TILE_WIRE_JCLK0_ALU54) % 225;
         int group = (src_id - TILE_WIRE_JCLK0_ALU54) / 225;
         if (group == 0) {
-            el.x1 = src.location.x + slice_x1 - 0.005f;
+            el.x1 = src.location.x + slice_x1 - wire_length;
         } else {
-            el.x1 = src.location.x + 0.97 + 0.005f;
+            el.x1 = src.location.x + slice_x2_wide + wire_length;
         }
-        el.y1 = src.location.y + slice_y2 - 0.00085f * (num + 1) + 3 * slice_pitch;
+        el.y1 = src.location.y + slice_y2 - wire_distance_small * (num + 1) + 3 * slice_pitch;
     }
     if (src_type == id_WIRE_TYPE_PLL) {
-        el.x1 = src.location.x + slice_x1 - 0.005f;
-        el.y1 = src.location.y + slice_y2 - 0.0017f * (src_id - TILE_WIRE_CLKI_PLL + 1);
+        el.x1 = src.location.x + slice_x1 - wire_length;
+        el.y1 = src.location.y + slice_y2 - wire_distance * (src_id - TILE_WIRE_CLKI_PLL + 1);
     }
     if (src_type == id_WIRE_TYPE_GSR) {
-        el.x1 = src.location.x + slice_x1 - 0.005f;
-        el.y1 = src.location.y + slice_y2 - 0.0017f * (src_id - TILE_WIRE_JCLK_GSR + 1);
+        el.x1 = src.location.x + slice_x1 - wire_length;
+        el.y1 = src.location.y + slice_y2 - wire_distance * (src_id - TILE_WIRE_JCLK_GSR + 1);
     }
     if (src_type == id_WIRE_TYPE_JTAG) {
-        el.x1 = src.location.x + slice_x1 - 0.005f;
-        el.y1 = src.location.y + slice_y2 - 0.0017f * (src_id - TILE_WIRE_JJCE1_JTAG + 1) + 1 * slice_pitch;
+        el.x1 = src.location.x + slice_x1 - wire_length;
+        el.y1 = src.location.y + slice_y2 - wire_distance * (src_id - TILE_WIRE_JJCE1_JTAG + 1) + 1 * slice_pitch;
     }
     if (src_type == id_WIRE_TYPE_OSC) {
-        el.x1 = src.location.x + slice_x1 - 0.005f;
-        el.y1 = src.location.y + slice_y2 - 0.0017f * (src_id - TILE_WIRE_SEDSTDBY_OSC + 1) + 2 * slice_pitch;
+        el.x1 = src.location.x + slice_x1 - wire_length;
+        el.y1 = src.location.y + slice_y2 - wire_distance * (src_id - TILE_WIRE_SEDSTDBY_OSC + 1) + 2 * slice_pitch;
     }
     if (src_type == id_WIRE_TYPE_SED) {
-        el.x1 = src.location.x + slice_x1 - 0.005f;
-        el.y1 = src.location.y + slice_y2 - 0.0017f * (src_id - TILE_WIRE_SEDSTDBY_SED + 1) + 3 * slice_pitch;
+        el.x1 = src.location.x + slice_x1 - wire_length;
+        el.y1 = src.location.y + slice_y2 - wire_distance * (src_id - TILE_WIRE_SEDSTDBY_SED + 1) + 3 * slice_pitch;
     }
     if (src_type == id_WIRE_TYPE_DTR) {
-        el.x1 = src.location.x + slice_x1 - 0.005f;
-        el.y1 = src.location.y + slice_y2 - 0.0017f * (src_id - TILE_WIRE_JSTARTPULSE_DTR + 1);
+        el.x1 = src.location.x + slice_x1 - wire_length;
+        el.y1 = src.location.y + slice_y2 - wire_distance * (src_id - TILE_WIRE_JSTARTPULSE_DTR + 1);
     }
     if (src_type == id_WIRE_TYPE_EXTREF) {
-        el.x1 = src.location.x + slice_x1 - 0.005f;
-        el.y1 = src.location.y + slice_y2 - 0.0017f * (src_id - TILE_WIRE_REFCLKP_EXTREF + 1) + 1 * slice_pitch;
+        el.x1 = src.location.x + slice_x1 - wire_length;
+        el.y1 = src.location.y + slice_y2 - wire_distance * (src_id - TILE_WIRE_REFCLKP_EXTREF + 1) + 1 * slice_pitch;
     }
     if (src_type == id_WIRE_TYPE_DCU) {
-        el.x1 = src.location.x + slice_x1 - 0.005f;
-        el.y1 = src.location.y + slice_y2 - 0.0017f * (src_id - TILE_WIRE_CH0_RX_REFCLK_DCU + 1) + 0 * slice_pitch;
+        el.x1 = src.location.x + slice_x1 - wire_length;
+        el.y1 = src.location.y + slice_y2 - wire_distance * (src_id - TILE_WIRE_CH0_RX_REFCLK_DCU + 1) + 0 * slice_pitch;
     }
     if (src_type == id_WIRE_TYPE_PCSCLKDIV) {
         int num = (src_id - TILE_WIRE_CLKI_PCSCLKDIV1) % 7;
         int group = 1 - (src_id - TILE_WIRE_CLKI_PCSCLKDIV1) / 7;
-        el.x1 = src.location.x + slice_x1 - 0.005f;
-        el.y1 = src.location.y + slice_y2 - 0.0017f * (num + 1) + group * slice_pitch;
+        el.x1 = src.location.x + slice_x1 - wire_length;
+        el.y1 = src.location.y + slice_y2 - wire_distance * (num + 1) + group * slice_pitch;
     }
     if (src_type == id_WIRE_TYPE_DQS) {
         int num = (src_id - TILE_WIRE_DDRDEL_DQS);
         if (src.location.x == 0) {
-            el.x1 = src.location.x + 1 - io_cell_v_x1 + 0.015f;
+            el.x1 = src.location.x + 1 - io_cell_v_x1 + wire_length_long;
         } else {
-            el.x1 = src.location.x + io_cell_v_x1 - 0.015f;
+            el.x1 = src.location.x + io_cell_v_x1 - wire_length_long;
         }
-        el.y1 = src.location.y + io_cell_v_y1 + 8 * 0.10 + 0.0017f * (num + 1);
+        el.y1 = src.location.y + io_cell_v_y1 + 8 * io_cell_gap + wire_distance * (num + 1);
     }
     if (src_type == id_WIRE_TYPE_DDRDLL) {
         int num = (src_id - TILE_WIRE_DDRDEL_DDRDLL);
-        el.x1 = src.location.x + io_cell_h_x1 + 0.2 + 0.0017f * (num + 1);
+        el.x1 = src.location.x + io_cell_h_x1 + dll_cell_x1 + wire_distance * (num + 1);
         if (src.location.y == h - 1) {
-            el.y1 = src.location.y + 0.2 - 0.015f;
+            el.y1 = src.location.y + dll_cell_y1 - wire_length_long;
         } else {
-            el.y1 = src.location.y + 0.8 + 0.015f;
+            el.y1 = src.location.y + dll_cell_y2 + wire_length_long;
         }
     }
     if (src_type == id_WIRE_TYPE_CCLK) {
         int num = (src_id - TILE_WIRE_JPADDI_CCLK);
-        el.x1 = src.location.x + slice_x1 + 0.0017f * (num + 1);
-        el.y1 = src.location.y + slice_y2 - 1 * slice_pitch - 0.015f;
+        el.x1 = src.location.x + slice_x1 + wire_distance * (num + 1);
+        el.y1 = src.location.y + slice_y2 - 1 * slice_pitch - wire_length_long;
     }
     if (src_type == id_WIRE_TYPE_G_HPBX) {
-        el.x1 = x + switchbox_x1 + 0.0017f * (200 + (src_id - TILE_WIRE_G_HPBX0000));
+        el.x1 = x + switchbox_x1 + wire_distance * (200 + (src_id - TILE_WIRE_G_HPBX0000));
         el.y1 = y + switchbox_y1;
     }
 }
@@ -932,7 +944,7 @@ void setDestination(GraphicElement &el, int x, int y, int w, int h, WireId dst, 
 {
     if (dst_type == id_WIRE_TYPE_H00) {
         int group = (dst_id - TILE_WIRE_H00L0000) / 2;
-        el.y2 = y + switchbox_y1 + 0.0017f * (8 - ((dst_id - TILE_WIRE_H00L0000) % 2) * 4);
+        el.y2 = y + switchbox_y1 + wire_distance * (8 - ((dst_id - TILE_WIRE_H00L0000) % 2) * 4);
 
         if (group) {
             el.x2 = x + switchbox_x2;
@@ -945,19 +957,19 @@ void setDestination(GraphicElement &el, int x, int y, int w, int h, WireId dst, 
             el.x2 = x + switchbox_x1;
         else
             el.x2 = x + switchbox_x2;
-        el.y2 = y + switchbox_y1 + 0.0017f * (10 + dst_id - TILE_WIRE_H01E0001);
+        el.y2 = y + switchbox_y1 + wire_distance * (10 + dst_id - TILE_WIRE_H01E0001);
     }
     if (dst_type == id_WIRE_TYPE_H02) {
-        el.x2 = x + switchbox_x1 + 0.0017f * (20 + (dst_id - TILE_WIRE_H02W0701) + 20 * (dst.location.x % 3));
+        el.x2 = x + switchbox_x1 + wire_distance * (20 + (dst_id - TILE_WIRE_H02W0701) + 20 * (dst.location.x % 3));
         el.y2 = y + switchbox_y1;
     }
     if (dst_type == id_WIRE_TYPE_H06) {
-        el.x2 = x + switchbox_x1 + 0.0017f * (96 + (dst_id - TILE_WIRE_H06W0303) + 10 * (dst.location.x % 9));
+        el.x2 = x + switchbox_x1 + wire_distance * (96 + (dst_id - TILE_WIRE_H06W0303) + 10 * (dst.location.x % 9));
         el.y2 = y + switchbox_y1;
     }
     if (dst_type == id_WIRE_TYPE_V00) {
         int group = (dst_id - TILE_WIRE_V00T0000) / 2;
-        el.x2 = x + switchbox_x2 - 0.0017f * (8 - ((dst_id - TILE_WIRE_V00T0000) % 2) * 4);
+        el.x2 = x + switchbox_x2 - wire_distance * (8 - ((dst_id - TILE_WIRE_V00T0000) % 2) * 4);
         if (group) {
             el.y2 = y + switchbox_y1;
         } else {
@@ -965,7 +977,7 @@ void setDestination(GraphicElement &el, int x, int y, int w, int h, WireId dst, 
         }
     }
     if (dst_type == id_WIRE_TYPE_V01) {
-        el.x2 = x + switchbox_x1 + 0.0017f * (10 + dst_id - TILE_WIRE_V01N0001);
+        el.x2 = x + switchbox_x1 + wire_distance * (10 + dst_id - TILE_WIRE_V01N0001);
         if (y == dst.location.y)
             el.y2 = y + switchbox_y2;
         else
@@ -973,34 +985,34 @@ void setDestination(GraphicElement &el, int x, int y, int w, int h, WireId dst, 
     }
     if (dst_type == id_WIRE_TYPE_V02) {
         el.x2 = x + switchbox_x1;
-        el.y2 = y + switchbox_y1 + 0.0017f * (20 + (dst_id - TILE_WIRE_V02N0701) + 20 * (dst.location.y % 3));
+        el.y2 = y + switchbox_y1 + wire_distance * (20 + (dst_id - TILE_WIRE_V02N0701) + 20 * (dst.location.y % 3));
     }
     if (dst_type == id_WIRE_TYPE_V06) {
         el.x2 = x + switchbox_x1;
-        el.y2 = y + switchbox_y1 + 0.0017f * (96 + (dst_id - TILE_WIRE_V06N0303) + 10 * (dst.location.y % 9));
+        el.y2 = y + switchbox_y1 + wire_distance * (96 + (dst_id - TILE_WIRE_V06N0303) + 10 * (dst.location.y % 9));
     }
 
     if (dst_type == id_WIRE_TYPE_NONE) {
         if (dst_id >= TILE_WIRE_CLK0 && dst_id <= TILE_WIRE_LSR1) {
             el.x2 = x + switchbox_x2;
-            el.y2 = y + slice_y2 - 0.0017f * (dst_id - TILE_WIRE_CLK0 - 5) + 3 * slice_pitch;
+            el.y2 = y + slice_y2 - wire_distance * (dst_id - TILE_WIRE_CLK0 - 5) + 3 * slice_pitch;
         }
         if (dst_id >= TILE_WIRE_FCO && dst_id <= TILE_WIRE_FCI) {
             int gap = (dst_id - TILE_WIRE_FCO) / 24;
             el.x2 = x + switchbox_x2;
-            el.y2 = y + slice_y2 - 0.0017f * (dst_id - TILE_WIRE_FCO + 1 + gap * 2) + 3 * slice_pitch;
+            el.y2 = y + slice_y2 - wire_distance * (dst_id - TILE_WIRE_FCO + 1 + gap * 2) + 3 * slice_pitch;
         }
         if (dst_id >= TILE_WIRE_JCE0 && dst_id <= TILE_WIRE_JQ7) {
             el.x2 = dst.location.x + switchbox_x2;
-            el.y2 = dst.location.y + slice_y2 - 0.0017f * (dst_id - TILE_WIRE_JCE0 + 1) + 3 * slice_pitch;
+            el.y2 = dst.location.y + slice_y2 - wire_distance * (dst_id - TILE_WIRE_JCE0 + 1) + 3 * slice_pitch;
         }
         if (dst_id >= TILE_WIRE_JDIA && dst_id <= TILE_WIRE_ECLKD) {
             bool top = (dst.location.y == (h - 1));
             el.x2 = dst.location.x + 0.5f;
             if (top)
-                el.y2 = dst.location.y + 1 - (slice_y2 - 0.0017f * (dst_id - TILE_WIRE_JDIA + 1) + 3 * slice_pitch);
+                el.y2 = dst.location.y + 1 - (slice_y2 - wire_distance * (dst_id - TILE_WIRE_JDIA + 1) + 3 * slice_pitch);
             else
-                el.y2 = dst.location.y + slice_y2 - 0.0017f * (dst_id - TILE_WIRE_JDIA + 1) + 3 * slice_pitch;
+                el.y2 = dst.location.y + slice_y2 - wire_distance * (dst_id - TILE_WIRE_JDIA + 1) + 3 * slice_pitch;
         }
     }
 
@@ -1008,20 +1020,20 @@ void setDestination(GraphicElement &el, int x, int y, int w, int h, WireId dst, 
         int gap = 7 - (dst_id - TILE_WIRE_JLOADND_IOLOGIC) / 42;
         int num = (dst_id - TILE_WIRE_JLOADND_IOLOGIC) % 42;
         if (dst.location.x == 0) {
-            el.x2 = dst.location.x + 1 - io_cell_v_x1 + 0.015f;
+            el.x2 = dst.location.x + 1 - io_cell_v_x1 + wire_length_long;
         } else {
-            el.x2 = dst.location.x + io_cell_v_x1 - 0.015f;
+            el.x2 = dst.location.x + io_cell_v_x1 - wire_length_long;
         }
-        el.y2 = dst.location.y + io_cell_v_y1 + gap * 0.10 + 0.0017f * (num + 1);
+        el.y2 = dst.location.y + io_cell_v_y1 + gap * io_cell_gap + wire_distance * (num + 1);
     }
     if (dst_type == id_WIRE_TYPE_SIOLOGIC) {
         int gap = (dst_id - TILE_WIRE_JLOADNB_SIOLOGIC) / 20;
         int num = (dst_id - TILE_WIRE_JLOADNB_SIOLOGIC) % 20;
-        el.x2 = dst.location.x + io_cell_h_x1 + (5 - gap) * 0.10 + 0.0017f * (num + 1);
+        el.x2 = dst.location.x + io_cell_h_x1 + (5 - gap) * io_cell_gap + wire_distance * (num + 1);
         if (dst.location.y == h - 1) {
-            el.y2 = dst.location.y + 1 - io_cell_h_y2 - 0.015f;
+            el.y2 = dst.location.y + 1 - io_cell_h_y2 - wire_length_long;
         } else {
-            el.y2 = dst.location.y + io_cell_h_y2 + 0.015f;
+            el.y2 = dst.location.y + io_cell_h_y2 + wire_length_long;
         }
     }
     if (dst_type == id_WIRE_TYPE_PIO) {
@@ -1029,102 +1041,102 @@ void setDestination(GraphicElement &el, int x, int y, int w, int h, WireId dst, 
         int gap = 3 - (dst_id - TILE_WIRE_PADDOD_PIO) / 7;
         int num = (dst_id - TILE_WIRE_PADDOD_PIO) % 7;
         if (top_bottom) {
-            el.x2 = dst.location.x + io_cell_h_x1 + (gap + 2) * 0.10 + 0.0017f * (num + 1);
+            el.x2 = dst.location.x + io_cell_h_x1 + (gap + 2) * io_cell_gap + wire_distance * (num + 1);
             if (dst.location.y == h - 1) {
-                el.y2 = dst.location.y + 1 - io_cell_h_y2 - 0.015f;
+                el.y2 = dst.location.y + 1 - io_cell_h_y2 - wire_length_long;
             } else {
-                el.y2 = dst.location.y + 1 - io_cell_h_y2 + 0.015f;
+                el.y2 = dst.location.y + 1 - io_cell_h_y2 + wire_length_long;
             }
         } else {
             if (x == 0) {
-                el.x2 = dst.location.x + 1 - io_cell_v_x1 + 0.015f;
+                el.x2 = dst.location.x + 1 - io_cell_v_x1 + wire_length_long;
             } else {
-                el.x2 = dst.location.x + io_cell_v_x1 - 0.015f;
+                el.x2 = dst.location.x + io_cell_v_x1 - wire_length_long;
             }
-            el.y2 = dst.location.y + io_cell_v_y1 + gap * 0.10 + 0.0017f * (num + 1);
+            el.y2 = dst.location.y + io_cell_v_y1 + gap * io_cell_gap + wire_distance * (num + 1);
         }
     }
     if (dst_type == id_WIRE_TYPE_EBR) {
-        el.x2 = dst.location.x + slice_x1 - 0.005f;
-        el.y2 = dst.location.y + slice_y2 - 0.0017f * (dst_id - TILE_WIRE_JADA0_EBR + 1) + 3 * slice_pitch;
+        el.x2 = dst.location.x + slice_x1 - wire_length;
+        el.y2 = dst.location.y + slice_y2 - wire_distance * (dst_id - TILE_WIRE_JADA0_EBR + 1) + 3 * slice_pitch;
     }
     if (dst_type == id_WIRE_TYPE_MULT18) {
-        el.x2 = dst.location.x + slice_x1 - 0.005f;
-        el.y2 = dst.location.y + slice_y2 - 0.00085f * (dst_id - TILE_WIRE_JCLK0_MULT18 + 1) + 3 * slice_pitch;
+        el.x2 = dst.location.x + slice_x1 - wire_length;
+        el.y2 = dst.location.y + slice_y2 - wire_distance_small * (dst_id - TILE_WIRE_JCLK0_MULT18 + 1) + 3 * slice_pitch;
     }
     if (dst_type == id_WIRE_TYPE_ALU54) {
         int num = (dst_id - TILE_WIRE_JCLK0_ALU54) % 225;
         int group = (dst_id - TILE_WIRE_JCLK0_ALU54) / 225;
         if (group == 0) {
-            el.x2 = dst.location.x + slice_x1 - 0.005f;
+            el.x2 = dst.location.x + slice_x1 - wire_length;
         } else {
-            el.x2 = dst.location.x + 0.97 + 0.005f;
+            el.x2 = dst.location.x + slice_x2_wide + wire_length;
         }
-        el.y2 = dst.location.y + slice_y2 - 0.00085f * (num + 1) + 3 * slice_pitch;
+        el.y2 = dst.location.y + slice_y2 - wire_distance_small * (num + 1) + 3 * slice_pitch;
     }
     if (dst_type == id_WIRE_TYPE_PLL) {
-        el.x2 = dst.location.x + slice_x1 - 0.005f;
-        el.y2 = dst.location.y + slice_y2 - 0.0017f * (dst_id - TILE_WIRE_CLKI_PLL + 1);
+        el.x2 = dst.location.x + slice_x1 - wire_length;
+        el.y2 = dst.location.y + slice_y2 - wire_distance * (dst_id - TILE_WIRE_CLKI_PLL + 1);
     }
     if (dst_type == id_WIRE_TYPE_GSR) {
-        el.x2 = dst.location.x + slice_x1 - 0.005f;
-        el.y2 = dst.location.y + slice_y2 - 0.0017f * (dst_id - TILE_WIRE_JCLK_GSR + 1);
+        el.x2 = dst.location.x + slice_x1 - wire_length;
+        el.y2 = dst.location.y + slice_y2 - wire_distance * (dst_id - TILE_WIRE_JCLK_GSR + 1);
     }
     if (dst_type == id_WIRE_TYPE_JTAG) {
-        el.x2 = dst.location.x + slice_x1 - 0.005f;
-        el.y2 = dst.location.y + slice_y2 - 0.0017f * (dst_id - TILE_WIRE_JJCE1_JTAG + 1) + 1 * slice_pitch;
+        el.x2 = dst.location.x + slice_x1 - wire_length;
+        el.y2 = dst.location.y + slice_y2 - wire_distance * (dst_id - TILE_WIRE_JJCE1_JTAG + 1) + 1 * slice_pitch;
     }
     if (dst_type == id_WIRE_TYPE_OSC) {
-        el.x2 = dst.location.x + slice_x1 - 0.005f;
-        el.y2 = dst.location.y + slice_y2 - 0.0017f * (dst_id - TILE_WIRE_SEDSTDBY_OSC + 1) + 2 * slice_pitch;
+        el.x2 = dst.location.x + slice_x1 - wire_length;
+        el.y2 = dst.location.y + slice_y2 - wire_distance * (dst_id - TILE_WIRE_SEDSTDBY_OSC + 1) + 2 * slice_pitch;
     }
     if (dst_type == id_WIRE_TYPE_SED) {
-        el.x2 = dst.location.x + slice_x1 - 0.005f;
-        el.y2 = dst.location.y + slice_y2 - 0.0017f * (dst_id - TILE_WIRE_SEDSTDBY_SED + 1) + 3 * slice_pitch;
+        el.x2 = dst.location.x + slice_x1 - wire_length;
+        el.y2 = dst.location.y + slice_y2 - wire_distance * (dst_id - TILE_WIRE_SEDSTDBY_SED + 1) + 3 * slice_pitch;
     }
     if (dst_type == id_WIRE_TYPE_DTR) {
-        el.x2 = dst.location.x + slice_x1 - 0.005f;
-        el.y2 = dst.location.y + slice_y2 - 0.0017f * (dst_id - TILE_WIRE_JSTARTPULSE_DTR + 1);
+        el.x2 = dst.location.x + slice_x1 - wire_length;
+        el.y2 = dst.location.y + slice_y2 - wire_distance * (dst_id - TILE_WIRE_JSTARTPULSE_DTR + 1);
     }
     if (dst_type == id_WIRE_TYPE_EXTREF) {
-        el.x2 = dst.location.x + slice_x1 - 0.005f;
-        el.y2 = dst.location.y + slice_y2 - 0.0017f * (dst_id - TILE_WIRE_REFCLKP_EXTREF + 1) + 1 * slice_pitch;
+        el.x2 = dst.location.x + slice_x1 - wire_length;
+        el.y2 = dst.location.y + slice_y2 - wire_distance * (dst_id - TILE_WIRE_REFCLKP_EXTREF + 1) + 1 * slice_pitch;
     }
     if (dst_type == id_WIRE_TYPE_DCU) {
-        el.x2 = dst.location.x + slice_x1 - 0.005f;
-        el.y2 = dst.location.y + slice_y2 - 0.0017f * (dst_id - TILE_WIRE_CH0_RX_REFCLK_DCU + 1) + 0 * slice_pitch;
+        el.x2 = dst.location.x + slice_x1 - wire_length;
+        el.y2 = dst.location.y + slice_y2 - wire_distance * (dst_id - TILE_WIRE_CH0_RX_REFCLK_DCU + 1) + 0 * slice_pitch;
     }
     if (dst_type == id_WIRE_TYPE_PCSCLKDIV) {
         int num = (dst_id - TILE_WIRE_CLKI_PCSCLKDIV1) % 7;
         int group = 1 - (dst_id - TILE_WIRE_CLKI_PCSCLKDIV1) / 7;
-        el.x2 = dst.location.x + slice_x1 - 0.005f;
-        el.y2 = dst.location.y + slice_y2 - 0.0017f * (num + 1) + group * slice_pitch;
+        el.x2 = dst.location.x + slice_x1 - wire_length;
+        el.y2 = dst.location.y + slice_y2 - wire_distance * (num + 1) + group * slice_pitch;
     }
     if (dst_type == id_WIRE_TYPE_DQS) {
         int num = (dst_id - TILE_WIRE_DDRDEL_DQS);
         if (dst.location.x == 0) {
-            el.x2 = dst.location.x + 1 - io_cell_v_x1 + 0.015f;
+            el.x2 = dst.location.x + 1 - io_cell_v_x1 + wire_length_long;
         } else {
-            el.x2 = dst.location.x + io_cell_v_x1 - 0.015f;
+            el.x2 = dst.location.x + io_cell_v_x1 - wire_length_long;
         }
-        el.y2 = dst.location.y + io_cell_v_y1 + 8 * 0.10 + 0.0017f * (num + 1);
+        el.y2 = dst.location.y + io_cell_v_y1 + 8 * io_cell_gap + wire_distance * (num + 1);
     }
     if (dst_type == id_WIRE_TYPE_DDRDLL) {
         int num = (dst_id - TILE_WIRE_DDRDEL_DDRDLL);
-        el.x2 = dst.location.x + io_cell_h_x1 + 0.2 + 0.0017f * (num + 1);
+        el.x2 = dst.location.x + io_cell_h_x1 + dll_cell_x1 + wire_distance * (num + 1);
         if (dst.location.y == h - 1) {
-            el.y2 = dst.location.y + 0.2 - 0.015f;
+            el.y2 = dst.location.y + dll_cell_y1 - wire_length_long;
         } else {
-            el.y2 = dst.location.y + 0.8 + 0.015f;
+            el.y2 = dst.location.y + dll_cell_y2 + wire_length_long;
         }
     }
     if (dst_type == id_WIRE_TYPE_CCLK) {
         int num = (dst_id - TILE_WIRE_JPADDI_CCLK);
-        el.x2 = dst.location.x + slice_x1 + 0.0017f * (num + 1);
-        el.y2 = dst.location.y + slice_y2 - 1 * slice_pitch - 0.015f;
+        el.x2 = dst.location.x + slice_x1 + wire_distance * (num + 1);
+        el.y2 = dst.location.y + slice_y2 - 1 * slice_pitch - wire_length_long;
     }
     if (dst_type == id_WIRE_TYPE_G_HPBX) {
-        el.x2 = x + switchbox_x1 + 0.0017f * (200 + (dst_id - TILE_WIRE_G_HPBX0000));
+        el.x2 = x + switchbox_x1 + wire_distance * (200 + (dst_id - TILE_WIRE_G_HPBX0000));
         el.y2 = y + switchbox_y1;
     }
 }
@@ -1144,7 +1156,7 @@ void toSameSideHor(std::vector<GraphicElement> &g, GraphicElement &el, int x, in
     int sign = (src_type == dst_type) ? 1 : -1;
     setSource(el, x, y, w, h, src, src_type, src_id);
     el.x2 = el.x1;
-    el.y2 = y + switchbox_y1 + (switchbox_y2 - switchbox_y1) / 2 + sign * 0.0017f * idx;
+    el.y2 = y + switchbox_y1 + (switchbox_y2 - switchbox_y1) / 2 + sign * wire_distance * idx;
     g.push_back(el);
 
     GraphicElement el2;
@@ -1168,7 +1180,7 @@ void toSameSideVer(std::vector<GraphicElement> &g, GraphicElement &el, int x, in
 {
     int sign = (src_type == dst_type) ? 1 : -1;
     setSource(el, x, y, w, h, src, src_type, src_id);
-    el.x2 = x + switchbox_x1 + (switchbox_x2 - switchbox_x1) / 2 + sign * 0.0017f * idx;
+    el.x2 = x + switchbox_x1 + (switchbox_x2 - switchbox_x1) / 2 + sign * wire_distance * idx;
     el.y2 = el.y1;
     g.push_back(el);
 
@@ -1192,7 +1204,7 @@ void toSameSideH1Ver(std::vector<GraphicElement> &g, GraphicElement &el, int x, 
                      GraphicElement::style_t style, int idx)
 {
     setSource(el, x, y, w, h, src, src_type, src_id);
-    el.x2 = x + switchbox_x1 + (switchbox_x2 - switchbox_x1) / 2 - 0.0017f * idx;
+    el.x2 = x + switchbox_x1 + (switchbox_x2 - switchbox_x1) / 2 - wire_distance * idx;
     el.y2 = el.y1;
     g.push_back(el);
 
@@ -1243,7 +1255,7 @@ void toSameSideV1Ver(std::vector<GraphicElement> &g, GraphicElement &el, int x, 
 {
     setSource(el, x, y, w, h, src, src_type, src_id);
     el.x2 = el.x1;
-    el.y2 = y + switchbox_y1 + (switchbox_y2 - switchbox_y1) / 2 - 0.0017f * idx;
+    el.y2 = y + switchbox_y1 + (switchbox_y2 - switchbox_y1) / 2 - wire_distance * idx;
     g.push_back(el);
 
     GraphicElement el2;
