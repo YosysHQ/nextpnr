@@ -22,6 +22,24 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+const float slice_x1 = 0.92;
+const float slice_x2 = 0.94;
+const float slice_y1 = 0.71;
+const float slice_y2 = 0.745 + 0.0068;
+const float slice_pitch = 0.0374 + 0.0068;
+
+const float io_cell_v_x1 = 0.76;
+const float io_cell_v_x2 = 0.95;
+const float io_cell_v_y1 = 0.05;
+const float io_cell_v_y2 = 0.15;
+const float io_cell_v_pitch = 0.125;
+
+const float io_cell_h_x1 = 0.05;
+const float io_cell_h_x2 = 0.14;
+const float io_cell_h_y1 = 0.05;
+const float io_cell_h_y2 = 0.24;
+const float io_cell_h_pitch = 0.125;
+
 void gfxTileBel(std::vector<GraphicElement> &g, int x, int y, int z, int w, int h, IdString bel_type,
                 GraphicElement::style_t style)
 {
