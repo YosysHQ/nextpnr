@@ -807,7 +807,7 @@ class HeAPPlacer
             while (!placed) {
 
                 // Set a conservative timeout
-                if (iter > std::max(1000, 3 * int(ctx->cells.size())))
+                if (iter > std::max(10000, 3 * int(ctx->cells.size())))
                     log_error("Unable to find legal placement for cell '%s', check constraints and utilisation.\n",
                               ctx->nameOf(ci));
 
