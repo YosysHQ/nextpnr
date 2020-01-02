@@ -28,6 +28,7 @@
 
 #include <algorithm>
 #include <boost/container/flat_map.hpp>
+#include <chrono>
 #include <deque>
 #include <fstream>
 #include <queue>
@@ -353,10 +354,6 @@ struct Router2
     // Find all the wires that must be used to route a given arc
     void reserve_wires_for_arc(NetInfo *net, size_t i)
     {
-        // This is slightly tricky, because of the possibility of "diamonds"
-        // eg       /--C--\\
-        //    sink ----B----D--...
-        // we need to discover that D is a reserved wire; despite the branch and choice of B/C
         WireId src = ctx->getNetinfoSourceWire(net);
         WireId sink = ctx->getNetinfoSinkWire(net, net->users.at(i));
         if (sink == WireId())
@@ -364,7 +361,8 @@ struct Router2
         std::unordered_set<WireId> rsv;
         WireId cursor = sink;
         bool done = false;
-        log("resevering wires for arc %d of net %s\n", int(i), ctx->nameOf(net));
+        if (ctx->debug)
+            log("resevering wires for arc %d of net %s\n", int(i), ctx->nameOf(net));
         while (!done) {
             auto &wd = wires.at(cursor);
             if (ctx->debug)
@@ -855,8 +853,10 @@ struct Router2
                 mid_y = p.first;
             accum_y += p.second;
         }
-        log_info("x splitpoint: %d\n", mid_x);
-        log_info("y splitpoint: %d\n", mid_y);
+        if (ctx->verbose) {
+            log_info("    x splitpoint: %d\n", mid_x);
+            log_info("    y splitpoint: %d\n", mid_y);
+        }
         std::vector<int> bins(5, 0);
         for (auto &n : nets) {
             if (n.bb.x0 < mid_x && n.bb.x1 < mid_x && n.bb.y0 < mid_y && n.bb.y1 < mid_y)
@@ -870,8 +870,9 @@ struct Router2
             else
                 ++bins[4]; // cross-boundary
         }
-        for (int i = 0; i < 5; i++)
-            log_info("bin %d N=%d\n", i, bins[i]);
+        if (ctx->verbose)
+            for (int i = 0; i < 5; i++)
+                log_info("        bin %d N=%d\n", i, bins[i]);
     }
 
     void router_thread(ThreadContext &t)
@@ -914,7 +915,8 @@ struct Router2
                 bin = 3;
             tcs.at(bin).route_nets.push_back(ni);
         }
-        log_info("%d/%d nets not multi-threadable\n", int(tcs.at(N).route_nets.size()), int(route_queue.size()));
+        if (ctx->verbose)
+            log_info("%d/%d nets not multi-threadable\n", int(tcs.at(N).route_nets.size()), int(route_queue.size()));
         // Multithreaded part of routing
         std::vector<std::thread> threads;
         for (int i = 0; i < N; i++) {
@@ -958,7 +960,7 @@ struct Router2
             do_route();
             route_queue.clear();
             update_congestion();
-#if 1
+#if 0
             if (iter == 1 && ctx->debug) {
                 std::ofstream cong_map("cong_map_0.csv");
                 write_heatmap(cong_map, true);
@@ -979,11 +981,14 @@ struct Router2
 };
 } // namespace
 
-void router2_test(Context *ctx)
+void router2(Context *ctx)
 {
     Router2 rt;
     rt.ctx = ctx;
+    auto rstart = std::chrono::high_resolution_clock::now();
     rt.router_test();
+    auto rend = std::chrono::high_resolution_clock::now();
+    log_info("Router2 time %.02fs\n", std::chrono::duration<float>(rend - rstart).count());
 }
 
 NEXTPNR_NAMESPACE_END

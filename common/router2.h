@@ -21,6 +21,6 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-void router2_test(Context *ctx);
+void router2(Context *ctx);
 
 NEXTPNR_NAMESPACE_END
