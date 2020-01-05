@@ -83,6 +83,9 @@ class BaseMainWindow : public QMainWindow
     void taskStarted();
     void taskPaused();
 
+    void screenshot();
+    void saveMovie();
+
   Q_SIGNALS:
     void contextChanged(Context *ctx);
     void updateTreeView();
@@ -128,6 +131,9 @@ class BaseMainWindow : public QMainWindow
     QAction *actionDisplayWire;
     QAction *actionDisplayPip;
     QAction *actionDisplayGroups;
+
+    QAction *actionScreenshot;
+    QAction *actionMovie;
 };
 
 NEXTPNR_NAMESPACE_END

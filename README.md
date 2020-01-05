@@ -161,6 +161,15 @@ Notes for developers
 - To automatically format all source code, run `make clangformat`.
 - See the wiki for additional documentation on the architecture API.
 
+Recording a movie
+-----------------
+
+- To save a movie recording of place-and-route click recording icon in toolbar and select empty directory
+  where recording files will be stored and select frames to skip.
+- Manualy start all PnR operations you wish
+- Click on recording icon again to stop recording
+- Go to directory containing files and exeecute `ffmpeg -f image2 -r 1 -i movie_%05d.png -c:v libx264 nextpnr.mp4`
+
 Testing
 -------
 

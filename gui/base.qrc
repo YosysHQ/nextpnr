@@ -28,5 +28,7 @@
         <file>resources/wire.png</file>
         <file>resources/pip.png</file>
         <file>resources/group.png</file>
+        <file>resources/camera.png</file>
+        <file>resources/film.png</file>
     </qresource>
 </RCC>

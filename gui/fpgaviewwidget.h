@@ -120,13 +120,19 @@ class FPGAViewWidget : public QOpenGLWidget, protected QOpenGLFunctions
     void zoomSelected();
     void zoomOutbound();
     void enableDisableDecals(bool bels, bool wires, bool pips, bool groups);
-
+    void movieStart(QString dir, long frameSkip);
+    void movieStop();
   Q_SIGNALS:
     void clickedBel(BelId bel, bool add);
     void clickedWire(WireId wire, bool add);
     void clickedPip(PipId pip, bool add);
 
   private:
+    QString movieDir;
+    long currentMovieFrame;
+    long currentFrameSkip;
+    long movieCounter;
+    bool movieSaving;
     const float zoomNear_ = 0.05f; // do not zoom closer than this
     float zoomFar_ = 10.0f;        // do not zoom further than this
     const float zoomLvl1_ = 1.0f;
