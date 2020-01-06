@@ -88,9 +88,10 @@ NPNR_PACKED_STRUCT(struct BelPinPOD {
     int32_t pin;  // bel pin name IdString
 });
 
-enum TileWireFlags : uint32_t {
+enum TileWireFlags : uint32_t
+{
     WIRE_PRIMARY = 0x80000000,
-}
+};
 
 NPNR_PACKED_STRUCT(struct LocWireInfoPOD {
     int32_t name; // wire name in tile IdString
@@ -128,8 +129,8 @@ NPNR_PACKED_STRUCT(struct RelWireInfoPOD {
 });
 
 NPNR_PACKED_STRUCT(struct WireNeighboursInfoPOD {
-    uint16_t num_uphill, num_downhill;
-    RelPtr<RelWireInfoPOD> wires_uh, wires_dh;
+    uint32_t num_nwires;
+    RelPtr<RelWireInfoPOD> neigh_wires;
 });
 
 NPNR_PACKED_STRUCT(struct LocNeighourhoodPOD { RelPtr<WireNeighboursInfoPOD> wire_neighbours; });
@@ -165,8 +166,92 @@ NPNR_PACKED_STRUCT(struct ChipInfoPOD {
 });
 
 NPNR_PACKED_STRUCT(struct DatabasePOD {
+    uint32_t version;
     uint32_t num_chips;
+    RelPtr<char> family;
     RelPtr<ChipInfoPOD> chips;
+    uint32_t num_loctypes;
+    RelPtr<LocTypePOD> loctypes;
 });
+
+const int bba_version =
+#include "bba_version.inc"
+        ;
+
+struct ArchArgs
+{
+    std::string chipdb;
+    std::string device;
+    std::string package;
+};
+
+struct Arch : BaseCtx
+{
+    ArchArgs args;
+    Arch(ArchArgs args);
+
+    boost::iostreams::mapped_file_source blob_file;
+    const DatabasePOD *db;
+    const ChipInfoPOD *chip_info;
+
+    std::string getChipName() const;
+
+    IdString archId() const { return id("nexus"); }
+    ArchArgs archArgs() const { return args; }
+    IdString archArgsToId(ArchArgs args) const;
+
+    int getGridDimX() const { return chip_info->width; }
+    int getGridDimY() const { return chip_info->height; }
+    int getTileBelDimZ(int, int) const { return 256; }
+    int getTilePipDimZ(int, int) const { return 1; }
+
+    template <typename Id> const LocTypePOD &loc_data(Id &id) const
+    {
+        return db->loctypes[chip_info->grid[id.tile].loc_type];
+    }
+
+    template <typename Id> const LocNeighourhoodPOD &nh_data(Id &id) const
+    {
+        auto &t = chip_info->grid[id.tile];
+        return db->loctypes[t.loc_type].neighbourhoods[t.neighbourhood_type];
+    }
+
+    inline const BelInfoPOD &bel_data(BelId id) const { return loc_data(id).bels[id.index]; }
+    inline const LocWireInfoPOD &wire_data(WireId &id) const { return loc_data(id).wires[id.index]; }
+    inline const PipInfoPOD &pip_data(PipId &id) const { return loc_data(id).pips[id.index]; }
+    inline bool rel_tile(int32_t base, int16_t rel_x, int16_t rel_y, int32_t &next)
+    {
+        int32_t curr_x = base % chip_info->width;
+        int32_t curr_y = base / chip_info->width;
+        int32_t new_x = curr_x + rel_x;
+        int32_t new_y = curr_y + rel_y;
+        if (new_x < 0 || new_x >= chip_info->width)
+            return false;
+        if (new_y < 0 || new_y >= chip_info->height)
+            return false;
+        next = new_y * chip_info->width + new_x;
+        return true;
+    }
+    inline const WireId canonical_wire(int32_t tile, uint16_t index)
+    {
+        WireId wire{tile, index};
+        // `tile` is the primary location for the wire, so ID is already canonical
+        if (wire_data(wire).flags & WIRE_PRIMARY)
+            return wire;
+        // Not primary; find the primary location which forms the canonical ID
+        auto &nd = nh_data(wire);
+        auto &wn = nd.wire_neighbours[index];
+        for (size_t i = 0; i < wn.num_nwires; i++) {
+            auto &nw = wn.neigh_wires[i];
+            if (nw.arc_flags & LOGICAL_TO_PRIMARY) {
+                if (rel_tile(tile, nw.rel_x, nw.rel_y, wire.tile)) {
+                    wire.index = nw.wire_index;
+                    break;
+                }
+            }
+        }
+        return wire;
+    }
+};
 
 NEXTPNR_NAMESPACE_END

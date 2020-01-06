@@ -65,6 +65,9 @@ struct BelId
     // PIP index in tile
     int32_t index = -1;
 
+    BelId() = default;
+    inline BelId(int32_t tile, int32_t index) : tile(tile), index(index){};
+
     bool operator==(const BelId &other) const { return tile == other.tile && index == other.index; }
     bool operator!=(const BelId &other) const { return tile != other.tile || index != other.index; }
     bool operator<(const BelId &other) const
@@ -80,6 +83,9 @@ struct WireId
     // Tile wires: tile != -1; index = wire index in tile
     int32_t index = -1;
 
+    WireId() = default;
+    inline WireId(int32_t tile, int32_t index) : tile(tile), index(index){};
+
     bool operator==(const WireId &other) const { return tile == other.tile && index == other.index; }
     bool operator!=(const WireId &other) const { return tile != other.tile || index != other.index; }
     bool operator<(const WireId &other) const
@@ -93,6 +99,9 @@ struct PipId
     int32_t tile = -1;
     // PIP index in tile
     int32_t index = -1;
+
+    PipId() = default;
+    inline PipId(int32_t tile, int32_t index) : tile(tile), index(index){};
 
     bool operator==(const PipId &other) const { return tile == other.tile && index == other.index; }
     bool operator!=(const PipId &other) const { return tile != other.tile || index != other.index; }
@@ -133,9 +142,11 @@ struct DecalId
 
 struct ArchNetInfo
 {
-    bool is_global = false;
-    bool is_clock, is_reset = false, is_enable = false;
+    bool is_global;
+    bool is_clock, is_reset;
 };
+
+struct NetInfo;
 
 struct ArchCellInfo
 {
