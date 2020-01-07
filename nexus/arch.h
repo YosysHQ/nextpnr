@@ -766,7 +766,6 @@ struct Arch : BaseCtx
         return w2n == wire_to_net.end() ? nullptr : w2n->second;
     }
 
-
     WireId getConflictingWireWire(WireId wire) const { return wire; }
 
     DelayInfo getWireDelay(WireId wire) const

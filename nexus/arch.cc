@@ -30,6 +30,22 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+namespace {
+static std::tuple<int, int, std::string> split_identifier_name(const std::string &name)
+{
+    size_t first_slash = name.find('/');
+    NPNR_ASSERT(first_slash != std::string::npos);
+    size_t second_slash = name.find('/', first_slash + 1);
+    NPNR_ASSERT(second_slash != std::string::npos);
+    return std::make_tuple(std::stoi(name.substr(1, first_slash)),
+                           std::stoi(name.substr(first_slash + 2, second_slash - first_slash)),
+                           name.substr(second_slash + 1));
+};
+
+static const DatabasePOD *get_chipdb(const RelPtr<DatabasePOD> *ptr) { return ptr->get(); }
+
+} // namespace
+
 // -----------------------------------------------------------------------
 
 void IdString::initialize_arch(const BaseCtx *ctx)
@@ -40,10 +56,6 @@ void IdString::initialize_arch(const BaseCtx *ctx)
 
 #undef X
 }
-
-// -----------------------------------------------------------------------
-
-static const DatabasePOD *get_chipdb(const RelPtr<DatabasePOD> *ptr) { return ptr->get(); }
 
 // -----------------------------------------------------------------------
 
@@ -104,6 +116,199 @@ Arch::Arch(ArchArgs args) : args(args)
     for (size_t i = 0; i < chip_info->num_tiles; i++) {
         tileStatus[i].boundcells.resize(db->loctypes[chip_info->grid[i].loc_type].num_bels);
     }
+}
+
+// -----------------------------------------------------------------------
+
+std::string Arch::getChipName() const { return args.device; }
+IdString Arch::archArgsToId(ArchArgs args) const { return id(args.device); }
+
+// -----------------------------------------------------------------------
+
+BelId Arch::getBelByName(IdString name) const
+{
+    int x, y;
+    std::string belname;
+    std::tie(x, y, belname) = split_identifier_name(name.str(this));
+    NPNR_ASSERT(x >= 0 && x < chip_info->width);
+    NPNR_ASSERT(y >= 0 && y < chip_info->height);
+    auto &tile = db->loctypes[chip_info->grid[y * chip_info->width + x].loc_type];
+    IdString bn = id(belname);
+    for (size_t i = 0; i < tile.num_bels; i++) {
+        if (tile.bels[i].name == bn.index) {
+            BelId ret;
+            ret.tile = y * chip_info->width + x;
+            ret.index = i;
+            return ret;
+        }
+    }
+    return BelId();
+}
+
+BelRange Arch::getBelsByTile(int x, int y) const
+{
+    BelRange br;
+    NPNR_ASSERT(x >= 0 && x < chip_info->width);
+    NPNR_ASSERT(y >= 0 && y < chip_info->height);
+    br.b.cursor_tile = y * chip_info->width + x;
+    br.e.cursor_tile = y * chip_info->width + x;
+    br.b.cursor_index = 0;
+    br.e.cursor_index = db->loctypes[chip_info->grid[br.b.cursor_tile].loc_type].num_bels;
+    br.b.chip = chip_info;
+    br.b.db = db;
+    br.e.chip = chip_info;
+    br.e.db = db;
+    if (br.e.cursor_index == -1)
+        ++br.e.cursor_index;
+    else
+        ++br.e;
+    return br;
+}
+
+WireId Arch::getBelPinWire(BelId bel, IdString pin) const
+{
+    // Binary search on wire IdString, by ID
+    int num_bel_wires = bel_data(bel).num_ports;
+    const BelWirePOD *bel_ports = bel_data(bel).ports.get();
+
+    if (num_bel_wires < 7) {
+        for (int i = 0; i < num_bel_wires; i++) {
+            if (int(bel_ports[i].port) == pin.index) {
+                return canonical_wire(bel.tile, bel_ports[i].wire_index);
+            }
+        }
+    } else {
+        int b = 0, e = num_bel_wires - 1;
+        while (b <= e) {
+            int i = (b + e) / 2;
+            if (int(bel_ports[i].port) == pin.index) {
+                return canonical_wire(bel.tile, bel_ports[i].wire_index);
+            }
+            if (int(bel_ports[i].port) > pin.index)
+                e = i - 1;
+            else
+                b = i + 1;
+        }
+    }
+
+    return WireId();
+}
+
+PortType Arch::getBelPinType(BelId bel, IdString pin) const
+{
+    // Binary search on wire IdString, by ID
+    int num_bel_wires = bel_data(bel).num_ports;
+    const BelWirePOD *bel_ports = bel_data(bel).ports.get();
+
+    if (num_bel_wires < 7) {
+        for (int i = 0; i < num_bel_wires; i++) {
+            if (int(bel_ports[i].port) == pin.index) {
+                return PortType(bel_ports[i].type);
+            }
+        }
+    } else {
+        int b = 0, e = num_bel_wires - 1;
+        while (b <= e) {
+            int i = (b + e) / 2;
+            if (int(bel_ports[i].port) == pin.index) {
+                return PortType(bel_ports[i].type);
+            }
+            if (int(bel_ports[i].port) > pin.index)
+                e = i - 1;
+            else
+                b = i + 1;
+        }
+    }
+
+    NPNR_ASSERT_FALSE("unknown bel pin");
+}
+
+std::vector<IdString> Arch::getBelPins(BelId bel) const
+{
+    std::vector<IdString> ret;
+    int num_bel_wires = bel_data(bel).num_ports;
+    const BelWirePOD *bel_ports = bel_data(bel).ports.get();
+    for (int i = 0; i < num_bel_wires; i++)
+        ret.push_back(IdString(bel_ports[i].port));
+    return ret;
+}
+
+// -----------------------------------------------------------------------
+
+WireId Arch::getWireByName(IdString name) const
+{
+    int x, y;
+    std::string wirename;
+    std::tie(x, y, wirename) = split_identifier_name(name.str(this));
+    NPNR_ASSERT(x >= 0 && x < chip_info->width);
+    NPNR_ASSERT(y >= 0 && y < chip_info->height);
+    auto &tile = db->loctypes[chip_info->grid[y * chip_info->width + x].loc_type];
+    IdString wn = id(wirename);
+    for (size_t i = 0; i < tile.num_wires; i++) {
+        if (tile.wires[i].name == wn.index) {
+            WireId ret;
+            ret.tile = y * chip_info->width + x;
+            ret.index = i;
+            return ret;
+        }
+    }
+    return WireId();
+}
+
+IdString Arch::getWireType(WireId wire) const { return id("WIRE"); }
+
+std::vector<std::pair<IdString, std::string>> Arch::getWireAttrs(WireId wire) const
+{
+    std::vector<std::pair<IdString, std::string>> ret;
+
+    ret.emplace_back(id("INDEX"), stringf("%d", wire.index));
+
+    ret.emplace_back(id("GRID_X"), stringf("%d", wire.tile % chip_info->width));
+    ret.emplace_back(id("GRID_Y"), stringf("%d", wire.tile / chip_info->width));
+    ret.emplace_back(id("FLAGS"), stringf("%u", wire_data(wire).flags));
+
+    return ret;
+}
+
+// -----------------------------------------------------------------------
+
+PipId Arch::getPipByName(IdString name) const
+{
+    int x, y;
+    std::string pipname;
+    std::tie(x, y, pipname) = split_identifier_name(name.str(this));
+    NPNR_ASSERT(x >= 0 && x < chip_info->width);
+    NPNR_ASSERT(y >= 0 && y < chip_info->height);
+    PipId ret;
+    ret.tile = y * chip_info->width + x;
+    auto sep_pos = pipname.find(':');
+    ret.index = std::stoi(pipname.substr(0, sep_pos));
+    return ret;
+}
+
+IdString Arch::getPipName(PipId pip) const
+{
+    NPNR_ASSERT(pip != PipId());
+    return id(stringf("X%d/Y%d/%d:%s->%s", pip.tile % chip_info->width, pip.tile / chip_info->width, pip.index,
+                      nameOf(loc_data(pip).wires[pip_data(pip).from_wire].name),
+                      nameOf(loc_data(pip).wires[pip_data(pip).to_wire].name)));
+}
+
+IdString Arch::getPipType(PipId pip) const { return IdString(); }
+
+std::vector<std::pair<IdString, std::string>> Arch::getPipAttrs(PipId pip) const
+{
+    std::vector<std::pair<IdString, std::string>> ret;
+
+    ret.emplace_back(id("INDEX"), stringf("%d", pip.index));
+
+    ret.emplace_back(id("GRID_X"), stringf("%d", pip.tile % chip_info->width));
+    ret.emplace_back(id("GRID_Y"), stringf("%d", pip.tile / chip_info->width));
+
+    ret.emplace_back(id("FROM_TILE_WIRE"), nameOf(loc_data(pip).wires[pip_data(pip).from_wire].name));
+    ret.emplace_back(id("TO_TILE_WIRE"), nameOf(loc_data(pip).wires[pip_data(pip).to_wire].name));
+
+    return ret;
 }
 
 NEXTPNR_NAMESPACE_END
