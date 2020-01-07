@@ -90,7 +90,7 @@ Arch::Arch(ArchArgs args) : args(args)
     // Check database version and family
     if (db->version != bba_version) {
         log_error("Provided database version %d is %s than nextpnr version %d, please rebuild database/nextpnr.\n",
-                  db->version, (db->version > bba_version) ? "newer" : "older", bba_version);
+                  int(db->version), (db->version > bba_version) ? "newer" : "older", int(bba_version));
     }
     if (db->family.get() != family) {
         log_error("Database is for family '%s' but provided device is family '%s'.\n", db->family.get(),
