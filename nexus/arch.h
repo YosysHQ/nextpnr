@@ -180,6 +180,7 @@ NPNR_PACKED_STRUCT(struct DatabasePOD {
     RelPtr<char> family;
     RelPtr<ChipInfoPOD> chips;
     RelPtr<LocTypePOD> loctypes;
+    RelPtr<IdStringDBPOD> ids;
 });
 
 // -----------------------------------------------------------------------
@@ -562,12 +563,12 @@ struct ArchArgs
 {
     std::string chipdb;
     std::string device;
-    std::string package;
 };
 
 struct Arch : BaseCtx
 {
     ArchArgs args;
+    std::string family, device, package, speed, rating;
     Arch(ArchArgs args);
 
     // -------------------------------------------------
@@ -757,6 +758,14 @@ struct Arch : BaseCtx
         auto w2n = wire_to_net.find(wire);
         return w2n == wire_to_net.end() ? nullptr : w2n->second;
     }
+
+    NetInfo *getConflictingWireNet(WireId wire) const
+    {
+        NPNR_ASSERT(wire != WireId());
+        auto w2n = wire_to_net.find(wire);
+        return w2n == wire_to_net.end() ? nullptr : w2n->second;
+    }
+
 
     WireId getConflictingWireWire(WireId wire) const { return wire; }
 
@@ -1047,7 +1056,7 @@ struct Arch : BaseCtx
     {
         return chip_rel_tile(chip_info, base, rel_x, rel_y, next);
     }
-    inline const WireId canonical_wire(int32_t tile, uint16_t index) const
+    inline WireId canonical_wire(int32_t tile, uint16_t index) const
     {
         return chip_canonical_wire(db, chip_info, tile, index);
     }
