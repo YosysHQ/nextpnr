@@ -79,7 +79,7 @@ NPNR_PACKED_STRUCT(struct BelInfoPOD {
     int32_t name;             // bel name in tile IdString
     int32_t type;             // bel type IdString
     int16_t rel_x, rel_y;     // bel location relative to parent
-    uint32_t z;               // bel location absolute Z
+    int32_t z;                // bel location absolute Z
     RelPtr<BelWirePOD> ports; // ports, sorted by name IdString
     int32_t num_ports;        // number of ports
 });
@@ -680,7 +680,22 @@ struct Arch : BaseCtx
         return loc;
     }
 
-    BelId getBelByLocation(Loc loc) const;
+    BelId getBelByLocation(Loc loc) const
+    {
+        BelId ret;
+        auto &t = db->loctypes[chip_info->grid[loc.y * chip_info->width + loc.x].loc_type];
+        if (loc.x >= 0 && loc.x < chip_info->width && loc.y >= 0 && loc.y < chip_info->height) {
+            for (size_t i = 0; i < t.num_bels; i++) {
+                if (t.bels[i].z == loc.z) {
+                    ret.tile = loc.y * chip_info->width + loc.x;
+                    ret.index = i;
+                    break;
+                }
+            }
+        }
+        return ret;
+    }
+
     BelRange getBelsByTile(int x, int y) const;
 
     bool getBelGlobalBuf(BelId bel) const { return false; }
@@ -968,7 +983,7 @@ struct Arch : BaseCtx
 
     // -------------------------------------------------
 
-    delay_t estimateDelay(WireId src, WireId dst, bool debug = false) const;
+    delay_t estimateDelay(WireId src, WireId dst) const;
     delay_t predictDelay(const NetInfo *net_info, const PortRef &sink) const;
     delay_t getDelayEpsilon() const { return 20; }
     delay_t getRipupDelayPenalty() const { return 120; }

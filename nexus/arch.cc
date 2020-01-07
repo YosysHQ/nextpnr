@@ -311,4 +311,125 @@ std::vector<std::pair<IdString, std::string>> Arch::getPipAttrs(PipId pip) const
     return ret;
 }
 
+// -----------------------------------------------------------------------
+
+std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
+{
+    std::vector<GraphicElement> ret;
+
+    return ret;
+}
+
+DecalXY Arch::getBelDecal(BelId bel) const
+{
+    DecalXY decalxy;
+    decalxy.decal.index = -1;
+    decalxy.x = 0;
+    decalxy.y = 0;
+    return decalxy;
+}
+
+DecalXY Arch::getWireDecal(WireId wire) const { return {}; }
+
+DecalXY Arch::getPipDecal(PipId pip) const { return {}; };
+
+DecalXY Arch::getGroupDecal(GroupId pip) const { return {}; };
+
+// -----------------------------------------------------------------------
+
+bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const
+{
+    return false;
+}
+
+TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const
+{
+    return TMG_IGNORE;
+}
+
+TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port, int index) const { return {}; }
+
+// -----------------------------------------------------------------------
+
+delay_t Arch::estimateDelay(WireId src, WireId dst) const
+{
+    int src_x = src.tile % chip_info->width, src_y = src.tile / chip_info->width;
+    int dst_x = dst.tile % chip_info->width, dst_y = dst.tile / chip_info->width;
+    int dist_x = std::abs(src_x - dst_x);
+    int dist_y = std::abs(src_y - dst_y);
+    return 100 * dist_x + 100 * dist_y;
+}
+delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
+{
+    if (net_info->driver.cell == nullptr || net_info->driver.cell->bel == BelId() || sink.cell->bel == BelId())
+        return 0;
+    int src_x = net_info->driver.cell->bel.tile % chip_info->width,
+        src_y = net_info->driver.cell->bel.tile / chip_info->width;
+
+    int dst_x = sink.cell->bel.tile % chip_info->width, dst_y = sink.cell->bel.tile / chip_info->width;
+    int dist_x = std::abs(src_x - dst_x);
+    int dist_y = std::abs(src_y - dst_y);
+    return 100 * dist_x + 100 * dist_y;
+}
+
+bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const { return false; }
+
+// -----------------------------------------------------------------------
+
+bool Arch::pack()
+{
+    // FIXME
+    getCtx()->attrs[getCtx()->id("step")] = std::string("pack");
+    archInfoToAttributes();
+    return true;
+}
+
+bool Arch::place()
+{
+    std::string placer = str_or_default(settings, id("placer"), defaultPlacer);
+
+    if (placer == "heap") {
+        PlacerHeapCfg cfg(getCtx());
+        cfg.criticalityExponent = 7;
+        if (!placer_heap(getCtx(), cfg))
+            return false;
+    } else if (placer == "sa") {
+        if (!placer1(getCtx(), Placer1Cfg(getCtx())))
+            return false;
+    } else {
+        log_error("Nexus architecture does not support placer '%s'\n", placer.c_str());
+    }
+    getCtx()->attrs[getCtx()->id("step")] = std::string("place");
+    archInfoToAttributes();
+    return true;
+}
+
+bool Arch::route()
+{
+    assign_budget(getCtx(), true);
+    bool result = router1(getCtx(), Router1Cfg(getCtx()));
+    getCtx()->attrs[getCtx()->id("step")] = std::string("route");
+    archInfoToAttributes();
+    return result;
+}
+
+// -----------------------------------------------------------------------
+
+void Arch::assignArchInfo() {}
+
+void assignCellInfo(CellInfo *cell) {}
+
+// -----------------------------------------------------------------------
+
+#ifdef WITH_HEAP
+const std::string Arch::defaultPlacer = "heap";
+#else
+const std::string Arch::defaultPlacer = "sa";
+#endif
+
+const std::vector<std::string> Arch::availablePlacers = {"sa",
+#ifdef WITH_HEAP
+                                                         "heap"
+#endif
+};
 NEXTPNR_NAMESPACE_END
