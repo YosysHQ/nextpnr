@@ -79,6 +79,7 @@ NPNR_PACKED_STRUCT(struct BelInfoPOD {
     int32_t name;             // bel name in tile IdString
     int32_t type;             // bel type IdString
     int16_t rel_x, rel_y;     // bel location relative to parent
+    uint32_t z;               // bel location absolute Z
     RelPtr<BelWirePOD> ports; // ports, sorted by name IdString
     int32_t num_ports;        // number of ports
 });
@@ -166,12 +167,18 @@ NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     RelPtr<GridLocationPOD> grid;
 });
 
+NPNR_PACKED_STRUCT(struct IdStringDBPOD {
+    uint32_t num_file_ids; // number of IDs loaded from constids.inc
+    uint32_t num_bba_ids;  // number of IDs in BBA file
+    RelPtr<RelPtr<char>> bba_id_strs;
+});
+
 NPNR_PACKED_STRUCT(struct DatabasePOD {
     uint32_t version;
     uint32_t num_chips;
+    uint32_t num_loctypes;
     RelPtr<char> family;
     RelPtr<ChipInfoPOD> chips;
-    uint32_t num_loctypes;
     RelPtr<LocTypePOD> loctypes;
 });
 
@@ -179,12 +186,13 @@ NPNR_PACKED_STRUCT(struct DatabasePOD {
 
 // Helper functions for database access
 namespace {
-template <typename Id> const LocTypePOD &chip_loc_data(const DatabasePOD *db, const ChipInfoPOD *chip, Id &id)
+template <typename Id> const LocTypePOD &chip_loc_data(const DatabasePOD *db, const ChipInfoPOD *chip, const Id &id)
 {
     return db->loctypes[chip->grid[id.tile].loc_type];
 }
 
-template <typename Id> const LocNeighourhoodPOD &chip_nh_data(const DatabasePOD *db, const ChipInfoPOD *chip, Id &id)
+template <typename Id>
+const LocNeighourhoodPOD &chip_nh_data(const DatabasePOD *db, const ChipInfoPOD *chip, const Id &id)
 {
     auto &t = chip->grid[id.tile];
     return db->loctypes[t.loc_type].neighbourhoods[t.neighbourhood_type];
@@ -194,11 +202,11 @@ inline const BelInfoPOD &chip_bel_data(const DatabasePOD *db, const ChipInfoPOD 
 {
     return chip_loc_data(db, chip, id).bels[id.index];
 }
-inline const LocWireInfoPOD &chip_wire_data(const DatabasePOD *db, const ChipInfoPOD *chip, WireId &id)
+inline const LocWireInfoPOD &chip_wire_data(const DatabasePOD *db, const ChipInfoPOD *chip, WireId id)
 {
     return chip_loc_data(db, chip, id).wires[id.index];
 }
-inline const PipInfoPOD &chip_pip_data(const DatabasePOD *db, const ChipInfoPOD *chip, PipId &id)
+inline const PipInfoPOD &chip_pip_data(const DatabasePOD *db, const ChipInfoPOD *chip, PipId id)
 {
     return chip_loc_data(db, chip, id).pips[id.index];
 }
@@ -365,7 +373,7 @@ struct WireRange
 };
 
 // Iterate over all neighour wires for a wire
-struct TileWireIterator
+struct NeighWireIterator
 {
     const DatabasePOD *db;
     const ChipInfoPOD *chip;
@@ -382,7 +390,7 @@ struct TileWireIterator
                ((wn.neigh_wires[cursor].arc_flags & LOGICAL_TO_PRIMARY) ||
                 !chip_rel_tile(chip, baseWire.tile, wn.neigh_wires[cursor].rel_x, wn.neigh_wires[cursor].rel_y, tile)));
     }
-    bool operator!=(const TileWireIterator &other) const { return cursor != other.cursor; }
+    bool operator!=(const NeighWireIterator &other) const { return cursor != other.cursor; }
 
     // Returns a *denormalised* identifier that may be a non-primary wire (and thus should _not_ be used
     // as a WireId in general as it will break invariants)
@@ -399,6 +407,13 @@ struct TileWireIterator
             return result;
         }
     }
+};
+
+struct NeighWireRange
+{
+    NeighWireIterator b, e;
+    NeighWireIterator begin() const { return b; }
+    NeighWireIterator end() const { return e; }
 };
 
 // -----------------------------------------------------------------------
@@ -459,7 +474,7 @@ struct UpDownhillPipIterator
 {
     const DatabasePOD *db;
     const ChipInfoPOD *chip;
-    TileWireIterator twi, twi_end;
+    NeighWireIterator twi, twi_end;
     int cursor = -1;
     bool uphill = false;
 
@@ -497,6 +512,46 @@ struct UpDownhillPipRange
     UpDownhillPipIterator end() const { return e; }
 };
 
+struct WireBelPinIterator
+{
+    const DatabasePOD *db;
+    const ChipInfoPOD *chip;
+    NeighWireIterator twi, twi_end;
+    int cursor = -1;
+
+    void operator++()
+    {
+        cursor++;
+        while (true) {
+            if (!(twi != twi_end))
+                break;
+            if (cursor < chip_wire_data(db, chip, *twi).num_bpins)
+                break;
+            ++twi;
+            cursor = 0;
+        }
+    }
+    bool operator!=(const WireBelPinIterator &other) const { return twi != other.twi || cursor != other.cursor; }
+
+    BelPin operator*() const
+    {
+        BelPin ret;
+        WireId w = *twi;
+        auto &bp = chip_wire_data(db, chip, w).bel_pins[cursor];
+        ret.bel.tile = w.tile;
+        ret.bel.index = bp.bel;
+        ret.pin = IdString(bp.pin);
+        return ret;
+    }
+};
+
+struct WireBelPinRange
+{
+    WireBelPinIterator b, e;
+    WireBelPinIterator begin() const { return b; }
+    WireBelPinIterator end() const { return e; }
+};
+
 // -----------------------------------------------------------------------
 
 const int bba_version =
@@ -515,9 +570,23 @@ struct Arch : BaseCtx
     ArchArgs args;
     Arch(ArchArgs args);
 
+    // -------------------------------------------------
+
+    // Database references
     boost::iostreams::mapped_file_source blob_file;
     const DatabasePOD *db;
     const ChipInfoPOD *chip_info;
+
+    // Binding states
+    struct TileStatus
+    {
+        std::vector<CellInfo *> boundcells;
+    };
+    std::vector<TileStatus> tileStatus;
+    std::unordered_map<WireId, NetInfo *> wire_to_net;
+    std::unordered_map<PipId, NetInfo *> pip_to_net;
+
+    // -------------------------------------------------
 
     std::string getChipName() const;
 
@@ -530,20 +599,474 @@ struct Arch : BaseCtx
     int getTileBelDimZ(int, int) const { return 256; }
     int getTilePipDimZ(int, int) const { return 1; }
 
-    template <typename Id> const LocTypePOD &loc_data(Id &id) const { return chip_loc_data(db, chip_info, id); }
+    // -------------------------------------------------
 
-    template <typename Id> const LocNeighourhoodPOD &nh_data(Id &id) const { return chip_nh_data(db, chip_info, id); }
+    BelId getBelByName(IdString name) const;
+
+    IdString getBelName(BelId bel) const
+    {
+        std::string name = "X";
+        name += std::to_string(bel.tile % chip_info->width);
+        name += "Y";
+        name += std::to_string(bel.tile / chip_info->width);
+        name += "/";
+        name += nameOf(IdString(bel_data(bel).name));
+        return id(name);
+    }
+
+    uint32_t getBelChecksum(BelId bel) const { return (bel.tile << 16) ^ bel.index; }
+
+    void bindBel(BelId bel, CellInfo *cell, PlaceStrength strength)
+    {
+        NPNR_ASSERT(bel != BelId());
+        NPNR_ASSERT(tileStatus[bel.tile].boundcells[bel.index] == nullptr);
+        tileStatus[bel.tile].boundcells[bel.index] = cell;
+        cell->bel = bel;
+        cell->belStrength = strength;
+        refreshUiBel(bel);
+    }
+
+    void unbindBel(BelId bel)
+    {
+        NPNR_ASSERT(bel != BelId());
+        NPNR_ASSERT(tileStatus[bel.tile].boundcells[bel.index] != nullptr);
+        tileStatus[bel.tile].boundcells[bel.index]->bel = BelId();
+        tileStatus[bel.tile].boundcells[bel.index]->belStrength = STRENGTH_NONE;
+        tileStatus[bel.tile].boundcells[bel.index] = nullptr;
+        refreshUiBel(bel);
+    }
+
+    bool checkBelAvail(BelId bel) const
+    {
+        NPNR_ASSERT(bel != BelId());
+        return tileStatus[bel.tile].boundcells[bel.index] == nullptr;
+    }
+
+    CellInfo *getBoundBelCell(BelId bel) const
+    {
+        NPNR_ASSERT(bel != BelId());
+        return tileStatus[bel.tile].boundcells[bel.index];
+    }
+
+    CellInfo *getConflictingBelCell(BelId bel) const
+    {
+        NPNR_ASSERT(bel != BelId());
+        return tileStatus[bel.tile].boundcells[bel.index];
+    }
+
+    BelRange getBels() const
+    {
+        BelRange range;
+        range.b.cursor_tile = 0;
+        range.b.cursor_index = -1;
+        range.b.chip = chip_info;
+        range.b.db = db;
+        ++range.b; //-1 and then ++ deals with the case of no bels in the first tile
+        range.e.cursor_tile = chip_info->width * chip_info->height;
+        range.e.cursor_index = 0;
+        range.e.chip = chip_info;
+        range.e.db = db;
+        return range;
+    }
+
+    Loc getBelLocation(BelId bel) const
+    {
+        NPNR_ASSERT(bel != BelId());
+        Loc loc;
+        loc.x = bel.tile % chip_info->width;
+        loc.y = bel.tile / chip_info->width;
+        loc.z = bel_data(bel).z;
+        return loc;
+    }
+
+    BelId getBelByLocation(Loc loc) const;
+    BelRange getBelsByTile(int x, int y) const;
+
+    bool getBelGlobalBuf(BelId bel) const { return false; }
+
+    IdString getBelType(BelId bel) const
+    {
+        NPNR_ASSERT(bel != BelId());
+        return IdString(bel_data(bel).type);
+    }
+
+    std::vector<std::pair<IdString, std::string>> getBelAttrs(BelId bel) const;
+
+    WireId getBelPinWire(BelId bel, IdString pin) const;
+    PortType getBelPinType(BelId bel, IdString pin) const;
+    std::vector<IdString> getBelPins(BelId bel) const;
+
+    // -------------------------------------------------
+
+    WireId getWireByName(IdString name) const;
+    IdString getWireName(WireId wire) const
+    {
+        std::string name = "X";
+        name += std::to_string(wire.tile % chip_info->width);
+        name += "Y";
+        name += std::to_string(wire.tile / chip_info->width);
+        name += "/";
+        name += nameOf(IdString(wire_data(wire).name));
+        return id(name);
+    }
+
+    IdString getWireType(WireId wire) const;
+    std::vector<std::pair<IdString, std::string>> getWireAttrs(WireId wire) const;
+
+    uint32_t getWireChecksum(WireId wire) const { return (wire.tile << 16) ^ wire.index; }
+
+    void bindWire(WireId wire, NetInfo *net, PlaceStrength strength)
+    {
+        NPNR_ASSERT(wire != WireId());
+        NPNR_ASSERT(wire_to_net[wire] == nullptr);
+        wire_to_net[wire] = net;
+        net->wires[wire].pip = PipId();
+        net->wires[wire].strength = strength;
+        refreshUiWire(wire);
+    }
+
+    void unbindWire(WireId wire)
+    {
+        NPNR_ASSERT(wire != WireId());
+        NPNR_ASSERT(wire_to_net[wire] != nullptr);
+
+        auto &net_wires = wire_to_net[wire]->wires;
+        auto it = net_wires.find(wire);
+        NPNR_ASSERT(it != net_wires.end());
+
+        auto pip = it->second.pip;
+        if (pip != PipId()) {
+            pip_to_net[pip] = nullptr;
+        }
+
+        net_wires.erase(it);
+        wire_to_net[wire] = nullptr;
+        refreshUiWire(wire);
+    }
+
+    bool checkWireAvail(WireId wire) const
+    {
+        NPNR_ASSERT(wire != WireId());
+        auto w2n = wire_to_net.find(wire);
+        return w2n == wire_to_net.end() || w2n->second == nullptr;
+    }
+
+    NetInfo *getBoundWireNet(WireId wire) const
+    {
+        NPNR_ASSERT(wire != WireId());
+        auto w2n = wire_to_net.find(wire);
+        return w2n == wire_to_net.end() ? nullptr : w2n->second;
+    }
+
+    WireId getConflictingWireWire(WireId wire) const { return wire; }
+
+    DelayInfo getWireDelay(WireId wire) const
+    {
+        DelayInfo delay;
+        delay.min_delay = 0;
+        delay.max_delay = 0;
+        return delay;
+    }
+
+    WireBelPinRange getWireBelPins(WireId wire) const
+    {
+        WireBelPinRange range;
+        NPNR_ASSERT(wire != WireId());
+        NeighWireRange nwr = neigh_wire_range(wire);
+        range.b.chip = chip_info;
+        range.b.db = db;
+        range.b.twi = nwr.b;
+        range.b.twi_end = nwr.e;
+        range.b.cursor = -1;
+        ++range.b;
+        range.e.chip = chip_info;
+        range.e.db = db;
+        range.e.twi = nwr.e;
+        range.e.twi_end = nwr.e;
+        range.e.cursor = 0;
+        return range;
+    }
+
+    WireRange getWires() const
+    {
+        WireRange range;
+        range.b.chip = chip_info;
+        range.b.db = db;
+        range.b.cursor_tile = 0;
+        range.b.cursor_index = -1;
+        ++range.b; //-1 and then ++ deals with the case of no wires in the first tile
+        range.e.chip = chip_info;
+        range.e.db = db;
+        range.e.cursor_tile = chip_info->num_tiles;
+        range.e.cursor_index = 0;
+        return range;
+    }
+
+    // -------------------------------------------------
+
+    PipId getPipByName(IdString name) const;
+    IdString getPipName(PipId pip) const;
+
+    void bindPip(PipId pip, NetInfo *net, PlaceStrength strength)
+    {
+        NPNR_ASSERT(pip != PipId());
+        NPNR_ASSERT(pip_to_net[pip] == nullptr);
+
+        WireId dst = canonical_wire(pip.tile, pip_data(pip).to_wire);
+        NPNR_ASSERT(wire_to_net[dst] == nullptr || wire_to_net[dst] == net);
+
+        pip_to_net[pip] = net;
+
+        wire_to_net[dst] = net;
+        net->wires[dst].pip = pip;
+        net->wires[dst].strength = strength;
+        refreshUiPip(pip);
+        refreshUiWire(dst);
+    }
+
+    void unbindPip(PipId pip)
+    {
+        NPNR_ASSERT(pip != PipId());
+        NPNR_ASSERT(pip_to_net[pip] != nullptr);
+
+        WireId dst = canonical_wire(pip.tile, pip_data(pip).to_wire);
+        NPNR_ASSERT(wire_to_net[dst] != nullptr);
+        wire_to_net[dst] = nullptr;
+        pip_to_net[pip]->wires.erase(dst);
+
+        pip_to_net[pip] = nullptr;
+        refreshUiPip(pip);
+        refreshUiWire(dst);
+    }
+
+    bool checkPipAvail(PipId pip) const
+    {
+        NPNR_ASSERT(pip != PipId());
+        return pip_to_net.find(pip) == pip_to_net.end() || pip_to_net.at(pip) == nullptr;
+    }
+
+    NetInfo *getBoundPipNet(PipId pip) const
+    {
+        NPNR_ASSERT(pip != PipId());
+        auto p2n = pip_to_net.find(pip);
+        return p2n == pip_to_net.end() ? nullptr : p2n->second;
+    }
+
+    WireId getConflictingPipWire(PipId pip) const { return getPipDstWire(pip); }
+
+    NetInfo *getConflictingPipNet(PipId pip) const
+    {
+        NPNR_ASSERT(pip != PipId());
+        auto p2n = pip_to_net.find(pip);
+        return p2n == pip_to_net.end() ? nullptr : p2n->second;
+    }
+
+    AllPipRange getPips() const
+    {
+        AllPipRange range;
+        range.b.cursor_tile = 0;
+        range.b.cursor_index = -1;
+        range.b.chip = chip_info;
+        range.b.db = db;
+        ++range.b; //-1 and then ++ deals with the case of no pips in the first tile
+        range.e.cursor_tile = chip_info->width * chip_info->height;
+        range.e.cursor_index = 0;
+        range.e.chip = chip_info;
+        range.e.db = db;
+        return range;
+    }
+
+    Loc getPipLocation(PipId pip) const
+    {
+        Loc loc;
+        loc.x = pip.tile % chip_info->width;
+        loc.y = pip.tile / chip_info->width;
+        loc.z = 0;
+        return loc;
+    }
+
+    IdString getPipType(PipId pip) const;
+    std::vector<std::pair<IdString, std::string>> getPipAttrs(PipId pip) const;
+
+    uint32_t getPipChecksum(PipId pip) const { return pip.tile << 16 | pip.index; }
+
+    WireId getPipSrcWire(PipId pip) const { return canonical_wire(pip.tile, pip_data(pip).from_wire); }
+
+    WireId getPipDstWire(PipId pip) const { return canonical_wire(pip.tile, pip_data(pip).to_wire); }
+
+    DelayInfo getPipDelay(PipId pip) const { return getDelayFromNS(0.1); }
+
+    UpDownhillPipRange getPipsDownhill(WireId wire) const
+    {
+        UpDownhillPipRange range;
+        NPNR_ASSERT(wire != WireId());
+        NeighWireRange nwr = neigh_wire_range(wire);
+        range.b.chip = chip_info;
+        range.b.db = db;
+        range.b.twi = nwr.b;
+        range.b.twi_end = nwr.e;
+        range.b.cursor = -1;
+        range.b.uphill = false;
+        ++range.b;
+        range.e.chip = chip_info;
+        range.e.db = db;
+        range.e.twi = nwr.e;
+        range.e.twi_end = nwr.e;
+        range.e.cursor = 0;
+        range.e.uphill = false;
+        return range;
+    }
+
+    UpDownhillPipRange getPipsUphill(WireId wire) const
+    {
+        UpDownhillPipRange range;
+        NPNR_ASSERT(wire != WireId());
+        NeighWireRange nwr = neigh_wire_range(wire);
+        range.b.chip = chip_info;
+        range.b.db = db;
+        range.b.twi = nwr.b;
+        range.b.twi_end = nwr.e;
+        range.b.cursor = -1;
+        range.b.uphill = true;
+        ++range.b;
+        range.e.chip = chip_info;
+        range.e.db = db;
+        range.e.twi = nwr.e;
+        range.e.twi_end = nwr.e;
+        range.e.cursor = 0;
+        range.e.uphill = true;
+        return range;
+    }
+
+    UpDownhillPipRange getWireAliases(WireId wire) const
+    {
+        UpDownhillPipRange range;
+        range.b.cursor = 0;
+        range.b.twi.cursor = 0;
+        range.e.cursor = 0;
+        range.e.twi.cursor = 0;
+        return range;
+    }
+
+    // -------------------------------------------------
+
+    GroupId getGroupByName(IdString name) const { return GroupId(); }
+    IdString getGroupName(GroupId group) const { return IdString(); }
+    std::vector<GroupId> getGroups() const { return {}; }
+    std::vector<BelId> getGroupBels(GroupId group) const { return {}; }
+    std::vector<WireId> getGroupWires(GroupId group) const { return {}; }
+    std::vector<PipId> getGroupPips(GroupId group) const { return {}; }
+    std::vector<GroupId> getGroupGroups(GroupId group) const { return {}; }
+
+    // -------------------------------------------------
+
+    delay_t estimateDelay(WireId src, WireId dst, bool debug = false) const;
+    delay_t predictDelay(const NetInfo *net_info, const PortRef &sink) const;
+    delay_t getDelayEpsilon() const { return 20; }
+    delay_t getRipupDelayPenalty() const { return 120; }
+    delay_t getWireRipupDelayPenalty(WireId wire) const;
+    float getDelayNS(delay_t v) const { return v * 0.001; }
+    DelayInfo getDelayFromNS(float ns) const
+    {
+        DelayInfo del;
+        del.min_delay = delay_t(ns * 1000);
+        del.max_delay = delay_t(ns * 1000);
+        return del;
+    }
+    uint32_t getDelayChecksum(delay_t v) const { return v; }
+    bool getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const;
+
+    // -------------------------------------------------
+
+    // Get the delay through a cell from one port to another, returning false
+    // if no path exists. This only considers combinational delays, as required by the Arch API
+    bool getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const;
+    // getCellDelayInternal is similar to the above, but without false path checks and including clock to out delays
+    // for internal arch use only
+    bool getCellDelayInternal(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const;
+    // Get the port class, also setting clockInfoCount to the number of TimingClockingInfos associated with a port
+    TimingPortClass getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const;
+    // Get the TimingClockingInfo of a port
+    TimingClockingInfo getPortClockingInfo(const CellInfo *cell, IdString port, int index) const;
+    // Return true if a net is global
+    bool isGlobalNet(const NetInfo *net) const;
+
+    // -------------------------------------------------
+
+    // Perform placement validity checks, returning false on failure (all
+    // implemented in arch_place.cc)
+
+    // Whether or not a given cell can be placed at a given Bel
+    // This is not intended for Bel type checks, but finer-grained constraints
+    // such as conflicting set/reset signals, etc
+    bool isValidBelForCell(CellInfo *cell, BelId bel) const;
+
+    // Return true whether all Bels at a given location are valid
+    bool isBelLocationValid(BelId bel) const;
+
+    // -------------------------------------------------
+
+    bool pack();
+    bool place();
+    bool route();
+
+    // -------------------------------------------------
+    // Assign architecure-specific arguments to nets and cells, which must be
+    // called between packing or further
+    // netlist modifications, and validity checks
+    void assignArchInfo();
+    void assignCellInfo(CellInfo *cell);
+
+    // -------------------------------------------------
+
+    std::vector<GraphicElement> getDecalGraphics(DecalId decal) const;
+
+    DecalXY getBelDecal(BelId bel) const;
+    DecalXY getWireDecal(WireId wire) const;
+    DecalXY getPipDecal(PipId pip) const;
+    DecalXY getGroupDecal(GroupId group) const;
+
+    // -------------------------------------------------
+
+    static const std::string defaultPlacer;
+    static const std::vector<std::string> availablePlacers;
+
+    // -------------------------------------------------
+
+    template <typename Id> const LocTypePOD &loc_data(const Id &id) const { return chip_loc_data(db, chip_info, id); }
+
+    template <typename Id> const LocNeighourhoodPOD &nh_data(const Id &id) const
+    {
+        return chip_nh_data(db, chip_info, id);
+    }
 
     inline const BelInfoPOD &bel_data(BelId id) const { return chip_bel_data(db, chip_info, id); }
-    inline const LocWireInfoPOD &wire_data(WireId &id) const { return chip_wire_data(db, chip_info, id); }
-    inline const PipInfoPOD &pip_data(PipId &id) const { return chip_pip_data(db, chip_info, id); }
-    inline bool rel_tile(int32_t base, int16_t rel_x, int16_t rel_y, int32_t &next)
+    inline const LocWireInfoPOD &wire_data(WireId id) const { return chip_wire_data(db, chip_info, id); }
+    inline const PipInfoPOD &pip_data(PipId id) const { return chip_pip_data(db, chip_info, id); }
+    inline bool rel_tile(int32_t base, int16_t rel_x, int16_t rel_y, int32_t &next) const
     {
         return chip_rel_tile(chip_info, base, rel_x, rel_y, next);
     }
-    inline const WireId canonical_wire(int32_t tile, uint16_t index)
+    inline const WireId canonical_wire(int32_t tile, uint16_t index) const
     {
         return chip_canonical_wire(db, chip_info, tile, index);
+    }
+
+    // -------------------------------------------------
+
+    NeighWireRange neigh_wire_range(WireId wire) const
+    {
+        NeighWireRange range;
+        range.b.chip = chip_info;
+        range.b.db = db;
+        range.b.baseWire = wire;
+        range.b.cursor = -1;
+
+        range.e.chip = chip_info;
+        range.e.db = db;
+        range.e.baseWire = wire;
+        range.e.cursor = nh_data(wire).wire_neighbours[wire.index].num_nwires;
+        return range;
     }
 };
 
