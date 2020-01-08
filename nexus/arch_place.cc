@@ -23,6 +23,76 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+enum LogicBelZ
+{
+    BEL_LUT0 = 0,
+    BEL_LUT1 = 1,
+    BEL_FF0 = 2,
+    BEL_FF1 = 3,
+    BEL_RAMW = 4,
+};
+
+bool Arch::nexus_logic_tile_valid(LogicTileStatus &lts) const
+{
+    for (int s = 0; s < 4; s++) {
+        if (lts.slices[s].dirty) {
+            lts.slices[s].valid = false;
+            lts.slices[s].dirty = false;
+            CellInfo *lut0 = lts.cells[(s << 3) | BEL_LUT0];
+            CellInfo *lut1 = lts.cells[(s << 3) | BEL_LUT1];
+            CellInfo *ff0 = lts.cells[(s << 3) | BEL_FF0];
+            CellInfo *ff1 = lts.cells[(s << 3) | BEL_FF1];
+            if (lut0 != nullptr) {
+                // Check for overuse of M signal
+                if (lut0->lutInfo.mux2_used && ff0 != nullptr && ff0->ffInfo.m != nullptr)
+                    return false;
+            }
+            // Check for correct use of FF0 DI
+            if (ff0 != nullptr && ff0->ffInfo.di != nullptr &&
+                (lut0 == nullptr || (ff0->ffInfo.di != lut0->lutInfo.f && ff0->ffInfo.di != lut0->lutInfo.ofx)))
+                return false;
+            if (lut1 != nullptr) {
+                // LUT1 cannot contain a MUX2
+                if (lut1->lutInfo.mux2_used)
+                    return false;
+                // If LUT1 is carry then LUT0 must be carry too
+                if (lut1->lutInfo.is_carry && (lut0 == nullptr || !lut0->lutInfo.is_carry))
+                    return false;
+            }
+            // Check for correct use of FF1 DI
+            if (ff1 != nullptr && ff1->ffInfo.di != nullptr && (lut1 == nullptr || ff1->ffInfo.di != lut1->lutInfo.f))
+                return false;
+            lts.slices[s].valid = true;
+        } else if (!lts.slices[s].valid) {
+            return false;
+        }
+    }
+    for (int h = 0; h < 2; h++) {
+        if (lts.halfs[h].dirty) {
+            bool found_ff = false;
+            FFControlSet ctrlset;
+            for (int i = 0; i < 1; i++) {
+                for (auto bel : {BEL_FF0, BEL_FF1, BEL_RAMW}) {
+                    if (bel == BEL_RAMW && (h != 1 || i != 0))
+                        continue;
+                    CellInfo *ci = lts.cells[(h * 2 + i) << 3 | bel];
+                    if (ci == nullptr)
+                        continue;
+                    if (!found_ff) {
+                        ctrlset = ci->ffInfo.ctrlset;
+                        found_ff = true;
+                    } else if (ci->ffInfo.ctrlset != ctrlset) {
+                        return false;
+                    }
+                }
+            }
+        } else if (!lts.halfs[h].valid) {
+            return false;
+        }
+    }
+    return true;
+}
+
 bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const { return true; }
 
 bool Arch::isBelLocationValid(BelId bel) const { return true; }

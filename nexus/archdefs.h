@@ -148,19 +148,34 @@ struct ArchNetInfo
 
 struct NetInfo;
 
+struct FFControlSet
+{
+    int clkmux, cemux, lsrmux;
+    bool async, regddr_en, gsr_en;
+    NetInfo *clk, *lsr, *ce;
+};
+
+inline bool operator!=(const FFControlSet &a, const FFControlSet &b)
+{
+    return (a.clkmux != b.clkmux) || (a.cemux != b.cemux) || (a.lsrmux != b.lsrmux) || (a.async != b.async) ||
+           (a.regddr_en != b.regddr_en) || (a.gsr_en != b.gsr_en) || (a.clk != b.clk) || (a.lsr != b.lsr) ||
+           (a.ce != b.ce);
+}
+
 struct ArchCellInfo
 {
     union
     {
         struct
         {
-            bool is_memory, is_carry;
+            bool is_memory, is_carry, mux2_used;
             int input_count;
+            NetInfo *f, *ofx;
         } lutInfo;
         struct
         {
-            bool is_clkinv, is_lsrinv, is_ceinv, is_async, gsr;
-            NetInfo *clk, *lsr, *ce, *d;
+            FFControlSet ctrlset;
+            NetInfo *di, *m;
         } ffInfo;
     };
 };

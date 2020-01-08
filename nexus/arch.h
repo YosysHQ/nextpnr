@@ -576,10 +576,26 @@ struct Arch : BaseCtx
     const ChipInfoPOD *chip_info;
 
     // Binding states
+    struct LogicTileStatus
+    {
+        struct SliceStatus
+        {
+            bool valid = true, dirty = true;
+        } slices[4];
+        struct HalfTileStatus
+        {
+            bool valid = true, dirty = true;
+        } halfs[2];
+        CellInfo *cells[32];
+    };
+
     struct TileStatus
     {
         std::vector<CellInfo *> boundcells;
+        LogicTileStatus *lts = nullptr;
+        ~TileStatus() { delete lts; }
     };
+
     std::vector<TileStatus> tileStatus;
     std::unordered_map<WireId, NetInfo *> wire_to_net;
     std::unordered_map<PipId, NetInfo *> pip_to_net;
@@ -1088,6 +1104,10 @@ struct Arch : BaseCtx
         range.e.cursor = nh_data(wire).wire_neighbours[wire.index].num_nwires;
         return range;
     }
+
+    // -------------------------------------------------
+
+    bool nexus_logic_tile_valid(LogicTileStatus &lts) const;
 };
 
 NEXTPNR_NAMESPACE_END
