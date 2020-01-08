@@ -149,11 +149,44 @@ NPNR_PACKED_STRUCT(struct PhysicalTileInfoPOD {
     int32_t tiletype; // tile type IdString
 });
 
+enum LocFlagsPOD : uint32_t
+{
+    LOC_LOGIC = 0x000001,
+    LOC_IO18 = 0x000002,
+    LOC_IO33 = 0x000004,
+    LOC_BRAM = 0x000008,
+    LOC_DSP = 0x000010,
+    LOC_IP = 0x000020,
+    LOC_CIB = 0x000040,
+    LOC_TAP = 0x001000,
+    LOC_SPINE = 0x002000,
+    LOC_TRUNK = 0x004000,
+    LOC_MIDMUX = 0x008000,
+    LOC_CMUX = 0x010000,
+};
+
 NPNR_PACKED_STRUCT(struct GridLocationPOD {
     uint32_t loc_type;
+    uint32_t loc_flags;
     uint16_t neighbourhood_type;
     uint16_t num_phys_tiles;
     RelPtr<PhysicalTileInfoPOD> phys_tiles;
+});
+
+NPNR_PACKED_STRUCT(struct PinInfo {
+    RelPtr<char> pin_name;
+    int32_t dqs_func; // DQS function IdString
+    int32_t clk_func; // Clock function IdStrinng
+    int16_t bank;     // IO bank
+    uint16_t tile_x;  // IO tile X
+    uint16_t tile_y;  // IO tile Y
+    uint16_t bel_z;   // IO bel Z
+});
+
+NPNR_PACKED_STRUCT(struct PackageInfoPOD {
+    RelPtr<char> package_name;
+    uint32_t num_pins;
+    RelPtr<PinInfo> pins;
 });
 
 NPNR_PACKED_STRUCT(struct ChipInfoPOD {
@@ -1017,15 +1050,10 @@ struct Arch : BaseCtx
     // Get the delay through a cell from one port to another, returning false
     // if no path exists. This only considers combinational delays, as required by the Arch API
     bool getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const;
-    // getCellDelayInternal is similar to the above, but without false path checks and including clock to out delays
-    // for internal arch use only
-    bool getCellDelayInternal(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const;
     // Get the port class, also setting clockInfoCount to the number of TimingClockingInfos associated with a port
     TimingPortClass getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const;
     // Get the TimingClockingInfo of a port
     TimingClockingInfo getPortClockingInfo(const CellInfo *cell, IdString port, int index) const;
-    // Return true if a net is global
-    bool isGlobalNet(const NetInfo *net) const;
 
     // -------------------------------------------------
 
