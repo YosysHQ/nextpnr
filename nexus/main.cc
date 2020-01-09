@@ -49,11 +49,20 @@ po::options_description NexusCommandHandler::getArchOptions()
     po::options_description specific("Architecture specific options");
     specific.add_options()("chipdb", po::value<std::string>(), "name of chip database binary");
     specific.add_options()("device", po::value<std::string>(), "device name");
-
+    specific.add_options()("fasm", po::value<std::string>(), "fasm file to write");
     return specific;
 }
 
-void NexusCommandHandler::customBitstream(Context *ctx) {}
+void NexusCommandHandler::customBitstream(Context *ctx)
+{
+    if (vm.count("fasm")) {
+        std::string filename = vm["fasm"].as<std::string>();
+        std::ofstream out(filename);
+        if (!out)
+            log_error("Failed to open output FASM file %s.\n", filename.c_str());
+        ctx->write_fasm(out);
+    }
+}
 
 std::unique_ptr<Context> NexusCommandHandler::createContext(std::unordered_map<std::string, Property> &values)
 {

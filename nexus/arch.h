@@ -100,8 +100,15 @@ NPNR_PACKED_STRUCT(struct LocWireInfoPOD {
     RelPtr<BelPinPOD> bel_pins;
 });
 
+enum PipFlags
+{
+    PIP_FIXED_CONN = 0x8000,
+};
+
 NPNR_PACKED_STRUCT(struct PipInfoPOD {
     uint16_t from_wire, to_wire;
+    uint16_t flags;
+    uint16_t padding;
     int32_t tile_type;
 });
 
@@ -1115,7 +1122,16 @@ struct Arch : BaseCtx
     {
         return chip_canonical_wire(db, chip_info, tile, index);
     }
-
+    IdString pip_src_wire_name(PipId pip) const
+    {
+        int wire = pip_data(pip).from_wire;
+        return db->loctypes[chip_info->grid[pip.tile].loc_type].wires[wire].name;
+    }
+    IdString pip_dst_wire_name(PipId pip) const
+    {
+        int wire = pip_data(pip).to_wire;
+        return db->loctypes[chip_info->grid[pip.tile].loc_type].wires[wire].name;
+    }
     // -------------------------------------------------
 
     NeighWireRange neigh_wire_range(WireId wire) const
@@ -1136,6 +1152,9 @@ struct Arch : BaseCtx
     // -------------------------------------------------
 
     bool nexus_logic_tile_valid(LogicTileStatus &lts) const;
+
+    // -------------------------------------------------
+    void write_fasm(std::ostream &out) const;
 };
 
 NEXTPNR_NAMESPACE_END
