@@ -376,14 +376,6 @@ bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay
 
 // -----------------------------------------------------------------------
 
-bool Arch::pack()
-{
-    // FIXME
-    getCtx()->attrs[getCtx()->id("step")] = std::string("pack");
-    archInfoToAttributes();
-    return true;
-}
-
 bool Arch::place()
 {
     std::string placer = str_or_default(settings, id("placer"), defaultPlacer);
