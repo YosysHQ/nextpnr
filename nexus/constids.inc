@@ -96,3 +96,8 @@ X(LSRMODE)
 
 X(MODE)
 X(INJECT)
+
+X(PLC)
+X(CIB)
+X(CIB_T)
+X(CIB_LR)

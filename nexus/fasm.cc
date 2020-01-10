@@ -80,6 +80,17 @@ struct NexusFasmWriter
         write_vector(name, bits, invert);
     }
 
+    void write_enum(const CellInfo *cell, const std::string &name, const std::string &defval = "")
+    {
+        auto fnd = cell->params.find(ctx->id(name));
+        if (fnd == cell->params.end()) {
+            if (!defval.empty())
+                write_bit(stringf("%s.%s", name.c_str(), defval.c_str()));
+        } else {
+            write_bit(stringf("%s.%s", name.c_str(), fnd->second.c_str()));
+        }
+    }
+
     NexusFasmWriter(const Context *ctx, std::ostream &out) : ctx(ctx), out(out) {}
     std::string tile_name(int loc, const PhysicalTileInfoPOD &tile)
     {
@@ -108,6 +119,7 @@ struct NexusFasmWriter
         }
         return escaped;
     }
+    void push_tile(int loc, IdString tile_type) { push(tile_name(loc, tile_by_type_and_loc(loc, tile_type))); }
     void write_pip(PipId pip)
     {
         auto &pd = ctx->pip_data(pip);
@@ -128,11 +140,59 @@ struct NexusFasmWriter
             write_pip(p);
         blank();
     }
+    void write_comb(const CellInfo *cell)
+    {
+        BelId bel = cell->bel;
+        int z = ctx->bel_data(bel).z;
+        int k = z & 0x1;
+        char slice = 'A' + (z >> 8);
+        push_tile(bel.tile, id_PLC);
+        push(stringf("SLICE%c", slice));
+        if (cell->params.count(id_INIT))
+            write_int_vector(stringf("K%d.INIT", k), int_or_default(cell->params, id_INIT, 0), 16);
+        if (cell->lutInfo.is_carry) {
+            write_bit("MODE.CCU2");
+            write_enum(cell, "INJECT", "NO");
+        }
+        pop(2);
+    }
+    void write_ff(const CellInfo *cell)
+    {
+        BelId bel = cell->bel;
+        int z = ctx->bel_data(bel).z;
+        int k = z & 0x1;
+        char slice = 'A' + (z >> 8);
+        push_tile(bel.tile, id_PLC);
+        push(stringf("SLICE%c", slice));
+        push(stringf("FF%d", k));
+        write_bit("USED.YES");
+        write_enum(cell, "REGSET", "RESET");
+        write_enum(cell, "LSRMODE", "LSR");
+        write_enum(cell, "SEL", "DF");
+        pop();
+        write_enum(cell, "REGDDR");
+        write_enum(cell, "SRMODE");
+        write_enum(cell, "CLKMUX");
+        write_enum(cell, "CEMUX");
+        write_enum(cell, "LSRMUX");
+        write_enum(cell, "GSR");
+        pop(2);
+    }
     void operator()()
     {
         // Write routing
         for (auto n : sorted(ctx->nets)) {
             write_net(n.second);
+        }
+        // Write cell config
+        for (auto c : sorted(ctx->cells)) {
+            const CellInfo *ci = c.second;
+            write_comment(stringf("# Cell %s", ctx->nameOf(ci)));
+            if (ci->type == id_OXIDE_COMB)
+                write_comb(ci);
+            else if (ci->type == id_OXIDE_FF)
+                write_ff(ci);
+            blank();
         }
     }
 };
