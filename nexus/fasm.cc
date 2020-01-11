@@ -175,7 +175,7 @@ struct NexusFasmWriter
         char slice = 'A' + (z >> 3);
         push_tile(bel.tile, id_PLC);
         push(stringf("SLICE%c", slice));
-        push(stringf("FF%d", k));
+        push(stringf("REG%d", k));
         write_bit("USED.YES");
         write_enum(cell, "REGSET", "RESET");
         write_enum(cell, "LSRMODE", "LSR");
