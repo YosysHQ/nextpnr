@@ -101,3 +101,5 @@ X(PLC)
 X(CIB)
 X(CIB_T)
 X(CIB_LR)
+
+X(IO_TYPE)

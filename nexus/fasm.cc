@@ -108,6 +108,12 @@ struct NexusFasmWriter
         log_error("No tile of type %s found at location R%dC%d", ctx->nameOf(type), loc / ctx->chip_info->width,
                   loc % ctx->chip_info->width);
     }
+    const PhysicalTileInfoPOD &tile_at_loc(int loc)
+    {
+        auto &ploc = ctx->chip_info->grid[loc];
+        NPNR_ASSERT(ploc.num_phys_tiles == 1);
+        return ploc.phys_tiles[0];
+    }
     std::string escape_name(const std::string &name)
     {
         std::string escaped;
@@ -120,6 +126,8 @@ struct NexusFasmWriter
         return escaped;
     }
     void push_tile(int loc, IdString tile_type) { push(tile_name(loc, tile_by_type_and_loc(loc, tile_type))); }
+    void push_tile(int loc) { push(tile_name(loc, tile_at_loc(loc))); }
+    void push_belname(BelId bel) { push(ctx->nameOf(ctx->bel_data(bel).name)); }
     void write_pip(PipId pip)
     {
         auto &pd = ctx->pip_data(pip);
@@ -178,6 +186,22 @@ struct NexusFasmWriter
         write_enum(cell, "GSR");
         pop(2);
     }
+    void write_io33(const CellInfo *cell)
+    {
+        BelId bel = cell->bel;
+        push_tile(bel.tile);
+        push_belname(bel);
+        const NetInfo *t = get_net_or_empty(cell, id_T);
+        bool is_input = false, is_output = false;
+        if (t == nullptr || t->name == ctx->id("$PACKER_VCC_NET")) {
+            is_input = true;
+        } else if (t->name == ctx->id("$PACKER_GND_NET")) {
+            is_output = true;
+        }
+        const char *iodir = is_input ? "INPUT" : (is_output ? "OUTPUT" : "BIDIR");
+        write_bit(stringf("BASE_TYPE.%s_%s", iodir, str_or_default(cell->attrs, id_IO_TYPE, "LVCMOS33").c_str()));
+        pop(2);
+    }
     void operator()()
     {
         // Write routing
@@ -192,6 +216,8 @@ struct NexusFasmWriter
                 write_comb(ci);
             else if (ci->type == id_OXIDE_FF)
                 write_ff(ci);
+            else if (ci->type == id_SEIO33_CORE)
+                write_io33(ci);
             blank();
         }
     }
