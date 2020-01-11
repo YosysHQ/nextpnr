@@ -154,7 +154,7 @@ struct NexusFasmWriter
         BelId bel = cell->bel;
         int z = ctx->bel_data(bel).z;
         int k = z & 0x1;
-        char slice = 'A' + (z >> 8);
+        char slice = 'A' + (z >> 3);
         push_tile(bel.tile, id_PLC);
         push(stringf("SLICE%c", slice));
         if (cell->params.count(id_INIT))
@@ -172,7 +172,7 @@ struct NexusFasmWriter
         BelId bel = cell->bel;
         int z = ctx->bel_data(bel).z;
         int k = z & 0x1;
-        char slice = 'A' + (z >> 8);
+        char slice = 'A' + (z >> 3);
         push_tile(bel.tile, id_PLC);
         push(stringf("SLICE%c", slice));
         push(stringf("FF%d", k));
