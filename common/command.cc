@@ -69,14 +69,14 @@ bool CommandHandler::executeBeforeContext()
 {
     if (vm.count("help") || argc == 1) {
         std::cerr << boost::filesystem::basename(argv[0])
-                  << " -- Next Generation Place and Route (git sha1 " GIT_COMMIT_HASH_STR ")\n";
+                  << " -- Next Generation Place and Route (Version " GIT_DESCRIBE_STR ")\n";
         std::cerr << options << "\n";
         return argc != 1;
     }
 
     if (vm.count("version")) {
         std::cerr << boost::filesystem::basename(argv[0])
-                  << " -- Next Generation Place and Route (git sha1 " GIT_COMMIT_HASH_STR ")\n";
+                  << " -- Next Generation Place and Route (Version " GIT_DESCRIBE_STR ")\n";
         return true;
     }
     validate();

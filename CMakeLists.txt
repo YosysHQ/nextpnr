@@ -121,13 +121,17 @@ else()
     add_definitions("-DNO_GUI")
 endif()
 
-# Get the latest abbreviated commit hash of the working branch
-execute_process(
-  COMMAND git log -1 --format=%h
-  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-  OUTPUT_VARIABLE GIT_COMMIT_HASH
-  OUTPUT_STRIP_TRAILING_WHITESPACE
-)
+if (NOT DEFINED CURRENT_GIT_VERSION)
+    # Get the latest abbreviated commit hash of the working branch
+    # if not already defined outside (e.g. by package manager when building
+    # outside of git repository)
+    execute_process(
+      COMMAND git describe --tags --always
+      WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+      OUTPUT_VARIABLE CURRENT_GIT_VERSION
+      OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+endif()
 
 if (BUILD_TESTS)
     add_subdirectory(3rdparty/googletest/googletest ${CMAKE_CURRENT_BINARY_DIR}/generated/3rdparty/googletest EXCLUDE_FROM_ALL)
@@ -137,8 +141,6 @@ endif()
 if (BUILD_GUI)
     add_subdirectory(3rdparty/QtPropertyBrowser ${CMAKE_CURRENT_BINARY_DIR}/generated/3rdparty/QtPropertyBrowser EXCLUDE_FROM_ALL)
 endif()
-
-add_definitions("-DGIT_COMMIT_HASH=${GIT_COMMIT_HASH}")
 
 configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/common/version.h.in ${CMAKE_CURRENT_BINARY_DIR}/generated/version.h
