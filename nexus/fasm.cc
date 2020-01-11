@@ -135,7 +135,7 @@ struct NexusFasmWriter
             return;
         std::string tile = tile_name(pip.tile, tile_by_type_and_loc(pip.tile, pd.tile_type));
         std::string source_wire = escape_name(ctx->pip_src_wire_name(pip).str(ctx));
-        std::string dest_wire = escape_name(ctx->pip_src_wire_name(pip).str(ctx));
+        std::string dest_wire = escape_name(ctx->pip_dst_wire_name(pip).str(ctx));
         write_bit(stringf("%s.PIP.%s.%s", tile.c_str(), dest_wire.c_str(), source_wire.c_str()));
     }
     void write_net(const NetInfo *net)
@@ -143,7 +143,8 @@ struct NexusFasmWriter
         write_comment(stringf("Net %s", ctx->nameOf(net)));
         std::set<PipId> sorted_pips;
         for (auto &w : net->wires)
-            sorted_pips.insert(w.second.pip);
+            if (w.second.pip != PipId())
+                sorted_pips.insert(w.second.pip);
         for (auto p : sorted_pips)
             write_pip(p);
         blank();
@@ -157,11 +158,13 @@ struct NexusFasmWriter
         push_tile(bel.tile, id_PLC);
         push(stringf("SLICE%c", slice));
         if (cell->params.count(id_INIT))
-            write_int_vector(stringf("K%d.INIT", k), int_or_default(cell->params, id_INIT, 0), 16);
+            write_int_vector(stringf("K%d.INIT[15:0]", k), int_or_default(cell->params, id_INIT, 0), 16);
+#if 0
         if (cell->lutInfo.is_carry) {
             write_bit("MODE.CCU2");
             write_enum(cell, "INJECT", "NO");
         }
+#endif
         pop(2);
     }
     void write_ff(const CellInfo *cell)
