@@ -329,14 +329,17 @@ void FPGAViewWidget::paintGL()
         if (movieCounter == currentFrameSkip) {
             QMutexLocker lock(&rendererArgsLock_);
             movieCounter = 0;
-            currentMovieFrame++;
-
             QImage image = grabFramebuffer();
-            QString number = QString("movie_%1.png").arg(currentMovieFrame, 5, 10, QChar('0'));
+            if (!movieSkipSame || movieLastImage != image) {
+                currentMovieFrame++;
 
-            QFileInfo fileName = QFileInfo(QDir(movieDir), number);
-            QImageWriter imageWriter(fileName.absoluteFilePath(), "png");
-            imageWriter.write(image);
+                QString number = QString("movie_%1.png").arg(currentMovieFrame, 5, 10, QChar('0'));
+
+                QFileInfo fileName = QFileInfo(QDir(movieDir), number);
+                QImageWriter imageWriter(fileName.absoluteFilePath(), "png");
+                imageWriter.write(image);
+                movieLastImage = image;
+            }
         } else {
             movieCounter++;
         }
@@ -599,9 +602,11 @@ void FPGAViewWidget::renderLines(void)
     }
 }
 
-void FPGAViewWidget::movieStart(QString dir, long frameSkip)
+void FPGAViewWidget::movieStart(QString dir, long frameSkip, bool skipSame)
 {
     QMutexLocker locker(&rendererArgsLock_);
+    movieLastImage = QImage();
+    movieSkipSame = skipSame;
     movieDir = dir;
     currentMovieFrame = 0;
     movieCounter = 0;

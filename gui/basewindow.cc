@@ -25,6 +25,7 @@
 #include <QIcon>
 #include <QImageWriter>
 #include <QInputDialog>
+#include <QMessageBox>
 #include <QSplitter>
 #include <fstream>
 #include "designwidget.h"
@@ -400,11 +401,14 @@ void BaseMainWindow::saveMovie()
                                                         QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
         if (!dir.isEmpty()) {
             bool ok;
-            int frames = QInputDialog::getInt(this, "Skip frames", tr("Frames to skip (1 frame = 50ms):"), 5, 0, 1000,
-                                              1, &ok);
-            if (ok)
-                fpgaView->movieStart(dir, frames);
-            else
+            int frames =
+                    QInputDialog::getInt(this, "Recording", tr("Frames to skip (1 frame = 50ms):"), 5, 0, 1000, 1, &ok);
+            if (ok) {
+                QMessageBox::StandardButton reply =
+                        QMessageBox::question(this, "Recording", "Skip identical frames ?",
+                                              QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes);
+                fpgaView->movieStart(dir, frames, (reply == QMessageBox::Yes));
+            } else
                 actionMovie->setChecked(false);
         } else
             actionMovie->setChecked(false);
