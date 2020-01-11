@@ -22,6 +22,9 @@
 
 #include <QApplication>
 #include <QCoreApplication>
+#include <QDir>
+#include <QFileInfo>
+#include <QImageWriter>
 #include <QMouseEvent>
 #include <QWidget>
 
@@ -35,7 +38,7 @@
 NEXTPNR_NAMESPACE_BEGIN
 
 FPGAViewWidget::FPGAViewWidget(QWidget *parent)
-        : QOpenGLWidget(parent), ctx_(nullptr), paintTimer_(this), lineShader_(this), zoom_(10.0f),
+        : QOpenGLWidget(parent), movieSaving(false), ctx_(nullptr), paintTimer_(this), lineShader_(this), zoom_(10.0f),
           rendererArgs_(new FPGAViewWidget::RendererArgs), rendererData_(new FPGAViewWidget::RendererData)
 {
     colors_.background = QColor("#000000");
@@ -322,6 +325,26 @@ void FPGAViewWidget::paintGL()
     lineShader_.draw(GraphicElement::STYLE_SELECTED, colors_.selected, thick11Px, matrix);
     lineShader_.draw(GraphicElement::STYLE_HOVER, colors_.hovered, thick2Px, matrix);
 
+    if (movieSaving) {
+        if (movieCounter == currentFrameSkip) {
+            QMutexLocker lock(&rendererArgsLock_);
+            movieCounter = 0;
+            QImage image = grabFramebuffer();
+            if (!movieSkipSame || movieLastImage != image) {
+                currentMovieFrame++;
+
+                QString number = QString("movie_%1.png").arg(currentMovieFrame, 5, 10, QChar('0'));
+
+                QFileInfo fileName = QFileInfo(QDir(movieDir), number);
+                QImageWriter imageWriter(fileName.absoluteFilePath(), "png");
+                imageWriter.write(image);
+                movieLastImage = image;
+            }
+        } else {
+            movieCounter++;
+        }
+    }
+
     // Render ImGui
     QtImGui::newFrame();
     QMutexLocker lock(&rendererArgsLock_);
@@ -577,6 +600,24 @@ void FPGAViewWidget::renderLines(void)
             rendererArgs_->zoomOutbound = false;
         }
     }
+}
+
+void FPGAViewWidget::movieStart(QString dir, long frameSkip, bool skipSame)
+{
+    QMutexLocker locker(&rendererArgsLock_);
+    movieLastImage = QImage();
+    movieSkipSame = skipSame;
+    movieDir = dir;
+    currentMovieFrame = 0;
+    movieCounter = 0;
+    currentFrameSkip = frameSkip;
+    movieSaving = true;
+}
+
+void FPGAViewWidget::movieStop()
+{
+    QMutexLocker locker(&rendererArgsLock_);
+    movieSaving = false;
 }
 
 void FPGAViewWidget::onSelectedArchItem(std::vector<DecalXY> decals, bool keep)
