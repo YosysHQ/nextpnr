@@ -112,12 +112,15 @@ NPNR_PACKED_STRUCT(struct PipInfoPOD {
     int32_t tile_type;
 });
 
-enum RelLocFlags
+enum RelLocType : uint8_t
 {
-    REL_GLOBAL = 0x80,
-    REL_BRANCH = 0x40,
-    REL_SPINE = 0x20,
-    REL_HROW = 0x10
+    REL_LOC_XY = 0,
+    REL_LOC_GLOBAL = 1,
+    REL_LOC_BRANCH = 2,
+    REL_LOC_BRANCH_L = 3,
+    REL_LOC_BRANCH_R = 4,
+    REL_LOC_SPINE = 5,
+    REL_LOC_HROW = 6,
 };
 
 enum ArcFlags
@@ -129,7 +132,7 @@ enum ArcFlags
 NPNR_PACKED_STRUCT(struct RelWireInfoPOD {
     int16_t rel_x, rel_y;
     uint16_t wire_index;
-    uint8_t loc_flags;
+    uint8_t loc_type;
     uint8_t arc_flags;
 });
 
@@ -180,7 +183,7 @@ NPNR_PACKED_STRUCT(struct GridLocationPOD {
     RelPtr<PhysicalTileInfoPOD> phys_tiles;
 });
 
-NPNR_PACKED_STRUCT(struct PinInfo {
+NPNR_PACKED_STRUCT(struct PinInfoPOD {
     RelPtr<char> pin_name;
     int32_t dqs_func; // DQS function IdString
     int32_t clk_func; // Clock function IdStrinng
@@ -190,10 +193,40 @@ NPNR_PACKED_STRUCT(struct PinInfo {
     uint16_t bel_z;   // IO bel Z
 });
 
+NPNR_PACKED_STRUCT(struct GlobalBranchInfoPOD {
+    uint16_t branch_col;
+    uint16_t from_col;
+    uint16_t tap_driver_col;
+    uint16_t tap_side;
+    uint16_t to_col;
+    uint16_t padding;
+});
+
+NPNR_PACKED_STRUCT(struct GlobalSpineInfoPOD {
+    uint16_t from_row;
+    uint16_t to_row;
+    uint16_t spine_row;
+    uint16_t padding;
+});
+
+NPNR_PACKED_STRUCT(struct GlobalHrowInfoPOD {
+    uint16_t hrow_col;
+    uint16_t padding;
+    uint32_t num_spine_cols;
+    RelPtr<uint16_t> spine_cols;
+});
+
+NPNR_PACKED_STRUCT(struct GlobalInfoPOD {
+    uint32_t num_branches, num_spines, num_hrows;
+    RelPtr<GlobalBranchInfoPOD> branches;
+    RelPtr<GlobalSpineInfoPOD> spines;
+    RelPtr<GlobalHrowInfoPOD> hrows;
+});
+
 NPNR_PACKED_STRUCT(struct PackageInfoPOD {
     RelPtr<char> package_name;
     uint32_t num_pins;
-    RelPtr<PinInfo> pins;
+    RelPtr<PinInfoPOD> pins;
 });
 
 NPNR_PACKED_STRUCT(struct ChipInfoPOD {
@@ -202,6 +235,7 @@ NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     uint16_t height;
     uint32_t num_tiles;
     RelPtr<GridLocationPOD> grid;
+    RelPtr<GlobalInfoPOD> globals;
 });
 
 NPNR_PACKED_STRUCT(struct IdStringDBPOD {
