@@ -362,7 +362,7 @@ inline bool chip_branch_tile(const ChipInfoPOD *chip, int32_t x, int32_t y, int3
     int32_t branch_x;
     if (!chip_get_branch_loc(chip, x, branch_x))
         return false;
-    next = chip_tile_from_xy(chip, x, y);
+    next = chip_tile_from_xy(chip, branch_x, y);
     return true;
 }
 inline bool chip_rel_loc_tile(const ChipInfoPOD *chip, int32_t base, const RelWireInfoPOD &rel, int32_t &next)
@@ -1258,7 +1258,8 @@ struct Arch : BaseCtx
     }
     inline WireId canonical_wire(int32_t tile, uint16_t index) const
     {
-        return chip_canonical_wire(db, chip_info, tile, index);
+        WireId c = chip_canonical_wire(db, chip_info, tile, index);
+        return c;
     }
     IdString pip_src_wire_name(PipId pip) const
     {

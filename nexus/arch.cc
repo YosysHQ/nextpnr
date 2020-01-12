@@ -382,6 +382,9 @@ bool Arch::place()
 
     if (placer == "heap") {
         PlacerHeapCfg cfg(getCtx());
+        cfg.ioBufTypes.insert(id_SEIO33_CORE);
+        cfg.ioBufTypes.insert(id_SEIO18_CORE);
+        cfg.ioBufTypes.insert(id_OSC_CORE);
         cfg.criticalityExponent = 7;
         if (!placer_heap(getCtx(), cfg))
             return false;

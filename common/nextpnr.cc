@@ -506,7 +506,7 @@ void Context::check() const
             }
         }
     }
-
+#ifdef CHECK_WIRES
     for (auto w : getWires()) {
         auto ni = getBoundWireNet(w);
         if (ni != nullptr) {
@@ -514,7 +514,7 @@ void Context::check() const
                 CHECK_FAIL("wire '%s' missing in wires map of bound net '%s'\n", nameOfWire(w), nameOf(ni));
         }
     }
-
+#endif
     for (auto &c : cells) {
         auto ci = c.second.get();
         if (c.first != ci->name)
