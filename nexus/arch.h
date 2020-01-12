@@ -295,6 +295,110 @@ inline bool chip_rel_tile(const ChipInfoPOD *chip, int32_t base, int16_t rel_x, 
     next = new_y * chip->width + new_x;
     return true;
 }
+inline int32_t chip_tile_from_xy(const ChipInfoPOD *chip, int32_t x, int32_t y) { return y * chip->width + x; }
+inline bool chip_get_branch_loc(const ChipInfoPOD *chip, int32_t x, int32_t &branch_x)
+{
+    for (int i = 0; i < int(chip->globals->num_branches); i++) {
+        auto &b = chip->globals->branches[i];
+        if (x >= b.from_col && x <= b.to_col) {
+            branch_x = b.branch_col;
+            return true;
+        }
+    }
+    return false;
+}
+inline bool chip_get_spine_loc(const ChipInfoPOD *chip, int32_t x, int32_t y, int32_t &spine_x, int32_t &spine_y)
+{
+    bool y_found = false;
+    for (int i = 0; i < int(chip->globals->num_spines); i++) {
+        auto &s = chip->globals->spines[i];
+        if (y >= s.from_row && y <= s.to_row) {
+            spine_y = s.spine_row;
+            y_found = true;
+            break;
+        }
+    }
+    if (!y_found)
+        return false;
+    for (int i = 0; i < int(chip->globals->num_hrows); i++) {
+        auto &hr = chip->globals->hrows[i];
+        for (int j = 0; j < int(hr.num_spine_cols); j++) {
+            int32_t sc = hr.spine_cols[j];
+            if (std::abs(sc - x) < 3) {
+                spine_x = sc;
+                return true;
+            }
+        }
+    }
+    return false;
+}
+inline bool chip_get_hrow_loc(const ChipInfoPOD *chip, int32_t x, int32_t y, int32_t &hrow_x, int32_t &hrow_y)
+{
+    bool y_found = false;
+    for (int i = 0; i < int(chip->globals->num_spines); i++) {
+        auto &s = chip->globals->spines[i];
+        if (std::abs(y - s.spine_row) < 3) {
+            hrow_y = s.spine_row;
+            y_found = true;
+            break;
+        }
+    }
+    if (!y_found)
+        return false;
+    for (int i = 0; i < int(chip->globals->num_hrows); i++) {
+        auto &hr = chip->globals->hrows[i];
+        for (int j = 0; j < int(hr.num_spine_cols); j++) {
+            int32_t sc = hr.spine_cols[j];
+            if (std::abs(sc - x) < 3) {
+                hrow_x = hr.hrow_col;
+                return true;
+            }
+        }
+    }
+    return false;
+}
+inline bool chip_branch_tile(const ChipInfoPOD *chip, int32_t x, int32_t y, int32_t &next)
+{
+    int32_t branch_x;
+    if (!chip_get_branch_loc(chip, x, branch_x))
+        return false;
+    next = chip_tile_from_xy(chip, x, y);
+    return true;
+}
+inline bool chip_rel_loc_tile(const ChipInfoPOD *chip, int32_t base, const RelWireInfoPOD &rel, int32_t &next)
+{
+    int32_t curr_x = base % chip->width;
+    int32_t curr_y = base / chip->width;
+    switch (rel.loc_type) {
+    case REL_LOC_XY:
+        return chip_rel_tile(chip, base, rel.rel_x, rel.rel_y, next);
+    case REL_LOC_BRANCH:
+        return chip_branch_tile(chip, curr_x, curr_y, next);
+    case REL_LOC_BRANCH_L:
+        return chip_branch_tile(chip, curr_x - 2, curr_y, next);
+    case REL_LOC_BRANCH_R:
+        return chip_branch_tile(chip, curr_x + 2, curr_y, next);
+    case REL_LOC_SPINE: {
+        int32_t spine_x, spine_y;
+        if (!chip_get_spine_loc(chip, curr_x, curr_y, spine_x, spine_y))
+            return false;
+        next = chip_tile_from_xy(chip, spine_x, spine_y);
+        return true;
+    }
+    case REL_LOC_HROW: {
+        int32_t hrow_x, hrow_y;
+        if (!chip_get_hrow_loc(chip, curr_x, curr_y, hrow_x, hrow_y))
+            return false;
+        next = chip_tile_from_xy(chip, hrow_x, hrow_y);
+        return true;
+    }
+    case REL_LOC_GLOBAL:
+        next = 0;
+        return true;
+    default:
+        return false;
+    }
+}
 inline WireId chip_canonical_wire(const DatabasePOD *db, const ChipInfoPOD *chip, int32_t tile, uint16_t index)
 {
     WireId wire{tile, index};
@@ -307,7 +411,7 @@ inline WireId chip_canonical_wire(const DatabasePOD *db, const ChipInfoPOD *chip
     for (size_t i = 0; i < wn.num_nwires; i++) {
         auto &nw = wn.neigh_wires[i];
         if (nw.arc_flags & LOGICAL_TO_PRIMARY) {
-            if (chip_rel_tile(chip, tile, nw.rel_x, nw.rel_y, wire.tile)) {
+            if (chip_rel_loc_tile(chip, tile, nw, wire.tile)) {
                 wire.index = nw.wire_index;
                 break;
             }
@@ -327,7 +431,7 @@ inline bool chip_wire_is_primary(const DatabasePOD *db, const ChipInfoPOD *chip,
     for (size_t i = 0; i < wn.num_nwires; i++) {
         auto &nw = wn.neigh_wires[i];
         if (nw.arc_flags & LOGICAL_TO_PRIMARY) {
-            if (chip_rel_tile(chip, tile, nw.rel_x, nw.rel_y, wire.tile)) {
+            if (chip_rel_loc_tile(chip, tile, nw, wire.tile)) {
                 return false;
             }
         }
