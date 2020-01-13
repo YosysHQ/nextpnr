@@ -222,6 +222,19 @@ struct NexusFasmWriter
         write_bit(stringf("BASE_TYPE.%s_%s", iodir, str_or_default(cell->attrs, id_IO_TYPE, "LVCMOS18H").c_str()));
         pop(3);
     }
+    void write_osc(const CellInfo *cell)
+    {
+        BelId bel = cell->bel;
+        push_tile(bel.tile);
+        push_belname(bel);
+        write_enum(cell, "HF_OSC_EN");
+        write_enum(cell, "HF_FABRIC_EN");
+        write_enum(cell, "HFDIV_FABRIC_EN", "ENABLED");
+        write_enum(cell, "LF_FABRIC_EN");
+        write_enum(cell, "LF_OUTPUT_EN");
+        write_int_vector(stringf("HF_CLK_DIV[7:0]"), int_or_default(cell->params, id_HF_CLK_DIV, 0), 8);
+        pop(2);
+    }
     void operator()()
     {
         // Write routing
@@ -240,6 +253,8 @@ struct NexusFasmWriter
                 write_io33(ci);
             else if (ci->type == id_SEIO18_CORE)
                 write_io18(ci);
+            else if (ci->type == id_OSC_CORE)
+                write_osc(ci);
             blank();
         }
     }
