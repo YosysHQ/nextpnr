@@ -205,6 +205,23 @@ struct NexusFasmWriter
         write_bit(stringf("BASE_TYPE.%s_%s", iodir, str_or_default(cell->attrs, id_IO_TYPE, "LVCMOS33").c_str()));
         pop(2);
     }
+    void write_io18(const CellInfo *cell)
+    {
+        BelId bel = cell->bel;
+        push_tile(bel.tile);
+        push_belname(bel);
+        push("SEIO18");
+        const NetInfo *t = get_net_or_empty(cell, id_T);
+        bool is_input = false, is_output = false;
+        if (t == nullptr || t->name == ctx->id("$PACKER_VCC_NET")) {
+            is_input = true;
+        } else if (t->name == ctx->id("$PACKER_GND_NET")) {
+            is_output = true;
+        }
+        const char *iodir = is_input ? "INPUT" : (is_output ? "OUTPUT" : "BIDIR");
+        write_bit(stringf("BASE_TYPE.%s_%s", iodir, str_or_default(cell->attrs, id_IO_TYPE, "LVCMOS18H").c_str()));
+        pop(3);
+    }
     void operator()()
     {
         // Write routing
@@ -221,6 +238,8 @@ struct NexusFasmWriter
                 write_ff(ci);
             else if (ci->type == id_SEIO33_CORE)
                 write_io33(ci);
+            else if (ci->type == id_SEIO18_CORE)
+                write_io18(ci);
             blank();
         }
     }
