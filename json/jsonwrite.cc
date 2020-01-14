@@ -214,7 +214,7 @@ void write_context(std::ostream &f, Context *ctx)
 {
     f << stringf("{\n");
     f << stringf("  \"creator\": %s,\n",
-                 get_string("Next Generation Place and Route (git sha1 " GIT_COMMIT_HASH_STR ")").c_str());
+                 get_string("Next Generation Place and Route (Version " GIT_DESCRIBE_STR ")").c_str());
     f << stringf("  \"modules\": {\n");
     write_module(f, ctx);
     f << stringf("\n  }");
