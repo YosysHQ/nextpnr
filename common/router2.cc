@@ -942,7 +942,8 @@ struct Router2
             }
             return;
         }
-        const int N = 4;
+        const int Nq = 4, Nv = 2, Nh = 2;
+        const int N = Nq + Nv + Nh;
         std::vector<ThreadContext> tcs(N + 1);
         for (auto n : route_queue) {
             auto &nd = nets.at(n);
@@ -952,7 +953,7 @@ struct Router2
             int rs_x = mid_x + bb_margin_x;
             int le_y = mid_y - bb_margin_y;
             int rs_y = mid_y + bb_margin_y;
-
+            // Quadrants
             if (nd.bb.x0 < le_x && nd.bb.x1 < le_x && nd.bb.y0 < le_y && nd.bb.y1 < le_y)
                 bin = 0;
             else if (nd.bb.x0 >= rs_x && nd.bb.x1 >= rs_x && nd.bb.y0 < le_y && nd.bb.y1 < le_y)
@@ -961,17 +962,42 @@ struct Router2
                 bin = 2;
             else if (nd.bb.x0 >= rs_x && nd.bb.x1 >= rs_x && nd.bb.y0 >= rs_y && nd.bb.y1 >= rs_y)
                 bin = 3;
+            // Vertical split
+            else if (nd.bb.y0 < le_y && nd.bb.y1 < le_y)
+                bin = Nq + 0;
+            else if (nd.bb.y0 >= rs_y && nd.bb.y1 >= rs_y)
+                bin = Nq + 1;
+            // Horizontal split
+            else if (nd.bb.x0 < le_x && nd.bb.x1 < le_x)
+                bin = Nq + Nv + 0;
+            else if (nd.bb.x0 >= rs_x && nd.bb.x1 >= rs_x)
+                bin = Nq + Nv + 1;
             tcs.at(bin).route_nets.push_back(ni);
         }
         if (ctx->verbose)
             log_info("%d/%d nets not multi-threadable\n", int(tcs.at(N).route_nets.size()), int(route_queue.size()));
-        // Multithreaded part of routing
+        // Multithreaded part of routing - quadrants
         std::vector<std::thread> threads;
-        for (int i = 0; i < N; i++) {
+        for (int i = 0; i < Nq; i++) {
             threads.emplace_back([this, &tcs, i]() { router_thread(tcs.at(i)); });
         }
-        for (int i = 0; i < N; i++)
-            threads.at(i).join();
+        for (auto &t : threads)
+            t.join();
+        threads.clear();
+        // Vertical splits
+        for (int i = Nq; i < Nq + Nv; i++) {
+            threads.emplace_back([this, &tcs, i]() { router_thread(tcs.at(i)); });
+        }
+        for (auto &t : threads)
+            t.join();
+        threads.clear();
+        // Horizontal splits
+        for (int i = Nq + Nv; i < Nq + Nv + Nh; i++) {
+            threads.emplace_back([this, &tcs, i]() { router_thread(tcs.at(i)); });
+        }
+        for (auto &t : threads)
+            t.join();
+        threads.clear();
         // Singlethreaded part of routing - nets that cross partitions
         // or don't fit within bounding box
         for (auto st_net : tcs.at(N).route_nets)
