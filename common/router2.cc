@@ -39,6 +39,8 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+#define RUNTIME_PROFILE
+
 namespace {
 struct Router2
 {
@@ -59,6 +61,7 @@ struct Router2
         ArcBounds bb;
         // Coordinates of the center of the net, used for the weight-to-average
         int cx, cy, hpwl;
+        int total_route_us = 0;
     };
 
     struct PerWireData
@@ -627,6 +630,10 @@ struct Router2
 
         ROUTE_LOG_DBG("Routing net '%s'...\n", ctx->nameOf(net));
 
+#ifdef RUNTIME_PROFILE
+        auto rstart = std::chrono::high_resolution_clock::now();
+#endif
+
         // Nothing to do if net is undriven
         if (net->driver.cell == nullptr)
             return true;
@@ -669,6 +676,11 @@ struct Router2
                 }
             }
         }
+#ifdef RUNTIME_PROFILE
+        auto rend = std::chrono::high_resolution_clock::now();
+        nets.at(net->udata).total_route_us +=
+                (std::chrono::duration_cast<std::chrono::microseconds>(rend - rstart).count());
+#endif
         return !have_failures;
     }
 #undef ROUTE_LOG_DBG
@@ -977,6 +989,18 @@ struct Router2
             ++iter;
             curr_cong_weight *= 2;
         } while (!failed_nets.empty());
+#ifdef RUNTIME_PROFILE
+        std::vector<std::pair<int, IdString>> nets_by_runtime;
+        for (auto &n : nets_by_udata) {
+            nets_by_runtime.emplace_back(nets.at(n->udata).total_route_us, n->name);
+        }
+        std::sort(nets_by_runtime.begin(), nets_by_runtime.end(), std::greater<std::pair<int, IdString>>());
+        log_info("1000 slowest nets by runtime:\n");
+        for (int i = 0; i < std::min(int(nets_by_runtime.size()), 1000); i++) {
+            log("        %80s %6d %.1fms\n", nets_by_runtime.at(i).second.c_str(ctx),
+                int(ctx->nets.at(nets_by_runtime.at(i).second)->users.size()), nets_by_runtime.at(i).first / 1000.0);
+        }
+#endif
     }
 };
 } // namespace
