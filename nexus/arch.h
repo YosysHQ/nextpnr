@@ -213,7 +213,7 @@ NPNR_PACKED_STRUCT(struct GlobalHrowInfoPOD {
     uint16_t hrow_col;
     uint16_t padding;
     uint32_t num_spine_cols;
-    RelPtr<uint16_t> spine_cols;
+    RelPtr<uint32_t> spine_cols;
 });
 
 NPNR_PACKED_STRUCT(struct GlobalInfoPOD {
@@ -799,7 +799,7 @@ struct Arch : BaseCtx
     {
         std::string name = "X";
         name += std::to_string(bel.tile % chip_info->width);
-        name += "Y";
+        name += "/Y";
         name += std::to_string(bel.tile / chip_info->width);
         name += "/";
         name += nameOf(IdString(bel_data(bel).name));
@@ -910,7 +910,7 @@ struct Arch : BaseCtx
     {
         std::string name = "X";
         name += std::to_string(wire.tile % chip_info->width);
-        name += "Y";
+        name += "/Y";
         name += std::to_string(wire.tile / chip_info->width);
         name += "/";
         name += nameOf(IdString(wire_data(wire).name));
