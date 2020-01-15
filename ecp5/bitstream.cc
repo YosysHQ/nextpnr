@@ -256,6 +256,18 @@ static std::string get_pic_tile(Context *ctx, BelId bel)
     }
 }
 
+// Get the complement PIC and PIO tiles for a pseudo differential IO
+static std::string get_comp_pio_tile(Context *ctx, BelId bel)
+{
+    NPNR_ASSERT(bel.location.y == 0);
+    return ctx->getTileByTypeAndLocation(0, bel.location.x + 1, "PIOT1");
+}
+static std::string get_comp_pic_tile(Context *ctx, BelId bel)
+{
+    NPNR_ASSERT(bel.location.y == 0);
+    return ctx->getTileByTypeAndLocation(1, bel.location.x + 1, "PICT1");
+}
+
 // Get the list of tiles corresponding to a blockram
 std::vector<std::string> get_bram_tiles(Context *ctx, BelId bel)
 {
@@ -829,18 +841,29 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             cc.tiles[pio_tile].add_enum(pio + ".BASE_TYPE", dir + "_" + iotype);
             cc.tiles[pic_tile].add_enum(pio + ".BASE_TYPE", dir + "_" + iotype);
             if (is_differential(ioType_from_str(iotype))) {
-                // Explicitly disable other pair
-                std::string other;
-                if (pio == "PIOA")
-                    other = "PIOB";
-                else if (pio == "PIOC")
-                    other = "PIOD";
-                else
-                    log_error("cannot place differential IO at location %s\n", pio.c_str());
-                // cc.tiles[pio_tile].add_enum(other + ".BASE_TYPE", "_NONE_");
-                // cc.tiles[pic_tile].add_enum(other + ".BASE_TYPE", "_NONE_");
-                cc.tiles[pio_tile].add_enum(other + ".PULLMODE", "NONE");
-                cc.tiles[pio_tile].add_enum(pio + ".PULLMODE", "NONE");
+                if (bel.location.y == 0) {
+                    // Pseudo differential top IO
+                    NPNR_ASSERT(dir == "OUTPUT");
+                    NPNR_ASSERT(pio == "PIOA");
+                    std::string cpio_tile = get_comp_pio_tile(ctx, bel);
+                    std::string cpic_tile = get_comp_pic_tile(ctx, bel);
+                    cc.tiles[cpio_tile].add_enum(pio + ".BASE_TYPE", dir + "_" + iotype);
+                    cc.tiles[cpic_tile].add_enum(pio + ".BASE_TYPE", dir + "_" + iotype);
+                } else {
+                    // Explicitly disable other pair
+                    std::string other;
+                    if (pio == "PIOA")
+                        other = "PIOB";
+                    else if (pio == "PIOC")
+                        other = "PIOD";
+                    else
+                        log_error("cannot place differential IO at location %s\n", pio.c_str());
+                    // cc.tiles[pio_tile].add_enum(other + ".BASE_TYPE", "_NONE_");
+                    // cc.tiles[pic_tile].add_enum(other + ".BASE_TYPE", "_NONE_");
+                    cc.tiles[pio_tile].add_enum(other + ".PULLMODE", "NONE");
+                    cc.tiles[pio_tile].add_enum(pio + ".PULLMODE", "NONE");
+                }
+
             } else if (is_referenced(ioType_from_str(iotype))) {
                 cc.tiles[pio_tile].add_enum(pio + ".PULLMODE", "NONE");
             }
