@@ -141,6 +141,8 @@ struct Router2
                 nets.at(i).src_wire = src_wire;
                 if (ni->driver.cell == nullptr)
                     src_wire = dst_wire;
+                if (ni->driver.cell == nullptr && dst_wire == WireId())
+                    continue;
                 if (src_wire == WireId())
                     log_error("No wire found for port %s on source cell %s.\n", ctx->nameOf(ni->driver.port),
                               ctx->nameOf(ni->driver.cell));
