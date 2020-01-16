@@ -496,6 +496,19 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
 ArcBounds Arch::getRouteBoundingBox(WireId src, WireId dst) const
 {
     ArcBounds bb;
+
+    bb.x0 = src.location.x;
+    bb.y0 = src.location.y;
+    bb.x1 = src.location.x;
+    bb.y1 = src.location.y;
+
+    auto extend = [&](int x, int y) {
+        bb.x0 = std::min(bb.x0, x);
+        bb.x1 = std::max(bb.x1, x);
+        bb.y0 = std::min(bb.y0, y);
+        bb.y1 = std::max(bb.y1, y);
+    };
+
     auto est_location = [&](WireId w) -> std::pair<int, int> {
         const auto &wire = locInfo(w)->wire_data[w.index];
         if (w == gsrclk_wire) {
@@ -516,16 +529,18 @@ ArcBounds Arch::getRouteBoundingBox(WireId src, WireId dst) const
     };
 
     auto src_loc = est_location(src);
+    extend(src_loc.first, src_loc.second);
+    if (wire_loc_overrides.count(src)) {
+        extend(wire_loc_overrides.at(src).first, wire_loc_overrides.at(src).second);
+    }
     std::pair<int, int> dst_loc;
+    extend(dst.location.x, dst.location.y);
     if (wire_loc_overrides.count(dst)) {
         dst_loc = wire_loc_overrides.at(dst);
     } else {
         dst_loc = est_location(dst);
     }
-    bb.x0 = std::min(src_loc.first, dst_loc.first);
-    bb.y0 = std::min(src_loc.second, dst_loc.second);
-    bb.x1 = std::max(src_loc.first, dst_loc.first);
-    bb.y1 = std::max(src_loc.second, dst_loc.second);
+    extend(dst_loc.first, dst_loc.second);
     return bb;
 }
 
