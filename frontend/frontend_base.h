@@ -446,7 +446,7 @@ template <typename FrontendType> struct GenericFrontend
                 NetInfo *net;
                 if (impl.is_vector_bit_constant(bits, i)) {
                     // Create a constant driver if one is needed
-                    net = create_constant_net(m, name + "." + port_bit_name + "$const",
+                    net = create_constant_net(m, inst_name.str(ctx) + "." + port_bit_name + "$const",
                                               impl.get_vector_bit_constval(bits, i));
                 } else {
                     // Otherwise, lookup (creating if needed) the net with this index
