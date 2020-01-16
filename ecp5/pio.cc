@@ -109,6 +109,7 @@ IOVoltage get_vccio(IOType type)
     case IOType::SSTL18D_II:
         return IOVoltage::VCC_1V8;
     case IOType::LVCMOS15:
+    case IOType::LVCMOS15D:
     case IOType::SSTL15_I:
     case IOType::SSTL15_II:
     case IOType::SSTL15D_I:
@@ -120,6 +121,7 @@ IOVoltage get_vccio(IOType type)
     case IOType::SSTL135D_II:
         return IOVoltage::VCC_1V35;
     case IOType::LVCMOS12:
+    case IOType::LVCMOS12D:
     case IOType::HSUL12:
     case IOType::HSUL12D:
         return IOVoltage::VCC_1V2;
@@ -159,6 +161,8 @@ bool is_differential(IOType type)
     switch (type) {
     case IOType::LVCMOS33D:
     case IOType::LVCMOS25D:
+    case IOType::LVCMOS15D:
+    case IOType::LVCMOS12D:
     case IOType::LVPECL33:
     case IOType::LVDS:
     case IOType::MLVDS25:
@@ -207,7 +211,7 @@ bool valid_loc_for_io(IOType type, PortType dir, IOSide side, int z)
     bool is_lr = side == IOSide::LEFT || side == IOSide::RIGHT;
     if (is_referenced(type) && !is_lr)
         return false;
-    if (is_differential(type) && (!is_lr || ((z % 2) == 1)))
+    if (is_differential(type) && ((!is_lr && dir != PORT_OUT) || ((z % 2) == 1)))
         return false;
     if ((type == IOType::LVCMOS18D || type == IOType::LVDS) && (dir == PORT_OUT || dir == PORT_INOUT) && z != 0)
         return false;
