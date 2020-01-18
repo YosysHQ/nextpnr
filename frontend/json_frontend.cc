@@ -46,7 +46,7 @@ struct JsonFrontendImpl
             Func(mod.first, mod.second);
     }
 
-    template <typename TFunc> void foreach_port(const ModuleDataType &mod, TFunc Func) const
+    template <typename TFunc> void foreach_port(ModuleDataType &mod, TFunc Func) const
     {
         const auto &ports = mod["ports"];
         if (ports.is_null())
@@ -55,7 +55,7 @@ struct JsonFrontendImpl
             Func(port.first, port.second);
     }
 
-    template <typename TFunc> void foreach_cell(const ModuleDataType &mod, TFunc Func) const
+    template <typename TFunc> void foreach_cell(ModuleDataType &mod, TFunc Func) const
     {
         const auto &cells = mod["cells"];
         if (cells.is_null())
@@ -64,7 +64,7 @@ struct JsonFrontendImpl
             Func(cell.first, cell.second);
     }
 
-    template <typename TFunc> void foreach_netname(const ModuleDataType &mod, TFunc Func) const
+    template <typename TFunc> void foreach_netname(ModuleDataType &mod, TFunc Func) const
     {
         const auto &netnames = mod["netnames"];
         if (netnames.is_null())
@@ -85,7 +85,7 @@ struct JsonFrontendImpl
             NPNR_ASSERT_FALSE("invalid json port direction");
     }
 
-    PortType get_port_dir(const ModulePortDataType &port) const
+    PortType get_port_dir(ModulePortDataType &port) const
     {
         return lookup_portdir(port["direction"].string_value());
     }
@@ -102,9 +102,9 @@ struct JsonFrontendImpl
         return upto.is_null() ? false : bool(upto.int_value());
     }
 
-    const BitVectorDataType &get_port_bits(const ModulePortDataType &port) const { return port["bits"].array_items(); }
+    BitVectorDataType &get_port_bits(ModulePortDataType &port) const { return port["bits"].array_items(); }
 
-    const std::string &get_cell_type(const CellDataType &cell) const { return cell["type"].string_value(); }
+    const std::string &get_cell_type(CellDataType &cell) const { return cell["type"].string_value(); }
 
     Property parse_property(const Json &val) const
     {
@@ -144,36 +144,36 @@ struct JsonFrontendImpl
         }
     }
 
-    template <typename TFunc> void foreach_port_dir(const CellDataType &cell, TFunc Func) const
+    template <typename TFunc> void foreach_port_dir(CellDataType &cell, TFunc Func) const
     {
         for (const auto &pdir : cell["port_directions"].object_items())
             Func(pdir.first, lookup_portdir(pdir.second.string_value()));
     }
 
-    template <typename TFunc> void foreach_port_conn(const CellDataType &cell, TFunc Func) const
+    template <typename TFunc> void foreach_port_conn(CellDataType &cell, TFunc Func) const
     {
         for (const auto &pconn : cell["connections"].object_items())
             Func(pconn.first, pconn.second.array_items());
     }
 
-    const BitVectorDataType &get_net_bits(const NetnameDataType &net) const { return net["bits"].array_items(); }
+    BitVectorDataType &get_net_bits(NetnameDataType &net) const { return net["bits"].array_items(); }
 
-    int get_vector_length(const BitVectorDataType &bits) const { return int(bits.size()); }
+    int get_vector_length(BitVectorDataType &bits) const { return int(bits.size()); }
 
-    bool is_vector_bit_constant(const BitVectorDataType &bits, int i) const
+    bool is_vector_bit_constant(BitVectorDataType &bits, int i) const
     {
         NPNR_ASSERT(i < int(bits.size()));
         return bits[i].is_string();
     }
 
-    char get_vector_bit_constval(const BitVectorDataType &bits, int i) const
+    char get_vector_bit_constval(BitVectorDataType &bits, int i) const
     {
         auto s = bits.at(i).string_value();
         NPNR_ASSERT(s.size() == 1);
         return s.at(0);
     }
 
-    int get_vector_bit_signal(const BitVectorDataType &bits, int i) const
+    int get_vector_bit_signal(BitVectorDataType &bits, int i) const
     {
         NPNR_ASSERT(bits.at(i).is_number());
         return bits.at(i).int_value();
