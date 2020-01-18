@@ -27,6 +27,9 @@
 #pragma clang diagnostic ignored "-Wunused-function"        // for stb_textedit.h
 #pragma clang diagnostic ignored "-Wmissing-prototypes"     // for stb_textedit.h
 #pragma clang diagnostic ignored "-Wold-style-cast"
+#elif defined(__GNUC__) && __GNUC__ >= 8
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wclass-memaccess"
 #endif
 
 //-----------------------------------------------------------------------------

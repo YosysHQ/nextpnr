@@ -93,7 +93,7 @@ void IdStringList::updateElements(Context *ctx, std::vector<IdString> elements)
     }
 
     // Sort new children
-    qSort(children_.begin(), children_.end(), [&](const Item *a, const Item *b) {
+    std::sort(children_.begin(), children_.end(), [&](const Item *a, const Item *b) {
         auto parts_a = alphaNumSplit(a->name());
         auto parts_b = alphaNumSplit(b->name());
 
