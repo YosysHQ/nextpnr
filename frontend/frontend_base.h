@@ -284,6 +284,7 @@ template <typename FrontendType> struct GenericFrontend
         }
         import_module_netnames(m, data);
         import_module_cells(m, data);
+        import_net_attrs(m, data);
         if (m.is_toplevel) {
             import_toplevel_ports(m, data);
             // Mark design as loaded through nextpnr
@@ -405,6 +406,26 @@ template <typename FrontendType> struct GenericFrontend
                         continue; // don't add duplicate aliases
                     ctx->net_aliases[alias_name] = ni->name;
                     ni->aliases.push_back(alias_name);
+                }
+            }
+        });
+    }
+
+    void import_net_attrs(HierModuleState &m, const mod_dat_t &data)
+    {
+        impl.foreach_netname(data, [&](const std::string &basename, const netname_dat_t &nn) {
+            const auto &bits = impl.get_net_bits(nn);
+            int width = impl.get_vector_length(bits);
+            for (int i = 0; i < width; i++) {
+                if (impl.is_vector_bit_constant(bits, i))
+                    continue;
+                int net_bit = impl.get_vector_bit_signal(bits, i);
+                int mapped_bit = m.net_by_idx(net_bit);
+                if (mapped_bit != -1) {
+                    NetInfo *ni = net_flatindex.at(mapped_bit);
+                    impl.foreach_attr(nn, [&](const std::string &name, const Property &value) {
+                        ni->attrs[ctx->id(name)] = value;
+                    });
                 }
             }
         });
