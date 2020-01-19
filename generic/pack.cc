@@ -112,17 +112,6 @@ static void pack_nonlut_ffs(Context *ctx)
     }
 }
 
-static bool net_is_constant(const Context *ctx, NetInfo *net, bool &value)
-{
-    if (net == nullptr)
-        return false;
-    if (net->name == ctx->id("$PACKER_GND_NET") || net->name == ctx->id("$PACKER_VCC_NET")) {
-        value = (net->name == ctx->id("$PACKER_VCC_NET"));
-        return true;
-    } else {
-        return false;
-    }
-}
 
 // Merge a net into a constant net
 static void set_net_constant(const Context *ctx, NetInfo *orig, NetInfo *constnet, bool constval)

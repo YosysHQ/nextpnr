@@ -32,14 +32,10 @@ const float slice_pitch = 0.0374 + 0.0068;
 const float io_cell_v_x1 = 0.76;
 const float io_cell_v_x2 = 0.95;
 const float io_cell_v_y1 = 0.05;
-const float io_cell_v_y2 = 0.15;
-const float io_cell_v_pitch = 0.125;
 const float io_cell_gap = 0.10;
 const float io_cell_h_x1 = 0.05;
-const float io_cell_h_x2 = 0.14;
 const float io_cell_h_y1 = 0.05;
 const float io_cell_h_y2 = 0.24;
-const float io_cell_h_pitch = 0.125;
 
 const float wire_distance = 0.0017f;
 const float wire_distance_small = 0.00085f;
