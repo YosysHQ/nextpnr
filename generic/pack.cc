@@ -112,7 +112,6 @@ static void pack_nonlut_ffs(Context *ctx)
     }
 }
 
-
 // Merge a net into a constant net
 static void set_net_constant(const Context *ctx, NetInfo *orig, NetInfo *constnet, bool constval)
 {

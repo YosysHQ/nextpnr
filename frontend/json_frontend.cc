@@ -85,10 +85,7 @@ struct JsonFrontendImpl
             NPNR_ASSERT_FALSE("invalid json port direction");
     }
 
-    PortType get_port_dir(ModulePortDataType &port) const
-    {
-        return lookup_portdir(port["direction"].string_value());
-    }
+    PortType get_port_dir(ModulePortDataType &port) const { return lookup_portdir(port["direction"].string_value()); }
 
     int get_array_offset(const Json &obj) const
     {
