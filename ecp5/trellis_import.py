@@ -521,7 +521,7 @@ def write_database(dev_name, chip, ddrg, endianness):
         loc, bel_idx, bank, func, dqs = pin
         write_loc(loc, "abs_loc")
         bba.u32(bel_idx, "bel_index")
-        if func is not None:
+        if func is not None and func != "WRITEN":
             bba.s(func, "function_name")
         else:
             bba.r(None, "function_name")

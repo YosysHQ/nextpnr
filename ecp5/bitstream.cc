@@ -178,7 +178,7 @@ static std::string get_pio_tile(Context *ctx, BelId bel)
 {
     static const std::set<std::string> pioabcd_l = {"PICL1", "PICL1_DQS0", "PICL1_DQS3"};
     static const std::set<std::string> pioabcd_r = {"PICR1", "PICR1_DQS0", "PICR1_DQS3"};
-    static const std::set<std::string> pioa_b = {"PICB0", "EFB0_PICB0", "EFB2_PICB0"};
+    static const std::set<std::string> pioa_b = {"PICB0", "EFB0_PICB0", "EFB2_PICB0", "SPICB0"};
     static const std::set<std::string> piob_b = {"PICB1", "EFB1_PICB1", "EFB3_PICB1"};
 
     std::string pio_name = ctx->locInfo(bel)->bel_data[bel.index].name.get();
@@ -215,7 +215,7 @@ static std::string get_pic_tile(Context *ctx, BelId bel)
     static const std::set<std::string> picab_r = {"PICR0", "PICR0_DQS2"};
     static const std::set<std::string> piccd_r = {"PICR2", "PICR2_DQS1", "MIB_CIB_LR_A"};
 
-    static const std::set<std::string> pica_b = {"PICB0", "EFB0_PICB0", "EFB2_PICB0"};
+    static const std::set<std::string> pica_b = {"PICB0", "EFB0_PICB0", "EFB2_PICB0", "SPICB0"};
     static const std::set<std::string> picb_b = {"PICB1", "EFB1_PICB1", "EFB3_PICB1"};
 
     std::string pio_name = ctx->locInfo(bel)->bel_data[bel.index].name.get();
