@@ -1271,6 +1271,18 @@ struct Arch : BaseCtx
         int wire = pip_data(pip).to_wire;
         return db->loctypes[chip_info->grid[pip.tile].loc_type].wires[wire].name;
     }
+
+    // -------------------------------------------------
+
+    // Get a map cell type -> pins that can be inverted
+    void get_invertible_pins(std::unordered_map<IdString, std::unordered_set<IdString>> &pins) const;
+    // Get a map cell -> pin -> value _it takes_ if disconnected
+    void get_pins_floating_value(std::unordered_map<IdString, std::unordered_map<IdString, bool>> &pins) const;
+    // Get a map cell -> pin -> value _it must be connected to_ if disconnected
+    // Default value for all pins, if not specified is 0
+    void
+    get_pins_default_value(std::unordered_map<IdString, std::unordered_map<IdString, Property::State>> &pins) const;
+
     // -------------------------------------------------
 
     NeighWireRange neigh_wire_range(WireId wire) const

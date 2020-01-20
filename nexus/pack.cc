@@ -40,6 +40,7 @@ struct NexusPacker
         std::unordered_map<IdString, IdString> param_xform;
         std::vector<std::pair<IdString, std::string>> set_attrs;
         std::vector<std::pair<IdString, Property>> set_params;
+        std::vector<std::pair<IdString, Property>> default_params;
     };
 
     void xform_cell(const std::unordered_map<IdString, XFormRule> &rules, CellInfo *ci)
@@ -86,6 +87,10 @@ struct NexusPacker
 
         for (auto &attr : rule.set_attrs)
             ci->attrs[attr.first] = attr.second;
+
+        for (auto &param : rule.default_params)
+            if (!ci->params.count(param.first))
+                ci->params[param.first] = param.second;
 
         for (auto &param : rule.set_params)
             ci->params[param.first] = param.second;
@@ -134,6 +139,11 @@ struct NexusPacker
             ff_rules[type].port_xform[id_D] = id_M; // will be rerouted to DI later if applicable
             ff_rules[type].port_xform[id_SP] = id_CE;
             ff_rules[type].port_xform[id_Q] = id_Q;
+
+            ff_rules[id_FD1P3BX].default_params.emplace_back(id_CLKMUX, std::string("CLK"));
+            ff_rules[id_FD1P3BX].default_params.emplace_back(id_CEMUX, std::string("CE"));
+            ff_rules[id_FD1P3BX].default_params.emplace_back(id_LSRMUX, std::string("LSR"));
+            ff_rules[id_FD1P3BX].set_params.emplace_back(id_LSRMODE, std::string("LSR"));
         }
         // Async preload
         ff_rules[id_FD1P3BX].set_params.emplace_back(id_SRMODE, std::string("ASYNC"));
