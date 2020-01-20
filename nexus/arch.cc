@@ -410,12 +410,6 @@ bool Arch::route()
 
 // -----------------------------------------------------------------------
 
-void Arch::assignArchInfo() {}
-
-void assignCellInfo(CellInfo *cell) {}
-
-// -----------------------------------------------------------------------
-
 #ifdef WITH_HEAP
 const std::string Arch::defaultPlacer = "heap";
 #else

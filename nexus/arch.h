@@ -159,7 +159,7 @@ NPNR_PACKED_STRUCT(struct PhysicalTileInfoPOD {
     int32_t tiletype; // tile type IdString
 });
 
-enum LocFlagsPOD : uint32_t
+enum LocFlags : uint32_t
 {
     LOC_LOGIC = 0x000001,
     LOC_IO18 = 0x000002,
@@ -816,12 +816,19 @@ struct Arch : BaseCtx
         cell->bel = bel;
         cell->belStrength = strength;
         refreshUiBel(bel);
+
+        if (tile_is(bel, LOC_LOGIC))
+            update_logic_bel(bel, cell);
     }
 
     void unbindBel(BelId bel)
     {
         NPNR_ASSERT(bel != BelId());
         NPNR_ASSERT(tileStatus[bel.tile].boundcells[bel.index] != nullptr);
+
+        if (tile_is(bel, LOC_LOGIC))
+            update_logic_bel(bel, nullptr);
+
         tileStatus[bel.tile].boundcells[bel.index]->bel = BelId();
         tileStatus[bel.tile].boundcells[bel.index]->belStrength = STRENGTH_NONE;
         tileStatus[bel.tile].boundcells[bel.index] = nullptr;
@@ -1301,6 +1308,43 @@ struct Arch : BaseCtx
     }
 
     // -------------------------------------------------
+
+    template <typename TId> uint32_t tile_loc_flags(TId id) const { return chip_info->grid[id.tile].loc_flags; }
+
+    template <typename TId> bool tile_is(TId id, LocFlags lf) const { return tile_loc_flags(id) & lf; }
+
+    // -------------------------------------------------
+
+    enum LogicBelZ
+    {
+        BEL_LUT0 = 0,
+        BEL_LUT1 = 1,
+        BEL_FF0 = 2,
+        BEL_FF1 = 3,
+        BEL_RAMW = 4,
+    };
+
+    void update_logic_bel(BelId bel, CellInfo *cell)
+    {
+        int z = bel_data(bel).z;
+        NPNR_ASSERT(z < 32);
+        auto &tts = tileStatus[bel.tile];
+        if (tts.lts == nullptr)
+            tts.lts = new LogicTileStatus();
+        auto &ts = *(tts.lts);
+        ts.cells[z] = cell;
+        switch (z & 0x7) {
+        case BEL_FF0:
+        case BEL_FF1:
+        case BEL_RAMW:
+            ts.halfs[(z >> 3) / 2].dirty = true;
+        /* fall-through */
+        case BEL_LUT0:
+        case BEL_LUT1:
+            ts.slices[(z >> 3)].dirty = true;
+            break;
+        }
+    }
 
     bool nexus_logic_tile_valid(LogicTileStatus &lts) const;
 

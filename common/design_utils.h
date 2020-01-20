@@ -82,6 +82,13 @@ template <typename F1> CellInfo *net_driven_by(const Context *ctx, const NetInfo
     }
 }
 
+// Check if a port is used
+inline bool port_used(CellInfo *cell, IdString port_name)
+{
+    auto port_fnd = cell->ports.find(port_name);
+    return port_fnd != cell->ports.end() && port_fnd->second.net != nullptr;
+}
+
 // Connect a net to a port
 void connect_port(const Context *ctx, NetInfo *net, CellInfo *cell, IdString port_name);
 

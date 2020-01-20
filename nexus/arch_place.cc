@@ -23,15 +23,6 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-enum LogicBelZ
-{
-    BEL_LUT0 = 0,
-    BEL_LUT1 = 1,
-    BEL_FF0 = 2,
-    BEL_FF1 = 3,
-    BEL_RAMW = 4,
-};
-
 bool Arch::nexus_logic_tile_valid(LogicTileStatus &lts) const
 {
     for (int s = 0; s < 4; s++) {
@@ -93,8 +84,23 @@ bool Arch::nexus_logic_tile_valid(LogicTileStatus &lts) const
     return true;
 }
 
-bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const { return true; }
+bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const
+{
+    // FIXME
+    return true;
+}
 
-bool Arch::isBelLocationValid(BelId bel) const { return true; }
+bool Arch::isBelLocationValid(BelId bel) const
+{
+    if (tile_is(bel, LOC_LOGIC)) {
+        LogicTileStatus *lts = tileStatus[bel.tile].lts;
+        if (lts == nullptr)
+            return true;
+        else
+            return nexus_logic_tile_valid(*lts);
+    } else {
+        return true;
+    }
+}
 
 NEXTPNR_NAMESPACE_END

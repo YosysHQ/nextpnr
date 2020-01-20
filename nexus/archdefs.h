@@ -169,7 +169,6 @@ struct ArchCellInfo
         struct
         {
             bool is_memory, is_carry, mux2_used;
-            int input_count;
             NetInfo *f, *ofx;
         } lutInfo;
         struct
