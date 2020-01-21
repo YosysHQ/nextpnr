@@ -2185,15 +2185,15 @@ class Ecp5Packer
                 if (ci->ports.count(id_LOADN))
                     replace_port(ci, id_LOADN, iol, id_LOADN);
                 else
-                    tie_zero(ci, id_LOADN);
+                    tie_zero(iol, id_LOADN);
                 if (ci->ports.count(id_MOVE))
                     replace_port(ci, id_MOVE, iol, id_MOVE);
                 else
-                    tie_zero(ci, id_MOVE);
+                    tie_zero(iol, id_MOVE);
                 if (ci->ports.count(id_DIRECTION))
                     replace_port(ci, id_DIRECTION, iol, id_DIRECTION);
                 else
-                    tie_zero(ci, id_DIRECTION);
+                    tie_zero(iol, id_DIRECTION);
                 if (ci->ports.count(id_CFLAG))
                     replace_port(ci, id_CFLAG, iol, id_CFLAG);
             }
