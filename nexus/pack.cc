@@ -23,11 +23,77 @@
 #include "nextpnr.h"
 #include "util.h"
 
+#include <boost/algorithm/string.hpp>
+
 NEXTPNR_NAMESPACE_BEGIN
 
 namespace {
 bool is_enabled(CellInfo *ci, IdString prop) { return str_or_default(ci->params, prop, "") == "ENABLED"; }
 } // namespace
+
+// Parse a possibly-Lattice-style (C literal in Verilog string) style parameter
+Property Arch::parse_lattice_param(const CellInfo *ci, IdString prop, int width, int64_t defval) const
+{
+    auto fnd = ci->params.find(prop);
+    if (fnd == ci->params.end())
+        return Property(defval, width);
+    const auto &val = fnd->second;
+    if (val.is_string) {
+        const std::string &s = val.str;
+        Property temp;
+
+        if (boost::starts_with(s, "0b")) {
+            for (int i = int(s.length()) - 1; i >= 2; i--) {
+                char c = s.at(i);
+                if (c != '0' && c != '1' && c != 'x')
+                    log_error("Invalid binary digit '%c' in property %s.%s\n", c, nameOf(ci), nameOf(prop));
+                temp.str.push_back(c);
+            }
+        } else if (boost::starts_with(s, "0x")) {
+            for (int i = int(s.length()) - 1; i >= 2; i--) {
+                char c = s.at(i);
+                int nibble;
+                if (c >= '0' && c <= '9')
+                    nibble = (c - '0');
+                else if (c >= 'a' && c <= 'f')
+                    nibble = (c - 'a');
+                else if (c >= 'A' && c <= 'F')
+                    nibble = (c - 'A');
+                else
+                    log_error("Invalid hex digit '%c' in property %s.%s\n", c, nameOf(ci), nameOf(prop));
+                for (int j = 0; j < 4; j++)
+                    temp.str.push_back(((nibble >> j) & 0x1) ? Property::S1 : Property::S0);
+            }
+        } else {
+            int64_t ival = 0;
+            try {
+                if (boost::starts_with(s, "0d"))
+                    ival = std::stoll(s.substr(2));
+                else
+                    ival = std::stoll(s);
+            } catch (std::runtime_error &e) {
+                log_error("Invalid decimal value for property %s.%s", nameOf(ci), nameOf(prop));
+            }
+            temp = Property(ival);
+        }
+
+        for (auto b : temp.str.substr(width)) {
+            if (b == Property::S1)
+                log_error("Found value for property %s.%s with width greater than %d\n", nameOf(ci), nameOf(prop),
+                          width);
+        }
+        temp.update_intval();
+        return temp.extract(0, width);
+    } else {
+        for (auto b : val.str.substr(width)) {
+            if (b == Property::S1)
+                log_error("Found bitvector value for property %s.%s with width greater than %d - perhaps a string was "
+                          "converted to bits?\n",
+                          nameOf(ci), nameOf(prop), width);
+        }
+        return val.extract(0, width);
+    }
+}
 
 struct NexusPacker
 {
@@ -45,6 +111,7 @@ struct NexusPacker
         std::vector<std::pair<IdString, std::string>> set_attrs;
         std::vector<std::pair<IdString, Property>> set_params;
         std::vector<std::pair<IdString, Property>> default_params;
+        std::vector<std::tuple<IdString, IdString, int, int64_t>> parse_params;
     };
 
     void xform_cell(const std::unordered_map<IdString, XFormRule> &rules, CellInfo *ci)
@@ -96,6 +163,16 @@ struct NexusPacker
             if (!ci->params.count(param.first))
                 ci->params[param.first] = param.second;
 
+        {
+            IdString old_param, new_param;
+            int width;
+            int64_t def;
+            for (const auto &p : rule.parse_params) {
+                std::tie(old_param, new_param, width, def) = p;
+                ci->params[new_param] = ctx->parse_lattice_param(ci, old_param, width, def);
+            }
+        }
+
         for (auto &param : rule.set_params)
             ci->params[param.first] = param.second;
     }
@@ -130,6 +207,7 @@ struct NexusPacker
         std::unordered_map<IdString, XFormRule> lut_rules;
         lut_rules[id_LUT4].new_type = id_OXIDE_COMB;
         lut_rules[id_LUT4].port_xform[id_Z] = id_F;
+        lut_rules[id_LUT4].parse_params.emplace_back(id_INIT, id_INIT, 16, 0);
         generic_xform(lut_rules);
     }
 

@@ -232,7 +232,7 @@ struct NexusFasmWriter
         write_enum(cell, "HFDIV_FABRIC_EN", "ENABLED");
         write_enum(cell, "LF_FABRIC_EN");
         write_enum(cell, "LF_OUTPUT_EN");
-        write_int_vector(stringf("HF_CLK_DIV[7:0]"), int_or_default(cell->params, id_HF_CLK_DIV, 0), 8);
+        write_int_vector(stringf("HF_CLK_DIV[7:0]"), ctx->parse_lattice_param(cell, id_HF_CLK_DIV, 8, 0).intval, 8);
         pop(2);
     }
     void operator()()
