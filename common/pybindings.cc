@@ -129,6 +129,15 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
             .value("PORT_INOUT", PORT_INOUT)
             .export_values();
 
+    enum_<PlaceStrength>("PlaceStrength")
+            .value("STRENGTH_NONE", STRENGTH_NONE)
+            .value("STRENGTH_WEAK", STRENGTH_WEAK)
+            .value("STRENGTH_STRONG", STRENGTH_STRONG)
+            .value("STRENGTH_FIXED", STRENGTH_FIXED)
+            .value("STRENGTH_LOCKED", STRENGTH_LOCKED)
+            .value("STRENGTH_USER", STRENGTH_USER)
+            .export_values();
+
     typedef std::unordered_map<IdString, Property> AttrMap;
     typedef std::unordered_map<IdString, PortInfo> PortMap;
     typedef std::unordered_map<IdString, IdString> IdIdMap;

@@ -274,7 +274,7 @@ template <typename Class, typename FuncT, FuncT fn, typename arg1_conv> struct f
     }
 };
 
-// Two parameters, one return
+// Two parameters, no return
 template <typename Class, typename FuncT, FuncT fn, typename arg1_conv, typename arg2_conv> struct fn_wrapper_2a_v
 {
     using class_type = typename WrapIfNotContext<Class>::maybe_wrapped_t;
