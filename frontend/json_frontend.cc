@@ -105,10 +105,14 @@ struct JsonFrontendImpl
 
     Property parse_property(const Json &val) const
     {
-        if (val.is_number())
+        if (val.is_number()) {
+            if (val.int_value() != val.number_value())
+                log_error("Found an out-of-range integer parameter in the JSON file.\n"
+                          "Please regenerate the input file with an up-to-date version of yosys.\n");
             return Property(val.int_value(), 32);
-        else
+        } else {
             return Property::from_string(val.string_value());
+        }
     }
 
     template <typename TFunc> void foreach_attr(const Json &obj, TFunc Func) const
