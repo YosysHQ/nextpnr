@@ -205,7 +205,7 @@ template <> struct hash<NEXTPNR_NAMESPACE_PREFIX PipId>
     std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX PipId &pip) const noexcept
     {
         std::size_t seed = std::hash<NEXTPNR_NAMESPACE_PREFIX Location>()(pip.location);
-        seed ^= std::hash<int>()(pip.index) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        seed ^= std::hash<int>()(pip.index ^ pip.subindex) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
         return seed;
     }
 };

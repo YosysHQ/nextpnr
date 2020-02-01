@@ -497,7 +497,8 @@ struct Router1
             }
             qw.randtag = ctx->rng();
 
-            queue.push(qw);
+	    if (src_wire != dst_wire)
+                queue.push(qw);
             visited[qw.wire] = qw;
         }
 

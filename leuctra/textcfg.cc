@@ -32,16 +32,21 @@ void write_textcfg(const Context *ctx, std::ostream &out)
 	auto &bel = ctx->getTileTypeBel(belid);
 	auto name = IdString(bel.name_id);
 	out << "PRIM " << belid.location.x << " " << belid.location.y << " " << name.str(ctx) << " " << cell.second->name.str(ctx) << std::endl;
-	for (auto &attr : cell.second->attrs) {
-	    out << "OPT " << attr.first.str(ctx) << " " << attr.second << std::endl;
-	}
-	for (auto &param : cell.second->params) {
-	    out << "OPT " << param.first.str(ctx) << " " << param.second << std::endl;
+	for (auto &attr : cell.second->params) {
+	    if (attr.second.is_string)
+		out << "PARAMSTR " << attr.first.str(ctx) << " " << attr.second.as_string() << std::endl;
+	    else {
+		std::string sv;
+		for (auto bit: attr.second.as_bits())
+			sv.push_back(bit ? '1' : '0');
+		out << "PARAM " << attr.first.str(ctx) << " " << sv << std::endl;
+	    }
 	}
     }
     for (auto &net : ctx->nets) {
 	out << "NET " << net.second->name.str(ctx) << std::endl;
-	out << "FROM " << net.second->driver.cell->name.str(ctx) << " " << net.second->driver.port.str(ctx) << std::endl;
+	if (net.second->driver.cell)
+	    out << "FROM " << net.second->driver.cell->name.str(ctx) << " " << net.second->driver.port.str(ctx) << std::endl;
 	for (auto &user : net.second->users) {
 	    out << "TO " << user.cell->name.str(ctx) << " " << user.port.str(ctx) << std::endl;
 	}

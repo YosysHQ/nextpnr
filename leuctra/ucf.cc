@@ -65,7 +65,7 @@ bool Arch::applyUCF(std::string filename, std::istream &in)
                 if (words.size() >= 0) {
                     std::string verb = words.at(0);
                     if (verb == "CONFIG") {
-                            log_warning("    ignoring unsupported LPF command '%s' (on line %d)\n", command.c_str(),
+                            log_warning("    ignoring unsupported UCF command '%s' (on line %d)\n", command.c_str(),
                                         lineno);
                     } else if (verb == "NET") {
                         if (words.size() < 2)
@@ -82,12 +82,15 @@ bool Arch::applyUCF(std::string filename, std::istream &in)
 			        pos += 2;
 				auto fnd_cell = cells.find(id(target));
 				if (fnd_cell != cells.end()) {
-				    fnd_cell->second->attrs[id(attr)] = value;
+				    if (attr == "LOC")
+					fnd_cell->second->attrs[id(attr)] = value;
+				    else
+					fnd_cell->second->params[id(attr)] = value;
 				}
 			    } else if (attr == "PULLUP" || attr == "PULLDOWN" || attr == "KEEPER") {
 				auto fnd_cell = cells.find(id(target));
 				if (fnd_cell != cells.end()) {
-				    fnd_cell->second->attrs[id("PULLTYPE")] = attr;
+				    fnd_cell->second->params[id("PULLTYPE")] = attr;
 				}
 			    } else if (attr == "PERIOD") {
 				if (pos + 2 > words.size() || words.at(pos) != "=")

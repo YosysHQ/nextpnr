@@ -175,12 +175,23 @@ struct Timing
 
                     // Otherwise, for all driven input ports on this cell, if a timing arc exists between the input and
                     // the current output port, increment fanin counter
+		    int found = 0;
                     for (auto i : input_ports) {
                         DelayInfo comb_delay;
                         bool is_path = ctx->getCellDelay(cell.second.get(), i, o->name, comb_delay);
-                        if (is_path)
+                        if (is_path) {
                             port_fanin[o]++;
+			    found++;
+			}
                     }
+		    if (!found && portClass == TMG_COMB_OUTPUT) {
+			// log_warning("fake root %s\n", o->net->name.c_str(ctx));
+                        topographical_order.emplace_back(o->net);
+                        TimingData td;
+                        td.false_startpoint = true;
+                        td.max_arrival = 0;
+                        net_data[o->net][ClockEvent{async_clock, RISING_EDGE}] = td;
+		    }
                 }
             }
         }

@@ -685,6 +685,10 @@ struct Arch : BaseCtx
     BelId getBelByLocation(Loc loc) const
     {
 	BelId res;
+        if (loc.x >= device_info->width || loc.y >= device_info->height)
+            return BelId();
+	if (loc.z >= getTileType(loc.x, loc.y).num_bels)
+            return BelId();
 	res.location.x = loc.x;
 	res.location.y = loc.y;
 	res.index = loc.z;
@@ -788,6 +792,11 @@ struct Arch : BaseCtx
     }
 
     std::vector<IdString> getBelPins(BelId bel) const;
+
+    BelPOD::BelFlags getBelFlags(BelId bel) const {
+	auto &tile = getTile(bel.location);
+	return tile.bels[bel.index].flags;
+    }
 
     BelId getRelatedBel(BelId bel, int relation) const {
 	auto &tile = getTile(bel.location);
@@ -1050,8 +1059,8 @@ struct Arch : BaseCtx
     {
 	// TODO: delays.
 	DelayInfo del;
-	del.min_delay = 11;
-	del.max_delay = 13;
+	del.min_delay = 150;
+	del.max_delay = 150;
 	return del;
     }
 
@@ -1135,7 +1144,7 @@ struct Arch : BaseCtx
     delay_t estimateDelay(WireId src, WireId dst) const;
     delay_t predictDelay(const NetInfo *net_info, const PortRef &sink) const;
     delay_t getDelayEpsilon() const { return 20; }
-    delay_t getRipupDelayPenalty() const { return 200; }
+    delay_t getRipupDelayPenalty() const { return 80; }
     float getDelayNS(delay_t v) const { return v * 0.001; }
     DelayInfo getDelayFromNS(float ns) const
     {
@@ -1176,22 +1185,43 @@ struct Arch : BaseCtx
     // Placement validity checks
     // TODO: validate bel subtype (SLICEM vs SLICEL, IOBM vs IOBS, ...).
     bool isValidBelForCell(CellInfo *cell, BelId bel) const {
-	if (cell->type == id("LEUCTRA_FF") && (0x924924ull & 1ull << bel.index))
-	    return false;
+	if (cell->type == id("LEUCTRA_FF")) {
+	    if (!cell->constr_parent) {
+	        if (0x924924ull & 1ull << bel.index)
+	            return false;
+	        // XXX FIX FIX FIX
+	        if (0xffcfffull & 1ull << bel.index)
+	            return false;
+	    }
+	}
+	if (cell->type == id("LEUCTRA_LC")) {
+            int mask = cell->attrs[id("LOCMASK")].as_int64();
+	    int lci = bel.index / 3 % 4;
+	    if (!(mask & 1 << lci))
+		return false;
+            if (cell->attrs[id("NEEDS_L")].as_bool()) {
+		if (!(getBelFlags(bel) & (BelPOD::FLAG_SLICEL | BelPOD::FLAG_SLICEM)))
+		    return false;
+	    }
+            if (cell->attrs[id("NEEDS_M")].as_bool()) {
+		if (!(getBelFlags(bel) & BelPOD::FLAG_SLICEM))
+		    return false;
+	    }
+	    // XXX more?
+	}
 	return true;
     }
     bool isBelLocationValid(BelId bel) const {
         CellInfo *cell = getBoundBelCell(bel);
-        if (cell == nullptr)
-            return true;
-        else
-            return isValidBelForCell(cell, bel);
+        if (cell && !isValidBelForCell(cell, bel))
+	    return false;
+        return true;
     }
 
     // Apply UCF constraints to the context
     bool applyUCF(std::string filename, std::istream &in);
 
-    //void assignArchInfo();
+    void assignArchInfo();
     static const std::string defaultPlacer;
     static const std::vector<std::string> availablePlacers;
 };

@@ -490,14 +490,20 @@ std::vector<IdString> Arch::getBelPins(BelId bel) const
 
 delay_t Arch::estimateDelay(WireId src, WireId dst) const
 {
-    // TODO
-    return 13;
+    // XXX
+    int dx = std::abs(src.location.x - dst.location.x);
+    int dy = std::abs(src.location.y - dst.location.y);
+    return (dx + dy + 10) * 300;
 }
 
 delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
 {
-    // TODO
-    return 13;
+    // XXX
+    auto &src_loc = net_info->driver.cell->bel.location;
+    auto &dst_loc = sink.cell->bel.location;
+    int dx = std::abs(src_loc.x - dst_loc.x);
+    int dy = std::abs(src_loc.y - dst_loc.y);
+    return (dx + dy + 10) * 300;
 }
 
 bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const { return false; }
@@ -515,16 +521,23 @@ bool Arch::place()
         cfg.ioBufTypes.insert(id("IOB"));
         if (!placer_heap(getCtx(), cfg))
             return false;
+        getCtx()->settings[getCtx()->id("place")] = 1;
     } else if (placer == "sa") {
         if (!placer1(getCtx(), Placer1Cfg(getCtx())))
             return false;
+        getCtx()->settings[getCtx()->id("place")] = 1;
     } else {
         log_error("Leuctra architecture does not support placer '%s'\n", placer.c_str());
     }
     return true;
 }
 
-bool Arch::route() { return router1(getCtx(), Router1Cfg(getCtx())); }
+bool Arch::route() {
+    bool retVal = router1(getCtx(), Router1Cfg(getCtx()));
+    if (retVal)
+        getCtx()->settings[getCtx()->id("route")] = 1;
+    return retVal;
+}
 
 // -----------------------------------------------------------------------
 
@@ -574,14 +587,182 @@ DecalXY Arch::getGroupDecal(GroupId pip) const { return {}; };
 bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const
 {
     // XXX
-    delay.min_delay = 11;
-    delay.max_delay = 13;
-    return true;
+    delay.min_delay = 150;
+    delay.max_delay = 150;
+    if (cell->type == id("LEUCTRA_LC")) {
+	if (toPort == id("O6") || toPort == id("O5") || toPort == id("CO") || toPort == id("DCO") || toPort == id("XO")) {
+            if (fromPort == id("I1") || fromPort == id("RA1"))
+                return true;
+            if (fromPort == id("I2") || fromPort == id("RA2"))
+                return true;
+            if (fromPort == id("I3") || fromPort == id("RA3"))
+                return true;
+            if (fromPort == id("I4") || fromPort == id("RA4"))
+                return true;
+            if (fromPort == id("I5") || fromPort == id("RA5"))
+                return true;
+	    if (toPort != id("O5") && (fromPort == id("I6") || fromPort == id("RA6")))
+                return true;
+	}
+	if (toPort == id("CO") || toPort == id("DCO") || toPort == id("XO")) {
+            if (fromPort == id("XI")) {
+		if (cell->params.count(id("CYINIT")) && cell->params.at(id("CYINIT")) == Property("XI"))
+                    return true;
+		if (cell->params.count(id("CYMUX")) && cell->params.at(id("CYMUX")) == Property("XI"))
+                    return true;
+	    }
+            if (fromPort == id("DCI"))
+                return true;
+	}
+	if ((toPort == id("MO") || toPort == id("DMO")) && (fromPort == id("DMI0") || fromPort == id("DMI1") || fromPort == id("XI")))
+            return true;
+	return false;
+    } else if (cell->type == id("LEUCTRA_FF")) {
+	if (cell->params.at(id("MODE")).as_string() == "COMB") {
+		return true;
+	}
+	    return false;
+    } else if (cell->type == id("BUFGMUX")) {
+	if (toPort == id("O")) {
+        if (fromPort == id("I0"))
+            return true;
+        if (fromPort == id("I1"))
+            return true;
+	}
+	return false;
+    } else if (cell->type == id("OLOGIC2")) {
+	if (toPort == id("OQ") && fromPort == id("D1"))
+            return true;
+	return false;
+    } else if (cell->type == id("ILOGIC2")) {
+	if (toPort == id("FABRICOUT") && fromPort == id("D"))
+            return true;
+	return false;
+    } else if (cell->type == id("RAMB16BWER")) {
+	    return false;
+    } else if (cell->type == id("RAMB8BWER")) {
+	    return false;
+    }
+    log_warning("cell type '%s' arc '%s' '%s' is unsupported (instantiated as '%s')\n", cell->type.c_str(this), fromPort.c_str(this), toPort.c_str(this), cell->name.c_str(this));
+    return false;
 }
 
 TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const
 {
+    if (cell->type == id("LEUCTRA_LC")) {
+	if (cell->attrs.count(id("CONST")))
+	    return TMG_IGNORE;
+        if (port == id("O6") || port == id("O5") || port == id("MO") || port == id("DMO") || port == id("DCO") || port == id("CO") || port == id("XO"))
+            return TMG_COMB_OUTPUT;
+        if (port == id("I1") || port == id("RA1"))
+            return TMG_COMB_INPUT;
+        if (port == id("I2") || port == id("RA2"))
+            return TMG_COMB_INPUT;
+        if (port == id("I3") || port == id("RA3"))
+            return TMG_COMB_INPUT;
+        if (port == id("I4") || port == id("RA4"))
+            return TMG_COMB_INPUT;
+        if (port == id("I5") || port == id("RA5"))
+            return TMG_COMB_INPUT;
+        if (port == id("I6") || port == id("RA6"))
+            return TMG_COMB_INPUT;
+        if (port == id("WA1") || port == id("WA2") || port == id("WA3") || port == id("WA4") || port == id("WA5") || port == id("WA6") || port == id("WA7") || port == id("WA8") || port == id("WE") || port == id("DDI5") || port == id("DDI7") || port == id("DDI8")) {
+	    clockInfoCount = 1;
+            return TMG_REGISTER_INPUT;
+	}
+        if (port == id("DMI0") || port == id("DMI1") || port == id("DCI"))
+            return TMG_COMB_INPUT;
+        if (port == id("XI")) {
+	    if (cell->params.count(id("DIMUX")) && cell->params.at(id("DIMUX")).as_string() == "XI") {
+	    clockInfoCount = 1;
+		return TMG_REGISTER_INPUT;
+	    } else {
+		return TMG_COMB_INPUT;
+	    }
+	}
+	if (port == id("CLK"))
+	    return TMG_CLOCK_INPUT;
+    }
+    if (cell->type == id("LEUCTRA_FF")) {
+	if (cell->params.at(id("MODE")).as_string() == "COMB") {
+		if (port == id("D") ||
+			port == id("SR") ||
+			port == id("CLK") ||
+			port == id("CE")) {
+		    return TMG_COMB_INPUT;
+		}
+		if (port == id("Q")) {
+		    return TMG_COMB_OUTPUT;
+		}
+	} else {
+		if (port == id("D") ||
+			port == id("SR") ||
+			port == id("CE")) {
+		    clockInfoCount = 1;
+		    return TMG_REGISTER_INPUT;
+		}
+		if (port == id("CLK"))
+		    return TMG_CLOCK_INPUT;
+		if (port == id("Q")) {
+		    clockInfoCount = 1;
+		    return TMG_REGISTER_OUTPUT;
+		}
+	}
+    }
+    if (cell->type == id("BUFGMUX")) {
+        if (port == id("O"))
+            return TMG_COMB_OUTPUT;
+        if (port == id("I0"))
+            return TMG_COMB_INPUT;
+        if (port == id("I1"))
+            return TMG_COMB_INPUT;
+        if (port == id("S"))
+            return TMG_IGNORE;
+    }
+    if (cell->type == id("IOB")) {
+        if (port == id("I"))
+            return TMG_STARTPOINT;
+        if (port == id("O"))
+            return TMG_ENDPOINT;
+        if (port == id("T"))
+            return TMG_ENDPOINT;
+    }
+    if (cell->type == id("ILOGIC2")) {
+        if (port == id("D"))
+            return TMG_COMB_INPUT;
+        if (port == id("FABRICOUT"))
+            return TMG_COMB_OUTPUT;
+    }
+    if (cell->type == id("OLOGIC2")) {
+        if (port == id("D1"))
+            return TMG_COMB_INPUT;
+        if (port == id("OQ"))
+            return TMG_COMB_OUTPUT;
+    }
+    if (cell->type == id("RAMB8BWER")) {
+	if (port == id("CLKAWRCLK"))
+	    return TMG_CLOCK_INPUT;
+	if (port == id("CLKBRDCLK"))
+	    return TMG_CLOCK_INPUT;
+	clockInfoCount = 1;
+	if (cell->ports.at(port).type == PORT_IN)
+	    return TMG_REGISTER_INPUT;
+	else
+	    return TMG_REGISTER_OUTPUT;
+    }
+    if (cell->type == id("RAMB16BWER")) {
+	if (port == id("CLKA"))
+	    return TMG_CLOCK_INPUT;
+	if (port == id("CLKB"))
+	    return TMG_CLOCK_INPUT;
+	clockInfoCount = 1;
+	if (cell->ports.at(port).type == PORT_IN)
+	    return TMG_REGISTER_INPUT;
+	else
+	    return TMG_REGISTER_OUTPUT;
+    }
     // XXX
+    log_warning("cell type '%s' port '%s' is unsupported (instantiated as '%s')\n", cell->type.c_str(this), port.c_str(this), cell->name.c_str(this));
     return TMG_IGNORE;
 }
 
@@ -591,8 +772,54 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
     info.setup = getDelayFromNS(0);
     info.hold = getDelayFromNS(0);
     info.clockToQ = getDelayFromNS(0);
-    // XXX
+    if (cell->type == id("LEUCTRA_LC") || cell->type == id("LEUCTRA_FF")) {
+        info.clock_port = id("CLK");
+	if (cell->params.count(id("CLKINV")) && cell->params.at(id("CLKINV")) == Property("CLK_B"))
+	    info.edge = FALLING_EDGE;
+	else
+	    info.edge = RISING_EDGE;
+    }
+    if (cell->type == id("RAMB8BWER")) {
+	// XXX wrong wrong wrong
+        info.clock_port = id("CLKAWRCLK");
+	if (cell->params.count(id("CLKAWRCLKINV")) && cell->params.at(id("CLKAWRCLKINV")) == Property("CLKAWRCLK_B"))
+	    info.edge = FALLING_EDGE;
+	else
+	    info.edge = RISING_EDGE;
+    }
+    if (cell->type == id("RAMB16BWER")) {
+	// XXX wrong wrong wrong
+        info.clock_port = id("CLKA");
+	if (cell->params.count(id("CLKAINV")) && cell->params.at(id("CLKAINV")) == Property("CLKA_B"))
+	    info.edge = FALLING_EDGE;
+	else
+	    info.edge = RISING_EDGE;
+    }
     return info;
+}
+
+// Assign arch arg info
+void Arch::assignArchInfo()
+{
+#if 0
+    for (auto &net : getCtx()->nets) {
+        NetInfo *ni = net.second.get();
+        if (isGlobalNet(ni))
+            ni->is_global = true;
+        ni->is_enable = false;
+        ni->is_reset = false;
+        for (auto usr : ni->users) {
+            if (is_enable_port(this, usr))
+                ni->is_enable = true;
+            if (is_reset_port(this, usr))
+                ni->is_reset = true;
+        }
+    }
+    for (auto &cell : getCtx()->cells) {
+        CellInfo *ci = cell.second.get();
+        assignCellInfo(ci);
+    }
+#endif
 }
 
 #ifdef WITH_HEAP

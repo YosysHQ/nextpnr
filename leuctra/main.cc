@@ -34,7 +34,7 @@ class LeuctraCommandHandler : public CommandHandler
   public:
     LeuctraCommandHandler(int argc, char **argv);
     virtual ~LeuctraCommandHandler(){};
-    std::unique_ptr<Context> createContext() override;
+    std::unique_ptr<Context> createContext(std::unordered_map<std::string, Property> &values) override;
     void setupArchContext(Context *ctx) override{};
     void customAfterLoad(Context *ctx) override;
     void customBitstream(Context *ctx) override;
@@ -65,8 +65,9 @@ void LeuctraCommandHandler::customBitstream(Context *ctx) {
     }
 }
 
-std::unique_ptr<Context> LeuctraCommandHandler::createContext()
+std::unique_ptr<Context> LeuctraCommandHandler::createContext(std::unordered_map<std::string, Property> &values)
 {
+    ArchArgs chipArgs;
     if (vm.count("device"))
         chipArgs.device = vm["device"].as<std::string>();
     else
@@ -75,7 +76,13 @@ std::unique_ptr<Context> LeuctraCommandHandler::createContext()
         chipArgs.package = vm["package"].as<std::string>();
     if (vm.count("speed"))
         chipArgs.speed = vm["speed"].as<std::string>();
-    return std::unique_ptr<Context>(new Context(chipArgs));
+    // XXX parse values
+
+    auto ctx = std::unique_ptr<Context>(new Context(chipArgs));
+    for (auto &val : values)
+        ctx->settings[ctx->id(val.first)] = val.second;
+
+    return ctx;
 }
 
 void LeuctraCommandHandler::customAfterLoad(Context *ctx)

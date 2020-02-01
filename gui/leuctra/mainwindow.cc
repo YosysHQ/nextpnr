@@ -22,13 +22,14 @@
 #include "log.h"
 
 #include <QFileDialog>
+#include <QInputDialog>
 
 static void initMainResource() { Q_INIT_RESOURCE(nextpnr); }
 
 NEXTPNR_NAMESPACE_BEGIN
 
-MainWindow::MainWindow(std::unique_ptr<Context> context, ArchArgs args, QWidget *parent)
-        : BaseMainWindow(std::move(context), args, parent)
+MainWindow::MainWindow(std::unique_ptr<Context> context, CommandHandler *handler, QWidget *parent)
+        : BaseMainWindow(std::move(context), handler, parent)
 {
     initMainResource();
 
@@ -53,7 +54,7 @@ void MainWindow::createMenu() {
     actionLoadUCF = new QAction("Open UCF", this);
     actionLoadUCF->setIcon(QIcon(":/icons/resources/open_ucf.png"));
     actionLoadUCF->setStatusTip("Open UCF file");
-    actionLoadUCF->setEnabled(false);
+    actionLoadUCF->setEnabled(true);
     connect(actionLoadUCF, &QAction::triggered, this, &MainWindow::open_ucf);
 
     // Add actions in menus
@@ -64,7 +65,14 @@ void MainWindow::createMenu() {
     menuDesign->addAction(actionLoadUCF);
 }
 
-void MainWindow::new_proj() {}
+void MainWindow::new_proj() {
+    QMap<QString, int> family;
+    family.insert("Spartan 6", Arch::FAMILY_SPARTAN6);
+    bool ok;
+    QString item = QInputDialog::getItem(this, "Select new context", "Family:", family.keys(), 0, false, &ok);
+    if (ok && !item.isEmpty()) {
+    }
+}
 
 void MainWindow::open_ucf()
 {
