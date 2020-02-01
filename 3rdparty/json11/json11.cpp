@@ -24,7 +24,8 @@
 #include <cmath>
 #include <cstdlib>
 #include <cstdio>
-#include <limits>
+#include <climits>
+#include <cerrno>
 
 namespace json11 {
 
@@ -589,9 +590,11 @@ struct JsonParser final {
             return fail("invalid " + esc(str[i]) + " in number");
         }
 
-        if (str[i] != '.' && str[i] != 'e' && str[i] != 'E'
-                && (i - start_pos) <= static_cast<size_t>(std::numeric_limits<int>::digits10)) {
-            return std::atoi(str.c_str() + start_pos);
+        if (str[i] != '.' && str[i] != 'e' && str[i] != 'E') {
+            errno = 0;
+            long val = std::strtol(str.c_str() + start_pos, nullptr, 0);
+            if (!errno && val >= INT_MIN && val <= INT_MAX)
+                return int(val);
         }
 
         // Decimal part
