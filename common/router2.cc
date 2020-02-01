@@ -747,7 +747,7 @@ struct Router2
             total_wire_use += int(wire.bound_nets.size());
             int overuse = int(wire.bound_nets.size()) - 1;
             if (overuse > 0) {
-                wire.hist_cong_cost += overuse * hist_cong_weight;
+                wire.hist_cong_cost = std::min(1e9, wire.hist_cong_cost + overuse * hist_cong_weight);
                 total_overuse += overuse;
                 overused_wires += 1;
                 for (auto &bound : wire.bound_nets)
@@ -1082,7 +1082,8 @@ struct Router2
             log_info("    iter=%d wires=%d overused=%d overuse=%d archfail=%s\n", iter, total_wire_use, overused_wires,
                      total_overuse, overused_wires > 0 ? "NA" : std::to_string(arch_fail).c_str());
             ++iter;
-            curr_cong_weight *= cfg.curr_cong_mult;
+            if (curr_cong_weight < 1e9)
+                curr_cong_weight *= cfg.curr_cong_mult;
         } while (!failed_nets.empty());
         if (cfg.perf_profile) {
             std::vector<std::pair<int, IdString>> nets_by_runtime;
