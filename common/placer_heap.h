@@ -39,6 +39,7 @@ struct PlacerHeapCfg
     float criticalityExponent;
     float timingWeight;
     bool timing_driven;
+    float solverTolerance;
 
     std::unordered_set<IdString> ioBufTypes;
 };

@@ -97,7 +97,7 @@ template <typename T> struct EquationSystem
 
     void add_rhs(int row, T val) { rhs[row] += val; }
 
-    void solve(std::vector<T> &x)
+    void solve(std::vector<T> &x, float tolerance)
     {
         using namespace Eigen;
         if (x.empty())
@@ -123,7 +123,7 @@ template <typename T> struct EquationSystem
             vb[i] = rhs.at(i);
 
         ConjugateGradient<SparseMatrix<T>, Lower | Upper> solver;
-        solver.setTolerance(1e-5);
+        solver.setTolerance(tolerance);
         VectorXd xr = solver.compute(mat).solveWithGuess(vb, vx);
         for (int i = 0; i < int(x.size()); i++)
             x.at(i) = xr[i];
@@ -712,7 +712,7 @@ class HeAPPlacer
         auto cell_pos = [&](CellInfo *cell) { return yaxis ? cell_locs.at(cell->name).y : cell_locs.at(cell->name).x; };
         std::vector<double> vals;
         std::transform(solve_cells.begin(), solve_cells.end(), std::back_inserter(vals), cell_pos);
-        es.solve(vals);
+        es.solve(vals, cfg.solverTolerance);
         for (size_t i = 0; i < vals.size(); i++)
             if (yaxis) {
                 cell_locs.at(solve_cells.at(i)->name).rawy = vals.at(i);
@@ -1610,6 +1610,7 @@ PlacerHeapCfg::PlacerHeapCfg(Context *ctx)
     criticalityExponent = ctx->setting<int>("placerHeap/criticalityExponent", 2);
     timingWeight = ctx->setting<int>("placerHeap/timingWeight", 10);
     timing_driven = ctx->setting<bool>("timing_driven");
+    solverTolerance = 1e-5;
 }
 
 NEXTPNR_NAMESPACE_END
