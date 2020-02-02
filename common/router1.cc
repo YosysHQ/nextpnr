@@ -769,14 +769,14 @@ bool router1(Context *ctx, const Router1Cfg &cfg)
         int last_arcs_with_ripup = 0;
         int last_arcs_without_ripup = 0;
 
-        log_info("           |   (re-)routed arcs  |   delta    | remaining|       time spent      |\n");
-        log_info("   IterCnt |  w/ripup   wo/ripup |  w/r  wo/r |      arcs| batch(sec)| total(sec)|\n");
+        log_info("           |   (re-)routed arcs  |   delta    | remaining|       time spent     |\n");
+        log_info("   IterCnt |  w/ripup   wo/ripup |  w/r  wo/r |      arcs| batch(sec) total(sec)|\n");
 
         auto prev_time = rstart;
         while (!router.arc_queue.empty()) {
             if (++iter_cnt % 1000 == 0) {
                 auto curr_time = std::chrono::high_resolution_clock::now();
-                log_info("%10d | %8d %10d | %4d %5d | %9d| %10.02f| %10.02f|\n", iter_cnt, router.arcs_with_ripup,
+                log_info("%10d | %8d %10d | %4d %5d | %9d| %10.02f %10.02f|\n", iter_cnt, router.arcs_with_ripup,
                          router.arcs_without_ripup, router.arcs_with_ripup - last_arcs_with_ripup,
                          router.arcs_without_ripup - last_arcs_without_ripup, int(router.arc_queue.size()),
                          std::chrono::duration<float>(curr_time - prev_time).count(),
@@ -806,7 +806,7 @@ bool router1(Context *ctx, const Router1Cfg &cfg)
             }
         }
         auto rend = std::chrono::high_resolution_clock::now();
-        log_info("%10d | %8d %10d | %4d %5d | %9d| %10.02f| %10.02f|\n", iter_cnt, router.arcs_with_ripup,
+        log_info("%10d | %8d %10d | %4d %5d | %9d| %10.02f %10.02f|\n", iter_cnt, router.arcs_with_ripup,
                  router.arcs_without_ripup, router.arcs_with_ripup - last_arcs_with_ripup,
                  router.arcs_without_ripup - last_arcs_without_ripup, int(router.arc_queue.size()),
                  std::chrono::duration<float>(rend - prev_time).count(),
