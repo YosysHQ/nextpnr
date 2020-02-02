@@ -707,7 +707,7 @@ class LeuctraPacker
 				net = ci->ports[pname].net;
 				disconnect_port(ctx, ci, pname);
 				if (i == 3) {
-				for (int k = 0; k < 4; j++)
+				for (int k = 0; k < 4; k++)
 				    connect_port(ctx,net, lcs[k], ctx->id("WA" + std::to_string(j+1)));
 				}
 				connect_port(ctx,net, lcs[i], ctx->id("RA" + std::to_string(j+1)));
