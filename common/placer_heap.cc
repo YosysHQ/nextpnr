@@ -1028,7 +1028,6 @@ class HeAPPlacer
         sl_time += std::chrono::duration<float>(endt - startt).count();
     }
     // Implementation of the cut-based spreading as described in the HeAP/SimPL papers
-    static constexpr float beta = 0.9;
 
     template <typename T> T limit_to_reg(Region *reg, T val, bool dir)
     {
@@ -1049,7 +1048,7 @@ class HeAPPlacer
         int id;
         int x0, y0, x1, y1;
         std::vector<int> cells, bels;
-        bool overused() const
+        bool overused(float beta) const
         {
             for (size_t t = 0; t < cells.size(); t++) {
                 if (bels.at(t) < 4) {
@@ -1380,8 +1379,9 @@ class HeAPPlacer
         void expand_regions()
         {
             std::queue<int> overu_regions;
+            float beta = p->cfg.beta;
             for (auto &r : regions) {
-                if (!merged_regions.count(r.id) && r.overused())
+                if (!merged_regions.count(r.id) && r.overused(beta))
                     overu_regions.push(r.id);
             }
             while (!overu_regions.empty()) {
@@ -1390,33 +1390,33 @@ class HeAPPlacer
                 if (merged_regions.count(rid))
                     continue;
                 auto &reg = regions.at(rid);
-                while (reg.overused()) {
+                while (reg.overused(beta)) {
                     bool changed = false;
                     // 2 x units for every 1 y unit to account for INT gaps between CLBs
                     for (int j = 0; j < 2; j++) {
                         if (reg.x0 > 0) {
                             grow_region(reg, reg.x0 - 1, reg.y0, reg.x1, reg.y1);
                             changed = true;
-                            if (!reg.overused())
+                            if (!reg.overused(beta))
                                 break;
                         }
                         if (reg.x1 < p->max_x) {
                             grow_region(reg, reg.x0, reg.y0, reg.x1 + 1, reg.y1);
                             changed = true;
-                            if (!reg.overused())
+                            if (!reg.overused(beta))
                                 break;
                         }
                     }
                     if (reg.y0 > 0) {
                         grow_region(reg, reg.x0, reg.y0 - 1, reg.x1, reg.y1);
                         changed = true;
-                        if (!reg.overused())
+                        if (!reg.overused(beta))
                             break;
                     }
                     if (reg.y1 < p->max_y) {
                         grow_region(reg, reg.x0, reg.y0, reg.x1, reg.y1 + 1);
                         changed = true;
-                        if (!reg.overused())
+                        if (!reg.overused(beta))
                             break;
                     }
                     if (!changed) {
@@ -1712,6 +1712,7 @@ bool placer_heap(Context *ctx, PlacerHeapCfg cfg) { return HeAPPlacer(ctx, cfg).
 PlacerHeapCfg::PlacerHeapCfg(Context *ctx)
 {
     alpha = ctx->setting<float>("placerHeap/alpha", 0.1);
+    beta = ctx->setting<float>("placerHeap/beta", 0.9);
     criticalityExponent = ctx->setting<int>("placerHeap/criticalityExponent", 2);
     timingWeight = ctx->setting<int>("placerHeap/timingWeight", 10);
     timing_driven = ctx->setting<bool>("timing_driven");

@@ -35,7 +35,7 @@ struct PlacerHeapCfg
 {
     PlacerHeapCfg(Context *ctx);
 
-    float alpha;
+    float alpha, beta;
     float criticalityExponent;
     float timingWeight;
     bool timing_driven;
