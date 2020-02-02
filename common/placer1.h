@@ -34,6 +34,7 @@ struct Placer1Cfg
     int timingFanoutThresh;
     bool timing_driven;
     int slack_redist_iter;
+    int hpwl_scale_x, hpwl_scale_y;
 };
 
 extern bool placer1(Context *ctx, Placer1Cfg cfg);
