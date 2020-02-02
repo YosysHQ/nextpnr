@@ -1183,39 +1183,10 @@ struct Arch : BaseCtx
 
     // -------------------------------------------------
     // Placement validity checks
-    // TODO: validate bel subtype (SLICEM vs SLICEL, IOBM vs IOBS, ...).
-    bool isValidBelForCell(CellInfo *cell, BelId bel) const {
-	if (cell->type == id("LEUCTRA_FF")) {
-	    if (!cell->constr_parent) {
-	        if (0x924924ull & 1ull << bel.index)
-	            return false;
-	        // XXX FIX FIX FIX
-	        if (0xffcfffull & 1ull << bel.index)
-	            return false;
-	    }
-	}
-	if (cell->type == id("LEUCTRA_LC")) {
-            int mask = cell->attrs[id("LOCMASK")].as_int64();
-	    int lci = bel.index / 3 % 4;
-	    if (!(mask & 1 << lci))
-		return false;
-            if (cell->attrs[id("NEEDS_L")].as_bool()) {
-		if (!(getBelFlags(bel) & (BelPOD::FLAG_SLICEL | BelPOD::FLAG_SLICEM)))
-		    return false;
-	    }
-            if (cell->attrs[id("NEEDS_M")].as_bool()) {
-		if (!(getBelFlags(bel) & BelPOD::FLAG_SLICEM))
-		    return false;
-	    }
-	    // XXX more?
-	}
-	return true;
-    }
+
+    bool isValidBelForCell(CellInfo *cell, BelId bel) const;
     bool isBelLocationValid(BelId bel) const {
-        CellInfo *cell = getBoundBelCell(bel);
-        if (cell && !isValidBelForCell(cell, bel))
-	    return false;
-        return true;
+	return isValidBelForCell(getBoundBelCell(bel), bel);
     }
 
     // Apply UCF constraints to the context

@@ -547,6 +547,7 @@ CellInfo *convert_carry4(Context *ctx, CellInfo *c4, CellInfo *link, std::vector
 	if (co[i] || xo[i])
 	    num = i + 1;
     }
+    NetInfo *vcc_net = nullptr;
     for (int i = 0; i < num; i++) {
 	// XXX more cases
 	if (i == 0 && !link) {
@@ -607,7 +608,12 @@ CellInfo *convert_carry4(Context *ctx, CellInfo *c4, CellInfo *link, std::vector
 		lcs[i]->constr_children.push_back(ff);
 		ff->params[ctx->id("MODE")] = Property("COMB");
 		ff->params[ctx->id("CLKINV")] = Property("CLK_B");
-		set_const_port(ctx, ff, ctx->id("CLK"), true, created_cells);
+		if (vcc_net) {
+		    connect_port(ctx, vcc_net, ff, ctx->id("CLK"));
+		} else {
+		    set_const_port(ctx, ff, ctx->id("CLK"), true, created_cells);
+		    vcc_net = ff->ports[ctx->id("CLK")].net;
+		}
 	        connect_ports(ctx, lcs[i], ctx->id("CO"), ff, ctx->id("D"));
 	        connect_port(ctx, co[i], ff, ctx->id("Q"));
 	    }

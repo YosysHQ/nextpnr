@@ -802,6 +802,141 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
     return info;
 }
 
+// TODO: validate bel subtype (SLICEM vs SLICEL, IOBM vs IOBS, ...).
+bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const {
+	IdString type = getBelType(bel);
+	bool is_slice = false;
+	if (type == id("LEUCTRA_FF")) {
+	    if (cell && !cell->constr_parent) {
+	        if (0x924924ull & 1ull << bel.index)
+	            return false;
+	    }
+	    is_slice = true;
+	}
+	if (type == id("LEUCTRA_LC")) {
+	    if (cell) {
+            int mask = cell->attrs[id("LOCMASK")].as_int64();
+	    int lci = bel.index / 3 % 4;
+	    if (!(mask & 1 << lci))
+		return false;
+            if (cell->attrs[id("NEEDS_L")].as_bool()) {
+		if (!(getBelFlags(bel) & (BelPOD::FLAG_SLICEL | BelPOD::FLAG_SLICEM)))
+		    return false;
+	    }
+            if (cell->attrs[id("NEEDS_M")].as_bool()) {
+		if (!(getBelFlags(bel) & BelPOD::FLAG_SLICEM))
+		    return false;
+	    }
+	    }
+	    is_slice = true;
+	}
+	if (type == id("RAMB8BWER") && cell) {
+	    BelId obel = bel;
+	    obel.index = 2;
+	    if (getBoundBelCell(obel))
+		return false;
+	}
+	if (type == id("RAMB16BWER") && cell) {
+	    BelId obel = bel;
+	    obel.index = 0;
+	    if (getBoundBelCell(obel))
+		return false;
+	    obel.index = 1;
+	    if (getBoundBelCell(obel))
+		return false;
+	}
+	if (is_slice) {
+	    int slice_z = bel.index / 12;
+	    NetInfo *clk = nullptr;
+	    NetInfo *we = nullptr;
+	    NetInfo *ce = nullptr;
+	    NetInfo *sr = nullptr;
+	    Property ff_mode;
+	    Property clk_inv;
+	    bool had_ff = false;
+	    CellInfo *lcs[4];
+	    CellInfo *ffs[8];
+	    bool ff_xi_used[4] = {0};
+	    for (int i = 0; i < 4; i++) {
+		    BelId obel = bel;
+		    obel.index = slice_z * 12 + i * 3;
+		    if (obel == bel)
+		        lcs[i] = cell;
+		    else
+		        lcs[i] = getBoundBelCell(obel);
+		    obel.index++;
+		    if (obel == bel)
+		        ffs[2*i] = cell;
+		    else
+		        ffs[2*i] = getBoundBelCell(obel);
+		    ff_xi_used[i] = ffs[2*i] && !ffs[2*i]->constr_parent;
+		    obel.index++;
+		    if (obel == bel)
+		        ffs[2*i+1] = cell;
+		    else
+		        ffs[2*i+1] = getBoundBelCell(obel);
+	    }
+	    for (auto ff : ffs) {
+		if (ff) {
+			if (had_ff) {
+				if (clk != ff->ports[id("CLK")].net)
+					return false;
+				if (ce != ff->ports[id("CE")].net)
+					return false;
+				if (sr != ff->ports[id("SR")].net)
+					return false;
+				if (ff_mode != ff->params[id("MODE")])
+					return false;
+				if (clk_inv != ff->params[id("CLKINV")])
+					return false;
+			} else {
+				clk = ff->ports[id("CLK")].net;
+				ce = ff->ports[id("CE")].net;
+				sr = ff->ports[id("SR")].net;
+				ff_mode = ff->params[id("MODE")];
+				clk_inv = ff->params[id("CLKINV")];
+			}
+			had_ff = true;
+		}
+	    }
+	    for (int i = 0; i < 4; i++) {
+		CellInfo *lc = lcs[i];
+		if (!lc)
+			continue;
+		if (lc->ports[id("XI")].net && ff_xi_used[i])
+			return false;
+		if (lc->ports[id("WA7")].net && ff_xi_used[2])
+			return false;
+		if (lc->ports[id("WA8")].net && ff_xi_used[1])
+			return false;
+		if (lc->ports[id("DDI8")].net && ff_xi_used[3])
+			return false;
+		if (lc->ports[id("DDI7")].net && ff_xi_used[i | 1])
+			return false;
+		if (lc->ports[id("CLK")].net) {
+			if (clk) {
+				if (clk != lc->ports[id("CLK")].net)
+					return false;
+				if (clk_inv != lc->params[id("CLKINV")])
+					return false;
+			} else {
+				clk = lc->ports[id("CLK")].net;
+				clk_inv = lc->params[id("CLKINV")];
+			}
+		}
+		if (lc->ports[id("WE")].net) {
+			if (we) {
+				if (we != lc->ports[id("WE")].net)
+					return false;
+			} else {
+				we = lc->ports[id("WE")].net;
+			}
+		}
+	    }
+	}
+	return true;
+}
+
 // Assign arch arg info
 void Arch::assignArchInfo()
 {
