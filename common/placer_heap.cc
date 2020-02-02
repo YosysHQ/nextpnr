@@ -686,7 +686,9 @@ class HeAPPlacer
                     if (other == &port)
                         return;
                     int o_pos = cell_pos(other->cell);
-                    double weight = 1.0 / (ni->users.size() * std::max<double>(1, std::abs(o_pos - this_pos)));
+                    double weight = 1.0 / (ni->users.size() *
+                                           std::max<double>(1, (yaxis ? cfg.hpwl_scale_y : cfg.hpwl_scale_x) *
+                                                                       std::abs(o_pos - this_pos)));
 
                     if (user_idx != -1 && net_crit.count(ni->name)) {
                         auto &nc = net_crit.at(ni->name);
@@ -712,7 +714,9 @@ class HeAPPlacer
                 int l_pos = legal_pos(solve_cells.at(row));
                 int c_pos = cell_pos(solve_cells.at(row));
 
-                double weight = alpha * iter / std::max<double>(1, std::abs(l_pos - c_pos));
+                double weight =
+                        alpha * iter /
+                        std::max<double>(1, (yaxis ? cfg.hpwl_scale_y : cfg.hpwl_scale_x) * std::abs(l_pos - c_pos));
                 // Add an arc from legalised to current position
                 es.add_coeff(row, row, weight);
                 es.add_rhs(row, weight * l_pos);
@@ -763,7 +767,7 @@ class HeAPPlacer
                 ymin = std::min(ymin, usrloc.y);
                 ymax = std::max(ymax, usrloc.y);
             }
-            hpwl += (xmax - xmin) + (ymax - ymin);
+            hpwl += cfg.hpwl_scale_x * (xmax - xmin) + cfg.hpwl_scale_y * (ymax - ymin);
         }
         return hpwl;
     }
@@ -1392,8 +1396,7 @@ class HeAPPlacer
                 auto &reg = regions.at(rid);
                 while (reg.overused(beta)) {
                     bool changed = false;
-                    // 2 x units for every 1 y unit to account for INT gaps between CLBs
-                    for (int j = 0; j < 2; j++) {
+                    for (int j = 0; j < p->cfg.spread_scale_x; j++) {
                         if (reg.x0 > 0) {
                             grow_region(reg, reg.x0 - 1, reg.y0, reg.x1, reg.y1);
                             changed = true;
@@ -1407,17 +1410,19 @@ class HeAPPlacer
                                 break;
                         }
                     }
-                    if (reg.y0 > 0) {
-                        grow_region(reg, reg.x0, reg.y0 - 1, reg.x1, reg.y1);
-                        changed = true;
-                        if (!reg.overused(beta))
-                            break;
-                    }
-                    if (reg.y1 < p->max_y) {
-                        grow_region(reg, reg.x0, reg.y0, reg.x1, reg.y1 + 1);
-                        changed = true;
-                        if (!reg.overused(beta))
-                            break;
+                    for (int j = 0; j < p->cfg.spread_scale_y; j++) {
+                        if (reg.y0 > 0) {
+                            grow_region(reg, reg.x0, reg.y0 - 1, reg.x1, reg.y1);
+                            changed = true;
+                            if (!reg.overused(beta))
+                                break;
+                        }
+                        if (reg.y1 < p->max_y) {
+                            grow_region(reg, reg.x0, reg.y0, reg.x1, reg.y1 + 1);
+                            changed = true;
+                            if (!reg.overused(beta))
+                                break;
+                        }
                     }
                     if (!changed) {
                         for (auto bt : sorted(beltype)) {
@@ -1718,6 +1723,11 @@ PlacerHeapCfg::PlacerHeapCfg(Context *ctx)
     timing_driven = ctx->setting<bool>("timing_driven");
     solverTolerance = 1e-5;
     placeAllAtOnce = false;
+
+    hpwl_scale_x = 1;
+    hpwl_scale_y = 1;
+    spread_scale_x = 1;
+    spread_scale_y = 1;
 }
 
 NEXTPNR_NAMESPACE_END
