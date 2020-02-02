@@ -27,7 +27,7 @@ NEXTPNR_NAMESPACE_BEGIN
 struct Placer1Cfg
 {
     Placer1Cfg(Context *ctx);
-    float constraintWeight;
+    float constraintWeight, netShareWeight;
     int minBelsForGridPick;
     bool budgetBased;
     float startTemp;
