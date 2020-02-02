@@ -199,6 +199,28 @@ struct Loc
     bool operator!=(const Loc &other) const { return (x != other.x) || (y != other.y) || (z != other.z); }
 };
 
+struct ArcBounds
+{
+    int x0 = -1, y0 = -1, x1 = -1, y1 = -1;
+
+    ArcBounds() {}
+    ArcBounds(int x0, int y0, int x1, int y1) : x0(x0), y0(y0), x1(x1), y1(y1){};
+
+    int distance(Loc loc) const
+    {
+        int dist = 0;
+        if (loc.x < x0)
+            dist += x0 - loc.x;
+        if (loc.x > x1)
+            dist += loc.x - x1;
+        if (loc.y < y0)
+            dist += y0 - loc.y;
+        if (loc.y > y1)
+            dist += loc.y - y1;
+        return dist;
+    };
+};
+
 struct TimingConstrObjectId
 {
     int32_t index = -1;

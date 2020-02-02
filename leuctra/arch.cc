@@ -22,6 +22,7 @@
 #include "placer1.h"
 #include "placer_heap.h"
 #include "router1.h"
+#include "router2.h"
 #include "util.h"
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -510,6 +511,39 @@ delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
     return (dx + dy + 10) * 300;
 }
 
+ArcBounds Arch::getRouteBoundingBox(WireId src, WireId dst) const
+{
+
+    int x0, x1, y0, y1;
+    x0 = x1 = src.location.x;
+    y0 = y1 = src.location.y;
+    auto expand = [&](int x, int y) {
+        x0 = std::min(x0, x);
+        x1 = std::max(x1, x);
+        y0 = std::min(y0, y);
+        y1 = std::max(y1, y);
+    };
+
+    expand(src.location.x-10, src.location.y-10);
+    expand(src.location.x+5, src.location.y+5);
+    expand(dst.location.x-10, dst.location.y-10);
+    expand(dst.location.x+5, dst.location.y+5);
+    if (x0 < 0)
+	    x0 = 0;
+    if (y0 < 0)
+	    y0 = 0;
+    if (x1 >= device_info->width)
+	    x1 = device_info->width - 1;
+    if (y1 >= device_info->height)
+	    y1 = device_info->height - 1;
+
+    return {x0, y0, x1, y1};
+}
+
+delay_t Arch::getBoundingBoxCost(WireId src, WireId dst, int distance) const {
+	return 0;
+}
+
 bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const { return false; }
 
 
@@ -537,6 +571,9 @@ bool Arch::place()
 }
 
 bool Arch::route() {
+    log_info("Running router2 for main routing task\n");
+    router2(getCtx());
+    log_info("Running router1 to ensure route is legal\n");
     bool retVal = router1(getCtx(), Router1Cfg(getCtx()));
     if (retVal)
         getCtx()->settings[getCtx()->id("route")] = 1;

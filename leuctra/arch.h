@@ -1143,6 +1143,8 @@ struct Arch : BaseCtx
 
     delay_t estimateDelay(WireId src, WireId dst) const;
     delay_t predictDelay(const NetInfo *net_info, const PortRef &sink) const;
+    ArcBounds getRouteBoundingBox(WireId src, WireId dst) const;
+    delay_t getBoundingBoxCost(WireId src, WireId dst, int distance) const;
     delay_t getDelayEpsilon() const { return 20; }
     delay_t getRipupDelayPenalty() const { return 80; }
     float getDelayNS(delay_t v) const { return v * 0.001; }
