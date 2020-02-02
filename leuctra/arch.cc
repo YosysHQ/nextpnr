@@ -499,6 +499,10 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
 delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
 {
     // XXX
+    if (net_info->driver.cell->type == id("LEUCTRA_LC") &&
+		(net_info->driver.port == id("DMO") ||
+		 net_info->driver.port == id("DCO")))
+	return 150;
     auto &src_loc = net_info->driver.cell->bel.location;
     auto &dst_loc = sink.cell->bel.location;
     int dx = std::abs(src_loc.x - dst_loc.x);
