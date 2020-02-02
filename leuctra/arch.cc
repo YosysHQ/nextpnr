@@ -683,6 +683,8 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
 	    return false;
     } else if (cell->type == id("RAMB8BWER")) {
 	    return false;
+    } else if (cell->type == id("PLL_ADV")) {
+	    return false;
     }
     log_warning("cell type '%s' arc '%s' '%s' is unsupported (instantiated as '%s')\n", cell->type.c_str(this), fromPort.c_str(this), toPort.c_str(this), cell->name.c_str(this));
     return false;
@@ -801,6 +803,17 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
 	    return TMG_REGISTER_INPUT;
 	else
 	    return TMG_REGISTER_OUTPUT;
+    }
+    if (cell->type == id("PLL_ADV")) {
+	if (port == id("CLKIN1") || port == id("CLKIN2") || port == id("CLKFBIN"))
+	    return TMG_CLOCK_INPUT;
+	if (port == id("CLKOUT0") || port == id("CLKOUT1") || port == id("CLKOUT2") || port == id("CLKOUT3") || port == id("CLKOUT4") || port == id("CLKOUT5") || port == id("CLKFBOUT"))
+	    return TMG_GEN_CLOCK;
+	// XXX DRP
+	if (cell->ports.at(port).type == PORT_IN)
+	    return TMG_ENDPOINT;
+	else
+	    return TMG_STARTPOINT;
     }
     // XXX
     log_warning("cell type '%s' port '%s' is unsupported (instantiated as '%s')\n", cell->type.c_str(this), port.c_str(this), cell->name.c_str(this));

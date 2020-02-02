@@ -313,7 +313,7 @@ class LeuctraPacker
 	    if (diff) {
                 std::unique_ptr<CellInfo> iobs_cell =
                     create_leuctra_cell(ctx, ctx->id("IOB"), ci->name.str(ctx) + "$iobs");
-                new_cells.push_back(std::move(iobm_cell));
+                new_cells.push_back(std::move(iobs_cell));
                 iobs = new_cells.back().get();
 		if (kind == IOSTD_DIFF) {
 		    iobm->params[ctx->id("__MODE__")] = Property("IOBM");
@@ -842,7 +842,66 @@ class LeuctraPacker
 		rename_port(ctx, ci, ctx->id("I"), ctx->id("I0"));
 		set_const_port(ctx, ci, ctx->id("S"), true, new_cells);
 		ci->params[ctx->id("SINV")] = Property("S_B");
-            }
+            } else if (ci->type == ctx->id("PLL_ADV")) {
+		for (auto port : {"RST", "REL", "CLKINSEL", "CLKBRST", "ENOUTSYNC", "MANPULF", "MANPDLF", "SKEWSTB", "SKEWRST", "SKEWCLKIN1", "SKEWCLKIN2"})
+			handle_invertible_port(ctx, ci, ctx->id(port), false, true, new_cells);
+		if (!ci->params.count(ctx->id("BANDWIDTH")))
+			ci->params[ctx->id("BANDWIDTH")] = Property("OPTIMIZED");
+		if (!ci->params.count(ctx->id("PLL_ADD_LEAKAGE")))
+			ci->params[ctx->id("PLL_ADD_LEAKAGE")] = Property(2, 2);
+		if (!ci->params.count(ctx->id("PLL_AVDD_COMP_SET")))
+			ci->params[ctx->id("PLL_AVDD_COMP_SET")] = Property(2, 2);
+		if (!ci->params.count(ctx->id("PLL_CLAMP_BYPASS")))
+			ci->params[ctx->id("PLL_CLAMP_BYPASS")] = Property("FALSE");
+		if (!ci->params.count(ctx->id("PLL_CLAMP_REF_SEL")))
+			ci->params[ctx->id("PLL_CLAMP_REF_SEL")] = Property(1, 3);
+		if (!ci->params.count(ctx->id("PLL_CLKCNTRL")))
+			ci->params[ctx->id("PLL_CLKCNTRL")] = Property(0, 1);
+		if (!ci->params.count(ctx->id("PLL_CLK_LOST_DETECT")))
+			ci->params[ctx->id("PLL_CLK_LOST_DETECT")] = Property("FALSE");
+		if (!ci->params.count(ctx->id("PLL_CP_BIAS_TRIP_SHIFT")))
+			ci->params[ctx->id("PLL_CP_BIAS_TRIP_SHIFT")] = Property("TRUE");
+		if (!ci->params.count(ctx->id("PLL_CP_REPL")))
+			ci->params[ctx->id("PLL_CP_REPL")] = Property(1, 4);
+		if (!ci->params.count(ctx->id("PLL_DVDD_COMP_SET")))
+			ci->params[ctx->id("PLL_DVDD_COMP_SET")] = Property(2, 2);
+		if (!ci->params.count(ctx->id("PLL_EN_LEAKAGE")))
+			ci->params[ctx->id("PLL_EN_LEAKAGE")] = Property(2, 2);
+		if (!ci->params.count(ctx->id("PLL_EN_VCO0")))
+			ci->params[ctx->id("PLL_EN_VCO0")] = Property("FALSE");
+		if (!ci->params.count(ctx->id("PLL_EN_VCO1")))
+			ci->params[ctx->id("PLL_EN_VCO1")] = Property("FALSE");
+		if (!ci->params.count(ctx->id("PLL_EN_VCO2")))
+			ci->params[ctx->id("PLL_EN_VCO2")] = Property("FALSE");
+		if (!ci->params.count(ctx->id("PLL_EN_VCO3")))
+			ci->params[ctx->id("PLL_EN_VCO3")] = Property("FALSE");
+		if (!ci->params.count(ctx->id("PLL_EN_VCO4")))
+			ci->params[ctx->id("PLL_EN_VCO4")] = Property("FALSE");
+		if (!ci->params.count(ctx->id("PLL_EN_VCO5")))
+			ci->params[ctx->id("PLL_EN_VCO5")] = Property("FALSE");
+		if (!ci->params.count(ctx->id("PLL_EN_VCO6")))
+			ci->params[ctx->id("PLL_EN_VCO6")] = Property("FALSE");
+		if (!ci->params.count(ctx->id("PLL_EN_VCO7")))
+			ci->params[ctx->id("PLL_EN_VCO7")] = Property("FALSE");
+		if (!ci->params.count(ctx->id("PLL_EN_VCO_DIV1")))
+			ci->params[ctx->id("PLL_EN_VCO_DIV1")] = Property("FALSE");
+		if (!ci->params.count(ctx->id("PLL_EN_VCO_DIV6")))
+			ci->params[ctx->id("PLL_EN_VCO_DIV6")] = Property("TRUE");
+		if (!ci->params.count(ctx->id("PLL_PFD_CNTRL")))
+			ci->params[ctx->id("PLL_PFD_CNTRL")] = Property(8, 4);
+		if (!ci->params.count(ctx->id("PLL_PFD_DLY")))
+			ci->params[ctx->id("PLL_PFD_DLY")] = Property(1, 2);
+		if (!ci->params.count(ctx->id("PLL_PWRD_CFG")))
+			ci->params[ctx->id("PLL_PWRD_CFG")] = Property("FALSE");
+		if (!ci->params.count(ctx->id("PLL_SEL_SLIPD")))
+			ci->params[ctx->id("PLL_SEL_SLIPD")] = Property("FALSE");
+		if (!ci->params.count(ctx->id("PLL_TEST_IN_WINDOW")))
+			ci->params[ctx->id("PLL_TEST_IN_WINDOW")] = Property("FALSE");
+		if (!ci->params.count(ctx->id("PLL_CLKFBOUT2_NOCOUNT")))
+			ci->params[ctx->id("PLL_CLKFBOUT2_NOCOUNT")] = Property("TRUE");
+		if (!ci->params.count(ctx->id("PLL_EN_CNTRL")))
+			ci->params[ctx->id("PLL_EN_CNTRL")] = Property::from_string("0000000000100010011110001110011000011110101000101111110010111110100001000010000000000");
+	    }
         }
 
         flush_cells();

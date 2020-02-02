@@ -921,7 +921,7 @@ struct Router2
     void do_route()
     {
         // Don't multithread if fewer than 200 nets (heuristic)
-        if (route_queue.size() < 200 || 1) {
+        if (route_queue.size() < 200) {
             ThreadContext st;
             for (size_t j = 0; j < route_queue.size(); j++) {
                 route_net(st, nets_by_udata[route_queue[j]], false);
