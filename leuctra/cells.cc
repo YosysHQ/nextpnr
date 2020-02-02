@@ -127,9 +127,32 @@ std::unique_ptr<CellInfo> create_leuctra_cell(Context *ctx, IdString type, std::
         add_port(ctx, new_cell.get(), "FABRICOUT", PORT_OUT);
     } else if (type == ctx->id("OLOGIC2")) {
         add_port(ctx, new_cell.get(), "D1", PORT_IN);
+        add_port(ctx, new_cell.get(), "D2", PORT_IN);
+        add_port(ctx, new_cell.get(), "D3", PORT_IN);
+        add_port(ctx, new_cell.get(), "D4", PORT_IN);
         add_port(ctx, new_cell.get(), "OQ", PORT_OUT);
         add_port(ctx, new_cell.get(), "T1", PORT_IN);
+        add_port(ctx, new_cell.get(), "T2", PORT_IN);
+        add_port(ctx, new_cell.get(), "T3", PORT_IN);
+        add_port(ctx, new_cell.get(), "T4", PORT_IN);
         add_port(ctx, new_cell.get(), "TQ", PORT_OUT);
+        add_port(ctx, new_cell.get(), "SR", PORT_IN);
+        add_port(ctx, new_cell.get(), "REV", PORT_IN);
+        add_port(ctx, new_cell.get(), "OCE", PORT_IN);
+        add_port(ctx, new_cell.get(), "TCE", PORT_IN);
+        add_port(ctx, new_cell.get(), "IOCE", PORT_IN);
+        add_port(ctx, new_cell.get(), "TRAIN", PORT_IN);
+        add_port(ctx, new_cell.get(), "CLK0", PORT_IN);
+        add_port(ctx, new_cell.get(), "CLK1", PORT_IN);
+        add_port(ctx, new_cell.get(), "CLKDIV", PORT_IN);
+        add_port(ctx, new_cell.get(), "SHIFTIN1", PORT_IN);
+        add_port(ctx, new_cell.get(), "SHIFTIN2", PORT_IN);
+        add_port(ctx, new_cell.get(), "SHIFTIN3", PORT_IN);
+        add_port(ctx, new_cell.get(), "SHIFTIN4", PORT_IN);
+        add_port(ctx, new_cell.get(), "SHIFTOUT1", PORT_OUT);
+        add_port(ctx, new_cell.get(), "SHIFTOUT2", PORT_OUT);
+        add_port(ctx, new_cell.get(), "SHIFTOUT3", PORT_OUT);
+        add_port(ctx, new_cell.get(), "SHIFTOUT4", PORT_OUT);
     } else {
         log_error("unable to create Leuctra cell of type %s", type.c_str(ctx));
     }

@@ -355,19 +355,10 @@ class LeuctraPacker
 	        NetInfo *net_t = nullptr;
 	        if (port_t != IdString())
                     net_t = ci->ports.at(port_t).net;
-	        connect_port(ctx, net_o, iobm, ctx->id("O"));
-		if (kind == IOSTD_PSEUDO_DIFF) {
-		    // XXX
-		    NPNR_ASSERT_FALSE("PSEUDO DIFF OUTPUT");
-	            connect_port(ctx, net_o, iobs, ctx->id("O"));
-		}
-	        disconnect_port(ctx, ci, port_o);
-	        if (net_t) {
-	            connect_port(ctx, net_t, iobm, ctx->id("T"));
-		    if (kind == IOSTD_PSEUDO_DIFF)
-	                connect_port(ctx, net_t, iobs, ctx->id("T"));
+		if (net_o)
+	            disconnect_port(ctx, ci, port_o);
+		if (net_t)
 	            disconnect_port(ctx, ci, port_t);
-	        }
 		iobm->params[ctx->id("OSTANDARD")] = Property(iostd);
 		if (iobs)
 		    iobs->params[ctx->id("OSTANDARD")] = Property(iostd);
@@ -397,14 +388,209 @@ class LeuctraPacker
 		    connect_ports(ctx, iobm, ctx->id("DIFFO_OUT"), iobs, ctx->id("DIFFO_IN"));
 		    iobs->params[ctx->id("OUTMUX")] = Property("0");
 	        }
+
+		// OLOGIC handling.
+
+                std::unique_ptr<CellInfo> ologic_cell =
+                            create_leuctra_cell(ctx, ctx->id("OLOGIC2"), ci->name.str(ctx) + "$ologic");
+                new_cells.push_back(std::move(ologic_cell));
+		CellInfo *ologic_m = new_cells.back().get();
+		CellInfo *ologic_s;
+		std::vector<CellInfo *> ologics{ologic_m};
+		connect_ports(ctx, ologic_m, ctx->id("OQ"), iobm, ctx->id("O"));
+		if (net_t)
+			connect_ports(ctx, ologic_m, ctx->id("TQ"), iobm, ctx->id("T"));
+		ologic_m->constr_parent = iobm;
+		ologic_m->constr_spec = 2;
+		iobm->constr_children.push_back(ologic_m);
+		if (kind == IOSTD_PSEUDO_DIFF) {
+			std::unique_ptr<CellInfo> ologic_s_cell =
+				    create_leuctra_cell(ctx, ctx->id("OLOGIC2"), ci->name.str(ctx) + "$ologic_s");
+			new_cells.push_back(std::move(ologic_s_cell));
+			ologic_s = new_cells.back().get();
+			ologics.push_back(ologic_s);
+			connect_ports(ctx, ologic_s, ctx->id("OQ"), iobs, ctx->id("O"));
+			if (net_t)
+				connect_ports(ctx, ologic_s, ctx->id("TQ"), iobs, ctx->id("T"));
+			ologic_s->constr_parent = iobs;
+			ologic_s->constr_spec = 2;
+			iobs->constr_children.push_back(ologic_s);
+		}
+		
+		CellInfo *oddr = net_driven_by(
+		    ctx, net_o, [](const Context *ctx, const CellInfo *cell) { return cell->type == ctx->id("ODDR2"); }, ctx->id("Q"));
+		if (oddr) {
+			packed_cells.insert(oddr->name);
+			CellInfo *oddr_t = nullptr;
+			if (net_t) {
+				oddr_t = net_driven_by(
+				    ctx, net_t, [](const Context *ctx, const CellInfo *cell) { return cell->type == ctx->id("ODDR2"); }, ctx->id("Q"));
+				if (!oddr_t)
+					log_error("%s: an IO pad driven by ODDR2 with tristate requires the tri-state control to be driven by ODDR2 as well.\n", ci->name.c_str(ctx));
+			}
+			disconnect_port(ctx, oddr, ctx->id("Q"));
+			NetInfo *d1 = oddr->ports[ctx->id("D0")].net;
+			NetInfo *d2 = oddr->ports[ctx->id("D1")].net;
+			NetInfo *c0 = nullptr, *c1 = nullptr;
+			bool inv_c0, inv_c1;
+			get_invertible_port(ctx, oddr, ctx->id("C0"), false, true, c0, inv_c0);
+			get_invertible_port(ctx, oddr, ctx->id("C1"), false, true, c1, inv_c1);
+			NetInfo *ce = oddr->ports[ctx->id("CE")].net;
+			NetInfo *ce_t = nullptr;
+			NetInfo *sr_t = nullptr;
+			NetInfo *rev_t = nullptr;
+			NetInfo *sr = nullptr;
+			NetInfo *rev = nullptr;
+			Property init(0, 1);
+			Property init_t(0, 1);
+			if (oddr->params.count(ctx->id("INIT")))
+				init = oddr->params[ctx->id("INIT")];
+			if (init.as_bool()) {
+				sr = oddr->ports[ctx->id("S")].net;
+				rev = oddr->ports[ctx->id("R")].net;
+			} else {
+				rev = oddr->ports[ctx->id("S")].net;
+				sr = oddr->ports[ctx->id("R")].net;
+			}
+			disconnect_port(ctx, oddr, ctx->id("D0"));
+			disconnect_port(ctx, oddr, ctx->id("D1"));
+			disconnect_port(ctx, oddr, ctx->id("CE"));
+			disconnect_port(ctx, oddr, ctx->id("S"));
+			disconnect_port(ctx, oddr, ctx->id("R"));
+			NetInfo *t1 = nullptr;
+			NetInfo *t2 = nullptr;
+			Property srtype("SYNC");
+			if (oddr->params.count(ctx->id("SRTYPE")))
+				srtype = oddr->params[ctx->id("SRTYPE")];
+			Property srtype_t("SYNC");
+			Property align("NONE");
+			if (oddr->params.count(ctx->id("DDR_ALIGNMENT")))
+				align = oddr->params[ctx->id("DDR_ALIGNMENT")];
+			Property align_t("NONE");
+			if (oddr_t) {
+				packed_cells.insert(oddr_t->name);
+				disconnect_port(ctx, oddr_t, ctx->id("Q"));
+				t1 = oddr_t->ports[ctx->id("D0")].net;
+				t2 = oddr_t->ports[ctx->id("D1")].net;
+				NetInfo *c0_t = nullptr, *c1_t = nullptr;
+				bool inv_c0_t, inv_c1_t;
+				get_invertible_port(ctx, oddr_t, ctx->id("C0"), false, true, c0_t, inv_c0_t);
+				get_invertible_port(ctx, oddr_t, ctx->id("C1"), false, true, c1_t, inv_c1_t);
+				if (c0 != c0_t || c1 != c1_t || inv_c0 != inv_c0_t || inv_c1 != inv_c1_t)
+					log_error("%s: mismatched clocking between O and T\n", ci->name.c_str(ctx));
+				ce_t = oddr_t->ports[ctx->id("CE")].net;
+				if (oddr_t->params.count(ctx->id("INIT")))
+					init_t = oddr_t->params[ctx->id("INIT")];
+				if (init_t.as_bool()) {
+					sr_t = oddr_t->ports[ctx->id("S")].net;
+					rev_t = oddr_t->ports[ctx->id("R")].net;
+				} else {
+					rev_t = oddr_t->ports[ctx->id("S")].net;
+					sr_t = oddr_t->ports[ctx->id("R")].net;
+				}
+				disconnect_port(ctx, oddr_t, ctx->id("D0"));
+				disconnect_port(ctx, oddr_t, ctx->id("D1"));
+				disconnect_port(ctx, oddr_t, ctx->id("CE"));
+				disconnect_port(ctx, oddr_t, ctx->id("S"));
+				disconnect_port(ctx, oddr_t, ctx->id("R"));
+				if (sr && sr_t && sr != sr_t)
+					log_error("%s: mismatched SR port between O and T\n", ci->name.c_str(ctx));
+				if (rev && rev_t && rev != rev_t)
+					log_error("%s: mismatched REV port between O and T\n", ci->name.c_str(ctx));
+				if (oddr_t->params.count(ctx->id("SRTYPE")))
+					srtype_t = oddr_t->params[ctx->id("SRTYPE")];
+				if (oddr_t->params.count(ctx->id("DDR_ALIGNMENT")))
+					align_t = oddr_t->params[ctx->id("DDR_ALIGNMENT")];
+			}
+			for (auto ol: ologics) {
+				ol->params[ctx->id("OUTFFTYPE")] = Property("DDR");
+				ol->params[ctx->id("OMUX")] = Property("OUTFF");
+				ol->params[ctx->id("SRTYPE_OQ")] = srtype;
+				ol->params[ctx->id("DDR_ALIGNMENT")] = align;
+				set_invertible_port(ctx, ol, ctx->id("CLK0"), c0, inv_c0, true, new_cells);
+				set_invertible_port(ctx, ol, ctx->id("CLK1"), c1, inv_c1, true, new_cells);
+				ol->params[ctx->id("D1USED")] = Property("0");
+				ol->params[ctx->id("D2USED")] = Property("0");
+				if (ce) {
+					connect_port(ctx, ce, ol, ctx->id("OCE"));
+					ol->params[ctx->id("OCEUSED")] = Property("0");
+				}
+				if (ce_t) {
+					connect_port(ctx, ce_t, ol, ctx->id("TCE"));
+					ol->params[ctx->id("TCEUSED")] = Property("0");
+				}
+				if (sr) {
+					connect_port(ctx, sr, ol, ctx->id("SR"));
+					ol->params[ctx->id("OSRUSED")] = Property("0");
+				}
+				if (sr_t) {
+					if (!sr)
+						connect_port(ctx, sr_t, ol, ctx->id("SR"));
+					ol->params[ctx->id("TSRUSED")] = Property("0");
+				}
+				if (rev) {
+					connect_port(ctx, rev, ol, ctx->id("REV"));
+					ol->params[ctx->id("OREVUSED")] = Property("0");
+				}
+				if (rev_t) {
+					if (!rev)
+						connect_port(ctx, rev_t, ol, ctx->id("REV"));
+					ol->params[ctx->id("TREVUSED")] = Property("0");
+				}
+				if (oddr_t) {
+					ol->params[ctx->id("TFFTYPE")] = Property("DDR");
+					ol->params[ctx->id("TMUX")] = Property("TFF");
+					ol->params[ctx->id("T1USED")] = Property("0");
+					ol->params[ctx->id("SRTYPE_TQ")] = srtype_t;
+					ol->params[ctx->id("TDDR_ALIGNMENT")] = align_t;
+					connect_port(ctx, t1, ol, ctx->id("T1"));
+					connect_port(ctx, t2, ol, ctx->id("T2"));
+					ol->params[ctx->id("SRINIT_TQ")] = init_t;
+				}
+			}
+			ologic_m->params[ctx->id("SRINIT_OQ")] = init;
+			connect_port(ctx, d1, ologic_m, ctx->id("D1"));
+			connect_port(ctx, d2, ologic_m, ctx->id("D2"));
+			if (ologic_s) {
+				ologic_s->params[ctx->id("SRINIT_OQ")] = Property(!init.as_bool());
+				set_invertible_port(ctx, ologic_s, ctx->id("D1"), d1, true, false, new_cells);
+				set_invertible_port(ctx, ologic_s, ctx->id("D2"), d2, true, false, new_cells);
+			}
+		} else {
+			// Plain logic passthru.
+			for (auto ol: ologics) {
+				ol->params[ctx->id("OMUX")] = Property("D1");
+				ol->params[ctx->id("D1USED")] = Property("0");
+				ol->params[ctx->id("O1USED")] = Property("0");
+				if (net_t) {
+				    ol->params[ctx->id("TMUX")] = Property("T1");
+				    ol->params[ctx->id("T1USED")] = Property("0");
+				    connect_port(ctx, net_t, ol, ctx->id("T1"));
+				}
+			}
+		        connect_port(ctx, net_o, ologic_m, ctx->id("D1"));
+			if (kind == IOSTD_PSEUDO_DIFF) {
+				set_invertible_port(ctx, ologic_s, ctx->id("D1"), net_o, true, false, new_cells);
+			}
+		}
 	    }
 
-	    if (ci->params.count(ctx->id("PULLTYPE")))
+	    // XXX use the iobs contraint version?
+	    if (ci->params.count(ctx->id("PULLTYPE"))) {
 		iobm->params[ctx->id("PULLTYPE")] = ci->params[ctx->id("PULLTYPE")];
-	    if (ci->params.count(ctx->id("SUSPEND")))
+		if (iobs)
+			iobs->params[ctx->id("PULLTYPE")] = ci->params[ctx->id("PULLTYPE")];
+	    }
+	    if (ci->params.count(ctx->id("SUSPEND"))) {
 		iobm->params[ctx->id("SUSPEND")] = ci->params[ctx->id("SUSPEND")];
-	    if (ci->params.count(ctx->id("PRE_EMPHASIS")))
+		if (iobs)
+			iobs->params[ctx->id("SUSPEND")] = ci->params[ctx->id("SUSPEND")];
+	    }
+	    if (ci->params.count(ctx->id("PRE_EMPHASIS"))) {
 		iobm->params[ctx->id("PRE_EMPHASIS")] = ci->params[ctx->id("PRE_EMPHASIS")];
+		if (iobs)
+			iobs->params[ctx->id("PRE_EMPHASIS")] = ci->params[ctx->id("PRE_EMPHASIS")];
+	    }
 
 	    auto loc_attr = ci->attrs.find(ctx->id("LOC"));
 	    if (loc_attr != ci->attrs.end()) {
@@ -457,6 +643,7 @@ class LeuctraPacker
 
                     new_cells.push_back(std::move(ilogic));
 		}
+#if 0
                 NetInfo *net_o = ci->ports.at(ctx->id("O")).net;
                 if (net_o != nullptr) {
 		    // Insert OLOGIC.
@@ -466,6 +653,7 @@ class LeuctraPacker
 
                     new_cells.push_back(std::move(ologic));
 		}
+#endif
                 auto bel_attr = ci->attrs.find(ctx->id("BEL"));
                 if (bel_attr != ci->attrs.end()) {
 		    BelId bel = ctx->getBelByName(ctx->id(ci->attrs[ctx->id("BEL")].as_string()));
@@ -814,6 +1002,26 @@ class LeuctraPacker
         flush_cells();
     }
 
+    // Remove leftover INVs.
+    void clean_inv()
+    {
+        log_info("Removing unused INVs...\n");
+
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (ci->type == ctx->id("INV")) {
+		NetInfo *net = ci->ports.at(ctx->id("O")).net;
+		if (net->users.size() == 0) {
+			disconnect_port(ctx, ci, ctx->id("O"));
+			disconnect_port(ctx, ci, ctx->id("I"));
+			packed_cells.insert(ci->name);
+		}
+            }
+        }
+
+        flush_cells();
+    }
+
     // Convert LUTs to LEUCTRA_LCs.
     void pack_lut()
     {
@@ -994,7 +1202,7 @@ class LeuctraPacker
         pack_carry();
         pack_muxf8();
         pack_muxf7();
-	// clean_inv();
+	clean_inv();
         pack_lut();
 	// pack_lc_ff();
         pack_misc();
