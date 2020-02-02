@@ -594,11 +594,11 @@ class HeAPPlacer
             if (child->type == root->type)
                 chain_size[root->name]++;
             if (child->constr_x != child->UNCONSTR)
-                cell_locs[child->name].x = std::min(max_x, base.x + child->constr_x);
+                cell_locs[child->name].x = std::max(0, std::min(max_x, base.x + child->constr_x));
             else
                 cell_locs[child->name].x = base.x; // better handling of UNCONSTR?
             if (child->constr_y != child->UNCONSTR)
-                cell_locs[child->name].y = std::min(max_y, base.y + child->constr_y);
+                cell_locs[child->name].y = std::max(0, std::min(max_y, base.y + child->constr_y));
             else
                 cell_locs[child->name].y = base.y; // better handling of UNCONSTR?
             chain_root[child->name] = root;
