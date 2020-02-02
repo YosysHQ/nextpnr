@@ -568,7 +568,7 @@ CellInfo *convert_carry4(Context *ctx, CellInfo *c4, CellInfo *link, std::vector
 	        lcs[i]->params[ctx->id("INIT")] = Property::from_string("1010101010101010101010101010101011001100110011001100110011001100");
 		connect_port(ctx, s[i], lcs[i], ctx->id("I1"));
 		connect_port(ctx, di[i], lcs[i], ctx->id("I2"));
-		set_const_port(ctx, lcs[i], ctx->id("I6"), true, created_cells);
+		set_const_port(ctx, lcs[i], ctx->id("RA6"), true, created_cells);
 		connect_port(ctx, cyinit, lcs[i], ctx->id("XI"));
 	        lcs[i]->params[ctx->id("CYINIT")] = Property("XI");
 	        lcs[i]->params[ctx->id("CYMUX")] = Property("O5");
