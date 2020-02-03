@@ -633,7 +633,7 @@ bool Arch::route()
         result = router1(getCtx(), Router1Cfg(getCtx()));
     } else if (router == "router2") {
         router2(getCtx(), Router2Cfg(getCtx()));
-        result = router1(getCtx(), Router1Cfg(getCtx()));
+        result = true;
     } else {
         log_error("ECP5 architecture does not support router '%s'\n", router.c_str());
     }

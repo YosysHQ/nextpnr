@@ -36,6 +36,7 @@
 #include <thread>
 #include "log.h"
 #include "nextpnr.h"
+#include "router1.h"
 #include "timing.h"
 #include "util.h"
 
@@ -1018,6 +1019,9 @@ struct Router2
 
     void operator()()
     {
+        log_info("Running router2...\n");
+        log_info("Setting up routing resources...\n");
+        auto rstart = std::chrono::high_resolution_clock::now();
         setup_nets();
         setup_wires();
         find_all_reserved_wires();
@@ -1031,7 +1035,7 @@ struct Router2
             route_queue.push_back(i);
 
         bool timing_driven = ctx->setting<bool>("timing_driven");
-
+        log_info("Running main router loop...\n");
         do {
             ctx->sorted_shuffle(route_queue);
 
@@ -1075,7 +1079,7 @@ struct Router2
             }
             for (auto cn : failed_nets)
                 route_queue.push_back(cn);
-            log_info("iter=%d wires=%d overused=%d overuse=%d archfail=%s\n", iter, total_wire_use, overused_wires,
+            log_info("    iter=%d wires=%d overused=%d overuse=%d archfail=%s\n", iter, total_wire_use, overused_wires,
                      total_overuse, overused_wires > 0 ? "NA" : std::to_string(arch_fail).c_str());
             ++iter;
             curr_cong_weight *= cfg.curr_cong_mult;
@@ -1093,6 +1097,12 @@ struct Router2
                     nets_by_runtime.at(i).first / 1000.0);
             }
         }
+        auto rend = std::chrono::high_resolution_clock::now();
+        log_info("Router2 time %.02fs\n", std::chrono::duration<float>(rend - rstart).count());
+
+        log_info("Running router1 to check that route is legal...\n");
+
+        router1(ctx, Router1Cfg(ctx));
     }
 };
 } // namespace
@@ -1101,10 +1111,7 @@ void router2(Context *ctx, const Router2Cfg &cfg)
 {
     Router2 rt(ctx, cfg);
     rt.ctx = ctx;
-    auto rstart = std::chrono::high_resolution_clock::now();
     rt();
-    auto rend = std::chrono::high_resolution_clock::now();
-    log_info("Router2 time %.02fs\n", std::chrono::duration<float>(rend - rstart).count());
 }
 
 Router2Cfg::Router2Cfg(Context *ctx)
