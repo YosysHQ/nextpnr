@@ -36,6 +36,7 @@
 #include <thread>
 #include "log.h"
 #include "nextpnr.h"
+#include "timing.h"
 #include "util.h"
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -61,6 +62,7 @@ struct Router2
         // Coordinates of the center of the net, used for the weight-to-average
         int cx, cy, hpwl;
         int total_route_us = 0;
+        float max_crit = 0;
     };
 
     struct WireScore
@@ -111,6 +113,10 @@ struct Router2
     // Use 'udata' for fast net lookups and indexing
     std::vector<NetInfo *> nets_by_udata;
     std::vector<PerNetData> nets;
+
+    // Criticality data from timing analysis
+    NetCriticalityMap net_crit;
+
     void setup_nets()
     {
         // Populate per-net and per-arc structures at start of routing
@@ -1024,8 +1030,29 @@ struct Router2
         for (size_t i = 0; i < nets_by_udata.size(); i++)
             route_queue.push_back(i);
 
+        bool timing_driven = ctx->setting<bool>("timing_driven");
+
         do {
             ctx->sorted_shuffle(route_queue);
+
+            if (timing_driven && (int(route_queue.size()) > (int(nets_by_udata.size()) / 50))) {
+                // Heuristic: reduce runtime by skipping STA in the case of a "long tail" of a few
+                // congested nodes
+                get_criticalities(ctx, &net_crit);
+                for (auto n : route_queue) {
+                    IdString name = nets_by_udata.at(n)->name;
+                    auto fnd = net_crit.find(name);
+                    auto &net = nets.at(n);
+                    net.max_crit = 0;
+                    if (fnd == net_crit.end())
+                        continue;
+                    for (auto c : fnd->second.criticality)
+                        net.max_crit = std::max(net.max_crit, c);
+                }
+                std::stable_sort(route_queue.begin(), route_queue.end(),
+                                 [&](int na, int nb) { return nets.at(na).max_crit > nets.at(nb).max_crit; });
+            }
+
 #if 0
             for (size_t j = 0; j < route_queue.size(); j++) {
                 route_net(st, nets_by_udata[route_queue[j]], false);
