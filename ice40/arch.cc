@@ -28,6 +28,7 @@
 #include "placer1.h"
 #include "placer_heap.h"
 #include "router1.h"
+#include "router2.h"
 #include "timing_opt.h"
 #include "util.h"
 NEXTPNR_NAMESPACE_BEGIN
@@ -696,10 +697,19 @@ bool Arch::place()
 
 bool Arch::route()
 {
-    bool retVal = router1(getCtx(), Router1Cfg(getCtx()));
+    std::string router = str_or_default(settings, id("router"), defaultRouter);
+    bool result;
+    if (router == "router1") {
+        result = router1(getCtx(), Router1Cfg(getCtx()));
+    } else if (router == "router2") {
+        router2(getCtx(), Router2Cfg(getCtx()));
+        result = router1(getCtx(), Router1Cfg(getCtx()));
+    } else {
+        log_error("iCE40 architecture does not support router '%s'\n", router.c_str());
+    }
     getCtx()->settings[getCtx()->id("route")] = 1;
     archInfoToAttributes();
-    return retVal;
+    return result;
 }
 
 // -----------------------------------------------------------------------
@@ -1256,5 +1266,8 @@ const std::vector<std::string> Arch::availablePlacers = {"sa",
                                                          "heap"
 #endif
 };
+
+const std::string Arch::defaultRouter = "router1";
+const std::vector<std::string> Arch::availableRouters = {"router1", "router2"};
 
 NEXTPNR_NAMESPACE_END

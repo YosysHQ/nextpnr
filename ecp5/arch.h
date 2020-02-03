@@ -1066,6 +1066,8 @@ struct Arch : BaseCtx
 
     static const std::string defaultPlacer;
     static const std::vector<std::string> availablePlacers;
+    static const std::string defaultRouter;
+    static const std::vector<std::string> availableRouters;
 };
 
 NEXTPNR_NAMESPACE_END

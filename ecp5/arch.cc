@@ -621,12 +621,23 @@ bool Arch::place()
 
 bool Arch::route()
 {
+    std::string router = str_or_default(settings, id("router"), defaultRouter);
+
     setupWireLocations();
     route_ecp5_globals(getCtx());
     assignArchInfo();
     assign_budget(getCtx(), true);
-    router2(getCtx(), Router2Cfg(getCtx()));
-    bool result = router1(getCtx(), Router1Cfg(getCtx()));
+
+    bool result;
+    if (router == "router1") {
+        result = router1(getCtx(), Router1Cfg(getCtx()));
+    } else if (router == "router2") {
+        router2(getCtx(), Router2Cfg(getCtx()));
+        result = router1(getCtx(), Router1Cfg(getCtx()));
+    } else {
+        log_error("ECP5 architecture does not support router '%s'\n", router.c_str());
+    }
+
 #if 0
     std::vector<std::pair<WireId, int>> fanout_vector;
     std::copy(wire_fanout.begin(), wire_fanout.end(), std::back_inserter(fanout_vector));
@@ -1172,6 +1183,9 @@ const std::vector<std::string> Arch::availablePlacers = {"sa",
                                                          "heap"
 #endif
 };
+
+const std::string Arch::defaultRouter = "router1";
+const std::vector<std::string> Arch::availableRouters = {"router1", "router2"};
 
 // -----------------------------------------------------------------------
 

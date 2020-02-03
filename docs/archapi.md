@@ -508,3 +508,13 @@ Name of the default placement algorithm for the architecture, if
 
 Name of available placer algorithms for the architecture, used
 to provide help for and validate `--placer`.
+
+### static const std::string defaultRouter
+
+Name of the default router algorithm for the architecture, if
+`--router` isn't specified on the command line.
+
+### static const std::vector\<std::string\> availableRouters
+
+Name of available router algorithms for the architecture, used
+to provide help for and validate `--router`.
