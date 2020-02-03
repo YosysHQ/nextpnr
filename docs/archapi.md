@@ -237,6 +237,13 @@ Get a list of all wires on the device.
 
 Get a list of all bel pins attached to a given wire.
 
+### ArcBounds getRouteBoundingBox(WireId src, WireId dst) const
+
+Get the bounding box required to route an arc, assuming an uncongested
+chip. There may be significant performance impacts if routing regularly
+exceeds these bounds by more than a small margin; so an over-estimate
+of the bounds is almost always better than an under-estimate.
+
 Pip Methods
 -----------
 
