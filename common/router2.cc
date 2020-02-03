@@ -26,6 +26,7 @@
  *
  */
 
+#include "router2.h"
 #include <algorithm>
 #include <boost/container/flat_map.hpp>
 #include <chrono>
@@ -38,8 +39,6 @@
 #include "util.h"
 
 NEXTPNR_NAMESPACE_BEGIN
-
-#define RUNTIME_PROFILE
 
 namespace {
 struct Router2
@@ -105,6 +104,9 @@ struct Router2
     }
 
     Context *ctx;
+    Router2Cfg cfg;
+
+    Router2(Context *ctx, const Router2Cfg &cfg) : ctx(ctx), cfg(cfg) {}
 
     // Use 'udata' for fast net lookups and indexing
     std::vector<NetInfo *> nets_by_udata;
@@ -221,11 +223,10 @@ struct Router2
         };
     };
 
-    int bb_margin_x = 4, bb_margin_y = 4; // number of units outside the bounding box we may go
     bool hit_test_pip(ArcBounds &bb, Loc l)
     {
-        return l.x >= (bb.x0 - bb_margin_x) && l.x <= (bb.x1 + bb_margin_x) && l.y >= (bb.y0 - bb_margin_y) &&
-               l.y <= (bb.y1 + bb_margin_y);
+        return l.x >= (bb.x0 - cfg.bb_margin_x) && l.x <= (bb.x1 + cfg.bb_margin_x) &&
+               l.y >= (bb.y0 - cfg.bb_margin_y) && l.y <= (bb.y1 + cfg.bb_margin_y);
     }
 
     double curr_cong_weight, hist_cong_weight, estimate_weight;
@@ -320,7 +321,7 @@ struct Router2
             source_uses = wd.bound_nets.at(net->udata).first;
         if (pip != PipId()) {
             Loc pl = ctx->getPipLocation(pip);
-            bias_cost = 0.25f * (base_cost / int(net->users.size())) *
+            bias_cost = cfg.bias_cost_factor * (base_cost / int(net->users.size())) *
                         ((std::abs(pl.x - nd.cx) + std::abs(pl.y - nd.cy)) / float(nd.hpwl));
         }
         return base_cost * hist_cost * present_cost / (1 + source_uses) + bias_cost;
@@ -333,7 +334,7 @@ struct Router2
         if (wd.bound_nets.count(net->udata))
             source_uses = wd.bound_nets.at(net->udata).first;
         // FIXME: timing/wirelength balance?
-        return ctx->getDelayNS(ctx->estimateDelay(wd.w, sink)) / (1 + source_uses);
+        return (ctx->getDelayNS(ctx->estimateDelay(wd.w, sink)) / (1 + source_uses)) + cfg.ipin_cost_adder;
     }
 
     bool check_arc_routing(NetInfo *net, size_t usr)
@@ -469,7 +470,8 @@ struct Router2
         // This could also be used to speed up forwards routing by a hybrid
         // bidirectional approach
         int backwards_iter = 0;
-        int backwards_limit = ctx->getBelGlobalBuf(net->driver.cell->bel) ? 20000 : 15;
+        int backwards_limit =
+                ctx->getBelGlobalBuf(net->driver.cell->bel) ? cfg.global_backwards_max_iter : cfg.backwards_max_iter;
         t.backwards_queue.push(wire_to_idx.at(dst_wire));
         while (!t.backwards_queue.empty() && backwards_iter < backwards_limit) {
             int cursor = t.backwards_queue.front();
@@ -611,7 +613,7 @@ struct Router2
                 next_score.cost = curr.score.cost + score_wire_for_arc(net, i, next, dh);
                 next_score.delay =
                         curr.score.delay + ctx->getPipDelay(dh).maxDelay() + ctx->getWireDelay(next).maxDelay();
-                next_score.togo_cost = 1.75 * get_togo_cost(net, i, next_idx, dst_wire);
+                next_score.togo_cost = cfg.estimate_weight * get_togo_cost(net, i, next_idx, dst_wire);
                 const auto &v = nwd.visit;
                 if (!v.visited || (v.score.total() > next_score.total())) {
                     ++explored;
@@ -669,9 +671,7 @@ struct Router2
 
         ROUTE_LOG_DBG("Routing net '%s'...\n", ctx->nameOf(net));
 
-#ifdef RUNTIME_PROFILE
         auto rstart = std::chrono::high_resolution_clock::now();
-#endif
 
         // Nothing to do if net is undriven
         if (net->driver.cell == nullptr)
@@ -715,11 +715,11 @@ struct Router2
                 }
             }
         }
-#ifdef RUNTIME_PROFILE
-        auto rend = std::chrono::high_resolution_clock::now();
-        nets.at(net->udata).total_route_us +=
-                (std::chrono::duration_cast<std::chrono::microseconds>(rend - rstart).count());
-#endif
+        if (cfg.perf_profile) {
+            auto rend = std::chrono::high_resolution_clock::now();
+            nets.at(net->udata).total_route_us +=
+                    (std::chrono::duration_cast<std::chrono::microseconds>(rend - rstart).count());
+        }
         return !have_failures;
     }
 #undef ROUTE_LOG_DBG
@@ -951,10 +951,10 @@ struct Router2
             auto &nd = nets.at(n);
             auto ni = nets_by_udata.at(n);
             int bin = N;
-            int le_x = mid_x - bb_margin_x;
-            int rs_x = mid_x + bb_margin_x;
-            int le_y = mid_y - bb_margin_y;
-            int rs_y = mid_y + bb_margin_y;
+            int le_x = mid_x - cfg.bb_margin_x;
+            int rs_x = mid_x + cfg.bb_margin_x;
+            int le_y = mid_y - cfg.bb_margin_y;
+            int rs_y = mid_y + cfg.bb_margin_y;
             // Quadrants
             if (nd.bb.x0 < le_x && nd.bb.x1 < le_x && nd.bb.y0 < le_y && nd.bb.y1 < le_y)
                 bin = 0;
@@ -1010,14 +1010,14 @@ struct Router2
                 route_net(tcs.at(N), fail, false);
     }
 
-    void router_test()
+    void operator()()
     {
         setup_nets();
         setup_wires();
         find_all_reserved_wires();
         partition_nets();
-        curr_cong_weight = 0.5;
-        hist_cong_weight = 1.0;
+        curr_cong_weight = cfg.init_curr_cong_weight;
+        hist_cong_weight = cfg.hist_cong_weight;
         ThreadContext st;
         int iter = 1;
 
@@ -1051,32 +1051,48 @@ struct Router2
             log_info("iter=%d wires=%d overused=%d overuse=%d archfail=%s\n", iter, total_wire_use, overused_wires,
                      total_overuse, overused_wires > 0 ? "NA" : std::to_string(arch_fail).c_str());
             ++iter;
-            curr_cong_weight *= 2;
+            curr_cong_weight *= cfg.curr_cong_mult;
         } while (!failed_nets.empty());
-#ifdef RUNTIME_PROFILE
-        std::vector<std::pair<int, IdString>> nets_by_runtime;
-        for (auto &n : nets_by_udata) {
-            nets_by_runtime.emplace_back(nets.at(n->udata).total_route_us, n->name);
+        if (cfg.perf_profile) {
+            std::vector<std::pair<int, IdString>> nets_by_runtime;
+            for (auto &n : nets_by_udata) {
+                nets_by_runtime.emplace_back(nets.at(n->udata).total_route_us, n->name);
+            }
+            std::sort(nets_by_runtime.begin(), nets_by_runtime.end(), std::greater<std::pair<int, IdString>>());
+            log_info("1000 slowest nets by runtime:\n");
+            for (int i = 0; i < std::min(int(nets_by_runtime.size()), 1000); i++) {
+                log("        %80s %6d %.1fms\n", nets_by_runtime.at(i).second.c_str(ctx),
+                    int(ctx->nets.at(nets_by_runtime.at(i).second)->users.size()),
+                    nets_by_runtime.at(i).first / 1000.0);
+            }
         }
-        std::sort(nets_by_runtime.begin(), nets_by_runtime.end(), std::greater<std::pair<int, IdString>>());
-        log_info("1000 slowest nets by runtime:\n");
-        for (int i = 0; i < std::min(int(nets_by_runtime.size()), 1000); i++) {
-            log("        %80s %6d %.1fms\n", nets_by_runtime.at(i).second.c_str(ctx),
-                int(ctx->nets.at(nets_by_runtime.at(i).second)->users.size()), nets_by_runtime.at(i).first / 1000.0);
-        }
-#endif
     }
 };
 } // namespace
 
-void router2(Context *ctx)
+void router2(Context *ctx, const Router2Cfg &cfg)
 {
-    Router2 rt;
+    Router2 rt(ctx, cfg);
     rt.ctx = ctx;
     auto rstart = std::chrono::high_resolution_clock::now();
-    rt.router_test();
+    rt();
     auto rend = std::chrono::high_resolution_clock::now();
     log_info("Router2 time %.02fs\n", std::chrono::duration<float>(rend - rstart).count());
+}
+
+Router2Cfg::Router2Cfg(Context *ctx)
+{
+    backwards_max_iter = ctx->setting<int>("router2/bwdMaxIter", 20);
+    global_backwards_max_iter = ctx->setting<int>("router2/glbBwdMaxIter", 200);
+    bb_margin_x = ctx->setting<int>("router2/bbMargin/x", 3);
+    bb_margin_y = ctx->setting<int>("router2/bbMargin/y", 3);
+    ipin_cost_adder = ctx->setting<float>("router2/ipinCostAdder", 0.0f);
+    bias_cost_factor = ctx->setting<float>("router2/biasCostFactor", 0.25f);
+    init_curr_cong_weight = ctx->setting<float>("router2/initCurrCongWeight", 0.5f);
+    hist_cong_weight = ctx->setting<float>("router2/histCongWeight", 1.0f);
+    curr_cong_mult = ctx->setting<float>("router2/currCongWeightMult", 2.0f);
+    estimate_weight = ctx->setting<float>("router2/estimateWeight", 1.75f);
+    perf_profile = ctx->setting<float>("router2/perfProfile", false);
 }
 
 NEXTPNR_NAMESPACE_END

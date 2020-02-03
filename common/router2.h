@@ -21,6 +21,36 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-void router2(Context *ctx);
+struct Router2Cfg
+{
+    Router2Cfg(Context *ctx);
+
+    // Maximum iterations for backwards routing attempt
+    int backwards_max_iter;
+    // Maximum iterations for backwards routing attempt for global nets
+    int global_backwards_max_iter;
+    // Padding added to bounding boxes to account for imperfect routing,
+    // congestion, etc
+    int bb_margin_x, bb_margin_y;
+    // Cost factor added to input pin wires; effectively reduces the
+    // benefit of sharing interconnect
+    float ipin_cost_adder;
+    // Cost factor for "bias" towards center location of net
+    float bias_cost_factor;
+    // Starting current and historical congestion cost factor
+    float init_curr_cong_weight, hist_cong_weight;
+    // Current congestion cost multiplier
+    float curr_cong_mult;
+
+    // Weight given to delay estimate in A*. Higher values
+    // mean faster and more directed routing, at the risk
+    // of choosing a less congestion/delay-optimal route
+    float estimate_weight;
+
+    // Print additional performance profiling information
+    bool perf_profile = false;
+};
+
+void router2(Context *ctx, const Router2Cfg &cfg);
 
 NEXTPNR_NAMESPACE_END

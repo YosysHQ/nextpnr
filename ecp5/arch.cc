@@ -625,7 +625,7 @@ bool Arch::route()
     route_ecp5_globals(getCtx());
     assignArchInfo();
     assign_budget(getCtx(), true);
-    router2(getCtx());
+    router2(getCtx(), Router2Cfg(getCtx()));
     bool result = router1(getCtx(), Router1Cfg(getCtx()));
 #if 0
     std::vector<std::pair<WireId, int>> fanout_vector;
