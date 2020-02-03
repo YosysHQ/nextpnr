@@ -515,6 +515,30 @@ delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
 
 bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const { return false; }
 
+ArcBounds Arch::getRouteBoundingBox(WireId src, WireId dst) const
+{
+    ArcBounds bb;
+
+    int src_x = wires.at(src).x;
+    int src_y = wires.at(src).y;
+    int dst_x = wires.at(dst).x;
+    int dst_y = wires.at(dst).y;
+
+    bb.x0 = src_x;
+    bb.y0 = src_y;
+    bb.x1 = src_x;
+    bb.y1 = src_y;
+
+    auto extend = [&](int x, int y) {
+        bb.x0 = std::min(bb.x0, x);
+        bb.x1 = std::max(bb.x1, x);
+        bb.y0 = std::min(bb.y0, y);
+        bb.y1 = std::max(bb.y1, y);
+    };
+    extend(dst_x, dst_y);
+    return bb;
+}
+
 // ---------------------------------------------------------------
 
 bool Arch::place()

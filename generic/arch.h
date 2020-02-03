@@ -267,6 +267,8 @@ struct Arch : BaseCtx
     uint32_t getDelayChecksum(delay_t v) const { return 0; }
     bool getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const;
 
+    ArcBounds getRouteBoundingBox(WireId src, WireId dst) const;
+
     bool pack();
     bool place();
     bool route();
