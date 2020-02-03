@@ -46,6 +46,12 @@ class LeuctraPacker
     void flush_cells()
     {
         for (auto pcell : packed_cells) {
+	    CellInfo *cell = ctx->cells[pcell].get();
+	    for (auto it : cell->ports) {
+		    if (it.second.net) {
+			    log_error("%s [%s]: port %s still connected on removed cell\n", cell->name.c_str(ctx), cell->type.c_str(ctx), it.second.name.c_str(ctx));
+		    }
+	    }
             ctx->cells.erase(pcell);
         }
         for (auto &ncell : new_cells) {
@@ -86,6 +92,9 @@ class LeuctraPacker
 	// Kill the connection.
 	disconnect_port(ctx, res, res_port);
 	disconnect_port(ctx, cell, port);
+	if (res->type == ctx->id("$nextpnr_iobuf")) {
+		disconnect_port(ctx, res, ctx->id("I"));
+	}
 	return res;
     }
 
@@ -421,13 +430,6 @@ class LeuctraPacker
 		    ctx, net_o, [](const Context *ctx, const CellInfo *cell) { return cell->type == ctx->id("ODDR2"); }, ctx->id("Q"));
 		if (oddr) {
 			packed_cells.insert(oddr->name);
-			CellInfo *oddr_t = nullptr;
-			if (net_t) {
-				oddr_t = net_driven_by(
-				    ctx, net_t, [](const Context *ctx, const CellInfo *cell) { return cell->type == ctx->id("ODDR2"); }, ctx->id("Q"));
-				if (!oddr_t)
-					log_error("%s: an IO pad driven by ODDR2 with tristate requires the tri-state control to be driven by ODDR2 as well.\n", ci->name.c_str(ctx));
-			}
 			disconnect_port(ctx, oddr, ctx->id("Q"));
 			NetInfo *d1 = oddr->ports[ctx->id("D0")].net;
 			NetInfo *d2 = oddr->ports[ctx->id("D1")].net;
@@ -467,7 +469,12 @@ class LeuctraPacker
 			if (oddr->params.count(ctx->id("DDR_ALIGNMENT")))
 				align = oddr->params[ctx->id("DDR_ALIGNMENT")];
 			Property align_t("NONE");
-			if (oddr_t) {
+			CellInfo *oddr_t = nullptr;
+			if (net_t) {
+				oddr_t = net_driven_by(
+				    ctx, net_t, [](const Context *ctx, const CellInfo *cell) { return cell->type == ctx->id("ODDR2"); }, ctx->id("Q"));
+				if (!oddr_t)
+					log_error("%s: an IO pad driven by ODDR2 with tristate requires the tri-state control to be driven by ODDR2 as well.\n", ci->name.c_str(ctx));
 				packed_cells.insert(oddr_t->name);
 				disconnect_port(ctx, oddr_t, ctx->id("Q"));
 				t1 = oddr_t->ports[ctx->id("D0")].net;
