@@ -457,7 +457,8 @@ class Ecp5GlobalRouter
         log_info("Promoting globals...\n");
         auto clocks = get_clocks();
         for (auto clock : clocks) {
-            bool is_noglobal = bool_or_default(clock->attrs, ctx->id("noglobal"), false);
+            bool is_noglobal = bool_or_default(clock->attrs, ctx->id("noglobal"), false) ||
+                               bool_or_default(clock->attrs, ctx->id("ECP5_IS_GLOBAL"), false);
             if (is_noglobal)
                 continue;
             log_info("    promoting clock net %s to global network\n", clock->name.c_str(ctx));

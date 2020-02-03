@@ -400,7 +400,7 @@ struct Router1
 
                 dst_to_arc[dst_wire] = arc;
 
-                if (net_info->wires.count(src_wire) == 0) {
+                if (net_info->wires.count(dst_wire) == 0) {
                     arc_queue_insert(arc, src_wire, dst_wire);
                     continue;
                 }
@@ -527,6 +527,18 @@ struct Router1
                             conflictWireNet = ctx->getConflictingWireNet(next_wire);
                             if (conflictWireNet == nullptr)
                                 continue;
+                            else {
+                                if (conflictWireNet->wires.count(next_wire) &&
+                                    conflictWireNet->wires.at(next_wire).strength > STRENGTH_STRONG)
+                                    continue;
+                            }
+                        } else {
+                            NetInfo *conflicting = ctx->getBoundWireNet(conflictWireWire);
+                            if (conflicting != nullptr) {
+                                if (conflicting->wires.count(conflictWireWire) &&
+                                    conflicting->wires.at(conflictWireWire).strength > STRENGTH_STRONG)
+                                    continue;
+                            }
                         }
                     }
 
@@ -538,6 +550,18 @@ struct Router1
                             conflictPipNet = ctx->getConflictingPipNet(pip);
                             if (conflictPipNet == nullptr)
                                 continue;
+                            else {
+                                if (conflictPipNet->wires.count(next_wire) &&
+                                    conflictPipNet->wires.at(next_wire).strength > STRENGTH_STRONG)
+                                    continue;
+                            }
+                        } else {
+                            NetInfo *conflicting = ctx->getBoundWireNet(conflictPipWire);
+                            if (conflicting != nullptr) {
+                                if (conflicting->wires.count(conflictPipWire) &&
+                                    conflicting->wires.at(conflictPipWire).strength > STRENGTH_STRONG)
+                                    continue;
+                            }
                         }
                     }
 

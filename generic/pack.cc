@@ -251,7 +251,8 @@ static void pack_io(Context *ctx)
                 iob = new_cells.back().get();
             }
             packed_cells.insert(ci->name);
-            std::copy(ci->attrs.begin(), ci->attrs.end(), std::inserter(iob->attrs, iob->attrs.begin()));
+            if (iob != nullptr)
+                std::copy(ci->attrs.begin(), ci->attrs.end(), std::inserter(iob->attrs, iob->attrs.begin()));
         }
     }
     for (auto pcell : packed_cells) {
