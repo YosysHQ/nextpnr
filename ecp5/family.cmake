@@ -1,14 +1,14 @@
 if (NOT EXTERNAL_CHIPDB)
     set(devices 25k 45k 85k)
 
-    if (NOT DEFINED TRELLIS_ROOT)
-        message(STATUS "TRELLIS_ROOT not defined using -DTRELLIS_ROOT=/path/to/prjtrellis. Default to /usr/local/share/trellis")
-        set(TRELLIS_ROOT "/usr/local/share/trellis")
+    if (NOT DEFINED TRELLIS_INSTALL_PREFIX)
+        message(STATUS "TRELLIS_INSTALL_PREFIX not defined using -DTRELLIS_INSTALL_PREFIX=/path-prefix/to/prjtrellis-installation. Default to /usr/local or reset by -DCMAKE_INSTALL_PREFIX when building prjtrellis/libtrellis")
+        set(TRELLIS_INSTALL_PREFIX "/usr/local")
     endif()
 
     if (NOT DEFINED PYTRELLIS_LIBDIR)
         find_library(PYTRELLIS pytrellis.so
-            PATHS ${TRELLIS_ROOT}/libtrellis
+            PATHS ${TRELLIS_INSTALL_PREFIX}/lib/trellis
             PATH_SUFFIXES trellis
             DOC "Location of pytrellis library")
 
@@ -27,9 +27,9 @@ if (NOT EXTERNAL_CHIPDB)
     target_include_directories(ecp5_chipdb PRIVATE ${family}/)
 
     if (CMAKE_HOST_WIN32)
-        set(ENV_CMD ${CMAKE_COMMAND} -E env "PYTHONPATH=\"${PYTRELLIS_LIBDIR}\;${TRELLIS_ROOT}/util/common\;${TRELLIS_ROOT}/timing/util\"")
+        set(ENV_CMD ${CMAKE_COMMAND} -E env "PYTHONPATH=\"${PYTRELLIS_LIBDIR}\;${TRELLIS_INSTALL_PREFIX}/share/trellis/util/common\;${TRELLIS_INSTALL_PREFIX}/share/trellis/timing/util\"")
     else()
-        set(ENV_CMD ${CMAKE_COMMAND} -E env "PYTHONPATH=${PYTRELLIS_LIBDIR}\:${TRELLIS_ROOT}/util/common:${TRELLIS_ROOT}/timing/util")
+        set(ENV_CMD ${CMAKE_COMMAND} -E env "PYTHONPATH=${PYTRELLIS_LIBDIR}\:${TRELLIS_INSTALL_PREFIX}/share/trellis/util/common:${TRELLIS_INSTALL_PREFIX}/share/trellis/timing/util")
     endif()
 
     if (MSVC)

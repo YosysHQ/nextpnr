@@ -47,8 +47,8 @@ RUN set -e -x ;\
     cd /usr/local/src ;\
     git clone --recursive https://github.com/SymbiFlow/prjtrellis.git ;\
     cd prjtrellis ;\
-    git reset --hard 46e95314be7f8850db80ad1ef6b3359b091fad93 ;\
+    git reset --hard 668ce3492cbe1566c61760f06bdf676f6fb265c3 ;\
     cd libtrellis ;\
-    cmake -DCMAKE_INSTALL_PREFIX=/usr . ;\
+    cmake . ;\
     make -j $(nproc) ;\
     make install
