@@ -100,7 +100,7 @@ For ECP5 support, you must download [Project Trellis](https://github.com/SymbiFl
 then follow its instructions to download the latest database and build _libtrellis_.
 
 ```
-cmake -DARCH=ecp5 -DTRELLIS_ROOT=/path/to/prjtrellis .
+cmake -DARCH=ecp5 -DTRELLIS_INSTALL_PREFIX=/path/to/prjtrellis .
 make -j$(nproc)
 sudo make install
 ```
