@@ -826,6 +826,8 @@ struct Arch : BaseCtx
     uint32_t getDelayChecksum(delay_t v) const { return v; }
     bool getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const;
 
+    ArcBounds getRouteBoundingBox(WireId src, WireId dst) const;
+
     // -------------------------------------------------
 
     bool pack();
@@ -900,6 +902,8 @@ struct Arch : BaseCtx
 
     static const std::string defaultPlacer;
     static const std::vector<std::string> availablePlacers;
+    static const std::string defaultRouter;
+    static const std::vector<std::string> availableRouters;
 };
 
 void ice40DelayFuzzerMain(Context *ctx);

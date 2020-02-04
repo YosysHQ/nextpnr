@@ -837,7 +837,7 @@ bool router1(Context *ctx, const Router1Cfg &cfg)
                  std::chrono::duration<float>(rend - rstart).count());
         log_info("Routing complete.\n");
         ctx->yield();
-        log_info("Route time %.02fs\n", std::chrono::duration<float>(rend - rstart).count());
+        log_info("Router1 time %.02fs\n", std::chrono::duration<float>(rend - rstart).count());
 
 #ifndef NDEBUG
         router.check();

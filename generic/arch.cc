@@ -23,6 +23,7 @@
 #include "placer1.h"
 #include "placer_heap.h"
 #include "router1.h"
+#include "router2.h"
 #include "util.h"
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -514,6 +515,30 @@ delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
 
 bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const { return false; }
 
+ArcBounds Arch::getRouteBoundingBox(WireId src, WireId dst) const
+{
+    ArcBounds bb;
+
+    int src_x = wires.at(src).x;
+    int src_y = wires.at(src).y;
+    int dst_x = wires.at(dst).x;
+    int dst_y = wires.at(dst).y;
+
+    bb.x0 = src_x;
+    bb.y0 = src_y;
+    bb.x1 = src_x;
+    bb.y1 = src_y;
+
+    auto extend = [&](int x, int y) {
+        bb.x0 = std::min(bb.x0, x);
+        bb.x1 = std::max(bb.x1, x);
+        bb.y0 = std::min(bb.y0, y);
+        bb.y1 = std::max(bb.y1, y);
+    };
+    extend(dst_x, dst_y);
+    return bb;
+}
+
 // ---------------------------------------------------------------
 
 bool Arch::place()
@@ -553,10 +578,19 @@ bool Arch::place()
 
 bool Arch::route()
 {
-    bool retVal = router1(getCtx(), Router1Cfg(getCtx()));
+    std::string router = str_or_default(settings, id("router"), defaultRouter);
+    bool result;
+    if (router == "router1") {
+        result = router1(getCtx(), Router1Cfg(getCtx()));
+    } else if (router == "router2") {
+        router2(getCtx(), Router2Cfg(getCtx()));
+        result = true;
+    } else {
+        log_error("iCE40 architecture does not support router '%s'\n", router.c_str());
+    }
     getCtx()->settings[getCtx()->id("route")] = 1;
     archInfoToAttributes();
-    return retVal;
+    return result;
 }
 
 // ---------------------------------------------------------------
@@ -653,6 +687,10 @@ const std::vector<std::string> Arch::availablePlacers = {"sa",
                                                          "heap"
 #endif
 };
+
+const std::string Arch::defaultRouter = "router1";
+const std::vector<std::string> Arch::availableRouters = {"router1", "router2"};
+
 void Arch::assignArchInfo()
 {
     for (auto &cell : getCtx()->cells) {

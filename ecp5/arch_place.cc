@@ -203,17 +203,26 @@ void Arch::setupWireLocations()
         CellInfo *ci = cell.second;
         if (ci->bel == BelId())
             continue;
-        if (ci->type == id_MULT18X18D || ci->type == id_DCUA) {
+        if (ci->type == id_MULT18X18D || ci->type == id_DCUA || ci->type == id_DDRDLL || ci->type == id_DQSBUFM ||
+            ci->type == id_EHXPLLL) {
             for (auto &port : ci->ports) {
-                if (port.second.type != PORT_IN || port.second.net == nullptr)
+                if (port.second.net == nullptr)
                     continue;
                 WireId pw = getBelPinWire(ci->bel, port.first);
                 if (pw == WireId())
                     continue;
-                for (auto uh : getPipsUphill(pw)) {
-                    WireId pip_src = getPipSrcWire(uh);
-                    wire_loc_overrides[pw] = std::make_pair(pip_src.location.x, pip_src.location.y);
-                    break;
+                if (port.second.type == PORT_OUT) {
+                    for (auto dh : getPipsDownhill(pw)) {
+                        WireId pip_dst = getPipDstWire(dh);
+                        wire_loc_overrides[pw] = std::make_pair(pip_dst.location.x, pip_dst.location.y);
+                        break;
+                    }
+                } else {
+                    for (auto uh : getPipsUphill(pw)) {
+                        WireId pip_src = getPipSrcWire(uh);
+                        wire_loc_overrides[pw] = std::make_pair(pip_src.location.x, pip_src.location.y);
+                        break;
+                    }
                 }
             }
         }

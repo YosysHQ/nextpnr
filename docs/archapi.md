@@ -237,6 +237,13 @@ Get a list of all wires on the device.
 
 Get a list of all bel pins attached to a given wire.
 
+### ArcBounds getRouteBoundingBox(WireId src, WireId dst) const
+
+Get the bounding box required to route an arc, assuming an uncongested
+chip. There may be significant performance impacts if routing regularly
+exceeds these bounds by more than a small margin; so an over-estimate
+of the bounds is almost always better than an under-estimate.
+
 Pip Methods
 -----------
 
@@ -501,3 +508,13 @@ Name of the default placement algorithm for the architecture, if
 
 Name of available placer algorithms for the architecture, used
 to provide help for and validate `--placer`.
+
+### static const std::string defaultRouter
+
+Name of the default router algorithm for the architecture, if
+`--router` isn't specified on the command line.
+
+### static const std::vector\<std::string\> availableRouters
+
+Name of available router algorithms for the architecture, used
+to provide help for and validate `--router`.

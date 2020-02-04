@@ -132,6 +132,12 @@ po::options_description CommandHandler::getGeneralOptions()
                         "; default: " + Arch::defaultPlacer)
                     .c_str());
 
+    general.add_options()(
+            "router", po::value<std::string>(),
+            std::string("router algorithm to use; available: " + boost::algorithm::join(Arch::availableRouters, ", ") +
+                        "; default: " + Arch::defaultPlacer)
+                    .c_str());
+
     general.add_options()("slack_redist_iter", po::value<int>(), "number of iterations between slack redistribution");
     general.add_options()("cstrweight", po::value<float>(), "placer weighting for relative constraint satisfaction");
     general.add_options()("starttemp", po::value<float>(), "placer SA start temperature");
@@ -214,6 +220,15 @@ void CommandHandler::setupContext(Context *ctx)
         ctx->settings[ctx->id("placer")] = placer;
     }
 
+    if (vm.count("router")) {
+        std::string router = vm["router"].as<std::string>();
+        if (std::find(Arch::availableRouters.begin(), Arch::availableRouters.end(), router) ==
+            Arch::availableRouters.end())
+            log_error("Router algorithm '%s' is not supported (available options: %s)\n", router.c_str(),
+                      boost::algorithm::join(Arch::availableRouters, ", ").c_str());
+        ctx->settings[ctx->id("router")] = router;
+    }
+
     if (vm.count("cstrweight")) {
         ctx->settings[ctx->id("placer1/constraintWeight")] = std::to_string(vm["cstrweight"].as<float>());
     }
@@ -244,6 +259,8 @@ void CommandHandler::setupContext(Context *ctx)
         ctx->settings[ctx->id("auto_freq")] = false;
     if (ctx->settings.find(ctx->id("placer")) == ctx->settings.end())
         ctx->settings[ctx->id("placer")] = Arch::defaultPlacer;
+    if (ctx->settings.find(ctx->id("router")) == ctx->settings.end())
+        ctx->settings[ctx->id("router")] = Arch::defaultRouter;
 
     ctx->settings[ctx->id("arch.name")] = std::string(ctx->archId().c_str(ctx));
     ctx->settings[ctx->id("arch.type")] = std::string(ctx->archArgsToId(ctx->archArgs()).c_str(ctx));
