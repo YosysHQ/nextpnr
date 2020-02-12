@@ -4,7 +4,7 @@ project(nextpnr)
 
 option(BUILD_GUI "Build GUI" ON)
 option(BUILD_PYTHON "Build Python Integration" ON)
-option(BUILD_TESTS "Build GUI" OFF)
+option(BUILD_TESTS "Build tests" OFF)
 option(BUILD_HEAP "Build HeAP analytic placer" ON)
 option(USE_OPENMP "Use OpenMP to accelerate analytic placer" OFF)
 option(COVERAGE "Add code coverage info" OFF)
