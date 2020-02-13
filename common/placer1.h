@@ -27,13 +27,14 @@ NEXTPNR_NAMESPACE_BEGIN
 struct Placer1Cfg
 {
     Placer1Cfg(Context *ctx);
-    float constraintWeight;
+    float constraintWeight, netShareWeight;
     int minBelsForGridPick;
     bool budgetBased;
     float startTemp;
     int timingFanoutThresh;
     bool timing_driven;
     int slack_redist_iter;
+    int hpwl_scale_x, hpwl_scale_y;
 };
 
 extern bool placer1(Context *ctx, Placer1Cfg cfg);

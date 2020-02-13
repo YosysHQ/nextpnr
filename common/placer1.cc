@@ -68,7 +68,10 @@ class SAPlacer
         int x0 = 0, x1 = 0, y0 = 0, y1 = 0;
         // Number of cells at each extremity
         int nx0 = 0, nx1 = 0, ny0 = 0, ny1 = 0;
-        wirelen_t hpwl() const { return wirelen_t((x1 - x0) + (y1 - y0)); }
+        wirelen_t hpwl(const Placer1Cfg &cfg) const
+        {
+            return wirelen_t(cfg.hpwl_scale_x * (x1 - x0) + cfg.hpwl_scale_y * (y1 - y0));
+        }
     };
 
   public:
@@ -255,6 +258,9 @@ class SAPlacer
         curr_timing_cost = total_timing_cost();
         last_wirelen_cost = curr_wirelen_cost;
         last_timing_cost = curr_timing_cost;
+
+        if (cfg.netShareWeight > 0)
+            setup_nets_by_tile();
 
         wirelen_t avg_wirelen = curr_wirelen_cost;
         wirelen_t min_wirelen = curr_wirelen_cost;
@@ -510,6 +516,11 @@ class SAPlacer
         if (other_cell != nullptr)
             old_dist += get_constraints_distance(ctx, other_cell);
         double delta = 0;
+
+        int net_delta_score = 0;
+        if (cfg.netShareWeight > 0)
+            net_delta_score += update_nets_by_tile(cell, ctx->getBelLocation(cell->bel), ctx->getBelLocation(newBel));
+
         ctx->unbindBel(oldBel);
         if (other_cell != nullptr) {
             ctx->unbindBel(newBel);
@@ -519,6 +530,9 @@ class SAPlacer
 
         if (other_cell != nullptr) {
             ctx->bindBel(oldBel, other_cell, STRENGTH_WEAK);
+            if (cfg.netShareWeight > 0)
+                net_delta_score +=
+                        update_nets_by_tile(other_cell, ctx->getBelLocation(newBel), ctx->getBelLocation(oldBel));
         }
 
         add_move_cell(moveChange, cell, oldBel);
@@ -543,6 +557,8 @@ class SAPlacer
         delta = lambda * (moveChange.timing_delta / std::max<double>(last_timing_cost, epsilon)) +
                 (1 - lambda) * (double(moveChange.wirelen_delta) / std::max<double>(last_wirelen_cost, epsilon));
         delta += (cfg.constraintWeight / temp) * (new_dist - old_dist) / last_wirelen_cost;
+        if (cfg.netShareWeight > 0)
+            delta += -cfg.netShareWeight * (net_delta_score / std::max<double>(total_net_share, epsilon));
         n_move++;
         // SA acceptance criterea
         if (delta < 0 || (temp > 1e-8 && (ctx->rng() / float(0x3fffffff)) <= std::exp(-delta / temp))) {
@@ -564,7 +580,11 @@ class SAPlacer
         ctx->bindBel(oldBel, cell, STRENGTH_WEAK);
         if (other_cell != nullptr) {
             ctx->bindBel(newBel, other_cell, STRENGTH_WEAK);
+            if (cfg.netShareWeight > 0)
+                update_nets_by_tile(other_cell, ctx->getBelLocation(oldBel), ctx->getBelLocation(newBel));
         }
+        if (cfg.netShareWeight > 0)
+            update_nets_by_tile(cell, ctx->getBelLocation(newBel), ctx->getBelLocation(oldBel));
         return false;
     }
 
@@ -585,8 +605,13 @@ class SAPlacer
             ctx->unbindBel(newBel);
         ctx->unbindBel(oldBel);
         ctx->bindBel(newBel, cell, is_constrained(cell) ? STRENGTH_STRONG : STRENGTH_WEAK);
-        if (bound != nullptr)
+        if (bound != nullptr) {
             ctx->bindBel(oldBel, bound, is_constrained(bound) ? STRENGTH_STRONG : STRENGTH_WEAK);
+            if (cfg.netShareWeight > 0)
+                update_nets_by_tile(bound, ctx->getBelLocation(newBel), ctx->getBelLocation(oldBel));
+        }
+        if (cfg.netShareWeight > 0)
+            update_nets_by_tile(cell, ctx->getBelLocation(oldBel), ctx->getBelLocation(newBel));
         return oldBel;
     }
 
@@ -608,6 +633,7 @@ class SAPlacer
         std::vector<std::pair<CellInfo *, BelId>> moves_made;
         std::vector<std::pair<CellInfo *, BelId>> dest_bels;
         double delta = 0;
+        int orig_share_cost = total_net_share;
         moveChange.reset(this);
 #if 0
         if (ctx->debug)
@@ -660,6 +686,10 @@ class SAPlacer
         compute_cost_changes(moveChange);
         delta = lambda * (moveChange.timing_delta / last_timing_cost) +
                 (1 - lambda) * (double(moveChange.wirelen_delta) / last_wirelen_cost);
+        if (cfg.netShareWeight > 0) {
+            delta +=
+                    cfg.netShareWeight * (orig_share_cost - total_net_share) / std::max<double>(total_net_share, 1e-20);
+        }
         n_move++;
         // SA acceptance criterea
         if (delta < 0 || (temp > 1e-9 && (ctx->rng() / float(0x3fffffff)) <= std::exp(-delta / temp))) {
@@ -689,8 +719,10 @@ class SAPlacer
 
         int dx = diameter, dy = diameter;
         if (cell->region != nullptr && cell->region->constr_bels) {
-            dx = std::min(diameter, (region_bounds[cell->region->name].x1 - region_bounds[cell->region->name].x0) + 1);
-            dy = std::min(diameter, (region_bounds[cell->region->name].y1 - region_bounds[cell->region->name].y0) + 1);
+            dx = std::min(cfg.hpwl_scale_x * diameter,
+                          (region_bounds[cell->region->name].x1 - region_bounds[cell->region->name].x0) + 1);
+            dy = std::min(cfg.hpwl_scale_y * diameter,
+                          (region_bounds[cell->region->name].y1 - region_bounds[cell->region->name].y0) + 1);
             // Clamp location to within bounds
             curr_loc.x = std::max(region_bounds[cell->region->name].x0, curr_loc.x);
             curr_loc.x = std::min(region_bounds[cell->region->name].x1, curr_loc.x);
@@ -820,7 +852,7 @@ class SAPlacer
     {
         wirelen_t cost = 0;
         for (const auto &net : net_bounds)
-            cost += net.hpwl();
+            cost += net.hpwl(cfg);
         return cost;
     }
 
@@ -1061,10 +1093,10 @@ class SAPlacer
         }
 
         for (const auto &bc : md.bounds_changed_nets_x)
-            md.wirelen_delta += md.new_net_bounds[bc].hpwl() - net_bounds[bc].hpwl();
+            md.wirelen_delta += md.new_net_bounds[bc].hpwl(cfg) - net_bounds[bc].hpwl(cfg);
         for (const auto &bc : md.bounds_changed_nets_y)
             if (md.already_bounds_changed_x[bc] == MoveChangeData::NO_CHANGE)
-                md.wirelen_delta += md.new_net_bounds[bc].hpwl() - net_bounds[bc].hpwl();
+                md.wirelen_delta += md.new_net_bounds[bc].hpwl(cfg) - net_bounds[bc].hpwl(cfg);
 
         if (cfg.timing_driven) {
             for (const auto &tc : md.changed_arcs) {
@@ -1100,8 +1132,66 @@ class SAPlacer
         }
     }
 
+    // Simple routeability driven placement
+    const int large_cell_thresh = 50;
+    int total_net_share = 0;
+    std::vector<std::vector<std::unordered_map<IdString, int>>> nets_by_tile;
+    void setup_nets_by_tile()
+    {
+        total_net_share = 0;
+        nets_by_tile.resize(max_x + 1, std::vector<std::unordered_map<IdString, int>>(max_y + 1));
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (int(ci->ports.size()) > large_cell_thresh)
+                continue;
+            Loc loc = ctx->getBelLocation(ci->bel);
+            auto &nbt = nets_by_tile.at(loc.x).at(loc.y);
+            for (const auto &port : ci->ports) {
+                if (port.second.net == nullptr)
+                    continue;
+                if (port.second.net->driver.cell == nullptr || ctx->getBelGlobalBuf(port.second.net->driver.cell->bel))
+                    continue;
+                int &s = nbt[port.second.net->name];
+                if (s > 0)
+                    ++total_net_share;
+                ++s;
+            }
+        }
+    }
+
+    int update_nets_by_tile(CellInfo *ci, Loc old_loc, Loc new_loc)
+    {
+        if (int(ci->ports.size()) > large_cell_thresh)
+            return 0;
+        int loss = 0, gain = 0;
+        auto &nbt_old = nets_by_tile.at(old_loc.x).at(old_loc.y);
+        auto &nbt_new = nets_by_tile.at(new_loc.x).at(new_loc.y);
+
+        for (const auto &port : ci->ports) {
+            if (port.second.net == nullptr)
+                continue;
+            if (port.second.net->driver.cell == nullptr || ctx->getBelGlobalBuf(port.second.net->driver.cell->bel))
+                continue;
+            int &o = nbt_old[port.second.net->name];
+            --o;
+            NPNR_ASSERT(o >= 0);
+            if (o > 0)
+                ++loss;
+            int &n = nbt_new[port.second.net->name];
+            if (n > 0)
+                ++gain;
+            ++n;
+        }
+        int delta = gain - loss;
+        total_net_share += delta;
+        return delta;
+    }
+
     // Get the combined wirelen/timing metric
-    inline double curr_metric() { return lambda * curr_timing_cost + (1 - lambda) * curr_wirelen_cost; }
+    inline double curr_metric()
+    {
+        return lambda * curr_timing_cost + (1 - lambda) * curr_wirelen_cost - cfg.netShareWeight * total_net_share;
+    }
 
     // Map nets to their bounding box (so we can skip recompute for moves that do not exceed the bounds
     std::vector<BoundingBox> net_bounds;
@@ -1139,12 +1229,15 @@ class SAPlacer
 Placer1Cfg::Placer1Cfg(Context *ctx)
 {
     constraintWeight = ctx->setting<float>("placer1/constraintWeight", 10);
+    netShareWeight = ctx->setting<float>("placer1/netShareWeight", 0);
     minBelsForGridPick = ctx->setting<int>("placer1/minBelsForGridPick", 64);
     budgetBased = ctx->setting<bool>("placer1/budgetBased", false);
     startTemp = ctx->setting<float>("placer1/startTemp", 1);
     timingFanoutThresh = std::numeric_limits<int>::max();
     timing_driven = ctx->setting<bool>("timing_driven");
     slack_redist_iter = ctx->setting<int>("slack_redist_iter");
+    hpwl_scale_x = 1;
+    hpwl_scale_y = 1;
 }
 
 bool placer1(Context *ctx, Placer1Cfg cfg)
