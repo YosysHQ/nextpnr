@@ -48,6 +48,8 @@ of the selected architecture:
   - Do not forget to add qt5 in path as well `echo 'export PATH="/usr/local/opt/qt/bin:$PATH"' >> ~/.bash_profile`
   
     NOTE: this change is effective in next terminal session, so please re-open terminal window before next step
+    
+    In addition, for MacOS, the CMake file needs slight modification, see this [issue](https://github.com/YosysHQ/nextpnr/issues/395).
 
 Getting started
 ---------------
