@@ -871,6 +871,11 @@ struct Context : Arch, DeterministicRNG
 
     // --------------------------------------------------------------
 
+    // provided by svg.cc
+    void writeSVG(const std::string &filename, const std::string &flags = "") const;
+
+    // --------------------------------------------------------------
+
     uint32_t checksum() const;
 
     void check() const;
