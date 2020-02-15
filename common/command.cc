@@ -158,6 +158,9 @@ po::options_description CommandHandler::getGeneralOptions()
     general.add_options()("sdf", po::value<std::string>(), "SDF delay back-annotation file to write");
     general.add_options()("sdf-cvc", "enable tweaks for SDF file compatibility with the CVC simulator");
 
+    general.add_options()("placed-svg", po::value<std::string>(), "write render of placement to SVG file");
+    general.add_options()("routed-svg", po::value<std::string>(), "write render of routing to SVG file");
+
     return general;
 }
 
@@ -336,6 +339,8 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
             if (!ctx->place() && !ctx->force)
                 log_error("Placing design failed.\n");
             ctx->check();
+            if (vm.count("placed-svg"))
+                ctx->writeSVG(vm["placed-svg"].as<std::string>(), "scale=50 hide_routing");
         }
 
         if (do_route) {
@@ -343,6 +348,8 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
             if (!ctx->route() && !ctx->force)
                 log_error("Routing design failed.\n");
             run_script_hook("post-route");
+            if (vm.count("routed-svg"))
+                ctx->writeSVG(vm["routed-svg"].as<std::string>(), "scale=500");
         }
 
         customBitstream(ctx.get());

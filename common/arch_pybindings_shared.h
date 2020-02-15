@@ -114,3 +114,6 @@ fn_wrapper_0a<Context, decltype(&Context::getChipName), &Context::getChipName, p
         ctx_cls, "getChipName");
 fn_wrapper_0a<Context, decltype(&Context::archId), &Context::archId, conv_to_str<IdString>>::def_wrap(ctx_cls,
                                                                                                       "archId");
+
+fn_wrapper_2a_v<Context, decltype(&Context::writeSVG), &Context::writeSVG, pass_through<std::string>,
+                pass_through<std::string>>::def_wrap(ctx_cls, "writeSVG");
