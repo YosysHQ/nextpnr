@@ -85,6 +85,7 @@ class BaseMainWindow : public QMainWindow
 
     void screenshot();
     void saveMovie();
+    void saveSVG();
 
   Q_SIGNALS:
     void contextChanged(Context *ctx);
@@ -134,6 +135,7 @@ class BaseMainWindow : public QMainWindow
 
     QAction *actionScreenshot;
     QAction *actionMovie;
+    QAction *actionSaveSVG;
 };
 
 NEXTPNR_NAMESPACE_END

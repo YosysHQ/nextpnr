@@ -266,6 +266,11 @@ void BaseMainWindow::createMenusAndBars()
     actionMovie->setChecked(false);
     connect(actionMovie, &QAction::triggered, this, &BaseMainWindow::saveMovie);
 
+    actionSaveSVG = new QAction("Save SVG", this);
+    actionSaveSVG->setIcon(QIcon(":/icons/resources/save_svg.png"));
+    actionSaveSVG->setStatusTip("Saving a SVG");
+    connect(actionSaveSVG, &QAction::triggered, this, &BaseMainWindow::saveSVG);
+
     // set initial state
     fpgaView->enableDisableDecals(actionDisplayBel->isChecked(), actionDisplayWire->isChecked(),
                                   actionDisplayPip->isChecked(), actionDisplayGroups->isChecked());
@@ -334,6 +339,7 @@ void BaseMainWindow::createMenusAndBars()
     deviceViewToolBar->addSeparator();
     deviceViewToolBar->addAction(actionScreenshot);
     deviceViewToolBar->addAction(actionMovie);
+    deviceViewToolBar->addAction(actionSaveSVG);
 
     // Add status bar with progress bar
     statusBar = new QStatusBar();
@@ -416,6 +422,27 @@ void BaseMainWindow::saveMovie()
         fpgaView->movieStop();
     }
 }
+
+void BaseMainWindow::saveSVG()
+{
+    QString fileName = QFileDialog::getSaveFileName(this, QString("Save SVG"), QString(), QString("*.svg"));
+    if (!fileName.isEmpty()) {
+        if (!fileName.endsWith(".svg"))
+            fileName += ".svg";
+        bool ok;
+        QString options = 
+                QInputDialog::getText(this, "Save SVG", tr("Save options:"), QLineEdit::Normal, "scale=500", &ok);
+        if (ok) {
+            try {
+                ctx->writeSVG(fileName.toStdString(), options.toStdString());
+                log("Saving SVG successful.\n");
+            } catch (const log_execution_error_exception &ex) {
+                log("Saving SVG failed.\n");
+            }
+        }
+    }
+}
+
 void BaseMainWindow::pack_finished(bool status)
 {
     disableActions();

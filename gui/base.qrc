@@ -30,5 +30,6 @@
         <file>resources/group.png</file>
         <file>resources/camera.png</file>
         <file>resources/film.png</file>
+        <file>resources/save_svg.png</file>
     </qresource>
 </RCC>
