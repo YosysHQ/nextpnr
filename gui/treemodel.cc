@@ -97,12 +97,7 @@ void IdStringList::updateElements(Context *ctx, std::vector<IdString> elements)
         auto parts_a = alphaNumSplit(a->name());
         auto parts_b = alphaNumSplit(b->name());
 
-        // Short-circuit for different part count.
-        if (parts_a.size() != parts_b.size()) {
-            return parts_a.size() < parts_b.size();
-        }
-
-        for (size_t i = 0; i < parts_a.size(); i++) {
+        for (size_t i = 0; i < parts_a.size() && i < parts_b.size(); i++) {
             auto &part_a = parts_a.at(i);
             auto &part_b = parts_b.at(i);
 
@@ -134,8 +129,8 @@ void IdStringList::updateElements(Context *ctx, std::vector<IdString> elements)
             return part_a < part_b;
         }
 
-        // Same string.
-        return false;
+        // One string is equal to or a subset of the other, compare length.
+        return parts_a.size() < parts_b.size();
     });
 }
 
