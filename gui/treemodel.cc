@@ -135,7 +135,7 @@ void IdStringList::updateElements(Context *ctx, std::vector<IdString> elements)
         }
 
         // Same string.
-        return true;
+        return false;
     });
 }
 
