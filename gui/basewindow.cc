@@ -430,7 +430,7 @@ void BaseMainWindow::saveSVG()
         if (!fileName.endsWith(".svg"))
             fileName += ".svg";
         bool ok;
-        QString options = 
+        QString options =
                 QInputDialog::getText(this, "Save SVG", tr("Save options:"), QLineEdit::Normal, "scale=500", &ok);
         if (ok) {
             try {
