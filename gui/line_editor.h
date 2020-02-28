@@ -47,6 +47,7 @@ class LineEditor : public QLineEdit
     void keyPressEvent(QKeyEvent *) Q_DECL_OVERRIDE;
     bool focusNextPrevChild(bool next) Q_DECL_OVERRIDE;
     void autocomplete();
+    void addLineToHistory(QString line);
 
   private:
     int index;

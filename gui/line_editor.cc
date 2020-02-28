@@ -19,6 +19,8 @@
  */
 
 #include "line_editor.h"
+#include <QApplication>
+#include <QClipboard>
 #include <QKeyEvent>
 #include <QToolTip>
 #include "ColumnFormatter.h"
@@ -43,8 +45,19 @@ LineEditor::LineEditor(ParseHelper *helper, QWidget *parent) : QLineEdit(parent)
 
 void LineEditor::keyPressEvent(QKeyEvent *ev)
 {
-
-    if (ev->key() == Qt::Key_Up || ev->key() == Qt::Key_Down) {
+    if (ev->matches(QKeySequence::Paste)) {
+        QString clipboard = QApplication::clipboard()->text();
+        if (clipboard.isEmpty())
+            return;
+        if (clipboard.contains('\n')) {
+            QStringList clipboard_lines = clipboard.split('\n');
+            for (int i = 0; i < clipboard_lines.size(); i++) {
+                addLineToHistory(clipboard_lines[i]);
+                Q_EMIT textLineInserted(clipboard_lines[i]);
+            }
+            return;
+        }
+    } else if (ev->key() == Qt::Key_Up || ev->key() == Qt::Key_Down) {
         QToolTip::hideText();
         if (lines.empty())
             return;
@@ -79,13 +92,18 @@ bool LineEditor::focusNextPrevChild(bool next) { return false; }
 
 void LineEditor::textInserted()
 {
-    if (lines.empty() || lines.back() != text())
-        lines += text();
+    addLineToHistory(text());
+    clear();
+    Q_EMIT textLineInserted(lines.back());
+}
+
+void LineEditor::addLineToHistory(QString line)
+{
+    if (lines.empty() || lines.back() != line)
+        lines += line;
     if (lines.size() > 100)
         lines.removeFirst();
     index = lines.size();
-    clear();
-    Q_EMIT textLineInserted(lines.back());
 }
 
 void LineEditor::showContextMenu(const QPoint &pt) { contextMenu->exec(mapToGlobal(pt)); }
