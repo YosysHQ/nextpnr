@@ -35,7 +35,11 @@ NEXTPNR_NAMESPACE_BEGIN
 
 using namespace boost::python;
 
-inline void KeyError() { PyErr_SetString(PyExc_KeyError, "Key not found"); }
+inline void KeyError()
+{
+    PyErr_SetString(PyExc_KeyError, "Key not found");
+    boost::python::throw_error_already_set();
+}
 
 /*
 A wrapper for a Pythonised nextpnr Iterator. The actual class wrapped is a
@@ -325,7 +329,9 @@ template <typename T, typename value_conv> struct map_wrapper
         if (x.base.find(k) != x.base.end())
             return value_conv()(x.ctx, x.base.at(k));
         KeyError();
-        std::terminate();
+
+        // Should be unreachable, but prevent control may reach end of non-void
+        throw std::runtime_error("unreachable");
     }
 
     static void set(wrapped_map &x, std::string const &i, V const &v)
@@ -342,7 +348,6 @@ template <typename T, typename value_conv> struct map_wrapper
             x.base.erase(k);
         else
             KeyError();
-        std::terminate();
     }
 
     static bool contains(wrapped_map &x, std::string const &i)
@@ -452,7 +457,9 @@ template <typename T> struct map_wrapper_uptr
         if (x.base.find(k) != x.base.end())
             return PythonConversion::ContextualWrapper<Vr>(x.ctx, *x.base.at(k).get());
         KeyError();
-        std::terminate();
+
+        // Should be unreachable, but prevent control may reach end of non-void
+        throw std::runtime_error("unreachable");
     }
 
     static void set(wrapped_map &x, std::string const &i, V const &v)
@@ -469,7 +476,6 @@ template <typename T> struct map_wrapper_uptr
             x.base.erase(k);
         else
             KeyError();
-        std::terminate();
     }
 
     static bool contains(wrapped_map &x, std::string const &i)
