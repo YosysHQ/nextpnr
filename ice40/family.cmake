@@ -10,7 +10,7 @@ if (NOT EXTERNAL_CHIPDB)
 
     set(DB_PY ${CMAKE_CURRENT_SOURCE_DIR}/ice40/chipdb.py)
 
-    set(ICEBOX_ROOT "/usr/local/share/icebox" CACHE STRING "icebox location root")
+    set(ICEBOX_ROOT ${CMAKE_INSTALL_PREFIX}/share/icebox CACHE STRING "icebox location root")
     file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/ice40/chipdbs/)
     add_library(ice40_chipdb OBJECT ${CMAKE_CURRENT_BINARY_DIR}/ice40/chipdbs/)
     target_compile_definitions(ice40_chipdb PRIVATE NEXTPNR_NAMESPACE=nextpnr_${family})
