@@ -2,8 +2,8 @@ if (NOT EXTERNAL_CHIPDB)
     set(devices 25k 45k 85k)
 
     if (NOT DEFINED TRELLIS_INSTALL_PREFIX)
-        message(STATUS "TRELLIS_INSTALL_PREFIX not defined using -DTRELLIS_INSTALL_PREFIX=/path-prefix/to/prjtrellis-installation. Default to /usr/local or reset by -DCMAKE_INSTALL_PREFIX when building prjtrellis/libtrellis")
-        set(TRELLIS_INSTALL_PREFIX "/usr/local")
+        message(STATUS "TRELLIS_INSTALL_PREFIX not defined using -DTRELLIS_INSTALL_PREFIX=/path-prefix/to/prjtrellis-installation. Defaulted to ${CMAKE_INSTALL_PREFIX}")
+        set(TRELLIS_INSTALL_PREFIX ${CMAKE_INSTALL_PREFIX})
     endif()
 
     if (NOT DEFINED PYTRELLIS_LIBDIR)
