@@ -98,7 +98,8 @@ such as pack, place, route, and write output files.)
 
 For ECP5 support, you must download [Project Trellis](https://github.com/SymbiFlow/prjtrellis),
 then follow its instructions to download the latest database and build _libtrellis_. 
-(for example: `-DTRELLIS_INSTALL_PREFIX=/usr` tells nextpnr to look in `/usr/share/trellis`) 
+(for example: `-DTRELLIS_INSTALL_PREFIX=/usr` tells nextpnr to look in `/usr/share/trellis` 
+and `/usr/lib/trellis`) 
 
 ```
 cmake -DARCH=ecp5 -DTRELLIS_INSTALL_PREFIX=/path/to/prjtrellis .
