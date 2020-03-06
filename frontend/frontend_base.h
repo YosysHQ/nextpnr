@@ -342,6 +342,7 @@ template <typename FrontendType> struct GenericFrontend
             // Add to the flat index of nets
             net->udata = int(net_flatindex.size());
             net_flatindex.push_back(net);
+            net_old_indices.emplace_back();
             // Add to the module-level index of netsd
             midx = net->udata;
             // Create aliases for all possible names
@@ -508,6 +509,7 @@ template <typename FrontendType> struct GenericFrontend
                                                         impl.get_vector_bit_constval(bits, i));
                     cnet->udata = int(net_flatindex.size());
                     net_flatindex.push_back(cnet);
+                    net_old_indices.emplace_back();
                     net_ref = cnet->udata;
                 } else {
                     // Otherwise, lookup (creating if needed) the net with given in-module index
