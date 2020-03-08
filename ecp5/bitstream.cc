@@ -650,7 +650,7 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
     }
     // Find bank voltages
     std::unordered_map<int, IOVoltage> bankVcc;
-    std::unordered_map<int, bool> bankLvds, bankVref;
+    std::unordered_map<int, bool> bankLvds, bankVref, bankDiff;
 
     for (auto &cell : ctx->cells) {
         CellInfo *ci = cell.second.get();
@@ -675,6 +675,8 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
 
             if (iotype == "LVDS")
                 bankLvds[bank] = true;
+            if ((dir == "INPUT" || dir == "BIDIR") && is_differential(ioType_from_str(iotype)))
+                bankDiff[bank] = true;
             if ((dir == "INPUT" || dir == "BIDIR") && is_referenced(ioType_from_str(iotype)))
                 bankVref[bank] = true;
         }
@@ -697,6 +699,9 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                     if (bankLvds[bank]) {
                         cc.tiles[tile.first].add_enum("BANK.DIFF_REF", "ON");
                         cc.tiles[tile.first].add_enum("BANK.LVDSO", "ON");
+                    }
+                    if (bankDiff[bank]) {
+                        cc.tiles[tile.first].add_enum("BANK.DIFF_REF", "ON");
                     }
                     if (bankVref[bank]) {
                         cc.tiles[tile.first].add_enum("BANK.DIFF_REF", "ON");
