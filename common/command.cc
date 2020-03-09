@@ -161,7 +161,6 @@ po::options_description CommandHandler::getGeneralOptions()
     general.add_options()("placed-svg", po::value<std::string>(), "write render of placement to SVG file");
     general.add_options()("routed-svg", po::value<std::string>(), "write render of routing to SVG file");
 
-    general.add_options()("threads", po::value<int>(), "max thread count");
     return general;
 }
 

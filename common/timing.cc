@@ -20,9 +20,7 @@
 
 #include "timing.h"
 #include <algorithm>
-#include <boost/asio.hpp>
 #include <boost/range/adaptor/reversed.hpp>
-#include <boost/thread.hpp>
 #include <deque>
 #include <map>
 #include <unordered_map>
@@ -39,7 +37,6 @@ struct TimingAnalyser
     Context *ctx;
     int thread_count;
     TimingData *td;
-    boost::asio::thread_pool *pool;
 
     void label_ports()
     {
@@ -313,43 +310,12 @@ struct TimingAnalyser
         for (int i = start; i < end; i++) {
             NetInfo *ni = td->all_nets.at(i);
             for (auto &usr : ni->users) {
-                td->ports.at(usr.uid).net_delay = ctx->getNetinfoRouteDelay(ni, usr);
+                td->ports.at(usr.uid).net_delay = (ni->driver.cell != nullptr) ? ctx->getNetinfoRouteDelay(ni, usr) : 0;
             }
         }
     }
 
-    struct WorkDispatcher
-    {
-        std::vector<boost::unique_future<void>> pending_work;
-        typedef boost::packaged_task<void> task_t;
-
-        template <typename Tf> void dispatch(Tf func, boost::asio::thread_pool *pool)
-        {
-            std::shared_ptr<boost::packaged_task<void>> pt(new boost::packaged_task<void>(func));
-            boost::unique_future<void> result = pt->get_future();
-            pending_work.push_back(boost::move(result));
-            boost::asio::post(boost::bind(&task_t::operator(), pt));
-        }
-
-        void join()
-        {
-            boost::wait_for_all(pending_work.begin(), pending_work.end());
-            pending_work.clear();
-        }
-    };
-
-    template <typename Tf> void parallel_split(int N, Tf func)
-    {
-        if (pool) {
-            WorkDispatcher wd;
-            for (int i = 0; i < thread_count; i++) {
-                wd.dispatch([this, i, N, func]() { func((N * i) / thread_count, (N * (i + 1)) / thread_count); }, pool);
-            }
-            wd.join();
-        } else {
-            func(0, N);
-        }
-    }
+    template <typename Tf> void parallel_split(int N, Tf func) { func(0, N); }
 
     void get_net_delays()
     {
@@ -738,8 +704,7 @@ struct TimingAnalyser
         }
     }
 
-    TimingAnalyser(Context *ctx, TimingData *td, boost::asio::thread_pool *pool = nullptr)
-            : ctx(ctx), td(td), pool(pool)
+    TimingAnalyser(Context *ctx, TimingData *td) : ctx(ctx), td(td)
     {
         thread_count = int_or_default(ctx->settings, ctx->id("threads"), 4);
     };
@@ -755,19 +720,9 @@ struct TimingAnalyser
 
     void calculate_times()
     {
-        reset_times();
-        if (pool) {
-            WorkDispatcher wd;
-            for (size_t i = 0; i < td->domains.size(); i++) {
-                wd.dispatch([this, i]() { walk_forward(int(i)); }, pool);
-                wd.dispatch([this, i]() { walk_backward(int(i)); }, pool);
-            }
-            wd.join();
-        } else {
-            for (size_t i = 0; i < td->domains.size(); i++) {
-                walk_forward(int(i));
-                walk_backward(int(i));
-            }
+        for (size_t i = 0; i < td->domains.size(); i++) {
+            walk_forward(int(i));
+            walk_backward(int(i));
         }
     }
 
@@ -825,10 +780,10 @@ struct ClockPair
 };
 } // namespace
 
-void init_timing(Context *ctx, TimingData *td, TimingAnalyserFlags flags, boost::asio::thread_pool *pool)
+void init_timing(Context *ctx, TimingData *td, TimingAnalyserFlags flags)
 {
     auto startt = std::chrono::high_resolution_clock::now();
-    TimingAnalyser ta(ctx, td, pool);
+    TimingAnalyser ta(ctx, td);
     ta.sta_flags = flags;
     ta.reset_all();
     ta.calculate_times();
@@ -838,10 +793,10 @@ void init_timing(Context *ctx, TimingData *td, TimingAnalyserFlags flags, boost:
     log_info("** init_timing time: %.04fs\n", std::chrono::duration<double>(endtt - startt).count());
 }
 
-void update_timing(Context *ctx, TimingData *td, TimingAnalyserFlags flags, boost::asio::thread_pool *pool)
+void update_timing(Context *ctx, TimingData *td, TimingAnalyserFlags flags)
 {
     auto startt = std::chrono::high_resolution_clock::now();
-    TimingAnalyser ta(ctx, td, pool);
+    TimingAnalyser ta(ctx, td);
     ta.sta_flags = flags;
     ta.get_net_delays();
     ta.calculate_times();

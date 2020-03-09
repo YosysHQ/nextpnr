@@ -22,8 +22,6 @@
 
 #include "nextpnr.h"
 
-#include <boost/asio.hpp>
-
 NEXTPNR_NAMESPACE_BEGIN
 
 // Evenly redistribute the total path slack amongst all sinks on each path
@@ -55,10 +53,8 @@ enum TimingAnalyserFlags
     TMG_IGNORE_CLOCK_ROUTING = 2,
 };
 
-void init_timing(Context *ctx, TimingData *td, TimingAnalyserFlags flags = TMG_FLAGS_NONE,
-                 boost::asio::thread_pool *pool = nullptr);
-void update_timing(Context *ctx, TimingData *td, TimingAnalyserFlags flags = TMG_FLAGS_NONE,
-                   boost::asio::thread_pool *pool = nullptr);
+void init_timing(Context *ctx, TimingData *td, TimingAnalyserFlags flags = TMG_FLAGS_NONE);
+void update_timing(Context *ctx, TimingData *td, TimingAnalyserFlags flags = TMG_FLAGS_NONE);
 
 NEXTPNR_NAMESPACE_END
 

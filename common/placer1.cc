@@ -246,11 +246,10 @@ class SAPlacer
             log_info("Running simulated annealing placer for refinement.\n");
         }
         auto saplace_start = std::chrono::high_resolution_clock::now();
-        boost::asio::thread_pool pool(int_or_default(ctx->settings, ctx->id("threads"), 4));
 
         // Invoke timing analysis to obtain criticalities
         if (!cfg.budgetBased)
-            init_timing(ctx, &td, TimingAnalyserFlags(TMG_IGNORE_CLOCK_ROUTING | TMG_SETUP_ONLY), &pool);
+            init_timing(ctx, &td, TimingAnalyserFlags(TMG_IGNORE_CLOCK_ROUTING | TMG_SETUP_ONLY));
 
         // Calculate costs after initial placement
         setup_costs();
@@ -387,7 +386,7 @@ class SAPlacer
 
             // Invoke timing analysis to obtain criticalities
             if (!cfg.budgetBased && cfg.timing_driven)
-                update_timing(ctx, &td, TimingAnalyserFlags(TMG_IGNORE_CLOCK_ROUTING | TMG_SETUP_ONLY), &pool);
+                update_timing(ctx, &td, TimingAnalyserFlags(TMG_IGNORE_CLOCK_ROUTING | TMG_SETUP_ONLY));
             // Need to rebuild costs after criticalities change
             setup_costs();
             // Reset incremental bounds
