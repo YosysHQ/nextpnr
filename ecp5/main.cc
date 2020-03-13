@@ -49,6 +49,7 @@ ECP5CommandHandler::ECP5CommandHandler(int argc, char **argv) : CommandHandler(a
 po::options_description ECP5CommandHandler::getArchOptions()
 {
     po::options_description specific("Architecture specific options");
+    specific.add_options()("12k", "set device type to LFE5U-12F");
     specific.add_options()("25k", "set device type to LFE5U-25F");
     specific.add_options()("45k", "set device type to LFE5U-45F");
     specific.add_options()("85k", "set device type to LFE5U-85F");
@@ -125,7 +126,8 @@ std::unique_ptr<Context> ECP5CommandHandler::createContext(std::unordered_map<st
 {
     ArchArgs chipArgs;
     chipArgs.type = ArchArgs::NONE;
-
+    if (vm.count("12k"))
+        chipArgs.type = ArchArgs::LFE5U_12F;
     if (vm.count("25k"))
         chipArgs.type = ArchArgs::LFE5U_25F;
     if (vm.count("45k"))
@@ -179,6 +181,8 @@ std::unique_ptr<Context> ECP5CommandHandler::createContext(std::unordered_map<st
         if (chipArgs.type != ArchArgs::NONE)
             log_error("Overriding architecture is unsuported.\n");
 
+        if (arch_type == "lfe5u_12f")
+            chipArgs.type = ArchArgs::LFE5U_12F;
         if (arch_type == "lfe5u_25f")
             chipArgs.type = ArchArgs::LFE5U_25F;
         if (arch_type == "lfe5u_45f")

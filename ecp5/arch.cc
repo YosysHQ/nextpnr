@@ -106,7 +106,8 @@ Arch::Arch(ArchArgs args) : args(args)
         log_error("Unsupported ECP5 chip type.\n");
     }
 #else
-    if (args.type == ArchArgs::LFE5U_25F || args.type == ArchArgs::LFE5UM_25F || args.type == ArchArgs::LFE5UM5G_25F) {
+    if (args.type == ArchArgs::LFE5U_12F || args.type == ArchArgs::LFE5U_25F || args.type == ArchArgs::LFE5UM_25F ||
+        args.type == ArchArgs::LFE5UM5G_25F) {
         chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_25k));
     } else if (args.type == ArchArgs::LFE5U_45F || args.type == ArchArgs::LFE5UM_45F ||
                args.type == ArchArgs::LFE5UM5G_45F) {
@@ -139,7 +140,9 @@ Arch::Arch(ArchArgs args) : args(args)
 
 std::string Arch::getChipName() const
 {
-    if (args.type == ArchArgs::LFE5U_25F) {
+    if (args.type == ArchArgs::LFE5U_12F) {
+        return "LFE5U-12F";
+    } else if (args.type == ArchArgs::LFE5U_25F) {
         return "LFE5U-25F";
     } else if (args.type == ArchArgs::LFE5U_45F) {
         return "LFE5U-45F";
@@ -186,6 +189,8 @@ std::string Arch::getFullChipName() const
 
 IdString Arch::archArgsToId(ArchArgs args) const
 {
+    if (args.type == ArchArgs::LFE5U_12F)
+        return id("lfe5u_12f");
     if (args.type == ArchArgs::LFE5U_25F)
         return id("lfe5u_25f");
     if (args.type == ArchArgs::LFE5U_45F)
