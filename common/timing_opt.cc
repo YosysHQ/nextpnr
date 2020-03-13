@@ -60,7 +60,7 @@ template <> struct hash<std::pair<int, NEXTPNR_NAMESPACE_PREFIX BelId>>
         return seed;
     }
 };
-#ifndef ARCH_GENERIC
+#if !(defined(ARCH_GENERIC) || defined(ARCH_MACHXO2))
 template <> struct hash<std::pair<NEXTPNR_NAMESPACE_PREFIX IdString, NEXTPNR_NAMESPACE_PREFIX BelId>>
 {
     std::size_t
