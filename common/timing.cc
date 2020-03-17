@@ -177,9 +177,19 @@ struct Timing
                     // the current output port, increment fanin counter
                     for (auto i : input_ports) {
                         DelayInfo comb_delay;
+                        if (cell.second->ports[i].net->driver.cell == nullptr)
+                            continue;
                         bool is_path = ctx->getCellDelay(cell.second.get(), i, o->name, comb_delay);
                         if (is_path)
                             port_fanin[o]++;
+                    }
+                    // If there is no fanin, add the port as a false startpoint
+                    if (!port_fanin.count(o) && !net_data.count(o->net)) {
+                        topographical_order.emplace_back(o->net);
+                        TimingData td;
+                        td.false_startpoint = true;
+                        td.max_arrival = 0;
+                        net_data[o->net][ClockEvent{async_clock, RISING_EDGE}] = td;
                     }
                 }
             }
