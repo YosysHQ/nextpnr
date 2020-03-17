@@ -432,7 +432,13 @@ void nxio_to_tr(Context *ctx, CellInfo *nxio, CellInfo *trio, std::vector<std::u
         replace_port(nxio, ctx->id("I"), trio, ctx->id("I"));
     } else if (nxio->type == ctx->id("$nextpnr_iobuf")) {
         // N.B. tristate will be dealt with below
-        trio->params[ctx->id("DIR")] = std::string("BIDIR");
+        NetInfo *i = get_net_or_empty(nxio, ctx->id("I"));
+        if (i == nullptr || i->driver.cell == nullptr)
+            trio->params[ctx->id("DIR")] = std::string("INPUT");
+        else {
+            log_info("%s: %s.%s\n", ctx->nameOf(i), ctx->nameOf(i->driver.cell), ctx->nameOf(i->driver.port));
+            trio->params[ctx->id("DIR")] = std::string("BIDIR");
+        }
         replace_port(nxio, ctx->id("I"), trio, ctx->id("I"));
         replace_port(nxio, ctx->id("O"), trio, ctx->id("O"));
     } else {
@@ -445,6 +451,15 @@ void nxio_to_tr(Context *ctx, CellInfo *nxio, CellInfo *trio, std::vector<std::u
         rename_net(ctx, donet, ctx->id(donet->name.str(ctx) + "$TRELLIS_IO_OUT"));
     if (dinet != nullptr && dinet->name == nxio->name)
         rename_net(ctx, dinet, ctx->id(dinet->name.str(ctx) + "$TRELLIS_IO_IN"));
+
+    if (ctx->nets.count(nxio->name)) {
+        int i = 0;
+        IdString new_name;
+        do {
+            new_name = ctx->id(nxio->name.str(ctx) + "$rename$" + std::to_string(i++));
+        } while (ctx->nets.count(new_name));
+        rename_net(ctx, ctx->nets.at(nxio->name).get(), new_name);
+    }
 
     // Create a new top port net for accurate IO timing analysis and simulation netlists
     if (ctx->ports.count(nxio->name)) {

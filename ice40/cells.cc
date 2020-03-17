@@ -22,6 +22,7 @@
 #include "cells.h"
 #include "design_utils.h"
 #include "log.h"
+#include "util.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -424,7 +425,14 @@ void nxio_to_sb(Context *ctx, CellInfo *nxio, CellInfo *sbio, std::unordered_set
         replace_port(nxio, ctx->id("I"), sbio, ctx->id("D_OUT_0"));
     } else if (nxio->type == ctx->id("$nextpnr_iobuf")) {
         // N.B. tristate will be dealt with below
-        sbio->params[ctx->id("PIN_TYPE")] = 25;
+        NetInfo *i = get_net_or_empty(nxio, ctx->id("I"));
+        if (i == nullptr || i->driver.cell == nullptr)
+            sbio->params[ctx->id("PIN_TYPE")] = 1;
+        else
+            sbio->params[ctx->id("PIN_TYPE")] = 25;
+        auto pu_attr = nxio->attrs.find(ctx->id("PULLUP"));
+        if (pu_attr != nxio->attrs.end())
+            sbio->params[ctx->id("PULLUP")] = pu_attr->second;
         replace_port(nxio, ctx->id("I"), sbio, ctx->id("D_OUT_0"));
         replace_port(nxio, ctx->id("O"), sbio, ctx->id("D_IN_0"));
     } else {
@@ -437,6 +445,15 @@ void nxio_to_sb(Context *ctx, CellInfo *nxio, CellInfo *sbio, std::unordered_set
         rename_net(ctx, donet, ctx->id(donet->name.str(ctx) + "$SB_IO_OUT"));
     if (dinet != nullptr && dinet->name == nxio->name)
         rename_net(ctx, dinet, ctx->id(dinet->name.str(ctx) + "$SB_IO_IN"));
+
+    if (ctx->nets.count(nxio->name)) {
+        int i = 0;
+        IdString new_name;
+        do {
+            new_name = ctx->id(nxio->name.str(ctx) + "$rename$" + std::to_string(i++));
+        } while (ctx->nets.count(new_name));
+        rename_net(ctx, ctx->nets.at(nxio->name).get(), new_name);
+    }
 
     // Create a new top port net for accurate IO timing analysis and simulation netlists
     if (ctx->ports.count(nxio->name)) {
