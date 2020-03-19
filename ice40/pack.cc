@@ -66,6 +66,11 @@ static void pack_lut_lutffs(Context *ctx)
                     ctx->nets.erase(o->name);
                     if (dff_bel != dff->attrs.end())
                         packed->attrs[ctx->id("BEL")] = dff_bel->second;
+                    for (const auto &attr : dff->attrs) {
+                        // BEL is dealt with specially
+                        if (attr.first != ctx->id("BEL"))
+                            packed->attrs[attr.first] = attr.second;
+                    }
                     packed_cells.insert(dff->name);
                     if (ctx->verbose)
                         log_info("packed cell %s into %s\n", dff->name.c_str(ctx), packed->name.c_str(ctx));
