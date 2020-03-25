@@ -431,6 +431,7 @@ struct ArchArgs
     enum ArchArgsTypes
     {
         NONE,
+        LFE5U_12F,
         LFE5U_25F,
         LFE5U_45F,
         LFE5U_85F,

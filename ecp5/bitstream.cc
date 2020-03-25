@@ -438,8 +438,8 @@ std::vector<std::string> get_pll_tiles(Context *ctx, BelId bel)
 void fix_tile_names(Context *ctx, ChipConfig &cc)
 {
     // Remove the V prefix/suffix on certain tiles if device is a SERDES variant
-    if (ctx->args.type == ArchArgs::LFE5U_25F || ctx->args.type == ArchArgs::LFE5U_45F ||
-        ctx->args.type == ArchArgs::LFE5U_85F) {
+    if (ctx->args.type == ArchArgs::LFE5U_12F || ctx->args.type == ArchArgs::LFE5U_25F ||
+        ctx->args.type == ArchArgs::LFE5U_45F || ctx->args.type == ArchArgs::LFE5U_85F) {
         std::map<std::string, std::string> tiletype_xform;
         for (const auto &tile : cc.tiles) {
             std::string newname = tile.first;
@@ -580,6 +580,10 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
         config_file >> cc;
     } else {
         switch (ctx->args.type) {
+        case ArchArgs::LFE5U_12F:
+            BaseConfigs::config_empty_lfe5u_25f(cc);
+            cc.chip_name = "LFE5U-12F";
+            break;
         case ArchArgs::LFE5U_25F:
             BaseConfigs::config_empty_lfe5u_25f(cc);
             break;
@@ -1429,8 +1433,8 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             Loc loc = ctx->getBelLocation(ci->bel);
             bool u = loc.y<15, r = loc.x> 15;
             std::string tiletype = fmt_str("DDRDLL_" << (u ? 'U' : 'L') << (r ? 'R' : 'L'));
-            if ((ctx->args.type == ArchArgs::LFE5U_25F || ctx->args.type == ArchArgs::LFE5UM_25F ||
-                 ctx->args.type == ArchArgs::LFE5UM5G_25F) &&
+            if ((ctx->args.type == ArchArgs::LFE5U_12F || ctx->args.type == ArchArgs::LFE5U_25F ||
+                 ctx->args.type == ArchArgs::LFE5UM_25F || ctx->args.type == ArchArgs::LFE5UM5G_25F) &&
                 u)
                 tiletype += "A";
             std::string tile = ctx->getTileByType(tiletype);
