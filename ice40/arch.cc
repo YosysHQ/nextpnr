@@ -1037,7 +1037,7 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
             }
         }
         if (port == id_OUTPUT_ENABLE) {
-            if ((cell->ioInfo.pintype & 0x18) == 0x18) {
+            if ((cell->ioInfo.pintype & 0x30) == 0x30) {
                 return TMG_REGISTER_INPUT;
             } else {
                 return TMG_ENDPOINT;
