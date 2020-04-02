@@ -1253,9 +1253,14 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
 
             tg.config.add_enum("FEEDBK_PATH", str_or_default(ci->params, ctx->id("FEEDBK_PATH"), "CLKOP"));
             tg.config.add_enum("CLKOP_TRIM_POL", str_or_default(ci->params, ctx->id("CLKOP_TRIM_POL"), "RISING"));
-            tg.config.add_enum("CLKOP_TRIM_DELAY", str_or_default(ci->params, ctx->id("CLKOP_TRIM_DELAY"), "0"));
+
+            tg.config.add_enum("CLKOP_TRIM_DELAY",
+                               intstr_or_default(ci->params, ctx->id("CLKOP_TRIM_DELAY"), "0"));
+
             tg.config.add_enum("CLKOS_TRIM_POL", str_or_default(ci->params, ctx->id("CLKOS_TRIM_POL"), "RISING"));
-            tg.config.add_enum("CLKOS_TRIM_DELAY", str_or_default(ci->params, ctx->id("CLKOS_TRIM_DELAY"), "0"));
+
+            tg.config.add_enum("CLKOS_TRIM_DELAY",
+                               intstr_or_default(ci->params, ctx->id("CLKOS_TRIM_DELAY"), "0"));
 
             tg.config.add_enum("OUTDIVIDER_MUXA", str_or_default(ci->params, ctx->id("OUTDIVIDER_MUXA"),
                                                                  get_net_or_empty(ci, id_CLKOP) ? "DIVA" : "REFCLK"));
