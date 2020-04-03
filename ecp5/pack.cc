@@ -2038,10 +2038,20 @@ class Ecp5Packer
                 disconnect_port(ctx, prim, port);
         };
 
+        bool warned_oddrx_iddrx = false;
+
         auto set_iologic_mode = [&](CellInfo *iol, std::string mode) {
             auto &curr_mode = iol->params[ctx->id("MODE")].str;
             if (curr_mode != "NONE" && mode == "IREG_OREG")
                 return;
+            if ((curr_mode == "IDDRXN" && mode == "ODDRXN") || (curr_mode == "ODDRXN" && mode == "IDDRXN")) {
+                if (!warned_oddrx_iddrx) {
+                    warned_oddrx_iddrx = true;
+                    log_warning("Use of IDDRXN and ODDRXN primitives on the same pin is unofficial and unsupported!\n");
+                }
+                curr_mode = "ODDRXN";
+                return;
+            }
             if (curr_mode != "NONE" && curr_mode != "IREG_OREG" && curr_mode != mode)
                 log_error("IOLOGIC '%s' has conflicting modes '%s' and '%s'\n", iol->name.c_str(ctx), curr_mode.c_str(),
                           mode.c_str());
