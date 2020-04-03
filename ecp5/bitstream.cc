@@ -931,6 +931,9 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                               iovoltage_to_str(vccio).c_str(), ci->name.c_str(ctx));
                 }
             }
+	    if (ci->attrs.count(ctx->id("OPENDRAIN")))
+                cc.tiles[pio_tile].add_enum(pio + ".OPENDRAIN",
+                                            str_or_default(ci->attrs, ctx->id("OPENDRAIN"), "OFF"));
             std::string datamux_oddr = str_or_default(ci->params, ctx->id("DATAMUX_ODDR"), "PADDO");
             if (datamux_oddr != "PADDO")
                 cc.tiles[pic_tile].add_enum(pio + ".DATAMUX_ODDR", datamux_oddr);
