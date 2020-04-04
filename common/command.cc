@@ -135,7 +135,7 @@ po::options_description CommandHandler::getGeneralOptions()
     general.add_options()(
             "router", po::value<std::string>(),
             std::string("router algorithm to use; available: " + boost::algorithm::join(Arch::availableRouters, ", ") +
-                        "; default: " + Arch::defaultPlacer)
+                        "; default: " + Arch::defaultRouter)
                     .c_str());
 
     general.add_options()("slack_redist_iter", po::value<int>(), "number of iterations between slack redistribution");
