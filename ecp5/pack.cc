@@ -3014,6 +3014,29 @@ void Arch::assignArchInfo()
                 ci->sliceInfo.has_l6mux = true;
         } else if (ci->type == id_DP16KD) {
             ci->ramInfo.is_pdp = (int_or_default(ci->params, id("DATA_WIDTH_A"), 0) == 36);
+
+            // Output register mode (REGMODE_{A,B}). Valid options are 'NOREG' and 'OUTREG'.
+            std::string regmode_a = str_or_default(ci->params, id("REGMODE_A"), "NOREG");
+            if (regmode_a != "NOREG" && regmode_a != "OUTREG")
+                log_error("DP16KD %s has invalid REGMODE_A configuration '%s'\n", ci->name.c_str(this),
+                          regmode_a.c_str());
+            std::string regmode_b = str_or_default(ci->params, id("REGMODE_B"), "NOREG");
+            if (regmode_b != "NOREG" && regmode_b != "OUTREG")
+                log_error("DP16KD %s has invalid REGMODE_B configuration '%s'\n", ci->name.c_str(this),
+                          regmode_b.c_str());
+            ci->ramInfo.is_output_a_registered = regmode_a == "OUTREG";
+            ci->ramInfo.is_output_b_registered = regmode_b == "OUTREG";
+
+            // Based on the REGMODE, we have different timing lookup tables.
+            if (!ci->ramInfo.is_output_a_registered && !ci->ramInfo.is_output_b_registered) {
+                ci->ramInfo.regmode_timing_id = id_DP16KD_REGMODE_A_NOREG_REGMODE_B_NOREG;
+            } else if (!ci->ramInfo.is_output_a_registered && ci->ramInfo.is_output_b_registered) {
+                ci->ramInfo.regmode_timing_id = id_DP16KD_REGMODE_A_NOREG_REGMODE_B_OUTREG;
+            } else if (ci->ramInfo.is_output_a_registered && !ci->ramInfo.is_output_b_registered) {
+                ci->ramInfo.regmode_timing_id = id_DP16KD_REGMODE_A_OUTREG_REGMODE_B_NOREG;
+            } else if (ci->ramInfo.is_output_a_registered && ci->ramInfo.is_output_b_registered) {
+                ci->ramInfo.regmode_timing_id = id_DP16KD_REGMODE_A_OUTREG_REGMODE_B_OUTREG;
+            }
         }
     }
     for (auto net : sorted(nets)) {
