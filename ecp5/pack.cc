@@ -3007,10 +3007,10 @@ void Arch::assignArchInfo()
 
             // Output register mode (REGMODE_{A,B}). Valid options are 'NOREG' and 'OUTREG'.
             std::string regmode_a = str_or_default(ci->params, id("REGMODE_A"), "NOREG");
-            if (!(regmode_a == "NOREG" || regmode_a == "OUTREG"))
+            if (regmode_a != "NOREG" && regmode_a != "OUTREG")
                 NPNR_ASSERT_FALSE_STR("bad DP16KD REGMODE_A configuration '" + regmode_a + "'");
             std::string regmode_b = str_or_default(ci->params, id("REGMODE_B"), "NOREG");
-            if (!(regmode_b == "NOREG" || regmode_b == "OUTREG"))
+            if (regmode_b != "NOREG" && regmode_b != "OUTREG")
                 NPNR_ASSERT_FALSE_STR("bad DP16KD REGMODE_B configuration '" + regmode_b + "'");
             ci->ramInfo.is_output_a_registered = regmode_a == "OUTREG";
             ci->ramInfo.is_output_b_registered = regmode_b == "OUTREG";
