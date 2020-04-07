@@ -1071,24 +1071,11 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
                      "INV")
                             ? FALLING_EDGE
                             : RISING_EDGE;
-
-        // REGMODE determines some timing parameters
-        nextpnr_ecp5::IdString regmode_timing;
-        if (!cell->ramInfo.output_a_registered && !cell->ramInfo.output_b_registered) {
-            regmode_timing = id_DP16KD_REGMODE_A_NOREG_REGMODE_B_NOREG;
-        } else if (!cell->ramInfo.output_a_registered && cell->ramInfo.output_b_registered) {
-            regmode_timing = id_DP16KD_REGMODE_A_NOREG_REGMODE_B_OUTREG;
-        } else if (cell->ramInfo.output_a_registered && !cell->ramInfo.output_b_registered) {
-            regmode_timing = id_DP16KD_REGMODE_A_OUTREG_REGMODE_B_NOREG;
-        } else if (cell->ramInfo.output_a_registered && cell->ramInfo.output_b_registered) {
-            regmode_timing = id_DP16KD_REGMODE_A_OUTREG_REGMODE_B_OUTREG;
-        }
-
         if (cell->ports.at(port).type == PORT_OUT) {
-            bool is_path = getDelayFromTimingDatabase(regmode_timing, half_clock, port, info.clockToQ);
+            bool is_path = getDelayFromTimingDatabase(cell->ramInfo.regmode_timing_id, half_clock, port, info.clockToQ);
             NPNR_ASSERT(is_path);
         } else {
-            getSetupHoldFromTimingDatabase(regmode_timing, half_clock, port, info.setup, info.hold);
+            getSetupHoldFromTimingDatabase(cell->ramInfo.regmode_timing_id, half_clock, port, info.setup, info.hold);
         }
     } else if (cell->type == id_DCUA) {
         std::string prefix = port.str(this).substr(0, 9);

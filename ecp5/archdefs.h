@@ -180,8 +180,14 @@ struct ArchCellInfo
     struct
     {
         bool is_pdp;
-        bool output_a_registered;
-        bool output_b_registered;
+        // Are the outputs from a DP16KD registered (OUTREG)
+        // or non-registered (NOREG)
+        bool is_output_a_registered;
+        bool is_output_b_registered;
+        // Which timing information to use for a DP16KD. Depends on registering
+        // configuration.
+        nextpnr_ecp5::IdString regmode_timing_id;
+
     } ramInfo;
 };
 
