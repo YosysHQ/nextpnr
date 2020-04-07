@@ -1071,13 +1071,28 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
                      "INV")
                             ? FALLING_EDGE
                             : RISING_EDGE;
+
+        // REGMODE determines some timing parameters
+        auto regmode_a = str_or_default(cell->params, id("REGMODE_A"), "NOREG");
+        auto regmode_b = str_or_default(cell->params, id("REGMODE_B"), "NOREG");
+        nextpnr_ecp5::IdString regmode_timing;
+        if (regmode_a == "NOREG" && regmode_b == "NOREG") {
+            regmode_timing = id_DP16KD_REGMODE_A_NOREG_REGMODE_B_NOREG;
+        } else if (regmode_a == "NOREG" && regmode_b == "OUTREG") {
+            regmode_timing = id_DP16KD_REGMODE_A_NOREG_REGMODE_B_OUTREG;
+        } else if (regmode_a == "OUTREG" && regmode_b == "NOREG") {
+            regmode_timing = id_DP16KD_REGMODE_A_OUTREG_REGMODE_B_NOREG;
+        } else if (regmode_a == "OUTREG" && regmode_b == "OUTREG") {
+            regmode_timing = id_DP16KD_REGMODE_A_OUTREG_REGMODE_B_OUTREG;
+        } else {
+            NPNR_ASSERT_FALSE_STR("bad DP16KD REGMODE configuration: " + regmode_a + ", " + regmode_b);
+        }
+
         if (cell->ports.at(port).type == PORT_OUT) {
-            bool is_path = getDelayFromTimingDatabase(id_DP16KD_REGMODE_A_NOREG_REGMODE_B_NOREG, half_clock, port,
-                                                      info.clockToQ);
+            bool is_path = getDelayFromTimingDatabase(regmode_timing, half_clock, port, info.clockToQ);
             NPNR_ASSERT(is_path);
         } else {
-            getSetupHoldFromTimingDatabase(id_DP16KD_REGMODE_A_NOREG_REGMODE_B_NOREG, half_clock, port, info.setup,
-                                           info.hold);
+            getSetupHoldFromTimingDatabase(regmode_timing, half_clock, port, info.setup, info.hold);
         }
     } else if (cell->type == id_DCUA) {
         std::string prefix = port.str(this).substr(0, 9);
