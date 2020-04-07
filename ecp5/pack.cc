@@ -2972,6 +2972,7 @@ bool Arch::pack()
 
 void Arch::assignArchInfo()
 {
+    Context *ctx = getCtx();
     for (auto cell : sorted(cells)) {
         CellInfo *ci = cell.second;
         if (ci->type == id_TRELLIS_SLICE) {
@@ -3008,10 +3009,12 @@ void Arch::assignArchInfo()
             // Output register mode (REGMODE_{A,B}). Valid options are 'NOREG' and 'OUTREG'.
             std::string regmode_a = str_or_default(ci->params, id("REGMODE_A"), "NOREG");
             if (regmode_a != "NOREG" && regmode_a != "OUTREG")
-                NPNR_ASSERT_FALSE_STR("bad DP16KD REGMODE_A configuration '" + regmode_a + "'");
+                log_error("DP16KD %s has invalid REGMODE_A configuration '%s'\n", ci->name.c_str(ctx),
+                          regmode_a.c_str());
             std::string regmode_b = str_or_default(ci->params, id("REGMODE_B"), "NOREG");
             if (regmode_b != "NOREG" && regmode_b != "OUTREG")
-                NPNR_ASSERT_FALSE_STR("bad DP16KD REGMODE_B configuration '" + regmode_b + "'");
+                log_error("DP16KD %s has invalid REGMODE_B configuration '%s'\n", ci->name.c_str(ctx),
+                          regmode_b.c_str());
             ci->ramInfo.is_output_a_registered = regmode_a == "OUTREG";
             ci->ramInfo.is_output_b_registered = regmode_b == "OUTREG";
 
