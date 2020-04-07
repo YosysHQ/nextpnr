@@ -180,6 +180,8 @@ struct ArchCellInfo
     struct
     {
         bool is_pdp;
+        bool output_a_registered;
+        bool output_b_registered;
     } ramInfo;
 };
 

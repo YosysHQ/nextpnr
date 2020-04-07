@@ -1073,19 +1073,15 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
                             : RISING_EDGE;
 
         // REGMODE determines some timing parameters
-        auto regmode_a = str_or_default(cell->params, id("REGMODE_A"), "NOREG");
-        auto regmode_b = str_or_default(cell->params, id("REGMODE_B"), "NOREG");
         nextpnr_ecp5::IdString regmode_timing;
-        if (regmode_a == "NOREG" && regmode_b == "NOREG") {
+        if (!cell->ramInfo.output_a_registered && !cell->ramInfo.output_b_registered) {
             regmode_timing = id_DP16KD_REGMODE_A_NOREG_REGMODE_B_NOREG;
-        } else if (regmode_a == "NOREG" && regmode_b == "OUTREG") {
+        } else if (!cell->ramInfo.output_a_registered && cell->ramInfo.output_b_registered) {
             regmode_timing = id_DP16KD_REGMODE_A_NOREG_REGMODE_B_OUTREG;
-        } else if (regmode_a == "OUTREG" && regmode_b == "NOREG") {
+        } else if (cell->ramInfo.output_a_registered && !cell->ramInfo.output_b_registered) {
             regmode_timing = id_DP16KD_REGMODE_A_OUTREG_REGMODE_B_NOREG;
-        } else if (regmode_a == "OUTREG" && regmode_b == "OUTREG") {
+        } else if (cell->ramInfo.output_a_registered && cell->ramInfo.output_b_registered) {
             regmode_timing = id_DP16KD_REGMODE_A_OUTREG_REGMODE_B_OUTREG;
-        } else {
-            NPNR_ASSERT_FALSE_STR("bad DP16KD REGMODE configuration: " + regmode_a + ", " + regmode_b);
         }
 
         if (cell->ports.at(port).type == PORT_OUT) {

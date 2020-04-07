@@ -3004,6 +3004,16 @@ void Arch::assignArchInfo()
                 ci->sliceInfo.has_l6mux = true;
         } else if (ci->type == id_DP16KD) {
             ci->ramInfo.is_pdp = (int_or_default(ci->params, id("DATA_WIDTH_A"), 0) == 36);
+
+            // Output register mode (REGMODE_{A,B}). Valid options are 'NOREG' and 'OUTREG'.
+            std::string regmode_a = str_or_default(ci->params, id("REGMODE_A"), "NOREG");
+            if (!(regmode_a == "NOREG" || regmode_a == "OUTREG"))
+                NPNR_ASSERT_FALSE_STR("bad DP16KD REGMODE_A configuration '" + regmode_a + "'");
+            std::string regmode_b = str_or_default(ci->params, id("REGMODE_B"), "NOREG");
+            if (!(regmode_b == "NOREG" || regmode_b == "OUTREG"))
+                NPNR_ASSERT_FALSE_STR("bad DP16KD REGMODE_B configuration '" + regmode_b + "'");
+            ci->ramInfo.output_a_registered = regmode_a == "OUTREG";
+            ci->ramInfo.output_b_registered = regmode_b == "OUTREG";
         }
     }
     for (auto net : sorted(nets)) {
