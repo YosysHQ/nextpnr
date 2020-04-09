@@ -890,9 +890,10 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                 std::string cib_wirename = ctx->locInfo(cib_wire)->wire_data[cib_wire.index].name.get();
                 cc.tiles[cib_tile].add_enum("CIB." + cib_wirename + "MUX", "0");
             }
-            if (dir == "INPUT" && !is_differential(ioType_from_str(iotype)) &&
+            if ((dir == "INPUT" || dir == "BIDIR") && !is_differential(ioType_from_str(iotype)) &&
                 !is_referenced(ioType_from_str(iotype))) {
-                cc.tiles[pio_tile].add_enum(pio + ".HYSTERESIS", "ON");
+                cc.tiles[pio_tile].add_enum(pio + ".HYSTERESIS",
+                                            str_or_default(ci->attrs, ctx->id("HYSTERESIS"), "ON"));
             }
             if (ci->attrs.count(ctx->id("SLEWRATE")) && !is_referenced(ioType_from_str(iotype)))
                 cc.tiles[pio_tile].add_enum(pio + ".SLEWRATE", str_or_default(ci->attrs, ctx->id("SLEWRATE"), "SLOW"));
@@ -931,9 +932,8 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                               iovoltage_to_str(vccio).c_str(), ci->name.c_str(ctx));
                 }
             }
-	    if (ci->attrs.count(ctx->id("OPENDRAIN")))
-                cc.tiles[pio_tile].add_enum(pio + ".OPENDRAIN",
-                                            str_or_default(ci->attrs, ctx->id("OPENDRAIN"), "OFF"));
+            if (ci->attrs.count(ctx->id("OPENDRAIN")))
+                cc.tiles[pio_tile].add_enum(pio + ".OPENDRAIN", str_or_default(ci->attrs, ctx->id("OPENDRAIN"), "OFF"));
             std::string datamux_oddr = str_or_default(ci->params, ctx->id("DATAMUX_ODDR"), "PADDO");
             if (datamux_oddr != "PADDO")
                 cc.tiles[pic_tile].add_enum(pio + ".DATAMUX_ODDR", datamux_oddr);
@@ -1257,13 +1257,11 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             tg.config.add_enum("FEEDBK_PATH", str_or_default(ci->params, ctx->id("FEEDBK_PATH"), "CLKOP"));
             tg.config.add_enum("CLKOP_TRIM_POL", str_or_default(ci->params, ctx->id("CLKOP_TRIM_POL"), "RISING"));
 
-            tg.config.add_enum("CLKOP_TRIM_DELAY",
-                               intstr_or_default(ci->params, ctx->id("CLKOP_TRIM_DELAY"), "0"));
+            tg.config.add_enum("CLKOP_TRIM_DELAY", intstr_or_default(ci->params, ctx->id("CLKOP_TRIM_DELAY"), "0"));
 
             tg.config.add_enum("CLKOS_TRIM_POL", str_or_default(ci->params, ctx->id("CLKOS_TRIM_POL"), "RISING"));
 
-            tg.config.add_enum("CLKOS_TRIM_DELAY",
-                               intstr_or_default(ci->params, ctx->id("CLKOS_TRIM_DELAY"), "0"));
+            tg.config.add_enum("CLKOS_TRIM_DELAY", intstr_or_default(ci->params, ctx->id("CLKOS_TRIM_DELAY"), "0"));
 
             tg.config.add_enum("OUTDIVIDER_MUXA", str_or_default(ci->params, ctx->id("OUTDIVIDER_MUXA"),
                                                                  get_net_or_empty(ci, id_CLKOP) ? "DIVA" : "REFCLK"));
