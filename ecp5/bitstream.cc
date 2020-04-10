@@ -446,9 +446,10 @@ void fix_tile_names(Context *ctx, ChipConfig &cc)
             auto cibdcu = tile.first.find("CIB_DCU");
             if (cibdcu != std::string::npos) {
                 // Add the V
-                if (newname.at(cibdcu - 1) != 'V')
+                if (newname.at(cibdcu - 1) != 'V') {
                     newname.insert(cibdcu, 1, 'V');
-                tiletype_xform[tile.first] = newname;
+                    tiletype_xform[tile.first] = newname;
+                }
             } else if (boost::ends_with(tile.first, "BMID_0H")) {
                 newname.back() = 'V';
                 tiletype_xform[tile.first] = newname;
@@ -459,7 +460,15 @@ void fix_tile_names(Context *ctx, ChipConfig &cc)
         }
         // Apply the name changes
         for (auto xform : tiletype_xform) {
-            cc.tiles[xform.second] = cc.tiles.at(xform.first);
+            auto &existing = cc.tiles.at(xform.first);
+            for (const auto &carc : existing.carcs)
+                cc.tiles[xform.second].carcs.push_back(carc);
+            for (const auto &cenum : existing.cenums)
+                cc.tiles[xform.second].cenums.push_back(cenum);
+            for (const auto &cword : existing.cwords)
+                cc.tiles[xform.second].cwords.push_back(cword);
+            for (const auto &cunknown : existing.cunknowns)
+                cc.tiles[xform.second].cunknowns.push_back(cunknown);
             cc.tiles.erase(xform.first);
         }
     }
