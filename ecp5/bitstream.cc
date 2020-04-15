@@ -1079,6 +1079,9 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             tg.config.add_enum(ebr + ".OCEAMUX", str_or_default(ci->params, ctx->id("OCEAMUX"), "OCEA"));
             tg.config.add_enum(ebr + ".OCEBMUX", str_or_default(ci->params, ctx->id("OCEBMUX"), "OCEB"));
 
+            std::reverse(csd_a.begin(), csd_a.end());
+            std::reverse(csd_b.begin(), csd_b.end());
+
             tg.config.add_word(ebr + ".CSDECODE_A", csd_a);
             tg.config.add_word(ebr + ".CSDECODE_B", csd_b);
 
