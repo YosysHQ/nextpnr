@@ -517,8 +517,87 @@ class Ecp5GlobalRouter
             route_logic_tile_global(clocks.at(user.second), user.second, *user.first);
         }
     }
+
+    void route_eclk_sources()
+    {
+        // Try and use dedicated paths if possible
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (ci->type == id_ECLKSYNCB || ci->type == id_TRELLIS_ECLKBUF || ci->type == id_ECLKBRIDGECS) {
+                std::vector<IdString> pins;
+                if (ci->type == id_ECLKSYNCB || ci->type == id_TRELLIS_ECLKBUF) {
+                    pins.push_back(id_ECLKI);
+                } else {
+                    pins.push_back(id_CLK0);
+                    pins.push_back(id_CLK1);
+                }
+                for (auto pin : pins) {
+                    NetInfo *ni = get_net_or_empty(ci, pin);
+                    if (ni == nullptr)
+                        continue;
+                    log_info("    trying dedicated routing for edge clock source %s\n", ctx->nameOf(ni));
+                    WireId src = ctx->getNetinfoSourceWire(ni);
+                    WireId dst = ctx->getBelPinWire(ci->bel, pin);
+                    std::queue<WireId> visit;
+                    std::unordered_map<WireId, PipId> backtrace;
+                    visit.push(dst);
+                    int iter = 0;
+                    WireId cursor;
+                    bool success = false;
+                    // This is a best-effort pass, if it fails then still try general routing later
+                    const int iter_max = 1000;
+                    while (iter < iter_max && !visit.empty()) {
+                        cursor = visit.front();
+                        visit.pop();
+                        ++iter;
+                        NetInfo *bound = ctx->getBoundWireNet(cursor);
+                        if (bound != nullptr) {
+                            if (bound == ni) {
+                                success = true;
+                                break;
+                            } else {
+                                continue;
+                            }
+                        }
+                        if (cursor == src) {
+                            ctx->bindWire(cursor, ni, STRENGTH_LOCKED);
+                            success = true;
+                            break;
+                        }
+                        for (auto uh : ctx->getPipsUphill(cursor)) {
+                            if (!ctx->checkPipAvail(uh))
+                                continue;
+                            WireId src = ctx->getPipSrcWire(uh);
+                            if (backtrace.count(src))
+                                continue;
+                            IdString basename = ctx->getWireBasename(src);
+                            // "ECLKCIB" wires are the junction with general routing
+                            if (basename.str(ctx).find("ECLKCIB") != std::string::npos)
+                                continue;
+                            visit.push(src);
+                            backtrace[src] = uh;
+                        }
+                    }
+                    if (success) {
+                        while (cursor != dst) {
+                            PipId pip = backtrace.at(cursor);
+                            ctx->bindPip(pip, ni, STRENGTH_LOCKED);
+                            cursor = ctx->getPipDstWire(pip);
+                        }
+                    } else {
+                        log_info("        no route found, general routing will be used.\n");
+                    }
+                }
+            }
+        }
+    }
 };
 void promote_ecp5_globals(Context *ctx) { Ecp5GlobalRouter(ctx).promote_globals(); }
-void route_ecp5_globals(Context *ctx) { Ecp5GlobalRouter(ctx).route_globals(); }
+void route_ecp5_globals(Context *ctx)
+{
+    Ecp5GlobalRouter router(ctx);
+    router.route_globals();
+    router.route_eclk_sources();
+}
 
 NEXTPNR_NAMESPACE_END
