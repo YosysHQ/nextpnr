@@ -82,7 +82,13 @@ const std::list<std::string> &pyinterpreter_suggest(const std::string &hint)
     PyEval_AcquireThread(m_threadState);
     m_suggestions.clear();
     int i = 0;
-    std::string command = string_format("sys.completer.complete('%s', %d)\n", hint.c_str(), i);
+    std::string escaped;
+    for (char c : hint) {
+        if (c == '\'' || c == '\\')
+            escaped += '\\';
+        escaped += c;
+    }
+    std::string command = string_format("sys.completer.complete('%s', %d)\n", escaped.c_str(), i);
     std::string res;
     do {
         PyObject *py_result;
@@ -94,7 +100,7 @@ const std::list<std::string> &pyinterpreter_suggest(const std::string &hint)
         res = redirector_take_output(m_threadState);
 
         ++i;
-        command = string_format("sys.completer.complete('%s', %d)\n", hint.c_str(), i);
+        command = string_format("sys.completer.complete('%s', %d)\n", escaped.c_str(), i);
         if (res.size()) {
             // throw away the newline
             res = res.substr(1, res.size() - 3);
