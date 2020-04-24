@@ -94,7 +94,11 @@ const std::list<std::string> &pyinterpreter_suggest(const std::string &hint)
         PyObject *py_result;
         PyObject *dum;
         py_result = Py_CompileString(command.c_str(), "<stdin>", Py_single_input);
+        if (py_result == nullptr)
+            break;
         dum = PyEval_EvalCode(py_result, glb, loc);
+        if (dum == nullptr)
+            break;
         Py_XDECREF(dum);
         Py_XDECREF(py_result);
         res = redirector_take_output(m_threadState);
