@@ -410,7 +410,8 @@ template <typename T1, typename T2> struct map_pair_wrapper_uptr
         if ((i >= 2) || (i < 0))
             KeyError();
         return (i == 1) ? object(PythonConversion::ContextualWrapper<V &>(x.ctx, *x.base.second.get()))
-                        : object(x.base.first);
+                        : object(PythonConversion::string_converter<decltype(x.base.first)>().to_str(x.ctx,
+                                                                                                     x.base.first));
     }
 
     static int len(wrapped_pair &x) { return 2; }
