@@ -285,7 +285,9 @@ template <typename T1, typename T2, typename value_conv> struct map_pair_wrapper
     {
         if ((i >= 2) || (i < 0))
             KeyError();
-        return (i == 1) ? object(value_conv()(x.ctx, x.base.second)) : object(x.base.first);
+        return (i == 1) ? object(value_conv()(x.ctx, x.base.second))
+                        : object(PythonConversion::string_converter<decltype(x.base.first)>().to_str(x.ctx,
+                                                                                                     x.base.first));
     }
 
     static int len(wrapped_pair &x) { return 2; }
