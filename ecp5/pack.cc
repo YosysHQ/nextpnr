@@ -3038,29 +3038,28 @@ void Arch::assignArchInfo()
                 ci->ramInfo.regmode_timing_id = id_DP16KD_REGMODE_A_OUTREG_REGMODE_B_OUTREG;
             }
         } else if (ci->type == id_MULT18X18D) {
-            // Check if the inputs are registered
-            // Get the input clock setting from the cell
-            std::string reg_inputa_clk = str_or_default(ci->params, id("REG_INPUTA_CLK"), "NONE");
-            std::string reg_inputb_clk = str_or_default(ci->params, id("REG_INPUTB_CLK"), "NONE");
-
+            // For the multiplier block, our timing db is dictated by whether any of the input/output registers are
+            // enabled. To that end, we need to work out what the parameters are for the INPUTA_CLK, INPUTB_CLK and
+            // OUTPUT_CLK are.
             // The clock check is the same IN_A/B and OUT, so hoist it to a function
-            auto verify_clock_parameter = [&](std::string param_name, std::string clk) {
+            auto get_clock_parameter = [&](std::string param_name) {
+                std::string clk = str_or_default(ci->params, id(param_name), "NONE");
                 if (clk != "NONE" && clk != "CLK0" && clk != "CLK1" && clk != "CLK2" && clk != "CLK3")
                     log_error("MULT18X18D %s has invalid %s configuration '%s'\n", ci->name.c_str(this),
                               param_name.c_str(), clk.c_str());
+                return clk;
             };
 
-            // Assert we have valid settings for the input clocks
-            verify_clock_parameter("REG_INPUTA_CLK", reg_inputa_clk);
-            verify_clock_parameter("REG_INPUTB_CLK", reg_inputb_clk);
+            // Get the input clock setting from the cell
+            std::string reg_inputa_clk = get_clock_parameter("REG_INPUTA_CLK");
+            std::string reg_inputb_clk = get_clock_parameter("REG_INPUTB_CLK");
 
             // Inputs are registered IFF the REG_INPUT value is not NONE
             const bool is_in_a_registered = reg_inputa_clk != "NONE";
             const bool is_in_b_registered = reg_inputb_clk != "NONE";
 
             // Similarly, get the output register clock
-            std::string reg_output_clk = str_or_default(ci->params, id("REG_OUTPUT_CLK"), "NONE");
-            verify_clock_parameter("REG_OUTPUT_CLK", reg_output_clk);
+            std::string reg_output_clk = get_clock_parameter("REG_OUTPUT_CLK");
             const bool is_output_registered = reg_output_clk != "NONE";
 
             // If only one of the inputs is registered, we are going to treat that as
