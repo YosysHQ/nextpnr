@@ -940,10 +940,12 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
             return TMG_CLOCK_INPUT;
         std::string pname = port.str(this);
         if (pname.size() > 1) {
-            if ((pname.front() == 'A' || pname.front() == 'B') && std::isdigit(pname.at(1)))
-                return TMG_COMB_INPUT;
+            if (pname.front() == 'A' && std::isdigit(pname.at(1)))
+                return cell->multInfo.is_in_a_registered ? TMG_REGISTER_INPUT : TMG_COMB_INPUT;
+            if (pname.front() == 'B' && std::isdigit(pname.at(1)))
+                return cell->multInfo.is_in_b_registered ? TMG_REGISTER_INPUT : TMG_COMB_INPUT;
             if (pname.front() == 'P' && std::isdigit(pname.at(1)))
-                return TMG_COMB_OUTPUT;
+                return cell->multInfo.is_output_registered ? TMG_REGISTER_OUTPUT : TMG_COMB_OUTPUT;
         }
         return TMG_IGNORE;
     } else if (cell->type == id_ALU54B) {
