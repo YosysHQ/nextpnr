@@ -940,12 +940,27 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
             return TMG_CLOCK_INPUT;
         std::string pname = port.str(this);
         if (pname.size() > 1) {
-            if (pname.front() == 'A' && std::isdigit(pname.at(1)))
-                return cell->multInfo.is_in_a_registered ? TMG_REGISTER_INPUT : TMG_COMB_INPUT;
-            if (pname.front() == 'B' && std::isdigit(pname.at(1)))
-                return cell->multInfo.is_in_b_registered ? TMG_REGISTER_INPUT : TMG_COMB_INPUT;
-            if (pname.front() == 'P' && std::isdigit(pname.at(1)))
-                return cell->multInfo.is_output_registered ? TMG_REGISTER_OUTPUT : TMG_COMB_OUTPUT;
+            if (pname.front() == 'A' && std::isdigit(pname.at(1))) {
+                if (cell->multInfo.is_in_a_registered) {
+                    clockInfoCount = 1;
+                    return TMG_REGISTER_INPUT;
+                }
+                return TMG_COMB_INPUT;
+            }
+            if (pname.front() == 'B' && std::isdigit(pname.at(1))) {
+                if (cell->multInfo.is_in_b_registered) {
+                    clockInfoCount = 1;
+                    return TMG_REGISTER_INPUT;
+                }
+                return TMG_COMB_INPUT;
+            }
+            if (pname.front() == 'P' && std::isdigit(pname.at(1))) {
+                if (cell->multInfo.is_output_registered) {
+                    clockInfoCount = 1;
+                    return TMG_REGISTER_OUTPUT;
+                }
+                return TMG_COMB_OUTPUT;
+            }
         }
         return TMG_IGNORE;
     } else if (cell->type == id_ALU54B) {
@@ -1118,6 +1133,43 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
             info.hold = getDelayFromNS(-0.4);
         } else {
             NPNR_ASSERT_FALSE("unknown DQSBUFM register port");
+        }
+    } else if (cell->type == id_MULT18X18D) {
+        std::string port_name = port.str(this);
+        // To keep the timing DB small, like signals (e.g. P[35:0] have been
+        // grouped. To look up the timing, we therefore need to map this port
+        // to the enclosing port group.
+        auto has_prefix = [](std::string base, std::string prefix) {
+            return base.compare(0, prefix.size(), prefix) == 0;
+        };
+        IdString port_group;
+        IdString clock_id = id_CLK0;
+        if (has_prefix(port_name, "A")) {
+            port_group = id_A;
+        } else if (has_prefix(port_name, "B")) {
+            port_group = id_B;
+        } else if (has_prefix(port_name, "P")) {
+            port_group = id_P;
+            // If the output is registered, we care about propagation delay from CLK.
+            // If it is not registered, our propagation delay is from A/B
+            clock_id = cell->multInfo.is_output_registered ? id_CLK0 : id_A;
+        } else if (has_prefix(port_name, "CE")) {
+            port_group = id_CE0;
+        } else if (has_prefix(port_name, "RST")) {
+            port_group = id_RST0;
+        } else if (has_prefix(port_name, "SIGNED")) {
+            // Both SIGNEDA and SIGNEDB exist in the DB, so can directly use these here
+            port_group = port;
+        } else {
+            NPNR_ASSERT_FALSE("Unknown MULT18X18D register port");
+        }
+
+        // If this port is clocked at all, it must be clocked from CLK0
+        if (cell->ports.at(port).type == PORT_OUT) {
+            bool is_path = getDelayFromTimingDatabase(cell->multInfo.timing_id, clock_id, port_group, info.clockToQ);
+            NPNR_ASSERT(is_path);
+        } else {
+            getSetupHoldFromTimingDatabase(cell->multInfo.timing_id, clock_id, port_group, info.setup, info.hold);
         }
     }
     return info;
