@@ -3042,24 +3042,25 @@ void Arch::assignArchInfo()
             // Get the input clock setting from the cell
             std::string reg_inputa_clk = str_or_default(ci->params, id("REG_INPUTA_CLK"), "NONE");
             std::string reg_inputb_clk = str_or_default(ci->params, id("REG_INPUTB_CLK"), "NONE");
+
+            // The clock check is the same IN_A/B and OUT, so hoist it to a function
+            auto verify_clock_parameter = [&](std::string param_name, std::string clk) {
+                if (clk != "NONE" && clk != "CLK0" && clk != "CLK1" && clk != "CLK2" && clk != "CLK3")
+                    log_error("MULT18X18D %s has invalid %s configuration '%s'\n", ci->name.c_str(this),
+                              param_name.c_str(), clk.c_str());
+            };
+
             // Assert we have valid settings for the input clocks
-            if (reg_inputa_clk != "NONE" && reg_inputa_clk != "CLK0" && reg_inputa_clk != "CLK1" &&
-                reg_inputa_clk != "CLK2" && reg_inputa_clk != "CLK3")
-                log_error("MULT18X18D %s has invalid REG_INPUTA_CLK configuration '%s'\n", ci->name.c_str(this),
-                          reg_inputa_clk.c_str());
-            if (reg_inputb_clk != "NONE" && reg_inputb_clk != "CLK0" && reg_inputb_clk != "CLK1" &&
-                reg_inputb_clk != "CLK2" && reg_inputb_clk != "CLK3")
-                log_error("MULT18X18D %s has invalid REG_INPUTB_CLK configuration '%s'\n", ci->name.c_str(this),
-                          reg_inputb_clk.c_str());
+            verify_clock_parameter("REG_INPUTA_CLK", reg_inputa_clk);
+            verify_clock_parameter("REG_INPUTB_CLK", reg_inputb_clk);
+
             // Inputs are registered IFF the REG_INPUT value is not NONE
             const bool is_in_a_registered = reg_inputa_clk != "NONE";
             const bool is_in_b_registered = reg_inputb_clk != "NONE";
+
             // Similarly, get the output register clock
             std::string reg_output_clk = str_or_default(ci->params, id("REG_OUTPUT_CLK"), "NONE");
-            if (reg_output_clk != "NONE" && reg_output_clk != "CLK0" && reg_output_clk != "CLK1" &&
-                reg_output_clk != "CLK2" && reg_output_clk != "CLK3")
-                log_error("MULT18X18D %s has invalid REG_OUTPUT_CLK configuration '%s'\n", ci->name.c_str(this),
-                          reg_output_clk.c_str());
+            verify_clock_parameter("REG_OUTPUT_CLK", reg_output_clk);
             const bool is_output_registered = reg_output_clk != "NONE";
 
             // If only one of the inputs is registered, we are going to treat that as
