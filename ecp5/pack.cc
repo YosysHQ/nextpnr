@@ -3037,6 +3037,41 @@ void Arch::assignArchInfo()
             } else if (ci->ramInfo.is_output_a_registered && ci->ramInfo.is_output_b_registered) {
                 ci->ramInfo.regmode_timing_id = id_DP16KD_REGMODE_A_OUTREG_REGMODE_B_OUTREG;
             }
+        } else if (ci->type == id_MULT18X18D) {
+            // Check if the inputs are registered
+            // Get the input clock setting from the cell
+            std::string reg_inputa_clk = str_or_default(ci->params, id("REG_INPUTA_CLK"), "NONE");
+            std::string reg_inputb_clk = str_or_default(ci->params, id("REG_INPUTB_CLK"), "NONE");
+            // Assert we have valid settings for the input clocks
+            if (reg_inputa_clk != "NONE" && reg_inputa_clk != "CLK0" && reg_inputa_clk != "CLK1" &&
+                reg_inputa_clk != "CLK2" && reg_inputa_clk != "CLK3")
+                log_error("MULT18X18D %s has invalid REG_INPUTA_CLK configuration '%s'\n", ci->name.c_str(this),
+                          reg_inputa_clk.c_str());
+            if (reg_inputb_clk != "NONE" && reg_inputb_clk != "CLK0" && reg_inputb_clk != "CLK1" &&
+                reg_inputb_clk != "CLK2" && reg_inputb_clk != "CLK3")
+                log_error("MULT18X18D %s has invalid REG_INPUTB_CLK configuration '%s'\n", ci->name.c_str(this),
+                          reg_inputb_clk.c_str());
+            // Inputs are registered IFF the REG_INPUT value is not NONE
+            ci->multInfo.is_in_a_registered = reg_inputa_clk != "NONE";
+            ci->multInfo.is_in_b_registered = reg_inputb_clk != "NONE";
+            // Similarly, get the output register clock
+            std::string reg_output_clk = str_or_default(ci->params, id("REG_OUTPUT_CLK"), "NONE");
+            if (reg_output_clk != "NONE" && reg_output_clk != "CLK0" && reg_output_clk != "CLK1" &&
+                reg_output_clk != "CLK2" && reg_output_clk != "CLK3")
+                log_error("MULT18X18D %s has invalid REG_OUTPUT_CLK configuration '%s'\n", ci->name.c_str(this),
+                          reg_output_clk.c_str());
+            ci->multInfo.is_output_registered = reg_output_clk != "NONE";
+            // Based on our register settings, pick the timing data to use for this cell
+            const bool both_inputs_registered = ci->multInfo.is_in_a_registered && ci->multInfo.is_in_b_registered;
+            if (!both_inputs_registered && !ci->multInfo.is_output_registered) {
+                ci->multInfo.timing_id = id_MULT18X18D_REGS_NONE;
+            } else if (both_inputs_registered && !ci->multInfo.is_output_registered) {
+                ci->multInfo.timing_id = id_MULT18X18D_REGS_INPUT;
+            } else if (!both_inputs_registered && ci->multInfo.is_output_registered) {
+                ci->multInfo.timing_id = id_MULT18X18D_REGS_OUTPUT;
+            } else if (both_inputs_registered && ci->multInfo.is_output_registered) {
+                ci->multInfo.timing_id = id_MULT18X18D_REGS_ALL;
+            }
         }
     }
     for (auto net : sorted(nets)) {

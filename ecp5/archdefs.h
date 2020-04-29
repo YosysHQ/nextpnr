@@ -187,8 +187,14 @@ struct ArchCellInfo
         // Which timing information to use for a DP16KD. Depends on registering
         // configuration.
         nextpnr_ecp5::IdString regmode_timing_id;
-
     } ramInfo;
+    struct
+    {
+        bool is_in_a_registered;
+        bool is_in_b_registered;
+        bool is_output_registered;
+        nextpnr_ecp5::IdString timing_id;
+    } multInfo;
 };
 
 NEXTPNR_NAMESPACE_END

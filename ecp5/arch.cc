@@ -855,7 +855,7 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
         std::string fn = fromPort.str(this), tn = toPort.str(this);
         if (fn.size() > 1 && (fn.front() == 'A' || fn.front() == 'B') && std::isdigit(fn.at(1))) {
             if (tn.size() > 1 && tn.front() == 'P' && std::isdigit(tn.at(1)))
-                return getDelayFromTimingDatabase(id_MULT18X18D_REGS_NONE, id(std::string("") + fn.front()), id_P,
+                return getDelayFromTimingDatabase(cell->multInfo.timing_id, id(std::string("") + fn.front()), id_P,
                                                   delay);
         }
         return false;
