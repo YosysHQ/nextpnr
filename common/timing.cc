@@ -956,15 +956,42 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
     if (print_histogram && slack_histogram.size() > 0) {
         unsigned num_bins = 20;
         unsigned bar_width = 60;
+        std::vector<unsigned> bins_count(num_bins);
+        std::vector<unsigned> bins_bounds(num_bins + 1);
+        unsigned max_freq = 0;
         auto min_slack = slack_histogram.begin()->first;
         auto max_slack = slack_histogram.rbegin()->first;
-        auto bin_size = std::max<unsigned>(1, ceil((max_slack - min_slack + 1) / float(num_bins)));
-        std::vector<unsigned> bins(num_bins);
-        unsigned max_freq = 0;
-        for (const auto &i : slack_histogram) {
-            auto &bin = bins[(i.first - min_slack) / bin_size];
-            bin += i.second;
-            max_freq = std::max(max_freq, bin);
+
+        if ((min_slack < 0) && (max_slack > 0)) {
+            /* Double sided histogram */
+            /* [0...bin_ofs-1]        = neg */
+            /* [bin_ofs...num_bins-1] = pos */
+            auto bin_ofs = std::max<unsigned>(
+                    num_bins / 4, std::min<unsigned>(num_bins - (num_bins / 4) - 1,
+                                                     ceil(float(num_bins) * -min_slack / (max_slack - min_slack))));
+            auto bin_size_neg = std::max<unsigned>(1, ceil((-min_slack + 1) / float(bin_ofs)));
+            auto bin_size_pos = std::max<unsigned>(1, ceil((max_slack + 1) / float(num_bins - bin_ofs)));
+            for (unsigned i = 0; i < bin_ofs; i++)
+                bins_bounds[i] = (i - bin_ofs) * bin_size_neg;
+            for (unsigned i = bin_ofs; i <= num_bins; i++)
+                bins_bounds[i] = (i - bin_ofs) * bin_size_pos;
+            for (const auto &i : slack_histogram) {
+                int idx = (i.first < 0) ? (int)bin_ofs + (i.first / (int)bin_size_neg) - 1
+                                        : (int)bin_ofs + (i.first / (int)bin_size_pos);
+                auto &bin = bins_count[idx];
+                bin += i.second;
+                max_freq = std::max(max_freq, bin);
+            }
+        } else {
+            /* Single sided histogram */
+            auto bin_size = std::max<unsigned>(1, ceil((max_slack - min_slack + 1) / float(num_bins)));
+            for (unsigned i = 0; i <= num_bins; i++)
+                bins_bounds[i] = min_slack + bin_size * i;
+            for (const auto &i : slack_histogram) {
+                auto &bin = bins_count[(i.first - min_slack) / bin_size];
+                bin += i.second;
+                max_freq = std::max(max_freq, bin);
+            }
         }
         bar_width = std::min(bar_width, max_freq);
 
@@ -973,9 +1000,9 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
         log_info(" legend: * represents %d endpoint(s)\n", max_freq / bar_width);
         log_info("         + represents [1,%d) endpoint(s)\n", max_freq / bar_width);
         for (unsigned i = 0; i < num_bins; ++i)
-            log_info("[%6d, %6d) |%s%c\n", min_slack + bin_size * i, min_slack + bin_size * (i + 1),
-                     std::string(bins[i] * bar_width / max_freq, '*').c_str(),
-                     (bins[i] * bar_width) % max_freq > 0 ? '+' : ' ');
+            log_info("[%6d, %6d) | %6d | %s%c\n", bins_bounds[i], bins_bounds[i + 1], bins_count[i],
+                     std::string(bins_count[i] * bar_width / max_freq, '*').c_str(),
+                     (bins_count[i] * bar_width) % max_freq > 0 ? '+' : ' ');
     }
 }
 
