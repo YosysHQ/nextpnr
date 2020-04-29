@@ -3052,26 +3052,47 @@ void Arch::assignArchInfo()
                 log_error("MULT18X18D %s has invalid REG_INPUTB_CLK configuration '%s'\n", ci->name.c_str(this),
                           reg_inputb_clk.c_str());
             // Inputs are registered IFF the REG_INPUT value is not NONE
-            ci->multInfo.is_in_a_registered = reg_inputa_clk != "NONE";
-            ci->multInfo.is_in_b_registered = reg_inputb_clk != "NONE";
+            const bool is_in_a_registered = reg_inputa_clk != "NONE";
+            const bool is_in_b_registered = reg_inputb_clk != "NONE";
             // Similarly, get the output register clock
             std::string reg_output_clk = str_or_default(ci->params, id("REG_OUTPUT_CLK"), "NONE");
             if (reg_output_clk != "NONE" && reg_output_clk != "CLK0" && reg_output_clk != "CLK1" &&
                 reg_output_clk != "CLK2" && reg_output_clk != "CLK3")
                 log_error("MULT18X18D %s has invalid REG_OUTPUT_CLK configuration '%s'\n", ci->name.c_str(this),
                           reg_output_clk.c_str());
-            ci->multInfo.is_output_registered = reg_output_clk != "NONE";
-            // Based on our register settings, pick the timing data to use for this cell
-            const bool both_inputs_registered = ci->multInfo.is_in_a_registered && ci->multInfo.is_in_b_registered;
-            if (!both_inputs_registered && !ci->multInfo.is_output_registered) {
-                ci->multInfo.timing_id = id_MULT18X18D_REGS_NONE;
-            } else if (both_inputs_registered && !ci->multInfo.is_output_registered) {
-                ci->multInfo.timing_id = id_MULT18X18D_REGS_INPUT;
-            } else if (!both_inputs_registered && ci->multInfo.is_output_registered) {
-                ci->multInfo.timing_id = id_MULT18X18D_REGS_OUTPUT;
-            } else if (both_inputs_registered && ci->multInfo.is_output_registered) {
-                ci->multInfo.timing_id = id_MULT18X18D_REGS_ALL;
+            const bool is_output_registered = reg_output_clk != "NONE";
+
+            // If only one of the inputs is registered, we are going to treat that as
+            // neither input registered so that we don't have to deal with mixed timing.
+            // Emit a warning to that effect.
+            const bool any_input_registered = is_in_a_registered || is_in_b_registered;
+            const bool both_inputs_registered = is_in_a_registered && is_in_b_registered;
+            const bool input_registers_mismatched = any_input_registered && !both_inputs_registered;
+            if (input_registers_mismatched) {
+                log_warning("MULT18X18D %s has unsupported mixed input register modes (reg_inputa_clk=%s, "
+                            "reg_inputb_clk=%s)\n",
+                            ci->name.c_str(this), reg_inputa_clk.c_str(), reg_inputb_clk.c_str());
+                log_warning("Timings for MULT18X18D %s will be calculated as though neither input were registered\n",
+                            ci->name.c_str(this));
+
+                // Act as though the inputs are unregistered, so select timing DB based only on the
+                // output register mode
+                ci->multInfo.timing_id = is_output_registered ? id_MULT18X18D_REGS_OUTPUT : id_MULT18X18D_REGS_NONE;
+            } else {
+                // Based on our register settings, pick the timing data to use for this cell
+                if (!both_inputs_registered && !is_output_registered) {
+                    ci->multInfo.timing_id = id_MULT18X18D_REGS_NONE;
+                } else if (both_inputs_registered && !is_output_registered) {
+                    ci->multInfo.timing_id = id_MULT18X18D_REGS_INPUT;
+                } else if (!both_inputs_registered && is_output_registered) {
+                    ci->multInfo.timing_id = id_MULT18X18D_REGS_OUTPUT;
+                } else if (both_inputs_registered && is_output_registered) {
+                    ci->multInfo.timing_id = id_MULT18X18D_REGS_ALL;
+                }
             }
+            // If we aren't a pure combinatorial multiplier, then our timings are
+            // calculated with respect to CLK0
+            ci->multInfo.is_clocked = ci->multInfo.timing_id != id_MULT18X18D_REGS_NONE;
         }
     }
     for (auto net : sorted(nets)) {

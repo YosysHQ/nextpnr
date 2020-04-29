@@ -190,9 +190,7 @@ struct ArchCellInfo
     } ramInfo;
     struct
     {
-        bool is_in_a_registered;
-        bool is_in_b_registered;
-        bool is_output_registered;
+        bool is_clocked;
         nextpnr_ecp5::IdString timing_id;
     } multInfo;
 };
