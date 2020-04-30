@@ -852,6 +852,8 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
     } else if (cell->type == id_DP16KD) {
         return false;
     } else if (cell->type == id_MULT18X18D) {
+        if (cell->multInfo.is_clocked)
+            return false;
         std::string fn = fromPort.str(this), tn = toPort.str(this);
         if (fn.size() > 1 && (fn.front() == 'A' || fn.front() == 'B') && std::isdigit(fn.at(1))) {
             if (tn.size() > 1 && tn.front() == 'P' && std::isdigit(tn.at(1)))
