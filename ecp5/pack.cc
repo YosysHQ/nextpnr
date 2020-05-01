@@ -3037,6 +3037,62 @@ void Arch::assignArchInfo()
             } else if (ci->ramInfo.is_output_a_registered && ci->ramInfo.is_output_b_registered) {
                 ci->ramInfo.regmode_timing_id = id_DP16KD_REGMODE_A_OUTREG_REGMODE_B_OUTREG;
             }
+        } else if (ci->type == id_MULT18X18D) {
+            // For the multiplier block, our timing db is dictated by whether any of the input/output registers are
+            // enabled. To that end, we need to work out what the parameters are for the INPUTA_CLK, INPUTB_CLK and
+            // OUTPUT_CLK are.
+            // The clock check is the same IN_A/B and OUT, so hoist it to a function
+            auto get_clock_parameter = [&](std::string param_name) {
+                std::string clk = str_or_default(ci->params, id(param_name), "NONE");
+                if (clk != "NONE" && clk != "CLK0" && clk != "CLK1" && clk != "CLK2" && clk != "CLK3")
+                    log_error("MULT18X18D %s has invalid %s configuration '%s'\n", ci->name.c_str(this),
+                              param_name.c_str(), clk.c_str());
+                return clk;
+            };
+
+            // Get the input clock setting from the cell
+            std::string reg_inputa_clk = get_clock_parameter("REG_INPUTA_CLK");
+            std::string reg_inputb_clk = get_clock_parameter("REG_INPUTB_CLK");
+
+            // Inputs are registered IFF the REG_INPUT value is not NONE
+            const bool is_in_a_registered = reg_inputa_clk != "NONE";
+            const bool is_in_b_registered = reg_inputb_clk != "NONE";
+
+            // Similarly, get the output register clock
+            std::string reg_output_clk = get_clock_parameter("REG_OUTPUT_CLK");
+            const bool is_output_registered = reg_output_clk != "NONE";
+
+            // If only one of the inputs is registered, we are going to treat that as
+            // neither input registered so that we don't have to deal with mixed timing.
+            // Emit a warning to that effect.
+            const bool any_input_registered = is_in_a_registered || is_in_b_registered;
+            const bool both_inputs_registered = is_in_a_registered && is_in_b_registered;
+            const bool input_registers_mismatched = any_input_registered && !both_inputs_registered;
+            if (input_registers_mismatched) {
+                log_warning("MULT18X18D %s has unsupported mixed input register modes (reg_inputa_clk=%s, "
+                            "reg_inputb_clk=%s)\n",
+                            ci->name.c_str(this), reg_inputa_clk.c_str(), reg_inputb_clk.c_str());
+                log_warning("Timings for MULT18X18D %s will be calculated as though neither input were registered\n",
+                            ci->name.c_str(this));
+
+                // Act as though the inputs are unregistered, so select timing DB based only on the
+                // output register mode
+                ci->multInfo.timing_id = is_output_registered ? id_MULT18X18D_REGS_OUTPUT : id_MULT18X18D_REGS_NONE;
+            } else {
+                // Based on our register settings, pick the timing data to use for this cell
+                if (!both_inputs_registered && !is_output_registered) {
+                    ci->multInfo.timing_id = id_MULT18X18D_REGS_NONE;
+                } else if (both_inputs_registered && !is_output_registered) {
+                    ci->multInfo.timing_id = id_MULT18X18D_REGS_INPUT;
+                } else if (!both_inputs_registered && is_output_registered) {
+                    ci->multInfo.timing_id = id_MULT18X18D_REGS_OUTPUT;
+                } else if (both_inputs_registered && is_output_registered) {
+                    ci->multInfo.timing_id = id_MULT18X18D_REGS_ALL;
+                }
+            }
+            // If we aren't a pure combinatorial multiplier, then our timings are
+            // calculated with respect to CLK0
+            ci->multInfo.is_clocked = ci->multInfo.timing_id != id_MULT18X18D_REGS_NONE;
         }
     }
     for (auto net : sorted(nets)) {
