@@ -940,19 +940,33 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
     } else if (cell->type == id_MULT18X18D) {
         if (port == id_CLK0 || port == id_CLK1 || port == id_CLK2 || port == id_CLK3)
             return TMG_CLOCK_INPUT;
-        if (port == id_CE0 || port == id_CE1 || port == id_CE2 || port == id_CE3)
-            return cell->multInfo.is_clocked ? TMG_REGISTER_INPUT : TMG_COMB_INPUT;
-        if (port == id_RST0 || port == id_RST1 || port == id_RST2 || port == id_RST3)
-            return cell->multInfo.is_clocked ? TMG_REGISTER_INPUT : TMG_COMB_INPUT;
-        if (port == id_SIGNEDA || port == id_SIGNEDB)
-            return cell->multInfo.is_clocked ? TMG_REGISTER_INPUT : TMG_COMB_INPUT;
+        if (port == id_CE0 || port == id_CE1 || port == id_CE2 || port == id_CE3 || port == id_RST0 ||
+            port == id_RST1 || port == id_RST2 || port == id_RST3 || port == id_SIGNEDA || port == id_SIGNEDB) {
+            if (cell->multInfo.is_clocked) {
+                clockInfoCount = 1;
+                return TMG_REGISTER_INPUT;
+            } else {
+                return TMG_COMB_INPUT;
+            }
+        }
         std::string pname = port.str(this);
         if (pname.size() > 1) {
-            if ((pname.front() == 'A' || pname.front() == 'B' || pname.front() == 'P') && std::isdigit(pname.at(1)))
-                if (cell->multInfo.is_clocked)
+            if ((pname.front() == 'A' || pname.front() == 'B') && std::isdigit(pname.at(1))) {
+                if (cell->multInfo.is_clocked) {
+                    clockInfoCount = 1;
                     return TMG_REGISTER_INPUT;
-
-            return TMG_COMB_INPUT;
+                } else {
+                    return TMG_COMB_INPUT;
+                }
+            }
+            if ((pname.front() == 'P') && std::isdigit(pname.at(1))) {
+                if (cell->multInfo.is_clocked) {
+                    clockInfoCount = 1;
+                    return TMG_REGISTER_OUTPUT;
+                } else {
+                    return TMG_COMB_OUTPUT;
+                }
+            }
         }
         return TMG_IGNORE;
     } else if (cell->type == id_ALU54B) {
@@ -1154,6 +1168,8 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
 
         // If this port is clocked at all, it must be clocked from CLK0
         IdString clock_id = id_CLK0;
+        info.clock_port = clock_id;
+        info.edge = RISING_EDGE;
         if (cell->ports.at(port).type == PORT_OUT) {
             bool is_path = getDelayFromTimingDatabase(cell->multInfo.timing_id, clock_id, port_group, info.clockToQ);
             NPNR_ASSERT(is_path);
