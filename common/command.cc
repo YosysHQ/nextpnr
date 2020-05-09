@@ -123,6 +123,7 @@ po::options_description CommandHandler::getGeneralOptions()
 #endif
     general.add_options()("json", po::value<std::string>(), "JSON design file to ingest");
     general.add_options()("write", po::value<std::string>(), "JSON design file to write");
+    general.add_options()("top", po::value<std::string>(), "name of top module");
     general.add_options()("seed", po::value<int>(), "seed value for random number generator");
     general.add_options()("randomize-seed,r", "randomize seed value for random number generator");
 
@@ -275,6 +276,10 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
     if (vm.count("test")) {
         ctx->archcheck();
         return 0;
+    }
+
+    if (vm.count("top")) {
+        ctx->settings[ctx->id("frontend/top")] = vm["top"].as<std::string>();
     }
 
 #ifndef NO_GUI
