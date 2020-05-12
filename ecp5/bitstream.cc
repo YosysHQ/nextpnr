@@ -915,6 +915,25 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                 static bool drive_3v3_warning_done = false;
                 if (iotype == "LVCMOS33") {
                     cc.tiles[pio_tile].add_enum(pio + ".DRIVE", str_or_default(ci->attrs, ctx->id("DRIVE"), "8"));
+                } else if (iotype == "LVCMOS33D") {
+                    if (bel.location.y == 0) {
+                        // Pseudo differential top IO
+                        NPNR_ASSERT(dir == "OUTPUT");
+                        NPNR_ASSERT(pio == "PIOA");
+                        std::string cpio_tile = get_comp_pio_tile(ctx, bel);
+                        cc.tiles[pio_tile].add_enum("PIOA.DRIVE", str_or_default(ci->attrs, ctx->id("DRIVE"), "12"));
+                        cc.tiles[cpio_tile].add_enum("PIOB.DRIVE", str_or_default(ci->attrs, ctx->id("DRIVE"), "12"));
+                    } else {
+                        std::string other;
+                        if (pio == "PIOA")
+                            other = "PIOB";
+                        else if (pio == "PIOC")
+                            other = "PIOD";
+                        else
+                            log_error("cannot set DRIVE on differential IO at location %s\n", pio.c_str());
+                        cc.tiles[pio_tile].add_enum(pio + ".DRIVE", str_or_default(ci->attrs, ctx->id("DRIVE"), "12"));
+                        cc.tiles[pio_tile].add_enum(other + ".DRIVE", str_or_default(ci->attrs, ctx->id("DRIVE"), "12"));
+                    }
                 } else {
                     if (!drive_3v3_warning_done)
                         log_warning("Trellis limitation: DRIVE can only be set on 3V3 IO pins.\n");
