@@ -58,7 +58,7 @@ std::unique_ptr<Context> GenericCommandHandler::createContext(std::unordered_map
     if (values.find("arch.name") != values.end()) {
         std::string arch_name = values["arch.name"].as_string();
         if (arch_name != "generic")
-            log_error("Unsuported architecture '%s'.\n", arch_name.c_str());
+            log_error("Unsupported architecture '%s'.\n", arch_name.c_str());
     }
     auto ctx = std::unique_ptr<Context>(new Context(chipArgs));
     if (vm.count("no-iobs"))
