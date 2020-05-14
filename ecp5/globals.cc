@@ -68,6 +68,8 @@ class Ecp5GlobalRouter
         std::unordered_map<IdString, int> clockCount;
         for (auto &net : ctx->nets) {
             NetInfo *ni = net.second.get();
+            if (ni->name == ctx->id("$PACKER_GND_NET") || ni->name == ctx->id("$PACKER_VCC_NET"))
+                continue;
             clockCount[ni->name] = 0;
             for (const auto &user : ni->users) {
                 if (is_clock_port(user)) {
