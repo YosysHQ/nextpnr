@@ -123,9 +123,9 @@ struct Timing
     {
         const auto clk_period = ctx->getDelayFromNS(1.0e9 / ctx->setting<float>("target_freq")).maxDelay();
 
-        // First, compute the topographical order of nets to walk through the circuit, assuming it is a _acyclic_ graph
+        // First, compute the topological order of nets to walk through the circuit, assuming it is a _acyclic_ graph
         // TODO(eddieh): Handle the case where it is cyclic, e.g. combinatorial loops
-        std::vector<NetInfo *> topographical_order;
+        std::vector<NetInfo *> topological_order;
         std::unordered_map<const NetInfo *, std::unordered_map<ClockEvent, TimingData>> net_data;
         // In lieu of deleting edges from the graph, simply count the number of fanins to each output port
         std::unordered_map<const PortInfo *, unsigned> port_fanin;
@@ -150,7 +150,7 @@ struct Timing
                 // If output port is influenced by a clock (e.g. FF output) then add it to the ordering as a timing
                 // start-point
                 if (portClass == TMG_REGISTER_OUTPUT) {
-                    topographical_order.emplace_back(o->net);
+                    topological_order.emplace_back(o->net);
                     for (int i = 0; i < clocks; i++) {
                         TimingClockingInfo clkInfo = ctx->getPortClockingInfo(cell.second.get(), o->name, i);
                         const NetInfo *clknet = get_net_or_empty(cell.second.get(), clkInfo.clock_port);
@@ -161,7 +161,7 @@ struct Timing
 
                 } else {
                     if (portClass == TMG_STARTPOINT || portClass == TMG_GEN_CLOCK || portClass == TMG_IGNORE) {
-                        topographical_order.emplace_back(o->net);
+                        topological_order.emplace_back(o->net);
                         TimingData td;
                         td.false_startpoint = (portClass == TMG_GEN_CLOCK || portClass == TMG_IGNORE);
                         td.max_arrival = 0;
@@ -185,7 +185,7 @@ struct Timing
                     }
                     // If there is no fanin, add the port as a false startpoint
                     if (!port_fanin.count(o) && !net_data.count(o->net)) {
-                        topographical_order.emplace_back(o->net);
+                        topological_order.emplace_back(o->net);
                         TimingData td;
                         td.false_startpoint = true;
                         td.max_arrival = 0;
@@ -200,12 +200,12 @@ struct Timing
             for (auto &p : ctx->ports) {
                 if (p.second.type != PORT_IN || p.second.net == nullptr)
                     continue;
-                topographical_order.emplace_back(p.second.net);
+                topological_order.emplace_back(p.second.net);
             }
         }
 
-        std::deque<NetInfo *> queue(topographical_order.begin(), topographical_order.end());
-        // Now walk the design, from the start points identified previously, building up a topographical order
+        std::deque<NetInfo *> queue(topological_order.begin(), topological_order.end());
+        // Now walk the design, from the start points identified previously, building up a topological order
         while (!queue.empty()) {
             const auto net = queue.front();
             queue.pop_front();
@@ -229,12 +229,12 @@ struct Timing
                     bool is_path = ctx->getCellDelay(usr.cell, usr.port, port.first, comb_delay);
                     if (!is_path)
                         continue;
-                    // Decrement the fanin count, and only add to topographical order if all its fanins have already
+                    // Decrement the fanin count, and only add to topological order if all its fanins have already
                     // been visited
                     auto it = port_fanin.find(&port.second);
                     NPNR_ASSERT(it != port_fanin.end());
                     if (--it->second == 0) {
-                        topographical_order.emplace_back(port.second.net);
+                        topological_order.emplace_back(port.second.net);
                         queue.emplace_back(port.second.net);
                         port_fanin.erase(it);
                     }
@@ -266,8 +266,8 @@ struct Timing
                           "timing ports, etc.\n");
         }
 
-        // Go forwards topographically to find the maximum arrival time and max path length for each net
-        for (auto net : topographical_order) {
+        // Go forwards topologically to find the maximum arrival time and max path length for each net
+        for (auto net : topological_order) {
             if (!net_data.count(net))
                 continue;
             auto &nd_map = net_data.at(net);
@@ -314,9 +314,9 @@ struct Timing
 
         std::unordered_map<ClockPair, std::pair<delay_t, NetInfo *>> crit_nets;
 
-        // Now go backwards topographically to determine the minimum path slack, and to distribute all path slack evenly
+        // Now go backwards topologically to determine the minimum path slack, and to distribute all path slack evenly
         // between all nets on the path
-        for (auto net : boost::adaptors::reverse(topographical_order)) {
+        for (auto net : boost::adaptors::reverse(topological_order)) {
             if (!net_data.count(net))
                 continue;
             auto &nd_map = net_data.at(net);
@@ -482,8 +482,8 @@ struct Timing
 
         if (net_crit) {
             NPNR_ASSERT(crit_path);
-            // Go through in reverse topographical order to set required times
-            for (auto net : boost::adaptors::reverse(topographical_order)) {
+            // Go through in reverse topological order to set required times
+            for (auto net : boost::adaptors::reverse(topological_order)) {
                 if (!net_data.count(net))
                     continue;
                 auto &nd_map = net_data.at(net);
