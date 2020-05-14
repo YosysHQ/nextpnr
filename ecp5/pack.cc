@@ -1617,6 +1617,18 @@ class Ecp5Packer
                 for (auto pin : ctx->getBelPins(exemplar_bel))
                     if (ctx->getBelPinType(exemplar_bel, pin) == PORT_IN)
                         autocreate_empty_port(ci, pin);
+                // Disconnect these ports if connected to constant to prevent routing failure
+                for (auto ndport : {id_D_TXBIT_CLKP_FROM_ND, id_D_TXBIT_CLKN_FROM_ND, id_D_SYNC_ND,
+                                    id_D_TXPLL_LOL_FROM_ND, id_CH0_HDINN, id_CH0_HDINP, id_CH1_HDINN, id_CH1_HDINP}) {
+                    const NetInfo *net = get_net_or_empty(ci, ndport);
+                    if (net == nullptr || net->driver.cell == nullptr)
+                        continue;
+                    IdString ct = net->driver.cell->type;
+                    if (ct == ctx->id("GND") || ct == ctx->id("VCC")) {
+                        disconnect_port(ctx, ci, ndport);
+                        ci->ports.erase(ndport);
+                    }
+                }
             }
         }
         for (auto cell : sorted(ctx->cells)) {
