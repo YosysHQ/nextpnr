@@ -932,7 +932,8 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                         else
                             log_error("cannot set DRIVE on differential IO at location %s\n", pio.c_str());
                         cc.tiles[pio_tile].add_enum(pio + ".DRIVE", str_or_default(ci->attrs, ctx->id("DRIVE"), "12"));
-                        cc.tiles[pio_tile].add_enum(other + ".DRIVE", str_or_default(ci->attrs, ctx->id("DRIVE"), "12"));
+                        cc.tiles[pio_tile].add_enum(other + ".DRIVE",
+                                                    str_or_default(ci->attrs, ctx->id("DRIVE"), "12"));
                     }
                 } else {
                     if (!drive_3v3_warning_done)
