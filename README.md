@@ -109,6 +109,23 @@ sudo make install
 
  - Examples of the ECP5 flow for a range of boards can be found in the [Project Trellis Examples](https://github.com/SymbiFlow/prjtrellis/tree/master/examples).
 
+If you encounter an error `/usr/bin/ld: cannot find -lpthreads` and you are sure all libaries are installed; see also `CMakeError.log`:
+```
+/usr/bin/ld: CMakeFiles/cmTC_6be3a.dir/src.c.o: in function `main':
+src.c:(.text+0x46): undefined reference to `pthread_create'
+/usr/bin/ld: src.c:(.text+0x52): undefined reference to `pthread_detach'
+/usr/bin/ld: src.c:(.text+0x63): undefined reference to `pthread_join'
+collect2: error: ld returned 1 exit status
+make[1]: *** [CMakeFiles/cmTC_6be3a.dir/build.make:87: cmTC_6be3a] Error 1
+make[1]: Leaving directory '/mnt/c/workspace/nextpnr/CMakeFiles/CMakeTmp'
+make: *** [Makefile:121: cmTC_6be3a/fast] Error 2
+```
+Try building with `-DBUILD_PYTHON=OFF -DBUILD_GUI=OFF`:
+```
+cmake -DARCH=$THIS_ARCH -DBUILD_PYTHON=OFF -DBUILD_GUI=OFF -DTRELLIS_INSTALL_PREFIX=/usr .
+make -j$(nproc)
+sudo make install
+```
 
 ### nextpnr-generic
 
