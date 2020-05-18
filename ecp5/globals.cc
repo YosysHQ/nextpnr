@@ -63,11 +63,20 @@ class Ecp5GlobalRouter
         return false;
     }
 
+    bool is_logic_port(const PortRef &user)
+    {
+        if (user.cell->type == id_TRELLIS_SLICE && user.port != id_CLK && user.port != id_WCK)
+            return true;
+        return false;
+    }
+
     std::vector<NetInfo *> get_clocks()
     {
         std::unordered_map<IdString, int> clockCount;
         for (auto &net : ctx->nets) {
             NetInfo *ni = net.second.get();
+            if (ni->name == ctx->id("$PACKER_GND_NET") || ni->name == ctx->id("$PACKER_VCC_NET"))
+                continue;
             clockCount[ni->name] = 0;
             for (const auto &user : ni->users) {
                 if (is_clock_port(user)) {
@@ -160,6 +169,8 @@ class Ecp5GlobalRouter
             if (ctx->checkWireAvail(next)) {
                 for (auto pip : ctx->getPipsUphill(next)) {
                     WireId src = ctx->getPipSrcWire(pip);
+                    if (backtrace.count(src))
+                        continue;
                     backtrace[src] = pip;
                     upstream.push(src);
                 }
@@ -411,6 +422,8 @@ class Ecp5GlobalRouter
                 if (user.port == id_CLKFB) {
                     keep_users.push_back(user);
                 } else if (net->driver.cell->type == id_EXTREFB && user.cell->type == id_DCUA) {
+                    keep_users.push_back(user);
+                } else if (is_logic_port(user)) {
                     keep_users.push_back(user);
                 } else {
                     glbnet->users.push_back(user);

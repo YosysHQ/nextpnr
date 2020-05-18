@@ -48,6 +48,9 @@ bool Arch::applyLPF(std::string filename, std::istream &in)
             size_t cstart = line.find('#');
             if (cstart != std::string::npos)
                 line = line.substr(0, cstart);
+            cstart = line.find("//");
+            if (cstart != std::string::npos)
+                line = line.substr(0, cstart);
             if (isempty(line))
                 continue;
             linebuf += line;
