@@ -438,17 +438,18 @@ std::vector<std::string> get_pll_tiles(Context *ctx, BelId bel)
 void fix_tile_names(Context *ctx, ChipConfig &cc)
 {
     // Remove the V prefix/suffix on certain tiles if device is a SERDES variant
-    if (ctx->args.type == ArchArgs::LFE5U_25F || ctx->args.type == ArchArgs::LFE5U_45F ||
-        ctx->args.type == ArchArgs::LFE5U_85F) {
+    if (ctx->args.type == ArchArgs::LFE5U_12F || ctx->args.type == ArchArgs::LFE5U_25F ||
+        ctx->args.type == ArchArgs::LFE5U_45F || ctx->args.type == ArchArgs::LFE5U_85F) {
         std::map<std::string, std::string> tiletype_xform;
         for (const auto &tile : cc.tiles) {
             std::string newname = tile.first;
             auto cibdcu = tile.first.find("CIB_DCU");
             if (cibdcu != std::string::npos) {
                 // Add the V
-                if (newname.at(cibdcu - 1) != 'V')
+                if (newname.at(cibdcu - 1) != 'V') {
                     newname.insert(cibdcu, 1, 'V');
-                tiletype_xform[tile.first] = newname;
+                    tiletype_xform[tile.first] = newname;
+                }
             } else if (boost::ends_with(tile.first, "BMID_0H")) {
                 newname.back() = 'V';
                 tiletype_xform[tile.first] = newname;
@@ -459,7 +460,15 @@ void fix_tile_names(Context *ctx, ChipConfig &cc)
         }
         // Apply the name changes
         for (auto xform : tiletype_xform) {
-            cc.tiles[xform.second] = cc.tiles.at(xform.first);
+            auto &existing = cc.tiles.at(xform.first);
+            for (const auto &carc : existing.carcs)
+                cc.tiles[xform.second].carcs.push_back(carc);
+            for (const auto &cenum : existing.cenums)
+                cc.tiles[xform.second].cenums.push_back(cenum);
+            for (const auto &cword : existing.cwords)
+                cc.tiles[xform.second].cwords.push_back(cword);
+            for (const auto &cunknown : existing.cunknowns)
+                cc.tiles[xform.second].cunknowns.push_back(cunknown);
             cc.tiles.erase(xform.first);
         }
     }
@@ -580,6 +589,10 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
         config_file >> cc;
     } else {
         switch (ctx->args.type) {
+        case ArchArgs::LFE5U_12F:
+            BaseConfigs::config_empty_lfe5u_25f(cc);
+            cc.chip_name = "LFE5U-12F";
+            break;
         case ArchArgs::LFE5U_25F:
             BaseConfigs::config_empty_lfe5u_25f(cc);
             break;
@@ -650,7 +663,7 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
     }
     // Find bank voltages
     std::unordered_map<int, IOVoltage> bankVcc;
-    std::unordered_map<int, bool> bankLvds, bankVref;
+    std::unordered_map<int, bool> bankLvds, bankVref, bankDiff;
 
     for (auto &cell : ctx->cells) {
         CellInfo *ci = cell.second.get();
@@ -675,6 +688,8 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
 
             if (iotype == "LVDS")
                 bankLvds[bank] = true;
+            if ((dir == "INPUT" || dir == "BIDIR") && is_differential(ioType_from_str(iotype)))
+                bankDiff[bank] = true;
             if ((dir == "INPUT" || dir == "BIDIR") && is_referenced(ioType_from_str(iotype)))
                 bankVref[bank] = true;
         }
@@ -697,6 +712,9 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                     if (bankLvds[bank]) {
                         cc.tiles[tile.first].add_enum("BANK.DIFF_REF", "ON");
                         cc.tiles[tile.first].add_enum("BANK.LVDSO", "ON");
+                    }
+                    if (bankDiff[bank]) {
+                        cc.tiles[tile.first].add_enum("BANK.DIFF_REF", "ON");
                     }
                     if (bankVref[bank]) {
                         cc.tiles[tile.first].add_enum("BANK.DIFF_REF", "ON");
@@ -881,9 +899,10 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                 std::string cib_wirename = ctx->locInfo(cib_wire)->wire_data[cib_wire.index].name.get();
                 cc.tiles[cib_tile].add_enum("CIB." + cib_wirename + "MUX", "0");
             }
-            if (dir == "INPUT" && !is_differential(ioType_from_str(iotype)) &&
+            if ((dir == "INPUT" || dir == "BIDIR") && !is_differential(ioType_from_str(iotype)) &&
                 !is_referenced(ioType_from_str(iotype))) {
-                cc.tiles[pio_tile].add_enum(pio + ".HYSTERESIS", "ON");
+                cc.tiles[pio_tile].add_enum(pio + ".HYSTERESIS",
+                                            str_or_default(ci->attrs, ctx->id("HYSTERESIS"), "ON"));
             }
             if (ci->attrs.count(ctx->id("SLEWRATE")) && !is_referenced(ioType_from_str(iotype)))
                 cc.tiles[pio_tile].add_enum(pio + ".SLEWRATE", str_or_default(ci->attrs, ctx->id("SLEWRATE"), "SLOW"));
@@ -896,6 +915,26 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                 static bool drive_3v3_warning_done = false;
                 if (iotype == "LVCMOS33") {
                     cc.tiles[pio_tile].add_enum(pio + ".DRIVE", str_or_default(ci->attrs, ctx->id("DRIVE"), "8"));
+                } else if (iotype == "LVCMOS33D") {
+                    if (bel.location.y == 0) {
+                        // Pseudo differential top IO
+                        NPNR_ASSERT(dir == "OUTPUT");
+                        NPNR_ASSERT(pio == "PIOA");
+                        std::string cpio_tile = get_comp_pio_tile(ctx, bel);
+                        cc.tiles[pio_tile].add_enum("PIOA.DRIVE", str_or_default(ci->attrs, ctx->id("DRIVE"), "12"));
+                        cc.tiles[cpio_tile].add_enum("PIOB.DRIVE", str_or_default(ci->attrs, ctx->id("DRIVE"), "12"));
+                    } else {
+                        std::string other;
+                        if (pio == "PIOA")
+                            other = "PIOB";
+                        else if (pio == "PIOC")
+                            other = "PIOD";
+                        else
+                            log_error("cannot set DRIVE on differential IO at location %s\n", pio.c_str());
+                        cc.tiles[pio_tile].add_enum(pio + ".DRIVE", str_or_default(ci->attrs, ctx->id("DRIVE"), "12"));
+                        cc.tiles[pio_tile].add_enum(other + ".DRIVE",
+                                                    str_or_default(ci->attrs, ctx->id("DRIVE"), "12"));
+                    }
                 } else {
                     if (!drive_3v3_warning_done)
                         log_warning("Trellis limitation: DRIVE can only be set on 3V3 IO pins.\n");
@@ -922,6 +961,8 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                               iovoltage_to_str(vccio).c_str(), ci->name.c_str(ctx));
                 }
             }
+            if (ci->attrs.count(ctx->id("OPENDRAIN")))
+                cc.tiles[pio_tile].add_enum(pio + ".OPENDRAIN", str_or_default(ci->attrs, ctx->id("OPENDRAIN"), "OFF"));
             std::string datamux_oddr = str_or_default(ci->params, ctx->id("DATAMUX_ODDR"), "PADDO");
             if (datamux_oddr != "PADDO")
                 cc.tiles[pic_tile].add_enum(pio + ".DATAMUX_ODDR", datamux_oddr);
@@ -1057,6 +1098,9 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             tg.config.add_enum(ebr + ".CEBMUX", str_or_default(ci->params, ctx->id("CEBMUX"), "CEB"));
             tg.config.add_enum(ebr + ".OCEAMUX", str_or_default(ci->params, ctx->id("OCEAMUX"), "OCEA"));
             tg.config.add_enum(ebr + ".OCEBMUX", str_or_default(ci->params, ctx->id("OCEBMUX"), "OCEB"));
+
+            std::reverse(csd_a.begin(), csd_a.end());
+            std::reverse(csd_b.begin(), csd_b.end());
 
             tg.config.add_word(ebr + ".CSDECODE_A", csd_a);
             tg.config.add_word(ebr + ".CSDECODE_B", csd_b);
@@ -1244,9 +1288,12 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
 
             tg.config.add_enum("FEEDBK_PATH", str_or_default(ci->params, ctx->id("FEEDBK_PATH"), "CLKOP"));
             tg.config.add_enum("CLKOP_TRIM_POL", str_or_default(ci->params, ctx->id("CLKOP_TRIM_POL"), "RISING"));
-            tg.config.add_enum("CLKOP_TRIM_DELAY", str_or_default(ci->params, ctx->id("CLKOP_TRIM_DELAY"), "0"));
+
+            tg.config.add_enum("CLKOP_TRIM_DELAY", intstr_or_default(ci->params, ctx->id("CLKOP_TRIM_DELAY"), "0"));
+
             tg.config.add_enum("CLKOS_TRIM_POL", str_or_default(ci->params, ctx->id("CLKOS_TRIM_POL"), "RISING"));
-            tg.config.add_enum("CLKOS_TRIM_DELAY", str_or_default(ci->params, ctx->id("CLKOS_TRIM_DELAY"), "0"));
+
+            tg.config.add_enum("CLKOS_TRIM_DELAY", intstr_or_default(ci->params, ctx->id("CLKOS_TRIM_DELAY"), "0"));
 
             tg.config.add_enum("OUTDIVIDER_MUXA", str_or_default(ci->params, ctx->id("OUTDIVIDER_MUXA"),
                                                                  get_net_or_empty(ci, id_CLKOP) ? "DIVA" : "REFCLK"));
@@ -1424,8 +1471,8 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             Loc loc = ctx->getBelLocation(ci->bel);
             bool u = loc.y<15, r = loc.x> 15;
             std::string tiletype = fmt_str("DDRDLL_" << (u ? 'U' : 'L') << (r ? 'R' : 'L'));
-            if ((ctx->args.type == ArchArgs::LFE5U_25F || ctx->args.type == ArchArgs::LFE5UM_25F ||
-                 ctx->args.type == ArchArgs::LFE5UM5G_25F) &&
+            if ((ctx->args.type == ArchArgs::LFE5U_12F || ctx->args.type == ArchArgs::LFE5U_25F ||
+                 ctx->args.type == ArchArgs::LFE5UM_25F || ctx->args.type == ArchArgs::LFE5UM5G_25F) &&
                 u)
                 tiletype += "A";
             std::string tile = ctx->getTileByType(tiletype);

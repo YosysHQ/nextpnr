@@ -43,5 +43,5 @@ nextpnr-ecp5 currently supports the following primitives:
  - **TRELLIS_SLICE**
  - **TSHX2DQA**
  - **TSHX2DQSA**
- - **USRMCLK** (untested)
+ - **USRMCLK**
 

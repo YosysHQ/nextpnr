@@ -49,6 +49,7 @@ ECP5CommandHandler::ECP5CommandHandler(int argc, char **argv) : CommandHandler(a
 po::options_description ECP5CommandHandler::getArchOptions()
 {
     po::options_description specific("Architecture specific options");
+    specific.add_options()("12k", "set device type to LFE5U-12F");
     specific.add_options()("25k", "set device type to LFE5U-25F");
     specific.add_options()("45k", "set device type to LFE5U-45F");
     specific.add_options()("85k", "set device type to LFE5U-85F");
@@ -125,7 +126,8 @@ std::unique_ptr<Context> ECP5CommandHandler::createContext(std::unordered_map<st
 {
     ArchArgs chipArgs;
     chipArgs.type = ArchArgs::NONE;
-
+    if (vm.count("12k"))
+        chipArgs.type = ArchArgs::LFE5U_12F;
     if (vm.count("25k"))
         chipArgs.type = ArchArgs::LFE5U_25F;
     if (vm.count("45k"))
@@ -172,13 +174,15 @@ std::unique_ptr<Context> ECP5CommandHandler::createContext(std::unordered_map<st
     if (values.find("arch.name") != values.end()) {
         std::string arch_name = values["arch.name"].as_string();
         if (arch_name != "ecp5")
-            log_error("Unsuported architecture '%s'.\n", arch_name.c_str());
+            log_error("Unsupported architecture '%s'.\n", arch_name.c_str());
     }
     if (values.find("arch.type") != values.end()) {
         std::string arch_type = values["arch.type"].as_string();
         if (chipArgs.type != ArchArgs::NONE)
-            log_error("Overriding architecture is unsuported.\n");
+            log_error("Overriding architecture is unsupported.\n");
 
+        if (arch_type == "lfe5u_12f")
+            chipArgs.type = ArchArgs::LFE5U_12F;
         if (arch_type == "lfe5u_25f")
             chipArgs.type = ArchArgs::LFE5U_25F;
         if (arch_type == "lfe5u_45f")
@@ -199,11 +203,11 @@ std::unique_ptr<Context> ECP5CommandHandler::createContext(std::unordered_map<st
             chipArgs.type = ArchArgs::LFE5UM5G_85F;
 
         if (chipArgs.type == ArchArgs::NONE)
-            log_error("Unsuported FPGA type '%s'.\n", arch_type.c_str());
+            log_error("Unsupported FPGA type '%s'.\n", arch_type.c_str());
     }
     if (values.find("arch.package") != values.end()) {
         if (vm.count("package"))
-            log_error("Overriding architecture is unsuported.\n");
+            log_error("Overriding architecture is unsupported.\n");
         chipArgs.package = values["arch.package"].as_string();
     }
     if (values.find("arch.speed") != values.end()) {
@@ -215,7 +219,7 @@ std::unique_ptr<Context> ECP5CommandHandler::createContext(std::unordered_map<st
         else if (arch_speed == "8")
             chipArgs.speed = ArchArgs::SPEED_8;
         else
-            log_error("Unsuported speed '%s'.\n", arch_speed.c_str());
+            log_error("Unsupported speed '%s'.\n", arch_speed.c_str());
     }
     if (chipArgs.type == ArchArgs::NONE)
         chipArgs.type = ArchArgs::LFE5U_45F;

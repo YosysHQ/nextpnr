@@ -163,12 +163,12 @@ std::unique_ptr<Context> Ice40CommandHandler::createContext(std::unordered_map<s
     if (values.find("arch.name") != values.end()) {
         std::string arch_name = values["arch.name"].as_string();
         if (arch_name != "ice40")
-            log_error("Unsuported architecture '%s'.\n", arch_name.c_str());
+            log_error("Unsupported architecture '%s'.\n", arch_name.c_str());
     }
     if (values.find("arch.type") != values.end()) {
         std::string arch_type = values["arch.type"].as_string();
         if (chipArgs.type != ArchArgs::NONE)
-            log_error("Overriding architecture is unsuported.\n");
+            log_error("Overriding architecture is unsupported.\n");
 
         if (arch_type == "lp384") {
             chipArgs.type = ArchArgs::LP384;
@@ -192,11 +192,11 @@ std::unique_ptr<Context> Ice40CommandHandler::createContext(std::unordered_map<s
             chipArgs.type = ArchArgs::U4K;
         }
         if (chipArgs.type == ArchArgs::NONE)
-            log_error("Unsuported FPGA type '%s'.\n", arch_type.c_str());
+            log_error("Unsupported FPGA type '%s'.\n", arch_type.c_str());
     }
     if (values.find("arch.package") != values.end()) {
         if (vm.count("package"))
-            log_error("Overriding architecture is unsuported.\n");
+            log_error("Overriding architecture is unsupported.\n");
         chipArgs.package = values["arch.package"].as_string();
     }
 

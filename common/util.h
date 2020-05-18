@@ -25,6 +25,8 @@
 #include <string>
 #include "nextpnr.h"
 
+#include "log.h"
+
 NEXTPNR_NAMESPACE_BEGIN
 
 // Get a value from a map-style container, returning default if value is not
@@ -47,8 +49,9 @@ std::string str_or_default(const Container &ct, const KeyType &key, std::string 
     auto found = ct.find(key);
     if (found == ct.end())
         return def;
-    else
+    else {
         return found->second;
+    }
 };
 
 template <typename KeyType>
@@ -57,8 +60,11 @@ std::string str_or_default(const std::unordered_map<KeyType, Property> &ct, cons
     auto found = ct.find(key);
     if (found == ct.end())
         return def;
-    else
+    else {
+        if (!found->second.is_string)
+            log_error("Expecting string value but got integer %d.\n", int(found->second.intval));
         return found->second.as_string();
+    }
 };
 
 // Get a value from a map-style container, converting to int, and returning
@@ -79,9 +85,13 @@ int int_or_default(const std::unordered_map<KeyType, Property> &ct, const KeyTyp
     if (found == ct.end())
         return def;
     else {
-        if (found->second.is_string)
-            return std::stoi(found->second.as_string());
-        else
+        if (found->second.is_string) {
+            try {
+                return std::stoi(found->second.as_string());
+            } catch (std::invalid_argument &e) {
+                log_error("Expecting numeric value but got '%s'.\n", found->second.as_string().c_str());
+            }
+        } else
             return found->second.as_int64();
     }
 };
