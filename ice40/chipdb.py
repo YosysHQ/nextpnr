@@ -11,6 +11,7 @@ parser.add_argument("-p", "--constids", type=str, help="path to constids.inc")
 parser.add_argument("-g", "--gfxh", type=str, help="path to gfx.h")
 parser.add_argument("--fast", type=str, help="path to timing data for fast part")
 parser.add_argument("--slow", type=str, help="path to timing data for slow part")
+parser.add_argument("-o","--output", type=str, help="save output to file")
 args = parser.parse_args()
 
 dev_name = None
@@ -57,6 +58,9 @@ wire_segments = dict()
 fast_timings = None
 slow_timings = None
 
+if args.output:
+    sys.stdout = open(args.output, 'w')
+    
 with open(args.constids) as f:
     for line in f:
         if line.startswith("//"):
