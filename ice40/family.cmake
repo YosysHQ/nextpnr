@@ -46,7 +46,7 @@ if (NOT EXTERNAL_CHIPDB)
                     )
             else()
                 add_custom_command(OUTPUT ${DEV_CC_BBA_DB}
-                    COMMAND ${PYTHON_EXECUTABLE} ${DB_PY} -p ${DEV_CONSTIDS_INC} -g ${DEV_GFXH} ${OPT_FAST} ${OPT_SLOW} ${DEV_TXT_DB} > ${DEV_CC_BBA_DB}
+                    COMMAND ${PYTHON_EXECUTABLE} ${DB_PY} -p ${DEV_CONSTIDS_INC} -g ${DEV_GFXH} ${OPT_FAST} ${OPT_SLOW} ${DEV_TXT_DB} -o ${DEV_CC_BBA_DB}
                     DEPENDS ${DEV_CONSTIDS_INC} ${DEV_GFXH} ${DEV_TXT_DB} ${DB_PY} ${PREV_DEV_CC_BBA_DB}
                     )
                 add_custom_command(OUTPUT ${DEV_CC_DB}
@@ -93,7 +93,7 @@ if (NOT EXTERNAL_CHIPDB)
                     )
             else()
                 add_custom_command(OUTPUT ${DEV_CC_BBA_DB}
-                    COMMAND ${PYTHON_EXECUTABLE} ${DB_PY} -p ${DEV_CONSTIDS_INC} -g ${DEV_GFXH} ${OPT_FAST} ${OPT_SLOW} ${DEV_TXT_DB} > ${DEV_CC_BBA_DB}.new
+                    COMMAND ${PYTHON_EXECUTABLE} ${DB_PY} -p ${DEV_CONSTIDS_INC} -g ${DEV_GFXH} ${OPT_FAST} ${OPT_SLOW} ${DEV_TXT_DB} -o ${DEV_CC_BBA_DB}.new
                     COMMAND mv ${DEV_CC_BBA_DB}.new ${DEV_CC_BBA_DB}
                     DEPENDS ${DEV_CONSTIDS_INC} ${DEV_GFXH} ${DEV_TXT_DB} ${DB_PY} ${PREV_DEV_CC_BBA_DB}
                     )
