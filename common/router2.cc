@@ -33,7 +33,6 @@
 #include <deque>
 #include <fstream>
 #include <queue>
-#include <thread>
 #include "log.h"
 #include "nextpnr.h"
 #include "router1.h"
@@ -985,8 +984,22 @@ struct Router2
         }
         if (ctx->verbose)
             log_info("%d/%d nets not multi-threadable\n", int(tcs.at(N).route_nets.size()), int(route_queue.size()));
+#ifdef NPNR_DISABLE_THREADS
+        // Singlethreaded routing - quadrants
+        for (int i = 0; i < Nq; i++) {
+            router_thread(tcs.at(i));
+        }
+        // Vertical splits
+        for (int i = Nq; i < Nq + Nv; i++) {
+            router_thread(tcs.at(i));
+        }
+        // Horizontal splits
+        for (int i = Nq + Nv; i < Nq + Nv + Nh; i++) {
+            router_thread(tcs.at(i));
+        }
+#else
         // Multithreaded part of routing - quadrants
-        std::vector<std::thread> threads;
+        std::vector<boost::thread> threads;
         for (int i = 0; i < Nq; i++) {
             threads.emplace_back([this, &tcs, i]() { router_thread(tcs.at(i)); });
         }
@@ -1007,6 +1020,7 @@ struct Router2
         for (auto &t : threads)
             t.join();
         threads.clear();
+#endif
         // Singlethreaded part of routing - nets that cross partitions
         // or don't fit within bounding box
         for (auto st_net : tcs.at(N).route_nets)

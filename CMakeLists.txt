@@ -14,6 +14,24 @@ option(SERIALIZE_CHIPDB "Never build chipdb in parallel to reduce peak memory us
 
 set(Boost_NO_BOOST_CMAKE ON)
 
+if(WASI)
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lwasi-emulated-mman")
+    set(USE_THREADS OFF)
+    add_definitions(
+        -DBOOST_EXCEPTION_DISABLE
+        -DBOOST_NO_EXCEPTIONS
+        -DBOOST_SP_NO_ATOMIC_ACCESS
+        -DBOOST_AC_DISABLE_THREADS
+        -DBOOST_NO_CXX11_HDR_MUTEX
+    )
+else()
+    set(USE_THREADS ON)
+endif()
+
+if (NOT USE_THREADS)
+    add_definitions(-DNPNR_DISABLE_THREADS)
+endif()
+
 set(link_param "")
 if (STATIC_BUILD)
     set(Boost_USE_STATIC_LIBS   ON)
@@ -84,7 +102,6 @@ else()
         set(CMAKE_CXX_FLAGS_RELEASE "-Wall -fPIC -O3 -g -pipe")
     endif()
 endif()
-set(CMAKE_DEFIN)
 
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/3rdparty/sanitizers-cmake/cmake;." ${CMAKE_MODULE_PATH})
 
@@ -99,7 +116,10 @@ endif()
 find_package(Sanitizers)
 
 # List of Boost libraries to include
-set(boost_libs filesystem thread program_options iostreams system)
+set(boost_libs filesystem program_options iostreams system)
+if (USE_THREADS)
+    list(APPEND boost_libs thread)
+endif()
 
 if (BUILD_GUI AND NOT BUILD_PYTHON)
     message(FATAL_ERROR "GUI requires Python to build")
@@ -229,6 +249,10 @@ foreach (family ${ARCH})
 
     # Add the CLI binary target
     add_executable(${PROGRAM_PREFIX}nextpnr-${family} ${COMMON_FILES} ${${ufamily}_FILES})
+    if (WASI)
+        # set(CMAKE_EXECUTABLE_SUFFIX) breaks CMake tests for some reason
+        set_property(TARGET ${PROGRAM_PREFIX}nextpnr-${family} PROPERTY SUFFIX ".wasm")
+    endif()
     install(TARGETS ${PROGRAM_PREFIX}nextpnr-${family} RUNTIME DESTINATION bin)
     target_compile_definitions(${PROGRAM_PREFIX}nextpnr-${family} PRIVATE MAIN_EXECUTABLE)
 

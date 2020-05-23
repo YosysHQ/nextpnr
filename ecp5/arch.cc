@@ -71,12 +71,13 @@ const char *chipdb_blob_25k = nullptr;
 const char *chipdb_blob_45k = nullptr;
 const char *chipdb_blob_85k = nullptr;
 
-boost::iostreams::mapped_file_source blob_files[3];
+boost::iostreams::mapped_file blob_files[3];
 
 const char *mmap_file(int index, const char *filename)
 {
     try {
-        blob_files[index].open(filename);
+        // WASI only supports MAP_PRIVATE
+        blob_files[index].open(filename, boost::iostreams::mapped_file::priv);
         if (!blob_files[index].is_open())
             log_error("Unable to read chipdb %s\n", filename);
         return (const char *)blob_files[index].data();

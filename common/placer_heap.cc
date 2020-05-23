@@ -37,7 +37,6 @@
 #include <Eigen/Core>
 #include <Eigen/IterativeLinearSolvers>
 #include <boost/optional.hpp>
-#include <boost/thread.hpp>
 #include <chrono>
 #include <deque>
 #include <fstream>
@@ -154,9 +153,14 @@ class HeAPPlacer
         for (int i = 0; i < 4; i++) {
             setup_solve_cells();
             auto solve_startt = std::chrono::high_resolution_clock::now();
+#ifdef NPNR_DISABLE_THREADS
+            build_solve_direction(false, -1);
+            build_solve_direction(true, -1);
+#else
             boost::thread xaxis([&]() { build_solve_direction(false, -1); });
             build_solve_direction(true, -1);
             xaxis.join();
+#endif
             auto solve_endt = std::chrono::high_resolution_clock::now();
             solve_time += std::chrono::duration<double>(solve_endt - solve_startt).count();
 
@@ -211,13 +215,16 @@ class HeAPPlacer
                 // Heuristic: don't bother with threading below a certain size
                 auto solve_startt = std::chrono::high_resolution_clock::now();
 
-                if (solve_cells.size() < 500) {
-                    build_solve_direction(false, (iter == 0) ? -1 : iter);
-                    build_solve_direction(true, (iter == 0) ? -1 : iter);
-                } else {
+#ifndef NPNR_DISABLE_THREADS
+                if (solve_cells.size() >= 500) {
                     boost::thread xaxis([&]() { build_solve_direction(false, (iter == 0) ? -1 : iter); });
                     build_solve_direction(true, (iter == 0) ? -1 : iter);
                     xaxis.join();
+                } else
+#endif
+                {
+                    build_solve_direction(false, (iter == 0) ? -1 : iter);
+                    build_solve_direction(true, (iter == 0) ? -1 : iter);
                 }
                 auto solve_endt = std::chrono::high_resolution_clock::now();
                 solve_time += std::chrono::duration<double>(solve_endt - solve_startt).count();
