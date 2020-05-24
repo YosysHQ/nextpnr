@@ -33,7 +33,9 @@
 #include <boost/functional/hash.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/range/adaptor/reversed.hpp>
+#ifndef NPNR_DISABLE_THREADS
 #include <boost/thread.hpp>
+#endif
 
 #ifndef NEXTPNR_H
 #define NEXTPNR_H
@@ -647,6 +649,7 @@ struct DeterministicRNG
 
 struct BaseCtx
 {
+#ifndef NPNR_DISABLE_THREADS
     // Lock to perform mutating actions on the Context.
     std::mutex mutex;
     boost::thread::id mutex_owner;
@@ -655,6 +658,7 @@ struct BaseCtx
     // method will lock/unlock it when its' released the main mutex to make
     // sure the UI is not starved.
     std::mutex ui_mutex;
+#endif
 
     // ID String database.
     mutable std::unordered_map<std::string, int> *idstring_str_to_idx;
@@ -706,28 +710,36 @@ struct BaseCtx
     // Must be called before performing any mutating changes on the Ctx/Arch.
     void lock(void)
     {
+#ifndef NPNR_DISABLE_THREADS
         mutex.lock();
         mutex_owner = boost::this_thread::get_id();
+#endif
     }
 
     void unlock(void)
     {
+#ifndef NPNR_DISABLE_THREADS
         NPNR_ASSERT(boost::this_thread::get_id() == mutex_owner);
         mutex.unlock();
+#endif
     }
 
     // Must be called by the UI before rendering data. This lock will be
     // prioritized when processing code calls yield().
     void lock_ui(void)
     {
+#ifndef NPNR_DISABLE_THREADS
         ui_mutex.lock();
         mutex.lock();
+#endif
     }
 
     void unlock_ui(void)
     {
+#ifndef NPNR_DISABLE_THREADS
         mutex.unlock();
         ui_mutex.unlock();
+#endif
     }
 
     // Yield to UI by unlocking the main mutex, flashing the UI mutex and
@@ -737,10 +749,12 @@ struct BaseCtx
     // Must be called with the main lock taken.
     void yield(void)
     {
+#ifndef NPNR_DISABLE_THREADS
         unlock();
         ui_mutex.lock();
         ui_mutex.unlock();
         lock();
+#endif
     }
 
     IdString id(const std::string &s) const { return IdString(this, s); }
