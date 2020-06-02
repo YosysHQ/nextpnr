@@ -133,6 +133,16 @@ static const BelConfigPOD &get_ec_config(const ChipInfoPOD *chip, BelId bel)
 
 typedef std::vector<std::vector<std::vector<std::vector<int8_t>>>> chipconfig_t;
 
+static bool has_ec_cbit(const BelConfigPOD &cell_cbits, std::string name)
+{
+    for (int i = 0; i < cell_cbits.num_entries; i++) {
+        const auto &cbit = cell_cbits.entries[i];
+        if (cbit.entry_name.get() == name)
+            return true;
+    }
+    return false;
+}
+
 static void set_ec_cbit(chipconfig_t &config, const Context *ctx, const BelConfigPOD &cell_cbits, std::string name,
                         bool value, std::string prefix)
 {
@@ -190,7 +200,7 @@ void configure_extra_cell(chipconfig_t &config, const Context *ctx, CellInfo *ce
         }
 
         value.resize(p.second);
-        if (p.second == 1) {
+        if ((p.second == 1) || !has_ec_cbit(bc, p.first + "_0")) {
             set_ec_cbit(config, ctx, bc, p.first, value.at(0), prefix);
         } else {
             for (int i = 0; i < p.second; i++) {
