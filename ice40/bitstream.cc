@@ -718,7 +718,7 @@ void write_asc(const Context *ctx, std::ostream &out)
                                                                          {"PLLOUT_SELECT_A", 2},
                                                                          {"PLLOUT_SELECT_B", 2},
                                                                          {"PLLTYPE", 3},
-                                                                         {"SHIFTREG_DIV_MODE", 1},
+                                                                         {"SHIFTREG_DIV_MODE", 2},
                                                                          {"TEST_MODE", 1}};
             configure_extra_cell(config, ctx, cell.second.get(), pll_params, false, std::string("PLL."));
 
