@@ -57,12 +57,12 @@ const char *chipdb_blob_5k = nullptr;
 const char *chipdb_blob_u4k = nullptr;
 const char *chipdb_blob_8k = nullptr;
 
-boost::iostreams::mapped_file_source blob_files[5];
+boost::iostreams::mapped_file blob_files[5];
 
 const char *mmap_file(int index, const char *filename)
 {
     try {
-        blob_files[index].open(filename);
+        blob_files[index].open(filename, boost::iostreams::mapped_file::priv);
         if (!blob_files[index].is_open())
             log_error("Unable to read chipdb %s\n", filename);
         return (const char *)blob_files[index].data();
@@ -1037,7 +1037,7 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
             }
         }
         if (port == id_OUTPUT_ENABLE) {
-            if ((cell->ioInfo.pintype & 0x18) == 0x18) {
+            if ((cell->ioInfo.pintype & 0x30) == 0x30) {
                 return TMG_REGISTER_INPUT;
             } else {
                 return TMG_ENDPOINT;

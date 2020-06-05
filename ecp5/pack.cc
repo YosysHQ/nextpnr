@@ -1617,6 +1617,18 @@ class Ecp5Packer
                 for (auto pin : ctx->getBelPins(exemplar_bel))
                     if (ctx->getBelPinType(exemplar_bel, pin) == PORT_IN)
                         autocreate_empty_port(ci, pin);
+                // Disconnect these ports if connected to constant to prevent routing failure
+                for (auto ndport : {id_D_TXBIT_CLKP_FROM_ND, id_D_TXBIT_CLKN_FROM_ND, id_D_SYNC_ND,
+                                    id_D_TXPLL_LOL_FROM_ND, id_CH0_HDINN, id_CH0_HDINP, id_CH1_HDINN, id_CH1_HDINP}) {
+                    const NetInfo *net = get_net_or_empty(ci, ndport);
+                    if (net == nullptr || net->driver.cell == nullptr)
+                        continue;
+                    IdString ct = net->driver.cell->type;
+                    if (ct == ctx->id("GND") || ct == ctx->id("VCC")) {
+                        disconnect_port(ctx, ci, ndport);
+                        ci->ports.erase(ndport);
+                    }
+                }
             }
         }
         for (auto cell : sorted(ctx->cells)) {
@@ -2038,10 +2050,20 @@ class Ecp5Packer
                 disconnect_port(ctx, prim, port);
         };
 
+        bool warned_oddrx_iddrx = false;
+
         auto set_iologic_mode = [&](CellInfo *iol, std::string mode) {
             auto &curr_mode = iol->params[ctx->id("MODE")].str;
             if (curr_mode != "NONE" && mode == "IREG_OREG")
                 return;
+            if ((curr_mode == "IDDRXN" && mode == "ODDRXN") || (curr_mode == "ODDRXN" && mode == "IDDRXN")) {
+                if (!warned_oddrx_iddrx) {
+                    warned_oddrx_iddrx = true;
+                    log_warning("Use of IDDRXN and ODDRXN primitives on the same pin is unofficial and unsupported!\n");
+                }
+                curr_mode = "ODDRXN";
+                return;
+            }
             if (curr_mode != "NONE" && curr_mode != "IREG_OREG" && curr_mode != mode)
                 log_error("IOLOGIC '%s' has conflicting modes '%s' and '%s'\n", iol->name.c_str(ctx), curr_mode.c_str(),
                           mode.c_str());
@@ -3004,6 +3026,85 @@ void Arch::assignArchInfo()
                 ci->sliceInfo.has_l6mux = true;
         } else if (ci->type == id_DP16KD) {
             ci->ramInfo.is_pdp = (int_or_default(ci->params, id("DATA_WIDTH_A"), 0) == 36);
+
+            // Output register mode (REGMODE_{A,B}). Valid options are 'NOREG' and 'OUTREG'.
+            std::string regmode_a = str_or_default(ci->params, id("REGMODE_A"), "NOREG");
+            if (regmode_a != "NOREG" && regmode_a != "OUTREG")
+                log_error("DP16KD %s has invalid REGMODE_A configuration '%s'\n", ci->name.c_str(this),
+                          regmode_a.c_str());
+            std::string regmode_b = str_or_default(ci->params, id("REGMODE_B"), "NOREG");
+            if (regmode_b != "NOREG" && regmode_b != "OUTREG")
+                log_error("DP16KD %s has invalid REGMODE_B configuration '%s'\n", ci->name.c_str(this),
+                          regmode_b.c_str());
+            ci->ramInfo.is_output_a_registered = regmode_a == "OUTREG";
+            ci->ramInfo.is_output_b_registered = regmode_b == "OUTREG";
+
+            // Based on the REGMODE, we have different timing lookup tables.
+            if (!ci->ramInfo.is_output_a_registered && !ci->ramInfo.is_output_b_registered) {
+                ci->ramInfo.regmode_timing_id = id_DP16KD_REGMODE_A_NOREG_REGMODE_B_NOREG;
+            } else if (!ci->ramInfo.is_output_a_registered && ci->ramInfo.is_output_b_registered) {
+                ci->ramInfo.regmode_timing_id = id_DP16KD_REGMODE_A_NOREG_REGMODE_B_OUTREG;
+            } else if (ci->ramInfo.is_output_a_registered && !ci->ramInfo.is_output_b_registered) {
+                ci->ramInfo.regmode_timing_id = id_DP16KD_REGMODE_A_OUTREG_REGMODE_B_NOREG;
+            } else if (ci->ramInfo.is_output_a_registered && ci->ramInfo.is_output_b_registered) {
+                ci->ramInfo.regmode_timing_id = id_DP16KD_REGMODE_A_OUTREG_REGMODE_B_OUTREG;
+            }
+        } else if (ci->type == id_MULT18X18D) {
+            // For the multiplier block, our timing db is dictated by whether any of the input/output registers are
+            // enabled. To that end, we need to work out what the parameters are for the INPUTA_CLK, INPUTB_CLK and
+            // OUTPUT_CLK are.
+            // The clock check is the same IN_A/B and OUT, so hoist it to a function
+            auto get_clock_parameter = [&](std::string param_name) {
+                std::string clk = str_or_default(ci->params, id(param_name), "NONE");
+                if (clk != "NONE" && clk != "CLK0" && clk != "CLK1" && clk != "CLK2" && clk != "CLK3")
+                    log_error("MULT18X18D %s has invalid %s configuration '%s'\n", ci->name.c_str(this),
+                              param_name.c_str(), clk.c_str());
+                return clk;
+            };
+
+            // Get the input clock setting from the cell
+            std::string reg_inputa_clk = get_clock_parameter("REG_INPUTA_CLK");
+            std::string reg_inputb_clk = get_clock_parameter("REG_INPUTB_CLK");
+
+            // Inputs are registered IFF the REG_INPUT value is not NONE
+            const bool is_in_a_registered = reg_inputa_clk != "NONE";
+            const bool is_in_b_registered = reg_inputb_clk != "NONE";
+
+            // Similarly, get the output register clock
+            std::string reg_output_clk = get_clock_parameter("REG_OUTPUT_CLK");
+            const bool is_output_registered = reg_output_clk != "NONE";
+
+            // If only one of the inputs is registered, we are going to treat that as
+            // neither input registered so that we don't have to deal with mixed timing.
+            // Emit a warning to that effect.
+            const bool any_input_registered = is_in_a_registered || is_in_b_registered;
+            const bool both_inputs_registered = is_in_a_registered && is_in_b_registered;
+            const bool input_registers_mismatched = any_input_registered && !both_inputs_registered;
+            if (input_registers_mismatched) {
+                log_warning("MULT18X18D %s has unsupported mixed input register modes (reg_inputa_clk=%s, "
+                            "reg_inputb_clk=%s)\n",
+                            ci->name.c_str(this), reg_inputa_clk.c_str(), reg_inputb_clk.c_str());
+                log_warning("Timings for MULT18X18D %s will be calculated as though neither input were registered\n",
+                            ci->name.c_str(this));
+
+                // Act as though the inputs are unregistered, so select timing DB based only on the
+                // output register mode
+                ci->multInfo.timing_id = is_output_registered ? id_MULT18X18D_REGS_OUTPUT : id_MULT18X18D_REGS_NONE;
+            } else {
+                // Based on our register settings, pick the timing data to use for this cell
+                if (!both_inputs_registered && !is_output_registered) {
+                    ci->multInfo.timing_id = id_MULT18X18D_REGS_NONE;
+                } else if (both_inputs_registered && !is_output_registered) {
+                    ci->multInfo.timing_id = id_MULT18X18D_REGS_INPUT;
+                } else if (!both_inputs_registered && is_output_registered) {
+                    ci->multInfo.timing_id = id_MULT18X18D_REGS_OUTPUT;
+                } else if (both_inputs_registered && is_output_registered) {
+                    ci->multInfo.timing_id = id_MULT18X18D_REGS_ALL;
+                }
+            }
+            // If we aren't a pure combinatorial multiplier, then our timings are
+            // calculated with respect to CLK0
+            ci->multInfo.is_clocked = ci->multInfo.timing_id != id_MULT18X18D_REGS_NONE;
         }
     }
     for (auto net : sorted(nets)) {

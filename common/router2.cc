@@ -33,7 +33,6 @@
 #include <deque>
 #include <fstream>
 #include <queue>
-#include <thread>
 #include "log.h"
 #include "nextpnr.h"
 #include "router1.h"
@@ -747,7 +746,7 @@ struct Router2
             total_wire_use += int(wire.bound_nets.size());
             int overuse = int(wire.bound_nets.size()) - 1;
             if (overuse > 0) {
-                wire.hist_cong_cost += overuse * hist_cong_weight;
+                wire.hist_cong_cost = std::min(1e9, wire.hist_cong_cost + overuse * hist_cong_weight);
                 total_overuse += overuse;
                 overused_wires += 1;
                 for (auto &bound : wire.bound_nets)
@@ -985,8 +984,22 @@ struct Router2
         }
         if (ctx->verbose)
             log_info("%d/%d nets not multi-threadable\n", int(tcs.at(N).route_nets.size()), int(route_queue.size()));
+#ifdef NPNR_DISABLE_THREADS
+        // Singlethreaded routing - quadrants
+        for (int i = 0; i < Nq; i++) {
+            router_thread(tcs.at(i));
+        }
+        // Vertical splits
+        for (int i = Nq; i < Nq + Nv; i++) {
+            router_thread(tcs.at(i));
+        }
+        // Horizontal splits
+        for (int i = Nq + Nv; i < Nq + Nv + Nh; i++) {
+            router_thread(tcs.at(i));
+        }
+#else
         // Multithreaded part of routing - quadrants
-        std::vector<std::thread> threads;
+        std::vector<boost::thread> threads;
         for (int i = 0; i < Nq; i++) {
             threads.emplace_back([this, &tcs, i]() { router_thread(tcs.at(i)); });
         }
@@ -1007,6 +1020,7 @@ struct Router2
         for (auto &t : threads)
             t.join();
         threads.clear();
+#endif
         // Singlethreaded part of routing - nets that cross partitions
         // or don't fit within bounding box
         for (auto st_net : tcs.at(N).route_nets)
@@ -1082,7 +1096,8 @@ struct Router2
             log_info("    iter=%d wires=%d overused=%d overuse=%d archfail=%s\n", iter, total_wire_use, overused_wires,
                      total_overuse, overused_wires > 0 ? "NA" : std::to_string(arch_fail).c_str());
             ++iter;
-            curr_cong_weight *= cfg.curr_cong_mult;
+            if (curr_cong_weight < 1e9)
+                curr_cong_weight *= cfg.curr_cong_mult;
         } while (!failed_nets.empty());
         if (cfg.perf_profile) {
             std::vector<std::pair<int, IdString>> nets_by_runtime;

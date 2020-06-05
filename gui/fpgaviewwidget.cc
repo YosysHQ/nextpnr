@@ -724,7 +724,7 @@ void FPGAViewWidget::mousePressEvent(QMouseEvent *event)
             return;
         }
 
-        auto closest = closestOr.value();
+        auto closest = closestOr.get();
         if (closest.type == ElementType::BEL) {
             clickedBel(closest.bel, ctrl);
         } else if (closest.type == ElementType::WIRE) {
@@ -770,7 +770,7 @@ void FPGAViewWidget::mouseMoveEvent(QMouseEvent *event)
         return;
     }
 
-    auto closest = closestOr.value();
+    auto closest = closestOr.get();
 
     {
         QMutexLocker locked(&rendererArgsLock_);

@@ -48,6 +48,9 @@ bool Arch::applyLPF(std::string filename, std::istream &in)
             size_t cstart = line.find('#');
             if (cstart != std::string::npos)
                 line = line.substr(0, cstart);
+            cstart = line.find("//");
+            if (cstart != std::string::npos)
+                line = line.substr(0, cstart);
             if (isempty(line))
                 continue;
             linebuf += line;
@@ -101,6 +104,8 @@ bool Arch::applyLPF(std::string filename, std::istream &in)
                         if (words.at(3) != "SITE")
                             log_error("expected 'SITE' after 'LOCATE COMP %s' (on line %d)\n", cell.c_str(), lineno);
                         auto fnd_cell = cells.find(id(cell));
+                        if (words.size() > 5)
+                            log_error("unexpected input following LOCATE clause (on line %d)\n", lineno);
                         if (fnd_cell != cells.end()) {
                             fnd_cell->second->attrs[id("LOC")] = strip_quotes(words.at(4));
                         }

@@ -66,6 +66,11 @@ static void pack_lut_lutffs(Context *ctx)
                     ctx->nets.erase(o->name);
                     if (dff_bel != dff->attrs.end())
                         packed->attrs[ctx->id("BEL")] = dff_bel->second;
+                    for (const auto &attr : dff->attrs) {
+                        // BEL is dealt with specially
+                        if (attr.first != ctx->id("BEL"))
+                            packed->attrs[attr.first] = attr.second;
+                    }
                     packed_cells.insert(dff->name);
                     if (ctx->verbose)
                         log_info("packed cell %s into %s\n", dff->name.c_str(ctx), packed->name.c_str(ctx));
@@ -1096,6 +1101,30 @@ static void pack_special(Context *ctx)
         }
     }
 
+    auto MHz = [&](delay_t a) { return 1000.0 / ctx->getDelayNS(a); };
+    auto equals_epsilon = [](delay_t a, delay_t b) { return (std::abs(a - b) / std::max(double(b), 1.0)) < 1e-3; };
+
+    auto set_period = [&](CellInfo *ci, IdString port, delay_t period) {
+        if (!ci->ports.count(port))
+            return;
+        NetInfo *to = ci->ports.at(port).net;
+        if (to == nullptr)
+            return;
+        if (to->clkconstr != nullptr) {
+            if (!equals_epsilon(to->clkconstr->period.delay, period))
+                log_warning("    Overriding derived constraint of %.1f MHz on net %s with user-specified constraint of "
+                            "%.1f MHz.\n",
+                            MHz(to->clkconstr->period.delay), to->name.c_str(ctx), MHz(period));
+            return;
+        }
+        to->clkconstr = std::unique_ptr<ClockConstraint>(new ClockConstraint());
+        to->clkconstr->low.delay = period / 2;
+        to->clkconstr->high.delay = period / 2;
+        to->clkconstr->period.delay = period;
+        log_info("    Derived frequency constraint of %.1f MHz for net %s\n", MHz(to->clkconstr->period.delay),
+                 to->name.c_str(ctx));
+    };
+
     for (auto cell : sorted(ctx->cells)) {
         CellInfo *ci = cell.second;
         if (is_sb_lfosc(ctx, ci)) {
@@ -1107,10 +1136,12 @@ static void pack_special(Context *ctx)
             replace_port(ci, ctx->id("CLKLFPU"), packed.get(), ctx->id("CLKLFPU"));
             if (bool_or_default(ci->attrs, ctx->id("ROUTE_THROUGH_FABRIC"))) {
                 replace_port(ci, ctx->id("CLKLF"), packed.get(), ctx->id("CLKLF_FABRIC"));
+                set_period(packed.get(), ctx->id("CLKLF_FABRIC"), 100000000); // 10kHz
             } else {
                 replace_port(ci, ctx->id("CLKLF"), packed.get(), ctx->id("CLKLF"));
                 std::unique_ptr<CellInfo> gb =
                         create_padin_gbuf(ctx, packed.get(), ctx->id("CLKLF"), "$gbuf_" + ci->name.str(ctx) + "_lfosc");
+                set_period(gb.get(), id_GLOBAL_BUFFER_OUTPUT, 100000000); // 10kHz
                 new_cells.push_back(std::move(gb));
             }
             new_cells.push_back(std::move(packed));
@@ -1127,12 +1158,26 @@ static void pack_special(Context *ctx)
                 auto port = ctx->id("TRIM" + std::to_string(i));
                 replace_port(ci, port, packed.get(), port);
             }
+            std::string div = packed->params[ctx->id("CLKHF_DIV")].as_string();
+            int frequency;
+            if (div == "0b00")
+                frequency = 48;
+            else if (div == "0b01")
+                frequency = 24;
+            else if (div == "0b10")
+                frequency = 12;
+            else if (div == "0b11")
+                frequency = 6;
+            else
+                log_error("Invalid HFOSC divider value '%s' - expecting 0b00, 0b01, 0b10 or 0b11\n", div.c_str());
             if (bool_or_default(ci->attrs, ctx->id("ROUTE_THROUGH_FABRIC"))) {
                 replace_port(ci, ctx->id("CLKHF"), packed.get(), ctx->id("CLKHF_FABRIC"));
+                set_period(packed.get(), ctx->id("CLKHF_FABRIC"), 1000000 / frequency);
             } else {
                 replace_port(ci, ctx->id("CLKHF"), packed.get(), ctx->id("CLKHF"));
                 std::unique_ptr<CellInfo> gb =
                         create_padin_gbuf(ctx, packed.get(), ctx->id("CLKHF"), "$gbuf_" + ci->name.str(ctx) + "_hfosc");
+                set_period(gb.get(), id_GLOBAL_BUFFER_OUTPUT, 1000000 / frequency);
                 new_cells.push_back(std::move(gb));
             }
             new_cells.push_back(std::move(packed));

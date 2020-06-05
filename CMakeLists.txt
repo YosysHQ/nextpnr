@@ -14,13 +14,33 @@ option(SERIALIZE_CHIPDB "Never build chipdb in parallel to reduce peak memory us
 
 set(Boost_NO_BOOST_CMAKE ON)
 
+if(WASI)
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lwasi-emulated-mman")
+    set(USE_THREADS OFF)
+    add_definitions(
+        -DBOOST_EXCEPTION_DISABLE
+        -DBOOST_NO_EXCEPTIONS
+        -DBOOST_SP_NO_ATOMIC_ACCESS
+        -DBOOST_AC_DISABLE_THREADS
+        -DBOOST_NO_CXX11_HDR_MUTEX
+    )
+else()
+    set(USE_THREADS ON)
+endif()
+
+if (NOT USE_THREADS)
+    add_definitions(-DNPNR_DISABLE_THREADS)
+endif()
+
 set(link_param "")
 if (STATIC_BUILD)
     set(Boost_USE_STATIC_LIBS   ON)
     if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-    elseif(${CMAKE_SYSTEM_NAME} MATCHES "Windows" AND MSVC)
-        set(CMAKE_CXX_FLAGS_RELEASE "/MT")
-        set(CMAKE_CXX_FLAGS_DEBUG "/MTd")
+    elseif(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
+        if (MSVC)
+            set(CMAKE_CXX_FLAGS_RELEASE "/MT")
+            set(CMAKE_CXX_FLAGS_DEBUG "/MTd")
+        endif()
         if (BUILD_PYTHON)
             add_definitions(-DBOOST_PYTHON_STATIC_LIB)
         endif()
@@ -42,6 +62,8 @@ if (EXTERNAL_CHIPDB)
     endif()
     add_definitions("-DEXTERNAL_CHIPDB_ROOT=\"${EXTERNAL_CHIPDB_ROOT}\"")
 endif()
+
+set(PROGRAM_PREFIX "" CACHE STRING "Name prefix for executables")
 
 # List of families to build
 set(FAMILIES generic ice40 ecp5 machxo2)
@@ -82,7 +104,6 @@ else()
         set(CMAKE_CXX_FLAGS_RELEASE "-Wall -fPIC -O3 -g -pipe")
     endif()
 endif()
-set(CMAKE_DEFIN)
 
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/3rdparty/sanitizers-cmake/cmake;." ${CMAKE_MODULE_PATH})
 
@@ -97,7 +118,10 @@ endif()
 find_package(Sanitizers)
 
 # List of Boost libraries to include
-set(boost_libs filesystem thread program_options iostreams system)
+set(boost_libs filesystem program_options iostreams system)
+if (USE_THREADS)
+    list(APPEND boost_libs thread)
+endif()
 
 if (BUILD_GUI AND NOT BUILD_PYTHON)
     message(FATAL_ERROR "GUI requires Python to build")
@@ -226,9 +250,13 @@ foreach (family ${ARCH})
     endif()
 
     # Add the CLI binary target
-    add_executable(nextpnr-${family} ${COMMON_FILES} ${${ufamily}_FILES})
-    install(TARGETS nextpnr-${family} RUNTIME DESTINATION bin)
-    target_compile_definitions(nextpnr-${family} PRIVATE MAIN_EXECUTABLE)
+    add_executable(${PROGRAM_PREFIX}nextpnr-${family} ${COMMON_FILES} ${${ufamily}_FILES})
+    if (WASI)
+        # set(CMAKE_EXECUTABLE_SUFFIX) breaks CMake tests for some reason
+        set_property(TARGET ${PROGRAM_PREFIX}nextpnr-${family} PROPERTY SUFFIX ".wasm")
+    endif()
+    install(TARGETS ${PROGRAM_PREFIX}nextpnr-${family} RUNTIME DESTINATION bin)
+    target_compile_definitions(${PROGRAM_PREFIX}nextpnr-${family} PRIVATE MAIN_EXECUTABLE)
 
     # Add any new per-architecture targets here
     if (BUILD_TESTS)
@@ -237,8 +265,8 @@ foreach (family ${ARCH})
             set(COVERAGE_LCOV_EXCLUDES '/usr/include/*' '3rdparty/*' 'generated/*' 'bba/*' 'tests/*')
             SETUP_TARGET_FOR_COVERAGE_LCOV(
                 NAME ${family}-coverage
-                EXECUTABLE nextpnr-${family}-test
-                DEPENDENCIES nextpnr-${family}-test
+                EXECUTABLE ${PROGRAM_PREFIX}nextpnr-${family}-test
+                DEPENDENCIES ${PROGRAM_PREFIX}nextpnr-${family}-test
             )
         endif()
 
@@ -247,19 +275,19 @@ foreach (family ${ARCH})
             aux_source_directory(tests/gui/ GUI_TEST_FILES)
         endif()
 
-        add_executable(nextpnr-${family}-test ${${ufamily}_TEST_FILES}
+        add_executable(${PROGRAM_PREFIX}nextpnr-${family}-test ${${ufamily}_TEST_FILES}
                 ${COMMON_FILES} ${${ufamily}_FILES} ${GUI_TEST_FILES})
-        target_link_libraries(nextpnr-${family}-test PRIVATE gtest_main)
-        add_sanitizers(nextpnr-${family}-test)
+        target_link_libraries(${PROGRAM_PREFIX}nextpnr-${family}-test PRIVATE gtest_main)
+        add_sanitizers(${PROGRAM_PREFIX}nextpnr-${family}-test)
 
         add_test(${family}-test ${CMAKE_CURRENT_BINARY_DIR}/nextpnr-${family}-test)
     endif()
 
     # Set ${family_targets} to the list of targets being build for this family
-    set(family_targets nextpnr-${family})
+    set(family_targets ${PROGRAM_PREFIX}nextpnr-${family})
 
     if (BUILD_TESTS)
-        set(family_targets ${family_targets} nextpnr-${family}-test)
+        set(family_targets ${family_targets} ${PROGRAM_PREFIX}nextpnr-${family}-test)
     endif()
 
     # Include the family-specific CMakeFile
@@ -283,7 +311,7 @@ foreach (family ${ARCH})
             if (STATIC_BUILD)
                 target_link_libraries(${target} LINK_PUBLIC ${CMAKE_THREAD_LIBS_INIT} ${CMAKE_DL_LIBS} ${ZLIB_LIBRARIES} ${EXPAT_LIBRARIES})
                 if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-                elseif(${CMAKE_SYSTEM_NAME} MATCHES "Windows" AND MSVC)
+                elseif(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
                 else()
                     target_link_libraries(${target} LINK_PUBLIC -lutil)
                 endif()
