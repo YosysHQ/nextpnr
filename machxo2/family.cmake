@@ -1,0 +1,114 @@
+if (BUILD_GUI)
+    message(FATAL_ERROR "GUI support is not implemented for MachXO2.")
+endif()
+
+if (NOT EXTERNAL_CHIPDB)
+    set(devices 1200)
+
+    set(TRELLIS_PROGRAM_PREFIX "" CACHE STRING "Name prefix for trellis")
+
+    if (NOT DEFINED TRELLIS_INSTALL_PREFIX)
+        message(STATUS "TRELLIS_INSTALL_PREFIX not defined using -DTRELLIS_INSTALL_PREFIX=/path-prefix/to/prjtrellis-installation. Defaulted to ${CMAKE_INSTALL_PREFIX}")
+        set(TRELLIS_INSTALL_PREFIX ${CMAKE_INSTALL_PREFIX})
+    endif()
+
+    if (NOT DEFINED PYTRELLIS_LIBDIR)
+        find_library(PYTRELLIS pytrellis.so
+            PATHS ${TRELLIS_INSTALL_PREFIX}/lib/${TRELLIS_PROGRAM_PREFIX}trellis
+            PATH_SUFFIXES ${TRELLIS_PROGRAM_PREFIX}trellis
+            DOC "Location of pytrellis library")
+
+        if ("${PYTRELLIS}" STREQUAL "PYTRELLIS-NOTFOUND")
+            message(FATAL_ERROR "Failed to locate pytrellis library!")
+        endif()
+
+        get_filename_component(PYTRELLIS_LIBDIR ${PYTRELLIS} DIRECTORY)
+    endif()
+
+    set(DB_PY ${CMAKE_CURRENT_SOURCE_DIR}/machxo2/facade_import.py)
+
+    file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/machxo2/chipdbs/)
+    add_library(machxo2_chipdb OBJECT ${CMAKE_CURRENT_BINARY_DIR}/machxo2/chipdbs/)
+    target_compile_definitions(machxo2_chipdb PRIVATE NEXTPNR_NAMESPACE=nextpnr_${family})
+    target_include_directories(machxo2_chipdb PRIVATE ${family}/)
+
+    if (CMAKE_HOST_WIN32)
+        set(ENV_CMD ${CMAKE_COMMAND} -E env "PYTHONPATH=\"${PYTRELLIS_LIBDIR}\;${TRELLIS_INSTALL_PREFIX}/share/${TRELLIS_PROGRAM_PREFIX}trellis/util/common\;${TRELLIS_INSTALL_PREFIX}/share/${TRELLIS_PROGRAM_PREFIX}trellis/timing/util\"")
+    else()
+        set(ENV_CMD ${CMAKE_COMMAND} -E env "PYTHONPATH=${PYTRELLIS_LIBDIR}\:${TRELLIS_INSTALL_PREFIX}/share/${TRELLIS_PROGRAM_PREFIX}trellis/util/common:${TRELLIS_INSTALL_PREFIX}/share/${TRELLIS_PROGRAM_PREFIX}trellis/timing/util")
+    endif()
+
+    if (MSVC)
+        target_sources(machxo2_chipdb PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/machxo2/resource/embed.cc)
+        set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/machxo2/resources/chipdb.rc PROPERTIES LANGUAGE RC)
+        set(PREV_DEV_CC_BBA_DB)
+        foreach (dev ${devices})
+            set(DEV_CC_DB ${CMAKE_CURRENT_BINARY_DIR}/machxo2/chipdbs/chipdb-${dev}.bin)
+            set(DEV_CC_BBA_DB ${CMAKE_CURRENT_BINARY_DIR}/machxo2/chipdbs/chipdb-${dev}.bba)
+            set(DEV_CONSTIDS_INC ${CMAKE_CURRENT_SOURCE_DIR}/machxo2/constids.inc)
+            if (PREGENERATED_BBA_PATH)
+                add_custom_command(OUTPUT ${DEV_CC_DB}
+                    COMMAND bbasm ${BBASM_ENDIAN_FLAG} ${PREGENERATED_BBA_PATH}/chipdb-${dev}.bba ${DEV_CC_DB}
+                    )
+            else()
+                add_custom_command(OUTPUT ${DEV_CC_BBA_DB}
+                    COMMAND ${ENV_CMD} ${PYTHON_EXECUTABLE} ${DB_PY} -p ${DEV_CONSTIDS_INC} ${dev} > ${DEV_CC_BBA_DB}
+                    DEPENDS ${DB_PY} ${DEV_CONSTIDS_INC} ${PREV_DEV_CC_BBA_DB}
+                    )
+                add_custom_command(OUTPUT ${DEV_CC_DB}
+                    COMMAND bbasm ${BBASM_ENDIAN_FLAG} ${DEV_CC_BBA_DB} ${DEV_CC_DB}
+                    DEPENDS bbasm ${DEV_CC_BBA_DB}
+                    )
+            endif()
+            if (SERIALIZE_CHIPDB)
+                set(PREV_DEV_CC_BBA_DB ${DEV_CC_BBA_DB})
+            endif()
+            target_sources(machxo2_chipdb PRIVATE ${DEV_CC_DB})
+            set_source_files_properties(${DEV_CC_DB} PROPERTIES HEADER_FILE_ONLY TRUE)
+            foreach (target ${family_targets})
+                target_sources(${target} PRIVATE $<TARGET_OBJECTS:machxo2_chipdb> ${CMAKE_CURRENT_SOURCE_DIR}/machxo2/resource/chipdb.rc)
+            endforeach()
+        endforeach()
+    else()
+        target_compile_options(machxo2_chipdb PRIVATE -g0 -O0 -w)
+        set(PREV_DEV_CC_BBA_DB)
+        foreach (dev ${devices})
+            set(DEV_CC_BBA_DB ${CMAKE_CURRENT_BINARY_DIR}/machxo2/chipdbs/chipdb-${dev}.bba)
+            set(DEV_CC_DB ${CMAKE_CURRENT_BINARY_DIR}/machxo2/chipdbs/chipdb-${dev}.cc)
+            set(DEV_BIN_DB ${CMAKE_CURRENT_BINARY_DIR}/machxo2/chipdbs/chipdb-${dev}.bin)
+            set(DEV_CONSTIDS_INC ${CMAKE_CURRENT_SOURCE_DIR}/machxo2/constids.inc)
+            if (PREGENERATED_BBA_PATH)
+                add_custom_command(OUTPUT ${DEV_CC_DB}
+                    COMMAND bbasm --c ${BBASM_ENDIAN_FLAG} ${PREGENERATED_BBA_PATH}/chipdb-${dev}.bba ${DEV_CC_DB}.new
+                    COMMAND mv ${DEV_CC_DB}.new ${DEV_CC_DB}
+                    )
+            else()
+                add_custom_command(OUTPUT ${DEV_CC_BBA_DB}
+                    COMMAND ${ENV_CMD} ${PYTHON_EXECUTABLE} ${DB_PY} -p ${DEV_CONSTIDS_INC} ${dev} > ${DEV_CC_BBA_DB}.new
+                    COMMAND mv ${DEV_CC_BBA_DB}.new ${DEV_CC_BBA_DB}
+                    DEPENDS ${DB_PY} ${DEV_CONSTIDS_INC} ${PREV_DEV_CC_BBA_DB}
+                    )
+                if(USE_C_EMBED)
+                    add_custom_command(OUTPUT ${DEV_CC_DB}
+                        COMMAND bbasm --e ${BBASM_ENDIAN_FLAG} ${DEV_CC_BBA_DB} ${DEV_CC_DB}.new ${DEV_BIN_DB}
+                        COMMAND mv ${DEV_CC_DB}.new ${DEV_CC_DB}
+                        DEPENDS bbasm ${DEV_CC_BBA_DB}
+                        )
+                else()
+                    add_custom_command(OUTPUT ${DEV_CC_DB}
+                        COMMAND bbasm --c ${BBASM_ENDIAN_FLAG} ${DEV_CC_BBA_DB} ${DEV_CC_DB}.new
+                        COMMAND mv ${DEV_CC_DB}.new ${DEV_CC_DB}
+                        DEPENDS bbasm ${DEV_CC_BBA_DB}
+                        )
+                endif()
+            endif()
+            if (SERIALIZE_CHIPDB)
+                set(PREV_DEV_CC_BBA_DB ${DEV_CC_BBA_DB})
+            endif()
+            target_sources(machxo2_chipdb PRIVATE ${DEV_CC_DB})
+            foreach (target ${family_targets})
+                target_sources(${target} PRIVATE $<TARGET_OBJECTS:machxo2_chipdb>)
+            endforeach()
+        endforeach()
+    endif()
+endif()
