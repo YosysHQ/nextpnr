@@ -291,11 +291,12 @@ class Ecp5GlobalRouter
     }
 
     // Get DCC wirelength based on source
-    wirelen_t get_dcc_wirelen(CellInfo *dcc)
+    wirelen_t get_dcc_wirelen(CellInfo *dcc, bool &dedicated_routing)
     {
         NetInfo *clki = dcc->ports.at(id_CLKI).net;
         BelId drv_bel;
         const PortRef &drv = clki->driver;
+        dedicated_routing = false;
         if (drv.cell == nullptr) {
             return 0;
         } else if (drv.cell->attrs.count(ctx->id("BEL"))) {
@@ -326,6 +327,7 @@ class Ecp5GlobalRouter
             if (has_short_route(ctx->getBelPinWire(drv_bel, drv.port), ctx->getBelPinWire(dcc->bel, id_CLKI))) {
                 // log_info("dedicated route %s -> %s\n", ctx->getWireName(ctx->getBelPinWire(drv_bel,
                 // drv.port)).c_str(ctx), ctx->getBelName(dcc->bel).c_str(ctx));
+                dedicated_routing = true;
                 return 0;
             }
             // Driver is locked
@@ -375,12 +377,31 @@ class Ecp5GlobalRouter
         return length < thresh;
     }
 
+    std::unordered_set<WireId> used_pclkcib;
+
+    std::set<WireId> get_candidate_pclkcibs(BelId dcc)
+    {
+        std::set<WireId> candidates;
+        WireId dcc_i = ctx->getBelPinWire(dcc, id_CLKI);
+        WireId dcc_mux = ctx->getPipSrcWire(*(ctx->getPipsUphill(dcc_i).begin()));
+        for (auto pip : ctx->getPipsUphill(dcc_mux)) {
+            WireId src = ctx->getPipSrcWire(pip);
+            std::string basename = ctx->nameOf(ctx->getWireBasename(src));
+            if (basename.find("QPCLKCIB") == std::string::npos)
+                continue;
+            candidates.insert(src);
+        }
+        return candidates;
+    }
+
     // Attempt to place a DCC
     void place_dcc(CellInfo *dcc)
     {
         BelId best_bel;
+        WireId best_bel_pclkcib;
         bool using_ce = get_net_or_empty(dcc, ctx->id("CE")) != nullptr;
         wirelen_t best_wirelen = 9999999;
+        bool dedicated_routing = false;
         for (auto bel : ctx->getBels()) {
             if (ctx->getBelType(bel) == id_DCCA && ctx->checkBelAvail(bel)) {
                 if (ctx->isValidBelForCell(dcc, bel)) {
@@ -388,17 +409,38 @@ class Ecp5GlobalRouter
                     if (belname.at(0) == 'D' && using_ce)
                         continue; // don't allow DCCs with CE at center
                     ctx->bindBel(bel, dcc, STRENGTH_LOCKED);
-                    wirelen_t wirelen = get_dcc_wirelen(dcc);
+                    wirelen_t wirelen = get_dcc_wirelen(dcc, dedicated_routing);
                     if (wirelen < best_wirelen) {
+                        if (dedicated_routing) {
+                            best_bel_pclkcib = WireId();
+                        } else {
+                            bool found_pclkcib = false;
+                            for (WireId pclkcib : get_candidate_pclkcibs(bel)) {
+                                if (used_pclkcib.count(pclkcib))
+                                    continue;
+                                found_pclkcib = true;
+                                best_bel_pclkcib = pclkcib;
+                                break;
+                            }
+                            if (!found_pclkcib)
+                                goto pclkcib_fail;
+                        }
                         best_bel = bel;
                         best_wirelen = wirelen;
                     }
+                pclkcib_fail:
                     ctx->unbindBel(bel);
                 }
             }
         }
         NPNR_ASSERT(best_bel != BelId());
         ctx->bindBel(best_bel, dcc, STRENGTH_LOCKED);
+        if (best_bel_pclkcib != WireId()) {
+            used_pclkcib.insert(best_bel_pclkcib);
+            if (ctx->verbose)
+                log_info("        preliminary allocation of PCLKCIB '%s' to DCC '%s' at '%s'\n",
+                         ctx->nameOfWire(best_bel_pclkcib), ctx->nameOf(dcc), ctx->nameOfBel(best_bel));
+        }
     }
 
     // Insert a DCC into a net to promote it to a global
