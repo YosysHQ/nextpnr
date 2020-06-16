@@ -57,7 +57,7 @@ std::unique_ptr<CellInfo> create_ecp5_cell(Context *ctx, IdString type, std::str
         }
     };
 
-    if (type == ctx->id("TRELLIS_SLICE")) {
+    if (type == id_TRELLIS_SLICE) {
         new_cell->params[ctx->id("MODE")] = std::string("LOGIC");
         new_cell->params[ctx->id("GSR")] = std::string("DISABLED");
         new_cell->params[ctx->id("SRMODE")] = std::string("LSR_OVER_CE");
@@ -124,7 +124,54 @@ std::unique_ptr<CellInfo> create_ecp5_cell(Context *ctx, IdString type, std::str
         add_port(ctx, new_cell.get(), "WADO1", PORT_OUT);
         add_port(ctx, new_cell.get(), "WADO2", PORT_OUT);
         add_port(ctx, new_cell.get(), "WADO3", PORT_OUT);
-    } else if (type == ctx->id("TRELLIS_IO")) {
+    } else if (type == id_TRELLIS_COMB) {
+        new_cell->params[ctx->id("MODE")] = std::string("LOGIC");
+        new_cell->params[ctx->id("INITVAL")] = Property(0, 16);
+        new_cell->params[ctx->id("CCU2_INJECT1")] = std::string("NO");
+        new_cell->params[ctx->id("WREMUX")] = std::string("WRE");
+
+        add_port(ctx, new_cell.get(), "A", PORT_IN);
+        add_port(ctx, new_cell.get(), "B", PORT_IN);
+        add_port(ctx, new_cell.get(), "C", PORT_IN);
+        add_port(ctx, new_cell.get(), "D", PORT_IN);
+
+        add_port(ctx, new_cell.get(), "M", PORT_IN);
+        add_port(ctx, new_cell.get(), "F1", PORT_IN);
+        add_port(ctx, new_cell.get(), "FXA", PORT_IN);
+        add_port(ctx, new_cell.get(), "FXB", PORT_IN);
+
+        add_port(ctx, new_cell.get(), "FCI", PORT_IN);
+
+        add_port(ctx, new_cell.get(), "WD", PORT_IN);
+        add_port(ctx, new_cell.get(), "WAD0", PORT_IN);
+        add_port(ctx, new_cell.get(), "WAD1", PORT_IN);
+        add_port(ctx, new_cell.get(), "WAD2", PORT_IN);
+        add_port(ctx, new_cell.get(), "WAD3", PORT_IN);
+        add_port(ctx, new_cell.get(), "WRE", PORT_IN);
+        add_port(ctx, new_cell.get(), "WCK", PORT_IN);
+
+        add_port(ctx, new_cell.get(), "F", PORT_OUT);
+        add_port(ctx, new_cell.get(), "FCI", PORT_OUT);
+    } else if (type == id_TRELLIS_RAMW) {
+        add_port(ctx, new_cell.get(), "A0", PORT_IN);
+        add_port(ctx, new_cell.get(), "B0", PORT_IN);
+        add_port(ctx, new_cell.get(), "C0", PORT_IN);
+        add_port(ctx, new_cell.get(), "D0", PORT_IN);
+
+        add_port(ctx, new_cell.get(), "A1", PORT_IN);
+        add_port(ctx, new_cell.get(), "B1", PORT_IN);
+        add_port(ctx, new_cell.get(), "C1", PORT_IN);
+        add_port(ctx, new_cell.get(), "D1", PORT_IN);
+
+        add_port(ctx, new_cell.get(), "WDO0", PORT_OUT);
+        add_port(ctx, new_cell.get(), "WDO1", PORT_OUT);
+        add_port(ctx, new_cell.get(), "WDO2", PORT_OUT);
+        add_port(ctx, new_cell.get(), "WDO3", PORT_OUT);
+        add_port(ctx, new_cell.get(), "WADO0", PORT_OUT);
+        add_port(ctx, new_cell.get(), "WADO1", PORT_OUT);
+        add_port(ctx, new_cell.get(), "WADO2", PORT_OUT);
+        add_port(ctx, new_cell.get(), "WADO3", PORT_OUT);
+    } else if (type == id_TRELLIS_IO) {
         new_cell->params[ctx->id("DIR")] = std::string("INPUT");
         new_cell->attrs[ctx->id("IO_TYPE")] = std::string("LVCMOS33");
         new_cell->params[ctx->id("DATAMUX_ODDR")] = std::string("PADDO");
@@ -168,7 +215,7 @@ std::unique_ptr<CellInfo> create_ecp5_cell(Context *ctx, IdString type, std::str
         add_port(ctx, new_cell.get(), "S1", PORT_OUT);
         add_port(ctx, new_cell.get(), "COUT", PORT_OUT);
 
-    } else if (type == ctx->id("DCCA")) {
+    } else if (type == id_DCCA) {
         add_port(ctx, new_cell.get(), "CLKI", PORT_IN);
         add_port(ctx, new_cell.get(), "CLKO", PORT_OUT);
         add_port(ctx, new_cell.get(), "CE", PORT_IN);
@@ -494,6 +541,124 @@ void nxio_to_tr(Context *ctx, CellInfo *nxio, CellInfo *trio, std::vector<std::u
         ctx->nets.erase(donet->name);
         todelete_cells.insert(tbuf->name);
     }
+}
+
+void lut_to_comb(Context *ctx, CellInfo *lut, CellInfo *comb)
+{
+    if (comb->hierpath == IdString())
+        comb->hierpath = lut->hierpath;
+    comb->params[ctx->id("INITVAL")] = get_or_default(lut->params, ctx->id("INIT"), Property(0, 16));
+    replace_port(lut, ctx->id("A"), comb, ctx->id("A"));
+    replace_port(lut, ctx->id("B"), comb, ctx->id("B"));
+    replace_port(lut, ctx->id("C"), comb, ctx->id("C"));
+    replace_port(lut, ctx->id("D"), comb, ctx->id("D"));
+    replace_port(lut, ctx->id("Z"), comb, ctx->id("F"));
+    for (auto &attr : lut->attrs)
+        comb->attrs[attr.first] = attr.second;
+}
+
+void dram_to_ramw_split(Context *ctx, CellInfo *ram, CellInfo *ramw)
+{
+    if (ramw->hierpath == IdString())
+        ramw->hierpath = ramw->hierpath;
+    replace_port(ram, ctx->id("WAD[0]"), ramw, ctx->id("D0"));
+    replace_port(ram, ctx->id("WAD[1]"), ramw, ctx->id("B0"));
+    replace_port(ram, ctx->id("WAD[2]"), ramw, ctx->id("C0"));
+    replace_port(ram, ctx->id("WAD[3]"), ramw, ctx->id("A0"));
+
+    replace_port(ram, ctx->id("DI[0]"), ramw, ctx->id("C1"));
+    replace_port(ram, ctx->id("DI[1]"), ramw, ctx->id("A1"));
+    replace_port(ram, ctx->id("DI[2]"), ramw, ctx->id("D1"));
+    replace_port(ram, ctx->id("DI[3]"), ramw, ctx->id("B1"));
+}
+
+void ccu2_to_comb(Context *ctx, CellInfo *ccu, CellInfo *comb, NetInfo *internal_carry, int i)
+{
+    std::string ii = std::to_string(i);
+    if (comb->hierpath == IdString())
+        comb->hierpath = ccu->hierpath;
+
+    comb->params[ctx->id("MODE")] = std::string("CCU2");
+    comb->params[ctx->id("INITVAL")] = get_or_default(ccu->params, ctx->id("INIT" + ii), Property(0, 16));
+    comb->params[ctx->id("CCU2_INJECT1")] = str_or_default(ccu->params, ctx->id("INJECT1_" + ii), "YES");
+
+    replace_port(ccu, ctx->id("A" + ii), comb, ctx->id("A"));
+    replace_port(ccu, ctx->id("B" + ii), comb, ctx->id("B"));
+    replace_port(ccu, ctx->id("C" + ii), comb, ctx->id("C"));
+    replace_port(ccu, ctx->id("D" + ii), comb, ctx->id("D"));
+
+    replace_port(ccu, ctx->id("S" + ii), comb, ctx->id("F"));
+
+    if (i == 0) {
+        replace_port(ccu, ctx->id("CIN"), comb, ctx->id("FCI"));
+        connect_port(ctx, internal_carry, comb, ctx->id("FCO"));
+    } else if (i == 1) {
+        connect_port(ctx, internal_carry, comb, ctx->id("FCI"));
+        replace_port(ccu, ctx->id("COUT"), comb, ctx->id("FCO"));
+    } else {
+        NPNR_ASSERT_FALSE("bad carry index!");
+    }
+
+    for (auto &attr : ccu->attrs)
+        comb->attrs[attr.first] = attr.second;
+}
+
+void dram_to_comb(Context *ctx, CellInfo *ram, CellInfo *comb, CellInfo *ramw, int index)
+{
+    if (comb->hierpath == IdString())
+        comb->hierpath = ram->hierpath;
+    comb->params[ctx->id("MODE")] = std::string("DPRAM");
+    comb->params[ctx->id("WREMUX")] = str_or_default(ram->params, ctx->id("WREMUX"), "WRE");
+    comb->params[ctx->id("WCKMUX")] = str_or_default(ram->params, ctx->id("WCKMUX"), "WCK");
+
+    unsigned permuted_init = 0;
+    unsigned init = get_dram_init(ctx, ram, index);
+
+    for (int i = 0; i < 16; i++) {
+        int permuted_addr = 0;
+        if (i & 1)
+            permuted_addr |= 8;
+        if (i & 2)
+            permuted_addr |= 2;
+        if (i & 4)
+            permuted_addr |= 4;
+        if (i & 8)
+            permuted_addr |= 1;
+        if (init & (1 << permuted_addr))
+            permuted_init |= (1 << i);
+    }
+
+    comb->params[ctx->id("INITVAL")] = Property(permuted_init, 16);
+
+    if (ram->ports.count(ctx->id("RAD[0]")))
+        connect_port(ctx, ram->ports.at(ctx->id("RAD[0]")).net, comb, ctx->id("D"));
+
+    if (ram->ports.count(ctx->id("RAD[1]")))
+        connect_port(ctx, ram->ports.at(ctx->id("RAD[1]")).net, comb, ctx->id("B"));
+
+    if (ram->ports.count(ctx->id("RAD[2]")))
+        connect_port(ctx, ram->ports.at(ctx->id("RAD[2]")).net, comb, ctx->id("C"));
+
+    if (ram->ports.count(ctx->id("RAD[3]")))
+        connect_port(ctx, ram->ports.at(ctx->id("RAD[3]")).net, comb, ctx->id("A"));
+
+    if (ram->ports.count(ctx->id("WRE")))
+        connect_port(ctx, ram->ports.at(ctx->id("WRE")).net, comb, ctx->id("WRE"));
+    if (ram->ports.count(ctx->id("WCK")))
+        connect_port(ctx, ram->ports.at(ctx->id("WCK")).net, comb, ctx->id("WCK"));
+
+    connect_ports(ctx, ramw, id_WADO0, comb, id_WAD0);
+    connect_ports(ctx, ramw, id_WADO1, comb, id_WAD1);
+    connect_ports(ctx, ramw, id_WADO2, comb, id_WAD2);
+    connect_ports(ctx, ramw, id_WADO3, comb, id_WAD3);
+
+    NPNR_ASSERT(index < 4);
+    std::string ii = std::to_string(index);
+    connect_ports(ctx, ramw, ctx->id("WDO" + ii), comb, id_WD);
+    replace_port(ram, ctx->id("DO[" + ii + "]"), comb, id_F);
+
+    for (auto &attr : ram->attrs)
+        comb->attrs[attr.first] = attr.second;
 }
 
 NEXTPNR_NAMESPACE_END

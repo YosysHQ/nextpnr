@@ -66,6 +66,11 @@ void ccu2c_to_slice(Context *ctx, CellInfo *ccu, CellInfo *lc);
 void dram_to_ramw(Context *ctx, CellInfo *ram, CellInfo *lc);
 void dram_to_ram_slice(Context *ctx, CellInfo *ram, CellInfo *lc, CellInfo *ramw, int index);
 
+void lut_to_comb(Context *ctx, CellInfo *lut, CellInfo *comb);
+void dram_to_ramw_split(Context *ctx, CellInfo *ram, CellInfo *ramw);
+void ccu2_to_comb(Context *ctx, CellInfo *ccu, CellInfo *comb, NetInfo *internal_carry, int i);
+void dram_to_comb(Context *ctx, CellInfo *ram, CellInfo *comb, CellInfo *ramw, int index);
+
 // Convert a nextpnr IO buffer to a TRELLIS_IO
 void nxio_to_tr(Context *ctx, CellInfo *nxio, CellInfo *trio, std::vector<std::unique_ptr<CellInfo>> &created_cells,
                 std::unordered_set<IdString> &todelete_cells);
