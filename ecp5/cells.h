@@ -38,6 +38,9 @@ inline bool is_carry(const BaseCtx *ctx, const CellInfo *cell) { return cell->ty
 
 inline bool is_lc(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("TRELLIS_SLICE"); }
 
+inline bool is_packed_comb(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == id_TRELLIS_COMB; }
+inline bool is_packed_ramw(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == id_TRELLIS_RAMW; }
+
 inline bool is_trellis_io(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("TRELLIS_IO"); }
 
 inline bool is_dpram(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("TRELLIS_DPR16X4"); }

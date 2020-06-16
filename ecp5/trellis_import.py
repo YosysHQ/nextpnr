@@ -623,6 +623,12 @@ def main():
 
     # print("Initialising chip...")
     chip = pytrellis.Chip(dev_names[args.device])
+
+    if not hasattr(chip, "set_split_slice_mode"):
+        assert False, "Trellis is too old to support split-slice mode, please update!!"
+
+    chip.set_split_slice_mode(True)
+
     # print("Building routing graph...")
     ddrg = pytrellis.make_dedup_chipdb(chip)
     max_row = chip.get_max_row()
