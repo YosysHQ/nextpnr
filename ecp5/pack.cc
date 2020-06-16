@@ -122,16 +122,6 @@ class Ecp5Packer
         }
     }
 
-    // Check if a flipflop is available in a slice
-    bool is_ff_available(CellInfo *slice, int ff)
-    {
-        if (get_net_or_empty(slice, (ff == 1) ? id_Q1 : id_Q0) != nullptr)
-            return false;
-        if (get_net_or_empty(slice, (ff == 1) ? id_M1 : id_M0) != nullptr)
-            return false;
-        return true;
-    }
-
     // Check if a flipflop can be added to a slice
     bool can_add_ff_to_slice(CellInfo *slice, CellInfo *ff)
     {
@@ -209,27 +199,6 @@ class Ecp5Packer
         return true;
     }
 
-    // Return whether or not an FF can be added to a tile (pairing checks must also be done using the fn above)
-    bool can_add_ff_to_tile(const std::vector<CellInfo *> &tile_ffs, CellInfo *ff0)
-    {
-        for (const auto &existing : tile_ffs) {
-            if (net_or_nullptr(existing, ctx->id("CLK")) != net_or_nullptr(ff0, ctx->id("CLK")))
-                return false;
-            if (net_or_nullptr(existing, ctx->id("LSR")) != net_or_nullptr(ff0, ctx->id("LSR")))
-                return false;
-            if (str_or_default(existing->params, ctx->id("CLKMUX"), "CLK") !=
-                str_or_default(ff0->params, ctx->id("CLKMUX"), "CLK"))
-                return false;
-            if (str_or_default(existing->params, ctx->id("LSRMUX"), "LSR") !=
-                str_or_default(ff0->params, ctx->id("LSRMUX"), "LSR"))
-                return false;
-            if (str_or_default(existing->params, ctx->id("SRMODE"), "LSR_OVER_CE") !=
-                str_or_default(ff0->params, ctx->id("SRMODE"), "LSR_OVER_CE"))
-                return false;
-        }
-        return true;
-    }
-
     // Return true if a FF can be added to a DPRAM slice
     bool can_pack_ff_dram(CellInfo *dpram, CellInfo *ff)
     {
@@ -244,158 +213,6 @@ class Ecp5Packer
         if (wremux != lsrmux && !(wremux == "WRE" && lsrmux == "LSR"))
             return false;
         return true;
-    }
-
-    // Return true if two LUTs can be paired considering FF compatibility
-    bool can_pack_lutff(IdString lut0, IdString lut1)
-    {
-        auto ff0 = lutffPairs.find(lut0), ff1 = lutffPairs.find(lut1);
-        if (ff0 != lutffPairs.end() && ff1 != lutffPairs.end()) {
-            return can_pack_ffs(ctx->cells.at(ff0->second).get(), ctx->cells.at(ff1->second).get());
-        } else {
-            return true;
-        }
-    }
-
-    // Find "closely connected" LUTs and pair them together
-    void pair_luts()
-    {
-        log_info("Finding LUT-LUT pairs...\n");
-        std::unordered_set<IdString> procdLuts;
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
-            if (is_lut(ctx, ci) && procdLuts.find(cell.first) == procdLuts.end()) {
-                NetInfo *znet = ci->ports.at(ctx->id("Z")).net;
-                std::vector<NetInfo *> inpnets;
-                if (znet != nullptr) {
-                    for (auto user : znet->users) {
-                        if (is_lut(ctx, user.cell) && user.cell != ci &&
-                            procdLuts.find(user.cell->name) == procdLuts.end()) {
-                            if (can_pack_lutff(ci->name, user.cell->name)) {
-                                procdLuts.insert(ci->name);
-                                procdLuts.insert(user.cell->name);
-                                lutPairs[ci->name] = user.cell->name;
-                                goto paired;
-                            }
-                        }
-                    }
-                    if (false) {
-                    paired:
-                        continue;
-                    }
-                }
-                if (lutffPairs.find(ci->name) != lutffPairs.end()) {
-                    NetInfo *qnet = ctx->cells.at(lutffPairs[ci->name])->ports.at(ctx->id("Q")).net;
-                    if (qnet != nullptr) {
-                        for (auto user : qnet->users) {
-                            if (is_lut(ctx, user.cell) && user.cell != ci &&
-                                procdLuts.find(user.cell->name) == procdLuts.end()) {
-                                if (can_pack_lutff(ci->name, user.cell->name)) {
-                                    procdLuts.insert(ci->name);
-                                    procdLuts.insert(user.cell->name);
-                                    lutPairs[ci->name] = user.cell->name;
-                                    goto paired_ff;
-                                }
-                            }
-                        }
-                        if (false) {
-                        paired_ff:
-                            continue;
-                        }
-                    }
-                }
-                for (const char *inp : {"A", "B", "C", "D"}) {
-                    if (!ci->ports.count(ctx->id(inp)))
-                        continue;
-                    NetInfo *innet = ci->ports.at(ctx->id(inp)).net;
-                    if (innet != nullptr && innet->driver.cell != nullptr) {
-                        CellInfo *drv = innet->driver.cell;
-                        if (is_lut(ctx, drv) && drv != ci && innet->driver.port == ctx->id("Z")) {
-                            if (procdLuts.find(drv->name) == procdLuts.end()) {
-                                if (can_pack_lutff(ci->name, drv->name)) {
-                                    procdLuts.insert(ci->name);
-                                    procdLuts.insert(drv->name);
-                                    lutPairs[ci->name] = drv->name;
-                                    goto paired_inlut;
-                                }
-                            }
-                        } else if (is_ff(ctx, drv) && innet->driver.port == ctx->id("Q")) {
-                            auto fflut = fflutPairs.find(drv->name);
-                            if (fflut != fflutPairs.end() && fflut->second != ci->name &&
-                                procdLuts.find(fflut->second) == procdLuts.end()) {
-                                if (can_pack_lutff(ci->name, fflut->second)) {
-                                    procdLuts.insert(ci->name);
-                                    procdLuts.insert(fflut->second);
-                                    lutPairs[ci->name] = fflut->second;
-                                    goto paired_inlut;
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Pack LUTs feeding the same CCU2, RAM or DFF into a SLICE
-                if (znet != nullptr && znet->users.size() < 10) {
-                    for (auto user : znet->users) {
-                        if (is_lc(ctx, user.cell) || user.cell->type == ctx->id("DP16KD") || is_ff(ctx, user.cell)) {
-                            for (auto port : user.cell->ports) {
-                                if (port.second.type != PORT_IN || port.second.net == nullptr ||
-                                    port.second.net == znet)
-                                    continue;
-                                if (port.second.net->users.size() > 10)
-                                    continue;
-                                CellInfo *drv = port.second.net->driver.cell;
-                                if (drv == nullptr)
-                                    continue;
-                                if (is_lut(ctx, drv) && !procdLuts.count(drv->name) &&
-                                    can_pack_lutff(ci->name, drv->name)) {
-                                    procdLuts.insert(ci->name);
-                                    procdLuts.insert(drv->name);
-                                    lutPairs[ci->name] = drv->name;
-                                    goto paired_inlut;
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Pack LUTs sharing an input with a simple fanout-based heuristic
-                for (const char *inp : {"A", "B", "C", "D"}) {
-                    if (!ci->ports.count(ctx->id(inp)))
-                        continue;
-                    NetInfo *innet = ci->ports.at(ctx->id(inp)).net;
-                    if (innet != nullptr && innet->users.size() < 5 && innet->users.size() > 1)
-                        inpnets.push_back(innet);
-                }
-                std::sort(inpnets.begin(), inpnets.end(),
-                          [&](const NetInfo *a, const NetInfo *b) { return a->users.size() < b->users.size(); });
-                for (auto inet : inpnets) {
-                    for (auto &user : inet->users) {
-                        if (user.cell == nullptr || user.cell == ci || !is_lut(ctx, user.cell))
-                            continue;
-                        if (procdLuts.count(user.cell->name))
-                            continue;
-                        if (can_pack_lutff(ci->name, user.cell->name)) {
-                            procdLuts.insert(ci->name);
-                            procdLuts.insert(user.cell->name);
-                            lutPairs[ci->name] = user.cell->name;
-                            goto paired_inlut;
-                        }
-                    }
-                }
-
-                if (false) {
-                paired_inlut:
-                    continue;
-                }
-            }
-        }
-        if (ctx->debug) {
-            log_info("Singleton LUTs (packer QoR debug): \n");
-            for (auto cell : sorted(ctx->cells))
-                if (is_lut(ctx, cell.second) && !procdLuts.count(cell.first))
-                    log_info("     %s\n", cell.first.c_str(ctx));
-        }
     }
 
     // Return true if an port is a top level port that provides its own IOBUF
@@ -919,28 +736,6 @@ class Ecp5Packer
 
                 ccu2c_to_slice(ctx, cell, slice.get());
 
-                CellInfo *ff0 = nullptr;
-                NetInfo *f0net = slice->ports.at(ctx->id("F0")).net;
-                if (f0net != nullptr) {
-                    ff0 = net_only_drives(ctx, f0net, is_ff, ctx->id("DI"), false);
-                    if (ff0 != nullptr && can_add_ff_to_tile(tile_ffs, ff0)) {
-                        ff_packing.push_back(std::make_tuple(ff0, slice.get(), 0));
-                        tile_ffs.push_back(ff0);
-                        packed_cells.insert(ff0->name);
-                    }
-                }
-
-                CellInfo *ff1 = nullptr;
-                NetInfo *f1net = slice->ports.at(ctx->id("F1")).net;
-                if (f1net != nullptr) {
-                    ff1 = net_only_drives(ctx, f1net, is_ff, ctx->id("DI"), false);
-                    if (ff1 != nullptr && (ff0 == nullptr || can_pack_ffs(ff0, ff1)) &&
-                        can_add_ff_to_tile(tile_ffs, ff1)) {
-                        ff_packing.push_back(std::make_tuple(ff1, slice.get(), 1));
-                        tile_ffs.push_back(ff1);
-                        packed_cells.insert(ff1->name);
-                    }
-                }
                 packed_chain.push_back(slice.get());
                 new_cells.push_back(std::move(slice));
                 packed_cells.insert(cell->name);
@@ -999,41 +794,6 @@ class Ecp5Packer
                 disconnect_port(ctx, ci, ctx->id("RAD[2]"));
                 disconnect_port(ctx, ci, ctx->id("RAD[3]"));
 
-                // Attempt to pack FFs into RAM slices
-                std::vector<std::tuple<CellInfo *, CellInfo *, int>> ff_packing;
-                std::vector<CellInfo *> tile_ffs;
-                for (auto slice : {ram0_slice.get(), ram1_slice.get()}) {
-                    CellInfo *ff0 = nullptr;
-                    NetInfo *f0net = slice->ports.at(ctx->id("F0")).net;
-                    if (f0net != nullptr) {
-                        ff0 = net_only_drives(ctx, f0net, is_ff, ctx->id("DI"), false);
-                        if (ff0 != nullptr && can_add_ff_to_tile(tile_ffs, ff0)) {
-                            if (can_pack_ff_dram(slice, ff0)) {
-                                ff_packing.push_back(std::make_tuple(ff0, slice, 0));
-                                tile_ffs.push_back(ff0);
-                                packed_cells.insert(ff0->name);
-                            }
-                        }
-                    }
-
-                    CellInfo *ff1 = nullptr;
-                    NetInfo *f1net = slice->ports.at(ctx->id("F1")).net;
-                    if (f1net != nullptr) {
-                        ff1 = net_only_drives(ctx, f1net, is_ff, ctx->id("DI"), false);
-                        if (ff1 != nullptr && (ff0 == nullptr || can_pack_ffs(ff0, ff1)) &&
-                            can_add_ff_to_tile(tile_ffs, ff1)) {
-                            if (can_pack_ff_dram(slice, ff1)) {
-                                ff_packing.push_back(std::make_tuple(ff1, slice, 1));
-                                tile_ffs.push_back(ff1);
-                                packed_cells.insert(ff1->name);
-                            }
-                        }
-                    }
-                }
-
-                for (auto ff : ff_packing)
-                    ff_to_slice(ctx, std::get<0>(ff), std::get<1>(ff), std::get<2>(ff), true);
-
                 // Setup placement constraints
                 ram0_slice->constr_abs_z = true;
                 ram0_slice->constr_z = 0;
@@ -1055,71 +815,6 @@ class Ecp5Packer
                 new_cells.push_back(std::move(ram0_slice));
                 new_cells.push_back(std::move(ram1_slice));
                 new_cells.push_back(std::move(ramw_slice));
-                packed_cells.insert(ci->name);
-            }
-        }
-        flush_cells();
-    }
-
-    // Pack LUTs that have been paired together
-    void pack_lut_pairs()
-    {
-        log_info("Packing paired LUTs into a SLICE...\n");
-        for (auto pair : lutPairs) {
-            CellInfo *lut0 = ctx->cells.at(pair.first).get();
-            CellInfo *lut1 = ctx->cells.at(pair.second).get();
-            std::unique_ptr<CellInfo> slice =
-                    create_ecp5_cell(ctx, ctx->id("TRELLIS_SLICE"), lut0->name.str(ctx) + "_SLICE");
-
-            lut_to_slice(ctx, lut0, slice.get(), 0);
-            lut_to_slice(ctx, lut1, slice.get(), 1);
-
-            auto ff0 = lutffPairs.find(lut0->name);
-
-            if (ff0 != lutffPairs.end()) {
-                ff_to_slice(ctx, ctx->cells.at(ff0->second).get(), slice.get(), 0, true);
-                packed_cells.insert(ff0->second);
-                fflutPairs.erase(ff0->second);
-                lutffPairs.erase(lut0->name);
-            }
-
-            auto ff1 = lutffPairs.find(lut1->name);
-
-            if (ff1 != lutffPairs.end()) {
-                ff_to_slice(ctx, ctx->cells.at(ff1->second).get(), slice.get(), 1, true);
-                packed_cells.insert(ff1->second);
-                fflutPairs.erase(ff1->second);
-                lutffPairs.erase(lut1->name);
-            }
-
-            new_cells.push_back(std::move(slice));
-            packed_cells.insert(lut0->name);
-            packed_cells.insert(lut1->name);
-        }
-        flush_cells();
-    }
-
-    // Pack single LUTs that weren't paired into their own slice,
-    // with an optional FF also
-    void pack_remaining_luts()
-    {
-        log_info("Packing unpaired LUTs into a SLICE...\n");
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
-            if (is_lut(ctx, ci)) {
-                std::unique_ptr<CellInfo> slice =
-                        create_ecp5_cell(ctx, ctx->id("TRELLIS_SLICE"), ci->name.str(ctx) + "_SLICE");
-                lut_to_slice(ctx, ci, slice.get(), 1);
-                auto ff = lutffPairs.find(ci->name);
-
-                if (ff != lutffPairs.end()) {
-                    ff_to_slice(ctx, ctx->cells.at(ff->second).get(), slice.get(), 1, true);
-                    packed_cells.insert(ff->second);
-                    fflutPairs.erase(ff->second);
-                    lutffPairs.erase(ci->name);
-                }
-
-                new_cells.push_back(std::move(slice));
                 packed_cells.insert(ci->name);
             }
         }
@@ -1164,83 +859,6 @@ class Ecp5Packer
             ++iter;
         }
         return nullptr;
-    }
-
-    // Pack flipflops that weren't paired with a LUT
-    float dense_pack_mode_thresh = 0.95f;
-    void pack_remaining_ffs()
-    {
-        // Enter dense flipflop packing mode once utilisation exceeds a threshold (default: 95%)
-        int used_slices = 0;
-        for (auto &cell : ctx->cells)
-            if (cell.second->type == id_TRELLIS_SLICE)
-                ++used_slices;
-
-        log_info("Packing unpaired FFs into a SLICE...\n");
-        for (auto cell : sorted(ctx->cells)) {
-            CellInfo *ci = cell.second;
-            if (is_ff(ctx, ci)) {
-                bool pack_dense = used_slices > (dense_pack_mode_thresh * available_slices);
-                bool requires_m = get_net_or_empty(ci, ctx->id("M")) != nullptr;
-                if (pack_dense && !requires_m) {
-                    // If dense packing threshold exceeded; always try and pack the FF into an existing slice
-                    // Find a SLICE with space "near" the flipflop in the netlist
-                    std::vector<CellInfo *> ltile;
-                    CellInfo *target = find_nearby_cell(ci, [&](CellInfo *cursor) {
-                        if (cursor->type != id_TRELLIS_SLICE)
-                            return false;
-                        if (!cursor->constr_children.empty() || cursor->constr_parent != nullptr) {
-                            auto &constr_children = (cursor->constr_parent != nullptr)
-                                                            ? cursor->constr_parent->constr_children
-                                                            : cursor->constr_children;
-                            // Skip big chains for performance
-                            if (constr_children.size() > 8)
-                                return false;
-                            // Have to check the whole of the tile for legality when dealing with chains, not just slice
-                            ltile.clear();
-                            if (cursor->constr_parent != nullptr)
-                                ltile.push_back(cursor->constr_parent);
-                            else
-                                ltile.push_back(cursor);
-                            for (auto c : constr_children)
-                                ltile.push_back(c);
-                            if (!can_add_ff_to_tile(ltile, cursor))
-                                return false;
-                        }
-                        if (!can_add_ff_to_slice(cursor, ci))
-                            return false;
-                        for (int i = 0; i < 2; i++)
-                            if (is_ff_available(cursor, i))
-                                return true;
-                        return false;
-                    });
-
-                    // If found, add the FF to this slice instead of creating a new one
-                    if (target != nullptr) {
-                        for (int i = 0; i < 2; i++) {
-                            if (is_ff_available(target, i)) {
-                                ff_to_slice(ctx, ci, target, i, false);
-                                goto ff_packed;
-                            }
-                        }
-                    }
-
-                    if (false) {
-                    ff_packed:
-                        packed_cells.insert(ci->name);
-                        continue;
-                    }
-                }
-
-                std::unique_ptr<CellInfo> slice =
-                        create_ecp5_cell(ctx, ctx->id("TRELLIS_SLICE"), ci->name.str(ctx) + "_SLICE");
-                ff_to_slice(ctx, ci, slice.get(), 0, false);
-                new_cells.push_back(std::move(slice));
-                ++used_slices;
-                packed_cells.insert(ci->name);
-            }
-        }
-        flush_cells();
     }
 
     int make_init_with_const_input(int init, int input, bool value)
@@ -2944,12 +2562,7 @@ class Ecp5Packer
         pack_constants();
         pack_dram();
         pack_carries();
-        find_lutff_pairs();
         pack_lut5xs();
-        pair_luts();
-        pack_lut_pairs();
-        pack_remaining_luts();
-        pack_remaining_ffs();
         generate_constraints();
         promote_ecp5_globals(ctx);
         ctx->check();
@@ -2972,7 +2585,6 @@ class Ecp5Packer
     std::unordered_map<IdString, SliceUsage> sliceUsage;
     std::unordered_map<IdString, IdString> lutffPairs;
     std::unordered_map<IdString, IdString> fflutPairs;
-    std::unordered_map<IdString, IdString> lutPairs;
 };
 // Main pack function
 bool Arch::pack()
