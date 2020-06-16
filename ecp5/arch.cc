@@ -134,7 +134,19 @@ Arch::Arch(ArchArgs args) : args(args)
     if (!package_info)
         log_error("Unsupported package '%s' for '%s'.\n", args.package.c_str(), getChipName().c_str());
 
-    bel_to_cell.resize(chip_info->height * chip_info->width * max_loc_bels, nullptr);
+    tileStatus.resize(chip_info->num_tiles);
+    for (int i = 0; i < chip_info->num_tiles; i++) {
+        auto &ts = tileStatus.at(i);
+        auto &tile_data = chip_info->tile_info[i];
+        ts.boundcells.resize(chip_info->locations[chip_info->location_type[i]].num_bels, nullptr);
+        for (int j = 0; j < tile_data.num_tiles; j++) {
+            if (strcmp(chip_info->tiletype_names[tile_data.tile_names[j].type_idx].get(), "PLC2") == 0) {
+                // Is a logic tile
+                ts.lts = new LogicTileStatus;
+                break;
+            }
+        }
+    }
 }
 
 // -----------------------------------------------------------------------
@@ -740,7 +752,7 @@ DecalXY Arch::getBelDecal(BelId bel) const
     decalxy.decal.type = DecalId::TYPE_BEL;
     decalxy.decal.location = bel.location;
     decalxy.decal.z = bel.index;
-    decalxy.decal.active = (bel_to_cell.at(getBelFlatIndex(bel)) != nullptr);
+    decalxy.decal.active = (getBoundBelCell(bel) != nullptr);
     return decalxy;
 }
 

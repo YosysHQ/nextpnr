@@ -486,7 +486,6 @@ struct Arch : BaseCtx
     mutable std::unordered_map<IdString, WireId> wire_by_name;
     mutable std::unordered_map<IdString, PipId> pip_by_name;
 
-    std::vector<CellInfo *> bel_to_cell;
     std::unordered_map<WireId, NetInfo *> wire_to_net;
     std::unordered_map<PipId, NetInfo *> pip_to_net;
     std::unordered_map<WireId, int> wire_fanout;
@@ -507,6 +506,43 @@ struct Arch : BaseCtx
     int getGridDimY() const { return chip_info->height; };
     int getTileBelDimZ(int, int) const { return 4; };
     int getTilePipDimZ(int, int) const { return 1; };
+
+    // -------------------------------------------------
+
+    // For fast, incremental validity checking of split SLICE
+
+    // BEL z-position lookup, x-ored with (index in tile) << 2
+    enum LogicBELType
+    {
+        BEL_COMB = 0,
+        BEL_FF = 1,
+        BEL_RAMW = 2
+    };
+    static const int lc_idx_shift = 2;
+
+    struct LogicTileStatus
+    {
+        // Per-SLICE valid and dirty bits
+        struct SliceStatus
+        {
+            bool valid = true, dirty = true;
+        } slices[4];
+        // Per-tile legality check for control set legality
+        bool tile_valid = true;
+        bool tile_dirty = true;
+        // Fast index from z-pos to cell
+        std::array<CellInfo *, 8 * (1 << lc_idx_shift)> cells;
+    };
+
+    struct TileStatus
+    {
+        std::vector<CellInfo *> boundcells;
+        LogicTileStatus *lts = nullptr;
+        // TODO: use similar mechanism for DSP legality checking
+        ~TileStatus() { delete lts; }
+    };
+
+    std::vector<TileStatus> tileStatus;
 
     // -------------------------------------------------
 
@@ -536,9 +572,9 @@ struct Arch : BaseCtx
     void bindBel(BelId bel, CellInfo *cell, PlaceStrength strength)
     {
         NPNR_ASSERT(bel != BelId());
-        int idx = getBelFlatIndex(bel);
-        NPNR_ASSERT(bel_to_cell.at(idx) == nullptr);
-        bel_to_cell[idx] = cell;
+        auto &slot = tileStatus.at(tile_index(bel)).boundcells.at(bel.index);
+        NPNR_ASSERT(slot == nullptr);
+        slot = cell;
         cell->bel = bel;
         cell->belStrength = strength;
         refreshUiBel(bel);
@@ -547,11 +583,11 @@ struct Arch : BaseCtx
     void unbindBel(BelId bel)
     {
         NPNR_ASSERT(bel != BelId());
-        int idx = getBelFlatIndex(bel);
-        NPNR_ASSERT(bel_to_cell.at(idx) != nullptr);
-        bel_to_cell[idx]->bel = BelId();
-        bel_to_cell[idx]->belStrength = STRENGTH_NONE;
-        bel_to_cell[idx] = nullptr;
+        auto &slot = tileStatus.at(tile_index(bel)).boundcells.at(bel.index);
+        NPNR_ASSERT(slot != nullptr);
+        slot->bel = BelId();
+        slot->belStrength = STRENGTH_NONE;
+        slot = nullptr;
         refreshUiBel(bel);
     }
 
@@ -571,20 +607,20 @@ struct Arch : BaseCtx
 
     bool checkBelAvail(BelId bel) const
     {
-        NPNR_ASSERT(bel != BelId());
-        return bel_to_cell[getBelFlatIndex(bel)] == nullptr;
+        const CellInfo *slot = tileStatus.at(tile_index(bel)).boundcells.at(bel.index);
+        return slot != nullptr;
     }
 
     CellInfo *getBoundBelCell(BelId bel) const
     {
-        NPNR_ASSERT(bel != BelId());
-        return bel_to_cell[getBelFlatIndex(bel)];
+        CellInfo *slot = tileStatus.at(tile_index(bel)).boundcells.at(bel.index);
+        return slot;
     }
 
     CellInfo *getConflictingBelCell(BelId bel) const
     {
-        NPNR_ASSERT(bel != BelId());
-        return bel_to_cell[getBelFlatIndex(bel)];
+        CellInfo *slot = tileStatus.at(tile_index(bel)).boundcells.at(bel.index);
+        return slot;
     }
 
     BelRange getBels() const
@@ -1038,6 +1074,11 @@ struct Arch : BaseCtx
                     return tileloc.tile_names[j].name.get();
         }
         NPNR_ASSERT_FALSE_STR("no tile with type " + type);
+    }
+
+    template <typename Tid> inline int tile_index(Tid id) const
+    {
+        return id.location.y * chip_info->width + id.location.x;
     }
 
     GlobalInfoPOD globalInfoAtLoc(Location loc);
