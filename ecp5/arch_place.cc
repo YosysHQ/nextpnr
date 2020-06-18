@@ -33,36 +33,135 @@ inline NetInfo *port_or_nullptr(const CellInfo *cell, IdString name)
     return found->second.net;
 }
 
-bool Arch::slicesCompatible(const std::vector<const CellInfo *> &cells) const
+bool Arch::slicesCompatible(LogicTileStatus *lts) const
 {
-    // TODO: allow different LSR/CLK and MUX/SRMODE settings once
-    // routing details are worked out
-    IdString clk_sig, lsr_sig;
-    IdString CLKMUX, LSRMUX, SRMODE;
-    bool first = true;
-    for (auto cell : cells) {
-        if (cell->sliceInfo.using_dff) {
-            if (first) {
-                clk_sig = cell->sliceInfo.clk_sig;
-                lsr_sig = cell->sliceInfo.lsr_sig;
-                CLKMUX = cell->sliceInfo.clkmux;
-                LSRMUX = cell->sliceInfo.lsrmux;
-                SRMODE = cell->sliceInfo.srmode;
-            } else {
-                if (cell->sliceInfo.clk_sig != clk_sig)
+    if (lts == nullptr)
+        return true;
+    for (int sl = 0; sl < 4; sl++) {
+        if (!lts->slices[sl].dirty)
+            continue;
+        lts->slices[sl].dirty = false;
+        lts->slices[sl].valid = false;
+        bool found_ff = false;
+        uint8_t last_ff_flags = 0;
+        IdString last_ce_sig;
+        bool ramw_used = false;
+        if (sl == 2 && lts->cells[((sl * 2) << lc_idx_shift) | BEL_RAMW] != nullptr)
+            ramw_used = true;
+        for (int l = 0; l < 2; l++) {
+            bool comb_m_used = false;
+            CellInfo *comb = lts->cells[((sl * 2 + l) << lc_idx_shift) | BEL_COMB];
+            if (comb != nullptr) {
+                uint8_t flags = comb->combInfo.flags;
+                if (ramw_used)
                     return false;
-                if (cell->sliceInfo.lsr_sig != lsr_sig)
+                if (flags & ArchCellInfo::COMB_MUX5) {
+                    // MUX5 uses M signal and must be in LC 0
+                    comb_m_used = true;
+                    if (l != 0)
+                        return false;
+                }
+                if (flags & ArchCellInfo::COMB_MUX6) {
+                    // MUX6+ uses M signal and must be in LC 1
+                    comb_m_used = true;
+                    if (l != 1)
+                        return false;
+                }
+                // LUTRAM must be in bottom two SLICEs only
+                if ((flags & ArchCellInfo::COMB_LUTRAM) && (sl > 1))
                     return false;
-                if (cell->sliceInfo.clkmux != CLKMUX)
-                    return false;
-                if (cell->sliceInfo.lsrmux != LSRMUX)
-                    return false;
-                if (cell->sliceInfo.srmode != SRMODE)
-                    return false;
+                if (l == 1) {
+                    // Carry usage must be the same for LCs 0 and 1 in a SLICE
+                    CellInfo *comb0 = lts->cells[((sl * 2 + 0) << lc_idx_shift) | BEL_COMB];
+                    if (comb0 &&
+                        ((comb0->combInfo.flags & ArchCellInfo::COMB_CARRY) != (flags & ArchCellInfo::COMB_CARRY)))
+                        return false;
+                }
             }
-            first = false;
+
+            CellInfo *ff = lts->cells[((sl * 2 + l) << lc_idx_shift) | BEL_FF];
+            if (ff != nullptr) {
+                uint8_t flags = comb->ffInfo.flags;
+                if (comb_m_used && (flags & ArchCellInfo::FF_M_USED))
+                    return false;
+                if (found_ff) {
+                    if ((flags & ArchCellInfo::FF_GSREN) != (last_ff_flags & ArchCellInfo::FF_GSREN))
+                        return false;
+                    if ((flags & ArchCellInfo::FF_CECONST) != (last_ff_flags & ArchCellInfo::FF_CECONST))
+                        return false;
+                    if ((flags & ArchCellInfo::FF_CEINV) != (last_ff_flags & ArchCellInfo::FF_CEINV))
+                        return false;
+                    if (ff->ffInfo.ce_sig != last_ce_sig)
+                        return false;
+                } else {
+                    found_ff = true;
+                    last_ff_flags = flags;
+                    last_ce_sig = ff->ffInfo.ce_sig;
+                }
+            }
         }
+
+        lts->slices[sl].valid = true;
     }
+    if (lts->tile_dirty) {
+        bool found_global_ff = false;
+        bool global_lsrinv = false;
+        bool global_clkinv = false;
+        bool global_async = false;
+
+        IdString clk_sig, lsr_sig;
+
+        lts->tile_dirty = false;
+        lts->tile_valid = false;
+
+#define CHECK_EQUAL(x, y)                                                                                              \
+    do {                                                                                                               \
+        if ((x) != (y))                                                                                                \
+            return false;                                                                                              \
+    } while (0)
+        for (int i = 0; i < 8; i++) {
+            if (i < 4) {
+                // DPRAM
+                CellInfo *comb = lts->cells[(i << lc_idx_shift) | BEL_COMB];
+                if (comb != nullptr && (comb->combInfo.flags & ArchCellInfo::COMB_LUTRAM)) {
+                    if (found_global_ff) {
+                        CHECK_EQUAL(comb->combInfo.ram_wck, clk_sig);
+                        CHECK_EQUAL(comb->combInfo.ram_wre, lsr_sig);
+                        CHECK_EQUAL(bool(comb->combInfo.flags & ArchCellInfo::COMB_RAM_WCKINV), global_clkinv);
+                        CHECK_EQUAL(bool(comb->combInfo.flags & ArchCellInfo::COMB_RAM_WREINV), global_lsrinv);
+                    } else {
+                        clk_sig = comb->combInfo.ram_wck;
+                        lsr_sig = comb->combInfo.ram_wre;
+                        global_clkinv = bool(comb->combInfo.flags & ArchCellInfo::COMB_RAM_WCKINV);
+                        global_lsrinv = bool(comb->combInfo.flags & ArchCellInfo::COMB_RAM_WREINV);
+                        found_global_ff = true;
+                    }
+                }
+            }
+            // FF
+            CellInfo *ff = lts->cells[(i << lc_idx_shift) | BEL_FF];
+            if (ff != nullptr) {
+                if (found_global_ff) {
+                    CHECK_EQUAL(ff->ffInfo.clk_sig, clk_sig);
+                    CHECK_EQUAL(ff->ffInfo.lsr_sig, lsr_sig);
+                    CHECK_EQUAL(bool(ff->ffInfo.flags & ArchCellInfo::FF_CLKINV), global_clkinv);
+                    CHECK_EQUAL(bool(ff->ffInfo.flags & ArchCellInfo::FF_LSRINV), global_lsrinv);
+                    CHECK_EQUAL(bool(ff->ffInfo.flags & ArchCellInfo::FF_ASYNC), global_async);
+
+                } else {
+                    clk_sig = ff->ffInfo.clk_sig;
+                    lsr_sig = ff->ffInfo.lsr_sig;
+                    global_clkinv = bool(ff->ffInfo.flags & ArchCellInfo::FF_CLKINV);
+                    global_lsrinv = bool(ff->ffInfo.flags & ArchCellInfo::FF_LSRINV);
+                    global_async = bool(ff->ffInfo.flags & ArchCellInfo::FF_ASYNC);
+                    found_global_ff = true;
+                }
+            }
+        }
+#undef CHECK_EQUAL
+        lts->tile_valid = true;
+    }
+
     return true;
 }
 
@@ -79,7 +178,7 @@ bool Arch::isBelLocationValid(BelId bel) const
         }
         if (getBoundBelCell(bel) != nullptr && getBoundBelCell(bel)->sliceInfo.has_l6mux && ((bel_loc.z % 2) == 1))
             return false;
-        return slicesCompatible(bel_cells);
+        return /*slicesCompatible(bel_cells)*/ true;
     } else {
         CellInfo *cell = getBoundBelCell(bel);
         if (cell == nullptr)
@@ -108,7 +207,7 @@ bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const
         }
 
         bel_cells.push_back(cell);
-        return slicesCompatible(bel_cells);
+        return /*slicesCompatible(bel_cells)*/ true;
     } else if (cell->type == id_DCUA || cell->type == id_EXTREFB || cell->type == id_PCSCLKDIV) {
         return args.type != ArchArgs::LFE5U_25F && args.type != ArchArgs::LFE5U_45F && args.type != ArchArgs::LFE5U_85F;
     } else {

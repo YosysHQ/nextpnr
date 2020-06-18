@@ -1037,7 +1037,7 @@ struct Arch : BaseCtx
     bool isBelLocationValid(BelId bel) const;
 
     // Helper function for above
-    bool slicesCompatible(const std::vector<const CellInfo *> &cells) const;
+    bool slicesCompatible(LogicTileStatus *lts) const;
 
     void assignArchInfo();
 
