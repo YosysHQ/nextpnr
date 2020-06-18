@@ -57,22 +57,23 @@ class Ecp5Packer
     }
 
     // Print logic usgage
-    int available_slices = 0;
+    int available_luts = 0;
     void print_logic_usage()
     {
         int total_luts = 0, total_ffs = 0;
         int total_ramluts = 0, total_ramwluts = 0;
         for (auto bel : ctx->getBels()) {
-            if (ctx->getBelType(bel) == id_TRELLIS_SLICE) {
-                available_slices += 1;
-                total_luts += 2;
-                total_ffs += 2;
+            if (ctx->getBelType(bel) == id_TRELLIS_COMB) {
+                available_luts += 1;
+                total_luts += 1;
                 Loc l = ctx->getBelLocation(bel);
-                if (l.z == 0 || l.z == 1)
-                    total_ramluts += 2;
-                if (l.z == 2)
-                    total_ramwluts += 2;
+                if (l.z <= 3)
+                    total_ramluts += 1;
             }
+            if (ctx->getBelType(bel) == id_TRELLIS_FF)
+                total_ffs += 1;
+            if (ctx->getBelType(bel) == id_TRELLIS_RAMW)
+                total_ramwluts += 2;
         }
         int used_lgluts = 0, used_cyluts = 0, used_ramluts = 0, used_ramwluts = 0, used_ffs = 0;
         for (auto &cell : ctx->cells) {
@@ -102,66 +103,49 @@ class Ecp5Packer
         log_break();
     }
 
-    // Find FFs associated with LUTs, or LUT expansion muxes
-    void find_lutff_pairs()
+    // Pack LUTs
+    void pack_luts()
     {
-        log_info("Finding LUTFF pairs...\n");
+        log_info("Packing LUTs...\n");
         for (auto cell : sorted(ctx->cells)) {
             CellInfo *ci = cell.second;
-            if (is_lut(ctx, ci) || is_pfumx(ctx, ci) || is_l6mux(ctx, ci)) {
-                NetInfo *znet = ci->ports.at(ctx->id("Z")).net;
-                if (znet != nullptr) {
-                    CellInfo *ff = net_only_drives(ctx, znet, is_ff, ctx->id("DI"), false);
-                    // Can't combine preload FF with LUT due to conflict on M
-                    if (ff != nullptr && get_net_or_empty(ff, ctx->id("M")) == nullptr) {
-                        lutffPairs[ci->name] = ff->name;
-                        fflutPairs[ff->name] = ci->name;
-                    }
-                }
-            }
+            if (is_lut(ctx, ci))
+                lut_to_comb(ctx, ci);
         }
     }
 
-    // Check if a flipflop can be added to a slice
-    bool can_add_ff_to_slice(CellInfo *slice, CellInfo *ff)
+    bool is_constrained(const CellInfo *cell)
     {
-        std::string clkmux = str_or_default(ff->params, ctx->id("CLKMUX"), "CLK");
-        std::string lsrmux = str_or_default(ff->params, ctx->id("LSRMUX"), "LSR");
+        return cell->constr_x != cell->UNCONSTR || cell->constr_y != cell->UNCONSTR || cell->constr_z != cell->UNCONSTR;
+    }
 
-        bool has_dpram = str_or_default(slice->params, ctx->id("MODE"), "LOGIC") == "DPRAM";
-        if (has_dpram) {
-            std::string wckmux = str_or_default(slice->params, ctx->id("WCKMUX"), "WCK");
-            std::string wremux = str_or_default(slice->params, ctx->id("WREMUX"), "WRE");
-            if (wckmux != clkmux && !(wckmux == "WCK" && clkmux == "CLK"))
-                return false;
-            if (wremux != lsrmux && !(wremux == "WRE" && lsrmux == "LSR"))
-                return false;
+    // Pack FFs
+    void pack_ffs()
+    {
+        log_info("Packing FFs...\n");
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (is_ff(ctx, ci)) {
+                // FIXME: also pack FFs with mux/carry chains where legal to do so
+                NetInfo *di = get_net_or_empty(ci, id_DI);
+                if (di->driver.cell != nullptr && di->driver.cell->type == id_TRELLIS_COMB &&
+                    !is_constrained(di->driver.cell) && di->driver.port == id_F) {
+                    // Constrain FF and LUT together, no need to rewire
+                    CellInfo *comb = di->driver.cell;
+                    ci->params[ctx->id("SD")] = std::string("0");
+                    comb->constr_children.push_back(ci);
+                    ci->constr_parent = comb;
+                    ci->constr_x = 0;
+                    ci->constr_y = 0;
+                    ci->constr_z = (Arch::BEL_FF - Arch::BEL_COMB);
+                    ci->constr_abs_z = false;
+                } else {
+                    // Rewire to use general routing
+                    ci->params[ctx->id("SD")] = std::string("1");
+                    rename_port(ctx, ci, id_DI, id_M);
+                }
+            }
         }
-        bool has_ff0 = get_net_or_empty(slice, id_Q0) != nullptr;
-        bool has_ff1 = get_net_or_empty(slice, id_Q1) != nullptr;
-        if (!has_ff0 && !has_ff1)
-            return true;
-        if (str_or_default(ff->params, ctx->id("GSR"), "DISABLED") !=
-            str_or_default(slice->params, ctx->id("GSR"), "DISABLED"))
-            return false;
-        if (str_or_default(ff->params, ctx->id("SRMODE"), "LSR_OVER_CE") !=
-            str_or_default(slice->params, ctx->id("SRMODE"), "LSR_OVER_CE"))
-            return false;
-        if (str_or_default(ff->params, ctx->id("CEMUX"), "1") != str_or_default(slice->params, ctx->id("CEMUX"), "1"))
-            return false;
-        if (str_or_default(ff->params, ctx->id("LSRMUX"), "LSR") !=
-            str_or_default(slice->params, ctx->id("LSRMUX"), "LSR"))
-            return false;
-        if (str_or_default(ff->params, ctx->id("CLKMUX"), "CLK") !=
-            str_or_default(slice->params, ctx->id("CLKMUX"), "CLK"))
-            return false;
-        if (net_or_nullptr(ff, ctx->id("CLK")) != net_or_nullptr(slice, ctx->id("CLK")))
-            return false;
-        if (net_or_nullptr(ff, ctx->id("CE")) != net_or_nullptr(slice, ctx->id("CE")))
-            return false;
-        if (net_or_nullptr(ff, ctx->id("LSR")) != net_or_nullptr(slice, ctx->id("LSR")))
-            return false;
-        return true;
     }
 
     const NetInfo *net_or_nullptr(CellInfo *cell, IdString port)
@@ -171,48 +155,6 @@ class Ecp5Packer
             return nullptr;
         else
             return fnd->second.net;
-    }
-
-    // Return whether two FFs can be packed together in the same slice
-    bool can_pack_ffs(CellInfo *ff0, CellInfo *ff1)
-    {
-        if (str_or_default(ff0->params, ctx->id("GSR"), "DISABLED") !=
-            str_or_default(ff1->params, ctx->id("GSR"), "DISABLED"))
-            return false;
-        if (str_or_default(ff0->params, ctx->id("SRMODE"), "LSR_OVER_CE") !=
-            str_or_default(ff1->params, ctx->id("SRMODE"), "LSR_OVER_CE"))
-            return false;
-        if (str_or_default(ff0->params, ctx->id("CEMUX"), "1") != str_or_default(ff1->params, ctx->id("CEMUX"), "1"))
-            return false;
-        if (str_or_default(ff0->params, ctx->id("LSRMUX"), "LSR") !=
-            str_or_default(ff1->params, ctx->id("LSRMUX"), "LSR"))
-            return false;
-        if (str_or_default(ff0->params, ctx->id("CLKMUX"), "CLK") !=
-            str_or_default(ff1->params, ctx->id("CLKMUX"), "CLK"))
-            return false;
-        if (net_or_nullptr(ff0, ctx->id("CLK")) != net_or_nullptr(ff1, ctx->id("CLK")))
-            return false;
-        if (net_or_nullptr(ff0, ctx->id("CE")) != net_or_nullptr(ff1, ctx->id("CE")))
-            return false;
-        if (net_or_nullptr(ff0, ctx->id("LSR")) != net_or_nullptr(ff1, ctx->id("LSR")))
-            return false;
-        return true;
-    }
-
-    // Return true if a FF can be added to a DPRAM slice
-    bool can_pack_ff_dram(CellInfo *dpram, CellInfo *ff)
-    {
-        if (get_net_or_empty(ff, ctx->id("M")) != nullptr)
-            return false; // skip PRLD FFs due to M/DI conflict
-        std::string wckmux = str_or_default(dpram->params, ctx->id("WCKMUX"), "WCK");
-        std::string clkmux = str_or_default(ff->params, ctx->id("CLKMUX"), "CLK");
-        if (wckmux != clkmux && !(wckmux == "WCK" && clkmux == "CLK"))
-            return false;
-        std::string wremux = str_or_default(dpram->params, ctx->id("WREMUX"), "WRE");
-        std::string lsrmux = str_or_default(ff->params, ctx->id("LSRMUX"), "LSR");
-        if (wremux != lsrmux && !(wremux == "WRE" && lsrmux == "LSR"))
-            return false;
-        return true;
     }
 
     // Return true if an port is a top level port that provides its own IOBUF
@@ -389,18 +331,6 @@ class Ecp5Packer
 
                 ctx->nets.erase(f0->name);
                 ctx->nets.erase(f1->name);
-                sliceUsage[packed->name].lut0_used = true;
-                sliceUsage[packed->name].lut1_used = true;
-                sliceUsage[packed->name].mux5_used = true;
-
-                if (lutffPairs.find(ci->name) != lutffPairs.end()) {
-                    CellInfo *ff = ctx->cells.at(lutffPairs[ci->name]).get();
-                    ff_to_slice(ctx, ff, packed.get(), 0, true);
-                    packed_cells.insert(ff->name);
-                    sliceUsage[packed->name].ff0_used = true;
-                    lutffPairs.erase(ci->name);
-                    fflutPairs.erase(ff->name);
-                }
 
                 new_cells.push_back(std::move(packed));
                 packed_cells.insert(lut0->name);
@@ -452,15 +382,6 @@ class Ecp5Packer
                 slice1->constr_z = 0;
                 slice1->constr_abs_z = true;
                 slice1->constr_children.push_back(slice0);
-
-                if (lutffPairs.find(ci->name) != lutffPairs.end()) {
-                    CellInfo *ff = ctx->cells.at(lutffPairs[ci->name]).get();
-                    ff_to_slice(ctx, ff, slice1, 1, true);
-                    packed_cells.insert(ff->name);
-                    sliceUsage[slice1->name].ff1_used = true;
-                    lutffPairs.erase(ci->name);
-                    fflutPairs.erase(ff->name);
-                }
 
                 packed_cells.insert(ci->name);
             }
@@ -545,15 +466,6 @@ class Ecp5Packer
                 slice0->constr_y = 0;
                 slice0->constr_parent = slice3;
                 slice3->constr_children.push_back(slice0);
-
-                if (lutffPairs.find(ci->name) != lutffPairs.end()) {
-                    CellInfo *ff = ctx->cells.at(lutffPairs[ci->name]).get();
-                    ff_to_slice(ctx, ff, slice2, 1, true);
-                    packed_cells.insert(ff->name);
-                    sliceUsage[slice2->name].ff1_used = true;
-                    lutffPairs.erase(ci->name);
-                    fflutPairs.erase(ff->name);
-                }
 
                 packed_cells.insert(ci->name);
             }
@@ -2562,7 +2474,8 @@ class Ecp5Packer
         pack_constants();
         pack_dram();
         pack_carries();
-        pack_lut5xs();
+        pack_luts();
+        pack_ffs();
         generate_constraints();
         promote_ecp5_globals(ctx);
         ctx->check();
@@ -2573,18 +2486,6 @@ class Ecp5Packer
 
     std::unordered_set<IdString> packed_cells;
     std::vector<std::unique_ptr<CellInfo>> new_cells;
-
-    struct SliceUsage
-    {
-        bool lut0_used = false, lut1_used = false;
-        bool ccu2_used = false, dpram_used = false, ramw_used = false;
-        bool ff0_used = false, ff1_used = false;
-        bool mux5_used = false, muxx_used = false;
-    };
-
-    std::unordered_map<IdString, SliceUsage> sliceUsage;
-    std::unordered_map<IdString, IdString> lutffPairs;
-    std::unordered_map<IdString, IdString> fflutPairs;
 };
 // Main pack function
 bool Arch::pack()
@@ -2606,36 +2507,54 @@ bool Arch::pack()
 
 void Arch::assignArchInfo()
 {
+    auto get_port_net = [&](CellInfo *ci, IdString p) {
+        NetInfo *n = get_net_or_empty(ci, p);
+        return n ? n->name : IdString();
+    };
     for (auto cell : sorted(cells)) {
         CellInfo *ci = cell.second;
-        if (ci->type == id_TRELLIS_SLICE) {
-
-            ci->sliceInfo.using_dff = false;
-            if (ci->ports.count(id_Q0) && ci->ports[id_Q0].net != nullptr)
-                ci->sliceInfo.using_dff = true;
-            if (ci->ports.count(id_Q1) && ci->ports[id_Q1].net != nullptr)
-                ci->sliceInfo.using_dff = true;
-
-            if (ci->ports.count(id_CLK) && ci->ports[id_CLK].net != nullptr)
-                ci->sliceInfo.clk_sig = ci->ports[id_CLK].net->name;
-            else
-                ci->sliceInfo.clk_sig = IdString();
-
-            if (ci->ports.count(id_LSR) && ci->ports[id_LSR].net != nullptr)
-                ci->sliceInfo.lsr_sig = ci->ports[id_LSR].net->name;
-            else
-                ci->sliceInfo.lsr_sig = IdString();
-
-            ci->sliceInfo.clkmux = id(str_or_default(ci->params, id_CLKMUX, "CLK"));
-            ci->sliceInfo.lsrmux = id(str_or_default(ci->params, id_LSRMUX, "LSR"));
-            ci->sliceInfo.srmode = id(str_or_default(ci->params, id_SRMODE, "LSR_OVER_CE"));
-            ci->sliceInfo.is_carry = str_or_default(ci->params, id("MODE"), "LOGIC") == "CCU2";
-            ci->sliceInfo.sd0 = std::stoi(str_or_default(ci->params, id("REG0_SD"), "0"));
-            ci->sliceInfo.sd1 = std::stoi(str_or_default(ci->params, id("REG1_SD"), "0"));
-            ci->sliceInfo.has_l6mux = false;
-            if (ci->ports.count(id_FXA) && ci->ports[id_FXA].net != nullptr &&
-                ci->ports[id_FXA].net->driver.port == id_OFX0)
-                ci->sliceInfo.has_l6mux = true;
+        if (ci->type == id_TRELLIS_COMB) {
+            std::string mode = str_or_default(ci->params, id("MODE"), "LOGIC");
+            ci->combInfo.flags = ArchCellInfo::COMB_NONE;
+            if (mode == "CARRY")
+                ci->combInfo.flags |= ArchCellInfo::COMB_CARRY;
+            if (mode == "DPRAM") {
+                ci->combInfo.flags |= ArchCellInfo::COMB_LUTRAM;
+                std::string wckmux = str_or_default(ci->params, id("WCKMUX"), "WCK");
+                if (wckmux == "INV")
+                    ci->combInfo.flags |= ArchCellInfo::COMB_RAM_WCKINV;
+                std::string wremux = str_or_default(ci->params, id("WREMUX"), "WRE");
+                if (wremux == "INV" || wremux == "0")
+                    ci->combInfo.flags |= ArchCellInfo::COMB_RAM_WREINV;
+                ci->combInfo.ram_wck = get_port_net(ci, id_WCK);
+                ci->combInfo.ram_wre = get_port_net(ci, id_WRE);
+            }
+            if (get_net_or_empty(ci, id_F1) != nullptr)
+                ci->combInfo.flags |= ArchCellInfo::COMB_MUX5;
+            if (get_net_or_empty(ci, id_FXA) != nullptr || get_net_or_empty(ci, id_FXB) != nullptr)
+                ci->combInfo.flags |= ArchCellInfo::COMB_MUX6;
+        } else if (ci->type == id_TRELLIS_FF) {
+            ci->ffInfo.flags = ArchCellInfo::FF_NONE;
+            if (str_or_default(ci->params, id("GSR"), "ENABLED") == "ENABLED")
+                ci->ffInfo.flags |= ArchCellInfo::FF_GSREN;
+            if (str_or_default(ci->params, id("SRMODE"), "LSR_OVER_CE") == "ASYNC")
+                ci->ffInfo.flags |= ArchCellInfo::FF_ASYNC;
+            if (get_net_or_empty(ci, id_M) != nullptr)
+                ci->ffInfo.flags |= ArchCellInfo::FF_M_USED;
+            std::string clkmux = str_or_default(ci->params, id("CLKMUX"), "CLK");
+            std::string cemux = str_or_default(ci->params, id("CEMUX"), "CE");
+            std::string lsrmux = str_or_default(ci->params, id("LSRMUX"), "LSR");
+            if (clkmux == "CLK" || clkmux == "0")
+                ci->ffInfo.flags |= ArchCellInfo::FF_CLKINV;
+            if (cemux == "CE" || cemux == "0")
+                ci->ffInfo.flags |= ArchCellInfo::FF_CEINV;
+            if (cemux == "1" || cemux == "0")
+                ci->ffInfo.flags |= ArchCellInfo::FF_CECONST;
+            if (lsrmux == "LSR")
+                ci->ffInfo.flags |= ArchCellInfo::FF_LSRINV;
+            ci->ffInfo.clk_sig = get_port_net(ci, id_CLK);
+            ci->ffInfo.ce_sig = get_port_net(ci, id_CE);
+            ci->ffInfo.lsr_sig = get_port_net(ci, id_LSR);
         } else if (ci->type == id_DP16KD) {
             ci->ramInfo.is_pdp = (int_or_default(ci->params, id("DATA_WIDTH_A"), 0) == 36);
 

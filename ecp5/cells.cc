@@ -543,18 +543,12 @@ void nxio_to_tr(Context *ctx, CellInfo *nxio, CellInfo *trio, std::vector<std::u
     }
 }
 
-void lut_to_comb(Context *ctx, CellInfo *lut, CellInfo *comb)
+void lut_to_comb(Context *ctx, CellInfo *lut)
 {
-    if (comb->hierpath == IdString())
-        comb->hierpath = lut->hierpath;
-    comb->params[ctx->id("INITVAL")] = get_or_default(lut->params, ctx->id("INIT"), Property(0, 16));
-    replace_port(lut, ctx->id("A"), comb, ctx->id("A"));
-    replace_port(lut, ctx->id("B"), comb, ctx->id("B"));
-    replace_port(lut, ctx->id("C"), comb, ctx->id("C"));
-    replace_port(lut, ctx->id("D"), comb, ctx->id("D"));
-    replace_port(lut, ctx->id("Z"), comb, ctx->id("F"));
-    for (auto &attr : lut->attrs)
-        comb->attrs[attr.first] = attr.second;
+    lut->type = id_TRELLIS_COMB;
+    lut->params[ctx->id("INITVAL")] = get_or_default(lut->params, ctx->id("INIT"), Property(0, 16));
+    lut->params.erase(ctx->id("INIT"));
+    rename_port(ctx, lut, ctx->id("Z"), ctx->id("F"));
 }
 
 void dram_to_ramw_split(Context *ctx, CellInfo *ram, CellInfo *ramw)

@@ -169,6 +169,30 @@ struct ArchNetInfo
 
 struct ArchCellInfo
 {
+
+    enum CombFlags : uint8_t
+    {
+        COMB_NONE = 0x00,
+        COMB_CARRY = 0x01,
+        COMB_LUTRAM = 0x02,
+        COMB_MUX5 = 0x04,
+        COMB_MUX6 = 0x08,
+        COMB_RAM_WCKINV = 0x10,
+        COMB_RAM_WREINV = 0x20,
+    };
+
+    enum FFFlags : uint8_t
+    {
+        FF_NONE = 0x00,
+        FF_CLKINV = 0x01,
+        FF_CEINV = 0x02,
+        FF_CECONST = 0x04,
+        FF_LSRINV = 0x08,
+        FF_GSREN = 0x10,
+        FF_ASYNC = 0x20,
+        FF_M_USED = 0x40,
+    };
+
     struct
     {
         bool using_dff;
@@ -190,29 +214,12 @@ struct ArchCellInfo
     } ramInfo;
     struct
     {
-        enum : uint8_t
-        {
-            COMB_CARRY = 0x01,
-            COMB_LUTRAM = 0x02,
-            COMB_MUX5 = 0x04,
-            COMB_MUX6 = 0x08,
-            COMB_RAM_WCKINV = 0x10,
-            COMB_RAM_WREINV = 0x20,
-        } flags;
+        uint8_t flags;
         IdString ram_wck, ram_wre;
     } combInfo;
     struct
     {
-        enum : uint8_t
-        {
-            FF_CLKINV = 0x01,
-            FF_CEINV = 0x02,
-            FF_CECONST = 0x04,
-            FF_LSRINV = 0x08,
-            FF_GSREN = 0x10,
-            FF_ASYNC = 0x20,
-            FF_M_USED = 0x40,
-        } flags;
+        uint8_t flags;
         IdString clk_sig, lsr_sig, ce_sig, di_sig;
     } ffInfo;
     struct
