@@ -774,82 +774,70 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             log_warning("found unplaced cell '%s' during bitstream gen\n", ci->name.c_str(ctx));
         }
         BelId bel = ci->bel;
-        if (ci->type == ctx->id("TRELLIS_SLICE")) {
+        if (ci->type == id_TRELLIS_COMB) {
             std::string tname = ctx->getTileByTypeAndLocation(bel.location.y, bel.location.x, "PLC2");
-            std::string slice = ctx->locInfo(bel)->bel_data[bel.index].name.get();
-            int lut0_init = int_or_default(ci->params, ctx->id("LUT0_INITVAL"));
-            int lut1_init = int_or_default(ci->params, ctx->id("LUT1_INITVAL"));
-            cc.tiles[tname].add_word(slice + ".K0.INIT", int_to_bitvector(lut0_init, 16));
-            cc.tiles[tname].add_word(slice + ".K1.INIT", int_to_bitvector(lut1_init, 16));
+            int z = ctx->locInfo(bel)->bel_data[bel.index].z >> Arch::lc_idx_shift;
+            std::string slice = std::string("SLICE") + "ABCD"[z / 2];
+            std::string lc = std::to_string(z % 2);
             cc.tiles[tname].add_enum(slice + ".MODE", str_or_default(ci->params, ctx->id("MODE"), "LOGIC"));
-            cc.tiles[tname].add_enum(slice + ".GSR", str_or_default(ci->params, ctx->id("GSR"), "ENABLED"));
-            cc.tiles[tname].add_enum(slice + ".REG0.SD", intstr_or_default(ci->params, ctx->id("REG0_SD"), "0"));
-            cc.tiles[tname].add_enum(slice + ".REG1.SD", intstr_or_default(ci->params, ctx->id("REG1_SD"), "0"));
-            cc.tiles[tname].add_enum(slice + ".REG0.REGSET",
-                                     str_or_default(ci->params, ctx->id("REG0_REGSET"), "RESET"));
-            cc.tiles[tname].add_enum(slice + ".REG1.REGSET",
-                                     str_or_default(ci->params, ctx->id("REG1_REGSET"), "RESET"));
-            cc.tiles[tname].add_enum(slice + ".REG0.LSRMODE",
-                                     str_or_default(ci->params, ctx->id("REG0_LSRMODE"), "LSR"));
-            cc.tiles[tname].add_enum(slice + ".REG1.LSRMODE",
-                                     str_or_default(ci->params, ctx->id("REG1_LSRMODE"), "LSR"));
-            cc.tiles[tname].add_enum(slice + ".CEMUX", str_or_default(ci->params, ctx->id("CEMUX"), "1"));
-
-            if (ci->sliceInfo.using_dff) {
-                NetInfo *lsrnet = nullptr;
-                if (ci->ports.find(ctx->id("LSR")) != ci->ports.end() && ci->ports.at(ctx->id("LSR")).net != nullptr)
-                    lsrnet = ci->ports.at(ctx->id("LSR")).net;
-                if (ctx->getBoundWireNet(ctx->getWireByName(
-                            ctx->id(fmt_str("X" << bel.location.x << "/Y" << bel.location.y << "/LSR0")))) == lsrnet) {
-                    cc.tiles[tname].add_enum("LSR0.SRMODE",
-                                             str_or_default(ci->params, ctx->id("SRMODE"), "LSR_OVER_CE"));
-                    cc.tiles[tname].add_enum("LSR0.LSRMUX", str_or_default(ci->params, ctx->id("LSRMUX"), "LSR"));
-                } else if (ctx->getBoundWireNet(ctx->getWireByName(ctx->id(
-                                   fmt_str("X" << bel.location.x << "/Y" << bel.location.y << "/LSR1")))) == lsrnet) {
-                    cc.tiles[tname].add_enum("LSR1.SRMODE",
-                                             str_or_default(ci->params, ctx->id("SRMODE"), "LSR_OVER_CE"));
-                    cc.tiles[tname].add_enum("LSR1.LSRMUX", str_or_default(ci->params, ctx->id("LSRMUX"), "LSR"));
-                }
-
-                NetInfo *clknet = nullptr;
-                if (ci->ports.find(ctx->id("CLK")) != ci->ports.end() && ci->ports.at(ctx->id("CLK")).net != nullptr)
-                    clknet = ci->ports.at(ctx->id("CLK")).net;
-                if (ctx->getBoundWireNet(ctx->getWireByName(
-                            ctx->id(fmt_str("X" << bel.location.x << "/Y" << bel.location.y << "/CLK0")))) == clknet) {
-                    cc.tiles[tname].add_enum("CLK0.CLKMUX", str_or_default(ci->params, ctx->id("CLKMUX"), "CLK"));
-                } else if (ctx->getBoundWireNet(ctx->getWireByName(ctx->id(
-                                   fmt_str("X" << bel.location.x << "/Y" << bel.location.y << "/CLK1")))) == clknet) {
-                    cc.tiles[tname].add_enum("CLK1.CLKMUX", str_or_default(ci->params, ctx->id("CLKMUX"), "CLK"));
-                }
-            }
-
+            cc.tiles[tname].add_word(slice + ".K" + lc + ".INIT",
+                                     int_to_bitvector(int_or_default(ci->params, ctx->id("INITVAL")), 16));
             if (str_or_default(ci->params, ctx->id("MODE"), "LOGIC") == "CCU2") {
-                cc.tiles[tname].add_enum(slice + ".CCU2.INJECT1_0",
-                                         str_or_default(ci->params, ctx->id("CCU2_INJECT1_0"), "YES"));
-                cc.tiles[tname].add_enum(slice + ".CCU2.INJECT1_1",
-                                         str_or_default(ci->params, ctx->id("CCU2_INJECT1_1"), "YES"));
+                cc.tiles[tname].add_enum(slice + ".CCU2.INJECT1_" + lc,
+                                         str_or_default(ci->params, ctx->id("CCU2_INJECT1"), "YES"));
             } else {
                 // Don't interfere with cascade mux wiring
-                cc.tiles[tname].add_enum(slice + ".CCU2.INJECT1_0", "_NONE_");
-                cc.tiles[tname].add_enum(slice + ".CCU2.INJECT1_1", "_NONE_");
+                cc.tiles[tname].add_enum(slice + ".CCU2.INJECT1_" + lc, "_NONE_");
             }
-
-            if (str_or_default(ci->params, ctx->id("MODE"), "LOGIC") == "DPRAM" && slice == "SLICEA") {
+            if (str_or_default(ci->params, ctx->id("MODE"), "LOGIC") == "DPRAM" && slice == "SLICEA" && lc == "0") {
                 cc.tiles[tname].add_enum(slice + ".WREMUX", str_or_default(ci->params, ctx->id("WREMUX"), "WRE"));
 
                 std::string wckmux = str_or_default(ci->params, ctx->id("WCKMUX"), "WCK");
                 wckmux = (wckmux == "WCK") ? "CLK" : wckmux;
                 cc.tiles[tname].add_enum("CLK1.CLKMUX", wckmux);
             }
-
             // Tie unused inputs high
-            for (auto input : {id_A0, id_B0, id_C0, id_D0, id_A1, id_B1, id_C1, id_D1}) {
+            for (auto input : {id_A, id_B, id_C, id_D}) {
                 if (ci->ports.find(input) == ci->ports.end() || ci->ports.at(input).net == nullptr) {
-                    cc.tiles[tname].add_enum(slice + "." + input.str(ctx) + "MUX", "1");
+                    cc.tiles[tname].add_enum(slice + "." + input.str(ctx) + lc + "MUX", "1");
                 }
             }
+        } else if (ci->type == id_TRELLIS_FF) {
+            std::string tname = ctx->getTileByTypeAndLocation(bel.location.y, bel.location.x, "PLC2");
+            int z = ctx->locInfo(bel)->bel_data[bel.index].z >> Arch::lc_idx_shift;
+            std::string slice = std::string("SLICE") + "ABCD"[z / 2];
+            std::string lc = std::to_string(z % 2);
+            cc.tiles[tname].add_enum(slice + ".GSR", str_or_default(ci->params, ctx->id("GSR"), "ENABLED"));
+            cc.tiles[tname].add_enum(slice + ".REG" + lc + ".SD", intstr_or_default(ci->params, ctx->id("SD"), "0"));
+            cc.tiles[tname].add_enum(slice + ".REG" + lc + ".REGSET",
+                                     str_or_default(ci->params, ctx->id("REGSET"), "RESET"));
+            cc.tiles[tname].add_enum(slice + ".REG" + lc + ".LSRMODE",
+                                     str_or_default(ci->params, ctx->id("LSRMODE"), "LSR"));
 
-            // TODO: CLKMUX
+            cc.tiles[tname].add_enum(slice + ".CEMUX", str_or_default(ci->params, ctx->id("CEMUX"), "1"));
+            NetInfo *lsrnet = nullptr;
+            if (ci->ports.find(ctx->id("LSR")) != ci->ports.end() && ci->ports.at(ctx->id("LSR")).net != nullptr)
+                lsrnet = ci->ports.at(ctx->id("LSR")).net;
+            if (ctx->getBoundWireNet(ctx->getWireByName(
+                        ctx->id(fmt_str("X" << bel.location.x << "/Y" << bel.location.y << "/LSR0")))) == lsrnet) {
+                cc.tiles[tname].add_enum("LSR0.SRMODE", str_or_default(ci->params, ctx->id("SRMODE"), "LSR_OVER_CE"));
+                cc.tiles[tname].add_enum("LSR0.LSRMUX", str_or_default(ci->params, ctx->id("LSRMUX"), "LSR"));
+            } else if (ctx->getBoundWireNet(ctx->getWireByName(ctx->id(
+                               fmt_str("X" << bel.location.x << "/Y" << bel.location.y << "/LSR1")))) == lsrnet) {
+                cc.tiles[tname].add_enum("LSR1.SRMODE", str_or_default(ci->params, ctx->id("SRMODE"), "LSR_OVER_CE"));
+                cc.tiles[tname].add_enum("LSR1.LSRMUX", str_or_default(ci->params, ctx->id("LSRMUX"), "LSR"));
+            }
+
+            NetInfo *clknet = nullptr;
+            if (ci->ports.find(ctx->id("CLK")) != ci->ports.end() && ci->ports.at(ctx->id("CLK")).net != nullptr)
+                clknet = ci->ports.at(ctx->id("CLK")).net;
+            if (ctx->getBoundWireNet(ctx->getWireByName(
+                        ctx->id(fmt_str("X" << bel.location.x << "/Y" << bel.location.y << "/CLK0")))) == clknet) {
+                cc.tiles[tname].add_enum("CLK0.CLKMUX", str_or_default(ci->params, ctx->id("CLKMUX"), "CLK"));
+            } else if (ctx->getBoundWireNet(ctx->getWireByName(ctx->id(
+                               fmt_str("X" << bel.location.x << "/Y" << bel.location.y << "/CLK1")))) == clknet) {
+                cc.tiles[tname].add_enum("CLK1.CLKMUX", str_or_default(ci->params, ctx->id("CLKMUX"), "CLK"));
+            }
         } else if (ci->type == ctx->id("TRELLIS_IO")) {
             std::string pio = ctx->locInfo(bel)->bel_data[bel.index].name.get();
             std::string iotype = str_or_default(ci->attrs, ctx->id("IO_TYPE"), "LVCMOS33");
