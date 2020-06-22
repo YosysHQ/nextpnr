@@ -838,10 +838,17 @@ void Arch::getSetupHoldFromTimingDatabase(IdString tctype, IdString clock, IdStr
 bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const
 {
     // Data for -8 grade
-    if (cell->type == id_TRELLIS_SLICE) {
+    if (cell->type == id_TRELLIS_COMB) {
         bool has_carry = cell->sliceInfo.is_carry;
-        IdString tmg_type = has_carry ? id_SCCU2C : id_SLOGICB;
-
+        IdString tmg_type =
+                has_carry ? ((cell->constr_z % 2) ? id_TRELLIS_COMB_CARRY1 : id_TRELLIS_COMB_CARRY0) : id_TRELLIS_COMB;
+        if (fromPort == id_A || fromPort == id_B || fromPort == id_C || fromPort == id_D || fromPort == id_M ||
+            fromPort == id_F1 || fromPort == id_FXA || fromPort == id_FXB || fromPort == id_FCI)
+            return getDelayFromTimingDatabase(tmg_type, fromPort, toPort, delay);
+        else
+            return false;
+    } else if (cell->type == id_TRELLIS_FF) {
+        return false;
     } else if (cell->type == id_TRELLIS_RAMW) {
         if ((fromPort == id_A0 && toPort == id_WADO3) || (fromPort == id_A1 && toPort == id_WDO1) ||
             (fromPort == id_B0 && toPort == id_WADO1) || (fromPort == id_B1 && toPort == id_WDO3) ||
@@ -885,7 +892,8 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
     if (cell->type == id_TRELLIS_COMB) {
         if (port == id_WCK)
             return TMG_CLOCK_INPUT;
-        if (port == id_A || port == id_B || port == id_C || port == id_D || port == id_FCI || port == id_FXA || port == id_FXB || port == id_F1)
+        if (port == id_A || port == id_B || port == id_C || port == id_D || port == id_FCI || port == id_FXA ||
+            port == id_FXB || port == id_F1)
             return TMG_COMB_INPUT;
         if (port == id_F && disconnected(id_A) && disconnected(id_B) && disconnected(id_C) && disconnected(id_D) &&
             disconnected(id_FCI))
@@ -894,8 +902,8 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
             return TMG_COMB_OUTPUT;
         if (port == id_M)
             return TMG_COMB_INPUT;
-        if (port == id_WD || port == id_WAD0 || port == id_WAD1 || port == id_WAD2 ||
-            port == id_WAD3 || port == id_WRE) {
+        if (port == id_WD || port == id_WAD0 || port == id_WAD1 || port == id_WAD2 || port == id_WAD3 ||
+            port == id_WRE) {
             clockInfoCount = 1;
             return TMG_REGISTER_INPUT;
         }
@@ -1059,20 +1067,28 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
     info.setup = getDelayFromNS(0);
     info.hold = getDelayFromNS(0);
     info.clockToQ = getDelayFromNS(0);
-    if (cell->type == id_TRELLIS_SLICE) {
-        int sd0 = cell->sliceInfo.sd0, sd1 = cell->sliceInfo.sd1;
-        if (port == id_WD0 || port == id_WD1 || port == id_WAD0 || port == id_WAD1 || port == id_WAD2 ||
-            port == id_WAD3 || port == id_WRE) {
+    if (cell->type == id_TRELLIS_COMB) {
+        if (port == id_WD || port == id_WAD0 || port == id_WAD1 || port == id_WAD2 || port == id_WAD3 ||
+            port == id_WRE) {
+            if (port == id_WD)
+                port = id_WD0;
             info.edge = RISING_EDGE;
             info.clock_port = id_WCK;
             getSetupHoldFromTimingDatabase(id_SDPRAME, id_WCK, port, info.setup, info.hold);
-        } else if (port == id_DI0 || port == id_DI1 || port == id_CE || port == id_LSR || (sd0 == 1 && port == id_M0) ||
-                   (sd1 == 1 && port == id_M1)) {
+        }
+    } else if (cell->type == id_TRELLIS_FF) {
+        bool using_m = (cell->ffInfo.flags & ArchCellInfo::FF_M_USED);
+        if (port == id_DI || port == id_CE || port == id_LSR || (using_m && port == id_M)) {
+            if (port == id_DI)
+                port = id_DI0;
+            if (port == id_M)
+                port = id_M0;
             info.edge = cell->sliceInfo.clkmux == id("INV") ? FALLING_EDGE : RISING_EDGE;
             info.clock_port = id_CLK;
             getSetupHoldFromTimingDatabase(id_SLOGICB, id_CLK, port, info.setup, info.hold);
-
         } else {
+            NPNR_ASSERT(port == id_Q);
+            port = id_Q0;
             info.edge = cell->sliceInfo.clkmux == id("INV") ? FALLING_EDGE : RISING_EDGE;
             info.clock_port = id_CLK;
             bool is_path = getDelayFromTimingDatabase(id_SLOGICB, id_CLK, port, info.clockToQ);
