@@ -168,17 +168,7 @@ bool Arch::slicesCompatible(LogicTileStatus *lts) const
 bool Arch::isBelLocationValid(BelId bel) const
 {
     if (getBelType(bel) == id_TRELLIS_SLICE) {
-        std::vector<const CellInfo *> bel_cells;
-        Loc bel_loc = getBelLocation(bel);
-        for (auto bel_other : getBelsByTile(bel_loc.x, bel_loc.y)) {
-            CellInfo *cell_other = getBoundBelCell(bel_other);
-            if (cell_other != nullptr) {
-                bel_cells.push_back(cell_other);
-            }
-        }
-        if (getBoundBelCell(bel) != nullptr && getBoundBelCell(bel)->sliceInfo.has_l6mux && ((bel_loc.z % 2) == 1))
-            return false;
-        return /*slicesCompatible(bel_cells)*/ true;
+        return slicesCompatible(tileStatus.at(tile_index(bel)).lts);
     } else {
         CellInfo *cell = getBoundBelCell(bel);
         if (cell == nullptr)
@@ -193,21 +183,10 @@ bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const
     if (cell->type == id_TRELLIS_SLICE) {
         NPNR_ASSERT(getBelType(bel) == id_TRELLIS_SLICE);
 
-        std::vector<const CellInfo *> bel_cells;
-        Loc bel_loc = getBelLocation(bel);
-
-        if (cell->sliceInfo.has_l6mux && ((bel_loc.z % 2) == 1))
-            return false;
-
-        for (auto bel_other : getBelsByTile(bel_loc.x, bel_loc.y)) {
-            CellInfo *cell_other = getBoundBelCell(bel_other);
-            if (cell_other != nullptr && bel_other != bel) {
-                bel_cells.push_back(cell_other);
-            }
-        }
-
-        bel_cells.push_back(cell);
-        return /*slicesCompatible(bel_cells)*/ true;
+        LogicTileStatus lts = *(tileStatus.at(tile_index(bel)).lts);
+        int z = locInfo(bel)->bel_data[bel.index].z;
+        lts.cells[z] = cell;
+        return slicesCompatible(&lts);
     } else if (cell->type == id_DCUA || cell->type == id_EXTREFB || cell->type == id_PCSCLKDIV) {
         return args.type != ArchArgs::LFE5U_25F && args.type != ArchArgs::LFE5U_45F && args.type != ArchArgs::LFE5U_85F;
     } else {

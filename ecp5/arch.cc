@@ -142,7 +142,7 @@ Arch::Arch(ArchArgs args) : args(args)
         for (int j = 0; j < tile_data.num_tiles; j++) {
             if (strcmp(chip_info->tiletype_names[tile_data.tile_names[j].type_idx].get(), "PLC2") == 0) {
                 // Is a logic tile
-                ts.lts = new LogicTileStatus;
+                ts.lts = new LogicTileStatus();
                 break;
             }
         }
@@ -840,12 +840,9 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
     // Data for -8 grade
     if (cell->type == id_TRELLIS_SLICE) {
         bool has_carry = cell->sliceInfo.is_carry;
-        if (fromPort == id_A0 || fromPort == id_B0 || fromPort == id_C0 || fromPort == id_D0 || fromPort == id_A1 ||
-            fromPort == id_B1 || fromPort == id_C1 || fromPort == id_D1 || fromPort == id_M0 || fromPort == id_M1 ||
-            fromPort == id_FXA || fromPort == id_FXB || fromPort == id_FCI) {
-            return getDelayFromTimingDatabase(has_carry ? id_SCCU2C : id_SLOGICB, fromPort, toPort, delay);
-        }
+        IdString tmg_type = has_carry ? id_SCCU2C : id_SLOGICB;
 
+    } else if (cell->type == id_TRELLIS_RAMW) {
         if ((fromPort == id_A0 && toPort == id_WADO3) || (fromPort == id_A1 && toPort == id_WDO1) ||
             (fromPort == id_B0 && toPort == id_WADO1) || (fromPort == id_B1 && toPort == id_WDO3) ||
             (fromPort == id_C0 && toPort == id_WADO2) || (fromPort == id_C1 && toPort == id_WDO0) ||
@@ -885,45 +882,45 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
 {
     auto disconnected = [cell](IdString p) { return !cell->ports.count(p) || cell->ports.at(p).net == nullptr; };
     clockInfoCount = 0;
-    if (cell->type == id_TRELLIS_SLICE) {
-        int sd0 = cell->sliceInfo.sd0, sd1 = cell->sliceInfo.sd1;
-        if (port == id_CLK || port == id_WCK)
+    if (cell->type == id_TRELLIS_COMB) {
+        if (port == id_WCK)
             return TMG_CLOCK_INPUT;
-        if (port == id_A0 || port == id_A1 || port == id_B0 || port == id_B1 || port == id_C0 || port == id_C1 ||
-            port == id_D0 || port == id_D1 || port == id_FCI || port == id_FXA || port == id_FXB)
+        if (port == id_A || port == id_B || port == id_C || port == id_D || port == id_FCI || port == id_FXA || port == id_FXB || port == id_F1)
             return TMG_COMB_INPUT;
-        if (port == id_F0 && disconnected(id_A0) && disconnected(id_B0) && disconnected(id_C0) && disconnected(id_D0) &&
+        if (port == id_F && disconnected(id_A) && disconnected(id_B) && disconnected(id_C) && disconnected(id_D) &&
             disconnected(id_FCI))
             return TMG_IGNORE; // LUT with no inputs is a constant
-        if (port == id_F1 && disconnected(id_A1) && disconnected(id_B1) && disconnected(id_C1) && disconnected(id_D1) &&
-            disconnected(id_FCI))
-            return TMG_IGNORE; // LUT with no inputs is a constant
-
-        if (port == id_F0 || port == id_F1 || port == id_FCO || port == id_OFX0 || port == id_OFX1)
+        if (port == id_F || port == id_FCO || port == id_OFX)
             return TMG_COMB_OUTPUT;
-        if (port == id_DI0 || port == id_DI1 || port == id_CE || port == id_LSR || (sd0 == 1 && port == id_M0) ||
-            (sd1 == 1 && port == id_M1)) {
-            clockInfoCount = 1;
-            return TMG_REGISTER_INPUT;
-        }
-        if (port == id_M0 || port == id_M1)
+        if (port == id_M)
             return TMG_COMB_INPUT;
-        if (port == id_Q0 || port == id_Q1) {
-            clockInfoCount = 1;
-            return TMG_REGISTER_OUTPUT;
-        }
-
-        if (port == id_WDO0 || port == id_WDO1 || port == id_WDO2 || port == id_WDO3 || port == id_WADO0 ||
-            port == id_WADO1 || port == id_WADO2 || port == id_WADO3)
-            return TMG_COMB_OUTPUT;
-
-        if (port == id_WD0 || port == id_WD1 || port == id_WAD0 || port == id_WAD1 || port == id_WAD2 ||
+        if (port == id_WD || port == id_WAD0 || port == id_WAD1 || port == id_WAD2 ||
             port == id_WAD3 || port == id_WRE) {
             clockInfoCount = 1;
             return TMG_REGISTER_INPUT;
         }
-
-        NPNR_ASSERT_FALSE_STR("no timing type for slice port '" + port.str(this) + "'");
+        return TMG_IGNORE;
+    } else if (cell->type == id_TRELLIS_FF) {
+        bool using_m = (cell->ffInfo.flags & ArchCellInfo::FF_M_USED);
+        if (port == id_CLK)
+            return TMG_CLOCK_INPUT;
+        if (port == id_DI || (using_m && (port == id_M)) || port == id_CE || port == id_LSR) {
+            clockInfoCount = 1;
+            return TMG_REGISTER_INPUT;
+        }
+        if (port == id_Q) {
+            clockInfoCount = 1;
+            return TMG_REGISTER_OUTPUT;
+        }
+        return TMG_IGNORE;
+    } else if (cell->type == id_TRELLIS_RAMW) {
+        if (port == id_A0 || port == id_A1 || port == id_B0 || port == id_B1 || port == id_C0 || port == id_C1 ||
+            port == id_D0 || port == id_D1)
+            return TMG_COMB_INPUT;
+        if (port == id_WDO0 || port == id_WDO1 || port == id_WDO2 || port == id_WDO3 || port == id_WADO0 ||
+            port == id_WADO1 || port == id_WADO2 || port == id_WADO3)
+            return TMG_COMB_OUTPUT;
+        return TMG_IGNORE;
     } else if (cell->type == id_TRELLIS_IO) {
         if (port == id_T || port == id_I)
             return TMG_ENDPOINT;

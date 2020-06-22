@@ -542,7 +542,7 @@ struct Arch : BaseCtx
         ~TileStatus() { delete lts; }
     };
 
-    std::vector<TileStatus> tileStatus;
+    mutable std::vector<TileStatus> tileStatus;
 
     // -------------------------------------------------
 
@@ -569,6 +569,22 @@ struct Arch : BaseCtx
         return (bel.location.y * chip_info->width + bel.location.x) * max_loc_bels + bel.index;
     }
 
+    void update_bel(BelId bel, CellInfo *old_cell, CellInfo *new_cell)
+    {
+        CellInfo *act_cell = (old_cell == nullptr) ? new_cell : old_cell;
+        if (act_cell->type == id_TRELLIS_FF || act_cell->type == id_TRELLIS_COMB || act_cell->type == id_TRELLIS_RAMW) {
+            LogicTileStatus *lts = tileStatus.at(tile_index(bel)).lts;
+            NPNR_ASSERT(lts != nullptr);
+            int z = locInfo(bel)->bel_data[bel.index].z;
+            lts->slices[(z >> lc_idx_shift) / 2].dirty = true;
+            if (act_cell->type == id_TRELLIS_FF)
+                lts->tile_dirty = true; // because FF CLK/LSR signals are tile-wide
+            if (act_cell->type == id_TRELLIS_COMB && (act_cell->combInfo.flags & ArchCellInfo::COMB_LUTRAM))
+                lts->tile_dirty = true; // because RAM shares CLK/LSR signals with FFs
+            lts->cells[z] = new_cell;
+        }
+    }
+
     void bindBel(BelId bel, CellInfo *cell, PlaceStrength strength)
     {
         NPNR_ASSERT(bel != BelId());
@@ -577,6 +593,7 @@ struct Arch : BaseCtx
         slot = cell;
         cell->bel = bel;
         cell->belStrength = strength;
+        update_bel(bel, nullptr, cell);
         refreshUiBel(bel);
     }
 
@@ -585,6 +602,7 @@ struct Arch : BaseCtx
         NPNR_ASSERT(bel != BelId());
         auto &slot = tileStatus.at(tile_index(bel)).boundcells.at(bel.index);
         NPNR_ASSERT(slot != nullptr);
+        update_bel(bel, slot, nullptr);
         slot->bel = BelId();
         slot->belStrength = STRENGTH_NONE;
         slot = nullptr;
