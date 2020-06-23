@@ -38,8 +38,11 @@ bool Arch::slicesCompatible(LogicTileStatus *lts) const
     if (lts == nullptr)
         return true;
     for (int sl = 0; sl < 4; sl++) {
-        if (!lts->slices[sl].dirty)
+        if (!lts->slices[sl].dirty) {
+            if (!lts->slices[sl].valid)
+                return false;
             continue;
+        }
         lts->slices[sl].dirty = false;
         lts->slices[sl].valid = false;
         bool found_ff = false;
@@ -81,7 +84,7 @@ bool Arch::slicesCompatible(LogicTileStatus *lts) const
 
             CellInfo *ff = lts->cells[((sl * 2 + l) << lc_idx_shift) | BEL_FF];
             if (ff != nullptr) {
-                uint8_t flags = comb->ffInfo.flags;
+                uint8_t flags = ff->ffInfo.flags;
                 if (comb_m_used && (flags & ArchCellInfo::FF_M_USED))
                     return false;
                 if (found_ff) {
@@ -160,6 +163,9 @@ bool Arch::slicesCompatible(LogicTileStatus *lts) const
         }
 #undef CHECK_EQUAL
         lts->tile_valid = true;
+    } else {
+        if (!lts->tile_valid)
+            return false;
     }
 
     return true;
@@ -167,7 +173,8 @@ bool Arch::slicesCompatible(LogicTileStatus *lts) const
 
 bool Arch::isBelLocationValid(BelId bel) const
 {
-    if (getBelType(bel) == id_TRELLIS_SLICE) {
+    IdString bel_type = getBelType(bel);
+    if (bel_type == id_TRELLIS_COMB || bel_type == id_TRELLIS_FF || bel_type == id_TRELLIS_RAMW) {
         return slicesCompatible(tileStatus.at(tile_index(bel)).lts);
     } else {
         CellInfo *cell = getBoundBelCell(bel);
@@ -180,9 +187,7 @@ bool Arch::isBelLocationValid(BelId bel) const
 
 bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const
 {
-    if (cell->type == id_TRELLIS_SLICE) {
-        NPNR_ASSERT(getBelType(bel) == id_TRELLIS_SLICE);
-
+    if (cell->type == id_TRELLIS_COMB || cell->type == id_TRELLIS_FF || cell->type == id_TRELLIS_RAMW) {
         LogicTileStatus lts = *(tileStatus.at(tile_index(bel)).lts);
         int z = locInfo(bel)->bel_data[bel.index].z;
         lts.cells[z] = cell;

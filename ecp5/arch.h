@@ -626,7 +626,7 @@ struct Arch : BaseCtx
     bool checkBelAvail(BelId bel) const
     {
         const CellInfo *slot = tileStatus.at(tile_index(bel)).boundcells.at(bel.index);
-        return slot != nullptr;
+        return slot == nullptr;
     }
 
     CellInfo *getBoundBelCell(BelId bel) const

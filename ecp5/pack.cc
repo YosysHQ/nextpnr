@@ -132,7 +132,7 @@ class Ecp5Packer
                     !is_constrained(di->driver.cell) && di->driver.port == id_F) {
                     // Constrain FF and LUT together, no need to rewire
                     CellInfo *comb = di->driver.cell;
-                    ci->params[ctx->id("SD")] = std::string("0");
+                    ci->params[ctx->id("SD")] = std::string("1");
                     comb->constr_children.push_back(ci);
                     ci->constr_parent = comb;
                     ci->constr_x = 0;
@@ -141,7 +141,7 @@ class Ecp5Packer
                     ci->constr_abs_z = false;
                 } else {
                     // Rewire to use general routing
-                    ci->params[ctx->id("SD")] = std::string("1");
+                    ci->params[ctx->id("SD")] = std::string("0");
                     rename_port(ctx, ci, id_DI, id_M);
                 }
             }
