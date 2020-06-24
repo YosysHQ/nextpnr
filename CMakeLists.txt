@@ -238,7 +238,21 @@ if(MINGW)
     add_definitions("-Wa,-mbig-obj")
 endif(MINGW)
 
-include(bba/bba.cmake)
+if(CMAKE_CROSSCOMPILING)
+    set(BBA_IMPORT "IMPORTFILE-NOTFOUND" CACHE FILEPATH
+        "Path to the `bba-export.cmake` export file from a native build")
+    include(${BBA_IMPORT})
+else()
+    add_subdirectory(bba)
+endif()
+
+include(TestBigEndian)
+test_big_endian(IS_BIG_ENDIAN)
+if(IS_BIG_ENDIAN)
+    set(BBASM_ENDIAN_FLAG "--be")
+else()
+    set(BBASM_ENDIAN_FLAG "--le")
+endif()
 
 foreach (family ${ARCH})
     message(STATUS "Configuring architecture : ${family}")
