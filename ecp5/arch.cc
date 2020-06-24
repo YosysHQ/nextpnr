@@ -62,7 +62,7 @@ void IdString::initialize_arch(const BaseCtx *ctx)
 
 static const ChipInfoPOD *get_chip_info(const RelPtr<ChipInfoPOD> *ptr) { return ptr->get(); }
 
-#if defined(_MSC_VER)
+#if defined(WIN32)
 void load_chipdb();
 #endif
 
@@ -97,7 +97,7 @@ void load_chipdb()
 
 Arch::Arch(ArchArgs args) : args(args)
 {
-#if defined(_MSC_VER) || defined(EXTERNAL_CHIPDB_ROOT)
+#if defined(WIN32) || defined(EXTERNAL_CHIPDB_ROOT)
     load_chipdb();
 #endif
 #ifdef LFE5U_45F_ONLY

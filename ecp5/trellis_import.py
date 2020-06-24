@@ -1,10 +1,7 @@
 #!/usr/bin/env python3
-import pytrellis
-import database
 import argparse
 import json
-import pip_classes
-import timing_dbs
+import sys
 from os import path
 
 location_types = dict()
@@ -17,7 +14,14 @@ parser = argparse.ArgumentParser(description="import ECP5 routing and bels from 
 parser.add_argument("device", type=str, help="target device")
 parser.add_argument("-p", "--constids", type=str, help="path to constids.inc")
 parser.add_argument("-g", "--gfxh", type=str, help="path to gfx.h")
+parser.add_argument("-L", "--libdir", type=str, action="append", help="extra Python library path")
 args = parser.parse_args()
+
+sys.path += args.libdir
+import pytrellis
+import database
+import pip_classes
+import timing_dbs
 
 with open(args.gfxh) as f:
     state = 0
@@ -437,7 +441,7 @@ def write_database(dev_name, chip, ddrg, endianness):
                 bba.u32(constids[wire_type(ddrg.to_str(wire.name))], "type")
                 if ("TILE_WIRE_" + ddrg.to_str(wire.name)) in gfx_wire_ids:
                     bba.u32(gfx_wire_ids["TILE_WIRE_" + ddrg.to_str(wire.name)], "tile_wire")
-                else:                    
+                else:
                     bba.u32(0, "tile_wire")
                 bba.u32(len(wire.arcsUphill), "num_uphill")
                 bba.u32(len(wire.arcsDownhill), "num_downhill")
