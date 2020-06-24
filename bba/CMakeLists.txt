@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.3)
-project(bba)
+project(bba CXX)
 
 find_package(Boost REQUIRED COMPONENTS
     program_options

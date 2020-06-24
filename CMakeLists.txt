@@ -1,6 +1,6 @@
 # TODO: sensible minimum CMake version
 cmake_minimum_required(VERSION 3.3)
-project(nextpnr)
+project(nextpnr CXX)
 
 option(BUILD_GUI "Build GUI" ON)
 option(BUILD_PYTHON "Build Python Integration" ON)
