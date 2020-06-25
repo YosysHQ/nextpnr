@@ -1113,7 +1113,9 @@ class BinaryBlobAssembler:
 
 bba = BinaryBlobAssembler()
 bba.pre('#include "nextpnr.h"')
+bba.pre('#include "embed.h"')
 bba.pre('NEXTPNR_NAMESPACE_BEGIN')
+bba.post('EmbeddedFile chipdb_file_%s("ice40/chipdb-%s.bin", chipdb_blob_%s);' % (dev_name, dev_name, dev_name))
 bba.post('NEXTPNR_NAMESPACE_END')
 bba.push("chipdb_blob_%s" % dev_name)
 bba.r("chip_info_%s" % dev_name, "chip_info")

@@ -207,16 +207,6 @@ NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     RelPtr<SpeedGradePOD> speed_grades;
 });
 
-#if defined(WIN32) || defined(EXTERNAL_CHIPDB_ROOT)
-extern const char *chipdb_blob_25k;
-extern const char *chipdb_blob_45k;
-extern const char *chipdb_blob_85k;
-#else
-extern const char chipdb_blob_25k[];
-extern const char chipdb_blob_45k[];
-extern const char chipdb_blob_85k[];
-#endif
-
 /************************ End of chipdb section. ************************/
 
 struct BelIterator
@@ -493,6 +483,9 @@ struct Arch : BaseCtx
 
     ArchArgs args;
     Arch(ArchArgs args);
+
+    static bool isAvailable(ArchArgs::ArchArgsTypes chip);
+    static std::vector<std::string> getSupportedPackages(ArchArgs::ArchArgsTypes chip);
 
     std::string getChipName() const;
     std::string getFullChipName() const;

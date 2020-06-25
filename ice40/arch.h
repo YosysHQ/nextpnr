@@ -244,20 +244,6 @@ NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     RelPtr<RelPtr<char>> tile_wire_names;
 });
 
-#if defined(WIN32) || defined(EXTERNAL_CHIPDB_ROOT)
-extern const char *chipdb_blob_384;
-extern const char *chipdb_blob_1k;
-extern const char *chipdb_blob_5k;
-extern const char *chipdb_blob_u4k;
-extern const char *chipdb_blob_8k;
-#else
-extern const char chipdb_blob_384[];
-extern const char chipdb_blob_1k[];
-extern const char chipdb_blob_5k[];
-extern const char chipdb_blob_u4k[];
-extern const char chipdb_blob_8k[];
-#endif
-
 /************************ End of chipdb section. ************************/
 
 struct BelIterator
@@ -427,6 +413,9 @@ struct Arch : BaseCtx
 
     ArchArgs args;
     Arch(ArchArgs args);
+
+    static bool isAvailable(ArchArgs::ArchArgsTypes chip);
+    static std::vector<std::string> getSupportedPackages(ArchArgs::ArchArgsTypes chip);
 
     std::string getChipName() const;
 

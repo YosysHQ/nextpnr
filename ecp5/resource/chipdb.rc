@@ -1,5 +1,0 @@
-#include "resource.h"
-
-IDR_CHIPDB_25K  BINARYFILE "ecp5/chipdb/chipdb-25k.bin"
-IDR_CHIPDB_45K  BINARYFILE "ecp5/chipdb/chipdb-45k.bin"
-IDR_CHIPDB_88K  BINARYFILE "ecp5/chipdb/chipdb-85k.bin"
