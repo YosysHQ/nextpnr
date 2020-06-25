@@ -1,9 +1,9 @@
-Copyright (C) 2018 Clifford Wolf <clifford@symbioticeda.com>
-Copyright (C) 2018 David Shah <david@symbioticeda.com>
-Copyright (C) 2018 Dan Gisselquist <dan@symbioticeda.com>
-Copyright (C) 2018 Serge Bazanski <q3k@symbioticeda.com>
-Copyright (C) 2018 Miodrag Milanovic <miodrag@symbioticeda.com>
-Copyright (C) 2018 Eddie Hung <eddieh@ece.ubc.ca>
+Copyright (C) 2018-2020 Claire Xen <claire@symbioticeda.com>
+Copyright (C) 2018-2020 David Shah <david@symbioticeda.com>
+Copyright (C) 2018-2020 Dan Gisselquist <dan@symbioticeda.com>
+Copyright (C) 2018-2020 Serge Bazanski <q3k@symbioticeda.com>
+Copyright (C) 2018-2020 Miodrag Milanovic <miodrag@symbioticeda.com>
+Copyright (C) 2018-2020 Eddie Hung <eddieh@ece.ubc.ca>
 
 Permission to use, copy, modify, and/or distribute this software for any
 purpose with or without fee is hereby granted, provided that the above
