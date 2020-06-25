@@ -37,7 +37,7 @@ endif()
 
 add_custom_target(chipdb-${family}-bins DEPENDS ${chipdb_sources} ${chipdb_binaries})
 
-add_library(chipdb-${family} OBJECT ${ICE40_CHIPDB} ${chipdb_sources})
+add_library(chipdb-${family} OBJECT ${ECP5_CHIPDB} ${chipdb_sources})
 add_dependencies(chipdb-${family} chipdb-${family}-bins)
 target_compile_options(chipdb-${family} PRIVATE -g0 -O0 -w)
 target_compile_definitions(chipdb-${family} PRIVATE NEXTPNR_NAMESPACE=nextpnr_${family})
