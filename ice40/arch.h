@@ -244,7 +244,7 @@ NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     RelPtr<RelPtr<char>> tile_wire_names;
 });
 
-#if defined(_MSC_VER) || defined(EXTERNAL_CHIPDB_ROOT)
+#if defined(WIN32) || defined(EXTERNAL_CHIPDB_ROOT)
 extern const char *chipdb_blob_384;
 extern const char *chipdb_blob_1k;
 extern const char *chipdb_blob_5k;

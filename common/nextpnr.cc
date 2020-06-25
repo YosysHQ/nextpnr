@@ -25,21 +25,15 @@
 
 #if defined(__wasm)
 extern "C" {
-    // FIXME: WASI does not currently support exceptions.
-    void* __cxa_allocate_exception(size_t thrown_size) throw() {
-        return malloc(thrown_size);
-    }
-    bool __cxa_uncaught_exception() throw();
-    void __cxa_throw(void* thrown_exception, struct std::type_info * tinfo, void (*dest)(void*)) {
-        std::terminate();
-    }
+// FIXME: WASI does not currently support exceptions.
+void *__cxa_allocate_exception(size_t thrown_size) throw() { return malloc(thrown_size); }
+bool __cxa_uncaught_exception() throw();
+void __cxa_throw(void *thrown_exception, struct std::type_info *tinfo, void (*dest)(void *)) { std::terminate(); }
 }
 
 namespace boost {
-    void throw_exception( std::exception const & e ) {
-        NEXTPNR_NAMESPACE::log_error("boost::exception(): %s\n", e.what());
-    }
-}
+void throw_exception(std::exception const &e) { NEXTPNR_NAMESPACE::log_error("boost::exception(): %s\n", e.what()); }
+} // namespace boost
 #endif
 
 NEXTPNR_NAMESPACE_BEGIN

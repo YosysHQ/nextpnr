@@ -1,6 +1,5 @@
-# TODO: sensible minimum CMake version
-cmake_minimum_required(VERSION 3.3)
-project(nextpnr)
+cmake_minimum_required(VERSION 3.5)
+project(nextpnr CXX)
 
 option(BUILD_GUI "Build GUI" ON)
 option(BUILD_PYTHON "Build Python Integration" ON)
@@ -10,7 +9,12 @@ option(USE_OPENMP "Use OpenMP to accelerate analytic placer" OFF)
 option(COVERAGE "Add code coverage info" OFF)
 option(STATIC_BUILD "Create static build" OFF)
 option(EXTERNAL_CHIPDB "Create build with pre-built chipdb binaries" OFF)
-option(SERIALIZE_CHIPDB "Never build chipdb in parallel to reduce peak memory use" ON)
+
+if(WIN32 OR EXTERNAL_CHIPDB)
+    set(BBASM_MODE "binary")
+else()
+    set(BBASM_MODE "string")
+endif()
 
 set(Boost_NO_BOOST_CMAKE ON)
 
@@ -56,10 +60,9 @@ if (STATIC_BUILD)
 endif()
 
 if (EXTERNAL_CHIPDB)
-    if (NOT DEFINED EXTERNAL_CHIPDB_ROOT)
-        message(STATUS "EXTERNAL_CHIPDB_ROOT not defined using -DEXTERNAL_CHIPDB_ROOT=/path/to/nextpnr. Default to /usr/share/nextpnr")
-        set(EXTERNAL_CHIPDB_ROOT "/usr/share/nextpnr")
-    endif()
+    set(EXTERNAL_CHIPDB_ROOT "${CMAKE_INSTALL_PREFIX}/share/nextpnr" CACHE STRING
+        "External chipdb path")
+    message(STATUS "Using external chipdb path: ${EXTERNAL_CHIPDB_ROOT}")
     add_definitions("-DEXTERNAL_CHIPDB_ROOT=\"${EXTERNAL_CHIPDB_ROOT}\"")
 endif()
 
@@ -234,14 +237,24 @@ aux_source_directory(frontend/ FRONTEND_FILES)
 set(COMMON_FILES ${COMMON_SRC_FILES} ${EXT_JSON11_FILES} ${JSON_PARSER_FILES} ${FRONTEND_FILES})
 set(CMAKE_BUILD_TYPE Release)
 
-if(MINGW)
-    add_definitions("-Wa,-mbig-obj")
-endif(MINGW)
+if(CMAKE_CROSSCOMPILING)
+    set(BBA_IMPORT "IMPORTFILE-NOTFOUND" CACHE FILEPATH
+        "Path to the `bba-export.cmake` export file from a native build")
+    include(${BBA_IMPORT})
+else()
+    add_subdirectory(bba)
+endif()
 
-include(bba/bba.cmake)
+include(TestBigEndian)
+test_big_endian(IS_BIG_ENDIAN)
+if(IS_BIG_ENDIAN)
+    set(BBASM_ENDIAN_FLAG "--be")
+else()
+    set(BBASM_ENDIAN_FLAG "--le")
+endif()
 
 foreach (family ${ARCH})
-    message(STATUS "Configuring architecture : ${family}")
+    message(STATUS "Configuring architecture: ${family}")
     string(TOUPPER ${family} ufamily)
     aux_source_directory(${family}/ ${ufamily}_FILES)
 
