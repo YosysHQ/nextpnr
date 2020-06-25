@@ -46,7 +46,7 @@ of the selected architecture:
 - For building on macOS, brew utility is needed.
   - Install all needed packages `brew install cmake python boost boost-python3 qt5 eigen`
   - Do not forget to add qt5 in path as well `echo 'export PATH="/usr/local/opt/qt/bin:$PATH"' >> ~/.bash_profile`
-  
+
     NOTE: this change is effective in next terminal session, so please re-open terminal window before next step
 
 Getting started
@@ -54,13 +54,10 @@ Getting started
 
 ### nextpnr-ice40
 
-To build the iCE40 version of nextpnr, install [icestorm](http://www.clifford.at/icestorm/) with chipdbs installed in `/usr/local/share/icebox`,
-or another location, which should be passed as `-DICEBOX_ROOT=/path/to/share/icebox` (ensure to point it to `share/icebox` and not where the
-icebox binaries are installed) to CMake.
-Then build and install `nextpnr-ice40` using the following commands:
+For iCE40 support, install [Project IceStorm](http://www.clifford.at/icestorm/) to `/usr/local` or another location, which should be passed as `-DICESTORM_INSTALL_PREFIX=/usr` to CMake. Then build and install `nextpnr-ice40` using the following commands:
 
 ```
-cmake -DARCH=ice40 .
+cmake . -DARCH=ice40
 make -j$(nproc)
 sudo make install
 ```
@@ -68,7 +65,7 @@ sudo make install
 On Windows, you may specify paths explicitly:
 
 ```
-cmake -DARCH=ice40 -DICEBOX_ROOT=C:/ProgramData/icestorm/share/icebox -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows -G "Visual Studio 15 2017 Win64" -DPYTHON_EXECUTABLE=C:/Python364/python.exe -DPYTHON_LIBRARY=C:/vcpkg/packages/python3_x64-windows/lib/python36.lib -DPYTHON_INCLUDE_DIR=C:/vcpkg/packages/python3_x64-windows/include/python3.6
+cmake . -DARCH=ice40 -DICEBOX_INSTALL_PREFIX=C:/ProgramData/icestorm -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows -G "Visual Studio 15 2017 Win64" -DPYTHON_EXECUTABLE=C:/Python364/python.exe -DPYTHON_LIBRARY=C:/vcpkg/packages/python3_x64-windows/lib/python36.lib -DPYTHON_INCLUDE_DIR=C:/vcpkg/packages/python3_x64-windows/include/python3.6 .
 cmake --build . --config Release
 ```
 
@@ -96,13 +93,10 @@ such as pack, place, route, and write output files.)
 
 ### nextpnr-ecp5
 
-For ECP5 support, you must download [Project Trellis](https://github.com/SymbiFlow/prjtrellis),
-then follow its instructions to download the latest database and build _libtrellis_. 
-(for example: `-DTRELLIS_INSTALL_PREFIX=/usr` tells nextpnr to look in `/usr/share/trellis` 
-and `/usr/lib/trellis`) 
+For ECP5 support, install [Project Trellis](https://github.com/SymbiFlow/prjtrellis) to `/usr/local` or another location, which should be passed as `-DTRELLIS_INSTALL_PREFIX=/usr/local` to CMake. Then build and install `nextpnr-ecp5` using the following commands:
 
 ```
-cmake -DARCH=ecp5 -DTRELLIS_INSTALL_PREFIX=/path/to/prjtrellis .
+cmake . -DARCH=ecp5 -DTRELLIS_INSTALL_PREFIX=/usr
 make -j$(nproc)
 sudo make install
 ```
@@ -115,45 +109,71 @@ sudo make install
 The generic target allows running placement and routing for arbitrary custom architectures.
 
 ```
-cmake -DARCH=generic .
+cmake . -DARCH=generic
 make -j$(nproc)
 sudo make install
 ```
 
 An example of how to use the generic flow is in [generic/examples](generic/examples). See also the [Generic Architecture docs](docs/generic.md).
 
+### Multiple architectures
+
+To build nextpnr for multiple architectures at once, a semicolon-separated list can be used with `-DARCH`.
+
+```
+cmake . -DARCH="ice40;ecp5"
+make -j$(nproc)
+sudo make install
+```
+
+To build every available architecture, use `-DARCH=all`.
+
+Pre-generating chip databases
+-----------------------------
+
+It is possible to pre-generate chip databases (`.bba` files). This can come in handy when building on time-constrained cloud instances, or in situations where Python is unable to use modules. To do this, build the architecture as a standalone project, which will produce the chip database alone. For example, for iCE40:
+
+```
+cd ice40
+cmake .
+make
+```
+
+This will create a `chipdb` directory with `.bba` files. Provide the path to this directory when building nextpnr by using `-D<arch>_CHIPDB=/path/to/chipdb`.
+
+Cross-compilation
+-----------------
+
+Apart from chip databases, nextpnr requires the `bba` tool to be compiled for the build system. This tool can be compiled as a separate project:
+
+```
+cd bba
+cmake .
+make
+```
+
+This will create a `bba-export.cmake` file. Provide the path to this file when cross-building nextpnr by using `-DBBA_IMPORT=/path/to/bba-export.cmake`.
+
 Additional notes for building nextpnr
 -------------------------------------
 
-Use cmake `-D` options to specify which version of nextpnr you want to build.
-
-Use `-DARCH=...` to set the architecture. It is a semicolon separated list.
-Use `cmake . -DARCH=all` to build all supported architectures.
-
-The following runs a debug build of the iCE40 architecture without GUI,
- without Python support, without the HeAP analytic placer and only HX1K support:
+The following runs a debug build of the iCE40 architecture without GUI, without Python support, without the HeAP analytic placer and only HX1K support:
 
 ```
-cmake -DARCH=ice40 -DCMAKE_BUILD_TYPE=Debug -DBUILD_PYTHON=OFF -DBUILD_GUI=OFF -DBUILD_HEAP=OFF -DICE40_HX1K_ONLY=1 .
+cmake . -DARCH=ice40 -DCMAKE_BUILD_TYPE=Debug -DBUILD_PYTHON=OFF -DBUILD_GUI=OFF -DBUILD_HEAP=OFF -DICE40_HX1K_ONLY=1
 make -j$(nproc)
 ```
 
-To make static build relase for iCE40 architecture use the following:
+To make static build release for iCE40 architecture use the following:
 
 ```
-cmake -DARCH=ice40 -DBUILD_PYTHON=OFF -DBUILD_GUI=OFF -DSTATIC_BUILD=ON .
+cmake . -DARCH=ice40 -DBUILD_PYTHON=OFF -DBUILD_GUI=OFF -DSTATIC_BUILD=ON
 make -j$(nproc)
 ```
 
-The HeAP placer's solver can optionally use OpenMP for a speedup on very large designs. Enable this by passing
-`-DUSE_OPENMP=yes` to cmake (compiler support may vary).
+The HeAP placer's solver can optionally use OpenMP for a speedup on very large designs. Enable this by passing `-DUSE_OPENMP=yes` to cmake (compiler support may vary).
 
-You can change the location where nextpnr will be installed (this will usually default to `/usr/local`) by using
-`-DCMAKE_INSTALL_PREFIX=/install/prefix`.
-
-It is possible to pre-generate `.bba` files.  This can come in handy when building on time-constrained cloud
-instances, or in situations where python is unable to use modules.  To do this, specify the path to pre-
-generated `.bba` files by passing `-DPREGENERATED_BBA_PATH=` to cmake.
+You can change the location where nextpnr will be installed (this will usually default to `/usr/local`) by using `-DCMAKE_INSTALL_PREFIX=/install/prefix`.
 
 Notes for developers
 --------------------
@@ -182,7 +202,7 @@ Testing
   - `-DSANITIZE_THREAD=ON`
   - `-DSANITIZE_UNDEFINED=ON`
 - Running valgrind example `valgrind --leak-check=yes --tool=memcheck ./nextpnr-ice40 --json ice40/blinky.json`
-- Running tests with code coverage use `-DBUILD_TESTS=ON -DCOVERAGE` and after `make` run `make ice40-coverage` 
+- Running tests with code coverage use `-DBUILD_TESTS=ON -DCOVERAGE` and after `make` run `make ice40-coverage`
 - After that open `ice40-coverage/index.html` in your browser to view the coverage report
 - Note that `lcov` is needed in order to generate reports
 
