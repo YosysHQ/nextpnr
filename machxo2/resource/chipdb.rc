@@ -1,0 +1,3 @@
+#include "resource.h"
+
+IDR_CHIPDB_1200  BINARYFILE "machxo2/chipdb/chipdb-1200.bin"

@@ -1,8 +1,19 @@
 #!/usr/bin/env python3
-import pytrellis
-import database
 import argparse
 import json
+import sys
+
+parser = argparse.ArgumentParser(description="import MachXO2 routing and bels from Project Trellis")
+parser.add_argument("device", type=str, help="target device")
+parser.add_argument("-p", "--constids", type=str, help="path to constids.inc")
+parser.add_argument("-g", "--gfxh", type=str, help="path to gfx.h (unused)")
+parser.add_argument("-L", "--libdir", type=str, action="append", help="extra Python library path")
+args = parser.parse_args()
+
+sys.path += args.libdir
+import pytrellis
+import database
+
 
 class BinaryBlobAssembler:
     def l(self, name, ltype = None, export = False):
@@ -56,12 +67,6 @@ dev_names = {"1200": "LCMXO2-1200HC"}
 
 def main():
     global max_row, max_col, const_id_count
-
-    parser = argparse.ArgumentParser(description="import MachXO2 routing and bels from Project Trellis")
-    parser.add_argument("device", type=str, help="target device")
-    parser.add_argument("-p", "--constids", type=str, help="path to constids.inc")
-    parser.add_argument("-g", "--gfxh", type=str, help="path to gfx.h (unused)")
-    args = parser.parse_args()
 
     pytrellis.load_database(database.get_db_root())
 
