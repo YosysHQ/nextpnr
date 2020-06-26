@@ -391,7 +391,9 @@ def write_database(dev_name, chip, ddrg, endianness):
 
     bba = BinaryBlobAssembler()
     bba.pre('#include "nextpnr.h"')
+    bba.pre('#include "embed.h"')
     bba.pre('NEXTPNR_NAMESPACE_BEGIN')
+    bba.post('EmbeddedFile chipdb_file_%s("ecp5/chipdb-%s.bin", chipdb_blob_%s);' % (dev_name, dev_name, dev_name))
     bba.post('NEXTPNR_NAMESPACE_END')
     bba.push("chipdb_blob_%s" % dev_name)
     bba.r("chip_info", "chip_info")
