@@ -6,7 +6,7 @@ tool.
 
 Currently nextpnr supports:
  * Lattice iCE40 devices supported by [Project IceStorm](http://www.clifford.at/icestorm/)
- * Lattice ECP5 devices supported by [Project Trellis](https://github.com/SymbiFlow/prjtrellis)
+ * Lattice ECP5 devices supported by [Project Trellis](https://github.com/YosysHQ/prjtrellis)
  * *(experimental)* a "generic" back-end for user-defined architectures
 
 There is some work in progress towards [support for Xilinx devices](https://github.com/daveshah1/nextpnr-xilinx/) but it is not upstream and not intended for end users at the present time. We hope to see more FPGA families supported in the future. We would love your help in developing this awesome new project!
@@ -93,7 +93,7 @@ such as pack, place, route, and write output files.)
 
 ### nextpnr-ecp5
 
-For ECP5 support, install [Project Trellis](https://github.com/SymbiFlow/prjtrellis) to `/usr/local` or another location, which should be passed as `-DTRELLIS_INSTALL_PREFIX=/usr/local` to CMake. Then build and install `nextpnr-ecp5` using the following commands:
+For ECP5 support, install [Project Trellis](https://github.com/YosysHQ/prjtrellis) to `/usr/local` or another location, which should be passed as `-DTRELLIS_INSTALL_PREFIX=/usr/local` to CMake. Then build and install `nextpnr-ecp5` using the following commands:
 
 ```
 cmake . -DARCH=ecp5 -DTRELLIS_INSTALL_PREFIX=/usr
@@ -101,7 +101,7 @@ make -j$(nproc)
 sudo make install
 ```
 
- - Examples of the ECP5 flow for a range of boards can be found in the [Project Trellis Examples](https://github.com/SymbiFlow/prjtrellis/tree/master/examples).
+ - Examples of the ECP5 flow for a range of boards can be found in the [Project Trellis Examples](https://github.com/YosysHQ/prjtrellis/tree/master/examples).
 
 
 ### nextpnr-generic
@@ -218,7 +218,7 @@ Links and references
 ### FPGA bitstream documentation (and tools) projects
 
 - [Project IceStorm (Lattice iCE40)](http://www.clifford.at/icestorm/)
-- [Project Trellis (Lattice ECP5)](https://symbiflow.github.io/prjtrellis-db/)
+- [Project Trellis (Lattice ECP5)](https://yosyshq.github.io/prjtrellis-db/)
 - [Project X-Ray (Xilinx 7-Series)](https://symbiflow.github.io/prjxray-db/)
 - [Project Chibi (Intel MAX-V)](https://github.com/rqou/project-chibi)
 
