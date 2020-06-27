@@ -23,13 +23,55 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+/**** Everything in this section must be kept in sync with chipdb.py ****/
+
+template <typename T> struct RelPtr
+{
+    int32_t offset;
+
+    // void set(const T *ptr) {
+    //     offset = reinterpret_cast<const char*>(ptr) -
+    //              reinterpret_cast<const char*>(this);
+    // }
+
+    const T *get() const { return reinterpret_cast<const T *>(reinterpret_cast<const char *>(this) + offset); }
+
+    const T &operator[](size_t index) const { return get()[index]; }
+
+    const T &operator*() const { return *(get()); }
+
+    const T *operator->() const { return get(); }
+};
+
+
+NPNR_PACKED_STRUCT(struct ChipInfoPOD {
+    int32_t stub;
+});
+
+/************************ End of chipdb section. ************************/
+
 struct ArchArgs
 {
-    // Number of LUT inputs
-    int K = 4;
-    // y = mx + c relationship between distance and delay for interconnect
-    // delay estimates
-    double delayScale = 0.1, delayOffset = 0;
+    enum ArchArgsTypes
+    {
+        NONE,
+        LCMXO2_256HC,
+        LCMXO2_640HC,
+        LCMXO2_1200HC,
+        LCMXO2_2000HC,
+        LCMXO2_4000HC,
+        LCMXO2_7000HC,
+    } type = NONE;
+    std::string package;
+    enum SpeedGrade
+    {
+        SPEED_1 = 0,
+        SPEED_2,
+        SPEED_3,
+        SPEED_4,
+        SPEED_5,
+        SPEED_6,
+    } speed = SPEED_4;
 };
 
 struct WireInfo;
@@ -145,6 +187,8 @@ struct Arch : BaseCtx
 
     ArchArgs args;
     Arch(ArchArgs args);
+
+    static bool isAvailable(ArchArgs::ArchArgsTypes chip);
 
     std::string getChipName() const { return chipName; }
 

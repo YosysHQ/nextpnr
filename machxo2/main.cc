@@ -27,11 +27,11 @@
 
 USING_NEXTPNR_NAMESPACE
 
-class GenericCommandHandler : public CommandHandler
+class MachXO2CommandHandler : public CommandHandler
 {
   public:
-    GenericCommandHandler(int argc, char **argv);
-    virtual ~GenericCommandHandler(){};
+    MachXO2CommandHandler(int argc, char **argv);
+    virtual ~MachXO2CommandHandler(){};
     std::unique_ptr<Context> createContext(std::unordered_map<std::string, Property> &values) override;
     void setupArchContext(Context *ctx) override{};
     void customBitstream(Context *ctx) override;
@@ -40,26 +40,48 @@ class GenericCommandHandler : public CommandHandler
     po::options_description getArchOptions() override;
 };
 
-GenericCommandHandler::GenericCommandHandler(int argc, char **argv) : CommandHandler(argc, argv) {}
+MachXO2CommandHandler::MachXO2CommandHandler(int argc, char **argv) : CommandHandler(argc, argv) {}
 
-po::options_description GenericCommandHandler::getArchOptions()
+po::options_description MachXO2CommandHandler::getArchOptions()
 {
     po::options_description specific("Architecture specific options");
-    specific.add_options()("generic", "set device type to generic");
+    if (Arch::isAvailable(ArchArgs::LCMXO2_256HC))
+        specific.add_options()("256", "set device type to LCMXO2-256HC");
+    if (Arch::isAvailable(ArchArgs::LCMXO2_640HC))
+        specific.add_options()("640", "set device type to LCMXO2-640HC");
+    if (Arch::isAvailable(ArchArgs::LCMXO2_1200HC))
+        specific.add_options()("1200", "set device type to LCMXO2-1200HC");
+    if (Arch::isAvailable(ArchArgs::LCMXO2_2000HC))
+        specific.add_options()("2000", "set device type to LCMXO2-2000HC");
+    if (Arch::isAvailable(ArchArgs::LCMXO2_4000HC))
+        specific.add_options()("4000", "set device type to LCMXO2-4000HC");
+    if (Arch::isAvailable(ArchArgs::LCMXO2_7000HC))
+        specific.add_options()("7000", "set device type to LCMXO2-7000HC");
+
+    specific.add_options()("package", po::value<std::string>(), "select device package (defaults to QFN32)");
+    specific.add_options()("speed", po::value<int>(), "select device speedgrade (1 to 6 inclusive)");
+
+    specific.add_options()("override-basecfg", po::value<std::string>(),
+                           "base chip configuration in Trellis text format");
+    specific.add_options()("textcfg", po::value<std::string>(), "textual configuration in Trellis format to write");
+
+    specific.add_options()("lpf", po::value<std::vector<std::string>>(), "LPF pin constraint file(s)");
+
     specific.add_options()("no-iobs", "disable automatic IO buffer insertion");
     return specific;
 }
 
-void GenericCommandHandler::customBitstream(Context *ctx) {}
+void MachXO2CommandHandler::customBitstream(Context *ctx) {}
 
-std::unique_ptr<Context> GenericCommandHandler::createContext(std::unordered_map<std::string, Property> &values)
+std::unique_ptr<Context> MachXO2CommandHandler::createContext(std::unordered_map<std::string, Property> &values)
 {
     ArchArgs chipArgs;
     if (values.find("arch.name") != values.end()) {
         std::string arch_name = values["arch.name"].as_string();
-        if (arch_name != "generic")
+        if (arch_name != "machxo2")
             log_error("Unsuported architecture '%s'.\n", arch_name.c_str());
     }
+
     auto ctx = std::unique_ptr<Context>(new Context(chipArgs));
     if (vm.count("no-iobs"))
         ctx->settings[ctx->id("disable_iobs")] = Property::State::S1;
@@ -68,7 +90,7 @@ std::unique_ptr<Context> GenericCommandHandler::createContext(std::unordered_map
 
 int main(int argc, char *argv[])
 {
-    GenericCommandHandler handler(argc, argv);
+    MachXO2CommandHandler handler(argc, argv);
     return handler.exec();
 }
 
