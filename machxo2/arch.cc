@@ -491,16 +491,7 @@ const std::vector<std::string> Arch::availableRouters = {"router1", "router2"};
 
 void Arch::assignArchInfo()
 {
-    for (auto &cell : getCtx()->cells) {
-        CellInfo *ci = cell.second.get();
-        if (ci->type == id("GENERIC_SLICE")) {
-            ci->is_slice = true;
-            ci->slice_clk = get_net_or_empty(ci, id("CLK"));
-        } else {
-            ci->is_slice = false;
-        }
-        ci->user_group = int_or_default(ci->attrs, id("PACK_GROUP"), -1);
-    }
+
 }
 
 bool Arch::cellsCompatible(const CellInfo **cells, int count) const
