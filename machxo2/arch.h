@@ -140,38 +140,6 @@ struct Arch : BaseCtx
 
     std::unordered_map<IdString, CellTiming> cellTiming;
 
-    void addWire(IdString name, IdString type, int x, int y);
-    void addPip(IdString name, IdString type, IdString srcWire, IdString dstWire, DelayInfo delay, Loc loc);
-    void addAlias(IdString name, IdString type, IdString srcWire, IdString dstWire, DelayInfo delay);
-
-    void addBel(IdString name, IdString type, Loc loc, bool gb);
-    void addBelInput(IdString bel, IdString name, IdString wire);
-    void addBelOutput(IdString bel, IdString name, IdString wire);
-    void addBelInout(IdString bel, IdString name, IdString wire);
-
-    void addGroupBel(IdString group, IdString bel);
-    void addGroupWire(IdString group, IdString wire);
-    void addGroupPip(IdString group, IdString pip);
-    void addGroupGroup(IdString group, IdString grp);
-
-    void addDecalGraphic(DecalId decal, const GraphicElement &graphic);
-    void setWireDecal(WireId wire, DecalXY decalxy);
-    void setPipDecal(PipId pip, DecalXY decalxy);
-    void setBelDecal(BelId bel, DecalXY decalxy);
-    void setGroupDecal(GroupId group, DecalXY decalxy);
-
-    void setWireAttr(IdString wire, IdString key, const std::string &value);
-    void setPipAttr(IdString pip, IdString key, const std::string &value);
-    void setBelAttr(IdString bel, IdString key, const std::string &value);
-
-    void setLutK(int K);
-    void setDelayScaling(double scale, double offset);
-
-    void addCellTimingClock(IdString cell, IdString port);
-    void addCellTimingDelay(IdString cell, IdString fromPort, IdString toPort, DelayInfo delay);
-    void addCellTimingSetupHold(IdString cell, IdString port, IdString clock, DelayInfo setup, DelayInfo hold);
-    void addCellTimingClockToOut(IdString cell, IdString port, IdString clock, DelayInfo clktoq);
-
     // ---------------------------------------------------------------
     // Common Arch API. Every arch must provide the following methods.
 
