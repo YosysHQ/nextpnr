@@ -28,7 +28,8 @@ build/
 /Testing/*
 CTestTestfile.cmake
 install_manifest.txt
-/bbasm
+/bba/bbasm
+/bba-export.cmake
 /ImportExecutables.cmake
 *-coverage/
 *-coverage.info

@@ -2,6 +2,6 @@
 /blinky_tb
 /blinky_tb.vcd
 /picorv32.v
-/chipdbs/
+/chipdb/
 *.blif
 
