@@ -542,10 +542,14 @@ class HeAPPlacer
                 cell_locs[cell.first].global = ctx->getBelGlobalBuf(ci->bel);
             } else if (ci->constr_parent == nullptr) {
                 bool placed = false;
+                int attempt_count = 0;
                 while (!placed) {
                     if (!available_bels.count(ci->type) || available_bels.at(ci->type).empty())
                         log_error("Unable to place cell '%s', no Bels remaining of type '%s'\n", ci->name.c_str(ctx),
                                   ci->type.c_str(ctx));
+                    ++attempt_count;
+                    if (attempt_count > 25000)
+                        log_error("Unable to find a placement location for cell '%s'\n", ci->name.c_str(ctx));
                     BelId bel = available_bels.at(ci->type).back();
                     available_bels.at(ci->type).pop_back();
                     Loc loc = ctx->getBelLocation(bel);

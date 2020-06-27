@@ -30,9 +30,14 @@ foreach(device ${ICE40_DEVICES})
     endif()
 endforeach()
 if(WIN32)
-    list(APPEND chipdb_sources
-        ${CMAKE_CURRENT_SOURCE_DIR}/${family}/resource/embed.cc
-        ${CMAKE_CURRENT_SOURCE_DIR}/${family}/resource/chipdb.rc)
+    set(chipdb_rc ${CMAKE_CURRENT_BINARY_DIR}/${family}/resource/chipdb.rc)
+    list(APPEND chipdb_sources ${chipdb_rc})
+
+    file(WRITE ${chipdb_rc})
+    foreach(device ${ICE40_DEVICES})
+        file(APPEND ${chipdb_rc}
+             "${family}/chipdb-${device}.bin RCDATA \"${CMAKE_CURRENT_BINARY_DIR}/${family}/chipdb/chipdb-${device}.bin\"")
+    endforeach()
 endif()
 
 add_custom_target(chipdb-${family}-bins DEPENDS ${chipdb_sources} ${chipdb_binaries})
@@ -42,9 +47,6 @@ add_dependencies(chipdb-${family} chipdb-${family}-bins)
 target_compile_options(chipdb-${family} PRIVATE -g0 -O0 -w)
 target_compile_definitions(chipdb-${family} PRIVATE NEXTPNR_NAMESPACE=nextpnr_${family})
 target_include_directories(chipdb-${family} PRIVATE ${family})
-if(ICE40_DEVICES STREQUAL "1k")
-    target_compile_definitions(chipdb-${family} PUBLIC ICE40_HX1K_ONLY=1)
-endif()
 
 foreach(family_target ${family_targets})
     target_sources(${family_target} PRIVATE $<TARGET_OBJECTS:chipdb-${family}>)

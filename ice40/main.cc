@@ -50,17 +50,20 @@ Ice40CommandHandler::Ice40CommandHandler(int argc, char **argv) : CommandHandler
 po::options_description Ice40CommandHandler::getArchOptions()
 {
     po::options_description specific("Architecture specific options");
-#ifdef ICE40_HX1K_ONLY
-    specific.add_options()("hx1k", "set device type to iCE40HX1K");
-#else
-    specific.add_options()("lp384", "set device type to iCE40LP384");
-    specific.add_options()("lp1k", "set device type to iCE40LP1K");
-    specific.add_options()("lp8k", "set device type to iCE40LP8K");
-    specific.add_options()("hx1k", "set device type to iCE40HX1K");
-    specific.add_options()("hx8k", "set device type to iCE40HX8K");
-    specific.add_options()("up5k", "set device type to iCE40UP5K");
-    specific.add_options()("u4k", "set device type to iCE5LP4K");
-#endif
+    if (Arch::isAvailable(ArchArgs::LP384))
+        specific.add_options()("lp384", "set device type to iCE40LP384");
+    if (Arch::isAvailable(ArchArgs::LP1K))
+        specific.add_options()("lp1k", "set device type to iCE40LP1K");
+    if (Arch::isAvailable(ArchArgs::LP8K))
+        specific.add_options()("lp8k", "set device type to iCE40LP8K");
+    if (Arch::isAvailable(ArchArgs::HX1K))
+        specific.add_options()("hx1k", "set device type to iCE40HX1K");
+    if (Arch::isAvailable(ArchArgs::HX8K))
+        specific.add_options()("hx8k", "set device type to iCE40HX8K");
+    if (Arch::isAvailable(ArchArgs::UP5K))
+        specific.add_options()("up5k", "set device type to iCE40UP5K");
+    if (Arch::isAvailable(ArchArgs::U4K))
+        specific.add_options()("u4k", "set device type to iCE5LP4K");
     specific.add_options()("package", po::value<std::string>(), "set device package");
     specific.add_options()("pcf", po::value<std::string>(), "PCF constraints file to ingest");
     specific.add_options()("asc", po::value<std::string>(), "asc bitstream file to write");
@@ -204,11 +207,6 @@ std::unique_ptr<Context> Ice40CommandHandler::createContext(std::unordered_map<s
         chipArgs.type = ArchArgs::HX1K;
         chipArgs.package = "tq144";
     }
-#ifdef ICE40_HX1K_ONLY
-    if (chipArgs.type != ArchArgs::HX1K) {
-        log_error("This version of nextpnr-ice40 is built with HX1K-support only.\n");
-    }
-#endif
 
     auto ctx = std::unique_ptr<Context>(new Context(chipArgs));
     for (auto &val : values)

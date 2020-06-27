@@ -23,7 +23,6 @@
 
 #include "nextpnr.h"
 #include "pybindings.h"
-#include "pywrappers.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 

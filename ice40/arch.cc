@@ -19,9 +19,9 @@
  */
 
 #include <algorithm>
-#include <boost/iostreams/device/mapped_file.hpp>
 #include <cmath>
 #include "cells.h"
+#include "embed.h"
 #include "gfx.h"
 #include "log.h"
 #include "nextpnr.h"
@@ -44,75 +44,49 @@ void IdString::initialize_arch(const BaseCtx *ctx)
 
 // -----------------------------------------------------------------------
 
-static const ChipInfoPOD *get_chip_info(const RelPtr<ChipInfoPOD> *ptr) { return ptr->get(); }
-
-#if defined(WIN32)
-void load_chipdb();
-#endif
-
-#if defined(EXTERNAL_CHIPDB_ROOT)
-const char *chipdb_blob_384 = nullptr;
-const char *chipdb_blob_1k = nullptr;
-const char *chipdb_blob_5k = nullptr;
-const char *chipdb_blob_u4k = nullptr;
-const char *chipdb_blob_8k = nullptr;
-
-boost::iostreams::mapped_file blob_files[5];
-
-const char *mmap_file(int index, const char *filename)
+static const ChipInfoPOD *get_chip_info(ArchArgs::ArchArgsTypes chip)
 {
-    try {
-        blob_files[index].open(filename, boost::iostreams::mapped_file::priv);
-        if (!blob_files[index].is_open())
-            log_error("Unable to read chipdb %s\n", filename);
-        return (const char *)blob_files[index].data();
-    } catch (...) {
-        log_error("Unable to read chipdb %s\n", filename);
+    std::string chipdb;
+    if (chip == ArchArgs::LP384) {
+        chipdb = "ice40/chipdb-384.bin";
+    } else if (chip == ArchArgs::LP1K || chip == ArchArgs::HX1K) {
+        chipdb = "ice40/chipdb-1k.bin";
+    } else if (chip == ArchArgs::U4K) {
+        chipdb = "ice40/chipdb-u4k.bin";
+    } else if (chip == ArchArgs::UP5K) {
+        chipdb = "ice40/chipdb-5k.bin";
+    } else if (chip == ArchArgs::LP8K || chip == ArchArgs::HX8K) {
+        chipdb = "ice40/chipdb-8k.bin";
+    } else {
+        log_error("Unknown chip\n");
     }
+
+    auto ptr = reinterpret_cast<const RelPtr<ChipInfoPOD> *>(get_chipdb(chipdb));
+    if (ptr == nullptr)
+        return nullptr;
+    return ptr->get();
 }
 
-void load_chipdb()
+bool Arch::isAvailable(ArchArgs::ArchArgsTypes chip) { return get_chip_info(chip) != nullptr; }
+
+std::vector<std::string> Arch::getSupportedPackages(ArchArgs::ArchArgsTypes chip)
 {
-    chipdb_blob_384 = mmap_file(0, EXTERNAL_CHIPDB_ROOT "/ice40/chipdb-384.bin");
-    chipdb_blob_1k = mmap_file(1, EXTERNAL_CHIPDB_ROOT "/ice40/chipdb-1k.bin");
-    chipdb_blob_5k = mmap_file(2, EXTERNAL_CHIPDB_ROOT "/ice40/chipdb-5k.bin");
-    chipdb_blob_u4k = mmap_file(3, EXTERNAL_CHIPDB_ROOT "/ice40/chipdb-u4k.bin");
-    chipdb_blob_8k = mmap_file(4, EXTERNAL_CHIPDB_ROOT "/ice40/chipdb-8k.bin");
+    const ChipInfoPOD *chip_info = get_chip_info(chip);
+    std::vector<std::string> packages;
+    for (int i = 0; i < chip_info->num_packages; i++)
+        packages.push_back(chip_info->packages_data[i].name.get());
+    return packages;
 }
-#endif
+
+// -----------------------------------------------------------------------
+
 Arch::Arch(ArchArgs args) : args(args)
 {
-#if defined(WIN32) || defined(EXTERNAL_CHIPDB_ROOT)
-    load_chipdb();
-#endif
+    fast_part = (args.type == ArchArgs::HX8K || args.type == ArchArgs::HX1K);
 
-#ifdef ICE40_HX1K_ONLY
-    if (args.type == ArchArgs::HX1K) {
-        fast_part = true;
-        chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_1k));
-    } else {
+    chip_info = get_chip_info(args.type);
+    if (chip_info == nullptr)
         log_error("Unsupported iCE40 chip type.\n");
-    }
-#else
-    if (args.type == ArchArgs::LP384) {
-        fast_part = false;
-        chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_384));
-    } else if (args.type == ArchArgs::LP1K || args.type == ArchArgs::HX1K) {
-        fast_part = args.type == ArchArgs::HX1K;
-        chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_1k));
-    } else if (args.type == ArchArgs::UP5K) {
-        fast_part = false;
-        chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_5k));
-    } else if (args.type == ArchArgs::U4K) {
-        fast_part = false;
-        chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_u4k));
-    } else if (args.type == ArchArgs::LP8K || args.type == ArchArgs::HX8K) {
-        fast_part = args.type == ArchArgs::HX8K;
-        chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_8k));
-    } else {
-        log_error("Unsupported iCE40 chip type.\n");
-    }
-#endif
 
     package_info = nullptr;
     for (int i = 0; i < chip_info->num_packages; i++) {
@@ -135,13 +109,6 @@ Arch::Arch(ArchArgs args) : args(args)
 
 std::string Arch::getChipName() const
 {
-#ifdef ICE40_HX1K_ONLY
-    if (args.type == ArchArgs::HX1K) {
-        return "Lattice LP1K";
-    } else {
-        log_error("Unsupported iCE40 chip type.\n");
-    }
-#else
     if (args.type == ArchArgs::LP384) {
         return "Lattice LP384";
     } else if (args.type == ArchArgs::LP1K) {
@@ -159,7 +126,6 @@ std::string Arch::getChipName() const
     } else {
         log_error("Unknown chip\n");
     }
-#endif
 }
 
 // -----------------------------------------------------------------------
@@ -642,13 +608,10 @@ bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay
             budget = 0;
         else {
             switch (args.type) {
-#ifndef ICE40_HX1K_ONLY
             case ArchArgs::HX8K:
-#endif
             case ArchArgs::HX1K:
                 budget = cin ? 190 : (same_y ? 260 : 560);
                 break;
-#ifndef ICE40_HX1K_ONLY
             case ArchArgs::LP384:
             case ArchArgs::LP1K:
             case ArchArgs::LP8K:
@@ -658,7 +621,6 @@ bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay
             case ArchArgs::U4K:
                 budget = cin ? 560 : (same_y ? 660 : 1220);
                 break;
-#endif
             default:
                 log_error("Unsupported iCE40 chip type.\n");
             }

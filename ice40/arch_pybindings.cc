@@ -57,10 +57,13 @@ void arch_wrap_python()
                            .def("place", &Context::place)
                            .def("route", &Context::route);
 
+    fn_wrapper_2a<Context, decltype(&Context::isValidBelForCell), &Context::isValidBelForCell, pass_through<bool>,
+                  addr_and_unwrap<CellInfo>, conv_from_str<BelId>>::def_wrap(ctx_cls, "isValidBelForCell");
+
     typedef std::unordered_map<IdString, std::unique_ptr<CellInfo>> CellMap;
     typedef std::unordered_map<IdString, std::unique_ptr<NetInfo>> NetMap;
-    typedef std::unordered_map<IdString, HierarchicalCell> HierarchyMap;
     typedef std::unordered_map<IdString, IdString> AliasMap;
+    typedef std::unordered_map<IdString, HierarchicalCell> HierarchyMap;
 
     auto belpin_cls = class_<ContextualWrapper<BelPin>>("BelPin", no_init);
     readonly_wrapper<BelPin, decltype(&BelPin::bel), &BelPin::bel, conv_to_str<BelId>>::def_wrap(belpin_cls, "bel");

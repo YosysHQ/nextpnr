@@ -23,6 +23,7 @@
 #include <boost/range/adaptor/reversed.hpp>
 #include <cmath>
 #include <cstring>
+#include "embed.h"
 #include "gfx.h"
 #include "globals.h"
 #include "log.h"
@@ -60,69 +61,48 @@ void IdString::initialize_arch(const BaseCtx *ctx)
 
 // -----------------------------------------------------------------------
 
-static const ChipInfoPOD *get_chip_info(const RelPtr<ChipInfoPOD> *ptr) { return ptr->get(); }
-
-#if defined(WIN32)
-void load_chipdb();
-#endif
-
-#if defined(EXTERNAL_CHIPDB_ROOT)
-const char *chipdb_blob_25k = nullptr;
-const char *chipdb_blob_45k = nullptr;
-const char *chipdb_blob_85k = nullptr;
-
-boost::iostreams::mapped_file blob_files[3];
-
-const char *mmap_file(int index, const char *filename)
+static const ChipInfoPOD *get_chip_info(ArchArgs::ArchArgsTypes chip)
 {
-    try {
-        // WASI only supports MAP_PRIVATE
-        blob_files[index].open(filename, boost::iostreams::mapped_file::priv);
-        if (!blob_files[index].is_open())
-            log_error("Unable to read chipdb %s\n", filename);
-        return (const char *)blob_files[index].data();
-    } catch (...) {
-        log_error("Unable to read chipdb %s\n", filename);
+    std::string chipdb;
+    if (chip == ArchArgs::LFE5U_12F || chip == ArchArgs::LFE5U_25F || chip == ArchArgs::LFE5UM_25F ||
+        chip == ArchArgs::LFE5UM5G_25F) {
+        chipdb = "ecp5/chipdb-25k.bin";
+    } else if (chip == ArchArgs::LFE5U_45F || chip == ArchArgs::LFE5UM_45F || chip == ArchArgs::LFE5UM5G_45F) {
+        chipdb = "ecp5/chipdb-45k.bin";
+    } else if (chip == ArchArgs::LFE5U_85F || chip == ArchArgs::LFE5UM_85F || chip == ArchArgs::LFE5UM5G_85F) {
+        chipdb = "ecp5/chipdb-85k.bin";
+    } else {
+        log_error("Unknown chip\n");
     }
+
+    auto ptr = reinterpret_cast<const RelPtr<ChipInfoPOD> *>(get_chipdb(chipdb));
+    if (ptr == nullptr)
+        return nullptr;
+    return ptr->get();
 }
 
-void load_chipdb()
+bool Arch::isAvailable(ArchArgs::ArchArgsTypes chip) { return get_chip_info(chip) != nullptr; }
+
+std::vector<std::string> Arch::getSupportedPackages(ArchArgs::ArchArgsTypes chip)
 {
-    chipdb_blob_25k = mmap_file(0, EXTERNAL_CHIPDB_ROOT "/ecp5/chipdb-25k.bin");
-    chipdb_blob_45k = mmap_file(1, EXTERNAL_CHIPDB_ROOT "/ecp5/chipdb-45k.bin");
-    chipdb_blob_85k = mmap_file(2, EXTERNAL_CHIPDB_ROOT "/ecp5/chipdb-85k.bin");
+    const ChipInfoPOD *chip_info = get_chip_info(chip);
+    std::vector<std::string> packages;
+    for (int i = 0; i < chip_info->num_packages; i++)
+        packages.push_back(chip_info->package_info[i].name.get());
+    return packages;
 }
-#endif
-//#define LFE5U_45F_ONLY
+
+// -----------------------------------------------------------------------
 
 Arch::Arch(ArchArgs args) : args(args)
 {
-#if defined(WIN32) || defined(EXTERNAL_CHIPDB_ROOT)
-    load_chipdb();
-#endif
-#ifdef LFE5U_45F_ONLY
-    if (args.type == ArchArgs::LFE5U_45F) {
-        chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_45k));
-    } else {
+    chip_info = get_chip_info(args.type);
+    if (chip_info == nullptr)
         log_error("Unsupported ECP5 chip type.\n");
-    }
-#else
-    if (args.type == ArchArgs::LFE5U_12F || args.type == ArchArgs::LFE5U_25F || args.type == ArchArgs::LFE5UM_25F ||
-        args.type == ArchArgs::LFE5UM5G_25F) {
-        chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_25k));
-    } else if (args.type == ArchArgs::LFE5U_45F || args.type == ArchArgs::LFE5UM_45F ||
-               args.type == ArchArgs::LFE5UM5G_45F) {
-        chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_45k));
-    } else if (args.type == ArchArgs::LFE5U_85F || args.type == ArchArgs::LFE5UM_85F ||
-               args.type == ArchArgs::LFE5UM5G_85F) {
-        chip_info = get_chip_info(reinterpret_cast<const RelPtr<ChipInfoPOD> *>(chipdb_blob_85k));
-    } else {
-        log_error("Unsupported ECP5 chip type.\n");
-    }
-#endif
     if (chip_info->const_id_count != DB_CONST_ID_COUNT)
         log_error("Chip database 'bba' and nextpnr code are out of sync; please rebuild (or contact distribution "
                   "maintainer)!\n");
+
     package_info = nullptr;
     for (int i = 0; i < chip_info->num_packages; i++) {
         if (args.package == chip_info->package_info[i].name.get()) {

@@ -1,7 +1,0 @@
-#include "resource.h"
-
-IDR_CHIPDB_384 BINARYFILE "ice40/chipdb/chipdb-384.bin"
-IDR_CHIPDB_1K  BINARYFILE "ice40/chipdb/chipdb-1k.bin"
-IDR_CHIPDB_5K  BINARYFILE "ice40/chipdb/chipdb-5k.bin"
-IDR_CHIPDB_U4K BINARYFILE "ice40/chipdb/chipdb-u4k.bin"
-IDR_CHIPDB_8K  BINARYFILE "ice40/chipdb/chipdb-8k.bin"
