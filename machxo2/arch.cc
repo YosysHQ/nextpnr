@@ -20,6 +20,7 @@
 #include <iostream>
 #include <math.h>
 #include "nextpnr.h"
+#include "embed.h"
 #include "placer1.h"
 #include "placer_heap.h"
 #include "router1.h"
@@ -36,7 +37,44 @@ Arch::Arch(ArchArgs args) : chipName("generic"), args(args)
     decal_graphics[IdString()];
 }
 
-void IdString::initialize_arch(const BaseCtx *ctx) {}
+// -----------------------------------------------------------------------
+
+void IdString::initialize_arch(const BaseCtx *ctx) {
+    #define X(t) initialize_add(ctx, #t, ID_##t);
+
+    #include "constids.inc"
+
+    #undef X
+}
+
+// ---------------------------------------------------------------
+
+static const ChipInfoPOD *get_chip_info(ArchArgs::ArchArgsTypes chip)
+{
+    std::string chipdb;
+    if (chip == ArchArgs::LCMXO2_256HC) {
+        chipdb = "machxo2/chipdb-256.bin";
+    } else if (chip == ArchArgs::LCMXO2_640HC) {
+        chipdb = "machxo2/chipdb-640.bin";
+    } else if (chip == ArchArgs::LCMXO2_1200HC) {
+        chipdb = "machxo2/chipdb-1200.bin";
+    } else if (chip == ArchArgs::LCMXO2_2000HC) {
+        chipdb = "machxo2/chipdb-2000.bin";
+    } else if (chip == ArchArgs::LCMXO2_4000HC) {
+        chipdb = "machxo2/chipdb-4000.bin";
+    } else if (chip == ArchArgs::LCMXO2_7000HC) {
+        chipdb = "machxo2/chipdb-7000.bin";
+    } else {
+        log_error("Unknown chip\n");
+    }
+
+    auto ptr = reinterpret_cast<const RelPtr<ChipInfoPOD> *>(get_chipdb(chipdb));
+    if (ptr == nullptr)
+        return nullptr;
+    return ptr->get();
+}
+
+bool Arch::isAvailable(ArchArgs::ArchArgsTypes chip) { return get_chip_info(chip) != nullptr; }
 
 // ---------------------------------------------------------------
 
@@ -265,22 +303,12 @@ const std::vector<GroupId> &Arch::getGroupGroups(GroupId group) const { return g
 
 delay_t Arch::estimateDelay(WireId src, WireId dst) const
 {
-    const WireInfo &s = wires.at(src);
-    const WireInfo &d = wires.at(dst);
-    int dx = abs(s.x - d.x);
-    int dy = abs(s.y - d.y);
-    return (dx + dy) * args.delayScale + args.delayOffset;
+    return 0;
 }
 
 delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
 {
-    const auto &driver = net_info->driver;
-    auto driver_loc = getBelLocation(driver.cell->bel);
-    auto sink_loc = getBelLocation(sink.cell->bel);
-
-    int dx = abs(sink_loc.x - driver_loc.x);
-    int dy = abs(sink_loc.y - driver_loc.y);
-    return (dx + dy) * args.delayScale + args.delayOffset;
+    return 0;
 }
 
 bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const { return false; }

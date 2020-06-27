@@ -138,7 +138,7 @@ static void pack_constants(Context *ctx)
     log_info("Packing constants..\n");
 
     std::unique_ptr<CellInfo> gnd_cell = create_generic_cell(ctx, ctx->id("GENERIC_SLICE"), "$PACKER_GND");
-    gnd_cell->params[ctx->id("INIT")] = Property(0, 1 << ctx->args.K);
+    gnd_cell->params[ctx->id("INIT")] = Property(0, 1 << 4);
     std::unique_ptr<NetInfo> gnd_net = std::unique_ptr<NetInfo>(new NetInfo);
     gnd_net->name = ctx->id("$PACKER_GND_NET");
     gnd_net->driver.cell = gnd_cell.get();
@@ -147,7 +147,7 @@ static void pack_constants(Context *ctx)
 
     std::unique_ptr<CellInfo> vcc_cell = create_generic_cell(ctx, ctx->id("GENERIC_SLICE"), "$PACKER_VCC");
     // Fill with 1s
-    vcc_cell->params[ctx->id("INIT")] = Property(Property::S1).extract(0, (1 << ctx->args.K), Property::S1);
+    vcc_cell->params[ctx->id("INIT")] = Property(Property::S1).extract(0, (1 << 4), Property::S1);
     std::unique_ptr<NetInfo> vcc_net = std::unique_ptr<NetInfo>(new NetInfo);
     vcc_net->name = ctx->id("$PACKER_VCC_NET");
     vcc_net->driver.cell = vcc_cell.get();

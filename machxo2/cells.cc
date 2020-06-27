@@ -42,11 +42,11 @@ std::unique_ptr<CellInfo> create_generic_cell(Context *ctx, IdString type, std::
     }
     new_cell->type = type;
     if (type == ctx->id("GENERIC_SLICE")) {
-        new_cell->params[ctx->id("K")] = ctx->args.K;
+        new_cell->params[ctx->id("K")] = 4;
         new_cell->params[ctx->id("INIT")] = 0;
         new_cell->params[ctx->id("FF_USED")] = 0;
 
-        for (int i = 0; i < ctx->args.K; i++)
+        for (int i = 0; i < 4; i++)
             add_port(ctx, new_cell.get(), "I[" + std::to_string(i) + "]", PORT_IN);
 
         add_port(ctx, new_cell.get(), "CLK", PORT_IN);
@@ -73,7 +73,7 @@ void lut_to_lc(const Context *ctx, CellInfo *lut, CellInfo *lc, bool no_dff)
     lc->params[ctx->id("INIT")] = lut->params[ctx->id("INIT")];
 
     int lut_k = int_or_default(lut->params, ctx->id("K"), 4);
-    NPNR_ASSERT(lut_k <= ctx->args.K);
+    NPNR_ASSERT(lut_k <= 4);
 
     for (int i = 0; i < lut_k; i++) {
         IdString port = ctx->id("I[" + std::to_string(i) + "]");
