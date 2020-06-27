@@ -1,2 +1,0 @@
-#define BINARYFILE 256
-#define IDR_CHIPDB_1200 103

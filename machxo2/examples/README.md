@@ -1,15 +1,16 @@
 # MachXO2 Architecture Example
 
-This contains a simple example of the nextpnr machxo2 API. As time goes on,
-python scripts required as boilerplate will be removed.
+This contains a simple example of running `nextpnr-machxo2`:
 
- - simple.py procedurally generates a simple FPGA architecture with IO at the edges,
-   logic slices in all other tiles, and interconnect only between adjacent tiles
+* `simple.sh` generates JSON output (`pnrblinky.json`) of a classic blinky
+  example from `blinky.v`.
+* `simtest.sh` will use `yosys` to generate a Verilog file from
+  `pnrblinky.json`, called `pnrblinky.v`. It will then and compare
+  `pnrblinky.v`'s simulation behavior to the original verilog file (`blinky.v`)
+  using the [`iverilog`](http://iverilog.icarus.com) compiler and `vvp`
+  runtime. This is known as post-place-and-route simulation.
 
- - simple_timing.py annotates cells with timing data (this is a separate script that must be run after packing)
-
- - write_fasm.py uses the nextpnr Python API to write a FASM file for a design
-
- - bitstream.py uses write_fasm.py to create a FASM ("FPGA assembly") file for the place-and-routed design
-
- - Run simple.sh to build an example design on the FPGA above
+As `nextpnr-machxo2` is developed the `nextpnr` invocation in `simple.sh` and
+`simtest.sh` is subject to change. Other command invocations, such as `yosys`,
+_should_ remain unchanged, even as files under the [synth](../synth) directory
+change.
