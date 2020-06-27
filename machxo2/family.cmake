@@ -33,9 +33,14 @@ foreach(device ${MACHXO2_DEVICES})
     endif()
 endforeach()
 if(WIN32)
-    list(APPEND chipdb_sources
-        ${CMAKE_CURRENT_SOURCE_DIR}/${family}/resource/embed.cc
-        ${CMAKE_CURRENT_SOURCE_DIR}/${family}/resource/chipdb.rc)
+    set(chipdb_rc ${CMAKE_CURRENT_BINARY_DIR}/${family}/resource/chipdb.rc)
+    list(APPEND chipdb_sources ${chipdb_rc})
+
+    file(WRITE ${chipdb_rc})
+    foreach(device ${MACHXO2_DEVICES})
+        file(APPEND ${chipdb_rc}
+             "${family}/chipdb-${device}.bin RCDATA \"${CMAKE_CURRENT_BINARY_DIR}/${family}/chipdb/chipdb-${device}.bin\"")
+    endforeach()
 endif()
 
 add_custom_target(chipdb-${family}-bins DEPENDS ${chipdb_sources} ${chipdb_binaries})

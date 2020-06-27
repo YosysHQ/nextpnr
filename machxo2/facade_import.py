@@ -70,9 +70,14 @@ def main():
 
     pytrellis.load_database(database.get_db_root())
 
+    # Dummy
+    dev_name = "1200"
+
     bba = BinaryBlobAssembler()
     bba.pre('#include "nextpnr.h"')
+    bba.pre('#include "embed.h"')
     bba.pre('NEXTPNR_NAMESPACE_BEGIN')
+    bba.post('EmbeddedFile chipdb_file_%s("machxo2/chipdb-%s.bin", chipdb_blob_%s);' % (dev_name, dev_name, dev_name))
     bba.post('NEXTPNR_NAMESPACE_END')
     bba.push("chipdb_blob_%s" % args.device)
     bba.u8(0, None)
