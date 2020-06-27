@@ -1,16 +1,17 @@
 #if defined(WIN32)
 #include <windows.h>
 #endif
-#include <boost/iostreams/device/mapped_file.hpp>
 #include <boost/filesystem.hpp>
-#include "nextpnr.h"
+#include <boost/iostreams/device/mapped_file.hpp>
 #include "embed.h"
+#include "nextpnr.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
 #if defined(EXTERNAL_CHIPDB_ROOT)
 
-const void *get_chipdb(const std::string &filename) {
+const void *get_chipdb(const std::string &filename)
+{
     static std::map<std::string, boost::iostreams::mapped_file> files;
     if (!files.count(filename)) {
         std::string full_filename = EXTERNAL_CHIPDB_ROOT "/" + filename;
@@ -24,7 +25,8 @@ const void *get_chipdb(const std::string &filename) {
 
 #elif defined(WIN32)
 
-const void *get_chipdb(const std::string &filename) {
+const void *get_chipdb(const std::string &filename)
+{
     HRSRC rc = ::FindResource(nullptr, filename.c_str(), RT_RCDATA);
     HGLOBAL rcData = ::LoadResource(nullptr, rc);
     return ::LockResource(rcData);
@@ -34,7 +36,8 @@ const void *get_chipdb(const std::string &filename) {
 
 EmbeddedFile *EmbeddedFile::head = nullptr;
 
-const void *get_chipdb(const std::string &filename) {
+const void *get_chipdb(const std::string &filename)
+{
     for (EmbeddedFile *file = EmbeddedFile::head; file; file = file->next)
         if (file->filename == filename)
             return file->content;

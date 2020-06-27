@@ -23,11 +23,11 @@
 #include <boost/range/adaptor/reversed.hpp>
 #include <cmath>
 #include <cstring>
+#include "embed.h"
 #include "gfx.h"
 #include "globals.h"
 #include "log.h"
 #include "nextpnr.h"
-#include "embed.h"
 #include "placer1.h"
 #include "placer_heap.h"
 #include "router1.h"
@@ -61,16 +61,15 @@ void IdString::initialize_arch(const BaseCtx *ctx)
 
 // -----------------------------------------------------------------------
 
-static const ChipInfoPOD *get_chip_info(ArchArgs::ArchArgsTypes chip) {
+static const ChipInfoPOD *get_chip_info(ArchArgs::ArchArgsTypes chip)
+{
     std::string chipdb;
-    if (chip == ArchArgs::LFE5U_12F || chip == ArchArgs::LFE5U_25F ||
-        chip == ArchArgs::LFE5UM_25F || chip == ArchArgs::LFE5UM5G_25F) {
+    if (chip == ArchArgs::LFE5U_12F || chip == ArchArgs::LFE5U_25F || chip == ArchArgs::LFE5UM_25F ||
+        chip == ArchArgs::LFE5UM5G_25F) {
         chipdb = "ecp5/chipdb-25k.bin";
-    } else if (chip == ArchArgs::LFE5U_45F ||
-               chip == ArchArgs::LFE5UM_45F || chip == ArchArgs::LFE5UM5G_45F) {
+    } else if (chip == ArchArgs::LFE5U_45F || chip == ArchArgs::LFE5UM_45F || chip == ArchArgs::LFE5UM5G_45F) {
         chipdb = "ecp5/chipdb-45k.bin";
-    } else if (chip == ArchArgs::LFE5U_85F ||
-               chip == ArchArgs::LFE5UM_85F || chip == ArchArgs::LFE5UM5G_85F) {
+    } else if (chip == ArchArgs::LFE5U_85F || chip == ArchArgs::LFE5UM_85F || chip == ArchArgs::LFE5UM5G_85F) {
         chipdb = "ecp5/chipdb-85k.bin";
     } else {
         log_error("Unknown chip\n");
@@ -82,10 +81,7 @@ static const ChipInfoPOD *get_chip_info(ArchArgs::ArchArgsTypes chip) {
     return ptr->get();
 }
 
-bool Arch::isAvailable(ArchArgs::ArchArgsTypes chip)
-{
-    return get_chip_info(chip) != nullptr;
-}
+bool Arch::isAvailable(ArchArgs::ArchArgsTypes chip) { return get_chip_info(chip) != nullptr; }
 
 std::vector<std::string> Arch::getSupportedPackages(ArchArgs::ArchArgsTypes chip)
 {

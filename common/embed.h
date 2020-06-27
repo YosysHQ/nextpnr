@@ -33,8 +33,7 @@ struct EmbeddedFile
     const void *content;
     EmbeddedFile *next = nullptr;
 
-    EmbeddedFile(const std::string &filename, const void *content)
-        : filename(filename), content(content)
+    EmbeddedFile(const std::string &filename, const void *content) : filename(filename), content(content)
     {
         next = head;
         head = this;

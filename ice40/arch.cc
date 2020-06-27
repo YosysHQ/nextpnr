@@ -21,10 +21,10 @@
 #include <algorithm>
 #include <cmath>
 #include "cells.h"
+#include "embed.h"
 #include "gfx.h"
 #include "log.h"
 #include "nextpnr.h"
-#include "embed.h"
 #include "placer1.h"
 #include "placer_heap.h"
 #include "router1.h"
@@ -44,7 +44,8 @@ void IdString::initialize_arch(const BaseCtx *ctx)
 
 // -----------------------------------------------------------------------
 
-static const ChipInfoPOD *get_chip_info(ArchArgs::ArchArgsTypes chip) {
+static const ChipInfoPOD *get_chip_info(ArchArgs::ArchArgsTypes chip)
+{
     std::string chipdb;
     if (chip == ArchArgs::LP384) {
         chipdb = "ice40/chipdb-384.bin";
@@ -66,10 +67,7 @@ static const ChipInfoPOD *get_chip_info(ArchArgs::ArchArgsTypes chip) {
     return ptr->get();
 }
 
-bool Arch::isAvailable(ArchArgs::ArchArgsTypes chip)
-{
-    return get_chip_info(chip) != nullptr;
-}
+bool Arch::isAvailable(ArchArgs::ArchArgsTypes chip) { return get_chip_info(chip) != nullptr; }
 
 std::vector<std::string> Arch::getSupportedPackages(ArchArgs::ArchArgsTypes chip)
 {
