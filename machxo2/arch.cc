@@ -342,35 +342,13 @@ ArcBounds Arch::getRouteBoundingBox(WireId src, WireId dst) const
 bool Arch::place()
 {
     std::string placer = str_or_default(settings, id("placer"), defaultPlacer);
-    if (placer == "heap") {
-        bool have_iobuf_or_constr = false;
-        for (auto cell : sorted(cells)) {
-            CellInfo *ci = cell.second;
-            if (ci->type == id("GENERIC_IOB") || ci->bel != BelId() || ci->attrs.count(id("BEL"))) {
-                have_iobuf_or_constr = true;
-                break;
-            }
-        }
-        bool retVal;
-        if (!have_iobuf_or_constr) {
-            log_warning("Unable to use HeAP due to a lack of IO buffers or constrained cells as anchors; reverting to "
-                        "SA.\n");
-            retVal = placer1(getCtx(), Placer1Cfg(getCtx()));
-        } else {
-            PlacerHeapCfg cfg(getCtx());
-            cfg.ioBufTypes.insert(id("GENERIC_IOB"));
-            retVal = placer_heap(getCtx(), cfg);
-        }
-        getCtx()->settings[getCtx()->id("place")] = 1;
-        archInfoToAttributes();
-        return retVal;
-    } else if (placer == "sa") {
+    if (placer == "sa") {
         bool retVal = placer1(getCtx(), Placer1Cfg(getCtx()));
         getCtx()->settings[getCtx()->id("place")] = 1;
         archInfoToAttributes();
         return retVal;
     } else {
-        log_error("Generic architecture does not support placer '%s'\n", placer.c_str());
+        log_error("MachXO2 architecture does not support placer '%s'\n", placer.c_str());
     }
 }
 
@@ -384,7 +362,7 @@ bool Arch::route()
         router2(getCtx(), Router2Cfg(getCtx()));
         result = true;
     } else {
-        log_error("iCE40 architecture does not support router '%s'\n", router.c_str());
+        log_error("MachXO2 architecture does not support router '%s'\n", router.c_str());
     }
     getCtx()->settings[getCtx()->id("route")] = 1;
     archInfoToAttributes();
