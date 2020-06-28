@@ -34,7 +34,7 @@ NEXTPNR_NAMESPACE_BEGIN
 Arch::Arch(ArchArgs args) : chipName("generic"), args(args)
 {
     // Dummy for empty decals
-    decal_graphics[IdString()];
+    // decal_graphics[IdString()];
 }
 
 // -----------------------------------------------------------------------
@@ -80,8 +80,6 @@ bool Arch::isAvailable(ArchArgs::ArchArgsTypes chip) { return get_chip_info(chip
 
 BelId Arch::getBelByName(IdString name) const
 {
-    if (bels.count(name))
-        return name;
     return BelId();
 }
 
@@ -89,21 +87,17 @@ IdString Arch::getBelName(BelId bel) const { return bel; }
 
 Loc Arch::getBelLocation(BelId bel) const
 {
-    auto &info = bels.at(bel);
-    return Loc(info.x, info.y, info.z);
+    return Loc();
 }
 
 BelId Arch::getBelByLocation(Loc loc) const
 {
-    auto it = bel_by_loc.find(loc);
-    if (it != bel_by_loc.end())
-        return it->second;
     return BelId();
 }
 
-const std::vector<BelId> &Arch::getBelsByTile(int x, int y) const { return bels_by_tile.at(x).at(y); }
+const std::vector<BelId> &Arch::getBelsByTile(int x, int y) const { return bel_id_dummy; }
 
-bool Arch::getBelGlobalBuf(BelId bel) const { return bels.at(bel).gb; }
+bool Arch::getBelGlobalBuf(BelId bel) const { return false; }
 
 uint32_t Arch::getBelChecksum(BelId bel) const
 {
@@ -113,47 +107,36 @@ uint32_t Arch::getBelChecksum(BelId bel) const
 
 void Arch::bindBel(BelId bel, CellInfo *cell, PlaceStrength strength)
 {
-    bels.at(bel).bound_cell = cell;
-    cell->bel = bel;
-    cell->belStrength = strength;
-    refreshUiBel(bel);
+
 }
 
 void Arch::unbindBel(BelId bel)
 {
-    bels.at(bel).bound_cell->bel = BelId();
-    bels.at(bel).bound_cell->belStrength = STRENGTH_NONE;
-    bels.at(bel).bound_cell = nullptr;
-    refreshUiBel(bel);
+
 }
 
-bool Arch::checkBelAvail(BelId bel) const { return bels.at(bel).bound_cell == nullptr; }
+bool Arch::checkBelAvail(BelId bel) const { return false; }
 
-CellInfo *Arch::getBoundBelCell(BelId bel) const { return bels.at(bel).bound_cell; }
+CellInfo *Arch::getBoundBelCell(BelId bel) const { return nullptr; }
 
-CellInfo *Arch::getConflictingBelCell(BelId bel) const { return bels.at(bel).bound_cell; }
+CellInfo *Arch::getConflictingBelCell(BelId bel) const { return nullptr; }
 
-const std::vector<BelId> &Arch::getBels() const { return bel_ids; }
+const std::vector<BelId> &Arch::getBels() const { return bel_id_dummy; }
 
-IdString Arch::getBelType(BelId bel) const { return bels.at(bel).type; }
+IdString Arch::getBelType(BelId bel) const { return IdString(); }
 
-const std::map<IdString, std::string> &Arch::getBelAttrs(BelId bel) const { return bels.at(bel).attrs; }
+const std::map<IdString, std::string> &Arch::getBelAttrs(BelId bel) const { return attrs_dummy; }
 
 WireId Arch::getBelPinWire(BelId bel, IdString pin) const
 {
-    const auto &bdata = bels.at(bel);
-    if (!bdata.pins.count(pin))
-        log_error("bel '%s' has no pin '%s'\n", bel.c_str(this), pin.c_str(this));
-    return bdata.pins.at(pin).wire;
+    return WireId();
 }
 
-PortType Arch::getBelPinType(BelId bel, IdString pin) const { return bels.at(bel).pins.at(pin).type; }
+PortType Arch::getBelPinType(BelId bel, IdString pin) const { return PortType(); }
 
 std::vector<IdString> Arch::getBelPins(BelId bel) const
 {
     std::vector<IdString> ret;
-    for (auto &it : bels.at(bel).pins)
-        ret.push_back(it.first);
     return ret;
 }
 
@@ -161,16 +144,14 @@ std::vector<IdString> Arch::getBelPins(BelId bel) const
 
 WireId Arch::getWireByName(IdString name) const
 {
-    if (wires.count(name))
-        return name;
     return WireId();
 }
 
-IdString Arch::getWireName(WireId wire) const { return wire; }
+IdString Arch::getWireName(WireId wire) const { return IdString(); }
 
-IdString Arch::getWireType(WireId wire) const { return wires.at(wire).type; }
+IdString Arch::getWireType(WireId wire) const { return IdString(); }
 
-const std::map<IdString, std::string> &Arch::getWireAttrs(WireId wire) const { return wires.at(wire).attrs; }
+const std::map<IdString, std::string> &Arch::getWireAttrs(WireId wire) const { return attrs_dummy; }
 
 uint32_t Arch::getWireChecksum(WireId wire) const
 {
@@ -180,51 +161,36 @@ uint32_t Arch::getWireChecksum(WireId wire) const
 
 void Arch::bindWire(WireId wire, NetInfo *net, PlaceStrength strength)
 {
-    wires.at(wire).bound_net = net;
-    net->wires[wire].pip = PipId();
-    net->wires[wire].strength = strength;
-    refreshUiWire(wire);
+
 }
 
 void Arch::unbindWire(WireId wire)
 {
-    auto &net_wires = wires.at(wire).bound_net->wires;
 
-    auto pip = net_wires.at(wire).pip;
-    if (pip != PipId()) {
-        pips.at(pip).bound_net = nullptr;
-        refreshUiPip(pip);
-    }
-
-    net_wires.erase(wire);
-    wires.at(wire).bound_net = nullptr;
-    refreshUiWire(wire);
 }
 
-bool Arch::checkWireAvail(WireId wire) const { return wires.at(wire).bound_net == nullptr; }
+bool Arch::checkWireAvail(WireId wire) const { return false; }
 
-NetInfo *Arch::getBoundWireNet(WireId wire) const { return wires.at(wire).bound_net; }
+NetInfo *Arch::getBoundWireNet(WireId wire) const { return nullptr; }
 
-NetInfo *Arch::getConflictingWireNet(WireId wire) const { return wires.at(wire).bound_net; }
+NetInfo *Arch::getConflictingWireNet(WireId wire) const { return nullptr; }
 
-const std::vector<BelPin> &Arch::getWireBelPins(WireId wire) const { return wires.at(wire).bel_pins; }
+const std::vector<BelPin> &Arch::getWireBelPins(WireId wire) const { return bel_pin_dummy; }
 
-const std::vector<WireId> &Arch::getWires() const { return wire_ids; }
+const std::vector<WireId> &Arch::getWires() const { return wire_id_dummy; }
 
 // ---------------------------------------------------------------
 
 PipId Arch::getPipByName(IdString name) const
 {
-    if (pips.count(name))
-        return name;
     return PipId();
 }
 
-IdString Arch::getPipName(PipId pip) const { return pip; }
+IdString Arch::getPipName(PipId pip) const { return IdString(); }
 
-IdString Arch::getPipType(PipId pip) const { return pips.at(pip).type; }
+IdString Arch::getPipType(PipId pip) const { return IdString(); }
 
-const std::map<IdString, std::string> &Arch::getPipAttrs(PipId pip) const { return pips.at(pip).attrs; }
+const std::map<IdString, std::string> &Arch::getPipAttrs(PipId pip) const { return attrs_dummy; }
 
 uint32_t Arch::getPipChecksum(PipId wire) const
 {
@@ -234,70 +200,57 @@ uint32_t Arch::getPipChecksum(PipId wire) const
 
 void Arch::bindPip(PipId pip, NetInfo *net, PlaceStrength strength)
 {
-    WireId wire = pips.at(pip).dstWire;
-    pips.at(pip).bound_net = net;
-    wires.at(wire).bound_net = net;
-    net->wires[wire].pip = pip;
-    net->wires[wire].strength = strength;
-    refreshUiPip(pip);
-    refreshUiWire(wire);
+
 }
 
 void Arch::unbindPip(PipId pip)
 {
-    WireId wire = pips.at(pip).dstWire;
-    wires.at(wire).bound_net->wires.erase(wire);
-    pips.at(pip).bound_net = nullptr;
-    wires.at(wire).bound_net = nullptr;
-    refreshUiPip(pip);
-    refreshUiWire(wire);
+
 }
 
-bool Arch::checkPipAvail(PipId pip) const { return pips.at(pip).bound_net == nullptr; }
+bool Arch::checkPipAvail(PipId pip) const { return false; }
 
-NetInfo *Arch::getBoundPipNet(PipId pip) const { return pips.at(pip).bound_net; }
+NetInfo *Arch::getBoundPipNet(PipId pip) const { return nullptr; }
 
-NetInfo *Arch::getConflictingPipNet(PipId pip) const { return pips.at(pip).bound_net; }
+NetInfo *Arch::getConflictingPipNet(PipId pip) const { return nullptr; }
 
-WireId Arch::getConflictingPipWire(PipId pip) const { return pips.at(pip).bound_net ? pips.at(pip).dstWire : WireId(); }
+WireId Arch::getConflictingPipWire(PipId pip) const { return WireId(); }
 
-const std::vector<PipId> &Arch::getPips() const { return pip_ids; }
+const std::vector<PipId> &Arch::getPips() const { return pip_id_dummy; }
 
-Loc Arch::getPipLocation(PipId pip) const { return pips.at(pip).loc; }
+Loc Arch::getPipLocation(PipId pip) const { return Loc(); }
 
-WireId Arch::getPipSrcWire(PipId pip) const { return pips.at(pip).srcWire; }
+WireId Arch::getPipSrcWire(PipId pip) const { return WireId(); }
 
-WireId Arch::getPipDstWire(PipId pip) const { return pips.at(pip).dstWire; }
+WireId Arch::getPipDstWire(PipId pip) const { return WireId(); }
 
-DelayInfo Arch::getPipDelay(PipId pip) const { return pips.at(pip).delay; }
+DelayInfo Arch::getPipDelay(PipId pip) const { return DelayInfo(); }
 
-const std::vector<PipId> &Arch::getPipsDownhill(WireId wire) const { return wires.at(wire).downhill; }
+const std::vector<PipId> &Arch::getPipsDownhill(WireId wire) const { return pip_id_dummy; }
 
-const std::vector<PipId> &Arch::getPipsUphill(WireId wire) const { return wires.at(wire).uphill; }
+const std::vector<PipId> &Arch::getPipsUphill(WireId wire) const { return pip_id_dummy; }
 
-const std::vector<PipId> &Arch::getWireAliases(WireId wire) const { return wires.at(wire).aliases; }
+const std::vector<PipId> &Arch::getWireAliases(WireId wire) const { return pip_id_dummy; }
 
 // ---------------------------------------------------------------
 
-GroupId Arch::getGroupByName(IdString name) const { return name; }
+GroupId Arch::getGroupByName(IdString name) const { return GroupId(); }
 
-IdString Arch::getGroupName(GroupId group) const { return group; }
+IdString Arch::getGroupName(GroupId group) const { return IdString(); }
 
 std::vector<GroupId> Arch::getGroups() const
 {
     std::vector<GroupId> ret;
-    for (auto &it : groups)
-        ret.push_back(it.first);
     return ret;
 }
 
-const std::vector<BelId> &Arch::getGroupBels(GroupId group) const { return groups.at(group).bels; }
+const std::vector<BelId> &Arch::getGroupBels(GroupId group) const { return bel_id_dummy; }
 
-const std::vector<WireId> &Arch::getGroupWires(GroupId group) const { return groups.at(group).wires; }
+const std::vector<WireId> &Arch::getGroupWires(GroupId group) const { return wire_id_dummy; }
 
-const std::vector<PipId> &Arch::getGroupPips(GroupId group) const { return groups.at(group).pips; }
+const std::vector<PipId> &Arch::getGroupPips(GroupId group) const { return pip_id_dummy; }
 
-const std::vector<GroupId> &Arch::getGroupGroups(GroupId group) const { return groups.at(group).groups; }
+const std::vector<GroupId> &Arch::getGroupGroups(GroupId group) const { return group_id_dummy; }
 
 // ---------------------------------------------------------------
 
@@ -317,23 +270,6 @@ ArcBounds Arch::getRouteBoundingBox(WireId src, WireId dst) const
 {
     ArcBounds bb;
 
-    int src_x = wires.at(src).x;
-    int src_y = wires.at(src).y;
-    int dst_x = wires.at(dst).x;
-    int dst_y = wires.at(dst).y;
-
-    bb.x0 = src_x;
-    bb.y0 = src_y;
-    bb.x1 = src_x;
-    bb.y1 = src_y;
-
-    auto extend = [&](int x, int y) {
-        bb.x0 = std::min(bb.x0, x);
-        bb.x1 = std::max(bb.x1, x);
-        bb.y0 = std::min(bb.y0, y);
-        bb.y1 = std::max(bb.y1, y);
-    };
-    extend(dst_x, dst_y);
     return bb;
 }
 
@@ -373,83 +309,43 @@ bool Arch::route()
 
 const std::vector<GraphicElement> &Arch::getDecalGraphics(DecalId decal) const
 {
-    if (!decal_graphics.count(decal)) {
-        std::cerr << "No decal named " << decal.str(this) << std::endl;
-        log_error("No decal named %s!\n", decal.c_str(this));
-    }
-    return decal_graphics.at(decal);
+    return graphic_element_dummy;
 }
 
-DecalXY Arch::getBelDecal(BelId bel) const { return bels.at(bel).decalxy; }
+DecalXY Arch::getBelDecal(BelId bel) const { return DecalXY(); }
 
-DecalXY Arch::getWireDecal(WireId wire) const { return wires.at(wire).decalxy; }
+DecalXY Arch::getWireDecal(WireId wire) const { return DecalXY(); }
 
-DecalXY Arch::getPipDecal(PipId pip) const { return pips.at(pip).decalxy; }
+DecalXY Arch::getPipDecal(PipId pip) const { return DecalXY(); }
 
-DecalXY Arch::getGroupDecal(GroupId group) const { return groups.at(group).decalxy; }
+DecalXY Arch::getGroupDecal(GroupId group) const { return DecalXY(); }
 
 // ---------------------------------------------------------------
 
 bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const
 {
-    if (!cellTiming.count(cell->name))
-        return false;
-    const auto &tmg = cellTiming.at(cell->name);
-    auto fnd = tmg.combDelays.find(CellDelayKey{fromPort, toPort});
-    if (fnd != tmg.combDelays.end()) {
-        delay = fnd->second;
-        return true;
-    } else {
-        return false;
-    }
+    return false;
 }
 
 // Get the port class, also setting clockPort if applicable
 TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const
 {
-    if (!cellTiming.count(cell->name))
-        return TMG_IGNORE;
-    const auto &tmg = cellTiming.at(cell->name);
-    if (tmg.clockingInfo.count(port))
-        clockInfoCount = int(tmg.clockingInfo.at(port).size());
-    else
-        clockInfoCount = 0;
-    return get_or_default(tmg.portClasses, port, TMG_IGNORE);
+    return TMG_IGNORE;
 }
 
 TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port, int index) const
 {
-    NPNR_ASSERT(cellTiming.count(cell->name));
-    const auto &tmg = cellTiming.at(cell->name);
-    NPNR_ASSERT(tmg.clockingInfo.count(port));
-    return tmg.clockingInfo.at(port).at(index);
+    return TimingClockingInfo();
 }
 
 bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const
 {
-    std::vector<const CellInfo *> cells;
-    cells.push_back(cell);
-    Loc loc = getBelLocation(bel);
-    for (auto tbel : getBelsByTile(loc.x, loc.y)) {
-        if (tbel == bel)
-            continue;
-        CellInfo *bound = getBoundBelCell(tbel);
-        if (bound != nullptr)
-            cells.push_back(bound);
-    }
-    return cellsCompatible(cells.data(), int(cells.size()));
+    return false;
 }
 
 bool Arch::isBelLocationValid(BelId bel) const
 {
-    std::vector<const CellInfo *> cells;
-    Loc loc = getBelLocation(bel);
-    for (auto tbel : getBelsByTile(loc.x, loc.y)) {
-        CellInfo *bound = getBoundBelCell(tbel);
-        if (bound != nullptr)
-            cells.push_back(bound);
-    }
-    return cellsCompatible(cells.data(), int(cells.size()));
+    return false;
 }
 
 #ifdef WITH_HEAP
@@ -474,24 +370,7 @@ void Arch::assignArchInfo()
 
 bool Arch::cellsCompatible(const CellInfo **cells, int count) const
 {
-    const NetInfo *clk = nullptr;
-    int group = -1;
-    for (int i = 0; i < count; i++) {
-        const CellInfo *ci = cells[i];
-        if (ci->is_slice && ci->slice_clk != nullptr) {
-            if (clk == nullptr)
-                clk = ci->slice_clk;
-            else if (clk != ci->slice_clk)
-                return false;
-        }
-        if (ci->user_group != -1) {
-            if (group == -1)
-                group = ci->user_group;
-            else if (group != ci->user_group)
-                return false;
-        }
-    }
-    return true;
+    return false;
 }
 
 NEXTPNR_NAMESPACE_END
