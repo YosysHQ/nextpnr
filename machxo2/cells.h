@@ -19,22 +19,22 @@
 
 #include "nextpnr.h"
 
-#ifndef GENERIC_CELLS_H
-#define GENERIC_CELLS_H
+#ifndef MACHXO2_CELLS_H
+#define MACHXO2_CELLS_H
 
 NEXTPNR_NAMESPACE_BEGIN
 
 // Create a generic arch cell and return it
 // Name will be automatically assigned if not specified
-std::unique_ptr<CellInfo> create_generic_cell(Context *ctx, IdString type, std::string name = "");
+std::unique_ptr<CellInfo> create_machxo2_cell(Context *ctx, IdString type, std::string name = "");
 
 // Return true if a cell is a LUT
-inline bool is_lut(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("LUT"); }
+inline bool is_lut(const BaseCtx *ctx, const CellInfo *cell) { return false; }
 
 // Return true if a cell is a flipflop
-inline bool is_ff(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("DFF"); }
+inline bool is_ff(const BaseCtx *ctx, const CellInfo *cell) { return false; }
 
-inline bool is_lc(const BaseCtx *ctx, const CellInfo *cell) { return cell->type == ctx->id("GENERIC_SLICE"); }
+inline bool is_lc(const BaseCtx *ctx, const CellInfo *cell) { return false; }
 
 // Convert a LUT primitive to (part of) an GENERIC_SLICE, swapping ports
 // as needed. Set no_dff if a DFF is not being used, so that the output
