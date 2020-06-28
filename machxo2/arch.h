@@ -159,28 +159,15 @@ struct Arch : BaseCtx
 {
     std::string chipName;
 
-    std::unordered_map<IdString, WireInfo> wires;
-    std::unordered_map<IdString, PipInfo> pips;
-    std::unordered_map<IdString, BelInfo> bels;
-    std::unordered_map<GroupId, GroupInfo> groups;
-
-    // These functions include useful errors if not found
-    WireInfo &wire_info(IdString wire);
-    PipInfo &pip_info(IdString wire);
-    BelInfo &bel_info(IdString wire);
-
-    std::vector<IdString> bel_ids, wire_ids, pip_ids;
-
+    // Placeholders to be removed.
     std::unordered_map<Loc, BelId> bel_by_loc;
-    std::vector<std::vector<std::vector<BelId>>> bels_by_tile;
-
-    std::unordered_map<DecalId, std::vector<GraphicElement>> decal_graphics;
-
-    int gridDimX, gridDimY;
-    std::vector<std::vector<int>> tileBelDimZ;
-    std::vector<std::vector<int>> tilePipDimZ;
-
-    std::unordered_map<IdString, CellTiming> cellTiming;
+    std::vector<BelId> bel_id_dummy;
+    std::vector<BelPin> bel_pin_dummy;
+    std::vector<WireId> wire_id_dummy;
+    std::vector<PipId> pip_id_dummy;
+    std::vector<GroupId> group_id_dummy;
+    std::vector<GraphicElement> graphic_element_dummy;
+    std::map<IdString, std::string> attrs_dummy;
 
     // ---------------------------------------------------------------
     // Common Arch API. Every arch must provide the following methods.
@@ -192,14 +179,14 @@ struct Arch : BaseCtx
 
     std::string getChipName() const { return chipName; }
 
-    IdString archId() const { return id("generic"); }
+    IdString archId() const { return id("machxo2"); }
     ArchArgs archArgs() const { return args; }
     IdString archArgsToId(ArchArgs args) const { return id("none"); }
 
-    int getGridDimX() const { return gridDimX; }
-    int getGridDimY() const { return gridDimY; }
-    int getTileBelDimZ(int x, int y) const { return tileBelDimZ[x][y]; }
-    int getTilePipDimZ(int x, int y) const { return tilePipDimZ[x][y]; }
+    int getGridDimX() const { return 0; }
+    int getGridDimY() const { return 0; }
+    int getTileBelDimZ(int x, int y) const { return 0; }
+    int getTilePipDimZ(int x, int y) const { return 0; }
 
     BelId getBelByName(IdString name) const;
     IdString getBelName(BelId bel) const;
