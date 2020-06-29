@@ -2853,10 +2853,14 @@ class Ecp5Packer
         while (!changed_nets.empty() && iter < itermax) {
             ++iter;
             std::unordered_set<IdString> changed_cells;
-            for (auto net : changed_nets)
+            for (auto net : changed_nets) {
                 for (auto &user : ctx->nets.at(net)->users)
                     if (user.port == id_CLKI || user.port == id_ECLKI || user.port == id_CLK0 || user.port == id_CLK1)
                         changed_cells.insert(user.cell->name);
+                auto &drv = ctx->nets.at(net)->driver;
+                if (iter == 1 && drv.cell != nullptr && drv.port == id_OSC)
+                    changed_cells.insert(drv.cell->name);
+            }
             changed_nets.clear();
             for (auto cell : sorted(changed_cells)) {
                 CellInfo *ci = ctx->cells.at(cell).get();
