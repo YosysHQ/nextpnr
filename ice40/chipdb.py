@@ -1060,7 +1060,7 @@ for tile_xy, tile_type in sorted(tiles.items()):
         if ec[1] == tile_xy[0] and ec[2] == tile_xy[1]:
             add_bel_ec(ec)
 
-for ec in sorted(extra_cells.keys()):
+for ec in sorted(extra_cells.keys(), key=lambda ec: (ec[1], ec[2], ec[3], ec[0])):
     if ec[1] in (0, dev_width - 1) and ec[2] in (0, dev_height - 1):
         add_bel_ec(ec)
 
