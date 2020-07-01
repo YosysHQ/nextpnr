@@ -27,7 +27,7 @@ else()
         "IceStorm install prefix")
     message(STATUS "IceStorm install prefix: ${ICESTORM_INSTALL_PREFIX}")
 
-    if(NOT DEFINED ICEBOX_DATADIR)
+    if(NOT ICEBOX_DATADIR)
         set(ICEBOX_DATADIR ${ICESTORM_INSTALL_PREFIX}/share/icebox)
     endif()
     message(STATUS "icebox data directory: ${ICEBOX_DATADIR}")
