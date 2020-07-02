@@ -496,9 +496,11 @@ struct Arch : BaseCtx
 
     // -------------------------------------------------
 
+    static const int max_loc_bels = 20;
+
     int getGridDimX() const { return chip_info->width; };
     int getGridDimY() const { return chip_info->height; };
-    int getTileBelDimZ(int, int) const { return 4; };
+    int getTileBelDimZ(int, int) const { return max_loc_bels; };
     int getTilePipDimZ(int, int) const { return 1; };
 
     // -------------------------------------------------
@@ -520,7 +522,6 @@ struct Arch : BaseCtx
 
     uint32_t getBelChecksum(BelId bel) const { return bel.index; }
 
-    const int max_loc_bels = 20;
     int getBelFlatIndex(BelId bel) const
     {
         return (bel.location.y * chip_info->width + bel.location.x) * max_loc_bels + bel.index;

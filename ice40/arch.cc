@@ -192,7 +192,11 @@ BelRange Arch::getBelsByTile(int x, int y) const
     // are used
     BelRange br;
 
-    br.b.cursor = Arch::getBelByLocation(Loc(x, y, 0)).index;
+    for (int i = 0; i < 4; i++) {
+        br.b.cursor = Arch::getBelByLocation(Loc(x, y, i)).index;
+        if (br.b.cursor != -1)
+            break;
+    }
     br.e.cursor = br.b.cursor;
 
     if (br.e.cursor != -1) {
