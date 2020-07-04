@@ -101,10 +101,10 @@ void ECP5CommandHandler::customBitstream(Context *ctx)
                   "design)\n");
 
     std::string textcfg;
-    if (vm.count("textcfg"))
+    if (vm.count("textcfg")) {
         textcfg = vm["textcfg"].as<std::string>();
-
-    write_bitstream(ctx, basecfg, textcfg);
+        write_bitstream(ctx, basecfg, textcfg);
+    }
 }
 
 static std::string speedString(ArchArgs::SpeedGrade speed)
