@@ -638,35 +638,36 @@ class Ecp5Packer
         std::vector<std::tuple<CellInfo *, CellInfo *, int>> ff_packing;
         for (auto &chain : all_chains) {
             int cell_count = 0;
-            std::vector<CellInfo *> tile_ffs;
             std::vector<CellInfo *> packed_chain;
             for (auto &cell : chain.cells) {
-                if (cell_count % 4 == 0)
-                    tile_ffs.clear();
-                std::unique_ptr<CellInfo> slice =
-                        create_ecp5_cell(ctx, ctx->id("TRELLIS_SLICE"), cell->name.str(ctx) + "$CCU2_SLICE");
+                std::unique_ptr<CellInfo> comb0 =
+                        create_ecp5_cell(ctx, id_TRELLIS_COMB, cell->name.str(ctx) + "$CCU2_COMB0");
+                std::unique_ptr<CellInfo> comb1 =
+                        create_ecp5_cell(ctx, id_TRELLIS_COMB, cell->name.str(ctx) + "$CCU2_COMB1");
+                NetInfo *carry_net = ctx->createNet(ctx->id(cell->name.str(ctx) + "$CCU2_FCI_INT"));
 
-                ccu2c_to_slice(ctx, cell, slice.get());
+                ccu2_to_comb(ctx, cell, comb0.get(), carry_net, 0);
+                ccu2_to_comb(ctx, cell, comb1.get(), carry_net, 1);
 
-                packed_chain.push_back(slice.get());
-                new_cells.push_back(std::move(slice));
+                packed_chain.push_back(comb0.get());
+                packed_chain.push_back(comb1.get());
+
+                new_cells.push_back(std::move(comb0));
+                new_cells.push_back(std::move(comb1));
                 packed_cells.insert(cell->name);
                 cell_count++;
             }
             packed_chains.push_back(packed_chain);
         }
 
-        for (auto ff : ff_packing)
-            ff_to_slice(ctx, std::get<0>(ff), std::get<1>(ff), std::get<2>(ff), true);
-
         // Relative chain placement
         for (auto &chain : packed_chains) {
             chain.at(0)->constr_abs_z = true;
             chain.at(0)->constr_z = 0;
             for (int i = 1; i < int(chain.size()); i++) {
-                chain.at(i)->constr_x = (i / 4);
+                chain.at(i)->constr_x = (i / 8);
                 chain.at(i)->constr_y = 0;
-                chain.at(i)->constr_z = i % 4;
+                chain.at(i)->constr_z = (i % 8) << ctx->lc_idx_shift | Arch::BEL_COMB;
                 chain.at(i)->constr_abs_z = true;
                 chain.at(i)->constr_parent = chain.at(0);
                 chain.at(0)->constr_children.push_back(chain.at(i));
