@@ -116,7 +116,8 @@ class Ecp5Packer
 
     bool is_constrained(const CellInfo *cell)
     {
-        return cell->constr_x != cell->UNCONSTR || cell->constr_y != cell->UNCONSTR || cell->constr_z != cell->UNCONSTR;
+        return cell->constr_x != cell->UNCONSTR || cell->constr_y != cell->UNCONSTR ||
+               cell->constr_z != cell->UNCONSTR || !cell->constr_children.empty() || cell->constr_parent != nullptr;
     }
 
     // Pack FFs
@@ -686,17 +687,16 @@ class Ecp5Packer
 
                 // Create RAMW slice
                 std::unique_ptr<CellInfo> ramw_slice =
-                        create_ecp5_cell(ctx, ctx->id("TRELLIS_SLICE"), ci->name.str(ctx) + "$RAMW_SLICE");
-                dram_to_ramw(ctx, ci, ramw_slice.get());
+                        create_ecp5_cell(ctx, id_TRELLIS_RAMW, ci->name.str(ctx) + "$RAMW_SLICE");
+                dram_to_ramw_split(ctx, ci, ramw_slice.get());
 
                 // Create actual RAM slices
-                std::unique_ptr<CellInfo> ram0_slice =
-                        create_ecp5_cell(ctx, ctx->id("TRELLIS_SLICE"), ci->name.str(ctx) + "$DPRAM0_SLICE");
-                dram_to_ram_slice(ctx, ci, ram0_slice.get(), ramw_slice.get(), 0);
-
-                std::unique_ptr<CellInfo> ram1_slice =
-                        create_ecp5_cell(ctx, ctx->id("TRELLIS_SLICE"), ci->name.str(ctx) + "$DPRAM1_SLICE");
-                dram_to_ram_slice(ctx, ci, ram1_slice.get(), ramw_slice.get(), 1);
+                std::unique_ptr<CellInfo> ram_comb[4];
+                for (int i = 0; i < 4; i++) {
+                    ram_comb[i] = create_ecp5_cell(ctx, id_TRELLIS_COMB,
+                                                   ci->name.str(ctx) + "$DPRAM_COMB" + std::to_string(i));
+                    dram_to_comb(ctx, ci, ram_comb[i].get(), ramw_slice.get(), i);
+                }
 
                 // Disconnect ports of original cell after packing
                 disconnect_port(ctx, ci, id_WCK);
@@ -708,25 +708,27 @@ class Ecp5Packer
                 disconnect_port(ctx, ci, ctx->id("RAD[3]"));
 
                 // Setup placement constraints
-                ram0_slice->constr_abs_z = true;
-                ram0_slice->constr_z = 0;
+                // Use the 0th bit as an anchor
+                ram_comb[0]->constr_abs_z = true;
+                ram_comb[0]->constr_z = Arch::BEL_COMB;
+                for (int i = 1; i < 4; i++) {
+                    ram_comb[i]->constr_parent = ram_comb[0].get();
+                    ram_comb[i]->constr_abs_z = true;
+                    ram_comb[i]->constr_x = 0;
+                    ram_comb[i]->constr_y = 0;
+                    ram_comb[i]->constr_z = (i << ctx->lc_idx_shift) | Arch::BEL_COMB;
+                    ram_comb[0]->constr_children.push_back(ram_comb[i].get());
+                }
 
-                ram1_slice->constr_parent = ram0_slice.get();
-                ram1_slice->constr_abs_z = true;
-                ram1_slice->constr_x = 0;
-                ram1_slice->constr_y = 0;
-                ram1_slice->constr_z = 1;
-                ram0_slice->constr_children.push_back(ram1_slice.get());
-
-                ramw_slice->constr_parent = ram0_slice.get();
+                ramw_slice->constr_parent = ram_comb[0].get();
                 ramw_slice->constr_abs_z = true;
                 ramw_slice->constr_x = 0;
                 ramw_slice->constr_y = 0;
-                ramw_slice->constr_z = 2;
-                ram0_slice->constr_children.push_back(ramw_slice.get());
+                ramw_slice->constr_z = (4 << ctx->lc_idx_shift) | Arch::BEL_RAMW;
+                ram_comb[0]->constr_children.push_back(ramw_slice.get());
 
-                new_cells.push_back(std::move(ram0_slice));
-                new_cells.push_back(std::move(ram1_slice));
+                for (int i = 0; i < 4; i++)
+                    new_cells.push_back(std::move(ram_comb[i]));
                 new_cells.push_back(std::move(ramw_slice));
                 packed_cells.insert(ci->name);
             }

@@ -838,6 +838,7 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                                fmt_str("X" << bel.location.x << "/Y" << bel.location.y << "/CLK1")))) == clknet) {
                 cc.tiles[tname].add_enum("CLK1.CLKMUX", str_or_default(ci->params, ctx->id("CLKMUX"), "CLK"));
             }
+        } else if (ci->type == id_TRELLIS_RAMW) {
         } else if (ci->type == ctx->id("TRELLIS_IO")) {
             std::string pio = ctx->locInfo(bel)->bel_data[bel.index].name.get();
             std::string iotype = str_or_default(ci->attrs, ctx->id("IO_TYPE"), "LVCMOS33");

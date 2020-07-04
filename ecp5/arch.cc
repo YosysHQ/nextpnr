@@ -620,6 +620,7 @@ bool Arch::place()
         cfg.cellGroups.back().insert(id_TRELLIS_COMB);
         cfg.cellGroups.back().insert(id_TRELLIS_FF);
         cfg.cellGroups.back().insert(id_TRELLIS_RAMW);
+        cfg.placeAllAtOnce = true;
 
         if (!placer_heap(getCtx(), cfg))
             return false;
