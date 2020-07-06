@@ -214,67 +214,61 @@ void Arch::permute_luts()
         }
     }
 
-    auto proc_lut = [&](CellInfo *ci, int lut) {
-        std::vector<IdString> port_names;
-        for (int i = 0; i < 4; i++)
-            port_names.push_back(id(std::string("ABCD").substr(i, 1) + std::to_string(lut)));
-
-        std::vector<std::pair<float, int>> inputs;
-        std::vector<NetInfo *> orig_nets;
-
-        for (int i = 0; i < 4; i++) {
-            if (!ci->ports.count(port_names.at(i))) {
-                ci->ports[port_names.at(i)].name = port_names.at(i);
-                ci->ports[port_names.at(i)].type = PORT_IN;
-            }
-            auto &port = ci->ports.at(port_names.at(i));
-            float crit = 0;
-            if (port.net != nullptr && nc.count(port.net->name)) {
-                auto &n = nc.at(port.net->name);
-                size_t usr = port_to_user.at(&port);
-                if (usr < n.criticality.size())
-                    crit = n.criticality.at(usr);
-            }
-            orig_nets.push_back(port.net);
-            inputs.emplace_back(crit, i);
-        }
-        // Least critical first (A input is slowest)
-
-        // Avoid permuting locked LUTs (e.g. from an OOC submodule)
-        if (ci->belStrength <= STRENGTH_STRONG)
-            std::sort(inputs.begin(), inputs.end());
-        for (int i = 0; i < 4; i++) {
-            IdString p = port_names.at(i);
-            // log_info("%s %s %f\n", p.c_str(ctx), port_names.at(inputs.at(i).second).c_str(ctx), inputs.at(i).first);
-            disconnect_port(getCtx(), ci, p);
-            ci->ports.at(p).net = nullptr;
-            if (orig_nets.at(inputs.at(i).second) != nullptr) {
-                connect_port(getCtx(), orig_nets.at(inputs.at(i).second), ci, p);
-                ci->params[id(p.str(this) + "MUX")] = p.str(this);
-            } else {
-                ci->params[id(p.str(this) + "MUX")] = std::string("1");
-            }
-        }
-        // Rewrite function
-        int old_init = int_or_default(ci->params, id("LUT" + std::to_string(lut) + "_INITVAL"), 0);
-        int new_init = 0;
-        for (int i = 0; i < 16; i++) {
-            int old_index = 0;
-            for (int k = 0; k < 4; k++) {
-                if (i & (1 << k))
-                    old_index |= (1 << inputs.at(k).second);
-            }
-            if (old_init & (1 << old_index))
-                new_init |= (1 << i);
-        }
-        ci->params[id("LUT" + std::to_string(lut) + "_INITVAL")] = Property(new_init, 16);
-    };
-
     for (auto cell : sorted(cells)) {
         CellInfo *ci = cell.second;
-        if (ci->type == id_TRELLIS_SLICE && str_or_default(ci->params, id("MODE"), "LOGIC") == "LOGIC") {
-            proc_lut(ci, 0);
-            proc_lut(ci, 1);
+        if (ci->type == id_TRELLIS_COMB && str_or_default(ci->params, id("MODE"), "LOGIC") == "LOGIC") {
+            std::vector<IdString> port_names;
+            for (int i = 0; i < 4; i++)
+                port_names.push_back(id(std::string("ABCD").substr(i, 1)));
+
+            std::vector<std::pair<float, int>> inputs;
+            std::vector<NetInfo *> orig_nets;
+
+            for (int i = 0; i < 4; i++) {
+                if (!ci->ports.count(port_names.at(i))) {
+                    ci->ports[port_names.at(i)].name = port_names.at(i);
+                    ci->ports[port_names.at(i)].type = PORT_IN;
+                }
+                auto &port = ci->ports.at(port_names.at(i));
+                float crit = 0;
+                if (port.net != nullptr && nc.count(port.net->name)) {
+                    auto &n = nc.at(port.net->name);
+                    size_t usr = port_to_user.at(&port);
+                    if (usr < n.criticality.size())
+                        crit = n.criticality.at(usr);
+                }
+                orig_nets.push_back(port.net);
+                inputs.emplace_back(crit, i);
+            }
+            // Least critical first (A input is slowest)
+
+            // Avoid permuting locked LUTs (e.g. from an OOC submodule)
+            if (ci->belStrength <= STRENGTH_STRONG)
+                std::sort(inputs.begin(), inputs.end());
+            for (int i = 0; i < 4; i++) {
+                IdString p = port_names.at(i);
+                disconnect_port(getCtx(), ci, p);
+                ci->ports.at(p).net = nullptr;
+                if (orig_nets.at(inputs.at(i).second) != nullptr) {
+                    connect_port(getCtx(), orig_nets.at(inputs.at(i).second), ci, p);
+                    ci->params[id(p.str(this) + "MUX")] = p.str(this);
+                } else {
+                    ci->params[id(p.str(this) + "MUX")] = std::string("1");
+                }
+            }
+            // Rewrite function
+            int old_init = int_or_default(ci->params, id("INITVAL"), 0);
+            int new_init = 0;
+            for (int i = 0; i < 16; i++) {
+                int old_index = 0;
+                for (int k = 0; k < 4; k++) {
+                    if (i & (1 << k))
+                        old_index |= (1 << inputs.at(k).second);
+                }
+                if (old_init & (1 << old_index))
+                    new_init |= (1 << i);
+            }
+            ci->params[id("INITVAL")] = Property(new_init, 16);
         }
     }
 }
