@@ -127,20 +127,51 @@ class Ecp5Packer
         for (auto cell : sorted(ctx->cells)) {
             CellInfo *ci = cell.second;
             if (is_ff(ctx, ci)) {
-                // FIXME: also pack FFs with mux/carry chains where legal to do so
                 NetInfo *di = get_net_or_empty(ci, id_DI);
-                if (di->driver.cell != nullptr && di->driver.cell->type == id_TRELLIS_COMB &&
-                    !is_constrained(di->driver.cell) && di->driver.port == id_F) {
-                    // Constrain FF and LUT together, no need to rewire
+                if (di->driver.cell != nullptr && di->driver.cell->type == id_TRELLIS_COMB && di->driver.port == id_F) {
                     CellInfo *comb = di->driver.cell;
-                    ci->params[ctx->id("SD")] = std::string("1");
-                    comb->constr_children.push_back(ci);
-                    ci->constr_parent = comb;
-                    ci->constr_x = 0;
-                    ci->constr_y = 0;
-                    ci->constr_z = (Arch::BEL_FF - Arch::BEL_COMB);
-                    ci->constr_abs_z = false;
-                } else {
+                    if (is_constrained(comb)) {
+                        // Special procedure where the comb cell is part of an existing macro
+                        // Need to make sure that CLK, CE, SR, etc are shared correctly, or
+                        // the design will not be routeable
+                        if (can_add_flipflop_to_macro(comb, ci)) {
+                            ci->params[ctx->id("SD")] = std::string("1");
+
+                            if (comb->constr_parent == nullptr) {
+                                // The comb cell we are attaching to is the root of the existing macro
+                                comb->constr_children.push_back(ci);
+                                ci->constr_parent = comb;
+                                ci->constr_x = 0;
+                                ci->constr_y = 0;
+                            } else {
+                                // The comb cell we are attaching to is not the root of the existing macro
+                                CellInfo *root = comb->constr_parent;
+                                root->constr_children.push_back(ci);
+                                ci->constr_parent = root;
+                                ci->constr_x = comb->constr_x;
+                                ci->constr_y = comb->constr_y;
+                            }
+                            ci->constr_z = get_macro_cell_z(comb) + (Arch::BEL_FF - Arch::BEL_COMB);
+                            ci->constr_abs_z = comb->constr_abs_z;
+                            // Packed successfully
+                            continue;
+                        }
+                    } else {
+                        // LUT/COMB is not part of a macro, this is the easy case
+                        // Constrain FF and LUT together, no need to rewire
+                        ci->params[ctx->id("SD")] = std::string("1");
+                        comb->constr_children.push_back(ci);
+                        ci->constr_parent = comb;
+                        ci->constr_x = 0;
+                        ci->constr_y = 0;
+                        ci->constr_z = (Arch::BEL_FF - Arch::BEL_COMB);
+                        ci->constr_abs_z = false;
+                        // Packed successfully
+                        continue;
+                    }
+                }
+                {
+                    // Didn't manage to pack it with a driving combinational cell
                     // Rewire to use general routing
                     ci->params[ctx->id("SD")] = std::string("0");
                     rename_port(ctx, ci, id_DI, id_M);
@@ -290,6 +321,65 @@ class Ecp5Packer
             }
         }
         flush_cells();
+    }
+
+    // Gets the z-position of a cell in a macro
+    int get_macro_cell_z(const CellInfo *ci)
+    {
+        if (ci->constr_abs_z)
+            return ci->constr_z;
+        else if (ci->constr_parent != nullptr)
+            return ci->constr_z + get_macro_cell_z(ci->constr_parent);
+        else
+            return 0;
+    }
+
+    // Gets the relative xy-position of a cell in a macro
+    std::pair<int, int> get_macro_cell_xy(const CellInfo *ci)
+    {
+        if (ci->constr_parent != nullptr)
+            return {ci->constr_x, ci->constr_y};
+        else
+            return {0, 0};
+    }
+
+    // Check if it is legal to add a FF to a macro
+    // This reuses the tile validity code
+    bool can_add_flipflop_to_macro(CellInfo *comb, CellInfo *ff)
+    {
+        Arch::LogicTileStatus lts;
+        std::fill(lts.cells.begin(), lts.cells.end(), nullptr);
+        lts.tile_dirty = true;
+        for (auto &sl : lts.slices)
+            sl.dirty = true;
+
+        log_break();
+        auto process_cell = [&](CellInfo *ci) {
+            if (get_macro_cell_xy(ci) != get_macro_cell_xy(comb))
+                return;
+            int z = get_macro_cell_z(ci);
+            auto &slot = lts.cells.at(z);
+            NPNR_ASSERT(slot == nullptr);
+            slot = ci;
+            // Make sure fields needed for validity checking are set correctly
+            ctx->assign_arch_info_for_cell(ci);
+        };
+
+        if (comb->constr_parent != nullptr) {
+            process_cell(comb->constr_parent);
+            for (auto &ch : comb->constr_parent->constr_children)
+                process_cell(ch);
+        } else {
+            process_cell(comb);
+            for (auto &ch : comb->constr_children)
+                process_cell(ch);
+        }
+        int ff_z = get_macro_cell_z(comb) + (Arch::BEL_FF - Arch::BEL_COMB);
+        if (lts.cells.at(ff_z) != nullptr)
+            return false;
+        ctx->assign_arch_info_for_cell(ff);
+        lts.cells.at(ff_z) = ff;
+        return ctx->slicesCompatible(&lts);
     }
 
     // Pass to pack LUT5s into a newly created slice
@@ -2508,138 +2598,140 @@ bool Arch::pack()
     }
 }
 
-void Arch::assignArchInfo()
+void Arch::assign_arch_info_for_cell(CellInfo *ci)
 {
     auto get_port_net = [&](CellInfo *ci, IdString p) {
         NetInfo *n = get_net_or_empty(ci, p);
         return n ? n->name : IdString();
     };
-    for (auto cell : sorted(cells)) {
-        CellInfo *ci = cell.second;
-        if (ci->type == id_TRELLIS_COMB) {
-            std::string mode = str_or_default(ci->params, id("MODE"), "LOGIC");
-            ci->combInfo.flags = ArchCellInfo::COMB_NONE;
-            if (mode == "CARRY")
-                ci->combInfo.flags |= ArchCellInfo::COMB_CARRY;
-            if (mode == "DPRAM") {
-                ci->combInfo.flags |= ArchCellInfo::COMB_LUTRAM;
-                std::string wckmux = str_or_default(ci->params, id("WCKMUX"), "WCK");
-                if (wckmux == "INV")
-                    ci->combInfo.flags |= ArchCellInfo::COMB_RAM_WCKINV;
-                std::string wremux = str_or_default(ci->params, id("WREMUX"), "WRE");
-                if (wremux == "INV" || wremux == "0")
-                    ci->combInfo.flags |= ArchCellInfo::COMB_RAM_WREINV;
-                ci->combInfo.ram_wck = get_port_net(ci, id_WCK);
-                ci->combInfo.ram_wre = get_port_net(ci, id_WRE);
-            }
-            if (get_net_or_empty(ci, id_F1) != nullptr)
-                ci->combInfo.flags |= ArchCellInfo::COMB_MUX5;
-            if (get_net_or_empty(ci, id_FXA) != nullptr || get_net_or_empty(ci, id_FXB) != nullptr)
-                ci->combInfo.flags |= ArchCellInfo::COMB_MUX6;
-        } else if (ci->type == id_TRELLIS_FF) {
-            ci->ffInfo.flags = ArchCellInfo::FF_NONE;
-            if (str_or_default(ci->params, id("GSR"), "ENABLED") == "ENABLED")
-                ci->ffInfo.flags |= ArchCellInfo::FF_GSREN;
-            if (str_or_default(ci->params, id("SRMODE"), "LSR_OVER_CE") == "ASYNC")
-                ci->ffInfo.flags |= ArchCellInfo::FF_ASYNC;
-            if (get_net_or_empty(ci, id_M) != nullptr)
-                ci->ffInfo.flags |= ArchCellInfo::FF_M_USED;
-            std::string clkmux = str_or_default(ci->params, id("CLKMUX"), "CLK");
-            std::string cemux = str_or_default(ci->params, id("CEMUX"), "CE");
-            std::string lsrmux = str_or_default(ci->params, id("LSRMUX"), "LSR");
-            if (clkmux == "CLK" || clkmux == "0")
-                ci->ffInfo.flags |= ArchCellInfo::FF_CLKINV;
-            if (cemux == "CE" || cemux == "0")
-                ci->ffInfo.flags |= ArchCellInfo::FF_CEINV;
-            if (cemux == "1" || cemux == "0")
-                ci->ffInfo.flags |= ArchCellInfo::FF_CECONST;
-            if (lsrmux == "LSR")
-                ci->ffInfo.flags |= ArchCellInfo::FF_LSRINV;
-            ci->ffInfo.clk_sig = get_port_net(ci, id_CLK);
-            ci->ffInfo.ce_sig = get_port_net(ci, id_CE);
-            ci->ffInfo.lsr_sig = get_port_net(ci, id_LSR);
-        } else if (ci->type == id_DP16KD) {
-            ci->ramInfo.is_pdp = (int_or_default(ci->params, id("DATA_WIDTH_A"), 0) == 36);
-
-            // Output register mode (REGMODE_{A,B}). Valid options are 'NOREG' and 'OUTREG'.
-            std::string regmode_a = str_or_default(ci->params, id("REGMODE_A"), "NOREG");
-            if (regmode_a != "NOREG" && regmode_a != "OUTREG")
-                log_error("DP16KD %s has invalid REGMODE_A configuration '%s'\n", ci->name.c_str(this),
-                          regmode_a.c_str());
-            std::string regmode_b = str_or_default(ci->params, id("REGMODE_B"), "NOREG");
-            if (regmode_b != "NOREG" && regmode_b != "OUTREG")
-                log_error("DP16KD %s has invalid REGMODE_B configuration '%s'\n", ci->name.c_str(this),
-                          regmode_b.c_str());
-            ci->ramInfo.is_output_a_registered = regmode_a == "OUTREG";
-            ci->ramInfo.is_output_b_registered = regmode_b == "OUTREG";
-
-            // Based on the REGMODE, we have different timing lookup tables.
-            if (!ci->ramInfo.is_output_a_registered && !ci->ramInfo.is_output_b_registered) {
-                ci->ramInfo.regmode_timing_id = id_DP16KD_REGMODE_A_NOREG_REGMODE_B_NOREG;
-            } else if (!ci->ramInfo.is_output_a_registered && ci->ramInfo.is_output_b_registered) {
-                ci->ramInfo.regmode_timing_id = id_DP16KD_REGMODE_A_NOREG_REGMODE_B_OUTREG;
-            } else if (ci->ramInfo.is_output_a_registered && !ci->ramInfo.is_output_b_registered) {
-                ci->ramInfo.regmode_timing_id = id_DP16KD_REGMODE_A_OUTREG_REGMODE_B_NOREG;
-            } else if (ci->ramInfo.is_output_a_registered && ci->ramInfo.is_output_b_registered) {
-                ci->ramInfo.regmode_timing_id = id_DP16KD_REGMODE_A_OUTREG_REGMODE_B_OUTREG;
-            }
-        } else if (ci->type == id_MULT18X18D) {
-            // For the multiplier block, our timing db is dictated by whether any of the input/output registers are
-            // enabled. To that end, we need to work out what the parameters are for the INPUTA_CLK, INPUTB_CLK and
-            // OUTPUT_CLK are.
-            // The clock check is the same IN_A/B and OUT, so hoist it to a function
-            auto get_clock_parameter = [&](std::string param_name) {
-                std::string clk = str_or_default(ci->params, id(param_name), "NONE");
-                if (clk != "NONE" && clk != "CLK0" && clk != "CLK1" && clk != "CLK2" && clk != "CLK3")
-                    log_error("MULT18X18D %s has invalid %s configuration '%s'\n", ci->name.c_str(this),
-                              param_name.c_str(), clk.c_str());
-                return clk;
-            };
-
-            // Get the input clock setting from the cell
-            std::string reg_inputa_clk = get_clock_parameter("REG_INPUTA_CLK");
-            std::string reg_inputb_clk = get_clock_parameter("REG_INPUTB_CLK");
-
-            // Inputs are registered IFF the REG_INPUT value is not NONE
-            const bool is_in_a_registered = reg_inputa_clk != "NONE";
-            const bool is_in_b_registered = reg_inputb_clk != "NONE";
-
-            // Similarly, get the output register clock
-            std::string reg_output_clk = get_clock_parameter("REG_OUTPUT_CLK");
-            const bool is_output_registered = reg_output_clk != "NONE";
-
-            // If only one of the inputs is registered, we are going to treat that as
-            // neither input registered so that we don't have to deal with mixed timing.
-            // Emit a warning to that effect.
-            const bool any_input_registered = is_in_a_registered || is_in_b_registered;
-            const bool both_inputs_registered = is_in_a_registered && is_in_b_registered;
-            const bool input_registers_mismatched = any_input_registered && !both_inputs_registered;
-            if (input_registers_mismatched) {
-                log_warning("MULT18X18D %s has unsupported mixed input register modes (reg_inputa_clk=%s, "
-                            "reg_inputb_clk=%s)\n",
-                            ci->name.c_str(this), reg_inputa_clk.c_str(), reg_inputb_clk.c_str());
-                log_warning("Timings for MULT18X18D %s will be calculated as though neither input were registered\n",
-                            ci->name.c_str(this));
-
-                // Act as though the inputs are unregistered, so select timing DB based only on the
-                // output register mode
-                ci->multInfo.timing_id = is_output_registered ? id_MULT18X18D_REGS_OUTPUT : id_MULT18X18D_REGS_NONE;
-            } else {
-                // Based on our register settings, pick the timing data to use for this cell
-                if (!both_inputs_registered && !is_output_registered) {
-                    ci->multInfo.timing_id = id_MULT18X18D_REGS_NONE;
-                } else if (both_inputs_registered && !is_output_registered) {
-                    ci->multInfo.timing_id = id_MULT18X18D_REGS_INPUT;
-                } else if (!both_inputs_registered && is_output_registered) {
-                    ci->multInfo.timing_id = id_MULT18X18D_REGS_OUTPUT;
-                } else if (both_inputs_registered && is_output_registered) {
-                    ci->multInfo.timing_id = id_MULT18X18D_REGS_ALL;
-                }
-            }
-            // If we aren't a pure combinatorial multiplier, then our timings are
-            // calculated with respect to CLK0
-            ci->multInfo.is_clocked = ci->multInfo.timing_id != id_MULT18X18D_REGS_NONE;
+    if (ci->type == id_TRELLIS_COMB) {
+        std::string mode = str_or_default(ci->params, id("MODE"), "LOGIC");
+        ci->combInfo.flags = ArchCellInfo::COMB_NONE;
+        if (mode == "CARRY")
+            ci->combInfo.flags |= ArchCellInfo::COMB_CARRY;
+        if (mode == "DPRAM") {
+            ci->combInfo.flags |= ArchCellInfo::COMB_LUTRAM;
+            std::string wckmux = str_or_default(ci->params, id("WCKMUX"), "WCK");
+            if (wckmux == "INV")
+                ci->combInfo.flags |= ArchCellInfo::COMB_RAM_WCKINV;
+            std::string wremux = str_or_default(ci->params, id("WREMUX"), "WRE");
+            if (wremux == "INV" || wremux == "0")
+                ci->combInfo.flags |= ArchCellInfo::COMB_RAM_WREINV;
+            ci->combInfo.ram_wck = get_port_net(ci, id_WCK);
+            ci->combInfo.ram_wre = get_port_net(ci, id_WRE);
         }
+        if (get_net_or_empty(ci, id_F1) != nullptr)
+            ci->combInfo.flags |= ArchCellInfo::COMB_MUX5;
+        if (get_net_or_empty(ci, id_FXA) != nullptr || get_net_or_empty(ci, id_FXB) != nullptr)
+            ci->combInfo.flags |= ArchCellInfo::COMB_MUX6;
+    } else if (ci->type == id_TRELLIS_FF) {
+        ci->ffInfo.flags = ArchCellInfo::FF_NONE;
+        if (str_or_default(ci->params, id("GSR"), "ENABLED") == "ENABLED")
+            ci->ffInfo.flags |= ArchCellInfo::FF_GSREN;
+        if (str_or_default(ci->params, id("SRMODE"), "LSR_OVER_CE") == "ASYNC")
+            ci->ffInfo.flags |= ArchCellInfo::FF_ASYNC;
+        if (get_net_or_empty(ci, id_M) != nullptr)
+            ci->ffInfo.flags |= ArchCellInfo::FF_M_USED;
+        std::string clkmux = str_or_default(ci->params, id("CLKMUX"), "CLK");
+        std::string cemux = str_or_default(ci->params, id("CEMUX"), "CE");
+        std::string lsrmux = str_or_default(ci->params, id("LSRMUX"), "LSR");
+        if (clkmux == "CLK" || clkmux == "0")
+            ci->ffInfo.flags |= ArchCellInfo::FF_CLKINV;
+        if (cemux == "CE" || cemux == "0")
+            ci->ffInfo.flags |= ArchCellInfo::FF_CEINV;
+        if (cemux == "1" || cemux == "0")
+            ci->ffInfo.flags |= ArchCellInfo::FF_CECONST;
+        if (lsrmux == "LSR")
+            ci->ffInfo.flags |= ArchCellInfo::FF_LSRINV;
+        ci->ffInfo.clk_sig = get_port_net(ci, id_CLK);
+        ci->ffInfo.ce_sig = get_port_net(ci, id_CE);
+        ci->ffInfo.lsr_sig = get_port_net(ci, id_LSR);
+    } else if (ci->type == id_DP16KD) {
+        ci->ramInfo.is_pdp = (int_or_default(ci->params, id("DATA_WIDTH_A"), 0) == 36);
+
+        // Output register mode (REGMODE_{A,B}). Valid options are 'NOREG' and 'OUTREG'.
+        std::string regmode_a = str_or_default(ci->params, id("REGMODE_A"), "NOREG");
+        if (regmode_a != "NOREG" && regmode_a != "OUTREG")
+            log_error("DP16KD %s has invalid REGMODE_A configuration '%s'\n", ci->name.c_str(this), regmode_a.c_str());
+        std::string regmode_b = str_or_default(ci->params, id("REGMODE_B"), "NOREG");
+        if (regmode_b != "NOREG" && regmode_b != "OUTREG")
+            log_error("DP16KD %s has invalid REGMODE_B configuration '%s'\n", ci->name.c_str(this), regmode_b.c_str());
+        ci->ramInfo.is_output_a_registered = regmode_a == "OUTREG";
+        ci->ramInfo.is_output_b_registered = regmode_b == "OUTREG";
+
+        // Based on the REGMODE, we have different timing lookup tables.
+        if (!ci->ramInfo.is_output_a_registered && !ci->ramInfo.is_output_b_registered) {
+            ci->ramInfo.regmode_timing_id = id_DP16KD_REGMODE_A_NOREG_REGMODE_B_NOREG;
+        } else if (!ci->ramInfo.is_output_a_registered && ci->ramInfo.is_output_b_registered) {
+            ci->ramInfo.regmode_timing_id = id_DP16KD_REGMODE_A_NOREG_REGMODE_B_OUTREG;
+        } else if (ci->ramInfo.is_output_a_registered && !ci->ramInfo.is_output_b_registered) {
+            ci->ramInfo.regmode_timing_id = id_DP16KD_REGMODE_A_OUTREG_REGMODE_B_NOREG;
+        } else if (ci->ramInfo.is_output_a_registered && ci->ramInfo.is_output_b_registered) {
+            ci->ramInfo.regmode_timing_id = id_DP16KD_REGMODE_A_OUTREG_REGMODE_B_OUTREG;
+        }
+    } else if (ci->type == id_MULT18X18D) {
+        // For the multiplier block, our timing db is dictated by whether any of the input/output registers are
+        // enabled. To that end, we need to work out what the parameters are for the INPUTA_CLK, INPUTB_CLK and
+        // OUTPUT_CLK are.
+        // The clock check is the same IN_A/B and OUT, so hoist it to a function
+        auto get_clock_parameter = [&](std::string param_name) {
+            std::string clk = str_or_default(ci->params, id(param_name), "NONE");
+            if (clk != "NONE" && clk != "CLK0" && clk != "CLK1" && clk != "CLK2" && clk != "CLK3")
+                log_error("MULT18X18D %s has invalid %s configuration '%s'\n", ci->name.c_str(this), param_name.c_str(),
+                          clk.c_str());
+            return clk;
+        };
+
+        // Get the input clock setting from the cell
+        std::string reg_inputa_clk = get_clock_parameter("REG_INPUTA_CLK");
+        std::string reg_inputb_clk = get_clock_parameter("REG_INPUTB_CLK");
+
+        // Inputs are registered IFF the REG_INPUT value is not NONE
+        const bool is_in_a_registered = reg_inputa_clk != "NONE";
+        const bool is_in_b_registered = reg_inputb_clk != "NONE";
+
+        // Similarly, get the output register clock
+        std::string reg_output_clk = get_clock_parameter("REG_OUTPUT_CLK");
+        const bool is_output_registered = reg_output_clk != "NONE";
+
+        // If only one of the inputs is registered, we are going to treat that as
+        // neither input registered so that we don't have to deal with mixed timing.
+        // Emit a warning to that effect.
+        const bool any_input_registered = is_in_a_registered || is_in_b_registered;
+        const bool both_inputs_registered = is_in_a_registered && is_in_b_registered;
+        const bool input_registers_mismatched = any_input_registered && !both_inputs_registered;
+        if (input_registers_mismatched) {
+            log_warning("MULT18X18D %s has unsupported mixed input register modes (reg_inputa_clk=%s, "
+                        "reg_inputb_clk=%s)\n",
+                        ci->name.c_str(this), reg_inputa_clk.c_str(), reg_inputb_clk.c_str());
+            log_warning("Timings for MULT18X18D %s will be calculated as though neither input were registered\n",
+                        ci->name.c_str(this));
+
+            // Act as though the inputs are unregistered, so select timing DB based only on the
+            // output register mode
+            ci->multInfo.timing_id = is_output_registered ? id_MULT18X18D_REGS_OUTPUT : id_MULT18X18D_REGS_NONE;
+        } else {
+            // Based on our register settings, pick the timing data to use for this cell
+            if (!both_inputs_registered && !is_output_registered) {
+                ci->multInfo.timing_id = id_MULT18X18D_REGS_NONE;
+            } else if (both_inputs_registered && !is_output_registered) {
+                ci->multInfo.timing_id = id_MULT18X18D_REGS_INPUT;
+            } else if (!both_inputs_registered && is_output_registered) {
+                ci->multInfo.timing_id = id_MULT18X18D_REGS_OUTPUT;
+            } else if (both_inputs_registered && is_output_registered) {
+                ci->multInfo.timing_id = id_MULT18X18D_REGS_ALL;
+            }
+        }
+        // If we aren't a pure combinatorial multiplier, then our timings are
+        // calculated with respect to CLK0
+        ci->multInfo.is_clocked = ci->multInfo.timing_id != id_MULT18X18D_REGS_NONE;
+    }
+}
+
+void Arch::assignArchInfo()
+{
+    for (auto cell : sorted(cells)) {
+        assign_arch_info_for_cell(cell.second);
     }
     for (auto net : sorted(nets)) {
         net.second->is_global = bool_or_default(net.second->attrs, id("ECP5_IS_GLOBAL"));

@@ -839,6 +839,10 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                 cc.tiles[tname].add_enum("CLK1.CLKMUX", str_or_default(ci->params, ctx->id("CLKMUX"), "CLK"));
             }
         } else if (ci->type == id_TRELLIS_RAMW) {
+            std::string tname = ctx->getTileByTypeAndLocation(bel.location.y, bel.location.x, "PLC2");
+            cc.tiles[tname].add_enum("SLICEC.MODE", "RAMW");
+            cc.tiles[tname].add_word("SLICEC.K0.INIT", std::vector<bool>(16, false));
+            cc.tiles[tname].add_word("SLICEC.K1.INIT", std::vector<bool>(16, false));
         } else if (ci->type == ctx->id("TRELLIS_IO")) {
             std::string pio = ctx->locInfo(bel)->bel_data[bel.index].name.get();
             std::string iotype = str_or_default(ci->attrs, ctx->id("IO_TYPE"), "LVCMOS33");

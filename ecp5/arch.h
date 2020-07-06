@@ -1059,6 +1059,7 @@ struct Arch : BaseCtx
 
     void assignArchInfo();
 
+    void assign_arch_info_for_cell(CellInfo *cell);
     void permute_luts();
 
     std::vector<std::pair<std::string, std::string>> getTilesAtLocation(int row, int col);
