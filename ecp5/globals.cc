@@ -53,7 +53,9 @@ class Ecp5GlobalRouter
   private:
     bool is_clock_port(const PortRef &user)
     {
-        if (user.cell->type == id_TRELLIS_SLICE && (user.port == id_CLK || user.port == id_WCK))
+        if (user.cell->type == id_TRELLIS_FF && user.port == id_CLK)
+            return true;
+        if (user.cell->type == id_TRELLIS_COMB && user.port == id_WCK)
             return true;
         if (user.cell->type == id_DCUA && (user.port == id_CH0_FF_RXI_CLK || user.port == id_CH1_FF_RXI_CLK ||
                                            user.port == id_CH0_FF_TXI_CLK || user.port == id_CH1_FF_TXI_CLK))
@@ -65,7 +67,9 @@ class Ecp5GlobalRouter
 
     bool is_logic_port(const PortRef &user)
     {
-        if (user.cell->type == id_TRELLIS_SLICE && user.port != id_CLK && user.port != id_WCK)
+        if (user.cell->type == id_TRELLIS_FF && user.port != id_CLK)
+            return true;
+        if (user.cell->type == id_TRELLIS_COMB && user.port != id_WCK)
             return true;
         return false;
     }
