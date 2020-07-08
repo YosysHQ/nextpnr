@@ -958,6 +958,13 @@ class HeAPPlacer
                         }
                     }
                 } else {
+                    log_info("Legalising chain rooted at %s:\n", ctx->nameOf(ci));
+                    if (ci->constr_abs_z)
+                        log_info("    Root Z=%d\n", ci->constr_z);
+                    for (auto child : ci->constr_children) {
+                        NPNR_ASSERT(child->constr_children.empty());
+                        log_info("    %s at (%d, %d, %s%d)\n", ctx->nameOf(child), child->constr_x, child->constr_y, child->constr_abs_z ? "abs " : "", child->constr_z);
+                    }
                     for (auto sz : fb.at(nx).at(ny)) {
                         Loc loc = ctx->getBelLocation(sz);
                         if (ci->constr_abs_z && loc.z != ci->constr_z)

@@ -69,6 +69,12 @@ bool Arch::slicesCompatible(LogicTileStatus *lts) const
                     comb_m_used = true;
                     if (l != 1)
                         return false;
+                    if (comb->combInfo.mux_fxad != nullptr &&
+                        (comb->combInfo.mux_fxad->combInfo.flags & ArchCellInfo::COMB_MUX5)) {
+                        // LUT6 structure must be rooted at SLICE 0 or 2
+                        if (sl != 0 && sl != 2)
+                            return false;
+                    }
                 }
                 // LUTRAM must be in bottom two SLICEs only
                 if ((flags & ArchCellInfo::COMB_LUTRAM) && (sl > 1))

@@ -151,6 +151,7 @@ std::unique_ptr<CellInfo> create_ecp5_cell(Context *ctx, IdString type, std::str
         add_port(ctx, new_cell.get(), "WCK", PORT_IN);
 
         add_port(ctx, new_cell.get(), "F", PORT_OUT);
+        add_port(ctx, new_cell.get(), "OFX", PORT_OUT);
         add_port(ctx, new_cell.get(), "FCO", PORT_OUT);
     } else if (type == id_TRELLIS_RAMW) {
         add_port(ctx, new_cell.get(), "A0", PORT_IN);

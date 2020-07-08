@@ -167,6 +167,8 @@ struct ArchNetInfo
     bool is_global = false;
 };
 
+struct CellInfo;
+
 struct ArchCellInfo
 {
 
@@ -216,6 +218,7 @@ struct ArchCellInfo
     {
         uint8_t flags;
         IdString ram_wck, ram_wre;
+        CellInfo *mux_fxad;
     } combInfo;
     struct
     {

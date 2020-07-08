@@ -120,6 +120,66 @@ class Ecp5Packer
                cell->constr_z != cell->UNCONSTR || !cell->constr_children.empty() || cell->constr_parent != nullptr;
     }
 
+    // Gets the z-position of a cell in a macro
+    int get_macro_cell_z(const CellInfo *ci)
+    {
+        if (ci->constr_abs_z)
+            return ci->constr_z;
+        else if (ci->constr_parent != nullptr)
+            return ci->constr_z + get_macro_cell_z(ci->constr_parent);
+        else
+            return 0;
+    }
+
+    // Gets the relative xy-position of a cell in a macro
+    std::pair<int, int> get_macro_cell_xy(const CellInfo *ci)
+    {
+        if (ci->constr_parent != nullptr)
+            return {ci->constr_x, ci->constr_y};
+        else
+            return {0, 0};
+    }
+
+    // Relatively constrain one cell to another
+    void rel_constr_cells(CellInfo *a, CellInfo *b, int dz)
+    {
+        if (a->constr_parent != nullptr) {
+            NPNR_ASSERT(b->constr_parent == nullptr);
+            NPNR_ASSERT(b->constr_children.empty());
+            CellInfo *root = a->constr_parent;
+            root->constr_children.push_back(b);
+            b->constr_parent = root;
+            b->constr_x = a->constr_x;
+            b->constr_y = a->constr_y;
+            b->constr_z = get_macro_cell_z(a) + dz;
+            b->constr_abs_z = a->constr_abs_z;
+        } else if (b->constr_parent != nullptr) {
+            NPNR_ASSERT(a->constr_children.empty());
+            CellInfo *root = b->constr_parent;
+            root->constr_children.push_back(a);
+            a->constr_parent = root;
+            a->constr_x = b->constr_x;
+            a->constr_y = b->constr_y;
+            a->constr_z = get_macro_cell_z(b) - dz;
+            a->constr_abs_z = b->constr_abs_z;
+        } else if (!b->constr_children.empty()) {
+            NPNR_ASSERT(a->constr_children.empty());
+            b->constr_children.push_back(a);
+            a->constr_parent = b;
+            a->constr_x = 0;
+            a->constr_y = 0;
+            a->constr_z = get_macro_cell_z(b) - dz;
+            a->constr_abs_z = b->constr_abs_z;
+        } else {
+            a->constr_children.push_back(b);
+            b->constr_parent = a;
+            b->constr_x = 0;
+            b->constr_y = 0;
+            b->constr_z = get_macro_cell_z(a) + dz;
+            b->constr_abs_z = a->constr_abs_z;
+        }
+    }
+
     // Pack FFs
     void pack_ffs()
     {
@@ -136,23 +196,7 @@ class Ecp5Packer
                         // the design will not be routeable
                         if (can_add_flipflop_to_macro(comb, ci)) {
                             ci->params[ctx->id("SD")] = std::string("1");
-
-                            if (comb->constr_parent == nullptr) {
-                                // The comb cell we are attaching to is the root of the existing macro
-                                comb->constr_children.push_back(ci);
-                                ci->constr_parent = comb;
-                                ci->constr_x = 0;
-                                ci->constr_y = 0;
-                            } else {
-                                // The comb cell we are attaching to is not the root of the existing macro
-                                CellInfo *root = comb->constr_parent;
-                                root->constr_children.push_back(ci);
-                                ci->constr_parent = root;
-                                ci->constr_x = comb->constr_x;
-                                ci->constr_y = comb->constr_y;
-                            }
-                            ci->constr_z = get_macro_cell_z(comb) + (Arch::BEL_FF - Arch::BEL_COMB);
-                            ci->constr_abs_z = comb->constr_abs_z;
+                            rel_constr_cells(comb, ci, (Arch::BEL_FF - Arch::BEL_COMB));
                             // Packed successfully
                             continue;
                         }
@@ -323,26 +367,6 @@ class Ecp5Packer
         flush_cells();
     }
 
-    // Gets the z-position of a cell in a macro
-    int get_macro_cell_z(const CellInfo *ci)
-    {
-        if (ci->constr_abs_z)
-            return ci->constr_z;
-        else if (ci->constr_parent != nullptr)
-            return ci->constr_z + get_macro_cell_z(ci->constr_parent);
-        else
-            return 0;
-    }
-
-    // Gets the relative xy-position of a cell in a macro
-    std::pair<int, int> get_macro_cell_xy(const CellInfo *ci)
-    {
-        if (ci->constr_parent != nullptr)
-            return {ci->constr_x, ci->constr_y};
-        else
-            return {0, 0};
-    }
-
     // Check if it is legal to add a FF to a macro
     // This reuses the tile validity code
     bool can_add_flipflop_to_macro(CellInfo *comb, CellInfo *ff)
@@ -386,46 +410,42 @@ class Ecp5Packer
     void pack_lut5xs()
     {
         log_info("Packing LUT5-7s...\n");
+
+        // Gets the "COMB1" side of a LUT5, where we pack a LUT[67] into
+        auto get_comb1_from_lut5 = [&](CellInfo *lut5) {
+            NetInfo *f1 = get_net_or_empty(lut5, id_F1);
+            NPNR_ASSERT(f1 != nullptr);
+            NPNR_ASSERT(f1->driver.cell != nullptr);
+            return f1->driver.cell;
+        };
+
+        std::map<IdString, std::pair<CellInfo *, CellInfo *>> lut5_roots, lut6_roots, lut7_roots;
         for (auto cell : sorted(ctx->cells)) {
             CellInfo *ci = cell.second;
             if (is_pfumx(ctx, ci)) {
-                std::unique_ptr<CellInfo> packed =
-                        create_ecp5_cell(ctx, ctx->id("TRELLIS_SLICE"), ci->name.str(ctx) + "_SLICE");
-                NetInfo *f0 = ci->ports.at(ctx->id("BLUT")).net;
+                NetInfo *f0 = ci->ports.at(id_BLUT).net;
+
                 if (f0 == nullptr)
                     log_error("PFUMX '%s' has disconnected port 'BLUT'\n", ci->name.c_str(ctx));
-                NetInfo *f1 = ci->ports.at(ctx->id("ALUT")).net;
+                NetInfo *f1 = ci->ports.at(id_ALUT).net;
                 if (f1 == nullptr)
                     log_error("PFUMX '%s' has disconnected port 'ALUT'\n", ci->name.c_str(ctx));
-                CellInfo *lut0 = net_driven_by(ctx, f0, is_lut, ctx->id("Z"));
-                CellInfo *lut1 = net_driven_by(ctx, f1, is_lut, ctx->id("Z"));
-                if (lut0 == nullptr)
+
+                CellInfo *lut0 = net_driven_by(ctx, f0, is_packed_comb, id_F);
+                CellInfo *lut1 = net_driven_by(ctx, f1, is_packed_comb, id_F);
+                if (lut0 == nullptr || is_constrained(lut0))
                     log_error("PFUMX '%s' has BLUT driven by cell other than a LUT\n", ci->name.c_str(ctx));
-                if (lut1 == nullptr)
+                if (lut1 == nullptr || is_constrained(lut1))
                     log_error("PFUMX '%s' has ALUT driven by cell other than a LUT\n", ci->name.c_str(ctx));
-                if (ctx->verbose)
-                    log_info("   mux '%s' forms part of a LUT5\n", cell.first.c_str(ctx));
-                replace_port(lut0, ctx->id("A"), packed.get(), ctx->id("A0"));
-                replace_port(lut0, ctx->id("B"), packed.get(), ctx->id("B0"));
-                replace_port(lut0, ctx->id("C"), packed.get(), ctx->id("C0"));
-                replace_port(lut0, ctx->id("D"), packed.get(), ctx->id("D0"));
-                replace_port(lut1, ctx->id("A"), packed.get(), ctx->id("A1"));
-                replace_port(lut1, ctx->id("B"), packed.get(), ctx->id("B1"));
-                replace_port(lut1, ctx->id("C"), packed.get(), ctx->id("C1"));
-                replace_port(lut1, ctx->id("D"), packed.get(), ctx->id("D1"));
-                replace_port(ci, ctx->id("C0"), packed.get(), ctx->id("M0"));
-                replace_port(ci, ctx->id("Z"), packed.get(), ctx->id("OFX0"));
-                packed->params[ctx->id("LUT0_INITVAL")] =
-                        get_or_default(lut0->params, ctx->id("INIT"), Property(0, 16));
-                packed->params[ctx->id("LUT1_INITVAL")] =
-                        get_or_default(lut1->params, ctx->id("INIT"), Property(0, 16));
+                lut0->addInput(id_F1);
+                lut0->addInput(id_M);
+                lut0->addOutput(id_OFX);
 
-                ctx->nets.erase(f0->name);
-                ctx->nets.erase(f1->name);
-
-                new_cells.push_back(std::move(packed));
-                packed_cells.insert(lut0->name);
-                packed_cells.insert(lut1->name);
+                replace_port(ci, id_Z, lut0, id_OFX);
+                replace_port(ci, id_ALUT, lut0, id_F1);
+                replace_port(ci, id_C0, lut0, id_M);
+                disconnect_port(ctx, ci, id_BLUT);
+                lut5_roots[lut0->name] = {lut0, lut1};
                 packed_cells.insert(ci->name);
             }
         }
@@ -434,46 +454,49 @@ class Ecp5Packer
         for (auto cell : sorted(ctx->cells)) {
             CellInfo *ci = cell.second;
             if (is_l6mux(ctx, ci)) {
-                NetInfo *ofx0_0 = ci->ports.at(ctx->id("D0")).net;
+                NetInfo *ofx0_0 = ci->ports.at(id_D0).net;
                 if (ofx0_0 == nullptr)
                     log_error("L6MUX21 '%s' has disconnected port 'D0'\n", ci->name.c_str(ctx));
-                NetInfo *ofx0_1 = ci->ports.at(ctx->id("D1")).net;
+                NetInfo *ofx0_1 = ci->ports.at(id_D1).net;
                 if (ofx0_1 == nullptr)
                     log_error("L6MUX21 '%s' has disconnected port 'D1'\n", ci->name.c_str(ctx));
-                CellInfo *slice0 = net_driven_by(ctx, ofx0_0, is_lc, ctx->id("OFX0"));
-                CellInfo *slice1 = net_driven_by(ctx, ofx0_1, is_lc, ctx->id("OFX0"));
-                if (slice0 == nullptr) {
-                    if (!net_driven_by(ctx, ofx0_0, is_l6mux, ctx->id("Z")) &&
-                        !net_driven_by(ctx, ofx0_0, is_lc, ctx->id("OFX1")))
+                CellInfo *comb0 = net_driven_by(ctx, ofx0_0, is_packed_comb, id_OFX);
+                CellInfo *comb1 = net_driven_by(ctx, ofx0_1, is_packed_comb, id_OFX);
+                if (comb0 == nullptr) {
+                    if (!net_driven_by(ctx, ofx0_0, is_l6mux, id_Z))
                         log_error("L6MUX21 '%s' has D0 driven by cell other than a SLICE OFX0 but not a LUT7 mux "
                                   "('%s.%s')\n",
                                   ci->name.c_str(ctx), ofx0_0->driver.cell->name.c_str(ctx),
                                   ofx0_0->driver.port.c_str(ctx));
                     continue;
                 }
-                if (slice1 == nullptr) {
-                    if (!net_driven_by(ctx, ofx0_1, is_l6mux, ctx->id("Z")) &&
-                        !net_driven_by(ctx, ofx0_1, is_lc, ctx->id("OFX1")))
+                if (lut6_roots.count(comb0->name))
+                    continue;
+
+                if (comb1 == nullptr) {
+                    if (!net_driven_by(ctx, ofx0_1, is_l6mux, id_Z))
                         log_error("L6MUX21 '%s' has D1 driven by cell other than a SLICE OFX0 but not a LUT7 mux "
                                   "('%s.%s')\n",
                                   ci->name.c_str(ctx), ofx0_0->driver.cell->name.c_str(ctx),
                                   ofx0_0->driver.port.c_str(ctx));
                     continue;
                 }
+                if (lut6_roots.count(comb1->name))
+                    continue;
                 if (ctx->verbose)
                     log_info("   mux '%s' forms part of a LUT6\n", cell.first.c_str(ctx));
-                replace_port(ci, ctx->id("D0"), slice1, id_FXA);
-                replace_port(ci, ctx->id("D1"), slice1, id_FXB);
-                replace_port(ci, ctx->id("SD"), slice1, id_M1);
-                replace_port(ci, ctx->id("Z"), slice1, id_OFX1);
-                slice0->constr_z = 1;
-                slice0->constr_x = 0;
-                slice0->constr_y = 0;
-                slice0->constr_parent = slice1;
-                slice1->constr_z = 0;
-                slice1->constr_abs_z = true;
-                slice1->constr_children.push_back(slice0);
+                comb0 = get_comb1_from_lut5(comb0);
+                comb1 = get_comb1_from_lut5(comb1);
 
+                comb1->addInput(id_FXA);
+                comb1->addInput(id_FXB);
+                comb1->addInput(id_M);
+                comb1->addOutput(id_OFX);
+                replace_port(ci, id_D0, comb1, id_FXA);
+                replace_port(ci, id_D1, comb1, id_FXB);
+                replace_port(ci, id_SD, comb1, id_M);
+                replace_port(ci, id_Z, comb1, id_OFX);
+                lut6_roots[comb1->name] = {comb0, comb1};
                 packed_cells.insert(ci->name);
             }
         }
@@ -482,84 +505,64 @@ class Ecp5Packer
         for (auto cell : sorted(ctx->cells)) {
             CellInfo *ci = cell.second;
             if (is_l6mux(ctx, ci)) {
-                NetInfo *ofx1_0 = ci->ports.at(ctx->id("D0")).net;
+                NetInfo *ofx1_0 = ci->ports.at(id_D0).net;
                 if (ofx1_0 == nullptr)
                     log_error("L6MUX21 '%s' has disconnected port 'D0'\n", ci->name.c_str(ctx));
-                NetInfo *ofx1_1 = ci->ports.at(ctx->id("D1")).net;
+                NetInfo *ofx1_1 = ci->ports.at(id_D1).net;
                 if (ofx1_1 == nullptr)
                     log_error("L6MUX21 '%s' has disconnected port 'D1'\n", ci->name.c_str(ctx));
-                CellInfo *slice1 = net_driven_by(ctx, ofx1_0, is_lc, ctx->id("OFX1"));
-                CellInfo *slice3 = net_driven_by(ctx, ofx1_1, is_lc, ctx->id("OFX1"));
-                if (slice1 == nullptr)
+                CellInfo *comb1 = net_driven_by(ctx, ofx1_0, is_packed_comb, id_OFX);
+                CellInfo *comb3 = net_driven_by(ctx, ofx1_1, is_packed_comb, id_OFX);
+                if (comb1 == nullptr)
                     log_error("L6MUX21 '%s' has D0 driven by cell other than a SLICE OFX ('%s.%s')\n",
                               ci->name.c_str(ctx), ofx1_0->driver.cell->name.c_str(ctx),
                               ofx1_0->driver.port.c_str(ctx));
-                if (slice3 == nullptr)
+                if (comb3 == nullptr)
                     log_error("L6MUX21 '%s' has D1 driven by cell other than a SLICE OFX ('%s.%s')\n",
                               ci->name.c_str(ctx), ofx1_1->driver.cell->name.c_str(ctx),
                               ofx1_1->driver.port.c_str(ctx));
 
-                NetInfo *fxa_0 = slice1->ports.at(id_FXA).net;
+                NetInfo *fxa_0 = comb1->ports.at(id_FXA).net;
                 if (fxa_0 == nullptr)
-                    log_error("SLICE '%s' has disconnected port 'FXA'\n", slice1->name.c_str(ctx));
-                NetInfo *fxa_1 = slice3->ports.at(id_FXA).net;
+                    log_error("SLICE '%s' has disconnected port 'FXA'\n", comb1->name.c_str(ctx));
+                NetInfo *fxa_1 = comb3->ports.at(id_FXA).net;
                 if (fxa_1 == nullptr)
-                    log_error("SLICE '%s' has disconnected port 'FXA'\n", slice3->name.c_str(ctx));
+                    log_error("SLICE '%s' has disconnected port 'FXA'\n", comb3->name.c_str(ctx));
 
-                CellInfo *slice0 = net_driven_by(ctx, fxa_0, is_lc, ctx->id("OFX0"));
-                CellInfo *slice2 = net_driven_by(ctx, fxa_1, is_lc, ctx->id("OFX0"));
-                if (slice0 == nullptr)
+                CellInfo *comb2 = net_driven_by(ctx, fxa_1, is_packed_comb, id_OFX);
+                if (comb2 == nullptr)
                     log_error("SLICE '%s' has FXA driven by cell other than a SLICE OFX0 ('%s.%s')\n",
-                              slice1->name.c_str(ctx), fxa_0->driver.cell->name.c_str(ctx),
-                              fxa_0->driver.port.c_str(ctx));
-                if (slice2 == nullptr)
-                    log_error("SLICE '%s' has FXA driven by cell other than a SLICE OFX0 ('%s.%s')\n",
-                              slice3->name.c_str(ctx), fxa_1->driver.cell->name.c_str(ctx),
+                              comb3->name.c_str(ctx), fxa_1->driver.cell->name.c_str(ctx),
                               fxa_1->driver.port.c_str(ctx));
+                comb2 = get_comb1_from_lut5(comb2);
+                comb2->addInput(id_FXA);
+                comb2->addInput(id_FXB);
+                comb2->addInput(id_M);
+                comb2->addOutput(id_OFX);
+                replace_port(ci, id_D0, comb2, id_FXA);
+                replace_port(ci, id_D1, comb2, id_FXB);
+                replace_port(ci, id_SD, comb2, id_M);
+                replace_port(ci, id_Z, comb2, id_OFX);
 
-                replace_port(ci, ctx->id("D0"), slice2, id_FXA);
-                replace_port(ci, ctx->id("D1"), slice2, id_FXB);
-                replace_port(ci, ctx->id("SD"), slice2, id_M1);
-                replace_port(ci, ctx->id("Z"), slice2, id_OFX1);
-
-                for (auto slice : {slice0, slice1, slice2, slice3}) {
-                    slice->constr_children.clear();
-                    slice->constr_abs_z = false;
-                    slice->constr_x = slice->UNCONSTR;
-                    slice->constr_y = slice->UNCONSTR;
-                    slice->constr_z = slice->UNCONSTR;
-                    slice->constr_parent = nullptr;
-                }
-                slice3->constr_children.clear();
-                slice3->constr_abs_z = true;
-                slice3->constr_z = 0;
-
-                slice2->constr_children.clear();
-                slice2->constr_abs_z = true;
-                slice2->constr_z = 1;
-                slice2->constr_x = 0;
-                slice2->constr_y = 0;
-                slice2->constr_parent = slice3;
-                slice3->constr_children.push_back(slice2);
-
-                slice1->constr_children.clear();
-                slice1->constr_abs_z = true;
-                slice1->constr_z = 2;
-                slice1->constr_x = 0;
-                slice1->constr_y = 0;
-                slice1->constr_parent = slice3;
-                slice3->constr_children.push_back(slice1);
-
-                slice0->constr_children.clear();
-                slice0->constr_abs_z = true;
-                slice0->constr_z = 3;
-                slice0->constr_x = 0;
-                slice0->constr_y = 0;
-                slice0->constr_parent = slice3;
-                slice3->constr_children.push_back(slice0);
-
+                lut7_roots[comb2->name] = {comb1, comb3};
                 packed_cells.insert(ci->name);
             }
+        }
+
+        for (auto &root : lut7_roots) {
+            auto &cells = root.second;
+            NPNR_ASSERT(cells.second->constr_parent == nullptr);
+            cells.second->constr_abs_z = true;
+            cells.second->constr_z = (1 << Arch::lc_idx_shift) | Arch::BEL_COMB;
+            rel_constr_cells(cells.second, cells.first, (4 << Arch::lc_idx_shift));
+        }
+        for (auto &root : lut6_roots) {
+            auto &cells = root.second;
+            rel_constr_cells(cells.second, cells.first, (2 << Arch::lc_idx_shift));
+        }
+        for (auto &root : lut5_roots) {
+            auto &cells = root.second;
+            rel_constr_cells(cells.first, cells.second, (1 << Arch::lc_idx_shift));
         }
         flush_cells();
     }
@@ -2568,6 +2571,7 @@ class Ecp5Packer
         pack_dram();
         pack_carries();
         pack_luts();
+        pack_lut5xs();
         pack_ffs();
         generate_constraints();
         promote_ecp5_globals(ctx);
@@ -2622,8 +2626,12 @@ void Arch::assign_arch_info_for_cell(CellInfo *ci)
         }
         if (get_net_or_empty(ci, id_F1) != nullptr)
             ci->combInfo.flags |= ArchCellInfo::COMB_MUX5;
-        if (get_net_or_empty(ci, id_FXA) != nullptr || get_net_or_empty(ci, id_FXB) != nullptr)
+        if (get_net_or_empty(ci, id_FXA) != nullptr || get_net_or_empty(ci, id_FXB) != nullptr) {
             ci->combInfo.flags |= ArchCellInfo::COMB_MUX6;
+            NetInfo *fxa = get_net_or_empty(ci, id_FXA);
+            if (fxa != nullptr)
+                ci->combInfo.mux_fxad = fxa->driver.cell;
+        }
     } else if (ci->type == id_TRELLIS_FF) {
         ci->ffInfo.flags = ArchCellInfo::FF_NONE;
         if (str_or_default(ci->params, id("GSR"), "ENABLED") == "ENABLED")

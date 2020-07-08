@@ -33,6 +33,7 @@ void replace_port(CellInfo *old_cell, IdString old_name, CellInfo *rep_cell, IdS
     PortInfo &rep = rep_cell->ports.at(rep_name);
     NPNR_ASSERT(old.type == rep.type);
 
+    NPNR_ASSERT(rep.net == nullptr);
     rep.net = old.net;
     old.net = nullptr;
     if (rep.type == PORT_OUT) {
