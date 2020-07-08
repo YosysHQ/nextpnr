@@ -64,8 +64,8 @@ bool apply_pcf(Context *ctx, std::string filename, std::istream &in)
                             log_error("Invalid value '%s' for -pullup (on line %d)\n", value.c_str(), lineno);
                     } else if (setting == "-pullup_resistor") {
                         const auto &value = words.at(++args_end);
-                        if (ctx->args.type != ArchArgs::UP5K)
-                            log_error("Pullup resistance can only be set on UP5K (on line %d)\n", lineno);
+                        if (ctx->args.type != ArchArgs::UP5K && ctx->args.type != ArchArgs::UP3K)
+                            log_error("Pullup resistance can only be set on UP5K/UP3K (on line %d)\n", lineno);
                         if (value != "3P3K" && value != "6P8K" && value != "10K" && value != "100K")
                             log_error("Invalid value '%s' for -pullup_resistor (on line %d)\n", value.c_str(), lineno);
                         extra_attrs.emplace_back(std::make_pair(ctx->id("PULLUP_RESISTOR"), value));
