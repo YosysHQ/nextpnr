@@ -78,19 +78,29 @@ void MainWindow::new_proj()
 {
     QMap<QString, int> arch;
     if (Arch::isAvailable(ArchArgs::LP384))
-        arch.insert("Lattice LP384", ArchArgs::LP384);
+        arch.insert("Lattice iCE40LP384", ArchArgs::LP384);
     if (Arch::isAvailable(ArchArgs::LP1K))
-        arch.insert("Lattice LP1K", ArchArgs::LP1K);
+        arch.insert("Lattice iCE40LP1K", ArchArgs::LP1K);
     if (Arch::isAvailable(ArchArgs::HX1K))
-        arch.insert("Lattice HX1K", ArchArgs::HX1K);
+        arch.insert("Lattice iCE40HX1K", ArchArgs::HX1K);
+    if (Arch::isAvailable(ArchArgs::U1K))
+        arch.insert("Lattice iCE5LP1K", ArchArgs::U1K);
+    if (Arch::isAvailable(ArchArgs::U2K))
+        arch.insert("Lattice iCE5LP2K", ArchArgs::U2K);
     if (Arch::isAvailable(ArchArgs::U4K))
-        arch.insert("Lattice U4K", ArchArgs::U4K);
+        arch.insert("Lattice iCE5LP4K", ArchArgs::U4K);
+    if (Arch::isAvailable(ArchArgs::UP3K))
+        arch.insert("Lattice iCE40UP3K", ArchArgs::UP3K);
     if (Arch::isAvailable(ArchArgs::UP5K))
-        arch.insert("Lattice UP5K", ArchArgs::UP5K);
+        arch.insert("Lattice iCE40UP5K", ArchArgs::UP5K);
+    if (Arch::isAvailable(ArchArgs::LP4K))
+        arch.insert("Lattice iCE40LP4K", ArchArgs::LP4K);
     if (Arch::isAvailable(ArchArgs::LP8K))
-        arch.insert("Lattice LP8K", ArchArgs::LP8K);
+        arch.insert("Lattice iCE40LP8K", ArchArgs::LP8K);
+    if (Arch::isAvailable(ArchArgs::HX4K))
+        arch.insert("Lattice iCE40HX4K", ArchArgs::HX4K);
     if (Arch::isAvailable(ArchArgs::HX8K))
-        arch.insert("Lattice HX8K", ArchArgs::HX8K);
+        arch.insert("Lattice iCE40HX8K", ArchArgs::HX8K);
 
     bool ok;
     QString item = QInputDialog::getItem(this, "Select new context", "Chip:", arch.keys(), 0, false, &ok);

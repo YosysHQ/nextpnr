@@ -54,14 +54,24 @@ po::options_description Ice40CommandHandler::getArchOptions()
         specific.add_options()("lp384", "set device type to iCE40LP384");
     if (Arch::isAvailable(ArchArgs::LP1K))
         specific.add_options()("lp1k", "set device type to iCE40LP1K");
+    if (Arch::isAvailable(ArchArgs::LP4K))
+        specific.add_options()("lp4k", "set device type to iCE40LP4K");
     if (Arch::isAvailable(ArchArgs::LP8K))
         specific.add_options()("lp8k", "set device type to iCE40LP8K");
     if (Arch::isAvailable(ArchArgs::HX1K))
         specific.add_options()("hx1k", "set device type to iCE40HX1K");
     if (Arch::isAvailable(ArchArgs::HX8K))
+        specific.add_options()("hx4k", "set device type to iCE40HX4K");
+    if (Arch::isAvailable(ArchArgs::HX4K))
         specific.add_options()("hx8k", "set device type to iCE40HX8K");
+    if (Arch::isAvailable(ArchArgs::UP3K))
+        specific.add_options()("up3k", "set device type to iCE40UP3K");
     if (Arch::isAvailable(ArchArgs::UP5K))
         specific.add_options()("up5k", "set device type to iCE40UP5K");
+    if (Arch::isAvailable(ArchArgs::U1K))
+        specific.add_options()("u1k", "set device type to iCE5LP1K");
+    if (Arch::isAvailable(ArchArgs::U2K))
+        specific.add_options()("u2k", "set device type to iCE5LP2K");
     if (Arch::isAvailable(ArchArgs::U4K))
         specific.add_options()("u4k", "set device type to iCE5LP4K");
     specific.add_options()("package", po::value<std::string>(), "set device package");
@@ -80,8 +90,9 @@ po::options_description Ice40CommandHandler::getArchOptions()
 void Ice40CommandHandler::validate()
 {
     conflicting_options(vm, "read", "json");
-    if ((vm.count("lp384") + vm.count("lp1k") + vm.count("lp8k") + vm.count("hx1k") + vm.count("hx8k") +
-         vm.count("up5k") + vm.count("u4k")) > 1)
+    if ((vm.count("lp384") + vm.count("lp1k") + vm.count("lp4k") + vm.count("lp8k") + vm.count("hx1k") +
+         vm.count("hx4k") + vm.count("hx8k") + vm.count("up3k") + vm.count("up5k") + vm.count("u1k") + vm.count("u2k") +
+         vm.count("u4k")) > 1)
         log_error("Only one device type can be set\n");
 }
 
@@ -132,6 +143,11 @@ std::unique_ptr<Context> Ice40CommandHandler::createContext(std::unordered_map<s
         chipArgs.package = "tq144";
     }
 
+    if (vm.count("lp4k")) {
+        chipArgs.type = ArchArgs::LP4K;
+        chipArgs.package = "tq144";
+    }
+
     if (vm.count("lp8k")) {
         chipArgs.type = ArchArgs::LP8K;
         chipArgs.package = "ct256";
@@ -142,13 +158,33 @@ std::unique_ptr<Context> Ice40CommandHandler::createContext(std::unordered_map<s
         chipArgs.package = "tq144";
     }
 
+    if (vm.count("hx4k")) {
+        chipArgs.type = ArchArgs::HX4K;
+        chipArgs.package = "tq144";
+    }
+
     if (vm.count("hx8k")) {
         chipArgs.type = ArchArgs::HX8K;
         chipArgs.package = "ct256";
     }
 
+    if (vm.count("up3k")) {
+        chipArgs.type = ArchArgs::UP3K;
+        chipArgs.package = "sg48";
+    }
+
     if (vm.count("up5k")) {
         chipArgs.type = ArchArgs::UP5K;
+        chipArgs.package = "sg48";
+    }
+
+    if (vm.count("u1k")) {
+        chipArgs.type = ArchArgs::U1K;
+        chipArgs.package = "sg48";
+    }
+
+    if (vm.count("u2k")) {
+        chipArgs.type = ArchArgs::U2K;
         chipArgs.package = "sg48";
     }
 
@@ -179,17 +215,32 @@ std::unique_ptr<Context> Ice40CommandHandler::createContext(std::unordered_map<s
         if (arch_type == "lp1k") {
             chipArgs.type = ArchArgs::LP1K;
         }
+        if (arch_type == "lp4k") {
+            chipArgs.type = ArchArgs::LP4K;
+        }
         if (arch_type == "lp8k") {
             chipArgs.type = ArchArgs::LP8K;
         }
         if (arch_type == "hx1k") {
             chipArgs.type = ArchArgs::HX1K;
         }
+        if (arch_type == "hx4k") {
+            chipArgs.type = ArchArgs::HX4K;
+        }
         if (arch_type == "hx8k") {
             chipArgs.type = ArchArgs::HX8K;
         }
+        if (arch_type == "up3k") {
+            chipArgs.type = ArchArgs::UP3K;
+        }
         if (arch_type == "up5k") {
             chipArgs.type = ArchArgs::UP5K;
+        }
+        if (arch_type == "u1k") {
+            chipArgs.type = ArchArgs::U1K;
+        }
+        if (arch_type == "u2k") {
+            chipArgs.type = ArchArgs::U2K;
         }
         if (arch_type == "u4k") {
             chipArgs.type = ArchArgs::U4K;

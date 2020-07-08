@@ -385,10 +385,15 @@ struct ArchArgs
         NONE,
         LP384,
         LP1K,
+        LP4K,
         LP8K,
         HX1K,
+        HX4K,
         HX8K,
+        UP3K,
         UP5K,
+        U1K,
+        U2K,
         U4K
     } type = NONE;
     std::string package;
