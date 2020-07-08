@@ -477,6 +477,13 @@ struct Router1
         }
         visited.clear();
 
+        if (src_wire == dst_wire) {
+            wire_to_arcs[src_wire].insert(arc);
+            arc_to_wires[arc].insert(src_wire);
+            ctx->bindWire(src_wire, net_info, STRENGTH_WEAK);
+            return true;
+        }
+
         // A* main loop
 
         int visitCnt = 0;
