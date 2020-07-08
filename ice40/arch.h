@@ -387,6 +387,7 @@ struct ArchArgs
         LP1K,
         LP8K,
         HX1K,
+        HX4K,
         HX8K,
         UP5K,
         U4K

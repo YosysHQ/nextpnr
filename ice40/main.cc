@@ -59,6 +59,8 @@ po::options_description Ice40CommandHandler::getArchOptions()
     if (Arch::isAvailable(ArchArgs::HX1K))
         specific.add_options()("hx1k", "set device type to iCE40HX1K");
     if (Arch::isAvailable(ArchArgs::HX8K))
+        specific.add_options()("hx4k", "set device type to iCE40HX4K");
+    if (Arch::isAvailable(ArchArgs::HX4K))
         specific.add_options()("hx8k", "set device type to iCE40HX8K");
     if (Arch::isAvailable(ArchArgs::UP5K))
         specific.add_options()("up5k", "set device type to iCE40UP5K");
@@ -142,6 +144,11 @@ std::unique_ptr<Context> Ice40CommandHandler::createContext(std::unordered_map<s
         chipArgs.package = "tq144";
     }
 
+    if (vm.count("hx4k")) {
+        chipArgs.type = ArchArgs::HX4K;
+        chipArgs.package = "tq144";
+    }
+
     if (vm.count("hx8k")) {
         chipArgs.type = ArchArgs::HX8K;
         chipArgs.package = "ct256";
@@ -184,6 +191,9 @@ std::unique_ptr<Context> Ice40CommandHandler::createContext(std::unordered_map<s
         }
         if (arch_type == "hx1k") {
             chipArgs.type = ArchArgs::HX1K;
+        }
+        if (arch_type == "hx4k") {
+            chipArgs.type = ArchArgs::HX4K;
         }
         if (arch_type == "hx8k") {
             chipArgs.type = ArchArgs::HX8K;

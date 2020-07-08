@@ -89,6 +89,8 @@ void MainWindow::new_proj()
         arch.insert("Lattice UP5K", ArchArgs::UP5K);
     if (Arch::isAvailable(ArchArgs::LP8K))
         arch.insert("Lattice LP8K", ArchArgs::LP8K);
+    if (Arch::isAvailable(ArchArgs::HX4K))
+        arch.insert("Lattice HX4K", ArchArgs::HX4K);
     if (Arch::isAvailable(ArchArgs::HX8K))
         arch.insert("Lattice HX8K", ArchArgs::HX8K);
 
