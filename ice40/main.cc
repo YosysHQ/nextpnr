@@ -134,6 +134,11 @@ std::unique_ptr<Context> Ice40CommandHandler::createContext(std::unordered_map<s
         chipArgs.package = "tq144";
     }
 
+    if (vm.count("lp4k")) {
+        chipArgs.type = ArchArgs::LP4K;
+        chipArgs.package = "tq144";
+    }
+
     if (vm.count("lp8k")) {
         chipArgs.type = ArchArgs::LP8K;
         chipArgs.package = "ct256";
@@ -185,6 +190,9 @@ std::unique_ptr<Context> Ice40CommandHandler::createContext(std::unordered_map<s
         }
         if (arch_type == "lp1k") {
             chipArgs.type = ArchArgs::LP1K;
+        }
+        if (arch_type == "lp4k") {
+            chipArgs.type = ArchArgs::LP4K;
         }
         if (arch_type == "lp8k") {
             chipArgs.type = ArchArgs::LP8K;

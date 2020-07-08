@@ -385,6 +385,7 @@ struct ArchArgs
         NONE,
         LP384,
         LP1K,
+        LP4K,
         LP8K,
         HX1K,
         HX4K,

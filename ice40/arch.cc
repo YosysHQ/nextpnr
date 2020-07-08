@@ -55,7 +55,7 @@ static const ChipInfoPOD *get_chip_info(ArchArgs::ArchArgsTypes chip)
         chipdb = "ice40/chipdb-u4k.bin";
     } else if (chip == ArchArgs::UP5K) {
         chipdb = "ice40/chipdb-5k.bin";
-    } else if (chip == ArchArgs::LP8K || chip == ArchArgs::HX8K || chip == ArchArgs::HX4K) {
+    } else if (chip == ArchArgs::LP8K || chip == ArchArgs::HX8K || chip == ArchArgs::LP4K || chip == ArchArgs::HX4K) {
         chipdb = "ice40/chipdb-8k.bin";
     } else {
         log_error("Unknown chip\n");
@@ -75,7 +75,7 @@ std::vector<std::string> Arch::getSupportedPackages(ArchArgs::ArchArgsTypes chip
     std::vector<std::string> packages;
     for (int i = 0; i < chip_info->num_packages; i++) {
        std::string name = chip_info->packages_data[i].name.get();
-       if (chip == ArchArgs::HX4K)
+       if (chip == ArchArgs::LP4K || chip == ArchArgs::HX4K)
        {
            if (name.find(":4k") != std::string::npos)
                name = name.substr(0, name.size()-3);
@@ -99,7 +99,7 @@ Arch::Arch(ArchArgs args) : args(args)
 
     package_info = nullptr;
     std::string package_name = args.package;
-    if (args.type == ArchArgs::HX4K)
+    if (args.type == ArchArgs::LP4K || args.type == ArchArgs::HX4K)
         package_name += ":4k";
 
     for (int i = 0; i < chip_info->num_packages; i++) {
@@ -132,6 +132,8 @@ std::string Arch::getChipName() const
         return "Lattice UP5K";
     } else if (args.type == ArchArgs::U4K) {
         return "Lattice U4K";
+    } else if (args.type == ArchArgs::LP4K) {
+        return "Lattice LP4K";
     } else if (args.type == ArchArgs::LP8K) {
         return "Lattice LP8K";
     } else if (args.type == ArchArgs::HX4K) {
@@ -157,6 +159,8 @@ IdString Arch::archArgsToId(ArchArgs args) const
         return id("up5k");
     if (args.type == ArchArgs::U4K)
         return id("u4k");
+    if (args.type == ArchArgs::LP4K)
+        return id("lp4k");
     if (args.type == ArchArgs::LP8K)
         return id("lp8k");
     if (args.type == ArchArgs::HX4K)
