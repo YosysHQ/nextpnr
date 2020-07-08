@@ -645,15 +645,20 @@ bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay
         else {
             switch (args.type) {
             case ArchArgs::HX8K:
+            case ArchArgs::HX4K:
             case ArchArgs::HX1K:
                 budget = cin ? 190 : (same_y ? 260 : 560);
                 break;
             case ArchArgs::LP384:
             case ArchArgs::LP1K:
+            case ArchArgs::LP4K:
             case ArchArgs::LP8K:
                 budget = cin ? 290 : (same_y ? 380 : 670);
                 break;
+            case ArchArgs::UP3K:
             case ArchArgs::UP5K:
+            case ArchArgs::U1K:
+            case ArchArgs::U2K:
             case ArchArgs::U4K:
                 budget = cin ? 560 : (same_y ? 660 : 1220);
                 break;
@@ -1105,9 +1110,11 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
                 DelayInfo dlut;
                 bool has_ld = getCellDelayInternal(cell, port, id_O, dlut);
                 NPNR_ASSERT(has_ld);
-                if (args.type == ArchArgs::LP1K || args.type == ArchArgs::LP8K || args.type == ArchArgs::LP384) {
+                if (args.type == ArchArgs::LP1K || args.type == ArchArgs::LP4K || args.type == ArchArgs::LP8K ||
+                    args.type == ArchArgs::LP384) {
                     info.setup.delay = 30 + dlut.delay;
-                } else if (args.type == ArchArgs::UP5K || args.type == ArchArgs::U4K) { // XXX verify u4k
+                } else if (args.type == ArchArgs::UP3K || args.type == ArchArgs::UP5K || args.type == ArchArgs::U4K ||
+                           args.type == ArchArgs::U1K || args.type == ArchArgs::U2K) { // XXX verify u4k
                     info.setup.delay = dlut.delay - 50;
                 } else {
                     info.setup.delay = 20 + dlut.delay;
@@ -1137,7 +1144,8 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
         if (args.type == ArchArgs::LP1K || args.type == ArchArgs::LP8K || args.type == ArchArgs::LP384) {
             io_setup = 115;
             io_clktoq = 210;
-        } else if (args.type == ArchArgs::UP5K || args.type == ArchArgs::U4K) {
+        } else if (args.type == ArchArgs::UP3K || args.type == ArchArgs::UP5K || args.type == ArchArgs::U4K ||
+                   args.type == ArchArgs::U1K || args.type == ArchArgs::U2K) {
             io_setup = 205;
             io_clktoq = 1005;
         }

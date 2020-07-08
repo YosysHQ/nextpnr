@@ -132,13 +132,15 @@ struct model_params_t
         static const model_params_t model_up5k = {1761,    305798, 16705, 296830, 24430, -40369, 33038,
                                                   -162662, 94,     4705,  -1099,  -1761, -418,   -838};
 
-        if (args.type == ArchArgs::HX1K || args.type == ArchArgs::HX8K)
+        if (args.type == ArchArgs::HX1K || args.type == ArchArgs::HX4K || args.type == ArchArgs::HX8K)
             return model_hx8k;
 
-        if (args.type == ArchArgs::LP384 || args.type == ArchArgs::LP1K || args.type == ArchArgs::LP8K)
+        if (args.type == ArchArgs::LP384 || args.type == ArchArgs::LP1K || args.type == ArchArgs::LP4K ||
+            args.type == ArchArgs::LP8K)
             return model_lp8k;
 
-        if (args.type == ArchArgs::UP5K || args.type == ArchArgs::U4K)
+        if (args.type == ArchArgs::UP3K || args.type == ArchArgs::UP5K || args.type == ArchArgs::U1K ||
+            args.type == ArchArgs::U2K || args.type == ArchArgs::U4K)
             return model_up5k;
 
         NPNR_ASSERT(0);
