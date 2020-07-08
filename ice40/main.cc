@@ -64,8 +64,14 @@ po::options_description Ice40CommandHandler::getArchOptions()
         specific.add_options()("hx4k", "set device type to iCE40HX4K");
     if (Arch::isAvailable(ArchArgs::HX4K))
         specific.add_options()("hx8k", "set device type to iCE40HX8K");
+    if (Arch::isAvailable(ArchArgs::UP3K))
+        specific.add_options()("up3k", "set device type to iCE40UP3K");
     if (Arch::isAvailable(ArchArgs::UP5K))
         specific.add_options()("up5k", "set device type to iCE40UP5K");
+    if (Arch::isAvailable(ArchArgs::U1K))
+        specific.add_options()("u1k", "set device type to iCE5LP1K");
+    if (Arch::isAvailable(ArchArgs::U2K))
+        specific.add_options()("u2k", "set device type to iCE5LP2K");
     if (Arch::isAvailable(ArchArgs::U4K))
         specific.add_options()("u4k", "set device type to iCE5LP4K");
     specific.add_options()("package", po::value<std::string>(), "set device package");
@@ -84,8 +90,9 @@ po::options_description Ice40CommandHandler::getArchOptions()
 void Ice40CommandHandler::validate()
 {
     conflicting_options(vm, "read", "json");
-    if ((vm.count("lp384") + vm.count("lp1k") + vm.count("lp8k") + vm.count("hx1k") + vm.count("hx8k") +
-         vm.count("up5k") + vm.count("u4k")) > 1)
+    if ((vm.count("lp384") + vm.count("lp1k") + vm.count("lp4k") + vm.count("lp8k") + vm.count("hx1k") +
+         vm.count("hx4k") + vm.count("hx8k") + vm.count("up3k") + vm.count("up5k") + vm.count("u1k") + vm.count("u2k") +
+         vm.count("u4k")) > 1)
         log_error("Only one device type can be set\n");
 }
 
@@ -161,8 +168,23 @@ std::unique_ptr<Context> Ice40CommandHandler::createContext(std::unordered_map<s
         chipArgs.package = "ct256";
     }
 
+    if (vm.count("up3k")) {
+        chipArgs.type = ArchArgs::UP3K;
+        chipArgs.package = "sg48";
+    }
+
     if (vm.count("up5k")) {
         chipArgs.type = ArchArgs::UP5K;
+        chipArgs.package = "sg48";
+    }
+
+    if (vm.count("u1k")) {
+        chipArgs.type = ArchArgs::U1K;
+        chipArgs.package = "sg48";
+    }
+
+    if (vm.count("u2k")) {
+        chipArgs.type = ArchArgs::U2K;
         chipArgs.package = "sg48";
     }
 
@@ -208,8 +230,17 @@ std::unique_ptr<Context> Ice40CommandHandler::createContext(std::unordered_map<s
         if (arch_type == "hx8k") {
             chipArgs.type = ArchArgs::HX8K;
         }
+        if (arch_type == "up3k") {
+            chipArgs.type = ArchArgs::UP3K;
+        }
         if (arch_type == "up5k") {
             chipArgs.type = ArchArgs::UP5K;
+        }
+        if (arch_type == "u1k") {
+            chipArgs.type = ArchArgs::U1K;
+        }
+        if (arch_type == "u2k") {
+            chipArgs.type = ArchArgs::U2K;
         }
         if (arch_type == "u4k") {
             chipArgs.type = ArchArgs::U4K;
