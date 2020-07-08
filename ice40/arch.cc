@@ -122,29 +122,29 @@ Arch::Arch(ArchArgs args) : args(args)
 std::string Arch::getChipName() const
 {
     if (args.type == ArchArgs::LP384) {
-        return "Lattice LP384";
+        return "Lattice iCE40LP384";
     } else if (args.type == ArchArgs::LP1K) {
-        return "Lattice LP1K";
+        return "Lattice iCE40LP1K";
     } else if (args.type == ArchArgs::HX1K) {
-        return "Lattice HX1K";
+        return "Lattice iCE40HX1K";
     } else if (args.type == ArchArgs::UP3K) {
-        return "Lattice UP3K";
+        return "Lattice iCE40UP3K";
     } else if (args.type == ArchArgs::UP5K) {
-        return "Lattice UP5K";
+        return "Lattice iCE40UP5K";
     } else if (args.type == ArchArgs::U1K) {
-        return "Lattice U1K";
+        return "Lattice iCE5LP1K";
     } else if (args.type == ArchArgs::U2K) {
-        return "Lattice U2K";
+        return "Lattice iCE5LP2K";
     } else if (args.type == ArchArgs::U4K) {
-        return "Lattice U4K";
+        return "Lattice iCE5LP4K";
     } else if (args.type == ArchArgs::LP4K) {
-        return "Lattice LP4K";
+        return "Lattice iCE40LP4K";
     } else if (args.type == ArchArgs::LP8K) {
-        return "Lattice LP8K";
+        return "Lattice iCE40LP8K";
     } else if (args.type == ArchArgs::HX4K) {
-        return "Lattice HX4K";
+        return "Lattice iCE40HX4K";
     } else if (args.type == ArchArgs::HX8K) {
-        return "Lattice HX8K";
+        return "Lattice iCE40HX8K";
     } else {
         log_error("Unknown chip\n");
     }
