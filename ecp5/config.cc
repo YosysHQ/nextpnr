@@ -267,6 +267,8 @@ std::ostream &operator<<(std::ostream &out, const ChipConfig &cc)
     out << ".device " << cc.chip_name << std::endl << std::endl;
     for (const auto &meta : cc.metadata)
         out << ".comment " << meta << std::endl;
+    for (const auto &sc : cc.sysconfig)
+        out << ".sysconfig " << sc.first << " " << sc.second << std::endl;
     out << std::endl;
     for (const auto &tile : cc.tiles) {
         if (!tile.second.empty()) {
@@ -311,6 +313,10 @@ std::istream &operator>>(std::istream &in, ChipConfig &cc)
             std::string line;
             getline(in, line);
             cc.metadata.push_back(line);
+        } else if (verb == ".sysconfig") {
+            std::string key, value;
+            in >> key >> value;
+            cc.sysconfig[key] = value;
         } else if (verb == ".tile") {
             std::string tilename;
             in >> tilename;
