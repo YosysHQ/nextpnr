@@ -31,6 +31,11 @@ static const std::unordered_set<std::string> sysconfig_keys = {
         "COMPRESS_CONFIG",     "CONFIG_MODE",     "INBUF",
 };
 
+static const std::unordered_set<std::string> iobuf_keys = {
+        "IO_TYPE", "BANK",      "BANK_VCC",     "VREF",      "PULLMODE",   "DRIVE",       "SLEWRATE",
+        "CLAMP",   "OPENDRAIN", "DIFFRESISTOR", "DIFFDRIVE", "HYSTERESIS", "TERMINATION",
+};
+
 bool Arch::applyLPF(std::string filename, std::istream &in)
 {
     auto isempty = [](const std::string &str) {
@@ -145,6 +150,9 @@ bool Arch::applyLPF(std::string filename, std::istream &in)
                                             "expected syntax 'IOBUF PORT <port name> <attr>=<value>...' (on line %d)\n",
                                             lineno);
                                 std::string key = setting.substr(0, eqpos), value = setting.substr(eqpos + 1);
+                                if (!iobuf_keys.count(key))
+                                    log_warning("IOBUF '%s' attribute '%s' is not recognised (on line %d)\n",
+                                                cell.c_str(), key.c_str(), lineno);
                                 fnd_cell->second->attrs[id(key)] = value;
                             }
                         }
