@@ -514,7 +514,6 @@ void config_empty_lfe5u_45f(ChipConfig &cc)
     cc.tiles["MIB_R10C41:CMUX_UR_0"].add_arc("G_DCS0CLK1", "G_VPFN0000");
     cc.tiles["MIB_R58C40:CMUX_LL_0"].add_arc("G_DCS1CLK0", "G_VPFN0000");
     cc.tiles["MIB_R58C41:CMUX_LR_0"].add_arc("G_DCS1CLK1", "G_VPFN0000");
-    cc.tiles["MIB_R71C3:BANKREF8"].add_unknown(18, 0);
     cc.tiles["MIB_R71C4:EFB0_PICB0"].add_unknown(54, 1);
     cc.tiles["MIB_R71C4:EFB0_PICB0"].add_unknown(56, 1);
     cc.tiles["MIB_R71C4:EFB0_PICB0"].add_unknown(82, 1);

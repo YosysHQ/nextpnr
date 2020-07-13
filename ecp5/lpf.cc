@@ -23,6 +23,14 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+static const std::unordered_set<std::string> sysconfig_keys = {
+        "SLAVE_SPI_PORT",      "MASTER_SPI_PORT", "SLAVE_PARALLEL_PORT",
+        "BACKGROUND_RECONFIG", "DONE_EX",         "DONE_OD",
+        "DONE_PULL",           "MCCLK_FREQ",      "TRANSFR",
+        "CONFIG_IOVOLTAGE",    "CONFIG_SECURE",   "WAKE_UP",
+        "COMPRESS_CONFIG",     "CONFIG_MODE",     "INBUF",
+};
+
 bool Arch::applyLPF(std::string filename, std::istream &in)
 {
     auto isempty = [](const std::string &str) {
@@ -66,10 +74,21 @@ bool Arch::applyLPF(std::string filename, std::istream &in)
                     words.push_back(tmp);
                 if (words.size() >= 0) {
                     std::string verb = words.at(0);
-                    if (verb == "BLOCK" || verb == "SYSCONFIG") {
+                    if (verb == "BLOCK") {
                         if (words.size() != 2 || (words.at(1) != "ASYNCPATHS" && words.at(1) != "RESETPATHS"))
                             log_warning("    ignoring unsupported LPF command '%s' (on line %d)\n", command.c_str(),
                                         lineno);
+                    } else if (verb == "SYSCONFIG") {
+                        for (size_t i = 1; i < words.size(); i++) {
+                            std::string setting = words.at(i);
+                            size_t eqpos = setting.find('=');
+                            if (eqpos == std::string::npos)
+                                log_error("expected syntax 'SYSCONFIG <attr>=<value>...' (on line %d)\n", lineno);
+                            std::string key = setting.substr(0, eqpos), value = setting.substr(eqpos + 1);
+                            if (!sysconfig_keys.count(key))
+                                log_error("unexpected SYSCONFIG key '%s' (on line %d)\n", key.c_str(), lineno);
+                            settings[id("arch.sysconfig." + key)] = value;
+                        }
                     } else if (verb == "FREQUENCY") {
                         if (words.size() < 2)
                             log_error("expected object type after FREQUENCY (on line %d)\n", lineno);
