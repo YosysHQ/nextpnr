@@ -35,13 +35,13 @@ template <> struct string_converter<const IdString &>
 };
 } // namespace PythonConversion
 
-void arch_wrap_python()
+void arch_wrap_python(py::module &m)
 {
     using namespace PythonConversion;
 
-    auto arch_cls = class_<Arch, Arch *, bases<BaseCtx>, boost::noncopyable>("Arch", init<ArchArgs>());
+    auto arch_cls = py::class_<Arch, BaseCtx>(m, "Arch").def(py::init<ArchArgs>());
 
-    auto dxy_cls = class_<ContextualWrapper<DecalXY>>("DecalXY_", no_init);
+    auto dxy_cls = py::class_<ContextualWrapper<DecalXY>>(m, "DecalXY_");
     readwrite_wrapper<DecalXY, decltype(&DecalXY::decal), &DecalXY::decal, conv_to_str<DecalId>,
                       conv_from_str<DecalId>>::def_wrap(dxy_cls, "decal");
     readwrite_wrapper<DecalXY, decltype(&DecalXY::x), &DecalXY::x, pass_through<float>, pass_through<float>>::def_wrap(
@@ -49,15 +49,15 @@ void arch_wrap_python()
     readwrite_wrapper<DecalXY, decltype(&DecalXY::y), &DecalXY::y, pass_through<float>, pass_through<float>>::def_wrap(
             dxy_cls, "y");
 
-    auto ctx_cls = class_<Context, Context *, bases<Arch>, boost::noncopyable>("Context", no_init)
+    auto ctx_cls = py::class_<Context, Arch>(m, "Context")
                            .def("checksum", &Context::checksum)
                            .def("pack", &Context::pack)
                            .def("place", &Context::place)
                            .def("route", &Context::route);
 
-    class_<BelPin>("BelPin").def_readwrite("bel", &BelPin::bel).def_readwrite("pin", &BelPin::pin);
+    py::class_<BelPin>(m, "BelPin").def_readwrite("bel", &BelPin::bel).def_readwrite("pin", &BelPin::pin);
 
-    class_<DelayInfo>("DelayInfo").def("maxDelay", &DelayInfo::maxDelay).def("minDelay", &DelayInfo::minDelay);
+    py::class_<DelayInfo>(m, "DelayInfo").def("maxDelay", &DelayInfo::maxDelay).def("minDelay", &DelayInfo::minDelay);
 
     fn_wrapper_1a<Context, decltype(&Context::getBelType), &Context::getBelType, conv_to_str<IdString>,
                   conv_from_str<BelId>>::def_wrap(ctx_cls, "getBelType");
@@ -154,86 +154,86 @@ void arch_wrap_python()
     // Generic arch construction API
     fn_wrapper_4a_v<Context, decltype(&Context::addWire), &Context::addWire, conv_from_str<IdString>,
                     conv_from_str<IdString>, pass_through<int>, pass_through<int>>::def_wrap(ctx_cls, "addWire",
-                                                                                             (arg("name"), "type", "x",
+                                                                                             (py::arg("name"), "type", "x",
                                                                                               "y"));
     fn_wrapper_6a_v<Context, decltype(&Context::addPip), &Context::addPip, conv_from_str<IdString>,
                     conv_from_str<IdString>, conv_from_str<IdString>, conv_from_str<IdString>, pass_through<DelayInfo>,
                     pass_through<Loc>>::def_wrap(ctx_cls, "addPip",
-                                                 (arg("name"), "type", "srcWire", "dstWire", "delay", "loc"));
+                                                 (py::arg("name"), "type", "srcWire", "dstWire", "delay", "loc"));
     fn_wrapper_5a_v<Context, decltype(&Context::addAlias), &Context::addAlias, conv_from_str<IdString>,
                     conv_from_str<IdString>, conv_from_str<IdString>, conv_from_str<IdString>,
                     pass_through<DelayInfo>>::def_wrap(ctx_cls, "addAlias",
-                                                       (arg("name"), "type", "srcWire", "dstWire", "delay"));
+                                                       (py::arg("name"), "type", "srcWire", "dstWire", "delay"));
 
     fn_wrapper_4a_v<Context, decltype(&Context::addBel), &Context::addBel, conv_from_str<IdString>,
                     conv_from_str<IdString>, pass_through<Loc>, pass_through<bool>>::def_wrap(ctx_cls, "addBel",
-                                                                                              (arg("name"), "type",
+                                                                                              (py::arg("name"), "type",
                                                                                                "loc", "gb"));
     fn_wrapper_3a_v<Context, decltype(&Context::addBelInput), &Context::addBelInput, conv_from_str<IdString>,
                     conv_from_str<IdString>, conv_from_str<IdString>>::def_wrap(ctx_cls, "addBelInput",
-                                                                                (arg("bel"), "name", "wire"));
+                                                                                (py::arg("bel"), "name", "wire"));
     fn_wrapper_3a_v<Context, decltype(&Context::addBelOutput), &Context::addBelOutput, conv_from_str<IdString>,
                     conv_from_str<IdString>, conv_from_str<IdString>>::def_wrap(ctx_cls, "addBelOutput",
-                                                                                (arg("bel"), "name", "wire"));
+                                                                                (py::arg("bel"), "name", "wire"));
     fn_wrapper_3a_v<Context, decltype(&Context::addBelInout), &Context::addBelInout, conv_from_str<IdString>,
                     conv_from_str<IdString>, conv_from_str<IdString>>::def_wrap(ctx_cls, "addBelInout",
-                                                                                (arg("bel"), "name", "wire"));
+                                                                                (py::arg("bel"), "name", "wire"));
 
     fn_wrapper_2a_v<Context, decltype(&Context::addGroupBel), &Context::addGroupBel, conv_from_str<IdString>,
-                    conv_from_str<IdString>>::def_wrap(ctx_cls, "addGroupBel", (arg("group"), "bel"));
+                    conv_from_str<IdString>>::def_wrap(ctx_cls, "addGroupBel", (py::arg("group"), "bel"));
     fn_wrapper_2a_v<Context, decltype(&Context::addGroupWire), &Context::addGroupWire, conv_from_str<IdString>,
-                    conv_from_str<IdString>>::def_wrap(ctx_cls, "addGroupWire", (arg("group"), "wire"));
+                    conv_from_str<IdString>>::def_wrap(ctx_cls, "addGroupWire", (py::arg("group"), "wire"));
     fn_wrapper_2a_v<Context, decltype(&Context::addGroupPip), &Context::addGroupPip, conv_from_str<IdString>,
-                    conv_from_str<IdString>>::def_wrap(ctx_cls, "addGroupPip", (arg("group"), "pip"));
+                    conv_from_str<IdString>>::def_wrap(ctx_cls, "addGroupPip", (py::arg("group"), "pip"));
     fn_wrapper_2a_v<Context, decltype(&Context::addGroupGroup), &Context::addGroupPip, conv_from_str<IdString>,
-                    conv_from_str<IdString>>::def_wrap(ctx_cls, "addGroupGroup", (arg("group"), "grp"));
+                    conv_from_str<IdString>>::def_wrap(ctx_cls, "addGroupGroup", (py::arg("group"), "grp"));
 
     fn_wrapper_2a_v<Context, decltype(&Context::addDecalGraphic), &Context::addDecalGraphic, conv_from_str<DecalId>,
-                    pass_through<GraphicElement>>::def_wrap(ctx_cls, "addDecalGraphic", (arg("decal"), "graphic"));
+                    pass_through<GraphicElement>>::def_wrap(ctx_cls, "addDecalGraphic", (py::arg("decal"), "graphic"));
     fn_wrapper_2a_v<Context, decltype(&Context::setWireDecal), &Context::setWireDecal, conv_from_str<DecalId>,
-                    unwrap_context<DecalXY>>::def_wrap(ctx_cls, "setWireDecal", (arg("wire"), "decalxy"));
+                    unwrap_context<DecalXY>>::def_wrap(ctx_cls, "setWireDecal", (py::arg("wire"), "decalxy"));
     fn_wrapper_2a_v<Context, decltype(&Context::setPipDecal), &Context::setPipDecal, conv_from_str<DecalId>,
-                    unwrap_context<DecalXY>>::def_wrap(ctx_cls, "setPipDecal", (arg("pip"), "decalxy"));
+                    unwrap_context<DecalXY>>::def_wrap(ctx_cls, "setPipDecal", (py::arg("pip"), "decalxy"));
     fn_wrapper_2a_v<Context, decltype(&Context::setBelDecal), &Context::setBelDecal, conv_from_str<DecalId>,
-                    unwrap_context<DecalXY>>::def_wrap(ctx_cls, "setBelDecal", (arg("bel"), "decalxy"));
+                    unwrap_context<DecalXY>>::def_wrap(ctx_cls, "setBelDecal", (py::arg("bel"), "decalxy"));
     fn_wrapper_2a_v<Context, decltype(&Context::setGroupDecal), &Context::setGroupDecal, conv_from_str<DecalId>,
-                    unwrap_context<DecalXY>>::def_wrap(ctx_cls, "setGroupDecal", (arg("group"), "decalxy"));
+                    unwrap_context<DecalXY>>::def_wrap(ctx_cls, "setGroupDecal", (py::arg("group"), "decalxy"));
 
     fn_wrapper_3a_v<Context, decltype(&Context::setWireAttr), &Context::setWireAttr, conv_from_str<DecalId>,
                     conv_from_str<IdString>, pass_through<std::string>>::def_wrap(ctx_cls, "setWireAttr",
-                                                                                  (arg("wire"), "key", "value"));
+                                                                                  (py::arg("wire"), "key", "value"));
     fn_wrapper_3a_v<Context, decltype(&Context::setBelAttr), &Context::setBelAttr, conv_from_str<DecalId>,
                     conv_from_str<IdString>, pass_through<std::string>>::def_wrap(ctx_cls, "setBelAttr",
-                                                                                  (arg("bel"), "key", "value"));
+                                                                                  (py::arg("bel"), "key", "value"));
     fn_wrapper_3a_v<Context, decltype(&Context::setPipAttr), &Context::setPipAttr, conv_from_str<DecalId>,
                     conv_from_str<IdString>, pass_through<std::string>>::def_wrap(ctx_cls, "setPipAttr",
-                                                                                  (arg("pip"), "key", "value"));
+                                                                                  (py::arg("pip"), "key", "value"));
 
     fn_wrapper_1a_v<Context, decltype(&Context::setLutK), &Context::setLutK, pass_through<int>>::def_wrap(
-            ctx_cls, "setLutK", arg("K"));
+            ctx_cls, "setLutK", py::arg("K"));
     fn_wrapper_2a_v<Context, decltype(&Context::setDelayScaling), &Context::setDelayScaling, pass_through<double>,
-                    pass_through<double>>::def_wrap(ctx_cls, "setDelayScaling", (arg("scale"), "offset"));
+                    pass_through<double>>::def_wrap(ctx_cls, "setDelayScaling", (py::arg("scale"), "offset"));
 
     fn_wrapper_2a_v<Context, decltype(&Context::addCellTimingClock), &Context::addCellTimingClock,
                     conv_from_str<IdString>, conv_from_str<IdString>>::def_wrap(ctx_cls, "addCellTimingClock",
-                                                                                (arg("cell"), "port"));
+                                                                                (py::arg("cell"), "port"));
     fn_wrapper_4a_v<Context, decltype(&Context::addCellTimingDelay), &Context::addCellTimingDelay,
                     conv_from_str<IdString>, conv_from_str<IdString>, conv_from_str<IdString>,
                     pass_through<DelayInfo>>::def_wrap(ctx_cls, "addCellTimingDelay",
-                                                       (arg("cell"), "fromPort", "toPort", "delay"));
+                                                       (py::arg("cell"), "fromPort", "toPort", "delay"));
     fn_wrapper_5a_v<Context, decltype(&Context::addCellTimingSetupHold), &Context::addCellTimingSetupHold,
                     conv_from_str<IdString>, conv_from_str<IdString>, conv_from_str<IdString>, pass_through<DelayInfo>,
                     pass_through<DelayInfo>>::def_wrap(ctx_cls, "addCellTimingSetupHold",
-                                                       (arg("cell"), "port", "clock", "setup", "hold"));
+                                                       (py::arg("cell"), "port", "clock", "setup", "hold"));
     fn_wrapper_4a_v<Context, decltype(&Context::addCellTimingClockToOut), &Context::addCellTimingClockToOut,
                     conv_from_str<IdString>, conv_from_str<IdString>, conv_from_str<IdString>,
                     pass_through<DelayInfo>>::def_wrap(ctx_cls, "addCellTimingClockToOut",
-                                                       (arg("cell"), "port", "clock", "clktoq"));
+                                                       (py::arg("cell"), "port", "clock", "clktoq"));
 
-    WRAP_MAP_UPTR(CellMap, "IdCellMap");
-    WRAP_MAP_UPTR(NetMap, "IdNetMap");
-    WRAP_MAP(HierarchyMap, wrap_context<HierarchicalCell &>, "HierarchyMap");
-    WRAP_VECTOR(const std::vector<IdString>, conv_to_str<IdString>);
+    WRAP_MAP_UPTR(m, CellMap, "IdCellMap");
+    WRAP_MAP_UPTR(m, NetMap, "IdNetMap");
+    WRAP_MAP(m, HierarchyMap, wrap_context<HierarchicalCell &>, "HierarchyMap");
+    WRAP_VECTOR(m, const std::vector<IdString>, conv_to_str<IdString>);
 }
 
 NEXTPNR_NAMESPACE_END

@@ -43,7 +43,7 @@ NEXTPNR_NAMESPACE_BEGIN
 
 // Architecture-specific bindings should be created in the below function, which
 // must be implemented in all architectures
-void arch_wrap_python();
+void arch_wrap_python(py::module &m);
 
 bool operator==(const PortRef &a, const PortRef &b) { return (a.cell == b.cell) && (a.port == b.port); }
 
@@ -90,13 +90,13 @@ template <> struct string_converter<Property>
 
 } // namespace PythonConversion
 
-BOOST_PYTHON_MODULE(MODULE_NAME)
+PYBIND11_MODULE(MODULE_NAME, m)
 {
-    register_exception_translator<assertion_failure>(&translate_assertfail);
+    //register_exception_translator<assertion_failure>(&translate_assertfail);
 
     using namespace PythonConversion;
 
-    enum_<GraphicElement::type_t>("GraphicElementType")
+    py::enum_<GraphicElement::type_t>(m, "GraphicElementType")
             .value("TYPE_NONE", GraphicElement::TYPE_NONE)
             .value("TYPE_LINE", GraphicElement::TYPE_LINE)
             .value("TYPE_ARROW", GraphicElement::TYPE_ARROW)
@@ -105,7 +105,7 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
             .value("TYPE_LABEL", GraphicElement::TYPE_LABEL)
             .export_values();
 
-    enum_<GraphicElement::style_t>("GraphicElementStyle")
+    py::enum_<GraphicElement::style_t>(m, "GraphicElementStyle")
             .value("STYLE_GRID", GraphicElement::STYLE_GRID)
             .value("STYLE_FRAME", GraphicElement::STYLE_FRAME)
             .value("STYLE_HIDDEN", GraphicElement::STYLE_HIDDEN)
@@ -113,9 +113,11 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
             .value("STYLE_ACTIVE", GraphicElement::STYLE_ACTIVE)
             .export_values();
 
-    class_<GraphicElement>("GraphicElement")
-            .def(init<GraphicElement::type_t, GraphicElement::style_t, float, float, float, float, float>(
-                    (args("type"), "style", "x1", "y1", "x2", "y2", "z")))
+    py::class_<GraphicElement>(m, "GraphicElement")
+            .def(py::init<GraphicElement::type_t, GraphicElement::style_t, float, float, float, float, float>(
+                    //FIXME
+                    //(args("type"), "style", "x1", "y1", "x2", "y2", "z")
+            ))
             .def_readwrite("type", &GraphicElement::type)
             .def_readwrite("x1", &GraphicElement::x1)
             .def_readwrite("y1", &GraphicElement::y1)
@@ -123,13 +125,13 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
             .def_readwrite("y2", &GraphicElement::y2)
             .def_readwrite("text", &GraphicElement::text);
 
-    enum_<PortType>("PortType")
+    py::enum_<PortType>(m, "PortType")
             .value("PORT_IN", PORT_IN)
             .value("PORT_OUT", PORT_OUT)
             .value("PORT_INOUT", PORT_INOUT)
             .export_values();
 
-    enum_<PlaceStrength>("PlaceStrength")
+    py::enum_<PlaceStrength>(m, "PlaceStrength")
             .value("STRENGTH_NONE", STRENGTH_NONE)
             .value("STRENGTH_WEAK", STRENGTH_WEAK)
             .value("STRENGTH_STRONG", STRENGTH_STRONG)
@@ -143,15 +145,15 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
     typedef std::unordered_map<IdString, IdString> IdIdMap;
     typedef std::unordered_map<IdString, std::unique_ptr<Region>> RegionMap;
 
-    class_<BaseCtx, BaseCtx *, boost::noncopyable>("BaseCtx", no_init);
+    py::class_<BaseCtx, std::unique_ptr<BaseCtx, py::nodelete>>(m, "BaseCtx");
 
-    auto loc_cls = class_<Loc>("Loc")
-                           .def(init<int, int, int>())
+    auto loc_cls = py::class_<Loc>(m, "Loc")
+                           .def(py::init<int, int, int>())
                            .def_readwrite("x", &Loc::x)
                            .def_readwrite("y", &Loc::y)
                            .def_readwrite("z", &Loc::z);
 
-    auto ci_cls = class_<ContextualWrapper<CellInfo &>>("CellInfo", no_init);
+    auto ci_cls = py::class_<ContextualWrapper<CellInfo &>>(m, "CellInfo");
     readwrite_wrapper<CellInfo &, decltype(&CellInfo::name), &CellInfo::name, conv_to_str<IdString>,
                       conv_from_str<IdString>>::def_wrap(ci_cls, "name");
     readwrite_wrapper<CellInfo &, decltype(&CellInfo::type), &CellInfo::type, conv_to_str<IdString>,
@@ -185,7 +187,7 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
     fn_wrapper_1a_v<CellInfo &, decltype(&CellInfo::unsetAttr), &CellInfo::unsetAttr,
                     conv_from_str<IdString>>::def_wrap(ci_cls, "unsetAttr");
 
-    auto pi_cls = class_<ContextualWrapper<PortInfo &>>("PortInfo", no_init);
+    auto pi_cls = py::class_<ContextualWrapper<PortInfo &>>(m, "PortInfo");
     readwrite_wrapper<PortInfo &, decltype(&PortInfo::name), &PortInfo::name, conv_to_str<IdString>,
                       conv_from_str<IdString>>::def_wrap(pi_cls, "name");
     readonly_wrapper<PortInfo &, decltype(&PortInfo::net), &PortInfo::net, deref_and_wrap<NetInfo>>::def_wrap(pi_cls,
@@ -198,7 +200,7 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
     typedef std::unordered_set<BelId> BelSet;
     typedef std::unordered_set<WireId> WireSet;
 
-    auto ni_cls = class_<ContextualWrapper<NetInfo &>>("NetInfo", no_init);
+    auto ni_cls = py::class_<ContextualWrapper<NetInfo &>>(m, "NetInfo");
     readwrite_wrapper<NetInfo &, decltype(&NetInfo::name), &NetInfo::name, conv_to_str<IdString>,
                       conv_from_str<IdString>>::def_wrap(ni_cls, "name");
     readwrite_wrapper<NetInfo &, decltype(&NetInfo::driver), &NetInfo::driver, wrap_context<PortRef &>,
@@ -208,7 +210,7 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
     readonly_wrapper<NetInfo &, decltype(&NetInfo::wires), &NetInfo::wires, wrap_context<WireMap &>>::def_wrap(ni_cls,
                                                                                                                "wires");
 
-    auto pr_cls = class_<ContextualWrapper<PortRef &>>("PortRef", no_init);
+    auto pr_cls = py::class_<ContextualWrapper<PortRef &>>(m, "PortRef");
     readonly_wrapper<PortRef &, decltype(&PortRef::cell), &PortRef::cell, deref_and_wrap<CellInfo>>::def_wrap(pr_cls,
                                                                                                               "cell");
     readwrite_wrapper<PortRef &, decltype(&PortRef::port), &PortRef::port, conv_to_str<IdString>,
@@ -216,16 +218,16 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
     readwrite_wrapper<PortRef &, decltype(&PortRef::budget), &PortRef::budget, pass_through<delay_t>,
                       pass_through<delay_t>>::def_wrap(pr_cls, "budget");
 
-    auto pm_cls = class_<ContextualWrapper<PipMap &>>("PipMap", no_init);
+    auto pm_cls = py::class_<ContextualWrapper<PipMap &>>(m, "PipMap");
     readwrite_wrapper<PipMap &, decltype(&PipMap::pip), &PipMap::pip, conv_to_str<PipId>,
                       conv_from_str<PipId>>::def_wrap(pm_cls, "pip");
     readwrite_wrapper<PipMap &, decltype(&PipMap::strength), &PipMap::strength, pass_through<PlaceStrength>,
                       pass_through<PlaceStrength>>::def_wrap(pm_cls, "strength");
 
-    def("parse_json", parse_json_shim);
-    def("load_design", load_design_shim, return_value_policy<manage_new_object>());
+    m.def("parse_json", parse_json_shim);
+    m.def("load_design", load_design_shim, py::return_value_policy::take_ownership);
 
-    auto region_cls = class_<ContextualWrapper<Region &>>("Region", no_init);
+    auto region_cls = py::class_<ContextualWrapper<Region &>>(m, "Region");
     readwrite_wrapper<Region &, decltype(&Region::name), &Region::name, conv_to_str<IdString>,
                       conv_from_str<IdString>>::def_wrap(region_cls, "name");
     readwrite_wrapper<Region &, decltype(&Region::constr_bels), &Region::constr_bels, pass_through<bool>,
@@ -239,7 +241,7 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
     readonly_wrapper<Region &, decltype(&Region::wires), &Region::wires, wrap_context<WireSet &>>::def_wrap(region_cls,
                                                                                                             "wires");
 
-    auto hierarchy_cls = class_<ContextualWrapper<HierarchicalCell &>>("HierarchicalCell", no_init);
+    auto hierarchy_cls = py::class_<ContextualWrapper<HierarchicalCell &>>(m, "HierarchicalCell");
     readwrite_wrapper<HierarchicalCell &, decltype(&HierarchicalCell::name), &HierarchicalCell::name,
                       conv_to_str<IdString>, conv_from_str<IdString>>::def_wrap(hierarchy_cls, "name");
     readwrite_wrapper<HierarchicalCell &, decltype(&HierarchicalCell::type), &HierarchicalCell::type,
@@ -255,15 +257,15 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
                      wrap_context<IdIdMap &>>::def_wrap(hierarchy_cls, "nets");
     readonly_wrapper<HierarchicalCell &, decltype(&HierarchicalCell::hier_cells), &HierarchicalCell::hier_cells,
                      wrap_context<IdIdMap &>>::def_wrap(hierarchy_cls, "hier_cells");
-    WRAP_MAP(AttrMap, conv_to_str<Property>, "AttrMap");
-    WRAP_MAP(PortMap, wrap_context<PortInfo &>, "PortMap");
-    WRAP_MAP(IdIdMap, conv_to_str<IdString>, "IdIdMap");
-    WRAP_MAP(WireMap, wrap_context<PipMap &>, "WireMap");
-    WRAP_MAP_UPTR(RegionMap, "RegionMap");
+    WRAP_MAP(m, AttrMap, conv_to_str<Property>, "AttrMap");
+    WRAP_MAP(m, PortMap, wrap_context<PortInfo &>, "PortMap");
+    WRAP_MAP(m, IdIdMap, conv_to_str<IdString>, "IdIdMap");
+    WRAP_MAP(m, WireMap, wrap_context<PipMap &>, "WireMap");
+    WRAP_MAP_UPTR(m, RegionMap, "RegionMap");
 
-    WRAP_VECTOR(PortRefVector, wrap_context<PortRef &>);
+    WRAP_VECTOR(m, PortRefVector, wrap_context<PortRef &>);
 
-    arch_wrap_python();
+    arch_wrap_python(m);
 }
 
 #ifdef MAIN_EXECUTABLE
@@ -291,7 +293,7 @@ void init_python(const char *executable, bool first)
 
         PyImport_ImportModule(TOSTRING(MODULE_NAME));
         PyRun_SimpleString("from " TOSTRING(MODULE_NAME) " import *");
-    } catch (boost::python::error_already_set const &) {
+    } catch (py::error_already_set const &) {
         // Parse and output the exception
         std::string perror_str = parse_python_exception();
         std::cout << "Error in Python: " << perror_str << std::endl;
@@ -321,7 +323,7 @@ void execute_python_file(const char *python_file)
         if (result == -1) {
             log_error("Error occurred while executing Python script %s\n", python_file);
         }
-    } catch (boost::python::error_already_set const &) {
+    } catch (py::error_already_set const &) {
         // Parse and output the exception
         std::string perror_str = parse_python_exception();
         log_error("Error in Python: %s\n", perror_str.c_str());

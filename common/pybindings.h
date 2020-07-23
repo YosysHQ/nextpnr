@@ -22,11 +22,10 @@
 #define COMMON_PYBINDINGS_H
 
 #include <Python.h>
-#include <boost/python.hpp>
-#include <boost/python/suite/indexing/map_indexing_suite.hpp>
-#include <boost/python/suite/indexing/vector_indexing_suite.hpp>
+#include <pybind11/pybind11.h>
 #include <stdexcept>
 #include <utility>
+#include <iostream>
 #include "pycontainers.h"
 #include "pywrappers.h"
 
@@ -34,7 +33,7 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-using namespace boost::python;
+namespace py = pybind11;
 
 std::string parse_python_exception();
 
@@ -46,9 +45,9 @@ template <typename Tn> void python_export_global(const char *name, Tn &x)
         return;
     d = PyModule_GetDict(m);
     try {
-        PyObject *p = incref(object(boost::ref(x)).ptr());
-        PyDict_SetItemString(d, name, p);
-    } catch (boost::python::error_already_set const &) {
+        py::object obj = py::cast(x);
+        PyDict_SetItemString(d, name, obj.ptr());
+    } catch (py::error_already_set const &) {
         // Parse and output the exception
         std::string perror_str = parse_python_exception();
         std::cout << "Error in Python: " << perror_str << std::endl;

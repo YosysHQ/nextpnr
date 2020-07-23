@@ -21,9 +21,7 @@
 #ifndef COMMON_PYCONTAINERS_H
 #define COMMON_PYCONTAINERS_H
 
-#include <boost/python.hpp>
-#include <boost/python/suite/indexing/map_indexing_suite.hpp>
-#include <boost/python/suite/indexing/vector_indexing_suite.hpp>
+#include <pybind11/pybind11.h>
 #include <sstream>
 #include <stdexcept>
 #include <type_traits>
@@ -33,12 +31,12 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-using namespace boost::python;
+namespace py = pybind11;
 
 inline void KeyError()
 {
     PyErr_SetString(PyExc_KeyError, "Key not found");
-    boost::python::throw_error_already_set();
+    throw py::error_already_set();
 }
 
 /*
@@ -47,7 +45,7 @@ pair<Iterator, Iterator> containing (current, end), wrapped in a ContextualWrapp
 
 */
 
-template <typename T, typename P, typename value_conv = PythonConversion::pass_through<T>> struct iterator_wrapper
+template <typename T, py::return_value_policy P, typename value_conv = PythonConversion::pass_through<T>> struct iterator_wrapper
 {
     typedef decltype(*(std::declval<T>())) value_t;
 
@@ -62,16 +60,13 @@ template <typename T, typename P, typename value_conv = PythonConversion::pass_t
             return val;
         } else {
             PyErr_SetString(PyExc_StopIteration, "End of range reached");
-            boost::python::throw_error_already_set();
-            // Should be unreachable, but prevent control may reach end of
-            // non-void
-            throw std::runtime_error("unreachable");
+            throw py::error_already_set();
         }
     }
 
-    static void wrap(const char *python_name)
+    static void wrap(py::module &m, const char *python_name)
     {
-        class_<wrapped_iter_t>(python_name, no_init).def("__next__", next, P());
+        py::class_<wrapped_iter_t>(m, python_name).def("__next__", next, P);
     }
 };
 
@@ -81,7 +76,7 @@ and end() which return iterator-like objects supporting ++, * and !=
 Full STL iterator semantics are not required, unlike the standard Boost wrappers
 */
 
-template <typename T, typename P = return_value_policy<return_by_value>,
+template <typename T, py::return_value_policy P = py::return_value_policy::copy,
           typename value_conv = PythonConversion::pass_through<T>>
 struct range_wrapper
 {
@@ -110,23 +105,23 @@ struct range_wrapper
         return ss.str();
     }
 
-    static void wrap(const char *range_name, const char *iter_name)
+    static void wrap(py::module &m, const char *range_name, const char *iter_name)
     {
-        class_<wrapped_range>(range_name, no_init).def("__iter__", iter).def("__repr__", repr);
-        iterator_wrapper<iterator_t, P, value_conv>().wrap(iter_name);
+         py::class_<wrapped_range>(m, range_name).def("__iter__", iter).def("__repr__", repr);
+        iterator_wrapper<iterator_t, P, value_conv>().wrap(m, iter_name);
     }
 
     typedef iterator_wrapper<iterator_t, P, value_conv> iter_wrap;
 };
 
-#define WRAP_RANGE(t, conv)                                                                                            \
-    range_wrapper<t##Range, return_value_policy<return_by_value>, conv>().wrap(#t "Range", #t "Iterator")
+#define WRAP_RANGE(m, t, conv)                                                                                            \
+    range_wrapper<t##Range, py::return_value_policy::copy, conv>().wrap(m, #t "Range", #t "Iterator")
 
 /*
 A wrapper for a vector or similar structure. With support for conversion
 */
 
-template <typename T, typename P = return_value_policy<return_by_value>,
+template <typename T, py::return_value_policy P = py::return_value_policy::copy,
           typename value_conv = PythonConversion::pass_through<T>>
 struct vector_wrapper
 {
@@ -163,21 +158,21 @@ struct vector_wrapper
         return value_conv()(range.ctx, boost::ref(range.base.at(i)));
     }
 
-    static void wrap(const char *range_name, const char *iter_name)
+    static void wrap(py::module &m, const char *range_name, const char *iter_name)
     {
-        class_<wrapped_vector>(range_name, no_init)
+        py::class_<wrapped_vector>(m, range_name)
                 .def("__iter__", iter)
                 .def("__repr__", repr)
                 .def("__len__", len)
                 .def("__getitem__", getitem);
 
-        iterator_wrapper<iterator_t, P, value_conv>().wrap(iter_name);
+        iterator_wrapper<iterator_t, P, value_conv>().wrap(m, iter_name);
     }
 
     typedef iterator_wrapper<iterator_t, P, value_conv> iter_wrap;
 };
 
-#define WRAP_VECTOR(t, conv) vector_wrapper<t, return_value_policy<return_by_value>, conv>().wrap(#t, #t "Iterator")
+#define WRAP_VECTOR(m, t, conv) vector_wrapper<t, py::return_value_policy::copy, conv>().wrap(m, #t, #t "Iterator")
 
 /*
 Wrapper for a pair, allows accessing either using C++-style members (.first and
@@ -189,58 +184,55 @@ template <typename T1, typename T2> struct pair_wrapper
 
     struct pair_iterator_wrapper
     {
-        static object next(std::pair<T &, int> &iter)
+        static py::object next(std::pair<T &, int> &iter)
         {
             if (iter.second == 0) {
                 iter.second++;
-                return object(iter.first.first);
+                return py::cast(iter.first.first);
             } else if (iter.second == 1) {
                 iter.second++;
-                return object(iter.first.second);
+                return py::cast(iter.first.second);
             } else {
                 PyErr_SetString(PyExc_StopIteration, "End of range reached");
-                boost::python::throw_error_already_set();
-                // Should be unreachable, but prevent control may reach end of
-                // non-void
-                throw std::runtime_error("unreachable");
+                throw py::error_already_set();
             }
         }
 
-        static void wrap(const char *python_name)
+        static void wrap(py::module &m, const char *python_name)
         {
-            class_<std::pair<T &, int>>(python_name, no_init).def("__next__", next);
+            py::class_<std::pair<T &, int>>(m, python_name).def("__next__", next);
         }
     };
 
-    static object get(T &x, int i)
+    static py::object get(T &x, int i)
     {
         if ((i >= 2) || (i < 0))
             KeyError();
-        return (i == 1) ? object(x.second) : object(x.first);
+        return (i == 1) ? py::object(x.second) : py::object(x.first);
     }
 
-    static void set(T &x, int i, object val)
+    static void set(T &x, int i, py::object val)
     {
         if ((i >= 2) || (i < 0))
             KeyError();
         if (i == 0)
-            x.first = extract<T1>(val);
+            x.first = val.cast<T1>();
         if (i == 1)
-            x.second = extract<T2>(val);
+            x.second = val.cast<T2>();
     }
 
     static int len(T &x) { return 2; }
 
     static std::pair<T &, int> iter(T &x) { return std::make_pair(boost::ref(x), 0); };
 
-    static void wrap(const char *pair_name, const char *iter_name)
+    static void wrap(py::module &m, const char *pair_name, const char *iter_name)
     {
-        pair_iterator_wrapper::wrap(iter_name);
-        class_<T>(pair_name, no_init)
+        pair_iterator_wrapper::wrap(m, iter_name);
+        py::class_<T>(m, pair_name)
                 .def("__iter__", iter)
                 .def("__len__", len)
                 .def("__getitem__", get)
-                .def("__setitem__", set, with_custodian_and_ward<1, 2>())
+                .def("__setitem__", set, py::keep_alive<1, 2>())
                 .def_readwrite("first", &T::first)
                 .def_readwrite("second", &T::second);
     }
@@ -257,36 +249,34 @@ template <typename T1, typename T2, typename value_conv> struct map_pair_wrapper
 
     struct pair_iterator_wrapper
     {
-        static object next(std::pair<wrapped_pair &, int> &iter)
+        static py::object next(std::pair<wrapped_pair &, int> &iter)
         {
             if (iter.second == 0) {
                 iter.second++;
-                return object(PythonConversion::string_converter<decltype(iter.first.base.first)>().to_str(
+                return py::cast(PythonConversion::string_converter<decltype(iter.first.base.first)>().to_str(
                         iter.first.ctx, iter.first.base.first));
             } else if (iter.second == 1) {
                 iter.second++;
-                return object(value_conv()(iter.first.ctx, iter.first.base.second));
+                return py::cast(value_conv()(iter.first.ctx, iter.first.base.second));
             } else {
                 PyErr_SetString(PyExc_StopIteration, "End of range reached");
-                boost::python::throw_error_already_set();
-                // Should be unreachable, but prevent control may reach end of
-                // non-void
-                throw std::runtime_error("unreachable");
+                throw py::error_already_set();
             }
         }
 
-        static void wrap(const char *python_name)
+        static void wrap(py::module &m, const char *python_name)
         {
-            class_<std::pair<wrapped_pair &, int>>(python_name, no_init).def("__next__", next);
+            //FIXME
+            //py::class_<std::pair<wrapped_pair &, int>>(m, python_name).def("__next__", next);
         }
     };
 
-    static object get(wrapped_pair &x, int i)
+    static py::object get(wrapped_pair &x, int i)
     {
         if ((i >= 2) || (i < 0))
             KeyError();
-        return (i == 1) ? object(value_conv()(x.ctx, x.base.second))
-                        : object(PythonConversion::string_converter<decltype(x.base.first)>().to_str(x.ctx,
+        return (i == 1) ? py::cast(value_conv()(x.ctx, x.base.second))
+                        : py::cast(PythonConversion::string_converter<decltype(x.base.first)>().to_str(x.ctx,
                                                                                                      x.base.first));
     }
 
@@ -301,15 +291,15 @@ template <typename T1, typename T2, typename value_conv> struct map_pair_wrapper
 
     static typename value_conv::ret_type second_getter(wrapped_pair &t) { return value_conv()(t.ctx, t.base.second); }
 
-    static void wrap(const char *pair_name, const char *iter_name)
+    static void wrap(py::module &m, const char *pair_name, const char *iter_name)
     {
-        pair_iterator_wrapper::wrap(iter_name);
-        class_<wrapped_pair>(pair_name, no_init)
+        pair_iterator_wrapper::wrap(m, iter_name);
+        py::class_<wrapped_pair>(m, pair_name)
                 .def("__iter__", iter)
                 .def("__len__", len)
                 .def("__getitem__", get)
-                .add_property("first", first_getter)
-                .add_property("second", second_getter);
+                .def_property_readonly("first", first_getter)
+                .def_property_readonly("second", second_getter);
     }
 };
 
@@ -358,17 +348,17 @@ template <typename T, typename value_conv> struct map_wrapper
         return x.base.count(k);
     }
 
-    static void wrap(const char *map_name, const char *kv_name, const char *kv_iter_name, const char *iter_name)
+    static void wrap(py::module &m, const char *map_name, const char *kv_name, const char *kv_iter_name, const char *iter_name)
     {
-        map_pair_wrapper<typename KV::first_type, typename KV::second_type, value_conv>::wrap(kv_name, kv_iter_name);
-        typedef range_wrapper<T &, return_value_policy<return_by_value>, PythonConversion::wrap_context<KV &>> rw;
-        typename rw::iter_wrap().wrap(iter_name);
-        class_<wrapped_map>(map_name, no_init)
+        map_pair_wrapper<typename KV::first_type, typename KV::second_type, value_conv>::wrap(m, kv_name, kv_iter_name);
+        typedef range_wrapper<T &, py::return_value_policy::copy, PythonConversion::wrap_context<KV &>> rw;
+        typename rw::iter_wrap().wrap(m, iter_name);
+        py::class_<wrapped_map>(m, map_name)
                 .def("__iter__", rw::iter)
                 .def("__len__", len)
                 .def("__contains__", contains)
                 .def("__getitem__", get)
-                .def("__setitem__", set, with_custodian_and_ward<1, 2>());
+                .def("__setitem__", set, py::keep_alive<1, 2>());
     }
 };
 
@@ -383,36 +373,34 @@ template <typename T1, typename T2> struct map_pair_wrapper_uptr
 
     struct pair_iterator_wrapper
     {
-        static object next(std::pair<wrapped_pair &, int> &iter)
+        static py::object next(std::pair<wrapped_pair &, int> &iter)
         {
             if (iter.second == 0) {
                 iter.second++;
-                return object(PythonConversion::string_converter<decltype(iter.first.base.first)>().to_str(
+                return py::cast(PythonConversion::string_converter<decltype(iter.first.base.first)>().to_str(
                         iter.first.ctx, iter.first.base.first));
             } else if (iter.second == 1) {
                 iter.second++;
-                return object(PythonConversion::ContextualWrapper<V &>(iter.first.ctx, *iter.first.base.second.get()));
+                return py::cast(PythonConversion::ContextualWrapper<V &>(iter.first.ctx, *iter.first.base.second.get()));
             } else {
                 PyErr_SetString(PyExc_StopIteration, "End of range reached");
-                boost::python::throw_error_already_set();
-                // Should be unreachable, but prevent control may reach end of
-                // non-void
-                throw std::runtime_error("unreachable");
+                throw py::error_already_set();
             }
         }
 
-        static void wrap(const char *python_name)
+        static void wrap(py::module &m, const char *python_name)
         {
-            class_<std::pair<wrapped_pair &, int>>(python_name, no_init).def("__next__", next);
+            //FIXME
+            //py::class_<std::pair<wrapped_pair &, int>>(m, python_name).def("__next__", next);
         }
     };
 
-    static object get(wrapped_pair &x, int i)
+    static py::object get(wrapped_pair &x, int i)
     {
         if ((i >= 2) || (i < 0))
             KeyError();
-        return (i == 1) ? object(PythonConversion::ContextualWrapper<V &>(x.ctx, *x.base.second.get()))
-                        : object(PythonConversion::string_converter<decltype(x.base.first)>().to_str(x.ctx,
+        return (i == 1) ? py::cast(PythonConversion::ContextualWrapper<V &>(x.ctx, *x.base.second.get()))
+                        : py::cast(PythonConversion::string_converter<decltype(x.base.first)>().to_str(x.ctx,
                                                                                                      x.base.first));
     }
 
@@ -430,15 +418,15 @@ template <typename T1, typename T2> struct map_pair_wrapper_uptr
         return PythonConversion::ContextualWrapper<V &>(t.ctx, *t.base.second.get());
     }
 
-    static void wrap(const char *pair_name, const char *iter_name)
+    static void wrap(py::module &m, const char *pair_name, const char *iter_name)
     {
-        pair_iterator_wrapper::wrap(iter_name);
-        class_<wrapped_pair>(pair_name, no_init)
+        pair_iterator_wrapper::wrap(m, iter_name);
+        py::class_<wrapped_pair>(m, pair_name)
                 .def("__iter__", iter)
                 .def("__len__", len)
                 .def("__getitem__", get)
-                .add_property("first", first_getter)
-                .add_property("second", second_getter);
+                .def_property_readonly("first", first_getter)
+                .def_property_readonly("second", second_getter);
     }
 };
 
@@ -487,24 +475,24 @@ template <typename T> struct map_wrapper_uptr
         return x.base.count(k);
     }
 
-    static void wrap(const char *map_name, const char *kv_name, const char *kv_iter_name, const char *iter_name)
+    static void wrap(py::module &m, const char *map_name, const char *kv_name, const char *kv_iter_name, const char *iter_name)
     {
-        map_pair_wrapper_uptr<typename KV::first_type, typename KV::second_type>::wrap(kv_name, kv_iter_name);
-        typedef range_wrapper<T &, return_value_policy<return_by_value>, PythonConversion::wrap_context<KV &>> rw;
-        typename rw::iter_wrap().wrap(iter_name);
-        class_<wrapped_map>(map_name, no_init)
+        map_pair_wrapper_uptr<typename KV::first_type, typename KV::second_type>::wrap(m, kv_name, kv_iter_name);
+        typedef range_wrapper<T &, py::return_value_policy::copy, PythonConversion::wrap_context<KV &>> rw;
+        typename rw::iter_wrap().wrap(m, iter_name);
+        py::class_<wrapped_map>(m, map_name)
                 .def("__iter__", rw::iter)
                 .def("__len__", len)
                 .def("__contains__", contains)
                 .def("__getitem__", get)
-                .def("__setitem__", set, with_custodian_and_ward<1, 2>());
+                .def("__setitem__", set, py::keep_alive<1, 2>());
     }
 };
 
-#define WRAP_MAP(t, conv, name)                                                                                        \
-    map_wrapper<t, conv>().wrap(#name, #name "KeyValue", #name "KeyValueIter", #name "Iterator")
-#define WRAP_MAP_UPTR(t, name)                                                                                         \
-    map_wrapper_uptr<t>().wrap(#name, #name "KeyValue", #name "KeyValueIter", #name "Iterator")
+#define WRAP_MAP(m, t, conv, name)                                                                                        \
+    map_wrapper<t, conv>().wrap(m, #name, #name "KeyValue", #name "KeyValueIter", #name "Iterator")
+#define WRAP_MAP_UPTR(m, t, name)                                                                                         \
+    map_wrapper_uptr<t>().wrap(m, #name, #name "KeyValue", #name "KeyValueIter", #name "Iterator")
 
 NEXTPNR_NAMESPACE_END
 
