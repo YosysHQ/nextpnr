@@ -45,7 +45,7 @@ template <typename Tn> void python_export_global(const char *name, Tn &x)
         return;
     d = PyModule_GetDict(m);
     try {
-        py::object obj = py::cast(x);
+        py::object obj = py::cast(x, py::return_value_policy::reference);
         PyDict_SetItemString(d, name, obj.ptr());
     } catch (py::error_already_set const &) {
         // Parse and output the exception

@@ -145,7 +145,7 @@ PYBIND11_MODULE(MODULE_NAME, m)
     typedef std::unordered_map<IdString, IdString> IdIdMap;
     typedef std::unordered_map<IdString, std::unique_ptr<Region>> RegionMap;
 
-    py::class_<BaseCtx, std::unique_ptr<BaseCtx, py::nodelete>>(m, "BaseCtx");
+    py::class_<BaseCtx>(m, "BaseCtx");
 
     auto loc_cls = py::class_<Loc>(m, "Loc")
                            .def(py::init<int, int, int>())
