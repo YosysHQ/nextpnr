@@ -249,7 +249,7 @@ template <typename T1, typename T2, typename value_conv> struct map_pair_wrapper
 
     struct pair_iterator_wrapper
     {
-        static py::object next(std::pair<wrapped_pair &, int> &iter)
+        static py::object next(std::pair<wrapped_pair &, int> &&iter)
         {
             if (iter.second == 0) {
                 iter.second++;
@@ -266,8 +266,7 @@ template <typename T1, typename T2, typename value_conv> struct map_pair_wrapper
 
         static void wrap(py::module &m, const char *python_name)
         {
-            //FIXME
-            //py::class_<std::pair<wrapped_pair &, int>>(m, python_name).def("__next__", next);
+            py::class_<std::pair<wrapped_pair &, int>>(m, python_name).def("__next__", next);
         }
     };
 
@@ -373,7 +372,7 @@ template <typename T1, typename T2> struct map_pair_wrapper_uptr
 
     struct pair_iterator_wrapper
     {
-        static py::object next(std::pair<wrapped_pair &, int> &iter)
+        static py::object next(std::pair<wrapped_pair &, int> &&iter)
         {
             if (iter.second == 0) {
                 iter.second++;
@@ -390,8 +389,7 @@ template <typename T1, typename T2> struct map_pair_wrapper_uptr
 
         static void wrap(py::module &m, const char *python_name)
         {
-            //FIXME
-            //py::class_<std::pair<wrapped_pair &, int>>(m, python_name).def("__next__", next);
+            py::class_<std::pair<wrapped_pair &, int>>(m, python_name).def("__next__", next);
         }
     };
 
