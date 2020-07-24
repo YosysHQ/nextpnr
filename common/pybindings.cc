@@ -64,12 +64,6 @@ Context *load_design_shim(std::string filename, ArchArgs args)
     return d;
 }
 
-void translate_assertfail(const assertion_failure &e)
-{
-    // Use the Python 'C' API to set up an exception object
-    PyErr_SetString(PyExc_AssertionError, e.what());
-}
-
 namespace PythonConversion {
 template <> struct string_converter<PortRef &>
 {
@@ -92,7 +86,7 @@ template <> struct string_converter<Property>
 
 PYBIND11_MODULE(MODULE_NAME, m)
 {
-    //register_exception_translator<assertion_failure>(&translate_assertfail);
+    py::register_exception<assertion_failure>(m, "PyExc_AssertionError");
 
     using namespace PythonConversion;
 
