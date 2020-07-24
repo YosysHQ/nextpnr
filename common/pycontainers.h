@@ -71,6 +71,16 @@ template <typename T, py::return_value_policy P, typename value_conv = PythonCon
 };
 
 /*
+A pair that doesn't automatically become a tuple
+*/
+template <typename Ta, typename Tb> struct iter_pair {
+    iter_pair() {};
+    iter_pair(const Ta &first, const Tb &second) : first(first), second(second) {};
+    Ta first;
+    Tb second;
+};
+
+/*
 A wrapper for a nextpnr Range. Ranges should have two functions, begin()
 and end() which return iterator-like objects supporting ++, * and !=
 Full STL iterator semantics are not required, unlike the standard Boost wrappers
@@ -184,7 +194,7 @@ template <typename T1, typename T2> struct pair_wrapper
 
     struct pair_iterator_wrapper
     {
-        static py::object next(std::pair<T &, int> &iter)
+        static py::object next(iter_pair<T &, int> &iter)
         {
             if (iter.second == 0) {
                 iter.second++;
@@ -200,7 +210,7 @@ template <typename T1, typename T2> struct pair_wrapper
 
         static void wrap(py::module &m, const char *python_name)
         {
-            py::class_<std::pair<T &, int>>(m, python_name).def("__next__", next);
+            py::class_<iter_pair<T &, int>>(m, python_name).def("__next__", next);
         }
     };
 
@@ -223,7 +233,7 @@ template <typename T1, typename T2> struct pair_wrapper
 
     static int len(T &x) { return 2; }
 
-    static std::pair<T &, int> iter(T &x) { return std::make_pair(boost::ref(x), 0); };
+    static iter_pair<T &, int> iter(T &x) { return iter_pair<T &, int>(boost::ref(x), 0); };
 
     static void wrap(py::module &m, const char *pair_name, const char *iter_name)
     {
@@ -249,7 +259,7 @@ template <typename T1, typename T2, typename value_conv> struct map_pair_wrapper
 
     struct pair_iterator_wrapper
     {
-        static py::object next(std::pair<wrapped_pair &, int> &&iter)
+        static py::object next(iter_pair<wrapped_pair &, int> &iter)
         {
             if (iter.second == 0) {
                 iter.second++;
@@ -266,7 +276,7 @@ template <typename T1, typename T2, typename value_conv> struct map_pair_wrapper
 
         static void wrap(py::module &m, const char *python_name)
         {
-            py::class_<std::pair<wrapped_pair &, int>>(m, python_name).def("__next__", next);
+            py::class_<iter_pair<wrapped_pair &, int>>(m, python_name).def("__next__", next);
         }
     };
 
@@ -281,7 +291,7 @@ template <typename T1, typename T2, typename value_conv> struct map_pair_wrapper
 
     static int len(wrapped_pair &x) { return 2; }
 
-    static std::pair<wrapped_pair &, int> iter(wrapped_pair &x) { return std::make_pair(boost::ref(x), 0); };
+    static iter_pair<wrapped_pair &, int> iter(wrapped_pair &x) { return iter_pair<wrapped_pair &, int>(boost::ref(x), 0); };
 
     static std::string first_getter(wrapped_pair &t)
     {
@@ -372,7 +382,7 @@ template <typename T1, typename T2> struct map_pair_wrapper_uptr
 
     struct pair_iterator_wrapper
     {
-        static py::object next(std::pair<wrapped_pair &, int> &&iter)
+        static py::object next(iter_pair<wrapped_pair &, int> &iter)
         {
             if (iter.second == 0) {
                 iter.second++;
@@ -389,7 +399,7 @@ template <typename T1, typename T2> struct map_pair_wrapper_uptr
 
         static void wrap(py::module &m, const char *python_name)
         {
-            py::class_<std::pair<wrapped_pair &, int>>(m, python_name).def("__next__", next);
+            py::class_<iter_pair<wrapped_pair &, int>>(m, python_name).def("__next__", next);
         }
     };
 
@@ -404,7 +414,7 @@ template <typename T1, typename T2> struct map_pair_wrapper_uptr
 
     static int len(wrapped_pair &x) { return 2; }
 
-    static std::pair<wrapped_pair &, int> iter(wrapped_pair &x) { return std::make_pair(boost::ref(x), 0); };
+    static iter_pair<wrapped_pair &, int> iter(wrapped_pair &x) { return iter_pair<wrapped_pair &, int>(boost::ref(x), 0); };
 
     static std::string first_getter(wrapped_pair &t)
     {
