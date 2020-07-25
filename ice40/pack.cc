@@ -1256,10 +1256,27 @@ static void pack_special(Context *ctx)
                     {std::make_tuple(id_SB_SPI, "0b0010"), Loc(25, 0, 1)},
                     {std::make_tuple(id_SB_I2C, "0b0011"), Loc(25, 31, 0)},
             };
-            if (map_ba74.find(std::make_tuple(ci->type, ci->params[ctx->id("BUS_ADDR74")].as_string())) ==
-                map_ba74.end())
-                log_error("Invalid value for BUS_ADDR74 for cell '%s' of type '%s'\n", ci->name.c_str(ctx),
-                          ci->type.c_str(ctx));
+            if (!ci->params[ctx->id("BUS_ADDR74")].is_string ||
+                map_ba74.find(std::make_tuple(ci->type, ci->params[ctx->id("BUS_ADDR74")].as_string())) ==
+                        map_ba74.end()) {
+                std::vector<std::string> valid_addr74_values;
+                for (const auto &kvp : map_ba74) {
+                    if (std::get<0>(kvp.first) == ci->type) {
+                        valid_addr74_values.push_back(std::get<1>(kvp.first));
+                    }
+                }
+
+                std::stringstream ss;
+                ss << "Invalid value for parameter BUS_ADDR74 for cell " << ci->name.c_str(ctx) << " of type "
+                   << ci->type.c_str(ctx) << ". Valid values include: ";
+                std::string delim = "";
+                for (const auto &valid_addr74_value : valid_addr74_values) {
+                    ss << delim << valid_addr74_value;
+                    delim = ", ";
+                }
+
+                log_error("%s\n", ss.str().c_str());
+            }
             Loc bel_loc = map_ba74.at(std::make_tuple(ci->type, ci->params[ctx->id("BUS_ADDR74")].as_string()));
             BelId bel = ctx->getBelByLocation(bel_loc);
             if (bel == BelId() || ctx->getBelType(bel) != ci->type)
