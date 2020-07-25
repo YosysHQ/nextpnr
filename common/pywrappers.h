@@ -262,7 +262,8 @@ template <typename Class, typename FuncT, FuncT fn, typename arg1_conv> struct f
 
     template <typename WrapCls> static void def_wrap(WrapCls cls_, const char *name) { cls_.def(name, wrapped_fn); }
 
-    template <typename WrapCls, typename Ta> static void def_wrap(WrapCls cls_, const char *name, Ta a = py::arg("arg1"))
+    template <typename WrapCls, typename Ta>
+    static void def_wrap(WrapCls cls_, const char *name, Ta a = py::arg("arg1"))
     {
         cls_.def(name, wrapped_fn, a);
     }

@@ -109,8 +109,8 @@ PYBIND11_MODULE(MODULE_NAME, m)
 
     py::class_<GraphicElement>(m, "GraphicElement")
             .def(py::init<GraphicElement::type_t, GraphicElement::style_t, float, float, float, float, float>(),
-                    py::arg("type"), py::arg("style"), py::arg("x1"), py::arg("y1"), py::arg("x2"), py::arg("y2"), py::arg("z")
-            )
+                 py::arg("type"), py::arg("style"), py::arg("x1"), py::arg("y1"), py::arg("x2"), py::arg("y2"),
+                 py::arg("z"))
             .def_readwrite("type", &GraphicElement::type)
             .def_readwrite("x1", &GraphicElement::x1)
             .def_readwrite("y1", &GraphicElement::y1)

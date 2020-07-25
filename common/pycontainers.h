@@ -45,7 +45,8 @@ pair<Iterator, Iterator> containing (current, end), wrapped in a ContextualWrapp
 
 */
 
-template <typename T, py::return_value_policy P, typename value_conv = PythonConversion::pass_through<T>> struct iterator_wrapper
+template <typename T, py::return_value_policy P, typename value_conv = PythonConversion::pass_through<T>>
+struct iterator_wrapper
 {
     typedef decltype(*(std::declval<T>())) value_t;
 
@@ -73,9 +74,10 @@ template <typename T, py::return_value_policy P, typename value_conv = PythonCon
 /*
 A pair that doesn't automatically become a tuple
 */
-template <typename Ta, typename Tb> struct iter_pair {
-    iter_pair() {};
-    iter_pair(const Ta &first, const Tb &second) : first(first), second(second) {};
+template <typename Ta, typename Tb> struct iter_pair
+{
+    iter_pair(){};
+    iter_pair(const Ta &first, const Tb &second) : first(first), second(second){};
     Ta first;
     Tb second;
 };
@@ -117,14 +119,14 @@ struct range_wrapper
 
     static void wrap(py::module &m, const char *range_name, const char *iter_name)
     {
-         py::class_<wrapped_range>(m, range_name).def("__iter__", iter).def("__repr__", repr);
+        py::class_<wrapped_range>(m, range_name).def("__iter__", iter).def("__repr__", repr);
         iterator_wrapper<iterator_t, P, value_conv>().wrap(m, iter_name);
     }
 
     typedef iterator_wrapper<iterator_t, P, value_conv> iter_wrap;
 };
 
-#define WRAP_RANGE(m, t, conv)                                                                                            \
+#define WRAP_RANGE(m, t, conv)                                                                                         \
     range_wrapper<t##Range, py::return_value_policy::copy, conv>().wrap(m, #t "Range", #t "Iterator")
 
 /*
@@ -286,12 +288,15 @@ template <typename T1, typename T2, typename value_conv> struct map_pair_wrapper
             KeyError();
         return (i == 1) ? py::cast(value_conv()(x.ctx, x.base.second))
                         : py::cast(PythonConversion::string_converter<decltype(x.base.first)>().to_str(x.ctx,
-                                                                                                     x.base.first));
+                                                                                                       x.base.first));
     }
 
     static int len(wrapped_pair &x) { return 2; }
 
-    static iter_pair<wrapped_pair &, int> iter(wrapped_pair &x) { return iter_pair<wrapped_pair &, int>(boost::ref(x), 0); };
+    static iter_pair<wrapped_pair &, int> iter(wrapped_pair &x)
+    {
+        return iter_pair<wrapped_pair &, int>(boost::ref(x), 0);
+    };
 
     static std::string first_getter(wrapped_pair &t)
     {
@@ -357,7 +362,8 @@ template <typename T, typename value_conv> struct map_wrapper
         return x.base.count(k);
     }
 
-    static void wrap(py::module &m, const char *map_name, const char *kv_name, const char *kv_iter_name, const char *iter_name)
+    static void wrap(py::module &m, const char *map_name, const char *kv_name, const char *kv_iter_name,
+                     const char *iter_name)
     {
         map_pair_wrapper<typename KV::first_type, typename KV::second_type, value_conv>::wrap(m, kv_name, kv_iter_name);
         typedef range_wrapper<T &, py::return_value_policy::copy, PythonConversion::wrap_context<KV &>> rw;
@@ -390,7 +396,8 @@ template <typename T1, typename T2> struct map_pair_wrapper_uptr
                         iter.first.ctx, iter.first.base.first));
             } else if (iter.second == 1) {
                 iter.second++;
-                return py::cast(PythonConversion::ContextualWrapper<V &>(iter.first.ctx, *iter.first.base.second.get()));
+                return py::cast(
+                        PythonConversion::ContextualWrapper<V &>(iter.first.ctx, *iter.first.base.second.get()));
             } else {
                 PyErr_SetString(PyExc_StopIteration, "End of range reached");
                 throw py::error_already_set();
@@ -409,12 +416,15 @@ template <typename T1, typename T2> struct map_pair_wrapper_uptr
             KeyError();
         return (i == 1) ? py::cast(PythonConversion::ContextualWrapper<V &>(x.ctx, *x.base.second.get()))
                         : py::cast(PythonConversion::string_converter<decltype(x.base.first)>().to_str(x.ctx,
-                                                                                                     x.base.first));
+                                                                                                       x.base.first));
     }
 
     static int len(wrapped_pair &x) { return 2; }
 
-    static iter_pair<wrapped_pair &, int> iter(wrapped_pair &x) { return iter_pair<wrapped_pair &, int>(boost::ref(x), 0); };
+    static iter_pair<wrapped_pair &, int> iter(wrapped_pair &x)
+    {
+        return iter_pair<wrapped_pair &, int>(boost::ref(x), 0);
+    };
 
     static std::string first_getter(wrapped_pair &t)
     {
@@ -483,7 +493,8 @@ template <typename T> struct map_wrapper_uptr
         return x.base.count(k);
     }
 
-    static void wrap(py::module &m, const char *map_name, const char *kv_name, const char *kv_iter_name, const char *iter_name)
+    static void wrap(py::module &m, const char *map_name, const char *kv_name, const char *kv_iter_name,
+                     const char *iter_name)
     {
         map_pair_wrapper_uptr<typename KV::first_type, typename KV::second_type>::wrap(m, kv_name, kv_iter_name);
         typedef range_wrapper<T &, py::return_value_policy::copy, PythonConversion::wrap_context<KV &>> rw;
@@ -497,9 +508,9 @@ template <typename T> struct map_wrapper_uptr
     }
 };
 
-#define WRAP_MAP(m, t, conv, name)                                                                                        \
+#define WRAP_MAP(m, t, conv, name)                                                                                     \
     map_wrapper<t, conv>().wrap(m, #name, #name "KeyValue", #name "KeyValueIter", #name "Iterator")
-#define WRAP_MAP_UPTR(m, t, name)                                                                                         \
+#define WRAP_MAP_UPTR(m, t, name)                                                                                      \
     map_wrapper_uptr<t>().wrap(m, #name, #name "KeyValue", #name "KeyValueIter", #name "Iterator")
 
 NEXTPNR_NAMESPACE_END

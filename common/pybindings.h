@@ -22,10 +22,10 @@
 #define COMMON_PYBINDINGS_H
 
 #include <Python.h>
+#include <iostream>
 #include <pybind11/pybind11.h>
 #include <stdexcept>
 #include <utility>
-#include <iostream>
 #include "pycontainers.h"
 #include "pywrappers.h"
 

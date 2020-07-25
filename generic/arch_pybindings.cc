@@ -157,29 +157,29 @@ void arch_wrap_python(py::module &m)
     fn_wrapper_4a_v<Context, decltype(&Context::addWire), &Context::addWire, conv_from_str<IdString>,
                     conv_from_str<IdString>, pass_through<int>, pass_through<int>>::def_wrap(ctx_cls, "addWire",
                                                                                              "name"_a, "type"_a, "x"_a,
-                                                                                              "y"_a);
+                                                                                             "y"_a);
     fn_wrapper_6a_v<Context, decltype(&Context::addPip), &Context::addPip, conv_from_str<IdString>,
                     conv_from_str<IdString>, conv_from_str<IdString>, conv_from_str<IdString>, pass_through<DelayInfo>,
-                    pass_through<Loc>>::def_wrap(ctx_cls, "addPip",
-                                                 "name"_a, "type"_a, "srcWire"_a, "dstWire"_a, "delay"_a, "loc"_a);
+                    pass_through<Loc>>::def_wrap(ctx_cls, "addPip", "name"_a, "type"_a, "srcWire"_a, "dstWire"_a,
+                                                 "delay"_a, "loc"_a);
     fn_wrapper_5a_v<Context, decltype(&Context::addAlias), &Context::addAlias, conv_from_str<IdString>,
                     conv_from_str<IdString>, conv_from_str<IdString>, conv_from_str<IdString>,
-                    pass_through<DelayInfo>>::def_wrap(ctx_cls, "addAlias",
-                                                       "name"_a, "type"_a, "srcWire"_a, "dstWire"_a, "delay"_a);
+                    pass_through<DelayInfo>>::def_wrap(ctx_cls, "addAlias", "name"_a, "type"_a, "srcWire"_a,
+                                                       "dstWire"_a, "delay"_a);
 
     fn_wrapper_4a_v<Context, decltype(&Context::addBel), &Context::addBel, conv_from_str<IdString>,
                     conv_from_str<IdString>, pass_through<Loc>, pass_through<bool>>::def_wrap(ctx_cls, "addBel",
                                                                                               "name"_a, "type"_a,
-                                                                                               "loc"_a, "gb"_a);
+                                                                                              "loc"_a, "gb"_a);
     fn_wrapper_3a_v<Context, decltype(&Context::addBelInput), &Context::addBelInput, conv_from_str<IdString>,
-                    conv_from_str<IdString>, conv_from_str<IdString>>::def_wrap(ctx_cls, "addBelInput",
-                                                                                "bel"_a, "name"_a, "wire"_a);
+                    conv_from_str<IdString>, conv_from_str<IdString>>::def_wrap(ctx_cls, "addBelInput", "bel"_a,
+                                                                                "name"_a, "wire"_a);
     fn_wrapper_3a_v<Context, decltype(&Context::addBelOutput), &Context::addBelOutput, conv_from_str<IdString>,
-                    conv_from_str<IdString>, conv_from_str<IdString>>::def_wrap(ctx_cls, "addBelOutput",
-                                                                                "bel"_a, "name"_a, "wire"_a);
+                    conv_from_str<IdString>, conv_from_str<IdString>>::def_wrap(ctx_cls, "addBelOutput", "bel"_a,
+                                                                                "name"_a, "wire"_a);
     fn_wrapper_3a_v<Context, decltype(&Context::addBelInout), &Context::addBelInout, conv_from_str<IdString>,
-                    conv_from_str<IdString>, conv_from_str<IdString>>::def_wrap(ctx_cls, "addBelInout",
-                                                                                "bel"_a, "name"_a, "wire"_a);
+                    conv_from_str<IdString>, conv_from_str<IdString>>::def_wrap(ctx_cls, "addBelInout", "bel"_a,
+                                                                                "name"_a, "wire"_a);
 
     fn_wrapper_2a_v<Context, decltype(&Context::addGroupBel), &Context::addGroupBel, conv_from_str<IdString>,
                     conv_from_str<IdString>>::def_wrap(ctx_cls, "addGroupBel", "group"_a, "bel"_a);
@@ -202,14 +202,14 @@ void arch_wrap_python(py::module &m)
                     unwrap_context<DecalXY>>::def_wrap(ctx_cls, "setGroupDecal", "group"_a, "decalxy"_a);
 
     fn_wrapper_3a_v<Context, decltype(&Context::setWireAttr), &Context::setWireAttr, conv_from_str<DecalId>,
-                    conv_from_str<IdString>, pass_through<std::string>>::def_wrap(ctx_cls, "setWireAttr",
-                                                                                  "wire"_a, "key"_a, "value"_a);
+                    conv_from_str<IdString>, pass_through<std::string>>::def_wrap(ctx_cls, "setWireAttr", "wire"_a,
+                                                                                  "key"_a, "value"_a);
     fn_wrapper_3a_v<Context, decltype(&Context::setBelAttr), &Context::setBelAttr, conv_from_str<DecalId>,
-                    conv_from_str<IdString>, pass_through<std::string>>::def_wrap(ctx_cls, "setBelAttr",
-                                                                                  "bel"_a, "key"_a, "value"_a);
+                    conv_from_str<IdString>, pass_through<std::string>>::def_wrap(ctx_cls, "setBelAttr", "bel"_a,
+                                                                                  "key"_a, "value"_a);
     fn_wrapper_3a_v<Context, decltype(&Context::setPipAttr), &Context::setPipAttr, conv_from_str<DecalId>,
-                    conv_from_str<IdString>, pass_through<std::string>>::def_wrap(ctx_cls, "setPipAttr",
-                                                                                  "pip"_a, "key"_a, "value"_a);
+                    conv_from_str<IdString>, pass_through<std::string>>::def_wrap(ctx_cls, "setPipAttr", "pip"_a,
+                                                                                  "key"_a, "value"_a);
 
     fn_wrapper_1a_v<Context, decltype(&Context::setLutK), &Context::setLutK, pass_through<int>>::def_wrap(
             ctx_cls, "setLutK", "K"_a);
@@ -217,20 +217,20 @@ void arch_wrap_python(py::module &m)
                     pass_through<double>>::def_wrap(ctx_cls, "setDelayScaling", "scale"_a, "offset"_a);
 
     fn_wrapper_2a_v<Context, decltype(&Context::addCellTimingClock), &Context::addCellTimingClock,
-                    conv_from_str<IdString>, conv_from_str<IdString>>::def_wrap(ctx_cls, "addCellTimingClock",
-                                                                                "cell"_a, "port"_a);
+                    conv_from_str<IdString>, conv_from_str<IdString>>::def_wrap(ctx_cls, "addCellTimingClock", "cell"_a,
+                                                                                "port"_a);
     fn_wrapper_4a_v<Context, decltype(&Context::addCellTimingDelay), &Context::addCellTimingDelay,
                     conv_from_str<IdString>, conv_from_str<IdString>, conv_from_str<IdString>,
-                    pass_through<DelayInfo>>::def_wrap(ctx_cls, "addCellTimingDelay",
-                                                       "cell"_a, "fromPort"_a, "toPort"_a, "delay"_a);
+                    pass_through<DelayInfo>>::def_wrap(ctx_cls, "addCellTimingDelay", "cell"_a, "fromPort"_a,
+                                                       "toPort"_a, "delay"_a);
     fn_wrapper_5a_v<Context, decltype(&Context::addCellTimingSetupHold), &Context::addCellTimingSetupHold,
                     conv_from_str<IdString>, conv_from_str<IdString>, conv_from_str<IdString>, pass_through<DelayInfo>,
-                    pass_through<DelayInfo>>::def_wrap(ctx_cls, "addCellTimingSetupHold",
-                                                       "cell"_a, "port"_a, "clock"_a, "setup"_a, "hold"_a);
+                    pass_through<DelayInfo>>::def_wrap(ctx_cls, "addCellTimingSetupHold", "cell"_a, "port"_a, "clock"_a,
+                                                       "setup"_a, "hold"_a);
     fn_wrapper_4a_v<Context, decltype(&Context::addCellTimingClockToOut), &Context::addCellTimingClockToOut,
                     conv_from_str<IdString>, conv_from_str<IdString>, conv_from_str<IdString>,
-                    pass_through<DelayInfo>>::def_wrap(ctx_cls, "addCellTimingClockToOut",
-                                                       "cell"_a, "port"_a, "clock"_a, "clktoq"_a);
+                    pass_through<DelayInfo>>::def_wrap(ctx_cls, "addCellTimingClockToOut", "cell"_a, "port"_a,
+                                                       "clock"_a, "clktoq"_a);
 
     WRAP_MAP_UPTR(m, CellMap, "IdCellMap");
     WRAP_MAP_UPTR(m, NetMap, "IdNetMap");
