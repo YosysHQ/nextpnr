@@ -45,9 +45,6 @@ if (STATIC_BUILD)
             set(CMAKE_CXX_FLAGS_RELEASE "/MT")
             set(CMAKE_CXX_FLAGS_DEBUG "/MTd")
         endif()
-        if (BUILD_PYTHON)
-            add_definitions(-DBOOST_PYTHON_STATIC_LIB)
-        endif()
     else()
         set(CMAKE_FIND_LIBRARY_SUFFIXES ".a" ".so")
         set(link_param "-static")
@@ -173,54 +170,7 @@ configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/common/version.h.in ${CMAKE_CURRENT_BINARY_DIR}/generated/version.h
 )
 
-if (BUILD_PYTHON)
-    # Find Boost::Python of a suitable version in a cross-platform way
-    # Some distributions (Arch) call it libboost_python3, others such as Ubuntu
-    # call it libboost_python35. In the latter case we must consider all minor versions
-    # Original source: https://github.com/BVLC/caffe/blob/master/cmake/Dependencies.cmake#L148
-    set(version ${PYTHONLIBS_VERSION_STRING})
-
-    STRING(REGEX REPLACE "[^0-9]" "" boost_py_version "${version}")
-    find_package(Boost QUIET COMPONENTS "python-py${boost_py_version}" ${boost_libs})
-    set(Boost_PYTHON_FOUND ${Boost_PYTHON-PY${boost_py_version}_FOUND})
-
-    while (NOT "${version}" STREQUAL "" AND NOT Boost_PYTHON_FOUND)
-        STRING(REGEX REPLACE "([0-9.]+).[0-9]+" "\\1" version "${version}")
-
-        STRING(REGEX REPLACE "[^0-9]" "" boost_py_version "${version}")
-        find_package(Boost QUIET COMPONENTS "python-py${boost_py_version}" ${boost_libs})
-        set(Boost_PYTHON_FOUND ${Boost_PYTHON-PY${boost_py_version}_FOUND})
-
-        STRING(REGEX MATCHALL "([0-9.]+).[0-9]+" has_more_version "${version}")
-        if ("${has_more_version}" STREQUAL "")
-            break()
-        endif ()
-    endwhile ()
-
-    if (NOT Boost_PYTHON_FOUND)
-        foreach (PyVer 3 36 37 38 39)
-            find_package(Boost QUIET COMPONENTS python${PyVer} ${boost_libs})
-            if ("${Boost_LIBRARIES}" MATCHES ".*(python|PYTHON).*" )
-                set(Boost_PYTHON_FOUND TRUE)
-                break()
-            endif ()
-        endforeach ()
-    endif ()
-
-    if (NOT Boost_PYTHON_FOUND)
-        STRING(REGEX REPLACE "([0-9]+\\.[0-9]+).*" "\\1" gentoo_version "${PYTHONLIBS_VERSION_STRING}")
-        find_package(Boost QUIET COMPONENTS python-${gentoo_version} ${boost_libs})
-        if ("${Boost_LIBRARIES}" MATCHES ".*(python|PYTHON).*" )
-            set(Boost_PYTHON_FOUND TRUE)
-        endif ()
-    endif ()
-
-    if (NOT Boost_PYTHON_FOUND )
-        message( FATAL_ERROR "No version of Boost::Python 3.x could be found.")
-    endif ()
-endif()
-
-include_directories(common/ json/ frontend/ 3rdparty/json11/ ${Boost_INCLUDE_DIRS} ${PYTHON_INCLUDE_DIRS})
+include_directories(common/ json/ frontend/ 3rdparty/json11/ 3rdparty/pybind11/include ${Boost_INCLUDE_DIRS} ${PYTHON_INCLUDE_DIRS})
 
 if(BUILD_HEAP)
     find_package (Eigen3 REQUIRED NO_MODULE)

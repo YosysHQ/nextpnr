@@ -21,19 +21,13 @@
 #ifndef PYWRAPPERS_H
 #define PYWRAPPERS_H
 
-#include <boost/function_types/function_arity.hpp>
-#include <boost/function_types/function_type.hpp>
-#include <boost/function_types/parameter_types.hpp>
-#include <boost/function_types/result_type.hpp>
-#include <boost/python.hpp>
-#include <boost/python/suite/indexing/map_indexing_suite.hpp>
-#include <boost/python/suite/indexing/vector_indexing_suite.hpp>
+#include <pybind11/pybind11.h>
 #include <utility>
 #include "nextpnr.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
-using namespace boost::python;
+namespace py = pybind11;
 
 namespace PythonConversion {
 template <typename T> struct ContextualWrapper
@@ -155,14 +149,14 @@ template <typename Class, typename FuncT, FuncT fn, typename rv_conv> struct fn_
     using class_type = typename WrapIfNotContext<Class>::maybe_wrapped_t;
     using conv_result_type = typename rv_conv::ret_type;
 
-    static object wrapped_fn(class_type &cls)
+    static py::object wrapped_fn(class_type &cls)
     {
         Context *ctx = get_ctx<Class>(cls);
         Class &base = get_base<Class>(cls);
         try {
-            return object(rv_conv()(ctx, (base.*fn)()));
+            return py::cast(rv_conv()(ctx, (base.*fn)()));
         } catch (bad_wrap &) {
-            return object();
+            return py::object();
         }
     }
 
@@ -176,14 +170,14 @@ template <typename Class, typename FuncT, FuncT fn, typename rv_conv, typename a
     using conv_result_type = typename rv_conv::ret_type;
     using conv_arg1_type = typename arg1_conv::arg_type;
 
-    static object wrapped_fn(class_type &cls, conv_arg1_type arg1)
+    static py::object wrapped_fn(class_type &cls, conv_arg1_type arg1)
     {
         Context *ctx = get_ctx<Class>(cls);
         Class &base = get_base<Class>(cls);
         try {
-            return object(rv_conv()(ctx, (base.*fn)(arg1_conv()(ctx, arg1))));
+            return py::cast(rv_conv()(ctx, (base.*fn)(arg1_conv()(ctx, arg1))));
         } catch (bad_wrap &) {
-            return object();
+            return py::object();
         }
     }
 
@@ -199,14 +193,14 @@ struct fn_wrapper_2a
     using conv_arg1_type = typename arg1_conv::arg_type;
     using conv_arg2_type = typename arg2_conv::arg_type;
 
-    static object wrapped_fn(class_type &cls, conv_arg1_type arg1, conv_arg2_type arg2)
+    static py::object wrapped_fn(class_type &cls, conv_arg1_type arg1, conv_arg2_type arg2)
     {
         Context *ctx = get_ctx<Class>(cls);
         Class &base = get_base<Class>(cls);
         try {
-            return object(rv_conv()(ctx, (base.*fn)(arg1_conv()(ctx, arg1), arg2_conv()(ctx, arg2))));
+            return py::cast(rv_conv()(ctx, (base.*fn)(arg1_conv()(ctx, arg1), arg2_conv()(ctx, arg2))));
         } catch (bad_wrap &) {
-            return object();
+            return py::object();
         }
     }
 
@@ -224,15 +218,15 @@ struct fn_wrapper_3a
     using conv_arg2_type = typename arg2_conv::arg_type;
     using conv_arg3_type = typename arg3_conv::arg_type;
 
-    static object wrapped_fn(class_type &cls, conv_arg1_type arg1, conv_arg2_type arg2, conv_arg3_type arg3)
+    static py::object wrapped_fn(class_type &cls, conv_arg1_type arg1, conv_arg2_type arg2, conv_arg3_type arg3)
     {
         Context *ctx = get_ctx<Class>(cls);
         Class &base = get_base<Class>(cls);
         try {
-            return object(
+            return py::cast(
                     rv_conv()(ctx, (base.*fn)(arg1_conv()(ctx, arg1), arg2_conv()(ctx, arg2), arg3_conv()(ctx, arg3))));
         } catch (bad_wrap &) {
-            return object();
+            return py::object();
         }
     }
 
@@ -268,7 +262,8 @@ template <typename Class, typename FuncT, FuncT fn, typename arg1_conv> struct f
 
     template <typename WrapCls> static void def_wrap(WrapCls cls_, const char *name) { cls_.def(name, wrapped_fn); }
 
-    template <typename WrapCls, typename Ta> static void def_wrap(WrapCls cls_, const char *name, Ta a = arg("arg1"))
+    template <typename WrapCls, typename Ta>
+    static void def_wrap(WrapCls cls_, const char *name, Ta a = py::arg("arg1"))
     {
         cls_.def(name, wrapped_fn, a);
     }
@@ -290,9 +285,9 @@ template <typename Class, typename FuncT, FuncT fn, typename arg1_conv, typename
 
     template <typename WrapCls> static void def_wrap(WrapCls cls_, const char *name) { cls_.def(name, wrapped_fn); }
 
-    template <typename WrapCls, typename Ta> static void def_wrap(WrapCls cls_, const char *name, const Ta &a)
+    template <typename WrapCls, typename... Ta> static void def_wrap(WrapCls cls_, const char *name, Ta... a)
     {
-        cls_.def(name, wrapped_fn, a);
+        cls_.def(name, wrapped_fn, a...);
     }
 };
 
@@ -314,9 +309,9 @@ struct fn_wrapper_3a_v
 
     template <typename WrapCls> static void def_wrap(WrapCls cls_, const char *name) { cls_.def(name, wrapped_fn); }
 
-    template <typename WrapCls, typename Ta> static void def_wrap(WrapCls cls_, const char *name, const Ta &a)
+    template <typename WrapCls, typename... Ta> static void def_wrap(WrapCls cls_, const char *name, Ta... a)
     {
-        cls_.def(name, wrapped_fn, a);
+        cls_.def(name, wrapped_fn, a...);
     }
 };
 
@@ -342,9 +337,9 @@ struct fn_wrapper_4a_v
 
     template <typename WrapCls> static void def_wrap(WrapCls cls_, const char *name) { cls_.def(name, wrapped_fn); }
 
-    template <typename WrapCls, typename Ta> static void def_wrap(WrapCls cls_, const char *name, const Ta &a)
+    template <typename WrapCls, typename... Ta> static void def_wrap(WrapCls cls_, const char *name, Ta... a)
     {
-        cls_.def(name, wrapped_fn, a);
+        cls_.def(name, wrapped_fn, a...);
     }
 };
 
@@ -371,9 +366,9 @@ struct fn_wrapper_5a_v
 
     template <typename WrapCls> static void def_wrap(WrapCls cls_, const char *name) { cls_.def(name, wrapped_fn); }
 
-    template <typename WrapCls, typename Ta> static void def_wrap(WrapCls cls_, const char *name, const Ta &a)
+    template <typename WrapCls, typename... Ta> static void def_wrap(WrapCls cls_, const char *name, Ta... a)
     {
-        cls_.def(name, wrapped_fn, a);
+        cls_.def(name, wrapped_fn, a...);
     }
 };
 
@@ -401,9 +396,9 @@ struct fn_wrapper_6a_v
 
     template <typename WrapCls> static void def_wrap(WrapCls cls_, const char *name) { cls_.def(name, wrapped_fn); }
 
-    template <typename WrapCls, typename Ta> static void def_wrap(WrapCls cls_, const char *name, const Ta &a)
+    template <typename WrapCls, typename... Ta> static void def_wrap(WrapCls cls_, const char *name, Ta... a)
     {
-        cls_.def(name, wrapped_fn, a);
+        cls_.def(name, wrapped_fn, a...);
     }
 };
 
@@ -413,20 +408,20 @@ template <typename Class, typename MemT, MemT mem, typename v_conv> struct reado
     using class_type = typename WrapIfNotContext<Class>::maybe_wrapped_t;
     using conv_val_type = typename v_conv::ret_type;
 
-    static object wrapped_getter(class_type &cls)
+    static py::object wrapped_getter(class_type &cls)
     {
         Context *ctx = get_ctx<Class>(cls);
         Class &base = get_base<Class>(cls);
         try {
-            return object(v_conv()(ctx, (base.*mem)));
+            return py::cast(v_conv()(ctx, (base.*mem)));
         } catch (bad_wrap &) {
-            return object();
+            return py::object();
         }
     }
 
     template <typename WrapCls> static void def_wrap(WrapCls cls_, const char *name)
     {
-        cls_.add_property(name, wrapped_getter);
+        cls_.def_property_readonly(name, wrapped_getter);
     }
 };
 
@@ -436,14 +431,14 @@ template <typename Class, typename MemT, MemT mem, typename get_conv, typename s
     using class_type = typename WrapIfNotContext<Class>::maybe_wrapped_t;
     using conv_val_type = typename get_conv::ret_type;
 
-    static object wrapped_getter(class_type &cls)
+    static py::object wrapped_getter(class_type &cls)
     {
         Context *ctx = get_ctx<Class>(cls);
         Class &base = get_base<Class>(cls);
         try {
-            return object(get_conv()(ctx, (base.*mem)));
+            return py::cast(get_conv()(ctx, (base.*mem)));
         } catch (bad_wrap &) {
-            return object();
+            return py::object();
         }
     }
 
@@ -458,7 +453,7 @@ template <typename Class, typename MemT, MemT mem, typename get_conv, typename s
 
     template <typename WrapCls> static void def_wrap(WrapCls cls_, const char *name)
     {
-        cls_.add_property(name, wrapped_getter, wrapped_setter);
+        cls_.def_property(name, wrapped_getter, wrapped_setter);
     }
 };
 
