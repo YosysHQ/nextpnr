@@ -86,7 +86,13 @@ template <> struct string_converter<Property>
 
 PYBIND11_MODULE(MODULE_NAME, m)
 {
-    py::register_exception<assertion_failure>(m, "PyExc_AssertionError");
+    py::register_exception_translator([](std::exception_ptr p) {
+        try {
+            if (p) std::rethrow_exception(p);
+        } catch (const assertion_failure &e) {
+            PyErr_SetString(PyExc_AssertionError, e.what());
+        }
+    });
 
     using namespace PythonConversion;
 
