@@ -2956,6 +2956,7 @@ class Ecp5Packer
         pack_remaining_ffs();
         generate_constraints();
         promote_ecp5_globals(ctx);
+        ctx->fixupHierarchy();
         ctx->check();
     }
 
