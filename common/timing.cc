@@ -132,6 +132,18 @@ struct Timing
 
         std::vector<IdString> input_ports;
         std::vector<const PortInfo *> output_ports;
+
+        std::unordered_set<IdString> ooc_port_nets;
+
+        // In out-of-context mode, top-level inputs look floating but aren't
+        if (bool_or_default(ctx->settings, ctx->id("arch.ooc"))) {
+            for (auto &p : ctx->ports) {
+                if (p.second.type != PORT_IN || p.second.net == nullptr)
+                    continue;
+                ooc_port_nets.insert(p.second.net->name);
+            }
+        }
+
         for (auto &cell : ctx->cells) {
             input_ports.clear();
             output_ports.clear();
@@ -177,7 +189,8 @@ struct Timing
                     // the current output port, increment fanin counter
                     for (auto i : input_ports) {
                         DelayInfo comb_delay;
-                        if (cell.second->ports[i].net->driver.cell == nullptr)
+                        NetInfo *i_net = cell.second->ports[i].net;
+                        if (i_net->driver.cell == nullptr && !ooc_port_nets.count(i_net->name))
                             continue;
                         bool is_path = ctx->getCellDelay(cell.second.get(), i, o->name, comb_delay);
                         if (is_path)
@@ -232,7 +245,9 @@ struct Timing
                     // Decrement the fanin count, and only add to topological order if all its fanins have already
                     // been visited
                     auto it = port_fanin.find(&port.second);
-                    NPNR_ASSERT(it != port_fanin.end());
+                    if (it == port_fanin.end())
+                        log_error("Timing counted negative fanin count for port %s.%s (net %s), please report this error.\n",
+                                  ctx->nameOf(usr.cell), ctx->nameOf(port.first), ctx->nameOf(port.second.net));
                     if (--it->second == 0) {
                         topological_order.emplace_back(port.second.net);
                         queue.emplace_back(port.second.net);
