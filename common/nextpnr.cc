@@ -537,15 +537,21 @@ void BaseCtx::addBelToRegion(IdString name, BelId bel) { region[name]->bels.inse
 void BaseCtx::constrainCellToRegion(IdString cell, IdString region_name)
 {
     // Support hierarchical cells as well as leaf ones
+    bool matched = false;
     if (hierarchy.count(cell)) {
         auto &hc = hierarchy.at(cell);
         for (auto &lc : hc.leaf_cells)
             constrainCellToRegion(lc.second, region_name);
         for (auto &hsc : hc.hier_cells)
             constrainCellToRegion(hsc.second, region_name);
+        matched = true;
     }
-    if (cells.count(cell))
+    if (cells.count(cell)) {
         cells.at(cell)->region = region[region_name].get();
+        matched = true;
+    }
+    if (!matched)
+        log_warning("No cell matched '%s' when constraining to region '%s'\n", nameOf(cell), nameOf(region_name));
 }
 DecalXY BaseCtx::constructDecalXY(DecalId decal, float x, float y)
 {
