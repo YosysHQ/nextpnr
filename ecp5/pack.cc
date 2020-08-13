@@ -1992,7 +1992,7 @@ class Ecp5Packer
     {
         std::unordered_map<IdString, CellInfo *> pio_iologic;
 
-        auto set_iologic_sclk = [&](CellInfo *iol, CellInfo *prim, IdString port, bool input) {
+        auto set_iologic_sclk = [&](CellInfo *iol, CellInfo *prim, IdString port, bool input, bool disconnect = true) {
             NetInfo *sclk = nullptr;
             if (prim->ports.count(port))
                 sclk = prim->ports[port].net;
@@ -2008,7 +2008,7 @@ class Ecp5Packer
                     connect_port(ctx, sclk, iol, id_CLK);
                 }
             }
-            if (prim->ports.count(port))
+            if (prim->ports.count(port) && disconnect)
                 disconnect_port(ctx, prim, port);
         };
 
@@ -2030,7 +2030,7 @@ class Ecp5Packer
                 disconnect_port(ctx, prim, port);
         };
 
-        auto set_iologic_lsr = [&](CellInfo *iol, CellInfo *prim, IdString port, bool input) {
+        auto set_iologic_lsr = [&](CellInfo *iol, CellInfo *prim, IdString port, bool input, bool disconnect = true) {
             NetInfo *lsr = nullptr;
             if (prim->ports.count(port))
                 lsr = prim->ports[port].net;
@@ -2046,7 +2046,7 @@ class Ecp5Packer
                     connect_port(ctx, lsr, iol, id_LSR);
                 }
             }
-            if (prim->ports.count(port))
+            if (prim->ports.count(port) && disconnect)
                 disconnect_port(ctx, prim, port);
         };
 
@@ -2282,10 +2282,10 @@ class Ecp5Packer
                     pio->ports[id_IOLDO].type = PORT_IN;
                 }
                 replace_port(pio, id_I, pio, id_IOLDO);
-                set_iologic_sclk(iol, ci, ctx->id("SCLK"), false);
+                set_iologic_sclk(iol, ci, ctx->id("SCLK"), false, false);
                 set_iologic_sclk(iol, ci, ctx->id("SCLK"), true);
                 set_iologic_eclk(iol, ci, id_ECLK);
-                set_iologic_lsr(iol, ci, ctx->id("RST"), false);
+                set_iologic_lsr(iol, ci, ctx->id("RST"), false, false);
                 set_iologic_lsr(iol, ci, ctx->id("RST"), true);
                 replace_port(ci, ctx->id("D0"), iol, id_TXDATA0);
                 replace_port(ci, ctx->id("D1"), iol, id_TXDATA1);
@@ -2359,7 +2359,7 @@ class Ecp5Packer
                 replace_port(pio, id_I, pio, id_IOLDO);
                 set_iologic_sclk(iol, ci, ctx->id("SCLK"), false);
                 set_iologic_eclk(iol, ci, id_ECLK);
-                set_iologic_lsr(iol, ci, ctx->id("RST"), false);
+                set_iologic_lsr(iol, ci, ctx->id("RST"), false, false);
                 set_iologic_lsr(iol, ci, ctx->id("RST"), true);
                 replace_port(ci, ctx->id("D0"), iol, id_TXDATA0);
                 replace_port(ci, ctx->id("D1"), iol, id_TXDATA2);
@@ -2386,7 +2386,7 @@ class Ecp5Packer
                 replace_port(pio, id_I, pio, id_IOLDO);
                 set_iologic_sclk(iol, ci, ctx->id("SCLK"), false);
                 set_iologic_eclk(iol, ci, id_ECLK);
-                set_iologic_lsr(iol, ci, ctx->id("RST"), false);
+                set_iologic_lsr(iol, ci, ctx->id("RST"), false, false);
                 set_iologic_lsr(iol, ci, ctx->id("RST"), true);
                 replace_port(ci, ctx->id("D0"), iol, id_TXDATA0);
                 replace_port(ci, ctx->id("D1"), iol, id_TXDATA1);
