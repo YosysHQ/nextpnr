@@ -246,7 +246,8 @@ struct Timing
                     // been visited
                     auto it = port_fanin.find(&port.second);
                     if (it == port_fanin.end())
-                        log_error("Timing counted negative fanin count for port %s.%s (net %s), please report this error.\n",
+                        log_error("Timing counted negative fanin count for port %s.%s (net %s), please report this "
+                                  "error.\n",
                                   ctx->nameOf(usr.cell), ctx->nameOf(port.first), ctx->nameOf(port.second.net));
                     if (--it->second == 0) {
                         topological_order.emplace_back(port.second.net);

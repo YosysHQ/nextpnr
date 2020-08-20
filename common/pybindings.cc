@@ -88,7 +88,8 @@ PYBIND11_MODULE(MODULE_NAME, m)
 {
     py::register_exception_translator([](std::exception_ptr p) {
         try {
-            if (p) std::rethrow_exception(p);
+            if (p)
+                std::rethrow_exception(p);
         } catch (const assertion_failure &e) {
             PyErr_SetString(PyExc_AssertionError, e.what());
         }
