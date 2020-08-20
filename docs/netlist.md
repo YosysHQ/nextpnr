@@ -36,8 +36,9 @@ Other structures used by these basic structures include:
 
  - `name` is the IdString name of the net - for nets with multiple names, one name is chosen according to a set of rules by the JSON frontend
  - `hierpath` is name of the hierarchical cell containing the instance, for designs with hierarchy
- - `driver` refers to the source of the net using `PortRef`; `driver.cell == nullptr` means that the net is undriven. Nets must have zero or one driver only. The corresponding cell port must be an output and its `PortInfo::net` must refer back to this net.
+ - `driver` refers to the source of the net using `PortRef`; `driver.cell == nullptr` means that the net is undriven (see caveat below). Nets must have zero or one driver only. The corresponding cell port must be an output and its `PortInfo::net` must refer back to this net.
  - `users` contains a list of `PortRef` references to sink ports on the net. Nets can have zero or more sinks. Each corresponding cell port must be an input or inout; and its `PortInfo::net` must refer back to this net.
+    - If a `PortRef` structure has `PORTREF_PART_PIN` set in `flags`, then it is a reference to a top level partition pin (e.g. for partial reconfiguration etc.). In this case `.cell` will be `nullptr` and `port` will be the partition pin name.
  - `wires` is a map that stores the routing tree of a net, if the net is routed.
     - Each entry in `wires` maps from *sink* wire in the routing tree to its driving pip, and the binding strength of that pip (e.g. how freely the router may rip up the pip)
     - Manipulation of this structure is done automatically by `Arch::bindWire`, `Arch::unbindWire`, `Arch::bindPip` and `Arch::unbindPip`; which should almost always be used in lieu of manual manipulation

@@ -299,11 +299,19 @@ enum PlaceStrength
     STRENGTH_USER = 5
 };
 
+enum PortRefFlags : uint16_t
+{
+    // If this is set, the PortRef is a top level partition pin
+    // cell is nullptr and port is the pin name
+    PORTREF_PART_PIN = 1,
+};
+
 struct PortRef
 {
     CellInfo *cell = nullptr;
     IdString port;
     delay_t budget = 0;
+    uint16_t flags = 0;
 };
 
 struct PipMap
@@ -443,6 +451,9 @@ struct PortInfo
     NetInfo *net;
     PortType type;
     TimingConstrObjectId tmg_id;
+
+    // For top level partition pins, this is the corresponding wire
+    WireId partpin_wire;
 };
 
 struct CellInfo : ArchCellInfo
@@ -868,6 +879,9 @@ struct Context : Arch, DeterministicRNG
     WireId getNetinfoSourceWire(const NetInfo *net_info) const;
     WireId getNetinfoSinkWire(const NetInfo *net_info, const PortRef &sink) const;
     delay_t getNetinfoRouteDelay(const NetInfo *net_info, const PortRef &sink) const;
+
+    bool isPartPin(const PortRef &pin_ref) const;
+    WireId getPartPinWire(const PortRef &pin_ref) const;
 
     // provided by router1.cc
     bool checkRoutedDesign() const;

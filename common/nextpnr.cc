@@ -271,6 +271,8 @@ const char *BaseCtx::nameOfGroup(GroupId group) const
 
 WireId Context::getNetinfoSourceWire(const NetInfo *net_info) const
 {
+    if (net_info->driver.flags & PORTREF_PART_PIN)
+        return getPartPinWire(net_info->driver);
     if (net_info->driver.cell == nullptr)
         return WireId();
 
@@ -290,6 +292,9 @@ WireId Context::getNetinfoSourceWire(const NetInfo *net_info) const
 
 WireId Context::getNetinfoSinkWire(const NetInfo *net_info, const PortRef &user_info) const
 {
+    if (user_info.flags & PORTREF_PART_PIN)
+        return getPartPinWire(user_info);
+
     auto dst_bel = user_info.cell->bel;
 
     if (dst_bel == BelId())
@@ -303,6 +308,14 @@ WireId Context::getNetinfoSinkWire(const NetInfo *net_info, const PortRef &user_
         user_port = user_port_it->second;
 
     return getBelPinWire(dst_bel, user_port);
+}
+
+bool Context::isPartPin(const PortRef &pin_ref) const { return pin_ref.flags & PORTREF_PART_PIN; }
+
+WireId Context::getPartPinWire(const PortRef &pin_ref) const
+{
+    NPNR_ASSERT(pin_ref.flags & PORTREF_PART_PIN);
+    return ports.at(pin_ref.port).partpin_wire;
 }
 
 delay_t Context::getNetinfoRouteDelay(const NetInfo *net_info, const PortRef &user_info) const
@@ -471,7 +484,13 @@ void Context::check() const
         }
         if (ni->driver.cell != nullptr)
             NPNR_ASSERT(ni->driver.cell->ports.at(ni->driver.port).net == ni);
+        else if (ni->driver.flags & PORTREF_PART_PIN)
+            NPNR_ASSERT(ports.at(ni->driver.port).net == ni);
         for (auto user : ni->users) {
+            if (user.flags & PORTREF_PART_PIN) {
+                NPNR_ASSERT(ports.at(user.port).net == ni);
+                continue;
+            }
             NPNR_ASSERT(user.cell->ports.at(user.port).net == ni);
         }
     }
