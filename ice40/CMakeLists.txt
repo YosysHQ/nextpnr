@@ -85,6 +85,6 @@ else()
         # serialize chipdb build across multiple architectures
         set(PREVIOUS_CHIPDB_TARGET chipdb-ice40-bbas PARENT_SCOPE)
     else()
-        message(STATUS "Build nextpnr with -DICE40_CHIPDB=${CMAKE_CURRENT_BINARY_DIR}")
+        message(STATUS "Build nextpnr with -DICE40_CHIPDB=${CMAKE_CURRENT_BINARY_DIR}\chipdb")
     endif()
 endif()
