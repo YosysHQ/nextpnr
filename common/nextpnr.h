@@ -861,6 +861,11 @@ struct Context : Arch, DeterministicRNG
     bool debug = false;
     bool force = false;
 
+    // Print verilog sources for nets in critical path?
+    bool print_critical_path_source = false;
+    // Max line count to print for critical path sources
+    int critical_path_source_max_lines = 8;
+
     Context(ArchArgs args) : Arch(args) {}
 
     // --------------------------------------------------------------
