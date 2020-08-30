@@ -158,10 +158,8 @@ po::options_description CommandHandler::getGeneralOptions()
     general.add_options()("no-tmdriv", "disable timing-driven placement");
     general.add_options()("sdf", po::value<std::string>(), "SDF delay back-annotation file to write");
     general.add_options()("sdf-cvc", "enable tweaks for SDF file compatibility with the CVC simulator");
-    general.add_options()("print-critical-path-source",
-                          "print the source code associated with each net in the critical path");
-    general.add_options()("critical-path-source-max-lines", po::value<int>(),
-                          "max number of source lines to print per critical path report entry");
+    general.add_options()("no-print-critical-path-source",
+                          "disable printing of the source lines associated with each net in the critical path");
 
     general.add_options()("placed-svg", po::value<std::string>(), "write render of placement to SVG file");
     general.add_options()("routed-svg", po::value<std::string>(), "write render of routing to SVG file");
@@ -183,11 +181,8 @@ void CommandHandler::setupContext(Context *ctx)
         ctx->debug = true;
     }
 
-    if (vm.count("print-critical-path-source")) {
-        ctx->print_critical_path_source = true;
-    }
-    if (vm.count("critical-path-source-max-lines")) {
-        ctx->critical_path_source_max_lines = vm["critical-path-source-max-lines"].as<int>();
+    if (vm.count("no-print-critical-path-source")) {
+        ctx->disable_critical_path_source_print = true;
     }
 
     if (vm.count("force")) {

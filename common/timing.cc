@@ -813,13 +813,15 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
 
     if (print_path) {
         static auto print_net_source = [](Context *ctx, NetInfo *net) {
+            // Check if this net is annotated with a source list
             auto sources = net->attrs.find(ctx->id("src"));
             if (sources == net->attrs.end()) {
                 // No sources for this net, can't print anything
                 return;
             }
 
-            // Sources are separated by pipe characters, deepest source last
+            // Sources are separated by pipe characters.
+            // There is no guaranteed ordering on sources, so we just print all
             auto sourcelist = sources->second.as_string();
             std::vector<std::string> source_entries;
             size_t current = 0, prev = 0;
@@ -830,59 +832,10 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
             // Ensure we emplace the final entry
             source_entries.emplace_back(sourcelist.substr(prev, current - prev));
 
-            // For each source entry, split iinto filename, start line/character
-            // and end line/character
-            const unsigned entry_count = source_entries.size();
+            // Iterate and print our source list at the correct indentation level
             log_info("               Defined in:\n");
-            for (unsigned i = 0; i < entry_count; i++) {
-                const std::string source_entry = source_entries[i];
-                const bool is_final_entry = i == entry_count - 1;
-
-                log_info("                 %s\n", source_entry.c_str());
-
-                // Split the source entry to get the filename
-                const size_t filename_split = source_entry.find(":");
-                const std::string filename = source_entry.substr(0, filename_split);
-                const std::string location_tuple = source_entry.substr(filename_split + 1);
-
-                // Split the location tuple into start/end groups
-                const size_t start_end_split = location_tuple.find("-");
-                const std::string code_start = location_tuple.substr(0, start_end_split);
-                const std::string code_end = location_tuple.substr(start_end_split + 1);
-
-                // Extract just the line number from those tuples
-                const int code_start_line = std::atoi(code_start.substr(0, code_start.find(".")).c_str());
-                const int code_end_line = std::atoi(code_end.substr(0, code_end.find(".")).c_str());
-
-                // Try and stat the source file
-                std::ifstream in(filename);
-                if (!in) {
-                    // Failed to find source file, can't print the actual source
-                    return;
-                }
-
-                // Skip through to the start line
-                in.seekg(std::ios::beg);
-                for (int i = 0; i < code_start_line - 1; ++i) {
-                    in.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-                }
-                // Log each line til we hit the end line / max line count
-                // For non-final entries, just print one line so we don't spam too heavily
-                int max_print_lines = ctx->critical_path_source_max_lines - 1;
-                if (!is_final_entry) {
-                    max_print_lines = 0; // Compare is inclusive
-                }
-                const int print_end =
-                        ((code_end_line < code_start_line + max_print_lines) ? code_end_line
-                                                                             : code_start_line + max_print_lines);
-                for (int i = code_start_line; i <= print_end; i++) {
-                    std::string line;
-                    getline(in, line);
-                    // Strip any whitespace from the start of the line, since we are already aligning it
-                    line.erase(line.begin(),
-                               std::find_if(line.begin(), line.end(), [](char c) { return !(c == ' ' || c == '\t'); }));
-                    log_info("                   %s\n", line.c_str());
-                }
+            for (auto entry : source_entries) {
+                log_info("                 %s\n", entry.c_str());
             }
         };
 
@@ -963,7 +916,7 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
                         cursor = ctx->getPipSrcWire(pip);
                     }
                 }
-                if (ctx->print_critical_path_source) {
+                if (!ctx->disable_critical_path_source_print) {
                     print_net_source(ctx, net);
                 }
                 last_port = sink->port;
