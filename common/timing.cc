@@ -22,7 +22,6 @@
 #include <algorithm>
 #include <boost/range/adaptor/reversed.hpp>
 #include <deque>
-#include <fstream>
 #include <map>
 #include <unordered_map>
 #include <utility>
