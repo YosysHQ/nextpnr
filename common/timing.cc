@@ -811,6 +811,33 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
     }
 
     if (print_path) {
+        static auto print_net_source = [](Context *ctx, NetInfo *net) {
+            // Check if this net is annotated with a source list
+            auto sources = net->attrs.find(ctx->id("src"));
+            if (sources == net->attrs.end()) {
+                // No sources for this net, can't print anything
+                return;
+            }
+
+            // Sources are separated by pipe characters.
+            // There is no guaranteed ordering on sources, so we just print all
+            auto sourcelist = sources->second.as_string();
+            std::vector<std::string> source_entries;
+            size_t current = 0, prev = 0;
+            while ((current = sourcelist.find("|", prev)) != std::string::npos) {
+                source_entries.emplace_back(sourcelist.substr(prev, current - prev));
+                prev = current + 1;
+            }
+            // Ensure we emplace the final entry
+            source_entries.emplace_back(sourcelist.substr(prev, current - prev));
+
+            // Iterate and print our source list at the correct indentation level
+            log_info("               Defined in:\n");
+            for (auto entry : source_entries) {
+                log_info("                 %s\n", entry.c_str());
+            }
+        };
+
         auto print_path_report = [ctx](ClockPair &clocks, PortRefVector &crit_path) {
             delay_t total = 0, logic_total = 0, route_total = 0;
             auto &front = crit_path.front();
@@ -887,6 +914,9 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
                                  ctx->getPipName(pip).c_str(ctx));
                         cursor = ctx->getPipSrcWire(pip);
                     }
+                }
+                if (!ctx->disable_critical_path_source_print) {
+                    print_net_source(ctx, net);
                 }
                 last_port = sink->port;
             }
