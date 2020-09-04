@@ -430,7 +430,6 @@ int CommandHandler::exec()
 
 std::unique_ptr<Context> CommandHandler::load_json(std::string filename)
 {
-    vm.clear();
     std::unordered_map<std::string, Property> values;
     std::unique_ptr<Context> ctx = createContext(values);
     setupContext(ctx.get());
@@ -442,6 +441,11 @@ std::unique_ptr<Context> CommandHandler::load_json(std::string filename)
     }
     customAfterLoad(ctx.get());
     return ctx;
+}
+
+void CommandHandler::clear()
+{
+    vm.clear();
 }
 
 void CommandHandler::run_script_hook(const std::string &name)
