@@ -156,7 +156,7 @@ template <typename Class, typename FuncT, FuncT fn, typename rv_conv> struct fn_
         try {
             return py::cast(rv_conv()(ctx, (base.*fn)()));
         } catch (bad_wrap &) {
-            return py::object();
+            return py::none();
         }
     }
 
@@ -177,7 +177,7 @@ template <typename Class, typename FuncT, FuncT fn, typename rv_conv, typename a
         try {
             return py::cast(rv_conv()(ctx, (base.*fn)(arg1_conv()(ctx, arg1))));
         } catch (bad_wrap &) {
-            return py::object();
+            return py::none();
         }
     }
 
@@ -200,7 +200,7 @@ struct fn_wrapper_2a
         try {
             return py::cast(rv_conv()(ctx, (base.*fn)(arg1_conv()(ctx, arg1), arg2_conv()(ctx, arg2))));
         } catch (bad_wrap &) {
-            return py::object();
+            return py::none();
         }
     }
 
@@ -226,7 +226,7 @@ struct fn_wrapper_3a
             return py::cast(
                     rv_conv()(ctx, (base.*fn)(arg1_conv()(ctx, arg1), arg2_conv()(ctx, arg2), arg3_conv()(ctx, arg3))));
         } catch (bad_wrap &) {
-            return py::object();
+            return py::none();
         }
     }
 
@@ -415,7 +415,7 @@ template <typename Class, typename MemT, MemT mem, typename v_conv> struct reado
         try {
             return py::cast(v_conv()(ctx, (base.*mem)));
         } catch (bad_wrap &) {
-            return py::object();
+            return py::none();
         }
     }
 
@@ -438,7 +438,7 @@ template <typename Class, typename MemT, MemT mem, typename get_conv, typename s
         try {
             return py::cast(get_conv()(ctx, (base.*mem)));
         } catch (bad_wrap &) {
-            return py::object();
+            return py::none();
         }
     }
 
