@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(nextpnr CXX)
+project(nextpnr CXX C)
 
 option(BUILD_GUI "Build GUI" ON)
 option(BUILD_PYTHON "Build Python Integration" ON)
