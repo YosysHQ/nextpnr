@@ -14,6 +14,7 @@ yosys memory_map
 yosys opt -full
 yosys techmap -map +/techmap.v
 yosys opt -fast
+yosys dfflegalize -cell \$_DFF_P_ 0
 yosys abc -lut $LUT_K -dress
 yosys clean
 yosys techmap -D LUT_K=$LUT_K -map [file dirname [file normalize $argv0]]/cells_map.v
