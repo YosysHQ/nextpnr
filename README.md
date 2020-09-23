@@ -188,9 +188,9 @@ Recording a movie
 
 - To save a movie recording of place-and-route click recording icon in toolbar and select empty directory
   where recording files will be stored and select frames to skip.
-- Manualy start all PnR operations you wish
+- Manually start all PnR operations you wish
 - Click on recording icon again to stop recording
-- Go to directory containing files and exeecute `ffmpeg -f image2 -r 1 -i movie_%05d.png -c:v libx264 nextpnr.mp4`
+- Go to directory containing files and execute `ffmpeg -f image2 -r 1 -i movie_%05d.png -c:v libx264 nextpnr.mp4`
 
 Testing
 -------
