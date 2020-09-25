@@ -37,7 +37,7 @@ RUN set -e -x ;\
     cd /usr/local/src ;\
     git clone --recursive https://github.com/YosysHQ/yosys.git ;\
     cd yosys ;\
-    git reset --hard 292f03355a425ede48051c79d5bf619591531080 ;\
+    git reset --hard cd8b2ed4e6f9447c94d801de7db7ae6ce0976d57 ;\
     make -j $(nproc) ;\
     make install ;\
     rm -rf /usr/local/src/yosys
