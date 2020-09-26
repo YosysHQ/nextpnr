@@ -915,6 +915,9 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             if (ci->attrs.count(ctx->id("DIFFRESISTOR")))
                 cc.tiles[pio_tile].add_enum(pio + ".DIFFRESISTOR",
                                             str_or_default(ci->attrs, ctx->id("DIFFRESISTOR"), "OFF"));
+            if (ci->attrs.count(ctx->id("CLAMP")))
+                cc.tiles[pio_tile].add_enum(pio + ".CLAMP", str_or_default(ci->attrs, ctx->id("CLAMP"), "OFF"));
+
             if (ci->attrs.count(ctx->id("DRIVE"))) {
                 static bool drive_3v3_warning_done = false;
                 if (iotype == "LVCMOS33") {
