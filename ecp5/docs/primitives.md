@@ -2,46 +2,45 @@
 
 nextpnr-ecp5 currently supports the following primitives:
  
- - **ALU54B** (limited support, must be manually placed)
- - **CCU2C**
- - **CLKDIVF**
+ - **ALU54B** - 54-bit ternary adder/subtractor for high speed (limited support, must be manually placed)
+ - **CCU2C** - carry chain
+ - **CLKDIVF** - clock divider
  - **DCUA**
- - **DDRDLLA**
- - **DELAYF**
- - **DELAYG**
- - **DP16KD**
- - **DQSBUFM**
- - **DTR**
- - **ECLKSYNCB**
- - **EHXPLLL**
- - **EXTREFB**
- - **GSR**
- - **IDDR71B**
- - **IDDRX1F**
- - **IDDRX2DQA**
- - **IDDRX2F**
+ - **DDRDLLA** - 90° delay for DQS or clock for DDR interface
+ - **DELAYF** - configurable signal delay
+ - **DELAYG** - simple signal delay
+ - **DP16KD** - true dual port block RAM
+ - **DQSBUFM** - DQS circuit for DDR memory
+ - **DTR** - die temperature readout *notice: The IO-names in the FPGA Libraries Reference Guide 08/16 are wrong*
+ - **ECLKSYNCB** - external clock stop block for DDR-stuff
+ - **EHXPLLL** - global(??) phase-locked-loop
+ - **EXTREFB** - reference clock input buffer for external clock for Serdes TxPLL
+ - **GSR** - global set/reset interface
+ - **IDDR71B** - 7:1 LVDS input
+ - **IDDRX1F** - generic input DDR primitive
+ - **IDDRX2DQA** - DDR2/3 memory input interface
+ - **IDDRX2F** - generic input DDR primitive
  - **IOLOGIC**
- - **JTAGG** (untested)
- - **L6MUX21**
- - **LUT4**
- - **MULT18X18D** (cascade functionality not supported)
- - **ODDR71B**
- - **ODDRX1F**
- - **ODDRX2DQA**
- - **ODDRX2DQSB**
- - **ODDRX2F**
- - **OSCG**
- - **OSHX2A**
+ - **JTAGG** - access to JTAG controller (untested)
+ - **L6MUX21** - 2 to 1 multiplexer
+ - **LUT4** - 4 input Look Up Table
+ - **MULT18X18D** - DSP multiplier (cascade functionality not supported)
+ - **ODDR71B** - 7:1 LVDS ODDR implementation
+ - **ODDRX1F** - generic X1 ODDR implementation
+ - **ODDRX2DQA** - memory output DDR primitive for DQ outputs
+ - **ODDRX2DQSB** - memory output DDR primitive for DQS outputs
+ - **ODDRX2F** - generic X2 ODDR implementation
+ - **OSCG** - access to / control of internal oscillator
+ - **OSHX2A** - memory output DDR primitive for address and command
  - **PCSCLKDIV**
- - **PFUMX**
- - **SEDGA** (untested)
+ - **PFUMX** - 2 input multiplexer within the programmable function unit (PFU)
+ - **SEDGA** - allows checking configuration data for soft-errors, see TN1268 (untested)
  - **SIOLOGIC**
  - **TRELLIS_DPR16X4**
  - **TRELLIS_ECLKBUF**
  - **TRELLIS_FF**
  - **TRELLIS_IO**
  - **TRELLIS_SLICE**
- - **TSHX2DQA**
- - **TSHX2DQSA**
- - **USRMCLK**
-
+ - **TSHX2DQA** - tristate control for DQ data output for DDR2 and DDR3 memory
+ - **TSHX2DQSA** - tristate control for DQS output
+ - **USRMCLK** - provides access to SPI PROM
