@@ -13,9 +13,9 @@ and the ECP5 architecture supports a subset of LPF constraints (for details see 
 
     LOCATE COMP "led[0]" SITE "E16";
     IOBUF PORT "led[0]" IO_TYPE=LVCMOS25;
-    IOBUF ...  DRIVE=8;
+    IOBUF ...  DRIVE=4|8|12|16; // currently LVCMOS33 and LVCMOS33D only
     IOBUF ... OPENDRAIN=ON|OFF;
-    IOBUF ... TERMINATION=50;
+    IOBUF ... TERMINATION=50|75|150;
     IOBUF ... DIFFRESISTOR=100; //for differential IO only
     IOBUF ... CLAMP=ON|OFF;
     IOBUF ... PULLMODE=UP|DOWN|NONE;

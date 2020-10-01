@@ -2,45 +2,43 @@
 
 nextpnr-ecp5 currently supports the following primitives:
  
- - **ALU54B** - 54-bit ternary adder/subtractor for high speed (limited support, must be manually placed)
- - **CCU2C** - carry chain
+ - **ALU54B** - 54-bit ternary adder/subtractor (limited support, must be manually placed)
+ - **CCU2C** - 2x LUT4 with carry logic
  - **CLKDIVF** - clock divider
- - **DCUA**
+ - **DCUA** - dual channel 3/5Gbps SERDES
  - **DDRDLLA** - 90° delay for DQS or clock for DDR interface
  - **DELAYF** - configurable signal delay
  - **DELAYG** - simple signal delay
  - **DP16KD** - true dual port block RAM
- - **DQSBUFM** - DQS circuit for DDR memory
+ - **DQSBUFM** - DQS control for DDR memory
  - **DTR** - die temperature readout *notice: The IO-names in the FPGA Libraries Reference Guide 08/16 are wrong*
- - **ECLKSYNCB** - external clock stop block for DDR-stuff
- - **EHXPLLL** - global(??) phase-locked-loop
- - **EXTREFB** - reference clock input buffer for external clock for Serdes TxPLL
+ - **ECLKSYNCB** - edge clock stop/synchronisation
+ - **EHXPLLL** - phase-locked-loop
+ - **EXTREFB** - reference clock input buffer for external clock for SERDES
  - **GSR** - global set/reset interface
- - **IDDR71B** - 7:1 LVDS input
- - **IDDRX1F** - generic input DDR primitive
- - **IDDRX2DQA** - DDR2/3 memory input interface
- - **IDDRX2F** - generic input DDR primitive
- - **IOLOGIC**
- - **JTAGG** - access to JTAG controller (untested)
- - **L6MUX21** - 2 to 1 multiplexer
+ - **IDDR71B** - 7:1 input gearbox
+ - **IDDRX1F** - generic 1:2 input DDR
+ - **IDDRX2DQA** - DDR2/3 memory 1:4 input interface
+ - **IDDRX2F** - generic 1:4 input DDR
+ - **JTAGG** - JTAG access to fabric
+ - **L6MUX21** - 2 input multiplexer for LUT6 and above
  - **LUT4** - 4 input Look Up Table
  - **MULT18X18D** - DSP multiplier (cascade functionality not supported)
- - **ODDR71B** - 7:1 LVDS ODDR implementation
- - **ODDRX1F** - generic X1 ODDR implementation
- - **ODDRX2DQA** - memory output DDR primitive for DQ outputs
- - **ODDRX2DQSB** - memory output DDR primitive for DQS outputs
- - **ODDRX2F** - generic X2 ODDR implementation
- - **OSCG** - access to / control of internal oscillator
- - **OSHX2A** - memory output DDR primitive for address and command
- - **PCSCLKDIV**
- - **PFUMX** - 2 input multiplexer within the programmable function unit (PFU)
+ - **ODDR71B** - 7:1 ODDR implementation
+ - **ODDRX1F** - generic 2:1 output DDR
+ - **ODDRX2DQA** - memory 4:1 output DDR primitive for DQ outputs
+ - **ODDRX2DQSB** - memory 4:1 output DDR primitive for DQS outputs
+ - **ODDRX2F** - generic 4:1 output DDR
+ - **OSCG** - internal oscillator
+ - **OSHX2A** - memory 4:1 output DDR primitive for address and command
+ - **PCSCLKDIV** - clock divider for SERDES clock outputs
+ - **PFUMX** - 2 input multiplexer for LUT5s
  - **SEDGA** - allows checking configuration data for soft-errors, see TN1268 (untested)
- - **SIOLOGIC**
- - **TRELLIS_DPR16X4**
- - **TRELLIS_ECLKBUF**
- - **TRELLIS_FF**
- - **TRELLIS_IO**
- - **TRELLIS_SLICE**
+ - **TRELLIS_DPR16X4** - 16x4 LUTRAM
+ - **TRELLIS_ECLKBUF** - internal edge clock buffer
+ - **TRELLIS_FF** - SLICE flipflop
+ - **TRELLIS_IO** - tristate IO, mapped by Yosys from BB, IB, OB, etc
+ - **TRELLIS_SLICE** - logic SLICE (2x LUT4, 2x FF, 2x MUX2, CCU2 carry)
  - **TSHX2DQA** - tristate control for DQ data output for DDR2 and DDR3 memory
  - **TSHX2DQSA** - tristate control for DQS output
- - **USRMCLK** - provides access to SPI PROM
+ - **USRMCLK** - provides access to SPI flash clock (MCLK)
