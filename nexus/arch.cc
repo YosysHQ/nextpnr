@@ -25,6 +25,7 @@
 #include "placer1.h"
 #include "placer_heap.h"
 #include "router1.h"
+#include "router2.h"
 #include "timing.h"
 #include "util.h"
 
@@ -374,6 +375,29 @@ delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
 
 bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const { return false; }
 
+ArcBounds Arch::getRouteBoundingBox(WireId src, WireId dst) const
+{
+    ArcBounds bb;
+
+    int src_x = src.tile % chip_info->width, src_y = src.tile / chip_info->width;
+    int dst_x = dst.tile % chip_info->width, dst_y = dst.tile / chip_info->width;
+
+    bb.x0 = src_x;
+    bb.y0 = src_y;
+    bb.x1 = src_x;
+    bb.y1 = src_y;
+
+    auto extend = [&](int x, int y) {
+        bb.x0 = std::min(bb.x0, x);
+        bb.x1 = std::max(bb.x1, x);
+        bb.y0 = std::min(bb.y0, y);
+        bb.y1 = std::max(bb.y1, y);
+    };
+    extend(dst_x, dst_y);
+
+    return bb;
+}
+
 // -----------------------------------------------------------------------
 
 bool Arch::place()
@@ -402,7 +426,16 @@ bool Arch::place()
 bool Arch::route()
 {
     assign_budget(getCtx(), true);
-    bool result = router1(getCtx(), Router1Cfg(getCtx()));
+    std::string router = str_or_default(settings, id("router"), defaultRouter);
+    bool result;
+    if (router == "router1") {
+        result = router1(getCtx(), Router1Cfg(getCtx()));
+    } else if (router == "router2") {
+        router2(getCtx(), Router2Cfg(getCtx()));
+        result = true;
+    } else {
+        log_error("iCE40 architecture does not support router '%s'\n", router.c_str());
+    }
     getCtx()->attrs[getCtx()->id("step")] = std::string("route");
     archInfoToAttributes();
     return result;
@@ -420,5 +453,10 @@ const std::vector<std::string> Arch::availablePlacers = {"sa",
 #ifdef WITH_HEAP
                                                          "heap"
 #endif
+
 };
+
+const std::string Arch::defaultRouter = "router1";
+const std::vector<std::string> Arch::availableRouters = {"router1", "router2"};
+
 NEXTPNR_NAMESPACE_END

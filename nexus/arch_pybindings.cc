@@ -26,21 +26,23 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-void arch_wrap_python()
+void arch_wrap_python(py::module &m)
 {
     using namespace PythonConversion;
-    class_<ArchArgs>("ArchArgs").def_readwrite("chipdb", &ArchArgs::chipdb).def_readwrite("device", &ArchArgs::device);
+    py::class_<ArchArgs>(m, "ArchArgs")
+            .def_readwrite("chipdb", &ArchArgs::chipdb)
+            .def_readwrite("device", &ArchArgs::device);
 
-    class_<BelId>("BelId").def_readwrite("index", &BelId::index).def_readwrite("tile", &BelId::tile);
+    py::class_<BelId>(m, "BelId").def_readwrite("index", &BelId::index).def_readwrite("tile", &BelId::tile);
 
-    class_<WireId>("WireId").def_readwrite("index", &WireId::index).def_readwrite("tile", &WireId::tile);
+    py::class_<WireId>(m, "WireId").def_readwrite("index", &WireId::index).def_readwrite("tile", &WireId::tile);
 
-    class_<PipId>("PipId").def_readwrite("index", &PipId::index).def_readwrite("tile", &PipId::tile);
+    py::class_<PipId>(m, "PipId").def_readwrite("index", &PipId::index).def_readwrite("tile", &PipId::tile);
 
-    class_<BelPin>("BelPin").def_readwrite("bel", &BelPin::bel).def_readwrite("pin", &BelPin::pin);
+    py::class_<BelPin>(m, "BelPin").def_readwrite("bel", &BelPin::bel).def_readwrite("pin", &BelPin::pin);
 
-    auto arch_cls = class_<Arch, Arch *, bases<BaseCtx>, boost::noncopyable>("Arch", init<ArchArgs>());
-    auto ctx_cls = class_<Context, Context *, bases<Arch>, boost::noncopyable>("Context", no_init)
+    auto arch_cls = py::class_<Arch, BaseCtx>(m, "Arch").def(py::init<ArchArgs>());
+    auto ctx_cls = py::class_<Context, Arch>(m, "Context")
                            .def("checksum", &Context::checksum)
                            .def("pack", &Context::pack)
                            .def("place", &Context::place)
@@ -51,7 +53,7 @@ void arch_wrap_python()
     typedef std::unordered_map<IdString, HierarchicalCell> HierarchyMap;
     typedef std::unordered_map<IdString, IdString> AliasMap;
 
-    auto belpin_cls = class_<ContextualWrapper<BelPin>>("BelPin", no_init);
+    auto belpin_cls = py::class_<ContextualWrapper<BelPin>>(m, "BelPin");
     readonly_wrapper<BelPin, decltype(&BelPin::bel), &BelPin::bel, conv_to_str<BelId>>::def_wrap(belpin_cls, "bel");
     readonly_wrapper<BelPin, decltype(&BelPin::pin), &BelPin::pin, conv_to_str<IdString>>::def_wrap(belpin_cls, "pin");
 
@@ -60,15 +62,15 @@ void arch_wrap_python()
 
 #include "arch_pybindings_shared.h"
 
-    WRAP_RANGE(Bel, conv_to_str<BelId>);
-    WRAP_RANGE(Wire, conv_to_str<WireId>);
-    WRAP_RANGE(AllPip, conv_to_str<PipId>);
-    WRAP_RANGE(UpDownhillPip, conv_to_str<PipId>);
-    WRAP_RANGE(WireBelPin, wrap_context<BelPin>);
+    WRAP_RANGE(m, Bel, conv_to_str<BelId>);
+    WRAP_RANGE(m, Wire, conv_to_str<WireId>);
+    WRAP_RANGE(m, AllPip, conv_to_str<PipId>);
+    WRAP_RANGE(m, UpDownhillPip, conv_to_str<PipId>);
+    WRAP_RANGE(m, WireBelPin, wrap_context<BelPin>);
 
-    WRAP_MAP_UPTR(CellMap, "IdCellMap");
-    WRAP_MAP_UPTR(NetMap, "IdNetMap");
-    WRAP_MAP(HierarchyMap, wrap_context<HierarchicalCell &>, "HierarchyMap");
+    WRAP_MAP_UPTR(m, CellMap, "IdCellMap");
+    WRAP_MAP_UPTR(m, NetMap, "IdNetMap");
+    WRAP_MAP(m, HierarchyMap, wrap_context<HierarchicalCell &>, "HierarchyMap");
 }
 
 NEXTPNR_NAMESPACE_END
