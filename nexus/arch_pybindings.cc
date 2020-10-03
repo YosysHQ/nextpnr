@@ -53,10 +53,6 @@ void arch_wrap_python(py::module &m)
     typedef std::unordered_map<IdString, HierarchicalCell> HierarchyMap;
     typedef std::unordered_map<IdString, IdString> AliasMap;
 
-    auto belpin_cls = py::class_<ContextualWrapper<BelPin>>(m, "BelPin");
-    readonly_wrapper<BelPin, decltype(&BelPin::bel), &BelPin::bel, conv_to_str<BelId>>::def_wrap(belpin_cls, "bel");
-    readonly_wrapper<BelPin, decltype(&BelPin::pin), &BelPin::pin, conv_to_str<IdString>>::def_wrap(belpin_cls, "pin");
-
     typedef UpDownhillPipRange PipRange;
     typedef WireBelPinRange BelPinRange;
 

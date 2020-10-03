@@ -69,6 +69,8 @@ X(INIT1)
 
 X(INV)
 X(BB)
+X(VHI)
+X(VLO)
 
 X(FD1P3BX)
 X(FD1P3DX)

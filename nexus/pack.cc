@@ -208,6 +208,20 @@ struct NexusPacker
         lut_rules[id_LUT4].new_type = id_OXIDE_COMB;
         lut_rules[id_LUT4].port_xform[id_Z] = id_F;
         lut_rules[id_LUT4].parse_params.emplace_back(id_INIT, id_INIT, 16, 0);
+
+        lut_rules[id_INV].new_type = id_OXIDE_COMB;
+        lut_rules[id_INV].port_xform[id_Z] = id_F;
+        lut_rules[id_INV].port_xform[id_A] = id_A;
+        lut_rules[id_INV].set_params.emplace_back(id_INIT, 0x5555);
+
+        lut_rules[id_VHI].new_type = id_OXIDE_COMB;
+        lut_rules[id_VHI].port_xform[id_Z] = id_F;
+        lut_rules[id_VHI].set_params.emplace_back(id_INIT, 0xFFFF);
+
+        lut_rules[id_VLO].new_type = id_OXIDE_COMB;
+        lut_rules[id_VLO].port_xform[id_Z] = id_F;
+        lut_rules[id_VLO].set_params.emplace_back(id_INIT, 0x0000);
+
         generic_xform(lut_rules);
     }
 
