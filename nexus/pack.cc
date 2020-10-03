@@ -236,10 +236,10 @@ struct NexusPacker
             ff_rules[type].port_xform[id_SP] = id_CE;
             ff_rules[type].port_xform[id_Q] = id_Q;
 
-            ff_rules[id_FD1P3BX].default_params.emplace_back(id_CLKMUX, std::string("CLK"));
-            ff_rules[id_FD1P3BX].default_params.emplace_back(id_CEMUX, std::string("CE"));
-            ff_rules[id_FD1P3BX].default_params.emplace_back(id_LSRMUX, std::string("LSR"));
-            ff_rules[id_FD1P3BX].set_params.emplace_back(id_LSRMODE, std::string("LSR"));
+            ff_rules[type].default_params.emplace_back(id_CLKMUX, std::string("CLK"));
+            ff_rules[type].default_params.emplace_back(id_CEMUX, std::string("CE"));
+            ff_rules[type].default_params.emplace_back(id_LSRMUX, std::string("LSR"));
+            ff_rules[type].set_params.emplace_back(id_LSRMODE, std::string("LSR"));
         }
         // Async preload
         ff_rules[id_FD1P3BX].set_params.emplace_back(id_SRMODE, std::string("ASYNC"));
@@ -275,6 +275,7 @@ bool Arch::pack()
     (NexusPacker(getCtx()))();
     attrs[id("step")] = std::string("pack");
     archInfoToAttributes();
+    assignArchInfo();
     return true;
 }
 

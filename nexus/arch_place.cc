@@ -25,9 +25,6 @@ NEXTPNR_NAMESPACE_BEGIN
 
 bool Arch::nexus_logic_tile_valid(LogicTileStatus &lts) const
 {
-#if 1
-    return true;
-#endif
     for (int s = 0; s < 4; s++) {
         if (lts.slices[s].dirty) {
             lts.slices[s].valid = false;
