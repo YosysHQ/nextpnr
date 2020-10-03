@@ -1115,7 +1115,7 @@ struct Arch : BaseCtx
 
     WireId getPipDstWire(PipId pip) const { return canonical_wire(pip.tile, pip_data(pip).to_wire); }
 
-    DelayInfo getPipDelay(PipId pip) const { return getDelayFromNS(0.1); }
+    DelayInfo getPipDelay(PipId pip) const { return getDelayFromNS(0.1 + (pip.index % 30) / 1000.0 ); }
 
     UpDownhillPipRange getPipsDownhill(WireId wire) const
     {
