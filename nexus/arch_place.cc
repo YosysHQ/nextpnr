@@ -25,6 +25,9 @@ NEXTPNR_NAMESPACE_BEGIN
 
 bool Arch::nexus_logic_tile_valid(LogicTileStatus &lts) const
 {
+#if 1
+    return true;
+#endif
     for (int s = 0; s < 4; s++) {
         if (lts.slices[s].dirty) {
             lts.slices[s].valid = false;
@@ -62,7 +65,7 @@ bool Arch::nexus_logic_tile_valid(LogicTileStatus &lts) const
         if (lts.halfs[h].dirty) {
             bool found_ff = false;
             FFControlSet ctrlset;
-            for (int i = 0; i < 1; i++) {
+            for (int i = 0; i < 2; i++) {
                 for (auto bel : {BEL_FF0, BEL_FF1, BEL_RAMW}) {
                     if (bel == BEL_RAMW && (h != 1 || i != 0))
                         continue;

@@ -56,9 +56,9 @@ Property Arch::parse_lattice_param(const CellInfo *ci, IdString prop, int width,
                 if (c >= '0' && c <= '9')
                     nibble = (c - '0');
                 else if (c >= 'a' && c <= 'f')
-                    nibble = (c - 'a');
+                    nibble = (c - 'a') + 10;
                 else if (c >= 'A' && c <= 'F')
-                    nibble = (c - 'A');
+                    nibble = (c - 'A') + 10;
                 else
                     log_error("Invalid hex digit '%c' in property %s.%s\n", c, nameOf(ci), nameOf(prop));
                 for (int j = 0; j < 4; j++)
