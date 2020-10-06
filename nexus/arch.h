@@ -183,14 +183,44 @@ NPNR_PACKED_STRUCT(struct GridLocationPOD {
     RelPtr<PhysicalTileInfoPOD> phys_tiles;
 });
 
-NPNR_PACKED_STRUCT(struct PinInfoPOD {
-    RelPtr<char> pin_name;
-    int32_t dqs_func; // DQS function IdString
-    int32_t clk_func; // Clock function IdStrinng
-    int16_t bank;     // IO bank
-    uint16_t tile_x;  // IO tile X
-    uint16_t tile_y;  // IO tile Y
-    uint16_t bel_z;   // IO bel Z
+enum PioSide : uint8_t
+{
+    PIO_LEFT = 0,
+    PIO_RIGHT = 1,
+    PIO_TOP = 2,
+    PIO_BOTTOM = 3
+};
+
+enum PioDqsFunction : uint8_t
+{
+    PIO_DQS_DQ = 0,
+    PIO_DQS_DQS = 1,
+    PIO_DQS_DQSN = 2
+};
+
+NPNR_PACKED_STRUCT(struct PackageInfoPOD {
+    RelPtr<char> full_name;  // full package name, e.g. CABGA400
+    RelPtr<char> short_name; // name used in part number, e.g. BG400
+});
+
+NPNR_PACKED_STRUCT(struct PadInfoPOD {
+    int16_t offset;   // position offset of tile along side (-1 if not a regular PIO)
+    int8_t side;      // PIO side (see PioSide enum)
+    int8_t pio_index; // index within IO tile
+
+    int16_t bank; // IO bank
+
+    int16_t dqs_group; // DQS group offset
+    int8_t dqs_func;   // DQS function
+
+    int8_t vref_index; // VREF index in bank, or -1 if N/A
+
+    uint16_t num_funcs; // length of special function list
+    uint16_t padding;   // padding for alignment
+
+    RelPtr<uint32_t> func_strs; // list of special function IdStrings
+
+    RelPtr<RelPtr<char>> pins; // package index --> package pin name
 });
 
 NPNR_PACKED_STRUCT(struct GlobalBranchInfoPOD {
@@ -221,12 +251,6 @@ NPNR_PACKED_STRUCT(struct GlobalInfoPOD {
     RelPtr<GlobalBranchInfoPOD> branches;
     RelPtr<GlobalSpineInfoPOD> spines;
     RelPtr<GlobalHrowInfoPOD> hrows;
-});
-
-NPNR_PACKED_STRUCT(struct PackageInfoPOD {
-    RelPtr<char> package_name;
-    uint32_t num_pins;
-    RelPtr<PinInfoPOD> pins;
 });
 
 NPNR_PACKED_STRUCT(struct ChipInfoPOD {
@@ -1115,7 +1139,7 @@ struct Arch : BaseCtx
 
     WireId getPipDstWire(PipId pip) const { return canonical_wire(pip.tile, pip_data(pip).to_wire); }
 
-    DelayInfo getPipDelay(PipId pip) const { return getDelayFromNS(0.1 + (pip.index % 30) / 1000.0 ); }
+    DelayInfo getPipDelay(PipId pip) const { return getDelayFromNS(0.1 + (pip.index % 30) / 1000.0); }
 
     UpDownhillPipRange getPipsDownhill(WireId wire) const
     {
