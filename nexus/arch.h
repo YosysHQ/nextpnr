@@ -754,6 +754,36 @@ struct WireBelPinRange
 
 // -----------------------------------------------------------------------
 
+// This enum captures different 'styles' of cell pins
+// This is a combination of the modes available for a pin (tied high, low or inverted)
+// and the default value to set it to not connected
+enum CellPinStyle
+{
+    PINOPT_NONE = 0x0, // no options, just signal as-is
+    PINOPT_HI = 0x1,   // can be tied low
+    PINOPT_LO = 0x2,   // can be tied high
+    PINOPT_INV = 0x4,  // can be inverted
+
+    PINOPT_LOHI = 0x3,    // can be tied low or high
+    PINOPT_LOHIINV = 0x7, // can be tied low or high; or inverted
+
+    PINDEF_NONE = 0x00, // leave disconnected
+    PINDEF_0 = 0x10,    // connect to 0 if not used
+    PINDEF_1 = 0x20,    // connect to 1 if not used
+
+    PINSTYLE_CIB = 0x11,  // 'CIB' signal, floats high but explicitly zeroed if not used
+    PINSTYLE_CLK = 0x07,  // CLK type signal, invertible and defaults to disconnected
+    PINSTYLE_CE = 0x27,   // CE type signal, invertible and defaults to enabled
+    PINSTYLE_LSR = 0x17,  // LSR type signal, invertible and defaults to not reset
+    PINSTYLE_DEDI = 0x00, // dedicated signals, leave alone
+    PINSTYLE_PU = 0x21,   // signals that float high and default high
+
+    PINSTYLE_INV_PD = 0x17, // invertible, pull down by default
+    PINSTYLE_INV_PU = 0x27, // invertible, pull up by default
+};
+
+// -----------------------------------------------------------------------
+
 const int bba_version =
 #include "bba_version.inc"
         ;
@@ -1308,14 +1338,9 @@ struct Arch : BaseCtx
 
     // -------------------------------------------------
 
-    // Get a map cell type -> pins that can be inverted
-    void get_invertible_pins(std::unordered_map<IdString, std::unordered_set<IdString>> &pins) const;
-    // Get a map cell -> pin -> value _it takes_ if disconnected
-    void get_pins_floating_value(std::unordered_map<IdString, std::unordered_map<IdString, bool>> &pins) const;
-    // Get a map cell -> pin -> value _it must be connected to_ if disconnected
-    // Default value for all pins, if not specified is 0
-    void
-    get_pins_default_value(std::unordered_map<IdString, std::unordered_map<IdString, Property::State>> &pins) const;
+    typedef std::unordered_map<IdString, CellPinStyle> CellPinsData;
+
+    void get_cell_pin_data(std::unordered_map<IdString, CellPinsData> &cell_pins);
 
     // -------------------------------------------------
 

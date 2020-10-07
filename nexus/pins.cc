@@ -22,32 +22,58 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-void Arch::get_invertible_pins(std::unordered_map<IdString, std::unordered_set<IdString>> &pins) const
-{
-    pins[id_OXIDE_FF] = {id_CLK, id_LSR, id_CE};
-    pins[id_RAMW] = {id_WCK};
-    pins[id_SEIO18_CORE] = {id_T};
-    pins[id_SEIO33_CORE] = {id_T};
-}
+namespace {
 
-void Arch::get_pins_floating_value(std::unordered_map<IdString, std::unordered_map<IdString, bool>> &pins) const
-{
-    pins[id_OXIDE_COMB] = {{id_A, true}, {id_B, true}, {id_C, true}, {id_D, true}, {id_SEL, true}};
-    pins[id_OXIDE_FF] = {{id_CLK, false}, {id_LSR, true}, {id_CE, true}};
-    pins[id_SEIO18_CORE] = {{id_T, true}};
-    pins[id_SEIO33_CORE] = {{id_T, true}};
-}
+static const std::unordered_map<IdString, Arch::CellPinsData> base_cell_pin_data = {
+        {id_OXIDE_COMB,
+         {
+                 {id_WCK, PINSTYLE_DEDI},
+                 {id_WRE, PINSTYLE_DEDI},
 
-void Arch::get_pins_default_value(
-        std::unordered_map<IdString, std::unordered_map<IdString, Property::State>> &pins) const
-{
-    pins[id_OXIDE_COMB] = {{id_A, Property::S1},    {id_B, Property::S1},    {id_C, Property::S1},
-                           {id_D, Property::S1},    {id_SEL, Property::S1},  {id_WAD0, Property::Sx},
-                           {id_WAD1, Property::Sx}, {id_WAD2, Property::Sx}, {id_WAD3, Property::Sx},
-                           {id_WCK, Property::Sx},  {id_WRE, Property::Sx},  {id_WD, Property::Sx}};
-    pins[id_OXIDE_FF] = {{id_CE, Property::S1}, {id_DI, Property::Sx}};
-    pins[id_SEIO18_CORE] = {{id_T, Property::S1}};
-    pins[id_SEIO33_CORE] = {{id_T, Property::S1}};
-}
+                 {id_FCI, PINSTYLE_DEDI},
+                 {id_WAD0, PINSTYLE_DEDI},
+                 {id_WAD1, PINSTYLE_DEDI},
+                 {id_WAD2, PINSTYLE_DEDI},
+                 {id_WAD3, PINSTYLE_DEDI},
+                 {id_WD, PINSTYLE_DEDI},
+
+                 {{}, PINSTYLE_PU},
+         }},
+        {id_OXIDE_FF,
+         {
+                 {id_CLK, PINSTYLE_CLK},
+                 {id_LSR, PINSTYLE_LSR},
+                 {id_CE, PINSTYLE_CE},
+                 {{}, PINSTYLE_DEDI},
+         }},
+        {id_SEIO18_CORE,
+         {
+                 {id_T, PINSTYLE_CE},
+                 {id_B, PINSTYLE_DEDI},
+                 {{}, PINSTYLE_INV_PU},
+         }},
+        {id_SEIO33_CORE,
+         {
+                 {id_T, PINSTYLE_CE},
+                 {id_B, PINSTYLE_DEDI},
+                 {{}, PINSTYLE_INV_PU},
+         }},
+        {id_OXIDE_EBR, {{id_CLKA, PINSTYLE_CLK},    {id_CLKB, PINSTYLE_CLK},    {id_CEA, PINSTYLE_CE},
+                        {id_CEB, PINSTYLE_CE},      {id_CSA0, PINSTYLE_PU},     {id_CSA1, PINSTYLE_PU},
+                        {id_CSA2, PINSTYLE_PU},     {id_CSB0, PINSTYLE_PU},     {id_CSB1, PINSTYLE_PU},
+                        {id_CSB2, PINSTYLE_PU},     {id_ADA0, PINSTYLE_INV_PD}, {id_ADA1, PINSTYLE_INV_PD},
+                        {id_ADA2, PINSTYLE_INV_PD}, {id_ADA2, PINSTYLE_INV_PD}, {id_ADA3, PINSTYLE_INV_PD},
+                        {id_ADB0, PINSTYLE_INV_PD}, {id_ADB1, PINSTYLE_INV_PD}, {id_WEA, PINSTYLE_INV_PD},
+                        {id_WEB, PINSTYLE_INV_PD},  {id_RSTA, PINSTYLE_INV_PD}, {id_RSTB, PINSTYLE_INV_PD},
+                        {{}, PINSTYLE_CIB}}},
+        {id_OSC_CORE,
+         {
+                 {id_HFOUTEN, PINSTYLE_PU},
+                 {{}, PINSTYLE_CIB},
+         }},
+};
+} // namespace
+
+void Arch::get_cell_pin_data(std::unordered_map<IdString, CellPinsData> &cell_pins) { cell_pins = base_cell_pin_data; }
 
 NEXTPNR_NAMESPACE_END
