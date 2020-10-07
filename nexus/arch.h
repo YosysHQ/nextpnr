@@ -771,15 +771,26 @@ enum CellPinStyle
     PINDEF_0 = 0x10,    // connect to 0 if not used
     PINDEF_1 = 0x20,    // connect to 1 if not used
 
-    PINSTYLE_CIB = 0x11,  // 'CIB' signal, floats high but explicitly zeroed if not used
-    PINSTYLE_CLK = 0x07,  // CLK type signal, invertible and defaults to disconnected
-    PINSTYLE_CE = 0x27,   // CE type signal, invertible and defaults to enabled
-    PINSTYLE_LSR = 0x17,  // LSR type signal, invertible and defaults to not reset
-    PINSTYLE_DEDI = 0x00, // dedicated signals, leave alone
-    PINSTYLE_PU = 0x21,   // signals that float high and default high
+    PINGLB_CLK = 0x100, // pin is a 'clock' for global purposes
 
-    PINSTYLE_INV_PD = 0x17, // invertible, pull down by default
-    PINSTYLE_INV_PU = 0x27, // invertible, pull up by default
+    PINSTYLE_CIB = 0x011,  // 'CIB' signal, floats high but explicitly zeroed if not used
+    PINSTYLE_CLK = 0x107,  // CLK type signal, invertible and defaults to disconnected
+    PINSTYLE_CE = 0x027,   // CE type signal, invertible and defaults to enabled
+    PINSTYLE_LSR = 0x017,  // LSR type signal, invertible and defaults to not reset
+    PINSTYLE_DEDI = 0x000, // dedicated signals, leave alone
+    PINSTYLE_PU = 0x021,   // signals that float high and default high
+
+    PINSTYLE_INV_PD = 0x017, // invertible, pull down by default
+    PINSTYLE_INV_PU = 0x027, // invertible, pull up by default
+};
+
+// This represents the mux options for a pin
+enum CellPinMux
+{
+    PINMUX_SIG = 0,
+    PINMUX_0 = 1,
+    PINMUX_1 = 2,
+    PINMUX_INV = 3,
 };
 
 // -----------------------------------------------------------------------

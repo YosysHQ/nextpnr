@@ -261,6 +261,92 @@ struct NexusPacker
         generic_xform(ff_rules, true);
     }
 
+    std::unordered_map<IdString, BelId> reference_bels;
+
+    void autocreate_ports(CellInfo *cell)
+    {
+        // Automatically create ports for all inputs of a cell; even if they were left off the instantiation
+        // so we can tie them to constants as appropriate
+        // This also checks for any cells that don't have corresponding bels
+
+        if (!reference_bels.count(cell->type)) {
+            // We need to look up a corresponding bel to get the list of input ports
+            BelId ref_bel;
+            for (BelId bel : ctx->getBels()) {
+                if (ctx->getBelType(bel) != cell->type)
+                    continue;
+                ref_bel = bel;
+                break;
+            }
+            if (ref_bel == BelId())
+                log_error("Cell type '%s' instantiated as '%s' is not supported by this device.\n",
+                          ctx->nameOf(cell->type), ctx->nameOf(cell));
+            reference_bels[cell->type] = ref_bel;
+        }
+
+        BelId bel = reference_bels.at(cell->type);
+        for (IdString pin : ctx->getBelPins(bel)) {
+            PortType dir = ctx->getBelPinType(bel, pin);
+            if (dir != PORT_IN)
+                continue;
+            if (cell->ports.count(pin))
+                continue;
+            cell->ports[pin].name = pin;
+            cell->ports[pin].type = dir;
+        }
+    }
+
+    bool is_port_inverted(CellInfo *cell, IdString port)
+    {
+        NetInfo *net = get_net_or_empty(cell, port);
+        if (net == nullptr || net->driver.cell == nullptr)
+            return false;
+        return (net->driver.cell->type == id_INV);
+    }
+
+    void uninvert_port(CellInfo *cell, IdString port)
+    {
+        // Rewire a port so it is driven by the input to an inverter
+        NetInfo *net = get_net_or_empty(cell, port);
+        NPNR_ASSERT(net != nullptr && net->driver.cell != nullptr && net->driver.cell->type == id_INV);
+        CellInfo *inv = net->driver.cell;
+        disconnect_port(ctx, cell, port);
+
+        NetInfo *inv_a = get_net_or_empty(inv, id_A);
+        if (inv_a != nullptr) {
+            connect_port(ctx, inv_a, cell, port);
+        }
+    }
+
+    void trim_design()
+    {
+        // Remove unused inverters and high/low drivers
+        std::vector<IdString> trim_cells;
+        std::vector<IdString> trim_nets;
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (ci->type != id_INV && ci->type != id_VLO && ci->type != id_VHI)
+                continue;
+            NetInfo *z = get_net_or_empty(ci, id_Z);
+            if (z == nullptr) {
+                trim_cells.push_back(ci->name);
+                continue;
+            }
+            if (!z->users.empty())
+                continue;
+
+            disconnect_port(ctx, ci, id_A);
+
+            trim_cells.push_back(ci->name);
+            trim_nets.push_back(z->name);
+        }
+
+        for (IdString rem_net : trim_nets)
+            ctx->nets.erase(rem_net);
+        for (IdString rem_cell : trim_cells)
+            ctx->cells.erase(rem_cell);
+    }
+
     explicit NexusPacker(Context *ctx) : ctx(ctx) {}
 
     void operator()()
