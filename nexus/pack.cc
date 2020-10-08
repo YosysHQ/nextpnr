@@ -99,6 +99,8 @@ struct NexusPacker
 {
     Context *ctx;
 
+    std::unordered_map<IdString, Arch::CellPinsData> cell_db;
+
     // Generic cell transformation
     // Given cell name map and port map
     // If port name is not found in port map; it will be copied as-is but stripping []
@@ -296,12 +298,68 @@ struct NexusPacker
         }
     }
 
-    bool is_port_inverted(CellInfo *cell, IdString port)
+    NetInfo *get_const_net(IdString type)
+    {
+        // Gets a constant net, given the driver type (VHI or VLO)
+        // If one doesn't exist already; then create it
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (ci->type != type)
+                continue;
+            NetInfo *z = get_net_or_empty(ci, id_Z);
+            if (z == nullptr)
+                continue;
+            return z;
+        }
+
+        NetInfo *new_net = ctx->createNet(ctx->id(stringf("$CONST_%s_NET_", type.c_str(ctx))));
+        CellInfo *new_cell = ctx->createCell(ctx->id(stringf("$CONST_%s_DRV_", type.c_str(ctx))), type);
+        new_cell->addInput(id_Z);
+        connect_port(ctx, new_net, new_cell, id_Z);
+        return new_net;
+    }
+
+    CellPinStyle get_pin_style(CellInfo *cell, IdString port)
+    {
+        // Look up the pin style in the cell database
+        auto fnd_cell = cell_db.find(cell->type);
+        if (fnd_cell == cell_db.end())
+            return PINSTYLE_NONE;
+        auto fnd_port = fnd_cell->second.find(port);
+        if (fnd_port != fnd_cell->second.end())
+            return fnd_port->second;
+        // If there isn't an exact port match, then the empty IdString
+        // represents a wildcard default match
+        auto fnd_default = fnd_cell->second.find({});
+        if (fnd_default != fnd_cell->second.end())
+            return fnd_default->second;
+
+        return PINSTYLE_NONE;
+    }
+
+    CellPinMux get_pin_needed_muxval(CellInfo *cell, IdString port)
     {
         NetInfo *net = get_net_or_empty(cell, port);
-        if (net == nullptr || net->driver.cell == nullptr)
-            return false;
-        return (net->driver.cell->type == id_INV);
+        if (net == nullptr || net->driver.cell == nullptr) {
+            // Pin is disconnected, return its default value
+            CellPinStyle pin_style = get_pin_style(cell, port);
+            if ((pin_style & PINDEF_MASK) == PINDEF_0)
+                return PINMUX_0;
+            else if ((pin_style & PINDEF_MASK) == PINDEF_1)
+                return PINMUX_1;
+            else
+                return PINMUX_SIG;
+        }
+        // Look to see if the driver is an inverter or constant
+        IdString drv_type = net->driver.cell->type;
+        if (drv_type == id_INV)
+            return PINMUX_INV;
+        else if (drv_type == id_VLO)
+            return PINMUX_0;
+        else if (drv_type == id_VHI)
+            return PINMUX_1;
+        else
+            return PINMUX_SIG;
     }
 
     void uninvert_port(CellInfo *cell, IdString port)
@@ -347,10 +405,79 @@ struct NexusPacker
             ctx->cells.erase(rem_cell);
     }
 
+    std::string remove_brackets(const std::string &name)
+    {
+        std::string new_name;
+        new_name.reserve(name.size());
+        for (char c : name)
+            if (c != '[' && c != ']')
+                new_name.push_back(c);
+        return new_name;
+    }
+
+    void prim_to_core(CellInfo *cell, IdString new_type = {})
+    {
+        // Convert a primitive to a '_CORE' variant
+        if (new_type == IdString())
+            new_type = ctx->id(cell->type.str(ctx) + "_CORE");
+        cell->type = new_type;
+        std::set<IdString> port_names;
+        for (auto port : cell->ports)
+            port_names.insert(port.first);
+        for (IdString port : port_names) {
+            IdString new_name = ctx->id(remove_brackets(port.str(ctx)));
+            if (new_name != port)
+                rename_port(ctx, cell, port, new_name);
+        }
+    }
+
+    NetInfo *gnd_net = nullptr, *vcc_net = nullptr;
+
+    void process_inv_constants(CellInfo *cell)
+    {
+        // Automatically create any extra inputs needed; so we can set them accordingly
+        autocreate_ports(cell);
+
+        for (auto &port : cell->ports) {
+            // Iterate over all inputs
+            if (port.second.type != PORT_IN)
+                continue;
+            IdString port_name = port.first;
+
+            CellPinMux req_mux = get_pin_needed_muxval(cell, port_name);
+            if (req_mux == PINMUX_SIG) {
+                // No special setting required, ignore
+                continue;
+            }
+
+            CellPinStyle pin_style = get_pin_style(cell, port_name);
+
+            if (req_mux == PINMUX_INV) {
+                // Pin is inverted. If there is a hard inverter; then use it
+                if ((pin_style & PINOPT_MASK) == PINOPT_INV) {
+                    uninvert_port(cell, port_name);
+                    ctx->set_cell_pinmux(cell, port_name, PINMUX_INV);
+                }
+            } else if (req_mux == PINMUX_0 || req_mux == PINMUX_1) {
+                // Pin is tied to a constant
+                // If there is a hard constant option; use it
+                if ((pin_style & int(req_mux)) == req_mux) {
+                    disconnect_port(ctx, cell, port_name);
+                    ctx->set_cell_pinmux(cell, port_name, req_mux);
+                } else if (port.second.net == nullptr) {
+                    // If the port is disconnected; and there is no hard constant
+                    // then we need to connect it to the relevant soft-constant net
+                    connect_port(ctx, (req_mux == PINMUX_1) ? vcc_net : gnd_net, cell, port_name);
+                }
+            }
+        }
+    }
+
     explicit NexusPacker(Context *ctx) : ctx(ctx) {}
 
     void operator()()
     {
+        ctx->get_cell_pin_data(cell_db);
         pack_ffs();
         pack_luts();
     }

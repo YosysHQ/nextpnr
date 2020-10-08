@@ -443,6 +443,50 @@ bool Arch::route()
 
 // -----------------------------------------------------------------------
 
+CellPinMux Arch::get_cell_pinmux(CellInfo *cell, IdString pin) const
+{
+    IdString param = id(stringf("%sMUX", pin.c_str(this)));
+    auto fnd_param = cell->params.find(param);
+    if (fnd_param == cell->params.end())
+        return PINMUX_SIG;
+    const std::string &pm = fnd_param->second.as_string();
+    if (pm == "0")
+        return PINMUX_0;
+    else if (pm == "1")
+        return PINMUX_1;
+    else if (pm == "INV")
+        return PINMUX_INV;
+    else if (pm == pin.c_str(this))
+        return PINMUX_SIG;
+    else {
+        log_error("Invalid %s setting '%s' for cell '%s'\n", nameOf(param), pm.c_str(), nameOf(cell));
+        NPNR_ASSERT_FALSE("unreachable");
+    }
+}
+
+void Arch::set_cell_pinmux(CellInfo *cell, IdString pin, CellPinMux state)
+{
+    IdString param = id(stringf("%sMUX", pin.c_str(this)));
+    switch (state) {
+    case PINMUX_SIG:
+        cell->params.erase(param);
+        break;
+    case PINMUX_0:
+        cell->params[param] = std::string("0");
+        break;
+    case PINMUX_1:
+        cell->params[param] = std::string("1");
+        break;
+    case PINMUX_INV:
+        cell->params[param] = std::string("INV");
+        break;
+    default:
+        NPNR_ASSERT_FALSE("unreachable");
+    }
+}
+
+// -----------------------------------------------------------------------
+
 #ifdef WITH_HEAP
 const std::string Arch::defaultPlacer = "heap";
 #else

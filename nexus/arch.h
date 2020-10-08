@@ -760,25 +760,32 @@ struct WireBelPinRange
 enum CellPinStyle
 {
     PINOPT_NONE = 0x0, // no options, just signal as-is
-    PINOPT_HI = 0x1,   // can be tied low
-    PINOPT_LO = 0x2,   // can be tied high
+    PINOPT_LO = 0x1,   // can be tied high
+    PINOPT_HI = 0x2,   // can be tied low
     PINOPT_INV = 0x4,  // can be inverted
 
     PINOPT_LOHI = 0x3,    // can be tied low or high
     PINOPT_LOHIINV = 0x7, // can be tied low or high; or inverted
 
+    PINOPT_MASK = 0x7,
+
     PINDEF_NONE = 0x00, // leave disconnected
     PINDEF_0 = 0x10,    // connect to 0 if not used
     PINDEF_1 = 0x20,    // connect to 1 if not used
 
+    PINDEF_MASK = 0x30,
+
     PINGLB_CLK = 0x100, // pin is a 'clock' for global purposes
 
-    PINSTYLE_CIB = 0x011,  // 'CIB' signal, floats high but explicitly zeroed if not used
+    PINGLB_MASK = 0x100,
+
+    PINSTYLE_NONE = 0x000, // default
+    PINSTYLE_CIB = 0x012,  // 'CIB' signal, floats high but explicitly zeroed if not used
     PINSTYLE_CLK = 0x107,  // CLK type signal, invertible and defaults to disconnected
     PINSTYLE_CE = 0x027,   // CE type signal, invertible and defaults to enabled
     PINSTYLE_LSR = 0x017,  // LSR type signal, invertible and defaults to not reset
     PINSTYLE_DEDI = 0x000, // dedicated signals, leave alone
-    PINSTYLE_PU = 0x021,   // signals that float high and default high
+    PINSTYLE_PU = 0x022,   // signals that float high and default high
 
     PINSTYLE_INV_PD = 0x017, // invertible, pull down by default
     PINSTYLE_INV_PU = 0x027, // invertible, pull up by default
@@ -1415,6 +1422,9 @@ struct Arch : BaseCtx
     }
 
     bool nexus_logic_tile_valid(LogicTileStatus &lts) const;
+
+    CellPinMux get_cell_pinmux(CellInfo *cell, IdString pin) const;
+    void set_cell_pinmux(CellInfo *cell, IdString pin, CellPinMux state);
 
     // -------------------------------------------------
     void write_fasm(std::ostream &out) const;
