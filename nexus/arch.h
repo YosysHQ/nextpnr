@@ -1427,6 +1427,13 @@ struct Arch : BaseCtx
     void set_cell_pinmux(CellInfo *cell, IdString pin, CellPinMux state);
 
     // -------------------------------------------------
+
+    // List of IO constraints, used by PDC parser
+    std::unordered_map<IdString, std::unordered_map<IdString, Property>> io_attr;
+
+    void parse_pdc(std::istream &in) const;
+
+    // -------------------------------------------------
     void write_fasm(std::ostream &out) const;
 };
 

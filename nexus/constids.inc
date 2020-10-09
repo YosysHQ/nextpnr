@@ -136,3 +136,5 @@ X(WEA)
 X(WEB)
 X(RSTA)
 X(RSTB)
+
+X(LOC)
