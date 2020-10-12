@@ -170,7 +170,7 @@ struct PDCParser
 
         while (true) {
             char c = peek();
-            if (!in_quotes && !in_braces && !escaped && std::isblank(c)) {
+            if (!in_quotes && !in_braces && !escaped && (std::isblank(c) || c == ']')) {
                 break;
             }
             get();
