@@ -139,6 +139,17 @@ struct NexusFasmWriter
     void push_tile(int loc, IdString tile_type) { push(tile_name(loc, tile_by_type_and_loc(loc, tile_type))); }
     void push_tile(int loc) { push(tile_name(loc, tile_at_loc(loc))); }
     void push_belname(BelId bel) { push(ctx->nameOf(ctx->bel_data(bel).name)); }
+    void push_belgroup(BelId bel)
+    {
+        int r = bel.tile / ctx->chip_info->width;
+        int c = bel.tile % ctx->chip_info->width;
+        auto bel_data = ctx->bel_data(bel);
+        r += bel_data.rel_y;
+        c += bel_data.rel_x;
+        std::string s = stringf("R%dC%d_%s", r, c, ctx->nameOf(ctx->bel_data(bel).name));
+        push(s);
+    }
+
     void write_pip(PipId pip)
     {
         auto &pd = ctx->pip_data(pip);
@@ -203,7 +214,7 @@ struct NexusFasmWriter
     void write_io33(const CellInfo *cell)
     {
         BelId bel = cell->bel;
-        push_tile(bel.tile);
+        push_belgroup(bel);
         push_belname(bel);
         const NetInfo *t = get_net_or_empty(cell, id_T);
         auto tmux = ctx->get_cell_pinmux(cell, id_T);
@@ -221,7 +232,7 @@ struct NexusFasmWriter
     void write_io18(const CellInfo *cell)
     {
         BelId bel = cell->bel;
-        push_tile(bel.tile);
+        push_belgroup(bel);
         push_belname(bel);
         push("SEIO18");
         const NetInfo *t = get_net_or_empty(cell, id_T);
