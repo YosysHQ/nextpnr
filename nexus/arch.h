@@ -258,6 +258,8 @@ NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     uint16_t width;
     uint16_t height;
     uint32_t num_tiles;
+    uint32_t num_pads;
+    uint32_t num_packages;
     RelPtr<GridLocationPOD> grid;
     RelPtr<GlobalInfoPOD> globals;
     RelPtr<PadInfoPOD> pads;
@@ -826,6 +828,8 @@ struct Arch : BaseCtx
     boost::iostreams::mapped_file_source blob_file;
     const DatabasePOD *db;
     const ChipInfoPOD *chip_info;
+
+    int package_idx;
 
     // Binding states
     struct LogicTileStatus
@@ -1427,6 +1431,13 @@ struct Arch : BaseCtx
 
     CellPinMux get_cell_pinmux(CellInfo *cell, IdString pin) const;
     void set_cell_pinmux(CellInfo *cell, IdString pin, CellPinMux state);
+
+    // -------------------------------------------------
+
+    const PadInfoPOD *get_pin_data(const std::string &pin) const;
+    Loc get_pad_loc(const PadInfoPOD *pad) const;
+    BelId get_pin_bel(const std::string &pin) const;
+    const PadInfoPOD *get_bel_pad(BelId bel) const;
 
     // -------------------------------------------------
 

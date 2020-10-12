@@ -473,6 +473,23 @@ struct NexusPacker
         }
     }
 
+    void pack_io()
+    {
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (ci->type == id_SEIO33_CORE || ci->type == id_SEIO18_CORE) {
+                auto fnd_loc = ci->attrs.find(id_LOC);
+                if (fnd_loc == ci->attrs.end())
+                    continue;
+                BelId bel = ctx->get_pin_bel(fnd_loc->second.as_string());
+                if (bel == BelId())
+                    log_error("cannot constrain IO '%s', no PIO pin named '%s'\n", ctx->nameOf(ci),
+                              fnd_loc->second.as_string().c_str());
+                ci->attrs[id_BEL] = ctx->getBelName(bel).str(ctx);
+            }
+        }
+    }
+
     explicit NexusPacker(Context *ctx) : ctx(ctx) {}
 
     void operator()()
@@ -480,6 +497,7 @@ struct NexusPacker
         ctx->get_cell_pin_data(cell_db);
         pack_ffs();
         pack_luts();
+        pack_io();
     }
 };
 

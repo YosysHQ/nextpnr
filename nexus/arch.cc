@@ -117,6 +117,22 @@ Arch::Arch(ArchArgs args) : args(args)
     for (size_t i = 0; i < chip_info->num_tiles; i++) {
         tileStatus[i].boundcells.resize(db->loctypes[chip_info->grid[i].loc_type].num_bels);
     }
+    // Validate and set up package
+    package_idx = -1;
+    for (size_t i = 0; i < chip_info->num_packages; i++) {
+        if (package == chip_info->packages[i].short_name.get()) {
+            package_idx = i;
+            break;
+        }
+    }
+    if (package_idx == -1) {
+        std::string all_packages = "";
+        for (size_t i = 0; i < chip_info->num_packages; i++) {
+            all_packages += " ";
+            all_packages += chip_info->packages[i].short_name.get();
+        }
+        log_error("Unknown package '%s'. Available package options:%s\n", package.c_str(), all_packages.c_str());
+    }
 }
 
 // -----------------------------------------------------------------------
@@ -483,6 +499,79 @@ void Arch::set_cell_pinmux(CellInfo *cell, IdString pin, CellPinMux state)
     default:
         NPNR_ASSERT_FALSE("unreachable");
     }
+}
+
+// -----------------------------------------------------------------------
+
+const PadInfoPOD *Arch::get_pin_data(const std::string &pin) const
+{
+    for (size_t i = 0; i < chip_info->num_pads; i++) {
+        const PadInfoPOD *pad = &(chip_info->pads[i]);
+        if (pin == pad->pins[package_idx].get())
+            return pad;
+    }
+    return nullptr;
+}
+
+Loc Arch::get_pad_loc(const PadInfoPOD *pad) const
+{
+    Loc loc;
+    switch (pad->side) {
+    case PIO_LEFT:
+        loc.x = 0;
+        loc.y = pad->offset;
+        break;
+    case PIO_RIGHT:
+        loc.x = chip_info->width - 1;
+        loc.y = pad->offset;
+        break;
+    case PIO_TOP:
+        loc.x = pad->offset;
+        loc.y = 0;
+        break;
+    case PIO_BOTTOM:
+        loc.x = pad->offset;
+        loc.y = chip_info->height - 1;
+    }
+    loc.z = pad->pio_index;
+    return loc;
+}
+
+BelId Arch::get_pin_bel(const std::string &pin) const
+{
+    const PadInfoPOD *pad = get_pin_data(pin);
+    if (pad == nullptr)
+        return BelId();
+    return getBelByLocation(get_pad_loc(pad));
+}
+
+const PadInfoPOD *Arch::get_bel_pad(BelId bel) const
+{
+    Loc loc = getBelLocation(bel);
+    int side = -1, offset = -1;
+    // Convert (x, y) to (side, offset)
+    if (loc.x == 0) {
+        side = PIO_LEFT;
+        offset = loc.y;
+    } else if (loc.x == (chip_info->width - 1)) {
+        side = PIO_RIGHT;
+        offset = loc.y;
+    } else if (loc.y == 0) {
+        side = PIO_TOP;
+        offset = loc.x;
+    } else if (loc.y == (chip_info->height - 1)) {
+        side = PIO_BOTTOM;
+        offset = loc.x;
+    } else {
+        return nullptr;
+    }
+    // Lookup in the list of pads
+    for (size_t i = 0; i < chip_info->num_pads; i++) {
+        const PadInfoPOD *pad = &(chip_info->pads[i]);
+        if (pad->side == side && pad->offset == offset && pad->pio_index == loc.z)
+            return pad;
+    }
+    return nullptr;
 }
 
 // -----------------------------------------------------------------------
