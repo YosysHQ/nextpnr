@@ -304,8 +304,12 @@ struct PDCParser
                     if (!val.is_string)
                         log_error("expecting string argument to -iobuf (line %d)\n", lineno);
                     std::stringstream ss(val.str);
-                    std::string k, v;
-                    while (ss >> k >> v) {
+                    std::string kv;
+                    while (ss >> kv) {
+                        auto eqp = kv.find('=');
+                        if (eqp == std::string::npos)
+                            log_error("expected key-value pair separated by '=' (line %d)", lineno);
+                        std::string k = kv.substr(0, eqp), v = kv.substr(eqp + 1);
                         args[ctx->id(k)] = v;
                     }
                 } else {

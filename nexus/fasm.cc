@@ -91,6 +91,17 @@ struct NexusFasmWriter
         }
     }
 
+    void write_ioattr(const CellInfo *cell, const std::string &name, const std::string &defval = "")
+    {
+        auto fnd = cell->attrs.find(ctx->id(name));
+        if (fnd == cell->attrs.end()) {
+            if (!defval.empty())
+                write_bit(stringf("%s.%s", name.c_str(), defval.c_str()));
+        } else {
+            write_bit(stringf("%s.%s", name.c_str(), fnd->second.c_str()));
+        }
+    }
+
     NexusFasmWriter(const Context *ctx, std::ostream &out) : ctx(ctx), out(out) {}
     std::string tile_name(int loc, const PhysicalTileInfoPOD &tile)
     {
@@ -195,14 +206,16 @@ struct NexusFasmWriter
         push_tile(bel.tile);
         push_belname(bel);
         const NetInfo *t = get_net_or_empty(cell, id_T);
+        auto tmux = ctx->get_cell_pinmux(cell, id_T);
         bool is_input = false, is_output = false;
-        if (t == nullptr || t->name == ctx->id("$PACKER_VCC_NET")) {
-            is_input = true;
-        } else if (t->name == ctx->id("$PACKER_GND_NET")) {
+        if (tmux == PINMUX_0) {
             is_output = true;
+        } else if (tmux == PINMUX_1 || t == nullptr) {
+            is_input = true;
         }
         const char *iodir = is_input ? "INPUT" : (is_output ? "OUTPUT" : "BIDIR");
         write_bit(stringf("BASE_TYPE.%s_%s", iodir, str_or_default(cell->attrs, id_IO_TYPE, "LVCMOS33").c_str()));
+        write_ioattr(cell, "PULLMODE", "NONE");
         pop(2);
     }
     void write_io18(const CellInfo *cell)
@@ -212,14 +225,16 @@ struct NexusFasmWriter
         push_belname(bel);
         push("SEIO18");
         const NetInfo *t = get_net_or_empty(cell, id_T);
+        auto tmux = ctx->get_cell_pinmux(cell, id_T);
         bool is_input = false, is_output = false;
-        if (t == nullptr || t->name == ctx->id("$PACKER_VCC_NET")) {
-            is_input = true;
-        } else if (t->name == ctx->id("$PACKER_GND_NET")) {
+        if (tmux == PINMUX_0) {
             is_output = true;
+        } else if (tmux == PINMUX_1 || t == nullptr) {
+            is_input = true;
         }
         const char *iodir = is_input ? "INPUT" : (is_output ? "OUTPUT" : "BIDIR");
         write_bit(stringf("BASE_TYPE.%s_%s", iodir, str_or_default(cell->attrs, id_IO_TYPE, "LVCMOS18H").c_str()));
+        write_ioattr(cell, "PULLMODE", "NONE");
         pop(3);
     }
     void write_osc(const CellInfo *cell)

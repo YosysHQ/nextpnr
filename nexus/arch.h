@@ -1429,15 +1429,16 @@ struct Arch : BaseCtx
 
     bool nexus_logic_tile_valid(LogicTileStatus &lts) const;
 
-    CellPinMux get_cell_pinmux(CellInfo *cell, IdString pin) const;
+    CellPinMux get_cell_pinmux(const CellInfo *cell, IdString pin) const;
     void set_cell_pinmux(CellInfo *cell, IdString pin, CellPinMux state);
 
     // -------------------------------------------------
 
-    const PadInfoPOD *get_pin_data(const std::string &pin) const;
+    const PadInfoPOD *get_pkg_pin_data(const std::string &pin) const;
     Loc get_pad_loc(const PadInfoPOD *pad) const;
-    BelId get_pin_bel(const std::string &pin) const;
+    BelId get_pad_pio_bel(const PadInfoPOD *pad) const;
     const PadInfoPOD *get_bel_pad(BelId bel) const;
+    std::string get_pad_functions(const PadInfoPOD *pad) const;
 
     // -------------------------------------------------
 

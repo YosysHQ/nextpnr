@@ -502,7 +502,7 @@ struct NexusPacker
                 // Might have an output buffer (OB etc) connected to it
                 is_npnr_iob = true;
                 NetInfo *i = get_net_or_empty(ci, id_I);
-                if (i == nullptr && i->driver.cell != nullptr) {
+                if (i != nullptr && i->driver.cell != nullptr) {
                     if (top_port.cell != nullptr)
                         log_error("Top level '%s' has multiple input/output buffers\n", ctx->nameOf(port.first));
                     top_port = i->driver;
@@ -531,20 +531,103 @@ struct NexusPacker
         }
     }
 
+    BelId get_io_bel(CellInfo *ci)
+    {
+        if (!ci->attrs.count(id_BEL))
+            return BelId();
+        return ctx->getBelByName(ctx->id(ci->attrs.at(id_BEL).as_string()));
+    }
+
     void pack_io()
     {
+        std::unordered_set<IdString> iob_types = {id_IB,          id_OB,          id_OBZ,          id_BB,
+                                                  id_BB_I3C_A,    id_SEIO33,      id_SEIO18,       id_DIFFIO18,
+                                                  id_SEIO33_CORE, id_SEIO18_CORE, id_DIFFIO18_CORE};
+
+        std::unordered_map<IdString, XFormRule> io_rules;
+
+        // For the low level primitives, make sure we always preserve their type
+        io_rules[id_SEIO33_CORE].new_type = id_SEIO33_CORE;
+        io_rules[id_SEIO18_CORE].new_type = id_SEIO18_CORE;
+        io_rules[id_DIFFIO18_CORE].new_type = id_DIFFIO18_CORE;
+
+        // Some IO buffer types need a bit of pin renaming, too
+        io_rules[id_SEIO33].new_type = id_SEIO33_CORE;
+        io_rules[id_SEIO33].port_xform[id_PADDI] = id_O;
+        io_rules[id_SEIO33].port_xform[id_PADDO] = id_I;
+        io_rules[id_SEIO33].port_xform[id_PADDT] = id_T;
+        io_rules[id_SEIO33].port_xform[id_IOPAD] = id_B;
+
+        io_rules[id_BB_I3C_A] = io_rules[id_SEIO33];
+
+        io_rules[id_SEIO18] = io_rules[id_SEIO33];
+        io_rules[id_SEIO18].new_type = id_SEIO18_CORE;
+
+        io_rules[id_DIFFIO18] = io_rules[id_SEIO33];
+        io_rules[id_DIFFIO18].new_type = id_DIFFIO18_CORE;
+
+        // Stage 0: deal with top level inserted IO buffers
+        prepare_io();
+
+        // Stage 1: setup constraints
         for (auto cell : sorted(ctx->cells)) {
             CellInfo *ci = cell.second;
-            if (ci->type == id_SEIO33_CORE || ci->type == id_SEIO18_CORE) {
-                auto fnd_loc = ci->attrs.find(id_LOC);
-                if (fnd_loc == ci->attrs.end())
-                    continue;
-                BelId bel = ctx->get_pin_bel(fnd_loc->second.as_string());
-                if (bel == BelId())
-                    log_error("cannot constrain IO '%s', no PIO pin named '%s'\n", ctx->nameOf(ci),
-                              fnd_loc->second.as_string().c_str());
+            // Iterate through all IO buffer primitives
+            if (!iob_types.count(ci->type))
+                continue;
+            // We need all IO constrained so we can pick the right IO bel type
+            // An improvement would be to allocate unconstrained IO here
+            if (!ci->attrs.count(id_LOC))
+                log_error("Found unconstrained IO '%s', these are currently unsupported\n", ctx->nameOf(ci));
+            // Convert package pin constraint to bel constraint
+            std::string loc = ci->attrs.at(id_LOC).as_string();
+            auto pad_info = ctx->get_pkg_pin_data(loc);
+            if (pad_info == nullptr)
+                log_error("IO '%s' is constrained to invalid pin '%s'\n", ctx->nameOf(ci), loc.c_str());
+            auto func = ctx->get_pad_functions(pad_info);
+            BelId bel = ctx->get_pad_pio_bel(pad_info);
+
+            if (bel == BelId()) {
+                log_error("IO '%s' is constrained to pin %s (%s) which is not a general purpose IO pin.\n",
+                          ctx->nameOf(ci), loc.c_str(), func.c_str());
+            } else {
+
+                // Get IO type for reporting purposes
+                std::string io_type = str_or_default(ci->attrs, id_IO_TYPE, "LVCMOS33");
+
+                log_info("Constraining %s IO '%s' to pin %s (%s%sbel %s)\n", io_type.c_str(), ctx->nameOf(ci),
+                         loc.c_str(), func.c_str(), func.empty() ? "" : "; ", ctx->nameOfBel(bel));
                 ci->attrs[id_BEL] = ctx->getBelName(bel).str(ctx);
             }
+        }
+        // Stage 2: apply rules for primitives that need them
+        generic_xform(io_rules, false);
+        // Stage 3: all other IO primitives become their bel type
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            // Iterate through all IO buffer primitives
+            if (!iob_types.count(ci->type))
+                continue;
+            // Skip those dealt with in stage 2
+            if (io_rules.count(ci->type))
+                continue;
+            // For non-bidirectional IO, we also need to configure tristate and rename B
+            if (ci->type == id_IB) {
+                ctx->set_cell_pinmux(ci, id_T, PINMUX_1);
+                rename_port(ctx, ci, id_I, id_B);
+            } else if (ci->type == id_OB) {
+                ctx->set_cell_pinmux(ci, id_T, PINMUX_0);
+                rename_port(ctx, ci, id_O, id_B);
+            } else if (ci->type == id_OBZ) {
+                ctx->set_cell_pinmux(ci, id_T, PINMUX_SIG);
+                rename_port(ctx, ci, id_O, id_B);
+            }
+            // Get the IO bel
+            BelId bel = get_io_bel(ci);
+            // Set the cell type to the bel type
+            IdString type = ctx->getBelType(bel);
+            NPNR_ASSERT(type != IdString());
+            ci->type = type;
         }
     }
 

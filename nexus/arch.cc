@@ -459,7 +459,7 @@ bool Arch::route()
 
 // -----------------------------------------------------------------------
 
-CellPinMux Arch::get_cell_pinmux(CellInfo *cell, IdString pin) const
+CellPinMux Arch::get_cell_pinmux(const CellInfo *cell, IdString pin) const
 {
     IdString param = id(stringf("%sMUX", pin.c_str(this)));
     auto fnd_param = cell->params.find(param);
@@ -503,7 +503,7 @@ void Arch::set_cell_pinmux(CellInfo *cell, IdString pin, CellPinMux state)
 
 // -----------------------------------------------------------------------
 
-const PadInfoPOD *Arch::get_pin_data(const std::string &pin) const
+const PadInfoPOD *Arch::get_pkg_pin_data(const std::string &pin) const
 {
     for (size_t i = 0; i < chip_info->num_pads; i++) {
         const PadInfoPOD *pad = &(chip_info->pads[i]);
@@ -537,9 +537,8 @@ Loc Arch::get_pad_loc(const PadInfoPOD *pad) const
     return loc;
 }
 
-BelId Arch::get_pin_bel(const std::string &pin) const
+BelId Arch::get_pad_pio_bel(const PadInfoPOD *pad) const
 {
-    const PadInfoPOD *pad = get_pin_data(pin);
     if (pad == nullptr)
         return BelId();
     return getBelByLocation(get_pad_loc(pad));
@@ -572,6 +571,17 @@ const PadInfoPOD *Arch::get_bel_pad(BelId bel) const
             return pad;
     }
     return nullptr;
+}
+
+std::string Arch::get_pad_functions(const PadInfoPOD *pad) const
+{
+    std::string s;
+    for (size_t i = 0; i < pad->num_funcs; i++) {
+        if (!s.empty())
+            s += '/';
+        s += IdString(pad->func_strs[i]).str(this);
+    }
+    return s;
 }
 
 // -----------------------------------------------------------------------
