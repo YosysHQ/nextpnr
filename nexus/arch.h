@@ -260,6 +260,8 @@ NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     uint32_t num_tiles;
     RelPtr<GridLocationPOD> grid;
     RelPtr<GlobalInfoPOD> globals;
+    RelPtr<PadInfoPOD> pads;
+    RelPtr<PackageInfoPOD> packages;
 });
 
 NPNR_PACKED_STRUCT(struct IdStringDBPOD {
