@@ -494,7 +494,7 @@ struct NexusPacker
                 if (o == nullptr)
                     ;
                 else if (o->users.size() > 1)
-                    log_error("Top level '%s' has multiple input buffers\n", ctx->nameOf(port.first));
+                    log_error("Top level pin '%s' has multiple input buffers\n", ctx->nameOf(port.first));
                 else if (o->users.size() == 1)
                     top_port = o->users.at(0);
             }
@@ -504,8 +504,21 @@ struct NexusPacker
                 NetInfo *i = get_net_or_empty(ci, id_I);
                 if (i != nullptr && i->driver.cell != nullptr) {
                     if (top_port.cell != nullptr)
-                        log_error("Top level '%s' has multiple input/output buffers\n", ctx->nameOf(port.first));
+                        log_error("Top level pin '%s' has multiple input/output buffers\n", ctx->nameOf(port.first));
                     top_port = i->driver;
+                }
+                // Edge case of a bidirectional buffer driving an output pin
+                if (i->users.size() > 2) {
+                    log_error("Top level pin '%s' has illegal buffer configuration\n", ctx->nameOf(port.first));
+                } else if (i->users.size() == 2) {
+                    if (top_port.cell != nullptr)
+                        log_error("Top level pin '%s' has illegal buffer configuration\n", ctx->nameOf(port.first));
+                    for (auto &usr : i->users) {
+                        if (usr.cell->type == ctx->id("$nextpnr_obuf") || usr.cell->type == ctx->id("$nextpnr_iobuf"))
+                            continue;
+                        top_port = usr;
+                        break;
+                    }
                 }
             }
             if (!is_npnr_iob)
