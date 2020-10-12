@@ -473,6 +473,64 @@ struct NexusPacker
         }
     }
 
+    void prepare_io()
+    {
+        // Find the actual IO buffer corresponding to a port; and copy attributes across to it
+        // Note that this relies on Yosys to do IO buffer inference, to match vendor tooling behaviour
+        // In all cases the nextpnr-inserted IO buffers are removed as redundant.
+        for (auto &port : sorted_ref(ctx->ports)) {
+            if (!ctx->cells.count(port.first))
+                log_error("Port '%s' doesn't seem to have a corresponding top level IO\n", ctx->nameOf(port.first));
+            CellInfo *ci = ctx->cells.at(port.first).get();
+
+            PortRef top_port;
+            top_port.cell = nullptr;
+            bool is_npnr_iob = false;
+
+            if (ci->type == ctx->id("$nextpnr_ibuf") || ci->type == ctx->id("$nextpnr_iobuf")) {
+                // Might have an input buffer (IB etc) connected to it
+                is_npnr_iob = true;
+                NetInfo *o = get_net_or_empty(ci, id_O);
+                if (o == nullptr)
+                    ;
+                else if (o->users.size() > 1)
+                    log_error("Top level '%s' has multiple input buffers\n", ctx->nameOf(port.first));
+                else if (o->users.size() == 1)
+                    top_port = o->users.at(0);
+            }
+            if (ci->type == ctx->id("$nextpnr_obuf") || ci->type == ctx->id("$nextpnr_iobuf")) {
+                // Might have an output buffer (OB etc) connected to it
+                is_npnr_iob = true;
+                NetInfo *i = get_net_or_empty(ci, id_I);
+                if (i == nullptr && i->driver.cell != nullptr) {
+                    if (top_port.cell != nullptr)
+                        log_error("Top level '%s' has multiple input/output buffers\n", ctx->nameOf(port.first));
+                    top_port = i->driver;
+                }
+            }
+            if (!is_npnr_iob)
+                log_error("Port '%s' doesn't seem to have a corresponding top level IO (internal cell type mismatch)\n",
+                          ctx->nameOf(port.first));
+
+            if (top_port.cell == nullptr) {
+                log_info("Trimming port '%s' as it is unused.\n", ctx->nameOf(port.first));
+            } else {
+                // Copy attributes to real IO buffer
+                if (ctx->io_attr.count(port.first)) {
+                    for (auto &kv : ctx->io_attr.at(port.first)) {
+                        top_port.cell->attrs[kv.first] = kv.second;
+                    }
+                }
+                // Make sure that top level net is set correctly
+                port.second.net = top_port.cell->ports.at(top_port.port).net;
+            }
+            // Now remove the nextpnr-inserted buffer
+            disconnect_port(ctx, ci, id_I);
+            disconnect_port(ctx, ci, id_O);
+            ctx->cells.erase(port.first);
+        }
+    }
+
     void pack_io()
     {
         for (auto cell : sorted(ctx->cells)) {
