@@ -1444,7 +1444,7 @@ struct Arch : BaseCtx
     // List of IO constraints, used by PDC parser
     std::unordered_map<IdString, std::unordered_map<IdString, Property>> io_attr;
 
-    void parse_pdc(std::istream &in) const;
+    void read_pdc(std::istream &in);
 
     // -------------------------------------------------
     void write_fasm(std::ostream &out) const;

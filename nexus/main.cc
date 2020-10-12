@@ -50,6 +50,7 @@ po::options_description NexusCommandHandler::getArchOptions()
     specific.add_options()("chipdb", po::value<std::string>(), "name of chip database binary");
     specific.add_options()("device", po::value<std::string>(), "device name");
     specific.add_options()("fasm", po::value<std::string>(), "fasm file to write");
+    specific.add_options()("pdc", po::value<std::string>(), "physical constraints file");
     return specific;
 }
 
@@ -72,7 +73,16 @@ std::unique_ptr<Context> NexusCommandHandler::createContext(std::unordered_map<s
     return std::unique_ptr<Context>(new Context(chipArgs));
 }
 
-void NexusCommandHandler::customAfterLoad(Context *ctx) {}
+void NexusCommandHandler::customAfterLoad(Context *ctx)
+{
+    if (vm.count("pdc")) {
+        std::string filename = vm["pdc"].as<std::string>();
+        std::ifstream in(filename);
+        if (!in)
+            log_error("Failed to open input PDC file %s.\n", filename.c_str());
+        ctx->read_pdc(in);
+    }
+}
 
 int main(int argc, char *argv[])
 {

@@ -21,6 +21,8 @@
 #include "log.h"
 #include "nextpnr.h"
 
+#include <iterator>
+
 NEXTPNR_NAMESPACE_BEGIN
 
 struct TCLEntity
@@ -75,6 +77,8 @@ struct PDCParser
     int pos = 0;
     int lineno = 1;
     Context *ctx;
+
+    PDCParser(const std::string &buf, Context *ctx) : buf(buf), ctx(ctx){};
 
     inline bool eof() const { return pos == int(buf.size()); }
 
@@ -193,10 +197,14 @@ struct PDCParser
         const std::string &cmd = arg0.str;
         if (cmd == "get_ports")
             return cmd_get_ports(arguments);
+        else if (cmd == "get_cells")
+            return cmd_get_cells(arguments);
         else if (cmd == "ldc_set_location")
             return cmd_ldc_set_location(arguments);
         else if (cmd == "ldc_set_port")
             return cmd_ldc_set_port(arguments);
+        else
+            log_error("Unsupported PDC command '%s'\n", cmd.c_str());
     }
 
     std::vector<TCLValue> get_arguments()
@@ -208,6 +216,8 @@ struct PDCParser
                 auto result = evaluate(get_arguments());
                 NPNR_ASSERT(check_get(']'));
                 args.push_back(result);
+            } else if (peek() == ']') {
+                break;
             } else {
                 args.push_back(get_str());
             }
@@ -231,6 +241,23 @@ struct PDCParser
                 ports.emplace_back(TCLEntity::ENTITY_PORT, id);
         }
         return ports;
+    }
+
+    TCLValue cmd_get_cells(const std::vector<TCLValue> &arguments)
+    {
+        std::vector<TCLEntity> cells;
+        for (int i = 1; i < int(arguments.size()); i++) {
+            auto &arg = arguments.at(i);
+            if (!arg.is_string)
+                log_error("get_cells expected string arguments (line %d)\n", lineno);
+            std::string s = arg.str;
+            if (s.at(0) == '-')
+                log_error("unsupported argument '%s' to get_cells (line %d)\n", s.c_str(), lineno);
+            IdString id = ctx->id(s);
+            if (ctx->cells.count(id))
+                cells.emplace_back(TCLEntity::ENTITY_CELL, id);
+        }
+        return cells;
     }
 
     TCLValue cmd_ldc_set_location(const std::vector<TCLValue> &arguments)
@@ -296,6 +323,23 @@ struct PDCParser
         }
         return std::string{};
     }
+
+    void operator()()
+    {
+        while (!eof()) {
+            skip_blank(true);
+            auto args = get_arguments();
+            if (args.empty())
+                continue;
+            evaluate(args);
+        }
+    }
 };
+
+void Arch::read_pdc(std::istream &in)
+{
+    std::string buf(std::istreambuf_iterator<char>(in), {});
+    PDCParser(buf, getCtx())();
+}
 
 NEXTPNR_NAMESPACE_END
