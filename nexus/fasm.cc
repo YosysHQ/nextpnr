@@ -30,30 +30,38 @@ struct NexusFasmWriter
     std::ostream &out;
     std::vector<std::string> fasm_ctx;
 
+    std::unordered_map<IdString, Arch::CellPinsData> cell_pins_db;
+
+    NexusFasmWriter(const Context *ctx, std::ostream &out) : ctx(ctx), out(out) {}
+
+    // Add a 'dot' prefix to the FASM context stack
     void push(const std::string &x) { fasm_ctx.push_back(x); }
 
+    // Remove a prefix from the FASM context stack
     void pop() { fasm_ctx.pop_back(); }
 
+    // Remove N prefices from the FASM context stack
     void pop(int N)
     {
         for (int i = 0; i < N; i++)
             fasm_ctx.pop_back();
     }
     bool last_was_blank = true;
+    // Insert a blank line if the last wasn't blank
     void blank()
     {
         if (!last_was_blank)
             out << std::endl;
         last_was_blank = true;
     }
-
+    // Write out all prefices from the stack, interspersed with .
     void write_prefix()
     {
         for (auto &x : fasm_ctx)
             out << x << ".";
         last_was_blank = false;
     }
-
+    // Write a single config bit; if value is true
     void write_bit(const std::string &name, bool value = true)
     {
         if (value) {
@@ -61,8 +69,9 @@ struct NexusFasmWriter
             out << name << std::endl;
         }
     }
+    // Write a FASM comment
     void write_comment(const std::string &cmt) { out << "# " << cmt << std::endl; }
-
+    // Write a FASM bitvector; optionally inverting the values in the process
     void write_vector(const std::string &name, const std::vector<bool> &value, bool invert = false)
     {
         write_prefix();
@@ -71,7 +80,7 @@ struct NexusFasmWriter
             out << ((bit ^ invert) ? '1' : '0');
         out << std::endl;
     }
-
+    // Write a FASM bitvector given an integer value
     void write_int_vector(const std::string &name, uint64_t value, int width, bool invert = false)
     {
         std::vector<bool> bits(width, false);
@@ -79,7 +88,7 @@ struct NexusFasmWriter
             bits[i] = (value & (1ULL << i)) != 0;
         write_vector(name, bits, invert);
     }
-
+    // Look up an enum value in a cell's parameters and write it to the FASM in name.value format
     void write_enum(const CellInfo *cell, const std::string &name, const std::string &defval = "")
     {
         auto fnd = cell->params.find(ctx->id(name));
@@ -90,7 +99,7 @@ struct NexusFasmWriter
             write_bit(stringf("%s.%s", name.c_str(), fnd->second.c_str()));
         }
     }
-
+    // Look up an IO attribute in the cell's attributes and write it to the FASM in name.value format
     void write_ioattr(const CellInfo *cell, const std::string &name, const std::string &defval = "")
     {
         auto fnd = cell->attrs.find(ctx->id(name));
@@ -101,14 +110,14 @@ struct NexusFasmWriter
             write_bit(stringf("%s.%s", name.c_str(), fnd->second.c_str()));
         }
     }
-
-    NexusFasmWriter(const Context *ctx, std::ostream &out) : ctx(ctx), out(out) {}
+    // Gets the full name of a tile
     std::string tile_name(int loc, const PhysicalTileInfoPOD &tile)
     {
         int r = loc / ctx->chip_info->width;
         int c = loc % ctx->chip_info->width;
         return stringf("%sR%dC%d__%s", ctx->nameOf(tile.prefix), r, c, ctx->nameOf(tile.tiletype));
     }
+    // Look up a tile by location index and tile type
     const PhysicalTileInfoPOD &tile_by_type_and_loc(int loc, IdString type)
     {
         auto &ploc = ctx->chip_info->grid[loc];
@@ -119,12 +128,14 @@ struct NexusFasmWriter
         log_error("No tile of type %s found at location R%dC%d", ctx->nameOf(type), loc / ctx->chip_info->width,
                   loc % ctx->chip_info->width);
     }
+    // Gets the single tile at a location
     const PhysicalTileInfoPOD &tile_at_loc(int loc)
     {
         auto &ploc = ctx->chip_info->grid[loc];
         NPNR_ASSERT(ploc.num_phys_tiles == 1);
         return ploc.phys_tiles[0];
     }
+    // Escape an internal prjoxide name for FASM by replacing : with __
     std::string escape_name(const std::string &name)
     {
         std::string escaped;
@@ -136,9 +147,12 @@ struct NexusFasmWriter
         }
         return escaped;
     }
+    // Push a tile name onto the prefix stack
     void push_tile(int loc, IdString tile_type) { push(tile_name(loc, tile_by_type_and_loc(loc, tile_type))); }
     void push_tile(int loc) { push(tile_name(loc, tile_at_loc(loc))); }
+    // Push a bel name onto the prefix stack
     void push_belname(BelId bel) { push(ctx->nameOf(ctx->bel_data(bel).name)); }
+    // Push the tile group name corresponding to a bel onto the prefix stack
     void push_belgroup(BelId bel)
     {
         int r = bel.tile / ctx->chip_info->width;
@@ -149,7 +163,7 @@ struct NexusFasmWriter
         std::string s = stringf("R%dC%d_%s", r, c, ctx->nameOf(ctx->bel_data(bel).name));
         push(s);
     }
-
+    // Write out a pip in tile.dst.src format
     void write_pip(PipId pip)
     {
         auto &pd = ctx->pip_data(pip);
@@ -160,6 +174,7 @@ struct NexusFasmWriter
         std::string dest_wire = escape_name(ctx->pip_dst_wire_name(pip).str(ctx));
         write_bit(stringf("%s.PIP.%s.%s", tile.c_str(), dest_wire.c_str(), source_wire.c_str()));
     }
+    // Write out all the pips corresponding to a net
     void write_net(const NetInfo *net)
     {
         write_comment(stringf("Net %s", ctx->nameOf(net)));
@@ -171,6 +186,7 @@ struct NexusFasmWriter
             write_pip(p);
         blank();
     }
+    // Write config for an OXIDE_COMB cell
     void write_comb(const CellInfo *cell)
     {
         BelId bel = cell->bel;
@@ -189,6 +205,7 @@ struct NexusFasmWriter
 #endif
         pop(2);
     }
+    // Write config for an OXIDE_FF cell
     void write_ff(const CellInfo *cell)
     {
         BelId bel = cell->bel;
@@ -211,6 +228,7 @@ struct NexusFasmWriter
         write_enum(cell, "GSR");
         pop(2);
     }
+    // Write config for an SEIO33_CORE cell
     void write_io33(const CellInfo *cell)
     {
         BelId bel = cell->bel;
@@ -229,6 +247,7 @@ struct NexusFasmWriter
         write_ioattr(cell, "PULLMODE", "NONE");
         pop(2);
     }
+    // Write config for an SEIO18_CORE cell
     void write_io18(const CellInfo *cell)
     {
         BelId bel = cell->bel;
@@ -248,6 +267,7 @@ struct NexusFasmWriter
         write_ioattr(cell, "PULLMODE", "NONE");
         pop(3);
     }
+    // Write config for an OSC_CORE cell
     void write_osc(const CellInfo *cell)
     {
         BelId bel = cell->bel;
@@ -262,8 +282,11 @@ struct NexusFasmWriter
         write_int_vector(stringf("HF_CLK_DIV[7:0]"), ctx->parse_lattice_param(cell, id_HF_CLK_DIV, 8, 0).intval, 8);
         pop(2);
     }
+    // Write out FASM for the whole design
     void operator()()
     {
+        // Setup pin DB
+        ctx->get_cell_pin_data(cell_pins_db);
         // Write routing
         for (auto n : sorted(ctx->nets)) {
             write_net(n.second);

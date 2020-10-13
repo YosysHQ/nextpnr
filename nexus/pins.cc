@@ -74,6 +74,9 @@ static const std::unordered_map<IdString, Arch::CellPinsData> base_cell_pin_data
 };
 } // namespace
 
-void Arch::get_cell_pin_data(std::unordered_map<IdString, CellPinsData> &cell_pins) { cell_pins = base_cell_pin_data; }
+void Arch::get_cell_pin_data(std::unordered_map<IdString, CellPinsData> &cell_pins) const
+{
+    cell_pins = base_cell_pin_data;
+}
 
 NEXTPNR_NAMESPACE_END
