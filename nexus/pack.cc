@@ -321,7 +321,12 @@ struct NexusPacker
     {
         NetInfo *net = get_net_or_empty(cell, port);
         if (net == nullptr || net->driver.cell == nullptr) {
-            // Pin is disconnected, return its default value
+            // Pin is disconnected
+            // If a mux value exists already, honour it
+            CellPinMux exist_mux = ctx->get_cell_pinmux(cell, port);
+            if (exist_mux != PINMUX_SIG)
+                return exist_mux;
+            // Otherwise, look up the default value and use that
             CellPinStyle pin_style = ctx->get_cell_pin_style(cell, port);
             if ((pin_style & PINDEF_MASK) == PINDEF_0)
                 return PINMUX_0;
@@ -434,7 +439,7 @@ struct NexusPacker
 
             if (req_mux == PINMUX_INV) {
                 // Pin is inverted. If there is a hard inverter; then use it
-                if ((pin_style & PINOPT_MASK) == PINOPT_INV) {
+                if (pin_style & PINOPT_INV) {
                     uninvert_port(cell, port_name);
                     ctx->set_cell_pinmux(cell, port_name, PINMUX_INV);
                 }
@@ -624,13 +629,30 @@ struct NexusPacker
         }
     }
 
+    void pack_constants()
+    {
+        // Make sure we have high and low nets available
+        get_const_net(id_VHI);
+        get_const_net(id_VLO);
+        // Iterate through cells
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            // Skip certain cells at this point
+            if (ci->type != id_LUT4 && ci->type != id_INV && ci->type != id_VHI && ci->type != id_VLO)
+                process_inv_constants(cell.second);
+        }
+        // Remove superfluous inverters and constant drivers
+        trim_design();
+    }
+
     explicit NexusPacker(Context *ctx) : ctx(ctx) {}
 
     void operator()()
     {
-        pack_ffs();
-        pack_luts();
         pack_io();
+        pack_ffs();
+        pack_constants();
+        pack_luts();
     }
 };
 

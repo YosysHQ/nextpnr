@@ -783,19 +783,21 @@ enum CellPinStyle
 
     PINGLB_MASK = 0x100,
 
-    PINBIT_GATED = 0x1000, // pin must be enabled in bitstream if used
-    PINBIT_1 = 0x2000,     // pin has an explicit bit that must be set if tied to 1
+    PINBIT_GATED = 0x1000,  // pin must be enabled in bitstream if used
+    PINBIT_1 = 0x2000,      // pin has an explicit bit that must be set if tied to 1
+    PINBIT_CIBMUX = 0x4000, // pin's CIBMUX must be floating for pin to be 1
 
     PINSTYLE_NONE = 0x0000, // default
-    PINSTYLE_CIB = 0x0012,  // 'CIB' signal, floats high but explicitly zeroed if not used
+    PINSTYLE_CIB = 0x4012,  // 'CIB' signal, floats high but explicitly zeroed if not used
     PINSTYLE_CLK = 0x0107,  // CLK type signal, invertible and defaults to disconnected
     PINSTYLE_CE = 0x0027,   // CE type signal, invertible and defaults to enabled
     PINSTYLE_LSR = 0x0017,  // LSR type signal, invertible and defaults to not reset
     PINSTYLE_DEDI = 0x0000, // dedicated signals, leave alone
-    PINSTYLE_PU = 0x0022,   // signals that float high and default high
+    PINSTYLE_PU = 0x4022,   // signals that float high and default high
+    PINSTYLE_T = 0x4027,    // PIO 'T' signal
 
     PINSTYLE_INV_PD = 0x0017, // invertible, pull down by default
-    PINSTYLE_INV_PU = 0x0027, // invertible, pull up by default
+    PINSTYLE_INV_PU = 0x4027, // invertible, pull up by default
 
     PINSTYLE_IOL_CE = 0x2027, // CE type signal, with explicit 'const-1' config bit
     PINSTYLE_GATE = 0x1011,   // gated signal that defaults to 0

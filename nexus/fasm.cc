@@ -170,7 +170,7 @@ struct NexusFasmWriter
         std::string tile = tile_name(pip.tile, tile_by_type_and_loc(pip.tile, pd.tile_type));
         std::string source_wire = escape_name(ctx->pip_src_wire_name(pip).str(ctx));
         std::string dest_wire = escape_name(ctx->pip_dst_wire_name(pip).str(ctx));
-        write_bit(stringf("%s.PIP.%s.%s", tile.c_str(), dest_wire.c_str(), source_wire.c_str()));
+        out << stringf("%s.PIP.%s.%s", tile.c_str(), dest_wire.c_str(), source_wire.c_str()) << std::endl;
     }
     // Write out all the pips corresponding to a net
     void write_net(const NetInfo *net)
@@ -183,6 +183,25 @@ struct NexusFasmWriter
         for (auto p : sorted_pips)
             write_pip(p);
         blank();
+    }
+    // Find the CIBMUX output for a signal
+    WireId find_cibmux(const CellInfo *cell, IdString pin)
+    {
+        WireId cursor = ctx->getBelPinWire(cell->bel, pin);
+        if (cursor == WireId())
+            return WireId();
+        for (int i = 0; i < 10; i++) {
+            std::string cursor_name = IdString(ctx->wire_data(cursor).name).str(ctx);
+            if (cursor_name.find("JCIBMUXOUT") == 0) {
+                return cursor;
+            }
+            for (PipId pip : ctx->getPipsUphill(cursor))
+                if (ctx->checkPipAvail(pip)) {
+                    cursor = ctx->getPipSrcWire(pip);
+                    break;
+                }
+        }
+        return WireId();
     }
     // Write out the mux config for a cell
     void write_cell_muxes(const CellInfo *cell)
@@ -206,8 +225,26 @@ struct NexusFasmWriter
             // Pins that must be explictly set to 1 rather than just left floating
             if ((pin_style & PINBIT_1) && (pin_mux == PINMUX_1))
                 write_bit(stringf("%sMUX.1", ctx->nameOf(port.first)));
+            // Handle CIB muxes - these must be set such that floating pins really are floating to VCC and not connected
+            // to another CIB signal
+            if ((pin_style & PINBIT_CIBMUX) && port.second.net == nullptr) {
+                WireId cibmuxout = find_cibmux(cell, port.first);
+                if (cibmuxout != WireId()) {
+                    write_comment(stringf("CIBMUX for unused pin %s", ctx->nameOf(port.first)));
+                    bool found = false;
+                    for (PipId pip : ctx->getPipsUphill(cibmuxout)) {
+                        if (ctx->checkPipAvail(pip) && ctx->checkWireAvail(ctx->getPipSrcWire(pip))) {
+                            write_pip(pip);
+                            found = true;
+                            break;
+                        }
+                    }
+                    NPNR_ASSERT(found);
+                }
+            }
         }
     }
+
     // Write config for an OXIDE_COMB cell
     void write_comb(const CellInfo *cell)
     {
@@ -244,10 +281,7 @@ struct NexusFasmWriter
         pop();
         write_enum(cell, "REGDDR");
         write_enum(cell, "SRMODE");
-        write_enum(cell, "CLKMUX");
-        write_enum(cell, "CEMUX");
-        write_enum(cell, "LSRMUX");
-        write_enum(cell, "GSR");
+        write_cell_muxes(cell);
         pop(2);
     }
     // Write config for an SEIO33_CORE cell
@@ -267,6 +301,7 @@ struct NexusFasmWriter
         const char *iodir = is_input ? "INPUT" : (is_output ? "OUTPUT" : "BIDIR");
         write_bit(stringf("BASE_TYPE.%s_%s", iodir, str_or_default(cell->attrs, id_IO_TYPE, "LVCMOS33").c_str()));
         write_ioattr(cell, "PULLMODE", "NONE");
+        write_cell_muxes(cell);
         pop(2);
     }
     // Write config for an SEIO18_CORE cell
@@ -287,6 +322,7 @@ struct NexusFasmWriter
         const char *iodir = is_input ? "INPUT" : (is_output ? "OUTPUT" : "BIDIR");
         write_bit(stringf("BASE_TYPE.%s_%s", iodir, str_or_default(cell->attrs, id_IO_TYPE, "LVCMOS18H").c_str()));
         write_ioattr(cell, "PULLMODE", "NONE");
+        write_cell_muxes(cell);
         pop(3);
     }
     // Write config for an OSC_CORE cell
@@ -302,6 +338,7 @@ struct NexusFasmWriter
         write_enum(cell, "LF_OUTPUT_EN");
         write_enum(cell, "DEBUG_N", "DISABLED");
         write_int_vector(stringf("HF_CLK_DIV[7:0]"), ctx->parse_lattice_param(cell, id_HF_CLK_DIV, 8, 0).intval, 8);
+        write_cell_muxes(cell);
         pop(2);
     }
     // Write out FASM for the whole design
