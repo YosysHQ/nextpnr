@@ -764,8 +764,8 @@ struct WireBelPinRange
 enum CellPinStyle
 {
     PINOPT_NONE = 0x0, // no options, just signal as-is
-    PINOPT_LO = 0x1,   // can be tied high
-    PINOPT_HI = 0x2,   // can be tied low
+    PINOPT_LO = 0x1,   // can be tied low
+    PINOPT_HI = 0x2,   // can be tied high
     PINOPT_INV = 0x4,  // can be inverted
 
     PINOPT_LOHI = 0x3,    // can be tied low or high
@@ -783,16 +783,22 @@ enum CellPinStyle
 
     PINGLB_MASK = 0x100,
 
-    PINSTYLE_NONE = 0x000, // default
-    PINSTYLE_CIB = 0x012,  // 'CIB' signal, floats high but explicitly zeroed if not used
-    PINSTYLE_CLK = 0x107,  // CLK type signal, invertible and defaults to disconnected
-    PINSTYLE_CE = 0x027,   // CE type signal, invertible and defaults to enabled
-    PINSTYLE_LSR = 0x017,  // LSR type signal, invertible and defaults to not reset
-    PINSTYLE_DEDI = 0x000, // dedicated signals, leave alone
-    PINSTYLE_PU = 0x022,   // signals that float high and default high
+    PINBIT_GATED = 0x1000, // pin must be enabled in bitstream if used
+    PINBIT_1 = 0x2000,     // pin has an explicit bit that must be set if tied to 1
 
-    PINSTYLE_INV_PD = 0x017, // invertible, pull down by default
-    PINSTYLE_INV_PU = 0x027, // invertible, pull up by default
+    PINSTYLE_NONE = 0x0000, // default
+    PINSTYLE_CIB = 0x0012,  // 'CIB' signal, floats high but explicitly zeroed if not used
+    PINSTYLE_CLK = 0x0107,  // CLK type signal, invertible and defaults to disconnected
+    PINSTYLE_CE = 0x0027,   // CE type signal, invertible and defaults to enabled
+    PINSTYLE_LSR = 0x0017,  // LSR type signal, invertible and defaults to not reset
+    PINSTYLE_DEDI = 0x0000, // dedicated signals, leave alone
+    PINSTYLE_PU = 0x0022,   // signals that float high and default high
+
+    PINSTYLE_INV_PD = 0x0017, // invertible, pull down by default
+    PINSTYLE_INV_PU = 0x0027, // invertible, pull up by default
+
+    PINSTYLE_IOL_CE = 0x2027, // CE type signal, with explicit 'const-1' config bit
+    PINSTYLE_GATE = 0x1011,   // gated signal that defaults to 0
 };
 
 // This represents the mux options for a pin
@@ -1365,7 +1371,7 @@ struct Arch : BaseCtx
     typedef std::unordered_map<IdString, CellPinStyle> CellPinsData;
 
     std::unordered_map<IdString, CellPinsData> cell_pins_db;
-    CellPinStyle get_cell_pin_style(CellInfo *cell, IdString port) const;
+    CellPinStyle get_cell_pin_style(const CellInfo *cell, IdString port) const;
 
     void init_cell_pin_data();
 

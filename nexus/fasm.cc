@@ -184,6 +184,30 @@ struct NexusFasmWriter
             write_pip(p);
         blank();
     }
+    // Write out the mux config for a cell
+    void write_cell_muxes(const CellInfo *cell)
+    {
+        for (auto port : sorted_cref(cell->ports)) {
+            // Only relevant to inputs
+            if (port.second.type != PORT_IN)
+                continue;
+            auto pin_style = ctx->get_cell_pin_style(cell, port.first);
+            auto pin_mux = ctx->get_cell_pinmux(cell, port.first);
+            // Invertible pins
+            if (pin_style & PINOPT_INV) {
+                if (pin_mux == PINMUX_INV || pin_mux == PINMUX_0)
+                    write_bit(stringf("%sMUX.INV", ctx->nameOf(port.first)));
+                else if (pin_mux == PINMUX_SIG)
+                    write_bit(stringf("%sMUX.%s", ctx->nameOf(port.first), ctx->nameOf(port.first)));
+            }
+            // Pins that must be explictly enabled
+            if ((pin_style & PINBIT_GATED) && (pin_mux == PINMUX_SIG))
+                write_bit(stringf("%sMUX.%s", ctx->nameOf(port.first), ctx->nameOf(port.first)));
+            // Pins that must be explictly set to 1 rather than just left floating
+            if ((pin_style & PINBIT_1) && (pin_mux == PINMUX_1))
+                write_bit(stringf("%sMUX.1", ctx->nameOf(port.first)));
+        }
+    }
     // Write config for an OXIDE_COMB cell
     void write_comb(const CellInfo *cell)
     {

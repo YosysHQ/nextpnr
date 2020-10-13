@@ -76,7 +76,7 @@ static const std::unordered_map<IdString, Arch::CellPinsData> base_cell_pin_data
 
 void Arch::init_cell_pin_data() { cell_pins_db = base_cell_pin_data; }
 
-CellPinStyle Arch::get_cell_pin_style(CellInfo *cell, IdString port) const
+CellPinStyle Arch::get_cell_pin_style(const CellInfo *cell, IdString port) const
 {
     // Look up the pin style in the cell database
     auto fnd_cell = cell_pins_db.find(cell->type);
