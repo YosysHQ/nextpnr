@@ -30,8 +30,6 @@ struct NexusFasmWriter
     std::ostream &out;
     std::vector<std::string> fasm_ctx;
 
-    std::unordered_map<IdString, Arch::CellPinsData> cell_pins_db;
-
     NexusFasmWriter(const Context *ctx, std::ostream &out) : ctx(ctx), out(out) {}
 
     // Add a 'dot' prefix to the FASM context stack
@@ -285,8 +283,6 @@ struct NexusFasmWriter
     // Write out FASM for the whole design
     void operator()()
     {
-        // Setup pin DB
-        ctx->get_cell_pin_data(cell_pins_db);
         // Write routing
         for (auto n : sorted(ctx->nets)) {
             write_net(n.second);

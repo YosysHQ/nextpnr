@@ -99,8 +99,6 @@ struct NexusPacker
 {
     Context *ctx;
 
-    std::unordered_map<IdString, Arch::CellPinsData> cell_db;
-
     // Generic cell transformation
     // Given cell name map and port map
     // If port name is not found in port map; it will be copied as-is but stripping []
@@ -319,30 +317,12 @@ struct NexusPacker
         return new_net;
     }
 
-    CellPinStyle get_pin_style(CellInfo *cell, IdString port)
-    {
-        // Look up the pin style in the cell database
-        auto fnd_cell = cell_db.find(cell->type);
-        if (fnd_cell == cell_db.end())
-            return PINSTYLE_NONE;
-        auto fnd_port = fnd_cell->second.find(port);
-        if (fnd_port != fnd_cell->second.end())
-            return fnd_port->second;
-        // If there isn't an exact port match, then the empty IdString
-        // represents a wildcard default match
-        auto fnd_default = fnd_cell->second.find({});
-        if (fnd_default != fnd_cell->second.end())
-            return fnd_default->second;
-
-        return PINSTYLE_NONE;
-    }
-
     CellPinMux get_pin_needed_muxval(CellInfo *cell, IdString port)
     {
         NetInfo *net = get_net_or_empty(cell, port);
         if (net == nullptr || net->driver.cell == nullptr) {
             // Pin is disconnected, return its default value
-            CellPinStyle pin_style = get_pin_style(cell, port);
+            CellPinStyle pin_style = ctx->get_cell_pin_style(cell, port);
             if ((pin_style & PINDEF_MASK) == PINDEF_0)
                 return PINMUX_0;
             else if ((pin_style & PINDEF_MASK) == PINDEF_1)
@@ -450,7 +430,7 @@ struct NexusPacker
                 continue;
             }
 
-            CellPinStyle pin_style = get_pin_style(cell, port_name);
+            CellPinStyle pin_style = ctx->get_cell_pin_style(cell, port_name);
 
             if (req_mux == PINMUX_INV) {
                 // Pin is inverted. If there is a hard inverter; then use it
@@ -648,7 +628,6 @@ struct NexusPacker
 
     void operator()()
     {
-        ctx->get_cell_pin_data(cell_db);
         pack_ffs();
         pack_luts();
         pack_io();

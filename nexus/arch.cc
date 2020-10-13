@@ -117,6 +117,7 @@ Arch::Arch(ArchArgs args) : args(args)
     for (size_t i = 0; i < chip_info->num_tiles; i++) {
         tileStatus[i].boundcells.resize(db->loctypes[chip_info->grid[i].loc_type].num_bels);
     }
+    init_cell_pin_data();
     // Validate and set up package
     package_idx = -1;
     for (size_t i = 0; i < chip_info->num_packages; i++) {

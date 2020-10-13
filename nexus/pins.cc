@@ -74,9 +74,24 @@ static const std::unordered_map<IdString, Arch::CellPinsData> base_cell_pin_data
 };
 } // namespace
 
-void Arch::get_cell_pin_data(std::unordered_map<IdString, CellPinsData> &cell_pins) const
+void Arch::init_cell_pin_data() { cell_pins_db = base_cell_pin_data; }
+
+CellPinStyle Arch::get_cell_pin_style(CellInfo *cell, IdString port) const
 {
-    cell_pins = base_cell_pin_data;
+    // Look up the pin style in the cell database
+    auto fnd_cell = cell_pins_db.find(cell->type);
+    if (fnd_cell == cell_pins_db.end())
+        return PINSTYLE_NONE;
+    auto fnd_port = fnd_cell->second.find(port);
+    if (fnd_port != fnd_cell->second.end())
+        return fnd_port->second;
+    // If there isn't an exact port match, then the empty IdString
+    // represents a wildcard default match
+    auto fnd_default = fnd_cell->second.find({});
+    if (fnd_default != fnd_cell->second.end())
+        return fnd_default->second;
+
+    return PINSTYLE_NONE;
 }
 
 NEXTPNR_NAMESPACE_END

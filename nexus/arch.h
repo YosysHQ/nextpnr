@@ -1364,7 +1364,10 @@ struct Arch : BaseCtx
 
     typedef std::unordered_map<IdString, CellPinStyle> CellPinsData;
 
-    void get_cell_pin_data(std::unordered_map<IdString, CellPinsData> &cell_pins) const;
+    std::unordered_map<IdString, CellPinsData> cell_pins_db;
+    CellPinStyle get_cell_pin_style(CellInfo *cell, IdString port) const;
+
+    void init_cell_pin_data();
 
     // -------------------------------------------------
 
