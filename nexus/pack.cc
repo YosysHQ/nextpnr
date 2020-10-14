@@ -24,6 +24,7 @@
 #include "util.h"
 
 #include <boost/algorithm/string.hpp>
+#include <queue>
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -529,7 +530,7 @@ struct NexusPacker
         }
     }
 
-    BelId get_io_bel(CellInfo *ci)
+    BelId get_bel_attr(const CellInfo *ci)
     {
         if (!ci->attrs.count(id_BEL))
             return BelId();
@@ -621,7 +622,7 @@ struct NexusPacker
                 rename_port(ctx, ci, id_O, id_B);
             }
             // Get the IO bel
-            BelId bel = get_io_bel(ci);
+            BelId bel = get_bel_attr(ci);
             // Set the cell type to the bel type
             IdString type = ctx->getBelType(bel);
             NPNR_ASSERT(type != IdString());
@@ -643,6 +644,59 @@ struct NexusPacker
         }
         // Remove superfluous inverters and constant drivers
         trim_design();
+    }
+
+    // Using a BFS, search for bels of a given type either upstream or downstream of another cell
+    void find_connected_bels(const CellInfo *cell, IdString port, IdString dest_type, IdString dest_pin, int iter_limit,
+                             std::vector<BelId> &candidates)
+    {
+        int iter = 0;
+        std::queue<WireId> visit;
+        std::unordered_set<WireId> seen_wires;
+        std::unordered_set<BelId> seen_bels;
+
+        BelId bel = get_bel_attr(cell);
+        NPNR_ASSERT(bel != BelId());
+        WireId start_wire = ctx->getBelPinWire(bel, port);
+        NPNR_ASSERT(start_wire != WireId());
+        PortType dir = ctx->getBelPinType(bel, port);
+
+        visit.push(start_wire);
+
+        while (!visit.empty() && (iter++ < iter_limit)) {
+            WireId cursor = visit.front();
+            // Check to see if we have reached a valid bel pin
+            for (auto bp : ctx->getWireBelPins(cursor)) {
+                if (ctx->getBelType(bp.bel) != dest_type)
+                    continue;
+                if (dest_pin != IdString() && bp.pin != dest_pin)
+                    continue;
+                if (seen_bels.count(bp.bel))
+                    continue;
+                seen_bels.insert(bp.bel);
+                candidates.push_back(bp.bel);
+            }
+            // Search in the appropriate direction up/downstream of the cursor
+            if (dir == PORT_OUT) {
+                for (PipId p : ctx->getPipsDownhill(cursor))
+                    if (ctx->checkPipAvail(p)) {
+                        WireId dst = ctx->getPipDstWire(p);
+                        if (seen_wires.count(dst))
+                            continue;
+                        seen_wires.insert(dst);
+                        visit.push(dst);
+                    }
+            } else {
+                for (PipId p : ctx->getPipsUphill(cursor))
+                    if (ctx->checkPipAvail(p)) {
+                        WireId src = ctx->getPipSrcWire(p);
+                        if (seen_wires.count(src))
+                            continue;
+                        seen_wires.insert(src);
+                        visit.push(src);
+                    }
+            }
+        }
     }
 
     explicit NexusPacker(Context *ctx) : ctx(ctx) {}
