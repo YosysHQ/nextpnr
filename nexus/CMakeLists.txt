@@ -13,9 +13,9 @@ if(DEFINED NEXUS_CHIPDB)
     add_custom_target(chipdb-nexus-bbas ALL)
 else()
     # shared among all families
-    set(OXIDE_ROOT "" CACHE STRING
-        "prjoxide root folder")
-    message(STATUS "prjoxide root folder: ${OXIDE_ROOT}")
+    set(OXIDE_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}" CACHE STRING
+        "prjoxide install prefix")
+    message(STATUS "prjoxide install prefix: ${OXIDE_INSTALL_PREFIX}")
 
     set(all_device_bbas)
     file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/chipdb)
@@ -25,15 +25,15 @@ else()
         endif()
 
         set(family_bba chipdb/chipdb-${subfamily}.bba)
-        set(BBA_TOOL ${OXIDE_ROOT}/libprjoxide/target/release/oxide_bbaexport)
+        set(PRJOXIDE_TOOL ${OXIDE_INSTALL_PREFIX}/bin/prjoxide)
         add_custom_command(
             OUTPUT ${family_bba}
             COMMAND 
-                ${BBA_TOOL} ${subfamily} ${CMAKE_CURRENT_SOURCE_DIR}/constids.inc ${family_bba}.new
+                ${PRJOXIDE_TOOL} bba-export ${subfamily} ${CMAKE_CURRENT_SOURCE_DIR}/constids.inc ${family_bba}.new
             # atomically update
             COMMAND ${CMAKE_COMMAND} -E rename ${family_bba}.new ${family_bba}
             DEPENDS
-                ${BBA_TOOL}
+                ${PRJOXIDE_TOOL}
                 ${CMAKE_CURRENT_SOURCE_DIR}/constids.inc
                 ${CMAKE_CURRENT_SOURCE_DIR}/bba_version.inc
                 ${PREVIOUS_CHIPDB_TARGET}
