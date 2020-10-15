@@ -50,7 +50,7 @@ struct WireInfo
     IdString name, type;
     std::map<IdString, std::string> attrs;
     NetInfo *bound_net;
-    std::vector<PipId> downhill, uphill, aliases;
+    std::vector<PipId> downhill, uphill;
     BelPin uphill_bel_pin;
     std::vector<BelPin> downhill_bel_pins;
     std::vector<BelPin> bel_pins;
@@ -142,7 +142,6 @@ struct Arch : BaseCtx
 
     void addWire(IdString name, IdString type, int x, int y);
     void addPip(IdString name, IdString type, IdString srcWire, IdString dstWire, DelayInfo delay, Loc loc);
-    void addAlias(IdString name, IdString type, IdString srcWire, IdString dstWire, DelayInfo delay);
 
     void addBel(IdString name, IdString type, Loc loc, bool gb);
     void addBelInput(IdString bel, IdString name, IdString wire);
@@ -241,7 +240,6 @@ struct Arch : BaseCtx
     DelayInfo getPipDelay(PipId pip) const;
     const std::vector<PipId> &getPipsDownhill(WireId wire) const;
     const std::vector<PipId> &getPipsUphill(WireId wire) const;
-    const std::vector<PipId> &getWireAliases(WireId wire) const;
 
     GroupId getGroupByName(IdString name) const;
     IdString getGroupName(GroupId group) const;

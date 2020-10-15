@@ -95,8 +95,6 @@ fn_wrapper_1a<Context, decltype(&Context::getPipsDownhill), &Context::getPipsDow
               conv_from_str<WireId>>::def_wrap(ctx_cls, "getPipsDownhill");
 fn_wrapper_1a<Context, decltype(&Context::getPipsUphill), &Context::getPipsUphill, wrap_context<PipRange>,
               conv_from_str<WireId>>::def_wrap(ctx_cls, "getPipsUphill");
-fn_wrapper_1a<Context, decltype(&Context::getWireAliases), &Context::getWireAliases, wrap_context<PipRange>,
-              conv_from_str<WireId>>::def_wrap(ctx_cls, "getWireAliases");
 
 fn_wrapper_1a<Context, decltype(&Context::getPipSrcWire), &Context::getPipSrcWire, conv_to_str<WireId>,
               conv_from_str<PipId>>::def_wrap(ctx_cls, "getPipSrcWire");
