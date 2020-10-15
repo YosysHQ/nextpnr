@@ -120,8 +120,6 @@ void arch_wrap_python(py::module &m)
                                                                                              "getPipsDownhill");
     fn_wrapper_1a<Context, decltype(&Context::getPipsUphill), &Context::getPipsUphill,
                   wrap_context<const std::vector<PipId> &>, conv_from_str<WireId>>::def_wrap(ctx_cls, "getPipsUphill");
-    fn_wrapper_1a<Context, decltype(&Context::getWireAliases), &Context::getWireAliases,
-                  wrap_context<const std::vector<PipId> &>, conv_from_str<WireId>>::def_wrap(ctx_cls, "getWireAliases");
 
     fn_wrapper_1a<Context, decltype(&Context::getPipSrcWire), &Context::getPipSrcWire, conv_to_str<WireId>,
                   conv_from_str<PipId>>::def_wrap(ctx_cls, "getPipSrcWire");
@@ -162,10 +160,6 @@ void arch_wrap_python(py::module &m)
                     conv_from_str<IdString>, conv_from_str<IdString>, conv_from_str<IdString>, pass_through<DelayInfo>,
                     pass_through<Loc>>::def_wrap(ctx_cls, "addPip", "name"_a, "type"_a, "srcWire"_a, "dstWire"_a,
                                                  "delay"_a, "loc"_a);
-    fn_wrapper_5a_v<Context, decltype(&Context::addAlias), &Context::addAlias, conv_from_str<IdString>,
-                    conv_from_str<IdString>, conv_from_str<IdString>, conv_from_str<IdString>,
-                    pass_through<DelayInfo>>::def_wrap(ctx_cls, "addAlias", "name"_a, "type"_a, "srcWire"_a,
-                                                       "dstWire"_a, "delay"_a);
 
     fn_wrapper_4a_v<Context, decltype(&Context::addBel), &Context::addBel, conv_from_str<IdString>,
                     conv_from_str<IdString>, pass_through<Loc>, pass_through<bool>>::def_wrap(ctx_cls, "addBel",

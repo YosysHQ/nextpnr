@@ -886,15 +886,6 @@ struct Arch : BaseCtx
         return range;
     }
 
-    PipRange getWireAliases(WireId wire) const
-    {
-        PipRange range;
-        NPNR_ASSERT(wire != WireId());
-        range.b.cursor = nullptr;
-        range.e.cursor = nullptr;
-        return range;
-    }
-
     std::string getPipTilename(PipId pip) const
     {
         auto &tileloc = chip_info->tile_info[pip.location.y * chip_info->width + pip.location.x];

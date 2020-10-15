@@ -28,10 +28,6 @@ Adds a pip (programmable connection between two named wires). Pip delays that co
 
 Loc is constructed using `Loc(x, y, z)`. 'z' for pips is only important if region constraints (e.g. for partial reconfiguration regions) are used.
 
-### void addAlias(IdString name, IdString type, IdString srcWire, IdString dstWire, DelayInfo delay);
-
-Adds a wire alias (fixed connection between two named wires). Alias delays that correspond to delay estimates are important for router performance (as the router uses an A* type algorithm), even if timing is otherwise not of importance.
-
 ### void addBel(IdString name, IdString type, Loc loc, bool gb);
 
 Adds a bel to the FPGA description. Bel type should match the type of cells in the netlist that are placed at this bel (see below for information on special bel types supported by the packer). Loc is constructed using `Loc(x, y, z)` and must be unique.
