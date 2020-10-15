@@ -77,6 +77,14 @@ Arch::Arch(ArchArgs args) : args(args)
         log_error("Unknown device string '%s' (expected device name like 'LIFCL-40-8SG72C')\n", args.device.c_str());
     package = args.device.substr(last_sep + 2, (package_end - (last_sep + 2)) + 1);
     rating = args.device.substr(package_end + 1);
+
+    // Check for 'ES' part
+    if (rating.size() > 1 && rating.substr(1) == "ES") {
+        variant = "ES";
+    } else {
+        variant = "";
+    }
+
     // Load database
     std::string chipdb = stringf("nexus/chipdb-%s.bin", family.c_str());
     auto db_ptr = reinterpret_cast<const RelPtr<DatabasePOD> *>(get_chipdb(chipdb));

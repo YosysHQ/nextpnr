@@ -67,6 +67,13 @@ struct NexusFasmWriter
             out << name << std::endl;
         }
     }
+    // Write a FASM attribute
+    void write_attribute(const std::string &key, const std::string &value, bool str = true)
+    {
+        std::string qu = str ? "\"" : "";
+        out << "{ " << key << "=" << qu << value << qu << " }" << std::endl;
+        last_was_blank = false;
+    }
     // Write a FASM comment
     void write_comment(const std::string &cmt) { out << "# " << cmt << std::endl; }
     // Write a FASM bitvector; optionally inverting the values in the process
@@ -160,6 +167,12 @@ struct NexusFasmWriter
         c += bel_data.rel_x;
         std::string s = stringf("R%dC%d_%s", r, c, ctx->nameOf(ctx->bel_data(bel).name));
         push(s);
+    }
+    // Push a bel's group and name
+    void push_bel(BelId bel)
+    {
+        push_belgroup(bel);
+        fasm_ctx.back() += stringf(".%s", ctx->nameOf(ctx->bel_data(bel).name));
     }
     // Write out a pip in tile.dst.src format
     void write_pip(PipId pip)
@@ -284,12 +297,15 @@ struct NexusFasmWriter
         write_cell_muxes(cell);
         pop(2);
     }
+
+    std::unordered_set<BelId> used_io;
+
     // Write config for an SEIO33_CORE cell
     void write_io33(const CellInfo *cell)
     {
         BelId bel = cell->bel;
-        push_belgroup(bel);
-        push_belname(bel);
+        used_io.insert(bel);
+        push_bel(bel);
         const NetInfo *t = get_net_or_empty(cell, id_T);
         auto tmux = ctx->get_cell_pinmux(cell, id_T);
         bool is_input = false, is_output = false;
@@ -302,14 +318,14 @@ struct NexusFasmWriter
         write_bit(stringf("BASE_TYPE.%s_%s", iodir, str_or_default(cell->attrs, id_IO_TYPE, "LVCMOS33").c_str()));
         write_ioattr(cell, "PULLMODE", "NONE");
         write_cell_muxes(cell);
-        pop(2);
+        pop();
     }
     // Write config for an SEIO18_CORE cell
     void write_io18(const CellInfo *cell)
     {
         BelId bel = cell->bel;
-        push_belgroup(bel);
-        push_belname(bel);
+        used_io.insert(bel);
+        push_bel(bel);
         push("SEIO18");
         const NetInfo *t = get_net_or_empty(cell, id_T);
         auto tmux = ctx->get_cell_pinmux(cell, id_T);
@@ -323,7 +339,7 @@ struct NexusFasmWriter
         write_bit(stringf("BASE_TYPE.%s_%s", iodir, str_or_default(cell->attrs, id_IO_TYPE, "LVCMOS18H").c_str()));
         write_ioattr(cell, "PULLMODE", "NONE");
         write_cell_muxes(cell);
-        pop(3);
+        pop(2);
     }
     // Write config for an OSC_CORE cell
     void write_osc(const CellInfo *cell)
@@ -341,9 +357,79 @@ struct NexusFasmWriter
         write_cell_muxes(cell);
         pop(2);
     }
+    // Write out FASM for unused bels where needed
+    void write_unused()
+    {
+        write_comment("# Unused bels");
+
+        // DSP primitives are configured to a default mode; even if unused
+        static const std::unordered_map<IdString, std::vector<std::string>> dsp_defconf = {
+                {id_MULT9_CORE,
+                 {
+                         "GSR.ENABLED",
+                         "MODE.NONE",
+                         "RSTAMUX.RSTA",
+                         "RSTPMUX.RSTP",
+                 }},
+                {id_PREADD9_CORE,
+                 {
+                         "GSR.ENABLED",
+                         "MODE.NONE",
+                         "RSTBMUX.RSTB",
+                         "RSTCLMUX.RSTCL",
+                 }},
+                {id_REG18_CORE,
+                 {
+                         "GSR.ENABLED",
+                         "MODE.NONE",
+                         "RSTPMUX.RSTP",
+                 }},
+                {id_ACC54_CORE,
+                 {
+                         "ACCUBYPS.BYPASS",
+                         "MODE.NONE",
+                 }},
+        };
+
+        for (BelId bel : ctx->getBels()) {
+            IdString type = ctx->getBelType(bel);
+            if (type == id_SEIO33_CORE && !used_io.count(bel)) {
+                push_bel(bel);
+                write_bit("BASE_TYPE.NONE");
+                pop();
+                blank();
+            } else if (type == id_SEIO18_CORE && !used_io.count(bel)) {
+                push_bel(bel);
+                push("SEIO18");
+                write_bit("BASE_TYPE.NONE");
+                pop(2);
+                blank();
+            } else if (dsp_defconf.count(type) && ctx->getBoundBelCell(bel) == nullptr) {
+                push_bel(bel);
+                for (const auto &cbit : dsp_defconf.at(type))
+                    write_bit(cbit);
+                pop();
+                blank();
+            }
+        }
+    }
+    // Write out placeholder bankref config
+    void write_bankcfg()
+    {
+        for (int i = 0; i < 8; i++) {
+            if (i >= 3 && i <= 5)
+                continue; // 1.8V banks, skip for now
+            write_bit(stringf("GLOBAL.BANK%d.VCC.3V3", i));
+        }
+        blank();
+    }
     // Write out FASM for the whole design
     void operator()()
     {
+        // Write device config
+        write_attribute("oxide.device", ctx->device);
+        write_attribute("oxide.device_variant", ctx->variant);
+        blank();
         // Write routing
         for (auto n : sorted(ctx->nets)) {
             write_net(n.second);
@@ -364,6 +450,10 @@ struct NexusFasmWriter
                 write_osc(ci);
             blank();
         }
+        // Write config for unused bels
+        write_unused();
+        // Write bank config
+        write_bankcfg();
     }
 };
 } // namespace

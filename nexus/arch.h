@@ -826,7 +826,7 @@ struct ArchArgs
 struct Arch : BaseCtx
 {
     ArchArgs args;
-    std::string family, device, package, speed, rating;
+    std::string family, device, package, speed, rating, variant;
     Arch(ArchArgs args);
 
     // -------------------------------------------------
