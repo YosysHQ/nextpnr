@@ -699,6 +699,83 @@ struct NexusPacker
         }
     }
 
+    // Find the nearest bel of a given type; matching a closure predicate
+    template <typename Tpred> BelId find_nearest_bel(const CellInfo *cell, IdString dest_type, Tpred predicate)
+    {
+        BelId origin = get_bel_attr(cell);
+        if (origin == BelId())
+            return BelId();
+        Loc origin_loc = ctx->getBelLocation(origin);
+        int best_distance = std::numeric_limits<int>::max();
+        BelId best_bel = BelId();
+
+        for (BelId bel : ctx->getBels()) {
+            if (ctx->getBelType(bel) != dest_type)
+                continue;
+            if (!predicate(bel))
+                continue;
+            Loc bel_loc = ctx->getBelLocation(bel);
+            int dist = std::abs(origin_loc.x - bel_loc.x) + std::abs(origin_loc.y - bel_loc.y);
+            if (dist < best_distance) {
+                best_distance = dist;
+                best_bel = bel;
+            }
+        }
+        return best_bel;
+    }
+
+    std::unordered_set<BelId> used_bels;
+
+    // Pre-place a primitive based on routeability first and distance second
+    BelId preplace_prim(CellInfo *cell, IdString pin, bool strict_routing)
+    {
+        std::vector<BelId> routeability_candidates;
+
+        NetInfo *pin_net = get_net_or_empty(cell, pin);
+        if (pin_net == nullptr)
+            return BelId();
+
+        CellInfo *pin_drv = pin_net->driver.cell;
+        if (pin_drv == nullptr)
+            return BelId();
+
+        // Check based on routeability
+        find_connected_bels(pin_drv, pin_net->driver.port, cell->type, pin, 25000, routeability_candidates);
+
+        for (BelId cand : routeability_candidates) {
+            if (used_bels.count(cand))
+                continue;
+            cell->attrs[id_BEL] = ctx->getBelName(cand).str(ctx);
+            used_bels.insert(cand);
+            return cand;
+        }
+
+        // Unless in strict mode; check based on simple distance too
+        BelId nearest = find_nearest_bel(pin_drv, cell->type, [&](BelId bel) { return !used_bels.count(bel); });
+
+        if (nearest != BelId()) {
+            cell->attrs[id_BEL] = ctx->getBelName(nearest).str(ctx);
+            used_bels.insert(nearest);
+            return nearest;
+        }
+
+        return BelId();
+    }
+
+    // Pre-place a singleton primitive; so decisions can be made on routeability downstream of it
+    void preplace_singleton(CellInfo *cell)
+    {
+        if (cell->attrs.count(id_BEL))
+            return;
+        for (BelId bel : ctx->getBels()) {
+            if (ctx->getBelType(bel) != cell->type)
+                continue;
+            // Check that the bel really is a singleton...
+            NPNR_ASSERT(!cell->attrs.count(id_BEL));
+            cell->attrs[id_BEL] = ctx->getBelName(bel).str(ctx);
+        }
+    }
+
     explicit NexusPacker(Context *ctx) : ctx(ctx) {}
 
     void operator()()
