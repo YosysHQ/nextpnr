@@ -47,7 +47,6 @@ NexusCommandHandler::NexusCommandHandler(int argc, char **argv) : CommandHandler
 po::options_description NexusCommandHandler::getArchOptions()
 {
     po::options_description specific("Architecture specific options");
-    specific.add_options()("chipdb", po::value<std::string>(), "name of chip database binary");
     specific.add_options()("device", po::value<std::string>(), "device name");
     specific.add_options()("fasm", po::value<std::string>(), "fasm file to write");
     specific.add_options()("pdc", po::value<std::string>(), "physical constraints file");
@@ -68,7 +67,6 @@ void NexusCommandHandler::customBitstream(Context *ctx)
 std::unique_ptr<Context> NexusCommandHandler::createContext(std::unordered_map<std::string, Property> &values)
 {
     ArchArgs chipArgs;
-    chipArgs.chipdb = vm["chipdb"].as<std::string>();
     chipArgs.device = vm["device"].as<std::string>();
     return std::unique_ptr<Context>(new Context(chipArgs));
 }

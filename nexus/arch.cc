@@ -20,6 +20,7 @@
 
 #include <boost/algorithm/string.hpp>
 
+#include "embed.h"
 #include "log.h"
 #include "nextpnr.h"
 #include "placer1.h"
@@ -42,8 +43,6 @@ static std::tuple<int, int, std::string> split_identifier_name(const std::string
                            std::stoi(name.substr(first_slash + 2, second_slash - first_slash)),
                            name.substr(second_slash + 1));
 };
-
-static const DatabasePOD *get_chipdb(const RelPtr<DatabasePOD> *ptr) { return ptr->get(); }
 
 } // namespace
 
@@ -78,16 +77,12 @@ Arch::Arch(ArchArgs args) : args(args)
         log_error("Unknown device string '%s' (expected device name like 'LIFCL-40-8SG72C')\n", args.device.c_str());
     package = args.device.substr(last_sep + 2, (package_end - (last_sep + 2)) + 1);
     rating = args.device.substr(package_end + 1);
-    // Load database (FIXME: baked-in databases too)
-    try {
-        blob_file.open(args.chipdb);
-        if (!blob_file.is_open())
-            log_error("Unable to read chipdb %s\n", args.chipdb.c_str());
-        const char *blob = reinterpret_cast<const char *>(blob_file.data());
-        db = get_chipdb(reinterpret_cast<const RelPtr<DatabasePOD> *>(blob));
-    } catch (...) {
-        log_error("Unable to read chipdb %s\n", args.chipdb.c_str());
-    }
+    // Load database
+    std::string chipdb = stringf("nexus/chipdb-%s.bin", family.c_str());
+    auto db_ptr = reinterpret_cast<const RelPtr<DatabasePOD> *>(get_chipdb(chipdb));
+    if (db_ptr == nullptr)
+        log_error("Failed to load chipdb '%s'\n", chipdb.c_str());
+    db = db_ptr->get();
     // Check database version and family
     if (db->version != bba_version) {
         log_error("Provided database version %d is %s than nextpnr version %d, please rebuild database/nextpnr.\n",

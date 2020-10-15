@@ -820,7 +820,6 @@ const int bba_version =
 
 struct ArchArgs
 {
-    std::string chipdb;
     std::string device;
 };
 
