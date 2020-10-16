@@ -665,6 +665,7 @@ struct NexusPacker
 
         while (!visit.empty() && (iter++ < iter_limit)) {
             WireId cursor = visit.front();
+            visit.pop();
             // Check to see if we have reached a valid bel pin
             for (auto bp : ctx->getWireBelPins(cursor)) {
                 if (ctx->getBelType(bp.bel) != dest_type)
@@ -727,17 +728,20 @@ struct NexusPacker
     std::unordered_set<BelId> used_bels;
 
     // Pre-place a primitive based on routeability first and distance second
-    BelId preplace_prim(CellInfo *cell, IdString pin, bool strict_routing)
+    bool preplace_prim(CellInfo *cell, IdString pin, bool strict_routing)
     {
         std::vector<BelId> routeability_candidates;
 
+        if (cell->attrs.count(id_BEL))
+            return false;
+
         NetInfo *pin_net = get_net_or_empty(cell, pin);
         if (pin_net == nullptr)
-            return BelId();
+            return false;
 
         CellInfo *pin_drv = pin_net->driver.cell;
         if (pin_drv == nullptr)
-            return BelId();
+            return false;
 
         // Check based on routeability
         find_connected_bels(pin_drv, pin_net->driver.port, cell->type, pin, 25000, routeability_candidates);
@@ -745,34 +749,132 @@ struct NexusPacker
         for (BelId cand : routeability_candidates) {
             if (used_bels.count(cand))
                 continue;
+            log_info("    constraining %s '%s' to bel '%s' based on dedicated routing\n", ctx->nameOf(cell),
+                     ctx->nameOf(cell->type), ctx->nameOfBel(cand));
             cell->attrs[id_BEL] = ctx->getBelName(cand).str(ctx);
             used_bels.insert(cand);
-            return cand;
+            return true;
         }
 
         // Unless in strict mode; check based on simple distance too
         BelId nearest = find_nearest_bel(pin_drv, cell->type, [&](BelId bel) { return !used_bels.count(bel); });
 
         if (nearest != BelId()) {
+            log_info("    constraining %s '%s' to bel '%s'\n", ctx->nameOf(cell), ctx->nameOf(cell->type),
+                     ctx->nameOfBel(nearest));
             cell->attrs[id_BEL] = ctx->getBelName(nearest).str(ctx);
             used_bels.insert(nearest);
-            return nearest;
+            return true;
         }
 
-        return BelId();
+        return false;
     }
 
     // Pre-place a singleton primitive; so decisions can be made on routeability downstream of it
-    void preplace_singleton(CellInfo *cell)
+    bool preplace_singleton(CellInfo *cell)
     {
         if (cell->attrs.count(id_BEL))
-            return;
+            return false;
+        bool did_something = false;
         for (BelId bel : ctx->getBels()) {
             if (ctx->getBelType(bel) != cell->type)
                 continue;
             // Check that the bel really is a singleton...
             NPNR_ASSERT(!cell->attrs.count(id_BEL));
             cell->attrs[id_BEL] = ctx->getBelName(bel).str(ctx);
+            log_info("    constraining %s '%s' to bel '%s'\n", ctx->nameOf(cell), ctx->nameOf(cell->type),
+                     ctx->nameOfBel(bel));
+            did_something = true;
+        }
+        return did_something;
+    }
+
+    // Insert a buffer primitive in a signal; moving all users that match a predicate behind it
+    template <typename Tpred>
+    CellInfo *insert_buffer(NetInfo *net, IdString buffer_type, std::string name_postfix, IdString i, IdString o,
+                            Tpred pred)
+    {
+        // Create the buffered net
+        NetInfo *buffered_net = ctx->createNet(ctx->id(stringf("%s$%s", ctx->nameOf(net), name_postfix.c_str())));
+        // Create the buffer cell
+        CellInfo *buffer = ctx->createCell(
+                ctx->id(stringf("%s$drv_%s", ctx->nameOf(buffered_net), ctx->nameOf(buffer_type))), buffer_type);
+        buffer->addInput(i);
+        buffer->addOutput(o);
+        // Drive the buffered net with the buffer
+        connect_port(ctx, buffered_net, buffer, o);
+        // Filter users
+        std::vector<PortRef> remaining_users;
+
+        for (auto &usr : net->users) {
+            if (pred(usr)) {
+                usr.cell->ports[usr.port].net = buffered_net;
+                buffered_net->users.push_back(usr);
+            } else {
+                remaining_users.push_back(usr);
+            }
+        }
+
+        std::swap(net->users, remaining_users);
+
+        // Connect buffer input to original net
+        connect_port(ctx, net, buffer, i);
+
+        return buffer;
+    }
+
+    // Insert global buffers
+    void promote_globals()
+    {
+        std::vector<std::pair<int, IdString>> clk_fanout;
+        int available_globals = 16;
+        for (auto net : sorted(ctx->nets)) {
+            NetInfo *ni = net.second;
+            // Skip undriven nets; and nets that are already global
+            if (ni->driver.cell == nullptr)
+                continue;
+            if (ni->driver.cell->type == id_DCC) {
+                --available_globals;
+                continue;
+            }
+            // Count the number of clock ports
+            int clk_count = 0;
+            for (const auto &usr : ni->users) {
+                auto port_style = ctx->get_cell_pin_style(usr.cell, usr.port);
+                if (port_style & PINGLB_CLK)
+                    ++clk_count;
+            }
+            if (clk_count > 0)
+                clk_fanout.emplace_back(clk_count, ni->name);
+        }
+        if (available_globals <= 0)
+            return;
+        // Sort clocks by max fanout
+        std::sort(clk_fanout.begin(), clk_fanout.end(), std::greater<std::pair<int, IdString>>());
+        log_info("Promoting globals...\n");
+        // Promote the N highest fanout clocks
+        for (size_t i = 0; i < std::min<size_t>(clk_fanout.size(), available_globals); i++) {
+            NetInfo *net = ctx->nets.at(clk_fanout.at(i).second).get();
+            log_info("     promoting clock net '%s'\n", ctx->nameOf(net));
+            insert_buffer(net, id_DCC, "glb_clk", id_CLKI, id_CLKO, [](const PortRef &port) { return true; });
+        }
+    }
+
+    // Place certain global cells
+    void place_globals()
+    {
+        // Keep running until we reach a fixed point
+        log_info("Placing globals...\n");
+        bool did_something = true;
+        while (did_something) {
+            did_something = false;
+            for (auto cell : sorted(ctx->cells)) {
+                CellInfo *ci = cell.second;
+                if (ci->type == id_OSC_CORE)
+                    did_something |= preplace_singleton(ci);
+                else if (ci->type == id_DCC)
+                    did_something |= preplace_prim(ci, id_CLKI, false);
+            }
         }
     }
 
@@ -784,6 +886,8 @@ struct NexusPacker
         pack_ffs();
         pack_constants();
         pack_luts();
+        promote_globals();
+        place_globals();
     }
 };
 
