@@ -1320,6 +1320,10 @@ struct Arch : BaseCtx
     void assignCellInfo(CellInfo *cell);
 
     // -------------------------------------------------
+    // Arch-specific global routing
+    void route_globals();
+
+    // -------------------------------------------------
 
     std::vector<GraphicElement> getDecalGraphics(DecalId decal) const;
 

@@ -446,6 +446,9 @@ bool Arch::place()
 bool Arch::route()
 {
     assign_budget(getCtx(), true);
+
+    route_globals();
+
     std::string router = str_or_default(settings, id("router"), defaultRouter);
     bool result;
     if (router == "router1") {
