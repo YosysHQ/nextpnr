@@ -33,6 +33,16 @@ bool Arch::nexus_logic_tile_valid(LogicTileStatus &lts) const
             CellInfo *lut1 = lts.cells[(s << 3) | BEL_LUT1];
             CellInfo *ff0 = lts.cells[(s << 3) | BEL_FF0];
             CellInfo *ff1 = lts.cells[(s << 3) | BEL_FF1];
+
+            if (s == 2) {
+                CellInfo *ramw = lts.cells[(s << 3) | BEL_RAMW];
+                // Nothing else in SLICEC can be used if the RAMW is used
+                if (ramw != nullptr) {
+                    if (lut0 != nullptr || lut1 != nullptr || ff0 != nullptr || ff1 != nullptr)
+                        return false;
+                }
+            }
+
             if (lut0 != nullptr) {
                 // Check for overuse of M signal
                 if (lut0->lutInfo.mux2_used && ff0 != nullptr && ff0->ffInfo.m != nullptr)

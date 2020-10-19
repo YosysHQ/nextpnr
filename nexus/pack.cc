@@ -878,11 +878,124 @@ struct NexusPacker
         }
     }
 
+    // Get a bus port name
+    IdString bus(const std::string &base, int i) { return ctx->id(stringf("%s[%d]", base.c_str(), i)); }
+
+    IdString bus_flat(const std::string &base, int i) { return ctx->id(stringf("%s%d", base.c_str(), i)); }
+
+    // Pack a LUTRAM into COMB and RAMW cells
+    void pack_lutram()
+    {
+        // Do this so we don't have an iterate-and-modfiy situation
+        std::vector<CellInfo *> lutrams;
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (ci->type != id_DPR16X4)
+                continue;
+            lutrams.push_back(ci);
+        }
+
+        // Port permutation vectors
+        IdString ramw_wdo[4] = {id_D1, id_C1, id_A1, id_B1};
+        IdString ramw_wado[4] = {id_D0, id_B0, id_C0, id_A0};
+        IdString comb0_rad[4] = {id_D, id_B, id_C, id_A};
+        IdString comb1_rad[4] = {id_C, id_B, id_D, id_A};
+
+        for (CellInfo *ci : lutrams) {
+            // Create constituent cells
+            CellInfo *ramw = ctx->createCell(ctx->id(stringf("%s$lutram_ramw$", ctx->nameOf(ci))), id_RAMW);
+            std::vector<CellInfo *> combs;
+            for (int i = 0; i < 4; i++)
+                combs.push_back(
+                        ctx->createCell(ctx->id(stringf("%s$lutram_comb[%d]$", ctx->nameOf(ci), i)), id_OXIDE_COMB));
+            // Rewiring - external WCK and WRE
+            replace_port(ci, id_WCK, ramw, id_CLK);
+            replace_port(ci, id_WRE, ramw, id_LSR);
+
+            // Internal WCK and WRE signals
+            ramw->addOutput(id_WCKO);
+            ramw->addOutput(id_WREO);
+            NetInfo *int_wck = ctx->createNet(ctx->id(stringf("%s$lutram_wck$", ctx->nameOf(ci))));
+            NetInfo *int_wre = ctx->createNet(ctx->id(stringf("%s$lutram_wre$", ctx->nameOf(ci))));
+            connect_port(ctx, int_wck, ramw, id_WCKO);
+            connect_port(ctx, int_wre, ramw, id_WREO);
+
+            uint64_t initval = ctx->parse_lattice_param(ci, id_INITVAL, 64, 0).as_int64();
+
+            // Rewiring - buses
+            for (int i = 0; i < 4; i++) {
+                // Write address - external
+                replace_port(ci, bus("WAD", i), ramw, ramw_wado[i]);
+                // Write data - external
+                replace_port(ci, bus("DI", i), ramw, ramw_wdo[i]);
+                // Read data
+                replace_port(ci, bus("DO", i), combs[i], id_F);
+                // Read address
+                NetInfo *rad = get_net_or_empty(ci, bus("RAD", i));
+                if (rad != nullptr) {
+                    for (int j = 0; j < 4; j++) {
+                        IdString port = (j % 2) ? comb1_rad[i] : comb0_rad[i];
+                        combs[j]->addInput(port);
+                        connect_port(ctx, rad, combs[j], port);
+                    }
+                    disconnect_port(ctx, ci, bus("RAD", i));
+                }
+                // Write address - internal
+                NetInfo *int_wad = ctx->createNet(ctx->id(stringf("%s$lutram_wad[%d]$", ctx->nameOf(ci), i)));
+                ramw->addOutput(bus_flat("WADO", i));
+                connect_port(ctx, int_wad, ramw, bus_flat("WADO", i));
+                for (int j = 0; j < 4; j++) {
+                    combs[j]->addInput(bus_flat("WAD", i));
+                    connect_port(ctx, int_wad, combs[j], bus_flat("WAD", i));
+                }
+                // Write data - internal
+                NetInfo *int_wd = ctx->createNet(ctx->id(stringf("%s$lutram_wd[%d]$", ctx->nameOf(ci), i)));
+                ramw->addOutput(bus_flat("WDO", i));
+                connect_port(ctx, int_wd, ramw, bus_flat("WDO", i));
+                combs[i]->addInput(id_WDI);
+                connect_port(ctx, int_wd, combs[i], id_WDI);
+                // Write clock and enable - internal
+                combs[i]->addInput(id_WCK);
+                combs[i]->addInput(id_WRE);
+                connect_port(ctx, int_wck, combs[i], id_WCK);
+                connect_port(ctx, int_wre, combs[i], id_WRE);
+                // Remap init val
+                uint64_t split_init = 0;
+                for (int j = 0; j < 16; j++)
+                    if (initval & (1ULL << (4 * j + i)))
+                        split_init |= (1 << j);
+                combs[i]->params[id_INIT] = Property(split_init, 16);
+            }
+
+            // Setup relative constraints
+            combs[0]->constr_z = 0;
+            combs[0]->constr_abs_z = true;
+            for (int i = 1; i < 4; i++) {
+                combs[i]->constr_x = 0;
+                combs[i]->constr_y = 0;
+                combs[i]->constr_z = ((i / 2) << 3) | (i % 2);
+                combs[i]->constr_abs_z = true;
+                combs[i]->constr_parent = combs[0];
+                combs[0]->constr_children.push_back(combs[i]);
+            }
+
+            ramw->constr_x = 0;
+            ramw->constr_y = 0;
+            ramw->constr_z = (2 << 3) | Arch::BEL_RAMW;
+            ramw->constr_abs_z = true;
+            ramw->constr_parent = combs[0];
+            combs[0]->constr_children.push_back(ramw);
+            // Remove now-packed cell
+            ctx->cells.erase(ci->name);
+        }
+    }
+
     explicit NexusPacker(Context *ctx) : ctx(ctx) {}
 
     void operator()()
     {
         pack_io();
+        pack_lutram();
         pack_ffs();
         pack_constants();
         pack_luts();
@@ -929,13 +1042,13 @@ void Arch::assignCellInfo(CellInfo *cell)
         cell->ffInfo.ctrlset.lsr = get_net_or_empty(cell, id_LSR);
         cell->ffInfo.di = get_net_or_empty(cell, id_DI);
         cell->ffInfo.m = get_net_or_empty(cell, id_M);
-    } else if (cell->type == ID_RAMW) {
-        cell->ffInfo.ctrlset.async = false;
+    } else if (cell->type == id_RAMW) {
+        cell->ffInfo.ctrlset.async = true;
         cell->ffInfo.ctrlset.regddr_en = false;
         cell->ffInfo.ctrlset.gsr_en = false;
         cell->ffInfo.ctrlset.clkmux = id(str_or_default(cell->params, id_CLKMUX, "CLK")).index;
         cell->ffInfo.ctrlset.cemux = ID_CE;
-        cell->ffInfo.ctrlset.lsrmux = id(str_or_default(cell->params, id_LSRMUX, "LSR")).index;
+        cell->ffInfo.ctrlset.lsrmux = ID_INV;
         cell->ffInfo.ctrlset.clk = get_net_or_empty(cell, id_CLK);
         cell->ffInfo.ctrlset.ce = nullptr;
         cell->ffInfo.ctrlset.lsr = get_net_or_empty(cell, id_LSR);

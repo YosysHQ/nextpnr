@@ -298,6 +298,17 @@ struct NexusFasmWriter
         pop(2);
     }
 
+    // Write out config for an OXIDE_RAMW cell
+    void write_ramw(const CellInfo *cell)
+    {
+        BelId bel = cell->bel;
+        push_tile(bel.tile, id_PLC);
+        push("SLICEC");
+        write_bit("MODE.RAMW");
+        write_cell_muxes(cell);
+        pop(2);
+    }
+
     std::unordered_set<BelId> used_io;
 
     // Write config for an SEIO33_CORE cell
@@ -442,6 +453,8 @@ struct NexusFasmWriter
                 write_comb(ci);
             else if (ci->type == id_OXIDE_FF)
                 write_ff(ci);
+            else if (ci->type == id_RAMW)
+                write_ramw(ci);
             else if (ci->type == id_SEIO33_CORE)
                 write_io33(ci);
             else if (ci->type == id_SEIO18_CORE)

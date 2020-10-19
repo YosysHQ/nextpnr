@@ -31,11 +31,12 @@ static const std::unordered_map<IdString, Arch::CellPinsData> base_cell_pin_data
                  {id_WRE, PINSTYLE_DEDI},
 
                  {id_FCI, PINSTYLE_DEDI},
+                 {id_F1, PINSTYLE_DEDI},
                  {id_WAD0, PINSTYLE_DEDI},
                  {id_WAD1, PINSTYLE_DEDI},
                  {id_WAD2, PINSTYLE_DEDI},
                  {id_WAD3, PINSTYLE_DEDI},
-                 {id_WD, PINSTYLE_DEDI},
+                 {id_WDI, PINSTYLE_DEDI},
 
                  {{}, PINSTYLE_PU},
          }},
@@ -44,6 +45,11 @@ static const std::unordered_map<IdString, Arch::CellPinsData> base_cell_pin_data
                  {id_CLK, PINSTYLE_CLK},
                  {id_LSR, PINSTYLE_LSR},
                  {id_CE, PINSTYLE_CE},
+                 {{}, PINSTYLE_DEDI},
+         }},
+        {id_RAMW,
+         {
+                 {id_CLK, PINSTYLE_CLK},
                  {{}, PINSTYLE_DEDI},
          }},
         {id_SEIO18_CORE,

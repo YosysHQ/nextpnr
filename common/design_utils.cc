@@ -30,6 +30,13 @@ void replace_port(CellInfo *old_cell, IdString old_name, CellInfo *rep_cell, IdS
     if (!old_cell->ports.count(old_name))
         return;
     PortInfo &old = old_cell->ports.at(old_name);
+
+    // Create port on the replacement cell if it doesn't already exist
+    if (!rep_cell->ports.count(rep_name)) {
+        rep_cell->ports[rep_name].name = rep_name;
+        rep_cell->ports[rep_name].type = old.type;
+    }
+
     PortInfo &rep = rep_cell->ports.at(rep_name);
     NPNR_ASSERT(old.type == rep.type);
 
