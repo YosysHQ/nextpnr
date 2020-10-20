@@ -136,8 +136,14 @@ struct DecalId
     int32_t index = -1;
     bool active = false;
 
-    bool operator==(const DecalId &other) const { return (type == other.type) && (index == other.index); }
-    bool operator!=(const DecalId &other) const { return (type != other.type) || (index != other.index); }
+    bool operator==(const DecalId &other) const
+    {
+        return (type == other.type) && (index == other.index) && (active == other.active);
+    }
+    bool operator!=(const DecalId &other) const
+    {
+        return (type != other.type) || (index != other.index) || (active != other.active);
+    }
 };
 
 struct ArchNetInfo

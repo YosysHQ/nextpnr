@@ -254,6 +254,21 @@ std::vector<IdString> Arch::getBelPins(BelId bel) const
     return ret;
 }
 
+std::vector<std::pair<IdString, std::string>> Arch::getBelAttrs(BelId bel) const
+{
+    std::vector<std::pair<IdString, std::string>> ret;
+
+    ret.emplace_back(id("INDEX"), stringf("%d", bel.index));
+
+    ret.emplace_back(id("GRID_X"), stringf("%d", bel.tile % chip_info->width));
+    ret.emplace_back(id("GRID_Y"), stringf("%d", bel.tile / chip_info->width));
+    ret.emplace_back(id("BEL_Z"), stringf("%d", bel_data(bel).z));
+
+    ret.emplace_back(id("BEL_TYPE"), nameOf(getBelType(bel)));
+
+    return ret;
+}
+
 // -----------------------------------------------------------------------
 
 WireId Arch::getWireByName(IdString name) const
@@ -334,9 +349,43 @@ std::vector<std::pair<IdString, std::string>> Arch::getPipAttrs(PipId pip) const
 
 // -----------------------------------------------------------------------
 
+namespace {
+const float bel_ofs_x = 0.7, bel_ofs_y = 0.0375;
+const float bel_sp_x = 0.1, bel_sp_y = 0.1;
+const float bel_width = 0.075, bel_height = 0.075;
+} // namespace
+
 std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
 {
     std::vector<GraphicElement> ret;
+
+    switch (decal.type) {
+    case DecalId::TYPE_BEL: {
+        auto style = decal.active ? GraphicElement::STYLE_ACTIVE : GraphicElement::STYLE_INACTIVE;
+        if (decal.index != -1) {
+            int slice = (decal.index >> 3) & 0x3;
+            int bel = decal.index & 0x7;
+            float x1, x2, y1, y2;
+            if (bel == BEL_RAMW) {
+                x1 = bel_ofs_x;
+                y1 = bel_ofs_y + 2 * bel_sp_y * slice;
+                x2 = x1 + bel_sp_x + bel_width;
+                y2 = y1 + bel_height;
+            } else {
+                x1 = bel_ofs_x + bel_sp_x * (bel >> 1);
+                y1 = bel_ofs_y + 2 * bel_sp_y * slice + bel_sp_y * (bel & 0x1);
+                if (slice >= 2)
+                    y1 += bel_sp_y * 1.5;
+                x2 = x1 + bel_width;
+                y2 = y1 + bel_height;
+            }
+            ret.emplace_back(GraphicElement::TYPE_BOX, style, x1, y1, x2, y2, 1);
+        }
+        break;
+    };
+    default:
+        break;
+    }
 
     return ret;
 }
@@ -344,9 +393,14 @@ std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
 DecalXY Arch::getBelDecal(BelId bel) const
 {
     DecalXY decalxy;
-    decalxy.decal.index = -1;
-    decalxy.x = 0;
-    decalxy.y = 0;
+    decalxy.decal.type = DecalId::TYPE_BEL;
+    if (tile_is(bel, LOC_LOGIC))
+        decalxy.decal.index = bel_data(bel).z;
+    else
+        decalxy.decal.index = -1;
+    decalxy.decal.active = (getBoundBelCell(bel) != nullptr);
+    decalxy.x = bel.tile % chip_info->width;
+    decalxy.y = bel.tile / chip_info->width;
     return decalxy;
 }
 
