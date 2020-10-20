@@ -203,6 +203,10 @@ struct PDCParser
             return cmd_ldc_set_location(arguments);
         else if (cmd == "ldc_set_port")
             return cmd_ldc_set_port(arguments);
+        else if (cmd == "ldc_set_sysconfig" || cmd == "get_nets" || cmd == "create_clock") {
+            log_warning("%s is not yet supported!\n", cmd.c_str());
+            return TCLValue("");
+        }
         else
             log_error("Unsupported PDC command '%s'\n", cmd.c_str());
     }
