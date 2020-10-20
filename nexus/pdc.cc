@@ -206,8 +206,7 @@ struct PDCParser
         else if (cmd == "ldc_set_sysconfig" || cmd == "get_nets" || cmd == "create_clock") {
             log_warning("%s is not yet supported!\n", cmd.c_str());
             return TCLValue("");
-        }
-        else
+        } else
             log_error("Unsupported PDC command '%s'\n", cmd.c_str());
     }
 
