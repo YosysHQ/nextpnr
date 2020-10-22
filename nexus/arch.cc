@@ -483,6 +483,11 @@ bool Arch::place()
         cfg.ioBufTypes.insert(id_SEIO33_CORE);
         cfg.ioBufTypes.insert(id_SEIO18_CORE);
         cfg.ioBufTypes.insert(id_OSC_CORE);
+        cfg.cellGroups.emplace_back();
+        cfg.cellGroups.back().insert(id_OXIDE_COMB);
+        cfg.cellGroups.back().insert(id_OXIDE_FF);
+
+        cfg.beta = 0.7;
         cfg.criticalityExponent = 7;
         if (!placer_heap(getCtx(), cfg))
             return false;
