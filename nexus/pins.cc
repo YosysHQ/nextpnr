@@ -76,7 +76,8 @@ static const std::unordered_map<IdString, Arch::CellPinsData> base_cell_pin_data
           {id_CSB1, PINSTYLE_PU},     {id_CSB2, PINSTYLE_PU},    {id_ADA0, PINSTYLE_ADLSB}, {id_ADA1, PINSTYLE_ADLSB},
           {id_ADA2, PINSTYLE_ADLSB},  {id_ADA2, PINSTYLE_ADLSB}, {id_ADA3, PINSTYLE_ADLSB}, {id_ADB0, PINSTYLE_ADLSB},
           {id_ADB1, PINSTYLE_ADLSB},  {id_WEA, PINSTYLE_INV_PD}, {id_WEB, PINSTYLE_INV_PD}, {id_RSTA, PINSTYLE_INV_PD},
-          {id_RSTB, PINSTYLE_INV_PD}, {{}, PINSTYLE_CIB}}},
+          {id_RSTB, PINSTYLE_INV_PD}, {{id_DWS0}, PINSTYLE_PU},  {{id_DWS1}, PINSTYLE_PU},  {{id_DWS2}, PINSTYLE_PU},
+          {{id_DWS3}, PINSTYLE_PU},   {{id_DWS4}, PINSTYLE_PU},  {{}, PINSTYLE_CIB}}},
         {id_OSC_CORE,
          {
                  {id_HFOUTEN, PINSTYLE_PU},
