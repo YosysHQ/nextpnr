@@ -990,11 +990,72 @@ struct NexusPacker
         }
     }
 
+    void convert_prims()
+    {
+        // Convert primitives from their non-CORE variant to their CORE variant
+        static const std::unordered_map<IdString, IdString> prim_map = {
+                {id_OSCA, id_OSC_CORE},          {id_DP16K, id_DP16K_MODE}, {id_PDP16K, id_PDP16K_MODE},
+                {id_PDPSC16K, id_PDPSC16K_MODE}, {id_SP16K, id_SP16K_MODE}, {id_FIFO16K, id_FIFO16K_MODE},
+        };
+
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (!prim_map.count(ci->type))
+                continue;
+            prim_to_core(ci, prim_map.at(ci->type));
+        }
+    }
+
+    void add_bus_xform(XFormRule &rule, const std::string &o, const std::string &n, int width, int old_offset = 0,
+                       int new_offset = 0)
+    {
+        for (int i = 0; i < width; i++)
+            rule.port_xform[bus_flat(o, i + old_offset)] = bus_flat(n, i + new_offset);
+    }
+
+    void pack_bram()
+    {
+        std::unordered_map<IdString, XFormRule> bram_rules;
+        bram_rules[id_DP16K_MODE].new_type = id_OXIDE_EBR;
+        bram_rules[id_DP16K_MODE].set_params.emplace_back(id_MODE, std::string("DP16K"));
+        bram_rules[id_DP16K_MODE].parse_params.emplace_back(id_CSDECODE_A, id_CSDECODE_A, 3, 7);
+        bram_rules[id_DP16K_MODE].parse_params.emplace_back(id_CSDECODE_B, id_CSDECODE_B, 3, 7);
+        // Pseudo dual port
+        bram_rules[id_PDP16K_MODE].new_type = id_OXIDE_EBR;
+        bram_rules[id_PDP16K_MODE].set_params.emplace_back(id_MODE, std::string("PDP16K"));
+        bram_rules[id_PDP16K_MODE].parse_params.emplace_back(id_CSDECODE_R, id_CSDECODE_R, 3, 7);
+        bram_rules[id_PDP16K_MODE].parse_params.emplace_back(id_CSDECODE_W, id_CSDECODE_W, 3, 7);
+        bram_rules[id_PDP16K_MODE].port_xform[id_CLKW] = id_CLKA;
+        bram_rules[id_PDP16K_MODE].port_xform[id_CLKR] = id_CLKB;
+        bram_rules[id_PDP16K_MODE].port_xform[id_CEW] = id_CEA;
+        bram_rules[id_PDP16K_MODE].port_xform[id_CER] = id_CEB;
+        bram_rules[id_PDP16K_MODE].port_multixform[id_RST] = {id_RSTA, id_RSTB};
+        add_bus_xform(bram_rules[id_PDP16K_MODE], "ADW", "ADA", 14);
+        add_bus_xform(bram_rules[id_PDP16K_MODE], "ADR", "ADB", 14);
+        add_bus_xform(bram_rules[id_PDP16K_MODE], "CSW", "CSA", 3);
+        add_bus_xform(bram_rules[id_PDP16K_MODE], "CSR", "CSB", 3);
+        add_bus_xform(bram_rules[id_PDP16K_MODE], "DI", "DIA", 18, 0, 0);
+        add_bus_xform(bram_rules[id_PDP16K_MODE], "DI", "DIB", 18, 18, 0);
+        add_bus_xform(bram_rules[id_PDP16K_MODE], "DO", "DOB", 18, 0, 0);
+        add_bus_xform(bram_rules[id_PDP16K_MODE], "DO", "DOA", 18, 18, 0);
+
+        // Pseudo dual port; single clock
+        bram_rules[id_PDPSC16K_MODE] = bram_rules[id_PDP16K_MODE];
+        bram_rules[id_PDPSC16K_MODE].set_params.clear();
+        bram_rules[id_PDPSC16K_MODE].set_params.emplace_back(id_MODE, std::string("PDPSC16K"));
+        bram_rules[id_PDPSC16K_MODE].port_multixform[id_CLK] = {id_CLKA, id_CLKB};
+
+        log_info("Packing BRAM...\n");
+        generic_xform(bram_rules, true);
+    }
+
     explicit NexusPacker(Context *ctx) : ctx(ctx) {}
 
     void operator()()
     {
         pack_io();
+        convert_prims();
+        pack_bram();
         pack_lutram();
         pack_ffs();
         pack_constants();
