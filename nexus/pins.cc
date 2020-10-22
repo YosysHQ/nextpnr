@@ -58,6 +58,12 @@ static const std::unordered_map<IdString, Arch::CellPinsData> base_cell_pin_data
                  {id_B, PINSTYLE_DEDI},
                  {{}, PINSTYLE_PU},
          }},
+        {id_DIFFIO18_CORE,
+         {
+                 {id_T, PINSTYLE_T},
+                 {id_B, PINSTYLE_DEDI},
+                 {{}, PINSTYLE_PU},
+         }},
         {id_SEIO33_CORE,
          {
                  {id_T, PINSTYLE_T},

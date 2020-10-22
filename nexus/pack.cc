@@ -594,6 +594,19 @@ struct NexusPacker
                 // Get IO type for reporting purposes
                 std::string io_type = str_or_default(ci->attrs, id_IO_TYPE, "LVCMOS33");
 
+                if (ctx->is_io_type_diff(io_type)) {
+                    // Convert from SEIO18 to DIFFIO18
+                    if (ctx->getBelType(bel) != id_SEIO18_CORE)
+                        log_error("IO '%s' uses differential type '%s' but is placed on wide range pin '%s'\n",
+                                  ctx->nameOf(ci), io_type.c_str(), loc.c_str());
+                    Loc bel_loc = ctx->getBelLocation(bel);
+                    if (bel_loc.z != 0)
+                        log_error("IO '%s' uses differential type '%s' but is placed on 'B' side pin '%s'\n",
+                                  ctx->nameOf(ci), io_type.c_str(), loc.c_str());
+                    bel_loc.z = 2;
+                    bel = ctx->getBelByLocation(bel_loc);
+                }
+
                 log_info("Constraining %s IO '%s' to pin %s (%s%sbel %s)\n", io_type.c_str(), ctx->nameOf(ci),
                          loc.c_str(), func.c_str(), func.empty() ? "" : "; ", ctx->nameOfBel(bel));
                 ci->attrs[id_BEL] = ctx->getBelName(bel).str(ctx);

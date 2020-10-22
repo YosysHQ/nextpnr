@@ -125,6 +125,18 @@ struct NexusFasmWriter
             write_bit(stringf("%s.%s", name.c_str(), fnd->second.c_str()));
         }
     }
+    void write_ioattr_postfix(const CellInfo *cell, const std::string &name, const std::string &postfix,
+                              const std::string &defval = "")
+    {
+        auto fnd = cell->attrs.find(ctx->id(name));
+        if (fnd == cell->attrs.end()) {
+            if (!defval.empty())
+                write_bit(stringf("%s_%s.%s", name.c_str(), postfix.c_str(), defval.c_str()));
+        } else {
+            write_bit(stringf("%s_%s.%s", name.c_str(), postfix.c_str(), fnd->second.c_str()));
+        }
+    }
+
     // Gets the full name of a tile
     std::string tile_name(int loc, const PhysicalTileInfoPOD &tile)
     {
@@ -321,6 +333,16 @@ struct NexusFasmWriter
 
     std::unordered_set<BelId> used_io;
 
+    struct BankConfig
+    {
+        bool diff_used = false;
+        bool lvds_used = false;
+        bool slvs_used = false;
+        bool dphy_used = false;
+    };
+
+    std::map<int, BankConfig> bank_cfg;
+
     // Write config for an SEIO33_CORE cell
     void write_io33(const CellInfo *cell)
     {
@@ -359,6 +381,54 @@ struct NexusFasmWriter
         const char *iodir = is_input ? "INPUT" : (is_output ? "OUTPUT" : "BIDIR");
         write_bit(stringf("BASE_TYPE.%s_%s", iodir, str_or_default(cell->attrs, id_IO_TYPE, "LVCMOS18H").c_str()));
         write_ioattr(cell, "PULLMODE", "NONE");
+        pop();
+        write_cell_muxes(cell);
+        pop();
+    }
+    // Write config for an SEIO18_CORE cell
+    void write_diffio18(const CellInfo *cell)
+    {
+        BelId bel = cell->bel;
+
+        Loc bel_loc = ctx->getBelLocation(bel);
+        for (int i = 0; i < 2; i++) {
+            // Mark both A and B pins as used
+            used_io.insert(ctx->getBelByLocation(Loc(bel_loc.x, bel_loc.y, i)));
+        }
+        push_belgroup(bel);
+        push("PIOA");
+        push("DIFFIO18");
+
+        auto &bank = bank_cfg[ctx->get_bel_pad(ctx->getBelByLocation(Loc(bel_loc.x, bel_loc.y, 0)))->bank];
+
+        bank.diff_used = true;
+
+        const NetInfo *t = get_net_or_empty(cell, id_T);
+        auto tmux = ctx->get_cell_pinmux(cell, id_T);
+        bool is_input = false, is_output = false;
+        if (tmux == PINMUX_0) {
+            is_output = true;
+        } else if (tmux == PINMUX_1 || t == nullptr) {
+            is_input = true;
+        }
+
+        const char *iodir = is_input ? "INPUT" : (is_output ? "OUTPUT" : "BIDIR");
+        std::string type = str_or_default(cell->attrs, id_IO_TYPE, "LVDS");
+        write_bit(stringf("BASE_TYPE.%s_%s", iodir, type.c_str()));
+        if (type == "LVDS") {
+            write_ioattr_postfix(cell, "DIFFDRIVE", "LVDS", "3P5");
+            bank.lvds_used = true;
+        } else if (type == "SLVS") {
+            write_ioattr_postfix(cell, "DIFFDRIVE", "SLVS", "2P0");
+            bank.slvs_used = true;
+        } else if (type == "MIPI_DPHY") {
+            write_ioattr_postfix(cell, "DIFFDRIVE", "MIPI_DPHY", "2P0");
+            bank.dphy_used = true;
+        }
+
+        write_ioattr(cell, "PULLMODE", "FAILSAFE");
+        write_ioattr(cell, "DIFFRESISTOR");
+        pop();
         write_cell_muxes(cell);
         pop(2);
     }
@@ -505,9 +575,20 @@ struct NexusFasmWriter
     void write_bankcfg()
     {
         for (int i = 0; i < 8; i++) {
-            if (i >= 3 && i <= 5)
-                continue; // 1.8V banks, skip for now
-            write_bit(stringf("GLOBAL.BANK%d.VCC.3V3", i));
+            if (i >= 3 && i <= 5) {
+                // 1.8V banks
+                push(stringf("GLOBAL.BANK%d", i));
+                auto &bank = bank_cfg[i];
+                write_bit("DIFF_IO.ON", bank.diff_used);
+                write_bit("LVDS_IO.ON", bank.lvds_used);
+                write_bit("SLVS_IO.ON", bank.slvs_used);
+                write_bit("MIPI_DPHY_IO.ON", bank.dphy_used);
+
+                pop();
+            } else {
+                // 3.3V banks, this should eventually be set based on the bank config
+                write_bit(stringf("GLOBAL.BANK%d.VCC.3V3", i));
+            }
         }
         blank();
     }
@@ -536,6 +617,8 @@ struct NexusFasmWriter
                 write_io33(ci);
             else if (ci->type == id_SEIO18_CORE)
                 write_io18(ci);
+            else if (ci->type == id_DIFFIO18_CORE)
+                write_diffio18(ci);
             else if (ci->type == id_OSC_CORE)
                 write_osc(ci);
             else if (ci->type == id_OXIDE_EBR)

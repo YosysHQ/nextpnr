@@ -813,6 +813,30 @@ enum CellPinMux
     PINMUX_INV = 3,
 };
 
+// This represents the various kinds of IO pins
+enum IOStyle
+{
+    IOBANK_WR = 0x1, // needs wide range IO bank
+    IOBANK_HP = 0x2, // needs high perf IO bank
+
+    IOMODE_REF = 0x10,         // IO is referenced
+    IOMODE_DIFF = 0x20,        // IO is true differential
+    IOMODE_PSEUDO_DIFF = 0x40, // IO is pseduo differential
+
+    IOSTYLE_SE_WR = 0x01, // single ended, wide range
+    IOSTYLE_SE_HP = 0x02, // single ended, high perf
+    IOSTYLE_PD_WR = 0x41, // pseudo diff, wide range
+
+    IOSTYLE_REF_HP = 0x12,  // referenced high perf
+    IOSTYLE_DIFF_HP = 0x22, // differential high perf
+};
+
+struct IOTypeData
+{
+    IOStyle style;
+    int vcco; // required Vcco in 10mV
+};
+
 // -----------------------------------------------------------------------
 
 const int bba_version =
@@ -1454,6 +1478,13 @@ struct Arch : BaseCtx
     BelId get_pad_pio_bel(const PadInfoPOD *pad) const;
     const PadInfoPOD *get_bel_pad(BelId bel) const;
     std::string get_pad_functions(const PadInfoPOD *pad) const;
+
+    // -------------------------------------------------
+    // Data about different IO standard, mostly used by bitgen
+    static const std::unordered_map<std::string, IOTypeData> io_types;
+    int get_io_type_vcc(const std::string &io_type) const;
+    bool is_io_type_diff(const std::string &io_type) const;
+    bool is_io_type_ref(const std::string &io_type) const;
 
     // -------------------------------------------------
 
