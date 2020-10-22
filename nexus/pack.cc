@@ -1023,6 +1023,7 @@ struct NexusPacker
         // Pseudo dual port
         bram_rules[id_PDP16K_MODE].new_type = id_OXIDE_EBR;
         bram_rules[id_PDP16K_MODE].set_params.emplace_back(id_MODE, std::string("PDP16K"));
+        bram_rules[id_PDP16K_MODE].set_params.emplace_back(id_WEAMUX, std::string("1"));
         bram_rules[id_PDP16K_MODE].parse_params.emplace_back(id_CSDECODE_R, id_CSDECODE_R, 3, 7);
         bram_rules[id_PDP16K_MODE].parse_params.emplace_back(id_CSDECODE_W, id_CSDECODE_W, 3, 7);
         bram_rules[id_PDP16K_MODE].port_xform[id_CLKW] = id_CLKA;
@@ -1043,6 +1044,7 @@ struct NexusPacker
         bram_rules[id_PDPSC16K_MODE] = bram_rules[id_PDP16K_MODE];
         bram_rules[id_PDPSC16K_MODE].set_params.clear();
         bram_rules[id_PDPSC16K_MODE].set_params.emplace_back(id_MODE, std::string("PDPSC16K"));
+        bram_rules[id_PDPSC16K_MODE].set_params.emplace_back(id_WEAMUX, std::string("1"));
         bram_rules[id_PDPSC16K_MODE].port_multixform[id_CLK] = {id_CLKA, id_CLKB};
 
         log_info("Packing BRAM...\n");

@@ -388,6 +388,7 @@ struct NexusFasmWriter
         std::string mode = str_or_default(cell->params, id_MODE, "");
 
         write_bit(stringf("MODE.%s_MODE", mode.c_str()));
+        write_enum(cell, "INIT_DATA", "STATIC");
         write_enum(cell, "GSR", "DISABLED");
 
         write_int_vector("WID[10:0]", wid, 11);
@@ -395,8 +396,8 @@ struct NexusFasmWriter
         push(stringf("%s_MODE", mode.c_str()));
 
         if (mode == "DP16K") {
-            write_int_vector_param(cell, "CSDECODE_A", 7, 3);
-            write_int_vector_param(cell, "CSDECODE_B", 7, 3);
+            write_int_vector_param(cell, "CSDECODE_A", 7, 3, true);
+            write_int_vector_param(cell, "CSDECODE_B", 7, 3, true);
             write_enum(cell, "ASYNC_RST_RELEASE_A");
             write_enum(cell, "ASYNC_RST_RELEASE_B");
             write_enum(cell, "DATA_WIDTH_A");
@@ -406,8 +407,8 @@ struct NexusFasmWriter
             write_enum(cell, "RESETMODE_A");
             write_enum(cell, "RESETMODE_B");
         } else if (mode == "PDP16K" || mode == "PDPSC16K") {
-            write_int_vector_param(cell, "CSDECODE_W", 7, 3);
-            write_int_vector_param(cell, "CSDECODE_R", 7, 3);
+            write_int_vector_param(cell, "CSDECODE_W", 7, 3, true);
+            write_int_vector_param(cell, "CSDECODE_R", 7, 3, true);
             write_enum(cell, "ASYNC_RST_RELEASE");
             write_enum(cell, "DATA_WIDTH_W");
             write_enum(cell, "DATA_WIDTH_R");

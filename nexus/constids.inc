@@ -203,3 +203,5 @@ X(CLKR)
 X(CEW)
 X(CER)
 X(RST)
+
+X(WEAMUX)
