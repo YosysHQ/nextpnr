@@ -121,6 +121,7 @@ enum RelLocType : uint8_t
     REL_LOC_BRANCH_R = 4,
     REL_LOC_SPINE = 5,
     REL_LOC_HROW = 6,
+    REL_LOC_VCC = 7,
 };
 
 enum ArcFlags
@@ -421,6 +422,7 @@ inline bool chip_rel_loc_tile(const ChipInfoPOD *chip, int32_t base, const RelWi
         return true;
     }
     case REL_LOC_GLOBAL:
+    case REL_LOC_VCC:
         next = 0;
         return true;
     default:

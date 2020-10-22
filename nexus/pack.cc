@@ -292,6 +292,8 @@ struct NexusPacker
                 continue;
             if (cell->ports.count(pin))
                 continue;
+            if (cell->type == id_OXIDE_COMB && pin == id_SEL)
+                continue; // doesn't always exist and not needed
             cell->ports[pin].name = pin;
             cell->ports[pin].type = dir;
         }
@@ -313,7 +315,7 @@ struct NexusPacker
 
         NetInfo *new_net = ctx->createNet(ctx->id(stringf("$CONST_%s_NET_", type.c_str(ctx))));
         CellInfo *new_cell = ctx->createCell(ctx->id(stringf("$CONST_%s_DRV_", type.c_str(ctx))), type);
-        new_cell->addInput(id_Z);
+        new_cell->addOutput(id_Z);
         connect_port(ctx, new_net, new_cell, id_Z);
         return new_net;
     }
@@ -369,7 +371,7 @@ struct NexusPacker
         std::vector<IdString> trim_nets;
         for (auto cell : sorted(ctx->cells)) {
             CellInfo *ci = cell.second;
-            if (ci->type != id_INV && ci->type != id_VLO && ci->type != id_VHI)
+            if (ci->type != id_INV && ci->type != id_VLO && ci->type != id_VHI && ci->type != id_VCC_DRV)
                 continue;
             NetInfo *z = get_net_or_empty(ci, id_Z);
             if (z == nullptr) {
@@ -417,7 +419,7 @@ struct NexusPacker
         }
     }
 
-    NetInfo *gnd_net = nullptr, *vcc_net = nullptr;
+    NetInfo *gnd_net = nullptr, *vcc_net = nullptr, *dedi_vcc_net = nullptr;
 
     void process_inv_constants(CellInfo *cell)
     {
@@ -449,11 +451,11 @@ struct NexusPacker
                 // If there is a hard constant option; use it
                 if ((pin_style & int(req_mux)) == req_mux) {
 
-                    if (cell->type == id_OXIDE_COMB) {
-                        // Due to potentially overlapping routing, explicitly keep the one-driver
-                        // until can correctly use the dedicated Vcc route
-                        if (str_or_default(cell->params, id_MODE, "LOGIC") != "LOGIC")
-                            continue;
+                    if ((cell->type == id_OXIDE_COMB) && (req_mux == PINMUX_1)) {
+                        // We need to add a connection to the dedicated Vcc resource that can feed these cell ports
+                        disconnect_port(ctx, cell, port_name);
+                        connect_port(ctx, dedi_vcc_net, cell, port_name);
+                        continue;
                     }
 
                     disconnect_port(ctx, cell, port_name);
@@ -654,13 +656,15 @@ struct NexusPacker
     void pack_constants()
     {
         // Make sure we have high and low nets available
-        get_const_net(id_VHI);
-        get_const_net(id_VLO);
+        vcc_net = get_const_net(id_VHI);
+        gnd_net = get_const_net(id_VLO);
+        dedi_vcc_net = get_const_net(id_VCC_DRV);
         // Iterate through cells
         for (auto cell : sorted(ctx->cells)) {
             CellInfo *ci = cell.second;
             // Skip certain cells at this point
-            if (ci->type != id_LUT4 && ci->type != id_INV && ci->type != id_VHI && ci->type != id_VLO)
+            if (ci->type != id_LUT4 && ci->type != id_INV && ci->type != id_VHI && ci->type != id_VLO &&
+                ci->type != id_VCC_DRV)
                 process_inv_constants(cell.second);
         }
         // Remove superfluous inverters and constant drivers
