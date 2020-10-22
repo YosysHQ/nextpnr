@@ -1074,6 +1074,52 @@ struct NexusPacker
         }
     }
 
+    void pack_widefn()
+    {
+        std::vector<CellInfo *> widefns;
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (ci->type != id_WIDEFN9)
+                continue;
+            widefns.push_back(ci);
+        }
+
+        for (CellInfo *ci : widefns) {
+            std::vector<CellInfo *> combs;
+            for (int i = 0; i < 2; i++)
+                combs.push_back(
+                        ctx->createCell(ctx->id(stringf("%s$widefn_comb[%d]$", ctx->nameOf(ci), i)), id_OXIDE_COMB));
+
+            for (int i = 0; i < 2; i++) {
+                replace_port(ci, bus_flat("A", i), combs[i], id_A);
+                replace_port(ci, bus_flat("B", i), combs[i], id_B);
+                replace_port(ci, bus_flat("C", i), combs[i], id_C);
+                replace_port(ci, bus_flat("D", i), combs[i], id_D);
+            }
+
+            replace_port(ci, id_SEL, combs[0], id_SEL);
+            replace_port(ci, id_Z, combs[0], id_OFX);
+
+            NetInfo *f1 = ctx->createNet(ctx->id(stringf("%s$widefn_f1$", ctx->nameOf(ci))));
+            combs[0]->addInput(id_F1);
+            combs[1]->addOutput(id_F);
+            connect_port(ctx, f1, combs[1], id_F);
+            connect_port(ctx, f1, combs[0], id_F1);
+
+            combs[0]->params[id_INIT] = ctx->parse_lattice_param(ci, id_INIT0, 16, 0);
+            combs[1]->params[id_INIT] = ctx->parse_lattice_param(ci, id_INIT1, 16, 0);
+
+            combs[1]->constr_parent = combs[0];
+            combs[1]->constr_x = 0;
+            combs[1]->constr_y = 0;
+            combs[1]->constr_z = 1;
+            combs[1]->constr_abs_z = false;
+            combs[0]->constr_children.push_back(combs[1]);
+
+            ctx->cells.erase(ci->name);
+        }
+    }
+
     explicit NexusPacker(Context *ctx) : ctx(ctx) {}
 
     void operator()()
@@ -1082,6 +1128,7 @@ struct NexusPacker
         convert_prims();
         pack_bram();
         pack_lutram();
+        pack_widefn();
         pack_ffs();
         pack_constants();
         pack_luts();
