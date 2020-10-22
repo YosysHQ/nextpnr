@@ -1047,6 +1047,16 @@ struct NexusPacker
 
         log_info("Packing BRAM...\n");
         generic_xform(bram_rules, true);
+
+        int wid = 2;
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (ci->type != id_OXIDE_EBR)
+                continue;
+            if (ci->params.count(id_WID))
+                continue;
+            ci->params[id_WID] = wid++;
+        }
     }
 
     explicit NexusPacker(Context *ctx) : ctx(ctx) {}

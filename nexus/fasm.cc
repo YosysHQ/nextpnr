@@ -93,6 +93,16 @@ struct NexusFasmWriter
             bits[i] = (value & (1ULL << i)) != 0;
         write_vector(name, bits, invert);
     }
+    // Write an int vector param
+    void write_int_vector_param(const CellInfo *cell, const std::string &name, uint64_t defval, int width,
+                                bool invert = false)
+    {
+        uint64_t value = int_or_default(cell->params, ctx->id(name), defval);
+        std::vector<bool> bits(width, false);
+        for (int i = 0; i < width; i++)
+            bits[i] = (value & (1ULL << i)) != 0;
+        write_vector(stringf("%s[%d:0]", name.c_str(), width - 1), bits, invert);
+    }
     // Look up an enum value in a cell's parameters and write it to the FASM in name.value format
     void write_enum(const CellInfo *cell, const std::string &name, const std::string &defval = "")
     {
@@ -368,6 +378,72 @@ struct NexusFasmWriter
         write_cell_muxes(cell);
         pop(2);
     }
+    // Write config for an OXIDE_EBR cell
+    void write_bram(const CellInfo *cell)
+    {
+        // EBR configuration
+        BelId bel = cell->bel;
+        push_bel(bel);
+        int wid = int_or_default(cell->params, id_WID, 0);
+        std::string mode = str_or_default(cell->params, id_MODE, "");
+
+        write_bit(stringf("MODE.%s_MODE", mode.c_str()));
+        write_enum(cell, "GSR", "DISABLED");
+
+        write_int_vector("WID[10:0]", wid, 11);
+
+        push(stringf("%s_MODE", mode.c_str()));
+
+        if (mode == "DP16K") {
+            write_int_vector_param(cell, "CSDECODE_A", 7, 3);
+            write_int_vector_param(cell, "CSDECODE_B", 7, 3);
+            write_enum(cell, "ASYNC_RST_RELEASE_A");
+            write_enum(cell, "ASYNC_RST_RELEASE_B");
+            write_enum(cell, "DATA_WIDTH_A");
+            write_enum(cell, "DATA_WIDTH_B");
+            write_enum(cell, "OUTREG_A");
+            write_enum(cell, "OUTREG_B");
+            write_enum(cell, "RESETMODE_A");
+            write_enum(cell, "RESETMODE_B");
+        } else if (mode == "PDP16K" || mode == "PDPSC16K") {
+            write_int_vector_param(cell, "CSDECODE_W", 7, 3);
+            write_int_vector_param(cell, "CSDECODE_R", 7, 3);
+            write_enum(cell, "ASYNC_RST_RELEASE");
+            write_enum(cell, "DATA_WIDTH_W");
+            write_enum(cell, "DATA_WIDTH_R");
+            write_enum(cell, "OUTREG");
+            write_enum(cell, "RESETMODE");
+        }
+
+        pop();
+        push("DP16K_MODE"); // muxes always use the DP16K perspective
+        write_cell_muxes(cell);
+        pop(2);
+        blank();
+
+        // EBR initialisation
+        if (wid > 0) {
+            push(stringf("IP_EBR_WID%d", wid));
+            for (int i = 0; i < 64; i++) {
+                IdString param = ctx->id(stringf("INITVAL_%02X", i));
+                if (!cell->params.count(param))
+                    continue;
+                auto &prop = cell->params.at(param);
+                std::string value;
+                if (prop.is_string) {
+                    NPNR_ASSERT(prop.str.substr(0, 2) == "0x");
+                    // Lattice-style hex string
+                    value = prop.str.substr(2);
+                    value = stringf("320'h%s", value.c_str());
+                } else {
+                    // True Verilog bitvector
+                    value = stringf("320'b%s", prop.str.c_str());
+                }
+                write_bit(stringf("INITVAL_%02X[319:0] = %s", i, value.c_str()));
+            }
+            pop();
+        }
+    }
     // Write out FASM for unused bels where needed
     void write_unused()
     {
@@ -461,6 +537,8 @@ struct NexusFasmWriter
                 write_io18(ci);
             else if (ci->type == id_OSC_CORE)
                 write_osc(ci);
+            else if (ci->type == id_OXIDE_EBR)
+                write_bram(ci);
             blank();
         }
         // Write config for unused bels
