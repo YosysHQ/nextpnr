@@ -448,6 +448,14 @@ struct NexusPacker
                 // Pin is tied to a constant
                 // If there is a hard constant option; use it
                 if ((pin_style & int(req_mux)) == req_mux) {
+
+                    if (cell->type == id_OXIDE_COMB) {
+                        // Due to potentially overlapping routing, explicitly keep the one-driver
+                        // until can correctly use the dedicated Vcc route
+                        if (str_or_default(cell->params, id_MODE, "LOGIC") != "LOGIC")
+                            continue;
+                    }
+
                     disconnect_port(ctx, cell, port_name);
                     ctx->set_cell_pinmux(cell, port_name, req_mux);
                 } else if (port.second.net == nullptr) {
@@ -1120,6 +1128,93 @@ struct NexusPacker
         }
     }
 
+    void pack_carries()
+    {
+        // Find root carry cells
+        log_info("Packing carries...\n");
+        std::vector<CellInfo *> roots;
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (ci->type != id_CCU2)
+                continue;
+            if (get_net_or_empty(ci, id_CIN) != nullptr)
+                continue;
+            roots.push_back(ci);
+        }
+        for (CellInfo *root : roots) {
+            CellInfo *ci = root;
+            CellInfo *constr_base = nullptr;
+            int idx = 0;
+            do {
+                if (ci->type != id_CCU2)
+                    log_error("Found non-carry cell '%s' in carry chain!\n", ctx->nameOf(ci));
+                // Split the carry into two COMB cells
+                std::vector<CellInfo *> combs;
+                for (int i = 0; i < 2; i++)
+                    combs.push_back(
+                            ctx->createCell(ctx->id(stringf("%s$ccu2_comb[%d]$", ctx->nameOf(ci), i)), id_OXIDE_COMB));
+                // Rewire LUT ports
+                for (int i = 0; i < 2; i++) {
+                    combs[i]->params[id_MODE] = std::string("CCU2");
+                    replace_port(ci, bus_flat("A", i), combs[i], id_A);
+                    replace_port(ci, bus_flat("B", i), combs[i], id_B);
+                    replace_port(ci, bus_flat("C", i), combs[i], id_C);
+                    replace_port(ci, bus_flat("D", i), combs[i], id_D);
+                    replace_port(ci, bus_flat("S", i), combs[i], id_F);
+                }
+
+                // External carry chain
+                replace_port(ci, id_CIN, combs[0], id_FCI);
+                replace_port(ci, id_COUT, combs[1], id_FCO);
+
+                // Copy parameters
+                if (ci->params.count(id_INJECT))
+                    combs[0]->params[id_INJECT] = ci->params[id_INJECT];
+                combs[0]->params[id_INIT] = ctx->parse_lattice_param(ci, id_INIT0, 16, 0);
+                combs[1]->params[id_INIT] = ctx->parse_lattice_param(ci, id_INIT1, 16, 0);
+
+                // Internal carry net between the two split COMB cells
+                NetInfo *int_cy = ctx->createNet(ctx->id(stringf("%s$widefn_int_cy$", ctx->nameOf(ci))));
+                combs[0]->addOutput(id_FCO);
+                combs[1]->addInput(id_FCI);
+                connect_port(ctx, int_cy, combs[0], id_FCO);
+                connect_port(ctx, int_cy, combs[1], id_FCI);
+
+                // Relative constraints
+                for (int i = 0; i < 2; i++) {
+                    int z = (idx % 8);
+                    combs[i]->constr_z = ((z / 2) << 3) | (z % 2);
+                    combs[i]->constr_abs_z = true;
+                    if (constr_base == nullptr) {
+                        // This is the very first cell in the chain
+                        constr_base = combs[i];
+                    } else {
+                        combs[i]->constr_x = (idx / 8);
+                        combs[i]->constr_y = 0;
+                        combs[i]->constr_parent = constr_base;
+                        constr_base->constr_children.push_back(combs[i]);
+                    }
+
+                    ++idx;
+                }
+
+                ctx->cells.erase(ci->name);
+
+                // Find next cell in chain, if it exists
+                NetInfo *fco = get_net_or_empty(combs[1], id_FCO);
+                ci = nullptr;
+                if (fco != nullptr) {
+                    if (fco->users.size() > 1)
+                        log_error("Carry cell '%s' has multiple fanout on FCO\n", ctx->nameOf(combs[1]));
+                    else if (fco->users.size() == 1) {
+                        NPNR_ASSERT(fco->users.at(0).port == id_CIN);
+                        ci = fco->users.at(0).cell;
+                    }
+                }
+            } while (ci != nullptr);
+        }
+    }
+
     explicit NexusPacker(Context *ctx) : ctx(ctx) {}
 
     void operator()()
@@ -1128,6 +1223,7 @@ struct NexusPacker
         convert_prims();
         pack_bram();
         pack_lutram();
+        pack_carries();
         pack_widefn();
         pack_ffs();
         pack_constants();

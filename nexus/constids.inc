@@ -205,3 +205,5 @@ X(CER)
 X(RST)
 
 X(WEAMUX)
+
+X(VCC_DRV)

@@ -59,6 +59,8 @@ bool Arch::nexus_logic_tile_valid(LogicTileStatus &lts) const
                 // If LUT1 is carry then LUT0 must be carry too
                 if (lut1->lutInfo.is_carry && (lut0 == nullptr || !lut0->lutInfo.is_carry))
                     return false;
+                if (!lut1->lutInfo.is_carry && lut0 != nullptr && lut0->lutInfo.is_carry)
+                    return false;
             }
             // Check for correct use of FF1 DI
             if (ff1 != nullptr && ff1->ffInfo.di != nullptr && (lut1 == nullptr || ff1->ffInfo.di != lut1->lutInfo.f))

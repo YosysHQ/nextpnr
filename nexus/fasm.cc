@@ -22,6 +22,8 @@
 #include "nextpnr.h"
 #include "util.h"
 
+#include <queue>
+
 NEXTPNR_NAMESPACE_BEGIN
 namespace {
 struct NexusFasmWriter
@@ -291,12 +293,10 @@ struct NexusFasmWriter
         push(stringf("SLICE%c", slice));
         if (cell->params.count(id_INIT))
             write_int_vector(stringf("K%d.INIT[15:0]", k), int_or_default(cell->params, id_INIT, 0), 16);
-#if 0
         if (cell->lutInfo.is_carry) {
             write_bit("MODE.CCU2");
-            write_enum(cell, "INJECT", "NO");
+            write_enum(cell, "CCU2.INJECT", "NO");
         }
-#endif
         pop(2);
     }
     // Write config for an OXIDE_FF cell
