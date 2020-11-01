@@ -307,13 +307,18 @@ void write_asc(const Context *ctx, std::ostream &out)
     case ArchArgs::LP1K:
         out << ".device 1k" << std::endl;
         break;
+    case ArchArgs::HX4K:
+    case ArchArgs::LP4K:
     case ArchArgs::HX8K:
     case ArchArgs::LP8K:
         out << ".device 8k" << std::endl;
         break;
+    case ArchArgs::UP3K:
     case ArchArgs::UP5K:
         out << ".device 5k" << std::endl;
         break;
+    case ArchArgs::U1K:
+    case ArchArgs::U2K:
     case ArchArgs::U4K:
         out << ".device u4k" << std::endl;
         break;
@@ -546,7 +551,7 @@ void write_asc(const Context *ctx, std::ostream &out)
                     set_config(ti, config.at(iey).at(iex), "IoCtrl.REN_" + std::to_string(iez), !pullup);
                 }
 
-                if (ctx->args.type == ArchArgs::UP5K) {
+                if (ctx->args.type == ArchArgs::UP5K || ctx->args.type == ArchArgs::UP3K) {
                     std::string pullup_resistor = "100K";
                     if (cell.second->attrs.count(ctx->id("PULLUP_RESISTOR")))
                         pullup_resistor = cell.second->attrs.at(ctx->id("PULLUP_RESISTOR")).as_string();
@@ -588,7 +593,7 @@ void write_asc(const Context *ctx, std::ostream &out)
                         set_config(ti, config.at(iey).at(iex), "IoCtrl.REN_" + std::to_string(iez), !pullup);
                     }
 
-                    if (ctx->args.type == ArchArgs::UP5K) {
+                    if (ctx->args.type == ArchArgs::UP5K || ctx->args.type == ArchArgs::UP3K) {
                         if (iez == 0) {
                             set_config(ti, config.at(iey).at(iex), "IoCtrl.cf_bit_39", !pullup);
                         } else if (iez == 1) {
@@ -668,7 +673,7 @@ void write_asc(const Context *ctx, std::ostream &out)
         } else if (cell.second->type == ctx->id("ICESTORM_SPRAM")) {
             const BelInfoPOD &beli = ci.bel_data[bel.index];
             int x = beli.x, y = beli.y, z = beli.z;
-            NPNR_ASSERT(ctx->args.type == ArchArgs::UP5K);
+            NPNR_ASSERT(ctx->args.type == ArchArgs::UP5K || ctx->args.type == ArchArgs::UP3K);
             if (x == 0 && y == 0) {
                 const TileInfoPOD &ti_ipcon = bi.tiles_nonrouting[TILE_IPCON];
                 if (z == 1) {
@@ -711,7 +716,7 @@ void write_asc(const Context *ctx, std::ostream &out)
             configure_extra_cell(config, ctx, cell.second.get(), mac16_params, false, std::string("IpConfig."));
         } else if (cell.second->type == ctx->id("ICESTORM_HFOSC")) {
             std::vector<std::pair<std::string, int>> hfosc_params = {{"CLKHF_DIV", 2}};
-            if (ctx->args.type != ArchArgs::U4K)
+            if (ctx->args.type != ArchArgs::U4K && ctx->args.type != ArchArgs::U1K && ctx->args.type != ArchArgs::U2K)
                 hfosc_params.push_back(std::pair<std::string, int>("TRIM_EN", 1));
             configure_extra_cell(config, ctx, cell.second.get(), hfosc_params, true, std::string("IpConfig."));
 
@@ -801,11 +806,13 @@ void write_asc(const Context *ctx, std::ostream &out)
                 } else {
                     setColBufCtrl = (y == 4 || y == 5 || y == 12 || y == 13);
                 }
-            } else if (ctx->args.type == ArchArgs::LP8K || ctx->args.type == ArchArgs::HX8K) {
+            } else if (ctx->args.type == ArchArgs::LP8K || ctx->args.type == ArchArgs::HX8K ||
+                       ctx->args.type == ArchArgs::LP4K || ctx->args.type == ArchArgs::HX4K) {
                 setColBufCtrl = (y == 8 || y == 9 || y == 24 || y == 25);
-            } else if (ctx->args.type == ArchArgs::UP5K) {
+            } else if (ctx->args.type == ArchArgs::UP5K || ctx->args.type == ArchArgs::UP3K) {
                 setColBufCtrl = (y == 4 || y == 5 || y == 14 || y == 15 || y == 26 || y == 27);
-            } else if (ctx->args.type == ArchArgs::U4K) {
+            } else if (ctx->args.type == ArchArgs::U4K || ctx->args.type == ArchArgs::U1K ||
+                       ctx->args.type == ArchArgs::U2K) {
                 setColBufCtrl = (y == 4 || y == 5 || y == 16 || y == 17);
             } else if (ctx->args.type == ArchArgs::LP384) {
                 setColBufCtrl = false;
@@ -824,7 +831,7 @@ void write_asc(const Context *ctx, std::ostream &out)
             // Weird UltraPlus bits
             if (tile == TILE_DSP0 || tile == TILE_DSP1 || tile == TILE_DSP2 || tile == TILE_DSP3 ||
                 tile == TILE_IPCON) {
-                if (ctx->args.type == ArchArgs::UP5K && x == 25 && y == 14) {
+                if ((ctx->args.type == ArchArgs::UP5K || ctx->args.type == ArchArgs::UP3K) && x == 25 && y == 14) {
                     // Mystery bits not set in this one tile
                 } else {
                     for (int lc_idx = 0; lc_idx < 8; lc_idx++) {
@@ -931,13 +938,18 @@ void read_config(Context *ctx, std::istream &in, chipconfig_t &config)
                 case ArchArgs::LP1K:
                     expected = "1k";
                     break;
+                case ArchArgs::HX4K:
+                case ArchArgs::LP4K:
                 case ArchArgs::HX8K:
                 case ArchArgs::LP8K:
                     expected = "8k";
                     break;
+                case ArchArgs::UP3K:
                 case ArchArgs::UP5K:
                     expected = "5k";
                     break;
+                case ArchArgs::U1K:
+                case ArchArgs::U2K:
                 case ArchArgs::U4K:
                     expected = "u4k";
                     break;

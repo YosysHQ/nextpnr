@@ -110,6 +110,7 @@ void MainWindow::new_proj()
         QString package = QInputDialog::getItem(this, "Select package", "Package:", packages, 0, false, &ok);
 
         if (ok && !item.isEmpty()) {
+            handler->clear();
             currentProj = "";
             disableActions();
             chipArgs.package = package.toStdString().c_str();

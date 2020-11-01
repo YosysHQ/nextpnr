@@ -1256,6 +1256,7 @@ bool placer1(Context *ctx, Placer1Cfg cfg)
 #ifndef NDEBUG
         ctx->check();
 #endif
+        ctx->unlock();
         return false;
     }
 }
@@ -1276,6 +1277,7 @@ bool placer1_refine(Context *ctx, Placer1Cfg cfg)
 #ifndef NDEBUG
         ctx->check();
 #endif
+        ctx->unlock();
         return false;
     }
 }

@@ -51,11 +51,11 @@ static const ChipInfoPOD *get_chip_info(ArchArgs::ArchArgsTypes chip)
         chipdb = "ice40/chipdb-384.bin";
     } else if (chip == ArchArgs::LP1K || chip == ArchArgs::HX1K) {
         chipdb = "ice40/chipdb-1k.bin";
-    } else if (chip == ArchArgs::U4K) {
+    } else if (chip == ArchArgs::U1K || chip == ArchArgs::U2K || chip == ArchArgs::U4K) {
         chipdb = "ice40/chipdb-u4k.bin";
-    } else if (chip == ArchArgs::UP5K) {
+    } else if (chip == ArchArgs::UP3K || chip == ArchArgs::UP5K) {
         chipdb = "ice40/chipdb-5k.bin";
-    } else if (chip == ArchArgs::LP8K || chip == ArchArgs::HX8K) {
+    } else if (chip == ArchArgs::LP8K || chip == ArchArgs::HX8K || chip == ArchArgs::LP4K || chip == ArchArgs::HX4K) {
         chipdb = "ice40/chipdb-8k.bin";
     } else {
         log_error("Unknown chip\n");
@@ -73,8 +73,16 @@ std::vector<std::string> Arch::getSupportedPackages(ArchArgs::ArchArgsTypes chip
 {
     const ChipInfoPOD *chip_info = get_chip_info(chip);
     std::vector<std::string> packages;
-    for (int i = 0; i < chip_info->num_packages; i++)
-        packages.push_back(chip_info->packages_data[i].name.get());
+    for (int i = 0; i < chip_info->num_packages; i++) {
+        std::string name = chip_info->packages_data[i].name.get();
+        if (chip == ArchArgs::LP4K || chip == ArchArgs::HX4K) {
+            if (name.find(":4k") != std::string::npos)
+                name = name.substr(0, name.size() - 3);
+            else
+                continue;
+        }
+        packages.push_back(name);
+    }
     return packages;
 }
 
@@ -82,15 +90,19 @@ std::vector<std::string> Arch::getSupportedPackages(ArchArgs::ArchArgsTypes chip
 
 Arch::Arch(ArchArgs args) : args(args)
 {
-    fast_part = (args.type == ArchArgs::HX8K || args.type == ArchArgs::HX1K);
+    fast_part = (args.type == ArchArgs::HX8K || args.type == ArchArgs::HX4K || args.type == ArchArgs::HX1K);
 
     chip_info = get_chip_info(args.type);
     if (chip_info == nullptr)
         log_error("Unsupported iCE40 chip type.\n");
 
     package_info = nullptr;
+    std::string package_name = args.package;
+    if (args.type == ArchArgs::LP4K || args.type == ArchArgs::HX4K)
+        package_name += ":4k";
+
     for (int i = 0; i < chip_info->num_packages; i++) {
-        if (chip_info->packages_data[i].name.get() == args.package) {
+        if (chip_info->packages_data[i].name.get() == package_name) {
             package_info = &(chip_info->packages_data[i]);
             break;
         }
@@ -110,19 +122,29 @@ Arch::Arch(ArchArgs args) : args(args)
 std::string Arch::getChipName() const
 {
     if (args.type == ArchArgs::LP384) {
-        return "Lattice LP384";
+        return "Lattice iCE40LP384";
     } else if (args.type == ArchArgs::LP1K) {
-        return "Lattice LP1K";
+        return "Lattice iCE40LP1K";
     } else if (args.type == ArchArgs::HX1K) {
-        return "Lattice HX1K";
+        return "Lattice iCE40HX1K";
+    } else if (args.type == ArchArgs::UP3K) {
+        return "Lattice iCE40UP3K";
     } else if (args.type == ArchArgs::UP5K) {
-        return "Lattice UP5K";
+        return "Lattice iCE40UP5K";
+    } else if (args.type == ArchArgs::U1K) {
+        return "Lattice iCE5LP1K";
+    } else if (args.type == ArchArgs::U2K) {
+        return "Lattice iCE5LP2K";
     } else if (args.type == ArchArgs::U4K) {
-        return "Lattice U4K";
+        return "Lattice iCE5LP4K";
+    } else if (args.type == ArchArgs::LP4K) {
+        return "Lattice iCE40LP4K";
     } else if (args.type == ArchArgs::LP8K) {
-        return "Lattice LP8K";
+        return "Lattice iCE40LP8K";
+    } else if (args.type == ArchArgs::HX4K) {
+        return "Lattice iCE40HX4K";
     } else if (args.type == ArchArgs::HX8K) {
-        return "Lattice HX8K";
+        return "Lattice iCE40HX8K";
     } else {
         log_error("Unknown chip\n");
     }
@@ -138,12 +160,22 @@ IdString Arch::archArgsToId(ArchArgs args) const
         return id("lp1k");
     if (args.type == ArchArgs::HX1K)
         return id("hx1k");
+    if (args.type == ArchArgs::UP3K)
+        return id("up3k");
     if (args.type == ArchArgs::UP5K)
         return id("up5k");
+    if (args.type == ArchArgs::U1K)
+        return id("u1k");
+    if (args.type == ArchArgs::U2K)
+        return id("u2k");
     if (args.type == ArchArgs::U4K)
         return id("u4k");
+    if (args.type == ArchArgs::LP4K)
+        return id("lp4k");
     if (args.type == ArchArgs::LP8K)
         return id("lp8k");
+    if (args.type == ArchArgs::HX4K)
+        return id("hx4k");
     if (args.type == ArchArgs::HX8K)
         return id("hx8k");
     return IdString();
@@ -192,7 +224,11 @@ BelRange Arch::getBelsByTile(int x, int y) const
     // are used
     BelRange br;
 
-    br.b.cursor = Arch::getBelByLocation(Loc(x, y, 0)).index;
+    for (int i = 0; i < 4; i++) {
+        br.b.cursor = Arch::getBelByLocation(Loc(x, y, i)).index;
+        if (br.b.cursor != -1)
+            break;
+    }
     br.e.cursor = br.b.cursor;
 
     if (br.e.cursor != -1) {
@@ -609,15 +645,20 @@ bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay
         else {
             switch (args.type) {
             case ArchArgs::HX8K:
+            case ArchArgs::HX4K:
             case ArchArgs::HX1K:
                 budget = cin ? 190 : (same_y ? 260 : 560);
                 break;
             case ArchArgs::LP384:
             case ArchArgs::LP1K:
+            case ArchArgs::LP4K:
             case ArchArgs::LP8K:
                 budget = cin ? 290 : (same_y ? 380 : 670);
                 break;
+            case ArchArgs::UP3K:
             case ArchArgs::UP5K:
+            case ArchArgs::U1K:
+            case ArchArgs::U2K:
             case ArchArgs::U4K:
                 budget = cin ? 560 : (same_y ? 660 : 1220);
                 break;
@@ -1069,9 +1110,11 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
                 DelayInfo dlut;
                 bool has_ld = getCellDelayInternal(cell, port, id_O, dlut);
                 NPNR_ASSERT(has_ld);
-                if (args.type == ArchArgs::LP1K || args.type == ArchArgs::LP8K || args.type == ArchArgs::LP384) {
+                if (args.type == ArchArgs::LP1K || args.type == ArchArgs::LP4K || args.type == ArchArgs::LP8K ||
+                    args.type == ArchArgs::LP384) {
                     info.setup.delay = 30 + dlut.delay;
-                } else if (args.type == ArchArgs::UP5K || args.type == ArchArgs::U4K) { // XXX verify u4k
+                } else if (args.type == ArchArgs::UP3K || args.type == ArchArgs::UP5K || args.type == ArchArgs::U4K ||
+                           args.type == ArchArgs::U1K || args.type == ArchArgs::U2K) { // XXX verify u4k
                     info.setup.delay = dlut.delay - 50;
                 } else {
                     info.setup.delay = 20 + dlut.delay;
@@ -1101,7 +1144,8 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
         if (args.type == ArchArgs::LP1K || args.type == ArchArgs::LP8K || args.type == ArchArgs::LP384) {
             io_setup = 115;
             io_clktoq = 210;
-        } else if (args.type == ArchArgs::UP5K || args.type == ArchArgs::U4K) {
+        } else if (args.type == ArchArgs::UP3K || args.type == ArchArgs::UP5K || args.type == ArchArgs::U4K ||
+                   args.type == ArchArgs::U1K || args.type == ArchArgs::U2K) {
             io_setup = 205;
             io_clktoq = 1005;
         }

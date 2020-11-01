@@ -701,9 +701,13 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             auto tiles = ctx->getTilesAtLocation(y, x);
             for (auto tile : tiles) {
                 std::string type = tile.second;
-                if (type.find("BANKREF") != std::string::npos && type != "BANKREF8") {
+                if (type.find("BANKREF") != std::string::npos) {
                     int bank = std::stoi(type.substr(7));
-                    if (bankVcc.find(bank) != bankVcc.end()) {
+                    if (bank == 8 && ctx->settings.count(ctx->id("arch.sysconfig.CONFIG_IOVOLTAGE"))) {
+                        std::string vcc = str_or_default(ctx->settings, ctx->id("arch.sysconfig.CONFIG_IOVOLTAGE"));
+                        vcc.at(1) = 'V';
+                        cc.tiles[tile.first].add_enum("BANK.VCCIO", vcc);
+                    } else if (bankVcc.find(bank) != bankVcc.end()) {
                         if (bankVcc[bank] == IOVoltage::VCC_1V35)
                             cc.tiles[tile.first].add_enum("BANK.VCCIO", "1V2");
                         else
@@ -911,6 +915,9 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             if (ci->attrs.count(ctx->id("DIFFRESISTOR")))
                 cc.tiles[pio_tile].add_enum(pio + ".DIFFRESISTOR",
                                             str_or_default(ci->attrs, ctx->id("DIFFRESISTOR"), "OFF"));
+            if (ci->attrs.count(ctx->id("CLAMP")))
+                cc.tiles[pio_tile].add_enum(pio + ".CLAMP", str_or_default(ci->attrs, ctx->id("CLAMP"), "OFF"));
+
             if (ci->attrs.count(ctx->id("DRIVE"))) {
                 static bool drive_3v3_warning_done = false;
                 if (iotype == "LVCMOS33") {
@@ -1404,6 +1411,8 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
             cc.tiles[ctx->getTileByType("EFB1_PICB1")].add_enum("OSC.MODE", "OSCG");
             cc.tiles[ctx->getTileByType("EFB1_PICB1")].add_enum("CCLK.MODE", "_NONE_");
         } else if (ci->type == id_USRMCLK) {
+            if (str_or_default(ctx->settings, ctx->id("arch.sysconfig.MASTER_SPI_PORT"), "") == "ENABLE")
+                log_warning("USRMCLK will not function correctly when MASTER_SPI_PORT is set to ENABLE.\n");
             cc.tiles[ctx->getTileByType("EFB3_PICB1")].add_enum("CCLK.MODE", "USRMCLK");
         } else if (ci->type == id_GSR) {
             cc.tiles[ctx->getTileByType("EFB0_PICB0")].add_enum(
@@ -1482,6 +1491,29 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
                                     str_or_default(ci->params, ctx->id("FORCE_MAX_DELAY"), "NO"));
         } else {
             NPNR_ASSERT_FALSE("unsupported cell type");
+        }
+    }
+
+    // Add some SYSCONFIG settings
+    const std::string prefix = "arch.sysconfig.";
+    for (auto &setting : ctx->settings) {
+        std::string key = setting.first.str(ctx);
+        if (key.substr(0, prefix.length()) != prefix)
+            continue;
+        key = key.substr(prefix.length());
+        std::string value = setting.second.as_string();
+        if (key == "SLAVE_SPI_PORT" || key == "DONE_EX") {
+            cc.tiles[ctx->getTileByType("EFB0_PICB0")].add_enum("SYSCONFIG." + key, value);
+            cc.tiles[ctx->getTileByType("EFB2_PICB0")].add_enum("SYSCONFIG." + key, value);
+        } else if (key == "SLAVE_PARALLEL_PORT" || key == "BACKGROUND_RECONFIG" || key == "WAKE_UP") {
+            cc.tiles[ctx->getTileByType("EFB0_PICB0")].add_enum("SYSCONFIG." + key, value);
+        } else if (key == "MASTER_SPI_PORT") {
+            cc.tiles[ctx->getTileByType("EFB1_PICB1")].add_enum("SYSCONFIG." + key, value);
+        } else if (key == "TRANSFR") {
+            cc.tiles[ctx->getTileByType("EFB0_PICB0")].add_enum("SYSCONFIG." + key, value);
+            cc.tiles[ctx->getTileByType("EFB1_PICB1")].add_enum("SYSCONFIG." + key, value);
+        } else {
+            cc.sysconfig[key] = value;
         }
     }
 

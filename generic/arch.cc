@@ -90,20 +90,6 @@ void Arch::addPip(IdString name, IdString type, IdString srcWire, IdString dstWi
     tilePipDimZ[loc.x][loc.y] = std::max(tilePipDimZ[loc.x][loc.y], loc.z + 1);
 }
 
-void Arch::addAlias(IdString name, IdString type, IdString srcWire, IdString dstWire, DelayInfo delay)
-{
-    NPNR_ASSERT(pips.count(name) == 0);
-    PipInfo &pi = pips[name];
-    pi.name = name;
-    pi.type = type;
-    pi.srcWire = srcWire;
-    pi.dstWire = dstWire;
-    pi.delay = delay;
-
-    wire_info(srcWire).aliases.push_back(name);
-    pip_ids.push_back(name);
-}
-
 void Arch::addBel(IdString name, IdString type, Loc loc, bool gb)
 {
     NPNR_ASSERT(bels.count(name) == 0);
@@ -466,8 +452,6 @@ DelayInfo Arch::getPipDelay(PipId pip) const { return pips.at(pip).delay; }
 const std::vector<PipId> &Arch::getPipsDownhill(WireId wire) const { return wires.at(wire).downhill; }
 
 const std::vector<PipId> &Arch::getPipsUphill(WireId wire) const { return wires.at(wire).uphill; }
-
-const std::vector<PipId> &Arch::getWireAliases(WireId wire) const { return wires.at(wire).aliases; }
 
 // ---------------------------------------------------------------
 

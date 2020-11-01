@@ -47,14 +47,14 @@ void archcheck_names(const Context *ctx)
         WireId wire2 = ctx->getWireByName(name);
         log_assert(wire == wire2);
     }
-
+#ifndef ARCH_ECP5
     log_info("Checking pip names..\n");
     for (PipId pip : ctx->getPips()) {
         IdString name = ctx->getPipName(pip);
         PipId pip2 = ctx->getPipByName(name);
         log_assert(pip == pip2);
     }
-
+#endif
     log_break();
 }
 

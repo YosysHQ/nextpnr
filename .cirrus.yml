@@ -14,3 +14,4 @@ task:
   smoketest_generic_script: export NEXTPNR=$(pwd)/build/nextpnr-generic && cd generic/examples && ./simple.sh && ./simtest.sh
   regressiontest_ice40_script: make -j $(nproc) -C tests/ice40/regressions NPNR=$(pwd)/build/nextpnr-ice40
   regressiontest_ecp5_script: make -j $(nproc) -C tests/ecp5/regressions NPNR=$(pwd)/build/nextpnr-ecp5
+  archcheck_script: BUILD_DIR=$(pwd)/build ./.cirrus/archcheck.sh

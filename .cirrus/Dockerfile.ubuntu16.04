@@ -26,9 +26,9 @@ RUN set -e -x ;\
 RUN set -e -x ;\
     mkdir -p /usr/local/src ;\
     cd /usr/local/src ;\
-    git clone --recursive https://github.com/cliffordwolf/icestorm.git ;\
+    git clone --recursive https://github.com/YosysHQ/icestorm.git ;\
     cd icestorm ;\
-    git reset --hard 3a2bfee5cbc0558641668114260d3f644d6b7c83 ;\
+    git reset --hard 4bc68c9620e6be20f8fe10d20f84681d80beac23 ;\
     make -j $(nproc) ;\
     make install
 
@@ -37,7 +37,7 @@ RUN set -e -x ;\
     cd /usr/local/src ;\
     git clone --recursive https://github.com/YosysHQ/yosys.git ;\
     cd yosys ;\
-    git reset --hard 292f03355a425ede48051c79d5bf619591531080 ;\
+    git reset --hard cd8b2ed4e6f9447c94d801de7db7ae6ce0976d57 ;\
     make -j $(nproc) ;\
     make install ;\
     rm -rf /usr/local/src/yosys
@@ -47,7 +47,7 @@ RUN set -e -x ;\
     cd /usr/local/src ;\
     git clone --recursive https://github.com/YosysHQ/prjtrellis.git ;\
     cd prjtrellis ;\
-    git reset --hard 668ce3492cbe1566c61760f06bdf676f6fb265c3 ;\
+    git reset --hard 7831b54f619d6695855525fca776543b7c827704 ;\
     cd libtrellis ;\
     cmake . ;\
     make -j $(nproc) ;\

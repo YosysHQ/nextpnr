@@ -38,6 +38,7 @@ class CommandHandler
 
     int exec();
     std::unique_ptr<Context> load_json(std::string filename);
+    void clear();
 
   protected:
     virtual void setupArchContext(Context *ctx) = 0;

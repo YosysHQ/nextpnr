@@ -65,7 +65,7 @@ sudo make install
 On Windows, you may specify paths explicitly:
 
 ```
-cmake . -DARCH=ice40 -DICEBOX_INSTALL_PREFIX=C:/ProgramData/icestorm -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows -G "Visual Studio 15 2017 Win64" -DPYTHON_EXECUTABLE=C:/Python364/python.exe -DPYTHON_LIBRARY=C:/vcpkg/packages/python3_x64-windows/lib/python36.lib -DPYTHON_INCLUDE_DIR=C:/vcpkg/packages/python3_x64-windows/include/python3.6 .
+cmake . -DARCH=ice40 -DICESTORM_INSTALL_PREFIX=C:/ProgramData/icestorm -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows -G "Visual Studio 15 2017 Win64" -DPYTHON_EXECUTABLE=C:/Python364/python.exe -DPYTHON_LIBRARY=C:/vcpkg/packages/python3_x64-windows/lib/python36.lib -DPYTHON_INCLUDE_DIR=C:/vcpkg/packages/python3_x64-windows/include/python3.6 .
 cmake --build . --config Release
 ```
 
@@ -188,9 +188,9 @@ Recording a movie
 
 - To save a movie recording of place-and-route click recording icon in toolbar and select empty directory
   where recording files will be stored and select frames to skip.
-- Manualy start all PnR operations you wish
+- Manually start all PnR operations you wish
 - Click on recording icon again to stop recording
-- Go to directory containing files and exeecute `ffmpeg -f image2 -r 1 -i movie_%05d.png -c:v libx264 nextpnr.mp4`
+- Go to directory containing files and execute `ffmpeg -f image2 -r 1 -i movie_%05d.png -c:v libx264 nextpnr.mp4`
 
 Testing
 -------

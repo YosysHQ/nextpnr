@@ -335,15 +335,6 @@ Get all pips downhill of a wire, i.e. pips that use this wire as source wire.
 
 Get all pips uphill of a wire, i.e. pips that use this wire as destination wire.
 
-### const\_range\<PipId\> getWireAliases(WireId wire) const
-
-Get all alias pips downhill of a wire.
-
-There is no api for getting the alias pips uphill of a wire.
-
-Alias pips come in antiparallel pairs if a signal can be injected on either
-side of the alias pip.
-
 Group Methods
 -------------
 

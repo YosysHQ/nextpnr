@@ -132,6 +132,18 @@ struct Timing
 
         std::vector<IdString> input_ports;
         std::vector<const PortInfo *> output_ports;
+
+        std::unordered_set<IdString> ooc_port_nets;
+
+        // In out-of-context mode, top-level inputs look floating but aren't
+        if (bool_or_default(ctx->settings, ctx->id("arch.ooc"))) {
+            for (auto &p : ctx->ports) {
+                if (p.second.type != PORT_IN || p.second.net == nullptr)
+                    continue;
+                ooc_port_nets.insert(p.second.net->name);
+            }
+        }
+
         for (auto &cell : ctx->cells) {
             input_ports.clear();
             output_ports.clear();
@@ -177,7 +189,8 @@ struct Timing
                     // the current output port, increment fanin counter
                     for (auto i : input_ports) {
                         DelayInfo comb_delay;
-                        if (cell.second->ports[i].net->driver.cell == nullptr)
+                        NetInfo *i_net = cell.second->ports[i].net;
+                        if (i_net->driver.cell == nullptr && !ooc_port_nets.count(i_net->name))
                             continue;
                         bool is_path = ctx->getCellDelay(cell.second.get(), i, o->name, comb_delay);
                         if (is_path)
@@ -232,7 +245,10 @@ struct Timing
                     // Decrement the fanin count, and only add to topological order if all its fanins have already
                     // been visited
                     auto it = port_fanin.find(&port.second);
-                    NPNR_ASSERT(it != port_fanin.end());
+                    if (it == port_fanin.end())
+                        log_error("Timing counted negative fanin count for port %s.%s (net %s), please report this "
+                                  "error.\n",
+                                  ctx->nameOf(usr.cell), ctx->nameOf(port.first), ctx->nameOf(port.second.net));
                     if (--it->second == 0) {
                         topological_order.emplace_back(port.second.net);
                         queue.emplace_back(port.second.net);
@@ -795,6 +811,33 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
     }
 
     if (print_path) {
+        static auto print_net_source = [](Context *ctx, NetInfo *net) {
+            // Check if this net is annotated with a source list
+            auto sources = net->attrs.find(ctx->id("src"));
+            if (sources == net->attrs.end()) {
+                // No sources for this net, can't print anything
+                return;
+            }
+
+            // Sources are separated by pipe characters.
+            // There is no guaranteed ordering on sources, so we just print all
+            auto sourcelist = sources->second.as_string();
+            std::vector<std::string> source_entries;
+            size_t current = 0, prev = 0;
+            while ((current = sourcelist.find("|", prev)) != std::string::npos) {
+                source_entries.emplace_back(sourcelist.substr(prev, current - prev));
+                prev = current + 1;
+            }
+            // Ensure we emplace the final entry
+            source_entries.emplace_back(sourcelist.substr(prev, current - prev));
+
+            // Iterate and print our source list at the correct indentation level
+            log_info("               Defined in:\n");
+            for (auto entry : source_entries) {
+                log_info("                 %s\n", entry.c_str());
+            }
+        };
+
         auto print_path_report = [ctx](ClockPair &clocks, PortRefVector &crit_path) {
             delay_t total = 0, logic_total = 0, route_total = 0;
             auto &front = crit_path.front();
@@ -871,6 +914,9 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
                                  ctx->getPipName(pip).c_str(ctx));
                         cursor = ctx->getPipSrcWire(pip);
                     }
+                }
+                if (!ctx->disable_critical_path_source_print) {
+                    print_net_source(ctx, net);
                 }
                 last_port = sink->port;
             }

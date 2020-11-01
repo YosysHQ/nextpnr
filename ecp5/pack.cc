@@ -1992,7 +1992,7 @@ class Ecp5Packer
     {
         std::unordered_map<IdString, CellInfo *> pio_iologic;
 
-        auto set_iologic_sclk = [&](CellInfo *iol, CellInfo *prim, IdString port, bool input) {
+        auto set_iologic_sclk = [&](CellInfo *iol, CellInfo *prim, IdString port, bool input, bool disconnect = true) {
             NetInfo *sclk = nullptr;
             if (prim->ports.count(port))
                 sclk = prim->ports[port].net;
@@ -2008,7 +2008,7 @@ class Ecp5Packer
                     connect_port(ctx, sclk, iol, id_CLK);
                 }
             }
-            if (prim->ports.count(port))
+            if (prim->ports.count(port) && disconnect)
                 disconnect_port(ctx, prim, port);
         };
 
@@ -2030,7 +2030,7 @@ class Ecp5Packer
                 disconnect_port(ctx, prim, port);
         };
 
-        auto set_iologic_lsr = [&](CellInfo *iol, CellInfo *prim, IdString port, bool input) {
+        auto set_iologic_lsr = [&](CellInfo *iol, CellInfo *prim, IdString port, bool input, bool disconnect = true) {
             NetInfo *lsr = nullptr;
             if (prim->ports.count(port))
                 lsr = prim->ports[port].net;
@@ -2046,7 +2046,7 @@ class Ecp5Packer
                     connect_port(ctx, lsr, iol, id_LSR);
                 }
             }
-            if (prim->ports.count(port))
+            if (prim->ports.count(port) && disconnect)
                 disconnect_port(ctx, prim, port);
         };
 
@@ -2282,10 +2282,10 @@ class Ecp5Packer
                     pio->ports[id_IOLDO].type = PORT_IN;
                 }
                 replace_port(pio, id_I, pio, id_IOLDO);
-                set_iologic_sclk(iol, ci, ctx->id("SCLK"), false);
+                set_iologic_sclk(iol, ci, ctx->id("SCLK"), false, false);
                 set_iologic_sclk(iol, ci, ctx->id("SCLK"), true);
                 set_iologic_eclk(iol, ci, id_ECLK);
-                set_iologic_lsr(iol, ci, ctx->id("RST"), false);
+                set_iologic_lsr(iol, ci, ctx->id("RST"), false, false);
                 set_iologic_lsr(iol, ci, ctx->id("RST"), true);
                 replace_port(ci, ctx->id("D0"), iol, id_TXDATA0);
                 replace_port(ci, ctx->id("D1"), iol, id_TXDATA1);
@@ -2359,7 +2359,7 @@ class Ecp5Packer
                 replace_port(pio, id_I, pio, id_IOLDO);
                 set_iologic_sclk(iol, ci, ctx->id("SCLK"), false);
                 set_iologic_eclk(iol, ci, id_ECLK);
-                set_iologic_lsr(iol, ci, ctx->id("RST"), false);
+                set_iologic_lsr(iol, ci, ctx->id("RST"), false, false);
                 set_iologic_lsr(iol, ci, ctx->id("RST"), true);
                 replace_port(ci, ctx->id("D0"), iol, id_TXDATA0);
                 replace_port(ci, ctx->id("D1"), iol, id_TXDATA2);
@@ -2386,7 +2386,7 @@ class Ecp5Packer
                 replace_port(pio, id_I, pio, id_IOLDO);
                 set_iologic_sclk(iol, ci, ctx->id("SCLK"), false);
                 set_iologic_eclk(iol, ci, id_ECLK);
-                set_iologic_lsr(iol, ci, ctx->id("RST"), false);
+                set_iologic_lsr(iol, ci, ctx->id("RST"), false, false);
                 set_iologic_lsr(iol, ci, ctx->id("RST"), true);
                 replace_port(ci, ctx->id("D0"), iol, id_TXDATA0);
                 replace_port(ci, ctx->id("D1"), iol, id_TXDATA1);
@@ -2653,6 +2653,7 @@ class Ecp5Packer
             }
         }
         flush_cells();
+        std::unordered_set<BelId> used_eclksyncb;
         for (auto cell : sorted(ctx->cells)) {
             CellInfo *ci = cell.second;
             if (ci->type == id_CLKDIVF) {
@@ -2687,6 +2688,7 @@ class Ecp5Packer
                         Loc loc = ctx->getBelLocation(bel);
                         ci->attrs[ctx->id("BEL")] =
                                 ctx->getBelName(ctx->getBelByLocation(Loc(loc.x, loc.y, 15))).str(ctx);
+                        used_eclksyncb.insert(bel);
                         goto eclksync_done;
                     }
                 }
@@ -2702,6 +2704,7 @@ class Ecp5Packer
                             Loc loc = ctx->getBelLocation(bel);
                             if (loc.x == eckbuf_loc.x && loc.y == eckbuf_loc.y && loc.z == eckbuf_loc.z - 2) {
                                 ci->attrs[ctx->id("BEL")] = ctx->getBelName(bel).str(ctx);
+                                used_eclksyncb.insert(bel);
                                 goto eclksync_done;
                             }
                         }
@@ -2764,6 +2767,67 @@ class Ecp5Packer
                     }
                 }
             ddrdll_done:
+                continue;
+            }
+        }
+
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (ci->type == id_ECLKSYNCB) {
+                // **All** ECLKSYNCBs must be constrained
+                // Most will be dealt with above, but there might be some rogue cases
+                if (ci->attrs.count(ctx->id("BEL")))
+                    continue;
+                for (BelId bel : ctx->getBels()) {
+                    if (ctx->getBelType(bel) != id_ECLKSYNCB)
+                        continue;
+                    // Might there be a better way to pick??
+                    if (used_eclksyncb.count(bel))
+                        continue;
+                    log_info("Constraining ECLKSYNCB '%s' to bel '%s'\n", ctx->nameOf(ci), ctx->nameOfBel(bel));
+                    ci->attrs[ctx->id("BEL")] = ctx->getBelName(bel).str(ctx);
+                    goto eclksync_ii_done;
+                }
+                if (0) {
+                eclksync_ii_done:
+                    continue;
+                }
+                log_error("Failed to constrain ECLKSYNCB '%s'\n", ctx->nameOf(ci));
+            }
+        }
+
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (ci->type == id_CLKDIVF) {
+                if (ci->attrs.count(ctx->id("BEL")))
+                    continue;
+                // Case of a CLKDIVF driven by an ECLKSYNC constrained above; without the input being used elsewhere as
+                // an edge clock
+                const NetInfo *clki = net_or_nullptr(ci, id_CLKI);
+                if (clki == nullptr || clki->driver.cell == nullptr)
+                    continue;
+                CellInfo *drv = clki->driver.cell;
+                if (drv->type != id_ECLKSYNCB || !drv->attrs.count(ctx->id("BEL")))
+                    continue;
+                BelId bel = ctx->getBelByName(ctx->id(drv->attrs.at(ctx->id("BEL")).as_string()));
+                // Find a CLKDIVF that is routeable from the ECLKSYNC
+                std::queue<WireId> visit;
+                visit.push(ctx->getBelPinWire(bel, id_ECLKO));
+                while (!visit.empty()) {
+                    WireId cursor = visit.front();
+                    visit.pop();
+                    for (BelPin bp : ctx->getWireBelPins(cursor)) {
+                        if (ctx->getBelType(bp.bel) != id_CLKDIVF || bp.pin != id_CLKI)
+                            continue;
+                        ci->attrs[ctx->id("BEL")] = ctx->getBelName(bp.bel).str(ctx);
+                        log_info("Constraining CLKDIVF '%s' to bel '%s' based on ECLKSYNCB.\n", ctx->nameOf(ci),
+                                 ctx->nameOfBel(bp.bel));
+                        goto clkdiv_ii_done;
+                    }
+                    for (PipId pip : ctx->getPipsDownhill(cursor))
+                        visit.push(ctx->getPipDstWire(pip));
+                }
+            clkdiv_ii_done:
                 continue;
             }
         }
@@ -2853,10 +2917,14 @@ class Ecp5Packer
         while (!changed_nets.empty() && iter < itermax) {
             ++iter;
             std::unordered_set<IdString> changed_cells;
-            for (auto net : changed_nets)
+            for (auto net : changed_nets) {
                 for (auto &user : ctx->nets.at(net)->users)
                     if (user.port == id_CLKI || user.port == id_ECLKI || user.port == id_CLK0 || user.port == id_CLK1)
                         changed_cells.insert(user.cell->name);
+                auto &drv = ctx->nets.at(net)->driver;
+                if (iter == 1 && drv.cell != nullptr && drv.port == id_OSC)
+                    changed_cells.insert(drv.cell->name);
+            }
             changed_nets.clear();
             for (auto cell : sorted(changed_cells)) {
                 CellInfo *ci = ctx->cells.at(cell).get();
@@ -2952,6 +3020,7 @@ class Ecp5Packer
         pack_remaining_ffs();
         generate_constraints();
         promote_ecp5_globals(ctx);
+        ctx->fixupHierarchy();
         ctx->check();
     }
 

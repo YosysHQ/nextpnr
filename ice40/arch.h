@@ -385,10 +385,15 @@ struct ArchArgs
         NONE,
         LP384,
         LP1K,
+        LP4K,
         LP8K,
         HX1K,
+        HX4K,
         HX8K,
+        UP3K,
         UP5K,
+        U1K,
+        U2K,
         U4K
     } type = NONE;
     std::string package;
@@ -774,15 +779,6 @@ struct Arch : BaseCtx
         NPNR_ASSERT(wire != WireId());
         range.b.cursor = chip_info->wire_data[wire.index].pips_uphill.get();
         range.e.cursor = range.b.cursor + chip_info->wire_data[wire.index].num_uphill;
-        return range;
-    }
-
-    PipRange getWireAliases(WireId wire) const
-    {
-        PipRange range;
-        NPNR_ASSERT(wire != WireId());
-        range.b.cursor = nullptr;
-        range.e.cursor = nullptr;
         return range;
     }
 

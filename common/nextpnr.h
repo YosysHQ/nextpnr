@@ -861,6 +861,9 @@ struct Context : Arch, DeterministicRNG
     bool debug = false;
     bool force = false;
 
+    // Should we disable printing of the location of nets in the critical path?
+    bool disable_critical_path_source_print = false;
+
     Context(ArchArgs args) : Arch(args) {}
 
     // --------------------------------------------------------------

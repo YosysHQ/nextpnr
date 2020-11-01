@@ -869,7 +869,8 @@ static void place_plls(Context *ctx)
         if (!io_ci->attrs.count(ctx->id("BEL")))
             continue;
         if ((!io_ci->ports.count(id_D_IN_0) || (io_ci->ports[id_D_IN_0].net == nullptr)) &&
-            (!io_ci->ports.count(id_D_IN_1) || (io_ci->ports[id_D_IN_1].net == nullptr)))
+            (!io_ci->ports.count(id_D_IN_1) || (io_ci->ports[id_D_IN_1].net == nullptr)) &&
+            !bool_or_default(io_ci->attrs, ctx->id("GLOBAL")))
             continue;
 
         // Check all placed PLL (either forced by user, or forced by PACKAGEPIN)

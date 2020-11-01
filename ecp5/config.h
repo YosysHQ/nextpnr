@@ -114,6 +114,7 @@ class ChipConfig
     std::vector<std::string> metadata;
     std::map<std::string, TileConfig> tiles;
     std::vector<TileGroup> tilegroups;
+    std::map<std::string, std::string> sysconfig;
     std::map<uint16_t, std::vector<uint16_t>> bram_data;
 };
 

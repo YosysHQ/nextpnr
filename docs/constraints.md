@@ -9,11 +9,18 @@ The iCE40 architecture supports PCF constraints thus:
 
     set_io led[0] 3
 
-and the ECP5 architecture supports a subset of LPF constraints:
+and the ECP5 architecture supports a subset of LPF constraints (for details see Lattice Technical Note "FPGA-TN-02032 1.3"):
 
     LOCATE COMP "led[0]" SITE "E16";
     IOBUF PORT "led[0]" IO_TYPE=LVCMOS25;
-
+    IOBUF ...  DRIVE=4|8|12|16; // currently LVCMOS33 and LVCMOS33D only
+    IOBUF ... OPENDRAIN=ON|OFF;
+    IOBUF ... TERMINATION=50|75|150;
+    IOBUF ... DIFFRESISTOR=100; //for differential IO only
+    IOBUF ... CLAMP=ON|OFF;
+    IOBUF ... PULLMODE=UP|DOWN|NONE;
+    IOBUF ... SLEWRATE=FAST|SLOW; //outputs only
+    IOBUF ... HYSTERESIS=ON|OFF;
 
 ## Absolute Placement Constraints
 

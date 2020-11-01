@@ -158,6 +158,8 @@ po::options_description CommandHandler::getGeneralOptions()
     general.add_options()("no-tmdriv", "disable timing-driven placement");
     general.add_options()("sdf", po::value<std::string>(), "SDF delay back-annotation file to write");
     general.add_options()("sdf-cvc", "enable tweaks for SDF file compatibility with the CVC simulator");
+    general.add_options()("no-print-critical-path-source",
+                          "disable printing of the source lines associated with each net in the critical path");
 
     general.add_options()("placed-svg", po::value<std::string>(), "write render of placement to SVG file");
     general.add_options()("routed-svg", po::value<std::string>(), "write render of routing to SVG file");
@@ -177,6 +179,10 @@ void CommandHandler::setupContext(Context *ctx)
     if (vm.count("debug")) {
         ctx->verbose = true;
         ctx->debug = true;
+    }
+
+    if (vm.count("no-print-critical-path-source")) {
+        ctx->disable_critical_path_source_print = true;
     }
 
     if (vm.count("force")) {
@@ -424,7 +430,6 @@ int CommandHandler::exec()
 
 std::unique_ptr<Context> CommandHandler::load_json(std::string filename)
 {
-    vm.clear();
     std::unordered_map<std::string, Property> values;
     std::unique_ptr<Context> ctx = createContext(values);
     setupContext(ctx.get());
@@ -436,6 +441,11 @@ std::unique_ptr<Context> CommandHandler::load_json(std::string filename)
     }
     customAfterLoad(ctx.get());
     return ctx;
+}
+
+void CommandHandler::clear()
+{
+    vm.clear();
 }
 
 void CommandHandler::run_script_hook(const std::string &name)
