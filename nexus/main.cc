@@ -67,6 +67,9 @@ void NexusCommandHandler::customBitstream(Context *ctx)
 std::unique_ptr<Context> NexusCommandHandler::createContext(std::unordered_map<std::string, Property> &values)
 {
     ArchArgs chipArgs;
+    if (!vm.count("device")) {
+        log_error("device must be specified on the command line (e.g. --device LIFCL-40-9BG400CES)\n");
+    }
     chipArgs.device = vm["device"].as<std::string>();
     return std::unique_ptr<Context>(new Context(chipArgs));
 }
