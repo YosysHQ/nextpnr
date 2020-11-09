@@ -108,7 +108,7 @@ enum PipFlags
 NPNR_PACKED_STRUCT(struct PipInfoPOD {
     uint16_t from_wire, to_wire;
     uint16_t flags;
-    uint16_t padding;
+    uint16_t timing_class;
     int32_t tile_type;
 });
 
@@ -273,13 +273,61 @@ NPNR_PACKED_STRUCT(struct IdStringDBPOD {
     RelPtr<RelPtr<char>> bba_id_strs;
 });
 
+// Timing structures are generally sorted using IdString indices as keys for fast binary searches
+// All delays are integer picoseconds
+
+// Sort key: (from_port, to_port) for binary search by IdString
+NPNR_PACKED_STRUCT(struct CellPropDelayPOD {
+    int32_t from_port;
+    int32_t to_port;
+    int32_t min_delay;
+    int32_t max_delay;
+});
+
+// Sort key: (sig_port, clock_port) for binary search by IdString
+NPNR_PACKED_STRUCT(struct CellSetupHoldPOD {
+    int32_t sig_port;
+    int32_t clock_port;
+    int32_t min_setup;
+    int32_t max_setup;
+    int32_t min_hold;
+    int32_t max_hold;
+});
+
+// Sort key: (cell_type, cell_variant) for binary search by IdString
+NPNR_PACKED_STRUCT(struct CellTimingPOD {
+    int32_t cell_type;
+    int32_t cell_variant;
+    int32_t num_prop_delays;
+    int32_t num_setup_holds;
+    RelPtr<CellPropDelayPOD> prop_delays;
+    RelPtr<CellSetupHoldPOD> setup_holds;
+});
+
+NPNR_PACKED_STRUCT(struct PipTimingPOD {
+    int32_t min_delay;
+    int32_t max_delay;
+    int32_t min_fanout_adder;
+    int32_t max_fanout_adder;
+});
+
+NPNR_PACKED_STRUCT(struct SpeedGradePOD {
+    RelPtr<char> name;
+    int32_t num_cell_types;
+    int32_t num_pip_classes;
+    RelPtr<CellTimingPOD> cell_types;
+    RelPtr<PipTimingPOD> pip_classes;
+});
+
 NPNR_PACKED_STRUCT(struct DatabasePOD {
     uint32_t version;
     uint32_t num_chips;
     uint32_t num_loctypes;
+    uint32_t num_speed_grades;
     RelPtr<char> family;
     RelPtr<ChipInfoPOD> chips;
     RelPtr<LocTypePOD> loctypes;
+    RelPtr<SpeedGradePOD> speed_grades;
     RelPtr<IdStringDBPOD> ids;
 });
 
