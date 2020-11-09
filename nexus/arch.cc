@@ -435,11 +435,27 @@ DecalXY Arch::getGroupDecal(GroupId pip) const { return {}; };
 
 bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const
 {
+    if (cell->type == id_OXIDE_COMB) {
+        if (toPort == id_F)
+            return lookup_cell_delay(cell->tmg_index, fromPort, toPort, delay);
+    }
     return false;
 }
 
 TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const
 {
+    auto disconnected = [cell](IdString p) { return !cell->ports.count(p) || cell->ports.at(p).net == nullptr; };
+    if (cell->type == id_OXIDE_COMB) {
+        if (port == id_A || port == id_B || port == id_C || port == id_D)
+            return TMG_COMB_INPUT;
+        if (port == id_F) {
+            if (disconnected(id_A) && disconnected(id_B) && disconnected(id_C) && disconnected(id_D) &&
+                disconnected(id_FCI))
+                return TMG_IGNORE;
+            else
+                return TMG_COMB_OUTPUT;
+        }
+    }
     return TMG_IGNORE;
 }
 
@@ -669,6 +685,71 @@ std::string Arch::get_pad_functions(const PadInfoPOD *pad) const
         s += IdString(pad->func_strs[i]).str(this);
     }
     return s;
+}
+
+// -----------------------------------------------------------------------
+
+// Helper for cell timing lookups
+namespace {
+template <typename Tres, typename Tgetter, typename Tkey>
+int db_binary_search(const Tres *list, int count, Tgetter key_getter, Tkey key)
+{
+    if (count < 7) {
+        for (int i = 0; i < count; i++) {
+            if (key_getter(list[i]) == key) {
+                return i;
+            }
+        }
+    } else {
+        int b = 0, e = count - 1;
+        while (b <= e) {
+            int i = (b + e) / 2;
+            if (key_getter(list[i]) == key) {
+                return i;
+            }
+            if (key_getter(list[i]) > key)
+                e = i - 1;
+            else
+                b = i + 1;
+        }
+    }
+    return -1;
+}
+} // namespace
+
+int Arch::get_cell_timing_idx(IdString cell_type, IdString cell_variant) const
+{
+    return db_binary_search(
+            speed_grade->cell_types.get(), speed_grade->num_cell_types,
+            [](const CellTimingPOD &ct) { return std::make_pair(ct.cell_type, ct.cell_variant); },
+            std::make_pair(cell_type.index, cell_variant.index));
+}
+
+bool Arch::lookup_cell_delay(int type_idx, IdString from_port, IdString to_port, DelayInfo &delay) const
+{
+    NPNR_ASSERT(type_idx != -1);
+    const auto &ct = speed_grade->cell_types[type_idx];
+    int dly_idx = db_binary_search(
+            ct.prop_delays.get(), ct.num_prop_delays,
+            [](const CellPropDelayPOD &pd) { return std::make_pair(pd.from_port, pd.to_port); },
+            std::make_pair(from_port.index, to_port.index));
+    if (dly_idx == -1)
+        return false;
+    delay.min_delay = ct.prop_delays[dly_idx].min_delay;
+    delay.max_delay = ct.prop_delays[dly_idx].max_delay;
+    return true;
+}
+
+void Arch::lookup_cell_setuphold(int type_idx, IdString from_port, IdString clock, DelayInfo &setup,
+                                 DelayInfo &hold) const
+{
+    NPNR_ASSERT(type_idx != -1);
+    const auto &ct = speed_grade->cell_types[type_idx];
+    int dly_idx = db_binary_search(
+            ct.setup_holds.get(), ct.num_setup_holds,
+            [](const CellSetupHoldPOD &sh) { return std::make_pair(sh.sig_port, sh.clock_port); },
+            std::make_pair(from_port.index, clock.index));
+    NPNR_ASSERT(dly_idx != -1);
 }
 
 // -----------------------------------------------------------------------

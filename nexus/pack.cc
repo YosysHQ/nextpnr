@@ -1257,12 +1257,14 @@ void Arch::assignArchInfo()
 
 void Arch::assignCellInfo(CellInfo *cell)
 {
+    cell->tmg_index = -1;
     if (cell->type == id_OXIDE_COMB) {
         cell->lutInfo.is_memory = str_or_default(cell->params, id_MODE, "LOGIC") == "DPRAM";
         cell->lutInfo.is_carry = str_or_default(cell->params, id_MODE, "LOGIC") == "CCU2";
         cell->lutInfo.mux2_used = port_used(cell, id_OFX);
         cell->lutInfo.f = get_net_or_empty(cell, id_F);
         cell->lutInfo.ofx = get_net_or_empty(cell, id_OFX);
+        cell->tmg_index = get_cell_timing_idx(id_OXIDE_COMB, id_LUT4);
     } else if (cell->type == id_OXIDE_FF) {
         cell->ffInfo.ctrlset.async = str_or_default(cell->params, id_SRMODE, "LSR_OVER_CE") == "ASYNC";
         cell->ffInfo.ctrlset.regddr_en = is_enabled(cell, id_REGDDR);

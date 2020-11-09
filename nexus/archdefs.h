@@ -186,6 +186,8 @@ struct ArchCellInfo
             NetInfo *di, *m;
         } ffInfo;
     };
+
+    int tmg_index = -1;
 };
 
 NEXTPNR_NAMESPACE_END

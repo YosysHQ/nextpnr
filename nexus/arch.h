@@ -1546,6 +1546,12 @@ struct Arch : BaseCtx
     bool is_io_type_ref(const std::string &io_type) const;
 
     // -------------------------------------------------
+    // Cell timing lookup helpers
+    int get_cell_timing_idx(IdString cell_type, IdString cell_variant = IdString()) const;
+    bool lookup_cell_delay(int type_idx, IdString from_port, IdString to_port, DelayInfo &delay) const;
+    void lookup_cell_setuphold(int type_idx, IdString from_port, IdString clock, DelayInfo &setup,
+                               DelayInfo &hold) const;
+    // -------------------------------------------------
 
     // List of IO constraints, used by PDC parser
     std::unordered_map<IdString, std::unordered_map<IdString, Property>> io_attr;
