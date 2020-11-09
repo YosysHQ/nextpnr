@@ -137,6 +137,27 @@ Arch::Arch(ArchArgs args) : args(args)
         }
         log_error("Unknown package '%s'. Available package options:%s\n", package.c_str(), all_packages.c_str());
     }
+
+    // Validate and set up speed grade
+
+    // Convert speed to speed grade (TODO: low power back bias mode too)
+    if (speed == "7")
+        speed = "10";
+    else if (speed == "8")
+        speed = "11";
+    else if (speed == "9")
+        speed = "12";
+
+    speed_grade = nullptr;
+    for (size_t i = 0; i < db->num_speed_grades; i++) {
+        auto &sg = db->speed_grades[i];
+        if (sg.name.get() == speed) {
+            speed_grade = &sg;
+            break;
+        }
+    }
+    if (!speed_grade)
+        log_error("Unknown speed grade '%s'.\n", speed.c_str());
 }
 
 // -----------------------------------------------------------------------

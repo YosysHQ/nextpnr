@@ -307,6 +307,7 @@ NPNR_PACKED_STRUCT(struct CellTimingPOD {
 NPNR_PACKED_STRUCT(struct PipTimingPOD {
     int32_t min_delay;
     int32_t max_delay;
+    // fanout adder seemingly unused by nexus, reserved for future ECP5 etc support
     int32_t min_fanout_adder;
     int32_t max_fanout_adder;
 });
@@ -910,6 +911,7 @@ struct Arch : BaseCtx
     boost::iostreams::mapped_file_source blob_file;
     const DatabasePOD *db;
     const ChipInfoPOD *chip_info;
+    const SpeedGradePOD *speed_grade;
 
     int package_idx;
 
@@ -1275,7 +1277,14 @@ struct Arch : BaseCtx
 
     WireId getPipDstWire(PipId pip) const { return canonical_wire(pip.tile, pip_data(pip).to_wire); }
 
-    DelayInfo getPipDelay(PipId pip) const { return getDelayFromNS(0.1 + (pip.index % 30) / 1000.0); }
+    DelayInfo getPipDelay(PipId pip) const
+    {
+        DelayInfo delay;
+        auto &cls = speed_grade->pip_classes[pip_data(pip).timing_class];
+        delay.min_delay = std::max(0, cls.min_delay);
+        delay.max_delay = std::max(0, cls.max_delay);
+        return delay;
+    }
 
     UpDownhillPipRange getPipsDownhill(WireId wire) const
     {
