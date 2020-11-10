@@ -1547,10 +1547,19 @@ struct Arch : BaseCtx
 
     // -------------------------------------------------
     // Cell timing lookup helpers
+
+    // Given cell type and variant, get the index inside the speed grade timing data
     int get_cell_timing_idx(IdString cell_type, IdString cell_variant = IdString()) const;
+    // Return true and set delay if a comb path exists in a given cell timing index
     bool lookup_cell_delay(int type_idx, IdString from_port, IdString to_port, DelayInfo &delay) const;
+    // Get setup and hold time for a given cell timing index and signal/clock pair
     void lookup_cell_setuphold(int type_idx, IdString from_port, IdString clock, DelayInfo &setup,
                                DelayInfo &hold) const;
+    // Get setup and hold time and associated clock for a given cell timing index and signal
+    void lookup_cell_setuphold_clock(int type_idx, IdString from_port, IdString &clock, DelayInfo &setup,
+                                     DelayInfo &hold) const;
+    // Similar to lookup_cell_delay but only needs the 'to' signal, intended for clk->out delays
+    void lookup_cell_clock_out(int type_idx, IdString to_port, IdString &clock, DelayInfo &delay) const;
     // -------------------------------------------------
 
     // List of IO constraints, used by PDC parser

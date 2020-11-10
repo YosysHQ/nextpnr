@@ -435,9 +435,23 @@ DecalXY Arch::getGroupDecal(GroupId pip) const { return {}; };
 
 bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const
 {
+    auto lookup_port = [&](IdString p) {
+        auto fnd = cell->tmg_portmap.find(p);
+        return fnd == cell->tmg_portmap.end() ? p : fnd->second;
+    };
     if (cell->type == id_OXIDE_COMB) {
-        if (toPort == id_F)
-            return lookup_cell_delay(cell->tmg_index, fromPort, toPort, delay);
+        if (cell->lutInfo.is_carry) {
+            bool result = lookup_cell_delay(cell->tmg_index, lookup_port(fromPort), lookup_port(toPort), delay);
+            // Because CCU2 = 2x OXIDE_COMB
+            if (result && fromPort == id_FCI && toPort == id_FCO) {
+                delay.min_delay /= 2;
+                delay.max_delay /= 2;
+            }
+            return result;
+        } else {
+            if (toPort == id_F)
+                return lookup_cell_delay(cell->tmg_index, fromPort, toPort, delay);
+        }
     }
     return false;
 }
@@ -446,20 +460,44 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
 {
     auto disconnected = [cell](IdString p) { return !cell->ports.count(p) || cell->ports.at(p).net == nullptr; };
     if (cell->type == id_OXIDE_COMB) {
-        if (port == id_A || port == id_B || port == id_C || port == id_D)
+        if (port == id_A || port == id_B || port == id_C || port == id_D || port == id_FCI)
             return TMG_COMB_INPUT;
-        if (port == id_F) {
+        if (port == id_F || port == id_OFX || port == id_FCO) {
             if (disconnected(id_A) && disconnected(id_B) && disconnected(id_C) && disconnected(id_D) &&
-                disconnected(id_FCI))
+                disconnected(id_FCI) && disconnected(id_SEL))
                 return TMG_IGNORE;
             else
                 return TMG_COMB_OUTPUT;
+        }
+    } else if (cell->type == id_OXIDE_FF) {
+        if (port == id_CLK)
+            return TMG_CLOCK_INPUT;
+        else if (port == id_Q) {
+            clockInfoCount = 1;
+            return TMG_REGISTER_OUTPUT;
+        } else {
+            clockInfoCount = 1;
+            return TMG_REGISTER_INPUT;
         }
     }
     return TMG_IGNORE;
 }
 
-TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port, int index) const { return {}; }
+TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port, int index) const
+{
+    TimingClockingInfo info;
+    if (cell->type == id_OXIDE_FF) {
+        info.edge = (cell->ffInfo.ctrlset.clkmux == ID_INV) ? FALLING_EDGE : RISING_EDGE;
+        info.clock_port = id_CLK;
+        if (port == id_Q)
+            NPNR_ASSERT(lookup_cell_delay(cell->tmg_index, id_CLK, port, info.clockToQ));
+        else
+            lookup_cell_setuphold(cell->tmg_index, port, id_CLK, info.setup, info.hold);
+    } else {
+        NPNR_ASSERT_FALSE("missing clocking info");
+    }
+    return info;
+}
 
 // -----------------------------------------------------------------------
 
@@ -750,6 +788,38 @@ void Arch::lookup_cell_setuphold(int type_idx, IdString from_port, IdString cloc
             [](const CellSetupHoldPOD &sh) { return std::make_pair(sh.sig_port, sh.clock_port); },
             std::make_pair(from_port.index, clock.index));
     NPNR_ASSERT(dly_idx != -1);
+    setup.min_delay = ct.setup_holds[dly_idx].min_setup;
+    setup.max_delay = ct.setup_holds[dly_idx].max_setup;
+    hold.min_delay = ct.setup_holds[dly_idx].min_hold;
+    hold.max_delay = ct.setup_holds[dly_idx].max_hold;
+}
+
+void Arch::lookup_cell_setuphold_clock(int type_idx, IdString from_port, IdString &clock, DelayInfo &setup,
+                                       DelayInfo &hold) const
+{
+    NPNR_ASSERT(type_idx != -1);
+    const auto &ct = speed_grade->cell_types[type_idx];
+    int dly_idx = db_binary_search(
+            ct.setup_holds.get(), ct.num_setup_holds, [](const CellSetupHoldPOD &sh) { return sh.sig_port; },
+            from_port.index);
+    NPNR_ASSERT(dly_idx != -1);
+    clock = IdString(ct.setup_holds[dly_idx].clock_port);
+    setup.min_delay = ct.setup_holds[dly_idx].min_setup;
+    setup.max_delay = ct.setup_holds[dly_idx].max_setup;
+    hold.min_delay = ct.setup_holds[dly_idx].min_hold;
+    hold.max_delay = ct.setup_holds[dly_idx].max_hold;
+}
+void Arch::lookup_cell_clock_out(int type_idx, IdString to_port, IdString &clock, DelayInfo &delay) const
+{
+    NPNR_ASSERT(type_idx != -1);
+    const auto &ct = speed_grade->cell_types[type_idx];
+    int dly_idx = db_binary_search(
+            ct.prop_delays.get(), ct.num_prop_delays, [](const CellPropDelayPOD &pd) { return pd.to_port; },
+            to_port.index);
+    NPNR_ASSERT(dly_idx != -1);
+    clock = ct.prop_delays[dly_idx].from_port;
+    delay.min_delay = ct.prop_delays[dly_idx].min_delay;
+    delay.max_delay = ct.prop_delays[dly_idx].max_delay;
 }
 
 // -----------------------------------------------------------------------

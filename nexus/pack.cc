@@ -1264,7 +1264,14 @@ void Arch::assignCellInfo(CellInfo *cell)
         cell->lutInfo.mux2_used = port_used(cell, id_OFX);
         cell->lutInfo.f = get_net_or_empty(cell, id_F);
         cell->lutInfo.ofx = get_net_or_empty(cell, id_OFX);
-        cell->tmg_index = get_cell_timing_idx(id_OXIDE_COMB, id_LUT4);
+        cell->tmg_index = get_cell_timing_idx(id_OXIDE_COMB, cell->lutInfo.is_carry ? id_CCU2 : id_LUT4);
+        if (cell->lutInfo.is_carry) {
+            cell->tmg_portmap[id_A] = id_A0;
+            cell->tmg_portmap[id_B] = id_B0;
+            cell->tmg_portmap[id_C] = id_C0;
+            cell->tmg_portmap[id_D] = id_D0;
+            cell->tmg_portmap[id_F] = id_F0;
+        }
     } else if (cell->type == id_OXIDE_FF) {
         cell->ffInfo.ctrlset.async = str_or_default(cell->params, id_SRMODE, "LSR_OVER_CE") == "ASYNC";
         cell->ffInfo.ctrlset.regddr_en = is_enabled(cell, id_REGDDR);
@@ -1277,6 +1284,7 @@ void Arch::assignCellInfo(CellInfo *cell)
         cell->ffInfo.ctrlset.lsr = get_net_or_empty(cell, id_LSR);
         cell->ffInfo.di = get_net_or_empty(cell, id_DI);
         cell->ffInfo.m = get_net_or_empty(cell, id_M);
+        cell->tmg_index = get_cell_timing_idx(id_OXIDE_FF, id("PPP:SYNC"));
     } else if (cell->type == id_RAMW) {
         cell->ffInfo.ctrlset.async = true;
         cell->ffInfo.ctrlset.regddr_en = false;

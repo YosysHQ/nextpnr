@@ -188,6 +188,8 @@ struct ArchCellInfo
     };
 
     int tmg_index = -1;
+    // Map from cell/bel ports to logical timing ports
+    std::unordered_map<IdString, IdString> tmg_portmap;
 };
 
 NEXTPNR_NAMESPACE_END

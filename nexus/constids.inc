@@ -90,6 +90,7 @@ X(CIN)
 X(COUT)
 X(S0)
 X(S1)
+X(F0)
 
 X(CLKMUX)
 X(CEMUX)
