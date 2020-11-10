@@ -276,7 +276,7 @@ NPNR_PACKED_STRUCT(struct IdStringDBPOD {
 // Timing structures are generally sorted using IdString indices as keys for fast binary searches
 // All delays are integer picoseconds
 
-// Sort key: (from_port, to_port) for binary search by IdString
+// Sort key: (to_port, from_port) for binary search by IdString
 NPNR_PACKED_STRUCT(struct CellPropDelayPOD {
     int32_t from_port;
     int32_t to_port;

@@ -731,8 +731,8 @@ bool Arch::lookup_cell_delay(int type_idx, IdString from_port, IdString to_port,
     const auto &ct = speed_grade->cell_types[type_idx];
     int dly_idx = db_binary_search(
             ct.prop_delays.get(), ct.num_prop_delays,
-            [](const CellPropDelayPOD &pd) { return std::make_pair(pd.from_port, pd.to_port); },
-            std::make_pair(from_port.index, to_port.index));
+            [](const CellPropDelayPOD &pd) { return std::make_pair(pd.to_port, pd.from_port); },
+            std::make_pair(to_port.index, from_port.index));
     if (dly_idx == -1)
         return false;
     delay.min_delay = ct.prop_delays[dly_idx].min_delay;
