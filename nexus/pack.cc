@@ -990,6 +990,8 @@ struct NexusPacker
                     if (initval & (1ULL << (4 * j + i)))
                         split_init |= (1 << j);
                 combs[i]->params[id_INIT] = Property(split_init, 16);
+
+                combs[i]->params[id_MODE] = std::string("DPRAM");
             }
 
             // Setup relative constraints
@@ -1264,13 +1266,19 @@ void Arch::assignCellInfo(CellInfo *cell)
         cell->lutInfo.mux2_used = port_used(cell, id_OFX);
         cell->lutInfo.f = get_net_or_empty(cell, id_F);
         cell->lutInfo.ofx = get_net_or_empty(cell, id_OFX);
-        cell->tmg_index = get_cell_timing_idx(id_OXIDE_COMB, cell->lutInfo.is_carry ? id_CCU2 : id_LUT4);
         if (cell->lutInfo.is_carry) {
             cell->tmg_portmap[id_A] = id_A0;
             cell->tmg_portmap[id_B] = id_B0;
             cell->tmg_portmap[id_C] = id_C0;
             cell->tmg_portmap[id_D] = id_D0;
             cell->tmg_portmap[id_F] = id_F0;
+            cell->tmg_index = get_cell_timing_idx(id_OXIDE_COMB, id_CCU2);
+        } else if (cell->lutInfo.ofx != nullptr) {
+            cell->tmg_index = get_cell_timing_idx(id_OXIDE_COMB, id_WIDEFN9);
+        } else if (cell->lutInfo.is_memory) {
+            cell->tmg_index = get_cell_timing_idx(id_OXIDE_COMB, id_DPRAM);
+        } else {
+            cell->tmg_index = get_cell_timing_idx(id_OXIDE_COMB, id_LUT4);
         }
     } else if (cell->type == id_OXIDE_FF) {
         cell->ffInfo.ctrlset.async = str_or_default(cell->params, id_SRMODE, "LSR_OVER_CE") == "ASYNC";
@@ -1297,6 +1305,7 @@ void Arch::assignCellInfo(CellInfo *cell)
         cell->ffInfo.ctrlset.lsr = get_net_or_empty(cell, id_LSR);
         cell->ffInfo.di = nullptr;
         cell->ffInfo.m = nullptr;
+        cell->tmg_index = get_cell_timing_idx(id_RAMW);
     }
 }
 
