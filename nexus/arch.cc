@@ -491,12 +491,23 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
             clockInfoCount = 1;
             return TMG_REGISTER_INPUT;
         }
+    } else if (cell->type == id_OXIDE_EBR) {
+        if (port == id_DWS0 || port == id_DWS1 || port == id_DWS2 || port == id_DWS3 || port == id_DWS4)
+            return TMG_IGNORE;
+        if (port == id_CLKA || port == id_CLKB)
+            return TMG_CLOCK_INPUT;
+        clockInfoCount = 1;
+        return (cell->ports.at(port).type == PORT_IN) ? TMG_REGISTER_INPUT : TMG_REGISTER_OUTPUT;
     }
     return TMG_IGNORE;
 }
 
 TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port, int index) const
 {
+    auto lookup_port = [&](IdString p) {
+        auto fnd = cell->tmg_portmap.find(p);
+        return fnd == cell->tmg_portmap.end() ? p : fnd->second;
+    };
     TimingClockingInfo info;
     if (cell->type == id_OXIDE_FF) {
         info.edge = (cell->ffInfo.ctrlset.clkmux == ID_INV) ? FALLING_EDGE : RISING_EDGE;
@@ -512,6 +523,14 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
             NPNR_ASSERT(lookup_cell_delay(cell->tmg_index, id_CLK, port, info.clockToQ));
         else
             lookup_cell_setuphold(cell->tmg_index, port, id_CLK, info.setup, info.hold);
+    } else if (cell->type == id_OXIDE_EBR) {
+        if (cell->ports.at(port).type == PORT_IN) {
+            lookup_cell_setuphold_clock(cell->tmg_index, lookup_port(port), info.clock_port, info.setup, info.hold);
+        } else {
+            lookup_cell_clock_out(cell->tmg_index, lookup_port(port), info.clock_port, info.clockToQ);
+        }
+        // Lookup edge based on inversion
+        info.edge = (get_cell_pinmux(cell, info.clock_port) == PINMUX_INV) ? FALLING_EDGE : RISING_EDGE;
     } else {
         NPNR_ASSERT_FALSE("missing clocking info");
     }

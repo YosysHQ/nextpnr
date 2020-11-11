@@ -1306,6 +1306,25 @@ void Arch::assignCellInfo(CellInfo *cell)
         cell->ffInfo.di = nullptr;
         cell->ffInfo.m = nullptr;
         cell->tmg_index = get_cell_timing_idx(id_RAMW);
+    } else if (cell->type == id_OXIDE_EBR) {
+        // Strip off bus indices to get the timing ports
+        // as timing is generally word-wide
+        for (const auto &port : cell->ports) {
+            const std::string &name = port.first.str(this);
+            size_t idx_end = name.find_last_not_of("0123456789");
+            std::string base = name.substr(0, idx_end + 1);
+            if (base == "ADA" || base == "ADB") {
+                // [4:0] and [13:5] have different timing
+                int idx = std::stoi(name.substr(idx_end + 1));
+                cell->tmg_portmap[port.first] = id(base + ((idx >= 5) ? "_13_5" : "_4_0"));
+            } else {
+                // Just strip off bus index
+                cell->tmg_portmap[port.first] = id(base);
+            }
+        }
+
+        cell->tmg_index = get_cell_timing_idx(id(str_or_default(cell->params, id_MODE, "DP16K") + "_MODE"));
+        NPNR_ASSERT(cell->tmg_index != -1);
     }
 }
 
