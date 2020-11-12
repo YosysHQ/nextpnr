@@ -545,11 +545,13 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
     int dst_x = dst.tile % chip_info->width, dst_y = dst.tile / chip_info->width;
     int dist_x = std::abs(src_x - dst_x);
     int dist_y = std::abs(src_y - dst_y);
-    return 100 * dist_x + 100 * dist_y;
+    return 100 * dist_x + 100 * dist_y + 250;
 }
 delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
 {
     if (net_info->driver.cell == nullptr || net_info->driver.cell->bel == BelId() || sink.cell->bel == BelId())
+        return 0;
+    if (sink.port == id_FCI)
         return 0;
     int src_x = net_info->driver.cell->bel.tile % chip_info->width,
         src_y = net_info->driver.cell->bel.tile / chip_info->width;
@@ -557,7 +559,7 @@ delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
     int dst_x = sink.cell->bel.tile % chip_info->width, dst_y = sink.cell->bel.tile / chip_info->width;
     int dist_x = std::abs(src_x - dst_x);
     int dist_y = std::abs(src_y - dst_y);
-    return 100 * dist_x + 100 * dist_y;
+    return 100 * dist_x + 100 * dist_y + 250;
 }
 
 bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const { return false; }
