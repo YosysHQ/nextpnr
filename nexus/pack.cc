@@ -264,11 +264,11 @@ struct NexusPacker
 
     std::unordered_map<IdString, BelId> reference_bels;
 
-    void autocreate_ports(CellInfo *cell)
+    void autocreate_ports(CellInfo *cell, bool include_outputs = false)
     {
-        // Automatically create ports for all inputs of a cell; even if they were left off the instantiation
-        // so we can tie them to constants as appropriate
-        // This also checks for any cells that don't have corresponding bels
+        // Automatically create ports for all inputs, and maybe outputs, of a cell; even if they were left off the
+        // instantiation so we can tie them to constants as appropriate This also checks for any cells that don't have
+        // corresponding bels
 
         if (!reference_bels.count(cell->type)) {
             // We need to look up a corresponding bel to get the list of input ports
@@ -288,7 +288,7 @@ struct NexusPacker
         BelId bel = reference_bels.at(cell->type);
         for (IdString pin : ctx->getBelPins(bel)) {
             PortType dir = ctx->getBelPinType(bel, pin);
-            if (dir != PORT_IN)
+            if (dir != PORT_IN && !include_outputs)
                 continue;
             if (cell->ports.count(pin))
                 continue;
@@ -1219,6 +1219,136 @@ struct NexusPacker
                 }
             } while (ci != nullptr);
         }
+    }
+
+    // Function to check if a wire is general routing; and therefore skipped for cascade purposes
+    bool is_general_routing(WireId wire)
+    {
+        std::string name = ctx->nameOf(ctx->wire_data(wire).name);
+        if (name.size() == 3 && (name.substr(0, 2) == "JF" || name.substr(0, 2) == "JQ"))
+            return false;
+        if (name.size() == 12 && (name.substr(0, 10) == "JCIBMUXOUT"))
+            return false;
+        return true;
+    }
+
+    // Automatically generate cascade connections downstream of a cell
+    // using the temporary placement that we use solely to access the routing graph
+    void auto_cascade_cell(CellInfo *cell, BelId bel, const std::unordered_map<BelId, CellInfo *> &bel2cell)
+    {
+        for (auto port : sorted_ref(cell->ports)) {
+            // Skip if not an output, or being used already for something else
+            if (port.second.type != PORT_OUT || port.second.net != nullptr)
+                continue;
+            // Get the corresponding start wire
+            WireId start_wire = ctx->getBelPinWire(bel, port.first);
+
+            // Skip if the start wire doesn't actually exist
+            if (start_wire == WireId())
+                continue;
+
+            // Standard BFS-type exploration
+            std::queue<WireId> visit;
+            visit.push(start_wire);
+            int iter = 0;
+            const int iter_limit = 1000;
+
+            while (!visit.empty() && (iter++ < iter_limit)) {
+                WireId cursor = visit.front();
+                visit.pop();
+
+                // Check for downstream bel pins
+                bool found_active_pins = false;
+                for (auto bp : ctx->getWireBelPins(cursor)) {
+                    auto fnd_cell = bel2cell.find(bp.bel);
+                    // Always skip unused bels, and don't set found_active_pins
+                    // so we can route through these if needed
+                    if (fnd_cell == bel2cell.end())
+                        continue;
+
+                    found_active_pins = true;
+
+                    // Skip outputs
+                    if (ctx->getBelPinType(bp.bel, bp.pin) != PORT_IN)
+                        continue;
+                    CellInfo *other_cell = fnd_cell->second;
+                    // Skip pins that are already in use
+                    if (get_net_or_empty(other_cell, bp.pin) != nullptr)
+                        continue;
+                    // Create the input if it doesn't exist
+                    if (!other_cell->ports.count(bp.pin))
+                        other_cell->addInput(bp.pin);
+                    // Make the connection
+                    connect_ports(ctx, cell, port.first, other_cell, bp.pin);
+                }
+
+                // By doing this we never attempt to route-through bels
+                // that are actually in use
+                if (found_active_pins)
+                    continue;
+
+                // Search downstream pips for wires to add to the queue
+                for (auto pip : ctx->getPipsDownhill(cursor))
+                    visit.push(ctx->getPipDstWire(pip));
+            }
+        }
+    }
+
+    // Insert all the cascade connections for a group of cells given the root
+    void auto_cascade_group(CellInfo *root)
+    {
+
+        auto get_child_loc = [&](Loc base, const CellInfo *sub) {
+            Loc l = base;
+            l.x += sub->constr_x;
+            l.y += sub->constr_y;
+            l.z = sub->constr_abs_z ? sub->constr_z : (sub->constr_z + base.z);
+            return l;
+        };
+
+        // We first create a temporary placement so we can access the routing graph
+        bool found = false;
+        std::unordered_map<BelId, CellInfo *> bel2cell;
+        std::unordered_map<IdString, BelId> cell2bel;
+
+        for (BelId root_bel : ctx->getBels()) {
+            if (ctx->getBelType(root_bel) != root->type)
+                continue;
+            Loc root_loc = ctx->getBelLocation(root_bel);
+            found = true;
+            bel2cell.clear();
+            cell2bel.clear();
+            bel2cell[root_bel] = root;
+            cell2bel[root->name] = root_bel;
+
+            for (auto child : root->constr_children) {
+                // Check that a valid placement exists for all children in the macro at this location
+                Loc c_loc = get_child_loc(root_loc, child);
+                BelId c_bel = ctx->getBelByLocation(c_loc);
+                if (c_bel == BelId()) {
+                    found = false;
+                    break;
+                }
+                if (ctx->getBelType(c_bel) != child->type) {
+                    found = false;
+                    break;
+                }
+                bel2cell[c_bel] = child;
+                cell2bel[child->name] = c_bel;
+            }
+
+            if (found)
+                break;
+        }
+
+        if (!found)
+            log_error("Failed to create temporary placement for cell '%s' of type '%s'\n", ctx->nameOf(root),
+                      ctx->nameOf(root->type));
+
+        // Insert cascade connections from all cells in the macro
+        auto_cascade_cell(root, cell2bel.at(root->name), bel2cell);
+        for (auto child : root->constr_children)
+            auto_cascade_cell(child, cell2bel.at(child->name), bel2cell);
     }
 
     explicit NexusPacker(Context *ctx) : ctx(ctx) {}
