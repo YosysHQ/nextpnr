@@ -41,6 +41,9 @@ template <typename T> struct RelPtr
     const T &operator*() const { return *(get()); }
 
     const T *operator->() const { return get(); }
+
+    RelPtr(const RelPtr &) = delete;
+    RelPtr &operator=(const RelPtr &) = delete;
 };
 
 NPNR_PACKED_STRUCT(struct BelWirePOD {
