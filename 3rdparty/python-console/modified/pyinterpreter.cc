@@ -28,8 +28,6 @@ SOFTWARE.
 #include <memory>
 #include "pyredirector.h"
 
-static PyThreadState *MainThreadState = NULL;
-
 static PyThreadState *m_threadState = NULL;
 static PyObject *glb = NULL;
 static PyObject *loc = NULL;
@@ -125,9 +123,8 @@ void pyinterpreter_preinit()
 void pyinterpreter_initialize()
 {
     PyEval_InitThreads();
-    MainThreadState = PyEval_SaveThread();
-    PyEval_AcquireThread(MainThreadState);
-    m_threadState = Py_NewInterpreter();
+    m_threadState = PyEval_SaveThread();
+    PyEval_AcquireThread(m_threadState);
 
     PyObject *module = PyImport_ImportModule("__main__");
     loc = glb = PyModule_GetDict(module);
@@ -147,11 +144,7 @@ void pyinterpreter_finalize()
 {
     m_suggestions.clear();
 
-    PyEval_AcquireThread(m_threadState);
-    Py_EndInterpreter(m_threadState);
-    PyEval_ReleaseLock();
-
-    PyEval_RestoreThread(MainThreadState);
+    PyEval_RestoreThread(m_threadState);
 }
 
 void pyinterpreter_aquire()
