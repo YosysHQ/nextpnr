@@ -83,7 +83,48 @@ static const std::unordered_map<IdString, Arch::CellPinsData> base_cell_pin_data
                  {id_HFOUTEN, PINSTYLE_PU},
                  {{}, PINSTYLE_CIB},
          }},
-};
+        {id_PREADD9_CORE,
+         {
+                 {id_CLK, PINSTYLE_CLK}, {id_RSTCL, PINSTYLE_LSR},   {id_RSTB, PINSTYLE_LSR}, {id_CECL, PINSTYLE_CE},
+                 {id_CEB, PINSTYLE_CE},
+
+                 {id_B0, PINSTYLE_CIB},  {id_B1, PINSTYLE_CIB},      {id_B2, PINSTYLE_CIB},   {id_B3, PINSTYLE_CIB},
+                 {id_B4, PINSTYLE_CIB},  {id_B5, PINSTYLE_CIB},      {id_B6, PINSTYLE_CIB},   {id_B7, PINSTYLE_CIB},
+                 {id_B8, PINSTYLE_CIB},  {id_BSIGNED, PINSTYLE_CIB},
+
+                 {id_C0, PINSTYLE_CIB},  {id_C1, PINSTYLE_CIB},      {id_C2, PINSTYLE_CIB},   {id_C3, PINSTYLE_CIB},
+                 {id_C4, PINSTYLE_CIB},  {id_C5, PINSTYLE_CIB},      {id_C6, PINSTYLE_CIB},   {id_C7, PINSTYLE_CIB},
+                 {id_C8, PINSTYLE_CIB},  {id_C9, PINSTYLE_CIB},
+
+                 {{}, PINSTYLE_DEDI},
+         }},
+        {id_MULT9_CORE,
+         {
+                 {id_CLK, PINSTYLE_CLK},
+                 {id_RSTA, PINSTYLE_LSR},
+                 {id_RSTP, PINSTYLE_LSR},
+                 {id_CEA, PINSTYLE_CE},
+                 {id_CEP, PINSTYLE_CE},
+
+                 {id_A0, PINSTYLE_CIB},
+                 {id_A1, PINSTYLE_CIB},
+                 {id_A2, PINSTYLE_CIB},
+                 {id_A3, PINSTYLE_CIB},
+                 {id_A4, PINSTYLE_CIB},
+                 {id_A5, PINSTYLE_CIB},
+                 {id_A6, PINSTYLE_CIB},
+                 {id_A7, PINSTYLE_CIB},
+                 {id_A8, PINSTYLE_CIB},
+                 {id_ASIGNED, PINSTYLE_CIB},
+
+                 {{}, PINSTYLE_DEDI},
+         }},
+        {id_REG18_CORE,
+         {
+                 {id_CLK, PINSTYLE_CLK},
+                 {id_RSTP, PINSTYLE_LSR},
+                 {id_CEP, PINSTYLE_CE},
+         }}};
 } // namespace
 
 void Arch::init_cell_pin_data() { cell_pins_db = base_cell_pin_data; }

@@ -1393,6 +1393,22 @@ struct NexusPacker
             cell->params[id_SIGNEDSTATIC_EN] = std::string("DISABLED");
             cell->params[id_SR_18BITSHIFT_EN] = std::string("DISABLED");
             cell->params[id_SUBSTRACT_EN] = std::string("SUBTRACTION");
+        } else if (type == id_MULT9_CORE) {
+            cell->params[id_ASIGNED_OPERAND_EN] = std::string("DISABLED");
+            cell->params[id_BYPASS_MULT9] = std::string("DISABLED");
+            cell->params[id_GSR] = std::string("DISABLED");
+            cell->params[id_REGBYPSA1] = std::string("DISABLED");
+            cell->params[id_REGBYPSA2] = std::string("DISABLED");
+            cell->params[id_REGBYPSB] = std::string("DISABLED");
+            cell->params[id_RESET] = std::string("SYNC");
+            cell->params[id_GSR] = std::string("DISABLED");
+            cell->params[id_SHIFTA] = std::string("DISABLED");
+            cell->params[id_SIGNEDSTATIC_EN] = std::string("DISABLED");
+            cell->params[id_SR_18BITSHIFT_EN] = std::string("DISABLED");
+        } else if (type == id_REG18_CORE) {
+            cell->params[id_GSR] = std::string("DISABLED");
+            cell->params[id_REGBYPS] = std::string("BYPASS");
+            cell->params[id_RESET] = std::string("SYNC");
         }
         return cell;
     }
