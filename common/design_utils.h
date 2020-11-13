@@ -104,13 +104,11 @@ void rename_port(Context *ctx, CellInfo *cell, IdString old_name, IdString new_n
 // Rename a net without invalidating pointers to it
 void rename_net(Context *ctx, NetInfo *net, IdString new_name);
 
-// Create a bus of nets
-std::vector<NetInfo *> create_bus(Context *ctx, IdString base_name, const std::string &postfix, int width);
-
-// Connect a bus of nets to a bus of ports
-void connect_bus(Context *ctx, CellInfo *cell, IdString port, std::vector<NetInfo *> &bus, PortType dir);
-
 void print_utilisation(const Context *ctx);
+
+// Disconnect a bus of nets (if connected) from old, and connect it to the new ports
+void replace_bus(Context *ctx, CellInfo *old_cell, IdString old_name, int old_offset, CellInfo *new_cell,
+                 IdString new_name, int new_offset, int new_width, bool square_brackets = true);
 
 NEXTPNR_NAMESPACE_END
 

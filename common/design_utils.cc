@@ -164,25 +164,13 @@ void rename_net(Context *ctx, NetInfo *net, IdString new_name)
     net->name = new_name;
 }
 
-std::vector<NetInfo *> create_bus(Context *ctx, IdString base_name, const std::string &postfix, int width)
+void replace_bus(Context *ctx, CellInfo *old_cell, IdString old_name, int old_offset, CellInfo *new_cell,
+                 IdString new_name, int new_offset, int width, bool square_brackets)
 {
-    std::vector<NetInfo *> nets;
-    for (int i = 0; i < width; i++)
-        nets.push_back(ctx->createNet(ctx->id(stringf("%s/%s[%d]", base_name.c_str(ctx), postfix.c_str(), i))));
-    return nets;
-}
-
-void connect_bus(Context *ctx, CellInfo *cell, IdString port, std::vector<NetInfo *> &bus, PortType dir)
-{
-    for (int i = 0; i < int(bus.size()); i++) {
-        IdString p = ctx->id(stringf("%s%d", port.c_str(ctx), i));
-        if (!cell->ports.count(p)) {
-            cell->ports[p].name = p;
-            cell->ports[p].type = dir;
-        } else {
-            NPNR_ASSERT(cell->ports.at(p).type == dir);
-        }
-        connect_port(ctx, bus.at(i), cell, p);
+    for (int i = 0; i < width; i++) {
+        IdString old_port = ctx->id(stringf(square_brackets ? "%s[%d]" : "%s%d", old_name.c_str(ctx), i + old_offset));
+        IdString new_port = ctx->id(stringf(square_brackets ? "%s[%d]" : "%s%d", new_name.c_str(ctx), i + new_offset));
+        replace_port(old_cell, old_port, new_cell, new_port);
     }
 }
 

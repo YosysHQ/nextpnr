@@ -1351,6 +1351,54 @@ struct NexusPacker
             auto_cascade_cell(child, cell2bel.at(child->name), bel2cell);
     }
 
+    // Create a DSP cell
+    CellInfo *create_dsp_cell(IdString base_name, IdString type, CellInfo *constr_base, int dx, int dz)
+    {
+        IdString name = ctx->id(stringf("%s/%s_x%d_z%d", ctx->nameOf(base_name), ctx->nameOf(type), dx, dz));
+        CellInfo *cell = ctx->createCell(name, type);
+        if (constr_base != nullptr) {
+            // We might be constraining against an already-constrained cell
+            if (constr_base->constr_parent != nullptr) {
+                cell->constr_x = dx + constr_base->constr_x;
+                cell->constr_y = constr_base->constr_y;
+                cell->constr_z = dz + constr_base->constr_z;
+                cell->constr_abs_z = false;
+                cell->constr_parent = constr_base->constr_parent;
+                constr_base->constr_parent->constr_children.push_back(cell);
+            } else {
+                cell->constr_x = dx;
+                cell->constr_y = 0;
+                cell->constr_z = dz;
+                cell->constr_abs_z = false;
+                cell->constr_parent = constr_base;
+                constr_base->constr_children.push_back(cell);
+            }
+        }
+        // Setup some default parameters
+        if (type == id_PREADD9_CORE) {
+            cell->params[id_SIGNEDSTATIC_EN] = std::string("DISABLED");
+            cell->params[id_BYPASS_PREADD9] = std::string("BYPASS");
+            cell->params[id_CSIGNED] = std::string("DISABLED");
+            cell->params[id_GSR] = std::string("DISABLED");
+            cell->params[id_OPC] = std::string("INPUT_B_AS_PREADDER_OPERAND");
+            cell->params[id_PREADDCAS_EN] = std::string("DISABLED");
+            cell->params[id_PREADDCAS_EN] = std::string("DISABLED");
+            cell->params[id_PREADDCAS_EN] = std::string("DISABLED");
+            cell->params[id_REGBYPSBL] = std::string("REGISTER");
+            cell->params[id_REGBYPSBR0] = std::string("BYPASS");
+            cell->params[id_REGBYPSBR1] = std::string("BYPASS");
+            cell->params[id_RESET] = std::string("SYNC");
+            cell->params[id_SHIFTBL] = std::string("BYPASS");
+            cell->params[id_SHIFTBR] = std::string("REGISTER");
+            cell->params[id_SIGNEDSTATIC_EN] = std::string("DISABLED");
+            cell->params[id_SR_18BITSHIFT_EN] = std::string("DISABLED");
+            cell->params[id_SUBSTRACT_EN] = std::string("SUBTRACTION");
+        }
+        return cell;
+    }
+
+    void pack_dsps() { log_info("Packing DSPs...\n"); }
+
     explicit NexusPacker(Context *ctx) : ctx(ctx) {}
 
     void operator()()
