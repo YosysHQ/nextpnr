@@ -164,12 +164,12 @@ void rename_net(Context *ctx, NetInfo *net, IdString new_name)
     net->name = new_name;
 }
 
-void replace_bus(Context *ctx, CellInfo *old_cell, IdString old_name, int old_offset, CellInfo *new_cell,
-                 IdString new_name, int new_offset, int width, bool square_brackets)
+void replace_bus(Context *ctx, CellInfo *old_cell, IdString old_name, int old_offset, bool old_brackets,
+                 CellInfo *new_cell, IdString new_name, int new_offset, bool new_brackets, int width)
 {
     for (int i = 0; i < width; i++) {
-        IdString old_port = ctx->id(stringf(square_brackets ? "%s[%d]" : "%s%d", old_name.c_str(ctx), i + old_offset));
-        IdString new_port = ctx->id(stringf(square_brackets ? "%s[%d]" : "%s%d", new_name.c_str(ctx), i + new_offset));
+        IdString old_port = ctx->id(stringf(old_brackets ? "%s[%d]" : "%s%d", old_name.c_str(ctx), i + old_offset));
+        IdString new_port = ctx->id(stringf(new_brackets ? "%s[%d]" : "%s%d", new_name.c_str(ctx), i + new_offset));
         replace_port(old_cell, old_port, new_cell, new_port);
     }
 }

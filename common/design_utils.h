@@ -107,8 +107,8 @@ void rename_net(Context *ctx, NetInfo *net, IdString new_name);
 void print_utilisation(const Context *ctx);
 
 // Disconnect a bus of nets (if connected) from old, and connect it to the new ports
-void replace_bus(Context *ctx, CellInfo *old_cell, IdString old_name, int old_offset, CellInfo *new_cell,
-                 IdString new_name, int new_offset, int new_width, bool square_brackets = true);
+void replace_bus(Context *ctx, CellInfo *old_cell, IdString old_name, int old_offset, bool old_brackets,
+                 CellInfo *new_cell, IdString new_name, int new_offset, bool new_brackets, int width);
 
 NEXTPNR_NAMESPACE_END
 

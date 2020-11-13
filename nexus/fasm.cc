@@ -515,6 +515,27 @@ struct NexusFasmWriter
             pop();
         }
     }
+
+    bool is_mux_param(const std::string &key)
+    {
+        return (key.size() >= 3 && (key.compare(key.size() - 3, 3, "MUX") == 0));
+    }
+
+    // Write config for some kind of DSP cell
+    void write_dsp(const CellInfo *cell)
+    {
+        BelId bel = cell->bel;
+        push_bel(bel);
+        write_bit(stringf("MODE.%s", ctx->nameOf(cell->type)));
+        for (auto param : sorted_cref(cell->params)) {
+            const std::string &param_name = param.first.str(ctx);
+            if (is_mux_param(param_name))
+                continue;
+            write_enum(cell, param_name);
+        }
+        write_cell_muxes(cell);
+        pop();
+    }
     // Write out FASM for unused bels where needed
     void write_unused()
     {
@@ -623,6 +644,10 @@ struct NexusFasmWriter
                 write_osc(ci);
             else if (ci->type == id_OXIDE_EBR)
                 write_bram(ci);
+            else if (ci->type == id_MULT9_CORE || ci->type == id_PREADD9_CORE || ci->type == id_MULT18_CORE ||
+                     ci->type == id_MULT18X36_CORE || ci->type == id_MULT36_CORE || ci->type == id_REG18_CORE ||
+                     ci->type == id_ACC54_CORE)
+                write_dsp(ci);
             blank();
         }
         // Write config for unused bels

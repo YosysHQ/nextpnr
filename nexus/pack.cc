@@ -1226,10 +1226,10 @@ struct NexusPacker
     {
         std::string name = ctx->nameOf(ctx->wire_data(wire).name);
         if (name.size() == 3 && (name.substr(0, 2) == "JF" || name.substr(0, 2) == "JQ"))
-            return false;
+            return true;
         if (name.size() == 12 && (name.substr(0, 10) == "JCIBMUXOUT"))
-            return false;
-        return true;
+            return true;
+        return false;
     }
 
     // Automatically generate cascade connections downstream of a cell
@@ -1247,15 +1247,23 @@ struct NexusPacker
             if (start_wire == WireId())
                 continue;
 
+            if (ctx->debug)
+                log_info("     searching cascade routing for wire %s:\n", ctx->nameOfWire(start_wire));
+
             // Standard BFS-type exploration
             std::queue<WireId> visit;
+            std::unordered_set<WireId> in_queue;
             visit.push(start_wire);
+            in_queue.insert(start_wire);
             int iter = 0;
             const int iter_limit = 1000;
 
             while (!visit.empty() && (iter++ < iter_limit)) {
                 WireId cursor = visit.front();
                 visit.pop();
+
+                if (ctx->debug)
+                    log_info("         visit '%s'\n", ctx->nameOfWire(cursor));
 
                 // Check for downstream bel pins
                 bool found_active_pins = false;
@@ -1265,13 +1273,19 @@ struct NexusPacker
                     // so we can route through these if needed
                     if (fnd_cell == bel2cell.end())
                         continue;
-
-                    found_active_pins = true;
-
                     // Skip outputs
                     if (ctx->getBelPinType(bp.bel, bp.pin) != PORT_IN)
                         continue;
+
+                    if (ctx->debug)
+                        log_info("             bel %s pin %s\n", ctx->nameOfBel(bp.bel), ctx->nameOf(bp.pin));
+
+                    found_active_pins = true;
                     CellInfo *other_cell = fnd_cell->second;
+
+                    if (other_cell == cell)
+                        continue;
+
                     // Skip pins that are already in use
                     if (get_net_or_empty(other_cell, bp.pin) != nullptr)
                         continue;
@@ -1280,6 +1294,9 @@ struct NexusPacker
                         other_cell->addInput(bp.pin);
                     // Make the connection
                     connect_ports(ctx, cell, port.first, other_cell, bp.pin);
+
+                    if (ctx->debug)
+                        log_info("         found %s.%s\n", ctx->nameOf(other_cell), ctx->nameOf(bp.pin));
                 }
 
                 // By doing this we never attempt to route-through bels
@@ -1288,8 +1305,16 @@ struct NexusPacker
                     continue;
 
                 // Search downstream pips for wires to add to the queue
-                for (auto pip : ctx->getPipsDownhill(cursor))
-                    visit.push(ctx->getPipDstWire(pip));
+                for (auto pip : ctx->getPipsDownhill(cursor)) {
+                    WireId dst = ctx->getPipDstWire(pip);
+                    // Ignore general routing, as that isn't a useful cascade path
+                    if (is_general_routing(dst))
+                        continue;
+                    if (in_queue.count(dst))
+                        continue;
+                    in_queue.insert(dst);
+                    visit.push(dst);
+                }
             }
         }
     }
@@ -1345,6 +1370,11 @@ struct NexusPacker
             log_error("Failed to create temporary placement for cell '%s' of type '%s'\n", ctx->nameOf(root),
                       ctx->nameOf(root->type));
 
+        // Create the necessary new ports
+        autocreate_ports(root, true);
+        for (auto child : root->constr_children)
+            autocreate_ports(child, true);
+
         // Insert cascade connections from all cells in the macro
         auto_cascade_cell(root, cell2bel.at(root->name), bel2cell);
         for (auto child : root->constr_children)
@@ -1395,11 +1425,11 @@ struct NexusPacker
             cell->params[id_SUBSTRACT_EN] = std::string("SUBTRACTION");
         } else if (type == id_MULT9_CORE) {
             cell->params[id_ASIGNED_OPERAND_EN] = std::string("DISABLED");
-            cell->params[id_BYPASS_MULT9] = std::string("DISABLED");
+            cell->params[id_BYPASS_MULT9] = std::string("USED");
             cell->params[id_GSR] = std::string("DISABLED");
-            cell->params[id_REGBYPSA1] = std::string("DISABLED");
-            cell->params[id_REGBYPSA2] = std::string("DISABLED");
-            cell->params[id_REGBYPSB] = std::string("DISABLED");
+            cell->params[id_REGBYPSA1] = std::string("BYPASS");
+            cell->params[id_REGBYPSA2] = std::string("BYPASS");
+            cell->params[id_REGBYPSB] = std::string("BYPASS");
             cell->params[id_RESET] = std::string("SYNC");
             cell->params[id_GSR] = std::string("DISABLED");
             cell->params[id_SHIFTA] = std::string("DISABLED");
@@ -1413,13 +1443,39 @@ struct NexusPacker
         return cell;
     }
 
-    void pack_dsps() { log_info("Packing DSPs...\n"); }
+    void pack_dsps()
+    {
+        log_info("Packing DSPs...\n");
+        std::vector<CellInfo *> to_remove;
+
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (ci->type == id_MULT9X9) {
+                // MULT9X9: PREADD9 -> MULT9 -> REG18
+                CellInfo *preadd9_0 = create_dsp_cell(ci->name, id_PREADD9_CORE, nullptr, 0, 0);
+                CellInfo *mult9_0 = create_dsp_cell(ci->name, id_MULT9_CORE, preadd9_0, 0, 2);
+                CellInfo *reg18_0 = create_dsp_cell(ci->name, id_REG18_CORE, preadd9_0, 2, 0);
+                replace_bus(ctx, ci, id_B, 0, true, preadd9_0, id_B, 0, false, 9);
+                replace_bus(ctx, ci, id_A, 0, true, mult9_0, id_A, 0, false, 9);
+                replace_bus(ctx, ci, id_Z, 0, true, reg18_0, id_PP, 0, false, 18);
+                auto_cascade_group(preadd9_0);
+                to_remove.push_back(ci);
+            }
+        }
+
+        for (auto cell : to_remove) {
+            for (auto port : sorted_ref(cell->ports))
+                disconnect_port(ctx, cell, port.first);
+            ctx->cells.erase(cell->name);
+        }
+    }
 
     explicit NexusPacker(Context *ctx) : ctx(ctx) {}
 
     void operator()()
     {
         pack_io();
+        pack_dsps();
         convert_prims();
         pack_bram();
         pack_lutram();
