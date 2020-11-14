@@ -443,10 +443,7 @@ std::unique_ptr<Context> CommandHandler::load_json(std::string filename)
     return ctx;
 }
 
-void CommandHandler::clear()
-{
-    vm.clear();
-}
+void CommandHandler::clear() { vm.clear(); }
 
 void CommandHandler::run_script_hook(const std::string &name)
 {
