@@ -321,7 +321,7 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
     }
 
 #ifndef NO_PYTHON
-    init_python(argv[0], true);
+    init_python(argv[0]);
     python_export_global("ctx", *ctx);
 
     if (vm.count("run")) {
