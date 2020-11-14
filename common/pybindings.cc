@@ -26,7 +26,6 @@
 #include "log.h"
 #include "nextpnr.h"
 
-#include <boost/filesystem.hpp>
 #include <fstream>
 #include <memory>
 #include <signal.h>
@@ -84,7 +83,7 @@ template <> struct string_converter<Property>
 
 } // namespace PythonConversion
 
-PYBIND11_MODULE(MODULE_NAME, m)
+PYBIND11_EMBEDDED_MODULE(MODULE_NAME, m)
 {
     py::register_exception_translator([](std::exception_ptr p) {
         try {
@@ -272,7 +271,7 @@ PYBIND11_MODULE(MODULE_NAME, m)
 static wchar_t *program;
 #endif
 
-void init_python(const char *executable, bool first)
+void init_python(const char *executable)
 {
 #ifdef MAIN_EXECUTABLE
     program = Py_DecodeLocale(executable, NULL);
@@ -280,24 +279,10 @@ void init_python(const char *executable, bool first)
         fprintf(stderr, "Fatal error: cannot decode executable filename\n");
         exit(1);
     }
-    try {
-        if (first)
-            PyImport_AppendInittab(TOSTRING(MODULE_NAME), PYINIT_MODULE_NAME);
-        Py_SetProgramName(program);
-        Py_Initialize();
-
-        // Add cwd to Python's search path so `import` can be used in user scripts
-        boost::filesystem::path cwd = boost::filesystem::absolute("./").normalize();
-        PyObject *sys_path = PySys_GetObject("path");
-        PyList_Insert(sys_path, 0, PyUnicode_FromString(cwd.string().c_str()));
-
-        PyImport_ImportModule(TOSTRING(MODULE_NAME));
-        PyRun_SimpleString("from " TOSTRING(MODULE_NAME) " import *");
-    } catch (py::error_already_set const &) {
-        // Parse and output the exception
-        std::string perror_str = parse_python_exception();
-        std::cout << "Error in Python: " << perror_str << std::endl;
-    }
+    Py_SetProgramName(program);
+    py::initialize_interpreter();
+    py::module::import(TOSTRING(MODULE_NAME));
+    PyRun_SimpleString("from " TOSTRING(MODULE_NAME) " import *");
     signal(SIGINT, SIG_DFL);
 #endif
 }
@@ -305,7 +290,7 @@ void init_python(const char *executable, bool first)
 void deinit_python()
 {
 #ifdef MAIN_EXECUTABLE
-    Py_Finalize();
+    py::finalize_interpreter();
     PyMem_RawFree(program);
 #endif
 }

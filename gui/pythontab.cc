@@ -96,10 +96,9 @@ void PythonTab::newContext(Context *ctx)
     console->clear();
 
     pyinterpreter_preinit();
-    init_python("nextpnr", true);
+    init_python("nextpnr");
     pyinterpreter_initialize();
     pyinterpreter_aquire();
-    init_python("nextpnr", false);
     python_export_global("ctx", ctx);
     pyinterpreter_release();
 
