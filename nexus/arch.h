@@ -979,7 +979,7 @@ struct Arch : BaseCtx
         cell->belStrength = strength;
         refreshUiBel(bel);
 
-        if (tile_is(bel, LOC_LOGIC))
+        if (bel_tile_is(bel, LOC_LOGIC))
             update_logic_bel(bel, cell);
     }
 
@@ -988,7 +988,7 @@ struct Arch : BaseCtx
         NPNR_ASSERT(bel != BelId());
         NPNR_ASSERT(tileStatus[bel.tile].boundcells[bel.index] != nullptr);
 
-        if (tile_is(bel, LOC_LOGIC))
+        if (bel_tile_is(bel, LOC_LOGIC))
             update_logic_bel(bel, nullptr);
 
         tileStatus[bel.tile].boundcells[bel.index]->bel = BelId();
@@ -1491,6 +1491,13 @@ struct Arch : BaseCtx
     template <typename TId> uint32_t tile_loc_flags(TId id) const { return chip_info->grid[id.tile].loc_flags; }
 
     template <typename TId> bool tile_is(TId id, LocFlags lf) const { return tile_loc_flags(id) & lf; }
+
+    bool bel_tile_is(BelId bel, LocFlags lf) const
+    {
+        int32_t tile;
+        NPNR_ASSERT(rel_tile(bel.tile, bel_data(bel).rel_x, bel_data(bel).rel_y, tile));
+        return chip_info->grid[tile].loc_flags & lf;
+    }
 
     // -------------------------------------------------
 

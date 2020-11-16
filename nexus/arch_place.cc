@@ -104,7 +104,7 @@ bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const
 
 bool Arch::isBelLocationValid(BelId bel) const
 {
-    if (tile_is(bel, LOC_LOGIC)) {
+    if (bel_tile_is(bel, LOC_LOGIC)) {
         LogicTileStatus *lts = tileStatus[bel.tile].lts;
         if (lts == nullptr)
             return true;
