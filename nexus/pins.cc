@@ -124,6 +124,25 @@ static const std::unordered_map<IdString, Arch::CellPinsData> base_cell_pin_data
                  {id_CLK, PINSTYLE_CLK},
                  {id_RSTP, PINSTYLE_LSR},
                  {id_CEP, PINSTYLE_CE},
+                 {{}, PINSTYLE_DEDI},
+         }},
+        {id_MULT18_CORE,
+         {
+                 {id_SFTCTRL0, PINSTYLE_CIB},
+                 {id_SFTCTRL1, PINSTYLE_CIB},
+                 {id_SFTCTRL2, PINSTYLE_CIB},
+                 {id_SFTCTRL3, PINSTYLE_CIB},
+                 {id_ROUNDEN, PINSTYLE_CIB},
+                 {{}, PINSTYLE_DEDI},
+         }},
+        {id_MULT18X36_CORE,
+         {
+                 {id_SFTCTRL0, PINSTYLE_CIB},
+                 {id_SFTCTRL1, PINSTYLE_CIB},
+                 {id_SFTCTRL2, PINSTYLE_CIB},
+                 {id_SFTCTRL3, PINSTYLE_CIB},
+                 {id_ROUNDEN, PINSTYLE_CIB},
+                 {{}, PINSTYLE_DEDI},
          }}};
 } // namespace
 

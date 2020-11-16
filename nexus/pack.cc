@@ -1435,6 +1435,22 @@ struct NexusPacker
             cell->params[id_SHIFTA] = std::string("DISABLED");
             cell->params[id_SIGNEDSTATIC_EN] = std::string("DISABLED");
             cell->params[id_SR_18BITSHIFT_EN] = std::string("DISABLED");
+        } else if (type == id_MULT18_CORE) {
+            cell->params[id_MULT18X18] = std::string("ENABLED");
+            cell->params[id_ROUNDBIT] = std::string("ROUND_TO_BIT0");
+            cell->params[id_ROUNDHALFUP] = std::string("DISABLED");
+            cell->params[id_ROUNDRTZI] = std::string("ROUND_TO_ZERO");
+            cell->params[id_SFTEN] = std::string("DISABLED");
+        } else if (type == id_MULT18X36_CORE) {
+            cell->params[id_SFTEN] = std::string("DISABLED");
+            cell->params[id_MULT18X36] = std::string("ENABLED");
+            cell->params[id_MULT36] = std::string("DISABLED");
+            cell->params[id_MULT36X36H] = std::string("USED_AS_LOWER_BIT_GENERATION");
+            cell->params[id_ROUNDHALFUP] = std::string("DISABLED");
+            cell->params[id_ROUNDRTZI] = std::string("ROUND_TO_ZERO");
+            cell->params[id_ROUNDBIT] = std::string("ROUND_TO_BIT0");
+        } else if (type == id_MULT36_CORE) {
+            cell->params[id_MULT36X36] = std::string("ENABLED");
         } else if (type == id_REG18_CORE) {
             cell->params[id_GSR] = std::string("DISABLED");
             cell->params[id_REGBYPS] = std::string("BYPASS");
@@ -1460,6 +1476,26 @@ struct NexusPacker
         dst->params[dst_name] = orig->params[orig_name];
     }
 
+    struct DSPMacroType
+    {
+        int a_width;     // width of 'A' input
+        int b_width;     // width of 'B' input
+        int c_width;     // width of 'C' input
+        int z_width;     // width of 'Z' output
+        int N9x9;        // number of 9x9 mult+preadds
+        int N18x18;      // number of 18x18 mult
+        int N18x36;      // number of 18x36 mult
+        bool has_preadd; // preadder is used
+        bool has_addsub; // post-multiply ALU addsub is used
+    };
+
+    const std::unordered_map<IdString, DSPMacroType> dsp_types = {
+            {id_MULT9X9, {9, 9, 0, 18, 1, 0, 0, false, false}},
+            {id_MULT18X18, {18, 18, 0, 36, 2, 1, 0, false, false}},
+            {id_MULT18X36, {18, 36, 0, 54, 4, 2, 1, false, false}},
+            {id_MULT36X36, {36, 36, 0, 72, 8, 4, 2, false, false}},
+    };
+
     void pack_dsps()
     {
         log_info("Packing DSPs...\n");
@@ -1467,36 +1503,81 @@ struct NexusPacker
 
         for (auto cell : sorted(ctx->cells)) {
             CellInfo *ci = cell.second;
-            if (ci->type == id_MULT9X9) {
-                // MULT9X9: PREADD9 -> MULT9 -> REG18
-                CellInfo *preadd9_0 = create_dsp_cell(ci->name, id_PREADD9_CORE, nullptr, 0, 0);
-                CellInfo *mult9_0 = create_dsp_cell(ci->name, id_MULT9_CORE, preadd9_0, 0, 2);
-                CellInfo *reg18_0 = create_dsp_cell(ci->name, id_REG18_CORE, preadd9_0, 2, 0);
-                replace_bus(ctx, ci, id_B, 0, true, preadd9_0, id_B, 0, false, 9);
-                replace_bus(ctx, ci, id_A, 0, true, mult9_0, id_A, 0, false, 9);
-                replace_bus(ctx, ci, id_Z, 0, true, reg18_0, id_PP, 0, false, 18);
-                replace_port(ci, id_SIGNEDA, mult9_0, id_ASIGNED);
-                replace_port(ci, id_SIGNEDB, preadd9_0, id_BSIGNED);
+            if (!dsp_types.count(ci->type))
+                continue;
+            auto &mt = dsp_types.at(ci->type);
+            int Nreg18 = mt.z_width / 18;
 
-                copy_port(ctx, ci, id_CLK, preadd9_0, id_CLK);
-                copy_port(ctx, ci, id_CLK, mult9_0, id_CLK);
-                copy_port(ctx, ci, id_CLK, reg18_0, id_CLK);
-
-                replace_port(ci, id_CEA, mult9_0, id_CEA);
-                replace_port(ci, id_RSTA, mult9_0, id_RSTA);
-                replace_port(ci, id_CEB, preadd9_0, id_CEB);
-                replace_port(ci, id_RSTB, preadd9_0, id_RSTB);
-                replace_port(ci, id_CEOUT, reg18_0, id_CEP);
-                replace_port(ci, id_RSTOUT, reg18_0, id_RSTP);
-
-                copy_param(ci, id_REGINPUTA, mult9_0, id_REGBYPSA1);
-                copy_param(ci, id_REGINPUTB, preadd9_0, id_REGBYPSBR0);
-                copy_param(ci, id_REGOUTPUT, reg18_0, id_REGBYPS);
-
-                copy_global_dsp_params(ci, preadd9_0);
-                auto_cascade_group(preadd9_0);
-                to_remove.push_back(ci);
+            // Create consituent cells
+            std::vector<CellInfo *> preadd9(mt.N9x9), mult9(mt.N9x9), mult18(mt.N18x18), mult18x36(mt.N18x36),
+                    reg18(Nreg18);
+            for (int i = 0; i < mt.N9x9; i++) {
+                preadd9[i] = create_dsp_cell(ci->name, id_PREADD9_CORE, preadd9[0], (i / 4) * 4 + (i / 2) % 2, (i % 2));
+                mult9[i] = create_dsp_cell(ci->name, id_MULT9_CORE, preadd9[0], (i / 4) * 4 + (i / 2) % 2, (i % 2) + 2);
             }
+            for (int i = 0; i < mt.N18x18; i++)
+                mult18[i] = create_dsp_cell(ci->name, id_MULT18_CORE, preadd9[0], (i / 2) * 4 + i % 2, 4);
+            for (int i = 0; i < mt.N18x36; i++)
+                mult18x36[i] = create_dsp_cell(ci->name, id_MULT18X36_CORE, preadd9[0], (i * 4) + 2, 4);
+            for (int i = 0; i < Nreg18; i++) {
+                reg18[i] = create_dsp_cell(ci->name, id_REG18_CORE, preadd9[0], (i / 4) * 4 + 2, i % 4);
+            }
+
+            // Configure the 9x9 preadd+multiply blocks
+            for (int i = 0; i < mt.N9x9; i++) {
+                // B input split across pre-adders
+                int b_start = (9 * i) % mt.b_width;
+                copy_bus(ctx, ci, id_B, b_start, true, preadd9[i], id_B, 0, false, 9);
+                // A input split across MULT9s
+                int a_start = 9 * (i % 2) + 18 * (i / 4);
+                copy_bus(ctx, ci, id_A, a_start, true, mult9[i], id_A, 0, false, 9);
+                // Connect control set signals
+                copy_port(ctx, ci, id_CLK, mult9[i], id_CLK);
+                copy_port(ctx, ci, id_CEA, mult9[i], id_CEA);
+                copy_port(ctx, ci, id_RSTA, mult9[i], id_RSTA);
+                copy_port(ctx, ci, id_CLK, preadd9[i], id_CLK);
+                copy_port(ctx, ci, id_CEB, preadd9[i], id_CEB);
+                copy_port(ctx, ci, id_RSTB, preadd9[i], id_RSTB);
+                // Copy register configuration
+                copy_param(ci, id_REGINPUTA, mult9[i], id_REGBYPSA1);
+                copy_param(ci, id_REGINPUTB, preadd9[i], id_REGBYPSBR0);
+
+                // Connect up signedness for the most significant nonet
+                if ((b_start + 9) == mt.b_width)
+                    copy_port(ctx, ci, id_BSIGNED, preadd9[i], id_SIGNEDB);
+                if ((a_start + 9) == mt.a_width)
+                    copy_port(ctx, ci, id_ASIGNED, mult9[i], id_SIGNEDA);
+            }
+
+            bool mult36_used = (mt.a_width >= 36) && (mt.b_width >= 36);
+            // Configure mult18x36s
+            for (int i = 0; i < mt.N18x36; i++) {
+                mult18x36[i]->params[id_MULT36] = mult36_used ? std::string("ENABLED") : std::string("DISABLED");
+                mult18x36[i]->params[id_MULT36X36H] = (i == 1) ? std::string("USED_AS_HIGHER_BIT_GENERATION")
+                                                               : std::string("USED_AS_LOWER_BIT_GENERATION");
+            }
+            // Create final mult36 if needed
+            CellInfo *mult36 = nullptr;
+            if (mult36_used) {
+                mult36 = create_dsp_cell(ci->name, id_MULT36_CORE, preadd9[0], 6, 6);
+            }
+
+            // Configure output registers
+            for (int i = 0; i < Nreg18; i++) {
+                // Output split across reg18s
+                replace_bus(ctx, ci, id_Z, i * 18, true, reg18[i], id_PP, 0, false, 18);
+                // Connect control set signals
+                copy_port(ctx, ci, id_CLK, reg18[i], id_CLK);
+                copy_port(ctx, ci, id_CEOUT, reg18[i], id_CEP);
+                copy_port(ctx, ci, id_RSTOUT, reg18[i], id_RSTP);
+                // Copy register configuration
+                copy_param(ci, id_REGOUTPUT, reg18[i], id_REGBYPS);
+            }
+
+            // Misc finalisation
+            copy_global_dsp_params(ci, preadd9[0]);
+            auto_cascade_group(preadd9[0]);
+            to_remove.push_back(ci);
         }
 
         for (auto cell : to_remove) {

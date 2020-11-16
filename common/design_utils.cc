@@ -183,4 +183,14 @@ void copy_port(Context *ctx, CellInfo *old_cell, IdString old_name, CellInfo *ne
     connect_port(ctx, old_cell->ports.at(old_name).net, new_cell, new_name);
 }
 
+void copy_bus(Context *ctx, CellInfo *old_cell, IdString old_name, int old_offset, bool old_brackets,
+              CellInfo *new_cell, IdString new_name, int new_offset, bool new_brackets, int width)
+{
+    for (int i = 0; i < width; i++) {
+        IdString old_port = ctx->id(stringf(old_brackets ? "%s[%d]" : "%s%d", old_name.c_str(ctx), i + old_offset));
+        IdString new_port = ctx->id(stringf(new_brackets ? "%s[%d]" : "%s%d", new_name.c_str(ctx), i + new_offset));
+        copy_port(ctx, old_cell, old_port, new_cell, new_port);
+    }
+}
+
 NEXTPNR_NAMESPACE_END
