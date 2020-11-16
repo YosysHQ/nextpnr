@@ -35,16 +35,16 @@ of the selected architecture:
 - Qt5 or later (`qt5-default` for Ubuntu 16.04)
 - Python 3.5 or later, including development libraries (`python3-dev` for Ubuntu)
   - on Windows make sure to install same version as supported by [vcpkg](https://github.com/Microsoft/vcpkg/blob/master/ports/python3/CONTROL)
-- Boost libraries (`libboost-dev libboost-filesystem-dev libboost-thread-dev libboost-program-options-dev libboost-python-dev libboost-iostreams-dev libboost-dev` or `libboost-all-dev` for Ubuntu)
+- Boost libraries (`libboost-dev libboost-filesystem-dev libboost-thread-dev libboost-program-options-dev libboost-iostreams-dev libboost-dev` or `libboost-all-dev` for Ubuntu)
 - Eigen3 (`libeigen3-dev` for Ubuntu) is required to build the analytic placer
 - Latest git Yosys is required to synthesise the demo design
 - For building on Windows with MSVC, usage of vcpkg is advised for dependency installation.
-  - For 32 bit builds: `vcpkg install boost-filesystem boost-program-options boost-thread boost-python qt5-base eigen3`
-  - For 64 bit builds: `vcpkg install boost-filesystem:x64-windows boost-program-options:x64-windows boost-thread:x64-windows boost-python:x64-windows qt5-base:x64-windows eigen3:x64-windows`
+  - For 32 bit builds: `vcpkg install boost-filesystem boost-program-options boost-thread qt5-base eigen3`
+  - For 64 bit builds: `vcpkg install boost-filesystem:x64-windows boost-program-options:x64-windows boost-thread:x64-windows qt5-base:x64-windows eigen3:x64-windows`
   - For static builds, add `-static` to each of the package names.  For example, change `eigen3:x64-windows` to `eigen3:x64-windows-static`
   - A copy of Python that matches the version in vcpkg (currently Python 3.6.4).  You can download the [Embeddable Zip File](https://www.python.org/downloads/release/python-364/) and extract it.  You may need to extract `python36.zip` within the embeddable zip file to a new directory called "Lib".
 - For building on macOS, brew utility is needed.
-  - Install all needed packages `brew install cmake python boost boost-python3 qt5 eigen`
+  - Install all needed packages `brew install cmake python boost qt5 eigen`
   - Do not forget to add qt5 in path as well `echo 'export PATH="/usr/local/opt/qt/bin:$PATH"' >> ~/.bash_profile`
 
     NOTE: this change is effective in next terminal session, so please re-open terminal window before next step
