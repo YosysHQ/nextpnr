@@ -110,6 +110,9 @@ void print_utilisation(const Context *ctx);
 void replace_bus(Context *ctx, CellInfo *old_cell, IdString old_name, int old_offset, bool old_brackets,
                  CellInfo *new_cell, IdString new_name, int new_offset, bool new_brackets, int width);
 
+// Copy a port from one cell to another
+void copy_port(Context *ctx, CellInfo *old_cell, IdString old_name, CellInfo *new_cell, IdString new_name);
+
 NEXTPNR_NAMESPACE_END
 
 #endif

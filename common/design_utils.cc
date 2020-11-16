@@ -174,4 +174,13 @@ void replace_bus(Context *ctx, CellInfo *old_cell, IdString old_name, int old_of
     }
 }
 
+void copy_port(Context *ctx, CellInfo *old_cell, IdString old_name, CellInfo *new_cell, IdString new_name)
+{
+    if (!old_cell->ports.count(old_name))
+        return;
+    new_cell->ports[new_name].name = new_name;
+    new_cell->ports[new_name].type = old_cell->ports.at(old_name).type;
+    connect_port(ctx, old_cell->ports.at(old_name).net, new_cell, new_name);
+}
+
 NEXTPNR_NAMESPACE_END

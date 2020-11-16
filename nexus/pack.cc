@@ -1443,6 +1443,23 @@ struct NexusPacker
         return cell;
     }
 
+    void copy_global_dsp_params(CellInfo *orig, CellInfo *root)
+    {
+        if (root->params.count(id_GSR) && orig->params.count(id_GSR))
+            root->params[id_GSR] = orig->params.at(id_GSR);
+        if (root->params.count(id_RESET) && orig->params.count(id_RESETMODE))
+            root->params[id_RESET] = orig->params.at(id_RESETMODE);
+        for (auto child : root->constr_children)
+            copy_global_dsp_params(orig, child);
+    }
+
+    void copy_param(CellInfo *orig, IdString orig_name, CellInfo *dst, IdString dst_name)
+    {
+        if (!orig->params.count(orig_name))
+            return;
+        dst->params[dst_name] = orig->params[orig_name];
+    }
+
     void pack_dsps()
     {
         log_info("Packing DSPs...\n");
@@ -1458,6 +1475,25 @@ struct NexusPacker
                 replace_bus(ctx, ci, id_B, 0, true, preadd9_0, id_B, 0, false, 9);
                 replace_bus(ctx, ci, id_A, 0, true, mult9_0, id_A, 0, false, 9);
                 replace_bus(ctx, ci, id_Z, 0, true, reg18_0, id_PP, 0, false, 18);
+                replace_port(ci, id_SIGNEDA, mult9_0, id_ASIGNED);
+                replace_port(ci, id_SIGNEDB, preadd9_0, id_BSIGNED);
+
+                copy_port(ctx, ci, id_CLK, preadd9_0, id_CLK);
+                copy_port(ctx, ci, id_CLK, mult9_0, id_CLK);
+                copy_port(ctx, ci, id_CLK, reg18_0, id_CLK);
+
+                replace_port(ci, id_CEA, mult9_0, id_CEA);
+                replace_port(ci, id_RSTA, mult9_0, id_RSTA);
+                replace_port(ci, id_CEB, preadd9_0, id_CEB);
+                replace_port(ci, id_RSTB, preadd9_0, id_RSTB);
+                replace_port(ci, id_CEOUT, reg18_0, id_CEP);
+                replace_port(ci, id_RSTOUT, reg18_0, id_RSTP);
+
+                copy_param(ci, id_REGINPUTA, mult9_0, id_REGBYPSA1);
+                copy_param(ci, id_REGINPUTB, preadd9_0, id_REGBYPSBR0);
+                copy_param(ci, id_REGOUTPUT, reg18_0, id_REGBYPS);
+
+                copy_global_dsp_params(ci, preadd9_0);
                 auto_cascade_group(preadd9_0);
                 to_remove.push_back(ci);
             }
