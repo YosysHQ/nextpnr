@@ -1367,6 +1367,10 @@ struct Arch : BaseCtx
     bool getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const;
     ArcBounds getRouteBoundingBox(WireId src, WireId dst) const;
 
+    // for better DSP bounding boxes
+    void pre_routing();
+    std::unordered_set<WireId> dsp_wires;
+
     // -------------------------------------------------
 
     // Get the delay through a cell from one port to another, returning false

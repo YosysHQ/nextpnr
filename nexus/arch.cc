@@ -582,6 +582,12 @@ ArcBounds Arch::getRouteBoundingBox(WireId src, WireId dst) const
         bb.y0 = std::min(bb.y0, y);
         bb.y1 = std::max(bb.y1, y);
     };
+
+    if (dsp_wires.count(src) || dsp_wires.count(dst)) {
+        bb.x0 -= 5;
+        bb.x1 += 5;
+    }
+
     extend(dst_x, dst_y);
 
     return bb;
@@ -617,9 +623,27 @@ bool Arch::place()
     return true;
 }
 
+void Arch::pre_routing()
+{
+    for (auto cell : sorted(cells)) {
+        CellInfo *ci = cell.second;
+        if (ci->type == id_MULT9_CORE || ci->type == id_PREADD9_CORE || ci->type == id_MULT18_CORE ||
+            ci->type == id_MULT18X36_CORE || ci->type == id_MULT36_CORE || ci->type == id_REG18_CORE ||
+            ci->type == id_ACC54_CORE) {
+            for (auto port : sorted_ref(ci->ports)) {
+                WireId wire = getBelPinWire(ci->bel, port.first);
+                if (wire != WireId())
+                    dsp_wires.insert(wire);
+            }
+        }
+    }
+}
+
 bool Arch::route()
 {
     assign_budget(getCtx(), true);
+
+    pre_routing();
 
     route_globals();
 
