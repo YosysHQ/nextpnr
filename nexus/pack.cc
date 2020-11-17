@@ -1453,6 +1453,38 @@ struct NexusPacker
             cell->params[id_GSR] = std::string("DISABLED");
             cell->params[id_REGBYPS] = std::string("BYPASS");
             cell->params[id_RESET] = std::string("SYNC");
+        } else if (type == id_ACC54_CORE) {
+            cell->params[id_ACC108CASCADE] = std::string("BYPASSCASCADE");
+            cell->params[id_ACCUBYPS] = std::string("USED");
+            cell->params[id_ACCUMODE] = std::string("MODE7");
+            cell->params[id_ADDSUBSIGNREGBYPS1] = std::string("REGISTER");
+            cell->params[id_ADDSUBSIGNREGBYPS2] = std::string("REGISTER");
+            cell->params[id_ADDSUBSIGNREGBYPS3] = std::string("BYPASS");
+            cell->params[id_ADDSUB_CTRL] = std::string("ADD_ADD_CTRL_54_BIT_ADDER");
+            cell->params[id_CASCOUTREGBYPS] = std::string("BYPASS");
+            cell->params[id_CINREGBYPS1] = std::string("REGISTER");
+            cell->params[id_CINREGBYPS2] = std::string("REGISTER");
+            cell->params[id_CINREGBYPS3] = std::string("BYPASS");
+            cell->params[id_CONSTSEL] = std::string("BYPASS");
+            cell->params[id_CREGBYPS1] = std::string("REGISTER");
+            cell->params[id_CREGBYPS2] = std::string("REGISTER");
+            cell->params[id_CREGBYPS3] = std::string("BYPASS");
+            cell->params[id_DSPCASCADE] = std::string("DISABLED");
+            cell->params[id_GSR] = std::string("DISABLED");
+            cell->params[id_LOADREGBYPS1] = std::string("REGISTER");
+            cell->params[id_LOADREGBYPS2] = std::string("REGISTER");
+            cell->params[id_LOADREGBYPS3] = std::string("BYPASS");
+            cell->params[id_M9ADDSUBREGBYPS1] = std::string("REGISTER");
+            cell->params[id_M9ADDSUBREGBYPS2] = std::string("REGISTER");
+            cell->params[id_M9ADDSUBREGBYPS3] = std::string("BYPASS");
+            cell->params[id_OUTREGBYPS] = std::string("REGISTER");
+            cell->params[id_RESET] = std::string("SYNC");
+            cell->params[id_ROUNDHALFUP] = std::string("DISABLED");
+            cell->params[id_ROUNDRTZI] = std::string("ROUND_TO_ZERO");
+            cell->params[id_ROUNDBIT] = std::string("ROUND_TO_BIT0");
+            cell->params[id_SFTEN] = std::string("DISABLED");
+            cell->params[id_SIGN] = std::string("DISABLED");
+            cell->params[id_STATICOPCODE_EN] = std::string("DISABLED");
         }
         return cell;
     }
