@@ -1528,6 +1528,7 @@ struct NexusPacker
             {id_MULTPREADD9X9, {9, 9, 9, 18, 1, 0, 0, true, false}},
             {id_MULTPREADD18X18, {18, 18, 18, 36, 2, 1, 0, true, false}},
             {id_MULTADDSUB18X18, {18, 18, 54, 54, 2, 1, 0, false, true}},
+            {id_MULTADDSUB36X36, {36, 36, 108, 108, 8, 4, 2, false, true}},
     };
 
     void pack_dsps()
@@ -1554,7 +1555,10 @@ struct NexusPacker
             for (int i = 0; i < mt.N18x36; i++)
                 mult18x36[i] = create_dsp_cell(ci->name, id_MULT18X36_CORE, preadd9[0], (i * 4) + 2, 4);
             for (int i = 0; i < Nreg18; i++) {
-                reg18[i] = create_dsp_cell(ci->name, id_REG18_CORE, preadd9[0], (i / 4) * 4 + 2, i % 4);
+                int idx = i;
+                if (mt.has_addsub && (i >= 4))
+                    idx += 2;
+                reg18[i] = create_dsp_cell(ci->name, id_REG18_CORE, preadd9[0], (idx / 4) * 4 + 2, idx % 4);
             }
 
             // Configure the 9x9 preadd+multiply blocks
@@ -1591,7 +1595,7 @@ struct NexusPacker
                         preadd9[i]->params[id_PREADDCAS_EN] = std::string("ENABLED");
                 } else if (mt.has_addsub) {
                     // Connect only for routeability reasons
-                    copy_bus(ctx, ci, id_C, 10 * i, true, preadd9[i], id_C, 0, false, 10);
+                    copy_bus(ctx, ci, id_C, 10 * i + ((i >= 4) ? 14 : 0), true, preadd9[i], id_C, 0, false, 10);
                 }
 
                 // Connect up signedness for the most significant nonet
@@ -1648,8 +1652,12 @@ struct NexusPacker
                     copy_port(ctx, ci, id_RSTOUT, acc54[i], id_RSTO);
                     copy_port(ctx, ci, id_CEOUT, acc54[i], id_CEO);
                     // Add/acc control
-                    copy_port(ctx, ci, id_CIN, acc54[i], id_CIN);
-                    copy_port(ctx, ci, id_SIGNED, acc54[i], id_SIGNEDI);
+                    if (i == 0)
+                        copy_port(ctx, ci, id_CIN, acc54[i], id_CIN);
+                    else
+                        ctx->set_cell_pinmux(acc54[i], id_CIN, PINMUX_1);
+                    if (i == (Nacc54 - 1))
+                        copy_port(ctx, ci, id_SIGNED, acc54[i], id_SIGNEDI);
                     copy_port(ctx, ci, id_ADDSUB, acc54[i], id_ADDSUB0);
                     copy_port(ctx, ci, id_ADDSUB, acc54[i], id_ADDSUB1);
                     copy_port(ctx, ci, id_LOADC, acc54[i], id_LOAD);
@@ -1666,6 +1674,15 @@ struct NexusPacker
                     copy_param(ci, id_REGPIPELINE, acc54[i], id_CINREGBYPS2);
                     copy_param(ci, id_REGPIPELINE, acc54[i], id_M9ADDSUBREGBYPS2);
                     copy_param(ci, id_REGOUTPUT, acc54[i], id_OUTREGBYPS);
+
+                    if (i == 1) {
+                        // Top ACC54 in a 108-bit config
+                        acc54[i]->params[id_ACCUMODE] = std::string("MODE6");
+                        acc54[i]->params[id_ACC108CASCADE] = std::string("CASCADE2ACCU54TOFORMACCU108");
+                    } else if ((i == 0) && (Nacc54 == 2)) {
+                        // Bottom ACC54 in a 108-bit config
+                        acc54[i]->params[id_ACCUMODE] = std::string("MODE2");
+                    }
                 }
             }
 
