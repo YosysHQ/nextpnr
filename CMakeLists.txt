@@ -66,7 +66,7 @@ endif()
 set(PROGRAM_PREFIX "" CACHE STRING "Name prefix for executables")
 
 # List of families to build
-set(FAMILIES generic ice40 ecp5)
+set(FAMILIES generic ice40 ecp5 gowin)
 
 set(ARCH "" CACHE STRING "Architecture family for nextpnr build")
 set_property(CACHE ARCH PROPERTY STRINGS ${FAMILIES})
@@ -99,9 +99,9 @@ if (MSVC)
 else()
     set(CMAKE_CXX_FLAGS_DEBUG "-Wall -fPIC -ggdb -pipe")
     if (USE_OPENMP)
-        set(CMAKE_CXX_FLAGS_RELEASE "-Wall -fPIC -O3 -g -pipe -fopenmp")
+        set(CMAKE_CXX_FLAGS_RELEASE "-Wall -fPIC -O0 -g -pipe -fopenmp")
     else()
-        set(CMAKE_CXX_FLAGS_RELEASE "-Wall -fPIC -O3 -g -pipe")
+        set(CMAKE_CXX_FLAGS_RELEASE "-Wall -fPIC -O0 -g -pipe")
     endif()
 endif()
 
