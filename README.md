@@ -96,7 +96,7 @@ such as pack, place, route, and write output files.)
 For ECP5 support, install [Project Trellis](https://github.com/YosysHQ/prjtrellis) to `/usr/local` or another location, which should be passed as `-DTRELLIS_INSTALL_PREFIX=/usr/local` to CMake. Then build and install `nextpnr-ecp5` using the following commands:
 
 ```
-cmake . -DARCH=ecp5 -DTRELLIS_INSTALL_PREFIX=/usr
+cmake . -DARCH=ecp5 -DTRELLIS_INSTALL_PREFIX=/usr/local
 make -j$(nproc)
 sudo make install
 ```
