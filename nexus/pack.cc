@@ -1412,8 +1412,6 @@ struct NexusPacker
             cell->params[id_GSR] = std::string("DISABLED");
             cell->params[id_OPC] = std::string("INPUT_B_AS_PREADDER_OPERAND");
             cell->params[id_PREADDCAS_EN] = std::string("DISABLED");
-            cell->params[id_PREADDCAS_EN] = std::string("DISABLED");
-            cell->params[id_PREADDCAS_EN] = std::string("DISABLED");
             cell->params[id_REGBYPSBL] = std::string("REGISTER");
             cell->params[id_REGBYPSBR0] = std::string("BYPASS");
             cell->params[id_REGBYPSBR1] = std::string("BYPASS");
@@ -1494,6 +1492,8 @@ struct NexusPacker
             {id_MULT18X18, {18, 18, 0, 36, 2, 1, 0, false, false}},
             {id_MULT18X36, {18, 36, 0, 54, 4, 2, 1, false, false}},
             {id_MULT36X36, {36, 36, 0, 72, 8, 4, 2, false, false}},
+            {id_MULTPREADD9X9, {9, 9, 9, 18, 1, 0, 0, true, false}},
+            {id_MULTPREADD18X18, {18, 18, 18, 36, 2, 1, 0, true, false}},
     };
 
     void pack_dsps()
@@ -1541,6 +1541,21 @@ struct NexusPacker
                 // Copy register configuration
                 copy_param(ci, id_REGINPUTA, mult9[i], id_REGBYPSA1);
                 copy_param(ci, id_REGINPUTB, preadd9[i], id_REGBYPSBR0);
+
+                // Connect and configure pre-adder if it isn't bypassed
+                if (mt.has_preadd) {
+                    copy_bus(ctx, ci, id_C, 9 * i, true, preadd9[i], id_C, 0, false, 9);
+                    if (i == (mt.N9x9 - 1))
+                        copy_port(ctx, ci, id_SIGNEDC, preadd9[i], id_C9);
+                    copy_param(ci, id_REGINPUTC, preadd9[i], id_REGBYPSBL);
+                    copy_port(ctx, ci, id_CEC, preadd9[i], id_CECL);
+                    copy_port(ctx, ci, id_RSTC, preadd9[i], id_RSTCL);
+                    // Enable preadder
+                    preadd9[i]->params[id_BYPASS_PREADD9] = std::string("USED");
+                    preadd9[i]->params[id_OPC] = std::string("INPUT_C_AS_PREADDER_OPERAND");
+                    if (i > 0)
+                        preadd9[i]->params[id_PREADDCAS_EN] = std::string("ENABLED");
+                }
 
                 // Connect up signedness for the most significant nonet
                 if ((b_start + 9) == mt.b_width)
