@@ -526,11 +526,17 @@ struct NexusFasmWriter
     {
         BelId bel = cell->bel;
         push_bel(bel);
-        write_bit(stringf("MODE.%s", ctx->nameOf(cell->type)));
+        if (cell->type != id_MULT18_CORE && cell->type != id_MULT18X36_CORE && cell->type != id_MULT36_CORE)
+            write_bit(stringf("MODE.%s", ctx->nameOf(cell->type)));
         for (auto param : sorted_cref(cell->params)) {
             const std::string &param_name = param.first.str(ctx);
             if (is_mux_param(param_name))
                 continue;
+            if (param.first == id_ROUNDBIT) {
+                // currently unsupported in oxide, but appears rarely used
+                NPNR_ASSERT(param.second.as_string() == "ROUND_TO_BIT0");
+                continue;
+            }
             write_enum(cell, param_name);
         }
         write_cell_muxes(cell);
