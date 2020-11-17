@@ -1544,9 +1544,9 @@ struct NexusPacker
 
                 // Connect up signedness for the most significant nonet
                 if ((b_start + 9) == mt.b_width)
-                    copy_port(ctx, ci, id_BSIGNED, preadd9[i], id_SIGNEDB);
+                    copy_port(ctx, ci, id_SIGNEDB, preadd9[i], id_BSIGNED);
                 if ((a_start + 9) == mt.a_width)
-                    copy_port(ctx, ci, id_ASIGNED, mult9[i], id_SIGNEDA);
+                    copy_port(ctx, ci, id_SIGNEDA, mult9[i], id_ASIGNED);
             }
 
             bool mult36_used = (mt.a_width >= 36) && (mt.b_width >= 36);
