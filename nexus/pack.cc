@@ -1457,27 +1457,28 @@ struct NexusPacker
             cell->params[id_ACC108CASCADE] = std::string("BYPASSCASCADE");
             cell->params[id_ACCUBYPS] = std::string("USED");
             cell->params[id_ACCUMODE] = std::string("MODE7");
-            cell->params[id_ADDSUBSIGNREGBYPS1] = std::string("REGISTER");
-            cell->params[id_ADDSUBSIGNREGBYPS2] = std::string("REGISTER");
+            cell->params[id_ADDSUBSIGNREGBYPS1] = std::string("BYPASS");
+            cell->params[id_ADDSUBSIGNREGBYPS2] = std::string("BYPASS");
             cell->params[id_ADDSUBSIGNREGBYPS3] = std::string("BYPASS");
             cell->params[id_ADDSUB_CTRL] = std::string("ADD_ADD_CTRL_54_BIT_ADDER");
             cell->params[id_CASCOUTREGBYPS] = std::string("BYPASS");
-            cell->params[id_CINREGBYPS1] = std::string("REGISTER");
-            cell->params[id_CINREGBYPS2] = std::string("REGISTER");
+            cell->params[id_CINREGBYPS1] = std::string("BYPASS");
+            cell->params[id_CINREGBYPS2] = std::string("BYPASS");
             cell->params[id_CINREGBYPS3] = std::string("BYPASS");
             cell->params[id_CONSTSEL] = std::string("BYPASS");
-            cell->params[id_CREGBYPS1] = std::string("REGISTER");
-            cell->params[id_CREGBYPS2] = std::string("REGISTER");
+            cell->params[id_CREGBYPS1] = std::string("BYPASS");
+            cell->params[id_CREGBYPS2] = std::string("BYPASS");
             cell->params[id_CREGBYPS3] = std::string("BYPASS");
             cell->params[id_DSPCASCADE] = std::string("DISABLED");
             cell->params[id_GSR] = std::string("DISABLED");
-            cell->params[id_LOADREGBYPS1] = std::string("REGISTER");
-            cell->params[id_LOADREGBYPS2] = std::string("REGISTER");
+            cell->params[id_LOADREGBYPS1] = std::string("BYPASS");
+            cell->params[id_LOADREGBYPS2] = std::string("BYPASS");
             cell->params[id_LOADREGBYPS3] = std::string("BYPASS");
-            cell->params[id_M9ADDSUBREGBYPS1] = std::string("REGISTER");
-            cell->params[id_M9ADDSUBREGBYPS2] = std::string("REGISTER");
+            cell->params[id_M9ADDSUBREGBYPS1] = std::string("BYPASS");
+            cell->params[id_M9ADDSUBREGBYPS2] = std::string("BYPASS");
             cell->params[id_M9ADDSUBREGBYPS3] = std::string("BYPASS");
-            cell->params[id_OUTREGBYPS] = std::string("REGISTER");
+            cell->params[id_M9ADDSUB_CTRL] = std::string("ADDITION");
+            cell->params[id_OUTREGBYPS] = std::string("BYPASS");
             cell->params[id_RESET] = std::string("SYNC");
             cell->params[id_ROUNDHALFUP] = std::string("DISABLED");
             cell->params[id_ROUNDRTZI] = std::string("ROUND_TO_ZERO");
@@ -1526,6 +1527,7 @@ struct NexusPacker
             {id_MULT36X36, {36, 36, 0, 72, 8, 4, 2, false, false}},
             {id_MULTPREADD9X9, {9, 9, 9, 18, 1, 0, 0, true, false}},
             {id_MULTPREADD18X18, {18, 18, 18, 36, 2, 1, 0, true, false}},
+            {id_MULTADDSUB18X18, {18, 18, 54, 54, 2, 1, 0, false, true}},
     };
 
     void pack_dsps()
@@ -1587,13 +1589,16 @@ struct NexusPacker
                     preadd9[i]->params[id_OPC] = std::string("INPUT_C_AS_PREADDER_OPERAND");
                     if (i > 0)
                         preadd9[i]->params[id_PREADDCAS_EN] = std::string("ENABLED");
+                } else if (mt.has_addsub) {
+                    // Connect only for routeability reasons
+                    copy_bus(ctx, ci, id_C, 10 * i, true, preadd9[i], id_C, 0, false, 10);
                 }
 
                 // Connect up signedness for the most significant nonet
                 if ((b_start + 9) == mt.b_width)
-                    copy_port(ctx, ci, id_SIGNEDB, preadd9[i], id_BSIGNED);
+                    copy_port(ctx, ci, mt.has_addsub ? id_SIGNED : id_SIGNEDB, preadd9[i], id_BSIGNED);
                 if ((a_start + 9) == mt.a_width)
-                    copy_port(ctx, ci, id_SIGNEDA, mult9[i], id_ASIGNED);
+                    copy_port(ctx, ci, mt.has_addsub ? id_SIGNED : id_SIGNEDA, mult9[i], id_ASIGNED);
             }
 
             bool mult36_used = (mt.a_width >= 36) && (mt.b_width >= 36);
@@ -1612,13 +1617,56 @@ struct NexusPacker
             // Configure output registers
             for (int i = 0; i < Nreg18; i++) {
                 // Output split across reg18s
-                replace_bus(ctx, ci, id_Z, i * 18, true, reg18[i], id_PP, 0, false, 18);
+                if (!mt.has_addsub)
+                    replace_bus(ctx, ci, id_Z, i * 18, true, reg18[i], id_PP, 0, false, 18);
                 // Connect control set signals
                 copy_port(ctx, ci, id_CLK, reg18[i], id_CLK);
-                copy_port(ctx, ci, id_CEOUT, reg18[i], id_CEP);
-                copy_port(ctx, ci, id_RSTOUT, reg18[i], id_RSTP);
+                copy_port(ctx, ci, mt.has_addsub ? id_CEPIPE : id_CEOUT, reg18[i], id_CEP);
+                copy_port(ctx, ci, mt.has_addsub ? id_RSTPIPE : id_RSTOUT, reg18[i], id_RSTP);
                 // Copy register configuration
-                copy_param(ci, id_REGOUTPUT, reg18[i], id_REGBYPS);
+                copy_param(ci, mt.has_addsub ? id_REGPIPELINE : id_REGOUTPUT, reg18[i], id_REGBYPS);
+            }
+
+            if (mt.has_addsub) {
+                // Create and configure ACC54s
+                int Nacc54 = mt.c_width / 54;
+                std::vector<CellInfo *> acc54(Nacc54);
+                for (int i = 0; i < Nacc54; i++)
+                    acc54[i] = create_dsp_cell(ci->name, id_ACC54_CORE, preadd9[0], (i * 4) + 2, 5);
+                for (int i = 0; i < Nacc54; i++) {
+                    // C addsub input
+                    copy_bus(ctx, ci, id_C, 54 * i, true, acc54[i], id_CINPUT, 0, false, 54);
+                    // Output
+                    replace_bus(ctx, ci, id_Z, i * 54, true, acc54[i], id_SUM0, 0, false, 36);
+                    replace_bus(ctx, ci, id_Z, i * 54 + 36, true, acc54[i], id_SUM1, 0, false, 18);
+                    // Control set
+                    copy_port(ctx, ci, id_CLK, acc54[i], id_CLK);
+                    copy_port(ctx, ci, id_RSTCTRL, acc54[i], id_RSTCTRL);
+                    copy_port(ctx, ci, id_CECTRL, acc54[i], id_CECTRL);
+                    copy_port(ctx, ci, id_RSTCIN, acc54[i], id_RSTCIN);
+                    copy_port(ctx, ci, id_CECIN, acc54[i], id_CECIN);
+                    copy_port(ctx, ci, id_RSTOUT, acc54[i], id_RSTO);
+                    copy_port(ctx, ci, id_CEOUT, acc54[i], id_CEO);
+                    // Add/acc control
+                    copy_port(ctx, ci, id_CIN, acc54[i], id_CIN);
+                    copy_port(ctx, ci, id_SIGNED, acc54[i], id_SIGNEDI);
+                    copy_port(ctx, ci, id_ADDSUB, acc54[i], id_ADDSUB0);
+                    copy_port(ctx, ci, id_ADDSUB, acc54[i], id_ADDSUB1);
+                    copy_port(ctx, ci, id_LOADC, acc54[i], id_LOAD);
+                    // Configuration
+                    copy_param(ci, id_REGINPUTC, acc54[i], id_CREGBYPS1);
+                    copy_param(ci, id_REGADDSUB, acc54[i], id_ADDSUBSIGNREGBYPS1);
+                    copy_param(ci, id_REGADDSUB, acc54[i], id_M9ADDSUBREGBYPS1);
+                    copy_param(ci, id_REGLOADC, acc54[i], id_LOADREGBYPS1);
+                    copy_param(ci, id_REGLOADC2, acc54[i], id_LOADREGBYPS2);
+                    copy_param(ci, id_REGCIN, acc54[i], id_CINREGBYPS1);
+
+                    copy_param(ci, id_REGPIPELINE, acc54[i], id_CREGBYPS2);
+                    copy_param(ci, id_REGPIPELINE, acc54[i], id_ADDSUBSIGNREGBYPS2);
+                    copy_param(ci, id_REGPIPELINE, acc54[i], id_CINREGBYPS2);
+                    copy_param(ci, id_REGPIPELINE, acc54[i], id_M9ADDSUBREGBYPS2);
+                    copy_param(ci, id_REGOUTPUT, acc54[i], id_OUTREGBYPS);
+                }
             }
 
             // Misc finalisation
