@@ -46,6 +46,20 @@ struct DelayInfo
     }
 };
 
+#ifndef Q_MOC_RUN
+enum ConstIds
+{
+    ID_NONE
+#define X(t) , ID_##t
+#include "constids.inc"
+#undef X
+};
+
+#define X(t) static constexpr auto id_##t = IdString(ID_##t);
+#include "constids.inc"
+#undef X
+#endif
+
 typedef IdString BelId;
 typedef IdString WireId;
 typedef IdString PipId;

@@ -28,12 +28,13 @@ else()
         set(device_bba chipdb/chipdb-${device}.bba)
         add_custom_command(
             OUTPUT ${device_bba}
-            COMMAND ${GOWIN_BBA_EXECUTABLE} -d ${device} -o ${device_bba}.new
+            COMMAND ${GOWIN_BBA_EXECUTABLE} -d ${device} -i ${CMAKE_CURRENT_SOURCE_DIR}/constids.inc -o ${device_bba}.new
             # atomically update
             COMMAND ${CMAKE_COMMAND} -E rename ${device_bba}.new ${device_bba}
             DEPENDS
                 ${GOWIN_BBA_EXECUTABLE}
                 ${PREVIOUS_CHIPDB_TARGET}
+                ${CMAKE_CURRENT_SOURCE_DIR}/constids.inc
             VERBATIM)
         list(APPEND all_device_bbas ${device_bba})
         if(SERIALIZE_CHIPDBS)

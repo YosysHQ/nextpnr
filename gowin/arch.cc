@@ -55,6 +55,7 @@ BelInfo &Arch::bel_info(IdString bel)
 
 void Arch::addWire(IdString name, IdString type, int x, int y)
 {
+    //std::cout << name.str(this) << std::endl;
     NPNR_ASSERT(wires.count(name) == 0);
     WireInfo &wi = wires[name];
     wi.name = name;
@@ -329,6 +330,7 @@ Arch::Arch(ArchArgs args) : args(args)
         int row = i/db->cols;
         int col = i%db->cols;
         const TilePOD* tile = db->grid[i].get();
+        // setup pips
         for(unsigned int j=0; j < tile->num_pips; j++) {
             const PairPOD pip = tile->pips[j];
             IdString gdestname = wireToGlobal(row, col, db, pip.dest_id);
@@ -343,12 +345,85 @@ Arch::Arch(ArchArgs args) : args(args)
             IdString gsrcname = wireToGlobal(row, col, db, pip.src_id);
             if(wires.count(gsrcname) == 0) addWire(gsrcname, pip.src_id, col, row);
         }
+        for(unsigned int j=0; j<tile->num_bels; j++) {
+            const BelsPOD *bel = &tile->bels[j];
+            char buf[32];
+            IdString belname;
+            IdString wirename;
+            int z = 0;
+            bool dff = true;
+            switch (static_cast<ConstIds>(bel->type_id))
+            {
+            // fall through the ++
+            case ID_LUT7:
+                z++;
+                dff = false;
+            case ID_LUT6:
+                z++;
+                dff = false;
+            case ID_LUT5:
+                z++;
+            case ID_LUT4:
+                z++;
+            case ID_LUT3:
+                z++;
+            case ID_LUT2:
+                z++;
+            case ID_LUT1:
+                z++;
+            case ID_LUT0:
+                //common LUT+DFF code
+                snprintf(buf, 32, "R%dC%d_SLICE%d", row+1, col+1, z);
+                belname = id(buf);
+                addBel(belname, id_SLICE, Loc(col, row, z), false);
+                snprintf(buf, 32, "R%dC%d_F%d", row+1, col+1, z);
+                wirename = id(buf);
+                addBelOutput(belname, id_F, wirename);
+                snprintf(buf, 32, "R%dC%d_A%d", row+1, col+1, z);
+                wirename = id(buf);
+                addBelInput(belname, id_A, wirename);
+                snprintf(buf, 32, "R%dC%d_B%d", row+1, col+1, z);
+                wirename = id(buf);
+                addBelInput(belname, id_B, wirename);
+                snprintf(buf, 32, "R%dC%d_C%d", row+1, col+1, z);
+                wirename = id(buf);
+                addBelInput(belname, id_C, wirename);
+                snprintf(buf, 32, "R%dC%d_D%d", row+1, col+1, z);
+                wirename = id(buf);
+                addBelInput(belname, id_D, wirename);
+                if(dff) {
+                    snprintf(buf, 32, "R%dC%d_CLK%d", row+1, col+1, z/2);
+                    wirename = id(buf);
+                    addBelInput(belname, id_CLK, wirename);
+                    snprintf(buf, 32, "R%dC%d_LSR%d", row+1, col+1, z/2);
+                    wirename = id(buf);
+                    addBelInput(belname, id_LSR, wirename);
+                    snprintf(buf, 32, "R%dC%d_CE%d", row+1, col+1, z/2);
+                    wirename = id(buf);
+                    addBelInput(belname, id_CE, wirename);
+                    snprintf(buf, 32, "R%dC%d_Q%d", row+1, col+1, z);
+                    wirename = id(buf);
+                    addBelOutput(belname, id_Q, wirename);
+                }
+
+                break;
+            
+            default:
+                break;
+            }
+        }
     }
     // Dummy for empty decals
     decal_graphics[IdString()];
 }
 
-void IdString::initialize_arch(const BaseCtx *ctx) {}
+void IdString::initialize_arch(const BaseCtx *ctx)
+{
+#define X(t) initialize_add(ctx, #t, ID_##t);
+#include "constids.inc"
+#undef X
+}
+
 
 // ---------------------------------------------------------------
 
