@@ -1651,6 +1651,8 @@ struct NexusPacker
                     copy_port(ctx, ci, id_CECIN, acc54[i], id_CECIN);
                     copy_port(ctx, ci, id_RSTOUT, acc54[i], id_RSTO);
                     copy_port(ctx, ci, id_CEOUT, acc54[i], id_CEO);
+                    copy_port(ctx, ci, id_RSTC, acc54[i], id_RSTC);
+                    copy_port(ctx, ci, id_CEC, acc54[i], id_CEC);
                     // Add/acc control
                     if (i == 0)
                         copy_port(ctx, ci, id_CIN, acc54[i], id_CIN);
