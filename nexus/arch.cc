@@ -545,7 +545,7 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
     int dst_x = dst.tile % chip_info->width, dst_y = dst.tile / chip_info->width;
     int dist_x = std::abs(src_x - dst_x);
     int dist_y = std::abs(src_y - dst_y);
-    return 100 * dist_x + 100 * dist_y + 250;
+    return 75 * dist_x + 75 * dist_y + 200;
 }
 delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
 {
@@ -608,7 +608,7 @@ bool Arch::place()
         cfg.cellGroups.back().insert(id_OXIDE_COMB);
         cfg.cellGroups.back().insert(id_OXIDE_FF);
 
-        cfg.beta = 0.7;
+        cfg.beta = 0.6;
         cfg.criticalityExponent = 7;
         if (!placer_heap(getCtx(), cfg))
             return false;
