@@ -19,8 +19,8 @@
 
 #include <iostream>
 #include <math.h>
-#include "nextpnr.h"
 #include "embed.h"
+#include "nextpnr.h"
 #include "placer1.h"
 #include "placer_heap.h"
 #include "router1.h"
@@ -55,7 +55,7 @@ BelInfo &Arch::bel_info(IdString bel)
 
 void Arch::addWire(IdString name, IdString type, int x, int y)
 {
-    //std::cout << name.str(this) << std::endl;
+    // std::cout << name.str(this) << std::endl;
     NPNR_ASSERT(wires.count(name) == 0);
     WireInfo &wi = wires[name];
     wi.name = name;
@@ -248,83 +248,96 @@ void Arch::addCellTimingClockToOut(IdString cell, IdString port, IdString clock,
 
 // ---------------------------------------------------------------
 
-//TODO represent wires more intelligently.
-IdString Arch::wireToGlobal(int row, int col, const DatabasePOD* db, IdString wire) {
+// TODO represent wires more intelligently.
+IdString Arch::wireToGlobal(int &row, int &col, const DatabasePOD *db, IdString wire)
+{
     std::string wirename = wire.str(this);
     char buf[32];
-    if( wirename == "VCC" || wirename == "GND" ) {
+    if (wirename == "VCC" || wirename == "GND") {
         return wire;
     }
-    if(!isdigit(wirename[1]) || !isdigit(wirename[2]) || !isdigit(wirename[3])) {
-        snprintf(buf, 32, "R%dC%d_%s", row+1, col+1, wirename.c_str());
+    if (!isdigit(wirename[1]) || !isdigit(wirename[2]) || !isdigit(wirename[3])) {
+        snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, wirename.c_str());
         return id(buf);
     }
     char direction = wirename[0];
     int num = std::stoi(wirename.substr(1, 2));
     int segment = std::stoi(wirename.substr(3, 1));
-    int rootrow, rootcol;
-    switch (direction)
-    {
+    switch (direction) {
     case 'N':
-        rootrow = row + segment;
-        rootcol = col;
+        row += segment;
         break;
     case 'S':
-        rootrow = row - segment;
-        rootcol = col;
+        row -= segment;
         break;
     case 'E':
-        rootrow = row;
-        rootcol = col - segment;
+        col -= segment;
         break;
     case 'W':
-        rootrow = row;
-        rootcol = col + segment;
+        col += segment;
         break;
     default:
-        snprintf(buf, 32, "R%dC%d_%s", row+1, col+1, wirename.c_str());
+        snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, wirename.c_str());
         return id(buf);
         break;
     }
     // wires wrap around the edges
     // assumes 0-based indexes
-    if(rootrow < 0) {
-        rootrow = -1-rootrow;
+    if (row < 0) {
+        row = -1 - row;
         direction = 'N';
-    } else if(rootcol < 0) {
-        rootcol = -1-rootcol;
+    } else if (col < 0) {
+        col = -1 - col;
         direction = 'W';
-    } else if(rootrow >= db->rows) {
-        rootrow = 2*db->rows-1-rootrow;
+    } else if (row >= db->rows) {
+        row = 2 * db->rows - 1 - row;
         direction = 'S';
-    } else if(rootcol >= db->cols) {
-        rootcol = 2*db->cols-1-rootcol;
+    } else if (col >= db->cols) {
+        col = 2 * db->cols - 1 - col;
         direction = 'E';
     }
-    snprintf(buf, 32, "R%dC%d_%c%d", rootrow+1, rootcol+1, direction, num);
+    snprintf(buf, 32, "R%dC%d_%c%d", row + 1, col + 1, direction, num);
     return id(buf);
 }
 
-PairPOD pairLookup(const PairPOD* list, const size_t len, const int src, const int dest) {
-    for(size_t i=0; i<len; i++) {
+PairPOD pairLookup(const PairPOD *list, const size_t len, const int src, const int dest)
+{
+    for (size_t i = 0; i < len; i++) {
         PairPOD pair = list[i];
-        if ((src<0 || pair.src_id==src) && (dest<0 || pair.dest_id==dest)) {
+        if ((src < 0 || pair.src_id == src) && (dest < 0 || pair.dest_id == dest)) {
             return pair;
         }
     }
     return PairPOD();
 }
 
+bool destCompare (PairPOD i,PairPOD j) { return (i.dest_id<j.dest_id); }
+bool aliasCompare (GlobalAliasPOD i, GlobalAliasPOD j) {
+    return (i.dest_row<j.dest_row) ||
+           (i.dest_row==j.dest_row && i.dest_col<j.dest_col) ||
+           (i.dest_row==j.dest_row && i.dest_col==j.dest_col && i.dest_id<j.dest_id);
+}
+
+const GlobalAliasPOD* aliasLookup(const GlobalAliasPOD *first, int len, const GlobalAliasPOD val)
+{
+    auto res = std::lower_bound(first, first+len, val, aliasCompare);
+    if (res-first != len && !aliasCompare(val, *res)) {
+        return res;
+    } else {
+        return nullptr;
+    }
+}
+
 Arch::Arch(ArchArgs args) : args(args)
 {
     family = "GW1N-1";
     device = "GW1N-1";
-    speed = "C6/E5"; // or whatever
+    speed = "C6/E5";   // or whatever
     package = "QFN48"; // or something
 
     // Load database
     std::string chipdb = stringf("gowin/chipdb-%s.bin", family.c_str());
-    auto db = reinterpret_cast<const DatabasePOD*>(get_chipdb(chipdb));
+    auto db = reinterpret_cast<const DatabasePOD *>(get_chipdb(chipdb));
     if (db == nullptr)
         log_error("Failed to load chipdb '%s'\n", chipdb.c_str());
     if (db->family.get() != family) {
@@ -333,38 +346,40 @@ Arch::Arch(ArchArgs args) : args(args)
     }
     // setup id strings
     for (size_t i = 0; i < db->num_ids; i++) {
-        IdString::initialize_add(this, db->id_strs[i].get(), uint32_t(i)+db->num_constids);
+        IdString::initialize_add(this, db->id_strs[i].get(), uint32_t(i) + db->num_constids);
     }
     // setup db
-    for (int i=0; i < db->rows*db->cols; i++) {
-        int row = i/db->cols;
-        int col = i%db->cols;
-        const TilePOD* tile = db->grid[i].get();
-        // setup pips
-        for(unsigned int j=0; j < tile->num_pips; j++) {
-            const PairPOD pip = tile->pips[j];
-            IdString gdestname = wireToGlobal(row, col, db, pip.dest_id);
-            if(wires.count(gdestname) == 0) addWire(gdestname, pip.dest_id, col, row);
-            IdString gsrcname = wireToGlobal(row, col, db, pip.src_id);
-            if(wires.count(gsrcname) == 0) addWire(gsrcname, pip.src_id, col, row);
+    char buf[32];
+    for (int i = 0; i < db->rows * db->cols; i++) {
+        int row = i / db->cols;
+        int col = i % db->cols;
+        const TilePOD *tile = db->grid[i].get();
+        // setup wires
+        const PairPOD* pips[2] = { tile->pips.get(), tile->clock_pips.get()};
+        unsigned int num_pips[2] = { tile->num_pips, tile->num_clock_pips};
+        for(int p = 0; p < 2; p++) {
+            for (unsigned int j = 0; j < num_pips[p]; j++) {
+                const PairPOD pip = pips[p][j];
+                int destrow = row;
+                int destcol = col;
+                IdString gdestname = wireToGlobal(destrow, destcol, db, pip.dest_id);
+                if (wires.count(gdestname) == 0)
+                    addWire(gdestname, pip.dest_id, destcol, destrow);
+                int srcrow = row;
+                int srccol = col;
+                IdString gsrcname = wireToGlobal(srcrow, srccol, db, pip.src_id);
+                if (wires.count(gsrcname) == 0)
+                    addWire(gsrcname, pip.src_id, srccol, srcrow);
+            }
         }
-        for(unsigned int j=0; j < tile->num_clock_pips; j++) {
-            const PairPOD pip = tile->clock_pips[j];
-            IdString gdestname = wireToGlobal(row, col, db, pip.dest_id);
-            if(wires.count(gdestname) == 0) addWire(gdestname, pip.dest_id, col, row);
-            IdString gsrcname = wireToGlobal(row, col, db, pip.src_id);
-            if(wires.count(gsrcname) == 0) addWire(gsrcname, pip.src_id, col, row);
-        }
-        for(unsigned int j=0; j<tile->num_bels; j++) {
+        for (unsigned int j = 0; j < tile->num_bels; j++) {
             const BelsPOD *bel = &tile->bels[j];
-            char buf[32];
             IdString belname;
             IdString wirename;
             IdString portname;
             int z = 0;
             bool dff = true;
-            switch (static_cast<ConstIds>(bel->type_id))
-            {
+            switch (static_cast<ConstIds>(bel->type_id)) {
             // fall through the ++
             case ID_LUT7:
                 z++;
@@ -383,36 +398,36 @@ Arch::Arch(ArchArgs args) : args(args)
             case ID_LUT1:
                 z++;
             case ID_LUT0:
-                //common LUT+DFF code
-                snprintf(buf, 32, "R%dC%d_SLICE%d", row+1, col+1, z);
+                // common LUT+DFF code
+                snprintf(buf, 32, "R%dC%d_SLICE%d", row + 1, col + 1, z);
                 belname = id(buf);
                 addBel(belname, id_SLICE, Loc(col, row, z), false);
-                snprintf(buf, 32, "R%dC%d_F%d", row+1, col+1, z);
+                snprintf(buf, 32, "R%dC%d_F%d", row + 1, col + 1, z);
                 wirename = id(buf);
                 addBelOutput(belname, id_F, wirename);
-                snprintf(buf, 32, "R%dC%d_A%d", row+1, col+1, z);
+                snprintf(buf, 32, "R%dC%d_A%d", row + 1, col + 1, z);
                 wirename = id(buf);
                 addBelInput(belname, id_A, wirename);
-                snprintf(buf, 32, "R%dC%d_B%d", row+1, col+1, z);
+                snprintf(buf, 32, "R%dC%d_B%d", row + 1, col + 1, z);
                 wirename = id(buf);
                 addBelInput(belname, id_B, wirename);
-                snprintf(buf, 32, "R%dC%d_C%d", row+1, col+1, z);
+                snprintf(buf, 32, "R%dC%d_C%d", row + 1, col + 1, z);
                 wirename = id(buf);
                 addBelInput(belname, id_C, wirename);
-                snprintf(buf, 32, "R%dC%d_D%d", row+1, col+1, z);
+                snprintf(buf, 32, "R%dC%d_D%d", row + 1, col + 1, z);
                 wirename = id(buf);
                 addBelInput(belname, id_D, wirename);
-                if(dff) {
-                    snprintf(buf, 32, "R%dC%d_CLK%d", row+1, col+1, z/2);
+                if (dff) {
+                    snprintf(buf, 32, "R%dC%d_CLK%d", row + 1, col + 1, z / 2);
                     wirename = id(buf);
                     addBelInput(belname, id_CLK, wirename);
-                    snprintf(buf, 32, "R%dC%d_LSR%d", row+1, col+1, z/2);
+                    snprintf(buf, 32, "R%dC%d_LSR%d", row + 1, col + 1, z / 2);
                     wirename = id(buf);
                     addBelInput(belname, id_LSR, wirename);
-                    snprintf(buf, 32, "R%dC%d_CE%d", row+1, col+1, z/2);
+                    snprintf(buf, 32, "R%dC%d_CE%d", row + 1, col + 1, z / 2);
                     wirename = id(buf);
                     addBelInput(belname, id_CE, wirename);
-                    snprintf(buf, 32, "R%dC%d_Q%d", row+1, col+1, z);
+                    snprintf(buf, 32, "R%dC%d_Q%d", row + 1, col + 1, z);
                     wirename = id(buf);
                     addBelOutput(belname, id_Q, wirename);
                 }
@@ -436,24 +451,63 @@ Arch::Arch(ArchArgs args) : args(args)
             case ID_IOBB:
                 z++;
             case ID_IOBA:
-                snprintf(buf, 32, "R%dC%d_IOB%c", row+1, col+1, 'A'+z);
+                snprintf(buf, 32, "R%dC%d_IOB%c", row + 1, col + 1, 'A' + z);
                 belname = id(buf);
                 addBel(belname, id_IOB, Loc(col, row, z), false);
-                portname = pairLookup(bel->ports.get(), bel->num_ports, -1, ID_I).src_id;
-                snprintf(buf, 32, "R%dC%d_%s", row+1, col+1, portname.c_str(this));
+                portname = pairLookup(bel->ports.get(), bel->num_ports, -1, ID_O).src_id;
+                snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
                 wirename = id(buf);
                 addBelInput(belname, id_I, wirename);
                 portname = pairLookup(bel->ports.get(), bel->num_ports, -1, ID_O).src_id;
-                snprintf(buf, 32, "R%dC%d_%s", row+1, col+1, portname.c_str(this));
+                snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
                 wirename = id(buf);
                 addBelInput(belname, id_O, wirename);
                 portname = pairLookup(bel->ports.get(), bel->num_ports, -1, ID_OE).src_id;
-                snprintf(buf, 32, "R%dC%d_%s", row+1, col+1, portname.c_str(this));
+                snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
                 wirename = id(buf);
                 addBelInput(belname, id_OE, wirename);
-            
+                break;
+
             default:
                 break;
+            }
+        }
+    }
+    // setup pips
+    for (int i = 0; i < db->rows * db->cols; i++) {
+        int row = i / db->cols;
+        int col = i % db->cols;
+        const TilePOD *tile = db->grid[i].get();
+        const PairPOD* pips[2] = { tile->pips.get(), tile->clock_pips.get()};
+        unsigned int num_pips[2] = { tile->num_pips, tile->num_clock_pips};
+        for(int p = 0; p < 2; p++) {
+            for (unsigned int j = 0; j < num_pips[p]; j++) {
+                const PairPOD pip = pips[p][j];
+                int destrow = row;
+                int destcol = col;
+                IdString gdestname = wireToGlobal(destrow, destcol, db, pip.dest_id);
+                int srcrow = row;
+                int srccol = col;
+                IdString gsrcname = wireToGlobal(srcrow, srccol, db, pip.src_id);
+
+                snprintf(buf, 32, "R%dC%d_%s_%s", row + 1, col + 1, IdString(pip.src_id).c_str(this),
+                        IdString(pip.dest_id).c_str(this));
+                IdString pipname = id(buf);
+                DelayInfo delay;
+                delay.delay = 0.1; // TODO
+                uint16_t srcid = pip.src_id;
+                GlobalAliasPOD alias;
+                alias.dest_col = srccol;
+                alias.dest_row = srcrow;
+                alias.dest_id = srcid;
+                auto alias_src = aliasLookup(db->aliases.get(), db->num_aliases, alias);
+                if(alias_src!=nullptr) {
+                    srccol = alias_src->src_col;
+                    srcrow = alias_src->src_row;
+                    gsrcname = wireToGlobal(srcrow, srccol, db, alias_src->src_id);
+                    std::cout << buf << std::endl;
+                }
+                addPip(pipname, pip.dest_id, gsrcname, gdestname, delay, Loc(col, row, j));
             }
         }
     }
@@ -467,7 +521,6 @@ void IdString::initialize_arch(const BaseCtx *ctx)
 #include "constids.inc"
 #undef X
 }
-
 
 // ---------------------------------------------------------------
 

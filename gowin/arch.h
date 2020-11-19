@@ -34,6 +34,8 @@ template <typename T> struct RelPtr
 
     const T *get() const { return reinterpret_cast<const T *>(reinterpret_cast<const char *>(this) + offset); }
 
+    T *get_mut() const { return const_cast<T *>(reinterpret_cast<const T *>(reinterpret_cast<const char *>(this) + offset)); }
+
     const T &operator[](size_t index) const { return get()[index]; }
 
     const T &operator*() const { return *(get()); }
@@ -240,7 +242,7 @@ struct Arch : BaseCtx
     void addCellTimingSetupHold(IdString cell, IdString port, IdString clock, DelayInfo setup, DelayInfo hold);
     void addCellTimingClockToOut(IdString cell, IdString port, IdString clock, DelayInfo clktoq);
 
-    IdString wireToGlobal(int row, int col, const DatabasePOD* db, IdString wire);
+    IdString wireToGlobal(int &row, int &col, const DatabasePOD* db, IdString wire);
 
     // ---------------------------------------------------------------
     // Common Arch API. Every arch must provide the following methods.
