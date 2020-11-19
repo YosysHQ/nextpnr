@@ -305,10 +305,20 @@ IdString Arch::wireToGlobal(int row, int col, const DatabasePOD* db, IdString wi
     return id(buf);
 }
 
+PairPOD pairLookup(const PairPOD* list, const size_t len, const int src, const int dest) {
+    for(size_t i=0; i<len; i++) {
+        PairPOD pair = list[i];
+        if ((src<0 || pair.src_id==src) && (dest<0 || pair.dest_id==dest)) {
+            return pair;
+        }
+    }
+    return PairPOD();
+}
+
 Arch::Arch(ArchArgs args) : args(args)
 {
-    family = "GW1N-9";
-    device = "GW1NR-9";
+    family = "GW1N-1";
+    device = "GW1N-1";
     speed = "C6/E5"; // or whatever
     package = "QFN48"; // or something
 
@@ -350,6 +360,7 @@ Arch::Arch(ArchArgs args) : args(args)
             char buf[32];
             IdString belname;
             IdString wirename;
+            IdString portname;
             int z = 0;
             bool dff = true;
             switch (static_cast<ConstIds>(bel->type_id))
@@ -405,8 +416,41 @@ Arch::Arch(ArchArgs args) : args(args)
                     wirename = id(buf);
                     addBelOutput(belname, id_Q, wirename);
                 }
-
                 break;
+            case ID_IOBJ:
+                z++;
+            case ID_IOBI:
+                z++;
+            case ID_IOBH:
+                z++;
+            case ID_IOBG:
+                z++;
+            case ID_IOBF:
+                z++;
+            case ID_IOBE:
+                z++;
+            case ID_IOBD:
+                z++;
+            case ID_IOBC:
+                z++;
+            case ID_IOBB:
+                z++;
+            case ID_IOBA:
+                snprintf(buf, 32, "R%dC%d_IOB%c", row+1, col+1, 'A'+z);
+                belname = id(buf);
+                addBel(belname, id_IOB, Loc(col, row, z), false);
+                portname = pairLookup(bel->ports.get(), bel->num_ports, -1, ID_I).src_id;
+                snprintf(buf, 32, "R%dC%d_%s", row+1, col+1, portname.c_str(this));
+                wirename = id(buf);
+                addBelInput(belname, id_I, wirename);
+                portname = pairLookup(bel->ports.get(), bel->num_ports, -1, ID_O).src_id;
+                snprintf(buf, 32, "R%dC%d_%s", row+1, col+1, portname.c_str(this));
+                wirename = id(buf);
+                addBelInput(belname, id_O, wirename);
+                portname = pairLookup(bel->ports.get(), bel->num_ports, -1, ID_OE).src_id;
+                snprintf(buf, 32, "R%dC%d_%s", row+1, col+1, portname.c_str(this));
+                wirename = id(buf);
+                addBelInput(belname, id_OE, wirename);
             
             default:
                 break;
