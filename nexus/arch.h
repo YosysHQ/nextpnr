@@ -1559,6 +1559,8 @@ struct Arch : BaseCtx
     // -------------------------------------------------
     // Cell timing lookup helpers
 
+    bool is_dsp_cell(const CellInfo *cell) const;
+
     // Given cell type and variant, get the index inside the speed grade timing data
     int get_cell_timing_idx(IdString cell_type, IdString cell_variant = IdString()) const;
     // Return true and set delay if a comb path exists in a given cell timing index
@@ -1571,6 +1573,8 @@ struct Arch : BaseCtx
                                      DelayInfo &hold) const;
     // Similar to lookup_cell_delay but only needs the 'to' signal, intended for clk->out delays
     void lookup_cell_clock_out(int type_idx, IdString to_port, IdString &clock, DelayInfo &delay) const;
+    // Attempt to look up port type based on database
+    TimingPortClass lookup_port_type(int type_idx, IdString port, PortType dir, IdString clock) const;
     // -------------------------------------------------
 
     // List of IO constraints, used by PDC parser

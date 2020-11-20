@@ -264,7 +264,7 @@ struct NexusPacker
 
     std::unordered_map<IdString, BelId> reference_bels;
 
-    void autocreate_ports(CellInfo *cell, bool include_outputs = false)
+    void autocreate_ports(CellInfo *cell)
     {
         // Automatically create ports for all inputs, and maybe outputs, of a cell; even if they were left off the
         // instantiation so we can tie them to constants as appropriate This also checks for any cells that don't have
@@ -288,7 +288,7 @@ struct NexusPacker
         BelId bel = reference_bels.at(cell->type);
         for (IdString pin : ctx->getBelPins(bel)) {
             PortType dir = ctx->getBelPinType(bel, pin);
-            if (dir != PORT_IN && !include_outputs)
+            if (dir != PORT_IN)
                 continue;
             if (cell->ports.count(pin))
                 continue;
@@ -1236,6 +1236,14 @@ struct NexusPacker
     // using the temporary placement that we use solely to access the routing graph
     void auto_cascade_cell(CellInfo *cell, BelId bel, const std::unordered_map<BelId, CellInfo *> &bel2cell)
     {
+        // Create outputs based on the actual bel
+        for (auto bp : ctx->getBelPins(bel)) {
+            if (ctx->getBelPinType(bel, bp) != PORT_OUT)
+                continue;
+            if (cell->ports.count(bp))
+                continue;
+            cell->addOutput(bp);
+        }
         for (auto port : sorted_ref(cell->ports)) {
             // Skip if not an output, or being used already for something else
             if (port.second.type != PORT_OUT || port.second.net != nullptr)
@@ -1371,9 +1379,9 @@ struct NexusPacker
                       ctx->nameOf(root->type));
 
         // Create the necessary new ports
-        autocreate_ports(root, true);
+        autocreate_ports(root);
         for (auto child : root->constr_children)
-            autocreate_ports(child, true);
+            autocreate_ports(child);
 
         // Insert cascade connections from all cells in the macro
         auto_cascade_cell(root, cell2bel.at(root->name), bel2cell);
@@ -1738,6 +1746,12 @@ void Arch::assignArchInfo()
     }
 }
 
+const std::vector<std::string> dsp_bus_prefices = {
+        "M9ADDSUB", "ADDSUB", "SFTCTRL", "DSPIN", "CINPUT", "DSPOUT", "CASCOUT", "CASCIN", "PML72", "PMH72", "SUM1",
+        "SUM0",     "BRS1",   "BRS2",    "BLS1",  "BLS2",   "BLSO",   "BRSO",    "PL18",   "PH18",  "PL36",  "PH36",
+        "PL72",     "PH72",   "P72",     "P36",   "P18",    "AS1",    "AS2",     "ARL",    "ARH",   "BRL",   "BRH",
+        "AO",       "BO",     "AB",      "AR",    "BR",     "PM",     "PP",      "A",      "B",     "C"};
+
 void Arch::assignCellInfo(CellInfo *cell)
 {
     cell->tmg_index = -1;
@@ -1806,6 +1820,46 @@ void Arch::assignCellInfo(CellInfo *cell)
 
         cell->tmg_index = get_cell_timing_idx(id(str_or_default(cell->params, id_MODE, "DP16K") + "_MODE"));
         NPNR_ASSERT(cell->tmg_index != -1);
+    } else if (is_dsp_cell(cell)) {
+        // Strip off bus indices to get the timing ports
+        // as timing is generally word-wide
+        for (const auto &port : cell->ports) {
+            const std::string &name = port.first.str(this);
+            size_t idx_end = name.find_last_not_of("0123456789");
+            if (idx_end == std::string::npos)
+                continue;
+            for (const auto &p : dsp_bus_prefices) {
+                if (name.size() > p.size() && name.substr(0, p.size()) == p && idx_end <= p.size()) {
+                    cell->tmg_portmap[port.first] = id(p);
+                    break;
+                }
+            }
+        }
+        // Build up the configuration string
+        std::set<std::string> config;
+        for (const auto &param : cell->params) {
+            const std::string &name = param.first.str(this);
+            size_t byp_pos = name.find("REGBYPS");
+            if (byp_pos != std::string::npos && param.second.str == "REGISTER") {
+                // Register enabled
+                config.insert(name.substr(0, byp_pos + 3) + name.substr(byp_pos + 7));
+            } else if (param.first == id_BYPASS_PREADD9 && param.second.str == "BYPASS") {
+                // PREADD9 bypass
+                config.insert("BYPASS");
+            }
+        }
+        std::string config_str;
+        for (const auto &cfg : config) {
+            if (!config_str.empty())
+                config_str += ',';
+            config_str += cfg;
+        }
+        cell->tmg_index = get_cell_timing_idx(cell->type, id(config_str));
+        if (cell->tmg_index == -1) {
+            log_warning("Unsupported timing config '%s' on %s cell '%s', falling back to default.\n",
+                        config_str.c_str(), nameOf(cell->type), nameOf(cell));
+            cell->tmg_index = get_cell_timing_idx(cell->type);
+        }
     }
 }
 

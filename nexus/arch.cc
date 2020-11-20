@@ -452,6 +452,10 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
             if (toPort == id_F || toPort == id_OFX)
                 return lookup_cell_delay(cell->tmg_index, fromPort, toPort, delay);
         }
+    } else if (is_dsp_cell(cell)) {
+        if (fromPort == id_CLK)
+            return false; // don't include delays that are actually clock-to-out here
+        return lookup_cell_delay(cell->tmg_index, lookup_port(fromPort), lookup_port(toPort), delay);
     }
     return false;
 }
@@ -459,6 +463,11 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
 TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const
 {
     auto disconnected = [cell](IdString p) { return !cell->ports.count(p) || cell->ports.at(p).net == nullptr; };
+    auto lookup_port = [&](IdString p) {
+        auto fnd = cell->tmg_portmap.find(p);
+        return fnd == cell->tmg_portmap.end() ? p : fnd->second;
+    };
+    clockInfoCount = 0;
     if (cell->type == id_OXIDE_COMB) {
         if (port == id_A || port == id_B || port == id_C || port == id_D || port == id_SEL || port == id_F1 ||
             port == id_FCI || port == id_WDI)
@@ -498,6 +507,15 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
             return TMG_CLOCK_INPUT;
         clockInfoCount = 1;
         return (cell->ports.at(port).type == PORT_IN) ? TMG_REGISTER_INPUT : TMG_REGISTER_OUTPUT;
+    } else if (cell->type == id_MULT18_CORE || cell->type == id_MULT18X36_CORE || cell->type == id_MULT36_CORE) {
+        return (cell->ports.at(port).type == PORT_IN) ? TMG_COMB_INPUT : TMG_COMB_OUTPUT;
+    } else if (cell->type == id_PREADD9_CORE || cell->type == id_REG18_CORE || cell->type == id_MULT9_CORE) {
+        if (port == id_CLK)
+            return TMG_CLOCK_INPUT;
+        auto type = lookup_port_type(cell->tmg_index, lookup_port(port), cell->ports.at(port).type, id_CLK);
+        if (type == TMG_REGISTER_INPUT || type == TMG_REGISTER_OUTPUT)
+            clockInfoCount = 1;
+        return type;
     }
     return TMG_IGNORE;
 }
@@ -530,6 +548,14 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
             lookup_cell_clock_out(cell->tmg_index, lookup_port(port), info.clock_port, info.clockToQ);
         }
         // Lookup edge based on inversion
+        info.edge = (get_cell_pinmux(cell, info.clock_port) == PINMUX_INV) ? FALLING_EDGE : RISING_EDGE;
+    } else if (cell->type == id_PREADD9_CORE || cell->type == id_REG18_CORE || cell->type == id_MULT9_CORE) {
+        info.clock_port = id_CLK;
+        if (cell->ports.at(port).type == PORT_IN) {
+            lookup_cell_setuphold(cell->tmg_index, lookup_port(port), id_CLK, info.setup, info.hold);
+        } else {
+            NPNR_ASSERT(lookup_cell_delay(cell->tmg_index, id_CLK, lookup_port(port), info.clockToQ));
+        }
         info.edge = (get_cell_pinmux(cell, info.clock_port) == PINMUX_INV) ? FALLING_EDGE : RISING_EDGE;
     } else {
         NPNR_ASSERT_FALSE("missing clocking info");
@@ -819,6 +845,12 @@ int db_binary_search(const Tres *list, int count, Tgetter key_getter, Tkey key)
 }
 } // namespace
 
+bool Arch::is_dsp_cell(const CellInfo *cell) const
+{
+    return cell->type == id_MULT18_CORE || cell->type == id_MULT18X36_CORE || cell->type == id_MULT36_CORE ||
+           cell->type == id_PREADD9_CORE || cell->type == id_REG18_CORE || cell->type == id_MULT9_CORE;
+}
+
 int Arch::get_cell_timing_idx(IdString cell_type, IdString cell_variant) const
 {
     return db_binary_search(
@@ -884,6 +916,23 @@ void Arch::lookup_cell_clock_out(int type_idx, IdString to_port, IdString &clock
     clock = ct.prop_delays[dly_idx].from_port;
     delay.min_delay = ct.prop_delays[dly_idx].min_delay;
     delay.max_delay = ct.prop_delays[dly_idx].max_delay;
+}
+TimingPortClass Arch::lookup_port_type(int type_idx, IdString port, PortType dir, IdString clock) const
+{
+    if (dir == PORT_IN) {
+        NPNR_ASSERT(type_idx != -1);
+        const auto &ct = speed_grade->cell_types[type_idx];
+        // If a setup-hold entry exists, then this is a register input
+        int sh_idx = db_binary_search(
+                ct.setup_holds.get(), ct.num_setup_holds,
+                [](const CellSetupHoldPOD &sh) { return std::make_pair(sh.sig_port, sh.clock_port); },
+                std::make_pair(port.index, clock.index));
+        return (sh_idx != -1) ? TMG_REGISTER_INPUT : TMG_COMB_INPUT;
+    } else {
+        DelayInfo dly;
+        // If a clock-to-out entry exists, then this is a register output
+        return lookup_cell_delay(type_idx, clock, port, dly) ? TMG_REGISTER_OUTPUT : TMG_COMB_OUTPUT;
+    }
 }
 
 // -----------------------------------------------------------------------
