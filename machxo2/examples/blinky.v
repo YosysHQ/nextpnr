@@ -1,4 +1,4 @@
-module top(input clk, rst, output reg [7:0] leds);
+module top(input clk, rst, output [7:0] leds);
 
 reg [7:0] ctr;
 always @(posedge clk)
