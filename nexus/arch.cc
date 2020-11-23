@@ -120,6 +120,21 @@ Arch::Arch(ArchArgs args) : args(args)
     for (size_t i = 0; i < chip_info->num_tiles; i++) {
         tileStatus[i].boundcells.resize(db->loctypes[chip_info->grid[i].loc_type].num_bels);
     }
+    // This structure is needed for a fast getBelByLocation because bels can have an offset
+    for (size_t i = 0; i < chip_info->num_tiles; i++) {
+        auto &loc = db->loctypes[chip_info->grid[i].loc_type];
+        for (unsigned j = 0; j < loc.num_bels; j++) {
+            auto &bel = loc.bels[j];
+            int rel_bel_tile;
+            if (!rel_tile(i, bel.rel_x, bel.rel_y, rel_bel_tile))
+                continue;
+            auto &ts = tileStatus.at(rel_bel_tile);
+            if (int(ts.bels_by_z.size()) <= bel.z)
+                ts.bels_by_z.resize(bel.z + 1);
+            ts.bels_by_z[bel.z].tile = i;
+            ts.bels_by_z[bel.z].index = j;
+        }
+    }
     init_cell_pin_data();
     // Validate and set up package
     package_idx = -1;
@@ -609,12 +624,12 @@ ArcBounds Arch::getRouteBoundingBox(WireId src, WireId dst) const
         bb.y1 = std::max(bb.y1, y);
     };
 
-    if (dsp_wires.count(src) || dsp_wires.count(dst)) {
-        bb.x0 -= 5;
-        bb.x1 += 5;
-    }
-
     extend(dst_x, dst_y);
+
+    if (dsp_wires.count(src) || dsp_wires.count(dst)) {
+        bb.x0 = std::max<int>(0, bb.x0 - 6);
+        bb.x1 = std::min<int>(chip_info->width, bb.x1 + 6);
+    }
 
     return bb;
 }
@@ -634,7 +649,7 @@ bool Arch::place()
         cfg.cellGroups.back().insert(id_OXIDE_COMB);
         cfg.cellGroups.back().insert(id_OXIDE_FF);
 
-        cfg.beta = 0.6;
+        cfg.beta = 0.5;
         cfg.criticalityExponent = 7;
         if (!placer_heap(getCtx(), cfg))
             return false;
@@ -644,6 +659,9 @@ bool Arch::place()
     } else {
         log_error("Nexus architecture does not support placer '%s'\n", placer.c_str());
     }
+
+    post_place_opt();
+
     getCtx()->attrs[getCtx()->id("step")] = std::string("place");
     archInfoToAttributes();
     return true;

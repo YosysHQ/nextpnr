@@ -932,6 +932,7 @@ struct Arch : BaseCtx
     struct TileStatus
     {
         std::vector<CellInfo *> boundcells;
+        std::vector<BelId> bels_by_z;
         LogicTileStatus *lts = nullptr;
         ~TileStatus() { delete lts; }
     };
@@ -1034,8 +1035,8 @@ struct Arch : BaseCtx
     {
         NPNR_ASSERT(bel != BelId());
         Loc loc;
-        loc.x = bel.tile % chip_info->width;
-        loc.y = bel.tile / chip_info->width;
+        loc.x = bel.tile % chip_info->width + bel_data(bel).rel_x;
+        loc.y = bel.tile / chip_info->width + bel_data(bel).rel_y;
         loc.z = bel_data(bel).z;
         return loc;
     }
@@ -1043,17 +1044,10 @@ struct Arch : BaseCtx
     BelId getBelByLocation(Loc loc) const
     {
         BelId ret;
-        auto &t = db->loctypes[chip_info->grid[loc.y * chip_info->width + loc.x].loc_type];
-        if (loc.x >= 0 && loc.x < chip_info->width && loc.y >= 0 && loc.y < chip_info->height) {
-            for (size_t i = 0; i < t.num_bels; i++) {
-                if (t.bels[i].z == loc.z) {
-                    ret.tile = loc.y * chip_info->width + loc.x;
-                    ret.index = i;
-                    break;
-                }
-            }
-        }
-        return ret;
+        auto &t = tileStatus.at(loc.y * chip_info->width + loc.x);
+        if (loc.z >= int(t.bels_by_z.size()))
+            return BelId();
+        return t.bels_by_z.at(loc.z);
     }
 
     BelRange getBelsByTile(int x, int y) const;
@@ -1399,6 +1393,9 @@ struct Arch : BaseCtx
     bool pack();
     bool place();
     bool route();
+
+    // arch-specific post-placement optimisations
+    void post_place_opt();
 
     // -------------------------------------------------
     // Assign architecure-specific arguments to nets and cells, which must be

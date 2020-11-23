@@ -50,6 +50,8 @@ po::options_description NexusCommandHandler::getArchOptions()
     specific.add_options()("device", po::value<std::string>(), "device name");
     specific.add_options()("fasm", po::value<std::string>(), "fasm file to write");
     specific.add_options()("pdc", po::value<std::string>(), "physical constraints file");
+    specific.add_options()("no-post-place-opt", "disable post-place repacking (debugging use only)");
+
     return specific;
 }
 
@@ -71,7 +73,10 @@ std::unique_ptr<Context> NexusCommandHandler::createContext(std::unordered_map<s
         log_error("device must be specified on the command line (e.g. --device LIFCL-40-9BG400CES)\n");
     }
     chipArgs.device = vm["device"].as<std::string>();
-    return std::unique_ptr<Context>(new Context(chipArgs));
+    auto ctx = std::unique_ptr<Context>(new Context(chipArgs));
+    if (vm.count("no-post-place-opt"))
+        ctx->settings[ctx->id("no_post_place_opt")] = Property::State::S1;
+    return ctx;
 }
 
 void NexusCommandHandler::customAfterLoad(Context *ctx)
