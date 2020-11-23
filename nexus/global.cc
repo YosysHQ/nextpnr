@@ -55,6 +55,14 @@ struct NexusGlobalRouter
         WireId src = ctx->getNetinfoSourceWire(net);
         WireId dst = ctx->getNetinfoSinkWire(net, net->users.at(user_idx));
 
+        if (src == WireId())
+            log_error("Net '%s' has an invalid source port %s.%s\n", ctx->nameOf(net), ctx->nameOf(net->driver.cell),
+                      ctx->nameOf(net->driver.port));
+
+        if (dst == WireId())
+            log_error("Net '%s' has an invalid sink port %s.%s\n", ctx->nameOf(net),
+                      ctx->nameOf(net->users.at(user_idx).cell), ctx->nameOf(net->users.at(user_idx).port));
+
         if (ctx->getBoundWireNet(src) != net)
             ctx->bindWire(src, net, STRENGTH_LOCKED);
 
