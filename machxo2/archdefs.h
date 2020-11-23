@@ -46,6 +46,20 @@ struct DelayInfo
     }
 };
 
+enum ConstIds
+{
+    ID_NONE
+#define X(t) , ID_##t
+#include "constids.inc"
+#undef X
+    ,
+    DB_CONST_ID_COUNT
+};
+
+#define X(t) static constexpr auto id_##t = IdString(ID_##t);
+#include "constids.inc"
+#undef X
+
 typedef IdString BelId;
 typedef IdString WireId;
 typedef IdString PipId;
