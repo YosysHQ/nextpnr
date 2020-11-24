@@ -95,6 +95,36 @@ static void pack_constants(Context *ctx)
     }
 }
 
+static bool is_nextpnr_iob(Context *ctx, CellInfo *cell)
+{
+    return cell->type == ctx->id("$nextpnr_ibuf") || cell->type == ctx->id("$nextpnr_obuf") ||
+           cell->type == ctx->id("$nextpnr_iobuf");
+}
+
+static bool is_facade_iob(const Context *ctx, const CellInfo *cell) { return cell->type == ctx->id("FACADE_IO"); }
+
+// Pack IO buffers- Right now, all this does is remove $nextpnr_[io]buf cells.
+// User is expected to manually instantiate FACADE_IO with BEL/IO_TYPE
+// attributes.
+static void pack_io(Context *ctx)
+{
+    std::unordered_set<IdString> packed_cells;
+
+    log_info("Packing IOs..\n");
+
+    for (auto cell : sorted(ctx->cells)) {
+        CellInfo *ci = cell.second;
+        if (is_nextpnr_iob(ctx, ci)) {
+            for (auto &p : ci->ports)
+                disconnect_port(ctx, ci, p.first);
+            packed_cells.insert(ci->name);
+        }
+    }
+
+    for (auto pcell : packed_cells) {
+        ctx->cells.erase(pcell);
+    }
+}
 
 // Main pack function
 bool Arch::pack()
@@ -104,6 +134,7 @@ bool Arch::pack()
     try {
         log_break();
         pack_constants(ctx);
+        pack_io(ctx);
         ctx->settings[ctx->id("pack")] = 1;
         ctx->assignArchInfo();
         log_info("Checksum: 0x%08x\n", ctx->checksum());
