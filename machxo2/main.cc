@@ -67,7 +67,7 @@ po::options_description MachXO2CommandHandler::getArchOptions()
 
     specific.add_options()("lpf", po::value<std::vector<std::string>>(), "LPF pin constraint file(s)");
 
-    specific.add_options()("no-iobs", "disable automatic IO buffer insertion");
+    specific.add_options()("no-iobs", "disable automatic IO buffer insertion (unimplemented- always enabled)");
     return specific;
 }
 
