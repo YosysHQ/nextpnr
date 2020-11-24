@@ -51,7 +51,7 @@ Relevant fields from a netlist point of view are:
  - `cells` is a map from cell name to a `unique_ptr<CellInfo>` containing cell data
  - `nets` is a map from net name to a `unique_ptr<NetInfo>` containing net data
  - `net_aliases` maps every alias for a net to its canonical name (i.e. index into `nets`) - net aliases often occur when a net has a name both inside a submodule and higher level module
- - `ports` is a list of top level ports, primarily used during JSON export (e.g. to produce a useful post-PnR simulation model)
+ - `ports` is a list of top level ports, primarily used during JSON export (e.g. to produce a useful post-PnR simulation model). Unlike other ports, top level ports are _not_ added to the driver or users of any connected net. In this sense, nets connected to top-level ports are _dangling_. However, top level ports _can_ still see their connected net as part of their `PortInfo`.
 
 Context also has a method `check()` that ensures all of the contracts met above are satisfied. It is strongly suggested to run this after any pass that may modify the netlist.
 
