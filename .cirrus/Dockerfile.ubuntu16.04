@@ -9,7 +9,7 @@ RUN set -e -x ;\
         build-essential autoconf cmake clang bison wget flex gperf \
         libreadline-dev gawk tcl-dev libffi-dev graphviz xdot python3-dev \
         libboost-all-dev qt5-default git libftdi-dev pkg-config libeigen3-dev \
-        zlib1g-dev
+        zlib1g-dev curl
 
 RUN set -e -x ;\
     mkdir -p /usr/local/src ;\
@@ -52,3 +52,13 @@ RUN set -e -x ;\
     cmake . ;\
     make -j $(nproc) ;\
     make install
+
+RUN set -e -x ;\
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y ;\
+    mkdir -p /usr/local/src ;\
+    cd /usr/local/src ;\
+    git clone --recursive https://github.com/daveshah1/prjoxide.git ;\
+    cd prjoxide ;\
+    git reset --hard bd5122fab12c1a517588365bd95cbfaa47eff25c ;\
+    cd libprjoxide ;\
+    PATH=$PATH:$HOME/.cargo/bin cargo install --path prjoxide
