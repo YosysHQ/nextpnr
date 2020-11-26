@@ -1050,7 +1050,7 @@ struct Arch : BaseCtx
         return t.bels_by_z.at(loc.z);
     }
 
-    BelRange getBelsByTile(int x, int y) const;
+    std::vector<BelId> getBelsByTile(int x, int y) const;
 
     bool getBelGlobalBuf(BelId bel) const { return false; }
 

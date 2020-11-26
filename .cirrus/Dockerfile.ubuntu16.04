@@ -59,6 +59,6 @@ RUN set -e -x ;\
     cd /usr/local/src ;\
     git clone --recursive https://github.com/daveshah1/prjoxide.git ;\
     cd prjoxide ;\
-    git reset --hard bd5122fab12c1a517588365bd95cbfaa47eff25c ;\
+    git reset --hard 72dbb7973f31a30c3b9d18f3bac97caaea9a7f33 ;\
     cd libprjoxide ;\
     PATH=$PATH:$HOME/.cargo/bin cargo install --path prjoxide

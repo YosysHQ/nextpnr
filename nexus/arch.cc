@@ -202,24 +202,13 @@ BelId Arch::getBelByName(IdString name) const
     return BelId();
 }
 
-BelRange Arch::getBelsByTile(int x, int y) const
+std::vector<BelId> Arch::getBelsByTile(int x, int y) const
 {
-    BelRange br;
-    NPNR_ASSERT(x >= 0 && x < chip_info->width);
-    NPNR_ASSERT(y >= 0 && y < chip_info->height);
-    br.b.cursor_tile = y * chip_info->width + x;
-    br.e.cursor_tile = y * chip_info->width + x;
-    br.b.cursor_index = 0;
-    br.e.cursor_index = db->loctypes[chip_info->grid[br.b.cursor_tile].loc_type].num_bels;
-    br.b.chip = chip_info;
-    br.b.db = db;
-    br.e.chip = chip_info;
-    br.e.db = db;
-    if (br.e.cursor_index == -1)
-        ++br.e.cursor_index;
-    else
-        ++br.e;
-    return br;
+    std::vector<BelId> bels;
+    for (auto bel : tileStatus.at(y * chip_info->width + x).bels_by_z)
+        if (bel != BelId())
+            bels.push_back(bel);
+    return bels;
 }
 
 WireId Arch::getBelPinWire(BelId bel, IdString pin) const
