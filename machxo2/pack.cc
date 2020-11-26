@@ -27,6 +27,65 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+// Pack LUTs and LUT-FF pairs
+static void pack_lut_lutffs(Context *ctx)
+{
+    log_info("Packing LUT-FFs..\n");
+
+    std::unordered_set<IdString> packed_cells;
+    std::vector<std::unique_ptr<CellInfo>> new_cells;
+    for (auto cell : sorted(ctx->cells)) {
+        CellInfo *ci = cell.second;
+        if (ctx->verbose)
+            log_info("cell '%s' is of type '%s'\n", ci->name.c_str(ctx), ci->type.c_str(ctx));
+        if (is_lut(ctx, ci)) {
+            std::unique_ptr<CellInfo> packed =
+                    create_machxo2_cell(ctx, ctx->id("FACADE_SLICE"), ci->name.str(ctx) + "_LC");
+            std::copy(ci->attrs.begin(), ci->attrs.end(), std::inserter(packed->attrs, packed->attrs.begin()));
+
+            packed_cells.insert(ci->name);
+            if (ctx->verbose)
+                log_info("packed cell %s into %s\n", ci->name.c_str(ctx), packed->name.c_str(ctx));
+            // See if we can pack into a DFF. Both LUT4 and FF outputs are
+            // available for a given slice, so we can pack a FF even if the
+            // LUT4 drives more than one FF.
+            NetInfo *o = ci->ports.at(ctx->id("Z")).net;
+            CellInfo *dff = net_only_drives(ctx, o, is_ff, ctx->id("DI"), false);
+            auto lut_bel = ci->attrs.find(ctx->id("BEL"));
+            bool packed_dff = false;
+
+            if (dff) {
+                if (ctx->verbose)
+                    log_info("found attached dff %s\n", dff->name.c_str(ctx));
+                auto dff_bel = dff->attrs.find(ctx->id("BEL"));
+                if (lut_bel != ci->attrs.end() && dff_bel != dff->attrs.end() && lut_bel->second != dff_bel->second) {
+                    // Locations don't match, can't pack
+                } else {
+                    lut_to_lc(ctx, ci, packed.get(), false);
+                    dff_to_lc(ctx, dff, packed.get(), false);
+                    if (dff_bel != dff->attrs.end())
+                        packed->attrs[ctx->id("BEL")] = dff_bel->second;
+                    packed_cells.insert(dff->name);
+                    if (ctx->verbose)
+                        log_info("packed cell %s into %s\n", dff->name.c_str(ctx), packed->name.c_str(ctx));
+                    packed_dff = true;
+                }
+            }
+            if (!packed_dff) {
+                lut_to_lc(ctx, ci, packed.get(), true);
+            }
+            new_cells.push_back(std::move(packed));
+        }
+    }
+
+    for (auto pcell : packed_cells) {
+        ctx->cells.erase(pcell);
+    }
+    for (auto &ncell : new_cells) {
+        ctx->cells[ncell->name] = std::move(ncell);
+    }
+}
+
 // Merge a net into a constant net
 static void set_net_constant(const Context *ctx, NetInfo *orig, NetInfo *constnet, bool constval)
 {
@@ -135,6 +194,7 @@ bool Arch::pack()
         log_break();
         pack_constants(ctx);
         pack_io(ctx);
+        pack_lut_lutffs(ctx);
         ctx->settings[ctx->id("pack")] = 1;
         ctx->assignArchInfo();
         log_info("Checksum: 0x%08x\n", ctx->checksum());

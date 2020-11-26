@@ -143,12 +143,29 @@ std::unique_ptr<CellInfo> create_machxo2_cell(Context *ctx, IdString type, std::
 
 void lut_to_lc(const Context *ctx, CellInfo *lut, CellInfo *lc, bool no_dff)
 {
+    lc->params[ctx->id("LUT0_INITVAL")] = lut->params[ctx->id("INIT")];
 
+    for (std::string i : {"A", "B", "C", "D"}) {
+        IdString lut_port = ctx->id(i);
+        IdString lc_port = ctx->id(i + "0");
+        replace_port(lut, lut_port, lc, lc_port);
+    }
+
+    replace_port(lut, ctx->id("Z"), lc, ctx->id("F0"));
 }
 
 void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc, bool pass_thru_lut)
 {
+    // By this point, we have shown that LUT4 Z is attached to FACADE_FF DI.
+    // This connection will be preserved by port replacement, but the SD mux
+    // which selects the actual DFF input needs to be told to use the
+    // FACADE_SLICE DI input instead of the FACADE_SLICE M input.
+    lc->params[ctx->id("REG0_SD")] = std::string("0");
 
+    replace_port(dff, ctx->id("CLK"), lc, ctx->id("CLK"));
+    replace_port(dff, ctx->id("DI"), lc, ctx->id("DI0"));
+    replace_port(dff, ctx->id("LSR"), lc, ctx->id("LSR"));
+    replace_port(dff, ctx->id("Q"), lc, ctx->id("Q0"));
 }
 
 void nxio_to_iob(Context *ctx, CellInfo *nxio, CellInfo *iob, std::unordered_set<IdString> &todelete_cells)
