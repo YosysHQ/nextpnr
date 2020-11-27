@@ -162,6 +162,9 @@ void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc, bool pass_thru_l
     // FACADE_SLICE DI input instead of the FACADE_SLICE M input.
     lc->params[ctx->id("REG0_SD")] = std::string("0");
 
+    // FIXME: This will have to change once we support FFs with reset value of 1.
+    lc->params[ctx->id("REG0_REGSET")] = std::string("RESET");
+
     replace_port(dff, ctx->id("CLK"), lc, ctx->id("CLK"));
     replace_port(dff, ctx->id("DI"), lc, ctx->id("DI0"));
     replace_port(dff, ctx->id("LSR"), lc, ctx->id("LSR"));
