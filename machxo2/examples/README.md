@@ -16,7 +16,8 @@ This contains a simple example of running `nextpnr-machxo2`:
   ports._
 
   All possible inputs and resulting outputs can be tested in reasonable time by
-  using yosys' built-in SAT solver.
+  using `yosys`' built-in SAT solver or [`z3`](https://github.com/Z3Prover/z3),
+  an external SMT solver.
 
 As `nextpnr-machxo2` is developed the contents `simple.sh`, `simtest.sh`, and
 `mitertest.sh` are subject to change.
@@ -29,8 +30,14 @@ ways. The `mode` argument to each script- `pack`, `place`, or `pnr`- stop
 results in `{pack,place,pnr}blinky.json`; `pnr` runs all of the Pack, Place,
 and Route phases.
 
+`mitertest.sh` requires an additional option- `sat` or `smt`- to choose between
+verifying the miter with either yosys' built-in SAT solver, or an external
+SMT solver.
+
 To keep file count lower, all yosys scripts are written inline inside the
 `sh` scripts using the `-p` option.
+
+To clean output files, run: `rm -rf *.dot *.json *.png *.vcd *.smt2 *.log {pack,place,pnr}*.v blinky_simtest*`
 
 ## Environment Variables For Scripts
 
