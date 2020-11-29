@@ -2,18 +2,37 @@
 
 This contains a simple example of running `nextpnr-machxo2`:
 
-* `simple.sh` generates JSON output (`pnrblinky.json`) of a classic blinky
-  example from `blinky.v`.
+* `simple.sh` generates JSON output (`{pack,place,pnr}blinky.json`) of a
+  classic blinky example from `blinky.v`.
 * `simtest.sh` will use `yosys` to generate a Verilog file from
-  `pnrblinky.json`, called `pnrblinky.v`. It will then and compare
-  `pnrblinky.v`'s simulation behavior to the original verilog file (`blinky.v`)
-  using the [`iverilog`](http://iverilog.icarus.com) compiler and `vvp`
-  runtime. This is known as post-place-and-route simulation.
+  `{pack,place,pnr}blinky.json`, called `{pack,place,pnr}blinky.v`. It will
+  then and compare `{pack,place,pnr}blinky.v`'s simulation behavior to the
+  original verilog file (`blinky.v`) using the [`iverilog`](http://iverilog.icarus.com)
+  compiler and `vvp` runtime. This is known as post-place-and-route simulation.
+* `mitertest.sh` is similar to `simtest.sh`, but more comprehensive. This
+  script creates a [miter circuit](https://www21.in.tum.de/~lammich/2015_SS_Seminar_SAT/resources/Equivalence_Checking_11_30_08.pdf)
+  to compare the output port values of `{pack,place,pnr}blinky.v` against the
+  original `blinky.v` _when both modules are fed the same values on their input
+  ports._
 
-As `nextpnr-machxo2` is developed the contents `simple.sh` and `simtest.sh`
-are subject to change.
+  All possible inputs and resulting outputs can be tested in reasonable time by
+  using yosys' built-in SAT solver.
 
-## Environment Variables For `simple.sh` And `simtest.sh`
+As `nextpnr-machxo2` is developed the contents `simple.sh`, `simtest.sh`, and
+`mitertest.sh` are subject to change.
+
+## How To Run
+
+Each `sh` script runs yosys and nextpnr to validate a blinky design in various
+ways. The `mode` argument to each script- `pack`, `place`, or `pnr`- stop
+`nextpnr-machxo2` after the specified phase and writes out a JSON file of the
+results in `{pack,place,pnr}blinky.json`; `pnr` runs all of the Pack, Place,
+and Route phases.
+
+To keep file count lower, all yosys scripts are written inline inside the
+`sh` scripts using the `-p` option.
+
+## Environment Variables For Scripts
 
 * `YOSYS`- Set to the location of the `yosys` binary to test. Defaults to the
   `yosys` on the path. You may want to set this to a `yosys` binary in your
