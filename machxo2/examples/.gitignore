@@ -1,4 +1,7 @@
-pnrblinky.v
 /blinky_simtest
 *.vcd
+*.png
+pack*.v
+place*.v
+pnr*.v
 abc.history

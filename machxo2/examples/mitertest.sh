@@ -24,7 +24,7 @@ esac
 set -ex
 
 ${YOSYS:-yosys} -p "read_verilog blinky.v
-                    synth_machxo2 -json blinky.json
+                    synth_machxo2 -noiopad -json blinky.json
                     show -format png -prefix blinky"
 ${NEXTPNR:-../../nextpnr-machxo2} $NEXTPNR_MODE --1200 --no-iobs --json blinky.json --write ${1}blinky.json
 ${YOSYS:-yosys} -p "read_verilog -lib +/machxo2/cells_sim.v
@@ -32,3 +32,12 @@ ${YOSYS:-yosys} -p "read_verilog -lib +/machxo2/cells_sim.v
                     clean -purge
                     show -format png -prefix ${1}blinky
                     write_verilog -noattr -norename ${1}blinky.v"
+${YOSYS:-yosys} -p "read_verilog blinky.v
+                    rename top gold
+                    read_verilog ${1}blinky.v
+                    rename top gate
+                    read_verilog +/machxo2/cells_sim.v
+
+                    miter -equiv -make_assert -flatten gold gate miter
+                    hierarchy -top miter
+                    sat -verify -prove-asserts -tempinduct miter"
