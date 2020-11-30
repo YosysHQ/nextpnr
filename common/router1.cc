@@ -469,6 +469,20 @@ struct Router1
             }
         }
 
+        // special case
+
+        if (src_wire == dst_wire) {
+            NetInfo *bound = ctx->getBoundWireNet(src_wire);
+            if (bound != nullptr)
+                NPNR_ASSERT(bound == net_info);
+            else {
+                ctx->bindWire(src_wire, net_info, STRENGTH_WEAK);
+            }
+            arc_to_wires[arc].insert(src_wire);
+            wire_to_arcs[src_wire].insert(arc);
+            return true;
+        }
+
         // reset wire queue
 
         if (!queue.empty()) {

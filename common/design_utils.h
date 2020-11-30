@@ -82,6 +82,13 @@ template <typename F1> CellInfo *net_driven_by(const Context *ctx, const NetInfo
     }
 }
 
+// Check if a port is used
+inline bool port_used(CellInfo *cell, IdString port_name)
+{
+    auto port_fnd = cell->ports.find(port_name);
+    return port_fnd != cell->ports.end() && port_fnd->second.net != nullptr;
+}
+
 // Connect a net to a port
 void connect_port(const Context *ctx, NetInfo *net, CellInfo *cell, IdString port_name);
 
@@ -98,6 +105,17 @@ void rename_port(Context *ctx, CellInfo *cell, IdString old_name, IdString new_n
 void rename_net(Context *ctx, NetInfo *net, IdString new_name);
 
 void print_utilisation(const Context *ctx);
+
+// Disconnect a bus of nets (if connected) from old, and connect it to the new ports
+void replace_bus(Context *ctx, CellInfo *old_cell, IdString old_name, int old_offset, bool old_brackets,
+                 CellInfo *new_cell, IdString new_name, int new_offset, bool new_brackets, int width);
+
+// Copy a bus of nets (if connected) from old, and connect it to the new ports
+void copy_bus(Context *ctx, CellInfo *old_cell, IdString old_name, int old_offset, bool old_brackets,
+              CellInfo *new_cell, IdString new_name, int new_offset, bool new_brackets, int width);
+
+// Copy a port from one cell to another
+void copy_port(Context *ctx, CellInfo *old_cell, IdString old_name, CellInfo *new_cell, IdString new_name);
 
 NEXTPNR_NAMESPACE_END
 
