@@ -242,7 +242,7 @@ struct Arch : BaseCtx
     void addCellTimingSetupHold(IdString cell, IdString port, IdString clock, DelayInfo setup, DelayInfo hold);
     void addCellTimingClockToOut(IdString cell, IdString port, IdString clock, DelayInfo clktoq);
 
-    IdString wireToGlobal(int &row, int &col, const DatabasePOD* db, IdString wire);
+    IdString wireToGlobal(int &row, int &col, const DatabasePOD* db, IdString &wire);
 
     // ---------------------------------------------------------------
     // Common Arch API. Every arch must provide the following methods.

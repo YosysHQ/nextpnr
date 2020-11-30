@@ -249,7 +249,7 @@ void Arch::addCellTimingClockToOut(IdString cell, IdString port, IdString clock,
 // ---------------------------------------------------------------
 
 // TODO represent wires more intelligently.
-IdString Arch::wireToGlobal(int &row, int &col, const DatabasePOD *db, IdString wire)
+IdString Arch::wireToGlobal(int &row, int &col, const DatabasePOD *db, IdString &wire)
 {
     std::string wirename = wire.str(this);
     char buf[32];
@@ -296,19 +296,21 @@ IdString Arch::wireToGlobal(int &row, int &col, const DatabasePOD *db, IdString 
         col = 2 * db->cols - 1 - col;
         direction = 'E';
     }
+    snprintf(buf, 32, "%c%d0", direction, num);
+    wire = id(buf);
     snprintf(buf, 32, "R%dC%d_%c%d", row + 1, col + 1, direction, num);
     return id(buf);
 }
 
-PairPOD pairLookup(const PairPOD *list, const size_t len, const int src, const int dest)
+const PairPOD* pairLookup(const PairPOD *list, const size_t len, const int src, const int dest)
 {
     for (size_t i = 0; i < len; i++) {
-        PairPOD pair = list[i];
-        if ((src < 0 || pair.src_id == src) && (dest < 0 || pair.dest_id == dest)) {
+        const PairPOD *pair = &list[i];
+        if ((src < 0 || pair->src_id == src) && (dest < 0 || pair->dest_id == dest)) {
             return pair;
         }
     }
-    return PairPOD();
+    return nullptr;
 }
 
 bool destCompare (PairPOD i,PairPOD j) { return (i.dest_id<j.dest_id); }
@@ -362,12 +364,14 @@ Arch::Arch(ArchArgs args) : args(args)
                 const PairPOD pip = pips[p][j];
                 int destrow = row;
                 int destcol = col;
-                IdString gdestname = wireToGlobal(destrow, destcol, db, pip.dest_id);
+                IdString destid = pip.dest_id;
+                IdString gdestname = wireToGlobal(destrow, destcol, db, destid);
                 if (wires.count(gdestname) == 0)
                     addWire(gdestname, pip.dest_id, destcol, destrow);
                 int srcrow = row;
                 int srccol = col;
-                IdString gsrcname = wireToGlobal(srcrow, srccol, db, pip.src_id);
+                IdString srcid = pip.src_id;
+                IdString gsrcname = wireToGlobal(srcrow, srccol, db, srcid);
                 if (wires.count(gsrcname) == 0)
                     addWire(gsrcname, pip.src_id, srccol, srcrow);
             }
@@ -454,15 +458,15 @@ Arch::Arch(ArchArgs args) : args(args)
                 snprintf(buf, 32, "R%dC%d_IOB%c", row + 1, col + 1, 'A' + z);
                 belname = id(buf);
                 addBel(belname, id_IOB, Loc(col, row, z), false);
-                portname = pairLookup(bel->ports.get(), bel->num_ports, -1, ID_O).src_id;
+                portname = pairLookup(bel->ports.get(), bel->num_ports, -1, ID_O)->src_id;
                 snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
                 wirename = id(buf);
                 addBelInput(belname, id_I, wirename);
-                portname = pairLookup(bel->ports.get(), bel->num_ports, -1, ID_O).src_id;
+                portname = pairLookup(bel->ports.get(), bel->num_ports, -1, ID_O)->src_id;
                 snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
                 wirename = id(buf);
                 addBelInput(belname, id_O, wirename);
-                portname = pairLookup(bel->ports.get(), bel->num_ports, -1, ID_OE).src_id;
+                portname = pairLookup(bel->ports.get(), bel->num_ports, -1, ID_OE)->src_id;
                 snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
                 wirename = id(buf);
                 addBelInput(belname, id_OE, wirename);
@@ -485,27 +489,38 @@ Arch::Arch(ArchArgs args) : args(args)
                 const PairPOD pip = pips[p][j];
                 int destrow = row;
                 int destcol = col;
-                IdString gdestname = wireToGlobal(destrow, destcol, db, pip.dest_id);
+                IdString destid = pip.dest_id;
+                IdString gdestname = wireToGlobal(destrow, destcol, db, destid);
                 int srcrow = row;
                 int srccol = col;
-                IdString gsrcname = wireToGlobal(srcrow, srccol, db, pip.src_id);
+                IdString srcid = pip.src_id;
+                IdString gsrcname = wireToGlobal(srcrow, srccol, db, srcid);
 
                 snprintf(buf, 32, "R%dC%d_%s_%s", row + 1, col + 1, IdString(pip.src_id).c_str(this),
                         IdString(pip.dest_id).c_str(this));
                 IdString pipname = id(buf);
                 DelayInfo delay;
                 delay.delay = 0.1; // TODO
-                uint16_t srcid = pip.src_id;
+                // local alias
+                auto local_alias = pairLookup(tile->aliases.get(), tile->num_aliases, -1, srcid.index);
+                std::cout << "srcid " << srcid.str(this) << std::endl;
+                if(local_alias!=nullptr) {
+                    srcid = local_alias->src_id;
+                    gsrcname = wireToGlobal(srcrow, srccol, db, srcid);
+                }
+                // global alias
+                srcid = pip.src_id;
                 GlobalAliasPOD alias;
                 alias.dest_col = srccol;
                 alias.dest_row = srcrow;
-                alias.dest_id = srcid;
+                alias.dest_id = srcid.index;
                 auto alias_src = aliasLookup(db->aliases.get(), db->num_aliases, alias);
                 if(alias_src!=nullptr) {
                     srccol = alias_src->src_col;
                     srcrow = alias_src->src_row;
-                    gsrcname = wireToGlobal(srcrow, srccol, db, alias_src->src_id);
-                    std::cout << buf << std::endl;
+                    srcid = alias_src->src_id;
+                    gsrcname = wireToGlobal(srcrow, srccol, db, srcid);
+                    //std::cout << buf << std::endl;
                 }
                 addPip(pipname, pip.dest_id, gsrcname, gdestname, delay, Loc(col, row, j));
             }
