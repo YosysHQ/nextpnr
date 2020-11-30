@@ -67,6 +67,8 @@ set(PROGRAM_PREFIX "" CACHE STRING "Name prefix for executables")
 
 # List of families to build
 set(FAMILIES generic ice40 ecp5 nexus)
+set(STABLE_FAMILIES generic ice40 ecp5)
+set(EXPERIMENTAL_FAMILIES nexus)
 
 set(ARCH "" CACHE STRING "Architecture family for nextpnr build")
 set_property(CACHE ARCH PROPERTY STRINGS ${FAMILIES})
@@ -75,14 +77,20 @@ if (NOT ARCH)
     message(STATUS "Architecture needs to be set, set desired one with -DARCH=xxx")
     message(STATUS "Supported architectures are :")
     message(STATUS "  all")
+    message(STATUS "  all+alpha")
     foreach(item ${FAMILIES})
         message(STATUS "  ${item}")
     endforeach()
     message(FATAL_ERROR "Architecture setting is mandatory")
 endif ()
 
+if (ARCH STREQUAL "all+alpha")
+    SET(ARCH ${STABLE_FAMILIES} ${EXPERIMENTAL_FAMILIES})
+endif()
+
+
 if (ARCH STREQUAL "all")
-    SET(ARCH ${FAMILIES})
+    SET(ARCH ${STABLE_FAMILIES})
 endif()
 
 foreach(item ${ARCH})
