@@ -254,6 +254,8 @@ struct Router2
         std::queue<int> backwards_queue;
 
         std::vector<int> dirty_wires;
+
+        DeterministicRNG rng;
     };
 
     enum ArcRouteResult
@@ -628,7 +630,7 @@ struct Router2
                                   next_score.togo_cost);
 #endif
                     // Add wire to queue if it meets criteria
-                    t.queue.push(QueuedWire(next_idx, dh, ctx->getPipLocation(dh), next_score, ctx->rng()));
+                    t.queue.push(QueuedWire(next_idx, dh, ctx->getPipLocation(dh), next_score, t.rng.rng()));
                     set_visited(t, next_idx, dh, next_score);
                     if (next == dst_wire) {
                         toexplore = std::min(toexplore, iter + 5);
@@ -948,6 +950,7 @@ struct Router2
         // Don't multithread if fewer than 200 nets (heuristic)
         if (route_queue.size() < 200) {
             ThreadContext st;
+            st.rng.rngseed(ctx->rng64());
             for (size_t j = 0; j < route_queue.size(); j++) {
                 route_net(st, nets_by_udata[route_queue[j]], false);
             }
@@ -956,6 +959,9 @@ struct Router2
         const int Nq = 4, Nv = 2, Nh = 2;
         const int N = Nq + Nv + Nh;
         std::vector<ThreadContext> tcs(N + 1);
+        for (auto &th : tcs) {
+            th.rng.rngseed(ctx->rng64());
+        }
         for (auto n : route_queue) {
             auto &nd = nets.at(n);
             auto ni = nets_by_udata.at(n);
