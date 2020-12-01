@@ -85,6 +85,8 @@ struct Router2
         bool unavailable = false;
         // This wire has to be used for this net
         int reserved_net = -1;
+        // The notional location of the wire, to guarantee thread safety
+        int16_t x = 0, y = 0;
         // Visit data
         struct
         {
@@ -200,6 +202,11 @@ struct Router2
                 if (bound->wires.at(wire).strength > STRENGTH_STRONG)
                     pwd.unavailable = true;
             }
+
+            ArcBounds wire_loc = ctx->getRouteBoundingBox(wire, wire);
+            pwd.x = (wire_loc.x0 + wire_loc.x1) / 2;
+            pwd.y = (wire_loc.y0 + wire_loc.y1) / 2;
+
             wire_to_idx[wire] = int(flat_wires.size());
             flat_wires.push_back(pwd);
         }
@@ -255,8 +262,16 @@ struct Router2
 
         std::vector<int> dirty_wires;
 
+        // Thread bounding box
+        ArcBounds bb;
+
         DeterministicRNG rng;
     };
+
+    bool thread_test_wire(ThreadContext &t, PerWireData &w)
+    {
+        return w.x >= t.bb.x0 && w.x <= t.bb.x1 && w.y >= t.bb.y0 && w.y <= t.bb.y1;
+    }
 
     enum ArcRouteResult
     {
@@ -532,6 +547,8 @@ struct Router2
                     continue;
                 if (wd.bound_nets.size() > 1 || (wd.bound_nets.size() == 1 && !wd.bound_nets.count(net->udata)))
                     continue; // never allow congestion in backwards routing
+                if (!thread_test_wire(t, wd))
+                    continue; // thread safety issue
                 t.backwards_queue.push(next);
                 set_visited(t, next, uh, WireScore());
             }
@@ -617,6 +634,8 @@ struct Router2
                     continue;
                 if (nwd.bound_nets.count(net->udata) && nwd.bound_nets.at(net->udata).second != dh)
                     continue;
+                if (!thread_test_wire(t, nwd))
+                    continue; // thread safety issue
                 WireScore next_score;
                 next_score.cost = curr.score.cost + score_wire_for_arc(net, i, next, dh);
                 next_score.delay =
@@ -951,6 +970,7 @@ struct Router2
         if (route_queue.size() < 200) {
             ThreadContext st;
             st.rng.rngseed(ctx->rng64());
+            st.bb = ArcBounds(0, 0, std::numeric_limits<int>::max(), std::numeric_limits<int>::max());
             for (size_t j = 0; j < route_queue.size(); j++) {
                 route_net(st, nets_by_udata[route_queue[j]], false);
             }
@@ -962,14 +982,29 @@ struct Router2
         for (auto &th : tcs) {
             th.rng.rngseed(ctx->rng64());
         }
+        int le_x = mid_x - cfg.bb_margin_x;
+        int rs_x = mid_x + cfg.bb_margin_x;
+        int le_y = mid_y - cfg.bb_margin_y;
+        int rs_y = mid_y + cfg.bb_margin_y;
+        // Set up thread bounding boxes
+        tcs.at(0).bb = ArcBounds(0, 0, mid_x, mid_y);
+        tcs.at(1).bb = ArcBounds(mid_x + 1, 0, std::numeric_limits<int>::max(), le_y);
+        tcs.at(2).bb = ArcBounds(0, mid_y + 1, mid_x, std::numeric_limits<int>::max());
+        tcs.at(3).bb =
+                ArcBounds(mid_x + 1, mid_y + 1, std::numeric_limits<int>::max(), std::numeric_limits<int>::max());
+
+        tcs.at(4).bb = ArcBounds(0, 0, std::numeric_limits<int>::max(), mid_y);
+        tcs.at(5).bb = ArcBounds(0, mid_y + 1, std::numeric_limits<int>::max(), std::numeric_limits<int>::max());
+
+        tcs.at(6).bb = ArcBounds(0, 0, mid_x, std::numeric_limits<int>::max());
+        tcs.at(7).bb = ArcBounds(mid_x + 1, 0, std::numeric_limits<int>::max(), std::numeric_limits<int>::max());
+
+        tcs.at(8).bb = ArcBounds(0, 0, std::numeric_limits<int>::max(), std::numeric_limits<int>::max());
+
         for (auto n : route_queue) {
             auto &nd = nets.at(n);
             auto ni = nets_by_udata.at(n);
             int bin = N;
-            int le_x = mid_x - cfg.bb_margin_x;
-            int rs_x = mid_x + cfg.bb_margin_x;
-            int le_y = mid_y - cfg.bb_margin_y;
-            int rs_y = mid_y + cfg.bb_margin_y;
             // Quadrants
             if (nd.bb.x0 < le_x && nd.bb.x1 < le_x && nd.bb.y0 < le_y && nd.bb.y1 < le_y)
                 bin = 0;
