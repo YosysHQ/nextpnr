@@ -50,6 +50,7 @@ struct Router2
         WireId sink_wire;
         ArcBounds bb;
         bool routed = false;
+        float arc_crit = 0;
     };
 
     // As we allow overlap at first; the nextpnr bind functions can't be used
@@ -115,6 +116,8 @@ struct Router2
     // Use 'udata' for fast net lookups and indexing
     std::vector<NetInfo *> nets_by_udata;
     std::vector<PerNetData> nets;
+
+    bool timing_driven;
 
     // Criticality data from timing analysis
     NetCriticalityMap net_crit;
@@ -342,6 +345,15 @@ struct Router2
         int source_uses = 0;
         if (wd.bound_nets.count(net->udata))
             source_uses = wd.bound_nets.at(net->udata).first;
+        if (timing_driven) {
+            float max_bound_crit = 0;
+            for (auto &bound : wd.bound_nets)
+                if (bound.first != net->udata)
+                    max_bound_crit = std::max(max_bound_crit, nets.at(bound.first).max_crit);
+            if (max_bound_crit >= 0.8 && nd.arcs.at(user).arc_crit < (max_bound_crit + 0.01)) {
+                present_cost *= 1.5;
+            }
+        }
         if (pip != PipId()) {
             Loc pl = ctx->getPipLocation(pip);
             bias_cost = cfg.bias_cost_factor * (base_cost / int(net->users.size())) *
@@ -1092,7 +1104,7 @@ struct Router2
         for (size_t i = 0; i < nets_by_udata.size(); i++)
             route_queue.push_back(i);
 
-        bool timing_driven = ctx->setting<bool>("timing_driven");
+        timing_driven = ctx->setting<bool>("timing_driven");
         log_info("Running main router loop...\n");
         do {
             ctx->sorted_shuffle(route_queue);
@@ -1108,8 +1120,11 @@ struct Router2
                     net.max_crit = 0;
                     if (fnd == net_crit.end())
                         continue;
-                    for (auto c : fnd->second.criticality)
+                    for (int i = 0; i < int(fnd->second.criticality.size()); i++) {
+                        float c = fnd->second.criticality.at(i);
+                        net.arcs.at(i).arc_crit = c;
                         net.max_crit = std::max(net.max_crit, c);
+                    }
                 }
                 std::stable_sort(route_queue.begin(), route_queue.end(),
                                  [&](int na, int nb) { return nets.at(na).max_crit > nets.at(nb).max_crit; });
