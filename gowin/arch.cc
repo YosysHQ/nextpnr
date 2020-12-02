@@ -815,7 +815,7 @@ bool Arch::place()
         bool have_iobuf_or_constr = false;
         for (auto cell : sorted(cells)) {
             CellInfo *ci = cell.second;
-            if (ci->type == id("GENERIC_IOB") || ci->bel != BelId() || ci->attrs.count(id("BEL"))) {
+            if (ci->type == id("IOB") || ci->bel != BelId() || ci->attrs.count(id("BEL"))) {
                 have_iobuf_or_constr = true;
                 break;
             }
@@ -827,7 +827,7 @@ bool Arch::place()
             retVal = placer1(getCtx(), Placer1Cfg(getCtx()));
         } else {
             PlacerHeapCfg cfg(getCtx());
-            cfg.ioBufTypes.insert(id("GENERIC_IOB"));
+            cfg.ioBufTypes.insert(id("IOB"));
             retVal = placer_heap(getCtx(), cfg);
         }
         getCtx()->settings[getCtx()->id("place")] = 1;
@@ -962,7 +962,7 @@ void Arch::assignArchInfo()
 {
     for (auto &cell : getCtx()->cells) {
         CellInfo *ci = cell.second.get();
-        if (ci->type == id("GENERIC_SLICE")) {
+        if (ci->type == id("SLICE")) {
             ci->is_slice = true;
             ci->slice_clk = get_net_or_empty(ci, id("CLK"));
         } else {

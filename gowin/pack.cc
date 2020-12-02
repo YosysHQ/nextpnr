@@ -243,8 +243,9 @@ static void pack_io(Context *ctx)
             if (iob != nullptr) {
                 // delete the $nexpnr_[io]buf
                 for (auto &p : iob->ports) {
+                    IdString netname = p.second.net->name;
                     disconnect_port(ctx, iob, p.first);
-                    delete_nets.insert(p.second.net->name);
+                    delete_nets.insert(netname);
                 }
                 packed_cells.insert(iob->name);
             }
