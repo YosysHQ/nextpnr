@@ -86,7 +86,7 @@ int main(int argc, char **argv)
     options.add_options()("le,l", "little endian");
     options.add_options()("c,c", "write C strings");
     options.add_options()("e,e", "write #embed C");
-    options.add_options()("files", po::value<std::vector<std::string>>(), "file parameters");
+    options.add_options()("files", po::value<std::vector<std::string> >(), "file parameters");
     pos.add("files", -1);
 
     po::variables_map vm;
@@ -129,7 +129,7 @@ int main(int argc, char **argv)
         printf("File parameters are mandatory\n");
         exit(-1);
     }
-    std::vector<std::string> files = vm["files"].as<std::vector<std::string>>();
+    std::vector<std::string> files = vm["files"].as<std::vector<std::string> >();
     if (files.size() != (writeE ? 3 : 2)) {
         printf("Input and output parameters must be set\n");
         exit(-1);
