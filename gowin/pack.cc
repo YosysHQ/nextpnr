@@ -24,6 +24,7 @@
 #include "design_utils.h"
 #include "log.h"
 #include "util.h"
+#include <iostream>
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -40,14 +41,14 @@ static void pack_lut_lutffs(Context *ctx)
             log_info("cell '%s' is of type '%s'\n", ci->name.c_str(ctx), ci->type.c_str(ctx));
         if (is_lut(ctx, ci)) {
             std::unique_ptr<CellInfo> packed =
-                    create_generic_cell(ctx, ctx->id("GENERIC_SLICE"), ci->name.str(ctx) + "_LC");
+                    create_generic_cell(ctx, ctx->id("SLICE"), ci->name.str(ctx) + "_LC");
             std::copy(ci->attrs.begin(), ci->attrs.end(), std::inserter(packed->attrs, packed->attrs.begin()));
             packed_cells.insert(ci->name);
             if (ctx->verbose)
                 log_info("packed cell %s into %s\n", ci->name.c_str(ctx), packed->name.c_str(ctx));
             // See if we can pack into a DFF
             // TODO: LUT cascade
-            NetInfo *o = ci->ports.at(ctx->id("Q")).net;
+            NetInfo *o = ci->ports.at(ctx->id("F")).net;
             CellInfo *dff = net_only_drives(ctx, o, is_ff, ctx->id("D"), true);
             auto lut_bel = ci->attrs.find(ctx->id("BEL"));
             bool packed_dff = false;
@@ -95,7 +96,7 @@ static void pack_nonlut_ffs(Context *ctx)
         CellInfo *ci = cell.second;
         if (is_ff(ctx, ci)) {
             std::unique_ptr<CellInfo> packed =
-                    create_generic_cell(ctx, ctx->id("GENERIC_SLICE"), ci->name.str(ctx) + "_DFFLC");
+                    create_generic_cell(ctx, ctx->id("SLICE"), ci->name.str(ctx) + "_DFFLC");
             std::copy(ci->attrs.begin(), ci->attrs.end(), std::inserter(packed->attrs, packed->attrs.begin()));
             if (ctx->verbose)
                 log_info("packed cell %s into %s\n", ci->name.c_str(ctx), packed->name.c_str(ctx));
@@ -137,7 +138,7 @@ static void pack_constants(Context *ctx)
 {
     log_info("Packing constants..\n");
 
-    std::unique_ptr<CellInfo> gnd_cell = create_generic_cell(ctx, ctx->id("GENERIC_SLICE"), "$PACKER_GND");
+    std::unique_ptr<CellInfo> gnd_cell = create_generic_cell(ctx, ctx->id("SLICE"), "$PACKER_GND");
     gnd_cell->params[ctx->id("INIT")] = Property(0, 1 << ctx->args.K);
     std::unique_ptr<NetInfo> gnd_net = std::unique_ptr<NetInfo>(new NetInfo);
     gnd_net->name = ctx->id("$PACKER_GND_NET");
@@ -145,7 +146,7 @@ static void pack_constants(Context *ctx)
     gnd_net->driver.port = ctx->id("F");
     gnd_cell->ports.at(ctx->id("F")).net = gnd_net.get();
 
-    std::unique_ptr<CellInfo> vcc_cell = create_generic_cell(ctx, ctx->id("GENERIC_SLICE"), "$PACKER_VCC");
+    std::unique_ptr<CellInfo> vcc_cell = create_generic_cell(ctx, ctx->id("SLICE"), "$PACKER_VCC");
     // Fill with 1s
     vcc_cell->params[ctx->id("INIT")] = Property(Property::S1).extract(0, (1 << ctx->args.K), Property::S1);
     std::unique_ptr<NetInfo> vcc_net = std::unique_ptr<NetInfo>(new NetInfo);
@@ -188,13 +189,24 @@ static void pack_constants(Context *ctx)
     }
 }
 
-static bool is_nextpnr_iob(Context *ctx, CellInfo *cell)
+static bool is_nextpnr_iob(const Context *ctx, CellInfo *cell)
 {
     return cell->type == ctx->id("$nextpnr_ibuf") || cell->type == ctx->id("$nextpnr_obuf") ||
            cell->type == ctx->id("$nextpnr_iobuf");
 }
 
-static bool is_generic_iob(const Context *ctx, const CellInfo *cell) { return cell->type == ctx->id("GENERIC_IOB"); }
+static bool is_gowin_iob(const Context *ctx, const CellInfo *cell) {
+    switch (cell->type.index)
+    {
+    case ID_IBUF:
+    case ID_OBUF:
+    case ID_IOBUF:
+    case ID_TBUF:
+        return true;
+    default:
+        return false;
+    }
+ }
 
 // Pack IO buffers
 static void pack_io(Context *ctx)
@@ -207,49 +219,42 @@ static void pack_io(Context *ctx)
 
     for (auto cell : sorted(ctx->cells)) {
         CellInfo *ci = cell.second;
-        if (is_nextpnr_iob(ctx, ci)) {
+        if (is_gowin_iob(ctx, ci)) {
+            std::cout << ci->type.str(ctx) << std::endl;
+            for(auto p : ci->ports) {
+                std::cout << p.first.str(ctx) << std::endl;
+            }
             CellInfo *iob = nullptr;
-            if (ci->type == ctx->id("$nextpnr_ibuf") || ci->type == ctx->id("$nextpnr_iobuf")) {
-                iob = net_only_drives(ctx, ci->ports.at(ctx->id("O")).net, is_generic_iob, ctx->id("PAD"), true, ci);
-
-            } else if (ci->type == ctx->id("$nextpnr_obuf")) {
-                NetInfo *net = ci->ports.at(ctx->id("I")).net;
-                iob = net_only_drives(ctx, net, is_generic_iob, ctx->id("PAD"), true, ci);
+            switch (ci->type.index)
+            {
+            case ID_IBUF:
+                iob = net_driven_by(ctx, ci->ports.at(id_I).net, is_nextpnr_iob, id_O);
+                break;
+            case ID_OBUF:
+                iob = net_only_drives(ctx, ci->ports.at(id_O).net, is_nextpnr_iob, id_I);
+                break;
+            case ID_IOBUF:
+            case ID_TBUF:
+                log_error("untested tristate stuff");
+                break;
+            default:
+                break;
             }
             if (iob != nullptr) {
-                // Trivial case, GENERIC_IOB used. Just destroy the net and the
-                // iobuf
-                log_info("%s feeds GENERIC_IOB %s, removing %s %s.\n", ci->name.c_str(ctx), iob->name.c_str(ctx),
-                         ci->type.c_str(ctx), ci->name.c_str(ctx));
-                NetInfo *net = iob->ports.at(ctx->id("PAD")).net;
-                if (((ci->type == ctx->id("$nextpnr_ibuf") || ci->type == ctx->id("$nextpnr_iobuf")) &&
-                     net->users.size() > 1) ||
-                    (ci->type == ctx->id("$nextpnr_obuf") && (net->users.size() > 2 || net->driver.cell != nullptr)))
-                    log_error("PAD of %s '%s' connected to more than a single top level IO.\n", iob->type.c_str(ctx),
-                              iob->name.c_str(ctx));
-
-                if (net != nullptr) {
-                    delete_nets.insert(net->name);
-                    iob->ports.at(ctx->id("PAD")).net = nullptr;
+                // delete the $nexpnr_[io]buf
+                for (auto &p : iob->ports) {
+                    disconnect_port(ctx, iob, p.first);
+                    delete_nets.insert(p.second.net->name);
                 }
-                if (ci->type == ctx->id("$nextpnr_iobuf")) {
-                    NetInfo *net2 = ci->ports.at(ctx->id("I")).net;
-                    if (net2 != nullptr) {
-                        delete_nets.insert(net2->name);
-                    }
-                }
-            } else if (bool_or_default(ctx->settings, ctx->id("disable_iobs"))) {
-                // No IO buffer insertion; just remove nextpnr_[io]buf
-                for (auto &p : ci->ports)
-                    disconnect_port(ctx, ci, p.first);
-            } else {
-                // Create a GENERIC_IOB buffer
-                std::unique_ptr<CellInfo> ice_cell =
-                        create_generic_cell(ctx, ctx->id("GENERIC_IOB"), ci->name.str(ctx) + "$iob");
-                nxio_to_iob(ctx, ci, ice_cell.get(), packed_cells);
-                new_cells.push_back(std::move(ice_cell));
-                iob = new_cells.back().get();
+                packed_cells.insert(iob->name);
             }
+            // Create a IOB buffer
+            std::unique_ptr<CellInfo> ice_cell =
+                    create_generic_cell(ctx, id_IOB, ci->name.str(ctx) + "$iob");
+            gwio_to_iob(ctx, ci, ice_cell.get(), packed_cells);
+            new_cells.push_back(std::move(ice_cell));
+            iob = new_cells.back().get();
+
             packed_cells.insert(ci->name);
             if (iob != nullptr)
                 std::copy(ci->attrs.begin(), ci->attrs.end(), std::inserter(iob->attrs, iob->attrs.begin()));

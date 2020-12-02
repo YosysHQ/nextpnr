@@ -332,8 +332,8 @@ const GlobalAliasPOD* aliasLookup(const GlobalAliasPOD *first, int len, const Gl
 
 Arch::Arch(ArchArgs args) : args(args)
 {
-    family = "GW1N-1";
-    device = "GW1N-1";
+    family = "GW1N-9";
+    device = "GW1N-9";
     speed = "C6/E5";   // or whatever
     package = "QFN48"; // or something
 
@@ -469,7 +469,7 @@ Arch::Arch(ArchArgs args) : args(args)
                 portname = pairLookup(bel->ports.get(), bel->num_ports, -1, ID_OE)->src_id;
                 snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
                 wirename = id(buf);
-                addBelInput(belname, id_OE, wirename);
+                addBelInput(belname, id_OEN, wirename);
                 break;
 
             default:
@@ -503,7 +503,7 @@ Arch::Arch(ArchArgs args) : args(args)
                 delay.delay = 0.1; // TODO
                 // local alias
                 auto local_alias = pairLookup(tile->aliases.get(), tile->num_aliases, -1, srcid.index);
-                std::cout << "srcid " << srcid.str(this) << std::endl;
+                // std::cout << "srcid " << srcid.str(this) << std::endl;
                 if(local_alias!=nullptr) {
                     srcid = local_alias->src_id;
                     gsrcname = wireToGlobal(srcrow, srccol, db, srcid);
@@ -689,8 +689,8 @@ const std::map<IdString, std::string> &Arch::getPipAttrs(PipId pip) const { retu
 
 uint32_t Arch::getPipChecksum(PipId wire) const
 {
-    // FIXME
-    return 0;
+    // FIXEDME?
+    return wire.index;
 }
 
 void Arch::bindPip(PipId pip, NetInfo *net, PlaceStrength strength)
