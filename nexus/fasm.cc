@@ -542,6 +542,60 @@ struct NexusFasmWriter
         write_cell_muxes(cell);
         pop();
     }
+
+    // Which PLL params are 'word' values
+    /* clang-format off */
+    const std::unordered_map<std::string, int> pll_word_params = {
+            {"DIVA", 7}, {"DELA", 7}, {"PHIA", 3}, {"DIVB", 7},
+            {"DELB", 7}, {"PHIB", 3}, {"DIVC", 7}, {"DELC", 7},
+            {"PHIC", 3}, {"DIVD", 7}, {"DELD", 7}, {"PHID", 3},
+            {"DIVE", 7},  {"DELE", 7}, {"PHIE", 3}, {"DIVF", 7},
+            {"DELF", 7}, {"PHIF", 3}, {"BW_CTL_BIAS", 4},
+            {"CLKOP_TRIM", 4}, {"CLKOS_TRIM", 4}, {"CLKOS2_TRIM", 4},
+            {"CLKOS3_TRIM", 4}, {"CLKOS4_TRIM", 4}, {"CLKOS5_TRIM", 4},
+            {"DIV_DEL", 7}, {"DYN_SEL", 3}, {"FBK_CUR_BLE", 8}, {"FBK_IF_TIMING_CTL", 2},
+            {"FBK_MASK", 8}, {"FBK_MMD_DIG", 8}, {"FBK_MMD_PULS_CTL", 4},
+            {"FBK_MODE", 2}, {"FBK_PI_RC", 4}, {"FBK_PR_CC", 4},
+            {"FBK_PR_IC", 4}, {"FBK_RSV", 16},
+            {"IPI_CMP", 4}, {"IPI_CMPN", 4},
+            {"IPP_CTRL", 4}, {"IPP_SEL", 4},
+            {"KP_VCO", 5},
+            {"MFG_CTRL", 4}, {"MFGOUT1_SEL", 3}, {"MFGOUT2_SEL", 3},
+            {"REF_MASK", 8}, {"REF_MMD_DIG", 8}, {"REF_MMD_IN", 8},
+            {"REF_MMD_PULS_CTL", 4}, {"REF_TIMING_CTL", 2},
+            {"RESERVED", 7}, {"SSC_DELTA", 15},
+            {"SSC_DELTA_CTL", 2},  {"SSC_F_CODE", 15},
+            {"SSC_N_CODE", 9}, {"SSC_REG_WEIGHTING_SEL", 3},
+            {"SSC_STEP_IN", 7}, {"SSC_TBASE", 12},
+            {"V2I_PP_ICTRL", 5},
+    };
+    /* clang-format on */
+
+    // Write out config for some kind of PLL cell
+    void write_pll(const CellInfo *cell)
+    {
+        BelId bel = cell->bel;
+        push_bel(bel);
+        write_bit("MODE.PLL_CORE");
+        write_enum(cell, "CLKMUX_FB");
+        write_cell_muxes(cell);
+        pop();
+        push(stringf("IP_%s", ctx->nameOf(ctx->bel_data(bel).name)));
+        for (auto param : sorted_cref(cell->params)) {
+            const std::string &name = param.first.str(ctx);
+            if (is_mux_param(name) || name == "CLKMUX_FB" || name == "SEL_FBK")
+                continue;
+            auto fnd_word = pll_word_params.find(name);
+            if (fnd_word != pll_word_params.end()) {
+                write_int_vector(stringf("%s[%d:0]", name.c_str(), fnd_word->second - 1),
+                                 ctx->parse_lattice_param(cell, param.first, fnd_word->second, 0).as_int64(),
+                                 fnd_word->second);
+            } else {
+                write_bit(stringf("%s.%s", name.c_str(), param.second.as_string().c_str()));
+            }
+        }
+        pop();
+    }
     // Write out FASM for unused bels where needed
     void write_unused()
     {
@@ -654,6 +708,8 @@ struct NexusFasmWriter
                      ci->type == id_MULT18X36_CORE || ci->type == id_MULT36_CORE || ci->type == id_REG18_CORE ||
                      ci->type == id_ACC54_CORE)
                 write_dsp(ci);
+            else if (ci->type == id_PLL_CORE)
+                write_pll(ci);
             blank();
         }
         // Write config for unused bels

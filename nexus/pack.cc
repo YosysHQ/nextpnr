@@ -681,7 +681,8 @@ struct NexusPacker
         std::unordered_set<BelId> seen_bels;
 
         BelId bel = get_bel_attr(cell);
-        NPNR_ASSERT(bel != BelId());
+        if (bel == BelId())
+            return;
         WireId start_wire = ctx->getBelPinWire(bel, port);
         NPNR_ASSERT(start_wire != WireId());
         PortType dir = ctx->getBelPinType(bel, port);
@@ -899,6 +900,8 @@ struct NexusPacker
                     did_something |= preplace_singleton(ci);
                 else if (ci->type == id_DCC)
                     did_something |= preplace_prim(ci, id_CLKI, false);
+                else if (ci->type == id_PLL_CORE)
+                    did_something |= preplace_prim(ci, id_REFCK, false);
             }
         }
     }
@@ -1023,6 +1026,7 @@ struct NexusPacker
         static const std::unordered_map<IdString, IdString> prim_map = {
                 {id_OSCA, id_OSC_CORE},          {id_DP16K, id_DP16K_MODE}, {id_PDP16K, id_PDP16K_MODE},
                 {id_PDPSC16K, id_PDPSC16K_MODE}, {id_SP16K, id_SP16K_MODE}, {id_FIFO16K, id_FIFO16K_MODE},
+                {id_PLL, id_PLL_CORE},
         };
 
         for (auto cell : sorted(ctx->cells)) {
@@ -1723,6 +1727,16 @@ struct NexusPacker
             changed_nets.insert(net.first);
         }
 
+        auto get_period = [&](CellInfo *ci, IdString port, delay_t &period) {
+            if (!ci->ports.count(port))
+                return false;
+            NetInfo *from = ci->ports.at(port).net;
+            if (from == nullptr || from->clkconstr == nullptr)
+                return false;
+            period = from->clkconstr->period.min_delay;
+            return true;
+        };
+
         auto set_period = [&](CellInfo *ci, IdString port, delay_t period) {
             if (!ci->ports.count(port))
                 return;
@@ -1784,7 +1798,7 @@ struct NexusPacker
             std::unordered_set<IdString> changed_cells;
             for (auto net : changed_nets) {
                 for (auto &user : ctx->nets.at(net)->users)
-                    if (user.port == id_CLKI)
+                    if (user.port == id_CLKI || user.port == id_REFCK)
                         changed_cells.insert(user.cell->name);
                 auto &drv = ctx->nets.at(net)->driver;
                 if (iter == 1 && drv.cell != nullptr && (drv.port == id_HFCLKOUT || drv.port == id_LFCLKOUT))
@@ -1799,7 +1813,64 @@ struct NexusPacker
                     int div = int_or_default(ci->params, ctx->id("HF_CLK_DIV"), 128);
                     set_period(ci, id_HFCLKOUT, delay_t((1.0e6 / 450) * (div + 1)));
                     set_period(ci, id_LFCLKOUT, delay_t((1.0e3 / 10)));
+                } else if (ci->type == id_PLL_CORE) {
+                    static const std::array<IdString, 6> div{id_DIVA, id_DIVB, id_DIVC, id_DIVD, id_DIVE, id_DIVF};
+                    static const std::array<IdString, 6> output{id_CLKOP,  id_CLKOS,  id_CLKOS2,
+                                                                id_CLKOS3, id_CLKOS4, id_CLKOS5};
+
+                    delay_t period_in;
+                    if (!get_period(ci, id_REFCK, period_in))
+                        continue;
+                    log_info("    Input frequency of PLL '%s' is constrained to %.1f MHz\n", ci->name.c_str(ctx),
+                             MHz(period_in));
+
+                    int input_div = ctx->parse_lattice_param(ci, id_REF_MMD_DIG, 8, 1).as_int64();
+                    period_in *= input_div;
+                    int feedback_div = ctx->parse_lattice_param(ci, id_REF_MMD_DIG, 8, 1).as_int64();
+                    bool found_fbk = false;
+                    std::string clkmux_fb = str_or_default(ci->params, id_CLKMUX_FB, "CMUX_CLKOP");
+                    for (int i = 0; i < 6; i++) {
+                        // Find which output is being used for feedback
+                        if (clkmux_fb != stringf("CMUX_%s", output[i].c_str(ctx)))
+                            continue;
+                        // Multiply feedback output divider with
+                        feedback_div *= (ctx->parse_lattice_param(ci, div[i], 7, 0).as_int64() + 1);
+                        found_fbk = true;
+                    }
+                    if (!found_fbk) {
+                        log_warning("Unable to determine feedback path, skipping PLL timing constraint derivation for "
+                                    "'%s'\n",
+                                    ctx->nameOf(ci));
+                        continue;
+                    }
+                    delay_t vco_period = period_in / feedback_div;
+                    log_info("    Derived VCO frequency of PLL '%s' is %.1f MHz\n", ci->name.c_str(ctx),
+                             MHz(vco_period));
+                    for (int i = 0; i < 6; i++) {
+                        set_period(ci, output[i],
+                                   (ctx->parse_lattice_param(ci, div[i], 7, 0).as_int64() + 1) * vco_period);
+                    }
                 }
+            }
+        }
+    }
+
+    void pack_plls()
+    {
+        const std::unordered_map<IdString, std::string> pll_defaults = {
+                {id_FLOCK_CTRL, "2X"},     {id_FLOCK_EN, "ENABLED"}, {id_FLOCK_SRC_SEL, "REFCLK"},
+                {id_DIV_DEL, "0b0000001"}, {id_FBK_PI_RC, "0b1100"}, {id_FBK_PR_IC, "0b1000"},
+        };
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (ci->type == id_PLL_CORE) {
+                // Extra log to phys rules
+                rename_port(ctx, ci, id_PLLPOWERDOWN_N, id_PLLPDN);
+                rename_port(ctx, ci, id_LMMIWRRD_N, id_LMMIWRRDN);
+                rename_port(ctx, ci, id_LMMIRESET_N, id_LMMIRESETN);
+                for (auto &defparam : pll_defaults)
+                    if (!ci->params.count(defparam.first))
+                        ci->params[defparam.first] = defparam.second;
             }
         }
     }
@@ -1816,6 +1887,7 @@ struct NexusPacker
         pack_carries();
         pack_widefn();
         pack_ffs();
+        pack_plls();
         pack_constants();
         pack_luts();
         promote_globals();
