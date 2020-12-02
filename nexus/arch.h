@@ -1363,7 +1363,7 @@ struct Arch : BaseCtx
 
     // for better DSP bounding boxes
     void pre_routing();
-    std::unordered_set<WireId> dsp_wires;
+    std::unordered_set<WireId> dsp_wires, lram_wires;
 
     // -------------------------------------------------
 

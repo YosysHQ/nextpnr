@@ -596,6 +596,22 @@ struct NexusFasmWriter
         }
         pop();
     }
+    // Write out config for an LRAM_CORE cell
+    void write_lram(const CellInfo *cell)
+    {
+        BelId bel = cell->bel;
+        push_bel(bel);
+        write_enum(cell, "ASYNC_RST_RELEASE", "SYNC");
+        write_enum(cell, "EBR_SP_EN", "DISABLE");
+        write_enum(cell, "ECC_BYTE_SEL", "ECC_EN");
+        write_enum(cell, "GSR", "DISABLED");
+        write_enum(cell, "OUT_REGMODE_A", "NO_REG");
+        write_enum(cell, "OUT_REGMODE_B", "NO_REG");
+        write_enum(cell, "RESETMODE", "SYNC");
+        write_enum(cell, "UNALIGNED_READ", "DISABLE");
+        write_cell_muxes(cell);
+        pop();
+    }
     // Write out FASM for unused bels where needed
     void write_unused()
     {
@@ -710,6 +726,8 @@ struct NexusFasmWriter
                 write_dsp(ci);
             else if (ci->type == id_PLL_CORE)
                 write_pll(ci);
+            else if (ci->type == id_LRAM_CORE)
+                write_lram(ci);
             blank();
         }
         // Write config for unused bels
