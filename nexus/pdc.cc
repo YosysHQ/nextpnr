@@ -199,6 +199,10 @@ struct PDCParser
             return cmd_get_ports(arguments);
         else if (cmd == "get_cells")
             return cmd_get_cells(arguments);
+        else if (cmd == "get_nets")
+            return cmd_get_nets(arguments);
+        else if (cmd == "create_clock")
+            return cmd_create_clock(arguments);
         else if (cmd == "ldc_set_location")
             return cmd_ldc_set_location(arguments);
         else if (cmd == "ldc_set_port")
@@ -227,6 +231,25 @@ struct PDCParser
         }
         skip_blank(true);
         return args;
+    }
+
+    TCLValue cmd_get_nets(const std::vector<TCLValue> &arguments)
+    {
+        std::vector<TCLEntity> nets;
+        for (int i = 1; i < int(arguments.size()); i++) {
+            auto &arg = arguments.at(i);
+            if (!arg.is_string)
+                log_error("get_nets expected string arguments (line %d)\n", lineno);
+            std::string s = arg.str;
+            if (s.at(0) == '-')
+                log_error("unsupported argument '%s' to get_nets (line %d)\n", s.c_str(), lineno);
+            IdString id = ctx->id(s);
+            if (ctx->nets.count(id) || ctx->net_aliases.count(id))
+                nets.emplace_back(TCLEntity::ENTITY_NET, ctx->net_aliases.count(id) ? ctx->net_aliases.at(id) : id);
+            else
+                log_warning("get_nets argument '%s' matched no objects.\n", s.c_str());
+        }
+        return nets;
     }
 
     TCLValue cmd_get_ports(const std::vector<TCLValue> &arguments)
@@ -261,6 +284,44 @@ struct PDCParser
                 cells.emplace_back(TCLEntity::ENTITY_CELL, id);
         }
         return cells;
+    }
+
+    TCLValue cmd_create_clock(const std::vector<TCLValue> &arguments)
+    {
+        float period = 10;
+        for (int i = 1; i < int(arguments.size()); i++) {
+            auto &arg = arguments.at(i);
+            if (arg.is_string) {
+                std::string s = arg.str;
+                if (s == "-period") {
+                    i++;
+                    auto &val = arguments.at(i);
+                    if (!val.is_string)
+                        log_error("expecting string argument to -period (line %d)\n", lineno);
+                    try {
+                        period = std::stof(val.str);
+                    } catch (std::exception &e) {
+                        log_error("invalid argument '%s' to -period (line %d)\n", val.str.c_str(), lineno);
+                    }
+                } else if (s == "-name") {
+                    i++;
+                } else {
+                    log_error("unsupported argument '%s' to create_clock\n", s.c_str());
+                }
+            } else {
+                for (const auto &ety : arg.list) {
+                    NetInfo *net = nullptr;
+                    if (ety.type == TCLEntity::ENTITY_NET)
+                        net = ctx->nets.at(ety.name).get();
+                    else if (ety.type == TCLEntity::ENTITY_PORT)
+                        net = ctx->ports.at(ety.name).net;
+                    else
+                        log_error("create_clock applies only to cells or IO ports (line %d)\n", lineno);
+                    ctx->addClock(net->name, 1000.0f / period);
+                }
+            }
+        }
+        return std::string{};
     }
 
     TCLValue cmd_ldc_set_location(const std::vector<TCLValue> &arguments)
