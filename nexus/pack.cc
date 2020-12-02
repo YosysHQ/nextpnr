@@ -1709,6 +1709,101 @@ struct NexusPacker
         }
     }
 
+    void generate_constraints()
+    {
+        log_info("Generating derived timing constraints...\n");
+        auto MHz = [&](delay_t a) { return 1000.0 / ctx->getDelayNS(a); };
+
+        auto equals_epsilon = [](delay_t a, delay_t b) { return (std::abs(a - b) / std::max(double(b), 1.0)) < 1e-3; };
+
+        std::unordered_set<IdString> user_constrained, changed_nets;
+        for (auto &net : ctx->nets) {
+            if (net.second->clkconstr != nullptr)
+                user_constrained.insert(net.first);
+            changed_nets.insert(net.first);
+        }
+
+        auto set_period = [&](CellInfo *ci, IdString port, delay_t period) {
+            if (!ci->ports.count(port))
+                return;
+            NetInfo *to = ci->ports.at(port).net;
+            if (to == nullptr)
+                return;
+            if (to->clkconstr != nullptr) {
+                if (!equals_epsilon(to->clkconstr->period.min_delay, period) && user_constrained.count(to->name))
+                    log_warning(
+                            "    Overriding derived constraint of %.1f MHz on net %s with user-specified constraint of "
+                            "%.1f MHz.\n",
+                            MHz(to->clkconstr->period.min_delay), to->name.c_str(ctx), MHz(period));
+                return;
+            }
+            to->clkconstr = std::unique_ptr<ClockConstraint>(new ClockConstraint());
+            to->clkconstr->low.min_delay = period / 2;
+            to->clkconstr->low.max_delay = period / 2;
+            to->clkconstr->high.min_delay = period / 2;
+            to->clkconstr->high.max_delay = period / 2;
+            to->clkconstr->period.min_delay = period;
+            to->clkconstr->period.max_delay = period;
+            log_info("    Derived frequency constraint of %.1f MHz for net %s\n", MHz(to->clkconstr->period.min_delay),
+                     to->name.c_str(ctx));
+            changed_nets.insert(to->name);
+        };
+
+        auto copy_constraint = [&](CellInfo *ci, IdString fromPort, IdString toPort, double ratio = 1.0) {
+            if (!ci->ports.count(fromPort) || !ci->ports.count(toPort))
+                return;
+            NetInfo *from = ci->ports.at(fromPort).net, *to = ci->ports.at(toPort).net;
+            if (from == nullptr || from->clkconstr == nullptr || to == nullptr)
+                return;
+            if (to->clkconstr != nullptr) {
+                if (!equals_epsilon(to->clkconstr->period.min_delay,
+                                    delay_t(from->clkconstr->period.min_delay / ratio)) &&
+                    user_constrained.count(to->name))
+                    log_warning(
+                            "    Overriding derived constraint of %.1f MHz on net %s with user-specified constraint of "
+                            "%.1f MHz.\n",
+                            MHz(to->clkconstr->period.min_delay), to->name.c_str(ctx),
+                            MHz(delay_t(from->clkconstr->period.min_delay / ratio)));
+                return;
+            }
+            to->clkconstr = std::unique_ptr<ClockConstraint>(new ClockConstraint());
+            to->clkconstr->low = ctx->getDelayFromNS(ctx->getDelayNS(from->clkconstr->low.min_delay) / ratio);
+            to->clkconstr->high = ctx->getDelayFromNS(ctx->getDelayNS(from->clkconstr->high.min_delay) / ratio);
+            to->clkconstr->period = ctx->getDelayFromNS(ctx->getDelayNS(from->clkconstr->period.min_delay) / ratio);
+            log_info("    Derived frequency constraint of %.1f MHz for net %s\n", MHz(to->clkconstr->period.min_delay),
+                     to->name.c_str(ctx));
+            changed_nets.insert(to->name);
+        };
+
+        // Run in a loop while constraints are changing to deal with dependencies
+        // Iteration limit avoids hanging in crazy loopback situation (self-fed PLLs or dividers, etc)
+        int iter = 0;
+        const int itermax = 5000;
+        while (!changed_nets.empty() && iter < itermax) {
+            ++iter;
+            std::unordered_set<IdString> changed_cells;
+            for (auto net : changed_nets) {
+                for (auto &user : ctx->nets.at(net)->users)
+                    if (user.port == id_CLKI)
+                        changed_cells.insert(user.cell->name);
+                auto &drv = ctx->nets.at(net)->driver;
+                if (iter == 1 && drv.cell != nullptr && (drv.port == id_HFCLKOUT || drv.port == id_LFCLKOUT))
+                    changed_cells.insert(drv.cell->name);
+            }
+            changed_nets.clear();
+            for (auto cell : sorted(changed_cells)) {
+                CellInfo *ci = ctx->cells.at(cell).get();
+                if (ci->type == id_DCC) {
+                    copy_constraint(ci, id_CLKI, id_CLKO, 1);
+                } else if (ci->type == id_OSC_CORE) {
+                    int div = int_or_default(ci->params, ctx->id("HF_CLK_DIV"), 128);
+                    set_period(ci, id_HFCLKOUT, delay_t((1.0e6 / 450) * (div + 1)));
+                    set_period(ci, id_LFCLKOUT, delay_t((1.0e3 / 10)));
+                }
+            }
+        }
+    }
+
     explicit NexusPacker(Context *ctx) : ctx(ctx) {}
 
     void operator()()
@@ -1725,6 +1820,7 @@ struct NexusPacker
         pack_luts();
         promote_globals();
         place_globals();
+        generate_constraints();
     }
 };
 
