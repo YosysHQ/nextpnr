@@ -459,49 +459,99 @@ uint32_t Context::checksum() const
 
 void Context::check() const
 {
+    bool check_failed = false;
+
+#define CHECK_FAIL(...)                                                                                                \
+    do {                                                                                                               \
+        log_nonfatal_error(__VA_ARGS__);                                                                               \
+        check_failed = true;                                                                                           \
+    } while (false)
+
     for (auto &n : nets) {
         auto ni = n.second.get();
-        NPNR_ASSERT(n.first == ni->name);
+        if (n.first != ni->name)
+            CHECK_FAIL("net key '%s' not equal to name '%s'\n", nameOf(n.first), nameOf(ni->name));
         for (auto &w : ni->wires) {
-            NPNR_ASSERT(ni == getBoundWireNet(w.first));
+            if (ni != getBoundWireNet(w.first))
+                CHECK_FAIL("net '%s' not bound to wire '%s' in wires map\n", nameOf(n.first), nameOfWire(w.first));
             if (w.second.pip != PipId()) {
-                NPNR_ASSERT(w.first == getPipDstWire(w.second.pip));
-                NPNR_ASSERT(ni == getBoundPipNet(w.second.pip));
+                if (w.first != getPipDstWire(w.second.pip))
+                    CHECK_FAIL("net '%s' has dest mismatch '%s' vs '%s' in for pip '%s'\n", nameOf(n.first),
+                               nameOfWire(w.first), nameOfWire(getPipDstWire(w.second.pip)), nameOfPip(w.second.pip));
+                if (ni != getBoundPipNet(w.second.pip))
+                    CHECK_FAIL("net '%s' not bound to pip '%s' in wires map\n", nameOf(n.first),
+                               nameOfPip(w.second.pip));
             }
         }
-        if (ni->driver.cell != nullptr)
-            NPNR_ASSERT(ni->driver.cell->ports.at(ni->driver.port).net == ni);
+        if (ni->driver.cell != nullptr) {
+            if (!ni->driver.cell->ports.count(ni->driver.port)) {
+                CHECK_FAIL("net '%s' driver port '%s' missing on cell '%s'\n", nameOf(n.first), nameOf(ni->driver.port),
+                           nameOf(ni->driver.cell));
+            } else {
+                const NetInfo *p_net = ni->driver.cell->ports.at(ni->driver.port).net;
+                if (p_net != ni)
+                    CHECK_FAIL("net '%s' driver port '%s.%s' connected to incorrect net '%s'\n", nameOf(n.first),
+                               nameOf(ni->driver.cell), nameOf(ni->driver.port), p_net ? nameOf(p_net) : "<nullptr>");
+            }
+        }
         for (auto user : ni->users) {
-            NPNR_ASSERT(user.cell->ports.at(user.port).net == ni);
+            if (!user.cell->ports.count(user.port)) {
+                CHECK_FAIL("net '%s' user port '%s' missing on cell '%s'\n", nameOf(n.first), nameOf(user.port),
+                           nameOf(user.cell));
+            } else {
+                const NetInfo *p_net = user.cell->ports.at(user.port).net;
+                if (p_net != ni)
+                    CHECK_FAIL("net '%s' user port '%s.%s' connected to incorrect net '%s'\n", nameOf(n.first),
+                               nameOf(user.cell), nameOf(user.port), p_net ? nameOf(p_net) : "<nullptr>");
+            }
         }
     }
-
+#ifdef CHECK_WIRES
     for (auto w : getWires()) {
         auto ni = getBoundWireNet(w);
         if (ni != nullptr) {
-            NPNR_ASSERT(ni->wires.count(w));
+            if (!ni->wires.count(w))
+                CHECK_FAIL("wire '%s' missing in wires map of bound net '%s'\n", nameOfWire(w), nameOf(ni));
         }
     }
-
+#endif
     for (auto &c : cells) {
         auto ci = c.second.get();
-        NPNR_ASSERT(c.first == ci->name);
-        if (ci->bel != BelId())
-            NPNR_ASSERT(getBoundBelCell(c.second->bel) == ci);
+        if (c.first != ci->name)
+            CHECK_FAIL("cell key '%s' not equal to name '%s'\n", nameOf(c.first), nameOf(ci->name));
+        if (ci->bel != BelId()) {
+            if (getBoundBelCell(c.second->bel) != ci)
+                CHECK_FAIL("cell '%s' not bound to bel '%s' in bel field\n", nameOf(c.first), nameOfBel(ci->bel));
+        }
         for (auto &port : c.second->ports) {
             NetInfo *net = port.second.net;
             if (net != nullptr) {
-                NPNR_ASSERT(nets.find(net->name) != nets.end());
-                if (port.second.type == PORT_OUT) {
-                    NPNR_ASSERT(net->driver.cell == c.second.get() && net->driver.port == port.first);
+                if (nets.find(net->name) == nets.end()) {
+                    CHECK_FAIL("cell port '%s.%s' connected to non-existent net '%s'\n", nameOf(c.first),
+                               nameOf(port.first), nameOf(net->name));
+                } else if (port.second.type == PORT_OUT) {
+                    if (net->driver.cell != c.second.get() || net->driver.port != port.first) {
+                        CHECK_FAIL("output cell port '%s.%s' not in driver field of net '%s'\n", nameOf(c.first),
+                                   nameOf(port.first), nameOf(net));
+                    }
                 } else if (port.second.type == PORT_IN) {
-                    NPNR_ASSERT(std::count_if(net->users.begin(), net->users.end(), [&](const PortRef &pr) {
-                                    return pr.cell == c.second.get() && pr.port == port.first;
-                                }) == 1);
+                    int usr_count = std::count_if(net->users.begin(), net->users.end(), [&](const PortRef &pr) {
+                        return pr.cell == c.second.get() && pr.port == port.first;
+                    });
+                    if (usr_count != 1)
+                        CHECK_FAIL("input cell port '%s.%s' appears %d rather than expected 1 times in users vector of "
+                                   "net '%s'\n",
+                                   nameOf(c.first), nameOf(port.first), usr_count, nameOf(net));
                 }
             }
         }
     }
+
+#undef CHECK_FAIL
+
+    if (check_failed)
+        log_error("INTERNAL CHECK FAILED: please report this error with the design and full log output. Failure "
+                  "details are above this message.\n");
 }
 
 void BaseCtx::addClock(IdString net, float freq)

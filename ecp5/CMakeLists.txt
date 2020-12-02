@@ -52,7 +52,7 @@ else()
         if(WIN32)
             set(pytrellis_lib pytrellis.pyd)
         else()
-            set(pytrellis_lib pytrellis${CMAKE_SHARED_LIBRARY_SUFFIX})
+            set(pytrellis_lib pytrellis${CMAKE_SHARED_MODULE_SUFFIX})
         endif()
 
         find_path(TRELLIS_LIBDIR ${pytrellis_lib}

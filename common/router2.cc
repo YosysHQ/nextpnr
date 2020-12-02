@@ -50,6 +50,7 @@ struct Router2
         WireId sink_wire;
         ArcBounds bb;
         bool routed = false;
+        float arc_crit = 0;
     };
 
     // As we allow overlap at first; the nextpnr bind functions can't be used
@@ -85,6 +86,8 @@ struct Router2
         bool unavailable = false;
         // This wire has to be used for this net
         int reserved_net = -1;
+        // The notional location of the wire, to guarantee thread safety
+        int16_t x = 0, y = 0;
         // Visit data
         struct
         {
@@ -113,6 +116,8 @@ struct Router2
     // Use 'udata' for fast net lookups and indexing
     std::vector<NetInfo *> nets_by_udata;
     std::vector<PerNetData> nets;
+
+    bool timing_driven;
 
     // Criticality data from timing analysis
     NetCriticalityMap net_crit;
@@ -200,6 +205,11 @@ struct Router2
                 if (bound->wires.at(wire).strength > STRENGTH_STRONG)
                     pwd.unavailable = true;
             }
+
+            ArcBounds wire_loc = ctx->getRouteBoundingBox(wire, wire);
+            pwd.x = (wire_loc.x0 + wire_loc.x1) / 2;
+            pwd.y = (wire_loc.y0 + wire_loc.y1) / 2;
+
             wire_to_idx[wire] = int(flat_wires.size());
             flat_wires.push_back(pwd);
         }
@@ -254,7 +264,17 @@ struct Router2
         std::queue<int> backwards_queue;
 
         std::vector<int> dirty_wires;
+
+        // Thread bounding box
+        ArcBounds bb;
+
+        DeterministicRNG rng;
     };
+
+    bool thread_test_wire(ThreadContext &t, PerWireData &w)
+    {
+        return w.x >= t.bb.x0 && w.x <= t.bb.x1 && w.y >= t.bb.y0 && w.y <= t.bb.y1;
+    }
 
     enum ArcRouteResult
     {
@@ -325,6 +345,15 @@ struct Router2
         int source_uses = 0;
         if (wd.bound_nets.count(net->udata))
             source_uses = wd.bound_nets.at(net->udata).first;
+        if (timing_driven) {
+            float max_bound_crit = 0;
+            for (auto &bound : wd.bound_nets)
+                if (bound.first != net->udata)
+                    max_bound_crit = std::max(max_bound_crit, nets.at(bound.first).max_crit);
+            if (max_bound_crit >= 0.8 && nd.arcs.at(user).arc_crit < (max_bound_crit + 0.01)) {
+                present_cost *= 1.5;
+            }
+        }
         if (pip != PipId()) {
             Loc pl = ctx->getPipLocation(pip);
             bias_cost = cfg.bias_cost_factor * (base_cost / int(net->users.size())) *
@@ -530,6 +559,8 @@ struct Router2
                     continue;
                 if (wd.bound_nets.size() > 1 || (wd.bound_nets.size() == 1 && !wd.bound_nets.count(net->udata)))
                     continue; // never allow congestion in backwards routing
+                if (!thread_test_wire(t, wd))
+                    continue; // thread safety issue
                 t.backwards_queue.push(next);
                 set_visited(t, next, uh, WireScore());
             }
@@ -615,6 +646,8 @@ struct Router2
                     continue;
                 if (nwd.bound_nets.count(net->udata) && nwd.bound_nets.at(net->udata).second != dh)
                     continue;
+                if (!thread_test_wire(t, nwd))
+                    continue; // thread safety issue
                 WireScore next_score;
                 next_score.cost = curr.score.cost + score_wire_for_arc(net, i, next, dh);
                 next_score.delay =
@@ -628,7 +661,7 @@ struct Router2
                                   next_score.togo_cost);
 #endif
                     // Add wire to queue if it meets criteria
-                    t.queue.push(QueuedWire(next_idx, dh, ctx->getPipLocation(dh), next_score, ctx->rng()));
+                    t.queue.push(QueuedWire(next_idx, dh, ctx->getPipLocation(dh), next_score, t.rng.rng()));
                     set_visited(t, next_idx, dh, next_score);
                     if (next == dst_wire) {
                         toexplore = std::min(toexplore, iter + 5);
@@ -774,8 +807,11 @@ struct Router2
         if (dst == WireId() || ctx->getBoundWireNet(dst) == net)
             return true;
         // Skip routes where there is no routing (special cases)
-        if (!ad.routed)
+        if (!ad.routed) {
+            if ((src == dst) && ctx->getBoundWireNet(dst) != net)
+                ctx->bindWire(src, net, STRENGTH_WEAK);
             return true;
+        }
 
         WireId cursor = dst;
 
@@ -945,6 +981,8 @@ struct Router2
         // Don't multithread if fewer than 200 nets (heuristic)
         if (route_queue.size() < 200) {
             ThreadContext st;
+            st.rng.rngseed(ctx->rng64());
+            st.bb = ArcBounds(0, 0, std::numeric_limits<int>::max(), std::numeric_limits<int>::max());
             for (size_t j = 0; j < route_queue.size(); j++) {
                 route_net(st, nets_by_udata[route_queue[j]], false);
             }
@@ -953,14 +991,32 @@ struct Router2
         const int Nq = 4, Nv = 2, Nh = 2;
         const int N = Nq + Nv + Nh;
         std::vector<ThreadContext> tcs(N + 1);
+        for (auto &th : tcs) {
+            th.rng.rngseed(ctx->rng64());
+        }
+        int le_x = mid_x - cfg.bb_margin_x;
+        int rs_x = mid_x + cfg.bb_margin_x;
+        int le_y = mid_y - cfg.bb_margin_y;
+        int rs_y = mid_y + cfg.bb_margin_y;
+        // Set up thread bounding boxes
+        tcs.at(0).bb = ArcBounds(0, 0, mid_x, mid_y);
+        tcs.at(1).bb = ArcBounds(mid_x + 1, 0, std::numeric_limits<int>::max(), le_y);
+        tcs.at(2).bb = ArcBounds(0, mid_y + 1, mid_x, std::numeric_limits<int>::max());
+        tcs.at(3).bb =
+                ArcBounds(mid_x + 1, mid_y + 1, std::numeric_limits<int>::max(), std::numeric_limits<int>::max());
+
+        tcs.at(4).bb = ArcBounds(0, 0, std::numeric_limits<int>::max(), mid_y);
+        tcs.at(5).bb = ArcBounds(0, mid_y + 1, std::numeric_limits<int>::max(), std::numeric_limits<int>::max());
+
+        tcs.at(6).bb = ArcBounds(0, 0, mid_x, std::numeric_limits<int>::max());
+        tcs.at(7).bb = ArcBounds(mid_x + 1, 0, std::numeric_limits<int>::max(), std::numeric_limits<int>::max());
+
+        tcs.at(8).bb = ArcBounds(0, 0, std::numeric_limits<int>::max(), std::numeric_limits<int>::max());
+
         for (auto n : route_queue) {
             auto &nd = nets.at(n);
             auto ni = nets_by_udata.at(n);
             int bin = N;
-            int le_x = mid_x - cfg.bb_margin_x;
-            int rs_x = mid_x + cfg.bb_margin_x;
-            int le_y = mid_y - cfg.bb_margin_y;
-            int rs_y = mid_y + cfg.bb_margin_y;
             // Quadrants
             if (nd.bb.x0 < le_x && nd.bb.x1 < le_x && nd.bb.y0 < le_y && nd.bb.y1 < le_y)
                 bin = 0;
@@ -1048,7 +1104,7 @@ struct Router2
         for (size_t i = 0; i < nets_by_udata.size(); i++)
             route_queue.push_back(i);
 
-        bool timing_driven = ctx->setting<bool>("timing_driven");
+        timing_driven = ctx->setting<bool>("timing_driven");
         log_info("Running main router loop...\n");
         do {
             ctx->sorted_shuffle(route_queue);
@@ -1064,8 +1120,11 @@ struct Router2
                     net.max_crit = 0;
                     if (fnd == net_crit.end())
                         continue;
-                    for (auto c : fnd->second.criticality)
+                    for (int i = 0; i < int(fnd->second.criticality.size()); i++) {
+                        float c = fnd->second.criticality.at(i);
+                        net.arcs.at(i).arc_crit = c;
                         net.max_crit = std::max(net.max_crit, c);
+                    }
                 }
                 std::stable_sort(route_queue.begin(), route_queue.end(),
                                  [&](int na, int nb) { return nets.at(na).max_crit > nets.at(nb).max_crit; });

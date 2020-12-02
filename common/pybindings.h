@@ -23,8 +23,8 @@
 
 #include <Python.h>
 #include <iostream>
-#include <pybind11/pybind11.h>
 #include <pybind11/embed.h>
+#include <pybind11/pybind11.h>
 #include <stdexcept>
 #include <utility>
 #include "pycontainers.h"
@@ -36,7 +36,6 @@ NEXTPNR_NAMESPACE_BEGIN
 
 namespace py = pybind11;
 
-
 std::string parse_python_exception();
 
 template <typename Tn> void python_export_global(const char *name, Tn &x)
@@ -44,7 +43,7 @@ template <typename Tn> void python_export_global(const char *name, Tn &x)
     try {
         py::object obj = py::cast(x, py::return_value_policy::reference);
         py::module::import("__main__").attr(name) = obj.ptr();
-    } catch (pybind11::error_already_set  &) {
+    } catch (pybind11::error_already_set &) {
         // Parse and output the exception
         std::string perror_str = parse_python_exception();
         std::cout << "Error in Python: " << perror_str << std::endl;

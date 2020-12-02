@@ -7,6 +7,7 @@ tool.
 Currently nextpnr supports:
  * Lattice iCE40 devices supported by [Project IceStorm](http://www.clifford.at/icestorm/)
  * Lattice ECP5 devices supported by [Project Trellis](https://github.com/YosysHQ/prjtrellis)
+ * Lattice Nexus devices supported by [Project Oxide](https://github.com/daveshah1/prjoxide)
  * *(experimental)* a "generic" back-end for user-defined architectures
 
 There is some work in progress towards [support for Xilinx devices](https://github.com/daveshah1/nextpnr-xilinx/) but it is not upstream and not intended for end users at the present time. We hope to see more FPGA families supported in the future. We would love your help in developing this awesome new project!
@@ -96,13 +97,26 @@ such as pack, place, route, and write output files.)
 For ECP5 support, install [Project Trellis](https://github.com/YosysHQ/prjtrellis) to `/usr/local` or another location, which should be passed as `-DTRELLIS_INSTALL_PREFIX=/usr/local` to CMake. Then build and install `nextpnr-ecp5` using the following commands:
 
 ```
-cmake . -DARCH=ecp5 -DTRELLIS_INSTALL_PREFIX=/usr
+cmake . -DARCH=ecp5 -DTRELLIS_INSTALL_PREFIX=/usr/local
 make -j$(nproc)
 sudo make install
 ```
 
  - Examples of the ECP5 flow for a range of boards can be found in the [Project Trellis Examples](https://github.com/YosysHQ/prjtrellis/tree/master/examples).
 
+### nextpnr-nexus
+
+For Nexus support, install [Project Oxide](https://github.com/daveshah1/prjoxide) to `$HOME/.cargo` or another location, which should be passed as `-DOXIDE_INSTALL_PREFIX=$HOME/.cargo` to CMake. Then build and install `nextpnr-nexus` using the following commands:
+
+```
+cmake . -DARCH=nexus -DOXIDE_INSTALL_PREFIX=$HOME/.cargo
+make -j$(nproc)
+sudo make install
+```
+
+ - Examples of the Nexus flow for a range of boards can be found in the [Project Oxide Examples](https://github.com/daveshah1/prjoxide/tree/master/examples).
+
+Nexus support is currently experimental, and has only been tested with engineering sample silicon.
 
 ### nextpnr-generic
 
@@ -126,7 +140,7 @@ make -j$(nproc)
 sudo make install
 ```
 
-To build every available architecture, use `-DARCH=all`.
+To build every available stable architecture, use `-DARCH=all`. To include experimental arches (currently nexus), use `-DARCH=all+alpha`.
 
 Pre-generating chip databases
 -----------------------------

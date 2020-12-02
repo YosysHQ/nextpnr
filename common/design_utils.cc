@@ -30,6 +30,13 @@ void replace_port(CellInfo *old_cell, IdString old_name, CellInfo *rep_cell, IdS
     if (!old_cell->ports.count(old_name))
         return;
     PortInfo &old = old_cell->ports.at(old_name);
+
+    // Create port on the replacement cell if it doesn't already exist
+    if (!rep_cell->ports.count(rep_name)) {
+        rep_cell->ports[rep_name].name = rep_name;
+        rep_cell->ports[rep_name].type = old.type;
+    }
+
     PortInfo &rep = rep_cell->ports.at(rep_name);
     NPNR_ASSERT(old.type == rep.type);
 
@@ -155,6 +162,35 @@ void rename_net(Context *ctx, NetInfo *net, IdString new_name)
     std::swap(ctx->nets[net->name], ctx->nets[new_name]);
     ctx->nets.erase(net->name);
     net->name = new_name;
+}
+
+void replace_bus(Context *ctx, CellInfo *old_cell, IdString old_name, int old_offset, bool old_brackets,
+                 CellInfo *new_cell, IdString new_name, int new_offset, bool new_brackets, int width)
+{
+    for (int i = 0; i < width; i++) {
+        IdString old_port = ctx->id(stringf(old_brackets ? "%s[%d]" : "%s%d", old_name.c_str(ctx), i + old_offset));
+        IdString new_port = ctx->id(stringf(new_brackets ? "%s[%d]" : "%s%d", new_name.c_str(ctx), i + new_offset));
+        replace_port(old_cell, old_port, new_cell, new_port);
+    }
+}
+
+void copy_port(Context *ctx, CellInfo *old_cell, IdString old_name, CellInfo *new_cell, IdString new_name)
+{
+    if (!old_cell->ports.count(old_name))
+        return;
+    new_cell->ports[new_name].name = new_name;
+    new_cell->ports[new_name].type = old_cell->ports.at(old_name).type;
+    connect_port(ctx, old_cell->ports.at(old_name).net, new_cell, new_name);
+}
+
+void copy_bus(Context *ctx, CellInfo *old_cell, IdString old_name, int old_offset, bool old_brackets,
+              CellInfo *new_cell, IdString new_name, int new_offset, bool new_brackets, int width)
+{
+    for (int i = 0; i < width; i++) {
+        IdString old_port = ctx->id(stringf(old_brackets ? "%s[%d]" : "%s%d", old_name.c_str(ctx), i + old_offset));
+        IdString new_port = ctx->id(stringf(new_brackets ? "%s[%d]" : "%s%d", new_name.c_str(ctx), i + new_offset));
+        copy_port(ctx, old_cell, old_port, new_cell, new_port);
+    }
 }
 
 NEXTPNR_NAMESPACE_END

@@ -103,11 +103,6 @@ fn_wrapper_1a<Context, decltype(&Context::getPipDstWire), &Context::getPipDstWir
 fn_wrapper_1a<Context, decltype(&Context::getPipDelay), &Context::getPipDelay, pass_through<DelayInfo>,
               conv_from_str<PipId>>::def_wrap(ctx_cls, "getPipDelay");
 
-fn_wrapper_1a<Context, decltype(&Context::getPackagePinBel), &Context::getPackagePinBel, conv_to_str<BelId>,
-              pass_through<std::string>>::def_wrap(ctx_cls, "getPackagePinBel");
-fn_wrapper_1a<Context, decltype(&Context::getBelPackagePin), &Context::getBelPackagePin, pass_through<std::string>,
-              conv_from_str<BelId>>::def_wrap(ctx_cls, "getBelPackagePin");
-
 fn_wrapper_0a<Context, decltype(&Context::getChipName), &Context::getChipName, pass_through<std::string>>::def_wrap(
         ctx_cls, "getChipName");
 fn_wrapper_0a<Context, decltype(&Context::archId), &Context::archId, conv_to_str<IdString>>::def_wrap(ctx_cls,

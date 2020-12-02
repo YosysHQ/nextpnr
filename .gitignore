@@ -3,6 +3,7 @@
 /nextpnr-generic*
 /nextpnr-ice40*
 /nextpnr-ecp5*
+/nextpnr-nexus*
 cmake-build-*/
 Makefile
 cmake_install.cmake
