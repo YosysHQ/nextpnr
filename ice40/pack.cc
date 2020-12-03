@@ -1073,6 +1073,43 @@ static BelId cell_place_unique(Context *ctx, CellInfo *ci)
     log_error("Unable to place cell '%s' of type '%s'\n", ci->name.c_str(ctx), ci->type.c_str(ctx));
 }
 
+namespace {
+float MHz(Context *ctx, delay_t a) { return 1000.0f / ctx->getDelayNS(a); };
+bool equals_epsilon(delay_t a, delay_t b) { return (std::abs(a - b) / std::max(double(b), 1.0)) < 1e-3; };
+void set_period(Context *ctx, CellInfo *ci, IdString port, delay_t period)
+{
+    if (!ci->ports.count(port))
+        return;
+    NetInfo *to = ci->ports.at(port).net;
+    if (to == nullptr)
+        return;
+    if (to->clkconstr != nullptr) {
+        if (!equals_epsilon(to->clkconstr->period.delay, period))
+            log_warning("    Overriding derived constraint of %.1f MHz on net %s with user-specified constraint of "
+                        "%.1f MHz.\n",
+                        MHz(ctx, to->clkconstr->period.delay), to->name.c_str(ctx), MHz(ctx, period));
+        return;
+    }
+    to->clkconstr = std::unique_ptr<ClockConstraint>(new ClockConstraint());
+    to->clkconstr->low.delay = period / 2;
+    to->clkconstr->high.delay = period / 2;
+    to->clkconstr->period.delay = period;
+    log_info("    Derived frequency constraint of %.1f MHz for net %s\n", MHz(ctx, to->clkconstr->period.delay),
+             to->name.c_str(ctx));
+};
+bool get_period(Context *ctx, CellInfo *ci, IdString port, delay_t &period)
+{
+    if (!ci->ports.count(port))
+        return false;
+    NetInfo *from = ci->ports.at(port).net;
+    if (from == nullptr || from->clkconstr == nullptr)
+        return false;
+    period = from->clkconstr->period.delay;
+    return true;
+};
+
+} // namespace
+
 // Pack special functions
 static void pack_special(Context *ctx)
 {
@@ -1101,31 +1138,6 @@ static void pack_special(Context *ctx)
             ctx->nets.erase(ledpu_net->name);
         }
     }
-
-    auto MHz = [&](delay_t a) { return 1000.0 / ctx->getDelayNS(a); };
-    auto equals_epsilon = [](delay_t a, delay_t b) { return (std::abs(a - b) / std::max(double(b), 1.0)) < 1e-3; };
-
-    auto set_period = [&](CellInfo *ci, IdString port, delay_t period) {
-        if (!ci->ports.count(port))
-            return;
-        NetInfo *to = ci->ports.at(port).net;
-        if (to == nullptr)
-            return;
-        if (to->clkconstr != nullptr) {
-            if (!equals_epsilon(to->clkconstr->period.delay, period))
-                log_warning("    Overriding derived constraint of %.1f MHz on net %s with user-specified constraint of "
-                            "%.1f MHz.\n",
-                            MHz(to->clkconstr->period.delay), to->name.c_str(ctx), MHz(period));
-            return;
-        }
-        to->clkconstr = std::unique_ptr<ClockConstraint>(new ClockConstraint());
-        to->clkconstr->low.delay = period / 2;
-        to->clkconstr->high.delay = period / 2;
-        to->clkconstr->period.delay = period;
-        log_info("    Derived frequency constraint of %.1f MHz for net %s\n", MHz(to->clkconstr->period.delay),
-                 to->name.c_str(ctx));
-    };
-
     for (auto cell : sorted(ctx->cells)) {
         CellInfo *ci = cell.second;
         if (is_sb_lfosc(ctx, ci)) {
@@ -1137,12 +1149,12 @@ static void pack_special(Context *ctx)
             replace_port(ci, ctx->id("CLKLFPU"), packed.get(), ctx->id("CLKLFPU"));
             if (bool_or_default(ci->attrs, ctx->id("ROUTE_THROUGH_FABRIC"))) {
                 replace_port(ci, ctx->id("CLKLF"), packed.get(), ctx->id("CLKLF_FABRIC"));
-                set_period(packed.get(), ctx->id("CLKLF_FABRIC"), 100000000); // 10kHz
+                set_period(ctx, packed.get(), ctx->id("CLKLF_FABRIC"), 100000000); // 10kHz
             } else {
                 replace_port(ci, ctx->id("CLKLF"), packed.get(), ctx->id("CLKLF"));
                 std::unique_ptr<CellInfo> gb =
                         create_padin_gbuf(ctx, packed.get(), ctx->id("CLKLF"), "$gbuf_" + ci->name.str(ctx) + "_lfosc");
-                set_period(gb.get(), id_GLOBAL_BUFFER_OUTPUT, 100000000); // 10kHz
+                set_period(ctx, gb.get(), id_GLOBAL_BUFFER_OUTPUT, 100000000); // 10kHz
                 new_cells.push_back(std::move(gb));
             }
             new_cells.push_back(std::move(packed));
@@ -1173,12 +1185,12 @@ static void pack_special(Context *ctx)
                 log_error("Invalid HFOSC divider value '%s' - expecting 0b00, 0b01, 0b10 or 0b11\n", div.c_str());
             if (bool_or_default(ci->attrs, ctx->id("ROUTE_THROUGH_FABRIC"))) {
                 replace_port(ci, ctx->id("CLKHF"), packed.get(), ctx->id("CLKHF_FABRIC"));
-                set_period(packed.get(), ctx->id("CLKHF_FABRIC"), 1000000 / frequency);
+                set_period(ctx, packed.get(), ctx->id("CLKHF_FABRIC"), 1000000 / frequency);
             } else {
                 replace_port(ci, ctx->id("CLKHF"), packed.get(), ctx->id("CLKHF"));
                 std::unique_ptr<CellInfo> gb =
                         create_padin_gbuf(ctx, packed.get(), ctx->id("CLKHF"), "$gbuf_" + ci->name.str(ctx) + "_hfosc");
-                set_period(gb.get(), id_GLOBAL_BUFFER_OUTPUT, 1000000 / frequency);
+                set_period(ctx, gb.get(), id_GLOBAL_BUFFER_OUTPUT, 1000000 / frequency);
                 new_cells.push_back(std::move(gb));
             }
             new_cells.push_back(std::move(packed));
@@ -1268,7 +1280,26 @@ static void pack_special(Context *ctx)
             IdString bel_name = ctx->getBelName(bel);
             ci->attrs[ctx->id("BEL")] = bel_name.str(ctx);
             log_info("  constrained %s '%s' to %s\n", ci->type.c_str(ctx), ci->name.c_str(ctx), bel_name.c_str(ctx));
-        } else if (is_sb_pll40(ctx, ci)) {
+        }
+    }
+
+    for (auto pcell : packed_cells) {
+        ctx->cells.erase(pcell);
+    }
+    for (auto &ncell : new_cells) {
+        ctx->cells[ncell->name] = std::move(ncell);
+    }
+}
+
+void pack_plls(Context *ctx)
+{
+    log_info("Packing PLLs..\n");
+
+    std::unordered_set<IdString> packed_cells;
+    std::vector<std::unique_ptr<CellInfo>> new_cells;
+    for (auto cell : sorted(ctx->cells)) {
+        CellInfo *ci = cell.second;
+        if (is_sb_pll40(ctx, ci)) {
             bool is_pad = is_sb_pll40_pad(ctx, ci);
             bool is_core = !is_pad;
 
@@ -1340,6 +1371,9 @@ static void pack_special(Context *ctx)
 
             NetInfo *pad_packagepin_net = nullptr;
 
+            bool got_input_constr = false;
+            delay_t input_constr = 0;
+
             for (auto port : ci->ports) {
                 PortInfo &pi = port.second;
                 std::string newname = pi.name.str(ctx);
@@ -1362,6 +1396,7 @@ static void pack_special(Context *ctx)
                         log_error("PLL '%s' has a PACKAGEPIN but is not a PAD PLL\n", ci->name.c_str(ctx));
                     } else {
                         // We drop this port and instead place the PLL adequately below.
+                        got_input_constr = get_period(ctx, ci, pi.name, input_constr);
                         pad_packagepin_net = port.second.net;
                         NPNR_ASSERT(pad_packagepin_net != nullptr);
                         continue;
@@ -1370,6 +1405,7 @@ static void pack_special(Context *ctx)
                 if (pi.name == ctx->id("REFERENCECLK")) {
                     if (!is_core)
                         log_error("PLL '%s' has a REFERENCECLK but is not a CORE PLL\n", ci->name.c_str(ctx));
+                    got_input_constr = get_period(ctx, ci, pi.name, input_constr);
                 }
 
                 if (packed->ports.count(ctx->id(newname)) == 0) {
@@ -1391,6 +1427,77 @@ static void pack_special(Context *ctx)
                 replace_port(ci, ctx->id(pi.name.c_str(ctx)), packed.get(), ctx->id(newname));
             }
 
+            // Compute derive constraints
+            if (got_input_constr) {
+                log_info("    Input frequency of PLL '%s' is constrained to %.1f MHz\n", ctx->nameOf(ci),
+                         MHz(ctx, input_constr));
+                // Input divider (DIVR)
+                input_constr *= (int_or_default(packed->params, ctx->id("DIVR"), 0) + 1);
+                delay_t vco_constr = 0;
+                delay_t outa_constr = 0, outb_constr = 0;
+                int sr_div = 4;
+                int divq = 0;
+
+                // For dealing with the various output modes
+                auto process_output = [&](IdString mode_param) {
+                    int mode = int_or_default(packed->params, mode_param, 0);
+                    switch (mode) {
+                    case 0: // GENCLK
+                        return vco_constr * divq;
+                    case 1: // GENCLK_HALF
+                        return vco_constr * divq * 2;
+                    case 2: // SHIFTREG_90deg
+                    case 3: // SHIFTREG_0deg
+                        return vco_constr * divq * sr_div;
+                    default:
+                        NPNR_ASSERT_FALSE("bad PLL output mode");
+                    }
+                };
+
+                // Lookup shiftreg divider
+                int sr_div_mode = int_or_default(packed->params, ctx->id("SHIFTREG_DIV_MODE"), 0);
+                switch (sr_div_mode) {
+                case 0:
+                    sr_div = 4;
+                    break;
+                case 1:
+                    sr_div = 7;
+                    break;
+                case 3:
+                    sr_div = 5;
+                    break;
+                default: {
+                    log_info("    Unsupported SHIFTREG_DIV_MODE value %d; can't derive constraints for PLL '%s'\n",
+                             sr_div_mode, ctx->nameOf(ci));
+                    goto constr_fail;
+                }
+                }
+                // Determine dividers in VCO path
+                vco_constr = input_constr / (int_or_default(packed->params, ctx->id("DIVF"), 0) + 1);
+                divq = 1 << (int_or_default(packed->params, ctx->id("DIVQ"), 0));
+                if (fbp_value != "1")
+                    vco_constr /= divq;
+                if (fbp_value == "6") {
+                    log_info("    Can't derive constraints for PLL '%s' in EXTERNAL feedback mode\n", ctx->nameOf(ci));
+                    goto constr_fail;
+                }
+                if (fbp_value == "2") {
+                    // Shiftreg divider is also in the VCO feedback path
+                    vco_constr /= sr_div;
+                }
+                log_info("    VCO frequency of PLL '%s' is constrained to %.1f MHz\n", ctx->nameOf(ci),
+                         MHz(ctx, vco_constr));
+                if (ci->type == ctx->id("SB_PLL40_2_PAD"))
+                    outa_constr = input_constr; // 2_PAD variant passes through input to OUTPUT A
+                else
+                    outa_constr = process_output(ctx->id("PLLOUT_SELECT_A"));
+                outb_constr = process_output(ctx->id("PLLOUT_SELECT_B"));
+                set_period(ctx, packed.get(), ctx->id("PLLOUT_A"), outa_constr);
+                set_period(ctx, packed.get(), ctx->id("PLLOUT_A_GLOBAL"), outa_constr);
+                set_period(ctx, packed.get(), ctx->id("PLLOUT_B"), outb_constr);
+                set_period(ctx, packed.get(), ctx->id("PLLOUT_B_GLOBAL"), outb_constr);
+            }
+        constr_fail:
             // PLL must have been placed already in place_plls()
             BelId pll_bel = ctx->getBelByName(ctx->id(packed->attrs[ctx->id("BEL")].as_string()));
             NPNR_ASSERT(pll_bel != BelId());
@@ -1508,7 +1615,6 @@ static void pack_special(Context *ctx)
             new_cells.push_back(std::move(packed));
         }
     }
-
     for (auto pcell : packed_cells) {
         ctx->cells.erase(pcell);
     }
@@ -1531,6 +1637,7 @@ bool Arch::pack()
         pack_ram(ctx);
         place_plls(ctx);
         pack_special(ctx);
+        pack_plls(ctx);
         if (!bool_or_default(ctx->settings, ctx->id("no_promote_globals"), false))
             promote_globals(ctx);
         ctx->assignArchInfo();
