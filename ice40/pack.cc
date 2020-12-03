@@ -1475,13 +1475,13 @@ void pack_plls(Context *ctx)
                 // Determine dividers in VCO path
                 vco_constr = input_constr / (int_or_default(packed->params, ctx->id("DIVF"), 0) + 1);
                 divq = 1 << (int_or_default(packed->params, ctx->id("DIVQ"), 0));
-                if (fbp_value != "1")
+                if (fbp_value != "1") // anything other than SIMPLE - feedback after DIVQ
                     vco_constr /= divq;
-                if (fbp_value == "6") {
+                if (fbp_value == "6") { // EXTERNAL
                     log_info("    Can't derive constraints for PLL '%s' in EXTERNAL feedback mode\n", ctx->nameOf(ci));
                     goto constr_fail;
                 }
-                if (fbp_value == "2") {
+                if (fbp_value == "2") { // PHASE_AND_DELAY feedback - via shiftreg
                     // Shiftreg divider is also in the VCO feedback path
                     vco_constr /= sr_div;
                 }
