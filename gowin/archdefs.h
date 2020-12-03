@@ -81,6 +81,8 @@ struct ArchCellInfo
     bool is_slice;
     // Only packing rule for slice type primitives is a single clock per tile
     const NetInfo *slice_clk;
+    const NetInfo *slice_ce;
+    const NetInfo *slice_lsr;
 };
 
 NEXTPNR_NAMESPACE_END

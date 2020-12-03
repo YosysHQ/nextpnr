@@ -965,6 +965,8 @@ void Arch::assignArchInfo()
         if (ci->type == id("SLICE")) {
             ci->is_slice = true;
             ci->slice_clk = get_net_or_empty(ci, id("CLK"));
+            ci->slice_ce = get_net_or_empty(ci, id("CE"));
+            ci->slice_lsr = get_net_or_empty(ci, id("LSR"));
         } else {
             ci->is_slice = false;
         }
@@ -974,14 +976,29 @@ void Arch::assignArchInfo()
 
 bool Arch::cellsCompatible(const CellInfo **cells, int count) const
 {
-    const NetInfo *clk = nullptr;
+    const NetInfo *clk[4] = {nullptr, nullptr, nullptr, nullptr};
+    const NetInfo *ce[4] = {nullptr, nullptr, nullptr, nullptr};
+    const NetInfo *lsr[4] = {nullptr, nullptr, nullptr, nullptr};
     int group = -1;
     for (int i = 0; i < count; i++) {
         const CellInfo *ci = cells[i];
         if (ci->is_slice && ci->slice_clk != nullptr) {
-            if (clk == nullptr)
-                clk = ci->slice_clk;
-            else if (clk != ci->slice_clk)
+            Loc loc = getBelLocation(ci->bel);
+            int cls = loc.z/2;
+            bool ff_used = ci->params.at(id_FF_USED).as_bool();
+            if (loc.z >= 6 && ff_used) // top slice have no ff
+                return false;
+            if (clk[cls] == nullptr)
+                clk[cls] = ci->slice_clk;
+            else if (clk[cls] != ci->slice_clk)
+                return false;
+            if (ce[cls] == nullptr)
+                ce[cls] = ci->slice_ce;
+            else if (ce[cls] != ci->slice_ce)
+                return false;
+            if (lsr[cls] == nullptr)
+                lsr[cls] = ci->slice_lsr;
+            else if (lsr[cls] != ci->slice_lsr)
                 return false;
         }
         if (ci->user_group != -1) {
