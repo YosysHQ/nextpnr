@@ -25,6 +25,9 @@ def get_tiletype_index(name):
     return idx
 
 
+constids = dict()
+
+
 class BinaryBlobAssembler:
     def l(self, name, ltype = None, export = False):
         if ltype is None:
@@ -145,7 +148,7 @@ def write_database(dev_name, chip, rg, endianness):
                     for bp in wire.belPins:
                         write_loc(bp.bel.rel, "rel_bel_loc")
                         bba.u32(bp.bel.id, "bel_index")
-                        # bba.u32(constids[rg.to_str(bp.pin)], "port")
+                        bba.u32(constids[rg.to_str(bp.pin)], "port")
 
             bba.l("loc%d_%d_wires" % (l.y, l.x), "WireInfoPOD")
             for wire_idx in range(len(t.wires)):
@@ -164,7 +167,22 @@ def write_database(dev_name, chip, rg, endianness):
                 bba.r("loc%d_%d_wire%d_belpins" % (l.y, l.x, wire_idx) if len(wire.belPins) > 0 else None, "bel_pins")
 
         if len(t.bels) > 0:
+            for bel_idx in range(len(t.bels)):
+                bel = t.bels[bel_idx]
+                bba.l("loc%d_%d_bel%d_wires" % (l.y, l.x, bel_idx), "BelWirePOD")
+                for pin in bel.wires:
+                    write_loc(pin.wire.rel, "rel_wire_loc")
+                    bba.u32(pin.wire.id, "wire_index")
+                    bba.u32(constids[rg.to_str(pin.pin)], "port")
+                    bba.u32(int(pin.dir), "dir")
             bba.l("loc%d_%d_bels" % (l.y, l.x), "BelInfoPOD")
+            for bel_idx in range(len(t.bels)):
+                bel = t.bels[bel_idx]
+                bba.s(rg.to_str(bel.name), "name")
+                bba.u32(constids[rg.to_str(bel.type)], "type")
+                bba.u32(bel.z, "z")
+                bba.u32(len(bel.wires), "num_bel_wires")
+                bba.r("loc%d_%d_bel%d_wires" % (l.y, l.x, bel_idx), "bel_wires")
 
     bba.l("tiles", "TileTypePOD")
     for lt in sorted(rg.tiles, key=lambda l : (l.key().y, l.key().x)):
@@ -224,6 +242,21 @@ def main():
     args = parser.parse_args()
 
     const_id_count = 1 # count ID_NONE
+    with open(args.constids) as f:
+        for line in f:
+            line = line.replace("(", " ")
+            line = line.replace(")", " ")
+            line = line.split()
+            if len(line) == 0:
+                continue
+            assert len(line) == 2
+            assert line[0] == "X"
+            idx = len(constids) + 1
+            constids[line[1]] = idx
+            const_id_count += 1
+
+    constids["SLICE"] = constids["FACADE_SLICE"]
+    constids["PIO"] = constids["FACADE_IO"]
 
     chip = pytrellis.Chip(dev_names[args.device])
     rg = pytrellis.make_optimized_chipdb(chip)
