@@ -77,6 +77,11 @@ def write_database(dev_name, chip, rg, endianness):
         bba.u16(loc.x, "%s.x" % sym_name)
         bba.u16(loc.y, "%s.y" % sym_name)
 
+    # Use Lattice naming conventions, so convert to 1-based col indexing.
+    def get_wire_name(loc, idx):
+        tile = rg.tiles[loc]
+        return "R{}C{}_{}".format(loc.y, loc.x + 1, rg.to_str(tile.wires[idx].name))
+
     # Before doing anything, ensure sorted routing graph iteration matches
     # y, x
     tile_iter = list(sorted(rg.tiles, key=lambda l : (l.key().y, l.key().x)))
@@ -109,9 +114,54 @@ def write_database(dev_name, chip, rg, endianness):
 
         if len(t.arcs) > 0:
             bba.l("loc%d_%d_pips" % (l.y, l.x), "PipInfoPOD")
+            for arc in t.arcs:
+                write_loc(arc.srcWire.rel, "src")
+                write_loc(arc.sinkWire.rel, "dst")
+                bba.u32(arc.srcWire.id, "src_idx {}".format(get_wire_name(arc.srcWire.rel, arc.srcWire.id)))
+                bba.u32(arc.sinkWire.id, "dst_idx {}".format(get_wire_name(arc.sinkWire.rel, arc.sinkWire.id)))
+                src_name = get_wire_name(arc.srcWire.rel, arc.srcWire.id)
+                snk_name = get_wire_name(arc.sinkWire.rel, arc.sinkWire.id)
+                # bba.u32(get_pip_class(src_name, snk_name), "timing_class")
+                bba.u16(get_tiletype_index(rg.to_str(arc.tiletype)), "tile_type")
+                cls = arc.cls
+                bba.u8(arc.cls, "pip_type")
+                bba.u8(0, "padding")
 
         if len(t.wires) > 0:
+            for wire_idx in range(len(t.wires)):
+                wire = t.wires[wire_idx]
+                if len(wire.arcsDownhill) > 0:
+                    bba.l("loc%d_%d_wire%d_downpips" % (l.y, l.x, wire_idx), "PipLocatorPOD")
+                    for dp in wire.arcsDownhill:
+                        write_loc(dp.rel, "rel_loc")
+                        bba.u32(dp.id, "index")
+                if len(wire.arcsUphill) > 0:
+                    bba.l("loc%d_%d_wire%d_uppips" % (l.y, l.x, wire_idx), "PipLocatorPOD")
+                    for up in wire.arcsUphill:
+                        write_loc(up.rel, "rel_loc")
+                        bba.u32(up.id, "index")
+                if len(wire.belPins) > 0:
+                    bba.l("loc%d_%d_wire%d_belpins" % (l.y, l.x, wire_idx), "BelPortPOD")
+                    for bp in wire.belPins:
+                        write_loc(bp.bel.rel, "rel_bel_loc")
+                        bba.u32(bp.bel.id, "bel_index")
+                        # bba.u32(constids[rg.to_str(bp.pin)], "port")
+
             bba.l("loc%d_%d_wires" % (l.y, l.x), "WireInfoPOD")
+            for wire_idx in range(len(t.wires)):
+                wire = t.wires[wire_idx]
+                bba.s(rg.to_str(wire.name), "name")
+                # bba.u32(constids[wire_type(ddrg.to_str(wire.name))], "type")
+                # if ("TILE_WIRE_" + ddrg.to_str(wire.name)) in gfx_wire_ids:
+                #     bba.u32(gfx_wire_ids["TILE_WIRE_" + ddrg.to_str(wire.name)], "tile_wire")
+                # else:
+                bba.u32(0, "tile_wire")
+                bba.u32(len(wire.arcsUphill), "num_uphill")
+                bba.u32(len(wire.arcsDownhill), "num_downhill")
+                bba.r("loc%d_%d_wire%d_uppips" % (l.y, l.x, wire_idx) if len(wire.arcsUphill) > 0 else None, "pips_uphill")
+                bba.r("loc%d_%d_wire%d_downpips" % (l.y, l.x, wire_idx) if len(wire.arcsDownhill) > 0 else None, "pips_downhill")
+                bba.u32(len(wire.belPins), "num_bel_pins")
+                bba.r("loc%d_%d_wire%d_belpins" % (l.y, l.x, wire_idx) if len(wire.belPins) > 0 else None, "bel_pins")
 
         if len(t.bels) > 0:
             bba.l("loc%d_%d_bels" % (l.y, l.x), "BelInfoPOD")
