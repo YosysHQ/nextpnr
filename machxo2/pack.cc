@@ -40,7 +40,7 @@ static void pack_lut_lutffs(Context *ctx)
             log_info("cell '%s' is of type '%s'\n", ci->name.c_str(ctx), ci->type.c_str(ctx));
         if (is_lut(ctx, ci)) {
             std::unique_ptr<CellInfo> packed =
-                    create_machxo2_cell(ctx, ctx->id("FACADE_SLICE"), ci->name.str(ctx) + "_LC");
+                    create_machxo2_cell(ctx, id_FACADE_SLICE, ci->name.str(ctx) + "_LC");
             std::copy(ci->attrs.begin(), ci->attrs.end(), std::inserter(packed->attrs, packed->attrs.begin()));
 
             packed_cells.insert(ci->name);
@@ -49,8 +49,8 @@ static void pack_lut_lutffs(Context *ctx)
             // See if we can pack into a DFF. Both LUT4 and FF outputs are
             // available for a given slice, so we can pack a FF even if the
             // LUT4 drives more than one FF.
-            NetInfo *o = ci->ports.at(ctx->id("Z")).net;
-            CellInfo *dff = net_only_drives(ctx, o, is_ff, ctx->id("DI"), false);
+            NetInfo *o = ci->ports.at(id_Z).net;
+            CellInfo *dff = net_only_drives(ctx, o, is_ff, id_DI, false);
             auto lut_bel = ci->attrs.find(ctx->id("BEL"));
             bool packed_dff = false;
 
@@ -160,7 +160,7 @@ static bool is_nextpnr_iob(Context *ctx, CellInfo *cell)
            cell->type == ctx->id("$nextpnr_iobuf");
 }
 
-static bool is_facade_iob(const Context *ctx, const CellInfo *cell) { return cell->type == ctx->id("FACADE_IO"); }
+static bool is_facade_iob(const Context *ctx, const CellInfo *cell) { return cell->type == id_FACADE_IO; }
 
 // Pack IO buffers- Right now, all this does is remove $nextpnr_[io]buf cells.
 // User is expected to manually instantiate FACADE_IO with BEL/IO_TYPE
@@ -189,7 +189,6 @@ static void pack_io(Context *ctx)
 bool Arch::pack()
 {
     Context *ctx = getCtx();
-    log_info("Packing implementation goes here..");
     try {
         log_break();
         pack_constants(ctx);
