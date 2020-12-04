@@ -2,6 +2,7 @@
 import argparse
 import json
 import sys
+from os import path
 
 tiletype_names = dict()
 
@@ -74,6 +75,72 @@ class BinaryBlobAssembler:
 
     def pop(self):
         print("pop")
+
+def get_bel_index(rg, loc, name):
+    tile = rg.tiles[loc]
+    idx = 0
+    for bel in tile.bels:
+        if rg.to_str(bel.name) == name:
+            return idx
+        idx += 1
+    # FIXME: I/O pins can be missing in various rows. Is there a nice way to
+    # assert on each device size?
+    return None
+
+
+packages = {}
+pindata = []
+
+def process_pio_db(rg, device):
+    piofile = path.join(database.get_db_root(), "MachXO2", dev_names[device], "iodb.json")
+    with open(piofile, 'r') as f:
+        piodb = json.load(f)
+        for pkgname, pkgdata in sorted(piodb["packages"].items()):
+            pins = []
+            for name, pinloc in sorted(pkgdata.items()):
+                x = pinloc["col"]
+                y = pinloc["row"]
+                if x == 0 or x == max_col:
+                    # FIXME: Oversight in read_pinout.py. We use 0-based
+                    # columns for 0 and max row, but we otherwise extract
+                    # the names from the CSV, and...
+                    loc = pytrellis.Location(x, y)
+                else:
+                    # Lattice uses 1-based columns!
+                    loc = pytrellis.Location(x - 1, y)
+                pio = "PIO" + pinloc["pio"]
+                bel_idx = get_bel_index(rg, loc, pio)
+                if bel_idx is not None:
+                    pins.append((name, loc, bel_idx))
+            packages[pkgname] = pins
+        for metaitem in piodb["pio_metadata"]:
+            x = metaitem["col"]
+            y = metaitem["row"]
+            if x == 0 or x == max_col:
+                loc = pytrellis.Location(x, y)
+            else:
+                loc = pytrellis.Location(x - 1, y)
+            pio = "PIO" + metaitem["pio"]
+            bank = metaitem["bank"]
+            if "function" in metaitem:
+                pinfunc = metaitem["function"]
+            else:
+                pinfunc = None
+            dqs = -1
+            if "dqs" in metaitem:
+                pass
+                # tdqs = metaitem["dqs"]
+                # if tdqs[0] == "L":
+                #     dqs = 0
+                # elif tdqs[0] == "R":
+                #     dqs = 2048
+                # suffix_size = 0
+                # while tdqs[-(suffix_size+1)].isdigit():
+                #     suffix_size += 1
+                # dqs |= int(tdqs[-suffix_size:])
+            bel_idx = get_bel_index(rg, loc, pio)
+            if bel_idx is not None:
+                pindata.append((loc, bel_idx, bank, pinfunc, dqs))
 
 def write_database(dev_name, chip, rg, endianness):
     def write_loc(loc, sym_name):
@@ -213,6 +280,33 @@ def write_database(dev_name, chip, rg, endianness):
             bba.u32(len(chip.get_tiles_by_position(y, x)), "num_tiles")
             bba.r("tile_info_%d_%d" % (x, y), "tile_names")
 
+    for package, pkgdata in sorted(packages.items()):
+        bba.l("package_data_%s" % package, "PackagePinPOD")
+        for pin in pkgdata:
+            name, loc, bel_idx = pin
+            bba.s(name, "name")
+            write_loc(loc, "abs_loc")
+            bba.u32(bel_idx, "bel_index")
+
+    bba.l("package_data", "PackageInfoPOD")
+    for package, pkgdata in sorted(packages.items()):
+        bba.s(package, "name")
+        bba.u32(len(pkgdata), "num_pins")
+        bba.r("package_data_%s" % package, "pin_data")
+
+    bba.l("pio_info", "PIOInfoPOD")
+    for pin in pindata:
+        loc, bel_idx, bank, func, dqs = pin
+        write_loc(loc, "abs_loc")
+        bba.u32(bel_idx, "bel_index")
+        if func is not None and func != "WRITEN":
+            bba.s(func, "function_name")
+        else:
+            bba.r(None, "function_name")
+        # TODO: io_grouping?
+        bba.u16(bank, "bank")
+        bba.u16(dqs, "dqsgroup")
+
     bba.l("tiletype_names", "RelPtr<char>")
     for tt, idx in sorted(tiletype_names.items(), key=lambda x: x[1]):
         bba.s(tt, "name")
@@ -222,12 +316,14 @@ def write_database(dev_name, chip, rg, endianness):
     bba.u32(max_col + 1, "width")
     bba.u32(max_row + 1, "height")
     bba.u32((max_col + 1) * (max_row + 1), "num_tiles")
-    bba.u32(0, "num_packages") # len(packages)
-    bba.u32(0, "num_pios") # len(pindata)
+    bba.u32(len(packages), "num_packages")
+    bba.u32(len(pindata), "num_pios")
     bba.u32(const_id_count, "const_id_count")
 
     bba.r("tiles", "tiles")
     bba.r("tiletype_names", "tiletype_names")
+    bba.r("package_data", "package_info")
+    bba.r("pio_info", "pio_info")
     bba.r("tiles_info", "tile_info")
 
     bba.pop()
@@ -262,6 +358,7 @@ def main():
     rg = pytrellis.make_optimized_chipdb(chip)
     max_row = chip.get_max_row()
     max_col = chip.get_max_col()
+    process_pio_db(rg, args.device)
     bba = write_database(args.device, chip, rg, "le")
 
 
