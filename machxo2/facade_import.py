@@ -191,7 +191,9 @@ def write_database(dev_name, chip, rg, endianness):
                 bba.u32(arc.sinkWire.id, "dst_idx {}".format(get_wire_name(arc.sinkWire.rel, arc.sinkWire.id)))
                 src_name = get_wire_name(arc.srcWire.rel, arc.srcWire.id)
                 snk_name = get_wire_name(arc.sinkWire.rel, arc.sinkWire.id)
+                # TODO: ECP5 timing-model-specific. Reuse for MachXO2?
                 # bba.u32(get_pip_class(src_name, snk_name), "timing_class")
+                bba.u32(0, "timing_class")
                 bba.u16(get_tiletype_index(rg.to_str(arc.tiletype)), "tile_type")
                 cls = arc.cls
                 bba.u8(arc.cls, "pip_type")
@@ -221,6 +223,7 @@ def write_database(dev_name, chip, rg, endianness):
             for wire_idx in range(len(t.wires)):
                 wire = t.wires[wire_idx]
                 bba.s(rg.to_str(wire.name), "name")
+                # TODO: Padding until GUI support is added.
                 # bba.u32(constids[wire_type(ddrg.to_str(wire.name))], "type")
                 # if ("TILE_WIRE_" + ddrg.to_str(wire.name)) in gfx_wire_ids:
                 #     bba.u32(gfx_wire_ids["TILE_WIRE_" + ddrg.to_str(wire.name)], "tile_wire")
@@ -303,7 +306,7 @@ def write_database(dev_name, chip, rg, endianness):
             bba.s(func, "function_name")
         else:
             bba.r(None, "function_name")
-        # TODO: io_grouping?
+        # TODO: io_grouping? And DQS.
         bba.u16(bank, "bank")
         bba.u16(dqs, "dqsgroup")
 
