@@ -60,6 +60,8 @@ enum ConstIds
 #include "constids.inc"
 #undef X
 
+NPNR_PACKED_STRUCT(struct LocationPOD { int16_t x, y; });
+
 typedef IdString BelId;
 typedef IdString WireId;
 typedef IdString PipId;

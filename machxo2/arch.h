@@ -43,9 +43,107 @@ template <typename T> struct RelPtr
     const T *operator->() const { return get(); }
 };
 
+// FIXME: All "rel locs" are actually absolute, naming typo in facade_import.
+// Does not affect runtime functionality.
+
+NPNR_PACKED_STRUCT(struct BelWirePOD {
+    LocationPOD rel_wire_loc;
+    uint32_t wire_index;
+    uint32_t port;
+    uint32_t dir;
+});
+
+NPNR_PACKED_STRUCT(struct BelInfoPOD {
+    RelPtr<char> name;
+    uint32_t type;
+    uint32_t z;
+    uint32_t num_bel_wires;
+    RelPtr<BelWirePOD> bel_wires;
+});
+
+NPNR_PACKED_STRUCT(struct PipLocatorPOD {
+    LocationPOD rel_loc;
+    uint32_t index;
+});
+
+NPNR_PACKED_STRUCT(struct BelPortPOD {
+    LocationPOD rel_bel_loc;
+    uint32_t bel_index;
+    uint32_t port;
+});
+
+NPNR_PACKED_STRUCT(struct PipInfoPOD {
+    LocationPOD src;
+    LocationPOD dst;
+    uint32_t src_idx;
+    uint32_t dst_idx;
+    uint32_t timing_class;
+    uint16_t tile_type;
+    uint8_t pip_type;
+    uint8_t padding;
+});
+
+NPNR_PACKED_STRUCT(struct WireInfoPOD {
+    RelPtr<char> name;
+    uint32_t tile_wire;
+    uint32_t num_uphill;
+    uint32_t num_downhill;
+    RelPtr<PipLocatorPOD> pips_uphill;
+    RelPtr<PipLocatorPOD> pips_downhill;
+    uint32_t num_bel_pins;
+    RelPtr<BelPortPOD> bel_pins;
+});
+
+NPNR_PACKED_STRUCT(struct TileTypePOD {
+    uint32_t num_bels;
+    uint32_t num_wires;
+    uint32_t num_pips;
+    RelPtr<BelInfoPOD> bel_data;
+    RelPtr<WireInfoPOD> wire_data;
+    RelPtr<PipInfoPOD> pips_data;
+});
+
+NPNR_PACKED_STRUCT(struct PackagePinPOD {
+    RelPtr<char> name;
+    LocationPOD abs_loc;
+    int32_t bel_index;
+});
+
+NPNR_PACKED_STRUCT(struct PackageInfoPOD {
+    RelPtr<char> name;
+    int32_t num_pins;
+    RelPtr<PackagePinPOD> pin_data;
+});
+
+NPNR_PACKED_STRUCT(struct PIOInfoPOD {
+    LocationPOD abs_loc;
+    int32_t bel_index;
+    RelPtr<char> function_name;
+    int16_t bank;
+    int16_t dqsgroup;
+});
+
+NPNR_PACKED_STRUCT(struct TileNamePOD {
+    RelPtr<char> name;
+    int16_t type_idx;
+    int16_t padding;
+});
+
+NPNR_PACKED_STRUCT(struct TileInfoPOD {
+    int32_t num_tiles;
+    RelPtr<TileNamePOD> tile_names;
+});
 
 NPNR_PACKED_STRUCT(struct ChipInfoPOD {
-    int32_t stub;
+    int32_t width, height;
+    int32_t num_tiles;
+    int32_t num_packages, num_pios;
+    int32_t const_id_count;
+    RelPtr<TileTypePOD> locations;
+    RelPtr<RelPtr<char>> tiletype_names;
+    RelPtr<PackageInfoPOD> package_info;
+    RelPtr<PIOInfoPOD> pio_info;
+    RelPtr<TileInfoPOD> tile_info;
 });
 
 /************************ End of chipdb section. ************************/
