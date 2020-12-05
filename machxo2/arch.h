@@ -255,7 +255,8 @@ struct CellTiming
 
 struct Arch : BaseCtx
 {
-    std::string chipName;
+    const ChipInfoPOD *chip_info;
+    const PackageInfoPOD *package_info;
 
     // Placeholders to be removed.
     std::unordered_map<Loc, BelId> bel_by_loc;
@@ -275,7 +276,7 @@ struct Arch : BaseCtx
 
     static bool isAvailable(ArchArgs::ArchArgsTypes chip);
 
-    std::string getChipName() const { return chipName; }
+    std::string getChipName() const;
 
     IdString archId() const { return id("machxo2"); }
     ArchArgs archArgs() const { return args; }

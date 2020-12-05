@@ -29,14 +29,6 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-// ---------------------------------------------------------------
-
-Arch::Arch(ArchArgs args) : chipName("generic"), args(args)
-{
-    // Dummy for empty decals
-    // decal_graphics[IdString()];
-}
-
 // -----------------------------------------------------------------------
 
 void IdString::initialize_arch(const BaseCtx *ctx) {
@@ -74,7 +66,48 @@ static const ChipInfoPOD *get_chip_info(ArchArgs::ArchArgsTypes chip)
     return ptr->get();
 }
 
+// ---------------------------------------------------------------
+
+Arch::Arch(ArchArgs args) : args(args)
+{
+    chip_info = get_chip_info(args.type);
+    if (chip_info == nullptr)
+        log_error("Unsupported MachXO2 chip type.\n");
+    if (chip_info->const_id_count != DB_CONST_ID_COUNT)
+        log_error("Chip database 'bba' and nextpnr code are out of sync; please rebuild (or contact distribution "
+                  "maintainer)!\n");
+
+    package_info = nullptr;
+    for (int i = 0; i < chip_info->num_packages; i++) {
+        if (args.package == chip_info->package_info[i].name.get()) {
+            package_info = &(chip_info->package_info[i]);
+            break;
+        }
+    }
+    if (!package_info)
+        log_error("Unsupported package '%s' for '%s'.\n", args.package.c_str(), getChipName().c_str());
+}
+
 bool Arch::isAvailable(ArchArgs::ArchArgsTypes chip) { return get_chip_info(chip) != nullptr; }
+
+std::string Arch::getChipName() const
+{
+    if (args.type == ArchArgs::LCMXO2_256HC) {
+        return "LCMXO2-256HC";
+    } else if (args.type == ArchArgs::LCMXO2_640HC) {
+        return "LCMXO2-640HC";
+    } else if (args.type == ArchArgs::LCMXO2_1200HC) {
+        return "LCMXO2-1200HC";
+    } else if (args.type == ArchArgs::LCMXO2_2000HC) {
+        return "LCMXO2-2000HC";
+    } else if (args.type == ArchArgs::LCMXO2_4000HC) {
+        return "LCMXO2-4000HC";
+    } else if (args.type == ArchArgs::LCMXO2_7000HC) {
+        return "LCMXO2-7000HC";
+    } else {
+        log_error("Unknown chip\n");
+    }
+}
 
 // ---------------------------------------------------------------
 

@@ -68,7 +68,7 @@ set -ex
 ${YOSYS:-yosys} -p "read_verilog blinky.v
                     synth_machxo2 -noiopad -json blinky.json
                     show -format png -prefix blinky"
-${NEXTPNR:-../../nextpnr-machxo2} $NEXTPNR_MODE --1200 --no-iobs --json blinky.json --write ${1}blinky.json
+${NEXTPNR:-../../nextpnr-machxo2} $NEXTPNR_MODE --1200 --package QFN32 --no-iobs --json blinky.json --write ${1}blinky.json
 ${YOSYS:-yosys} -p "read_verilog -lib +/machxo2/cells_sim.v
                     read_json ${1}blinky.json
                     clean -purge
