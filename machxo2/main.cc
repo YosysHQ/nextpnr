@@ -58,7 +58,7 @@ po::options_description MachXO2CommandHandler::getArchOptions()
     if (Arch::isAvailable(ArchArgs::LCMXO2_7000HC))
         specific.add_options()("7000", "set device type to LCMXO2-7000HC");
 
-    specific.add_options()("package", po::value<std::string>(), "select device package (defaults to QFN32)");
+    specific.add_options()("package", po::value<std::string>(), "select device package");
     specific.add_options()("speed", po::value<int>(), "select device speedgrade (1 to 6 inclusive)");
 
     specific.add_options()("override-basecfg", po::value<std::string>(),
@@ -76,6 +76,22 @@ void MachXO2CommandHandler::customBitstream(Context *ctx) {}
 std::unique_ptr<Context> MachXO2CommandHandler::createContext(std::unordered_map<std::string, Property> &values)
 {
     ArchArgs chipArgs;
+    chipArgs.type = ArchArgs::NONE;
+    if (vm.count("256"))
+        chipArgs.type = ArchArgs::LCMXO2_256HC;
+    if (vm.count("640"))
+        chipArgs.type = ArchArgs::LCMXO2_640HC;
+    if (vm.count("1200"))
+        chipArgs.type = ArchArgs::LCMXO2_1200HC;
+    if (vm.count("2000"))
+        chipArgs.type = ArchArgs::LCMXO2_2000HC;
+    if (vm.count("4000"))
+        chipArgs.type = ArchArgs::LCMXO2_4000HC;
+    if (vm.count("7000"))
+        chipArgs.type = ArchArgs::LCMXO2_7000HC;
+    if (vm.count("package"))
+        chipArgs.package = vm["package"].as<std::string>();
+
     if (values.find("arch.name") != values.end()) {
         std::string arch_name = values["arch.name"].as_string();
         if (arch_name != "machxo2")
