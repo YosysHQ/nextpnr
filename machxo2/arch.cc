@@ -116,7 +116,7 @@ BelId Arch::getBelByName(IdString name) const
     return BelId();
 }
 
-IdString Arch::getBelName(BelId bel) const { return bel; }
+IdString Arch::getBelName(BelId bel) const { return IdString(); }
 
 Loc Arch::getBelLocation(BelId bel) const
 {
@@ -153,10 +153,6 @@ bool Arch::checkBelAvail(BelId bel) const { return false; }
 CellInfo *Arch::getBoundBelCell(BelId bel) const { return nullptr; }
 
 CellInfo *Arch::getConflictingBelCell(BelId bel) const { return nullptr; }
-
-const std::vector<BelId> &Arch::getBels() const { return bel_id_dummy; }
-
-IdString Arch::getBelType(BelId bel) const { return IdString(); }
 
 const std::map<IdString, std::string> &Arch::getBelAttrs(BelId bel) const { return attrs_dummy; }
 
