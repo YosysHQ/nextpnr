@@ -48,56 +48,56 @@ template <typename T> struct RelPtr
 
 NPNR_PACKED_STRUCT(struct BelWirePOD {
     LocationPOD rel_wire_loc;
-    uint32_t wire_index;
-    uint32_t port;
-    uint32_t dir;
+    int32_t wire_index;
+    int32_t port;
+    int32_t dir;
 });
 
 NPNR_PACKED_STRUCT(struct BelInfoPOD {
     RelPtr<char> name;
-    uint32_t type;
-    uint32_t z;
-    uint32_t num_bel_wires;
+    int32_t type;
+    int32_t z;
+    int32_t num_bel_wires;
     RelPtr<BelWirePOD> bel_wires;
 });
 
 NPNR_PACKED_STRUCT(struct PipLocatorPOD {
     LocationPOD rel_loc;
-    uint32_t index;
+    int32_t index;
 });
 
 NPNR_PACKED_STRUCT(struct BelPortPOD {
     LocationPOD rel_bel_loc;
-    uint32_t bel_index;
-    uint32_t port;
+    int32_t bel_index;
+    int32_t port;
 });
 
 NPNR_PACKED_STRUCT(struct PipInfoPOD {
     LocationPOD src;
     LocationPOD dst;
-    uint32_t src_idx;
-    uint32_t dst_idx;
-    uint32_t timing_class;
-    uint16_t tile_type;
-    uint8_t pip_type;
-    uint8_t padding;
+    int32_t src_idx;
+    int32_t dst_idx;
+    int32_t timing_class;
+    int16_t tile_type;
+    int8_t pip_type;
+    int8_t padding;
 });
 
 NPNR_PACKED_STRUCT(struct WireInfoPOD {
     RelPtr<char> name;
-    uint32_t tile_wire;
-    uint32_t num_uphill;
-    uint32_t num_downhill;
+    int32_t tile_wire;
+    int32_t num_uphill;
+    int32_t num_downhill;
     RelPtr<PipLocatorPOD> pips_uphill;
     RelPtr<PipLocatorPOD> pips_downhill;
-    uint32_t num_bel_pins;
+    int32_t num_bel_pins;
     RelPtr<BelPortPOD> bel_pins;
 });
 
 NPNR_PACKED_STRUCT(struct TileTypePOD {
-    uint32_t num_bels;
-    uint32_t num_wires;
-    uint32_t num_pips;
+    int32_t num_bels;
+    int32_t num_wires;
+    int32_t num_pips;
     RelPtr<BelInfoPOD> bel_data;
     RelPtr<WireInfoPOD> wire_data;
     RelPtr<PipInfoPOD> pips_data;
