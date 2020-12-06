@@ -139,7 +139,7 @@ NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     int32_t num_tiles;
     int32_t num_packages, num_pios;
     int32_t const_id_count;
-    RelPtr<TileTypePOD> locations;
+    RelPtr<TileTypePOD> tiles;
     RelPtr<RelPtr<char>> tiletype_names;
     RelPtr<PackageInfoPOD> package_info;
     RelPtr<PIOInfoPOD> pio_info;
@@ -147,6 +147,59 @@ NPNR_PACKED_STRUCT(struct ChipInfoPOD {
 });
 
 /************************ End of chipdb section. ************************/
+
+// Iterators
+struct BelIterator
+{
+    const ChipInfoPOD *chip;
+    int cursor_index;
+    int cursor_tile;
+
+    BelIterator operator++()
+    {
+        cursor_index++;
+        while (cursor_tile < chip->num_tiles &&
+               cursor_index >= chip->tiles[cursor_tile].num_bels) {
+            cursor_index = 0;
+            cursor_tile++;
+        }
+        return *this;
+    }
+    BelIterator operator++(int)
+    {
+        BelIterator prior(*this);
+        ++(*this);
+        return prior;
+    }
+
+    bool operator!=(const BelIterator &other) const
+    {
+        return cursor_index != other.cursor_index || cursor_tile != other.cursor_tile;
+    }
+
+    bool operator==(const BelIterator &other) const
+    {
+        return cursor_index == other.cursor_index && cursor_tile == other.cursor_tile;
+    }
+
+    BelId operator*() const
+    {
+        BelId ret;
+        ret.location.x = cursor_tile % chip->width;
+        ret.location.y = cursor_tile / chip->width;
+        ret.index = cursor_index;
+        return ret;
+    }
+};
+
+struct BelRange
+{
+    BelIterator b, e;
+    BelIterator begin() const { return b; }
+    BelIterator end() const { return e; }
+};
+
+// -----------------------------------------------------------------------
 
 struct ArchArgs
 {
@@ -268,6 +321,12 @@ struct Arch : BaseCtx
     std::vector<GraphicElement> graphic_element_dummy;
     std::map<IdString, std::string> attrs_dummy;
 
+    // Helpers
+    template <typename Id> const TileTypePOD *tileInfo(Id &id) const
+    {
+        return &(chip_info->tiles[id.location.y * chip_info->width + id.location.x]);
+    }
+
     // ---------------------------------------------------------------
     // Common Arch API. Every arch must provide the following methods.
 
@@ -299,8 +358,28 @@ struct Arch : BaseCtx
     bool checkBelAvail(BelId bel) const;
     CellInfo *getBoundBelCell(BelId bel) const;
     CellInfo *getConflictingBelCell(BelId bel) const;
-    const std::vector<BelId> &getBels() const;
-    IdString getBelType(BelId bel) const;
+
+    BelRange getBels() const
+    {
+        BelRange range;
+        range.b.cursor_tile = 0;
+        range.b.cursor_index = -1;
+        range.b.chip = chip_info;
+        ++range.b; //-1 and then ++ deals with the case of no Bels in the first tile
+        range.e.cursor_tile = chip_info->width * chip_info->height;
+        range.e.cursor_index = 0;
+        range.e.chip = chip_info;
+        return range;
+    }
+
+    IdString getBelType(BelId bel) const
+    {
+        NPNR_ASSERT(bel != BelId());
+        IdString id;
+        id.index = tileInfo(bel)->bel_data[bel.index].type;
+        return id;
+    }
+
     const std::map<IdString, std::string> &getBelAttrs(BelId bel) const;
     WireId getBelPinWire(BelId bel, IdString pin) const;
     PortType getBelPinType(BelId bel, IdString pin) const;
