@@ -19,8 +19,8 @@
 
 #include <iostream>
 #include <math.h>
-#include "nextpnr.h"
 #include "embed.h"
+#include "nextpnr.h"
 #include "placer1.h"
 #include "placer_heap.h"
 #include "router1.h"
@@ -40,15 +40,15 @@ static std::tuple<int, int, std::string> split_identifier_name(const std::string
                            name.substr(second_slash + 1));
 };
 
-
 // -----------------------------------------------------------------------
 
-void IdString::initialize_arch(const BaseCtx *ctx) {
-    #define X(t) initialize_add(ctx, #t, ID_##t);
+void IdString::initialize_arch(const BaseCtx *ctx)
+{
+#define X(t) initialize_add(ctx, #t, ID_##t);
 
-    #include "constids.inc"
+#include "constids.inc"
 
-    #undef X
+#undef X
 }
 
 // ---------------------------------------------------------------
@@ -171,16 +171,15 @@ BelId Arch::getBelByLocation(Loc loc) const
 {
     BelId ret;
 
-    if(loc.x >= chip_info->width || loc.y >= chip_info->height)
+    if (loc.x >= chip_info->width || loc.y >= chip_info->height)
         return BelId();
 
     ret.location.x = loc.x;
     ret.location.y = loc.y;
 
     const TileTypePOD *tilei = tileInfo(ret);
-    for(int i = 0; i < tilei->num_bels; i++) {
-        if(tilei->bel_data[i].z == loc.z)
-        {
+    for (int i = 0; i < tilei->num_bels; i++) {
+        if (tilei->bel_data[i].z == loc.z) {
             ret.index = i;
             return ret;
         }
@@ -217,8 +216,8 @@ WireId Arch::getBelPinWire(BelId bel, IdString pin) const
     int num_bel_wires = tileInfo(bel)->bel_data[bel.index].num_bel_wires;
     const BelWirePOD *bel_wires = &*tileInfo(bel)->bel_data[bel.index].bel_wires;
 
-    for(int i = 0; i < num_bel_wires; i++)
-        if(bel_wires[i].port == pin.index) {
+    for (int i = 0; i < num_bel_wires; i++)
+        if (bel_wires[i].port == pin.index) {
             WireId ret;
 
             ret.location.x = bel_wires[i].rel_wire_loc.x;
@@ -238,8 +237,8 @@ PortType Arch::getBelPinType(BelId bel, IdString pin) const
     int num_bel_wires = tileInfo(bel)->bel_data[bel.index].num_bel_wires;
     const BelWirePOD *bel_wires = &*tileInfo(bel)->bel_data[bel.index].bel_wires;
 
-    for(int i = 0; i < num_bel_wires; i++)
-        if(bel_wires[i].port == pin.index)
+    for (int i = 0; i < num_bel_wires; i++)
+        if (bel_wires[i].port == pin.index)
             return PortType(bel_wires[i].dir);
 
     return PORT_INOUT;
@@ -253,7 +252,7 @@ std::vector<IdString> Arch::getBelPins(BelId bel) const
     int num_bel_wires = tileInfo(bel)->bel_data[bel.index].num_bel_wires;
     const BelWirePOD *bel_wires = &*tileInfo(bel)->bel_data[bel.index].bel_wires;
 
-    for(int i = 0; i < num_bel_wires; i++) {
+    for (int i = 0; i < num_bel_wires; i++) {
         IdString id(bel_wires[i].port);
         ret.push_back(id);
     }
@@ -263,10 +262,7 @@ std::vector<IdString> Arch::getBelPins(BelId bel) const
 
 // ---------------------------------------------------------------
 
-WireId Arch::getWireByName(IdString name) const
-{
-    return WireId();
-}
+WireId Arch::getWireByName(IdString name) const { return WireId(); }
 
 IdString Arch::getWireName(WireId wire) const { return IdString(); }
 
@@ -280,15 +276,9 @@ uint32_t Arch::getWireChecksum(WireId wire) const
     return 0;
 }
 
-void Arch::bindWire(WireId wire, NetInfo *net, PlaceStrength strength)
-{
+void Arch::bindWire(WireId wire, NetInfo *net, PlaceStrength strength) {}
 
-}
-
-void Arch::unbindWire(WireId wire)
-{
-
-}
+void Arch::unbindWire(WireId wire) {}
 
 bool Arch::checkWireAvail(WireId wire) const { return false; }
 
@@ -302,10 +292,7 @@ const std::vector<WireId> &Arch::getWires() const { return wire_id_dummy; }
 
 // ---------------------------------------------------------------
 
-PipId Arch::getPipByName(IdString name) const
-{
-    return PipId();
-}
+PipId Arch::getPipByName(IdString name) const { return PipId(); }
 
 IdString Arch::getPipName(PipId pip) const { return IdString(); }
 
@@ -319,15 +306,9 @@ uint32_t Arch::getPipChecksum(PipId wire) const
     return 0;
 }
 
-void Arch::bindPip(PipId pip, NetInfo *net, PlaceStrength strength)
-{
+void Arch::bindPip(PipId pip, NetInfo *net, PlaceStrength strength) {}
 
-}
-
-void Arch::unbindPip(PipId pip)
-{
-
-}
+void Arch::unbindPip(PipId pip) {}
 
 bool Arch::checkPipAvail(PipId pip) const { return false; }
 
@@ -375,15 +356,9 @@ const std::vector<GroupId> &Arch::getGroupGroups(GroupId group) const { return g
 
 // ---------------------------------------------------------------
 
-delay_t Arch::estimateDelay(WireId src, WireId dst) const
-{
-    return 0;
-}
+delay_t Arch::estimateDelay(WireId src, WireId dst) const { return 0; }
 
-delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
-{
-    return 0;
-}
+delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const { return 0; }
 
 bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const { return false; }
 
@@ -428,10 +403,7 @@ bool Arch::route()
 
 // ---------------------------------------------------------------
 
-const std::vector<GraphicElement> &Arch::getDecalGraphics(DecalId decal) const
-{
-    return graphic_element_dummy;
-}
+const std::vector<GraphicElement> &Arch::getDecalGraphics(DecalId decal) const { return graphic_element_dummy; }
 
 DecalXY Arch::getBelDecal(BelId bel) const { return DecalXY(); }
 
@@ -489,14 +461,8 @@ const std::vector<std::string> Arch::availablePlacers = {"sa",
 const std::string Arch::defaultRouter = "router1";
 const std::vector<std::string> Arch::availableRouters = {"router1", "router2"};
 
-void Arch::assignArchInfo()
-{
+void Arch::assignArchInfo() {}
 
-}
-
-bool Arch::cellsCompatible(const CellInfo **cells, int count) const
-{
-    return false;
-}
+bool Arch::cellsCompatible(const CellInfo **cells, int count) const { return false; }
 
 NEXTPNR_NAMESPACE_END

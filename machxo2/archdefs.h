@@ -179,4 +179,4 @@ template <> struct hash<NEXTPNR_NAMESPACE_PREFIX PipId>
     }
 };
 
-}
+} // namespace std

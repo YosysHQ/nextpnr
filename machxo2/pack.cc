@@ -39,8 +39,7 @@ static void pack_lut_lutffs(Context *ctx)
         if (ctx->verbose)
             log_info("cell '%s' is of type '%s'\n", ci->name.c_str(ctx), ci->type.c_str(ctx));
         if (is_lut(ctx, ci)) {
-            std::unique_ptr<CellInfo> packed =
-                    create_machxo2_cell(ctx, id_FACADE_SLICE, ci->name.str(ctx) + "_LC");
+            std::unique_ptr<CellInfo> packed = create_machxo2_cell(ctx, id_FACADE_SLICE, ci->name.str(ctx) + "_LC");
             std::copy(ci->attrs.begin(), ci->attrs.end(), std::inserter(packed->attrs, packed->attrs.begin()));
 
             packed_cells.insert(ci->name);
@@ -89,7 +88,7 @@ static void pack_lut_lutffs(Context *ctx)
 // Merge a net into a constant net
 static void set_net_constant(const Context *ctx, NetInfo *orig, NetInfo *constnet, bool constval)
 {
-    (void) constval;
+    (void)constval;
 
     orig->driver.cell = nullptr;
     for (auto user : orig->users) {
@@ -104,7 +103,6 @@ static void set_net_constant(const Context *ctx, NetInfo *orig, NetInfo *constne
     }
     orig->users.clear();
 }
-
 
 // Pack constants (based on simple implementation in generic).
 // VCC/GND cells provided by nextpnr automatically.
