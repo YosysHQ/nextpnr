@@ -339,12 +339,16 @@ struct Arch : BaseCtx
 
     IdString archId() const { return id("machxo2"); }
     ArchArgs archArgs() const { return args; }
-    IdString archArgsToId(ArchArgs args) const { return id("none"); }
+    IdString archArgsToId(ArchArgs args) const;
 
-    int getGridDimX() const { return 0; }
-    int getGridDimY() const { return 0; }
-    int getTileBelDimZ(int x, int y) const { return 0; }
-    int getTilePipDimZ(int x, int y) const { return 0; }
+    static const int max_loc_bels = 20;
+
+    int getGridDimX() const { return chip_info->width; }
+    int getGridDimY() const { return chip_info->height; }
+    int getTileBelDimZ(int x, int y) const { return max_loc_bels; }
+    // TODO: Make more precise? The CENTER MUX having config bits across
+    // tiles can complicate this?
+    int getTilePipDimZ(int x, int y) const { return 2; }
 
     BelId getBelByName(IdString name) const;
     IdString getBelName(BelId bel) const;
