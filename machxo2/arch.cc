@@ -118,11 +118,6 @@ BelId Arch::getBelByName(IdString name) const
 
 IdString Arch::getBelName(BelId bel) const { return IdString(); }
 
-Loc Arch::getBelLocation(BelId bel) const
-{
-    return Loc();
-}
-
 BelId Arch::getBelByLocation(Loc loc) const
 {
     return BelId();
