@@ -338,6 +338,7 @@ struct Arch : BaseCtx
     // ---------------------------------------------------------------
     // Common Arch API. Every arch must provide the following methods.
 
+    // General
     ArchArgs args;
     Arch(ArchArgs args);
 
@@ -358,6 +359,7 @@ struct Arch : BaseCtx
     // tiles can complicate this?
     int getTilePipDimZ(int x, int y) const { return 2; }
 
+    // Bels
     BelId getBelByName(IdString name) const;
     IdString getBelName(BelId bel) const
     {
@@ -453,6 +455,7 @@ struct Arch : BaseCtx
     PortType getBelPinType(BelId bel, IdString pin) const;
     std::vector<IdString> getBelPins(BelId bel) const;
 
+    // Wires
     WireId getWireByName(IdString name) const;
     IdString getWireName(WireId wire) const;
     IdString getWireType(WireId wire) const;
@@ -468,6 +471,7 @@ struct Arch : BaseCtx
     const std::vector<WireId> &getWires() const;
     const std::vector<BelPin> &getWireBelPins(WireId wire) const;
 
+    // Pips
     PipId getPipByName(IdString name) const;
     IdString getPipName(PipId pip) const;
     IdString getPipType(PipId pip) const;
@@ -488,6 +492,7 @@ struct Arch : BaseCtx
     const std::vector<PipId> &getPipsUphill(WireId wire) const;
     const std::vector<PipId> &getWireAliases(WireId wire) const;
 
+    // Group
     GroupId getGroupByName(IdString name) const;
     IdString getGroupName(GroupId group) const;
     std::vector<GroupId> getGroups() const;
@@ -496,6 +501,7 @@ struct Arch : BaseCtx
     const std::vector<PipId> &getGroupPips(GroupId group) const;
     const std::vector<GroupId> &getGroupGroups(GroupId group) const;
 
+    // Delay
     delay_t estimateDelay(WireId src, WireId dst) const;
     delay_t predictDelay(const NetInfo *net_info, const PortRef &sink) const;
     delay_t getDelayEpsilon() const { return 0.001; }
@@ -514,22 +520,26 @@ struct Arch : BaseCtx
 
     ArcBounds getRouteBoundingBox(WireId src, WireId dst) const;
 
+    // Flow
     bool pack();
     bool place();
     bool route();
 
+    // Graphics
     const std::vector<GraphicElement> &getDecalGraphics(DecalId decal) const;
     DecalXY getBelDecal(BelId bel) const;
     DecalXY getWireDecal(WireId wire) const;
     DecalXY getPipDecal(PipId pip) const;
     DecalXY getGroupDecal(GroupId group) const;
 
+    // Cell Delay
     bool getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const;
     // Get the port class, also setting clockInfoCount to the number of TimingClockingInfos associated with a port
     TimingPortClass getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const;
     // Get the TimingClockingInfo of a port
     TimingClockingInfo getPortClockingInfo(const CellInfo *cell, IdString port, int index) const;
 
+    // Placer
     bool isValidBelForCell(CellInfo *cell, BelId bel) const;
     bool isBelLocationValid(BelId bel) const;
 
