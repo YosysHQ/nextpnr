@@ -351,7 +351,14 @@ struct Arch : BaseCtx
     int getTilePipDimZ(int x, int y) const { return 2; }
 
     BelId getBelByName(IdString name) const;
-    IdString getBelName(BelId bel) const;
+    IdString getBelName(BelId bel) const
+    {
+        NPNR_ASSERT(bel != BelId());
+        std::stringstream name;
+        name << "X" << bel.location.x << "/Y" << bel.location.y << "/" << tileInfo(bel)->bel_data[bel.index].name.get();
+        return id(name.str());
+    }
+
     Loc getBelLocation(BelId bel) const
     {
         NPNR_ASSERT(bel != BelId());
