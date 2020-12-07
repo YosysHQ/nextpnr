@@ -311,6 +311,8 @@ struct Arch : BaseCtx
     const ChipInfoPOD *chip_info;
     const PackageInfoPOD *package_info;
 
+    std::vector<CellInfo *> bel_to_cell;
+
     // Placeholders to be removed.
     std::unordered_map<Loc, BelId> bel_by_loc;
     std::vector<BelId> bel_id_dummy;
@@ -325,6 +327,11 @@ struct Arch : BaseCtx
     template <typename Id> const TileTypePOD *tileInfo(Id &id) const
     {
         return &(chip_info->tiles[id.location.y * chip_info->width + id.location.x]);
+    }
+
+    int getBelFlatIndex(BelId bel) const
+    {
+        return (bel.location.y * chip_info->width + bel.location.x) * max_loc_bels + bel.index;
     }
 
     // ---------------------------------------------------------------
@@ -373,11 +380,46 @@ struct Arch : BaseCtx
     const std::vector<BelId> &getBelsByTile(int x, int y) const;
     bool getBelGlobalBuf(BelId bel) const;
     uint32_t getBelChecksum(BelId bel) const;
-    void bindBel(BelId bel, CellInfo *cell, PlaceStrength strength);
-    void unbindBel(BelId bel);
-    bool checkBelAvail(BelId bel) const;
-    CellInfo *getBoundBelCell(BelId bel) const;
-    CellInfo *getConflictingBelCell(BelId bel) const;
+
+    void bindBel(BelId bel, CellInfo *cell, PlaceStrength strength)
+    {
+        NPNR_ASSERT(bel != BelId());
+        int idx = getBelFlatIndex(bel);
+        NPNR_ASSERT(bel_to_cell.at(idx) == nullptr);
+        bel_to_cell[idx] = cell;
+        cell->bel = bel;
+        cell->belStrength = strength;
+        refreshUiBel(bel);
+    }
+
+    void unbindBel(BelId bel)
+    {
+        NPNR_ASSERT(bel != BelId());
+        int idx = getBelFlatIndex(bel);
+        NPNR_ASSERT(bel_to_cell.at(idx) != nullptr);
+        bel_to_cell[idx]->bel = BelId();
+        bel_to_cell[idx]->belStrength = STRENGTH_NONE;
+        bel_to_cell[idx] = nullptr;
+        refreshUiBel(bel);
+    }
+
+    bool checkBelAvail(BelId bel) const
+    {
+        NPNR_ASSERT(bel != BelId());
+        return bel_to_cell[getBelFlatIndex(bel)] == nullptr;
+    }
+
+    CellInfo *getBoundBelCell(BelId bel) const
+    {
+        NPNR_ASSERT(bel != BelId());
+        return bel_to_cell[getBelFlatIndex(bel)];
+    }
+
+    CellInfo *getConflictingBelCell(BelId bel) const
+    {
+        NPNR_ASSERT(bel != BelId());
+        return bel_to_cell[getBelFlatIndex(bel)];
+    }
 
     BelRange getBels() const
     {
