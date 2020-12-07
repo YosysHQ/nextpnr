@@ -171,9 +171,6 @@ void dff_to_lc(const Context *ctx, CellInfo *dff, CellInfo *lc, bool pass_thru_l
     replace_port(dff, ctx->id("Q"), lc, ctx->id("Q0"));
 }
 
-void nxio_to_iob(Context *ctx, CellInfo *nxio, CellInfo *iob, std::unordered_set<IdString> &todelete_cells)
-{
-
-}
+void nxio_to_iob(Context *ctx, CellInfo *nxio, CellInfo *iob, std::unordered_set<IdString> &todelete_cells) {}
 
 NEXTPNR_NAMESPACE_END

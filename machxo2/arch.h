@@ -159,8 +159,7 @@ struct BelIterator
     BelIterator operator++()
     {
         cursor_index++;
-        while (cursor_tile < chip->num_tiles &&
-               cursor_index >= chip->tiles[cursor_tile].num_bels) {
+        while (cursor_tile < chip->num_tiles && cursor_index >= chip->tiles[cursor_tile].num_bels) {
             cursor_index = 0;
             cursor_tile++;
         }
@@ -235,8 +234,7 @@ struct WireIterator
     WireIterator operator++()
     {
         cursor_index++;
-        while (cursor_tile < chip->num_tiles &&
-               cursor_index >= chip->tiles[cursor_tile].num_wires) {
+        while (cursor_tile < chip->num_tiles && cursor_index >= chip->tiles[cursor_tile].num_wires) {
             cursor_index = 0;
             cursor_tile++;
         }
@@ -286,8 +284,7 @@ struct AllPipIterator
     AllPipIterator operator++()
     {
         cursor_index++;
-        while (cursor_tile < chip->num_tiles &&
-               cursor_index >= chip->tiles[cursor_tile].num_pips) {
+        while (cursor_tile < chip->num_tiles && cursor_index >= chip->tiles[cursor_tile].num_pips) {
             cursor_index = 0;
             cursor_tile++;
         }
