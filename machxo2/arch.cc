@@ -86,6 +86,8 @@ Arch::Arch(ArchArgs args) : args(args)
     }
     if (!package_info)
         log_error("Unsupported package '%s' for '%s'.\n", args.package.c_str(), getChipName().c_str());
+
+    bel_to_cell.resize(chip_info->height * chip_info->width * max_loc_bels, nullptr);
 }
 
 bool Arch::isAvailable(ArchArgs::ArchArgsTypes chip) { return get_chip_info(chip) != nullptr; }
