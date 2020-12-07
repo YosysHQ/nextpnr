@@ -50,7 +50,7 @@ NPNR_PACKED_STRUCT(struct BelWirePOD {
     LocationPOD rel_wire_loc;
     int32_t wire_index;
     int32_t port;
-    int32_t dir;
+    int32_t dir; // FIXME: Corresponds to "type" in ECP5.
 });
 
 NPNR_PACKED_STRUCT(struct BelInfoPOD {
@@ -312,6 +312,7 @@ struct Arch : BaseCtx
     const PackageInfoPOD *package_info;
 
     std::vector<CellInfo *> bel_to_cell;
+    mutable std::unordered_map<IdString, BelId> bel_by_name;
 
     // Placeholders to be removed.
     std::unordered_map<Loc, BelId> bel_by_loc;
@@ -377,9 +378,14 @@ struct Arch : BaseCtx
     }
 
     BelId getBelByLocation(Loc loc) const;
-    const std::vector<BelId> &getBelsByTile(int x, int y) const;
+    BelRange getBelsByTile(int x, int y) const;
     bool getBelGlobalBuf(BelId bel) const;
-    uint32_t getBelChecksum(BelId bel) const;
+
+    uint32_t getBelChecksum(BelId bel) const
+    {
+        // FIXME- Copied from ECP5. Should be return val from getBelFlatIndex?
+        return bel.index;
+    }
 
     void bindBel(BelId bel, CellInfo *cell, PlaceStrength strength)
     {
