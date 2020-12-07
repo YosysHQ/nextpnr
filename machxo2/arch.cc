@@ -382,12 +382,17 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
 
 bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const
 {
-    return false;
+    // FIXME: Unlike ECP5, SLICEs in a given tile do not share a clock, so
+    // any SLICE Cell is valid for any BEL, even if some cells are already
+    // bound to BELs in the tile. However, this may need to be filled in once
+    // more than one LUT4 and DFF type is supported.
+    return true;
 }
 
 bool Arch::isBelLocationValid(BelId bel) const
 {
-    return false;
+    // FIXME: Same deal as isValidBelForCell.
+    return true;
 }
 
 #ifdef WITH_HEAP
