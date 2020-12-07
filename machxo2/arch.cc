@@ -135,10 +135,25 @@ BelId Arch::getBelByName(IdString name) const
     return BelId();
 }
 
-IdString Arch::getBelName(BelId bel) const { return IdString(); }
-
 BelId Arch::getBelByLocation(Loc loc) const
 {
+    BelId ret;
+
+    if(loc.x >= chip_info->width || loc.y >= chip_info->height)
+        return BelId();
+
+    ret.location.x = loc.x;
+    ret.location.y = loc.y;
+
+    const TileTypePOD *tilei = tileInfo(ret);
+    for(int i = 0; i < tilei->num_bels; i++) {
+        if(tilei->bel_data[i].z == loc.z)
+        {
+            ret.index = i;
+            return ret;
+        }
+    }
+
     return BelId();
 }
 
