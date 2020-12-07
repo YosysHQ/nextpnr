@@ -167,22 +167,6 @@ uint32_t Arch::getBelChecksum(BelId bel) const
     return 0;
 }
 
-void Arch::bindBel(BelId bel, CellInfo *cell, PlaceStrength strength)
-{
-
-}
-
-void Arch::unbindBel(BelId bel)
-{
-
-}
-
-bool Arch::checkBelAvail(BelId bel) const { return false; }
-
-CellInfo *Arch::getBoundBelCell(BelId bel) const { return nullptr; }
-
-CellInfo *Arch::getConflictingBelCell(BelId bel) const { return nullptr; }
-
 const std::map<IdString, std::string> &Arch::getBelAttrs(BelId bel) const { return attrs_dummy; }
 
 WireId Arch::getBelPinWire(BelId bel, IdString pin) const
