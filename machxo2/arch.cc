@@ -29,6 +29,18 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+static std::tuple<int, int, std::string> split_identifier_name(const std::string &name)
+{
+    size_t first_slash = name.find('/');
+    NPNR_ASSERT(first_slash != std::string::npos);
+    size_t second_slash = name.find('/', first_slash + 1);
+    NPNR_ASSERT(second_slash != std::string::npos);
+    return std::make_tuple(std::stoi(name.substr(1, first_slash)),
+                           std::stoi(name.substr(first_slash + 2, second_slash - first_slash)),
+                           name.substr(second_slash + 1));
+};
+
+
 // -----------------------------------------------------------------------
 
 void IdString::initialize_arch(const BaseCtx *ctx) {
@@ -134,7 +146,25 @@ IdString Arch::archArgsToId(ArchArgs args) const
 
 BelId Arch::getBelByName(IdString name) const
 {
-    return BelId();
+    BelId ret;
+    auto it = bel_by_name.find(name);
+    if (it != bel_by_name.end())
+        return it->second;
+
+    Location loc;
+    std::string basename;
+    std::tie(loc.x, loc.y, basename) = split_identifier_name(name.str(this));
+    ret.location = loc;
+    const TileTypePOD *tilei = tileInfo(ret);
+    for (int i = 0; i < tilei->num_bels; i++) {
+        if (std::strcmp(tilei->bel_data[i].name.get(), basename.c_str()) == 0) {
+            ret.index = i;
+            break;
+        }
+    }
+    if (ret.index >= 0)
+        bel_by_name[name] = ret;
+    return ret;
 }
 
 BelId Arch::getBelByLocation(Loc loc) const
@@ -159,15 +189,24 @@ BelId Arch::getBelByLocation(Loc loc) const
     return BelId();
 }
 
-const std::vector<BelId> &Arch::getBelsByTile(int x, int y) const { return bel_id_dummy; }
+BelRange Arch::getBelsByTile(int x, int y) const
+{
+    BelRange br;
+
+    br.b.cursor_tile = y * chip_info->width + x;
+    br.e.cursor_tile = y * chip_info->width + x;
+    br.b.cursor_index = 0;
+    br.e.cursor_index = chip_info->tiles[y * chip_info->width + x].num_bels - 1;
+    br.b.chip = chip_info;
+    br.e.chip = chip_info;
+    if (br.e.cursor_index == -1)
+        ++br.e.cursor_index;
+    else
+        ++br.e;
+    return br;
+}
 
 bool Arch::getBelGlobalBuf(BelId bel) const { return false; }
-
-uint32_t Arch::getBelChecksum(BelId bel) const
-{
-    // FIXME
-    return 0;
-}
 
 const std::map<IdString, std::string> &Arch::getBelAttrs(BelId bel) const { return attrs_dummy; }
 
@@ -176,11 +215,33 @@ WireId Arch::getBelPinWire(BelId bel, IdString pin) const
     return WireId();
 }
 
-PortType Arch::getBelPinType(BelId bel, IdString pin) const { return PortType(); }
+PortType Arch::getBelPinType(BelId bel, IdString pin) const
+{
+    NPNR_ASSERT(bel != BelId());
+
+    int num_bel_wires = tileInfo(bel)->bel_data[bel.index].num_bel_wires;
+    const BelWirePOD *bel_wires = &*tileInfo(bel)->bel_data[bel.index].bel_wires;
+
+    for(int i = 0; i < num_bel_wires; i++)
+        if(bel_wires[i].port == pin.index)
+            return PortType(bel_wires[i].dir);
+
+    return PORT_INOUT;
+}
 
 std::vector<IdString> Arch::getBelPins(BelId bel) const
 {
     std::vector<IdString> ret;
+    NPNR_ASSERT(bel != BelId());
+
+    int num_bel_wires = tileInfo(bel)->bel_data[bel.index].num_bel_wires;
+    const BelWirePOD *bel_wires = &*tileInfo(bel)->bel_data[bel.index].bel_wires;
+
+    for(int i = 0; i < num_bel_wires; i++) {
+        IdString id(bel_wires[i].port);
+        ret.push_back(id);
+    }
+
     return ret;
 }
 
