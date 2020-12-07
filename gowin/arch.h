@@ -97,7 +97,7 @@ struct ArchArgs
     int K = 4;
     // y = mx + c relationship between distance and delay for interconnect
     // delay estimates
-    double delayScale = 0.1, delayOffset = 0;
+    double delayScale = 0.1, delayOffset = 0.1;
 };
 
 struct WireInfo;

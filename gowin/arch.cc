@@ -332,8 +332,8 @@ const GlobalAliasPOD* aliasLookup(const GlobalAliasPOD *first, int len, const Gl
 
 Arch::Arch(ArchArgs args) : args(args)
 {
-    family = "GW1N-9";
-    device = "GW1N-9";
+    family = "GW1N-1";
+    device = "GW1N-1";
     speed = "C6/E5";   // or whatever
     package = "QFN48"; // or something
 
@@ -461,11 +461,11 @@ Arch::Arch(ArchArgs args) : args(args)
                 portname = pairLookup(bel->ports.get(), bel->num_ports, -1, ID_O)->src_id;
                 snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
                 wirename = id(buf);
-                addBelInput(belname, id_I, wirename);
-                portname = pairLookup(bel->ports.get(), bel->num_ports, -1, ID_O)->src_id;
+                addBelOutput(belname, id_O, wirename);
+                portname = pairLookup(bel->ports.get(), bel->num_ports, -1, ID_I)->src_id;
                 snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
                 wirename = id(buf);
-                addBelInput(belname, id_O, wirename);
+                addBelInput(belname, id_I, wirename);
                 portname = pairLookup(bel->ports.get(), bel->num_ports, -1, ID_OE)->src_id;
                 snprintf(buf, 32, "R%dC%d_%s", row + 1, col + 1, portname.c_str(this));
                 wirename = id(buf);
@@ -961,12 +961,29 @@ const std::vector<std::string> Arch::availableRouters = {"router1", "router2"};
 void Arch::assignArchInfo()
 {
     for (auto &cell : getCtx()->cells) {
+        IdString cname = cell.first;
         CellInfo *ci = cell.second.get();
         if (ci->type == id("SLICE")) {
             ci->is_slice = true;
             ci->slice_clk = get_net_or_empty(ci, id("CLK"));
             ci->slice_ce = get_net_or_empty(ci, id("CE"));
             ci->slice_lsr = get_net_or_empty(ci, id("LSR"));
+
+            // add timing paths
+            addCellTimingClock(cname, id_CLK);
+            IdString ports[4] = {id_A, id_B, id_C, id_D};
+            for (int i=0; i<4; i++) {
+                DelayInfo setup = getDelayFromNS(0.1);
+                DelayInfo hold = getDelayFromNS(0.1);
+                addCellTimingSetupHold(cname, ports[i], id_CLK, setup, hold);
+            }
+            DelayInfo clkout = getDelayFromNS(0.1);
+            addCellTimingClockToOut(cname, id_Q, id_CLK, clkout);
+            for (int i=0; i<4; i++) {
+                DelayInfo delay = getDelayFromNS(0.1);
+                addCellTimingDelay(cname, ports[i], id_F, delay);
+            }
+
         } else {
             ci->is_slice = false;
         }
