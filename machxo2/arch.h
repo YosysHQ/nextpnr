@@ -348,7 +348,16 @@ struct Arch : BaseCtx
 
     BelId getBelByName(IdString name) const;
     IdString getBelName(BelId bel) const;
-    Loc getBelLocation(BelId bel) const;
+    Loc getBelLocation(BelId bel) const
+    {
+        NPNR_ASSERT(bel != BelId());
+        Loc loc;
+        loc.x = bel.location.x;
+        loc.y = bel.location.y;
+        loc.z = tileInfo(bel)->bel_data[bel.index].z;
+        return loc;
+    }
+
     BelId getBelByLocation(Loc loc) const;
     const std::vector<BelId> &getBelsByTile(int x, int y) const;
     bool getBelGlobalBuf(BelId bel) const;
