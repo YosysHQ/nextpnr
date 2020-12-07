@@ -109,6 +109,25 @@ std::string Arch::getChipName() const
     }
 }
 
+IdString Arch::archArgsToId(ArchArgs args) const
+{
+    if (args.type == ArchArgs::LCMXO2_256HC) {
+        return id("lcmxo2_256hc");
+    } else if (args.type == ArchArgs::LCMXO2_640HC) {
+        return id("lcmxo2_640hc");
+    } else if (args.type == ArchArgs::LCMXO2_1200HC) {
+        return id("lcmxo2_1200hc");
+    } else if (args.type == ArchArgs::LCMXO2_2000HC) {
+        return id("lcmxo2_2000hc");
+    } else if (args.type == ArchArgs::LCMXO2_4000HC) {
+        return id("lcmxo2_4000hc");
+    } else if (args.type == ArchArgs::LCMXO2_7000HC) {
+        return id("lcmxo2_7000hc");
+    }
+
+    return IdString();
+}
+
 // ---------------------------------------------------------------
 
 BelId Arch::getBelByName(IdString name) const
