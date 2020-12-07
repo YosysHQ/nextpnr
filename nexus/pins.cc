@@ -171,8 +171,8 @@ static const std::unordered_map<IdString, Arch::CellPinsData> base_cell_pin_data
         {id_LRAM_CORE,
          {
                  {id_CLK, PINSTYLE_CLK},
-                 {id_CEA, PINSTYLE_CE},
-                 {id_CEB, PINSTYLE_CE},
+                 {id_CEA, PINSTYLE_PU_NONCIB},
+                 {id_CEB, PINSTYLE_PU_NONCIB},
                  {id_OCEA, PINSTYLE_PU},
                  {id_OCEB, PINSTYLE_PU},
                  {id_CSA, PINSTYLE_PU},
