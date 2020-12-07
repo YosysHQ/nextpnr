@@ -603,13 +603,35 @@ struct NexusFasmWriter
         push_bel(bel);
         write_enum(cell, "ASYNC_RST_RELEASE", "SYNC");
         write_enum(cell, "EBR_SP_EN", "DISABLE");
-        write_enum(cell, "ECC_BYTE_SEL", "ECC_EN");
+        write_enum(cell, "ECC_BYTE_SEL", "BYTE_EN");
         write_enum(cell, "GSR", "DISABLED");
         write_enum(cell, "OUT_REGMODE_A", "NO_REG");
         write_enum(cell, "OUT_REGMODE_B", "NO_REG");
         write_enum(cell, "RESETMODE", "SYNC");
         write_enum(cell, "UNALIGNED_READ", "DISABLE");
         write_cell_muxes(cell);
+        pop();
+        blank();
+
+        Loc l = ctx->getBelLocation(bel);
+        push(stringf("IP_LRAM_CORE_R%dC%d", l.y, l.x));
+        for (int i = 0; i < 128; i++) {
+            IdString param = ctx->id(stringf("INITVAL_%02X", i));
+            if (!cell->params.count(param))
+                continue;
+            auto &prop = cell->params.at(param);
+            std::string value;
+            if (prop.is_string) {
+                NPNR_ASSERT(prop.str.substr(0, 2) == "0x");
+                // Lattice-style hex string
+                value = prop.str.substr(2);
+                value = stringf("5120'h%s", value.c_str());
+            } else {
+                // True Verilog bitvector
+                value = stringf("5120'b%s", prop.str.c_str());
+            }
+            write_bit(stringf("INITVAL_%02X[5119:0] = %s", i, value.c_str()));
+        }
         pop();
     }
     // Write out FASM for unused bels where needed

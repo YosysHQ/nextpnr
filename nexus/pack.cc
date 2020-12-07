@@ -1132,14 +1132,17 @@ struct NexusPacker
             CellInfo *ci = cell.second;
             if (ci->type != id_LRAM_CORE)
                 continue;
+            if (str_or_default(ci->params, ctx->id("ECC_BYTE_SEL"), "BYTE_EN") == "BYTE_EN")
+                continue;
             for (int i = 0; i < 0x80; i++) {
-                // FIXME: support on the prjoxide side
+                // FIXME: document ECC and remove this DRC
                 std::string name = stringf("INITVAL_%02X", i);
                 if (!ci->params.count(ctx->id(name)))
                     continue;
                 if (ci->params.at(ctx->id(name)).str.find_last_not_of("0x") == std::string::npos)
                     continue;
-                log_error("LRAM initialisation is currently unsupported (prjoxide limitation).\n");
+                log_error("LRAM initialisation is currently unsupported in ECC mode (to disable ECC, set ECC_BYTE_SEL "
+                          "to BYTE_EN).\n");
             }
         }
     }

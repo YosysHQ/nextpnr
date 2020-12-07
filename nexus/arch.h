@@ -847,9 +847,10 @@ enum CellPinStyle
     PINSTYLE_PU = 0x4022,   // signals that float high and default high
     PINSTYLE_T = 0x4027,    // PIO 'T' signal
 
-    PINSTYLE_ADLSB = 0x4017,  // special case of the EBR address MSBs
-    PINSTYLE_INV_PD = 0x0017, // invertible, pull down by default
-    PINSTYLE_INV_PU = 0x4027, // invertible, pull up by default
+    PINSTYLE_ADLSB = 0x4017,      // special case of the EBR address MSBs
+    PINSTYLE_INV_PD = 0x0017,     // invertible, pull down by default
+    PINSTYLE_INV_PD_CIB = 0x4017, // invertible, pull down by default
+    PINSTYLE_INV_PU = 0x4027,     // invertible, pull up by default
 
     PINSTYLE_IOL_CE = 0x2027, // CE type signal, with explicit 'const-1' config bit
     PINSTYLE_GATE = 0x1011,   // gated signal that defaults to 0
