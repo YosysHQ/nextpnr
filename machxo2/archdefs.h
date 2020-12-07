@@ -90,8 +90,32 @@ struct BelId
     }
 };
 
-typedef IdString WireId;
-typedef IdString PipId;
+struct WireId
+{
+    Location location;
+    int32_t index = -1;
+
+    bool operator==(const WireId &other) const { return index == other.index && location == other.location; }
+    bool operator!=(const WireId &other) const { return index != other.index || location != other.location; }
+    bool operator<(const WireId &other) const
+    {
+        return location == other.location ? index < other.index : location < other.location;
+    }
+};
+
+struct PipId
+{
+    Location location;
+    int32_t index = -1;
+
+    bool operator==(const PipId &other) const { return index == other.index && location == other.location; }
+    bool operator!=(const PipId &other) const { return index != other.index || location != other.location; }
+    bool operator<(const PipId &other) const
+    {
+        return location == other.location ? index < other.index : location < other.location;
+    }
+};
+
 typedef IdString GroupId;
 typedef IdString DecalId;
 
@@ -131,6 +155,26 @@ template <> struct hash<NEXTPNR_NAMESPACE_PREFIX BelId>
     {
         std::size_t seed = std::hash<NEXTPNR_NAMESPACE_PREFIX Location>()(bel.location);
         seed ^= std::hash<int>()(bel.index) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        return seed;
+    }
+};
+
+template <> struct hash<NEXTPNR_NAMESPACE_PREFIX WireId>
+{
+    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX WireId &wire) const noexcept
+    {
+        std::size_t seed = std::hash<NEXTPNR_NAMESPACE_PREFIX Location>()(wire.location);
+        seed ^= std::hash<int>()(wire.index) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        return seed;
+    }
+};
+
+template <> struct hash<NEXTPNR_NAMESPACE_PREFIX PipId>
+{
+    std::size_t operator()(const NEXTPNR_NAMESPACE_PREFIX PipId &pip) const noexcept
+    {
+        std::size_t seed = std::hash<NEXTPNR_NAMESPACE_PREFIX Location>()(pip.location);
+        seed ^= std::hash<int>()(pip.index) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
         return seed;
     }
 };

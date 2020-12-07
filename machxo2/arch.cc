@@ -212,6 +212,22 @@ const std::map<IdString, std::string> &Arch::getBelAttrs(BelId bel) const { retu
 
 WireId Arch::getBelPinWire(BelId bel, IdString pin) const
 {
+    NPNR_ASSERT(bel != BelId());
+
+    int num_bel_wires = tileInfo(bel)->bel_data[bel.index].num_bel_wires;
+    const BelWirePOD *bel_wires = &*tileInfo(bel)->bel_data[bel.index].bel_wires;
+
+    for(int i = 0; i < num_bel_wires; i++)
+        if(bel_wires[i].port == pin.index) {
+            WireId ret;
+
+            ret.location.x = bel_wires[i].rel_wire_loc.x;
+            ret.location.y = bel_wires[i].rel_wire_loc.y;
+            ret.index = bel_wires[i].wire_index;
+
+            return ret;
+        }
+
     return WireId();
 }
 
