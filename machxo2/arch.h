@@ -149,6 +149,7 @@ NPNR_PACKED_STRUCT(struct ChipInfoPOD {
 /************************ End of chipdb section. ************************/
 
 // Iterators
+// Iterate over Bels across tiles.
 struct BelIterator
 {
     const ChipInfoPOD *chip;
@@ -197,6 +198,159 @@ struct BelRange
     BelIterator b, e;
     BelIterator begin() const { return b; }
     BelIterator end() const { return e; }
+};
+
+// Iterate over Downstream/Upstream Bels for a Wire.
+struct BelPinIterator
+{
+    const BelPortPOD *ptr = nullptr;
+    Location wire_loc;
+    void operator++() { ptr++; }
+    bool operator!=(const BelPinIterator &other) const { return ptr != other.ptr; }
+
+    BelPin operator*() const
+    {
+        BelPin ret;
+        ret.bel.index = ptr->bel_index;
+        ret.bel.location = wire_loc + ptr->rel_bel_loc;
+        ret.pin.index = ptr->port;
+        return ret;
+    }
+};
+
+struct BelPinRange
+{
+    BelPinIterator b, e;
+    BelPinIterator begin() const { return b; }
+    BelPinIterator end() const { return e; }
+};
+
+// Iterator over Wires across tiles.
+struct WireIterator
+{
+    const ChipInfoPOD *chip;
+    int cursor_index;
+    int cursor_tile;
+
+    WireIterator operator++()
+    {
+        cursor_index++;
+        while (cursor_tile < chip->num_tiles &&
+               cursor_index >= chip->tiles[cursor_tile].num_wires) {
+            cursor_index = 0;
+            cursor_tile++;
+        }
+        return *this;
+    }
+    WireIterator operator++(int)
+    {
+        WireIterator prior(*this);
+        ++(*this);
+        return prior;
+    }
+
+    bool operator!=(const WireIterator &other) const
+    {
+        return cursor_index != other.cursor_index || cursor_tile != other.cursor_tile;
+    }
+
+    bool operator==(const WireIterator &other) const
+    {
+        return cursor_index == other.cursor_index && cursor_tile == other.cursor_tile;
+    }
+
+    WireId operator*() const
+    {
+        WireId ret;
+        ret.location.x = cursor_tile % chip->width;
+        ret.location.y = cursor_tile / chip->width;
+        ret.index = cursor_index;
+        return ret;
+    }
+};
+
+struct WireRange
+{
+    WireIterator b, e;
+    WireIterator begin() const { return b; }
+    WireIterator end() const { return e; }
+};
+
+// Iterator over Pips across tiles.
+struct AllPipIterator
+{
+    const ChipInfoPOD *chip;
+    int cursor_index;
+    int cursor_tile;
+
+    AllPipIterator operator++()
+    {
+        cursor_index++;
+        while (cursor_tile < chip->num_tiles &&
+               cursor_index >= chip->tiles[cursor_tile].num_pips) {
+            cursor_index = 0;
+            cursor_tile++;
+        }
+        return *this;
+    }
+    AllPipIterator operator++(int)
+    {
+        AllPipIterator prior(*this);
+        ++(*this);
+        return prior;
+    }
+
+    bool operator!=(const AllPipIterator &other) const
+    {
+        return cursor_index != other.cursor_index || cursor_tile != other.cursor_tile;
+    }
+
+    bool operator==(const AllPipIterator &other) const
+    {
+        return cursor_index == other.cursor_index && cursor_tile == other.cursor_tile;
+    }
+
+    PipId operator*() const
+    {
+        PipId ret;
+        ret.location.x = cursor_tile % chip->width;
+        ret.location.y = cursor_tile / chip->width;
+        ret.index = cursor_index;
+        return ret;
+    }
+};
+
+struct AllPipRange
+{
+    AllPipIterator b, e;
+    AllPipIterator begin() const { return b; }
+    AllPipIterator end() const { return e; }
+};
+
+// Iterate over Downstream/Upstream Pips for a Wire.
+struct PipIterator
+{
+
+    const PipLocatorPOD *cursor = nullptr;
+    Location wire_loc;
+
+    void operator++() { cursor++; }
+    bool operator!=(const PipIterator &other) const { return cursor != other.cursor; }
+
+    PipId operator*() const
+    {
+        PipId ret;
+        ret.index = cursor->index;
+        ret.location = wire_loc + cursor->rel_loc;
+        return ret;
+    }
+};
+
+struct PipRange
+{
+    PipIterator b, e;
+    PipIterator begin() const { return b; }
+    PipIterator end() const { return e; }
 };
 
 // -----------------------------------------------------------------------
