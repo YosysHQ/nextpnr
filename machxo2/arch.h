@@ -606,6 +606,9 @@ struct Arch : BaseCtx
     PortType getBelPinType(BelId bel, IdString pin) const;
     std::vector<IdString> getBelPins(BelId bel) const;
 
+    // Package
+    BelId getPackagePinBel(const std::string &pin) const;
+
     // Wires
     WireId getWireByName(IdString name) const;
     IdString getWireName(WireId wire) const;

@@ -262,6 +262,21 @@ std::vector<IdString> Arch::getBelPins(BelId bel) const
 
 // ---------------------------------------------------------------
 
+BelId Arch::getPackagePinBel(const std::string &pin) const
+{
+    for (int i = 0; i < package_info->num_pins; i++) {
+        if (package_info->pin_data[i].name.get() == pin) {
+            BelId bel;
+            bel.location = package_info->pin_data[i].abs_loc;
+            bel.index = package_info->pin_data[i].bel_index;
+            return bel;
+        }
+    }
+    return BelId();
+}
+
+// ---------------------------------------------------------------
+
 WireId Arch::getWireByName(IdString name) const { return WireId(); }
 
 IdString Arch::getWireName(WireId wire) const { return IdString(); }
