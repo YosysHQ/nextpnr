@@ -33,22 +33,18 @@ of the selected architecture:
 
 - CMake 3.3 or later
 - Modern C++11 compiler (`clang-format` required for development)
-- Qt5 or later (`qt5-default` for Ubuntu 16.04)
 - Python 3.5 or later, including development libraries (`python3-dev` for Ubuntu)
   - on Windows make sure to install same version as supported by [vcpkg](https://github.com/Microsoft/vcpkg/blob/master/ports/python3/CONTROL)
 - Boost libraries (`libboost-dev libboost-filesystem-dev libboost-thread-dev libboost-program-options-dev libboost-iostreams-dev libboost-dev` or `libboost-all-dev` for Ubuntu)
 - Eigen3 (`libeigen3-dev` for Ubuntu) is required to build the analytic placer
 - Latest git Yosys is required to synthesise the demo design
 - For building on Windows with MSVC, usage of vcpkg is advised for dependency installation.
-  - For 32 bit builds: `vcpkg install boost-filesystem boost-program-options boost-thread qt5-base eigen3`
-  - For 64 bit builds: `vcpkg install boost-filesystem:x64-windows boost-program-options:x64-windows boost-thread:x64-windows qt5-base:x64-windows eigen3:x64-windows`
+  - For 32 bit builds: `vcpkg install boost-filesystem boost-program-options boost-thread eigen3`
+  - For 64 bit builds: `vcpkg install boost-filesystem:x64-windows boost-program-options:x64-windows boost-thread:x64-windows eigen3:x64-windows`
   - For static builds, add `-static` to each of the package names.  For example, change `eigen3:x64-windows` to `eigen3:x64-windows-static`
   - A copy of Python that matches the version in vcpkg (currently Python 3.6.4).  You can download the [Embeddable Zip File](https://www.python.org/downloads/release/python-364/) and extract it.  You may need to extract `python36.zip` within the embeddable zip file to a new directory called "Lib".
 - For building on macOS, brew utility is needed.
-  - Install all needed packages `brew install cmake python boost qt5 eigen`
-  - Do not forget to add qt5 in path as well `echo 'export PATH="/usr/local/opt/qt/bin:$PATH"' >> ~/.bash_profile`
-
-    NOTE: this change is effective in next terminal session, so please re-open terminal window before next step
+  - Install all needed packages `brew install cmake python boost eigen`
 
 Getting started
 ---------------
@@ -83,7 +79,7 @@ icepack blinky.asc blinky.bin                                               # ge
 iceprog blinky.bin                                                          # upload design to iCEstick
 ```
 
-Running nextpnr in GUI mode:
+Running nextpnr in GUI mode (see below for instructions on building nextpnr with GUI support):
 
 ```
 nextpnr-ice40 --json blinky.json --pcf blinky.pcf --asc blinky.asc --gui
@@ -130,6 +126,15 @@ sudo make install
 
 An example of how to use the generic flow is in [generic/examples](generic/examples). See also the [Generic Architecture docs](docs/generic.md).
 
+### GUI
+
+The nextpnr GUI is not built by default, to reduce the number of dependencies for a standard headless build. To enable it, add `-DBUILD_GUI=ON` to the CMake command line and ensure that Qt5 and OpenGL are available:
+
+ - On Ubuntu, install `qt5-default`
+ - For MSVC vcpkg, install `qt5-base` (32-bit) or `qt5-base:x64-windows` (64-bit)
+ - For Homebrew, install `qt5` and add qt5 in path: `echo 'export PATH="/usr/local/opt/qt/bin:$PATH"' >> ~/.bash_profile`
+` - this change is effective in next terminal session, so please re-open terminal window before building
+
 ### Multiple architectures
 
 To build nextpnr for multiple architectures at once, a semicolon-separated list can be used with `-DARCH`.
@@ -174,14 +179,14 @@ Additional notes for building nextpnr
 The following runs a debug build of the iCE40 architecture without GUI, without Python support, without the HeAP analytic placer and only HX1K support:
 
 ```
-cmake . -DARCH=ice40 -DCMAKE_BUILD_TYPE=Debug -DBUILD_PYTHON=OFF -DBUILD_GUI=OFF -DBUILD_HEAP=OFF -DICE40_HX1K_ONLY=1
+cmake . -DARCH=ice40 -DCMAKE_BUILD_TYPE=Debug -DBUILD_PYTHON=OFF  -DBUILD_HEAP=OFF -DICE40_HX1K_ONLY=1
 make -j$(nproc)
 ```
 
 To make static build release for iCE40 architecture use the following:
 
 ```
-cmake . -DARCH=ice40 -DBUILD_PYTHON=OFF -DBUILD_GUI=OFF -DSTATIC_BUILD=ON
+cmake . -DARCH=ice40 -DBUILD_PYTHON=OFF -DSTATIC_BUILD=ON
 make -j$(nproc)
 ```
 
