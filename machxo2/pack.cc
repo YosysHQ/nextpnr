@@ -175,6 +175,49 @@ static void pack_io(Context *ctx)
             for (auto &p : ci->ports)
                 disconnect_port(ctx, ci, p.first);
             packed_cells.insert(ci->name);
+        } else if(is_facade_iob(ctx, ci)) {
+            // If net attached to PAD port of FACADE_IO has a LOC attribute OR
+            // FACADE_IO has LOC attribute, convert the LOC (pin) to a BEL
+            // attribute and place FACADE_IO at resulting BEL location.
+
+            auto pad_net = ci->ports[id_PAD].net;
+            auto loc_attr_pad = pad_net->attrs.find(ctx->id("LOC"));
+            auto loc_attr_cell = ci->attrs.find(ctx->id("LOC"));
+            auto bel_attr_cell = ci->attrs.find(ctx->id("BEL"));
+
+            // Handle errors
+            if(loc_attr_pad != pad_net->attrs.end() && loc_attr_cell != ci->attrs.end())
+                log_error("IO buffer %s and attached PAD net %s both have LOC attributes.\n",
+                    ci->name.c_str(ctx), pad_net->name.c_str(ctx));
+            else if(loc_attr_pad != pad_net->attrs.end() && bel_attr_cell != ci->attrs.end())
+                log_error("IO buffer %s has a BEL attribute and attached PAD net %s has a LOC attribute.\n",
+                    ci->name.c_str(ctx), pad_net->name.c_str(ctx));
+            else if(loc_attr_cell != ci->attrs.end() && bel_attr_cell != ci->attrs.end())
+                log_error("IO buffer %s has both a BEL attribute and LOC attribute.\n",
+                    ci->name.c_str(ctx));
+
+            std::string pin;
+            // At this point only PAD net or FACADE_IO has LOC attribute.
+            if(loc_attr_pad != pad_net->attrs.end()) {
+                pin = loc_attr_pad->second.as_string();
+                log_info("found LOC attribute on net %s. Will constrain IO buffer %s.\n",
+                    pad_net->name.c_str(ctx), ci->name.c_str(ctx));
+            } else if(loc_attr_cell != ci->attrs.end()) {
+                log_info("found LOC attribute on IO buffer %s.\n", ci->name.c_str(ctx));
+                pin = loc_attr_cell->second.as_string();
+            } else
+                // Nothing to do if no LOC attrs.
+                continue;
+
+            BelId pinBel = ctx->getPackagePinBel(pin);
+            if (pinBel == BelId()) {
+                log_error("IO buffer '%s' constrained to pin '%s', which does not exist for package '%s'.\n",
+                          ci->name.c_str(ctx), pin.c_str(), ctx->args.package.c_str());
+            } else {
+                log_info("pin '%s' constrained to Bel '%s'.\n", ci->name.c_str(ctx),
+                         ctx->getBelName(pinBel).c_str(ctx));
+            }
+            ci->attrs[ctx->id("BEL")] = ctx->getBelName(pinBel).str(ctx);
         }
     }
 
