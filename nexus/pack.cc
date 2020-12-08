@@ -1024,8 +1024,9 @@ struct NexusPacker
     {
         // Convert primitives from their non-CORE variant to their CORE variant
         static const std::unordered_map<IdString, IdString> prim_map = {
-                {id_OSCA, id_OSC_CORE},          {id_DP16K, id_DP16K_MODE}, {id_PDP16K, id_PDP16K_MODE},
-                {id_PDPSC16K, id_PDPSC16K_MODE}, {id_SP16K, id_SP16K_MODE}, {id_FIFO16K, id_FIFO16K_MODE},
+                {id_OSCA, id_OSC_CORE},          {id_DP16K, id_DP16K_MODE},       {id_PDP16K, id_PDP16K_MODE},
+                {id_PDPSC16K, id_PDPSC16K_MODE}, {id_SP16K, id_SP16K_MODE},       {id_FIFO16K, id_FIFO16K_MODE},
+                {id_SP512K, id_SP512K_MODE},     {id_DPSC512K, id_DPSC512K_MODE}, {id_PDPSC512K, id_PDPSC512K_MODE},
                 {id_PLL, id_PLL_CORE},
         };
 
@@ -1089,6 +1090,60 @@ struct NexusPacker
             if (ci->params.count(id_WID))
                 continue;
             ci->params[id_WID] = wid++;
+        }
+    }
+
+    void pack_lram()
+    {
+        std::unordered_map<IdString, XFormRule> lram_rules;
+        lram_rules[id_SP512K_MODE].new_type = id_LRAM_CORE;
+        lram_rules[id_SP512K_MODE].set_params.emplace_back(id_EBR_SP_EN, std::string("ENABLE"));
+        lram_rules[id_SP512K_MODE].port_xform[id_CE] = id_CEA;
+        lram_rules[id_SP512K_MODE].port_xform[id_CS] = id_CSA;
+        lram_rules[id_SP512K_MODE].port_xform[id_WE] = id_WEA;
+        lram_rules[id_SP512K_MODE].port_xform[id_RSTOUT] = id_RSTA;
+        lram_rules[id_SP512K_MODE].port_xform[id_CEOUT] = id_OCEA;
+        add_bus_xform(lram_rules[id_SP512K_MODE], "DI", "DIA", 32);
+        add_bus_xform(lram_rules[id_SP512K_MODE], "DO", "DOA", 32);
+        add_bus_xform(lram_rules[id_SP512K_MODE], "AD", "ADA", 14);
+        add_bus_xform(lram_rules[id_SP512K_MODE], "BYTEEN_N", "BENA_N", 4);
+
+        lram_rules[id_PDPSC512K_MODE].new_type = id_LRAM_CORE;
+        lram_rules[id_PDPSC512K_MODE].port_xform[id_CEW] = id_CEA;
+        lram_rules[id_PDPSC512K_MODE].port_xform[id_CSW] = id_CSA;
+        lram_rules[id_PDPSC512K_MODE].port_xform[id_CER] = id_CEB;
+        lram_rules[id_PDPSC512K_MODE].port_xform[id_CSR] = id_CSB;
+        lram_rules[id_PDPSC512K_MODE].port_xform[id_WE] = id_WEA;
+        lram_rules[id_PDPSC512K_MODE].port_xform[id_RSTR] = id_RSTB;
+        add_bus_xform(lram_rules[id_PDPSC512K_MODE], "DI", "DIA", 32);
+        add_bus_xform(lram_rules[id_PDPSC512K_MODE], "DO", "DOB", 32);
+        add_bus_xform(lram_rules[id_PDPSC512K_MODE], "ADW", "ADA", 14);
+        add_bus_xform(lram_rules[id_PDPSC512K_MODE], "ADR", "ADB", 14);
+        add_bus_xform(lram_rules[id_PDPSC512K_MODE], "BYTEEN_N", "BENA_N", 4);
+
+        lram_rules[id_DPSC512K_MODE].new_type = id_LRAM_CORE;
+        lram_rules[id_DPSC512K_MODE].port_xform[id_CEOUTA] = id_OCEA;
+        lram_rules[id_DPSC512K_MODE].port_xform[id_CEOUTB] = id_OCEB;
+
+        log_info("Packing LRAM...\n");
+        generic_xform(lram_rules, true);
+
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (ci->type != id_LRAM_CORE)
+                continue;
+            if (str_or_default(ci->params, ctx->id("ECC_BYTE_SEL"), "BYTE_EN") == "BYTE_EN")
+                continue;
+            for (int i = 0; i < 0x80; i++) {
+                // FIXME: document ECC and remove this DRC
+                std::string name = stringf("INITVAL_%02X", i);
+                if (!ci->params.count(ctx->id(name)))
+                    continue;
+                if (ci->params.at(ctx->id(name)).str.find_last_not_of("0x") == std::string::npos)
+                    continue;
+                log_error("LRAM initialisation is currently unsupported in ECC mode (to disable ECC, set ECC_BYTE_SEL "
+                          "to BYTE_EN).\n");
+            }
         }
     }
 
@@ -1883,6 +1938,7 @@ struct NexusPacker
         pack_dsps();
         convert_prims();
         pack_bram();
+        pack_lram();
         pack_lutram();
         pack_carries();
         pack_widefn();

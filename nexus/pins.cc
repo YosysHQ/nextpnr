@@ -168,7 +168,28 @@ static const std::unordered_map<IdString, Arch::CellPinsData> base_cell_pin_data
                  {id_ENEXT, PINSTYLE_DEDI},
                  {{}, PINSTYLE_CIB},
          }},
-};
+        {id_LRAM_CORE,
+         {
+                 {id_CLK, PINSTYLE_CLK},
+                 {id_CEA, PINSTYLE_PU_NONCIB},
+                 {id_CEB, PINSTYLE_PU_NONCIB},
+                 {id_OCEA, PINSTYLE_PU},
+                 {id_OCEB, PINSTYLE_PU},
+                 {id_CSA, PINSTYLE_PU},
+                 {id_CSB, PINSTYLE_PU},
+                 {id_RSTA, PINSTYLE_LSR},
+                 {id_RSTB, PINSTYLE_LSR},
+                 {id_WEA, PINSTYLE_INV_PD_CIB},
+                 {id_WEB, PINSTYLE_INV_PD_CIB},
+                 {id_IGN, PINSTYLE_PU},
+                 {id_INITN, PINSTYLE_PU},
+                 {id_STDBYN, PINSTYLE_PU},
+                 {id_TBISTN, PINSTYLE_PU},
+                 {id_SCANCLK, PINSTYLE_DEDI},
+                 {id_SCANRST, PINSTYLE_DEDI},
+                 {id_OPCGLDCK, PINSTYLE_DEDI},
+                 {{}, PINSTYLE_CIB},
+         }}};
 } // namespace
 
 void Arch::init_cell_pin_data() { cell_pins_db = base_cell_pin_data; }
