@@ -27,21 +27,27 @@ typedef float delay_t;
 
 struct DelayInfo
 {
-    delay_t delay = 0;
+    delay_t minRaise = 0;
+    delay_t minFall = 0;
+    delay_t maxRaise = 0;
+    delay_t maxFall = 0;
 
-    delay_t minRaiseDelay() const { return delay; }
-    delay_t maxRaiseDelay() const { return delay; }
+    delay_t minRaiseDelay() const { return minRaise; }
+    delay_t maxRaiseDelay() const { return maxRaise; }
 
-    delay_t minFallDelay() const { return delay; }
-    delay_t maxFallDelay() const { return delay; }
+    delay_t minFallDelay() const { return minFall; }
+    delay_t maxFallDelay() const { return maxFall; }
 
-    delay_t minDelay() const { return delay; }
-    delay_t maxDelay() const { return delay; }
+    delay_t minDelay() const { return std::min(minFall, minRaise); }
+    delay_t maxDelay() const { return std::max(maxFall, maxRaise); }
 
     DelayInfo operator+(const DelayInfo &other) const
     {
         DelayInfo ret;
-        ret.delay = this->delay + other.delay;
+        ret.minRaise = this->minRaise + other.minRaise;
+        ret.maxRaise = this->maxRaise + other.maxRaise;
+        ret.minFall = this->minFall + other.minFall;
+        ret.maxFall = this->maxFall + other.maxFall;
         return ret;
     }
 };

@@ -77,6 +77,47 @@ NPNR_PACKED_STRUCT(struct GlobalAliasPOD {
     uint16_t src_id;
 });
 
+NPNR_PACKED_STRUCT(struct TimingPOD {
+    uint32_t name_id;
+    // input, output
+    uint32_t ff;
+    uint32_t fr;
+    uint32_t rf;
+    uint32_t rr;
+});
+
+NPNR_PACKED_STRUCT(struct TimingGroupPOD {
+    uint32_t name_id;
+    uint32_t num_timings;
+    RelPtr<TimingPOD> timings;
+});
+
+NPNR_PACKED_STRUCT(struct TimingGroupsPOD {
+    TimingGroupPOD lut;
+    TimingGroupPOD alu;
+    TimingGroupPOD sram;
+    TimingGroupPOD dff;
+    //TimingGroupPOD dl;
+    //TimingGroupPOD iddroddr;
+    //TimingGroupPOD pll;
+    //TimingGroupPOD dll;
+    TimingGroupPOD bram;
+    //TimingGroupPOD dsp;
+    TimingGroupPOD fanout;
+    TimingGroupPOD glbsrc;
+    TimingGroupPOD hclk;
+    TimingGroupPOD iodelay;
+    //TimingGroupPOD io;
+    //TimingGroupPOD iregoreg;
+    TimingGroupPOD wire; 
+});
+
+NPNR_PACKED_STRUCT(struct TimingClassPOD {
+    uint32_t name_id;
+    uint32_t num_groups;
+    RelPtr<TimingGroupsPOD> groups;
+});
+
 NPNR_PACKED_STRUCT(struct DatabasePOD {
     RelPtr<char> family;
     uint32_t version;
@@ -85,6 +126,8 @@ NPNR_PACKED_STRUCT(struct DatabasePOD {
     RelPtr<RelPtr<TilePOD>> grid;
     uint32_t num_aliases;
     RelPtr<GlobalAliasPOD> aliases;
+    uint32_t num_speeds;
+    RelPtr<TimingClassPOD> speeds;
     uint16_t num_constids;
     uint16_t num_ids;
     RelPtr<RelPtr<char>> id_strs;
@@ -93,11 +136,12 @@ NPNR_PACKED_STRUCT(struct DatabasePOD {
 struct ArchArgs
 {
     std::string device;
-    // Number of LUT inputs
-    int K = 4;
+    std::string family;
+    std::string speed;
+    std::string package;
     // y = mx + c relationship between distance and delay for interconnect
     // delay estimates
-    double delayScale = 0.1, delayOffset = 0.1;
+    double delayScale = 0.1, delayOffset = 0.4;
 };
 
 struct WireInfo;
@@ -186,7 +230,7 @@ struct Arch : BaseCtx
     std::string family;
     std::string device;
     std::string package;
-    std::string speed;
+    const TimingGroupsPOD *speed;
 
     std::unordered_map<IdString, WireInfo> wires;
     std::unordered_map<IdString, PipInfo> pips;
@@ -234,7 +278,6 @@ struct Arch : BaseCtx
     void setPipAttr(IdString pip, IdString key, const std::string &value);
     void setBelAttr(IdString bel, IdString key, const std::string &value);
 
-    void setLutK(int K);
     void setDelayScaling(double scale, double offset);
 
     void addCellTimingClock(IdString cell, IdString port);
@@ -243,6 +286,7 @@ struct Arch : BaseCtx
     void addCellTimingClockToOut(IdString cell, IdString port, IdString clock, DelayInfo clktoq);
 
     IdString wireToGlobal(int &row, int &col, const DatabasePOD* db, IdString &wire);
+    DelayInfo getWireTypeDelay(IdString wire);
 
     // ---------------------------------------------------------------
     // Common Arch API. Every arch must provide the following methods.
@@ -331,7 +375,10 @@ struct Arch : BaseCtx
     DelayInfo getDelayFromNS(float ns) const
     {
         DelayInfo del;
-        del.delay = ns;
+        del.maxRaise = ns;
+        del.maxFall = ns;
+        del.minRaise = ns;
+        del.minFall = ns;
         return del;
     }
 

@@ -205,8 +205,6 @@ void arch_wrap_python(py::module &m)
                     conv_from_str<IdString>, pass_through<std::string>>::def_wrap(ctx_cls, "setPipAttr", "pip"_a,
                                                                                   "key"_a, "value"_a);
 
-    fn_wrapper_1a_v<Context, decltype(&Context::setLutK), &Context::setLutK, pass_through<int>>::def_wrap(
-            ctx_cls, "setLutK", "K"_a);
     fn_wrapper_2a_v<Context, decltype(&Context::setDelayScaling), &Context::setDelayScaling, pass_through<double>,
                     pass_through<double>>::def_wrap(ctx_cls, "setDelayScaling", "scale"_a, "offset"_a);
 
