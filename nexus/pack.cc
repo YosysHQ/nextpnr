@@ -1585,17 +1585,19 @@ struct NexusPacker
         int N18x36;      // number of 18x36 mult
         bool has_preadd; // preadder is used
         bool has_addsub; // post-multiply ALU addsub is used
+        int wide;        // DSP is a "wide" (dot-product) variant
     };
 
     const std::unordered_map<IdString, DSPMacroType> dsp_types = {
-            {id_MULT9X9, {9, 9, 0, 18, 1, 0, 0, false, false}},
-            {id_MULT18X18, {18, 18, 0, 36, 2, 1, 0, false, false}},
-            {id_MULT18X36, {18, 36, 0, 54, 4, 2, 1, false, false}},
-            {id_MULT36X36, {36, 36, 0, 72, 8, 4, 2, false, false}},
-            {id_MULTPREADD9X9, {9, 9, 9, 18, 1, 0, 0, true, false}},
-            {id_MULTPREADD18X18, {18, 18, 18, 36, 2, 1, 0, true, false}},
-            {id_MULTADDSUB18X18, {18, 18, 54, 54, 2, 1, 0, false, true}},
-            {id_MULTADDSUB36X36, {36, 36, 108, 108, 8, 4, 2, false, true}},
+            {id_MULT9X9, {9, 9, 0, 18, 1, 0, 0, false, false, -1}},
+            {id_MULT18X18, {18, 18, 0, 36, 2, 1, 0, false, false, -1}},
+            {id_MULT18X36, {18, 36, 0, 54, 4, 2, 1, false, false, -1}},
+            {id_MULT36X36, {36, 36, 0, 72, 8, 4, 2, false, false, -1}},
+            {id_MULTPREADD9X9, {9, 9, 9, 18, 1, 0, 0, true, false, -1}},
+            {id_MULTPREADD18X18, {18, 18, 18, 36, 2, 1, 0, true, false, -1}},
+            {id_MULTADDSUB18X18, {18, 18, 54, 54, 2, 1, 0, false, true, -1}},
+            {id_MULTADDSUB36X36, {36, 36, 108, 108, 8, 4, 2, false, true, -1}},
+            {id_MULTADDSUB9X9WIDE, {36, 36, 54, 54, 4, 0, 0, false, true, 9}},
     };
 
     void pack_dsps()
@@ -1608,7 +1610,7 @@ struct NexusPacker
             if (!dsp_types.count(ci->type))
                 continue;
             auto &mt = dsp_types.at(ci->type);
-            int Nreg18 = mt.z_width / 18;
+            int Nreg18 = (mt.wide > 0) ? 4 : (mt.z_width / 18);
 
             // Create consituent cells
             std::vector<CellInfo *> preadd9(mt.N9x9), mult9(mt.N9x9), mult18(mt.N18x18), mult18x36(mt.N18x36),
@@ -1630,22 +1632,40 @@ struct NexusPacker
 
             // Configure the 9x9 preadd+multiply blocks
             for (int i = 0; i < mt.N9x9; i++) {
-                // B input split across pre-adders
                 int b_start = (9 * i) % mt.b_width;
-                copy_bus(ctx, ci, id_B, b_start, true, preadd9[i], id_B, 0, false, 9);
-                // A input split across MULT9s
                 int a_start = 9 * (i % 2) + 18 * (i / 4);
-                copy_bus(ctx, ci, id_A, a_start, true, mult9[i], id_A, 0, false, 9);
-                // Connect control set signals
-                copy_port(ctx, ci, id_CLK, mult9[i], id_CLK);
-                copy_port(ctx, ci, id_CEA, mult9[i], id_CEA);
-                copy_port(ctx, ci, id_RSTA, mult9[i], id_RSTA);
-                copy_port(ctx, ci, id_CLK, preadd9[i], id_CLK);
-                copy_port(ctx, ci, id_CEB, preadd9[i], id_CEB);
-                copy_port(ctx, ci, id_RSTB, preadd9[i], id_RSTB);
-                // Copy register configuration
-                copy_param(ci, id_REGINPUTA, mult9[i], id_REGBYPSA1);
-                copy_param(ci, id_REGINPUTB, preadd9[i], id_REGBYPSBR0);
+
+                if (mt.wide > 0) {
+                    // Dot-product mode special case
+                    copy_bus(ctx, ci, ctx->id(stringf("B%d", (i * 9) / mt.wide)), (i * 9) % mt.wide, true, preadd9[i],
+                             id_B, 0, false, 9);
+                    copy_bus(ctx, ci, ctx->id(stringf("A%d", (i * 9) / mt.wide)), (i * 9) % mt.wide, true, mult9[i],
+                             id_A, 0, false, 9);
+                    copy_port(ctx, ci, id_CLK, mult9[i], id_CLK);
+                    copy_port(ctx, ci, (i > 1) ? id_CEA2A3 : id_CEA0A1, mult9[i], id_CEA);
+                    copy_port(ctx, ci, (i > 1) ? id_RSTA2A3 : id_RSTA0A1, mult9[i], id_RSTA);
+                    copy_port(ctx, ci, id_CLK, preadd9[i], id_CLK);
+                    copy_port(ctx, ci, (i > 1) ? id_CEB2B3 : id_CEB0B1, preadd9[i], id_CEB);
+                    copy_port(ctx, ci, (i > 1) ? id_RSTB2B3 : id_RSTB0B1, preadd9[i], id_RSTB);
+                    // Copy register configuration
+                    copy_param(ci, ctx->id(stringf("REGINPUTAB%d", i)), mult9[i], id_REGBYPSA1);
+                    copy_param(ci, ctx->id(stringf("REGINPUTAB%d", i)), preadd9[i], id_REGBYPSBR0);
+                } else {
+                    // B input split across pre-adders
+                    copy_bus(ctx, ci, id_B, b_start, true, preadd9[i], id_B, 0, false, 9);
+                    // A input split across MULT9s
+                    copy_bus(ctx, ci, id_A, a_start, true, mult9[i], id_A, 0, false, 9);
+                    // Connect control set signals
+                    copy_port(ctx, ci, id_CLK, mult9[i], id_CLK);
+                    copy_port(ctx, ci, id_CEA, mult9[i], id_CEA);
+                    copy_port(ctx, ci, id_RSTA, mult9[i], id_RSTA);
+                    copy_port(ctx, ci, id_CLK, preadd9[i], id_CLK);
+                    copy_port(ctx, ci, id_CEB, preadd9[i], id_CEB);
+                    copy_port(ctx, ci, id_RSTB, preadd9[i], id_RSTB);
+                    // Copy register configuration
+                    copy_param(ci, id_REGINPUTA, mult9[i], id_REGBYPSA1);
+                    copy_param(ci, id_REGINPUTB, preadd9[i], id_REGBYPSBR0);
+                }
 
                 // Connect and configure pre-adder if it isn't bypassed
                 if (mt.has_preadd) {
@@ -1666,9 +1686,9 @@ struct NexusPacker
                 }
 
                 // Connect up signedness for the most significant nonet
-                if ((b_start + 9) == mt.b_width)
+                if (((b_start + 9) == mt.b_width) || (mt.wide > 0))
                     copy_port(ctx, ci, mt.has_addsub ? id_SIGNED : id_SIGNEDB, preadd9[i], id_BSIGNED);
-                if ((a_start + 9) == mt.a_width)
+                if (((a_start + 9) == mt.a_width) || (mt.wide > 0))
                     copy_port(ctx, ci, mt.has_addsub ? id_SIGNED : id_SIGNEDA, mult9[i], id_ASIGNED);
             }
 
@@ -1727,8 +1747,13 @@ struct NexusPacker
                         ctx->set_cell_pinmux(acc54[i], id_CIN, PINMUX_1);
                     if (i == (Nacc54 - 1))
                         copy_port(ctx, ci, id_SIGNED, acc54[i], id_SIGNEDI);
-                    copy_port(ctx, ci, id_ADDSUB, acc54[i], id_ADDSUB0);
-                    copy_port(ctx, ci, id_ADDSUB, acc54[i], id_ADDSUB1);
+                    if (mt.wide > 0) {
+                        replace_bus(ctx, ci, id_ADDSUB, 0, true, acc54[i], id_ADDSUB, 0, false, 2);
+                        replace_bus(ctx, ci, id_ADDSUB, 2, true, acc54[i], id_M9ADDSUB, 0, false, 2);
+                    } else {
+                        copy_port(ctx, ci, id_ADDSUB, acc54[i], id_ADDSUB0);
+                        copy_port(ctx, ci, id_ADDSUB, acc54[i], id_ADDSUB1);
+                    }
                     copy_port(ctx, ci, id_LOADC, acc54[i], id_LOAD);
                     // Configuration
                     copy_param(ci, id_REGINPUTC, acc54[i], id_CREGBYPS1);
@@ -1744,7 +1769,9 @@ struct NexusPacker
                     copy_param(ci, id_REGPIPELINE, acc54[i], id_M9ADDSUBREGBYPS2);
                     copy_param(ci, id_REGOUTPUT, acc54[i], id_OUTREGBYPS);
 
-                    if (i == 1) {
+                    if (mt.wide > 0) {
+                        acc54[i]->params[id_ACCUMODE] = std::string("MODE4");
+                    } else if (i == 1) {
                         // Top ACC54 in a 108-bit config
                         acc54[i]->params[id_ACCUMODE] = std::string("MODE6");
                         acc54[i]->params[id_ACC108CASCADE] = std::string("CASCADE2ACCU54TOFORMACCU108");
