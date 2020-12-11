@@ -261,6 +261,10 @@ foreach (family ${ARCH})
         set(family_targets ${family_targets} ${PROGRAM_PREFIX}nextpnr-${family}-test)
     endif()
 
+    if(BUILD_HEAP)
+        target_link_libraries(${PROGRAM_PREFIX}nextpnr-${family} PRIVATE Eigen3::Eigen)
+    endif()
+
     # Include the family-specific CMakeFile
     include(${family}/family.cmake)
     foreach (target ${family_targets})
